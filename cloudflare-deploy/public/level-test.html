@@ -101,11 +101,17 @@
     <label for="lt-phone">연락처 <span style="color:#f87171">*</span> <span style="font-weight:400;color:#a8b3cf">— 예약 확정·화상 링크를 문자로 보내드려요</span></label>
     <input id="lt-phone" type="tel" inputmode="numeric" placeholder="010-1234-5678" autocomplete="tel" />
 
-    <label for="lt-date">날짜 선택</label>
-    <select id="lt-date"></select>
+    <label>날짜 선택 (월 · 일)</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <select id="lt-month"></select>
+      <select id="lt-day"></select>
+    </div>
 
-    <label>시간 선택</label>
-    <div class="slots" id="lt-slots"></div>
+    <label>시간 선택 (시 · 분, 10분 단위)</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <select id="lt-hour"></select>
+      <select id="lt-min"></select>
+    </div>
 
     <button class="submit" id="lt-submit" disabled>레벨테스트 신청하기</button>
   </div>
@@ -133,41 +139,53 @@
 
 <script>
   var WEEK=['일','월','화','수','목','금','토'];
-  var TIMES=['14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00'];
   var sel={ date:null, time:null };
 
-  // 날짜 옵션: 내일부터 14일
-  (function(){
-    var dd=document.getElementById('lt-date'), today=new Date();
-    for(var i=1;i<=14;i++){
-      var d=new Date(today.getFullYear(),today.getMonth(),today.getDate()+i);
-      var val=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
-      var label=(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+WEEK[d.getDay()]+')';
-      var o=document.createElement('option'); o.value=val; o.textContent=label; dd.appendChild(o);
-    }
-    sel.date=dd.value;
-    dd.addEventListener('change',function(){ sel.date=dd.value; refresh(); });
-  })();
-
-  // 시간 슬롯
-  (function(){
-    var box=document.getElementById('lt-slots');
-    TIMES.forEach(function(t){
-      var b=document.createElement('div'); b.className='slot'; b.textContent=t;
-      b.addEventListener('click',function(){
-        sel.time=t;
-        box.querySelectorAll('.slot').forEach(function(x){x.classList.remove('on');});
-        b.classList.add('on'); refresh();
-      });
-      box.appendChild(b);
-    });
-  })();
-
   var nameEl=document.getElementById('lt-name'), phoneEl=document.getElementById('lt-phone'), submit=document.getElementById('lt-submit');
-  nameEl.addEventListener('input',refresh);
-  phoneEl.addEventListener('input',refresh);
   function validPhone(v){ return (String(v||'').replace(/[^0-9]/g,'').length>=10); }
   function refresh(){ submit.disabled = !(sel.date && sel.time && nameEl.value.trim() && validPhone(phoneEl.value)); }
+  nameEl.addEventListener('input',refresh);
+  phoneEl.addEventListener('input',refresh);
+
+  // 📅 월/일/시/분 각각 선택 (내일 ~ 오늘+60일, 10분 단위)
+  (function(){
+    var mSel=document.getElementById('lt-month'), dSel=document.getElementById('lt-day');
+    var hSel=document.getElementById('lt-hour'), minSel=document.getElementById('lt-min');
+    var today=new Date();
+    var horizon=new Date(today.getFullYear(),today.getMonth(),today.getDate()+60);
+    // 월 옵션
+    for(var k=0;k<4;k++){
+      var first=new Date(today.getFullYear(),today.getMonth()+k,1);
+      var y=first.getFullYear(), m=first.getMonth()+1, dim=new Date(y,m,0).getDate();
+      var startD=(k===0)?today.getDate()+1:1;
+      if(startD>dim) continue;
+      if(new Date(y,m-1,startD)>horizon) break;
+      var o=document.createElement('option'); o.value=y+'-'+('0'+m).slice(-2); o.textContent=m+'월'; mSel.appendChild(o);
+    }
+    // 시 옵션 (14~23시)
+    for(var h=14;h<=23;h++){ var oh=document.createElement('option'); oh.value=('0'+h).slice(-2); oh.textContent=h+'시'; hSel.appendChild(oh); }
+    // 분 옵션 (10분 단위)
+    ['00','10','20','30','40','50'].forEach(function(mm){ var om=document.createElement('option'); om.value=mm; om.textContent=mm+'분'; minSel.appendChild(om); });
+    function fillDays(){
+      var p=String(mSel.value||'').split('-'); var y=+p[0], m=+p[1];
+      dSel.innerHTML='';
+      if(!y||!m) return;
+      var dim=new Date(y,m,0).getDate();
+      var startD=(y===today.getFullYear()&&m===today.getMonth()+1)?today.getDate()+1:1;
+      for(var d=startD;d<=dim;d++){
+        var dt=new Date(y,m-1,d);
+        if(dt>horizon) break;
+        var od=document.createElement('option'); od.value=('0'+d).slice(-2); od.textContent=d+'일 ('+WEEK[dt.getDay()]+')'; dSel.appendChild(od);
+      }
+    }
+    function syncDate(){ sel.date=(mSel.value&&dSel.value)?(mSel.value+'-'+dSel.value):null; refresh(); }
+    function syncTime(){ sel.time=(hSel.value&&minSel.value)?(hSel.value+':'+minSel.value):null; refresh(); }
+    mSel.addEventListener('change',function(){ fillDays(); syncDate(); });
+    dSel.addEventListener('change',syncDate);
+    hSel.addEventListener('change',syncTime);
+    minSel.addEventListener('change',syncTime);
+    fillDays(); syncDate(); syncTime();
+  })();
 
   function fmtDate(v){ var p=v.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]);
     return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+WEEK[d.getDay()]+')'; }
@@ -198,7 +216,7 @@
     window.scrollTo({top:0,behavior:'smooth'});
   });
 </script>
-<!-- BUILD:20260712004521 -->
+<!-- BUILD:20260712005334 -->
 <!-- 🔊 레벨테스트 안내 음성(인트로) 자동 재생 + 잔잔한 배경음악(Canon in D, WebAudio) + 음소거/끄기 -->
 <audio id="lt-voice" src="/audio/level-test-intro.mp3" preload="auto"></audio>
 <script>

@@ -1762,16 +1762,25 @@
 
   // ━━━━━━━━━━ 📊 레벨테스트 신청·안내 모달 ━━━━━━━━━━
   function showLevelTestModal() {
-    // 📅 희망 날짜(내일~14일)·시간 옵션 — showModal 은 innerHTML 이라 옵션을 문자열로 미리 만든다
-    var _WK = ['일','월','화','수','목','금','토'];
-    var _today = new Date(); var dateOptions = '';
-    for (var _i = 1; _i <= 14; _i++) {
-      var _d = new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() + _i);
-      var _v = _d.getFullYear() + '-' + ('0'+(_d.getMonth()+1)).slice(-2) + '-' + ('0'+_d.getDate()).slice(-2);
-      dateOptions += '<option value="' + _v + '">' + (_d.getMonth()+1) + '월 ' + _d.getDate() + '일 (' + _WK[_d.getDay()] + ')</option>';
+    // 📅 월/일/시/분 각각 따로 선택 — showModal 은 innerHTML 이라 옵션을 문자열로 미리 만든다.
+    //    월 옵션만 미리 만들고, 일 옵션은 모달이 뜬 뒤 ltInitDate 가 선택된 월에 맞춰 채운다(유효한 미래 날짜만).
+    var _today = new Date();
+    var _t0 = new Date(_today.getFullYear(), _today.getMonth(), _today.getDate());
+    var _horizon = new Date(_t0); _horizon.setDate(_horizon.getDate() + 60);   // 예약 지평선: 오늘+60일
+    var monthOptions = '';
+    for (var _k = 0; _k < 4; _k++) {
+      var _first = new Date(_today.getFullYear(), _today.getMonth() + _k, 1);
+      var _y = _first.getFullYear(), _m = _first.getMonth() + 1;
+      var _dim = new Date(_y, _m, 0).getDate();
+      var _startD = (_k === 0) ? _today.getDate() + 1 : 1;   // 내일부터
+      if (_startD > _dim) continue;                          // 이 달엔 미래 날짜 없음
+      if (new Date(_y, _m - 1, _startD) > _horizon) break;   // 지평선 넘음
+      monthOptions += '<option value="' + _y + '-' + ('0' + _m).slice(-2) + '">' + _m + '월</option>';
     }
-    var timeOptions = '';
-    ['14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00'].forEach(function(t){ timeOptions += '<option value="' + t + '">' + t + '</option>'; });
+    var hourOptions = '';
+    for (var _h = 14; _h <= 23; _h++) { var _hh = ('0' + _h).slice(-2); hourOptions += '<option value="' + _hh + '">' + _h + '시</option>'; }
+    var minOptions = '';
+    ['00','10','20','30','40','50'].forEach(function(m){ minOptions += '<option value="' + m + '">' + m + '분</option>'; });
     showModal(`
       <h2>📊 레벨테스트 안내</h2>
       <p>망고아이의 8단계 심층 레벨 시스템에 맞춰 본인의 영어 실력을 정확히 진단해 드립니다.</p>
@@ -1835,6 +1844,7 @@
           #lt-signup .ltf-sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(251,191,36,0.35),transparent)}
           #lt-signup .ltf-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 12px}
           #lt-signup .ltf-f{display:flex;flex-direction:column;gap:5px;min-width:0}
+          #lt-signup .ltf-f.full{grid-column:1/-1}
           #lt-signup .ltf-f label{font-size:11.5px;font-weight:700;color:#cbd5e1;display:flex;align-items:center;gap:4px}
           #lt-signup .ltf-req{color:#fb7185;font-weight:800}
           #lt-signup .ltf-opt{color:#64748b;font-weight:600;font-size:10.5px}
@@ -1889,15 +1899,23 @@
             </div>
           </div>
 
-          <div class="ltf-sec">📅 예약 희망 (오후 2시~밤 11시)</div>
+          <div class="ltf-sec">📅 예약 희망 (오후 2시~밤 11시 · 10분 단위)</div>
           <div class="ltf-grid">
             <div class="ltf-f">
-              <label>📅 희망 날짜 <span class="ltf-req">*</span></label>
-              <select id="lt-date">${dateOptions}</select>
+              <label>📅 월 <span class="ltf-req">*</span></label>
+              <select id="lt-month">${monthOptions}</select>
             </div>
             <div class="ltf-f">
-              <label>⏰ 희망 시간 <span class="ltf-req">*</span></label>
-              <select id="lt-time">${timeOptions}</select>
+              <label>📅 일 <span class="ltf-req">*</span></label>
+              <select id="lt-day"></select>
+            </div>
+            <div class="ltf-f">
+              <label>⏰ 시 <span class="ltf-req">*</span></label>
+              <select id="lt-hour">${hourOptions}</select>
+            </div>
+            <div class="ltf-f">
+              <label>🕐 분 <span class="ltf-req">*</span></label>
+              <select id="lt-min">${minOptions}</select>
             </div>
           </div>
 
@@ -1924,8 +1942,35 @@
         ※ 무료 체험 수업과 동시에 신청 시 즉시 진행됩니다.
       </p>
     `);
+    if (window.ltInitDate) window.ltInitDate();   // 📅 선택된 월에 맞춰 '일' 옵션 채우기(유효 미래일만)
     ltAudioStart();   // 🔊 인트로 음성 + 잔잔한 배경음악 바로 시작 (레벨테스트 클릭 = 사용자 제스처)
   }
+
+  // 📅 '월' 선택에 맞춰 '일' 드롭다운을 유효한 미래 날짜로 채움 (모달이 뜬 뒤 호출)
+  window.ltInitDate = function() {
+    var mSel = document.getElementById('lt-month');
+    var dSel = document.getElementById('lt-day');
+    if (!mSel || !dSel) return;
+    var WK = ['일','월','화','수','목','금','토'];
+    var today = new Date();
+    var horizon = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 60);
+    function fill() {
+      var p = String(mSel.value || '').split('-');
+      var y = +p[0], m = +p[1];
+      if (!y || !m) { dSel.innerHTML = ''; return; }
+      var dim = new Date(y, m, 0).getDate();
+      var startD = (y === today.getFullYear() && m === today.getMonth() + 1) ? today.getDate() + 1 : 1;
+      var html = '';
+      for (var d = startD; d <= dim; d++) {
+        var dt = new Date(y, m - 1, d);
+        if (dt > horizon) break;
+        html += '<option value="' + ('0' + d).slice(-2) + '">' + d + '일 (' + WK[dt.getDay()] + ')</option>';
+      }
+      dSel.innerHTML = html;
+    }
+    fill();
+    mSel.onchange = fill;
+  };
 
   // ━━━━━━━━━━ 회원가입 + 레벨테스트 신청 제출 ━━━━━━━━━━
   window.submitLevelTestSignup = async function() {
@@ -1936,8 +1981,12 @@
     const phone = ($('lt-phone')?.value || '').trim();
     const email = ($('lt-email')?.value || '').trim();
     const age = ($('lt-age')?.value || '').trim();
-    const desiredDate = ($('lt-date')?.value || '').trim();
-    const desiredTime = ($('lt-time')?.value || '').trim();
+    const _mon = ($('lt-month')?.value || '').trim();   // 'YYYY-MM'
+    const _day = ($('lt-day')?.value || '').trim();     // 'DD'
+    const desiredDate = (_mon && _day) ? (_mon + '-' + _day) : '';
+    const _hh = ($('lt-hour')?.value || '').trim();
+    const _mm = ($('lt-min')?.value || '').trim();
+    const desiredTime = (_hh && _mm) ? (_hh + ':' + _mm) : '';
     const agree = $('lt-agree')?.checked;
     const msg = $('lt-form-msg');
     const btn = $('lt-submit');
