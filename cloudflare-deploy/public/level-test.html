@@ -202,54 +202,148 @@
     window.scrollTo({top:0,behavior:'smooth'});
   });
 </script>
-<!-- BUILD:20260711224217 -->
-<!-- 🔊 레벨테스트 안내 음성 자동 재생 (페이지 진입 시) + 음소거/끄기 -->
-<audio id="lt-voice" src="/audio/level-test-welcome.mp3" preload="auto"></audio>
+<!-- BUILD:20260711225014 -->
+<!-- 🔊 레벨테스트 안내 음성(인트로) 자동 재생 + 잔잔한 배경음악(Canon in D, WebAudio) + 음소거/끄기 -->
+<audio id="lt-voice" src="/audio/level-test-intro.mp3" preload="auto"></audio>
 <script>
 (function(){
   var a = document.getElementById('lt-voice');
   if(!a) return;
   var MUTE_KEY = 'mangoi_voice_muted';
   function isMuted(){ try { return localStorage.getItem(MUTE_KEY) === '1'; } catch(e){ return false; } }
-  var played = false;
-  function play(){ if(played || isMuted()) return; played = true; var p = a.play(); if(p && p.catch) p.catch(function(){ played = false; arm(); }); }
-  function arm(){
-    var once = function(){ document.removeEventListener('pointerdown', once); document.removeEventListener('keydown', once); play(); };
+
+  // ─────────────────────────────────────────────────────────
+  // 🎼 배경음악: 파헬벨 캐논 D장조(공용저작물) 아르페지오를 WebAudio 로 직접 합성.
+  //    → 저작권 걱정 없음(원곡 PD + 자체 합성), 파일 없이 즉시·무한 루프, 음소거 연동.
+  // ─────────────────────────────────────────────────────────
+  var AC=null, bgmMaster=null, bgmLP=null, bgmTimer=null, bgmStep=0, bgmRunning=false;
+  // 8코드 진행(D–A–Bm–F#m–G–D–G–A). 각 코드: 베이스 + 3~4음 아르페지오(Hz)
+  var CHORDS = [
+    { bass:146.83, arp:[293.66,369.99,440.00,587.33] }, // D
+    { bass:220.00, arp:[277.18,329.63,440.00,554.37] }, // A
+    { bass:246.94, arp:[293.66,369.99,493.88,587.33] }, // Bm
+    { bass:185.00, arp:[277.18,369.99,440.00,554.37] }, // F#m
+    { bass:196.00, arp:[246.94,293.66,392.00,493.88] }, // G
+    { bass:146.83, arp:[293.66,369.99,440.00,587.33] }, // D
+    { bass:196.00, arp:[246.94,293.66,392.00,493.88] }, // G
+    { bass:220.00, arp:[277.18,329.63,440.00,554.37] }  // A
+  ];
+  var STEP_MS = 540;              // 잔잔한 템포
+  var BASE_GAIN = 0.85;           // 배경음악 기본 크기(낮게)
+  var DUCK_GAIN = 0.32;           // 안내 음성 재생 중엔 더 작게(듣기 편하게)
+  function ensureAC(){
+    if(AC) return AC;
+    try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ return null; }
+    bgmMaster = AC.createGain(); bgmMaster.gain.value = BASE_GAIN;
+    bgmLP = AC.createBiquadFilter(); bgmLP.type='lowpass'; bgmLP.frequency.value=2200; // 부드럽게
+    bgmMaster.connect(bgmLP); bgmLP.connect(AC.destination);
+    return AC;
+  }
+  function tone(freq, dur, peak, type){
+    if(!AC || !bgmMaster || AC.state!=='running') return;   // 정지(suspended) 중엔 예약 안 함 → 재개 시 blip 방지
+    var t0=AC.currentTime;
+    var o=AC.createOscillator(), g=AC.createGain();
+    o.type=type||'triangle'; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0+0.06);         // 부드러운 어택
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);        // 긴 릴리즈
+    o.connect(g); g.connect(bgmMaster); o.start(t0); o.stop(t0+dur+0.05);
+  }
+  function bgmTick(){
+    if(!bgmRunning) return;
+    var chord = CHORDS[Math.floor(bgmStep/4)%CHORDS.length];
+    var ni = bgmStep%4;
+    if(ni===0) tone(chord.bass, 2.2, 0.06, 'sine');             // 베이스 드론(코드마다)
+    tone(chord.arp[ni], 1.5, 0.05, 'triangle');                // 아르페지오
+    bgmStep++;
+  }
+  function bgmStart(){
+    if(isMuted()) return;
+    if(!ensureAC()) return;
+    if(AC.state==='suspended'){ try{ AC.resume(); }catch(e){} }
+    if(bgmRunning) return;
+    bgmRunning=true; bgmTick(); bgmTimer=setInterval(bgmTick, STEP_MS);
+  }
+  function bgmStop(){
+    bgmRunning=false; if(bgmTimer){ clearInterval(bgmTimer); bgmTimer=null; }
+  }
+  function bgmDuck(on){
+    if(!AC || !bgmMaster) return;
+    try{ bgmMaster.gain.setTargetAtTime(on?DUCK_GAIN:BASE_GAIN, AC.currentTime, 0.25); }catch(e){}
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // 🎙 안내 음성(인트로) — 페이지 진입 시 & 신청 완료 시 재생. 재생 중 배경음악 살짝 낮춤.
+  // ─────────────────────────────────────────────────────────
+  var voiceBusy=false;
+  a.addEventListener('play',  function(){ voiceBusy=true;  bgmDuck(true);  });
+  a.addEventListener('ended', function(){ voiceBusy=false; bgmDuck(false); if(stopBtn) stopBtn.style.display='none'; });
+  a.addEventListener('pause', function(){ voiceBusy=false; bgmDuck(false); });
+
+  var voiceStarted=false;
+  function playVoice(restart){
+    if(isMuted()) return;
+    if(restart){ try{ a.currentTime=0; }catch(e){} }
+    var p=a.play(); if(p&&p.catch) p.catch(function(){ /* 자동재생 차단 → 제스처 대기 */ voiceStarted=false; arm(); });
+    else voiceStarted=true;
+    if(stopBtn) stopBtn.style.display='';
+  }
+  function kickoff(){                 // 최초 진입: 배경음악 시작 + 인트로 재생
+    bgmStart();
+    if(!voiceStarted){ voiceStarted=true; playVoice(false); }
+  }
+  function arm(){                     // 자동재생 차단 시 첫 사용자 동작에서 시작
+    var once=function(){ document.removeEventListener('pointerdown',once); document.removeEventListener('keydown',once); kickoff(); };
     document.addEventListener('pointerdown', once);
     document.addEventListener('keydown', once);
   }
-  if (document.readyState === 'complete') play(); else window.addEventListener('load', play);
+  function boot(){ if(isMuted()) return; kickoff(); }
+  if(document.readyState==='complete') boot(); else window.addEventListener('load', boot);
+  // 자동재생이 막힐 수 있으니 제스처 폴백도 함께 준비
+  arm();
 
+  // 🎉 신청 완료 카드가 뜨면 → 인트로 음성 한 번 더(처음·마지막), 배경음악은 계속
+  var done=document.getElementById('done');
+  if(done && window.MutationObserver){
+    new MutationObserver(function(){
+      if(done.classList.contains('show')){
+        bgmStart();                  // 혹시 꺼져 있으면 다시
+        setTimeout(function(){ playVoice(true); }, 400);
+      }
+    }).observe(done, { attributes:true, attributeFilter:['class'] });
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // 버튼들 (우상단 고정)
+  // ─────────────────────────────────────────────────────────
   var BTN_CSS = 'width:34px;height:34px;border-radius:50%;border:1px solid rgba(148,163,184,0.45);background:rgba(20,41,80,0.9);color:#fff;font-size:16px;line-height:1;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;position:fixed;right:10px;z-index:100000';
 
-  // 🔊 음소거 토글 — 우상단 공용 홈/EN 바 아랫줄 고정 (mbti-test와 동일 위치 관례)
+  // 🔊 음소거 토글 — 안내 음성 + 배경음악 모두 제어
   var muteBtn = document.createElement('button');
-  muteBtn.type = 'button'; muteBtn.setAttribute('aria-label', '음성 켜기/끄기');
+  muteBtn.type='button'; muteBtn.setAttribute('aria-label','소리 켜기/끄기');
   muteBtn.style.cssText = BTN_CSS + ';top:52px';
   function updateMute(){ muteBtn.textContent = isMuted() ? '🔇' : '🔊'; muteBtn.title = isMuted() ? '소리 켜기' : '음소거'; }
   muteBtn.onclick = function(){
     var m = !isMuted();
-    try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch(e){}
-    if (m) { try{ a.pause(); }catch(e){} }
-    else { try{ a.currentTime = 0; }catch(e){} played = true; a.play(); }
+    try { localStorage.setItem(MUTE_KEY, m ? '1':'0'); } catch(e){}
+    if(m){ try{ a.pause(); }catch(e){} bgmStop(); }
+    else { bgmStart(); playVoice(true); }
     updateMute();
   };
   updateMute();
   document.body.appendChild(muteBtn);
 
-  // ✖ 끄기 — 지금 재생 중인 안내 음성만 정지 (음소거 설정은 건드리지 않음)
+  // ✖ 끄기 — 지금 재생 중인 안내 음성만 정지(배경음악은 유지, 음소거 설정은 건드리지 않음)
   var stopBtn = document.createElement('button');
-  stopBtn.type = 'button'; stopBtn.setAttribute('aria-label', '안내 음성 끄기');
-  stopBtn.title = '안내 음성 끄기';
-  stopBtn.textContent = '✖';
+  stopBtn.type='button'; stopBtn.setAttribute('aria-label','안내 음성 끄기'); stopBtn.title='안내 음성 끄기';
+  stopBtn.textContent='✖';
   stopBtn.style.cssText = BTN_CSS + ';top:92px;font-size:14px';
   stopBtn.onclick = function(){
-    played = true; /* 이후 첫 터치 폴백 재생도 막음 */
-    try{ a.pause(); a.currentTime = 0; }catch(e){}
-    stopBtn.style.display = 'none';
+    try{ a.pause(); a.currentTime=0; }catch(e){}
+    voiceBusy=false; bgmDuck(false);
+    stopBtn.style.display='none';
   };
   document.body.appendChild(stopBtn);
-  a.addEventListener('ended', function(){ stopBtn.style.display = 'none'; });
 })();
 </script>
 <script defer src="/js/mg-sidebar.js"></script>

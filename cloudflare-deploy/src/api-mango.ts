@@ -7965,6 +7965,10 @@ Respond in JSON ONLY:
       await ensureVocab();
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 [IDOR] 본인(토큰) 또는 관리자만 — 남의 단어장 조회 차단 (2026-07-11)
+      const vlAdmin = await checkAdminSession(request, env as any);
+      const vlAuth = await authUidGlobal(request, url, env);
+      if (!vlAdmin.ok && (!vlAuth || vlAuth !== uid)) return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 단어장만 조회할 수 있습니다.' }, 401);
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level, next_review_at, correct_count, wrong_count, created_at FROM vocabulary WHERE user_id = ? ORDER BY created_at DESC LIMIT 500`).bind(uid).all();
       return json({ ok: true, count: rs.results?.length || 0, words: rs.results || [] });
     }
@@ -7974,6 +7978,10 @@ Respond in JSON ONLY:
       await ensureVocab();
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 [IDOR] 본인(토큰) 또는 관리자만 — 남의 단어장 조회 차단 (2026-07-11)
+      const vdAdmin = await checkAdminSession(request, env as any);
+      const vdAuth = await authUidGlobal(request, url, env);
+      if (!vdAdmin.ok && (!vdAuth || vdAuth !== uid)) return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 단어장만 조회할 수 있습니다.' }, 401);
       const now = Date.now();
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level FROM vocabulary WHERE user_id = ? AND next_review_at <= ? ORDER BY next_review_at ASC LIMIT 20`).bind(uid, now).all();
       return json({ ok: true, due_count: rs.results?.length || 0, words: rs.results || [] });
@@ -12145,6 +12153,10 @@ LIMIT $limit`;
       await ensureStreakSchema();
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 [IDOR] 본인(토큰) 또는 관리자만 — 남의 스트릭·보석 조회 차단 (2026-07-11)
+      const ssAdmin = await checkAdminSession(request, env as any);
+      const ssAuth = await authUidGlobal(request, url, env);
+      if (!ssAdmin.ok && (!ssAuth || ssAuth !== uid)) return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 스트릭만 조회할 수 있습니다.' }, 401);
       const today = todayKST();
       const now = Date.now();
 

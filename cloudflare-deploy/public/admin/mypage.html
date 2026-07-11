@@ -1887,9 +1887,13 @@
         __ltAppsById = {};
         items.forEach(function(a){ __ltAppsById[a.id] = a; });
         if (!items.length){ body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'No applications yet':'아직 신청이 없습니다')+'</div>'; return; }
-        var STMAP = { pending:[en?'Pending':'대기','#f59e0b'], done:[en?'Done':'완료','#10b981'], cancelled:[en?'Cancelled':'취소','#94a3b8'] };
+        var STMAP = { pending:[en?'Pending':'대기','#f59e0b'], assigned:[en?'Assigned':'배정됨','#6366f1'], done:[en?'Done':'완료','#10b981'], cancelled:[en?'Cancelled':'취소','#94a3b8'] };
+        // 🔔 내게 배정된 신청을 맨 위로 (assigned_teacher === 내 이름)
+        var myName = window.__myName || '';
+        items.sort(function(a,b){ var am=(myName && a.assigned_teacher===myName)?0:1, bm=(myName && b.assigned_teacher===myName)?0:1; return am-bm || ((b.created_at||0)-(a.created_at||0)); });
         var rows = items.map(function(a){
           var st = STMAP[a.status] || [a.status||'—','#94a3b8'];
+          var mine = myName && a.assigned_teacher === myName;
           var when = ((a.desired_date||'') + (a.desired_time?(' '+a.desired_time):'')) || '—';
           var evalCell;
           if (a.status === 'cancelled') {
@@ -1900,9 +1904,9 @@
           } else {
             evalCell = '<button onclick="openLtEval('+a.id+')" style="padding:4px 10px;font-size:12px;border:0;border-radius:7px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;cursor:pointer;font-weight:700">'+(en?'📝 Assess':'📝 평가하기')+'</button>';
           }
-          return '<tr>'
+          return '<tr'+(mine?' style="background:rgba(99,102,241,0.12)"':'')+'>'
             + '<td>'+fmtTime(a.created_at)+'</td>'
-            + '<td><b>'+ltEsc(a.student_name)+'</b></td>'
+            + '<td><b>'+ltEsc(a.student_name)+'</b>'+(mine?' <span style="display:inline-block;font-size:10.5px;font-weight:800;color:#c7d2fe;background:rgba(99,102,241,0.25);border:1px solid rgba(99,102,241,0.5);border-radius:99px;padding:1px 7px;margin-left:4px">'+(en?'🔔 Assigned to me':'🔔 내 배정')+'</span>':'')+'</td>'
             + '<td>'+ltEsc(when)+'</td>'
             + '<td style="text-align:center">'+(a.ai_score!=null?Math.round(a.ai_score):'—')+'</td>'
             + '<td style="text-align:center">'+(a.pron_score!=null?Math.round(a.pron_score):'—')+'</td>'
@@ -2022,7 +2026,54 @@
   };
 
   var __ltTab = qsTab('leveltest-apps');
-  if (__ltTab) __ltTab.addEventListener('click', function(){ window.loadLeveltestAppsTeacher(); });
+  if (__ltTab) __ltTab.addEventListener('click', function(){
+    window.loadLeveltestAppsTeacher();
+    // 🔔 탭을 열면 새 배정을 확인한 것으로 간주 → 서버에 seen 기록 + 빨간 점 제거
+    var nm = window.__myName || '';
+    if (nm){
+      try {
+        fetch('/api/teacher/leveltest-assignments', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ teacher_name: nm }) }).catch(function(){});
+      } catch(_e){}
+    }
+    var d = document.getElementById('lt-assign-dot'); if (d) d.remove();
+  });
+
+  // 🔔 내게 배정된 새 레벨테스트 개수 → 탭에 빨간 점 (교사 전용)
+  window.checkMyLtAssignments = function(){
+    var nm = window.__myName || '';
+    if (!nm || window.__myRole !== 'teacher' || !__ltTab) return;
+    fetch('/api/teacher/leveltest-assignments?teacher_name='+encodeURIComponent(nm), { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var unseen = (j && j.unseen) || 0;
+        var panelActive = !!document.querySelector('.panel.active[data-panel="leveltest-apps"]');
+        var dot = document.getElementById('lt-assign-dot');
+        if (panelActive || unseen <= 0){
+          if (dot) dot.remove();
+          if (panelActive && unseen > 0){
+            try { fetch('/api/teacher/leveltest-assignments', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ teacher_name: nm }) }).catch(function(){}); } catch(_e){}
+          }
+          return;
+        }
+        if (!dot){
+          dot = document.createElement('span');
+          dot.id = 'lt-assign-dot';
+          dot.title = unseen + (EN()?' new assignment(s)':'건 새 배정');
+          dot.style.cssText = 'display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444;margin-left:5px;vertical-align:middle;box-shadow:0 0 0 3px rgba(239,68,68,0.25)';
+          __ltTab.appendChild(dot);
+        }
+      })
+      .catch(function(){});
+  };
+  // 강사 이름 준비되면 1회 체크 (loadMe 비동기 → 짧게 폴링)
+  (function(){
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      if (window.__myRole === 'teacher' && window.__myName){ clearInterval(iv); window.checkMyLtAssignments(); }
+      else if (tries > 20 || (window.__myRole && window.__myRole !== 'teacher')) clearInterval(iv);
+    }, 500);
+  })();
 
   // ── 공통 포맷 ──
   function fmtTime(ms){

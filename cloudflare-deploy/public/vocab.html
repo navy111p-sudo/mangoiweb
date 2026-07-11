@@ -329,7 +329,7 @@ async function loadStats(){
 }
 async function loadDueCount(){
   try {
-    const r = await fetch('/api/vocab/due?uid='+encodeURIComponent(UID));
+    const r = await fetch('/api/vocab/due?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()));
     const d = await r.json();
     const badge = document.getElementById('due-badge');
     if (d.ok && d.due_count > 0) { badge.textContent = d.due_count; badge.style.display='inline-block'; }
@@ -399,8 +399,8 @@ function renderPlayHome(){
   const el = document.getElementById('flash-content');
   el.innerHTML = '<div class="empty">불러오는 중…</div>';
   Promise.all([
-    fetch('/api/vocab/due?uid='+encodeURIComponent(UID)).then(r=>r.json()),
-    fetch('/api/vocab/list?uid='+encodeURIComponent(UID)).then(r=>r.json())
+    fetch('/api/vocab/due?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(r=>r.json()),
+    fetch('/api/vocab/list?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(r=>r.json())
   ]).then(([due, list]) => {
     BANK = (list && list.words) || [];
     const words = (due && due.words) || [];
@@ -746,7 +746,7 @@ async function loadCollection(){
   const el = document.getElementById('list-content');
   el.innerHTML = '<div class="empty">불러오는 중…</div>';
   try {
-    const r = await fetch('/api/vocab/list?uid='+encodeURIComponent(UID));
+    const r = await fetch('/api/vocab/list?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()));
     const d = await r.json();
     if (!d.words || !d.words.length) {
       el.innerHTML = '<div class="empty">아직 카드가 없어요.<br>＋ 단어 추가 탭에서 첫 카드를 수집해 보세요!</div>'; return;
@@ -778,7 +778,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260711224217 -->
+<!-- BUILD:20260711225014 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

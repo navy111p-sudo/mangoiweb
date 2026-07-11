@@ -141,7 +141,7 @@
     async function loadStatus() {
       const uid = getUid();
       try {
-        const r = await fetch('/api/streak/status?uid=' + encodeURIComponent(uid));
+        const r = await fetch('/api/streak/status?uid=' + encodeURIComponent(uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()));
         const d = await r.json();
         if (d.ok) {
           document.getElementById('streakNum').textContent = d.current_streak || 0;
@@ -202,7 +202,7 @@
     }
     loadStatus(); loadLeaderboard();
   </script>
-<!-- BUILD:20260711224217 -->
+<!-- BUILD:20260711225014 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
