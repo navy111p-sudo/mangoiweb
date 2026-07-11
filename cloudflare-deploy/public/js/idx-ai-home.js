@@ -12,6 +12,8 @@
 
   // ========== 키워드 → 액션 룰 (오프라인 fallback) ==========
   const RULES = [
+    // ℹ️ 망고아이 소개 (About 오버레이) — 최상단(‘소개’가 특장점보다 먼저 잡히도록)
+    { kws:['망고아이란','망고아이 소개','망고아이소개','망고아이에 대해','망고아이 대해','망고아이가 뭐','망고아이 뭐','회사 소개','회사소개','서비스 소개','서비스소개','어떤 곳','about mangoi','소개'], action: () => { if (typeof window.openAboutMangoi==='function') window.openAboutMangoi(); }, label:'ℹ️ 망고아이 소개' },
     // ═══ 전체메뉴 항목 직접 매칭 (이름 + 유사어) — 최우선 ═══
     // 🎮 학생게임 허브 (student-games.html) — "게임"류 요청 최우선 라우팅
     { kws:['학생게임','학생 게임','학생용 게임','게임','게임하기','게임 하기','미니게임','미니 게임','학습게임','학습 게임','영어게임','영어 게임','게임장','게임 하러','게임할래','게임 열어','게임 페이지','오락','놀이','game','games','play game'], action: () => location.href='/student-games.html', label:'🎮 학생게임' },
@@ -58,7 +60,7 @@
 
     // ═══ 그리드 카드 자동 매칭 (히트맵 메뉴 20개) ═══
     { kws: ['특장점', '특징', '장점', '왜 망고', '왜 망고아이', '망고아이 특장점', '소개', 'features'], action: () => window.gridActions && window.gridActions.features(), label: '🌟 망고아이 특장점' },
-    { kws: ['교육과정', '과정', '커리큘럼', 'curriculum', '레벨', 'cefr', '학습 코스'], action: () => window.gridActions && window.gridActions.curriculum(), label: '📚 교육과정' },
+    { kws: ['교육과정', '커리큘럼', 'curriculum', 'cefr', '학습 코스'], action: () => window.gridActions && window.gridActions.curriculum(), label: '📚 교육과정' },
     { kws: ['수강신청', '수강 신청', '등록', '신청', 'enroll', '회원가입'], action: () => window.gridActions && window.gridActions.enroll(), label: '📝 수강신청' },
     { kws: ['무료체험', '무료 체험', 'trial', '체험', '체험 수업', '시범 수업'], action: () => window.gridActions && window.gridActions.trial(), label: '🎁 무료체험' },
     { kws: ['faq', '자주 묻는 질문', '자주묻는질문', '자주 묻는', 'q&a', 'qa'], action: () => window.gridActions && window.gridActions.faq(), label: '❓ 자주 묻는 질문' },
@@ -84,6 +86,39 @@
     { kws: ['전체 메뉴', '전체메뉴', '메뉴', '모든 메뉴', '히트맵', '바로가기'], action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); }, label: '🥭 전체 메뉴' },
     // 메인
   ];
+
+  // ========== 지식 FAQ (정보성 질문 즉답 — 오프라인·무지연) ==========
+  // 서버 STUDENT_FAQ 와 동일 취지. 답변을 말풍선으로 보여주고, 관련 모달을 함께 연다(페이지 이동 없이 답이 유지되도록 모달 위주).
+  const FAQ = [
+    { kws:['수업료','수강료','학원비','레슨비','얼마','가격','비용','요금','금액'],
+      answer:'필리핀 현지 교육센터를 직접 운영해 거품을 뺀 합리적인 수강료예요. 1:1·1:2 중 선택할 수 있고, 1:2는 1인당 비용이 더 저렴해요. 정확한 금액은 무료 상담으로 맞춤 견적을 받아보세요.',
+      go:() => { if (window.openInquiryModal) window.openInquiryModal(); } },
+    { kws:['몇 살','몇살','나이','연령','대상','유아','유치원','초등','성인','어른'],
+      answer:'유아부터 성인까지, 연령과 레벨에 맞춰 CEFR 국제 기준의 단계별 커리큘럼으로 수업해요. 무료 레벨테스트로 지금 실력에 맞는 반을 추천해 드려요.',
+      go:() => window.gridActions && window.gridActions.leveltest && window.gridActions.leveltest() },
+    { kws:['1:1','일대일','1대1','1:2','일대이','1대2','소수정예','전담','수업 방식','수업방식','몇 명','원어민'],
+      answer:'검증된 원어민 전담 선생님과 1:1 또는 1:2 소수정예 화상수업으로 진행해요. 랜덤 매칭이 아니라 같은 선생님이 꾸준히 관리해 아이의 성향과 약점을 정확히 지도합니다.',
+      go:() => window.gridActions && window.gridActions.teachers && window.gridActions.teachers() },
+    { kws:['필리핀','현지','센터','어느 나라'],
+      answer:'외주가 아니라 망고아이가 직접 운영하는 필리핀 현지 교육센터에서 수업해요. 전용 인터넷·장비를 갖춘 안정적인 환경에서 정규직 원어민 교사가 책임지고 지도합니다.',
+      go:() => { if (window.openAboutMangoi) window.openAboutMangoi(); } },
+    { kws:['교재','커리큘럼','무엇을 배','무슨 내용','어떤 내용'],
+      answer:'연령과 레벨에 맞춘 자체 교재와 CEFR 기반 커리큘럼으로 학습해요. 아이가 흥미를 느끼는 실생활 주제로 구성해 스스로 말하고 싶게 만듭니다.',
+      go:() => window.gridActions && window.gridActions.curriculum && window.gridActions.curriculum() },
+    { kws:['환불','중도 해지','해지'],
+      answer:'수강 변경·환불 등 자세한 안내는 상담으로 도와드려요. 아래 상담 신청 또는 고객센터로 문의해 주세요.',
+      go:() => { if (window.openInquiryModal) window.openInquiryModal(); } },
+    { kws:['앱','어플','설치','핸드폰','휴대폰','모바일','태블릿','기기'],
+      answer:'PC·태블릿·휴대폰 어디서나 수업에 입장할 수 있어요. 카메라와 마이크만 있으면 되고, 준비 상태는 자가진단으로 미리 확인할 수 있어요.',
+      go:() => window.gridActions && window.gridActions.diagnosis && window.gridActions.diagnosis() },
+  ];
+  // 질문형(정보를 물음)일 때만 FAQ 우선. 명령형("발음연습")은 기존 RULES 이동이 우선.
+  const QUESTION_RE = /(뭐|무엇|무슨|어떤|어떻게|왜|얼마|몇|어디|언제|누구|있나|있어|되나|되요|하나요|인가요|일까|까요|궁금|알려|설명|차이|추천|\?|？)/;
+  function findFaq(text) {
+    const t = text.toLowerCase();
+    for (const f of FAQ) { if (f.kws.some(k => t.includes(k.toLowerCase()))) return f; }
+    return null;
+  }
 
   const QUICK_MAP = {
     'enter-class':   () => showView('view-videocall-lobby'),
@@ -111,7 +146,8 @@
         showPointsShop:        function(){ if (typeof window.showPointsShop === 'function') window.showPointsShop(); },
         openAllMenuOverlay:    function(){ if (typeof window.openAllMenuOverlay === 'function') window.openAllMenuOverlay(); },
         openInquiryModal:      function(){ if (typeof window.openInquiryModal === 'function') window.openInquiryModal(); },
-        openLessonChangeModal: function(){ if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); }
+        openLessonChangeModal: function(){ if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); },
+        openAboutMangoi:       function(){ if (typeof window.openAboutMangoi === 'function') window.openAboutMangoi(); }
       };
       if (MAP[name]) return MAP[name]();
     } catch (e) { console.warn('[ai-home] runWhitelisted err:', name, e); }
@@ -137,12 +173,36 @@
     if (!text || !text.trim()) return;
     text = text.trim();
 
-    // 1. 로컬 룰로 즉시 매칭
+    const isQuestion = QUESTION_RE.test(text);
+
+    // 0. 질문형("~얼마?/몇 살?/필리핀?")이면 지식 FAQ 즉답 + 관련 모달 (페이지 이동 없이 답 유지)
+    if (isQuestion) {
+      const faq = findFaq(text);
+      if (faq) {
+        showSuggest(`💬 ${faq.answer}`);
+        try { if (window.MangoAvatar && window.MangoAvatar.speak) window.MangoAvatar.speak(faq.answer); } catch(_){}
+        if (faq.go) setTimeout(faq.go, 900);
+        return;
+      }
+    }
+
+    // 1. 로컬 룰로 즉시 매칭 (메뉴 이동)
     const rule = findRule(text);
     if (rule) {
       showSuggest(`<b>${rule.label}</b> 으로 이동합니다...`, true);
       setTimeout(rule.action, 400);
       return;
+    }
+
+    // 1-a. 명령형인데 룰엔 없지만 FAQ 주제면 즉답 (예: "가격", "환불")
+    {
+      const faq = findFaq(text);
+      if (faq) {
+        showSuggest(`💬 ${faq.answer}`);
+        try { if (window.MangoAvatar && window.MangoAvatar.speak) window.MangoAvatar.speak(faq.answer); } catch(_){}
+        if (faq.go) setTimeout(faq.go, 900);
+        return;
+      }
     }
 
     // 1-b. 학생 이름(한글 2~4자) → 내 이름이면 마이페이지, 다른 이름이면 학생 정보 검색

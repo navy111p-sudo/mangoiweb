@@ -113,6 +113,14 @@
     .game-topbar .back,.game-topbar .next{padding:6px 12px;font-size:12px}
     .game-scorebar{padding:5px 12px;gap:10px;font-size:12px}
     #game-area{padding:10px}
+    /* iframe 게임(워드파이터·슈팅 등)은 게임 페이지가 자체 HUD를 꽉 채우므로
+       허브 상단바를 최대한 얇게: 장식용 연속배지 숨김 + 속도 세그먼트 축소 → 게임 화면 확대 */
+    .game-iframewrap .game-topbar{padding:4px 10px;gap:6px}
+    .game-iframewrap .game-topbar .back{padding:5px 11px;font-size:11.5px}
+    .game-iframewrap #streak-badge-game{display:none}
+    .game-iframewrap .game-topbar .gname{font-size:13px}
+    .game-iframewrap .speed-pick .sp{width:28px;height:28px;font-size:14px}
+    .game-iframewrap .speed-pick{gap:4px}
   }
   /* brick/fill: 내용 세로 가운데 정렬 (위/아래 빈공간 균형) · match/balloon: 자식이 flex:1 로 채움 */
   #game-area.area-center{justify-content:center}
@@ -1961,7 +1969,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260711173220 -->
+<!-- BUILD:20260711182241 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

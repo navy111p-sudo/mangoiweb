@@ -7,7 +7,7 @@ import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
-import { handlePayApi } from './api-pay';
+import { handlePayApi, runPaymentAudit } from './api-pay';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
@@ -1334,6 +1334,15 @@ const worker = {
           console.log('[cafe24-sync] nightly done', JSON.stringify(syncOut));
         } catch (err) {
           console.error('[cafe24-sync] nightly error', err);
+        }
+
+        // 🔍 결제 대사(장부 맞추기) — 동기화 직후 최신 데이터로 이중결제·수업연결 누락 점검.
+        //   이상 발견 시에만 사장님 SMS (정상일 땐 조용).
+        try {
+          const audit = await runPaymentAudit(env, { sms: true });
+          console.log('[pay-audit] nightly done', JSON.stringify(audit?.summary || {}));
+        } catch (err) {
+          console.error('[pay-audit] error', err);
         }
 
         // 🧹 R2 고아 파일 청소 (KST 03:00) — D1 메타 없는 R2 객체 자동 삭제

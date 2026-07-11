@@ -1246,6 +1246,8 @@ export async function executeAction(
 //    ⚠️ 순서 중요 = 더 구체적인 항목을 위로. resolveStudentNav 는 첫 매칭을 반환.
 type StudentRoute = { kws: string[]; url?: string; view?: string; run?: string; action?: string; label: string };
 export const STUDENT_ROUTES: StudentRoute[] = [
+  // ℹ️ 망고아이 소개 (About 오버레이) — "망고아이란/소개" 버튼과 동일
+  { kws: ['망고아이란', '망고아이 소개', '망고아이소개', '망고아이에 대해', '망고아이 대해', '망고아이가 뭐', '망고아이 뭐', '회사 소개', '회사소개', '서비스 소개', '서비스소개', '어떤 곳', '어떤곳', 'about mangoi', 'about'], run: 'openAboutMangoi', label: 'ℹ️ 망고아이 소개' },
   // 🎮 학생게임 (게임류 최우선)
   { kws: ['학생게임', '학생 게임', '학생용게임', '미니게임', '미니 게임', '학습게임', '학습 게임', '영어게임', '영어 게임', '게임하기', '게임 하기', '게임하러', '게임 열어', '게임열어', '게임 페이지', '게임하고', '게임할래', '게임 시작', '게임', '오락', '놀이', 'game', 'games', 'play game'], url: '/student-games.html', label: '🎮 학생게임' },
   // 📊 성적/평가/리포트
@@ -1282,7 +1284,29 @@ export const STUDENT_ROUTES: StudentRoute[] = [
   { kws: ['포인트상점', '포인트 상점', '포인트샵', '포인트몰', '기프티콘', '기프트', '선물', '상점', '쇼핑', '리워드', '적립', '포인트', 'point', 'gift', 'shop', 'reward'], run: 'showPointsShop', label: '🎁 포인트 상점' },
   // 📅 연기/변경 (모달 함수)
   { kws: ['수업연기', '수업 연기', '연기', '일정변경', '일정 변경', '날짜변경', '날짜 변경', '시간변경', '시간 변경', '미루기', '수업취소', '수업 취소'], run: 'openLessonChangeModal', label: '📅 수업 연기·변경' },
-  // 💬 신규상담 (inquiry 모달 — 옛 클라이언트도 지원)
+  // ═══ 홈 그리드 카드 (idx-grid-menu.js gridActions 와 1:1 미러 — run:'grid:키') ═══
+  //    ⚠️ 신규상담(inquiry)보다 위에 둔다 — '가맹점 문의','고객센터'가 '문의' 때문에 상담으로 새지 않도록.
+  { kws: ['특장점', '특징', '장점', '왜 망고', '왜 망고아이', '망고아이 특장점', 'features'], run: 'grid:features', label: '🌟 망고아이 특장점' },
+  { kws: ['레벨테스트', '레벨 테스트', '실력테스트', '실력 테스트', '진단테스트', '진단 테스트', 'level test'], run: 'grid:leveltest', label: '📊 레벨테스트' },
+  { kws: ['교육과정', '커리큘럼', '학습 코스', '레벨', 'cefr', 'curriculum'], run: 'grid:curriculum', label: '📚 교육과정' },
+  { kws: ['자주 묻는 질문', '자주묻는질문', '자주 묻는', 'faq', 'q&a', 'qa'], run: 'grid:faq', label: '❓ 자주 묻는 질문' },
+  { kws: ['강사소개', '강사 소개', '교사소개', '교사 소개', '강사', '선생님', '원어민', 'teacher', 'teachers'], run: 'grid:teachers', label: '👨‍🏫 강사 소개' },
+  { kws: ['수업후기', '수업 후기', '수강후기', '수강 후기', '학부모 후기', '후기', '리뷰', 'review', 'reviews'], run: 'grid:reviews', label: '⭐ 수업 후기' },
+  { kws: ['이벤트', '혜택', '프로모션', '쿠폰', '할인', 'event', 'promotion'], run: 'grid:event', label: '🎉 이벤트·혜택' },
+  { kws: ['공지사항', '공지', '소식', '뉴스', 'notice'], run: 'grid:notice', label: '📢 공지사항' },
+  { kws: ['자료실', '자료 다운로드', 'library'], run: 'grid:library', label: '📁 자료실' },
+  { kws: ['학습가이드', '학습 가이드', '학습법', '공부법', '학습 방법', 'learn guide'], run: 'grid:learnguide', label: '🎓 학습 가이드' },
+  { kws: ['비디오레슨', '비디오 레슨', '원어민 비디오', '강의영상', '강의 영상', 'vod', 'video lesson'], run: 'grid:videolesson', label: '🎬 비디오 레슨' },
+  { kws: ['녹화본', '녹화 복습', '지난수업', '지난 수업', '다시보기', '다시 보기', '녹화보기', 'recording', 'replay'], run: 'grid:recordings', label: '📼 녹화본 복습' },
+  { kws: ['집중도', '집중력', '시선추적', '시선 추적', '발화비율', '발화 비율', 'focus', 'gaze'], run: 'grid:focus', label: '🎯 집중도 측정' },
+  { kws: ['자가진단', '자가 진단', '카메라 테스트', '마이크 테스트', '시스템 점검', 'diagnosis'], run: 'grid:diagnosis', label: '🩺 자가진단' },
+  { kws: ['프로그램 설치', '설치방법', '설치 방법', '설치가이드', '설치 가이드', 'install'], run: 'grid:installguide', label: '⚙️ 프로그램 설치' },
+  { kws: ['pc원격', 'pc 원격', '원격지원', '원격 지원', '원격도움', '원격 도움', 'anydesk', 'remote'], run: 'grid:remote', label: '💻 PC원격지원' },
+  { kws: ['카톡상담', '카톡 상담', '카카오톡', '카카오 채널', '카톡', '카카오', 'kakao'], run: 'grid:kakao', label: '💬 카카오톡 상담' },
+  { kws: ['고객센터', '연락처', '전화번호', '전화 문의', '문의처', 'contact'], run: 'grid:contact', label: '☎️ 고객센터' },
+  { kws: ['가맹점', '가맹', '제휴', '대리점', 'b2b', 'franchise'], run: 'grid:franchise', label: '🏢 가맹점 문의' },
+  { kws: ['현지 콜센터', '콜센터', '필리핀 지사', '해외 지사', '글로벌 연락처', 'call center'], run: 'grid:callcenter', label: '🌏 현지 콜센터' },
+  // 💬 신규상담 (inquiry 모달 — 옛 클라이언트도 지원). 그리드 카드보다 아래(‘문의’ 일반어).
   { kws: ['신규상담', '신규 상담', '상담신청', '상담 신청', '문의하기', '문의', '가입문의', '가입 문의', '첫방문', '무료체험', '무료 체험', '체험수업', 'inquiry', 'consult'], action: 'inquiry', label: '💬 신규상담·체험' },
   // 🏠 전체 메뉴 (모달 함수)
   { kws: ['전체메뉴', '전체 메뉴', '모든메뉴', '모든 메뉴', '메뉴', '홈페이지', '메인화면', '히트맵', '바로가기'], run: 'openAllMenuOverlay', label: '🥭 전체 메뉴' },
@@ -1313,6 +1337,73 @@ function routeToResponse(r: StudentRoute): any {
   return out;
 }
 
+// ── 지식 기반(FAQ) — 정보성 질문에 즉답 + 관련 화면으로 안내 ──
+//   openAboutMangoi 의 실제 특장점(BENEFITS) 내용을 근거로 작성. 사실만 담고 지어내지 않음.
+//   질문형 입력에는 이 답변을 먼저 주고, 답변 끝에 관련 화면(run/url/action)으로 함께 이동시킨다.
+type StudentFaq = { re: RegExp; answer: string; url?: string; run?: string; action?: string };
+const STUDENT_FAQ: StudentFaq[] = [
+  // 망고아이가 뭐야 / 소개 / 어떤 서비스
+  { re: /(망고아이[^가-힣]*(뭐|무엇|무슨|어떤|소개|대해|란)|무슨\s*서비스|어떤\s*(곳|서비스|회사)|about)/i,
+    answer: '망고아이는 원어민 선생님의 1:1·1:2 화상영어 수업과 A.I 학습관리를 하나로 합친 화상영어 서비스예요. 필리핀 직영 교육센터의 검증된 전담 선생님이 수업하고, 매 수업 후 A.I가 평가서와 10문항 복습 퀴즈를 자동으로 만들어 드려요. 아래에서 자세히 볼게요.',
+    run: 'openAboutMangoi' },
+  // 수업료 / 가격 / 얼마
+  { re: /(수업료|수강료|학원비|레슨비|얼마|가격|비용|요금|금액|price|cost|how\s*much)/i,
+    answer: '망고아이는 필리핀 현지 교육센터를 직접 운영해 거품을 뺀 합리적인 수강료로 제공해요. 1:1과 1:2 중 고를 수 있고, 1:2 수업은 1인당 비용이 더 저렴합니다. 정확한 금액은 무료 상담으로 맞춤 견적을 받아보실 수 있어요.',
+    action: 'inquiry' },
+  // 대상 연령 / 몇 살부터
+  { re: /(몇\s*살|나이|연령|대상|유아|유치원|초등|중등|고등|성인|어른)/i,
+    answer: '유아부터 성인까지, 연령과 레벨에 맞춰 CEFR 국제 기준의 단계별 커리큘럼으로 수업해요. 무료 레벨테스트로 지금 실력에 맞는 반을 추천해 드립니다.',
+    run: 'grid:leveltest' },
+  // 수업 방식 / 1:1, 1:2 / 원어민
+  { re: /(1\s*:\s*1|일대일|1대1|1\s*:\s*2|일대이|1대2|소수정예|전담|수업\s*방식|어떻게\s*수업|몇\s*명|원어민|native)/i,
+    answer: '엄격히 검증된 원어민 전담 선생님과 1:1 또는 1:2 소수정예 화상수업으로 진행해요. 매번 바뀌는 랜덤 매칭이 아니라 같은 선생님이 꾸준히 관리해 아이의 성향과 약점을 정확히 지도합니다.',
+    run: 'grid:teachers' },
+  // 필리핀 / 어디 / 센터
+  { re: /(필리핀|현지|센터|어디\s*(있|서)|어느\s*나라|위치)/i,
+    answer: '망고아이는 외주가 아니라 직접 운영하는 필리핀 현지 교육센터에서 수업해요. 전용 인터넷·장비를 갖춘 안정적인 환경에서 정규직 원어민 교사가 책임지고 지도합니다.',
+    run: 'openAboutMangoi' },
+  // 교재 / 커리큘럼 / 무엇을 배우나
+  { re: /(교재|커리큘럼|무엇을\s*배|무슨\s*내용|어떤\s*내용|과정)/i,
+    answer: '연령과 레벨에 맞춰 설계한 자체 교재와 CEFR 기반 커리큘럼으로 학습해요. 아이가 흥미를 느끼는 실생활 주제로 구성해 스스로 말하고 싶게 만듭니다.',
+    run: 'grid:curriculum' },
+  // 무료체험 / 체험
+  { re: /(무료\s*체험|체험\s*수업|체험\s*있|공짜\s*수업|trial)/i,
+    answer: '네, 무료 체험 수업을 신청할 수 있어요. 아래에서 상담·체험 신청을 남기시면 안내해 드립니다.',
+    action: 'inquiry' },
+  // 환불 / 해지
+  { re: /(환불|중도\s*해지|해지|refund)/i,
+    answer: '수강 변경·환불 등 자세한 안내는 상담으로 도와드려요. 아래 상담 신청 또는 고객센터로 문의해 주세요.',
+    action: 'inquiry' },
+  // 앱 / 기기 / 설치
+  { re: /(앱|어플|설치|다운로드|핸드폰|휴대폰|모바일|태블릿|아이패드|피시|컴퓨터|기기|install|device)/i,
+    answer: 'PC·태블릿·휴대폰 어디서나 수업에 입장할 수 있어요. 카메라와 마이크만 있으면 되고, 준비가 잘 됐는지 자가진단으로 미리 확인할 수 있습니다.',
+    run: 'grid:diagnosis' },
+  // 예약 / 신청 방법 / 수업 시간
+  { re: /(예약|신청\s*방법|언제\s*수업|수업\s*시간|시간대|무슨\s*요일)/i,
+    answer: '원하는 시간대로 자유롭게 예약하고, 갑작스러운 일정은 연기·변경으로 조정할 수 있어요. 아래 수업 신청에서 시간과 선생님을 골라 시작해 보세요.',
+    url: '/lesson-booking-demo.html' },
+];
+
+// 질문형 입력인지(정보를 물음) — 질문이면 FAQ 즉답을 메뉴 이동보다 먼저 준다.
+const STUDENT_QUESTION_RE = /(뭐|무엇|무슨|어떤|어떻게|어케|왜|얼마|몇|어디|언제|누구|있나|있어|되나|되요|되나요|할\s*수|하나요|인가요|인가|일까|까요|궁금|알려|가르쳐|설명|차이|추천|\?|？)/;
+
+function faqToResponse(f: StudentFaq): any {
+  if (f.action === 'inquiry') return { intent: 'action', name: 'inquiry', answer: f.answer };
+  const out: any = { intent: 'navigate', answer: f.answer };
+  if (f.url) out.url = f.url;
+  else if (f.run) out.run = f.run;
+  return out;
+}
+
+function resolveStudentFaq(command: string): any | null {
+  const t = (command || '').toString().toLowerCase();
+  if (!t) return null;
+  for (const f of STUDENT_FAQ) {
+    if (f.re.test(t)) return faqToResponse(f);
+  }
+  return null;
+}
+
 // LLM 폴백용: 알려진 목적지 화이트리스트(할루시네이션 URL 차단)
 const STUDENT_URL_WHITELIST = new Set(STUDENT_ROUTES.filter(r => r.url).map(r => r.url as string));
 const STUDENT_RUN_WHITELIST = new Set(STUDENT_ROUTES.filter(r => r.run).map(r => r.run as string));
@@ -1324,6 +1415,18 @@ const STUDENT_MENU_LINES = STUDENT_ROUTES.map(r => {
 
 const STUDENT_SYSTEM_PROMPT = `You are 망고아이(Mangoi) student assistant for an English academy. The user typed in a search box. Decide if they want to GO somewhere (navigate) or ASK something (answer). Output ONE JSON object only — no prose, no markdown, no code fences.
 
+KNOWLEDGE (use ONLY these facts when answering about 망고아이 — never invent prices, ages, or details not listed):
+- 망고아이는 원어민 선생님의 1:1·1:2 화상영어 수업과 A.I 학습관리를 하나로 합친 화상영어 서비스입니다. (수업은 사람이, 예습·복습·평가·발음교정은 A.I가 담당)
+- 원어민 전담 선생님제(랜덤 매칭 아님), 1:1 또는 1:2 소수정예 수업.
+- 필리핀 현지 교육센터를 직접(직영) 운영 — 외주가 아니며, 그래서 합리적인 수강료. 정확한 금액/견적은 무료 상담으로 안내.
+- 매 수업 후 A.I가 평가서를 자동 생성하고 배운 내용 기반 10문항 복습 퀴즈 진행. 월간 A.I 리포트 제공.
+- CEFR 국제 기준 단계별 커리큘럼 + 연령·레벨 맞춤 자체 교재. 유아부터 성인까지 대상.
+- PC·태블릿·휴대폰 어디서나 수업 입장. 원하는 시간대 예약, 수업 연기·변경 가능.
+- 출결·평가·진도·공지를 학부모 카카오톡으로 실시간 전송.
+- 20년 전통, 국내 최초의 화상영어 기업.
+- 수업 외 시간에도 A.I 발음 코치로 무제한 말하기 연습 가능.
+When the user asks about 망고아이 in general (뭐야/소개/특징 등), give a warm 1~2 sentence Korean summary from the KNOWLEDGE, then set navigate run "openAboutMangoi" so the intro opens.
+
 MENU (keyword hints → destination):
 ${STUDENT_MENU_LINES}
 
@@ -1331,6 +1434,7 @@ Output shapes (pick exactly one):
 {"intent":"navigate","url":"/vocab.html","answer":"<Korean 1 sentence>"}
 {"intent":"navigate","view":"view-videocall-lobby","answer":"<Korean 1 sentence>"}
 {"intent":"navigate","run":"grid:payment","answer":"<Korean 1 sentence>"}
+{"intent":"navigate","run":"openAboutMangoi","answer":"<Korean 1~2 sentence summary about 망고아이>"}
 {"intent":"action","name":"inquiry","answer":"<Korean 1 sentence>"}
 {"intent":"answer","answer":"<Korean 1~3 sentences>"}
 
@@ -1345,12 +1449,27 @@ export async function processStudentCommand(env: { AI?: any }, command: string):
   if (!cmd) return { intent: 'answer', answer: '검색어를 입력해주세요.' };
   if (cmd.length > 300) return { intent: 'answer', answer: '검색어가 너무 길어요. 짧게 입력해 주세요.' };
 
-  // 1) 결정론적 라우터 — 메뉴 키워드가 하나라도 걸리면 무조건 즉시 이동 (LLM·크레딧 스킵, 100% 확실)
+  // 질문형("~뭐야/얼마/어떻게/몇 살")인지 판정 — 질문이면 FAQ 즉답을 메뉴 이동보다 먼저.
+  const isQuestion = STUDENT_QUESTION_RE.test(cmd);
+
+  // 1) 질문형이면 지식(FAQ) 먼저 — 정보를 즉답하고 관련 화면으로 함께 이동
+  if (isQuestion) {
+    const faq = resolveStudentFaq(cmd);
+    if (faq) return faq;
+  }
+
+  // 2) 결정론적 메뉴 라우터 — 메뉴 키워드가 하나라도 걸리면 즉시 이동 (LLM·크레딧 스킵, 100% 확실)
   const hit = resolveStudentNav(cmd);
   if (hit) return routeToResponse(hit);
 
-  // 2) 메뉴에 없으면 LLM — 가장 가까운 메뉴로 안내하거나 질문에 답변
-  if (!env.AI) return { intent: 'answer', answer: '무엇을 도와드릴까요? 게임·단어장·성적표·복습퀴즈·발음연습·수업입장 등으로 말씀해 보세요.' };
+  // 3) 명령형인데 메뉴엔 없지만 FAQ 주제면 즉답 (예: "가격", "환불")
+  if (!isQuestion) {
+    const faq = resolveStudentFaq(cmd);
+    if (faq) return faq;
+  }
+
+  // 4) 그래도 못 잡으면 LLM — 가장 가까운 메뉴로 안내하거나 질문에 답변
+  if (!env.AI) return { intent: 'answer', answer: '무엇을 도와드릴까요? 게임·단어장·성적표·복습퀴즈·발음연습·수업입장, 또는 "망고아이 소개"·"수업료" 처럼 물어보셔도 돼요.' };
   try {
     const result = await env.AI.run(MODEL, {
       messages: [

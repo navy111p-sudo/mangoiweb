@@ -28,7 +28,7 @@
   #whiteflash.on{opacity:1}
 
   /* ===== HUD (유리 스타일 + 큰 글자) ===== */
-  .hud{position:relative;z-index:20;display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.55);backdrop-filter:blur(8px);flex-wrap:wrap}
+  .hud{position:relative;z-index:20;display:flex;align-items:center;gap:8px 11px;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.55);backdrop-filter:blur(8px);flex-wrap:wrap}
   .title{font-size:14px;font-weight:900;color:var(--accent);letter-spacing:.3px;text-shadow:0 1px 3px #000}
   .stat{display:flex;flex-direction:column;line-height:1.1}
   .stat .lab{font-size:11px;color:var(--sub);font-weight:700}
@@ -45,14 +45,14 @@
   .timer.low #timerVal{color:var(--bad);animation:blink .8s infinite}
   @keyframes blink{50%{opacity:.35}}
 
-  .phasebar{position:relative;z-index:20;display:flex;gap:6px;justify-content:center;align-items:center;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.45);backdrop-filter:blur(6px);flex-wrap:wrap}
+  .phasebar{position:relative;z-index:20;display:flex;gap:4px;justify-content:center;align-items:center;padding:4px 10px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.45);backdrop-filter:blur(6px);flex-wrap:wrap}
   .pstep{font-size:12px;font-weight:800;color:var(--sub);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:5px 12px;display:flex;align-items:center;gap:5px;transition:.25s}
   .pstep.on{color:#2a0606;background:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(251,191,36,.5)}
   .pstep.done{color:#86efac;border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.16)}
   .pstep .n{font-size:10px;opacity:.8}
 
-  .target{position:relative;z-index:20;display:flex;flex-wrap:wrap;gap:7px;justify-content:center;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.55);backdrop-filter:blur(6px)}
-  .target .hint{flex-basis:100%;text-align:center;font-size:14px;color:var(--sub);margin-bottom:2px;text-shadow:0 1px 2px #000}
+  .target{position:relative;z-index:20;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;padding:6px 11px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.55);backdrop-filter:blur(6px)}
+  .target .hint{flex-basis:100%;text-align:center;font-size:13px;color:var(--sub);margin-bottom:1px;text-shadow:0 1px 2px #000}
   .target .hint b{color:var(--accent)}
   .listen{background:rgba(34,197,94,.24);border:1px solid rgba(34,197,94,.6);color:#bdf3cf;font-size:14px;font-weight:800;padding:6px 13px;border-radius:999px;cursor:pointer;font-family:inherit}
   .listen:active{transform:scale(.95)}
@@ -171,9 +171,28 @@
   .voicebadge{position:absolute;left:8px;top:8px;z-index:22;font-size:10px;color:var(--sub);background:rgba(4,6,12,.65);border:1px solid var(--line);border-radius:8px;padding:3px 7px;pointer-events:none;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .confetti{position:absolute;width:9px;height:14px;z-index:55;pointer-events:none;border-radius:2px}
 
-  /* 좁은 화면 보정 */
-  @media (max-width:480px){
-    .chip{font-size:16px;padding:5px 11px}
+  /* 좁은 화면 보정 — 상단 HUD를 최대한 압축해 좀비 필드를 크게 (세로 좁은 폰 + 가로 낮은 폰) */
+  @media (max-width:560px),(max-height:640px){
+    /* ── HUD: 제목·점수·생명·웨이브·언어·속도·타이머 ── */
+    .hud{padding:5px 9px;gap:5px 8px}
+    .title{font-size:12px}
+    .stat{line-height:1}
+    .stat .lab{font-size:9px}
+    .stat .val{font-size:16px}
+    .lives{font-size:15px;gap:1px}
+    .lvlpill{font-size:11px;padding:3px 9px}
+    .bookpill{font-size:10px;padding:3px 8px;max-width:34vw}
+    .hudbtn{font-size:11px;padding:4px 8px}
+    /* ── 단계바(4탭) ── */
+    .phasebar{padding:3px 6px;gap:4px}
+    .pstep{font-size:10px;padding:3px 7px;gap:3px}
+    .pstep .n{font-size:9px}
+    /* ── 목표 문장바 ── */
+    .target{padding:4px 8px;gap:5px}
+    .target .hint{font-size:10.5px;margin-bottom:0}
+    .listen{font-size:11.5px;padding:4px 10px}
+    /* ── 게임 요소 ── */
+    .chip{font-size:15px;padding:4px 10px}
     .ztag .w{font-size:21px;padding:4px 14px}
     .zbody{font-size:52px}
     #waveTitle .wt-main{font-size:38px}
@@ -718,6 +737,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711173220 -->
+<!-- BUILD:20260711182241 -->
 </body>
 </html>

@@ -36,6 +36,7 @@
   var program = p.get('program') || '';
   var name = p.get('name') || '';
   var uid = p.get('uid') || '';
+  var phone = p.get('phone') || ''; // 결제완료 확인문자용(링크 발송 시 자동 포함)
   var card = document.getElementById('card');
   var CLIENT_KEY = null, AMOUNT = 0, ORDER_NAME = '';
 
@@ -68,7 +69,7 @@
     try {
       var res = await fetch('/api/pay/create-order', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ program: program, payer: name, student: name, method:'card', uid: uid || null })
+        body: JSON.stringify({ program: program, payer: name, student: name, method:'card', uid: uid || null, phone: phone || null })
       });
       order = await res.json();
       if (!order || !order.ok) { renderError((order && order.message) || '주문 생성 실패'); return; }
@@ -103,6 +104,6 @@
     .catch(function(){ renderError('네트워크 오류'); });
 })();
 </script>
-<!-- BUILD:20260711173220 -->
+<!-- BUILD:20260711182241 -->
 </body>
 </html>

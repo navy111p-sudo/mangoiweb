@@ -38,8 +38,16 @@
       + '#mgWorldClock .mgwc-time{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.3px}'
       + '#mgWorldClock .mgwc-sep{height:1px;background:rgba(255,255,255,.13);margin:1px 0}'
       + '#mgWorldClock .mgwc-hint{font-size:9px;opacity:.5;text-align:center;margin-top:1px}'
+      + '#mgWorldClock .mgwc-close{position:absolute;top:-8px;right:-8px;width:20px;height:20px;'
+      + '  border-radius:50%;background:rgba(18,26,48,.96);border:1px solid rgba(255,255,255,.4);'
+      + '  color:#eaf1ff;font-size:12px;font-weight:700;line-height:1;display:flex;align-items:center;'
+      + '  justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.45);'
+      + '  transition:background .15s,transform .15s;z-index:1}'
+      + '#mgWorldClock .mgwc-close:hover{background:rgba(220,60,60,.95);transform:scale(1.12)}'
+      + '#mgWorldClock.mgwc-off{display:none!important}'
       + '@media(max-width:600px){#mgWorldClock{padding:6px 9px;min-width:104px;left:8px;bottom:78px}'
-      + '  #mgWorldClock .mgwc-time{font-size:13px}}';
+      + '  #mgWorldClock .mgwc-time{font-size:13px}'
+      + '  #mgWorldClock .mgwc-close{width:22px;height:22px;font-size:13px;top:-9px;right:-9px}}';
     var st = document.createElement('style');
     st.textContent = css;
     document.head.appendChild(st);
@@ -50,7 +58,8 @@
     box.setAttribute('role', 'button');
     box.setAttribute('aria-label', '한국시간 필리핀시간 · 눌러서 홈으로');
     box.innerHTML =
-        '<div class="mgwc-row"><span class="mgwc-lbl">🇰🇷 한국</span><span class="mgwc-time" id="mgwcKR">--:--:--</span></div>'
+        '<div class="mgwc-close" id="mgwcClose" role="button" aria-label="시계 닫기" title="시계 닫기">✕</div>'
+      + '<div class="mgwc-row"><span class="mgwc-lbl">🇰🇷 한국</span><span class="mgwc-time" id="mgwcKR">--:--:--</span></div>'
       + '<div class="mgwc-sep"></div>'
       + '<div class="mgwc-row"><span class="mgwc-lbl">🇵🇭 필리핀</span><span class="mgwc-time" id="mgwcPH">--:--:--</span></div>'
       + '<div class="mgwc-hint">드래그 이동 · 탭하면 홈</div>';
@@ -58,6 +67,52 @@
 
     var elKR = box.querySelector('#mgwcKR');
     var elPH = box.querySelector('#mgwcPH');
+
+    // ── 표시/숨김 관리 ──
+    //  · 사용자가 X로 끄면(userHidden) localStorage에 기억 → 계속 숨김
+    //  · 사이드바/메뉴(드로어)가 열려 있는 동안엔 시계가 메뉴를 가리지 않도록 자동 숨김
+    var HIDE_KEY = 'mangoWorldClockHidden';
+    var userHidden = false;
+    try { userHidden = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+
+    // 열리면 화면을 덮어 시계와 겹치는 메뉴/드로어들 (페이지별)
+    var MENU_SELECTORS = ['#mg-drawer.open', '#mg-drawer-overlay.open',
+                          '.mg-drawer.open', '.drawer.open', '.sidebar.open', 'body.menu-open'];
+    function menuOpen() {
+      for (var i = 0; i < MENU_SELECTORS.length; i++) {
+        try { if (document.querySelector(MENU_SELECTORS[i])) return true; } catch (e) {}
+      }
+      return false;
+    }
+    function syncVisibility() {
+      // toggle(force): 이미 상태가 같으면 속성을 안 건드림 → 옵저버 무한루프 없음
+      box.classList.toggle('mgwc-off', userHidden || menuOpen());
+    }
+    // 메뉴 열림/닫힘(class 변경)을 감지해 즉시 표시/숨김
+    //  (rAF 디바운스 없이 동기 실행: 백그라운드/WebView에서 rAF가 멈춰도 확실히 동작)
+    try {
+      new MutationObserver(syncVisibility).observe(document.documentElement,
+        { subtree: true, attributes: true, attributeFilter: ['class'] });
+    } catch (e) {}
+    syncVisibility();
+
+    // X 버튼: 시계 끄기(기억). 드래그/탭-홈 이벤트로 새지 않게 전파 차단.
+    //  · 닫기 동작을 pointerup·click 양쪽에 걸어 터치/마우스/구형에서 모두 확실히 작동
+    var closeBtn = box.querySelector('#mgwcClose');
+    if (closeBtn) {
+      var closeNow = function (e) {
+        e.stopPropagation();
+        userHidden = true;
+        try { localStorage.setItem(HIDE_KEY, '1'); } catch (x) {}
+        syncVisibility();
+      };
+      var eat = function (e) { e.stopPropagation(); };        // 드래그 시작 방지(box로 전파 차단)
+      closeBtn.addEventListener('pointerdown', eat);
+      closeBtn.addEventListener('mousedown', eat);
+      closeBtn.addEventListener('touchstart', eat, { passive: true });
+      closeBtn.addEventListener('pointerup', closeNow);
+      closeBtn.addEventListener('click', closeNow);
+    }
 
     // ── 시간 포맷 (해당 타임존의 현재 시각) ──
     function fmt(tz) {

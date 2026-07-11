@@ -81,6 +81,16 @@
     <div id="todaySum" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:12px;padding:15px 18px;font-size:17.5px;color:#86efac;margin-bottom:16px;line-height:1.6">불러오는 중…</div>
     <div id="orders" style="font-size:17px"></div>
   </div>
+
+  <!-- ───── 결제 안전 점검(대사) ───── -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h1 style="font-size:24px;margin:0">🔍 결제 안전 점검</h1>
+      <button type="button" id="auditBtn" style="padding:10px 18px;border-radius:10px;border:1px solid rgba(251,191,36,0.5);background:rgba(251,191,36,0.12);color:#fcd34d;cursor:pointer;font-size:16px;font-weight:800">지금 점검</button>
+    </div>
+    <div style="color:#9fb0c6;font-size:15px;margin-bottom:12px;line-height:1.55">이중결제 의심 · 수업 연결 누락을 검사해요. 매일 새벽 3시에 자동으로도 돌고, 이상이 있으면 사장님 폰으로 문자가 갑니다.</div>
+    <div id="auditOut" style="font-size:16.5px;line-height:1.7"></div>
+  </div>
   </div><!-- /.wrap -->
 
 <style>
@@ -155,6 +165,41 @@
   }
   g('refresh').addEventListener('click', loadOrders);
   loadOrders();
+
+  // ── 결제 안전 점검 (대사 즉시 실행) ──
+  g('auditBtn').addEventListener('click', function(){
+    var b = g('auditBtn'); b.disabled = true; b.textContent = '🔄 점검 중…';
+    fetch('/api/pay/admin/audit', { credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        b.disabled = false; b.textContent = '지금 점검';
+        if (!d || !d.ok) { g('auditOut').innerHTML = '<div style="color:#f87171">점검 실패: '+((d&&d.error)||'오류')+'</div>'; return; }
+        var a = d.audit || {}, s = a.summary || {};
+        var html = '';
+        if (!s.anomalies) {
+          html += '<div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:12px;padding:14px 16px;color:#86efac">✅ 이상 없음 — 이중결제 의심 0건 · 수업연결 누락 0건</div>';
+        } else {
+          if (a.legacyDup && a.legacyDup.length) {
+            html += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.4);border-radius:12px;padding:14px 16px;color:#fca5a5;margin-bottom:10px"><b>⚠️ 이중결제 의심 '+a.legacyDup.length+'건 (기존 결제창, 최근 3일)</b>';
+            a.legacyDup.forEach(function(x){ html += '<div style="margin-top:6px;font-size:15px">· '+x.user_id+' — '+Number(x.amount_krw).toLocaleString('ko-KR')+'원 × '+x.cnt+'회 ('+x.d+')</div>'; });
+            html += '</div>';
+          }
+          if (a.newDup && a.newDup.length) {
+            html += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.4);border-radius:12px;padding:14px 16px;color:#fca5a5;margin-bottom:10px"><b>⚠️ 이중결제 의심 '+a.newDup.length+'건 (새 결제, 48시간)</b>';
+            a.newDup.forEach(function(x){ html += '<div style="margin-top:6px;font-size:15px">· '+(x.uid||'?')+' — '+x.program+' × '+x.cnt+'회, 합계 '+Number(x.total).toLocaleString('ko-KR')+'원</div>'; });
+            html += '</div>';
+          }
+          if (a.missingEnroll && a.missingEnroll.length) {
+            html += '<div style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);border-radius:12px;padding:14px 16px;color:#fcd34d;margin-bottom:10px"><b>🟡 수업 연결 누락 '+a.missingEnroll.length+'건 (결제됐는데 수강 미활성)</b>';
+            a.missingEnroll.forEach(function(x){ html += '<div style="margin-top:6px;font-size:15px">· '+(x.student_name||x.payer_name||'?')+' — '+Number(x.amount).toLocaleString('ko-KR')+'원 ('+x.order_id+')</div>'; });
+            html += '</div>';
+          }
+        }
+        if (a.stalePending) html += '<div style="color:#9fb0c6;font-size:14.5px;margin-top:8px">참고: 시작만 하고 완료 안 된 주문(1일 이상) '+a.stalePending+'건 — 자동 만료되므로 조치 불필요</div>';
+        g('auditOut').innerHTML = html;
+      })
+      .catch(function(){ b.disabled=false; b.textContent='지금 점검'; g('auditOut').innerHTML = '<div style="color:#f87171">네트워크 오류</div>'; });
+  });
 })();
 </script>
 </body>
