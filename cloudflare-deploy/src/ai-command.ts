@@ -1248,6 +1248,12 @@ type StudentRoute = { kws: string[]; url?: string; view?: string; run?: string; 
 export const STUDENT_ROUTES: StudentRoute[] = [
   // ℹ️ 망고아이 소개 (About 오버레이) — "망고아이란/소개" 버튼과 동일
   { kws: ['망고아이란', '망고아이 소개', '망고아이소개', '망고아이에 대해', '망고아이 대해', '망고아이가 뭐', '망고아이 뭐', '회사 소개', '회사소개', '서비스 소개', '서비스소개', '어떤 곳', '어떤곳', 'about mangoi', 'about'], run: 'openAboutMangoi', label: 'ℹ️ 망고아이 소개' },
+  // 🧑‍💼 AI 상담사(아바타 위젯) — '상담사'가 신규상담(inquiry)보다 먼저 잡히도록 상단
+  { kws: ['상담사', 'ai 상담사', 'ai상담사', '에이아이 상담사', '상담 직원', '상담직원', '아바타 상담', '아바타상담', 'ai 비서', 'ai비서', '인공지능 상담'], run: 'openAiConsultant', label: '🧑‍💼 AI 상담사' },
+  // 🔐 로그인
+  { kws: ['로그인', '로그 인', 'login', 'sign in', '로그인하기', '내 계정', '계정 로그인'], run: 'openLoginModal', label: '🔐 로그인' },
+  // 🤖 AI와 친구하기 (자기주도학습 오버레이) — 첫 화면 CTA와 동일
+  { kws: ['ai와 친구하기', 'ai와친구하기', '친구하기', 'ai랑 놀기', 'ai 놀이', 'ai랑 공부', '자기주도학습', '자기주도 학습', 'ai 학습 모음'], run: 'openAiFriendsOverlay', label: '🤖 AI와 친구하기' },
   // 🎮 학생게임 (게임류 최우선)
   { kws: ['학생게임', '학생 게임', '학생용게임', '미니게임', '미니 게임', '학습게임', '학습 게임', '영어게임', '영어 게임', '게임하기', '게임 하기', '게임하러', '게임 열어', '게임열어', '게임 페이지', '게임하고', '게임할래', '게임 시작', '게임', '오락', '놀이', 'game', 'games', 'play game'], url: '/student-games.html', label: '🎮 학생게임' },
   // 📊 성적/평가/리포트
@@ -1314,9 +1320,81 @@ export const STUDENT_ROUTES: StudentRoute[] = [
   { kws: ['관리자', '대시보드', '원장페이지', '원장 페이지', '관리자 로그인', 'admin', 'dashboard'], url: '/admin.html', label: '📊 관리자' },
 ];
 
+// ── 이해력 강화: 정규화 사전(음성인식·오타 교정) + 한글 자모 퍼지 매칭 ──
+//    클라이언트 idx-ai-home.js 의 NORMALIZE/jamo 로직과 동일 취지로 미러.
+const STUDENT_NORMALIZE: Array<[RegExp, string]> = [
+  [/(망\s?고\s?아\s?이|마고아이|만고아이|망구아이|마구아이|맹고아이|망고아리|마구아예|망가아이|맨고아이|먕고아이|망꼬아이|mango\s?ai|mangoi|mango\s?eye)/g, '망고아이'],
+  [/(수업\s?잃장|수업\s?이잠|수업\s?이장)/g, '수업입장'],
+  [/(발음\s?연십|바름연습|발음\s?년습|바름\s?연습)/g, '발음연습'],
+  [/(단어\s?자앙|다너장|단어\s?짱)/g, '단어장'],
+  [/(포\s?인또|포인뜨)/g, '포인트'],
+];
+function normStudent(text: string): string {
+  let t = (text || '').toString().toLowerCase().trim();
+  for (const [re, rep] of STUDENT_NORMALIZE) t = t.replace(re, rep);
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+const _CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const _JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
+const _JONG = ' ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ';
+function jamo(str: string): string {
+  let o = '';
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c >= 0xAC00 && c <= 0xD7A3) {
+      const s = c - 0xAC00;
+      o += _CHO[Math.floor(s / 588)] + _JUNG[Math.floor((s % 588) / 28)];
+      const j = s % 28; if (j) o += _JONG[j];
+    } else if (c > 32) { o += str[i]; }
+  }
+  return o;
+}
+function _lev(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+function jamoSim(hay: string, needle: string): number {
+  const nl = needle.length;
+  if (nl < 4) return 0;
+  const hl = hay.length;
+  if (hl < nl) return 1 - _lev(hay, needle) / nl;
+  let best = 0;
+  for (let w = Math.max(3, nl - 2); w <= nl + 2 && w <= hl; w++) {
+    for (let i = 0; i + w <= hl; i++) {
+      const sim = 1 - _lev(hay.substr(i, w), needle) / Math.max(w, nl);
+      if (sim > best) { best = sim; if (best >= 0.999) return 1; }
+    }
+  }
+  return best;
+}
+// 정확 매칭 실패 시 자모 퍼지로 가장 가까운 route (없으면 null)
+function fuzzyStudentNav(command: string): StudentRoute | null {
+  const ij = jamo(normStudent(command).replace(/\s+/g, ''));
+  if (ij.length < 4) return null;
+  let best: StudentRoute | null = null, bestSim = 0.80;
+  for (const r of STUDENT_ROUTES) {
+    for (const k of r.kws) {
+      const sim = jamoSim(ij, jamo(k.toLowerCase().replace(/\s+/g, '')));
+      if (sim > bestSim) { best = r; bestSim = sim; if (sim >= 0.97) return r; }
+    }
+  }
+  return best;
+}
+
 // 공백/대소문자 정규화 후 부분일치. 첫 매칭 route 반환(없으면 null).
 export function resolveStudentNav(command: string): StudentRoute | null {
-  const t = (command || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
+  const t = normStudent(command); // 음성인식·오타 교정 포함
   if (!t) return null;
   const tSquash = t.replace(/\s+/g, ''); // 공백 무시 매칭도 병행 ("학생 게임"=="학생게임")
   for (const r of STUDENT_ROUTES) {
@@ -1396,7 +1474,7 @@ function faqToResponse(f: StudentFaq): any {
 }
 
 function resolveStudentFaq(command: string): any | null {
-  const t = (command || '').toString().toLowerCase();
+  const t = normStudent(command); // 음성인식·오타 교정 포함 → 브랜드명 오인식도 FAQ 매칭
   if (!t) return null;
   for (const f of STUDENT_FAQ) {
     if (f.re.test(t)) return faqToResponse(f);
@@ -1467,6 +1545,10 @@ export async function processStudentCommand(env: { AI?: any }, command: string):
     const faq = resolveStudentFaq(cmd);
     if (faq) return faq;
   }
+
+  // 3.5) 자모 퍼지 — 오타·음성인식 오류를 흡수해 가장 가까운 메뉴로 (LLM·크레딧 스킵)
+  const fz = fuzzyStudentNav(cmd);
+  if (fz) return routeToResponse(fz);
 
   // 4) 그래도 못 잡으면 LLM — 가장 가까운 메뉴로 안내하거나 질문에 답변
   if (!env.AI) return { intent: 'answer', answer: '무엇을 도와드릴까요? 게임·단어장·성적표·복습퀴즈·발음연습·수업입장, 또는 "망고아이 소개"·"수업료" 처럼 물어보셔도 돼요.' };

@@ -14,6 +14,12 @@
   const RULES = [
     // ℹ️ 망고아이 소개 (About 오버레이) — 최상단(‘소개’가 특장점보다 먼저 잡히도록)
     { kws:['망고아이란','망고아이 소개','망고아이소개','망고아이에 대해','망고아이 대해','망고아이가 뭐','망고아이 뭐','회사 소개','회사소개','서비스 소개','서비스소개','어떤 곳','about mangoi','소개'], action: () => { if (typeof window.openAboutMangoi==='function') window.openAboutMangoi(); }, label:'ℹ️ 망고아이 소개' },
+    // 🧑‍💼 AI 상담사(아바타 위젯) — ‘상담사’가 신규상담(inquiry)보다 먼저 잡히도록 상단
+    { kws:['상담사','ai 상담사','ai상담사','에이아이 상담사','상담 직원','상담직원','아바타 상담','아바타상담','ai 비서','ai비서','인공지능 상담'], action: () => { var w=document.getElementById('mangoi-widget'); if(w) w.click(); }, label:'🧑‍💼 AI 상담사' },
+    // 🔐 로그인
+    { kws:['로그인','로그 인','login','sign in','로그인하기','접속','내 계정','계정 로그인'], action: () => { if (typeof window.openLoginModal==='function') window.openLoginModal(); }, label:'🔐 로그인' },
+    // 🤖 AI와 친구하기 (자기주도학습 오버레이) — 첫 화면 CTA와 동일
+    { kws:['ai와 친구하기','ai와친구하기','친구하기','ai랑 놀기','ai 놀이','ai랑 공부','자기주도학습','자기주도 학습','ai 학습 모음','ai랑'], action: () => { if (typeof window.openAiFriendsOverlay==='function') window.openAiFriendsOverlay(); }, label:'🤖 AI와 친구하기' },
     // ═══ 전체메뉴 항목 직접 매칭 (이름 + 유사어) — 최우선 ═══
     // 🎮 학생게임 허브 (student-games.html) — "게임"류 요청 최우선 라우팅
     { kws:['학생게임','학생 게임','학생용 게임','게임','게임하기','게임 하기','미니게임','미니 게임','학습게임','학습 게임','영어게임','영어 게임','게임장','게임 하러','게임할래','게임 열어','게임 페이지','오락','놀이','game','games','play game'], action: () => location.href='/student-games.html', label:'🎮 학생게임' },
@@ -115,8 +121,9 @@
   // 질문형(정보를 물음)일 때만 FAQ 우선. 명령형("발음연습")은 기존 RULES 이동이 우선.
   const QUESTION_RE = /(뭐|무엇|무슨|어떤|어떻게|왜|얼마|몇|어디|언제|누구|있나|있어|되나|되요|하나요|인가요|일까|까요|궁금|알려|설명|차이|추천|\?|？)/;
   function findFaq(text) {
-    const t = text.toLowerCase();
-    for (const f of FAQ) { if (f.kws.some(k => t.includes(k.toLowerCase()))) return f; }
+    const t = normText(text);
+    const sq = t.replace(/\s+/g, '');
+    for (const f of FAQ) { if (f.kws.some(k => { const kk = k.toLowerCase(); return t.includes(kk) || sq.includes(kk.replace(/\s+/g, '')); })) return f; }
     return null;
   }
 
@@ -147,19 +154,108 @@
         openAllMenuOverlay:    function(){ if (typeof window.openAllMenuOverlay === 'function') window.openAllMenuOverlay(); },
         openInquiryModal:      function(){ if (typeof window.openInquiryModal === 'function') window.openInquiryModal(); },
         openLessonChangeModal: function(){ if (typeof window.openLessonChangeModal === 'function') window.openLessonChangeModal(); },
-        openAboutMangoi:       function(){ if (typeof window.openAboutMangoi === 'function') window.openAboutMangoi(); }
+        openAboutMangoi:       function(){ if (typeof window.openAboutMangoi === 'function') window.openAboutMangoi(); },
+        openLoginModal:        function(){ if (typeof window.openLoginModal === 'function') window.openLoginModal(); },
+        openAiFriendsOverlay:  function(){ if (typeof window.openAiFriendsOverlay === 'function') window.openAiFriendsOverlay(); },
+        openAiConsultant:      function(){ var w=document.getElementById('mangoi-widget'); if(w) w.click(); }
       };
       if (MAP[name]) return MAP[name]();
     } catch (e) { console.warn('[ai-home] runWhitelisted err:', name, e); }
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // 🔎 이해력 강화 레이어 — ① 정규화 사전(음성인식·오타 교정) ② 한글 자모 퍼지 매칭
+  //    음성인식이 "망고아이"를 "마구아예"로 잘못 받아써도, 오타를 쳐도 최대한 알아듣게.
+  // ══════════════════════════════════════════════════════════════
+  // ① 정규화 사전 — 자주 틀리는 발음/표기를 표준어로 치환 (브랜드명·핵심 메뉴어)
+  const NORMALIZE = [
+    // 브랜드명 '망고아이' 오인식 총망라
+    [/(망\s?고\s?아\s?이|마고아이|만고아이|망구아이|마구아이|맹고아이|망고아리|마구아예|마구아이|망가아이|맨고아이|먕고아이|망꼬아이|mango\s?ai|mangoi|mango\s?eye|mango\s?i)/g, '망고아이'],
+    // 핵심 메뉴어 흔한 오인식
+    [/(수업\s?입장|수업\s?잃장|수업\s?이잠|수업\s?이장)/g, '수업입장'],
+    [/(발음\s?연십|바름연습|발음\s?년습|바름\s?연습)/g, '발음연습'],
+    [/(단어\s?자앙|다너장|단어\s?짱)/g, '단어장'],
+    [/(복습\s?퀴이즈|복습\s?퀴즈|복습퀴즈)/g, '복습퀴즈'],
+    [/(포\s?인\s?트|포인또|포인뜨)/g, '포인트'],
+  ];
+  function normText(text) {
+    let t = (text || '').toLowerCase().trim();
+    for (const pair of NORMALIZE) t = t.replace(pair[0], pair[1]);
+    return t.replace(/\s+/g, ' ').trim();
+  }
+
+  // ② 한글 → 자모(초·중·종성) 분해: "망고아이" → "ㅁㅏㅇㄱㅗㅇㅏㅇㅣ"
+  const _CHO  = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+  const _JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
+  const _JONG = ' ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ';
+  function jamo(str) {
+    let o = '';
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      if (c >= 0xAC00 && c <= 0xD7A3) {
+        const s = c - 0xAC00;
+        o += _CHO[Math.floor(s / 588)] + _JUNG[Math.floor((s % 588) / 28)];
+        const j = s % 28; if (j) o += _JONG[j];
+      } else if (c > 32) { o += str[i]; }
+    }
+    return o;
+  }
+  function _lev(a, b) {
+    const m = a.length, n = b.length;
+    if (!m) return n; if (!n) return m;
+    let prev = new Array(n + 1);
+    for (let j = 0; j <= n; j++) prev[j] = j;
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+      prev = cur;
+    }
+    return prev[n];
+  }
+  // needle(자모)이 haystack(자모) 안에 근사 등장하는 최대 유사도 0~1
+  function jamoSim(hay, needle) {
+    const nl = needle.length;
+    if (nl < 4) return 0;                       // 너무 짧은 키워드는 오탐 위험 → 퍼지 제외
+    const hl = hay.length;
+    if (hl < nl) return 1 - _lev(hay, needle) / nl;
+    let best = 0;
+    for (let w = Math.max(3, nl - 2); w <= nl + 2 && w <= hl; w++) {
+      for (let i = 0; i + w <= hl; i++) {
+        const sim = 1 - _lev(hay.substr(i, w), needle) / Math.max(w, nl);
+        if (sim > best) { best = sim; if (best >= 0.999) return 1; }
+      }
+    }
+    return best;
+  }
+
+  // 정규화 + (공백무시) 부분일치. RULES 첫 매칭 반환.
   function findRule(text) {
-    const t = text.toLowerCase().trim();
+    const t = normText(text);
     if (!t) return null;
+    const sq = t.replace(/\s+/g, '');
     for (const r of RULES) {
-      if (r.kws.some(k => t.includes(k.toLowerCase()))) return r;
+      for (const k of r.kws) {
+        const kk = k.toLowerCase();
+        if (t.includes(kk) || sq.includes(kk.replace(/\s+/g, ''))) return r;
+      }
     }
     return null;
+  }
+  // 정확 매칭 실패 시 자모 퍼지로 가장 가까운 RULE (제출 시에만 호출)
+  function fuzzyFindRule(text) {
+    const ij = jamo(normText(text).replace(/\s+/g, ''));
+    if (ij.length < 4) return null;
+    let best = null, bestSim = 0.80;            // 임계값(높게 유지해 오탐 방지)
+    for (const r of RULES) {
+      for (const k of r.kws) {
+        const kj = jamo(k.toLowerCase().replace(/\s+/g, ''));
+        const sim = jamoSim(ij, kj);
+        if (sim > bestSim) { best = r; bestSim = sim; if (sim >= 0.97) return r; }
+      }
+    }
+    return best;
   }
 
   function showSuggest(html, autoHide) {
@@ -220,6 +316,16 @@
       showSuggest(`<b>👤 '${text}' 학생 정보</b> 로 이동합니다...`, true);
       setTimeout(() => { location.href = '/admin/students-unified.html?q=' + encodeURIComponent(text); }, 400);
       return;
+    }
+
+    // 1-c. 정확 매칭 실패 → 자모 퍼지로 오타·음성인식 오류 흡수 (예: "마구아예에 대해"→망고아이 소개)
+    {
+      const fr = fuzzyFindRule(text);
+      if (fr) {
+        showSuggest(`<b>${fr.label}</b> 으로 이동합니다...`, true);
+        setTimeout(fr.action, 400);
+        return;
+      }
     }
 
     // 2. 매칭 안 되면 서버 AI 호출
@@ -650,7 +756,7 @@
   input.addEventListener('input', () => {
     clearTimeout(hintTimer);
     hintTimer = setTimeout(() => {
-      const t = input.value.toLowerCase().trim();
+      const t = normText(input.value);
       if (!t) { suggest.style.display = 'none'; _sgMatches = []; return; }
       const matches = RULES.filter(r => r.kws.some(k => k.toLowerCase().startsWith(t) || t.includes(k.toLowerCase()))).slice(0, 6);
       _sgMatches = matches;
