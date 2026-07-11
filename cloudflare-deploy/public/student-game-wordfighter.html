@@ -279,7 +279,7 @@
         <button class="btn ghost" id="r2listen">🔊 다시 듣기</button>
       </div>
       <div class="heard" id="r2heard"></div>
-      <button class="btn" id="r2next" style="display:none">다음 ▶</button>
+      <button class="btn green" id="r2next" style="display:none">다음 단계 ▶</button>
     </div>
     <div class="review" id="review3">
       <h2>🔁 <span class="em">복습 3 — 3회 반복</span></h2>
@@ -447,7 +447,7 @@
           if(!key || ZH_SENT_KO[key]!==undefined) return;
           ZH_SENTENCES.push(key); ZH_SENT_KO[key]=String(s.ko||''); if(s.pinyin) ZH_SENT_PY[key]=s.pinyin;
         });
-        zhBadge='📚 다락원 중국어';
+        zhBadge='📚 중국어';
       }
       (d.words||[]).forEach(function(w){ if(w && w.en && w.ko) ZH_WORD_KO[String(w.en).trim()]=(w.pinyin?w.pinyin+' · ':'')+w.ko; });
       if(GLANG==='zh') applyLangData();
@@ -497,6 +497,10 @@
 
   function rand(a,b){ return a+Math.random()*(b-a); }
   function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  // 좀비가 겹치지 않게 화면 폭을 n개의 균등한 세로 레인으로 나눠 배치 (휴대폰 대비)
+  // 연속 좀비를 멀리 떨어진 레인에 두어(서로소 stride) 깊이가 가까워도 가로로 안 겹침
+  function gcd(a,b){ while(b){ var t=b; b=a%b; a=t; } return a; }
+  function spreadLanes(n){ var lo=12,hi=88,span=hi-lo; if(n<=1) return [50]; var step=span/n,c=[]; for(var k=0;k<n;k++){ c.push(lo+step*(k+0.5)+rand(-step*0.14,step*0.14)); } var s=Math.max(1,Math.round(n/2)); while(gcd(s,n)!==1) s++; var out=[]; for(var i=0;i<n;i++) out.push(c[(i*s)%n]); return out; }
   function clean(w){ return (w||'').replace(/[.?!,。？！，、]/g,''); }
   function curSentence(){ return SENTENCES[level%SENTENCES.length]; }
   function curKo(){ return SENT_KO[curSentence()]||''; }
@@ -582,21 +586,24 @@
     var gCand=tItems.filter(function(it){ return !it.boss; });
     if(gCand.length && Math.random()<0.45){ gCand[Math.floor(Math.random()*gCand.length)].golden=true; }   // 👑 황금 좀비
     var items=tItems.concat(pool.slice(0,nDis).map(function(w){ return {word:w,isTarget:false}; }));
-    shuffle(items); items.forEach(function(it,i){ spawnZombie(it,i); });
+    shuffle(items); var lanes=spreadLanes(items.length); items.forEach(function(it,i){ spawnZombie(it,i,items.length,lanes[i]); });
     showWaveTitle('WAVE '+(level+1), isBossWave()?'👹 보스 출현!':'');
     bgmStart();   // 🥁 전투 구간에만 드럼
     lastProgressTs=performance.now();
     renderSentence(); setTimeout(speakSentence,650);
   }
-  function spawnZombie(it,i){
+  function spawnZombie(it,i,n,laneX){
+    n=n||1;
     var ty=ZTYPES[Math.floor(Math.random()*ZTYPES.length)];
     var el=document.createElement('button'); el.className='ztag'+(it.isTarget?'':' distractor')+(it.golden?' golden':'')+(it.boss?' boss':'')+(ty.ghost&&!it.boss?' ghosty':'');
     var face=it.boss?BOSSFACES[Math.floor(Math.random()*BOSSFACES.length)]:ty.e;
     el.innerHTML='<span class="w">'+it.word+(it.boss?'<span class="bhp">💥2</span>':'')+'</span><span class="zbody"><span class="zface">'+face+'</span></span>';
     var spdMul=(0.6+Math.min(level*0.12,1.1))*(it.boss?0.45:ty.spd);   // 웨이브 1은 아주 느리게 시작 → 갈수록 빨라짐, 보스는 느림
     var z={ el:el, word:it.word, isTarget:it.isTarget, golden:!!it.golden, boss:!!it.boss, hp:it.boss?2:1,
-      body:null, wEl:null, xPct:rand(14,86), prog:rand(0,0.25)-i*0.06, speed:rand(0.018,0.04)*spdMul,
-      sizeMul:it.boss?1.9:ty.size, wobA:it.boss?0.5:ty.wob, wobF:rand(0.0012,0.0024), phase:rand(0,6.28) };
+      body:null, wEl:null, xPct:(laneX!=null?laneX:rand(14,86)),
+      prog:0.20-i*(0.85/Math.max(1,n-1))+rand(-0.02,0.02),   // 세로 계단식 배치(넓게) → 같은 깊이에 몰리지 않음, 뒤쪽은 멀리서 등장
+      speed:rand(0.018,0.04)*spdMul,
+      sizeMul:it.boss?1.9:ty.size, wobA:Math.min(it.boss?0.5:ty.wob,(76/n)*0.3), wobF:rand(0.0012,0.0024), phase:rand(0,6.28) };
     z.wEl=el.querySelector('.w'); z.body=el.querySelector('.zbody');
     var zf=el.querySelector('.zface'); zf.style.animationDuration=rand(0.5,0.9).toFixed(2)+'s'; zf.style.animationDelay=(-rand(0,0.8)).toFixed(2)+'s';
     el.addEventListener('click', function(){ strike(z); });
@@ -662,7 +669,7 @@
     redflash.classList.add('on'); shake(); yell('💔','miss',field.clientWidth/2,field.clientHeight*0.7);
     setTimeout(function(){ redflash.classList.remove('on'); },160);
     if(lives<=0){ endGame('zombie'); return; }
-    z.prog=0; z.xPct=rand(14,86); placeZombie(z);
+    z.prog=-0.35; z.xPct=rand(12,88); placeZombie(z);   // 멀리서 다시 접근 → 무리 한가운데로 튀어나와 겹치지 않게
   }
 
   // ===== 복습 1 =====
@@ -679,7 +686,7 @@
   // ===== 복습 2 =====
   var r2line=document.getElementById('r2line'), r2heard=document.getElementById('r2heard'), r2next=document.getElementById('r2next'), r2ko=document.getElementById('r2ko');
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
-  function startReview2(){ phase='r2'; setPhaseUI('r2'); review1.classList.remove('on'); review2.classList.add('on'); r2line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin" style="font-size:32px;margin-top:4px">'+curPy()+'</div>':''); r2ko.textContent=curKo(); r2heard.innerHTML=''; r2next.style.display='none'; setTimeout(speakSentence,250); }
+  function startReview2(){ phase='r2'; setPhaseUI('r2'); review1.classList.remove('on'); review2.classList.add('on'); r2line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin" style="font-size:32px;margin-top:4px">'+curPy()+'</div>':''); r2ko.textContent=curKo(); r2heard.innerHTML='🎤 <b>말하기</b>를 눌러 따라 말하거나, 아래 <b>다음 단계 ▶</b>로 진행하세요.'; r2next.style.display='inline-block'; setTimeout(speakSentence,250); }
   document.getElementById('r2listen').addEventListener('click', speakSentence);
   document.getElementById('r2speak').addEventListener('click', function(){
     if(!SR){ r2heard.innerHTML='🎤 큰 소리로 따라 말했나요? <b>좋아요!</b>'; score+=40; updateHUD(); r2next.style.display='inline-block'; return; }
@@ -787,6 +794,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711194327 -->
+<!-- BUILD:20260711195120 -->
 </body>
 </html>

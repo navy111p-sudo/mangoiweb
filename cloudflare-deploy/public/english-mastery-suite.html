@@ -1424,7 +1424,8 @@
     field:$('#fishField'), score:0, idx:0, words:[], fish:[], running:false,
     combo:0, lastHit:0, lastTs:0, raf:null,
     timeLeft:70, totalTime:70, secShown:-1, paused:false,
-    sharks:[], sharkAcc:0, focusActive:false, focusLeft:0
+    sharks:[], sharkAcc:0, focusActive:false, focusLeft:0,
+    fieldW:0, fieldH:0   // 🐟 스폰 당시 필드 크기(리사이즈 시 물고기 비율 재배치용)
   };
   var boatEl=$('#boat'), fishLine=$('#fishLine'), hookEl=$('#hook'), catchCnt=$('#catchCnt'), fishCombo=$('#fishCombo'), fishScoreVal=$('#fishScore .val');
   var fishTimerEl=$('#fishTimer'), fishPauseEl=$('#fishPause');
@@ -1519,6 +1520,7 @@
   function fishRound(){
     fishClear(); var r=makeRound(); FI.words=r.words; FI.idx=0;
     var fw=FI.field.clientWidth, fh=FI.field.clientHeight;
+    FI.fieldW=fw; FI.fieldH=fh;   // 이 크기 기준으로 스폰 → 리사이즈 시 비율 보정
     r.items.forEach(function(it){
       var el=document.createElement('button');
       el.className='fish'+(it.isTarget?'':' distractor')+(it.golden?' golden':'');
@@ -1527,7 +1529,7 @@
       var sp = fishCfg().speed;
       // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영, 상위 속도일수록 빨리빨리 헤엄
       var f={ el:el, word:it.word, isTarget:it.isTarget, golden:!!it.golden,
-        x:rand(10,Math.max(50,fw-100)), y:rand(90,Math.max(160,fh-130)),   // 세로 전체로 분산(아래 빈공간 제거)
+        x:rand(8,Math.max(60,fw-92)), y:rand(80,Math.max(150,fh-96)),   // 물 전체(가로 끝~끝, 수면 아래~바닥 근처)로 최대한 분산
         vxBase:dir*rand(sp[0],sp[1]), vyBase:rand(-14,14), home:null };
       f.home={x:f.x,y:f.y};
       el.style.left=f.x+'px'; el.style.top=f.y+'px';
@@ -1959,6 +1961,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711194327 -->
+<!-- BUILD:20260711195120 -->
 </body>
 </html>
