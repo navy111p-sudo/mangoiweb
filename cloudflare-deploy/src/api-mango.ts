@@ -10344,7 +10344,7 @@ LIMIT $limit`;
         ['teacher_rubric', 'TEXT'], ['evaluated_by', 'TEXT'], ['evaluated_at', 'INTEGER'],
         ['phone', 'TEXT'], ['student_email', 'TEXT'],
         ['assigned_teacher_id', 'TEXT'], ['assigned_teacher_phone', 'TEXT'], ['assigned_teacher_email', 'TEXT'],
-        ['assigned_reason', 'TEXT'], ['teacher_seen_at', 'INTEGER'],
+        ['assigned_reason', 'TEXT'], ['teacher_seen_at', 'INTEGER'], ['teacher_confirmed_at', 'INTEGER'],
       ] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE leveltest_applications ADD COLUMN ${col} ${type}`); } catch {}
       }
@@ -10506,35 +10506,37 @@ LIMIT $limit`;
           await sendEmail(env, { to: adminTo, subject: `[망고아이] 새 레벨테스트 신청 · New Level Test — ${name}`, html });
         }
       } catch (e: any) { console.warn('[leveltest] admin email skipped:', e?.message || e); }
-      // 3) 배정 교사 알림 — 이메일 + 문자/알림톡 (마이페이지 빨간점은 teacher_seen_at 미설정으로 자동)
+      // 3) 배정 후보 교사에게 "수락 요청" — 이메일 + 문자 + 마이페이지 빨간점(teacher_seen_at 미설정으로 자동)
+      //    교사가 수락하면 그때 학생에게 확정 통보(아래 accept 분기).
       if (teacher) {
-        const tMsg = `[망고아이] 새 레벨테스트가 배정됐어요.\n👦 학생: ${name}\n📅 ${whenLabel}\n마이페이지에서 확인해 주세요.`;
+        const tMsg = `[망고아이] 새 레벨테스트 배정 제안이 왔어요.\n👦 학생: ${name}\n📅 ${whenLabel}\n마이페이지에서 수락/거절해 주세요.`;
         try { if (teacher.phone) await sendPlainSms(env, teacher.phone, tMsg); } catch (e: any) { console.warn('[leveltest] teacher sms skipped:', e?.message || e); }
         try {
           if (teacher.email) {
             const html = emailLayout({
-              title: '🧑‍🏫 새 레벨테스트 배정 · New Level Test Assigned',
+              title: '🧑‍🏫 새 레벨테스트 배정 제안 · New Level Test — Please Confirm',
               bodyHtml: `
-                <p><b>${escapeHtmlLT(teacher.name)}</b> 선생님, 새 레벨테스트가 배정되었습니다.<br>A new level test has been assigned to you.</p>
+                <p><b>${escapeHtmlLT(teacher.name)}</b> 선생님, 새 레벨테스트가 배정 제안되었습니다. 마이페이지에서 <b>수락</b>해 주세요.<br>A new level test is proposed to you. Please <b>accept</b> it in your My Page.</p>
                 <table cellpadding="6" style="border-collapse:collapse;margin:10px 0;font-size:13.5px">
                   <tr><td style="color:#64748b">학생 · Student</td><td><b>${escapeHtmlLT(name)}</b></td></tr>
                   <tr><td style="color:#64748b">일시 · When</td><td>${escapeHtmlLT(whenLabel)}</td></tr>
                 </table>
-                <p style="font-size:12.5px;color:#64748b">마이페이지에서 상세를 확인하세요. · Check details in your My Page.</p>`,
+                <p style="font-size:12.5px;color:#64748b">수락하면 학생에게 담당 선생님 확정 안내가 나갑니다. · Accepting sends the student a confirmation.</p>`,
             });
-            await sendEmail(env, { to: teacher.email, subject: `[망고아이] 새 레벨테스트 배정 · New assignment — ${name}`, html });
+            await sendEmail(env, { to: teacher.email, subject: `[망고아이] 새 레벨테스트 배정 제안 · Please confirm — ${name}`, html });
           }
         } catch (e: any) { console.warn('[leveltest] teacher email skipped:', e?.message || e); }
       }
 
-      return json({ ok: true, id: appId, assigned_teacher: teacher ? teacher.name : null, scheduled: whenLabel });
+      return json({ ok: true, id: appId, status: teacher ? 'proposed' : 'pending', proposed_teacher: teacher ? teacher.name : null, scheduled: whenLabel });
     }
     // ── 🧑‍🏫 교사 마이페이지: 나에게 배정된 레벨테스트 목록 + 미확인 배지 ──
     //   GET  /api/teacher/leveltest-assignments?teacher_name=이름[&teacher_id=]  → { items, unseen }
-    //   POST /api/teacher/leveltest-assignments  { teacher_name|teacher_id, seen:true }  → 빨간점 제거(확인처리)
+    //   POST /api/teacher/leveltest-assignments  { teacher_name|teacher_id, seen:true }        → 빨간점 제거(확인처리)
+    //   POST /api/teacher/leveltest-assignments  { id, teacher_name, action:'accept'|'decline' } → 배정 수락/거절
     if (path === '/api/teacher/leveltest-assignments') {
       await ensureLtApps();
-      const tname = (url.searchParams.get('teacher_name') || (method === 'POST' ? '' : '')).toString().trim();
+      const tname = (url.searchParams.get('teacher_name') || '').toString().trim();
       const tid = (url.searchParams.get('teacher_id') || '').toString().trim();
       if (method === 'GET') {
         if (!tname && !tid) return invalidBody(['teacher_name']);
@@ -10542,17 +10544,60 @@ LIMIT $limit`;
         if (tid)   { where.push('assigned_teacher_id = ?'); binds.push(tid); }
         if (tname) { where.push('assigned_teacher = ?');    binds.push(tname); }
         const rs = await env.DB.prepare(
-          `SELECT id, student_name, desired_date, desired_time, phone, status, assigned_reason, teacher_seen_at, created_at
+          `SELECT id, student_name, desired_date, desired_time, phone, status, assigned_teacher, assigned_reason, teacher_seen_at, teacher_confirmed_at, created_at
              FROM leveltest_applications WHERE (${where.join(' OR ')}) ORDER BY created_at DESC LIMIT 100`
         ).bind(...binds).all();
         const items = (rs.results || []) as any[];
         const unseen = items.filter(a => !a.teacher_seen_at || a.created_at > a.teacher_seen_at).length;
         return json({ ok: true, items, unseen });
       }
-      // POST → 확인처리(빨간점 제거)
       const bb = await parseJsonBody(request);
       const bn = ((bb && bb.teacher_name) || '').toString().trim();
       const bi = ((bb && bb.teacher_id) || '').toString().trim();
+      const action = ((bb && bb.action) || '').toString().trim();
+      // ── 배정 수락/거절 ──
+      if ((action === 'accept' || action === 'decline') && bb && bb.id != null) {
+        if (!bn && !bi) return invalidBody(['teacher_name']);
+        const app = await env.DB.prepare(`SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`).bind(bb.id).first<any>();
+        if (!app) return json({ ok: false, error: 'not_found' }, 404);
+        // 소유 검증 — 나에게 제안된 건만 처리
+        const owns = (bi && String(app.assigned_teacher_id) === bi) || (bn && app.assigned_teacher === bn);
+        if (!owns) return json({ ok: false, error: 'not_your_assignment' }, 403);
+        const now2 = Date.now();
+        if (action === 'decline') {
+          // 배정 해제 → pending 으로 되돌려 관리자가 재배정
+          await env.DB.prepare(`UPDATE leveltest_applications SET status='pending', assigned_teacher=NULL, assigned_teacher_id=NULL, assigned_teacher_phone=NULL, assigned_teacher_email=NULL, assigned_reason='declined', teacher_confirmed_at=NULL, updated_at=? WHERE id=?`).bind(now2, bb.id).run();
+          return json({ ok: true, status: 'pending' });
+        }
+        // accept → confirmed + 학생에게 담당 확정 통보
+        await env.DB.prepare(`UPDATE leveltest_applications SET status='confirmed', teacher_confirmed_at=?, teacher_seen_at=?, updated_at=? WHERE id=?`).bind(now2, now2, now2, bb.id).run();
+        // 📅 예약 문자열
+        const wk = ['일', '월', '화', '수', '목', '금', '토'];
+        let whenLabel2 = app.desired_time || '일정 협의';
+        if (app.desired_date && /^\d{4}-\d{2}-\d{2}$/.test(app.desired_date)) {
+          const p = String(app.desired_date).split('-');
+          try { const d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); whenLabel2 = `${+p[1]}월 ${+p[2]}일(${wk[d.getUTCDay()]})` + (app.desired_time ? ` ${app.desired_time}` : ''); } catch {}
+        }
+        const tLabel = app.assigned_teacher || '담당 선생님';
+        if (app.phone) {
+          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}\n예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다.\n문의: pf.kakao.com/_mangoi`;
+          try {
+            const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
+            if (tmpl) {
+              await sendKakaoAlimtalk(env, {
+                templateCode: tmpl, recipientPhone: app.phone, recipientName: app.student_name,
+                variables: { '#{학생명}': app.student_name, '#{예약일시}': whenLabel2, '#{담당교사}': tLabel },
+                fallbackSmsText: smsText,
+                logContext: app.student_uid ? { userId: String(app.student_uid), reason: 'leveltest' } : undefined,
+              });
+            } else {
+              await sendPlainSms(env, app.phone, smsText);
+            }
+          } catch (e: any) { console.warn('[leveltest] confirm notify skipped:', e?.message || e); }
+        }
+        return json({ ok: true, status: 'confirmed' });
+      }
+      // ── 확인처리(빨간점 제거) ──
       if (!bn && !bi) return invalidBody(['teacher_name']);
       const where: string[] = []; const binds: any[] = [];
       if (bi) { where.push('assigned_teacher_id = ?'); binds.push(bi); }

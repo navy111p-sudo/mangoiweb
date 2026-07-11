@@ -54,6 +54,7 @@
     // 모달 닫을 때 음성 재생 중이면 중지 (TTS + mp3 둘 다)
     try { if (window.speechSynthesis && window.speechSynthesis.speaking) window.speechSynthesis.cancel(); } catch{}
     try { if (_franchiseAudio && !_franchiseAudio.paused) { _franchiseAudio.pause(); _franchiseAudio.currentTime = 0; } } catch{}
+    try { ltAudioStop(); } catch{}   // 🔊 레벨테스트 인트로 음성 + 배경음악 중지
     // 정보 모달 닫으면 히트맵 그리드(메뉴)로 자동 복귀
     const gmEl = document.getElementById('grid-menu');
     if (gmEl) gmEl.style.display = 'block';
@@ -1654,6 +1655,78 @@
     }
   }
 
+  // ━━━━━━━━━━ 🔊 레벨테스트 안내 음성(인트로) + 잔잔한 배경음악(Canon in D, WebAudio) ━━━━━━━━━━
+  //   레벨테스트 카드 클릭(=사용자 제스처) 시 바로 재생 → 자동재생 차단 안 걸림.
+  //   배경음악은 파헬벨 캐논 D장조(공용저작물)를 직접 합성 → 저작권 프리·파일 불필요·무한 루프.
+  var LT_MUTE_KEY = 'mangoi_voice_muted';
+  function ltMuted(){ try{ return localStorage.getItem(LT_MUTE_KEY) === '1'; }catch(e){ return false; } }
+  var ltVoice=null, ltAC=null, ltMaster=null, ltTimer=null, ltStep=0, ltRunning=false, ltMuteBtn=null;
+  var LT_CHORDS = [
+    { bass:146.83, arp:[293.66,369.99,440.00,587.33] }, // D
+    { bass:220.00, arp:[277.18,329.63,440.00,554.37] }, // A
+    { bass:246.94, arp:[293.66,369.99,493.88,587.33] }, // Bm
+    { bass:185.00, arp:[277.18,369.99,440.00,554.37] }, // F#m
+    { bass:196.00, arp:[246.94,293.66,392.00,493.88] }, // G
+    { bass:146.83, arp:[293.66,369.99,440.00,587.33] }, // D
+    { bass:196.00, arp:[246.94,293.66,392.00,493.88] }, // G
+    { bass:220.00, arp:[277.18,329.63,440.00,554.37] }  // A
+  ];
+  function ltEnsureVoice(){
+    if(!ltVoice){
+      ltVoice = new Audio('/audio/level-test-intro.mp3'); ltVoice.preload='auto';
+      ltVoice.addEventListener('play',  function(){ ltDuck(true);  });
+      ltVoice.addEventListener('ended', function(){ ltDuck(false); });
+      ltVoice.addEventListener('pause', function(){ ltDuck(false); });
+    }
+    return ltVoice;
+  }
+  function ltEnsureAC(){
+    if(ltAC) return ltAC;
+    try{ ltAC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; }
+    ltMaster = ltAC.createGain(); ltMaster.gain.value = 0.85;
+    var lp = ltAC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2200;
+    ltMaster.connect(lp); lp.connect(ltAC.destination);
+    return ltAC;
+  }
+  function ltTone(freq,dur,peak,type){
+    if(!ltAC || !ltMaster || ltAC.state!=='running') return;
+    var t0=ltAC.currentTime, o=ltAC.createOscillator(), g=ltAC.createGain();
+    o.type=type||'triangle'; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0+0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g); g.connect(ltMaster); o.start(t0); o.stop(t0+dur+0.05);
+  }
+  function ltTick(){
+    if(!ltRunning) return;
+    var c=LT_CHORDS[Math.floor(ltStep/4)%LT_CHORDS.length], ni=ltStep%4;
+    if(ni===0) ltTone(c.bass, 2.2, 0.06, 'sine');
+    ltTone(c.arp[ni], 1.5, 0.05, 'triangle');
+    ltStep++;
+  }
+  function ltDuck(on){ if(!ltAC||!ltMaster) return; try{ ltMaster.gain.setTargetAtTime(on?0.32:0.85, ltAC.currentTime, 0.25); }catch(e){} }
+  function ltBgmStart(){ if(ltMuted()) return; if(!ltEnsureAC()) return; if(ltAC.state==='suspended'){ try{ ltAC.resume(); }catch(e){} } if(ltRunning) return; ltRunning=true; ltTick(); ltTimer=setInterval(ltTick,540); }
+  function ltBgmStop(){ ltRunning=false; if(ltTimer){ clearInterval(ltTimer); ltTimer=null; } }
+  function ltPlayIntro(restart){ if(ltMuted()) return; var v=ltEnsureVoice(); if(restart){ try{ v.currentTime=0; }catch(e){} } var p=v.play(); if(p&&p.catch) p.catch(function(){}); }
+  function ltUpdateMute(){ if(!ltMuteBtn) return; ltMuteBtn.textContent = ltMuted()?'🔇':'🔊'; ltMuteBtn.title = ltMuted()?'소리 켜기':'음소거'; }
+  function ltMakeMuteBtn(){
+    if(ltMuteBtn) return ltMuteBtn;
+    ltMuteBtn = document.createElement('button'); ltMuteBtn.type='button'; ltMuteBtn.setAttribute('aria-label','소리 켜기/끄기');
+    ltMuteBtn.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:100001;width:46px;height:46px;border-radius:50%;border:1px solid rgba(148,163,184,0.5);background:rgba(20,41,80,0.95);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center';
+    ltMuteBtn.onclick = function(){
+      var m = !ltMuted();
+      try{ localStorage.setItem(LT_MUTE_KEY, m?'1':'0'); }catch(e){}
+      if(m){ try{ ltEnsureVoice().pause(); }catch(e){} ltBgmStop(); }
+      else { ltBgmStart(); ltPlayIntro(true); }
+      ltUpdateMute();
+    };
+    document.body.appendChild(ltMuteBtn);
+    return ltMuteBtn;
+  }
+  function ltAudioStart(){ ltMakeMuteBtn(); ltMuteBtn.style.display='flex'; ltUpdateMute(); ltBgmStart(); ltPlayIntro(false); }
+  function ltAudioIntroReplay(){ ltBgmStart(); setTimeout(function(){ ltPlayIntro(true); }, 350); }
+  function ltAudioStop(){ try{ if(ltVoice){ ltVoice.pause(); ltVoice.currentTime=0; } }catch(e){} ltBgmStop(); if(ltMuteBtn) ltMuteBtn.style.display='none'; }
+
   // ━━━━━━━━━━ 📊 레벨테스트 신청·안내 모달 ━━━━━━━━━━
   function showLevelTestModal() {
     showModal(`
@@ -1763,6 +1836,7 @@
         ※ 무료 체험 수업과 동시에 신청 시 즉시 진행됩니다.
       </p>
     `);
+    ltAudioStart();   // 🔊 인트로 음성 + 잔잔한 배경음악 바로 시작 (레벨테스트 클릭 = 사용자 제스처)
   }
 
   // ━━━━━━━━━━ 회원가입 + 레벨테스트 신청 제출 ━━━━━━━━━━
@@ -1879,6 +1953,7 @@
           <a class="info-cta" href="/admin/mypage" style="margin:0;text-align:center">🔑 마이페이지 가기</a>
         </div>
       `);
+      ltAudioIntroReplay();   // 🎬 완료 화면에서 인트로 음성 한 번 더 (처음·마지막)
     } catch (e) {
       showErr('네트워크 오류 — 잠시 후 다시 시도해 주세요.');
     } finally {

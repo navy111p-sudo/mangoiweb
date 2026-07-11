@@ -175,34 +175,30 @@
   var submitted=false;
   submit.addEventListener('click',async function(){
     if(submit.disabled || submitted) return;
-    submitted=true; submit.disabled=true; submit.textContent='⏳ 예약 확정 중…';
+    submitted=true; submit.disabled=true; submit.textContent='⏳ 신청 접수 중…';
     var phone=phoneEl.value.trim();
     var rec={ name:nameEl.value.trim(), phone:phone, date:sel.date, time:sel.time, ts:Date.now() };
     try{ localStorage.setItem('mangoi_leveltest_booking', JSON.stringify(rec)); }catch(e){}
-    // 🎯 서버에 저장 → 자동 예약·교사 배정·확정 문자. 응답으로 배정 교사명을 받아 화면에 표시.
+    // 🎯 서버에 저장 → 담당 교사 자동 "제안". 학생에겐 접수 안내(문자), 교사 수락 후 담당 확정 통보.
     var uid=null;
     try{
       ['mangoi_uid','mango_uid','student_uid','uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
       if(!uid){ var s=JSON.parse(localStorage.getItem('mangoi_student')||'null'); if(s&&s.uid) uid=s.uid; }
     }catch(e){}
-    var assigned=null;
     try{
-      var res=await fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ student_name:rec.name, student_uid:uid, phone:phone, desired_date:rec.date, desired_time:rec.time, source:'level-test' })});
-      var data=await res.json().catch(function(){return null;});
-      if(data && data.assigned_teacher) assigned=data.assigned_teacher;
+      await fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ student_name:rec.name, student_uid:uid, phone:phone, desired_date:rec.date, desired_time:rec.time, source:'level-test' })}).catch(function(){});
     }catch(e){}
     document.getElementById('lt-sched').innerHTML =
       '📅 '+fmtDate(sel.date)+' '+sel.time
-      +(assigned?'<br>👩‍🏫 담당: <b style="color:#fde68a">'+assigned+'</b> 선생님':'')
-      +'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 예약이 확정됐어요! 확정 문자를 보내드렸어요.</span>';
+      +'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 신청이 접수됐어요! 접수 안내 문자를 보내드렸어요.<br>담당 선생님이 확정되면 다시 문자로 알려드릴게요. 👩‍🏫</span>';
     document.getElementById('form-card').style.display='none';
     document.getElementById('bottom-note').style.display='none';
     var done=document.getElementById('done'); done.classList.add('show');
     window.scrollTo({top:0,behavior:'smooth'});
   });
 </script>
-<!-- BUILD:20260711225927 -->
+<!-- BUILD:20260711230617 -->
 <!-- 🔊 레벨테스트 안내 음성(인트로) 자동 재생 + 잔잔한 배경음악(Canon in D, WebAudio) + 음소거/끄기 -->
 <audio id="lt-voice" src="/audio/level-test-intro.mp3" preload="auto"></audio>
 <script>
