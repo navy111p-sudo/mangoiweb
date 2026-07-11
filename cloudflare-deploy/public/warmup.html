@@ -30,7 +30,8 @@
     --accent:#38bdf8; --accent2:#0ea5e9; --border:rgba(56,189,248,.18); --me:#0ea5e9; }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:radial-gradient(125% 100% at 50% -8%,#2a4d9e 0%,#1a2f6b 42%,#122350 100%);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+    -webkit-text-size-adjust:100%;text-size-adjust:100%}
   .top{display:flex;align-items:center;gap:12px;padding:14px 18px;background:rgba(20,33,59,.95);
     position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
   .top a{color:var(--text);text-decoration:none;font-weight:700;font-size:16px}
@@ -40,7 +41,7 @@
   .meta .chip{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:4px 10px}
   .meta .chip b{color:var(--accent)}
   #log{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
-  .msg{max-width:82%;padding:14px 18px;border-radius:16px;font-size:28px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+  .msg{max-width:82%;padding:14px 18px;border-radius:16px;font-size:19px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
   .msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--border);border-bottom-left-radius:4px}
   .msg.me{align-self:flex-end;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border-bottom-right-radius:4px}
   .msg.sys{align-self:center;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);
@@ -95,6 +96,31 @@
     padding:9px 16px;background:rgba(239,68,68,.12);border-top:1px solid rgba(239,68,68,.3);
     color:#fca5a5;font-size:13px;font-weight:700}
   #listening .dot{width:9px;height:9px;border-radius:50%;background:#ef4444;animation:micpulse 1s infinite}
+  /* 📱 모바일(≤640px): 머리글 한 줄 유지 + 글자 크기 정돈 — 화면에 문장이 온전히 보이게 */
+  @media (max-width:640px){
+    .top{padding:9px 12px;gap:8px}
+    .top a{font-size:14px;white-space:nowrap}
+    .top h1{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .spk-toggle{font-size:12px;padding:5px 9px}
+    .wrap{height:calc(100dvh - 44px)}
+    .meta{font-size:12px;padding:8px 12px;gap:6px}
+    .meta .chip{padding:3px 9px}
+    .rate-bar{margin:2px 12px 6px;padding:7px 10px;gap:7px;font-size:12px}
+    .rate-bar .rate-title{font-size:13px}
+    .rate-bar .rate-side{display:none}  /* 좁은 화면: 🐢/🐇 라벨 숨겨 값 칩이 안 잘리게 */
+    .rate-bar .rate-val{min-width:54px;font-size:12px;padding:3px 8px}
+    .msg{font-size:16px;padding:10px 13px;max-width:88%}
+    .msg.sys{font-size:13px}
+    .msg .who{font-size:12px}
+    .msg .who-ava{width:20px;height:20px}
+    .replay-btn{font-size:13px;padding:5px 12px;margin-top:8px}
+    .typing{font-size:14px}
+    .inbar{padding:10px 10px;gap:6px}
+    .inbar input{font-size:16px;padding:11px 12px}
+    .inbar button{font-size:15px;padding:0 14px}
+    .inbar .mic-btn{font-size:17px;padding:0 13px}
+    .hint{font-size:12px;padding:0 12px 8px}
+  }
 </style>
 </head>
 <body>
@@ -215,6 +241,7 @@ function renderMsg(s){
    🔊 듣기(TTS) — 브라우저 speechSynthesis 로 AI 답변을 원어민 음성 낭독
    ══════════════════════════════════════════════════════════════════ */
 var _enVoice = null, _speechOn = true, _audioUnlocked = false;
+var _lastAiSpeak = null, _speechEverStarted = false;   // 모바일: 차단된 첫 인사를 첫 터치 때 재낭독하기 위한 기록
 
 /* 🐢🐇 듣기 속도: 1(천천히)~5(빠르게) → speechSynthesis rate 값 매핑 */
 var RATE_STEPS = { 1:0.6, 2:0.8, 3:0.95, 4:1.15, 5:1.4 };
@@ -264,6 +291,8 @@ function speak(text, btn){
     var u=new SpeechSynthesisUtterance(String(text));
     u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02;
     if(_enVoice) u.voice=_enVoice;
+    _lastAiSpeak=String(text);
+    u.onstart=function(){ _speechEverStarted=true; };
     if(btn){ btn.classList.add('playing'); u.onend=function(){ btn.classList.remove('playing'); }; u.onerror=function(){ btn.classList.remove('playing'); }; }
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
@@ -273,6 +302,11 @@ function speak(text, btn){
 function unlockAudio(){
   if(_audioUnlocked) return; _audioUnlocked=true;
   try{ if(window.speechSynthesis){ var u=new SpeechSynthesisUtterance(' '); u.volume=0; window.speechSynthesis.speak(u); } }catch(e){}
+  // 페이지 진입 직후 자동 낭독된 첫 인사는 모바일 자동재생 정책에 막혀 무음으로 버려진다.
+  // 한 번도 실제 발화가 시작된 적이 없으면(_speechEverStarted=false) 이 첫 제스처에서 다시 읽어준다.
+  if(!_speechEverStarted && _lastAiSpeak && _speechOn){
+    setTimeout(function(){ if(!_speechEverStarted && _lastAiSpeak && !_recognizing) speak(_lastAiSpeak); }, 250);
+  }
 }
 document.addEventListener('pointerdown', unlockAudio, { once:false, passive:true });
 document.addEventListener('touchstart', unlockAudio, { once:false, passive:true });
@@ -463,6 +497,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712041338 -->
+<!-- BUILD:20260712044924 -->
 </body>
 </html>

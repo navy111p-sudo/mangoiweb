@@ -2231,24 +2231,33 @@
                 padding:4px 6px; font-size:0.8rem;
             }
             .vp-floating { width:220px; height:140px; right:8px; bottom:70px; }
-            /* 📱 채팅: 화면 전체 대신 1/3만 차지 — 수업 화면이 계속 보이게 */
-            /* 세로(포트레이트): 하단 시트, 높이 1/3 */
+            /* 📱 채팅: 화면 전체 대신 일부만 차지 — 수업 화면이 계속 보이게 */
+            /* 세로(포트레이트): 하단 시트. 하단 컨트롤 독(#vc-dock, z-index 99993)이
+               bottom:0 시트의 입력창·마지막 메시지를 덮던 문제 →
+               독 높이만큼 padding-bottom 을 비워 입력창이 독 위로 올라오게 하고,
+               높이도 33vh→52vh 로 키워 메시지가 실제로 보이게 함 */
             .chat-panel {
                 width: 100%;
                 top: auto; bottom: 0; right: 0;
-                height: 33vh; min-height: 220px;
+                height: 52vh; min-height: 340px; max-height: 78vh;
+                padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
                 border-left: 0;
                 border-top: 1.5px solid rgba(148,163,184,0.3);
                 border-radius: 14px 14px 0 0;
                 transform: translateY(100%);
                 box-shadow: 0 -10px 30px rgba(0,0,0,0.45);
+                z-index: 9990; /* 다른 플로팅 UI 위, 컨트롤 독 아래 */
+                background: rgba(15, 23, 42, 0.98);
             }
             .chat-panel.open { transform: translateY(0); }
-            /* 가로(랜드스케이프): 우측 패널, 폭 1/3 */
+            /* 모바일에선 말풍선 글씨를 한 단계 키워 읽기 쉽게 */
+            .chat-panel .msg-bubble { font-size: 1rem; }
+            /* 가로(랜드스케이프): 우측 패널, 폭 1/3 — 하단 독과 겹치는 만큼만 비움 */
             @media (orientation: landscape) {
                 .chat-panel {
-                    top: 0; bottom: auto; height: 100vh; min-height: 0;
+                    top: 0; bottom: auto; height: 100vh; min-height: 0; max-height: none;
                     width: 33vw; min-width: 240px;
+                    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 54px);
                     border-top: 0; border-left: 1px solid rgba(148,163,184,0.25);
                     border-radius: 0;
                     transform: translateX(100%);
@@ -2657,8 +2666,8 @@
                 font-size: 11px !important;
             }
 
-            /* 채팅 패널 - 작게 */
-            body.vc-in-call .chat-panel { font-size: 11.5px !important; }
+            /* 채팅 패널 — 11.5px 강제 축소는 너무 작아 안 보임 → 13.5px로 완화 */
+            body.vc-in-call .chat-panel { font-size: 13.5px !important; }
 
             /* 🚫 모바일 가로에서 볼륨 미터 숨김 */
             #vc-mic-meter { display: none !important; }
@@ -7724,10 +7733,10 @@
         <!-- 🥭 Phase 41 — 🎮 학생게임 탭 (문장 벽돌 + 단어 매칭) -->
         <div class="tab-panel" id="tab-game" style="flex-direction:column">
           <!-- 게임 선택 헤더 -->
-          <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.65);border-bottom:1px solid rgba(148,163,184,0.15);flex-wrap:wrap;flex-shrink:0">
+          <div class="vc-game-head" style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.65);border-bottom:1px solid rgba(148,163,184,0.15);flex-wrap:wrap;flex-shrink:0">
             <span style="font-size:13px;color:#fbbf24;font-weight:700">🎮 <span data-ko="학생게임" data-en="Student Game">학생게임</span></span>
             <span style="font-size:11px;color:#94a3b8" data-ko="오늘의 교재 단어/문장 기반" data-en="Based on today's textbook">오늘의 교재 단어/문장 기반</span>
-            <div style="margin-left:auto;display:inline-flex;border:1px solid #475569;border-radius:6px;overflow:hidden;flex-wrap:wrap">
+            <div class="vc-game-modes" style="margin-left:auto;display:inline-flex;border:1px solid #475569;border-radius:6px;overflow:hidden;flex-wrap:wrap">
               <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;cursor:pointer;font-size:12px;font-weight:600">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
               <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
@@ -7743,7 +7752,7 @@
               <button id="game-mode-balloon" type="button" onclick="gameSwitchMode('balloon')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🎈 <span data-ko="풍선 터뜨리기" data-en="Balloon Pop">풍선 터뜨리기</span></button>
             </div>
-            <button onclick="gameNextRound()"
+            <button class="vc-game-next" onclick="gameNextRound()"
                     style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600"
                     data-ko="🔄 다음 문제" data-en="🔄 Next">🔄 다음 문제</button>
           </div>
@@ -7825,6 +7834,20 @@
           #game-area .gko-note{font-size:13px;color:rgba(255,255,255,.68);margin-top:10px;text-shadow:0 1px 3px rgba(0,0,0,.3)}
           #game-area .gko-listen{padding:10px 22px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:10px;cursor:pointer;font-size:15px;font-weight:800;font-family:inherit;box-shadow:0 4px 12px rgba(139,92,246,.4);transition:transform .15s}
           #game-area .gko-listen:active{transform:scale(.95)}
+          /* 📱 모바일 — 게임 선택 헤더 정돈: 세그먼트 줄바꿈 난장판 → 2열 그리드 칩 */
+          @media (max-width:640px){
+            #tab-game .vc-game-head{row-gap:8px!important}
+            #tab-game .vc-game-modes{
+              display:grid!important;grid-template-columns:1fr 1fr;gap:8px;
+              width:100%;margin-left:0!important;border:0!important;border-radius:0;
+              overflow:visible!important}
+            #tab-game .vc-game-modes button{
+              border:1px solid rgba(148,163,184,.35)!important;border-radius:10px!important;
+              padding:10px 6px!important;min-width:0;text-align:center;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            #tab-game .vc-game-modes button:last-child{grid-column:1/-1}
+            #tab-game .vc-game-next{width:100%;padding:11px 12px!important;font-size:13px!important}
+          }
           </style>
           <div id="game-area" style="flex:1;min-height:0;overflow:auto;padding:24px;color:#f1f5f9">
             <!-- JS 가 동적 렌더 -->
@@ -24597,7 +24620,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712041338 -->
+<!-- BUILD:20260712044924 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
