@@ -12417,12 +12417,12 @@ function _reviveChance(){
   window._reviveTarget=target;
   var wrongs=_gameShuffle(_GAME_WORDS.filter(function(w){return w.en!==target.en&&w.ko;})).slice(0,3), opts=_gameShuffle([target].concat(wrongs)), em=_emojiFor(target,'word');
   try{ window.gameSpeak && gameSpeak(target.en); }catch(_){}
-  var html='<div style="text-align:center;max-width:520px;margin:0 auto;padding:20px">'
-    +'<div style="font-size:44px;margin-bottom:4px">💗</div><div style="font-size:22px;font-weight:800;color:#fb7185;margin-bottom:4px">부활 찬스!</div>'
-    +'<div style="font-size:14px;color:#94a3b8;margin-bottom:16px">이 단어의 뜻을 맞히면 하트가 부활해요</div>'
-    +'<div style="font-size:34px;font-weight:800;color:#fbbf24;margin-bottom:14px">'+(em?em+' ':'')+target.en+'</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:440px;margin:0 auto">';
-  opts.forEach(function(o){ html+='<button onclick="_reviveAnswer(\''+encodeURIComponent(o.en)+'\')" style="padding:16px 12px;background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer">'+o.ko+'</button>'; });
+  var html='<div style="text-align:center;width:100%;max-width:860px;margin:0 auto;padding:clamp(16px,3vw,40px)">'
+    +'<div style="font-size:clamp(56px,10vw,104px);line-height:1;margin-bottom:8px">💗</div><div style="font-size:clamp(30px,5.5vw,54px);font-weight:800;color:#fb7185;margin-bottom:8px">부활 찬스!</div>'
+    +'<div style="font-size:clamp(15px,2.6vw,24px);color:#94a3b8;margin-bottom:clamp(18px,3vw,28px)">이 단어의 뜻을 맞히면 하트가 부활해요</div>'
+    +'<div style="font-size:clamp(44px,9vw,88px);line-height:1.1;font-weight:800;color:#fbbf24;margin-bottom:clamp(18px,3vw,26px)">'+(em?em+' ':'')+target.en+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(12px,2vw,20px);max-width:680px;margin:0 auto">';
+  opts.forEach(function(o){ html+='<button onclick="_reviveAnswer(\''+encodeURIComponent(o.en)+'\')" style="padding:clamp(20px,3vw,30px) clamp(12px,2vw,20px);background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff;border:0;border-radius:14px;font-size:clamp(19px,3vw,28px);font-weight:700;cursor:pointer">'+o.ko+'</button>'; });
   html+='</div></div>'; var area=document.getElementById('game-area'); if(area) area.innerHTML=html;
 }
 function _reviveAnswer(enc){
@@ -24444,7 +24444,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711145241 -->
+<!-- BUILD:20260711150009 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

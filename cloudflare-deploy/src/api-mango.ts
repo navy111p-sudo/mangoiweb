@@ -10248,9 +10248,23 @@ LIMIT $limit`;
         q += ` ORDER BY (status = 'pending') DESC, created_at DESC LIMIT ?`;
         binds.push(lim);
         const rs = await env.DB.prepare(q).bind(...binds).all();
+        const items = (rs.results || []) as any[];
+        // 🎤 발음 점수 자동 연결 — 학생이 speech-coach에서 남긴 최신 voice_coaching 점수를 오버레이(항상 최신)
+        try {
+          const uids = Array.from(new Set(items.filter(a => a.student_uid).map(a => a.student_uid)));
+          if (uids.length) {
+            const ph = uids.map(() => '?').join(',');
+            const vc = await env.DB.prepare(
+              `SELECT student_uid, pronunciation_score, MAX(created_at) AS mx FROM voice_coaching WHERE student_uid IN (${ph}) GROUP BY student_uid`
+            ).bind(...uids).all();
+            const pmap: Record<string, number> = {};
+            (vc.results || []).forEach((r: any) => { if (r.pronunciation_score != null) pmap[r.student_uid] = r.pronunciation_score; });
+            items.forEach(a => { if (a.pron_score == null && a.student_uid && pmap[a.student_uid] != null) a.pron_score = pmap[a.student_uid]; });
+          }
+        } catch (e) { /* voice_coaching 미존재 시 무시 */ }
         const cnt = await env.DB.prepare(`SELECT COUNT(*) AS n FROM leveltest_applications WHERE status = 'pending'`).all();
         const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
-        return json({ ok: true, items: rs.results || [], pending });
+        return json({ ok: true, items, pending });
       }
       // POST → 상태/배정/메모 업데이트
       const b = await parseJsonBody(request);
@@ -10266,6 +10280,100 @@ LIMIT $limit`;
       binds.push(Number(b.id));
       await env.DB.prepare(`UPDATE leveltest_applications SET ${fields.join(', ')} WHERE id = ?`).bind(...binds).run();
       return json({ ok: true });
+    }
+
+    // ─── 🧠 AI 자동 진단 (CEFR 객관식 배치테스트) ─────────────────────────────
+    //   변별력·객관성의 핵심: 문항은행과 채점을 서버가 소유(클라이언트 조작 불가).
+    //   레벨당 4문항(A1~C2, 총 24) · 천장기법(ceiling)으로 추정레벨 · 가중점수(0~100).
+    //   GET  /api/leveltest/questions            → 정답 없이 문항 전달
+    //   POST /api/leveltest/diagnose {answers,student_name,student_uid} → 서버채점 후 신청건에 자동첨부
+    const CEFR_BANK: Array<{ id: string; cefr: string; skill: string; q: string; choices: string[]; a: number }> = [
+      // A1
+      { id: 'a1_1', cefr: 'A1', skill: 'grammar', q: 'She ___ a student.', choices: ['be', 'am', 'is', 'are'], a: 2 },
+      { id: 'a1_2', cefr: 'A1', skill: 'vocab',   q: 'I have two ___.', choices: ['cat', 'cats', 'cates', 'caties'], a: 1 },
+      { id: 'a1_3', cefr: 'A1', skill: 'grammar', q: '___ is your name?', choices: ['What', 'Where', 'When', 'Who'], a: 0 },
+      { id: 'a1_4', cefr: 'A1', skill: 'grammar', q: 'They ___ to school every day.', choices: ['goes', 'going', 'go', 'went'], a: 2 },
+      // A2
+      { id: 'a2_1', cefr: 'A2', skill: 'grammar', q: 'I ___ TV when the phone rang.', choices: ['watch', 'watched', 'was watching', 'am watching'], a: 2 },
+      { id: 'a2_2', cefr: 'A2', skill: 'grammar', q: 'This book is ___ than that one.', choices: ['interesting', 'more interesting', 'most interesting', 'interestinger'], a: 1 },
+      { id: 'a2_3', cefr: 'A2', skill: 'grammar', q: 'We ___ finished our homework yet.', choices: ["didn't", "haven't", "don't", "aren't"], a: 1 },
+      { id: 'a2_4', cefr: 'A2', skill: 'grammar', q: 'If it rains, we ___ stay home.', choices: ['will', 'would', 'were', 'have'], a: 0 },
+      // B1
+      { id: 'b1_1', cefr: 'B1', skill: 'grammar', q: 'By the time we arrived, the movie ___.', choices: ['started', 'has started', 'had started', 'starts'], a: 2 },
+      { id: 'b1_2', cefr: 'B1', skill: 'grammar', q: 'He suggested ___ a taxi.', choices: ['to take', 'taking', 'take', 'took'], a: 1 },
+      { id: 'b1_3', cefr: 'B1', skill: 'grammar', q: "I'm not used to ___ up early.", choices: ['get', 'getting', 'got', 'gets'], a: 1 },
+      { id: 'b1_4', cefr: 'B1', skill: 'grammar', q: 'She asked me where ___.', choices: ['did I live', 'I lived', 'I live', 'lived I'], a: 1 },
+      // B2
+      { id: 'b2_1', cefr: 'B2', skill: 'grammar', q: '___ harder, he would have passed.', choices: ['If he studied', 'Had he studied', 'Did he study', 'He studied'], a: 1 },
+      { id: 'b2_2', cefr: 'B2', skill: 'grammar', q: 'The project, ___ took months, was a success.', choices: ['that', 'which', 'who', 'what'], a: 1 },
+      { id: 'b2_3', cefr: 'B2', skill: 'grammar', q: "I'd rather you ___ smoke in here.", choices: ["don't", "didn't", "won't", 'not'], a: 1 },
+      { id: 'b2_4', cefr: 'B2', skill: 'grammar', q: "It's high time we ___ a decision.", choices: ['make', 'made', 'making', 'have made'], a: 1 },
+      // C1
+      { id: 'c1_1', cefr: 'C1', skill: 'grammar', q: 'No sooner ___ than it started to rain.', choices: ['we had left', 'had we left', 'we left', 'did we leave'], a: 1 },
+      { id: 'c1_2', cefr: 'C1', skill: 'vocab',   q: "Closest in meaning to 'meticulous':", choices: ['careless', 'thorough', 'quick', 'rude'], a: 1 },
+      { id: 'c1_3', cefr: 'C1', skill: 'vocab',   q: 'The negotiations ___ down over the issue of pay.', choices: ['broke', 'fell', 'came', 'went'], a: 0 },
+      { id: 'c1_4', cefr: 'C1', skill: 'grammar', q: 'Little ___ that he was being watched.', choices: ['he knew', 'did he know', 'he did know', 'knew he'], a: 1 },
+      // C2
+      { id: 'c2_1', cefr: 'C2', skill: 'vocab',   q: "Closest in meaning to 'ubiquitous':", choices: ['rare', 'omnipresent', 'ancient', 'hidden'], a: 1 },
+      { id: 'c2_2', cefr: 'C2', skill: 'vocab',   q: 'Her argument was so ___ that no one could refute it.', choices: ['cogent', 'vague', 'trivial', 'mundane'], a: 0 },
+      { id: 'c2_3', cefr: 'C2', skill: 'vocab',   q: "'To throw in the towel' means to:", choices: ['give up', 'start a fight', 'clean up', 'win easily'], a: 0 },
+      { id: 'c2_4', cefr: 'C2', skill: 'grammar', q: 'Choose the correct sentence:', choices: ['Scarcely had I sat down when the bell rang.', 'Scarcely I had sat down when the bell rang.', 'Scarcely did I had sat down when the bell rang.', 'Scarcely I sat down when the bell rang.'], a: 0 },
+    ];
+    const CEFR_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    const CEFR_WEIGHT: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    if (method === 'GET' && path === '/api/leveltest/questions') {
+      // 정답(a)·skill 은 숨기고 문항만 전달
+      const questions = CEFR_BANK.map(x => ({ id: x.id, cefr: x.cefr, q: x.q, choices: x.choices }));
+      return json({ ok: true, questions, total: questions.length });
+    }
+    if (method === 'POST' && path === '/api/leveltest/diagnose') {
+      await ensureLtApps();
+      const b = await parseJsonBody(request);
+      const answers = (b && b.answers) || {};
+      const name = ((b && (b.student_name || b.name)) || '').toString().trim();
+      const uid = (b && (b.student_uid || b.uid)) || null;
+      // 서버 채점
+      const correctByLevel: Record<string, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
+      const totalByLevel: Record<string, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
+      let earned = 0, maxScore = 0, correctCount = 0;
+      for (const item of CEFR_BANK) {
+        totalByLevel[item.cefr]++;
+        maxScore += CEFR_WEIGHT[item.cefr];
+        const picked = answers[item.id];
+        if (picked != null && Number(picked) === item.a) {
+          correctByLevel[item.cefr]++;
+          earned += CEFR_WEIGHT[item.cefr];
+          correctCount++;
+        }
+      }
+      const ai_score = maxScore > 0 ? Math.round((earned / maxScore) * 100) : 0;
+      // 천장기법: A1→C2 로 올라가며 각 레벨 50%(2/4) 이상 통과한 마지막 레벨을 추정레벨로.
+      let level = 'Starter';
+      for (const L of CEFR_ORDER) {
+        if (totalByLevel[L] > 0 && correctByLevel[L] >= Math.ceil(totalByLevel[L] / 2)) level = L;
+        else break;
+      }
+      const breakdown = CEFR_ORDER.map(L => ({ cefr: L, correct: correctByLevel[L], total: totalByLevel[L] }));
+      // 신청건에 자동 첨부 (uid 우선 매칭 → 이름 → 없으면 새 신청 생성)
+      const now = Date.now();
+      let appId: number | null = null;
+      if (uid) {
+        const r = await env.DB.prepare(`SELECT id FROM leveltest_applications WHERE status = 'pending' AND student_uid = ? ORDER BY created_at DESC LIMIT 1`).bind(uid).all();
+        if (r.results && r.results[0]) appId = (r.results[0] as any).id;
+      }
+      if (appId == null && name) {
+        const r = await env.DB.prepare(`SELECT id FROM leveltest_applications WHERE status = 'pending' AND student_name = ? ORDER BY created_at DESC LIMIT 1`).bind(name).all();
+        if (r.results && r.results[0]) appId = (r.results[0] as any).id;
+      }
+      if (appId != null) {
+        await env.DB.prepare(`UPDATE leveltest_applications SET ai_score = ?, final_level = ?, updated_at = ? WHERE id = ?`).bind(ai_score, level, now, appId).run();
+      } else {
+        const ins = await env.DB.prepare(
+          `INSERT INTO leveltest_applications (student_name, student_uid, status, ai_score, final_level, source, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, 'ai-diagnosis', ?, ?)`
+        ).bind(name || (uid ? String(uid) : 'AI 진단'), uid, ai_score, level, now, now).run();
+        appId = ins.meta.last_row_id as number;
+      }
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId });
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
