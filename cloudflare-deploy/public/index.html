@@ -18827,6 +18827,28 @@ window.addEventListener('DOMContentLoaded', () => {
   };
   window.pwaDismiss = function(){ dismiss(0); };
 
+  // 📲 팝업 포스터 CTA → 실제 앱 설치 실행 (안드로이드 프롬프트 / iOS·기타 안내 재사용)
+  window.paInstallApp = async function(popupId){
+    try { if (window.paTrackClick && popupId) window.paTrackClick(popupId, '#install'); } catch(e){}
+    const isKo = (window.getLang ? window.getLang() : 'ko') === 'ko';
+    if (isStandalone()) {
+      alert(isKo ? '이미 앱이 설치돼 있어요! 홈 화면의 망고아이 아이콘으로 실행해 주세요 😊'
+                 : 'The app is already installed. Launch it from your home screen.');
+      return;
+    }
+    if (deferredPrompt) {                    // 안드로이드 크롬/엣지·데스크톱 크롬
+      try { deferredPrompt.prompt(); await deferredPrompt.userChoice; } catch(e){}
+      deferredPrompt = null; dismiss(0);
+      return;
+    }
+    if (isIOS()) { showIosInstall(); return; }   // 아이폰: 공유→홈 화면에 추가 안내
+    // 그 외(카카오톡 등 인앱 브라우저·미지원) → 안내
+    showAndroidInstall();
+    alert(isKo
+      ? '앱 설치 방법\n\n• 크롬/삼성인터넷: 화면 하단 "설치" 버튼 또는 브라우저 메뉴 → "앱 설치 / 홈 화면에 추가"\n• 카카오톡 등 인앱 화면: 우측 상단 메뉴에서 "다른 브라우저로 열기"(크롬) 후 설치'
+      : 'To install: tap the "Install" button below, or open the browser menu → "Install app / Add to Home Screen". In in-app browsers, open in Chrome first.');
+  };
+
   // 페이지 로드 후 iOS 안내 (Android는 이벤트 기다림)
   window.addEventListener('load', () => {
     if (isStandalone()) return;  // 이미 PWA 모드면 안 보임
@@ -18974,6 +18996,11 @@ window.addEventListener('DOMContentLoaded', () => {
     max-width: 100%; height: auto; border-radius: 8px;
     margin: 6px 0; display: block;
   }
+  /* 📲 포스터형(설치) 팝업 — 가장자리까지 꽉 채우고 하얀 여백·스크롤바 제거 */
+  .pa-modal.pa-poster .pa-body { padding: 0; overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
+  .pa-modal.pa-poster .pa-body::-webkit-scrollbar { width: 0; height: 0; display: none; }
+  .pa-modal.pa-poster .pa-body > a { display: block; line-height: 0; }
+  .pa-modal.pa-poster .pa-body img { margin: 0; border-radius: 0; width: 100%; display: block; }
   .pa-body video, .pa-body iframe {
     width: 100%; aspect-ratio: 16/9; height: auto;
   }
@@ -19079,6 +19106,8 @@ window.addEventListener('DOMContentLoaded', () => {
     m.style.width = w + 'px';
     m.style.height = h + 'px';
     m.dataset.popupId = p.id;
+    // 📲 포스터형(설치) 팝업: 가장자리까지 꽉 채우고 높이는 내용에 맞춤(스크롤/여백 제거)
+    if (p.link_url === '#install') { m.classList.add('pa-poster'); m.style.height = 'auto'; }
     // 같은 위치에 여러 개면 어긋나게
     if (offsetIndex > 0) {
       const dx = offsetIndex * 24, dy = offsetIndex * 24;
@@ -19092,7 +19121,13 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     // 본문 HTML 구성
     let bodyHtml = '';
-    if (p.image_url) bodyHtml += `<img src="${escAttr(p.image_url)}" alt="${escAttr(p.title)}" />`;
+    const _isInstall = (p.link_url === '#install');
+    if (p.image_url) {
+      const _img = `<img src="${escAttr(p.image_url)}" alt="${escAttr(p.title)}" />`;
+      bodyHtml += _isInstall
+        ? `<a href="javascript:void(0)" title="앱 설치하기" style="display:block;cursor:pointer" onclick="paInstallApp(${p.id});return false;">${_img}</a>`
+        : _img;
+    }
     if (p.video_url) {
       const isExternal = /^https?:\/\//.test(p.video_url) && !/\.(mp4|webm|mov)(\?|$)/i.test(p.video_url);
       if (isExternal) {
@@ -19105,7 +19140,9 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }
     if (p.body_html) bodyHtml += '<div style="margin-top:10px">' + p.body_html + '</div>';
-    if (p.link_url) {
+    if (_isInstall) {
+      // 포스터 이미지 자체가 설치 CTA (클릭 시 paInstallApp) — 별도 버튼 생략
+    } else if (p.link_url) {
       const txt = p.link_text || '자세히 보기 →';
       bodyHtml += `<div style="text-align:center;margin-top:14px"><a class="pa-link-btn" href="${escAttr(p.link_url)}" target="_blank" rel="noopener" onclick="paTrackClick(${p.id}, this.href)">${escapeText(txt)}</a></div>`;
     }
@@ -24455,7 +24492,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711161519 -->
+<!-- BUILD:20260711173220 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
