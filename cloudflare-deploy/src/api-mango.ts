@@ -1278,19 +1278,26 @@ export async function handleMangoApi(
       return json({ ok: true });
     }
 
-    if (path.startsWith('/api/kakao-id/') && method === 'GET') {
-      const userId = decodeURIComponent(path.replace('/api/kakao-id/', ''));
-      const row = await env.DB.prepare(
-        `SELECT user_id, role, username, kakao_id, phone, opted_in_at FROM kakao_ids WHERE user_id = ?`
-      ).bind(userId).first();
-      return json(row || null);
-    }
-
     if (path === '/api/kakao-id/teachers' && method === 'GET') {
+      // 🔐 [PII] 전 강사 전화번호 대량 노출 차단 — 관리자 전용
+      const ktAdmin = await checkAdminSession(request, env as any);
+      if (!ktAdmin.ok) return json({ ok: false, error: 'auth_required' }, 401);
       const rs = await env.DB.prepare(
         `SELECT user_id, username, kakao_id, phone FROM kakao_ids WHERE role = 'teacher' AND kakao_id IS NOT NULL`
       ).all();
       return json(rs.results || []);
+    }
+
+    if (path.startsWith('/api/kakao-id/') && method === 'GET') {
+      const userId = decodeURIComponent(path.replace('/api/kakao-id/', ''));
+      // 🔐 [PII] 임의 유저 전화번호 조회 차단 — 관리자 또는 본인 토큰만
+      const kAdmin = await checkAdminSession(request, env as any);
+      const kAuth = await authUidGlobal(request, url, env);
+      if (!kAdmin.ok && kAuth !== userId) return json({ ok: false, error: 'auth_required' }, 401);
+      const row = await env.DB.prepare(
+        `SELECT user_id, role, username, kakao_id, phone, opted_in_at FROM kakao_ids WHERE user_id = ?`
+      ).bind(userId).first();
+      return json(row || null);
     }
 
     // ===== 비상 이벤트 =====
@@ -11715,6 +11722,10 @@ LIMIT $limit`;
 
     if (path.startsWith('/api/consents/') && method === 'GET') {
       const userId = decodeURIComponent(path.replace('/api/consents/', ''));
+      // 🔐 [PII] 동의 이력(전화·IP·기기정보) 조회 차단 — 관리자 또는 본인 토큰만
+      const csAdmin = await checkAdminSession(request, env as any);
+      const csAuth = await authUidGlobal(request, url, env);
+      if (!csAdmin.ok && csAuth !== userId) return json({ ok: false, error: 'auth_required' }, 401);
       const row = await env.DB.prepare(
         `SELECT * FROM consents WHERE user_id = ? AND withdrawn_at IS NULL
          ORDER BY consented_at DESC LIMIT 1`
