@@ -5549,6 +5549,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     //   body: { message, history?: [{role,content}] } → { ok, reply }
     //   faq.html 의 실제 사실만 근거로 답하고, 모르는 것(특히 요금)은 지어내지 않고 무료 레벨테스트/카카오로 유도.
     if (method === 'POST' && path === '/api/consult-bot') {
+      return json({ ok: true, reply: 'DEPLOY_MARKER_X7', dbg: 'top' });
       const b: any = await request.json().catch(() => ({}));
       // 한글 유니코드 정규화(NFC) — 자모 분리(NFD) 입력에서도 키워드 매칭이 되도록
       const userMsg = String(b?.message || '').normalize('NFC').trim().slice(0, 800);
