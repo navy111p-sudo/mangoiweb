@@ -10316,8 +10316,103 @@ LIMIT $limit`;
     const ensureLtApps = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS leveltest_applications (id INTEGER PRIMARY KEY AUTOINCREMENT, student_name TEXT NOT NULL, student_uid TEXT, desired_date TEXT, desired_time TEXT, status TEXT DEFAULT 'pending', ai_score REAL, pron_score REAL, teacher_score REAL, final_level TEXT, assigned_teacher TEXT, source TEXT, note TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       // 선생님 1:1 평가(3번째 축) 컬럼 — 기존 테이블에도 idempotent 보강
-      for (const [col, type] of [['teacher_rubric', 'TEXT'], ['evaluated_by', 'TEXT'], ['evaluated_at', 'INTEGER']] as [string, string][]) {
+      // + 📱 연락처/이메일, 🧑‍🏫 자동배정 교사 상세, 🔔 교사 확인시각(마이페이지 빨간점 계산용)
+      for (const [col, type] of [
+        ['teacher_rubric', 'TEXT'], ['evaluated_by', 'TEXT'], ['evaluated_at', 'INTEGER'],
+        ['phone', 'TEXT'], ['student_email', 'TEXT'],
+        ['assigned_teacher_id', 'TEXT'], ['assigned_teacher_phone', 'TEXT'], ['assigned_teacher_email', 'TEXT'],
+        ['assigned_reason', 'TEXT'], ['teacher_seen_at', 'INTEGER'],
+      ] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE leveltest_applications ADD COLUMN ${col} ${type}`); } catch {}
+      }
+    };
+    // ── 🧑‍🏫 레벨테스트 교사 자동배정: 그 요일·시간 가능 교사 중 최고평가(동점 랜덤), 없으면 전체 최고평가 ──
+    //    반환: { id, name, phone, email, reason } | null
+    const autoAssignTeacher = async (desiredDate: string | null, desiredTime: string | null) => {
+      try {
+        // 요일(Mon..Sun) 계산 — desired_date 있을 때만 가용필터 적용
+        const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        let wantDay: string | null = null;
+        if (desiredDate && /^\d{4}-\d{2}-\d{2}$/.test(desiredDate)) {
+          const p = desiredDate.split('-').map(Number);
+          const dt = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+          wantDay = WD[dt.getUTCDay()];
+        }
+        const wantHour = desiredTime && /^\d{1,2}:/.test(desiredTime) ? parseInt(desiredTime, 10) : null;
+
+        // 활동중 교사 + 평가 평균(수업평가 class_ratings 우선, 없으면 익명칭찬 teacher_praises)
+        let rows: any[] = [];
+        try {
+          const rs: any = await env.DB.prepare(
+            `SELECT tp.id AS id, tp.korean_name AS name, tp.english_name AS en_name, tp.phone AS phone, tp.email AS email,
+                    tp.available_days AS days, tp.available_hours AS hours,
+                    (SELECT AVG(cr.score) FROM class_ratings cr WHERE cr.teacher_name = tp.korean_name OR cr.teacher_name = tp.english_name) AS rating_avg,
+                    (SELECT COUNT(*) FROM class_ratings cr WHERE cr.teacher_name = tp.korean_name OR cr.teacher_name = tp.english_name) AS rating_cnt,
+                    (SELECT AVG(pr.star_rating) FROM teacher_praises pr WHERE pr.teacher_name = tp.korean_name OR pr.teacher_name = tp.english_name) AS praise_avg
+               FROM teacher_profiles tp
+              WHERE tp.status IS NULL OR tp.status = '' OR tp.status IN ('활동중','재직')
+              LIMIT 500`
+          ).all();
+          rows = rs.results || [];
+        } catch { rows = []; }
+        if (!rows.length) return null;
+
+        const listMatch = (csv: any, token: string | null): boolean => {
+          if (!token) return true;                       // 요일/시간 미지정이면 통과
+          const s = String(csv || '').trim();
+          if (!s) return false;                          // 가용정보 없는 교사는 "가용필터"에선 탈락(폴백에서 구제)
+          return s.toLowerCase().split(/[,\s;/]+/).some(x => x && (x === token.toLowerCase() || x.startsWith(token.toLowerCase())));
+        };
+        const hourMatch = (csv: any, hour: number | null): boolean => {
+          if (hour == null) return true;
+          const s = String(csv || '').trim();
+          if (!s) return false;
+          // "16:00,17:00" / "16-21" / "16 17 18" 등 관용 표기 지원
+          const rangeM = s.match(/(\d{1,2})\s*[-~]\s*(\d{1,2})/);
+          if (rangeM) return hour >= parseInt(rangeM[1], 10) && hour <= parseInt(rangeM[2], 10);
+          return s.split(/[,\s;/]+/).map(x => parseInt(x, 10)).filter(n => !isNaN(n)).includes(hour);
+        };
+        // 그 요일·시간에 이미 수업이 잡힌 교사 id 집합(중복 배정 방지, best-effort)
+        const busy = new Set<string>();
+        if (wantDay && wantHour != null) {
+          try {
+            const bs: any = await env.DB.prepare(
+              `SELECT teacher_id FROM class_schedules WHERE (status IS NULL OR status='active') AND day_of_week = ? AND substr(start_time,1,2) = ?`
+            ).bind(wantDay.toLowerCase(), ('0' + wantHour).slice(-2)).all();
+            (bs.results || []).forEach((r: any) => { if (r.teacher_id != null) busy.add(String(r.teacher_id)); });
+          } catch {}
+        }
+
+        const scoreOf = (t: any): number => {
+          // class_ratings(0~5?) 우선. 칭찬 별점은 보조. 평가 없으면 중립값 2.5(신규교사 과도한 불이익 방지)
+          if (t.rating_avg != null) return Number(t.rating_avg);
+          if (t.praise_avg != null) return Number(t.praise_avg);
+          return 2.5;
+        };
+        const notBusy = (t: any) => !busy.has(String(t.id));
+        // 1순위: 요일+시간 가용 & 미배정
+        let pool = rows.filter(t => notBusy(t) && listMatch(t.days, wantDay) && hourMatch(t.hours, wantHour));
+        let reason = 'available_best_rated';
+        // 폴백: 가용정보로 걸러진 교사가 없으면 → 전체 활동중(중복만 제외) 최고평가
+        if (!pool.length) { pool = rows.filter(notBusy); reason = 'fallback_best_rated'; }
+        if (!pool.length) { pool = rows; reason = 'fallback_any'; }
+        if (!pool.length) return null;
+
+        // 최고평가로 정렬 → 동점(±0.05)이면 그중 랜덤
+        pool.sort((a, b) => scoreOf(b) - scoreOf(a) || (Number(b.rating_cnt || 0) - Number(a.rating_cnt || 0)));
+        const top = scoreOf(pool[0]);
+        const tied = pool.filter(t => Math.abs(scoreOf(t) - top) <= 0.05);
+        const pick = tied[Math.floor(Math.random() * tied.length)] || pool[0];
+        return {
+          id: pick.id != null ? String(pick.id) : null,
+          name: (pick.name || pick.en_name || '').toString(),
+          phone: (pick.phone || '').toString(),
+          email: (pick.email || '').toString(),
+          reason,
+        };
+      } catch (e: any) {
+        console.warn('[leveltest autoAssign] skipped:', e?.message || e);
+        return null;
       }
     };
     if (method === 'POST' && path === '/api/leveltest/apply') {
@@ -10326,17 +10421,134 @@ LIMIT $limit`;
       const name = ((b && (b.student_name || b.name)) || '').toString().trim();
       if (!name) return invalidBody(['student_name']);
       const now = Date.now();
+      const uid = (b && (b.student_uid || b.uid)) || null;
+      const desiredDate = ((b && (b.desired_date || b.date)) || '').toString().trim() || null;
+      const desiredTime = ((b && (b.desired_time || b.time)) || '').toString().trim() || null;
+      const phone = ((b && (b.phone || b.student_phone)) || '').toString().trim() || null;
+      const email = ((b && (b.email || b.student_email)) || '').toString().trim() || null;
+      const source = (b && b.source) || 'level-test';
+      const escapeHtmlLT = (s: any) => String(s == null ? '' : s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' } as any)[c]);
+
+      // 🧑‍🏫 자동배정 — 그 요일·시간 가능 교사 중 최고평가(없으면 전체 최고평가)
+      const teacher = await autoAssignTeacher(desiredDate, desiredTime);
+
       const r = await env.DB.prepare(
-        `INSERT INTO leveltest_applications (student_name, student_uid, desired_date, desired_time, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`
+        `INSERT INTO leveltest_applications (student_name, student_uid, desired_date, desired_time, phone, student_email, status, assigned_teacher, assigned_teacher_id, assigned_teacher_phone, assigned_teacher_email, assigned_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        name,
-        (b && (b.student_uid || b.uid)) || null,
-        (b && (b.desired_date || b.date)) || null,
-        (b && (b.desired_time || b.time)) || null,
-        (b && b.source) || 'level-test',
-        now, now
+        name, uid, desiredDate, desiredTime, phone, email,
+        teacher ? 'assigned' : 'pending',
+        teacher ? teacher.name : null,
+        teacher ? teacher.id : null,
+        teacher ? (teacher.phone || null) : null,
+        teacher ? (teacher.email || null) : null,
+        teacher ? teacher.reason : null,
+        source, now, now
       ).run();
-      return json({ ok: true, id: r.meta.last_row_id });
+      const appId = r.meta.last_row_id;
+
+      // 📅 예약 표시용 문자열
+      const whenLabel = (() => {
+        if (!desiredDate) return desiredTime || '일정 협의';
+        const p = desiredDate.split('-');
+        const wk = ['일', '월', '화', '수', '목', '금', '토'];
+        let dd = desiredDate;
+        try { const d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); dd = `${+p[1]}월 ${+p[2]}일(${wk[d.getUTCDay()]})`; } catch {}
+        return desiredTime ? `${dd} ${desiredTime}` : dd;
+      })();
+      const teacherLabel = teacher && teacher.name ? teacher.name : '담당 선생님';
+
+      // 🔔 알림은 모두 best-effort — 실패해도 신청 자체는 성공 처리
+      // 1) 신청자 확정 안내: 알림톡(템플릿 있으면) → 문자 폴백
+      if (phone) {
+        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 확정됐어요!\n📅 ${whenLabel}\n👩‍🏫 담당: ${teacherLabel}\n예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다.\n문의: pf.kakao.com/_mangoi`;
+        try {
+          const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
+          if (tmpl) {
+            await sendKakaoAlimtalk(env, {
+              templateCode: tmpl, recipientPhone: phone, recipientName: name,
+              variables: { '#{학생명}': name, '#{예약일시}': whenLabel, '#{담당교사}': teacherLabel },
+              fallbackSmsText: smsText,
+              logContext: uid ? { userId: String(uid), reason: 'leveltest' } : undefined,
+            });
+          } else {
+            await sendPlainSms(env, phone, smsText);
+          }
+        } catch (e: any) { console.warn('[leveltest] applicant notify skipped:', e?.message || e); }
+      }
+      // 2) 관리자(필리핀) 이메일 알림 — 한/영 이중언어
+      try {
+        const adminTo = (env as any).LEVELTEST_ADMIN_EMAIL;
+        if (adminTo) {
+          const html = emailLayout({
+            title: '🎯 새 레벨테스트 신청 · New Level Test Request',
+            bodyHtml: `
+              <p><b>새 레벨테스트 신청이 접수되었습니다.</b><br>A new level test request has been received.</p>
+              <table cellpadding="6" style="border-collapse:collapse;margin:10px 0;font-size:13.5px">
+                <tr><td style="color:#64748b">학생 · Student</td><td><b>${escapeHtmlLT(name)}</b></td></tr>
+                <tr><td style="color:#64748b">희망일시 · When</td><td>${escapeHtmlLT(whenLabel)}</td></tr>
+                <tr><td style="color:#64748b">연락처 · Phone</td><td>${escapeHtmlLT(phone || '-')}</td></tr>
+                <tr><td style="color:#64748b">배정교사 · Teacher</td><td>${escapeHtmlLT(teacherLabel)}${teacher && teacher.reason === 'fallback_best_rated' ? ' <span style="color:#f59e0b">(시간대 가용 교사 없음 → 최고평가 배정 · no time-match, assigned top-rated)</span>' : ''}</td></tr>
+              </table>
+              <p style="font-size:12.5px;color:#64748b">관리자 페이지 → 레벨테스트 신청 현황에서 확인/변경할 수 있습니다.<br>Review or reassign in Admin → Level Test Applications.</p>`,
+          });
+          await sendEmail(env, { to: adminTo, subject: `[망고아이] 새 레벨테스트 신청 · New Level Test — ${name}`, html });
+        }
+      } catch (e: any) { console.warn('[leveltest] admin email skipped:', e?.message || e); }
+      // 3) 배정 교사 알림 — 이메일 + 문자/알림톡 (마이페이지 빨간점은 teacher_seen_at 미설정으로 자동)
+      if (teacher) {
+        const tMsg = `[망고아이] 새 레벨테스트가 배정됐어요.\n👦 학생: ${name}\n📅 ${whenLabel}\n마이페이지에서 확인해 주세요.`;
+        try { if (teacher.phone) await sendPlainSms(env, teacher.phone, tMsg); } catch (e: any) { console.warn('[leveltest] teacher sms skipped:', e?.message || e); }
+        try {
+          if (teacher.email) {
+            const html = emailLayout({
+              title: '🧑‍🏫 새 레벨테스트 배정 · New Level Test Assigned',
+              bodyHtml: `
+                <p><b>${escapeHtmlLT(teacher.name)}</b> 선생님, 새 레벨테스트가 배정되었습니다.<br>A new level test has been assigned to you.</p>
+                <table cellpadding="6" style="border-collapse:collapse;margin:10px 0;font-size:13.5px">
+                  <tr><td style="color:#64748b">학생 · Student</td><td><b>${escapeHtmlLT(name)}</b></td></tr>
+                  <tr><td style="color:#64748b">일시 · When</td><td>${escapeHtmlLT(whenLabel)}</td></tr>
+                </table>
+                <p style="font-size:12.5px;color:#64748b">마이페이지에서 상세를 확인하세요. · Check details in your My Page.</p>`,
+            });
+            await sendEmail(env, { to: teacher.email, subject: `[망고아이] 새 레벨테스트 배정 · New assignment — ${name}`, html });
+          }
+        } catch (e: any) { console.warn('[leveltest] teacher email skipped:', e?.message || e); }
+      }
+
+      return json({ ok: true, id: appId, assigned_teacher: teacher ? teacher.name : null, scheduled: whenLabel });
+    }
+    // ── 🧑‍🏫 교사 마이페이지: 나에게 배정된 레벨테스트 목록 + 미확인 배지 ──
+    //   GET  /api/teacher/leveltest-assignments?teacher_name=이름[&teacher_id=]  → { items, unseen }
+    //   POST /api/teacher/leveltest-assignments  { teacher_name|teacher_id, seen:true }  → 빨간점 제거(확인처리)
+    if (path === '/api/teacher/leveltest-assignments') {
+      await ensureLtApps();
+      const tname = (url.searchParams.get('teacher_name') || (method === 'POST' ? '' : '')).toString().trim();
+      const tid = (url.searchParams.get('teacher_id') || '').toString().trim();
+      if (method === 'GET') {
+        if (!tname && !tid) return invalidBody(['teacher_name']);
+        const where: string[] = []; const binds: any[] = [];
+        if (tid)   { where.push('assigned_teacher_id = ?'); binds.push(tid); }
+        if (tname) { where.push('assigned_teacher = ?');    binds.push(tname); }
+        const rs = await env.DB.prepare(
+          `SELECT id, student_name, desired_date, desired_time, phone, status, assigned_reason, teacher_seen_at, created_at
+             FROM leveltest_applications WHERE (${where.join(' OR ')}) ORDER BY created_at DESC LIMIT 100`
+        ).bind(...binds).all();
+        const items = (rs.results || []) as any[];
+        const unseen = items.filter(a => !a.teacher_seen_at || a.created_at > a.teacher_seen_at).length;
+        return json({ ok: true, items, unseen });
+      }
+      // POST → 확인처리(빨간점 제거)
+      const bb = await parseJsonBody(request);
+      const bn = ((bb && bb.teacher_name) || '').toString().trim();
+      const bi = ((bb && bb.teacher_id) || '').toString().trim();
+      if (!bn && !bi) return invalidBody(['teacher_name']);
+      const where: string[] = []; const binds: any[] = [];
+      if (bi) { where.push('assigned_teacher_id = ?'); binds.push(bi); }
+      if (bn) { where.push('assigned_teacher = ?');    binds.push(bn); }
+      await env.DB.prepare(
+        `UPDATE leveltest_applications SET teacher_seen_at = ? WHERE (${where.join(' OR ')}) AND (teacher_seen_at IS NULL OR teacher_seen_at < created_at)`
+      ).bind(Date.now(), ...binds).run();
+      return json({ ok: true });
     }
     if (path === '/api/admin/leveltest/applications') {
       await ensureLtApps();
