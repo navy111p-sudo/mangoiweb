@@ -13,7 +13,7 @@
   // ========== 키워드 → 액션 룰 (오프라인 fallback) ==========
   const RULES = [
     // ℹ️ 망고아이 소개 (About 오버레이) — 최상단(‘소개’가 특장점보다 먼저 잡히도록)
-    { kws:['망고아이란','망고아이 소개','망고아이소개','망고아이에 대해','망고아이 대해','망고아이가 뭐','망고아이 뭐','회사 소개','회사소개','서비스 소개','서비스소개','어떤 곳','about mangoi','소개'], action: () => { if (typeof window.openAboutMangoi==='function') window.openAboutMangoi(); }, label:'ℹ️ 망고아이 소개' },
+    { kws:['망고아이란','망고아이 소개','망고아이소개','망고아이에 대해','망고아이 대해','망고아이가 뭐','망고아이 뭐','회사 소개','회사소개','서비스 소개','서비스소개','어떤 곳','about mangoi','mangoi','망고아이','소개'], action: () => { if (typeof window.openAboutMangoi==='function') window.openAboutMangoi(); }, label:'ℹ️ 망고아이 소개' },
     // 🧑‍💼 AI 상담사(아바타 위젯) — ‘상담사’가 신규상담(inquiry)보다 먼저 잡히도록 상단
     { kws:['상담사','ai 상담사','ai상담사','에이아이 상담사','상담 직원','상담직원','아바타 상담','아바타상담','ai 비서','ai비서','인공지능 상담'], action: () => { var w=document.getElementById('mangoi-widget'); if(w) w.click(); }, label:'🧑‍💼 AI 상담사' },
     // 🔐 로그인

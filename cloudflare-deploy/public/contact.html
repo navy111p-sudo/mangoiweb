@@ -33,11 +33,15 @@
   .contact-card .v{font-size:14px;color:#fbbf24;font-weight:800;margin-bottom:4px;word-break:break-all}
   .contact-card .d{font-size:12px;color:#a3b3d1}
 
-  /* 카카오 상담 카드 강조 (카카오 옐로우) */
-  .contact-card.kakao{background:linear-gradient(160deg,rgba(254,229,0,0.16),rgba(20,41,80,0.7));border-color:rgba(254,229,0,0.55)}
-  .contact-card.kakao:hover{border-color:#fee500;box-shadow:0 12px 30px -8px rgba(254,229,0,0.35)}
+  /* 카카오 상담 카드 강조 (카카오 옐로우 배너) */
+  .contact-card.kakao{grid-column:1/-1;background:linear-gradient(135deg,rgba(254,229,0,0.22),rgba(20,41,80,0.72) 70%);border-color:rgba(254,229,0,0.6);padding:26px 20px}
+  .contact-card.kakao:hover{border-color:#fee500;box-shadow:0 14px 34px -8px rgba(254,229,0,0.4)}
   .contact-card.kakao .v{color:#fee500}
-  .kakao-cta{margin-top:12px;display:inline-flex;align-items:center;gap:6px;padding:10px 18px;background:#fee500;color:#191600;font-weight:900;font-size:14px;border-radius:99px;box-shadow:0 4px 12px -3px rgba(254,229,0,0.5)}
+  .kakao-bubble{width:66px;height:66px;margin:0 auto 12px;border-radius:22px;background:#fee500;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px -5px rgba(254,229,0,0.6);animation:bubbleBob 2.4s ease-in-out infinite}
+  .kakao-bubble svg{width:40px;height:40px;fill:#3c1e1e}
+  @keyframes bubbleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .kakao-cta{margin-top:14px;display:inline-flex;align-items:center;gap:6px;padding:12px 26px;background:#fee500;color:#191600;font-weight:900;font-size:15px;border-radius:99px;box-shadow:0 4px 12px -3px rgba(254,229,0,0.5);animation:ctaPulse 1.8s ease-out infinite}
+  @keyframes ctaPulse{0%{box-shadow:0 0 0 0 rgba(254,229,0,0.5)}70%{box-shadow:0 0 0 14px rgba(254,229,0,0)}100%{box-shadow:0 0 0 0 rgba(254,229,0,0)}}
   .contact-card.kakao:hover .kakao-cta{transform:translateY(-1px)}
 
   /* 음성 메시지 카드 */
@@ -91,11 +95,13 @@
       <div class="d" data-ko="평일 09:00 - 22:00" data-en="Weekdays 09:00 - 22:00">평일 09:00 - 22:00</div>
     </a>
     <a class="contact-card kakao" id="kakao-card" href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener">
-      <span class="ico">💬</span>
+      <div class="kakao-bubble" aria-hidden="true">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C6.5 3 2 6.6 2 10.4c0 2.5 1.7 4.7 4.3 6-.2.6-.7 2.5-.8 2.9-.1.5.2.5.4.4.3-.2 3-2 4-2.7.7.1 1.4.1 2.1.1 5.5 0 10-3.6 10-7.7C22 6.6 17.5 3 12 3z"/></svg>
+      </div>
       <h3 data-ko="카카오톡 상담" data-en="KakaoTalk Chat">카카오톡 상담</h3>
       <div class="v">@망고아이</div>
-      <div class="d" data-ko="실시간 채팅 상담" data-en="Real-time chat">실시간 채팅 상담</div>
-      <span class="kakao-cta" data-ko="1:1 상담 시작하기 →" data-en="Start 1:1 Chat →">1:1 상담 시작하기 →</span>
+      <div class="d" data-ko="실시간 채팅 상담 · 보통 몇 분 내 답변" data-en="Real-time chat · usually replies in minutes">실시간 채팅 상담 · 보통 몇 분 내 답변</div>
+      <span class="kakao-cta" data-ko="💬 1:1 상담 시작하기 →" data-en="💬 Start 1:1 Chat →">💬 1:1 상담 시작하기 →</span>
     </a>
     <a class="contact-card" href="#" onclick="alert('원격지원 안내는 카카오로 연락 주세요.'); return false;">
       <span class="ico">💻</span>
@@ -157,7 +163,7 @@
   document.addEventListener('DOMContentLoaded', updateLangBtn);
 </script>
 
-<!-- BUILD:20260711183603 -->
+<!-- BUILD:20260711183918 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

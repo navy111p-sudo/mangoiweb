@@ -1247,7 +1247,7 @@ export async function executeAction(
 type StudentRoute = { kws: string[]; url?: string; view?: string; run?: string; action?: string; label: string };
 export const STUDENT_ROUTES: StudentRoute[] = [
   // ℹ️ 망고아이 소개 (About 오버레이) — "망고아이란/소개" 버튼과 동일
-  { kws: ['망고아이란', '망고아이 소개', '망고아이소개', '망고아이에 대해', '망고아이 대해', '망고아이가 뭐', '망고아이 뭐', '회사 소개', '회사소개', '서비스 소개', '서비스소개', '어떤 곳', '어떤곳', 'about mangoi', 'about'], run: 'openAboutMangoi', label: 'ℹ️ 망고아이 소개' },
+  { kws: ['망고아이란', '망고아이 소개', '망고아이소개', '망고아이에 대해', '망고아이 대해', '망고아이가 뭐', '망고아이 뭐', '회사 소개', '회사소개', '서비스 소개', '서비스소개', '어떤 곳', '어떤곳', 'about mangoi', 'mangoi', '망고아이', 'about'], run: 'openAboutMangoi', label: 'ℹ️ 망고아이 소개' },
   // 🧑‍💼 AI 상담사(아바타 위젯) — '상담사'가 신규상담(inquiry)보다 먼저 잡히도록 상단
   { kws: ['상담사', 'ai 상담사', 'ai상담사', '에이아이 상담사', '상담 직원', '상담직원', '아바타 상담', '아바타상담', 'ai 비서', 'ai비서', '인공지능 상담'], run: 'openAiConsultant', label: '🧑‍💼 AI 상담사' },
   // 🔐 로그인
