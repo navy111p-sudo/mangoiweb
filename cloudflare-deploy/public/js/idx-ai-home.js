@@ -13,6 +13,8 @@
   // ========== 키워드 → 액션 룰 (오프라인 fallback) ==========
   const RULES = [
     // ═══ 전체메뉴 항목 직접 매칭 (이름 + 유사어) — 최우선 ═══
+    // 🎮 학생게임 허브 (student-games.html) — "게임"류 요청 최우선 라우팅
+    { kws:['학생게임','학생 게임','학생용 게임','게임','게임하기','게임 하기','미니게임','미니 게임','학습게임','학습 게임','영어게임','영어 게임','게임장','게임 하러','게임할래','게임 열어','게임 페이지','오락','놀이','game','games','play game'], action: () => location.href='/student-games.html', label:'🎮 학생게임' },
     { kws:['포인트','포인트상점','포인트 상점','포인트샵','포인트 샵','포인트몰','기프트','기프티콘','기프티쇼','선물','상점','쇼핑','리워드','적립','마일리지','교환','point','points','gift','shop','reward'], action: () => { if (typeof window.showPointsShop==='function') window.showPointsShop(); }, label:'🎁 포인트 상점' },
     { kws:['주간 스케줄','주간스케줄','내 스케줄','내스케줄','스케줄','시간표','주간 시간표','내 수업 일정','수업 일정','일정표','schedule','timetable'], action: () => location.href='/admin/weekly-schedule.html?role=student', label:'📅 내 주간 스케줄' },
     { kws:['학생관리','학생 관리','학생목록','학생 목록','학생리스트','학생 명단','반 학생','students'], action: () => location.href='/admin/students.html', label:'👨‍🎓 학생 관리' },
