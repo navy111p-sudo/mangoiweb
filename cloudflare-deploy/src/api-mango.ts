@@ -5550,7 +5550,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     //   faq.html 의 실제 사실만 근거로 답하고, 모르는 것(특히 요금)은 지어내지 않고 무료 레벨테스트/카카오로 유도.
     if (method === 'POST' && path === '/api/consult-bot') {
       const b: any = await request.json().catch(() => ({}));
-      const userMsg = String(b?.message || '').trim().slice(0, 800);
+      // 한글 유니코드 정규화(NFC) — 자모 분리(NFD) 입력에서도 키워드 매칭이 되도록
+      const userMsg = String(b?.message || '').normalize('NFC').trim().slice(0, 800);
       if (!userMsg) return json({ ok: false, error: 'message_required' }, 400);
       const history = Array.isArray(b?.history)
         ? b.history.slice(-6).filter((m: any) => m && m.role && m.content)
@@ -5599,7 +5600,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         if (f.kw.some((k) => userMsg.indexOf(k) >= 0)) { hits.push(f.a); if (hits.length >= 2) break; }
       }
       if (hits.length) {
-        return json({ ok: true, reply: hits.join('\n\n') });
+        return json({ ok: true, reply: hits.join('\n\n'), dbg: 'faq' });
       }
       // 매칭 안 되는 자유 질문 → 전체 지식으로 LLM 시도(best-effort), 실패/불확실 시 카톡 유도
       const SYSTEM = [
