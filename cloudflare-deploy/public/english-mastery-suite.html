@@ -1489,8 +1489,21 @@
   function resetLine(){ var rt=rodTipPos();   // 평소: 바늘이 물속에 드리워짐 — 실사 배는 배 크기에 비례해 줄 길이 조절
     var drop = boatEl.classList.contains('real') ? fisherCv.getBoundingClientRect().height*1.15 : 118;
     setLine(rt.x, rt.y+drop); }
-  // 창 크기 변경(PC↔모바일 브레이크포인트)으로 배 크기가 바뀌면 줄·바늘을 낚싯대 끝에 다시 맞춤
-  window.addEventListener('resize', function(){ if($('#fish').classList.contains('active')) resetLine(); });
+  // 🐟 화면 크기/회전 변경 시 물고기를 새 필드 크기에 맞춰 비율대로 재배치(옛 위치에 몰리는 것 방지 → 물 전체로 유지)
+  function relayoutFish(){
+    var fw=FI.field.clientWidth, fh=FI.field.clientHeight;
+    if(!FI.fieldW || !FI.fieldH || fw<40 || fh<40) return;
+    var sx=fw/FI.fieldW, sy=fh/FI.fieldH;
+    if(Math.abs(sx-1)<0.02 && Math.abs(sy-1)<0.02) return;   // 변화 미미하면 무시
+    FI.fish.forEach(function(f){
+      f.x=Math.max(8,Math.min(fw-92, f.x*sx)); f.y=Math.max(80,Math.min(fh-96, f.y*sy));
+      if(f.home){ f.home.x=Math.max(8,Math.min(fw-92, f.home.x*sx)); f.home.y=Math.max(80,Math.min(fh-96, f.home.y*sy)); }
+      if(f.el){ f.el.style.left=f.x+'px'; f.el.style.top=f.y+'px'; }
+    });
+    FI.fieldW=fw; FI.fieldH=fh;
+  }
+  // 창 크기 변경(PC↔모바일 브레이크포인트)으로 배 크기가 바뀌면 줄·바늘을 낚싯대 끝에 다시 맞춤 + 물고기 재배치
+  window.addEventListener('resize', function(){ if($('#fish').classList.contains('active')){ relayoutFish(); resetLine(); } });
 
   function fishStart(){
     var cfg=fishCfg();
@@ -1961,6 +1974,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711195120 -->
+<!-- BUILD:20260711195202 -->
 </body>
 </html>
