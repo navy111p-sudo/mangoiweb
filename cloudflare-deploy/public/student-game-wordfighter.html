@@ -28,7 +28,7 @@
   #whiteflash.on{opacity:1}
 
   /* ===== HUD (유리 스타일 + 큰 글자) ===== */
-  .hud{position:relative;z-index:20;display:flex;align-items:center;gap:8px 11px;padding:6px 12px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.55);backdrop-filter:blur(8px);flex-wrap:wrap}
+  .hud{position:relative;z-index:20;display:flex;align-items:center;gap:8px 11px;padding:6px 50px 6px 12px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.55);backdrop-filter:blur(8px);flex-wrap:wrap}
   .title{font-size:14px;font-weight:900;color:var(--accent);letter-spacing:.3px;text-shadow:0 1px 3px #000}
   .stat{display:flex;flex-direction:column;line-height:1.1}
   .stat .lab{font-size:11px;color:var(--sub);font-weight:700}
@@ -69,7 +69,9 @@
   .chip.pending{background:rgba(10,14,26,.75);color:var(--sub);border-color:var(--line)}
 
   /* ===== ⚙️ 설정 바텀시트 (언어·속도·음악 — 게임 필드를 밀어내지 않는 오버레이) ===== */
-  #gearBtn{font-size:15px;line-height:1;padding:5px 10px}
+  /* 기어는 HUD 우상단 고정(flex 흐름에서 빼 한 줄 유지 보장) */
+  #gearBtn{position:absolute;right:9px;top:50%;transform:translateY(-50%);z-index:21;font-size:15px;line-height:1;padding:5px 10px}
+  #gearBtn:active{transform:translateY(-50%) scale(.92)}
   .sheet-backdrop{position:absolute;inset:0;z-index:39;background:rgba(2,4,9,.5);opacity:0;pointer-events:none;transition:opacity .25s}
   .sheet-backdrop.on{opacity:1;pointer-events:auto}
   .sheet{position:absolute;left:0;right:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(22,16,26,.98),rgba(8,6,12,.99));border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:8px 18px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(112%);transition:transform .28s cubic-bezier(.2,.7,.3,1);box-shadow:0 -14px 44px rgba(0,0,0,.6)}
@@ -191,21 +193,24 @@
 
   /* 좁은 화면 보정 — 상단 HUD를 최대한 압축해 좀비 필드를 크게 (세로 좁은 폰 + 가로 낮은 폰) */
   @media (max-width:560px),(max-height:640px){
-    /* ── HUD: 제목·점수·생명·웨이브·언어·속도·타이머 ── */
-    .hud{padding:5px 9px;gap:5px 8px}
-    .title{font-size:12px}
+    /* ── HUD: 제목·점수·생명·웨이브·타이머 (한 줄 유지가 최우선) ── */
+    .hud{padding:5px 46px 5px 8px;gap:4px 5px}
+    /* 좁은 폰에선 제목을 🧟 아이콘만 남겨 폭 절약 */
+    .title{font-size:0}
+    .title::before{content:'🧟';font-size:16px}
     .stat{line-height:1}
     .stat .lab{font-size:9px}
     .stat .val{font-size:16px}
     .lives{font-size:15px;gap:1px}
-    .lvlpill{font-size:11px;padding:3px 9px}
+    .lvlpill{font-size:11px;padding:3px 7px}
     .bookpill{font-size:10px;padding:3px 8px;max-width:34vw}
     .hudbtn{font-size:11px;padding:4px 8px}
-    /* ── 단계 미니 스텝퍼 ── */
+    /* ── 단계 미니 스텝퍼: 폰에선 라벨 숨기고 번호 점만(한 줄 유지) ── */
     .phasemini{gap:3px}
-    .pstep{font-size:10px;padding:2px 6px;gap:2px}
+    .pstep{font-size:10px;padding:2px 0;gap:0;width:16px;height:16px;justify-content:center;border-radius:50%}
+    .pstep .pl{display:none !important}
     .pstep .n{font-size:10px}
-    #gearBtn{font-size:13px;padding:4px 8px}
+    #gearBtn{font-size:14px;padding:4px 8px;right:7px}
     /* ── 목표 문장바 ── */
     .target{padding:4px 8px;gap:5px}
     .target .hint{font-size:10.5px;margin-bottom:0}
@@ -779,6 +784,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711184640 -->
+<!-- BUILD:20260711185540 -->
 </body>
 </html>
