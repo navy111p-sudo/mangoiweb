@@ -261,6 +261,49 @@ export async function checkAdminSession(request: Request, env: AuthEnv): Promise
 }
 
 // ────────────────────────────────────────────────────────────
+// 🪪 서버 권위 역할 판정 (민감 API 본인-스코프 강제용)
+// ────────────────────────────────────────────────────────────
+//   급여·평가 같은 민감 데이터는 "본인만"을 반드시 서버에서 강제해야 한다.
+//   (클라이언트 admin.html 의 화면 필터는 개발자도구·직접 API 호출로 우회 가능)
+//   이 헬퍼는 현재 세션의 계정명 + 스코프로 권위 있는 role 을 판정해 돌려준다.
+export interface AdminActor {
+  ok: boolean;
+  username: string;
+  name: string;     // admin_account.name — 강사면 급여/평가 데이터의 강사명과 매칭에 사용
+  role: string;     // teacher | hq | franchise | branch | agency | staff | none
+  isTeacher: boolean;
+}
+
+export async function getAdminActor(request: Request, env: AuthEnv): Promise<AdminActor> {
+  const sess = await checkAdminSession(request, env);
+  if (!sess.ok || !sess.username) {
+    return { ok: false, username: '', name: '', role: 'none', isTeacher: false };
+  }
+  let name = '';
+  try {
+    const acc = await env.DB.prepare(
+      `SELECT name FROM admin_account WHERE username = ? LIMIT 1`
+    ).bind(sess.username).first<{ name: string }>();
+    name = acc?.name || '';
+  } catch (e) { console.warn('[auth-admin] getAdminActor name:', (e as any)?.message); }
+  let scopeType = 'none';
+  try {
+    const sc = await getScope(env as any, request);
+    scopeType = sc.type;
+  } catch (e) { console.warn('[auth-admin] getAdminActor scope:', (e as any)?.message); }
+  const rr = resolveRole(scopeType, sess.username, name);
+  return { ok: true, username: sess.username, name, role: rr.role, isTeacher: rr.role === 'teacher' };
+}
+
+// 강사 계정 name 과 데이터 행의 강사명이 동일인인지(공백·대소문자 무시) 비교.
+//   급여/평가 테이블의 teacher_name·korean_name·english_name 등과 매칭할 때 사용.
+export function sameTeacherName(a?: string | null, b?: string | null): boolean {
+  const na = String(a ?? '').trim().toLowerCase();
+  const nb = String(b ?? '').trim().toLowerCase();
+  return !!na && na === nb;
+}
+
+// ────────────────────────────────────────────────────────────
 // 🚪 8개 엔드포인트 디스패처
 // ────────────────────────────────────────────────────────────
 export async function handleAdminAuthApi(

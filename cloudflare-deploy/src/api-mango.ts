@@ -5539,7 +5539,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         ? b.history.slice(-6).filter((m: any) => m && m.role && m.content)
             .map((m: any) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content).slice(0, 800) }))
         : [];
-      const KNOWLEDGE = [
+      const KNOWLEDGE_ARR = [
         '- 망고아이(Mangoi)는 원어민(필리핀 현지센터 + 북미 재택) 선생님과 함께하는 1:1·그룹 화상영어 + AI 학습관리(수업 후 AI 평가서·맞춤 복습퀴즈·단계별 발음교정).',
         '- 대상: 어린이·청소년·성인 모두.',
         '- 상담(운영) 시간: 오전 10시~오후 8시(주말·공휴일 휴무). 수업 시간: 평일 월~금 오후 2시~11시(14:00~23:00). 주말·오전반은 준비 중.',
@@ -5556,23 +5556,34 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         '- 수강 요금(가격): 과정·횟수에 따라 달라 공개된 표준가가 없음. → 절대 특정 금액을 지어내지 말 것. 무료 레벨테스트 후 맞춤 안내 또는 카카오 채널 문의로 유도.',
         '- 사람 상담: 전화 상담은 운영하지 않음. 사람 연결이 필요하면 카카오 채널(@망고아이, 화면 우하단 상담 버튼) 안내.',
         '- 단체·학원 단위 수강: 카카오 채널 또는 상담 신청으로 문의 유도.',
-      ].join('\n');
+      ];
+      const KNOWLEDGE = KNOWLEDGE_ARR.join('\n');
+      // 🔎 질문 키워드로 관련 사실을 앞으로 끌어오는 간단 검색 — 모델이 정확한 수치/규정을 놓치지 않게
+      const qWords: string[] = userMsg.match(/[가-힣A-Za-z0-9]{2,}/g) || [];
+      const relevant = KNOWLEDGE_ARR
+        .map((line) => ({ line, s: qWords.reduce((a, w) => a + (line.indexOf(w) >= 0 ? 1 : 0), 0) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 4)
+        .map((x) => x.line);
       const SYSTEM = [
-        "당신은 '망고아이(Mangoi)' 화상영어의 친절한 AI 상담 도우미입니다. 아래 [정보]를 근거로, 한국어로 짧고 따뜻하게 답하세요.",
+        "당신은 '망고아이(Mangoi)' 화상영어의 친절한 AI 상담 도우미입니다. 아래 정보를 근거로, 한국어로 짧고 따뜻하게 답하세요.",
         '규칙:',
-        '1) 사용자의 질문에 **직접, 구체적으로** 답하세요. 시간·요일·숫자·규정처럼 [정보]에 있는 사실은 얼버무리지 말고 정확히 그대로 말하세요. (예: 수업 시간을 물으면 "평일 월~금 오후 2시~11시"라고 정확히 답하기)',
-        '2) 회사 소개를 반복하거나 모든 질문을 카카오로 미루지 마세요. [정보]로 답할 수 있으면 반드시 직접 답하고, 그 다음에 필요하면 짧게 안내를 덧붙이세요.',
-        '3) [정보]에 없는 내용(특히 정확한 요금·가격)만 지어내지 말고 "정확한 안내는 무료 레벨테스트나 카카오 채널로 도와드릴게요"라고 하세요.',
+        '1) 사용자의 질문에 **직접, 구체적으로** 답하세요. 시간·요일·숫자·규정처럼 정보에 있는 사실은 얼버무리지 말고 정확히 그대로 말하세요. (예: 수업 시간을 물으면 "평일 월~금 오후 2시~11시"라고 정확히 답하기)',
+        '2) [핵심 정보]에 답이 있으면 반드시 그것을 근거로 먼저 답하세요. 회사 소개만 반복하거나 모든 질문을 카카오로 미루지 마세요.',
+        '3) 정보에 없는 내용(특히 정확한 요금·가격)만 지어내지 말고 "정확한 안내는 무료 레벨테스트나 카카오 채널로 도와드릴게요"라고 하세요.',
         '4) 전화 상담은 운영하지 않습니다. 사람 연결이 필요할 때만 "카카오 채널(화면 우하단 상담 버튼)"을 권하세요.',
         '5) 2~4문장으로 간결하게. 확실하지 않으면 확실한 척 하지 마세요.',
-        '[정보]',
+        ...(relevant.length ? ['', '[핵심 정보 — 이 질문과 가장 관련됨, 여기서 정확히 답하세요]', relevant.join('\n')] : []),
+        '',
+        '[전체 정보]',
         KNOWLEDGE,
       ].join('\n');
       const fallback = '지금은 AI 답변이 잠깐 어려워요. 화면 우하단 카카오 채널이나 아래 상담 폼으로 남겨주시면 바로 도와드릴게요! 무료 레벨테스트도 추천드려요 🙂';
       try {
         if (!(env as any).AI) return json({ ok: true, reply: fallback });
         const messages = [{ role: 'system', content: SYSTEM }, ...history, { role: 'user', content: userMsg }];
-        const res: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages, max_tokens: 480 });
+        const res: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages, max_tokens: 480, temperature: 0.3 });
         let reply = String((res && (res.response || res.result)) || '').trim();
         if (!reply) reply = fallback;
         return json({ ok: true, reply });
