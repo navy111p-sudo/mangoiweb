@@ -1047,6 +1047,10 @@ const worker = {
         // ⭐ 수업 강사 평가 (수업 종료 직후 별 7개 + 태그 + 건의사항)
         path === '/api/ratings' ||
         path === '/api/ratings/check' ||
+        // 🤖 AI 상담봇 (전화·사람 없이 24시간 자동 응대)
+        path === '/api/consult-bot' ||
+        // 💬 신규상담 공개 제출 (그동안 게이트 누락으로 404였음 — 리드 저장 복구)
+        path === '/api/student/inquiry' ||
         // 🎯 레벨테스트 신청 (학생 제출 저장 + 관리자·강사 목록/상태변경)
         path === '/api/leveltest/apply' ||
         path === '/api/admin/leveltest/applications' ||
