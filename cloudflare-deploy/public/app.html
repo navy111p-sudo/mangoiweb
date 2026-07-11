@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>망고아이 앱 설치 — Mangoi</title>
+<meta name="description" content="망고아이 안드로이드 앱을 설치하세요. 버튼 한 번이면 됩니다.">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', -apple-system, sans-serif;
+    background: linear-gradient(160deg, #fff7ec 0%, #ffe9cc 55%, #ffd9a8 100%);
+    color: #3a2a12;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 18px 48px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { width: 100%; max-width: 440px; }
+  .hero { text-align: center; margin-bottom: 22px; }
+  .hero img { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 6px 12px rgba(230,140,30,.28)); }
+  h1 { font-size: 26px; font-weight: 800; margin-top: 10px; letter-spacing: -0.5px; }
+  .sub { font-size: 15px; color: #8a6d40; margin-top: 6px; }
+  .card {
+    background: #fff;
+    border-radius: 22px;
+    padding: 22px 20px;
+    box-shadow: 0 10px 30px rgba(200,120,20,.14);
+    margin-bottom: 18px;
+  }
+  .dl-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%;
+    background: linear-gradient(135deg, #ff9d2e, #ff7a00);
+    color: #fff; font-size: 20px; font-weight: 800;
+    border: none; border-radius: 16px;
+    padding: 20px; text-decoration: none;
+    box-shadow: 0 8px 20px rgba(255,122,0,.38);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .dl-btn:active { transform: translateY(2px); box-shadow: 0 4px 12px rgba(255,122,0,.38); }
+  .dl-btn .ico { font-size: 24px; }
+  .ver { text-align: center; font-size: 13px; color: #a07d45; margin-top: 12px; }
+  .ver b { color: #ff7a00; }
+
+  .qr-card { text-align: center; }
+  .qr-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .qr-card p { font-size: 13px; color: #8a6d40; margin-bottom: 14px; }
+  .qr-card img { width: 210px; height: 210px; border-radius: 14px; border: 6px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+
+  .steps h2 { font-size: 17px; font-weight: 800; margin-bottom: 14px; display:flex; align-items:center; gap:8px;}
+  ol { list-style: none; counter-reset: step; }
+  ol li {
+    counter-increment: step;
+    position: relative;
+    padding: 0 0 16px 44px;
+    font-size: 15px; line-height: 1.5;
+  }
+  ol li:last-child { padding-bottom: 0; }
+  ol li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: -2px;
+    width: 30px; height: 30px;
+    background: #ff7a00; color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 15px;
+  }
+  ol li b { color: #d35400; }
+  .note {
+    background: #fff8ee; border: 1px dashed #ffcf8f; border-radius: 14px;
+    padding: 14px 16px; font-size: 13.5px; color: #8a6d40; line-height: 1.55;
+    margin-top: 4px;
+  }
+  .note b { color: #d35400; }
+  .foot { text-align:center; font-size:12px; color:#b08a55; margin-top: 26px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <img src="/img/mango-char.png" alt="망고아이">
+      <h1>망고아이 앱 설치</h1>
+      <div class="sub">버튼 한 번이면 설치 끝! 🥭</div>
+    </div>
+
+    <div class="card">
+      <a class="dl-btn" href="/downloads/mangoi.apk" download>
+        <span class="ico">⬇️</span> 앱 설치하기
+      </a>
+      <div class="ver">최신 버전 <b>v1.2</b> · 안드로이드용</div>
+    </div>
+
+    <div class="card qr-card">
+      <h2>📷 다른 폰으로 설치하려면</h2>
+      <p>이 QR을 휴대폰 카메라로 찍으면 이 페이지가 열려요</p>
+      <img src="/downloads/mangoi-app-qr.png" alt="망고아이 앱 설치 QR코드">
+    </div>
+
+    <div class="card steps">
+      <h2>📱 설치 방법</h2>
+      <ol>
+        <li>위 <b>앱 설치하기</b> 버튼을 누르면 <b>mangoi.apk</b>가 다운로드돼요.</li>
+        <li>다운로드가 끝나면 알림(또는 다운로드 폴더)에서 <b>파일을 탭</b>하세요.</li>
+        <li>“<b>이 출처의 앱 설치 허용</b>” 창이 뜨면 <b>허용</b>으로 켜고 <b>설치</b>를 누르세요.</li>
+        <li>설치 후 앱을 열고 <b>카메라·마이크 권한</b>을 허용하면 끝! (화상수업에 필요)</li>
+      </ol>
+      <div class="note">
+        💡 “알 수 없는 앱 설치” 권한은 안드로이드가 <b>처음 한 번만</b> 물어봐요. 켜주시면 다음부터는 안 물어봅니다. 아이폰(iOS)은 아직 지원하지 않아요.
+      </div>
+    </div>
+
+    <div class="foot">Mangoi · test.mangoi.co.kr</div>
+  </div>
+</body>
+</html>
