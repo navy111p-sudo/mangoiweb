@@ -1833,6 +1833,15 @@
         // 네트워크 오류 — 무시하고 로컬 fallback
         console.warn('[signup] network error — proceeding with local fallback:', netErr && netErr.message);
       }
+      // 🎯 레벨테스트 신청을 서버에 저장 — 관리자·강사 '신청 현황'에서 실시간 열람 (best-effort)
+      try {
+        await fetch('/api/leveltest/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_name: name, student_uid: uid, source: 'home-signup', note: (phone || '') + (email ? (' / ' + email) : '') })
+        });
+      } catch (e) { /* 서버 미연결이어도 시연 진행 */ }
+
       // 🔗 학생 홈피 → 관리자 대시보드 결과 자동 연동 (localStorage 공유 키)
       try {
         const arr = JSON.parse(localStorage.getItem('mangoi_level_test_results') || '[]');

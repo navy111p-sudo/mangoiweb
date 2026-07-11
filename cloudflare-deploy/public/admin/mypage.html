@@ -949,6 +949,7 @@
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="profile" data-ko="👤 프로필" data-en="👤 Profile">👤 프로필</button>
       <button class="tab" id="tab-myratings" data-tab="myratings" data-ko="⭐ 내 평가" data-en="⭐ My Ratings" style="display:none">⭐ 내 평가</button>
+      <button class="tab" id="tab-leveltest-apps" data-tab="leveltest-apps" data-ko="🎯 레벨테스트 신청" data-en="🎯 Level Test Applicants" style="display:none">🎯 레벨테스트 신청</button>
       <button class="tab" data-tab="lessons" data-ko="📚 내 수업" data-en="📚 My Classes">📚 내 수업</button>
       <!-- (💰 급여 탭 제거 2026-07-10 — 원화 정규직 '데모' 화면이라 필리핀 강사 수업료 모델과 달라 혼란만 줌.
            실데이터 정산은 아래 🧾 수업료 정산 탭이 담당) -->
@@ -989,6 +990,17 @@
         ⭐ <b data-ko="학생들이 남긴 수업 평가" data-en="Ratings from your students">학생들이 남긴 수업 평가</b><span data-ko=" — 누가 남겼는지는 표시되지 않아요(무기명). 최고·최저 점수를 뺀 공정 평균으로 보여드립니다." data-en=" — Names are hidden (anonymous). Shown as a fair average excluding the highest & lowest score."> — 누가 남겼는지는 표시되지 않아요(무기명). 최고·최저 점수를 뺀 공정 평균으로 보여드립니다.</span>
       </div>
       <div id="myrat-body"><div style="padding:30px;text-align:center;color:var(--text-muted)" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
+    </section>
+
+    <!-- ───── 🎯 레벨테스트 신청 (강사 열람 · 실데이터) ───── -->
+    <section class="panel" data-panel="leveltest-apps">
+      <div class="info-box" style="background:linear-gradient(135deg,rgba(52,211,153,0.14),rgba(16,185,129,0.06));border:1px solid rgba(16,185,129,0.4);color:#a7f3d0;font-size:14.5px;line-height:1.6">
+        🎯 <b data-ko="레벨테스트를 신청한 학생" data-en="Students who applied for a level test">레벨테스트를 신청한 학생</b><span data-ko=" — 학생이 신청 페이지에서 남긴 실시간 목록이에요. 희망 일시에 맞춰 1:1 평가를 준비하세요. AI·발음 점수는 진단을 마치면 채워집니다." data-en=" — Live list from the application page. Prepare the 1:1 evaluation for their preferred time. AI/pronunciation scores fill in after diagnosis."> — 학생이 신청 페이지에서 남긴 실시간 목록이에요. 희망 일시에 맞춰 1:1 평가를 준비하세요. AI·발음 점수는 진단을 마치면 채워집니다.</span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button onclick="loadLeveltestAppsTeacher()" style="padding:5px 12px;font-size:12.5px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Refresh">↻ 새로고침</button>
+      </div>
+      <div id="lt-apps-teacher-body"><div style="padding:30px;text-align:center;color:var(--text-muted)" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
     </section>
 
     <!-- ───── 내 수업 (ph210) ───── -->
@@ -1847,6 +1859,40 @@
     t.addEventListener('click', function(){ activateTab(t.getAttribute('data-tab')); });
   });
 
+  // ── 🎯 레벨테스트 신청 (강사 열람) ──
+  window.loadLeveltestAppsTeacher = function(){
+    var body = document.getElementById('lt-apps-teacher-body');
+    if (!body) return;
+    var en = EN();
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'Loading…':'불러오는 중…')+'</div>';
+    fetch('/api/admin/leveltest/applications?limit=100', { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var items = (d && d.items) || [];
+        if (!items.length){ body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'No applications yet':'아직 신청이 없습니다')+'</div>'; return; }
+        var STMAP = { pending:[en?'Pending':'대기','#f59e0b'], done:[en?'Done':'완료','#10b981'], cancelled:[en?'Cancelled':'취소','#94a3b8'] };
+        var rows = items.map(function(a){
+          var st = STMAP[a.status] || [a.status||'—','#94a3b8'];
+          var when = ((a.desired_date||'') + (a.desired_time?(' '+a.desired_time):'')) || '—';
+          return '<tr>'
+            + '<td>'+fmtTime(a.created_at)+'</td>'
+            + '<td><b>'+esc(a.student_name)+'</b></td>'
+            + '<td>'+esc(when)+'</td>'
+            + '<td style="text-align:center">'+(a.ai_score!=null?Math.round(a.ai_score):'—')+'</td>'
+            + '<td style="text-align:center">'+(a.pron_score!=null?Math.round(a.pron_score):'—')+'</td>'
+            + '<td><span style="font-weight:700;color:'+st[1]+'">'+st[0]+'</span></td>'
+            + '</tr>';
+        }).join('');
+        body.innerHTML = '<div style="overflow-x:auto"><table class="list" style="min-width:560px"><thead><tr>'
+          + '<th>'+(en?'Applied':'신청시각')+'</th><th>'+(en?'Student':'학생')+'</th><th>'+(en?'Preferred':'희망 일시')+'</th><th>'+(en?'AI':'AI점수')+'</th><th>'+(en?'Pron.':'발음')+'</th><th>'+(en?'Status':'상태')+'</th>'
+          + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+      })
+      .catch(function(){ body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'Failed to load':'불러오지 못했습니다')+'</div>'; });
+  };
+  var __ltTab = qsTab('leveltest-apps');
+  if (__ltTab) __ltTab.addEventListener('click', function(){ window.loadLeveltestAppsTeacher(); });
+
   // ── 공통 포맷 ──
   function fmtTime(ms){
     if (!ms) return '—';
@@ -1915,6 +1961,7 @@
     var teChecklist = el('class-checklist'); if (teChecklist) teChecklist.style.display = isTeacher ? '' : 'none';
     var tLessons = qsTab('lessons'); if (tLessons) tLessons.style.display = isTeacher ? '' : 'none';
     var tMyRat   = qsTab('myratings'); if (tMyRat)  tMyRat.style.display   = isTeacher ? '' : 'none';
+    var tLtApps  = el('tab-leveltest-apps'); if (tLtApps) tLtApps.style.display = isTeacher ? '' : 'none';
     // 🧾 수업료 정산 (Lesson Fee Summary) — 강사 전용
     var tFee = el('tab-lessonfee'); if (tFee) tFee.style.display = isTeacher ? '' : 'none';
 

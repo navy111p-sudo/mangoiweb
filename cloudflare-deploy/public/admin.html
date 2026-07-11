@@ -13709,6 +13709,28 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-level-tests">
   <summary><span data-ko="📝 레벨 테스트" data-en="📝 Level Tests">📝 레벨 테스트</span></summary>
   <div class="menu-body">
+    <!-- 🆕 레벨테스트 신청 현황 — 학생이 신청 페이지에서 접수한 실데이터 (관리자가 가장 먼저 보는 항목) -->
+    <div style="background:linear-gradient(135deg,rgba(52,211,153,0.10),rgba(16,185,129,0.06));border:1px solid rgba(16,185,129,0.30);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-size:14px;font-weight:800;color:#047857" data-ko="🆕 레벨테스트 신청 현황" data-en="🆕 Level Test Applications">🆕 레벨테스트 신청 현황</span>
+        <span id="lt-apps-badge" style="display:none;font-size:11px;font-weight:800;background:#ef4444;color:#fff;padding:1px 8px;border-radius:99px"></span>
+        <span style="flex:1"></span>
+        <button onclick="loadLeveltestApps()" style="padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Refresh">↻ 새로고침</button>
+      </div>
+      <div style="font-size:11px;color:#059669;margin-bottom:8px" data-ko="학생이 신청 페이지에서 접수한 실시간 목록이에요. 처리하면 '완료'로 정리됩니다." data-en="Live list submitted by students. Mark done to clear it.">학생이 신청 페이지에서 접수한 실시간 목록이에요. 처리하면 '완료'로 정리됩니다.</div>
+      <div style="overflow-x:auto">
+        <table style="min-width:640px"><thead><tr>
+          <th data-ko="신청시각" data-en="Applied">신청시각</th>
+          <th data-ko="학생" data-en="Student">학생</th>
+          <th data-ko="희망 일시" data-en="Preferred">희망 일시</th>
+          <th data-ko="AI점수" data-en="AI">AI점수</th>
+          <th data-ko="발음" data-en="Pron.">발음</th>
+          <th data-ko="상태" data-en="Status">상태</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="leveltest-apps-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
+      </div>
+    </div>
     <details>
       <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 결과 입력" data-en="＋ Add Result">＋ 결과 입력</summary>
       <div class="menu-form">
@@ -17832,6 +17854,40 @@ async function addLevelTest() {
   if (d) { ['lt-name','lt-uid','lt-score','lt-date'].forEach(id=>e(id).value=''); e('lt-level').value=''; loadLevelTests(); }
 }
 
+// ── 🆕 레벨테스트 신청 현황 (학생 접수 실데이터) ──────────────────────────────
+async function loadLeveltestApps() {
+  let items = [], pending = 0;
+  try {
+    const r = await fetch('/api/admin/leveltest/applications?limit=100', {cache:'no-store', credentials:'include'});
+    const d = await r.json().catch(()=>({}));
+    if (d && d.ok) { items = d.items || []; pending = d.pending || 0; }
+  } catch (e) { /* 무시 */ }
+  const badge = document.getElementById('lt-apps-badge');
+  if (badge) {
+    if (pending > 0) { badge.textContent = (adminLang==='en' ? (pending+' new') : ('대기 '+pending+'건')); badge.style.display='inline-block'; }
+    else badge.style.display='none';
+  }
+  const tb = document.getElementById('leveltest-apps-table');
+  if (!tb) return;
+  if (!items.length) { tb.innerHTML = '<tr><td colspan="7" class="empty">'+(adminLang==='en'?'No applications yet':'아직 신청이 없습니다')+'</td></tr>'; return; }
+  const STMAP = { pending:['대기','Pending','#f59e0b'], done:['완료','Done','#10b981'], cancelled:['취소','Cancelled','#94a3b8'] };
+  tb.innerHTML = items.map(a => {
+    const st = STMAP[a.status] || [a.status||'—', a.status||'—', '#94a3b8'];
+    const stLabel = adminLang==='en' ? st[1] : st[0];
+    const when = ((a.desired_date? _esc(a.desired_date) : '') + (a.desired_time? (' '+_esc(a.desired_time)) : '')) || '—';
+    const ai = a.ai_score!=null ? Number(a.ai_score).toFixed(0) : '—';
+    const pron = a.pron_score!=null ? Number(a.pron_score).toFixed(0) : '—';
+    const actions = a.status==='pending'
+      ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
+      : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${a.student_uid?(' <code style="font-size:10px;color:#64748b">'+_esc(a.student_uid)+'</code>'):''}</td><td>${when}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:right;white-space:nowrap">${actions}</td></tr>`;
+  }).join('');
+}
+async function leveltestAppStatus(id, status) {
+  const d = await _menuPost('/api/admin/leveltest/applications', { id, status });
+  if (d) loadLeveltestApps();
+}
+
 // ── 수강신청 ─────────────────────────────────────────────────────────
 async function loadEnrollments() {
   const status = document.getElementById('en-status-filter').value;
@@ -21391,7 +21447,7 @@ if (_adminRefreshEl) _adminRefreshEl.onclick = async function() {
 // 초기 로드 (각각 독립적으로)
 Promise.allSettled([
   load(), loadRecordings(), loadRetention(), loadActiveRooms(), loadNotifications(), loadStorageStats(), loadPayrollRates(),
-  loadFranchises(), loadCenters(), loadLevelTests(), loadEnrollments(), loadCommunity(), loadTextbooks()
+  loadFranchises(), loadCenters(), loadLevelTests(), loadLeveltestApps(), loadEnrollments(), loadCommunity(), loadTextbooks()
 ]);
 // 활성 방 목록 15초마다 자동 갱신
 setInterval(loadActiveRooms, 15000);
@@ -23737,7 +23793,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260711144255 -->
+        <!-- BUILD:20260711145241 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

@@ -173,6 +173,16 @@
     submitted=true; submit.disabled=true;
     var rec={ name:nameEl.value.trim(), date:sel.date, time:sel.time, ts:Date.now() };
     try{ localStorage.setItem('mangoi_leveltest_booking', JSON.stringify(rec)); }catch(e){}
+    // 🎯 서버에도 저장 — 관리자·강사가 '신청 현황'에서 이 학생을 볼 수 있도록 (best-effort)
+    var uid=null;
+    try{
+      ['mangoi_uid','mango_uid','student_uid','uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
+      if(!uid){ var s=JSON.parse(localStorage.getItem('mangoi_student')||'null'); if(s&&s.uid) uid=s.uid; }
+    }catch(e){}
+    try{
+      fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ student_name:rec.name, student_uid:uid, desired_date:rec.date, desired_time:rec.time, source:'level-test' })}).catch(function(){});
+    }catch(e){}
     document.getElementById('lt-sched').innerHTML =
       '📅 '+fmtDate(sel.date)+' '+sel.time+'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 이 시간에 선생님과 만나요!</span>';
     document.getElementById('form-card').style.display='none';
@@ -181,7 +191,7 @@
     window.scrollTo({top:0,behavior:'smooth'});
   });
 </script>
-<!-- BUILD:20260711144255 -->
+<!-- BUILD:20260711145241 -->
 <!-- 🔊 레벨테스트 안내 음성 자동 재생 (페이지 진입 시) + 음소거/끄기 -->
 <audio id="lt-voice" src="/audio/level-test-welcome.mp3" preload="auto"></audio>
 <script>

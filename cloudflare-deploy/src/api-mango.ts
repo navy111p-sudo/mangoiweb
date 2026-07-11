@@ -10211,6 +10211,63 @@ LIMIT $limit`;
       return json({ ok: true, id: r.meta.last_row_id });
     }
 
+    // ─── 🎯 레벨테스트 신청 (학생 제출 → 서버 저장, 관리자·강사 열람) ─────────────
+    //   공개  POST /api/leveltest/apply                        학생이 신청 (level-test.html / 홈 그리드)
+    //   관리자 GET  /api/admin/leveltest/applications?status=&limit=   목록 + 대기건수(배지)
+    //   관리자 POST /api/admin/leveltest/applications  {id, status?, assigned_teacher?, note?, final_level?}  상태/배정 변경
+    //   ※ 발음점수(pron_score)는 voice_coaching, AI점수(ai_score)는 향후 진단엔진에서 채움(③ 단계)
+    const ensureLtApps = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS leveltest_applications (id INTEGER PRIMARY KEY AUTOINCREMENT, student_name TEXT NOT NULL, student_uid TEXT, desired_date TEXT, desired_time TEXT, status TEXT DEFAULT 'pending', ai_score REAL, pron_score REAL, teacher_score REAL, final_level TEXT, assigned_teacher TEXT, source TEXT, note TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+    };
+    if (method === 'POST' && path === '/api/leveltest/apply') {
+      await ensureLtApps();
+      const b = await parseJsonBody(request);
+      const name = ((b && (b.student_name || b.name)) || '').toString().trim();
+      if (!name) return invalidBody(['student_name']);
+      const now = Date.now();
+      const r = await env.DB.prepare(
+        `INSERT INTO leveltest_applications (student_name, student_uid, desired_date, desired_time, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`
+      ).bind(
+        name,
+        (b && (b.student_uid || b.uid)) || null,
+        (b && (b.desired_date || b.date)) || null,
+        (b && (b.desired_time || b.time)) || null,
+        (b && b.source) || 'level-test',
+        now, now
+      ).run();
+      return json({ ok: true, id: r.meta.last_row_id });
+    }
+    if (path === '/api/admin/leveltest/applications') {
+      await ensureLtApps();
+      if (method === 'GET') {
+        const statusF = url.searchParams.get('status');
+        const lim = Math.max(1, Math.min(500, parseInt(url.searchParams.get('limit') || '100', 10)));
+        let q = `SELECT * FROM leveltest_applications`;
+        const binds: any[] = [];
+        if (statusF) { q += ` WHERE status = ?`; binds.push(statusF); }
+        q += ` ORDER BY (status = 'pending') DESC, created_at DESC LIMIT ?`;
+        binds.push(lim);
+        const rs = await env.DB.prepare(q).bind(...binds).all();
+        const cnt = await env.DB.prepare(`SELECT COUNT(*) AS n FROM leveltest_applications WHERE status = 'pending'`).all();
+        const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
+        return json({ ok: true, items: rs.results || [], pending });
+      }
+      // POST → 상태/배정/메모 업데이트
+      const b = await parseJsonBody(request);
+      if (!b || !b.id) return invalidBody(['id']);
+      const fields: string[] = [];
+      const binds: any[] = [];
+      if (b.status != null)           { fields.push('status = ?');           binds.push(String(b.status)); }
+      if (b.assigned_teacher != null) { fields.push('assigned_teacher = ?'); binds.push(String(b.assigned_teacher)); }
+      if (b.note != null)             { fields.push('note = ?');             binds.push(String(b.note)); }
+      if (b.final_level != null)      { fields.push('final_level = ?');      binds.push(String(b.final_level)); }
+      if (!fields.length) return invalidBody(['status']);
+      fields.push('updated_at = ?'); binds.push(Date.now());
+      binds.push(Number(b.id));
+      await env.DB.prepare(`UPDATE leveltest_applications SET ${fields.join(', ')} WHERE id = ?`).bind(...binds).run();
+      return json({ ok: true });
+    }
+
     // ─── 수강신청 ─────────────────────────────────────────────────────────
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);

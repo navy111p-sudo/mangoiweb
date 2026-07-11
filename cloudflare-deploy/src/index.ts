@@ -1042,6 +1042,9 @@ const worker = {
         // ⭐ 수업 강사 평가 (수업 종료 직후 별 7개 + 태그 + 건의사항)
         path === '/api/ratings' ||
         path === '/api/ratings/check' ||
+        // 🎯 레벨테스트 신청 (학생 제출 저장 + 관리자·강사 목록/상태변경)
+        path === '/api/leveltest/apply' ||
+        path === '/api/admin/leveltest/applications' ||
         path === '/api/admin/ratings/summary' ||
         path === '/api/admin/ratings/list' ||
         path === '/api/admin/ratings/analytics' ||
