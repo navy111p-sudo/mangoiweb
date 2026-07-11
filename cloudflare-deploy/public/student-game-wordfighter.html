@@ -78,6 +78,7 @@
   .sheet.on{transform:translateY(0)}
   .sheet-grip{width:44px;height:5px;border-radius:3px;background:rgba(255,255,255,.28);margin:2px auto 10px}
   .sheet-title{font-size:15px;font-weight:900;color:var(--accent);text-align:center;margin-bottom:8px;text-shadow:0 1px 2px #000}
+  .sheet-pause{font-size:11px;font-weight:800;color:#7fd1ff;margin-left:4px}
   .sheet-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.08)}
   .sheet-lab{font-size:14px;font-weight:800;color:var(--sub)}
   .sheet-row .hudbtn{font-size:15px;padding:9px 18px}
@@ -292,7 +293,7 @@
   <div class="sheet-backdrop" id="sheetBackdrop"></div>
   <div class="sheet" id="settingsSheet" role="dialog" aria-label="게임 설정">
     <div class="sheet-grip"></div>
-    <div class="sheet-title">⚙️ 게임 설정</div>
+    <div class="sheet-title">⚙️ 게임 설정 <span class="sheet-pause">⏸ 잠시 멈춤</span></div>
     <div class="sheet-row"><span class="sheet-lab">🌐 언어</span>
       <button class="hudbtn" id="langBtn" title="게임 언어(영어/중국어) 전환">🇺🇸 영어</button></div>
     <div class="sheet-row"><span class="sheet-lab">⚙ 좀비 속도</span>
@@ -481,7 +482,7 @@
   var speedIdx=(function(){ var k=LSget('wf_speed'); for(var i=0;i<SPEEDS.length;i++){ if(SPEEDS[i].k===k) return i; } return 2; })();
 
   var score=0,timeLeft=45,combo=0,level=0,currentIndex=0,collected=[],lives=3,fever=false;
-  var targetWords=[],zombies=[],running=false,phase='battle',lastHit=0,lastTs=0,rafId=null,timerId=null,lastProgressTs=0;
+  var targetWords=[],zombies=[],running=false,phase='battle',lastHit=0,lastTs=0,rafId=null,timerId=null,lastProgressTs=0,paused=false;
 
   var gameEl=document.getElementById('game'), field=document.getElementById('field');
   var comboEl=document.getElementById('combo'), sentenceEl=document.getElementById('sentence');
@@ -716,8 +717,9 @@
 
   function updateHUD(){ scoreVal.textContent=score; }
   function updateTimer(){ timerVal.textContent=timeLeft; timerBox.classList.toggle('low',timeLeft<=10); }
-  function tick(){ if(!running) return; if(phase!=='battle') return; timeLeft--; updateTimer(); if(timeLeft<=0) endGame('time'); }
+  function tick(){ if(!running||paused) return; if(phase!=='battle') return; timeLeft--; updateTimer(); if(timeLeft<=0) endGame('time'); }
   function loop(ts){ if(!running) return; if(!lastTs) lastTs=ts; var dt=Math.min(0.05,(ts-lastTs)/1000); lastTs=ts;
+    if(paused){ rafId=requestAnimationFrame(loop); return; }   // ⏸ 설정 시트 열림 → 좀비 정지(불공정 실점 방지)
     if(phase==='battle'){ var danger=false;
       for(var i=0;i<zombies.length;i++){ var z=zombies[i]; if(z.el.classList.contains('dead')) continue;
         z.prog+=z.speed*dt*6*SPEEDS[speedIdx].mul*(1+Math.max(0,z.prog)*0.35);   // ⚙ 속도 배율 + 가까울수록 가속(긴장감)
@@ -748,8 +750,9 @@
 
   // ⚙️ 설정 바텀시트 (언어·속도·음악) — 게임 필드를 밀어내지 않는 오버레이
   var settingsSheet=document.getElementById('settingsSheet'), sheetBackdrop=document.getElementById('sheetBackdrop');
-  function closeSheet(){ settingsSheet.classList.remove('on'); sheetBackdrop.classList.remove('on'); }
-  function toggleSheet(){ var on=settingsSheet.classList.toggle('on'); sheetBackdrop.classList.toggle('on',on); }
+  function closeSheet(){ settingsSheet.classList.remove('on'); sheetBackdrop.classList.remove('on'); paused=false; lastTs=0; }   // 재개(다음 프레임 dt 튐 방지)
+  function openSheet(){ settingsSheet.classList.add('on'); sheetBackdrop.classList.add('on'); if(running&&phase==='battle') paused=true; }
+  function toggleSheet(){ settingsSheet.classList.contains('on')?closeSheet():openSheet(); }
   document.getElementById('gearBtn').addEventListener('click', toggleSheet);
   sheetBackdrop.addEventListener('click', closeSheet);
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
@@ -784,6 +787,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711185540 -->
+<!-- BUILD:20260711190322 -->
 </body>
 </html>

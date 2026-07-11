@@ -8,6 +8,7 @@ import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
 import { handlePayApi, runPaymentAudit } from './api-pay';
+import { handlePayrollIngest, getPayrollAuto, payrollAiSummary } from './api-payroll-auto';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
@@ -1084,6 +1085,42 @@ const worker = {
           { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' } }
         );
       }
+    }
+
+    // 🧾 강사 급여 자동화 — 카페24 서버가 집계결과를 밀어넣는 인제스트(공유키 보호, 관리자세션 아님)
+    //   /api/payroll-ingest?key=...  (POST). 서버→워커 전용이라 /api/admin/ 밖에 둔다.
+    if (path === '/api/payroll-ingest') {
+      try {
+        const res = await handlePayrollIngest(request, url, env as any);
+        if (res) return res;
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // 🧾 강사 급여 자동 조회 (관리자 전용 — 위 default-deny 미들웨어가 인증 보장)
+    //   /api/admin/payroll/auto?year=&month=&ai=1  → 강사별 완료수업·급여(₱)+합계(+AI요약)
+    if (path === '/api/admin/payroll/auto') {
+      try {
+        const now = new Date();
+        const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
+        const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
+        const data = await getPayrollAuto(env as any, year, month);
+        let ai = '';
+        if (url.searchParams.get('ai') === '1') ai = await payrollAiSummary(env as any, year, month, data, url.searchParams.get('lang') || 'ko');
+        return new Response(JSON.stringify({ ok: true, year, month, ...data, ai }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // 🧾 /admin/teacher-payroll — 강사 급여 자동 대시보드 페이지 (관리자 전용)
+    if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/') {
+      const r = new Request(new URL('/admin/teacher-payroll.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
     }
 
     // 📥 회계 리포트 6종 (2026-05-03 추가)
@@ -2998,6 +3035,9 @@ function isAdminPath(path: string, method: string): boolean {
   // 📊 경영진 대시보드 + API (2026-06-09) — 관리자 전용
   if (path === '/admin/exec' || path === '/admin/exec/' || path === '/admin/exec.html') return true;
   if (path.startsWith('/api/admin/exec/')) return true;
+  // 🧾 강사 급여 자동 대시보드 + API (2026-07-11) — 관리자 전용
+  if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/' || path === '/admin/teacher-payroll.html') return true;
+  if (path === '/api/admin/payroll/auto') return true;
   // 🎓 학습 인사이트 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/learning-insights' || path === '/admin/learning-insights/' || path === '/admin/learning-insights.html') return true;
   if (path.startsWith('/api/admin/learning/')) return true;

@@ -1430,6 +1430,22 @@ const STUDENT_FAQ: StudentFaq[] = [
   { re: /(망고아이[^가-힣]*(뭐|무엇|무슨|어떤|소개|대해|란)|무슨\s*서비스|어떤\s*(곳|서비스|회사)|about)/i,
     answer: '망고아이는 원어민 선생님의 1:1·1:2 화상영어 수업과 A.I 학습관리를 하나로 합친 화상영어 서비스예요. 필리핀 직영 교육센터의 검증된 전담 선생님이 수업하고, 매 수업 후 A.I가 평가서와 10문항 복습 퀴즈를 자동으로 만들어 드려요. 아래에서 자세히 볼게요.',
     run: 'openAboutMangoi' },
+  // 다른 화상영어와의 차별점 / 왜 망고아이
+  { re: /(다른\s*(곳|데|업체|학원|화상영어)|차별|차이점|비교|왜\s*망고아이|어디가\s*(좋|나은)|장점이\s*뭐|vs|다른.*뭐가\s*달)/i,
+    answer: '망고아이만의 강점은 네 가지예요. ①외주가 아닌 필리핀 직영 센터 운영 ②매번 바뀌는 랜덤이 아닌 같은 선생님 전담제 ③수업만 하고 끝이 아니라 A.I가 예습·복습·평가·발음까지 관리 ④20년 전통의 국내 최초 화상영어. 그래서 아이의 성향과 약점을 정확히 파악해 꾸준히 관리해 드려요.',
+    run: 'openAboutMangoi' },
+  // 낯가림 / 내성적 / 소심한 아이도 되나
+  { re: /(낯|부끄|숫기|소심|내성적|소극적|말수가\s*적|말을\s*안|긴장)/i,
+    answer: '낯을 가리거나 내성적인 아이일수록 1:1 전담 수업이 잘 맞아요. 여러 명 앞이 아니라 같은 선생님과 1:1(또는 1:2)로 만나 편하게 적응하고, 아이가 흥미를 느끼는 실생활 주제로 스스로 말하고 싶게 이끌어 드려요.',
+    run: 'grid:teachers' },
+  // 왕초보 / 기초 / 영어 못하는데
+  { re: /(왕초보|기초부터|알파벳|파닉스|하나도\s*모|처음\s*(배우|시작|하는)|영어\s*못|레벨\s*낮|초보인데|기초가\s*없)/i,
+    answer: '왕초보도 전혀 걱정 없어요. 무료 레벨테스트로 지금 실력을 정확히 진단한 뒤, 딱 맞는 단계부터 부담 없이 시작해요. CEFR 국제 기준의 단계별 커리큘럼이라 기초부터 차근차근 올라갈 수 있어요.',
+    run: 'grid:leveltest' },
+  // 효과 / 정말 늘까 / 실력 향상
+  { re: /(효과\s*(있|가|는)|정말\s*(늘|되|효과)|늘긴?\s*(할|하|늘)|늘까|실력\s*(늘|향상|오)|성과|말문이?\s*트|자신감)/i,
+    answer: '같은 선생님이 전담으로 약점을 관리하고, 매 수업 후 A.I 평가서와 10문항 복습 퀴즈로 배운 걸 바로 굳혀요. 수업 외 시간에도 A.I 발음 코치로 무제한 말하기 연습이 가능해서, 꾸준히 하면 말문이 트이고 자신감이 붙어요.',
+    run: 'openAboutMangoi' },
   // 수업료 / 가격 / 얼마
   { re: /(수업료|수강료|학원비|레슨비|얼마|가격|비용|요금|금액|price|cost|how\s*much)/i,
     answer: '망고아이는 필리핀 현지 교육센터를 직접 운영해 거품을 뺀 합리적인 수강료로 제공해요. 1:1과 1:2 중 고를 수 있고, 1:2 수업은 1인당 비용이 더 저렴합니다. 정확한 금액은 무료 상담으로 맞춤 견적을 받아보실 수 있어요.',
@@ -1497,21 +1513,22 @@ const STUDENT_MENU_LINES = STUDENT_ROUTES.map(r => {
   return `- ${r.label}: ${r.kws.slice(0, 6).join(', ')} → ${dest}`;
 }).join('\n');
 
-const STUDENT_SYSTEM_PROMPT = `You are 망고아이(Mangoi) student assistant for an English academy. The user typed in a search box. Decide if they want to GO somewhere (navigate) or ASK something (answer). Output ONE JSON object only — no prose, no markdown, no code fences.
+const STUDENT_SYSTEM_PROMPT = `You are 망고아이(Mangoi)'s friendly AI counselor on an English-academy website. A parent or student typed a question or request in the home search box. UNDERSTAND the underlying intent even for long, complex, or indirectly-worded questions (worries about a shy child, comparisons with other services, whether a beginner can keep up, etc.), then respond helpfully. Output ONE JSON object only — no prose, no markdown, no code fences.
 
-KNOWLEDGE (use ONLY these facts when answering about 망고아이 — never invent prices, ages, or details not listed):
-- 망고아이는 원어민 선생님의 1:1·1:2 화상영어 수업과 A.I 학습관리를 하나로 합친 화상영어 서비스입니다. (수업은 사람이, 예습·복습·평가·발음교정은 A.I가 담당)
-- 원어민 전담 선생님제(랜덤 매칭 아님), 1:1 또는 1:2 소수정예 수업.
-- 필리핀 현지 교육센터를 직접(직영) 운영 — 외주가 아니며, 그래서 합리적인 수강료. 정확한 금액/견적은 무료 상담으로 안내.
-- 매 수업 후 A.I가 평가서를 자동 생성하고 배운 내용 기반 10문항 복습 퀴즈 진행. 월간 A.I 리포트 제공.
-- CEFR 국제 기준 단계별 커리큘럼 + 연령·레벨 맞춤 자체 교재. 유아부터 성인까지 대상.
-- PC·태블릿·휴대폰 어디서나 수업 입장. 원하는 시간대 예약, 수업 연기·변경 가능.
-- 출결·평가·진도·공지를 학부모 카카오톡으로 실시간 전송.
-- 20년 전통, 국내 최초의 화상영어 기업.
-- 수업 외 시간에도 A.I 발음 코치로 무제한 말하기 연습 가능.
-When the user asks about 망고아이 in general (뭐야/소개/특징 등), give a warm 1~2 sentence Korean summary from the KNOWLEDGE, then set navigate run "openAboutMangoi" so the intro opens.
+KNOWLEDGE — the ground truth about 망고아이. Answer complex questions by REASONING over these facts. Never invent specific prices, ages, hours, guarantees, or details not derivable here:
+· 정체성: 망고아이는 "검증된 원어민 선생님의 1:1·1:2 화상영어 수업" + "A.I 학습관리"를 하나로 합친 화상영어 서비스. 수업은 사람(원어민)이 하고, 예습·복습·평가·발음교정·리포트는 A.I가 맡음. 20년 전통, 국내 최초의 화상영어 기업.
+· 선생님: 매번 바뀌는 랜덤 매칭이 아니라 "같은 선생님이 꾸준히 전담"하는 전담제. 그래서 아이의 성향·약점·진도를 정확히 파악해 지도. 1:1 또는 1:2 소수정예.
+· 교육센터: 외주가 아니라 망고아이가 "직접 운영하는 필리핀 현지 교육센터". 전용 인터넷·장비를 갖춘 안정적 환경에서 정규직 원어민 교사가 책임 지도. 직영이라 거품을 뺀 합리적 수강료가 가능.
+· 대상·레벨: 유아부터 성인까지. CEFR 국제 기준 단계별 커리큘럼 + 연령·레벨 맞춤 자체 교재. "무료 레벨테스트"로 현재 실력을 진단해 딱 맞는 반부터 시작 → 왕초보·낮은 레벨도 부담 없이 시작 가능.
+· 성향 배려: 낯을 가리거나 내성적인 아이도 1:1 전담 + 같은 선생님이라 빠르게 편해지고, 아이가 흥미를 느끼는 실생활 주제로 스스로 말하고 싶게 유도.
+· A.I 학습관리: 매 수업 후 A.I가 평가서를 자동 생성하고 배운 내용 기반 10문항 복습 퀴즈 진행. 월간 A.I 리포트 제공. 수업 외 시간에도 A.I 발음 코치로 무제한 말하기 연습, A.I 영어 친구와 대화, A.I 영작 첨삭 가능.
+· 학부모 소통: 출결·평가·진도·공지를 학부모 카카오톡으로 실시간 전송. 학부모 페이지에서 자녀 학습현황 확인.
+· 편의: PC·태블릿·휴대폰 어디서나 수업 입장. 원하는 시간대 예약, 갑작스러운 일정은 수업 연기·변경으로 조정. 자가진단으로 카메라·마이크를 미리 점검.
+· 다른 화상영어와의 차별점: ①직영 센터(외주 아님) ②전담 선생님제(랜덤 아님) ③수업만 하고 끝이 아니라 A.I 학습관리까지 결합 ④20년 전통·국내 최초.
+· 수강료·환불: 직영 운영으로 합리적이고, 1:2는 1인당 비용이 더 저렴. "정확한 금액·환불·변경 규정은 특정 숫자를 말하지 말고 반드시 무료 상담으로 안내"(action inquiry).
+· 동기부여: 학생게임·포인트 상점·랭킹·연속출석·배지 등 게임화로 꾸준함을 유도.
 
-MENU (keyword hints → destination):
+MENU (keyword hints → destination). Pick the destination whose PURPOSE best fits the user's real need, using synonyms/related concepts, not just literal keyword overlap:
 ${STUDENT_MENU_LINES}
 
 Output shapes (pick exactly one):
@@ -1520,13 +1537,78 @@ Output shapes (pick exactly one):
 {"intent":"navigate","run":"grid:payment","answer":"<Korean 1 sentence>"}
 {"intent":"navigate","run":"openAboutMangoi","answer":"<Korean 1~2 sentence summary about 망고아이>"}
 {"intent":"action","name":"inquiry","answer":"<Korean 1 sentence>"}
-{"intent":"answer","answer":"<Korean 1~3 sentences>"}
+{"intent":"answer","answer":"<Korean 2~4 sentences that actually answer the question>","suggest":{"run":"openAboutMangoi","label":"망고아이 소개"}}
 
-RULES:
-1. If the input names or hints at ANY menu above (even loosely, even with typos or partial words), ALWAYS return navigate/action to the CLOSEST matching destination. Prefer navigating over answering — when in doubt, navigate.
-2. Only "url"/"view"/"run" values that appear in the MENU above are allowed. Never invent a URL.
-3. If it is a genuine question (뭐야/어떻게/왜/얼마/언제/추천/차이 등) that no menu answers, use intent "answer" and give a warm, helpful Korean answer (1~3 sentences). You may also suggest the closest menu keyword.
-4. "answer" is always Korean. Output JSON only.`;
+DECISION GUIDE:
+1. Simple menu word / clear "go there" request (게임, 단어장, 발음연습, 수업입장, 결제 …) → navigate/action to the closest destination. When it's obviously just a menu name, prefer navigating.
+2. Complex or indirect QUESTION (걱정·비교·가능여부·효과·추천·성향·레벨 고민 등) → intent "answer": FIRST give a concise, warm Korean answer (2~4 sentences) that extracts the key point and truly addresses it using KNOWLEDGE; THEN attach an OPTIONAL "suggest" pointing to the single most relevant menu so the user can go there in one tap. Do NOT force a navigate that would skip answering their real concern.
+3. Pricing / refund / enrollment / free-trial / booking-a-consult → intent "action" name "inquiry" (or navigate to 상담) — never quote a specific price.
+4. "suggest" (and every url/view/run) MUST be a value that literally appears in the MENU above (or run "openAboutMangoi"/"openInquiryModal"). Never invent a path. Omit "suggest" if none fits.
+5. Always answer in natural Korean. Output JSON only, exactly one object.`;
+
+// 복잡·간접·상담형 질문 감지 — 단순 키워드 이동으로 처리하면 안 되고 LLM이 의미를 파악해야 하는 입력.
+//   예: "낯을 많이 가리는데 화상수업 잘 따라갈까요?", "다른 화상영어랑 뭐가 달라요?", "레벨 낮아도 원어민 수업 돼요?"
+const STUDENT_COMPLEX_RE = /(다른|차이|다르|비교|대비|뭐가\s*좋|어느\s*게|장점|단점|왜\s*좋|추천|고민|걱정|낯|부끄|소심|내성적|소극적|활발|산만|집중\s*못|처음|초보|왕초보|느[리린]|잘\s*못|못\s?[하해]|따라갈|가능(할까|한가|해요|하[나냐])|괜찮(을까|나요|은가|아요)|효과|도움\s*(이|될)|정말|진짜|얼마나|어느\s*정도|어떻게\s*(해야|하면|시작|공부|준비)|해야\s*(할|하|되)|나이|살\s*인데|살\s?짜리|몇\s*살|어린|우리\s*아이|우리애|아이가|애가|자녀|초등|유치원|중학|고등|성인|직장|여행|왕초보|말문|스피킹|자신감|안\s*늘|늘까|늘지|성적|시험|내신|수능|발음\s*좋|원어민\s*(맞|진짜|정말))/;
+
+function isComplexQuery(cmd: string, isQuestion: boolean): boolean {
+  if (STUDENT_COMPLEX_RE.test(cmd)) return true;
+  // 긴 질문(대략 두 어절 이상 + 물음)도 복잡한 것으로 간주 → LLM이 의미 파악
+  if (isQuestion && cmd.replace(/\s+/g, '').length >= 14) return true;
+  return false;
+}
+
+// LLM 1회 호출 + 화이트리스트 검증 → 정규화된 응답(또는 실패 시 null)
+async function runStudentLLM(env: { AI?: any }, cmd: string): Promise<any | null> {
+  if (!env.AI) return null;
+  try {
+    const result = await env.AI.run(MODEL, {
+      messages: [
+        { role: 'system', content: STUDENT_SYSTEM_PROMPT },
+        { role: 'user', content: cmd },
+      ],
+      max_tokens: 520,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    });
+    const raw = (result?.response || result?.result?.response || '').trim();
+    let parsed: any = null;
+    try { parsed = JSON.parse(raw); }
+    catch { const m = raw.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
+    if (!parsed || !parsed.intent) return null;
+    if (!['navigate', 'action', 'answer'].includes(parsed.intent)) parsed.intent = 'answer';
+
+    // 목적지 화이트리스트 검증 헬퍼 (navigate·suggest 공용)
+    const validDest = (o: any): boolean => {
+      if (!o || typeof o !== 'object') return false;
+      const okUrl = o.url && STUDENT_URL_WHITELIST.has(o.url);
+      const okRun = o.run && (STUDENT_RUN_WHITELIST.has(o.run) || o.run === 'openInquiryModal');
+      const okView = o.view === 'view-videocall-lobby';
+      if (!okUrl) delete o.url;
+      if (!okRun) delete o.run;
+      if (!okView) delete o.view;
+      return !!(okUrl || okRun || okView);
+    };
+
+    if (parsed.intent === 'navigate') {
+      if (!validDest(parsed)) {
+        parsed = { intent: 'answer', answer: parsed.answer || '원하시는 메뉴를 못 찾았어요. 게임·단어장·성적표·복습퀴즈·발음연습 등으로 말씀해 보세요.' };
+      }
+    }
+    if (parsed.intent === 'action' && parsed.name !== 'inquiry') {
+      parsed.intent = 'answer';
+      parsed.answer = parsed.answer || '아래 버튼을 이용해 주세요.';
+    }
+    // answer 에 딸린 관련 메뉴 제안(suggest) 검증 — 지어낸 목적지면 제거
+    if (parsed.suggest) {
+      if (!validDest(parsed.suggest)) delete parsed.suggest;
+      else if (!parsed.suggest.label) parsed.suggest.label = '관련 메뉴';
+    }
+    if (!parsed.answer) parsed.answer = '이동합니다.';
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export async function processStudentCommand(env: { AI?: any }, command: string): Promise<any> {
   const cmd = (command || '').toString().trim();
@@ -1536,10 +1618,17 @@ export async function processStudentCommand(env: { AI?: any }, command: string):
   // 질문형("~뭐야/얼마/어떻게/몇 살")인지 판정 — 질문이면 FAQ 즉답을 메뉴 이동보다 먼저.
   const isQuestion = STUDENT_QUESTION_RE.test(cmd);
 
-  // 1) 질문형이면 지식(FAQ) 먼저 — 정보를 즉답하고 관련 화면으로 함께 이동
+  // 1) 질문형이면 지식(FAQ) 먼저 — 정보를 즉답하고 관련 화면으로 함께 이동 (오프라인·무지연·정확)
   if (isQuestion) {
     const faq = resolveStudentFaq(cmd);
     if (faq) return faq;
+  }
+
+  // 1.5) 복잡·간접·상담형 질문 → LLM이 먼저 "요점 답변 + 관련 메뉴 제안". 단순 키워드 오이동 방지.
+  //      (예: "레벨 낮아도 될까요?"가 '레벨' 때문에 커리큘럼으로 튕기지 않도록)
+  if (isComplexQuery(cmd, isQuestion)) {
+    const llm = await runStudentLLM(env, cmd);
+    if (llm && (llm.intent !== 'answer' || (llm.answer && llm.answer.length >= 6))) return llm;
   }
 
   // 2) 결정론적 메뉴 라우터 — 메뉴 키워드가 하나라도 걸리면 즉시 이동 (LLM·크레딧 스킵, 100% 확실)
@@ -1558,43 +1647,7 @@ export async function processStudentCommand(env: { AI?: any }, command: string):
 
   // 4) 그래도 못 잡으면 LLM — 가장 가까운 메뉴로 안내하거나 질문에 답변
   if (!env.AI) return { intent: 'answer', answer: '무엇을 도와드릴까요? 게임·단어장·성적표·복습퀴즈·발음연습·수업입장, 또는 "망고아이 소개"·"수업료" 처럼 물어보셔도 돼요.' };
-  try {
-    const result = await env.AI.run(MODEL, {
-      messages: [
-        { role: 'system', content: STUDENT_SYSTEM_PROMPT },
-        { role: 'user', content: cmd },
-      ],
-      max_tokens: 320,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-    });
-    const raw = (result?.response || result?.result?.response || '').trim();
-    let parsed: any = null;
-    try { parsed = JSON.parse(raw); }
-    catch { const m = raw.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
-    if (!parsed || !parsed.intent) throw new Error('no intent');
-    if (!['navigate', 'action', 'answer'].includes(parsed.intent)) parsed.intent = 'answer';
-
-    // 할루시네이션 방어: LLM이 목적지를 지어내면 화이트리스트로만 허용, 아니면 answer 로 강등
-    if (parsed.intent === 'navigate') {
-      const okUrl = parsed.url && STUDENT_URL_WHITELIST.has(parsed.url);
-      const okRun = parsed.run && STUDENT_RUN_WHITELIST.has(parsed.run);
-      const okView = parsed.view === 'view-videocall-lobby';
-      if (!okUrl && !okRun && !okView) {
-        parsed = { intent: 'answer', answer: parsed.answer || '원하시는 메뉴를 못 찾았어요. 게임·단어장·성적표·복습퀴즈·발음연습 등으로 말씀해 보세요.' };
-      } else {
-        if (!okUrl) delete parsed.url;
-        if (!okRun) delete parsed.run;
-        if (!okView) delete parsed.view;
-      }
-    }
-    if (parsed.intent === 'action' && parsed.name !== 'inquiry') {
-      parsed.intent = 'answer';
-      parsed.answer = parsed.answer || '아래 버튼을 이용해 주세요.';
-    }
-    if (!parsed.answer) parsed.answer = '이동합니다.';
-    return parsed;
-  } catch {
-    return { intent: 'answer', answer: '무엇을 도와드릴까요? 게임·단어장·성적표·복습퀴즈·발음연습·수업입장 등으로 말씀해 보세요.' };
-  }
+  const llm = await runStudentLLM(env, cmd);
+  if (llm) return llm;
+  return { intent: 'answer', answer: '무엇을 도와드릴까요? 게임·단어장·성적표·복습퀴즈·발음연습·수업입장 등으로 말씀해 보세요.' };
 }

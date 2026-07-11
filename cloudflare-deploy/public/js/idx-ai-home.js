@@ -307,6 +307,9 @@
     }
   }
 
+  // 복잡·간접·상담형 질문 감지 — 단순 키워드 이동 대신 서버 AI가 의미를 파악해 답+안내
+  const COMPLEX_RE = /(다른|차이|다르|비교|대비|뭐가\s*좋|어느\s*게|장점|단점|왜\s*좋|추천|고민|걱정|낯|부끄|소심|내성적|소극적|활발|산만|집중\s*못|처음|초보|왕초보|느[리린]|잘\s*못|못\s?[하해]|따라갈|가능(할까|한가|해요|하[나냐])|괜찮(을까|나요|은가|아요)|효과|도움\s*(이|될)|얼마나|어느\s*정도|어떻게\s*(해야|하면|시작|공부|준비)|해야\s*(할|하|되)|나이|살\s*인데|살\s?짜리|몇\s*살|어린|우리\s*아이|우리애|아이가|애가|자녀|초등|유치원|중학|고등|성인|직장|여행|말문|스피킹|자신감|안\s*늘|늘까|늘지|성적|시험|내신|수능|원어민\s*(맞|진짜|정말))/;
+
   // 인사/도움말 → 대표 메뉴 빠른 목록 (첫 사용자가 무엇을 할 수 있는지 바로 파악)
   const GREET_HELP_RE = /^(안녕|하이|반가|헬로|hello|hi|hey|도와|도움|도움말|help|뭐\s*할|뭐\s*있|무엇을|메뉴\s*(뭐|알려|보여)|메뉴판|기능|사용법|어떻게\s*(써|사용|해))/i;
   function popularQuickList() {
@@ -335,6 +338,9 @@
     }
 
     const isQuestion = QUESTION_RE.test(text);
+    // 복잡·간접·상담형 질문이면 로컬 키워드 이동을 건너뛰고 서버 AI가 의미를 파악해 답하게 함
+    //  (예: "레벨 낮아도 원어민 수업 돼요?"가 '레벨'·'수업' 때문에 엉뚱한 페이지로 튕기지 않도록)
+    const isComplex = COMPLEX_RE.test(text) || (isQuestion && text.replace(/\s+/g, '').length >= 14);
 
     // 0. 질문형("~얼마?/몇 살?/필리핀?")이면 지식 FAQ 즉답 + 관련 모달 (페이지 이동 없이 답 유지)
     if (isQuestion) {
@@ -347,59 +353,62 @@
       }
     }
 
-    // 1. 로컬 룰로 즉시 매칭 (메뉴 이동)
-    const rule = findRule(text);
-    if (rule) {
-      showSuggest(`<b>${rule.label}</b> 으로 이동합니다...`, true);
-      setTimeout(rule.action, 400);
-      return;
-    }
-
-    // 1-a. 명령형인데 룰엔 없지만 FAQ 주제면 즉답 (예: "가격", "환불")
-    {
-      const faq = findFaq(text);
-      if (faq) {
-        showSuggest(`💬 ${faq.answer}`);
-        try { if (window.MangoAvatar && window.MangoAvatar.speak) window.MangoAvatar.speak(faq.answer); } catch(_){}
-        if (faq.go) setTimeout(faq.go, 900);
+    // 복잡한 질문이 아닐 때만 로컬 결정론 라우팅(즉시 이동)을 시도. 복잡하면 아래 서버 AI로.
+    if (!isComplex) {
+      // 1. 로컬 룰로 즉시 매칭 (메뉴 이동)
+      const rule = findRule(text);
+      if (rule) {
+        showSuggest(`<b>${rule.label}</b> 으로 이동합니다...`, true);
+        setTimeout(rule.action, 400);
         return;
+      }
+
+      // 1-a. 명령형인데 룰엔 없지만 FAQ 주제면 즉답 (예: "가격", "환불")
+      {
+        const faq = findFaq(text);
+        if (faq) {
+          showSuggest(`💬 ${faq.answer}`);
+          try { if (window.MangoAvatar && window.MangoAvatar.speak) window.MangoAvatar.speak(faq.answer); } catch(_){}
+          if (faq.go) setTimeout(faq.go, 900);
+          return;
+        }
+      }
+
+      // 1-b. 학생 이름(한글 2~4자) → 내 이름이면 마이페이지, 다른 이름이면 학생 정보 검색
+      if (/^[가-힣]{2,4}$/.test(text)) {
+        var _myName = '';
+        try {
+          var _u = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null');
+          _myName = (_u && (_u.name || _u.username || '')) || '';
+        } catch(e){}
+        if (_myName && _myName.replace(/\s/g,'') === text.replace(/\s/g,'')) {
+          showSuggest(`<b>👤 ${text} 마이페이지</b> 로 이동합니다...`, true);
+          setTimeout(() => { location.href = '/parent.html'; }, 400);
+          return;
+        }
+        // 다른 이름 검색 → 관리자 로그인 상태에서만 관리자 학생검색으로. 방문자/학생은 관리자 페이지로 보내지 않음.
+        var _isAdmin = false;
+        try { _isAdmin = !!localStorage.getItem('mangoi_admin_session'); } catch(e){}
+        if (_isAdmin) {
+          showSuggest(`<b>👤 '${text}' 학생 정보</b> 로 이동합니다...`, true);
+          setTimeout(() => { location.href = '/admin/students-unified.html?q=' + encodeURIComponent(text); }, 400);
+          return;
+        }
+        // 비관리자: 아래 퍼지 매칭/추천으로 계속 진행 (예: 2~4자 메뉴 오타)
+      }
+
+      // 1-c. 정확 매칭 실패 → 자모 퍼지로 오타·음성인식 오류 흡수 (예: "마구아예에 대해"→망고아이 소개)
+      {
+        const fr = fuzzyFindRule(text);
+        if (fr) {
+          showSuggest(`<b>${fr.label}</b> 으로 이동합니다...`, true);
+          setTimeout(fr.action, 400);
+          return;
+        }
       }
     }
 
-    // 1-b. 학생 이름(한글 2~4자) → 내 이름이면 마이페이지, 다른 이름이면 학생 정보 검색
-    if (/^[가-힣]{2,4}$/.test(text)) {
-      var _myName = '';
-      try {
-        var _u = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null');
-        _myName = (_u && (_u.name || _u.username || '')) || '';
-      } catch(e){}
-      if (_myName && _myName.replace(/\s/g,'') === text.replace(/\s/g,'')) {
-        showSuggest(`<b>👤 ${text} 마이페이지</b> 로 이동합니다...`, true);
-        setTimeout(() => { location.href = '/parent.html'; }, 400);
-        return;
-      }
-      // 다른 이름 검색 → 관리자 로그인 상태에서만 관리자 학생검색으로. 방문자/학생은 관리자 페이지로 보내지 않음.
-      var _isAdmin = false;
-      try { _isAdmin = !!localStorage.getItem('mangoi_admin_session'); } catch(e){}
-      if (_isAdmin) {
-        showSuggest(`<b>👤 '${text}' 학생 정보</b> 로 이동합니다...`, true);
-        setTimeout(() => { location.href = '/admin/students-unified.html?q=' + encodeURIComponent(text); }, 400);
-        return;
-      }
-      // 비관리자: 아래 퍼지 매칭/추천으로 계속 진행 (예: 2~4자 메뉴 오타)
-    }
-
-    // 1-c. 정확 매칭 실패 → 자모 퍼지로 오타·음성인식 오류 흡수 (예: "마구아예에 대해"→망고아이 소개)
-    {
-      const fr = fuzzyFindRule(text);
-      if (fr) {
-        showSuggest(`<b>${fr.label}</b> 으로 이동합니다...`, true);
-        setTimeout(fr.action, 400);
-        return;
-      }
-    }
-
-    // 2. 매칭 안 되면 서버 AI 호출
+    // 2. 매칭 안 되거나 복잡한 질문이면 서버 AI 호출
     showSuggest('🤖 AI가 분석 중입니다…');
     try {
       const r = await fetch('/api/student/ai-command', {
@@ -424,9 +433,21 @@
         showSuggest(`<b>${d.answer || '신규상담 신청 폼을 엽니다.'}</b>`, true);
         setTimeout(() => { if (window.openInquiryModal) window.openInquiryModal(); }, 400);
       } else if (d.intent === 'answer') {
-        // 답변을 보여주되, 근접 메뉴가 있으면 추천 버튼도 함께 (막다른 응답 방지)
-        const cands = topFuzzyRules(text, 3);
-        showSuggest(`💬 ${d.answer || '죄송해요, 잘 모르겠어요.'}` + (cands.length ? '<div style="margin-top:8px">' + suggestButtonsHtml(cands, '↪ 관련 메뉴') + '</div>' : ''));
+        // 답변 + (서버가 준 관련 메뉴 suggest → 정확한 이동 버튼) or (근접 메뉴 폴백)
+        let extra = '';
+        if (d.suggest && (d.suggest.url || d.suggest.run || d.suggest.view)) {
+          const sg = d.suggest;
+          _sgMatches = [{ label: sg.label || '관련 메뉴', action: () => {
+            if (sg.run) runWhitelisted(sg.run);
+            else if (sg.url) location.href = sg.url;
+            else if (sg.view) showView(sg.view);
+          } }];
+          extra = '<div style="margin-top:8px"><div class="ai-sg-head">↪ 관련 메뉴 — 눌러서 이동</div><button type="button" class="ai-sg-item" data-sg="0">' + (sg.label || '관련 메뉴') + ' ▶</button></div>';
+        } else {
+          const cands = topFuzzyRules(text, 3);
+          if (cands.length) extra = '<div style="margin-top:8px">' + suggestButtonsHtml(cands, '↪ 관련 메뉴') + '</div>';
+        }
+        showSuggest(`💬 ${d.answer || '죄송해요, 잘 모르겠어요.'}` + extra);
       } else {
         showFailWithSuggest(text, d.answer ? ('💬 ' + d.answer) : '💬 명령을 이해하지 못했어요.');
       }
