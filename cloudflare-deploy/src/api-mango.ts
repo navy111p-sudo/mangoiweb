@@ -5528,6 +5528,59 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       try { await env.DB.exec(`ALTER TABLE inquiries ADD COLUMN program TEXT`); } catch {}
     };
 
+    // ── POST /api/consult-bot — 🤖 AI 상담봇 (전화·사람 없이 24시간 자동 응대) ──
+    //   body: { message, history?: [{role,content}] } → { ok, reply }
+    //   faq.html 의 실제 사실만 근거로 답하고, 모르는 것(특히 요금)은 지어내지 않고 무료 레벨테스트/카카오로 유도.
+    if (method === 'POST' && path === '/api/consult-bot') {
+      const b: any = await request.json().catch(() => ({}));
+      const userMsg = String(b?.message || '').trim().slice(0, 800);
+      if (!userMsg) return json({ ok: false, error: 'message_required' }, 400);
+      const history = Array.isArray(b?.history)
+        ? b.history.slice(-6).filter((m: any) => m && m.role && m.content)
+            .map((m: any) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content).slice(0, 800) }))
+        : [];
+      const KNOWLEDGE = [
+        '- 망고아이(Mangoi)는 원어민(필리핀 현지센터 + 북미 재택) 선생님과 함께하는 1:1·그룹 화상영어 + AI 학습관리(수업 후 AI 평가서·맞춤 복습퀴즈·단계별 발음교정).',
+        '- 대상: 어린이·청소년·성인 모두.',
+        '- 상담(운영) 시간: 오전 10시~오후 8시(주말·공휴일 휴무). 수업 시간: 평일 월~금 오후 2시~11시(14:00~23:00). 주말·오전반은 준비 중.',
+        '- 레벨테스트: 무료. 홈의 [레벨테스트] 또는 [수업 진단]에서 신청. 결석해도 재신청 가능. 실력 확인·맞춤 과정 추천용(점수 낮아도 괜찮음).',
+        '- 수업 길이: 개인 20분 또는 40분, 단체는 10분 단위로 추가.',
+        '- 필요 장비: 인터넷 되는 PC/노트북/태블릿/스마트폰 + 헤드셋(필수) + 웹캠(권장). 설치 없이 브라우저에서 바로 진행. [수업 진단]에서 미리 점검.',
+        '- 수강 절차: 홈 [수업 신청]에서 강사(성별·성향 필터)와 시간을 고르고 결제 → [마이페이지]에서 일정 확인·강의실 입장.',
+        '- 연기: [연기/변경] 메뉴 또는 수업 시작 30분 전까지 카카오로 신청. 수강 횟수의 1/2까지 가능.',
+        '- 시간/강사 변경: [연기/변경]에서. 강사 변경은 월 1회, 수업 1일 전까지.',
+        '- 결석: 수업시간에 미입장 시 결석 처리, 학생 과실 결석은 보강 없음.',
+        '- 수업 녹화영상·복습퀴즈·AI 평가서: 로그인 후 [마이페이지]에서 확인.',
+        '- 포인트: 출석·복습 등 학습으로 적립 → [포인트상점]에서 상품 교환.',
+        '- 환불: 수업 시작 전 100% / 총 수업시간의 1/3 이전 70% / 1/2 이전 50% / 1/2 이후 0%. 할인가 결제분은 정상가로 재정산. 레벨테스트·체험수업은 무료.',
+        '- 수강 요금(가격): 과정·횟수에 따라 달라 공개된 표준가가 없음. → 절대 특정 금액을 지어내지 말 것. 무료 레벨테스트 후 맞춤 안내 또는 카카오 채널 문의로 유도.',
+        '- 사람 상담: 전화 상담은 운영하지 않음. 사람 연결이 필요하면 카카오 채널(@망고아이, 화면 우하단 상담 버튼) 안내.',
+        '- 단체·학원 단위 수강: 카카오 채널 또는 상담 신청으로 문의 유도.',
+      ].join('\n');
+      const SYSTEM = [
+        "당신은 '망고아이(Mangoi)' 화상영어의 친절한 AI 상담 도우미입니다. 아래 [정보]만 근거로, 한국어로 짧고 따뜻하게 답하세요.",
+        '규칙:',
+        '1) [정보]에 없는 내용(특히 정확한 요금·가격)은 지어내지 말고, "정확한 안내는 무료 레벨테스트나 카카오 채널로 도와드릴게요"라고 안내하세요.',
+        '2) 전화 상담은 운영하지 않습니다. 사람 연결이 필요하면 "카카오 채널(화면 우하단 상담 버튼)"을 권하세요.',
+        '3) 수강·등록·내 레벨 확인을 원하면 "무료 레벨테스트" 신청을 권하세요.',
+        '4) 3~5문장 이내로 간결하게. 확실하지 않으면 확실한 척 하지 마세요.',
+        '[정보]',
+        KNOWLEDGE,
+      ].join('\n');
+      const fallback = '지금은 AI 답변이 잠깐 어려워요. 화면 우하단 카카오 채널이나 아래 상담 폼으로 남겨주시면 바로 도와드릴게요! 무료 레벨테스트도 추천드려요 🙂';
+      try {
+        if (!(env as any).AI) return json({ ok: true, reply: fallback });
+        const messages = [{ role: 'system', content: SYSTEM }, ...history, { role: 'user', content: userMsg }];
+        const res: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages, max_tokens: 480 });
+        let reply = String((res && (res.response || res.result)) || '').trim();
+        if (!reply) reply = fallback;
+        return json({ ok: true, reply });
+      } catch (e: any) {
+        console.warn('[consult-bot] AI err:', e?.message || e);
+        return json({ ok: true, reply: fallback });
+      }
+    }
+
     // ── POST /api/student/inquiry — 홈 화면 "신규상담" 모달의 공개 제출 엔드포인트 ──
     //   body: { name, contact, email?, program?, message } → inquiries 테이블(관리자 /api/admin/inquiry/* 가 이미 조회)
     if (method === 'POST' && path === '/api/student/inquiry') {
@@ -5546,6 +5599,15 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         `INSERT INTO inquiries (name, phone, email, program, message, status, source, created_at) VALUES (?, ?, ?, ?, ?, 'new', 'index.html', ?)`
       ).bind(name, contact, email || null, program || null, message, now).run();
       const inquiryId = ins.meta?.last_row_id;
+      // 🔔 새 상담 → 관리자(사장님) 폰으로 내부 문자 알림 (리드 놓침 방지, best-effort)
+      //    ※ 고객에게 전화하는 게 아니라 '새 리드 왔다'는 내부 알림 — 답변은 카톡으로.
+      try {
+        const alertTo = (env as any).OWNER_ALERT_PHONE;
+        if (alertTo) {
+          const txt = `[망고아이] 🆕 새 상담 신청\n이름: ${name}\n답변받을곳: ${contact}${program ? `\n과정: ${program}` : ''}\n내용: ${message.slice(0, 60)}${message.length > 60 ? '…' : ''}\n관리자 페이지에서 카톡으로 답변해 주세요.`;
+          await sendPlainSms(env, alertTo, txt);
+        }
+      } catch (e: any) { console.warn('[inquiry] owner alert skipped:', e?.message || e); }
       return json({ ok: true, inquiry_id: inquiryId });
     }
 

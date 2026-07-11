@@ -15517,10 +15517,22 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- 💬 신규상담 모달 (2026-05-03 추가) -->
 <div id="inquiry-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);align-items:center;justify-content:center;animation:fadeIn 0.25s">
-  <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:32px;max-width:480px;width:90%;box-shadow:0 24px 64px -16px rgba(0,0,0,0.8);position:relative">
+  <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:32px;max-width:480px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px -16px rgba(0,0,0,0.8);position:relative">
     <button id="inquiry-close" style="position:absolute;top:14px;right:14px;background:transparent;border:0;color:#94a3b8;font-size:22px;cursor:pointer">✕</button>
-    <h2 style="color:#fbbf24;font-size:22px;margin:0 0 6px;font-weight:800">💬 신규상담 신청</h2>
-    <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:14px">관심 있는 과정·시간대·기타 궁금하신 점을 남겨 주세요.<br/>담당자가 영업일 1일 내로 연락드립니다.</p>
+    <h2 style="color:#fbbf24;font-size:22px;margin:0 0 6px;font-weight:800">💬 상담 신청 (카톡·이메일)</h2>
+    <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:14px">궁금하신 점을 남겨 주세요. <b style="color:#fde68a">카카오톡 또는 이메일로 답변</b>드려요 (영업일 1일 내).<br/><span style="color:#94a3b8;font-size:12.5px">전화 상담 대신 카톡으로 편하게 — 아래 <b style="color:#FEE500">카카오 채널</b>이 가장 빨라요.</span></p>
+
+    <!-- 🤖 AI 상담봇 — 사람·전화 없이 24시간 자동 응대 -->
+    <div id="consult-bot" style="margin-bottom:16px;padding:13px 14px;background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(79,124,255,0.06));border:1px solid rgba(99,102,241,0.35);border-radius:14px">
+      <div style="font-weight:800;color:#a5b4fc;font-size:13.5px;margin-bottom:2px">🤖 AI에게 먼저 물어보기</div>
+      <div style="color:#94a3b8;font-size:11.5px;margin-bottom:10px">24시간 자동 답변 · 궁금한 걸 바로 물어보세요</div>
+      <div id="cb-log" style="max-height:210px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:9px"></div>
+      <div id="cb-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px"></div>
+      <div style="display:flex;gap:6px">
+        <input id="cb-input" type="text" maxlength="200" placeholder="예: 수업 시간이 어떻게 되나요?" style="flex:1;min-width:0;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:13px;outline:none" />
+        <button type="button" id="cb-send" style="padding:10px 16px;background:linear-gradient(135deg,#6366f1,#4f46e5);border:0;border-radius:10px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0">전송</button>
+      </div>
+    </div>
 
     <!-- 🧠 MBTI 매칭으로 잘 맞는 강사 추천 받기 -->
     <a href="/mbti.html?from=inquiry" style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(79,124,255,0.20),rgba(99,102,241,0.10));border:1px solid rgba(79,124,255,0.45);border-radius:12px;text-decoration:none;cursor:pointer;transition:all .15s">
@@ -15561,9 +15573,10 @@ window.addEventListener('DOMContentLoaded', () => {
                style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none;transition:border-color 0.2s" />
       </div>
       <div style="margin-bottom:14px">
-        <label style="display:block;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px">연락처 (전화·카톡 ID) <span style="color:#ef4444">*</span></label>
-        <input id="inq-contact" type="text" required maxlength="60" placeholder="010-1234-5678 또는 카카오 ID"
+        <label style="display:block;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px">답변 받을 곳 — 카카오톡 ID <span style="color:#ef4444">*</span> <span style="color:#94a3b8;font-weight:400">(또는 이메일)</span></label>
+        <input id="inq-contact" type="text" required maxlength="60" placeholder="카카오 ID 또는 이메일 (전화번호도 가능)"
                style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none" />
+        <p style="color:#7c88a8;font-size:11px;margin:6px 0 0;line-height:1.5">💬 남겨주시면 <b style="color:#a7b6d6">카카오톡(또는 이메일)</b>으로 답변드려요. 전화 상담은 운영하지 않아요.</p>
       </div>
       <div style="margin-bottom:14px">
         <label style="display:block;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px">이메일 (선택)</label>
@@ -15589,6 +15602,10 @@ window.addEventListener('DOMContentLoaded', () => {
         <textarea id="inq-message" required maxlength="500" rows="4" placeholder="궁금한 점이나 희망하시는 수업 시간대 등을 알려주세요"
                   style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none;resize:vertical;font-family:inherit"></textarea>
       </div>
+      <label style="display:flex;align-items:flex-start;gap:8px;color:#94a3b8;font-size:11.5px;line-height:1.5;cursor:pointer;margin-bottom:14px">
+        <input id="inq-agree" type="checkbox" style="width:16px;height:16px;accent-color:#fbbf24;margin-top:1px;cursor:pointer;flex-shrink:0" />
+        <span>개인정보 수집·이용에 동의합니다 (상담 답변 목적: 이름·카톡ID/이메일·문의내용, 목적 달성 후 파기)</span>
+      </label>
       <div style="display:flex;gap:8px">
         <button type="button" id="inquiry-cancel"
                 style="flex:1;padding:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#cbd5e1;font-size:14px;font-weight:600;cursor:pointer">취소</button>
@@ -15715,7 +15732,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const message = document.getElementById('inq-message').value.trim();
 
     if (!name || !contact || !message) {
-      alert('필수 항목(이름·연락처·문의 내용)을 모두 입력해 주세요.');
+      alert('필수 항목(이름·답변 받을 곳·문의 내용)을 모두 입력해 주세요.');
+      return;
+    }
+    if (!document.getElementById('inq-agree') || !document.getElementById('inq-agree').checked) {
+      alert('개인정보 수집·이용에 동의해 주세요.');
       return;
     }
 
@@ -15732,7 +15753,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (!d.ok) throw new Error(d.error || '전송 실패');
       form.style.display = 'none';
       result.style.display = 'block';
-      result.innerHTML = `✅ <b>상담 신청이 접수되었습니다!</b><br/><span style="color:#cbd5e1;font-size:13px">접수번호: <code>${d.inquiry_id||'-'}</code><br/>담당자가 영업일 1일 내로 연락드립니다.</span>`;
+      result.innerHTML = `✅ <b>상담 신청이 접수되었습니다!</b><br/><span style="color:#cbd5e1;font-size:13px">접수번호: <code>${d.inquiry_id||'-'}</code><br/>남겨주신 <b style="color:#fde68a">카카오톡(또는 이메일)으로 답변</b>드릴게요 (영업일 1일 내).<br/>더 빠른 답변은 <b style="color:#FEE500">카카오 채널</b>을 이용해 주세요!</span>`;
       setTimeout(closeModal, 4000);
     } catch (err) {
       alert('상담 신청 중 오류가 발생했어요: ' + err.message + '\n\n잠시 후 다시 시도해 주세요.');
@@ -15740,6 +15761,75 @@ window.addEventListener('DOMContentLoaded', () => {
       btn.textContent = '📨 상담 신청';
     }
   });
+})();
+</script>
+
+<!-- 🤖 AI 상담봇 채팅 로직 -->
+<script>
+(function(){
+  var log = document.getElementById('cb-log');
+  var input = document.getElementById('cb-input');
+  var send = document.getElementById('cb-send');
+  var chips = document.getElementById('cb-chips');
+  if (!log || !input || !send) return;
+  var history = [];
+  var greeted = false;
+  var SUGGEST = ['수업 시간이 어떻게 되나요?','레벨테스트는 무료인가요?','필요한 장비가 뭔가요?','환불 규정 알려주세요','수강 요금이 궁금해요'];
+
+  function bubble(text, who){
+    var d = document.createElement('div');
+    d.style.cssText = 'max-width:90%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word;'
+      + (who === 'user'
+          ? 'align-self:flex-end;background:rgba(251,191,36,0.18);color:#fde68a;border:1px solid rgba(251,191,36,0.3)'
+          : 'align-self:flex-start;background:rgba(255,255,255,0.06);color:#e2e8f0;border:1px solid rgba(255,255,255,0.12)');
+    d.textContent = text;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+    return d;
+  }
+  function renderChips(){
+    chips.innerHTML = '';
+    SUGGEST.forEach(function(q){
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = q;
+      b.style.cssText = 'padding:5px 10px;font-size:11.5px;border-radius:999px;border:1px solid rgba(165,180,252,0.4);background:rgba(99,102,241,0.12);color:#c7d2fe;cursor:pointer';
+      b.onclick = function(){ input.value = q; ask(); };
+      chips.appendChild(b);
+    });
+  }
+  async function ask(){
+    var msg = (input.value || '').trim();
+    if (!msg) return;
+    input.value = '';
+    bubble(msg, 'user');
+    history.push({ role:'user', content: msg });
+    send.disabled = true;
+    var typing = bubble('…', 'bot');
+    try {
+      var r = await fetch('/api/consult-bot', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ message: msg, history: history.slice(-6) })
+      });
+      var d = await r.json();
+      var reply = (d && d.reply) ? d.reply : '화면 우하단 카카오 채널로 문의해 주세요!';
+      typing.textContent = reply;
+      history.push({ role:'assistant', content: reply });
+    } catch(e){
+      typing.textContent = '지금 답변이 어려워요. 화면 우하단 카카오 채널로 문의해 주시면 바로 도와드릴게요!';
+    }
+    send.disabled = false;
+    log.scrollTop = log.scrollHeight;
+  }
+  // 상담 모달이 열릴 때 첫 인사 1회
+  window.__cbGreet = function(){
+    if (greeted) return; greeted = true;
+    bubble('안녕하세요! 망고아이 AI 상담 도우미예요 🥭\n궁금한 걸 물어보시거나 아래 버튼을 눌러보세요.', 'bot');
+  };
+  send.addEventListener('click', ask);
+  input.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); ask(); } });
+  renderChips();
+  // 페이지에 바로 인사 렌더(모달은 display:none 이라 열면 보임)
+  window.__cbGreet();
 })();
 </script>
 
@@ -24495,7 +24585,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712005334 -->
+<!-- BUILD:20260712014200 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
