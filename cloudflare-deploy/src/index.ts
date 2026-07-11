@@ -10,6 +10,7 @@ import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-ma
 import { handlePayApi, runPaymentAudit } from './api-pay';
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
 import { handleRetentionIngest, getRetention, markRetentionContacted } from './api-retention';
+import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
@@ -1139,6 +1140,35 @@ const worker = {
     // 🔁 /admin/retention — 수강권 만료·재활성 대시보드 (관리자 전용)
     if (path === '/admin/retention' || path === '/admin/retention/') {
       const r = new Request(new URL('/admin/retention.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 💸 이중결제 감사 조회 (관리자 전용). ?type=all|unresolved|resolved&since=YYYY
+    if (path === '/api/admin/duplicate-payments') {
+      try {
+        const data = await getDuplicatePayments(env as any, { type: url.searchParams.get('type') || 'all', since: url.searchParams.get('since') || '' });
+        return new Response(JSON.stringify({ ok: true, ...data }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+    // 💸 이중결제 처리 저장 (관리자 전용). POST { dup_key, status, note }
+    if (path === '/api/admin/duplicate-payments/resolve' && request.method === 'POST') {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        await resolveDuplicate(env as any, String(b?.dup_key || ''), String(b?.status || ''), String(b?.note || ''), String(b?.by || ''));
+        return new Response(JSON.stringify({ ok: true }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+    // 💸 /admin/duplicate-payments — 이중결제 감사·환불 처리 (관리자 전용)
+    if (path === '/admin/duplicate-payments' || path === '/admin/duplicate-payments/') {
+      const r = new Request(new URL('/admin/duplicate-payments.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -3112,6 +3142,9 @@ function isAdminPath(path: string, method: string): boolean {
   // 🔁 수강권 만료·재활성 대시보드 + API (2026-07-11) — 관리자 전용
   if (path === '/admin/retention' || path === '/admin/retention/' || path === '/admin/retention.html') return true;
   if (path === '/api/admin/retention' || path === '/api/admin/retention/contacted') return true;
+  // 💸 이중결제 감사·환불 처리 + API (2026-07-11) — 관리자 전용
+  if (path === '/admin/duplicate-payments' || path === '/admin/duplicate-payments/' || path === '/admin/duplicate-payments.html') return true;
+  if (path === '/api/admin/duplicate-payments' || path === '/api/admin/duplicate-payments/resolve') return true;
   // 🎓 학습 인사이트 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/learning-insights' || path === '/admin/learning-insights/' || path === '/admin/learning-insights.html') return true;
   if (path.startsWith('/api/admin/learning/')) return true;

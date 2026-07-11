@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이중결제 감사 · 망고아이</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e6edf6; min-height:100vh; padding:22px; font-size:17px; }
+  .wrap { max-width:1080px; margin:0 auto; }
+  .head { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .head img { height:52px; }
+  h1 { font-size:29px; margin:0; font-weight:900; }
+  .sub { color:#a9b7ca; font-size:16.5px; margin:4px 0 20px; line-height:1.55; }
+  .langbtn { margin-left:auto; align-self:flex-start; cursor:pointer; font-weight:800; font-size:15px; border-radius:999px; padding:10px 18px; border:1px solid rgba(148,163,184,0.45); background:transparent; color:#e6edf6; }
+  .card { background:rgba(30,41,59,0.92); border:1px solid rgba(148,163,184,0.22); border-radius:20px; padding:22px; margin-bottom:18px; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:13px; margin-bottom:14px; }
+  .stat { background:rgba(15,23,42,0.65); border:1px solid rgba(148,163,184,0.22); border-radius:16px; padding:18px; text-align:center; }
+  .stat .n { font-size:26px; font-weight:900; color:#fcd34d; }
+  .stat .l { font-size:14px; color:#a9b7ca; margin-top:5px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  select, input, button { font-size:16px; border-radius:11px; padding:12px 14px; border:1px solid rgba(148,163,184,0.4); }
+  select, input { background:#0f172a; color:#e6edf6; }
+  .btn { cursor:pointer; font-weight:800; border:0; background:transparent; color:#e6edf6; border:1px solid rgba(148,163,184,0.45); }
+  table { width:100%; border-collapse:collapse; margin-top:6px; font-size:16px; }
+  th, td { padding:13px 9px; text-align:left; border-bottom:1px solid rgba(148,163,184,0.16); vertical-align:middle; }
+  th { color:#a9b7ca; font-size:13.5px; font-weight:700; white-space:nowrap; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tbody tr:nth-child(even) { background:rgba(148,163,184,0.06); }
+  tr.done { opacity:0.6; }
+  .name { font-weight:800; }
+  .excess { color:#fca5a5; font-weight:900; }
+  .cnt { color:#fbbf24; font-weight:800; }
+  .times { color:#7c8ba1; font-size:13.5px; }
+  .rsel { padding:8px 10px; font-size:14.5px; }
+  .rsel.refunded { border-color:#22c55e; color:#4ade80; }
+  .rsel.credited { border-color:#3b82f6; color:#93c5fd; }
+  .rsel.dismissed { border-color:#94a3b8; color:#cbd5e1; }
+  .note { width:130px; font-size:14px; padding:8px 10px; }
+  .detail { color:#7dd3fc; text-decoration:none; font-weight:700; font-size:14.5px; }
+  .empty { text-align:center; color:#a9b7ca; padding:32px 12px; line-height:1.7; }
+  .muted { color:#7c8ba1; font-size:14.5px; }
+  @media (max-width:820px){ .stats{grid-template-columns:1fr;} table{font-size:14px;} th,td{padding:10px 6px;} h1{font-size:23px;} .note{width:90px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/img/mango-char.png" alt="Mangoi">
+    <h1 id="t_title">💸 이중결제 감사</h1>
+    <button class="langbtn" id="lang">🇺🇸 English</button>
+  </div>
+  <div class="sub" id="t_sub"></div>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><div class="n" id="s_groups">–</div><div class="l" id="t_l_groups"></div></div>
+      <div class="stat"><div class="n excess" id="s_excess">–</div><div class="l" id="t_l_excess"></div></div>
+      <div class="stat"><div class="n" id="s_resolved" style="color:#4ade80">–</div><div class="l" id="t_l_resolved"></div></div>
+    </div>
+    <div class="toolbar">
+      <select id="since"></select>
+      <select id="type"></select>
+      <input id="search" type="text">
+      <button class="btn" id="csv"></button>
+      <span class="muted" id="updated"></span>
+    </div>
+  </div>
+
+  <div class="card"><div id="body"></div></div>
+</div>
+
+<script>
+(function(){
+  var g=function(id){return document.getElementById(id);};
+  var cur={ rows:[], summary:{} };
+
+  var I18N={
+    ko:{ title:'💸 이중결제 감사·환불 처리', langLabel:'🇺🇸 English', htmlLang:'ko',
+      sub:'같은 회원이 <b>같은 금액을 10분 내에 두 번 이상</b> 결제한 건(=이중결제 의심)을 찾아드려요. 건별로 <b>환불완료·크레딧지급·오인</b> 처리하며 관리하세요.',
+      l_groups:'의심 건수', l_excess:'초과 청구액(합계)', l_resolved:'처리 완료',
+      allYears:'전체 기간', y2026:'2026년~', y2025:'2025년~', y2024:'2024년~',
+      fAll:'전체 보기', fUnresolved:'미처리만', fResolved:'처리됨만',
+      searchPh:'학생 이름/아이디 검색…', csv:'⬇️ CSV', updated:'',
+      th_student:'학생', th_date:'결제일', th_amount:'금액', th_cnt:'횟수', th_times:'결제 시각', th_excess:'초과 청구', th_status:'처리', th_note:'메모', th_detail:'상세',
+      st_none:'— 미처리 —', st_refunded:'✅ 환불완료', st_credited:'🎫 크레딧지급', st_dismissed:'🚫 오인(중복아님)',
+      notePh:'메모…', detail:'보기 ›', loading:'불러오는 중…', empty:'이중결제 의심 건이 없어요. 👍', neterr:'네트워크 오류', needLogin:'관리자 로그인이 필요합니다.', loginLink:'로그인하기', noMatch:'검색 결과 없음',
+      csvHead:'학생아이디,이름,결제일,금액,횟수,초과청구,처리상태,메모', csvName:'이중결제감사' },
+    en:{ title:'💸 Duplicate Payment Audit', langLabel:'🇰🇷 한국어', htmlLang:'en',
+      sub:'Finds cases where the same member paid <b>the same amount 2+ times within 10 minutes</b> (suspected double charge). Resolve each as <b>Refunded, Credited, or Not-a-dup</b>.',
+      l_groups:'Suspected cases', l_excess:'Overcharged (total)', l_resolved:'Resolved',
+      allYears:'All time', y2026:'2026+', y2025:'2025+', y2024:'2024+',
+      fAll:'Show all', fUnresolved:'Unresolved only', fResolved:'Resolved only',
+      searchPh:'Search name / ID…', csv:'⬇️ CSV', updated:'',
+      th_student:'Student', th_date:'Paid date', th_amount:'Amount', th_cnt:'Times', th_times:'Paid at', th_excess:'Overcharge', th_status:'Resolve', th_note:'Note', th_detail:'Detail',
+      st_none:'— Unresolved —', st_refunded:'✅ Refunded', st_credited:'🎫 Credited', st_dismissed:'🚫 Not a dup',
+      notePh:'note…', detail:'View ›', loading:'Loading…', empty:'No suspected duplicates. 👍', neterr:'Network error', needLogin:'Admin login required.', loginLink:'Go to login', noMatch:'No match',
+      csvHead:'StudentID,Name,PaidDate,Amount,Times,Overcharge,Status,Note', csvName:'DuplicateAudit' }
+  };
+  var lang=localStorage.getItem('mangoi_payroll_lang')||'en';
+  function t(){return I18N[lang];}
+
+  function applyLang(){
+    var d=t(); document.documentElement.lang=d.htmlLang;
+    g('t_title').textContent=d.title; g('lang').textContent=d.langLabel; g('t_sub').innerHTML=d.sub;
+    g('t_l_groups').textContent=d.l_groups; g('t_l_excess').textContent=d.l_excess; g('t_l_resolved').textContent=d.l_resolved;
+    g('since').innerHTML='<option value="">'+d.allYears+'</option><option value="2026">'+d.y2026+'</option><option value="2025">'+d.y2025+'</option><option value="2024">'+d.y2024+'</option>';
+    g('type').innerHTML='<option value="all">'+d.fAll+'</option><option value="unresolved">'+d.fUnresolved+'</option><option value="resolved">'+d.fResolved+'</option>';
+    g('search').placeholder=d.searchPh; g('csv').textContent=d.csv;
+    if(cur.rows.length||cur.summary.groups!=null) render();
+  }
+
+  function won(n){ return '₩'+Number(n||0).toLocaleString('ko-KR'); }
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function stLabel(s){ var d=t(); return s==='refunded'?d.st_refunded:s==='credited'?d.st_credited:s==='dismissed'?d.st_dismissed:d.st_none; }
+
+  function render(){
+    var d=t();
+    g('s_groups').textContent=cur.summary.groups||0;
+    g('s_excess').textContent=won(cur.summary.total_excess||0);
+    g('s_resolved').textContent=(cur.summary.resolved||0)+' / '+(cur.summary.groups||0);
+    var q=(g('search').value||'').trim().toLowerCase();
+    var rows=cur.rows.filter(function(r){ return !q || String(r.name||'').toLowerCase().indexOf(q)>=0 || String(r.user_id||'').toLowerCase().indexOf(q)>=0; });
+    if(!cur.rows.length){ g('body').innerHTML='<div class="empty">'+d.empty+'</div>'; return; }
+    if(!rows.length){ g('body').innerHTML='<div class="empty">'+d.noMatch+'</div>'; return; }
+    var h='<table><thead><tr><th>'+d.th_student+'</th><th>'+d.th_date+'</th><th class="num">'+d.th_amount+'</th><th class="num">'+d.th_cnt+'</th><th>'+d.th_times+'</th><th class="num">'+d.th_excess+'</th><th>'+d.th_status+'</th><th>'+d.th_note+'</th><th>'+d.th_detail+'</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var st=r.res_status||'';
+      h+='<tr class="'+(st?'done':'')+'" data-key="'+esc(r.dup_key)+'">'
+        +'<td class="name">'+esc(r.name||r.user_id)+'<div class="muted">'+esc(r.user_id)+'</div></td>'
+        +'<td>'+esc(r.pay_date)+'</td>'
+        +'<td class="num">'+won(r.amount_krw)+'</td>'
+        +'<td class="num cnt">'+r.cnt+'</td>'
+        +'<td class="times">'+esc(r.times||'')+'</td>'
+        +'<td class="num excess">'+won(r.excess)+'</td>'
+        +'<td><select class="rsel '+st+'" data-key="'+esc(r.dup_key)+'">'
+          +'<option value=""'+(!st?' selected':'')+'>'+d.st_none+'</option>'
+          +'<option value="refunded"'+(st==='refunded'?' selected':'')+'>'+d.st_refunded+'</option>'
+          +'<option value="credited"'+(st==='credited'?' selected':'')+'>'+d.st_credited+'</option>'
+          +'<option value="dismissed"'+(st==='dismissed'?' selected':'')+'>'+d.st_dismissed+'</option>'
+        +'</select></td>'
+        +'<td><input class="note" data-key="'+esc(r.dup_key)+'" value="'+esc(r.res_note||'')+'" placeholder="'+d.notePh+'"></td>'
+        +'<td><a class="detail" href="/admin/student?uid='+encodeURIComponent(r.user_id)+'" target="_blank">'+d.detail+'</a></td></tr>';
+    });
+    h+='</tbody></table>'; g('body').innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll('.rsel'), function(s){ s.addEventListener('change', function(){ resolve(s.getAttribute('data-key'), s.value); }); });
+    Array.prototype.forEach.call(document.querySelectorAll('.note'), function(n){ n.addEventListener('change', function(){ var sel=document.querySelector('.rsel[data-key="'+CSS.escape(n.getAttribute('data-key'))+'"]'); resolve(n.getAttribute('data-key'), sel?sel.value:'', n.value); }); });
+  }
+
+  function resolve(key, status, note){
+    var r=cur.rows.filter(function(x){return x.dup_key===key;})[0];
+    if(r){ r.res_status=status||null; if(note!=null) r.res_note=note; }
+    cur.summary.resolved=cur.rows.filter(function(x){return x.res_status;}).length;
+    g('s_resolved').textContent=(cur.summary.resolved||0)+' / '+(cur.summary.groups||0);
+    var tr=document.querySelector('tr[data-key="'+CSS.escape(key)+'"]'); if(tr) tr.classList.toggle('done', !!status);
+    var sel=document.querySelector('.rsel[data-key="'+CSS.escape(key)+'"]'); if(sel){ sel.className='rsel '+(status||''); }
+    var noteEl=document.querySelector('.note[data-key="'+CSS.escape(key)+'"]');
+    fetch('/api/admin/duplicate-payments/resolve',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({dup_key:key,status:status||'',note:note!=null?note:(noteEl?noteEl.value:'')})}).catch(function(){});
+  }
+
+  function load(){
+    var d=t();
+    g('body').innerHTML='<div class="empty">'+d.loading+'</div>';
+    fetch('/api/admin/duplicate-payments?type='+g('type').value+'&since='+g('since').value,{credentials:'same-origin'})
+      .then(function(r){ if(r.status===401){throw new Error('auth');} return r.json(); })
+      .then(function(data){
+        if(!data||!data.ok){ g('body').innerHTML='<div class="empty">'+d.neterr+'</div>'; return; }
+        cur.rows=data.rows||[]; cur.summary=data.summary||{}; render();
+      })
+      .catch(function(e){
+        if(e.message==='auth'){ g('body').innerHTML='<div class="empty">'+d.needLogin+'<br><a href="/admin/login.html" style="color:#7dd3fc">'+d.loginLink+'</a></div>'; }
+        else g('body').innerHTML='<div class="empty">'+d.neterr+'</div>';
+      });
+  }
+
+  g('lang').addEventListener('click', function(){ lang=(lang==='ko'?'en':'ko'); localStorage.setItem('mangoi_payroll_lang',lang); applyLang(); });
+  g('since').addEventListener('change', load);
+  g('type').addEventListener('change', load);
+  g('search').addEventListener('input', render);
+  g('csv').addEventListener('click', function(){
+    var d=t(); if(!cur.rows.length) return;
+    var lines=[d.csvHead];
+    cur.rows.forEach(function(r){ lines.push([r.user_id,'"'+String(r.name||'').replace(/"/g,'""')+'"',r.pay_date,r.amount_krw,r.cnt,r.excess,r.res_status||'',('"'+String(r.res_note||'').replace(/"/g,'""')+'"')].join(',')); });
+    var blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=d.csvName+'.csv'; a.click();
+  });
+
+  applyLang(); load();
+})();
+</script>
+</body>
+</html>
