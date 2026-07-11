@@ -4282,9 +4282,68 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const gradeQs = (served && served.length) ? served.map((i: number) => qs[i]) : qs;
       const { score, detail } = rqGrade(gradeQs, answers);
       const total = gradeQs.length;
-      await env.DB.prepare(`INSERT INTO review_quiz_results (quiz_id, user_id, user_name, score, total, answers, detail, created_at) VALUES (?,?,?,?,?,?,?,?)`)
-        .bind(quizId, userId, userName, score, total, JSON.stringify(answers.slice(0, total)), JSON.stringify(detail), Date.now()).run();
-      return json({ ok: true, score, total, percent: total ? Math.round((score / total) * 100) : 0, detail });
+      const now = Date.now();
+      const insRes: any = await env.DB.prepare(`INSERT INTO review_quiz_results (quiz_id, user_id, user_name, score, total, answers, detail, created_at) VALUES (?,?,?,?,?,?,?,?)`)
+        .bind(quizId, userId, userName, score, total, JSON.stringify(answers.slice(0, total)), JSON.stringify(detail), now).run();
+      const percent = total ? Math.round((score / total) * 100) : 0;
+      // 🎁 게임 경제 연동 — 복습퀴즈도 포인트 적립 (정답 10P + 만점 50P + 첫 클리어 30P, 일일 상한 500P)
+      let awarded = 0, balance: number | null = null, streak = 0, firstClear = false;
+      try {
+        const dayStart = Math.floor((now + 32400000) / 86400000) * 86400000 - 32400000;
+        const resultId = (insRes && insRes.meta && insRes.meta.last_row_id) ? insRes.meta.last_row_id : now;
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS review_quiz_rewards (award_id TEXT PRIMARY KEY, user_id TEXT, amount INTEGER, created_at INTEGER);`);
+        const prev: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM review_quiz_results WHERE quiz_id = ? AND user_id = ? AND id < ?`).bind(quizId, userId, resultId).first();
+        firstClear = (Number(prev?.n) || 0) === 0 && score > 0;
+        let amount = score * 10 + (percent === 100 ? 50 : 0) + (firstClear ? 30 : 0);
+        const used: any = await env.DB.prepare(`SELECT COALESCE(SUM(amount),0) AS t FROM review_quiz_rewards WHERE user_id = ? AND created_at >= ?`).bind(userId, dayStart).first();
+        amount = Math.max(0, Math.min(amount, 500 - (Number(used?.t) || 0)));
+        if (amount > 0) {
+          const ins2: any = await env.DB.prepare(`INSERT OR IGNORE INTO review_quiz_rewards (award_id, user_id, amount, created_at) VALUES (?,?,?,?)`)
+            .bind(`rq:${quizId}:${userId}:${resultId}`, userId, amount, now).run();
+          if (ins2 && ins2.meta && (ins2.meta as any).changes > 0) {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
+            await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + ?, lifetime_earned = lifetime_earned + ?, last_earned_at = ?, updated_at = ?`)
+              .bind(userId, userName || userId, amount, amount, now, now, amount, amount, now, now).run();
+            awarded = amount;
+          }
+        }
+        const bal: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id = ?`).bind(userId).first();
+        balance = bal ? Number(bal.balance) : null;
+        // 🔥 복습 스트릭 — KST 기준 연속 복습일 (오늘/어제부터 이어진 만큼)
+        const days: any = await env.DB.prepare(`SELECT DISTINCT CAST((created_at + 32400000) / 86400000 AS INTEGER) AS d FROM review_quiz_results WHERE user_id = ? ORDER BY d DESC LIMIT 90`).bind(userId).all();
+        const ds = (((days.results as any[]) || [])).map((r: any) => Number(r.d));
+        const today = Math.floor((now + 32400000) / 86400000);
+        if (ds.length && (ds[0] === today || ds[0] === today - 1)) { streak = 1; for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) streak++; }
+      } catch {}
+      return json({ ok: true, score, total, percent, detail, awarded, balance, streak, first_clear: firstClear });
+    }
+
+    // ── POST /api/review-quiz/check — 학생: 문항 1개 즉석 채점 (실시간 피드백, 답안 미기록) ──
+    if (method === 'POST' && path === '/api/review-quiz/check') {
+      await ensureReviewQuizTables();
+      const b: any = await request.json().catch(() => ({}));
+      const quizId = Number(b.quiz_id) || 0;
+      const idx = Number(b.idx);
+      if (!quizId || !Number.isInteger(idx) || idx < 0) return json({ ok: false, error: 'quiz_id_and_idx_required' }, 400);
+      const row: any = await env.DB.prepare(`SELECT questions FROM review_quizzes WHERE id = ? AND active = 1`).bind(quizId).first();
+      if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
+      let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
+      const q = qs[idx];
+      if (!q) return json({ ok: false, error: 'question_not_found' }, 404);
+      const { detail } = rqGrade([q], [b.answer]);   // 단일 문항 채점은 기존 로직 재사용
+      const d: any = detail[0];
+      const type = q.type || 'choice';
+      const out: any = { ok: true, correct: !!d.correct, type, explain: d.explain || '' };
+      if (type === 'choice' || type === 'listen') {
+        out.answer = d.answer;
+        out.answer_text = (q.opts && q.opts[d.answer] != null) ? q.opts[d.answer] : '';
+        if (type === 'listen') out.audio_text = q.audio_text || '';
+      } else {
+        out.answer_text = d.answer_text || '';
+        out.accuracy = d.accuracy;
+        out.your_text = d.your_text || '';
+      }
+      return json(out);
     }
 
     // ── POST /api/review-quiz/tts — 듣기 문항 음성 (정답 원문 비공개, 서버 TTS) ──

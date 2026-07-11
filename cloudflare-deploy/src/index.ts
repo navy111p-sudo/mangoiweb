@@ -734,6 +734,7 @@ const worker = {
         path === '/api/review-quiz/list' ||
         path === '/api/review-quiz/get' ||
         path === '/api/review-quiz/submit' ||
+        path === '/api/review-quiz/check' ||
         path === '/api/review-quiz/auto' ||
         path === '/api/review-quiz/tts' ||
         path === '/api/admin/review-quiz/list' ||

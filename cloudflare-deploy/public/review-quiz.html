@@ -73,6 +73,71 @@
     .rq-explain { font-size:12px; color:var(--text2); margin-top:6px; padding-top:6px;
       border-top:1px dashed rgba(148,163,184,0.25); }
     .badge-ok { color:#10b981; font-weight:800; } .badge-no { color:#ef4444; font-weight:800; }
+
+    /* ━━━ 🎮 게임화: HUD (콤보·점수·음소거) ━━━ */
+    .rq-hud { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .rq-chip { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:99px;
+      font-size:13px; font-weight:800; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); }
+    .rq-chip.score { color:var(--gold); }
+    .rq-chip.combo { color:#fb7185; background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.3); }
+    .rq-chip.combo.hot { animation:comboPop .4s ease-out; }
+    .rq-mute { margin-left:auto; cursor:pointer; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
+      border-radius:99px; width:34px; height:34px; font-size:15px; color:var(--text); }
+    @keyframes comboPop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
+
+    /* ━━━ 어드벤처 진행 트랙 (망고가 전진) ━━━ */
+    .rq-track { position:relative; height:34px; margin:2px 0 16px; }
+    .rq-track-rail { position:absolute; left:14px; right:14px; top:22px; height:6px; border-radius:99px;
+      background:rgba(255,255,255,0.08); overflow:hidden; }
+    .rq-track-fill { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,#fbbf24,#f59e0b); transition:width .5s cubic-bezier(.3,1.4,.5,1); }
+    .rq-track-mango { position:absolute; top:-2px; width:30px; height:30px; transition:left .5s cubic-bezier(.3,1.4,.5,1);
+      transform:translateX(-50%); filter:drop-shadow(0 3px 5px rgba(0,0,0,.5)); }
+    .rq-track-goal { position:absolute; right:2px; top:2px; font-size:20px; }
+
+    /* ━━━ 망고 마스코트 + 말풍선 ━━━ */
+    .rq-mascot { display:flex; align-items:flex-end; gap:10px; margin:14px 0 4px; min-height:64px; }
+    .rq-mascot img { width:58px; height:58px; object-fit:contain; flex-shrink:0; }
+    .rq-mascot.react img { animation:mangoBounce .5s ease-out; }
+    .rq-mascot.sad img { animation:mangoShake .5s ease-out; }
+    .rq-bubble { position:relative; background:#fff; color:#1a2f6b; border-radius:14px; padding:9px 14px;
+      font-size:14px; font-weight:800; line-height:1.35; box-shadow:0 4px 14px -2px rgba(0,0,0,.4); max-width:calc(100% - 74px);
+      opacity:0; transform:translateY(6px); transition:all .25s; }
+    .rq-bubble.show { opacity:1; transform:translateY(0); }
+    .rq-bubble::before { content:''; position:absolute; left:-7px; bottom:12px; border:7px solid transparent;
+      border-right-color:#fff; border-left:0; }
+    .rq-bubble.ok { background:linear-gradient(135deg,#d1fae5,#a7f3d0); color:#065f46; }
+    .rq-bubble.ok::before { border-right-color:#a7f3d0; }
+    .rq-bubble.no { background:linear-gradient(135deg,#fee2e2,#fecaca); color:#991b1b; }
+    .rq-bubble.no::before { border-right-color:#fecaca; }
+    @keyframes mangoBounce { 0%{transform:translateY(0) scale(1)} 30%{transform:translateY(-14px) scale(1.08)} 55%{transform:translateY(2px) scale(.96)} 100%{transform:translateY(0) scale(1)} }
+    @keyframes mangoShake { 0%,100%{transform:translateX(0) rotate(0)} 20%{transform:translateX(-6px) rotate(-6deg)} 40%{transform:translateX(6px) rotate(6deg)} 60%{transform:translateX(-4px) rotate(-4deg)} 80%{transform:translateX(4px) rotate(4deg)} }
+
+    /* ━━━ 정답/오답 표시 ━━━ */
+    .opt.correct { background:rgba(16,185,129,0.22) !important; border-color:#10b981 !important; color:#a7f3d0 !important; }
+    .opt.wrong { background:rgba(239,68,68,0.20) !important; border-color:#ef4444 !important; color:#fca5a5 !important; }
+    .opt.reveal { box-shadow:0 0 0 2px #10b981 inset; }
+    .opt .opt-mark { float:right; font-weight:900; font-size:16px; }
+    .opt.locked { cursor:default; pointer-events:none; }
+    .rq-explain-inline { margin-top:10px; padding:10px 14px; background:rgba(255,255,255,0.05);
+      border-left:3px solid var(--gold); border-radius:8px; font-size:13px; color:#fde68a; line-height:1.5; }
+
+    /* ━━━ 점수 +팝 (플로팅) ━━━ */
+    .rq-pop { position:fixed; z-index:9999; font-weight:900; font-size:26px; color:var(--gold); pointer-events:none;
+      text-shadow:0 2px 8px rgba(0,0,0,.5); animation:popUp 1s ease-out forwards; }
+    @keyframes popUp { 0%{opacity:0; transform:translateY(0) scale(.6)} 15%{opacity:1; transform:translateY(-8px) scale(1.1)}
+      100%{opacity:0; transform:translateY(-60px) scale(1)} }
+
+    /* ━━━ 결과: 폭죽 + 스탬프 ━━━ */
+    #rqConfetti { position:fixed; inset:0; pointer-events:none; z-index:9998; }
+    .rq-reward-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:14px; }
+    .rq-reward { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:14px;
+      padding:12px 16px; min-width:92px; }
+    .rq-reward .rv { font-size:24px; font-weight:900; line-height:1; }
+    .rq-reward .rl { font-size:11px; color:var(--text2); margin-top:4px; font-weight:700; }
+    .rq-stamp { display:inline-block; margin-top:12px; padding:8px 20px; border-radius:99px; font-size:15px; font-weight:900;
+      border:2px dashed; animation:stampIn .5s cubic-bezier(.2,1.5,.4,1); }
+    @keyframes stampIn { 0%{opacity:0; transform:scale(2) rotate(-12deg)} 100%{opacity:1; transform:scale(1) rotate(-5deg)} }
+
     @media (max-width:480px) {
       .wrap { padding:14px 12px; }
       .quiz-card { padding:18px 16px; }
@@ -117,8 +182,79 @@
     function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
     function isEn(){ return (window.langCurrent === 'en') || (document.documentElement.lang === 'en'); }
     var ME = getUser();
-    var state = { quiz:null, idx:0, answers:[] };
+    var state = { quiz:null, idx:0, answers:[], fb:[], combo:0, maxCombo:0, correctCount:0, animate:-1 };
     var ABC = ['A','B','C','D','E','F'];
+    var MANGO_IMG = '/img/mango-char.png';
+
+    // ━━━ 🔊 효과음 엔진 (WebAudio, 파일 무의존) ━━━
+    var SFX = { ctx:null, muted:false };
+    try { SFX.muted = (localStorage.getItem('rq_muted')==='1'); } catch(e){}
+    function sfxCtx(){ if(!SFX.ctx){ try{ SFX.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return SFX.ctx; }
+    function beep(freqs, dur, type, gain){
+      if(SFX.muted) return; var c=sfxCtx(); if(!c) return;
+      try{ if(c.state==='suspended') c.resume(); }catch(e){}
+      var t0=c.currentTime;
+      freqs.forEach(function(f,i){
+        var o=c.createOscillator(), g=c.createGain();
+        o.type=type||'sine'; o.frequency.value=f;
+        var st=t0+i*(dur*0.55);
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(gain||0.18, st+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, st+dur);
+        o.connect(g); g.connect(c.destination); o.start(st); o.stop(st+dur+0.03);
+      });
+    }
+    function sfxCorrect(combo){ var b=[523.25,659.25,783.99]; if(combo>=3) b.push(1046.5); if(combo>=5) b.push(1318.5); beep(b,0.15,'triangle',0.2); }
+    function sfxWrong(){ beep([196,155.56],0.22,'sawtooth',0.11); }
+    function sfxWin(){ beep([523.25,659.25,783.99,1046.5,1318.5],0.2,'triangle',0.22); }
+    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_muted', SFX.muted?'1':'0'); }catch(e){} if(btn) btn.textContent=SFX.muted?'🔇':'🔊'; if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
+
+    // ━━━ 🥭 망고 응원 대사 ━━━
+    var CHEER_OK   = { ko:['정답이야! 🎉','완벽해! 🌟','대단한데?! 👏','바로 그거야! 🔥','천재인가 봐! 🧠','최고야! 😆'], en:["Correct! 🎉","Perfect! 🌟","Awesome! 👏","That's it! 🔥","Genius! 🧠","The best! 😆"] };
+    var CHEER_HOT  = { ko:['불타오른다! 🔥','멈추지 마! ⚡','연속 정답 대박! 🚀','완전 물올랐어! 🌊'], en:["On fire! 🔥","Unstoppable! ⚡","Combo streak! 🚀","You're in the zone! 🌊"] };
+    var CHEER_NO   = { ko:['아쉬워! 정답을 볼까? 👀','괜찮아, 다음엔 맞힐 거야! 💪','이건 꼭 기억해두자! 📌','조금만 더! 다시 도전! 🙌'], en:["So close! Here's the answer 👀","It's okay, next one! 💪","Let's remember this! 📌","Almost! Try again! 🙌"] };
+    function pickLine(set){ var arr=set[isEn()?'en':'ko']; return arr[Math.floor(Math.random()*arr.length)]; }
+
+    // ━━━ +점수 플로팅 ━━━
+    function floatPop(text, x, y){
+      var el=document.createElement('div'); el.className='rq-pop'; el.textContent=text;
+      el.style.left=(x-14)+'px'; el.style.top=(y-18)+'px'; document.body.appendChild(el);
+      setTimeout(function(){ try{ el.remove(); }catch(e){} }, 1000);
+    }
+
+    // ━━━ 🎉 폭죽 ━━━
+    function confetti(){
+      var cv=document.getElementById('rqConfetti');
+      if(!cv){ cv=document.createElement('canvas'); cv.id='rqConfetti'; document.body.appendChild(cv); }
+      var ctx=cv.getContext('2d'); if(!ctx) return;
+      cv.width=window.innerWidth; cv.height=window.innerHeight;
+      var cols=['#fbbf24','#f59e0b','#10b981','#3b82f6','#fb7185','#a78bfa','#ffffff'];
+      var P=[]; for(var i=0;i<130;i++){ P.push({x:Math.random()*cv.width, y:-20-Math.random()*cv.height*0.4, r:4+Math.random()*5, c:cols[i%cols.length], vy:2.2+Math.random()*3.2, vx:-1.6+Math.random()*3.2, rot:Math.random()*6, vr:-0.25+Math.random()*0.5}); }
+      var t0=performance.now();
+      (function frame(now){
+        ctx.clearRect(0,0,cv.width,cv.height);
+        for(var k=0;k<P.length;k++){ var p=P[k]; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.c; ctx.fillRect(-p.r,-p.r,p.r*2,p.r*1.3); ctx.restore(); }
+        if(now-t0<2800) requestAnimationFrame(frame); else ctx.clearRect(0,0,cv.width,cv.height);
+      })(t0);
+    }
+
+    // ━━━ 문항 1개 즉석 채점 ━━━
+    async function rqCheck(i, answer){
+      try {
+        var bank=(state.quiz.questions[i] && state.quiz.questions[i].idx!=null) ? state.quiz.questions[i].idx : i;
+        return await fetch('/api/review-quiz/check', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ quiz_id:state.quiz.id, idx:bank, answer:answer }) }).then(function(x){ return x.json(); });
+      } catch(e){ return { ok:false }; }
+    }
+    function applyFeedback(i, resp, rawAnswer){
+      if(!resp || !resp.ok){ state.fb[i]={ unchecked:true }; renderQ(); return; } // 채점 실패 → 답만 저장하고 통과
+      resp.your = rawAnswer;
+      if(resp.correct){ state.combo++; state.correctCount++; if(state.combo>state.maxCombo) state.maxCombo=state.combo; resp.line = (state.combo>=3?pickLine(CHEER_HOT):pickLine(CHEER_OK)); sfxCorrect(state.combo); }
+      else { state.combo=0; resp.line = pickLine(CHEER_NO); sfxWrong(); }
+      state.fb[i]=resp; state.animate=i;
+      renderQ();
+      if(resp.correct){ var sc=document.querySelector('.rq-chip.score'); if(sc){ var r=sc.getBoundingClientRect(); floatPop('+10', r.left+r.width/2, r.top); } }
+    }
 
     // ───── 목록 ─────
     async function loadList() {
@@ -152,6 +288,9 @@
         if (!r.ok) throw new Error(r.error||'get_fail');
         state.quiz = r.quiz; state.idx = 0;
         state.answers = new Array(r.quiz.questions.length).fill(null);
+        state.fb = new Array(r.quiz.questions.length).fill(null);
+        state.combo = 0; state.maxCombo = 0; state.correctCount = 0; state.animate = -1; state.practice = false;
+        try{ if(SFX.ctx && SFX.ctx.state==='suspended') SFX.ctx.resume(); }catch(e){}
         document.getElementById('listView').style.display = 'none';
         document.getElementById('resultView').style.display = 'none';
         document.getElementById('playView').style.display = 'block';
@@ -166,7 +305,28 @@
     function renderQ() {
       var qz = state.quiz, i = state.idx, q = qz.questions[i], total = qz.questions.length;
       var typ = q.type || 'choice';
-      var pct = Math.round((i / total) * 100);
+      var fb = state.fb[i];
+      var answered = !!fb;                // 채점 완료(또는 통과) 여부
+      var graded = fb && !fb.unchecked;   // 실제 정오 결과 있음
+      var animate = (state.animate === i);
+      state.animate = -1;                 // 등장 애니메이션은 1회만
+
+      // ── HUD: 점수 · 콤보 · 음소거 ──
+      var comboOn = state.combo >= 2;
+      var hud = '<div class="rq-hud">'
+        + '<span class="rq-chip score">⭐ ' + (state.correctCount*10) + (isEn()?'':'점') + '</span>'
+        + (comboOn ? '<span class="rq-chip combo' + (animate?' hot':'') + '">🔥 ' + state.combo + (isEn()?' combo':' 콤보') + '</span>' : '')
+        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" title="' + (isEn()?'Sound on/off':'소리 켜기/끄기') + '">' + (SFX.muted?'🔇':'🔊') + '</button>'
+        + '</div>';
+
+      // ── 어드벤처 트랙: 망고가 골(🏁)을 향해 전진 ──
+      var prog = total > 1 ? (i/(total-1)) : 1;
+      var track = '<div class="rq-track">'
+        + '<div class="rq-track-rail"><div class="rq-track-fill" style="width:' + Math.round((i/total)*100) + '%"></div></div>'
+        + '<img class="rq-track-mango" src="' + MANGO_IMG + '" alt="" onerror="this.style.display=\'none\'" style="left:calc(14px + ' + prog + ' * (100% - 28px))">'
+        + '<span class="rq-track-goal">🏁</span></div>';
+
+      // ── 문제 본문 ──
       var inner = '';
       if (typ==='choice' || typ==='listen') {
         if (typ==='listen') {
@@ -174,34 +334,78 @@
             + '<div style="font-size:11.5px;color:var(--text2);margin-top:7px">'+(isEn()?'Listen and choose (replayable)':'잘 듣고 정답을 고르세요 (여러 번 가능)')+'</div></div>';
         }
         inner += '<div class="q-text">' + esc(q.q) + '</div>'
-          + q.opts.map(function(o,k){ return '<button class="opt'+(state.answers[i]===k?' sel':'')+'" onclick="pick('+k+')"><span class="opt-prefix">'+ABC[k]+'</span>'+esc(o)+'</button>'; }).join('');
+          + q.opts.map(function(o,k){
+              var cls='opt', mark='';
+              if (graded){ cls+=' locked';
+                if (k===fb.answer){ cls+=' correct reveal'; mark='<span class="opt-mark">✓</span>'; }
+                else if (k===fb.your){ cls+=' wrong'; mark='<span class="opt-mark">✕</span>'; }
+              } else if (answered){ cls+=' locked'; if (state.answers[i]===k) cls+=' sel'; }
+              else if (state.answers[i]===k){ cls+=' sel'; }
+              return '<button class="'+cls+'"'+(answered?'':' onclick="pick('+k+')"')+'><span class="opt-prefix">'+ABC[k]+'</span>'+esc(o)+mark+'</button>';
+            }).join('');
       } else if (typ==='write') {
-        inner += '<div class="q-text">' + esc(q.q) + '</div>'
-          + '<input id="writeIn" value="'+esc(state.answers[i]||'')+'" oninput="setText(this.value)" placeholder="'+(isEn()?'Type the English sentence':'영어 문장을 입력하세요')+'" autocomplete="off" style="width:100%;padding:14px 16px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.96);color:#111;font-size:15px;font-family:inherit" />';
+        inner += '<div class="q-text">' + esc(q.q) + '</div>';
+        if (graded) {
+          inner += '<div style="width:100%;padding:14px 16px;border-radius:10px;background:rgba(255,255,255,0.06);font-size:15px;font-weight:700;color:#fff">'+esc(fb.your||'-')+'</div>';
+        } else {
+          inner += '<input id="writeIn" value="'+esc(state.answers[i]||'')+'" oninput="setText(this.value)" onkeydown="if(event.key===\'Enter\')checkText()" placeholder="'+(isEn()?'Type the English sentence':'영어 문장을 입력하세요')+'" autocomplete="off" autocapitalize="off" style="width:100%;padding:14px 16px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.96);color:#111;font-size:15px;font-family:inherit" />'
+            + '<button id="checkBtn" type="button" class="nav-btn primary" style="width:100%;margin-top:10px" onclick="checkText()">✅ '+(isEn()?'Check':'정답 확인')+'</button>';
+        }
       } else { // speak
         inner += '<div style="font-size:14px;color:var(--text2);margin-bottom:8px">'+esc(q.q)+'</div>'
-          + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(251,191,36,0.10);border:1px dashed rgba(251,191,36,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.target||'')+'</div>'
-          + '<div style="text-align:center"><button id="micBtn" type="button" onclick="micToggle('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🎤 '+(isEn()?'Record':'녹음하고 말하기')+'</button>'
-          + '<div id="micStatus" style="font-size:12px;color:var(--text2);margin-top:10px">'+(state.answers[i]?('🗣 '+esc(state.answers[i])):(isEn()?'Tap to record':'버튼을 누르고 또박또박 말해보세요'))+'</div></div>';
+          + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(251,191,36,0.10);border:1px dashed rgba(251,191,36,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.target||'')+'</div>';
+        if (!graded) {
+          inner += '<div style="text-align:center"><button id="micBtn" type="button" onclick="micToggle('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🎤 '+(isEn()?'Record':'녹음하고 말하기')+'</button>'
+            + '<div id="micStatus" style="font-size:12px;color:var(--text2);margin-top:10px">'+(isEn()?'Tap to record':'버튼을 누르고 또박또박 말해보세요')+'</div></div>';
+        }
       }
-      var dis = '';  // 갇힘 방지: 다음/제출은 항상 가능 (미응답은 서버에서 오답 처리)
-      var html = '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+
+      // ── 망고 마스코트 피드백 ──
+      var fbHtml = '';
+      if (graded) {
+        var ok = fb.correct;
+        var extra = '';
+        if (typ==='listen' && fb.audio_text) extra += '<div style="font-size:12.5px;color:var(--text2);margin-top:6px">🎧 '+esc(fb.audio_text)+'</div>';
+        if (typ==='write' || typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">'+(isEn()?'Target: ':'정답: ')+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
+        fbHtml = '<div class="rq-mascot '+(animate?(ok?'react':'sad'):'')+'">'
+          + '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'">'
+          + '<div class="rq-bubble '+(ok?'ok':'no')+' show">'+esc(fb.line||'')+'</div></div>'
+          + (fb.explain ? '<div class="rq-explain-inline">💡 '+esc(fb.explain)+'</div>' : '')
+          + (extra ? '<div style="margin-top:2px">'+extra+'</div>' : '');
+      }
+
+      // ── 하단 내비: 채점 후에만 다음/결과, 아니면 살짝 '건너뛰기' (갇힘 방지) ──
+      var isLast = (i >= total-1);
+      var primary = graded
+        ? (isLast ? '<button class="nav-btn primary" onclick="submitQuiz()">🏁 '+(isEn()?'See result':'결과 보기')+'</button>'
+                  : '<button class="nav-btn primary" onclick="moveQ(1)">'+(isEn()?'Next':'다음')+' →</button>')
+        : (isLast ? '<button class="nav-btn" style="opacity:.65" onclick="submitQuiz()">'+(isEn()?'Skip & finish':'건너뛰고 끝내기')+' ›</button>'
+                  : '<button class="nav-btn" style="opacity:.65" onclick="moveQ(1)">'+(isEn()?'Skip':'건너뛰기')+' ›</button>');
+
+      var html = hud + track +
         '<div class="quiz-card">' +
         '<div class="q-num">' + esc(qz.title) + ' — ' + TYPE_ICON[typ] + ' ' + (isEn()?typ:TYPE_KO[typ]) + ' · Q' + (i+1) + ' / ' + total + '</div>' +
-        inner +
+        inner + fbHtml +
         '<div class="nav-btns">' +
         (i > 0 ? '<button class="nav-btn" onclick="moveQ(-1)">← ' + (isEn()?'Prev':'이전') + '</button>' : '') +
-        (i < total-1
-          ? '<button class="nav-btn primary" id="nextBtn" ' + dis + ' onclick="moveQ(1)">' + (isEn()?'Next':'다음') + ' →</button>'
-          : '<button class="nav-btn primary" id="nextBtn" ' + dis + ' onclick="submitQuiz()">✅ ' + (isEn()?'Submit':'제출하기') + '</button>') +
+        primary +
         '</div>' +
         '<div style="margin-top:10px;text-align:center"><button class="nav-btn" style="flex:none;padding:9px 18px;font-size:12px" onclick="backToList()">' + (isEn()?'Quit':'그만두기') + '</button></div>' +
         '</div>';
       document.getElementById('playView').innerHTML = html;
-      if (typ==='listen') setTimeout(function(){ playAudio(i, true); }, 350);
+      if (typ==='listen' && !graded) setTimeout(function(){ playAudio(i, true); }, 350);
     }
-    function refreshNext(){ var n=document.getElementById('nextBtn'); if(n) n.disabled=false; }
-    window.setText = function(v){ state.answers[state.idx]=v; refreshNext(); };
+    function refreshNext(){}
+    window.setText = function(v){ state.answers[state.idx]=v; };
+    window.checkText = async function(){
+      var i=state.idx; if(state.fb[i]) return;
+      var el=document.getElementById('writeIn'); var v=el?el.value.trim():String(state.answers[i]||'').trim();
+      if(!v){ if(el) el.focus(); return; }
+      state.answers[i]=v;
+      var btn=document.getElementById('checkBtn'); if(btn){ btn.disabled=true; btn.textContent=isEn()?'Checking…':'확인 중…'; }
+      var resp=await rqCheck(i, v);
+      applyFeedback(i, resp, v);
+    };
     var SILENT_WAV='data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
     var rqAudio=null;
     function rqGetAudio(){ if(!rqAudio){ rqAudio=new Audio(); rqAudio.preload='auto'; try{rqAudio.playsInline=true;}catch(e){} } return rqAudio; }
@@ -250,7 +454,8 @@
             var r=await fetch('/api/voice/transcribe',{method:'POST',body:fd}).then(function(x){return x.json();});
             var text=(r&&r.ok&&r.text)?String(r.text).trim():'';
             if(!text){ if(stt) stt.textContent=isEn()?'Could not hear you — try again or tap Next':'잘 못 들었어요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
-            state.answers[i]=text; if(stt) stt.innerHTML='🗣 '+esc(text); refreshNext();
+            state.answers[i]=text; if(stt) stt.innerHTML='🗣 '+esc(text)+' · '+(isEn()?'checking…':'채점 중…');
+            var resp=await rqCheck(i, text); applyFeedback(i, resp, text);
           } catch(e){ if(stt) stt.textContent=isEn()?'Recognition failed — try again or tap Next':'인식 실패. 다시 하거나 다음으로 넘어가도 돼요'; }
         };
         rec.mr.start();
@@ -258,7 +463,14 @@
         if(stt) stt.textContent='🔴 '+(isEn()?'Recording… tap Stop':'녹음 중… 끝나면 정지');
       } catch(e){ if(stt) stt.textContent=isEn()?'Mic permission needed — or tap Next':'마이크 권한이 필요해요. 허용하거나 다음으로 넘어가도 돼요'; }
     };
-    function pick(k) { state.answers[state.idx] = k; renderQ(); }
+    async function pick(k){
+      var i=state.idx; if(state.fb[i]) return;      // 이미 채점된 문항은 재선택 불가
+      state.answers[i]=k;
+      var btns=document.querySelectorAll('#playView .opt');
+      for(var b=0;b<btns.length;b++){ btns[b].classList.add('locked'); if(b===k) btns[b].classList.add('sel'); }
+      var resp=await rqCheck(i,k);
+      applyFeedback(i, resp, k);
+    }
     function moveQ(d) { state.idx += d; renderQ(); window.scrollTo(0,0); }
     function backToList() {
       document.getElementById('playView').style.display = 'none';
@@ -269,8 +481,9 @@
 
     // ───── 제출 + 결과 ─────
     async function submitQuiz() {
-      var btn = document.getElementById('nextBtn');
-      if (btn) { btn.disabled = true; btn.textContent = isEn()?'Scoring…':'채점 중…'; }
+      if (state.practice) { finishPractice(); return; }   // 복수전(연습)은 서버 기록 없이 로컬 결과
+      var pb = document.querySelector('#playView .nav-btn.primary') || document.querySelector('#playView .nav-btn');
+      if (pb) { pb.disabled = true; pb.textContent = isEn()?'Scoring…':'채점 중…'; }
       try {
         var r = await fetch('/api/review-quiz/submit', {
           method:'POST', headers:{'Content-Type':'application/json'},
@@ -283,16 +496,47 @@
         renderQ();
       }
     }
+    // 복수전: 틀린 문제만 다시 (연습 — /check 로 즉석 채점, 기록/포인트 없음)
+    function retryWrong(positions){
+      var qz=state.quiz;
+      var qs = positions.map(function(p){ return qz.questions[p]; }).filter(Boolean);
+      if(!qs.length){ backToList(); return; }
+      state.quiz = { id: qz.id, title: qz.title + (isEn()?' · Rematch':' · 복수전'), questions: qs };
+      state.answers = new Array(qs.length).fill(null);
+      state.fb = new Array(qs.length).fill(null);
+      state.idx=0; state.combo=0; state.maxCombo=0; state.correctCount=0; state.animate=-1; state.practice=true;
+      document.getElementById('resultView').style.display='none';
+      document.getElementById('playView').style.display='block';
+      renderQ(); window.scrollTo(0,0);
+    }
+    function finishPractice(){
+      var qz=state.quiz;
+      var detail = qz.questions.map(function(q,i){
+        var fb=state.fb[i]||{}; var typ=q.type||'choice';
+        var d={ idx:i, type:typ, correct:!!fb.correct, explain:fb.explain||'' };
+        if(typ==='choice'||typ==='listen'){ d.your_answer=(fb.your!=null?fb.your:null); d.answer=(fb.answer!=null?fb.answer:0); if(typ==='listen') d.audio_text=fb.audio_text||''; }
+        else { d.your_text=fb.your||''; d.answer_text=fb.answer_text||''; d.accuracy=(fb.accuracy!=null?fb.accuracy:null); }
+        return d;
+      });
+      var score=detail.filter(function(d){return d.correct;}).length, total=detail.length;
+      showResult({ ok:true, score:score, total:total, percent: total?Math.round(score/total*100):0, detail:detail, awarded:0, balance:null, streak:0, first_clear:false, practice:true });
+    }
+    function countUp(el, to, suffix){
+      if(!el) return; var dur=750, t0=performance.now();
+      (function step(now){ var p=Math.min(1,(now-t0)/dur); var v=Math.round(to*(1-Math.pow(1-p,3))); el.textContent=v+(suffix||''); if(p<1) requestAnimationFrame(step); })(t0);
+    }
     function showResult(r) {
       var qz = state.quiz;
       var color = r.percent >= 80 ? '#10b981' : (r.percent >= 50 ? '#fbbf24' : '#ef4444');
-      var msg;
-      if (r.percent === 100) msg = isEn()?'🎉 Perfect! Amazing job!':'🎉 만점! 완벽해요, 최고예요!';
-      else if (r.percent >= 80) msg = isEn()?'🌟 Great job! Almost perfect!':'🌟 훌륭해요! 거의 다 맞췄어요!';
-      else if (r.percent >= 50) msg = isEn()?'💪 Good try! Review the ones you missed.':'💪 잘했어요! 틀린 문제를 한 번 더 복습해봐요.';
-      else msg = isEn()?'📚 Keep going! Try again after reviewing.':'📚 괜찮아요! 복습하고 다시 도전해봐요.';
+      var msg, emo;
+      if (r.percent === 100){ msg = isEn()?'Perfect! Amazing job!':'만점! 완벽해요, 최고예요!'; emo='🏆'; }
+      else if (r.percent >= 80){ msg = isEn()?'Great job! Almost perfect!':'훌륭해요! 거의 다 맞췄어요!'; emo='🌟'; }
+      else if (r.percent >= 50){ msg = isEn()?'Good try! Review the ones you missed.':'잘했어요! 틀린 문제를 한 번 더 복습해봐요.'; emo='💪'; }
+      else { msg = isEn()?'Keep going! Try again after reviewing.':'괜찮아요! 복습하고 다시 도전해봐요.'; emo='📚'; }
+      var wrongPositions=[];
       var review = r.detail.map(function(d, i){
         var q = qz.questions[i]; var typ = d.type||'choice';
+        if(!d.correct) wrongPositions.push(i);
         var body='';
         if (typ==='choice' || typ==='listen') {
           var your = (d.your_answer!=null && q.opts && q.opts[d.your_answer]!=null) ? (ABC[d.your_answer] + '. ' + q.opts[d.your_answer]) : (isEn()?'(no answer)':'(무응답)');
@@ -310,27 +554,49 @@
           (d.explain ? '<div class="rq-explain">💡 ' + esc(d.explain) + '</div>' : '') +
           '</div>';
       }).join('');
+
+      // 🎁 보상 카드 (연습 모드는 숨김)
+      var rewards='', stamp='';
+      if (!r.practice){
+        rewards = '<div class="rq-reward-row">'
+          + '<div class="rq-reward"><div class="rv" style="color:var(--gold)" id="rvPts">+0</div><div class="rl">'+(isEn()?'Points earned':'획득 포인트')+'</div></div>'
+          + (r.streak>=2 ? '<div class="rq-reward"><div class="rv" style="color:#fb7185">🔥 '+r.streak+'</div><div class="rl">'+(isEn()?'Day streak':'연속 복습일')+'</div></div>' : '')
+          + (state.maxCombo>=2 ? '<div class="rq-reward"><div class="rv" style="color:#a78bfa">⚡ '+state.maxCombo+'</div><div class="rl">'+(isEn()?'Best combo':'최고 콤보')+'</div></div>' : '')
+          + '</div>'
+          + (r.balance!=null ? '<div style="font-size:12px;color:var(--text2);margin-top:8px">'+(isEn()?'Total points: ':'총 보유 포인트: ')+'<b style="color:var(--gold)">'+r.balance+'</b></div>' : '');
+        var sc = r.percent>=80?'#10b981':(r.percent>=50?'#fbbf24':'#94a3b8');
+        stamp = '<div class="rq-stamp" style="color:'+sc+';border-color:'+sc+'">'+emo+' '+(r.first_clear?(isEn()?'FIRST CLEAR!':'첫 클리어!'):(isEn()?'CLEARED':'클리어'))+'</div>';
+      }
+      var wrongBtn = wrongPositions.length ? '<button class="nav-btn" onclick="retryWrong(['+wrongPositions.join(',')+'])">🎯 '+(isEn()?('Redo wrong ('+wrongPositions.length+')'):('틀린 문제만 다시 ('+wrongPositions.length+')'))+'</button>' : '';
+
       document.getElementById('playView').style.display = 'none';
-      document.getElementById('resultView').style.display = 'block';
-      document.getElementById('resultView').innerHTML =
+      var rv = document.getElementById('resultView'); rv.style.display = 'block';
+      rv.innerHTML =
         '<div class="quiz-card result-card">' +
-        '<div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:10px">' + esc(qz.title) + '</div>' +
-        '<div class="result-score" style="color:' + color + '">' + r.score + ' / ' + r.total + '</div>' +
+        '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'" style="width:74px;height:74px;object-fit:contain;margin-bottom:2px">' +
+        '<div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:6px">' + esc(qz.title) + '</div>' +
+        '<div class="result-score" style="color:' + color + '"><span id="rvScore">0</span> / ' + r.total + '</div>' +
         '<div class="result-label">' + (isEn()?'Score':'점수') + ' ' + r.percent + (isEn()?' pts':'점') + ' (100' + (isEn()?' max':'점 만점') + ')</div>' +
-        '<div class="result-msg">' + msg + '</div>' +
+        stamp +
+        '<div class="result-msg">' + emo + ' ' + msg + '</div>' +
+        rewards +
         review +
         '<div class="nav-btns" style="margin-top:16px">' +
-        '<button class="nav-btn" onclick="backToList()">📋 ' + (isEn()?'Quiz list':'퀴즈 목록') + '</button>' +
+        (wrongBtn || '<button class="nav-btn" onclick="backToList()">📋 ' + (isEn()?'Quiz list':'퀴즈 목록') + '</button>') +
         '<button class="nav-btn" onclick="startQuiz(' + qz.id + ')">🔄 ' + (isEn()?'Try again':'다시 도전') + '</button>' +
         '</div>' +
+        (wrongBtn ? '<button class="nav-btn" style="width:100%;margin-top:8px" onclick="backToList()">📋 '+(isEn()?'Quiz list':'퀴즈 목록')+'</button>' : '') +
         '<button class="nav-btn primary" style="width:100%;margin-top:10px" onclick="window.MangoFlow&&MangoFlow.open(\'quiz\')">🚀 ' + (isEn()?'Choose next activity':'다음 활동 고르기') + '</button>' +
         '</div>';
       window.scrollTo(0,0);
+      countUp(document.getElementById('rvScore'), r.score, '');
+      if(!r.practice) countUp(document.getElementById('rvPts'), (r.awarded||0), '');
+      if (r.percent>=50){ confetti(); sfxWin(); }
     }
 
     loadList();
   </script>
-<!-- BUILD:20260711213231 -->
+<!-- BUILD:20260711222900 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">
