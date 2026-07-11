@@ -7804,6 +7804,13 @@
             #game-area .fill-sentence{font-size:clamp(40px,5vw,64px)!important;padding:30px 42px!important}
             #game-area [onclick^="gameFillCheck"]{font-size:clamp(36px,3.75vw,48px)!important;padding:32px 24px!important}
           }
+          /* ===== 📝 공통 한국어 문장 프롬프트 — 모든 게임 같은 크기·폰트·디자인 (student-games.html 과 동일) ===== */
+          #game-area .gko-cap{font-size:15px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.2px;margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.35)}
+          #game-area .gko-txt{font-size:clamp(26px,4.2vmin,46px);font-weight:800;color:#fbbf24;padding:14px 26px;background:rgba(15,23,42,.5);border:1px solid rgba(251,191,36,.35);border-radius:14px;display:inline-block;line-height:1.5;max-width:94%;text-shadow:0 2px 8px rgba(0,0,0,.35);box-shadow:0 8px 24px -8px rgba(0,0,0,.45)}
+          #game-area .gko-pin{font-size:clamp(18px,2.6vmin,30px);margin-top:10px;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+          #game-area .gko-note{font-size:13px;color:rgba(255,255,255,.68);margin-top:10px;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+          #game-area .gko-listen{padding:10px 22px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:10px;cursor:pointer;font-size:15px;font-weight:800;font-family:inherit;box-shadow:0 4px 12px rgba(139,92,246,.4);transition:transform .15s}
+          #game-area .gko-listen:active{transform:scale(.95)}
           </style>
           <div id="game-area" style="flex:1;min-height:0;overflow:auto;padding:24px;color:#f1f5f9">
             <!-- JS 가 동적 렌더 -->
@@ -12793,8 +12800,9 @@ try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoic
 window.gameSpeak = function(text){ try{ if(!text) return;
   if(window.MangoiTTS){ MangoiTTS.speak(text); return; }
   if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
-window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length) gameSpeak(pk.join(' ')); }catch(_){} };
+window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length){ gameSpeak(pk.join(' ')); return; } var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 아직 안 골랐으면 정답 문장 발음
 window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 🎧 듣기형(번역 없음) 문제의 문장 듣기
+window.gameSpeakAnswer = function(){ try{ var a=_gameState.current&&_gameState.current.answer; if(a) gameSpeak(a); }catch(_){} };   // 🎈 풍선 등 정답 단어 발음 듣기
 
 // 🧱 게임 1: 문장 벽돌 — 영어 단어 브릭을 순서대로 클릭해서 문장 완성
 function gameRenderBrick() {
@@ -12804,15 +12812,15 @@ function gameRenderBrick() {
   const shuffled = _gameShuffle(sentence.words);
   // 교재 문장에 한국어 번역이 없으면 듣기 문제로 전환 (🔊 버튼으로 문장 듣고 순서 조립)
   const promptBlock = sentence.ko
-    ? '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">📝 한국어 번역</div>' +
-      '<div style="font-size:22px;font-weight:700;color:#fbbf24;padding:12px 20px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block">' + sentence.ko + '</div>'
-    : '<div style="font-size:13px;color:#94a3b8;margin-bottom:6px">🎧 오늘 교재 문장을 듣고 순서대로 만들어 보세요</div>' +
-      '<button onclick="gameSpeakTarget()" style="font-size:18px;font-weight:700;color:#fbbf24;padding:12px 22px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);border-radius:12px;cursor:pointer;font-family:inherit">🔊 문장 듣기</button>';
+    ? '<div class="gko-cap">📝 한국어 번역</div>' +
+      '<div class="gko-txt">' + sentence.ko + '</div>'
+    : '<div class="gko-cap">🎧 오늘 교재 문장을 듣고 순서대로 만들어 보세요</div>' +
+      '<button onclick="gameSpeakTarget()" class="gko-listen" style="font-size:clamp(18px,2.6vmin,32px);padding:14px 26px">🔊 문장 듣기</button>';
   let html =
     (_gameState.boss ? _bossBannerHtml() : '') +
     '<div style="text-align:center;margin-bottom:24px">' + promptBlock + '</div>' +
     '<div style="text-align:center;margin-bottom:18px">' +
-      '<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">🎯 영어로 만들어보세요 (단어 클릭)</div>' +
+      '<div class="gko-cap">🎯 영어로 만들어보세요 (단어 클릭)</div>' +
       '<div id="brick-built" style="min-height:54px;background:rgba(15,23,42,0.7);border:2px dashed #475569;border-radius:12px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center">' +
         '<span style="color:#64748b;font-size:14px" id="brick-empty">아래 단어 브릭을 클릭하세요...</span>' +
       '</div>' +
@@ -12828,7 +12836,7 @@ function gameRenderBrick() {
   html += '</div>' +
     '<div style="text-align:center;display:flex;gap:10px;justify-content:center">' +
       '<button onclick="gameBrickReset()" style="padding:8px 18px;background:rgba(148,163,184,0.2);color:#cbd5e1;border:0;border-radius:8px;cursor:pointer;font-size:13px">↩ 다시</button>' +
-      '<button onclick="gameSpeakBuilt()" style="padding:10px 20px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(139,92,246,0.4)">🔊 발음 듣기</button>' +
+      '<button onclick="gameSpeakBuilt()" class="gko-listen">🔊 발음 듣기</button>' +
       '<button onclick="gameBrickCheck()" style="padding:10px 24px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(16,185,129,0.4)">✅ 확인</button>' +
     '</div>';
   document.getElementById('game-area').innerHTML = html;
@@ -12988,25 +12996,26 @@ function gameRenderFill() {
   ).join(' ');
   // 교재 문장에 한국어 번역이 없으면 힌트 대신 🔊 문장 듣기 버튼 제공
   const fillHint = sent.ko
-    ? '<div style="font-size:22px;color:#94a3b8;margin-bottom:10px">📝 한국어</div>' +
-      '<div style="font-size:clamp(24px,5vw,36px);color:#fbbf24;padding:16px 28px;background:rgba(251,191,36,0.1);border-radius:14px;display:inline-block;max-width:94%">' + sent.ko + '</div>'
-    : '<button onclick="gameSpeakTarget()" style="font-size:28px;font-weight:700;color:#fbbf24;padding:16px 32px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.4);border-radius:14px;cursor:pointer;font-family:inherit">🔊 문장 듣기 (힌트)</button>';
+    ? '<div class="gko-cap">📝 한국어 번역</div>' +
+      '<div class="gko-txt">' + sent.ko + '</div>'
+    : '<button onclick="gameSpeakTarget()" class="gko-listen" style="font-size:clamp(18px,2.6vmin,32px);padding:14px 26px">🔊 문장 듣기 (힌트)</button>';
   let html =
     (_gameState.boss ? _bossBannerHtml() : '') +
     '<div style="text-align:center;margin-bottom:26px">' + fillHint + '</div>' +
     '<div style="text-align:center;margin-bottom:30px">' +
-      '<div style="font-size:22px;color:#94a3b8;margin-bottom:12px">🎯 빈칸에 들어갈 단어를 고르세요</div>' +
+      '<div class="gko-cap">🎯 빈칸에 들어갈 단어를 고르세요</div>' +
       '<div class="fill-sentence" style="font-size:clamp(28px,6vw,48px);font-weight:700;color:#f1f5f9;padding:26px 34px;background:rgba(15,23,42,0.7);border:2px solid #475569;border-radius:16px;display:inline-block;line-height:1.6;max-width:94%">' +
         maskedHtml +
       '</div>' +
-      '<div style="font-size:18px;color:#64748b;margin-top:12px">밝은 단어 = 뜻 핵심 · 흐린 단어 = 문법 기능어</div>' +
+      '<div class="gko-note">밝은 단어 = 뜻 핵심 · 흐린 단어 = 문법 기능어</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;max-width:820px;margin:0 auto;width:94%">';
   options.forEach(opt => {
     html += '<button onclick="gameFillCheck(\'' + opt + '\', this)" ' +
       'style="padding:28px 20px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:16px;font-size:clamp(24px,5vw,36px);font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(139,92,246,0.4);transition:all 0.15s">' + opt + '</button>';
   });
-  html += '</div>';
+  html += '</div>' +
+    '<div style="text-align:center;margin-top:18px"><button onclick="gameSpeakTarget()" class="gko-listen">🔊 발음 듣기</button></div>';
   document.getElementById('game-area').innerHTML = html;
 }
 
@@ -13050,8 +13059,9 @@ function gameRenderBalloon() {
   const _em = _emojiFor(word, 'word');
   let html =
     '<div style="text-align:center;margin-bottom:14px">' +
-      '<div style="font-size:13px;color:#94a3b8">🎈 한국어 뜻에 맞는 영어 풍선을 클릭!</div>' +
-      '<div style="font-size:34px;font-weight:700;color:#fbbf24;padding:14px 24px;background:rgba(251,191,36,0.12);border-radius:12px;display:inline-block;margin-top:10px">' + (_em?_em+' ':'') + word.ko + '</div>' +
+      '<div class="gko-cap">🎈 한국어 뜻에 맞는 영어 풍선을 클릭!</div>' +
+      '<div class="gko-txt">' + (_em?_em+' ':'') + word.ko + '</div>' +
+      '<div style="margin-top:10px"><button onclick="gameSpeakAnswer()" class="gko-listen">🔊 발음 듣기</button></div>' +
     '</div>' +
     '<div id="balloon-stage" style="position:relative;height:380px;background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
   // 4개 풍선 — 가로 위치 분산, 시작 top 랜덤
@@ -24434,7 +24444,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711141902 -->
+<!-- BUILD:20260711142840 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

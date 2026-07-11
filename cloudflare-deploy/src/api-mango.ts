@@ -12575,9 +12575,19 @@ Variety: mix of nouns, verbs, adjectives.`;
       await env.DB.prepare(
         `UPDATE vocab_quizzes SET completed = 1, user_answer = ?, is_correct = ?, completed_at = ? WHERE id = ?`
       ).bind(answer, isCorrect ? 1 : 0, Date.now(), quizId).run();
-      // 정답이면 vocabulary 의 correct_count 증가
-      if (isCorrect && row.source_word) {
-        try { await env.DB.prepare(`UPDATE vocabulary SET correct_count = correct_count + 1, last_reviewed_at = ? WHERE user_id = ? AND word = ?`).bind(Date.now(), row.user_id, row.source_word).run(); } catch {}
+      // 정답/오답 카운트 갱신 + 복습 이력(vocab_review_log → 일일미션·스트릭·주간랭킹 공용)
+      if (row.source_word) {
+        try {
+          await env.DB.prepare(isCorrect
+            ? `UPDATE vocabulary SET correct_count = correct_count + 1, last_reviewed_at = ? WHERE user_id = ? AND word = ?`
+            : `UPDATE vocabulary SET wrong_count = wrong_count + 1, last_reviewed_at = ? WHERE user_id = ? AND word = ?`
+          ).bind(Date.now(), row.user_id, row.source_word).run();
+        } catch {}
+        try {
+          const v: any = await env.DB.prepare(`SELECT id FROM vocabulary WHERE user_id = ? AND word = ?`).bind(row.user_id, row.source_word).first();
+          await env.DB.prepare(`INSERT INTO vocab_review_log (user_id, vocab_id, correct, reviewed_at) VALUES (?,?,?,?)`)
+            .bind(row.user_id, v?.id || null, isCorrect ? 1 : 0, Date.now()).run();
+        } catch {}
       }
       return json({ ok: true, correct: isCorrect, correct_index: row.correct_index });
     }

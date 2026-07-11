@@ -138,6 +138,23 @@
     .qdot.ok { background:#10b981; }
     .qdot.no { background:#ef4444; }
     .ch-rank { color:#c4b5fd; font-size:12.5px; font-weight:800; }
+
+    /* ── 💰 결과 보상 카드 / 🎯 오답 재도전 ── */
+    .mq-earn { margin-top:12px; display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
+      padding:12px 16px; background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.08));
+      border:1px solid rgba(251,191,36,0.45); border-radius:12px;
+      animation:earnPop .45s cubic-bezier(.34,1.56,.64,1); }
+    .mq-earn .amt { font-size:20px; font-weight:900; color:#fcd34d; }
+    .mq-earn .bal { font-size:12px; color:var(--text2); font-weight:600; }
+    @keyframes earnPop { 0%{transform:scale(.6);opacity:0} 100%{transform:scale(1);opacity:1} }
+    .mq-mission { margin-top:8px; padding:11px 16px; background:rgba(16,185,129,0.16);
+      border:1px solid rgba(16,185,129,0.45); border-radius:12px; font-weight:800; color:#6ee7b7;
+      font-size:14px; animation:earnPop .45s cubic-bezier(.34,1.56,.64,1) .1s backwards; }
+    .mq-hint { margin-top:10px; font-size:12.5px; color:var(--text2); }
+    .retry-wrong { display:block; width:100%; margin-top:14px; padding:14px; border:0; border-radius:12px; cursor:pointer;
+      background:linear-gradient(135deg,#f97316,#ea580c); color:#fff; font-size:14.5px; font-weight:800; font-family:inherit;
+      box-shadow:0 5px 16px -2px rgba(249,115,22,0.45); transition:transform .12s,filter .12s; }
+    .retry-wrong:hover { transform:translateY(-1px); filter:brightness(1.06); }
     .listen-ic { font-size:66px; line-height:1; animation:listenPulse 1.4s ease-in-out infinite; }
     @keyframes listenPulse { 0%,100%{transform:scale(1);opacity:.85} 50%{transform:scale(1.12);opacity:1} }
     .kid-ko { font-size:40px; font-weight:900; color:#fbbf24; text-align:center; letter-spacing:-.5px; }
@@ -159,7 +176,7 @@
       <h2 data-ko="🎯 마이크로러닝 — 1분 안에 끝!" data-en="🎯 Microlearning — Done in 1 minute!">🎯 마이크로러닝 — 1분 안에 끝!</h2>
       <p data-ko="📚 내 단어장에서 무작위 5개 단어를 골라 객관식 퀴즈를 만들어줍니다." data-en="📚 5 random words from your vocab list become a multiple-choice quiz.">📚 내 단어장에서 <b>무작위 5개 단어</b>를 골라 객관식 퀴즈를 만들어줍니다.</p>
       <p data-ko="⏱ 등하교·출퇴근 자투리 시간에 가볍게 복습하세요." data-en="⏱ Review during commute or short breaks.">⏱ 등하교·출퇴근 자투리 시간에 가볍게 복습하세요.</p>
-      <p data-ko="🎁 정답 맞히면 단어 숙련도가 올라가요!" data-en="🎁 Correct answers boost your word mastery!">🎁 정답 맞히면 단어 숙련도가 올라가요!</p>
+      <p data-ko="🎁 정답 맞히면 숙련도가 오르고 포인트(정답당 10P)도 쌓여요!" data-en="🎁 Correct answers boost mastery and earn points (10P each)!">🎁 정답 맞히면 숙련도가 오르고 포인트(정답당 10P)도 쌓여요!</p>
       <button class="start-btn" id="startBtn" onclick="startQuiz()">🚀 <span data-ko="퀴즈 시작" data-en="Start">퀴즈 시작</span></button>
       <div id="introMsg" style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center"></div>
     </div>
@@ -217,12 +234,23 @@
   <script>
     function getUid() {
       try { const u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && u.user_id) return u.user_id; } catch(e){}
+      // 게스트도 uid 고정 저장 — 호출마다 바뀌면 AI 생성 단어와 퀴즈 조회 uid 가 어긋나 영원히 no_words
+      try {
+        let g = localStorage.getItem('mangoi_guest_uid');
+        if (!g) { g = 'guest_' + Math.random().toString(36).slice(2,8); localStorage.setItem('mangoi_guest_uid', g); }
+        return g;
+      } catch(e){}
       return 'guest_' + Math.random().toString(36).slice(2,8);
+    }
+    function getName() {
+      try { const u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.name || u.user_name)) return u.name || u.user_name; } catch(e){}
+      return '';
     }
     function escHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
     let quizzes = [], curIdx = 0, answers = [];
     let combo = 0, bestCombo = 0, xp = 0, stars = 0;
     let timerId = null, timeLeft = 0;
+    let serverQuizzesRaw = [], retryCount = 0;   // 오답 재도전용 원본 보관 + 보상 멱등 키
 
     let curLevel = 'A1';
     let curTopic = '';
@@ -382,8 +410,9 @@
         });
         const d = await r.json();
         if (!d.ok) {
-          // 단어장 비어있음 → 옵션 화면 표시
+          // 단어장 비어있음 → 옵션 화면 표시 (버튼은 원복해 잠기지 않게)
           if (d.error === 'no_words') {
+            btn.disabled = false; btn.innerHTML = '🚀 <span data-ko="퀴즈 시작" data-en="Start">퀴즈 시작</span>';
             document.getElementById('introBox').style.display = 'none';
             document.getElementById('emptyBox').style.display = '';
             return;
@@ -392,6 +421,7 @@
           btn.disabled = false; btn.innerHTML = '🚀 퀴즈 시작';
           return;
         }
+        serverQuizzesRaw = d.quizzes; retryCount = 0;
         quizzes = prepareQuizzes(d.quizzes);
         curIdx = 0; answers = []; dotResults = []; combo = 0; bestCombo = 0; xp = 0; stars = 0;
         document.getElementById('introBox').style.display = 'none';
@@ -572,12 +602,18 @@
           `</div>`;
       }
 
+      const retryBtn = wrong.length
+        ? `<button class="retry-wrong" onclick="retryWrong()">🎯 ${isKids?('틀린 단어만 다시 풀기 ('+wrong.length+'개)'):('Retry '+wrong.length+' missed word'+(wrong.length>1?'s':''))}</button>`
+        : '';
+
       document.getElementById('quizArea').innerHTML = `
         <div class="quiz-card result-card">
           ${head}
+          <div id="mqReward"></div>
           <div class="result-msg">${msg}</div>
           ${note}
-          <div class="nav-btns" style="margin-top:18px">
+          ${retryBtn}
+          <div class="nav-btns" style="margin-top:${wrong.length?'10':'18'}px">
             <button class="nav-btn" onclick="location.reload()">🔁 ${isKids?'다시 풀기':'Retry'}</button>
             <button class="nav-btn" onclick="location.href='/vocab.html'">📚 ${isKids?'단어장':'Vocab'}</button>
           </div>
@@ -586,6 +622,53 @@
       `;
       document.querySelectorAll('.wn-say').forEach(b => b.onclick = function(){ speakWord(b.dataset.w); });
       if (pct >= 80) confetti();
+      awardPoints(correct);
+    }
+
+    /* ── 🎯 틀린 단어만 재도전 (서버 재요청 없이 원본 퀴즈에서 재구성) ── */
+    function retryWrong() {
+      const wrongWords = answers.filter(a => !a.correct).map(a => a.word);
+      const subset = serverQuizzesRaw.filter(q => wrongWords.indexOf(q.source_word) >= 0);
+      if (!subset.length) return;
+      retryCount++;
+      quizzes = prepareQuizzes(subset);
+      curIdx = 0; answers = []; dotResults = []; combo = 0; bestCombo = 0; xp = 0; stars = 0;
+      renderQuiz();
+    }
+
+    /* ── 💰 포인트 적립 (기존 /api/vocab/reward 재사용 — 서버 멱등·일일상한) ── */
+    async function awardPoints(correct) {
+      const slot = document.getElementById('mqReward');
+      if (!slot || correct <= 0) return;
+      const uid = getUid();
+      if (uid.indexOf('guest_') === 0) {
+        slot.innerHTML = `<div class="mq-hint">${tt('🔑 로그인하면 정답 포인트가 쌓여요!','🔑 Log in to earn points for correct answers!')}</div>`;
+        return;
+      }
+      const sessionId = 'mq:' + (serverQuizzesRaw[0] && serverQuizzesRaw[0].id || Date.now()) + (retryCount ? ':r' + retryCount : '');
+      try {
+        const r = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ user_id: uid, student_name: getName(), kind: 'session', correct_count: correct, session_id: sessionId }) });
+        const d = await r.json();
+        if (d.ok && d.awarded > 0) {
+          slot.innerHTML = `<div class="mq-earn"><span class="amt">💰 +${d.awarded}P</span><span>${tt('적립!','earned!')}</span><span class="bal">${tt('내 포인트','Balance')} ${Number(d.balance).toLocaleString()}P</span></div>`;
+          sfx('star');
+        } else if (d.ok && d.daily_cap) {
+          slot.innerHTML = `<div class="mq-hint">${tt('오늘 포인트 상한에 도달했어요 — 내일 또 만나요! 🌙','Daily point cap reached — see you tomorrow! 🌙')}</div>`;
+        }
+        // 일일 미션(하루 10단어) — 서버가 검증, 퀴즈 답도 복습으로 집계됨
+        const sr = await fetch('/api/vocab/stats?uid=' + encodeURIComponent(uid));
+        const sd = await sr.json();
+        if (sd.ok && sd.today_reviewed >= 10 && !sd.mission_done) {
+          const mr = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ user_id: uid, student_name: getName(), kind: 'mission' }) });
+          const md = await mr.json();
+          if (md.ok && md.awarded > 0) {
+            slot.innerHTML += `<div class="mq-mission">🎯 ${tt('오늘의 미션 완료! 보너스 +50P','Daily mission complete! Bonus +50P')}</div>`;
+            confetti(); sfx('star');
+          }
+        }
+      } catch(e){}
     }
 
     setMode(curMode, false);   // 초기: body[data-mode] + 토글 활성화 반영
@@ -608,7 +691,7 @@
       }
     });
   </script>
-<!-- BUILD:20260711141902 -->
+<!-- BUILD:20260711142840 -->
 <style id="mb-tidy-2026-07-11">
 /* ≤480px(폰): 우상단 고정 홈/EN 바가 연령모드(🧒/🧑‍🎓) 버튼을 덮지 않게 헤더를 그 아래로 */
 @media (max-width:480px){
