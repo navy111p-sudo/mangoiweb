@@ -2632,6 +2632,15 @@ export async function handleMangoApi(
       const userId = (body.user_id || '').trim();
       const ruleCode = (body.rule_code || '').trim();
       if (!userId || !ruleCode) return json({ ok: false, error: 'user_id_and_rule_required' }, 400);
+      // 🔐 [무결성] 본인 계정에만 적립 — 게스트(guest*)는 통과(교환 불가), 실계정은 토큰 소유자 OR 관리자.
+      //   남의 계정/무인증 셀프적립(→기프티콘) 통로 차단 (2026-07-11)
+      if (!/^guest/i.test(userId)) {
+        const ebAdmin = await checkAdminSession(request, env as any);
+        const ebAuth = await authUidGlobal(request, url, env, body);
+        if (!ebAdmin.ok && (!ebAuth || ebAuth !== userId)) {
+          return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 적립됩니다.' }, 401);
+        }
+      }
       // 🌟 실시간 수업 칭찬 포인트 — 학생 본인 브라우저가 자기 계정으로 적립하는 경로.
       //   awardId(멱등키)를 함께 넘겨, 서버-선생님적립 경로(/api/points/award-praise)와 겹쳐도 1점만 적립.
       if (ruleCode === 'teacher_praise_point') {
@@ -2695,6 +2704,13 @@ export async function handleMangoApi(
         const name = (body.name || '').trim();
         const role = (body.role || 'student').trim();
         if (!room || !peerId || !accountUid) return json({ ok: false, error: 'room_peer_account_required' }, 400);
+        // 🔐 본인 계정만 로스터 등록 — 게스트(guest*) 통과, 실계정은 토큰 소유자 OR 관리자.
+        //   (남의 account_uid 를 임의 방·피어에 매핑해 칭찬적립 가로채는 위조 차단, 2026-07-11)
+        if (!/^guest/i.test(accountUid)) {
+          const vrAdmin = await checkAdminSession(request, env as any);
+          const vrAuth = await authUidGlobal(request, url, env, body);
+          if (!vrAdmin.ok && (!vrAuth || vrAuth !== accountUid)) return json({ ok: false, error: 'auth_required' }, 401);
+        }
         await env.DB.prepare(`INSERT INTO vc_roster (room_id, peer_id, account_uid, name, role, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(room_id, peer_id) DO UPDATE SET account_uid=excluded.account_uid, name=excluded.name, role=excluded.role, updated_at=excluded.updated_at`)
           .bind(room, peerId, accountUid, name || null, role, Date.now()).run();
         return json({ ok: true });
@@ -2716,6 +2732,11 @@ export async function handleMangoApi(
         const awardId = (body.award_id || '').trim() || null;
         const fromName = (body.from_name || '선생님').trim();
         if (!room || !targetPeerId) return json({ ok: false, error: 'room_and_target_required' }, 400);
+        // 🔐 [무결성] 교사(관리자 쿠키세션)만 별점 지급 — 학생/공격자의 셀프 칭찬적립 차단 (2026-07-11).
+        //   학생 자가적립은 /api/points/earn-by-rule(teacher_praise_point, 토큰인증)가 별도로 담당하므로,
+        //   교사 세션이 없어 여기서 막혀도 칭찬 포인트는 그 경로로 정상 적립됨(이중경로·멱등).
+        const apAdmin = await checkAdminSession(request, env as any);
+        if (!apAdmin.ok) return json({ ok: false, error: 'auth_required', message: '교사만 별점을 줄 수 있습니다.' }, 401);
         const rr: any = await env.DB.prepare(`SELECT account_uid, name, role FROM vc_roster WHERE room_id=? AND peer_id=? LIMIT 1`).bind(room, targetPeerId).first();
         if (!rr?.account_uid) return json({ ok: false, error: 'account_not_registered' }, 200);
         if (rr.role && rr.role !== 'student') return json({ ok: false, error: 'target_not_student' }, 200);

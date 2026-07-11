@@ -599,7 +599,7 @@
           try {
             const r = await fetch('/api/points/earn-by-rule', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: uid, rule_code: 'ai_writing_rewrite', meta: { via: 'ai-write' } })
+              body: JSON.stringify({ user_id: uid, token: getToken(), rule_code: 'ai_writing_rewrite', meta: { via: 'ai-write' } })
             });
             const d = await r.json();
             if (d.ok && d.rule) showToast(`+${d.rule.amount}P 고쳐쓰기 완료!`);
@@ -1050,7 +1050,7 @@
     loadStats();
     loadLeaderboard();
   </script>
-<!-- BUILD:20260711230617 -->
+<!-- BUILD:20260711231338 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

@@ -9947,7 +9947,7 @@ async function vcAutoEarnAttendance() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                user_id: u.uid, student_name: u.name, rule_code: 'attendance',
+                user_id: u.uid, token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })(), student_name: u.name, rule_code: 'attendance',
                 meta: { room_id: vcRoomId, source: 'vc_entry' }
             })
         });
@@ -10002,7 +10002,7 @@ async function vcAutoEarnAttendance() {
             const r2 = await fetch('/api/points/earn-by-rule', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    user_id: u.uid, student_name: u.name, rule_code: 'on_time',
+                    user_id: u.uid, token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })(), student_name: u.name, rule_code: 'on_time',
                     meta: { diff_ms: nearestMinDiff, room_id: vcRoomId }
                 })
             });
@@ -10883,7 +10883,7 @@ function vcRegisterRosterIdentity(){
         if (!u || !u.uid) return;                      // 로그인 안 된 게스트는 등록 불가(적립 대상 계정이 없음)
         fetch('/api/vc/roster', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room: vcRoomId, peer_id: vcUserId, account_uid: u.uid, name: u.name || vcUsername || '', role: 'student' })
+            body: JSON.stringify({ room: vcRoomId, peer_id: vcUserId, account_uid: u.uid, token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })(), name: u.name || vcUsername || '', role: 'student' })
         }).catch(function(){});
     } catch(e){}
 }
@@ -11063,7 +11063,7 @@ function vcCelebratePoint(awardId, fromName){
     if (!u || !u.uid) { console.warn('[point-award] 로그인 정보 없음 — 로컬 연출만 표시'); return; }
     fetch('/api/points/earn-by-rule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: u.uid, student_name: u.name || vcUsername, rule_code: 'teacher_praise_point', meta: { room: vcRoomId, awardId, from: fromName } })
+        body: JSON.stringify({ user_id: u.uid, token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })(), student_name: u.name || vcUsername, rule_code: 'teacher_praise_point', meta: { room: vcRoomId, awardId, from: fromName } })
     }).then(r => r.json()).then(d => {
         if (d.ok) {
             window._vcSessionPoints = (window._vcSessionPoints || 0) + (d.rule?.amount || 1);
@@ -18412,7 +18412,7 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       const r = await fetch('/api/points/earn-by-rule', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: uid, student_name: name, rule_code: 'attendance', meta:{source:'daily_checkin'}})
+        body: JSON.stringify({ user_id: uid, token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })(), student_name: name, rule_code: 'attendance', meta:{source:'daily_checkin'}})
       });
       const d = await r.json();
       if (d.ok) {
@@ -24495,7 +24495,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711230617 -->
+<!-- BUILD:20260711231338 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
