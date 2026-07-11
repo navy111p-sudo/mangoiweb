@@ -8,7 +8,7 @@ import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
 import { handlePayApi, runPaymentAudit } from './api-pay';
-import { handlePayrollIngest, getPayrollAuto, payrollAiSummary } from './api-payroll-auto';
+import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate } from './api-payroll-auto';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
@@ -1110,6 +1110,19 @@ const worker = {
         let ai = '';
         if (url.searchParams.get('ai') === '1') ai = await payrollAiSummary(env as any, year, month, data, url.searchParams.get('lang') || 'ko');
         return new Response(JSON.stringify({ ok: true, year, month, ...data, ai }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // 🧾 강사 급여 페소→원화 환율 저장 (관리자 전용). POST { rate }
+    if (path === '/api/admin/payroll/rate' && request.method === 'POST') {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        const v = await setPhpKrwRate(env as any, Number(b?.rate));
+        return new Response(JSON.stringify({ ok: true, php_krw: v }),
           { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
       } catch (e: any) {
         return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
@@ -3038,6 +3051,7 @@ function isAdminPath(path: string, method: string): boolean {
   // 🧾 강사 급여 자동 대시보드 + API (2026-07-11) — 관리자 전용
   if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/' || path === '/admin/teacher-payroll.html') return true;
   if (path === '/api/admin/payroll/auto') return true;
+  if (path === '/api/admin/payroll/rate') return true;
   // 🎓 학습 인사이트 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/learning-insights' || path === '/admin/learning-insights/' || path === '/admin/learning-insights.html') return true;
   if (path.startsWith('/api/admin/learning/')) return true;

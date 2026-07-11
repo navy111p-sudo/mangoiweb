@@ -7,7 +7,7 @@
 <style>
   * { box-sizing: border-box; }
   body { margin:0; font-family:'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e2e8f0; min-height:100vh; padding:20px; }
-  .wrap { max-width:960px; margin:0 auto; }
+  .wrap { max-width:1000px; margin:0 auto; }
   .head { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
   .head img { height:46px; }
   h1 { font-size:24px; margin:0; }
@@ -15,27 +15,32 @@
   .langbtn { margin-left:auto; align-self:flex-start; cursor:pointer; font-weight:800; font-size:14px; border-radius:999px; padding:8px 15px; border:1px solid rgba(148,163,184,0.4); background:transparent; color:#e2e8f0; }
   .card { background:rgba(30,41,59,0.9); border:1px solid rgba(148,163,184,0.2); border-radius:18px; padding:22px; margin-bottom:18px; }
   .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-  select, button { font-size:16px; border-radius:10px; padding:11px 14px; border:1px solid rgba(148,163,184,0.35); }
-  select { background:#0f172a; color:#e2e8f0; }
+  select, button, input { font-size:16px; border-radius:10px; padding:11px 14px; border:1px solid rgba(148,163,184,0.35); }
+  select, input { background:#0f172a; color:#e2e8f0; }
   .btn { cursor:pointer; font-weight:800; border:0; }
   .btn-primary { background:linear-gradient(135deg,#22c55e,#16a34a); color:#052e16; }
   .btn-ai { background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; }
   .btn-ghost { background:transparent; color:#e2e8f0; border:1px solid rgba(148,163,184,0.4); }
   .btn:disabled { opacity:0.55; cursor:default; }
+  .rate { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(148,163,184,0.25); }
+  .rate input { width:88px; }
   .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:16px 0 4px; }
   .stat { background:rgba(15,23,42,0.6); border:1px solid rgba(148,163,184,0.2); border-radius:14px; padding:16px; text-align:center; }
-  .stat .n { font-size:26px; font-weight:900; color:#fcd34d; }
+  .stat .n { font-size:24px; font-weight:900; color:#fcd34d; }
+  .stat .n2 { font-size:17px; font-weight:800; color:#86efac; margin-top:2px; }
   .stat .l { font-size:13.5px; color:#9fb0c6; margin-top:4px; }
-  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:15.5px; }
-  th, td { padding:11px 10px; text-align:left; border-bottom:1px solid rgba(148,163,184,0.15); }
-  th { color:#9fb0c6; font-size:13.5px; font-weight:700; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:15px; }
+  th, td { padding:11px 9px; text-align:left; border-bottom:1px solid rgba(148,163,184,0.15); }
+  th { color:#9fb0c6; font-size:13px; font-weight:700; }
   td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-  .pay { color:#fcd34d; font-weight:800; }
+  .php { color:#fcd34d; font-weight:800; }
+  .krw { color:#86efac; font-weight:700; }
   .low { color:#f87171; font-size:13px; }
   .ai { background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.4); border-radius:14px; padding:16px 18px; color:#ddd6fe; line-height:1.7; white-space:pre-wrap; margin-top:12px; }
   .empty { text-align:center; color:#9fb0c6; padding:26px 10px; line-height:1.7; }
-  .muted { color:#64748b; font-size:13px; }
-  @media (max-width:640px){ .stats{grid-template-columns:1fr 1fr;} table{font-size:14px;} th,td{padding:9px 6px;} }
+  .muted { color:#64748b; font-size:13.5px; }
+  .ok { color:#4ade80; font-size:13.5px; }
+  @media (max-width:640px){ .stats{grid-template-columns:1fr;} table{font-size:13.5px;} th,td{padding:9px 5px;} }
 </style>
 </head>
 <body>
@@ -55,10 +60,18 @@
       <button class="btn btn-ghost" id="csv"></button>
       <span class="muted" id="updated"></span>
     </div>
+    <div class="rate">
+      <span class="muted" id="t_rate_label"></span>
+      <span style="font-weight:800">₱1 =</span>
+      <input id="rate" type="number" step="0.1" min="0.1" value="24">
+      <span style="font-weight:800">₩</span>
+      <button class="btn btn-ghost" id="rateSave"></button>
+      <span class="ok" id="rateMsg"></span>
+    </div>
     <div class="stats" id="stats" style="display:none">
       <div class="stat"><div class="n" id="s_teachers">–</div><div class="l" id="t_l_teachers"></div></div>
       <div class="stat"><div class="n" id="s_completed">–</div><div class="l" id="t_l_completed"></div></div>
-      <div class="stat"><div class="n" id="s_pay">–</div><div class="l" id="t_l_pay"></div></div>
+      <div class="stat"><div class="n php" id="s_pay">–</div><div class="n2" id="s_pay_krw">–</div><div class="l" id="t_l_pay"></div></div>
     </div>
     <div id="ai" class="ai" style="display:none"></div>
     <div id="body"></div>
@@ -68,34 +81,35 @@
 <script>
 (function(){
   var g = function(id){ return document.getElementById(id); };
-  var cur = { rows: [], year: 0, month: 0 };
+  var cur = { rows: [], year: 0, month: 0, summary:{}, php_krw:24 };
 
-  // ── i18n ──
   var I18N = {
     ko: {
       title:'🧾 강사 급여 자동 집계', langLabel:'🇺🇸 English', htmlLang:'ko',
-      sub:'카페24 실제 수업 기록에서 <b>강사별 완료 수업 수</b>와 <b>급여(₱)</b>를 자동으로 계산합니다. 더 이상 손으로 세지 않아도 돼요.',
+      sub:'카페24 실제 수업 기록에서 <b>강사별 완료 수업 수</b>와 <b>급여</b>를 자동 계산합니다. 페소(₱)와 원화(₩)로 함께 표시돼요.',
       load:'📊 불러오기', ai:'🤖 AI 요약', aiing:'🤖 생성 중…', csv:'⬇️ CSV 저장',
+      rateLabel:'환율', rateSave:'💾 환율 저장', rateSaved:'저장됨 ✓',
       l_teachers:'강사 수', l_completed:'완료 수업', l_pay:'총 지급액',
-      updated:'갱신: ', th_teacher:'강사', th_completed:'완료 수업', th_rate:'예정 대비', th_pay:'급여',
+      updated:'갱신: ', th_teacher:'강사', th_completed:'완료 수업', th_rate:'예정 대비', th_php:'급여 (₱)', th_krw:'급여 (₩)',
       low:'⚠️낮음', loading:'불러오는 중…', fail:'불러오기 실패', neterr:'네트워크 오류',
       aifail:'AI 요약을 생성하지 못했어요(잠시 후 다시).', aiing2:'AI가 요약하는 중…',
       needData:'아직 이 달의 자동 집계 데이터가 없어요.', needData2:'카페24 서버의 급여 집계 스크립트가 아직 이 달 데이터를 보내지 않았습니다.<br>서버에서 <b>bash /root/teacher-payroll-sync.sh</b> 를 한 번 실행하면 즉시 채워집니다.',
       needLogin:'관리자 로그인이 필요합니다.', loginLink:'로그인하기',
-      csvNeed:'먼저 데이터를 불러오세요.', csvHead:'강사ID,강사명,완료수업,예정수업,급여(PHP),년월', csvName:'강사급여',
+      csvNeed:'먼저 데이터를 불러오세요.', csvHead:'강사ID,강사명,완료수업,예정수업,급여(PHP),급여(KRW),년월', csvName:'강사급여',
       ymFmt:function(y,m){ return y+'년 '+m+'월'; }
     },
     en: {
       title:'🧾 Teacher Payroll (Auto)', langLabel:'🇰🇷 한국어', htmlLang:'en',
-      sub:'Automatically calculates each teacher\'s <b>completed classes</b> and <b>pay (₱)</b> from real Cafe24 class records. No more counting by hand.',
+      sub:'Automatically calculates each teacher\'s <b>completed classes</b> and <b>pay</b> from real Cafe24 records. Shown in Peso (₱) and Won (₩).',
       load:'📊 Load', ai:'🤖 AI Summary', aiing:'🤖 Generating…', csv:'⬇️ Download CSV',
+      rateLabel:'Exchange rate', rateSave:'💾 Save rate', rateSaved:'Saved ✓',
       l_teachers:'Teachers', l_completed:'Completed classes', l_pay:'Total payout',
-      updated:'Updated: ', th_teacher:'Teacher', th_completed:'Completed', th_rate:'Completion', th_pay:'Pay',
+      updated:'Updated: ', th_teacher:'Teacher', th_completed:'Completed', th_rate:'Completion', th_php:'Pay (₱)', th_krw:'Pay (₩)',
       low:'⚠️Low', loading:'Loading…', fail:'Failed to load', neterr:'Network error',
       aifail:'Could not generate AI summary (try again shortly).', aiing2:'AI is summarizing…',
       needData:'No auto-computed data for this month yet.', needData2:'The Cafe24 payroll sync script hasn\'t pushed this month\'s data yet.<br>Run <b>bash /root/teacher-payroll-sync.sh</b> on the server once to fill it in.',
       needLogin:'Admin login required.', loginLink:'Go to login',
-      csvNeed:'Load data first.', csvHead:'TeacherID,TeacherName,Completed,Scheduled,Pay(PHP),YearMonth', csvName:'TeacherPayroll',
+      csvNeed:'Load data first.', csvHead:'TeacherID,TeacherName,Completed,Scheduled,Pay(PHP),Pay(KRW),YearMonth', csvName:'TeacherPayroll',
       ymFmt:function(y,m){ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return M[m-1]+' '+y; }
     }
   };
@@ -111,11 +125,13 @@
     g('load').textContent = d.load;
     g('aiBtn').textContent = d.ai;
     g('csv').textContent = d.csv;
+    g('t_rate_label').textContent = d.rateLabel;
+    g('rateSave').textContent = d.rateSave;
     g('t_l_teachers').textContent = d.l_teachers;
     g('t_l_completed').textContent = d.l_completed;
     g('t_l_pay').textContent = d.l_pay;
     fillYm();
-    if (cur.year) render({ rows:cur.rows, year:cur.year, month:cur.month, summary:cur.summary });
+    if (cur.year) render(cur);
   }
 
   function fillYm(){
@@ -131,30 +147,34 @@
   }
 
   function php(n){ return '₱'+Number(n||0).toLocaleString('en-US'); }
+  function krw(n){ return '₩'+Number(n||0).toLocaleString('en-US'); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
   function render(d){
     var dd = t();
-    cur.rows = d.rows||[]; cur.year=d.year; cur.month=d.month; cur.summary=d.summary||{};
+    cur = { rows:d.rows||[], year:d.year, month:d.month, summary:d.summary||{}, php_krw:d.php_krw||cur.php_krw };
     var s = cur.summary;
+    g('rate').value = cur.php_krw;
     g('stats').style.display='grid';
     g('s_teachers').textContent = (s.teachers||0);
     g('s_completed').textContent = (s.total_completed||0).toLocaleString('en-US');
     g('s_pay').textContent = php(s.total_pay_php||0);
+    g('s_pay_krw').textContent = krw(s.total_pay_krw||0);
     g('updated').textContent = s.updated_at ? (dd.updated + new Date(s.updated_at).toLocaleString()) : '';
 
     if (!cur.rows.length){
       g('body').innerHTML = '<div class="empty">'+dd.needData+'<br><span class="muted">'+dd.needData2+'</span></div>';
       return;
     }
-    var h = '<table><thead><tr><th>'+dd.th_teacher+'</th><th class="num">'+dd.th_completed+'</th><th class="num">'+dd.th_rate+'</th><th class="num">'+dd.th_pay+'</th></tr></thead><tbody>';
+    var h = '<table><thead><tr><th>'+dd.th_teacher+'</th><th class="num">'+dd.th_completed+'</th><th class="num">'+dd.th_rate+'</th><th class="num">'+dd.th_php+'</th><th class="num">'+dd.th_krw+'</th></tr></thead><tbody>';
     cur.rows.forEach(function(r){
       var rate = r.total_classes ? Math.round(r.completed_classes/r.total_classes*100) : null;
       var low = (r.total_classes>=20 && rate!=null && rate<50);
       h += '<tr><td>'+esc(r.teacher_name||('#'+r.teacher_id))+'</td>'
         + '<td class="num">'+(r.completed_classes||0)+'</td>'
         + '<td class="num">'+(rate!=null? rate+'%':'–')+ (low?' <span class="low">'+dd.low+'</span>':'') +'</td>'
-        + '<td class="num pay">'+php(r.pay_php||0)+'</td></tr>';
+        + '<td class="num php">'+php(r.pay_php||0)+'</td>'
+        + '<td class="num krw">'+krw(r.pay_krw||0)+'</td></tr>';
     });
     h += '</tbody></table>';
     g('body').innerHTML = h;
@@ -182,12 +202,22 @@
   g('lang').addEventListener('click', function(){ lang = (lang==='ko'?'en':'ko'); localStorage.setItem('mangoi_payroll_lang', lang); applyLang(); });
   g('load').addEventListener('click', function(){ load(false); });
   g('aiBtn').addEventListener('click', function(){ var b=g('aiBtn'); var dd=t(); b.disabled=true; b.textContent=dd.aiing; g('ai').style.display='block'; g('ai').textContent=dd.aiing2; load(true); setTimeout(function(){ b.disabled=false; b.textContent=dd.ai; }, 4500); });
+
+  g('rateSave').addEventListener('click', function(){
+    var dd = t(); var rate = parseFloat(g('rate').value);
+    if(!(rate>0)){ alert('₩'); return; }
+    fetch('/api/admin/payroll/rate', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rate: rate }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if(d&&d.ok){ g('rateMsg').textContent = dd.rateSaved; setTimeout(function(){ g('rateMsg').textContent=''; }, 2500); load(false); } })
+      .catch(function(){});
+  });
+
   g('csv').addEventListener('click', function(){
     var dd = t();
     if(!cur.rows.length){ alert(dd.csvNeed); return; }
     var lines = [dd.csvHead];
     cur.rows.forEach(function(r){
-      lines.push([r.teacher_id, '"'+String(r.teacher_name||'').replace(/"/g,'""')+'"', r.completed_classes||0, r.total_classes||0, r.pay_php||0, cur.year+'-'+cur.month].join(','));
+      lines.push([r.teacher_id, '"'+String(r.teacher_name||'').replace(/"/g,'""')+'"', r.completed_classes||0, r.total_classes||0, r.pay_php||0, r.pay_krw||0, cur.year+'-'+cur.month].join(','));
     });
     var blob = new Blob(['﻿'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
     var a = document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -195,7 +225,7 @@
   });
 
   applyLang();
-  load(false); // 첫 진입 = 이번 달
+  load(false);
 })();
 </script>
 </body>
