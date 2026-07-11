@@ -125,6 +125,18 @@
     { kws:['앱','어플','설치','핸드폰','휴대폰','모바일','태블릿','기기'],
       answer:'PC·태블릿·휴대폰 어디서나 수업에 입장할 수 있어요. 카메라와 마이크만 있으면 되고, 준비 상태는 자가진단으로 미리 확인할 수 있어요.',
       go:() => window.gridActions && window.gridActions.diagnosis && window.gridActions.diagnosis() },
+    { kws:['다른 곳','다른 화상영어','다른 데','차별','차이점','비교','왜 망고아이','어디가 좋','뭐가 달라','vs'],
+      answer:'망고아이만의 강점은 ①필리핀 직영 센터(외주 아님) ②같은 선생님 전담제(랜덤 아님) ③A.I가 예습·복습·평가·발음까지 관리 ④20년 전통 국내 최초 화상영어예요. 그래서 아이의 성향·약점을 정확히 파악해 꾸준히 관리해요.',
+      go:() => { if (window.openAboutMangoi) window.openAboutMangoi(); } },
+    { kws:['낯','부끄','숫기','소심','내성적','소극적','말수','긴장'],
+      answer:'낯을 가리는 아이일수록 1:1 전담 수업이 잘 맞아요. 같은 선생님과 편하게 적응하고, 흥미있는 실생활 주제로 스스로 말하게 이끌어요.',
+      go:() => window.gridActions && window.gridActions.teachers && window.gridActions.teachers() },
+    { kws:['왕초보','기초부터','알파벳','파닉스','하나도 모','처음 배우','영어 못','레벨 낮','초보인데','기초가 없'],
+      answer:'왕초보도 걱정 없어요. 무료 레벨테스트로 실력을 진단하고 딱 맞는 단계부터 시작해요. CEFR 단계별 커리큘럼이라 기초부터 차근차근 올라갈 수 있어요.',
+      go:() => window.gridActions && window.gridActions.leveltest && window.gridActions.leveltest() },
+    { kws:['효과','정말 늘','늘까','실력 늘','실력 향상','성과','말문','자신감'],
+      answer:'같은 선생님이 전담으로 약점을 관리하고, 매 수업 후 A.I 평가서와 10문항 복습 퀴즈로 배운 걸 굳혀요. 수업 외에도 A.I 발음 코치로 무제한 연습이 가능해 꾸준히 하면 자신감이 붙어요.',
+      go:() => { if (window.openAboutMangoi) window.openAboutMangoi(); } },
   ];
   // 질문형(정보를 물음)일 때만 FAQ 우선. 명령형("발음연습")은 기존 RULES 이동이 우선.
   const QUESTION_RE = /(뭐|무엇|무슨|어떤|어떻게|왜|얼마|몇|어디|언제|누구|있나|있어|되나|되요|하나요|인가요|일까|까요|궁금|알려|설명|차이|추천|\?|？)/;

@@ -729,7 +729,7 @@
     rafId=requestAnimationFrame(loop); }
 
   function startGame(){ ensureCtx(); if(synth){ pickVoice(); try{ speak(' '); }catch(e){} } try{ var v=document.getElementById('bgvideo'); if(v&&v.play) v.play().catch(function(){}); }catch(e){}
-    score=0; timeLeft=45; combo=0; level=0; lastHit=0; lastTs=0; lives=3; setFever(false); running=true; phase='battle';
+    score=0; timeLeft=45; combo=0; level=0; lastHit=0; lastTs=0; lives=3; paused=false; setFever(false); running=true; phase='battle';
     overlay.style.display='none'; updateHUD(); updateTimer(); updateLives(); startRound();
     clearInterval(timerId); timerId=setInterval(tick,1000); cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop); }
   function endGame(reason){ running=false; setFever(false); bgmStop(); clearInterval(timerId); cancelAnimationFrame(rafId); clearZombies(); if(synth) synth.cancel(); review1.classList.remove('on'); review2.classList.remove('on'); review3.classList.remove('on');
@@ -787,6 +787,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711190322 -->
+<!-- BUILD:20260711190435 -->
 </body>
 </html>
