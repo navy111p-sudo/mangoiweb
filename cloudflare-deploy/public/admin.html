@@ -23814,7 +23814,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260712032118 -->
+        <!-- BUILD:20260712032635 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24569,13 +24569,20 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e) { try { alert(msg); } catch(_){} }
   };
   // 교사 본인 급여 행 판별 (로그인 uid/이름 매칭)
+  //   ⚠️ 급여 데이터는 엔드포인트마다 강사명 칼럼이 다르다: /all 은 teacher_name,
+  //      /calculate 는 korean_name·english_name. 셋 다 비교해야 본인 행이 매칭된다
+  //      (기존엔 teacher_name 만 봐서, /calculate 로 로드되는 card-payroll 에선 강사가
+  //       본인 행조차 못 찾고 빈 화면이 됐다. 2026-07-12 수정)
   window._payrollIsOwnRow = function(r, s) {
     if (!r || !s) return false;
     var uid = String(s.uid || '').toLowerCase();
-    var nm  = String(s.name || '').trim();
-    return (r.teacher_uid != null && String(r.teacher_uid).toLowerCase() === uid) ||
-           (r.teacher_id  != null && String(r.teacher_id).toLowerCase()  === uid) ||
-           (nm && String(r.teacher_name || '').trim() === nm);
+    var nml = String(s.name || '').trim().toLowerCase();
+    if (uid && ((r.teacher_uid != null && String(r.teacher_uid).toLowerCase() === uid) ||
+                (r.teacher_id  != null && String(r.teacher_id).toLowerCase()  === uid))) return true;
+    if (!nml) return false;
+    var names = [r.teacher_name, r.korean_name, r.english_name, r.name]
+      .map(function(x){ return String(x == null ? '' : x).trim().toLowerCase(); });
+    return names.indexOf(nml) !== -1;
   };
 
   function _renderSessionBanner() {
@@ -35737,7 +35744,7 @@ button.chip:hover,
       perms: ['전체 메뉴', '강사 관리', '학생 관리', '결제 조회']
     },
     {
-      uid: 'hq_t_001', name: '김지수 강사', label: '🧑‍🏫 교사', en: 'TEACHER',
+      uid: 'hq_t_001', name: 'Teacher Len', label: '🧑‍🏫 교사', en: 'TEACHER',
       color: '#F59E0B', colorAlpha: 'rgba(245,158,11,0.4)',
       desc: '강사 — 본인 수업·평가서·일지만',
       perms: ['수업 일지', '평가서 작성', '본인 시간표', '본인 급여']
