@@ -1254,8 +1254,14 @@ export const STUDENT_ROUTES: StudentRoute[] = [
   { kws: ['로그인', '로그 인', 'login', 'sign in', '로그인하기', '내 계정', '계정 로그인'], run: 'openLoginModal', label: '🔐 로그인' },
   // 🤖 AI와 친구하기 (자기주도학습 오버레이) — 첫 화면 CTA와 동일
   { kws: ['ai와 친구하기', 'ai와친구하기', '친구하기', 'ai랑 놀기', 'ai 놀이', 'ai랑 공부', '자기주도학습', '자기주도 학습', 'ai 학습 모음'], run: 'openAiFriendsOverlay', label: '🤖 AI와 친구하기' },
+  // ⚔️ 3D 영어 배틀 (보스전) — 게임류보다 먼저
+  { kws: ['배틀', '영어배틀', '영어 배틀', '3d 배틀', '보스전', '보스 배틀', 'battle', '보스몬스터', '몬스터 배틀'], run: 'openBattleModal', label: '⚔️ 3D 영어 배틀' },
   // 🎮 학생게임 (게임류 최우선)
   { kws: ['학생게임', '학생 게임', '학생용게임', '미니게임', '미니 게임', '학습게임', '학습 게임', '영어게임', '영어 게임', '게임하기', '게임 하기', '게임하러', '게임 열어', '게임열어', '게임 페이지', '게임하고', '게임할래', '게임 시작', '게임', '오락', '놀이', 'game', 'games', 'play game'], url: '/student-games.html', label: '🎮 학생게임' },
+  // 📔 AI 음성 일기 / 🎯 학습 목표 / 🏆 랭킹 (모달 함수)
+  { kws: ['음성일기', '음성 일기', 'ai 일기', 'ai일기', '영어일기', '영어 일기', '일기', '다이어리', 'voice diary', 'diary'], run: 'openVoiceDiaryModal', label: '📔 AI 음성 일기' },
+  { kws: ['학습목표', '학습 목표', '내 목표', '목표설정', '목표 설정', '목표', 'goal', 'goals', 'learning goal'], run: 'openLearningGoals', label: '🎯 학습 목표' },
+  { kws: ['랭킹', '리더보드', '순위', '랭킹보드', '포인트 랭킹', '탑10', 'top10', 'leaderboard', 'ranking'], run: 'openLeaderboard', label: '🏆 랭킹·리더보드' },
   // 📊 성적/평가/리포트
   { kws: ['성적표', '평가표', '성적', '점수', '시험점수', '테스트결과', '테스트 결과', '평가결과', '평가 결과', '내 성적', '내성적', '일별평가', '일별 평가', '수업평가', '피드백', '리포트', '학습리포트', '학습 리포트', '분석리포트', 'report', '레벨테스트 결과'], url: '/report.html', label: '📊 성적표·리포트' },
   { kws: ['월말평가', '월간평가', '월말 평가', '평가서', 'evaluation'], url: '/eval.html', label: '📝 월말 평가서' },

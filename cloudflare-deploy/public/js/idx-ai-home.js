@@ -21,8 +21,16 @@
     // 🤖 AI와 친구하기 (자기주도학습 오버레이) — 첫 화면 CTA와 동일
     { kws:['ai와 친구하기','ai와친구하기','친구하기','ai랑 놀기','ai 놀이','ai랑 공부','자기주도학습','자기주도 학습','ai 학습 모음','ai랑'], action: () => { if (typeof window.openAiFriendsOverlay==='function') window.openAiFriendsOverlay(); }, label:'🤖 AI와 친구하기' },
     // ═══ 전체메뉴 항목 직접 매칭 (이름 + 유사어) — 최우선 ═══
+    // ⚔️ 3D 영어 배틀 (보스전) — 게임류보다 먼저(‘배틀’이 게임에 안 먹히도록)
+    { kws:['배틀','영어배틀','영어 배틀','3d 배틀','보스전','보스 배틀','battle','보스몬스터','몬스터 배틀'], action: () => { if (typeof window.openBattleModal==='function') window.openBattleModal(); }, label:'⚔️ 3D 영어 배틀' },
     // 🎮 학생게임 허브 (student-games.html) — "게임"류 요청 최우선 라우팅
     { kws:['학생게임','학생 게임','학생용 게임','게임','게임하기','게임 하기','미니게임','미니 게임','학습게임','학습 게임','영어게임','영어 게임','게임장','게임 하러','게임할래','게임 열어','게임 페이지','오락','놀이','game','games','play game'], action: () => location.href='/student-games.html', label:'🎮 학생게임' },
+    // 📔 AI 음성 일기
+    { kws:['음성일기','음성 일기','ai 일기','ai일기','영어일기','영어 일기','일기','다이어리','voice diary','diary'], action: () => { if (typeof window.openVoiceDiaryModal==='function') window.openVoiceDiaryModal(); }, label:'📔 AI 음성 일기' },
+    // 🎯 학습 목표
+    { kws:['학습목표','학습 목표','내 목표','목표','목표설정','목표 설정','goal','goals','learning goal'], action: () => { if (typeof window.openLearningGoals==='function') window.openLearningGoals(); }, label:'🎯 학습 목표' },
+    // 🏆 랭킹 / 리더보드
+    { kws:['랭킹','리더보드','순위','랭킹보드','포인트 랭킹','1등','탑10','top10','leaderboard','ranking'], action: () => { if (typeof window.openLeaderboard==='function') window.openLeaderboard(); }, label:'🏆 랭킹·리더보드' },
     { kws:['포인트','포인트상점','포인트 상점','포인트샵','포인트 샵','포인트몰','기프트','기프티콘','기프티쇼','선물','상점','쇼핑','리워드','적립','마일리지','교환','point','points','gift','shop','reward'], action: () => { if (typeof window.showPointsShop==='function') window.showPointsShop(); }, label:'🎁 포인트 상점' },
     { kws:['주간 스케줄','주간스케줄','내 스케줄','내스케줄','스케줄','시간표','주간 시간표','내 수업 일정','수업 일정','일정표','schedule','timetable'], action: () => location.href='/admin/weekly-schedule.html?role=student', label:'📅 내 주간 스케줄' },
     { kws:['학생관리','학생 관리','학생목록','학생 목록','학생리스트','학생 명단','반 학생','students'], action: () => location.href='/admin/students.html', label:'👨‍🎓 학생 관리' },
@@ -157,7 +165,11 @@
         openAboutMangoi:       function(){ if (typeof window.openAboutMangoi === 'function') window.openAboutMangoi(); },
         openLoginModal:        function(){ if (typeof window.openLoginModal === 'function') window.openLoginModal(); },
         openAiFriendsOverlay:  function(){ if (typeof window.openAiFriendsOverlay === 'function') window.openAiFriendsOverlay(); },
-        openAiConsultant:      function(){ var w=document.getElementById('mangoi-widget'); if(w) w.click(); }
+        openAiConsultant:      function(){ var w=document.getElementById('mangoi-widget'); if(w) w.click(); },
+        openBattleModal:       function(){ if (typeof window.openBattleModal === 'function') window.openBattleModal(); },
+        openVoiceDiaryModal:   function(){ if (typeof window.openVoiceDiaryModal === 'function') window.openVoiceDiaryModal(); },
+        openLearningGoals:     function(){ if (typeof window.openLearningGoals === 'function') window.openLearningGoals(); },
+        openLeaderboard:       function(){ if (typeof window.openLeaderboard === 'function') window.openLeaderboard(); }
       };
       if (MAP[name]) return MAP[name]();
     } catch (e) { console.warn('[ai-home] runWhitelisted err:', name, e); }
@@ -257,6 +269,27 @@
     }
     return best;
   }
+  // 완전 실패 시 "이런 걸 찾으셨나요?" 후보 — 임계값 낮춰(≥0.5) 근접 메뉴 상위 N개
+  function topFuzzyRules(text, n) {
+    const ij = jamo(normText(text).replace(/\s+/g, ''));
+    if (ij.length < 3) return [];
+    const scored = [];
+    for (const r of RULES) {
+      let best = 0;
+      for (const k of r.kws) { const s = jamoSim(ij, jamo(k.toLowerCase().replace(/\s+/g, ''))); if (s > best) best = s; }
+      if (best >= 0.5) scored.push({ r: r, s: best });
+    }
+    scored.sort((a, b) => b.s - a.s);
+    const seen = new Set(), out = [];
+    for (const x of scored) { if (seen.has(x.r.label)) continue; seen.add(x.r.label); out.push(x.r); if (out.length >= (n || 3)) break; }
+    return out;
+  }
+  // 후보 목록을 클릭 가능한 추천 버튼 HTML 로 렌더
+  function suggestButtonsHtml(rules, headline) {
+    _sgMatches = rules.slice();
+    return '<div class="ai-sg-head">' + (headline || '💡 이런 걸 찾으셨나요? — 눌러서 이동') + '</div>' +
+      rules.map((m, i) => `<button type="button" class="ai-sg-item" data-sg="${i}">${m.label}</button>`).join('');
+  }
 
   function showSuggest(html, autoHide) {
     suggest.innerHTML = html;
@@ -264,10 +297,42 @@
     if (autoHide) setTimeout(() => { suggest.style.display = 'none'; }, 3000);
   }
 
+  // 실패 시 → 근접 메뉴 추천 버튼(클릭 이동). 후보 없으면 기본 안내.
+  function showFailWithSuggest(text, leadMsg) {
+    const cands = topFuzzyRules(text, 4);
+    if (cands.length) {
+      showSuggest((leadMsg ? ('<div style="margin-bottom:6px;color:#e2e8f0">' + leadMsg + '</div>') : '') + suggestButtonsHtml(cands, '💡 혹시 이 메뉴인가요? — 눌러서 이동'));
+    } else {
+      showSuggest(leadMsg || '💡 이해하지 못했어요. <br><small style="color:#94a3b8">"수업입장 · 발음연습 · 단어장 · 게임 · 전체 메뉴" 처럼 말해 보세요.</small>');
+    }
+  }
+
+  // 인사/도움말 → 대표 메뉴 빠른 목록 (첫 사용자가 무엇을 할 수 있는지 바로 파악)
+  const GREET_HELP_RE = /^(안녕|하이|반가|헬로|hello|hi|hey|도와|도움|도움말|help|뭐\s*할|뭐\s*있|무엇을|메뉴\s*(뭐|알려|보여)|메뉴판|기능|사용법|어떻게\s*(써|사용|해))/i;
+  function popularQuickList() {
+    return [
+      { label: '🎥 수업 입장', action: () => showView('view-videocall-lobby') },
+      { label: '🎮 학생게임', action: () => location.href = '/student-games.html' },
+      { label: '📖 단어장', action: () => location.href = '/vocab.html' },
+      { label: '🗣 발음연습', action: () => location.href = '/speech-coach.html' },
+      { label: '🧠 복습퀴즈', action: () => location.href = '/review-quiz.html' },
+      { label: '📊 성적표·리포트', action: () => location.href = '/report.html' },
+      { label: '🎁 포인트 상점', action: () => { if (window.showPointsShop) window.showPointsShop(); } },
+      { label: '💬 신규상담·체험', action: () => { if (window.openInquiryModal) window.openInquiryModal(); } },
+      { label: '🥭 전체 메뉴', action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); } }
+    ];
+  }
+
   // ========== 메인 처리 함수 ==========
   async function handleQuery(text) {
     if (!text || !text.trim()) return;
     text = text.trim();
+
+    // 0-a. 인사·도움말 → 대표 기능을 눌러서 바로 가도록 안내
+    if (GREET_HELP_RE.test(text.toLowerCase())) {
+      showSuggest(suggestButtonsHtml(popularQuickList(), '🥭 안녕하세요! 무엇을 도와드릴까요? — 아래에서 골라보세요'));
+      return;
+    }
 
     const isQuestion = QUESTION_RE.test(text);
 
@@ -313,9 +378,15 @@
         setTimeout(() => { location.href = '/parent.html'; }, 400);
         return;
       }
-      showSuggest(`<b>👤 '${text}' 학생 정보</b> 로 이동합니다...`, true);
-      setTimeout(() => { location.href = '/admin/students-unified.html?q=' + encodeURIComponent(text); }, 400);
-      return;
+      // 다른 이름 검색 → 관리자 로그인 상태에서만 관리자 학생검색으로. 방문자/학생은 관리자 페이지로 보내지 않음.
+      var _isAdmin = false;
+      try { _isAdmin = !!localStorage.getItem('mangoi_admin_session'); } catch(e){}
+      if (_isAdmin) {
+        showSuggest(`<b>👤 '${text}' 학생 정보</b> 로 이동합니다...`, true);
+        setTimeout(() => { location.href = '/admin/students-unified.html?q=' + encodeURIComponent(text); }, 400);
+        return;
+      }
+      // 비관리자: 아래 퍼지 매칭/추천으로 계속 진행 (예: 2~4자 메뉴 오타)
     }
 
     // 1-c. 정확 매칭 실패 → 자모 퍼지로 오타·음성인식 오류 흡수 (예: "마구아예에 대해"→망고아이 소개)
@@ -353,13 +424,15 @@
         showSuggest(`<b>${d.answer || '신규상담 신청 폼을 엽니다.'}</b>`, true);
         setTimeout(() => { if (window.openInquiryModal) window.openInquiryModal(); }, 400);
       } else if (d.intent === 'answer') {
-        showSuggest(`💬 ${d.answer || '죄송해요, 잘 모르겠어요.'}`);
+        // 답변을 보여주되, 근접 메뉴가 있으면 추천 버튼도 함께 (막다른 응답 방지)
+        const cands = topFuzzyRules(text, 3);
+        showSuggest(`💬 ${d.answer || '죄송해요, 잘 모르겠어요.'}` + (cands.length ? '<div style="margin-top:8px">' + suggestButtonsHtml(cands, '↪ 관련 메뉴') + '</div>' : ''));
       } else {
-        showSuggest('💬 ' + (d.answer || '명령을 이해하지 못했어요. 수업입장·신규상담·발음연습·마이페이지 등으로 다시 말해주세요.'));
+        showFailWithSuggest(text, d.answer ? ('💬 ' + d.answer) : '💬 명령을 이해하지 못했어요.');
       }
     } catch (e) {
-      // 서버 없거나 실패 → 친절하게 안내
-      showSuggest(`💡 명령을 이해하지 못했어요. <br><small style="color:#94a3b8">"화상통화", "발음연습", "마이페이지" 등의 키워드로 시도해 보세요.</small>`);
+      // 서버 없거나 실패 → 근접 메뉴 추천으로 막다른 길 방지
+      showFailWithSuggest(text, null);
     }
   }
 

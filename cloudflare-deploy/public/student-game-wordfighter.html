@@ -45,15 +45,20 @@
   .timer.low #timerVal{color:var(--bad);animation:blink .8s infinite}
   @keyframes blink{50%{opacity:.35}}
 
-  .phasebar{position:relative;z-index:20;display:flex;gap:4px;justify-content:center;align-items:center;padding:4px 10px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.45);backdrop-filter:blur(6px);flex-wrap:wrap}
-  .pstep{font-size:12px;font-weight:800;color:var(--sub);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:5px 12px;display:flex;align-items:center;gap:5px;transition:.25s}
-  .pstep.on{color:#2a0606;background:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(251,191,36,.5)}
+  /* 단계 진행 = HUD 안에 접히는 미니 스텝퍼(현재 단계만 라벨, 나머지는 번호 점) */
+  .phasemini{display:flex;align-items:center;gap:4px}
+  .pstep{font-size:11px;font-weight:800;color:var(--sub);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px 8px;display:inline-flex;align-items:center;gap:3px;transition:.25s;white-space:nowrap;text-shadow:0 1px 2px #000}
+  .pstep .pl{display:none}
+  .pstep .n{font-size:11px;opacity:.9;font-weight:900}
+  .pstep.on{color:#2a0606;background:var(--accent);border-color:var(--accent);box-shadow:0 0 10px rgba(251,191,36,.5);text-shadow:none}
+  .pstep.on .pl{display:inline}
   .pstep.done{color:#86efac;border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.16)}
-  .pstep .n{font-size:10px;opacity:.8}
 
   .target{position:relative;z-index:20;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;padding:6px 11px;border-bottom:1px solid var(--line);background:rgba(4,6,12,.55);backdrop-filter:blur(6px)}
-  .target .hint{flex-basis:100%;text-align:center;font-size:13px;color:var(--sub);margin-bottom:1px;text-shadow:0 1px 2px #000}
+  .target .hint{flex-basis:100%;text-align:center;font-size:13px;color:var(--sub);margin-bottom:1px;text-shadow:0 1px 2px #000;overflow:hidden;transition:opacity .4s,max-height .45s,margin .4s;max-height:48px;cursor:pointer}
   .target .hint b{color:var(--accent)}
+  /* 힌트는 몇 초 뒤 자동으로 접혀 게임 필드를 넓힌다 (탭하면 다시 펼침) */
+  .target .hint.faded{opacity:0;max-height:0;margin:0}
   .listen{background:rgba(34,197,94,.24);border:1px solid rgba(34,197,94,.6);color:#bdf3cf;font-size:14px;font-weight:800;padding:6px 13px;border-radius:999px;cursor:pointer;font-family:inherit}
   .listen:active{transform:scale(.95)}
   .chip{font-size:19px;font-weight:800;padding:6px 14px;border-radius:10px;border:1px solid transparent;transition:.15s;position:relative;text-shadow:0 1px 2px #000}
@@ -62,6 +67,19 @@
   .chip.next{background:var(--accent);color:#2a0606;animation:pulse 1.1s infinite;text-shadow:none}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(251,191,36,.6)}100%{box-shadow:0 0 0 12px rgba(251,191,36,0)}}
   .chip.pending{background:rgba(10,14,26,.75);color:var(--sub);border-color:var(--line)}
+
+  /* ===== ⚙️ 설정 바텀시트 (언어·속도·음악 — 게임 필드를 밀어내지 않는 오버레이) ===== */
+  #gearBtn{font-size:15px;line-height:1;padding:5px 10px}
+  .sheet-backdrop{position:absolute;inset:0;z-index:39;background:rgba(2,4,9,.5);opacity:0;pointer-events:none;transition:opacity .25s}
+  .sheet-backdrop.on{opacity:1;pointer-events:auto}
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(22,16,26,.98),rgba(8,6,12,.99));border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:8px 18px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(112%);transition:transform .28s cubic-bezier(.2,.7,.3,1);box-shadow:0 -14px 44px rgba(0,0,0,.6)}
+  .sheet.on{transform:translateY(0)}
+  .sheet-grip{width:44px;height:5px;border-radius:3px;background:rgba(255,255,255,.28);margin:2px auto 10px}
+  .sheet-title{font-size:15px;font-weight:900;color:var(--accent);text-align:center;margin-bottom:8px;text-shadow:0 1px 2px #000}
+  .sheet-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .sheet-lab{font-size:14px;font-weight:800;color:var(--sub)}
+  .sheet-row .hudbtn{font-size:15px;padding:9px 18px}
+  .sheet .btn{margin-top:14px;width:100%}
 
   #field{position:relative;z-index:10;flex:1 1 auto;min-height:0;overflow:hidden;cursor:crosshair}
 
@@ -183,10 +201,11 @@
     .lvlpill{font-size:11px;padding:3px 9px}
     .bookpill{font-size:10px;padding:3px 8px;max-width:34vw}
     .hudbtn{font-size:11px;padding:4px 8px}
-    /* ── 단계바(4탭) ── */
-    .phasebar{padding:3px 6px;gap:4px}
-    .pstep{font-size:10px;padding:3px 7px;gap:3px}
-    .pstep .n{font-size:9px}
+    /* ── 단계 미니 스텝퍼 ── */
+    .phasemini{gap:3px}
+    .pstep{font-size:10px;padding:2px 6px;gap:2px}
+    .pstep .n{font-size:10px}
+    #gearBtn{font-size:13px;padding:4px 8px}
     /* ── 목표 문장바 ── */
     .target{padding:4px 8px;gap:5px}
     .target .hint{font-size:10.5px;margin-bottom:0}
@@ -215,17 +234,14 @@
     <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
     <div class="stat"><span class="lab">생명</span><span class="lives" id="livesBox"></span></div>
     <span class="lvlpill" id="lvlPill">웨이브 1</span>
-    <button class="hudbtn" id="langBtn" title="게임 언어(영어/중국어) 전환">🇺🇸 영어</button>
-    <button class="hudbtn" id="spdBtn" title="좀비 속도 조절">⚔️ 보통</button>
-    <button class="hudbtn" id="bgmBtn" title="전투 음악 켜기/끄기">🥁 ON</button>
+    <div class="phasemini" id="phaseMini">
+      <span class="pstep" id="ps-battle"><b class="n">1</b><span class="pl">🧟 전투·획득</span></span>
+      <span class="pstep" id="ps-r1"><b class="n">2</b><span class="pl">🧩 복습1 조합</span></span>
+      <span class="pstep" id="ps-r2"><b class="n">3</b><span class="pl">🗣️ 복습2 활용</span></span>
+      <span class="pstep" id="ps-r3"><b class="n">4</b><span class="pl">🔁 복습3 반복</span></span>
+    </div>
     <div class="stat timer" id="timerBox"><span class="lab">남은 시간</span><span class="val" id="timerVal">45</span></div>
-  </div>
-
-  <div class="phasebar">
-    <span class="pstep" id="ps-battle"><span class="n">1</span>🧟 전투·획득</span>
-    <span class="pstep" id="ps-r1"><span class="n">2</span>🧩 복습1 조합</span>
-    <span class="pstep" id="ps-r2"><span class="n">3</span>🗣️ 복습2 활용</span>
-    <span class="pstep" id="ps-r3"><span class="n">4</span>🔁 복습3 반복</span>
+    <button class="hudbtn" id="gearBtn" title="설정 — 언어·속도·음악">⚙️</button>
   </div>
 
   <div class="target">
@@ -266,6 +282,19 @@
       <div class="repdots"><span class="d" id="rd1">1</span><span class="d" id="rd2">2</span><span class="d" id="rd3">3</span></div>
       <div class="rbtns"><button class="btn green" id="r3rep">🔊 따라 말하기 +1</button></div>
     </div>
+  </div>
+
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <div class="sheet" id="settingsSheet" role="dialog" aria-label="게임 설정">
+    <div class="sheet-grip"></div>
+    <div class="sheet-title">⚙️ 게임 설정</div>
+    <div class="sheet-row"><span class="sheet-lab">🌐 언어</span>
+      <button class="hudbtn" id="langBtn" title="게임 언어(영어/중국어) 전환">🇺🇸 영어</button></div>
+    <div class="sheet-row"><span class="sheet-lab">⚙ 좀비 속도</span>
+      <button class="hudbtn" id="spdBtn" title="좀비 속도 조절">⚔️ 보통</button></div>
+    <div class="sheet-row"><span class="sheet-lab">🥁 전투 음악</span>
+      <button class="hudbtn" id="bgmBtn" title="전투 음악 켜기/끄기">🥁 ON</button></div>
+    <button class="btn" id="sheetClose">닫기</button>
   </div>
 
   <div class="overlay" id="overlay">
@@ -536,10 +565,10 @@
     targetWords=curSentence().split(' '); currentIndex=0; collected=[];
     targetWords.forEach(function(w){ prefetchTTS(clean(w)); }); prefetchTTS(joinW(targetWords).replace(/[.?!。？！]/g,''));
     lvlPill.textContent='웨이브 '+(level+1);
-    hintEl.innerHTML=( level===0
+    showHint(( level===0
       ? '🧟 노란 문장의 <b>첫 단어</b> 좀비를 눌러 처치! 순서 틀리면 감점 ⚠'
       : '🧟 <b>문장 순서대로</b> 처치! 머뭇거리면 힌트가 빛나요 ✨' )
-      + (curPy()?' <span class="pinyin">'+curPy()+'</span>':'');
+      + (curPy()?' <span class="pinyin">'+curPy()+'</span>':''));
     var pool=DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; }); shuffle(pool);
     var nDis=Math.min(2+level,6);
     var tItems=targetWords.map(function(w){ return {word:w,isTarget:true}; });
@@ -615,7 +644,7 @@
       z.el.classList.remove('wrong'); void z.el.offsetWidth; z.el.classList.add('wrong'); floatScore('-50',x,y,false); shake(); updateHUD();
       lastProgressTs=0; updateZombieGlow();   // 정답 좀비 즉시 발광 + 정답 발음 들려주기
       setTimeout(function(){ if(running&&phase==='battle') speak(clean(required)); },380);
-      hintEl.innerHTML='🔊 잘 들어봐! 다음 단어는 <b>'+clean(required)+'</b> — 빛나는 좀비를 노려!';
+      showHint('🔊 잘 들어봐! 다음 단어는 <b>'+clean(required)+'</b> — 빛나는 좀비를 노려!');
     }
   }
   function killZombie(z){ var i=zombies.indexOf(z); if(i>=0) zombies.splice(i,1); z.el.classList.add('dead'); setTimeout(function(){ if(z.el.parentNode) z.el.remove(); },500); }
@@ -707,6 +736,19 @@
   var _sb=document.getElementById('startBtn'); _sb.addEventListener('click', safeStart); _sb.addEventListener('touchend', safeStart);
   document.getElementById('listenBtn').addEventListener('click', function(){ if(running) speakSentence(); });
 
+  // 💡 힌트 자동 페이드 — 새 웨이브/오답 때 잠깐 보여주고 접어 필드를 넓힌다 (탭하면 다시 펼침)
+  var hintTimer=null, lastHintHtml='';
+  function showHint(html){ lastHintHtml=html; hintEl.innerHTML=html; hintEl.classList.remove('faded'); clearTimeout(hintTimer); hintTimer=setTimeout(function(){ hintEl.classList.add('faded'); },4500); }
+  hintEl.addEventListener('click', function(){ if(hintEl.classList.contains('faded')&&lastHintHtml) showHint(lastHintHtml); });
+
+  // ⚙️ 설정 바텀시트 (언어·속도·음악) — 게임 필드를 밀어내지 않는 오버레이
+  var settingsSheet=document.getElementById('settingsSheet'), sheetBackdrop=document.getElementById('sheetBackdrop');
+  function closeSheet(){ settingsSheet.classList.remove('on'); sheetBackdrop.classList.remove('on'); }
+  function toggleSheet(){ var on=settingsSheet.classList.toggle('on'); sheetBackdrop.classList.toggle('on',on); }
+  document.getElementById('gearBtn').addEventListener('click', toggleSheet);
+  sheetBackdrop.addEventListener('click', closeSheet);
+  document.getElementById('sheetClose').addEventListener('click', closeSheet);
+
   // ⚙ 속도 조절 — 시작화면 선택 + 게임 중 HUD 버튼으로 즉시 순환
   function applySpeedUI(){ var s=SPEEDS[speedIdx]; spdBtn.textContent=s.label;
     [].forEach.call(document.querySelectorAll('.spd'),function(b){ b.classList.toggle('sel', b.getAttribute('data-k')===s.k); }); }
@@ -737,6 +779,6 @@
 })();
 </script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711183918 -->
+<!-- BUILD:20260711184640 -->
 </body>
 </html>
