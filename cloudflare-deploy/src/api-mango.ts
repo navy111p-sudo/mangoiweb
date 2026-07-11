@@ -5549,7 +5549,6 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     //   body: { message, history?: [{role,content}] } → { ok, reply }
     //   faq.html 의 실제 사실만 근거로 답하고, 모르는 것(특히 요금)은 지어내지 않고 무료 레벨테스트/카카오로 유도.
     if (method === 'POST' && path === '/api/consult-bot') {
-      return json({ ok: true, reply: 'DEPLOY_MARKER_X7', dbg: 'top' });
       const b: any = await request.json().catch(() => ({}));
       // 한글 유니코드 정규화(NFC) — 자모 분리(NFD) 입력에서도 키워드 매칭이 되도록
       const userMsg = String(b?.message || '').normalize('NFC').trim().slice(0, 800);
@@ -6217,7 +6216,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     if (method === 'POST' && path === '/api/admin/feedback-drafts/generate') {
       await ensureFeedbackDrafts();
       const body: any = await request.json().catch(() => ({}));
-      const teacherName = String(body.teacher_name || '').trim();
+      let teacherName = String(body.teacher_name || '').trim();
+      // 🔐 강사 로그인 시엔 본인 수업 초안만 생성(남의 이름으로 생성 차단)
+      const _fdgActor = await getAdminActor(request, env as any);
+      if (_fdgActor.isTeacher) {
+        if (!_fdgActor.name) return json({ ok: false, error: 'teacher_identity_missing' }, 403);
+        teacherName = _fdgActor.name;
+      }
       if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
       const dateStr = String(body.date || '').trim() || new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
       const [gy, gm] = [parseInt(dateStr.slice(0, 4), 10), parseInt(dateStr.slice(5, 7), 10)];
@@ -6316,7 +6321,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // ── GET /api/admin/feedback-drafts?teacher_name=&days=3 — 최근 초안 목록 ──
     if (method === 'GET' && path === '/api/admin/feedback-drafts') {
       await ensureFeedbackDrafts();
-      const teacherName = (url.searchParams.get('teacher_name') || '').trim();
+      let teacherName = (url.searchParams.get('teacher_name') || '').trim();
+      // 🔐 강사 로그인 시엔 항상 본인 초안만(요청한 teacher_name 무시 — 남의 AI 피드백 초안 열람 차단)
+      const _fdActor = await getAdminActor(request, env as any);
+      if (_fdActor.isTeacher) {
+        if (!_fdActor.name) return json({ ok: false, error: 'teacher_identity_missing' }, 403);
+        teacherName = _fdActor.name;
+      }
       if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
       const days = Math.min(31, Math.max(1, parseInt(url.searchParams.get('days') || '3', 10) || 3));
       const cutoff = new Date(Date.now() + 9 * 3600 * 1000 - (days - 1) * 86400000).toISOString().slice(0, 10);
@@ -9445,6 +9456,13 @@ Respond in JSON ONLY:
       const where: string[] = []; const binds: any[] = [];
       if (fStatus) { where.push('status = ?'); binds.push(fStatus); }
       if (fGroup)  { where.push('group_name = ?'); binds.push(fGroup); }
+      // 🔐 강사 로그인 시엔 본인 프로필만(타 강사 계좌·연락처·단가 노출 방지)
+      const _tpActor = await getAdminActor(request, env as any);
+      if (_tpActor.isTeacher) {
+        if (!_tpActor.name) return json({ ok: true, items: [] });
+        where.push('(LOWER(TRIM(korean_name))=LOWER(TRIM(?)) OR LOWER(TRIM(english_name))=LOWER(TRIM(?)))');
+        binds.push(_tpActor.name, _tpActor.name);
+      }
       const sql = `SELECT * FROM teacher_profiles${where.length ? ' WHERE ' + where.join(' AND ') : ''}
                    ORDER BY status='활동중' DESC, korean_name ASC`;
       try {
@@ -9456,6 +9474,8 @@ Respond in JSON ONLY:
     }
 
     if (method === 'POST' && path === '/api/admin/teacher-profiles') {
+      const _tpwActor = await getAdminActor(request, env as any);
+      if (_tpwActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 등록할 수 없습니다.' }, 403);
       try { await ensureTeacherProfilesSchema(); }
       catch (e: any) { return json({ ok: false, error: '테이블 생성 실패: ' + String(e?.message || e) }, 500); }
       const b = await parseJsonBody(request);
@@ -9490,9 +9510,17 @@ Respond in JSON ONLY:
     if (tpMatch) {
       try { await ensureTeacherProfilesSchema(); } catch {}
       const id = parseInt(tpMatch[1], 10);
+      // 🔐 강사: 본인 프로필 단건만 조회 가능, 수정·삭제는 불가(자기 단가·계좌 임의변경도 차단)
+      const _tpiActor = await getAdminActor(request, env as any);
+      if (_tpiActor.isTeacher && method !== 'GET') {
+        return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 수정·삭제할 수 없습니다.' }, 403);
+      }
       if (method === 'GET') {
         const row = await env.DB.prepare(`SELECT * FROM teacher_profiles WHERE id = ?`).bind(id).first<any>();
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        if (_tpiActor.isTeacher && !sameTeacherName(_tpiActor.name, row.korean_name) && !sameTeacherName(_tpiActor.name, row.english_name)) {
+          return json({ ok: false, error: 'forbidden_teacher', message: '본인 프로필만 조회할 수 있습니다.' }, 403);
+        }
         return json({ ok: true, item: row });
       }
       if (method === 'PATCH') {
@@ -9536,13 +9564,21 @@ Respond in JSON ONLY:
         ? `SELECT * FROM teachers ORDER BY active DESC, name ASC`
         : `SELECT * FROM teachers WHERE active = 1 ORDER BY name ASC`;
       const rs = await env.DB.prepare(sql).all();
-      const teacherRows = rs.results || [];
+      let teacherRows = (rs.results || []) as any[];
+      // 🔐 강사 로그인 시엔 급여단가·계좌 등 민감 칼럼을 제거해서 내려준다(스케줄용 이름·id 는 유지).
+      const _tlActor = await getAdminActor(request, env as any);
+      if (_tlActor.isTeacher) {
+        const _hide = ['rate_per_10min_php','fee_per_10min','bank_account','bank_name','salary','monthly_salary','monthly_salary_php','pay_php','account_no'];
+        teacherRows = teacherRows.map(r => { const o = { ...r }; for (const k of _hide) delete o[k]; return o; });
+      }
       // items/teachers/data 별칭 모두 제공(프론트 호환: weekly-schedule.html 등)
       return json({ ok: true, items: teacherRows, teachers: teacherRows, data: teacherRows });
     }
 
     // 강사 등록 (새 모델: name + status + years + rate_per_10min_php)
     if (method === 'POST' && path === '/api/admin/teachers') {
+      const _tnActor = await getAdminActor(request, env as any);
+      if (_tnActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사를 등록할 수 없습니다.' }, 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.name || !b.status || b.rate_per_10min_php == null) {
@@ -9567,6 +9603,8 @@ Respond in JSON ONLY:
 
     // 강사 수정 (부분 업데이트 — 모든 필드 선택적)
     if (method === 'PATCH' && /^\/api\/admin\/teachers\/\d+$/.test(path)) {
+      const _tuActor = await getAdminActor(request, env as any);
+      if (_tuActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 정보를 수정할 수 없습니다.' }, 403);
       await ensurePayrollSchema(env);
       const m = path.match(/^\/api\/admin\/teachers\/(\d+)$/);
       const id = m ? parseInt(m[1], 10) : 0;
