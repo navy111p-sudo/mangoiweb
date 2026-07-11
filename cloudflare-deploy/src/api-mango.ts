@@ -3066,7 +3066,12 @@ Return STRICT JSON only, in BOTH Korean and English:
       await ensureClassRatingsTable();
       const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10) || 30));
       const since = Date.now() - days * 86400 * 1000;
-      const rs = await env.DB.prepare(`SELECT teacher_name, score, tags FROM class_ratings WHERE created_at>=?`).bind(since).all();
+      // 🔐 강사(teacher) 로그인 시엔 본인 평가만 집계(타 강사 평점·건의사항 노출 방지)
+      const _rsumActor = await getAdminActor(request, env as any);
+      const _rsumOwn = _rsumActor.isTeacher ? _rsumActor.name : '';
+      const rs = _rsumOwn
+        ? await env.DB.prepare(`SELECT teacher_name, score, tags FROM class_ratings WHERE created_at>=? AND LOWER(TRIM(teacher_name))=LOWER(TRIM(?))`).bind(since, _rsumOwn).all()
+        : await env.DB.prepare(`SELECT teacher_name, score, tags FROM class_ratings WHERE created_at>=?`).bind(since).all();
       const byTeacher: Record<string, { count: number; sum: number; low: number; tags: Record<string, number> }> = {};
       for (const row of (rs.results || []) as any[]) {
         const name = row.teacher_name || '(미확인)';
@@ -3092,7 +3097,13 @@ Return STRICT JSON only, in BOTH Korean and English:
       await ensureClassRatingsTable();
       const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10) || 30));
       const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
-      const teacher = (url.searchParams.get('teacher_name') || '').trim();
+      let teacher = (url.searchParams.get('teacher_name') || '').trim();
+      // 🔐 강사(teacher) 로그인 시엔 항상 본인 평가만(요청한 teacher_name 무시)
+      const _rlistActor = await getAdminActor(request, env as any);
+      if (_rlistActor.isTeacher) {
+        if (!_rlistActor.name) return json({ ok: false, error: 'teacher_identity_missing' }, 403);
+        teacher = _rlistActor.name;
+      }
       const since = Date.now() - days * 86400 * 1000;
       const rs = teacher
         ? await env.DB.prepare(`SELECT id, room_id, student_name, teacher_name, score, tags, feedback, rated_date, created_at FROM class_ratings WHERE created_at>=? AND teacher_name=? ORDER BY created_at DESC LIMIT ?`).bind(since, teacher, limit).all()
@@ -3105,7 +3116,13 @@ Return STRICT JSON only, in BOTH Korean and English:
     if (method === 'GET' && path === '/api/admin/ratings/analytics') {
       await ensureClassRatingsTable();
       const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '90', 10) || 90));
-      const teacher = (url.searchParams.get('teacher_name') || '').trim();
+      let teacher = (url.searchParams.get('teacher_name') || '').trim();
+      // 🔐 강사(teacher) 로그인 시엔 항상 본인 평가만(요청한 teacher_name 무시)
+      const _ranActor = await getAdminActor(request, env as any);
+      if (_ranActor.isTeacher) {
+        if (!_ranActor.name) return json({ ok: false, error: 'teacher_identity_missing' }, 403);
+        teacher = _ranActor.name;
+      }
       const since = Date.now() - days * 86400 * 1000;
       const rs = teacher
         ? await env.DB.prepare(`SELECT score, tags, created_at FROM class_ratings WHERE created_at>=? AND teacher_name=? ORDER BY created_at ASC`).bind(since, teacher).all()
@@ -5580,18 +5597,16 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const hitIdx = new Set<number>();
       for (const t of TOPICS) if (t.kw.some((k) => userMsg.indexOf(k) >= 0)) t.idx.forEach((i) => hitIdx.add(i));
       const relevant = Array.from(hitIdx).sort((a, b) => a - b).map((i) => KNOWLEDGE_ARR[i]).filter(Boolean);
+      // 관련 사실이 매칭되면 그 사실만(노이즈 최소화) 전달 — 없으면 전체 지식
+      const knowledgeForPrompt = relevant.length ? relevant.join('\n') : KNOWLEDGE;
       const SYSTEM = [
-        "당신은 '망고아이(Mangoi)' 화상영어의 친절한 AI 상담 도우미입니다. 아래 정보를 근거로, 한국어로 짧고 따뜻하게 답하세요.",
-        '규칙:',
-        '1) 사용자의 질문에 **직접, 구체적으로** 답하세요. 시간·요일·숫자·규정처럼 정보에 있는 사실은 얼버무리지 말고 정확히 그대로 말하세요. (예: 수업 시간을 물으면 "평일 월~금 오후 2시~11시"라고 정확히 답하기)',
-        '2) [핵심 정보]에 답이 있으면 반드시 그것을 근거로 먼저 답하세요. 회사 소개만 반복하거나 모든 질문을 카카오로 미루지 마세요.',
-        '3) 정보에 없는 내용(특히 정확한 요금·가격)만 지어내지 말고 "정확한 안내는 무료 레벨테스트나 카카오 채널로 도와드릴게요"라고 하세요.',
-        '4) 전화 상담은 운영하지 않습니다. 사람 연결이 필요할 때만 "카카오 채널(화면 우하단 상담 버튼)"을 권하세요.',
-        '5) 2~4문장으로 간결하게. 확실하지 않으면 확실한 척 하지 마세요.',
-        ...(relevant.length ? ['', '[핵심 정보 — 이 질문과 가장 관련됨, 여기서 정확히 답하세요]', relevant.join('\n')] : []),
-        '',
-        '[전체 정보]',
-        KNOWLEDGE,
+        "당신은 '망고아이(Mangoi)' 화상영어의 친절한 AI 상담 도우미입니다.",
+        '아래 [정보]에 있는 사실만 근거로, 사용자 질문에 한국어로 1~3문장으로 정확하고 따뜻하게 답하세요.',
+        '- [정보]의 시간·요일·숫자·규정은 그대로 정확히 말하세요. 회사 소개를 늘어놓지 말고 질문에 바로 답하세요.',
+        '- [정보]에 없는 것(특히 정확한 요금·가격)은 지어내지 말고 "정확한 안내는 무료 레벨테스트나 카카오 채널로 도와드릴게요"라고 하세요.',
+        '- 전화 상담은 운영하지 않습니다. 사람 연결이 필요할 때만 카카오 채널(화면 우하단 상담 버튼)을 권하세요.',
+        '[정보]',
+        knowledgeForPrompt,
       ].join('\n');
       const fallback = '지금은 AI 답변이 잠깐 어려워요. 화면 우하단 카카오 채널이나 아래 상담 폼으로 남겨주시면 바로 도와드릴게요! 무료 레벨테스트도 추천드려요 🙂';
       try {
@@ -9577,6 +9592,8 @@ Respond in JSON ONLY:
 
     // 월별 수업 수 입력 (20분 단위 수업 횟수)
     if (method === 'PUT' && path === '/api/admin/teacher-classes') {
+      const _tcActor = await getAdminActor(request, env as any);
+      if (_tcActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 수업 수를 입력할 수 없습니다.' }, 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.teacher_id || !b.year || !b.month || b.class_count == null) {
@@ -9594,6 +9611,8 @@ Respond in JSON ONLY:
 
     // 월별 평가 입력 (5개 카테고리 점수 + 코멘트)
     if (method === 'PUT' && path === '/api/admin/teacher-evaluation') {
+      const _teActor = await getAdminActor(request, env as any);
+      if (_teActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 평가를 입력할 수 없습니다.' }, 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.teacher_id || !b.year || !b.month) return invalidBody(['teacher_id', 'year', 'month']);
@@ -9637,6 +9656,7 @@ Respond in JSON ONLY:
     }
 
     // 개별 강사 월별 통합 조회 (계산 + 평가)
+    //   🔐 강사는 임의 teacher_id 로 남의 급여명세서를 볼 수 없다 — 본인 id 만 허용.
     if (method === 'GET' && /^\/api\/admin\/payroll\/\d+$/.test(path)) {
       await ensurePayrollSchema(env);
       const m = path.match(/^\/api\/admin\/payroll\/(\d+)$/);
@@ -9645,21 +9665,31 @@ Respond in JSON ONLY:
       const month = parseInt(url.searchParams.get('month') || '0', 10);
       if (!id || !year || !month) return invalidBody(['teacher_id(path)', 'year', 'month']);
       const result = await calcPayrollOne(env, id, year, month);
+      const _oneActor = await getAdminActor(request, env as any);
+      if (_oneActor.isTeacher && !(result.ok && sameTeacherName(_oneActor.name, result.teacher_name))) {
+        return json({ ok: false, error: 'forbidden_teacher', message: '본인 급여명세서만 조회할 수 있습니다.' }, 403);
+      }
       return json(result, result.ok ? 200 : 404);
     }
 
     // 일괄 — 활성 강사 전원 (월별 dashboard 용)
+    //   🔐 강사 본인 뷰(card-payroll)도 이 엔드포인트를 쓴다 → 강사면 서버가 본인 항목만 반환.
+    //      (기존엔 전체를 내려주고 admin.html 이 화면에서만 걸렀음 = 우회 가능했던 취약점)
     if (method === 'GET' && path === '/api/admin/payroll/all') {
       await ensurePayrollSchema(env);
       const year  = parseInt(url.searchParams.get('year')  || '0', 10);
       const month = parseInt(url.searchParams.get('month') || '0', 10);
       if (!year || !month) return invalidBody(['year', 'month']);
+      const _allActor = await getAdminActor(request, env as any);
+      const _allOwn = _allActor.isTeacher ? _allActor.name : '';
       const rs = await env.DB.prepare(`SELECT id FROM teachers WHERE active = 1 ORDER BY name ASC`).all();
       const items: any[] = [];
       let totalPhp = 0;
       for (const t of (rs.results || []) as any[]) {
         const r = await calcPayrollOne(env, t.id, year, month);
-        if (r.ok) { items.push(r); totalPhp += r.monthly_salary_php || 0; }
+        if (!r.ok) continue;
+        if (_allOwn && !sameTeacherName(_allOwn, r.teacher_name)) continue;  // 강사 본인 것만
+        items.push(r); totalPhp += r.monthly_salary_php || 0;
       }
       const totalKrw = Math.round(totalPhp * PAYROLL_PHP_TO_KRW);
       // 등급 분포 카운트
@@ -9680,6 +9710,8 @@ Respond in JSON ONLY:
 
     // 마감 (payslips 잠금)
     if (method === 'POST' && path === '/api/admin/payroll/finalize') {
+      const _finActor = await getAdminActor(request, env as any);
+      if (_finActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여를 마감할 수 없습니다.' }, 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       if (!b || !b.year || !b.month) return invalidBody(['year', 'month']);
