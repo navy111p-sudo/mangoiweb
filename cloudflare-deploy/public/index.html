@@ -1993,6 +1993,10 @@
             z-index: 100;
         }
         .chat-panel.open { transform: translateX(0); }
+        /* 채팅이 열려있는 동안 z-index가 더 높은 플로팅(홍보 원형영상 z100050, 캐시FAB z99999)이
+           패널·입력창을 가림 → 채팅 여는 동안만 숨김 */
+        body:has(#vc-chat-panel.open) #mango-promo-video,
+        body:has(#vc-chat-panel.open) #ph52-cache-fab { display: none !important; }
         /* 🔥 ④ 비디오 렌더링 GPU 최적화 — 별도 합성 레이어로 분리해 재페인트 최소화 */
         #vc-video-grid video, .video-box video, #vc-local-box video {
             object-fit: cover;
@@ -6515,7 +6519,7 @@
       <button class="gm-card" data-go="speech-coach-cn" data-en-key="cn voice coach" onclick="location.href='/speech-coach-cn.html'">
         <span class="gm-icon">🇨🇳</span>
         <span class="gm-label" data-ko="중국어 발음 코치" data-en="CN Voice Coach">중국어 발음 코치</span>
-        <span class="gm-sub" data-ko="다락원 마스터 · Lv 1~20" data-en="Darakwon · Lv 1-20">다락원 마스터 · Lv 1~20</span>
+        <span class="gm-sub" data-ko="중국어 마스터 · Lv 1~20" data-en="CN Master · Lv 1-20">중국어 마스터 · Lv 1~20</span>
       </button>
       <!-- 📔 AI 음성 일기 — 매일 영어 음성 일기 → AI 첨삭·점수 (관리자 모니터 연동) -->
       <button class="gm-card" data-go="voice-diary" data-en-key="ai voice diary" onclick="window.openVoiceDiaryModal&&window.openVoiceDiaryModal()">
@@ -19557,7 +19561,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <option value="MES">🎯 MES</option>
         <option value="BTS">🌟 BTS</option>
         <option value="SIU">🦁 SIU</option>
-        <option value="마스터">🏆 다락원 (마스터3)</option>
+        <option value="마스터">🏆 중국어 마스터 3</option>
       </select>
       <input id="tbf-lib-search" type="text" placeholder="🔍 교재명 검색…" oninput="if(window._tblDeb)clearTimeout(window._tblDeb); window._tblDeb=setTimeout(loadTextbookLibrary,250)" />
       <button onclick="loadTextbookLibrary()">🔄 새로고침</button>
@@ -19769,7 +19773,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (/siu/.test(b)) return 'SIU';
     if (/bts/.test(b)) return 'BTS';
     if (/mes/.test(b)) return 'MES';
-    if (/다락원|master|마스터/.test(b)) return '다락원';
+    if (/다락원|master|마스터/.test(b)) return '중국어';
     return '서버 교재';
   }
   function _serverFilesToBooks(items){
@@ -24735,7 +24739,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712045442 -->
+<!-- BUILD:20260712045656 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

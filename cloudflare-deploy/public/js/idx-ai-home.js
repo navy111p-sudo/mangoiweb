@@ -62,7 +62,7 @@
     // 발음연습 (영어)
     { kws: ['발음', '발음연습', '발음 연습', '발음교정', '발음 교정', '발음테스트', '발음 체크', '영어발음', 'pronunciation', '스피치', 'speech', '스피킹', '말하기', '말하기 연습'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
     // ph157: 중국어 발음 코치
-    { kws: ['중국어', '중국어발음', '중국어 발음', '중국어발음코치', 'chinese', 'mandarin', '다락원', 'darakwon', 'cn voice', '병음', 'pinyin'], action: () => location.href = '/speech-coach-cn.html', label: '🇨🇳 중국어 발음 코치 (다락원 마스터 + Lv 1~20)' },
+    { kws: ['중국어', '중국어발음', '중국어 발음', '중국어발음코치', 'chinese', 'mandarin', '다락원', 'darakwon', 'cn voice', '병음', 'pinyin'], action: () => location.href = '/speech-coach-cn.html', label: '🇨🇳 중국어 발음 코치 (중국어 마스터 + Lv 1~20)' },
     // ph178: 수업 신청 (시간·교사 선택 → 결제)
     { kws: ['수업신청', '수업 신청', '예약', '신청하기', '시간 선택', '교사 선택', 'book', 'booking', 'lesson booking'], action: () => location.href = '/lesson-booking-demo.html', label: '📝 수업 신청 (시간·교사 → 결제)' },
     // ph158: 교재 업로더 (폴더 드래그 → AI 자동 분류)

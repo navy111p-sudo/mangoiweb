@@ -19600,7 +19600,7 @@ window._tbActiveFilter = '전체교재';
 function _tbItemMatches(t, key) {
   if (!key || key === '전체교재') return true;
   var hay = ((t.title || '') + ' ' + (t.publisher || '')).toLowerCase();
-  if (key === '다락원') return hay.indexOf('다락원') >= 0 || hay.indexOf('master') >= 0 || hay.indexOf('마스터') >= 0;
+  if (key === '중국어 마스터') return hay.indexOf('다락원') >= 0 || hay.indexOf('master') >= 0 || hay.indexOf('마스터') >= 0;
   return hay.indexOf(key.toLowerCase()) >= 0;
 }
 function _tbRenderChips(items) {
@@ -19617,7 +19617,7 @@ function _tbRenderChips(items) {
     dl.innerHTML = opts;
   }
   // 고정 그룹 + 데이터에 있는 출판사 자동 추가
-  var fixed = ['전체교재', 'Phonics', 'MES', 'BTS', 'SIU', '다락원'];
+  var fixed = ['전체교재', 'Phonics', 'MES', 'BTS', 'SIU', '중국어 마스터'];
   var extra = {};
   (items || []).forEach(function(t){
     var pub = (t.publisher || '').trim();
@@ -23872,7 +23872,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260712045442 -->
+        <!-- BUILD:20260712045656 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
