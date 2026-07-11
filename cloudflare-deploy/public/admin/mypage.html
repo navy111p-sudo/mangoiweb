@@ -1859,38 +1859,168 @@
     t.addEventListener('click', function(){ activateTab(t.getAttribute('data-tab')); });
   });
 
-  // ── 🎯 레벨테스트 신청 (강사 열람) ──
+  // ── 🎯 레벨테스트 신청 (강사 열람 + 1:1 평가) ──
+  function ltEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  var __ltAppsById = {};
+  // 표준 CEFR 스피킹 루브릭 5항목 — 어느 선생님이 매겨도 일관되게(공정)
+  var LT_DIMS = [
+    { key:'pron',          ico:'🗣', ko:'발음',      en:'Pronunciation' },
+    { key:'fluency',       ico:'💨', ko:'유창성',    en:'Fluency' },
+    { key:'vocab',         ico:'📚', ko:'어휘',      en:'Vocabulary' },
+    { key:'grammar',       ico:'🧩', ko:'문법',      en:'Grammar' },
+    { key:'comprehension', ico:'👂', ko:'이해·소통', en:'Comprehension' }
+  ];
+  var LT_LEGEND_KO = ['1 매우부족','2 부족','3 보통','4 우수','5 매우우수'];
+  var LT_LEGEND_EN = ['1 Poor','2 Weak','3 Fair','4 Good','5 Excellent'];
+  var CEFR_LEVELS = ['A1','A2','B1','B2','C1','C2'];
+  var ltEvalState = null;
+
   window.loadLeveltestAppsTeacher = function(){
     var body = document.getElementById('lt-apps-teacher-body');
     if (!body) return;
     var en = EN();
-    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
     body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'Loading…':'불러오는 중…')+'</div>';
     fetch('/api/admin/leveltest/applications?limit=100', { credentials:'include', cache:'no-store' })
       .then(function(r){ return r.json(); })
       .then(function(d){
         var items = (d && d.items) || [];
+        __ltAppsById = {};
+        items.forEach(function(a){ __ltAppsById[a.id] = a; });
         if (!items.length){ body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'No applications yet':'아직 신청이 없습니다')+'</div>'; return; }
         var STMAP = { pending:[en?'Pending':'대기','#f59e0b'], done:[en?'Done':'완료','#10b981'], cancelled:[en?'Cancelled':'취소','#94a3b8'] };
         var rows = items.map(function(a){
           var st = STMAP[a.status] || [a.status||'—','#94a3b8'];
           var when = ((a.desired_date||'') + (a.desired_time?(' '+a.desired_time):'')) || '—';
+          var evalCell;
+          if (a.status === 'cancelled') {
+            evalCell = '<span style="color:#94a3b8">—</span>';
+          } else if (a.teacher_score != null) {
+            evalCell = '<span style="color:#34d399;font-weight:700">'+Math.round(a.teacher_score)+(en?' pt':'점')+'</span> '
+              + '<button onclick="openLtEval('+a.id+')" style="padding:2px 7px;font-size:11px;border:1px solid var(--border,#334155);border-radius:6px;background:transparent;color:inherit;cursor:pointer">'+(en?'Edit':'수정')+'</button>';
+          } else {
+            evalCell = '<button onclick="openLtEval('+a.id+')" style="padding:4px 10px;font-size:12px;border:0;border-radius:7px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;cursor:pointer;font-weight:700">'+(en?'📝 Assess':'📝 평가하기')+'</button>';
+          }
           return '<tr>'
             + '<td>'+fmtTime(a.created_at)+'</td>'
-            + '<td><b>'+esc(a.student_name)+'</b></td>'
-            + '<td>'+esc(when)+'</td>'
+            + '<td><b>'+ltEsc(a.student_name)+'</b></td>'
+            + '<td>'+ltEsc(when)+'</td>'
             + '<td style="text-align:center">'+(a.ai_score!=null?Math.round(a.ai_score):'—')+'</td>'
             + '<td style="text-align:center">'+(a.pron_score!=null?Math.round(a.pron_score):'—')+'</td>'
-            + '<td style="text-align:center">'+(a.final_level?('<b style="color:#34d399">'+esc(a.final_level)+'</b>'):'—')+'</td>'
+            + '<td style="text-align:center">'+(a.final_level?('<b style="color:#34d399">'+ltEsc(a.final_level)+'</b>'):'—')+'</td>'
             + '<td><span style="font-weight:700;color:'+st[1]+'">'+st[0]+'</span></td>'
+            + '<td style="text-align:right;white-space:nowrap">'+evalCell+'</td>'
             + '</tr>';
         }).join('');
-        body.innerHTML = '<div style="overflow-x:auto"><table class="list" style="min-width:600px"><thead><tr>'
-          + '<th>'+(en?'Applied':'신청시각')+'</th><th>'+(en?'Student':'학생')+'</th><th>'+(en?'Preferred':'희망 일시')+'</th><th>'+(en?'AI':'AI점수')+'</th><th>'+(en?'Pron.':'발음')+'</th><th>'+(en?'Level':'추정레벨')+'</th><th>'+(en?'Status':'상태')+'</th>'
+        body.innerHTML = '<div style="overflow-x:auto"><table class="list" style="min-width:680px"><thead><tr>'
+          + '<th>'+(en?'Applied':'신청시각')+'</th><th>'+(en?'Student':'학생')+'</th><th>'+(en?'Preferred':'희망 일시')+'</th><th>'+(en?'AI':'AI점수')+'</th><th>'+(en?'Pron.':'발음')+'</th><th>'+(en?'Level':'추정레벨')+'</th><th>'+(en?'Status':'상태')+'</th><th>'+(en?'1:1':'1:1 평가')+'</th>'
           + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
       })
       .catch(function(){ body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'Failed to load':'불러오지 못했습니다')+'</div>'; });
   };
+
+  // 선생님 점수 산출 (5항목 평균 × 20 = 0~100) — 투명·공정
+  function ltCalcScore(rubric){
+    var vals = LT_DIMS.map(function(dm){ return rubric[dm.key]; }).filter(function(v){ return v != null; });
+    if (!vals.length) return null;
+    var sum = vals.reduce(function(a,b){ return a+b; }, 0);
+    return Math.round(sum / (LT_DIMS.length * 5) * 100); // 미채점 항목은 0점 취급 → 전항목 채점 유도
+  }
+  function ltSuggestLevel(app, tScore){
+    if (app && app.final_level && CEFR_LEVELS.indexOf(app.final_level) >= 0) return app.final_level; // AI 추정 우선(객관 기준선)
+    if (tScore == null) return 'B1';
+    if (tScore < 20) return 'A1'; if (tScore < 40) return 'A2'; if (tScore < 60) return 'B1';
+    if (tScore < 75) return 'B2'; if (tScore < 90) return 'C1'; return 'C2';
+  }
+
+  window.openLtEval = function(id){
+    var app = __ltAppsById[id]; if (!app) return;
+    var en = EN();
+    var legend = en ? LT_LEGEND_EN : LT_LEGEND_KO;
+    var existing = {}; try { existing = app.teacher_rubric ? JSON.parse(app.teacher_rubric) : {}; } catch(e){ existing = {}; }
+    ltEvalState = { id:id, rubric: Object.assign({}, existing) };
+    var dimHtml = LT_DIMS.map(function(dm){
+      var cur = ltEvalState.rubric[dm.key];
+      var btns = [1,2,3,4,5].map(function(n){
+        var on = cur === n;
+        return '<button type="button" onclick="ltPick(\''+dm.key+'\','+n+')" data-dim="'+dm.key+'" data-n="'+n+'" '
+          + 'style="flex:1;padding:9px 0;font-size:14px;font-weight:800;border-radius:8px;cursor:pointer;border:1px solid '
+          + (on?'#6366f1':'rgba(148,163,184,.35)')+';background:'+(on?'#6366f1':'transparent')+';color:'+(on?'#fff':'#cbd5e1')+'">'+n+'</button>';
+      }).join('');
+      return '<div style="margin-bottom:12px"><div style="font-size:13.5px;font-weight:700;margin-bottom:6px">'+dm.ico+' '+(en?dm.en:dm.ko)+'</div>'
+        + '<div style="display:flex;gap:6px">'+btns+'</div></div>';
+    }).join('');
+    var levelOpts = CEFR_LEVELS.map(function(L){ return '<option value="'+L+'">'+L+'</option>'; }).join('');
+    var mask = document.createElement('div');
+    mask.id = 'lt-eval-mask';
+    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+    mask.innerHTML =
+      '<div style="background:#0f1830;border:1px solid #29406b;border-radius:16px;max-width:470px;width:100%;max-height:92vh;overflow:auto;padding:20px;color:#e6ecff">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+      +   '<div style="font-size:16px;font-weight:900">🧑‍🏫 '+(en?'1:1 Assessment':'1:1 평가')+' — '+ltEsc(app.student_name)+'</div>'
+      +   '<button onclick="closeLtEval()" style="background:transparent;border:0;color:#94a3b8;font-size:20px;cursor:pointer;line-height:1">✕</button>'
+      + '</div>'
+      + '<div style="font-size:11.5px;color:#94a3b8;margin-bottom:6px">'+(en?'Score each 1–5. The average becomes the teacher score (fair, consistent rubric).':'각 항목 1~5점 · 평균이 선생님 점수가 돼요 (모든 선생님 공통 기준 = 공정)')+'</div>'
+      + '<div style="font-size:10.5px;color:#64748b;margin-bottom:14px">'+legend.join(' · ')+'</div>'
+      + '<div id="lt-eval-rubric">'+dimHtml+'</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.35);border-radius:10px;padding:10px 14px;margin:6px 0 14px">'
+      +   '<span style="font-size:13px;font-weight:700">'+(en?'Teacher score':'선생님 점수')+'</span><span><b id="lt-eval-score" style="font-size:20px;color:#c7d2fe">—</b> <span style="font-size:12px;color:#94a3b8">/ 100</span></span>'
+      + '</div>'
+      + '<label style="display:block;font-size:12.5px;font-weight:700;color:#a5b4fc;margin-bottom:6px">'+(en?'Confirm final level':'최종 레벨 확정')+'</label>'
+      + '<select id="lt-eval-level" style="width:100%;background:#fff;color:#1a1a1a;border:1px solid #6366f1;border-radius:10px;padding:11px;font-size:15px;font-weight:800;outline:none">'+levelOpts+'</select>'
+      + '<div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.6">'
+      +   (en?'AI estimate':'AI 진단 추정')+': <b style="color:#c7d2fe">'+ltEsc(app.final_level||(en?'N/A':'없음'))+'</b> · '
+      +   (en?'Pron.':'발음')+': <b style="color:#c7d2fe">'+(app.pron_score!=null?Math.round(app.pron_score):'—')+'</b><br>'
+      +   (en?'The AI estimate is pre-filled as an objective baseline — confirm or adjust from the live conversation.':'AI 추정을 객관 기준선으로 미리 채워놨어요. 실제 대화를 근거로 확정/조정하세요.')
+      + '</div>'
+      + '<button onclick="submitLtEval()" style="width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:900;cursor:pointer">✅ '+(en?'Confirm assessment':'평가 확정')+'</button>'
+      + '</div>';
+    mask.addEventListener('click', function(e){ if (e.target === mask) closeLtEval(); });
+    document.body.appendChild(mask);
+    // 최종레벨 기본값 = AI 추정(객관 기준선)
+    var sel = document.getElementById('lt-eval-level');
+    if (sel) sel.value = ltSuggestLevel(app, ltCalcScore(ltEvalState.rubric));
+    ltRefreshScore();
+  };
+  window.ltPick = function(dim, n){
+    if (!ltEvalState) return;
+    ltEvalState.rubric[dim] = n;
+    // 해당 행 버튼 하이라이트
+    document.querySelectorAll('#lt-eval-rubric button[data-dim="'+dim+'"]').forEach(function(b){
+      var on = Number(b.getAttribute('data-n')) === n;
+      b.style.background = on ? '#6366f1' : 'transparent';
+      b.style.color = on ? '#fff' : '#cbd5e1';
+      b.style.borderColor = on ? '#6366f1' : 'rgba(148,163,184,.35)';
+    });
+    ltRefreshScore();
+  };
+  function ltRefreshScore(){
+    if (!ltEvalState) return;
+    var s = ltCalcScore(ltEvalState.rubric);
+    var el2 = document.getElementById('lt-eval-score');
+    if (el2) el2.textContent = (s == null ? '—' : s);
+  }
+  window.closeLtEval = function(){
+    var m = document.getElementById('lt-eval-mask'); if (m) m.parentNode.removeChild(m);
+    ltEvalState = null;
+  };
+  window.submitLtEval = function(){
+    if (!ltEvalState) return;
+    var en = EN();
+    var scored = LT_DIMS.filter(function(dm){ return ltEvalState.rubric[dm.key] != null; }).length;
+    if (scored < LT_DIMS.length) { alert(en ? 'Please score all 5 items.' : '5개 항목을 모두 채점해 주세요.'); return; }
+    var tScore = ltCalcScore(ltEvalState.rubric);
+    var level = (document.getElementById('lt-eval-level') || {}).value || null;
+    var payload = { id: ltEvalState.id, teacher_score: tScore, teacher_rubric: ltEvalState.rubric,
+      final_level: level, status: 'done', evaluated_by: (window.__myName || '') };
+    fetch('/api/admin/leveltest/applications', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d && d.ok) { closeLtEval(); window.loadLeveltestAppsTeacher(); }
+        else alert(en ? 'Save failed.' : '저장에 실패했어요.');
+      })
+      .catch(function(){ alert(en ? 'Network error.' : '네트워크 오류예요.'); });
+  };
+
   var __ltTab = qsTab('leveltest-apps');
   if (__ltTab) __ltTab.addEventListener('click', function(){ window.loadLeveltestAppsTeacher(); });
 
