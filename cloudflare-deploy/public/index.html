@@ -12281,7 +12281,18 @@ function _pickFrom(pool, kind){
   }catch(_){}
   return pool[Math.floor(Math.random()*pool.length)];
 }
-function _nextVocab(){ return _pickFrom(_stageVocab(),'sent'); }
+// 🛡️ 중국어 문장 분절 무결성 보정: words 이어붙인 게 원문 한자와 다르면(글자 누락) 낱글자로 복구.
+//   병음·뜻과 안 맞는 깨진 문장 방지. 한자 없는(영어) 문장은 그대로 통과.
+function _zhSafeWords(sent){
+  try{
+    var cjk = String(sent && sent.en || '').match(/[㐀-鿿]/g);
+    if(!cjk || !cjk.length) return sent;
+    var ws = Array.isArray(sent.words) ? sent.words.map(String) : [];
+    if(ws.join('') !== cjk.join('')) sent.words = cjk;
+  }catch(_){}
+  return sent;
+}
+function _nextVocab(){ return _zhSafeWords(_pickFrom(_stageVocab(),'sent')); }
 function _nextWord(){ return _pickFrom(_stageWords(),'word'); }
 function _pickWords(n){
   var pool=_stageWords(), picks=[], q=_missQueue.filter(function(x){return x.kind==='word';});
@@ -12806,7 +12817,7 @@ window.gameSpeakAnswer = function(){ try{ var a=_gameState.current&&_gameState.c
 
 // 🧱 게임 1: 문장 벽돌 — 영어 단어 브릭을 순서대로 클릭해서 문장 완성
 function gameRenderBrick() {
-  const sentence = _gameState._queued || _nextVocab();   // 🧠 약점 우선
+  const sentence = _zhSafeWords(_gameState._queued || _nextVocab());   // 🧠 약점 우선(+중국어 분절 보정)
   _gameState._queued = null;
   _gameState.current = { sentence, picked: [] };
   const shuffled = _gameShuffle(sentence.words);
@@ -12977,7 +12988,7 @@ function gameMatchFlip(card) {
 // 🥭 Phase 46 — 게임 3: 🔤 빈칸 채우기 (Fill the Blank)
 //   문장의 한 단어를 빈칸으로 만들고, 4개 옵션 중 정답 클릭
 function gameRenderFill() {
-  const sent = _gameState._queued || _nextVocab();   // 🧠 약점 우선
+  const sent = _zhSafeWords(_gameState._queued || _nextVocab());   // 🧠 약점 우선(+중국어 분절 보정)
   _gameState._queued = null;
   // 무작위 단어 하나를 빈칸 ___ 으로 (관사·be동사 빼고 의미 단어 우선)
   const meaningfulIdx = sent.words.findIndex(w => w.length > 2 && !['the','is','are','am','was','were','to','on','in','at','of'].includes(w.toLowerCase()));
@@ -24444,7 +24455,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711150452 -->
+<!-- BUILD:20260711150759 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

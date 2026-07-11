@@ -400,6 +400,15 @@
         }
         return base;
       });
+      // 🎤 말하기 미션 1문제 (3번째 문제): 마이크 되는 기기에서만, 재도전 등 짧은 세트엔 안 섞음
+      try {
+        if (arr.length >= 4 && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          var sp = arr[2];
+          sp.type = 'speak'; sp.options = []; sp.correctIndex = -1;
+          sp.questionText = ''; sp.showEmoji = true; sp.audioOnLoad = true;
+        }
+      } catch(e){}
+      return arr;
     }
     function pickTopic(btn, topic) {
       document.querySelectorAll('.topic-pick').forEach(b => b.classList.remove('active'));
@@ -486,8 +495,40 @@
       const typeBadge = `<div class="q-type">${
         Q.type==='listen' ? (isKids?'👂 듣고 맞히기':'👂 Listening') :
         Q.type==='word'   ? (isKids?'🔤 영어로 말하기':'🔤 Say it in English') :
+        Q.type==='speak'  ? (isKids?'🎤 따라 말하기':'🎤 Speaking') :
                             (isKids?'📖 뜻 맞히기':'📖 Meaning')
       }</div>`;
+
+      // 🎤 말하기 문제: 보기 대신 마이크 버튼 (타이머 없음, 성공 +20P 보너스)
+      if (Q.type === 'speak') {
+        area.innerHTML = `
+          <div id="qdotsWrap">${renderDots()}</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+          ${head}
+          <div class="quiz-card ${isKids?'kids':'challenge'}">
+            <div class="q-num">${isKids ? ('문제 '+(curIdx+1)+' / '+total) : ('Q'+(curIdx+1)+' / '+total)}</div>
+            ${typeBadge}
+            <div class="kid-word">
+              <div class="kid-emoji">${wordEmoji(Q.word)||'🗣️'}</div>
+              <div class="speak-word-big">${escHtml(Q.word||'')}</div>
+              <div style="font-size:14px;color:var(--text2)">${escHtml(Q.meaning||'')}</div>
+              <button class="say-btn" id="sayBtn">🔊 <span data-ko="발음 듣기" data-en="Listen">발음 듣기</span></button>
+            </div>
+            <div class="q-text" style="text-align:center">${isKids?'큰 소리로 따라 말해보세요!':'Say it out loud!'}</div>
+            <button class="speak-mic" id="micBtn" onclick="speakAttempt()">🎤 ${isKids?'눌러서 말하기 (3초)':'Tap & speak (3s)'}</button>
+            <button class="speak-skip" id="skipBtn" onclick="speakResolve(false, true)">${isKids?'잘 안 돼요 — 건너뛰기':'Skip this one'}</button>
+            <div id="feedback" class="fb" style="display:none"></div>
+            <div id="nextRow" class="nav-btns" style="display:none">
+              <button class="nav-btn primary" onclick="nextQuiz()">${curIdx === total-1 ? (isKids?'🎉 결과 보기':'🎯 See Result') : (isKids?'다음 →':'Next →')}</button>
+            </div>
+          </div>
+        `;
+        var sb0 = document.getElementById('sayBtn'); if (sb0) sb0.onclick = function(){ speakWord(Q.word); };
+        setTimeout(function(){ speakWord(Q.word); }, 260);
+        speakTries = 0;
+        try{ if(window.applyLang) applyLang(); else if(window.mangoApplyI18n) mangoApplyI18n(); }catch(e){}
+        return;
+      }
 
       // 프롬프트(그림/단어/듣기)
       let prompt;
@@ -533,6 +574,103 @@
       // 서버 숙련도 기록: 정답이면 서버 정답 index, 오답이면 다른 index 로 번역 제출(유형 무관 일관 기록)
       var serverAns = isCorrect ? Q.serverCorrect : (Q.serverCorrect === 0 ? 1 : 0);
       try { fetch('/api/vocab/quiz-submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id: Q.serverId, answer: serverAns }) }); } catch(e) {}
+    }
+
+    /* ── 🎤 말하기 문제: 3초 녹음 → Whisper 전사 → 단어 일치 판정 (2회 시도 + 건너뛰기) ── */
+    let speakTries = 0;
+    async function speakAttempt() {
+      const Q = quizzes[curIdx];
+      const btn = document.getElementById('micBtn');
+      const fb = document.getElementById('feedback');
+      if (!btn || btn.disabled || !Q || Q._resolved) return;
+      try {
+        btn.disabled = true; btn.classList.add('rec');
+        btn.innerHTML = '🔴 ' + tt('지금 말해요: "'+Q.word+'"', 'Speak now: "'+Q.word+'"');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const rec = new MediaRecorder(stream);
+        const chunks = [];
+        rec.ondataavailable = e => chunks.push(e.data);
+        rec.start();
+        await new Promise(res => setTimeout(res, 3000));
+        rec.stop();
+        await new Promise(res => rec.onstop = res);
+        stream.getTracks().forEach(t => t.stop());
+        if (Q._resolved) return;   // 녹음 중 건너뛰기 눌렀으면 무시
+        btn.classList.remove('rec');
+        btn.innerHTML = '🤖 ' + tt('AI가 듣는 중…', 'AI listening…');
+        const fd = new FormData();
+        fd.append('audio', new Blob(chunks, { type: rec.mimeType || 'audio/webm' }), 'speak.webm');
+        const r = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (Q._resolved) return;
+        const heard = String(d.text||'').toLowerCase().replace(/[^a-z\s]/g,' ');
+        const target = String(Q.word||'').toLowerCase().trim();
+        const hit = d.ok && heard.split(/\s+/).some(t => t === target || (target.length>3 && t.includes(target)));
+        if (hit) { speakResolve(true, false); return; }
+        speakTries++;
+        if (speakTries >= 2) { speakResolve(false, false); return; }
+        fb.style.display = 'block'; fb.className = 'fb no';
+        fb.innerHTML = tt('아깝다! AI가 들은 말: "','Almost! AI heard: "') + escHtml(d.text||'…') + tt('" — 한 번 더!','" — try again!');
+        btn.disabled = false; btn.innerHTML = '🎤 ' + tt('다시 도전! (1회 남음)','Try again! (1 left)');
+      } catch(e) {
+        if (Q._resolved) return;
+        btn.classList.remove('rec');
+        btn.disabled = false; btn.innerHTML = '🎤 ' + tt('눌러서 말하기 (3초)','Tap & speak (3s)');
+        fb.style.display = 'block'; fb.className = 'fb no';
+        fb.innerHTML = tt('마이크를 열 수 없어요 (권한 확인) — 아래 건너뛰기를 눌러도 돼요','Cannot open the mic — you can skip below');
+      }
+    }
+    function speakResolve(isCorrect, skipped) {
+      const Q = quizzes[curIdx];
+      if (!Q || Q._resolved) return;
+      Q._resolved = true;
+      const isKids = curMode === 'kids';
+      const btn = document.getElementById('micBtn');
+      if (btn) { btn.disabled = true; btn.classList.remove('rec'); btn.innerHTML = isCorrect ? ('🌟 ' + tt('발음 성공!','Great!')) : '🎤'; }
+      const sk = document.getElementById('skipBtn'); if (sk) sk.style.display = 'none';
+      recordProgress(Q, isCorrect);
+      dotResults[curIdx] = isCorrect;
+      answers.push({ word: Q.word, meaning: Q.meaning, example: Q.example, correct: isCorrect });
+      var dz = document.getElementById('qdotsWrap'); if (dz) dz.innerHTML = renderDots();
+      const fb = document.getElementById('feedback');
+      fb.style.display = 'block';
+      if (isCorrect) {
+        combo++; bestCombo = Math.max(bestCombo, combo);
+        sfx('correct'); vibrate(30);
+        if (isKids) {
+          stars++; sfx('star'); bounceMascot(); popStar();
+          var st = document.getElementById('kidStars'); if (st) st.innerHTML = renderStars();
+          fb.className = 'fb ok';
+          fb.innerHTML = tt('와! 발음 최고예요! 🌟','Perfect pronunciation! 🌟');
+        } else {
+          var gained = 15 + (combo>=2 ? combo*2 : 0);
+          xp += gained;
+          fb.className = 'fb ok';
+          fb.innerHTML = '✅ Nice pronunciation!' + (combo>=2?(' 🔥 x'+combo):'') + ' <span class="xp-plus">+'+gained+' XP</span>';
+          var cc = document.getElementById('chCombo'); if (cc) cc.textContent = '🔥 '+combo;
+          var cx = document.getElementById('chXp'); if (cx) cx.textContent = 'XP '+xp;
+        }
+        // 발음 성공 보너스 +20P (로그인 학생만, 서버 멱등)
+        try {
+          const uid = getUid();
+          if (uid.indexOf('guest_') !== 0) {
+            fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ user_id: uid, student_name: getName(), kind: 'speak', session_id: 'mq:' + Q.serverId + ':speak' }) })
+              .then(r => r.json()).then(function(d){ if (d.ok && d.awarded > 0) fb.innerHTML += ' <span class="xp-plus">💰 +20P</span>'; }).catch(function(){});
+          }
+        } catch(e){}
+        if (autoAdvTimer) clearTimeout(autoAdvTimer);
+        autoAdvTimer = setTimeout(function(){ nextQuiz(); }, 1400);
+      } else {
+        combo = 0;
+        sfx('wrong'); vibrate([15,40,15]);
+        fb.className = 'fb no';
+        fb.innerHTML = (skipped ? tt('괜찮아요! 발음을 듣고 따라 연습해보세요 🙂 ','No problem — listen & practice 🙂 ') : tt('아쉬워요! 정답 발음을 들어보세요 ','Close! Listen once more '))
+          + '<b>' + escHtml(Q.word) + '</b>';
+        speakWord(Q.word);
+        var cc2 = document.getElementById('chCombo'); if (cc2) cc2.textContent = '🔥 0';
+      }
+      document.getElementById('nextRow').style.display = '';
     }
     function pickAnswer(i) {
       var first = document.querySelector('#opts .opt');
@@ -707,6 +845,7 @@
     }
 
     setMode(curMode, false);   // 초기: body[data-mode] + 토글 활성화 반영
+    pickSource(curSource);     // 초기: 저장된 출제 범위(내 단어장/단어은행) 토글 반영
 
     /* ⌨️ 키보드 응답: 1~4 또는 A~D 로 보기 선택, Enter/Space 로 다음 (집중·속도↑) */
     document.addEventListener('keydown', function(e){
@@ -726,7 +865,7 @@
       }
     });
   </script>
-<!-- BUILD:20260711150452 -->
+<!-- BUILD:20260711150759 -->
 <style id="mb-tidy-2026-07-11">
 /* ≤480px(폰): 우상단 고정 홈/EN 바가 연령모드(🧒/🧑‍🎓) 버튼을 덮지 않게 헤더를 그 아래로 */
 @media (max-width:480px){

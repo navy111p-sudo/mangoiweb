@@ -1915,6 +1915,12 @@ async function handleGamesZhVocab(request: Request, env: Env): Promise<Response>
       const ko = String(r.ko || '').trim();
       if (r.type === 'sentence') {
         let ws: string[] = []; try { ws = JSON.parse(r.words || '[]') || []; } catch {}
+        // 🛡️ 안전장치: 분절(words)이 원문 한자를 온전히 복원하지 못하면(글자 누락/불일치)
+        //   병음·한국어와 어긋난 깨진 문장이 화면에 나온다. 이때는 한자를 낱글자로 분해해
+        //   전체 문장이 항상 정확히 표시되도록 강제 복구한다.
+        const cjk = (hanzi.match(/[㐀-鿿]/g) || []);              // 구두점 제외 한자만
+        const joined = ws.map((x) => String(x)).join('');
+        if (cjk.length && joined !== cjk.join('')) ws = cjk;             // 불일치 → 낱글자 폴백
         if (ws.length >= 2) sentences.push({ en: hanzi, pinyin, ko, words: ws });
       } else {
         if (ko) words.push({ en: hanzi, pinyin, ko });

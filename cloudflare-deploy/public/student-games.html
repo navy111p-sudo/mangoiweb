@@ -427,8 +427,21 @@ const _GAME_VOCAB = [];
 const _GAME_WORDS = [];
 // 🌐 현재 게임 언어: 'en'(기본) | 'zh'(중국어) — localStorage 로 페이지 간 공유
 var GAME_LANG = (function(){ try{ var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(_){ return 'en'; } })();
+// 🛡️ 중국어 문장 분절(words) 무결성 보정: words 를 이어붙인 게 원문 한자와 다르면
+//   (글자 누락·순서 어긋남) 병음·뜻과 안 맞는 깨진 문장이 나온다. 이때 한자를 낱글자로
+//   분해해 항상 문장 전체가 정확히 표시되도록 강제 복구한다. 어떤 데이터 소스든 최종 방어.
+function _zhSafeWords(sent){
+  try{
+    var hz = String(sent && sent.en || '');
+    var cjk = hz.match(/[㐀-鿿]/g);            // 구두점 제외 한자만
+    if(!cjk || !cjk.length) return sent;               // 한자 없음(=영어 문장) → 그대로
+    var ws = Array.isArray(sent.words) ? sent.words.map(String) : [];
+    if(ws.join('') !== cjk.join('')) sent.words = cjk; // 불일치 → 낱글자 폴백
+  }catch(_){}
+  return sent;
+}
 function _fillActive(vocab, words){
-  _GAME_VOCAB.length = 0; vocab.forEach(function(v){ _GAME_VOCAB.push(v); });
+  _GAME_VOCAB.length = 0; vocab.forEach(function(v){ _GAME_VOCAB.push(_zhSafeWords(v)); });
   _GAME_WORDS.length = 0; words.forEach(function(w){ _GAME_WORDS.push(w); });
 }
 function _applyLangVocab(){
@@ -1941,7 +1954,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260711150452 -->
+<!-- BUILD:20260711150759 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>
