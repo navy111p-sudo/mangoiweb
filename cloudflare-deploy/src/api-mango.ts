@@ -6145,8 +6145,14 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     if (method === 'GET' && path === '/api/admin/schedule-requests') {
       await ensureScheduleRequestTable();
       const status = (url.searchParams.get('status') || '').trim();
-      const teacher = (url.searchParams.get('teacher_name') || '').trim();
+      let teacher = (url.searchParams.get('teacher_name') || '').trim();
       const limit = Math.min(300, Math.max(1, parseInt(url.searchParams.get('limit') || '100', 10) || 100));
+      // 🔐 강사 로그인 시엔 본인 요청만(타 강사 요청·학생명 노출 방지). pending_count 도 본인 기준.
+      const _srActor = await getAdminActor(request, env as any);
+      if (_srActor.isTeacher) {
+        if (!_srActor.name) return json({ ok: true, pending_count: 0, rows: [] });
+        teacher = _srActor.name;
+      }
       const conds: string[] = []; const binds: any[] = [];
       if (status && status !== 'all') { conds.push('status = ?'); binds.push(status); }
       if (teacher) { conds.push('teacher_name = ?'); binds.push(teacher); }
@@ -6154,7 +6160,10 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const rs: any = await env.DB.prepare(
         `SELECT * FROM schedule_change_requests ${where} ORDER BY (status='pending') DESC, created_at DESC LIMIT ?`
       ).bind(...binds, limit).all().catch(() => ({ results: [] }));
-      const pending: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status='pending'`).first().catch(() => null);
+      // pending 카운트: 강사는 본인 것만, 관리자는 전체
+      const pending: any = _srActor.isTeacher
+        ? await env.DB.prepare(`SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status='pending' AND teacher_name = ?`).bind(teacher).first().catch(() => null)
+        : await env.DB.prepare(`SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status='pending'`).first().catch(() => null);
       return json({ ok: true, pending_count: pending?.c || 0, rows: rs.results || [] });
     }
 
@@ -6162,6 +6171,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     //   body: { id, action:'approve'|'reject', memo?, decided_by? }
     //   승인: 새 일시가 있으면 class_schedules 를 그 일시로 이동, 없으면(단순 연기) status='postponed'.
     if (method === 'POST' && path === '/api/admin/schedule-requests/decide') {
+      const _srdActor = await getAdminActor(request, env as any);
+      if (_srdActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 요청을 승인·거절할 수 없습니다.' }, 403);
       await ensureScheduleRequestTable();
       const body: any = await request.json().catch(() => ({}));
       const id = parseInt(body.id, 10);
