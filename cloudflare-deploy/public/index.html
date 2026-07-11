@@ -3981,12 +3981,12 @@
   /* 📂 아코디언 그룹 (학습 공간 / AI 학습 도구 / 계정 및 결제) */
   .mg-acc{border:1px solid rgba(251,191,36,.18);border-radius:16px;background:rgba(255,255,255,.03);overflow:hidden}
   .mg-acc summary{list-style:none;display:flex;align-items:center;gap:10px;padding:15px 18px;cursor:pointer;
-    font-size:16.5px;font-weight:800;color:#fde68a;letter-spacing:.2px;user-select:none;
+    font-size:16.5px;font-weight:800;color:#fde68a;letter-spacing:.2px;user-select:none;line-height:1.5;min-height:30px;
     transition:background .18s ease}
   .mg-acc summary::-webkit-details-marker{display:none}
   .mg-acc summary:hover{background:rgba(251,191,36,.1)}
-  .mg-acc-ic{font-size:18px;flex-shrink:0}
-  .mg-acc-tx{flex:1}
+  .mg-acc-ic{font-size:18px;line-height:1.5;flex-shrink:0}
+  .mg-acc-tx{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
   .mg-acc-chev{font-size:20px;font-weight:800;color:rgba(251,191,36,.75);line-height:1;transition:transform .22s ease}
   .mg-acc[open]>summary{border-bottom:1px solid rgba(251,191,36,.15);background:rgba(251,191,36,.07)}
   .mg-acc[open]>summary .mg-acc-chev{transform:rotate(90deg)}
@@ -24492,7 +24492,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260711182529 -->
+<!-- BUILD:20260711183133 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
