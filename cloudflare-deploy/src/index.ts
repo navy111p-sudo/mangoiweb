@@ -1056,6 +1056,8 @@ const worker = {
         path === '/api/admin/ratings/list' ||
         path === '/api/admin/ratings/analytics' ||
         path === '/api/teacher/my-ratings' ||
+        // 🧑‍🏫 교사 마이페이지: 나에게 배정된 레벨테스트 목록 + 미확인 배지/확인처리
+        path === '/api/teacher/leveltest-assignments' ||
         // 🤖 교사 수업 AI 피드백 (수업 종료 직후 잘한점/개선점 한·영 생성·조회)
         path === '/api/ai-feedback/generate' ||
         path === '/api/ai-feedback' ||

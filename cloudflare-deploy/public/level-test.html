@@ -98,6 +98,9 @@
     <label for="lt-name">이름 (또는 학생 ID)</label>
     <input id="lt-name" type="text" placeholder="예: 김망고 / mango123" autocomplete="off" />
 
+    <label for="lt-phone">연락처 <span style="color:#f87171">*</span> <span style="font-weight:400;color:#a8b3cf">— 예약 확정·화상 링크를 문자로 보내드려요</span></label>
+    <input id="lt-phone" type="tel" inputmode="numeric" placeholder="010-1234-5678" autocomplete="tel" />
+
     <label for="lt-date">날짜 선택</label>
     <select id="lt-date"></select>
 
@@ -160,38 +163,46 @@
     });
   })();
 
-  var nameEl=document.getElementById('lt-name'), submit=document.getElementById('lt-submit');
+  var nameEl=document.getElementById('lt-name'), phoneEl=document.getElementById('lt-phone'), submit=document.getElementById('lt-submit');
   nameEl.addEventListener('input',refresh);
-  function refresh(){ submit.disabled = !(sel.date && sel.time && nameEl.value.trim()); }
+  phoneEl.addEventListener('input',refresh);
+  function validPhone(v){ return (String(v||'').replace(/[^0-9]/g,'').length>=10); }
+  function refresh(){ submit.disabled = !(sel.date && sel.time && nameEl.value.trim() && validPhone(phoneEl.value)); }
 
   function fmtDate(v){ var p=v.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]);
     return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+WEEK[d.getDay()]+')'; }
 
   var submitted=false;
-  submit.addEventListener('click',function(){
+  submit.addEventListener('click',async function(){
     if(submit.disabled || submitted) return;
-    submitted=true; submit.disabled=true;
-    var rec={ name:nameEl.value.trim(), date:sel.date, time:sel.time, ts:Date.now() };
+    submitted=true; submit.disabled=true; submit.textContent='⏳ 예약 확정 중…';
+    var phone=phoneEl.value.trim();
+    var rec={ name:nameEl.value.trim(), phone:phone, date:sel.date, time:sel.time, ts:Date.now() };
     try{ localStorage.setItem('mangoi_leveltest_booking', JSON.stringify(rec)); }catch(e){}
-    // 🎯 서버에도 저장 — 관리자·강사가 '신청 현황'에서 이 학생을 볼 수 있도록 (best-effort)
+    // 🎯 서버에 저장 → 자동 예약·교사 배정·확정 문자. 응답으로 배정 교사명을 받아 화면에 표시.
     var uid=null;
     try{
       ['mangoi_uid','mango_uid','student_uid','uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
       if(!uid){ var s=JSON.parse(localStorage.getItem('mangoi_student')||'null'); if(s&&s.uid) uid=s.uid; }
     }catch(e){}
+    var assigned=null;
     try{
-      fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ student_name:rec.name, student_uid:uid, desired_date:rec.date, desired_time:rec.time, source:'level-test' })}).catch(function(){});
+      var res=await fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ student_name:rec.name, student_uid:uid, phone:phone, desired_date:rec.date, desired_time:rec.time, source:'level-test' })});
+      var data=await res.json().catch(function(){return null;});
+      if(data && data.assigned_teacher) assigned=data.assigned_teacher;
     }catch(e){}
     document.getElementById('lt-sched').innerHTML =
-      '📅 '+fmtDate(sel.date)+' '+sel.time+'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 이 시간에 선생님과 만나요!</span>';
+      '📅 '+fmtDate(sel.date)+' '+sel.time
+      +(assigned?'<br>👩‍🏫 담당: <b style="color:#fde68a">'+assigned+'</b> 선생님':'')
+      +'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 예약이 확정됐어요! 확정 문자를 보내드렸어요.</span>';
     document.getElementById('form-card').style.display='none';
     document.getElementById('bottom-note').style.display='none';
     var done=document.getElementById('done'); done.classList.add('show');
     window.scrollTo({top:0,behavior:'smooth'});
   });
 </script>
-<!-- BUILD:20260711224002 -->
+<!-- BUILD:20260711224217 -->
 <!-- 🔊 레벨테스트 안내 음성 자동 재생 (페이지 진입 시) + 음소거/끄기 -->
 <audio id="lt-voice" src="/audio/level-test-welcome.mp3" preload="auto"></audio>
 <script>
