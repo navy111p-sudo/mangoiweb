@@ -1019,11 +1019,12 @@
     var fw=field.clientWidth, fh=field.clientHeight;
     // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영.
     //   세로 낙하 + 좌우 드리프트로 몬스터가 더 활발히 빨리빨리 움직임. 상위 속도일수록 훨씬 빠름.
-    // 스폰 위치: 레인(x) + 화면 위쪽(음수 y)부터 계단식으로 내려옴 → 서로 안 겹치고, 아래로 너무 가까이 스폰 안 됨
-    var _yTop=-fh*0.22, _ySpan=fh*0.52;
+    // 스폰 위치: 레인(x) + 세로 계단식(간격을 몬스터 높이 이상으로) → 화면 위쪽부터 순서대로 내려옴.
+    //   맨 아래 몬스터는 화면 30% 지점(너무 가까이 스폰 안 됨), 나머지는 그 위(음수 y=화면 밖)에서 내려옴 → 몇 마리든 안 겹침
+    var _step=Math.max(fh*0.135, 74), _yBot=fh*0.30, _yTop=_yBot-_step*(n-1);
     var m={ el:el, word:word, isTarget:isTarget, golden:!!isGolden,
             x:(laneX!=null?laneX:rand(8,Math.max(40,fw-86))),
-            y:_yTop+_ySpan*(i/Math.max(1,n))+rand(-fh*0.012,fh*0.012),
+            y:_yTop+_step*i+rand(-_step*0.05,_step*0.05),
             vyBase:rand(28,58), vxBase:rand(-48,48) };
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
@@ -1416,6 +1417,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260711200558 -->
+<!-- BUILD:20260711200914 -->
 </body>
 </html>
