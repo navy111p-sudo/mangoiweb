@@ -1762,6 +1762,16 @@
 
   // ━━━━━━━━━━ 📊 레벨테스트 신청·안내 모달 ━━━━━━━━━━
   function showLevelTestModal() {
+    // 📅 희망 날짜(내일~14일)·시간 옵션 — showModal 은 innerHTML 이라 옵션을 문자열로 미리 만든다
+    var _WK = ['일','월','화','수','목','금','토'];
+    var _today = new Date(); var dateOptions = '';
+    for (var _i = 1; _i <= 14; _i++) {
+      var _d = new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() + _i);
+      var _v = _d.getFullYear() + '-' + ('0'+(_d.getMonth()+1)).slice(-2) + '-' + ('0'+_d.getDate()).slice(-2);
+      dateOptions += '<option value="' + _v + '">' + (_d.getMonth()+1) + '월 ' + _d.getDate() + '일 (' + _WK[_d.getDay()] + ')</option>';
+    }
+    var timeOptions = '';
+    ['16:00','17:00','18:00','19:00','20:00','21:00'].forEach(function(t){ timeOptions += '<option value="' + t + '">' + t + '</option>'; });
     showModal(`
       <h2>📊 레벨테스트 안내</h2>
       <p>망고아이의 8단계 심층 레벨 시스템에 맞춰 본인의 영어 실력을 정확히 진단해 드립니다.</p>
@@ -1843,7 +1853,16 @@
             <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">🎂 학년/연령 (선택)</label>
             <input id="lt-age" type="text" placeholder="예: 중2 / 30대" maxlength="20" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box" />
           </div>
+          <div>
+            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">📅 희망 날짜 <span style="color:#ef4444">*</span></label>
+            <select id="lt-date" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">${dateOptions}</select>
+          </div>
+          <div>
+            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">⏰ 희망 시간 <span style="color:#ef4444">*</span></label>
+            <select id="lt-time" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">${timeOptions}</select>
+          </div>
         </div>
+        <p style="color:#94a3b8;font-size:11.5px;margin:0 0 10px;line-height:1.55">🧑‍🏫 신청하시면 <b style="color:#fde68a">그 시간에 가능한 선생님</b>이 자동 배정돼요. (선생님은 학원에서 배정 — 학생이 고르지 않아요)</p>
         <label style="display:flex;align-items:center;gap:8px;color:#cbd5e1;font-size:12px;cursor:pointer;margin-bottom:12px">
           <input id="lt-agree" type="checkbox" style="width:16px;height:16px;cursor:pointer" />
           <span>개인정보 수집·이용 동의 (레벨테스트 안내·결과 발송 목적, <a onclick="closeInfoModal();window.gridActions&&window.gridActions.contact()" style="color:#9ee5ff;cursor:pointer;text-decoration:underline">고객센터 문의</a>)</span>
@@ -1881,6 +1900,8 @@
     const phone = ($('lt-phone')?.value || '').trim();
     const email = ($('lt-email')?.value || '').trim();
     const age = ($('lt-age')?.value || '').trim();
+    const desiredDate = ($('lt-date')?.value || '').trim();
+    const desiredTime = ($('lt-time')?.value || '').trim();
     const agree = $('lt-agree')?.checked;
     const msg = $('lt-form-msg');
     const btn = $('lt-submit');
@@ -1895,6 +1916,8 @@
     if (!pw || pw.length < 6) return showErr('비밀번호는 6자 이상 입력해 주세요.');
     if (!name) return showErr('학생 이름을 입력해 주세요.');
     if (!phone) return showErr('연락처를 입력해 주세요.');
+    if (!desiredDate) return showErr('희망 날짜를 선택해 주세요.');
+    if (!desiredTime) return showErr('희망 시간을 선택해 주세요.');
     if (!agree) return showErr('개인정보 수집·이용에 동의해 주세요.');
 
     if (msg) msg.style.display = 'none';
@@ -1911,43 +1934,56 @@
         showErr('이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.');
         return;
       }
-      // 2) 백엔드 등록 시도 (best-effort) — 백엔드가 미연결이거나 일시 에러여도 시연 진행
+      // 2) 백엔드 회원가입 — 실제 계정 생성 + 자동 로그인 토큰 수신 (best-effort)
+      var regToken = '';
       try {
         const r = await fetch('/api/student/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({
-            user_id: uid, password: pw, name, phone, email, age,
-            source: 'leveltest_signup',
-            request_leveltest: true,
-          })
+          body: JSON.stringify({ user_id: uid, password: pw, name, phone, email, age })
         });
-        if (!r.ok) {
-          // 명확한 중복(409) 응답일 때만 사용자에게 차단
-          if (r.status === 409) {
-            const d = await r.json().catch(() => ({}));
-            const err = (d && d.error) || '';
-            if (err.includes('exists') || err.includes('duplicate')) {
-              showErr('이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.');
-              return;
-            }
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d && d.ok) {
+          if (d.token) regToken = d.token;   // 🔐 로그인 토큰 → 재로그인 없이 마이페이지 데이터 로드
+        } else {
+          // 중복 아이디만 사용자에게 차단, 나머지는 로컬 저장으로 진행
+          const err = (d && d.error) || '';
+          if (r.status === 409 || err.includes('exists') || err.includes('duplicate')) {
+            showErr('이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.');
+            return;
           }
-          // 그 외 4xx/5xx 는 무시하고 로컬 저장으로 진행
-          console.warn('[signup] backend returned', r.status, '— proceeding with local fallback');
+          console.warn('[signup] backend returned', r.status, err, '— proceeding with local fallback');
         }
       } catch (netErr) {
         // 네트워크 오류 — 무시하고 로컬 fallback
         console.warn('[signup] network error — proceeding with local fallback:', netErr && netErr.message);
       }
-      // 🎯 레벨테스트 신청을 서버에 저장 — 관리자·강사 '신청 현황'에서 실시간 열람 (best-effort)
+      // 🎯 레벨테스트 신청 저장 + 교사 자동배정 + 접수 안내 — 희망 날짜·시간·연락처 전달 (best-effort)
+      var scheduledLabel = '';
       try {
-        await fetch('/api/leveltest/apply', {
+        const ar = await fetch('/api/leveltest/apply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ student_name: name, student_uid: uid, source: 'home-signup', note: (phone || '') + (email ? (' / ' + email) : '') })
+          body: JSON.stringify({ student_name: name, student_uid: uid, phone: phone, email: email, desired_date: desiredDate, desired_time: desiredTime, source: 'home-signup' })
         });
+        const ad = await ar.json().catch(() => null);
+        if (ad && ad.scheduled) scheduledLabel = ad.scheduled;
       } catch (e) { /* 서버 미연결이어도 시연 진행 */ }
+
+      // 🔑 가입 = 자동 로그인 — 세션 심기 (재로그인 없이 마이페이지 진입)
+      try {
+        const _lu = { user_id: uid, uid: uid, name: name, user_name: name, role: 'student' };
+        localStorage.setItem('mango_user', JSON.stringify(_lu));
+        localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
+        localStorage.setItem('mangoi_uid', uid);
+        localStorage.setItem('mangoi_parent_uid', uid);
+        localStorage.setItem('mangoi_vc_uid', name || uid);
+        if (regToken) {
+          localStorage.setItem('mango_token', regToken);          // uid 기반 개인 API 인증
+          localStorage.setItem('mangoi_parent_token', regToken);  // parent.html 자동 데이터 로드
+        }
+      } catch (e) {}
 
       // 🔗 학생 홈피 결과 조회용 로컬 기록 (레벨/점수는 실제 AI 진단·선생님 평가 전까지 비움 — 가짜점수 금지)
       try {
@@ -1972,18 +2008,21 @@
         <h2 style="color:#86efac">🎉 회원가입 + 레벨테스트 신청 완료!</h2>
         <p>축하합니다! <b style="color:#fde68a">${escapeLT(name)}</b> 님의 회원가입이 완료되었고 레벨테스트 신청이 접수되었습니다.</p>
         <div class="info-grid" style="margin:14px 0">
-          <div class="info-tile"><b>📌 아이디</b><span>${escapeLT(uid)}</span></div>
+          <div class="info-tile"><b>📅 희망 일시</b><span>${escapeLT(scheduledLabel || (desiredDate + ' ' + desiredTime))}</span></div>
+          <div class="info-tile"><b>👩‍🏫 담당 선생님</b><span>확정되면 안내</span></div>
           <div class="info-tile"><b>📞 연락처</b><span>${escapeLT(phone)}</span></div>
-          <div class="info-tile"><b>📨 안내</b><span>영업일 1일 내 카톡 발송</span></div>
+        </div>
+        <div style="background:rgba(46,204,113,0.10);border:1px solid rgba(46,204,113,0.35);border-radius:10px;padding:10px 14px;margin:2px 0 12px;color:#a7f3d0;font-size:13px;font-weight:700;text-align:center">
+          ✅ 신청이 접수됐어요! 접수 안내를 문자로 보내드렸어요.<br>담당 선생님이 확정되면 다시 알려드릴게요.
         </div>
         <ul>
-          <li>예약 시간 10분 전 카카오톡 채널로 화상 링크 안내</li>
+          <li>담당 선생님 확정 후, 예약 시간 10분 전 카카오톡 채널로 화상 링크 안내</li>
           <li>마이페이지에서 진행 상태와 결과 확인 가능</li>
           <li>결과 수령 후 추천 코스로 즉시 수강 신청 가능</li>
         </ul>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
           <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;text-align:center;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡 채널 추가</a>
-          <a class="info-cta" href="/admin/mypage" style="margin:0;text-align:center">🔑 마이페이지 가기</a>
+          <a class="info-cta" href="/parent.html?uid=${encodeURIComponent(uid)}" style="margin:0;text-align:center">🔑 마이페이지 가기</a>
         </div>
       `);
       ltAudioIntroReplay();   // 🎬 완료 화면에서 인트로 음성 한 번 더 (처음·마지막)

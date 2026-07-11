@@ -8610,6 +8610,44 @@ Respond in JSON ONLY:
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     };
 
+    // ── POST /api/student/register — 홈 회원가입(자기신청) → 실제 학생 계정 생성 + 자동 로그인 토큰 ──
+    //   body: { user_id, password, name, phone?, email?, age? }
+    //   · self_signup 태그로 실학원 로스터(카페24 적재분)와 구분
+    //   · 성공 시 로그인과 동일한 { ok, token, user } 반환 → 프론트가 바로 로그인 처리
+    if (method === 'POST' && path === '/api/student/register') {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
+      await ensureLoginTable();
+      // self_signup 구분 + 연락 컬럼 보강(멱등)
+      for (const [col, type] of [['source', 'TEXT'], ['email', 'TEXT'], ['phone', 'TEXT'], ['age', 'TEXT']] as [string, string][]) {
+        try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} ${type}`); } catch {}
+      }
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.user_id || '').trim();
+      const pwd = String(b.password || '').trim();
+      const name = String(b.name || b.student_name || '').trim();
+      const phone = String(b.phone || '').trim();
+      const email = String(b.email || '').trim();
+      const age = String(b.age || '').trim();
+      // 검증 — 프론트와 동일 규칙
+      if (!uid || uid.length < 4 || uid.length > 20) return json({ ok: false, error: 'invalid_user_id', message: '아이디는 4~20자여야 합니다.' }, 400);
+      if (!/^[a-zA-Z0-9_]+$/.test(uid)) return json({ ok: false, error: 'invalid_user_id', message: '아이디는 영문/숫자/언더바만 가능합니다.' }, 400);
+      if (!pwd || pwd.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+      if (!name) return json({ ok: false, error: 'name_required', message: '학생 이름을 입력해 주세요.' }, 400);
+      // 중복 아이디 차단
+      const exists: any = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ?`).bind(uid).first();
+      if (exists) return json({ ok: false, error: 'exists', message: '이미 사용 중인 아이디입니다.' }, 409);
+      const now = Date.now();
+      const ph = await hashPwd(pwd);
+      await env.DB.prepare(
+        `INSERT INTO students_erp (user_id, student_name, parent_phone, phone, email, age, status, source, password_hash, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, 'active', 'self_signup', ?, ?, ?)`
+      ).bind(uid, name, phone || null, phone || null, email || null, age || null, ph, now, now).run();
+      return json({
+        ok: true,
+        token: await signUidToken(uid),
+        user: { user_id: uid, user_name: name, role: 'student', has_password: true },
+      });
+    }
+
     // ── POST /api/student/login — 학생/학부모 통합 로그인 ──
     //   body: { user_id, password? }
     //   비밀번호 미설정자는 user_id 만으로 로그인 가능 (개발 단계 편의)

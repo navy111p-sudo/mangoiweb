@@ -917,6 +917,7 @@ const worker = {
         path === '/api/admin/teacher/praise/stats' ||
         // 🔐 Phase LOGIN 통합 로그인
         path === '/api/student/login' ||
+        path === '/api/student/register' ||
         path === '/api/student/lookup' ||
         path === '/api/student/set-password' ||
         // 🌐 Phase OAUTH 소셜 로그인
