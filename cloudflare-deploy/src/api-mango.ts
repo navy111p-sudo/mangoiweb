@@ -4667,6 +4667,21 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const roomId = (url.searchParams.get('room_id') || '').trim();
       const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
       if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+      // 🔐 [사생활] 이 수업 참여자만 채팅 조회 — 관리자/교사(쿠키세션) OR 방 로스터에 등록된 학생(토큰).
+      //   방ID(class-{id}-{날짜})는 추측 가능 → 무인증/비참여자의 수업 채팅 열람 차단 (2026-07-11)
+      let cmAllowed = false;
+      try {
+        const cmAdmin = await checkAdminSession(request, env as any);
+        if (cmAdmin.ok) cmAllowed = true;
+        else {
+          const cmAuth = await authUidGlobal(request, url, env);
+          if (cmAuth) {
+            const inRoster: any = await env.DB.prepare(`SELECT 1 FROM vc_roster WHERE room_id=? AND account_uid=? LIMIT 1`).bind(roomId, cmAuth).first();
+            if (inRoster) cmAllowed = true;
+          }
+        }
+      } catch (e) { /* vc_roster 미존재 등 — 아래에서 차단 */ }
+      if (!cmAllowed) return json({ ok: false, error: 'auth_required', message: '이 수업 참여자만 채팅을 볼 수 있습니다.' }, 401);
       const rs = await env.DB.prepare(
         `SELECT id, sender_uid, sender_name, sender_role, message, sent_at
            FROM chat_messages
@@ -10444,7 +10459,7 @@ LIMIT $limit`;
         `INSERT INTO leveltest_applications (student_name, student_uid, desired_date, desired_time, phone, student_email, status, assigned_teacher, assigned_teacher_id, assigned_teacher_phone, assigned_teacher_email, assigned_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         name, uid, desiredDate, desiredTime, phone, email,
-        teacher ? 'assigned' : 'pending',
+        teacher ? 'proposed' : 'pending',   // 소프트 배정 — 교사 수락 전까지 학생에게 교사명 미통보
         teacher ? teacher.name : null,
         teacher ? teacher.id : null,
         teacher ? (teacher.phone || null) : null,
@@ -10466,22 +10481,11 @@ LIMIT $limit`;
       const teacherLabel = teacher && teacher.name ? teacher.name : '담당 선생님';
 
       // 🔔 알림은 모두 best-effort — 실패해도 신청 자체는 성공 처리
-      // 1) 신청자 확정 안내: 알림톡(템플릿 있으면) → 문자 폴백
+      // 1) 신청자 "접수" 안내 — 담당 교사는 수락 후 확정 통보(과잉 약속 방지). 교사명은 아직 안 넣는다.
       if (phone) {
-        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 확정됐어요!\n📅 ${whenLabel}\n👩‍🏫 담당: ${teacherLabel}\n예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다.\n문의: pf.kakao.com/_mangoi`;
-        try {
-          const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
-          if (tmpl) {
-            await sendKakaoAlimtalk(env, {
-              templateCode: tmpl, recipientPhone: phone, recipientName: name,
-              variables: { '#{학생명}': name, '#{예약일시}': whenLabel, '#{담당교사}': teacherLabel },
-              fallbackSmsText: smsText,
-              logContext: uid ? { userId: String(uid), reason: 'leveltest' } : undefined,
-            });
-          } else {
-            await sendPlainSms(env, phone, smsText);
-          }
-        } catch (e: any) { console.warn('[leveltest] applicant notify skipped:', e?.message || e); }
+        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.\n문의: pf.kakao.com/_mangoi`;
+        try { await sendPlainSms(env, phone, smsText); }
+        catch (e: any) { console.warn('[leveltest] applicant receipt skipped:', e?.message || e); }
       }
       // 2) 관리자(필리핀) 이메일 알림 — 한/영 이중언어
       try {
