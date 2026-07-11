@@ -198,7 +198,7 @@
     window.scrollTo({top:0,behavior:'smooth'});
   });
 </script>
-<!-- BUILD:20260711232521 -->
+<!-- BUILD:20260711233351 -->
 <!-- 🔊 레벨테스트 안내 음성(인트로) 자동 재생 + 잔잔한 배경음악(Canon in D, WebAudio) + 음소거/끄기 -->
 <audio id="lt-voice" src="/audio/level-test-intro.mp3" preload="auto"></audio>
 <script>
@@ -209,48 +209,73 @@
   function isMuted(){ try { return localStorage.getItem(MUTE_KEY) === '1'; } catch(e){ return false; } }
 
   // ─────────────────────────────────────────────────────────
-  // 🎼 배경음악: 파헬벨 캐논 D장조(공용저작물) 아르페지오를 WebAudio 로 직접 합성.
-  //    → 저작권 걱정 없음(원곡 PD + 자체 합성), 파일 없이 즉시·무한 루프, 음소거 연동.
+  // 🎼 배경음악: "다시 시작"에 어울리는 희망적 진행(C–G–Am–F, I–V–vi–IV)을 WebAudio 로 직접 합성.
+  //    부드러운 피아노 멜로디 + 따뜻한 패드(디튠 코러스) + 리버브(공간감). 저작권 프리·파일 불필요·무한 루프.
   // ─────────────────────────────────────────────────────────
-  var AC=null, bgmMaster=null, bgmLP=null, bgmTimer=null, bgmStep=0, bgmRunning=false;
-  // 8코드 진행(D–A–Bm–F#m–G–D–G–A). 각 코드: 베이스 + 3~4음 아르페지오(Hz)
-  var CHORDS = [
-    { bass:146.83, arp:[293.66,369.99,440.00,587.33] }, // D
-    { bass:220.00, arp:[277.18,329.63,440.00,554.37] }, // A
-    { bass:246.94, arp:[293.66,369.99,493.88,587.33] }, // Bm
-    { bass:185.00, arp:[277.18,369.99,440.00,554.37] }, // F#m
-    { bass:196.00, arp:[246.94,293.66,392.00,493.88] }, // G
-    { bass:146.83, arp:[293.66,369.99,440.00,587.33] }, // D
-    { bass:196.00, arp:[246.94,293.66,392.00,493.88] }, // G
-    { bass:220.00, arp:[277.18,329.63,440.00,554.37] }  // A
+  var AC=null, bgmMaster=null, bgmDry=null, bgmWet=null, bgmTimer=null, bgmStep=0, bgmRunning=false;
+  var BAR_MS = 2600;              // 잔잔한 템포 (마디당 2.6초)
+  var BASE_GAIN = 0.8;           // 배경음악 기본 크기(낮게)
+  var DUCK_GAIN = 0.30;          // 안내 음성 재생 중엔 더 작게(듣기 편하게)
+  // 각 마디: 베이스 + 패드(3화음) + 멜로디[[Hz, 마디내 시작초], ...]
+  var BARS = [
+    { bass:130.81, pad:[261.63,329.63,392.00], mel:[[392.00,0.0],[523.25,1.3]] }, // C
+    { bass:98.00,  pad:[196.00,246.94,293.66], mel:[[493.88,0.0],[587.33,1.3]] }, // G
+    { bass:110.00, pad:[220.00,261.63,329.63], mel:[[523.25,0.0],[440.00,1.3]] }, // Am
+    { bass:87.31,  pad:[174.61,220.00,261.63], mel:[[440.00,0.0],[392.00,1.3]] }  // F
   ];
-  var STEP_MS = 540;              // 잔잔한 템포
-  var BASE_GAIN = 0.85;           // 배경음악 기본 크기(낮게)
-  var DUCK_GAIN = 0.32;           // 안내 음성 재생 중엔 더 작게(듣기 편하게)
+  function impulse(secs, decay){
+    var rate=AC.sampleRate, len=Math.max(1,Math.floor(rate*secs)), buf=AC.createBuffer(2,len,rate);
+    for(var ch=0;ch<2;ch++){ var d=buf.getChannelData(ch); for(var i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay); } }
+    return buf;
+  }
   function ensureAC(){
     if(AC) return AC;
     try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ return null; }
     bgmMaster = AC.createGain(); bgmMaster.gain.value = BASE_GAIN;
-    bgmLP = AC.createBiquadFilter(); bgmLP.type='lowpass'; bgmLP.frequency.value=2200; // 부드럽게
-    bgmMaster.connect(bgmLP); bgmLP.connect(AC.destination);
+    var lp = AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2600; try{ lp.Q.value=0.6; }catch(e){}
+    bgmDry = AC.createGain(); bgmDry.gain.value=0.9;
+    bgmWet = AC.createGain(); bgmWet.gain.value=0.32;
+    bgmDry.connect(bgmMaster);
+    try{ var conv=AC.createConvolver(); conv.buffer=impulse(2.6,3.4); bgmWet.connect(conv); conv.connect(bgmMaster); }
+    catch(e){ bgmWet.connect(bgmMaster); }
+    bgmMaster.connect(lp); lp.connect(AC.destination);
     return AC;
   }
-  function tone(freq, dur, peak, type){
-    if(!AC || !bgmMaster || AC.state!=='running') return;   // 정지(suspended) 중엔 예약 안 함 → 재개 시 blip 방지
-    var t0=AC.currentTime;
+  function pad(freqs, when, dur){
+    freqs.forEach(function(f){ [-5,5].forEach(function(det){
+      var o=AC.createOscillator(), g=AC.createGain();
+      o.type='triangle'; o.frequency.value=f; try{ o.detune.value=det; }catch(e){}
+      g.gain.setValueAtTime(0.0001,when);
+      g.gain.exponentialRampToValueAtTime(0.016, when+0.7);
+      g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+      o.connect(g); g.connect(bgmDry); g.connect(bgmWet);
+      o.start(when); o.stop(when+dur+0.1);
+    }); });
+  }
+  function bass(freq, when, dur){
     var o=AC.createOscillator(), g=AC.createGain();
-    o.type=type||'triangle'; o.frequency.value=freq;
-    g.gain.setValueAtTime(0.0001,t0);
-    g.gain.exponentialRampToValueAtTime(peak, t0+0.06);         // 부드러운 어택
-    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);        // 긴 릴리즈
-    o.connect(g); g.connect(bgmMaster); o.start(t0); o.stop(t0+dur+0.05);
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,when);
+    g.gain.exponentialRampToValueAtTime(0.05, when+0.08);
+    g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+    o.connect(g); g.connect(bgmDry);
+    o.start(when); o.stop(when+dur+0.1);
+  }
+  function pluck(freq, when, dur){
+    var o=AC.createOscillator(), o2=AC.createOscillator(), g=AC.createGain(), g2=AC.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    o2.type='triangle'; o2.frequency.value=freq*2; g2.gain.value=0.3;
+    g.gain.setValueAtTime(0.0001,when);
+    g.gain.exponentialRampToValueAtTime(0.075, when+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(bgmDry); g.connect(bgmWet);
+    o.start(when); o.stop(when+dur+0.1); o2.start(when); o2.stop(when+dur+0.1);
   }
   function bgmTick(){
-    if(!bgmRunning) return;
-    var chord = CHORDS[Math.floor(bgmStep/4)%CHORDS.length];
-    var ni = bgmStep%4;
-    if(ni===0) tone(chord.bass, 2.2, 0.06, 'sine');             // 베이스 드론(코드마다)
-    tone(chord.arp[ni], 1.5, 0.05, 'triangle');                // 아르페지오
+    if(!bgmRunning || !AC || AC.state!=='running') return;   // 정지(suspended) 중엔 예약 안 함 → 재개 시 blip 방지
+    var b=BARS[bgmStep%BARS.length], t=AC.currentTime+0.05, dur=BAR_MS/1000;
+    pad(b.pad, t, dur); bass(b.bass, t, dur);
+    b.mel.forEach(function(m){ pluck(m[0], t+m[1], 1.5); });
     bgmStep++;
   }
   function bgmStart(){
@@ -258,14 +283,14 @@
     if(!ensureAC()) return;
     if(AC.state==='suspended'){ try{ AC.resume(); }catch(e){} }
     if(bgmRunning) return;
-    bgmRunning=true; bgmTick(); bgmTimer=setInterval(bgmTick, STEP_MS);
+    bgmRunning=true; bgmTick(); bgmTimer=setInterval(bgmTick, BAR_MS);
   }
   function bgmStop(){
     bgmRunning=false; if(bgmTimer){ clearInterval(bgmTimer); bgmTimer=null; }
   }
   function bgmDuck(on){
     if(!AC || !bgmMaster) return;
-    try{ bgmMaster.gain.setTargetAtTime(on?DUCK_GAIN:BASE_GAIN, AC.currentTime, 0.25); }catch(e){}
+    try{ bgmMaster.gain.setTargetAtTime(on?DUCK_GAIN:BASE_GAIN, AC.currentTime, 0.3); }catch(e){}
   }
 
   // ─────────────────────────────────────────────────────────

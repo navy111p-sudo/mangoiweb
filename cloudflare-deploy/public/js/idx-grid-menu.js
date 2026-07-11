@@ -1655,21 +1655,20 @@
     }
   }
 
-  // ━━━━━━━━━━ 🔊 레벨테스트 안내 음성(인트로) + 잔잔한 배경음악(Canon in D, WebAudio) ━━━━━━━━━━
+  // ━━━━━━━━━━ 🔊 레벨테스트 안내 음성(인트로) + 따뜻한 배경음악(WebAudio) ━━━━━━━━━━
   //   레벨테스트 카드 클릭(=사용자 제스처) 시 바로 재생 → 자동재생 차단 안 걸림.
-  //   배경음악은 파헬벨 캐논 D장조(공용저작물)를 직접 합성 → 저작권 프리·파일 불필요·무한 루프.
+  //   배경음악 = "다시 시작"에 어울리는 희망적인 진행(C–G–Am–F, I–V–vi–IV)을 직접 합성:
+  //   부드러운 피아노 멜로디 + 따뜻한 패드(디튠 코러스) + 리버브(공간감). 저작권 프리·파일 불필요·무한 루프.
   var LT_MUTE_KEY = 'mangoi_voice_muted';
   function ltMuted(){ try{ return localStorage.getItem(LT_MUTE_KEY) === '1'; }catch(e){ return false; } }
-  var ltVoice=null, ltAC=null, ltMaster=null, ltTimer=null, ltStep=0, ltRunning=false, ltMuteBtn=null;
-  var LT_CHORDS = [
-    { bass:146.83, arp:[293.66,369.99,440.00,587.33] }, // D
-    { bass:220.00, arp:[277.18,329.63,440.00,554.37] }, // A
-    { bass:246.94, arp:[293.66,369.99,493.88,587.33] }, // Bm
-    { bass:185.00, arp:[277.18,369.99,440.00,554.37] }, // F#m
-    { bass:196.00, arp:[246.94,293.66,392.00,493.88] }, // G
-    { bass:146.83, arp:[293.66,369.99,440.00,587.33] }, // D
-    { bass:196.00, arp:[246.94,293.66,392.00,493.88] }, // G
-    { bass:220.00, arp:[277.18,329.63,440.00,554.37] }  // A
+  var ltVoice=null, ltAC=null, ltMaster=null, ltDry=null, ltWet=null, ltTimer=null, ltStep=0, ltRunning=false, ltMuteBtn=null;
+  var LT_BAR_MS = 2600;   // 잔잔한 템포 (마디당 2.6초)
+  // 각 마디: 베이스 + 패드(3화음) + 멜로디[[Hz, 마디내 시작초], ...]
+  var LT_BARS = [
+    { bass:130.81, pad:[261.63,329.63,392.00], mel:[[392.00,0.0],[523.25,1.3]] }, // C  (C E G)  G→C
+    { bass:98.00,  pad:[196.00,246.94,293.66], mel:[[493.88,0.0],[587.33,1.3]] }, // G  (G B D)  B→D
+    { bass:110.00, pad:[220.00,261.63,329.63], mel:[[523.25,0.0],[440.00,1.3]] }, // Am (A C E)  C→A
+    { bass:87.31,  pad:[174.61,220.00,261.63], mel:[[440.00,0.0],[392.00,1.3]] }  // F  (F A C)  A→G
   ];
   function ltEnsureVoice(){
     if(!ltVoice){
@@ -1680,32 +1679,66 @@
     }
     return ltVoice;
   }
+  function ltImpulse(ac, secs, decay){   // 리버브용 임펄스(감쇠 노이즈) 생성
+    var rate=ac.sampleRate, len=Math.max(1, Math.floor(rate*secs)), buf=ac.createBuffer(2,len,rate);
+    for(var ch=0; ch<2; ch++){ var d=buf.getChannelData(ch); for(var i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len, decay); } }
+    return buf;
+  }
   function ltEnsureAC(){
     if(ltAC) return ltAC;
     try{ ltAC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; }
-    ltMaster = ltAC.createGain(); ltMaster.gain.value = 0.85;
-    var lp = ltAC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2200;
+    ltMaster = ltAC.createGain(); ltMaster.gain.value = 0.8;                 // 마스터(=덕킹 지점)
+    var lp = ltAC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2600; try{ lp.Q.value=0.6; }catch(e){}
+    ltDry = ltAC.createGain(); ltDry.gain.value = 0.9;                        // 드라이 버스
+    ltWet = ltAC.createGain(); ltWet.gain.value = 0.32;                       // 리버브 send
+    ltDry.connect(ltMaster);
+    try{ var conv=ltAC.createConvolver(); conv.buffer=ltImpulse(ltAC, 2.6, 3.4); ltWet.connect(conv); conv.connect(ltMaster); }
+    catch(e){ ltWet.connect(ltMaster); }                                      // convolver 미지원 시 드라이로 폴백
     ltMaster.connect(lp); lp.connect(ltAC.destination);
     return ltAC;
   }
-  function ltTone(freq,dur,peak,type){
-    if(!ltAC || !ltMaster || ltAC.state!=='running') return;
-    var t0=ltAC.currentTime, o=ltAC.createOscillator(), g=ltAC.createGain();
-    o.type=type||'triangle'; o.frequency.value=freq;
-    g.gain.setValueAtTime(0.0001,t0);
-    g.gain.exponentialRampToValueAtTime(peak, t0+0.06);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
-    o.connect(g); g.connect(ltMaster); o.start(t0); o.stop(t0+dur+0.05);
+  function ltPad(freqs, when, dur){      // 따뜻한 패드(각 음 2보이스 디튠 코러스)
+    freqs.forEach(function(f){
+      [-5,5].forEach(function(det){
+        var o=ltAC.createOscillator(), g=ltAC.createGain();
+        o.type='triangle'; o.frequency.value=f; try{ o.detune.value=det; }catch(e){}
+        g.gain.setValueAtTime(0.0001, when);
+        g.gain.exponentialRampToValueAtTime(0.016, when+0.7);                 // 느린 어택
+        g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+        o.connect(g); g.connect(ltDry); g.connect(ltWet);
+        o.start(when); o.stop(when+dur+0.1);
+      });
+    });
+  }
+  function ltBass(freq, when, dur){
+    var o=ltAC.createOscillator(), g=ltAC.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.05, when+0.08);
+    g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+    o.connect(g); g.connect(ltDry);
+    o.start(when); o.stop(when+dur+0.1);
+  }
+  function ltPluck(freq, when, dur){     // 피아노 같은 멜로디(기음 + 옥타브 반짝임 + 리버브)
+    var o=ltAC.createOscillator(), o2=ltAC.createOscillator(), g=ltAC.createGain(), g2=ltAC.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    o2.type='triangle'; o2.frequency.value=freq*2; g2.gain.value=0.3;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.075, when+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, when+dur);
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(ltDry); g.connect(ltWet);
+    o.start(when); o.stop(when+dur+0.1); o2.start(when); o2.stop(when+dur+0.1);
   }
   function ltTick(){
-    if(!ltRunning) return;
-    var c=LT_CHORDS[Math.floor(ltStep/4)%LT_CHORDS.length], ni=ltStep%4;
-    if(ni===0) ltTone(c.bass, 2.2, 0.06, 'sine');
-    ltTone(c.arp[ni], 1.5, 0.05, 'triangle');
+    if(!ltRunning || !ltAC || ltAC.state!=='running') return;                // suspended 중엔 예약 안 함(blip 방지)
+    var bar=LT_BARS[ltStep%LT_BARS.length], t=ltAC.currentTime+0.05, dur=LT_BAR_MS/1000;
+    ltPad(bar.pad, t, dur);
+    ltBass(bar.bass, t, dur);
+    bar.mel.forEach(function(m){ ltPluck(m[0], t+m[1], 1.5); });
     ltStep++;
   }
-  function ltDuck(on){ if(!ltAC||!ltMaster) return; try{ ltMaster.gain.setTargetAtTime(on?0.32:0.85, ltAC.currentTime, 0.25); }catch(e){} }
-  function ltBgmStart(){ if(ltMuted()) return; if(!ltEnsureAC()) return; if(ltAC.state==='suspended'){ try{ ltAC.resume(); }catch(e){} } if(ltRunning) return; ltRunning=true; ltTick(); ltTimer=setInterval(ltTick,540); }
+  function ltDuck(on){ if(!ltAC||!ltMaster) return; try{ ltMaster.gain.setTargetAtTime(on?0.30:0.8, ltAC.currentTime, 0.3); }catch(e){} }
+  function ltBgmStart(){ if(ltMuted()) return; if(!ltEnsureAC()) return; if(ltAC.state==='suspended'){ try{ ltAC.resume(); }catch(e){} } if(ltRunning) return; ltRunning=true; ltTick(); ltTimer=setInterval(ltTick, LT_BAR_MS); }
   function ltBgmStop(){ ltRunning=false; if(ltTimer){ clearInterval(ltTimer); ltTimer=null; } }
   function ltPlayIntro(restart){ if(ltMuted()) return; var v=ltEnsureVoice(); if(restart){ try{ v.currentTime=0; }catch(e){} } var p=v.play(); if(p&&p.catch) p.catch(function(){}); }
   function ltUpdateMute(){ if(!ltMuteBtn) return; ltMuteBtn.textContent = ltMuted()?'🔇':'🔊'; ltMuteBtn.title = ltMuted()?'소리 켜기':'음소거'; }
