@@ -16714,20 +16714,34 @@ function renderPayrollTable() {
   const tb = document.getElementById('payroll-table');
   if (!tb) return;
   let rows = _lastPayrollRows ? _lastPayrollRows.slice() : [];
-  // 🔐 교사(hq_teacher)는 본인 급여명세서 행만 — 진입 경로와 무관하게 항상 강제
-  const _sessPR = window._adminSession;
-  const _teacherView = !!(_sessPR && _sessPR.role === 'hq_teacher');
+  const _L = adminLang === 'en';
+  // 🔐 유효 역할(실제 로그인 또는 미리보기) 기준으로 강제. 미리보기(관리자가 강사 모드)도 정직하게 반영.
+  const _effRole = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : (window._adminSession && window._adminSession.role);
+  const _preview = (typeof window._isRolePreview === 'function') && window._isRolePreview();
+  // 지사·대리점·학부모·학생 = 급여 열람 불가 → 표를 비우고 안내(미리보기에서도 동일)
+  if (_effRole === 'branch' || _effRole === 'agency' || _effRole === 'parent' || _effRole === 'student') {
+    tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Payroll is visible only to HQ managers/executives and each teacher (own payslip).' : '급여는 본사 관리자·경영진(전체)과 교사 본인(본인 급여)만 볼 수 있습니다.') + '</td></tr>';
+    _updateSortArrows();
+    return;
+  }
+  const _teacherView = _effRole === 'hq_teacher';
   if (_teacherView && typeof window._payrollIsOwnRow === 'function') {
-    rows = rows.filter(r => window._payrollIsOwnRow(r, _sessPR));
+    // 미리보기면 퍼소나 이름, 실제 로그인이면 세션 이름으로 본인 행 매칭
+    const _ownName = (typeof window._effectiveOwnName === 'function') ? window._effectiveOwnName() : (window._adminSession && window._adminSession.name);
+    const _ownSess = { name: _ownName, uid: (window._adminSession && window._adminSession.uid) };
+    rows = rows.filter(r => window._payrollIsOwnRow(r, _ownSess));
     _applyPayrollTeacherUI();
   }
   if (_payrollSort.length > 0) {
     rows.sort(_comparePayrollMulti);
   }
-  const _L = adminLang === 'en';
   if (rows.length === 0) {
-    if (_sessPR && _sessPR.role === 'hq_teacher') {
-      tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'No payslip found for your account this month.' : '이번 달 본인 급여명세서를 찾을 수 없습니다.') + '</td></tr>';
+    if (_teacherView) {
+      const note = _preview
+        ? (_L ? 'Teacher Mode preview: a teacher only sees their OWN payslip — other teachers\' salaries are hidden. (This demo persona has no payroll data.)'
+              : '👨‍🏫 강사 모드 미리보기: 강사는 <b>본인 급여만</b> 보이고 다른 강사 급여는 가려집니다. (이 데모 계정은 급여 데이터가 없어 비어 있어요. 실제 확인은 강사 계정으로 로그인.)')
+        : (_L ? 'No payslip found for your account this month.' : '이번 달 본인 급여명세서를 찾을 수 없습니다.');
+      tb.innerHTML = '<tr><td colspan="14" class="empty" style="line-height:1.7">' + note + '</td></tr>';
       _updateSortArrows();
       return;
     }
@@ -23800,7 +23814,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260712022213 -->
+        <!-- BUILD:20260712032118 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24483,6 +24497,41 @@ window.rebuildGlobalSearchIndex = function() {
   }
   window._adminSession = _loadSession();
 
+  // ━━━ 🎭 데모 역할 미리보기(ph117 역할전환) 감지 ━━━ (2026-07-12)
+  //   ph117 역할전환 버튼은 localStorage 'admin_session' 에 가짜 퍼소나(uid만; role 없음)를 써서
+  //   메뉴/배너만 그 역할처럼 보이게 한다. 하지만 서버 쿠키는 여전히 관리자라 서버는 전체를 내려주고,
+  //   급여표 필터는 실제 세션(_adminSession, 관리자) 기준이라 안 걸려서 → "강사 모드"인데 전체가 보였다.
+  //   여기서 미리보기 퍼소나를 감지해 '유효 역할'을 돌려주면, 급여·평가 화면이 미리보기 역할을
+  //   정직하게 반영(강사=본인만/차단)한다. 실제 데이터 보안은 서버가 별도로 강제(진짜 강사 로그인 기준).
+  window._previewPersona = function(){
+    try { return JSON.parse(localStorage.getItem('admin_session') || 'null'); } catch(e){ return null; }
+  };
+  window._isRolePreview = function(){
+    var p = window._previewPersona();
+    return !!(p && p.uid && !/^(hq_exec|hq_mgr|admin)$/.test(p.uid));
+  };
+  // 유효 역할: 미리보기 중이면 그 역할, 아니면 실제 세션 역할.
+  window._effectiveRole = function(){
+    var real = (window._adminSession && window._adminSession.role) || null;
+    var p = window._previewPersona();
+    if (p && p.uid){
+      if (/^hq_t/.test(p.uid))    return 'hq_teacher';
+      if (/^branch/.test(p.uid))  return 'branch';
+      if (/^agency/.test(p.uid))  return 'agency';
+      if (/^parent/.test(p.uid))  return 'parent';
+      if (/^student/.test(p.uid)) return 'student';
+      if (p.uid === 'hq_mgr')     return 'hq_mgr';
+      if (p.uid === 'hq_exec' || p.uid === 'admin') return 'hq_exec';
+    }
+    return real;
+  };
+  // 미리보기 중인 강사 표시명(본인 행 매칭용). 실제 세션이면 세션 이름.
+  window._effectiveOwnName = function(){
+    var p = window._previewPersona();
+    if (p && p.uid && /^hq_t/.test(p.uid)) return String(p.name || '').replace(/\s*강사\s*$/,'').trim();
+    return (window._adminSession && window._adminSession.name) || '';
+  };
+
   // ━━━ 🔐 강사 급여 접근 정책 (요청: 2026-06-16) ━━━
   //  • 본사 경영진(hq_exec)·관리자(hq_mgr) = 전체 급여 열람 (로그인 시에만)
   //  • 교사(hq_teacher)               = 본인 급여명세서만 (card-payroll, 렌더에서 본인 행만 필터)
@@ -24491,6 +24540,9 @@ window.rebuildGlobalSearchIndex = function() {
   window.PAYROLL_DENY_MSG = '죄송합니다. 경영자와 관리자가 아니라서 열어드릴 수 없네요.';
   window.payrollAccess = function(cardId) {
     var s = window._adminSession;
+    // 🎭 미리보기 중이면 유효 역할로 판정(관리자가 강사 모드로 미리볼 때 본인만/차단을 정직하게 반영)
+    var _effRole = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : (s && s.role);
+    if (_effRole) { s = { role: _effRole, name: (typeof window._effectiveOwnName==='function'? window._effectiveOwnName() : (s&&s.name)) }; }
     var NEED = '🔒 로그인 후 이용해 주세요. 강사 급여는 본사 관리자·경영진(전체)과 교사 본인(본인 급여)만 볼 수 있습니다.';
     if (!s || !s.role) return { ok:false, ownOnly:false, message: NEED };
     if (s.role === 'hq_exec' || s.role === 'hq_mgr') return { ok:true, ownOnly:false, message:'' };
