@@ -31,7 +31,9 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);min-height:100dvh;
-    background:radial-gradient(135% 105% at 50% -8%,#4b83e6 0%,#2a5fbd 38%,#173f8c 100%)}
+    /* 🌤️ 밝은 하늘색 균일 배경(위·아래 톤차이 없앰) */
+    background:#9ed6fb;
+    background:linear-gradient(180deg,#a9ddff 0%,#8fcef8 100%);background-attachment:fixed}
   #app{position:relative;width:100%;min-height:100dvh;display:flex;flex-direction:column}
   /* 🌤️ 주니어 친화 허브 배경 장식 — 떠다니는 뭉게구름 + 반짝이는 별 (UI 뒤 은은하게) */
   #app::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-repeat:no-repeat;
@@ -49,27 +51,28 @@
 
   /* ===== 헤더 ===== */
   .hub-head{text-align:center;padding:26px 16px 10px}
-  .hub-head .brand{font-size:12px;font-weight:800;letter-spacing:2px;color:var(--gold);margin-bottom:6px}
-  .hub-head h1{font-size:25px;font-weight:900;line-height:1.25}
-  .hub-head h1 .em{color:var(--emerald)}
-  .hub-head .sub{font-size:13px;color:var(--sub);margin-top:8px;line-height:1.6}
+  .hub-head .brand{font-size:12px;font-weight:800;letter-spacing:2px;color:#b45309;margin-bottom:6px}
+  .hub-head h1{font-size:25px;font-weight:900;line-height:1.25;color:#0b2a5e}
+  .hub-head h1 .em{color:#047857}
+  .hub-head .sub{font-size:13px;color:#20406e;margin-top:8px;line-height:1.6;font-weight:600}
 
   /* ===== 메뉴(카드 그리드) ===== */
   #hub-menu{flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 16px 40px}
   .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;
     width:min(1100px,100%);margin-top:10px}
   @media(max-width:640px){.game-grid{grid-template-columns:1fr 1fr;gap:14px}}
-  .game-card{position:relative;cursor:pointer;border:1px solid var(--line);border-radius:18px;
-    padding:30px 22px;text-align:center;color:var(--tx);background:rgba(255,255,255,.05);
+  .game-card{position:relative;cursor:pointer;border:1px solid rgba(255,255,255,.85);border-radius:18px;
+    padding:30px 22px;text-align:center;color:#0b2a5e;background:rgba(255,255,255,.62);
+    box-shadow:0 6px 18px rgba(20,60,120,.18);
     transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;overflow:hidden;
     display:flex;flex-direction:column;align-items:center;gap:12px;min-height:250px;justify-content:center}
-  .game-card::before{content:'';position:absolute;inset:0;background:var(--cardbg);opacity:.16;pointer-events:none}
+  .game-card::before{content:'';position:absolute;inset:0;background:var(--cardbg);opacity:.14;pointer-events:none}
   .game-card:hover{transform:translateY(-4px) scale(1.02);border-color:var(--gold);
-    box-shadow:0 12px 30px rgba(0,0,0,.45)}
+    box-shadow:0 12px 30px rgba(20,60,120,.32)}
   .game-card:active{transform:scale(.98)}
   .game-card .ico{font-size:66px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));position:relative}
   .game-card .ttl{font-size:30px;font-weight:800;position:relative}
-  .game-card .dsc{font-size:22px;color:var(--sub);line-height:1.45;position:relative}
+  .game-card .dsc{font-size:22px;color:#2c4d7d;line-height:1.45;position:relative;font-weight:600}
   .game-card .badge{position:absolute;top:12px;right:12px;font-size:16px;font-weight:800;letter-spacing:.5px;
     padding:4px 12px;border-radius:999px;background:rgba(16,185,129,.2);color:#6ee7b7;border:1px solid rgba(16,185,129,.4)}
 
@@ -95,15 +98,15 @@
   /* ===== ⚡ 게임 속도(난이도) 5단계 선택 ===== */
   /* ⚡ 속도 = 세그먼트(연결형) 컨트롤: 라벨 + 이모지 세그먼트 한 덩어리 */
   .speed-pick{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
-  .speed-pick .slab{display:inline-flex;flex-direction:column;line-height:1.15;font-size:12px;color:var(--sub);font-weight:800;white-space:nowrap}
-  .speed-pick .slab b{color:var(--gold);font-size:11px;font-weight:800}
+  .speed-pick .slab{display:inline-flex;flex-direction:column;line-height:1.15;font-size:14px;color:var(--sub);font-weight:800;white-space:nowrap}
+  .speed-pick .slab b{color:var(--gold);font-size:13px;font-weight:800}
   .seg{display:inline-flex;background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:3px;gap:2px}
-  .speed-pick .sp{width:32px;height:30px;display:inline-flex;align-items:center;justify-content:center;
-    background:transparent;border:0;color:var(--sub);border-radius:999px;font-size:15px;cursor:pointer;font-family:inherit;transition:.15s;padding:0}
+  .speed-pick .sp{width:38px;height:34px;display:inline-flex;align-items:center;justify-content:center;
+    background:transparent;border:0;color:var(--sub);border-radius:999px;font-size:18px;cursor:pointer;font-family:inherit;transition:.15s;padding:0}
   .speed-pick .sp:hover{background:rgba(255,255,255,.09)}
   .speed-pick .sp.on{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 3px 10px -2px rgba(16,185,129,.6)}
   .speed-pick .sp:active{transform:scale(.9)}
-  @media (max-width:560px),(max-height:560px){ .speed-pick .sp{width:27px;height:27px;font-size:13.5px} .speed-pick .slab{display:none} }
+  @media (max-width:560px),(max-height:560px){ .speed-pick .sp{width:31px;height:31px;font-size:15px} .speed-pick .slab{display:none} }
   /* ===== 좁거나(세로폰) 낮은(가로폰) 화면: 상단바 컴팩트 + 패딩 축소 → 인라인 게임 최대 확대 ===== */
   @media (max-width:560px),(max-height:560px){
     .game-topbar{padding:6px 12px;gap:8px}
@@ -212,7 +215,7 @@
   /* 🌐 언어 = 세그먼트(연결형) 컨트롤 */
   .lang-pick{display:inline-flex;background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:3px;gap:2px}
   .lang-pick .lg{background:transparent;border:0;color:var(--sub);
-    border-radius:999px;padding:7px 15px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:.18s}
+    border-radius:999px;padding:9px 19px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;transition:.18s}
   .lang-pick .lg:hover{background:rgba(255,255,255,.08)}
   .lang-pick .lg.on{background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;box-shadow:0 3px 10px -2px rgba(56,189,248,.6)}
   .lang-pick .lg:active{transform:scale(.95)}
@@ -228,23 +231,26 @@
   .gko-listen:active{transform:scale(.95)}
 
   /* ===== 🎛️ 허브 컨트롤 패널 — 산만한 버튼들을 하나의 글래스 카드로 정돈 ===== */
-  .hub-panel{width:min(560px,100%);margin:16px auto 0;background:rgba(9,16,38,.42);
-    border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:14px 16px;
-    display:flex;flex-direction:column;gap:12px;backdrop-filter:blur(12px) saturate(130%);
-    -webkit-backdrop-filter:blur(12px) saturate(130%);box-shadow:0 12px 34px -14px rgba(0,0,0,.6)}
-  .hub-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  /* 🎛️ 컨트롤 패널: 아래 게임 카드 그리드와 같은 가로폭(1100px) + 또렷한 대비 + 큰 글자 */
+  .hub-panel{width:min(1100px,100%);margin:18px auto 0;background:rgba(8,15,36,.72);
+    border:1px solid rgba(148,197,255,.32);border-radius:22px;padding:18px 24px;
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px 20px;
+    backdrop-filter:blur(12px) saturate(130%);
+    -webkit-backdrop-filter:blur(12px) saturate(130%);box-shadow:0 16px 42px -14px rgba(0,0,0,.7)}
+  .hub-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   .hub-row.center{justify-content:center}
-  .hub-divider{height:1px;background:rgba(255,255,255,.09)}
+  .hub-divider{width:1px;align-self:stretch;min-height:36px;background:rgba(255,255,255,.16)}
+  @media(max-width:640px){ .hub-panel{gap:12px 14px;padding:14px 16px} .hub-divider{display:none} }
   #streak-badge-hub:empty{display:none}
 
   /* ===== 💰 코인/룰렛/상점/랭킹 ===== */
-  .fun-bar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-  .fun-actions{display:inline-flex;gap:6px;flex-wrap:wrap}
-  .coin-wallet{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(251,191,36,.22),rgba(245,158,11,.12));
-    border:1px solid rgba(251,191,36,.5);color:#fde68a;border-radius:12px;padding:7px 14px;font-size:14px;font-weight:800}
-  .coin-wallet b{color:#fbbf24;font-size:15px}
-  .fun-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--tx);
-    border-radius:12px;padding:7px 13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:.15s}
+  .fun-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .fun-actions{display:inline-flex;gap:8px;flex-wrap:wrap}
+  .coin-wallet{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(251,191,36,.28),rgba(245,158,11,.16));
+    border:1px solid rgba(251,191,36,.6);color:#fde68a;border-radius:13px;padding:9px 16px;font-size:17px;font-weight:800}
+  .coin-wallet b{color:#fbbf24;font-size:18px}
+  .fun-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:var(--tx);
+    border-radius:13px;padding:9px 16px;font-size:15.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:.15s}
   .fun-btn:hover{background:rgba(56,189,248,.2);border-color:rgba(56,189,248,.5)}
   .fun-btn:active{transform:scale(.95)}
   #coin-fly{position:fixed;pointer-events:none;z-index:70;font-size:20px;font-weight:900;color:#fbbf24;text-shadow:0 2px 6px rgba(0,0,0,.6)}
@@ -311,12 +317,13 @@
           </div>
           <div id="streak-badge-hub"></div>
         </div>
+        <div class="hub-divider"></div>
         <!-- ③ 게임 속도(난이도) -->
         <div class="speed-pick" id="speed-pick-hub"></div>
         <!-- 📚 로그인 학생의 교재/레벨 맞춤 출제 표시 (game-vocab.js 로드 성공 시) -->
-        <div id="vocab-src-badge" style="display:none;margin:0 auto;padding:6px 16px;border-radius:999px;
-          background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.4);color:#6ee7b7;
-          font-size:12.5px;font-weight:700;width:fit-content"></div>
+        <div id="vocab-src-badge" style="display:none;flex-basis:100%;margin:0 auto;padding:8px 18px;border-radius:999px;
+          background:rgba(52,211,153,.18);border:1px solid rgba(52,211,153,.5);color:#8ef0c4;
+          font-size:15px;font-weight:800;width:fit-content"></div>
       </div>
     </div>
     <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
@@ -1953,8 +1960,8 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 // streak.js(defer) 로드 이후 배지를 확실히 부착
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
-<!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 -->
-<!-- BUILD:20260711151445 -->
+<!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
+<!-- BUILD:20260711152903 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>
