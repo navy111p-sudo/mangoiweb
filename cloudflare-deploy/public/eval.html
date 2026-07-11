@@ -205,7 +205,8 @@
       root.innerHTML = html;
     }
     try {
-      const r = await fetch('/api/eval/' + id);
+      var _et = ''; try { _et = localStorage.getItem('mango_token') || ''; } catch(e){}  // 🔐 본인 인증
+      const r = await fetch('/api/eval/' + id, _et ? { headers: { 'Authorization': 'Bearer ' + _et } } : {});
       const d = await r.json();
       if (!d.ok || !d.eval) {
         root.innerHTML = '<div>❌ 평가서를 찾을 수 없습니다 (#'+id+').<br><br><a href="/" style="color:#fde68a">홈으로</a></div>';
@@ -281,7 +282,7 @@
   load();
 })();
 </script>
-<!-- BUILD:20260711205147 -->
+<!-- BUILD:20260711205532 -->
 <style id="mb-tidy-2026-07-11">
 /* mango-i18n 공용 홈/EN 바가 같은 자리에 주입되므로 자체 홈 버튼은 숨김(기능 중복·겹침 방지) */
 .global-home{display:none}

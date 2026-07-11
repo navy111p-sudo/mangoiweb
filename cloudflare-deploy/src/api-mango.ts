@@ -4980,6 +4980,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const id = parseInt(path.split('/').pop() || '0', 10);
       const row: any = await env.DB.prepare(`SELECT * FROM student_evaluations WHERE id=?`).bind(id).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      // 🔐 [PII] 본인 평가 또는 관리자만 — 평가서(교사코멘트·신원) 정수 id 열거 IDOR 차단
+      const eidAuth = await authUidGlobal(request, url, env);
+      if (eidAuth !== String(row.student_uid || '')) {
+        const eidAdmin = await checkAdminSession(request, env as any);
+        if (!eidAdmin.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      }
       // 학부모가 본 적 없으면 view 기록
       if (!row.viewed_by_parent) {
         await env.DB.prepare(`UPDATE student_evaluations SET viewed_by_parent=1, viewed_at=? WHERE id=?`).bind(Date.now(), id).run();
