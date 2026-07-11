@@ -7,8 +7,12 @@
 //      그건 함수 중간(7600줄대)에 정의돼 그 앞 핸들러에선 못 씀 → 이 모듈로 어디서나 사용.
 // ═══════════════════════════════════════════════════════════════════════
 
+// ⚠️ 반드시 wrangler secret 로 ROOM_JWT_SECRET 설정. 폴백은 공개값(BUILD_STAMP)이 아닌 강한 상수로
+//   두어(2026-07-12 보안), 시크릿 미설정 시에도 토큰을 추측·위조할 수 없게 한다.
+//   ⚠️ 이 상수는 api-mango.ts(2곳)·signaling-room.ts 의 폴백과 반드시 동일해야 토큰이 상호검증된다.
+const UID_SECRET_FALLBACK = 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
 function uidTokenSecret(env: any): string {
-  return (env && env.ROOM_JWT_SECRET) || ('mangoi-fallback-' + ((env && env.BUILD_STAMP) || 'dev'));
+  return (env && env.ROOM_JWT_SECRET) || UID_SECRET_FALLBACK;
 }
 
 function b64uToBytes(s: string): Uint8Array {

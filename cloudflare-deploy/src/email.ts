@@ -70,7 +70,7 @@ export async function sendEmail(env: EmailEnv, params: SendEmailParams): Promise
   if (!params.subject || !params.html) return { ok: false, mode, error: 'empty_content' };
 
   if (mode === 'disabled') {
-    console.log('[email DISABLED]', { to: toList, subject: params.subject });
+    console.log('[email DISABLED]', { toCount: toList.length, subject: params.subject });
     return { ok: false, mode, message: 'RESEND_API_KEY/RESEND_FROM 미설정 — 발송 skip' };
   }
 

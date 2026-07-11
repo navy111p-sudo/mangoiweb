@@ -272,7 +272,7 @@ eq('AI 출제 수량 미지정 → 기본값', lim(undefined, 2), 2);
 {
   const api = readSrc('api-mango.ts');
   check('소스 일치: 채점은 서버에서(rqGrade) 수행', /const\s*\{\s*score,\s*detail\s*\}\s*=\s*rqGrade/.test(api));
-  check('소스 일치: submit 응답 percent 계산', /percent:\s*total\s*\?\s*Math\.round\(\(score\s*\/\s*total\)\s*\*\s*100\)/.test(api));
+  check('소스 일치: submit 응답 percent 계산', /percent\s*[:=]\s*total\s*\?\s*Math\.round\(\(score\s*\/\s*total\)\s*\*\s*100\)/.test(api));
   check('소스 일치: AI 수량 클램프 0~5', /Math\.min\(Math\.max\(Number\(v\s*\?\?\s*dft\)\s*\|\|\s*0,\s*0\),\s*5\)/.test(api));
 }
 

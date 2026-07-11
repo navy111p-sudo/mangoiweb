@@ -80,6 +80,13 @@ function normalizePhone(p: string): string {
   return (p || '').replace(/[^0-9]/g, '');
 }
 
+// 🔐 로그용 전화번호 마스킹 — mock/디버그 로그에 원문 번호·본문이 남지 않도록(PII 유출 방지)
+function maskPhone(p: string): string {
+  const d = (p || '').replace(/[^0-9]/g, '');
+  if (d.length < 7) return '***';
+  return d.slice(0, 3) + '****' + d.slice(-2);
+}
+
 // HMAC-SHA256 시그니처 생성 (SolAPI 표준 인증)
 async function generateSignature(
   apiKey: string, apiSecret: string, dateISO: string, salt: string
@@ -114,7 +121,7 @@ export async function sendPlainSms(
   if (!bodyText) return { ok: false, mode, error: 'empty_text' };
 
   if (mode === 'mock') {
-    console.log('[solapi SMS MOCK]', { to: phone, text: bodyText });
+    console.log('[solapi SMS MOCK]', { to: maskPhone(phone), textLen: bodyText.length });
     return { ok: true, mode, messageId: 'mock_' + Date.now().toString(36), message: '[TEST MODE] 실제 발송 안 함' };
   }
 
@@ -179,7 +186,7 @@ export async function sendKakaoAlimtalk(
   }
 
   if (mode === 'mock') {
-    console.log('[solapi MOCK]', { template: params.templateCode, to: phone, vars: params.variables });
+    console.log('[solapi MOCK]', { template: params.templateCode, to: maskPhone(phone), varKeys: Object.keys(params.variables || {}) });
     const messageId = 'mock_' + Date.now().toString(36);
     await logAlimtalkSend(env, params, phone, messageId, 'sent', trackToken);
     return {

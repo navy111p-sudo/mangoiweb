@@ -1742,14 +1742,17 @@ async function sendWeeklyParentDigest(env: any): Promise<void> {
     const list = (rs.results || []) as any[];
     console.log('[weekly-digest] candidates:', list.length);
     const now = Date.now();
-    for (const r of list) {
-      try {
-        // 한 행씩 큐 등록 (실제 발송은 카톡 발송 워커가 처리)
-        await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`)
-          .bind(r.user_id, '', '(cron 큐 등록 — preview API로 확인)', now, 'queued_cron').run();
-      } catch {}
+    // ⚡ (2026-07-12) 한 행씩 INSERT(최대 ~29k 서브리퀘스트 → Workers 한도 초과로 cron 중도실패) 을
+    //   D1 batch(청크) 로 교체. 동일 행·값을 넣되 서브리퀘스트를 수백 배 줄인다.
+    const stmt = env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`);
+    const CHUNK = 100;
+    let queued = 0;
+    for (let i = 0; i < list.length; i += CHUNK) {
+      const batch = list.slice(i, i + CHUNK).map(r =>
+        stmt.bind(r.user_id, '', '(cron 큐 등록 — preview API로 확인)', now, 'queued_cron'));
+      try { await env.DB.batch(batch); queued += batch.length; } catch (e) { console.warn('[weekly-digest] batch failed', (e as any)?.message); }
     }
-    console.log('[weekly-digest] queued for', list.length, 'students');
+    console.log('[weekly-digest] queued for', queued, 'students');
   } catch (err) {
     console.error('[weekly-digest] failed', err);
   }

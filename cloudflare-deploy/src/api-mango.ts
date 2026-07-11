@@ -8709,8 +8709,9 @@ Respond in JSON ONLY:
     //   요청 uid 가 일치해야만 통과. 토큰은 로그인 성공 시(또는 게스트 발급 API) 서버가 발급.
     //   시크릿은 방 JWT 와 동일한 ROOM_JWT_SECRET 재사용 (없으면 개발용 폴백).
     // ═══════════════════════════════════════════════════════════════
+    // 🔐 폴백은 auth-token.ts / signaling-room.ts 와 동일한 강한 상수(공개 BUILD_STAMP 사용 금지).
     const uidTokenSecret = (): string =>
-      (env as any).ROOM_JWT_SECRET || ('mangoi-fallback-' + ((env as any).BUILD_STAMP || 'dev'));
+      (env as any).ROOM_JWT_SECRET || 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
     const b64uFromBytes = (bytes: Uint8Array): string => {
       let s = '';
       for (const b of bytes) s += String.fromCharCode(b);
@@ -13715,9 +13716,10 @@ Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific a
     const b64urlEnc = (s: string) => btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const b64urlDec = (s: string) => atob(s.replace(/-/g, '+').replace(/_/g, '/'));
     const getRoomSecret = (): string => {
-      // 우선 secret(ROOM_JWT_SECRET) → 없으면 BUILD_STAMP 기반 임시(개발용 폴백)
+      // 우선 secret(ROOM_JWT_SECRET) → 없으면 강한 상수 폴백(공개 BUILD_STAMP 사용 금지, 2026-07-12 보안)
       // ⚠️ 운영 환경에서는 반드시 `npx wrangler secret put ROOM_JWT_SECRET --env production` 으로 설정
-      return (env as any).ROOM_JWT_SECRET || ('mangoi-fallback-' + ((env as any).BUILD_STAMP || 'dev'));
+      //   폴백 상수는 auth-token.ts / api-mango 8713 / signaling-room.ts 와 동일해야 방JWT 상호검증됨.
+      return (env as any).ROOM_JWT_SECRET || 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
     };
 
     const signRoomJWT = async (payload: any): Promise<string> => {

@@ -162,7 +162,7 @@ check('소스 일치: aura 는 raw.ok + audio 일 때만 반환', /raw\.ok\s*&&\
 check('소스 일치: 429 를 quota 로 표시', /raw\.status\s*===\s*429[\s\S]{0,30}quota\s*=\s*true/.test(API));
 check('소스 일치: quota 면 ai_quota_exceeded 503 반환', /ai_quota_exceeded[\s\S]{0,40}503/.test(API) || /quota\s*\?\s*'ai_quota_exceeded'/.test(API));
 check('소스 일치(학생): playAudio 가 quota 메시지 표시', /음성 잠시 제한|Audio paused/.test(STUDENT));
-check('소스 일치(학생): 듣기 실패해도 다음 진행(다음 항상 활성)', /var dis = '';/.test(STUDENT));
+check('소스 일치(학생): 듣기 실패해도 다음 진행(내비 버튼 항상 클릭 가능)', /onclick="moveQ\(1\)"/.test(STUDENT) && !/<button class="nav-btn[^>]*"\s+disabled/.test(STUDENT));
 
 // ════════════════════════════════════════════════════════════════════
 // [E] 관리자 '문제 미리보기/정검' 오류검출 (admin.html rqRenderPreview 미러)

@@ -3232,6 +3232,10 @@
     try {
       if (!document.body || !document.body.classList.contains('vc-in-call')) return false;
       if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;
+      // 🔧 (2026-07-12) vc_role=teacher URL 자동입장은 로그인 role이 없어 학생으로 오인됨
+      //   → 정본 강사판별(vcIsTeacherRole: URL vc_role·이름 휴리스틱 포함)로 강사 제외
+      if (typeof window.vcIsTeacherRole === 'function' && window.vcIsTeacherRole()) return false;
+      if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin' || window.vcMyRole === 'observer') return false;
       var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
       var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
       if (role === 'teacher' || role === 'admin') return false;
@@ -3275,6 +3279,8 @@
   //   실시간 재실 게이트(isStudentInClass)를 다시 보면 퀴즈가 통째로 스킵되는 회귀가 난다
   //   (2026-07-05 실사용 신고: 평가는 뜨는데 평가 후 복습퀴즈가 안 뜸 → 이 게이트가 원인).
   window.vcReviewQuizPrompt = function(opts){
+    // 🔧 (2026-07-12) 강사/관리자는 trusted 호출로 들어와도 복습퀴즈 금지 — 학생 전용
+    try { if (typeof window.vcIsTeacherRole === 'function' && window.vcIsTeacherRole()) return false; } catch(e){}
     if (STATE.done || STATE.open) return true;
     if (!(opts && opts.trusted)) { if (!isStudentInClass()) return false; }
     if (typeof rqvAuto !== 'function') return false;
@@ -3365,6 +3371,9 @@
       if (!document.body || !document.body.classList.contains('vc-in-call')) return false;
       if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;
       if (window.MANGO_RATING_ALL_ROLES) return true;   // 🧪 테스트 모드: 역할 무관 전원 노출
+      // 🔧 (2026-07-12) vc_role=teacher URL 자동입장 강사도 확실히 제외 (정본 강사판별 사용)
+      if (typeof window.vcIsTeacherRole === 'function' && window.vcIsTeacherRole()) return false;
+      if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin' || window.vcMyRole === 'observer') return false;
       var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
       var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
       if (role === 'teacher' || role === 'admin') return false;
@@ -3683,6 +3692,9 @@
     try {
       if (!document.body || !document.body.classList.contains('vc-in-call')) return false;
       if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return false;   // 관찰자 = 학생 아님(SPA 종료)
+      // 🔧 (2026-07-12) vc_role=teacher URL 자동입장 강사 → 학생 아님(SPA 종료 경로로)
+      if (typeof window.vcIsTeacherRole === 'function' && window.vcIsTeacherRole()) return false;
+      if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin' || window.vcMyRole === 'observer') return false;
       var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
       var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
       if (role === 'teacher' || role === 'admin') return false;
@@ -24585,7 +24597,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712033409 -->
+<!-- BUILD:20260712041338 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

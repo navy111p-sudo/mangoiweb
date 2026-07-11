@@ -1,0 +1,22 @@
+[
+  {
+    "vp": "mobile-375",
+    "page": "index.html",
+    "loadError": "Error: Execution context was destroyed, most likely because of a navigation."
+  },
+  {
+    "vp": "mobile-375",
+    "page": "battle-3d.html",
+    "loadError": "TimeoutError: Navigation timeout of 45000 ms exceeded"
+  },
+  {
+    "vp": "mobile-412",
+    "page": "battle-3d.html",
+    "loadError": "TimeoutError: Navigation timeout of 45000 ms exceeded"
+  },
+  {
+    "vp": "desktop-1280",
+    "page": "battle-3d.html",
+    "loadError": "TimeoutError: Navigation timeout of 45000 ms exceeded"
+  }
+]

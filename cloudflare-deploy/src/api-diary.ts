@@ -187,6 +187,9 @@ export async function handleDiaryApi(
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
       const row: any = await env.DB.prepare('SELECT * FROM voice_diary WHERE id = ?').bind(Number(body.diary_id)).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      // 🔐 본인 일기만 알림 요청 가능 — 토큰 uid 가 소유자와 일치해야 함(diary_id 열거로 타인 일기 유출 방지)
+      const pnAuth = await authUidFromRequest(request, url, env, body);
+      if (!pnAuth || pnAuth !== String(row.user_id)) return json({ ok: false, error: 'auth_required' }, 401);
       const msg = `[Mangoi Voice Diary] ${row.date} - "${String(row.transcript_en || '').slice(0, 80)}..." (score ${row.score || 0})`;
       // TODO: real kakao send via solapi-client. For now, queue to digest_logs.
       await env.DB.prepare('INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)')

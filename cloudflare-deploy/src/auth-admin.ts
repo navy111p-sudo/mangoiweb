@@ -190,7 +190,16 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
 
   // fix (2026-06-01) — 로그인 화면에 안내된 '시연용 데모 계정' 들을 실제로 생성(없을 때만).
   //   이게 없어서 hq_t_001/teacher 등 데모 로그인이 invalid_credentials 로 막혔음.
+  // 🔐 (2026-07-12 보안 하드닝):
+  //   ① 전체권한 계정(admin·cfo·ops_lead)은 추측 불가한 강한 비번 강제(공개 로그인 화면 노출 제거와 세트).
+  //   ② 매 부팅마다 비번을 강제로 되돌리던 UPDATE 제거 → 사장님이 바꾼 비번/ env.ADMIN_PASSWORD 가 유지됨.
+  //   ③ 과거에 심어진 취약 비번(=아이디와 동일: admin/cfo/ops)만 1회성으로 강한값으로 자동 교체.
   try {
+    // env.ADMIN_PASSWORD 미설정 시에도 절대 'admin' 같은 자명한 값이 되지 않도록 강한 폴백 사용.
+    const strongAdminPw = (env.ADMIN_PASSWORD && env.ADMIN_PASSWORD.length >= 8)
+      ? env.ADMIN_PASSWORD : 'FbshDMf9ei5Tog';
+    const FULL_ACCESS = new Set(['admin', 'cfo', 'ops_lead']);
+    // [username, 취약했던 기존 비번(교체 감지용), 표시이름]
     const demoAccounts: Array<[string, string, string]> = [
       ['admin', 'admin', '본사·경영진'],
       ['cfo', 'cfo', '본사·재무(CFO)'],
@@ -207,19 +216,25 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
     ];
     const nowD = Date.now();
     for (const acc of demoAccounts) {
-      const u = acc[0], pw = acc[1], nm = acc[2];
-      const ex = await env.DB.prepare(`SELECT id FROM admin_account WHERE username = ? LIMIT 1`).bind(u).first();
-      const h = await hashPassword(pw);
+      const u = acc[0], oldPw = acc[1], nm = acc[2];
+      const seedPw = FULL_ACCESS.has(u) ? strongAdminPw : oldPw;   // 전체권한 계정은 강한 비번으로 심는다
+      const ex: any = await env.DB.prepare(`SELECT id, password_hash FROM admin_account WHERE username = ? LIMIT 1`).bind(u).first();
       if (!ex) {
         await env.DB.prepare(
           `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at) VALUES (?, ?, ?, NULL, NULL, ?, ?)`
-        ).bind(u, h, nm, nowD, nowD).run();
+        ).bind(u, await hashPassword(seedPw), nm, nowD, nowD).run();
         console.warn('[auth-admin] demo account seeded:', u);
-      } else if (u !== 'capitown') {
-        // 데모 계정 비번을 항상 안내값과 일치시킨다(재발 방지). 비데모 계정(jeong 등)은 건드리지 않음.
-        // 단, 'capitown'(본사 실계정)은 최초 1회만 생성하고 이후 사용자가 바꾼 비번을 유지한다.
-        await env.DB.prepare(`UPDATE admin_account SET password_hash = ? WHERE username = ?`).bind(h, u).run();
+      } else if (FULL_ACCESS.has(u)) {
+        // 이미 존재하는 전체권한 계정: '아이디와 동일한 취약 비번'일 때만 강한 비번으로 1회 교체.
+        //   (이미 강한 비번이거나 사장님이 바꾼 비번은 건드리지 않음)
+        const isWeak = await verifyPassword(oldPw, String(ex.password_hash || ''));
+        if (isWeak) {
+          await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
+            .bind(await hashPassword(strongAdminPw), nowD, u).run();
+          console.warn('[auth-admin] 🔐 weak password rotated for full-access account:', u);
+        }
       }
+      // 그 외(저권한 데모/실계정)는 seed-if-missing 만. 매부팅 강제리셋 제거로 바뀐 비번이 유지됨.
     }
   } catch (e) {
     console.warn('[auth-admin] demo seed failed:', (e as any)?.message);
