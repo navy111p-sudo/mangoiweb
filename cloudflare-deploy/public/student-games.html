@@ -57,7 +57,14 @@
   .hub-head .sub{font-size:13px;color:#20406e;margin-top:8px;line-height:1.6;font-weight:600}
 
   /* ===== 메뉴(카드 그리드) ===== */
-  #hub-menu{flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 16px 40px}
+  #hub-menu{flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 16px 40px;position:relative}
+  /* ← 뒤로가기 / 🏠 홈 (메뉴 좌측 상단) */
+  .hub-topnav{position:absolute;top:12px;left:12px;display:flex;gap:8px;z-index:20}
+  .hub-topnav .tn-btn{display:flex;align-items:center;justify-content:center;width:38px;height:38px;
+    background:rgba(255,255,255,.85);color:#0b2a5e;border:1px solid rgba(11,42,94,.18);
+    border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;line-height:1;text-decoration:none;
+    box-shadow:0 2px 8px rgba(11,42,94,.12);transition:background .15s;-webkit-tap-highlight-color:transparent;font-family:inherit}
+  .hub-topnav .tn-btn:hover{background:#fff}
   .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;
     width:min(1100px,100%);margin-top:10px}
   @media(max-width:640px){.game-grid{grid-template-columns:1fr 1fr;gap:14px}}
@@ -301,6 +308,10 @@
 
   <!-- ===== 메뉴 ===== -->
   <div id="hub-menu">
+    <div class="hub-topnav">
+      <button type="button" class="tn-btn" onclick="if(history.length>1){history.back()}else{location.href='/'}" title="뒤로 가기" aria-label="뒤로 가기 (이전 페이지)">←</button>
+      <a href="/" class="tn-btn" title="홈으로" aria-label="홈으로">🏠</a>
+    </div>
     <div class="hub-head">
       <div class="brand">MANGOI · LEARNING GAMES</div>
       <h1 id="hub-title">영어 <span class="em">학습 게임</span> 🎮</h1>
@@ -1969,7 +1980,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260711205532 -->
+<!-- BUILD:20260711213231 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>
