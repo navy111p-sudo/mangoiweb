@@ -24953,7 +24953,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712191245 -->
+<!-- BUILD:20260712192820 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27119,15 +27119,21 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       order: 99 !important; flex: 0 0 22% !important; max-height: 22% !important; opacity: .92 !important;
     }
 
-    /* ── 모드 A: 📖 교재 크게 (pip) — 콘텐츠 전체 + 영상 우상단 PIP ── */
+    /* 🔑 [핵심] 세로에서는 가로 기능 탭바를 '기본 숨김' → 화면·얼굴을 최대로.
+       모든 기능(칠판·동영상·학생게임·배경·웜업·복습퀴즈)은 우측 ☰ 버튼을 누르면
+       큰 그리드 메뉴로 펼쳐져 거기서 사용한다. (탭바가 공간을 안 먹고 안 가림) */
+    body.vc-in-call #vc-main-row.video-pip .content-pane .tab-bar,
+    body.vc-in-call #vc-main-row.video-facepip .content-pane .tab-bar { display: none !important; }
+
+    /* ── 모드 A: 📖 교재 크게 (pip) — 콘텐츠 전체 + 영상 우상단 작은 PIP ── */
     body.vc-in-call #vc-main-row.video-pip { position: relative !important; }
     body.vc-in-call #vc-main-row.video-pip .content-pane {
       width: 100% !important; flex: 1 1 100% !important; min-height: 0 !important;
     }
     body.vc-in-call #vc-main-row.video-pip .video-pane {
       position: absolute !important; top: 8px !important; right: 8px !important; left: auto !important; bottom: auto !important;
-      width: 40vw !important; max-width: 210px !important; min-width: 128px !important;
-      height: auto !important; max-height: 40vh !important; min-height: 0 !important;
+      width: 38vw !important; max-width: 190px !important; min-width: 120px !important;
+      height: auto !important; max-height: 34vh !important; min-height: 0 !important;
       padding: 0 !important; margin: 0 !important; z-index: 90 !important;
       border-radius: 14px !important; overflow: hidden !important;
       border: 2px solid rgba(96,165,250,.55) !important;
@@ -27135,26 +27141,53 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       background: rgba(8,15,35,.92) !important;
     }
 
-    /* ── 모드 B: 🧑‍🎓 학생 얼굴 크게 (facepip) — 영상 전체 + 교재 우상단 PIP ── */
+    /* ── 모드 B: 🧑‍🎓 학생 얼굴 크게 (facepip) — 학생 영상이 화면 전체(주인공) ──
+       콘텐츠 패널은 접되 display:none 은 금지(안에 ☰ 메뉴용 tab-bar 가 있음). */
     body.vc-in-call #vc-main-row.video-facepip { position: relative !important; flex-direction: column !important; }
+    body.vc-in-call #vc-main-row.video-facepip .content-pane {
+      position: static !important; order: 0 !important;
+      width: 100% !important; flex: 0 0 0 !important;
+      height: 0 !important; max-height: 0 !important; min-height: 0 !important; overflow: visible !important;
+      background: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important;
+    }
+    body.vc-in-call #vc-main-row.video-facepip .content-pane .tab-content { display: none !important; }
     body.vc-in-call #vc-main-row.video-facepip .video-pane {
-      position: static !important; width: 100% !important; max-width: none !important;
-      height: 100% !important; max-height: none !important; min-height: 0 !important;
+      position: static !important; order: 1 !important;
+      width: 100% !important; max-width: none !important;
+      height: auto !important; max-height: none !important; min-height: 0 !important;
       flex: 1 1 auto !important; padding: 2px !important;
     }
-    body.vc-in-call #vc-main-row.video-facepip .content-pane {
-      position: absolute !important; top: 8px !important; right: 8px !important; left: auto !important; bottom: auto !important;
-      width: 44vw !important; max-width: 230px !important; min-width: 140px !important;
-      height: auto !important; max-height: 34vh !important; min-height: 22vh !important;
-      flex: 0 0 auto !important; z-index: 90 !important;
-      border-radius: 14px !important; overflow: hidden !important;
-      border: 2px solid rgba(148,163,184,.5) !important;
-      box-shadow: 0 8px 22px rgba(0,0,0,.55) !important;
-      background: rgba(8,15,35,.95) !important;
+
+    /* ── ☰ 기능 메뉴 열림: 탭바를 큰 그리드 바텀시트로 펼침 ── */
+    body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar {
+      display: grid !important;
+      position: fixed !important; left: 12px !important; right: 12px !important; bottom: 84px !important; top: auto !important;
+      grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important;
+      background: rgba(10,17,34,.985) !important; padding: 16px 16px 84px !important;
+      border: 1px solid rgba(96,165,250,.35) !important; border-radius: 20px !important;
+      box-shadow: 0 -6px 44px rgba(0,0,0,.6) !important;
+      z-index: 99996 !important; max-height: 66vh !important; overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
     }
-    /* 떠 있는 교재 PIP 안에서는 탭 버튼줄 숨겨 콘텐츠만 깔끔히 보이게 */
-    body.vc-in-call #vc-main-row.video-facepip .content-pane .tab-bar { display: none !important; }
-    body.vc-in-call #vc-main-row.video-facepip .content-pane .tab-content { padding-bottom: 6px !important; }
+    body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar::before {
+      content: "📋 기능 메뉴 — 원하는 것을 누르세요";
+      grid-column: 1 / -1 !important; font-weight: 800 !important; font-size: 13px !important;
+      color: #93c5fd !important; padding: 2px 2px 8px !important; text-align: center !important;
+    }
+    body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > button {
+      display: flex !important; align-items: center !important; justify-content: center !important;
+      font-size: 15px !important; font-weight: 700 !important; line-height: 1.25 !important;
+      padding: 18px 8px !important; margin: 0 !important; border-radius: 14px !important;
+      min-height: 64px !important; white-space: normal !important;
+      background: rgba(30,41,59,.92) !important; color: #e2e8f0 !important;
+      border: 1px solid rgba(148,163,184,.28) !important;
+    }
+    body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > button.active {
+      background: linear-gradient(135deg,#3b82f6,#6366f1) !important; color: #fff !important;
+      border-color: rgba(96,165,250,.7) !important;
+    }
+    /* 교재도구/필기도구 칩은 세로 메뉴에서 숨김 — 펜·업로드 도구는 칠판/교재 화면에 이미 인라인 표시됨 */
+    body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .mango-tool-chip { display: none !important; }
 
     /* ── 👁 내 얼굴 보기 토글 — 켜면 3005줄 display:none 을 이겨 선생님 화면 작게 노출 ── */
     body.vc-in-call.vc-phero-self #vc-main-row.video-pip #vc-video-grid#vc-video-grid #vc-local-box,
@@ -27162,14 +27195,14 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       display: flex !important;
     }
 
-    /* ── 세로 전용 컨트롤 노출 (⇄ 스왑 / 👁 내 얼굴) ── */
+    /* ── 세로 전용 컨트롤 노출 (☰ 기능 / ⇄ 스왑 / 👁 내 얼굴) ── */
     body.vc-in-call .vc-phero-ctrl { display: flex !important; }
   }
 
   /* 세로 전용 컨트롤 — 기본 숨김, 세로+통화중에만 위 미디어쿼리로 노출 */
   .vc-phero-ctrl {
     display: none;
-    position: fixed; right: 10px; bottom: 96px; z-index: 99990;
+    position: fixed; right: 10px; bottom: 96px; z-index: 99998;
     flex-direction: column; gap: 8px; align-items: flex-end;
   }
   .vc-phero-ctrl button {
@@ -27178,8 +27211,15 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap;
     box-shadow: 0 4px 14px rgba(0,0,0,.45); -webkit-tap-highlight-color: transparent;
   }
+  .vc-phero-ctrl .vc-phero-menu-btn { background: linear-gradient(135deg,#f59e0b,#f97316); font-size: 15px; padding: 12px 16px; }
   .vc-phero-ctrl .vc-phero-swap { background: linear-gradient(135deg,#3b82f6,#6366f1); }
   .vc-phero-ctrl .vc-phero-self-btn { background: rgba(30,41,59,.92); font-size: 12px; padding: 8px 12px; }
+  /* ☰ 메뉴 배경 딤(탭하면 닫힘) */
+  .vc-phero-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99994; }
+  body.vc-phero-menu-open .vc-phero-backdrop { display: block; }
+  /* 메뉴가 열리면 스왑·내얼굴 버튼은 숨겨 메뉴 버튼과 겹침 방지 (☰/✕ 만 남김) */
+  body.vc-phero-menu-open .vc-phero-ctrl .vc-phero-swap,
+  body.vc-phero-menu-open .vc-phero-ctrl .vc-phero-self-btn { display: none !important; }
 </style>
 <script>
 (function(){
@@ -27213,6 +27253,16 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     if(b) b.innerHTML = on ? '🙈 <span>내 얼굴</span>' : '👁 <span>내 얼굴</span>';
   };
 
+  // ☰ 기능 메뉴 열기/닫기 (모든 기능·게임 버튼을 큰 그리드로 펼침)
+  window.closePheroMenu = function(){ document.body.classList.remove('vc-phero-menu-open'); syncMenuBtn(); };
+  window.vcTogglePheroMenu = function(){ document.body.classList.toggle('vc-phero-menu-open'); syncMenuBtn(); };
+  function syncMenuBtn(){
+    var b = document.getElementById('vc-phero-menu-btn');
+    if(!b) return;
+    var open = document.body.classList.contains('vc-phero-menu-open');
+    b.innerHTML = open ? '✕ <span>닫기</span>' : '☰ <span>기능</span>';
+  }
+
   // 세로 진입 시 이상적 기본(pip=교재 크게) 자동 적용.
   // 사용자가 학생 크게(facepip)·솔로·전체를 이미 골랐으면 존중하고 건드리지 않음.
   var _applied = false;
@@ -27228,19 +27278,46 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     window.vcUpdatePheroLabels();
   }
 
-  // 세로 전용 컨트롤 FAB 주입
+  // 세로 전용 컨트롤 FAB + ☰ 메뉴 배경 딤 주입
   function injectCtrl(){
+    if(!document.getElementById('vc-phero-backdrop')){
+      var bd = document.createElement('div');
+      bd.className = 'vc-phero-backdrop'; bd.id = 'vc-phero-backdrop';
+      bd.addEventListener('click', function(){ window.closePheroMenu(); });
+      document.body.appendChild(bd);
+    }
     if(document.getElementById('vc-phero-ctrl')) return;
     var wrap = document.createElement('div');
     wrap.className = 'vc-phero-ctrl'; wrap.id = 'vc-phero-ctrl';
     wrap.innerHTML =
+      '<button class="vc-phero-menu-btn" id="vc-phero-menu-btn" type="button" onclick="vcTogglePheroMenu()" title="모든 기능·게임 메뉴 열기">☰ <span>기능</span></button>' +
       '<button class="vc-phero-swap" id="vc-phero-swap" type="button" onclick="vcPortraitSwap()" title="교재 크게 ↔ 학생 얼굴 크게">🧑‍🎓 <span>학생 크게</span></button>' +
       '<button class="vc-phero-self-btn" id="vc-phero-self-btn" type="button" onclick="vcTogglePheroSelf()" title="내(선생님) 얼굴 작게 보기/숨기기">👁 <span>내 얼굴</span></button>';
     document.body.appendChild(wrap);
   }
 
+  // facepip(학생 크게)에서 기능 탭을 누르면 자동으로 pip(교재 크게)로 전환 → 내용 크게 보임.
+  // 또한 ☰ 메뉴에서 어떤 기능을 고르든 메뉴를 닫아 바로 그 화면이 크게 보이게.
+  function wrapContentTab(){
+    try {
+      var orig = window.vcToggleContentTab;
+      if (typeof orig === 'function' && !orig.__pheroWrapped) {
+        window.vcToggleContentTab = function(){
+          var r = row();
+          if (r && r.classList.contains('video-facepip') && isPortrait() && typeof window.vcScreenSet === 'function') {
+            window.vcScreenSet('pip'); window.vcUpdatePheroLabels();
+          }
+          try { window.closePheroMenu(); } catch(e){}
+          return orig.apply(this, arguments);
+        };
+        window.vcToggleContentTab.__pheroWrapped = true;
+      }
+    } catch(e){}
+  }
+
   function boot(){
     injectCtrl();
+    wrapContentTab();
     // 통화 시작(vc-in-call) 감지 → 세로면 기본 적용, 통화 종료 시 리셋
     try {
       new MutationObserver(function(){

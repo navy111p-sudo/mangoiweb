@@ -27,6 +27,10 @@
         .font-playful {
             font-family: 'Fredoka One', cursive;
         }
+        /* 🀄 중국어 모드 — 모든 한자를 같은 중국어 폰트로(글자별 폰트 섞임 방지) */
+        html.zh-font, html.zh-font body { font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif; }
+        /* 🀄 병음(拼音) — 한자 아래 읽기 보조 */
+        .pinyin { color:#7dd3fc; font-weight:700; letter-spacing:.3px; }
         .glow-green {
             box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
         }
@@ -80,7 +84,7 @@
             <div class="bg-yellow-400 text-indigo-900 font-playful text-xl px-4 py-2 rounded-full shadow-lg transform -rotate-2">
                 MANGOI LIVE <img src="/img/mango-char.png" alt="망고아이" style="height:1.1em;width:auto;vertical-align:-0.2em">
             </div>
-            <span class="hidden sm:inline-block text-indigo-200 text-base">Interactive Speaking Game</span>
+            <span id="hdrSub" class="hidden sm:inline-block text-indigo-200 text-base">Interactive Speaking Game</span>
         </div>
 
         <div class="flex items-center gap-6">
@@ -102,16 +106,16 @@
         <!-- Welcome Screen (Initial Overlay) -->
         <div id="welcomeScreen" class="w-full max-w-2xl bg-slate-900/90 border border-indigo-500/30 rounded-3xl p-8 text-center backdrop-blur-md shadow-2xl transition-all duration-500">
             <div class="text-6xl mb-4">🕵️‍♂️🔎</div>
-            <h1 class="text-4xl font-playful mb-3 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">
+            <h1 id="wcTitle" class="text-4xl font-playful mb-3 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">
                 The Suspect Mystery!
             </h1>
-            <p class="text-slate-300 text-lg mb-6 leading-relaxed">
+            <p id="wcDesc" class="text-slate-300 text-lg mb-6 leading-relaxed">
                 망고아이 영어 화상 수업에 오신 것을 환영합니다!<br>
                 선생님의 힌트를 <b class="text-yellow-300">귀로 잘 듣고(Listening)</b> 범인을 맞혀주세요.<br>
                 그리고 마이크로 내가 범인이 아닌 이유를 당당하게 <b class="text-yellow-300">영어로 말해보세요(Speaking)!</b>
             </p>
 
-            <div class="bg-indigo-950/50 border border-indigo-800 p-4 rounded-2xl text-left mb-6 text-base text-indigo-200 space-y-2">
+            <div id="wcHow" class="bg-indigo-950/50 border border-indigo-800 p-4 rounded-2xl text-left mb-6 text-base text-indigo-200 space-y-2">
                 <p>💡 <b class="text-yellow-300">게임 방법:</b></p>
                 <p>1. 📢 <b class="text-yellow-300">[Listen]</b> 선생님(Ms. Emily)이 들려주는 범인의 외모/행동 힌트를 집중해서 듣기!</p>
                 <p>2. 👆 <b class="text-yellow-300">[Find]</b> 화면 속 용의자 4명 중 진짜 범인을 찾아 클릭하기!</p>
@@ -155,11 +159,18 @@
                         <p id="clueBubble" class="text-yellow-200 font-semibold italic text-xl md:text-2xl leading-snug select-all">
                             "Click the button below to listen to my voice!"
                         </p>
+                        <!-- 🀄 병음(중국어 모드에서만 표시) -->
+                        <p id="cluePinyin" class="pinyin text-base md:text-lg mt-1"></p>
 
-                        <!-- Listen Clue Button -->
-                        <button onclick="playTeacherVoice()" class="mt-3 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base px-5 py-2.5 rounded-xl transition-colors">
-                            🔊 다시 듣기 (Listen Again)
-                        </button>
+                        <!-- Listen Clue Buttons -->
+                        <div class="mt-3 flex items-center justify-center gap-2 flex-wrap">
+                            <button onclick="playTeacherVoice()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base px-5 py-2.5 rounded-xl transition-colors">
+                                🔊 다시 듣기 (Listen Again)
+                            </button>
+                            <button onclick="playTeacherVoice(true)" title="천천히 듣기" class="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-base px-4 py-2.5 rounded-xl transition-colors">
+                                🐢 천천히
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -234,6 +245,8 @@
                         <p id="targetSentence" class="text-2xl md:text-3xl font-playful text-yellow-300 bg-slate-950/60 px-4 py-2 rounded-xl mt-2 inline-block select-all">
                             "He is the thief because he has a dog!"
                         </p>
+                        <!-- 🀄 병음(중국어 모드에서만 표시) -->
+                        <p id="targetPinyin" class="pinyin text-lg md:text-xl mt-1"></p>
                     </div>
 
                     <!-- Voice Interaction Area -->
@@ -366,6 +379,13 @@
     </script>
 
     <script>
+        /* 🌐 게임 언어 — 허브(student-games)가 넘긴 ?glang= 또는 localStorage(mangoi_game_lang).
+           'zh' 이면 힌트·용의자 설명·모범문장·발음·음성인식을 전부 중국어(만다린)로 진행한다.
+           영어 모드('en')는 기존 동작을 100% 그대로 유지한다. */
+        const GLANG = (function(){ try{ var g=(new URLSearchParams(location.search).get('glang')||'').toLowerCase(); if(g==='zh'||g==='en') return g; var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(e){ return 'en'; } })();
+        const ZH = (GLANG === 'zh');
+        if (ZH) { try { document.documentElement.classList.add('zh-font'); } catch(e){} }
+
         // Game variables
         let score = 0;
         let currentRound = 1;
@@ -422,8 +442,59 @@
                 targetKeywords: ["mia", "thief", "white", "dog"]
             }
         ];
-        // 실제 사용되는 라운드 데이터(재할당 가능) — 학생 맞춤 자료가 있으면 buildRoundsFromVocab() 결과로 교체됨
-        let roundData = DEFAULT_ROUNDS;
+        /* 🀄 중국어(만다린) 기본 시나리오 — 다락원 '중국어 마스터' 초급 수준.
+           clue=한자 힌트, cluePinyin=병음, teacherSpoken=TTS로 읽을 문장,
+           targetKeywords=음성인식 정답 판정용 핵심 한자(공백 없는 만다린이라 부분일치로 검사). */
+        const DEFAULT_ROUNDS_ZH = [
+            {
+                clue: "看！小偷穿着蓝色的夹克，戴着黄色的围巾！",
+                cluePinyin: "Kàn! Xiǎotōu chuānzhe lánsè de jiákè, dàizhe huángsè de wéijīn!",
+                teacherSpoken: "小偷穿着蓝色的夹克，戴着黄色的围巾。",
+                targetSentence: "她是小偷，因为她戴着黄色的围巾！",
+                targetPinyin: "Tā shì xiǎotōu, yīnwèi tā dàizhe huángsè de wéijīn!",
+                answer: 2, // Zoe
+                suspects: [
+                    { name: "Leo", emoji: "👦", desc: "戴红帽子·戴眼镜 (hóng màozi)" },
+                    { name: "Zoe", emoji: "👧", desc: "蓝夹克·黄围巾 (lán jiákè·huáng wéijīn)" },
+                    { name: "Mia", emoji: "👩‍🦰", desc: "红帽子·黄围巾 (함정!)" },
+                    { name: "Max", emoji: "🧔", desc: "蓝夹克·戴眼镜 (lán jiákè)" }
+                ],
+                targetKeywords: ["小偷", "围巾", "黄"]
+            },
+            {
+                clue: "注意！嫌疑人在笑，还在吃一个大披萨！",
+                cluePinyin: "Zhùyì! Xiányírén zài xiào, hái zài chī yí ge dà pīsà!",
+                teacherSpoken: "嫌疑人在笑，还在吃一个大披萨。",
+                targetSentence: "他是小偷，因为他在吃披萨！",
+                targetPinyin: "Tā shì xiǎotōu, yīnwèi tā zài chī pīsà!",
+                answer: 4, // Max
+                suspects: [
+                    { name: "Leo", emoji: "👦", desc: "喝草莓汁 (hē cǎoméi zhī)" },
+                    { name: "Zoe", emoji: "👧", desc: "吃汉堡 (chī hànbǎo)" },
+                    { name: "Mia", emoji: "👩‍🦰", desc: "喝果汁·在笑 (hē guǒzhī)" },
+                    { name: "Max", emoji: "🧔", desc: "吃披萨·在笑 (chī pīsà)" }
+                ],
+                targetKeywords: ["小偷", "披萨", "吃"]
+            },
+            {
+                clue: "仔细听！狡猾的小偷有一只可爱的白色小狗！",
+                cluePinyin: "Zǐxì tīng! Jiǎohuá de xiǎotōu yǒu yì zhī kě'ài de báisè xiǎogǒu!",
+                teacherSpoken: "狡猾的小偷有一只可爱的白色小狗。",
+                targetSentence: "她是小偷，因为她有一只白色的小狗！",
+                targetPinyin: "Tā shì xiǎotōu, yīnwèi tā yǒu yì zhī báisè de xiǎogǒu!",
+                answer: 3, // Mia
+                suspects: [
+                    { name: "Leo", emoji: "👦", desc: "有一只棕色的猫 (zōngsè māo)" },
+                    { name: "Zoe", emoji: "👧", desc: "有一只黑色的狗 (hēisè gǒu)" },
+                    { name: "Mia", emoji: "👩‍🦰", desc: "有一只白色的狗 (báisè gǒu)" },
+                    { name: "Max", emoji: "🧔", desc: "有一只绿鹦鹉 (lǜ yīngwǔ)" }
+                ],
+                targetKeywords: ["小偷", "白", "狗"]
+            }
+        ];
+
+        // 실제 사용되는 라운드 데이터(재할당 가능) — 학생 맞춤 자료가 있으면 build…() 결과로 교체됨
+        let roundData = ZH ? DEFAULT_ROUNDS_ZH : DEFAULT_ROUNDS;
 
         /* ============================================================
            📚 로그인 학생의 배정 교재·레벨(레슨) 맞춤 미스터리 생성
@@ -494,6 +565,67 @@
             const rounds = [];
             for (let i = 0; i < totalRounds; i++) {
                 rounds.push(_buildMysteryRound(shuffled[i % shuffled.length], i, shuffled));
+            }
+            return rounds;
+        }
+
+        /* ============================================================
+           🀄 중국어: 다락원 '중국어 마스터' 교재 어휘(zh_vocab)로 미스터리 생성
+           "비밀 단어" 방식 — 범인이 몰래 말한 한자를 듣고(TTS) 지목한 뒤,
+           "他/她是小偷，因为他/她说了「한자」！"를 중국어로 외친다.
+           용의자 카드에는 한자 + 병음이 함께 떠서 읽기 학습을 돕는다.
+           단어가 4개 미만이면 null → 기본 시나리오(DEFAULT_ROUNDS_ZH) 유지.
+           ============================================================ */
+        const SUSPECT_PRONOUN_ZH = { Leo: "他", Zoe: "她", Mia: "她", Max: "他" };
+
+        function _zhWordPool(d) {
+            // zh_vocab: 단어 항목은 { en:한자, pinyin, ko }. 1~6자 한자만 사용(발화 가능·인식 용이).
+            const seen = {};
+            const pool = [];
+            (d && d.words || []).forEach(function (w) {
+                const hz = String((w && w.en) || '').trim();
+                if (!hz || !/^[㐀-鿿]{1,6}$/.test(hz) || seen[hz]) return;
+                seen[hz] = 1;
+                pool.push({ hanzi: hz, pinyin: String((w && w.pinyin) || '').trim(), ko: String((w && w.ko) || '').trim() });
+            });
+            return pool;
+        }
+
+        function _zhLabel(it) {
+            return '「' + it.hanzi + '」' + (it.pinyin ? ' ' + it.pinyin : '');
+        }
+
+        function _buildMysteryRoundZh(item, roundIdx, pool) {
+            const answerIdx = roundIdx % 4;
+            const answerName = SUSPECT_NAMES[answerIdx];
+            const decoys = _shuffleArr(pool.filter(function (p) { return p.hanzi !== item.hanzi; })).slice(0, 3);
+            let di = 0;
+            const suspects = SUSPECT_NAMES.map(function (name, i) {
+                return {
+                    name: name,
+                    emoji: SUSPECT_FACE[name],
+                    desc: i === answerIdx ? _zhLabel(item) : (decoys[di] ? _zhLabel(decoys[di++]) : '「书」shū')
+                };
+            });
+            const pr = SUSPECT_PRONOUN_ZH[answerName];   // 他/她
+            const clue = '嘘…仔细听！小偷偷偷说了「' + item.hanzi + '」！';
+            const cluePinyin = 'Xū… zǐxì tīng! Xiǎotōu tōutōu shuō le 「' + (item.pinyin || item.hanzi) + '」!';
+            const teacherSpoken = '仔细听。小偷偷偷说了' + item.hanzi + '。';   // 따옴표 없이 → TTS가 단어를 또렷이 읽음
+            const targetSentence = pr + '是小偷，因为' + pr + '说了「' + item.hanzi + '」！';
+            const targetPinyin = 'Tā shì xiǎotōu, yīnwèi tā shuō le 「' + (item.pinyin || item.hanzi) + '」!';
+            return { clue: clue, cluePinyin: cluePinyin, teacherSpoken: teacherSpoken,
+                     targetSentence: targetSentence, targetPinyin: targetPinyin,
+                     answer: answerIdx + 1, suspects: suspects, targetKeywords: ["小偷", item.hanzi] };
+        }
+
+        function buildRoundsFromZhVocab(d) {
+            if (!d) return null;
+            const pool = _zhWordPool(d);
+            if (pool.length < 4) return null;   // 개인화할 단어가 부족하면 기본 시나리오 유지
+            const shuffled = _shuffleArr(pool);
+            const rounds = [];
+            for (let i = 0; i < totalRounds; i++) {
+                rounds.push(_buildMysteryRoundZh(shuffled[i % shuffled.length], i, shuffled));
             }
             return rounds;
         }
@@ -922,6 +1054,6 @@ html{overflow-x:hidden}
 }
 </style>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712191245 -->
+<!-- BUILD:20260712192820 -->
 </body>
 </html>
