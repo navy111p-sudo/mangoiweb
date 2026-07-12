@@ -21,7 +21,7 @@
     'mypage':'/parent.html',
     'payment':'/?pay=1',
     'report':'/report.html',
-    'points-shop':'/streak.html',
+    'points-shop':'/?shop=1',
     'speech':'/speech-coach.html',
     'lesson-change':'/lesson-postpone-demo.html',
     'refund':'/refund.html',

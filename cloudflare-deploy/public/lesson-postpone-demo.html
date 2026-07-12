@@ -97,7 +97,10 @@ html, body {
   position: relative;
   width: 100%;
   max-width: 645px;
-  min-height: 130vh; min-height: calc(100dvh + 30vh); /* dvh 폴백 */
+  /* 앱 셸: 화면 딱 한 개 높이 → 스크롤은 각 화면 내부(main-stage / detail-body)가 담당.
+     예전엔 130vh + body 스크롤에 의존했는데, 안드로이드 WebView·모바일에서 body 스크롤이
+     안 먹어 카드 아랫부분이 잘려 "안 내려간다"는 문제가 있었음 (2026-07-12 수정) */
+  height: 100vh; height: 100dvh; /* dvh 미지원 브라우저는 위 100vh 사용 */
   margin: 0 auto;
   background: var(--bg);
   overflow: hidden;
@@ -157,6 +160,9 @@ header {
   padding: 16px 16px 24px;
   gap: 14px;
   background: var(--bg-soft);
+  /* 화면이 짧으면(작은 폰·큰 글씨) 카드가 잘리지 않게 이 영역이 세로 스크롤 (2026-07-12) */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .main-intro {
   padding: 8px 4px 4px;
@@ -166,6 +172,7 @@ header {
 
 .main-card {
   flex: 1;
+  min-height: 200px;   /* 짧은 화면에서도 카드 내용(아이콘·제목·설명·시작하기)이 안 잘리게 (2026-07-12) */
   padding: 24px;
   border-radius: 22px;
   border: 2px solid;
@@ -1088,7 +1095,7 @@ header {
   <button class="gv-btn gv-close" id="gv-close" title="닫기" aria-label="안내 영상 닫기">✕</button>
   <button class="gv-btn" id="gv-mute" title="소리 켜기/끄기" aria-label="음소거 전환">🔇</button>
 </div>
-<a class="consult-fab" id="consult-fab" href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener" title="카카오톡 상담" aria-label="상담">
+<a class="consult-fab" id="consult-fab" href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener" title="카카오톡 상담" aria-label="상담">
   <span class="cf-ico">💬</span><span class="cf-txt">상담</span>
 </a>
 <!-- 하단 확정/연기 바 : body 레벨(screen transform 이 fixed 를 가두는 문제 회피, 2026-06-18) -->
@@ -1742,7 +1749,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260712045708 -->
+<!-- BUILD:20260712152013 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>

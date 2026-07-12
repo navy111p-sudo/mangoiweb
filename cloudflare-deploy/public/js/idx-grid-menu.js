@@ -729,7 +729,7 @@
     <div class="cs-hero">
       <div class="cs-hero-left">
         <div class="cs-hero-label">💬 카카오톡 상담</div>
-        <a href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener" class="cs-hero-phone" style="font-size:clamp(20px,4vw,30px);text-decoration:none">카카오상담 바로하기</a>
+        <a href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener" class="cs-hero-phone" style="font-size:clamp(20px,4vw,30px);text-decoration:none">카카오상담 바로하기</a>
         <div class="cs-hero-hours">
           <span class="cs-dot"></span>
           운영시간 <b>10:00 ~ 20:00</b>
@@ -737,7 +737,7 @@
         </div>
       </div>
       <div class="cs-hero-right">
-        <a href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener" class="cs-hero-cta">💬 바로 채팅 시작 →</a>
+        <a href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener" class="cs-hero-cta">💬 바로 채팅 시작 →</a>
       </div>
     </div>
 
@@ -1223,7 +1223,7 @@
     },
     reviews:     () => { closeGrid(); showModal(REVIEWS); },
     diagnosis:   () => { closeGrid(); runDiagnosis(); },
-    kakao:       () => { closeGrid(); window.open('https://pf.kakao.com/_mangoi', '_blank'); },
+    kakao:       () => { closeGrid(); window.open('https://pf.kakao.com/_xlqnSxd', '_blank'); },
     remote:      () => { closeGrid(); openRemoteSupportModal(); },
     installguide:() => { closeGrid(); showModal(INSTALLGUIDE); },
     library:     () => { closeGrid(); showModal(LIBRARY); },
@@ -1859,10 +1859,10 @@
           #lt-signup .ltf-agree input{width:17px;height:17px;accent-color:#fbbf24;margin-top:1px;cursor:pointer;flex-shrink:0}
           #lt-signup .ltf-agree a{color:#93c5fd;text-decoration:underline;cursor:pointer}
           #lt-signup .ltf-err{display:none;padding:9px 12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:10px;color:#fca5a5;font-size:12px;margin-bottom:11px}
-          #lt-signup .ltf-submit{width:100%;height:50px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:0;border-radius:13px;color:#1a0f08;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 10px 24px -8px rgba(245,158,11,0.7);transition:transform .12s ease,box-shadow .2s ease}
+          #lt-signup .ltf-submit{width:100%;min-height:50px;padding:6px 12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:0;border-radius:13px;color:#1a0f08;font-size:15px;font-weight:900;line-height:1.25;word-break:keep-all;cursor:pointer;box-shadow:0 10px 24px -8px rgba(245,158,11,0.7);transition:transform .12s ease,box-shadow .2s ease}
           #lt-signup .ltf-submit:hover{transform:translateY(-1px);box-shadow:0 14px 30px -8px rgba(245,158,11,0.85)}
           #lt-signup .ltf-submit:active{transform:translateY(0)}
-          #lt-signup .ltf-ghost{width:100%;height:42px;margin-top:9px;background:transparent;border:1px solid rgba(251,191,36,0.45);border-radius:12px;color:#fde68a;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .15s}
+          #lt-signup .ltf-ghost{width:100%;min-height:42px;padding:6px 12px;margin-top:9px;background:transparent;border:1px solid rgba(251,191,36,0.45);border-radius:12px;color:#fde68a;font-size:12.5px;font-weight:700;line-height:1.3;word-break:keep-all;cursor:pointer;transition:background .15s}
           #lt-signup .ltf-ghost:hover{background:rgba(251,191,36,0.10)}
           @media(max-width:480px){#lt-signup .ltf-grid{grid-template-columns:1fr}}
         </style>
@@ -1935,8 +1935,8 @@
 
       <!-- 간편 CTA (회원가입 없이) -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" style="margin:0;text-align:center">📨 비회원 신청 (상담)</a>
-        <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;text-align:center;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡으로 신청</a>
+        <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" style="margin:0;padding:12px 10px;text-align:center;line-height:1.3;word-break:keep-all">📨 비회원 신청<br>(상담)</a>
+        <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;padding:12px 10px;text-align:center;line-height:1.3;word-break:keep-all;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡으로 신청</a>
       </div>
       <p style="margin-top:10px;color:#94a3b8;font-size:11px;text-align:center">
         ※ 무료 체험 수업과 동시에 신청 시 즉시 진행됩니다.

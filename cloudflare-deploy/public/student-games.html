@@ -124,6 +124,20 @@
        허브 상단바를 최대한 얇게: 장식용 연속배지 숨김 + 속도 세그먼트 축소 → 게임 화면 확대 */
     .game-iframewrap .game-topbar .back{padding:5px 11px;font-size:11.5px}
     .game-iframewrap .game-topbar .gname{font-size:13px}
+    /* 📱 폰: 인라인 게임(풍선·벽돌·매칭·빈칸)도 상단바를 딱 한 줄로 —
+       속도/난이도 세그먼트·연속배지를 ⋮ 메뉴 드롭다운 안으로 몰아넣어 게임 화면 최대 확보 */
+    #hub-game .game-topbar{flex-wrap:nowrap}
+    #hub-game .game-topbar .gname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    #hub-game .game-topbar .kebab{display:inline-flex}
+    #hub-game #streak-badge-game{display:none}
+    #hub-game #speed-pick-game{display:none;position:absolute;top:calc(100% + 6px);right:8px;z-index:80;
+      flex-direction:column;align-items:flex-end;gap:7px;background:rgba(10,18,38,.97);
+      border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 14px 34px rgba(0,0,0,.55)}
+    #hub-game .game-topbar.menu-open #speed-pick-game{display:flex}
+    #hub-game #speed-pick-game .slab{display:inline-flex !important}
+    /* 스코어바: 한 줄 고정(줄바꿈으로 세로가 커지지 않게) + 넘치면 가로 스크롤 → 게임 화면 확대 */
+    #hub-game .game-scorebar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 12px;gap:9px;font-size:11.5px}
+    #hub-game .game-scorebar > span{flex-shrink:0}
   }
   /* ===== iframe 게임: 허브 상단바를 딱 한 줄로 최소화 =====
      · 속도 이모지 7개 세그먼트가 폰에서 둘째 줄로 감싸며 게임 화면(연습 문장)을 가리던 문제
@@ -144,6 +158,19 @@
   .game-iframewrap #speed-pick-game .slab{display:inline-flex !important}
   /* brick/fill: 내용 세로 가운데 정렬 (위/아래 빈공간 균형) · match/balloon: 자식이 flex:1 로 채움 */
   #game-area.area-center{justify-content:center}
+  /* ⚠️ 낮은/작은 화면(휴대폰 세로)에서는 가운데정렬을 끈다:
+     justify-content:center + overflow:auto 조합은 내용이 길면 위·아래가 함께 잘려
+     아래쪽 버튼(✅확인)에 스크롤로 도달할 수 없게 되는 플렉스 함정이라서. */
+  @media (max-height:780px),(max-width:560px){ #game-area.area-center{justify-content:flex-start} }
+  /* 🧱 문장 벽돌: 확인/다시/발음 버튼 줄을 화면 하단에 고정 → 스크롤 없이 항상 보이게 */
+  #game-area .brick-actions{position:sticky;bottom:0;z-index:6;margin-top:auto;
+    display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:12px 6px 8px;
+    background:linear-gradient(to top,rgba(10,18,38,.97) 55%,rgba(10,18,38,0));backdrop-filter:blur(3px)}
+  #game-area .brick-actions .brick-go{padding:14px 30px;background:linear-gradient(135deg,#10b981,#059669);
+    color:#fff;border:0;border-radius:10px;cursor:pointer;font-size:clamp(16px,2.2vmin,20px);font-weight:800;
+    box-shadow:0 4px 14px rgba(16,185,129,.5)}
+  /* 🧱 결과 표시: 벽돌 바로 위, 크게 */
+  #game-area .brick-fb{text-align:center;min-height:0;margin:2px 0 8px;line-height:1.4}
 
   /* ============================================================
      🎨 주니어 친화 게임별 배경 테마
@@ -1399,7 +1426,8 @@ function gameInit(){
   // 모바일 세로 화면 채움: match/balloon 은 플레이영역이 세로공간 전부, brick/fill 은 가운데 정렬
   var area = document.getElementById('game-area');
   if(area){ area.classList.remove('area-center','area-fill');
-    area.classList.add((_gameState.mode==='match'||_gameState.mode==='balloon') ? 'area-fill' : 'area-center'); }
+    // brick 은 내용이 길어 세로로 넘치므로 위 정렬(area-fill)로 두고 하단 버튼을 sticky 로 고정한다.
+    area.classList.add((_gameState.mode==='match'||_gameState.mode==='balloon'||_gameState.mode==='brick') ? 'area-fill' : 'area-center'); }
   _gameUpdateScore();
   gameNextRound();
 }
@@ -1590,10 +1618,13 @@ function gameRenderBrick(){
       'style="padding:clamp(12px,1.8vmin,22px) clamp(18px,2.6vmin,34px);background:' + _bg + ';color:#fff;border:0;border-radius:10px;font-size:clamp(18px,2.6vmin,34px);font-weight:600;cursor:pointer;transition:transform 0.15s">' + w + '</button>';
   });
   html += '</div>' +
-    '<div style="text-align:center;display:flex;gap:10px;justify-content:center">' +
-      '<button onclick="gameBrickReset()" style="padding:8px 18px;background:rgba(148,163,184,0.2);color:#cbd5e1;border:0;border-radius:8px;cursor:pointer;font-size:13px">↩ 다시</button>' +
+    // 결과·정답을 벽돌 바로 위에 크게 (맨 위 점수바 피드백은 눈에서 멀어 안 보임)
+    '<div id="brick-fb" class="brick-fb"></div>' +
+    // 확인/다시/발음 = 하단 고정 바 → 스크롤 없이 항상 보임
+    '<div class="brick-actions">' +
+      '<button onclick="gameBrickReset()" style="padding:12px 18px;background:rgba(148,163,184,0.22);color:#cbd5e1;border:0;border-radius:10px;cursor:pointer;font-size:clamp(14px,2vmin,17px);font-weight:700">↩ 다시</button>' +
       '<button onclick="gameSpeakBuilt()" class="gko-listen">🔊 발음 듣기</button>' +
-      '<button onclick="gameBrickCheck()" style="padding:10px 24px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(16,185,129,0.4)">✅ 확인</button>' +
+      '<button onclick="gameBrickCheck()" class="brick-go">✅ 확인</button>' +
     '</div>';
   document.getElementById('game-area').innerHTML = html;
 }
@@ -1634,12 +1665,15 @@ function gameBrickCheck(){
   const picked = _gameState.current.picked;
   const target = sent.words;
   const fb = document.getElementById('game-feedback');
+  const fbi = document.getElementById('brick-fb');   // 벽돌 바로 위 큰 결과창
   const full = picked.length === target.length && picked.every((w, i) => w === target[i]);
   if (full){
     _stopRoundTimer();
     const r = _onCorrect('sent', sent, 10);
     try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}  // 🔥 오늘 학습 달성
     fb.innerHTML = '<span style="color:#10b981">' + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
+    if (fbi) fbi.innerHTML = '<div style="color:#34d399;font-weight:800;font-size:clamp(20px,3.4vmin,30px)">' + (r.boss?'👹 보스 격파!':'✅ 정답!') + ' +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</div>' +
+      '<div style="color:#f8fafc;font-size:clamp(15px,2.2vmin,24px);margin-top:4px">' + target.join(' ') + '</div>';
     _brickRedrawBuilt(picked.length);   // 전부 초록으로 확정 표시
     try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
     _gameUpdateScore();
@@ -1663,9 +1697,31 @@ function gameBrickCheck(){
   const dead = _onWrong('sent', sent, true);   // 재시도 허용 → 하트는 문제당 1개만
   _gameUpdateScore();
   if(dead) return;   // 하트 소진 → 부활 화면으로
-  fb.innerHTML = good>0
-    ? '<span style="color:#f59e0b">거의 다 왔어요! 초록은 그대로, 다음 칸을 다시 골라보세요</span>'
-    : '<span style="color:#f59e0b">첫 단어부터 다시 생각해볼까요? 🔊 발음 듣기가 힌트!</span>';
+  var msg = good>0
+    ? '거의 다 왔어요! 초록은 그대로, 다음 칸을 다시 골라보세요'
+    : '첫 단어부터 다시 생각해볼까요? 🔊 발음 듣기가 힌트!';
+  fb.innerHTML = '<span style="color:#f59e0b">' + msg + '</span>';
+  if (fbi) fbi.innerHTML = '<div style="color:#fbbf24;font-weight:800;font-size:clamp(17px,2.8vmin,24px)">❌ 아직 아니에요</div>' +
+    '<div style="color:#e2e8f0;font-size:clamp(13px,1.9vmin,18px);margin-top:2px">' + msg + '</div>' +
+    '<button onclick="gameBrickReveal()" style="margin-top:8px;padding:8px 18px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:clamp(13px,1.9vmin,16px);font-weight:700">👀 정답 보기</button>';
+}
+// 👀 정답 공개 — 정답 문장을 초록 벽돌로 완성해 보여주고, 다음 문제 버튼 안내
+function gameBrickReveal(){
+  var st = _gameState.current; if(!st || !st.sentence) return;
+  var sent = st.sentence;
+  st.revealed = true;   // 🚫 공개 후 ✅확인으로 점수 얻는 편법 방지
+  st.picked = sent.words.slice();
+  _brickRedrawBuilt(sent.words.length);   // 전부 초록으로 정답 표시
+  var btns = document.querySelectorAll('.brick-btn');
+  for (var i=0;i<btns.length;i++){ btns[i].disabled = true; btns[i].style.opacity = '0.3'; }
+  var goBtn = document.querySelector('.brick-go');   // ✅확인 비활성 (재도전은 '다시'로)
+  if (goBtn){ goBtn.disabled = true; goBtn.style.opacity = '0.4'; goBtn.style.cursor = 'default'; }
+  var fbi = document.getElementById('brick-fb');
+  if (fbi) fbi.innerHTML = '<div style="color:#34d399;font-weight:800;font-size:clamp(16px,2.4vmin,22px)">👀 정답 문장</div>' +
+    '<div style="color:#f8fafc;font-size:clamp(17px,2.6vmin,28px);margin-top:4px">' + sent.words.join(' ') + '</div>' +
+    (sent.ko ? '<div style="color:#94a3b8;font-size:clamp(12px,1.8vmin,16px);margin-top:2px">' + sent.ko + '</div>' : '') +
+    '<button onclick="gameNextRound()" style="margin-top:10px;padding:9px 22px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:clamp(13px,2vmin,17px);font-weight:700">다음 문제 →</button>';
+  try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}   // 정답 읽어주기
 }
 
 /* ============================================================
@@ -1846,7 +1902,7 @@ function gameRenderBalloon(){
       '<div class="gko-txt">' + (_em?_em+' ':'') + word.ko + '</div>' +
       '<div style="margin-top:10px"><button onclick="gameSpeakAnswer()" class="gko-listen">🔊 발음 듣기</button></div>' +
     '</div>' +
-    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:200px;background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
+    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:300px;background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
   // 🛍️ 선택한 풍선 스킨 색상 적용
   const _pal = _balloonPal();
   const colors = _pal.map(function(hex){ return {bg:'linear-gradient(135deg,'+hex+','+hex+')', shadow:hex+'99', solid:hex}; });
@@ -1860,10 +1916,10 @@ function gameRenderBalloon(){
     const c = colors[i];
     var _bpin = b.pinyin ? '<div class="pinyin" style="font-size:clamp(11px,1.6vmin,15px);color:#e0f2fe;margin-top:2px">' + b.pinyin + '</div>' : '';
     html += '<div class="balloon" data-en="' + b.en + '" data-color="' + c.solid + '" data-spd="' + spd.toFixed(3) + '" onclick="gameBalloonPop(this)" ' +
-      'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;width:clamp(96px,15vmin,168px);height:clamp(116px,18vmin,200px);' +
+      'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;width:clamp(67px,10.5vmin,118px);height:clamp(81px,12.6vmin,140px);' +
       'background:' + c.bg + ';border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;' +
       'box-shadow:0 8px 30px ' + c.shadow + ', inset -10px -10px 30px rgba(0,0,0,0.2);' +
-      'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:clamp(18px,2.6vmin,30px);cursor:pointer;' +
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:clamp(13px,1.9vmin,21px);cursor:pointer;' +
       'transition:transform 0.2s"><div style="text-align:center">' +
       b.en + _bpin + '</div>' +
       '<div style="position:absolute;bottom:-30px;left:50%;width:2px;height:30px;background:rgba(255,255,255,0.3);transform:translateX(-50%)"></div>' +
@@ -2013,7 +2069,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260712045708 -->
+<!-- BUILD:20260712152013 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

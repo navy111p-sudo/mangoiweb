@@ -187,15 +187,62 @@
   // ─────────────────────────────────────────────────────────
   // 📼 녹화 다시 보기 — 로그인 학생의 '가장 최근 수업 녹화'를 바로 재생
   // ─────────────────────────────────────────────────────────
+  // 🔎 로그인 감지 — 이미 홈에서 로그인한 학생을 최대한 폭넓게 인식(재로그인 방지).
+  //   여러 저장키·상위창 헬퍼·URL 파라미터까지 확인한다. (서버는 mango_token 서명으로
+  //   본인만 재생 가능하므로, uid 를 넓게 인식해도 남의 녹화가 노출되지 않는다 — IDOR 안전)
+  function pickUid(o) {
+    if (!o) return null;
+    var id = o.uid || o.id || o.user_id;
+    if (!id) return null;
+    return { uid: String(id), name: String(o.name || o.user_name || o.username || '') };
+  }
+  function readStore(store, key) {
+    try { return JSON.parse((store && store.getItem(key)) || 'null'); } catch (_) { return null; }
+  }
   function studentUid() {
-    var keys = ['mangoi_logged_user', 'mango_user', 'mangoi_user'];
-    for (var i = 0; i < keys.length; i++) {
-      try {
-        var o = JSON.parse(w.localStorage.getItem(keys[i]) || 'null');
-        if (o && (o.uid || o.id || o.user_id)) return { uid: String(o.uid || o.id || o.user_id), name: String(o.name || '') };
-      } catch (_) {}
+    // 1) 표준 사용자 객체 키 (자기 창 + 상위창 저장소 모두)
+    var stores = [];
+    try { stores.push(w.localStorage); } catch (_) {}
+    try { var tw = topWin(); if (tw !== w && tw.localStorage) stores.push(tw.localStorage); } catch (_) {}
+    var keys = ['mangoi_logged_user', 'mango_user', 'mangoi_user', 'currentUser'];
+    for (var s = 0; s < stores.length; s++) {
+      for (var i = 0; i < keys.length; i++) {
+        var hit = pickUid(readStore(stores[s], keys[i]));
+        if (hit) return hit;
+      }
     }
+    // 2) 상위창(index.html 등)의 로그인 헬퍼 / 전역 사용자 객체
+    try { var t = topWin(); var pu = t.getCurrentUser && t.getCurrentUser(); var h1 = pickUid(pu); if (h1) return h1; } catch (_) {}
+    try { var t2 = topWin(); var h2 = pickUid(t2.currentUser); if (h2) return h2; } catch (_) {}
+    // 3) 단일 uid 문자열 키
+    var idKeys = ['mangoi_uid', 'mango_user_id', 'user_id'];
+    for (var j = 0; j < idKeys.length; j++) {
+      for (var s2 = 0; s2 < stores.length; s2++) {
+        var v = null; try { v = stores[s2].getItem(idKeys[j]); } catch (_) {}
+        if (v && v !== 'null' && v !== 'undefined') return { uid: String(v), name: '' };
+      }
+    }
+    // 4) 수업 링크로 진입한 경우 — URL 파라미터의 uid (서버 토큰이 최종 검증)
+    //    ⚠️ 'login' 은 recDoLogin 리다이렉트 플래그(?login=1)와 충돌하므로 uid 후보에서 제외
+    try {
+      var qs = new URLSearchParams(w.location.search);
+      var qu = qs.get('uid') || qs.get('student');
+      if (qu) return { uid: String(qu), name: '' };
+    } catch (_) {}
     return null;
+  }
+
+  // 🔐 본인 인증 토큰 — 자기 창/상위창 localStorage, URL 파라미터에서 두루 찾음
+  function authToken() {
+    var stores = [];
+    try { stores.push(w.localStorage); } catch (_) {}
+    try { var tw = topWin(); if (tw !== w && tw.localStorage) stores.push(tw.localStorage); } catch (_) {}
+    for (var s = 0; s < stores.length; s++) {
+      var t = null; try { t = stores[s].getItem('mango_token'); } catch (_) {}
+      if (t) return t;
+    }
+    try { var q = new URLSearchParams(w.location.search).get('token'); if (q) return q; } catch (_) {}
+    return '';
   }
 
   function recDoc() { return topWin().document; }
@@ -223,27 +270,18 @@
 
   function openLatestRecording() {
     var who = studentUid();
-    if (!who) {
-      recShell(recMsgBox(
-        '<div style="font-size:40px;margin-bottom:8px">🔒</div>' +
-        '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">로그인이 필요해요</div>' +
-        '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">로그인하면 지난 수업 녹화를 볼 수 있어요.</div>' +
-        '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>'
-      ));
-      bindRecButtons();
-      return;
-    }
+    if (!who) { recShowLoginNeeded(); return; }
     recShell(recMsgBox(
       '<div style="font-size:38px;margin-bottom:10px">📼</div>' +
       '<div style="font-size:15px;font-weight:700;color:#e2e8f0">최근 수업 녹화를 불러오는 중…</div>'
     ));
-    var tried = {};
-    var _tok = ''; try { _tok = localStorage.getItem('mango_token') || ''; } catch (e) {}
+    var tried = {}, authFail = false;
+    var _tok = authToken();
     function query(q) {
       tried[q] = 1;
-      return fetch('/api/student/recordings?limit=1&uid=' + encodeURIComponent(q) + (_tok ? '&token=' + encodeURIComponent(_tok) : ''))  // 🔐 본인 인증
-        .then(function (r) { return r.json(); })
-        .then(function (d2) { return (d2 && (d2.rows || d2.recordings)) || []; })
+      return fetch('/api/student/recordings?limit=1&uid=' + encodeURIComponent(q) + (_tok ? '&token=' + encodeURIComponent(_tok) : ''), { credentials: 'include' })  // 🔐 본인 인증
+        .then(function (r) { if (r.status === 401 || r.status === 403) authFail = true; return r.json(); })
+        .then(function (d2) { if (d2 && d2.ok === false && /auth/i.test(String(d2.error || ''))) authFail = true; return (d2 && (d2.rows || d2.recordings)) || []; })
         .catch(function () { return []; });
     }
     query(who.uid).then(function (rows) {
@@ -251,9 +289,35 @@
       return rows;
     }).then(function (rows) {
       var rec = (rows && rows.length) ? rows[0] : null;
-      if (!rec || !rec.url) { recShowEmpty(); return; }
+      if (!rec || !rec.url) { authFail ? recShowLoginNeeded() : recShowEmpty(); return; }
       recShowPlayer(rec);
-    }).catch(function () { recShowEmpty(); });
+    }).catch(function () { authFail ? recShowLoginNeeded() : recShowEmpty(); });
+  }
+
+  // 🔒 로그인/본인 인증이 필요할 때 — '닫기'만 주지 말고 바로 로그인할 수 있게 버튼 제공
+  function recShowLoginNeeded() {
+    recShell(recMsgBox(
+      '<div style="font-size:40px;margin-bottom:8px">🔒</div>' +
+      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">로그인이 필요해요</div>' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">녹화는 본인 확인 후에만 볼 수 있어요.<br>로그인하면 지난 수업 녹화를 바로 볼 수 있어요.</div>' +
+      '<div style="display:flex;gap:8px;justify-content:center">' +
+        '<button data-rec-login style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:800;cursor:pointer">로그인하기</button>' +
+        '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>' +
+      '</div>'
+    ));
+    bindRecButtons();
+  }
+
+  // 로그인 실행 — 상위창(index.html)의 로그인 모달이 있으면 그걸 열고, 없으면 홈으로 이동(로그인 후 되돌아옴)
+  function recDoLogin() {
+    var back = '';
+    try { back = w.location.pathname + w.location.search; } catch (_) {}
+    try {
+      var t = topWin();
+      if (t.openLoginModal) { recClose(); t.openLoginModal(); return; }
+      if (t !== w && t.MangoFlow) { /* 상위창에도 없으면 아래 이동 */ }
+    } catch (_) {}
+    nav('/?login=1' + (back ? '&next=' + encodeURIComponent(back) : ''));
   }
 
   function recShowEmpty() {
@@ -288,6 +352,9 @@
     if (!ov) return;
     [].forEach.call(ov.querySelectorAll('[data-rec-close]'), function (b) {
       b.addEventListener('click', recClose);
+    });
+    [].forEach.call(ov.querySelectorAll('[data-rec-login]'), function (b) {
+      b.addEventListener('click', recDoLogin);
     });
   }
 

@@ -10740,7 +10740,7 @@ LIMIT $limit`;
       // 🔔 알림은 모두 best-effort — 실패해도 신청 자체는 성공 처리
       // 1) 신청자 "접수" 안내 — 담당 교사는 수락 후 확정 통보(과잉 약속 방지). 교사명은 아직 안 넣는다.
       if (phone) {
-        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.\n문의: pf.kakao.com/_mangoi`;
+        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.\n문의: pf.kakao.com/_xlqnSxd`;
         try { await sendPlainSms(env, phone, smsText); }
         catch (e: any) { console.warn('[leveltest] applicant receipt skipped:', e?.message || e); }
       }
@@ -10837,7 +10837,7 @@ LIMIT $limit`;
         }
         const tLabel = app.assigned_teacher || '담당 선생님';
         if (app.phone) {
-          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}\n예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다.\n문의: pf.kakao.com/_mangoi`;
+          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}\n예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다.\n문의: pf.kakao.com/_xlqnSxd`;
           try {
             const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
             if (tmpl) {

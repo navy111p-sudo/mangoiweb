@@ -332,7 +332,7 @@
     // 🗣️ 수업 전 AI 웜업 — 새 탭으로 warmup.html 열기(수업 통화는 그대로 유지).
     //   현재 수업방 이름(room)과 교재 파일명(unit)을 얻을 수 있으면 파라미터로 넘긴다.
     bWarm.onclick = function(){ if(isCL())showHint('웜업'); closeSettings(); window.open('/warmup.html'+warmupParams(),'_blank','noopener'); }; // 외부 페이지: 지연 없이 즉시(팝업차단 방지)
-    bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings(); window.open('https://pf.kakao.com/_mangoi/chat','_blank','noopener'); }; // 외부 링크: 지연 없이 즉시(팝업차단 방지)
+    bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings(); window.open('https://pf.kakao.com/_xlqnSxd/chat','_blank','noopener'); }; // 외부 링크: 지연 없이 즉시(팝업차단 방지)
     bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
     bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
 

@@ -25,7 +25,7 @@
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
-    'points-shop':'/streak.html','mypoints':'/streak.html','checkin':'/streak.html',
+    'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
     'leaderboard':'/streak.html','push-subscribe':'/'
   };
   var CAT_NAMES = {'all':'전체','learn':'학습 시작','ai':'AI 도구','class':'수업·평가','reward':'포인트·이벤트','parent':'학부모·소통','tools':'도움말·기타'};
@@ -92,6 +92,10 @@
 
         var a = document.createElement('a');
         a.href = url;
+        // 🎁 포인트상점/내포인트는 홈에서 바로 모달로 (리로드 없이)
+        if ((go === 'points-shop' || go === 'mypoints') && typeof window.showPointsShop === 'function') {
+          a.addEventListener('click', function(ev){ ev.preventDefault(); closeCat14(); window.showPointsShop(); });
+        }
         a.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:#1E293B;border:1px solid #60A5FA;border-radius:12px;color:#fff;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700';
         a.textContent = name;
         grid.appendChild(a);
@@ -15640,7 +15644,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="/js/idx-ai-home.js?v=7"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) -->
 
 <!-- 💬 신규상담 모달 (2026-05-03 추가) -->
-<div id="inquiry-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);align-items:center;justify-content:center;animation:fadeIn 0.25s">
+<div id="inquiry-modal" style="display:none;position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);align-items:center;justify-content:center;animation:fadeIn 0.25s">
   <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:32px;max-width:480px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px -16px rgba(0,0,0,0.8);position:relative">
     <button id="inquiry-close" style="position:absolute;top:14px;right:14px;background:transparent;border:0;color:#94a3b8;font-size:22px;cursor:pointer">✕</button>
     <h2 style="color:#fbbf24;font-size:22px;margin:0 0 6px;font-weight:800">💬 상담 신청 (카톡·이메일)</h2>
@@ -16759,7 +16763,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script src="/js/idx-grid-menu.js?v=5"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/idx-grid-menu.js?v=6"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -17808,6 +17812,19 @@ window.addEventListener('DOMContentLoaded', () => {
     // 🆕 안내 음성 자동 재생
     setTimeout(playPointsGreeting, 200);
   };
+
+  // 🎁 다른 페이지/카테고리 그리드에서 "포인트상점"을 누르면 /?shop=1 로 홈에 온다 → 자동으로 상점 모달 열기
+  //    (예전엔 /streak.html 리더보드로 잘못 이동했음. 상점=상품 교환 모달이 정본)
+  (function _psAutoOpenFromQuery(){
+    try {
+      var _q = new URLSearchParams(location.search);
+      if (_q.get('shop') === '1' || _q.get('menu') === 'points-shop' || _q.get('menu') === 'mypoints') {
+        var _open = function(){ if (typeof window.showPointsShop === 'function') window.showPointsShop(); else setTimeout(_open, 300); };
+        if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(_open, 400);
+        else document.addEventListener('DOMContentLoaded', function(){ setTimeout(_open, 400); });
+      }
+    } catch(e){}
+  })();
   window.psToggleAudio = function(){
     if (pointsAudio && !pointsAudio.paused) stopPointsGreeting();
     else playPointsGreeting();
@@ -23739,7 +23756,7 @@ window.addEventListener('DOMContentLoaded', () => {
   #ph49-kakao-fab .ph49-kakao-label { display:none !important; }
 </style>
 <a class="ph49-kakao-fab" id="ph49-kakao-fab"
-   href="https://pf.kakao.com/_mangoi/chat" target="_blank" rel="noopener"
+   href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener"
    onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
    title="카카오 상담" aria-label="상담">
   <span class="ph49-kakao-ico">&#128172;</span><span class="ph49-kakao-intext" data-ko="상담" data-en="Consult">상담</span>
@@ -24739,7 +24756,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712045708 -->
+<!-- BUILD:20260712152013 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -24982,7 +24999,7 @@ document.addEventListener('keydown', function(e){
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
-    'points-shop':'/streak.html','mypoints':'/streak.html','checkin':'/streak.html',
+    'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
     'leaderboard':'/streak.html','push-subscribe':'/'
   };
 
@@ -25062,6 +25079,10 @@ document.addEventListener('keydown', function(e){
 
         var a = document.createElement('a');
         a.href = url;
+        // 🎁 포인트상점/내포인트는 홈에서 바로 모달로 (리로드 없이)
+        if ((go === 'points-shop' || go === 'mypoints') && typeof window.showPointsShop === 'function') {
+          a.addEventListener('click', function(ev){ ev.preventDefault(); closeCatV10(); window.showPointsShop(); });
+        }
         a.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s';
         a.onmouseenter = function(){
           this.style.background = 'rgba(37,99,235,0.5)';
@@ -25115,7 +25136,7 @@ document.addEventListener('keydown', function(e){
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
-    'points-shop':'/streak.html','mypoints':'/streak.html','checkin':'/streak.html',
+    'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
     'leaderboard':'/streak.html','push-subscribe':'/'
   };
 
@@ -25187,6 +25208,10 @@ document.addEventListener('keydown', function(e){
 
         var a = document.createElement('a');
         a.href = url;
+        // 🎁 포인트상점/내포인트는 홈에서 바로 모달로 (리로드 없이)
+        if ((go === 'points-shop' || go === 'mypoints') && typeof window.showPointsShop === 'function') {
+          a.addEventListener('click', function(ev){ ev.preventDefault(); closeCatV11(); window.showPointsShop(); });
+        }
         a.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 12px;background:rgba(30,41,59,0.9);border:1px solid rgba(96,165,250,0.5);border-radius:12px;color:#F8FAFC;text-decoration:none;min-height:100px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s';
         a.addEventListener('mouseenter', function(){
           this.style.background = 'rgba(37,99,235,0.5)';
@@ -25498,7 +25523,7 @@ document.addEventListener('keydown', function(e){
     // 💬 좌하단 카카오 상담 (작은 이모지)
     (function(){
       var kb = document.createElement('a');
-      kb.href='https://pf.kakao.com/_mangoi/chat'; kb.target='_blank'; kb.rel='noopener';
+      kb.href='https://pf.kakao.com/_xlqnSxd/chat'; kb.target='_blank'; kb.rel='noopener';
       kb.title='카카오톡 상담'; kb.setAttribute('aria-label','카카오 상담'); kb.textContent='💬';
       kb.style.cssText='position:fixed;left:16px;bottom:16px;z-index:6;width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;display:flex;align-items:center;justify-content:center;font-size:22px;text-decoration:none;box-shadow:0 8px 20px -4px rgba(254,229,0,.55)';
       kb.addEventListener('click', function(e){ e.stopPropagation(); });
@@ -27896,7 +27921,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   #mg-fab .mg-ic{font-size:24px;line-height:1;font-weight:700;text-shadow:0 0 8px rgba(251,191,36,.85);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
   #mg-fab-wrap.open #mg-fab .mg-ic{transform:rotate(135deg)}
   /* 펼침 메뉴 = '+' 바로 위로 절대배치(접혔을 땐 공간 차지 안 함 → wrap 은 '+' 크기 유지) */
-  .mg-fab-items{position:absolute;left:0;bottom:calc(100% + 12px);display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+  /* 컨테이너 자체는 클릭 통과(pointer-events:none) — 접혔을 때 이 투명 박스가 다른 화면(예: 신규상담 모달의 '취소' 버튼) 위를 덮어 클릭을 삼키던 버그 수정. 개별 항목은 펼쳤을 때 pointer-events:auto 로 다시 켜짐. (2026-07-12) */
+  .mg-fab-items{position:absolute;left:0;bottom:calc(100% + 12px);display:flex;flex-direction:column;align-items:flex-start;gap:12px;pointer-events:none}
   .mg-fab-item{display:flex;flex-direction:row;align-items:center;gap:9px;opacity:0;transform:translateY(12px) scale(.8);
     pointer-events:none;transition:opacity .22s,transform .3s cubic-bezier(.34,1.56,.64,1)}
   #mg-fab-wrap.open .mg-fab-item{opacity:1;transform:none;pointer-events:auto}
@@ -27987,7 +28013,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     if(a==='kakao'){
       if(window.gridActions&&window.gridActions.kakao) return window.gridActions.kakao();
       var k=document.querySelector('.ph49-kakao-fab,#ph49-kakao-fab'); if(k) return k.click();
-      window.open('https://pf.kakao.com/_mangoi/chat','_blank','noopener');
+      window.open('https://pf.kakao.com/_xlqnSxd/chat','_blank','noopener');
     } else if(a==='refresh'){
       if(window.ph52ClearCache) return window.ph52ClearCache();
       var r=document.querySelector('.ph52-cache-fab,#ph52-cache-fab'); if(r) return r.click();
