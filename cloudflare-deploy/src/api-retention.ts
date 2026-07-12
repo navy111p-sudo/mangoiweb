@@ -35,6 +35,8 @@ async function ensureTable(env: any): Promise<void> {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_student_retention_cat ON student_retention(category, days_to_expiry)`).run();
   // 전화번호(만료·휴면 대상만, 카페24에서 복호화되어 들어옴) 칸 추가
   try { await env.DB.prepare(`ALTER TABLE student_retention ADD COLUMN phone TEXT`).run(); } catch (_) {}
+  // 나이(카페24 MemberBirthday로 계산, 개인화 문구용) — 성별은 데이터 신뢰불가라 미사용
+  try { await env.DB.prepare(`ALTER TABLE student_retention ADD COLUMN age INTEGER`).run(); } catch (_) {}
   // 발송 로그 (재발송 방지·감사)
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS retention_messages (
@@ -105,7 +107,18 @@ export async function buildRetentionMessage(env: any, row: any, opts: { link?: s
         '이모지는 0~1개만, 진정성 있게. 문장 끝에 "아래 링크", "링크를 눌러" 같은 말은 넣지 마(링크는 시스템이 따로 붙임).',
         '따옴표로 감싸지 말고 문자 본문만 출력해.',
       ].join(' ');
-      const usr = `학생(아이) 이름: ${name}\n담임 선생님으로서의 상황과 마음: ${guide[cat] || guide.inactive}\n학원 이름: 망고아이`;
+      // 나이대별 말투 힌트 (있을 때만)
+      let ageHint = '';
+      const ag = Number(row.age);
+      if (ag >= 3 && ag <= 100) {
+        let band = '';
+        if (ag <= 7) band = `${ag}살 어린 유아라, 아주 다정하고 사랑스럽게, 아이의 귀여운 성장을 흐뭇해하는 마음으로`;
+        else if (ag <= 10) band = `${ag}살 초등 저학년이라, 따뜻하고 격려하는 말투로, 아이가 재밌게 배우는 모습을 칭찬하며`;
+        else if (ag <= 13) band = `${ag}살 초등 고학년이라, 아이의 노력을 인정하고 자신감을 북돋우는 말투로`;
+        else band = `${ag}살 청소년이라, 아이를 한 사람으로 존중하면서도 따뜻하게, 학습 부담에 공감하며`;
+        ageHint = `\n아이 나이: ${band} 써줘.`;
+      }
+      const usr = `학생(아이) 이름: ${name}\n담임 선생님으로서의 상황과 마음: ${guide[cat] || guide.inactive}${ageHint}\n학원 이름: 망고아이`;
       const res: any = await env.AI.run(AI_MODEL, { messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }], max_tokens: 320, temperature: 0.8 });
       ai = String(res?.response || '').trim().replace(/^["'\s]+|["'\s]+$/g, '');
     }
@@ -156,16 +169,18 @@ export async function handleRetentionIngest(request: Request, url: URL, env: any
       // 전화번호 정규화 (숫자만, 010… 형태). 없으면 null.
       const phoneRaw = String(r.phone || '').replace(/[^0-9]/g, '');
       const phone = (phoneRaw.length >= 9 && phoneRaw.length <= 12) ? phoneRaw : null;
+      const ageN = Number(r.age);
+      const age = (ageN >= 3 && ageN <= 100) ? Math.round(ageN) : null;
       await env.DB.prepare(
-        `INSERT INTO student_retention (user_id, member_id, start_date, end_date, last_class, days_inactive, days_to_expiry, category, phone, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO student_retention (user_id, member_id, start_date, end_date, last_class, days_inactive, days_to_expiry, category, phone, age, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_id) DO UPDATE SET
            member_id=excluded.member_id, start_date=excluded.start_date, end_date=excluded.end_date,
            last_class=excluded.last_class, days_inactive=excluded.days_inactive, days_to_expiry=excluded.days_to_expiry,
-           category=excluded.category, phone=excluded.phone, updated_at=excluded.updated_at`
+           category=excluded.category, phone=excluded.phone, age=excluded.age, updated_at=excluded.updated_at`
       ).bind(uid, Number(r.member_id) || null, r.start_date || null, r.end_date || null, r.last_class || null,
         r.days_inactive == null ? null : Number(r.days_inactive), r.days_to_expiry == null ? null : Number(r.days_to_expiry),
-        String(r.category || 'inactive'), phone, now).run();
+        String(r.category || 'inactive'), phone, age, now).run();
       upserted++;
     } catch (_) {}
   }
@@ -236,7 +251,7 @@ export async function sendRetentionMessages(env: any, userIds: string[], opts: {
   for (const uid of userIds) {
     if (budget <= 0) { results.push({ user_id: uid, status: 'skipped', reason: 'daily_cap' }); continue; }
     const row: any = await env.DB.prepare(
-      `SELECT r.user_id, r.category, r.phone, s.korean_name AS name
+      `SELECT r.user_id, r.category, r.phone, r.age, s.korean_name AS name
        FROM student_retention r LEFT JOIN students_erp s ON s.user_id=r.user_id WHERE r.user_id=?`
     ).bind(uid).first();
     if (!row) { results.push({ user_id: uid, status: 'skipped', reason: 'not_found' }); continue; }
