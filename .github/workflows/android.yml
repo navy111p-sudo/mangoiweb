@@ -75,7 +75,22 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ci-build.log dist cloudflare-deploy/public/app-version.json cloudflare-deploy/public/downloads 2>/dev/null || true
           git commit -m "ci: publish build results + APK auto-update manifest [skip ci]" || echo "nothing to commit"
-          git push origin HEAD:main
+          # 자동배포 워처가 main 을 빠르게 밀어올리므로 rebase 없는 push 는 거부되기 쉽다.
+          # fetch→rebase→push 를 재시도해 CI 결과(APK+매니페스트)가 확실히 안착하게 한다.
+          # 충돌 가능 파일은 CI 가 생성한 app-version.json 뿐 → 그럴 땐 항상 우리(CI) 버전 채택.
+          pushed=0
+          for attempt in $(seq 1 6); do
+            git fetch origin main
+            if git rebase origin/main; then
+              if git push origin HEAD:main; then pushed=1; break; fi
+            else
+              git checkout --ours cloudflare-deploy/public/app-version.json 2>/dev/null || true
+              git add -A
+              GIT_EDITOR=true git rebase --continue || git rebase --abort
+            fi
+            sleep $((attempt * 4))
+          done
+          if [ "$pushed" != "1" ]; then echo "::error::CI push to main failed after retries"; exit 1; fi
 
       - name: Upload APK artifact
         if: steps.build.outcome == 'success'
