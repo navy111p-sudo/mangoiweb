@@ -5,8 +5,8 @@ Daemon will be stopped at the end of the build
 > Task :app:generateReleaseBuildConfig
 > Task :app:javaPreCompileRelease
 > Task :app:generateReleaseResValues
-> Task :app:mapReleaseSourceSetPaths
 > Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
 > Task :app:generateReleaseResources
 > Task :app:packageReleaseResources
 > Task :app:createReleaseCompatibleScreenManifests
@@ -25,6 +25,7 @@ Daemon will be stopped at the end of the build
 > Task :app:mergeReleaseStartupProfile
 > Task :app:checkReleaseDuplicateClasses
 > Task :app:mergeReleaseArtProfile
+> Task :app:processReleaseManifestForPackage
 > Task :app:mergeReleaseShaders
 > Task :app:compileReleaseShaders NO-SOURCE
 > Task :app:generateReleaseAssets UP-TO-DATE
@@ -32,19 +33,18 @@ Daemon will be stopped at the end of the build
 > Task :app:compressReleaseAssets
 > Task :app:extractReleaseVersionControlInfo
 > Task :app:processReleaseJavaRes NO-SOURCE
-> Task :app:processReleaseManifestForPackage
 > Task :app:collectReleaseDependencies
-> Task :app:sdkReleaseDependencyData
-> Task :app:validateSigningRelease
-> Task :app:writeReleaseAppMetadata
 > Task :app:processReleaseResources
-> Task :app:writeReleaseSigningConfigVersions
+> Task :app:sdkReleaseDependencyData
 > Task :app:mergeReleaseJavaResource
 > Task :app:mergeExtDexRelease
 > Task :app:compileReleaseJavaWithJavac
 > Task :app:generateReleaseLintVitalReportModel
 > Task :app:dexBuilderRelease
 > Task :app:mergeReleaseGlobalSynthetics
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
 > Task :app:optimizeReleaseResources
 > Task :app:mergeDexRelease
 > Task :app:compileReleaseArtProfile
@@ -54,11 +54,11 @@ Daemon will be stopped at the end of the build
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1783839602923.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1783841670053.json
 
-BUILD SUCCESSFUL in 29s
+BUILD SUCCESSFUL in 26s
 44 actionable tasks: 44 executed
 
 BUILD_OUTCOME=success
 APK committed to dist/mangoi-test-signed.apk
-app-version.json 생성: versionCode=5 versionName=1.4
+app-version.json 생성: versionCode=6 versionName=1.5
