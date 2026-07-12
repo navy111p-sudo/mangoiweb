@@ -24968,7 +24968,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712195023 -->
+<!-- BUILD:20260712195913 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27168,7 +27168,10 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call #vc-main-row.video-facepip .content-pane .tab-content { display: none !important; }
     body.vc-in-call #vc-main-row.video-facepip .video-pane {
       position: static !important; order: 1 !important;
-      width: 100% !important; max-width: none !important;
+      /* 🔧 (2026-07-12) min-width:100% + align-self:stretch 필수.
+         실운영(시그널링/피어 연결 상태)에서 flex 가 width:100% 를 main축 basis 로 취급해
+         영상 패널을 콘텐츠 폭(≈38vw)까지 줄여 '세로로 좁은 띠'가 되던 버그 → 폭 하한을 100%로 못박음. */
+      width: 100% !important; min-width: 100% !important; max-width: none !important; align-self: stretch !important;
       height: auto !important; max-height: none !important; min-height: 0 !important;
       flex: 1 1 auto !important; padding: 2px !important;
     }
