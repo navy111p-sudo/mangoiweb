@@ -24976,7 +24976,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712223658 -->
+<!-- BUILD:20260712224142 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27232,27 +27232,52 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call .vc-phero-ctrl { display: flex !important; }
   }
 
-  /* 세로 전용 컨트롤 — 기본 숨김, 세로+통화중에만 위 미디어쿼리로 노출 */
+  /* 세로 전용 컨트롤 — 기본 숨김, 세로+통화중에만 위 미디어쿼리로 노출.
+     (2026-07-12) 스왑·내얼굴은 ☰ 기능 메뉴 안으로 이동 → FAB 엔 '기능' 버튼 하나만.
+     사장님 요청: 조금 아래로 + 반투명 유리 느낌. */
   .vc-phero-ctrl {
     display: none;
-    position: fixed; right: 10px; bottom: 96px; z-index: 99998;
+    position: fixed; right: 10px; bottom: 58px; z-index: 99998;
     flex-direction: column; gap: 8px; align-items: flex-end;
   }
   .vc-phero-ctrl button {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 10px 14px; border-radius: 22px; border: none; cursor: pointer;
     font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap;
-    box-shadow: 0 4px 14px rgba(0,0,0,.45); -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35); -webkit-tap-highlight-color: transparent;
   }
-  .vc-phero-ctrl .vc-phero-menu-btn { background: linear-gradient(135deg,#f59e0b,#f97316); font-size: 15px; padding: 12px 16px; }
-  .vc-phero-ctrl .vc-phero-swap { background: linear-gradient(135deg,#3b82f6,#6366f1); }
-  .vc-phero-ctrl .vc-phero-self-btn { background: rgba(30,41,59,.92); font-size: 12px; padding: 8px 12px; }
+  /* ☰ 기능 — 반투명 유리 버튼 */
+  .vc-phero-ctrl .vc-phero-menu-btn {
+    background: linear-gradient(135deg, rgba(245,158,11,.55), rgba(249,115,22,.55));
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.28);
+    font-size: 15px; padding: 12px 16px;
+  }
+  /* 메뉴 열리면(=✕ 닫기 상태) 조금 더 진하게 하여 눈에 띄게 */
+  body.vc-phero-menu-open .vc-phero-ctrl .vc-phero-menu-btn {
+    background: linear-gradient(135deg, rgba(245,158,11,.9), rgba(249,115,22,.9));
+  }
   /* ☰ 메뉴 배경 딤(탭하면 닫힘) */
   .vc-phero-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99994; }
   body.vc-phero-menu-open .vc-phero-backdrop { display: block; }
-  /* 메뉴가 열리면 스왑·내얼굴 버튼은 숨겨 메뉴 버튼과 겹침 방지 (☰/✕ 만 남김) */
-  body.vc-phero-menu-open .vc-phero-ctrl .vc-phero-swap,
-  body.vc-phero-menu-open .vc-phero-ctrl .vc-phero-self-btn { display: none !important; }
+
+  /* 기능 메뉴 전용 항목(교재 크게 스왑 / 내 얼굴 토글) — 평소 숨김, ☰ 메뉴 열릴 때만
+     그리드 버튼으로 노출. 스왑=파랑, 내얼굴=슬레이트 로 색 구분. */
+  .vc-phero-menu-item { display: none !important; }
+  body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .vc-phero-menu-item {
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    font-size: 15px !important; font-weight: 700 !important; line-height: 1.25 !important;
+    padding: 18px 8px !important; margin: 0 !important; border-radius: 14px !important;
+    min-height: 64px !important; white-space: normal !important;
+  }
+  body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .vc-phero-menu-item.vc-phero-swap {
+    background: rgba(59,130,246,.18) !important; color: #bfdbfe !important;
+    border: 1px solid rgba(96,165,250,.5) !important;
+  }
+  body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .vc-phero-menu-item.vc-phero-self-btn {
+    background: rgba(100,116,139,.22) !important; color: #e2e8f0 !important;
+    border: 1px solid rgba(148,163,184,.5) !important;
+  }
 </style>
 <script>
 (function(){
@@ -27277,6 +27302,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     var r = row(); if(!r || typeof window.vcScreenSet !== 'function') return;
     window.vcScreenSet(r.classList.contains('video-facepip') ? 'pip' : 'facepip');
     window.vcUpdatePheroLabels();
+    try { window.closePheroMenu(); } catch(e){}  // 메뉴 안 항목이므로 누르면 닫아 결과를 바로 보이게
   };
 
   // 👁 내(선생님) 얼굴 작게 보기/숨기기
@@ -27284,11 +27310,16 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     var on = document.body.classList.toggle('vc-phero-self');
     var b = document.getElementById('vc-phero-self-btn');
     if(b) b.innerHTML = on ? '🙈 <span>내 얼굴</span>' : '👁 <span>내 얼굴</span>';
+    try { window.closePheroMenu(); } catch(e){}  // 메뉴 안 항목이므로 누르면 닫아 결과를 바로 보이게
   };
 
   // ☰ 기능 메뉴 열기/닫기 (모든 기능·게임 버튼을 큰 그리드로 펼침)
   window.closePheroMenu = function(){ document.body.classList.remove('vc-phero-menu-open'); syncMenuBtn(); };
-  window.vcTogglePheroMenu = function(){ document.body.classList.toggle('vc-phero-menu-open'); syncMenuBtn(); };
+  window.vcTogglePheroMenu = function(){
+    try { ensurePheroMenuItems(); } catch(e){}  // 탭바가 늦게 그려져도 열기 직전 스왑·내얼굴 항목 보장
+    document.body.classList.toggle('vc-phero-menu-open');
+    syncMenuBtn();
+  };
   function syncMenuBtn(){
     var b = document.getElementById('vc-phero-menu-btn');
     if(!b) return;
@@ -27319,14 +27350,42 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       bd.addEventListener('click', function(){ window.closePheroMenu(); });
       document.body.appendChild(bd);
     }
-    if(document.getElementById('vc-phero-ctrl')) return;
-    var wrap = document.createElement('div');
-    wrap.className = 'vc-phero-ctrl'; wrap.id = 'vc-phero-ctrl';
-    wrap.innerHTML =
-      '<button class="vc-phero-menu-btn" id="vc-phero-menu-btn" type="button" onclick="vcTogglePheroMenu()" title="모든 기능·게임 메뉴 열기">☰ <span>기능</span></button>' +
-      '<button class="vc-phero-swap" id="vc-phero-swap" type="button" onclick="vcPortraitSwap()" title="교재 크게 ↔ 학생 얼굴 크게">🧑‍🎓 <span>학생 크게</span></button>' +
-      '<button class="vc-phero-self-btn" id="vc-phero-self-btn" type="button" onclick="vcTogglePheroSelf()" title="내(선생님) 얼굴 작게 보기/숨기기">👁 <span>내 얼굴</span></button>';
-    document.body.appendChild(wrap);
+    if(!document.getElementById('vc-phero-ctrl')){
+      var wrap = document.createElement('div');
+      wrap.className = 'vc-phero-ctrl'; wrap.id = 'vc-phero-ctrl';
+      // FAB 엔 '☰ 기능' 버튼 하나만 (교재 크게·내 얼굴은 메뉴 안으로 이동).
+      wrap.innerHTML =
+        '<button class="vc-phero-menu-btn" id="vc-phero-menu-btn" type="button" onclick="vcTogglePheroMenu()" title="모든 기능·게임 메뉴 열기">☰ <span>기능</span></button>';
+      document.body.appendChild(wrap);
+    }
+    ensurePheroMenuItems();
+  }
+
+  // 교재 크게 스왑 / 내 얼굴 토글 버튼을 ☰ 기능 메뉴(=탭바 그리드) 안에 주입.
+  // 평소엔 .vc-phero-menu-item CSS 로 숨고, 메뉴 열릴 때만 그리드 버튼으로 노출된다.
+  function ensurePheroMenuItems(){
+    var tb = document.querySelector('#vc-main-row .content-pane .tab-bar');
+    if(!tb) return;
+    var sw = document.getElementById('vc-phero-swap');
+    if(!sw){
+      sw = document.createElement('button');
+      sw.type = 'button'; sw.id = 'vc-phero-swap';
+      sw.className = 'vc-phero-menu-item vc-phero-swap';
+      sw.setAttribute('onclick', 'vcPortraitSwap()');
+      sw.setAttribute('title', '교재 크게 ↔ 학생 얼굴 크게');
+      sw.innerHTML = '🧑‍🎓 <span>학생 크게</span>';
+      tb.appendChild(sw);
+    }
+    var sf = document.getElementById('vc-phero-self-btn');
+    if(!sf){
+      sf = document.createElement('button');
+      sf.type = 'button'; sf.id = 'vc-phero-self-btn';
+      sf.className = 'vc-phero-menu-item vc-phero-self-btn';
+      sf.setAttribute('onclick', 'vcTogglePheroSelf()');
+      sf.setAttribute('title', '내(선생님) 얼굴 작게 보기/숨기기');
+      sf.innerHTML = '👁 <span>내 얼굴</span>';
+      tb.appendChild(sf);
+    }
   }
 
   // facepip(학생 크게)에서 기능 탭을 누르면 자동으로 pip(교재 크게)로 전환 → 내용 크게 보임.
@@ -27370,9 +27429,11 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     injectCtrl();
     wrapContentTab();
     wrapToolDock();
-    // mango-tools-dock.js 가 늦게 로드될 수 있어 재시도
+    // mango-tools-dock.js / 탭바 가 늦게 로드될 수 있어 재시도
     setTimeout(wrapToolDock, 800);
     setTimeout(wrapToolDock, 2000);
+    setTimeout(ensurePheroMenuItems, 800);
+    setTimeout(ensurePheroMenuItems, 2000);
     // 통화 시작(vc-in-call) 감지 → 세로면 기본 적용, 통화 종료 시 리셋
     try {
       new MutationObserver(function(){

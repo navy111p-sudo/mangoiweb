@@ -16,6 +16,22 @@
   .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:clamp(34px,5vw,48px);letter-spacing:1px;display:block}
   .sub{color:#a3b3d1;font-size:14.5px;margin-top:6px}
 
+  /* ── 사용법 안내 (접이식) ── */
+  .howto{background:linear-gradient(135deg,rgba(79,124,255,0.14),rgba(20,41,80,0.85));border:1px solid rgba(79,124,255,0.28);border-radius:18px;margin-bottom:14px;overflow:hidden;box-shadow:0 12px 30px -20px rgba(0,0,0,0.5)}
+  .howto>summary{list-style:none;cursor:pointer;padding:15px 20px;display:flex;align-items:center;gap:10px;font-weight:900;font-size:16px;color:#fff;user-select:none}
+  .howto>summary::-webkit-details-marker{display:none}
+  .howto>summary .chev{margin-left:auto;font-size:14px;color:#a3b3d1;transition:transform .25s}
+  .howto[open]>summary .chev{transform:rotate(90deg)}
+  .howto>summary .badge{font-size:11.5px;font-weight:800;color:#0c1a3a;background:linear-gradient(135deg,#fbbf24,#f59e0b);padding:2px 9px;border-radius:99px}
+  .howto-body{padding:2px 18px 18px}
+  .howto-steps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .howto-step{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:13px 14px}
+  .howto-step .n{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 14px -6px rgba(79,124,255,0.9)}
+  .howto-step .st-t{font-weight:800;font-size:14.5px;color:#fff;margin-bottom:2px}
+  .howto-step .st-d{font-size:13px;color:#a3b3d1;line-height:1.5}
+  .howto-step .st-d b{color:#fbbf24;font-weight:800}
+  .howto-tip{margin-top:12px;font-size:13px;color:#fde68a;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:11px 14px;line-height:1.55}
+
   /* ── 상단 게임 대시보드: 망고 성장(히어로) + 스트릭·미션·포인트·수집 ── */
   .dash{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;background:linear-gradient(135deg,rgba(79,124,255,0.18),rgba(20,41,80,0.92));border:1px solid rgba(79,124,255,0.30);border-radius:20px;padding:18px 20px;margin-bottom:14px;box-shadow:0 14px 34px -18px rgba(0,0,0,0.55)}
   .mango-pod{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:118px;cursor:pointer;user-select:none}
@@ -206,6 +222,49 @@
     <span class="brand-logo">📚 My Vocab</span>
     <div class="sub" data-ko="단어를 모아 골드 카드로 키우고, 복습 게임으로 포인트를 모아요!" data-en="Collect words, level them into gold cards, and earn points with review games!">단어를 모아 골드 카드로 키우고, 복습 게임으로 포인트를 모아요!</div>
   </div>
+
+  <!-- 사용법 안내 (접이식) -->
+  <details class="howto" id="howto" open>
+    <summary>
+      <span>📘</span>
+      <span data-ko="마이 단어장, 이렇게 써요" data-en="How to use My Vocab">마이 단어장, 이렇게 써요</span>
+      <span class="badge" data-ko="30초 가이드" data-en="30-sec guide">30초 가이드</span>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="howto-body">
+      <div class="howto-steps">
+        <div class="howto-step">
+          <div class="n">1</div>
+          <div>
+            <div class="st-t">✏️ <span data-ko="단어를 담아요" data-en="Add a word">단어를 담아요</span></div>
+            <div class="st-d" data-ko="‘단어 추가’ 탭에서 <b>영어 단어만</b> 넣으면 AI가 한국어 뜻과 예문을 자동으로 만들어 줘요. 수업·교재에서 만난 단어를 바로 담아 두세요." data-en="In the ‘Add Word’ tab, just type <b>an English word</b> — AI fills in the Korean meaning and an example. Drop in words from class or your textbook.">‘단어 추가’ 탭에서 <b>영어 단어만</b> 넣으면 AI가 한국어 뜻과 예문을 자동으로 만들어 줘요. 수업·교재에서 만난 단어를 바로 담아 두세요.</div>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="n">2</div>
+          <div>
+            <div class="st-t">🎮 <span data-ko="복습 게임으로 외워요" data-en="Review with games">복습 게임으로 외워요</span></div>
+            <div class="st-d" data-ko="담은 단어는 <b>딱 외워질 때쯤 다시</b> 나와요(자동 복습). 플래시카드·4지선다·철자 맞히기 등 게임으로 맞힐 때마다 <b>+10P</b>, 연속 정답이면 콤보 보너스!" data-en="Saved words come back <b>right when you’re about to forget</b> (spaced review). Play flashcards, quizzes and spelling — each correct answer is <b>+10P</b>, with combo bonuses!">담은 단어는 <b>딱 외워질 때쯤 다시</b> 나와요(자동 복습). 플래시카드·4지선다·철자 맞히기 등 게임으로 맞힐 때마다 <b>+10P</b>, 연속 정답이면 콤보 보너스!</div>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="n">3</div>
+          <div>
+            <div class="st-t">🎯 <span data-ko="미션·포인트를 모아요" data-en="Hit missions & points">미션·포인트를 모아요</span></div>
+            <div class="st-d" data-ko="하루 <b>10단어 복습</b> 미션을 채우면 <b>+50P</b>, 매일 하면 🔥연속 복습이 쌓여요. 모은 포인트로 <b>주간 랭킹</b>에 도전!" data-en="Finish the daily <b>10-word</b> mission for <b>+50P</b>, and keep a 🔥streak by reviewing every day. Climb the <b>weekly ranking</b> with your points!">하루 <b>10단어 복습</b> 미션을 채우면 <b>+50P</b>, 매일 하면 🔥연속 복습이 쌓여요. 모은 포인트로 <b>주간 랭킹</b>에 도전!</div>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="n">4</div>
+          <div>
+            <div class="st-t">📖 <span data-ko="도감·망고를 키워요" data-en="Grow your collection">도감·망고를 키워요</span></div>
+            <div class="st-d" data-ko="자주 맞힌 단어는 <b>씨앗→실버→골드→마스터</b> 카드로 자라고, 단어 도감이 채워질수록 <b>아기 망고</b>도 무럭무럭 커져요." data-en="Words you nail often level up from <b>seed→silver→gold→master</b> cards, and your <b>baby mango</b> grows as the collection fills up.">자주 맞힌 단어는 <b>씨앗→실버→골드→마스터</b> 카드로 자라고, 단어 도감이 채워질수록 <b>아기 망고</b>도 무럭무럭 커져요.</div>
+          </div>
+        </div>
+      </div>
+      <div class="howto-tip">🔑 <span data-ko="<b>로그인</b>하면 포인트·연속 복습·랭킹·도감이 내 계정에 저장돼요. 로그인 없이도 지금 바로 게임은 즐길 수 있어요!" data-en="<b>Log in</b> to save points, streaks, ranking and your collection to your account. You can still play right now without logging in!"><b>로그인</b>하면 포인트·연속 복습·랭킹·도감이 내 계정에 저장돼요. 로그인 없이도 지금 바로 게임은 즐길 수 있어요!</span></div>
+    </div>
+  </details>
 
   <!-- 게임 대시보드 -->
   <div class="dash" id="dash">
@@ -933,7 +992,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260712223658 -->
+<!-- BUILD:20260712224142 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
