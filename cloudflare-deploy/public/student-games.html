@@ -1661,6 +1661,7 @@ function _brickRedrawBuilt(goodCount){
   });
 }
 function gameBrickCheck(){
+  if(_gameState.current && _gameState.current.revealed) return;   // 🚫 정답 공개된 문제는 채점 안 함
   const sent = _gameState.current.sentence;
   const picked = _gameState.current.picked;
   const target = sent.words;
@@ -2069,7 +2070,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260712152013 -->
+<!-- BUILD:20260712152025 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>
