@@ -225,22 +225,36 @@
         body.home-bright #view-home { background:#cfe8f5; }
         body.home-bright #view-home::before {
             background: url('/img/Gemini_Generated_Image_tpv8d8tpv8d8tpv8.png') center 42% / cover no-repeat;
-            filter: blur(1px) brightness(1.04) saturate(1.05);
-            transform: scale(1.05);
+            /* 배경을 한 발 뒤로: 블러↑·채도/명도 살짝↓ 해서 풍경이 앞 콘텐츠와 경쟁하지 않게 */
+            filter: blur(3px) brightness(0.94) saturate(0.94);
+            transform: scale(1.06);
         }
-        /* 밝은 배경에서는 가장자리만 살짝 눌러 히어로(제목·검색창·버튼)가 또렷하게 */
+        /* 밝은 배경: (1) 히어로(제목·검색창·버튼) 뒤에만 은은한 스포트라이트 그늘로 대비 확보
+           (2) 가장자리는 예쁜 풍경 그대로 — 중앙만 차분하게 눌러 앞이 또렷하게 보이도록 */
         body.home-bright #view-home::after {
             background:
-              radial-gradient(ellipse 80% 64% at 50% 40%,
-                rgba(255,255,255,0.10) 0%,
-                rgba(200,228,245,0.05) 45%,
-                rgba(70,120,175,0.24) 100%),
-              linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 32%);
+              radial-gradient(ellipse 56% 52% at 50% 45%,
+                rgba(8,16,38,0.40) 0%,
+                rgba(8,16,38,0.20) 42%,
+                rgba(8,16,38,0) 70%),
+              radial-gradient(ellipse 92% 82% at 50% 42%,
+                rgba(255,255,255,0.04) 0%,
+                rgba(200,228,245,0.02) 45%,
+                rgba(40,80,135,0.34) 100%),
+              linear-gradient(180deg, rgba(0,0,0,0.14) 0%, rgba(0,0,0,0) 26%);
         }
         /* 밝은 배경 위 골드 제목 가독성 보강 */
         body.home-bright .home-title .ht-glass,
         body.home-bright .home-title .ht-serif {
-            text-shadow: 0 2px 10px rgba(0,0,0,0.35), 0 0 2px rgba(0,0,0,0.25);
+            text-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 3px rgba(0,0,0,0.35);
+        }
+        /* 밝은 배경에서 캐릭터 '번짐' 제거 — 금색·파란 발광 halo(0 0 …)를 빼고
+           또렷한 접지 그림자 하나만 남겨 가장자리를 깔끔하게 (어두운 배경은 기존 발광 유지) */
+        body.home-bright .astronaut-wrap {
+            filter: drop-shadow(0 16px 26px rgba(0,0,0,0.45));
+        }
+        body.home-bright .mango-ufo {
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.45));
         }
         /* 우주 데코 - 떠다니는 행성/은하 (홈 화면 전용, 클릭 차단 없음) */
         .deco-galaxy, .lobby-deco-galaxy { display: none !important; }
@@ -376,13 +390,15 @@
             -webkit-user-drag: none;
         }
         /* ── 멀리서 다가오는 진입 애니메이션 ── */
+        /* filter 는 키프레임에서 제거 — 애니메이션이 filter 를 잡으면 .astronaut-wrap 의
+           접지 그림자/발광 설정(특히 밝은 배경 '번짐 제거')이 덮여버리므로 transform/opacity 만 애니메이션 */
         @keyframes astroApproach {
-            0%   { transform: translate(60vw, -40vh) scale(0.04) rotate(12deg); opacity: 0; filter: blur(2px) brightness(0.6); }
-            8%   { opacity: 0.6; filter: blur(1.2px) brightness(0.75); }
-            22%  { transform: translate(38vw, -22vh) scale(0.18) rotate(7deg); opacity: 0.85; filter: blur(0.6px) brightness(0.9); }
-            45%  { transform: translate(18vw, -8vh) scale(0.42) rotate(3deg); opacity: 1; filter: blur(0) brightness(1); }
+            0%   { transform: translate(60vw, -40vh) scale(0.04) rotate(12deg); opacity: 0; }
+            8%   { opacity: 0.6; }
+            22%  { transform: translate(38vw, -22vh) scale(0.18) rotate(7deg); opacity: 0.85; }
+            45%  { transform: translate(18vw, -8vh) scale(0.42) rotate(3deg); opacity: 1; }
             72%  { transform: translate(4vw, 4vh) scale(0.78) rotate(-2deg); opacity: 1; }
-            100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; filter: blur(0) brightness(1); }
+            100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
         }
         /* ── 자연스러운 무중력 부유 (부드러운 단일 애니메이션) ── */
         @keyframes astroIdle {
@@ -4648,6 +4664,11 @@
       <span id="login-btn-ico" style="display:none">🔑</span>
       <span id="login-btn-label" data-ko="로그인" data-en="Login">로그인</span>
     </button>
+    <!-- 🌤️/🌙 홈 배경 밝게·어둡게 — 로그인 옆 칩 (중앙에서 이동) -->
+    <button id="home-theme-toggle" type="button" class="hero-chip home-theme-chip" onclick="toggleHomeTheme()" title="밝은/어두운 배경 전환">
+      <span id="home-theme-icon">🌙</span>
+      <span id="home-theme-label">어둡게</span>
+    </button>
     <!-- 🎁 Phase RF — 추천 친구 코드 칩 (로그인된 사용자만) -->
     <button id="referral-chip" class="hero-chip" title="추천 코드" style="display:none;background:rgba(168,85,247,0.15);border-color:rgba(168,85,247,0.5);color:#e9d5ff" onclick="showReferralModal()">
       <span data-ko="🎁 추천코드" data-en="🎁 Referral">🎁 추천코드</span>
@@ -4803,9 +4824,9 @@
         box-shadow: 0 10px 28px rgba(0,0,0,0.45),
                     inset 0 1px 0 rgba(255,255,255,0.18);
       }
-      /* 포인트 칩 - 골드 강조 */
+      /* 포인트 칩 - 골드 강조 (배경 토글 칩 자리 확보 위해 왼쪽으로 이동) */
       #points-chip.hero-chip-points{
-        right: 11.5rem;
+        right: 16rem;
         background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.22));
         border-color: rgba(251,191,36,0.55);
         color: #ffe082;
@@ -4816,6 +4837,9 @@
         color: #fff8d6;
       }
       #login-btn.hero-chip{ right: 5.5rem; }
+      /* 🌤️ 배경 밝게/어둡게 토글 칩 — 로그인(5.5rem) 옆, 포인트(16rem)와 EN(1.1rem) 사이 */
+      #home-theme-toggle.home-theme-chip{ right: 10.6rem; color:#fde68a; }
+      #home-theme-toggle.home-theme-chip #home-theme-icon{ font-size:0.95rem; line-height:1; }
       #lang-toggle.hero-chip-lang{ right: 1.1rem; }
       .hero-chip-lang #lang-label{ color:#fde68a; font-weight:800; }
       /* [2026-06-12] 화상통화 로비가 떠 있으면 홈 칩 전부 숨김 — 우상단 두 줄 겹침 방지 */
@@ -4851,11 +4875,19 @@
           padding: 5px 9px;
           font-size: 0.74rem;
         }
+        /* 배경 토글 칩 — 1줄(포인트 옆) 왼쪽에 배치 */
+        #home-theme-toggle.home-theme-chip{
+          right: 5rem !important;
+          top: 0.7rem !important;
+          padding: 4px 9px;
+          font-size: 0.72rem;
+        }
       }
       @media (max-width:380px){
         #login-btn.hero-chip{ right: 4.4rem !important; padding: 4px 8px; font-size: 0.7rem; }
         #lang-toggle.hero-chip-lang{ right: 0.8rem !important; padding: 4px 8px; }
         #points-chip.hero-chip-points{ right: 0.8rem !important; font-size: 0.68rem; padding: 3px 8px; }
+        #home-theme-toggle.home-theme-chip{ right: 4.6rem !important; font-size: 0.66rem; padding: 3px 7px; }
       }
 
       /* 🎁 Phase P3: 포인트 상점 모달 */
@@ -5834,14 +5866,8 @@
           <span data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</span>
         </button>
       </div>
-      <!-- 🌤️/🌙 홈 배경 밝게·어둡게 두 가지 옵션 전환 -->
-      <div style="display:flex;justify-content:center;margin-top:14px;position:relative;z-index:2">
-        <button id="home-theme-toggle" type="button" onclick="toggleHomeTheme()"
-          style="display:inline-flex;align-items:center;gap:7px;padding:6px 15px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.22);color:#fde68a;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 2px 10px rgba(0,0,0,0.3);transition:transform .15s,background .15s">
-          <span id="home-theme-icon">🌙</span>
-          <span id="home-theme-label">어두운 배경</span>
-        </button>
-      </div>
+      <!-- 🌤️/🌙 홈 배경 밝게·어둡게 전환 — 우측 상단 로그인 옆 칩으로 이동(중앙 X) -->
+      <!-- (position:absolute .hero-chip 라서 DOM 위치와 무관하게 우상단에 붙음) -->
       <script>
       (function(){
         function applyHomeTheme(bright){
@@ -5852,8 +5878,8 @@
                  || document.documentElement.getAttribute('data-lang')==='en';
           if(icon) icon.textContent = bright ? '☀️' : '🌙';
           if(label){
-            label.setAttribute('data-ko', bright ? '밝은 배경' : '어두운 배경');
-            label.setAttribute('data-en', bright ? 'Bright background' : 'Dark background');
+            label.setAttribute('data-ko', bright ? '밝게' : '어둡게');
+            label.setAttribute('data-en', bright ? 'Light' : 'Dark');
             label.textContent = en ? label.getAttribute('data-en') : label.getAttribute('data-ko');
           }
         }
@@ -25239,7 +25265,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712233108 -->
+<!-- BUILD:20260712234932 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
