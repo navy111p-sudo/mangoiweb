@@ -158,7 +158,7 @@ ok('lp:desktop right-gap centering', /min-width:1024px/.test(lp612) && /calc\(75
 const lpMain612 = lp612.split('id="screen-main"')[1].split('</section>')[0];
 ok('lp:video moved out of screen-main (fixed가 transform에 안 갇힘)', !lpMain612.includes('guide-video-wrap'));
 ok('lp:video+FAB at body level', lp612.indexOf('id="guide-video-wrap"') > lp612.indexOf('</section>'));
-ok('lp:consult FAB present + kakao link', /id="consult-fab"/.test(lp612) && lp612.includes('pf.kakao.com/_mangoi/chat'));
+ok('lp:consult FAB present + kakao link', /id="consult-fab"/.test(lp612) && lp612.includes('pf.kakao.com/_xlqnSxd/chat'));
 ok('lp:visibility sync on screen change', /function syncVis/.test(lp612) && /gv-hidden/.test(lp612));
 ok('lp:FAB z-index above sticky bar', /\.consult-fab\{[^}]*z-index:70/.test(lp612));
 

@@ -1,22 +1,22 @@
-# Change-set QA report (2026-07-11T19:11:35.071Z)
+# Change-set QA report (2026-07-12T18:17:16.308Z)
 
-PASS=75 FAIL=3
+PASS=78 FAIL=0
 
-FAIL  integrity:cloudflare-deploy/public/index.html delta  — HEAD=27827 WORK=27839 delta=12 (expect 0)
+PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=29125 WORK=29125 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
-FAIL  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=15124 WORK=15126 delta=2 (expect 0)
+PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=15146 WORK=15146 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-FAIL  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=3392 WORK=3395 delta=3 (expect 0)
+PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=3504 WORK=3504 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/index.ts tail  — tail="}"
-PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1750 WORK=1750 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=1 headNet=1 (edits must not change net)
+PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1781 WORK=1781 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
 PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=43483 WORK=43483 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  syntax:cloudflare-deploy/public/index.html  — 67 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/index.html  — 69 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/lesson-postpone-demo.html  — 1 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/admin.html  — 106 inline scripts, 0 errors
 PASS  syntax:mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
