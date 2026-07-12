@@ -349,7 +349,7 @@ function exportPng(){
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 }
 $('#dlHtml').onclick=()=>{
-  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260713000907 -->
+  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260713001830 -->
 </body></html>`;
   const blob=new Blob([html],{type:'text/html'}); const a=document.createElement('a');
   a.download='mangoi-poster.html'; a.href=URL.createObjectURL(blob); a.click(); toast('웹 포스터(HTML)로 저장했습니다 ✅');
@@ -444,6 +444,6 @@ window.addEventListener('load',render);
 render();
 requestAnimationFrame(render);
 </script>
-<!-- BUILD:20260713000907 -->
+<!-- BUILD:20260713001830 -->
 </body>
 </html>
