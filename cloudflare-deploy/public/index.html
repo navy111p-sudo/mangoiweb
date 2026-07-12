@@ -4824,9 +4824,9 @@
         box-shadow: 0 10px 28px rgba(0,0,0,0.45),
                     inset 0 1px 0 rgba(255,255,255,0.18);
       }
-      /* 포인트 칩 - 골드 강조 (배경 토글 칩 자리 확보 위해 왼쪽으로 이동) */
+      /* 포인트 칩 - 골드 강조 (위치는 ph50-chip-row flex가 관리 → 이 right는 ph50 로드 전 잠깐만 유효) */
       #points-chip.hero-chip-points{
-        right: 16rem;
+        right: 11.5rem;
         background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.22));
         border-color: rgba(251,191,36,0.55);
         color: #ffe082;
@@ -4837,8 +4837,9 @@
         color: #fff8d6;
       }
       #login-btn.hero-chip{ right: 5.5rem; }
-      /* 🌤️ 배경 밝게/어둡게 토글 칩 — 로그인(5.5rem) 옆, 포인트(16rem)와 EN(1.1rem) 사이 */
-      #home-theme-toggle.home-theme-chip{ right: 10.6rem; color:#fde68a; }
+      /* 🌤️ 배경 밝게/어둡게 토글 칩 — 실제 위치는 ph50-chip-row(flex, 로그인 바로 왼쪽)가 관리.
+         아래 right는 ph50 로드 전 잠깐의 폴백일 뿐(겹침 방지 위해 로그인보다 왼쪽) */
+      #home-theme-toggle.home-theme-chip{ right: 11.5rem; color:#fde68a; }
       #home-theme-toggle.home-theme-chip #home-theme-icon{ font-size:0.95rem; line-height:1; }
       #lang-toggle.hero-chip-lang{ right: 1.1rem; }
       .hero-chip-lang #lang-label{ color:#fde68a; font-weight:800; }
@@ -23974,7 +23975,8 @@ window.addEventListener('DOMContentLoaded', () => {
 <script>
 (function(){
   'use strict';
-  var CHIP_IDS = ['login-btn', 'points-chip', 'lang-toggle'];
+  // 🌤️ home-theme-toggle 를 맨 앞(왼쪽)에 → 로그인 바로 왼쪽, flex-row 가 자동 간격(겹침 방지)
+  var CHIP_IDS = ['home-theme-toggle', 'login-btn', 'points-chip', 'lang-toggle'];
 
   // ★ dismiss flag 정리 — 단, 사용자가 의도적으로 dismiss 한 경우(수업 진입 후) 는 보존
   function ph50StripDismiss() {
@@ -25265,7 +25267,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712235944 -->
+<!-- BUILD:20260713000907 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
