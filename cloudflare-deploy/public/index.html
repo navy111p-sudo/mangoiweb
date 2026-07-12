@@ -9884,7 +9884,13 @@ async function vcJoinRoom(skipUI) {
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — 라이브러리 교재 공유(selectFromTextbookLibrary)가 window.vcConn 을 쓰므로 노출
     try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
-    try { window.__vcAutoHalfDone=false; setTimeout(function(){ try{ var _tb=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize && window.vcSetVideoSize('threequarter', _tb); }catch(_){} window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 진입 시 무조건 3/4
+    // 🔧 (2026-07-12) 입장 기본 크기 — 가로(landscape)에서만 3/4 적용. 세로(portrait)는 phero의
+    //   'pip(교재 크게)' 기본이 담당한다. 예전엔 여기서 세로에서도 무조건 vcSetVideoSize('threequarter')를
+    //   호출해 phero가 붙인 video-pip 위에 video-threequarter 가 겹쳐(조합) '영상 12px 짜리 깨진 화면'이 됐다.
+    try { window.__vcAutoHalfDone=false; setTimeout(function(){ try{
+      var _isPortrait = window.matchMedia && window.matchMedia('(max-width:920px) and (orientation:portrait)').matches;
+      if(!_isPortrait){ var _tb=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize && window.vcSetVideoSize('threequarter', _tb); }
+    }catch(_){} window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 가로:3/4 / 세로:phero pip(교재 크게)
     setStatusDot('vc-status-dot', 'connecting');
 
     // 🛡 최후의 안전망 — 입장 3초 후에도 비디오 트랙이 없거나 video.videoWidth=0 이면
@@ -10133,7 +10139,13 @@ async function vcJoinAsObserver(roomId) {
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — window.vcConn 노출
     try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
-    try { window.__vcAutoHalfDone=false; setTimeout(function(){ try{ var _tb=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize && window.vcSetVideoSize('threequarter', _tb); }catch(_){} window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 진입 시 무조건 3/4
+    // 🔧 (2026-07-12) 입장 기본 크기 — 가로(landscape)에서만 3/4 적용. 세로(portrait)는 phero의
+    //   'pip(교재 크게)' 기본이 담당한다. 예전엔 여기서 세로에서도 무조건 vcSetVideoSize('threequarter')를
+    //   호출해 phero가 붙인 video-pip 위에 video-threequarter 가 겹쳐(조합) '영상 12px 짜리 깨진 화면'이 됐다.
+    try { window.__vcAutoHalfDone=false; setTimeout(function(){ try{
+      var _isPortrait = window.matchMedia && window.matchMedia('(max-width:920px) and (orientation:portrait)').matches;
+      if(!_isPortrait){ var _tb=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize && window.vcSetVideoSize('threequarter', _tb); }
+    }catch(_){} window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 가로:3/4 / 세로:phero pip(교재 크게)
     setStatusDot('vc-status-dot', 'connecting');
 }
 
@@ -13452,7 +13464,10 @@ function gameBalloonPop(bl) {
 function vcSetVideoSize(size, btn) {
     const row = document.getElementById('vc-main-row');
     if (!row) return;
-    row.classList.remove('video-quarter', 'video-half', 'video-threequarter', 'video-full', 'video-free');
+    // 🔧 (2026-07-12) pip/facepip/solo 도 함께 제거 → 사이즈바(vcSetVideoSize)와
+    //   화면모드(vcScreenSet: pip/facepip/solo)가 상호배타. 예전엔 pip 를 안 지워서
+    //   'video-pip + video-threequarter' 조합이 생겨 세로 레이아웃이 깨졌다.
+    row.classList.remove('video-quarter', 'video-half', 'video-threequarter', 'video-full', 'video-free', 'video-pip', 'video-facepip', 'video-solo');
     // 자유 크기 모드에서 빠져나올 때 떠있던 인라인 위치/크기 제거 → 기본 분할 레이아웃 복귀
     try {
         const _vp = document.getElementById('vc-video-pane');
@@ -24953,7 +24968,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712193700 -->
+<!-- BUILD:20260712195023 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
