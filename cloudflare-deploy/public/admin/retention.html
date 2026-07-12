@@ -64,7 +64,41 @@
     </div>
   </div>
 
+  <div class="card" id="msgCard" style="display:none">
+    <div style="font-weight:800;font-size:18px;margin-bottom:10px" id="t_msg_title"></div>
+    <div class="toolbar" style="align-items:center;gap:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer"><input type="checkbox" id="autoToggle" style="width:20px;height:20px"> <span id="t_auto"></span></label>
+      <span class="muted" id="t_cap"></span> <input id="dailyCap" type="number" min="1" max="500" style="width:64px">
+      <span class="muted" id="t_link"></span> <input id="linkUrl" type="text" style="flex:1;min-width:160px">
+      <button class="btn" id="saveSettings"></button>
+      <span class="ok" id="setMsg"></span>
+    </div>
+    <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <button class="btn" id="bulkSend" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border:0;font-weight:800"></button>
+      <span class="muted" id="t_send_hint"></span>
+    </div>
+  </div>
+
   <div class="card"><div id="body"></div></div>
+</div>
+
+<!-- 문자 미리보기·발송 모달 -->
+<div id="msgModal" style="display:none;position:fixed;inset:0;z-index:60">
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,0.6)" id="msgBackdrop"></div>
+  <div style="position:relative;max-width:470px;margin:7vh auto;padding:0 16px">
+    <div class="card" style="margin:0">
+      <div style="font-weight:800;font-size:19px;margin-bottom:4px" id="msgWho"></div>
+      <div class="muted" id="msgSub" style="margin-bottom:10px"></div>
+      <textarea id="msgText" style="width:100%;min-height:140px;font-size:15.5px;border-radius:12px;padding:13px;background:#0f172a;color:#e6edf6;border:1px solid rgba(148,163,184,0.4);line-height:1.65"></textarea>
+      <div class="muted" id="msgLen" style="margin:6px 2px"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">
+        <button class="btn" id="msgRegen"></button>
+        <button class="btn" id="msgSend" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border:0;font-weight:800"></button>
+        <button class="btn" id="msgClose"></button>
+        <span class="ok" id="msgResult"></span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -80,7 +114,11 @@
       th_student:'학생', th_last:'마지막 수업', th_expiry:'만료일', th_status:'상태', th_detail:'상세', th_done:'연락함',
       dLeft:function(n){return n+'일 남음';}, dAgo:function(n){return n+'일 전';}, dOver:function(n){return n+'일 지남';},
       noClass:'수업 기록 없음', detail:'보기 ›', loading:'불러오는 중…', empty:'해당 학생이 없어요. 👍', neterr:'네트워크 오류', needLogin:'관리자 로그인이 필요합니다.', loginLink:'로그인하기', noMatch:'검색 결과 없음',
-      csvHead:'아이디,이름,카테고리,마지막수업,만료일,만료까지(일),휴면(일),연락함', csvName:'수강권관리', y:'예', n:'아니오' },
+      csvHead:'아이디,이름,카테고리,마지막수업,만료일,만료까지(일),휴면(일),연락함', csvName:'수강권관리', y:'예', n:'아니오',
+      th_msg:'문자', msg:'📱 문자', noPhone:'번호없음', msgTitleCard:'📱 AI 자동 연락 (문자)', autoLabel:'자동 발송(매일 오전 10시)', capLabel:'하루 최대', linkLabel:'재등록 링크', save:'💾 저장', saved:'저장됨 ✓',
+      bulkSend:'📤 이 목록 전체에 문자 보내기', sendHint:'전화번호 있는·아직 연락 안 한 학생에게만 발송돼요 (30일 내 재발송 안 함).',
+      msgSub:'AI가 상황에 맞게 작성한 문구예요. 수정 후 보내도 돼요.', regen:'🔄 다시 생성', send:'📤 발송', close:'닫기',
+      sending:'보내는 중…', sentOne:'✅ 발송 완료!', sendFail:'발송 실패', bulkDone:function(n,t){return '✅ '+n+'명 발송 완료 (대상 '+t+'명 중)';}, confirmBulk:function(n){return n+'명에게 문자를 보낼까요? (안전장치: 하루 상한·30일 재발송 방지 적용)';}, bytes:'자' },
     en:{ title:'🔁 Enrollment Retention', langLabel:'🇰🇷 한국어', htmlLang:'en',
       sub:'This is a <b>period-based subscription</b> model. It automatically finds students who are <b>expiring soon</b> (renew), <b>recently expired</b> (re-enroll), or <b>inactive</b> (churn risk).',
       tab_expiring:'⏰ Expiring (30 days)', tab_expired:'🔴 Recently expired (60d)', tab_inactive:'💤 Inactive (no class)',
@@ -88,7 +126,11 @@
       th_student:'Student', th_last:'Last class', th_expiry:'Expiry', th_status:'Status', th_detail:'Detail', th_done:'Contacted',
       dLeft:function(n){return n+'d left';}, dAgo:function(n){return n+'d ago';}, dOver:function(n){return n+'d overdue';},
       noClass:'No class record', detail:'View ›', loading:'Loading…', empty:'No students here. 👍', neterr:'Network error', needLogin:'Admin login required.', loginLink:'Go to login', noMatch:'No match',
-      csvHead:'ID,Name,Category,LastClass,Expiry,DaysToExpiry,DaysInactive,Contacted', csvName:'Retention', y:'yes', n:'no' }
+      csvHead:'ID,Name,Category,LastClass,Expiry,DaysToExpiry,DaysInactive,Contacted', csvName:'Retention', y:'yes', n:'no',
+      th_msg:'SMS', msg:'📱 SMS', noPhone:'no phone', msgTitleCard:'📱 AI Auto-Contact (SMS)', autoLabel:'Auto-send (daily 10 AM)', capLabel:'Daily max', linkLabel:'Re-enroll link', save:'💾 Save', saved:'Saved ✓',
+      bulkSend:'📤 Send SMS to this whole list', sendHint:'Only sends to students who have a phone and were not contacted yet (no resend within 30 days).',
+      msgSub:'AI wrote this message for the situation. You can edit before sending.', regen:'🔄 Regenerate', send:'📤 Send', close:'Close',
+      sending:'Sending…', sentOne:'✅ Sent!', sendFail:'Send failed', bulkDone:function(n,t){return '✅ Sent to '+n+' (of '+t+')';}, confirmBulk:function(n){return 'Send SMS to '+n+' students? (safeguards: daily cap, no resend within 30 days)';}, bytes:'chars' }
   };
   var lang=localStorage.getItem('mangoi_payroll_lang')||'en';
   function t(){return I18N[lang];}
@@ -98,6 +140,9 @@
     g('t_title').textContent=d.title; g('lang').textContent=d.langLabel; g('t_sub').innerHTML=d.sub;
     g('t_tab_expiring').textContent=d.tab_expiring; g('t_tab_expired').textContent=d.tab_expired; g('t_tab_inactive').textContent=d.tab_inactive;
     g('search').placeholder=d.searchPh; g('csv').textContent=d.csv;
+    g('t_msg_title').textContent=d.msgTitleCard; g('t_auto').textContent=d.autoLabel; g('t_cap').textContent=d.capLabel; g('t_link').textContent=d.linkLabel;
+    g('saveSettings').textContent=d.save; g('bulkSend').textContent=d.bulkSend; g('t_send_hint').textContent=d.sendHint;
+    g('msgRegen').textContent=d.regen; g('msgSend').textContent=d.send; g('msgClose').textContent=d.close; g('msgSub').textContent=d.msgSub;
     render();
   }
 
@@ -117,7 +162,7 @@
     var rows=cur.rows.filter(function(r){ return !q || String(r.name||'').toLowerCase().indexOf(q)>=0 || String(r.user_id||'').toLowerCase().indexOf(q)>=0; });
     if(!cur.rows.length){ g('body').innerHTML='<div class="empty">'+d.empty+'</div>'; return; }
     if(!rows.length){ g('body').innerHTML='<div class="empty">'+d.noMatch+'</div>'; return; }
-    var h='<table><thead><tr><th>'+d.th_student+'</th><th>'+d.th_last+'</th><th>'+d.th_expiry+'</th><th>'+d.th_detail+'</th><th style="text-align:center">'+d.th_done+'</th></tr></thead><tbody>';
+    var h='<table><thead><tr><th>'+d.th_student+'</th><th>'+d.th_last+'</th><th>'+d.th_expiry+'</th><th style="text-align:center">'+d.th_msg+'</th><th>'+d.th_detail+'</th><th style="text-align:center">'+d.th_done+'</th></tr></thead><tbody>';
     rows.forEach(function(r){
       var last = r.last_class ? (r.last_class+' <span class="muted">('+d.dAgo(r.days_inactive)+')</span>') : '<span class="muted">'+d.noClass+'</span>';
       var exp;
@@ -125,18 +170,67 @@
         var tag = r.days_to_expiry==null? '' : (r.days_to_expiry>=0? '<span class="badge b-warn">'+d.dLeft(r.days_to_expiry)+'</span>' : '<span class="badge b-danger">'+d.dOver(-r.days_to_expiry)+'</span>');
         exp = r.end_date+' '+tag;
       } else exp='<span class="muted">–</span>';
+      var msgCell = r.has_phone
+        ? '<button class="btn" style="padding:7px 12px;font-size:14px" data-msg="'+esc(r.user_id)+'">'+d.msg+'</button>'+(r.last_msg_at?' <span class="ok" style="font-size:12px">✓</span>':'')
+        : '<span class="muted" style="font-size:13px">'+d.noPhone+'</span>';
       h+='<tr><td class="name">'+esc(r.name||r.user_id)+'<div class="muted">'+esc(r.user_id)+'</div></td>'
         +'<td>'+last+'</td><td>'+exp+'</td>'
+        +'<td style="text-align:center">'+msgCell+'</td>'
         +'<td><a class="detail" href="/admin/student?uid='+encodeURIComponent(r.user_id)+'" target="_blank">'+d.detail+'</a></td>'
         +'<td style="text-align:center"><input class="chk" type="checkbox" data-uid="'+esc(r.user_id)+'" '+(r.contacted?'checked':'')+'></td></tr>';
     });
     h+='</tbody></table>'; g('body').innerHTML=h;
     Array.prototype.forEach.call(document.querySelectorAll('.chk'), function(c){ c.addEventListener('change', function(){ toggleContacted(c.getAttribute('data-uid'), c.checked); }); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-msg]'), function(b){ b.addEventListener('click', function(){ openMsg(b.getAttribute('data-msg')); }); });
   }
 
   function toggleContacted(uid, done){
     var r=cur.rows.filter(function(x){return x.user_id===uid;})[0]; if(r) r.contacted=done?1:0;
     fetch('/api/admin/retention/contacted',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,contacted:done})}).catch(function(){});
+  }
+
+  // ── 설정 ──
+  function applySettingsUI(s){
+    g('autoToggle').checked = !!s.auto_enabled; g('dailyCap').value = s.daily_cap||20; g('linkUrl').value = s.link_url||'';
+  }
+  function saveSettings(){
+    var d=t();
+    var body={ auto_enabled: g('autoToggle').checked?1:0, daily_cap: parseInt(g('dailyCap').value,10)||20, link_url: g('linkUrl').value };
+    fetch('/api/admin/retention/settings',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){return r.json();}).then(function(x){ if(x&&x.ok){ g('setMsg').textContent=d.saved; setTimeout(function(){g('setMsg').textContent='';},2500); } }).catch(function(){});
+  }
+
+  // ── 문자 미리보기·발송 ──
+  var msgUid=null;
+  function openMsg(uid){
+    var d=t(); msgUid=uid;
+    var r=cur.rows.filter(function(x){return x.user_id===uid;})[0]||{};
+    g('msgWho').textContent=(r.name||uid); g('msgResult').textContent=''; g('msgText').value=d.loading;
+    g('msgModal').style.display='block';
+    fetch('/api/admin/retention/preview?uid='+encodeURIComponent(uid),{credentials:'same-origin'})
+      .then(function(r){return r.json();}).then(function(x){ g('msgText').value=(x&&x.message)||''; updLen(); }).catch(function(){ g('msgText').value=''; });
+  }
+  function updLen(){ g('msgLen').textContent=(g('msgText').value.length)+' '+t().bytes; }
+  function regenMsg(){ if(msgUid) openMsg(msgUid); }
+  function sendOne(){
+    var d=t(); var b=g('msgSend'); b.disabled=true; g('msgResult').textContent=d.sending;
+    fetch('/api/admin/retention/send',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_ids:[msgUid]})})
+      .then(function(r){return r.json();}).then(function(x){
+        b.disabled=false;
+        var ok = x&&x.sent>0;
+        g('msgResult').textContent = ok? d.sentOne : (d.sendFail+(x&&x.results&&x.results[0]?' ('+(x.results[0].reason||x.results[0].status)+')':''));
+        if(ok){ var rr=cur.rows.filter(function(y){return y.user_id===msgUid;})[0]; if(rr){rr.contacted=1;rr.last_msg_at=Date.now();} setTimeout(function(){ g('msgModal').style.display='none'; render(); },1200); }
+      }).catch(function(){ b.disabled=false; g('msgResult').textContent=d.sendFail; });
+  }
+  function bulkSend(){
+    var d=t();
+    var q=(g('search').value||'').trim().toLowerCase();
+    var ids=cur.rows.filter(function(r){ return r.has_phone && !r.contacted && (!q || String(r.name||'').toLowerCase().indexOf(q)>=0); }).map(function(r){return r.user_id;});
+    if(!ids.length){ alert(d.noPhone); return; }
+    if(!confirm(d.confirmBulk(ids.length))) return;
+    var b=g('bulkSend'); b.disabled=true; b.textContent=d.sending;
+    fetch('/api/admin/retention/send',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_ids:ids})})
+      .then(function(r){return r.json();}).then(function(x){ b.disabled=false; b.textContent=d.bulkSend; alert(d.bulkDone((x&&x.sent)||0, ids.length)); load(); }).catch(function(){ b.disabled=false; b.textContent=d.bulkSend; });
   }
 
   function load(){
@@ -147,6 +241,8 @@
       .then(function(data){
         if(!data||!data.ok){ g('body').innerHTML='<div class="empty">'+d.neterr+'</div>'; return; }
         cur.rows=data.rows||[]; cur.counts=data.counts||{};
+        if(data.settings) applySettingsUI(data.settings);
+        g('msgCard').style.display = cur.rows.length ? 'block' : 'none';
         g('updated').textContent=data.updated_at?(d.updated+new Date(data.updated_at).toLocaleString()):'';
         render();
       })
@@ -166,6 +262,14 @@
     var blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
     var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=d.csvName+'_'+cur.cat+'.csv'; a.click();
   });
+
+  g('saveSettings').addEventListener('click', saveSettings);
+  g('bulkSend').addEventListener('click', bulkSend);
+  g('msgRegen').addEventListener('click', regenMsg);
+  g('msgSend').addEventListener('click', sendOne);
+  g('msgClose').addEventListener('click', function(){ g('msgModal').style.display='none'; });
+  g('msgBackdrop').addEventListener('click', function(){ g('msgModal').style.display='none'; });
+  g('msgText').addEventListener('input', updLen);
 
   applyLang(); load();
 })();

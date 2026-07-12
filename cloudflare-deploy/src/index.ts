@@ -9,7 +9,7 @@ import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
 import { handlePayApi, runPaymentAudit } from './api-pay';
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
-import { handleRetentionIngest, getRetention, markRetentionContacted } from './api-retention';
+import { handleRetentionIngest, getRetention, markRetentionContacted, getRetentionSettings, setRetentionSettings, previewRetentionMessage, sendRetentionMessages, runRetentionAutoSend } from './api-retention';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
@@ -1158,6 +1158,39 @@ const worker = {
       }
     }
 
+    // 🔁 수강권 자동연락 — 문자 미리보기 (관리자). ?uid=
+    if (path === '/api/admin/retention/preview') {
+      try {
+        const data = await previewRetentionMessage(env as any, url.searchParams.get('uid') || '');
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+    // 🔁 수강권 자동연락 — 실제 발송 (관리자). POST { user_ids: [] }
+    if (path === '/api/admin/retention/send' && request.method === 'POST') {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        const ids = Array.isArray(b?.user_ids) ? b.user_ids.map((x: any) => String(x)).filter(Boolean) : [];
+        const data = await sendRetentionMessages(env as any, ids, { by: 'admin' });
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+    // 🔁 수강권 자동연락 — 설정 조회/저장 (관리자). GET / POST { auto_enabled, daily_cap, resend_gap_days, link_url }
+    if (path === '/api/admin/retention/settings') {
+      try {
+        if (request.method === 'POST') {
+          const b: any = await request.json().catch(() => ({}));
+          return new Response(JSON.stringify({ ok: true, settings: await setRetentionSettings(env as any, b) }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+        }
+        return new Response(JSON.stringify({ ok: true, settings: await getRetentionSettings(env as any) }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
     // 🔁 수강권 '연락함' 토글 (관리자 전용). POST { user_id, contacted }
     if (path === '/api/admin/retention/contacted' && request.method === 'POST') {
       try {
@@ -1501,6 +1534,16 @@ const worker = {
         if (w.changed) console.log('[watchdog] state change', JSON.stringify(w));
       } catch (err) {
         console.error('[watchdog] error', err);
+      }
+
+      // 📨 수강권 만료·휴면 자동 연락 (KST 10:00 = UTC 01:00) — 설정에서 켰을 때만 발송(기본 OFF, 하루 상한·재발송갭 안전장치 내장).
+      if (hour === 1) {
+        try {
+          const rs = await runRetentionAutoSend(env as any);
+          console.log('[retention-autosend] cron ran', JSON.stringify(rs));
+        } catch (err) {
+          console.error('[retention-autosend] error', err);
+        }
       }
 
       // ── UTC 18:00 — retention purge
@@ -3300,6 +3343,7 @@ function isAdminPath(path: string, method: string): boolean {
   // 🔁 수강권 만료·재활성 대시보드 + API (2026-07-11) — 관리자 전용
   if (path === '/admin/retention' || path === '/admin/retention/' || path === '/admin/retention.html') return true;
   if (path === '/api/admin/retention' || path === '/api/admin/retention/contacted') return true;
+  if (path === '/api/admin/retention/preview' || path === '/api/admin/retention/send' || path === '/api/admin/retention/settings') return true;
   // 💸 이중결제 감사·환불 처리 + API (2026-07-11) — 관리자 전용
   if (path === '/admin/duplicate-payments' || path === '/admin/duplicate-payments/' || path === '/admin/duplicate-payments.html') return true;
   if (path === '/api/admin/duplicate-payments' || path === '/api/admin/duplicate-payments/resolve') return true;
