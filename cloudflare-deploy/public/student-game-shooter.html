@@ -172,6 +172,15 @@
     font-size:15px;cursor:pointer;font-family:inherit;color:var(--tx);display:inline-flex;align-items:center;gap:4px}
   .gunbtn .gl{font-size:10px;color:var(--sub);font-weight:700}
   .gunbtn:active{transform:scale(.94)}
+  /* ⋮ 케밥(게임 설정: 속도·무기 통합) — 상단 HUD 오른쪽, 넉넉한 탭 영역 */
+  .optkebab{font-size:22px;font-weight:900;line-height:1;padding:2px 12px;color:#ffd34d}
+  /* 시작화면 통합 설정 버튼(현재 속도·무기 요약 + ⋮) */
+  .setbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin-bottom:16px;
+    background:rgba(255,255,255,.06);border:1.5px solid var(--line);border-radius:14px;padding:12px 16px;
+    cursor:pointer;font-family:inherit;color:var(--tx)}
+  .setbtn .cur{font-size:clamp(15px,2vw,19px);font-weight:800}
+  .setbtn .kb{font-size:24px;font-weight:900;line-height:1;color:#ffd34d}
+  .setbtn:active{transform:scale(.98)}
 
   .voicebadge{position:absolute;left:8px;bottom:6px;z-index:11;font-size:10px;color:var(--sub);
     background:rgba(8,16,34,.6);border:1px solid var(--line);border-radius:8px;padding:3px 7px;pointer-events:none;max-width:60%;
@@ -231,8 +240,18 @@
   /* ===== 🔫 게임 중 무기 선택 모달 (상단 🔫 버튼 → 12종 그리드에서 바로 선택) ===== */
   #gunModal{position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(6,10,20,.74)}
   #gunModal.on{display:flex}
-  #gunModal .box{background:#0f172a;border:1px solid #33415a;border-radius:16px;padding:15px;max-width:340px;width:90%;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+  #gunModal .box{background:#0f172a;border:1px solid #33415a;border-radius:16px;padding:15px;max-width:340px;width:90%;max-height:86vh;overflow-y:auto;box-shadow:0 18px 50px rgba(0,0,0,.6)}
   #gunModal .box h3{margin:0 0 10px;color:#ffd34d;font-size:15px;text-align:center}
+  /* 섹션 라벨(속도 / 무기) */
+  #gunModal .seclab{margin:12px 0 7px;color:#9fb4d8;font-size:12px;font-weight:800;text-align:center}
+  #gunModal .seclab:first-of-type{margin-top:2px}
+  /* ⚡ 속도 그리드 */
+  #gunModal .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  #gunModal .sp2{background:rgba(255,255,255,.05);border:1.5px solid #2b3648;border-radius:11px;padding:8px 3px;cursor:pointer;font-family:inherit;color:#cfe0ff;display:flex;flex-direction:column;align-items:center;gap:3px}
+  #gunModal .sp2.sel{border-color:#5eead4;background:rgba(45,212,191,.16)}
+  #gunModal .sp2:active{transform:scale(.94)}
+  #gunModal .sp2 .ic{font-size:22px;line-height:1}
+  #gunModal .sp2 .nm{font-size:10px;font-weight:700}
   #gunModal .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
   #gunModal .gp2{background:rgba(255,255,255,.05);border:1.5px solid #2b3648;border-radius:11px;padding:7px 3px;cursor:pointer;font-family:inherit;color:#cfe0ff;display:flex;flex-direction:column;align-items:center;gap:4px}
   #gunModal .gp2.sel{border-color:#ffd34d;background:rgba(251,191,36,.16)}
@@ -289,7 +308,7 @@
     <button class="gunbtn" id="backBtn" title="뒤로 가기">←</button>
     <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
     <span class="lvlpill" id="lvlPill">문장 1</span>
-    <button class="gunbtn" id="gunBtn" title="무기 선택 (12종 · 게임 중에도 변경 가능)">🔫</button>
+    <button class="gunbtn optkebab" id="gunBtn" title="게임 설정 — 속도·무기 선택 (게임 중에도 변경 가능)">⋮</button>
     <div class="stat timer" id="timerBox"><span class="lab">남은 시간</span><span class="val" id="timerVal">60</span></div>
   </div>
 
@@ -347,10 +366,14 @@
         • 문장 완성 → 원어민 듣고 <b>🎤 3번 말하기</b> (성공마다 <b>+100점</b>)<br>
         • 빠른 연속 정답 → <b>콤보!</b> · 제한시간 <b>60초</b> (말하기 중엔 멈춤)
       </div>
-      <div class="gunlabel">⚡ 게임 속도 (5단계 난이도)</div>
-      <div class="gunpick" id="speedPicker"></div>
-      <div class="gunlabel">🔫 무기 선택 (게임 중에도 상단 버튼으로 변경 가능)</div>
-      <div class="gunpick" id="gunPicker"></div>
+      <div class="gunlabel">⚙️ 게임 설정 — 눌러서 속도·무기 선택</div>
+      <button class="setbtn" id="optOpenStart" type="button">
+        <span class="cur"><span id="spdSummary">🙂 보통</span> · <span id="gunSummary">🔫 권총</span></span>
+        <span class="kb">⋮</span>
+      </button>
+      <!-- 속도/무기 선택은 통합 ⋮ 모달(#gunModal)로 이동 — 아래 두 피커는 하위호환용 숨김 컨테이너 -->
+      <div class="gunpick" id="speedPicker" style="display:none"></div>
+      <div class="gunpick" id="gunPicker" style="display:none"></div>
       <button class="btn" id="startBtn">게임 시작 ▶</button>
       <div class="warn" id="voiceWarn"></div>
     </div>
@@ -575,6 +598,11 @@
     speedLvl=l; try{ localStorage.setItem('mangoi_game_speed',String(l)); }catch(e){}
     var picker=document.getElementById('speedPicker');
     if(picker) [].forEach.call(picker.children, function(b){ b.classList.toggle('sel', +b.getAttribute('data-spd')===l); });
+    // ⋮ 통합 모달 속도버튼 동기화
+    var gm=document.getElementById('gunModal');
+    if(gm) [].forEach.call(gm.querySelectorAll('.sp2'), function(b){ b.classList.toggle('sel', +b.getAttribute('data-spd')===l); });
+    // 시작화면 요약 갱신
+    var sp=SPEED_LEVELS[l-1], sum=document.getElementById('spdSummary'); if(sum&&sp) sum.textContent=sp.ico+' '+sp.name;
     // 진행 중 몬스터는 loop() 가 매 프레임 spdMult() 를 곱하므로 속도 변경이 자동 즉시 반영됨(별도 처리 불필요)
   }
   function buildSpeedPicker(){
@@ -1340,7 +1368,8 @@
     var gm=document.getElementById('gunModal');
     if(gm) [].forEach.call(gm.querySelectorAll('.gp2'), function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===id); });
     var g=GUNS.find(function(x){ return x.id===id; });
-    if(gunBtn) gunBtn.innerHTML = g.icon + '<span class="gl">'+g.name+'</span>';
+    // HUD 버튼은 항상 ⋮(통합 설정) 유지 — 무기 아이콘으로 덮어쓰지 않음. 현재 무기는 요약/모달 하이라이트로 표시.
+    var gsum=document.getElementById('gunSummary'); if(gsum&&g) gsum.textContent=g.icon+' '+g.name;
   }
   function buildGunPicker(){
     var picker=document.getElementById('gunPicker'); if(!picker) return;
@@ -1352,19 +1381,32 @@
       picker.appendChild(b);
     });
   }
-  // ── 🔫 게임 중 무기 선택 모달 — 12종 그리드에서 바로 고름 (여는 동안 시간·몬스터 일시정지) ──
+  // ── ⚙️ 게임 설정 모달(⋮) — 속도(7단계) + 무기(13종)를 한 곳에서 선택 (여는 동안 시간·몬스터 일시정지) ──
   var _gunPausedByModal=false;
   function buildGunModal(){
     if(document.getElementById('gunModal')) return;
     var m=document.createElement('div'); m.id='gunModal';
-    var html='<div class="box"><h3>🔫 무기 선택</h3><div class="grid">';
+    var html='<div class="box"><h3>⚙️ 게임 설정</h3>';
+    // ⚡ 속도 섹션
+    html+='<div class="seclab">⚡ 게임 속도 (7단계)</div><div class="sgrid">';
+    SPEED_LEVELS.forEach(function(s){
+      html+='<button class="sp2" data-spd="'+s.lvl+'"><span class="ic">'+s.ico+'</span><span class="nm">'+s.name+'</span></button>';
+    });
+    html+='</div>';
+    // 🔫 무기 섹션
+    html+='<div class="seclab">🔫 무기 선택 (13종)</div><div class="grid">';
     GUNS.forEach(function(g){
       html+='<button class="gp2" data-gun="'+g.id+'"><span class="ic" style="background-image:'+gunDataUri(g.id)+'"></span><span class="nm">'+g.name+'</span></button>';
     });
-    html+='</div><div class="pausenote">⏸ 고르는 동안 시간과 몬스터가 멈춰요</div><button class="cls">닫기 ✓</button></div>';
+    html+='</div><div class="pausenote">⏸ 고르는 동안 시간과 몬스터가 멈춰요 · 여러 개 바꾼 뒤 닫기</div><button class="cls">닫기 ✓</button></div>';
     m.innerHTML=html; gameEl.appendChild(m);
+    // 속도: 고르면 즉시 반영(모달은 열린 채 — 여러 설정을 이어서 조정 가능)
+    [].forEach.call(m.querySelectorAll('.sp2'), function(b){
+      b.addEventListener('click', function(){ setSpeed(+b.getAttribute('data-spd')); });
+    });
+    // 무기: 고르면 즉시 반영(자동 닫힘 없음 — 통합 설정 UX)
     [].forEach.call(m.querySelectorAll('.gp2'), function(b){
-      b.addEventListener('click', function(){ ensureCtx(); setGun(b.getAttribute('data-gun')); closeGunModal(); });
+      b.addEventListener('click', function(){ ensureCtx(); setGun(b.getAttribute('data-gun')); });
     });
     m.querySelector('.cls').addEventListener('click', closeGunModal);
     m.addEventListener('click', function(e){ if(e.target===m) closeGunModal(); });
@@ -1373,6 +1415,7 @@
     buildGunModal();
     var m=document.getElementById('gunModal'); if(!m) return;
     [].forEach.call(m.querySelectorAll('.gp2'), function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===curGun); });
+    [].forEach.call(m.querySelectorAll('.sp2'), function(b){ b.classList.toggle('sel', +b.getAttribute('data-spd')===speedLvl); });
     if(running){ _gunPausedByModal=true; running=false; clearInterval(timerId); cancelAnimationFrame(rafId); }   // ⏸ 시간·몬스터 정지
     m.classList.add('on');
   }
@@ -1383,6 +1426,9 @@
       cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop); }
   }
   gunBtn.addEventListener('click', function(){ ensureCtx(); openGunModal(); });
+  // 시작화면 통합 설정 버튼(⋮) → 같은 모달 열기
+  var optOpenStart=document.getElementById('optOpenStart');
+  if(optOpenStart) optOpenStart.addEventListener('click', function(){ ensureCtx(); openGunModal(); });
   buildGunPicker(); setGun(curGun);
   buildSpeedPicker(); setSpeed(speedLvl);
 
@@ -1418,6 +1464,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712154201 -->
+<!-- BUILD:20260712155029 -->
 </body>
 </html>

@@ -1223,7 +1223,7 @@
     },
     reviews:     () => { closeGrid(); showModal(REVIEWS); },
     diagnosis:   () => { closeGrid(); runDiagnosis(); },
-    kakao:       () => { closeGrid(); window.open('https://pf.kakao.com/_xlqnSxd', '_blank'); },
+    kakao:       () => { closeGrid(); window.open('https://pf.kakao.com/_xlqnSxd/chat', '_blank'); },
     remote:      () => { closeGrid(); openRemoteSupportModal(); },
     installguide:() => { closeGrid(); showModal(INSTALLGUIDE); },
     library:     () => { closeGrid(); showModal(LIBRARY); },
