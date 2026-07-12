@@ -297,9 +297,97 @@
       'border-radius:18px;padding:26px 22px;text-align:center;color:#e2e8f0">' + html + '</div>';
   }
 
+  // 📚 전체 녹화 목록 — 인증된 본인 녹화 API로 최대 30건(uid+이름 두 경로 합침).
+  //   (기존 그리드 '녹화본 복습' 모달은 /api/recordings/list-recent 사용인데 2026-07-10 PII
+  //    잠금으로 관리자 전용이 됨 → 학생은 항상 빈 목록. 그래서 여기서 본인 API로 직접 보여준다)
+  var _recWho = null;       // 마지막으로 조회한 학생(목록 버튼 재사용)
+  var _recListRows = [];    // 렌더된 목록 행(클릭 재생용)
+
+  function recAuthedQuery(who) {
+    return ensureToken(who).then(function (tok) {
+      var t = tok || '';
+      function q(key) {
+        return fetch('/api/student/recordings?limit=30&uid=' + encodeURIComponent(key) + (t ? '&token=' + encodeURIComponent(t) : ''), { credentials: 'include' })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { return (d && (d.rows || d.recordings)) || []; })
+          .catch(function () { return []; });
+      }
+      var jobs = [q(who.uid)];
+      if (who.name && who.name !== who.uid) jobs.push(q(who.name));
+      return Promise.all(jobs).then(function (parts) {
+        var seen = {}, merged = [];
+        parts.forEach(function (rows) {
+          (rows || []).forEach(function (r) {
+            if (r && r.id != null && !seen[r.id]) { seen[r.id] = 1; merged.push(r); }
+          });
+        });
+        return merged;
+      });
+    });
+  }
+
+  function recListBox(html) {
+    return '<div style="width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;' +
+      'background:#0b1220;border:1px solid #1e293b;border-radius:18px;padding:20px 18px;color:#e2e8f0">' + html + '</div>';
+  }
+
+  // 전체 목록 화면
+  function recShowList() {
+    var who = _recWho || studentUid();
+    if (!who) { recShowLoginNeeded(); return; }
+    _recWho = who;
+    recShell(recMsgBox(
+      '<div style="font-size:34px;margin-bottom:10px">📚</div>' +
+      '<div style="font-size:15px;font-weight:700;color:#e2e8f0">전체 녹화 목록을 불러오는 중…</div>'
+    ));
+    recAuthedQuery(who).then(function (rows) {
+      _recListRows = (rows || []).slice();
+      if (!_recListRows.length) { recShowEmpty(); return; }
+      var esc = function (s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]); }); };
+      var items = _recListRows.map(function (r, i) {
+        var playable = !!r.url && String(r.status || 'completed') === 'completed';
+        var meta = [r.date, r.teacher, r.duration].filter(function (x) { return x && x !== '-'; }).map(esc).join(' · ');
+        var badge = playable
+          ? '<span style="flex:0 0 auto;background:#10b981;color:#04231a;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:800">▶ 재생</span>'
+          : '<span style="flex:0 0 auto;background:#334155;color:#94a3b8;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">⏳ 준비중</span>';
+        return '<button data-rec-play="' + i + '"' + (playable ? '' : ' disabled') +
+          ' style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;' +
+          'background:' + (playable ? 'rgba(56,189,248,.08)' : 'rgba(148,163,184,.06)') + ';' +
+          'border:1px solid ' + (playable ? 'rgba(56,189,248,.28)' : 'rgba(148,163,184,.18)') + ';' +
+          'border-radius:12px;padding:12px 14px;margin-bottom:8px;color:#e2e8f0;' +
+          'cursor:' + (playable ? 'pointer' : 'default') + '">' +
+          '<span style="flex:0 0 auto;font-size:24px">📼</span>' +
+          '<span style="flex:1 1 auto;min-width:0">' +
+            '<span style="display:block;font-weight:800;font-size:14px;color:#f8fafc">' + esc(r.topic || '수업 녹화') + '</span>' +
+            '<span style="display:block;font-size:12px;color:#94a3b8;margin-top:2px">' + (meta || '&nbsp;') + '</span>' +
+          '</span>' + badge + '</button>';
+      }).join('');
+      recShell(recListBox(
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex:0 0 auto">' +
+          '<div style="font-weight:800;font-size:17px;color:#f8fafc">📚 내 녹화 수업 <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + _recListRows.length + '개</span></div>' +
+          '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
+        '</div>' +
+        '<div style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch">' + items + '</div>' +
+        '<div style="flex:0 0 auto;color:#64748b;font-size:11px;margin-top:10px;line-height:1.6">※ 본인 수업 녹화만 표시됩니다. 보관 기간이 지난 영상은 재생되지 않을 수 있어요.</div>'
+      ));
+      var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
+      if (ov) {
+        [].forEach.call(ov.querySelectorAll('[data-rec-play]'), function (b) {
+          b.addEventListener('click', function () {
+            var idx = parseInt(b.getAttribute('data-rec-play'), 10);
+            var row = _recListRows[idx];
+            if (row) recShowPlayer([row], 0);
+          });
+        });
+      }
+      bindRecButtons();
+    }).catch(function () { recShowEmpty(); });
+  }
+
   function openLatestRecording() {
     var who = studentUid();
     if (!who) { recShowLoginNeeded(); return; }
+    _recWho = who;
     recShell(recMsgBox(
       '<div style="font-size:38px;margin-bottom:10px">📼</div>' +
       '<div style="font-size:15px;font-weight:700;color:#e2e8f0">최근 수업 녹화를 불러오는 중…</div>'
@@ -397,7 +485,7 @@
         '</div>' +
         '<video data-rec-video controls autoplay playsinline ' +
           'style="width:100%;max-height:86vh;border-radius:12px;background:#000;display:block"></video>' +
-        '<div style="text-align:center;margin-top:10px"><a href="/parent.html" style="color:#38bdf8;font-size:13px;text-decoration:none;font-weight:700">📚 전체 녹화 목록 보기 →</a></div>' +
+        '<div style="text-align:center;margin-top:10px"><button data-rec-list style="background:transparent;border:0;color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;padding:4px 8px">📚 전체 녹화 목록 보기 →</button></div>' +
       '</div>'
     );
     var doc = recDoc(), vid = doc.querySelector('#mango-rec-overlay [data-rec-video]');
@@ -433,7 +521,10 @@
     [].forEach.call(ov.querySelectorAll('[data-rec-login]'), function (b) {
       b.addEventListener('click', recDoLogin);
     });
+    [].forEach.call(ov.querySelectorAll('[data-rec-list]'), function (b) {
+      b.addEventListener('click', recShowList);
+    });
   }
 
-  w.MangoFlow = { open: open, close: close, playRecording: openLatestRecording, closeRec: recClose };
+  w.MangoFlow = { open: open, close: close, playRecording: openLatestRecording, showList: recShowList, closeRec: recClose };
 })(window, document);

@@ -1242,7 +1242,9 @@
     adminmgr:    () => { closeGrid(); location.href = '/admin.html'; },
     callcenter:  () => { closeGrid(); showModal(CALLCENTER); },
     videolesson: () => { closeGrid(); showModal(VIDEOLESSON); },
-    recordings:  () => { closeGrid(); showRecordingsModal(); },
+    // 📼 인증된 본인 녹화 목록(flow.js MangoFlow.showList). 옛 showRecordingsModal 은
+    //    /api/recordings/list-recent(2026-07-10 PII 잠금=관리자전용)라 학생은 늘 빈목록 → 폴백.
+    recordings:  () => { closeGrid(); (window.MangoFlow && window.MangoFlow.showList) ? window.MangoFlow.showList() : showRecordingsModal(); },
     payment:     () => { closeGrid(); window.openPaymentModal && window.openPaymentModal(); },
     notice:      () => { closeGrid(); showNoticeModal(); },
     report:      () => { closeGrid(); showReportModal(); },
