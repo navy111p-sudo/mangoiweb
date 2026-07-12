@@ -19,12 +19,15 @@ const browser = await puppeteer.launch({
 
 const page = await browser.newPage();
 page.on('pageerror', e => console.log('  [pageerror]', String(e).slice(0, 160)));
-await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+const VW = parseInt(process.env.VW || '390', 10), VH = parseInt(process.env.VH || '844', 10);
+await page.setViewport({ width: VW, height: VH, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
 await page.goto(BASE + '/index.html', { waitUntil: 'domcontentloaded' });
 await new Promise(r => setTimeout(r, 1500));
 
 // 통화 상태 강제 셋업 + 동영상 탭 활성 + 유튜브 임베드/소리켜기 버튼 재현
 await page.evaluate(() => {
+  // 인트로/시계 오버레이 제거 (스크린샷 시야 확보)
+  ['mango-intro-overlay', 'mango-dualclock'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
   document.querySelectorAll('.view.active').forEach(v => v.classList.remove('active'));
   document.getElementById('view-videocall-call').classList.add('active');
   document.body.classList.add('vc-in-call', 'vc-orientation-dismissed');
@@ -106,7 +109,18 @@ for (const [name, area] of checks) { if (area > 0) fail++; console.log((area > 0
 // 유튜브 하단 컨트롤대(스테이지 아래 60px) 침범 여부
 if (data.mlUn && data.vpStage) {
   const inYtBar = data.mlUn.bottom > data.vpStage.bottom - 60;
+  if (inYtBar) fail++;
   console.log((inYtBar ? '❌ 겹침 ' : '✅ 통과 ') + '소리켜기 ⨯ 유튜브 하단컨트롤대(스테이지 하단 60px)');
 }
+// 컨트롤 버튼끼리 상호 겹침
+let btnPair = 0;
+for (let i = 0; i < data.ctlBtns.length; i++)
+  for (let j = i + 1; j < data.ctlBtns.length; j++)
+    btnPair += overlap(data.ctlBtns[i], data.ctlBtns[j]);
+if (btnPair > 0) fail++;
+console.log((btnPair > 0 ? '❌ 겹침 ' : '✅ 통과 ') + '컨트롤 버튼 상호 겹침 = ' + btnPair + 'px²');
 
+console.log(fail === 0 ? '\n🎉 ALL PASS' : '\n💥 ' + fail + ' FAIL');
+if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
 await browser.close();
+process.exit(fail === 0 ? 0 : 1);
