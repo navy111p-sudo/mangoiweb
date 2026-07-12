@@ -2199,6 +2199,13 @@ async function handleGamesDefine(request: Request, env: Env): Promise<Response> 
           if (lang === 'zh' && !pinyin) pinyin = pickStr(j.pinyin).trim().slice(0, 60);
         }
         if (/\[object/i.test(ko)) ko = '';   // 최종 방어
+        // 한글 뜻에 섞여 든 다른 언어(한자·가나) 제거 — 다의어에서 모델이 中/日 번역을 덧붙이는 것 방지
+        if (ko) {
+          ko = ko.replace(/[぀-ヿ㐀-䶿一-鿿豈-﫿]/g, '')
+                 .replace(/\s*[,，、/·]\s*/g, ', ')
+                 .replace(/(^[\s,，、/·.]+)|([\s,，、/·]+$)/g, '')
+                 .replace(/,\s*,/g, ',').replace(/,\s*$/,'').trim().slice(0, 60);
+        }
       } catch {}
     }
     if (!ko) return new Response(JSON.stringify({ ok: false, error: 'not_found' }), { status: 200, headers: _MS_JSON });

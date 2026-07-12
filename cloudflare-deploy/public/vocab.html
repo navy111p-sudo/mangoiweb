@@ -10,40 +10,72 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(96,140,255,0.32),transparent 52%),radial-gradient(ellipse at bottom left,rgba(129,132,255,0.26),transparent 48%),linear-gradient(180deg,#1a2f6b,#17306a,#122a58);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:80px}
-  .wrap{max-width:1020px;margin:0 auto;padding:36px 22px}
-  .brand{text-align:center;margin-bottom:18px}
-  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:clamp(38px,5vw,50px);letter-spacing:1px;display:block}
-  .sub{color:#a3b3d1;font-size:15px;margin-top:8px}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(96,140,255,0.32),transparent 52%),radial-gradient(ellipse at bottom left,rgba(129,132,255,0.26),transparent 48%),linear-gradient(180deg,#1a2f6b,#17306a,#122a58);background-attachment:fixed;color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+  .wrap{max-width:1020px;margin:0 auto;padding:30px 18px}
+  .brand{text-align:center;margin-bottom:16px}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:clamp(34px,5vw,48px);letter-spacing:1px;display:block}
+  .sub{color:#a3b3d1;font-size:14.5px;margin-top:6px}
 
-  /* ── 상단 게임 대시보드: 망고 성장 + 스트릭 + 미션 + 포인트 ── */
-  .dash{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;background:linear-gradient(135deg,rgba(79,124,255,0.14),rgba(20,41,80,0.9));border:1px solid rgba(79,124,255,0.28);border-radius:18px;padding:16px 20px;margin-bottom:20px}
-  .mango-pod{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:110px}
-  .mango-pod img{width:64px;height:64px;object-fit:contain;transition:width .6s,height .6s;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.35))}
-  .mango-pod.glow img{filter:drop-shadow(0 0 14px rgba(251,191,36,0.85))}
+  /* ── 상단 게임 대시보드: 망고 성장(히어로) + 스트릭·미션·포인트·수집 ── */
+  .dash{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;background:linear-gradient(135deg,rgba(79,124,255,0.18),rgba(20,41,80,0.92));border:1px solid rgba(79,124,255,0.30);border-radius:20px;padding:18px 20px;margin-bottom:14px;box-shadow:0 14px 34px -18px rgba(0,0,0,0.55)}
+  .mango-pod{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:118px;cursor:pointer;user-select:none}
+  .mango-pod img{width:64px;height:64px;object-fit:contain;transition:width .6s,height .6s,transform .3s;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.35));animation:bob 3.4s ease-in-out infinite}
+  .mango-pod:active img{transform:scale(1.12) rotate(-6deg)}
+  .mango-pod.glow img{filter:drop-shadow(0 0 16px rgba(251,191,36,0.9))}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
   .mango-stage{font-size:13px;font-weight:800;color:#fbbf24}
-  .grow-bar{width:110px;height:8px;background:rgba(255,255,255,0.1);border-radius:99px;overflow:hidden}
+  .grow-bar{width:112px;height:9px;background:rgba(255,255,255,0.1);border-radius:99px;overflow:hidden;position:relative}
   .grow-bar i{display:block;height:100%;background:linear-gradient(90deg,#34d399,#fbbf24);border-radius:99px;transition:width .8s}
-  .dash-stats{display:flex;gap:12px;flex-wrap:wrap}
-  .stat-chip{flex:1;min-width:120px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:12px 14px;text-align:center}
-  .stat-chip .v{font-size:22px;font-weight:900;color:#fff}
-  .stat-chip .k{font-size:12.5px;color:#a3b3d1;margin-top:2px}
+  .dash-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat-chip{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:15px;padding:12px 14px;display:flex;align-items:center;gap:11px;transition:transform .15s,border-color .2s}
+  .stat-chip:hover{transform:translateY(-2px)}
+  .stat-chip .ic{font-size:24px;line-height:1;flex-shrink:0}
+  .stat-chip .txt{min-width:0}
+  .stat-chip .v{font-size:20px;font-weight:900;color:#fff;line-height:1.1}
+  .stat-chip .k{font-size:12px;color:#a3b3d1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .stat-chip.hot .v{color:#fb923c}
   .stat-chip.gold .v{color:#fbbf24}
   .mission-chip{position:relative;overflow:hidden}
-  .mission-fill{position:absolute;inset:0;background:linear-gradient(90deg,rgba(52,211,153,0.22),rgba(52,211,153,0.08));width:0%;transition:width .8s}
-  .mission-chip .v,.mission-chip .k{position:relative}
+  .mission-fill{position:absolute;inset:0;background:linear-gradient(90deg,rgba(52,211,153,0.28),rgba(52,211,153,0.06));width:0%;transition:width .8s}
+  .mission-chip>*{position:relative}
   .mission-chip.done{border-color:rgba(52,211,153,0.6)}
   .mission-chip.done .v{color:#34d399}
 
-  .tab{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap}
-  .tab button{flex:1;min-width:130px;padding:15px 14px;background:rgba(255,255,255,0.05);color:#a3b3d1;border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;font-weight:700;font-size:16px;font-family:inherit}
-  .tab button.active{background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border-color:transparent}
-  .card{background:#142950;border:1px solid rgba(79,124,255,0.18);border-radius:16px;padding:26px;margin-bottom:16px}
-  .add-form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;margin-bottom:16px}
-  .add-form input{padding:15px 16px;background:#0c1a3a;border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:#e6ecff;font-size:17px;min-width:0;font-family:inherit}
+  /* ── 스마트 액션 배너: 지금 할 일을 큰 버튼으로 ── */
+  .hero-cta{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:0;cursor:pointer;font-family:inherit;border-radius:18px;padding:16px 20px;margin-bottom:16px;color:#fff;box-shadow:0 12px 30px -12px rgba(0,0,0,0.5);transition:transform .15s,box-shadow .2s;animation:ctaIn .5s ease}
+  @keyframes ctaIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .hero-cta:active{transform:scale(0.98)}
+  .hero-cta .cta-ic{font-size:34px;line-height:1;flex-shrink:0;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.3))}
+  .hero-cta .cta-body{flex:1;min-width:0}
+  .hero-cta .cta-t{font-size:18px;font-weight:900;line-height:1.2}
+  .hero-cta .cta-d{font-size:13px;opacity:0.92;margin-top:3px}
+  .hero-cta .cta-go{font-size:22px;font-weight:900;flex-shrink:0}
+  .hero-cta.play{background:linear-gradient(135deg,#f97316,#ef4444)}
+  .hero-cta.play .cta-ic{animation:wiggle 1.4s ease-in-out infinite}
+  @keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+  .hero-cta.addm{background:linear-gradient(135deg,#4f7cff,#3b82f6)}
+
+  .tab{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px;background:rgba(12,26,58,0.55);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:6px;position:sticky;top:8px;z-index:50;backdrop-filter:blur(8px)}
+  .tab button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:11px 4px;background:transparent;color:#a3b3d1;border:0;border-radius:11px;cursor:pointer;font-weight:800;font-size:13px;font-family:inherit;position:relative;transition:background .2s,color .2s,transform .12s}
+  .tab button .tab-ic{font-size:20px;line-height:1}
+  .tab button:active{transform:scale(0.94)}
+  .tab button.active{background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;box-shadow:0 8px 18px -8px rgba(79,124,255,0.8)}
+  .tab button #due-badge{position:absolute;top:4px;right:8px}
+  .card{background:#142950;border:1px solid rgba(79,124,255,0.18);border-radius:18px;padding:24px;margin-bottom:16px;box-shadow:0 14px 34px -20px rgba(0,0,0,0.5)}
+  .add-title{font-size:18px;font-weight:900;margin-bottom:4px}
+  .add-desc{font-size:13.5px;color:#a3b3d1;margin-bottom:16px}
+  .add-form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;margin-bottom:14px}
+  .add-form input{padding:16px;background:#0c1a3a;border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;color:#e6ecff;font-size:17px;min-width:0;font-family:inherit;transition:border-color .2s,box-shadow .2s}
+  .add-form input:focus{outline:0;border-color:#4f7cff;box-shadow:0 0 0 3px rgba(79,124,255,0.22)}
   .add-form input::placeholder{color:#6b7a99}
-  .add-form button{padding:15px 26px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:17px;font-family:inherit}
+  .add-form button{padding:16px 26px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-weight:900;cursor:pointer;font-size:17px;font-family:inherit;transition:transform .12s,box-shadow .2s;box-shadow:0 8px 20px -8px rgba(16,185,129,0.7)}
+  .add-form button:active{transform:scale(0.96)}
+  .recent-wrap{margin-top:6px}
+  .recent-wrap .rl{font-size:13px;color:#8b9bbd;font-weight:700;margin-bottom:8px}
+  .recent-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .recent-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.32);border-radius:99px;padding:7px 13px;font-size:14px;animation:pop .35s ease}
+  .recent-chip b{color:#34d399}
+  .recent-chip span{color:#a3b3d1;font-size:12.5px}
 
   /* ── 게임 화면 ── */
   .play-hero{text-align:center;padding:26px 10px}
@@ -147,14 +179,21 @@
   #confetti-canvas{position:fixed;inset:0;pointer-events:none;z-index:9998}
 
   @media (max-width:640px){
-    .wrap{padding:24px 14px}
+    .wrap{padding:20px 12px}
     .add-form{grid-template-columns:1fr}
-    .add-form button{padding:14px 18px}
-    .dash{grid-template-columns:1fr;text-align:center}
-    .mango-pod{margin:0 auto}
-    .tab button{min-width:44%;font-size:15px;padding:13px 8px}
+    .add-form button{padding:15px 18px}
+    .dash{grid-template-columns:1fr;gap:14px}
+    .mango-pod{flex-direction:row;justify-content:center;gap:12px;min-width:0}
+    .mango-pod .grow-bar{width:90px}
+    .tab button{font-size:11.5px}
+    .tab button .tab-ic{font-size:19px}
+    .hero-cta{padding:14px 16px}
+    .hero-cta .cta-t{font-size:16px}
     .opts{grid-template-columns:1fr}
     .dex{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  }
+  @media (max-width:380px){
+    .dash-stats{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -170,35 +209,47 @@
 
   <!-- 게임 대시보드 -->
   <div class="dash" id="dash">
-    <div class="mango-pod" id="mango-pod">
+    <div class="mango-pod" id="mango-pod" title="망고를 톡톡!" onclick="pokeMango()">
       <img src="/img/mango-char.png" alt="mango" id="mango-img">
-      <div class="mango-stage" id="mango-stage">아기 망고</div>
-      <div class="grow-bar"><i id="grow-fill" style="width:0%"></i></div>
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:center">
+        <div class="mango-stage" id="mango-stage">아기 망고</div>
+        <div class="grow-bar"><i id="grow-fill" style="width:0%"></i></div>
+      </div>
     </div>
     <div class="dash-stats">
-      <div class="stat-chip hot"><div class="v" id="st-streak">🔥 0일</div><div class="k" data-ko="연속 복습" data-en="Review Streak">연속 복습</div></div>
-      <div class="stat-chip mission-chip" id="mission-chip"><div class="mission-fill" id="mission-fill"></div><div class="v" id="st-mission">0/10</div><div class="k" data-ko="오늘의 미션 (+50P)" data-en="Daily Mission (+50P)">오늘의 미션 (+50P)</div></div>
-      <div class="stat-chip gold"><div class="v" id="st-points">0P</div><div class="k" data-ko="오늘 얻은 포인트" data-en="Points Today">오늘 얻은 포인트</div></div>
-      <div class="stat-chip"><div class="v" id="st-collect">0</div><div class="k" data-ko="수집한 단어" data-en="Words Collected">수집한 단어</div></div>
+      <div class="stat-chip hot"><div class="ic">🔥</div><div class="txt"><div class="v" id="st-streak">0일</div><div class="k" data-ko="연속 복습" data-en="Review Streak">연속 복습</div></div></div>
+      <div class="stat-chip mission-chip" id="mission-chip"><div class="mission-fill" id="mission-fill"></div><div class="ic">🎯</div><div class="txt"><div class="v" id="st-mission">0/10</div><div class="k" data-ko="오늘의 미션 (+50P)" data-en="Daily Mission (+50P)">오늘의 미션 (+50P)</div></div></div>
+      <div class="stat-chip gold"><div class="ic">⭐</div><div class="txt"><div class="v" id="st-points">0P</div><div class="k" data-ko="오늘 얻은 포인트" data-en="Points Today">오늘 얻은 포인트</div></div></div>
+      <div class="stat-chip"><div class="ic">📇</div><div class="txt"><div class="v" id="st-collect">0</div><div class="k" data-ko="수집한 단어" data-en="Words Collected">수집한 단어</div></div></div>
     </div>
   </div>
 
+  <!-- 스마트 액션 배너 (복습할 단어 유무에 따라 바뀜) -->
+  <button class="hero-cta addm" id="hero-cta" onclick="onHeroCta()" style="display:none">
+    <span class="cta-ic" id="hero-ic">✏️</span>
+    <span class="cta-body"><span class="cta-t" id="hero-title">단어를 추가해요</span><span class="cta-d" id="hero-desc">첫 단어 카드를 수집해 볼까요?</span></span>
+    <span class="cta-go">›</span>
+  </button>
+
   <div class="tab">
-    <button id="tab-add" class="active" onclick="switchTab('add')">＋ <span data-ko="단어 추가" data-en="Add Word">단어 추가</span></button>
-    <button id="tab-flash" onclick="switchTab('flash')">🎮 <span data-ko="복습 게임" data-en="Review Game">복습 게임</span> <span id="due-badge" style="margin-left:4px;padding:2px 8px;background:#ef4444;color:#fff;border-radius:99px;font-size:12px;display:none"></span></button>
-    <button id="tab-rank" onclick="switchTab('rank')">🏆 <span data-ko="주간 랭킹" data-en="Weekly Ranking">주간 랭킹</span></button>
-    <button id="tab-list" onclick="switchTab('list')">📖 <span data-ko="단어 도감" data-en="Collection">단어 도감</span></button>
+    <button id="tab-add" class="active" onclick="switchTab('add')"><span class="tab-ic">＋</span><span data-ko="단어 추가" data-en="Add Word">단어 추가</span></button>
+    <button id="tab-flash" onclick="switchTab('flash')"><span class="tab-ic">🎮</span><span data-ko="복습 게임" data-en="Review Game">복습 게임</span><span id="due-badge" style="padding:1px 7px;background:#ef4444;color:#fff;border-radius:99px;font-size:11px;font-weight:900;display:none"></span></button>
+    <button id="tab-rank" onclick="switchTab('rank')"><span class="tab-ic">🏆</span><span data-ko="주간 랭킹" data-en="Weekly Ranking">주간 랭킹</span></button>
+    <button id="tab-list" onclick="switchTab('list')"><span class="tab-ic">📖</span><span data-ko="단어 도감" data-en="Collection">단어 도감</span></button>
   </div>
 
   <!-- Add Tab -->
   <div id="pane-add" class="card">
+    <div class="add-title">✏️ <span data-ko="새 단어 추가" data-en="Add New Word">새 단어 추가</span></div>
+    <div class="add-desc" data-ko="영어 단어만 넣어도 AI 가 뜻·예문을 자동으로 만들어 드려요." data-en="Just type an English word — AI fills in the meaning & example.">영어 단어만 넣어도 AI 가 뜻·예문을 자동으로 만들어 드려요.</div>
     <div class="add-form">
-      <input id="word-input" type="text" placeholder="영어 단어 (예: gorgeous)" data-ko-placeholder="영어 단어 (예: gorgeous)" data-en-placeholder="English word (e.g. gorgeous)" />
-      <input id="ko-input" type="text" placeholder="한국어 뜻 (비우면 AI 자동)" data-ko-placeholder="한국어 뜻 (비우면 AI 자동)" data-en-placeholder="Korean (blank = AI auto)" />
+      <input id="word-input" type="text" autocomplete="off" enterkeyhint="next" placeholder="영어 단어 (예: gorgeous)" data-ko-placeholder="영어 단어 (예: gorgeous)" data-en-placeholder="English word (e.g. gorgeous)" />
+      <input id="ko-input" type="text" autocomplete="off" enterkeyhint="done" placeholder="한국어 뜻 (비우면 AI 자동)" data-ko-placeholder="한국어 뜻 (비우면 AI 자동)" data-en-placeholder="Korean (blank = AI auto)" />
       <button onclick="addWord()" data-ko="추가" data-en="Add">추가</button>
     </div>
-    <div id="add-feedback" style="font-size:15px;color:#a3b3d1;margin-top:8px"></div>
-    <div style="font-size:14px;color:#8b9bbd;margin-top:14px">💡 빈 뜻으로 추가하면 AI 가 자동으로 한국어 + 예문을 생성합니다 (3~5초).</div>
+    <div id="add-feedback" style="font-size:15px;color:#a3b3d1;margin-top:4px"></div>
+    <div id="recent-added" class="recent-wrap" style="display:none"></div>
+    <div style="font-size:13.5px;color:#8b9bbd;margin-top:14px">💡 <span data-ko="빈 뜻으로 추가하면 AI 가 자동으로 한국어 + 예문을 생성합니다 (3~5초). Enter 로도 추가돼요!" data-en="Leave the meaning blank and AI auto-generates Korean + an example (3–5s). Press Enter to add too!">빈 뜻으로 추가하면 AI 가 자동으로 한국어 + 예문을 생성합니다 (3~5초). Enter 로도 추가돼요!</span></div>
   </div>
 
   <!-- Play Tab -->
@@ -332,7 +383,7 @@ async function loadStats(){
     const d = await r.json();
     if (!d.ok) return;
     STATS = d;
-    document.getElementById('st-streak').textContent = '🔥 ' + (d.streak_days||0) + '일';
+    document.getElementById('st-streak').textContent = (d.streak_days||0) + '일';
     document.getElementById('st-points').textContent = (d.points_today||0) + 'P';
     document.getElementById('st-collect').textContent = (d.total_words||0) + (d.mastered ? ' (🥇'+d.mastered+')' : '');
     const mv = Math.min(d.today_reviewed||0, 10);
@@ -355,9 +406,45 @@ async function loadDueCount(){
     const r = await fetch('/api/vocab/due?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authToken()));
     const d = await r.json();
     const badge = document.getElementById('due-badge');
-    if (d.ok && d.due_count > 0) { badge.textContent = d.due_count; badge.style.display='inline-block'; }
+    const due = (d.ok && d.due_count) ? d.due_count : 0;
+    if (due > 0) { badge.textContent = due; badge.style.display='inline-block'; }
     else badge.style.display='none';
-  } catch(e){}
+    updateHeroCta(due);
+  } catch(e){ updateHeroCta(0); }
+}
+
+/* ── 스마트 액션 배너: 복습할 단어가 있으면 '복습 시작', 없으면 '단어 추가' ── */
+let _heroDue = 0;
+function updateHeroCta(due){
+  _heroDue = due||0;
+  const cta = document.getElementById('hero-cta');
+  if (!cta) return;
+  const ic = document.getElementById('hero-ic');
+  const t  = document.getElementById('hero-title');
+  const dsc= document.getElementById('hero-desc');
+  const en = (document.documentElement.lang==='en') || (localStorage.getItem('mango_lang')==='en');
+  if (_heroDue > 0) {
+    cta.className = 'hero-cta play';
+    ic.textContent = '🎮';
+    t.textContent  = en ? ('Review '+_heroDue+' word'+(_heroDue>1?'s':'')+' now!') : ('복습할 단어 '+_heroDue+'개 — 지금 시작!');
+    dsc.textContent= en ? 'Play the review game & earn points 🔥' : '복습 게임으로 포인트를 모아요 🔥';
+  } else {
+    cta.className = 'hero-cta addm';
+    ic.textContent = '✏️';
+    t.textContent  = en ? 'Add a new word' : '새 단어를 추가해요';
+    dsc.textContent= en ? 'Collect your first card of the day!' : '오늘의 첫 단어 카드를 수집해 볼까요?';
+  }
+  cta.style.display = 'flex';
+}
+function onHeroCta(){ ac && ac(); switchTab(_heroDue > 0 ? 'flash' : 'add'); }
+
+/* 망고 톡톡 — 작은 인터랙션 (소리+살짝 튐) */
+let _pokeN = 0;
+function pokeMango(){
+  try { sndFlip(); } catch(e){}
+  const img = document.getElementById('mango-img');
+  if (img){ img.style.transform='scale(1.18) rotate(8deg)'; setTimeout(()=>img.style.transform='',260); }
+  if (++_pokeN === 5){ _pokeN = 0; try{ confetti(); sndCombo(); }catch(e){} }
 }
 /* 로그인 안 한 사용자에게: 포인트/랭킹은 로그인해야 저장된다는 안내 */
 function showGuestHint(){
@@ -408,22 +495,43 @@ function switchTab(t){
 }
 
 /* ═══════════ 단어 추가 ═══════════ */
+const _recentAdded = [];
+function renderRecentAdded(){
+  const box = document.getElementById('recent-added');
+  if (!box) return;
+  if (!_recentAdded.length){ box.style.display='none'; return; }
+  box.style.display='block';
+  box.innerHTML = '<div class="rl">✅ 방금 추가한 단어</div><div class="recent-chips">' +
+    _recentAdded.slice(0,6).map(w => `<span class="recent-chip"><b>${esc(w.word)}</b><span>${esc(w.korean||'')}</span></span>`).join('') +
+    '</div>';
+}
 async function addWord(){
-  const word = document.getElementById('word-input').value.trim();
-  const ko = document.getElementById('ko-input').value.trim();
-  if (!word) return alert('영어 단어 입력');
+  const wEl = document.getElementById('word-input');
+  const kEl = document.getElementById('ko-input');
+  const word = wEl.value.trim();
+  const ko = kEl.value.trim();
+  if (!word) { wEl.focus(); return; }
   const fb = document.getElementById('add-feedback');
-  fb.textContent = '추가 중… (AI 자동 생성 3~5초)';
+  fb.innerHTML = '<span style="color:#8b9bbd">⏳ 추가 중… (AI 자동 생성 3~5초)</span>';
   try {
     const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, word, korean: ko }) });
     const d = await r.json();
     if (!d.ok) throw new Error(d.error);
-    fb.innerHTML = `✅ <b style="color:#34d399">${esc(d.word)}</b> 추가됨 — <span style="color:#fbbf24">${esc(d.korean)}</span><br><span style="color:#a3b3d1;font-style:italic">${esc(d.example)}</span>`;
-    document.getElementById('word-input').value=''; document.getElementById('ko-input').value='';
+    fb.innerHTML = `✅ <b style="color:#34d399">${esc(d.word)}</b> — <span style="color:#fbbf24">${esc(d.korean)}</span><br><span style="color:#a3b3d1;font-style:italic;font-size:14px">💬 ${esc(d.example)}</span>`;
+    _recentAdded.unshift({ word: d.word, korean: d.korean });
+    renderRecentAdded();
+    wEl.value=''; kEl.value=''; wEl.focus();   // 연속 추가 편의: 다음 입력에 커서
     sndCorrect();
     loadDueCount(); loadStats(); checkBadges();
   } catch(e) { fb.innerHTML = '<span style="color:#f87171">❌ '+esc(e.message)+'</span>'; }
 }
+/* Enter 로 추가 (영어칸→뜻칸으로, 뜻칸→바로 추가) */
+document.addEventListener('DOMContentLoaded', () => {
+  const wEl = document.getElementById('word-input');
+  const kEl = document.getElementById('ko-input');
+  if (wEl) wEl.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); if (kEl.value.trim()) addWord(); else kEl.focus(); } });
+  if (kEl) kEl.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); addWord(); } });
+});
 
 /* ═══════════ 복습 게임 세션 ═══════════ */
 let BANK = [];            // 전체 단어 (4지선다 오답 보기용)
@@ -825,7 +933,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260712183754 -->
+<!-- BUILD:20260712184145 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
