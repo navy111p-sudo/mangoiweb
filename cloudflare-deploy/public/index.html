@@ -3953,6 +3953,7 @@
         <button onclick="mgGo('lesson-change')" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
         <button onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.teachers)window.gridActions.teachers();" data-ko="👨‍🏫 교사 소개" data-en="👨‍🏫 Teachers">👨‍🏫 교사 소개</button>
         <button class="mg-s1" onclick="mgGo('report')" data-ko="📋 평가표(성적표)" data-en="📋 Report Card">📋 평가표(성적표)</button>
+        <button class="mg-s2" onclick="mgDrawerClose();if(window.MangoFlow&&window.MangoFlow.playRecording)window.MangoFlow.playRecording();" data-ko="📼 녹화 보기" data-en="📼 View Recordings">📼 녹화 보기</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/student-games.html';" data-ko="🎮 학생게임" data-en="🎮 Student Game">🎮 학생게임</button>
         <button onclick="mgDrawerClose();location.href='/vocab.html';" data-ko="📖 단어장" data-en="📖 Vocabulary">📖 단어장</button>
       </div>
@@ -24756,7 +24757,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712162220 -->
+<!-- BUILD:20260712163141 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
