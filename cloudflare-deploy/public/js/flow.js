@@ -505,7 +505,7 @@
       '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">녹화를 재생할 수 없어요</div>' +
       '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">보관 기간이 지나 파일이 정리되었을 수 있어요.<br>전체 목록에서 다른 녹화를 확인해 보세요.</div>' +
       '<div style="display:flex;gap:8px;justify-content:center">' +
-        '<a href="/parent.html" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:800;text-decoration:none">📚 전체 목록</a>' +
+        '<button data-rec-list style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:800;cursor:pointer">📚 전체 목록</button>' +
         '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>' +
       '</div>'
     ));

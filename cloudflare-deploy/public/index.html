@@ -4665,9 +4665,9 @@
       <span id="login-btn-label" data-ko="로그인" data-en="Login">로그인</span>
     </button>
     <!-- 🌤️/🌙 홈 배경 밝게·어둡게 — 로그인 옆 칩 (중앙에서 이동) -->
-    <button id="home-theme-toggle" type="button" class="hero-chip home-theme-chip" onclick="toggleHomeTheme()" title="밝은/어두운 배경 전환">
-      <span id="home-theme-icon">🌙</span>
-      <span id="home-theme-label">어둡게</span>
+    <button id="home-theme-toggle" type="button" class="hero-chip home-theme-chip" onclick="toggleHomeTheme()" title="배경 전환: 자동(낮 밝게·밤 어둡게) → 밝게 → 어둡게">
+      <span id="home-theme-icon">🕒</span>
+      <span id="home-theme-label">자동</span>
     </button>
     <!-- 🎁 Phase RF — 추천 친구 코드 칩 (로그인된 사용자만) -->
     <button id="referral-chip" class="hero-chip" title="추천 코드" style="display:none;background:rgba(168,85,247,0.15);border-color:rgba(168,85,247,0.5);color:#e9d5ff" onclick="showReferralModal()">
@@ -5871,34 +5871,59 @@
       <!-- (position:absolute .hero-chip 라서 DOM 위치와 무관하게 우상단에 붙음) -->
       <script>
       (function(){
-        function applyHomeTheme(bright){
-          document.body.classList.toggle('home-bright', !!bright);
+        // ⏰ 시간대 자동 테마: 06:00~17:59 = 밝게(☀️), 18:00~05:59 = 어둡게(🌙)
+        // 모드 3종: auto(기본·시간대 자동) / bright(항상 밝게) / dark(항상 어둡게)
+        var MODE_KEY='mangoi_home_theme_mode';
+        var urlForce=null, testHour=null;
+        try{
+          var sp=new URLSearchParams(location.search);
+          var p=sp.get('home');
+          if(p==='bright'||p==='light') urlForce='bright';
+          else if(p==='dark') urlForce='dark';
+          else if(p==='auto') urlForce='auto';
+          var hh=parseInt(sp.get('hh'),10); // 미리보기용 시간 강제(?home=auto&hh=20)
+          if(!isNaN(hh)&&hh>=0&&hh<=23) testHour=hh;
+        }catch(e){}
+        function getMode(){
+          if(urlForce) return urlForce;
+          try{
+            var m=localStorage.getItem(MODE_KEY);
+            if(m==='bright'||m==='dark'||m==='auto') return m;
+          }catch(e){}
+          return 'auto';
+        }
+        function autoBright(){
+          var h=(testHour!==null)?testHour:new Date().getHours();
+          return h>=6 && h<18;
+        }
+        function applyHomeTheme(){
+          var mode=getMode();
+          var bright=(mode==='bright')||(mode==='auto'&&autoBright());
+          document.body.classList.toggle('home-bright', bright);
           var icon=document.getElementById('home-theme-icon');
           var label=document.getElementById('home-theme-label');
           var en=(document.documentElement.lang||'ko').toLowerCase().indexOf('en')===0
                  || document.documentElement.getAttribute('data-lang')==='en';
-          if(icon) icon.textContent = bright ? '☀️' : '🌙';
+          if(icon) icon.textContent = (mode==='auto') ? '🕒' : (bright ? '☀️' : '🌙');
           if(label){
-            label.setAttribute('data-ko', bright ? '밝게' : '어둡게');
-            label.setAttribute('data-en', bright ? 'Light' : 'Dark');
-            label.textContent = en ? label.getAttribute('data-en') : label.getAttribute('data-ko');
+            var ko = (mode==='auto') ? '자동' : (bright ? '밝게' : '어둡게');
+            var enTxt = (mode==='auto') ? 'Auto' : (bright ? 'Light' : 'Dark');
+            label.setAttribute('data-ko', ko);
+            label.setAttribute('data-en', enTxt);
+            label.textContent = en ? enTxt : ko;
           }
         }
+        // 칩 클릭: 자동 → 밝게 → 어둡게 → 자동 순환
         window.toggleHomeTheme=function(){
-          var bright=!document.body.classList.contains('home-bright');
-          try{ localStorage.setItem('mangoi_home_bright', bright?'1':'0'); }catch(e){}
-          applyHomeTheme(bright);
+          var next={auto:'bright',bright:'dark',dark:'auto'}[getMode()]||'auto';
+          urlForce=null; // 수동 조작하면 URL 강제 해제
+          try{ localStorage.setItem(MODE_KEY, next); }catch(e){}
+          applyHomeTheme();
         };
-        // 초기값: URL ?home=bright|dark 우선, 없으면 저장값(기본=어둡게)
-        var bright=false;
-        try{
-          var p=new URLSearchParams(location.search).get('home');
-          if(p==='bright'||p==='light') bright=true;
-          else if(p==='dark') bright=false;
-          else bright = localStorage.getItem('mangoi_home_bright')==='1';
-        }catch(e){}
-        if(document.readyState!=='loading') applyHomeTheme(bright);
-        else document.addEventListener('DOMContentLoaded',function(){ applyHomeTheme(bright); });
+        try{ localStorage.removeItem('mangoi_home_bright'); }catch(e){} // 구 키 폐기(자동이 새 기본)
+        if(document.readyState!=='loading') applyHomeTheme();
+        else document.addEventListener('DOMContentLoaded',applyHomeTheme);
+        setInterval(applyHomeTheme, 60000); // 켜둔 채로 6시/18시 넘어가면 자동 전환
       })();
       </script>
       <!-- 안내문구 (수업입장 정보) -->
@@ -25370,7 +25395,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713012024 -->
+<!-- BUILD:20260713013301 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29095,7 +29120,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · (참고) 영상 드래그·크기조절 실제 동작은 위쪽 .video-size-bar / #vc-video-pane 로직에서 처리됨.
      ============================================================ -->
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
-<script defer src="/js/flow.js?v=5"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=5: 전체 녹화 목록 보기=인증 본인 API 목록 화면(parent.html 대신), 그리드 녹화메뉴도 연결(2026-07-13) -->
+<script defer src="/js/flow.js?v=6"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=2"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
 </body>
 </html>
