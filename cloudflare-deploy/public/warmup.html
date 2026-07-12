@@ -149,6 +149,16 @@
       <span class="rate-val" id="rateVal">3 · 보통</span>
     </div>
 
+    <!-- 📊 대화 난이도: 1(기초) ~ 8(최고) — AI가 이 레벨에 맞춰 어휘·문장을 조절 -->
+    <div class="rate-bar level-bar">
+      <span class="rate-title">📊 대화 레벨</span>
+      <span class="rate-side">🌱 기초</span>
+      <input id="lvlSlider" type="range" min="1" max="8" step="1" value="3"
+        oninput="setLevel(this.value,true)" title="대화 난이도 (1 기초 ~ 8 최고)" />
+      <span class="rate-side">최고 🚀</span>
+      <span class="rate-val" id="lvlVal">3 · 초급+</span>
+    </div>
+
     <div id="log"></div>
 
     <div id="listening"><span class="dot"></span> 🎙️ 듣는 중… 영어로 말해보세요</div>
@@ -264,6 +274,27 @@ function setRate(lv){
   var v=document.getElementById('rateVal'); if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv];
 }
 setRate(_rateLevel);   // 저장된 속도로 슬라이더/표시 초기화
+
+/* 📊 대화 난이도: 1(기초) ~ 8(최고) → 서버로 difficulty 전달, AI가 눈높이 맞춤 */
+var LEVEL_NAMES = {1:'기초',2:'초급',3:'초급+',4:'초중급',5:'중급',6:'중상급',7:'상급',8:'최고'};
+var _warmLevel = 3;
+try{
+  var savedLvl = parseInt((Q.get('diff')||localStorage.getItem('mangoi_warmup_level')||'3'),10);
+  if(savedLvl>=1 && savedLvl<=8) _warmLevel = savedLvl;
+}catch(e){}
+function setLevel(lv, announce){
+  lv = parseInt(lv,10); if(!(lv>=1 && lv<=8)) lv = 3;
+  var changed = (lv !== _warmLevel);
+  _warmLevel = lv;
+  try{ localStorage.setItem('mangoi_warmup_level', String(lv)); }catch(e){}
+  var s=document.getElementById('lvlSlider'); if(s && String(s.value)!==String(lv)) s.value=lv;
+  var v=document.getElementById('lvlVal'); if(v) v.textContent = lv + ' · ' + LEVEL_NAMES[lv];
+  // 사용자가 직접 바꾸면 안내 한 줄(다음 대화부터 이 레벨로 반영됨)
+  if(announce && changed && typeof addMsg==='function'){
+    addMsg('📊 대화 레벨을 ' + lv + '단계(' + LEVEL_NAMES[lv] + ')로 바꿨어요. 다음 대화부터 이 난이도로 이야기할게요!', 'sys');
+  }
+}
+setLevel(_warmLevel);   // 저장된 레벨로 슬라이더/표시 초기화
 // 영어 원어민 보이스 점수화(en-US/en-GB 자연스러운 보이스 우선) — 게임/아바타와 동일 취지
 function _scoreVoice(v){
   var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
@@ -385,6 +416,8 @@ function fallbackGreeting(){
 }
 function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;
+  body.difficulty = _warmLevel;   // 📊 현재 대화 레벨(1~8)을 항상 함께 전송
+
   if(WCTX.textbook) body.textbook = WCTX.textbook;
   if(WCTX.level) body.level = WCTX.level;
   if(WCTX.lesson_no) body.lesson_no = WCTX.lesson_no;
@@ -502,6 +535,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712224334 -->
+<!-- BUILD:20260712224959 -->
 </body>
 </html>

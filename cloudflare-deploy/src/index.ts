@@ -1924,6 +1924,18 @@ async function handleLearnStreakComplete(request: Request, env: Env): Promise<Re
 const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const WARMUP_SYSTEM = "너는 망고아이의 AI 대화 친구야. 학생의 레벨에 맞춰 최대 2문장 이내로 친절하게 질문해줘. 만약 학생이 한국어로 '이걸 영어로 어떻게 해?'라고 물어보면 자연스러운 영어 문장으로 교정해주고 영어로 다시 말하도록 유도해줘.";
 const WARMUP_MAX_TURNS = 12;   // 저장할 최근 대화(사용자/AI) 최대 개수
+// 📊 대화 난이도 8단계(1 기초 ~ 8 최고) — 프론트 warmup.html 레벨 슬라이더와 1:1 대응.
+//    각 단계별 어휘·문법·문장 길이 가이드를 시스템 프롬프트에 주입해 AI가 눈높이를 맞춘다.
+const WARMUP_LEVELS: Record<number, string> = {
+  1: "레벨 1(기초): 아주 쉬운 기초 단어만 쓰고, 현재시제로 한 번에 3~5단어의 짧은 문장만 말해줘. 학생이 어려워하면 더 쉽게 바꿔주고 한국어로 살짝 도와줘도 돼.",
+  2: "레벨 2(초급): 기초 일상 단어, 현재시제 위주로 5~7단어의 짧고 쉬운 문장으로 말해줘.",
+  3: "레벨 3(초급+): 익숙한 일상 표현과 현재/현재진행 시제로 7~9단어 정도의 문장을 써줘.",
+  4: "레벨 4(초중급): 과거시제와 and/but/because 같은 간단한 접속사를 섞어 9~12단어 문장으로 말해줘.",
+  5: "레벨 5(중급): 다양한 시제와 이유·비교 표현을 쓰고, 필요하면 두 문장까지 자연스럽게 이어서 말해줘.",
+  6: "레벨 6(중상급): 조건·가정·의견 표현과 쉬운 관용구를 조금씩 섞어 자연스럽게 대화해줘.",
+  7: "레벨 7(상급): 원어민이 실제로 쓰는 구동사·연결어·표현을 활용해 좀 더 깊이 있는 후속 질문을 해줘.",
+  8: "레벨 8(최고): 유창한 원어민 수준으로 관용구·뉘앙스·추상적 주제까지 다루며 도전적인 질문으로 대화를 이끌어줘.",
+};
 
 /* 오늘 배울 교재 컨텍스트 — students_erp(학생 배정 교재/레벨) + review_quizzes(그 교재의 실제 영어 문장)
  * textbook/level 을 직접 넘기면 그 값을 우선, 없으면 user_id 로 학생 명부에서 조회.
@@ -2406,6 +2418,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     const ctxTextbook = (body && typeof body.textbook === 'string') ? body.textbook.trim().slice(0, 200) : '';
     const ctxLevel = (body && typeof body.level === 'string') ? body.level.trim().slice(0, 100) : '';
     const ctxLessonNo = Number(body && body.lesson_no) > 0 ? Number(body.lesson_no) : null;
+    // 📊 대화 난이도(1 기초 ~ 8 최고) — 프론트 레벨 슬라이더 값. 범위 밖이면 0(미지정).
+    const rawDiff = Math.floor(Number(body && body.difficulty));
+    const ctxDifficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -2428,6 +2443,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
     let sys = WARMUP_SYSTEM;
+    if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
     if (ctxUserId || ctxTextbook || ctxLevel) {
