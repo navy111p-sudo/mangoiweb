@@ -2174,25 +2174,31 @@ async function handleGamesDefine(request: Request, env: Env): Promise<Response> 
           { role: 'system', content: '너는 단어 사전이다. 반드시 JSON 한 줄로만 답한다. 설명이나 다른 말은 금지.' },
           { role: 'user', content: prompt },
         ], max_tokens: 100, temperature: 0.1 });
-        const txt = String((r && (r.response ?? r.result)) || '').trim();
-        // 모델이 값을 중첩 객체로 주는 경우("ko":{"뜻":...})가 있어 문자열만 안전 추출
+        // ⚠️ 모델이 순수 JSON 을 내면 Workers AI 가 response 를 '객체'로 줄 때가 있다(String() 금지)
+        const rr: any = r && (r.response ?? r.result);
+        // 값이 중첩 객체("ko":{"뜻":...})로 오는 경우까지 문자열만 안전 추출
         const pickStr = (v: any): string => {
           if (typeof v === 'string') return v;
           if (Array.isArray(v)) return v.filter((x) => typeof x === 'string').join(', ');
           if (v && typeof v === 'object') return Object.values(v).filter((x) => typeof x === 'string').join(', ');
           return '';
         };
-        const m = txt.match(/\{[\s\S]*\}/);
-        if (m) {
-          try {
-            const j = JSON.parse(m[0]);
-            ko = pickStr(j.ko).trim().slice(0, 60);
-            if (lang === 'zh' && !pinyin) pinyin = pickStr(j.pinyin).trim().slice(0, 60);
-          } catch {}
+        let j: any = null;
+        if (rr && typeof rr === 'object') {
+          j = rr;
+        } else {
+          const txt = String(rr || '').trim();
+          const m = txt.match(/\{[\s\S]*\}/);
+          if (m) { try { j = JSON.parse(m[0]); } catch {} }
+          if (!j && txt && !txt.includes('{')) {
+            ko = txt.split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 60);
+          }
         }
-        if (!ko && txt && !txt.includes('{')) {
-          ko = txt.split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 60);
+        if (j) {
+          ko = pickStr(j.ko).trim().slice(0, 60);
+          if (lang === 'zh' && !pinyin) pinyin = pickStr(j.pinyin).trim().slice(0, 60);
         }
+        if (/\[object/i.test(ko)) ko = '';   // 최종 방어
       } catch {}
     }
     if (!ko) return new Response(JSON.stringify({ ok: false, error: 'not_found' }), { status: 200, headers: _MS_JSON });
