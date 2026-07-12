@@ -104,7 +104,7 @@
     .top a{font-size:14px;white-space:nowrap}
     .top h1{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .spk-toggle{font-size:12px;padding:5px 9px}
-    .wrap{min-height:calc(100dvh - 44px)}
+    .wrap{height:calc(100dvh - 44px)}
     .meta{font-size:12px;padding:8px 12px;gap:6px}
     .meta .chip{padding:3px 9px}
     .rate-bar{margin:2px 12px 6px;padding:7px 10px;gap:7px;font-size:12px}
@@ -159,14 +159,17 @@
       <button id="sendBtn" onclick="sendMsg()">보내기</button>
     </div>
     <div class="hint">💡 🎤 를 눌러 <b>영어로 말하면</b> AI가 듣고 <b>음성으로 답</b>해줘요. 텍스트 입력도 가능합니다.</div>
+  </div>
 
+  <!-- 🚀 채팅 셸 아래(일반 문서 흐름): 아래로 스크롤하면 나오는 '다음 이동' 버튼 + 서버 설정 -->
+  <div class="after">
     <!-- 🚀 웜업을 충분히 했으면 다음 활동으로 -->
     <button type="button" onclick="window.MangoFlow&&MangoFlow.open('warmup')"
-      style="width:100%;margin-top:12px;padding:14px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(56,189,248,.4)">
+      style="width:100%;padding:14px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(56,189,248,.4)">
       🚀 웜업 끝내고 다음으로 이동
     </button>
 
-    <details class="settings">
+    <details class="settings" style="margin-top:12px">
       <summary>⚙️ 웜업 서버 설정 (선택)</summary>
       <div style="margin-top:6px">기본은 <b>같은 오리진</b>(Cloudflare 워커의 <code>/api/warmup/chat</code>)이라 설정 없이 바로 대화됩니다.<br>
         외부 백엔드(FastAPI 등)로 바꾸려면 주소를 입력하세요. 예: <code>http://127.0.0.1:8010</code></div>
@@ -499,6 +502,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712152202 -->
+<!-- BUILD:20260712152313 -->
 </body>
 </html>
