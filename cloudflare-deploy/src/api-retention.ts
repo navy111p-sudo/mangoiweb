@@ -13,6 +13,7 @@
  */
 import { json, parseJsonBody } from './api-util';
 import { sendPlainSms } from './solapi-client';
+import { getTraits } from './api-traits';
 
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
@@ -118,7 +119,18 @@ export async function buildRetentionMessage(env: any, row: any, opts: { link?: s
         else band = `${ag}살 청소년이라, 아이를 한 사람으로 존중하면서도 따뜻하게, 학습 부담에 공감하며`;
         ageHint = `\n아이 나이: ${band} 써줘.`;
       }
-      const usr = `학생(아이) 이름: ${name}\n담임 선생님으로서의 상황과 마음: ${guide[cat] || guide.inactive}${ageHint}\n학원 이름: 망고아이`;
+      // 🧬 성향(학부모가 알려준 값) — 있으면 더 정교하게 개인화
+      let traitHint = '';
+      try {
+        const tr: any = await getTraits(env, row.user_id);
+        const parts: string[] = [];
+        if (tr.gender === 'M') parts.push('남자아이'); else if (tr.gender === 'F') parts.push('여자아이');
+        if (tr.mbti && tr.mbti.length === 4) parts.push(`MBTI ${tr.mbti}(성향에 맞춰 결이 통하는 표현으로)`);
+        if (tr.interests) parts.push(`좋아하는 것: ${tr.interests}(자연스럽게 살짝 언급하면 좋아요)`);
+        if (tr.personality) parts.push(`성격: ${tr.personality}`);
+        if (parts.length) traitHint = `\n아이 성향: ${parts.join(' / ')}. 이 아이만을 위한 말처럼 느껴지게 반영해줘.`;
+      } catch (_) {}
+      const usr = `학생(아이) 이름: ${name}\n담임 선생님으로서의 상황과 마음: ${guide[cat] || guide.inactive}${ageHint}${traitHint}\n학원 이름: 망고아이`;
       const res: any = await env.AI.run(AI_MODEL, { messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }], max_tokens: 320, temperature: 0.8 });
       ai = String(res?.response || '').trim().replace(/^["'\s]+|["'\s]+$/g, '');
     }

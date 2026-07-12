@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리 아이 알아가기 · 망고아이</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:linear-gradient(160deg,#fff7ed,#fef3c7); color:#3f2d16; min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:22px; }
+  .card { background:#fff; border:1px solid #f4e2bf; border-radius:24px; padding:28px 24px; max-width:440px; width:100%; box-shadow:0 20px 50px -18px rgba(180,120,20,0.35); }
+  .logo { text-align:center; margin-bottom:6px; }
+  .logo img { height:64px; }
+  h1 { font-size:23px; text-align:center; margin:6px 0 4px; color:#b45309; font-weight:900; }
+  .sub { text-align:center; color:#8a6d3b; font-size:15px; margin-bottom:20px; line-height:1.55; }
+  label { display:block; font-weight:800; font-size:15.5px; margin:16px 0 7px; }
+  .hint { font-weight:500; color:#a98a54; font-size:13px; }
+  select, input, textarea { width:100%; font-size:16px; border:1.5px solid #e8d3a8; border-radius:13px; padding:13px 14px; background:#fffdf7; color:#3f2d16; }
+  textarea { min-height:64px; resize:vertical; }
+  .seg { display:flex; gap:8px; }
+  .seg button { flex:1; padding:13px; border-radius:13px; border:1.5px solid #e8d3a8; background:#fffdf7; font-size:16px; font-weight:800; cursor:pointer; color:#6b4f22; }
+  .seg button.on { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#fff; border-color:transparent; }
+  .save { width:100%; margin-top:22px; padding:16px; border:0; border-radius:14px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:17px; font-weight:900; cursor:pointer; }
+  .save:disabled { opacity:0.6; }
+  .msg { text-align:center; margin-top:14px; font-size:15px; font-weight:700; }
+  .ok { color:#15803d; } .err { color:#dc2626; }
+  .done { text-align:center; padding:20px 0; }
+  .done .big { font-size:52px; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="logo"><img src="/img/mango-char.png" alt="망고아이"></div>
+    <h1 id="title">우리 아이 알아가기 🧡</h1>
+    <div class="sub" id="sub">아이를 더 잘 이해하고, 딱 맞는 수업으로 도와드릴게요.<br>1분이면 충분해요!</div>
+    <div id="form">
+      <label>성별 <span class="hint">(선택)</span></label>
+      <div class="seg" id="genderSeg">
+        <button type="button" data-g="M">남자아이</button>
+        <button type="button" data-g="F">여자아이</button>
+      </div>
+
+      <label>MBTI <span class="hint">(모르면 비워두세요)</span></label>
+      <select id="mbti"></select>
+
+      <label>좋아하는 것 · 관심사 <span class="hint">(예: 공룡, 그림, 축구, 로블록스)</span></label>
+      <input id="interests" type="text" maxlength="100" placeholder="아이가 좋아하는 것을 적어주세요">
+
+      <label>우리 아이 성격 한 줄 <span class="hint">(예: 부끄럼 많지만 칭찬에 신나요)</span></label>
+      <textarea id="personality" maxlength="200" placeholder="아이의 성격을 자유롭게 알려주세요"></textarea>
+
+      <button class="save" id="save">💛 저장하기</button>
+      <div class="msg" id="msg"></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  var g=function(id){return document.getElementById(id);};
+  var p=new URLSearchParams(location.search);
+  var uid=p.get('uid')||'', tok=p.get('t')||'';
+  var gender='';
+
+  // MBTI 드롭다운
+  var TYPES=['','ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP','ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ'];
+  var sel=g('mbti');
+  TYPES.forEach(function(t){ var o=document.createElement('option'); o.value=t; o.textContent=t||'잘 모르겠어요'; sel.appendChild(o); });
+
+  g('genderSeg').addEventListener('click', function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    gender = (gender===b.getAttribute('data-g')) ? '' : b.getAttribute('data-g');
+    Array.prototype.forEach.call(g('genderSeg').children, function(x){ x.classList.toggle('on', x.getAttribute('data-g')===gender); });
+  });
+
+  function invalid(){ g('form').innerHTML='<div class="done"><div class="big">😅</div><div style="font-size:17px;font-weight:800;margin-top:8px">링크가 올바르지 않아요</div><div class="sub" style="margin-top:8px">보내주신 분께 다시 문의해 주세요.</div></div>'; }
+
+  if(!uid||!tok){ invalid(); return; }
+
+  // 기존 값 불러오기
+  fetch('/api/traits/get?uid='+encodeURIComponent(uid)+'&t='+encodeURIComponent(tok))
+    .then(function(r){ if(r.status===403){throw new Error('bad');} return r.json(); })
+    .then(function(d){
+      if(!d||!d.ok){ invalid(); return; }
+      if(d.name){ g('title').textContent=d.name+'(이)를 알아가기 🧡'; }
+      var tr=d.traits||{};
+      if(tr.gender){ gender=tr.gender; Array.prototype.forEach.call(g('genderSeg').children, function(x){ x.classList.toggle('on', x.getAttribute('data-g')===gender); }); }
+      if(tr.mbti){ sel.value=tr.mbti; }
+      if(tr.interests){ g('interests').value=tr.interests; }
+      if(tr.personality){ g('personality').value=tr.personality; }
+    })
+    .catch(function(){ invalid(); });
+
+  g('save').addEventListener('click', function(){
+    var b=g('save'); b.disabled=true; g('msg').textContent='';
+    fetch('/api/traits/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      uid:uid, t:tok, gender:gender, mbti:sel.value, interests:g('interests').value, personality:g('personality').value
+    })})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        b.disabled=false;
+        if(d&&d.ok){ g('form').innerHTML='<div class="done"><div class="big">🎉</div><div style="font-size:19px;font-weight:900;margin-top:10px;color:#b45309">고맙습니다!</div><div class="sub" style="margin-top:10px">알려주신 내용으로 우리 아이에게<br>더 딱 맞는 수업을 준비할게요. 💛</div></div>'; }
+        else { g('msg').className='msg err'; g('msg').textContent='저장에 실패했어요. 잠시 후 다시 시도해 주세요.'; }
+      })
+      .catch(function(){ b.disabled=false; g('msg').className='msg err'; g('msg').textContent='네트워크 오류'; });
+  });
+})();
+</script>
+<!-- BUILD:20260713042125 -->
+</body>
+</html>

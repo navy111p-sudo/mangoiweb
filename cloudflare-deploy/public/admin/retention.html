@@ -101,6 +101,33 @@
   </div>
 </div>
 
+<!-- 아이 성향 입력 모달 -->
+<div id="traitModal" style="display:none;position:fixed;inset:0;z-index:60">
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,0.6)" id="traitBackdrop"></div>
+  <div style="position:relative;max-width:440px;margin:6vh auto;padding:0 16px">
+    <div class="card" style="margin:0">
+      <div style="font-weight:800;font-size:19px;margin-bottom:12px" id="traitWho"></div>
+      <div id="tl_gender" style="font-weight:700;margin-bottom:6px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn" id="tg_m" data-g="M" style="flex:1"></button>
+        <button class="btn" id="tg_f" data-g="F" style="flex:1"></button>
+      </div>
+      <div id="tl_mbti" style="font-weight:700;margin-bottom:6px"></div>
+      <select id="t_mbti" style="width:100%;font-size:16px;border-radius:12px;padding:11px;background:#0f172a;color:#e6edf6;border:1px solid rgba(148,163,184,0.4);margin-bottom:12px"></select>
+      <div id="tl_int" style="font-weight:700;margin-bottom:6px"></div>
+      <input id="t_int" type="text" maxlength="100" style="width:100%;font-size:16px;border-radius:12px;padding:11px;background:#0f172a;color:#e6edf6;border:1px solid rgba(148,163,184,0.4);margin-bottom:12px">
+      <div id="tl_per" style="font-weight:700;margin-bottom:6px"></div>
+      <textarea id="t_per" maxlength="200" style="width:100%;min-height:60px;font-size:15px;border-radius:12px;padding:11px;background:#0f172a;color:#e6edf6;border:1px solid rgba(148,163,184,0.4)"></textarea>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+        <button class="btn" id="t_save" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border:0;font-weight:800"></button>
+        <button class="btn" id="t_copy"></button>
+        <button class="btn" id="t_close"></button>
+        <span class="ok" id="t_msg"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   var g=function(id){return document.getElementById(id);};
@@ -118,7 +145,8 @@
       th_msg:'문자', msg:'📱 문자', noPhone:'번호없음', msgTitleCard:'📱 AI 자동 연락 (문자)', autoLabel:'자동 발송(매일 오전 10시)', capLabel:'하루 최대', linkLabel:'재등록 링크', save:'💾 저장', saved:'저장됨 ✓',
       bulkSend:'📤 이 목록 전체에 문자 보내기', sendHint:'전화번호 있는·아직 연락 안 한 학생에게만 발송돼요 (30일 내 재발송 안 함).',
       msgSub:'AI가 상황에 맞게 작성한 문구예요. 수정 후 보내도 돼요.', regen:'🔄 다시 생성', send:'📤 발송', close:'닫기',
-      sending:'보내는 중…', sentOne:'✅ 발송 완료!', sendFail:'발송 실패', bulkDone:function(n,t){return '✅ '+n+'명 발송 완료 (대상 '+t+'명 중)';}, confirmBulk:function(n){return n+'명에게 문자를 보낼까요? (안전장치: 하루 상한·30일 재발송 방지 적용)';}, bytes:'자' },
+      sending:'보내는 중…', sentOne:'✅ 발송 완료!', sendFail:'발송 실패', bulkDone:function(n,t){return '✅ '+n+'명 발송 완료 (대상 '+t+'명 중)';}, confirmBulk:function(n){return n+'명에게 문자를 보낼까요? (안전장치: 하루 상한·30일 재발송 방지 적용)';}, bytes:'자',
+      trait:'🧬', traitTitle:'아이 성향', g_m:'남아', g_f:'여아', mbtiL:'MBTI', interestsL:'좋아하는 것', personalityL:'성격', traitPh:'예: 공룡·그림', traitPPh:'예: 부끄럼 많지만 칭찬에 신나요', saveTrait:'💾 저장', copyLink:'🔗 학부모 입력 링크 복사', linkCopied:'복사됨! 문자/카톡으로 보내세요 ✓', traitSaved:'저장됨 ✓' },
     en:{ title:'🔁 Enrollment Retention', langLabel:'🇰🇷 한국어', htmlLang:'en',
       sub:'This is a <b>period-based subscription</b> model. It automatically finds students who are <b>expiring soon</b> (renew), <b>recently expired</b> (re-enroll), or <b>inactive</b> (churn risk).',
       tab_expiring:'⏰ Expiring (30 days)', tab_expired:'🔴 Recently expired (60d)', tab_inactive:'💤 Inactive (no class)',
@@ -130,7 +158,8 @@
       th_msg:'SMS', msg:'📱 SMS', noPhone:'no phone', msgTitleCard:'📱 AI Auto-Contact (SMS)', autoLabel:'Auto-send (daily 10 AM)', capLabel:'Daily max', linkLabel:'Re-enroll link', save:'💾 Save', saved:'Saved ✓',
       bulkSend:'📤 Send SMS to this whole list', sendHint:'Only sends to students who have a phone and were not contacted yet (no resend within 30 days).',
       msgSub:'AI wrote this message for the situation. You can edit before sending.', regen:'🔄 Regenerate', send:'📤 Send', close:'Close',
-      sending:'Sending…', sentOne:'✅ Sent!', sendFail:'Send failed', bulkDone:function(n,t){return '✅ Sent to '+n+' (of '+t+')';}, confirmBulk:function(n){return 'Send SMS to '+n+' students? (safeguards: daily cap, no resend within 30 days)';}, bytes:'chars' }
+      sending:'Sending…', sentOne:'✅ Sent!', sendFail:'Send failed', bulkDone:function(n,t){return '✅ Sent to '+n+' (of '+t+')';}, confirmBulk:function(n){return 'Send SMS to '+n+' students? (safeguards: daily cap, no resend within 30 days)';}, bytes:'chars',
+      trait:'🧬', traitTitle:'Child traits', g_m:'Boy', g_f:'Girl', mbtiL:'MBTI', interestsL:'Likes', personalityL:'Personality', traitPh:'e.g. dinosaurs, drawing', traitPPh:'e.g. shy but loves praise', saveTrait:'💾 Save', copyLink:'🔗 Copy parent link', linkCopied:'Copied! Send via SMS/Kakao ✓', traitSaved:'Saved ✓' }
   };
   var lang=localStorage.getItem('mangoi_payroll_lang')||'en';
   function t(){return I18N[lang];}
@@ -170,9 +199,10 @@
         var tag = r.days_to_expiry==null? '' : (r.days_to_expiry>=0? '<span class="badge b-warn">'+d.dLeft(r.days_to_expiry)+'</span>' : '<span class="badge b-danger">'+d.dOver(-r.days_to_expiry)+'</span>');
         exp = r.end_date+' '+tag;
       } else exp='<span class="muted">–</span>';
-      var msgCell = r.has_phone
+      var phoneBtn = r.has_phone
         ? '<button class="btn" style="padding:7px 12px;font-size:14px" data-msg="'+esc(r.user_id)+'">'+d.msg+'</button>'+(r.last_msg_at?' <span class="ok" style="font-size:12px">✓</span>':'')
         : '<span class="muted" style="font-size:13px">'+d.noPhone+'</span>';
+      var msgCell = phoneBtn + ' <button class="btn" style="padding:7px 10px;font-size:14px" data-trait="'+esc(r.user_id)+'" title="'+d.traitTitle+'">'+d.trait+'</button>';
       h+='<tr><td class="name">'+esc(r.name||r.user_id)+'<div class="muted">'+esc(r.user_id)+'</div></td>'
         +'<td>'+last+'</td><td>'+exp+'</td>'
         +'<td style="text-align:center">'+msgCell+'</td>'
@@ -182,6 +212,7 @@
     h+='</tbody></table>'; g('body').innerHTML=h;
     Array.prototype.forEach.call(document.querySelectorAll('.chk'), function(c){ c.addEventListener('change', function(){ toggleContacted(c.getAttribute('data-uid'), c.checked); }); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-msg]'), function(b){ b.addEventListener('click', function(){ openMsg(b.getAttribute('data-msg')); }); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-trait]'), function(b){ b.addEventListener('click', function(){ openTrait(b.getAttribute('data-trait')); }); });
   }
 
   function toggleContacted(uid, done){
@@ -233,6 +264,37 @@
       .then(function(r){return r.json();}).then(function(x){ b.disabled=false; b.textContent=d.bulkSend; alert(d.bulkDone((x&&x.sent)||0, ids.length)); load(); }).catch(function(){ b.disabled=false; b.textContent=d.bulkSend; });
   }
 
+  // ── 아이 성향 입력 ──
+  var traitUid=null, traitGender='', traitLink='';
+  var MBTI=['','ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP','ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ'];
+  (function(){ var s=g('t_mbti'); MBTI.forEach(function(m){ var o=document.createElement('option'); o.value=m; o.textContent=m||'—'; s.appendChild(o); }); })();
+  function setTG(gv){ traitGender=(traitGender===gv?'':gv); g('tg_m').style.opacity=(traitGender==='M'?'1':'0.5'); g('tg_f').style.opacity=(traitGender==='F'?'1':'0.5'); }
+  function openTrait(uid){
+    var d=t(); traitUid=uid; traitGender=''; traitLink=''; g('t_msg').textContent='';
+    var r=cur.rows.filter(function(x){return x.user_id===uid;})[0]||{};
+    g('traitWho').textContent=(r.name||uid)+' — '+d.traitTitle;
+    g('tl_gender').textContent=d.g_m+'/'+d.g_f; g('tg_m').textContent=d.g_m; g('tg_f').textContent=d.g_f;
+    g('tl_mbti').textContent=d.mbtiL; g('tl_int').textContent=d.interestsL; g('tl_per').textContent=d.personalityL;
+    g('t_int').placeholder=d.traitPh; g('t_per').placeholder=d.traitPPh;
+    g('t_save').textContent=d.saveTrait; g('t_copy').textContent=d.copyLink; g('t_close').textContent=d.close;
+    g('t_mbti').value=''; g('t_int').value=''; g('t_per').value=''; setTG('');
+    g('traitModal').style.display='block';
+    fetch('/api/admin/student-traits?uid='+encodeURIComponent(uid),{credentials:'same-origin'})
+      .then(function(r){return r.json();}).then(function(x){
+        if(x&&x.ok){ var tr=x.traits||{}; if(tr.gender){setTG(tr.gender);} g('t_mbti').value=tr.mbti||''; g('t_int').value=tr.interests||''; g('t_per').value=tr.personality||'';
+          if(x.link_token){ traitLink=location.origin+'/traits.html?uid='+encodeURIComponent(uid)+'&t='+x.link_token; } }
+      }).catch(function(){});
+  }
+  function saveTrait(){
+    var d=t(); var b=g('t_save'); b.disabled=true;
+    fetch('/api/admin/student-traits',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:traitUid,gender:traitGender,mbti:g('t_mbti').value,interests:g('t_int').value,personality:g('t_per').value})})
+      .then(function(r){return r.json();}).then(function(x){ b.disabled=false; if(x&&x.ok){ g('t_msg').textContent=d.traitSaved; setTimeout(function(){g('traitModal').style.display='none';},900); } }).catch(function(){ b.disabled=false; });
+  }
+  function copyTraitLink(){
+    var d=t(); if(!traitLink) return;
+    (navigator.clipboard?navigator.clipboard.writeText(traitLink):Promise.reject()).then(function(){ g('t_msg').textContent=d.linkCopied; }).catch(function(){ prompt('링크:', traitLink); });
+  }
+
   function load(){
     var d=t();
     g('body').innerHTML='<div class="empty">'+d.loading+'</div>';
@@ -270,6 +332,12 @@
   g('msgClose').addEventListener('click', function(){ g('msgModal').style.display='none'; });
   g('msgBackdrop').addEventListener('click', function(){ g('msgModal').style.display='none'; });
   g('msgText').addEventListener('input', updLen);
+  g('tg_m').addEventListener('click', function(){ setTG('M'); });
+  g('tg_f').addEventListener('click', function(){ setTG('F'); });
+  g('t_save').addEventListener('click', saveTrait);
+  g('t_copy').addEventListener('click', copyTraitLink);
+  g('t_close').addEventListener('click', function(){ g('traitModal').style.display='none'; });
+  g('traitBackdrop').addEventListener('click', function(){ g('traitModal').style.display='none'; });
 
   applyLang(); load();
 })();

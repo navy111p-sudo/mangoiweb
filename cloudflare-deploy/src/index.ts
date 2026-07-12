@@ -10,6 +10,7 @@ import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-ma
 import { handlePayApi, runPaymentAudit } from './api-pay';
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
 import { handleRetentionIngest, getRetention, markRetentionContacted, getRetentionSettings, setRetentionSettings, previewRetentionMessage, sendRetentionMessages, runRetentionAutoSend } from './api-retention';
+import { handleTraitsApi } from './api-traits';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
@@ -1128,6 +1129,17 @@ const worker = {
     if (path === '/api/payroll-ingest') {
       try {
         const res = await handlePayrollIngest(request, url, env as any);
+        if (res) return res;
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // 🧬 아이 성향 수집 — 학부모 폼(토큰) + 관리자. /api/traits/* (공개, 토큰검증) · /api/admin/student-traits (관리자)
+    if (path === '/api/traits/get' || path === '/api/traits/save' || path === '/api/admin/student-traits') {
+      try {
+        const res = await handleTraitsApi(request, url, env as any);
         if (res) return res;
       } catch (e: any) {
         return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
