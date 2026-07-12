@@ -2175,12 +2175,19 @@ async function handleGamesDefine(request: Request, env: Env): Promise<Response> 
           { role: 'user', content: prompt },
         ], max_tokens: 100, temperature: 0.1 });
         const txt = String((r && (r.response ?? r.result)) || '').trim();
-        const m = txt.match(/\{[\s\S]*?\}/);
+        // 모델이 값을 중첩 객체로 주는 경우("ko":{"뜻":...})가 있어 문자열만 안전 추출
+        const pickStr = (v: any): string => {
+          if (typeof v === 'string') return v;
+          if (Array.isArray(v)) return v.filter((x) => typeof x === 'string').join(', ');
+          if (v && typeof v === 'object') return Object.values(v).filter((x) => typeof x === 'string').join(', ');
+          return '';
+        };
+        const m = txt.match(/\{[\s\S]*\}/);
         if (m) {
           try {
             const j = JSON.parse(m[0]);
-            ko = String(j.ko || '').trim().slice(0, 60);
-            if (lang === 'zh' && !pinyin) pinyin = String(j.pinyin || '').trim().slice(0, 60);
+            ko = pickStr(j.ko).trim().slice(0, 60);
+            if (lang === 'zh' && !pinyin) pinyin = pickStr(j.pinyin).trim().slice(0, 60);
           } catch {}
         }
         if (!ko && txt && !txt.includes('{')) {
