@@ -7538,7 +7538,7 @@
         화상수업은 가로 모드에서 칠판·교재가 더 잘 보입니다.<br>휴대폰을 가로로 돌리면 자동으로 정리된 화면이 나타납니다.
       </p>
       <button class="dismiss-btn" onclick="vcNukeRotationOverlays()">
-        🤚 <span data-ko="이대로 보기 (권장 X)" data-en="Continue in portrait">이대로 보기 (권장 X)</span>
+        📱 <span data-ko="세로로 계속하기 (교재 크게 보기)" data-en="Continue in portrait (materials fullscreen)">세로로 계속하기 (교재 크게 보기)</span>
       </button>
       <script>
         // 🌀 가로로 회전 시 자동으로 dismissed 해제 (정상 가로 모드 보여줌)
@@ -9758,13 +9758,14 @@ async function vcJoinRoom(skipUI) {
         return;
       }
       // 모든 모드 클래스 초기화
-      row.classList.remove('video-quarter','video-half','video-threequarter','video-full','video-pip','video-solo');
+      row.classList.remove('video-quarter','video-half','video-threequarter','video-full','video-pip','video-solo','video-facepip');
       // 새 모드 적용
       if (mode === 'quarter')         row.classList.add('video-quarter');
       else if (mode === 'half')       row.classList.add('video-half');
       else if (mode === 'threequarter') row.classList.add('video-threequarter');
       else if (mode === 'full')       row.classList.add('video-full');
       else if (mode === 'pip')        row.classList.add('video-pip');
+      else if (mode === 'facepip')    row.classList.add('video-facepip');
       else if (mode === 'solo')       row.classList.add('video-solo');
       // 칠판/PDF 캔버스 리사이즈
       setTimeout(() => {
@@ -9773,7 +9774,7 @@ async function vcJoinRoom(skipUI) {
         if (typeof pdfRenderCurrent === 'function') try { pdfRenderCurrent(); } catch(e){}
       }, 280);
       // 사용자 피드백 토스트
-      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'PIP', solo:'영상 끔(솔로)' };
+      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)' };
       try {
         const t = document.createElement('div');
         t.textContent = '🖥️ 화면 모드: ' + (labels[mode] || mode);
@@ -24952,7 +24953,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712184405 -->
+<!-- BUILD:20260712185429 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27084,6 +27085,178 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     display: none !important;
   }
 </style>
+<style id="vc-portrait-hero-v2">
+  /* ══════════════════════════════════════════════════════════════════════
+     📱 세로(portrait) '이상적' 수업 레이아웃 — "1 주인공 + PIP" (2026-07-12)
+     ───────────────────────────────────────────────────────────────────────
+     [문제] 세로 기본이 video-half(영상 위 절반 + 교재 아래 절반)라 정작 수업의
+            주인공인 교재/칠판이 화면 절반 이하만 차지 → 안 보이고 집중 흐트러짐.
+     [해결] 세로 진입 시 자동으로 두 가지 'PIP' 모드 중 하나로:
+       · 모드 A(video-pip)      = 📖 교재/칠판 전체(주인공) + 영상 우상단 작은 PIP  ← 기본
+       · 모드 B(video-facepip)  = 🧑‍🎓 학생 얼굴 전체(주인공) + 교재 우상단 작은 PIP
+       ⇄ 스왑 버튼으로 원터치 전환. 선생님(내) 화면은 3005줄 규칙대로 기본 숨김,
+       👁 토글로만 아주 작게 노출. 이 블록은 split-modes 다음이라 같은 특이도를 이긴다.
+     ══════════════════════════════════════════════════════════════════════ */
+  @media (max-width: 920px) and (orientation: portrait) {
+
+    /* ── 공통: 두 PIP 모드에서 영상 타일은 세로 스택 + 둥근 모서리 ── */
+    body.vc-in-call #vc-main-row.video-pip #vc-video-grid#vc-video-grid,
+    body.vc-in-call #vc-main-row.video-facepip #vc-video-grid#vc-video-grid {
+      display: flex !important; flex-direction: column !important;
+      gap: 4px !important; height: 100% !important; padding: 4px !important;
+      grid-template-columns: none !important;
+    }
+    body.vc-in-call #vc-main-row.video-pip #vc-video-grid#vc-video-grid .video-box,
+    body.vc-in-call #vc-main-row.video-facepip #vc-video-grid#vc-video-grid .video-box {
+      width: 100% !important; max-width: none !important;
+      height: auto !important; max-height: none !important; min-height: 0 !important;
+      flex: 1 1 auto !important; aspect-ratio: auto !important;
+      border-radius: 12px !important; overflow: hidden !important; margin: 0 !important;
+    }
+    /* 선생님(내 화면)은 항상 맨 뒤·작게 (👁 토글 시에만 노출) */
+    body.vc-in-call #vc-main-row.video-pip #vc-video-grid#vc-video-grid #vc-local-box,
+    body.vc-in-call #vc-main-row.video-facepip #vc-video-grid#vc-video-grid #vc-local-box {
+      order: 99 !important; flex: 0 0 22% !important; max-height: 22% !important; opacity: .92 !important;
+    }
+
+    /* ── 모드 A: 📖 교재 크게 (pip) — 콘텐츠 전체 + 영상 우상단 PIP ── */
+    body.vc-in-call #vc-main-row.video-pip { position: relative !important; }
+    body.vc-in-call #vc-main-row.video-pip .content-pane {
+      width: 100% !important; flex: 1 1 100% !important; min-height: 0 !important;
+    }
+    body.vc-in-call #vc-main-row.video-pip .video-pane {
+      position: absolute !important; top: 8px !important; right: 8px !important; left: auto !important; bottom: auto !important;
+      width: 40vw !important; max-width: 210px !important; min-width: 128px !important;
+      height: auto !important; max-height: 40vh !important; min-height: 0 !important;
+      padding: 0 !important; margin: 0 !important; z-index: 90 !important;
+      border-radius: 14px !important; overflow: hidden !important;
+      border: 2px solid rgba(96,165,250,.55) !important;
+      box-shadow: 0 8px 22px rgba(0,0,0,.55) !important;
+      background: rgba(8,15,35,.92) !important;
+    }
+
+    /* ── 모드 B: 🧑‍🎓 학생 얼굴 크게 (facepip) — 영상 전체 + 교재 우상단 PIP ── */
+    body.vc-in-call #vc-main-row.video-facepip { position: relative !important; flex-direction: column !important; }
+    body.vc-in-call #vc-main-row.video-facepip .video-pane {
+      position: static !important; width: 100% !important; max-width: none !important;
+      height: 100% !important; max-height: none !important; min-height: 0 !important;
+      flex: 1 1 auto !important; padding: 2px !important;
+    }
+    body.vc-in-call #vc-main-row.video-facepip .content-pane {
+      position: absolute !important; top: 8px !important; right: 8px !important; left: auto !important; bottom: auto !important;
+      width: 44vw !important; max-width: 230px !important; min-width: 140px !important;
+      height: auto !important; max-height: 34vh !important; min-height: 22vh !important;
+      flex: 0 0 auto !important; z-index: 90 !important;
+      border-radius: 14px !important; overflow: hidden !important;
+      border: 2px solid rgba(148,163,184,.5) !important;
+      box-shadow: 0 8px 22px rgba(0,0,0,.55) !important;
+      background: rgba(8,15,35,.95) !important;
+    }
+    /* 떠 있는 교재 PIP 안에서는 탭 버튼줄 숨겨 콘텐츠만 깔끔히 보이게 */
+    body.vc-in-call #vc-main-row.video-facepip .content-pane .tab-bar { display: none !important; }
+    body.vc-in-call #vc-main-row.video-facepip .content-pane .tab-content { padding-bottom: 6px !important; }
+
+    /* ── 👁 내 얼굴 보기 토글 — 켜면 3005줄 display:none 을 이겨 선생님 화면 작게 노출 ── */
+    body.vc-in-call.vc-phero-self #vc-main-row.video-pip #vc-video-grid#vc-video-grid #vc-local-box,
+    body.vc-in-call.vc-phero-self #vc-main-row.video-facepip #vc-video-grid#vc-video-grid #vc-local-box {
+      display: flex !important;
+    }
+
+    /* ── 세로 전용 컨트롤 노출 (⇄ 스왑 / 👁 내 얼굴) ── */
+    body.vc-in-call .vc-phero-ctrl { display: flex !important; }
+  }
+
+  /* 세로 전용 컨트롤 — 기본 숨김, 세로+통화중에만 위 미디어쿼리로 노출 */
+  .vc-phero-ctrl {
+    display: none;
+    position: fixed; right: 10px; bottom: 96px; z-index: 99990;
+    flex-direction: column; gap: 8px; align-items: flex-end;
+  }
+  .vc-phero-ctrl button {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 14px; border-radius: 22px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,.45); -webkit-tap-highlight-color: transparent;
+  }
+  .vc-phero-ctrl .vc-phero-swap { background: linear-gradient(135deg,#3b82f6,#6366f1); }
+  .vc-phero-ctrl .vc-phero-self-btn { background: rgba(30,41,59,.92); font-size: 12px; padding: 8px 12px; }
+</style>
+<script>
+(function(){
+  'use strict';
+  function row(){ return document.getElementById('vc-main-row'); }
+  function isPortrait(){ return window.matchMedia && window.matchMedia('(max-width:920px) and (orientation:portrait)').matches; }
+  function inCall(){ return document.body.classList.contains('vc-in-call'); }
+
+  // 스왑 버튼 라벨 갱신 (현재 모드 기준 '다음에 크게 볼 것'을 표시)
+  window.vcUpdatePheroLabels = function(){
+    var r = row(); if(!r) return;
+    var swap = document.getElementById('vc-phero-swap');
+    if(swap){
+      swap.innerHTML = r.classList.contains('video-facepip')
+        ? '📖 <span>교재 크게</span>'
+        : '🧑‍🎓 <span>학생 크게</span>';
+    }
+  };
+
+  // ⇄ 교재 크게(pip) ↔ 학생 얼굴 크게(facepip) 원터치 스왑
+  window.vcPortraitSwap = function(){
+    var r = row(); if(!r || typeof window.vcScreenSet !== 'function') return;
+    window.vcScreenSet(r.classList.contains('video-facepip') ? 'pip' : 'facepip');
+    window.vcUpdatePheroLabels();
+  };
+
+  // 👁 내(선생님) 얼굴 작게 보기/숨기기
+  window.vcTogglePheroSelf = function(){
+    var on = document.body.classList.toggle('vc-phero-self');
+    var b = document.getElementById('vc-phero-self-btn');
+    if(b) b.innerHTML = on ? '🙈 <span>내 얼굴</span>' : '👁 <span>내 얼굴</span>';
+  };
+
+  // 세로 진입 시 이상적 기본(pip=교재 크게) 자동 적용.
+  // 사용자가 학생 크게(facepip)·솔로·전체를 이미 골랐으면 존중하고 건드리지 않음.
+  var _applied = false;
+  function maybeDefault(force){
+    if(!inCall() || !isPortrait() || typeof window.vcScreenSet !== 'function') return;
+    var r = row(); if(!r) return;
+    if(r.classList.contains('video-facepip') || r.classList.contains('video-solo') || r.classList.contains('video-full')){
+      window.vcUpdatePheroLabels(); return;
+    }
+    if(!force && _applied && r.classList.contains('video-pip')) return;
+    window.vcScreenSet('pip');
+    _applied = true;
+    window.vcUpdatePheroLabels();
+  }
+
+  // 세로 전용 컨트롤 FAB 주입
+  function injectCtrl(){
+    if(document.getElementById('vc-phero-ctrl')) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'vc-phero-ctrl'; wrap.id = 'vc-phero-ctrl';
+    wrap.innerHTML =
+      '<button class="vc-phero-swap" id="vc-phero-swap" type="button" onclick="vcPortraitSwap()" title="교재 크게 ↔ 학생 얼굴 크게">🧑‍🎓 <span>학생 크게</span></button>' +
+      '<button class="vc-phero-self-btn" id="vc-phero-self-btn" type="button" onclick="vcTogglePheroSelf()" title="내(선생님) 얼굴 작게 보기/숨기기">👁 <span>내 얼굴</span></button>';
+    document.body.appendChild(wrap);
+  }
+
+  function boot(){
+    injectCtrl();
+    // 통화 시작(vc-in-call) 감지 → 세로면 기본 적용, 통화 종료 시 리셋
+    try {
+      new MutationObserver(function(){
+        if(inCall()) maybeDefault(false);
+        else _applied = false;
+      }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    } catch(e){}
+    // 방향 전환 → 세로면 기본 재적용
+    window.addEventListener('orientationchange', function(){ setTimeout(function(){ maybeDefault(true); }, 400); });
+    window.addEventListener('resize', function(){ setTimeout(function(){ if(isPortrait()) maybeDefault(false); }, 400); });
+    setTimeout(function(){ maybeDefault(false); }, 600);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
 <style id="mg-theme-toggle-topright">
   /* 🌙/☀ 다크·라이트(밝기) 토글 버튼 — 수업 화면 '우측 상단' 복원.
      ─────────────────────────────────────────────────────────────────────────
