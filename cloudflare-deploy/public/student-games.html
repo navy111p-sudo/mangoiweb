@@ -1594,9 +1594,95 @@ function gameShadow(enc){
 }
 
 /* ============================================================
+   📖 단어 뜻 말풍선 — 브릭을 누르면 한국어 뜻(+병음)을 보여주고 발음 재생
+   조회: 로컬 어휘(_GAME_WORDS/_ZH_WORDS/_EN_WORDS + 기능어 내장사전)
+        → 서버 /api/games/define (교재 어휘은행 + AI 폴백, 세션 캐시)
+   ============================================================ */
+var _EN_FUNC_KO = { i:'나는', you:'너, 당신', he:'그는', she:'그녀는', we:'우리는', they:'그들은', it:'그것',
+  a:'하나의 (관사)', an:'하나의 (관사)', the:'그 (관사)', is:'~이다, 있다', are:'~이다, 있다', am:'~이다',
+  was:'~였다', were:'~였다', be:'~이다', to:'~로, ~하기 위해', of:'~의', in:'~안에', on:'~위에, ~(요일)에',
+  at:'~에서', and:'그리고', but:'그러나', or:'또는', my:'나의', your:'너의', his:'그의', her:'그녀의',
+  our:'우리의', their:'그들의', this:'이(것)', that:'저(것)', with:'~와 함께', for:'~을 위해',
+  not:'~않다', do:'하다', does:'하다', did:'했다', can:'~할 수 있다', will:'~할 것이다', should:'~해야 한다',
+  have:'가지고 있다', has:'가지고 있다', very:'매우', every:'모든, 매~' };
+var _ZH_FUNC_KO = { '的':['~의 (조사)','de'], '了':['~했다 (완료)','le'], '吗':['~입니까? (의문)','ma'], '是':['~이다','shì'], '很':['매우','hěn'],
+  '和':['~와, 그리고','hé'], '对':['~에 대해, 맞다','duì'], '我':['나','wǒ'], '你':['너','nǐ'], '他':['그','tā'], '她':['그녀','tā'], '们':['~들','men'],
+  '在':['~에 있다, ~에서','zài'], '就':['곧, 바로','jiù'], '也':['~도, 또한','yě'], '都':['모두','dōu'], '不':['~아니다','bù'], '没':['없다, ~않았다','méi'],
+  '个':['개, 명 (양사)','gè'], '会':['~할 줄 알다','huì'], '要':['원하다, ~하려 하다','yào'], '把':['~을(를)','bǎ'] };
+var _wordHintCache = {};
+function _lookupWordLocal(word){
+  try{
+    var lw = String(word).toLowerCase();
+    var eq = function(x){ return x && x.ko && String(x.en||'').toLowerCase()===lw; };
+    var pools = (GAME_LANG==='zh') ? [_GAME_WORDS, _ZH_WORDS] : [_GAME_WORDS, _EN_WORDS];
+    for(var i=0;i<pools.length;i++){
+      var hit=(pools[i]||[]).find(eq);
+      if(hit) return { ko:hit.ko, pinyin:hit.pinyin||'' };
+    }
+    var fn = (GAME_LANG==='zh') ? _ZH_FUNC_KO[word] : _EN_FUNC_KO[lw];
+    if(fn) return (typeof fn==='string') ? { ko:fn, pinyin:'' } : { ko:fn[0], pinyin:fn[1]||'' };
+  }catch(_){}
+  return null;
+}
+function _escWordHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+var _hintTimer = null;
+function _removeWordHint(){ var el=document.getElementById('brick-word-hint'); if(el) el.remove(); if(_hintTimer){ clearTimeout(_hintTimer); _hintTimer=null; } }
+function _fillWordHint(el, word, def){
+  el.innerHTML =
+    '<div style="font-size:clamp(17px,2.5vmin,28px)">' + _escWordHtml(word) +
+      (def && def.pinyin ? ' <span style="font-weight:600;color:#b45309">[' + _escWordHtml(def.pinyin) + ']</span>' : '') + '</div>' +
+    '<div style="font-size:clamp(14px,2.1vmin,23px);color:#92400e">' + (def ? _escWordHtml(def.ko) : '뜻 찾는 중…') + '</div>' +
+    '<div style="font-size:11px;color:#b45309;opacity:.75;margin-top:2px">👆 누르면 다시 발음</div>';
+}
+function _brickShowWordHint(btn, word){
+  try{
+    _removeWordHint();
+    var d = document.createElement('div');
+    d.id = 'brick-word-hint'; d.dataset.word = word;
+    d.style.cssText = 'position:fixed;z-index:2147483000;max-width:80vw;padding:10px 18px;border-radius:14px;' +
+      'background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#78350f;border:2px solid #f59e0b;' +
+      'box-shadow:0 12px 28px rgba(0,0,0,0.35);font-weight:700;text-align:center;cursor:pointer;line-height:1.35';
+    d.onclick = function(ev){ ev.stopPropagation(); try{ window.gameSpeak && gameSpeak(word); }catch(_){} };
+    _fillWordHint(d, word, _lookupWordLocal(word));
+    document.body.appendChild(d);
+    var r = btn.getBoundingClientRect();
+    var half = Math.min(d.offsetWidth/2, window.innerWidth/2 - 8);
+    var cx = Math.max(8 + half, Math.min(window.innerWidth - 8 - half, r.left + r.width/2));
+    d.style.left = cx + 'px';
+    if(r.top - d.offsetHeight - 12 > 8){ d.style.top = (r.top - 8) + 'px'; d.style.transform = 'translate(-50%,-100%)'; }
+    else { d.style.top = (r.bottom + 8) + 'px'; d.style.transform = 'translate(-50%,0)'; }
+    _resolveWordHint(word, function(def){
+      var el = document.getElementById('brick-word-hint');
+      if(el && el.dataset.word === word) _fillWordHint(el, word, def || { ko:'뜻을 찾지 못했어요', pinyin:'' });
+    });
+    _hintTimer = setTimeout(_removeWordHint, 3500);
+  }catch(_){}
+}
+function _resolveWordHint(word, cb){
+  var key = GAME_LANG + ':' + String(word).toLowerCase();
+  if(_wordHintCache[key]){ cb(_wordHintCache[key]); return; }
+  var local = _lookupWordLocal(word);
+  if(local){ _wordHintCache[key] = local; cb(local); return; }
+  try{ var ss = JSON.parse(sessionStorage.getItem('mangoi_word_defs')||'{}');
+    if(ss[key]){ _wordHintCache[key]=ss[key]; cb(ss[key]); return; } }catch(_){}
+  var sentEn = '';
+  try{ sentEn = (_gameState.current && _gameState.current.sentence && _gameState.current.sentence.en) || ''; }catch(_){}
+  fetch('/api/games/define?word=' + encodeURIComponent(word) + '&lang=' + GAME_LANG + '&sent=' + encodeURIComponent(sentEn))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(dd){
+      if(!dd || !dd.ok || !dd.ko){ cb(null); return; }
+      var v = { ko: dd.ko, pinyin: dd.pinyin || '' };
+      _wordHintCache[key] = v;
+      try{ var s2 = JSON.parse(sessionStorage.getItem('mangoi_word_defs')||'{}'); s2[key]=v; sessionStorage.setItem('mangoi_word_defs', JSON.stringify(s2)); }catch(_){}
+      cb(v);
+    }).catch(function(){ cb(null); });
+}
+
+/* ============================================================
    게임 1: 🧱 문장 벽돌
    ============================================================ */
 function gameRenderBrick(){
+  _removeWordHint();   // 이전 라운드 단어 뜻 말풍선 정리
   const sentence = _gameState._queued || _nextVocab();   // 🧠 약점 우선 출제(선학습은 gameNextRound 에서)
   _gameState._queued = null;
   _gameState.current = { sentence, picked: [] };
@@ -1640,6 +1726,7 @@ function gameBrickPick(btn){
   const word = btn.dataset.word;
   _gameState.current.picked.push(word);
   try{ window.gameSpeak && gameSpeak(word); }catch(_){}
+  try{ _brickShowWordHint(btn, word); }catch(_){}   // 📖 한국어 뜻(+병음) 말풍선
   btn.style.opacity = '0.3'; btn.disabled = true;
   const built = document.getElementById('brick-built');
   const empty = document.getElementById('brick-empty');
@@ -2078,7 +2165,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260712182343 -->
+<!-- BUILD:20260712183028 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

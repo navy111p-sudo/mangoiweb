@@ -12978,8 +12978,81 @@ window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.
 window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 🎧 듣기형(번역 없음) 문제의 문장 듣기
 window.gameSpeakAnswer = function(){ try{ var a=_gameState.current&&_gameState.current.answer; if(a) gameSpeak(a); }catch(_){} };   // 🎈 풍선 등 정답 단어 발음 듣기
 
+/* 📖 단어 뜻 말풍선 — 브릭을 누르면 한국어 뜻을 보여주고 발음 재생 (student-games.html 이식본, index 탭은 영어 전용) */
+var _EN_FUNC_KO = { i:'나는', you:'너, 당신', he:'그는', she:'그녀는', we:'우리는', they:'그들은', it:'그것',
+  a:'하나의 (관사)', an:'하나의 (관사)', the:'그 (관사)', is:'~이다, 있다', are:'~이다, 있다', am:'~이다',
+  was:'~였다', were:'~였다', be:'~이다', to:'~로, ~하기 위해', of:'~의', in:'~안에', on:'~위에, ~(요일)에',
+  at:'~에서', and:'그리고', but:'그러나', or:'또는', my:'나의', your:'너의', his:'그의', her:'그녀의',
+  our:'우리의', their:'그들의', this:'이(것)', that:'저(것)', with:'~와 함께', for:'~을 위해',
+  not:'~않다', do:'하다', does:'하다', did:'했다', can:'~할 수 있다', will:'~할 것이다', should:'~해야 한다',
+  have:'가지고 있다', has:'가지고 있다', very:'매우', every:'모든, 매~' };
+var _wordHintCache = {};
+function _lookupWordLocal(word){
+  try{
+    var lw = String(word).toLowerCase();
+    var hit = (_GAME_WORDS||[]).find(function(x){ return x && x.ko && String(x.en||'').toLowerCase()===lw; });
+    if(hit) return { ko:hit.ko, pinyin:hit.pinyin||'' };
+    if(_glang()!=='zh' && _EN_FUNC_KO[lw]) return { ko:_EN_FUNC_KO[lw], pinyin:'' };
+  }catch(_){}
+  return null;
+}
+function _escWordHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+var _hintTimer = null;
+function _removeWordHint(){ var el=document.getElementById('brick-word-hint'); if(el) el.remove(); if(_hintTimer){ clearTimeout(_hintTimer); _hintTimer=null; } }
+function _fillWordHint(el, word, def){
+  el.innerHTML =
+    '<div style="font-size:18px">' + _escWordHtml(word) +
+      (def && def.pinyin ? ' <span style="font-weight:600;color:#b45309">[' + _escWordHtml(def.pinyin) + ']</span>' : '') + '</div>' +
+    '<div style="font-size:15px;color:#92400e">' + (def ? _escWordHtml(def.ko) : '뜻 찾는 중…') + '</div>' +
+    '<div style="font-size:11px;color:#b45309;opacity:.75;margin-top:2px">👆 누르면 다시 발음</div>';
+}
+function _brickShowWordHint(btn, word){
+  try{
+    _removeWordHint();
+    var d = document.createElement('div');
+    d.id = 'brick-word-hint'; d.dataset.word = word;
+    d.style.cssText = 'position:fixed;z-index:2147483000;max-width:80vw;padding:10px 18px;border-radius:14px;' +
+      'background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#78350f;border:2px solid #f59e0b;' +
+      'box-shadow:0 12px 28px rgba(0,0,0,0.35);font-weight:700;text-align:center;cursor:pointer;line-height:1.35';
+    d.onclick = function(ev){ ev.stopPropagation(); try{ window.gameSpeak && gameSpeak(word); }catch(_){} };
+    _fillWordHint(d, word, _lookupWordLocal(word));
+    document.body.appendChild(d);
+    var r = btn.getBoundingClientRect();
+    var half = Math.min(d.offsetWidth/2, window.innerWidth/2 - 8);
+    var cx = Math.max(8 + half, Math.min(window.innerWidth - 8 - half, r.left + r.width/2));
+    d.style.left = cx + 'px';
+    if(r.top - d.offsetHeight - 12 > 8){ d.style.top = (r.top - 8) + 'px'; d.style.transform = 'translate(-50%,-100%)'; }
+    else { d.style.top = (r.bottom + 8) + 'px'; d.style.transform = 'translate(-50%,0)'; }
+    _resolveWordHint(word, function(def){
+      var el = document.getElementById('brick-word-hint');
+      if(el && el.dataset.word === word) _fillWordHint(el, word, def || { ko:'뜻을 찾지 못했어요', pinyin:'' });
+    });
+    _hintTimer = setTimeout(_removeWordHint, 3500);
+  }catch(_){}
+}
+function _resolveWordHint(word, cb){
+  var key = _glang() + ':' + String(word).toLowerCase();
+  if(_wordHintCache[key]){ cb(_wordHintCache[key]); return; }
+  var local = _lookupWordLocal(word);
+  if(local){ _wordHintCache[key] = local; cb(local); return; }
+  try{ var ss = JSON.parse(sessionStorage.getItem('mangoi_word_defs')||'{}');
+    if(ss[key]){ _wordHintCache[key]=ss[key]; cb(ss[key]); return; } }catch(_){}
+  var sentEn = '';
+  try{ sentEn = (_gameState.current && _gameState.current.sentence && _gameState.current.sentence.en) || ''; }catch(_){}
+  fetch('/api/games/define?word=' + encodeURIComponent(word) + '&lang=' + _glang() + '&sent=' + encodeURIComponent(sentEn))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(dd){
+      if(!dd || !dd.ok || !dd.ko){ cb(null); return; }
+      var v = { ko: dd.ko, pinyin: dd.pinyin || '' };
+      _wordHintCache[key] = v;
+      try{ var s2 = JSON.parse(sessionStorage.getItem('mangoi_word_defs')||'{}'); s2[key]=v; sessionStorage.setItem('mangoi_word_defs', JSON.stringify(s2)); }catch(_){}
+      cb(v);
+    }).catch(function(){ cb(null); });
+}
+
 // 🧱 게임 1: 문장 벽돌 — 영어 단어 브릭을 순서대로 클릭해서 문장 완성
 function gameRenderBrick() {
+  _removeWordHint();   // 이전 라운드 단어 뜻 말풍선 정리
   const sentence = _zhSafeWords(_gameState._queued || _nextVocab());   // 🧠 약점 우선(+중국어 분절 보정)
   _gameState._queued = null;
   _gameState.current = { sentence, picked: [] };
@@ -13020,6 +13093,7 @@ function gameBrickPick(btn) {
   const word = btn.dataset.word;
   _gameState.current.picked.push(word);
   try{ window.gameSpeak && gameSpeak(word); }catch(_){}
+  try{ _brickShowWordHint(btn, word); }catch(_){}   // 📖 한국어 뜻 말풍선
   btn.style.opacity = '0.3'; btn.disabled = true;
   const built = document.getElementById('brick-built');
   const empty = document.getElementById('brick-empty');
@@ -15113,6 +15187,22 @@ async function pdfEnsureSequence() {
         return seq.length > 1;
     } catch(e) { console.warn('[pdfEnsureSequence]', e); return false; }
 }
+// fix (2026-07-12) — 시퀀스 파일 이동. selectFromTextbookLibrary 는 교재 라이브러리 모달을
+//   한 번 연 세션에서만 정의됨(IDB 로드 콜백 내부) → 새 기기/학생용 직접 로드 폴백 필수.
+function _pdfGoSeqFile(f) {
+    if (typeof window.selectFromTextbookLibrary === 'function') {
+        window.selectFromTextbookLibrary(f.id, f.url, f.kind, f.name);
+        return;
+    }
+    try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
+    Promise.resolve(pdfLoad(f.url, f.kind)).then(function(){
+        if (typeof window.vcShareTextbook === 'function') window.vcShareTextbook('lib_' + f.id, f.url, f.kind, f.name);
+        _pdfToast('📚 ' + (f.name || '교재 이동'));
+    }).catch(function(e){
+        console.warn('[_pdfGoSeqFile] 로드 실패', e);
+        _pdfToast('❌ 교재 로드 실패');
+    });
+}
 async function pdfPrevPage() {
     if (pdfDoc && pdfPageNum > 1) {
         pdfPageNum = Math.max(1, pdfPageNum - pdfPagesPerView);
@@ -15130,9 +15220,7 @@ async function pdfPrevPage() {
         var prev = window._libSequence[idx - 1];
         window._libSeqIdx = idx - 1;
         console.log('[ph250] 이전 파일로 자동 이동:', prev.name);
-        if (typeof window.selectFromTextbookLibrary === 'function') {
-            window.selectFromTextbookLibrary(prev.id, prev.url, prev.kind, prev.name);
-        }
+        _pdfGoSeqFile(prev);
         return;
     }
     _pdfToast('📚 첫 페이지입니다');
@@ -15154,9 +15242,7 @@ async function pdfNextPage() {
         var next = window._libSequence[idx2 + 1];
         window._libSeqIdx = idx2 + 1;
         console.log('[ph250] 다음 파일로 자동 이동:', next.name);
-        if (typeof window.selectFromTextbookLibrary === 'function') {
-            window.selectFromTextbookLibrary(next.id, next.url, next.kind, next.name);
-        }
+        _pdfGoSeqFile(next);
         return;
     }
     _pdfToast('📚 마지막 파일입니다');
@@ -24862,7 +24948,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712182343 -->
+<!-- BUILD:20260712183028 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
