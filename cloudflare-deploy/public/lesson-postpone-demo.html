@@ -1688,7 +1688,29 @@ function attachHandlers(){
   setInterval(init, 600);
 })();
 
-/* (정리 2026-06-12) v41 --vh 세터 제거 — 소비처 없는 죽은 코드. 100dvh CSS로 대체 */
+/* ── 앱셸 높이 = 실제 보이는 뷰포트 높이로 고정 (2026-07-12 재도입) ──
+   #app 은 CSS 로 100vh/100dvh 지만, 안드로이드 WebView 래퍼 앱은 dvh 미지원 →
+   100vh 로 폴백하는데 WebView 의 100vh 가 실제 보이는 영역보다 커서 #app 이
+   화면보다 길어짐. 그러면 flex:1 인 카드가 그 넘치는 높이를 채워 .main-stage 가
+   overflow 되지 않아 '아래로 안 내려가고 두 번째 카드가 잘리는' 문제 발생.
+   → window.innerHeight(=WebView 가 실제로 보여주는 픽셀 높이)로 인라인 고정하면
+   CSS vh/dvh 를 이겨서 카드가 딱 보이는 만큼만 채우고, 넘치면 내부 스크롤이 동작함. */
+(function(){
+  var app = document.getElementById('app');
+  if (!app) return;
+  function setAppHeight(){
+    var vv = window.visualViewport;
+    var h = (vv && vv.height) ? vv.height : window.innerHeight;
+    if (h && h > 0) app.style.height = Math.round(h) + 'px';
+  }
+  setAppHeight();
+  window.addEventListener('resize', setAppHeight);
+  window.addEventListener('orientationchange', function(){ setAppHeight(); setTimeout(setAppHeight, 300); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', setAppHeight);
+  /* 초기 레이아웃이 늦게 잡히는 WebView 대비 몇 번 더 보정 */
+  setTimeout(setAppHeight, 60);
+  setTimeout(setAppHeight, 400);
+})();
 
 /* ── 안내 동영상: 1회 재생 후 자동 종료 + X 닫기 + 음소거 토글 (2026-06-12) ── */
 (function(){
@@ -1751,7 +1773,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260712163404 -->
+<!-- BUILD:20260712163533 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
