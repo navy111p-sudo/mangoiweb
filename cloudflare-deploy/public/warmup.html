@@ -87,6 +87,23 @@
   .rate-bar .rate-val{min-width:64px;text-align:center;background:rgba(56,189,248,.14);
     border:1px solid var(--border);border-radius:999px;padding:4px 10px;color:var(--accent);
     font-weight:800;font-size:14px;white-space:nowrap}
+  /* 📊 대화 난이도 스케일(1~8 눈금 버튼) */
+  .level-scale{margin:2px 16px 8px;padding:10px 14px;background:var(--card);
+    border:1px solid var(--border);border-radius:14px}
+  .level-scale .ls-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .level-scale .ls-title{font-weight:800;color:var(--text);font-size:15px;white-space:nowrap}
+  .level-scale .ls-now{background:rgba(56,189,248,.16);border:1px solid var(--border);
+    border-radius:999px;padding:4px 12px;color:var(--accent);font-weight:800;font-size:14px;white-space:nowrap}
+  .level-scale .ls-btns{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+  .level-scale .ls-btns button{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;
+    padding:9px 0;border-radius:10px;border:1px solid var(--border);background:rgba(56,189,248,.06);
+    color:var(--text2);font-size:16px;font-weight:800;transition:transform .08s,background .15s,color .15s}
+  .level-scale .ls-btns button:hover{background:rgba(56,189,248,.18);color:var(--text)}
+  .level-scale .ls-btns button:active{transform:scale(.94)}
+  .level-scale .ls-btns button.on{background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#04283a;border-color:var(--accent);box-shadow:0 3px 10px rgba(56,189,248,.35)}
+  .level-scale .ls-ends{display:flex;justify-content:space-between;margin-top:7px;
+    font-size:13px;font-weight:700;color:var(--text2)}
   /* 🎤 마이크 버튼 (입력창 옆) */
   .inbar .mic-btn{flex:0 0 auto;background:linear-gradient(135deg,#22c55e,#16a34a);color:#04240f;
     border:0;border-radius:12px;padding:0 15px;font-size:19px;line-height:1;cursor:pointer;font-family:inherit}
@@ -149,14 +166,14 @@
       <span class="rate-val" id="rateVal">3 · 보통</span>
     </div>
 
-    <!-- 📊 대화 난이도: 1(기초) ~ 8(최고) — AI가 이 레벨에 맞춰 어휘·문장을 조절 -->
-    <div class="rate-bar level-bar">
-      <span class="rate-title">📊 대화 레벨</span>
-      <span class="rate-side">🌱 기초</span>
-      <input id="lvlSlider" type="range" min="1" max="8" step="1" value="3"
-        oninput="setLevel(this.value,true)" title="대화 난이도 (1 기초 ~ 8 최고)" />
-      <span class="rate-side">최고 🚀</span>
-      <span class="rate-val" id="lvlVal">3 · 초급+</span>
+    <!-- 📊 대화 난이도: 1(기초) ~ 8(최고) — 눈금(스케일)에서 골라 AI 눈높이를 맞춤 -->
+    <div class="level-scale">
+      <div class="ls-head">
+        <span class="ls-title">📊 대화 레벨</span>
+        <span class="ls-now" id="lvlVal">3단계 · 초급+</span>
+      </div>
+      <div class="ls-btns" id="lvlBtns" role="radiogroup" aria-label="대화 난이도 선택"></div>
+      <div class="ls-ends"><span>🌱 기초 (쉬움)</span><span>(어려움) 최고 🚀</span></div>
     </div>
 
     <div id="log"></div>
@@ -282,19 +299,38 @@ try{
   var savedLvl = parseInt((Q.get('diff')||localStorage.getItem('mangoi_warmup_level')||'3'),10);
   if(savedLvl>=1 && savedLvl<=8) _warmLevel = savedLvl;
 }catch(e){}
+// 1~8 눈금 버튼을 동적으로 그린다 (스케일 선택 UI)
+(function buildLevelScale(){
+  var box = document.getElementById('lvlBtns'); if(!box) return;
+  for(var i=1;i<=8;i++){
+    (function(n){
+      var b=document.createElement('button');
+      b.type='button'; b.textContent=String(n);
+      b.setAttribute('role','radio');
+      b.title = n + '단계 · ' + LEVEL_NAMES[n];
+      b.setAttribute('aria-label', n + '단계 ' + LEVEL_NAMES[n]);
+      b.onclick=function(){ setLevel(n, true); };
+      box.appendChild(b);
+    })(i);
+  }
+})();
 function setLevel(lv, announce){
   lv = parseInt(lv,10); if(!(lv>=1 && lv<=8)) lv = 3;
   var changed = (lv !== _warmLevel);
   _warmLevel = lv;
   try{ localStorage.setItem('mangoi_warmup_level', String(lv)); }catch(e){}
-  var s=document.getElementById('lvlSlider'); if(s && String(s.value)!==String(lv)) s.value=lv;
-  var v=document.getElementById('lvlVal'); if(v) v.textContent = lv + ' · ' + LEVEL_NAMES[lv];
+  // 선택된 눈금 버튼 하이라이트
+  var box=document.getElementById('lvlBtns');
+  if(box){ var bs=box.querySelectorAll('button');
+    for(var i=0;i<bs.length;i++){ var on=(i+1===lv);
+      bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
+  var v=document.getElementById('lvlVal'); if(v) v.textContent = lv + '단계 · ' + LEVEL_NAMES[lv];
   // 사용자가 직접 바꾸면 안내 한 줄(다음 대화부터 이 레벨로 반영됨)
   if(announce && changed && typeof addMsg==='function'){
     addMsg('📊 대화 레벨을 ' + lv + '단계(' + LEVEL_NAMES[lv] + ')로 바꿨어요. 다음 대화부터 이 난이도로 이야기할게요!', 'sys');
   }
 }
-setLevel(_warmLevel);   // 저장된 레벨로 슬라이더/표시 초기화
+setLevel(_warmLevel);   // 저장된 레벨로 눈금/표시 초기화
 // 영어 원어민 보이스 점수화(en-US/en-GB 자연스러운 보이스 우선) — 게임/아바타와 동일 취지
 function _scoreVoice(v){
   var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
@@ -534,7 +570,7 @@ async function sendMsg(){
 }
 </style>
 <script defer src="/js/back-nav.js"></script>
-<script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712224959 -->
+<script defer src="/js/flow.js?v=2"></script>
+<!-- BUILD:20260712225204 -->
 </body>
 </html>
