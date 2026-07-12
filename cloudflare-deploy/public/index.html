@@ -24968,7 +24968,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712200350 -->
+<!-- BUILD:20260712201200 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27204,8 +27204,15 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       background: linear-gradient(135deg,#3b82f6,#6366f1) !important; color: #fff !important;
       border-color: rgba(96,165,250,.7) !important;
     }
-    /* 교재도구/필기도구 칩은 세로 메뉴에서 숨김 — 펜·업로드 도구는 칠판/교재 화면에 이미 인라인 표시됨 */
-    body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .mango-tool-chip { display: none !important; }
+    /* 📚 교재도구 / ✍️ 필기도구도 메뉴에 큰 버튼으로 노출 (도구는 호박색으로 구분) */
+    body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .mango-tool-chip {
+      display: flex !important; align-items: center !important; justify-content: center !important;
+      font-size: 15px !important; font-weight: 700 !important; line-height: 1.25 !important;
+      padding: 18px 8px !important; margin: 0 !important; border-radius: 14px !important;
+      min-height: 64px !important; white-space: normal !important;
+      background: rgba(245,158,11,.16) !important; color: #fcd34d !important;
+      border: 1px solid rgba(245,158,11,.45) !important;
+    }
 
     /* ── 👁 내 얼굴 보기 토글 — 켜면 3005줄 display:none 을 이겨 선생님 화면 작게 노출 ── */
     body.vc-in-call.vc-phero-self #vc-main-row.video-pip #vc-video-grid#vc-video-grid #vc-local-box,
@@ -27333,9 +27340,31 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     } catch(e){}
   }
 
+  // 📚교재도구/✍️필기도구(mangoToggleToolDock)도 메뉴에서 누르면 메뉴 닫고 facepip→pip 전환
+  function wrapToolDock(){
+    try {
+      var orig = window.mangoToggleToolDock;
+      if (typeof orig === 'function' && !orig.__pheroWrapped) {
+        window.mangoToggleToolDock = function(){
+          var r = row();
+          if (r && r.classList.contains('video-facepip') && isPortrait() && typeof window.vcScreenSet === 'function') {
+            window.vcScreenSet('pip'); window.vcUpdatePheroLabels();
+          }
+          try { window.closePheroMenu(); } catch(e){}
+          return orig.apply(this, arguments);
+        };
+        window.mangoToggleToolDock.__pheroWrapped = true;
+      }
+    } catch(e){}
+  }
+
   function boot(){
     injectCtrl();
     wrapContentTab();
+    wrapToolDock();
+    // mango-tools-dock.js 가 늦게 로드될 수 있어 재시도
+    setTimeout(wrapToolDock, 800);
+    setTimeout(wrapToolDock, 2000);
     // 통화 시작(vc-in-call) 감지 → 세로면 기본 적용, 통화 종료 시 리셋
     try {
       new MutationObserver(function(){
