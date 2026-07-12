@@ -43,13 +43,24 @@
     updateButton();
   }
 
+  // 현재 언어 (mango-i18n.js 의 getLang 연동 — 없으면 ko)
+  function lang() {
+    try { if (typeof window.getLang === 'function' && window.getLang() === 'en') return 'en'; } catch (e) {}
+    return 'ko';
+  }
+
   function updateButton() {
     if (!btn) return;
     var light = isLight();
+    var en = lang() === 'en';
+    var darkLabel = en ? 'Dark' : '다크';
+    var lightLabel = en ? 'Light' : '라이트';
     btn.innerHTML = light
-      ? '<span style="font-size:15px">🌙</span><span>다크</span>'
-      : '<span style="font-size:15px">☀️</span><span>라이트</span>';
-    btn.title = (light ? '다크' : '라이트(파스텔)') + ' · 한국시간 18시 기준 자동 전환';
+      ? '<span style="font-size:15px">🌙</span><span>' + darkLabel + '</span>'
+      : '<span style="font-size:15px">☀️</span><span>' + lightLabel + '</span>';
+    btn.title = en
+      ? (light ? 'Dark' : 'Light (pastel)') + ' · auto-switches at 6 PM KST'
+      : (light ? '다크' : '라이트(파스텔)') + ' · 한국시간 18시 기준 자동 전환';
   }
 
   function refresh() { apply(target()); }
@@ -91,6 +102,8 @@
     setInterval(ensureButton, 2000); // 뷰 전환 대비 버튼 재확인
     // 매 분 자동 재평가 — 수동 전환 중이 아니면 18:00 경계에서 자동 전환
     setInterval(function () { if (!manualOverride) refresh(); }, 60000);
+    // 🌐 언어 전환 시 버튼 라벨(다크/라이트 ↔ Dark/Light) 즉시 갱신
+    window.addEventListener('mangoi:lang-changed', updateButton);
   }
 
   if (document.readyState === 'loading') {

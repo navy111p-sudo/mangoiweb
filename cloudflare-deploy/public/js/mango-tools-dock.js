@@ -34,10 +34,21 @@
     return document.querySelector('.mango-tool-chip[data-tool="' + which + '"]');
   }
 
+  // 현재 언어 (mango-i18n.js 의 getLang 연동 — 없으면 ko)
+  function lang() {
+    try { if (typeof window.getLang === 'function' && window.getLang() === 'en') return 'en'; } catch (e) {}
+    return 'ko';
+  }
+
+  var CHIP_NAME = {
+    materials: { ko: '📚 교재도구', en: '📚 Textbook Tools' },
+    write:     { ko: '✍️ 필기도구', en: '✍️ Writing Tools' }
+  };
+
   function syncChip(which) {
     var chip = chipOf(which);
     if (!chip) return;
-    var name = which === 'materials' ? '📚 교재도구' : '✍️ 필기도구';
+    var name = CHIP_NAME[which][lang()];
     var text = name + (openState[which] ? ' ▴' : ' ▾');
     // 🔧 깜박임 방지: 값이 실제로 바뀔 때만 DOM 갱신 (매 틱 textContent 재작성 금지)
     if (chip.textContent !== text) chip.textContent = text;
@@ -143,6 +154,8 @@
     enforce();
   }
   setInterval(enforce, 1200);
+  // 🌐 언어 전환 시 칩 라벨(교재/필기도구 ↔ Textbook/Writing Tools) 즉시 갱신
+  window.addEventListener('mangoi:lang-changed', enforce);
   window.addEventListener('resize', function () {
     if (openState.materials) { var m = pdfControls(); if (m) positionDockEl(m, 'materials'); }
     if (openState.write) {
