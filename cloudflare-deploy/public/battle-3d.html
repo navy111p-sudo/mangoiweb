@@ -22,9 +22,10 @@
   .nameplate .hp i{display:block;height:100%;border-radius:999px;transition:width .35s ease}
   .nameplate.p .hp i{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
   .nameplate.e .hp i{background:linear-gradient(90deg,#ef4444,#f87171)}
-  .topmid{position:absolute;top:3px;left:50%;transform:translateX(-50%);z-index:5;text-align:center;pointer-events:none;max-width:46vw}
-  .topmid .lesson{font-size:13px;font-weight:800;color:#fbbf24;text-shadow:0 1px 3px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .topmid .score{font-size:12.5px;color:#9fb3d6;font-weight:700;margin-top:2px;white-space:nowrap}
+  /* 레슨/점수 밴드: 좌우 네임플레이트와 겹치지 않도록 아래 줄에 독립 배치(pill) */
+  .topmid{position:absolute;top:47px;left:50%;transform:translateX(-50%);z-index:6;text-align:center;pointer-events:none;max-width:78vw;background:rgba(8,14,30,.5);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:3px 12px;backdrop-filter:blur(4px);display:inline-flex;flex-direction:column;align-items:center;line-height:1.25}
+  .topmid .lesson{font-size:13px;font-weight:800;color:#fbbf24;text-shadow:0 1px 3px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:74vw}
+  .topmid .score{font-size:12.5px;color:#9fb3d6;font-weight:700;margin-top:1px;white-space:nowrap}
   .iconbtn{position:absolute;top:3px;right:8px;z-index:8;background:rgba(8,14,30,.7);border:1px solid rgba(255,255,255,.16);color:#eaf2ff;border-radius:9px;width:30px;height:30px;font-size:14px;cursor:pointer}
   .iconbtn:active{transform:scale(.94)}
   /* ⚡ 게임 속도(답변 제한시간) 5단계 선택 */
@@ -79,8 +80,10 @@
   @keyframes qshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
   #quiz .listen{display:block;margin:6px auto 0;background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.5);color:#bdf3cf;font-size:13.5px;font-weight:800;padding:6px 16px;border-radius:999px;cursor:pointer;font-family:inherit}
 
-  .overlay{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(3,5,12,.84);backdrop-filter:blur(6px);padding:16px;text-align:center}
+  .overlay{position:absolute;inset:0;z-index:30;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(3,5,12,.84);backdrop-filter:blur(6px);padding:16px;text-align:center}
   .overlay.on{display:flex}
+  /* 📱 세로폰: 카드가 화면보다 길면 손가락으로 위/아래 스크롤 가능하도록 margin:auto 로 중앙정렬(align-items:center 는 넘칠 때 위쪽이 잘려 스크롤 불가) */
+  .overlay>.card{margin:auto}
   /* 🏆 승리 화면: 정중앙 트로피 세리머니가 보이도록 상단은 투명, 카드는 하단에 도킹 */
   #winOverlay{align-items:flex-end;background:linear-gradient(180deg,rgba(3,5,12,0) 0%,rgba(3,5,12,0) 40%,rgba(3,5,12,.5) 68%,rgba(3,5,12,.93) 100%);backdrop-filter:none;padding-bottom:18px}
   #winOverlay .card{margin-bottom:4px;box-shadow:0 26px 70px rgba(0,0,0,.9)}
@@ -1509,6 +1512,6 @@
 }
 </style>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712185429 -->
+<!-- BUILD:20260712191245 -->
 </body>
 </html>
