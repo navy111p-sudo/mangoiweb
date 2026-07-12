@@ -7892,7 +7892,7 @@
             <div class="video-player-container">
                 <div class="vp-controls">
                     <!-- 🆕 큰 '바로 수업으로' — 영상 멈추고 칠판(수업)으로 즉시 복귀 -->
-                    <button type="button" class="vp-back-class" onclick="vpBackToClass()" title="영상을 멈추고 바로 수업(칠판)으로 돌아갑니다" data-ko="📚 바로 수업으로" data-en="📚 Back to Class">📚 바로 수업으로</button>
+                    <button type="button" class="vp-back-class" onclick="vpBackToClass()" title="영상을 멈추고 바로 수업(교재)으로 돌아갑니다" data-ko="📚 바로 수업으로" data-en="📚 Back to Class">📚 바로 수업으로</button>
                     <input id="vp-url" type="text" placeholder="YouTube 주소 또는 동영상 URL을 붙여넣으세요" data-ko-ph="YouTube 주소 또는 동영상 URL을 붙여넣으세요" data-en-ph="Paste YouTube or video URL here" onkeydown="if(event.key==='Enter')vpLoadUrl()" />
                     <button onclick="vpOpenYouTube()" title="YouTube에서 새 탭으로 열기"
                             style="background:#ff0000;color:#fff;font-weight:800;border:0;display:inline-flex;align-items:center;gap:5px"
@@ -15796,21 +15796,57 @@ function vpClear() {
    · 진행위치 표시줄: 유튜브 자체 컨트롤을 안 가리게 스테이지 '아래' 전용 줄로,
      항상 보이게. 업로드 영상=native, 유튜브=IFrame API(실패해도 재생엔 지장 없음). */
 function vpBackToClass(){
-    // 현재 재생 미디어 일시정지 (수업 중 소리만 계속 나오는 것 방지) — best effort
-    try {
-        var st = document.getElementById('vp-stage');
-        var v = st && st.querySelector('video');
-        if (v) { try { v.pause(); } catch(e){} }
-        var f = st && st.querySelector('iframe.vp-yt, iframe[src*="youtube.com/embed"]');
-        if (f) {
-            if (f._ytPlayer && f._ytPlayer.pauseVideo) { try { f._ytPlayer.pauseVideo(); } catch(e){} }
-            else { try { f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}','*'); } catch(e){} }
-        }
-    } catch(e){}
-    // 칠판(수업) 탭으로 전환
-    try { vcToggleContentTab('whiteboard'); } catch(e){}
+    // ① 재생 중 미디어 '확실히' 정지 — 스테이지 + 미니(플로팅) 플레이어 모두.
+    //   유튜브 임베드는 enablejsapi=1 이 없으면 postMessage 명령이 무시되어
+    //   화면만 가려지고 소리가 계속 나오던 버그 → 명령이 안 먹는 iframe 은 src 를 비워 완전 종료.
+    ['vp-stage', 'vp-floating-body'].forEach(function(cid){
+        var box = document.getElementById(cid);
+        if (!box) return;
+        box.querySelectorAll('video').forEach(function(v){ try { v.pause(); } catch(e){} });
+        box.querySelectorAll('iframe').forEach(function(f){
+            var src = String(f.src || '');
+            if (src.indexOf('youtube.com/embed') < 0 && src.indexOf('youtube-nocookie.com/embed') < 0) return;
+            var paused = false;
+            if (f._ytPlayer && f._ytPlayer.pauseVideo) { try { f._ytPlayer.pauseVideo(); paused = true; } catch(e){} }
+            if (!paused && src.indexOf('enablejsapi=1') >= 0) {
+                try { f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}','*'); paused = true; } catch(e){}
+            }
+            if (!paused) { try { f.src = 'about:blank'; } catch(e){} }   // 명령 불가 임베드 → 강제 종료 (소리 즉시 멈춤)
+        });
+    });
+    // ② 수업(교재) 화면으로 복귀
+    vpOpenTextbook();
 }
 window.vpBackToClass = vpBackToClass;
+
+/* '바로 수업으로' 복귀 목적지 — 교재가 화면에 나오게.
+   ① 교재가 이미 열려 있음 → 교재(pdf) 탭 전환만
+   ② 이 세션에서 본 교재 URL 있음 → 조용히 다시 로드(재공유 없이 내 화면 복원)
+   ③ 서버 교재 시퀀스 재구성(pdfEnsureSequence, 새 기기/재접속)으로 현재 파일 로드
+   ④ 그래도 교재를 못 찾으면 기존처럼 칠판 */
+async function vpOpenTextbook(){
+    try { if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(false); } catch(e){}
+    var hasDoc = false;
+    try { hasDoc = !!pdfDoc; } catch(e){}
+    if (hasDoc) { try { vcSwitchTab('pdf'); } catch(e){} return; }
+    var url = '';
+    try { url = String(window._vcShownPdfUrl || window._vcCurrentPdfUrl || ''); } catch(e){}
+    if (url) {
+        try { vcSwitchTab('pdf'); } catch(e){}
+        try { await pdfLoad(url, window._vcCurrentPdfKind || undefined); return; } catch(e){ console.warn('[vpOpenTextbook] 재로드 실패', e); }
+    }
+    try {
+        if (typeof pdfEnsureSequence === 'function' && await pdfEnsureSequence()) {
+            var seq = window._libSequence, i = window._libSeqIdx || 0;
+            if (seq && seq[i]) {
+                try { vcSwitchTab('pdf'); } catch(e){}
+                try { await pdfLoad(seq[i].url, seq[i].kind); return; } catch(e){}
+            }
+        }
+    } catch(e){}
+    try { vcToggleContentTab('whiteboard'); } catch(e){}
+}
+window.vpOpenTextbook = vpOpenTextbook;
 
 (function(){
     var stage = document.getElementById('vp-stage');
@@ -25267,7 +25303,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713003052 -->
+<!-- BUILD:20260713004512 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -27879,10 +27915,10 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       if(d.is_youtube && d.youtube_id){
         // YouTube → iframe 임베드 (자동재생 + 음소거, 크롬 정책 통과). 🔊 클릭 시 mute=0 으로 재로드해 소리 켜짐
         st.innerHTML = label +
-          '<iframe id="ml-frame" src="https://www.youtube.com/embed/'+d.youtube_id+'?autoplay=1&mute=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0;border-radius:8px;background:#000"></iframe>' +
+          '<iframe id="ml-frame" src="https://www.youtube.com/embed/'+d.youtube_id+'?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0;border-radius:8px;background:#000"></iframe>' +
           '<button id="ml-un" style="position:absolute;bottom:70px;right:12px;z-index:2;padding:7px 14px;border:0;border-radius:8px;background:#f59e0b;color:#1f2937;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.45)">🔊 소리 켜기</button>';
         var ubf = document.getElementById('ml-un');
-        if(ubf) ubf.onclick = function(){ var f=document.getElementById('ml-frame'); if(f) f.src='https://www.youtube.com/embed/'+d.youtube_id+'?autoplay=1&mute=0&rel=0&playsinline=1'; ubf.style.display='none'; };
+        if(ubf) ubf.onclick = function(){ var f=document.getElementById('ml-frame'); if(f) f.src='https://www.youtube.com/embed/'+d.youtube_id+'?autoplay=1&mute=0&rel=0&playsinline=1&enablejsapi=1'; ubf.style.display='none'; };
       } else if(d.video_url){
         // 직접 동영상 파일(mp4 등) → <video>
         st.innerHTML = label +
