@@ -7514,9 +7514,17 @@
           view.querySelectorAll('*').forEach(function(c){
             try {
               c.style.setProperty('filter','none','important');
-              c.style.setProperty('pointer-events','auto','important');
+              // 🩹 (2026-07-12) 칠판 글씨 안 써짐 수정: 원래 인라인으로 pointer-events:none 인
+              // 이벤트-투과 레이어(#wb-ai-layer AI 미리보기, 비디오 타일 그라데이션 span 등)에
+              // auto 를 강제하면 그 레이어가 필기/클릭을 가로채 아래 캔버스가 먹통이 된다. 건너뛴다.
+              var ps = (c.getAttribute('style') || '').replace(/\s/g, '');
+              if (ps.indexOf('pointer-events:none') === -1) {
+                c.style.setProperty('pointer-events','auto','important');
+              }
             } catch(e){}
           });
+          // 이미 auto 로 덮여버린 세션 복구 — 핵심 레이어는 명시적으로 원복
+          try { var ai = document.getElementById('wb-ai-layer'); if (ai) ai.style.setProperty('pointer-events','none','important'); } catch(e){}
         }
         // 3) localStorage 에 사용자 의도 기록 — 재진입 시 다시 안 뜨게
         try { localStorage.setItem('mangoi_vc_orientation_dismissed', '1'); } catch(e){}
@@ -24968,7 +24976,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712201200 -->
+<!-- BUILD:20260712223658 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
