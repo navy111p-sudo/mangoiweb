@@ -220,6 +220,28 @@
                 rgba(26,20,74,0.18) 52%,
                 rgba(20,16,64,0.5) 100%);
         }
+        /* ── 🌤️ 밝은 홈 배경 (옵션): body.home-bright 이면 우주 배경을 밝은 판타지 풍경으로 교체 ──
+           어두운 배경(기본)은 그대로 두고, 밝게 옵션만 아래에서 덮어씀 */
+        body.home-bright #view-home { background:#cfe8f5; }
+        body.home-bright #view-home::before {
+            background: url('/img/Gemini_Generated_Image_tpv8d8tpv8d8tpv8.png') center 42% / cover no-repeat;
+            filter: blur(1px) brightness(1.04) saturate(1.05);
+            transform: scale(1.05);
+        }
+        /* 밝은 배경에서는 가장자리만 살짝 눌러 히어로(제목·검색창·버튼)가 또렷하게 */
+        body.home-bright #view-home::after {
+            background:
+              radial-gradient(ellipse 80% 64% at 50% 40%,
+                rgba(255,255,255,0.10) 0%,
+                rgba(200,228,245,0.05) 45%,
+                rgba(70,120,175,0.24) 100%),
+              linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 32%);
+        }
+        /* 밝은 배경 위 골드 제목 가독성 보강 */
+        body.home-bright .home-title .ht-glass,
+        body.home-bright .home-title .ht-serif {
+            text-shadow: 0 2px 10px rgba(0,0,0,0.35), 0 0 2px rgba(0,0,0,0.25);
+        }
         /* 우주 데코 - 떠다니는 행성/은하 (홈 화면 전용, 클릭 차단 없음) */
         .deco-galaxy, .lobby-deco-galaxy { display: none !important; }
         .deco-saturn {
@@ -2122,6 +2144,40 @@
         .vp-empty { color:#64748b; font-size:0.95rem; padding:20px; text-align:center; }
         .vp-stage iframe, .vp-stage video { width:100%; height:100%; border:0; background:#000; }
         @keyframes vp-spin { to { transform: rotate(360deg); } }
+
+        /* 🆕 (2026-07-12) 동영상: 큰 '바로 수업으로' 버튼 + 항상 보이는 진행위치 표시줄 */
+        .vp-controls .vp-back-class{
+            background:linear-gradient(135deg,#ffbf3a,#ff8a00)!important;
+            color:#3a1d00!important;font-weight:800!important;border:0!important;
+            box-shadow:0 2px 10px rgba(255,150,0,.4);
+        }
+        .vp-controls .vp-back-class:hover{ filter:brightness(1.06); background:linear-gradient(135deg,#ffca55,#ff9800)!important; }
+        /* 영상 아래 전용 줄 — 유튜브 자체 컨트롤을 안 가리게 스테이지 '밖' 아래에 둠 */
+        .vp-progress{
+            display:none; align-items:center; gap:10px; flex:0 0 auto;
+            padding:8px 12px; background:rgba(15,23,42,0.94);
+            border-top:1px solid rgba(148,163,184,0.22);
+            font:700 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+            color:#e2e8f0;
+        }
+        .vp-progress.show{ display:flex; }
+        .vp-progress .vp-pg-ico{ flex:0 0 auto; font-size:14px; }
+        .vp-progress .vp-pg-track{
+            position:relative; flex:1; height:10px; border-radius:999px;
+            background:rgba(148,163,184,.3); cursor:pointer;
+        }
+        .vp-progress .vp-pg-fill{
+            position:absolute; left:0; top:0; bottom:0; width:0%; border-radius:999px;
+            background:linear-gradient(90deg,#ffbf3a,#ff8a00);
+        }
+        .vp-progress .vp-pg-knob{
+            position:absolute; top:50%; left:0%; width:16px; height:16px; border-radius:50%;
+            background:#fff; box-shadow:0 1px 5px rgba(0,0,0,.55); transform:translate(-50%,-50%);
+        }
+        .vp-progress .vp-pg-time{
+            flex:0 0 auto; font-variant-numeric:tabular-nums;
+            min-width:96px; text-align:right; color:#fcd34d;
+        }
 
         /* 플로팅 미니 플레이어 (칠판·PDF 위에 떠서 보임) */
         .vp-floating {
@@ -5778,6 +5834,46 @@
           <span data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</span>
         </button>
       </div>
+      <!-- 🌤️/🌙 홈 배경 밝게·어둡게 두 가지 옵션 전환 -->
+      <div style="display:flex;justify-content:center;margin-top:14px;position:relative;z-index:2">
+        <button id="home-theme-toggle" type="button" onclick="toggleHomeTheme()"
+          style="display:inline-flex;align-items:center;gap:7px;padding:6px 15px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.22);color:#fde68a;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 2px 10px rgba(0,0,0,0.3);transition:transform .15s,background .15s">
+          <span id="home-theme-icon">🌙</span>
+          <span id="home-theme-label">어두운 배경</span>
+        </button>
+      </div>
+      <script>
+      (function(){
+        function applyHomeTheme(bright){
+          document.body.classList.toggle('home-bright', !!bright);
+          var icon=document.getElementById('home-theme-icon');
+          var label=document.getElementById('home-theme-label');
+          var en=(document.documentElement.lang||'ko').toLowerCase().indexOf('en')===0
+                 || document.documentElement.getAttribute('data-lang')==='en';
+          if(icon) icon.textContent = bright ? '☀️' : '🌙';
+          if(label){
+            label.setAttribute('data-ko', bright ? '밝은 배경' : '어두운 배경');
+            label.setAttribute('data-en', bright ? 'Bright background' : 'Dark background');
+            label.textContent = en ? label.getAttribute('data-en') : label.getAttribute('data-ko');
+          }
+        }
+        window.toggleHomeTheme=function(){
+          var bright=!document.body.classList.contains('home-bright');
+          try{ localStorage.setItem('mangoi_home_bright', bright?'1':'0'); }catch(e){}
+          applyHomeTheme(bright);
+        };
+        // 초기값: URL ?home=bright|dark 우선, 없으면 저장값(기본=어둡게)
+        var bright=false;
+        try{
+          var p=new URLSearchParams(location.search).get('home');
+          if(p==='bright'||p==='light') bright=true;
+          else if(p==='dark') bright=false;
+          else bright = localStorage.getItem('mangoi_home_bright')==='1';
+        }catch(e){}
+        if(document.readyState!=='loading') applyHomeTheme(bright);
+        else document.addEventListener('DOMContentLoaded',function(){ applyHomeTheme(bright); });
+      })();
+      </script>
       <!-- 안내문구 (수업입장 정보) -->
       <div id="lesson-enter-hint" style="text-align:center;width:fit-content;margin:14px auto 0;font-size:11.5px;color:#cbd5e1;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;background:rgba(0,0,0,0.5);padding:8px 18px;border-radius:99px;border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);text-shadow:0 1px 2px rgba(0,0,0,0.6)">
         <span data-ko="🎥 화상수업 로비로 입장" data-en="🎥 Enter video class lobby">🎥 화상수업 로비로 입장</span>
@@ -7768,6 +7864,8 @@
         <div class="tab-panel" id="tab-video">
             <div class="video-player-container">
                 <div class="vp-controls">
+                    <!-- 🆕 큰 '바로 수업으로' — 영상 멈추고 칠판(수업)으로 즉시 복귀 -->
+                    <button type="button" class="vp-back-class" onclick="vpBackToClass()" title="영상을 멈추고 바로 수업(칠판)으로 돌아갑니다" data-ko="📚 바로 수업으로" data-en="📚 Back to Class">📚 바로 수업으로</button>
                     <input id="vp-url" type="text" placeholder="YouTube 주소 또는 동영상 URL을 붙여넣으세요" data-ko-ph="YouTube 주소 또는 동영상 URL을 붙여넣으세요" data-en-ph="Paste YouTube or video URL here" onkeydown="if(event.key==='Enter')vpLoadUrl()" />
                     <button onclick="vpOpenYouTube()" title="YouTube에서 새 탭으로 열기"
                             style="background:#ff0000;color:#fff;font-weight:800;border:0;display:inline-flex;align-items:center;gap:5px"
@@ -7782,6 +7880,15 @@
                 </div>
                 <div class="vp-stage" id="vp-stage">
                     <div class="vp-empty" data-ko="🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요." data-en="🎬 Paste a YouTube URL or upload a video file.">🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.</div>
+                </div>
+                <!-- 🆕 항상 보이는 진행위치 표시줄 (영상 재생 중일 때만 표시) -->
+                <div class="vp-progress" id="vp-progress">
+                    <span class="vp-pg-ico">🎬</span>
+                    <div class="vp-pg-track" id="vp-pg-track">
+                        <div class="vp-pg-fill" id="vp-pg-fill"></div>
+                        <div class="vp-pg-knob" id="vp-pg-knob"></div>
+                    </div>
+                    <span class="vp-pg-time" id="vp-pg-time">0:00 / 0:00</span>
                 </div>
             </div>
         </div>
@@ -15480,9 +15587,11 @@ function vpLoadUrl() {
     }
 
     if (ytId) {
-        // YouTube
+        // YouTube (enablejsapi=1 → 진행위치 읽기·일시정지 제어 가능)
         const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`;
+        iframe.id = 'vp-yt-frame';
+        iframe.className = 'vp-yt';
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         iframe.allowFullscreen = true;
         iframe.setAttribute('playsinline', '');
@@ -15588,7 +15697,9 @@ function vpLoadUrlRemote(url) {
 
     if (ytId) {
         const iframe = document.createElement('iframe');
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`;
+        iframe.id = 'vp-yt-frame';
+        iframe.className = 'vp-yt';
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         iframe.allowFullscreen = true;
         iframe.setAttribute('playsinline', '');
@@ -15652,6 +15763,121 @@ function vpClear() {
     const urlInput = document.getElementById('vp-url');
     if (urlInput) urlInput.value = '';
 }
+
+/* ── 🆕 (2026-07-12) 동영상 '바로 수업으로' + 진행위치 표시줄 ──────────────
+   · vpBackToClass(): 재생 중 영상을 멈추고 칠판(수업) 탭으로 즉시 복귀.
+   · 진행위치 표시줄: 유튜브 자체 컨트롤을 안 가리게 스테이지 '아래' 전용 줄로,
+     항상 보이게. 업로드 영상=native, 유튜브=IFrame API(실패해도 재생엔 지장 없음). */
+function vpBackToClass(){
+    // 현재 재생 미디어 일시정지 (수업 중 소리만 계속 나오는 것 방지) — best effort
+    try {
+        var st = document.getElementById('vp-stage');
+        var v = st && st.querySelector('video');
+        if (v) { try { v.pause(); } catch(e){} }
+        var f = st && st.querySelector('iframe.vp-yt, iframe[src*="youtube.com/embed"]');
+        if (f) {
+            if (f._ytPlayer && f._ytPlayer.pauseVideo) { try { f._ytPlayer.pauseVideo(); } catch(e){} }
+            else { try { f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}','*'); } catch(e){} }
+        }
+    } catch(e){}
+    // 칠판(수업) 탭으로 전환
+    try { vcToggleContentTab('whiteboard'); } catch(e){}
+}
+window.vpBackToClass = vpBackToClass;
+
+(function(){
+    var stage = document.getElementById('vp-stage');
+    var prog  = document.getElementById('vp-progress');
+    if (!stage || !prog) return;
+    var fill = document.getElementById('vp-pg-fill');
+    var knob = document.getElementById('vp-pg-knob');
+    var track= document.getElementById('vp-pg-track');
+    var tEl  = document.getElementById('vp-pg-time');
+    var timer = null, cur = null, curKind = null;   // cur = <video> 또는 YT.Player
+
+    function fmt(s){ s = Math.max(0, Math.floor(s||0)); var m=Math.floor(s/60), ss=s%60; return m+':'+(ss<10?'0':'')+ss; }
+    function paint(t, d){
+        d = d||0; t = Math.min(t||0, d);
+        var pct = d>0 ? (t/d*100) : 0;
+        fill.style.width = pct+'%'; knob.style.left = pct+'%';
+        tEl.textContent = fmt(t)+' / '+fmt(d);
+    }
+    function show(){ prog.classList.add('show'); }
+    function hide(){ prog.classList.remove('show'); paint(0,0); }
+    function stopTimer(){ if(timer){ clearInterval(timer); timer=null; } }
+
+    function detach(){
+        stopTimer();
+        if (cur && curKind==='video' && cur._vpUpd){
+            cur.removeEventListener('timeupdate', cur._vpUpd);
+            cur.removeEventListener('durationchange', cur._vpUpd);
+            cur.removeEventListener('loadedmetadata', cur._vpUpd);
+        }
+        cur = null; curKind = null;
+    }
+
+    function attachVideo(v){
+        detach(); cur = v; curKind = 'video'; show();
+        var upd = function(){ paint(v.currentTime, v.duration); };
+        v.addEventListener('timeupdate', upd);
+        v.addEventListener('durationchange', upd);
+        v.addEventListener('loadedmetadata', upd);
+        v._vpUpd = upd; upd();
+    }
+
+    function attachYouTube(frame){
+        detach(); curKind = 'yt';
+        ytReady(function(){
+            try {
+                var p = new YT.Player(frame, { events: {
+                    'onReady': function(){
+                        frame._ytPlayer = p; cur = p; curKind = 'yt'; show();
+                        stopTimer();
+                        timer = setInterval(function(){
+                            try { if (p && p.getDuration) paint(p.getCurrentTime(), p.getDuration()); } catch(e){}
+                        }, 500);
+                    }
+                }});
+                frame._ytPlayer = p;
+            } catch(e){ /* API 실패 → 유튜브 기본 컨트롤로 그냥 재생 */ }
+        });
+    }
+
+    // 클릭으로 원하는 위치로 이동(seek)
+    track.addEventListener('click', function(ev){
+        var r = track.getBoundingClientRect();
+        var pct = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width));
+        if (curKind==='video' && cur && cur.duration) { cur.currentTime = pct*cur.duration; }
+        else if (curKind==='yt' && cur && cur.getDuration) { try { cur.seekTo(pct*cur.getDuration(), true); } catch(e){} }
+    });
+
+    // YouTube IFrame API 로더 (한 번만)
+    var _ytLoading=false, _ytCbs=[];
+    function ytReady(cb){
+        if (window.YT && window.YT.Player) { cb(); return; }
+        _ytCbs.push(cb);
+        if (_ytLoading) return;
+        _ytLoading = true;
+        var prev = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = function(){
+            if (typeof prev==='function'){ try{ prev(); }catch(e){} }
+            var l=_ytCbs.slice(); _ytCbs=[]; l.forEach(function(f){ try{ f(); }catch(e){} });
+        };
+        var s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(s);
+    }
+
+    // #vp-stage 안 미디어 변화 감시 → 붙이기/떼기
+    function scan(){
+        var v = stage.querySelector('video');
+        var f = stage.querySelector('iframe.vp-yt, iframe[src*="youtube.com/embed"]');
+        if (v){ if (!v._vpAttached){ v._vpAttached=true; attachVideo(v); } }
+        else if (f){ if (!f._vpAttached){ f._vpAttached=true; attachYouTube(f); } }
+        else { detach(); hide(); }
+    }
+    try { new MutationObserver(scan).observe(stage, {childList:true}); } catch(e){}
+    scan();
+})();
 
 /** 미니 플레이어 토글: 스테이지 ↔ 플로팅 창 사이에서 미디어 요소를 이동 */
 function vpTogglePiP() {
@@ -25013,7 +25239,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712230712 -->
+<!-- BUILD:20260712233015 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
