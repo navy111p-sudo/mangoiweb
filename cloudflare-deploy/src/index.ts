@@ -2164,18 +2164,27 @@ async function handleGamesDefine(request: Request, env: Env): Promise<Response> 
         if (r && r.ko) ko = String(r.ko);
       }
     } catch {}
-    // ③ Workers AI 폴백 — 짧은 뜻만 JSON 한 줄
+    // ③ Workers AI 폴백 — 짧은 뜻만 JSON 한 줄 (모델이 형식을 어겨도 평문 첫 줄로 구제)
     if (!ko) {
       try {
         const prompt = lang === 'zh'
           ? `중국어 단어 "${raw}"${sent ? ` (예문: "${sent}")` : ''}의 초등학생용 짧은 한국어 뜻과 병음. JSON 한 줄로만 답해: {"ko":"뜻","pinyin":"병음"}`
           : `영어 단어 "${raw}"${sent ? ` (예문: "${sent}")` : ''}의 초등학생용 짧은 한국어 뜻. JSON 한 줄로만 답해: {"ko":"뜻"}`;
-        const r: any = await env.AI.run(WARMUP_MODEL, { messages: [{ role: 'user', content: prompt }], max_tokens: 80, temperature: 0.1 });
-        const m = String(r?.response || '').match(/\{[\s\S]*?\}/);
+        const r: any = await env.AI.run(WARMUP_MODEL, { messages: [
+          { role: 'system', content: '너는 단어 사전이다. 반드시 JSON 한 줄로만 답한다. 설명이나 다른 말은 금지.' },
+          { role: 'user', content: prompt },
+        ], max_tokens: 100, temperature: 0.1 });
+        const txt = String((r && (r.response ?? r.result)) || '').trim();
+        const m = txt.match(/\{[\s\S]*?\}/);
         if (m) {
-          const j = JSON.parse(m[0]);
-          ko = String(j.ko || '').trim().slice(0, 60);
-          if (lang === 'zh' && !pinyin) pinyin = String(j.pinyin || '').trim().slice(0, 60);
+          try {
+            const j = JSON.parse(m[0]);
+            ko = String(j.ko || '').trim().slice(0, 60);
+            if (lang === 'zh' && !pinyin) pinyin = String(j.pinyin || '').trim().slice(0, 60);
+          } catch {}
+        }
+        if (!ko && txt && !txt.includes('{')) {
+          ko = txt.split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 60);
         }
       } catch {}
     }
