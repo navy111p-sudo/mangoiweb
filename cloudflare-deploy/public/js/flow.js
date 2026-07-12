@@ -317,27 +317,29 @@
         })
         .catch(function () { return []; });
     }
-    // 재생할 행 고르기 — 완료된 녹화 우선, 없으면 URL 있는 첫 행
-    function pickPlayable(rows) {
-      if (!rows || !rows.length) return null;
+    // 재생 후보 목록 — 완료본을 앞에, 그다음 나머지(녹화중·중단본). URL 있는 행만.
+    //   (완료본이라도 R2 파일이 만료·삭제돼 404 날 수 있어, 플레이어가 순서대로 폴백한다)
+    function playableList(rows) {
+      if (!rows || !rows.length) return [];
+      var done = [], rest = [];
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
-        if (r && r.url && String(r.status || 'completed') === 'completed') return r;
+        if (!r || !r.url) continue;
+        (String(r.status || 'completed') === 'completed' ? done : rest).push(r);
       }
-      for (var j = 0; j < rows.length; j++) { if (rows[j] && rows[j].url) return rows[j]; }
-      return null;
+      return done.concat(rest);
     }
     ensureToken(who).then(function (tok) {
       _tok = tok || '';
       return query(who.uid);
     }).then(function (rows) {
-      if (!pickPlayable(rows) && who.name && !tried[who.name]) return query(who.name);
+      if (!playableList(rows).length && who.name && !tried[who.name]) return query(who.name);
       return rows;
     }).then(function (rows) {
-      var rec = pickPlayable(rows);
+      var list = playableList(rows);
       // 이미 로그인된(인증 성공한) 학생에게는 절대 재로그인을 요구하지 않는다
-      if (!rec) { (authFail && !authOk) ? recShowLoginNeeded() : recShowEmpty(); return; }
-      recShowPlayer(rec);
+      if (!list.length) { (authFail && !authOk) ? recShowLoginNeeded() : recShowEmpty(); return; }
+      recShowPlayer(list, 0);
     }).catch(function () { (authFail && !authOk) ? recShowLoginNeeded() : recShowEmpty(); });
   }
 
@@ -377,7 +379,14 @@
     bindRecButtons();
   }
 
-  function recShowPlayer(rec) {
+  // list = 재생 후보 배열, idx = 현재 시도할 인덱스.
+  //   영상 로드 실패(파일 만료·404 등) 시 자동으로 다음 후보로 넘어간다.
+  function recShowPlayer(list, idx) {
+    // 배열이 아닌 단일 rec 로 불러도 동작하도록 방어
+    if (!Array.isArray(list)) list = list ? [list] : [];
+    idx = idx || 0;
+    if (idx >= list.length) { recShowUnplayable(); return; }
+    var rec = list[idx];
     var meta = [rec.date, rec.teacher].filter(function (x) { return x && x !== '-'; }).join(' · ');
     recShell(
       '<div style="width:100%;max-width:1400px;background:#0b1220;border:1px solid #1e293b;border-radius:18px;padding:18px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' +
@@ -386,11 +395,32 @@
             (meta ? ' <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + meta + '</span>' : '') + '</div>' +
           '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
         '</div>' +
-        '<video src="' + String(rec.url).replace(/"/g, '&quot;') + '" controls autoplay playsinline ' +
+        '<video data-rec-video controls autoplay playsinline ' +
           'style="width:100%;max-height:86vh;border-radius:12px;background:#000;display:block"></video>' +
         '<div style="text-align:center;margin-top:10px"><a href="/parent.html" style="color:#38bdf8;font-size:13px;text-decoration:none;font-weight:700">📚 전체 녹화 목록 보기 →</a></div>' +
       '</div>'
     );
+    var doc = recDoc(), vid = doc.querySelector('#mango-rec-overlay [data-rec-video]');
+    if (vid) {
+      // 로드 실패 시 다음 후보로 자동 폴백 (한 번만 발동)
+      vid.addEventListener('error', function () { recShowPlayer(list, idx + 1); }, { once: true });
+      vid.src = String(rec.url);
+      try { vid.load(); } catch (_) {}
+    }
+    bindRecButtons();
+  }
+
+  // 후보를 모두 시도했으나 재생 불가할 때
+  function recShowUnplayable() {
+    recShell(recMsgBox(
+      '<div style="font-size:40px;margin-bottom:8px">🎞️</div>' +
+      '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">녹화를 재생할 수 없어요</div>' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">보관 기간이 지나 파일이 정리되었을 수 있어요.<br>전체 목록에서 다른 녹화를 확인해 보세요.</div>' +
+      '<div style="display:flex;gap:8px;justify-content:center">' +
+        '<a href="/parent.html" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:800;text-decoration:none">📚 전체 목록</a>' +
+        '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>' +
+      '</div>'
+    ));
     bindRecButtons();
   }
 
