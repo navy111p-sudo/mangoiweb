@@ -751,9 +751,21 @@ export async function handleMangoApi(
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
       if (!uid) return json({ ok: true, rows: [], count: 0 });
       // 🔐 [PII] 본인 녹화만 — 토큰 uid 일치 요구(남의 수업영상 목록·재생키 열람 차단, IDOR)
+      //   녹화는 화상수업 관례상 학생 '이름'으로 저장되는 경우가 있어, 토큰 주인의
+      //   등록 이름(students_erp.student_name)으로 조회하는 것도 본인으로 인정한다.
       const recAuthUid = await authUidGlobal(request, url, env);
-      if (!recAuthUid || recAuthUid !== uid) {
+      if (!recAuthUid) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
+      }
+      if (recAuthUid !== uid) {
+        let recOwnName = '';
+        try {
+          const s: any = await env.DB.prepare(`SELECT student_name FROM students_erp WHERE user_id = ?`).bind(recAuthUid).first();
+          recOwnName = String(s?.student_name || '').trim();
+        } catch {}
+        if (!recOwnName || recOwnName !== uid) {
+          return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
+        }
       }
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS recordings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, teacher_id TEXT, teacher_name TEXT, filename TEXT, file_url TEXT, size_bytes INTEGER, duration_ms INTEGER, participant_ids TEXT, participant_names TEXT, consented_user_ids TEXT, started_at INTEGER, ended_at INTEGER, status TEXT, storage TEXT, expires_at INTEGER);`);

@@ -245,6 +245,28 @@
     return '';
   }
 
+  // 🔑 토큰 자동 재발급 — 이미 로그인한 학생이 mango_token 이 없어도 재로그인 없이 재생.
+  //   (AI 친구 채팅 getAuth 와 동일 패턴: 비밀번호 미설정 계정은 user_id 만으로 서버가
+  //    로그인과 동일 보안수준에서 토큰을 재발급한다)
+  function tokenUid(tok) {
+    try { return JSON.parse(atob(String(tok).split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))).uid || null; } catch (_) { return null; }
+  }
+  function saveToken(t) {
+    try { w.localStorage.setItem('mango_token', t); } catch (_) {}
+    try { var tw = topWin(); if (tw !== w) tw.localStorage.setItem('mango_token', t); } catch (_) {}
+  }
+  function ensureToken(who) {
+    var t = authToken();
+    if (t && tokenUid(t) === who.uid) return Promise.resolve(t);
+    return fetch('/api/student/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: who.uid })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.ok && d.token) { saveToken(d.token); return d.token; } return t || ''; })
+      .catch(function () { return t || ''; });
+  }
+
   function recDoc() { return topWin().document; }
   function recClose() {
     var doc = recDoc(), el = doc.getElementById('mango-rec-overlay');
@@ -275,23 +297,30 @@
       '<div style="font-size:38px;margin-bottom:10px">📼</div>' +
       '<div style="font-size:15px;font-weight:700;color:#e2e8f0">최근 수업 녹화를 불러오는 중…</div>'
     ));
-    var tried = {}, authFail = false;
-    var _tok = authToken();
+    var tried = {}, authFail = false, authOk = false, _tok = '';
     function query(q) {
       tried[q] = 1;
       return fetch('/api/student/recordings?limit=1&uid=' + encodeURIComponent(q) + (_tok ? '&token=' + encodeURIComponent(_tok) : ''), { credentials: 'include' })  // 🔐 본인 인증
         .then(function (r) { if (r.status === 401 || r.status === 403) authFail = true; return r.json(); })
-        .then(function (d2) { if (d2 && d2.ok === false && /auth/i.test(String(d2.error || ''))) authFail = true; return (d2 && (d2.rows || d2.recordings)) || []; })
+        .then(function (d2) {
+          if (d2 && d2.ok === false && /auth/i.test(String(d2.error || ''))) authFail = true;
+          else authOk = true;  // 인증 통과한 응답이 하나라도 있으면 빈 결과 = '녹화 없음'
+          return (d2 && (d2.rows || d2.recordings)) || [];
+        })
         .catch(function () { return []; });
     }
-    query(who.uid).then(function (rows) {
+    ensureToken(who).then(function (tok) {
+      _tok = tok || '';
+      return query(who.uid);
+    }).then(function (rows) {
       if ((!rows || !rows.length) && who.name && !tried[who.name]) return query(who.name);
       return rows;
     }).then(function (rows) {
       var rec = (rows && rows.length) ? rows[0] : null;
-      if (!rec || !rec.url) { authFail ? recShowLoginNeeded() : recShowEmpty(); return; }
+      // 이미 로그인된(인증 성공한) 학생에게는 절대 재로그인을 요구하지 않는다
+      if (!rec || !rec.url) { (authFail && !authOk) ? recShowLoginNeeded() : recShowEmpty(); return; }
       recShowPlayer(rec);
-    }).catch(function () { authFail ? recShowLoginNeeded() : recShowEmpty(); });
+    }).catch(function () { (authFail && !authOk) ? recShowLoginNeeded() : recShowEmpty(); });
   }
 
   // 🔒 로그인/본인 인증이 필요할 때 — '닫기'만 주지 말고 바로 로그인할 수 있게 버튼 제공
