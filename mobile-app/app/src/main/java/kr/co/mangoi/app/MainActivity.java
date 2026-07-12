@@ -88,6 +88,10 @@ public class MainActivity extends AppCompatActivity {
         s.setAllowContentAccess(true);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
+        // 폰의 시스템 글꼴 크기(설정 > 접근성 > 글자 크게)를 무시하고 사이트 설계 크기로 고정한다.
+        // 이걸 안 하면 사장님처럼 글꼴을 크게 쓰는 기기에서 모든 페이지 글자가 2~3배로 커져
+        // 웜업 등 화면의 문장이 잘려 보인다. (사이트 CSS는 이미 반응형이라 100%가 정상)
+        s.setTextZoom(100);
         s.setJavaScriptCanOpenWindowsAutomatically(true);
         // target="_blank" / window.open() 링크를 외부 크롬으로 넘기지 않고 앱 안에서 처리하기 위해 필요
         s.setSupportMultipleWindows(true);
