@@ -106,7 +106,7 @@
     70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-85%)}}
   /* ===== 🪖 실사 사수(상반신) + 회전 총 — 화면 아래에서 상체만 내밀고 총을 조작 ===== */
   /* 📱 모바일: 사수+총을 통째로 비율 그대로 축소(허리선까지만 살짝 보이게) — 몸이 화면을 덜 차지. 총 위치는 pivot()이 실시간 계측이라 조준 정확도 유지 */
-  #turret{position:absolute;left:50%;bottom:0;transform:translateX(-50%) scale(.72);transform-origin:50% 100%;z-index:10;width:160px;height:150px;pointer-events:none}
+  #turret{position:absolute;left:50%;bottom:-36px;transform:translateX(-50%) scale(.72);transform-origin:50% 100%;z-index:10;width:160px;height:150px;pointer-events:none}   /* bottom:-36px = 팔꿈치·허리 아래를 화면 밖으로 크롭(상체만 보이게) */
   .turret-soldier{position:absolute;left:50%;bottom:0;transform:translateX(-50%);height:100%;z-index:9;
     transform-origin:50% 88%;transition:transform .18s ease-out;   /* 조준 시 몸통이 허리를 축으로 부드럽게 비틀림 */
     filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));animation:soldierBob 3.4s ease-in-out infinite alternate}
@@ -116,7 +116,7 @@
   /* 총은 사수 몸 뒤(z 8 < 사수 z 9)에 그려 몸이 총 몸통을 가리고, 긴 총열만 어깨 위로 보인다(앞에서 잡은 모습) */
   .barrel-rot{position:absolute;left:52%;bottom:12%;transform-origin:50% 100%;transform:translateX(-50%) rotate(4deg);
     transition:transform .1s ease-out;z-index:8}
-  @media (min-width:820px){ #turret{width:204px;height:190px;transform:translateX(-50%) scale(1)} }   /* PC 는 사수도 더 크게(축소 해제) */
+  @media (min-width:820px){ #turret{width:204px;height:190px;bottom:0;transform:translateX(-50%) scale(1)} }   /* PC 는 사수도 더 크게(축소·크롭 해제) */
   /* 총 실루엣은 JS(GUN_SVG)의 SVG 를 barrel 배경으로 그림 — 무기마다 실제 총 모양 (크기는 setGun 에서 GUN_DIM×배율) */
   .barrel{position:relative;width:28px;height:52px;
     background:50% 50%/100% 100% no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
@@ -1418,6 +1418,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712152410 -->
+<!-- BUILD:20260712154201 -->
 </body>
 </html>
