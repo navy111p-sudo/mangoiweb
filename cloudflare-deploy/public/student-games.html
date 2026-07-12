@@ -996,10 +996,18 @@ function _say(enc){ try{ window.gameSpeak && gameSpeak(decodeURIComponent(enc));
 function _reviveChance(){
   _stopRoundTimer();
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer=null; }
-  var q=_missQueue.filter(function(x){ return x.kind==='word' && x.item && x.item.ko; });
-  var target = q.length ? q[Math.floor(Math.random()*q.length)].item
-                        : (_stageWords().filter(function(w){return w.ko;})[0] || null);
+  // 부활 단어 후보: ① 이번 판에 틀린 '단어' 우선 → ② 없으면(문장게임 등) 이번 스테이지 단어 풀 전체에서 무작위.
+  //   ※ 예전엔 후보가 없을 때 정렬된 풀의 [0](항상 같은 단어=풍경)만 나왔음 → 무작위+직전 제외로 매번 다른 단어가 나오게 수정.
+  var missed=_missQueue.filter(function(x){ return x.kind==='word' && x.item && x.item.ko; }).map(function(x){ return x.item; });
+  var pool = missed.length ? missed : _stageWords().filter(function(w){ return w.ko; });
+  if(!pool.length) pool = _GAME_WORDS.filter(function(w){ return w.ko; });
+  if(pool.length>1 && window._reviveLast){
+    var _f = pool.filter(function(w){ return w.en!==window._reviveLast; });
+    if(_f.length) pool=_f;   // 직전에 낸 단어는 피해서 반복 방지
+  }
+  var target = pool.length ? pool[Math.floor(Math.random()*pool.length)] : null;
   if(!target){ _hearts=1; _renderHearts(); gameNextRound(); return; }
+  window._reviveLast = target.en;
   window._reviveTarget=target;
   var wrongs=_gameShuffle(_GAME_WORDS.filter(function(w){ return w.en!==target.en && w.ko; })).slice(0,3);
   var opts=_gameShuffle([target].concat(wrongs));
@@ -2070,7 +2078,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260712163141 -->
+<!-- BUILD:20260712163404 -->
 <script defer src="/js/flow.js"></script>
 </body>
 </html>

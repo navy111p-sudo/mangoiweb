@@ -12553,10 +12553,15 @@ function _preteachThen(item, kind, cb){
 function _say(enc){ try{ window.gameSpeak && gameSpeak(decodeURIComponent(enc)); }catch(_){} }
 function _reviveChance(){
   _safeStopTimer(); if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer=null; }
-  var q=_missQueue.filter(function(x){return x.kind==='word'&&x.item&&x.item.ko;});
-  var target=q.length?q[Math.floor(Math.random()*q.length)].item:(_stageWords().filter(function(w){return w.ko;})[0]||null);
+  // 부활 단어: ①이번 판에 틀린 '단어' 우선 → ②없으면(문장게임 등) 스테이지 단어 풀에서 무작위(+직전 제외).
+  //   예전엔 후보 없을 때 정렬 풀 [0](항상 같은 단어=풍경)만 나오던 버그 → 무작위+직전 제외로 수정.
+  var missed=_missQueue.filter(function(x){return x.kind==='word'&&x.item&&x.item.ko;}).map(function(x){return x.item;});
+  var pool=missed.length?missed:_stageWords().filter(function(w){return w.ko;});
+  if(!pool.length) pool=_GAME_WORDS.filter(function(w){return w.ko;});
+  if(pool.length>1 && window._reviveLast){ var _f=pool.filter(function(w){return w.en!==window._reviveLast;}); if(_f.length) pool=_f; }
+  var target=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
   if(!target){ _hearts=1; _renderHearts(); gameNextRound(); return; }
-  window._reviveTarget=target;
+  window._reviveLast=target.en; window._reviveTarget=target;
   var wrongs=_gameShuffle(_GAME_WORDS.filter(function(w){return w.en!==target.en&&w.ko;})).slice(0,3), opts=_gameShuffle([target].concat(wrongs)), em=_emojiFor(target,'word');
   try{ window.gameSpeak && gameSpeak(target.en); }catch(_){}
   var html='<div style="text-align:center;width:100%;max-width:860px;margin:0 auto;padding:clamp(16px,3vw,40px)">'
@@ -24757,7 +24762,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712163141 -->
+<!-- BUILD:20260712163404 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
