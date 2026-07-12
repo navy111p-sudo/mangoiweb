@@ -38,9 +38,11 @@
     styleEl.id = 'mg-unibar-style';
     styleEl.textContent = [
       /* 통합 바 본체 */
+      /* 🥭 (2026-07-13) width:100%→auto — 내용만큼만 차지하는 알약을 '정중앙'에.
+         좌측 상단의 포인트 바구니(🧺)/칭찬 버튼과 가로로 안 겹치게 됨. */
       '#mg-unibar{position:fixed;top:calc(env(safe-area-inset-top,0) + 8px);left:50%;',
       '  transform:translateX(-50%);z-index:100000;display:none;align-items:center;gap:7px;',
-      '  width:calc(100% - 16px);max-width:430px;padding:5px 6px 5px 11px;',
+      '  width:auto;max-width:min(430px, calc(100% - 16px));padding:5px 6px 5px 11px;',
       '  background:rgba(27,35,48,0.90);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);',
       '  border:1px solid #2c3644;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.35);',
       "  font-family:'Pretendard','Apple SD Gothic Neo',system-ui,sans-serif;}",

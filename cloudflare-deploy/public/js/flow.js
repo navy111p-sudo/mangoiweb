@@ -251,13 +251,20 @@
   function tokenUid(tok) {
     try { return JSON.parse(atob(String(tok).split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))).uid || null; } catch (_) { return null; }
   }
+  // ⏰ 만료 토큰은 서버가 거부(401→재로그인 요구)하므로, 클라에서 미리 걸러 재발급을 태운다
+  function tokenExpired(tok) {
+    try {
+      var p = JSON.parse(atob(String(tok).split('.')[0].replace(/-/g, '+').replace(/_/g, '/')));
+      return !!(p.exp && p.exp < Date.now());
+    } catch (_) { return true; }
+  }
   function saveToken(t) {
     try { w.localStorage.setItem('mango_token', t); } catch (_) {}
     try { var tw = topWin(); if (tw !== w) tw.localStorage.setItem('mango_token', t); } catch (_) {}
   }
   function ensureToken(who) {
     var t = authToken();
-    if (t && tokenUid(t) === who.uid) return Promise.resolve(t);
+    if (t && tokenUid(t) === who.uid && !tokenExpired(t)) return Promise.resolve(t);
     return fetch('/api/student/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: who.uid })
@@ -300,7 +307,8 @@
     var tried = {}, authFail = false, authOk = false, _tok = '';
     function query(q) {
       tried[q] = 1;
-      return fetch('/api/student/recordings?limit=1&uid=' + encodeURIComponent(q) + (_tok ? '&token=' + encodeURIComponent(_tok) : ''), { credentials: 'include' })  // 🔐 본인 인증
+      // limit=5 — 맨 위 행이 녹화중/중단본이어도 그 아래 '재생 가능한 완료본'을 고를 수 있게
+      return fetch('/api/student/recordings?limit=5&uid=' + encodeURIComponent(q) + (_tok ? '&token=' + encodeURIComponent(_tok) : ''), { credentials: 'include' })  // 🔐 본인 인증
         .then(function (r) { if (r.status === 401 || r.status === 403) authFail = true; return r.json(); })
         .then(function (d2) {
           if (d2 && d2.ok === false && /auth/i.test(String(d2.error || ''))) authFail = true;
@@ -309,16 +317,26 @@
         })
         .catch(function () { return []; });
     }
+    // 재생할 행 고르기 — 완료된 녹화 우선, 없으면 URL 있는 첫 행
+    function pickPlayable(rows) {
+      if (!rows || !rows.length) return null;
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        if (r && r.url && String(r.status || 'completed') === 'completed') return r;
+      }
+      for (var j = 0; j < rows.length; j++) { if (rows[j] && rows[j].url) return rows[j]; }
+      return null;
+    }
     ensureToken(who).then(function (tok) {
       _tok = tok || '';
       return query(who.uid);
     }).then(function (rows) {
-      if ((!rows || !rows.length) && who.name && !tried[who.name]) return query(who.name);
+      if (!pickPlayable(rows) && who.name && !tried[who.name]) return query(who.name);
       return rows;
     }).then(function (rows) {
-      var rec = (rows && rows.length) ? rows[0] : null;
+      var rec = pickPlayable(rows);
       // 이미 로그인된(인증 성공한) 학생에게는 절대 재로그인을 요구하지 않는다
-      if (!rec || !rec.url) { (authFail && !authOk) ? recShowLoginNeeded() : recShowEmpty(); return; }
+      if (!rec) { (authFail && !authOk) ? recShowLoginNeeded() : recShowEmpty(); return; }
       recShowPlayer(rec);
     }).catch(function () { (authFail && !authOk) ? recShowLoginNeeded() : recShowEmpty(); });
   }

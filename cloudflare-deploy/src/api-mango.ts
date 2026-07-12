@@ -752,18 +752,26 @@ export async function handleMangoApi(
       if (!uid) return json({ ok: true, rows: [], count: 0 });
       // 🔐 [PII] 본인 녹화만 — 토큰 uid 일치 요구(남의 수업영상 목록·재생키 열람 차단, IDOR)
       //   녹화는 화상수업 관례상 학생 '이름'으로 저장되는 경우가 있어, 토큰 주인의
-      //   등록 이름(students_erp.student_name)으로 조회하는 것도 본인으로 인정한다.
+      //   등록 이름으로 조회하는 것도 본인으로 인정한다. (student_name 이 NULL 인 이관
+      //   데이터가 많아 korean_name·english_name·username 까지 본인 이름으로 본다)
       const recAuthUid = await authUidGlobal(request, url, env);
       if (!recAuthUid) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
       }
       if (recAuthUid !== uid) {
-        let recOwnName = '';
+        let recOwnNames: string[] = [];
         try {
-          const s: any = await env.DB.prepare(`SELECT student_name FROM students_erp WHERE user_id = ?`).bind(recAuthUid).first();
-          recOwnName = String(s?.student_name || '').trim();
+          const s: any = await env.DB.prepare(`SELECT student_name, korean_name, english_name, username FROM students_erp WHERE user_id = ?`).bind(recAuthUid).first();
+          recOwnNames = [s?.student_name, s?.korean_name, s?.english_name, s?.username]
+            .map((v: any) => String(v || '').trim()).filter((v: string) => !!v);
         } catch {}
-        if (!recOwnName || recOwnName !== uid) {
+        // 🎭 데모 빠른 로그인 카드 — 화상수업 표시이름(카드 이름)이 계정 이름과 달라
+        //    index.html demoStudents 매핑을 서버에서도 본인 이름으로 인정 (데모 전용)
+        const DEMO_CARD_NAMES: Record<string, string> = {
+          hong: '홍길동', kim: '김민수', lee: '이지민', park: '박서연', navy111p: '정우영', student: '데모학생',
+        };
+        if (DEMO_CARD_NAMES[recAuthUid]) recOwnNames.push(DEMO_CARD_NAMES[recAuthUid]);
+        if (!recOwnNames.includes(uid)) {
           return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
         }
       }

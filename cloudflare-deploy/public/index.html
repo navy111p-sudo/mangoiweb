@@ -7926,8 +7926,18 @@
           <div class="vc-game-head" style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.65);border-bottom:1px solid rgba(148,163,184,0.15);flex-wrap:wrap;flex-shrink:0">
             <span style="font-size:13px;color:#fbbf24;font-weight:700">🎮 <span data-ko="학생게임" data-en="Student Game">학생게임</span></span>
             <span style="font-size:11px;color:#94a3b8" data-ko="오늘의 교재 단어/문장 기반" data-en="Based on today's textbook">오늘의 교재 단어/문장 기반</span>
+            <!-- ⚡ 게임 속도(난이도) 선택 — 풍선 낙하 등 7단계, 허브(student-games.html)와 localStorage 공유 (2026-07-13) -->
+            <div class="vc-game-speed-wrap" style="margin-left:auto;position:relative">
+              <button id="game-speed-btn" type="button" onclick="gameSpeedMenuToggle(event)" title="게임 속도 조절"
+                      style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;background:rgba(30,41,59,.9);color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">
+                <span style="font-size:13px;line-height:1;color:#fbbf24">⚡</span>
+                <span id="game-speed-cur">🙂 <span data-ko="보통" data-en="Normal">보통</span></span>
+                <span style="font-size:9px;color:#94a3b8">▼</span>
+              </button>
+              <div id="game-speed-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:81;flex-direction:column;min-width:170px;background:#0f172a;border:1px solid #475569;border-radius:10px;overflow:hidden;box-shadow:0 14px 34px -8px rgba(0,0,0,.65)"></div>
+            </div>
             <!-- ⋮ 게임 선택 메뉴 — 7개 게임 버튼을 케밥 드롭다운 하나로 접음 (2026-07-12) -->
-            <div class="vc-game-menu-wrap" style="margin-left:auto;position:relative">
+            <div class="vc-game-menu-wrap" style="position:relative">
               <button id="game-menu-btn" type="button" onclick="gameMenuToggle(event)"
                       style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;background:rgba(30,41,59,.9);color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">
                 <span style="font-size:15px;line-height:1;color:#fbbf24">⋮</span>
@@ -12964,6 +12974,53 @@ function gameInit() {
   _gameUpdateScore();
   gameNextRound();
 }
+
+// ⚡ 게임 속도(난이도) 선택 — 허브(student-games.html) SPEED_LEVELS 와 같은 7단계, GAME_STAGE 로 반영 (2026-07-13)
+var GAME_SPEED_LEVELS = [
+  { lvl:1, ico:'🐢', ko:'아주 천천히', en:'Very Slow' },
+  { lvl:2, ico:'🚶', ko:'천천히',     en:'Slow' },
+  { lvl:3, ico:'🙂', ko:'보통',       en:'Normal' },
+  { lvl:4, ico:'🏃', ko:'빨리',       en:'Fast' },
+  { lvl:5, ico:'🚀', ko:'아주 빨리',  en:'Very Fast' },
+  { lvl:6, ico:'⚡', ko:'초고속',     en:'Super Fast' },
+  { lvl:7, ico:'🔥', ko:'극한',       en:'Extreme' }
+];
+function _gameSpeedName(s){ return (window.currentLang === 'en') ? s.en : s.ko; }
+function gameSpeedLabelSync(){
+  var cur = GAME_SPEED_LEVELS[(GAME_STAGE || 1) - 1] || GAME_SPEED_LEVELS[2];
+  var el = document.getElementById('game-speed-cur');
+  if (el) el.innerHTML = cur.ico + ' <span data-ko="' + cur.ko + '" data-en="' + cur.en + '">' + _gameSpeedName(cur) + '</span>';
+}
+function gameSpeedMenuToggle(e){
+  if (e) e.stopPropagation();
+  var menu = document.getElementById('game-speed-menu');
+  if (!menu) return;
+  if (menu.style.display === 'flex') { menu.style.display = 'none'; return; }
+  // 열 때마다 현재 단계 하이라이트를 새로 그림 (언어 전환도 반영)
+  menu.innerHTML = GAME_SPEED_LEVELS.map(function(s, i){
+    var on = (s.lvl === GAME_STAGE);
+    return '<button type="button" onclick="gameSetSpeed(' + s.lvl + ')" ' +
+      'style="padding:10px 16px;background:' + (on ? '#10b981' : 'transparent') + ';color:' + (on ? '#fff' : '#94a3b8') + ';border:0;' +
+      (i ? 'border-top:1px solid rgba(71,85,105,.5);' : '') +
+      'cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">' + s.ico + ' ' + _gameSpeedName(s) + '</button>';
+  }).join('');
+  menu.style.display = 'flex';
+}
+function gameSetSpeed(lvl){
+  if (!(lvl >= 1 && lvl <= GAME_STAGE_MAX)) lvl = 3;
+  setGameStage(lvl);                                                          // 낙하속도·출제 구간 = GAME_STAGE (localStorage 'mangoi_game_stage' 허브 공유)
+  try{ localStorage.setItem('mangoi_game_speed', String(lvl)); }catch(_){}    // 허브 ⚡속도 표시와 동기화
+  gameSpeedLabelSync();
+  var menu = document.getElementById('game-speed-menu');
+  if (menu) menu.style.display = 'none';
+  // 진행 중이면 새 라운드부터 즉시 새 속도 적용 (풍선 낙하속도는 라운드 시작 때 계산됨)
+  if (_gameState.started) gameNextRound();
+}
+document.addEventListener('click', function (ev) {
+  var menu = document.getElementById('game-speed-menu');
+  if (menu && menu.style.display === 'flex' && !ev.target.closest('.vc-game-speed-wrap')) menu.style.display = 'none';
+});
+try{ gameSpeedLabelSync(); }catch(_){}   // 첫 로드: 저장된 단계로 라벨 맞춤
 
 // ⋮ 게임 선택 드롭다운 열기/닫기 (2026-07-12)
 function gameMenuToggle(e) {
@@ -18644,6 +18701,14 @@ window.addEventListener('DOMContentLoaded', () => {
   window.doLogin = function(uid){
     var s = demoStudents[uid]; if(!s) return;
     setUser({ uid:s.uid, name:s.name });
+    // 🔐 데모 빠른 로그인도 서버 서명 토큰(mango_token) 확보 — 녹화 다시보기 등
+    //    본인인증 API가 "로그인이 필요해요"를 다시 띄우지 않게 한다 (비번 미설정 계정만 성공)
+    try {
+      fetch('/api/student/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: s.uid }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if (d && d.ok && d.token) { try { localStorage.setItem('mango_token', d.token); } catch(e){} } })
+        .catch(function(){});
+    } catch(e){}
     closeLoginModal();
     showLcToast2('✅ '+(((window.getLang?window.getLang():'ko')==='ko')?(s.name+'님으로 로그인되었습니다.'):'Signed in as '+s.name+'.'));
   };
@@ -25303,7 +25368,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713004512 -->
+<!-- BUILD:20260713005810 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26433,7 +26498,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango.js?v=33" defer></script>
 <script src="/js/mango-rec.js?v=38" defer></script>
 <script src="/js/mango-class-time.js?v=7" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
-<script src="/js/mango-topbar-unified.js?v=1" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점+✕(1개) 한 줄 통합 바. 기존 겹침/중복X 숨김. 빼면 즉시 원복 -->
+<script src="/js/mango-topbar-unified.js?v=2" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점+✕(1개) 한 줄 통합 바. 기존 겹침/중복X 숨김. 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=4" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
 <script src="/js/mango-tools-dock.js?v=3" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
 <script src="/js/mango-attendance.js?v=33" defer></script>
@@ -27824,6 +27889,12 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call #vc-main-row.video-pip #tab-video .vp-controls .vp-file-btn{
       padding:5px 8px; font-size:12px;
     }
+    /* 🧺 (2026-07-13) 포인트 바구니/칭찬 버튼 — 세로폰 상단 통합바(#mg-unibar, y≈8~48 fixed)와
+       겹치지 않게 첫(내) 영상 박스 안에서 통합바 '아래'로 내림. 토스트/플라이도 같이 이동. */
+    body.vc-in-call.mg-uni-on #vc-local-box .vc-point-basket,
+    body.vc-in-call.mg-uni-on #vc-local-box .vc-star-btn{ top: 46px; }
+    body.vc-in-call.mg-uni-on #vc-local-box .vc-star-toast,
+    body.vc-in-call.mg-uni-on #vc-local-box .vpb-fly{ top: 88px; }
   }
 </style>
 <style id="consult-fab-transparent">
@@ -29022,7 +29093,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · (참고) 영상 드래그·크기조절 실제 동작은 위쪽 .video-size-bar / #vc-video-pane 로직에서 처리됨.
      ============================================================ -->
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
-<script defer src="/js/flow.js?v=2"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=2: 녹화보기 조용한 토큰 재발급 수정을 옛 캐시가 덮어쓰지 않도록 캐시버전 부여(2026-07-12) -->
+<script defer src="/js/flow.js?v=3"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=3: 녹화보기 데모계정 토큰·만료토큰·완료본 우선 수정(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=2"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
 </body>
 </html>
