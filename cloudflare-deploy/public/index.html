@@ -7747,21 +7747,30 @@
           <div class="vc-game-head" style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.65);border-bottom:1px solid rgba(148,163,184,0.15);flex-wrap:wrap;flex-shrink:0">
             <span style="font-size:13px;color:#fbbf24;font-weight:700">🎮 <span data-ko="학생게임" data-en="Student Game">학생게임</span></span>
             <span style="font-size:11px;color:#94a3b8" data-ko="오늘의 교재 단어/문장 기반" data-en="Based on today's textbook">오늘의 교재 단어/문장 기반</span>
-            <div class="vc-game-modes" style="margin-left:auto;display:inline-flex;border:1px solid #475569;border-radius:6px;overflow:hidden;flex-wrap:wrap">
-              <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;cursor:pointer;font-size:12px;font-weight:600">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
-              <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🚀 <span data-ko="슈팅+말하기" data-en="Shoot &amp; Speak">슈팅+말하기</span></button>
-              <button id="game-mode-battle3d" type="button" onclick="gameSwitchMode('battle3d')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">⚔️ <span data-ko="3D 배틀" data-en="3D Battle">3D 배틀</span></button>
-              <button id="game-mode-brick" type="button" onclick="gameSwitchMode('brick')"
-                      style="padding:6px 14px;background:#10b981;color:#fff;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🧱 <span data-ko="문장 벽돌" data-en="Sentence Brick">문장 벽돌</span></button>
-              <button id="game-mode-match" type="button" onclick="gameSwitchMode('match')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🧩 <span data-ko="단어 매칭" data-en="Word Match">단어 매칭</span></button>
-              <button id="game-mode-fill" type="button" onclick="gameSwitchMode('fill')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🔤 <span data-ko="빈칸 채우기" data-en="Fill Blank">빈칸 채우기</span></button>
-              <button id="game-mode-balloon" type="button" onclick="gameSwitchMode('balloon')"
-                      style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🎈 <span data-ko="풍선 터뜨리기" data-en="Balloon Pop">풍선 터뜨리기</span></button>
+            <!-- ⋮ 게임 선택 메뉴 — 7개 게임 버튼을 케밥 드롭다운 하나로 접음 (2026-07-12) -->
+            <div class="vc-game-menu-wrap" style="margin-left:auto;position:relative">
+              <button id="game-menu-btn" type="button" onclick="gameMenuToggle(event)"
+                      style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;background:rgba(30,41,59,.9);color:#e2e8f0;border:1px solid #475569;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">
+                <span style="font-size:15px;line-height:1;color:#fbbf24">⋮</span>
+                <span id="game-menu-cur">🧱 <span data-ko="문장 벽돌" data-en="Sentence Brick">문장 벽돌</span></span>
+                <span style="font-size:9px;color:#94a3b8">▼</span>
+              </button>
+              <div class="vc-game-modes" id="game-mode-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:80;flex-direction:column;min-width:200px;background:#0f172a;border:1px solid #475569;border-radius:10px;overflow:hidden;box-shadow:0 14px 34px -8px rgba(0,0,0,.65)">
+                <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
+                <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🚀 <span data-ko="슈팅+말하기" data-en="Shoot &amp; Speak">슈팅+말하기</span></button>
+                <button id="game-mode-battle3d" type="button" onclick="gameSwitchMode('battle3d')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">⚔️ <span data-ko="3D 배틀" data-en="3D Battle">3D 배틀</span></button>
+                <button id="game-mode-brick" type="button" onclick="gameSwitchMode('brick')"
+                        style="padding:11px 16px;background:#10b981;color:#fff;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🧱 <span data-ko="문장 벽돌" data-en="Sentence Brick">문장 벽돌</span></button>
+                <button id="game-mode-match" type="button" onclick="gameSwitchMode('match')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🧩 <span data-ko="단어 매칭" data-en="Word Match">단어 매칭</span></button>
+                <button id="game-mode-fill" type="button" onclick="gameSwitchMode('fill')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🔤 <span data-ko="빈칸 채우기" data-en="Fill Blank">빈칸 채우기</span></button>
+                <button id="game-mode-balloon" type="button" onclick="gameSwitchMode('balloon')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🎈 <span data-ko="풍선 터뜨리기" data-en="Balloon Pop">풍선 터뜨리기</span></button>
+              </div>
             </div>
             <button class="vc-game-next" onclick="gameNextRound()"
                     style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600"
@@ -7845,19 +7854,13 @@
           #game-area .gko-note{font-size:13px;color:rgba(255,255,255,.68);margin-top:10px;text-shadow:0 1px 3px rgba(0,0,0,.3)}
           #game-area .gko-listen{padding:10px 22px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:0;border-radius:10px;cursor:pointer;font-size:15px;font-weight:800;font-family:inherit;box-shadow:0 4px 12px rgba(139,92,246,.4);transition:transform .15s}
           #game-area .gko-listen:active{transform:scale(.95)}
-          /* 📱 모바일 — 게임 선택 헤더 정돈: 세그먼트 줄바꿈 난장판 → 2열 그리드 칩 */
+          /* 📱 모바일 — 게임 선택 헤더 정돈: ⋮ 드롭다운 메뉴 터치 크기 보정 */
           @media (max-width:640px){
             #tab-game .vc-game-head{row-gap:8px!important}
-            #tab-game .vc-game-modes{
-              display:grid!important;grid-template-columns:1fr 1fr;gap:8px;
-              width:100%;margin-left:0!important;border:0!important;border-radius:0;
-              overflow:visible!important}
-            #tab-game .vc-game-modes button{
-              border:1px solid rgba(148,163,184,.35)!important;border-radius:10px!important;
-              padding:10px 6px!important;min-width:0;text-align:center;
-              white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-            #tab-game .vc-game-modes button:last-child{grid-column:1/-1}
-            #tab-game .vc-game-next{width:100%;padding:11px 12px!important;font-size:13px!important}
+            #tab-game .vc-game-modes{min-width:220px}
+            #tab-game .vc-game-modes button{padding:13px 18px!important;font-size:14px!important}
+            #tab-game #game-menu-btn{padding:9px 14px!important;font-size:13px!important}
+            #tab-game .vc-game-next{padding:9px 12px!important;font-size:13px!important}
           }
           </style>
           <div id="game-area" style="flex:1;min-height:0;overflow:auto;padding:24px;color:#f1f5f9">
@@ -12765,6 +12768,19 @@ function gameInit() {
   gameNextRound();
 }
 
+// ⋮ 게임 선택 드롭다운 열기/닫기 (2026-07-12)
+function gameMenuToggle(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('game-mode-menu');
+  if (!menu) return;
+  menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'flex' : 'none';
+}
+// 메뉴 밖 아무 곳이나 누르면 닫힘
+document.addEventListener('click', function (ev) {
+  const menu = document.getElementById('game-mode-menu');
+  if (menu && menu.style.display !== 'none' && !ev.target.closest('.vc-game-menu-wrap')) menu.style.display = 'none';
+});
+
 function gameSwitchMode(mode) {
   _gameState.mode = mode;
   // 풍선 게임 정지 (전환 시 타이머 클리어)
@@ -12776,6 +12792,12 @@ function gameSwitchMode(mode) {
     btn.style.background = mode === m ? '#10b981' : 'transparent';
     btn.style.color = mode === m ? '#fff' : '#94a3b8';
   });
+  // ⋮ 메뉴 라벨을 현재 게임명으로 갱신 + 메뉴 닫기
+  const _selBtn = document.getElementById('game-mode-' + mode);
+  const _cur = document.getElementById('game-menu-cur');
+  if (_selBtn && _cur) _cur.innerHTML = _selBtn.innerHTML;
+  const _menu = document.getElementById('game-mode-menu');
+  if (_menu) _menu.style.display = 'none';
   // 🥭 Phase 48 — 수업 중이면 차단
   if (_gameIsClassActive()) { _gameRenderBlocked(); return; }
   gameNextRound();
@@ -24762,7 +24784,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712175419 -->
+<!-- BUILD:20260712180048 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
