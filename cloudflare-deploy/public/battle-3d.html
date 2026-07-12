@@ -1199,47 +1199,21 @@
       shockwave(bx,by,bz); shockwave(bx,by+0.5,bz); cameraShake(0.95,0.55); screenFlash(0.95); sfx.boom();
     }
 
-    /* ===== 🏆 승리 세리머니: 우주전사 히어로를 무대 정중앙으로 이동시켜 황금 트로피를 번쩍 들어올리며 만세 ===== */
+    /* ===== 🏆 승리 세리머니: 우주전사 히어로를 무대 정중앙으로 이동시켜 만세 세리머니
+       (트로피는 3D로 따로 만들지 않는다 — 강아지 우주인은 스프라이트 승리 프레임에 이미 트로피가 그려져 있어 자연히 표시되고, 사람 우주인은 트로피 없이 만세만) ===== */
     var _vicFx=null;
-    function clearVictoryFx(){
-      if(!_vicFx) return; _vicFx.active=false;
-      try{ if(_vicFx.trophy) scene.remove(_vicFx.trophy); }catch(e){}
-      try{ if(_vicFx.glow) scene.remove(_vicFx.glow); }catch(e){}
-      try{ if(_vicFx.spark){ scene.remove(_vicFx.spark); _vicFx.spark.geometry.dispose(); _vicFx.spark.material.dispose(); } }catch(e){}
-      _vicFx=null;
-    }
+    function clearVictoryFx(){ if(_vicFx) _vicFx.active=false; _vicFx=null; }
     function victoryCelebration(){
       clearVictoryFx();
       if(!hero) return;
       var fx={active:true}; _vicFx=fx;
-      // ① 히어로가 무대 정중앙(x=0)으로 미끄러지며 살짝 점프 → 도착 후 home 도 중앙으로(잔잔한 idle 바운스 유지)
+      // 히어로가 무대 정중앙(x=0)으로 미끄러지며 살짝 점프 → 도착 후 home 도 중앙으로(잔잔한 idle 바운스 유지). 승리 만세 포즈는 sprite.win() 이 담당.
       var sx=hero.position.x, tt=0, dur=0.85;
       addAnim(function(dt){ if(!fx.active) return true; tt+=dt; var p=Math.min(1,tt/dur);
         hero.position.x=sx+(0-sx)*easeOutBack(p);
         hero.position.y=Math.sin(Math.min(1,p*1.15)*Math.PI)*0.55;
         hero.rotation.z=-Math.sin(p*Math.PI)*0.06;
         if(p>=1){ hero.position.set(0,0,0); hero.rotation.z=0; hero.userData.home.set(0,0,0); return true; }
-        return false; });
-      // ② 황금 트로피를 정중앙에서 번쩍 들어올림(팝→둥실 부유+회전) — 히어로 앞쪽(z+)이라 스프라이트 위로 보임
-      var trophy=buildTrophy(); trophy.scale.setScalar(0.0001); trophy.position.set(0,4.5,1.2); trophy.renderOrder=4;
-      trophy.traverse(function(o){ if(o.isMesh&&o.material){ o.material=o.material.clone(); o.material.emissiveIntensity=0.55; o.renderOrder=4; } });
-      scene.add(trophy); fx.trophy=trophy;
-      var glow=new THREE.PointLight(0xffe7a0,0,16); glow.position.set(0,4.7,2.6); scene.add(glow); fx.glow=glow;
-      // ③ 금빛 반짝이 파티클: 트로피 주변을 감싸며 위로 피어오르고 상단 도달 시 다시 아래에서 재생성
-      var SN=80, sp=new Float32Array(SN*3), scl=new Float32Array(SN*3), sv=[], sseed=6151;
-      function srnd(){ sseed=(sseed*9301+49297)%233280; return sseed/233280; }
-      function seedPos(i){ var a=srnd()*Math.PI*2, rr=0.5+srnd()*2.4; sp[i*3]=Math.cos(a)*rr; sp[i*3+1]=1.9+srnd()*0.8; sp[i*3+2]=1.2+Math.sin(a)*rr*0.55; sv[i]=1.1+srnd()*2.0; }
-      for(var i=0;i<SN;i++){ seedPos(i); sp[i*3+1]+=srnd()*4.2; var w=srnd()<0.5; scl[i*3]=1; scl[i*3+1]=w?1:0.82; scl[i*3+2]=w?0.92:0.35; }
-      var sg=new THREE.BufferGeometry(); sg.setAttribute('position',new THREE.BufferAttribute(sp,3)); sg.setAttribute('color',new THREE.BufferAttribute(scl,3));
-      var spark=new THREE.Points(sg,new THREE.PointsMaterial({size:0.22,vertexColors:true,transparent:true,opacity:0,depthWrite:false})); spark.renderOrder=5; scene.add(spark); fx.spark=spark;
-      var at=0, sattr=sg.getAttribute('position');
-      addAnim(function(dt){ if(!fx.active) return true; at+=dt;
-        var q=at-0.5; var s=q<=0?0.0001:0.98*Math.min(1,easeOutBack(Math.min(1,q/0.55)));
-        trophy.scale.setScalar(Math.max(0.0001,s));
-        trophy.position.y=4.5+Math.sin(at*2.1)*0.18; trophy.rotation.y+=dt*1.5;
-        glow.intensity=Math.min(2.4,Math.max(0,q)*3.2);
-        for(var j=0;j<SN;j++){ sattr.array[j*3+1]+=sv[j]*dt; if(sattr.array[j*3+1]>6.4){ seedPos(j); } }
-        sattr.needsUpdate=true; spark.material.opacity=Math.min(0.95,Math.max(0,q)*1.6);
         return false; });
     }
 
@@ -1535,6 +1509,6 @@
 }
 </style>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712163809 -->
+<!-- BUILD:20260712164553 -->
 </body>
 </html>

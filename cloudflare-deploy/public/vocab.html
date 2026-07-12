@@ -219,9 +219,32 @@
 
 <script>
 const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-function getUid(){ try { const u = JSON.parse(localStorage.getItem('mango_user')||'null'); return u?.user_id || 'guest'; } catch(e){ return 'guest'; } }
 function getName(){ try { const u = JSON.parse(localStorage.getItem('mango_user')||'null'); return u?.name || u?.user_name || ''; } catch(e){ return ''; } }
-const UID = getUid();
+/* 신원(uid+토큰): 로그인=실제 학생, 비로그인=기기별 서버서명 게스트 신원.
+   list/due 는 소유자 토큰을 요구(IDOR 방지)하므로, 게스트도 서명 토큰이 있어야 게임/도감이 작동한다. */
+let UID = 'guest';
+let TOKEN = '';
+let IS_GUEST = true;
+function authToken(){ return TOKEN || ''; }
+async function initIdentity(){
+  try {
+    const u = JSON.parse(localStorage.getItem('mango_user')||'null');
+    const tok = localStorage.getItem('mango_token') || '';
+    if (u && (u.user_id || u.user_name) && tok) { UID = u.user_id || u.user_name; TOKEN = tok; IS_GUEST = false; return; }
+  } catch(e){}
+  // 비로그인 → 기기별 게스트 신원 재사용/발급 (서버가 추측불가 uid + 서명 토큰 발급)
+  try {
+    let gid = localStorage.getItem('mango_guest_id') || '';
+    let gtk = localStorage.getItem('mango_guest_token') || '';
+    if (!gid || !gtk) {
+      const r = await fetch('/api/ai/chat-guest-token', { method:'POST' });
+      const d = await r.json();
+      if (d.ok) { gid = d.uid; gtk = d.token; localStorage.setItem('mango_guest_id', gid); localStorage.setItem('mango_guest_token', gtk); }
+    }
+    UID = gid || 'guest'; TOKEN = gtk || '';
+  } catch(e){ UID = 'guest'; TOKEN = ''; }
+  IS_GUEST = true;
+}
 
 /* ═══════════ 사운드 (WebAudio — 파일 없이 즉석 합성) ═══════════ */
 let _ac = null;
@@ -329,14 +352,26 @@ async function loadStats(){
 }
 async function loadDueCount(){
   try {
-    const r = await fetch('/api/vocab/due?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()));
+    const r = await fetch('/api/vocab/due?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authToken()));
     const d = await r.json();
     const badge = document.getElementById('due-badge');
     if (d.ok && d.due_count > 0) { badge.textContent = d.due_count; badge.style.display='inline-block'; }
     else badge.style.display='none';
   } catch(e){}
 }
-loadStats(); loadDueCount();
+/* 로그인 안 한 사용자에게: 포인트/랭킹은 로그인해야 저장된다는 안내 */
+function showGuestHint(){
+  if (!IS_GUEST || document.getElementById('guest-hint')) return;
+  const el = document.createElement('div');
+  el.id = 'guest-hint';
+  el.style.cssText = 'max-width:1020px;margin:0 auto 16px;padding:12px 16px;border-radius:12px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);color:#fde68a;font-size:14px;text-align:center;font-weight:700';
+  el.innerHTML = '🔑 <a href="/login" style="color:#fbbf24;text-decoration:underline">로그인</a>하면 포인트·연속 복습·랭킹이 내 계정에 저장돼요! (지금도 게임은 즐길 수 있어요)';
+  const wrap = document.querySelector('.wrap');
+  const dash = document.getElementById('dash');
+  if (wrap && dash) wrap.insertBefore(el, dash.nextSibling);
+}
+// 신원 초기화 후 대시보드/복습배지 로드
+initIdentity().then(() => { showGuestHint(); loadStats(); loadDueCount(); });
 
 /* ═══════════ 배지 확인 + 토스트 ═══════════ */
 async function checkBadges(){
@@ -399,9 +434,18 @@ function renderPlayHome(){
   const el = document.getElementById('flash-content');
   el.innerHTML = '<div class="empty">불러오는 중…</div>';
   Promise.all([
-    fetch('/api/vocab/due?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(r=>r.json()),
-    fetch('/api/vocab/list?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(r=>r.json())
+    fetch('/api/vocab/due?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authToken())).then(r=>r.json()),
+    fetch('/api/vocab/list?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authToken())).then(r=>r.json())
   ]).then(([due, list]) => {
+    // 토큰 만료/인증 실패 → 오해되는 "복습 끝" 대신 다시 로그인 안내
+    if ((due && due.error === 'auth_required') || (list && list.error === 'auth_required')) {
+      el.innerHTML = `<div class="play-hero">
+        <h2>🔑 다시 로그인해 주세요</h2>
+        <p>로그인 정보가 만료됐어요. 다시 로그인하면 단어장이 열려요.</p>
+        <a class="big-btn" href="/login">로그인하러 가기</a>
+      </div>`;
+      return;
+    }
     BANK = (list && list.words) || [];
     const words = (due && due.words) || [];
     if (!words.length) {
@@ -746,8 +790,11 @@ async function loadCollection(){
   const el = document.getElementById('list-content');
   el.innerHTML = '<div class="empty">불러오는 중…</div>';
   try {
-    const r = await fetch('/api/vocab/list?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()));
+    const r = await fetch('/api/vocab/list?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authToken()));
     const d = await r.json();
+    if (d && d.error === 'auth_required') {
+      el.innerHTML = '<div class="empty">🔑 로그인 정보가 만료됐어요.<br><a href="/login" style="color:#fbbf24;text-decoration:underline">다시 로그인</a>하면 카드가 보여요.</div>'; return;
+    }
     if (!d.words || !d.words.length) {
       el.innerHTML = '<div class="empty">아직 카드가 없어요.<br>＋ 단어 추가 탭에서 첫 카드를 수집해 보세요!</div>'; return;
     }
@@ -778,7 +825,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260712163809 -->
+<!-- BUILD:20260712164553 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
