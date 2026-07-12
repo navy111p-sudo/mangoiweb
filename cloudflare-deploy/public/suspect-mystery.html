@@ -736,50 +736,85 @@
         //   (기기에 중국어 음성이 없어도 소리가 나도록.)
         // 🐢 '천천히'(slow)는 두 언어 모두 브라우저 합성 0.6배속으로 확실히 감속.
         let _ttsAudio = null;
+        // 브라우저 음성 목록은 비동기 로드 — 미리 예열해 첫 재생부터 목소리를 고를 수 있게 함.
+        function _primeVoices() {
+            try {
+                if (!('speechSynthesis' in window)) return;
+                window.speechSynthesis.getVoices();
+                window.speechSynthesis.onvoiceschanged = () => { try { window.speechSynthesis.getVoices(); } catch {} };
+            } catch {}
+        }
+        _primeVoices();
+        // 🔓 첫 사용자 제스처(수업 시작 버튼)에서 오디오 요소를 해제 → 이후 자동 재생/클라우드 재생 허용.
+        //    (모바일 자동재생 정책: 제스처 없이 만든 <audio>.play() 는 막힘)
+        function _unlockAudio() {
+            try { if (audioCtx && audioCtx.resume) audioCtx.resume(); } catch {}
+            try {
+                if (!_ttsAudio) _ttsAudio = new Audio();
+                _ttsAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=';
+                const p = _ttsAudio.play();
+                if (p && p.catch) p.catch(() => {});
+            } catch {}
+        }
         function _showTeacherPulse(on) {
             const p = document.getElementById('teacherPulse');
             if (!p) return;
             if (on) p.classList.remove('hidden'); else p.classList.add('hidden');
         }
+        // 브라우저 합성 재생. 소리가 확실히 날 때만 true, 아니면 false(→ 호출측이 클라우드로 폴백).
         function _synthSpeak(text, rate) {
-            if (!('speechSynthesis' in window)) return;
+            if (!('speechSynthesis' in window)) return false;
             window.speechSynthesis.cancel();
             const u = new SpeechSynthesisUtterance(text);
             u.lang = ZH ? 'zh-CN' : 'en-US';
-            const voices = window.speechSynthesis.getVoices();
+            const voices = window.speechSynthesis.getVoices() || [];
             const v = ZH
                 ? voices.find(x => /^zh/i.test(x.lang || '') || /Chinese|Mandarin|中文|普通话/i.test(x.name || ''))
                 : (voices.find(x => x.lang && x.lang.startsWith('en-US') && (x.name.includes('Natural') || x.name.includes('Google')))
                    || voices.find(x => x.lang && x.lang.startsWith('en')));
             if (v) u.voice = v;
+            // ⚠️ 중국어인데 기기에 중국어 음성이 없으면 무음 — 이땐 false 반환해 클라우드 원어민을 쓰게.
+            if (ZH && !v) return false;
             u.rate = rate || 0.85;
             u.pitch = 1.1;
             u.onstart = () => _showTeacherPulse(true);
             u.onend = () => _showTeacherPulse(false);
             window.speechSynthesis.speak(u);
+            return true;
+        }
+        // ☁️ 클라우드 원어민 TTS 재생(slow=재생속도 감속). 성공 시 resolve, 실패 시 reject.
+        function _cloudSpeak(text, lang, rate) {
+            return fetch('/api/voice/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, lang: lang }) })
+                .then(r => { const ct = r.headers.get('content-type') || ''; if (!r.ok || ct.indexOf('audio') < 0) throw new Error('tts'); return r.blob(); })
+                .then(b => {
+                    const u = URL.createObjectURL(b);
+                    if (!_ttsAudio) _ttsAudio = new Audio();
+                    _ttsAudio.src = u;
+                    try { _ttsAudio.playbackRate = rate || 1; } catch {}
+                    _showTeacherPulse(true);
+                    _ttsAudio.onended = () => _showTeacherPulse(false);
+                    _ttsAudio.onerror = () => _showTeacherPulse(false);
+                    const p = _ttsAudio.play();
+                    return (p && p.then) ? p : Promise.resolve();
+                });
         }
         function playTeacherVoice(slow) {
             const currentData = roundData[currentRound - 1];
             const text = currentData.teacherSpoken || currentData.clue;
-            if (ZH && !slow) {
-                // 원어민 만다린 우선
-                fetch('/api/voice/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, lang: 'zh' }) })
-                    .then(r => { const ct = r.headers.get('content-type') || ''; if (!r.ok || ct.indexOf('audio') < 0) throw new Error('tts'); return r.blob(); })
-                    .then(b => {
-                        const u = URL.createObjectURL(b);
-                        if (!_ttsAudio) _ttsAudio = new Audio();
-                        _ttsAudio.src = u;
-                        _showTeacherPulse(true);
-                        _ttsAudio.onended = () => _showTeacherPulse(false);
-                        _ttsAudio.play().catch(() => _showTeacherPulse(false));
-                    })
-                    .catch(() => _synthSpeak(text, 0.85));   // 클라우드 실패 → 브라우저 합성
+            if (ZH) {
+                // 원어민 만다린 클라우드 음성(느리게=재생속도 0.62). 실패해야만 브라우저 합성 폴백.
+                _cloudSpeak(text, 'zh', slow ? 0.62 : 1)
+                    .catch(() => { _synthSpeak(text, slow ? 0.6 : 0.85); });
                 return;
             }
-            _synthSpeak(text, slow ? 0.6 : 0.85);
+            // 영어: 자연스러운 브라우저 en 보이스 우선 → 없거나 실패 시 클라우드 원어민.
+            if (!_synthSpeak(text, slow ? 0.6 : 0.85)) {
+                _cloudSpeak(text, 'en', slow ? 0.7 : 1).catch(() => {});
+            }
         }
 
         function startGame() {
+            _unlockAudio();   // 🔓 시작 버튼(사용자 제스처)에서 오디오 해제 → 라운드 자동 낭독이 막히지 않게
             document.getElementById('welcomeScreen').classList.add('hidden');
             document.getElementById('gamePlayScreen').classList.remove('hidden');
             score = 0;
@@ -1111,6 +1146,6 @@ html{overflow-x:hidden}
 }
 </style>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712195913 -->
+<!-- BUILD:20260712200350 -->
 </body>
 </html>
