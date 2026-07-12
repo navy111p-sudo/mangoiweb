@@ -351,15 +351,34 @@ public class MainActivity extends AppCompatActivity {
         if (url == null) return false;
         String host = url.getHost();
         if (host == null || !host.contains("pf.kakao.com")) return false;
+
+        // 1순위: 카카오톡이 pf.kakao.com 링크(App Link)를 직접 처리하도록 강제
+        //         → /chat 경로 그대로 넘어가 1:1 채팅으로 바로 진입
         try {
             Intent i = new Intent(Intent.ACTION_VIEW, url);
-            i.setPackage("com.kakao.talk");           // 카카오톡 앱으로 강제
+            i.setPackage("com.kakao.talk");
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i);
             return true;
-        } catch (Exception e) {
-            return false; // 카카오톡 미설치/미대응 → 웹 채팅 페이지로 폴백
-        }
+        } catch (Exception ignored) {}
+
+        // 2순위: 카카오톡 채널 커스텀 스킴으로 채팅 열기
+        //         채널 공개ID = pf.kakao.com/{id}/... 의 첫 경로 세그먼트(예: _xlqnSxd)
+        try {
+            String publicId = null;
+            java.util.List<String> segs = url.getPathSegments();
+            if (segs != null && !segs.isEmpty()) publicId = segs.get(0);
+            if (publicId != null && !publicId.isEmpty()) {
+                Intent i = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("kakaoplus://plusfriend/talk/chat/" + publicId));
+                i.setPackage("com.kakao.talk");
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+                return true;
+            }
+        } catch (Exception ignored) {}
+
+        return false; // 카카오톡 미설치/미대응 → 웹 채팅 페이지로 폴백
     }
 
     /** 새 창 처리용 임시 WebView 를 안전하게 정리(메모리 누수 방지) */
