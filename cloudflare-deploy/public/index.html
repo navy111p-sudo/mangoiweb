@@ -19491,6 +19491,10 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       const d = await r.json();
       if (!d.ok || !d.rows || !d.rows.length) return;
+      // 🔒 로컬 dismiss 필터 — "오늘 하루/7일간 안보기" 누른 팝업은 기간 내 다시 안 뜨게
+      //    (localStorage 에 저장된 dismiss 값 반영. 서버가 못 거른 것 + 비로그인 케이스 모두 커버)
+      d.rows = paFilterLocalDismissed(d.rows);
+      if (!d.rows.length) return;
       // 이미 표시 중인 팝업은 제거
       const old = document.getElementById('pa-stack');
       if (old) old.remove();
@@ -19613,17 +19617,17 @@ window.addEventListener('DOMContentLoaded', () => {
     stack.appendChild(m);
   }
   window.paDismiss = async function(popupId, period, uid) {
-    if (!uid) {
-      // 비로그인은 localStorage 로만 처리
-      try {
-        const key = 'mangoi_popup_dismiss_' + popupId;
-        const until = period === 'today' ? new Date(new Date().setHours(23,59,59,999)).getTime()
-                    : period === '3days' ? Date.now() + 3*86400*1000
-                    : period === '7days' ? Date.now() + 7*86400*1000
-                    : Date.now() + 30*86400*1000;
-        localStorage.setItem(key, String(until));
-      } catch {}
-    } else {
+    // 항상 localStorage 에 dismiss 기간을 기록 — 로그인/비로그인 무관하게 로컬 필터가 확실히 막아줌
+    try {
+      const key = 'mangoi_popup_dismiss_' + popupId;
+      const until = period === 'today' ? new Date(new Date().setHours(23,59,59,999)).getTime()
+                  : period === '3days' ? Date.now() + 3*86400*1000
+                  : period === '7days' ? Date.now() + 7*86400*1000
+                  : Date.now() + 30*86400*1000;
+      localStorage.setItem(key, String(until));
+    } catch {}
+    // 로그인 상태면 서버에도 저장(다른 기기·재설치 대비)
+    if (uid) {
       try {
         await fetch('/api/popups/' + popupId + '/dismiss', {
           method: 'POST', headers: {'Content-Type':'application/json'},
@@ -24948,7 +24952,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712183241 -->
+<!-- BUILD:20260712183344 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
