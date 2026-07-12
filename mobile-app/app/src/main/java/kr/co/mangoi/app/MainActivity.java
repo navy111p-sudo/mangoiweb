@@ -105,6 +105,8 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
                 String scheme = url.getScheme();
+                // 카카오톡 채널(pf.kakao.com) 링크는 웹 중간페이지 없이 카카오톡 앱 채팅으로 바로
+                if (openKakaoChannelInApp(url)) return true;
                 // http/https 는 WebView 내에서, 그 외(tel, mailto, intent 등)는 외부 앱으로
                 if (scheme != null && (scheme.equals("http") || scheme.equals("https"))) {
                     return false;
@@ -329,11 +331,34 @@ public class MainActivity extends AppCompatActivity {
     private void routeNewWindowUrl(Uri url, boolean[] handled) {
         if (url == null || handled[0]) return;
         handled[0] = true;
+        // 카카오톡 채널 링크는 카카오톡 앱으로 직접 넘겨 채팅 바로 진입 (상담 버튼 등)
+        if (openKakaoChannelInApp(url)) return;
         String scheme = url.getScheme();
         if (scheme != null && (scheme.equals("http") || scheme.equals("https"))) {
             if (webView != null) webView.loadUrl(url.toString());
         } else {
             try { startActivity(new Intent(Intent.ACTION_VIEW, url)); } catch (Exception ignored) {}
+        }
+    }
+
+    /**
+     * 카카오톡 채널 링크(pf.kakao.com/…)면 카카오톡 앱으로 직접 넘겨 채팅을 바로 연다.
+     * 카카오톡이 설치돼 있으면 웹 중간 페이지("카카오톡으로 채팅을 시작합니다") 없이
+     * 곧장 앱 채팅으로 진입한다. 미설치면 false 를 돌려주어 호출부가 웹 페이지로
+     * 폴백(그 페이지가 카카오톡 설치를 안내)하도록 한다.
+     */
+    private boolean openKakaoChannelInApp(Uri url) {
+        if (url == null) return false;
+        String host = url.getHost();
+        if (host == null || !host.contains("pf.kakao.com")) return false;
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW, url);
+            i.setPackage("com.kakao.talk");           // 카카오톡 앱으로 강제
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+            return true;
+        } catch (Exception e) {
+            return false; // 카카오톡 미설치/미대응 → 웹 채팅 페이지로 폴백
         }
     }
 
