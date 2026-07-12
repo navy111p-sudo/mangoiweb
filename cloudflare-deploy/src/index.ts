@@ -256,6 +256,10 @@ const worker = {
     if (path === '/api/games/en-vocab' && request.method === 'GET') {
       return handleGamesEnVocab(request, env);
     }
+    // 📖 단어 뜻 — GET /api/games/define?word=&lang=en|zh&sent=  → 단어 브릭 클릭 시 한국어 뜻(+병음). D1 캐시+어휘은행+AI 폴백
+    if (path === '/api/games/define' && request.method === 'GET') {
+      return handleGamesDefine(request, env);
+    }
     // 🧠 게임 학습기록 — POST /api/games/progress {user_id,lang,events:[{item,ko,correct}]} → 오답/정답 누적(game_progress)
     if (path === '/api/games/progress' && request.method === 'POST') {
       return handleGamesProgress(request, env);
@@ -2121,6 +2125,66 @@ async function handleGamesZhVocab(request: Request, env: Env): Promise<Response>
       }
     }
     return new Response(JSON.stringify({ ok: true, textbook, level, sentences, words }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  📖 게임 단어 뜻 — GET /api/games/define?word=&lang=en|zh&sent=
+ *  문장 벽돌 등에서 단어 브릭을 눌렀을 때 보여줄 한국어 뜻(+중국어 병음).
+ *  ① D1 캐시(game_word_defs) → ② 어휘은행(zh_vocab/en_vocab) → ③ Workers AI 폴백 후 캐시.
+ *  단어 1개만 허용(문장 통번역 남용 방지) — sent 는 다의어 구분용 예문 힌트.
+ * ════════════════════════════════════════════════════════════════════════ */
+async function handleGamesDefine(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const raw = (u.searchParams.get('word') || '').trim();
+    const lang = (u.searchParams.get('lang') === 'zh') ? 'zh' : 'en';
+    const sent = (u.searchParams.get('sent') || '').trim().slice(0, 160);
+    const okWord = lang === 'zh' ? /^[㐀-鿿]{1,6}$/.test(raw) : /^[A-Za-z][A-Za-z']{0,23}$/.test(raw);
+    if (!raw || !okWord) {
+      return new Response(JSON.stringify({ ok: false, error: 'bad_word' }), { status: 400, headers: _MS_JSON });
+    }
+    const word = lang === 'en' ? raw.toLowerCase() : raw;
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS game_word_defs (id INTEGER PRIMARY KEY AUTOINCREMENT, lang TEXT NOT NULL, word TEXT NOT NULL, ko TEXT, pinyin TEXT, updated_at INTEGER, UNIQUE(lang, word));`);
+    // ① D1 캐시
+    try {
+      const c: any = await env.DB.prepare(`SELECT ko, pinyin FROM game_word_defs WHERE lang=? AND word=?`).bind(lang, word).first();
+      if (c && c.ko) return new Response(JSON.stringify({ ok: true, word: raw, ko: c.ko, pinyin: c.pinyin || '' }), { status: 200, headers: _MS_JSON });
+    } catch {}
+    // ② 어휘은행(교재 추출 데이터) — 단어 항목 우선
+    let ko = '', pinyin = '';
+    try {
+      if (lang === 'zh') {
+        const r: any = await env.DB.prepare(`SELECT ko, pinyin FROM zh_vocab WHERE hanzi=? AND ko!='' ORDER BY (type='word') DESC LIMIT 1`).bind(word).first();
+        if (r && r.ko) { ko = String(r.ko); pinyin = String(r.pinyin || ''); }
+      } else {
+        const r: any = await env.DB.prepare(`SELECT ko FROM en_vocab WHERE LOWER(en)=? AND ko!='' ORDER BY (type='word') DESC LIMIT 1`).bind(word).first();
+        if (r && r.ko) ko = String(r.ko);
+      }
+    } catch {}
+    // ③ Workers AI 폴백 — 짧은 뜻만 JSON 한 줄
+    if (!ko) {
+      try {
+        const prompt = lang === 'zh'
+          ? `중국어 단어 "${raw}"${sent ? ` (예문: "${sent}")` : ''}의 초등학생용 짧은 한국어 뜻과 병음. JSON 한 줄로만 답해: {"ko":"뜻","pinyin":"병음"}`
+          : `영어 단어 "${raw}"${sent ? ` (예문: "${sent}")` : ''}의 초등학생용 짧은 한국어 뜻. JSON 한 줄로만 답해: {"ko":"뜻"}`;
+        const r: any = await env.AI.run(WARMUP_MODEL, { messages: [{ role: 'user', content: prompt }], max_tokens: 80, temperature: 0.1 });
+        const m = String(r?.response || '').match(/\{[\s\S]*?\}/);
+        if (m) {
+          const j = JSON.parse(m[0]);
+          ko = String(j.ko || '').trim().slice(0, 60);
+          if (lang === 'zh' && !pinyin) pinyin = String(j.pinyin || '').trim().slice(0, 60);
+        }
+      } catch {}
+    }
+    if (!ko) return new Response(JSON.stringify({ ok: false, error: 'not_found' }), { status: 200, headers: _MS_JSON });
+    try {
+      await env.DB.prepare(`INSERT INTO game_word_defs (lang, word, ko, pinyin, updated_at) VALUES (?,?,?,?,?) ON CONFLICT(lang, word) DO UPDATE SET ko=excluded.ko, pinyin=excluded.pinyin, updated_at=excluded.updated_at`)
+        .bind(lang, word, ko, pinyin, Date.now()).run();
+    } catch {}
+    return new Response(JSON.stringify({ ok: true, word: raw, ko, pinyin }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }

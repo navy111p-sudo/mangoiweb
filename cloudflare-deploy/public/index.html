@@ -8435,6 +8435,7 @@ window.vcShareTextbook = function(pdfId, url, kind, name){
 //   → "반드시 학생이 교재를 본다" 보장.
 window._vcShownPdfKey = '';            // 현재 표시 중인 교재 키 (url|page) — 중복 로드 방지
 window._vcShownPdfUrl = '';            // 현재 표시 중인 교재 URL (같은 교재면 페이지 이동만)
+window._vcShownPdfName = '';           // 현재 교재 이름 "[교재] 레슨 / 파일" — 화살표 시퀀스 재구성용
 window._vcPdfPollTimer = null;
 window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName){
   try {
@@ -15041,51 +15042,124 @@ function pdfPan(dx, dy) {
 
 function pdfGoToPage(num) { pdfPageNum = num; pdfRender(); }
 // ph250: 시퀀스 자동 이동 — 마지막 페이지에서 [다음] → 다음 파일 자동 로드
-function pdfPrevPage() {
+function _pdfToast(msg) {
+    if (typeof window.showToast === 'function') { try { window.showToast(msg); } catch(_){} }
+}
+// fix (2026-07-12) — 시퀀스 안에서 현재 표시 중인 파일 위치를 맞춤 (다른 기기가 넘겨도 인덱스 유지)
+function pdfSyncSeqIdx(url) {
+    if (!(window._libSequence && window._libSequence.length)) return;
+    var u = String(url || '');
+    if (!u) return;
+    for (var i = 0; i < window._libSequence.length; i++) {
+        var su = String(window._libSequence[i].url || '');
+        if (!su) continue;
+        if (u === su || (su.charAt(0) === '/' && u.indexOf(su) >= 0)) { window._libSeqIdx = i; return; }
+    }
+}
+window.pdfSyncSeqIdx = pdfSyncSeqIdx;
+// fix (2026-07-12) — 화살표 '자가 복구': 파일 시퀀스(_libSequence)는 원래 교재 라이브러리를 연
+//   그 세션에만 존재 → 새 기기/학생/재접속은 화살표가 조용히 죽어 있었음.
+//   현재 교재 이름("[교재] 레슨 / 파일")에서 책 이름을 뽑아 서버에서 그 책의 전체 파일 목록을
+//   즉석으로 다시 만들어, 어느 기기에서든 화살표가 동작하게 한다.
+async function pdfEnsureSequence() {
+    if (window._libSequence && window._libSequence.length > 1) return true;
+    var nm = window._vcShownPdfName || '';
+    var cur = String(window._vcShownPdfUrl || window._vcCurrentPdfUrl || '');
+    // 이름이 없으면(옛 방 상태) 현재 URL의 파일 id로 메타데이터 조회해서 이름 복구
+    if (!/^\[[^\]]+\]/.test(nm)) {
+        var idm = cur.match(/\/api\/textbook-files\/(\d+)\/raw/);
+        if (idm) {
+            try {
+                var mr = await fetch('/api/textbook-files/' + idm[1], { cache: 'no-store' });
+                var md = await mr.json();
+                if (md && md.ok && md.item && md.item.name) { nm = md.item.name; window._vcShownPdfName = nm; }
+            } catch(_){}
+        }
+    }
+    var m = nm.match(/^\[([^\]]+)\]/);
+    var book = m ? m[1].trim() : '';
+    if (!book) return false;
+    try {
+        var r = await fetch('/api/textbook-files?book=' + encodeURIComponent(book) + '&limit=20000', { cache: 'no-store' });
+        var d = await r.json();
+        var items = (d && d.items) || [];
+        if (!items.length) return false;
+        var cmp = function(a, b){ return String(a||'').localeCompare(String(b||''), undefined, { numeric:true, sensitivity:'base' }); };
+        // "[교재] 레슨 / 파일" 파싱 → 레슨·파일명 자연 정렬 (라이브러리 buildBookSequence 와 동일 순서)
+        var parsed = [];
+        items.forEach(function(it){
+            if (it.kind !== 'image' && it.kind !== 'pdf') return;
+            var lesson = '미분류', fileName = it.name || '';
+            var mm = fileName.match(/^\[([^\]]+)\]\s*(.*)$/);
+            if (mm) {
+                var rest = mm[2] || '';
+                var slash = rest.indexOf('/');
+                if (slash >= 0) { lesson = rest.slice(0, slash).trim() || '미분류'; fileName = rest.slice(slash + 1).trim() || it.name; }
+                else fileName = rest.trim() || it.name;
+            }
+            parsed.push({ id: 'srv_' + it.id, url: it.url, kind: it.kind, lesson: lesson, file: fileName, name: it.name });
+        });
+        parsed.sort(function(a, b){ return cmp(a.lesson, b.lesson) || cmp(a.file, b.file); });
+        var seq = parsed.map(function(x){ return { id: x.id, url: x.url, kind: x.kind, name: x.name }; });
+        if (!seq.length) return false;
+        window._libSequence = seq;
+        window._libSeqIdx = 0;
+        pdfSyncSeqIdx(cur);
+        // URL 매칭 실패 시 이름으로 한 번 더
+        if (window._libSeqIdx === 0 && nm) {
+            for (var j = 0; j < seq.length; j++) { if (seq[j].name === nm) { window._libSeqIdx = j; break; } }
+        }
+        console.log('[pdfEnsureSequence] 서버에서 시퀀스 재구성:', book, seq.length + '개 / 현재 ' + (window._libSeqIdx + 1));
+        return seq.length > 1;
+    } catch(e) { console.warn('[pdfEnsureSequence]', e); return false; }
+}
+async function pdfPrevPage() {
     if (pdfDoc && pdfPageNum > 1) {
         pdfPageNum = Math.max(1, pdfPageNum - pdfPagesPerView);
         pdfRender();
         if (vcConn) vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } });
         return;
     }
-    // 첫 페이지 → 시퀀스의 이전 파일로
-    if (window._libSequence && window._libSequence.length > 1) {
-        var idx = window._libSeqIdx || 0;
-        if (idx > 0) {
-            var prev = window._libSequence[idx - 1];
-            window._libSeqIdx = idx - 1;
-            console.log('[ph250] 이전 파일로 자동 이동:', prev.name);
-            if (typeof window.selectFromTextbookLibrary === 'function') {
-                window.selectFromTextbookLibrary(prev.id, prev.url, prev.kind, prev.name);
-            }
-            return;
-        }
+    // 첫 페이지 → 시퀀스의 이전 파일로 (시퀀스가 없으면 서버에서 재구성 — 새 기기/학생도 동작)
+    if (!(window._libSequence && window._libSequence.length > 1)) {
+        var ok = await pdfEnsureSequence();
+        if (!ok) { _pdfToast('📚 첫 페이지입니다'); return; }
     }
+    var idx = window._libSeqIdx || 0;
+    if (idx > 0) {
+        var prev = window._libSequence[idx - 1];
+        window._libSeqIdx = idx - 1;
+        console.log('[ph250] 이전 파일로 자동 이동:', prev.name);
+        if (typeof window.selectFromTextbookLibrary === 'function') {
+            window.selectFromTextbookLibrary(prev.id, prev.url, prev.kind, prev.name);
+        }
+        return;
+    }
+    _pdfToast('📚 첫 페이지입니다');
 }
-function pdfNextPage() {
+async function pdfNextPage() {
     if (pdfDoc && pdfPageNum < pdfDoc.numPages) {
         pdfPageNum = Math.min(pdfDoc.numPages, pdfPageNum + pdfPagesPerView);
         pdfRender();
         if (vcConn) vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } });
         return;
     }
-    // 마지막 페이지 → 시퀀스의 다음 파일로
-    if (window._libSequence && window._libSequence.length > 1) {
-        var idx = window._libSeqIdx || 0;
-        if (idx < window._libSequence.length - 1) {
-            var next = window._libSequence[idx + 1];
-            window._libSeqIdx = idx + 1;
-            console.log('[ph250] 다음 파일로 자동 이동:', next.name);
-            if (typeof window.selectFromTextbookLibrary === 'function') {
-                window.selectFromTextbookLibrary(next.id, next.url, next.kind, next.name);
-            }
-            return;
-        } else {
-            if (typeof window.showToast === 'function') {
-                try { window.showToast('📚 마지막 파일입니다'); } catch(_){}
-            }
-        }
+    // 마지막 페이지 → 시퀀스의 다음 파일로 (시퀀스가 없으면 서버에서 재구성 — 새 기기/학생도 동작)
+    if (!(window._libSequence && window._libSequence.length > 1)) {
+        var ok2 = await pdfEnsureSequence();
+        if (!ok2) { _pdfToast('📚 마지막 페이지입니다'); return; }
     }
+    var idx2 = window._libSeqIdx || 0;
+    if (idx2 < window._libSequence.length - 1) {
+        var next = window._libSequence[idx2 + 1];
+        window._libSeqIdx = idx2 + 1;
+        console.log('[ph250] 다음 파일로 자동 이동:', next.name);
+        if (typeof window.selectFromTextbookLibrary === 'function') {
+            window.selectFromTextbookLibrary(next.id, next.url, next.kind, next.name);
+        }
+        return;
+    }
+    _pdfToast('📚 마지막 파일입니다');
 }
 function pdfStopShare() {
     pdfDoc = null;
@@ -24788,7 +24862,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260712182039 -->
+<!-- BUILD:20260712182343 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
