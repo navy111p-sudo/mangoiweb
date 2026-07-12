@@ -386,6 +386,23 @@
         const ZH = (GLANG === 'zh');
         if (ZH) { try { document.documentElement.classList.add('zh-font'); } catch(e){} }
 
+        // 🀄 중국어 모드: 환영 화면 문구를 '영어'→'중국어' 학습으로 교체(UI 안내는 한국어 유지 = 학생 모국어)
+        (function () {
+            if (!ZH) return;
+            const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+            set('hdrSub', '互动口语游戏 · 중국어');
+            set('wcTitle', '谁是小偷? 大侦探! 🕵️');
+            set('wcDesc',
+                '망고아이 <b class="text-yellow-300">중국어(만다린)</b> 화상 수업에 오신 것을 환영합니다!<br>' +
+                '선생님의 힌트를 <b class="text-yellow-300">귀로 잘 듣고(听力)</b> 범인을 맞혀주세요.<br>' +
+                '그리고 마이크로 범인을 지목하는 이유를 당당하게 <b class="text-yellow-300">중국어로 말해보세요(口语)!</b>');
+            set('wcHow',
+                '<p>💡 <b class="text-yellow-300">게임 방법:</b></p>' +
+                '<p>1. 📢 <b class="text-yellow-300">[听 Listen]</b> 선생님(Emily 老师)이 들려주는 중국어 힌트를 집중해서 듣기! (🐢 천천히 듣기 지원)</p>' +
+                '<p>2. 👆 <b class="text-yellow-300">[找 Find]</b> 용의자 4명의 <b>한자+병음</b> 설명을 읽고 진짜 범인을 찾아 클릭!</p>' +
+                '<p>3. 🎙️ <b class="text-yellow-300">[说 Speak]</b> 마이크를 누르고 화면의 중국어 모범문장(한자+병음)을 또박또박 외치기!</p>');
+        })();
+
         // Game variables
         let score = 0;
         let currentRound = 1;
@@ -637,7 +654,7 @@
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
             recognition.continuous = false;
-            recognition.lang = 'en-US';
+            recognition.lang = ZH ? 'zh-CN' : 'en-US';   // 🀄 중국어 모드는 만다린 인식
             recognition.interimResults = true;
 
             recognition.onstart = () => {
@@ -713,38 +730,53 @@
             }
         }
 
-        // Native Speech Synthesis (Teacher Voice)
-        function playTeacherVoice() {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Stop active voices
-                const currentData = roundData[currentRound - 1];
-                const utterance = new SpeechSynthesisUtterance(currentData.teacherSpoken);
-                utterance.lang = 'en-US';
-
-                // Look for an English voice (prefer natural sounding ones)
-                const voices = window.speechSynthesis.getVoices();
-                const engVoice = voices.find(v => v.lang.startsWith('en-US') && (v.name.includes('Natural') || v.name.includes('Google')))
-                                || voices.find(v => v.lang.startsWith('en'));
-                if (engVoice) {
-                    utterance.voice = engVoice;
-                }
-
-                utterance.rate = 0.85; // slightly slower for children's clear understanding
-                utterance.pitch = 1.1; // Friendly higher pitch
-
-                // Visual bounce effect on the teacher avatar while speaking
-                const tPulse = document.getElementById('teacherPulse');
-                utterance.onstart = () => {
-                    tPulse.classList.remove('hidden');
-                };
-                utterance.onend = () => {
-                    tPulse.classList.add('hidden');
-                };
-
-                window.speechSynthesis.speak(utterance);
-            } else {
-                console.log("Speech Synthesis not supported by browser.");
+        // ── Teacher Voice ──────────────────────────────────────────────
+        // 영어: 기존과 동일한 브라우저 음성(자연스러운 en 보이스).
+        // 중국어: /api/voice/tts 원어민 만다린(Google TTS/ MeloTTS) 우선 → 실패 시 브라우저 합성 폴백.
+        //   (기기에 중국어 음성이 없어도 소리가 나도록.)
+        // 🐢 '천천히'(slow)는 두 언어 모두 브라우저 합성 0.6배속으로 확실히 감속.
+        let _ttsAudio = null;
+        function _showTeacherPulse(on) {
+            const p = document.getElementById('teacherPulse');
+            if (!p) return;
+            if (on) p.classList.remove('hidden'); else p.classList.add('hidden');
+        }
+        function _synthSpeak(text, rate) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = ZH ? 'zh-CN' : 'en-US';
+            const voices = window.speechSynthesis.getVoices();
+            const v = ZH
+                ? voices.find(x => /^zh/i.test(x.lang || '') || /Chinese|Mandarin|中文|普通话/i.test(x.name || ''))
+                : (voices.find(x => x.lang && x.lang.startsWith('en-US') && (x.name.includes('Natural') || x.name.includes('Google')))
+                   || voices.find(x => x.lang && x.lang.startsWith('en')));
+            if (v) u.voice = v;
+            u.rate = rate || 0.85;
+            u.pitch = 1.1;
+            u.onstart = () => _showTeacherPulse(true);
+            u.onend = () => _showTeacherPulse(false);
+            window.speechSynthesis.speak(u);
+        }
+        function playTeacherVoice(slow) {
+            const currentData = roundData[currentRound - 1];
+            const text = currentData.teacherSpoken || currentData.clue;
+            if (ZH && !slow) {
+                // 원어민 만다린 우선
+                fetch('/api/voice/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, lang: 'zh' }) })
+                    .then(r => { const ct = r.headers.get('content-type') || ''; if (!r.ok || ct.indexOf('audio') < 0) throw new Error('tts'); return r.blob(); })
+                    .then(b => {
+                        const u = URL.createObjectURL(b);
+                        if (!_ttsAudio) _ttsAudio = new Audio();
+                        _ttsAudio.src = u;
+                        _showTeacherPulse(true);
+                        _ttsAudio.onended = () => _showTeacherPulse(false);
+                        _ttsAudio.play().catch(() => _showTeacherPulse(false));
+                    })
+                    .catch(() => _synthSpeak(text, 0.85));   // 클라우드 실패 → 브라우저 합성
+                return;
             }
+            _synthSpeak(text, slow ? 0.6 : 0.85);
         }
 
         function startGame() {
@@ -752,7 +784,10 @@
             document.getElementById('gamePlayScreen').classList.remove('hidden');
             score = 0;
             currentRound = 1;
-            if (_studentVocab) {
+            if (ZH) {
+                const builtZh = _zhVocab ? buildRoundsFromZhVocab(_zhVocab) : null;
+                roundData = builtZh || DEFAULT_ROUNDS_ZH;
+            } else if (_studentVocab) {
                 const built = buildRoundsFromVocab(_studentVocab);
                 roundData = built || DEFAULT_ROUNDS;
             }
@@ -760,22 +795,40 @@
         }
 
         /* ── 📚 로그인 학생의 교재/레벨 어휘 미리 로드 (시작 버튼은 로드 완료/타임아웃 전까지 비활성) ── */
-        let _studentVocab = null;
+        let _studentVocab = null;   // 영어 맞춤(MangoiGameVocab)
+        let _zhVocab = null;        // 🀄 중국어 맞춤(zh_vocab: 다락원 중국어 마스터)
         function _markVocabReady() {
             const btn = document.getElementById('startBtn');
             const label = document.getElementById('startBtnLabel');
             if (btn) btn.disabled = false;
             if (label) label.innerText = '수업 시작하기 (Start Class) 🚀';
             const badge = document.getElementById('vocabBadge');
-            if (badge && _studentVocab && (_studentVocab.textbook || _studentVocab.level)) {
+            if (ZH) {
+                const wc = _zhVocab && _zhVocab.words ? _zhVocab.words.length : 0;
+                if (badge) {
+                    badge.textContent = wc >= 4 ? '🀄 중국어 마스터 교재 어휘 맞춤 출제 중' : '🀄 중국어(만다린) 미스터리';
+                    badge.classList.remove('hidden');
+                }
+            } else if (badge && _studentVocab && (_studentVocab.textbook || _studentVocab.level)) {
                 badge.textContent = '📚 ' + (_studentVocab.textbook || '') + (_studentVocab.level ? ' · ' + _studentVocab.level : '') + ' 맞춤 출제 중';
                 badge.classList.remove('hidden');
             }
         }
+        // 🀄 다락원 중국어 어휘 로더 (워드파이터/허브와 같은 캐시 공유)
+        function _loadZhVocab() {
+            const CK = 'mangoi_zhvocab_darakwon_v1';
+            try { const c = JSON.parse(sessionStorage.getItem(CK) || 'null'); if (c && (Date.now() - c.at) < 600000 && c.d) { return Promise.resolve(c.d); } } catch (e) {}
+            return fetch('/api/games/zh-vocab?textbook=' + encodeURIComponent('다락원') + '&level=' + encodeURIComponent('Lv 3'))
+                .then(r => r.ok ? r.json() : null)
+                .then(d => { if (d) { try { sessionStorage.setItem(CK, JSON.stringify({ at: Date.now(), d: d })); } catch (e) {} } return d; })
+                .catch(() => null);
+        }
         (function () {
             let settled = false;
             const finish = () => { if (!settled) { settled = true; _markVocabReady(); } };
-            if (window.MangoiGameVocab) {
+            if (ZH) {
+                _loadZhVocab().then((d) => { _zhVocab = d; finish(); }).catch(finish);
+            } else if (window.MangoiGameVocab) {
                 MangoiGameVocab.load().then((d) => { _studentVocab = d; finish(); }).catch(finish);
             } else {
                 finish();
@@ -794,6 +847,8 @@
             document.getElementById('phaseInstructions').innerText = "🕵️‍♂️ STEP 1: Ms. Emily의 목소리를 듣고 범인을 선택하세요!";
             document.getElementById('phaseInstructions').className = "text-2xl md:text-3xl font-bold text-yellow-400 animate-pulse leading-snug";
             document.getElementById('clueBubble').innerText = data.clue;
+            // 🀄 병음(중국어 라운드에만 존재) — 힌트 아래 읽기 보조
+            document.getElementById('cluePinyin').innerText = data.cluePinyin || '';
 
             // Build suspects
             for (let i = 1; i <= 4; i++) {
@@ -886,6 +941,7 @@
 
                 const currentData = roundData[currentRound - 1];
                 document.getElementById('targetSentence').innerText = `"${currentData.targetSentence}"`;
+                document.getElementById('targetPinyin').innerText = currentData.targetPinyin || '';   // 🀄 모범문장 병음
                 document.getElementById('speakingArena').classList.remove('hidden');
             } else {
                 // Wrong pick
@@ -905,7 +961,8 @@
             score += 50; // Award marks
 
             // Congratulatory effect on teacher side
-            document.getElementById('clueBubble').innerText = "Amazing Speaking! You solved the mystery!";
+            document.getElementById('clueBubble').innerText = ZH ? "说得太棒了！你破案了！ 🎉" : "Amazing Speaking! You solved the mystery!";
+            document.getElementById('cluePinyin').innerText = ZH ? "Shuō de tài bàng le! Nǐ pò'àn le!" : "";
 
             setTimeout(() => {
                 nextRound();
@@ -1040,7 +1097,7 @@
             }, 6000);
         }
     </script>
-<!-- BUILD:20260704 suspect1 bigtext-faces1 vocabmatch1 -->
+<!-- BUILD:20260704 suspect1 bigtext-faces1 vocabmatch1 zh1(중국어 만다린 모드: 병음+원어민TTS+zh_vocab맞춤+천천히듣기) -->
 <style id="mb-tidy-2026-07-10">
 /* 모바일(≤640px) 보정: 헤더 칩 가로 넘침 + 배경FX 삐짐 */
 html{overflow-x:hidden}
@@ -1054,6 +1111,6 @@ html{overflow-x:hidden}
 }
 </style>
 <script defer src="/js/flow.js"></script>
-<!-- BUILD:20260712192820 -->
+<!-- BUILD:20260712193700 -->
 </body>
 </html>
