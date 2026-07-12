@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="meBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset="0.55" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#ec4899"/>
+    </linearGradient>
+    <linearGradient id="meFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe0bd"/>
+      <stop offset="1" stop-color="#ffc999"/>
+    </linearGradient>
+  </defs>
+  <!-- background circle -->
+  <circle cx="50" cy="50" r="50" fill="url(#meBg)"/>
+  <!-- little party sparkles -->
+  <g fill="#fde68a">
+    <path d="M20 22l1.6 3.4 3.4 1.6-3.4 1.6L20 33l-1.6-3.4L15 28l3.4-1.6z"/>
+    <path d="M82 30l1.2 2.6 2.6 1.2-2.6 1.2L82 39l-1.2-2.6L78.2 35l2.6-1.2z"/>
+  </g>
+  <!-- face -->
+  <circle cx="50" cy="53" r="27" fill="url(#meFace)"/>
+  <!-- cheeks -->
+  <circle cx="35" cy="60" r="5" fill="#ff9db0" opacity="0.55"/>
+  <circle cx="65" cy="60" r="5" fill="#ff9db0" opacity="0.55"/>
+  <!-- cool sunglasses -->
+  <g fill="#1f2937">
+    <rect x="30" y="45" width="16" height="11" rx="5"/>
+    <rect x="54" y="45" width="16" height="11" rx="5"/>
+    <rect x="45" y="48" width="10" height="3" rx="1.5"/>
+    <rect x="26" y="47" width="5" height="3" rx="1.5"/>
+    <rect x="69" y="47" width="5" height="3" rx="1.5"/>
+  </g>
+  <!-- shine on glasses -->
+  <g fill="#ffffff" opacity="0.35">
+    <circle cx="35" cy="49" r="2"/>
+    <circle cx="59" cy="49" r="2"/>
+  </g>
+  <!-- big happy smile -->
+  <path d="M37 64 Q50 77 63 64" fill="none" stroke="#7c3f1d" stroke-width="4" stroke-linecap="round"/>
+  <!-- tongue -->
+  <path d="M45 70 Q50 76 55 70 Q50 74 45 70Z" fill="#ff7a8a"/>
+  <!-- cool hair tuft -->
+  <path d="M28 40 Q40 20 55 26 Q70 20 73 40 Q64 31 50 33 Q37 31 28 40Z" fill="#3b2f2f"/>
+</svg>
