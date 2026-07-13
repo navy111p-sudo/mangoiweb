@@ -12904,6 +12904,44 @@ Student text: """${text}"""`;
       await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_chat_uid ON ai_friend_chats(student_uid, created_at);`);
     };
 
+    // ✨ 오늘의 단어 — KST 날짜로 결정되는 순환 목록. 클라이언트 HUD 와 서버 보너스 판정의 단일 정본.
+    const AI_FRIEND_WORDS: Array<{ w: string; ko: string; e: string }> = [
+      { w: 'amazing', ko: '놀라운', e: '🤩' }, { w: 'delicious', ko: '아주 맛있는', e: '🍕' },
+      { w: 'brave', ko: '용감한', e: '🦁' }, { w: 'curious', ko: '호기심 많은', e: '🔍' },
+      { w: 'favorite', ko: '가장 좋아하는', e: '💖' }, { w: 'exciting', ko: '신나는', e: '🎢' },
+      { w: 'together', ko: '함께', e: '🤝' }, { w: 'weekend', ko: '주말', e: '📅' },
+      { w: 'weather', ko: '날씨', e: '🌤' }, { w: 'special', ko: '특별한', e: '🌟' },
+      { w: 'adventure', ko: '모험', e: '🗺' }, { w: 'friendly', ko: '다정한', e: '😊' },
+      { w: 'hungry', ko: '배고픈', e: '🍚' }, { w: 'awesome', ko: '끝내주는', e: '👍' },
+      { w: 'dream', ko: '꿈', e: '💭' }, { w: 'travel', ko: '여행하다', e: '✈' },
+      { w: 'animal', ko: '동물', e: '🐾' }, { w: 'happy', ko: '행복한', e: '😄' },
+      { w: 'library', ko: '도서관', e: '📚' }, { w: 'practice', ko: '연습하다', e: '💪' },
+      { w: 'beautiful', ko: '아름다운', e: '🌸' }, { w: 'question', ko: '질문', e: '❓' },
+      { w: 'birthday', ko: '생일', e: '🎂' }, { w: 'important', ko: '중요한', e: '📌' },
+      { w: 'vacation', ko: '방학·휴가', e: '🏖' }, { w: 'surprise', ko: '깜짝 놀람', e: '🎁' },
+      { w: 'healthy', ko: '건강한', e: '🥗' }, { w: 'famous', ko: '유명한', e: '⭐' },
+      { w: 'monster', ko: '괴물', e: '👾' }, { w: 'rainbow', ko: '무지개', e: '🌈' },
+    ];
+    const aiFriendWordOfDay = () => {
+      const dayIdx = Math.floor((Date.now() + 9 * 3600 * 1000) / 86400000);
+      return AI_FRIEND_WORDS[dayIdx % AI_FRIEND_WORDS.length];
+    };
+    // 🎮 HUD 스냅샷 — 오늘/누적 메시지 수 + 🔥연속 대화 일수(KST). 채팅·히스토리 응답에 공용.
+    const aiFriendGamSnapshot = async (uid: string) => {
+      const KST_OFF = 9 * 3600 * 1000;
+      const todayMs = Math.floor((Date.now() + KST_OFF) / 86400000) * 86400000 - KST_OFF;
+      const tc: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM ai_friend_chats WHERE student_uid=? AND role='user' AND created_at>=?`).bind(uid, todayMs).first();
+      const lc: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM ai_friend_chats WHERE student_uid=? AND role='user'`).bind(uid).first();
+      const dr: any = await env.DB.prepare(`SELECT DISTINCT CAST((created_at + 32400000) / 86400000 AS INTEGER) AS d FROM ai_friend_chats WHERE student_uid=? AND role='user' AND created_at>=? ORDER BY d DESC LIMIT 40`).bind(uid, Date.now() - 40 * 86400000).all();
+      const days = new Set(((dr.results || []) as any[]).map(r => Number(r.d)));
+      const todayIdx = Math.floor((Date.now() + KST_OFF) / 86400000);
+      let streak = 0;
+      while (days.has(todayIdx - streak)) streak++;
+      // 오늘 아직 안 보냈어도 어제까지의 스트릭은 이어짐 표시 (끊긴 건 아님)
+      if (streak === 0 && days.has(todayIdx - 1)) { let s = 0; while (days.has(todayIdx - 1 - s)) s++; streak = s; }
+      return { today: tc?.c || 0, lifetime: lc?.c || 0, streak, word: aiFriendWordOfDay() };
+    };
+
     // ── POST /api/ai/chat-guest-token — 비로그인 게스트용 세션 스코프 uid + 서명 토큰 발급 ──
     //   클라이언트가 임의 uid 를 만들어 보내는 것을 금지 (IDOR 방지). 게스트 uid 는
     //   서버가 발급한 추측 불가 랜덤값 + 단기 토큰만 허용, sessionStorage 에만 보관.
@@ -12935,19 +12973,23 @@ Student text: """${text}"""`;
       const history = (recent.results || []).reverse();
 
       const personaMap: any = {
-        friendly: 'a warm, friendly English friend named Mango',
-        playful: 'a playful, joke-loving English buddy named Mango',
-        serious: 'a calm, thoughtful English study partner named Mango',
-        tutor: 'a supportive English tutor named Mango who gently corrects mistakes',
+        friendly: 'a warm, cheerful mango-shaped English friend named Mango who loves cheering kids on',
+        playful: 'a silly, joke-loving mango buddy named Mango who makes English feel like a game',
+        serious: 'a calm, kind English study partner named Mango who explains things clearly',
+        tutor: 'a supportive English tutor named Mango who gently corrects mistakes and celebrates progress',
       };
-      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a Korean student at CEFR level ${level}.
+      const wodNow = aiFriendWordOfDay();
+      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.
 Rules:
-- Reply in English appropriate for ${level} level (short, clear).
-- Keep replies 1-3 sentences, friendly tone.
-- If the student writes Korean, gently encourage them to try English.
-- If you spot a grammar mistake, briefly note it in Korean at the end like: (💡 ~ 가 더 자연스러워요)
-- Ask one follow-up question to keep conversation going.
-- Never break character. Never say you are an AI.`;
+- Reply in English matched to ${level} (A1 = very short simple sentences with easy words; C1 = natural and fluent).
+- Keep replies 1-3 short sentences, then ask exactly ONE fun follow-up question so the student answers again.
+- When the student writes in English, start with a short cheer like "Nice sentence!" or "Great try!".
+- Use 1-2 fun emojis per reply. Kids love them.
+- If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
+- If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
+- Sprinkle in tiny fun facts kids enjoy (animals, space, food, games) when it fits.
+- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
+- Never break character. Never say you are an AI. Never use words far above the student's level.`;
 
       const messages: any[] = [{ role: 'system', content: system }];
       for (const h of history) {
@@ -13005,7 +13047,39 @@ Rules:
         // DB 실패해도 reply는 반환
       }
 
-      return json({ ok: true, reply, level, persona, model: usedModel || 'fallback' });
+      // 🎮 게임화 — 포인트/스트릭/오늘의 단어 보너스. 실패해도 채팅 응답은 정상 반환.
+      //   메시지당 2P(하루 10회) · 오늘의 단어 사용 +5P(하루 1회) · 🎤말하기 +1P(하루 5회)
+      //   게스트(guest*)는 HUD 숫자만 주고 포인트는 적립하지 않음(기프티콘 교환 불가 계정).
+      let gam: any = null;
+      try {
+        gam = await aiFriendGamSnapshot(uid);
+        gam.awarded = 0; gam.word_bonus = 0; gam.voice_bonus = 0;
+        if (!/^guest/i.test(uid)) {
+          await ensurePointTables();
+          const KST_OFF = 9 * 3600 * 1000;
+          const todayMs = Math.floor((Date.now() + KST_OFF) / 86400000) * 86400000 - KST_OFF;
+          const usedToday = async (code: string) => {
+            const c: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(uid, code, todayMs).first();
+            return c?.c || 0;
+          };
+          const logAward = async (code: string, amount: number, label: string) => {
+            const r = await applyPointTransaction({ userId: uid, type: 'earn', amount, reason: label, ruleCode: code });
+            await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,NULL)`).bind(uid, code, amount, Date.now(), r.txnId).run();
+          };
+          if ((await usedToday('ai_friend_chat')) < 10) { await logAward('ai_friend_chat', 2, '망고와 영어 수다'); gam.awarded = 2; }
+          const wod = gam.word;
+          if (wod && new RegExp(`\\b${wod.w}\\b`, 'i').test(msg) && (await usedToday('ai_friend_word')) < 1) {
+            await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`); gam.word_bonus = 5;
+          }
+          if (String(b.via || '') === 'voice' && (await usedToday('ai_friend_voice')) < 5) {
+            await logAward('ai_friend_voice', 1, '영어로 말하기'); gam.voice_bonus = 1;
+          }
+        }
+      } catch (e: any) {
+        console.error('[chat-friend] gamification failed:', e?.message || e);
+      }
+
+      return json({ ok: true, reply, level, persona, model: usedModel || 'fallback', gam });
     }
 
     if (method === 'GET' && path === '/api/ai/chat-history') {
@@ -13019,7 +13093,10 @@ Rules:
       const rs = await env.DB.prepare(
         `SELECT id, role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id ASC LIMIT 200`
       ).bind(uid).all();
-      return json({ ok: true, items: rs.results || [] });
+      // 🎮 HUD 초기 데이터(오늘/누적/스트릭/오늘의 단어) — 실패해도 히스토리는 정상 반환
+      let gam: any = null;
+      try { gam = await aiFriendGamSnapshot(uid); } catch {}
+      return json({ ok: true, items: rs.results || [], gam });
     }
 
     if (method === 'POST' && path === '/api/ai/chat-clear') {
