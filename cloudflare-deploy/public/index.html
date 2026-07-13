@@ -8494,6 +8494,9 @@ let ICE_SERVERS = {
 };
 
 // 서버에서 최신 ICE 서버 설정을 가져옴 (TURN 포함)
+let __vcIceLoadedAt = 0;      // TURN 자격증명 발급 시각
+let __vcIceHasTurn  = false;  // relay(TURN) 서버 확보 여부
+let __vcIcePromise  = null;   // 중복 fetch 방지 공유 promise
 async function fetchIceServers() {
     try {
         const resp = await fetch('/api/turn-config');
@@ -8501,12 +8504,29 @@ async function fetchIceServers() {
             const data = await resp.json();
             if (data.iceServers && data.iceServers.length > 0) {
                 ICE_SERVERS = { iceServers: data.iceServers };
-                console.log('[ICE] 서버에서 ICE 설정 로드 완료:', ICE_SERVERS.iceServers.length, '개 서버');
+                __vcIceLoadedAt = Date.now();
+                __vcIceHasTurn = data.iceServers.some(s => {
+                    const u = Array.isArray(s.urls) ? s.urls.join(' ') : String(s.urls || '');
+                    return u.indexOf('turn:') >= 0 || u.indexOf('turns:') >= 0;
+                });
+                console.log('[ICE] 서버에서 ICE 설정 로드 완료:', ICE_SERVERS.iceServers.length, '개 서버, TURN:', __vcIceHasTurn);
             }
         }
     } catch (e) {
         console.warn('[ICE] 서버 설정 로드 실패, 기본값 사용:', e);
     }
+}
+/* TURN 자격증명 준비 보장 — 연결(offer/answer/재연결) 직전에 호출.
+   자동입장(vc_autojoin)은 페이지 로드 fetch가 끝나기 전에 연결을 만들 수 있어
+   STUN만으로 시도 → 모바일/공유기 뒤에서는 연결 실패·잦은 끊김의 주원인.
+   4시간 지난 자격증명도 재발급. 서버가 3초 내 응답 없으면 기존 설정으로 진행(수업 지연 금지). */
+function vcEnsureIceServers() {
+    const stale = !__vcIceHasTurn || (Date.now() - __vcIceLoadedAt > 4 * 3600 * 1000);
+    if (!stale) return Promise.resolve();
+    if (!__vcIcePromise) {
+        __vcIcePromise = fetchIceServers().finally(() => { __vcIcePromise = null; });
+    }
+    return Promise.race([__vcIcePromise, new Promise(r => setTimeout(r, 3000))]);
 }
 // 페이지 로드 시 즉시 ICE 설정 가져오기
 fetchIceServers();
@@ -8920,10 +8940,15 @@ function vcReconnectPeer(userId) {
     try { if (old) old.close(); } catch(_) {}
     delete vcPeerConnections[userId];
 
+    // 재연결은 TURN 자격증명을 새로 받아서 시도 (연결 실패 원인이 STUN-only/만료 자격증명일 수 있음)
+    const _iceReady = vcEnsureIceServers().catch(() => {});
+
     // 두 단말이 동시에 offer 를 보내면 glare → ID 작은 쪽만 즉시 offer
     const iAmOfferer = (vcUserId && userId) ? (String(vcUserId) < String(userId)) : true;
     if (iAmOfferer) {
-        try { vcCreatePeerAndOffer(userId, username); } catch(e) { console.warn('[vc-recover] offer 실패:', e); }
+        _iceReady.then(() => {
+            try { vcCreatePeerAndOffer(userId, username); } catch(e) { console.warn('[vc-recover] offer 실패:', e); }
+        });
     } else {
         // 상대(작은 ID)가 offer 를 보낼 것 → 4초 대기, 그래도 복구 안 되면 내가 백업 offer
         setTimeout(() => {
@@ -9506,6 +9531,8 @@ async function vcJoinRoom(skipUI) {
     vcIsObserver = false; // 일반 입장 모드 확인
     vcUsername = document.getElementById('vc-name-input').value.trim();
     if (!vcUsername) { alert('아이디를 입력하세요.'); return; }
+    // 📶 TURN 자격증명 확보 후 입장 (자동입장이 ICE fetch를 앞지르는 레이스 방지)
+    try { await vcEnsureIceServers(); } catch(_) {}
     // 비밀번호 (vc-room-input)는 인증용으로 저장만 함 (실 운영 시 백엔드 검증)
     const vcPassword = document.getElementById('vc-room-input').value.trim();
     // 방번호: 새 필드(vc-roomcode-input)
@@ -10617,8 +10644,10 @@ async function vcCreatePeerAndOffer(userId, username) {
             return;
         }
         console.log('[vc-webrtc] createPeerAndOffer →', userId, username);
+        try { await vcEnsureIceServers(); } catch(_) {}   // TURN 자격증명 보장(없으면 3초 내 포기)
         const pc = vcCreatePeer(userId, username);
         const offer = await pc.createOffer();
+        offer.sdp = vcTuneAudioSdp(offer.sdp);            // 🔊 Opus FEC — 패킷 손실에도 소리 유지
         await pc.setLocalDescription(offer);
         console.log('[vc-webrtc] offer 전송 →', userId, 'SDP type:', offer.type);
         vcConn.send({ type: 'offer', data: { targetUserId: userId, sdp: pc.localDescription } });
@@ -10667,6 +10696,18 @@ function vcApplyLowPower(pc) {
       sender.setParameters(params).catch(function(e){ console.warn('[lowpower params]', e); });
     }
   } catch(e){ console.warn('[lowpower bitrate]', e); }
+
+  // 3) 🔊 음성 우선 — 회선이 혼잡해도 영상보다 소리가 먼저 살아남게 (수업은 소리가 생명)
+  try {
+    var aSender = pc.getSenders().find(function(s){ return s.track && s.track.kind === 'audio'; });
+    if (aSender && aSender.getParameters) {
+      var ap = aSender.getParameters();
+      if (!ap.encodings || !ap.encodings.length) ap.encodings = [{}];
+      ap.encodings[0].priority = 'high';
+      ap.encodings[0].networkPriority = 'high';
+      aSender.setParameters(ap).catch(function(){});
+    }
+  } catch(e){ console.warn('[lowpower audio-prio]', e); }
 }
 
 /* 백그라운드(탭 전환·화면 끔)일 때 내 카메라 인코딩 정지 → 발열·배터리 절약.
@@ -10690,6 +10731,100 @@ function vcApplyLowPower(pc) {
   });
   window.addEventListener('pagehide', function(){ if (document.body.classList.contains('vc-in-call')) setVideo(false); });
   window.addEventListener('pageshow', function(){ if (document.body.classList.contains('vc-in-call')) setVideo(true); });
+})();
+
+/* 🔊 Opus 오디오 SDP 튜닝 — "소리가 잘 안 들려요" 대책.
+   · useinbandfec=1 : 패킷 손실 시 다음 패킷에 실린 복원 데이터로 소리 재생(끊김·뭉개짐 大감소)
+   · maxaveragebitrate=40000 : 음성 명료도 확보(기본 32k보다 여유), 대역폭 부담은 미미
+   offer/answer 양쪽 setLocalDescription 직전에 적용. 실패해도 원본 SDP 그대로 반환. */
+function vcTuneAudioSdp(sdp) {
+    try {
+        if (!sdp) return sdp;
+        const m = sdp.match(/a=rtpmap:(\d+) opus\/48000/i);
+        if (!m) return sdp;
+        const pt = m[1];
+        const fmtpRe = new RegExp('a=fmtp:' + pt + ' ([^\\r\\n]*)');
+        if (fmtpRe.test(sdp)) {
+            sdp = sdp.replace(fmtpRe, function(_line, params) {
+                let p = params;
+                if (!/useinbandfec/.test(p)) p += ';useinbandfec=1';
+                if (!/maxaveragebitrate/.test(p)) p += ';maxaveragebitrate=40000';
+                return 'a=fmtp:' + pt + ' ' + p;
+            });
+        } else {
+            sdp = sdp.replace(m[0], m[0] + '\r\na=fmtp:' + pt + ' useinbandfec=1;maxaveragebitrate=40000');
+        }
+    } catch (e) { console.warn('[vc-sdp] 오디오 튜닝 실패(원본 사용):', e); }
+    return sdp;
+}
+
+/* 📶 네트워크 적응 화질 조절기 — "화면이 깨졌다 꺼졌다 해요" 대책.
+   4초마다 송신 통계(패킷 손실률·RTT)를 재서
+   · 나쁘면(손실 >6% 또는 RTT >450ms) 비트레이트·fps 한 단계 하향 → 깨짐 대신 부드러운 저화질
+   · 좋은 상태가 3틱(12초) 연속이면 한 단계 상향 복구 (진동 방지)
+   단계: 100% → 60% → 35% → 20% (바닥 150kbps/10fps 보장) */
+(function vcAdaptiveQuality() {
+    if (window.__vcAdaptive) return; window.__vcAdaptive = true;
+    const STEPS = [1.0, 0.6, 0.35, 0.2];
+    function baseCaps() {
+        const mobile = window.matchMedia('(max-width: 920px)').matches
+                       || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+        return { br: (mobile ? 500 : 1200) * 1000, fps: mobile ? 15 : 24 };
+    }
+    function applyStep(pc, step) {
+        try {
+            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (!sender || !sender.getParameters) return;
+            const caps = baseCaps();
+            const mult = STEPS[step];
+            const params = sender.getParameters();
+            if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+            params.encodings[0].maxBitrate   = Math.max(150 * 1000, Math.round(caps.br * mult));
+            params.encodings[0].maxFramerate = Math.max(10, Math.round(caps.fps * mult));
+            sender.setParameters(params).catch(() => {});
+            console.log('[vc-adapt] 화질 단계', step, '→', Math.round(caps.br * mult / 1000) + 'kbps');
+        } catch (_) {}
+    }
+    setInterval(function() {
+        if (!document.body.classList.contains('vc-in-call')) return;
+        Object.keys(vcPeerConnections).forEach(function(id) {
+            const pc = vcPeerConnections[id];
+            if (!pc || (pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed')) return;
+            const sender = pc.getSenders && pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (!sender || !sender.getStats) return;
+            sender.getStats().then(function(stats) {
+                let lost = 0, sent = 0, rtt = 0;
+                stats.forEach(function(r) {
+                    if (r.type === 'remote-inbound-rtp') {
+                        lost = r.packetsLost || 0;
+                        if (typeof r.roundTripTime === 'number') rtt = r.roundTripTime * 1000;
+                    }
+                    if (r.type === 'outbound-rtp') sent = r.packetsSent || 0;
+                });
+                const prev = pc.__qPrev || { lost: 0, sent: 0 };
+                pc.__qPrev = { lost: lost, sent: sent };
+                const dLost = Math.max(0, lost - prev.lost);
+                const dSent = Math.max(0, sent - prev.sent);
+                if (dSent + dLost < 25) return;  // 표본 부족(영상 꺼짐 등) — 판단 보류
+                const lossPct = 100 * dLost / (dSent + dLost);
+                let step = pc.__qStep || 0;
+                if (lossPct > 6 || rtt > 450) {
+                    pc.__qGood = 0;
+                    if (step < STEPS.length - 1) step++;
+                } else if (lossPct < 1.5 && (rtt === 0 || rtt < 250)) {
+                    pc.__qGood = (pc.__qGood || 0) + 1;
+                    if (pc.__qGood >= 3 && step > 0) { step--; pc.__qGood = 0; }
+                } else {
+                    pc.__qGood = 0;
+                }
+                if (step !== (pc.__qStep || 0)) {
+                    console.warn('[vc-adapt] 손실률', lossPct.toFixed(1) + '%, RTT', Math.round(rtt) + 'ms → 단계', pc.__qStep || 0, '→', step);
+                    pc.__qStep = step;
+                    applyStep(pc, step);
+                }
+            }).catch(function() {});
+        });
+    }, 4000);
 })();
 
 /** RTCPeerConnection을 생성합니다 (다자간 통화용). */
@@ -10819,6 +10954,7 @@ async function vcHandleOffer(data) {
                 await existingPc.setRemoteDescription(new RTCSessionDescription(data.sdp));
                 vcFlushPendingIce(fromId, existingPc);
                 const answer = await existingPc.createAnswer();
+                answer.sdp = vcTuneAudioSdp(answer.sdp);   // 🔊 Opus FEC
                 await existingPc.setLocalDescription(answer);
                 vcConn.send({ type: 'answer', data: { targetUserId: fromId, sdp: existingPc.localDescription } });
                 return;
@@ -10830,10 +10966,12 @@ async function vcHandleOffer(data) {
         }
 
         // 기존 PC가 있으면 정리
+        try { await vcEnsureIceServers(); } catch(_) {}   // TURN 자격증명 보장(없으면 3초 내 포기)
         const pc = vcCreatePeer(fromId, fromName);
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
         vcFlushPendingIce(fromId, pc);
         const answer = await pc.createAnswer();
+        answer.sdp = vcTuneAudioSdp(answer.sdp);          // 🔊 Opus FEC — 패킷 손실에도 소리 유지
         await pc.setLocalDescription(answer);
         console.log('[vc-webrtc] answer 전송 →', fromId, 'SDP type:', answer.type);
         vcConn.send({ type: 'answer', data: { targetUserId: fromId, sdp: pc.localDescription } });
@@ -25415,7 +25553,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713182059 -->
+<!-- BUILD:20260713183219 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
