@@ -3817,8 +3817,63 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ hookPeerLeave(0); });
   else hookPeerLeave(0);
 
+  // ── 🔔 (2026-07-13) '선생님과 연결이 오래 끊김' 안내 카드 ──────────────────────────
+  //   강사가 '나가기를 누르지 않고' 조용히 사라진 경우(크래시·창닫힘·장시간 망사망)엔
+  //   자동 종료를 절대 하지 않으므로, 학생이 상황을 '분명히 인지'하고 스스로 정할 수 있도록
+  //   눈에 잘 띄는 카드를 띄운다. [계속 기다리기] 또는 [수업 마치기](=학생이 직접 종료).
+  //   강사가 돌아오면 자동으로 사라진다. 이 카드는 절대 스스로 수업을 끝내지 않는다.
+  var _tgSnoozeUntil = 0;   // '계속 기다리기'를 누르면 잠시 다시 안 뜨게(스누즈)
+  function hideTeacherGoneNotice(){
+    var el = document.getElementById('vc-teacher-gone-notice');
+    if (el) { try { el.remove(); } catch(e){} }
+  }
+  function showTeacherGoneNotice(){
+    if (document.getElementById('vc-teacher-gone-notice')) return;      // 이미 떠 있음
+    if (!document.body || !document.body.classList.contains('vc-in-call')) return;
+    if (STATE.triggered) return;                                        // 이미 종료 흐름 진행 중
+    var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    if (!document.getElementById('vc-teacher-gone-style')) {
+      var style = document.createElement('style'); style.id = 'vc-teacher-gone-style';
+      style.textContent =
+          '#vc-teacher-gone-notice{position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:2147483647;'
+        + 'width:min(360px,92vw);background:rgba(15,23,42,.97);color:#f8fafc;border:2px solid #fbbf24;border-radius:16px;'
+        + 'padding:18px 18px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55);text-align:center;animation:vcTGpop .28s ease;}'
+        + '@keyframes vcTGpop{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}'
+        + '#vc-teacher-gone-notice .tg-title{font-size:16.5px;font-weight:800;color:#fde68a;margin-bottom:7px;}'
+        + '#vc-teacher-gone-notice .tg-desc{font-size:13.5px;line-height:1.55;color:#cbd5e1;margin-bottom:14px;}'
+        + '#vc-teacher-gone-notice .tg-btns{display:flex;gap:9px;}'
+        + '#vc-teacher-gone-notice button{flex:1;padding:11px 8px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;border:none;}'
+        + '#vc-teacher-gone-notice .tg-wait{background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;}'
+        + '#vc-teacher-gone-notice .tg-end{background:transparent;color:#fca5a5;border:1px solid rgba(248,113,113,.55);}';
+      document.head.appendChild(style);
+    }
+    var card = document.createElement('div');
+    card.id = 'vc-teacher-gone-notice';
+    card.setAttribute('role', 'alertdialog');
+    card.innerHTML =
+        '<div class="tg-title">⚠️ ' + (en ? 'Connection lost' : '선생님과 연결이 끊겼어요') + '</div>'
+      + '<div class="tg-desc">' + (en
+          ? 'We\'ve been trying to reconnect for a while. You can keep waiting, or end the class yourself.'
+          : '한동안 다시 연결을 시도하고 있어요.<br>계속 기다리거나, 직접 수업을 마칠 수 있어요.') + '</div>'
+      + '<div class="tg-btns">'
+      + '<button class="tg-wait" type="button">' + (en ? 'Keep waiting' : '계속 기다리기') + '</button>'
+      + '<button class="tg-end" type="button">' + (en ? 'End class' : '수업 마치기') + '</button>'
+      + '</div>';
+    card.querySelector('.tg-wait').addEventListener('click', function(){
+      _tgSnoozeUntil = Date.now() + 90000;   // 90초 스누즈 후, 계속 끊겨 있으면 한 번 더 알림
+      hideTeacherGoneNotice();
+    });
+    card.querySelector('.tg-end').addEventListener('click', function(){
+      hideTeacherGoneNotice();
+      try { endOfClassFlow(); } catch(e){}   // 학생이 '직접' 종료 → 평가/복습 흐름 정상 진입
+    });
+    document.body.appendChild(card);
+  }
+
   (function startPeerPoll(){
     var zeroStreak = 0;
+    var silentTicks = 0;       // '조용한 끊김'이 연속 몇 틱째인지(안내 카드 노출 판단용, 종료와 무관)
+    var SILENT_NOTICE_TICKS = 18;   // 5초 × 18 ≈ 90초 연속 끊김이면 학생에게 안내 카드
     var everHadPeer = false;   // ⚠️ 강사가 "아직 입장 전"(처음부터 0명)과 "있다가 퇴장"(0명으로 전환)을 구분.
                                 //    이 구분이 없으면 학생 혼자 대기실에서 기다리는 중에도 수업이 끝난
                                 //    것으로 오인해 평가가 조기 발동하는 버그가 있었다(2026-07-04 실사용 신고).
@@ -3832,22 +3887,24 @@
       try {
         if (STATE.triggered) { clearInterval(iv); return; }
         if (!document.body || !document.body.classList.contains('vc-in-call')) {
-          zeroStreak = 0; everHadPeer = false;
+          zeroStreak = 0; everHadPeer = false; silentTicks = 0;
           window.__vcPeerLeftExplicit = false; window.__vcPeerGraceWait = false;
+          try { hideTeacherGoneNotice(); } catch(e){}
           return;
         }
         if (!isStudentInClass()) return;
         var c = remoteCount();
         if (c > 0) {
           everHadPeer = true;
-          if (zeroStreak) { window.__vcPeerLeftExplicit = false; window.__vcPeerGraceWait = false; try { vcHideReconnecting(); } catch(e){} }
-          zeroStreak = 0;
+          if (zeroStreak || silentTicks) { window.__vcPeerLeftExplicit = false; window.__vcPeerGraceWait = false; try { vcHideReconnecting(); } catch(e){} }
+          zeroStreak = 0; silentTicks = 0;
+          try { hideTeacherGoneNotice(); } catch(e){}   // 강사 복귀 → 안내 카드 자동 제거
           return;
         }
         if (!everHadPeer) return;   // 강사가 한 번도 입장한 적 없음 = 아직 수업 시작 전, 종료 아님
         // 🔧 (2026-07-14) 연결이 불안정(오프라인/WS 끊김/재연결 중)하면 종료 카운트를 멈춘다.
         //   피어 0 은 '수업 종료'가 아니라 '내 연결 복구 중'일 수 있다 — 튕김 오판의 주범.
-        if (!connHealthy()) { zeroStreak = 0; return; }
+        if (!connHealthy()) { zeroStreak = 0; silentTicks = 0; return; }
         // 🔒 (2026-07-13) 최우선 원칙 = "수업이 절대 중간에 끊기면 안 된다".
         //   '조용한 끊김'(reason=dropped/미상: 상대 망 블립·앱 백그라운드·와이파이↔LTE 전환 등)으로는
         //   수업을 절대 자동 종료하지 않는다. 상대가 곧 돌아올 수 있으므로 '재연결 중…' 배너만
@@ -3857,6 +3914,12 @@
           window.__vcPeerGraceWait = true;
           try { vcShowReconnecting(); } catch(e){}
           zeroStreak = 0;            // 조용한 끊김은 종료 카운트를 쌓지 않음(= 자동 종료 안 함)
+          // 오래(≈90초) 계속 끊겨 있으면 학생이 상황을 분명히 인지하도록 안내 카드(자동종료 아님).
+          //   '계속 기다리기'를 누르면 _tgSnoozeUntil 로 잠시 억제 후 다시 알림.
+          silentTicks++;
+          if (silentTicks >= SILENT_NOTICE_TICKS && Date.now() >= _tgSnoozeUntil) {
+            try { showTeacherGoneNotice(); } catch(e){}
+          }
           return;
         }
         // 여기부터는 상대가 '명시적으로 나가기(reason=left)'를 눌러 서버가 알린 경우뿐.
@@ -26681,7 +26744,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713231639 -->
+<!-- BUILD:20260713232233 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
