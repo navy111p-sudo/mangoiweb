@@ -77,7 +77,19 @@ function applySecurityHeaders(resp: Response): Response {
   try {
     const h = new Headers(resp.headers);
     h.set('X-Content-Type-Options', 'nosniff');
-    if (!h.has('X-Frame-Options')) h.set('X-Frame-Options', 'SAMEORIGIN');
+    // 🖼️ 클릭재킹 방어 — 우리 소유 도메인끼리는 iframe 임베드 허용(화상수업 '동영상 탭'에서
+    //   test.mangoi.co.kr 같은 우리 교재/사이트를 화면 안에 띄우기 위함).
+    //   X-Frame-Options 는 여러 도메인 화이트리스트를 못하고(SAMEORIGIN 이 교차도메인을 강제 차단),
+    //   크롬은 ALLOW-FROM 도 무시하므로 → CSP frame-ancestors 로 대체한다.
+    //   허용 대상: 같은 origin + mangoi.co.kr / mangoi.com / *.navy111p.workers.dev(우리 계정 전용).
+    //   그 외 외부 사이트가 우리 페이지를 프레임에 끼우는 것은 여전히 차단된다.
+    if (!h.has('Content-Security-Policy')) {
+      h.set('Content-Security-Policy',
+        "frame-ancestors 'self' https://mangoi.co.kr https://*.mangoi.co.kr https://mangoi.com https://*.mangoi.com https://*.navy111p.workers.dev");
+    }
+    // X-Frame-Options 가 남아있으면 SAMEORIGIN 이 CSP 화이트리스트보다 우선해 교차도메인 임베드를
+    //   막아버리므로, 위 CSP 로 일원화하기 위해 제거한다.
+    h.delete('X-Frame-Options');
     if (!h.has('Referrer-Policy')) h.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     if (!h.has('Strict-Transport-Security')) h.set('Strict-Transport-Security', 'max-age=15552000');
     if (!h.has('X-Permitted-Cross-Domain-Policies')) h.set('X-Permitted-Cross-Domain-Policies', 'none');

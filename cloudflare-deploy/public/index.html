@@ -15822,9 +15822,49 @@ function fileShareNotice(info, mine) {
         // 30초 뒤 자동 숨김
         setTimeout(function(){ try{ el.remove(); }catch(_){}} , 45000);
     } catch(_){}
+    // ➕ 큰 교재 화면(뷰어) 한가운데에도 크게 표시 — 사장님이 흰 화면만 봐도 바로 알 수 있게
+    try { fileShareShowInViewer(info, mine); } catch(_){}
+}
+
+// 공유된 파일을 교재 뷰어(큰 흰 화면) 한가운데에 크게 카드로 표시.
+//   워드·엑셀·PPT 등은 브라우저가 렌더할 수 없으므로 "다운로드해서 열기" 안내 카드로 보여준다.
+function fileShareShowInViewer(info, mine) {
+    var wrap = document.getElementById('pdf-scroll-wrap') || document.querySelector('#tab-pdf .pdf-container');
+    if (!wrap) return;
+    var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+    var kb = info.size ? (info.size >= 1048576 ? (info.size/1048576).toFixed(1)+'MB' : Math.max(1,Math.round(info.size/1024))+'KB') : '';
+    var name = (info.name||'').toLowerCase();
+    var icon = '📎';
+    if (/\.(docx?|hwp)$/.test(name)) icon='📝';
+    else if (/\.(xlsx?|csv)$/.test(name)) icon='📊';
+    else if (/\.(pptx?)$/.test(name)) icon='📽️';
+    else if (/\.(zip|rar|7z)$/.test(name)) icon='🗂️';
+    var box = document.getElementById('file-share-viewer-card');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'file-share-viewer-card';
+        box.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;'
+            + 'width:min(420px,88%);background:linear-gradient(160deg,#fffdf7,#fef3c7);border:2px solid #f59e0b;'
+            + 'border-radius:22px;padding:26px 24px;text-align:center;box-shadow:0 24px 60px -18px rgba(180,120,20,0.55);'
+            + 'font-family:inherit;color:#3f2d16';
+        // wrap 이 static 이면 absolute 기준을 잡기 위해 relative 부여
+        try { var cs = getComputedStyle(wrap); if (cs.position === 'static') wrap.style.position = 'relative'; } catch(_){}
+        wrap.appendChild(box);
+    }
+    box.innerHTML =
+        '<div style="font-size:60px;line-height:1;margin-bottom:8px">'+icon+'</div>'
+        + '<div style="font-size:15px;font-weight:800;color:#b45309;margin-bottom:4px">'+(mine?'파일을 공유했어요':'선생님이 파일을 보냈어요')+'</div>'
+        + '<div style="font-size:18px;font-weight:900;word-break:break-all;margin-bottom:2px">'+esc(info.name)+'</div>'
+        + (kb?'<div style="font-size:13px;color:#a98a54;margin-bottom:16px">'+kb+'</div>':'<div style="margin-bottom:16px"></div>')
+        + '<a href="'+esc(info.url)+'" target="_blank" rel="noopener" download style="display:inline-block;padding:15px 30px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border-radius:14px;text-decoration:none;font-weight:900;font-size:17px;box-shadow:0 8px 20px -6px rgba(217,119,6,0.6)">⬇ 열기 / 다운로드</a>'
+        + '<div style="margin-top:14px"><button type="button" style="background:transparent;border:1px solid #e8d3a8;color:#8a6d3b;border-radius:10px;padding:8px 16px;font-size:13px;cursor:pointer">닫기</button></div>'
+        + '<div style="margin-top:10px;font-size:11.5px;color:#a98a54;line-height:1.5">워드·엑셀·PPT는 화면에 바로 안 열려요.<br>위 버튼으로 내려받아 열어주세요.</div>';
+    box.style.display = 'block';
+    box.querySelector('button').addEventListener('click', function(){ box.style.display='none'; });
 }
 window.fileShareUpload = fileShareUpload;
 window.fileShareNotice = fileShareNotice;
+window.fileShareShowInViewer = fileShareShowInViewer;
 
 // 📥 드래그앤드롭 — 교재 도구 영역에 파일을 끌어다 놓으면 자동 업로드/공유
 //    PDF·JPG·PNG → 교재 뷰어로 로드, 그 외(워드·엑셀·PPT·한글·ZIP 등) → 파일 공유(다운로드)
@@ -15862,8 +15902,10 @@ async function pdfUpload(input) {
     const lowerName = (file.name || '').toLowerCase();
     const isAllowedExt = allowedExts.some(e => lowerName.endsWith(e));
     if (!isAllowedExt) {
-        alert('PDF / JPG / PNG 파일만 업로드할 수 있습니다.');
+        // 워드·엑셀·PPT 등은 교재 뷰어가 렌더할 수 없음 → '📎 파일 업로드' 버튼(파일 공유)로 자동 넘겨줌
+        var okShare = confirm('이 파일은 교재 화면에 바로 못 열어요 (' + (file.name||'') + ').\n\n대신 학생이 내려받을 수 있게 "파일 공유"로 올릴까요?\n\n(워드·엑셀·PPT·한글·ZIP 등은 이렇게 공유합니다.)');
         input.value = '';
+        if (okShare) { try { fileShareUpload({ files:[file], value:'' }); } catch(_){} }
         return;
     }
 
@@ -26626,7 +26668,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713223815 -->
+<!-- BUILD:20260713224149 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
