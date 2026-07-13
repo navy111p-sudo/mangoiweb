@@ -59,7 +59,10 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 - `.claude/worktrees/` 정리
 
 ### 5단계 — 안전망 구축 (분리와 병행 가능)
-- **API 스모크 테스트**: 로그인·예약·방입장·포인트·게임 vocab 등 핵심 엔드포인트 10~15개가 200 + 올바른 형태를 주는지 확인하는 스크립트 → `deploy.ps1`에 "배포 전 검사"로 연결
+- **API 스모크 테스트**: ✅ 완료(2026-07-14) — `cloudflare-deploy/scripts/smoke-test.ps1` 15종
+  (게임 도메인 5 + 보안게이트 401 생존 6 + 핵심 라우트 4). deploy.ps1 v3.1에 연결:
+  [0/7] 배포 전 게이트(tsc+라이브 스모크, 실패 시 배포 중단) + [6b/7] 배포 후 재검증(실패 시 롤백 안내).
+  급할 때 우회: `-SkipSmoke`. ⚠ PS5.1 함정: BOM 없는 UTF-8은 파싱 깨짐(BOM 필수), 4xx 본문은 gzip이라 HttpClient+AutomaticDecompression 사용
 - Prettier(포맷) + ESLint 최소 설정 — 새로 만드는 파일부터 적용
 - 화상수업 회귀는 기존 `test-harness.html` 계속 사용
 
