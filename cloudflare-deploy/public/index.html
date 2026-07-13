@@ -8775,15 +8775,73 @@ let vcRoomId = '';
 let vcUsername = '';
 let vcUserId = '';              // 서버가 부여한 내 ID
 
-/* ── Wake Lock (화면 꺼짐 방지) & 백그라운드 복귀 재연결 ── */
+/* ── Wake Lock (화면 꺼짐 방지) & 백그라운드 복귀 재연결 ──
+   fix (2026-07-13) — 예전엔 딱 한 번 요청하고 끝. 시스템이 도로 풀면(탭 전환·알림·절전 등
+   아주 흔함) 다시 안 잡아서 수업 중 화면이 꺼졌음. 이제:
+   ① 풀리면(release 이벤트) 자동 재획득  ② 5초 감시 인터벌에서 수업 중 항상 보유 확인
+   ③ Wake Lock API 미지원/실패 기기 → 무음 마이크로 비디오 루프 폴백(재생 중엔 화면 안 꺼짐) */
 let wakeLock = null;
+let __wakeLockPending = false;
 async function requestWakeLock() {
+    if (__wakeLockPending || wakeLock) return;
+    __wakeLockPending = true;
     try {
         if ('wakeLock' in navigator) {
-            wakeLock = await navigator.wakeLock.request('screen');
+            const wl = await navigator.wakeLock.request('screen');
+            wakeLock = wl;
+            wl.addEventListener('release', () => {
+                if (wakeLock === wl) wakeLock = null;
+                console.warn('[wakeLock] 시스템이 해제함 → 재획득 예약');
+                // 수업 중 + 화면 보이는 상태면 즉시 다시 잡기 (숨김 상태에선 어차피 불가 → 5초 감시가 잡음)
+                if (document.body.classList.contains('vc-in-call') && document.visibilityState === 'visible') {
+                    setTimeout(() => { requestWakeLock(); }, 400);
+                }
+            });
             console.log('[wakeLock] 화면 꺼짐 방지 활성화');
+            __wakeLockPending = false;
+            return;
         }
-    } catch (err) { console.error('[wakeLock] 실패:', err); }
+    } catch (err) { console.warn('[wakeLock] 실패(폴백 가동):', err && err.message); }
+    __wakeLockPending = false;
+    startWakeVideoFallback();   // API 없음/거부 → 비디오 루프 폴백
+}
+/* Wake Lock 폴백 — 캔버스 스트림을 문서 구석의 초소형 비디오로 계속 재생.
+   재생 중인 비디오가 있으면 모바일 브라우저가 화면을 끄지 않는 성질(NoSleep 기법) 이용. */
+let __wakeVideo = null;
+function startWakeVideoFallback() {
+    try {
+        if (__wakeVideo) return;
+        const cv = document.createElement('canvas');
+        cv.width = 64; cv.height = 64;
+        const cx = cv.getContext('2d');
+        const stream = cv.captureStream ? cv.captureStream(1) : null;
+        if (!stream) return;
+        // 1초에 한 번 픽셀을 살짝 바꿔 '살아있는 영상'으로 유지
+        __wakeVideo = document.createElement('video');
+        __wakeVideo.muted = true; __wakeVideo.setAttribute('muted', '');
+        __wakeVideo.setAttribute('playsinline', '');
+        __wakeVideo.loop = true; __wakeVideo.autoplay = true;
+        __wakeVideo.srcObject = stream;
+        __wakeVideo.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;';
+        document.body.appendChild(__wakeVideo);
+        let t = 0;
+        __wakeVideo.__timer = setInterval(() => {
+            t = (t + 1) % 2;
+            cx.fillStyle = t ? '#000001' : '#000002';
+            cx.fillRect(0, 0, 64, 64);
+        }, 1000);
+        const p = __wakeVideo.play(); if (p && p.catch) p.catch(() => {});
+        console.log('[wakeLock] 비디오 루프 폴백 가동');
+    } catch (e) { console.warn('[wakeLock] 폴백 실패:', e); }
+}
+function stopWakeVideoFallback() {
+    try {
+        if (!__wakeVideo) return;
+        clearInterval(__wakeVideo.__timer);
+        __wakeVideo.srcObject = null;
+        __wakeVideo.remove();
+        __wakeVideo = null;
+    } catch (_) {}
 }
 /** 모든 비디오 엘리먼트를 다시 재생 (visibilitychange/pageshow/resume에서 공통 호출) */
 function vcResumeAllVideos() {
@@ -9111,6 +9169,57 @@ function vcToggleSoundBanner(show) {
         vcToggleSoundBanner(needTap);
     }, 3000);
 })();
+
+/* 📺 영상 정지(프리즈) 감시견 (2026-07-13) — "화면이 꺼졌다/멈췄다" 대책.
+   4초마다 각 피어의 framesDecoded(실제로 그려진 프레임 수)를 비교:
+   · 데이터는 오는데(트랙 live·not muted) 2틱(8초) 프레임이 안 늘면 → 소프트 복구(스트림 재부착+play)
+   · 그래도 2틱 더 멈춰 있으면 → 진짜 재연결(vcReconnectPeer, 내부 8초 쿨다운)
+   상대가 데이터 송신을 멈춘 경우(track.muted)는 연결 문제 → ICE 감시가 처리하므로 여기선 손대지 않음
+   (오디오만 살아있는 수업을 재연결로 끊어먹지 않기 위한 가드) */
+(function vcVideoFreezeWatch() {
+    if (window.__vcVidWatch) return; window.__vcVidWatch = true;
+    setInterval(async function() {
+        if (!document.body.classList.contains('vc-in-call')) return;
+        for (const id of Object.keys(vcPeerConnections)) {
+            const pc = vcPeerConnections[id];
+            const box = document.getElementById('vc-video-' + id);
+            const v = box && box.querySelector('video');
+            if (!pc || !v || !v.srcObject) continue;
+            const st = pc.iceConnectionState;
+            if (st !== 'connected' && st !== 'completed') { pc.__vfz = null; continue; }
+            const vt = (v.srcObject.getVideoTracks ? v.srcObject.getVideoTracks() : [])[0];
+            const receiving = vt && vt.readyState === 'live' && !vt.muted;
+            if (!receiving) { pc.__vfz = null; continue; }
+            let frames = -1;
+            try {
+                const stats = await pc.getStats();
+                stats.forEach(r => {
+                    if (r.type === 'inbound-rtp' && (r.kind === 'video' || r.mediaType === 'video')) {
+                        frames = Math.max(frames, r.framesDecoded || 0);
+                    }
+                });
+            } catch (_) {}
+            if (frames < 0) continue;
+            const z = pc.__vfz || { frames: -1, stall: 0, soft: false };
+            if (frames > z.frames) {
+                z.stall = 0; z.soft = false;
+            } else {
+                z.stall++;
+                if (z.stall === 2 && !z.soft) {
+                    console.warn('[vc-freeze] 영상 8초 멈춤 → 소프트 복구:', id);
+                    try { const s = v.srcObject; v.srcObject = null; v.srcObject = s; const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch (_) {}
+                    z.soft = true;
+                } else if (z.stall >= 4) {
+                    console.warn('[vc-freeze] 영상 계속 멈춤 → 피어 재연결:', id);
+                    z.stall = 0; z.soft = false;
+                    try { vcReconnectPeer(id); } catch (_) {}
+                }
+            }
+            z.frames = frames;
+            pc.__vfz = z;
+        }
+    }, 4000);
+})();
 let __vcGestureArmed = false;
 function vcArmGestureUnmute() {
     if (__vcGestureArmed) return; __vcGestureArmed = true;
@@ -9122,9 +9231,11 @@ function vcArmGestureUnmute() {
     ['touchstart','pointerdown','click','keydown'].forEach(e => document.addEventListener(e, h, { passive: true }));
 }
 
-/* 주기적 감시: 끊긴 피어 재연결 + 일시정지된 영상 재생 (수업 중에만) */
+/* 주기적 감시: 끊긴 피어 재연결 + 일시정지된 영상 재생 + 화면 꺼짐 방지 보유 확인 (수업 중에만) */
 setInterval(() => {
     if (!document.body.classList.contains('vc-in-call')) return;
+    // 🔒 화면 꺼짐 방지 — 수업 중인데 WakeLock이 풀려 있으면 다시 잡는다 (화면 보일 때만 가능)
+    if (!wakeLock && document.visibilityState === 'visible') { try { requestWakeLock(); } catch(_) {} }
     Object.keys(vcPeerConnections).forEach(id => {
         const pc = vcPeerConnections[id]; if (!pc) return;
         const s = pc.iceConnectionState;
@@ -12033,8 +12144,11 @@ async function vcLeaveRoom() {
         vcLocalStream.getTracks().forEach(t => t.stop());
         vcLocalStream = null;
     }
-    // Wake Lock 해제
+    // Wake Lock 해제 (+ 비디오 루프 폴백, 보조 오디오, 소리 배너도 함께 정리)
     if (wakeLock) { wakeLock.release(); wakeLock = null; console.log('[wakeLock] 해제됨'); }
+    try { stopWakeVideoFallback(); } catch(_) {}
+    try { document.querySelectorAll('audio[id^="vc-aud-"]').forEach(a => { a.srcObject = null; a.remove(); }); } catch(_) {}
+    try { vcToggleSoundBanner(false); } catch(_) {}
     vcConn = null;
     window.vcConn = null;
     try { window.vcStopPdfPoll && window.vcStopPdfPoll(); window._vcShownPdfKey = ''; window._vcShownPdfUrl = ''; } catch(_){}  // fix (2026-06-02) 폴링 중지+표시상태 초기화
@@ -25715,7 +25829,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713185307 -->
+<!-- BUILD:20260713190029 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
