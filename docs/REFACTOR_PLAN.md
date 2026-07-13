@@ -86,6 +86,7 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 | 2026-07-10 | 보안 | 공개예외 3→1 (leaderboard 신설/카탈로그 자동시드) + write-history 토큰인증 | ✅ 커밋 19e7dc56, 배포 대기 |
 | 2026-07-14 | 1 | 게임 도메인 → `api-games.ts` 분리: Phase VOC(단어장 10라우트) + Phase ML(마이크로러닝 8라우트), api-mango 15,441→14,725줄 | ✅ tsc·드라이런 통과 + 실서버 스모크 OK(vocab list/stats/leaderboard) |
 | 2026-07-14 | 1 | Phase RQ(복습퀴즈 학생6+관리자6) → `api-games.ts` 2차 합류, 위임 4-prefix 통합(RQ 자리), api-mango 14,725→14,223줄 | ✅ tsc·드라이런 통과 + 두 워커 배포 + 실서버 스모크 OK(rq list/auto). ⚠ 다음 후보 메모: parent/student 는 7구역 산재라 블록이동 불가(라우트별 이동 필요), BG·ST 는 checkAndAwardBadges 클로저를 12604줄(ST 밖)이 공유 → env 파라미터화 후 함께 이동해야 함 |
+| 2026-07-14 | 1 | Phase BG(배지3)+ST(스트릭4) → `api-games.ts` 3차, 클로저 3종 env 파라미터화(checkAndAwardBadges 는 export 로 api-mango 영작이 역수입), reconcileAllStreaks·computeAttendanceStreak 동반 이동(index.ts cron import 변경), api-mango 14,223→13,777줄 | ✅ tsc·드라이런·게이트 배포·스모크 15/15 |
 | | | | |
 
 ### 분리 작업 표준 절차 (1단계에서 확립된 패턴)
