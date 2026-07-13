@@ -20,7 +20,7 @@ import { handleGamesApi, checkAndAwardBadges, BADGE_CATALOG } from './api-games'
 import { handleStudentsApi } from './api-students';  // 👨‍👩‍👧 학부모 도메인 (분리됨)    // 🎮 게임/단어장·마이크로러닝 라우트 (분리됨)
 import { handleExamApi } from './api-exam';         // 📝 Mini TOEIC 시험 라우트 (2026-07-13 신규)
 import { handleUptimeApi } from './api-uptime';     // 📟 UptimeRobot 장애 웹훅 → 관리자 문자
-import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 모듈레벨 소유자 검증(IDOR 방지)
+import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';  // 🔐 모듈레벨 소유자 검증(IDOR 방지)
 import {
   sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
   sendPaymentOverdueAlert,
@@ -6326,7 +6326,8 @@ ${chatSampleText}
     // 👨‍👩‍👧 학부모 도메인 → api-students.ts 로 분리 (REFACTOR_PLAN 1단계 4차)
     //   PD(대시보드)·자녀연결·WD(다이제스트)·PFB(상담챗봇) — null 시 계속
     // ═══════════════════════════════════════════════════════════════
-    if (path.startsWith('/api/parent/') || path.startsWith('/api/admin/parent-chat/')) {
+    if (path.startsWith('/api/parent/') || path.startsWith('/api/admin/parent-chat/')
+        || path.startsWith('/api/student/')) {
       const rStudents = await handleStudentsApi(request, url, env);
       if (rStudents) return rStudents;
     }
@@ -7635,219 +7636,11 @@ Respond in JSON ONLY:
     // ═══════════════════════════════════════════════════════════════
 
 
-    // ═══════════════════════════════════════════════════════════════
-    // 🔐 학생 UID 서명 토큰 — 클라이언트가 보낸 uid 를 그대로 믿지 않기 위한 공용 유틸
-    //   IDOR 방지: uid 기반 개인 데이터 API(/api/ai/chat-* 등)는 이 토큰의 uid 와
-    //   요청 uid 가 일치해야만 통과. 토큰은 로그인 성공 시(또는 게스트 발급 API) 서버가 발급.
-    //   시크릿은 방 JWT 와 동일한 ROOM_JWT_SECRET 재사용 (없으면 개발용 폴백).
-    // ═══════════════════════════════════════════════════════════════
-    // 🔐 폴백은 auth-token.ts / signaling-room.ts 와 동일한 강한 상수(공개 BUILD_STAMP 사용 금지).
-    const uidTokenSecret = (): string =>
-      (env as any).ROOM_JWT_SECRET || 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
-    const b64uFromBytes = (bytes: Uint8Array): string => {
-      let s = '';
-      for (const b of bytes) s += String.fromCharCode(b);
-      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    };
-    const b64uToBytes = (s: string): Uint8Array<ArrayBuffer> =>
-      Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)) as Uint8Array<ArrayBuffer>;
-    const signUidToken = async (uid: string, ttlMs = 30 * 86400 * 1000): Promise<string> => {
-      const enc = new TextEncoder();
-      const payload = b64uFromBytes(enc.encode(JSON.stringify({ uid, exp: Date.now() + ttlMs })));
-      const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret()), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-      const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
-      return payload + '.' + b64uFromBytes(new Uint8Array(sig));
-    };
-    const verifyUidToken = async (token: string): Promise<string | null> => {
-      try {
-        const [payload, sig] = String(token || '').split('.');
-        if (!payload || !sig) return null;
-        const enc = new TextEncoder();
-        const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret()), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-        const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig), enc.encode(payload));
-        if (!ok) return null;
-        const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
-        if (!p.uid || (p.exp && p.exp < Date.now())) return null;
-        return String(p.uid);
-      } catch { return null; }
-    };
-    // 요청에서 인증 uid 추출: Authorization: Bearer > body.token > ?token=
-    const authUidFromRequest = async (body?: any): Promise<string | null> => {
-      const h = request.headers.get('Authorization') || '';
-      const bearer = h.startsWith('Bearer ') ? h.slice(7).trim() : '';
-      const tok = bearer || String(body?.token || url.searchParams.get('token') || '').trim();
-      if (!tok) return null;
-      return verifyUidToken(tok);
-    };
+    // (🔐 UID 서명토큰 클로저 → auth-token.ts 로 통합(중복제거, 5차 2026-07-14)
+    //  검증=authUidGlobal(모듈), 발급=signUidToken(auth-token) — 알고리즘·시크릿 동일 확인함)
 
-    // ═══════════════════════════════════════════════════════════════
-    // 🔐 Phase LOGIN — 통합 학생/학부모 로그인
-    // ═══════════════════════════════════════════════════════════════
-    const ensureLoginTable = async () => {
-      // students_erp 에 password_hash 컬럼이 없으면 추가 (안전망)
-      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN password_hash TEXT`); } catch {}
-      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN last_login_at INTEGER`); } catch {}
-    };
+    // (🔐 Phase LOGIN 학생 로그인/가입 → api-students.ts — 5차 이동)
 
-    // 간단 비밀번호 해시 (SHA-256 + salt)
-    const hashPwd = async (pwd: string): Promise<string> => {
-      const enc = new TextEncoder().encode(pwd + '|mangoi-salt-2026');
-      const buf = await crypto.subtle.digest('SHA-256', enc);
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    };
-
-    // ── POST /api/student/register — 홈 회원가입(자기신청) → 실제 학생 계정 생성 + 자동 로그인 토큰 ──
-    //   body: { user_id, password, name, phone?, email?, age? }
-    //   · self_signup 태그로 실학원 로스터(카페24 적재분)와 구분
-    //   · 성공 시 로그인과 동일한 { ok, token, user } 반환 → 프론트가 바로 로그인 처리
-    if (method === 'POST' && path === '/api/student/register') {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
-      await ensureLoginTable();
-      // self_signup 구분 + 연락 컬럼 보강(멱등)
-      for (const [col, type] of [['source', 'TEXT'], ['email', 'TEXT'], ['phone', 'TEXT'], ['age', 'TEXT']] as [string, string][]) {
-        try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} ${type}`); } catch {}
-      }
-      const b: any = await request.json().catch(() => ({}));
-      const uid = String(b.user_id || '').trim();
-      const pwd = String(b.password || '').trim();
-      const name = String(b.name || b.student_name || '').trim();
-      const phone = String(b.phone || '').trim();
-      const email = String(b.email || '').trim();
-      const age = String(b.age || '').trim();
-      // 검증 — 프론트와 동일 규칙
-      if (!uid || uid.length < 4 || uid.length > 20) return json({ ok: false, error: 'invalid_user_id', message: '아이디는 4~20자여야 합니다.' }, 400);
-      if (!/^[a-zA-Z0-9_]+$/.test(uid)) return json({ ok: false, error: 'invalid_user_id', message: '아이디는 영문/숫자/언더바만 가능합니다.' }, 400);
-      if (!pwd || pwd.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
-      if (!name) return json({ ok: false, error: 'name_required', message: '학생 이름을 입력해 주세요.' }, 400);
-      // 중복 아이디 차단
-      const exists: any = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ?`).bind(uid).first();
-      if (exists) return json({ ok: false, error: 'exists', message: '이미 사용 중인 아이디입니다.' }, 409);
-      const now = Date.now();
-      const ph = await hashPwd(pwd);
-      await env.DB.prepare(
-        `INSERT INTO students_erp (user_id, student_name, parent_phone, phone, email, age, status, source, password_hash, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, 'active', 'self_signup', ?, ?, ?)`
-      ).bind(uid, name, phone || null, phone || null, email || null, age || null, ph, now, now).run();
-      return json({
-        ok: true,
-        token: await signUidToken(uid),
-        user: { user_id: uid, user_name: name, role: 'student', has_password: true },
-      });
-    }
-
-    // ── POST /api/student/login — 학생/학부모 통합 로그인 ──
-    //   body: { user_id, password? }
-    //   비밀번호 미설정자는 user_id 만으로 로그인 가능 (개발 단계 편의)
-    if (method === 'POST' && path === '/api/student/login') {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
-      await ensureLoginTable();
-      const b: any = await request.json().catch(() => ({}));
-      const uid = String(b.user_id || '').trim();
-      const pwd = String(b.password || '').trim();
-      if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
-
-      const stu: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, parent_user_id, password_hash FROM students_erp WHERE user_id = ?`).bind(uid).first();
-      if (!stu) return json({ ok: false, error: 'user_not_found', message: '학생 ID 를 찾을 수 없습니다. 학원에 문의해주세요.' }, 404);
-
-      // 비밀번호 검증 — 설정된 경우만
-      if (stu.password_hash) {
-        if (!pwd) return json({ ok: false, error: 'password_required', message: '비밀번호를 입력해주세요.' }, 401);
-        const h = await hashPwd(pwd);
-        if (h !== stu.password_hash) return json({ ok: false, error: 'invalid_password', message: '비밀번호가 일치하지 않습니다.' }, 401);
-      }
-
-      // 마지막 로그인 시각 업데이트
-      try { await env.DB.prepare(`UPDATE students_erp SET last_login_at = ? WHERE user_id = ?`).bind(Date.now(), uid).run(); } catch {}
-
-      return json({
-        ok: true,
-        // 🔐 uid 서명 토큰 — uid 기반 개인 데이터 API(/api/ai/chat-* 등) 호출 시 필요
-        token: await signUidToken(uid),
-        user: {
-          user_id: stu.user_id,
-          user_name: stu.student_name || stu.user_id,
-          role: 'student',  // 이 엔드포인트는 학생 로그인 → 항상 student (학부모 로그인은 별도 경로)
-          parent_name: stu.parent_name,
-          parent_user_id: stu.parent_user_id,
-          has_password: !!stu.password_hash,
-        },
-      });
-    }
-
-    // ── POST /api/student/lookup — 학생 본인 수강정보 조회 (연장/자동연장 결제용) ──
-    //   body: { user_id, auth?, from_session? }
-    //   보안: 로그인(/api/student/login)과 "동일한" 보안수준으로만 노출 (IDOR 방지)
-    //     · 비밀번호 설정 계정 → auth(비밀번호 또는 등록 전화/학부모 전화) 일치해야 조회 (from_session 단독으론 거부)
-    //     · 비밀번호 미설정 계정 → user_id 만으로 조회 가능 (로그인 정책과 동일)
-    //   응답에는 평문 전화번호 등 민감정보는 포함하지 않음.
-    if (method === 'POST' && path === '/api/student/lookup') {
-      const b: any = await request.json().catch(() => ({}));
-      const uid = String(b.user_id || '').trim();
-      const auth = String(b.auth || '').trim();
-      if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
-
-      let stu: any = null;
-      try { stu = await env.DB.prepare(`SELECT * FROM students_erp WHERE user_id = ?`).bind(uid).first(); } catch {}
-      if (!stu) return json({ ok: false, error: 'user_not_found', message: '학생 정보를 찾을 수 없습니다.' }, 404);
-
-      const hasPw = !!stu.password_hash;
-      if (hasPw) {
-        if (!auth) return json({ ok: false, error: 'auth_required', message: '비밀번호 또는 등록 전화번호를 입력해 주세요.' }, 401);
-        const digits = (v: any) => String(v || '').replace(/[^0-9]/g, '');
-        const authDigits = digits(auth);
-        const pwOk = (await hashPwd(auth)) === stu.password_hash;
-        const phoneOk = authDigits.length >= 8 && (authDigits === digits(stu.phone) || authDigits === digits(stu.parent_phone));
-        if (!pwOk && !phoneOk) return json({ ok: false, error: 'invalid_auth', message: '본인 확인에 실패했습니다.' }, 401);
-      }
-
-      const endDate: string | null = stu.end_date || stu.expire_at || null;
-      let dDay: number | null = null;
-      if (endDate && /^\d{4}-\d{2}-\d{2}/.test(String(endDate))) {
-        const ms = new Date(String(endDate).slice(0, 10) + 'T00:00:00Z').getTime() - Date.now();
-        dDay = Math.ceil(ms / 86400000);
-      }
-      const program: string | null = stu.program || stu.current_program || null;
-      const name: string = stu.student_name || stu.korean_name || stu.name || stu.username || uid;
-
-      return json({
-        ok: true,
-        student: {
-          uid: stu.user_id,
-          name,
-          program,
-          current_program: program,
-          current_program_label: program,
-          status: stu.status || null,
-          signup_date: stu.signup_date || null,
-          expire_at: endDate,
-          d_day: dDay,
-          has_password: hasPw,
-        },
-      });
-    }
-
-    // ── POST /api/student/set-password — 학생 비밀번호 설정/변경 ──
-    if (method === 'POST' && path === '/api/student/set-password') {
-      await ensureLoginTable();
-      const b: any = await request.json().catch(() => ({}));
-      const uid = String(b.user_id || '').trim();
-      const oldPwd = String(b.old_password || '').trim();
-      const newPwd = String(b.new_password || '').trim();
-      if (!uid || !newPwd || newPwd.length < 4) return json({ ok: false, error: 'invalid_input', message: '새 비밀번호는 4자 이상' }, 400);
-
-      const stu: any = await env.DB.prepare(`SELECT password_hash FROM students_erp WHERE user_id = ?`).bind(uid).first();
-      if (!stu) return json({ ok: false, error: 'user_not_found' }, 404);
-      // 기존 비밀번호 있으면 검증
-      if (stu.password_hash) {
-        const h = await hashPwd(oldPwd);
-        if (h !== stu.password_hash) return json({ ok: false, error: 'invalid_old_password' }, 401);
-      }
-      const newHash = await hashPwd(newPwd);
-      await env.DB.prepare(`UPDATE students_erp SET password_hash = ? WHERE user_id = ?`).bind(newHash, uid).run();
-      return json({ ok: true, message: '비밀번호가 변경됐습니다.' });
-    }
-    // ═══════════════════════════════════════════════════════════════
-    // 🔐 Phase LOGIN 끝
-    // ═══════════════════════════════════════════════════════════════
 
 
     // ═══════════════════════════════════════════════════════════════
@@ -11459,7 +11252,7 @@ Student text: """${text}"""`;
       let streakBonus: any = null;
       let earnedBadges: any[] = [];
       const vocabSaved: string[] = [];
-      const awAuthUid = await authUidFromRequest(b);
+      const awAuthUid = await authUidGlobal(request, url, env, b);
       if (awAuthUid && awAuthUid === uid && !uid.startsWith('guest_')) {
         // 규칙 기반 적립 인라인 헬퍼 — 쿨다운/일일한도는 point_rule_log 기준(KST 자정 경계)
         const earnWritingRule = async (code: string, label: string, amount: number, dailyCap: number, description: string, cooldownSec = 0) => {
@@ -11555,7 +11348,7 @@ Student text: """${text}"""`;
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       // 🔐 IDOR 방지 — 서명 토큰(mango_token)의 uid 와 요청 uid 가 일치해야만 조회.
       //   (예전엔 uid 만 알면 남의 첨삭 이력을 볼 수 있었음 → uid-token-auth 관례 적용)
-      const authUid = await authUidFromRequest();
+      const authUid = await authUidGlobal(request, url, env);
       if (!authUid || authUid !== uid) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       }
@@ -11571,7 +11364,7 @@ Student text: """${text}"""`;
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       // 🔐 본인 통계만 — write-history 와 동일한 서명 토큰 인증
-      const authUid = await authUidFromRequest();
+      const authUid = await authUidGlobal(request, url, env);
       if (!authUid || authUid !== uid) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       }
@@ -11665,7 +11458,7 @@ Student text: """${text}"""`;
       let me: any = null;
       const lbUid = String(url.searchParams.get('uid') || '').trim();
       if (lbUid) {
-        const authUid = await authUidFromRequest();
+        const authUid = await authUidGlobal(request, url, env);
         if (authUid && authUid === lbUid) {
           const mine: any = await env.DB.prepare(
             `SELECT COUNT(*) AS n FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`
@@ -11744,7 +11537,7 @@ Student text: """${text}"""`;
       const bytes = new Uint8Array(12);
       crypto.getRandomValues(bytes);
       const guestUid = 'guest_' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-      return json({ ok: true, uid: guestUid, token: await signUidToken(guestUid, 7 * 86400 * 1000) });
+      return json({ ok: true, uid: guestUid, token: await signUidToken(guestUid, env, 7 * 86400 * 1000) });
     }
 
     if (method === 'POST' && path === '/api/ai/chat-friend') {
@@ -11757,7 +11550,7 @@ Student text: """${text}"""`;
       if (!uid || !msg) return json({ ok: false, error: 'uid_and_msg_required' }, 400);
       if (msg.length > 500) return json({ ok: false, error: 'msg_too_long' }, 400);
       // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수
-      const authUid = await authUidFromRequest(b);
+      const authUid = await authUidGlobal(request, url, env, b);
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
 
@@ -11882,7 +11675,7 @@ Rules:
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수 (타인 대화 열람 차단)
-      const authUid = await authUidFromRequest();
+      const authUid = await authUidGlobal(request, url, env);
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const rs = await env.DB.prepare(
@@ -11900,7 +11693,7 @@ Rules:
       const uid = String(b.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수 (타인 대화 삭제 차단)
-      const authUid = await authUidFromRequest(b);
+      const authUid = await authUidGlobal(request, url, env, b);
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
       await env.DB.prepare(`DELETE FROM ai_friend_chats WHERE student_uid = ?`).bind(uid).run();

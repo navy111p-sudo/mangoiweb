@@ -19,6 +19,21 @@ function b64uToBytes(s: string): Uint8Array {
   return Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 }
 
+function b64uFromBytes(bytes: Uint8Array): string {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** uid 서명 토큰 발급 (로그인·게스트 발급용). api-mango.ts 클로저에서 이동(2026-07-14 5차). */
+export async function signUidToken(uid: string, env: any, ttlMs = 30 * 86400 * 1000): Promise<string> {
+  const enc = new TextEncoder();
+  const payload = b64uFromBytes(enc.encode(JSON.stringify({ uid, exp: Date.now() + ttlMs })));
+  const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  return payload + '.' + b64uFromBytes(new Uint8Array(sig));
+}
+
 /** 서명 토큰을 검증해 uid 반환(위조·만료 시 null). */
 export async function verifyUidToken(token: string, env: any): Promise<string | null> {
   try {
