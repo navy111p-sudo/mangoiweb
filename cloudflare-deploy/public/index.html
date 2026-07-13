@@ -12043,7 +12043,28 @@ function vcUpdateGridCount() {
     // detached(팝아웃) 상태의 박스는 그리드 밖에 있으므로 실제 자식 중 video-box만 카운트
     const n = grid.querySelectorAll(':scope > .video-box').length;
     grid.setAttribute('data-count', String(Math.min(n, 9)));
+    try { vcMarkPipPrimary(grid); } catch(e){}
 }
+
+// 🥭 (2026-07-13) PIP에는 '상대방 1명'만 — 사장님 요청.
+//   PIP 작은 창(세로폰 video-pip 모드의 우상단 창, 데스크톱 오버레이 PIP)에 참가자
+//   비디오가 전부 쌓여 나오던 것을, 대표 1명(내가 학생이면 선생님, 그 외엔 첫 원격
+//   참가자)만 남기고 숨긴다. 숨김 자체는 CSS(<style id="vc-pip-single-counterpart">)와
+//   vcSyncPipVideos()가 이 클래스를 보고 처리하므로, 여기서는 마킹만 담당.
+//   역할(data-role)이 늦게 도착해도 아래 폴링이 1.2초 주기로 다시 골라 자가교정한다.
+function vcMarkPipPrimary(grid){
+    grid = grid || document.getElementById('vc-video-grid');
+    if (!grid) return;
+    const boxes = Array.from(grid.querySelectorAll(':scope > .video-box'));
+    const candidates = boxes.filter(b => b.id !== 'vc-local-box');
+    const primary = candidates.find(b => (b.dataset && b.dataset.role) === 'teacher') || candidates[0] || null;
+    boxes.forEach(b => b.classList.toggle('vc-pip-primary', b === primary));
+}
+setInterval(function(){
+    if (document.body && document.body.classList.contains('vc-in-call')) {
+        try { vcMarkPipPrimary(); } catch(e){}
+    }
+}, 1200);
 
 /* fix (2026-07-12) — 📱 세로 카메라 얼굴 잘림 방지:
  * 휴대폰(세로)이 보내는 portrait 영상이 가로/정사각 박스에 object-fit:cover 로
@@ -14367,11 +14388,20 @@ function vcTogglePip(btn) {
   }
 }
 
-/* 좌측 video-pane 의 모든 비디오를 PIP 영역에 복제 (참조만, 스트림 추가 안 함) */
+/* 좌측 video-pane 의 비디오를 PIP 영역에 복제 (참조만, 스트림 추가 안 함)
+   🥭 (2026-07-13) PIP에는 '상대방 1명'만 — 전체 복제 대신 vc-pip-primary(대표 상대방)
+   비디오 하나만 복제한다. 내 화면·다른 참가자는 PIP에 넣지 않음(사장님 요청). */
 function vcSyncPipVideos() {
   const body = document.getElementById('vc-pip-body');
   if (!body) return;
-  const sources = document.querySelectorAll('#vc-video-grid video');
+  try { vcMarkPipPrimary(); } catch(e){}
+  let sources = Array.from(document.querySelectorAll('#vc-video-grid .video-box.vc-pip-primary video'));
+  if (!sources.length) {
+    // 마킹 전 폴백: 내 박스를 제외한 첫 원격 비디오 1개만
+    sources = Array.from(document.querySelectorAll('#vc-video-grid video'))
+      .filter(v => { const b = v.closest ? v.closest('.video-box') : null; return b && b.id !== 'vc-local-box'; })
+      .slice(0, 1);
+  }
   if (sources.length === 0) {
     body.innerHTML = '<div class="vc-pip-empty">'
       + (typeof currentLang !== 'undefined' && currentLang === 'en'
@@ -25877,7 +25907,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713203920 -->
+<!-- BUILD:20260713204149 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -28404,6 +28434,20 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call.mg-uni-on #vc-local-box .vc-star-btn{ top: 46px; }
     body.vc-in-call.mg-uni-on #vc-local-box .vc-star-toast,
     body.vc-in-call.mg-uni-on #vc-local-box .vpb-fly{ top: 88px; }
+  }
+</style>
+<style id="vc-pip-single-counterpart">
+  /* 🥭 (2026-07-13) PIP에는 '상대방 1명'만 — 사장님 요청.
+     세로폰 video-pip 모드의 우상단 PIP 작은 창에 참가자 비디오가 전부 세로로 쌓여
+     나오던 것을, 대표 상대방(.vc-pip-primary — vcMarkPipPrimary()가 마킹: 선생님 역할
+     우선, 없으면 첫 원격 참가자) 1명만 남기고 나머지 비디오 화면은 숨긴다.
+     내 화면(#vc-local-box)은 기존 규칙(기본 숨김 + 👁 토글 노출)을 그대로 존중.
+     특이도: hero-v2 의 .video-box 규칙(ID 3개)보다 :not(#vc-local-box) ID 1개가 더해져
+     확실히 이기고, 문서상 뒤에 위치. */
+  @media (max-width: 920px) and (orientation: portrait) {
+    body.vc-in-call #vc-main-row.video-pip #vc-video-grid#vc-video-grid .video-box:not(.vc-pip-primary):not(#vc-local-box) {
+      display: none !important;
+    }
   }
 </style>
 <style id="consult-fab-transparent">

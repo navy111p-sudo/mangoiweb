@@ -7046,12 +7046,13 @@ ${chatSampleText}
         };
         const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
         // MeloTTS — base64 MP3 반환 (en/zh 지원)
+        //   ⚠️ 캐시 금지: Aura 일시 장애 때 만들어진 기계음이 Aura 화자 키에 저장되면
+        //   장애가 끝나도 그 문장은 영원히 기계음으로 재생된다(캐시 오염). 폴백은 그때그때만.
         const melo = async (meloLang: string) => {
           const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: meloLang });
           const b64 = typeof r === 'string' ? r : (r?.audio || '');
           if (!b64) throw new Error('melotts_empty');
           const bytes = b64ToBytes(b64);
-          await putCache(bytes);
           return new Response(bytes, { headers: audioHeaders });
         };
         // MeloTTS 원본 바이트 (크기 검증용 — Workers AI 가 빈 WAV(44B) 반환하는 케이스 감지)
