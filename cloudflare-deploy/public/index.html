@@ -8272,15 +8272,25 @@
     </div>
 </div>
 
-<!-- PDF.js 라이브러리 (PDF 렌더링용) — ph254: CDN 복구 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- PDF.js 라이브러리 (PDF 렌더링용) — 자체 서버 우선 (2026-07-13)
+     [항목7] 휴대폰에서 교재(자료)를 열면 강의실이 멈추던 문제:
+     cdnjs 에서 pdf.worker.min.js 를 못 받으면 pdf.js 가 '가짜 워커'로 떨어져
+     PDF 파싱 전체가 메인 스레드에서 돌며 영상·터치까지 수 초~수십 초 정지.
+     코어·워커 모두 같은 오리진(/js/)에서 서빙해 CDN 의존을 없앤다. -->
+<script src="/js/pdf.min.js?v=3.11.174"></script>
 <script>
-  /* ph254: pdfjsLib 로드 즉시 worker 경로 설정 */
   if (window.pdfjsLib) {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    console.log('[ph254] PDF.js 로드 완료 — v3.11.174');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
+    console.log('[ph254] PDF.js 로드 완료 — v3.11.174 (local)');
   } else {
-    console.error('[ph254] PDF.js CDN 로드 실패 — pdfjsLib undefined');
+    /* 자체 서빙 실패 시에만 CDN 폴백 */
+    console.warn('[ph254] 로컬 PDF.js 실패 → CDN 폴백');
+    var _pjs = document.createElement('script');
+    _pjs.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    _pjs.onload = function(){
+      if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    };
+    document.head.appendChild(_pjs);
   }
 </script>
 
@@ -8413,6 +8423,21 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
 
     connect(); // 최초 연결
 
+    // fix (2026-07-13) — 재연결 중 공유 메시지(교재/동영상) 유실 방지 큐.
+    //   예전엔 연결 끊김 상태에서 send() 하면 그냥 버림 → 교사가 튼 동영상/교재 신호가
+    //   사라져 학생이 폴링/재입장 때까지 못 봤음. 시그널링(offer/ice 등)은 재연결 시
+    //   어차피 새로 시작하므로 큐잉하지 않고, '내용 공유' 타입만 큐에 담아 재연결 즉시 재전송.
+    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1 };
+    let sendQueue = [];   // [{type,...}] 최대 20개 — 같은 type 은 마지막 것만 유지
+    function flushQueue() {
+        if (!ws || ws.readyState !== WebSocket.OPEN || !sendQueue.length) return;
+        const q = sendQueue; sendQueue = [];
+        q.forEach(d => { try { ws.send(JSON.stringify(d)); } catch(e){} });
+        console.log('[WebSocket] 재연결 후 대기 메시지 재전송:', q.length + '건');
+    }
+    const _origOnOpenFlush = onOpen;
+    onOpen = function(sock){ try { flushQueue(); } catch(e){} if (_origOnOpenFlush) _origOnOpenFlush(sock); };
+
     // 외부에서 사용할 수 있는 인터페이스 반환
     return {
         get ws() { return ws; },
@@ -8420,6 +8445,10 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
         send(data) {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify(data));
+            } else if (data && QUEUEABLE_TYPES[data.type]) {
+                sendQueue = sendQueue.filter(d => d.type !== data.type);   // 같은 타입은 최신만
+                if (sendQueue.length < 20) sendQueue.push(data);
+                console.warn('[WebSocket] 연결 끊김 → 재연결 시 재전송 예약:', data.type);
             } else {
                 console.warn('[WebSocket] 전송 실패: 연결 끊김 상태');
             }
@@ -8732,7 +8761,9 @@ window.vcStartPdfPoll = function(){
     var _pollOnce = function(){
       try {
         if (!vcRoomId) return;
-        fetch('/api/room-status/' + encodeURIComponent(vcRoomId), { cache: 'no-store' })
+        // fix (2026-07-13) — /api/room-status 는 보안 잠금(관리자 전용)으로 학생에게 401.
+        //   참가자용 공개 미디어 상태 엔드포인트(/api/room-media, PII 없음)로 폴링.
+        fetch('/api/room-media/' + encodeURIComponent(vcRoomId), { cache: 'no-store' })
           .then(function(r){ return r.ok ? r.json() : null; })
           .then(function(d){
             if (d && d.pdfState && d.pdfState.url) {
@@ -9328,22 +9359,46 @@ function lobbyAudioApplyState() {
     }
     if (btn) btn.style.background = muted ? 'rgba(239,68,68,0.18)' : 'rgba(34,197,94,0.18)';
 }
+/* fix (2026-07-13) — "수업 중인데 환영 멘트가 자꾸 들림" 수정.
+   ① 수업 중(body.vc-in-call)에는 어떤 경로로도 재생하지 않음.
+   ② 자동재생 차단 폴백(다음 클릭에서 재생)이 수업 입장 '후' 첫 클릭에서
+      30초 멘트를 틀던 문제 — 발화 시점에 로비 화면인지 재검사 + 로비를 떠나면 리스너 해제. */
+function lobbyWelcomeAllowed() {
+    try {
+        if (document.body.classList.contains('vc-in-call')) return false;   // 수업 중 금지
+        const lobby = document.getElementById('view-videocall-lobby');
+        if (!lobby) return false;
+        // 로비 화면이 실제로 보일 때만 (다른 뷰로 이동했으면 금지)
+        return lobby.classList.contains('active') || (lobby.offsetParent !== null && lobby.style.display !== 'none');
+    } catch(e) { return false; }
+}
+window._lobbyWelcomePendingUnlock = null;   // 자동재생 차단 폴백 리스너 (해제용)
+function lobbyClearPendingUnlock() {
+    const fn = window._lobbyWelcomePendingUnlock;
+    if (!fn) return;
+    window._lobbyWelcomePendingUnlock = null;
+    try { document.removeEventListener('click', fn, true); } catch(e){}
+    try { document.removeEventListener('touchstart', fn, true); } catch(e){}
+}
 function lobbyPlayWelcome() {
     const audio = document.getElementById('lobby-welcome-audio');
     if (!audio) return;
     lobbyAudioApplyState();
     if (audio.muted) return;                              // 음소거면 재생 자체를 안 함
+    if (!lobbyWelcomeAllowed()) return;                   // 수업 중/로비 아님 → 재생 안 함
     try {
         audio.currentTime = 0;
         const p = audio.play();
         if (p && typeof p.catch === 'function') {
-            // 브라우저 자동재생 정책 차단 시 — 사용자 첫 클릭 시 한 번 재생
+            // 브라우저 자동재생 정책 차단 시 — 사용자 첫 클릭 시 한 번 재생 (로비에 있을 때만)
             p.catch(() => {
+                lobbyClearPendingUnlock();
                 const onceClick = () => {
+                    lobbyClearPendingUnlock();
+                    if (!lobbyWelcomeAllowed()) return;   // 수업에 들어갔으면 재생하지 않음
                     try { audio.play().catch(()=>{}); } catch(e){}
-                    document.removeEventListener('click', onceClick, true);
-                    document.removeEventListener('touchstart', onceClick, true);
                 };
+                window._lobbyWelcomePendingUnlock = onceClick;
                 document.addEventListener('click', onceClick, true);
                 document.addEventListener('touchstart', onceClick, true);
             });
@@ -9351,6 +9406,7 @@ function lobbyPlayWelcome() {
     } catch (e) { /* 무시 */ }
 }
 function lobbyStopWelcome() {
+    lobbyClearPendingUnlock();                            // 대기 중이던 '클릭 시 재생' 예약도 취소
     const audio = document.getElementById('lobby-welcome-audio');
     if (!audio) return;
     try { audio.pause(); audio.currentTime = 0; } catch(e){}
@@ -10199,6 +10255,8 @@ async function vcJoinRoom(skipUI) {
           { icon:'⬛', label:'전체', onclick:`vcScreenSet('full')` },
           { icon:'📌', label:'PIP', onclick:`vcScreenSet('pip')` },
           { icon:'👤', label:'솔로', onclick:`vcScreenSet('solo')` },
+          { icon:'📝', label:'칠판만', onclick:`vcScreenSet('boardonly')` },
+          { icon:'📖', label:'교재만', onclick:`vcScreenSet('bookonly')` },
         ],
       },
     };
@@ -10270,6 +10328,13 @@ async function vcJoinRoom(skipUI) {
       else if (mode === 'pip')        row.classList.add('video-pip');
       else if (mode === 'facepip')    row.classList.add('video-facepip');
       else if (mode === 'solo')       row.classList.add('video-solo');
+      // 📝/📖 (2026-07-13 항목6) 칠판만·교재만 — 영상 숨김(솔로 레이아웃 재활용) + 해당 탭으로
+      else if (mode === 'boardonly' || mode === 'bookonly') {
+        row.classList.add('video-solo');
+        try { if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(false); } catch(e){}
+        if (mode === 'boardonly') { try { vcSwitchTab('whiteboard'); } catch(e){} }
+        else { try { vpOpenTextbook(); } catch(e){} }   // 교재 없으면 내부에서 칠판 폴백
+      }
       // 칠판/PDF 캔버스 리사이즈
       setTimeout(() => {
         if (typeof wbResize === 'function') try { wbResize(); } catch(e){}
@@ -10277,7 +10342,7 @@ async function vcJoinRoom(skipUI) {
         if (typeof pdfRenderCurrent === 'function') try { pdfRenderCurrent(); } catch(e){}
       }, 280);
       // 사용자 피드백 토스트
-      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)' };
+      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)', boardonly:'📝 칠판만', bookonly:'📖 교재만' };
       try {
         const t = document.createElement('div');
         t.textContent = '🖥️ 화면 모드: ' + (labels[mode] || mode);
@@ -15345,7 +15410,8 @@ async function pdfLoad(url, kind) {
     if (kind === 'image') {
         pdfDoc = await pdfBuildImageDoc(url);
     } else {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        /* workerSrc 는 로드 시점(자체 서버 우선)에 이미 설정됨 — 비어 있을 때만 보강 */
+        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
         pdfDoc = await pdfjsLib.getDocument(url).promise;
     }
     pdfPageNum = 1;
@@ -25907,7 +25973,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713204149 -->
+<!-- BUILD:20260713204626 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -28450,6 +28516,88 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
   }
 </style>
+<script>
+/* 🧺 (2026-07-13) PIP 모드에서도 포인트 바구니·점수 보이게 — 떠 있는 미러 바구니.
+   [문제] 바구니(.vc-point-basket)는 내 비디오 박스(#vc-local-box) '안'에 붙어 있는데,
+   PIP 화면 모드에서는 내 박스가 기본 숨김(👁 토글 시만 노출) → 바구니·점수도 같이 사라짐.
+   [해결] 기존 코드는 건드리지 않는 '추가형' 패치: 진짜 바구니가 화면에 안 보이는 동안만
+   좌상단(통합바 아래)에 고정 미러 바구니(#vc-basket-float)를 띄워 점수를 실시간 미러링.
+   점수가 오르면 두근(bump) + '+N' 연출. 진짜 바구니가 다시 보이면 미러는 자동 숨김. */
+(function(){
+  'use strict';
+  var floatEl, cntEl, lastCount = null, styleDone = false;
+  function injectStyle(){
+    if (styleDone) return; styleDone = true;
+    var s = document.createElement('style');
+    s.id = 'vc-basket-float-style';
+    s.textContent =
+      '#vc-basket-float{position:fixed;top:calc(env(safe-area-inset-top,0px) + 56px);left:10px;' +
+      '  z-index:99997;display:none;align-items:center;gap:5px;' +
+      '  background:linear-gradient(135deg, rgba(120,53,15,0.92), rgba(180,83,9,0.92));' +
+      '  border:1px solid rgba(253,230,138,0.55);border-radius:999px;padding:5px 13px 5px 8px;' +
+      '  color:#fde68a;font-size:16px;font-weight:800;white-space:nowrap;' +
+      '  box-shadow:0 3px 12px rgba(0,0,0,0.35);pointer-events:none;}' +
+      '#vc-basket-float.show{display:inline-flex;}' +
+      '#vc-basket-float .vpb-icon{font-size:20px;line-height:1;}' +
+      '#vc-basket-float.vpb-bump{animation:vpbBump 0.5s ease;}' +
+      '#vc-basket-float .vbf-fly{position:fixed;z-index:99997;color:#fde68a;font-size:17px;font-weight:900;' +
+      '  pointer-events:none;text-shadow:0 2px 6px rgba(0,0,0,0.6);animation:vpbFly 1s ease-out forwards;}';
+    document.head.appendChild(s);
+  }
+  function ensureFloat(){
+    if (floatEl) return floatEl;
+    injectStyle();
+    floatEl = document.createElement('div');
+    floatEl.id = 'vc-basket-float';
+    floatEl.title = '🧺 내 포인트 바구니 — 이번 수업에서 선생님께 받은 칭찬 포인트';
+    floatEl.innerHTML = '<span class="vpb-icon">🧺</span><span class="vpb-count">0</span>';
+    document.body.appendChild(floatEl);
+    cntEl = floatEl.querySelector('.vpb-count');
+    return floatEl;
+  }
+  function realBasketVisible(){
+    var b = document.querySelector('#vc-local-box .vc-point-basket');
+    if (!b) return false;
+    var r = b.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+  function isTeacher(){
+    try { return (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole(); } catch(e){ return false; }
+  }
+  function readCount(){
+    var c = document.querySelector('#vc-local-box .vc-point-basket .vpb-count');
+    if (c && c.textContent) return c.textContent.trim();
+    return String(window._vcSessionPoints || 0);
+  }
+  function tick(){
+    var inCall = document.body && document.body.classList.contains('vc-in-call');
+    var show = inCall && !isTeacher() && !realBasketVisible();
+    if (!show) { if (floatEl) floatEl.classList.remove('show'); return; }
+    ensureFloat();
+    floatEl.classList.add('show');
+    var n = readCount();
+    if (lastCount !== null && n !== lastCount && cntEl) {
+      // 점수 오름 — 두근 + '+' 연출 (딩동댕 소리는 기존 vcCelebratePoint 가 이미 냄)
+      floatEl.classList.remove('vpb-bump'); void floatEl.offsetWidth; floatEl.classList.add('vpb-bump');
+      try {
+        var diff = parseInt(n, 10) - parseInt(lastCount, 10);
+        var fly = document.createElement('span');
+        fly.className = 'vbf-fly';
+        fly.textContent = '+' + (isNaN(diff) || diff <= 0 ? 1 : diff);
+        var r = floatEl.getBoundingClientRect();
+        fly.style.left = (r.left + 8) + 'px'; fly.style.top = (r.bottom + 4) + 'px';
+        document.body.appendChild(fly);
+        setTimeout(function(){ fly.remove(); }, 1100);
+      } catch(e){}
+    }
+    if (cntEl) cntEl.textContent = n;
+    lastCount = n;
+  }
+  function start(){ tick(); setInterval(tick, 700); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
 <style id="consult-fab-transparent">
   /* 💬 상담 FAB — 동그란 원(배경·테두리·그림자) 완전 제거, 말풍선 아이콘만 */
   #ph49-kakao-fab, .ph49-kakao-fab {

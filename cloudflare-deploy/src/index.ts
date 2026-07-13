@@ -383,6 +383,16 @@ const worker = {
       return await handleRoomStatus(roomId, env);
     }
 
+    // 📡 fix (2026-07-13) — 수업 참가자용 공유 미디어 상태 폴링 (공개, PII 없음).
+    //   /api/room-status/* 가 보안 스윕(7-12)에서 관리자 전용으로 잠기면서 학생의
+    //   교재/동영상 폴링 폴백이 전부 401 → WS 신호를 놓친 학생은 재연결 때까지
+    //   동영상·교재를 못 받았음("동영상이 시간이 지나야 보임"의 원인).
+    //   이 엔드포인트는 pdfState/videoState 만 노출(참가자 명단·이름 등 PII 제외).
+    if (path.startsWith('/api/room-media/') && request.method === 'GET') {
+      const roomId = path.replace('/api/room-media/', '');
+      return await handleRoomMedia(roomId, env);
+    }
+
     // LiveKit 하이브리드 브릿지 (v4)
     if (path.startsWith('/api/livekit')) {
       const res = await handleLivekit(request, url, env as any);
@@ -3022,6 +3032,36 @@ async function handleRoomStatus(roomId: string, env: Env): Promise<Response> {
     return new Response(JSON.stringify({ error: err?.message || 'Not found' }), {
       status: 404,
       headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/** 📡 수업 참가자용 공유 미디어 상태 — pdfState/videoState 만 (PII 없음, 공개).
+ *   DO /status 응답에서 참가자 명단(users)·인원수 등은 제거하고 미디어 상태만 전달. */
+async function handleRoomMedia(roomId: string, env: Env): Promise<Response> {
+  try {
+    if (!roomId || roomId.length > 120) {
+      return new Response(JSON.stringify({ error: 'bad_room' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    const durableObjectId = env.VIDEO_CALL_ROOM.idFromName(roomId);
+    const durableObject = env.VIDEO_CALL_ROOM.get(durableObjectId);
+    const statusUrl = new URL(`https://internal/status?roomId=${encodeURIComponent(roomId)}`);
+    const statusResp = await durableObject.fetch(statusUrl.toString());
+    const full = await statusResp.json().catch(() => null) as any;
+    const out = {
+      roomId,
+      pdfState: (full && full.pdfState) || null,
+      videoState: (full && full.videoState) || null,
+    };
+    return new Response(JSON.stringify(out), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' }
+    });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err?.message || 'Not found' }), {
+      status: 404, headers: { 'Content-Type': 'application/json' }
     });
   }
 }

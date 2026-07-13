@@ -7,10 +7,17 @@
   <!-- 카카오톡/인앱 브라우저 대응: 카메라 차단 시 외부 브라우저로 전환 (가장 먼저 로드) -->
   <script src="/js/inapp-escape.js"></script>
   <link rel="stylesheet" href="/video-call/css/style.css">
-  <!-- PDF.js CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- PDF.js — 자체 서버 서빙 (2026-07-13, CDN 실패 시 가짜 워커=메인스레드 멈춤 방지) -->
+  <script src="/js/pdf.min.js?v=3.11.174"></script>
   <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
+    } else {
+      var _pjs = document.createElement('script');
+      _pjs.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      _pjs.onload = function(){ if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; };
+      document.head.appendChild(_pjs);
+    }
   </script>
 </head>
 <body>
