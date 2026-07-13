@@ -1013,17 +1013,10 @@ const worker = {
         path === '/api/admin/families' ||
         path === '/api/family/my-children' ||
         path === '/api/family/discount-status' ||
-        // 📝 Phase MT — Mini TOEIC 자체 영어 시험
-        path === '/api/admin/exam/create' ||
-        path === '/api/admin/exam/question/add' ||
-        path === '/api/admin/exam/question/ai-generate' ||
-        path === '/api/admin/exams' ||
-        /^\/api\/admin\/exam\/\d+$/.test(path) ||
-        path === '/api/exam/list' ||
-        path === '/api/exam/attempt/start' ||
-        path === '/api/exam/attempt/submit-answer' ||
-        path === '/api/exam/attempt/finish' ||
-        path === '/api/exam/results' ||
+        // 📝 Phase MT — Mini TOEIC 자체 영어 시험 (api-exam.ts, 프리픽스 전체 위임)
+        //   /api/admin/exam* 은 위 default-deny 미들웨어가 관리자 인증을 이미 보장.
+        path.startsWith('/api/admin/exam') ||
+        path.startsWith('/api/exam/') ||
         // 🎮 Phase BTL — 영어 게임 배틀 P2P
         path === '/api/battle/challenge' ||
         path === '/api/battle/incoming' ||

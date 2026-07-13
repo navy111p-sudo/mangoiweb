@@ -9111,130 +9111,206 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 
 <!-- 📝 Phase MT — Mini TOEIC 자체 영어 능력 시험 -->
 <details class="table-card menu-card" id="card-mini-toeic">
-  <summary><span data-ko="📝 Mini TOEIC 시험 관리" data-en="📝 Mini TOEIC Exam Mgmt">📝 Mini TOEIC 시험 관리</span></summary>
+  <summary><span data-ko="📝 미니토익 시험 만들기 (AI 자동 출제)" data-en="📝 Mini TOEIC Builder (AI Auto-Gen)">📝 미니토익 시험 만들기 (AI 자동 출제)</span> <span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle" data-ko="✨ 버튼만 누르면 완성" data-en="✨ One-click">✨ 버튼만 누르면 완성</span></summary>
   <div class="menu-body">
-    <div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(79,70,229,0.05));border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#a5b4fc;line-height:1.6"
-         data-ko="💡 자체 영어 시험 — Listening + Reading 분리 채점, AI 자동 출제, 학생 응시 후 학부모 카톡 자동."
-         data-en="💡 In-house English exam — Listening + Reading scored separately, AI auto-generation, parent KakaoTalk auto-notify.">
-      💡 자체 영어 시험 — Listening + Reading 분리 + AI 자동 출제
-    </div>
+    <style>
+      #mt-top-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-bottom:14px}
+      @media (max-width:900px){ #mt-top-grid{grid-template-columns:1fr} }
+      .mtw-choice{background:#1e293b;border:2px solid #475569;color:#cbd5e1;border-radius:10px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}
+      .mtw-choice.on{background:linear-gradient(135deg,#6366f1,#4f46e5);border-color:#a5b4fc;color:#fff}
+      .mtw-chip{background:#1e293b;border:2px solid #475569;color:#cbd5e1;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+      .mtw-chip.on{background:linear-gradient(135deg,#f59e0b,#d97706);border-color:#fcd34d;color:#fff}
+      .mtw-label{font-size:13px;color:#e2e8f0;font-weight:800;margin:12px 0 6px}
+      .mtw-step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;font-size:12px;font-weight:800;margin-right:6px}
+      .mt-guide-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px}
+      .mt-guide-num{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center}
+      .mt-guide-txt{font-size:13.5px;color:#e2e8f0;line-height:1.65}
+      .mt-guide-txt b{color:#fcd34d}
+      .mt-act-btn{border:0;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+    </style>
 
-    <!-- 시험 생성 -->
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="font-size:13px;color:#a5b4fc;font-weight:700;margin-bottom:10px" data-ko="➕ 새 시험 만들기" data-en="➕ Create New Exam">➕ 새 시험 만들기</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <input id="mt-title" placeholder="시험 제목" data-ko-ph="시험 제목" data-en-ph="Exam Title" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <select id="mt-level" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-          <option value="A1">A1 (초급)</option><option value="A2">A2</option><option value="B1">B1 (중급)</option><option value="B2">B2</option><option value="C1">C1 (고급)</option>
-        </select>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px">
-        <input id="mt-lcount" type="number" value="5" placeholder="Listening 문항수" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="mt-rcount" type="number" value="5" placeholder="Reading 문항수" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="mt-dur" type="number" value="20" placeholder="시간(분)" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <button onclick="mtCreateExam()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">
-          <span data-ko="시험 생성" data-en="Create">시험 생성</span>
+    <div id="mt-top-grid">
+      <!-- ═══ 왼쪽: 🤖 AI 자동 출제 마법사 (메인) ═══ -->
+      <div style="background:linear-gradient(160deg,#1e1b4b,#0f172a);border:2px solid #6366f1;border-radius:14px;padding:16px">
+        <div style="font-size:16px;font-weight:900;color:#fcd34d;margin-bottom:4px" data-ko="🤖 AI 자동 시험 만들기" data-en="🤖 AI Exam Wizard">🤖 AI 자동 시험 만들기</div>
+        <div style="font-size:12px;color:#a5b4fc;margin-bottom:10px" data-ko="아래에서 고르기만 하면 AI가 문제·정답·듣기 음성까지 전부 만들어 드려요." data-en="Just pick options below — AI writes questions, answers, and listening audio.">아래에서 고르기만 하면 AI가 문제·정답·듣기 음성까지 전부 만들어 드려요.</div>
+
+        <div class="mtw-label"><span class="mtw-step-num">1</span><span data-ko="학생 수준 (난이도)" data-en="Student level">학생 수준 (난이도)</span></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+          <button type="button" class="mtw-choice on" data-mtw-level="A1" onclick="mtwPickLevel(this)"><div>A1</div><div style="font-size:10px;font-weight:400" data-ko="처음 배워요" data-en="Starter">처음 배워요</div></button>
+          <button type="button" class="mtw-choice" data-mtw-level="A2" onclick="mtwPickLevel(this)"><div>A2</div><div style="font-size:10px;font-weight:400" data-ko="초등 고학년" data-en="Elementary">초등 고학년</div></button>
+          <button type="button" class="mtw-choice" data-mtw-level="B1" onclick="mtwPickLevel(this)"><div>B1</div><div style="font-size:10px;font-weight:400" data-ko="중학생 수준" data-en="Intermediate">중학생 수준</div></button>
+          <button type="button" class="mtw-choice" data-mtw-level="B2" onclick="mtwPickLevel(this)"><div>B2</div><div style="font-size:10px;font-weight:400" data-ko="잘하는 편" data-en="Upper-int">잘하는 편</div></button>
+          <button type="button" class="mtw-choice" data-mtw-level="C1" onclick="mtwPickLevel(this)"><div>C1</div><div style="font-size:10px;font-weight:400" data-ko="아주 잘해요" data-en="Advanced">아주 잘해요</div></button>
+        </div>
+
+        <div class="mtw-label"><span class="mtw-step-num">2</span><span data-ko="주제 (하나 고르세요)" data-en="Topic (pick one)">주제 (하나 고르세요)</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <button type="button" class="mtw-chip on" data-mtw-topic="daily life" onclick="mtwPickTopic(this)">🏠 <span data-ko="일상생활" data-en="Daily life">일상생활</span></button>
+          <button type="button" class="mtw-chip" data-mtw-topic="school life" onclick="mtwPickTopic(this)">🏫 <span data-ko="학교" data-en="School">학교</span></button>
+          <button type="button" class="mtw-chip" data-mtw-topic="travel" onclick="mtwPickTopic(this)">✈️ <span data-ko="여행" data-en="Travel">여행</span></button>
+          <button type="button" class="mtw-chip" data-mtw-topic="food and restaurants" onclick="mtwPickTopic(this)">🍔 <span data-ko="음식" data-en="Food">음식</span></button>
+          <button type="button" class="mtw-chip" data-mtw-topic="shopping" onclick="mtwPickTopic(this)">🛍️ <span data-ko="쇼핑" data-en="Shopping">쇼핑</span></button>
+          <button type="button" class="mtw-chip" data-mtw-topic="sports and hobbies" onclick="mtwPickTopic(this)">⚽ <span data-ko="운동·취미" data-en="Sports">운동·취미</span></button>
+          <button type="button" class="mtw-chip" data-mtw-topic="animals and nature" onclick="mtwPickTopic(this)">🌳 <span data-ko="동물·자연" data-en="Nature">동물·자연</span></button>
+          <button type="button" class="mtw-chip" data-mtw-topic="office and work" onclick="mtwPickTopic(this)">💼 <span data-ko="직장" data-en="Work">직장</span></button>
+        </div>
+        <input id="mtw-topic-custom" placeholder="직접 입력도 돼요 (예: 크리스마스)" data-ko-ph="직접 입력도 돼요 (예: 크리스마스)" data-en-ph="Or type your own (e.g. Christmas)" style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:8px;padding:8px;font-size:12px;margin-top:6px" oninput="mtwCustomTopic(this)">
+
+        <div class="mtw-label"><span class="mtw-step-num">3</span><span data-ko="문제 수 · 시험 시간" data-en="Questions · Duration">문제 수 · 시험 시간</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <label style="font-size:11px;color:#94a3b8">🎧 <span data-ko="듣기" data-en="Listening">듣기</span>
+            <select id="mtw-lcount" style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+              <option value="0">0</option><option value="3">3</option><option value="5" selected>5</option><option value="7">7</option><option value="10">10</option>
+            </select></label>
+          <label style="font-size:11px;color:#94a3b8">📖 <span data-ko="읽기" data-en="Reading">읽기</span>
+            <select id="mtw-rcount" style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+              <option value="0">0</option><option value="3">3</option><option value="5" selected>5</option><option value="7">7</option><option value="10">10</option>
+            </select></label>
+          <label style="font-size:11px;color:#94a3b8">⏱️ <span data-ko="시간" data-en="Time">시간</span>
+            <select id="mtw-dur" style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+              <option value="10">10분</option><option value="15">15분</option><option value="20" selected>20분</option><option value="30">30분</option>
+            </select></label>
+        </div>
+
+        <div class="mtw-label"><span class="mtw-step-num">4</span><span data-ko="시험 이름 (안 적으면 자동)" data-en="Exam name (auto if empty)">시험 이름 (안 적으면 자동)</span></div>
+        <input id="mtw-title" placeholder="예: 7월 여행 미니토익 — 비워도 돼요!" data-ko-ph="예: 7월 여행 미니토익 — 비워도 돼요!" data-en-ph="e.g. July Travel Mini TOEIC — optional!" style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:8px;padding:9px;font-size:13px">
+
+        <button type="button" id="mtw-go" onclick="mtwRun()" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#f59e0b,#dc2626);color:#fff;border:0;border-radius:12px;padding:15px;font-size:16px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,.35)">
+          <span data-ko="🤖 AI에게 시험 만들어 달라고 하기 (클릭 한 번!)" data-en="🤖 Ask AI to build the whole exam (one click!)">🤖 AI에게 시험 만들어 달라고 하기 (클릭 한 번!)</span>
         </button>
+        <div id="mtw-progress" style="display:none;margin-top:12px;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;font-size:13px;color:#e2e8f0;line-height:2"></div>
+      </div>
+
+      <!-- ═══ 오른쪽: 📖 왕초보 사용 설명서 ═══ -->
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:14px;padding:16px">
+        <div style="font-size:15px;font-weight:900;color:#86efac;margin-bottom:10px" data-ko="📖 사용법 — 3분이면 끝!" data-en="📖 How to use — done in 3 min!">📖 사용법 — 3분이면 끝!</div>
+        <div class="mt-guide-step"><div class="mt-guide-num">1</div><div class="mt-guide-txt" data-ko-html="왼쪽에서 <b>학생 수준</b>을 누르세요. 잘 모르면 <b>A1</b> 그대로 두세요." data-en-html="Pick the <b>student level</b> on the left. Not sure? Leave it at <b>A1</b>.">왼쪽에서 <b>학생 수준</b>을 누르세요. 잘 모르면 <b>A1</b> 그대로 두세요.</div></div>
+        <div class="mt-guide-step"><div class="mt-guide-num">2</div><div class="mt-guide-txt" data-ko-html="<b>주제</b>를 하나 누르세요. (예: ✈️ 여행)" data-en-html="Tap one <b>topic</b>. (e.g. ✈️ Travel)"><b>주제</b>를 하나 누르세요. (예: ✈️ 여행)</div></div>
+        <div class="mt-guide-step"><div class="mt-guide-num">3</div><div class="mt-guide-txt" data-ko-html="맨 아래 <b>큰 주황색 버튼</b>을 누르세요. AI가 문제·정답·듣기 소리까지 다 만들어요. <b>30초~1분</b>만 기다리세요." data-en-html="Press the <b>big orange button</b>. AI writes questions, answers and audio. Wait <b>30-60 sec</b>.">맨 아래 <b>큰 주황색 버튼</b>을 누르세요. AI가 문제·정답·듣기 소리까지 다 만들어요. <b>30초~1분</b>만 기다리세요.</div></div>
+        <div class="mt-guide-step"><div class="mt-guide-num">4</div><div class="mt-guide-txt" data-ko-html="끝! 학생 앱 홈 화면의 <b>📝 미니토익</b> 버튼에 바로 나타나요." data-en-html="Done! It appears instantly under <b>📝 Mini TOEIC</b> on the student home.">끝! 학생 앱 홈 화면의 <b>📝 미니토익</b> 버튼에 바로 나타나요.</div></div>
+        <div style="border-top:1px dashed #334155;margin:12px 0;padding-top:10px;font-size:12.5px;color:#cbd5e1;line-height:1.8">
+          <div data-ko-html="💡 <b style='color:#fcd34d'>문제가 마음에 안 들면?</b> 아래 목록에서 [📄 문제 관리] → 🗑 로 지우고 [🤖 AI로 더 만들기]를 누르세요." data-en-html="💡 <b style='color:#fcd34d'>Don't like a question?</b> Open [📄 Manage] below, delete it with 🗑, then press [🤖 Generate more].">💡 <b style="color:#fcd34d">문제가 마음에 안 들면?</b> 아래 목록에서 [📄 문제 관리] → 🗑 로 지우고 [🤖 AI로 더 만들기]를 누르세요.</div>
+          <div data-ko-html="💡 <b style='color:#fcd34d'>시험을 잠시 숨기려면?</b> 목록의 [✅ 공개중] 버튼을 누르면 [⛔ 숨김]으로 바뀌어요." data-en-html="💡 <b style='color:#fcd34d'>Hide an exam?</b> Press [✅ Public] in the list to switch to [⛔ Hidden].">💡 <b style="color:#fcd34d">시험을 잠시 숨기려면?</b> 목록의 [✅ 공개중] 버튼을 누르면 [⛔ 숨김]으로 바뀌어요.</div>
+          <div data-ko-html="💡 듣기 음성은 성우 녹음 없이 AI가 자동으로 읽어줘요." data-en-html="💡 Listening audio is auto-generated — no voice recording needed.">💡 듣기 음성은 성우 녹음 없이 AI가 자동으로 읽어줘요.</div>
+          <div data-ko-html="💡 채점·점수·학생 기록도 전부 자동이에요." data-en-html="💡 Grading, scores and student history are all automatic.">💡 채점·점수·학생 기록도 전부 자동이에요.</div>
+        </div>
       </div>
     </div>
 
-    <!-- AI 자동 출제 -->
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="🤖 AI 자동 문제 생성" data-en="🤖 AI Auto-Generate Questions">🤖 AI 자동 문제 생성</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px">
-        <input id="mt-ai-eid" type="number" placeholder="시험 ID" data-ko-ph="시험 ID" data-en-ph="Exam ID" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <select id="mt-ai-sec" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-          <option value="listening">Listening</option><option value="reading">Reading</option>
-        </select>
-        <input id="mt-ai-cnt" type="number" value="5" placeholder="문항수 (3-20)" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="mt-ai-topic" placeholder="주제 (e.g. travel)" data-ko-ph="주제" data-en-ph="Topic" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <button onclick="mtAiGen()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">
-          <span data-ko="🤖 생성" data-en="🤖 Generate">🤖 생성</span>
-        </button>
-      </div>
+    <!-- ═══ 시험 목록 ═══ -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:14px;font-weight:800;color:#a5b4fc" data-ko="📋 만들어진 시험 목록" data-en="📋 My Exams">📋 만들어진 시험 목록</div>
+      <button onclick="mtLoad()" style="background:#475569;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer"><span data-ko="🔄 새로고침" data-en="🔄 Reload">🔄 새로고침</span></button>
     </div>
-
-    <!-- 수동 문제 추가 -->
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="font-size:13px;color:#86efac;font-weight:700;margin-bottom:10px" data-ko="✍️ 수동 문제 추가" data-en="✍️ Manual Add Question">✍️ 수동 문제 추가</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <input id="mt-q-eid" type="number" placeholder="시험 ID" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <select id="mt-q-sec" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-          <option value="listening">Listening</option><option value="reading">Reading</option>
-        </select>
-      </div>
-      <textarea id="mt-q-text" placeholder="문제 내용" data-ko-ph="문제 내용" data-en-ph="Question text" style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px;margin-bottom:8px;resize:vertical;min-height:60px"></textarea>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-        <input id="mt-q-a" placeholder="A" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="mt-q-b" placeholder="B" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="mt-q-c" placeholder="C" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="mt-q-d" placeholder="D" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 2fr 2fr auto;gap:8px">
-        <select id="mt-q-correct" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
-        </select>
-        <input id="mt-q-audio" placeholder="audio_url (Listening 만)" data-ko-ph="오디오 URL" data-en-ph="Audio URL" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="mt-q-img" placeholder="image_url (선택)" data-ko-ph="이미지 URL" data-en-ph="Image URL" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <button onclick="mtAddQ()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">
-          <span data-ko="문제 추가" data-en="Add Q">문제 추가</span>
-        </button>
-      </div>
-    </div>
-
-    <button onclick="mtLoad()" style="background:#475569;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:12px">
-      <span data-ko="🔄 시험 목록 새로고침" data-en="🔄 Reload Exam List">🔄 시험 목록 새로고침</span>
-    </button>
     <div id="mt-list"></div>
+
+    <!-- ═══ 고급: 직접 문제 입력 (접힘) ═══ -->
+    <details style="margin-top:14px;background:#0f172a;border:1px solid #334155;border-radius:12px;padding:12px 14px">
+      <summary style="cursor:pointer;font-size:13px;color:#86efac;font-weight:700" data-ko="✍️ 고급: 문제를 직접 타자로 입력하기 (선택사항 — AI가 다 해주니 보통은 필요 없어요)" data-en="✍️ Advanced: type a question manually (optional — AI usually does it all)">✍️ 고급: 문제를 직접 타자로 입력하기 (선택사항 — AI가 다 해주니 보통은 필요 없어요)</summary>
+      <div style="margin-top:10px">
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
+          <select id="mt-q-eid" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px"><option value="">— 시험을 고르세요 —</option></select>
+          <select id="mt-q-sec" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
+            <option value="reading">📖 Reading</option><option value="listening">🎧 Listening</option>
+          </select>
+        </div>
+        <textarea id="mt-q-text" placeholder="문제 내용 (영어)" data-ko-ph="문제 내용 (영어)" data-en-ph="Question text (English)" style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px;margin-bottom:8px;resize:vertical;min-height:60px"></textarea>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <input id="mt-q-a" placeholder="보기 A" data-ko-ph="보기 A" data-en-ph="Choice A" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
+          <input id="mt-q-b" placeholder="보기 B" data-ko-ph="보기 B" data-en-ph="Choice B" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
+          <input id="mt-q-c" placeholder="보기 C" data-ko-ph="보기 C" data-en-ph="Choice C" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
+          <input id="mt-q-d" placeholder="보기 D" data-ko-ph="보기 D" data-en-ph="Choice D" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center">
+          <label style="font-size:12px;color:#94a3b8"><span data-ko="정답:" data-en="Answer:">정답:</span>
+            <select id="mt-q-correct" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px;margin-left:4px">
+              <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+            </select></label>
+          <input id="mt-q-audio" placeholder="오디오 URL (듣기 문제만, 비워도 됨)" data-ko-ph="오디오 URL (듣기 문제만, 비워도 됨)" data-en-ph="Audio URL (listening only, optional)" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
+          <button onclick="mtAddQ()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer"><span data-ko="문제 추가" data-en="Add Q">문제 추가</span></button>
+        </div>
+      </div>
+    </details>
   </div>
 </details>
 <script>
 (function(){
   const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
   function isEn(){ return window.adminLang === 'en'; }
-  window.mtCreateExam = async function(){
-    const en = isEn();
-    const title = (document.getElementById('mt-title')||{}).value;
-    const level = (document.getElementById('mt-level')||{}).value || 'A1';
-    const listening_count = Number((document.getElementById('mt-lcount')||{}).value || 5);
-    const reading_count = Number((document.getElementById('mt-rcount')||{}).value || 5);
-    const duration_min = Number((document.getElementById('mt-dur')||{}).value || 20);
-    if (!title) { alert(en?'Title required':'시험 제목을 입력하세요'); return; }
-    const r = await fetch('/api/admin/exam/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title, level, listening_count, reading_count, duration_min}) }).then(x=>x.json()).catch(()=>({ok:false}));
-    alert(r.ok ? (en?`Created exam #${r.exam_id}.`:`시험 #${r.exam_id} 생성 완료.`) : '❌ '+(r.error||''));
-    if (r.ok) { document.getElementById('mt-title').value=''; mtLoad(); }
+  let mtwLevel = 'A1', mtwTopic = 'daily life', mtwTopicLabel = '일상생활';
+  const post = (u, b) => fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(b) }).then(x=>x.json()).catch(()=>({ok:false,error:'network'}));
+
+  // ── 마법사 선택 ──
+  window.mtwPickLevel = function(btn){
+    document.querySelectorAll('[data-mtw-level]').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on'); mtwLevel = btn.getAttribute('data-mtw-level');
   };
-  window.mtAiGen = async function(){
-    const en = isEn();
-    const exam_id = Number((document.getElementById('mt-ai-eid')||{}).value);
-    const section = (document.getElementById('mt-ai-sec')||{}).value || 'reading';
-    const count = Number((document.getElementById('mt-ai-cnt')||{}).value || 5);
-    const topic = (document.getElementById('mt-ai-topic')||{}).value || 'daily English';
-    if (!exam_id) { alert(en?'Exam ID required':'시험 ID를 입력하세요'); return; }
-    const btn = event.target;
-    const orig = btn.innerHTML; btn.innerHTML = '⏳'; btn.disabled = true;
-    const r = await fetch('/api/admin/exam/question/ai-generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({exam_id, section, count, topic}) }).then(x=>x.json()).catch(()=>({ok:false}));
-    btn.innerHTML = orig; btn.disabled = false;
-    alert(r.ok ? (en?`Generated ${r.generated_count} questions.`:`${r.generated_count}개 문제 생성 완료.`) : '❌ '+(r.error||''));
-    if (r.ok) mtLoad();
+  window.mtwPickTopic = function(btn){
+    document.querySelectorAll('[data-mtw-topic]').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on'); mtwTopic = btn.getAttribute('data-mtw-topic');
+    mtwTopicLabel = (btn.querySelector('span')||{}).textContent || mtwTopic;
+    const c = document.getElementById('mtw-topic-custom'); if (c) c.value = '';
   };
-  window.mtAddQ = async function(){
-    const en = isEn();
-    const exam_id = Number((document.getElementById('mt-q-eid')||{}).value);
-    const section = (document.getElementById('mt-q-sec')||{}).value;
-    const question_text = (document.getElementById('mt-q-text')||{}).value;
-    const choice_a = (document.getElementById('mt-q-a')||{}).value;
-    const choice_b = (document.getElementById('mt-q-b')||{}).value;
-    const choice_c = (document.getElementById('mt-q-c')||{}).value;
-    const choice_d = (document.getElementById('mt-q-d')||{}).value;
-    const correct_answer = (document.getElementById('mt-q-correct')||{}).value || 'A';
-    const audio_url = (document.getElementById('mt-q-audio')||{}).value || null;
-    const image_url = (document.getElementById('mt-q-img')||{}).value || null;
-    if (!exam_id || !question_text) { alert(en?'Exam ID + question text required':'시험 ID 와 문제 내용을 입력하세요'); return; }
-    const r = await fetch('/api/admin/exam/question/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({exam_id, section, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer, audio_url, image_url, points:5}) }).then(x=>x.json()).catch(()=>({ok:false}));
-    alert(r.ok ? (en?'Question added.':'문제 추가 완료.') : '❌ '+(r.error||''));
-    if (r.ok) { ['mt-q-text','mt-q-a','mt-q-b','mt-q-c','mt-q-d','mt-q-audio','mt-q-img'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); mtLoad(); }
+  window.mtwCustomTopic = function(inp){
+    if (inp.value.trim()) {
+      document.querySelectorAll('[data-mtw-topic]').forEach(b=>b.classList.remove('on'));
+      mtwTopic = inp.value.trim(); mtwTopicLabel = inp.value.trim();
+    }
   };
+
+  // ── 🤖 원클릭: 시험 생성 → 듣기 AI 출제 → 읽기 AI 출제 ──
+  window.mtwRun = async function(){
+    const en = isEn();
+    const lc = Number(document.getElementById('mtw-lcount').value||0);
+    const rc = Number(document.getElementById('mtw-rcount').value||0);
+    const dur = Number(document.getElementById('mtw-dur').value||20);
+    if (lc + rc === 0) { alert(en?'Pick at least one question.':'듣기 또는 읽기 문제 수를 1개 이상 골라주세요.'); return; }
+    let title = (document.getElementById('mtw-title').value||'').trim();
+    if (!title) {
+      const d = new Date();
+      title = `${d.getMonth()+1}월 ${mtwTopicLabel} 미니토익 (${mtwLevel})`;
+    }
+    const go = document.getElementById('mtw-go');
+    const prog = document.getElementById('mtw-progress');
+    go.disabled = true; go.style.opacity = '.55';
+    prog.style.display = 'block';
+    const step = (t) => { prog.innerHTML += t + '<br>'; prog.scrollTop = prog.scrollHeight; };
+    prog.innerHTML = '';
+    step(`⏳ 1/3 ${en?'Creating exam':'시험 만드는 중'} — <b>${esc(title)}</b>`);
+    try {
+      const cr = await post('/api/admin/exam/create', { title, level: mtwLevel, listening_count: lc, reading_count: rc, duration_min: dur });
+      if (!cr.ok) throw new Error(cr.error||'create_failed');
+      const eid = cr.exam_id;
+      step(`✅ ${en?'Exam created':'시험 생성 완료'} (#${eid})`);
+      let made = 0, fails = [];
+      if (lc > 0) {
+        step(`⏳ 2/3 🎧 ${en?`AI writing ${lc} listening questions...`:`AI가 듣기 문제 ${lc}개를 만드는 중... (30초 정도)`}`);
+        const g1 = await post('/api/admin/exam/question/ai-generate', { exam_id: eid, section:'listening', count: lc, topic: mtwTopic });
+        if (g1.ok) { made += g1.generated_count; step(`✅ 🎧 ${en?'Listening done':'듣기 문제 완성'} (${g1.generated_count}${en?'':'개'})`); }
+        else { fails.push('듣기'); step(`⚠️ 🎧 ${en?'Listening failed':'듣기 생성 실패'} — ${esc(g1.error||'')}`); }
+      }
+      if (rc > 0) {
+        step(`⏳ 3/3 📖 ${en?`AI writing ${rc} reading questions...`:`AI가 읽기 문제 ${rc}개를 만드는 중...`}`);
+        const g2 = await post('/api/admin/exam/question/ai-generate', { exam_id: eid, section:'reading', count: rc, topic: mtwTopic });
+        if (g2.ok) { made += g2.generated_count; step(`✅ 📖 ${en?'Reading done':'읽기 문제 완성'} (${g2.generated_count}${en?'':'개'})`); }
+        else { fails.push('읽기'); step(`⚠️ 📖 ${en?'Reading failed':'읽기 생성 실패'} — ${esc(g2.error||'')}`); }
+      }
+      if (made > 0) {
+        step(`<b style="color:#86efac">🎉 ${en?`All done! ${made} questions ready. Students can take it now.`:`완성! 문제 ${made}개가 준비됐어요. 학생 화면에 바로 나옵니다.`}</b>`);
+        if (fails.length) step(`💡 ${en?'Retry the failed part with [🤖 Generate more] in the list below.':`실패한 ${fails.join('·')}는 아래 목록의 [🤖 AI로 더 만들기]로 다시 시도하세요.`}`);
+        document.getElementById('mtw-title').value = '';
+      } else {
+        step(`❌ ${en?'Generation failed. Please press the button again.':'문제 생성에 실패했어요. 버튼을 한 번 더 눌러주세요.'}`);
+      }
+      mtLoad();
+    } catch(e) {
+      step(`❌ ${esc(e.message||'')} — ${en?'Please try again.':'다시 시도해주세요.'}`);
+    }
+    go.disabled = false; go.style.opacity = '1';
+  };
+
+  // ── 시험 목록 ──
   window.mtLoad = async function(){
     const en = isEn();
     const box = document.getElementById('mt-list');
@@ -9243,26 +9319,132 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       const r = await fetch('/api/admin/exams').then(x=>x.json());
       if (!r.ok) throw new Error(r.error||'failed');
       const list = r.list || [];
-      if (!list.length) { box.innerHTML = `<div style="color:#64748b;padding:20px;text-align:center">${en?'No exams yet':'등록된 시험 없음'}</div>`; return; }
-      box.innerHTML = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:#1e293b;border-radius:8px;overflow:hidden">
-        <thead><tr style="background:#0f172a;color:#a5b4fc;font-size:12px"><th style="padding:8px;text-align:left">ID</th><th style="padding:8px;text-align:left">${en?'Title':'시험명'}</th><th style="padding:8px">Level</th><th style="padding:8px">L/R</th><th style="padding:8px">Q#</th><th style="padding:8px">${en?'Attempts':'응시'}</th><th style="padding:8px">${en?'Avg Score':'평균'}</th><th style="padding:8px">${en?'Action':'작업'}</th></tr></thead>
-        <tbody>${list.map(x => `<tr style="border-top:1px solid #334155;color:#e2e8f0;font-size:12px">
-          <td style="padding:8px">${x.id}</td><td style="padding:8px"><b>${esc(x.title)}</b></td>
-          <td style="padding:8px;text-align:center">${esc(x.level)}</td>
-          <td style="padding:8px;text-align:center">${x.listening_count}/${x.reading_count}</td>
-          <td style="padding:8px;text-align:center">${x.question_count||0}</td>
-          <td style="padding:8px;text-align:center">${x.attempt_count||0}</td>
-          <td style="padding:8px;text-align:center;color:#fbbf24">${x.avg_score?Number(x.avg_score).toFixed(1):'-'}</td>
-          <td style="padding:8px"><button onclick="mtShowDetail(${x.id})" style="background:#4f46e5;color:#fff;border:0;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer">${en?'Detail':'상세'}</button></td>
-        </tr>`).join('')}</tbody></table></div>`;
+      // 수동 입력 폼의 시험 선택 드롭다운도 같이 채움
+      const sel = document.getElementById('mt-q-eid');
+      if (sel) sel.innerHTML = `<option value="">${en?'— pick an exam —':'— 시험을 고르세요 —'}</option>` + list.map(x=>`<option value="${x.id}">#${x.id} ${esc(x.title)}</option>`).join('');
+      if (!list.length) { box.innerHTML = `<div style="color:#64748b;padding:24px;text-align:center;background:#0f172a;border:1px dashed #334155;border-radius:12px">${en?'No exams yet — use the AI wizard above! 👆':'아직 시험이 없어요 — 위의 🤖 AI 마법사로 첫 시험을 만들어보세요! 👆'}</div>`; return; }
+      box.innerHTML = list.map(x => `
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="min-width:180px">
+              <div style="font-weight:800;color:#e2e8f0;font-size:14px">${esc(x.title)} <span style="font-size:11px;color:#94a3b8">#${x.id}</span></div>
+              <div style="font-size:11.5px;color:#94a3b8;margin-top:2px">
+                ${esc(x.level)} · 🎧${x.lq_count||0} + 📖${x.rq_count||0} = ${x.question_count||0}${en?'Q':'문제'} · ⏱️${x.duration_min}${en?'min':'분'}
+                · ${en?'Attempts':'응시'} ${x.attempt_count||0} · ${en?'Avg':'평균'} <b style="color:#fbbf24">${x.avg_score!=null?Number(x.avg_score).toFixed(0)+(en?'':'점'):'-'}</b>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="mt-act-btn" onclick="mtToggleDetail(${x.id})" style="background:#4f46e5;color:#fff">📄 ${en?'Manage Qs':'문제 관리'}</button>
+              <button class="mt-act-btn" onclick="mtToggleActive(${x.id})" style="background:${x.active?'#065f46':'#7f1d1d'};color:#fff">${x.active?('✅ '+(en?'Public':'공개중')):('⛔ '+(en?'Hidden':'숨김'))}</button>
+              <button class="mt-act-btn" onclick="mtDelExam(${x.id}, '${esc(x.title).replace(/'/g,'&#39;')}')" style="background:#334155;color:#fca5a5">🗑 ${en?'Delete':'삭제'}</button>
+            </div>
+          </div>
+          <div id="mt-detail-${x.id}" style="display:none;margin-top:10px;border-top:1px dashed #334155;padding-top:10px"></div>
+        </div>`).join('');
     } catch(e) { box.innerHTML = `<div style="color:#fca5a5">❌ ${esc(e.message)}</div>`; }
   };
-  window.mtShowDetail = async function(id){
+
+  // ── 문제 관리 (펼침: 문제 목록 + AI 추가 + 리더보드) ──
+  window.mtToggleDetail = async function(id){
+    const en = isEn();
+    const d = document.getElementById('mt-detail-'+id);
+    if (!d) return;
+    if (d.style.display !== 'none') { d.style.display = 'none'; return; }
+    d.style.display = 'block';
+    d.innerHTML = `<div style="color:#a5b4fc;font-size:12px">⏳ ${en?'Loading...':'불러오는 중...'}</div>`;
     const r = await fetch('/api/admin/exam/'+id).then(x=>x.json()).catch(()=>({ok:false}));
-    if (!r.ok) { alert('❌ '+(r.error||'')); return; }
-    const lb = (r.leaderboard||[]).slice(0,10).map((x,i)=>`${i+1}. ${x.user_id} — ${x.score}점 (L:${x.listening_score||0} R:${x.reading_score||0})`).join('\n') || '(no attempts)';
-    alert(`${r.exam.title}\n\n📊 Top 10 Leaderboard:\n${lb}`);
+    if (!r.ok) { d.innerHTML = `<div style="color:#fca5a5;font-size:12px">❌ ${esc(r.error||'')}</div>`; return; }
+    const qs = r.questions || [];
+    const lb = (r.leaderboard||[]).slice(0,10);
+    d.innerHTML = `
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#0f172a;border:1px solid #6366f1;border-radius:10px;padding:10px;margin-bottom:10px">
+        <b style="color:#fcd34d;font-size:12.5px">🤖 ${en?'Generate more with AI:':'AI로 문제 더 만들기:'}</b>
+        <select id="mt-more-sec-${id}" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:6px;font-size:12px">
+          <option value="reading">📖 ${en?'Reading':'읽기'}</option><option value="listening">🎧 ${en?'Listening':'듣기'}</option>
+        </select>
+        <select id="mt-more-cnt-${id}" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:6px;font-size:12px">
+          <option value="3">3${en?'':'개'}</option><option value="5" selected>5${en?'':'개'}</option><option value="10">10${en?'':'개'}</option>
+        </select>
+        <input id="mt-more-topic-${id}" placeholder="${en?'topic (e.g. travel)':'주제 (예: 여행)'}" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:6px;font-size:12px;width:140px">
+        <button class="mt-act-btn" onclick="mtGenMore(${id}, this)" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff">🤖 ${en?'Generate':'만들기'}</button>
+      </div>
+      ${qs.length ? qs.map((q,i) => `
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:9px 10px;margin-bottom:6px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;gap:8px">
+            <div style="color:#e2e8f0;line-height:1.5"><b style="color:#a5b4fc">${i+1}.</b> ${q.section==='listening'?'🎧':'📖'} ${esc(q.question_text)}
+              ${q.audio_url?`<a href="${esc(q.audio_url)}" target="_blank" style="color:#86efac;text-decoration:none;font-size:11px">▶ ${en?'audio':'소리듣기'}</a>`:''}
+            </div>
+            <button class="mt-act-btn" onclick="mtDelQ(${q.id}, ${id})" style="background:#334155;color:#fca5a5;align-self:flex-start">🗑</button>
+          </div>
+          <div style="color:#94a3b8;margin-top:4px;line-height:1.6">
+            ${['a','b','c','d'].map(L => `<span style="${q.correct_answer===L.toUpperCase()?'color:#86efac;font-weight:700':''}">${L.toUpperCase()}. ${esc(q['choice_'+L]||'')}${q.correct_answer===L.toUpperCase()?' ✓':''}</span>`).join(' &nbsp; ')}
+          </div>
+        </div>`).join('') : `<div style="color:#64748b;font-size:12px;padding:8px">${en?'No questions yet — press 🤖 Generate above.':'아직 문제가 없어요 — 위의 🤖 만들기를 누르세요.'}</div>`}
+      ${lb.length ? `<div style="margin-top:8px;font-size:12px;color:#a5b4fc"><b>🏆 ${en?'Top scores':'점수 순위'}:</b> ${lb.map((x,i)=>`${i+1}. ${esc(x.user_id)} ${x.score}${en?'':'점'}`).join(' · ')}</div>` : ''}`;
   };
+
+  window.mtGenMore = async function(id, btn){
+    const en = isEn();
+    const section = document.getElementById('mt-more-sec-'+id).value;
+    const count = Number(document.getElementById('mt-more-cnt-'+id).value||5);
+    const topic = (document.getElementById('mt-more-topic-'+id).value||'').trim() || 'daily life';
+    const orig = btn.innerHTML; btn.innerHTML = '⏳'; btn.disabled = true;
+    const r = await post('/api/admin/exam/question/ai-generate', { exam_id: id, section, count, topic });
+    btn.innerHTML = orig; btn.disabled = false;
+    if (!r.ok) { alert('❌ ' + (en?'Failed: ':'실패: ') + (r.error||'')); return; }
+    const d = document.getElementById('mt-detail-'+id);
+    if (d) { d.style.display = 'none'; mtToggleDetail(id); }
+    mtLoad2Silent();
+  };
+  // 목록 숫자만 조용히 갱신 (펼친 문제 관리 패널이 닫히지 않게 mtLoad 대신 사용)
+  async function mtLoad2Silent(){ /* 문항수 배지는 다음 새로고침 때 갱신 — 펼침 유지가 더 중요 */ }
+
+  window.mtDelQ = async function(qid, examId){
+    const en = isEn();
+    if (!confirm(en?'Delete this question?':'이 문제를 지울까요?')) return;
+    const r = await post('/api/admin/exam/question/delete', { question_id: qid });
+    if (!r.ok) { alert('❌ ' + (r.error||'')); return; }
+    const d = document.getElementById('mt-detail-'+examId);
+    if (d) { d.style.display = 'none'; mtToggleDetail(examId); }
+  };
+
+  window.mtToggleActive = async function(id){
+    const r = await post('/api/admin/exam/toggle', { exam_id: id });
+    if (!r.ok) { alert('❌ ' + (r.error||'')); return; }
+    mtLoad();
+  };
+
+  window.mtDelExam = async function(id, title){
+    const en = isEn();
+    if (!confirm(en?`Delete exam "${title}" and all its questions/records?`:`시험 "${title}" 을(를) 문제·응시기록까지 전부 지울까요?\n(되돌릴 수 없어요)`)) return;
+    const r = await post('/api/admin/exam/delete', { exam_id: id });
+    if (!r.ok) { alert('❌ ' + (r.error||'')); return; }
+    mtLoad();
+  };
+
+  // ── 수동 문제 추가 (고급) ──
+  window.mtAddQ = async function(){
+    const en = isEn();
+    const exam_id = Number((document.getElementById('mt-q-eid')||{}).value);
+    const question_text = (document.getElementById('mt-q-text')||{}).value;
+    if (!exam_id) { alert(en?'Pick an exam first.':'시험을 먼저 골라주세요.'); return; }
+    if (!question_text) { alert(en?'Question text required.':'문제 내용을 입력하세요.'); return; }
+    const r = await post('/api/admin/exam/question/add', {
+      exam_id,
+      section: (document.getElementById('mt-q-sec')||{}).value,
+      question_text,
+      choice_a: (document.getElementById('mt-q-a')||{}).value,
+      choice_b: (document.getElementById('mt-q-b')||{}).value,
+      choice_c: (document.getElementById('mt-q-c')||{}).value,
+      choice_d: (document.getElementById('mt-q-d')||{}).value,
+      correct_answer: (document.getElementById('mt-q-correct')||{}).value || 'A',
+      audio_url: (document.getElementById('mt-q-audio')||{}).value || null,
+      points: 5
+    });
+    alert(r.ok ? (en?'Question added!':'문제 추가 완료!') : '❌ '+(r.error||''));
+    if (r.ok) { ['mt-q-text','mt-q-a','mt-q-b','mt-q-c','mt-q-d','mt-q-audio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); mtLoad(); }
+  };
+
   document.getElementById('card-mini-toeic')?.addEventListener('toggle', function(){ if (this.open) mtLoad(); });
 })();
 </script>
@@ -23872,7 +24054,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260713173458 -->
+        <!-- BUILD:20260713174207 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -24723,9 +24905,18 @@ window.rebuildGlobalSearchIndex = function() {
   };
 
   window.adminLogout = function() {
+    // 🔐 (2026-07-13) localStorage만 지우면 HttpOnly 쿠키(mango_admin_session)가 살아있어
+    //   다음 진입 때 서버가 로그인 상태로 판단 → 자동 재로그인되던 버그.
+    //   서버 세션(쿠키+DB)까지 종료한 뒤 로그인 화면으로 보낸다.
     _clearSession();
     window._adminSession = null;
-    _renderSessionBanner();
+    try { localStorage.removeItem('admin_session'); sessionStorage.clear(); } catch(e){}
+    var done = false;
+    function goLogin(){ if (done) return; done = true; location.replace('/admin/login'); }
+    try {
+      fetch('/api/admin/logout', { method:'POST', credentials:'include' }).then(goLogin, goLogin);
+      setTimeout(goLogin, 1500); // 네트워크가 늦거나 실패해도 로그인 화면으로
+    } catch(e) { goLogin(); }
   };
 
   // ━━━ 스코프 필터 (일반화 — Phase 2) ━━━
@@ -33561,6 +33752,12 @@ button.chip:hover,
           <a class="lib-chip" href="/library/admin/admin-en.xlsx" download="Mangoi_Admin_User_Guide.xlsx">📗 Excel</a>
         </div>
       </div>
+      <div class="lib-doc">
+        <div class="lib-doc-t">📊 관리자 페이지 쉬운 사용법 <span style="font-size:11px;color:#fbbf24;font-weight:700">쉬움</span></div>
+        <div class="lib-lang"><span class="lib-lang-lb">한글</span>
+          <a class="lib-chip" href="/library/admin/admin-easy-kr.pptx" download="망고아이_관리자페이지_쉬운사용법.pptx">📊 PPT</a>
+        </div>
+      </div>
       <div class="lib-note">ℹ️ 자료를 클릭하면 다운로드됩니다.</div>
     </div>
   </div>
@@ -34295,14 +34492,10 @@ button.chip:hover,
   // 로그아웃
   window.ph111Logout = function(){
     if (!confirm('정말 로그아웃 하시겠습니까?')) return;
-    localStorage.removeItem('admin_session');
-    sessionStorage.clear();
     console.log('[ph111] 로그아웃');
-    // 기존 logout 함수 호출 (있다면)
+    // 🔐 adminLogout 이 서버 세션(쿠키)까지 종료 + /admin/login 이동 — reload 하면 fetch가 끊겨 쿠키가 살아남음
     if (typeof window.adminLogout === 'function') window.adminLogout();
-    else if (typeof window.logoutAdmin === 'function') window.logoutAdmin();
-    alert('🚪 로그아웃 되었습니다.\n페이지를 새로고침합니다.');
-    window.location.reload();
+    else location.replace('/admin/login');
   };
 
   // 비밀번호 변경
@@ -34727,16 +34920,9 @@ button.chip:hover,
   // === 로그아웃 ===
   window.ph113Logout = function(){
     if (!confirm('정말 로그아웃 하시겠습니까?')) return;
-    try { localStorage.removeItem('admin_session'); sessionStorage.clear(); } catch(e){}
-    if (typeof window.adminLogout === 'function') try { window.adminLogout(); } catch(e){}
-    if (typeof window.logoutAdmin === 'function') try { window.logoutAdmin(); } catch(e){}
-    alert('🚪 로그아웃 되었습니다.\n로그인 페이지로 이동합니다.');
-    var loginOverlay = document.getElementById('admin-login-overlay');
-    if (loginOverlay) {
-      loginOverlay.style.display = 'flex';
-    } else {
-      window.location.reload();
-    }
+    // 🔐 adminLogout 이 서버 세션(쿠키)까지 종료 + /admin/login 이동 — reload/오버레이는 fetch를 끊어 쿠키가 살아남음
+    if (typeof window.adminLogout === 'function') window.adminLogout();
+    else location.replace('/admin/login');
   };
 
   // === 비밀번호 변경 ===
@@ -35106,12 +35292,9 @@ button.chip:hover,
   // 로그아웃
   window.ph114Logout = function(){
     if (!confirm('정말 로그아웃 하시겠습니까?\n\n현재 세션이 종료됩니다.')) return;
-    try { localStorage.removeItem('admin_session'); sessionStorage.clear(); } catch(e){}
-    if (typeof window.adminLogout === 'function') try { window.adminLogout(); } catch(e){}
-    alert('🚪 로그아웃 되었습니다.\n페이지를 새로고침합니다.');
-    var lo = document.getElementById('admin-login-overlay');
-    if (lo) lo.style.display = 'flex';
-    else window.location.reload();
+    // 🔐 adminLogout 이 서버 세션(쿠키)까지 종료 + /admin/login 이동 — reload/오버레이는 fetch를 끊어 쿠키가 살아남음
+    if (typeof window.adminLogout === 'function') window.adminLogout();
+    else location.replace('/admin/login');
   };
 
   // 로그인 (다른 계정)

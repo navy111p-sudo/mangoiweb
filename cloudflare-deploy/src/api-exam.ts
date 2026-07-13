@@ -172,17 +172,15 @@ export async function handleExamApi(request: Request, url: URL, env: MangoEnv): 
     const count = Math.min(Math.max(Number(b.count) || 5, 1), 20);
     const topic = String(b.topic || 'daily life').trim().slice(0, 200);
     const gen = await mtAiGenerate(env, { level: exam.level || 'A1', section, count, topic });
-    if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
+    if (!gen.ok) return json({ ok: false, error: (gen as { ok: false; error: string }).error }, 502);
     const now = Date.now();
     let saved = 0;
     for (const q of gen.items) {
       // 듣기 문제: 음성 스크립트를 GET TTS URL 로 연결 → 학생 <audio> 가 바로 재생
       const audioUrl = (section === 'listening' && q.audio_script)
         ? '/api/exam/tts?lang=en&text=' + encodeURIComponent(q.audio_script) : null;
-      const qText = (section === 'listening' && q.audio_script)
-        ? q.question_text : q.question_text;
       await env.DB.prepare(`INSERT INTO mt_questions (exam_id, section, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer, audio_url, image_url, points, source, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-        .bind(examId, section, qText, q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.correct_answer, audioUrl, null, 5, 'ai', now).run();
+        .bind(examId, section, q.question_text, q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.correct_answer, audioUrl, null, 5, 'ai', now).run();
       saved++;
     }
     return json({ ok: true, generated_count: saved, section });
