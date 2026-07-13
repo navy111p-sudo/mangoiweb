@@ -9634,7 +9634,9 @@ Respond in JSON ONLY:
     // ════════════════════════════════════════════════════════════
     // ⚠ env.DB.exec() 는 단일 라인 SQL 만 허용 — 여러 줄 쓰면 SQL_STATEMENT_ERROR
     const ensureTeacherProfilesSchema = async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, email TEXT, phone TEXT, kakao_id TEXT, dob TEXT, gender TEXT, image_url TEXT, intro_video_url TEXT, active_region TEXT, origin_region TEXT, fee_per_10min INTEGER, group_name TEXT, status TEXT DEFAULT '활동중', join_date TEXT, leave_date TEXT, education TEXT, career TEXT, certifications TEXT, available_days TEXT, available_hours TEXT, bank_name TEXT, bank_account TEXT, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, email TEXT, phone TEXT, kakao_id TEXT, dob TEXT, gender TEXT, image_url TEXT, intro_video_url TEXT, active_region TEXT, origin_region TEXT, fee_per_10min INTEGER, group_name TEXT, status TEXT DEFAULT '활동중', join_date TEXT, leave_date TEXT, education TEXT, career TEXT, certifications TEXT, available_days TEXT, available_hours TEXT, bank_name TEXT, bank_account TEXT, mbti TEXT, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
+      // 기존 DB 에 mbti 컬럼 없으면 보강(이미 있으면 SQLite throw → 흡수)
+      try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN mbti TEXT`); } catch {}
     };
 
     if (method === 'GET' && path === '/api/admin/teacher-profiles') {
@@ -9676,9 +9678,9 @@ Respond in JSON ONLY:
            (korean_name, english_name, email, phone, kakao_id, dob, gender,
             image_url, intro_video_url, active_region, origin_region, fee_per_10min,
             group_name, status, join_date, leave_date, education, career, certifications,
-            available_days, available_hours, bank_name, bank_account, notes,
+            available_days, available_hours, bank_name, bank_account, mbti, notes,
             created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           b.korean_name, b.english_name || null, b.email || null, b.phone || null, b.kakao_id || null,
           b.dob || null, b.gender || null,
@@ -9686,7 +9688,7 @@ Respond in JSON ONLY:
           b.fee_per_10min || null, b.group_name || null, b.status || '활동중',
           b.join_date || null, b.leave_date || null, b.education || null, b.career || null, b.certifications || null,
           b.available_days || null, b.available_hours || null, b.bank_name || null, b.bank_account || null,
-          b.notes || null, now, now
+          (b.mbti ? String(b.mbti).toUpperCase().slice(0, 4) : null), b.notes || null, now, now
         ).run();
         return json({ ok: true, id: r.meta?.last_row_id });
       } catch (e: any) {
@@ -9718,10 +9720,14 @@ Respond in JSON ONLY:
         const allowed = ['korean_name','english_name','email','phone','kakao_id','dob','gender',
           'image_url','intro_video_url','active_region','origin_region','fee_per_10min',
           'group_name','status','join_date','leave_date','education','career','certifications',
-          'available_days','available_hours','bank_name','bank_account','notes'];
+          'available_days','available_hours','bank_name','bank_account','mbti','notes'];
         const sets: string[] = []; const binds: any[] = [];
         allowed.forEach(k => {
-          if (b.hasOwnProperty(k)) { sets.push(k + ' = ?'); binds.push(b[k] === '' ? null : b[k]); }
+          if (b.hasOwnProperty(k)) {
+            let v = b[k] === '' ? null : b[k];
+            if (k === 'mbti' && v) v = String(v).toUpperCase().slice(0, 4);   // 표준화 (예: intj → INTJ)
+            sets.push(k + ' = ?'); binds.push(v);
+          }
         });
         if (sets.length === 0) return json({ ok: false, error: 'no_fields' }, 400);
         sets.push('updated_at = ?'); binds.push(Date.now());
@@ -9743,6 +9749,55 @@ Respond in JSON ONLY:
           return json({ ok: false, error: String(e?.message || e) }, 500);
         }
       }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 🧠 교사 본인 MBTI 자가기록 — 교사 마이페이지에서 검사 후 저장
+    //   GET  /api/teacher/mbti-self   → 내 현재 MBTI 조회(폼 프리필용)
+    //   POST /api/teacher/mbti-self   { mbti:'INTJ', hobby?, teaching_style? }
+    //   본인(teacher_profiles.korean_name|english_name == actor.name) 프로필에만 기록.
+    //   매칭 그래프 소스(teacher_mbti)에도 동기화 → [[teacher-match-graph]] 추천에 반영.
+    // ════════════════════════════════════════════════════════════
+    if (path === '/api/teacher/mbti-self') {
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok || !actor.isTeacher || !actor.name) {
+        return json({ ok: false, error: 'forbidden', message: '강사 로그인이 필요합니다.' }, 403);
+      }
+      try { await ensureTeacherProfilesSchema(); } catch {}
+      const myProfile = await env.DB.prepare(
+        `SELECT id, korean_name, english_name, mbti FROM teacher_profiles
+          WHERE LOWER(TRIM(korean_name))=LOWER(TRIM(?)) OR LOWER(TRIM(english_name))=LOWER(TRIM(?)) LIMIT 1`
+      ).bind(actor.name, actor.name).first<any>();
+
+      if (method === 'GET') {
+        return json({ ok: true, found: !!myProfile, mbti: myProfile?.mbti || null, name: myProfile?.korean_name || myProfile?.english_name || actor.name });
+      }
+      if (method === 'POST') {
+        if (!myProfile) return json({ ok: false, error: 'profile_not_found', message: '내 강사 프로필을 찾을 수 없습니다. 관리자에게 문의하세요.' }, 404);
+        const b = await parseJsonBody(request);
+        const mbti = String((b && b.mbti) || '').toUpperCase().replace(/[^IENSTFJP]/g, '').slice(0, 4);
+        if (!/^[IE][NS][TF][JP]$/.test(mbti)) {
+          return json({ ok: false, error: 'invalid_mbti', message: 'MBTI 4글자를 확인하세요 (예: INTJ).' }, 400);
+        }
+        const now = Date.now();
+        const hobby = (b && b.hobby) ? String(b.hobby).slice(0, 300) : null;
+        const style = (b && b.teaching_style) ? String(b.teaching_style).slice(0, 300) : null;
+        // 1) 내 프로필에 기록
+        await env.DB.prepare(`UPDATE teacher_profiles SET mbti = ?, updated_at = ? WHERE id = ?`).bind(mbti, now, myProfile.id).run();
+        // 2) 매칭 그래프 소스(teacher_mbti) 동기화 — 없으면 생성. hobby/style 은 있을 때만 덮어씀.
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_mbti (teacher_uid TEXT PRIMARY KEY, teacher_name TEXT, mbti TEXT, hobby TEXT, teaching_style TEXT, intro TEXT, updated_at INTEGER);`);
+          await env.DB.prepare(
+            `INSERT INTO teacher_mbti (teacher_uid, teacher_name, mbti, hobby, teaching_style, updated_at) VALUES (?,?,?,?,?,?)
+             ON CONFLICT(teacher_uid) DO UPDATE SET teacher_name=excluded.teacher_name, mbti=excluded.mbti,
+               hobby=COALESCE(excluded.hobby, teacher_mbti.hobby),
+               teaching_style=COALESCE(excluded.teaching_style, teacher_mbti.teaching_style),
+               updated_at=excluded.updated_at`
+          ).bind('tp-' + myProfile.id, myProfile.korean_name || myProfile.english_name || actor.name, mbti, hobby, style, now).run();
+        } catch (e: any) { console.warn('[teacher mbti-self] graph sync skipped:', e?.message || e); }
+        return json({ ok: true, mbti, teacher_id: myProfile.id, name: myProfile.korean_name || myProfile.english_name });
+      }
+      return json({ ok: false, error: 'method_not_allowed' }, 405);
     }
 
     // 강사 목록

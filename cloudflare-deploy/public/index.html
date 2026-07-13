@@ -3757,7 +3757,11 @@
   //   vcRemovePeer 후킹이 (백그라운드 탭 등으로) 호출 안 되는 기기·상황을 대비해
   //   통화 중(vc-in-call)에는 5초마다 원격 피어 수를 직접 확인하는 안전망을 함께 둔다.
   function remoteCount(){
-    try { return Object.keys(window.vcPeerConnections || {}).length; } catch(e){ return -1; }
+    // 🔧 (2026-07-13) 예전엔 window.vcPeerConnections 를 읽었는데 이 값은 '항상 undefined' 였다
+    //   (vcPeerConnections 는 `let` 이라 window 에 안 붙음) → 원격 피어 수가 늘 0 으로 오인돼
+    //   아래 폴링 안전망이 오작동했다. 전역 렉시컬 바인딩을 직접 읽어 실제 수를 돌려준다.
+    //   실패(TDZ 등)하면 -1 을 돌려 '0 아님'으로 안전하게 처리(= 수업을 끝내지 않는 방향).
+    try { return Object.keys((typeof vcPeerConnections === 'object' && vcPeerConnections) ? vcPeerConnections : {}).length; } catch(e){ return -1; }
   }
   // 🔧 (2026-07-14) "수업 종료" 오판 방지 — 연결이 건강할 때만 종료 판정을 허용.
   //   문제: 순간적인 네트워크 블립/교사 새로고침/WS 재연결 중에는 vcPeerConnections 가
@@ -3822,12 +3826,8 @@
     //   '강사 쪽' 네트워크가 잠깐 끊기면 원격 피어가 0이 된다. 예전 임계(~25초)로는
     //   강사 재접속(백오프 최대 16초+재입장+ICE 협상)이 끝나기 전에 수업이 종료됐다.
     //   → 명시적 퇴장(left)은 기존 ~25초, 그 외(dropped/미상)는 ~60초 재연결 유예.
-    var FAST_TICKS  = 5;    // 5초 × 5  ≈ 25초 (명시적 퇴장 안전망 — 기존 동작 유지)
-    // ⏳ (2026-07-13 3차) 60초 유예로도 "수업 도중 갑자기 종료" 신고 재발.
-    //   강사 폰이 백그라운드로 가거나 망 전환(와이파이↔LTE)이 길어지면 60초를 넘긴다.
-    //   유예 동안 "재연결 중…" 배너가 떠 있어 학생이 상황을 알 수 있으므로,
-    //   조기 종료(수업 날림)보다 오래 기다리는 쪽이 항상 덜 해롭다 → 3분으로 연장.
-    var GRACE_TICKS = 36;   // 5초 × 36 ≈ 180초 (끊김 재연결 유예)
+    var FAST_TICKS  = 5;    // 5초 × 5  ≈ 25초 — '명시적 나가기(left)'가 확인된 경우에만 쓰는 백업 종료 임계.
+                            //   조용한 끊김(dropped/미상)은 아래에서 아예 종료하지 않으므로 별도 유예 임계 불필요.
     var iv = setInterval(function(){
       try {
         if (STATE.triggered) { clearInterval(iv); return; }
@@ -3848,15 +3848,21 @@
         // 🔧 (2026-07-14) 연결이 불안정(오프라인/WS 끊김/재연결 중)하면 종료 카운트를 멈춘다.
         //   피어 0 은 '수업 종료'가 아니라 '내 연결 복구 중'일 수 있다 — 튕김 오판의 주범.
         if (!connHealthy()) { zeroStreak = 0; return; }
-        zeroStreak++;
-        var need = window.__vcPeerLeftExplicit ? FAST_TICKS : GRACE_TICKS;
+        // 🔒 (2026-07-13) 최우선 원칙 = "수업이 절대 중간에 끊기면 안 된다".
+        //   '조용한 끊김'(reason=dropped/미상: 상대 망 블립·앱 백그라운드·와이파이↔LTE 전환 등)으로는
+        //   수업을 절대 자동 종료하지 않는다. 상대가 곧 돌아올 수 있으므로 '재연결 중…' 배너만
+        //   유지하고 무한히 기다린다(종료 카운트 리셋). #19 고착복구 워치독 + 재연결 로직이
+        //   그 사이 연결을 되살린다. → GRACE_TICKS(3분) 만료로 끝내던 옛 동작을 제거.
         if (!window.__vcPeerLeftExplicit) {
-          // 유예 동안 "재연결 중…" 배너를 유지해 학생이 상황을 알 수 있게 한다.
-          //   (connHealthy 는 __vcPeerGraceWait 가 켜져 있으면 이 배너를 무시하므로 카운트는 계속 진행)
           window.__vcPeerGraceWait = true;
           try { vcShowReconnecting(); } catch(e){}
+          zeroStreak = 0;            // 조용한 끊김은 종료 카운트를 쌓지 않음(= 자동 종료 안 함)
+          return;
         }
-        if (zeroStreak >= need) {
+        // 여기부터는 상대가 '명시적으로 나가기(reason=left)'를 눌러 서버가 알린 경우뿐.
+        //   그때만 백업 안전망으로 종료(그것도 위에서 connHealthy + 실제 remoteCount()===0 확인 후).
+        zeroStreak++;
+        if (zeroStreak >= FAST_TICKS) {
           clearInterval(iv);
           window.__vcPeerGraceWait = false;
           try { vcHideReconnecting(); } catch(e){}
@@ -26668,7 +26674,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713224149 -->
+<!-- BUILD:20260713225849 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
