@@ -25,6 +25,8 @@ MetricCategory = Literal[
     "Response_Delay",
 ]
 MetricStatus = Literal["Good", "Warning", "Bad"]
+# 리포트 표시용: 기간 내 측정 데이터가 없던 지표는 NoData (강점/개선 산출에서 제외)
+ReportMetricStatus = Literal["Good", "Warning", "Bad", "NoData"]
 
 
 class RadarChartItem(BaseModel):
@@ -157,9 +159,9 @@ class CategoryAverage(BaseModel):
     label_ko: str
     average_score: int
     delta: Optional[int] = Field(
-        None, description="직전 리포트 대비 변화(+개선/-후퇴). 첫 리포트면 null"
+        None, description="직전 리포트 대비 변화(+개선/-후퇴). 첫 리포트거나 데이터 없으면 null"
     )
-    status: MetricStatus
+    status: ReportMetricStatus
 
 
 class ReportResponse(BaseModel):

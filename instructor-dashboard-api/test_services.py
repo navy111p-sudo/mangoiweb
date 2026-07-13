@@ -392,3 +392,96 @@ def test_overview_flags_strength_and_focus():
     assert john.focus_area.category == "Teacher_Talk_Ratio"  # 72 -> Warning(개선 필요)
     newbie = next(i for i in ov.instructors if i.instructor_id == "inst_02")
     assert newbie.has_report is False and newbie.top_strength is None
+
+
+# ==========================================================================
+# 2026-07-14 코드리뷰 수정 회귀 테스트
+#  C-2: ingest 재전송 시 Metric k×n 증식 / M-2: 데이터 없음→"Good" 둔갑
+#  C-1: 인증 fail-closed
+# ==========================================================================
+def test_ingest_dedupes_rows_before_unwind():
+    # DETACH DELETE 뒤 WITH DISTINCT 가 없으면 기존 지표 수만큼 행이 남아
+    # 재전송마다 지표가 k×n 으로 기하급수 증식한다.
+    tx = MagicMock()
+    services._ingest_lecture_tx(tx, {})
+    q = tx.run.call_args.args[0]
+    assert "WITH DISTINCT l" in q
+
+
+def test_metric_without_data_is_nodata_not_good():
+    # lower 방향 지표(발화비중·대기시간)는 데이터가 없으면 평균 0 → "Good" 오판 금지
+    lectures = [{"lecture_id": "l1", "title": "t", "date": "2026-07-01",
+                 "scores": {"Student_Engagement": 80}}]
+    averages = services._compute_averages(lectures)
+    statuses = services._compute_statuses(averages, lectures)
+    assert statuses["Teacher_Talk_Ratio"] == "NoData"
+    assert statuses["Response_Delay"] == "NoData"
+    assert statuses["Student_Engagement"] == "Good"
+
+
+def test_nodata_excluded_from_strengths_and_actions():
+    # 측정 안 한 지표는 강점에도(예전 버그: lower→Good) 개선점에도(higher→Bad) 못 들어간다
+    lectures = [{"lecture_id": "l1", "title": "t", "date": "2026-07-01",
+                 "scores": {"Student_Engagement": 80}}]
+    dash = services.get_instructor_dashboard(
+        _fake_db(_window_raw(lectures)), "inst_01"
+    )
+    assert len(dash.korean_view.strengths) == 1      # 참여도 하나만 Good
+    assert dash.korean_view.action_items == []       # NoData 4개는 개선점 아님
+
+
+def test_report_snapshot_stores_statuses_with_nodata():
+    lectures = [{"lecture_id": "l1", "title": "t", "date": "2026-06-20",
+                 "scores": {"Student_Engagement": 80}}]
+    fake_db, session = _fake_db_session(_window_raw(lectures))
+    services.generate_report_for_instructor(fake_db, "inst_01", as_of=date(2026, 6, 29))
+    stored = session.execute_write.call_args.args[1]
+    st = dict(zip(stored["categories"], stored["statuses"]))
+    assert st["Student_Engagement"] == "Good"
+    assert st["Teacher_Talk_Ratio"] == "NoData"
+
+
+def test_latest_report_prefers_stored_statuses_over_rederive():
+    # 저장 당시 NoData(평균 0) 지표가 조회 시점 재판정으로 "Good" 둔갑하면 안 된다
+    cats = services.METRIC_ORDER
+    latest = {
+        "categories": cats,
+        "average_scores": [0, 80, 75, 70, 0],  # TTR·Response_Delay 는 데이터 없던 0
+        "statuses": ["NoData", "Good", "Good", "Good", "NoData"],
+        "period_start": "2026-06-01", "period_end": "2026-06-29",
+        "generated_at": "2026-06-29T00:00:00+00:00",
+        "cadence_days": 14, "window_days": 28, "lectures_count": 1,
+        "summary_en": "s", "summary_ko": "요약",
+        "strengths_en": [], "strengths_ko": [],
+        "actions_en": [], "actions_ko": [],
+    }
+    previous = {**latest, "average_scores": [50, 60, 60, 60, 50], "period_end": "2026-06-15"}
+    raw = {"instructor_name": "John Doe", "reports": [latest, previous]}
+    report = services.get_latest_report(_fake_db(raw), "inst_01")
+    ttr = next(c for c in report.radar_chart_data if c.category == "Teacher_Talk_Ratio")
+    assert ttr.status == "NoData"
+    assert ttr.delta is None  # 0 기반 가짜 delta 금지
+
+
+def test_api_key_fail_closed_when_token_missing(monkeypatch):
+    # INGEST_TOKEN 미설정 = 배포 실수 → 무인증 통과가 아니라 503 거부여야 한다
+    import main
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(main, "INGEST_TOKEN", "")
+    monkeypatch.setattr(main, "ALLOW_INSECURE_NO_AUTH", False)
+    with pytest.raises(HTTPException) as exc:
+        main.require_api_key("whatever")
+    assert exc.value.status_code == 503
+
+    # 명시적 개발용 우회 플래그가 있을 때만 통과
+    monkeypatch.setattr(main, "ALLOW_INSECURE_NO_AUTH", True)
+    main.require_api_key("")  # 예외 없음
+
+    # 토큰 설정 시: 불일치 401 / 일치 통과
+    monkeypatch.setattr(main, "INGEST_TOKEN", "secret-1")
+    monkeypatch.setattr(main, "ALLOW_INSECURE_NO_AUTH", False)
+    with pytest.raises(HTTPException) as exc:
+        main.require_api_key("wrong")
+    assert exc.value.status_code == 401
+    main.require_api_key("secret-1")  # 예외 없음

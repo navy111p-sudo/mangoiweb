@@ -14,12 +14,13 @@ FastAPI 애플리케이션 진입점.
 ==========================================================================
 """
 
+import hmac
 import logging
 import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -59,20 +60,34 @@ logger = logging.getLogger("mangoi.main")
 #   REPORT_CADENCE_DAYS : 리포트를 얼마나 자주 생성할지 (기본 14일 = 격주 추천)
 #   REPORT_WINDOW_DAYS  : 한 리포트가 집계하는 기간 (기본 28일 = 4주 롤링)
 #   ENABLE_SCHEDULER    : 앱 내부 스케줄러 사용 여부 (기본 false; 운영은 외부 크론 권장)
-#   INGEST_TOKEN        : 설정 시 쓰기 API에 X-API-Key 헤더 인증 요구
+#   INGEST_TOKEN        : API 인증 토큰. 미설정 시 보호 API 전체가 503 (fail-closed)
+#   ALLOW_INSECURE_NO_AUTH : "true" 로컬 개발시에만 무인증 허용 (운영 금지)
 # --------------------------------------------------------------------------
 REPORT_CADENCE_DAYS = int(os.getenv("REPORT_CADENCE_DAYS", "14"))
 REPORT_WINDOW_DAYS = int(os.getenv("REPORT_WINDOW_DAYS", "28"))
 INGEST_TOKEN = os.getenv("INGEST_TOKEN", "").strip()
+ALLOW_INSECURE_NO_AUTH = os.getenv("ALLOW_INSECURE_NO_AUTH", "false").lower() == "true"
 
 
 def require_api_key(x_api_key: str = Header(default="")) -> None:
     """
-    쓰기 계열 API 보호용 의존성.
-    INGEST_TOKEN 이 설정돼 있으면 X-API-Key 헤더가 일치해야 통과.
-    (미설정 시 개발 편의를 위해 무인증 허용)
+    API 보호용 의존성 (쓰기 + 강사 데이터 조회).
+    🔐 (2026-07-14 보안) fail-closed 로 전환:
+    - INGEST_TOKEN 미설정 = 배포 실수로 간주하고 503 거부 (예전엔 무인증 통과였음)
+    - 로컬 개발에서만 ALLOW_INSECURE_NO_AUTH=true 로 우회 가능
+    - 토큰 비교는 타이밍 공격 방지를 위해 hmac.compare_digest 사용
     """
-    if INGEST_TOKEN and x_api_key != INGEST_TOKEN:
+    if not INGEST_TOKEN:
+        if ALLOW_INSECURE_NO_AUTH:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error_en": "Server auth is not configured (INGEST_TOKEN missing).",
+                "error_ko": "서버 인증이 설정되지 않았습니다(INGEST_TOKEN 누락). 관리자에게 문의하세요.",
+            },
+        )
+    if not hmac.compare_digest(x_api_key.encode(), INGEST_TOKEN.encode()):
         raise HTTPException(
             status_code=401,
             detail={
@@ -156,7 +171,12 @@ _cors_env = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
 CORS_ORIGINS = (
     [o.strip() for o in _cors_env.split(",") if o.strip()]
     if _cors_env
-    else ["https://mangoi.co.kr", "https://www.mangoi.co.kr", "https://webrtc-unified-platform-prod.navy111p.workers.dev"]
+    else [
+        "https://test.mangoi.co.kr",  # 실운영 프론트 (co.kr 루트는 구 PHP)
+        "https://mangoi.co.kr",
+        "https://www.mangoi.co.kr",
+        "https://webrtc-unified-platform-prod.navy111p.workers.dev",
+    ]
 )
 app.add_middleware(
     CORSMiddleware,
@@ -210,10 +230,13 @@ def seed():
     response_model=DashboardResponse,
     responses={404: {"model": ErrorResponse}},
     tags=["dashboard"],
+    dependencies=[Depends(require_api_key)],  # 🔐 (2026-07-14) 강사 실명+평가 IDOR 차단
 )
 def instructor_dashboard(instructor_id: str):
     """
     특정 강사의 '모든 강의'를 가로질러 집계한 대시보드 데이터를 반환한다.
+    🔐 브라우저에서 직접 호출하지 말고, 로그인 세션을 검증하는 서버(워커)가
+       X-API-Key 를 붙여 프록시하는 구조로 연동할 것 (키를 프론트 JS에 넣지 말 것).
     - radar_chart_data : 5개 지표의 전체 평균 (오각형 차트)
     - line_chart_data  : 강의별 시간순 점수 (성장 추세)
     - english_view / korean_view : 즉시 토글 가능한 이중 언어 코멘트
@@ -331,6 +354,7 @@ def run_reports_endpoint():
     response_model=ReportResponse,
     responses={404: {"model": ErrorResponse}},
     tags=["reports"],
+    dependencies=[Depends(require_api_key)],  # 🔐 (2026-07-14) 강사 평가 IDOR 차단
 )
 def instructor_report(instructor_id: str):
     """
@@ -370,8 +394,12 @@ def instructor_report(instructor_id: str):
     response_model=ReportHistoryResponse,
     responses={404: {"model": ErrorResponse}},
     tags=["reports"],
+    dependencies=[Depends(require_api_key)],  # 🔐 (2026-07-14) 강사 평가 IDOR 차단
 )
-def instructor_report_history(instructor_id: str, limit: int = 12):
+def instructor_report_history(
+    instructor_id: str,
+    limit: int = Query(12, ge=1, le=100),  # 음수/0이면 Cypher 슬라이스가 오동작 → 검증
+):
     """강사의 과거 정기 리포트 목록(최신순). 기간별 점수로 장기 추세를 그린다."""
     try:
         history = get_report_history(db, instructor_id, limit=limit)

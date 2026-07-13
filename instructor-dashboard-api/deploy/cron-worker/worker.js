@@ -16,10 +16,12 @@ export default {
       console.log(`홀수 주(${weekIndex}) — 이번 주는 스킵(격주)`);
       return;
     }
+    // 🔐 시크릿 미등록이면 조용히 무인증 호출하지 말고 즉시 실패시켜 오구성을 드러낸다
+    if (!env.INGEST_TOKEN) throw new Error("INGEST_TOKEN 시크릿 미등록 — wrangler secret put INGEST_TOKEN");
     const url = `${env.API_BASE.replace(/\/$/, "")}/api/v1/reports/run`;
     const res = await fetch(url, {
       method: "POST",
-      headers: { "X-API-Key": env.INGEST_TOKEN || "" },
+      headers: { "X-API-Key": env.INGEST_TOKEN },
     });
     const body = await res.text();
     console.log(`reports/run → ${res.status}: ${body.slice(0, 300)}`);

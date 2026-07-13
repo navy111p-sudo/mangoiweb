@@ -48,15 +48,17 @@ uvicorn main:app --reload
 | 메서드 | 경로 | 설명 | 인증 |
 |--------|------|------|------|
 | GET | `/health` | DB 연결 상태 확인 | — |
-| POST | `/api/v1/seed` | 목업 데이터(강사 1명 + 강의 3회) 적재 | — |
-| GET | `/api/v1/instructors/{id}/dashboard` | 전체 강의 집계 대시보드 | — |
+| POST | `/api/v1/seed` | 목업 데이터(강사 1명 + 강의 3회) 적재 | 🔑 |
+| GET | `/api/v1/instructors/{id}/dashboard` | 전체 강의 집계 대시보드 | 🔑 |
 | **POST** | **`/api/v1/lectures`** | **강의 1회분 분석 결과 수집(ingest)** | 🔑 |
 | **POST** | **`/api/v1/reports/run`** | **정기 리포트 일괄 생성(스케줄러/크론용)** | 🔑 |
-| **GET** | **`/api/v1/instructors/{id}/report`** | **마이페이지 최신 정기 리포트(+지난 기간 대비 변화)** | — |
-| **GET** | **`/api/v1/instructors/{id}/reports`** | **리포트 히스토리(최신순, 기간별 점수 → 장기 추세)** | — |
-| **GET** | **`/api/v1/instructors`** | **관리자 개요(전체 강사 강점/개선영역/Good 수)** | — |
+| **GET** | **`/api/v1/instructors/{id}/report`** | **마이페이지 최신 정기 리포트(+지난 기간 대비 변화)** | 🔑 |
+| **GET** | **`/api/v1/instructors/{id}/reports`** | **리포트 히스토리(최신순, 기간별 점수 → 장기 추세)** | 🔑 |
+| **GET** | **`/api/v1/instructors`** | **관리자 개요(전체 강사 강점/개선영역/Good 수)** | 🔑 |
 
-🔑 = `.env` 의 `INGEST_TOKEN` 설정 시 `X-API-Key` 헤더 필요 (미설정이면 무인증 허용)
+🔑 = `X-API-Key: <INGEST_TOKEN>` 헤더 필수.
+- 🔐 **fail-closed (2026-07-14)**: `INGEST_TOKEN` 미설정이면 보호 API 전체가 503 거부됩니다(예전의 "미설정=무인증 허용" 폐지 — 배포 실수로 강사 PII가 공개되는 사고 방지). 로컬 개발에서만 `ALLOW_INSECURE_NO_AUTH=true` 로 우회하세요.
+- 강사 데이터 GET 도 인증 필수입니다. 프론트(마이페이지)는 키를 브라우저에 넣지 말고, 로그인 세션을 검증하는 서버(워커)가 X-API-Key 를 붙여 프록시하는 구조로 연동하세요.
 
 `.env` 에서 `SEED_ON_STARTUP=true` 이면 앱 기동 시 목업이 자동 적재됩니다.
 

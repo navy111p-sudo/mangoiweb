@@ -579,6 +579,22 @@ def _compute_averages(lectures: List[dict]) -> Dict[str, int]:
     return averages
 
 
+def _compute_statuses(
+    averages: Dict[str, int], lectures: List[dict]
+) -> Dict[str, str]:
+    """
+    지표별 상태를 유도하되, 기간 내 데이터가 하나도 없는 지표는 "NoData".
+    ⚠ (2026-07-14 수정) 데이터 없음 → 평균 0 → lower 지표가 "Good"으로 둔갑해
+      측정한 적 없는 항목을 강점으로 칭찬하던 버그 방지. NoData 는
+      강점/개선점 산출(_build_language_view)에서 자동 제외된다.
+    """
+    measured = {c for lec in lectures for c in lec["scores"]}
+    return {
+        c: (_derive_status(c, averages[c]) if c in measured else "NoData")
+        for c in METRIC_ORDER
+    }
+
+
 def _detect_improvement(lectures: List[dict]) -> bool:
     """첫 강의 대비 마지막 강의의 '학생 참여도'가 좋아졌으면 성장 중으로 판단."""
     if len(lectures) < 2:
@@ -634,7 +650,7 @@ def get_instructor_dashboard(
     # ------------------------------------------------------------------
     # (C) 이중 언어 서술 뷰
     # ------------------------------------------------------------------
-    statuses = {c: _derive_status(c, averages[c]) for c in METRIC_ORDER}
+    statuses = _compute_statuses(averages, lectures)
     improved = _detect_improvement(lectures)
 
     english_view = _build_language_view(averages, statuses, improved, "en")
@@ -677,7 +693,9 @@ def _ingest_lecture_tx(tx: Transaction, payload: dict) -> None:
         OPTIONAL MATCH (l)-[:HAS_METRIC]->(old:Metric)
         DETACH DELETE old
 
-        WITH l
+        // ⚠ DISTINCT 필수: OPTIONAL MATCH 가 기존 지표 수(k)만큼 행을 늘리므로,
+        //   이게 없으면 재전송마다 지표가 k×n 으로 기하급수 증식한다 (2026-07-14 수정)
+        WITH DISTINCT l
         UNWIND $metrics AS metric
         CREATE (m:Metric {
             category:    metric.category,
@@ -812,6 +830,7 @@ def _store_report_tx(tx: Transaction, report: dict) -> None:
             r.lectures_count = $lectures_count,
             r.categories     = $categories,
             r.average_scores = $average_scores,
+            r.statuses       = $statuses,
             r.summary_en     = $summary_en,
             r.summary_ko     = $summary_ko,
             r.strengths_en   = $strengths_en,
@@ -854,7 +873,7 @@ def generate_report_for_instructor(
 
     lectures = raw["lectures"]
     averages = _compute_averages(lectures)
-    statuses = {c: _derive_status(c, averages[c]) for c in METRIC_ORDER}
+    statuses = _compute_statuses(averages, lectures)
     improved = _detect_improvement(lectures)
 
     en_view = _build_language_view(averages, statuses, improved, "en")
@@ -871,6 +890,9 @@ def generate_report_for_instructor(
         "lectures_count": len(lectures),
         "categories": METRIC_ORDER,
         "average_scores": [averages[c] for c in METRIC_ORDER],
+        # 지표별 상태 스냅샷 (NoData 포함) — 조회 시 평균 0 을 재판정해 "Good"으로
+        # 둔갑시키지 않도록 생성 시점의 상태를 그대로 저장한다 (2026-07-14)
+        "statuses": [statuses[c] for c in METRIC_ORDER],
         "summary_en": en_view.summary,
         "summary_ko": ko_view.summary,
         "strengths_en": en_view.strengths,
@@ -1003,11 +1025,19 @@ def get_latest_report(
         prev_scores = dict(zip(previous["categories"], previous["average_scores"]))
 
     cur_scores = dict(zip(latest["categories"], latest["average_scores"]))
+    # 생성 시점에 저장된 상태 우선 사용 (NoData 보존). 구버전 리포트(statuses 없음)만 재판정.
+    stored_statuses = dict(zip(latest["categories"], latest.get("statuses") or []))
 
     radar: List[CategoryAverage] = []
     for category in latest["categories"]:
         avg = cur_scores[category]
-        delta = (avg - prev_scores[category]) if category in prev_scores else None
+        status = stored_statuses.get(category) or _derive_status(category, avg)
+        # 데이터 없던 지표는 delta 도 의미 없음 (0 기반 비교 방지)
+        delta = (
+            (avg - prev_scores[category])
+            if category in prev_scores and status != "NoData"
+            else None
+        )
         radar.append(
             CategoryAverage(
                 category=category,
@@ -1015,7 +1045,7 @@ def get_latest_report(
                 label_ko=METRIC_CATALOG[category]["label_ko"],
                 average_score=avg,
                 delta=delta,
-                status=_derive_status(category, avg),
+                status=status,
             )
         )
 
@@ -1168,7 +1198,12 @@ def list_instructors_overview(
             continue
 
         averages = dict(zip(latest["categories"], latest["average_scores"]))
-        statuses = {c: _derive_status(c, averages[c]) for c in METRIC_ORDER}
+        # 저장된 상태 우선 (NoData 보존 + 카탈로그에 없는 category KeyError 방지)
+        stored = dict(zip(latest["categories"], latest.get("statuses") or []))
+        statuses = {
+            c: stored.get(c) or _derive_status(c, averages.get(c, 0))
+            for c in METRIC_ORDER
+        }
         strength_cats = [c for c in METRIC_ORDER if statuses[c] == "Good"]
         bad = [c for c in METRIC_ORDER if statuses[c] == "Bad"]
         warn = [c for c in METRIC_ORDER if statuses[c] == "Warning"]
