@@ -4797,6 +4797,12 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.9"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
         <span id="lang-label">EN</span>
     </button>
+    <!-- 🔐 관리자 페이지 바로 가기 — EN 칩 오른쪽 (미인증이면 서버가 /admin/login 으로 보내 ID/PW 로그인 후 복귀) -->
+    <button id="admin-shortcut-chip" type="button" class="hero-chip hero-chip-admin" title="관리자 페이지 바로 가기"
+            onclick="location.href='/admin.html'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.9"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <span data-ko="관리자" data-en="Admin">관리자</span>
+    </button>
     <style>
       /* 우상단 글래스 칩 (홈 화면 헤더용) */
       .hero-chip{
@@ -4843,6 +4849,20 @@
       #home-theme-toggle.home-theme-chip #home-theme-icon{ font-size:0.95rem; line-height:1; }
       #lang-toggle.hero-chip-lang{ right: 1.1rem; }
       .hero-chip-lang #lang-label{ color:#fde68a; font-weight:800; }
+      /* 🔐 관리자 바로 가기 칩 — 위치는 ph50-chip-row(flex)가 관리(EN 오른쪽).
+         행에 편입되기 전에는 숨겨서 다른 칩과 겹쳐 보이는 깜빡임 방지 */
+      #admin-shortcut-chip.hero-chip-admin{ display:none; }
+      #ph50-chip-row #admin-shortcut-chip.hero-chip-admin{
+        display:inline-flex;
+        background: linear-gradient(135deg, rgba(244,63,94,0.22), rgba(190,18,60,0.20));
+        border-color: rgba(244,63,94,0.55);
+        color: #fecdd3;
+      }
+      #ph50-chip-row #admin-shortcut-chip.hero-chip-admin:hover{
+        background: linear-gradient(135deg, rgba(244,63,94,0.38), rgba(190,18,60,0.32));
+        border-color: rgba(244,63,94,0.85);
+        color: #fff1f2;
+      }
       /* [2026-06-12] 화상통화 로비가 떠 있으면 홈 칩 전부 숨김 — 우상단 두 줄 겹침 방지 */
       body:has(#view-videocall-lobby.active) .hero-chip{ display:none !important; }
       /* 로비 우상단 바: 모바일에서도 한 줄 유지·축소 */
@@ -24104,7 +24124,7 @@ window.addEventListener('DOMContentLoaded', () => {
 (function(){
   'use strict';
   // 🌤️ home-theme-toggle 를 맨 앞(왼쪽)에 → 로그인 바로 왼쪽, flex-row 가 자동 간격(겹침 방지)
-  var CHIP_IDS = ['home-theme-toggle', 'login-btn', 'points-chip', 'lang-toggle'];
+  var CHIP_IDS = ['home-theme-toggle', 'login-btn', 'points-chip', 'lang-toggle', 'admin-shortcut-chip'];
 
   // ★ dismiss flag 정리 — 단, 사용자가 의도적으로 dismiss 한 경우(수업 진입 후) 는 보존
   function ph50StripDismiss() {
@@ -25395,7 +25415,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713173026 -->
+<!-- BUILD:20260713173211 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
