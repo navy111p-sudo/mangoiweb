@@ -142,6 +142,34 @@
     color:#04283a;border-color:var(--accent);box-shadow:0 3px 10px rgba(56,189,248,.4)}
   .ls-ends{display:flex;justify-content:space-between;margin-top:8px;
     font-size:12px;font-weight:700;color:var(--text2)}
+  /* 🎙️ AI 목소리 선택 (여자/남자/번갈아) — 레벨 버튼과 같은 톤 */
+  .voice-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .voice-btns button{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;
+    padding:10px 0;border-radius:10px;border:1px solid var(--border);background:rgba(56,189,248,.06);
+    color:var(--text2);font-size:14px;font-weight:800;transition:transform .08s,background .15s,color .15s}
+  .voice-btns button:hover{background:rgba(56,189,248,.18);color:var(--text)}
+  .voice-btns button:active{transform:scale(.92)}
+  .voice-btns button.on{background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#04283a;border-color:var(--accent);box-shadow:0 3px 10px rgba(56,189,248,.4)}
+  /* 🔥 대화 콤보 칩 — 연속으로 대화할수록 달아오른다 */
+  .chip.combo{background:linear-gradient(135deg,rgba(251,146,60,.25),rgba(239,68,68,.18));
+    border-color:rgba(251,146,60,.55);color:#fdba74;font-weight:800}
+  .chip.combo b{color:#fb923c}
+  .chip.combo.pop{animation:comboPop .35s ease}
+  @keyframes comboPop{0%{transform:scale(1)}40%{transform:scale(1.35) rotate(-4deg)}100%{transform:scale(1)}}
+  /* 🎉 콤보 축하 콘페티 */
+  .confetti{position:fixed;top:-14px;z-index:9999;pointer-events:none;border-radius:2px;
+    animation:confFall linear forwards}
+  @keyframes confFall{
+    0%{transform:translateY(0) rotate(0deg);opacity:1}
+    100%{transform:translateY(105vh) rotate(720deg);opacity:.5}}
+  /* ✨ 보내기 순간 떠오르는 응원 이모지 */
+  .cheer-fly{position:fixed;z-index:9998;pointer-events:none;font-size:26px;
+    animation:cheerUp 1.1s ease-out forwards}
+  @keyframes cheerUp{
+    0%{transform:translateY(0) scale(.7);opacity:0}
+    18%{opacity:1}
+    100%{transform:translateY(-110px) scale(1.25);opacity:0}}
   /* 🎤 마이크 버튼 (입력창 옆) */
   .inbar .mic-btn{flex:0 0 auto;background:linear-gradient(135deg,#22c55e,#16a34a);color:#04240f;
     border:0;border-radius:12px;padding:0 15px;font-size:19px;line-height:1;cursor:pointer;font-family:inherit}
@@ -210,6 +238,16 @@
           <div class="ls-btns" id="lvlBtns" role="radiogroup" aria-label="대화 난이도 선택"></div>
           <div class="ls-ends"><span>🌱 기초</span><span>최고 🚀</span></div>
         </div>
+
+        <!-- 🎙️ AI 목소리: 여자/남자 원어민 선택 + 번갈아(둘 다 섞어서) -->
+        <div class="menu-group">
+          <div class="menu-label"><span>🎙️ AI 목소리</span><span class="ls-now" id="voiceVal">👩 여자</span></div>
+          <div class="voice-btns" id="voiceBtns" role="radiogroup" aria-label="AI 목소리 선택">
+            <button type="button" data-v="female" onclick="setVoiceMode('female',true)">👩 여자</button>
+            <button type="button" data-v="male" onclick="setVoiceMode('male',true)">👨 남자</button>
+            <button type="button" data-v="mix" onclick="setVoiceMode('mix',true)">🔀 번갈아</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -217,6 +255,7 @@
   <div class="wrap">
     <div class="meta">
       <span class="chip topic"><b id="m-topic">자유 대화</b></span>
+      <span class="chip combo" id="comboChip" style="display:none">🔥 <b id="comboN">0</b>콤보</span>
       <span class="chip dim">세션 <b id="m-session">—</b></span>
       <span class="chip dim">서버 <b id="m-server">미연결</b></span>
     </div>
@@ -320,6 +359,40 @@ function renderMsg(s){
 var _enVoice = null, _speechOn = true, _audioUnlocked = false;
 var _lastAiSpeak = null, _speechEverStarted = false;   // 모바일: 차단된 첫 인사를 첫 터치 때 재낭독하기 위한 기록
 
+/* 🎙️ AI 목소리 선택 — 서버 원어민 TTS(Deepgram Aura-1)의 speaker 지정.
+   여자=Emma(asteria) / 남자=Jake(orion) / 번갈아=한 마디씩 남녀 교대. */
+var VOICE_MODES = {
+  female: { label:'👩 여자',  speaker:'asteria' },
+  male:   { label:'👨 남자',  speaker:'orion'   },
+  mix:    { label:'🔀 번갈아' }
+};
+var _voiceMode = 'female', _mixNext = 'female';
+try{ var _sv = localStorage.getItem('mangoi_warmup_voice'); if(VOICE_MODES[_sv]) _voiceMode = _sv; }catch(e){}
+function _voiceGender(){ return _voiceMode==='mix' ? _mixNext : _voiceMode; }
+function nextSpeaker(){
+  var g = _voiceGender();
+  if(_voiceMode==='mix') _mixNext = (_mixNext==='female') ? 'male' : 'female';
+  return VOICE_MODES[g].speaker;
+}
+function setVoiceMode(m, announce){
+  if(!VOICE_MODES[m]) m = 'female';
+  var changed = (m !== _voiceMode);
+  _voiceMode = m; _mixNext = 'female';
+  try{ localStorage.setItem('mangoi_warmup_voice', m); }catch(e){}
+  var box = document.getElementById('voiceBtns');
+  if(box){ var bs = box.querySelectorAll('button');
+    for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-v')===m);
+      bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
+  var v = document.getElementById('voiceVal'); if(v) v.textContent = VOICE_MODES[m].label;
+  _enVoice = null; pickVoice();          // 브라우저 폴백 보이스도 성별에 맞춰 재선택
+  // 바꾸자마자 새 목소리가 직접 인사 → 어떤 목소리인지 바로 들어볼 수 있게
+  if(announce && changed){
+    speak(m==='male' ? "Hi! I'm Jake, your new voice. Let's talk!"
+        : m==='female' ? "Hi! I'm Emma. Nice to meet you!"
+        : "Cool! Now we'll take turns talking to you!");
+  }
+}
+
 /* 🐢🐇 듣기 속도: 1(천천히)~5(빠르게) → speechSynthesis rate 값 매핑 */
 var RATE_STEPS = { 1:0.6, 2:0.8, 3:0.95, 4:1.15, 5:1.4 };
 var RATE_NAMES = { 1:'아주 천천히', 2:'천천히', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
@@ -384,6 +457,11 @@ function _scoreVoice(v){
   if(/natural|neural/.test(n)) s+=70;
   if(/google/.test(n)) s+=60;
   if(/\b(aria|jenny|guy|ava|emma|libby|michelle|jane|nova|sara|samantha|alex|allison)\b/.test(n)) s+=46;
+  // 🎙️ 선택된 성별(여자/남자/번갈아)에 맞는 보이스 우선 — 서버 TTS 실패 폴백 시에도 성별 유지
+  var isMale = /\b(guy|christopher|brian|tom|nathan|evan|daniel|ryan|william|james|eric|steffan|liam|noah|male)\b/.test(n);
+  var isFemale = /\b(aria|jenny|ava|emma|libby|michelle|jane|nova|sara|samantha|allison|zira|hazel|susan|catherine|linda|heera|female|woman)\b/.test(n);
+  if(_voiceGender()==='male'){ if(isMale) s+=80; else if(isFemale) s-=40; }
+  else { if(isFemale) s+=80; else if(isMale) s-=40; }
   if(/online|premium|enhanced|plus/.test(n)) s+=24;
   if(v.localService===false) s+=30;
   if(/zira|david|mark|hazel|george|desktop|compact|espeak/.test(n)) s-=50;
@@ -400,6 +478,7 @@ function pickVoice(){
   }catch(e){}
 }
 try{ if(window.speechSynthesis){ pickVoice(); window.speechSynthesis.onvoiceschanged=pickVoice; } }catch(e){}
+setVoiceMode(_voiceMode);   // 저장된 목소리 선택으로 버튼/표시 초기화 (announce 없음)
 
 /* 클라우드 원어민 TTS(오디오 파일) 우선 재생 — 안드로이드 앱(WebView)처럼
    speechSynthesis 가 없거나 무음인 기기에서도 소리가 나게 한다.
@@ -437,12 +516,14 @@ function speak(text, btn){
         .catch(function(){ done(); });   // 자동재생 차단 — 첫 터치(unlockAudio)에서 재시도됨
     }catch(e){ done(); _synthSpeak(text, btn); }
   };
-  if(_ttsCache[text]){ play(_ttsCache[text]); return; }
+  var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 남녀 교대)
+  var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
+  if(_ttsCache[key]){ play(_ttsCache[key]); return; }
   fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ text:text, lang:'en' }) })
+      body: JSON.stringify({ text:text, lang:'en', speaker:spk }) })
     .then(function(r){ var ct=r.headers.get('content-type')||'';
       if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
-    .then(function(b){ var u=URL.createObjectURL(b); _ttsCache[text]=u; play(u); })
+    .then(function(b){ var u=URL.createObjectURL(b); _ttsCache[key]=u; play(u); })
     .catch(function(){ _synthSpeak(text, btn); });   // 서버 TTS 실패 → 브라우저 음성 폴백
 }
 // 모바일 자동재생 정책: 첫 사용자 제스처에서 speechSynthesis 를 깨워둔다(무음 발화)
@@ -615,6 +696,77 @@ function updateTopicChip(){
   fallbackGreeting();
 })();
 
+/* ══════════════════════════════════════════════════════════════════
+   🎉 재미 요소 — 대화 콤보 · 콘페티 · 응원 이모지 · 팡파레
+   학생이 한 마디 보낼 때마다 콤보가 쌓이고, 고비마다 축하가 터진다.
+   ══════════════════════════════════════════════════════════════════ */
+var _combo = 0;
+var COMBO_MILESTONES = {
+  3:'🔥 3콤보! 대화에 불이 붙었어요!',
+  5:'⚡ 5콤보! 영어가 술술 나오는데요?',
+  7:'🎉 7콤보! 오늘 컨디션 최고!',
+  10:'🏆 10콤보! 웜업 챔피언 등극!',
+  15:'💯 15콤보! 선생님도 깜짝 놀랄 실력!',
+  20:'👑 20콤보! 전설의 수다왕!'
+};
+function bumpCombo(){
+  _combo++;
+  var chip=document.getElementById('comboChip'), n=document.getElementById('comboN');
+  if(n) n.textContent=_combo;
+  if(chip && _combo>=2){ chip.style.display='inline-block';
+    chip.classList.remove('pop'); void chip.offsetWidth; chip.classList.add('pop'); }
+  cheerFly();
+  var msg=COMBO_MILESTONES[_combo];
+  if(msg){ addMsg(msg,'sys'); confettiBurst(); fanfare(); }
+}
+/* ✨ 보내기 순간 입력줄 위로 떠오르는 응원 이모지 */
+function cheerFly(){
+  try{
+    var pool=['✨','🔥','👍','💪','🥳','⭐','💯'];
+    var e=document.createElement('span'); e.className='cheer-fly';
+    e.textContent=pool[Math.floor(Math.random()*pool.length)];
+    var bar=document.querySelector('.inbar');
+    var r=bar?bar.getBoundingClientRect():{left:40,top:(window.innerHeight-90),width:220};
+    e.style.left=(r.left + 20 + Math.random()*Math.max(60, r.width-90))+'px';
+    e.style.top=(r.top-8)+'px';
+    document.body.appendChild(e); setTimeout(function(){ e.remove(); },1200);
+  }catch(e){}
+}
+/* 🎊 콤보 고비 축하 콘페티 */
+function confettiBurst(){
+  try{
+    var colors=['#fbbf24','#38bdf8','#34d399','#f472b6','#a78bfa','#fb923c'];
+    for(var i=0;i<26;i++){
+      var c=document.createElement('div'); c.className='confetti';
+      c.style.left=(Math.random()*100)+'vw';
+      c.style.width=(6+Math.random()*6)+'px'; c.style.height=(8+Math.random()*8)+'px';
+      c.style.background=colors[i%colors.length];
+      c.style.animationDuration=(1.4+Math.random()*1.2)+'s';
+      c.style.animationDelay=(Math.random()*0.25)+'s';
+      document.body.appendChild(c);
+      (function(el){ setTimeout(function(){ el.remove(); },3200); })(c);
+    }
+  }catch(e){}
+}
+/* 🎺 짧은 축하 팡파레(도-미-솔) — WebAudio 합성이라 파일이 필요 없다 */
+function fanfare(){
+  try{
+    if(!_speechOn) return;   // 음소거면 효과음도 끔
+    var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    if(!fanfare._ctx) fanfare._ctx=new AC();
+    var ctx=fanfare._ctx, t=ctx.currentTime;
+    [523.25,659.25,783.99].forEach(function(f,i){
+      var o=ctx.createOscillator(), g=ctx.createGain();
+      o.type='triangle'; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001, t+i*0.09);
+      g.gain.exponentialRampToValueAtTime(0.12, t+i*0.09+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+i*0.09+0.28);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t+i*0.09); o.stop(t+i*0.09+0.3);
+    });
+  }catch(e){}
+}
+
 /* ── 5. 전송 ────────────────────────────────────────────────────── */
 var sending = false;
 function saveApi(v){
@@ -628,6 +780,7 @@ async function sendMsg(){
   if(!text || sending) return;
 
   addMsg(text, 'me'); inp.value = '';
+  bumpCombo();                              // 🔥 한 마디마다 콤보 적립 + 고비마다 축하
   sending = true; document.getElementById('sendBtn').disabled = true;
 
   var typing = document.createElement('div');
@@ -671,6 +824,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260713172015 -->
+<!-- BUILD:20260713173026 -->
 </body>
 </html>
