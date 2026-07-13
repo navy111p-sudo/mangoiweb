@@ -64,3 +64,11 @@ export function csvResponse(filename: string, csv: string): Response {
     }
   });
 }
+
+/** KST 기준 YYYY-MM-DD (api-mango.ts 에서 이동, 11차) */
+export const today = (ts: number = Date.now()) => {
+  const d = new Date(ts);
+  // KST 기준 날짜
+  const kst = new Date(d.getTime() + 9 * 3600 * 1000);
+  return kst.toISOString().slice(0, 10);
+};
