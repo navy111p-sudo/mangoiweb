@@ -89,6 +89,9 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 | 2026-07-14 | 1 | Phase BG(배지3)+ST(스트릭4) → `api-games.ts` 3차, 클로저 3종 env 파라미터화(checkAndAwardBadges 는 export 로 api-mango 영작이 역수입), reconcileAllStreaks·computeAttendanceStreak 동반 이동(index.ts cron import 변경), api-mango 14,223→13,777줄 | ✅ tsc·드라이런·게이트 배포·스모크 15/15 |
 | 2026-07-14 | 1 | 학부모 도메인 → 신규 `api-students.ts`(357줄) 4차: PD 대시보드·자녀연결·WD 다이제스트·PFB 상담챗봇 9라우트, api-mango 13,777→13,462줄 | ✅ tsc·드라이런·게이트 배포·스모크 15/15 + 이동라우트 4종 배포 전후 응답 대조 일치 |
 | 2026-07-14 | 1 | 5차: Phase LOGIN(학생 로그인·가입 4라우트) → `api-students.ts` + **UID토큰 클로저 중복제거**(검증 7곳→authUidGlobal, 발급→auth-token.signUidToken 신설, 게스트토큰 포함), api-mango 13,462→13,255줄 | ✅ tsc·게이트 배포·스모크 15/15 + 기준응답 4종 일치 + **실로그인→토큰발급→보호API 통과 E2E 확인** |
+| 2026-07-14 | 1 | 6차(admin 1회차): 통계/KPI 6라우트(읽기전용) → 신규 `api-admin.ts` — stats/today·kpi/dashboard·revenue·rankings·flow·storage, api-mango 13,255→12,665줄 | ✅ tsc·게이트 배포·스모크 15/15 + 401 기준 일치 |
+| 2026-07-14 | 1 | 7차(admin 2회차): Phase G1~G2 통째(781줄) — payroll 7 + 수업연기 SR 3 + 피드백초안 FD 3 → `api-admin.ts`(1,415줄), api-mango 12,665→11,888줄 | ✅ tsc(누락 import 검출→보강)·게이트 배포·스모크 15/15 + 401 기준 일치 |
+| | | (다음: admin 3회차 = 강사관리 슈퍼블록 — Phase 34 teacher-profiles CRUD+teachers+evaluation+잔여 payroll 4(rates/all/finalize/seed-demo)+모듈상수 클러스터(246-470, ensurePayrollSchema·calcPayrollOne 밀결합이라 반드시 한 덩어리로) | |
 | | | | |
 
 ### 분리 작업 표준 절차 (1단계에서 확립된 패턴)
