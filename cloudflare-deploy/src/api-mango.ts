@@ -1180,7 +1180,8 @@ export async function handleMangoApi(
     // ═══════════════════════════════════════════════════════════════
     // 🛡️ 관리자 통계/KPI → api-admin.ts 로 분리 (REFACTOR_PLAN 1단계, admin 1회차)
     // ═══════════════════════════════════════════════════════════════
-    if (path.startsWith('/api/admin/homework') || path.startsWith('/api/eval/')
+    if (path.startsWith('/api/calendar') || path.startsWith('/api/admin/calendar')
+        || path.startsWith('/api/admin/homework') || path.startsWith('/api/eval/')
         || path.startsWith('/api/admin/eval/')) {
       const rLessons = await handleLessonsApi(request, url, env);
       if (rLessons) return rLessons;
@@ -1456,121 +1457,7 @@ export async function handleMangoApi(
 
     // (📢 Phase POP 팝업/공지·포스터 16라우트 → api-admin.ts — admin 4회차)
 
-    // ═══════════════════════════════════════════════════════════════
-    // 📅 Phase CAL — 캘린더 (교사 휴가 + 한국/필리핀 공휴일)
-    //   · 추가/시드 시 community_posts(공지사항 + 최신 알림 피드)에 자동 등록
-    //   · 자동 색상: 휴가=주황, 한국 공휴일=빨강, 필리핀 공휴일=파랑
-    // ═══════════════════════════════════════════════════════════════
-    const ensureCalendarTable = async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS calendar_events (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, title TEXT NOT NULL, date TEXT NOT NULL, end_date TEXT, country TEXT, teacher_id TEXT, teacher_name TEXT, color TEXT, note TEXT, source TEXT DEFAULT 'manual', created_at INTEGER NOT NULL);`);
-      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_cal_date ON calendar_events(date);`); } catch {}
-    };
-    const calColor = (type: string, country?: string | null): string => {
-      if (type === 'vacation') return '#f59e0b';
-      if (country === 'PH') return '#3b82f6';
-      return '#ef4444';
-    };
-    const calPost = async (title: string, body: string) => {
-      try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS community_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT, author TEXT, pinned INTEGER DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-        const now = Date.now();
-        await env.DB.prepare(`INSERT INTO community_posts (title, body, author, pinned, created_at, updated_at) VALUES (?,?,?,?,?,?)`)
-          .bind(title, body, '📅 캘린더', 0, now, now).run();
-      } catch {}
-    };
-    // 2026 공휴일 내장 (출처: 대한민국 관공서 공휴일 / 필리핀 Proclamation No. 1006)
-    const HOLIDAYS_2026: Record<string, Array<[string, string]>> = {
-      KR: [
-        ['2026-01-01', '신정'],
-        ['2026-02-16', '설날 연휴'], ['2026-02-17', '설날'], ['2026-02-18', '설날 연휴'],
-        ['2026-03-01', '삼일절'], ['2026-03-02', '대체공휴일(삼일절)'],
-        ['2026-05-05', '어린이날'],
-        ['2026-05-24', '부처님오신날'], ['2026-05-25', '대체공휴일(부처님오신날)'],
-        ['2026-06-06', '현충일'],
-        ['2026-08-15', '광복절'], ['2026-08-17', '대체공휴일(광복절)'],
-        ['2026-09-24', '추석 연휴'], ['2026-09-25', '추석'], ['2026-09-26', '추석 연휴'],
-        ['2026-10-03', '개천절'], ['2026-10-05', '대체공휴일(개천절)'],
-        ['2026-10-09', '한글날'],
-        ['2026-12-25', '크리스마스'],
-      ],
-      PH: [
-        ['2026-01-01', "New Year's Day"],
-        ['2026-02-17', 'Chinese New Year'],
-        ['2026-04-02', 'Maundy Thursday'], ['2026-04-03', 'Good Friday'], ['2026-04-04', 'Black Saturday'],
-        ['2026-04-09', 'Araw ng Kagitingan'],
-        ['2026-05-01', 'Labor Day'],
-        ['2026-06-12', 'Independence Day'],
-        ['2026-08-21', 'Ninoy Aquino Day'], ['2026-08-31', 'National Heroes Day'],
-        ['2026-11-01', "All Saints' Day"], ['2026-11-02', "All Souls' Day"], ['2026-11-30', 'Bonifacio Day'],
-        ['2026-12-08', 'Immaculate Conception'], ['2026-12-24', 'Christmas Eve'],
-        ['2026-12-25', 'Christmas Day'], ['2026-12-30', 'Rizal Day'], ['2026-12-31', 'Last Day of the Year'],
-      ],
-    };
-
-    // ── GET /api/calendar/events?from=YYYY-MM-DD&to=YYYY-MM-DD (공개: 캘린더/학생 표시용) ──
-    if (method === 'GET' && path === '/api/calendar/events') {
-      await ensureCalendarTable();
-      const from = (url.searchParams.get('from') || '').trim();
-      const to = (url.searchParams.get('to') || '').trim();
-      let q = `SELECT * FROM calendar_events`; const binds: any[] = [];
-      if (from && to) { q += ` WHERE date <= ? AND COALESCE(end_date, date) >= ?`; binds.push(to, from); }
-      q += ` ORDER BY date ASC, id ASC`;
-      const rs = await env.DB.prepare(q).bind(...binds).all();
-      return json({ ok: true, events: rs.results || [] });
-    }
-
-    // ── POST /api/admin/calendar/events (모든 관리자) — 단건 추가 (휴가/공휴일) ──
-    if (method === 'POST' && path === '/api/admin/calendar/events') {
-      await ensureCalendarTable();
-      const b: any = await request.json().catch(() => ({}));
-      const type = (b.event_type === 'holiday') ? 'holiday' : 'vacation';
-      const title = (b.title || '').toString().trim();
-      const date = (b.date || '').toString().trim();
-      if (!title || !date) return json({ ok: false, error: 'title_and_date_required' }, 400);
-      const end_date = (b.end_date || '').toString().trim() || null;
-      const country = (b.country || '').toString().trim() || null;
-      const teacher_name = (b.teacher_name || '').toString().trim() || null;
-      const note = (b.note || '').toString().trim() || null;
-      const color = (b.color || '').toString().trim() || calColor(type, country);
-      const now = Date.now();
-      const ins = await env.DB.prepare(`INSERT INTO calendar_events (event_type,title,date,end_date,country,teacher_id,teacher_name,color,note,source,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
-        .bind(type, title, date, end_date, country, null, teacher_name, color, note, 'manual', now).run();
-      const span = (end_date && end_date !== date) ? `${date} ~ ${end_date}` : date;
-      const label = (type === 'vacation')
-        ? `🏖 교사 휴가 — ${teacher_name ? teacher_name + ' ' : ''}${title}`
-        : `📅 공휴일 — ${title}${country ? ' (' + country + ')' : ''}`;
-      await calPost(label, `${span}${note ? '\n' + note : ''}`);
-      return json({ ok: true, id: (ins as any).meta?.last_row_id, color });
-    }
-
-    // ── DELETE /api/admin/calendar/events/:id ──
-    if (method === 'DELETE' && /^\/api\/admin\/calendar\/events\/\d+$/.test(path)) {
-      await ensureCalendarTable();
-      const id = parseInt(path.split('/').pop() || '0', 10);
-      await env.DB.prepare(`DELETE FROM calendar_events WHERE id=?`).bind(id).run();
-      return json({ ok: true });
-    }
-
-    // ── POST /api/admin/calendar/seed-holidays — 2026 한국/필리핀 공휴일 일괄 등록(중복 자동 skip) ──
-    if (method === 'POST' && path === '/api/admin/calendar/seed-holidays') {
-      await ensureCalendarTable();
-      const b: any = await request.json().catch(() => ({}));
-      const countries: string[] = (Array.isArray(b.countries) && b.countries.length) ? b.countries : ['KR', 'PH'];
-      const now = Date.now();
-      let added = 0;
-      for (const c of countries) {
-        const list = HOLIDAYS_2026[c]; if (!list) continue;
-        for (const [date, name] of list) {
-          const exists: any = await env.DB.prepare(`SELECT id FROM calendar_events WHERE event_type='holiday' AND date=? AND country=? AND title=?`).bind(date, c, name).first();
-          if (exists) continue;
-          await env.DB.prepare(`INSERT INTO calendar_events (event_type,title,date,end_date,country,teacher_id,teacher_name,color,note,source,created_at) VALUES ('holiday',?,?,?,?,?,?,?,?,'seed',?)`)
-            .bind(name, date, null, c, null, null, calColor('holiday', c), null, now).run();
-          added++;
-        }
-      }
-      if (added > 0) await calPost(`📅 2026 공휴일 ${added}건 자동 등록`, `${countries.join('/')} 공휴일이 캘린더에 추가되었습니다.`);
-      return json({ ok: true, added });
-    }
+    // (📅 Phase CAL 캘린더 3라우트 → api-lessons.ts — 13차)
 
     // ═══════════════════════════════════════════════════════════════
     // 🌐 i18n 자동번역 — 사전(DICT)에 없는 한국어 UI 텍스트를 AI로 ko→en 번역 (+KV 캐시)
