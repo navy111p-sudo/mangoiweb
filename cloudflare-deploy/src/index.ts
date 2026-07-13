@@ -6,7 +6,8 @@
 import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
-import { handleMangoApi, runMonthlyReports, reconcileAllStreaks } from './api-mango';
+import { handleMangoApi, runMonthlyReports } from './api-mango';
+import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
 import { handlePayApi, runPaymentAudit } from './api-pay';
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
 import { handleRetentionIngest, getRetention, markRetentionContacted, getRetentionSettings, setRetentionSettings, previewRetentionMessage, sendRetentionMessages, runRetentionAutoSend } from './api-retention';
