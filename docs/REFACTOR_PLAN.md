@@ -88,6 +88,7 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 | 2026-07-14 | 1 | Phase RQ(복습퀴즈 학생6+관리자6) → `api-games.ts` 2차 합류, 위임 4-prefix 통합(RQ 자리), api-mango 14,725→14,223줄 | ✅ tsc·드라이런 통과 + 두 워커 배포 + 실서버 스모크 OK(rq list/auto). ⚠ 다음 후보 메모: parent/student 는 7구역 산재라 블록이동 불가(라우트별 이동 필요), BG·ST 는 checkAndAwardBadges 클로저를 12604줄(ST 밖)이 공유 → env 파라미터화 후 함께 이동해야 함 |
 | 2026-07-14 | 1 | Phase BG(배지3)+ST(스트릭4) → `api-games.ts` 3차, 클로저 3종 env 파라미터화(checkAndAwardBadges 는 export 로 api-mango 영작이 역수입), reconcileAllStreaks·computeAttendanceStreak 동반 이동(index.ts cron import 변경), api-mango 14,223→13,777줄 | ✅ tsc·드라이런·게이트 배포·스모크 15/15 |
 | 2026-07-14 | 1 | 학부모 도메인 → 신규 `api-students.ts`(357줄) 4차: PD 대시보드·자녀연결·WD 다이제스트·PFB 상담챗봇 9라우트, api-mango 13,777→13,462줄 | ✅ tsc·드라이런·게이트 배포·스모크 15/15 + 이동라우트 4종 배포 전후 응답 대조 일치 |
+| 2026-07-14 | 1 | 5차: Phase LOGIN(학생 로그인·가입 4라우트) → `api-students.ts` + **UID토큰 클로저 중복제거**(검증 7곳→authUidGlobal, 발급→auth-token.signUidToken 신설, 게스트토큰 포함), api-mango 13,462→13,255줄 | ✅ tsc·게이트 배포·스모크 15/15 + 기준응답 4종 일치 + **실로그인→토큰발급→보호API 통과 E2E 확인** |
 | | | | |
 
 ### 분리 작업 표준 절차 (1단계에서 확립된 패턴)
