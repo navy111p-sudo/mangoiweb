@@ -14,9 +14,10 @@ const browser = await puppeteer.launch({
   executablePath: CHROME, headless: 'new',
   args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'],
 });
+// A/B 는 데스크톱 뷰포트 (모바일에선 ph51 이 환영음성 자체를 무력화해 A 시나리오가 성립 안 함)
 const page = await browser.newPage();
 page.on('pageerror', e => console.log('  [pageerror]', String(e).slice(0, 160)));
-await page.setViewport({ width: 440, height: 900, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+await page.setViewport({ width: 1280, height: 800 });
 await page.goto(BASE + '/index.html', { waitUntil: 'domcontentloaded' });
 await new Promise(r => setTimeout(r, 1500));
 
@@ -94,21 +95,28 @@ const b = await page.evaluate(async () => {
 chk('B-1 폴링 URL = /api/room-media/', b.some(u => u.includes('/api/room-media/harness-room')), JSON.stringify(b));
 chk('B-2 room-status 는 더 이상 폴링 안 함', !b.some(u => u.includes('/api/room-status/')), JSON.stringify(b));
 
-/* ── C) 내 박스 숨김 상태에서 포인트 축하 연출 ── */
-const c = await page.evaluate(async () => {
+/* ── C) 내 박스 숨김 상태에서 포인트 축하 연출 — 세로 모바일, 참여자 3명(스크린샷 재현) ── */
+const mpage = await browser.newPage();
+mpage.on('pageerror', e => console.log('  [pageerror-m]', String(e).slice(0, 160)));
+await mpage.setViewport({ width: 440, height: 900, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+await mpage.goto(BASE + '/index.html', { waitUntil: 'domcontentloaded' });
+await new Promise(r => setTimeout(r, 1500));
+const c = await mpage.evaluate(async () => {
   try { localStorage.setItem('mangoi_user_role', 'student'); } catch(e){}
   document.querySelectorAll('.view.active').forEach(v => v.classList.remove('active'));
   document.getElementById('view-videocall-call').classList.add('active');
   document.body.classList.add('vc-in-call');
-  const row = document.querySelector('.vc-main-row'); if (row) row.classList.add('video-pip');
-  // 원격 박스 추가해 data-count=2 → 세로폰 규칙으로 내 박스 숨김
+  // 원격 박스 2개 추가해 data-count=3 (참여자 3명) → 세로폰 규칙으로 내 박스 숨김
+  //   (data-count=2 는 1:1 전용 '둘 다 보이기' 규칙이 있어 숨김이 아님)
   const grid = document.getElementById('vc-video-grid');
-  if (grid && !document.getElementById('vc-video-peer1')) {
-    const peer = document.createElement('div');
-    peer.className = 'video-box'; peer.id = 'vc-video-peer1';
-    grid.appendChild(peer);
-    grid.setAttribute('data-count', '2');
-  }
+  ['vc-video-peer1', 'vc-video-peer2'].forEach(function(id){
+    if (grid && !document.getElementById(id)) {
+      const peer = document.createElement('div');
+      peer.className = 'video-box'; peer.id = id;
+      grid.appendChild(peer);
+    }
+  });
+  if (grid) grid.setAttribute('data-count', '3');
   const out = {};
   out.localHidden = (function(){ const el = document.getElementById('vc-local-box'); return !el || el.offsetWidth === 0; })();
   // 로그인 없음 → 로컬 연출만 (서버 호출 없음)
