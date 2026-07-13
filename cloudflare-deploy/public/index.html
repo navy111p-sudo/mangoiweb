@@ -346,9 +346,12 @@
             position: absolute;
             top: 18%;
             left: -1%;
-            /* 검색창·수업입장 버튼을 가리지 않도록 화면 왼쪽에만 머무는 크기 (기존 900px → 최대 560px) */
-            width: min(30vw, 560px);
-            height: min(39vw, 730px);
+            /* 검색창·수업입장 버튼을 가리지 않도록 화면 왼쪽에만 머무는 크기
+               (2026-07-13 재축소: 560px → 430px. 1366px 폭 PC에서 30vw=410px가
+               수업입장 버튼(x343~)과 실제로 겹쳐 '버튼이 안 보인다' 신고 — idle 부유
+               +14px 드리프트까지 감안해 우측 끝이 항상 버튼 왼쪽에 머물도록 23vw로) */
+            width: min(23vw, 430px);
+            height: min(30vw, 560px);
             /* 검색창(hero z2)·타이틀보다 뒤에 깔리도록 z-index 3 → 1 */
             z-index: 1;
             pointer-events: none;
@@ -3820,7 +3823,11 @@
     //   강사 재접속(백오프 최대 16초+재입장+ICE 협상)이 끝나기 전에 수업이 종료됐다.
     //   → 명시적 퇴장(left)은 기존 ~25초, 그 외(dropped/미상)는 ~60초 재연결 유예.
     var FAST_TICKS  = 5;    // 5초 × 5  ≈ 25초 (명시적 퇴장 안전망 — 기존 동작 유지)
-    var GRACE_TICKS = 12;   // 5초 × 12 ≈ 60초 (끊김 재연결 유예)
+    // ⏳ (2026-07-13 3차) 60초 유예로도 "수업 도중 갑자기 종료" 신고 재발.
+    //   강사 폰이 백그라운드로 가거나 망 전환(와이파이↔LTE)이 길어지면 60초를 넘긴다.
+    //   유예 동안 "재연결 중…" 배너가 떠 있어 학생이 상황을 알 수 있으므로,
+    //   조기 종료(수업 날림)보다 오래 기다리는 쪽이 항상 덜 해롭다 → 3분으로 연장.
+    var GRACE_TICKS = 36;   // 5초 × 36 ≈ 180초 (끊김 재연결 유예)
     var iv = setInterval(function(){
       try {
         if (STATE.triggered) { clearInterval(iv); return; }
@@ -14763,6 +14770,54 @@ function vcTogglePip(btn) {
   }
 }
 
+/* 📌 (2026-07-13) PIP 이용 안내 — "PIP 화면 적극 이용 권장" 지시.
+   숨어 있는 "📌 PIP" 버튼을 사용자가 스스로 찾기 어렵다는 피드백에 따라,
+   수업 입장 후 상대방 영상이 처음 잡히는 순간 버튼을 펄스시키고 말풍선으로
+   용도를 설명한다. 수업(세션)당 1회, 누적 3번까지만 보여주고 그 뒤엔 침묵. */
+(function(){
+  var KEY = 'mangoi_pip_tip_cnt';
+  var shownThisCall = false;
+  var style = document.createElement('style');
+  style.textContent =
+    '@keyframes vcPipNudge{0%,100%{box-shadow:0 0 0 0 rgba(252,211,77,.75)}50%{box-shadow:0 0 0 9px rgba(252,211,77,0)}}' +
+    '#vc-pip-btn.vc-pip-nudge{animation:vcPipNudge 1.1s ease-in-out 5}' +
+    '.vc-pip-tip{position:fixed;z-index:2147483000;max-width:250px;padding:10px 14px;border-radius:12px;' +
+    'background:#1f2937;color:#fde68a;font-size:13px;font-weight:600;line-height:1.45;' +
+    'box-shadow:0 8px 24px rgba(0,0,0,.5);cursor:pointer;border:1px solid rgba(252,211,77,.5)}';
+  document.head.appendChild(style);
+  setInterval(function(){
+    try {
+      if (!document.body || !document.body.classList.contains('vc-in-call')) { shownThisCall = false; return; }
+      if (shownThisCall || (typeof _vcPipActive !== 'undefined' && _vcPipActive)) return;
+      var cnt = parseInt(localStorage.getItem(KEY) || '0', 10);
+      if (cnt >= 3) return;
+      var remote = 0;
+      try { remote = Object.keys(window.vcPeerConnections || {}).length; } catch(e){}
+      if (!remote) return;                                    // 상대가 들어와야 PIP 가 의미 있음
+      var btn = document.getElementById('vc-pip-btn');
+      if (!btn) return;
+      var r = btn.getBoundingClientRect();
+      if (!r.width || !r.height) return;                      // 버튼이 안 보이는 레이아웃(모바일 등)이면 안내 생략
+      shownThisCall = true;
+      localStorage.setItem(KEY, String(cnt + 1));
+      btn.classList.add('vc-pip-nudge');
+      var tip = document.createElement('div');
+      tip.className = 'vc-pip-tip';
+      var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+      tip.textContent = en
+        ? '📌 Try PIP! Keep the other person\'s face in a small floating window while you view the textbook.'
+        : '📌 PIP를 눌러보세요! 교재를 보면서도 상대방 얼굴을 작은 창으로 계속 띄워둘 수 있어요.';
+      tip.style.left = Math.max(8, Math.min(window.innerWidth - 260, r.left - 40)) + 'px';
+      tip.style.top = (r.bottom + 10) + 'px';
+      document.body.appendChild(tip);
+      var gone = false;
+      function cleanup(){ if (gone) return; gone = true; try { tip.remove(); btn.classList.remove('vc-pip-nudge'); } catch(e){} }
+      tip.addEventListener('click', function(){ cleanup(); try { vcTogglePip(); } catch(e){} });
+      setTimeout(cleanup, 12000);
+    } catch(e){}
+  }, 3000);
+})();
+
 /* 좌측 video-pane 의 비디오를 PIP 영역에 복제 (참조만, 스트림 추가 안 함)
    🥭 (2026-07-13) PIP에는 '상대방 1명'만 — 전체 복제 대신 vc-pip-primary(대표 상대방)
    비디오 하나만 복제한다. 내 화면·다른 참가자는 PIP에 넣지 않음(사장님 요청). */
@@ -16728,18 +16783,64 @@ function vpClearRemote() {
     document.getElementById('vp-url').value = '';
 }
 
-function vpUploadFile(input) {
+async function vpUploadFile(input) {
     const f = input.files && input.files[0];
     if (!f) return;
-    const url = URL.createObjectURL(f);
+    input.value = '';   // 같은 파일을 다시 선택해도 change 가 뜨도록 초기화
     const stage = vpIsFloating ? document.getElementById('vp-floating-body') : document.getElementById('vp-stage');
-    stage.innerHTML = '';
-    const vid = document.createElement('video');
-    vid.src = url;
-    vid.controls = true;
-    vid.autoplay = true;
-    vid.playsInline = true;
-    stage.appendChild(vid);
+    const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    // 🩹 (2026-07-13) 옛 코드는 URL.createObjectURL(로컬 blob)을 붙여 '올린 사람만 보이는' 재생이었다.
+    //   blob: 주소는 다른 참가자가 접근할 수 없다. 이제 서버(R2)에 올린 뒤 그 URL 을
+    //   video-share 로 방 전체에 전파 → 학생·강사 누구든 파일 자료를 진짜로 공유할 수 있다.
+    const lower = (f.name || '').toLowerCase();
+    if (!/\.(mp4|webm|mov|m4v)$/.test(lower)) {
+        alert(en ? 'Only MP4 / WEBM / MOV video files can be shared.' : 'MP4 / WEBM / MOV 동영상 파일만 공유할 수 있습니다.');
+        return;
+    }
+    if (f.size > 100 * 1024 * 1024) {
+        alert(en ? 'Video is too large (max 100MB).' : '동영상이 너무 큽니다 (최대 100MB).');
+        return;
+    }
+    const mb = Math.max(1, Math.round(f.size / 1024 / 1024));
+    stage.innerHTML = '<div class="vp-empty">' + (en ? '⏳ Uploading… (' + mb + 'MB) — it will appear on everyone\'s screen.' : '⏳ 업로드 중… (' + mb + 'MB) — 완료되면 모두의 화면에 나옵니다.') + '</div>';
+    let sendType = f.type;
+    if (!sendType) {
+        if (lower.endsWith('.webm')) sendType = 'video/webm';
+        else if (lower.endsWith('.mov')) sendType = 'video/quicktime';
+        else if (lower.endsWith('.m4v')) sendType = 'video/x-m4v';
+        else sendType = 'video/mp4';
+    }
+    try {
+        const qs = new URLSearchParams({ roomId: vcRoomId || '', filename: f.name || 'video.mp4' }).toString();
+        const res = await fetch('/api/video-call/upload-pdf?' + qs, {
+            method: 'POST',
+            headers: { 'Content-Type': sendType },
+            body: f
+        });
+        const result = await res.json();
+        if (!(result && result.success && result.url)) throw new Error((result && result.error) || 'upload failed');
+        const abs = location.origin + result.url;
+        window._vcShownVideoUrl = abs;   // 발신자 자신은 room-media 폴링이 다시 로드하지 않도록 기록
+        if (vcConn) vcConn.send({ type: 'video-share', data: { url: abs, type: 'file' } });
+        stage.innerHTML = '';
+        const vid = document.createElement('video');
+        vid.src = abs;
+        vid.controls = true;
+        vid.autoplay = true;
+        vid.playsInline = true;
+        stage.appendChild(vid);
+    } catch (e) {
+        console.warn('[vpUploadFile] 서버 공유 실패, 로컬 재생 폴백:', e);
+        // 실패해도 최소한 본인 화면에서는 재생 (기존 동작 유지)
+        stage.innerHTML = '';
+        const vid = document.createElement('video');
+        vid.src = URL.createObjectURL(f);
+        vid.controls = true;
+        vid.autoplay = true;
+        vid.playsInline = true;
+        stage.appendChild(vid);
+        alert((en ? 'Upload failed — playing on your screen only: ' : '업로드에 실패해 내 화면에서만 재생됩니다: ') + (e && e.message || e));
+    }
 }
 
 function vpClear() {
@@ -26379,7 +26480,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713211737 -->
+<!-- BUILD:20260713213435 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -26408,23 +26509,9 @@ window.addEventListener('DOMContentLoaded', () => {
 <script id="fix-v3-sw-kill">
 (function(){
   'use strict';
-  // === 1) Service Worker 완전 unregister + 캐시 삭제 (한 번만) ===
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(regs){
-      regs.forEach(function(r){
-        console.log('[fix-v3] SW unregister:', r.scope);
-        r.unregister();
-      });
-    }).catch(function(){});
-  }
-  if (window.caches) {
-    caches.keys().then(function(keys){
-      keys.forEach(function(k){
-        console.log('[fix-v3] cache delete:', k);
-        caches.delete(k);
-      });
-    }).catch(function(){});
-  }
+  // === 1) (2026-07-13 제거) SW unregister + 캐시 전삭제 블록 삭제 ===
+  //   매 로드마다 SW를 지우고 캐시를 비워 ph58이 고친 '첫 진입 2~3회 깜빡임'을
+  //   되살리고 있었음. SW 등록/갱신은 정식 등록부(30초 가드 포함)가 전담한다.
 
   // === 2) 카테고리 카드 가벼운 바인딩 (한 번만, setInterval 없음) ===
   function bindCategoryCards(){
@@ -29911,6 +29998,37 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     });
     document.addEventListener("visibilitychange", function(){ if(document.hidden) mangoiStopVoice(); });
     window.addEventListener("pagehide", mangoiStopVoice);
+    // 🔇 (2026-07-13) 수업 입장 시 상담사 iframe 물리 차단 — "수업 중 상담사 목소리" 신고 대응.
+    //   display:none(CSS 숨김)은 iframe 내부 오디오를 못 끊고, postMessage("mangoi-stop")는
+    //   외부 워커 페이지가 이행해야만 듣는 '부탁'이다. 수업 중에는 src 를 about:blank 로
+    //   교체해 소리를 원천 차단하고, 수업이 끝나면 원래 주소로 복원한다.
+    (function(){
+      var fr = document.getElementById("mangoi-frame");
+      if (!fr || !window.MutationObserver) return;
+      var savedSrc = fr.getAttribute("src");
+      var inCall = false;   // sync() 첫 호출이 현재 상태를 반영하도록 항상 false 에서 출발
+      function sync(){
+        var now = document.body.classList.contains("vc-in-call");
+        if (now === inCall) return;
+        inCall = now;
+        if (now) {
+          try { mangoiStopVoice(); } catch(e){}
+          try { setOpen(false); } catch(e){}
+          try {
+            var cur = fr.getAttribute("src");
+            if (cur && cur !== "about:blank") savedSrc = cur;
+            fr.src = "about:blank";
+          } catch(e){}
+        } else {
+          try {
+            var c = fr.getAttribute("src");
+            if ((!c || c === "about:blank") && savedSrc) fr.src = savedSrc;
+          } catch(e){}
+        }
+      }
+      new MutationObserver(sync).observe(document.body, { attributes:true, attributeFilter:["class"] });
+      sync();
+    })();
   })();
 </script>
 

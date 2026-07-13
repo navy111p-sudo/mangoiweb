@@ -355,7 +355,7 @@ const worker = {
 
     // PDF download endpoint (SPA에서 PDF.js로 렌더링할 때 사용)
     if (path.startsWith('/api/video-call/pdf/') && request.method === 'GET') {
-      return await handlePdfDownload(path, env);
+      return await handlePdfDownload(path, env, request);
     }
 
     // 보관기간 자동 파기: 수동 실행/상태 조회
@@ -2746,26 +2746,34 @@ async function handlePdfUpload(request: Request, env: Env): Promise<Response> {
     }
 
     // fix (2026-06-01) — PDF 뿐 아니라 이미지(JPG/PNG/WEBP)도 허용 (수업 중 교재 즉석 공유용)
-    const _allowedUpload = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (mimeType && mimeType.indexOf('image/') !== 0 && mimeType !== 'application/pdf') {
+    // fix (2026-07-13) — 동영상(MP4/WEBM/MOV/M4V)도 허용: 수업 중 학생·강사가 올린 영상을
+    //   방 전체에 공유(video-share)하는 기능의 저장소로 이 엔드포인트를 재사용한다.
+    const _allowedUpload = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+      'video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'];
+    if (mimeType && mimeType.indexOf('image/') !== 0 && mimeType.indexOf('video/') !== 0 && mimeType !== 'application/pdf') {
       // mimeType 이 비거나 octet-stream 이면 파일명 확장자로 보정
       const ln = (originalName || '').toLowerCase();
       if (/\.(jpe?g)$/.test(ln)) mimeType = 'image/jpeg';
       else if (/\.png$/.test(ln)) mimeType = 'image/png';
       else if (/\.webp$/.test(ln)) mimeType = 'image/webp';
       else if (/\.pdf$/.test(ln)) mimeType = 'application/pdf';
+      else if (/\.mp4$/.test(ln)) mimeType = 'video/mp4';
+      else if (/\.webm$/.test(ln)) mimeType = 'video/webm';
+      else if (/\.mov$/.test(ln)) mimeType = 'video/quicktime';
+      else if (/\.m4v$/.test(ln)) mimeType = 'video/x-m4v';
     }
     if (!_allowedUpload.includes(mimeType)) {
-      return new Response(JSON.stringify({ error: 'Only PDF or image (JPG/PNG/WEBP) files are allowed' }), {
+      return new Response(JSON.stringify({ error: 'Only PDF, image (JPG/PNG/WEBP) or video (MP4/WEBM/MOV) files are allowed' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
     const size = buffer.byteLength;
-    const maxSize = 50 * 1024 * 1024; // 50MB
+    // 동영상은 100MB, 문서/이미지는 기존 50MB 상한 유지
+    const maxSize = mimeType.indexOf('video/') === 0 ? 100 * 1024 * 1024 : 50 * 1024 * 1024;
     if (size > maxSize) {
-      return new Response(JSON.stringify({ error: 'File too large (max 50MB)' }), {
+      return new Response(JSON.stringify({ error: mimeType.indexOf('video/') === 0 ? 'File too large (max 100MB for video)' : 'File too large (max 50MB)' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -2842,7 +2850,7 @@ async function handlePdfList(env: Env): Promise<Response> {
   }
 }
 
-async function handlePdfDownload(path: string, env: Env): Promise<Response> {
+async function handlePdfDownload(path: string, env: Env, request?: Request): Promise<Response> {
   try {
     const rawKey = path.replace('/api/video-call/pdf/', '');
     const fileKey = decodeURIComponent(rawKey);
@@ -2882,6 +2890,41 @@ async function handlePdfDownload(path: string, env: Env): Promise<Response> {
     let pdfBuffer: ArrayBuffer | null = null;
     let ctype = 'application/pdf';   // fix (2026-06-01) 저장된 실제 형식으로 서빙 (이미지 교재 지원)
     if (r2) {
+      // fix (2026-07-13) — 동영상 구간 재생(Range) 지원: iOS Safari 는 Range 206 응답이
+      //   없으면 <video> 재생 자체를 거부하고, 다른 브라우저도 탐색(seek)이 안 된다.
+      const rangeHeader = request ? (request.headers.get('range') || '') : '';
+      const rangeMatch = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+      if (rangeMatch && (rangeMatch[1] !== '' || rangeMatch[2] !== '')) {
+        const head = await r2.head(`pdfs/${fileKey}`);
+        if (head) {
+          const total = head.size;
+          let start: number; let end: number;
+          if (rangeMatch[1] === '') {           // bytes=-N : 끝에서 N바이트
+            const suffix = Math.min(Number(rangeMatch[2]), total);
+            start = total - suffix; end = total - 1;
+          } else {
+            start = Number(rangeMatch[1]);
+            end = rangeMatch[2] === '' ? total - 1 : Math.min(Number(rangeMatch[2]), total - 1);
+          }
+          if (start <= end && start < total) {
+            const part = await r2.get(`pdfs/${fileKey}`, { range: { offset: start, length: end - start + 1 } });
+            if (part) {
+              const pct = (part.httpMetadata && part.httpMetadata.contentType) || 'application/octet-stream';
+              return new Response(part.body, {
+                status: 206,
+                headers: {
+                  'Content-Type': pct,
+                  'Content-Range': `bytes ${start}-${end}/${total}`,
+                  'Content-Length': String(end - start + 1),
+                  'Accept-Ranges': 'bytes',
+                  'Access-Control-Allow-Origin': '*',
+                  'Cache-Control': 'public, max-age=3600'
+                }
+              });
+            }
+          }
+        }
+      }
       const obj = await r2.get(`pdfs/${fileKey}`);
       if (obj) { bodyStream = obj.body; if (obj.httpMetadata && obj.httpMetadata.contentType) ctype = obj.httpMetadata.contentType; }
     }
@@ -2908,6 +2951,7 @@ async function handlePdfDownload(path: string, env: Env): Promise<Response> {
       status: 200,
       headers: {
         'Content-Type': ctype,
+        'Accept-Ranges': 'bytes',
         'Access-Control-Allow-Origin': '*',
         'Cache-Control': 'public, max-age=3600'
       }
