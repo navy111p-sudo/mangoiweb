@@ -715,7 +715,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260713180553 -->
+<!-- BUILD:20260713181819 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}
@@ -737,6 +737,71 @@
 /* 481px 이상(태블릿~): 헤더 오른쪽에 고정 홈/EN 바 자리를 비워 버튼 겹침 방지 */
 @media (min-width:481px){
   .top{padding-right:190px}
+}
+</style>
+<style id="txt-big-2026-07-13">
+/* ══ 🔎 가독성 확대 (2026-07-13 사장님 요청: PC에서 글자가 너무 작음) ══
+   모바일 = 한 단계 키움(잘림 없음, 가로줄들은 전부 overflow-x 스크롤이라 안전)
+   데스크탑(≥760px) = 원래의 약 2배 수준으로 시원하게 */
+.msg{font-size:16px}
+.opt{font-size:13px}
+.hud-chip{font-size:13px}
+.hud-lv .xp-track{width:64px}
+.hud-wod .wod-ko{font-size:12px}
+.q-label{font-size:12px}
+.quest{font-size:12.5px}
+.top .name{font-size:16px}
+.top .status{font-size:12px}
+.top .clear-btn{font-size:12px}
+.opts>span{font-size:12px!important}
+.input-bar input{font-size:16px}
+.input-bar button[type=submit]{font-size:16px}
+.tip-chip{font-size:13.5px}
+.topic-card .t-emoji{font-size:30px}
+.topic-card .t-name{font-size:13px}
+.empty-state h2{font-size:22px}
+.empty-state p{font-size:14.5px}
+.quick button{font-size:13.5px}
+
+@media (min-width:760px){
+  .top .name{font-size:20px}
+  .top .status{font-size:14px}
+  .top .mango-icon{width:46px;height:46px}
+  .top .clear-btn{font-size:14px;padding:8px 14px}
+  .snd-toggle{width:42px;height:42px;font-size:19px}
+  .opts{padding:10px 18px;gap:8px}
+  .opt{font-size:17px;padding:9px 17px}
+  .opts>span{font-size:16px!important}
+  .hud{padding:10px 18px;gap:10px}
+  .hud-chip{font-size:17px;padding:9px 17px}
+  .hud-lv .xp-track{width:100px;height:11px}
+  .hud-wod .wod-ko{font-size:15px}
+  .quests{padding:8px 18px 10px;gap:8px}
+  .q-label{font-size:16px}
+  .quest{font-size:16px;padding:7px 15px}
+  .chat{padding:24px 20px;gap:15px}
+  .msg{font-size:28px;line-height:1.55;max-width:74%;padding:14px 20px;border-radius:22px}
+  .tip-chip{font-size:19px;padding:11px 15px}
+  .msg .wod-hit{padding:0 6px}
+  .ai-avatar{width:40px;height:40px}
+  .replay-btn{width:40px;height:40px;font-size:18px}
+  .typing span{width:8px;height:8px}
+  .input-bar{padding:16px 18px}
+  .input-bar input{font-size:21px;padding:16px 24px}
+  .input-bar button[type=submit]{font-size:20px;padding:14px 28px}
+  .mic-btn{width:58px;font-size:24px}
+  .empty-state .hero-mango{width:120px;height:120px}
+  .empty-state h2{font-size:32px}
+  .empty-state p{font-size:18px}
+  .topics{max-width:720px;gap:12px}
+  .topic-card{padding:18px 8px 14px;border-radius:18px;gap:7px}
+  .topic-card .t-emoji{font-size:40px}
+  .topic-card .t-name{font-size:17px}
+  .quick button{font-size:16px;padding:11px 20px}
+  .pt-toast{font-size:19px;padding:11px 24px}
+  .cele-banner .cb-big{font-size:42px}
+  .cele-banner .cb-title{font-size:24px}
+  .cele-banner .cb-sub{font-size:16px}
 }
 </style>
 <script defer src="/js/game-tts.js"></script><!-- 🔊 원어민 TTS(서버 Deepgram Aura-1 → MeloTTS → 브라우저 폴백) 공용 모듈 -->

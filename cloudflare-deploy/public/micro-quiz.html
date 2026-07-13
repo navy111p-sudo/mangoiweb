@@ -23,56 +23,56 @@
     .top { display:flex; align-items:center; gap:12px; padding:14px 18px;
       background:rgba(255,255,255,0.93); position:sticky; top:0; z-index:50;
       backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
-    .top a { color:var(--text); text-decoration:none; font-weight:700; font-size:14px; }
-    .top-nav-btn { display:flex; align-items:center; justify-content:center; width:34px; height:34px;
+    .top a { color:var(--text); text-decoration:none; font-weight:700; font-size:17px; }
+    .top-nav-btn { display:flex; align-items:center; justify-content:center; width:46px; height:46px;
       background:#ffffff; color:var(--text); border:1px solid var(--border);
-      border-radius:10px; font-size:16px; font-weight:800; cursor:pointer; line-height:1;
+      border-radius:12px; font-size:22px; font-weight:800; cursor:pointer; line-height:1;
       text-decoration:none; transition:background .15s; -webkit-tap-highlight-color:transparent; }
     .top-nav-btn:hover { background:rgba(251,191,36,0.15); }
-    .top h1 { margin:0; font-size:16px; font-weight:800; flex:1; }
-    .wrap { max-width:680px; margin:0 auto; padding:18px; }
+    .top h1 { margin:0; font-size:24px; font-weight:800; flex:1; }
+    .wrap { max-width:940px; margin:0 auto; padding:26px 20px; }
     .intro { background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.06));
-      border:1px solid rgba(251,191,36,0.30); border-radius:14px; padding:18px; margin-bottom:16px; }
-    .intro h2 { margin:0 0 8px 0; font-size:18px; color:var(--gold); font-weight:800; }
-    .intro p { margin:6px 0; color:var(--text2); font-size:13px; line-height:1.65; }
-    .start-btn { display:block; width:100%; padding:16px; margin-top:12px;
+      border:1px solid rgba(251,191,36,0.30); border-radius:16px; padding:28px; margin-bottom:18px; }
+    .intro h2 { margin:0 0 12px 0; font-size:30px; color:var(--gold); font-weight:800; }
+    .intro p { margin:8px 0; color:var(--text2); font-size:18px; line-height:1.65; }
+    .start-btn { display:block; width:100%; padding:22px; margin-top:16px;
       background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:0;
-      border-radius:12px; font-size:15px; font-weight:800; cursor:pointer;
+      border-radius:14px; font-size:24px; font-weight:800; cursor:pointer;
       box-shadow:0 6px 18px -2px rgba(16,185,129,0.4); }
     .start-btn:hover { transform:translateY(-1px); filter:brightness(1.05); }
     .start-btn:disabled { background:#94a3b8; cursor:not-allowed; box-shadow:none; }
-    .progress-bar { height:6px; background:rgba(31,43,74,0.10); border-radius:99px; overflow:hidden; margin-bottom:14px; }
+    .progress-bar { height:9px; background:rgba(31,43,74,0.10); border-radius:99px; overflow:hidden; margin-bottom:14px; }
     .progress-fill { height:100%; background:linear-gradient(90deg,#fbbf24,#f59e0b); transition:width .3s; border-radius:99px; }
-    .quiz-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:14px; }
-    .q-num { font-size:11.5px; color:var(--gold); font-weight:800; letter-spacing:0.5px; margin-bottom:8px; }
-    .q-text { font-size:18px; font-weight:800; color:var(--text); margin-bottom:6px; line-height:1.4; }
-    .q-hint { font-size:12.5px; color:var(--text2); font-style:italic; margin-bottom:18px; }
-    .opt { display:block; width:100%; text-align:left; padding:14px 18px; margin-bottom:8px;
+    .quiz-card { background:var(--card); border:1px solid var(--border); border-radius:18px; padding:30px; margin-bottom:14px; }
+    .q-num { font-size:16px; color:var(--gold); font-weight:800; letter-spacing:0.5px; margin-bottom:8px; }
+    .q-text { font-size:28px; font-weight:800; color:var(--text); margin-bottom:8px; line-height:1.4; }
+    .q-hint { font-size:16px; color:var(--text2); font-style:italic; margin-bottom:18px; }
+    .opt { display:block; width:100%; text-align:left; padding:18px 22px; margin-bottom:10px;
       background:#ffffff; color:var(--text); border:1px solid rgba(90,106,143,0.35);
-      border-radius:10px; cursor:pointer; font-size:14px; font-weight:600; font-family:inherit;
+      border-radius:12px; cursor:pointer; font-size:20px; font-weight:600; font-family:inherit;
       transition:all .15s; }
     .opt:hover { background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.5); transform:translateX(2px); }
     .opt.correct { background:rgba(16,185,129,0.14); border-color:#10b981; color:#047857; }
     .opt.wrong { background:rgba(239,68,68,0.12); border-color:#ef4444; color:#b91c1c; }
     .opt:disabled { cursor:default; }
-    .opt-prefix { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center;
+    .opt-prefix { display:inline-block; width:32px; height:32px; line-height:32px; text-align:center;
       background:rgba(251,191,36,0.18); color:var(--gold); border-radius:50%; font-weight:800;
-      font-size:12px; margin-right:10px; }
-    .nav-btns { display:flex; gap:10px; margin-top:12px; }
-    .nav-btn { flex:1; padding:13px; background:#ffffff; color:var(--text);
-      border:1px solid var(--border); border-radius:10px; font-weight:700; cursor:pointer;
-      font-size:13px; font-family:inherit; }
+      font-size:16px; margin-right:12px; }
+    .nav-btns { display:flex; gap:10px; margin-top:14px; }
+    .nav-btn { flex:1; padding:17px; background:#ffffff; color:var(--text);
+      border:1px solid var(--border); border-radius:12px; font-weight:700; cursor:pointer;
+      font-size:18px; font-family:inherit; }
     .nav-btn:hover { background:rgba(251,191,36,0.15); }
     .nav-btn.primary { background:linear-gradient(135deg,var(--gold),#f59e0b); color:#1a1a1a; border:0; }
-    .result-card { text-align:center; padding:32px 20px; }
-    .result-score { font-size:54px; font-weight:900; line-height:1; }
-    .result-label { font-size:14px; color:var(--text2); margin-top:6px; }
-    .result-msg { margin-top:14px; padding:14px 18px; background:rgba(251,191,36,0.10);
-      border-radius:10px; font-size:13.5px; color:#92400e; line-height:1.6; }
+    .result-card { text-align:center; padding:36px 22px; }
+    .result-score { font-size:76px; font-weight:900; line-height:1; }
+    .result-label { font-size:19px; color:var(--text2); margin-top:8px; }
+    .result-msg { margin-top:16px; padding:16px 20px; background:rgba(251,191,36,0.10);
+      border-radius:12px; font-size:18px; color:#92400e; line-height:1.6; }
     .lv-pick, .topic-pick {
-      padding:6px 11px; background:#ffffff; color:var(--text2);
+      padding:9px 16px; background:#ffffff; color:var(--text2);
       border:1px solid rgba(90,106,143,0.35); border-radius:99px;
-      font-size:11.5px; font-weight:700; cursor:pointer; font-family:inherit;
+      font-size:16px; font-weight:700; cursor:pointer; font-family:inherit;
       transition:all .15s;
     }
     .lv-pick:hover, .topic-pick:hover { background:rgba(251,191,36,0.15); color:#b45309; border-color:rgba(217,119,6,0.5); }
@@ -80,107 +80,126 @@
     .topic-pick.active { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; border-color:#3b82f6; box-shadow:0 3px 8px rgba(59,130,246,0.4); }
 
     /* ── 🧒/🧑‍🎓 연령 모드 토글 ── */
-    .mode-toggle { display:flex; gap:4px; background:#ffffff; border:1px solid var(--border); border-radius:99px; padding:3px; }
-    .mode-btn { border:0; background:transparent; font-size:16px; width:36px; height:30px; border-radius:99px; cursor:pointer; line-height:1; }
+    .mode-toggle { display:flex; gap:4px; background:#ffffff; border:1px solid var(--border); border-radius:99px; padding:4px; }
+    .mode-btn { border:0; background:transparent; font-size:22px; width:46px; height:38px; border-radius:99px; cursor:pointer; line-height:1; }
     .mode-btn.active { background:linear-gradient(135deg,#fbbf24,#f59e0b); box-shadow:0 2px 6px rgba(245,158,11,0.4); }
 
     /* ── 공통: 발음 버튼 / 피드백 ── */
     .say-btn { background:rgba(251,191,36,0.14); color:var(--gold); border:1px solid rgba(251,191,36,0.4);
-      border-radius:99px; padding:7px 14px; font-weight:800; cursor:pointer; font-size:13px; font-family:inherit; }
+      border-radius:99px; padding:9px 18px; font-weight:800; cursor:pointer; font-size:17px; font-family:inherit; }
     .say-btn:hover { background:rgba(251,191,36,0.24); }
-    .say-btn.sm { padding:4px 10px; font-size:12px; }
-    .say-btn.xs { padding:2px 8px; font-size:11px; margin-right:6px; }
-    .fb { margin-top:14px; padding:12px 15px; border-radius:10px; font-size:14px; font-weight:700; line-height:1.5; }
+    .say-btn.sm { padding:6px 14px; font-size:16px; }
+    .say-btn.xs { padding:4px 11px; font-size:16px; margin-right:6px; }
+    .fb { margin-top:16px; padding:14px 18px; border-radius:12px; font-size:18px; font-weight:700; line-height:1.5; }
     .fb.ok { background:rgba(16,185,129,0.14); color:#047857; }
     .fb.no { background:rgba(239,68,68,0.10); color:#b91c1c; }
     .fb .xp-plus { color:#b45309; font-weight:900; margin-left:4px; }
     .fb .spd { color:#0369a1; margin-left:4px; }
 
     /* ── 🧒 키즈 모드 ── */
-    .kid-head { display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:10px; }
-    .kid-mascot { width:42px; height:42px; border-radius:50%; object-fit:cover; box-shadow:0 3px 10px -2px rgba(245,158,11,0.5); }
+    .kid-head { display:flex; align-items:center; gap:12px; justify-content:center; margin-bottom:12px; }
+    .kid-mascot { width:58px; height:58px; border-radius:50%; object-fit:cover; box-shadow:0 3px 10px -2px rgba(245,158,11,0.5); }
     .kid-mascot.bounce { animation:mBounce .55s; }
     @keyframes mBounce { 0%,100%{transform:translateY(0) rotate(0)} 30%{transform:translateY(-13px) rotate(-9deg)} 60%{transform:translateY(0) rotate(7deg)} }
-    .kid-stars { font-size:22px; letter-spacing:3px; }
-    .kid-word { text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:8px; }
-    .kid-emoji { font-size:78px; line-height:1; animation:floaty 3s ease-in-out infinite; }
+    .kid-stars { font-size:30px; letter-spacing:3px; }
+    .kid-word { text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:10px; }
+    .kid-emoji { font-size:100px; line-height:1; animation:floaty 3s ease-in-out infinite; }
     @keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-    .quiz-card.kids .q-text { font-size:20px; text-align:center; }
-    .opts-kids .opt { font-size:17px; padding:16px 18px; border-radius:14px; font-weight:700; }
+    .quiz-card.kids .q-text { font-size:30px; text-align:center; }
+    .opts-kids .opt { font-size:24px; padding:20px 22px; border-radius:16px; font-weight:700; }
     .opts-kids .opt:hover { transform:scale(1.02); }
-    .star-pop { position:fixed; font-size:30px; pointer-events:none; z-index:99999; animation:starUp 1s ease-out forwards; }
+    .star-pop { position:fixed; font-size:38px; pointer-events:none; z-index:99999; animation:starUp 1s ease-out forwards; }
     @keyframes starUp { 0%{opacity:1;transform:translateY(0) scale(.6)} 100%{opacity:0;transform:translateY(-95px) scale(1.5)} }
-    .result-emoji { font-size:58px; line-height:1; margin-bottom:6px; }
+    .result-emoji { font-size:76px; line-height:1; margin-bottom:8px; }
 
     /* ── 🧑‍🎓 챌린지 모드 ── */
-    .ch-stats { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-weight:800; font-size:14px; }
+    .ch-stats { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; font-weight:800; font-size:18px; }
     .ch-combo { color:#ea580c; }
     .ch-xp { color:#b45309; }
-    .ch-word { text-align:center; display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px; }
-    .ch-word-txt { font-size:30px; font-weight:900; color:var(--text); letter-spacing:.5px; }
-    .timer-wrap { height:7px; background:rgba(31,43,74,0.10); border-radius:99px; overflow:hidden; margin-bottom:14px; }
+    .ch-word { text-align:center; display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:12px; }
+    .ch-word-txt { font-size:44px; font-weight:900; color:var(--text); letter-spacing:.5px; }
+    .timer-wrap { height:9px; background:rgba(31,43,74,0.10); border-radius:99px; overflow:hidden; margin-bottom:14px; }
     .timer-bar { height:100%; width:100%; background:linear-gradient(90deg,#ef4444,#f59e0b,#10b981); transition:width .1s linear; border-radius:99px; }
 
     /* ── 오답 노트 ── */
-    .wrong-note { margin-top:16px; text-align:left; background:#ffffff; border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
-    .wn-title { font-weight:800; color:var(--gold); margin-bottom:8px; font-size:13.5px; }
-    .wn-item { padding:9px 0; border-bottom:1px solid rgba(148,163,184,0.12); font-size:13.5px; }
+    .wrong-note { margin-top:18px; text-align:left; background:#ffffff; border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+    .wn-title { font-weight:800; color:var(--gold); margin-bottom:10px; font-size:18px; }
+    .wn-item { padding:11px 0; border-bottom:1px solid rgba(148,163,184,0.12); font-size:18px; }
     .wn-item:last-child { border-bottom:0; }
-    .wn-ex { color:var(--text2); font-size:12px; margin-top:3px; font-style:italic; }
-    .confetti-pc { position:fixed; top:-20px; font-size:20px; pointer-events:none; z-index:99998; animation:confFall linear forwards; }
+    .wn-ex { color:var(--text2); font-size:16px; margin-top:4px; font-style:italic; }
+    .confetti-pc { position:fixed; top:-20px; font-size:26px; pointer-events:none; z-index:99998; animation:confFall linear forwards; }
     @keyframes confFall { to { transform:translateY(105vh) rotate(360deg); opacity:.2; } }
 
     /* ── 유형 배지 / 진행 점 / 랭크 / 듣기·영어단어 프롬프트 ── */
-    .q-type { text-align:center; font-size:11.5px; font-weight:800; color:#2563eb; letter-spacing:.4px; margin-bottom:10px; }
-    .qdots { display:flex; gap:6px; justify-content:center; margin-bottom:12px; flex-wrap:wrap; }
-    .qdot { width:9px; height:9px; border-radius:50%; background:rgba(31,43,74,0.16); transition:transform .15s,background .15s; }
+    .q-type { text-align:center; font-size:16px; font-weight:800; color:#2563eb; letter-spacing:.4px; margin-bottom:12px; }
+    .qdots { display:flex; gap:8px; justify-content:center; margin-bottom:14px; flex-wrap:wrap; }
+    .qdot { width:12px; height:12px; border-radius:50%; background:rgba(31,43,74,0.16); transition:transform .15s,background .15s; }
     .qdot.cur { background:#fbbf24; transform:scale(1.35); box-shadow:0 0 8px rgba(251,191,36,0.6); }
     .qdot.ok { background:#10b981; }
     .qdot.no { background:#ef4444; }
-    .ch-rank { color:#7c3aed; font-size:12.5px; font-weight:800; }
+    .ch-rank { color:#7c3aed; font-size:16px; font-weight:800; }
 
     /* ── 💰 결과 보상 카드 / 🎯 오답 재도전 ── */
     .mq-earn { margin-top:12px; display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
       padding:12px 16px; background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.08));
       border:1px solid rgba(251,191,36,0.45); border-radius:12px;
       animation:earnPop .45s cubic-bezier(.34,1.56,.64,1); }
-    .mq-earn .amt { font-size:20px; font-weight:900; color:#b45309; }
-    .mq-earn .bal { font-size:12px; color:var(--text2); font-weight:600; }
+    .mq-earn .amt { font-size:28px; font-weight:900; color:#b45309; }
+    .mq-earn .bal { font-size:16px; color:var(--text2); font-weight:600; }
     @keyframes earnPop { 0%{transform:scale(.6);opacity:0} 100%{transform:scale(1);opacity:1} }
-    .mq-mission { margin-top:8px; padding:11px 16px; background:rgba(16,185,129,0.16);
+    .mq-mission { margin-top:10px; padding:13px 18px; background:rgba(16,185,129,0.16);
       border:1px solid rgba(16,185,129,0.45); border-radius:12px; font-weight:800; color:#047857;
-      font-size:14px; animation:earnPop .45s cubic-bezier(.34,1.56,.64,1) .1s backwards; }
-    .mq-hint { margin-top:10px; font-size:12.5px; color:var(--text2); }
-    .retry-wrong { display:block; width:100%; margin-top:14px; padding:14px; border:0; border-radius:12px; cursor:pointer;
-      background:linear-gradient(135deg,#f97316,#ea580c); color:#fff; font-size:14.5px; font-weight:800; font-family:inherit;
+      font-size:18px; animation:earnPop .45s cubic-bezier(.34,1.56,.64,1) .1s backwards; }
+    .mq-hint { margin-top:12px; font-size:16px; color:var(--text2); }
+    .retry-wrong { display:block; width:100%; margin-top:16px; padding:17px; border:0; border-radius:14px; cursor:pointer;
+      background:linear-gradient(135deg,#f97316,#ea580c); color:#fff; font-size:19px; font-weight:800; font-family:inherit;
       box-shadow:0 5px 16px -2px rgba(249,115,22,0.45); transition:transform .12s,filter .12s; }
     .retry-wrong:hover { transform:translateY(-1px); filter:brightness(1.06); }
 
     /* ── 📖/📚 출제 범위 토글 ── */
-    .src-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:12px 0 2px 0; }
-    .src-label { font-size:11.5px; color:var(--text2); font-weight:700; margin-right:2px; }
-    .src-pick { padding:7px 13px; background:#ffffff; color:var(--text2);
-      border:1px solid rgba(90,106,143,0.35); border-radius:99px; font-size:12.5px; font-weight:700;
+    .src-row { display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin:14px 0 2px 0; }
+    .src-label { font-size:16px; color:var(--text2); font-weight:700; margin-right:2px; }
+    .src-pick { padding:10px 18px; background:#ffffff; color:var(--text2);
+      border:1px solid rgba(90,106,143,0.35); border-radius:99px; font-size:17px; font-weight:700;
       cursor:pointer; font-family:inherit; transition:all .15s; }
     .src-pick:hover { background:rgba(251,191,36,0.15); color:#b45309; border-color:rgba(217,119,6,0.5); }
     .src-pick.active { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; border-color:#fbbf24; box-shadow:0 3px 8px rgba(245,158,11,0.4); }
 
     /* ── 🎤 말하기 문제 ── */
-    .speak-mic { display:block; width:100%; margin-top:6px; padding:17px; border:0; border-radius:14px; cursor:pointer;
-      background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; font-size:16px; font-weight:800; font-family:inherit;
+    .speak-mic { display:block; width:100%; margin-top:8px; padding:20px; border:0; border-radius:16px; cursor:pointer;
+      background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; font-size:21px; font-weight:800; font-family:inherit;
       box-shadow:0 6px 18px -2px rgba(139,92,246,0.5); transition:transform .12s,filter .12s; }
     .speak-mic:hover { transform:translateY(-1px); filter:brightness(1.08); }
     .speak-mic:disabled { background:#94a3b8; cursor:not-allowed; box-shadow:none; }
     .speak-mic.rec { animation:recPulse 1s ease-in-out infinite; background:linear-gradient(135deg,#ef4444,#b91c1c); }
     @keyframes recPulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)} 50%{box-shadow:0 0 0 12px rgba(239,68,68,0)} }
-    .speak-skip { display:block; width:100%; margin-top:8px; padding:10px; background:transparent; color:var(--text2);
-      border:1px dashed rgba(148,163,184,0.35); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .speak-skip { display:block; width:100%; margin-top:10px; padding:13px; background:transparent; color:var(--text2);
+      border:1px dashed rgba(148,163,184,0.35); border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit; }
     .speak-skip:hover { color:#b45309; border-color:rgba(217,119,6,0.5); }
-    .speak-word-big { font-size:34px; font-weight:900; color:var(--text); letter-spacing:.5px; }
-    .listen-ic { font-size:66px; line-height:1; animation:listenPulse 1.4s ease-in-out infinite; }
+    .speak-word-big { font-size:48px; font-weight:900; color:var(--text); letter-spacing:.5px; }
+    .listen-ic { font-size:84px; line-height:1; animation:listenPulse 1.4s ease-in-out infinite; }
     @keyframes listenPulse { 0%,100%{transform:scale(1);opacity:.85} 50%{transform:scale(1.12);opacity:1} }
-    .kid-ko { font-size:40px; font-weight:900; color:#d97706; text-align:center; letter-spacing:-.5px; }
+    .kid-ko { font-size:54px; font-weight:900; color:#d97706; text-align:center; letter-spacing:-.5px; }
     .opts-ch .opt { transition:all .12s; }
+
+    /* ── 📱 좁은 폰(≤420px): 큰 요소만 살짝 줄여 한 화면 유지 ── */
+    @media (max-width:420px){
+      .wrap { padding:18px 14px; }
+      .intro h2 { font-size:24px; }
+      .intro p { font-size:16px; }
+      .start-btn { font-size:20px; padding:18px; }
+      .q-text, .quiz-card.kids .q-text { font-size:23px; }
+      .opt { font-size:18px; padding:16px 18px; }
+      .opts-kids .opt { font-size:20px; padding:17px 18px; }
+      .kid-emoji { font-size:80px; }
+      .ch-word-txt { font-size:34px; }
+      .speak-word-big { font-size:38px; }
+      .kid-ko { font-size:42px; }
+      .listen-ic { font-size:68px; }
+      .result-score { font-size:58px; }
+      .top h1 { font-size:20px; }
+      .quiz-card { padding:22px 18px; }
+    }
   </style>
 </head>
 <body>
@@ -205,33 +224,33 @@
         <button class="src-pick" data-src="textbook" onclick="pickSource('textbook')">📚 <span data-ko="내 레벨 단어은행" data-en="Level word bank">내 레벨 단어은행</span></button>
       </div>
       <button class="start-btn" id="startBtn" onclick="startQuiz()">🚀 <span data-ko="퀴즈 시작" data-en="Start">퀴즈 시작</span></button>
-      <div id="introMsg" style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center"></div>
+      <div id="introMsg" style="margin-top:12px;font-size:16px;color:var(--text2);text-align:center"></div>
     </div>
 
     <!-- 단어장 비어있을 때 — 2가지 옵션 -->
     <div id="emptyBox" style="display:none;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(99,102,241,0.06));border:1px solid rgba(99,102,241,0.30);border-radius:14px;padding:18px;margin-top:14px">
-      <h3 style="margin:0 0 12px 0;font-size:16px;color:#d97706;font-weight:800" data-ko="📭 단어장이 비어있어요" data-en="📭 Your vocab list is empty">📭 단어장이 비어있어요</h3>
-      <p style="color:var(--text2);font-size:13px;line-height:1.6;margin:0 0 16px 0" data-ko="두 가지 방법 중 하나를 선택하세요:" data-en="Choose one of these two options:">두 가지 방법 중 하나를 선택하세요:</p>
+      <h3 style="margin:0 0 12px 0;font-size:23px;color:#d97706;font-weight:800" data-ko="📭 단어장이 비어있어요" data-en="📭 Your vocab list is empty">📭 단어장이 비어있어요</h3>
+      <p style="color:var(--text2);font-size:17px;line-height:1.6;margin:0 0 16px 0" data-ko="두 가지 방법 중 하나를 선택하세요:" data-en="Choose one of these two options:">두 가지 방법 중 하나를 선택하세요:</p>
 
       <!-- 옵션 1: AI 자동 생성 (추천) -->
       <div style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.30);border-radius:12px;padding:14px 16px;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-size:22px">🤖</span>
+          <span style="font-size:28px">🤖</span>
           <div style="flex:1">
-            <div style="font-weight:800;color:#047857;font-size:14.5px" data-ko="옵션 1: AI 자동 생성 (추천!)" data-en="Option 1: AI Auto-Generate (Recommended!)">옵션 1: AI 자동 생성 (추천!)</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:2px" data-ko="AI가 내 레벨에 맞는 단어 10개를 즉시 채워줘요" data-en="AI instantly fills 10 words matched to your level">AI가 내 레벨에 맞는 단어 10개를 즉시 채워줘요</div>
+            <div style="font-weight:800;color:#047857;font-size:19px" data-ko="옵션 1: AI 자동 생성 (추천!)" data-en="Option 1: AI Auto-Generate (Recommended!)">옵션 1: AI 자동 생성 (추천!)</div>
+            <div style="font-size:16px;color:var(--text2);margin-top:3px" data-ko="AI가 내 레벨에 맞는 단어 10개를 즉시 채워줘요" data-en="AI instantly fills 10 words matched to your level">AI가 내 레벨에 맞는 단어 10개를 즉시 채워줘요</div>
           </div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">
-          <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px" data-ko="레벨:" data-en="Level:">레벨:</span>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin:10px 0">
+          <span style="font-size:16px;color:var(--text2);align-self:center;margin-right:4px" data-ko="레벨:" data-en="Level:">레벨:</span>
           <button class="lv-pick active" data-lv="A1" onclick="pickLv(this)"><span data-ko="A1 입문" data-en="A1 Starter">A1 입문</span></button>
           <button class="lv-pick" data-lv="A2" onclick="pickLv(this)"><span data-ko="A2 초급" data-en="A2 Elementary">A2 초급</span></button>
           <button class="lv-pick" data-lv="B1" onclick="pickLv(this)"><span data-ko="B1 중급" data-en="B1 Intermediate">B1 중급</span></button>
           <button class="lv-pick" data-lv="B2" onclick="pickLv(this)"><span data-ko="B2 중상급" data-en="B2 Upper-Int.">B2 중상급</span></button>
           <button class="lv-pick" data-lv="C1" onclick="pickLv(this)"><span data-ko="C1 고급" data-en="C1 Advanced">C1 고급</span></button>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px 0">
-          <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px" data-ko="주제(선택):" data-en="Topic (optional):">주제(선택):</span>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 12px 0">
+          <span style="font-size:16px;color:var(--text2);align-self:center;margin-right:4px" data-ko="주제(선택):" data-en="Topic (optional):">주제(선택):</span>
           <button class="topic-pick" onclick="pickTopic(this,'')" data-ko="전체" data-en="All">전체</button>
           <button class="topic-pick" onclick="pickTopic(this,'school')" data-ko="🏫 학교" data-en="🏫 School">🏫 학교</button>
           <button class="topic-pick" onclick="pickTopic(this,'family')" data-ko="👨‍👩‍👧 가족" data-en="👨‍👩‍👧 Family">👨‍👩‍👧 가족</button>
@@ -240,19 +259,19 @@
           <button class="topic-pick" onclick="pickTopic(this,'animal')" data-ko="🐾 동물" data-en="🐾 Animals">🐾 동물</button>
           <button class="topic-pick" onclick="pickTopic(this,'weather')" data-ko="☀️ 날씨" data-en="☀️ Weather">☀️ 날씨</button>
         </div>
-        <button onclick="autoGenerate()" id="autoBtn" style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,0.4)" data-ko="🤖 AI가 단어 10개 만들어주기" data-en="🤖 Let AI generate 10 words">🤖 AI가 단어 10개 만들어주기</button>
+        <button onclick="autoGenerate()" id="autoBtn" style="display:block;width:100%;padding:18px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:19px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,0.4)" data-ko="🤖 AI가 단어 10개 만들어주기" data-en="🤖 Let AI generate 10 words">🤖 AI가 단어 10개 만들어주기</button>
       </div>
 
       <!-- 옵션 2: 직접 추가 -->
       <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.30);border-radius:12px;padding:14px 16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-size:22px">📝</span>
+          <span style="font-size:28px">📝</span>
           <div style="flex:1">
-            <div style="font-weight:800;color:#b45309;font-size:14.5px" data-ko="옵션 2: 직접 단어 추가" data-en="Option 2: Add words manually">옵션 2: 직접 단어 추가</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:2px" data-ko="내가 원하는 단어를 단어장에서 직접 추가해요" data-en="Add your own words to the vocab list">내가 원하는 단어를 단어장에서 직접 추가해요</div>
+            <div style="font-weight:800;color:#b45309;font-size:19px" data-ko="옵션 2: 직접 단어 추가" data-en="Option 2: Add words manually">옵션 2: 직접 단어 추가</div>
+            <div style="font-size:16px;color:var(--text2);margin-top:3px" data-ko="내가 원하는 단어를 단어장에서 직접 추가해요" data-en="Add your own words to the vocab list">내가 원하는 단어를 단어장에서 직접 추가해요</div>
           </div>
         </div>
-        <button onclick="location.href='/vocab.html'" style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4)" data-ko="📚 단어장 가서 직접 추가하기" data-en="📚 Go to vocab list & add words">📚 단어장 가서 직접 추가하기</button>
+        <button onclick="location.href='/vocab.html'" style="display:block;width:100%;padding:18px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:12px;font-size:19px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4)" data-ko="📚 단어장 가서 직접 추가하기" data-en="📚 Go to vocab list & add words">📚 단어장 가서 직접 추가하기</button>
       </div>
     </div>
     <div id="quizArea" style="display:none"></div>
@@ -511,7 +530,7 @@
             <div class="kid-word">
               <div class="kid-emoji">${wordEmoji(Q.word)||'🗣️'}</div>
               <div class="speak-word-big">${escHtml(Q.word||'')}</div>
-              <div style="font-size:14px;color:var(--text2)">${escHtml(Q.meaning||'')}</div>
+              <div style="font-size:18px;color:var(--text2)">${escHtml(Q.meaning||'')}</div>
               <button class="say-btn" id="sayBtn">🔊 <span data-ko="발음 듣기" data-en="Listen">발음 듣기</span></button>
             </div>
             <div class="q-text" style="text-align:center">${isKids?'큰 소리로 따라 말해보세요!':'Say it out loud!'}</div>
@@ -865,7 +884,7 @@
       }
     });
   </script>
-<!-- BUILD:20260713180553 -->
+<!-- BUILD:20260713181819 -->
 <style id="mb-tidy-2026-07-11">
 /* ≤480px(폰): 우상단 고정 홈/EN 바가 연령모드(🧒/🧑‍🎓) 버튼을 덮지 않게 헤더를 그 아래로 */
 @media (max-width:480px){
