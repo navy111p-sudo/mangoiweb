@@ -27,6 +27,8 @@ export class VideoCallRoom {
   private state: DurableObjectState;
   private roomId: string;
   private pdfState: PdfShareData | null = null;
+  // 🎬 동영상 공유 상태 — pdfState 와 동일하게 저장해야 늦게 입장한 학생도 영상을 받음
+  private videoState: { url: string; type?: string } | null = null;
 
   constructor(state: DurableObjectState) {
     this.state = state;
@@ -34,6 +36,7 @@ export class VideoCallRoom {
     // 재기동 시 교재 공유 상태 복원
     this.state.blockConcurrencyWhile(async () => {
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
+      this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
       const rid = await this.state.storage.get<string>('roomId');
       if (rid) this.roomId = rid;
     });
@@ -59,7 +62,7 @@ export class VideoCallRoom {
     if (url.pathname === '/status') {
       const users = this.joinedUsers();
       return new Response(
-        JSON.stringify({ roomId: this.roomId, userCount: users.length, users, pdfState: this.pdfState }),
+        JSON.stringify({ roomId: this.roomId, userCount: users.length, users, pdfState: this.pdfState, videoState: this.videoState }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -101,8 +104,8 @@ export class VideoCallRoom {
         case 'pdf-page-change': await this.handlePdfPageChange(userId, msg.data as any); break;
         case 'pdf-stop-share':  await this.handlePdfStopShare(userId); break;
         case 'video-share':
-        case 'video-sync':      if (this.isJoined(userId)) this.broadcast(userId, { type: 'video-share', data: msg.data }); break;
-        case 'video-stop-share':if (this.isJoined(userId)) this.broadcast(userId, { type: 'video-stop-share', data: {} }); break;
+        case 'video-sync':      await this.handleVideoShare(userId, msg.data as any); break;
+        case 'video-stop-share':await this.handleVideoStopShare(userId); break;
         case 'pdf-anno-start':
         case 'pdf-anno-point':
         case 'pdf-anno-text':
@@ -185,6 +188,8 @@ export class VideoCallRoom {
     this.broadcast(userId, { type: 'user-joined', data: { userId, username, role: role || 'student', userCount } });
 
     if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
+    // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
+    if (this.videoState) this.send(userId, { type: 'video-share', data: this.videoState });
 
     this.broadcastAll({
       type: 'chat-message',
@@ -261,6 +266,26 @@ export class VideoCallRoom {
     await this.state.storage.delete('pdfState');
     this.broadcast(userId, { type: 'pdf-stop-share' });
     console.log(`[VideoChat] PDF sharing stopped in room ${this.roomId}`);
+  }
+
+  private async handleVideoShare(userId: string, data: any): Promise<void> {
+    if (!this.isJoined(userId)) return;
+    const { url, type } = data || {};
+    if (!url) return;
+    // blob: URL 은 공유한 기기에서만 열 수 있으므로 상태로 저장하지 않음 (중계만)
+    if (!/^blob:/i.test(url)) {
+      this.videoState = { url, type: type || '' };
+      await this.state.storage.put('videoState', this.videoState);
+    }
+    this.broadcast(userId, { type: 'video-share', data });
+    console.log(`[VideoChat] Video shared in room ${this.roomId}: ${url}`);
+  }
+
+  private async handleVideoStopShare(userId: string): Promise<void> {
+    if (!this.isJoined(userId)) return;
+    this.videoState = null;
+    await this.state.storage.delete('videoState');
+    this.broadcast(userId, { type: 'video-stop-share', data: {} });
   }
 
   private handleOffer(userId: string, data: any): void {

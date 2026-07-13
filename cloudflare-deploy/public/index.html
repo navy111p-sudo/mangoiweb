@@ -8726,6 +8726,7 @@ window.vcStartPdfPoll = function(){
     //   같은 교재가 '이미 표시 중'으로 잘못 판단돼 페이지 이동만 하고 실제 로드를 건너뜀(학생 흰 화면 회귀).
     window._vcShownPdfKey = '';
     window._vcShownPdfUrl = '';
+    window._vcShownVideoUrl = '';
     if (window._vcPdfPollTimer) clearInterval(window._vcPdfPollTimer);
     // 입장 직후 즉시 1회 확인(3초 기다리지 않고 바로 교재 표시)
     var _pollOnce = function(){
@@ -8736,6 +8737,10 @@ window.vcStartPdfPoll = function(){
           .then(function(d){
             if (d && d.pdfState && d.pdfState.url) {
               window.vcApplySharedPdf(d.pdfState.url, d.pdfState.kind, d.pdfState.currentPage, d.pdfState.pdfId, d.pdfState.name);
+            }
+            // 🎬 공유 중인 동영상도 폴링으로 복구 (WS 메시지를 놓친 학생 자가복구)
+            if (d && d.videoState && d.videoState.url) {
+              window.vcApplySharedVideo(d.videoState.url);
             }
           }).catch(function(){});
       } catch(_){}
@@ -10842,11 +10847,7 @@ function vcHandleMessage(msg) {
         case 'video-sync':
         case 'video-share': {
             const vUrl = msg.data.url;
-            if (vUrl) {
-                document.getElementById('vp-url').value = vUrl;
-                vpLoadUrlRemote(vUrl);
-                vcSwitchTab('video');
-            }
+            if (vUrl) window.vcApplySharedVideo(vUrl);   // 폴링과 동일 경로 — 중복 로드 없음
             break;
         }
         case 'video-stop-share':
@@ -16109,6 +16110,7 @@ function vpLoadUrl() {
     const isVideoFile = /\.(mp4|webm|ogg|mov|m4v|mkv)(\?.*)?$/i.test(url);
 
     // 동영상 URL을 다른 참가자에게 공유
+    window._vcShownVideoUrl = url;   // 발신자 자신은 폴링이 다시 로드하지 않도록 기록
     if (vcConn) {
         vcConn.send({ type: 'video-share', data: { url: url, type: ytId ? 'youtube' : vimeoMatch ? 'vimeo' : isVideoFile ? 'file' : 'web' } });
     }
@@ -16211,9 +16213,13 @@ function vpRenderWebUrl(stage, url) {
     stage.appendChild(wrapper);
 }
 
-/** 원격에서 동영상 URL을 수신했을 때 로컬에서 재생 (WebSocket 재전송 안 함) */
+/** 원격에서 동영상 URL을 수신했을 때 로컬에서 재생 (WebSocket 재전송 안 함)
+ *  ⚠ 수신자는 클릭(사용자 제스처) 없이 코드가 영상을 띄우므로, 소리 켠 자동재생은
+ *    브라우저 정책이 차단 → 첫 장면(썸네일)에서 멈춰 보였음.
+ *    → 음소거 자동재생(허용됨)으로 일단 '재생'시키고 🔊 버튼으로 소리를 켜게 함. */
 function vpLoadUrlRemote(url) {
     if (!url) return;
+    window._vcShownVideoUrl = url;   // 폴링 중복 로드 방지 키
     document.getElementById('vp-url').value = url;
     const stage = vpIsFloating ? document.getElementById('vp-floating-body') : document.getElementById('vp-stage');
     stage.innerHTML = '';
@@ -16226,24 +16232,28 @@ function vpLoadUrlRemote(url) {
         const iframe = document.createElement('iframe');
         iframe.id = 'vp-yt-frame';
         iframe.className = 'vp-yt';
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         iframe.allowFullscreen = true;
         iframe.setAttribute('playsinline', '');
         stage.appendChild(iframe);
+        vpAddSoundOverlay(stage, 'youtube');
     } else if (vimeoMatch) {
         const iframe = document.createElement('iframe');
-        iframe.src = `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`;
+        iframe.src = `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1&muted=1`;
         iframe.allow = 'autoplay; fullscreen; picture-in-picture';
         iframe.allowFullscreen = true;
         stage.appendChild(iframe);
+        vpAddSoundOverlay(stage, 'vimeo');
     } else if (isVideoFile) {
         const vid = document.createElement('video');
         vid.src = url;
         vid.controls = true;
         vid.autoplay = true;
+        vid.muted = true;
         vid.playsInline = true;
         stage.appendChild(vid);
+        vpAddSoundOverlay(stage, 'file');
     } else {
         // 🩹 옛 코드는 "🔗 새 탭에서 열기" 버튼만 표시 → 수신자가 페이지를 못 봤음.
         //    이제 vpLoadUrl 과 동일하게 iframe 으로 렌더링.
@@ -16252,8 +16262,56 @@ function vpLoadUrlRemote(url) {
     console.log('[vc] 원격 동영상 수신:', url);
 }
 
+/** 🔊 음소거 자동재생 위에 얹는 '소리 켜기' 버튼 — 클릭(제스처) 순간 소리를 살린다. */
+function vpAddSoundOverlay(stage, kind) {
+    const old = stage.querySelector('.vp-sound-overlay');
+    if (old) old.remove();
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'vp-sound-overlay';
+    btn.textContent = (typeof currentLang !== 'undefined' && currentLang === 'en') ? '🔊 Tap for sound' : '🔊 소리 켜기';
+    btn.style.cssText = 'position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:30;'
+        + 'padding:10px 22px;border:none;border-radius:999px;background:rgba(37,99,235,.95);color:#fff;'
+        + 'font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.45);';
+    btn.onclick = function () {
+        try {
+            if (kind === 'youtube') {
+                const f = stage.querySelector('iframe');
+                if (f && f.contentWindow) {
+                    ['unMute', 'playVideo'].forEach(function (fn) {
+                        f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: [] }), '*');
+                    });
+                    f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+                }
+            } else if (kind === 'vimeo') {
+                const f = stage.querySelector('iframe');
+                if (f && f.contentWindow) {
+                    f.contentWindow.postMessage(JSON.stringify({ method: 'setVolume', value: 1 }), '*');
+                    f.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
+                }
+            } else {
+                const v = stage.querySelector('video');
+                if (v) { v.muted = false; v.volume = 1; v.play().catch(function(){}); }
+            }
+        } catch (_) {}
+        btn.remove();
+    };
+    stage.appendChild(btn);
+}
+
+/** 공유 동영상 적용 공통 경로 — WebSocket 수신·폴링 양쪽에서 사용 (중복 로드 방지) */
+window.vcApplySharedVideo = function (vUrl) {
+    try {
+        if (!vUrl || /^blob:/i.test(vUrl)) return;
+        if (vUrl === window._vcShownVideoUrl) return;   // 이미 같은 영상 표시 중
+        vpLoadUrlRemote(vUrl);
+        vcSwitchTab('video');
+    } catch (e) { console.warn('[vcApplySharedVideo]', e); }
+};
+
 /** 원격에서 동영상 공유 중지 수신 */
 function vpClearRemote() {
+    window._vcShownVideoUrl = '';
     const stage = document.getElementById('vp-stage');
     stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
     const body = document.getElementById('vp-floating-body');
@@ -16279,6 +16337,7 @@ function vpUploadFile(input) {
 }
 
 function vpClear() {
+    window._vcShownVideoUrl = '';
     if (vcConn) vcConn.send({ type: 'video-stop-share', data: {} });
     const stage = document.getElementById('vp-stage');
     stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
@@ -25818,7 +25877,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713203241 -->
+<!-- BUILD:20260713203920 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
