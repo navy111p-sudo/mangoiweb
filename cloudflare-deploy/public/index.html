@@ -10262,7 +10262,8 @@ function vcInjectDemoTeacher(session){
     var vid = box.querySelector('video');
     vid.src = '/video/callcenter-teacher.mp4';
     vid.play().then(function(){ setTimeout(function(){ try { vid.muted = false; } catch(e){} }, 600); }).catch(function(){});
-    grid.appendChild(box);
+    // 🧑‍🏫 시연 선생님도 내 타일보다 위 (vcInsertBoxTeacherFirst 는 뒤 스크립트에서 정의 — 런타임엔 존재)
+    if (typeof vcInsertBoxTeacherFirst === 'function') vcInsertBoxTeacherFirst(grid, box); else grid.appendChild(box);
     try { vcUpdateGridCount(); } catch (e) {}
     try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch (e) {}
     try { vcRefreshPraiseUI(); } catch (e) {}
@@ -11864,12 +11865,22 @@ function vcEnsureParticipantBox(userId, username){
         '<span class="video-label">' + escHtml(username || '참가자') + '</span>' +
         '<div class="vc-connecting-hint">📷 연결 중…</div>';
     if (window.vcSoloMode) box.style.display = 'none';
-    grid.appendChild(box);
+    vcInsertBoxTeacherFirst(grid, box);   // 🧑‍🏫 상대 타일은 항상 내 타일 위
     try { vcUpdateGridCount(); } catch(e){}
     try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
     try { vcRefreshPraiseUI(); } catch(e){}   // 별 버튼/로스터 즉시 반영
     try { vcAddDmButton(box, userId); vcRefreshChatTargets(); } catch(e){}   // 🔒 개별채팅 버튼/칩
     return box;
+}
+/* 🧑‍🏫 (2026-07-14 사장님 지시) 학생 입장 시 '교사 얼굴이 맨 위 + 크게'.
+   원격(상대) 타일을 항상 내 박스(#vc-local-box) 앞에 삽입해 어떤 레이아웃에서도
+   상대가 위에 오게 한다. (CSS order 규칙과 이중 안전장치) */
+function vcInsertBoxTeacherFirst(grid, box) {
+    try {
+        const lb = document.getElementById('vc-local-box');
+        if (lb && lb.parentNode === grid) { grid.insertBefore(box, lb); return; }
+    } catch (_) {}
+    grid.appendChild(box);
 }
 function vcAddRemoteVideo(userId, username, stream) {
     if (userId !== 'demoteacher') { try { vcRemoveDemoTeacher(); } catch (e) {} }   // 🆕 진짜 원격영상 도착 → 시연 선생님 제거
@@ -11906,7 +11917,8 @@ function vcAddRemoteVideo(userId, username, stream) {
     vid.srcObject = stream;
     // fix (2026-06-01) — 메타데이터 로드/트랙 도착 시 재생 재시도(원격 영상 검게 나오던 문제 보강)
     vid.onloadedmetadata = () => { vid.play().catch(()=>{}); };
-    grid.appendChild(box);
+    // 🧑‍🏫 (2026-07-14 사장님 지시) 상대(교사) 타일은 항상 내 타일보다 '위' — 내 박스 앞에 삽입
+    vcInsertBoxTeacherFirst(grid, box);
     vcUpdateGridCount();
     try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
     // fix — 솔로 모드 중 새로 입장한 참가자도 숨겨, "솔로인데 일부만 보이는" 반쪽 상태 방지
@@ -12419,7 +12431,11 @@ function vcToggleDetach(box, btn) {
         box.classList.remove('detached');
         box.style.left = box.style.top = box.style.width = box.style.height = '';
         const grid = document.getElementById('vc-video-grid');
-        if (grid) grid.appendChild(box);
+        if (grid) {
+            // 🧑‍🏫 분리창에서 그리드로 복귀할 때도 상대 타일은 내 타일 위로
+            if (box.id !== 'vc-local-box' && typeof vcInsertBoxTeacherFirst === 'function') vcInsertBoxTeacherFirst(grid, box);
+            else grid.appendChild(box);
+        }
         btn.textContent = '⇱';
         btn.title = '독립 창으로 분리';
     } else {
@@ -26930,7 +26946,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714042341 -->
+<!-- BUILD:20260714044359 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29470,6 +29486,20 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   else boot();
 })();
 </script>
+<style id="vc-teacher-first">
+/* 🧑‍🏫 (2026-07-14 사장님 지시) 학생 입장 시 '교사 얼굴이 맨 위 + 크게'.
+   ① 어떤 레이아웃(가로·세로·태블릿·PC)에서든 내 타일(#vc-local-box)은 항상 맨 아래.
+      (DOM 도 원격 먼저 삽입하지만, 기존 방·재입장·복귀 등 잔존 대비 CSS order 로 이중 고정.
+       세로 pip/facepip 의 order:99 규칙과 방향 동일 — 충돌 없음) */
+body.vc-in-call #vc-video-grid #vc-local-box { order: 96 !important; }
+/* ② 1:1 수업(타일 2개)에서는 내 타일을 작게(62%, 오른쪽 정렬) → 상대(교사) 얼굴이 주인공.
+      세로 전용 pip/facepip/solo 모드는 자체 크기 규칙(22% 등)이 있으므로 제외. */
+body.vc-in-call #vc-main-row:not(.video-pip):not(.video-facepip):not(.video-solo) #vc-video-grid[data-count="2"] #vc-local-box {
+  width: 62% !important;
+  margin-left: auto !important;
+  opacity: .96;
+}
+</style>
 <script>
 /* ★ (2026-07-14) 수업 첫 화면 기본 콘텐츠 = 당일 교재(교재/PDF 탭).
    사장님 요청: 모든 수업 처음에 얼굴(위) + 당일 교재(아래 크게)가 보이게.
