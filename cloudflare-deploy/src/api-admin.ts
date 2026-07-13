@@ -9,7 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse } from './api-util';
-import { enqueueNotification } from './api-notify';
+import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { getAdminActor, sameTeacherName } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import type { MangoEnv } from './api-mango';
@@ -2508,6 +2508,519 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     // ═══════════════════════════════════════════════════════════════
     // 📢 Phase POP 끝
     // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🥭 주간스케줄(WS)·수업스케줄 CRUD·노쇼 리포트 (admin 5회차 이동)
+    // ═══════════════════════════════════════════════════════════════
+    // ────────────────────────────────────────────────
+    // 🥭 Phase WS — GET /api/admin/schedules?week=YYYY-MM-DD
+    //   주간 전체 스케줄 그리드(admin/weekly-schedule.html)용.
+    //   class_schedules 를 요청 주(월~일)로 펼쳐 강사별 슬롯 배열로 반환.
+    //   반환 슬롯: { teacher_id, date, hour, start_time, type, students[], duration_min, note, start_date, end_date }
+    // ────────────────────────────────────────────────
+    if (method === 'GET' && path === '/api/admin/schedules') {
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        );
+      } catch {}
+
+      const mondayOf = (d: Date): Date => {
+        const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+        const wd = (x.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+        x.setUTCDate(x.getUTCDate() - wd);
+        return x;
+      };
+      const isoOf = (d: Date) => d.toISOString().slice(0, 10);
+      const weekParam = url.searchParams.get('week');
+      const start = (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam))
+        ? mondayOf(new Date(weekParam + 'T00:00:00Z'))
+        : mondayOf(new Date());
+      const dowKey = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const weekDates: string[] = [];
+      const dateToDow: Record<string, string> = {};
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(start); d.setUTCDate(d.getUTCDate() + i);
+        const s = isoOf(d); weekDates.push(s); dateToDow[s] = dowKey[i];
+      }
+      const weekStartISO = weekDates[0], weekEndISO = weekDates[6];
+
+      const mapType = (ct: string): string => {
+        const c = String(ct || '').toLowerCase();
+        if (c === 'group' || c === '1:2' || c === 'g' || c === '그룹') return 'group';
+        if (c === 'temp' || c === 'substitute' || c === '대체') return 'temp';
+        if (c === 'blocked' || c === 'off' || c === '휴무') return 'blocked';
+        return '1on1';
+      };
+      const hourOf = (t: string): number => {
+        const m = String(t || '').match(/(\d{1,2})/);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      const normDow = (s: string): string => {
+        const v = String(s || '').trim().toLowerCase();
+        const map: Record<string, string> = {
+          'mon': 'Mon', 'monday': 'Mon', '월': 'Mon', '월요일': 'Mon',
+          'tue': 'Tue', 'tuesday': 'Tue', '화': 'Tue', '화요일': 'Tue',
+          'wed': 'Wed', 'wednesday': 'Wed', '수': 'Wed', '수요일': 'Wed',
+          'thu': 'Thu', 'thursday': 'Thu', '목': 'Thu', '목요일': 'Thu',
+          'fri': 'Fri', 'friday': 'Fri', '금': 'Fri', '금요일': 'Fri',
+          'sat': 'Sat', 'saturday': 'Sat', '토': 'Sat', '토요일': 'Sat',
+          'sun': 'Sun', 'sunday': 'Sun', '일': 'Sun', '일요일': 'Sun',
+        };
+        return map[v] || '';
+      };
+
+      let rows: any[] = [];
+      try {
+        const rs: any = await env.DB.prepare(
+          `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, notes FROM class_schedules WHERE (status IS NULL OR status='active')`
+        ).all();
+        rows = rs.results || [];
+      } catch (e: any) {
+        return json({ ok: true, week: weekStartISO, count: 0, items: [], schedules: [], _err: String(e?.message || e) });
+      }
+
+      const items: any[] = [];
+      for (const r of rows) {
+        if (r.teacher_id == null || r.teacher_id === '') continue;
+        const tnum = Number(r.teacher_id);
+        const teacher_id = Number.isFinite(tnum) ? tnum : r.teacher_id;
+        const students = r.student_name ? [{ name: r.student_name, uid: r.user_id || '' }] : [];
+        const base = {
+          id: r.id,                       // ← 드래그 이동 영구 저장(PATCH)에 필요
+          teacher_id,
+          hour: hourOf(r.start_time),
+          start_time: r.start_time,
+          type: mapType(r.class_type),
+          students,
+          duration_min: r.duration_min || 30,
+          note: r.notes || '',
+        };
+        const kind = String(r.schedule_kind || 'recurring');
+        if (kind === 'one_off' || r.scheduled_date) {
+          const d = String(r.scheduled_date || '');
+          if (d >= weekStartISO && d <= weekEndISO) {
+            items.push({ ...base, date: d, start_date: d, end_date: d });
+          }
+        } else {
+          const want = normDow(r.day_of_week);
+          if (!want) continue;
+          for (const d of weekDates) {
+            if (dateToDow[d] === want) {
+              items.push({ ...base, date: d, start_date: weekStartISO, end_date: weekEndISO });
+            }
+          }
+        }
+      }
+
+      return json({ ok: true, week: weekStartISO, count: items.length, items, schedules: items });
+    }
+
+    // 🥭 Phase WS-2 — GET /api/admin/unassigned-students
+    //   아직 어떤 수업(class_schedules)에도 배정되지 않은 '재학중' 학생 목록.
+    //   weekly-schedule.html 좌측 '미배정 학생 대기 풀'이 호출.
+    //   반환: { ok, count, students:[{uid,name,level}], items:[…동일] }
+    // ────────────────────────────────────────────────
+    if (method === 'GET' && path === '/api/admin/unassigned-students') {
+      // class_schedules 테이블이 없으면 모든 학생이 미배정이므로, 안전하게 생성만 보장
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        );
+      } catch {}
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10), 500);
+      try {
+        // 재학생(status 정상/미지정) 중, 활성 수업이 한 건도 없는 학생만 추림.
+        // user_id 매칭 + 동명(korean_name) 매칭 모두 고려해 누락/중복 방지.
+        const rs: any = await env.DB.prepare(
+          `SELECT s.user_id AS uid,
+                  COALESCE(s.korean_name, s.english_name, s.user_id) AS name
+             FROM students_erp s
+            WHERE (s.status = '정상' OR s.status IS NULL OR s.status = '')
+              AND NOT EXISTS (
+                    SELECT 1 FROM class_schedules cs
+                     WHERE (cs.status IS NULL OR cs.status = 'active')
+                       AND (cs.user_id = s.user_id OR cs.student_name = s.korean_name)
+                  )
+            ORDER BY name ASC
+            LIMIT ?`
+        ).bind(limit).all();
+        const students = (rs.results || []).map((r: any) => ({
+          uid: r.uid, name: r.name, level: ''
+        }));
+        return json({ ok: true, count: students.length, students, items: students });
+      } catch (e: any) {
+        // 테이블 미존재 등 → 빈 목록(프론트는 데모 폴백)
+        return json({ ok: true, count: 0, students: [], items: [], _err: String(e?.message || e) });
+      }
+    }
+
+    // 🥭 Phase WS-3 — POST /api/admin/notify-queue
+    //   드래그 배정/이동 시 '학부모 알림톡'을 발송 대기 큐에 적재.
+    //   실제 발송은 별도 큐 워커(SOLAPI)가 처리. 여기서는 영구 기록만.
+    //   body: { uid, name, teacher_id, date, hour, kind? }
+    // ────────────────────────────────────────────────
+    if (method === 'POST' && path === '/api/admin/notify-queue') {
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS parent_notify_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, teacher_id TEXT, scheduled_date TEXT, hour INTEGER, kind TEXT DEFAULT 'schedule_assigned', status TEXT DEFAULT 'queued', payload TEXT, created_at INTEGER NOT NULL, sent_at INTEGER)`
+        );
+      } catch {}
+      let body: any = {};
+      try { body = await request.json(); } catch {}
+      try {
+        const now = Date.now();
+        const r: any = await env.DB.prepare(
+          `INSERT INTO parent_notify_queue (user_id, student_name, teacher_id, scheduled_date, hour, kind, status, payload, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)`
+        ).bind(
+          body.uid || null,
+          body.name || null,
+          (body.teacher_id != null) ? String(body.teacher_id) : null,
+          body.date || null,
+          (body.hour != null && body.hour !== '') ? Number(body.hour) : null,
+          body.kind || 'schedule_assigned',
+          JSON.stringify(body || {}),
+          now
+        ).run();
+        return json({ ok: true, queued: true, id: r?.meta?.last_row_id ?? null });
+      } catch (e: any) {
+        return json({ ok: false, queued: false, error: String(e?.message || e) }, 200);
+      }
+    }
+
+    // 🥭 Phase 22 — GET /api/admin/class-schedules
+    //   학생별/기간별 수업 스케줄 조회 (학생 상세 페이지에서 호출)
+    //   query: ?user_id=X&from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&kind=recurring|one_off|all
+    // ────────────────────────────────────────────────
+    if (method === 'GET' && path === '/api/admin/class-schedules') {
+      // 테이블 없으면 자동 생성 (첫 GET 호출 대응)
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        );
+      } catch {}
+      const url = new URL(request.url);
+      const userId = url.searchParams.get('user_id');
+      const studentName = url.searchParams.get('student_name'); // ★ Phase 6f: 동명 학생 통합
+      const fromDate = url.searchParams.get('from_date');
+      const toDate = url.searchParams.get('to_date');
+      const kind = url.searchParams.get('kind') || 'all';
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
+
+      const where: string[] = [`status != 'cancelled'`];
+      const binds: any[] = [];
+
+      // ★ Phase 7b: user_id 또는 student_name 둘 다로 동명 학생 통합 조회 (강화)
+      let mergeInfo: any = null;
+      if (userId) {
+        // 1) 다양한 키로 학생 이름 찾기 (user_id / login_id / id 중 어떤 것이든)
+        let nameForUid: string | null = null;
+        try {
+          const r = await env.DB.prepare(
+            `SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE user_id = ? OR login_id = ? OR ('stu_' || id) = ? OR ('stu_id_' || id) = ? LIMIT 1`
+          ).bind(userId, userId, userId, userId).first<any>();
+          if (r?.name) nameForUid = r.name;
+        } catch {}
+        // 2) studentName 파라미터가 있으면 그것도 우선 사용 (프론트가 알고 있는 이름)
+        const effectiveName = studentName || nameForUid;
+        // 3) 같은 이름의 모든 user_id 수집 (status 무관 - 병합된 row 도 포함하여 schedule 가져오기)
+        let allUids: string[] = [userId];
+        if (effectiveName) {
+          try {
+            const rs = await env.DB.prepare(
+              `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
+            ).bind(effectiveName, effectiveName).all<any>();
+            const ids = (rs.results || []).map((r: any) => r.uid).filter(Boolean);
+            allUids = [...new Set([userId, ...ids])];
+          } catch {}
+          mergeInfo = { name: effectiveName, user_ids: allUids, merged_count: allUids.length };
+        }
+        // 4) WHERE: user_id IN (...) OR student_name = name (양쪽 매칭)
+        const placeholders = allUids.map(() => '?').join(',');
+        if (effectiveName) {
+          where.push('(user_id IN (' + placeholders + ') OR student_name = ?)');
+          binds.push(...allUids, effectiveName);
+        } else {
+          where.push('user_id IN (' + placeholders + ')');
+          binds.push(...allUids);
+        }
+      } else if (studentName) {
+        // 학생 이름으로 직접 조회 (모든 동명 학생 통합)
+        let allUids: string[] = [];
+        try {
+          const rs = await env.DB.prepare(
+            `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
+          ).bind(studentName, studentName).all<any>();
+          allUids = (rs.results || []).map((r: any) => r.uid).filter(Boolean);
+        } catch {}
+        if (allUids.length) {
+          const placeholders = allUids.map(() => '?').join(',');
+          where.push('(user_id IN (' + placeholders + ') OR student_name = ?)');
+          binds.push(...allUids, studentName);
+        } else {
+          where.push('student_name = ?');
+          binds.push(studentName);
+        }
+      }
+      if (fromDate) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(fromDate); }
+      if (toDate) { where.push('(scheduled_date IS NULL OR scheduled_date <= ?)'); binds.push(toDate); }
+      if (kind === 'recurring') where.push(`schedule_kind = 'recurring'`);
+      else if (kind === 'one_off') where.push(`schedule_kind = 'one_off'`);
+
+      binds.push(limit);
+      // 1차: teachers JOIN 시도 (강사명 함께)
+      const sqlWithJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, cs.source, cs.created_at, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${where.join(' AND ')} ORDER BY cs.schedule_kind ASC, cs.scheduled_date ASC, cs.start_time ASC LIMIT ?`;
+      // 2차: JOIN 없이 (teachers 테이블 미존재 등에 대비)
+      const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_at FROM class_schedules WHERE ${where.join(' AND ')} ORDER BY schedule_kind ASC, scheduled_date ASC, start_time ASC LIMIT ?`;
+      try {
+        let rows;
+        try {
+          rows = await env.DB.prepare(sqlWithJoin).bind(...binds).all<any>();
+        } catch (joinErr: any) {
+          console.warn('[class-schedules] JOIN failed, fallback no-JOIN:', joinErr?.message);
+          rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>();
+        }
+        // Phase 7g: server-side 변환 제거 - client 가 visible week/month 기준으로 1회성 위치 계산
+        return json({ ok: true, count: (rows.results || []).length, items: rows.results || [], merge_info: mergeInfo });
+      } catch (e: any) {
+        console.warn('[class-schedules] both queries failed:', e?.message);
+        return json({ ok: true, count: 0, items: [], warning: String(e?.message || e), merge_info: mergeInfo });
+      }
+    }
+
+
+    // 🥭 Phase RM — GET /api/admin/no-shows — 노쇼(수업 미입장) 리포트
+    //   class_no_show(2단계 노쇼 감지 기록) 조회 + 요약. 관리자 전용(index.ts isAdminPath 미들웨어 자동 인증).
+    if (method === 'GET' && path === '/api/admin/no-shows') {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_no_show (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, schedule_id INTEGER, missing_role TEXT, missing_uid TEXT, student_name TEXT, teacher_name TEXT, lesson_title TEXT, waited_min INTEGER, notified_push INTEGER DEFAULT 0, notified_kakao INTEGER DEFAULT 0, created_at INTEGER NOT NULL)`); } catch {}
+      const url = new URL(request.url);
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
+      let rows: any = { results: [] };
+      try {
+        // 예약(schedule_id)→학생 연락처 조인: '즉시 연락' tel 링크용 (안 온 사람이 강사여도 학생/학부모 연락처 노출)
+        rows = await env.DB.prepare(`SELECT ns.id, ns.room_id, ns.schedule_id, ns.missing_role, ns.missing_uid, ns.student_name, ns.teacher_name, ns.lesson_title, ns.waited_min, ns.notified_push, ns.notified_kakao, ns.created_at, se.phone AS student_phone, se.parent_phone AS parent_phone FROM class_no_show ns LEFT JOIN class_schedules cs ON cs.id = ns.schedule_id LEFT JOIN students_erp se ON se.user_id = cs.user_id ORDER BY ns.created_at DESC LIMIT ?`).bind(limit).all<any>();
+      } catch (e: any) {
+        console.warn('[no-shows] join query failed, fallback no-join:', e?.message);
+        try { rows = await env.DB.prepare(`SELECT id, room_id, schedule_id, missing_role, missing_uid, student_name, teacher_name, lesson_title, waited_min, notified_push, notified_kakao, created_at FROM class_no_show ORDER BY created_at DESC LIMIT ?`).bind(limit).all<any>(); } catch {}
+      }
+      const items = rows.results || [];
+      const now = Date.now();
+      const weekAgo = now - 7 * 86400 * 1000;
+      const dayAgo = now - 86400 * 1000;
+      let week = 0, today = 0, teacherMiss = 0, studentMiss = 0;
+      for (const r of items) {
+        if (r.created_at >= weekAgo) week++;
+        if (r.created_at >= dayAgo) today++;
+        if (r.missing_role === 'teacher') teacherMiss++; else studentMiss++;
+      }
+      return json({ ok: true, count: items.length, today, this_week: week, by_missing: { teacher: teacherMiss, student: studentMiss }, no_shows: items });
+    }
+
+    // 🥭 Phase RM — POST /api/admin/no-shows/contact — 노쇼 대상에게 재알림(웹푸시) + 접촉 기록
+    //   body: { id } (class_no_show 행). 안 온 사람 uid 로 웹푸시 재발송(구독 없으면 스킵) + (SOLAPI_TEMPLATE_NO_SHOW 설정시 알림톡).
+    if (method === 'POST' && path === '/api/admin/no-shows/contact') {
+      const b: any = await request.json().catch(() => ({}));
+      const id = Number(b.id);
+      if (!id) return json({ ok: false, error: 'id_required' }, 400);
+      let row: any = null;
+      try { row = await env.DB.prepare(`SELECT * FROM class_no_show WHERE id = ? LIMIT 1`).bind(id).first<any>(); } catch {}
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      const roomUrl = `${new URL(request.url).origin}/?go=videocall`;
+      const missing = row.missing_role === 'teacher' ? 'teacher' : 'student';
+      const title = missing === 'teacher' ? '⏰ [재알림] 학생이 기다렸어요' : '⏰ [재알림] 수업에 입장해 주세요';
+      const bodyMsg = missing === 'teacher'
+        ? `${row.student_name || '학생'} 학생의 '${row.lesson_title || '영어 수업'}' 수업 미입장 건입니다. 확인 부탁드려요.`
+        : `'${row.lesson_title || '영어 수업'}' 수업에 입장하지 않으셨어요. 재예약이 필요하면 안내드릴게요.`;
+      let push: any = { skipped: true };
+      if (row.missing_uid) push = await sendPushToUser(env, row.missing_uid, title, bodyMsg, roomUrl, `no-show-recontact-${id}`);
+      // 접촉 시각 기록 (컬럼 없으면 추가)
+      try { await env.DB.exec(`ALTER TABLE class_no_show ADD COLUMN contacted_at INTEGER`); } catch {}
+      try { await env.DB.prepare(`UPDATE class_no_show SET contacted_at = ? WHERE id = ?`).bind(Date.now(), id).run(); } catch {}
+      return json({ ok: true, push, missing_role: missing });
+    }
+
+    // 🥭 Phase 6g — POST /api/admin/students/merge-duplicates
+    //   동명 학생들을 자동 통합 (가장 오래된 row 가 canonical, 나머지의 schedule 이전 후 비활성화)
+    if (method === 'POST' && path === '/api/admin/students/merge-duplicates') {
+      const merged: any[] = [];
+      try {
+        // 1) 같은 이름으로 그룹화 (korean_name 또는 username)
+        const groups = await env.DB.prepare(
+          `SELECT COALESCE(korean_name, username) AS name, COUNT(*) AS cnt
+           FROM students_erp
+           WHERE COALESCE(korean_name, username) IS NOT NULL
+             AND COALESCE(korean_name, username) != ''
+             AND COALESCE(status, '정상') = '정상'
+           GROUP BY COALESCE(korean_name, username)
+           HAVING cnt > 1`
+        ).all<any>();
+
+        for (const g of (groups.results || [])) {
+          const name = g.name;
+          // 2) 같은 이름의 모든 학생 - id 오름차순 (가장 오래된이 canonical)
+          const dups = await env.DB.prepare(
+            `SELECT id, COALESCE(user_id, login_id, ('stu_' || id)) AS uid, korean_name, username, signup_date
+             FROM students_erp
+             WHERE (korean_name = ? OR username = ?)
+               AND COALESCE(status, '정상') = '정상'
+             ORDER BY id ASC`
+          ).bind(name, name).all<any>();
+          const rows = dups.results || [];
+          if (rows.length < 2) continue;
+
+          const canonical = rows[0];
+          const canonicalUid = canonical.uid;
+          const dupUids = rows.slice(1).map((r: any) => r.uid);
+
+          // 3) class_schedules 의 user_id 를 canonical 로 일괄 변경
+          let scheduleMoved = 0;
+          for (const dupUid of dupUids) {
+            try {
+              const upd = await env.DB.prepare(
+                `UPDATE class_schedules SET user_id = ?, updated_at = ? WHERE user_id = ?`
+              ).bind(canonicalUid, Date.now(), dupUid).run();
+              scheduleMoved += (upd?.meta?.changes as number) || 0;
+            } catch {}
+          }
+          // 4) 중복 학생 row 비활성화 (status='병합됨')
+          for (const dup of rows.slice(1)) {
+            try {
+              await env.DB.prepare(
+                `UPDATE students_erp SET status = '병합됨' WHERE id = ?`
+              ).bind(dup.id).run();
+            } catch {}
+          }
+          merged.push({
+            name,
+            canonical_user_id: canonicalUid,
+            canonical_id: canonical.id,
+            duplicates_merged: rows.length - 1,
+            duplicate_user_ids: dupUids,
+            schedules_moved: scheduleMoved
+          });
+        }
+        return json({
+          ok: true,
+          groups_merged: merged.length,
+          total_duplicates_removed: merged.reduce((sum, m) => sum + m.duplicates_merged, 0),
+          total_schedules_moved: merged.reduce((sum, m) => sum + m.schedules_moved, 0),
+          details: merged
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'merge_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    // 🥭 Phase 6d — POST /api/admin/class-schedules/seed-demo
+    //   클릭 한 번에 정규+체험+레벨 3개 데모 스케줄 생성 (시스템 동작 즉시 확인용)
+    if (method === 'POST' && path === '/api/admin/class-schedules/seed-demo') {
+      const url = new URL(request.url);
+      let userId = url.searchParams.get('user_id') || '';
+      // user_id 안 주면 students_erp 첫 학생 사용
+      if (!userId) {
+        try {
+          const r = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, 'stu_' || id) AS uid, COALESCE(korean_name, username) AS name FROM students_erp WHERE COALESCE(status,'정상')='정상' ORDER BY rowid DESC LIMIT 1`).first<any>();
+          if (r?.uid) userId = r.uid;
+        } catch {}
+        if (!userId) return json({ ok: false, error: 'no_student' }, 400);
+      }
+      // 학생 이름 조회
+      let studentName = '데모학생';
+      try {
+        const s = await env.DB.prepare(`SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE COALESCE(user_id, login_id) = ? OR ('stu_' || id) = ? LIMIT 1`).bind(userId, userId).first<any>();
+        if (s?.name) studentName = s.name;
+      } catch {}
+      // 테이블 보강
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`); } catch {}
+      const csCols: Array<[string,string]> = [['student_name','TEXT'],['schedule_kind','TEXT'],['class_type','TEXT'],['day_of_week','TEXT'],['scheduled_date','TEXT'],['duration_min','INTEGER'],['teacher_id','TEXT'],['status','TEXT'],['source','TEXT'],['created_by','TEXT'],['updated_at','INTEGER'],['notes','TEXT']];
+      for (const [c,t] of csCols) { try { await env.DB.exec('ALTER TABLE class_schedules ADD COLUMN ' + c + ' ' + t); } catch {} }
+      const now = Date.now();
+      const todayKst = new Date(now + 9*3600*1000).toISOString().slice(0,10);
+      // 3가지 type 데모: 월/수 정규 / 화 체험 / 다음주 월 레벨
+      // ★ Phase 7 비즈니스 규칙: trial/level_test = one_off, regular = recurring
+      const tomorrow = new Date(now + 86400000 + 9*3600000).toISOString().slice(0,10);
+      const nextWeek = new Date(now + 7*86400000 + 9*3600000).toISOString().slice(0,10);
+      const seeds = [
+        { kind:'recurring', type:'regular',    day:'mon,wed', date:null,     time:'15:00', label:'데모 - 매주 월·수 정규수업' },
+        { kind:'one_off',   type:'trial',      day:null,      date:tomorrow, time:'16:00', label:'데모 - 체험수업 (1회)' },
+        { kind:'one_off',   type:'level_test', day:null,      date:nextWeek, time:'17:00', label:'데모 - 레벨테스트 (1회)' }
+      ];
+      const inserted: any[] = [];
+      for (const s of seeds) {
+        try {
+          const ins = await env.DB.prepare(
+            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'demo_seed', ?, ?)`
+          ).bind(userId, studentName, s.kind, s.type, s.day, s.date, s.time, 'admin', now).run();
+          inserted.push({ id: ins?.meta?.last_row_id, ...s });
+        } catch (e: any) {
+          inserted.push({ error: String(e?.message||e), ...s });
+        }
+      }
+      return json({ ok: true, user_id: userId, student_name: studentName, count: inserted.length, items: inserted });
+    }
+
+    // 🥭 Phase 22 — DELETE /api/admin/class-schedules/:id (스케줄 삭제 또는 취소)
+    if (method === 'DELETE' && /^\/api\/admin\/class-schedules\/\d+$/.test(path)) {
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      try {
+        await env.DB.prepare(
+          `UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`
+        ).bind(Date.now(), id).run();
+        return json({ ok: true, id, status: 'cancelled' });
+      } catch (e: any) {
+        return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    // 🥭 Phase WS — PATCH/PUT /api/admin/class-schedules/:id (드래그 이동: 요일/시간/지속/날짜 수정)
+    //   body: { day_of_week?, start_time?('HH:MM'), duration_min?, scheduled_date?('YYYY-MM-DD') }
+    //   허용된 필드만 동적으로 UPDATE → 캘린더 드래그앤드롭 영구 저장에 사용.
+    if ((method === 'PATCH' || method === 'PUT') && /^\/api\/admin\/class-schedules\/\d+$/.test(path)) {
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      const body: any = await request.json().catch(() => ({}));
+      // 요일 표기 정규화(월/Mon/monday → 'Mon' …)
+      const normDow = (v: string): string => {
+        const k = String(v || '').trim().toLowerCase();
+        const map: Record<string, string> = {
+          'mon': 'Mon', 'monday': 'Mon', '월': 'Mon', '월요일': 'Mon',
+          'tue': 'Tue', 'tuesday': 'Tue', '화': 'Tue', '화요일': 'Tue',
+          'wed': 'Wed', 'wednesday': 'Wed', '수': 'Wed', '수요일': 'Wed',
+          'thu': 'Thu', 'thursday': 'Thu', '목': 'Thu', '목요일': 'Thu',
+          'fri': 'Fri', 'friday': 'Fri', '금': 'Fri', '금요일': 'Fri',
+          'sat': 'Sat', 'saturday': 'Sat', '토': 'Sat', '토요일': 'Sat',
+          'sun': 'Sun', 'sunday': 'Sun', '일': 'Sun', '일요일': 'Sun',
+        };
+        return map[k] || '';
+      };
+      const sets: string[] = [];
+      const binds: any[] = [];
+      if (body.day_of_week != null) {
+        const d = normDow(body.day_of_week);
+        if (d) { sets.push('day_of_week = ?'); binds.push(d); }
+      }
+      if (body.start_time != null && /^\d{1,2}:\d{2}$/.test(String(body.start_time))) {
+        sets.push('start_time = ?'); binds.push(String(body.start_time));
+      }
+      if (body.duration_min != null && Number.isFinite(Number(body.duration_min))) {
+        sets.push('duration_min = ?'); binds.push(Number(body.duration_min));
+      }
+      if (body.scheduled_date != null && /^\d{4}-\d{2}-\d{2}$/.test(String(body.scheduled_date))) {
+        sets.push('scheduled_date = ?'); binds.push(String(body.scheduled_date));
+      }
+      if (!sets.length) return json({ ok: false, error: 'no_valid_fields' }, 400);
+      sets.push('updated_at = ?'); binds.push(Date.now());
+      binds.push(id);
+      try {
+        await env.DB.prepare(`UPDATE class_schedules SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+        return json({ ok: true, id, updated_fields: sets.length - 1 });
+      } catch (e: any) {
+        return json({ ok: false, error: 'update_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
