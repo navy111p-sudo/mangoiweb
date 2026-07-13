@@ -8957,6 +8957,9 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName){
   try {
     if (!sUrl) return;
     if (/^blob:/i.test(sUrl)) return;  // 로컬 blob 은 다른 기기에서 열 수 없음
+    // 🥭 (2026-07-13) 교사가 교재를 공유 → 세로폰에서 '내용 크게(pip)'로 자동 전환.
+    window.__vcPdfShared = true;
+    try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
     if (sUrl.charAt(0) === '/') sUrl = location.origin + sUrl;
     // 교재 이름("[교재] 레슨 / 파일")을 기억 — 화살표가 시퀀스를 서버에서 재구성할 때 책 이름으로 사용
     if (sName) window._vcShownPdfName = sName;
@@ -11223,6 +11226,9 @@ function vcHandleMessage(msg) {
             // PDF/이미지 공유 동기화 (늦게 입장한 학생도 현재 교재가 보이게)
             // fix (2026-06-01) — 서버/절대 URL 은 직접 로드 (예전 pdfLoadRemote 는 라이브러리 교재 흰화면 원인)
             if (msg.data.pdfState && msg.data.pdfState.url) {
+                // 🥭 늦게 입장했는데 교사가 이미 교재 공유 중 → 세로폰 '내용 크게'로 시작
+                window.__vcPdfShared = true;
+                try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
                 var jUrl = msg.data.pdfState.url;
                 var jKind = msg.data.pdfState.kind || '';
                 if (!jKind) {
@@ -11385,6 +11391,8 @@ function vcHandleMessage(msg) {
             if (syncPdfId) {
                 pdfLoadRemote(syncPdfId, msg.data.currentPage, msg.data.kind);
                 vcSwitchTab('pdf');
+                window.__vcPdfShared = true;   // 🥭 세로폰 '내용 크게' 자동 전환
+                try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
             }
             break;
         }
@@ -11393,6 +11401,10 @@ function vcHandleMessage(msg) {
             break;
         case 'pdf-stop-share':
             pdfClearRemote();
+            // 🥭 공유 종료 → 세로폰은 다시 '선생님 크게'로 복귀
+            window.__vcPdfShared = false;
+            try { window._vcShownPdfUrl = ''; window._vcShownPdfKey = ''; } catch(_){}
+            try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
             break;
 
         // 📎 상대가 공유한 파일(워드/엑셀/PPT 등) — 다운로드 카드로 표시
@@ -17183,6 +17195,9 @@ function vpAddSoundOverlay(stage, kind) {
 window.vcApplySharedVideo = function (vUrl) {
     try {
         if (!vUrl || /^blob:/i.test(vUrl)) return;
+        // 🥭 (2026-07-13) 교사가 동영상 공유 → 세로폰 '내용 크게(pip)' 자동 전환
+        window.__vcVideoSharing = true;
+        try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
         if (vUrl === window._vcShownVideoUrl) return;   // 이미 같은 영상 표시 중
         vpLoadUrlRemote(vUrl);
         vcSwitchTab('video');
@@ -17192,6 +17207,9 @@ window.vcApplySharedVideo = function (vUrl) {
 /** 원격에서 동영상 공유 중지 수신 */
 function vpClearRemote() {
     window._vcShownVideoUrl = '';
+    // 🥭 공유 종료 → 세로폰은 다시 '선생님 크게'로 복귀
+    window.__vcVideoSharing = false;
+    try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
     const stage = document.getElementById('vp-stage');
     stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
     const body = document.getElementById('vp-floating-body');
@@ -26899,7 +26917,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714003019 -->
+<!-- BUILD:20260714030708 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29057,6 +29075,15 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     body.vc-in-call #vc-main-row.video-pip .content-pane .tab-bar,
     body.vc-in-call #vc-main-row.video-facepip .content-pane .tab-bar { display: none !important; }
 
+    /* 🥭 (2026-07-13, 사장님 지시) 세로폰에서 동영상 탭 상단의 공유 도구 줄
+       (바로 수업으로·YouTube·URL 재생·파일 업로드·미니·닫기)은 화면만 가리므로 '기본 숨김'.
+       교사만 ☰ 기능 메뉴의 [🎬 동영상 도구]로 켜고 끈다(body.vc-vp-tools-open).
+       학생은 선생님이 틀어주는 것을 그냥 보면 되므로 아예 안 보임. */
+    body.vc-in-call #tab-video .vp-controls { display: none !important; }
+    body.vc-in-call.vc-vp-tools-open #tab-video .vp-controls {
+      display: flex !important; flex-wrap: wrap !important; gap: 6px !important;
+    }
+
     /* ── 모드 A: 📖 교재 크게 (pip) — 콘텐츠 전체 + 영상 우상단 작은 PIP ── */
     body.vc-in-call #vc-main-row.video-pip { position: relative !important; }
     body.vc-in-call #vc-main-row.video-pip .content-pane {
@@ -29255,22 +29282,40 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     }
   }
 
-  function maybeDefault(force){
+  // 교사가 지금 '내용(교재·동영상)'을 공유 중인가? → 공유 중이면 내용 크게(pip), 아니면 선생님 크게(facepip).
+  function isContentShared(){
+    try { return !!(window.__vcPdfShared || window.__vcVideoSharing); } catch(e){ return false; }
+  }
+
+  var _lastWant = null;   // 마지막으로 자동 적용한 목표 모드 — 공유상태 '전환' 때만 다시 적용(깜빡임 방지)
+  function maybeDefault(force, fromShare){
     hookScreenSet();
     if(!inCall() || !isPortrait() || typeof window.vcScreenSet !== 'function') return;
     var r = row(); if(!r) return;
-    // 🔑 (2026-07-14) 사용자가 1/4·1/2·3/4·전체·PIP·솔로·칠판만·교재만 중 하나를 직접 고르면
-    //    (또는 이미 학생 크게/솔로/전체 상태면) 그 선택을 절대 자동으로 되돌리지 않는다.
-    //    — "휴대폰에서 화면분할(1/4·1/2·3/4)을 눌러도 계속 작은 PIP 로 되돌아가던" 버그 수정.
-    if(_userChose || r.classList.contains('video-facepip') || r.classList.contains('video-solo') || r.classList.contains('video-full')){
-      window.vcUpdatePheroLabels(); return;
+    // 🔑 (2026-07-13, 사장님 지시) 세로폰 기본 = '선생님 크게'(facepip).
+    //    교사가 교재·동영상을 '공유하면' 그 내용이 크게(pip) + 선생님 작은 PIP,
+    //    공유가 끝나면 다시 선생님 크게로 복귀.
+    var want = isContentShared() ? 'pip' : 'facepip';
+    if(fromShare){
+      // 교사의 공유 시작/중지는 최우선 — 학생이 다른 모드를 골랐어도 교사가 보여주는 대로 따라간다.
+      _userChose = false;
+    } else {
+      // 사용자가 직접 고른 모드(화면분할·스왑·기능 열기)는 절대 자동으로 되돌리지 않는다.
+      if(_userChose || r.classList.contains('video-solo') || r.classList.contains('video-full')){
+        window.vcUpdatePheroLabels(); return;
+      }
+      // 감시(Observer/resize) 틱에서는 '목표가 바뀌었을 때만' 적용 — 같은 목표를 반복 적용해 화면을 흔들지 않음
+      if(!force && _applied && want === _lastWant){ window.vcUpdatePheroLabels(); return; }
     }
-    if(!force && _applied && r.classList.contains('video-pip')) return;
+    _lastWant = want;
+    if(r.classList.contains('video-' + want)){ _applied = true; window.vcUpdatePheroLabels(); return; }  // 이미 원하는 모드
     _selfApplying = true;
-    try { window.vcScreenSet('pip'); } finally { _selfApplying = false; }
+    try { window.vcScreenSet(want); } finally { _selfApplying = false; }
     _applied = true;
     window.vcUpdatePheroLabels();
   }
+  // 교사가 내용을 공유/중지하는 순간 세로 레이아웃을 다시 판단(선생님 크게 ↔ 내용 크게).
+  window.__vcPheroReeval = function(){ try { maybeDefault(true, true); } catch(e){} };
 
   // 세로 전용 컨트롤 FAB + ☰ 메뉴 배경 딤 주입
   function injectCtrl(){
@@ -29316,6 +29361,25 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
       sf.innerHTML = '👁 <span>내 얼굴</span>';
       tb.appendChild(sf);
     }
+    // 🎬 동영상 공유 도구(YouTube·URL·파일 업로드 등) — '교사만' ☰ 메뉴에 노출.
+    //   학생 폰은 이 버튼도 도구 줄도 안 보임(선생님이 틀어주는 것만 크게 보임).
+    var isTeach = false;
+    try { isTeach = (typeof vcIsTeacherRole === 'function') ? vcIsTeacherRole()
+                  : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'); } catch(e){}
+    var vt = document.getElementById('vc-phero-vptools-btn');
+    if(isTeach && !vt){
+      vt = document.createElement('button');
+      vt.type = 'button'; vt.id = 'vc-phero-vptools-btn';
+      vt.className = 'vc-phero-menu-item';
+      vt.setAttribute('title', '동영상 공유 도구(YouTube·URL·파일) 보이기/숨기기');
+      vt.innerHTML = '🎬 <span>동영상 도구</span>';
+      vt.addEventListener('click', function(){
+        var on = document.body.classList.toggle('vc-vp-tools-open');
+        try { if (on && typeof vcSwitchTab === 'function') vcSwitchTab('video'); } catch(e){}
+        try { window.closePheroMenu(); } catch(e){}
+      });
+      tb.appendChild(vt);
+    } else if (!isTeach && vt) { try { vt.remove(); } catch(e){} }
   }
 
   // facepip(학생 크게)에서 기능 탭을 누르면 자동으로 pip(교재 크게)로 전환 → 내용 크게 보임.
@@ -29327,6 +29391,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         window.vcToggleContentTab = function(){
           var r = row();
           if (r && r.classList.contains('video-facepip') && isPortrait() && typeof window.vcScreenSet === 'function') {
+            // 학생이 스스로 기능(칠판 등)을 열었음 = 사용자 선택으로 존중(_userChose).
+            // 자동 기본(facepip)이 이 화면을 되돌려 닫아버리지 않게 한다.
             window.vcScreenSet('pip'); window.vcUpdatePheroLabels();
           }
           try { window.closePheroMenu(); } catch(e){}
@@ -29345,6 +29411,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         window.mangoToggleToolDock = function(){
           var r = row();
           if (r && r.classList.contains('video-facepip') && isPortrait() && typeof window.vcScreenSet === 'function') {
+            // 사용자가 직접 도구를 열었음 = 사용자 선택으로 존중(_userChose)
             window.vcScreenSet('pip'); window.vcUpdatePheroLabels();
           }
           try { window.closePheroMenu(); } catch(e){}
@@ -29371,7 +29438,11 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     try {
       new MutationObserver(function(){
         if(inCall()) maybeDefault(false);
-        else { _applied = false; _userChose = false; }  // 통화 종료 → 다음 수업은 다시 기본(pip)부터
+        else {  // 통화 종료 → 다음 수업은 다시 기본(선생님 크게)부터
+          _applied = false; _userChose = false; _lastWant = null;
+          window.__vcPdfShared = false; window.__vcVideoSharing = false;
+          try { document.body.classList.remove('vc-vp-tools-open'); } catch(e){}
+        }
       }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     } catch(e){}
     // 방향 전환 → 세로면 기본 재적용
