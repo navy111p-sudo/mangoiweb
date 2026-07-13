@@ -24055,7 +24055,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260713214707 -->
+        <!-- BUILD:20260713215805 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -25011,7 +25011,12 @@ window.rebuildGlobalSearchIndex = function() {
   function _applyMenuVisibility() {
     const s = window._adminSession;
     if (!s) return;
-    const role = s.role;
+    let role = s.role;
+    // 🪪 (2026-07-13) role 값 정규화 — 로그인 경로마다 세션 role 이 달랐다:
+    //   login.html='hq_exec', 마이페이지 주입=서버 원문 'hq', 옛 세션='hq_mgr' 기본값.
+    //   'admin'(대표) 계정은 무조건 경영진, 서버 scope 'hq'(라벨 '본사·경영진')도 경영진으로 통일.
+    if (s.uid === 'admin' || role === 'exec' || role === 'admin' || role === 'hq') role = 'hq_exec';
+    else if (role === 'mgr' || role === 'manager') role = 'hq_mgr';
     const isExec = role === 'hq_exec';
     const isMgrOrUp = isExec || role === 'hq_mgr';
     const isHQ = role && role.startsWith('hq');
@@ -36294,6 +36299,7 @@ button.chip:hover,
   //   (mangoi_admin_session.role 이 hq_exec·franchise·capitown 등 다양하게 저장되므로 표준 키로 매핑)
   var ROLE_NORM = {
     'exec':'exec', 'hq_exec':'exec', 'admin':'exec',
+    'hq':'exec',   // 서버 scope 'hq' 원문(라벨 '본사·경영진') — 마이페이지 세션 주입이 이 값을 저장함
     'mgr':'mgr', 'hq_mgr':'mgr', 'manager':'mgr',
     'teacher':'teacher', 'hq_teacher':'teacher',
     'branch':'branch', 'franchise':'branch',
@@ -36312,6 +36318,10 @@ button.chip:hover,
       try { u = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); } catch(e){}
       if (!u || !u.uid) { try { u = JSON.parse(localStorage.getItem('admin_session') || 'null'); } catch(e){} }
       if (!u) return 'exec'; // 비로그인은 일단 전체 허용 (테스트)
+      // 👑 (2026-07-13) 오너 계정 자가치유: 'admin'(대표) 세션에 마이페이지 주입('hq')이나
+      //   옛 기본값('hq_mgr') 같은 잘못된 role 이 남아 있어도 항상 경영진으로 판정한다.
+      //   ("권한 관리 메뉴가 나왔다가 사라진다" 신고의 근본 원인 — 로그인 경로마다 role 값이 달랐음)
+      if (String(u.uid) === 'admin') return 'exec';
       // 1) 세션에 명시된 role 을 표준 키로 정규화 → 2) uid 매핑 → 3) 기본 exec
       var norm = ROLE_NORM[String(u.role || '').toLowerCase()];
       if (norm) return norm;

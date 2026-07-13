@@ -742,6 +742,12 @@
             var u = j.user || {};
             var uid = u.username || '';
             var role = j.role || u.role || '';
+            // 🪪 (2026-07-13) 서버 role 원문('hq'|'teacher'|'staff')을 admin.html 이 아는 클라 키로 변환.
+            //   원문 'hq'를 그대로 저장하면 admin.html 권한 판정이 '경영진 아님'으로 흘러
+            //   대표 계정의 '권한 관리' 메뉴가 사라지는 원인이 됐다.
+            if (role === 'hq') role = (uid === 'admin') ? 'hq_exec' : 'hq_mgr';
+            else if (role === 'teacher') role = 'hq_teacher';
+            else if (role === 'staff') role = 'hq_mgr';
             var agency_id = u.agency_id || '', branch = u.branch || '', branch_id = u.branch_id || '';
             if (!agency_id && uid.indexOf('agency_') === 0) agency_id = uid.replace(/^agency_/, '');
             if (!branch_id && uid.indexOf('branch_') === 0){ branch_id = uid.replace(/^branch_/, ''); branch = branch || branch_id; }
@@ -2261,6 +2267,11 @@
         try {
           var _uid = u.username || '';
           var _role = j.role || u.role || '';
+          // 🪪 (2026-07-13) 서버 role 원문 → 클라 표준 키 (위 goDetailAdmin 과 동일 변환 — 'hq' 원문이
+          //   저장되면 admin.html 이 경영진으로 인식하지 못해 권한 관리 메뉴가 사라졌다)
+          if (_role === 'hq') _role = (_uid === 'admin') ? 'hq_exec' : 'hq_mgr';
+          else if (_role === 'teacher') _role = 'hq_teacher';
+          else if (_role === 'staff') _role = 'hq_mgr';
           var _aid = u.agency_id || '', _br = u.branch || '', _brid = u.branch_id || '';
           if (!_aid && _uid.indexOf('agency_') === 0) _aid = _uid.replace(/^agency_/, '');
           if (!_brid && _uid.indexOf('branch_') === 0){ _brid = _uid.replace(/^branch_/, ''); _br = _br || _brid; }
