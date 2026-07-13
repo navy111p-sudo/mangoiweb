@@ -298,6 +298,32 @@
   @media(max-width:640px){ .hub-panel{gap:12px 14px;padding:14px 16px} .hub-divider{display:none} }
   #streak-badge-hub:empty{display:none}
 
+  /* ===== 📱 모바일 컨트롤 패널 정돈 — 줄바꿈 난립(랭킹 낙오·왼쪽 쏠림) 방지, 줄마다 꽉 찬 정렬 ===== */
+  @media(max-width:640px){
+    .hub-panel{gap:10px;padding:14px 12px 16px}
+    /* ① 코인+룰렛/상점/랭킹 = 한 줄 4등분 그리드 (랭킹 혼자 다음 줄로 밀리던 문제) */
+    .fun-bar{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+    .fun-actions{display:contents}
+    .coin-wallet{justify-content:center;padding:9px 4px;font-size:15px;gap:4px;border-radius:12px}
+    .coin-wallet b{font-size:16px}
+    .fun-btn{padding:9px 2px;font-size:13.5px;white-space:nowrap;border-radius:12px}
+    /* ② 언어 토글 = 화면 꽉 찬 2등분 세그먼트 */
+    .hub-row{width:100%;justify-content:center}
+    .lang-pick{width:100%}
+    .lang-pick .lg{flex:1;padding:9px 0;text-align:center}
+    /* 🔥 스트릭 배지 = 한 줄 컴팩트 (긴 응원문구는 모바일에선 숨김 — 두 줄 꺾임 방지) */
+    #streak-badge-hub{width:100%;display:flex;justify-content:center}
+    #streak-badge-hub:empty{display:none}
+    #streak-badge-hub .ms-badge{padding:6px 16px;gap:6px}
+    #streak-badge-hub .ms-flame{font-size:18px}
+    #streak-badge-hub .ms-num{font-size:15px}
+    #streak-badge-hub .ms-sub{display:none}
+    /* ③ 속도 픽커 = 가운데 정렬 한 줄 */
+    .speed-pick{width:100%;gap:6px}
+    /* 📚 교재 어휘 배지 = 작고 단정하게 (인라인 스타일보다 우선) */
+    #vocab-src-badge{font-size:13px!important;padding:6px 14px!important;max-width:100%}
+  }
+
   /* ===== 💰 코인/룰렛/상점/랭킹 ===== */
   .fun-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .fun-actions{display:inline-flex;gap:8px;flex-wrap:wrap}
@@ -2165,7 +2191,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260713042125 -->
+<!-- BUILD:20260713172015 -->
 <script defer src="/js/flow.js?v=6"></script>
 </body>
 </html>

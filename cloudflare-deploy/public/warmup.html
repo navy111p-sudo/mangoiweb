@@ -401,19 +401,49 @@ function pickVoice(){
 }
 try{ if(window.speechSynthesis){ pickVoice(); window.speechSynthesis.onvoiceschanged=pickVoice; } }catch(e){}
 
-function speak(text, btn){
+/* 클라우드 원어민 TTS(오디오 파일) 우선 재생 — 안드로이드 앱(WebView)처럼
+   speechSynthesis 가 없거나 무음인 기기에서도 소리가 나게 한다.
+   실패(네트워크/429 등) 시에만 브라우저 음성합성으로 폴백. */
+var _ttsCache={}, _ttsAudio=null;
+function _stopSpeak(){
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+  try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(e){}
+}
+function _synthSpeak(text, btn){
   try{
     if(!window.speechSynthesis || !_speechOn || !text) return;
     if(!_enVoice) pickVoice();
     var u=new SpeechSynthesisUtterance(String(text));
     u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02;
     if(_enVoice) u.voice=_enVoice;
-    _lastAiSpeak=String(text);
     u.onstart=function(){ _speechEverStarted=true; };
-    if(btn){ btn.classList.add('playing'); u.onend=function(){ btn.classList.remove('playing'); }; u.onerror=function(){ btn.classList.remove('playing'); }; }
+    if(btn){ u.onend=function(){ btn.classList.remove('playing'); }; u.onerror=function(){ btn.classList.remove('playing'); }; }
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   }catch(e){}
+}
+function speak(text, btn){
+  if(!_speechOn || !text) return;
+  text=String(text); _lastAiSpeak=text;
+  _stopSpeak();
+  if(btn) btn.classList.add('playing');
+  var done=function(){ if(btn) btn.classList.remove('playing'); };
+  var play=function(u){
+    try{
+      if(!_ttsAudio) _ttsAudio=new Audio();
+      _ttsAudio.onended=done; _ttsAudio.onerror=done;
+      _ttsAudio.src=u; _ttsAudio.playbackRate=RATE_STEPS[_rateLevel]||0.95;
+      _ttsAudio.play().then(function(){ _speechEverStarted=true; })
+        .catch(function(){ done(); });   // 자동재생 차단 — 첫 터치(unlockAudio)에서 재시도됨
+    }catch(e){ done(); _synthSpeak(text, btn); }
+  };
+  if(_ttsCache[text]){ play(_ttsCache[text]); return; }
+  fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text:text, lang:'en' }) })
+    .then(function(r){ var ct=r.headers.get('content-type')||'';
+      if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
+    .then(function(b){ var u=URL.createObjectURL(b); _ttsCache[text]=u; play(u); })
+    .catch(function(){ _synthSpeak(text, btn); });   // 서버 TTS 실패 → 브라우저 음성 폴백
 }
 // 모바일 자동재생 정책: 첫 사용자 제스처에서 speechSynthesis 를 깨워둔다(무음 발화)
 function unlockAudio(){
@@ -434,7 +464,7 @@ function toggleSpeech(){
   var b=document.getElementById('spkToggle');
   if(b){ b.textContent = _speechOn ? '🔊' : '🔇'; b.classList.toggle('off', !_speechOn);
     b.title = _speechOn ? 'AI 답변 음성 켜짐 (누르면 끄기)' : 'AI 답변 음성 꺼짐 (누르면 켜기)'; }
-  if(!_speechOn){ try{ window.speechSynthesis.cancel(); }catch(e){} }
+  if(!_speechOn){ _stopSpeak(); }
 }
 
 /* ── ⋮ 설정 메뉴(듣기 속도·대화 레벨) 열고 닫기 ─────────────────── */
@@ -478,7 +508,7 @@ function setMicState(on){
 }
 function toggleMic(){
   unlockAudio();                       // 마이크 탭 = 사용자 제스처 → 이후 음성 재생 허용
-  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}  // AI 낭독 중이면 멈추고 듣기
+  _stopSpeak();                        // AI 낭독(서버 TTS/브라우저 음성) 중이면 멈추고 듣기
   if(_recognizing){ try{ _recog && _recog.stop(); }catch(e){} return; }
   if(!sttSupported()){
     addMsg('이 브라우저는 음성 인식을 지원하지 않아요 😢 크롬(안드로이드/PC)이나 Safari(iOS)에서 사용하거나, 아래에 텍스트로 입력해 주세요.', 'sys');
@@ -641,6 +671,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260713042125 -->
+<!-- BUILD:20260713172015 -->
 </body>
 </html>
