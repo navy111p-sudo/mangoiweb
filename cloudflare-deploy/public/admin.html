@@ -24055,7 +24055,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260713181819 -->
+        <!-- BUILD:20260713181857 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -43732,9 +43732,11 @@ button.chip:hover,
 </div>
 <script>
 (function(){
-  var N=10, i=0, built=false;
-  var TITLES=['시작하기','관리자 페이지란?','전체 흐름 6단계','① 로그인 (입장)','② 첫 화면 익히기',
-    '③ 메뉴 열기','④ 자주 쓰는 기능','⑤ 공지 보내보기','⑥ 안전하게 나가기','이제 준비 끝!'];
+  var N=18, i=0, built=false;
+  var TITLES=['시작하기','관리자 페이지란?','화면은 이렇게 생겼어요','① 로그인 (입장)','사이드바 한눈에 (9개 메뉴)',
+    '메뉴1 · 평가서 통합','메뉴2 · 알림 센터','메뉴3 · 강사 통합','메뉴4 · 통계·KPI','메뉴5 · 회계·포인트',
+    '메뉴6 · 학생·학부모','메뉴7 · 교육·콘텐츠','메뉴8 · 자료실','메뉴9 · 시스템',
+    '자주 쓰는 기능 3가지','공지 보내보기 (따라하기)','안전하게 나가기 + 꿀팁','이제 준비 끝!'];
   var pad=function(n){return (n<10?'0':'')+n;};
   var src=function(n){return '/guide/admin-easy/'+pad(n+1)+'.jpg';};
   var ov,img,cap,cnt,prev,next,thumbs;
