@@ -88,6 +88,13 @@ ok('서버: 명시적 나가기(left)와 네트워크 끊김(dropped) 구분', /
 ok('조용한 끊김(dropped)으로는 자동종료 안 함', has('__vcPeerLeftExplicit'));
 ok('끊김 유예 대기 플래그(__vcPeerGraceWait)', has('__vcPeerGraceWait'));
 
+/* ═══════════════ 6. 옵저버 폭주 방지(홈 먹통 재발 가드) ═══════════════ */
+section('6. 옵저버 폭주 방지');
+// 26-07-14 라이브 장애: body class 옵저버 콜백이 무조건 classList.remove() →
+// remove 는 클래스가 없어도 속성을 다시 써 mutation 재발생 → 자기 자신 무한 재귀 → 메인스레드 정지.
+// 옵저버 콜백 안의 remove('vc-vp-tools-open')는 반드시 contains() 가드 필수.
+ok('vc-vp-tools-open 제거는 contains() 가드 후에만', has("if (document.body.classList.contains('vc-vp-tools-open')) document.body.classList.remove('vc-vp-tools-open')"));
+
 /* ═══════════════ 결과 ═══════════════ */
 console.log('\n════════════════════════════════════');
 console.log(fail === 0

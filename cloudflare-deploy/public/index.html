@@ -26930,7 +26930,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714040110 -->
+<!-- BUILD:20260714042341 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29454,7 +29454,10 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
         else {  // 통화 종료 → 다음 수업은 다시 기본(선생님 크게)부터
           _applied = false; _userChose = false; _lastWant = null;
           window.__vcPdfShared = false; window.__vcVideoSharing = false;
-          try { document.body.classList.remove('vc-vp-tools-open'); } catch(e){}
+          // ⚠️ classList.remove()는 클래스가 '없어도' class 속성을 다시 써서 mutation 을
+          //   또 발생시킴 → 이 옵저버가 자기 자신을 무한 재귀(메인스레드 정지, 홈 전체 먹통).
+          //   반드시 있을 때만 지운다. (2026-07-14 라이브 장애 원인)
+          try { if (document.body.classList.contains('vc-vp-tools-open')) document.body.classList.remove('vc-vp-tools-open'); } catch(e){}
         }
       }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     } catch(e){}
