@@ -96,7 +96,8 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 | 2026-07-14 | 1 | 9차(admin 4회차): Phase POP 팝업/공지·포스터 16라우트(300줄, 공개 popups 포함) → api-admin.ts(2,513줄), api-mango 11,025→10,728줄(-31%) | ✅ tsc·게이트 배포·스모크 15/15 + 공개팝업 200·admin 가드 401 일치 |
 | 2026-07-14 | 1 | 10차(admin 5회차): 스케줄·노쇼 9라우트(WS 주간스케줄·미배정·알림큐·수업스케줄 CRUD·노쇼·중복병합) 2컷 이동 — 사이의 학생용 /api/class/* 2종은 자립 확인 후 잔류. sendPushToUser 클로저→api-notify 승격(호출 8곳 env 전달). api-mango 10,728→10,192줄(**-34%**) | ✅ tsc(미해결 심볼 검출→승격)·게이트 배포·스모크 15/15 + 이동/잔류 라우트 4종 기준 일치 |
 | 2026-07-14 | 1 | 11차: Phase P1+P4 포인트·기프티콘·별점평가 29매처(1,131줄) → 신규 **api-points.ts**. 승격: ensurePointTables·applyPointTransaction(export, 게임보상 2곳 역수입)·seedGiftCatalog·DDL플래그 3종·today()→api-util. api-mango 10,192→**9,044줄(-41%, 1만줄 돌파)** | ✅ tsc(클로저변수 4종 검출→재배치)·게이트 배포·스모크 15/15 + 카탈로그/리더보드 실데이터·가드 401·검증 400 일치 |
-| | | (다음 후보: Phase E1~E4 평가서 / Phase HW 숙제 / Phase K1~K5 카카오 / Phase AV 음성코칭 — admin+공용 잔여 ~85라우트) | |
+| 2026-07-14 | 1 | 12차: 평가서(E1~E4)+숙제(HW)+일괄평가(BE) 9매처 → 신규 **api-lessons.ts**(338줄), api-mango 9,033→8,731줄(**-43%**) | ✅ tsc·게이트 배포·스모크 15/15 + eval/homework 가드 응답 일치 |
+| | | (다음 후보: Phase K1~K5 카카오 / Phase AV·TVS 음성코칭 / Phase CAL 캘린더 / Phase F1~F2 미납알림 — 잔여 ~75라우트) | |
 | | | | |
 
 ### 분리 작업 표준 절차 (1단계에서 확립된 패턴)
