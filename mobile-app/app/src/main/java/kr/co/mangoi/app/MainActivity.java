@@ -192,8 +192,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // ★ (v1.7) 옛 캐시 자동 탈출 — APK를 "덮어 설치"하면 안드로이드가 이전 앱의
+        //   WebView 저장데이터(옛 서비스워커 캐시=몇 주 전 홈 화면)를 그대로 물려줘
+        //   "앱이 옛날 것"으로 보이던 문제의 근본 대책 2중장치:
+        //   ① 앱 버전이 올라간 첫 실행이면 HTTP 캐시 청소
+        //   ② 시작 URL 에 실행마다 고유 쿼리(_app=시각) — 옛 SW 캐시 키와 절대 안 겹쳐 항상 네트워크 최신 HTML
+        try {
+            android.content.SharedPreferences sp = getSharedPreferences("mangoi", MODE_PRIVATE);
+            int lastVc = sp.getInt("last_vc", 0);
+            int curVc = BuildConfig.VERSION_CODE;
+            if (curVc > lastVc) {
+                webView.clearCache(true);
+                sp.edit().putInt("last_vc", curVc).apply();
+            }
+        } catch (Exception ignore) {}
         if (savedInstanceState == null) {
-            webView.loadUrl(START_URL);
+            webView.loadUrl(START_URL + "?_app=" + System.currentTimeMillis());
         } else {
             webView.restoreState(savedInstanceState);
         }
