@@ -114,30 +114,10 @@
 </script>
 
 <script id="ph58-sw-kill">
-/* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
-   휴대폰 PWA가 옛 HTML 잡고 있을 때 자동 복구. */
-(function(){
-  try {
-    if ('serviceWorker' in navigator && !sessionStorage.getItem('ph58_done_v2')) {
-      sessionStorage.setItem('ph58_done_v2', '1');
-      navigator.serviceWorker.getRegistrations().then(function(regs){
-        if (!regs.length) return;
-        Promise.all(regs.map(function(r){ return r.unregister(); })).then(function(){
-          if ('caches' in window) {
-            return caches.keys().then(function(keys){
-              return Promise.all(keys.map(function(k){ return caches.delete(k); }));
-            });
-          }
-        }).then(function(){
-          // cache-bust 쿼리로 강제 새로고침 (1회만)
-          var u = new URL(location.href);
-          u.searchParams.set('_swkill', Date.now().toString());
-          location.replace(u.toString());
-        });
-      });
-    }
-  } catch(e){}
-})();
+/* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister 스크립트는 제거됨 (2026-07-13).
+   현재 SW(/sw.js)는 updateViaCache:'none'+SKIP_WAITING 으로 스스로 최신화되므로
+   이 스크립트가 오히려 매 세션 SW·캐시를 전부 지우고 강제 새로고침을 걸어
+   "첫 진입 시 2~3번 깜빡임 + 느린 첫 화면"의 원인이었음. */
 </script>
 
     <meta charset="UTF-8">
@@ -6903,10 +6883,25 @@
         <!-- 🥭 Phase 41 — 🎮 학생게임 탭 (문장 벽돌 + 단어 매칭) -->
         <div class="tab-panel" id="tab-game" style="flex-direction:column">
           <!-- 게임 선택 헤더 -->
-          <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.65);border-bottom:1px solid rgba(148,163,184,0.15);flex-wrap:wrap;flex-shrink:0">
+          <style>
+          /* 📱 모바일 — 게임 선택 헤더 정돈: 세그먼트 줄바꿈 난장판 → 2열 그리드 칩 */
+          @media (max-width:640px){
+            #tab-game .vc-game-head{row-gap:8px!important}
+            #tab-game .vc-game-modes{
+              display:grid!important;grid-template-columns:1fr 1fr;gap:8px;
+              width:100%;margin-left:0!important;border:0!important;border-radius:0;
+              overflow:visible!important}
+            #tab-game .vc-game-modes button{
+              border:1px solid rgba(148,163,184,.35)!important;border-radius:10px!important;
+              padding:10px 6px!important;min-width:0;text-align:center;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            #tab-game .vc-game-next{width:100%;padding:11px 12px!important;font-size:13px!important}
+          }
+          </style>
+          <div class="vc-game-head" style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(15,23,42,0.65);border-bottom:1px solid rgba(148,163,184,0.15);flex-wrap:wrap;flex-shrink:0">
             <span style="font-size:13px;color:#fbbf24;font-weight:700">🎮 <span data-ko="학생게임" data-en="Student Game">학생게임</span></span>
             <span style="font-size:11px;color:#94a3b8" data-ko="오늘의 교재 단어/문장 기반" data-en="Based on today's textbook">오늘의 교재 단어/문장 기반</span>
-            <div style="margin-left:auto;display:inline-flex;border:1px solid #475569;border-radius:6px;overflow:hidden;flex-wrap:wrap">
+            <div class="vc-game-modes" style="margin-left:auto;display:inline-flex;border:1px solid #475569;border-radius:6px;overflow:hidden;flex-wrap:wrap">
               <button id="game-mode-brick" type="button" onclick="gameSwitchMode('brick')"
                       style="padding:6px 14px;background:#10b981;color:#fff;border:0;cursor:pointer;font-size:12px;font-weight:600">🧱 <span data-ko="문장 벽돌" data-en="Sentence Brick">문장 벽돌</span></button>
               <button id="game-mode-match" type="button" onclick="gameSwitchMode('match')"
@@ -6916,7 +6911,7 @@
               <button id="game-mode-balloon" type="button" onclick="gameSwitchMode('balloon')"
                       style="padding:6px 14px;background:transparent;color:#94a3b8;border:0;border-left:1px solid #475569;cursor:pointer;font-size:12px;font-weight:600">🎈 <span data-ko="풍선 터뜨리기" data-en="Balloon Pop">풍선 터뜨리기</span></button>
             </div>
-            <button onclick="gameNextRound()"
+            <button class="vc-game-next" onclick="gameNextRound()"
                     style="padding:6px 12px;font-size:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600"
                     data-ko="🔄 다음 문제" data-en="🔄 Next">🔄 다음 문제</button>
           </div>
@@ -16440,6 +16435,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ━━━━━━━━━━ 📊 레벨테스트 신청·안내 모달 ━━━━━━━━━━
   function showLevelTestModal() {
+    // 📅 희망 날짜(내일~14일)·시간 옵션 생성 — showModal 은 innerHTML 이라 옵션을 문자열로 미리 만든다
+    var _WK = ['일','월','화','수','목','금','토'];
+    var _today = new Date(); var dateOptions = '';
+    for (var _i = 1; _i <= 14; _i++) {
+      var _d = new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() + _i);
+      var _v = _d.getFullYear() + '-' + ('0'+(_d.getMonth()+1)).slice(-2) + '-' + ('0'+_d.getDate()).slice(-2);
+      dateOptions += '<option value="' + _v + '">' + (_d.getMonth()+1) + '월 ' + _d.getDate() + '일 (' + _WK[_d.getDay()] + ')</option>';
+    }
+    var timeOptions = '';
+    ['16:00','17:00','18:00','19:00','20:00','21:00'].forEach(function(t){ timeOptions += '<option value="' + t + '">' + t + '</option>'; });
     showModal(`
       <h2>📊 레벨테스트 안내</h2>
       <p>망고아이의 8단계 심층 레벨 시스템에 맞춰 본인의 영어 실력을 정확히 진단해 드립니다.</p>
@@ -16521,7 +16526,16 @@ window.addEventListener('DOMContentLoaded', () => {
             <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">🎂 학년/연령 (선택)</label>
             <input id="lt-age" type="text" placeholder="예: 중2 / 30대" maxlength="20" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box" />
           </div>
+          <div>
+            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">📅 희망 날짜 <span style="color:#ef4444">*</span></label>
+            <select id="lt-date" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">${dateOptions}</select>
+          </div>
+          <div>
+            <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin-bottom:5px">⏰ 희망 시간 <span style="color:#ef4444">*</span></label>
+            <select id="lt-time" style="width:100%;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;outline:none;box-sizing:border-box">${timeOptions}</select>
+          </div>
         </div>
+        <p style="color:#94a3b8;font-size:11.5px;margin:0 0 10px;line-height:1.55">🧑‍🏫 신청하시면 <b style="color:#fde68a">그 시간에 가능한 최고 평가 선생님</b>이 자동 배정되고, 확정 안내를 보내드려요.</p>
         <label style="display:flex;align-items:center;gap:8px;color:#cbd5e1;font-size:12px;cursor:pointer;margin-bottom:12px">
           <input id="lt-agree" type="checkbox" style="width:16px;height:16px;cursor:pointer" />
           <span>개인정보 수집·이용 동의 (레벨테스트 안내·결과 발송 목적, <a onclick="closeInfoModal();window.gridActions&&window.gridActions.contact()" style="color:#9ee5ff;cursor:pointer;text-decoration:underline">고객센터 문의</a>)</span>
@@ -16558,6 +16572,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const phone = ($('lt-phone')?.value || '').trim();
     const email = ($('lt-email')?.value || '').trim();
     const age = ($('lt-age')?.value || '').trim();
+    const desiredDate = ($('lt-date')?.value || '').trim();
+    const desiredTime = ($('lt-time')?.value || '').trim();
     const agree = $('lt-agree')?.checked;
     const msg = $('lt-form-msg');
     const btn = $('lt-submit');
@@ -16572,6 +16588,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!pw || pw.length < 6) return showErr('비밀번호는 6자 이상 입력해 주세요.');
     if (!name) return showErr('학생 이름을 입력해 주세요.');
     if (!phone) return showErr('연락처를 입력해 주세요.');
+    if (!desiredDate) return showErr('희망 날짜를 선택해 주세요.');
+    if (!desiredTime) return showErr('희망 시간을 선택해 주세요.');
     if (!agree) return showErr('개인정보 수집·이용에 동의해 주세요.');
 
     if (msg) msg.style.display = 'none';
@@ -16617,6 +16635,19 @@ window.addEventListener('DOMContentLoaded', () => {
         // 네트워크 오류 — 무시하고 로컬 fallback
         console.warn('[signup] network error — proceeding with local fallback:', netErr && netErr.message);
       }
+      // 🎯 자동 예약 + 교사 자동 "제안" — /api/leveltest/apply. 학생에겐 접수 안내, 교사 수락 후 담당 확정 통보.
+      var scheduledLabel = '';
+      try {
+        const ar = await fetch('/api/leveltest/apply', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student_name: name, student_uid: uid, phone: phone, email: email,
+            desired_date: desiredDate, desired_time: desiredTime, source: 'leveltest_signup',
+          })
+        });
+        const ad = await ar.json().catch(() => null);
+        if (ad && ad.scheduled) scheduledLabel = ad.scheduled;
+      } catch (e) { console.warn('[signup] leveltest apply skipped:', e && e.message); }
       // 🔗 학생 홈피 → 관리자 대시보드 결과 자동 연동 (localStorage 공유 키)
       try {
         const arr = JSON.parse(localStorage.getItem('mangoi_level_test_results') || '[]');
@@ -16643,14 +16674,17 @@ window.addEventListener('DOMContentLoaded', () => {
         <h2 style="color:#86efac">🎉 회원가입 + 레벨테스트 신청 완료!</h2>
         <p>축하합니다! <b style="color:#fde68a">${escapeLT(name)}</b> 님의 회원가입이 완료되었고 레벨테스트 신청이 접수되었습니다.</p>
         <div class="info-grid" style="margin:14px 0">
-          <div class="info-tile"><b>📌 아이디</b><span>${escapeLT(uid)}</span></div>
+          <div class="info-tile"><b>📅 희망 일시</b><span>${escapeLT(scheduledLabel || (desiredDate + ' ' + desiredTime))}</span></div>
+          <div class="info-tile"><b>👩‍🏫 담당 선생님</b><span>확정되면 안내</span></div>
           <div class="info-tile"><b>📞 연락처</b><span>${escapeLT(phone)}</span></div>
-          <div class="info-tile"><b>📨 안내</b><span>영업일 1일 내 카톡 발송</span></div>
+        </div>
+        <div style="background:rgba(46,204,113,0.10);border:1px solid rgba(46,204,113,0.35);border-radius:10px;padding:10px 14px;margin:2px 0 12px;color:#a7f3d0;font-size:13px;font-weight:700;text-align:center">
+          ✅ 신청이 접수됐어요! 접수 안내를 ${phone ? '문자로 ' : ''}보내드렸어요.<br>담당 선생님이 확정되면 다시 알려드릴게요.
         </div>
         <ul>
-          <li>예약 시간 10분 전 카카오톡 채널로 화상 링크 안내</li>
+          <li>담당 선생님 확정 후, 예약 시간 10분 전 카카오톡 채널로 화상 링크 안내</li>
+          <li>원어민 선생님과 1:1로 진행돼요</li>
           <li>마이페이지에서 진행 상태와 결과 확인 가능</li>
-          <li>결과 수령 후 추천 코스로 즉시 수강 신청 가능</li>
         </ul>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
           <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;text-align:center;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡 채널 추가</a>
@@ -21490,10 +21524,17 @@ window.closeRulesModal = function() {
           });
         })
         .catch(err => console.warn('[pwa] SW 등록 실패:', err));
-      // 새 SW 가 제어권을 잡으면 한 번만 새로고침 → 항상 최신 화면
+      // 새 SW 가 제어권을 잡으면 새로고침 → 항상 최신 화면
+      // 🔧 (2026-07-13) 단, 방금 로드된 페이지는 이미 네트워크에서 최신 HTML을 받은 상태라
+      //   여기서 또 reload 하면 첫 진입이 "깜빡" 거리기만 함(첫 설치·배포 직후 공통).
+      //   → 로드 30초 이내엔 조용히 교체만 하고, 오래 열려 있던 화면(설치형 PWA)만 새로고침.
+      //   수업 중(vc-in-call)에는 절대 강제 새로고침하지 않음.
       let _swReloaded = false;
+      const _swPageLoadedAt = Date.now();
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (_swReloaded) return;
+        if (Date.now() - _swPageLoadedAt < 30000) return;
+        try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(e){}
         _swReloaded = true;
         location.reload();
       });

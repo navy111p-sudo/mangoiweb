@@ -3097,6 +3097,40 @@
                 min-height: 0 !important;
                 display: flex !important;
             }
+
+            /* ★ (2026-07-14 사장님 최종) 세로폰 기본 1/2(half):
+               위 절반 = 교사·학생 얼굴이 '정확히 반반(좌우 50:50)' — 겹침·축소·가림 절대 금지.
+               id 중복(#vc-video-grid#vc-video-grid)으로 특이도 확보:
+               - 내타일 숨김 규칙(display:none, 2-id)과 내타일 62% 축소 규칙(3-id)을 모두 이김. */
+            body.vc-in-call .vc-main-row.video-half > .video-pane {
+                height: 48vh !important;
+                max-height: 48vh !important;
+            }
+            body.vc-in-call #vc-main-row.video-half #vc-video-grid#vc-video-grid {
+                height: 100% !important;
+                align-content: stretch !important;
+                grid-template-columns: 1fr 1fr !important;   /* 교사 왼쪽 | 학생 오른쪽 = 반반 */
+                grid-auto-rows: 1fr !important;
+                gap: 4px !important;
+            }
+            body.vc-in-call #vc-main-row.video-half #vc-video-grid#vc-video-grid .video-box,
+            body.vc-in-call #vc-main-row.video-half #vc-video-grid#vc-video-grid #vc-local-box {
+                display: block !important;         /* 내타일 숨김 규칙 무효 — 둘 다 선명하게 */
+                width: 100% !important;            /* 62% 축소 규칙 무효 — 정확히 반반 */
+                margin: 0 !important;
+                opacity: 1 !important;
+                aspect-ratio: auto !important;
+                height: 100% !important;
+                max-height: none !important;
+                min-height: 0 !important;
+                position: relative !important;     /* 떠서 겹치기 금지 */
+                inset: auto !important;
+                z-index: auto !important;
+            }
+            /* 혼자일 때(상대 아직 없음)는 한 명이 전체 폭 */
+            body.vc-in-call #vc-main-row.video-half #vc-video-grid#vc-video-grid[data-count="1"] {
+                grid-template-columns: 1fr !important;
+            }
         }
 
         /* ──────────────────────────────────────────────────────────
@@ -3148,6 +3182,62 @@
                 grid-template-columns: repeat(3, 1fr) !important;
                 grid-template-rows: repeat(3, 1fr);
             }
+        }
+
+        /* ★★ (2026-07-14 사장님 지시) 모바일 가로: PIP(공중부양 얼굴창) 절대 금지.
+           얼굴은 왼쪽의 '실제 열'로 — 교사 위 / 학생 바로 아래, 위아래 2분할(각 1/2).
+           위 920-가로 블록의 position:absolute PIP 규칙을 전부 무효화한다. */
+        @media (max-width: 1024px) and (orientation: landscape),
+               (max-height: 600px) and (orientation: landscape) {
+            body.vc-in-call .vc-main-row:not(.video-solo):not(.video-full) > .video-pane {
+                position: relative !important;
+                top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+                width: 45% !important;             /* 기본 = 1/2 느낌 (화면 절반 가까이) */
+                height: 100% !important;
+                max-height: none !important;
+                flex: 0 0 auto !important;
+                z-index: auto !important;
+                border-right: 1px solid rgba(148,163,184,0.25) !important;
+                background: rgba(10,21,48,0.92) !important;
+                overflow: hidden !important;
+            }
+            body.vc-in-call .vc-main-row:not(.video-solo):not(.video-full) > .content-pane {
+                width: auto !important;
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
+                display: flex !important;
+            }
+            /* 교사 위 / 학생 바로 아래 — 세로 1열 스택, 칸을 꽉 채움.
+               하단 고정 버튼바(마이크/카메라 독)가 학생 얼굴을 가리지 않게 아래 여백 확보. */
+            body.vc-in-call .vc-main-row:not(.video-solo):not(.video-full) > .video-pane #vc-video-grid {
+                display: grid !important;
+                grid-template-columns: 1fr !important;
+                grid-auto-rows: 1fr !important;
+                grid-template-rows: none !important;
+                height: 100% !important;
+                align-content: stretch !important;
+                gap: 4px !important;
+                padding: 4px 4px calc(70px + env(safe-area-inset-bottom, 0px)) 4px !important;
+            }
+            /* 내 타일도 교사 타일과 '같은 크기' — 1:1 내타일 62% 축소 규칙(vc-teacher-first)은
+               모바일 가로에선 무효 (사장님: 교사·학생 정확히 위아래 1/2). id 중복으로 특이도 확보. */
+            body.vc-in-call #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid[data-count="2"] #vc-local-box {
+                width: 100% !important;
+                margin-left: 0 !important;
+                opacity: 1 !important;
+            }
+            body.vc-in-call .vc-main-row:not(.video-solo):not(.video-full) > .video-pane #vc-video-grid .video-box {
+                aspect-ratio: auto !important;
+                width: 100% !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                position: relative !important;
+            }
+            /* 사용자가 직접 고른 분할 비율은 '열 너비'로만 반영 (절대배치 없음) */
+            body.vc-in-call .vc-main-row.video-quarter:not(.video-solo):not(.video-full) > .video-pane { width: 28% !important; height: 100% !important; }
+            body.vc-in-call .vc-main-row.video-half:not(.video-solo):not(.video-full) > .video-pane { width: 45% !important; height: 100% !important; }
+            body.vc-in-call .vc-main-row.video-threequarter:not(.video-solo):not(.video-full) > .video-pane { width: 60% !important; height: 100% !important; }
+            body.vc-in-call .vc-main-row.video-pip:not(.video-solo):not(.video-full) > .video-pane { width: 30% !important; height: 100% !important; }
         }
 
         /* ════════════════════════════════════════════════════════════════
@@ -29321,10 +29411,11 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     hookScreenSet();
     if(!inCall() || !isPortrait() || typeof window.vcScreenSet !== 'function') return;
     var r = row(); if(!r) return;
-    // 🔑 (2026-07-13, 사장님 지시) 세로폰 기본 = '선생님 크게'(facepip).
-    //    교사가 교재·동영상을 '공유하면' 그 내용이 크게(pip) + 선생님 작은 PIP,
-    //    공유가 끝나면 다시 선생님 크게로 복귀.
-    var want = isContentShared() ? 'pip' : 'facepip';
+    // 🔑 (2026-07-14 밤, 사장님 재지시) 세로폰 = '항상 1/2'(half). PIP 자동 전환 완전 폐지.
+    //    ("절대로 PIP 사용하지 말고 1/2로") — 교재·동영상을 공유해도 얼굴은 위 절반 유지,
+    //    내용은 아래 절반에 표시(탭 전환은 그대로). 방에 남은 옛 공유기록(stale pdfState)이
+    //    pip 를 발동시키던 문제도 이걸로 함께 사라짐.
+    var want = 'half';
     if(fromShare){
       // 교사의 공유 시작/중지는 최우선 — 학생이 다른 모드를 골랐어도 교사가 보여주는 대로 따라간다.
       _userChose = false;
@@ -29527,6 +29618,34 @@ body.vc-in-call #vc-main-row:not(.video-pip):not(.video-facepip):not(.video-solo
       else _did = false;   // 통화 종료 → 다음 수업 위해 리셋
     }).observe(document.body, { attributes:true, attributeFilter:['class'] });
   } catch(e){}
+})();
+
+/* ★ (2026-07-14 사장님) 모바일 가로 입장 기본 = 1/2(half).
+   세로는 phero IIFE(maybeDefault)가 담당, 가로는 여기서 — 모드 미지정일 때 한 번만 적용.
+   사용자가 이미 고른 모드(클래스 존재)는 절대 건드리지 않음. */
+(function(){
+  var MODES = ['video-quarter','video-half','video-threequarter','video-full','video-pip','video-solo','video-facepip','video-free'];
+  function isMobLand(){
+    try {
+      return matchMedia('(max-width:1024px) and (orientation:landscape)').matches
+          || matchMedia('(max-height:600px) and (orientation:landscape)').matches;
+    } catch(e){ return false; }
+  }
+  function apply(){
+    try {
+      if (!document.body.classList.contains('vc-in-call') || !isMobLand()) return;
+      var r = document.querySelector('.vc-main-row');
+      if (!r || typeof window.vcScreenSet !== 'function') return;
+      var has = MODES.some(function(c){ return r.classList.contains(c); });
+      if (!has) window.vcScreenSet('half');
+    } catch(e){}
+  }
+  try {
+    new MutationObserver(function(){
+      if (document.body.classList.contains('vc-in-call')) setTimeout(apply, 700);
+    }).observe(document.body, { attributes:true, attributeFilter:['class'] });
+  } catch(e){}
+  window.addEventListener('orientationchange', function(){ setTimeout(apply, 500); });
 })();
 </script>
 <style id="mg-theme-toggle-topright">
