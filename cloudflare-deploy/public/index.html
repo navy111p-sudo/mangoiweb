@@ -3075,6 +3075,28 @@
                 max-width: none !important;
                 height: 100% !important;
             }
+
+            /* ★ (2026-07-14) 사장님 요청 세로폰 기본 배치 —
+               위: 교사·학생 얼굴 1:1 나란히(작은 띠) / 아래: 당일 교재 크게.
+               모드(pip/half/quarter…)와 무관하게 항상 이 배치가 되도록 강제.
+               '전체(video-full)'만 예외(얼굴 꽉 채움). */
+            body.vc-in-call .vc-main-row:not(.video-full) > .video-pane {
+                position: relative !important;
+                top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: 32vh !important;   /* 얼굴은 위쪽 1/3 이하로 → 교재가 크게 */
+                flex: 0 0 auto !important;
+                border-radius: 0 !important;
+                border-bottom: 1px solid rgba(148,163,184,0.22) !important;
+                box-shadow: none !important;
+            }
+            body.vc-in-call .vc-main-row:not(.video-full) > .content-pane {
+                flex: 1 1 auto !important;   /* 남는 공간 전부 = 당일 교재 크게 */
+                width: 100% !important;
+                min-height: 0 !important;
+                display: flex !important;
+            }
         }
 
         /* ──────────────────────────────────────────────────────────
@@ -8074,14 +8096,11 @@
         <div class="tab-panel" id="tab-pdf">
             <div class="pdf-container">
                 <div class="pdf-controls">
-                    <label style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer;" data-ko="📁 교재 업로드 (PDF/JPG/PNG)" data-en="📁 Upload (PDF/JPG/PNG)">
-                        📁 교재 업로드 (PDF/JPG/PNG)
-                        <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" id="pdf-upload" style="display:none;" onchange="pdfUpload(this)" />
-                    </label>
-                    <label style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:0.85rem; cursor:pointer; font-weight:700;" data-ko="📎 파일 업로드 (모든 파일)" data-en="📎 Attach file (any type)" title="워드·엑셀·PPT·한글·ZIP 등 모든 파일을 학생에게 공유(다운로드)">
-                        📎 <span data-ko="파일 업로드" data-en="Attach file">파일 업로드</span>
-                        <input type="file" id="file-share-upload" style="display:none;" onchange="fileShareUpload(this)" />
-                    </label>
+                    <!-- 업로드 버튼: label 대신 button+명시적 트리거로 교체 (클릭 확실히 등록 + 콘솔 로그) -->
+                    <button type="button" onclick="triggerUpload('pdf')" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer; border:none;" data-ko="📁 교재 업로드 (PDF/JPG/PNG)" data-en="📁 Upload (PDF/JPG/PNG)">📁 교재 업로드 (PDF/JPG/PNG)</button>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" id="pdf-upload" style="display:none;" onchange="pdfUpload(this)" />
+                    <button type="button" onclick="triggerUpload('file')" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📎 파일 업로드 (모든 파일)" data-en="📎 Attach file (any type)" title="워드·엑셀·PPT·한글·ZIP 등 모든 파일을 학생에게 공유(다운로드)">📎 파일 업로드 (모든 파일)</button>
+                    <input type="file" id="file-share-upload" style="display:none;" onchange="fileShareUpload(this)" />
                     <button onclick="openTextbookLibrary()" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📚 라이브러리" data-en="📚 Library" title="관리자가 업로드한 교재 라이브러리에서 선택">
                         📚 <span data-ko="라이브러리" data-en="Library">라이브러리</span>
                     </button>
@@ -9160,6 +9179,67 @@ async function vcHealLocalMic() {
     }
 }
 
+/* ──────────────────────────────────────────────────────────────
+   📷 내 카메라 자가치유 (2026-07-14) — "상대가 내 얼굴이 안 보여요 / 검은 화면" 근본 대책 (송신측)
+   문제: 로컬 미리보기(내 얼굴)는 멀쩡한데, OS/브라우저가 송출 카메라 트랙을 muted(프레임 0)
+        또는 ended 로 만들면 → 상대에겐 '검은 영상'만 감. 연결·ontrack 은 정상이라
+        기존 복구 로직(연결/트랙 '유무'만 봄)이 이를 못 잡고 검은 타일로 방치했다.
+   해결: 송출 비디오 트랙이 ended, 또는 live 인데 muted 가 지속되면 카메라를 다시 획득해
+        모든 피어 sender 에 replaceTrack — 재협상 없이 즉시 복구. (vcHealLocalMic 의 영상판)
+   안전장치: 관찰자 / 카메라 OFF / 가상배경 ON 이면 건너뜀(정상 상태). muted 는 3틱(~15초)
+        지속 시에만 발동, 10초 쿨다운으로 권한팝업·플리커 폭주 방지.
+   ────────────────────────────────────────────────────────────── */
+let __vcCamHealAt = 0;
+let __vcCamMutedTicks = 0;
+async function vcHealLocalVideo() {
+    try {
+        if (!document.body.classList.contains('vc-in-call')) { __vcCamMutedTicks = 0; return; }
+        if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return;          // 관찰자는 카메라 없음
+        if (!window.vcLocalStream) return;
+        if (typeof vcCamOn !== 'undefined' && !vcCamOn) { __vcCamMutedTicks = 0; return; }  // 사용자가 카메라 끔 = 정상
+        // 가상배경 켜져 있으면 송출은 합성 캔버스(정상) — 원본 카메라로 갈아끼우면 배경이 깨짐
+        if (typeof vcBg !== 'undefined' && vcBg && vcBg.mode && vcBg.mode !== 'off') { __vcCamMutedTicks = 0; return; }
+        const tracks = vcLocalStream.getVideoTracks();
+        if (!tracks.length) return;                                              // 애초에 카메라 없이 입장
+        const live = tracks.find(t => t.readyState === 'live');
+        let bad = false;
+        if (!live) bad = true;                                                   // 전부 ended = 즉시 복구
+        else if (live.muted) { __vcCamMutedTicks++; if (__vcCamMutedTicks >= 3) bad = true; }  // 프레임0 지속
+        else { __vcCamMutedTicks = 0; return; }                                  // 정상(프레임 흐름) = 개입 금지
+        if (!bad) return;
+        const now = Date.now();
+        if (now - __vcCamHealAt < 10000) return;                                 // 10초 쿨다운
+        __vcCamHealAt = now; __vcCamMutedTicks = 0;
+        console.warn('[cam-heal] 송출 영상 트랙 이상(ended/muted) → 카메라 재획득 시도');
+        let stream;
+        try { stream = await navigator.mediaDevices.getUserMedia({ video: true }); }
+        catch (e1) { console.warn('[cam-heal] getUserMedia 실패:', e1 && e1.name); return; }
+        const newTrack = stream.getVideoTracks()[0];
+        if (!newTrack) return;
+        newTrack.enabled = (typeof vcCamOn === 'undefined') ? true : !!vcCamOn;   // 카메라 on/off 상태 존중
+        // 죽은 트랙 정리 후 교체
+        tracks.forEach(old => { try { old.stop(); } catch(_){} try { vcLocalStream.removeTrack(old); } catch(_){} });
+        vcLocalStream.addTrack(newTrack);
+        // 로컬 미리보기 갱신
+        try {
+            const lv = document.getElementById('vc-local-video');
+            if (lv) { lv.srcObject = vcLocalStream; const p = lv.play(); if (p && p.catch) p.catch(()=>{}); }
+        } catch(_){}
+        // 모든 피어 sender 교체 (재협상 없이 즉시 복구)
+        Object.values(vcPeerConnections || {}).forEach(pc => {
+            try {
+                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(newTrack).catch(()=>{});
+                else pc.addTrack(newTrack, vcLocalStream);
+            } catch (e) { console.warn('[cam-heal] sender 교체 실패:', e); }
+        });
+        console.warn('[cam-heal] ✅ 카메라 자동 복구 완료');
+        try { vcAddChatSystem('📷 카메라가 자동으로 다시 연결됐어요.'); } catch(_){}
+    } catch (e) {
+        console.warn('[cam-heal] 재획득 실패(다음 틱 재시도):', e && e.name);
+    }
+}
+
 /** 앱 복귀 시: 트랙 enable + 비디오 재생 + ICE/WebSocket 복구 */
 async function vcOnAppResume(reason) {
     console.log('[app-resume] 복귀 감지:', reason);
@@ -9174,6 +9254,7 @@ async function vcOnAppResume(reason) {
             }
         });
         try { vcHealLocalMic(); } catch(_) {}   // 🎤 백그라운드에서 죽은 마이크 즉시 복구
+        try { vcHealLocalVideo(); } catch(_) {} // 📷 백그라운드에서 죽은/검은 카메라 즉시 복구
     }
 
     // 2) 모든 비디오 엘리먼트 play() 재호출 (모바일 브라우저가 일시정지한 경우 대응)
@@ -9366,6 +9447,60 @@ function vcReconnectPeer(userId) {
         } catch(e){ console.warn('[vc-stuck] 복구 호출 실패:', e); }
       });
       Object.keys(firstSeen).forEach(function(id){ if (!seen[id]) delete firstSeen[id]; });  // 사라진 박스 정리
+    } catch(_){}
+  }, 3000);
+})();
+
+/* ──────────────────────────────────────────────────────────────
+   📷 (2026-07-14) 원격 '검은 영상' 감지 — "상대가 연결됐는데 검게만 보여요" 대책 (수신측).
+   ───────────────────────────────────────────────────────────────
+   #19 고착 워치독은 '수신 트랙 유무'만 봐서, 트랙이 live 라도 muted(프레임 0)로 도착하는
+   '검은 영상'은 정상으로 오인해 방치했다(vcAddRemoteVideo 가 '연결 중' 힌트도 지워버림).
+   여기서 연결(ICE connected)됐는데 상대 영상 프레임이 없으면(videoWidth 0 또는 트랙 muted):
+     (1) 타일에 '상대 영상 준비 중 — 카메라 확인' 안내를 띄워 검은 화면의 이유를 알리고,
+     (2) 최대 3회 재협상(vcReconnectPeer)으로 상대가 트랙을 다시 세우도록 유도한다.
+   상대가 애초에 영상 트랙을 안 보냄(오디오전용/관찰자)이면 개입 금지. 프레임이 도착하면
+   (videoWidth>0) 안내를 즉시 제거. 무한 재협상 방지 = 피어당 3회 상한 후엔 안내만 유지. */
+(function vcRemoteBlackWatch(){
+  if (window.__vcBlackWatch) return; window.__vcBlackWatch = true;
+  var blackSince = {}, tries = {};
+  var GRACE_MS = 7000, MAX_TRIES = 3;
+  setInterval(function(){
+    try {
+      if (!document.body || !document.body.classList.contains('vc-in-call')) { blackSince = {}; tries = {}; return; }
+      var grid = document.getElementById('vc-video-grid'); if (!grid) return;
+      var now = Date.now(), seen = {};
+      grid.querySelectorAll(':scope > .video-box').forEach(function(box){
+        var id = (box.id || '').replace('vc-video-', '');
+        if (!id || box.id === 'vc-local-box' || (typeof vcUserId !== 'undefined' && id === vcUserId)) return;
+        var pc = vcPeerConnections[id];
+        var connected = pc && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed' || pc.connectionState === 'connected');
+        var hint = box.querySelector('.vc-black-hint');
+        if (!connected) { delete blackSince[id]; if (hint) hint.remove(); return; }   // 아직 연결 전 = #19 워치독 담당
+        var rv = pc.getReceivers().find(function(r){ return r.track && r.track.kind === 'video'; });
+        if (!rv || !rv.track) { delete blackSince[id]; if (hint) hint.remove(); return; }  // 상대가 영상 안 보냄 = 개입 금지
+        var v = box.querySelector('video');
+        var hasFrames = v && v.videoWidth > 0 && !rv.track.muted;
+        if (hasFrames) { delete blackSince[id]; tries[id] = 0; if (hint) hint.remove(); return; }  // 정상 도착
+        seen[id] = true;
+        if (!blackSince[id]) { blackSince[id] = now; return; }        // 이번에 처음 관측 — 다음 틱부터 카운트
+        if (now - blackSince[id] < GRACE_MS) return;                  // 초기 협상 유예
+        if (!hint) {
+          hint = document.createElement('div');
+          hint.className = 'vc-black-hint';
+          hint.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(15,23,42,.82);color:#fde68a;font-size:13px;font-weight:700;text-align:center;line-height:1.35;padding:8px;z-index:4;pointer-events:none;';
+          hint.innerHTML = '📷<span>상대 영상 준비 중…<br>(상대방 카메라를 확인해 주세요)</span>';
+          if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
+          box.appendChild(hint);
+        }
+        if ((tries[id] || 0) < MAX_TRIES && typeof vcReconnectPeer === 'function') {
+          tries[id] = (tries[id] || 0) + 1;
+          blackSince[id] = now + 6000;                               // 재협상에 시간 주기 위해 다음 판정 미룸
+          console.warn('[vc-black] 원격 검은 영상 ' + id + ' → 복구 시도 ' + tries[id] + '/' + MAX_TRIES);
+          try { vcReconnectPeer(id); } catch(e){}
+        }
+      });
+      Object.keys(blackSince).forEach(function(id){ if (!seen[id]) { delete blackSince[id]; delete tries[id]; } });
     } catch(_){}
   }, 3000);
 })();
@@ -9599,6 +9734,7 @@ setInterval(() => {
     });
     try { vcResumeAllVideos(); } catch(_) {}
     try { vcHealLocalMic(); } catch(_) {}       // 🎤 죽은 마이크 자동 복구 (상대에게 내 소리 보장)
+    try { vcHealLocalVideo(); } catch(_) {}     // 📷 죽은/검은 카메라 자동 복구 (상대에게 내 얼굴 보장)
     // 🖼 (2026-07-14) 레이아웃/모드 전환 뒤 남은 숨김 잔존 복구 — 솔로 모드가 아닌데
     //   원격 박스에 inline display:none 이 남아 "화면이 나왔다 안 나왔다" 하던 것 자가치유.
     try {
@@ -15844,7 +15980,25 @@ async function pdfBuildImageDoc(url) {
 }
 
 // 📎 모든 파일 공유 업로드 (워드·엑셀·PPT·한글·ZIP 등) — 렌더링 대신 다운로드 링크로 학생에게 공유
+// 📎 업로드 버튼 클릭 → 숨겨진 파일 입력 강제 트리거 (label 방식보다 확실. 콘솔 로그로 클릭 등록 여부 판별)
+function triggerUpload(kind) {
+    var id = (kind === 'pdf') ? 'pdf-upload' : 'file-share-upload';
+    var el = document.getElementById(id);
+    try { console.log('[업로드] 버튼 클릭 →', kind, '| 입력요소 존재:', !!el); } catch(_){}
+    if (!el) { alert('업로드 입력을 찾지 못했습니다.\n새로고침(Ctrl+Shift+R) 후 다시 시도해 주세요.'); return; }
+    try {
+        el.value = '';
+        el.click();
+        try { console.log('[업로드] 파일 선택창 열기 요청 완료'); } catch(_){}
+    } catch(e) {
+        try { console.error('[업로드] 파일창 열기 실패', e); } catch(_){}
+        alert('파일 선택창 열기 실패: ' + (e && e.message || e));
+    }
+}
+window.triggerUpload = triggerUpload;
+
 async function fileShareUpload(input) {
+    try { console.log('[업로드] fileShareUpload 실행 (파일 선택됨)'); } catch(_){}
     const file = input.files && input.files[0];
     if (!file) return;
     if (location.protocol === 'file:') {
@@ -15964,6 +16118,7 @@ window.fileShareShowInViewer = fileShareShowInViewer;
 })();
 
 async function pdfUpload(input) {
+    try { console.log('[업로드] pdfUpload 실행 (교재 파일 선택됨)'); } catch(_){}
     const file = input.files[0];
     if (!file) return;
     // file:// 프로토콜로 직접 열면 서버 API 호출이 불가능 → 사용자에게 명확히 안내
@@ -26744,7 +26899,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713232233 -->
+<!-- BUILD:20260714003019 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29226,6 +29381,35 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
+})();
+</script>
+<script>
+/* ★ (2026-07-14) 수업 첫 화면 기본 콘텐츠 = 당일 교재(교재/PDF 탭).
+   사장님 요청: 모든 수업 처음에 얼굴(위) + 당일 교재(아래 크게)가 보이게.
+   - body.vc-in-call 추가(입장) 감지 → 잠시 뒤, 아직 칠판(기본)에 머물러 있으면 교재 탭으로 전환.
+   - 방에 이미 공유된 교재(PDF)가 있으면 room-media 폴링이 먼저 교재로 바꿔줌 → 그대로 존중.
+   - 사용자가 스스로 다른 탭(동영상·게임 등)을 누르면 그것도 존중(다시 안 바꿈). */
+(function(){
+  var _did = false;
+  function activeTabId(){
+    var el = document.querySelector('#view-videocall-call .tab-panel.active');
+    return el ? el.id : null;
+  }
+  function defaultToTextbook(){
+    if (_did) return;
+    var t = activeTabId();
+    if (t === 'tab-pdf') { _did = true; return; }          // 이미 교재/공유교재 보는 중 → 그대로
+    if (t && t !== 'tab-whiteboard') { _did = true; return; } // 사용자가 다른 탭 선택 → 존중
+    try {
+      if (typeof window.vcSwitchTab === 'function') { window.vcSwitchTab('pdf'); _did = true; }
+    } catch(e){}
+  }
+  try {
+    new MutationObserver(function(){
+      if (document.body.classList.contains('vc-in-call')) setTimeout(defaultToTextbook, 1200);
+      else _did = false;   // 통화 종료 → 다음 수업 위해 리셋
+    }).observe(document.body, { attributes:true, attributeFilter:['class'] });
+  } catch(e){}
 })();
 </script>
 <style id="mg-theme-toggle-topright">
