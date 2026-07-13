@@ -1602,9 +1602,62 @@
             font-size: 0.78rem;
             color: #fff;
             pointer-events: none;
+            z-index: 5; /* 카메라 꺼짐 덮개(.vc-cam-cover)보다 위 — 아이콘으로 다시 켤 수 있어야 함 */
         }
-        .video-status .vs-icon { line-height: 1; }
-        .video-status .vs-icon.off { opacity: 0.55; filter: grayscale(1); }
+        .video-status .vs-icon { line-height: 1; position: relative; display: inline-block; }
+        .video-status .vs-icon.off { opacity: 0.9; }
+        /* 꺼짐 = 아이콘 위에 빨간 ✖ 겹쳐 표시 */
+        .video-status .vs-icon.off::after {
+            content: '✖';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ef4444;
+            font-size: 1.25em;
+            font-weight: 900;
+            text-shadow: 0 0 3px rgba(0,0,0,.95), 0 0 1px #000;
+            pointer-events: none;
+        }
+        /* 내 타일(📷/🎤)은 눌러서 켜고 끄기 */
+        #vc-local-box .video-status { pointer-events: auto; }
+        #vc-local-box .vs-cam, #vc-local-box .vs-mic {
+            cursor: pointer;
+            padding: 3px 4px;
+            margin: -3px -2px;
+            border-radius: 5px;
+        }
+        #vc-local-box .vs-cam:active, #vc-local-box .vs-mic:active { background: rgba(255,255,255,.25); }
+        @media (max-width: 900px) {
+            /* 모바일 작은 타일에서도 손가락으로 누를 수 있게 아이콘만 키움 */
+            #vc-local-box .vs-cam, #vc-local-box .vs-mic { font-size: 1.5em; padding: 3px 5px; }
+        }
+        /* 카메라 꺼짐 = 타일 화면 가림 덮개 */
+        .video-box .vc-cam-cover {
+            position: absolute;
+            inset: 0;
+            background: #0b1220;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            z-index: 2;
+            color: #94a3b8;
+            font-size: 0.78rem;
+        }
+        .video-box.cam-off .vc-cam-cover { display: flex; }
+        .video-box .vc-cam-cover .cc-ico { font-size: 2rem; position: relative; line-height: 1; }
+        .video-box .vc-cam-cover .cc-ico::after {
+            content: '✖';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ef4444;
+            font-size: 1.15em;
+            font-weight: 900;
+            text-shadow: 0 0 3px rgba(0,0,0,.95);
+        }
+        .video-box .video-label { z-index: 3; } /* 이름표는 덮개 위에 유지 */
         .vol-meter {
             display: inline-flex;
             align-items: flex-end;
@@ -5383,7 +5436,7 @@
 
     <!-- 🐶 마티즈 우주비행사 (입체감 강화 — 다층 그라데이션 + 명암 + 하이라이트) -->
     <div id="astronaut" class="astronaut-wrap" aria-hidden="true">
-      <img src="/img/astronaut.png?v=20260713a" class="astronaut-img" alt="망고 우주비행사" /><!-- ?v 갱신: 새 우주인(그린스크린 원본 크로마키, 비침 0) 강제 로드 -->
+      <img src="/img/astronaut.png?v=20260713b" class="astronaut-img" alt="망고 우주비행사" /><!-- ?v 갱신: 신발 밑창 잘림 수정판(크로마키 임계 150 + 그림자 제거) 강제 로드 -->
     </div>
 
     <script>
@@ -12246,16 +12299,50 @@ function attachStreamMonitor(box, stream) {
     const camEl = status.querySelector('.vs-cam');
     const micEl = status.querySelector('.vs-mic');
     const bars  = status.querySelectorAll('.vol-meter span');
+    const isLocal = box.id === 'vc-local-box';
+
+    // 🥭 (2026-07-13) 내 타일의 📷/🎤 = 눌러서 켜고 끄기 (사장님 요청)
+    if (isLocal && !status.__tapWired) {
+        status.__tapWired = true;
+        camEl.title = '카메라 켜기/끄기';
+        micEl.title = '마이크 켜기/끄기';
+        camEl.addEventListener('click', function(e){
+            e.stopPropagation();
+            try { vcToggleCam(); } catch(_){}
+            syncIcons();
+        });
+        micEl.addEventListener('click', function(e){
+            e.stopPropagation();
+            try { vcToggleMic(); } catch(_){}          // async — 트랙 재획득이 있을 수 있음
+            setTimeout(syncIcons, 120);                 // 토글 반영 후 아이콘 갱신
+        });
+    }
 
     function syncIcons() {
         const v = stream.getVideoTracks()[0];
         const a = stream.getAudioTracks()[0];
         const vOn = v && v.enabled && !v.muted;
         const aOn = a && a.enabled && !a.muted;
-        camEl.textContent = vOn ? '📷' : '🚫';
+        // 아이콘은 📷/🎤 그대로 두고, 꺼짐이면 .off(빨간 ✖ 겹침)로 표시
+        camEl.textContent = '📷';
         camEl.classList.toggle('off', !vOn);
-        micEl.textContent = aOn ? '🎤' : '🔇';
+        micEl.textContent = '🎤';
         micEl.classList.toggle('off', !aOn);
+        // 내 카메라 꺼짐 = 타일 화면을 덮개로 가림 (아이콘·이름표는 덮개 위)
+        if (isLocal) {
+            box.classList.toggle('cam-off', !vOn);
+            if (!vOn) {
+                let cov = box.querySelector('.vc-cam-cover');
+                if (!cov) {
+                    cov = document.createElement('div');
+                    cov.className = 'vc-cam-cover';
+                    cov.innerHTML = '<span class="cc-ico">📷</span><span class="cc-txt"></span>';
+                    box.insertBefore(cov, status);
+                }
+                const txt = cov.querySelector('.cc-txt');
+                if (txt) txt.textContent = (typeof currentLang !== 'undefined' && currentLang === 'en') ? 'Camera off' : '카메라 꺼짐';
+            }
+        }
     }
     syncIcons();
     const iconInt = setInterval(() => {
@@ -26279,7 +26366,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713210533 -->
+<!-- BUILD:20260713211050 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
