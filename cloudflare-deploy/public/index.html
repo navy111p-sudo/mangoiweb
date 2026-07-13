@@ -118,30 +118,10 @@
 </script>
 
 <script id="ph58-sw-kill">
-/* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
-   휴대폰 PWA가 옛 HTML 잡고 있을 때 자동 복구. */
-(function(){
-  try {
-    if ('serviceWorker' in navigator && !sessionStorage.getItem('ph58_done_v2')) {
-      sessionStorage.setItem('ph58_done_v2', '1');
-      navigator.serviceWorker.getRegistrations().then(function(regs){
-        if (!regs.length) return;
-        Promise.all(regs.map(function(r){ return r.unregister(); })).then(function(){
-          if ('caches' in window) {
-            return caches.keys().then(function(keys){
-              return Promise.all(keys.map(function(k){ return caches.delete(k); }));
-            });
-          }
-        }).then(function(){
-          // cache-bust 쿼리로 강제 새로고침 (1회만)
-          var u = new URL(location.href);
-          u.searchParams.set('_swkill', Date.now().toString());
-          location.replace(u.toString());
-        });
-      });
-    }
-  } catch(e){}
-})();
+/* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister 스크립트는 제거됨 (2026-07-13).
+   현재 SW(/sw.js)는 updateViaCache:'none'+SKIP_WAITING 으로 스스로 최신화되므로
+   이 스크립트가 오히려 매 세션 SW·캐시를 전부 지우고 강제 새로고침을 걸어
+   "첫 진입 시 2~3번 깜빡임 + 느린 첫 화면"의 원인이었음. */
 </script>
 
     <meta charset="UTF-8">
@@ -364,11 +344,13 @@
         /* ═══════ 🧑‍🚀 우주비행사 (망고 우주인 이미지) — 왼쪽 위, 멀리서 다가옴 ═══════ */
         .astronaut-wrap {
             position: absolute;
-            top: 15%;
-            left: 2%;
-            width: 900px;
-            height: 1175px;
-            z-index: 3;
+            top: 18%;
+            left: -1%;
+            /* 검색창·수업입장 버튼을 가리지 않도록 화면 왼쪽에만 머무는 크기 (기존 900px → 최대 560px) */
+            width: min(30vw, 560px);
+            height: min(39vw, 730px);
+            /* 검색창(hero z2)·타이틀보다 뒤에 깔리도록 z-index 3 → 1 */
+            z-index: 1;
             pointer-events: none;
             transform-origin: center center;
             /* 진입 애니메이션: 빠르게 다가오기 (4초) + 이후 떠다님 — 약 2배 크게(얼굴 클로즈업) */
@@ -19849,10 +19831,17 @@ window.addEventListener('DOMContentLoaded', () => {
           });
         })
         .catch(err => console.warn('[pwa] SW 등록 실패:', err));
-      // 새 SW 가 제어권을 잡으면 한 번만 새로고침 → 항상 최신 화면
+      // 새 SW 가 제어권을 잡으면 새로고침 → 항상 최신 화면
+      // 🔧 (2026-07-13) 단, 방금 로드된 페이지는 이미 네트워크에서 최신 HTML을 받은 상태라
+      //   여기서 또 reload 하면 첫 진입이 "깜빡" 거리기만 함(첫 설치·배포 직후 공통).
+      //   → 로드 30초 이내엔 조용히 교체만 하고, 오래 열려 있던 화면(설치형 PWA)만 새로고침.
+      //   수업 중(vc-in-call)에는 절대 강제 새로고침하지 않음.
       let _swReloaded = false;
+      const _swPageLoadedAt = Date.now();
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (_swReloaded) return;
+        if (Date.now() - _swPageLoadedAt < 30000) return;
+        try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(e){}
         _swReloaded = true;
         location.reload();
       });
@@ -25829,7 +25818,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713190029 -->
+<!-- BUILD:20260713202953 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

@@ -7009,7 +7009,8 @@ ${chatSampleText}
     if (method === 'POST' && path === '/api/voice/tts') {
       try {
         const b: any = await request.json().catch(() => ({}));
-        const text = String(b.text || '').trim().slice(0, 400);
+        // 400자 컷은 문장 중간에서 낭독이 뚝 끊기는 원인이었다 — Aura 한도(2000자) 안에서 여유있게.
+        const text = String(b.text || '').trim().slice(0, 1500);
         const lang = String(b.lang || 'en').toLowerCase();
         if (!text) return json({ ok: false, error: 'text_required' }, 400);
         const ai = (env as any).AI;
@@ -7031,7 +7032,8 @@ ${chatSampleText}
         const r2: any = (env as any).RECORDINGS;
         let cacheKey = '';
         try {
-          const enc = new TextEncoder().encode('v1|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
+          // v2: 영어 TTS 를 Aura-2 로 올리면서 캐시 세대 교체 (v1 캐시본은 구형 Aura-1 음성)
+          const enc = new TextEncoder().encode('v2|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
           const dig = await crypto.subtle.digest('SHA-256', enc);
           cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         } catch {}
@@ -7090,14 +7092,13 @@ ${chatSampleText}
           }
         }
 
-        // 영어 → Deepgram Aura-1 (원어민 수준, MPEG 스트림) → 실패 시 MeloTTS(en) 폴백
+        // 영어 → Deepgram Aura-2 (차세대, 훨씬 자연스러움) → Aura-1 → MeloTTS(en) 순 폴백
         //   ⚠️ 무료 뉴런 소진 시 Workers AI 는 200 이 아닌 429 에러 Response(JSON) 를 준다.
         //   예전 코드는 그 JSON 바디(~487B)를 audio/mpeg 로 그대로 브라우저에 내보내서
         //   "소리가 안 나는" 원인이 됐다. raw.ok + content-type=audio 로 진짜 음성만 통과시킨다.
         let quota = false;
-        try {
-          const speaker = String(b.speaker || 'asteria');
-          const raw: any = await ai.run('@cf/deepgram/aura-1', { text, speaker }, { returnRawResponse: true });
+        const auraRun = async (model: string, speaker: string): Promise<ArrayBuffer> => {
+          const raw: any = await ai.run(model, { text, speaker }, { returnRawResponse: true });
           let buf: ArrayBuffer | null = null;
           if (raw instanceof Response) {
             const rct = raw.headers.get('content-type') || '';
@@ -7106,8 +7107,27 @@ ${chatSampleText}
           }
           else if (raw instanceof ArrayBuffer) buf = raw;
           else if (raw && raw.body) buf = await new Response(raw.body).arrayBuffer();
-          else if (raw && raw.audio) { const bytes = b64ToBytes(String(raw.audio)); await putCache(bytes); return new Response(bytes, { headers: audioHeaders }); }
+          else if (raw && raw.audio) buf = b64ToBytes(String(raw.audio)).buffer as ArrayBuffer;
           if (!buf || buf.byteLength < 200) throw new Error('aura_empty');
+          return buf;
+        };
+        const requested = String(b.speaker || 'asteria').toLowerCase();
+        // Aura-2(en) 지원 화자 — 목록 밖 이름이 오면 여자 기본값으로 안전하게.
+        const AURA2 = new Set(['amalthea','andromeda','apollo','arcas','aries','asteria','athena','atlas','aurora','callista','cora','cordelia','delia','draco','electra','harmonia','helena','hera','hermes','hyperion','iris','janus','juno','jupiter','luna','mars','minerva','neptune','odysseus','ophelia','orion','orpheus','pandora','phoebe','pluto','saturn','thalia','theia','vesta','zeus']);
+        const AURA2_MALE = new Set(['apollo','arcas','aries','atlas','draco','hermes','hyperion','janus','jupiter','mars','neptune','odysseus','orion','orpheus','pluto','saturn','zeus']);
+        const AURA1 = new Set(['angus','asteria','arcas','orion','orpheus','athena','luna','zeus','perseus','helios','hera','stella']);
+        try {
+          const buf = await auraRun('@cf/deepgram/aura-2-en', AURA2.has(requested) ? requested : 'asteria');
+          await putCache(buf);
+          return new Response(buf, { headers: audioHeaders });
+        } catch (a2Err: any) {
+          if (isQuota(a2Err?.message)) quota = true;
+          console.warn('[voice/tts] aura-2 failed, fallback aura-1:', a2Err?.message);
+        }
+        try {
+          // Aura-1 폴백: 요청 화자가 Aura-1 에 없으면 성별만 맞춰 대체 (남=orion / 여=asteria)
+          const spk1 = AURA1.has(requested) ? requested : (AURA2_MALE.has(requested) ? 'orion' : 'asteria');
+          const buf = await auraRun('@cf/deepgram/aura-1', spk1);
           await putCache(buf);
           return new Response(buf, { headers: audioHeaders });
         } catch (auraErr: any) {

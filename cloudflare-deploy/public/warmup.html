@@ -359,11 +359,11 @@ function renderMsg(s){
 var _enVoice = null, _speechOn = true, _audioUnlocked = false;
 var _lastAiSpeak = null, _speechEverStarted = false;   // 모바일: 차단된 첫 인사를 첫 터치 때 재낭독하기 위한 기록
 
-/* 🎙️ AI 목소리 선택 — 서버 원어민 TTS(Deepgram Aura-1)의 speaker 지정.
-   여자=Emma(asteria) / 남자=Jake(orion) / 번갈아=한 마디씩 남녀 교대. */
+/* 🎙️ AI 목소리 선택 — 서버 원어민 TTS(Deepgram Aura-2)의 speaker 지정.
+   여자=Emma(asteria) / 남자=Jake(apollo·자연스러운 미국 남성) / 번갈아=한 마디씩 남녀 교대. */
 var VOICE_MODES = {
   female: { label:'👩 여자',  speaker:'asteria' },
-  male:   { label:'👨 남자',  speaker:'orion'   },
+  male:   { label:'👨 남자',  speaker:'apollo'  },
   mix:    { label:'🔀 번갈아' }
 };
 var _voiceMode = 'female', _mixNext = 'female';
@@ -395,6 +395,10 @@ function setVoiceMode(m, announce){
 
 /* 🐢🐇 듣기 속도: 1(천천히)~5(빠르게) → speechSynthesis rate 값 매핑 */
 var RATE_STEPS = { 1:0.6, 2:0.8, 3:0.95, 4:1.15, 5:1.4 };
+/* 서버 TTS(오디오 파일) 전용 배속 — playbackRate 시간늘리기는 배속이 1에서 멀수록
+   "뚜벅뚜벅" 왜곡(특히 저음 남자 목소리)이 커진다. 기본(3)은 정확히 1.0(무가공 원음),
+   천천히 쪽도 왜곡이 덜한 완만한 값으로. */
+var AUDIO_RATE = { 1:0.72, 2:0.85, 3:1.0, 4:1.15, 5:1.35 };
 var RATE_NAMES = { 1:'아주 천천히', 2:'천천히', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
 var _rateLevel = 3;
 try{
@@ -511,7 +515,9 @@ function speak(text, btn){
     try{
       if(!_ttsAudio) _ttsAudio=new Audio();
       _ttsAudio.onended=done; _ttsAudio.onerror=done;
-      _ttsAudio.src=u; _ttsAudio.playbackRate=RATE_STEPS[_rateLevel]||0.95;
+      _ttsAudio.src=u; _ttsAudio.playbackRate=AUDIO_RATE[_rateLevel]||1;
+      // 배속 시 음높이 유지(브라우저 기본이지만 명시) — 남자 목소리가 늘어지거나 깔리는 것 방지
+      try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(e2){}
       _ttsAudio.play().then(function(){ _speechEverStarted=true; })
         .catch(function(){ done(); });   // 자동재생 차단 — 첫 터치(unlockAudio)에서 재시도됨
     }catch(e){ done(); _synthSpeak(text, btn); }
@@ -824,6 +830,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260713190029 -->
+<!-- BUILD:20260713202953 -->
 </body>
 </html>
