@@ -4711,6 +4711,14 @@
                     <option value="F" data-ko="여성" data-en="Female">여성</option>
                     <option value="O" data-ko="기타" data-en="Other">기타</option>
                   </select></div>
+                <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="MBTI" data-en="MBTI">MBTI</label>
+                  <select id="tp-mbti" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+                    <option value="">—</option>
+                    <option value="INTJ">INTJ</option><option value="INTP">INTP</option><option value="ENTJ">ENTJ</option><option value="ENTP">ENTP</option>
+                    <option value="INFJ">INFJ</option><option value="INFP">INFP</option><option value="ENFJ">ENFJ</option><option value="ENFP">ENFP</option>
+                    <option value="ISTJ">ISTJ</option><option value="ISFJ">ISFJ</option><option value="ESTJ">ESTJ</option><option value="ESFJ">ESFJ</option>
+                    <option value="ISTP">ISTP</option><option value="ISFP">ISFP</option><option value="ESTP">ESTP</option><option value="ESFP">ESFP</option>
+                  </select></div>
                 <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(16,185,129,0.12);border-left:3px solid #10b981;border-radius:6px;font-size:12.5px;font-weight:800;color:#6ee7b7" data-ko="💼 근무 정보" data-en="💼 Work Info">💼 근무 정보</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="활동 지역" data-en="Active Region">활동 지역</label>
                   <input id="tp-active-region" type="text" placeholder="예: 서울 강남" data-ko-placeholder="예: 서울 강남" data-en-placeholder="e.g., Seoul Gangnam" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
@@ -17745,6 +17753,7 @@ async function addTeacherProfile() {
     kakao_id: e('tp-kakao')?.value.trim() || null,
     dob: e('tp-dob')?.value || null,
     gender: e('tp-gender')?.value || null,
+    mbti: e('tp-mbti')?.value || null,
     active_region: e('tp-active-region')?.value.trim() || null,
     origin_region: e('tp-origin-region')?.value.trim() || null,
     fee_per_10min: e('tp-fee-10min')?.value ? parseInt(e('tp-fee-10min').value, 10) : null,
@@ -17933,6 +17942,7 @@ async function viewTeacherProfile(id) {
         '<button onclick="this.closest(\'[onclick]\').remove()" style="margin-left:auto;background:transparent;border:0;font-size:20px;cursor:pointer">✕</button>' +
       '</div>' +
       _tpField('이메일', t.email) + _tpField('휴대폰', t.phone) + _tpField('카톡 ID', t.kakao_id) +
+      _tpField('MBTI', t.mbti) +
       _tpField('생년월일', t.dob) + _tpField('활동 지역', t.active_region) + _tpField('출신 지역', t.origin_region) +
       _tpField('10분당 수수료', t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
       _tpField('입사일', t.join_date) + _tpField('퇴사일', t.leave_date) +
@@ -17959,6 +17969,7 @@ async function editTeacherProfile(id) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
   set('tp-name', t.korean_name); set('tp-en-name', t.english_name); set('tp-email', t.email);
   set('tp-phone', t.phone); set('tp-kakao', t.kakao_id); set('tp-dob', t.dob); set('tp-gender', t.gender);
+  set('tp-mbti', t.mbti);
   set('tp-active-region', t.active_region); set('tp-origin-region', t.origin_region);
   set('tp-fee-10min', t.fee_per_10min); set('tp-group', t.group_name); set('tp-status', t.status||'활동중');
   set('tp-join-date', t.join_date); set('tp-leave-date', t.leave_date);
@@ -24055,7 +24066,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260713225849 -->
+        <!-- BUILD:20260713231538 -->
 </body></html>`);
       w.document.close();
     } catch(e) {

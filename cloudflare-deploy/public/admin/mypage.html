@@ -988,6 +988,24 @@
         </div>
       </div>
       <button class="btn-primary" id="profSaveBtn" data-ko="💾 변경사항 저장" data-en="💾 Save changes">💾 변경사항 저장</button>
+
+      <!-- 🧠 내 MBTI (강사 전용) — 검사 후 본인 프로필에 기록 → 학생-강사 매칭에 활용 -->
+      <div id="mbti-self-card" style="display:none;margin-top:18px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,rgba(139,92,246,0.14),rgba(99,102,241,0.06));border:1px solid rgba(139,92,246,0.4)">
+        <div style="font-size:15px;font-weight:800;color:#c4b5fd;margin-bottom:4px" data-ko="🧠 내 MBTI" data-en="🧠 My MBTI">🧠 내 MBTI</div>
+        <div style="font-size:12.5px;color:var(--text-muted);line-height:1.6;margin-bottom:12px" data-ko="검사 결과를 선택해 저장하세요. 학생과의 성향 매칭 추천에 사용됩니다. 유형을 모르면 검사부터 하세요." data-en="Pick your result and save. It powers student–teacher personality matching. Not sure of your type? Take the test first.">검사 결과를 선택해 저장하세요. 학생과의 성향 매칭 추천에 사용됩니다. 유형을 모르면 검사부터 하세요.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="mbtiSelfType" style="padding:8px 10px;border:1px solid var(--border,#334155);border-radius:8px;font-size:14px;font-weight:700;background:transparent;color:inherit">
+            <option value="" data-ko="유형 선택" data-en="Select type">유형 선택</option>
+            <option value="INTJ">INTJ</option><option value="INTP">INTP</option><option value="ENTJ">ENTJ</option><option value="ENTP">ENTP</option>
+            <option value="INFJ">INFJ</option><option value="INFP">INFP</option><option value="ENFJ">ENFJ</option><option value="ENFP">ENFP</option>
+            <option value="ISTJ">ISTJ</option><option value="ISFJ">ISFJ</option><option value="ESTJ">ESTJ</option><option value="ESFJ">ESFJ</option>
+            <option value="ISTP">ISTP</option><option value="ISFP">ISFP</option><option value="ESTP">ESTP</option><option value="ESFP">ESFP</option>
+          </select>
+          <button id="mbtiSelfSave" class="btn-primary" onclick="saveMyMbti()" style="padding:8px 16px;font-size:13px" data-ko="💾 저장" data-en="💾 Save">💾 저장</button>
+          <a href="/mbti-test.html" target="_blank" rel="noopener" style="padding:8px 14px;font-size:12.5px;border:1px solid rgba(139,92,246,0.5);border-radius:8px;color:#c4b5fd;text-decoration:none;font-weight:700" data-ko="🧪 검사하러 가기" data-en="🧪 Take the test">🧪 검사하러 가기</a>
+          <span id="mbtiSelfMsg" style="font-size:12.5px;color:var(--text-muted)"></span>
+        </div>
+      </div>
     </section>
 
     <!-- ───── ⭐ 내 수업 평가 (학생 무기명 평가 · 직관형) ───── -->
@@ -2132,6 +2150,32 @@
 
   // ── 역할별 UI 분기 (서버 세션이 권위 → 휴대폰·모바일·PC 모두 동일) ──
   // role: hq | franchise | branch | agency | teacher | staff
+  // 🧠 내 MBTI — 현재값 로드 / 저장 (강사 전용, 세션 인증으로 본인 프로필에 기록)
+  function loadMyMbti(){
+    var sel = document.getElementById('mbtiSelfType');
+    var msg = document.getElementById('mbtiSelfMsg');
+    if (!sel) return;
+    fetch('/api/teacher/mbti-self', { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || !d.ok) return;
+        if (d.mbti) { sel.value = d.mbti; if (msg) msg.textContent = '✅ 저장됨 / Saved: ' + d.mbti; }
+        else if (!d.found && msg) { msg.textContent = '⚠️ 프로필 미발견 · Profile not found — 관리자 문의'; }
+      }).catch(function(){});
+  }
+  window.saveMyMbti = function(){
+    var sel = document.getElementById('mbtiSelfType');
+    var msg = document.getElementById('mbtiSelfMsg');
+    if (!sel || !sel.value) { if (msg) msg.textContent = '유형을 먼저 선택하세요 · Pick a type first'; return; }
+    if (msg) msg.textContent = '저장 중… · Saving…';
+    fetch('/api/teacher/mbti-self', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mbti: sel.value }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d && d.ok) { if (msg) msg.textContent = '✅ 저장됨 / Saved: ' + d.mbti; }
+        else { if (msg) msg.textContent = '⚠️ ' + ((d && d.message) || '저장 실패 · Save failed'); }
+      }).catch(function(){ if (msg) msg.textContent = '⚠️ 네트워크 오류 · Network error'; });
+  };
+
   function applyRole(role, roleLabel, scope){
     role = role || 'staff';
     var en = EN();
@@ -2180,6 +2224,9 @@
     var tLessons = qsTab('lessons'); if (tLessons) tLessons.style.display = isTeacher ? '' : 'none';
     var tMyRat   = qsTab('myratings'); if (tMyRat)  tMyRat.style.display   = isTeacher ? '' : 'none';
     var tLtApps  = el('tab-leveltest-apps'); if (tLtApps) tLtApps.style.display = isTeacher ? '' : 'none';
+    // 🧠 내 MBTI 카드 — 강사 전용(프로필 탭 안). 표시될 때 현재값 1회 로드.
+    var mbtiCard = el('mbti-self-card');
+    if (mbtiCard) { mbtiCard.style.display = isTeacher ? '' : 'none'; if (isTeacher) { try { loadMyMbti(); } catch(_e){} } }
     // 🧾 수업료 정산 (Lesson Fee Summary) — 강사 전용
     var tFee = el('tab-lessonfee'); if (tFee) tFee.style.display = isTeacher ? '' : 'none';
 
