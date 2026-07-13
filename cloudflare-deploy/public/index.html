@@ -9249,6 +9249,59 @@ function vcReconnectPeer(userId) {
 }
 
 /* ──────────────────────────────────────────────────────────────
+   🔌 (2026-07-14) "📷 연결 중…" 고착 자동 복구 — "상대방이 안 보여요"(휴대폰↔PC) 근본 대책.
+   ───────────────────────────────────────────────────────────────
+   근본원인: 이 앱은 최초 offer/answer 이후 '재협상(renegotiation)'을 하지 않는다
+     (onnegotiationneeded 핸들러 없음). 그래서 한쪽이 offer 를 만드는 순간 카메라·마이크가
+     아직 준비 전이거나(휴대폰 권한 대기·느린 카메라) 거부되면 → 그 SDP 에 미디어 m-line 이
+     하나도 없이 협상이 'stable' 로 끝나버린다 → 상대의 ontrack 이 영영 안 불려 원격 박스가
+     '연결 중…' 에서 멈춘다(라이브 진단으로 확인: sig=stable, m-line 0, receivers 0).
+   해결: 원격 박스가 N초 넘게 '연결 중'(=수신 트랙 0)이면 vcReconnectPeer 로 PC 를 '지금의'
+     트랙으로 다시 세운다. 양쪽 다 이 코드를 실행하므로, 상대 미디어가 빠진 쪽이 재연결을
+     걸면 재빌드 시점엔 카메라가 준비돼 미디어가 흐른다 → 양방향 자동 치유.
+   안전장치: 피어별 최대 2회 + vcReconnectPeer 자체 8초 쿨다운 → 재연결 폭주 방지.
+     실제 수신 트랙이 하나라도 살아있으면(정상 통화) 절대 개입하지 않음. */
+(function vcStuckPeerWatch(){
+  if (window.__vcStuckWatch) return; window.__vcStuckWatch = true;
+  var firstSeen = {};   // userId → '고착' 최초 관측 시각
+  var tries = {};       // userId → 복구 시도 횟수
+  var STUCK_MS = 9000;  // 이 시간 넘게 '연결 중'이면 고착으로 판단(초기 협상 여유 확보)
+  var MAX_TRIES = 2;
+  setInterval(function(){
+    try {
+      if (!document.body || !document.body.classList.contains('vc-in-call')) { firstSeen = {}; tries = {}; return; }
+      var grid = document.getElementById('vc-video-grid'); if (!grid) return;
+      var now = Date.now();
+      var seen = {};
+      grid.querySelectorAll('.video-box').forEach(function(box){
+        var bid = box.id || '';
+        if (bid.indexOf('vc-video-') !== 0) return;            // 내 박스(vc-local-box) 등 제외
+        var id = bid.slice('vc-video-'.length);
+        if (!id || id === 'pane' || (typeof vcUserId !== 'undefined' && id === vcUserId)) return;
+        if (!box.querySelector('.vc-connecting-hint')) { delete firstSeen[id]; return; }  // 힌트 없음 = 정상
+        // 실제 수신 트랙이 하나라도 살아 있으면 '고착' 아님(힌트 잔재는 무시, 통화 방해 금지)
+        var pc = vcPeerConnections[id], gotTrack = false;
+        try { gotTrack = !!(pc && pc.getReceivers().some(function(r){ return r.track && r.track.readyState === 'live'; })); } catch(_){}
+        if (gotTrack) { delete firstSeen[id]; return; }
+        seen[id] = true;
+        if (!firstSeen[id]) { firstSeen[id] = now; return; }   // 이번에 처음 관측 — 다음 틱부터 시간 카운트
+        if (now - firstSeen[id] < STUCK_MS) return;
+        if ((tries[id] || 0) >= MAX_TRIES) return;
+        tries[id] = (tries[id] || 0) + 1;
+        var name = (box.querySelector('.video-label') || {}).textContent || '참가자';
+        console.warn('[vc-stuck] 상대 영상 미도착 ' + Math.round((now - firstSeen[id]) / 1000) + '초 → 복구 시도 ' + tries[id] + ':', id, name);
+        firstSeen[id] = now + 5000;   // 재협상에 시간을 주기 위해 다음 판정을 뒤로 미룸
+        try {
+          if (pc) vcReconnectPeer(id);                 // PC 있음 → 지금 트랙으로 재빌드+재offer
+          else vcCreatePeerAndOffer(id, name);         // PC 아예 없음(시그널 유실) → 새로 offer
+        } catch(e){ console.warn('[vc-stuck] 복구 호출 실패:', e); }
+      });
+      Object.keys(firstSeen).forEach(function(id){ if (!seen[id]) delete firstSeen[id]; });  // 사라진 박스 정리
+    } catch(_){}
+  }, 3000);
+})();
+
+/* ──────────────────────────────────────────────────────────────
    🔊 소리 보장 시스템 (2026-07-13) — "소리가 안 들려요" 근본 대책
    구성: ① vcEnsureRemoteAudio  : 모든 원격 소리 살리기(볼륨1·unmute·play 재시도)
         ② vcSpawnAuxAudio      : <video> 소리가 정책에 막히면 숨은 <audio>로 우회
@@ -26573,7 +26626,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713222805 -->
+<!-- BUILD:20260713223815 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
