@@ -1478,15 +1478,23 @@
             100% { opacity: 0; transform: translateY(-38px) scale(1); }
         }
         /* 🌟 (2026-07-05) 강사 전용 "칭찬 주기" 바 — 영상 레이아웃(스포트라이트/PIP/솔로)과 무관하게
-           항상 보이는 학생별 지급 버튼. 영상 영역 상단(사이즈바 아래)에 떠 있음. */
+           항상 보이는 학생별 지급 버튼.
+           (2026-07-13) 겹침 재발 방지: 오버레이(absolute)가 아니라 사이즈바와 영상 그리드 '사이'의
+           일반 줄로 배치 — 자기 자리를 차지하므로 학생 영상·이름표와 절대 겹치지 않음. */
         #vc-praise-roster {
-            position: absolute; top: 48px; left: 8px; z-index: 14; display: none;
-            flex-wrap: wrap; gap: 8px; max-width: calc(100% - 16px); align-items: center;
+            position: relative; z-index: 14; display: none;
+            flex: 0 0 auto; flex-wrap: wrap; gap: 6px; align-items: center;
+            /* 오른쪽 44px = 우상단 크기조절 그립(.vp-free-grip) 자리 — 칩과 안 겹치게 비워둠 */
+            padding: 5px 44px 5px 8px; max-width: 100%; box-sizing: border-box;
+            border-bottom: 1px solid rgba(148,163,184,0.15);
         }
         #vc-praise-roster .vpr-title {
             display: inline-flex; align-items: center; gap: 5px; color: #fde68a; font-size: 14px; font-weight: 800;
             background: rgba(11,15,20,0.72); padding: 6px 11px; border-radius: 999px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
         }
+        /* 영상 칸이 좁으면(1/4 폭 등) 제목을 감춰 로스터 줄 높이를 아낌 */
+        #vc-praise-roster.vpr-narrow .vpr-title { display: none; }
+        #vc-praise-roster.vpr-narrow .vc-roster-chip { padding: 5px 10px 5px 9px; font-size: 14px; }
         .vc-roster-chip {
             display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
             border-radius: 999px; padding: 7px 13px 7px 11px;
@@ -11704,22 +11712,27 @@ function vcUpdatePraiseRoster(){
             roster.innerHTML = '<span class="vpr-title">⭐ 칭찬 주기</span>';
             // 로스터 칩 공용 안내 말풍선
             var rt = document.createElement('span'); rt.className = 'vc-star-toast'; rt.id = 'vc-roster-toast';
-            rt.style.top = '92px'; rt.style.left = '8px';
-            pane.appendChild(roster); pane.appendChild(rt);
+            rt.style.left = '8px';
+            // ★ 겹침 방지: 영상 그리드 '앞'의 일반 줄로 삽입 — 그리드가 로스터 아래에서 시작
+            var grid0 = pane.querySelector('#vc-video-grid');
+            if (grid0) pane.insertBefore(roster, grid0); else pane.appendChild(roster);
+            pane.appendChild(rt);
+        }
+        // 과거 오버레이 방식 잔재 정리 + 그리드 앞 위치 보정(그리드가 늦게 생긴 경우)
+        var grid = pane.querySelector('#vc-video-grid');
+        if (grid && roster.nextElementSibling !== grid && roster.parentNode === pane) {
+            try { pane.insertBefore(roster, grid); } catch(e){}
         }
         // 현재 학생(원격) 박스 목록 수집 — 다른 선생님/관찰자는 제외(학생만)
         var boxes = Array.prototype.slice.call(document.querySelectorAll('#vc-video-grid .video-box'))
             .filter(function(b){ return b.id && b.id !== 'vc-local-box' && vcBoxIsStudent(b); });
         if (!boxes.length){ roster.style.display = 'none'; return; }
         roster.style.display = 'flex';
-        // 사이즈바(1/4·1/2·3/4…) 아래로 위치 — 겹침 방지. 사이즈바 숨김 레이아웃이면 기본 8px.
-        var sb = pane.querySelector('.video-size-bar');
-        var topPx = 8;
-        try {
-            if (sb && sb.offsetParent !== null){ var pr = pane.getBoundingClientRect(), sbr = sb.getBoundingClientRect(); topPx = Math.round(sbr.bottom - pr.top) + 6; }
-        } catch(e){}
-        roster.style.top = topPx + 'px';
-        var rt2 = document.getElementById('vc-roster-toast'); if (rt2){ rt2.style.top = (topPx + 44) + 'px'; }
+        // 좁은 영상 칸에선 제목을 감춰 한 줄로 유지
+        try { roster.classList.toggle('vpr-narrow', pane.getBoundingClientRect().width < 300); } catch(e){}
+        // 안내 말풍선은 로스터 줄 '바로 아래'에 표시
+        var rt2 = document.getElementById('vc-roster-toast');
+        if (rt2){ try { rt2.style.top = (roster.offsetTop + roster.offsetHeight + 4) + 'px'; } catch(e){ rt2.style.top = '48px'; } }
         var wanted = {};
         boxes.forEach(function(box){
             var uid = box.id.replace('vc-video-', '');
@@ -26366,7 +26379,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713211050 -->
+<!-- BUILD:20260713211737 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
