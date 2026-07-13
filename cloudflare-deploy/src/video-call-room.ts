@@ -96,7 +96,11 @@ export class VideoCallRoom {
 
       switch (msg.type) {
         case 'join-room':       this.handleJoinRoom(ws, userId, msg.data as any); break;
-        case 'leave-room':      this.handleLeaveRoom(userId, ws, att.username); break;
+        case 'leave-room':
+          this.handleLeaveRoom(userId, ws, att.username, 'left');
+          // 뒤따르는 소켓 close 가 같은 사용자를 또 'user-left' 로 방송하지 않도록 선반영
+          try { ws.serializeAttachment({ ...att, joined: false } as VcAttachment); } catch {}
+          break;
         case 'chat-message':    this.handleChatMessage(userId, msg.data as any); break;
         case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any); break;
         case 'whiteboard-clear':this.handleWhiteboardClear(userId); break;
@@ -133,13 +137,16 @@ export class VideoCallRoom {
 
   async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
     const att = this.attOf(ws);
-    if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username);
+    // code 1000(정상 종료) = 사용자가 나가기 버튼 등으로 의도적으로 닫음 → 'left'
+    // 그 외(1001/1005/1006/4001…) = 네트워크 끊김·탭 전환·재연결 교체 → 'dropped'
+    //   클라이언트는 'dropped' 를 받으면 곧바로 수업 종료로 처리하지 않고 재연결을 기다린다.
+    if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username, code === 1000 ? 'left' : 'dropped');
     try { ws.close(code, reason); } catch {}
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
     const att = this.attOf(ws);
-    if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username);
+    if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username, 'dropped');
   }
 
   // ── 비즈니스 로직 ──
@@ -160,7 +167,9 @@ export class VideoCallRoom {
         if (other === ws) continue;
         const oa = this.attOf(other);
         if (oa && oa.clientId && oa.clientId === clientId) {
-          try { other.close(1000, 'superseded-by-reconnect'); } catch {}
+          // ⚠️ 1000(정상 종료)이 아닌 4001 로 닫는다 — 같은 사람이 '재접속으로 교체'되는 중이므로
+          //   학생 화면이 이를 '강사 퇴장(left)'으로 오인해 수업을 즉시 종료하면 안 된다('dropped' 유예 대상).
+          try { other.close(4001, 'superseded-by-reconnect'); } catch {}
         }
       }
     }
@@ -199,28 +208,50 @@ export class VideoCallRoom {
     console.log(`[VideoChat] User ${username} (${userId}) joined room ${this.roomId}`);
   }
 
-  private handleLeaveRoom(userId: string, exclude?: WebSocket, knownUsername?: string): void {
+  private handleLeaveRoom(userId: string, exclude?: WebSocket, knownUsername?: string, reason: 'left' | 'dropped' = 'left'): void {
     // 닫히는 소켓이 목록에서 먼저 빠져도 username 을 잃지 않도록 attachment 값을 우선 사용
     const found = this.usernameOf(userId);
     const username = (knownUsername !== undefined) ? knownUsername : found;
     if (username === null || username === undefined) return; // 입장한 적 없음
     const userCount = this.joinedUsers(exclude).length;
 
-    this.broadcastAll({ type: 'user-left', data: { userId, username, userCount } }, exclude);
+    this.broadcastAll({ type: 'user-left', data: { userId, username, userCount, reason } }, exclude);
     if (username) {
       this.broadcastAll({
         type: 'chat-message',
-        data: { username: '시스템', message: `${username}님이 퇴장했습니다.`, timestamp: Date.now(), isSystem: true }
+        data: {
+          username: '시스템',
+          message: reason === 'dropped'
+            ? `${username}님의 연결이 잠시 끊겼습니다. 재연결을 기다립니다…`
+            : `${username}님이 퇴장했습니다.`,
+          timestamp: Date.now(), isSystem: true
+        }
       }, exclude);
     }
-    console.log(`[VideoChat] User ${username} (${userId}) left room ${this.roomId}`);
+    console.log(`[VideoChat] User ${username} (${userId}) left room ${this.roomId} (${reason})`);
   }
 
   private handleChatMessage(userId: string, data: any): void {
     const username = this.usernameOf(userId);
     if (!username) return;
-    const { message } = data || {};
+    const { message, toUserId } = data || {};
     if (!message) return;
+    // 🔒 개별(1:1) 채팅 — toUserId 가 있으면 대상과 보낸 사람에게만 전달 (다른 참가자는 못 봄)
+    if (toUserId) {
+      const toUsername = this.usernameOf(toUserId);
+      if (toUsername === null) {
+        // 대상이 방에 없음 → 보낸 사람에게만 안내
+        this.send(userId, {
+          type: 'chat-message',
+          data: { username: '시스템', message: '상대방이 방에 없어 전달하지 못했어요.', timestamp: Date.now(), isSystem: true }
+        });
+        return;
+      }
+      const payload = { username, message, timestamp: Date.now(), isSystem: false, userId, dm: true, toUserId, toUsername: toUsername || '참가자' };
+      this.sendTo(toUserId, { type: 'chat-message', data: payload });
+      this.send(userId, { type: 'chat-message', data: payload });   // 보낸 사람 에코 (내 화면 표시)
+      return;
+    }
     this.broadcastAll({
       type: 'chat-message',
       data: { username, message, timestamp: Date.now(), isSystem: false, userId }

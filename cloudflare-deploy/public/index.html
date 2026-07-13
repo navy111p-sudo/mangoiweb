@@ -2078,6 +2078,31 @@
             font-weight: 600;
         }
 
+        /* ── 🔒 개별(1:1) 채팅 — 대상 선택 칩 + DM 말풍선 표시 ── */
+        .chat-target-bar {
+            display: flex; gap: 6px; flex-wrap: wrap;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(148,163,184,0.1);
+        }
+        .chat-target-chip {
+            padding: 4px 10px; border-radius: 999px;
+            font-size: 0.75rem; font-weight: 700;
+            background: rgba(148,163,184,0.12); color: #cbd5e1;
+            border: 1px solid transparent; cursor: pointer;
+        }
+        .chat-target-chip.active { background: rgba(37,99,235,0.28); border-color: #3b82f6; color: #dbeafe; }
+        .chat-target-chip.dm.active { background: rgba(245,158,11,0.22); border-color: #f59e0b; color: #fde68a; }
+        .chat-msg.dm .msg-bubble { border: 1.5px solid #f59e0b; }
+        .msg-dm-tag { font-size: 0.65rem; color: #fbbf24; font-weight: 800; margin-bottom: 2px; }
+        /* 비디오 박스의 💬 개별채팅 버튼 (우상단) */
+        .vc-dm-btn {
+            position: absolute; top: 8px; right: 8px; z-index: 8;
+            background: rgba(15,23,42,0.72); color: #fff;
+            border: 1px solid rgba(148,163,184,0.35); border-radius: 999px;
+            padding: 4px 9px; font-size: 13px; line-height: 1; cursor: pointer;
+        }
+        .vc-dm-btn:hover { background: rgba(37,99,235,0.85); }
+
         /* 채팅 알림 배지 */
         .chat-badge {
             position: absolute;
@@ -3670,6 +3695,25 @@
   function remoteCount(){
     try { return Object.keys(window.vcPeerConnections || {}).length; } catch(e){ return -1; }
   }
+  // 🔧 (2026-07-14) "수업 종료" 오판 방지 — 연결이 건강할 때만 종료 판정을 허용.
+  //   문제: 순간적인 네트워크 블립/교사 새로고침/WS 재연결 중에는 vcPeerConnections 가
+  //   잠깐 0 이 되는데, 이를 '수업 종료'로 오인해 학생을 평가 모달 → 강제 퇴장시켰다
+  //   ("화면이 자꾸 튕긴다"의 주범). WS 가 끊겨 있거나 재연결 중이면 판정을 미룬다.
+  function connHealthy(){
+    try {
+      if (navigator.onLine === false) return false;                              // 오프라인 = 판정 금지
+      var ws = window.vcConn && window.vcConn.ws;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;                 // WS 안 열림 = 판정 금지
+      var b = document.getElementById('vc-reconnect-banner');
+      // "재연결 중…" 배너 표시 중 = 판정 금지. 단, 폴링 유예(__vcPeerGraceWait)가 직접 띄운
+      // 배너는 예외 — 이것까지 판정 금지로 치면 유예 카운트가 영원히 0으로 리셋돼
+      // 강사가 진짜 떠났을 때도 수업이 끝나지 않는 교착이 생긴다.
+      if (b && b.classList.contains('show') && !window.__vcPeerGraceWait) return false;
+      var ra = window.__vcReconnectAt || {};
+      for (var k in ra) { if (Date.now() - ra[k] < 15000) return false; }        // 15초 내 피어 재연결 시도 = 판정 금지
+    } catch(e){}
+    return true;
+  }
   function hookPeerLeave(tries){
     tries = tries || 0;
     if (typeof window.vcRemovePeer !== 'function') {
@@ -3679,14 +3723,25 @@
     if (window.__vcRateLeaveHooked) return;
     window.__vcRateLeaveHooked = true;
     var orig = window.vcRemovePeer;
-    window.vcRemovePeer = function(){
+    window.vcRemovePeer = function(userId, reason){
       var r = orig.apply(this, arguments);
       try {
+        // 🔧 (2026-07-14) 1.4초 → 10초 유예 + 연결 건강 확인.
+        //   교사 새로고침/네트워크 블립이면 수 초 안에 user-joined 로 다시 들어오므로
+        //   짧은 유예는 정상 수업을 '종료'로 오판해 학생을 튕겨냈다.
+        // ⏳ (2026-07-13 2차) 서버가 보내주는 퇴장 사유(reason)로 한 번 더 거른다.
+        //   'left'(나가기 버튼/정상 종료)일 때만 10초 빠른 종료를 예약하고,
+        //   'dropped'(강사 네트워크 끊김·재접속 교체)·사유 미상은 즉시 종료하지 않고
+        //   아래 폴링 안전망의 유예(약 60초)에 맡긴다 — 학생 연결이 멀쩡해도
+        //   강사 쪽이 잠깐 끊기면 connHealthy() 만으로는 못 거르기 때문.
+        if (reason !== 'left') return r;
+        window.__vcPeerLeftExplicit = true;
         setTimeout(function(){
           if (STATE.triggered) return;
           if (!isStudentInClass()) return;
+          if (!connHealthy()) return;                 // 재연결 중이면 폴링 안전망(아래)에 맡김
           if (remoteCount() === 0) endOfClassFlow();
-        }, 1400);
+        }, 10000);
       } catch(e){}
       return r;
     };
@@ -3699,16 +3754,46 @@
     var everHadPeer = false;   // ⚠️ 강사가 "아직 입장 전"(처음부터 0명)과 "있다가 퇴장"(0명으로 전환)을 구분.
                                 //    이 구분이 없으면 학생 혼자 대기실에서 기다리는 중에도 수업이 끝난
                                 //    것으로 오인해 평가가 조기 발동하는 버그가 있었다(2026-07-04 실사용 신고).
+    // ⏳ (2026-07-13 2차) 퇴장 사유별 이중 임계 — 학생 연결이 멀쩡해도(connHealthy=true)
+    //   '강사 쪽' 네트워크가 잠깐 끊기면 원격 피어가 0이 된다. 예전 임계(~25초)로는
+    //   강사 재접속(백오프 최대 16초+재입장+ICE 협상)이 끝나기 전에 수업이 종료됐다.
+    //   → 명시적 퇴장(left)은 기존 ~25초, 그 외(dropped/미상)는 ~60초 재연결 유예.
+    var FAST_TICKS  = 5;    // 5초 × 5  ≈ 25초 (명시적 퇴장 안전망 — 기존 동작 유지)
+    var GRACE_TICKS = 12;   // 5초 × 12 ≈ 60초 (끊김 재연결 유예)
     var iv = setInterval(function(){
       try {
         if (STATE.triggered) { clearInterval(iv); return; }
-        if (!document.body || !document.body.classList.contains('vc-in-call')) { zeroStreak = 0; everHadPeer = false; return; }
+        if (!document.body || !document.body.classList.contains('vc-in-call')) {
+          zeroStreak = 0; everHadPeer = false;
+          window.__vcPeerLeftExplicit = false; window.__vcPeerGraceWait = false;
+          return;
+        }
         if (!isStudentInClass()) return;
         var c = remoteCount();
-        if (c > 0) { everHadPeer = true; zeroStreak = 0; return; }
+        if (c > 0) {
+          everHadPeer = true;
+          if (zeroStreak) { window.__vcPeerLeftExplicit = false; window.__vcPeerGraceWait = false; try { vcHideReconnecting(); } catch(e){} }
+          zeroStreak = 0;
+          return;
+        }
         if (!everHadPeer) return;   // 강사가 한 번도 입장한 적 없음 = 아직 수업 시작 전, 종료 아님
+        // 🔧 (2026-07-14) 연결이 불안정(오프라인/WS 끊김/재연결 중)하면 종료 카운트를 멈춘다.
+        //   피어 0 은 '수업 종료'가 아니라 '내 연결 복구 중'일 수 있다 — 튕김 오판의 주범.
+        if (!connHealthy()) { zeroStreak = 0; return; }
         zeroStreak++;
-        if (zeroStreak >= 2) { clearInterval(iv); endOfClassFlow(); }   // 강사 입장 이력 있고 이후 연속 0명(~10초) = 수업 종료
+        var need = window.__vcPeerLeftExplicit ? FAST_TICKS : GRACE_TICKS;
+        if (!window.__vcPeerLeftExplicit) {
+          // 유예 동안 "재연결 중…" 배너를 유지해 학생이 상황을 알 수 있게 한다.
+          //   (connHealthy 는 __vcPeerGraceWait 가 켜져 있으면 이 배너를 무시하므로 카운트는 계속 진행)
+          window.__vcPeerGraceWait = true;
+          try { vcShowReconnecting(); } catch(e){}
+        }
+        if (zeroStreak >= need) {
+          clearInterval(iv);
+          window.__vcPeerGraceWait = false;
+          try { vcHideReconnecting(); } catch(e){}
+          endOfClassFlow();
+        }
       } catch(e){}
     }, 5000);
   })();
@@ -8264,6 +8349,8 @@
             <strong data-ko="채팅" data-en="Chat">채팅</strong>
             <button onclick="vcToggleChat()" style="background:none;color:#94a3b8;font-size:1.2rem;">✕</button>
         </div>
+        <!-- 🔒 개별(1:1) 채팅 대상 선택 — [👥 전체] + 참가자별 칩. 칩/얼굴 💬 버튼으로 대상 지정 -->
+        <div class="chat-target-bar" id="vc-chat-target-bar"></div>
         <div class="chat-messages" id="vc-chat-messages"></div>
         <div class="chat-input-area">
             <input id="vc-chat-input" type="text" placeholder="메시지 입력... (@학생명 = 카톡 알림)" data-ko-ph="메시지 입력... (@학생명 = 카톡 알림)" data-en-ph="Type a message... (@name = KakaoTalk push)" onkeydown="if(event.key==='Enter') vcSendChat();" />
@@ -8471,7 +8558,10 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             intentionalClose = true;
             stopPing();
             clearTimeout(reconnectTimer);
-            if (ws) ws.close();
+            // ⚠️ 코드 1000(정상 종료) 명시 — 인자 없이 close() 하면 서버(DO)에는 1005(no status)로
+            //   도착해 '네트워크 끊김(dropped)'으로 분류되고, 다른 참가자들이 60초 재연결 유예를
+            //   기다리게 된다. 의도적 종료는 반드시 1000 으로 알린다.
+            if (ws) { try { ws.close(1000, 'client-close'); } catch(_) { try { ws.close(); } catch(__){} } }
         }
     };
 }
@@ -8881,19 +8971,68 @@ function vcResumeAllVideos() {
     });
 }
 
+/* ──────────────────────────────────────────────────────────────
+   🎤 내 마이크 자가치유 (2026-07-14) — "학생 소리가 안 들려요" 근본 대책 (송신측)
+   문제: 모바일에서 앱 전환/화면 꺼짐 시 OS 가 마이크 트랙을 강제 종료(ended)시키는데,
+        기존엔 "복구 불가" 로그만 남기고 방치 → 그 뒤로 상대에게 내 소리가 영영 안 감.
+   해결: 오디오 트랙이 전부 죽어 있으면 마이크를 다시 획득해 모든 피어의 sender 에
+        replaceTrack — 재협상 없이 즉시 소리 복구. (앱 복귀 시 + 5초 감시에서 호출)
+   ────────────────────────────────────────────────────────────── */
+let __vcMicHealAt = 0;
+async function vcHealLocalMic() {
+    try {
+        if (!document.body.classList.contains('vc-in-call')) return;
+        if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return;   // 관찰자는 마이크 없음
+        if (!window.vcLocalStream) return;
+        const tracks = vcLocalStream.getAudioTracks();
+        if (tracks.some(t => t.readyState === 'live')) return;             // 살아있는 트랙 있음 = 정상
+        if (!tracks.length) return;                                        // 애초에 마이크가 없던 입장(빈 스트림) — vcToggleMic 경로에 맡김
+        const now = Date.now();
+        if (now - __vcMicHealAt < 8000) return;                            // 8초 쿨다운(권한 팝업 도배 방지)
+        __vcMicHealAt = now;
+        console.warn('[mic-heal] 오디오 트랙 전부 ended → 마이크 재획득 시도');
+        const base = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+        const saved = (typeof vcSavedMicId === 'function') ? vcSavedMicId() : '';
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: saved ? Object.assign({ deviceId: { ideal: saved } }, base) : base });
+        } catch (e1) {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+        const newTrack = stream.getAudioTracks()[0];
+        if (!newTrack) return;
+        newTrack.enabled = (typeof vcMicOn === 'undefined' || vcMicOn === null) ? true : !!vcMicOn;   // 음소거 상태 존중
+        // 죽은 트랙 정리 후 교체
+        tracks.forEach(old => { try { old.stop(); } catch(_){} try { vcLocalStream.removeTrack(old); } catch(_){} });
+        vcLocalStream.addTrack(newTrack);
+        Object.values(vcPeerConnections || {}).forEach(pc => {
+            try {
+                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+                if (sender) sender.replaceTrack(newTrack).catch(()=>{});
+                else pc.addTrack(newTrack, vcLocalStream);
+            } catch (e) { console.warn('[mic-heal] sender 교체 실패:', e); }
+        });
+        console.warn('[mic-heal] ✅ 마이크 자동 복구 완료');
+        try { vcAddChatSystem('🎤 마이크가 자동으로 다시 연결됐어요.'); } catch(_) {}
+    } catch (e) {
+        console.warn('[mic-heal] 재획득 실패(다음 감시 틱에 재시도):', e && e.name);
+    }
+}
+
 /** 앱 복귀 시: 트랙 enable + 비디오 재생 + ICE/WebSocket 복구 */
 async function vcOnAppResume(reason) {
     console.log('[app-resume] 복귀 감지:', reason);
     try { await requestWakeLock(); } catch(_) {}
 
-    // 1) 로컬 트랙 다시 enable + 상태 확인
+    // 1) 로컬 트랙 다시 enable + 상태 확인 (죽은 마이크는 자가치유)
     if (vcLocalStream) {
         vcLocalStream.getTracks().forEach(t => {
             t.enabled = true;
             if (t.readyState === 'ended') {
-                console.warn('[app-resume] 트랙 ended 상태, 복구 불가:', t.kind);
+                console.warn('[app-resume] 트랙 ended 상태:', t.kind, t.kind === 'audio' ? '→ 마이크 자가치유 시도' : '');
             }
         });
+        try { vcHealLocalMic(); } catch(_) {}   // 🎤 백그라운드에서 죽은 마이크 즉시 복구
     }
 
     // 2) 모든 비디오 엘리먼트 play() 재호출 (모바일 브라우저가 일시정지한 경우 대응)
@@ -8993,7 +9132,8 @@ function vcEvalReconnecting(){
             if (s === 'failed' || s === 'disconnected') recovering = true;
         });
     } catch(_){}
-    if (recovering) vcShowReconnecting(); else vcHideReconnecting();
+    // __vcPeerGraceWait: 강사(원격 피어) 끊김 재연결 유예 중 — 평가 폴링이 배너를 소유하므로 유지
+    if (recovering || window.__vcPeerGraceWait) vcShowReconnecting(); else vcHideReconnecting();
 }
 
 const __vcReconnectAt = {};   // userId → 마지막 재연결 시각(쿨다운)
@@ -9264,6 +9404,16 @@ setInterval(() => {
         } else { pc.__discSince = 0; }
     });
     try { vcResumeAllVideos(); } catch(_) {}
+    try { vcHealLocalMic(); } catch(_) {}       // 🎤 죽은 마이크 자동 복구 (상대에게 내 소리 보장)
+    // 🖼 (2026-07-14) 레이아웃/모드 전환 뒤 남은 숨김 잔존 복구 — 솔로 모드가 아닌데
+    //   원격 박스에 inline display:none 이 남아 "화면이 나왔다 안 나왔다" 하던 것 자가치유.
+    try {
+        if (!window.vcSoloMode) {
+            document.querySelectorAll('#vc-video-grid > .video-box').forEach(b => {
+                if (b.id && b.id !== 'vc-local-box' && b.style.display === 'none') b.style.display = '';
+            });
+        }
+    } catch(_) {}
     try { vcEvalReconnecting(); } catch(_) {}   // 배너 상태 갱신(복구되면 자동 숨김)
 }, 5000);
 
@@ -10340,6 +10490,9 @@ async function vcJoinRoom(skipUI) {
         if (typeof wbResize === 'function') try { wbResize(); } catch(e){}
         if (typeof pdfResize === 'function') try { pdfResize(); } catch(e){}
         if (typeof pdfRenderCurrent === 'function') try { pdfRenderCurrent(); } catch(e){}
+        // 🖼 (2026-07-14) 화면 모드 전환 직후 일시정지된 원격 영상 즉시 재생 재시도
+        //   ("화면 이동하면 영상이 나왔다 안 나왔다" 대책 — 5초 감시를 기다리지 않음)
+        if (typeof vcResumeAllVideos === 'function') try { vcResumeAllVideos(); } catch(e){}
       }, 280);
       // 사용자 피드백 토스트
       const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)', boardonly:'📝 칠판만', bookonly:'📖 교재만' };
@@ -10781,8 +10934,14 @@ function vcHandleMessage(msg) {
 
         case 'user-left':
             updateUserCount(msg.data.userCount);
-            vcRemovePeer(msg.data.userId);
-            vcAddChatSystem(`${msg.data.username} 님이 퇴장했습니다.`);
+            // reason: 'left'=의도적 퇴장(나가기 버튼/정상 종료), 'dropped'=네트워크 끊김·재연결 교체.
+            //   'dropped'는 같은 사람이 곧 재입장할 가능성이 높으므로 수업 종료로 즉시 오인하면
+            //   안 된다(2026-07-13 실사용 신고: 수업 도중 갑자기 수업 종료됨).
+            vcRemovePeer(msg.data.userId, msg.data.reason);
+            vcAddChatSystem(msg.data.reason === 'dropped'
+                ? `${msg.data.username} 님과 연결이 잠시 끊겼습니다. 재연결을 기다리는 중…`
+                : `${msg.data.username} 님이 퇴장했습니다.`);
+            try { vcRefreshChatTargets(); } catch(e){}   // 🔒 나간 사람이 개별채팅 대상이면 전체로 복귀
             break;
 
         // WebRTC 시그널링
@@ -11358,6 +11517,7 @@ function vcEnsureParticipantBox(userId, username){
     try { vcUpdateGridCount(); } catch(e){}
     try { window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
     try { vcRefreshPraiseUI(); } catch(e){}   // 별 버튼/로스터 즉시 반영
+    try { vcAddDmButton(box, userId); vcRefreshChatTargets(); } catch(e){}   // 🔒 개별채팅 버튼/칩
     return box;
 }
 function vcAddRemoteVideo(userId, username, stream) {
@@ -11382,6 +11542,7 @@ function vcAddRemoteVideo(userId, username, stream) {
         var hint0 = existing.querySelector('.vc-connecting-hint'); if (hint0) hint0.remove();   // 영상 도착 → "연결 중" 제거
         try { attachStreamMonitor(existing, stream); } catch(e){}
         try { vcRefreshPraiseUI(); } catch(e){}
+        try { vcAddDmButton(existing, userId); vcRefreshChatTargets(); } catch(e){}   // 🔒 개별채팅 버튼/칩
         return;
     }
     const grid = document.getElementById('vc-video-grid');
@@ -11426,6 +11587,7 @@ function vcAddRemoteVideo(userId, username, stream) {
     attachStreamMonitor(box, stream);
     vcAddDetachButton(box);
     try { vcAddStarButton(box, userId); } catch(e){}
+    try { vcAddDmButton(box, userId); vcRefreshChatTargets(); } catch(e){}   // 🔒 개별채팅 버튼/칩
 }
 
 // 🌟 (2026-07-04) 실시간 칭찬 포인트 — 강사 화면에서만, 학생(원격) 비디오 박스마다 별 버튼을 붙임
@@ -11623,16 +11785,20 @@ function vcShowStarToast(toast, text){
 //   로그인 계정 uid 우선(가장 안정) → 없으면 탭 단위 sessionStorage 랜덤(같은 탭이면 유지).
 //   서버 dedup 의 키. 진짜 다른 참가자/다른 기기/다른 탭은 서로 다른 값이라 절대 안 닫힌다.
 function vcClientId(){
-    try {
-        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-        if (u && u.uid) return 'acct:' + u.uid;
-    } catch(e){}
+    // 🔧 (2026-07-14) 탭 단위 식별자로 변경 — 예전 'acct:<uid>' 방식은 같은 계정으로
+    //   두 기기/두 탭이 같은 방에 들어오면 서버 dedup 이 서로의 소켓을 번갈아 닫아
+    //   "화면이 자꾸 튕기는" 무한 킥 루프가 됐다(가족 공용 계정·교사 PC+폰 동시접속 등).
+    //   sessionStorage 는 같은 탭의 새로고침·재연결에는 그대로 유지되므로
+    //   원래 잡으려던 '유령 타일(좀비 소켓)' dedup 은 계속 동작하고,
+    //   다른 탭/다른 기기와는 절대 겹치지 않는다.
     try {
         var k = sessionStorage.getItem('mangoi_vc_client_id');
         if (!k) { k = 'tab:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); sessionStorage.setItem('mangoi_vc_client_id', k); }
         return k;
     } catch(e){}
-    return null;
+    // sessionStorage 불가 환경 폴백 — 페이지 수명 동안만 유지되는 메모리 id (계정 id 는 절대 사용 금지)
+    if (!window.__vcMemClientId) window.__vcMemClientId = 'mem:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    return window.__vcMemClientId;
 }
 function vcRegisterRosterIdentity(){
     try {
@@ -11671,6 +11837,32 @@ function vcAwardPoint(targetUserId, btn, toast){
 
 // 🧺 (2026-07-04) 학생 화면 전용 — 이번 수업에서 받은 포인트 바구니 (본인 로컬 비디오 박스에 표시)
 window._vcSessionPoints = window._vcSessionPoints || 0;
+// 📱 fix (2026-07-13) — 세로 모바일에선 참가자 2명 이상이면 내 영상 박스가 숨겨져(display:none !important)
+//   그 안의 바구니·+1·광채 연출이 학생에게 전혀 안 보였음("포인트가 늘어나는 게 안 보여").
+//   숫자 표시는 뒤쪽의 '떠 있는 미러 바구니'(#vc-basket-float, 0.7초 틱)가 담당하고,
+//   여기서는 ①연출을 화면 전체 오버레이로 옮겨 어느 모드에서든 보이게 ②숫자 동기화만 한다.
+function vcLocalBoxVisible(){
+    var box = document.getElementById('vc-local-box');
+    if (!box) return false;
+    try { return box.offsetWidth > 0 && box.offsetHeight > 0; } catch(e){ return false; }
+}
+// 연출 기준점 — 내 박스 안 바구니가 보이면 그것, 숨겨졌으면 떠 있는 미러 바구니
+function vcVisibleBasket(){
+    var b = document.querySelector('#vc-local-box .vc-point-basket');
+    try { if (b && b.getBoundingClientRect().width > 0) return b; } catch(e){}
+    var f = document.getElementById('vc-basket-float');
+    try { if (f && f.getBoundingClientRect().width > 0) return f; } catch(e){}
+    return b || f || null;
+}
+// 모든 바구니(박스 안 + 떠 있는 미러) 숫자 동기화
+function vcSyncBasketCounts(){
+    try {
+        var n = String(window._vcSessionPoints || 0);
+        document.querySelectorAll('#vc-local-box .vc-point-basket .vpb-count, #vc-basket-float .vpb-count').forEach(function(c){
+            c.textContent = n;
+        });
+    } catch(e){}
+}
 function vcEnsurePointBasket(){
     if (vcIsTeacherRole()) return null; // 선생님 화면엔 표시 안 함
     const box = document.getElementById('vc-local-box');
@@ -11682,7 +11874,7 @@ function vcEnsurePointBasket(){
     basket.className = 'vc-point-basket';
     basket.title = '🧺 내 포인트 바구니 — 이번 수업에서 선생님께 받은 칭찬 포인트';
     basket.setAttribute('aria-label', '내 포인트 바구니');
-    basket.innerHTML = '<span class="vpb-icon">🧺</span><span class="vpb-count">0</span>';
+    basket.innerHTML = '<span class="vpb-icon">🧺</span><span class="vpb-count">' + String(window._vcSessionPoints || 0) + '</span>';
     box.appendChild(basket);
     try { vcApplyPraiseCompact(); } catch(e){}
     return basket;
@@ -11817,8 +12009,23 @@ function vcCelebratePoint(awardId, fromName){
     const basket = vcEnsurePointBasket();
     vcPlayPointChime();
     const localBox = document.getElementById('vc-local-box');
-    vcSpawnConfetti(localBox);                 // 화면 위에서 쏟아지는 색종이
-    try { vcBigSparkleBurst(localBox, basket); } catch(e){}   // 🌟 바구니 대형 광채 + 별가루 + 큰 +1
+    // 📱 fix (2026-07-13) — 내 박스가 숨겨진 화면(세로폰)에선 박스 기준 연출이 전부 안 보였음.
+    //   화면 전체 고정 오버레이에 광채·별가루를 그려 '어느 화면 모드에서든' 반드시 보이게.
+    const boxVisible = vcLocalBoxVisible();
+    if (boxVisible) {
+        vcSpawnConfetti(localBox);
+        try { vcBigSparkleBurst(localBox, basket); } catch(e){}
+    } else {
+        var ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;z-index:100003;pointer-events:none;';
+        document.body.appendChild(ov);
+        vcSpawnConfetti(ov);                                   // 화면 전체에 색종이
+        // 광채·별가루·+1 은 '보이는 바구니'(떠 있는 미러 포함) 위치 기준으로
+        var anchor = null;
+        try { anchor = vcVisibleBasket(); if (anchor && !(anchor.getBoundingClientRect().width > 0)) anchor = null; } catch(e){}
+        try { vcBigSparkleBurst(ov, anchor); } catch(e){}
+        setTimeout(function(){ try { ov.remove(); } catch(e){} }, 1500);
+    }
     if (!u || !u.uid) { console.warn('[point-award] 로그인 정보 없음 — 로컬 연출만 표시'); return; }
     fetch('/api/points/earn-by-rule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -11826,7 +12033,7 @@ function vcCelebratePoint(awardId, fromName){
     }).then(r => r.json()).then(d => {
         if (d.ok) {
             window._vcSessionPoints = (window._vcSessionPoints || 0) + (d.rule?.amount || 1);
-            if (basket) { const c = basket.querySelector('.vpb-count'); if (c) c.textContent = String(window._vcSessionPoints); }
+            vcSyncBasketCounts();   // 박스 안 + 떠 있는 바구니 모두 갱신
         }
         try { vcConn && vcConn.send({ type: 'point-award-ack', data: { awardId, ok: !!d.ok, error: d.error } }); } catch(e){}
         if (typeof refreshPointsChip === 'function') refreshPointsChip(true);
@@ -12208,6 +12415,9 @@ async function vcLeaveRoom() {
     });
     vcPeerConnections = {};
     vcRemoteStreams = {};
+    // 의도적 퇴장을 서버에 명시(leave-room) — close 프레임이 유실돼도 다른 참가자에게
+    // 'dropped'(60초 유예)가 아닌 'left'(정상 퇴장)로 전달되게 한다.
+    if (vcConn) { try { vcConn.send({ type: 'leave-room', data: {} }); } catch(_){} }
     if (vcConn) vcConn.close();
     if (vcLocalStream) {
         vcLocalStream.getTracks().forEach(t => t.stop());
@@ -16672,6 +16882,7 @@ function vcToggleChat() {
     if (panel.classList.contains('open')) {
         chatUnread = 0;
         document.getElementById('vc-chat-badge').classList.add('hidden');
+        try { vcRefreshChatTargets(); } catch(e){}   // 🔒 열 때마다 참가자 칩 최신화
     }
 }
 
@@ -16679,6 +16890,13 @@ function vcSendChat() {
     const input = document.getElementById('vc-chat-input');
     const text = input.value.trim();
     if (!text || !vcConn) return;
+    // 🔒 개별(1:1) 채팅 — 대상이 지정돼 있으면 그 사람에게만 전송.
+    //   D1 영속 저장·@멘션 알림은 생략(개인 대화가 전체 기록/알림에 노출되지 않게).
+    if (window.vcChatTarget && window.vcChatTarget.userId) {
+        vcConn.send({ type: 'chat-message', data: { message: text, toUserId: window.vcChatTarget.userId } });
+        input.value = '';
+        return;
+    }
     vcConn.send({ type: 'chat-message', data: { message: text } });
     // 🆕 Phase K1: D1에 영속 저장 (실시간 표시는 vcReceiveChat 에코로)
     try {
@@ -16739,11 +16957,14 @@ function vcReceiveChat(data) {
     const container = document.getElementById('vc-chat-messages');
     const isMine = data.userId === vcUserId;
     const isSystem = data.type === 'system';
-    const cls = isSystem ? 'system' : (isMine ? 'mine' : 'other');
+    const isDm = !!data.dm;
+    const cls = (isSystem ? 'system' : (isMine ? 'mine' : 'other')) + (isDm ? ' dm' : '');
     const time = new Date(data._loadedAt || Date.now()).toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'});
 
     let html = `<div class="chat-msg ${cls}">`;
     if (!isSystem && !isMine) html += `<div class="msg-sender">${escHtml(data.username)}</div>`;
+    // 🔒 개별 메시지 표시 — 내가 보낸 건 "→ 받는사람", 받은 건 "개별 메시지" 태그
+    if (isDm) html += `<div class="msg-dm-tag">🔒 ${isMine ? escHtml(data.toUsername || '개별') + ' 에게만' : '나에게만 (개별)'}</div>`;
     html += `<div class="msg-bubble">${escHtml(data.message)}</div>`;
     html += `<div class="msg-time">${time}</div></div>`;
     container.innerHTML += html;
@@ -16785,6 +17006,91 @@ async function vcLoadChatHistory() {
 
 function vcAddChatSystem(message) {
     vcReceiveChat({ type: 'system', message, userId: '_system', username: '시스템' });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   🔒 개별(1:1) 채팅 — 대상 지정 시스템 (2026-07-14)
+   · 채팅 패널 상단 칩([👥 전체] + 참가자별)으로 대상 선택
+   · 각 참가자 비디오 박스 우상단 💬 버튼 → 그 사람과 바로 개별 채팅
+   · 대상이 방을 나가면 자동으로 전체 채팅으로 복귀
+   ════════════════════════════════════════════════════════════════ */
+window.vcChatTarget = null;   // null = 전체, {userId, username} = 개별
+
+function vcChatParticipants() {
+    const out = [];
+    document.querySelectorAll('#vc-video-grid > .video-box').forEach(b => {
+        if (!b.id || b.id === 'vc-local-box') return;
+        const uid = b.id.replace('vc-video-', '');
+        if (!uid || uid === 'demoteacher') return;
+        const lbl = b.querySelector('.video-label');
+        out.push({ userId: uid, username: (lbl && lbl.textContent) || '참가자' });
+    });
+    return out;
+}
+
+function vcSetChatTarget(userId, username) {
+    window.vcChatTarget = userId ? { userId, username: username || '참가자' } : null;
+    vcRefreshChatTargets();
+    // 패널이 닫혀 있으면 열기 (얼굴 💬 버튼으로 지정했을 때)
+    try {
+        const panel = document.getElementById('vc-chat-panel');
+        if (panel && !panel.classList.contains('open') && typeof vcToggleChat === 'function') vcToggleChat();
+    } catch(_) {}
+    const input = document.getElementById('vc-chat-input');
+    if (input) {
+        input.placeholder = window.vcChatTarget
+            ? ('🔒 ' + window.vcChatTarget.username + ' 에게만 보내기…')
+            : (input.getAttribute((typeof currentLang !== 'undefined' && currentLang === 'en') ? 'data-en-ph' : 'data-ko-ph') || '메시지 입력...');
+        try { input.focus(); } catch(_) {}
+    }
+}
+
+function vcRefreshChatTargets() {
+    const bar = document.getElementById('vc-chat-target-bar');
+    if (!bar) return;
+    const people = vcChatParticipants();
+    // 대상이 방에서 나갔으면 전체로 자동 복귀
+    if (window.vcChatTarget && !people.some(p => p.userId === window.vcChatTarget.userId)) {
+        window.vcChatTarget = null;
+        const input = document.getElementById('vc-chat-input');
+        if (input) input.placeholder = input.getAttribute('data-ko-ph') || '메시지 입력...';
+    }
+    const cur = window.vcChatTarget;
+    bar.innerHTML = '';
+    const all = document.createElement('button');
+    all.type = 'button';
+    all.className = 'chat-target-chip' + (cur ? '' : ' active');
+    all.textContent = '👥 전체';
+    all.onclick = function(){ vcSetChatTarget(null); };
+    bar.appendChild(all);
+    people.forEach(p => {
+        const c = document.createElement('button');
+        c.type = 'button';
+        c.className = 'chat-target-chip dm' + ((cur && cur.userId === p.userId) ? ' active' : '');
+        c.textContent = '🔒 ' + p.username;
+        c.onclick = function(){ vcSetChatTarget(p.userId, p.username); };
+        bar.appendChild(c);
+    });
+}
+
+/* 비디오 박스 우상단 💬 버튼 — 누르면 그 사람과 개별 채팅 */
+function vcAddDmButton(box, userId) {
+    try {
+        if (!box || !userId || userId === 'demoteacher') return;
+        if (box.querySelector('.vc-dm-btn')) return;
+        const btn = document.createElement('button');
+        btn.className = 'vc-dm-btn';
+        btn.type = 'button';
+        btn.title = '이 참가자에게만 채팅 (개별 채팅)';
+        btn.textContent = '💬';
+        btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            const lbl = box.querySelector('.video-label');
+            vcSetChatTarget(userId, (lbl && lbl.textContent) || '참가자');
+        });
+        box.style.position = box.style.position || 'relative';
+        box.appendChild(btn);
+    } catch(_) {}
 }
 
 /* ================================================================
@@ -25973,7 +26279,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713204626 -->
+<!-- BUILD:20260713205347 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
