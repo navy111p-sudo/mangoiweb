@@ -24055,7 +24055,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260713213435 -->
+        <!-- BUILD:20260713214707 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -36440,6 +36440,17 @@ button.chip:hover,
         });
       }
     } catch(e){}
+
+    // 🔒 안전장치(2026-07-13): 경영진(exec)의 '🔐 권한 설정' 은 무슨 일이 있어도 절대 숨기지 않는다.
+    //   과거 사고: 권한표에서 '권한 설정' 자체를 경영진도 ❌로 저장 → 편집기가 사라져 스스로 잠김.
+    //   이제 저장된 매트릭스가 어떤 값이든, 경영진에게는 항상 권한설정 카드를 강제로 보이게 한다.
+    if (role === 'exec') {
+      var _permCard = document.getElementById('card-permissions');
+      if (_permCard) _permCard.classList.remove('ph118-card-hidden', 'ph118-card-readonly');
+      document.querySelectorAll('#ph85-sidebar .ph85-sub[data-card="card-permissions"]').forEach(function(sub){
+        sub.classList.remove('ph118-hidden', 'ph118-readonly');
+      });
+    }
 
     // 3) 빈 그룹 hide (모든 sub 가 hide 되면 그룹 자체 hide)
     document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){
