@@ -4547,27 +4547,6 @@
     transition:background .15s,border-color .15s,transform .15s;
   }
   #mango-intro-lang:hover{background:rgba(0,0,0,.6);border-color:#fff;transform:scale(1.04)}
-  /* 🆕 (2026-07-12) 큰 "바로 수업 입장" 버튼 — 영상 안 보고 바로 넘어가기.
-     하단 중앙(엄지 닿는 자리)·망고 옐로우 펄스로 눈에 확 띄게. 클릭 = 즉시 dismiss(수업 화면으로). */
-  #mango-intro-enter{
-    position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
-    display:inline-flex;align-items:center;gap:8px;
-    padding:15px 30px;border:0;border-radius:999px;cursor:pointer;
-    background:linear-gradient(135deg,#ffbf3a,#ff8a00);
-    color:#3a1d00;
-    font:800 18px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
-    letter-spacing:.01em;white-space:nowrap;z-index:4;
-    box-shadow:0 8px 26px rgba(255,150,0,.5),0 2px 0 rgba(255,255,255,.35) inset;
-    animation:introEnterPulse 1.8s ease-in-out infinite;
-  }
-  #mango-intro-enter:hover{filter:brightness(1.05);transform:translateX(-50%) translateY(-2px)}
-  #mango-intro-enter:active{transform:translateX(-50%) scale(.97)}
-  #mango-intro-enter .ie-arrow{font-weight:900}
-  @keyframes introEnterPulse{
-    0%,100%{box-shadow:0 8px 26px rgba(255,150,0,.5),0 0 0 0 rgba(255,176,32,.55)}
-    50%    {box-shadow:0 8px 30px rgba(255,150,0,.6),0 0 0 12px rgba(255,176,32,0)}
-  }
-  @media (prefers-reduced-motion: reduce){ #mango-intro-enter{animation:none} }
   /* 🆕 모바일 — 인트로 동영상: 우주인 4명 모두 보이게 (contain) + 우주 배경
      - contain 으로 좌우 잘림 방지 → 양옆 우주인 2명도 보임
      - 위아래 여백은 우주 그라데이션으로 자연스럽게
@@ -4604,7 +4583,6 @@
     #mango-intro-hint{font-size:11px;bottom:74px}
     #mango-intro-lang{top:12px;left:12px;padding:7px 11px;font-size:12px}
     #mango-intro-cc{bottom:100px;font-size:14px;padding:7px 12px;max-width:92%}
-    #mango-intro-enter{bottom:16px;padding:13px 24px;font-size:16px}
   }
 </style>
 <div id="mango-intro-overlay" role="dialog" aria-label="인트로 영상" hidden>
@@ -4615,8 +4593,6 @@
   <button id="mango-intro-mute" type="button" aria-label="음소거 켜기/끄기" aria-pressed="true">🔇</button>
   <button id="mango-intro-skip" type="button" aria-label="인트로 건너뛰기">건너뛰기 ›</button>
   <button id="mango-intro-lang" type="button" aria-label="English subtitles" title="자막 언어 / Subtitle language">🌐 EN</button>
-  <!-- 🆕 큰 CTA: 영상 안 보고 바로 수업으로 (label 은 JS 가 자막 언어에 맞춰 채움) -->
-  <button id="mango-intro-enter" type="button" aria-label="인트로 영상 건너뛰고 바로 수업 입장">🚀 바로 수업 입장 <span class="ie-arrow">›</span></button>
   <div id="mango-intro-hint">화면을 클릭하면 시작합니다</div>
   <div id="mango-intro-cc" aria-live="polite"></div>
 </div>
@@ -4688,7 +4664,6 @@
   // 🆕 EN/KO 자막 시스템 — 음성에 싱크. 영상 음성(1.4배속·끝 20% 트림) 타임라인 기준.
   var ccEl   = document.getElementById('mango-intro-cc');
   var langBtn= document.getElementById('mango-intro-lang');
-  var enterBtn = document.getElementById('mango-intro-enter');   // 🆕 큰 "바로 수업 입장" CTA
   // ⏱️ (2026-07-05) 인트로 재편집 — 맨 앞 인사말("안녕하세요…학부모님!") 제거 + 전체 10% 감속.
   //   컷 지점 2.13s('우주에서' 발성 시작). 타이밍 = (기존시간 - 2.13) / 0.90 로 재계산.
   var INTRO_CC = [
@@ -4716,26 +4691,16 @@
     langBtn.textContent = (capLang==='en' ? '🌐 KO' : '🌐 EN');   // 누르면 전환될 언어 표시
     langBtn.setAttribute('aria-label', capLang==='en' ? '한국어 자막 보기' : 'Show English subtitles');
   }
-  // 🆕 "바로 수업 입장" 버튼 라벨 — 자막 언어(capLang)에 맞춰 EN/KO
-  function syncEnterLabel(){
-    if(!enterBtn) return;
-    enterBtn.innerHTML = (capLang==='en')
-      ? '🚀 Skip to Class <span class="ie-arrow">›</span>'
-      : '🚀 바로 수업 입장 <span class="ie-arrow">›</span>';
-    enterBtn.setAttribute('aria-label', capLang==='en'
-      ? 'Skip the intro video and enter class'
-      : '인트로 영상 건너뛰고 바로 수업 입장');
-  }
   if(langBtn){
     langBtn.addEventListener('click', function(ev){
       ev.stopPropagation();
       capLang = (capLang==='en' ? 'ko' : 'en');
       try{ localStorage.setItem('mango_intro_caplang', capLang); }catch(e){}
-      syncLangBtn(); syncEnterLabel(); renderCap();
+      syncLangBtn(); renderCap();
     });
   }
   video.addEventListener('timeupdate', renderCap);
-  syncLangBtn(); syncEnterLabel(); renderCap();
+  syncLangBtn(); renderCap();
   var dismissed = false;
   var soundLocked = false;   // 🔒 (2026-07-05) 소리 재생이 한 번 확정되면 true — 재생 도중 muted 토글로 인한 미디어 재시작(중간에 껐다 처음부터 다시)을 원천 차단
 
@@ -4793,8 +4758,6 @@
     dismiss();
   });
   skip.addEventListener('click', function(ev){ ev.stopPropagation(); dismiss(); });
-  // 🆕 큰 "바로 수업 입장" 버튼 = 영상/소리 상태와 무관하게 즉시 입장(수업 화면으로).
-  if (enterBtn) enterBtn.addEventListener('click', function(ev){ ev.stopPropagation(); dismiss(); });
   video.addEventListener('ended', dismiss);
 
   // 🔧 (2026-06-26 FIX) 안전장치: 영상이 로드/재생에 실패해도 인트로가 검은 화면으로
@@ -26967,7 +26930,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714035027 -->
+<!-- BUILD:20260714040110 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
