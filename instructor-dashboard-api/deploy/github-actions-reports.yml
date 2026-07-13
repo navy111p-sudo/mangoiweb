@@ -1,0 +1,25 @@
+# 격주 정기 리포트 트리거 (GitHub Actions)
+# 사용법: 이 파일을 저장소의 .github/workflows/ 로 복사하고,
+#   저장소 Secrets 에 MANGOI_API_BASE, MANGOI_INGEST_TOKEN 등록.
+name: mangoi-biweekly-reports
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"     # 매주 월요일 00:00 UTC (격주 게이트는 아래 스텝에서)
+  workflow_dispatch: {}       # 수동 실행 버튼
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Biweekly gate + trigger reports/run
+        env:
+          API_BASE: ${{ secrets.MANGOI_API_BASE }}
+          INGEST_TOKEN: ${{ secrets.MANGOI_INGEST_TOKEN }}
+        run: |
+          WEEK=$(( $(date +%s) / 604800 ))          # epoch 주 번호
+          if [ $(( WEEK % 2 )) -ne 0 ]; then
+            echo "홀수 주($WEEK) — 격주라 이번 주는 스킵"; exit 0
+          fi
+          curl -fsS -X POST "$API_BASE/api/v1/reports/run" \
+               -H "X-API-Key: $INGEST_TOKEN"

@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+demo.html
+deploy/
+*_demo.py
+live_run.py
+api_sample.py
+test_*.py

@@ -1,0 +1,10 @@
+# 시스템 crontab 예시 — 격주 정기 리포트 트리거
+# 편집: crontab -e   /   환경변수는 각자 셸 프로필 또는 아래에 직접.
+#
+# API_BASE, INGEST_TOKEN 을 실제 값으로 교체하세요.
+# 매주 월 09:00(KST) 실행하되, epoch 주 번호가 짝수일 때만(=격주) 호출.
+
+API_BASE=https://your-api-host.example.com
+INGEST_TOKEN=change-me
+
+0 9 * * 1 [ $(( ($(date +\%s)/604800) \% 2 )) -eq 0 ] && curl -fsS -X POST "$API_BASE/api/v1/reports/run" -H "X-API-Key: $INGEST_TOKEN" >> /var/log/mangoi-reports.log 2>&1

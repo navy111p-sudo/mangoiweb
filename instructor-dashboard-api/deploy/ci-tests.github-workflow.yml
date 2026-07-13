@@ -1,0 +1,27 @@
+# 백엔드 테스트 CI (GitHub Actions)
+# 사용법: 이 파일을 저장소의 .github/workflows/ 로 복사.
+# 테스트는 Neo4j 없이(전부 목업) 실행되므로 별도 DB/시크릿 불필요.
+name: instructor-dashboard-api-tests
+
+on:
+  push:
+    paths: ["instructor-dashboard-api/**"]
+  pull_request:
+    paths: ["instructor-dashboard-api/**"]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: instructor-dashboard-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install -r requirements.txt pytest
+      - name: Run tests
+        run: python -m pytest -q

@@ -1,0 +1,7 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+neo4j>=5.19.0
+pydantic>=2.6.0
+python-dotenv>=1.0.1
+# 앱 내부 스케줄러(ENABLE_SCHEDULER=true)를 쓸 때만 필요. 외부 크론만 쓰면 생략 가능.
+apscheduler>=3.10.4

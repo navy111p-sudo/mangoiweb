@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mangoi 강사 대시보드 데모</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#ffffff; --ink:#1f2430; --muted:#6b7280;
+    --mango:#ff9f1c; --mango-soft:#fff3e0; --line:#e7e9f0;
+    --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+    --c1:#ff9f1c; --c2:#3b82f6; --c3:#22c55e; --c4:#a855f7; --c5:#ec4899;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 18px 60px;}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
+  .who h1{margin:0;font-size:22px;}
+  .who p{margin:4px 0 0;color:var(--muted);font-size:13px;}
+  .toggle{display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .toggle button{border:0;background:transparent;padding:8px 16px;border-radius:999px;font-weight:600;cursor:pointer;color:var(--muted);font-size:13px;}
+  .toggle button.on{background:var(--mango);color:#fff;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media(max-width:820px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 2px 10px rgba(20,20,50,.03);}
+  .card h2{margin:0 0 4px;font-size:15px;}
+  .card .sub{margin:0 0 14px;color:var(--muted);font-size:12px;}
+  .full{grid-column:1/-1;}
+  svg{width:100%;height:auto;display:block;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:12px;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .summary{font-size:15px;line-height:1.7;background:var(--mango-soft);border-radius:12px;padding:16px 18px;}
+  ul.clean{list-style:none;margin:10px 0 0;padding:0;}
+  ul.clean li{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px;line-height:1.5;}
+  ul.clean li:last-child{border-bottom:0;}
+  .ic{flex:0 0 auto;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:12px;color:#fff;margin-top:1px;}
+  .ic.up{background:var(--good);} .ic.do{background:var(--mango);}
+  .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;}
+  .tag.Good{background:#dcfce7;color:#15803d;} .tag.Warning{background:#fef3c7;color:#b45309;} .tag.Bad{background:#fee2e2;color:#b91c1c;}
+  .src{margin-top:18px;font-size:12px;color:var(--muted);text-align:center;}
+  .src code{background:#eef0f6;padding:2px 6px;border-radius:5px;}
+  /* 정기 리포트 배너 */
+  .report-banner{background:linear-gradient(90deg,#fff7ec,#fef2f6);border:1px solid var(--line);
+    border-radius:16px;padding:16px 18px;margin-bottom:18px;display:flex;gap:16px;
+    align-items:center;justify-content:space-between;flex-wrap:wrap;}
+  .rb-left{display:flex;flex-direction:column;gap:3px;}
+  .rb-badge{display:inline-flex;align-items:center;gap:6px;background:var(--mango);color:#fff;
+    font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;width:fit-content;}
+  .rb-period{font-size:13px;color:var(--ink);font-weight:600;}
+  .rb-next{font-size:12px;color:var(--muted);}
+  .rb-deltas{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);
+    border-radius:10px;padding:6px 10px;font-size:12px;}
+  .chip b{font-weight:700;} .chip .up{color:var(--good);} .chip .down{color:var(--bad);}
+  /* 최종 결론 · 실천 가이드 */
+  .concl{border:2px solid var(--mango);background:#fffdf9;}
+  .concl-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:6px;}
+  @media(max-width:820px){.concl-grid{grid-template-columns:1fr;}}
+  .concl-box{border-radius:12px;padding:14px;border:1px solid var(--line);}
+  .concl-box.keep{background:#f0fdf4;border-color:#bbf7d0;}
+  .concl-box.improve{background:#fffbeb;border-color:#fde68a;}
+  .concl-box.avoid{background:#fef2f2;border-color:#fecaca;}
+  .concl-h{font-weight:800;font-size:13.5px;margin-bottom:4px;}
+  .keep .concl-h{color:#15803d;} .improve .concl-h{color:#b45309;} .avoid .concl-h{color:#b91c1c;}
+  .concl .clean li{border-bottom-color:rgba(0,0,0,.06);}
+  .concl .clean li .ic{display:none;}
+  .concl .clean li{padding:7px 0;}
+  .concl .clean li::before{content:"•";margin-right:8px;color:var(--muted);flex:0 0 auto;}
+  .closing{margin-top:16px;background:#fff;border:1px dashed var(--mango);border-radius:12px;
+    padding:16px 18px;font-size:15px;line-height:1.75;color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="who">
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="toggle" role="tablist">
+      <button id="btn-ko" class="on" onclick="setLang('ko')">한국어</button>
+      <button id="btn-en" onclick="setLang('en')">English</button>
+    </div>
+  </header>
+
+  <!-- 정기 리포트 배너 (격주 자동 갱신 + 지난 기간 대비 변화) -->
+  <div class="report-banner" id="reportBanner"></div>
+
+  <div class="grid">
+    <!-- 레이더(오각형) 차트 -->
+    <div class="card">
+      <h2 id="radar-title"></h2>
+      <p class="sub" id="radar-sub"></p>
+      <div id="radar"></div>
+    </div>
+
+    <!-- 라인 차트 -->
+    <div class="card">
+      <h2 id="line-title"></h2>
+      <p class="sub" id="line-sub"></p>
+      <div id="line"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <!-- 종합 코멘트 -->
+    <div class="card full">
+      <h2 id="sum-title"></h2>
+      <div class="summary" id="summary"></div>
+    </div>
+
+    <!-- 강점 -->
+    <div class="card">
+      <h2 id="str-title"></h2>
+      <ul class="clean" id="strengths"></ul>
+    </div>
+
+    <!-- 개선 제안 -->
+    <div class="card">
+      <h2 id="act-title"></h2>
+      <ul class="clean" id="actions"></ul>
+    </div>
+
+    <!-- ★ 최종 결론 · 실천 가이드 (교사가 읽고 바로 고치는 부분) -->
+    <div class="card full concl" id="conclCard">
+      <h2 id="concl-title"></h2>
+      <p class="sub" id="concl-sub"></p>
+      <div class="concl-grid">
+        <div class="concl-box keep">
+          <div class="concl-h" id="ct-keep"></div>
+          <ul class="clean" id="c-keep"></ul>
+        </div>
+        <div class="concl-box improve">
+          <div class="concl-h" id="ct-improve"></div>
+          <ul class="clean" id="c-improve"></ul>
+        </div>
+        <div class="concl-box avoid">
+          <div class="concl-h" id="ct-avoid"></div>
+          <ul class="clean" id="c-avoid"></ul>
+        </div>
+      </div>
+      <div class="closing" id="c-closing"></div>
+    </div>
+  </div>
+
+  <p class="src">
+    검증된 샘플 응답으로 렌더링 중 · 라이브 연결:
+    <code>?api=http://127.0.0.1:8000</code> 를 URL 뒤에 붙이면
+    <code>/api/v1/instructors/inst_01/dashboard</code> 를 직접 호출합니다.
+  </p>
+</div>
+
+<script>
+// ===========================================================================
+// 검증된 API 샘플 응답 (Neo4j 없이도 즉시 동작). 라이브 연결 시 이 값이 교체됨.
+// ===========================================================================
+let DATA = {
+  "instructor_id":"inst_01","instructor_name":"John Doe",
+  "radar_chart_data":[
+    {"category":"Teacher_Talk_Ratio","label_en":"Your Speaking Time","label_ko":"강사 발화 비중","average_score":72},
+    {"category":"Student_Engagement","label_en":"Student Participation","label_ko":"학생 참여도","average_score":55},
+    {"category":"Praise_Count","label_en":"Encouragement & Praise","label_ko":"칭찬과 격려","average_score":78},
+    {"category":"Question_Quality","label_en":"Effective Questioning","label_ko":"효과적인 질문 사용","average_score":64},
+    {"category":"Response_Delay","label_en":"Waiting Time for Student Answers","label_ko":"학생 답변 대기 시간","average_score":35}
+  ],
+  "line_chart_data":[
+    {"lecture_id":"lec_01","date":"2026-06-01","title":"Beginner English Ch.1","scores":{"Teacher_Talk_Ratio":82,"Student_Engagement":48,"Praise_Count":88,"Question_Quality":55,"Response_Delay":58}},
+    {"lecture_id":"lec_02","date":"2026-06-15","title":"Beginner English Ch.2","scores":{"Teacher_Talk_Ratio":76,"Student_Engagement":34,"Praise_Count":64,"Question_Quality":60,"Response_Delay":22}},
+    {"lecture_id":"lec_03","date":"2026-06-29","title":"Beginner English Ch.3","scores":{"Teacher_Talk_Ratio":58,"Student_Engagement":84,"Praise_Count":82,"Question_Quality":78,"Response_Delay":26}}
+  ],
+  "english_view":{
+    "summary":"Excellent progress overall — your teaching is clearly getting stronger! You especially shine at \"Encouragement & Praise\". Looking across your recent lectures, focus next on \"Your Speaking Time\" to give students a little more room to grow.",
+    "strengths":["Outstanding use of praise and warm encouragement.","You respond to student answers quickly and supportively."],
+    "action_items":["Pause for about 3 seconds after asking a question so students have room to speak.","Gently invite quieter students by name to share their thoughts.","Use more open-ended questions (Why / How) instead of yes-or-no ones."],
+    "conclusion":{
+      "keep_doing":["Outstanding use of praise and warm encouragement.","You respond to student answers quickly and supportively."],
+      "improve":["Pause for about 3 seconds after asking a question so students have room to speak.","Gently invite quieter students by name to share their thoughts.","Use more open-ended questions (Why / How) instead of yes-or-no ones."],
+      "avoid":["Avoid filling the entire lesson with your own explanations.","Don't rush the pace and move on before students can join in."],
+      "closing":"In conclusion: Your clear strength is \"Encouragement & Praise\" — keep leaning on it, because it is already working well for your students. The one area holding you back most right now is \"Your Speaking Time\". To improve it, pause for about 3 seconds after asking a question so students have room to speak. Just as important, what NOT to do: avoid filling the entire lesson with your own explanations. Pick this single focus for the next two weeks; small, consistent changes show up clearly in your next report."
+    }
+  },
+  "korean_view":{
+    "summary":"전반적으로 강의 역량이 눈에 띄게 발전하고 있습니다. 아주 잘하고 계세요! 특히 \"칭찬과 격려\" 부분이 매우 뛰어납니다. 최근 수업들을 종합해 보면, 다음으로는 \"강사 발화 비중\" 부분에 조금만 더 신경 쓰시면 학생들이 성장할 여유가 더 생깁니다.",
+    "strengths":["적절한 칭찬과 따뜻한 격려 활용 능력이 우수합니다.","학생 답변에 대한 피드백 반응 속도가 빠르고 든든합니다."],
+    "action_items":["질문을 던진 후 약 3초간 기다려, 학생이 말할 여유를 만들어 주세요.","말수가 적은 학생의 이름을 불러 생각을 나눌 기회를 부드럽게 만들어 주세요.","예/아니오로 끝나는 질문 대신 '왜/어떻게' 같은 열린 질문을 늘려 보세요."],
+    "conclusion":{
+      "keep_doing":["적절한 칭찬과 따뜻한 격려 활용 능력이 우수합니다.","학생 답변에 대한 피드백 반응 속도가 빠르고 든든합니다."],
+      "improve":["질문을 던진 후 약 3초간 기다려, 학생이 말할 여유를 만들어 주세요.","말수가 적은 학생의 이름을 불러 생각을 나눌 기회를 부드럽게 만들어 주세요.","예/아니오로 끝나는 질문 대신 '왜/어떻게' 같은 열린 질문을 늘려 보세요."],
+      "avoid":["수업 시간을 강사의 설명으로만 가득 채우지 마세요.","진도를 서두르느라 학생이 참여하기 전에 넘어가지 마세요."],
+      "closing":"결론입니다. 선생님의 확실한 장점은 \"칭찬과 격려\" 입니다. 이미 학생들에게 잘 통하고 있으니 지금처럼 계속 유지하세요. 지금 가장 아쉬운(보완이 필요한) 부분은 \"강사 발화 비중\" 입니다. 이를 개선하려면, 질문을 던진 후 약 3초간 기다려, 학생이 말할 여유를 만들어 주세요. 반대로 하지 말아야 할 것은: 수업 시간을 강사의 설명으로만 가득 채우지 마세요. 다음 2주 동안 이 한 가지에만 집중해 보세요. 작지만 꾸준한 변화가 다음 리포트에 분명하게 나타납니다."
+    }
+  }
+};
+
+// 정기 리포트 스냅샷(격주) 예시 — 기간 정보 + 지난 기간 대비 변화(delta)
+const REPORT = {
+  "cadence_days":14,"period_start":"2026-06-01","period_end":"2026-06-29","next_report_estimate":"2026-07-13",
+  "deltas":{"Teacher_Talk_Ratio":-14,"Student_Engagement":36,"Praise_Count":-6,"Question_Quality":23,"Response_Delay":-32}
+};
+// 방향: lower=낮을수록 좋음, higher=높을수록 좋음
+const DIRECTION = {"Teacher_Talk_Ratio":"lower","Student_Engagement":"higher","Praise_Count":"higher","Question_Quality":"higher","Response_Delay":"lower"};
+
+const SERIES_COLORS = ["--c1","--c2","--c3","--c4","--c5"];
+const T = {
+  ko:{title:"강사 성장 리포트",subtitle:"여러 강의를 종합한 마이페이지 대시보드",
+      radar:"역량 한눈에 보기",radarSub:"전체 강의 평균 (5개 항목)",
+      line:"수업별 성장 추세",lineSub:"강의 회차에 따른 변화",
+      sum:"종합 코멘트",str:"잘하고 계신 점 👏",act:"이렇게 해보세요 💡",
+      rbBadge:"정기 리포트 · 격주",rbPeriod:p=>`이번 기간: ${p.period_start} ~ ${p.period_end}`,
+      rbNext:d=>`다음 리포트 예정: ${d}`,
+      conclTitle:"📋 결론 · 실천 가이드",
+      conclSub:"아래 내용을 보고 다음 2주 동안 수업을 조정해 보세요.",
+      ctKeep:"✅ 계속 유지할 점 (장점)",ctImprove:"🔧 더 잘해야 할 점 (보완점)",ctAvoid:"⛔ 하지 말아야 할 점 (단점)"},
+  en:{title:"Teacher Growth Report",subtitle:"MyPage dashboard across all lectures",
+      radar:"Skills at a Glance",radarSub:"Averages across all lectures (5 areas)",
+      line:"Progress Over Lessons",lineSub:"How each area changes lesson by lesson",
+      sum:"Overall Comment",str:"What you're doing well 👏",act:"Try this next 💡",
+      rbBadge:"Periodic report · Biweekly",rbPeriod:p=>`This period: ${p.period_start} ~ ${p.period_end}`,
+      rbNext:d=>`Next report: ${d}`,
+      conclTitle:"📋 Conclusion · Action Guide",
+      conclSub:"Use the guide below to adjust your teaching over the next two weeks.",
+      ctKeep:"✅ Keep doing (Strengths)",ctImprove:"🔧 Do better (Improvements)",ctAvoid:"⛔ What NOT to do (Weak spots)"}
+};
+
+let LANG = "ko";
+
+function cssv(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
+function labelOf(cat){const m=DATA.radar_chart_data.find(x=>x.category===cat);return m?m["label_"+LANG]:cat;}
+
+function setLang(lang){
+  LANG=lang;
+  document.getElementById("btn-ko").classList.toggle("on",lang==="ko");
+  document.getElementById("btn-en").classList.toggle("on",lang==="en");
+  document.documentElement.lang=lang;
+  render();
+}
+
+// ---- 레이더(오각형) 차트 ------------------------------------------------
+function drawRadar(){
+  const items=DATA.radar_chart_data, n=items.length;
+  const W=440,H=380,cx=W/2,cy=H/2+6,R=130;
+  const ang=i=>(-90+i*360/n)*Math.PI/180;
+  const pt=(i,r)=>[cx+Math.cos(ang(i))*r, cy+Math.sin(ang(i))*r];
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="radar chart">`;
+  // 격자 링
+  for(let g=1;g<=4;g++){
+    const rr=R*g/4;
+    let p=items.map((_,i)=>pt(i,rr).join(",")).join(" ");
+    s+=`<polygon points="${p}" fill="none" stroke="${cssv('--line')}" stroke-width="1"/>`;
+  }
+  // 축 + 라벨
+  items.forEach((it,i)=>{
+    const [x,y]=pt(i,R);
+    s+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${cssv('--line')}" stroke-width="1"/>`;
+    const [lx,ly]=pt(i,R+26);
+    const anchor=Math.abs(lx-cx)<8?"middle":(lx>cx?"start":"end");
+    s+=`<text x="${lx}" y="${ly}" text-anchor="${anchor}" font-size="11.5" fill="${cssv('--muted')}">${it["label_"+LANG]}</text>`;
+    s+=`<text x="${lx}" y="${ly+15}" text-anchor="${anchor}" font-size="12" font-weight="700" fill="${cssv('--ink')}">${it.average_score}</text>`;
+  });
+  // 데이터 폴리곤
+  let dp=items.map((it,i)=>pt(i,R*it.average_score/100).join(",")).join(" ");
+  s+=`<polygon points="${dp}" fill="${cssv('--mango')}22" stroke="${cssv('--mango')}" stroke-width="2.5"/>`;
+  items.forEach((it,i)=>{const[x,y]=pt(i,R*it.average_score/100);s+=`<circle cx="${x}" cy="${y}" r="4" fill="${cssv('--mango')}"/>`;});
+  s+=`</svg>`;
+  document.getElementById("radar").innerHTML=s;
+}
+
+// ---- 라인 차트 ----------------------------------------------------------
+function drawLine(){
+  const L=DATA.line_chart_data, cats=DATA.radar_chart_data.map(m=>m.category);
+  const W=460,H=300,padL=34,padR=14,padT=14,padB=42;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const x=i=>padL+(L.length===1?iw/2:iw*i/(L.length-1));
+  const y=v=>padT+ih*(1-v/100);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="line chart">`;
+  // y 격자
+  for(let v=0;v<=100;v+=25){
+    s+=`<line x1="${padL}" y1="${y(v)}" x2="${W-padR}" y2="${y(v)}" stroke="${cssv('--line')}" stroke-width="1"/>`;
+    s+=`<text x="${padL-6}" y="${y(v)+3}" text-anchor="end" font-size="10" fill="${cssv('--muted')}">${v}</text>`;
+  }
+  // x 라벨 (강의 회차)
+  L.forEach((lec,i)=>{
+    const short=lec.title.replace("Beginner English ","");
+    s+=`<text x="${x(i)}" y="${H-24}" text-anchor="middle" font-size="10.5" fill="${cssv('--ink')}">${short}</text>`;
+    s+=`<text x="${x(i)}" y="${H-11}" text-anchor="middle" font-size="9" fill="${cssv('--muted')}">${lec.date.slice(5)}</text>`;
+  });
+  // 각 지표 라인
+  cats.forEach((cat,ci)=>{
+    const col=cssv(SERIES_COLORS[ci]);
+    let d=L.map((lec,i)=>`${i?'L':'M'}${x(i)},${y(lec.scores[cat])}`).join(" ");
+    s+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    L.forEach((lec,i)=>{s+=`<circle cx="${x(i)}" cy="${y(lec.scores[cat])}" r="3.2" fill="${col}"/>`;});
+  });
+  s+=`</svg>`;
+  document.getElementById("line").innerHTML=s;
+  // 범례
+  document.getElementById("legend").innerHTML=cats.map((cat,ci)=>
+    `<span><i class="dot" style="background:${cssv(SERIES_COLORS[ci])}"></i>${labelOf(cat)}</span>`).join("");
+}
+
+// ---- 텍스트/리스트 ------------------------------------------------------
+function render(){
+  const t=T[LANG], v=DATA[LANG==="ko"?"korean_view":"english_view"];
+  document.getElementById("title").textContent=`${DATA.instructor_name} · ${t.title}`;
+  document.getElementById("subtitle").textContent=t.subtitle;
+  document.getElementById("radar-title").textContent=t.radar;
+  document.getElementById("radar-sub").textContent=t.radarSub;
+  document.getElementById("line-title").textContent=t.line;
+  document.getElementById("line-sub").textContent=t.lineSub;
+  document.getElementById("sum-title").textContent=t.sum;
+  document.getElementById("str-title").textContent=t.str;
+  document.getElementById("act-title").textContent=t.act;
+  document.getElementById("summary").textContent=v.summary;
+  document.getElementById("strengths").innerHTML=v.strengths.map(x=>
+    `<li><span class="ic up">✓</span><span>${x}</span></li>`).join("");
+  document.getElementById("actions").innerHTML=v.action_items.map(x=>
+    `<li><span class="ic do">→</span><span>${x}</span></li>`).join("");
+  renderBanner(t);
+  renderConclusion(t, v);
+  drawRadar(); drawLine();
+}
+
+// ---- 정기 리포트 배너 (기간 + 지난 기간 대비 변화) ----------------------
+function renderBanner(t){
+  // delta 를 방향에 맞춰 개선/후퇴로 표시 (발화·대기는 낮아지면 개선)
+  const movers = DATA.radar_chart_data.map(m=>{
+    const raw = REPORT.deltas[m.category] ?? 0;
+    const good = DIRECTION[m.category]==="lower" ? raw<0 : raw>0;
+    return {label:m["label_"+LANG], raw, good, mag:Math.abs(raw)};
+  }).filter(x=>x.mag>0).sort((a,b)=>b.mag-a.mag).slice(0,3);
+  const chips = movers.map(x=>{
+    const arrow = x.raw>0?"▲":"▼", cls = x.good?"up":"down";
+    return `<span class="chip">${x.label} <b class="${cls}">${arrow}${x.mag}</b></span>`;
+  }).join("");
+  document.getElementById("reportBanner").innerHTML=`
+    <div class="rb-left">
+      <span class="rb-badge">🗓 ${t.rbBadge}</span>
+      <span class="rb-period">${t.rbPeriod(REPORT)}</span>
+      <span class="rb-next">${t.rbNext(REPORT.next_report_estimate)}</span>
+    </div>
+    <div class="rb-deltas">${chips}</div>`;
+}
+
+// ---- 최종 결론 · 실천 가이드 -------------------------------------------
+function renderConclusion(t, v){
+  const c = v.conclusion || {keep_doing:[],improve:[],avoid:[],closing:""};
+  document.getElementById("concl-title").textContent=t.conclTitle;
+  document.getElementById("concl-sub").textContent=t.conclSub;
+  document.getElementById("ct-keep").textContent=t.ctKeep;
+  document.getElementById("ct-improve").textContent=t.ctImprove;
+  document.getElementById("ct-avoid").textContent=t.ctAvoid;
+  const li = arr => (arr||[]).map(x=>`<li><span>${x}</span></li>`).join("");
+  document.getElementById("c-keep").innerHTML=li(c.keep_doing);
+  document.getElementById("c-improve").innerHTML=li(c.improve);
+  document.getElementById("c-avoid").innerHTML=li(c.avoid);
+  document.getElementById("c-closing").textContent=c.closing;
+}
+
+// ---- 라이브 API 연결 (선택) --------------------------------------------
+async function boot(){
+  const params=new URLSearchParams(location.search);
+  const api=params.get("api");
+  if(api){
+    try{
+      const r=await fetch(`${api.replace(/\/$/,"")}/api/v1/instructors/inst_01/dashboard`);
+      if(r.ok){DATA=await r.json();}
+    }catch(e){console.warn("라이브 API 연결 실패, 샘플 데이터로 표시:",e);}
+  }
+  render();
+}
+boot();
+</script>
+</body>
+</html>

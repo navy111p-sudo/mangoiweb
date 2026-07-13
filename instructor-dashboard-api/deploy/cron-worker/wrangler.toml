@@ -1,0 +1,11 @@
+name = "mangoi-reports-cron"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# 매주 월요일 00:00 UTC 트리거 (격주 게이트는 worker.js 내부에서 처리)
+[triggers]
+crons = ["0 0 * * 1"]
+
+# 배포 후 실제 API 주소로 변경. INGEST_TOKEN 은 `wrangler secret put` 으로 등록.
+[vars]
+API_BASE = "https://your-api-host.example.com"
