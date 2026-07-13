@@ -33,3 +33,26 @@ qs.student.result.json
 망고아이 테스트와 배포/mangoi-release.keystore
 *.keystore
 mango_export.php
+
+# wrangler dry-run 빌드 산출물 — 3만 줄짜리 번들 index.js (2026-07-14 정리)
+.wrangler-dryrun/
+dist-drycheck/
+
+# 임시 미리보기·이전 버전 미디어 (원본은 로컬 보관)
+.tmp_*
+*.prev-*.png
+*.prev-*.mp4
+
+# 게임 소스 미디어 원본 (56MB, 배포본은 public/ 아래 최적화본 사용)
+cloudflare-deploy/game_image/
+cloudflare-deploy/크로마키_*.mp4
+
+# 사용설명서 제작 작업장 — 대용량 미디어·생성 산출물 (video만 700MB)
+망고아이_사용설명서/video/
+망고아이_사용설명서/assets/
+망고아이_사용설명서/qa/
+망고아이_사용설명서/build_*/
+
+# 파이썬 캐시
+__pycache__/
+*.pyc
