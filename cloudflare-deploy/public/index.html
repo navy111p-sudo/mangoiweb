@@ -8960,14 +8960,157 @@ function vcReconnectPeer(userId) {
     }
 }
 
-/* 원격 비디오 음소거 해제 — 첫 화면 터치 시 호출(모바일 무음 자동재생 차단 대응).
-   로컬 자기화면은 제외(에코 방지) → vcPeerConnections(원격)만 대상. */
-function vcUnmuteRemotes() {
+/* ──────────────────────────────────────────────────────────────
+   🔊 소리 보장 시스템 (2026-07-13) — "소리가 안 들려요" 근본 대책
+   구성: ① vcEnsureRemoteAudio  : 모든 원격 소리 살리기(볼륨1·unmute·play 재시도)
+        ② vcSpawnAuxAudio      : <video> 소리가 정책에 막히면 숨은 <audio>로 우회
+        ③ vcAudioWatchdog      : 3초마다 실제 오디오 수신량(getStats)을 재서
+                                 "소리는 오는데 재생이 막힘"을 감지 → 우회+버튼
+        ④ 수업 중 아무 터치/키 → 즉시 소리 살리기 (자동재생 정책의 정석 해법)
+   ────────────────────────────────────────────────────────────── */
+function vcEnsureRemoteAudio() {
     Object.keys(vcPeerConnections).forEach(id => {
         const v = document.querySelector('#vc-video-' + id + ' video');
-        if (v) { v.muted = false; const p = v.play(); if (p && p.catch) p.catch(()=>{}); }
+        if (!v) return;
+        const aux = document.getElementById('vc-aud-' + id);
+        try {
+            v.volume = 1;
+            if (aux) {
+                // 보조 오디오 경로 가동 중 — 소리는 aux 전담, 비디오는 계속 음소거(이중재생 방지)
+                v.muted = true;
+                aux.volume = 1; aux.muted = false;
+                if (aux.paused) { const ap = aux.play(); if (ap && ap.catch) ap.catch(()=>{}); }
+                if (v.paused) { const vp = v.play(); if (vp && vp.catch) vp.catch(()=>{}); }
+                return;
+            }
+            v.muted = false;
+            if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(()=>{}); }
+        } catch(_) {}
     });
 }
+/* 예전 이름 호환 — 기존 호출부(제스처 언뮤트 등)는 그대로 동작 */
+function vcUnmuteRemotes() { vcEnsureRemoteAudio(); }
+
+/* <video>의 소리가 브라우저 정책/WebView 버그로 막혔을 때: 오디오 트랙만 뽑아
+   숨은 <audio> 엘리먼트로 재생(우회). 비디오는 영구 음소거로 바꿔 이중재생 방지. */
+function vcSpawnAuxAudio(id) {
+    try {
+        if (document.getElementById('vc-aud-' + id)) return;
+        const v = document.querySelector('#vc-video-' + id + ' video');
+        const stream = v && v.srcObject;
+        if (!stream || !stream.getAudioTracks) return;
+        const at = stream.getAudioTracks();
+        if (!at.length) return;
+        const a = document.createElement('audio');
+        a.id = 'vc-aud-' + id;
+        a.autoplay = true;
+        a.setAttribute('playsinline', '');
+        a.srcObject = new MediaStream(at);
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        v.muted = true;   // 소리는 aux 전담
+        const p = a.play(); if (p && p.catch) p.catch(()=>{});
+        console.warn('[vc-audio] 🔀 보조 오디오 경로 가동:', id);
+    } catch(e) { console.warn('[vc-audio] aux 실패:', e); }
+}
+
+/* 큰 "🔊 소리 켜기" 버튼 — 터치가 필요할 때만 표시. 누르면 모든 원격 소리 살림 */
+function vcToggleSoundBanner(show) {
+    let b = document.getElementById('vc-sound-banner');
+    if (!show) { if (b) b.remove(); return; }
+    if (b) return;
+    if (!document.getElementById('vc-sound-banner-style')) {
+        const st = document.createElement('style');
+        st.id = 'vc-sound-banner-style';
+        st.textContent = '@keyframes vcSndPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.07);}}';
+        document.head.appendChild(st);
+    }
+    b = document.createElement('button');
+    b.id = 'vc-sound-banner';
+    b.textContent = '🔊 소리 켜기';
+    b.style.cssText = 'position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:2147483646;'
+        + 'padding:13px 26px;font-size:18px;font-weight:800;background:#f59e0b;color:#1f2937;border:none;'
+        + 'border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.5);cursor:pointer;animation:vcSndPulse 1.2s ease-in-out infinite;';
+    b.onclick = function() { vcEnsureRemoteAudio(); b.remove(); };
+    document.body.appendChild(b);
+}
+
+/* 오디오 감시견 — 3초마다:
+   · 원격 오디오 수신 바이트가 늘고 있는데 출력이 막혀 있으면(음소거/정지) 2틱 연속 시 우회+버튼
+   · 상대 스트림에 오디오 트랙이 아예 없으면 "상대 마이크 꺼짐" 안내 라벨
+   · 매 틱 소리 자동 살리기(vcEnsureRemoteAudio) — 터치 없이 되는 환경이면 이것만으로 복구 */
+(function vcAudioWatchdog() {
+    if (window.__vcAudioWatch) return; window.__vcAudioWatch = true;
+    ['pointerdown', 'touchstart', 'keydown'].forEach(ev =>
+        document.addEventListener(ev, function() {
+            if (!document.body.classList.contains('vc-in-call')) return;
+            try { vcEnsureRemoteAudio(); } catch(_) {}
+            try { vcToggleSoundBanner(false); } catch(_) {}
+        }, { passive: true }));
+    setInterval(async function() {
+        if (!document.body.classList.contains('vc-in-call')) { vcToggleSoundBanner(false); return; }
+        let needTap = false;
+        for (const id of Object.keys(vcPeerConnections)) {
+            const pc = vcPeerConnections[id];
+            const box = document.getElementById('vc-video-' + id);
+            const v = box && box.querySelector('video');
+            if (!pc || !v) continue;
+            let bytes = 0, hasAudioTrack = false;
+            try {
+                const stream = v.srcObject;
+                hasAudioTrack = !!(stream && stream.getAudioTracks && stream.getAudioTracks().length);
+                const stats = await pc.getStats();
+                stats.forEach(r => {
+                    if (r.type === 'inbound-rtp' && (r.kind === 'audio' || r.mediaType === 'audio')) {
+                        bytes = Math.max(bytes, r.bytesReceived || 0);
+                    }
+                });
+            } catch(_) {}
+            const prev = pc.__audPrev || { bytes: 0, blocked: 0, noTrack: 0 };
+            const flowing = bytes > prev.bytes;
+            // ── 상대 마이크 자체가 없음/꺼짐 → 우리 쪽에선 못 고침, 안내만
+            let hint = box.querySelector('.vc-noaudio-hint');
+            if (!hasAudioTrack || (!flowing && bytes === 0)) {
+                prev.noTrack = (prev.noTrack || 0) + 1;
+                if (prev.noTrack >= 3 && !hint) {
+                    hint = document.createElement('div');
+                    hint.className = 'vc-noaudio-hint';
+                    hint.textContent = '🎤 상대 소리가 안 와요 (상대방 마이크 확인)';
+                    hint.style.cssText = 'position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:9;'
+                        + 'background:rgba(220,38,38,.88);color:#fff;font-size:12px;font-weight:700;'
+                        + 'padding:4px 10px;border-radius:999px;white-space:nowrap;pointer-events:none;';
+                    box.style.position = 'relative';
+                    box.appendChild(hint);
+                }
+            } else {
+                prev.noTrack = 0;
+                if (hint) hint.remove();
+            }
+            // ── 소리는 오는데 출력이 막힘 → 우회 + 버튼
+            const aux = document.getElementById('vc-aud-' + id);
+            const outputBlocked = aux ? (aux.muted || aux.paused) : (v.muted || v.paused);
+            if (flowing && outputBlocked) {
+                prev.blocked = (prev.blocked || 0) + 1;
+                if (prev.blocked >= 2) {
+                    if (!aux) vcSpawnAuxAudio(id);
+                    needTap = true;
+                    console.warn('[vc-audio] 소리 수신 중인데 재생 막힘:', id, 'aux:', !!aux);
+                }
+            } else {
+                prev.blocked = 0;
+            }
+            prev.bytes = bytes;
+            pc.__audPrev = prev;
+            // 매 틱 자동 복구 시도
+            try {
+                v.volume = 1;
+                if (aux) { aux.volume = 1; if (aux.paused) aux.play().catch(()=>{}); }
+                else if (v.muted || v.paused) { v.muted = false; if (v.paused) v.play().catch(()=>{}); }
+            } catch(_) {}
+        }
+        vcToggleSoundBanner(needTap);
+    }, 3000);
+})();
 let __vcGestureArmed = false;
 function vcArmGestureUnmute() {
     if (__vcGestureArmed) return; __vcGestureArmed = true;
@@ -11068,6 +11211,14 @@ function vcAddRemoteVideo(userId, username, stream) {
             // fix (2026-06-01) — 같은 스트림이어도 항상 play() 한번 더 호출(늦게 온 비디오 트랙 렌더 보장)
             if (existingVid.srcObject !== stream) existingVid.srcObject = stream;
             existingVid.play().catch(e => console.warn('[vc] 기존 비디오 play 실패:', e && e.name));
+            // 🔊 보조 오디오 경로 사용 중이면 새 스트림의 오디오 트랙으로 갱신(재연결 후 무음 방지)
+            try {
+                const aux0 = document.getElementById('vc-aud-' + userId);
+                if (aux0) {
+                    const at0 = stream.getAudioTracks ? stream.getAudioTracks() : [];
+                    if (at0.length) { aux0.srcObject = new MediaStream(at0); const ap0 = aux0.play(); if (ap0 && ap0.catch) ap0.catch(()=>{}); }
+                }
+            } catch(_) {}
         }
         var hint0 = existing.querySelector('.vc-connecting-hint'); if (hint0) hint0.remove();   // 영상 도착 → "연결 중" 제거
         try { attachStreamMonitor(existing, stream); } catch(e){}
@@ -11090,9 +11241,18 @@ function vcAddRemoteVideo(userId, username, stream) {
     // fix — 솔로 모드 중 새로 입장한 참가자도 숨겨, "솔로인데 일부만 보이는" 반쪽 상태 방지
     if (window.vcSoloMode) box.style.display = 'none';
     // 모바일 자동재생 정책 대응: muted로 시작 → 재생 후 unmute
+    // fix (2026-07-13) — 예전엔 500ms 뒤 '딱 한 번'만 음소거 해제 → 정책이 조용히 막으면 영원히 무음.
+    //   재시도 사다리(0.4s/1.2s/2.8s/5s) + volume=1 강제 + unmute가 재생을 멈추면 즉시 play 재시도.
     vid.play().then(() => {
-        // 재생 시작 후 음소거 해제
-        setTimeout(() => { vid.muted = false; }, 500);
+        const tryUnmute = (n) => {
+            try {
+                vid.volume = 1;
+                vid.muted = false;
+                if (vid.paused) vid.play().catch(() => {});
+            } catch(_) {}
+            if (n < 3 && (vid.muted || vid.paused)) setTimeout(() => tryUnmute(n + 1), 800 * (n + 1));
+        };
+        setTimeout(() => tryUnmute(0), 400);
         console.log('[vc] 원격 비디오 재생 시작:', userId);
     }).catch(e => {
         console.warn('[vc] 원격 비디오 자동재생 실패:', e.message);
@@ -11774,6 +11934,8 @@ function vcRemovePeer(userId) {
     try { delete vcRemoteStreams[userId]; } catch(_){}   // fix (2026-06-01) 원격 스트림도 정리
     const box = document.getElementById(`vc-video-${userId}`);
     if (box) box.remove();
+    // 🔊 보조 오디오 경로도 함께 정리 (남으면 다음 입장 때 옛 스트림 무음 재생)
+    try { const aux = document.getElementById('vc-aud-' + userId); if (aux) { aux.srcObject = null; aux.remove(); } } catch(_){}
     vcUpdateGridCount();
 }
 
@@ -25553,7 +25715,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713183219 -->
+<!-- BUILD:20260713185307 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
