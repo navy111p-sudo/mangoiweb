@@ -8653,11 +8653,15 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             if (onClose) onClose(event);
 
             // 의도적 종료가 아니면 자동 재연결 시도
-            if (!intentionalClose && reconnectAttempts < MAX_RECONNECT) {
-                try { if (document.body.classList.contains('vc-in-call') && typeof vcShowReconnecting === 'function') vcShowReconnecting(); } catch(_) {}
+            // 🔒 수업 중(vc-in-call)에는 횟수 제한 없이 계속 재시도 — "수업 절대 안 끊김" 원칙.
+            //   (예전엔 10회 소진 후 영구 포기 → 긴 터널·와이파이 불안정 시 앱을 껐다 켜야만 복구됐음.
+            //    지수 백오프는 16초에서 캡되므로 무한 재시도여도 서버 부담은 분당 최대 ~4회.)
+            const inCall = document.body.classList.contains('vc-in-call');
+            if (!intentionalClose && (reconnectAttempts < MAX_RECONNECT || inCall)) {
+                try { if (inCall && typeof vcShowReconnecting === 'function') vcShowReconnecting(); } catch(_) {}
                 reconnectAttempts++;
-                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 16000);
-                console.log(`[WebSocket] ${delay/1000}초 후 재연결 시도... (${reconnectAttempts}/${MAX_RECONNECT})`);
+                const delay = Math.min(1000 * Math.pow(2, Math.min(reconnectAttempts - 1, 10)), 16000);
+                console.log(`[WebSocket] ${delay/1000}초 후 재연결 시도... (${reconnectAttempts}${inCall ? '/∞(수업중)' : '/' + MAX_RECONNECT})`);
                 reconnectTimer = setTimeout(connect, delay);
             }
         };
@@ -8674,7 +8678,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
     //   예전엔 연결 끊김 상태에서 send() 하면 그냥 버림 → 교사가 튼 동영상/교재 신호가
     //   사라져 학생이 폴링/재입장 때까지 못 봤음. 시그널링(offer/ice 등)은 재연결 시
     //   어차피 새로 시작하므로 큐잉하지 않고, '내용 공유' 타입만 큐에 담아 재연결 즉시 재전송.
-    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1 };
+    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1 };
     let sendQueue = [];   // [{type,...}] 최대 20개 — 같은 type 은 마지막 것만 유지
     function flushQueue() {
         if (!ws || ws.readyState !== WebSocket.OPEN || !sendQueue.length) return;
@@ -11396,6 +11400,20 @@ function vcHandleMessage(msg) {
             }
             break;
         }
+        // 📡 (2026-07-14) 교사 탭 동기화 수신 — 교사가 칠판/동영상/교재 등으로 바꾸면 따라감.
+        //   학생만 따라감(교사·관리자가 다른 교사 방송을 받아도 무시 → 서로 덮어쓰기 방지).
+        case 'tab-sync': {
+            try {
+                var _tsTab = msg.data && msg.data.tab;
+                if (_tsTab && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+                    window._vcTabSyncApplying = true;
+                    try { vcSwitchTab(_tsTab); } finally { window._vcTabSyncApplying = false; }
+                    console.log('[tab-sync] 교사 탭 따라감:', _tsTab);
+                    try { if (typeof showToast === 'function') showToast('👩‍🏫 선생님이 화면을 바꿨어요'); } catch(_){}
+                }
+            } catch(_){ window._vcTabSyncApplying = false; }
+            break;
+        }
         case 'pdf-page-change':
             pdfGoToPage(msg.data.currentPage || msg.data.pageNum);
             break;
@@ -11583,6 +11601,7 @@ function vcTuneAudioSdp(sdp) {
                        || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
         return { br: (mobile ? 500 : 1200) * 1000, fps: mobile ? 15 : 24 };
     }
+    const SCALE = [1, 1.5, 2, 3];   // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
     function applyStep(pc, step) {
         try {
             const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -11593,8 +11612,19 @@ function vcTuneAudioSdp(sdp) {
             if (!params.encodings || !params.encodings.length) params.encodings = [{}];
             params.encodings[0].maxBitrate   = Math.max(150 * 1000, Math.round(caps.br * mult));
             params.encodings[0].maxFramerate = Math.max(10, Math.round(caps.fps * mult));
-            sender.setParameters(params).catch(() => {});
-            console.log('[vc-adapt] 화질 단계', step, '→', Math.round(caps.br * mult / 1000) + 'kbps');
+            params.encodings[0].scaleResolutionDownBy = SCALE[step] || 1;
+            sender.setParameters(params).catch(() => {
+                // 일부 구형 브라우저는 scaleResolutionDownBy 를 거부 → 해상도 축소 없이 비트레이트 상한만이라도 재적용
+                try {
+                    const p2 = sender.getParameters();
+                    if (!p2.encodings || !p2.encodings.length) p2.encodings = [{}];
+                    p2.encodings[0].maxBitrate   = Math.max(150 * 1000, Math.round(caps.br * mult));
+                    p2.encodings[0].maxFramerate = Math.max(10, Math.round(caps.fps * mult));
+                    delete p2.encodings[0].scaleResolutionDownBy;
+                    sender.setParameters(p2).catch(() => {});
+                } catch (_) {}
+            });
+            console.log('[vc-adapt] 화질 단계', step, '→', Math.round(caps.br * mult / 1000) + 'kbps, 해상도 1/' + (SCALE[step] || 1));
         } catch (_) {}
     }
     setInterval(function() {
@@ -11650,7 +11680,14 @@ function vcCreatePeer(userId, username) {
     }
 
     console.log('[vc-webrtc] createPeer:', userId, username, 'ICE서버:', ICE_SERVERS.iceServers.length, '개');
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    // 📶 연결 수립 시간 단축 설정 — 후보 사전수집(pool) + 단일 번들(포트 1개)로 ICE 검사쌍 최소화.
+    //   iceCandidatePoolSize: PC 생성 즉시 후보를 미리 모아 offer/answer 후 곧바로 연결 검사 시작.
+    const pc = new RTCPeerConnection({
+        iceServers: ICE_SERVERS.iceServers,
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
+        iceCandidatePoolSize: 2
+    });
     vcPeerConnections[userId] = pc;
     pc.__username = username;   // 이동 중 끊김 → 재연결 시 이름 복원용
 
@@ -13182,6 +13219,19 @@ function vcSwitchTab(tabName, evt) {
             wf.src = '/warmup.html' + (wq ? '?' + wq : '');
         }
     }
+    // 📡 (2026-07-14) 교사 주도 탭 동기화 — 교사가 탭(칠판/동영상/교재 등)을 바꾸면
+    //   학생 화면도 같은 탭으로 따라오게 방송. (예전엔 탭 전환 메시지 자체가 없어서
+    //   교재/동영상 '내용 공유' 때만 학생이 따라오고, 맨몸 탭 전환은 학생에게 안 보였음)
+    //   _vcTabSyncApplying = 학생이 수신 적용 중일 때 재방송(루프) 방지 플래그.
+    try {
+        if (!window._vcTabSyncApplying
+            && (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin')
+            && document.body.classList.contains('vc-in-call')
+            && typeof vcConn !== 'undefined' && vcConn) {
+            vcConn.send({ type: 'tab-sync', data: { tab: tabName } });
+            console.log('[tab-sync] 교사 탭 방송:', tabName);
+        }
+    } catch(e){}
 }
 
 // 🥭 (2026-07-05) 상단 탭바 전체 공통 토글 상태 — "콘텐츠(칠판/동영상/학생게임/배경/웜업/퀴즈) 영역"을
@@ -26917,7 +26967,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714030708 -->
+<!-- BUILD:20260714035027 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">

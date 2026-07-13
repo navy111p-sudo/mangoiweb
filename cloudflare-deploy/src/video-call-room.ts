@@ -122,6 +122,8 @@ export class VideoCallRoom {
         case 'whiteboard-stroke':
         case 'point-award':          // 🌟 실시간 칭찬 포인트 — 강사→학생 전달
         case 'point-award-ack':      //    학생→강사 결과 확인 응답
+        case 'tab-sync':             // 📡 교사 탭 전환 동기화 (칠판/동영상/교재 따라가기)
+        case 'file-share':           // 📎 파일 공유 다운로드 카드 (워드/엑셀/PPT 등)
           if (this.isJoined(userId)) this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         case 'offer':           this.handleOffer(userId, msg.data as any); break;
