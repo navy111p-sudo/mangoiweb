@@ -12345,7 +12345,12 @@ function vcSmartFitVideo(v){
     var box = v.closest('.video-box'); if (!box) return;
     var bw = box.clientWidth, bh = box.clientHeight; if (!bw || !bh) return;
     var vr = v.videoWidth / v.videoHeight, br = bw / bh;
-    var mismatch = ((vr < 1) !== (br < 1)) || (Math.max(vr, br) / Math.min(vr, br) > 1.6);
+    // 🩹 fix (2026-07-13) — 가상배경(세그멘테이션) 켜진 내 타일은 무조건 contain.
+    //   가상배경 캔버스는 카메라 원본 비율이라, 세로로 긴 미리보기 타일에 cover 로 넣으면
+    //   얼굴이 확대돼 아래(턱·목)가 잘림. 여백은 타일 배경 프레임이 채우므로 전체 표시가 우선.
+    var vbgOn = (box.id === 'vc-local-box') && (typeof vcBg !== 'undefined') && vcBg && vcBg.mode && vcBg.mode !== 'off';
+    // 일반 타일 임계값도 1.6→1.35 로 낮춰 애매한 비율차의 잘림까지 contain 처리
+    var mismatch = vbgOn || ((vr < 1) !== (br < 1)) || (Math.max(vr, br) / Math.min(vr, br) > 1.35);
     // inline !important 라야 ph49 의 stylesheet !important(cover 강제)를 이김
     v.style.setProperty('object-fit', mismatch ? 'contain' : 'cover', 'important');
   } catch(e){}
@@ -13373,6 +13378,8 @@ window.vcSetBackground = async function(mode){
     const innerV = document.getElementById('vc-local-video');
     if (innerV) innerV.style.filter = 'blur(0)';
   }
+  // vcBg.mode 가 방금 세팅됐으니 스마트핏 즉시 재계산 → 가상배경 타일은 contain 으로 전환(얼굴 잘림 방지)
+  try { vcSmartFitVideo(document.getElementById('vc-local-video')); } catch(_){}
   if (status) {
     const names = { blur:'흐림', galaxy:'우주', desert:'사막', underwater:'바닷속', beach:'바닷가', jungle:'정글', fireplace:'벽난로', angkor:'앙코르와트', jurassic:'쥬라식파크' };
     status.textContent = '✅ ' + (names[mode]||mode) + ' 배경 프레임 적용됨 (AI 처리 시도 중…)';
@@ -26674,7 +26681,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713231538 -->
+<!-- BUILD:20260713231639 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
