@@ -122,6 +122,20 @@
     '  body.vc-in-call.vc-dock-collapsed #vc-dock{transform:translateX(-50%) translateY(180%) !important;opacity:0;pointer-events:none;}',
     '  body.vc-in-call.vc-dock-collapsed #vc-dock-handle{bottom:max(6px,env(safe-area-inset-bottom,0px));}',
     '  body.vc-in-call.vc-dock-collapsed #vc-dock-handle svg{transform:rotate(180deg);}',
+    '}',
+    '/* ★ (2026-07-14 사장님) 모바일(가로+세로 공통): 하단 버튼독 기본 숨김 —',
+    '   화면 아래 ⋯(가로 점3개) 버튼을 누르면 나타나고 다시 누르면 닫힘. 화면 최대한 깨끗하게. */',
+    '#vc-dock-more{display:none;position:fixed;left:50%;bottom:max(10px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:99994;',
+    '  width:66px;height:32px;align-items:center;justify-content:center;border-radius:999px;',
+    '  border:1px solid rgba(255,255,255,.28);background:rgba(18,22,30,.74);color:#fff;',
+    '  font-size:21px;line-height:0;letter-spacing:3px;font-weight:800;cursor:pointer;padding:0 0 6px;',
+    '  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 8px 20px rgba(0,0,0,.5);}',
+    '#vc-dock-more:active{transform:translateX(-50%) scale(.94);}',
+    '@media (max-width:1024px){',
+    '  body.vc-in-call #vc-dock{display:none;}',
+    '  body.vc-in-call.vc-dock-open #vc-dock{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 50px);}',
+    '  body.vc-in-call #vc-dock-more{display:flex;}',
+    '  body.vc-in-call #vc-dock-handle{display:none !important;}', /* 옛 문고리 → ⋯ 버튼으로 대체 */
     '}'
   ].join('\n');
 
@@ -347,6 +361,14 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     handle.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); document.body.classList.toggle('vc-dock-collapsed'); };
     document.body.appendChild(handle);
+
+    // ★ (2026-07-14 사장님) 모바일 ⋯(가로 점3개) 토글 — 독 기본 숨김, 누르면 열림/다시 누르면 닫힘
+    var more = document.createElement('button');
+    more.id = 'vc-dock-more'; more.type = 'button';
+    more.setAttribute('aria-label', '수업 버튼 열기/닫기');
+    more.textContent = '•••';
+    more.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); document.body.classList.toggle('vc-dock-open'); };
+    document.body.appendChild(more);
   }
 
   function sync(){
@@ -362,7 +384,7 @@
   function tick(){
     var inCall = !!(document.body && document.body.classList.contains('vc-in-call'));
     if (inCall) { build(); document.body.classList.add('vc-dock-on'); sync(); }
-    else if (document.body) { document.body.classList.remove('vc-dock-on'); document.body.classList.remove('vc-dock-collapsed'); closeSettings(); }
+    else if (document.body) { document.body.classList.remove('vc-dock-on'); document.body.classList.remove('vc-dock-collapsed'); document.body.classList.remove('vc-dock-open'); closeSettings(); }
   }
   if (document.readyState !== 'loading') { tick(); } else { document.addEventListener('DOMContentLoaded', tick); }
   setInterval(tick, 1500);

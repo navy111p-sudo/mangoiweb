@@ -3238,6 +3238,39 @@
             body.vc-in-call .vc-main-row.video-half:not(.video-solo):not(.video-full) > .video-pane { width: 45% !important; height: 100% !important; }
             body.vc-in-call .vc-main-row.video-threequarter:not(.video-solo):not(.video-full) > .video-pane { width: 60% !important; height: 100% !important; }
             body.vc-in-call .vc-main-row.video-pip:not(.video-solo):not(.video-full) > .video-pane { width: 30% !important; height: 100% !important; }
+
+            /* ★ (2026-07-14 사장님) 교사·학생 얼굴 타일 '완전히 같은 크기' 강제 —
+               축소(62%)·비율·절대배치·숨김 규칙 전부 무효 (id 중복 특이도) */
+            body.vc-in-call #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid {
+                display: grid !important;
+                grid-template-columns: 1fr !important;
+                grid-template-rows: none !important;
+                grid-auto-rows: 1fr !important;
+                height: 100% !important;
+                align-content: stretch !important;
+            }
+            body.vc-in-call #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid .video-box,
+            body.vc-in-call #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid #vc-local-box {
+                display: block !important;
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                aspect-ratio: auto !important;
+                max-height: none !important;
+                min-height: 0 !important;
+                position: relative !important;
+                inset: auto !important;
+                z-index: auto !important;
+                opacity: 1 !important;
+            }
+        }
+
+        /* ★ (2026-07-14 사장님) 모바일 수업화면 최대한 깨끗하게 —
+           접힌 도구줄(교재도구·필기도구)은 잔여 칩까지 완전 숨김.
+           모든 기능은 상단 [📚 교재도구]·[✍️ 필기도구] 칩을 눌러야 펼쳐짐. */
+        @media (max-width: 1024px) {
+            body.vc-in-call #tab-pdf .pdf-anno-bar.ph49-collapsed,
+            body.vc-in-call #tab-pdf .pdf-controls.ph49-collapsed { display: none !important; }
         }
 
         /* ════════════════════════════════════════════════════════════════
@@ -27036,7 +27069,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714044359 -->
+<!-- BUILD:20260714064046 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -28148,7 +28181,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
-<script src="/js/vc-dock.js?v=1" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
+<script src="/js/vc-dock.js?v=2" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=33" defer></script>
 <script src="/js/mango-rec.js?v=38" defer></script>
 <script src="/js/mango-class-time.js?v=7" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
