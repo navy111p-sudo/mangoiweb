@@ -8170,6 +8170,141 @@ Respond in JSON ONLY:
       return json({ ok: true, word, korean, example });
     }
 
+    // ── POST /api/vocab/extract — 파일(엑셀/워드/PDF/CSV/TXT)에서 텍스트 추출, 또는 텍스트→AI 단어쌍 추출 ──
+    //   multipart(file) → { ok, text }  (Workers AI toMarkdown 으로 문서→마크다운 변환)
+    //   JSON { text }   → { ok, items:[{word,korean}] }  (규칙 파싱 실패분을 AI 가 구조화)
+    if (method === 'POST' && path === '/api/vocab/extract') {
+      const ct = (request.headers.get('content-type') || '').toLowerCase();
+      // (B) 텍스트 → AI 단어쌍 추출
+      if (ct.includes('application/json')) {
+        const b: any = await request.json().catch(() => ({}));
+        const text = String(b.text || '').slice(0, 8000).trim();
+        if (!text) return json({ ok: false, error: 'text_required' }, 400);
+        if (!(env as any).AI) return json({ ok: false, error: 'ai_unavailable' }, 503);
+        try {
+          const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+            messages: [
+              { role: 'system', content: 'You extract an English vocabulary list from messy text. Output ONLY a JSON array, no prose.' },
+              { role: 'user', content: `Extract English vocabulary words (and their Korean meaning if present) from the text below.\nRules: word = single English word or short phrase (max 4 words). korean = Korean meaning if given in the text, else "".\nSkip sentences, headers, page numbers. Max 150 entries.\nReturn JSON array: [{"word":"...","korean":"..."}]\n\nTEXT:\n${text}` }
+            ],
+            max_tokens: 3000,
+          });
+          let out = '';
+          if (typeof resp === 'string') out = resp;
+          else if (resp && typeof resp.response === 'string') out = resp.response;
+          else if (resp && resp.response) out = JSON.stringify(resp.response);
+          const m = String(out || '').match(/\[[\s\S]*\]/);
+          const arr = m ? JSON.parse(m[0]) : [];
+          const items = (Array.isArray(arr) ? arr : []).map((x: any) => ({
+            word: String(x?.word || '').trim().slice(0, 60),
+            korean: String(x?.korean || '').trim().slice(0, 80),
+          })).filter((x: any) => /[A-Za-z]/.test(x.word) && x.word.length >= 2).slice(0, 200);
+          return json({ ok: true, items });
+        } catch (e: any) {
+          return json({ ok: false, error: 'ai_extract_failed' }, 500);
+        }
+      }
+      // (A) 파일 → 텍스트 변환
+      const form = await request.formData().catch(() => null);
+      const file: any = form && form.get('file');
+      if (!file || typeof file.arrayBuffer !== 'function') return json({ ok: false, error: 'file_required' }, 400);
+      const fname = String(file.name || 'upload').toLowerCase();
+      const ext = (fname.match(/\.([a-z0-9]+)$/) || [])[1] || '';
+      if (ext === 'hwp' || ext === 'hwpx') {
+        return json({ ok: false, error: 'hwp_not_supported', message: '한글(HWP) 파일은 아직 지원되지 않아요. 한글에서 "다른 이름으로 저장 → PDF/워드/엑셀"로 저장한 뒤 다시 올려주세요.' }, 415);
+      }
+      const buf = await file.arrayBuffer();
+      if (buf.byteLength > 10 * 1024 * 1024) return json({ ok: false, error: 'file_too_large', message: '파일이 너무 커요 (최대 10MB).' }, 413);
+      // 텍스트 계열은 그대로 디코딩
+      if (['txt', 'csv', 'tsv', 'md'].includes(ext)) {
+        let text = new TextDecoder('utf-8').decode(buf);
+        // 한글 깨짐(�) 많으면 EUC-KR 재시도
+        if ((text.match(/�/g) || []).length > 3) {
+          try { text = new TextDecoder('euc-kr' as any).decode(buf); } catch {}
+        }
+        return json({ ok: true, text: text.slice(0, 20000), format: ext });
+      }
+      // 그 외(엑셀/워드/PDF 등)는 Workers AI 문서→마크다운 변환
+      if (!(env as any).AI || typeof (env as any).AI.toMarkdown !== 'function') {
+        return json({ ok: false, error: 'convert_unavailable', message: '이 형식은 현재 변환할 수 없어요. CSV/TXT 로 저장해 올려주세요.' }, 503);
+      }
+      try {
+        const results: any = await (env as any).AI.toMarkdown([{ name: fname, blob: new Blob([buf], { type: file.type || 'application/octet-stream' }) }]);
+        const first = Array.isArray(results) ? results[0] : results;
+        const text = String(first?.data || '').trim();
+        if (!text) return json({ ok: false, error: 'empty_result', message: '파일에서 글자를 찾지 못했어요.' }, 422);
+        return json({ ok: true, text: text.slice(0, 20000), format: first?.format || ext });
+      } catch (e: any) {
+        return json({ ok: false, error: 'convert_failed', message: '파일 변환에 실패했어요. 엑셀은 .xlsx, 문서는 PDF 로 저장해 다시 시도해 주세요.' }, 422);
+      }
+    }
+
+    // ── POST /api/vocab/bulk-add — 단어 일괄 추가 (중복 건너뜀 + 빈 뜻은 AI 일괄 생성) ──
+    //   body: { user_id, items:[{word, korean?}] }  (1회 최대 60개, 클라이언트가 청크로 나눠 호출)
+    if (method === 'POST' && path === '/api/vocab/bulk-add') {
+      await ensureVocab();
+      const b: any = await request.json().catch(() => ({}));
+      const userId = String(b.user_id || '').trim();
+      const raw: any[] = Array.isArray(b.items) ? b.items.slice(0, 60) : [];
+      if (!userId || !raw.length) return json({ ok: false, error: 'user_id_and_items_required' }, 400);
+      // 정규화 + 배치 내 중복 제거
+      const seen = new Set<string>();
+      const items: { word: string; korean: string; example: string }[] = [];
+      for (const x of raw) {
+        const word = String(x?.word || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+        if (!/[A-Za-z]/.test(word) || word.length < 2) continue;
+        const key = word.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({ word, korean: String(x?.korean || '').trim().slice(0, 80), example: String(x?.example || '').trim().slice(0, 200) });
+      }
+      if (!items.length) return json({ ok: false, error: 'no_valid_items' }, 400);
+      // 이미 갖고 있는 단어는 건너뜀
+      const existRs = await env.DB.prepare(`SELECT word FROM vocabulary WHERE user_id = ? LIMIT 3000`).bind(userId).all();
+      const existing = new Set((existRs.results || []).map((r: any) => String(r.word || '').trim().toLowerCase()));
+      const skipped: string[] = [];
+      const fresh = items.filter(it => {
+        if (existing.has(it.word.toLowerCase())) { skipped.push(it.word); return false; }
+        return true;
+      });
+      // 빈 뜻/예문은 AI 가 한 번에 생성 (20개씩 묶음, 실패해도 추가는 진행)
+      const needAi = fresh.filter(it => !it.korean || !it.example);
+      if (needAi.length && (env as any).AI) {
+        for (let i = 0; i < needAi.length; i += 20) {
+          const chunk = needAi.slice(i, i + 20);
+          try {
+            const resp: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You output Korean meanings and short English examples for vocabulary words. JSON array only, no prose.' },
+                { role: 'user', content: `For each word, give its Korean meaning (one short line) and one short simple English example sentence.\nWords: ${chunk.map(c => c.word).join(', ')}\nReturn JSON array in the same order: [{"word":"...","korean":"...","example":"..."}]` }
+              ],
+              max_tokens: 2500,
+            });
+            let out = '';
+            if (typeof resp === 'string') out = resp;
+            else if (resp && typeof resp.response === 'string') out = resp.response;
+            else if (resp && resp.response) out = JSON.stringify(resp.response);
+            const m = String(out || '').match(/\[[\s\S]*\]/);
+            const arr: any[] = m ? JSON.parse(m[0]) : [];
+            const byWord = new Map(arr.map((a: any) => [String(a?.word || '').trim().toLowerCase(), a]));
+            for (const c of chunk) {
+              const hit: any = byWord.get(c.word.toLowerCase());
+              if (hit) {
+                if (!c.korean) c.korean = String(hit.korean || '').trim().slice(0, 80);
+                if (!c.example) c.example = String(hit.example || '').trim().slice(0, 200);
+              }
+            }
+          } catch {}
+        }
+      }
+      const now = Date.now();
+      if (fresh.length) {
+        const stmt = env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,?,?,?)`);
+        await env.DB.batch(fresh.map(it => stmt.bind(userId, it.word, it.korean, it.example, 0, now, now)));
+      }
+      return json({ ok: true, added: fresh.length, skipped_dup: skipped.length, skipped, items: fresh });
+    }
+
     // ── GET /api/vocab/list?uid=X — 학생 단어장 목록 ──
     if (method === 'GET' && path === '/api/vocab/list') {
       await ensureVocab();

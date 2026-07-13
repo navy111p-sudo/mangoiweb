@@ -24055,7 +24055,7 @@ window.rebuildGlobalSearchIndex = function() {
         </div>
         ${body}
         <p style="margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center">망고아이 ERP · 생성: ${new Date().toLocaleString('ko-KR')}</p>
-        <!-- BUILD:20260713175143 -->
+        <!-- BUILD:20260713175825 -->
 </body></html>`);
       w.document.close();
     } catch(e) {
@@ -29095,6 +29095,15 @@ button.chip:hover,
     <img src="/img/Mangoi_Character.png" alt="Mangoi / 망고아이" style="width:28px;height:28px;object-fit:contain;flex:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35))">
     <span style="flex:1;font-weight:800;font-size:13px" data-ko="AI 운영비서" data-en="AI Ops Assistant">AI 운영비서</span>
     <span style="font-size:10px;font-weight:900;letter-spacing:.5px;background:rgba(255,255,255,0.25);padding:2px 8px;border-radius:99px">AI</span>
+  </a>
+
+  <!-- 초보자용 사용법 안내 (슬라이드 뷰어) -->
+  <a id="ph85-howto" role="button" tabindex="0"
+     onclick="event.preventDefault();event.stopPropagation();if(window.openAdminGuide){openAdminGuide();}if(window.mgaClose)window.mgaClose();"
+     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();if(window.openAdminGuide)openAdminGuide();}"
+     style="display:flex;align-items:center;gap:10px;padding:12px 13px;margin:2px 0 12px;border-radius:12px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;text-decoration:none;cursor:pointer;box-shadow:0 6px 16px -6px rgba(37,99,235,0.65)">
+    <span style="font-size:22px;flex:none;line-height:1">❓</span>
+    <span style="flex:1;font-weight:800;font-size:12.5px;line-height:1.3" data-ko="관리자 페이지에서 사용 방법이 궁금하신가요?" data-en="New to the admin page? See how it works">관리자 페이지에서 사용 방법이 궁금하신가요?</span>
   </a>
 
   <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report,card-comparison-report">
@@ -43663,5 +43672,147 @@ button.chip:hover,
   #legacy-cards .sub-body{ padding-left: 8px !important; padding-right: 8px !important; }
 }
 </style>
+
+<!-- ===== 초보자용 사용법 슬라이드 뷰어 (모바일 우선·스와이프·원클릭) ===== -->
+<style>
+#ag-overlay{position:fixed;inset:0;z-index:2147483000;display:none;flex-direction:column;
+  background:rgba(10,14,25,0.96);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#fff;touch-action:none}
+#ag-overlay.ag-on{display:flex}
+#ag-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;flex:none}
+#ag-title{font-weight:800;font-size:16px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ag-count{font-weight:800;font-size:14px;background:rgba(255,255,255,0.14);padding:5px 12px;border-radius:99px;flex:none}
+.ag-hbtn{flex:none;border:none;cursor:pointer;color:#fff;background:rgba(255,255,255,0.14);
+  border-radius:10px;font-size:14px;font-weight:800;padding:8px 12px;line-height:1}
+#ag-close{background:rgba(239,68,68,0.9);font-size:18px;padding:8px 13px}
+#ag-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0}
+#ag-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:12px;
+  box-shadow:0 10px 40px rgba(0,0,0,0.5);user-select:none;-webkit-user-drag:none;transition:opacity .12s}
+.ag-nav{position:absolute;top:50%;transform:translateY(-50%);width:56px;height:56px;border-radius:50%;
+  border:none;cursor:pointer;background:rgba(255,255,255,0.9);color:#0f172a;font-size:28px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,0.4);z-index:3;line-height:1}
+.ag-nav:active{transform:translateY(-50%) scale(0.92)}
+.ag-nav[disabled]{opacity:0.28;cursor:default}
+#ag-prev{left:14px} #ag-next{right:14px}
+#ag-caption{flex:none;text-align:center;font-size:15px;font-weight:700;color:#e5edff;padding:8px 14px 4px}
+#ag-hint{flex:none;text-align:center;font-size:12px;color:#8fa3c8;padding:0 14px 6px}
+#ag-thumbs{flex:none;display:flex;gap:8px;overflow-x:auto;padding:10px 14px 14px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.ag-thumb{flex:none;width:74px;height:42px;border-radius:8px;overflow:hidden;cursor:pointer;position:relative;
+  border:2.5px solid transparent;opacity:0.55;transition:opacity .15s,border-color .15s;background:#1e2740}
+.ag-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ag-thumb .ag-tn{position:absolute;left:3px;top:2px;font-size:10px;font-weight:900;color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,0.9)}
+.ag-thumb.ag-cur{opacity:1;border-color:#38bdf8}
+@media(max-width:640px){
+  #ag-bar{padding:10px 12px;gap:8px}
+  #ag-title{font-size:14px}
+  #ag-count{font-size:13px;padding:4px 10px}
+  .ag-hbtn{padding:7px 10px;font-size:13px}
+  .ag-nav{width:46px;height:46px;font-size:24px}
+  #ag-prev{left:8px} #ag-next{right:8px}
+  #ag-caption{font-size:14px}
+  .ag-thumb{width:60px;height:36px}
+}
+</style>
+<div id="ag-overlay" role="dialog" aria-modal="true" aria-label="관리자 페이지 사용법">
+  <div id="ag-bar">
+    <div id="ag-title">📘 관리자 페이지 사용법</div>
+    <div id="ag-count">1 / 10</div>
+    <a class="ag-hbtn" id="ag-pdf" href="/guide/admin-easy/admin-easy.pdf" download="망고아이_관리자페이지_쉬운사용법.pdf" title="전체 저장">📄 저장</a>
+    <button class="ag-hbtn" id="ag-close" onclick="closeAdminGuide()" aria-label="닫기">✕</button>
+  </div>
+  <div id="ag-stage">
+    <button class="ag-nav" id="ag-prev" onclick="agGo(-1)" aria-label="이전">‹</button>
+    <img id="ag-img" src="" alt="사용법 슬라이드" draggable="false">
+    <button class="ag-nav" id="ag-next" onclick="agGo(1)" aria-label="다음">›</button>
+  </div>
+  <div id="ag-caption">시작하기</div>
+  <div id="ag-hint">← → 넘기기 · 손가락으로 밀기 · 아래 그림을 눌러 바로 이동</div>
+  <div id="ag-thumbs"></div>
+</div>
+<script>
+(function(){
+  var N=10, i=0, built=false;
+  var TITLES=['시작하기','관리자 페이지란?','전체 흐름 6단계','① 로그인 (입장)','② 첫 화면 익히기',
+    '③ 메뉴 열기','④ 자주 쓰는 기능','⑤ 공지 보내보기','⑥ 안전하게 나가기','이제 준비 끝!'];
+  var pad=function(n){return (n<10?'0':'')+n;};
+  var src=function(n){return '/guide/admin-easy/'+pad(n+1)+'.jpg';};
+  var ov,img,cap,cnt,prev,next,thumbs;
+  function build(){
+    if(built) return; built=true;
+    ov=document.getElementById('ag-overlay');
+    img=document.getElementById('ag-img');
+    cap=document.getElementById('ag-caption');
+    cnt=document.getElementById('ag-count');
+    prev=document.getElementById('ag-prev');
+    next=document.getElementById('ag-next');
+    thumbs=document.getElementById('ag-thumbs');
+    // 썸네일 생성
+    var h='';
+    for(var k=0;k<N;k++){
+      h+='<div class="ag-thumb" data-i="'+k+'"><span class="ag-tn">'+(k+1)+'</span><img loading="lazy" src="'+src(k)+'" alt=""></div>';
+    }
+    thumbs.innerHTML=h;
+    thumbs.querySelectorAll('.ag-thumb').forEach(function(t){
+      t.addEventListener('click',function(){ agSet(parseInt(t.getAttribute('data-i'),10)); });
+    });
+    // 이미지 좌우 절반 탭으로 넘기기
+    var stage=document.getElementById('ag-stage');
+    stage.addEventListener('click',function(e){
+      if(e.target.closest('.ag-nav')) return;
+      var r=stage.getBoundingClientRect();
+      if(e.clientX < r.left + r.width/2) agGo(-1); else agGo(1);
+    });
+    // 스와이프
+    var sx=0, sy=0, mv=false;
+    stage.addEventListener('touchstart',function(e){var t=e.touches[0];sx=t.clientX;sy=t.clientY;mv=false;},{passive:true});
+    stage.addEventListener('touchmove',function(e){var t=e.touches[0];if(Math.abs(t.clientX-sx)>10||Math.abs(t.clientY-sy)>10)mv=true;},{passive:true});
+    stage.addEventListener('touchend',function(e){
+      var t=e.changedTouches[0], dx=t.clientX-sx, dy=t.clientY-sy;
+      if(mv && Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)){ agGo(dx<0?1:-1); }
+    },{passive:true});
+    // 배경(빈 곳) 탭으로 닫힘 방지 — stage만 넘김. 바 바깥 클릭 무시.
+    // 미리 로딩 (넘김 즉각)
+    for(var p=0;p<N;p++){ var im=new Image(); im.src=src(p); }
+    // 키보드
+    document.addEventListener('keydown',function(e){
+      if(!ov.classList.contains('ag-on')) return;
+      if(e.key==='ArrowRight'||e.key==='PageDown'){ e.preventDefault(); agGo(1); }
+      else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); agGo(-1); }
+      else if(e.key==='Escape'){ e.preventDefault(); closeAdminGuide(); }
+    });
+  }
+  window.agSet=function(n){
+    if(n<0)n=0; if(n>N-1)n=N-1; i=n;
+    img.style.opacity='0';
+    var tmp=new Image();
+    tmp.onload=function(){ img.src=tmp.src; img.style.opacity='1'; };
+    tmp.src=src(i);
+    if(tmp.complete){ img.src=tmp.src; img.style.opacity='1'; }
+    cap.textContent=TITLES[i]||'';
+    cnt.textContent=(i+1)+' / '+N;
+    prev.disabled=(i===0); next.disabled=(i===N-1);
+    thumbs.querySelectorAll('.ag-thumb').forEach(function(t){
+      var on=parseInt(t.getAttribute('data-i'),10)===i;
+      t.classList.toggle('ag-cur',on);
+      if(on) t.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+    });
+  };
+  window.agGo=function(d){ agSet(i+d); };
+  window.openAdminGuide=function(){
+    build();
+    ov.classList.add('ag-on');
+    document.documentElement.style.overflow='hidden';
+    document.body.style.overflow='hidden';
+    agSet(0);
+  };
+  window.closeAdminGuide=function(){
+    if(!ov) return;
+    ov.classList.remove('ag-on');
+    document.documentElement.style.overflow='';
+    document.body.style.overflow='';
+  };
+})();
+</script>
 </body>
 </html>

@@ -93,6 +93,39 @@
   .recent-chip b{color:#34d399}
   .recent-chip span{color:#a3b3d1;font-size:12.5px}
 
+  /* ── 파일 일괄 추가 (드래그앤드롭/업로드) ── */
+  .bulk-sec{margin-top:20px;padding-top:18px;border-top:1px dashed rgba(255,255,255,0.14)}
+  .bulk-head{display:flex;align-items:center;gap:8px;font-weight:900;font-size:16px;margin-bottom:4px;flex-wrap:wrap}
+  .bulk-desc{font-size:13px;color:#8b9bbd;margin-bottom:12px;line-height:1.5}
+  .tmpl-btn{margin-left:auto;padding:7px 13px;background:rgba(79,124,255,0.15);border:1px solid rgba(79,124,255,0.4);color:#9db9ff;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;transition:background .2s}
+  .tmpl-btn:hover{background:rgba(79,124,255,0.28)}
+  .drop-zone{border:2px dashed rgba(79,124,255,0.45);border-radius:16px;padding:28px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s,transform .15s;background:rgba(79,124,255,0.06)}
+  .drop-zone:hover{background:rgba(79,124,255,0.12)}
+  .drop-zone:active{transform:scale(0.99)}
+  .drop-zone.over{border-color:#34d399;background:rgba(52,211,153,0.14);border-style:solid}
+  .drop-zone .dz-ic{font-size:34px;margin-bottom:8px;line-height:1}
+  .drop-zone .dz-t{font-weight:800;font-size:15px;color:#fff}
+  .drop-zone .dz-d{font-size:12.5px;color:#8b9bbd;margin-top:6px;line-height:1.55}
+  .drop-zone .dz-fmt{display:inline-flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-top:9px}
+  .drop-zone .dz-fmt span{font-size:11px;font-weight:800;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#a3b3d1;border-radius:99px;padding:2px 9px}
+  #bulk-status{font-size:14.5px;color:#a3b3d1;margin-top:10px;line-height:1.5}
+  .bp-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 8px;font-weight:800;font-size:15px}
+  .bp-head b{color:#34d399}
+  .bp-list{max-height:300px;overflow-y:auto;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:#0c1a3a;padding:6px}
+  .bp-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;font-size:14.5px;cursor:pointer}
+  .bp-row:nth-child(odd){background:rgba(255,255,255,0.03)}
+  .bp-row input[type=checkbox]{width:18px;height:18px;accent-color:#4f7cff;flex-shrink:0;cursor:pointer}
+  .bp-row b{color:#fff;min-width:0;word-break:break-word}
+  .bp-row .bk{color:#fbbf24;font-size:13px;margin-left:auto;text-align:right;flex-shrink:0;max-width:45%}
+  .bp-row .bk.ai{color:#8b9bbd;font-style:italic}
+  .bp-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .bp-actions button{padding:13px 18px;border:0;border-radius:11px;font-weight:900;font-size:15px;cursor:pointer;font-family:inherit;transition:transform .12s}
+  .bp-actions button:active{transform:scale(0.96)}
+  .bp-add{background:linear-gradient(135deg,#10b981,#059669);color:#fff;flex:1;box-shadow:0 8px 20px -8px rgba(16,185,129,0.7)}
+  .bp-sub{background:rgba(255,255,255,0.08);color:#a3b3d1}
+  .bp-bar{height:10px;background:rgba(255,255,255,0.1);border-radius:99px;overflow:hidden;margin-top:10px;display:none}
+  .bp-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#34d399,#fbbf24);transition:width .3s}
+
   /* ── 게임 화면 ── */
   .play-hero{text-align:center;padding:26px 10px}
   .play-hero h2{font-size:26px;margin-bottom:8px}
@@ -309,6 +342,23 @@
     <div id="add-feedback" style="font-size:15px;color:#a3b3d1;margin-top:4px"></div>
     <div id="recent-added" class="recent-wrap" style="display:none"></div>
     <div style="font-size:13.5px;color:#8b9bbd;margin-top:14px">💡 <span data-ko="빈 뜻으로 추가하면 AI 가 자동으로 한국어 + 예문을 생성합니다 (3~5초). Enter 로도 추가돼요!" data-en="Leave the meaning blank and AI auto-generates Korean + an example (3–5s). Press Enter to add too!">빈 뜻으로 추가하면 AI 가 자동으로 한국어 + 예문을 생성합니다 (3~5초). Enter 로도 추가돼요!</span></div>
+
+    <!-- 파일로 한꺼번에 추가 (드래그앤드롭/업로드) -->
+    <div class="bulk-sec">
+      <div class="bulk-head">📂 <span data-ko="파일로 한꺼번에 추가" data-en="Bulk Add from File">파일로 한꺼번에 추가</span>
+        <button class="tmpl-btn" onclick="downloadVocabTemplate()">📥 <span data-ko="엑셀 양식 내려받기" data-en="Download Template">엑셀 양식 내려받기</span></button>
+      </div>
+      <div class="bulk-desc" data-ko="단어 목록이 든 파일을 올리면 한 번에 다 추가해 드려요. 한 줄에 “영어단어, 뜻” — 뜻이 없어도 AI 가 채워줘요." data-en="Upload a word-list file and we add them all at once. One “word, meaning” per line — AI fills blank meanings.">단어 목록이 든 파일을 올리면 한 번에 다 추가해 드려요. 한 줄에 “영어단어, 뜻” — 뜻이 없어도 AI 가 채워줘요.</div>
+      <div id="drop-zone" class="drop-zone" onclick="document.getElementById('bulk-file').click()">
+        <div class="dz-ic">📄</div>
+        <div class="dz-t" data-ko="파일을 여기로 끌어다 놓으세요" data-en="Drag & drop a file here">파일을 여기로 끌어다 놓으세요</div>
+        <div class="dz-d" data-ko="또는 눌러서 파일 선택" data-en="or tap to choose a file">또는 눌러서 파일 선택</div>
+        <div class="dz-fmt"><span>엑셀 .xlsx</span><span>CSV</span><span>워드 .docx</span><span>PDF</span><span>TXT</span></div>
+      </div>
+      <input type="file" id="bulk-file" accept=".xlsx,.xls,.csv,.tsv,.txt,.md,.docx,.doc,.pdf,.hwp,.hwpx,.numbers,.ods,.html" style="display:none" onchange="handleBulkFile(this.files[0]); this.value=''"/>
+      <div id="bulk-status"></div>
+      <div id="bulk-preview" style="display:none"></div>
+    </div>
   </div>
 
   <!-- Play Tab -->
@@ -590,6 +640,171 @@ document.addEventListener('DOMContentLoaded', () => {
   const kEl = document.getElementById('ko-input');
   if (wEl) wEl.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); if (kEl.value.trim()) addWord(); else kEl.focus(); } });
   if (kEl) kEl.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); addWord(); } });
+});
+
+/* ═══════════ 파일 일괄 추가 (드래그앤드롭/업로드) ═══════════ */
+let _bulkItems = [];
+
+/* 엑셀에서 바로 열리는 CSV 양식 (BOM 포함 → 한글 안 깨짐) */
+function downloadVocabTemplate(){
+  const csv = '﻿' + '영어단어,한국어 뜻\ngorgeous,아주 멋진\nbrave,용감한\ncurious,\nadventure,\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = '단어장_양식.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* 텍스트 → [{word, korean}] 규칙 파싱 (CSV/TSV/마크다운 표/“word 뜻”/“word(뜻)”/번호 목록) */
+function vocabParsePairs(text){
+  const items = []; const seen = new Set();
+  const push = (w, k) => {
+    w = String(w||'').replace(/[*_`"']+/g,'').replace(/\s+/g,' ').trim();
+    k = String(k||'').replace(/[*_`|]+/g,'').trim();
+    if (!/^[A-Za-z][A-Za-z'’.\- ]{0,49}$/.test(w)) return;
+    if (w.split(' ').length > 4) return;
+    if (/^(word|words|english|vocabulary|example|sentence|no|meaning|korean|page|unit|lesson|chapter|date|name)$/i.test(w)) return;
+    const key = w.toLowerCase();
+    if (seen.has(key)) return;
+    if (k && !/[가-힣]/.test(k)) k = '';
+    seen.add(key); items.push({ word: w, korean: k.slice(0,80) });
+  };
+  for (let line of String(text||'').split(/\r?\n/)){
+    line = line.trim();
+    if (!line || line.length > 200) continue;
+    line = line.replace(/^[-•▪·※]?\s*\d*[.)]?\s*/,'').trim();   // 불릿/번호 제거
+    if (!line) continue;
+    if (line.startsWith('|')) line = line.replace(/^\|/,'').replace(/\|$/,'');  // 마크다운 표 행
+    if (/^[-| :=]+$/.test(line)) continue;                       // 표 구분선
+    let cols = null;
+    for (const sep of ['\t','|',',',' — ',' – ',' - ','：',';']){
+      if (line.includes(sep)){
+        const c = line.split(sep).map(s=>s.trim()).filter(Boolean);
+        if (c.length >= 2){ cols = c; break; }
+      }
+    }
+    if (!cols){
+      let m = line.match(/^([A-Za-z][A-Za-z'’.\- ]{0,49}?)\s*[\(\[]([가-힣][^\)\]]*)[\)\]]/);   // word(뜻)
+      if (!m) m = line.match(/^([A-Za-z][A-Za-z'’.\- ]{0,49}?)\s*[:]?\s+([가-힣].*)$/);          // word 뜻
+      if (m){ push(m[1], m[2]); continue; }
+      push(line, '');                                             // 영어 단어만 있는 줄
+      continue;
+    }
+    const wCol = cols.find(c => /^[A-Za-z][A-Za-z'’.\- ]*$/.test(c) && c.length >= 2);
+    const kCol = cols.find(c => /[가-힣]/.test(c));
+    if (wCol) push(wCol, kCol || '');
+  }
+  return items.slice(0, 200);
+}
+
+async function handleBulkFile(file){
+  if (!file) return;
+  const st = document.getElementById('bulk-status');
+  const pv = document.getElementById('bulk-preview');
+  pv.style.display='none'; pv.innerHTML='';
+  const ext = (file.name.toLowerCase().match(/\.([a-z0-9]+)$/)||[])[1]||'';
+  if (ext === 'hwp' || ext === 'hwpx'){
+    st.innerHTML = '<span style="color:#fbbf24">📎 한글(HWP) 파일은 아직 지원되지 않아요. 한글에서 "다른 이름으로 저장 → PDF/엑셀/워드"로 저장한 뒤 다시 올려주세요.</span>';
+    return;
+  }
+  if (file.size > 10*1024*1024){ st.innerHTML = '<span style="color:#f87171">❌ 파일이 너무 커요 (최대 10MB)</span>'; return; }
+  st.innerHTML = '<span style="color:#8b9bbd">⏳ 파일 읽는 중…</span>';
+  try {
+    let text = '';
+    if (['txt','csv','tsv','md'].includes(ext)){
+      const buf = await file.arrayBuffer();
+      text = new TextDecoder('utf-8').decode(buf);
+      if ((text.match(/�/g)||[]).length > 3){ try { text = new TextDecoder('euc-kr').decode(buf); } catch(e){} }
+    } else {
+      st.innerHTML = '<span style="color:#8b9bbd">⏳ 문서 변환 중… (엑셀/워드/PDF 는 몇 초 걸려요)</span>';
+      const fd = new FormData(); fd.append('file', file, file.name);
+      const r = await fetch('/api/vocab/extract', { method:'POST', body: fd });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || d.error || '변환 실패');
+      text = d.text || '';
+    }
+    let items = vocabParsePairs(text);
+    // 규칙 파싱이 못 건진 지저분한 문서는 AI 가 골라냄
+    if (items.length < 3 && text.trim()){
+      st.innerHTML = '<span style="color:#8b9bbd">🤖 AI 가 단어를 골라내는 중… (3~8초)</span>';
+      try {
+        const r2 = await fetch('/api/vocab/extract', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: text.slice(0,8000) }) });
+        const d2 = await r2.json();
+        if (d2.ok && Array.isArray(d2.items) && d2.items.length > items.length) items = d2.items;
+      } catch(e){}
+    }
+    if (!items.length){
+      st.innerHTML = '<span style="color:#f87171">❌ 파일에서 영어 단어를 찾지 못했어요. 한 줄에 "영어단어, 뜻" 형태인지 확인해 주세요.</span>';
+      return;
+    }
+    _bulkItems = items;
+    st.innerHTML = '';
+    renderBulkPreview();
+  } catch(e){ st.innerHTML = '<span style="color:#f87171">❌ '+esc(e.message)+'</span>'; }
+}
+
+function renderBulkPreview(){
+  const pv = document.getElementById('bulk-preview');
+  pv.style.display = 'block';
+  pv.innerHTML =
+    '<div class="bp-head">🔍 <b>'+_bulkItems.length+'개</b> 단어를 찾았어요 <span style="font-size:12.5px;color:#8b9bbd;font-weight:400">— 뜻이 빈 단어는 추가할 때 AI 가 자동으로 채워요</span></div>'+
+    '<div class="bp-list">'+_bulkItems.map((it,i)=>
+      '<label class="bp-row"><input type="checkbox" checked data-bi="'+i+'" onchange="bulkCount()"><b>'+esc(it.word)+'</b><span class="bk'+(it.korean?'':' ai')+'">'+(it.korean?esc(it.korean):'AI 자동')+'</span></label>').join('')+
+    '</div>'+
+    '<div class="bp-actions">'+
+      '<button class="bp-sub" onclick="bulkToggleAll()">전체 선택/해제</button>'+
+      '<button class="bp-sub" onclick="bulkCancel()">취소</button>'+
+      '<button class="bp-add" id="bp-add-btn" onclick="doBulkAdd()">＋ 선택한 '+_bulkItems.length+'개 추가하기</button>'+
+    '</div>'+
+    '<div class="bp-bar" id="bp-bar"><i></i></div>';
+  pv.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function bulkChecked(){ return Array.from(document.querySelectorAll('#bulk-preview input[type=checkbox]:checked')).map(c=>_bulkItems[+c.dataset.bi]).filter(Boolean); }
+function bulkCount(){ const b = document.getElementById('bp-add-btn'); if (b) b.textContent = '＋ 선택한 '+bulkChecked().length+'개 추가하기'; }
+function bulkToggleAll(){ const cbs = document.querySelectorAll('#bulk-preview input[type=checkbox]'); const anyOff = Array.from(cbs).some(c=>!c.checked); cbs.forEach(c=>{ c.checked = anyOff; }); bulkCount(); }
+function bulkCancel(){ _bulkItems = []; const pv = document.getElementById('bulk-preview'); pv.style.display='none'; pv.innerHTML=''; }
+
+async function doBulkAdd(){
+  const sel = bulkChecked();
+  const st = document.getElementById('bulk-status');
+  if (!sel.length){ st.innerHTML = '<span style="color:#fbbf24">선택된 단어가 없어요.</span>'; return; }
+  const btn = document.getElementById('bp-add-btn'); btn.disabled = true; btn.style.opacity = 0.6;
+  const bar = document.getElementById('bp-bar'); bar.style.display = 'block';
+  let added = 0, dup = 0;
+  try {
+    for (let i = 0; i < sel.length; i += 20){
+      const chunk = sel.slice(i, i+20);
+      st.innerHTML = '<span style="color:#8b9bbd">⏳ 추가 중… '+Math.min(i+chunk.length, sel.length)+'/'+sel.length+' <span style="font-size:12.5px">(빈 뜻은 AI 가 생성해서 조금 걸려요)</span></span>';
+      const r = await fetch('/api/vocab/bulk-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, items: chunk }) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '추가 실패');
+      added += d.added || 0; dup += d.skipped_dup || 0;
+      (d.items||[]).slice(0,6).forEach(w => _recentAdded.unshift({ word: w.word, korean: w.korean }));
+      bar.querySelector('i').style.width = Math.round((i+chunk.length)/sel.length*100)+'%';
+    }
+    st.innerHTML = '✅ <b style="color:#34d399">'+added+'개</b> 추가 완료!'+(dup ? ' <span style="color:#8b9bbd">(이미 있던 '+dup+'개는 건너뜀)</span>' : '')+' 🎮 복습 게임에서 바로 외워보세요!';
+    renderRecentAdded(); sndCorrect();
+    bulkCancel();
+    loadDueCount(); loadStats(); checkBadges();
+  } catch(e){
+    st.innerHTML = '<span style="color:#f87171">❌ '+esc(e.message)+' — 잠시 후 다시 시도해 주세요.</span>';
+    btn.disabled = false; btn.style.opacity = 1;
+  }
+}
+
+/* 드래그앤드롭 연결 (바탕화면 등에서 파일을 끌어다 놓기) */
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('drop-zone');
+  if (!dz) return;
+  ['dragover','dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+  ['dragleave','dragend'].forEach(ev => dz.addEventListener(ev, () => dz.classList.remove('over')));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('over');
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleBulkFile(f);
+  });
+  // 존 바깥에 떨어뜨려도 브라우저가 파일을 통째로 열어버리지 않게
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => e.preventDefault());
 });
 
 /* ═══════════ 복습 게임 세션 ═══════════ */
@@ -992,7 +1207,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260713175143 -->
+<!-- BUILD:20260713175825 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

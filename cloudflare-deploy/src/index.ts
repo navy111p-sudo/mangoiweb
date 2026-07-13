@@ -869,6 +869,8 @@ const worker = {
         path === '/api/admin/forecast/churn' ||
         // 📚 Phase VOC 단어장
         path === '/api/vocab/add' ||
+        path === '/api/vocab/extract' ||
+        path === '/api/vocab/bulk-add' ||
         path === '/api/vocab/list' ||
         path === '/api/vocab/due' ||
         path === '/api/vocab/review' ||
