@@ -358,6 +358,15 @@ const worker = {
       return await handlePdfDownload(path, env, request);
     }
 
+    // 📎 모든 파일 공유 업로드 (Word/Excel/PPT/ZIP 등) — 수업 중 파일 첨부. R2 files/ 에 저장.
+    if (path === '/api/video-call/upload-file' && request.method === 'POST') {
+      return await handleFileShareUpload(request, env);
+    }
+    // 📎 공유 파일 다운로드 (첨부 형태로 내려줌)
+    if (path.startsWith('/api/video-call/file/') && request.method === 'GET') {
+      return await handleFileShareDownload(path, env);
+    }
+
     // 보관기간 자동 파기: 수동 실행/상태 조회
     if (path === '/api/retention/run' && request.method === 'POST') {
       const result = await purgeExpired(env);
@@ -2812,6 +2821,53 @@ async function handlePdfUpload(request: Request, env: Env): Promise<Response> {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
+  }
+}
+
+// 📎 모든 파일 공유 — 업로드(R2 files/). 형식 제한 없음(문서/압축 등), 50MB 상한.
+async function handleFileShareUpload(request: Request, env: Env): Promise<Response> {
+  const J = (o: any, st = 200) => new Response(JSON.stringify(o), { status: st, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  try {
+    const url = new URL(request.url);
+    const originalName = (url.searchParams.get('filename') || 'file').slice(0, 200);
+    const contentType = request.headers.get('content-type') || 'application/octet-stream';
+    const buffer = await request.arrayBuffer();
+    const size = buffer.byteLength;
+    if (size === 0) return J({ error: 'empty_file' }, 400);
+    if (size > 50 * 1024 * 1024) return J({ error: 'File too large (max 50MB)' }, 400);
+    const safeName = (originalName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120)) || 'file';
+    const fileKey = `file-${Date.now()}-${safeName}`;
+    const r2 = (env as any).RECORDINGS as R2Bucket | undefined;
+    if (!r2) return J({ error: 'storage_unavailable' }, 500);
+    await r2.put(`files/${fileKey}`, buffer, {
+      httpMetadata: { contentType },
+      customMetadata: { originalName, uploadedAt: new Date().toISOString(), size: String(size) },
+    });
+    return J({ success: true, filename: originalName, url: `/api/video-call/file/${fileKey}`, size });
+  } catch (e: any) {
+    return J({ error: 'upload_failed', detail: String(e?.message || e) }, 500);
+  }
+}
+
+// 📎 모든 파일 공유 — 다운로드(첨부 형태, 원본 파일명 유지). 학생·강사 양쪽이 받아 각자 앱으로 연다.
+async function handleFileShareDownload(path: string, env: Env): Promise<Response> {
+  try {
+    const fileKey = decodeURIComponent(path.replace('/api/video-call/file/', ''));
+    if (!fileKey || fileKey.indexOf('/') >= 0) return new Response('Not found', { status: 404 });
+    const r2 = (env as any).RECORDINGS as R2Bucket | undefined;
+    if (!r2) return new Response('storage unavailable', { status: 500 });
+    const obj = await r2.get(`files/${fileKey}`);
+    if (!obj) return new Response('Not found', { status: 404 });
+    const originalName = (obj.customMetadata && obj.customMetadata.originalName) || fileKey.replace(/^file-\d+-/, '');
+    const ct = (obj.httpMetadata && obj.httpMetadata.contentType) || 'application/octet-stream';
+    const asciiName = originalName.replace(/[^\x20-\x7E]/g, '_');
+    const headers = new Headers();
+    headers.set('Content-Type', ct);
+    headers.set('Content-Disposition', `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(originalName)}`);
+    headers.set('Cache-Control', 'private, max-age=3600');
+    return new Response(obj.body, { headers });
+  } catch (e) {
+    return new Response('error', { status: 500 });
   }
 }
 

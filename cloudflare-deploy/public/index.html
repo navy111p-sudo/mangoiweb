@@ -8009,6 +8009,10 @@
                         📁 교재 업로드 (PDF/JPG/PNG)
                         <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" id="pdf-upload" style="display:none;" onchange="pdfUpload(this)" />
                     </label>
+                    <label style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:0.85rem; cursor:pointer; font-weight:700;" data-ko="📎 파일 업로드 (모든 파일)" data-en="📎 Attach file (any type)" title="워드·엑셀·PPT·한글·ZIP 등 모든 파일을 학생에게 공유(다운로드)">
+                        📎 <span data-ko="파일 업로드" data-en="Attach file">파일 업로드</span>
+                        <input type="file" id="file-share-upload" style="display:none;" onchange="fileShareUpload(this)" />
+                    </label>
                     <button onclick="openTextbookLibrary()" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📚 라이브러리" data-en="📚 Library" title="관리자가 업로드한 교재 라이브러리에서 선택">
                         📚 <span data-ko="라이브러리" data-en="Library">라이브러리</span>
                     </button>
@@ -8582,7 +8586,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
     //   예전엔 연결 끊김 상태에서 send() 하면 그냥 버림 → 교사가 튼 동영상/교재 신호가
     //   사라져 학생이 폴링/재입장 때까지 못 봤음. 시그널링(offer/ice 등)은 재연결 시
     //   어차피 새로 시작하므로 큐잉하지 않고, '내용 공유' 타입만 큐에 담아 재연결 즉시 재전송.
-    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1 };
+    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1 };
     let sendQueue = [];   // [{type,...}] 최대 20개 — 같은 type 은 마지막 것만 유지
     function flushQueue() {
         if (!ws || ws.readyState !== WebSocket.OPEN || !sendQueue.length) return;
@@ -11132,6 +11136,15 @@ function vcHandleMessage(msg) {
         case 'pdf-stop-share':
             pdfClearRemote();
             break;
+
+        // 📎 상대가 공유한 파일(워드/엑셀/PPT 등) — 다운로드 카드로 표시
+        case 'file-share': {
+            try {
+                if (msg.data && msg.data.url && typeof fileShareNotice === 'function') fileShareNotice(msg.data, false);
+                if (typeof showToast === 'function') showToast('📎 파일을 받았어요: ' + ((msg.data && msg.data.name) || ''));
+            } catch(_){}
+            break;
+        }
 
         // 동영상 공유 — 양쪽 타입 모두 수신 (sender='video-share' 였음)
         // ⚠ 옛 코드는 sender 가 'video-share' 인데 receiver 는 'video-sync' 만 처리해서
@@ -15700,6 +15713,86 @@ async function pdfBuildImageDoc(url) {
         img.src = url;
     });
 }
+
+// 📎 모든 파일 공유 업로드 (워드·엑셀·PPT·한글·ZIP 등) — 렌더링 대신 다운로드 링크로 학생에게 공유
+async function fileShareUpload(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (location.protocol === 'file:') {
+        alert('파일 공유는 서버가 필요합니다. https://webrtc-unified-platform.navy111p.workers.dev/ 로 접속해 주세요.');
+        input.value = ''; return;
+    }
+    if (file.size > 50 * 1024 * 1024) { alert('파일이 너무 큽니다 (최대 50MB).'); input.value=''; return; }
+    let hideToast = null;
+    try { if (typeof showToast === 'function') { showToast('📎 파일 업로드 중… (' + file.name + ')'); } } catch(_){}
+    try {
+        const qs = new URLSearchParams({ roomId: (typeof vcRoomId!=='undefined'?vcRoomId:'') || '', filename: file.name || 'file' }).toString();
+        const res = await fetch('/api/video-call/upload-file?' + qs, {
+            method: 'POST',
+            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+            body: file
+        });
+        const result = await res.json();
+        if (result && result.success && result.url) {
+            const info = { name: file.name || 'file', url: result.url, size: result.size || file.size };
+            fileShareNotice(info, true);   // 내 화면에도 표시
+            try { if (vcConn) vcConn.send({ type: 'file-share', data: info }); } catch(_){}
+        } else {
+            alert('파일 공유 실패: ' + ((result && result.error) || '알 수 없는 오류'));
+        }
+    } catch(e) { console.error('파일 공유 실패:', e); alert('파일 공유 실패: ' + e.message); }
+    input.value = '';
+}
+
+// 공유 파일 알림 카드 (보낸 쪽·받은 쪽 공통). mine=true 면 "보냄", false 면 "받음".
+function fileShareNotice(info, mine) {
+    try {
+        var host = document.getElementById('file-share-notices');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'file-share-notices';
+            host.style.cssText = 'position:fixed;right:14px;bottom:88px;z-index:2147483000;display:flex;flex-direction:column;gap:8px;max-width:min(320px,86vw)';
+            document.body.appendChild(host);
+        }
+        var kb = info.size ? (info.size >= 1048576 ? (info.size/1048576).toFixed(1)+'MB' : Math.max(1,Math.round(info.size/1024))+'KB') : '';
+        var el = document.createElement('div');
+        el.style.cssText = 'background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(245,158,11,0.5);border-radius:14px;padding:12px 14px;color:#e6edf6;box-shadow:0 12px 30px rgba(0,0,0,0.45);font-size:13.5px;line-height:1.5';
+        var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+        el.innerHTML = '<div style="font-weight:800;color:#fbbf24;margin-bottom:4px">'+(mine?'📤 파일 공유됨':'📎 받은 파일')+'</div>'
+            + '<div style="word-break:break-all;margin-bottom:8px">'+esc(info.name)+(kb?' <span style="color:#94a3b8">('+kb+')</span>':'')+'</div>'
+            + '<div style="display:flex;gap:8px">'
+            + '<a href="'+esc(info.url)+'" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:8px 10px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border-radius:10px;text-decoration:none;font-weight:800;font-size:13px">⬇ 다운로드</a>'
+            + '<button style="padding:8px 12px;background:transparent;border:1px solid rgba(148,163,184,0.4);color:#cbd5e1;border-radius:10px;font-size:13px;cursor:pointer">✕</button>'
+            + '</div>';
+        el.querySelector('button').addEventListener('click', function(){ el.remove(); });
+        host.appendChild(el);
+        // 30초 뒤 자동 숨김
+        setTimeout(function(){ try{ el.remove(); }catch(_){}} , 45000);
+    } catch(_){}
+}
+window.fileShareUpload = fileShareUpload;
+window.fileShareNotice = fileShareNotice;
+
+// 📥 드래그앤드롭 — 교재 도구 영역에 파일을 끌어다 놓으면 자동 업로드/공유
+//    PDF·JPG·PNG → 교재 뷰어로 로드, 그 외(워드·엑셀·PPT·한글·ZIP 등) → 파일 공유(다운로드)
+(function initPdfDropzone(){
+  function setup(){
+    var zone = document.querySelector('#tab-pdf .pdf-container') || document.getElementById('tab-pdf');
+    if (!zone || zone._dropReady) return;
+    zone._dropReady = true;
+    ['dragenter','dragover'].forEach(function(ev){ zone.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); zone.style.outline='3px dashed #f59e0b'; zone.style.outlineOffset='-6px'; }); });
+    ['dragleave','drop'].forEach(function(ev){ zone.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); zone.style.outline=''; }); });
+    zone.addEventListener('drop', function(e){
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      var ln = (f.name||'').toLowerCase();
+      if (/\.(pdf|jpe?g|png)$/.test(ln)) { try { pdfUpload({ files:[f], value:'' }); } catch(_){} }
+      else { try { fileShareUpload({ files:[f], value:'' }); } catch(_){} }
+    });
+  }
+  try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setup(); } catch(_){}
+  setTimeout(setup, 1500); setTimeout(setup, 4000);
+})();
 
 async function pdfUpload(input) {
     const file = input.files[0];
@@ -26480,7 +26573,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260713215805 -->
+<!-- BUILD:20260713220937 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -28820,14 +28913,35 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   // 세로 진입 시 이상적 기본(pip=교재 크게) 자동 적용.
   // 사용자가 학생 크게(facepip)·솔로·전체를 이미 골랐으면 존중하고 건드리지 않음.
   var _applied = false;
+  var _userChose = false;     // 🔧 (2026-07-14) 사용자가 화면분할 시트에서 직접 모드를 고르면 true.
+  var _selfApplying = false;  //     maybeDefault 가 스스로 pip 를 넣는 내부 호출을 사용자 선택으로 오인하지 않도록 구분.
+
+  // window.vcScreenSet 은 vcJoinRoom 내부에서 늦게 정의됨 → 존재하면 한 번만 래핑해서
+  // '사용자가 직접 고른 화면분할 모드'를 감지한다. (자동 기본 적용은 _selfApplying 가드로 제외)
+  function hookScreenSet(){
+    var orig = window.vcScreenSet;
+    if(typeof orig === 'function' && !orig.__pheroChoiceTracked){
+      window.vcScreenSet = function(){
+        if(!_selfApplying && isPortrait() && inCall()) _userChose = true;
+        return orig.apply(this, arguments);
+      };
+      window.vcScreenSet.__pheroChoiceTracked = true;
+    }
+  }
+
   function maybeDefault(force){
+    hookScreenSet();
     if(!inCall() || !isPortrait() || typeof window.vcScreenSet !== 'function') return;
     var r = row(); if(!r) return;
-    if(r.classList.contains('video-facepip') || r.classList.contains('video-solo') || r.classList.contains('video-full')){
+    // 🔑 (2026-07-14) 사용자가 1/4·1/2·3/4·전체·PIP·솔로·칠판만·교재만 중 하나를 직접 고르면
+    //    (또는 이미 학생 크게/솔로/전체 상태면) 그 선택을 절대 자동으로 되돌리지 않는다.
+    //    — "휴대폰에서 화면분할(1/4·1/2·3/4)을 눌러도 계속 작은 PIP 로 되돌아가던" 버그 수정.
+    if(_userChose || r.classList.contains('video-facepip') || r.classList.contains('video-solo') || r.classList.contains('video-full')){
       window.vcUpdatePheroLabels(); return;
     }
     if(!force && _applied && r.classList.contains('video-pip')) return;
-    window.vcScreenSet('pip');
+    _selfApplying = true;
+    try { window.vcScreenSet('pip'); } finally { _selfApplying = false; }
     _applied = true;
     window.vcUpdatePheroLabels();
   }
@@ -28919,16 +29033,19 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     injectCtrl();
     wrapContentTab();
     wrapToolDock();
+    hookScreenSet();
     // mango-tools-dock.js / 탭바 가 늦게 로드될 수 있어 재시도
     setTimeout(wrapToolDock, 800);
     setTimeout(wrapToolDock, 2000);
     setTimeout(ensurePheroMenuItems, 800);
     setTimeout(ensurePheroMenuItems, 2000);
+    setTimeout(hookScreenSet, 800);   // vcScreenSet 은 입장(vcJoinRoom) 후 정의되므로 재시도 훅
+    setTimeout(hookScreenSet, 2000);
     // 통화 시작(vc-in-call) 감지 → 세로면 기본 적용, 통화 종료 시 리셋
     try {
       new MutationObserver(function(){
         if(inCall()) maybeDefault(false);
-        else _applied = false;
+        else { _applied = false; _userChose = false; }  // 통화 종료 → 다음 수업은 다시 기본(pip)부터
       }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     } catch(e){}
     // 방향 전환 → 세로면 기본 재적용
