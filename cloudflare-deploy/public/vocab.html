@@ -672,6 +672,7 @@ function vocabParsePairs(text){
     line = line.trim();
     if (!line || line.length > 200) continue;
     line = line.replace(/^[-•▪·※]?\s*\d*[.)]?\s*/,'').trim();   // 불릿/번호 제거
+    line = line.replace(/[,;|\t：:]+\s*$/,'').trim();            // 뜻이 빈 행의 꼬리 구분자 제거 ("curious,")
     if (!line) continue;
     if (line.startsWith('|')) line = line.replace(/^\|/,'').replace(/\|$/,'');  // 마크다운 표 행
     if (/^[-| :=]+$/.test(line)) continue;                       // 표 구분선
@@ -1207,7 +1208,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260713175825 -->
+<!-- BUILD:20260713180109 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

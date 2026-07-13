@@ -53,7 +53,8 @@ check('잡음: hello 만 추출', r.length >= 1 && r.some(x => x.word === 'hello
 check('잡음: 긴 문장 제외', !r.some(x => x.word.split(' ').length > 4), r);
 
 // 8) 상한 200
-r = vocabParsePairs(Array.from({length: 300}, (_, i) => 'word' + i + ',뜻' + i).join('\n'));
+const alpha = i => { let s=''; i+=1; while(i>0){ s=String.fromCharCode(97+(i-1)%26)+s; i=Math.floor((i-1)/26); } return s; };
+r = vocabParsePairs(Array.from({length: 300}, (_, i) => 'word' + alpha(i) + ',뜻' + i).join('\n'));
 check('상한: 200개 캡', r.length === 200, r.length);
 
 // 9) 아포스트로피/하이픈 단어
