@@ -105,10 +105,15 @@ foreach ($f in $htmlFiles) {
     try {
         $content = Get-Content $f.FullName -Raw -Encoding UTF8
         $newComment = "<!-- BUILD:$buildTs -->"
-        if ($content -match '<!-- BUILD:\d+ -->') {
-            $content = $content -replace '<!-- BUILD:\d+ -->', $newComment
+        # 🛡️ (2026-07-14) BUILD 마커는 '자기 줄에 홀로 있는' 것만 갱신한다.
+        #   과거 버그: '</body>' 를 무조건 치환 → document.write/html+= JS 문자열 안의
+        #   </body> 에도 주입돼 작은따옴표 문자열이 개행으로 깨짐(관리자 3화면 장애).
+        #   이제 (a) 줄 홀로 BUILD 주석만 갱신, (b) 없으면 '마지막' </body> 앞 한 줄로만 삽입.
+        if ($content -match '(?m)^\s*<!-- BUILD:\d+ -->\s*$') {
+            $content = $content -replace '(?m)^(\s*)<!-- BUILD:\d+ -->\s*$', "`$1$newComment"
         } else {
-            $content = $content -replace '</body>', "$newComment`n</body>"
+            # 마지막 </body> 앞에만 삽입 (문자열 내부 </body> 는 뒤에 또 </body> 가 있으므로 제외)
+            $content = $content -replace '(?s)</body>(?![\s\S]*</body>)', "$newComment`n</body>"
         }
         [System.IO.File]::WriteAllText($f.FullName, $content, [System.Text.UTF8Encoding]::new($false))
         Write-Host "  [+] $($f.Name) -> BUILD:$buildTs" -ForegroundColor Gray
