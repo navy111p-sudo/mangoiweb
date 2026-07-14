@@ -2656,7 +2656,7 @@
     </button>
 
     <!-- 👨‍🏫 강사 통합 -->
-    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
+    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats','card-bug-reports'])" data-hub="teacher">
       <div class="hub-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div>
         <div class="hub-title" data-ko="강사 통합" data-en="Teacher Hub">강사 통합</div>
@@ -11853,7 +11853,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-schedule-requests,card-class-audit,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
+  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-schedule-requests,card-class-audit,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms,card-bug-reports">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div class="ph85-title">강사 통합</div>
@@ -11863,6 +11863,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-teacher-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-teacher-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-teacher-mgmt');}">강사 관리</div>
       <div class="ph85-sub" data-card="card-payroll-auto" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll-auto');}">자동 급여</div>
       <div class="ph85-sub" data-card="card-schedule-requests" onclick="event.stopPropagation();var c=document.getElementById('card-schedule-requests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-schedule-requests');}">📅 연기·변경 요청 ⭐신규</div>
+      <div class="ph85-sub" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-audit" onclick="event.stopPropagation();var c=document.getElementById('card-class-audit');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});if(typeof caudLoad==='function')caudLoad();var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-audit');}">📜 수업 변경 이력 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-ratings" onclick="event.stopPropagation();var c=document.getElementById('card-class-ratings');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-ratings');}">⭐ 학생 수업 평가</div>
       <div class="ph85-sub" data-card="card-payroll" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll');}">급여 관리</div>
@@ -19924,6 +19925,6 @@ button.chip:hover,
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=1"></script><!-- 분할추출:adm-s18 -->
-<!-- BUILD:20260715001544 -->
+<!-- BUILD:20260715022256 -->
 </body>
 </html>
