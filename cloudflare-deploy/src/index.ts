@@ -841,6 +841,8 @@ const worker = {
         path === '/api/admin/payments/record' ||
         // 💬 Phase I1-I2 신규상담
         path.startsWith('/api/admin/inquiry/') ||
+        // 🐞 Phase BUG 교사 버그/피드백 신고 (관리자 접수함)
+        path === '/api/admin/bug-reports' || path.startsWith('/api/admin/bug-reports/') ||
         // 💰 Phase G1-G2 강사 급여 자동 정산
         path === '/api/admin/payroll/calculate' ||
         path === '/api/admin/payroll/save' ||
@@ -1110,6 +1112,8 @@ const worker = {
         path === '/api/consult-bot' ||
         // 💬 신규상담 공개 제출 (그동안 게이트 누락으로 404였음 — 리드 저장 복구)
         path === '/api/student/inquiry' ||
+        // 🐞 교사 버그/피드백 신고 공개 제출 (교사에겐 admin 세션 없음)
+        path === '/api/bug-report' ||
         // 🎯 레벨테스트 신청 (학생 제출 저장 + 관리자·강사 목록/상태변경)
         path === '/api/leveltest/apply' ||
         path === '/api/admin/leveltest/applications' ||

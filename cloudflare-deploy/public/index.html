@@ -3556,7 +3556,7 @@
 <!-- 화상수업 라이트(파스텔) 테마 [초안] — body.vc-theme-light 일 때 적용 -->
 <link rel="stylesheet" href="/css/mango-theme-light.css?v=2">
 <!-- 복습퀴즈 옆 교재도구/필기도구 토글 도킹 [초안] -->
-<link rel="stylesheet" href="/css/mango-tools-dock.css?v=4">
+<link rel="stylesheet" href="/css/mango-tools-dock.css?v=5">
 <!-- 가로(landscape) 상단 정리: 수업중·녹화를 EN 옆으로 (추가형 / 빼면 즉시 원복) -->
 <link rel="stylesheet" href="/css/mango-landscape-topbar.css?v=1">
 </head>
@@ -6071,6 +6071,191 @@
         <span style="opacity:.5">|</span>
         <span data-ko="📹 마이크 / 카메라 사용" data-en="📹 Mic / Camera required">📹 마이크 / 카메라 사용</span>
       </div>
+      <!-- ⏰ 다음 수업 카운트다운 (홈 대시보드) — /api/class/sessions/today 의 current + start_ts 기반 -->
+      <div id="next-class-countdown" style="display:none"></div>
+      <script>
+      (function nextClassCountdown(){
+        var CARD_ID='next-class-countdown';
+        var state={ session:null, skew:0, fetching:false, lastFetch:0, lastKey:'' };
+        function L(){ try{ return (window.getLang?window.getLang():'ko')!=='en'; }catch(e){ return true; } }
+        function el(){ return document.getElementById(CARD_ID); }
+        function homeActive(){ var v=document.getElementById('view-home'); return !!(v&&v.classList.contains('active')); }
+        // HH:MM:SS (1시간 미만이면 MM:SS)
+        function fmt(ms){ ms=Math.max(0,ms); var s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60); s=s%60; m=m%60; return (h>0?(h+':'):'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
+        function timeLabel(ts){ try{ return new Date(ts).toLocaleTimeString(L()?'ko-KR':'en-US',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+
+        async function refresh(){
+          if(state.fetching) return;
+          var u=(window.getCurrentUser?window.getCurrentUser():null);
+          if(!u||!u.uid){ state.session=null; return; }   // 게스트/미로그인 → 표시 안 함
+          state.fetching=true;
+          try{
+            var role=u.role||'student';
+            var qs='role='+encodeURIComponent(role)+'&user_id='+encodeURIComponent(u.uid);
+            if(u.name) qs+='&student_name='+encodeURIComponent(u.name);
+            var r=await fetch('/api/class/sessions/today?'+qs,{credentials:'include'});
+            var d=await r.json();
+            if(d&&typeof d.now==='number') state.skew=d.now-Date.now();   // 서버시각 기준 보정
+            var cur=(d&&d.current)||null;
+            if(!cur){ // current 가 없으면 오늘 남은 세션 중 가장 가까운 것
+              var list=((d&&d.sessions)||[]).filter(function(s){return s.status!=='ended';});
+              list.sort(function(a,b){return (a.start_ts||0)-(b.start_ts||0);});
+              cur=list[0]||null;
+            }
+            state.session=cur; state.lastFetch=Date.now();
+          }catch(e){ /* 네트워크 오류는 조용히 무시(다음 주기 재시도) */ }
+          finally{ state.fetching=false; }
+        }
+
+        function hide(){ var c=el(); if(c){ c.style.display='none'; } state.lastKey=''; }
+
+        function render(){
+          var c=el(); if(!c) return;
+          if(!homeActive()||!state.session){ hide(); return; }
+          var s=state.session;
+          var now=Date.now()+state.skew;
+          if(s.end_ts && now>s.end_ts){ hide(); return; }   // 이미 끝난 수업
+          var toStart=(s.start_ts||0)-now;
+          var joinable=(s.status==='open'||s.status==='live')||toStart<=0;
+          var teacher=s.teacher_name?( (L()?'강사 ':'Teacher ')+s.teacher_name ):'';
+          var key=joinable?('live:'+(s.room_id||'')):('cd:'+fmt(toStart));
+          if(key===state.lastKey && c.style.display==='block') return;   // 불필요한 재렌더 방지(입장버튼 클릭 보호)
+          state.lastKey=key; c.style.display='block';
+          if(joinable){
+            c.innerHTML='<div class="ncc-card ncc-live">'
+              +'<div class="ncc-top">🔴 '+(L()?'지금 입장할 수 있어요':'You can join now')+'</div>'
+              +'<button class="ncc-join" onclick="if(typeof vcJoinMyClass===\'function\')vcJoinMyClass()">▶ '+(L()?'수업 입장':'Join class')+'</button>'
+              +(teacher?'<div class="ncc-sub">'+timeLabel(s.start_ts)+' · '+teacher+'</div>':'')
+              +'</div>';
+          }else{
+            c.innerHTML='<div class="ncc-card">'
+              +'<div class="ncc-top">⏰ '+(L()?'다음 수업까지':'Next class in')+'</div>'
+              +'<div class="ncc-time">'+fmt(toStart)+'</div>'
+              +'<div class="ncc-sub">'+timeLabel(s.start_ts)+(teacher?' · '+teacher:'')+'</div>'
+              +'</div>';
+          }
+        }
+
+        function start(){
+          if(!document.getElementById('ncc-style')){
+            var st=document.createElement('style'); st.id='ncc-style';
+            st.textContent='#next-class-countdown{width:fit-content;margin:14px auto 0}'
+              +'.ncc-card{background:rgba(0,0,0,.5);border:1px solid rgba(251,191,36,.35);border-radius:16px;padding:12px 22px;text-align:center;color:#e2e8f0;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 8px 24px rgba(0,0,0,.35)}'
+              +'.ncc-card.ncc-live{border-color:rgba(239,68,68,.6);animation:nccPulse 1.6s infinite}'
+              +'@keyframes nccPulse{0%,100%{box-shadow:0 8px 24px rgba(239,68,68,.35)}50%{box-shadow:0 8px 24px rgba(239,68,68,.05)}}'
+              +'.ncc-top{font-size:12px;color:#fcd34d;font-weight:700;margin-bottom:4px}'
+              +'.ncc-card.ncc-live .ncc-top{color:#fca5a5}'
+              +'.ncc-time{font-size:30px;font-weight:900;letter-spacing:-1px;color:#7dd3fc;font-variant-numeric:tabular-nums;line-height:1.1}'
+              +'.ncc-sub{font-size:11.5px;color:#94a3b8;margin-top:5px}'
+              +'.ncc-join{margin-top:2px;background:#f59e0b;color:#1a1a1a;border:none;border-radius:10px;padding:9px 22px;font-size:14px;font-weight:800;cursor:pointer}'
+              +'.ncc-join:hover{background:#fbbf24}';
+            document.head.appendChild(st);
+          }
+          refresh().then(render);
+          // 홈이 보일 때만, 마지막 조회 60초 경과 시 갱신(불필요한 fetch 억제)
+          setInterval(function(){ if(homeActive() && (!state.session || Date.now()-state.lastFetch>60000)) refresh(); }, 15000);
+          setInterval(render, 1000);
+        }
+        if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
+        else start();
+      })();
+      </script>
+      <!-- 🐞 교사 버그/피드백 신고 FAB — 교사(vcIsTeacherRole)에게만 노출, POST /api/bug-report -->
+      <script>
+      (function bugReportFab(){
+        function L(){ try{ return (window.getLang?window.getLang():'ko')!=='en'; }catch(e){ return true; } }
+        function isTeacher(){ try{ return (typeof vcIsTeacherRole==='function') && vcIsTeacherRole(); }catch(e){ return false; } }
+        var fab=null, modal=null;
+
+        function ensureStyle(){
+          if(document.getElementById('brf-style')) return;
+          var st=document.createElement('style'); st.id='brf-style';
+          st.textContent='#bug-report-fab{position:fixed;left:14px;bottom:18px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fca5a5;border:1px solid rgba(239,68,68,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
+            +'#bug-report-fab:hover{background:#ef4444;color:#fff;border-color:#ef4444}'
+            +'@media(max-width:480px){#bug-report-fab .brf-label{display:none}#bug-report-fab{padding:11px;left:12px;bottom:14px}}'
+            +'.brf-ov{position:fixed;inset:0;z-index:10600;display:none;align-items:center;justify-content:center;background:rgba(8,12,24,.72);backdrop-filter:blur(4px);font-family:"Noto Sans KR",sans-serif;padding:16px}'
+            +'.brf-ov.show{display:flex}'
+            +'.brf-card{background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(148,163,184,.25);border-radius:20px;max-width:440px;width:100%;padding:22px;color:#e2e8f0;box-shadow:0 30px 80px -20px rgba(0,0,0,.7)}'
+            +'.brf-card h3{margin:0 0 4px;font-size:18px;font-weight:800;color:#fff}'
+            +'.brf-card p{margin:0 0 14px;font-size:12.5px;color:#94a3b8;line-height:1.5}'
+            +'.brf-card select,.brf-card textarea{width:100%;box-sizing:border-box;background:#0f172a;border:1px solid rgba(148,163,184,.3);border-radius:10px;color:#e2e8f0;font-size:14px;padding:10px 12px;font-family:inherit}'
+            +'.brf-card textarea{min-height:110px;resize:vertical;margin-top:8px}'
+            +'.brf-row{display:flex;gap:8px;margin-top:16px}'
+            +'.brf-btn{flex:1;padding:11px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;border:none}'
+            +'.brf-send{background:#ef4444;color:#fff}.brf-send:hover{background:#dc2626}'
+            +'.brf-cancel{background:rgba(148,163,184,.15);color:#cbd5e1}'
+            +'.brf-msg{margin-top:10px;font-size:12.5px;text-align:center;min-height:16px}';
+          document.head.appendChild(st);
+        }
+
+        function ensureFab(){
+          if(fab) return fab;
+          ensureStyle();
+          fab=document.createElement('button');
+          fab.id='bug-report-fab'; fab.type='button';
+          fab.innerHTML='🐞 <span class="brf-label">'+(L()?'버그신고':'Report bug')+'</span>';
+          fab.title=(L()?'시스템 버그·개선 의견 보내기':'Report a bug / feedback');
+          fab.onclick=openModal;
+          document.body.appendChild(fab);
+          return fab;
+        }
+
+        function openModal(){
+          if(!modal){
+            modal=document.createElement('div'); modal.className='brf-ov';
+            modal.innerHTML='<div class="brf-card" onclick="event.stopPropagation()">'
+              +'<h3>🐞 '+(L()?'버그·개선 신고':'Report bug / feedback')+'</h3>'
+              +'<p>'+(L()?'문제나 개선 의견을 적어주세요. 현재 화면 주소와 시각이 함께 전송됩니다.':'Describe the issue. Your current page and time are attached.')+'</p>'
+              +'<select id="brf-cat">'
+                +'<option value="bug">🐛 '+(L()?'버그(오류)':'Bug / error')+'</option>'
+                +'<option value="improve">💡 '+(L()?'개선 의견':'Improvement')+'</option>'
+                +'<option value="etc">💬 '+(L()?'기타':'Other')+'</option>'
+              +'</select>'
+              +'<textarea id="brf-msg-in" placeholder="'+(L()?'예: 수업 중 화면 공유 버튼이 안 눌려요':'e.g. Screen-share not working during class')+'"></textarea>'
+              +'<div class="brf-msg" id="brf-result"></div>'
+              +'<div class="brf-row">'
+                +'<button class="brf-btn brf-cancel" id="brf-cancel">'+(L()?'취소':'Cancel')+'</button>'
+                +'<button class="brf-btn brf-send" id="brf-send">'+(L()?'보내기':'Send')+'</button>'
+              +'</div></div>';
+            modal.onclick=closeModal;
+            document.body.appendChild(modal);
+            modal.querySelector('#brf-cancel').onclick=closeModal;
+            modal.querySelector('#brf-send').onclick=submit;
+          }
+          modal.querySelector('#brf-result').textContent='';
+          modal.querySelector('#brf-msg-in').value='';
+          modal.classList.add('show');
+          setTimeout(function(){ try{ modal.querySelector('#brf-msg-in').focus(); }catch(e){} },50);
+        }
+        function closeModal(){ if(modal) modal.classList.remove('show'); }
+
+        async function submit(){
+          var res=modal.querySelector('#brf-result');
+          var msg=(modal.querySelector('#brf-msg-in').value||'').trim();
+          var cat=modal.querySelector('#brf-cat').value||'bug';
+          if(!msg){ res.style.color='#fca5a5'; res.textContent=(L()?'내용을 입력해 주세요.':'Please enter details.'); return; }
+          var sendBtn=modal.querySelector('#brf-send'); sendBtn.disabled=true; var _t=sendBtn.textContent; sendBtn.textContent=(L()?'전송 중…':'Sending…');
+          var u=(window.getCurrentUser?window.getCurrentUser():null)||{};
+          var role='teacher'; try{ if(u.role) role=u.role; else if(vcIsTeacherRole()) role='teacher'; }catch(e){}
+          try{
+            var r=await fetch('/api/bug-report',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',
+              body:JSON.stringify({ message:msg, category:cat, reporter_role:role, reporter_uid:u.uid||'', reporter_name:u.name||'', page_url:location.href })});
+            var d=await r.json().catch(function(){return{};});
+            if(r.ok && d && d.ok){ res.style.color='#86efac'; res.textContent=(L()?'✅ 접수되었습니다. 감사합니다!':'✅ Sent. Thank you!'); setTimeout(closeModal,1200); }
+            else { res.style.color='#fca5a5'; res.textContent=(L()?'전송 실패 — 잠시 후 다시 시도해 주세요.':'Failed — please retry.'); }
+          }catch(e){ res.style.color='#fca5a5'; res.textContent=(L()?'네트워크 오류 — 다시 시도해 주세요.':'Network error — retry.'); }
+          finally{ sendBtn.disabled=false; sendBtn.textContent=_t; }
+        }
+
+        function refreshVisibility(){
+          ensureFab();
+          fab.style.display=isTeacher()?'inline-flex':'none';
+          var lbl=fab.querySelector('.brf-label'); if(lbl) lbl.textContent=(L()?'버그신고':'Report bug');
+        }
+        function start(){ refreshVisibility(); setInterval(refreshVisibility,4000); }
+        if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+      })();
+      </script>
       <style>
       /* 모바일(≤480px)에서는 '화상수업 로비로 입장 | 마이크/카메라 사용' 안내문구 숨김 */
       @media (max-width:480px){ #lesson-enter-hint{display:none!important;} }
@@ -7676,20 +7861,20 @@
         <div class="tab-panel active" id="tab-whiteboard">
             <div class="whiteboard-container">
                 <div class="wb-toolbar">
-                    <button class="active" onclick="wbSetTool('pen')" data-ko="✏️ 펜" data-en="✏️ Pen">✏️ 펜</button>
-                    <button onclick="wbSetTool('eraser')" data-ko="🧽 지우개" data-en="🧽 Eraser">🧽 지우개</button>
-                    <button onclick="wbSetTool('line')" data-ko="📏 선" data-en="📏 Line">📏 선</button>
-                    <button onclick="wbSetTool('rect')" data-ko="⬜ 사각형" data-en="⬜ Rect">⬜ 사각형</button>
-                    <button onclick="wbSetTool('circle')" data-ko="⭕ 원" data-en="⭕ Circle">⭕ 원</button>
+                    <button class="active" onclick="wbSetTool('pen')" data-ko="✏️ 펜 (Pen)" data-en="✏️ Pen (펜)">✏️ 펜 (Pen)</button>
+                    <button onclick="wbSetTool('eraser')" data-ko="🧽 지우개 (Eraser)" data-en="🧽 Eraser (지우개)">🧽 지우개 (Eraser)</button>
+                    <button onclick="wbSetTool('line')" data-ko="📏 선 (Line)" data-en="📏 Line (선)">📏 선 (Line)</button>
+                    <button onclick="wbSetTool('rect')" data-ko="⬜ 사각형 (Rect)" data-en="⬜ Rect (사각형)">⬜ 사각형 (Rect)</button>
+                    <button onclick="wbSetTool('circle')" data-ko="⭕ 원 (Circle)" data-en="⭕ Circle (원)">⭕ 원 (Circle)</button>
                     <!-- ph268: 키보드 텍스트 도구 -->
-                    <button onclick="wbSetTool('text')" data-ko="📝 텍스트" data-en="📝 Text" title="키보드 타자">📝 텍스트</button>
+                    <button onclick="wbSetTool('text')" data-ko="📝 텍스트 (Text)" data-en="📝 Text (텍스트)" title="키보드 타자">📝 텍스트 (Text)</button>
                     <input type="color" id="wb-color" value="#000000" title="색상" style="width:32px;height:28px;border:none;cursor:pointer;" />
                     <input type="range" id="wb-size" min="1" max="30" value="3" title="굵기" style="width:80px;" />
                     <!-- ✨ AI 도형 정리 토글 (켜면 펜 자유선이 자동으로 깔끔한 도형/축으로 정리됨) -->
-                    <button id="wb-ai-btn" onclick="wbToggleAi(this)" title="펜으로 그린 선/사각형/원/삼각형/축을 자동으로 정리 (켜기)" data-ko="✨ AI 도형" data-en="✨ AI Shapes">✨ AI 도형</button>
-                    <button id="wb-ocr-btn" onclick="wbToggleOcr(this)" title="손글씨를 AI가 읽어 디지털 글자로 변환 (실험적·잠시 후 자동 변환)" data-ko="✍️ AI 글자" data-en="✍️ AI Text">✍️ AI 글자</button>
-                    <button onclick="wbClear()" data-ko="🗑️ 전체 지우기" data-en="🗑️ Clear All">🗑️ 전체 지우기</button>
-                    <button onclick="wbSave()" data-ko="💾 저장" data-en="💾 Save">💾 저장</button>
+                    <button id="wb-ai-btn" onclick="wbToggleAi(this)" title="펜으로 그린 선/사각형/원/삼각형/축을 자동으로 정리 (켜기)" data-ko="✨ AI 도형 (AI Shapes)" data-en="✨ AI Shapes (AI 도형)">✨ AI 도형 (AI Shapes)</button>
+                    <button id="wb-ocr-btn" onclick="wbToggleOcr(this)" title="손글씨를 AI가 읽어 디지털 글자로 변환 (실험적·잠시 후 자동 변환)" data-ko="✍️ AI 글자 (AI Text)" data-en="✍️ AI Text (AI 글자)">✍️ AI 글자 (AI Text)</button>
+                    <button onclick="wbClear()" data-ko="🗑️ 전체 지우기 (Clear All)" data-en="🗑️ Clear All (전체 지우기)">🗑️ 전체 지우기 (Clear All)</button>
+                    <button onclick="wbSave()" data-ko="💾 저장 (Save)" data-en="💾 Save (저장)">💾 저장 (Save)</button>
                 </div>
                 <div class="wb-canvas-wrap">
                     <canvas id="wb-canvas"></canvas>
@@ -7703,19 +7888,19 @@
             <div class="pdf-container">
                 <div class="pdf-controls">
                     <!-- 업로드 버튼: label 대신 button+명시적 트리거로 교체 (클릭 확실히 등록 + 콘솔 로그) -->
-                    <button type="button" onclick="triggerUpload('pdf')" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer; border:none;" data-ko="📁 교재 업로드 (PDF/JPG/PNG)" data-en="📁 Upload (PDF/JPG/PNG)">📁 교재 업로드 (PDF/JPG/PNG)</button>
+                    <button type="button" onclick="triggerUpload('pdf')" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer; border:none;" data-ko="📁 교재 업로드 · Upload (PDF/JPG/PNG)" data-en="📁 Upload · 교재 업로드 (PDF/JPG/PNG)">📁 교재 업로드 · Upload (PDF/JPG/PNG)</button>
                     <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" id="pdf-upload" style="display:none;" onchange="pdfUpload(this)" />
-                    <button type="button" onclick="triggerUpload('file')" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📎 파일 업로드 (모든 파일)" data-en="📎 Attach file (any type)" title="워드·엑셀·PPT·한글·ZIP 등 모든 파일을 학생에게 공유(다운로드)">📎 파일 업로드 (모든 파일)</button>
+                    <button type="button" onclick="triggerUpload('file')" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📎 파일 업로드 · Attach file (모든 파일)" data-en="📎 Attach file · 파일 업로드 (any type)" title="워드·엑셀·PPT·한글·ZIP 등 모든 파일을 학생에게 공유(다운로드)">📎 파일 업로드 · Attach file (모든 파일)</button>
                     <input type="file" id="file-share-upload" style="display:none;" onchange="fileShareUpload(this)" />
-                    <button onclick="openTextbookLibrary()" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📚 라이브러리" data-en="📚 Library" title="관리자가 업로드한 교재 라이브러리에서 선택">
-                        📚 <span data-ko="라이브러리" data-en="Library">라이브러리</span>
+                    <button onclick="openTextbookLibrary()" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📚 라이브러리 (Library)" data-en="📚 Library (라이브러리)" title="관리자가 업로드한 교재 라이브러리에서 선택">
+                        📚 <span data-ko="라이브러리 (Library)" data-en="Library (라이브러리)">라이브러리 (Library)</span>
                     </button>
-                    <button onclick="vcDownloadCurrentTextbook()" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(16,185,129,0.18); color:#86efac; font-size:0.85rem; cursor:pointer; border:1px solid rgba(16,185,129,0.4); font-weight:700;" data-ko="⬇ 다운로드" data-en="⬇ Download" title="현재 교재 파일 다운로드">
-                        ⬇ <span data-ko="다운로드" data-en="Download">다운로드</span>
+                    <button onclick="vcDownloadCurrentTextbook()" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(16,185,129,0.18); color:#86efac; font-size:0.85rem; cursor:pointer; border:1px solid rgba(16,185,129,0.4); font-weight:700;" data-ko="⬇ 다운로드 (Download)" data-en="⬇ Download (다운로드)" title="현재 교재 파일 다운로드">
+                        ⬇ <span data-ko="다운로드 (Download)" data-en="Download (다운로드)">다운로드 (Download)</span>
                     </button>
-                    <button onclick="pdfPrevPage()" data-ko="◀ 이전" data-en="◀ Prev">◀ 이전</button>
+                    <button onclick="pdfPrevPage()" data-ko="◀ 이전 (Prev)" data-en="◀ Prev (이전)">◀ 이전 (Prev)</button>
                     <span id="pdf-page-info" style="font-size:0.85rem;color:#94a3b8;">-</span>
-                    <button onclick="pdfNextPage()" data-ko="다음 ▶" data-en="Next ▶">다음 ▶</button>
+                    <button onclick="pdfNextPage()" data-ko="다음 · Next ▶" data-en="Next · 다음 ▶">다음 · Next ▶</button>
                     <span style="margin-left:8px;display:inline-flex;gap:4px;">
                         <button id="pdf-view-1" class="pdf-view-btn active" onclick="pdfSetPagesPerView(1, this)" title="한 페이지 보기">📄</button>
                         <button id="pdf-view-2" class="pdf-view-btn" onclick="pdfSetPagesPerView(2, this)" title="두 페이지 보기">📄📄</button>
@@ -7726,21 +7911,21 @@
                         <button onclick="pdfZoomIn()" title="확대">🔍+</button>
                         <button onclick="pdfZoomReset()" title="원래 크기">1:1</button>
                     </span>
-                    <button onclick="pdfStopShare()" style="background:rgba(239,68,68,0.2);color:#ef4444;" data-ko="공유 중지" data-en="Stop Share">공유 중지</button>
+                    <button onclick="pdfStopShare()" style="background:rgba(239,68,68,0.2);color:#ef4444;" data-ko="공유 중지 (Stop Share)" data-en="Stop Share (공유 중지)">공유 중지 (Stop Share)</button>
                 </div>
                 <!-- PDF 위에 그리기 (주석) 툴바 -->
                 <div class="pdf-anno-bar">
-                    <button id="pdf-tool-none" class="active" onclick="pdfSetDrawTool('none', this)" title="그리기 끔" data-ko="🖱 보기" data-en="🖱 View">🖱 보기</button>
-                    <button id="pdf-tool-pen" onclick="pdfSetDrawTool('pen', this)" title="펜" data-ko="✏️ 펜" data-en="✏️ Pen">✏️ 펜</button>
-                    <button id="pdf-tool-highlighter" onclick="pdfSetDrawTool('highlighter', this)" title="형광펜" data-ko="🖍 형광펜" data-en="🖍 Marker">🖍 형광펜</button>
-                    <button id="pdf-tool-eraser" onclick="pdfSetDrawTool('eraser', this)" title="지우개" data-ko="🧽 지우개" data-en="🧽 Eraser">🧽 지우개</button>
+                    <button id="pdf-tool-none" class="active" onclick="pdfSetDrawTool('none', this)" title="그리기 끔" data-ko="🖱 보기 (View)" data-en="🖱 View (보기)">🖱 보기 (View)</button>
+                    <button id="pdf-tool-pen" onclick="pdfSetDrawTool('pen', this)" title="펜" data-ko="✏️ 펜 (Pen)" data-en="✏️ Pen (펜)">✏️ 펜 (Pen)</button>
+                    <button id="pdf-tool-highlighter" onclick="pdfSetDrawTool('highlighter', this)" title="형광펜" data-ko="🖍 형광펜 (Marker)" data-en="🖍 Marker (형광펜)">🖍 형광펜 (Marker)</button>
+                    <button id="pdf-tool-eraser" onclick="pdfSetDrawTool('eraser', this)" title="지우개" data-ko="🧽 지우개 (Eraser)" data-en="🧽 Eraser (지우개)">🧽 지우개 (Eraser)</button>
                     <!-- ph265: 키보드 텍스트 도구 -->
-                    <button id="pdf-tool-text" onclick="pdfSetDrawTool('text', this)" title="텍스트 (키보드 타자)" data-ko="📝 텍스트" data-en="📝 Text">📝 텍스트</button>
-                    <button id="pdf-ai-btn" onclick="wbToggleAi(this)" title="펜 자유선을 직선·사각형·원·삼각형·축으로 자동 정리 (켜기)" data-ko="✨ AI 도형" data-en="✨ AI Shapes">✨ AI 도형</button>
+                    <button id="pdf-tool-text" onclick="pdfSetDrawTool('text', this)" title="텍스트 (키보드 타자)" data-ko="📝 텍스트 (Text)" data-en="📝 Text (텍스트)">📝 텍스트 (Text)</button>
+                    <button id="pdf-ai-btn" onclick="wbToggleAi(this)" title="펜 자유선을 직선·사각형·원·삼각형·축으로 자동 정리 (켜기)" data-ko="✨ AI 도형 (AI Shapes)" data-en="✨ AI Shapes (AI 도형)">✨ AI 도형 (AI Shapes)</button>
                     <input type="color" id="pdf-anno-color" value="#ef4444" title="색상" style="width:32px;height:26px;border:none;cursor:pointer;" />
                     <input type="range" id="pdf-anno-size" min="1" max="20" value="3" title="굵기" style="width:80px;" />
-                    <button onclick="pdfAnnoUndo()" title="마지막 필기 되돌리기 (Ctrl+Z)" data-ko="↩ 되돌리기" data-en="↩ Undo">↩ 되돌리기</button>
-                    <button onclick="pdfClearAnno()" title="이 페이지 주석 모두 지우기" data-ko="🗑 지우기" data-en="🗑 Clear">🗑 지우기</button>
+                    <button onclick="pdfAnnoUndo()" title="마지막 필기 되돌리기 (Ctrl+Z)" data-ko="↩ 되돌리기 (Undo)" data-en="↩ Undo (되돌리기)">↩ 되돌리기 (Undo)</button>
+                    <button onclick="pdfClearAnno()" title="이 페이지 주석 모두 지우기" data-ko="🗑 지우기 (Clear)" data-en="🗑 Clear (지우기)">🗑 지우기 (Clear)</button>
                     <!-- 필기자 색 구분 범례 (역할별 기본색) -->
                     <span id="pdf-anno-legend" style="display:inline-flex;gap:8px;align-items:center;font-size:0.72rem;color:#cbd5e1;margin-left:4px;"></span>
                 </div>
@@ -24777,7 +24962,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260714221221 -->
+<!-- BUILD:20260714225239 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -25894,7 +26079,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-class-time.js?v=7" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
 <script src="/js/mango-topbar-unified.js?v=3" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
-<script src="/js/mango-tools-dock.js?v=4" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
+<script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
 <script src="/js/mango-attendance.js?v=33" defer></script>
 <script src="/js/mango-gaze.js?v=33" defer></script>
 <script src="/js/mango-i18n.js?v=33" defer></script>

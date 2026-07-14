@@ -2073,9 +2073,17 @@ async function loadTeacherProfiles() {
   _scored.forEach((row, idx) => _rankMap.set(row.t.id, idx + 1));
 
   tbody.innerHTML = items.map(t => {
-    const img = t.image_url
-      ? '<img src="' + _aiEsc(t.image_url) + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover" onerror="this.style.display=\'none\'" />'
+    const imgInner = t.image_url
+      ? '<img src="' + _aiEsc(t.image_url) + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;display:block" onerror="this.style.display=\'none\'" />'
       : '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold">' + (t.korean_name||'?').charAt(0) + '</div>';
+    // 📷 사진 클릭 → 즉시 업로드 (호버 시 카메라 오버레이 표시)
+    const img = '<span onclick="uploadTeacherPhotoInline(' + t.id + ',this)" title="클릭하여 사진 업로드/변경" ' +
+      'style="position:relative;display:inline-block;cursor:pointer;border-radius:50%;overflow:hidden;line-height:0" ' +
+      'onmouseover="var o=this.querySelector(\'.tp-photo-ov\');if(o)o.style.opacity=\'1\'" ' +
+      'onmouseout="var o=this.querySelector(\'.tp-photo-ov\');if(o)o.style.opacity=\'0\'">' +
+        imgInner +
+        '<span class="tp-photo-ov" style="position:absolute;inset:0;background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0;transition:opacity .12s;pointer-events:none">📷</span>' +
+      '</span>';
     const fee = t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') : '—';
     const join = t.join_date || '—';
     const phone = t.phone || t.kakao_id || '—';
@@ -2132,6 +2140,60 @@ window.viewTeacherVideo = function(encUrl, name){
       inner + '</div>';
   ov.addEventListener('click', function(e){ if (e.target === ov || e.target.getAttribute('data-close')) document.body.removeChild(ov); });
   document.body.appendChild(ov);
+};
+
+// 📷 강사 목록에서 사진 클릭 → 즉시 업로드/변경 (R2 업로드 후 프로필 image_url PATCH)
+window.uploadTeacherPhotoInline = function(id, anchorEl) {
+  if (!id) return;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async function() {
+    const file = input.files && input.files[0];
+    if (!file) { document.body.removeChild(input); return; }
+    const sizeMB = file.size / 1024 / 1024;
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일(JPEG/PNG/WebP/GIF)만 업로드 가능합니다.');
+      document.body.removeChild(input); return;
+    }
+    if (sizeMB > 10) {
+      alert('파일이 너무 큽니다 (' + sizeMB.toFixed(2) + 'MB). 10MB 이하로 업로드해주세요.');
+      document.body.removeChild(input); return;
+    }
+    // 업로드 중 오버레이 표시
+    const ov = anchorEl && anchorEl.querySelector ? anchorEl.querySelector('.tp-photo-ov') : null;
+    if (ov) { ov.style.opacity = '1'; ov.textContent = '⏳'; }
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const r = await fetch('/api/admin/popups/upload-media', { method:'POST', credentials:'include', body: form });
+      const d = await r.json().catch(() => ({}));
+      if (!d.ok || !d.url) throw new Error(d.error || 'R2 업로드 실패');
+      // 프로필에 image_url 저장
+      const pr = await fetch('/api/admin/teacher-profiles/' + id, {
+        method:'PATCH', credentials:'include',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ image_url: d.url })
+      });
+      const pd = await pr.json().catch(() => ({}));
+      if (!pr.ok || pd.ok === false) throw new Error(pd.error || ('HTTP ' + pr.status));
+      // 목록 새로고침 — 새 사진 즉시 반영
+      if (typeof loadTeacherProfiles === 'function') { loadTeacherProfiles(); }
+      else if (typeof window.loadTeacherProfiles === 'function') { window.loadTeacherProfiles(); }
+      else {
+        const im = anchorEl && anchorEl.querySelector ? anchorEl.querySelector('img') : null;
+        if (im) { im.src = d.url; im.style.display = 'block'; }
+      }
+    } catch (e) {
+      alert('사진 업로드 실패: ' + (e && e.message ? e.message : e));
+      if (ov) { ov.style.opacity = '0'; ov.textContent = '📷'; }
+    } finally {
+      document.body.removeChild(input);
+    }
+  });
+  input.click();
 };
 
 // 프로필 이미지 파일 업로드 — R2 우선, 실패시 base64 fallback

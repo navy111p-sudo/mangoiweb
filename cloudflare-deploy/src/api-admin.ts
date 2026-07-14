@@ -6153,6 +6153,79 @@ LIMIT $limit`;
     // 💌 Phase I1 끝
     // ═══════════════════════════════════════════════════════════════
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🐞 Phase BUG — 교사 버그/피드백 신고 (교사 제출 → 관리자 접수함)
+    //   POST  /api/bug-report          (공개 — 교사에겐 admin 세션이 없어 신원은 clientside 전달)
+    //   GET   /api/admin/bug-reports   (관리자 인증 — 목록 + 상태별 카운트)
+    //   PATCH /api/admin/bug-reports/:id  (상태/메모 변경) · DELETE /:id
+    // ═══════════════════════════════════════════════════════════════
+    const ensureBugTable = async () => {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS bug_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reporter_role TEXT, reporter_uid TEXT, reporter_name TEXT, category TEXT, message TEXT NOT NULL, page_url TEXT, user_agent TEXT, status TEXT DEFAULT 'new', admin_note TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
+      } catch {}
+    };
+
+    if (method === 'POST' && path === '/api/bug-report') {
+      await ensureBugTable();
+      const body: any = await request.json().catch(() => ({}));
+      const message = String(body?.message || '').trim().slice(0, 2000);
+      if (!message) return json({ ok: false, error: 'message 는 필수입니다.' }, 400);
+      const reporterRole = (String(body?.reporter_role || '').trim().slice(0, 20)) || 'unknown';
+      const reporterUid = (String(body?.reporter_uid || '').trim().slice(0, 80)) || null;
+      const reporterName = (String(body?.reporter_name || '').trim().slice(0, 80)) || null;
+      const category = (String(body?.category || '').trim().slice(0, 40)) || 'bug';
+      const pageUrl = (String(body?.page_url || '').trim().slice(0, 500)) || null;
+      const ua = (String(request.headers.get('user-agent') || '').slice(0, 300)) || null;
+      const now = Date.now();
+      const ins = await env.DB.prepare(
+        `INSERT INTO bug_reports (reporter_role, reporter_uid, reporter_name, category, message, page_url, user_agent, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?)`
+      ).bind(reporterRole, reporterUid, reporterName, category, message, pageUrl, ua, now).run();
+      return json({ ok: true, bug_id: ins.meta?.last_row_id });
+    }
+
+    if (method === 'GET' && path === '/api/admin/bug-reports') {
+      await ensureBugTable();
+      const status = (url.searchParams.get('status') || '').trim();
+      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
+      let sql = `SELECT * FROM bug_reports`;
+      const binds: any[] = [];
+      if (status) { sql += ` WHERE status = ?`; binds.push(status); }
+      sql += ` ORDER BY COALESCE(updated_at, created_at) DESC LIMIT ?`;
+      binds.push(limit);
+      const rs = await env.DB.prepare(sql).bind(...binds).all();
+      // 상태별 카운트(관리자 대시보드 미접수 배지용)
+      const counts: any = {};
+      try {
+        const cs: any = await env.DB.prepare(`SELECT status, COUNT(*) AS n FROM bug_reports GROUP BY status`).all();
+        (cs?.results || []).forEach((r: any) => { counts[r.status || 'new'] = r.n; });
+      } catch {}
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [], counts });
+    }
+
+    if (method === 'PATCH' && /^\/api\/admin\/bug-reports\/\d+$/.test(path)) {
+      await ensureBugTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      const body: any = await request.json().catch(() => ({}));
+      const now = Date.now();
+      const sets: string[] = ['updated_at = ?'];
+      const binds: any[] = [now];
+      const fields = ['status', 'admin_note', 'category'];
+      for (const f of fields) {
+        if (body[f] !== undefined) { sets.push(`${f} = ?`); binds.push(body[f]); }
+      }
+      binds.push(id);
+      await env.DB.prepare(`UPDATE bug_reports SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+      const updated: any = await env.DB.prepare(`SELECT * FROM bug_reports WHERE id = ?`).bind(id).first();
+      return json({ ok: true, id, row: updated });
+    }
+
+    if (method === 'DELETE' && /^\/api\/admin\/bug-reports\/\d+$/.test(path)) {
+      await ensureBugTable();
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.prepare(`DELETE FROM bug_reports WHERE id = ?`).bind(id).run();
+      return json({ ok: true, id, deleted: true });
+    }
+
     // (💼 Phase G1~G2 급여정산·SR 연기변경·FD 피드백초안 13라우트 → api-admin.ts — admin 2회차)
 
 

@@ -40,9 +40,10 @@
     return 'ko';
   }
 
+  // 한/영 항상 함께 표시 (설정 언어를 앞에)
   var CHIP_NAME = {
-    materials: { ko: '📚 교재도구', en: '📚 Textbook Tools' },
-    write:     { ko: '✍️ 필기도구', en: '✍️ Writing Tools' }
+    materials: { ko: '📚 교재도구 (Textbook Tools)', en: '📚 Textbook Tools (교재도구)' },
+    write:     { ko: '✍️ 필기도구 (Writing Tools)', en: '✍️ Writing Tools (필기도구)' }
   };
 
   function syncChip(which) {

@@ -1081,6 +1081,7 @@ export async function handleMangoApi(
     if (path.startsWith('/api/admin/nps/') || path === '/api/nps/respond'
         || path.startsWith('/api/admin/subscription') || path === '/api/subscription/create'
         || path.startsWith('/api/admin/inquiry/') || path === '/api/consult-bot' || path === '/api/student/inquiry'
+        || path === '/api/bug-report' || path === '/api/admin/bug-reports' || path.startsWith('/api/admin/bug-reports/')
         || path.startsWith('/api/admin/alerts') || path === '/api/admin/audit-logs'
         || path.startsWith('/api/admin/briefing') || path === '/api/admin/chat-messages'
         || path.startsWith('/api/admin/dunning') || path === '/api/admin/exams'
