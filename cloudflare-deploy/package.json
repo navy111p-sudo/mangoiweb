@@ -5,8 +5,10 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler publish",
+    "deploy": "wrangler deploy",
+    "deploy:prod": "wrangler deploy --env production",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "node --test"
   },
   "devDependencies": {
