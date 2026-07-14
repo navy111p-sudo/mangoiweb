@@ -56,7 +56,8 @@
     //    - 표시 중인 주(weekOffset)에 맞춰 매번 다시 불러온다.
     var monday = ph54FmtDate(ph54GetWeekDays()[0]);   // 현재 보고 있는 주의 월요일
     try {
-      var r = await fetch('/api/admin/schedules?week=' + monday, { credentials:'include', cache:'no-store' });
+      // no-store 제거 → adm-perf 클라이언트 캐시(주별 60초) 적용. 드래그 이동(PATCH) 시 캐시 자동 무효화됨.
+      var r = await fetch('/api/admin/schedules?week=' + monday, { credentials:'include' });
       if (r.ok) {
         var j = await r.json();
         var arr = (j && (j.schedules || j.items)) || [];
@@ -320,8 +321,11 @@
     // 펼침 시 1회 로드
     sched.addEventListener('toggle', async function(){
       if (!sched.open) return;
-      if (!ph54State.teachers.length) await ph54LoadTeachers();
-      await ph54LoadRecords();   // 펼칠 때마다 현재 주 수업을 다시 로드
+      // 강사 목록(1회)+수업기록을 병렬 로드 → 첫 열람 지연 절반
+      await Promise.all([
+        ph54State.teachers.length ? null : ph54LoadTeachers(),
+        ph54LoadRecords()
+      ]);
       ph54Render();
     });
   }
@@ -367,8 +371,11 @@
         (async function(){
           ph54State.weekOffset = 0;                  // 이번 주
           ph54State.teacherFilter = String(tid);     // 클릭한 강사(teacher_profiles.id)만
-          if (!ph54State.teachers.length) await ph54LoadTeachers();
-          await ph54LoadRecords();                   // ← 항상 현재 주 수업 로드(이게 빠져서 빈 화면이었음)
+          // 강사 목록(1회)+수업기록 병렬 로드
+          await Promise.all([
+            ph54State.teachers.length ? null : ph54LoadTeachers(),
+            ph54LoadRecords()
+          ]);
           ph54Render();
           // 3) 카드로 스크롤
           setTimeout(function(){ sched.scrollIntoView({ behavior:'smooth', block:'start' }); }, 100);

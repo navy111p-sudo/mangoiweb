@@ -32,7 +32,8 @@
     '/api/admin/dashboard',
     '/api/admin/stats/',
     '/api/admin/teachers/graph-list',
-    '/api/admin/settlement/'
+    '/api/admin/settlement/',
+    '/api/admin/schedules'
   ];
   function isCacheable(path) {
     for (var i = 0; i < CACHEABLE.length; i++) {
