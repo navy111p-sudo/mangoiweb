@@ -4220,6 +4220,22 @@
   <button id="mango-promo-mute" type="button" aria-label="소리 켜기/끄기" title="소리 켜기/끄기" style="position:absolute;left:50%;transform:translateX(-50%);bottom:8px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)">🔇</button>
   <button id="mango-promo-close" type="button" aria-label="닫기" title="닫기" style="position:absolute;left:50%;transform:translateX(-50%);top:8px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>
 </div>
+<!-- 🎯 첫 진입 = 사이드바 메뉴 자동 오픈 사전세팅
+     사장님 요청(26-07-14): 홈 첫 화면은 인트로/홍보영상 등 다른 창을 모두 닫고
+     좌측 메뉴 사이드바가 열린 상태로 보이게 한다.
+     → 각 창(인트로 영상·우상단 홍보영상) 스크립트가 세션 플래그를 읽기 "전"에 미리 억제 플래그를 심는다.
+     → ?intro / ?reset / ?pay 딥링크는 각자 흐름 존중(자동 메뉴 열기·억제 건너뜀). -->
+<script>
+(function(){
+  try{
+    var sp = new URLSearchParams(location.search);
+    if (sp.has('intro') || sp.has('reset') || sp.has('pay')) return;   // 딥링크는 그대로
+    window.__mgAutoMenuFirst = true;                                    // 아래 오픈 스크립트가 읽음
+    try { sessionStorage.setItem('mango_intro_shown_session','1'); }catch(e){} // 인트로 영상 억제(idx-x1.js)
+    try { sessionStorage.setItem('mango_promo_dismissed','1'); }catch(e){}     // 우상단 홍보영상 억제
+  }catch(e){}
+})();
+</script>
 <script>
 /* 홍보 영상 정책 (2026-06-12)
    ① 인트로 영상이 떠 있는 동안엔 절대 표시 안 함 — 인트로가 사라진 뒤에만 표시
@@ -4403,8 +4419,8 @@
     <!-- 📌 고정 메뉴 (그룹 밖, 항상 노출) -->
     <button class="mg-hl mg-s3" onclick="mgGo('about')"><img src="/img/Mangoi_Character.png" alt="" style="height:26px;width:26px;object-fit:contain;vertical-align:middle;margin-right:8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
 
-    <!-- 🎓 그룹 1: 학습 공간 (기본 펼침) -->
-    <details class="mg-acc" open>
+    <!-- 🎓 그룹 1: 학습 공간 (기본 접힘 — 첫 진입 사이드바를 스크린샷처럼 모두 접힌 상태로 노출) -->
+    <details class="mg-acc">
       <summary><span class="mg-acc-ic">🎓</span><span class="mg-acc-tx" data-ko="학습 공간" data-en="Learning Space">학습 공간</span><span class="mg-acc-chev" aria-hidden="true">›</span></summary>
       <div class="mg-acc-body">
         <button class="mg-hl mg-s2" onclick="mgGo('leveltest')" data-ko="🎯 레벨테스트" data-en="🎯 Level Test">🎯 레벨테스트</button>
@@ -4562,6 +4578,37 @@
       });
     })(accs[i]);}
   })();
+</script>
+<!-- 🎯 첫 진입 시 좌측 메뉴 사이드바 자동 열기
+     다른 창(인트로 영상·홍보영상)은 위 사전세팅으로 이미 억제됨 → 남은 잔여물 정리 후 사이드바를 슬라이드-인 -->
+<script>
+(function(){
+  if (!window.__mgAutoMenuFirst) return;   // 딥링크/억제 대상 아닌 첫 진입에서만
+  function run(){
+    // ① 혹시 남아있는 인트로/홍보 창 강제 정리 + 스크롤 잠금 해제
+    try {
+      var iv = document.getElementById('mango-intro-overlay');
+      if (iv){ iv.hidden = true; iv.style.display = 'none'; }
+      var pv = document.getElementById('mango-promo-video');
+      if (pv && pv.parentNode) pv.parentNode.removeChild(pv);
+      document.documentElement.style.overflow = '';
+      if (document.body) document.body.style.overflow = '';
+    } catch(e){}
+    // ② 아코디언 그룹은 모두 접힌 상태로 시작(스크린샷 상태)
+    try {
+      var accs = document.querySelectorAll('#mg-drawer .mg-acc');
+      for (var i=0;i<accs.length;i++) accs[i].removeAttribute('open');
+    } catch(e){}
+    // ③ 사이드바 열기(부드러운 슬라이드-인)
+    try {
+      var d = document.getElementById('mg-drawer');
+      if (window.mgDrawerToggle && d && !d.classList.contains('open')) window.mgDrawerToggle();
+    } catch(e){}
+  }
+  function boot(){ setTimeout(run, 250); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
 </script>
 <!-- 💬 사이드바 메뉴별 설명 말풍선 (각 메뉴 오른쪽, hover/포커스 시 표시) -->
 <style>
@@ -24777,7 +24824,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260714212429 -->
+<!-- BUILD:20260714215956 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
