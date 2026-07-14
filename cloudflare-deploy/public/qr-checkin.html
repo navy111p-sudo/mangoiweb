@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>QR 출석 체크 — 망고아이</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    min-height:100dvh; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(160deg,#0f172a 0%,#1e293b 60%,#14532d 100%);
+    padding:20px;
+  }
+  .card {
+    width:100%; max-width:400px; background:#0f172a; border:1px solid #334155;
+    border-radius:18px; padding:28px 24px; text-align:center; color:#e2e8f0;
+    box-shadow:0 20px 50px rgba(0,0,0,.45);
+  }
+  .mango { width:84px; height:84px; object-fit:contain; margin-bottom:10px; }
+  h1 { font-size:19px; margin-bottom:6px; color:#fde68a; }
+  .sub { font-size:13px; color:#94a3b8; margin-bottom:20px; line-height:1.6; }
+  .big { font-size:52px; margin:8px 0 12px; }
+  .msg { font-size:15px; font-weight:700; line-height:1.7; }
+  .ok   { color:#86efac; }
+  .warn { color:#fcd34d; }
+  .err  { color:#fca5a5; }
+  .detail { margin-top:14px; background:#1e293b; border:1px solid #334155; border-radius:10px;
+            padding:12px; font-size:12.5px; color:#cbd5e1; text-align:left; line-height:1.8; }
+  .detail b { color:#e2e8f0; }
+  input {
+    width:100%; background:#1e293b; border:1px solid #475569; color:#e2e8f0;
+    border-radius:10px; padding:13px 14px; font-size:15px; margin:8px 0 12px; text-align:center;
+  }
+  input:focus { outline:2px solid #22c55e; border-color:transparent; }
+  button {
+    width:100%; background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; border:0;
+    border-radius:12px; padding:14px; font-size:16px; font-weight:800; cursor:pointer;
+  }
+  button:disabled { opacity:.5; }
+  .hint { font-size:11.5px; color:#64748b; margin-top:14px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <img class="mango" src="/img/mango-char.png" alt="망고아이" onerror="this.style.display='none'">
+  <h1>QR 출석 체크</h1>
+  <div class="sub">망고아이 화상영어 자동 출결</div>
+  <div id="stage"></div>
+  <div class="hint">문제가 있으면 선생님께 새 QR 코드를 요청해 주세요.</div>
+</div>
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+  var token = new URLSearchParams(location.search).get('token') || '';
+  var esc = function(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
+
+  // 로그인 관례(index.html 등)와 동일한 키 순서로 학생 uid 자동 감지
+  function detectUid(){
+    var keys = ['mangoi_uid','mango_uid','student_uid','uid'];
+    for (var i=0;i<keys.length;i++){ try { var v = localStorage.getItem(keys[i]); if (v) return v; } catch(e){} }
+    var jsonKeys = ['mangoi_logged_user','mango_user'];
+    for (var j=0;j<jsonKeys.length;j++){
+      try { var u = JSON.parse(localStorage.getItem(jsonKeys[j])||'null'); if (u && (u.uid||u.user_id||u.id)) return u.uid||u.user_id||u.id; } catch(e){}
+    }
+    return '';
+  }
+
+  function show(html){ stage.innerHTML = html; }
+
+  function renderResult(r){
+    if (r && r.ok) {
+      var t = new Date(r.attended_at||Date.now()).toLocaleTimeString('ko-KR',{hour12:false});
+      show('<div class="big">✅</div><div class="msg ok">'+(r.already?'이미 출석 처리되어 있어요!':'출석 완료!')+'</div>'
+        + '<div class="detail"><b>학생:</b> '+esc(r.user_id)+'<br><b>강의실:</b> '+esc(r.room_id)+'<br><b>시각:</b> '+esc(r.date)+' '+t+'</div>');
+      return;
+    }
+    var err = (r && r.error) || 'failed';
+    if (err === 'token_expired') {
+      show('<div class="big">⏰</div><div class="msg warn">QR 유효시간(5분)이 지났어요.<br>선생님께 새 QR을 요청해 주세요.</div>');
+    } else if (err === 'token_not_found' || err === 'invalid_token') {
+      show('<div class="big">❌</div><div class="msg err">유효하지 않은 QR 코드예요.<br>선생님께 새 QR을 요청해 주세요.</div>');
+    } else {
+      show('<div class="big">❌</div><div class="msg err">출석 처리에 실패했어요.<br><span style="font-size:12px;color:#94a3b8">'+esc(err)+'</span></div>'
+        + '<div style="margin-top:14px"><button onclick="location.reload()">다시 시도</button></div>');
+    }
+  }
+
+  function checkin(uid){
+    show('<div class="big">⏳</div><div class="msg">출석 처리 중...</div>');
+    fetch('/api/attendance/check-in', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: token, user_id: uid })
+    }).then(function(x){ return x.json(); }).then(renderResult)
+      .catch(function(){ renderResult({ ok:false, error:'network_error' }); });
+  }
+
+  function askUid(){
+    show('<div class="msg" style="margin-bottom:4px">아이디를 입력하고 출석해 주세요.</div>'
+      + '<input id="uid-in" placeholder="학생 아이디" autocomplete="username" maxlength="128">'
+      + '<button id="go-btn">✅ 출석하기</button>');
+    var btn = document.getElementById('go-btn');
+    var inp = document.getElementById('uid-in');
+    var go = function(){
+      var v = (inp.value||'').trim();
+      if (!/^[A-Za-z0-9_.:@-]{1,128}$/.test(v)) { inp.style.outline='2px solid #ef4444'; inp.focus(); return; }
+      try { if (!localStorage.getItem('mangoi_uid')) localStorage.setItem('mangoi_uid', v); } catch(e){}
+      checkin(v);
+    };
+    btn.addEventListener('click', go);
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') go(); });
+    inp.focus();
+  }
+
+  if (!token) {
+    show('<div class="big">❌</div><div class="msg err">QR 정보가 없어요.<br>QR 코드를 다시 스캔해 주세요.</div>');
+    return;
+  }
+  var uid = detectUid();
+  if (uid) checkin(uid); else askUid();
+})();
+</script>
+</body>
+</html>

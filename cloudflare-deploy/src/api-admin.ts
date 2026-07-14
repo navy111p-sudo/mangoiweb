@@ -6642,5 +6642,159 @@ LIMIT $limit`;
       }
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    // 2026-07-14: 태초 404 API 4종 구현 — admin.html 이 호출하지만 백엔드가
+    // 처음부터 없던 카드들(기준선 대조로 확인, 리팩토링 회귀 아님).
+    // index.ts 게이트에는 전부 기등록 → api-mango.ts 위임 가드에만 경로 추가.
+    // ═════════════════════════════════════════════════════════════════════
+
+    // ── 🎁 추천 친구 보상 (card-referral) ──
+    //   컬럼 관례: churn-contagion.ts 가 referrer_uid/referred_uid 를 읽으므로 동일하게.
+    //   프런트는 referee_uid 를 기대 → SELECT 별칭으로 정합.
+    if (path === '/api/admin/referrals' || path === '/api/admin/referrals/stats') {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS referrals (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer_uid TEXT NOT NULL, referred_uid TEXT NOT NULL, code TEXT, status TEXT DEFAULT 'pending', reward_points INTEGER DEFAULT 0, created_at INTEGER, UNIQUE(referrer_uid, referred_uid));`); } catch {}
+    }
+    if (method === 'GET' && path === '/api/admin/referrals') {
+      const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '50', 10) || 50, 1), 500);
+      try {
+        const rs = await env.DB.prepare(`SELECT id, referrer_uid, referred_uid AS referee_uid, code, status, reward_points, created_at FROM referrals ORDER BY created_at DESC, id DESC LIMIT ?`).bind(limit).all();
+        return json({ ok: true, list: rs.results || [] });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'query_failed' }, 500); }
+    }
+    if (method === 'GET' && path === '/api/admin/referrals/stats') {
+      try {
+        const cs = await env.DB.prepare(`SELECT status, COUNT(*) AS n FROM referrals GROUP BY status`).all();
+        const counts: Record<string, number> = {};
+        for (const r of (cs.results || []) as any[]) counts[String(r.status || 'pending')] = Number(r.n) || 0;
+        const lb = await env.DB.prepare(`SELECT referrer_uid, COUNT(*) AS n FROM referrals GROUP BY referrer_uid ORDER BY n DESC LIMIT 10`).all();
+        return json({ ok: true, counts, leaderboard: lb.results || [] });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'query_failed' }, 500); }
+    }
+
+    // ── 📅 1:1 상담 자동 예약 (card-counseling-booking) ──
+    //   같은 카드의 버튼 3개(bookings 조회·slot/open·cancel)를 함께 구현해 카드 완동작.
+    //   status 값은 프런트 색상 분기('취소'=red, '완료'=green)와 맞춰 한글 사용.
+    if (path.startsWith('/api/admin/counseling/')) {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_uid TEXT NOT NULL, date TEXT NOT NULL, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, status TEXT DEFAULT 'open', created_at INTEGER);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER, staff_uid TEXT, date TEXT, start_time TEXT, parent_name TEXT, parent_phone TEXT, student_uid TEXT, topic TEXT, status TEXT DEFAULT '예약', created_at INTEGER);`); } catch {}
+    }
+    if (method === 'POST' && path === '/api/admin/counseling/slot/open') {
+      const b = await parseJsonBody(request);
+      const staff = String(b?.staff_uid || '').trim();
+      const date = String(b?.date || '').trim();
+      const start = String(b?.start_time || '').trim();
+      if (!staff || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{1,2}:\d{2}$/.test(start)) return invalidBody(['staff_uid', 'date', 'start_time']);
+      const dur = Math.min(Math.max(Number(b?.duration_min) || 30, 5), 240);
+      const count = Math.min(Math.max(Number(b?.count) || 1, 1), 20);
+      const [hh, mm] = start.split(':').map((n: string) => parseInt(n, 10));
+      const now = Date.now();
+      try {
+        for (let i = 0; i < count; i++) {
+          const t = (hh * 60 + mm) + i * dur;
+          const st = `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+          await env.DB.prepare(`INSERT INTO counseling_slots (staff_uid, date, start_time, duration_min, status, created_at) VALUES (?,?,?,?,'open',?)`).bind(staff, date, st, dur, now).run();
+        }
+        return json({ ok: true, count });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'insert_failed' }, 500); }
+    }
+    if (method === 'GET' && path === '/api/admin/counseling/bookings') {
+      try {
+        const rs = await env.DB.prepare(`SELECT id, slot_id, staff_uid, date, start_time, parent_name, parent_phone, student_uid, topic, status, created_at FROM counseling_bookings ORDER BY date DESC, start_time DESC, id DESC LIMIT 300`).all();
+        return json({ ok: true, list: rs.results || [] });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'query_failed' }, 500); }
+    }
+    if (method === 'POST' && path === '/api/admin/counseling/cancel') {
+      const b = await parseJsonBody(request);
+      const id = Number(b?.booking_id);
+      if (!Number.isFinite(id) || id <= 0) return invalidBody(['booking_id']);
+      try {
+        const row = await env.DB.prepare(`SELECT id, slot_id FROM counseling_bookings WHERE id = ?`).bind(id).first<any>();
+        if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        await env.DB.prepare(`UPDATE counseling_bookings SET status = '취소' WHERE id = ?`).bind(id).run();
+        if (row.slot_id) { try { await env.DB.prepare(`UPDATE counseling_slots SET status = 'open' WHERE id = ?`).bind(row.slot_id).run(); } catch {} }
+        return json({ ok: true, id });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'update_failed' }, 500); }
+    }
+
+    // ── 🎮 영어 배틀 관리 (card-battle-mgmt) — 공개 경로(인증 불필요) ──
+    //   P2P 배틀 백엔드는 미구축 → 리더보드는 game_progress(게임 학습 기록) 집계.
+    //   wins = 정답 누계. history 는 유저의 최근 게임 기록을 'vs AI' 형태로 매핑.
+    if (method === 'GET' && path === '/api/battle/leaderboard') {
+      try {
+        const rs = await env.DB.prepare(`SELECT user_id, SUM(correct_count) AS wins FROM game_progress WHERE user_id NOT LIKE 'guest%' GROUP BY user_id HAVING wins > 0 ORDER BY wins DESC LIMIT 50`).all();
+        return json({ ok: true, source: 'game_progress', list: rs.results || [] });
+      } catch { return json({ ok: true, source: 'empty', list: [] }); } // 테이블 부재 시에도 카드가 '데이터 없음'으로 동작
+    }
+    if (method === 'GET' && path === '/api/battle/history') {
+      const uid = (url.searchParams.get('user_id') || '').trim();
+      const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '20', 10) || 20, 1), 100);
+      if (!uid) return json({ ok: true, list: [] });
+      try {
+        const rs = await env.DB.prepare(`SELECT lang, item, correct_count, wrong_count, last_seen FROM game_progress WHERE user_id = ? ORDER BY last_seen DESC LIMIT ?`).bind(uid, limit).all();
+        const list = ((rs.results || []) as any[]).map(r => {
+          const c = Number(r.correct_count) || 0, w = Number(r.wrong_count) || 0;
+          return {
+            game_type: `${r.lang || 'en'} · ${r.item || ''}`,
+            challenger_uid: uid, opponent_uid: 'AI',
+            challenger_score: c, opponent_score: w,
+            winner_uid: c > w ? uid : (w > c ? 'AI' : null),
+            created_at: r.last_seen || null,
+          };
+        });
+        return json({ ok: true, list });
+      } catch { return json({ ok: true, list: [] }); }
+    }
+
+    // ── 📷 QR 출결 — QR 생성(관리자) + 학생 체크인(공개, 토큰이 인증) ──
+    //   프런트 계약(admin.html:7205): { ok, qr_url(상대경로), token, expires_at(ms) }
+    //   흐름: 관리자 qr-gen → 학생 폰이 QR 의 /qr-checkin.html?token= 접속
+    //        → 랜딩이 POST /api/attendance/check-in {token, user_id} → attendance upsert.
+    //   경로 표기 주의: 학생용은 '/api/attendance/check-in'(대시) — index.ts 게이트 기등록 경로.
+    //   기존 '/api/attendance/checkin'(무대시, 시그널링용)과는 다른 엔드포인트.
+    if (path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in') {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance_qr_tokens (token TEXT PRIMARY KEY, room_id TEXT NOT NULL, teacher_uid TEXT, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_count INTEGER DEFAULT 0);`); } catch {}
+    }
+    if (method === 'POST' && path === '/api/admin/attendance/qr-gen') {
+      const b = await parseJsonBody(request);
+      const roomId = String(b?.room_id || '').trim();
+      const teacher = String(b?.teacher_uid || '').trim();
+      if (!/^[A-Za-z0-9_.:@-]{1,128}$/.test(roomId)) return invalidBody(['room_id']);
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      const token = Array.from(bytes, x => x.toString(16).padStart(2, '0')).join('');
+      const now = Date.now();
+      const expiresAt = now + 5 * 60 * 1000; // 5분 유효 — 카드 안내 문구와 동일
+      try {
+        await env.DB.prepare(`INSERT INTO attendance_qr_tokens (token, room_id, teacher_uid, created_at, expires_at) VALUES (?,?,?,?,?)`).bind(token, roomId, teacher || null, now, expiresAt).run();
+        try { await env.DB.prepare(`DELETE FROM attendance_qr_tokens WHERE expires_at < ?`).bind(now - 86400000).run(); } catch {} // 만료 하루 지난 토큰 청소
+        return json({ ok: true, token, qr_url: `/qr-checkin.html?token=${token}`, room_id: roomId, expires_at: expiresAt });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'insert_failed' }, 500); }
+    }
+    if (method === 'POST' && path === '/api/attendance/check-in') {
+      const b = await parseJsonBody(request);
+      const token = String(b?.token || '').trim();
+      const userId = String(b?.user_id || '').trim();
+      if (!/^[a-f0-9]{32}$/.test(token)) return json({ ok: false, error: 'invalid_token' }, 400);
+      if (!/^[A-Za-z0-9_.:@-]{1,128}$/.test(userId)) return invalidBody(['user_id']);
+      const now = Date.now();
+      try {
+        const t = await env.DB.prepare(`SELECT token, room_id, expires_at FROM attendance_qr_tokens WHERE token = ?`).bind(token).first<any>();
+        if (!t) return json({ ok: false, error: 'token_not_found' }, 404);
+        if (Number(t.expires_at) < now) return json({ ok: false, error: 'token_expired', expired: true }, 410);
+        const roomId = String(t.room_id);
+        const date = today(now);
+        // attendance upsert — /api/attendance/checkin(api-mango.ts) 과 동일한 스키마·status 관례
+        try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, user_id TEXT NOT NULL, username TEXT, role TEXT DEFAULT 'student', joined_at INTEGER NOT NULL, left_at INTEGER, status TEXT DEFAULT 'present', date TEXT, attended_at INTEGER, total_session_ms INTEGER DEFAULT 0, total_active_ms INTEGER DEFAULT 0, disconnect_count INTEGER DEFAULT 0);`); } catch {}
+        const existing = await env.DB.prepare(`SELECT id, status FROM attendance WHERE user_id = ? AND room_id = ? AND date = ? ORDER BY joined_at DESC LIMIT 1`).bind(userId, roomId, date).first<any>();
+        if (existing) {
+          await env.DB.prepare(`UPDATE attendance SET status = 'attended', attended_at = COALESCE(attended_at, ?), username = COALESCE(username, ?) WHERE id = ?`).bind(now, b?.username || null, existing.id).run();
+        } else {
+          await env.DB.prepare(`INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date) VALUES (?,?,?,'student',?,?,'attended',?)`).bind(roomId, userId, b?.username || null, now, now, date).run();
+        }
+        try { await env.DB.prepare(`UPDATE attendance_qr_tokens SET used_count = used_count + 1 WHERE token = ?`).bind(token).run(); } catch {}
+        return json({ ok: true, room_id: roomId, user_id: userId, date, status: 'attended', attended_at: now, already: !!existing });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'checkin_failed' }, 500); }
+    }
+
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
