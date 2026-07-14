@@ -2088,6 +2088,10 @@ async function loadTeacherProfiles() {
     tbody.innerHTML = '<tr><td colspan="13" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
+  // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
+  window._tpRowById = {};
+  items.forEach(t => { if (t && t.id != null) window._tpRowById[t.id] = t; });
+
   // 인사평가 점수·순위 미리 계산
   const _scored = items.map(t => ({ t, score: _hrScore(t) }));
   _scored.sort((a, b) => b.score.total - a.score.total);
@@ -2518,10 +2522,14 @@ window.closeQuickMbtiTest = function() {
   if (m) m.remove();
 };
 async function viewTeacherProfile(id) {
-  const r = await fetch('/api/admin/teacher-profiles/' + id, { credentials:'include' });
-  const d = await r.json().catch(()=>({}));
-  if (!r.ok || !d.ok) { alert('조회 실패'); return; }
-  const t = d.item;
+  // 🚀 목록에서 이미 받은 행이 있으면 재요청 없이 즉시 표시(체감속도), 없을 때만 fetch
+  let t = (window._tpRowById && window._tpRowById[id]) || null;
+  if (!t) {
+    const r = await fetch('/api/admin/teacher-profiles/' + id, { credentials:'include' });
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok || !d.ok) { alert('조회 실패'); return; }
+    t = d.item;
+  }
   const html = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">' +
     '<div style="background:#fff;border-radius:14px;padding:24px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px -10px rgba(0,0,0,0.3)">' +
       '<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;border-bottom:2px solid #f3f4f6;padding-bottom:14px">' +
@@ -2551,10 +2559,14 @@ function _tpField(label, val) {
   return '<div style="display:flex;font-size:13px;padding:4px 0"><div style="min-width:90px;color:#6b7280;font-weight:600">' + label + '</div><div>' + _aiEsc(String(val)) + '</div></div>';
 }
 async function editTeacherProfile(id) {
-  const r = await fetch('/api/admin/teacher-profiles/' + id, { credentials:'include' });
-  const d = await r.json().catch(()=>({}));
-  if (!r.ok || !d.ok) { alert('조회 실패'); return; }
-  const t = d.item;
+  // 🚀 목록 캐시 우선(즉시 열림), 없을 때만 fetch
+  let t = (window._tpRowById && window._tpRowById[id]) || null;
+  if (!t) {
+    const r = await fetch('/api/admin/teacher-profiles/' + id, { credentials:'include' });
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok || !d.ok) { alert('조회 실패'); return; }
+    t = d.item;
+  }
   // 폼에 값 채우고 펼침
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
   set('tp-name', t.korean_name); set('tp-en-name', t.english_name); set('tp-email', t.email);
