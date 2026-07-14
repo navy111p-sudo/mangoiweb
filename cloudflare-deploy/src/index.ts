@@ -267,6 +267,10 @@ const worker = {
     if (path === '/api/games/zh-vocab' && request.method === 'GET') {
       return handleGamesZhVocab(request, env);
     }
+    // 📖 중국어 독해 문단 — GET /api/games/zh-passage?textbook=&level=&lesson=  → 다락원 读&说 문단+이해질문(zh_passage)
+    if (path === '/api/games/zh-passage' && request.method === 'GET') {
+      return handleGamesZhPassage(request, env);
+    }
     // 🔤 영어 게임 어휘 은행 — GET /api/games/en-vocab  → 난이도별 영어 문장+단어(en_vocab, 폴백 강화)
     if (path === '/api/games/en-vocab' && request.method === 'GET') {
       return handleGamesEnVocab(request, env);
@@ -2222,6 +2226,60 @@ async function handleGamesZhVocab(request: Request, env: Env): Promise<Response>
       }
     }
     return new Response(JSON.stringify({ ok: true, textbook, level, sentences, words }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  📖 중국어 독해 문단 — GET /api/games/zh-passage?textbook=&level=&lesson=
+ *  다락원 교재 각 과의 읽기(读&说) 문단을 게임(독해 탐정)이 쓰는 형태로 반환.
+ *  zh_passage: 문단 원문 + 문장 분절(병음·뜻) + 이해질문(3지선다) + 요약 핵심단어.
+ *  응답: { ok, passages:[{lesson,title_zh,title_ko,page,hz,ko,sentences[],questions[],keywords[]}] }
+ * ════════════════════════════════════════════════════════════════════════ */
+async function handleGamesZhPassage(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const textbook = (u.searchParams.get('textbook') || '').trim();
+    const level = (u.searchParams.get('level') || '').trim();
+    const lesson = parseInt(u.searchParams.get('lesson') || '0', 10) || 0;
+    const conds: string[] = ['active=1'];
+    const binds: any[] = [];
+    if (textbook) { conds.push('LOWER(textbook)=LOWER(?)'); binds.push(textbook); }
+    if (level) { conds.push('LOWER(level)=LOWER(?)'); binds.push(level); }
+    if (lesson > 0) { conds.push('lesson_no=?'); binds.push(lesson); }
+    let rows: any[] = [];
+    try {
+      const rs = await env.DB.prepare(
+        `SELECT lesson_no, title_zh, title_ko, page, hanzi, ko, sentences, questions, keywords FROM zh_passage WHERE ${conds.join(' AND ')} ORDER BY lesson_no ASC LIMIT 40`
+      ).bind(...binds).all();
+      rows = (rs.results as any[]) || [];
+    } catch { rows = []; }
+    const passages: any[] = [];
+    for (const r of rows) {
+      const hz = String(r.hanzi || '').trim(); if (!hz) continue;
+      let sentences: any[] = []; let questions: any[] = []; let keywords: any[] = [];
+      try { sentences = JSON.parse(r.sentences || '[]') || []; } catch {}
+      try { questions = JSON.parse(r.questions || '[]') || []; } catch {}
+      try { keywords = JSON.parse(r.keywords || '[]') || []; } catch {}
+      // 🛡️ 안전장치(zh_vocab words 깨짐 사고 재발방지): 문장 분절을 이어붙이면 원문과
+      //   정확히 일치해야 한다. 불일치하면 원문을 구두점 기준으로 재분절해 항상
+      //   "깨지지 않은 문단"이 화면에 나가도록 강제 복구한다(병음·뜻은 비워짐).
+      const joined = sentences.map((s: any) => String(s?.hz || '')).join('');
+      if (joined !== hz) {
+        const parts = hz.match(/[^。？！]+[。？！]?/g) || [hz];
+        sentences = parts.map((p: string) => ({ hz: p, py: '', ko: '' }));
+      }
+      if (sentences.length < 2) continue;
+      passages.push({
+        lesson: Number(r.lesson_no) || 0,
+        title_zh: String(r.title_zh || ''), title_ko: String(r.title_ko || ''),
+        page: Number(r.page) || 0,
+        hz, ko: String(r.ko || ''),
+        sentences, questions, keywords,
+      });
+    }
+    return new Response(JSON.stringify({ ok: true, textbook, level, passages }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
