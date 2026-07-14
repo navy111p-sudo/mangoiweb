@@ -1363,6 +1363,8 @@ function _startRoundTimer(){
 const HUB_GAMES = [
   { mode:'battle3d',kind:'iframe', ico:'⚔️', ttl:'3D 배틀',      dsc:'레슨 보스와 퀴즈 대결! 3D 캐릭터 공격+배지', bg:'#f43f5e', badge:'3D',
     src:function(){ return '/battle-3d.html'; } },
+  { mode:'reading', kind:'iframe', ico:'📖', ttl:'독해 탐정',     dsc:'문단을 듣고·맞추고·말하는 3라운드 독해 사건 해결!', bg:'#d97706', badge:'문단·NEW',
+    src:function(){ return '/student-game-reading.html'; } },
   { mode:'fish',    kind:'iframe', ico:'🎣', ttl:'낚시+말하기',   dsc:'문장 단어를 순서대로 낚아 발음까지!', bg:'#0ea5e9', badge:'말하기',
     src:s=>'/english-mastery-suite.html?game=fish&sentence='+encodeURIComponent(s)+'&lang=ko' },
   { mode:'shooter', kind:'iframe', ico:'🚀', ttl:'슈팅+말하기',   dsc:'총·효과음 골라 단어를 순서대로 쏘고, 원어민 듣고 3번 말하기!', bg:'#6366f1', badge:'슈팅·말하기',
@@ -1386,7 +1388,8 @@ const HUB_GAMES = [
 function _gameTitle(g){ if(g.mode==='shooter') return (GAME_LANG==='zh') ? '중국어 슈팅+말하기' : '슈팅+말하기'; if(g.mode==='battle3d') return (GAME_LANG==='zh') ? '중국어 배틀' : '3D 배틀'; return g.ttl; }
 function hubRenderMenu(){
   // 3D 배틀은 영어/중국어 모두 지원(glang 전달) — 전체 노출
-  var list = HUB_GAMES.slice();
+  // 📖 독해 탐정은 중국어 문단 게임(zh_passage) — 중국어 모드에서만 노출
+  var list = HUB_GAMES.filter(function(g){ return g.mode!=='reading' || GAME_LANG==='zh'; });
   document.getElementById('game-grid').innerHTML = list.map(function(g){
     return '<div class="game-card" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
       + '<span class="badge">'+g.badge+'</span>'
@@ -2192,7 +2195,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260714201428 -->
+<!-- BUILD:20260714201727 -->
 <script defer src="/js/flow.js?v=6"></script>
 </body>
 </html>
