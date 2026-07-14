@@ -15,7 +15,7 @@ import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
-import { applyPIIScope } from './pii-mask';
+import { applyPIIScope, canViewPII } from './pii-mask';
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import type { MangoEnv } from './api-mango';
 
