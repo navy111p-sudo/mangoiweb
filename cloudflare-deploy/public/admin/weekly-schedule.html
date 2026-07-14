@@ -9,6 +9,8 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — admin.html iframe 은 자체 window.fetch 라 별도 필요 -->
+<script src="/js/adm-scope-guard.js?v=1"></script>
 <script>
 /* 🎨 부모(admin.html) 색상 토글과 동기화 — 같은 출처라 localStorage('mangoi_admin_theme') 공유.
    · 밝게(ivory) → 라이트 테마,  어둡게(dark) → 기존 다크 테마
