@@ -136,6 +136,10 @@
     '  body.vc-in-call.vc-dock-open #vc-dock{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 50px);}',
     '  body.vc-in-call #vc-dock-more{display:flex;}',
     '  body.vc-in-call #vc-dock-handle{display:none !important;}', /* 옛 문고리 → ⋯ 버튼으로 대체 */
+    '  /* ★ (2026-07-14) 독이 열리면 좌우 플로팅 버튼(☰ 기능 / ↺ 캐시)을 독 위로 올려 겹침 방지 —',
+    '     독 폭이 96vw 라 양끝 버튼(right:10/left:16, bottom 58~92px)이 열린 독(50~120px 대역)과 정확히 겹치던 문제 */',
+    '  body.vc-in-call.vc-dock-open .vc-phero-ctrl{bottom:calc(env(safe-area-inset-bottom,0px) + 132px) !important;}',
+    '  body.vc-in-call.vc-dock-open #ph52-cache-fab, body.vc-in-call.vc-dock-open .ph52-cache-fab{bottom:calc(env(safe-area-inset-bottom,0px) + 132px) !important;}',
     '}'
   ].join('\n');
 

@@ -10,9 +10,9 @@
  *   - 휴대폰(<=900px)에서 위 3가지 기존 요소를 '시각적으로만' 숨김
  *     (로직·타이머·녹화 기능은 그대로 백그라운드 유지).
  *   - 대신 한 줄짜리 통합 바(#mg-unibar)를 띄움:
- *        🏠 방이름 · 👤인원 · ⏱ 경과   [● 녹화점]   [✕]
+ *        🏠 방이름 · 👤인원 · ⏱ 경과   [● 녹화점]
  *   - 경과시간·방이름·인원·녹화여부는 기존 요소에서 '실시간 미러링'.
- *   - ✕ → 기존 나가기 함수(window.vcLeaveRoom) 호출 (단 하나만 존재).
+ *   - 🥭 (2026-07-14) ✕ 나가기 버튼 삭제 — 하단 독(vc-dock)의 '나가기'와 중복이라 제거(사장님 지시).
  *   - 녹화점 탭 → 기존 녹화배지로 동작 전달(확인 후 정지).
  *
  * 안전성:
@@ -42,7 +42,7 @@
          좌측 상단의 포인트 바구니(🧺)/칭찬 버튼과 가로로 안 겹치게 됨. */
       '#mg-unibar{position:fixed;top:calc(env(safe-area-inset-top,0) + 8px);left:50%;',
       '  transform:translateX(-50%);z-index:100000;display:none;align-items:center;gap:7px;',
-      '  width:auto;max-width:min(430px, calc(100% - 16px));padding:5px 6px 5px 11px;',
+      '  width:auto;max-width:min(430px, calc(100% - 16px));padding:6px 12px;',
       '  background:rgba(27,35,48,0.90);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);',
       '  border:1px solid #2c3644;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.35);',
       "  font-family:'Pretendard','Apple SD Gothic Neo',system-ui,sans-serif;}",
@@ -60,11 +60,7 @@
       '#mg-unibar .uni-rec{flex:0 0 auto;width:13px;height:13px;border-radius:50%;background:#ff4d4d;',
       '  cursor:pointer;animation:mg-uni-pulse 1.4s ease-out infinite;display:none;}',
       '#mg-unibar.recording .uni-rec{display:inline-block;}',
-      /* 닫기 ✕ (단 하나) */
-      '#mg-unibar .uni-close{flex:0 0 auto;width:28px;height:28px;display:inline-flex;align-items:center;',
-      '  justify-content:center;background:#ff4d4d;border:none;border-radius:50%;color:#fff;',
-      '  font-size:15px;line-height:1;cursor:pointer;-webkit-appearance:none;}',
-      '#mg-unibar .uni-close:active{transform:scale(.94);}',
+      /* 🥭 (2026-07-14) ✕ 나가기 버튼 스타일 삭제 — 하단 독 '나가기'와 중복이라 버튼 자체를 없앰 */
       '@media (max-width:340px){#mg-unibar .uni-narrow{display:none;}#mg-unibar .uni-info{font-size:11px;}}',
       /* ▼ 통합 바가 켜진 동안(body.mg-uni-on)만 기존 겹침/중복 요소 숨김 (휴대폰 한정) */
       'body.mg-uni-on #mango-class-time{display:none !important;}',
@@ -97,8 +93,7 @@
         '<span class="uni-ico uni-clock">⏱</span>' +
         '<span class="uni-elapsed"></span>' +
       '</div>' +
-      '<span class="uni-rec" title="녹화 중 — 눌러서 정지"></span>' +
-      '<button class="uni-close" type="button" aria-label="나가기">✕</button>';
+      '<span class="uni-rec" title="녹화 중 — 눌러서 정지"></span>';
     document.body.appendChild(bar);
 
     elInfo    = bar.querySelector('.uni-info');
@@ -113,12 +108,7 @@
       if (rb) { rb.classList.add('mango-rec-expanded'); rb.click(); }
     });
 
-    /* ✕ → 기존 나가기 함수 호출 (+ v34와 동일한 폴백) */
-    bar.querySelector('.uni-close').addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      try { if (window.vcLeaveRoom) window.vcLeaveRoom(); } catch (_) {}
-      try { location.replace('/?_e=' + Date.now()); } catch (_) { location.href = '/?_e=1'; }
-    });
+    /* 🥭 (2026-07-14) ✕ 나가기 버튼 제거 — 나가기는 하단 독(vc-dock)의 '나가기' 버튼만 사용 */
 
     built = true;
   }
