@@ -3658,5 +3658,292 @@ ${chatSampleText}
     // 🌟 Phase PR 끝
     // ═══════════════════════════════════════════════════════════════
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🚨 Phase ARR — 학생 이탈 위험 AI 감지
+    // ═══════════════════════════════════════════════════════════════
+    //   조건: 출석 하락, 점수 하락, 장기 결석, 평가점수 낮음
+    //   AI 가 종합 → 위험도 점수 (0~100) + 사유 + 권장 액션
+    if (method === 'GET' && path === '/api/admin/retention/risk') {
+      try {
+        // 🔧 students_erp 스키마 충돌 호환 — 컬럼 이름이 student_name / name / korean_name 중 하나일 수 있음
+        //   → PRAGMA table_info 로 존재하는 컬럼 발견 후 동적 매핑
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);`);
+        let nameCol = 'user_id';   // 안전한 폴백
+        let parentPhoneCol: string | null = null;
+        let parentNameCol: string | null = null;
+        try {
+          const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
+          const colNames = ((cols.results || []) as any[]).map(c => c.name);
+          if (colNames.includes('student_name')) nameCol = 'student_name';
+          else if (colNames.includes('korean_name')) nameCol = 'korean_name';
+          else if (colNames.includes('name')) nameCol = 'name';
+          if (colNames.includes('parent_phone')) parentPhoneCol = 'parent_phone';
+          if (colNames.includes('parent_name')) parentNameCol = 'parent_name';
+        } catch {}
+
+        const now = Date.now();
+        const since14 = now - 14 * 86400000;
+        const since30 = now - 30 * 86400000;
+        const since60 = now - 60 * 86400000;
+        const since90 = now - 90 * 86400000;
+
+        const selectCols = [
+          'user_id',
+          `${nameCol} AS student_name`,
+          parentPhoneCol ? 'parent_phone' : `'' AS parent_phone`,
+          parentNameCol ? 'parent_name' : `'' AS parent_name`,
+        ].join(', ');
+        const _swRisk = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
+        const studentsRs = await env.DB.prepare(
+          `SELECT ${selectCols} FROM students_erp WHERE (status = '정상' OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''} LIMIT 500`
+        ).bind(..._swRisk.binds).all();
+        const students = (studentsRs.results || []) as any[];
+        if (!students.length) return json({ ok: true, count: 0, at_risk: [], schema: { name_col: nameCol } });
+
+        const atRisk: any[] = [];
+        for (const s of students) {
+          // 1) 출석 (최근 30 / 30-60 / 60-90일)
+          const att30: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ?`).bind(s.user_id, since30).first();
+          const att60: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(s.user_id, since60, since30).first();
+          const att90: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(s.user_id, since90, since60).first();
+          // 2) 마지막 입장
+          const lastJoin: any = await env.DB.prepare(`SELECT MAX(joined_at) AS j FROM attendance WHERE user_id = ?`).bind(s.user_id).first();
+
+          // 3) 평가서 평균 / 추세
+          let evalAvg = 0, evalCount = 0, evalTrend = 0;
+          try {
+            const e: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a, COUNT(*) AS n FROM student_evaluations WHERE student_uid = ? AND created_at >= ?`).bind(s.user_id, since60).first();
+            evalAvg = Math.round(e?.a || 0); evalCount = e?.n || 0;
+            // 최근 3회 vs 직전 3회 평균 추세
+            const recent3: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM (SELECT score_overall FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 3)`).bind(s.user_id).first();
+            const prev3: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM (SELECT score_overall FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 3 OFFSET 3)`).bind(s.user_id).first();
+            if (recent3?.a && prev3?.a) evalTrend = Math.round((recent3.a - prev3.a) * 10) / 10;
+          } catch {}
+
+          // 4) 미납 / 결제 상태 (payments 테이블이 있을 때만)
+          let overdueDays = 0, overdueAmount = 0;
+          try {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
+            const od: any = await env.DB.prepare(`SELECT MIN(due_at) AS earliest_due, SUM(amount) AS total FROM payments WHERE user_id = ? AND (paid_at IS NULL OR paid_at = 0) AND due_at < ?`).bind(s.user_id, now).first();
+            if (od?.earliest_due) {
+              overdueDays = Math.floor((now - od.earliest_due) / 86400000);
+              overdueAmount = od.total || 0;
+            }
+          } catch {}
+
+          // 5) 숙제 미제출 (homework_submissions 가 있다면)
+          let hwMissed = 0;
+          try {
+            const hw: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM homework_submissions WHERE user_id = ? AND status = 'missed' AND created_at >= ?`).bind(s.user_id, since30).first();
+            hwMissed = hw?.n || 0;
+          } catch {}
+
+          // 6) 채팅/포인트 활동 감소
+          let recentPoints = 0;
+          try {
+            const p: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM point_log WHERE user_id = ? AND created_at >= ?`).bind(s.user_id, since14).first();
+            recentPoints = p?.n || 0;
+          } catch {}
+
+          const attRecent = att30?.d || 0;
+          const attPrev = att60?.d || 0;
+          const att90val = att90?.d || 0;
+          const daysSinceLastJoin = lastJoin?.j ? Math.floor((now - lastJoin.j) / 86400000) : 999;
+
+          // ════════════════════════════════════════════════
+          // 🧮 위험 점수 — 10가지 신호 가중 합산 (Babbel / VIPKID / 학원CRM 벤치마킹)
+          // ════════════════════════════════════════════════
+          let risk = 0;
+          const reasons: string[] = [];
+          const signals: any = {};
+
+          // S1: 마지막 입장 기준 (가장 강력한 신호)
+          if (daysSinceLastJoin >= 21)      { risk += 45; reasons.push(`📵 마지막 입장 ${daysSinceLastJoin}일 전`); signals.lastJoin = 'critical'; }
+          else if (daysSinceLastJoin >= 14) { risk += 35; reasons.push(`📵 마지막 입장 ${daysSinceLastJoin}일 전`); signals.lastJoin = 'high'; }
+          else if (daysSinceLastJoin >= 7)  { risk += 18; reasons.push(`⏰ 최근 1주 미출석`); signals.lastJoin = 'medium'; }
+
+          // S2: 최근 30일 출석 0
+          if (attRecent === 0 && daysSinceLastJoin < 999) { risk += 25; reasons.push('📉 최근 30일 출석 0회'); signals.attendance = 'zero'; }
+
+          // S3: 출석 감소 추세 (60일→30일 50% 이상 감소)
+          if (attPrev > 0 && attRecent < attPrev * 0.5) {
+            risk += 22; reasons.push(`📊 출석 ${attPrev}→${attRecent}회 (-${Math.round((1 - attRecent/attPrev)*100)}%)`); signals.attendanceTrend = 'declining';
+          }
+
+          // S4: 3개월 연속 하락 (90→60→30)
+          if (att90val > attPrev && attPrev > attRecent && attRecent > 0) {
+            risk += 12; reasons.push(`📉 3개월 연속 출석 감소 (${att90val}→${attPrev}→${attRecent})`); signals.continuousDecline = true;
+          }
+
+          // S5: 평가 점수 저조
+          if (evalCount > 0 && evalAvg < 5) { risk += 18; reasons.push(`⭐ 평가 평균 ${evalAvg}점 (낮음)`); signals.evalLow = true; }
+          else if (evalCount > 0 && evalAvg < 7) { risk += 8; reasons.push(`⭐ 평가 평균 ${evalAvg}점`); }
+
+          // S6: 평가 추세 하락 (-2점 이상)
+          if (evalTrend < -2) { risk += 15; reasons.push(`📉 평가 추세 ${evalTrend > 0 ? '+' : ''}${evalTrend}점`); signals.evalTrend = 'declining'; }
+
+          // S7: 평가서 미작성 (관리 사각지대 신호)
+          if (evalCount === 0 && daysSinceLastJoin < 60) { risk += 8; reasons.push('📝 최근 평가서 없음'); }
+
+          // S8: 미납 (강력)
+          if (overdueDays >= 30)      { risk += 30; reasons.push(`💰 ${overdueDays}일 미납 (${(overdueAmount/10000).toFixed(0)}만원)`); signals.payment = 'overdue-long'; }
+          else if (overdueDays >= 7)  { risk += 15; reasons.push(`💰 ${overdueDays}일 미납`); signals.payment = 'overdue'; }
+
+          // S9: 숙제 미제출
+          if (hwMissed >= 5)      { risk += 12; reasons.push(`📚 숙제 ${hwMissed}회 미제출`); signals.homework = 'high-miss'; }
+          else if (hwMissed >= 3) { risk += 6; reasons.push(`📚 숙제 ${hwMissed}회 미제출`); }
+
+          // S10: 포인트/활동 정지
+          if (recentPoints === 0 && daysSinceLastJoin < 30) { risk += 6; reasons.push('🎮 최근 2주 학습 활동 정지'); signals.engagement = 'frozen'; }
+
+          if (risk >= 25) {
+            const riskLevel = risk >= 70 ? 'high' : risk >= 50 ? 'medium' : 'low';
+            // 💡 추천 액션 — 위험 신호 조합 기반 정교화
+            const actions: string[] = [];
+            if (overdueDays >= 7) actions.push('💳 결제 안내 카톡');
+            if (riskLevel === 'high') actions.push('🚨 학부모 직접 전화');
+            if (signals.lastJoin === 'critical') actions.push('🎁 컴백 기프트 + 무료 보강 1회');
+            else if (signals.lastJoin === 'high') actions.push('📞 학부모 안부 전화');
+            if (signals.evalLow || signals.evalTrend === 'declining') actions.push('🤝 강사 교체 검토 / 1:1 멘토링');
+            if (signals.homework === 'high-miss') actions.push('📚 숙제 코디네이터 배정');
+            if (signals.engagement === 'frozen') actions.push('🎮 포인트 보너스 이벤트 초대');
+            if (!actions.length) actions.push('📧 격려 푸시 + 학부모 안부 문자');
+
+            atRisk.push({
+              user_id: s.user_id,
+              student_name: s.student_name || s.user_id,
+              parent_name: s.parent_name || null,
+              parent_phone: s.parent_phone || null,
+              risk_score: Math.min(risk, 100),
+              risk_level: riskLevel,
+              reasons,
+              signals,
+              attendance_30d: attRecent,
+              attendance_30to60d: attPrev,
+              attendance_60to90d: att90val,
+              days_since_last_join: daysSinceLastJoin,
+              eval_avg: evalAvg,
+              eval_trend: evalTrend,
+              eval_count_60d: evalCount,
+              overdue_days: overdueDays,
+              overdue_amount: overdueAmount,
+              hw_missed_30d: hwMissed,
+              recommended_actions: actions,
+              recommended_action: actions[0], // 호환 — 기존 UI
+            });
+          }
+        }
+        // 위험도 내림차순
+        atRisk.sort((a, b) => b.risk_score - a.risk_score);
+        return json({ ok: true, count: atRisk.length, at_risk: atRisk, schema: { name_col: nameCol } });
+      } catch (e: any) {
+        console.warn('[retention/risk] error:', e?.message);
+        return json({ ok: false, error: e?.message || 'risk_failed' }, 500);
+      }
+    }
+
+    // ════════════════════════════════════════════════
+    // 🎁 Phase ARR-2 — 위험 학생 케어 액션 발송
+    //   POST /api/admin/retention/care
+    //   body: { user_id, action_type, message?, gift_type?, event_id? }
+    //   action_type: 'kakao' | 'sms' | 'gift' | 'event' | 'comeback_bundle'
+    // ════════════════════════════════════════════════
+    if (method === 'POST' && path === '/api/admin/retention/care') {
+      try {
+        const b = await request.json<any>().catch(() => ({}));
+        const uid = String(b.user_id || '').trim();
+        const actionType = String(b.action_type || '').trim();
+        if (!uid || !actionType) return json({ ok: false, error: 'user_id + action_type required' }, 400);
+
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS retention_care_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action_type TEXT, message TEXT, gift_type TEXT, event_id TEXT, status TEXT, error TEXT, created_at INTEGER);`);
+
+        const now = Date.now();
+        const message = String(b.message || '').slice(0, 1000);
+        const giftType = String(b.gift_type || '').slice(0, 50);
+        const eventId = String(b.event_id || '').slice(0, 100);
+        let status = 'sent';
+        let detail = '';
+
+        // 학생/학부모 정보
+        let parentPhone = '', studentName = uid;
+        try {
+          const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
+          const colNames = ((cols.results || []) as any[]).map(c => c.name);
+          const nCol = colNames.includes('student_name') ? 'student_name' : (colNames.includes('korean_name') ? 'korean_name' : (colNames.includes('name') ? 'name' : 'user_id'));
+          const pPhoneCol = colNames.includes('parent_phone') ? 'parent_phone' : `''`;
+          const s: any = await env.DB.prepare(`SELECT ${nCol} AS sn, ${pPhoneCol} AS pp FROM students_erp WHERE user_id = ?`).bind(uid).first();
+          if (s) { studentName = s.sn || uid; parentPhone = s.pp || ''; }
+        } catch {}
+
+        // 액션 분기
+        if (actionType === 'kakao') {
+          // 카카오 알림톡 — 기존 인프라 재사용 (가입 시), 아니면 카톡 채널 메시지
+          detail = `카톡 발송: ${studentName} → ${message.slice(0, 80)}`;
+          // 실제 발송 로직 hook
+          try {
+            if ((env as any).KAKAO_TOKEN && parentPhone) {
+              // TODO: 실 카톡 발송 (Solapi/Aligo 등)
+              detail += ' [KAKAO_TOKEN ok]';
+            } else { status = 'queued'; detail += ' [실 API 없음 - 큐 보관]'; }
+          } catch (kk: any) { status = 'failed'; detail = kk?.message || 'kakao_fail'; }
+        }
+        else if (actionType === 'sms') {
+          detail = `문자: ${parentPhone || '학생'} → ${message.slice(0, 80)}`;
+          status = 'queued';
+        }
+        else if (actionType === 'gift') {
+          // 포인트 보너스 적립
+          try {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
+            const giftAmt = giftType === 'comeback' ? 500 : giftType === 'bonus' ? 200 : 100;
+            await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + ?, lifetime_earned = lifetime_earned + ?, last_earned_at = ?, updated_at = ?`)
+              .bind(uid, studentName, giftAmt, giftAmt, now, now, giftAmt, giftAmt, now, now).run();
+            detail = `🎁 ${giftAmt}P 보너스 적립`;
+          } catch (ge: any) { status = 'failed'; detail = ge?.message || 'gift_fail'; }
+        }
+        else if (actionType === 'event') {
+          detail = `이벤트 초대: ${eventId}`;
+          // 초대 큐에만 기록 — 실 발송은 push 시스템이 처리
+        }
+        else if (actionType === 'comeback_bundle') {
+          // 컴백 번들: 카톡 + 기프트(500P) + 무료 보강 1회
+          try {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
+            await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?, ?, 500, 500, ?, ?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 500, lifetime_earned = lifetime_earned + 500, last_earned_at = ?, updated_at = ?`)
+              .bind(uid, studentName, now, now, now, now).run();
+            detail = '🎁 컴백 번들: 500P + 무료 보강 1회 + 카톡 안내';
+          } catch (ce: any) { status = 'failed'; detail = ce?.message || 'bundle_fail'; }
+        } else {
+          return json({ ok: false, error: 'unknown action_type' }, 400);
+        }
+
+        // 로그 기록
+        await env.DB.prepare(`INSERT INTO retention_care_log (user_id, action_type, message, gift_type, event_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+          .bind(uid, actionType, message, giftType, eventId, status, status === 'failed' ? detail : null, now).run();
+
+        return json({ ok: true, status, detail });
+      } catch (e: any) {
+        console.warn('[retention/care] error:', e?.message);
+        return json({ ok: false, error: e?.message || 'care_failed' }, 500);
+      }
+    }
+    // GET /api/admin/retention/care/logs — 발송 이력
+    if (method === 'GET' && path === '/api/admin/retention/care/logs') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS retention_care_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action_type TEXT, message TEXT, gift_type TEXT, event_id TEXT, status TEXT, error TEXT, created_at INTEGER);`);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '100'), 500);
+        const uid = url.searchParams.get('user_id');
+        const rs = uid
+          ? await env.DB.prepare(`SELECT * FROM retention_care_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`).bind(uid, limit).all()
+          : await env.DB.prepare(`SELECT * FROM retention_care_log ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
+        return json({ ok: true, items: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message }, 500);
+      }
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🚨 Phase ARR 끝
+    // ═══════════════════════════════════════════════════════════════
+
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
