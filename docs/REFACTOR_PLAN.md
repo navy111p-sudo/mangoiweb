@@ -102,7 +102,7 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 | 2026-07-14 | 1 | 15차: AI 음성코칭(AV) 5라우트+헬퍼 6종 → api-games.ts(2,065줄), api-mango 8,212→**7,868줄(-49%)** | ✅ tsc·게이트 배포·스모크 15/15 + voice/stats 응답 일치 |
 | 2026-07-14 | 1 | 16차: MBTI 매칭+교사 칭찬(PR) 8매처 — ensureMbtiTable 공유로 연속블록 한 덩어리 → api-admin.ts(3,662줄), api-mango 7,868→**7,654줄(-50% 달성)** | ✅ tsc·게이트 배포·스모크 15/15 + 공개 라우트 응답 일치 |
 | 2026-07-14 | 1 | 17차: 소셜로그인(OAUTH) 3매처 → api-students.ts(711줄), api-mango 7,654→**7,473줄(-52%)** | ✅ tsc·게이트 배포·스모크 15/15 + oauth url/status 응답 일치 |
-| | | (20차 완료: MR·MAR 월간리포트 → 신규 api-reports.ts(크론 import 변경 포함), api-mango **6,502줄·-58%**. 1단계 잔여 = 산발 라우트 ~25개(kakao-id·rewards·recordings·consents·leveltest 등) — 이후 2단계 admin.html 착수) | |
+| | | (21차 완료: 학생목록·graph-list 4종·cafe24 임포트 4종·레벨테스트 집계 13매처 → api-admin, api-mango **6,165줄·-60%**. ⚠교훈: tsc 출력을 head로 자르면 exit코드 오판 — 전체 실행으로 확인할 것(canViewPII 사후보강 b288c27f). 다음: Phase 9 메뉴6개(가맹점·센터·수강신청·커뮤니티·교재) → 5367-6483 대형 run 순차) | |
 | | | | |
 
 ### 분리 작업 표준 절차 (1단계에서 확립된 패턴)
