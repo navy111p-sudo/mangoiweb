@@ -4006,61 +4006,85 @@ ${chatSampleText}
           parentNameCol ? 'parent_name' : `'' AS parent_name`,
         ].join(', ');
         const _swRisk = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
+
+        // ⚡ KV 캐시(scope 별 키, 180초) — 반복 열람 시 무거운 스캔 생략. 케어 발송 등 변경 후엔 자연 만료.
+        const _rrKey = 'retrisk:' + nameCol + ':' + ((_swRisk.cond || 'all') + '|' + (_swRisk.binds || []).join(','));
+        try {
+          const _hit = await env.SESSION_STATE.get(_rrKey);
+          if (_hit) return new Response(_hit, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } });
+        } catch { /* 캐시 miss 무시 */ }
+
         const studentsRs = await env.DB.prepare(
           `SELECT ${selectCols} FROM students_erp WHERE (status = '정상' OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''} LIMIT 500`
         ).bind(..._swRisk.binds).all();
         const students = (studentsRs.results || []) as any[];
         if (!students.length) return json({ ok: true, count: 0, at_risk: [], schema: { name_col: nameCol } });
 
+        // ⚡ N+1 제거 — 학생당 반복 쿼리(≈8×N=수천건)를 그룹 쿼리 9개로 일괄 집계 후 메모리에서 점수 계산.
+        //    점수 로직(S1~S10)·응답 형태는 원본과 100% 동일, 데이터 수집 방식만 변경.
+        const _ids = students.map(s => s.user_id);
+        const _ph = _ids.map(() => '?').join(',');
+        const _num = (v: any) => (typeof v === 'number' ? v : Number(v) || 0);
+        const _groupMap = async (sql: string, binds: any[], keyCol: string, pick: (r: any) => any): Promise<Map<string, any>> => {
+          const m = new Map<string, any>();
+          try {
+            const rs: any = await env.DB.prepare(sql).bind(...binds).all();
+            for (const r of (rs.results || [])) m.set(String(r[keyCol]), pick(r));
+          } catch { /* 테이블 없음 등 → 빈 맵(원본 try/catch 동작과 동일) */ }
+          return m;
+        };
+        try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`); } catch {}
+
+        const [att30M, att60M, att90M, lastJoinM, evalM, payM, hwM, ptM, _trendRows] = await Promise.all([
+          _groupMap(`SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${_ph}) AND joined_at >= ? GROUP BY user_id`, [..._ids, since30], 'user_id', r => _num(r.d)),
+          _groupMap(`SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${_ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [..._ids, since60, since30], 'user_id', r => _num(r.d)),
+          _groupMap(`SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${_ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [..._ids, since90, since60], 'user_id', r => _num(r.d)),
+          _groupMap(`SELECT user_id, MAX(joined_at) j FROM attendance WHERE user_id IN (${_ph}) GROUP BY user_id`, [..._ids], 'user_id', r => _num(r.j)),
+          _groupMap(`SELECT student_uid, AVG(score_overall) a, COUNT(*) n FROM student_evaluations WHERE student_uid IN (${_ph}) AND created_at >= ? GROUP BY student_uid`, [..._ids, since60], 'student_uid', r => ({ a: _num(r.a), n: _num(r.n) })),
+          _groupMap(`SELECT user_id, MIN(due_at) earliest_due, SUM(amount) total FROM payments WHERE user_id IN (${_ph}) AND (paid_at IS NULL OR paid_at = 0) AND due_at < ? GROUP BY user_id`, [..._ids, now], 'user_id', r => ({ earliest_due: _num(r.earliest_due), total: _num(r.total) })),
+          _groupMap(`SELECT user_id, COUNT(*) n FROM homework_submissions WHERE user_id IN (${_ph}) AND status = 'missed' AND created_at >= ? GROUP BY user_id`, [..._ids, since30], 'user_id', r => _num(r.n)),
+          _groupMap(`SELECT user_id, COUNT(*) n FROM point_log WHERE user_id IN (${_ph}) AND created_at >= ? GROUP BY user_id`, [..._ids, since14], 'user_id', r => _num(r.n)),
+          (async () => {
+            try {
+              const rs: any = await env.DB.prepare(
+                `SELECT student_uid, score_overall, rn FROM (SELECT student_uid, score_overall, ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) rn FROM student_evaluations WHERE student_uid IN (${_ph})) WHERE rn <= 6`
+              ).bind(..._ids).all();
+              return (rs.results || []) as any[];
+            } catch { return []; }
+          })(),
+        ]);
+
+        // 평가 추세 — 최근3회 vs 직전3회 평균 (원본 recent3/prev3 동등)
+        const _trendAgg = new Map<string, { recent: number[]; prev: number[] }>();
+        for (const r of (_trendRows as any[])) {
+          const k = String(r.student_uid);
+          if (!_trendAgg.has(k)) _trendAgg.set(k, { recent: [], prev: [] });
+          const g = _trendAgg.get(k)!;
+          if (_num(r.rn) <= 3) g.recent.push(_num(r.score_overall)); else g.prev.push(_num(r.score_overall));
+        }
+        const _avg = (a: number[]) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+
         const atRisk: any[] = [];
         for (const s of students) {
-          // 1) 출석 (최근 30 / 30-60 / 60-90일)
-          const att30: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ?`).bind(s.user_id, since30).first();
-          const att60: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(s.user_id, since60, since30).first();
-          const att90: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(s.user_id, since90, since60).first();
-          // 2) 마지막 입장
-          const lastJoin: any = await env.DB.prepare(`SELECT MAX(joined_at) AS j FROM attendance WHERE user_id = ?`).bind(s.user_id).first();
+          const attRecent = att30M.get(s.user_id) || 0;
+          const attPrev = att60M.get(s.user_id) || 0;
+          const att90val = att90M.get(s.user_id) || 0;
+          const _lastJ = lastJoinM.get(s.user_id) || 0;
+          const daysSinceLastJoin = _lastJ ? Math.floor((now - _lastJ) / 86400000) : 999;
 
-          // 3) 평가서 평균 / 추세
-          let evalAvg = 0, evalCount = 0, evalTrend = 0;
-          try {
-            const e: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a, COUNT(*) AS n FROM student_evaluations WHERE student_uid = ? AND created_at >= ?`).bind(s.user_id, since60).first();
-            evalAvg = Math.round(e?.a || 0); evalCount = e?.n || 0;
-            // 최근 3회 vs 직전 3회 평균 추세
-            const recent3: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM (SELECT score_overall FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 3)`).bind(s.user_id).first();
-            const prev3: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM (SELECT score_overall FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 3 OFFSET 3)`).bind(s.user_id).first();
-            if (recent3?.a && prev3?.a) evalTrend = Math.round((recent3.a - prev3.a) * 10) / 10;
-          } catch {}
+          const _ev = evalM.get(s.user_id);
+          const evalAvg = _ev ? Math.round(_ev.a || 0) : 0;
+          const evalCount = _ev ? (_ev.n || 0) : 0;
+          let evalTrend = 0;
+          const _tg = _trendAgg.get(s.user_id);
+          if (_tg) { const _ra = _avg(_tg.recent), _pa = _avg(_tg.prev); if (_ra != null && _pa != null) evalTrend = Math.round((_ra - _pa) * 10) / 10; }
 
-          // 4) 미납 / 결제 상태 (payments 테이블이 있을 때만)
+          const _pay = payM.get(s.user_id);
           let overdueDays = 0, overdueAmount = 0;
-          try {
-            await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
-            const od: any = await env.DB.prepare(`SELECT MIN(due_at) AS earliest_due, SUM(amount) AS total FROM payments WHERE user_id = ? AND (paid_at IS NULL OR paid_at = 0) AND due_at < ?`).bind(s.user_id, now).first();
-            if (od?.earliest_due) {
-              overdueDays = Math.floor((now - od.earliest_due) / 86400000);
-              overdueAmount = od.total || 0;
-            }
-          } catch {}
+          if (_pay && _pay.earliest_due) { overdueDays = Math.floor((now - _pay.earliest_due) / 86400000); overdueAmount = _pay.total || 0; }
 
-          // 5) 숙제 미제출 (homework_submissions 가 있다면)
-          let hwMissed = 0;
-          try {
-            const hw: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM homework_submissions WHERE user_id = ? AND status = 'missed' AND created_at >= ?`).bind(s.user_id, since30).first();
-            hwMissed = hw?.n || 0;
-          } catch {}
-
-          // 6) 채팅/포인트 활동 감소
-          let recentPoints = 0;
-          try {
-            const p: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM point_log WHERE user_id = ? AND created_at >= ?`).bind(s.user_id, since14).first();
-            recentPoints = p?.n || 0;
-          } catch {}
-
-          const attRecent = att30?.d || 0;
-          const attPrev = att60?.d || 0;
-          const att90val = att90?.d || 0;
-          const daysSinceLastJoin = lastJoin?.j ? Math.floor((now - lastJoin.j) / 86400000) : 999;
+          const hwMissed = hwM.get(s.user_id) || 0;
+          const recentPoints = ptM.get(s.user_id) || 0;
 
           // ════════════════════════════════════════════════
           // 🧮 위험 점수 — 10가지 신호 가중 합산 (Babbel / VIPKID / 학원CRM 벤치마킹)
@@ -4147,7 +4171,9 @@ ${chatSampleText}
         }
         // 위험도 내림차순
         atRisk.sort((a, b) => b.risk_score - a.risk_score);
-        return json({ ok: true, count: atRisk.length, at_risk: atRisk, schema: { name_col: nameCol } });
+        const _rrPayload = JSON.stringify({ ok: true, count: atRisk.length, at_risk: atRisk, schema: { name_col: nameCol } });
+        try { await env.SESSION_STATE.put(_rrKey, _rrPayload, { expirationTtl: 180 }); } catch { /* 캐시 저장 실패 무시 */ }
+        return new Response(_rrPayload, { status: 200, headers: { 'Content-Type': 'application/json' } });
       } catch (e: any) {
         console.warn('[retention/risk] error:', e?.message);
         return json({ ok: false, error: e?.message || 'risk_failed' }, 500);

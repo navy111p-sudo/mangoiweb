@@ -78,8 +78,13 @@
   .quest{ width:100%; max-width:560px; margin-top:6px; text-align:center;
     background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:7px 10px; }
   .quest .qko{ font-size:14px; color:#93c5fd; }
+  /* 두 문장 세트 표시 */
+  #q-sets{ display:flex; flex-direction:column; gap:7px; }
+  .sline{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .sline .sko{ font-size:12.5px; color:#93c5fd; }
+  .sline .sslots{ display:flex; gap:4px; justify-content:center; flex-wrap:wrap; }
   .quest .slots{ margin-top:6px; display:flex; gap:5px; justify-content:center; flex-wrap:wrap; }
-  .quest .qslot{ min-width:32px; padding:3px 9px; border-radius:8px; font-weight:800; font-size:15px; cursor:pointer;
+  .quest .qslot{ min-width:30px; padding:3px 8px; border-radius:8px; font-weight:800; font-size:14px; cursor:pointer;
     background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.14); color:#8090b4; transition:.2s; }
   .quest .qslot:active{ transform:scale(.92); }
   .quest .hint{ font-size:10.5px; color:#6b7ba6; margin-top:5px; }
@@ -212,8 +217,8 @@
     </div>
     <div class="howto">
       ◀ ▶ 이동 · 🔄 회전 · ▼ 빨리 · ⤓ 한번에 떨어뜨리기<br>
-      위 <b>문장 순서</b>대로 단어 조각을 놓아 <b>문장을 완성</b>하세요!<br>
-      다른 단어는 쌓여요 — 가로줄 꽉 차면 💥삭제(정통 테트리스) · 놓을 때 발음 🔊
+      위 <b>두 문장</b>을 순서대로 단어 조각으로 채워 완성하면 💯 점수!<br>
+      나오는 조각은 모두 문장 속 단어예요 · 순서 아닌 건 쌓여요 · 놓을 때 발음 🔊
     </div>
   </div>
 
@@ -234,8 +239,7 @@
       <span class="pill" id="hud-mode">🇺🇸</span>
     </div>
     <div class="quest">
-      <div class="qko" id="q-sentko">—</div>
-      <div class="slots" id="q-slots"></div>
+      <div id="q-sets"></div>
       <div class="hint">👆 단어를 누르면 발음과 뜻이 나와요</div>
     </div>
     <div id="mission"></div>
@@ -334,34 +338,38 @@ var PIECES = [
 /* ════════════════════════════════════════════════════════════
    📝 문장 데이터 — 어순대로 단어 조각을 놓아 완성 (영어/중국어 분리)
    ════════════════════════════════════════════════════════════ */
-var SENTENCES = {
+/* 📝 문장 세트 — 한 세트 = 2문장(초보용). 두 문장을 순서대로 모두 완성하면 점수.
+   조각엔 이 세트 안의 단어만 등장(함정 단어 없음). */
+var SETS = {
   en:[
-    {words:['I','like','apples'],      ko:'나는 사과를 좋아해요'},
-    {words:['The','cat','is','happy'], ko:'고양이가 행복해요'},
-    {words:['We','play','at','school'],ko:'우리는 학교에서 놀아요'},
-    {words:['Birds','sing','a','song'],ko:'새들이 노래를 불러요'},
-    {words:['I','read','a','book'],    ko:'나는 책을 읽어요'},
-    {words:['The','sun','is','big'],   ko:'태양은 커요'},
-    {words:['My','dog','can','run'],   ko:'내 개는 달릴 수 있어요'},
-    {words:['We','drink','milk'],      ko:'우리는 우유를 마셔요'}
+    [ {words:['I','like','to','read','books'],       ko:'나는 책 읽기를 좋아해요'},
+      {words:['We','go','to','school'],              ko:'우리는 학교에 가요'} ],
+    [ {words:['The','big','dog','can','run','fast'],  ko:'큰 개는 빠르게 달릴 수 있어요'},
+      {words:['My','cat','is','very','happy'],        ko:'내 고양이는 아주 행복해요'} ],
+    [ {words:['Birds','sing','a','song','every','day'],ko:'새들이 매일 노래를 불러요'},
+      {words:['I','drink','milk','at','home'],         ko:'나는 집에서 우유를 마셔요'} ],
+    [ {words:['The','sun','is','big','and','bright'],  ko:'태양은 크고 밝아요'},
+      {words:['We','play','at','school'],              ko:'우리는 학교에서 놀아요'} ]
   ],
   zh:[
-    {words:['我','喜欢','苹果'],   ko:'나는 사과를 좋아해요'},
-    {words:['猫','很','高兴'],     ko:'고양이가 행복해요'},
-    {words:['我们','去','学校'],   ko:'우리는 학교에 가요'},
-    {words:['鸟','唱','歌'],       ko:'새가 노래해요'},
-    {words:['我','读','书'],       ko:'나는 책을 읽어요'},
-    {words:['太阳','很','大'],     ko:'태양은 커요'},
-    {words:['狗','会','跑'],       ko:'개는 달릴 수 있어요'},
-    {words:['我们','喝','牛奶'],   ko:'우리는 우유를 마셔요'}
+    [ {words:['我','喜欢','读','书'],        ko:'나는 책 읽기를 좋아해요'},
+      {words:['我们','去','学校'],           ko:'우리는 학교에 가요'} ],
+    [ {words:['大','狗','跑','得','很','快'], ko:'큰 개는 빠르게 달려요'},
+      {words:['我的','猫','很','高兴'],       ko:'내 고양이는 행복해요'} ],
+    [ {words:['鸟','每天','唱','歌'],        ko:'새가 매일 노래해요'},
+      {words:['我','喝','牛奶'],             ko:'나는 우유를 마셔요'} ],
+    [ {words:['太阳','很','大'],             ko:'태양은 커요'},
+      {words:['我们','玩','游戏'],           ko:'우리는 게임을 해요'} ]
   ]
 };
 /* VOCAB에 없는 기능어 뜻/병음 보충 */
 var EXTRA = {
   en:{ I:'나는', The:'그', the:'그', is:'~이다', We:'우리', at:'~에서', a:'하나의', song:'노래',
-       like:'좋아하다', Birds:'새들', My:'나의', can:'~할 수 있다', drink:'마시다', apples:'사과' },
+       like:'좋아하다', Birds:'새들', My:'나의', can:'~할 수 있다', drink:'마시다', apples:'사과',
+       to:'~로/하기', books:'책들', go:'가다', very:'매우', every:'매일', day:'날', and:'그리고', bright:'밝은' },
   zh:{ '我':{ko:'나',py:'wǒ'}, '我们':{ko:'우리',py:'wǒmen'}, '喜欢':{ko:'좋아하다',py:'xǐhuan'}, '很':{ko:'매우',py:'hěn'},
-       '去':{ko:'가다',py:'qù'}, '歌':{ko:'노래',py:'gē'}, '会':{ko:'~할 수 있다',py:'huì'}, '喝':{ko:'마시다',py:'hē'} }
+       '去':{ko:'가다',py:'qù'}, '歌':{ko:'노래',py:'gē'}, '会':{ko:'~할 수 있다',py:'huì'}, '喝':{ko:'마시다',py:'hē'},
+       '得':{ko:'(정도)',py:'de'}, '我的':{ko:'나의',py:'wǒde'}, '每天':{ko:'매일',py:'měitiān'}, '游戏':{ko:'게임',py:'yóuxì'} }
 };
 function meanOf(w){
   var v=VOCAB[MODE].words.find(function(x){ return x.w===w; }); if(v) return v.ko;
@@ -512,7 +520,7 @@ var score=0, combo=0, maxCombo=0, lines=0, level=1, relief=0;
 var pieceSeq=0;              // 조각 고유번호(같은 조각 셀끼리만 테두리 병합 → 통짜 모양 유지)
 var running=false, paused=false, gravT=null;
 var missionT=null, missionEndT=null, mission=null;
-var SENT=null, sentPos=0, sentIdx=-1, sentOrder=[];   // 📝 현재 문장 / 다음 채울 자리 / 순서
+var curSet=null, goalWords=[], sentPos=0, setIdx=-1, setOrder=[];   // 📝 현재 세트(2문장) / 이어붙인 단어열 / 다음 채울 자리
 
 var SPEED = HUBSPEED;                        // 🏃 플레이 중 조절 가능한 낙하 속도(1느림 ~ 5빠름)
 function dropMs(){
@@ -545,7 +553,7 @@ function startGame(mode){
   running=true; paused=false;
   computeDims();                              // 🔲 화면에 맞춰 열/행 수 결정(보드는 크게·셀은 작게)
   grid=[]; for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
-  sentOrder=shuffle(SENTENCES[MODE].map(function(_,i){ return i; })); sentIdx=-1; nextSentence();  // 📝 첫 문장
+  setOrder=shuffle(SETS[MODE].map(function(_,i){ return i; })); setIdx=-1; nextSet();  // 📝 첫 세트(2문장)
   document.getElementById('hud-mode').textContent=VOCAB[MODE].flag+' '+VOCAB[MODE].name;
   document.getElementById('mus-btn').textContent=MUSIC.on?'🔊':'🔇';
   var _spd=document.getElementById('spd-val'); if(_spd) _spd.textContent=SPEED;
@@ -557,7 +565,7 @@ function startGame(mode){
 function availArea(){
   var wide=window.innerWidth>=700;
   var availW=Math.min(window.innerWidth-12, wide?600:window.innerWidth-12);
-  var availH=window.innerHeight - (wide?360:392);   // 상단(HUD+뜻+미션) + 하단 게임패드(범퍼+본체) 예약
+  var availH=window.innerHeight - (wide?392:424);   // 상단(HUD+2문장세트+미션) + 하단 게임패드 예약
   return { wide:wide, w:Math.max(160,availW), h:Math.max(240,availH) };
 }
 /* 🔲 열/행 수 결정 — 보드는 영역을 꽉 채우되(직사각형만큼 크게), 셀(도형)은 작게.
@@ -582,11 +590,12 @@ window.addEventListener('resize', function(){ if(running){ layout(); render(); }
    조각 생성 / 충돌 / 이동 / 회전
    ════════════════════════════════════════════════════════════ */
 /* 조각에 붙일 단어 선택: '다음 필요 단어'를 자주 띄우되, 문장 내 다른 단어·함정도 섞음 */
+/* 조각 단어는 '이번 세트 안의 단어'만 등장(함정 없음). 다음 필요 단어를 자주 띄움. */
 function pickWord(){
-  var r=Math.random();
-  if(SENT && r<0.45) return SENT.words[sentPos];                                  // 다음 필요 단어
-  if(SENT && r<0.62) return SENT.words[Math.floor(Math.random()*SENT.words.length)]; // 문장 내 다른 단어(디코이)
-  var pool=VOCAB[MODE].words; return pool[Math.floor(Math.random()*pool.length)].w; // 완전 함정
+  if(!goalWords.length) return 'a';
+  var need=goalWords[sentPos];
+  if(need && Math.random()<0.6) return need;                        // 다음 필요 단어 자주
+  return goalWords[Math.floor(Math.random()*goalWords.length)];     // 세트 안의 다른 단어(순서 아니면 쌓임)
 }
 function spawn(){
   if(!running) return;
@@ -598,34 +607,42 @@ function spawn(){
   if(collide(piece.cells, piece.row, piece.col)) return gameOver();   // 스폰 즉시 충돌 = 게임오버
 }
 
-/* ── 📝 문장 진행 표시 ── */
+/* ── 📝 세트(2문장) 진행 표시 — 두 문장을 줄마다 슬롯으로, 다음 채울 자리 강조 ── */
 function renderSlots(){
-  if(!SENT) return;
-  document.getElementById('q-sentko').textContent='💡 '+SENT.ko;
-  document.getElementById('q-slots').innerHTML=SENT.words.map(function(w,i){
-    var cls=i<sentPos?'done':(i===sentPos?'next':'');
-    return '<span class="qslot '+cls+'" onclick="sayWord(this.dataset.w,this)" data-w="'+w.replace(/"/g,'&quot;')+'">'+w+'</span>';
-  }).join('');
-  var need=SENT.words[sentPos], m=document.getElementById('mission');
+  if(!curSet) return;
+  var off=0, html='';
+  curSet.forEach(function(s){
+    var slots=s.words.map(function(w,i){
+      var gi=off+i, cls=gi<sentPos?'done':(gi===sentPos?'next':'');
+      return '<span class="qslot '+cls+'" onclick="sayWord(this.dataset.w,this)" data-w="'+w.replace(/"/g,'&quot;')+'">'+w+'</span>';
+    }).join('');
+    html+='<div class="sline"><span class="sko">'+s.ko+'</span><span class="sslots">'+slots+'</span></div>';
+    off+=s.words.length;
+  });
+  document.getElementById('q-sets').innerHTML=html;
+  var need=goalWords[sentPos], m=document.getElementById('mission');
   if(need){ var mn=meanOf(need), py=pyOf(need);
     m.style.display='block';
-    m.textContent='🎯 다음 단어: '+need+(mn?' = '+mn:'')+(py?' ['+py+']':'')+' 조각을 찾아 놓으세요!';
+    m.textContent='🎯 다음: '+need+(mn?' = '+mn:'')+(py?' ['+py+']':'')+' 조각을 놓으세요!';
   } else { m.style.display='none'; }
 }
-function nextSentence(){
-  sentIdx++; if(sentIdx>=sentOrder.length){ sentOrder=shuffle(sentOrder.slice()); sentIdx=0; }
-  SENT=SENTENCES[MODE][sentOrder[sentIdx]]; sentPos=0; renderSlots();
+function nextSet(){
+  setIdx++; if(setIdx>=setOrder.length){ setOrder=shuffle(setOrder.slice()); setIdx=0; }
+  curSet=SETS[MODE][setOrder[setIdx]];
+  goalWords=[]; curSet.forEach(function(s){ goalWords=goalWords.concat(s.words); });   // 두 문장 이어붙임
+  sentPos=0; renderSlots();
 }
-/* 문장 완성: 보너스 + 전체 낭독 + 폭죽 + 바닥 정리(보상) + 다음 문장 */
-function sentenceComplete(){
-  score += 500 + level*100;
-  splash('문장 완성! 🎉');
-  speakSentence(SENT.words.join(MODE==='zh'?'':' '), 0.98, 2);   // 🗣️ 완성 문장 2번 반복
+/* 세트(두 문장 모두) 완성: 큰 보너스 + 두 문장 낭독 + 폭죽 + 바닥 정리 + 다음 세트 */
+function setComplete(){
+  score += 800 + level*150;
+  splash('두 문장 완성! 🎉🎉');
+  var full=curSet.map(function(s){ return s.words.join(MODE==='zh'?'':' '); }).join(MODE==='zh'?'。':'. ');
+  speakSentence(full, 0.98, 1);
   var bd=document.getElementById('board').getBoundingClientRect();
-  for(var i=0;i<6;i++){ (function(k){ setTimeout(function(){ if(running) burst(bd.left+Math.random()*bd.width, bd.top+30+Math.random()*bd.height*0.5, 12, ['#fde047','#fb7185','#c084fc','#7dd3fc','#34d399']); }, k*120); })(i); }
+  for(var i=0;i<8;i++){ (function(k){ setTimeout(function(){ if(running) burst(bd.left+Math.random()*bd.width, bd.top+30+Math.random()*bd.height*0.5, 12, ['#fde047','#fb7185','#c084fc','#7dd3fc','#34d399']); }, k*110); })(i); }
   sndClear(3);
-  grid.splice(ROWS-3,3); while(grid.length<ROWS) grid.unshift(new Array(COLS).fill(null));  // 🎁 바닥 3줄 정리
-  nextSentence();
+  grid.splice(ROWS-4,4); while(grid.length<ROWS) grid.unshift(new Array(COLS).fill(null));  // 🎁 바닥 4줄 정리
+  nextSet();
 }
 /* 충돌: 벽/바닥/이미 쌓인 블록과 겹치면 true (천장 위 gr<0 는 허용) */
 function collide(cells,row,col){
@@ -673,16 +690,16 @@ function lock(){
   piece=null;
   if(topOut) return gameOver();               // 천장 위에서 잠김 = 게임오버
 
-  // 📝 문장 어순 진행: 놓은 단어가 '다음 필요 단어'와 같으면 슬롯을 채움
-  if(SENT && lockedWord===SENT.words[sentPos]){
+  // 📝 어순 진행: 놓은 단어가 '다음 필요 단어'(두 문장 이어붙인 순서)와 같으면 슬롯을 채움
+  if(goalWords.length && lockedWord===goalWords[sentPos]){
     sentPos++; score += 120 + combo*20; pushProg(lockedWord, true);
     speak(lockedWord, 0.95);
     var b=document.getElementById('board').getBoundingClientRect();
     burst(b.left+(lockCol+0.5)*cell, b.top+(lockRow+0.5)*cell, 10, ['#34d399','#a7f3d0','#fde047']);
     renderSlots();
-    if(sentPos>=SENT.words.length) sentenceComplete();   // 마지막 자리까지 채움 → 문장 완성
+    if(sentPos>=goalWords.length) setComplete();          // 두 문장 모두 채움 → 세트 완성 점수
   } else {
-    speak(lockedWord, 0.98);                              // 틀린/다른 단어여도 발음은 들려줌(학습)
+    speak(lockedWord, 0.98);                              // 순서 아닌 단어도 발음은 들려줌(학습)
   }
 
   var cleared=clearLines();                   // 💥 정통 테트리스 줄 지우기(쌓인 함정 정리)
@@ -933,6 +950,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715042534 -->
+<!-- BUILD:20260715044440 -->
 </body>
 </html>
