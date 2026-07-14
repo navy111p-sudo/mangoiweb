@@ -254,8 +254,12 @@ async function load() {
   });
 
   // TOP 발화자
+  // 🐛 fix(2026-07-14): #top-speakers DOM 이 마크업에서 제거됐는데 load() 는 계속 참조 →
+  //   getElementById(null).innerHTML 로 죽어 이하 KPI·매출추이 위젯이 전부 0/미갱신이었음
+  //   (269행 #emergency-table 과 동일 패턴, 이 줄만 가드 누락. 태초 버그, 리팩토링 무관).
+  const _tsEl = document.getElementById('top-speakers');
   const speakers = data.top_speakers || [];
-  document.getElementById('top-speakers').innerHTML = speakers.length === 0
+  if (_tsEl) _tsEl.innerHTML = speakers.length === 0
     ? '<tr><td colspan="4" class="empty">'+(adminLang==='en'?'No data':'데이터 없음')+'</td></tr>'
     : speakers.map(s => {
         const pct = s.session_ms > 0 ? ((s.active_ms/s.session_ms)*100).toFixed(1) : '0';
