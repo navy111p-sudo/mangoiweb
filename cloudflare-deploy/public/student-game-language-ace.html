@@ -370,26 +370,26 @@ function buildBackdrop(){
   bdH = Math.max(H*2, 1200);
   bd = document.createElement('canvas'); bd.width=Math.max(1,Math.round(W)); bd.height=bdH;
   var g=bd.getContext('2d');
-  // 하늘(황혼 밀리터리 톤)
-  var sky=g.createLinearGradient(0,0,0,bdH); sky.addColorStop(0,'#243447'); sky.addColorStop(0.5,'#33475c');
-  sky.addColorStop(1,'#3b5a55'); g.fillStyle=sky; g.fillRect(0,0,bd.width,bdH);
-  // 지형 패치(밭/숲) — 아래로 흐르며 전진감
+  // 맑은 하늘색 그라데이션(위=진한 하늘, 아래=옅은 하늘)
+  var sky=g.createLinearGradient(0,0,0,bdH); sky.addColorStop(0,'#4aa8ea'); sky.addColorStop(0.5,'#7cc6f2');
+  sky.addColorStop(1,'#b9e4fb'); g.fillStyle=sky; g.fillRect(0,0,bd.width,bdH);
   function rnd(s){ var x=Math.sin(s*99.7)*43758.5; return x-Math.floor(x); }
-  for(var i=0;i<90;i++){
-    var x=rnd(i)*bd.width, y=rnd(i+7)*bdH, w=40+rnd(i+3)*130, h=30+rnd(i+9)*90;
-    var greens=['#3d5842','#47603f','#54613a','#3a5347','#5b5f3a'];
-    g.fillStyle=greens[Math.floor(rnd(i+2)*greens.length)]; g.globalAlpha=0.5;
-    g.beginPath(); g.ellipse(x,y,w,h,rnd(i)*3,0,7); g.fill();
-  }
-  g.globalAlpha=1;
-  // 강 한 줄
-  g.strokeStyle='rgba(120,150,175,.28)'; g.lineWidth=14; g.beginPath();
-  g.moveTo(bd.width*0.2,0);
-  for(var yy=0;yy<=bdH;yy+=60){ g.lineTo(bd.width*(0.2+0.15*Math.sin(yy*0.01)), yy); } g.stroke();
-  // 구름(반투명)
-  for(var c=0;c<26;c++){ var cx=rnd(c+40)*bd.width, cy=rnd(c+50)*bdH, cr=30+rnd(c+60)*70;
-    var rg=g.createRadialGradient(cx,cy,0,cx,cy,cr); rg.addColorStop(0,'rgba(230,238,246,.5)');
-    rg.addColorStop(1,'rgba(230,238,246,0)'); g.fillStyle=rg; g.beginPath(); g.arc(cx,cy,cr,0,7); g.fill(); }
+  // 뭉게구름(cumulus) 다수 — 아래로 흐르며 전진감
+  var n=Math.max(9, Math.round(bdH/140));
+  for(var i=0;i<n;i++){ drawCloud(g, rnd(i)*bd.width, rnd(i+7)*bdH, 0.7+rnd(i+3)*1.2, i+1); }
+}
+/* 뭉게구름 한 덩이 = 겹친 흰 퍼프 + 옅은 회색 밑면(볼륨감) */
+function drawCloud(g,x,y,s,seed){
+  function rnd(k){ var v=Math.sin(seed*13.1+k*7.3)*43758.5; return v-Math.floor(v); }
+  var puffs=5+Math.floor(rnd(1)*4);
+  // 밑면 옅은 회색(입체감)
+  for(var k=0;k<puffs;k++){ var px=x+(k-(puffs-1)/2)*34*s+(rnd(k)*20-10)*s, py=y+8*s+rnd(k+30)*10*s, r=(26+rnd(k+10)*20)*s;
+    var sg=g.createRadialGradient(px,py,0,px,py,r); sg.addColorStop(0,'rgba(188,206,224,.85)'); sg.addColorStop(1,'rgba(188,206,224,0)');
+    g.fillStyle=sg; g.beginPath(); g.arc(px,py,r,0,7); g.fill(); }
+  // 흰 본체 퍼프
+  for(var k2=0;k2<puffs;k2++){ var px2=x+(k2-(puffs-1)/2)*32*s+(rnd(k2+3)*16-8)*s, py2=y-rnd(k2+5)*14*s, r2=(30+rnd(k2+2)*22)*s;
+    var wg=g.createRadialGradient(px2,py2-r2*0.25,r2*0.2,px2,py2,r2); wg.addColorStop(0,'#ffffff'); wg.addColorStop(.72,'rgba(255,255,255,.97)'); wg.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=wg; g.beginPath(); g.arc(px2,py2,r2,0,7); g.fill(); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -480,16 +480,16 @@ function muzzleWorld(e, lx, ly){ var a=clamp(e.bank*0.012,-0.28,0.28), ca=Math.c
 function fireBullet(mx,my,sp,color){ var a=Math.atan2(G.py-my, G.px-mx);
   G.ebul.push({x:mx,y:my,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:5,c:color}); muzzleFlash(mx,my); }
 function enemyFire(e){
+  if(G.ebul.length >= 14) return;                 // 🛡️ 화면 총알 상한(탄막 쌓임 방지)
   if(e.pat==='dive'){
-    // 기수 카울총 단발 조준 사격(빠름)
+    // 기수 카울총 단발 조준 사격
     var m=muzzleWorld(e, 0, e.dh*0.42);
     fireBullet(m.x, m.y, 205*SPMUL, '#ffcf5a');
   } else {
-    // 좌우 날개총 2발만 조준(수렴) — 탄막 아님
-    var wing=e.dw*0.24;
-    var l=muzzleWorld(e, -wing, e.dh*0.30), r=muzzleWorld(e, wing, e.dh*0.30);
-    fireBullet(l.x, l.y, 165*SPMUL, '#ff6b6b');
-    fireBullet(r.x, r.y, 165*SPMUL, '#ff6b6b');
+    // 좌우 날개총 중 한쪽만 1발 조준(탄막 아님, 총처럼)
+    var wing=e.dw*0.24, s=(Math.random()<0.5?-1:1);
+    var w=muzzleWorld(e, s*wing, e.dh*0.30);
+    fireBullet(w.x, w.y, 168*SPMUL, '#ff6b6b');
   }
   sndEnemyShot();
 }
@@ -558,7 +558,7 @@ function update(dt){
     e.t+=dt; e.y+=e.vy*dt;
     var nx = e.baseX + Math.sin(e.t*e.freq)*e.amp;
     e.bank = (nx-e.x); e.x=nx; e.x=clamp(e.x,20,W-20);
-    e.fireT-=dt; if(e.fireT<=0 && e.y>20 && e.y<H*0.75){ enemyFire(e); e.fireT=(e.pat==='dive'?1.7:2.3)*(1.25-STAGE*0.09); }
+    e.fireT-=dt; if(e.fireT<=0 && e.y>20 && e.y<H*0.75){ enemyFire(e); e.fireT=(e.pat==='dive'?2.2:2.9)*(1.25-STAGE*0.08); }
     if(e.y>H+40){ G.enemies.splice(i,1); }
   }
   // 적 탄
@@ -648,10 +648,12 @@ function render(){
     G.enemies.forEach(function(e){ drawZeroSprite(e); drawLabel(e); });
     // 적 탄
     G.ebul.forEach(function(eb){ drawEbul(eb); });
-    // 플레이어 탄
-    ctx.fillStyle='#fff2b0';
-    G.pbul.forEach(function(pb){ ctx.fillRect(pb.x-2,pb.y-9,4,12);
-      ctx.fillStyle='rgba(255,220,120,.5)'; ctx.fillRect(pb.x-1,pb.y+3,2,7); ctx.fillStyle='#fff2b0'; });
+    // 플레이어 탄(위로 향하는 예광탄 — 밝은 하늘서도 보이게 어두운 외곽+노란 코어+흰 탄두)
+    ctx.lineCap='round';
+    G.pbul.forEach(function(pb){
+      ctx.strokeStyle='rgba(70,35,0,.5)'; ctx.lineWidth=4.5; ctx.beginPath(); ctx.moveTo(pb.x,pb.y-12); ctx.lineTo(pb.x,pb.y+2); ctx.stroke();
+      ctx.strokeStyle='#ffcf3c'; ctx.lineWidth=2.6; ctx.beginPath(); ctx.moveTo(pb.x,pb.y-12); ctx.lineTo(pb.x,pb.y+1); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(pb.x,pb.y-12,1.9,0,7); ctx.fill(); });
     // 플레이어
     drawPlayer();
     // 파티클
@@ -724,11 +726,15 @@ function drawLabel(e){
   ctx.restore();
 }
 
+/* 예광탄(트레이서) — 진행 방향으로 길쭉한 총알선 + 뜨거운 탄두(둥근 폭탄 느낌 제거) */
 function drawEbul(eb){
-  ctx.save();
-  var gg=ctx.createRadialGradient(eb.x,eb.y,0,eb.x,eb.y,eb.r*2); gg.addColorStop(0,'#fff'); gg.addColorStop(.4,eb.c);
-  gg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(eb.x,eb.y,eb.r*1.8,0,7); ctx.fill();
-  ctx.fillStyle=eb.c; ctx.beginPath(); ctx.arc(eb.x,eb.y,eb.r*0.7,0,7); ctx.fill();
+  var sp=Math.hypot(eb.vx,eb.vy)||1, ux=eb.vx/sp, uy=eb.vy/sp, len=15;
+  ctx.save(); ctx.lineCap='round';
+  ctx.strokeStyle='rgba(120,60,20,.4)'; ctx.lineWidth=4;   // 어두운 외곽(밝은 하늘서도 보이게)
+  ctx.beginPath(); ctx.moveTo(eb.x-ux*len, eb.y-uy*len); ctx.lineTo(eb.x, eb.y); ctx.stroke();
+  ctx.strokeStyle=eb.c; ctx.lineWidth=2.6;                 // 예광 코어
+  ctx.beginPath(); ctx.moveTo(eb.x-ux*len*0.7, eb.y-uy*len*0.7); ctx.lineTo(eb.x, eb.y); ctx.stroke();
+  ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(eb.x, eb.y, 2.2, 0, 7); ctx.fill();  // 탄두
   ctx.restore();
 }
 function drawFuel(fu){
@@ -849,6 +855,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715055844 -->
+<!-- BUILD:20260715060500 -->
 </body>
 </html>
