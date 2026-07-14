@@ -5238,9 +5238,12 @@ let _smCountBase = '';                                      // 전체 인원수 
 function mangoiGetDataScope(){
   try {
     var role;
-    var sim = localStorage.getItem('mangoi_user_role');
-    if (sim){ var M={hq_exec:'exec',hq_mgr:'mgr',hq_teacher:'teacher',franchise:'franchise',branch:'branch',agency:'agency',parent:'parent',student:'student'}; role=M[sim]||sim; }
-    else {
+    // 🔐 (2026-07-14 사장님 지시) 역할 시뮬레이션(mangoi_user_role) 완전 폐지.
+    //   이전엔 이 값을 실제 세션보다 '우선' 읽어, 대리점→경영진 재로그인 후에도 대리점
+    //   화면이 뜨는 역할 드리프트 버그의 원인이었음. 이제 항상 실제 로그인 세션만 사용하고,
+    //   남아있는 시뮬레이션 값은 즉시 제거해 드리프트를 원천 차단한다.
+    try { localStorage.removeItem('mangoi_user_role'); } catch(_){}
+    {
       var u=null; try{ u=JSON.parse(localStorage.getItem('admin_session')||'null'); }catch(_){}
       var U={hq_t_001:'teacher',hq_teacher:'teacher',hq_exec:'exec',hq_mgr:'mgr',admin:'exec',cfo01:'mgr',ops_lead:'mgr',branch_busan:'branch',branch_daegu:'branch',agency_gn001:'agency',agency_sc002:'agency',parent_001:'parent',student_001:'student'};
       role = u ? (U[u.uid]||'exec') : 'exec';

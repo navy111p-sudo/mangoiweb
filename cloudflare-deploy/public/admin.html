@@ -2196,17 +2196,8 @@
       };
       </script>
 
-      <details style="margin-top:8px">
-        <summary style="cursor:pointer;font-size:11.5px;color:#3b82f6;font-weight:600" data-ko="💡 시연용 데모 계정 보기" data-en="💡 Show demo accounts">💡 시연용 데모 계정 보기</summary>
-        <div style="margin-top:8px;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:11.5px;color:#374151;line-height:1.8;font-family:Consolas,monospace">
-          <div><b style="color:#dc2626">👑 본사·경영진</b> — admin / admin · cfo01 / cfo</div>
-          <div><b style="color:#ef4444">🛠️ 본사·관리자</b> — ops_lead / ops</div>
-          <div><b style="color:#f87171">👨‍🏫 본사·교사</b> — hq_t_001 / teacher</div>
-          <div><b style="color:#f59e0b">🏬 지사 (산하 대리점만)</b> — branch_busan / busan · branch_daegu / daegu</div>
-          <div><b style="color:#10b981">🤝 대리점 (자기만)</b> — agency_gn001 / gn001 · agency_sc002 / sc002</div>
-          <div style="font-size:10.5px;color:#94a3b8;margin-top:6px;font-family:inherit">※ 비밀번호는 시연용 — 실 운영 시 백엔드 인증으로 교체</div>
-        </div>
-      </details>
+      <!-- 🔐 (2026-07-14 보안) 시연용 데모 계정·비밀번호(admin/admin·cfo01/cfo 등 최고권한 포함)
+           안내 전면 삭제 (사장님 지시). 테스트 계정/비번을 화면에 노출하지 않음. 계정은 운영자 문의. -->
     </div>
   </div>
 
@@ -4103,47 +4094,13 @@
             html[data-admin-theme="ivory"] #card-permissions #role-perm-table tbody td { color:#1f2937 !important }
           </style>
           <p style="margin:0 0 10px;font-size:13.5px;line-height:1.65;color:#374151">6개 역할 <b>(본사 3개 직급 · 지사본사 · 지사 · 대리점)</b> × 관리자 사이드바의 <b>전체 메뉴</b>를 한 곳에서 제어합니다. 셀을 클릭하면 ✅ → 👁️ → ❌ 순환·즉시 저장되고, 해당 역할 사용자에게 바로 반영됩니다.</p>
-          <!-- 🆕 내 역할 시뮬레이션 — 학생용 페이지에서 수업 연기/변경 시간 제한이 어떻게 적용되는지 테스트 -->
-          <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6;color:#78350f">
-            <b>🎭 내 역할 시뮬레이션</b> — 학생용 홈페이지에서 사용할 역할을 선택. 「📅 수업 연기/변경」 시 위 권한 설정 따라 시간 제한이 자동 적용됩니다.
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
-              <select id="role-sim-select" onchange="setMyRoleSim(this.value)" style="padding:6px 10px;font-size:12.5px;border:1px solid #f59e0b;border-radius:6px;background:#fff;font-weight:600">
-                <option value="">— 역할 선택 —</option>
-                <option value="hq_exec">🏛 본사 임원 (hq_exec)</option>
-                <option value="hq_mgr">🏛 본사 매니저 (hq_mgr)</option>
-                <option value="hq_teacher">🧑‍🏫 강사 (hq_teacher)</option>
-                <option value="franchise">🏢 지사본사 (franchise)</option>
-                <option value="branch">🏢 지사 (branch)</option>
-                <option value="agency">🏪 대리점 (agency)</option>
-                <option value="parent">👪 학부모 (parent)</option>
-                <option value="student">🎓 학생 (student)</option>
-              </select>
-              <span id="role-sim-current" style="font-size:11.5px;color:#78350f"></span>
-              <button onclick="clearMyRoleSim()" style="padding:5px 12px;font-size:11.5px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer">초기화</button>
-            </div>
-          </div>
+          <!-- 🔐 (2026-07-14 사장님 지시) '🎭 내 역할 시뮬레이션' 드롭다운 완전 제거.
+               역할 드리프트(대리점→경영진 재로그인 후에도 대리점 화면) 버그의 원인.
+               setMyRoleSim/clearMyRoleSim 은 잔존 호출 대비 안전 no-op 로만 유지. -->
           <script>
-            window.setMyRoleSim = function(role){
-              if (!role) { localStorage.removeItem('mangoi_user_role'); }
-              else { localStorage.setItem('mangoi_user_role', role); }
-              const el = document.getElementById('role-sim-current');
-              if (el) el.textContent = role ? ('현재 역할: ' + role + ' — 학생용 페이지에서 적용됨') : '역할 미설정 (기본 = student)';
-            };
-            window.clearMyRoleSim = function(){
-              localStorage.removeItem('mangoi_user_role');
-              const sel = document.getElementById('role-sim-select');
-              if (sel) sel.value = '';
-              const el = document.getElementById('role-sim-current');
-              if (el) el.textContent = '역할 미설정 (기본 = student)';
-            };
-            // 초기 로드 시 표시
-            setTimeout(() => {
-              const saved = localStorage.getItem('mangoi_user_role');
-              const sel = document.getElementById('role-sim-select');
-              if (sel && saved) sel.value = saved;
-              const el = document.getElementById('role-sim-current');
-              if (el) el.textContent = saved ? ('현재 역할: ' + saved + ' — 학생용 페이지에서 적용됨') : '역할 미설정 (기본 = student)';
-            }, 200);
+            window.setMyRoleSim = function(){ try{ localStorage.removeItem('mangoi_user_role'); }catch(_){} };
+            window.clearMyRoleSim = function(){ try{ localStorage.removeItem('mangoi_user_role'); }catch(_){} };
+            try { localStorage.removeItem('mangoi_user_role'); } catch(_){}
           </script>
           <!-- 범례 -->
           <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;padding:8px 12px;background:linear-gradient(90deg,#f9fafb,#fff);border:1px solid #e5e7eb;border-radius:8px;font-size:11.5px">

@@ -96,9 +96,8 @@
         '<a class="ph114-menu-item" href="/docs/" target="_blank"><span class="ph114-menu-icon">📘</span>자료실 / 사용 안내서</a>' +
         '<a class="ph114-menu-item" href="/admin/health" target="_blank"><span class="ph114-menu-icon">🩺</span>셀프 진단</a>' +
         '<a class="ph114-menu-item" href="javascript:void(0)" onclick="ph114Help()"><span class="ph114-menu-icon">❓</span>도움말 / FAQ</a>' +
-        '<a class="ph114-menu-item" href="javascript:void(0)" onclick="ph114SwitchRole()"><span class="ph114-menu-icon">🔄</span>역할 전환 (테스트)</a>' +
+        /* 🔐 (2026-07-14) 역할 전환·다른 계정 로그인 제거 — 역할 드리프트 방지 */
         '<div class="ph114-divider"></div>' +
-        '<a class="ph114-menu-item success" href="javascript:void(0)" onclick="ph114Login()"><span class="ph114-menu-icon">✅</span>다른 계정으로 로그인</a>' +
         '<a class="ph114-menu-item danger" href="javascript:void(0)" onclick="ph114Logout()"><span class="ph114-menu-icon">🚪</span>로그아웃</a>' +
       '</div>';
     document.getElementById('ph114-modal-overlay').classList.add('show');

@@ -117,25 +117,13 @@
 
   // === 기존 ph115 사용자 버튼의 "역할 전환" 메뉴를 ph117 로 교체 ===
   // ph115OpenModal 이후 모달 안의 "🔄 역할 전환" 링크의 onclick 교체
-  var origOpenModal = window.ph115OpenModal;
-  if (typeof origOpenModal === 'function') {
-    window.ph115OpenModal = function(e){
-      origOpenModal(e);
-      setTimeout(function(){
-        document.querySelectorAll('#ph115-modal .ph115-mi').forEach(function(a){
-          if (a.textContent.indexOf('역할 전환') >= 0) {
-            a.setAttribute('onclick', 'ph115CloseModal();ph117OpenRole();');
-            // 라벨도 좀 더 정확하게
-            var icon = a.querySelector('.ph115-mi-icon');
-            if (icon) a.innerHTML = icon.outerHTML + '🎭 역할 선택 (7가지)';
-          }
-          if (a.textContent.indexOf('다른 계정') >= 0 || a.textContent.indexOf('로그인') >= 0 && !a.textContent.indexOf('로그아웃')) {
-            a.setAttribute('onclick', 'ph115CloseModal();ph117OpenRole();');
-          }
-        });
-      }, 50);
-    };
-  }
+  // 🔐 (2026-07-14 사장님 지시) 역할 선택(7가지) 모달 완전 폐지 — 역할 드리프트 원인.
+  //   ph115 사용자 메뉴에 '🎭 역할 선택' 을 주입하던 override 제거. ph117OpenRole 은
+  //   잔존 호출(옛 onclick 등) 대비 안전 no-op 로만 유지하고, 열려는 시도가 있어도
+  //   시뮬레이션 값을 지워 드리프트를 차단한다.
+  window.ph117OpenRole = function(){ try{ localStorage.removeItem('mangoi_user_role'); }catch(_){} };
+  window.ph117CloseRole = function(){ var m=document.getElementById('ph117-role-modal'); if(m) m.classList.remove('show'); };
+  try { localStorage.removeItem('mangoi_user_role'); } catch(_){}
 
-  console.log('[ph117] 7가지 역할 카드 모달 초기화 완료 — ph117OpenRole() 호출 가능');
+  console.log('[ph117] 역할 선택 모달 폐지됨 (역할 드리프트 방지, 2026-07-14)');
 })();
