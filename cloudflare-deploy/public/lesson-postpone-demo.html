@@ -1052,6 +1052,15 @@ header {
         <div class="mc-desc">원하는 다른 날짜·교사로<br>즉시 예약을 교체합니다.</div>
         <div class="mc-cta">시작하기 →</div>
       </button>
+
+      <button class="main-card cancel" data-mode="cancel" style="border-color:rgba(239,68,68,.4)">
+        <div class="mc-top">
+          <div class="mc-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626)">🗑</div>
+          <div class="mc-label">수업 취소하기</div>
+        </div>
+        <div class="mc-desc">이번 수업을 취소합니다.<br>시작 30분 전 무료 · 이내 유료.</div>
+        <div class="mc-cta">시작하기 →</div>
+      </button>
     </div>
   </section>
 
@@ -1267,6 +1276,43 @@ function __mobPersist(){
 }
 window.__mobLastFee = null;
 
+/* 🆕 취소 흐름 — 현재 수업들을 취소(확인 → 유료/무료 안내 → 서버 기록 → 완료 화면). */
+function __mobCancelFlow(){
+  var origs = (typeof CURRENT_SCHEDULE!=='undefined') ? CURRENT_SCHEDULE.slice() : [];
+  if (!origs.length){ try{ showToast('취소할 수업이 없습니다'); }catch(e){} return; }
+  var paidN=0, freeN=0;
+  origs.forEach(function(o){ var f=__mobFee(o.date,o.hour); if(f.fee==='paid')paidN++; else freeN++; });
+  var feeStr = (freeN?('무료 '+freeN+'건'):'') + (paidN?((freeN?' · ':'')+'유료 '+paidN+'건'):'');
+  var listStr = origs.map(function(o){ return '• '+o.teacherName+' '+fmtMD(o.date)+'('+fmtDOW(o.date)+') '+o.hour; }).join('\n');
+  var ok = window.confirm('아래 수업을 취소하시겠습니까?\n\n'+listStr+'\n\n요금: '+feeStr+'\n(시작 30분 전 무료 · 30분 이내 유료)');
+  if (!ok) return;
+  if (__MOB_REAL){
+    try {
+      var u = {}; try { u = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null')||{}; } catch(e){}
+      origs.forEach(function(o){
+        var f=__mobFee(o.date,o.hour);
+        fetch('/api/admin/schedule-requests',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          request_type:'cancel', requester_role:'student', requester_name:u.name||'', student_name:u.name||'', student_uid:u.uid||'',
+          teacher_name:o.teacherName||'강사', schedule_id:o.schedule_id||null, orig_date:o.date, orig_time:o.hour, fee_type:f.fee, minutes_before:f.mins
+        })}).catch(function(){});
+      });
+    } catch(e){}
+  }
+  // 완료 화면 (연기/변경 done 화면 재사용)
+  state.mode='cancel';
+  var beforeList = origs.map(function(c){ return (c.ico||'')+' '+c.teacherName+' '+fmtMD(c.date)+'('+fmtDOW(c.date)+') '+c.hour; }).join(' / ');
+  var feeNote = '<br><span style="font-size:12px">'+(freeN?('<span style="color:#16a34a;font-weight:700">🆓 무료 '+freeN+'건</span> '):'')+(paidN?('<span style="color:#d97706;font-weight:700">💰 유료 '+paidN+'건</span>'):'')+'</span>';
+  try {
+    $('#done-title').textContent = '✅ 취소 완료되었습니다';
+    $('#done-sub').innerHTML = '취소된 수업: '+beforeList+feeNote;
+    $('#done-list').innerHTML = '';
+    $('#sticky-bar').classList.remove('show');
+    $('#screen-main').classList.remove('active');
+    $('#screen-detail').classList.remove('active');
+    $('#screen-done').classList.add('active');
+  } catch(e){}
+}
+
 /* 관리자 실제 강사 비동기 로드 */
 (async function __loadRealTeachers(){
   try{
@@ -1300,7 +1346,7 @@ const state = {
   loading: false,
   cart: [],          // [{teacherId, teacherName, ico, date, hour}]
 };
-const VERB = { postpone: '연기', change: '변경' };
+const VERB = { postpone: '연기', change: '변경', cancel: '취소' };
 
 /* ════════════════════════════════════════════════════════════
    유틸
@@ -1327,6 +1373,7 @@ function showToast(msg){
    ════════════════════════════════════════════════════════════ */
 function _goMode(mode){
   if (!mode) return;
+  if (mode === 'cancel') { __mobCancelFlow(); return; }   // 🆕 취소는 새 슬롯 불필요 → 전용 흐름
   state.mode = mode;
   state.tab = 'time';
   state.weeklyTarget = CURRENT_SCHEDULE.length;
@@ -1854,7 +1901,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260714235035 -->
+<!-- BUILD:20260714235324 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
