@@ -2,7 +2,7 @@
 // 🔔 api-notify.ts — 알림 큐 공용 (api-mango.ts 에서 이동, 2026-07-14 8차)
 //   notification_queue 적재 담당. 소비(발송)는 기존 cron/라우트가 수행.
 // ═══════════════════════════════════════════════════════════════════════
-import { broadcastWebPush } from './web-push';
+import { broadcastWebPush, generateVapidKeyPair, getWebPushMode } from './web-push';
 import { json } from './api-util';
 import type { MangoEnv } from './api-mango';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
@@ -516,6 +516,163 @@ export async function handleNotifyApi(
 
     // ═══════════════════════════════════════════════════════════════
     // 🎙 Phase TVS 끝
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🔔 Phase WP1~WP2 — Web Push 푸시 알림
+    //   - VAPID JWT 인증 + 페이로드 없는 wakeup
+    //   - SW 가 push 이벤트에서 /api/push/pending 에서 메시지 가져옴
+    // ═══════════════════════════════════════════════════════════════
+    const ensurePushTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT, auth TEXT, ua TEXT, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id, enabled)`); } catch {}
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, title TEXT NOT NULL, body TEXT, url TEXT, icon TEXT, badge TEXT, tag TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_push_queue_ep ON push_queue(endpoint, fetched_at, queued_at DESC)`); } catch {}
+    };
+
+    // sendPushToUser is now defined at the top of handleMangoApi (TDZ fix).
+    // This block intentionally left as a marker to preserve line layout.
+
+    // ── GET /api/push/vapid-public-key — 클라이언트가 구독 시 사용 ──
+    if (method === 'GET' && path === '/api/push/vapid-public-key') {
+      const key = (env as any).VAPID_PUBLIC_KEY || '';
+      return json({ ok: true, key, mode: getWebPushMode(env as any) });
+    }
+
+    // ── POST /api/push/subscribe — 구독 등록 ──
+    if (method === 'POST' && path === '/api/push/subscribe') {
+      await ensurePushTables();
+      const b: any = await request.json().catch(() => ({}));
+      const sub = b.subscription;
+      if (!sub?.endpoint) return json({ ok: false, error: 'no_endpoint' }, 400);
+      const now = Date.now();
+      // INSERT OR REPLACE 로 동일 endpoint 갱신
+      await env.DB.prepare(
+        `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, ua, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, ua = excluded.ua, enabled = 1, updated_at = excluded.updated_at`
+      ).bind(b.user_id || null, sub.endpoint, sub.keys?.p256dh || null, sub.keys?.auth || null, b.ua || null, now, now).run();
+      return json({ ok: true, endpoint: sub.endpoint });
+    }
+
+    // ── POST /api/push/unsubscribe — 구독 해제 ──
+    if (method === 'POST' && path === '/api/push/unsubscribe') {
+      await ensurePushTables();
+      const b: any = await request.json().catch(() => ({}));
+      if (!b.endpoint) return json({ ok: false, error: 'no_endpoint' }, 400);
+      await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`).bind(Date.now(), b.endpoint).run();
+      return json({ ok: true });
+    }
+
+    // ── GET /api/push/pending?endpoint=X — SW 가 push 이벤트에서 호출하여 메시지 fetch ──
+    if (method === 'GET' && path === '/api/push/pending') {
+      await ensurePushTables();
+      const ep = (url.searchParams.get('endpoint') || '').trim();
+      if (!ep) return json({ ok: false, error: 'no_endpoint' }, 400);
+      const rs = await env.DB.prepare(
+        `SELECT id, title, body, url, icon, badge, tag, queued_at FROM push_queue WHERE endpoint = ? AND fetched_at IS NULL ORDER BY queued_at DESC LIMIT 5`
+      ).bind(ep).all();
+      const rows = rs.results || [];
+      if (rows.length) {
+        const ids = rows.map((r: any) => r.id);
+        // 가져간 메시지는 fetched_at 마킹
+        const now = Date.now();
+        for (const id of ids) {
+          await env.DB.prepare(`UPDATE push_queue SET fetched_at = ? WHERE id = ?`).bind(now, id).run();
+        }
+      }
+      return json({ ok: true, count: rows.length, messages: rows });
+    }
+
+    // ── POST /api/admin/push/send — 특정 사용자(들)에게 푸시 ──
+    if (method === 'POST' && path === '/api/admin/push/send') {
+      await ensurePushTables();
+      const b: any = await request.json().catch(() => ({}));
+      const userId = b.user_id;
+      const title = (b.title || '망고아이 알림').toString().slice(0, 100);
+      const body = (b.body || '').toString().slice(0, 300);
+      const target = b.url || '/';
+      const icon = b.icon || '/img/icon-192.png';
+      const badge = b.badge || '/img/icon-192.png';
+      const tag = b.tag || ('mangoi-' + Date.now());
+
+      const rs = userId
+        ? await env.DB.prepare(`SELECT * FROM push_subscriptions WHERE user_id = ? AND enabled = 1`).bind(userId).all()
+        : await env.DB.prepare(`SELECT * FROM push_subscriptions WHERE enabled = 1 LIMIT 200`).all();
+      const subs = (rs.results || []) as any[];
+
+      if (!subs.length) return json({ ok: true, sent: 0, total: 0, fail: 0, msg: 'no_subscribers' });
+
+      const mode = getWebPushMode(env as any);
+      const queuedAt = Date.now();
+      // 모든 구독자에 대해 큐에 메시지 INSERT
+      for (const s of subs) {
+        await env.DB.prepare(
+          `INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(s.endpoint, title, body, target, icon, badge, tag, queuedAt).run();
+      }
+
+      // wakeup push 발송
+      const result = await broadcastWebPush(subs.map(s => s.endpoint), env as any);
+      // 만료된 구독은 enabled = 0 처리
+      for (const ep of result.expired) {
+        await env.DB.prepare(`UPDATE push_subscriptions SET enabled = 0, updated_at = ? WHERE endpoint = ?`).bind(Date.now(), ep).run();
+      }
+      return json({ ok: true, sent: result.sent, fail: result.failed, total: subs.length, mode, expired: result.expired.length });
+    }
+
+    // ── GET /api/admin/push/list — 구독 목록 ──
+    if (method === 'GET' && path === '/api/admin/push/list') {
+      await ensurePushTables();
+      const rs = await env.DB.prepare(
+        `SELECT id, user_id, endpoint, enabled, ua, created_at, updated_at FROM push_subscriptions ORDER BY updated_at DESC LIMIT 200`
+      ).all();
+      const rows = (rs.results || []) as any[];
+      const total = rows.length;
+      const active = rows.filter(r => r.enabled).length;
+      return json({ ok: true, total, active, rows });
+    }
+
+    // ── GET /api/admin/push/history — 최근 발송 이력 (push_queue 기반) ──
+    if (method === 'GET' && path === '/api/admin/push/history') {
+      await ensurePushTables();
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
+      const rs = await env.DB.prepare(
+        `SELECT q.id, q.title, q.body, q.url, q.tag, q.queued_at, q.fetched_at, s.user_id, s.ua
+           FROM push_queue q
+           LEFT JOIN push_subscriptions s ON s.endpoint = q.endpoint
+           ORDER BY q.queued_at DESC
+           LIMIT ?`
+      ).bind(limit).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── GET /api/admin/push/status — VAPID 모드/통계 ──
+    if (method === 'GET' && path === '/api/admin/push/status') {
+      await ensurePushTables();
+      const mode = getWebPushMode(env as any);
+      const c = await env.DB.prepare(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`).first<any>();
+      const qc = await env.DB.prepare(`SELECT COUNT(*) AS n FROM push_queue WHERE queued_at >= ?`).bind(Date.now() - 86400000 * 7).first<any>();
+      return json({ ok: true, mode, active_subs: c?.n || 0, queued_7d: qc?.n || 0, has_pub_key: !!(env as any).VAPID_PUBLIC_KEY });
+    }
+
+    // ── GET /api/admin/push/generate-vapid — 새 VAPID 키 페어 생성 (개발/세팅용) ──
+    if (method === 'GET' && path === '/api/admin/push/generate-vapid') {
+      try {
+        const kp = await generateVapidKeyPair();
+        return json({
+          ok: true,
+          publicKey: kp.publicKey,
+          privateKey: kp.privateKey,
+          instruction: 'wrangler secret put VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 로 등록 후 deploy',
+          warn: '⚠ 이 키는 한 번만 표시됩니다 — 안전한 곳에 저장하세요',
+        });
+      } catch (e: any) {
+        console.warn('[generate-vapid] error:', e?.message, e?.stack);
+        return json({ ok: false, error: e?.message || 'generate_failed', stack: (e?.stack || '').slice(0, 500) }, 500);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🔔 Phase WP1~WP2 끝
     // ═══════════════════════════════════════════════════════════════
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
