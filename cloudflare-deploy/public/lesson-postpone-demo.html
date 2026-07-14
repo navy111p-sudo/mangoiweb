@@ -1197,6 +1197,76 @@ function __buildCurrentSchedule(){
 }
 let CURRENT_SCHEDULE = __buildCurrentSchedule();
 
+/* 🆕 (2026-07-14) 실제 로그인 학생의 진짜 수업으로 CURRENT_SCHEDULE 교체 (있을 때만).
+   → 실 수업이 로드되면 __MOB_REAL=true 로 표시하고, 확정 시 서버에 연기/변경을 실제 기록한다.
+   → 실 수업이 없으면(비로그인/데모) 데모 스케줄 유지 + 서버 저장 안 함(잡음 방지). */
+let __MOB_REAL = false;
+async function __loadRealCurrentSchedule(){
+  try {
+    var u = null; try { u = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); } catch(e){}
+    if (!u || !u.uid) return false;
+    var r = await fetch('/api/admin/class-schedules?user_id='+encodeURIComponent(u.uid), { credentials:'include', cache:'no-store' });
+    var d = await r.json();
+    var items = (d && (d.items || d.rows)) || [];
+    if (!items.length) return false;
+    var dowMap = {sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
+    function nextOccurrence(it){
+      if (it.scheduled_date) return String(it.scheduled_date).replace(/\//g,'-').slice(0,10);
+      var dow = it.day_of_week;
+      if (typeof dow === 'string' && dowMap[dow.toLowerCase()]!=null) dow = dowMap[dow.toLowerCase()];
+      dow = Number(dow); if (isNaN(dow)) return null;
+      var t = new Date(); t.setHours(0,0,0,0);
+      for (var i=0;i<14;i++){ var dd=new Date(t); dd.setDate(dd.getDate()+i); if (dd.getDay()===dow) return dd.toISOString().slice(0,10); }
+      return null;
+    }
+    var mapped = items.map(function(it){
+      var date = nextOccurrence(it);
+      var hh = String(it.start_time||'').slice(0,5);
+      if (!date || !hh) return null;
+      var tn = it.teacher_name || (TEACHERS[0]&&TEACHERS[0].name) || '강사';
+      var tobj = TEACHERS.find(function(x){ return x.name===tn; }) || TEACHERS[0] || {id:'t0',ico:'🇵🇭'};
+      return { teacherId: tobj.id, teacherName: tn, ico: tobj.ico, date: date, hour: hh, schedule_id: it.id||null };
+    }).filter(Boolean);
+    if (!mapped.length) return false;
+    CURRENT_SCHEDULE = mapped; __MOB_REAL = true;
+    return true;
+  } catch(e){ return false; }
+}
+
+/* 🆕 유료/무료 판정 (연기·취소만): 원 수업 30분 전보다 일찍=무료, 이내=유료. KST 기준. */
+function __mobFee(origIso, origHour){
+  try {
+    var startMs = Date.parse(origIso+'T'+(String(origHour).slice(0,5))+':00+09:00');
+    if (isNaN(startMs)) return { fee:'free', mins:null };
+    var mins = Math.round((startMs - Date.now())/60000);
+    return { fee: mins>30?'free':'paid', mins: mins };
+  } catch(e){ return { fee:'free', mins:null }; }
+}
+/* 🆕 확정 시 서버에 연기/변경 기록 + 유료/무료 태깅 + 관리자 알림. 실 수업일 때만. */
+function __mobPersist(){
+  if (!__MOB_REAL) return;
+  try {
+    var u = {}; try { u = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null') || {}; } catch(e){}
+    var sorted = state.cart.slice().sort(function(a,b){ return (a.date+a.hour)<(b.date+b.hour)?-1:1; });
+    var origs = CURRENT_SCHEDULE.slice();
+    for (var i=0;i<origs.length;i++){
+      var o = origs[i]; var nw = sorted[i] || null;
+      var f = __mobFee(o.date, o.hour);
+      var body = {
+        request_type: state.mode==='change'?'change':'postpone',
+        requester_role:'student', requester_name:u.name||'', student_name:u.name||'', student_uid:u.uid||'',
+        teacher_name: (nw&&nw.teacherName)||o.teacherName||'강사',
+        schedule_id: o.schedule_id||null,
+        orig_date:o.date, orig_time:o.hour,
+        new_date: nw?nw.date:null, new_time: nw?nw.hour:null,
+        fee_type: state.mode==='change'?null:f.fee, minutes_before: f.mins
+      };
+      fetch('/api/admin/schedule-requests',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).catch(function(){});
+    }
+  } catch(e){}
+}
+window.__mobLastFee = null;
+
 /* 관리자 실제 강사 비동기 로드 */
 (async function __loadRealTeachers(){
   try{
@@ -1208,6 +1278,7 @@ let CURRENT_SCHEDULE = __buildCurrentSchedule();
   }catch(e){ /* 네트워크 실패 시 FALLBACK 유지 */ }
   __buildSchedule();
   CURRENT_SCHEDULE = __buildCurrentSchedule();
+  try { await __loadRealCurrentSchedule(); } catch(e){}   // 🆕 실 학생 수업으로 교체(있으면) → 서버 저장 활성화
   try{ if (typeof state !== 'undefined' && !state.mode){ state.weeklyTarget = CURRENT_SCHEDULE.length; } }catch(e){}
   try{
     const sd = document.getElementById('screen-detail');
@@ -1287,6 +1358,7 @@ function updateSticky(){
 }
 function onConfirm(){
   if (state.cart.length === 0 || state.cart.length < state.weeklyTarget) return;
+  try { __mobPersist(); } catch(e){}   // 🆕 서버에 연기/변경 기록 + 유료/무료 태깅 + 관리자 알림(실 수업일 때만)
   showCompletion();
 }
 
@@ -1301,7 +1373,16 @@ function showCompletion(){
     return (c.ico||'') + ' ' + c.teacherName + ' ' + fmtMD(c.date) + '(' + fmtDOW(c.date) + ') ' + c.hour;
   }).join(' / ');
   $('#done-title').textContent = '✅ ' + v + ' 완료되었습니다';
-  $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + '되었습니다';
+  var feeNote = '';
+  if (__MOB_REAL && state.mode==='postpone') {
+    var paidN=0, freeN=0;
+    CURRENT_SCHEDULE.forEach(function(o){ var f=__mobFee(o.date,o.hour); if(f.fee==='paid')paidN++; else freeN++; });
+    feeNote = '<br><span style="font-size:12px">'
+      + (freeN?('<span style="color:#16a34a;font-weight:700">🆓 무료 '+freeN+'건</span> '):'')
+      + (paidN?('<span style="color:#d97706;font-weight:700">💰 유료 '+paidN+'건</span>'):'')
+      + '</span>';
+  }
+  $('#done-sub').innerHTML = '기존: ' + beforeList + '<br>↓ 아래 일정으로 ' + v + '되었습니다' + feeNote;
   $('#done-list').innerHTML = list;
   $('#sticky-bar').classList.remove('show'); // fix(2026-06-18): fixed 바 — 화면 이탈 시 직접 숨김
   $('#screen-detail').classList.remove('active');
@@ -1773,7 +1854,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260714233709 -->
+<!-- BUILD:20260714234837 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>

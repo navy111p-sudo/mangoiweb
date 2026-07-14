@@ -71,8 +71,8 @@
   .howto{ font-size:12.5px; color:#7f92bd; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
     border-radius:14px; padding:10px 16px; max-width:440px; line-height:1.7; }
 
-  /* ── 2) 게임 화면 ── */
-  #scr-game{ padding:8px 8px 0; max-width:520px; margin:0 auto; }
+  /* ── 2) 게임 화면 ── (PC에서 넓게) */
+  #scr-game{ padding:8px 8px 0; max-width:720px; margin:0 auto; }
   .hud{ width:100%; display:flex; align-items:center; gap:8px; font-size:13px; padding:2px 4px; }
   .hud .pill{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:999px; padding:4px 11px; white-space:nowrap; }
   .hud b{ color:#fbbf24; }
@@ -118,8 +118,15 @@
     font-weight:800; border-radius:9px; line-height:1.1; padding:2px 3px; overflow:hidden;
     border:1.5px solid rgba(255,255,255,.25);
   }
-  .tile.active{ background:linear-gradient(160deg,#38bdf8,#6366f1); color:#fff;
-    box-shadow:0 4px 16px rgba(56,189,248,.45); transition:top .09s linear, left .06s ease; z-index:5; }
+  /* 단어칸: 조각의 색(--pc)을 입되 아래를 살짝 어둡게 → 흰 글씨 가독성 확보 */
+  .tile.active{ background:linear-gradient(160deg, var(--pc,#38bdf8), rgba(0,0,0,.4)); color:#fff;
+    text-shadow:0 1px 3px rgba(0,0,0,.75); border-color:rgba(255,255,255,.7);
+    box-shadow:0 5px 18px rgba(0,0,0,.45), inset 0 0 14px rgba(255,255,255,.3);
+    transition:top .09s linear, left .06s ease; z-index:6; }
+  /* 장식칸: 같은 색이지만 반투명(테트리스 조각의 몸통) — 글자 없음 */
+  .tile.deco{ background:linear-gradient(160deg, var(--pc,#38bdf8), rgba(0,0,0,.25)); opacity:.62; color:transparent;
+    border-color:rgba(255,255,255,.35); box-shadow:inset 0 0 10px rgba(255,255,255,.22);
+    transition:top .09s linear, left .06s ease; z-index:5; }
   .tile.fixed { background:linear-gradient(160deg,#10b981,#059669); color:#eafff5; border-color:rgba(167,243,208,.5); }
   .tile.junk  { background:linear-gradient(160deg,#475569,#334155); color:#94a3b8; border-color:rgba(148,163,184,.3); }
   .tile.slotmark{ background:transparent; border:1.5px dashed rgba(255,255,255,.16); color:#3d4c72; font-size:12px; }
@@ -151,7 +158,7 @@
   #intro .t3{ font-size:14px; color:#93c5fd; }
 
   /* ── 모바일 조작 버튼(큼직 + 즉각 반응) ── */
-  #pad{ width:100%; max-width:520px; display:flex; gap:8px; padding:10px 8px calc(10px + env(safe-area-inset-bottom)); }
+  #pad{ width:100%; max-width:720px; display:flex; gap:8px; padding:10px 8px calc(10px + env(safe-area-inset-bottom)); }
   .pbtn{
     flex:1; height:62px; border:none; border-radius:16px; font-size:24px; font-weight:900; color:#e6edff;
     background:rgba(255,255,255,.08); border:1.5px solid rgba(255,255,255,.14); cursor:pointer;
@@ -461,10 +468,15 @@ function nextSentence(first){
 
 /* ── 보드 픽셀 배치: 열 수에 맞춰 셀 크기 계산 ── */
 function layoutBoard(){
-  var bw = Math.min(window.innerWidth-16, 500);
-  var maxH = window.innerHeight - 300;             // HUD+문제+패드 제외 가용 높이
-  cellW = Math.floor(bw / COLS);
-  cellH = Math.max(30, Math.min(48, Math.floor(maxH / ROWS)));
+  // 🖥️ PC(넓은 화면)에서는 셀·보드를 크게, 모바일에서는 컴팩트하게
+  var wide  = window.innerWidth >= 700;
+  var maxBW = wide ? 680 : 500;
+  var capW  = wide ? 150 : 96;                     // 한 칸 최대 폭(문장이 짧아도 과하게 안 커지게)
+  var reserve = wide ? 250 : 290;                  // HUD+문제+패드 제외 세로 예약
+  var bw = Math.min(window.innerWidth-16, maxBW);
+  var maxH = window.innerHeight - reserve;
+  cellW = Math.min(Math.floor(bw / COLS), capW);
+  cellH = Math.max(34, Math.min(wide ? 66 : 48, Math.floor(maxH / ROWS)));
   var bd = document.getElementById('board');
   bd.style.width  = (cellW*COLS)+'px';
   bd.style.height = (cellH*ROWS)+'px';
@@ -493,7 +505,7 @@ function renderBoard(){
     for(var k=0;k<junk[col];k++) html += tileHtml('▦','junk',col,ROWS-2-k);
   }
   bd.innerHTML = html;
-  if(act) bd.appendChild(act.el);
+  if(act && act.els) act.els.forEach(function(e){ bd.appendChild(e); });
 }
 function tileHtml(txt, cls, col, row){
   var fs = fontFor(txt);
@@ -501,12 +513,34 @@ function tileHtml(txt, cls, col, row){
 }
 function fontFor(txt){
   var per = cellW / Math.max(2, String(txt).length);   // 셀 폭 대비 글자수로 크기 자동 조절
-  return Math.max(11, Math.min(MODE==='zh'?22:17, Math.floor(per*1.15)));
+  var cap = MODE==='zh' ? 32 : 26;                     // 큰 셀에서도 잘 보이게 상한 상향
+  return Math.max(12, Math.min(cap, Math.floor(per*1.15)));
 }
 
 /* ════════════════════════════════════════════════════════════
    낙하 블록: 단어 3후보(🔄로 교체) — 항상 "필요한 단어" 1개 이상 포함
    ════════════════════════════════════════════════════════════ */
+/* ── 🎨 테트리스 조각 모양(장식) + 색상 팔레트 ──
+   · 단어는 항상 (0,0) '단어칸'에 표시, deco = 주변 장식칸 오프셋 [row,col]
+   · 장식칸은 '보기용'이라 충돌/판정에 영향 없음(착지 시 파티클로 흩어짐, 보드 overflow로 잘림)
+   · 게임 규칙은 '단어칸의 열'만으로 판정 → 기존과 100% 동일하게 플레이됨 */
+var SHAPES = [
+  { nm:'단일', deco:[] },
+  { nm:'세로', deco:[[-1,0]] },
+  { nm:'가로', deco:[[0,1]] },
+  { nm:'ㄱ',  deco:[[0,1],[1,1]] },
+  { nm:'ㄴ',  deco:[[1,0],[1,1]] },
+  { nm:'ㄷ',  deco:[[-1,0],[-1,1],[1,0],[1,1]] },
+  { nm:'십자', deco:[[-1,0],[1,0],[0,-1],[0,1]] },
+  { nm:'T',   deco:[[0,-1],[0,1],[1,0]] },
+  { nm:'L',   deco:[[-2,0],[-1,0],[0,1]] },
+  { nm:'I',   deco:[[-1,0],[1,0]] },
+  { nm:'O',   deco:[[0,1],[1,0],[1,1]] },
+  { nm:'S',   deco:[[-1,0],[-1,1],[0,-1]] },
+  { nm:'Z',   deco:[[-1,-1],[-1,0],[0,1]] }
+];
+var COLORS = ['#22d3ee','#f472b6','#a855f7','#34d399','#fbbf24','#fb7185','#60a5fa','#f97316','#4ade80','#e879f9'];
+
 function neededWords(){ return sent.words.filter(function(w,i){ return !filled[i]; }); }
 function spawnBlock(){
   if(!running) return;
@@ -519,27 +553,49 @@ function spawnBlock(){
   var hand = shuffle([w1,w2,w3].filter(function(v,i,a){ return a.indexOf(v)===i; }));
   while(hand.length<3) hand.push(D[Math.floor(Math.random()*D.length)]);
 
+  // 매번 랜덤 모양 + 랜덤 색상 → 다양한 테트리스 조각
+  var shape = SHAPES[Math.floor(Math.random()*SHAPES.length)];
+  var color = COLORS[Math.floor(Math.random()*COLORS.length)];
   var col = Math.floor(COLS/2);
-  var el = document.createElement('div');
-  el.className='tile active';
-  act = { col:col, row:0, words:hand, idx:0, el:el };
-  paintAct(); positionAct(true);
-  document.getElementById('board').appendChild(el);
+  act = { col:col, row:0, words:hand, idx:0, els:null,
+          deco: shape.deco.map(function(o){ return o.slice(); }), color:color };
+  buildAct();
   // 스폰 칸이 이미 막혀 있으면 = 천장 도달 → 게임 오버
   if(landRow(col) < 0) return gameOver();
 }
-function paintAct(){
-  var w = act.words[act.idx];
-  act.el.style.fontSize = fontFor(w)+'px';
-  act.el.innerHTML = w + '<span class="alt">🔄'+((act.idx+1))+'/'+act.words.length+'</span>';
+/* 단어칸(항상 첫 번째) + 장식칸 오프셋 목록 */
+function actCells(){
+  var arr=[{dr:0,dc:0,word:true}];
+  act.deco.forEach(function(o){ arr.push({dr:o[0],dc:o[1],word:false}); });
+  return arr;
 }
-function positionAct(snap){
-  act.el.style.width  = (cellW-4)+'px';
-  act.el.style.height = (cellH-4)+'px';
-  if(snap) act.el.style.transition='none';
-  act.el.style.left = (act.col*cellW+2)+'px';
-  act.el.style.top  = (act.row*cellH+2)+'px';
-  if(snap){ void act.el.offsetWidth; act.el.style.transition=''; }
+/* 조각 DOM 새로 구성(스폰·회전 시) */
+function buildAct(){
+  if(act.els) act.els.forEach(function(e){ e.remove(); });
+  act.els=[];
+  var w=act.words[act.idx], bd=document.getElementById('board');
+  actCells().forEach(function(o){
+    var el=document.createElement('div');
+    el.className='tile '+(o.word?'active':'deco');
+    el.style.setProperty('--pc', act.color);
+    el.dataset.dr=o.dr; el.dataset.dc=o.dc;
+    if(o.word){ el.style.fontSize=fontFor(w)+'px';
+      el.innerHTML=w+'<span class="alt">🔄'+(act.idx+1)+'/'+act.words.length+'</span>'; }
+    bd.appendChild(el); act.els.push(el);
+  });
+  placeAct(true);
+}
+/* 조각 위치 갱신(이동·낙하 시) — 단어칸 기준으로 모든 칸 재배치 */
+function placeAct(snap){
+  if(!act || !act.els) return;
+  act.els.forEach(function(el){
+    var dr=+el.dataset.dr, dc=+el.dataset.dc;
+    if(snap) el.style.transition='none';
+    el.style.width=(cellW-4)+'px'; el.style.height=(cellH-4)+'px';
+    el.style.left=((act.col+dc)*cellW+2)+'px';
+    el.style.top =((act.row+dr)*cellH+2)+'px';
+    if(snap){ void el.offsetWidth; el.style.transition=''; }
+  });
 }
 /* ── 중력 루프 ── */
 function startGravity(){ stopGravity(); gravT = setTimeout(gravStep, dropMs()); }
@@ -547,7 +603,7 @@ function stopGravity(){ if(gravT){ clearTimeout(gravT); gravT=null; } }
 function gravStep(){
   if(!running || paused || !act){ return; }
   if(act.row >= landRow(act.col)) land();
-  else { act.row++; positionAct(); gravT = setTimeout(gravStep, dropMs()); }
+  else { act.row++; placeAct(); gravT = setTimeout(gravStep, dropMs()); }
 }
 /* 해당 열에서 블록이 멈추는 행:
    · 쓰레기가 있으면 그 더미 바로 위 (쓰레기는 ROWS-2 부터 위로 쌓임)
@@ -563,11 +619,16 @@ function landRow(col){
 function canPlay(){ return running && !paused && act; }
 function mv(d){ if(!canPlay()) return; var nc=act.col+d; if(nc<0||nc>=COLS) return;
   if(act.row > landRow(nc)) return;            // 옆 칸 더미 속으로는 못 들어감
-  act.col=nc; positionAct(); }
-function rot(){ if(!canPlay()) return; act.idx=(act.idx+1)%act.words.length; paintAct();
-  act.el.classList.remove('flip'); void act.el.offsetWidth; act.el.classList.add('flip'); beep(520,660,.06,'sine',.08); }
-function soft(){ if(!canPlay()) return; if(act.row < landRow(act.col)){ act.row++; positionAct(); } else land(); }
-function hard(){ if(!canPlay()) return; act.row = landRow(act.col); positionAct(); setTimeout(land, 60); }
+  act.col=nc; placeAct(); }
+/* 🔄 단어 후보 교체 + 조각 모양 90° 회전(테트리스 느낌) — 판정은 단어칸 열만 사용 */
+function rot(){ if(!canPlay()) return;
+  act.idx=(act.idx+1)%act.words.length;
+  act.deco = act.deco.map(function(o){ return [o[1], -o[0]]; });   // (r,c) → (c,-r)
+  buildAct();
+  act.els.forEach(function(e){ e.classList.remove('flip'); void e.offsetWidth; e.classList.add('flip'); });
+  beep(520,660,.06,'sine',.08); }
+function soft(){ if(!canPlay()) return; if(act.row < landRow(act.col)){ act.row++; placeAct(); } else land(); }
+function hard(){ if(!canPlay()) return; act.row = landRow(act.col); placeAct(); setTimeout(land, 60); }
 
 /* ════════════════════════════════════════════════════════════
    착지 판정 — 게임의 심장부
@@ -576,8 +637,11 @@ function land(){
   if(!act) return;
   stopGravity();
   var col=act.col, w=act.words[act.idx];
-  var rect=act.el.getBoundingClientRect();
-  act.el.remove(); act=null;
+  var rect=act.els[0].getBoundingClientRect();       // 단어칸 위치(판정·파티클 기준)
+  // 장식칸들은 파티클로 흩어지며 사라짐(판정엔 영향 없음)
+  act.els.forEach(function(e){ var r=e.getBoundingClientRect();
+    if(r.width) burst(r.left+r.width/2, r.top+r.height/2, 4, [act.color,'#ffffff']); e.remove(); });
+  act=null;
 
   if(!filled[col] && junk[col]===0){
     /* ① 정답 줄에 직접 착지 */
@@ -722,7 +786,7 @@ function rankTitle(s){
 }
 function gameOver(){
   running=false; stopTimers();
-  if(act){ act.el.remove(); act=null; }
+  if(act && act.els){ act.els.forEach(function(e){ e.remove(); }); act=null; }
   sndOver(); flushProg();
   var best=0; try{ best=parseInt(localStorage.getItem(bestKey()),10)||0; }catch(_){}
   if(score>best){ best=score; try{ localStorage.setItem(bestKey(), String(best)); }catch(_){} }
@@ -787,6 +851,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작: 모드 선택 화면 */
 showMode();
 </script>
-<!-- BUILD:20260714233709 -->
+<!-- BUILD:20260714234837 -->
 </body>
 </html>
