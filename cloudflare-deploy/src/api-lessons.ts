@@ -6,6 +6,8 @@
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession } from './auth-admin';
+import { runCypher } from './teacher-match';
+import { studentScopeWhere } from './scope';
 import { sendPushToUser } from './api-notify';
 import type { MangoEnv } from './api-mango';
 
@@ -450,6 +452,198 @@ export async function handleLessonsApi(
       return json({ ok: true, added });
     }
 
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎙 Phase ALR — AI 학습 리포트 (수업 녹음 STT + LLM 분석)
+    //   기존 Phase E1~E4 (수동 평가서) + Phase AEd (키워드 기반 AI 초안) 통합 업그레이드
+    //   - 수업 녹음(R2) → Whisper STT → Llama 분석
+    //   - 문법 오류 / Alternative 표현 / 다빈도 단어 / 강점·약점
+    //   - student_evaluations 테이블과 자동 연동 (강사가 검토 후 발송)
+    // ═══════════════════════════════════════════════════════════════
+    const ensureAiLessonReportSchema = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_lesson_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, evaluation_id INTEGER, student_uid TEXT, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, recording_id TEXT, recording_url TEXT, lesson_title TEXT, lesson_date TEXT, transcript TEXT, transcript_excerpt TEXT, grammar_errors TEXT, alternatives TEXT, word_freq TEXT, summary_ko TEXT, strengths TEXT, weaknesses TEXT, next_goals TEXT, overall_score INTEGER, speaking_seconds INTEGER, total_words INTEGER, status TEXT DEFAULT 'draft', created_at INTEGER NOT NULL, updated_at INTEGER);`);
+    };
+
+    // ── POST /api/eval/ai-lesson-report — 녹음 파일에서 AI 학습 리포트 자동 생성 ──
+    //   body: { recording_id?, recording_url?, audio_base64?, student_uid, student_name?,
+    //           teacher_uid?, teacher_name?, lesson_title?, lesson_date?, auto_save?=true }
+    if (method === 'POST' && path === '/api/eval/ai-lesson-report') {
+      await ensureAiLessonReportSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const studentUid = String(b.student_uid || '').trim();
+      if (!studentUid) return json({ ok: false, error: 'student_uid_required' }, 400);
+      if (!env.AI) return json({ ok: false, error: 'AI_binding_missing' }, 503);
+
+      // 1) 녹음 → STT
+      let transcript = String(b.transcript || '').trim();  // 클라이언트가 미리 STT 했으면 사용
+      let speakingSeconds = 0;
+      if (!transcript) {
+        // R2 에서 녹음 파일 가져오기
+        let audioBuf: ArrayBuffer | null = null;
+        try {
+          if (b.recording_id && (env as any).RECORDINGS) {
+            const obj: any = await (env as any).RECORDINGS.get(b.recording_id);
+            if (obj) audioBuf = await obj.arrayBuffer();
+          } else if (b.recording_url) {
+            const r = await fetch(b.recording_url);
+            if (r.ok) audioBuf = await r.arrayBuffer();
+          } else if (b.audio_base64) {
+            const raw = atob(b.audio_base64.replace(/^data:[^,]+,/, ''));
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            audioBuf = arr.buffer;
+          }
+        } catch (e: any) { console.error('[ai-lesson-report] fetch audio:', e?.message); }
+
+        if (!audioBuf || audioBuf.byteLength < 1000) {
+          return json({ ok: false, error: 'audio_not_found_or_too_small', message: '녹음 파일을 가져올 수 없어요. recording_id, recording_url, audio_base64, transcript 중 하나가 필요합니다.' }, 400);
+        }
+        if (audioBuf.byteLength > 25 * 1024 * 1024) {
+          return json({ ok: false, error: 'audio_too_large', message: '오디오가 25MB 를 초과합니다. 더 짧은 클립을 시도해주세요.' }, 400);
+        }
+
+        try {
+          const sttResp: any = await env.AI.run('@cf/openai/whisper', { audio: [...new Uint8Array(audioBuf)] });
+          transcript = String(sttResp?.text || '').trim();
+          speakingSeconds = Math.round((sttResp?.word_count || 0) * 0.4);  // 대략 추정 (분당 150단어 기준)
+        } catch (e: any) {
+          console.error('[ai-lesson-report] whisper:', e?.message);
+          return json({ ok: false, error: 'stt_failed', detail: String(e?.message || e) }, 500);
+        }
+      }
+      if (!transcript) return json({ ok: false, error: 'empty_transcript' }, 400);
+
+      // 2) LLM 분석
+      const studentName = String(b.student_name || studentUid).trim();
+      const lessonTitle = String(b.lesson_title || '').trim();
+      const prompt = `You are an expert English coach. Analyze this Korean student's spoken English transcript from a 1:1 lesson.
+
+Student: ${studentName}${lessonTitle ? ` · Lesson: ${lessonTitle}` : ''}
+
+Transcript:
+"""
+${transcript.slice(0, 6000)}
+"""
+
+Produce a comprehensive learning report. Respond in STRICT JSON only, no markdown:
+{
+  "overall_score": 0-100 (overall English proficiency in this session),
+  "summary_ko": "한국어로 학생의 이번 수업 영어 사용 요약 (2-3 문장)",
+  "grammar_errors": [
+    { "original": "<wrong sentence student said>", "corrected": "<correct version>", "reason": "한국어 설명 (1줄)" }
+  ],
+  "alternatives": [
+    { "learned": "<phrase student used>", "better": "<more natural/advanced phrasing>", "when_to_use": "한국어 설명 (1줄)" }
+  ],
+  "word_freq": [{ "word": "<word>", "count": <int> }],
+  "strengths": ["한국어 강점 1줄 ×3"],
+  "weaknesses": ["한국어 약점 1줄 ×3"],
+  "next_goals": ["다음 수업에서 시도할 한국어 목표 ×2-3"]
+}
+
+Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific and helpful.`;
+
+      let raw = '';
+      const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast','@cf/meta/llama-3.1-8b-instruct','@cf/meta/llama-3-8b-instruct'];
+      for (const m of models) {
+        try {
+          const resp: any = await env.AI.run(m, { messages: [{ role: 'user', content: prompt }], max_tokens: 2200, temperature: 0.3 });
+          if (typeof resp === 'string') raw = resp;
+          else if (resp?.response) raw = typeof resp.response === 'string' ? resp.response : JSON.stringify(resp.response);
+          if (raw) break;
+        } catch (e: any) { console.error('[ai-lesson-report] llm:', m, e?.message); }
+      }
+      const mm = raw.match(/\{[\s\S]*\}/);
+      let parsed: any = {};
+      try { parsed = JSON.parse(mm ? mm[0] : raw); } catch {}
+
+      // 3) 결과 정규화 + DB 저장
+      const overallScore = Math.max(0, Math.min(100, Number(parsed.overall_score || 75)));
+      const summaryKo = String(parsed.summary_ko || '학생의 영어 발화를 분석했습니다.');
+      const grammarErrors = Array.isArray(parsed.grammar_errors) ? parsed.grammar_errors.slice(0, 8) : [];
+      const alternatives = Array.isArray(parsed.alternatives) ? parsed.alternatives.slice(0, 8) : [];
+      const wordFreq = Array.isArray(parsed.word_freq) ? parsed.word_freq.slice(0, 15) : [];
+      const strengthsArr = Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 5) : [];
+      const weaknessesArr = Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 5) : [];
+      const nextGoalsArr = Array.isArray(parsed.next_goals) ? parsed.next_goals.slice(0, 5) : [];
+
+      const transcriptWords = transcript.split(/\s+/).filter(Boolean).length;
+      const excerpt = transcript.slice(0, 800);
+      const now = Date.now();
+
+      // student_evaluations 자동 저장 (기존 평가서 시스템과 연동)
+      let evaluationId: number | null = null;
+      if (b.auto_save !== false) {
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+          const r: any = await env.DB.prepare(
+            `INSERT INTO student_evaluations (student_uid, student_name, teacher_uid, teacher_name, lesson_title, lesson_date, score_overall, score_speaking, strengths, improvements, next_goals, teacher_comment, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          ).bind(
+            studentUid, studentName, String(b.teacher_uid || '').trim() || null, String(b.teacher_name || '').trim() || null,
+            lessonTitle || null, String(b.lesson_date || '').trim() || new Date(now).toISOString().slice(0,10),
+            overallScore, overallScore,
+            strengthsArr.join('\n'), weaknessesArr.join('\n'), nextGoalsArr.join('\n'),
+            summaryKo + (grammarErrors.length ? '\n\n[🤖 AI 자동 분석] 문법교정 ' + grammarErrors.length + '건, 대안표현 ' + alternatives.length + '건 발견. 상세 리포트는 AI 학습 리포트 메뉴에서 확인하세요.' : ''),
+            now, now
+          ).run();
+          evaluationId = r.meta?.last_row_id || null;
+        } catch (e: any) { console.error('[ai-lesson-report] save eval:', e?.message); }
+      }
+
+      let reportId: number | null = null;
+      try {
+        const r: any = await env.DB.prepare(
+          `INSERT INTO ai_lesson_reports (evaluation_id, student_uid, student_name, teacher_uid, teacher_name, recording_id, recording_url, lesson_title, lesson_date, transcript, transcript_excerpt, grammar_errors, alternatives, word_freq, summary_ko, strengths, weaknesses, next_goals, overall_score, speaking_seconds, total_words, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(
+          evaluationId, studentUid, studentName,
+          String(b.teacher_uid || '').trim() || null, String(b.teacher_name || '').trim() || null,
+          String(b.recording_id || '').trim() || null, String(b.recording_url || '').trim() || null,
+          lessonTitle || null, String(b.lesson_date || '').trim() || new Date(now).toISOString().slice(0,10),
+          transcript, excerpt,
+          JSON.stringify(grammarErrors), JSON.stringify(alternatives), JSON.stringify(wordFreq),
+          summaryKo, JSON.stringify(strengthsArr), JSON.stringify(weaknessesArr), JSON.stringify(nextGoalsArr),
+          overallScore, speakingSeconds, transcriptWords, 'draft', now, now
+        ).run();
+        reportId = r.meta?.last_row_id || null;
+      } catch (e: any) { console.error('[ai-lesson-report] save report:', e?.message); }
+
+      return json({
+        ok: true, report_id: reportId, evaluation_id: evaluationId,
+        overall_score: overallScore, summary_ko: summaryKo,
+        grammar_errors: grammarErrors, alternatives, word_freq: wordFreq,
+        strengths: strengthsArr, weaknesses: weaknessesArr, next_goals: nextGoalsArr,
+        transcript_excerpt: excerpt, total_words: transcriptWords, speaking_seconds: speakingSeconds,
+      });
+    }
+
+    // ── GET /api/eval/ai-lesson-report/list?student_uid=... ──
+    if (method === 'GET' && path === '/api/eval/ai-lesson-report/list') {
+      await ensureAiLessonReportSchema();
+      const sid = String(url.searchParams.get('student_uid') || '').trim();
+      let q = `SELECT id, student_uid, student_name, teacher_name, lesson_title, lesson_date, overall_score, total_words, speaking_seconds, status, created_at FROM ai_lesson_reports`;
+      const binds: any[] = [];
+      if (sid) { q += ` WHERE student_uid = ?`; binds.push(sid); }
+      q += ` ORDER BY created_at DESC LIMIT 100`;
+      const rs: any = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── GET /api/eval/ai-lesson-report/:id ──
+    const reportIdMatch = path.match(/^\/api\/eval\/ai-lesson-report\/(\d+)$/);
+    if (method === 'GET' && reportIdMatch) {
+      await ensureAiLessonReportSchema();
+      const id = parseInt(reportIdMatch[1], 10);
+      const row: any = await env.DB.prepare(`SELECT * FROM ai_lesson_reports WHERE id = ?`).bind(id).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      // JSON 필드 파싱
+      ['grammar_errors','alternatives','word_freq','strengths','weaknesses','next_goals'].forEach(k => {
+        try { row[k] = JSON.parse(row[k] || '[]'); } catch { row[k] = []; }
+      });
+      return json({ ok: true, item: row });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 🎙 Phase ALR 끝
+    // ═══════════════════════════════════════════════════════════════
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
