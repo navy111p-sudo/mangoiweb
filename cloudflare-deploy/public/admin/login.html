@@ -110,7 +110,7 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
       <button class="social naver" onclick="alert('네이버 소셜 로그인 — 운영 환경에서 활성화됩니다.')"><b>N</b> 네이버</button>
       <button class="social google" onclick="alert('Google 소셜 로그인 — 운영 환경에서 활성화됩니다.')"><b>G</b> 구글</button>
     </div>
-    <!-- 🔐 (2026-07-14 보안) 시연용 데모 계정·비밀번호 안내 전면 삭제 (사장님 지시).
+    <!-- 🔐 (2026-07-14 보안) 로그인 힌트/계정 안내 전면 삭제 (2026-07-14 보안).
          테스트 계정/비번을 공개 로그인 화면에 노출하지 않음. 계정은 운영자에게 문의. -->
   </div>
   <div class="footer">문의: <a href="mailto:navy111p@gmail.com">navy111p@gmail.com</a> · 망고아이 화상수업 운영 시스템</div>
@@ -138,7 +138,7 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     e.preventDefault();
     alert('비밀번호 재설정\n\n운영자 이메일 navy111p@gmail.com 으로\n계정 ID와 함께 요청해 주세요.\n\n또는 소셜 로그인을 이용하실 수 있습니다.');
   });
-  // 🔐 (2026-07-14) 시연용 데모 계정 안내 삭제 — demoToggle/demoList 리스너 제거됨.
+  // 🔐 (2026-07-14) 로그인 힌트 안내 삭제 — 관련 리스너 제거됨.
   var params = new URLSearchParams(location.search);
   var nextUrl = params.get('next') || '/admin.html';
   try { nextUrl = decodeURIComponent(nextUrl); } catch(e){}
