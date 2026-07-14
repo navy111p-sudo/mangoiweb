@@ -95,17 +95,16 @@
 
     return orig.call(this, input, newInit).then(function (resp) {
       clearTimeout(timer);
-      // 캐시 저장 (200 + JSON 만)
+      // 캐시 저장 (200 + JSON 만) — 쓰기를 확정한 뒤 원본 응답 반환(연속 호출 레이스 방지)
       if (cacheable && resp && resp.ok) {
-        try {
-          var ct = resp.headers.get('Content-Type') || '';
-          if (ct.indexOf('application/json') >= 0) {
-            var clone = resp.clone();
-            clone.text().then(function (txt) {
-              mem[key] = { at: Date.now(), body: txt, ctype: ct, status: resp.status };
-            }).catch(function () {});
-          }
-        } catch (e) {}
+        var ct = '';
+        try { ct = resp.headers.get('Content-Type') || ''; } catch (e) {}
+        if (ct.indexOf('application/json') >= 0) {
+          return resp.clone().text().then(function (txt) {
+            mem[key] = { at: Date.now(), body: txt, ctype: ct, status: resp.status };
+            return resp;
+          }).catch(function () { return resp; });
+        }
       }
       return resp;
     }).catch(function (err) {
