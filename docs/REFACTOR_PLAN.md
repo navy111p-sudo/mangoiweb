@@ -101,7 +101,8 @@ idx-*.js 방식 그대로: IIFE 블록 단위로 파일로 뽑고 `<script src>`
 | 2026-07-14 | 1 | 14차: 미납알림(F1~F2, 5매처)+AI학습분석(A1~A2, 2매처) → api-admin.ts(3,443줄), api-mango 8,618→**8,212줄(-47%)** | ✅ tsc(import 검출→보강)·게이트 배포·스모크 15/15 + 가드 401 일치 |
 | 2026-07-14 | 1 | 15차: AI 음성코칭(AV) 5라우트+헬퍼 6종 → api-games.ts(2,065줄), api-mango 8,212→**7,868줄(-49%)** | ✅ tsc·게이트 배포·스모크 15/15 + voice/stats 응답 일치 |
 | 2026-07-14 | 1 | 16차: MBTI 매칭+교사 칭찬(PR) 8매처 — ensureMbtiTable 공유로 연속블록 한 덩어리 → api-admin.ts(3,662줄), api-mango 7,868→**7,654줄(-50% 달성)** | ✅ tsc·게이트 배포·스모크 15/15 + 공개 라우트 응답 일치 |
-| | | (다음 후보: K1~K5 카카오·TVS / ARR 이탈위험 / OAUTH / MR·MAR 월간리포트 — 잔여 ~50라우트) | |
+| 2026-07-14 | 1 | 17차: 소셜로그인(OAUTH) 3매처 → api-students.ts(711줄), api-mango 7,654→**7,473줄(-52%)** | ✅ tsc·게이트 배포·스모크 15/15 + oauth url/status 응답 일치 |
+| | | (다음 후보: K1~K5 카카오·TVS / ARR 이탈위험 / MR·MAR 월간리포트(runMonthlyReports 는 index.ts cron import — 이동 시 import 변경 必) — 잔여 ~47라우트) | |
 | | | | |
 
 ### 분리 작업 표준 절차 (1단계에서 확립된 패턴)
