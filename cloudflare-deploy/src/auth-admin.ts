@@ -385,7 +385,12 @@ export async function handleAdminAuthApi(
       // 🔐 2단계 인증(2FA): 이 계정이 2FA 를 켰다면 비번 통과만으로는 로그인 불가.
       //   비번은 맞았지만 코드가 없으면 need_2fa 로 '코드 입력 단계'를 요청(실패로 기록 안 함).
       //   코드가 틀리면 실패로 기록(브루트포스 카운트에 포함) 후 401.
-      const twofa = await env.DB.prepare(
+      // 🔧 (2026-07-14 사장님 지시) 관리자 테스트 기간 동안 2FA 임시 중단.
+      //   wrangler.toml [vars] ADMIN_2FA_DISABLED="true" 이면 코드 검증을 건너뛴다(아이디+비번만).
+      //   ⚠️ 테스트 종료 후 반드시 "false" 로 되돌릴 것 — 켜두면 인증 앱 없이 로그인 가능.
+      //   per-user admin_2fa 데이터는 그대로 보존되므로 플래그만 끄면 즉시 원복.
+      const twoFaDisabled = String((env as any).ADMIN_2FA_DISABLED || '').toLowerCase() === 'true';
+      const twofa = twoFaDisabled ? null : await env.DB.prepare(
         `SELECT secret, enabled FROM admin_2fa WHERE username = ? LIMIT 1`
       ).bind(username).first<{ secret: string; enabled: number }>();
       if (twofa && twofa.enabled) {
