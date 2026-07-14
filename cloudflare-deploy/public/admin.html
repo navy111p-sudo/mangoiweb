@@ -6357,7 +6357,8 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       if (!d.ok) { alert('전체 보기 실패: ' + (d.error||'')); return; }
       const w = window.open('', '_blank', 'width=900,height=700');
       if (!w) { alert('팝업이 차단되어 리포트를 열 수 없습니다. 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요.'); return; }
-      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre></body></html>');
+      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre><!-- BUILD:20260714145331 -->
+</body></html>');
       } catch(e) { console.error('alrViewFull broken:', e); }
     };
 })();
@@ -23593,7 +23594,8 @@ button.chip:hover,
       });
       html += '<tr><td colspan="2" style="height:4px"></td></tr>';
     });
-    html += '</table></body></html>';
+    html += '</table><!-- BUILD:20260714145331 -->
+</body></html>';
     var blob = new Blob(['﻿', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
     rfDownloadBlob(blob, filename);
     console.log('[ph109] Excel 다운로드 완료:', filename);
@@ -23640,7 +23642,8 @@ button.chip:hover,
     html += '<tr style="height:80px"><td style="border:1px solid #999;text-align:center;background:#F0F9FF;padding:8px">서명/날인</td>';
     html += '<td style="border:1px solid #999"></td><td style="border:1px solid #999"></td><td style="border:1px solid #999"></td><td style="border:1px solid #999"></td>';
     html += '</tr></table>';
-    html += '</div></body></html>';
+    html += '</div><!-- BUILD:20260714145331 -->
+</body></html>';
     var blob = new Blob(['﻿', html], { type: 'application/msword;charset=utf-8' });
     rfDownloadBlob(blob, filename);
     console.log('[ph109] Word 다운로드 완료:', filename);
@@ -24903,7 +24906,8 @@ button.chip:hover,
       });
       html += '</tr>';
     });
-    html += '</table></body></html>';
+    html += '</table><!-- BUILD:20260714145331 -->
+</body></html>';
     var blob = new Blob(['﻿', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -33913,5 +33917,6 @@ button.chip:hover,
   };
 })();
 </script>
+<!-- BUILD:20260714145331 -->
 </body>
 </html>
