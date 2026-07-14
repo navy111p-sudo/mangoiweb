@@ -784,10 +784,19 @@ export async function handleAdminApi(
     // ===== 💰 저장소·비용 통계 (Phase 7) =====
     //   GET /api/admin/stats/storage
     //   - D1 테이블별 row 수 + 녹화 총 size_bytes
-    //   - R2 객체 수·총 size (list 페이지 최대 5장 = 5000 객체)
+    //   - R2 객체 수·총 size (list 1페이지 = 최대 1,000 객체, 초과 시 truncated)
     //   - KV 는 list() 가 일일 한도 소비라 측정 제외 (dashboard 안내)
+    //   - 집계가 무거워 리소스 한도 503 이력 → KV 5분 캐시 + R2 나열 1페이지 제한
     if (method === 'GET' && path === '/api/admin/stats/storage') {
       const started = Date.now();
+
+      const STORAGE_STATS_CACHE_KEY = 'admin:stats:storage:v1';
+      try {
+        const hit = await env.SESSION_STATE.get(STORAGE_STATS_CACHE_KEY);
+        if (hit) {
+          return json({ ...JSON.parse(hit), cached: true, latencyMs: Date.now() - started });
+        }
+      } catch { /* 캐시 조회 실패 시 실측으로 진행 */ }
 
       // D1 비즈니스 메트릭 — 병렬 조회. notification_queue 는 미생성 환경에서 fail 가능 → catch
       const safe = (p: Promise<any>) => p.catch(() => null);
@@ -802,32 +811,25 @@ export async function handleAdminApi(
         safe(env.DB.prepare(`SELECT status, COUNT(*) AS c FROM notification_queue GROUP BY status`).all())
       ]);
 
-      // R2 객체 카운트 (최대 5,000 개) — 더 크면 truncated=true 로 알림
+      // R2 객체 카운트 — 1페이지(최대 1,000 개)만. 더 크면 truncated=true 로 알림
       let r2Count = 0;
       let r2Size = 0;
       let r2Truncated = false;
       const envAny = env as any;
       if (envAny.RECORDINGS) {
         try {
-          let cursor: string | undefined = undefined;
-          const MAX_PAGES = 5;
-          for (let i = 0; i < MAX_PAGES; i++) {
-            const ls: any = await envAny.RECORDINGS.list({ limit: 1000, cursor });
-            for (const obj of (ls.objects || [])) {
-              r2Count++;
-              r2Size += obj.size || 0;
-            }
-            if (ls.truncated && ls.cursor) {
-              cursor = ls.cursor;
-              if (i === MAX_PAGES - 1) r2Truncated = true;
-            } else { break; }
+          const ls: any = await envAny.RECORDINGS.list({ limit: 1000 });
+          for (const obj of (ls.objects || [])) {
+            r2Count++;
+            r2Size += obj.size || 0;
           }
+          r2Truncated = !!ls.truncated;
         } catch (e) {
           // 측정 실패해도 D1 메트릭은 반환
         }
       }
 
-      return json({
+      const storagePayload = {
         ok: true,
         timestamp: Date.now(),
         latencyMs: Date.now() - started,
@@ -851,12 +853,15 @@ export async function handleAdminApi(
           object_count: r2Count,
           total_size_bytes: r2Size,
           truncated: r2Truncated,
-          note: r2Truncated ? '5,000 객체 초과 — 정확한 사용량은 Cloudflare dashboard 에서 확인' : null
+          note: r2Truncated ? '1,000 객체 초과 — 정확한 사용량은 Cloudflare dashboard 에서 확인' : null
         },
         kv: {
           note: 'KV 사용량(list/get/put 호출 수) 은 Cloudflare dashboard 에서 확인. list() 호출 자체가 일일 한도 소비라 셀프 측정 제외.'
         }
-      });
+      };
+
+      try { await env.SESSION_STATE.put(STORAGE_STATS_CACHE_KEY, JSON.stringify(storagePayload), { expirationTtl: 300 }); } catch { /* 캐시 저장 실패 무시 */ }
+      return json(storagePayload);
     }
 
     // ═══════════════════════════════════════════════════════════════
