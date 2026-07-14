@@ -138,15 +138,49 @@
     box-shadow:0 8px 24px rgba(0,0,0,.5); opacity:0; transition:opacity .16s; }
   #wordpop.on{ opacity:1; }
 
-  /* 조작 버튼(모바일 큼직 + 즉각 반응) */
-  #pad{ width:100%; max-width:560px; display:flex; gap:8px; padding:10px 8px calc(10px + env(safe-area-inset-bottom)); }
-  .pbtn{ flex:1; height:62px; border-radius:16px; font-size:24px; font-weight:900; color:#e6edff;
-    background:rgba(255,255,255,.08); border:1.5px solid rgba(255,255,255,.14); cursor:pointer;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; touch-action:none; }
-  .pbtn small{ font-size:10px; font-weight:700; color:#8fa2cc; }
-  .pbtn:active,.pbtn.pressed{ background:rgba(56,189,248,.28); transform:scale(.95); }
-  .pbtn.rot{ background:rgba(192,132,252,.16); border-color:rgba(192,132,252,.4); }
-  .pbtn.drop{ background:rgba(251,191,36,.14); border-color:rgba(251,191,36,.4); }
+  /* 🎮 하단 조작부 — Xbox 스타일 게임패드 (왼쪽 D패드 + 오른쪽 ABXY 색버튼 + 범퍼) */
+  #pad.xpad{ width:100%; max-width:540px; margin:8px auto 0; display:flex; flex-direction:column; align-items:center;
+    padding-bottom:calc(6px + env(safe-area-inset-bottom)); touch-action:none; }
+  .bumpers{ width:76%; display:flex; justify-content:space-between; margin-bottom:-9px; position:relative; z-index:2; }
+  .bump{ font-size:10px; font-weight:800; color:#9fb0d8; padding:5px 24px; border-radius:14px 14px 0 0;
+    background:linear-gradient(180deg,#2c3760,#1b2238); border:1px solid rgba(255,255,255,.1); border-bottom:none; }
+  .xbody{ position:relative; width:100%; display:flex; align-items:center; justify-content:space-between; gap:6px;
+    padding:15px 24px 18px; border-radius:64px 64px 40px 40px;
+    background:linear-gradient(180deg,#2b3560 0%,#1a2138 100%);
+    border:1.5px solid rgba(125,211,252,.18); box-shadow:0 10px 28px rgba(0,0,0,.55), inset 0 2px 0 rgba(255,255,255,.07); }
+  /* 손잡이(그립) 실루엣 */
+  .xbody::before,.xbody::after{ content:''; position:absolute; bottom:-10px; width:82px; height:52px; z-index:-1;
+    background:linear-gradient(180deg,#242d4c,#151b2e); border:1.5px solid rgba(125,211,252,.14); border-top:none; }
+  .xbody::before{ left:4px;  border-radius:0 0 40px 46px; transform:rotate(9deg); transform-origin:top center; }
+  .xbody::after{ right:4px; border-radius:0 0 46px 40px; transform:rotate(-9deg); transform-origin:top center; }
+  /* 왼쪽 D패드(십자) */
+  .dpad{ position:relative; width:100px; height:100px; flex:0 0 auto; }
+  .dbtn{ position:absolute; width:34px; height:34px; border:none; cursor:pointer; color:#cdd8f5; font-size:15px; font-weight:900;
+    background:linear-gradient(180deg,#3a4671,#242d4e); box-shadow:0 3px 5px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.14);
+    display:flex; align-items:center; justify-content:center; touch-action:none; }
+  .dbtn:active,.dbtn.pressed{ background:linear-gradient(180deg,#4f6bff,#3147d6); transform:scale(.9); }
+  .du{ left:33px; top:0;   border-radius:9px 9px 3px 3px; }
+  .dl{ left:0;   top:33px; border-radius:9px 3px 3px 9px; }
+  .dr{ right:0;  top:33px; border-radius:3px 9px 9px 3px; }
+  .dd{ left:33px;top:66px; border-radius:3px 3px 9px 9px; }
+  .dhub{ position:absolute; left:33px; top:33px; width:34px; height:34px; background:#212a48;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); border-radius:5px; }
+  /* 가운데 로고/버튼(장식) */
+  .xcenter{ display:flex; flex-direction:column; align-items:center; gap:5px; align-self:center; }
+  .xcenter .xdot{ width:12px; height:12px; border-radius:50%; background:#2b3560; border:1px solid rgba(255,255,255,.14); }
+  .xcenter .xlogo{ font-size:15px; color:#7dd3fc; text-shadow:0 0 8px rgba(125,211,252,.6); }
+  /* 오른쪽 ABXY 다이아몬드(엑박 색상) */
+  .abxy{ position:relative; width:104px; height:104px; flex:0 0 auto; }
+  .xbtn{ position:absolute; width:38px; height:38px; border-radius:50%; border:none; cursor:pointer; touch-action:none;
+    font-size:15px; font-weight:900; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 7px rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.4), inset 0 -3px 5px rgba(0,0,0,.25); }
+  .xbtn:active,.xbtn.pressed{ transform:scale(.88); filter:brightness(1.15); }
+  .xbtn.y{ left:33px; top:0;   background:radial-gradient(circle at 38% 30%, #fde047, #ca8a04); color:#3a2c00; }
+  .xbtn.x{ left:0;   top:33px; background:radial-gradient(circle at 38% 30%, #60a5fa, #1d4ed8); color:#fff; }
+  .xbtn.b{ right:0;  top:33px; background:radial-gradient(circle at 38% 30%, #fb7185, #dc2626); color:#fff; }
+  .xbtn.a{ left:33px;top:66px; background:radial-gradient(circle at 38% 30%, #4ade80, #15803d); color:#06210f; }
+  /* 버튼 아래 작은 기능 라벨 */
+  .xlab{ position:absolute; left:0; right:0; bottom:-14px; text-align:center; font-size:9px; font-weight:800; color:#9fb0d8; white-space:nowrap; }
 
   /* 3) 게임 오버 */
   #scr-over{ justify-content:center; gap:14px; padding:24px; text-align:center; }
@@ -209,12 +243,27 @@
       <div id="board"></div>
       <div id="wordlabel"></div>
     </div>
-    <div id="pad">
-      <button class="pbtn" id="b-left">◀<small>이동</small></button>
-      <button class="pbtn" id="b-down">▼<small>빨리</small></button>
-      <button class="pbtn" id="b-right">▶<small>이동</small></button>
-      <button class="pbtn rot" id="b-rot">🔄<small>회전</small></button>
-      <button class="pbtn drop" id="b-drop">⤓<small>드롭</small></button>
+    <div id="pad" class="xpad">
+      <div class="bumpers"><span class="bump">LB</span><span class="bump">RB</span></div>
+      <div class="xbody">
+        <!-- 왼쪽 D패드: 이동/빨리, ▲=회전 -->
+        <div class="dpad">
+          <button class="dbtn du" id="b-rotU" aria-label="회전">▲</button>
+          <button class="dbtn dl" id="b-left" aria-label="왼쪽">◀</button>
+          <button class="dbtn dr" id="b-right" aria-label="오른쪽">▶</button>
+          <button class="dbtn dd" id="b-down" aria-label="빨리">▼</button>
+          <span class="dhub"></span>
+        </div>
+        <!-- 가운데 로고(장식) -->
+        <div class="xcenter"><span class="xdot"></span><span class="xlogo">✦</span></div>
+        <!-- 오른쪽 ABXY: Y·X=회전, B=빨리, A=드롭 -->
+        <div class="abxy">
+          <button class="xbtn y" id="b-rot"  aria-label="회전">🔄<span class="xlab">회전</span></button>
+          <button class="xbtn x" id="b-rotX" aria-label="회전">🔄</button>
+          <button class="xbtn b" id="b-soft" aria-label="빨리">▼</button>
+          <button class="xbtn a" id="b-drop" aria-label="드롭">⤓<span class="xlab">드롭</span></button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -504,16 +553,25 @@ function startGame(mode){
   layout(); spawn(); render(); startGravity();
 }
 
-/* ── 보드 크기 계산(정사각 셀, PC에서 크게) ── */
-function layout(){
+/* ── 사용 가능한 영역(가로/세로) 계산 — 리모컨·상단 UI 예약분 제외 ── */
+function availArea(){
   var wide=window.innerWidth>=700;
-  var reserve=wide?238:252;                 // HUD+뜻+미션+패드 세로 예약 — 하단 패드가 항상 보이도록 정확히 잡음
-  var maxBW=wide?640:400;                    // PC에서 보드 폭 크게
-  var bw=Math.min(window.innerWidth-16, maxBW);
-  var byW=Math.floor(bw/COLS);
-  var byH=Math.floor((window.innerHeight-reserve)/ROWS);
-  var fit=Math.min(byW, byH, wide?60:40);   // 화면에 꽉 차는 최대 셀
-  cell=Math.max(16, Math.round(fit*0.7));   // 🔽 도형 30% 작게(사장님 요청) → 보드도 작아져 하단 안 잘림
+  var availW=Math.min(window.innerWidth-12, wide?600:window.innerWidth-12);
+  var availH=window.innerHeight - (wide?360:392);   // 상단(HUD+뜻+미션) + 하단 게임패드(범퍼+본체) 예약
+  return { wide:wide, w:Math.max(160,availW), h:Math.max(240,availH) };
+}
+/* 🔲 열/행 수 결정 — 보드는 영역을 꽉 채우되(직사각형만큼 크게), 셀(도형)은 작게.
+   ※ startGame에서 1회만 호출(게임 중 grid 크기 고정) */
+function computeDims(){
+  var a=availArea();
+  var target=a.wide?30:26;                          // 목표 셀 크기(작게 → 도형 30%↓)
+  COLS=Math.max(8, Math.min(12, Math.round(a.w/target)));
+  ROWS=Math.max(12, Math.min(20, Math.round(a.h/target)));
+}
+/* ── 셀 픽셀 크기만 화면에 맞춰 갱신(열/행 수는 고정) → 보드가 영역을 채움 ── */
+function layout(){
+  var a=availArea();
+  cell=Math.max(14, Math.floor(Math.min(a.w/COLS, a.h/ROWS)));
   var bd=document.getElementById('board');
   bd.style.width=(cell*COLS)+'px'; bd.style.height=(cell*ROWS)+'px';
   document.documentElement.style.setProperty('--cell', cell+'px');
@@ -834,6 +892,9 @@ bindBtn('b-right', function(){ move(1); }, true);
 bindBtn('b-down', soft, true);
 bindBtn('b-rot', rotate, false);
 bindBtn('b-drop', hard, false);
+bindBtn('b-rotU', rotate, false);   // D패드 ▲ = 회전
+bindBtn('b-rotX', rotate, false);   // X버튼 = 회전
+bindBtn('b-soft', soft, true);      // B버튼 = 빨리(소프트드롭)
 
 /* 🏃 속도 조절 버튼 (− 느리게 / ＋ 빠르게) */
 (function(){
@@ -872,6 +933,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715041837 -->
+<!-- BUILD:20260715042534 -->
 </body>
 </html>
