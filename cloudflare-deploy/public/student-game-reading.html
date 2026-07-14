@@ -67,6 +67,17 @@ p.sub{ text-align:center; color:var(--sub); font-size:13px; margin-bottom:14px; 
 .mcard.locked{ opacity:.45; filter:grayscale(.6); }
 .mcard .lock{ position:absolute; right:10px; top:10px; font-size:15px; }
 .datasrc{ text-align:center; margin-top:12px; font-size:11px; color:var(--sub); }
+/* ⭐ 별 수집 트로피 줄 + 다음 추천 사건 배지 (수집 루프 — 하드 잠금은 없음: 수업 진도 자유) */
+.trophy{ display:flex; align-items:center; justify-content:center; gap:10px; background:rgba(16,22,54,.9);
+  border:1px solid var(--line); border-radius:12px; padding:9px 14px; margin:0 auto 4px; max-width:340px;
+  font-weight:800; font-size:14px; }
+.trophy .bar{ flex:1; height:9px; background:#0e1434; border-radius:6px; overflow:hidden; }
+.trophy .bar i{ display:block; height:100%; background:linear-gradient(90deg,#f59e0b,#ffd166); border-radius:6px; transition:width .6s; }
+.trophy b{ color:var(--acc); }
+.nextbadge{ position:absolute; right:8px; top:8px; background:linear-gradient(135deg,#f59e0b,#f97316); color:#1a1206;
+  font-size:10px; font-weight:900; padding:2px 8px; border-radius:9px; animation:bump .6s; box-shadow:0 0 12px rgba(255,183,3,.55); }
+.mcard.next{ border-color:var(--acc); box-shadow:0 0 16px rgba(255,183,3,.25); }
+.mcard .grade-chip{ position:absolute; right:8px; top:8px; font-size:11px; font-weight:900; color:var(--good); }
 
 /* ── 라운드 배너(긴장감 연출) ── */
 #round-banner{ position:fixed; inset:0; display:none; z-index:200; background:rgba(5,8,25,.86);
@@ -197,6 +208,7 @@ body.shake{ animation:bshake .35s; }
   <div class="scr active" id="scr-start">
     <h1 class="big">📖 독해 탐정</h1>
     <p class="sub">문단을 <b>듣고 · 맞추고 · 말하는</b> 3라운드! 사건(문단)을 해결하고 별을 모아요 🕵️</p>
+    <div class="trophy" id="trophy"></div>
     <div class="missions" id="missions"></div>
     <div class="datasrc" id="datasrc">문단 불러오는 중…</div>
   </div>
@@ -370,17 +382,28 @@ function setStars(key, n){ try{ var s=getStars(); if((s[key]|0) < n){ s[key]=n; 
 
 function renderMissions(srcLabel){
   var st = getStars();
+  // 👉 다음 추천 사건 = 아직 별이 없는 첫 과 (하드 잠금 없음 — 어떤 과든 자유 플레이)
+  var nextIdx = -1, total = 0;
+  PASSAGES.forEach(function(p,i){ var k=p.lesson||('f'+i); var s=st[k]|0; total+=s; if(nextIdx<0 && !s) nextIdx=i; });
   document.getElementById('missions').innerHTML = PASSAGES.map(function(p,i){
     var key = p.lesson || ('f'+i);
     var stars = st[key]|0;
     var starTxt = stars>0 ? '⭐'.repeat(stars)+'☆'.repeat(3-stars) : '☆☆☆';
-    return '<div class="mcard" onclick="startLesson('+i+')">'
+    var badge = (i===nextIdx) ? '<span class="nextbadge">👉 NEXT</span>'
+              : (stars===3 ? '<span class="grade-chip">CLEAR!</span>' : '');
+    return '<div class="mcard'+(i===nextIdx?' next':'')+'" onclick="startLesson('+i+')">'
+      + badge
       + '<span class="no">'+(p.lesson?('제'+p.lesson+'과'):'보너스')+'</span>'
       + '<div class="tt">'+(p.title_ko||'읽기 미션')+'</div>'
       + '<div class="tz">'+(p.title_zh||'')+'</div>'
       + '<div class="st">'+starTxt+'</div>'
       + '</div>';
   }).join('');
+  // ⭐ 트로피 줄 — 모은 별/전체 진행바 (다 모으면 축하)
+  var max = PASSAGES.length*3, pct = max ? Math.round(total/max*100) : 0;
+  document.getElementById('trophy').innerHTML =
+    '🏆 <b>'+total+'</b>/'+max+' <span class="bar"><i style="width:'+pct+'%"></i></span> '
+    + (total>=max && max>0 ? '👑 올클리어!' : pct+'%');
   document.getElementById('datasrc').textContent = srcLabel + ' · ' + PASSAGES.length + '개 사건';
 }
 
@@ -696,6 +719,6 @@ window.addEventListener('beforeunload', flushProgress);
 /* 시작 */
 loadPassages();
 </script>
-<!-- BUILD:20260714201727 -->
+<!-- BUILD:20260714210048 -->
 </body>
 </html>
