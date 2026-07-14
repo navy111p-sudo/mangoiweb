@@ -91,7 +91,8 @@
       if (userSignal.aborted) ac.abort();
       else try { userSignal.addEventListener('abort', function () { ac.abort(); }); } catch (e) {}
     }
-    var timer = setTimeout(function () { ac.abort(); }, TIMEOUT_MS);
+    var timedOut = false;
+    var timer = setTimeout(function () { timedOut = true; ac.abort(); }, TIMEOUT_MS);
     var newInit = Object.assign({}, init, { signal: ac.signal });
 
     return orig.call(this, input, newInit).then(function (resp) {
@@ -110,7 +111,8 @@
       return resp;
     }).catch(function (err) {
       clearTimeout(timer);
-      if (err && err.name === 'AbortError') {
+      // 우리 타임아웃이 일으킨 abort 만 504 로 변환. 호출자가 자기 signal 로 취소한 abort 는 그대로 전파(취소 처리 보존).
+      if (timedOut && err && err.name === 'AbortError') {
         // 오래된 캐시라도 있으면 그거라도 (무한 스피너보다 낫다)
         if (cacheable && mem[key]) return makeResp(mem[key]);
         return new Response(

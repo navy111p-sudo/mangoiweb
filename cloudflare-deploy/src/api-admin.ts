@@ -4015,7 +4015,9 @@ ${chatSampleText}
         } catch { /* 캐시 miss 무시 */ }
 
         const studentsRs = await env.DB.prepare(
-          `SELECT ${selectCols} FROM students_erp WHERE (status = '정상' OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''} LIMIT 500`
+          // ⚠️ status 값: 카페24 동기화가 영어 'active'/'inactive'로 적재(실측 28,641/722). 레거시 '정상'/'활동'도 함께 인정(하위호환).
+          //    (기존 '정상'만 필터하면 매칭 0건 → 학생 0명 early-return 으로 이탈위험이 조용히 빈 목록이 됨)
+          `SELECT ${selectCols} FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_swRisk.cond ? ' AND ' + _swRisk.cond : ''} LIMIT 500`
         ).bind(..._swRisk.binds).all();
         const students = (studentsRs.results || []) as any[];
         if (!students.length) return json({ ok: true, count: 0, at_risk: [], schema: { name_col: nameCol } });
@@ -4023,34 +4025,49 @@ ${chatSampleText}
         // ⚡ N+1 제거 — 학생당 반복 쿼리(≈8×N=수천건)를 그룹 쿼리 9개로 일괄 집계 후 메모리에서 점수 계산.
         //    점수 로직(S1~S10)·응답 형태는 원본과 100% 동일, 데이터 수집 방식만 변경.
         const _ids = students.map(s => s.user_id);
-        const _ph = _ids.map(() => '?').join(',');
         const _num = (v: any) => (typeof v === 'number' ? v : Number(v) || 0);
-        const _groupMap = async (sql: string, binds: any[], keyCol: string, pick: (r: any) => any): Promise<Map<string, any>> => {
+        // ⚠️ D1 하드 한도: 쿼리당 바인드 파라미터 100개(실측: 101개부터 "too many SQL variables").
+        //    IN(...) 목록이 이를 넘으면 쿼리 전체가 실패하고, 아래 try/catch 가 이를 삼켜
+        //    빈 집계=모든 위험신호 0=위험학생 0명으로 조용히 오작동한다(활성 100명↑ 범위 전부).
+        //    → 학생 id 를 90개씩(뒤 날짜 바인드 여유 포함) 청크로 나눠 질의 후 병합.
+        //    각 user_id 는 한 청크에만 속하므로 GROUP BY / ROW_NUMBER 결과는 분할해도 동일.
+        const CHUNK = 90;
+        const _chunks: any[][] = [];
+        for (let i = 0; i < _ids.length; i += CHUNK) _chunks.push(_ids.slice(i, i + CHUNK));
+        const _groupMap = async (build: (ph: string) => string, tail: any[], keyCol: string, pick: (r: any) => any): Promise<Map<string, any>> => {
           const m = new Map<string, any>();
-          try {
-            const rs: any = await env.DB.prepare(sql).bind(...binds).all();
-            for (const r of (rs.results || [])) m.set(String(r[keyCol]), pick(r));
-          } catch { /* 테이블 없음 등 → 빈 맵(원본 try/catch 동작과 동일) */ }
+          for (const ck of _chunks) {
+            const ph = ck.map(() => '?').join(',');
+            try {
+              const rs: any = await env.DB.prepare(build(ph)).bind(...ck, ...tail).all();
+              for (const r of (rs.results || [])) m.set(String(r[keyCol]), pick(r));
+            } catch { /* 테이블 없음/청크 오류 → 스킵(원본 try/catch 동작과 동일) */ }
+          }
           return m;
         };
         try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`); } catch {}
 
         const [att30M, att60M, att90M, lastJoinM, evalM, payM, hwM, ptM, _trendRows] = await Promise.all([
-          _groupMap(`SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${_ph}) AND joined_at >= ? GROUP BY user_id`, [..._ids, since30], 'user_id', r => _num(r.d)),
-          _groupMap(`SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${_ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [..._ids, since60, since30], 'user_id', r => _num(r.d)),
-          _groupMap(`SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${_ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [..._ids, since90, since60], 'user_id', r => _num(r.d)),
-          _groupMap(`SELECT user_id, MAX(joined_at) j FROM attendance WHERE user_id IN (${_ph}) GROUP BY user_id`, [..._ids], 'user_id', r => _num(r.j)),
-          _groupMap(`SELECT student_uid, AVG(score_overall) a, COUNT(*) n FROM student_evaluations WHERE student_uid IN (${_ph}) AND created_at >= ? GROUP BY student_uid`, [..._ids, since60], 'student_uid', r => ({ a: _num(r.a), n: _num(r.n) })),
-          _groupMap(`SELECT user_id, MIN(due_at) earliest_due, SUM(amount) total FROM payments WHERE user_id IN (${_ph}) AND (paid_at IS NULL OR paid_at = 0) AND due_at < ? GROUP BY user_id`, [..._ids, now], 'user_id', r => ({ earliest_due: _num(r.earliest_due), total: _num(r.total) })),
-          _groupMap(`SELECT user_id, COUNT(*) n FROM homework_submissions WHERE user_id IN (${_ph}) AND status = 'missed' AND created_at >= ? GROUP BY user_id`, [..._ids, since30], 'user_id', r => _num(r.n)),
-          _groupMap(`SELECT user_id, COUNT(*) n FROM point_log WHERE user_id IN (${_ph}) AND created_at >= ? GROUP BY user_id`, [..._ids, since14], 'user_id', r => _num(r.n)),
+          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? GROUP BY user_id`, [since30], 'user_id', r => _num(r.d)),
+          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [since60, since30], 'user_id', r => _num(r.d)),
+          _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [since90, since60], 'user_id', r => _num(r.d)),
+          _groupMap(ph => `SELECT user_id, MAX(joined_at) j FROM attendance WHERE user_id IN (${ph}) GROUP BY user_id`, [], 'user_id', r => _num(r.j)),
+          _groupMap(ph => `SELECT student_uid, AVG(score_overall) a, COUNT(*) n FROM student_evaluations WHERE student_uid IN (${ph}) AND created_at >= ? GROUP BY student_uid`, [since60], 'student_uid', r => ({ a: _num(r.a), n: _num(r.n) })),
+          _groupMap(ph => `SELECT user_id, MIN(due_at) earliest_due, SUM(amount) total FROM payments WHERE user_id IN (${ph}) AND (paid_at IS NULL OR paid_at = 0) AND due_at < ? GROUP BY user_id`, [now], 'user_id', r => ({ earliest_due: _num(r.earliest_due), total: _num(r.total) })),
+          _groupMap(ph => `SELECT user_id, COUNT(*) n FROM homework_submissions WHERE user_id IN (${ph}) AND status = 'missed' AND created_at >= ? GROUP BY user_id`, [since30], 'user_id', r => _num(r.n)),
+          _groupMap(ph => `SELECT user_id, COUNT(*) n FROM point_log WHERE user_id IN (${ph}) AND created_at >= ? GROUP BY user_id`, [since14], 'user_id', r => _num(r.n)),
           (async () => {
-            try {
-              const rs: any = await env.DB.prepare(
-                `SELECT student_uid, score_overall, rn FROM (SELECT student_uid, score_overall, ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) rn FROM student_evaluations WHERE student_uid IN (${_ph})) WHERE rn <= 6`
-              ).bind(..._ids).all();
-              return (rs.results || []) as any[];
-            } catch { return []; }
+            const out: any[] = [];
+            for (const ck of _chunks) {
+              const ph = ck.map(() => '?').join(',');
+              try {
+                const rs: any = await env.DB.prepare(
+                  `SELECT student_uid, score_overall, rn FROM (SELECT student_uid, score_overall, ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) rn FROM student_evaluations WHERE student_uid IN (${ph})) WHERE rn <= 6`
+                ).bind(...ck).all();
+                for (const r of (rs.results || [])) out.push(r);
+              } catch { /* skip */ }
+            }
+            return out;
           })(),
         ]);
 

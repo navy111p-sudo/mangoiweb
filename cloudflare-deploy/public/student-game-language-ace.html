@@ -239,16 +239,17 @@ function audio(){ if(AC) return AC; try{ AC=new (window.AudioContext||window.web
 function noiseBuf(dur){ var ac=audio(); if(!ac)return null; var n=Math.floor(ac.sampleRate*dur),b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0);
   for(var i=0;i<n;i++) d[i]=Math.random()*2-1; return b; }
 var _shotT=0;
-function sndShot(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime; if(t-_shotT<0.045)return; _shotT=t;
-  // 짧은 노이즈 버스트 + 로우패스 = 기관총 탁탁
-  var src=ac.createBufferSource(); src.buffer=noiseBuf(0.05);
-  var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400;
-  var g=ac.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.004);
-  g.gain.exponentialRampToValueAtTime(0.0001,t+0.06);
-  src.connect(lp); lp.connect(g); g.connect(masterGain); src.start(t); src.stop(t+0.07);
-  var o=ac.createOscillator(); o.type='square'; o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(70,t+0.05);
-  var g2=ac.createGain(); g2.gain.setValueAtTime(0.18,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.06);
-  o.connect(g2); g2.connect(masterGain); o.start(t); o.stop(t+0.07); }
+/* B-17 연발 기관총 '다다다' — 매 발마다 날카로운 크랙 + 저역 '툭' 바디(짧게=빠른 연사감) */
+function sndShot(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime; if(t-_shotT<0.028)return; _shotT=t;
+  // 총구 파열 크랙(밴드패스 노이즈, 날카로운 어택)
+  var src=ac.createBufferSource(); src.buffer=noiseBuf(0.045);
+  var bp=ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1750; bp.Q.value=0.7;
+  var g=ac.createGain(); g.gain.setValueAtTime(0.6,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.05);
+  src.connect(bp); bp.connect(g); g.connect(masterGain); src.start(t); src.stop(t+0.06);
+  // 저역 '툭' 바디(총열 반동감)
+  var o=ac.createOscillator(); o.type='square'; o.frequency.setValueAtTime(205,t); o.frequency.exponentialRampToValueAtTime(62,t+0.045);
+  var g2=ac.createGain(); g2.gain.setValueAtTime(0.24,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.05);
+  o.connect(g2); g2.connect(masterGain); o.start(t); o.stop(t+0.06); }
 function sndBoom(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime;
   var src=ac.createBufferSource(); src.buffer=noiseBuf(0.5);
   var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(900,t); lp.frequency.exponentialRampToValueAtTime(120,t+0.4);
@@ -280,23 +281,37 @@ function sndEnemyShot(){ if(muted)return; var ac=audio(); if(!ac)return; var t=a
 /* ════════════════════════════════════════════════════════════
    3b. Web Audio — 배경음악(BGM) : WWII 오락실풍 단조 행진 루프(외부파일 없이 합성)
    ════════════════════════════════════════════════════════════ */
-var BGM_STEP=0.256;                         // 8분음표 길이(≈117 BPM)
-var BGM_BASS=[110,0,164.81,0, 146.83,0,146.83,0, 130.81,0,196,0, 110,0,164.81,0];   // Am 행진 베이스
-var BGM_LEAD=[0,0,440,0, 523.25,0,0,493.88, 440,0,0,392, 440,0,0,0];                // 아르페지오 리드
+var BGM_STEP=0.152;                         // 빠른 템포(≈197 BPM 16비트) = 박진감
+// 갤로핑 저음(공격적 톱니) — Am 기반, 반복 루트로 몰아침
+var BGM_BASS=[110,110,0,110, 146.83,0,110,110, 130.81,130.81,0,130.81, 98,0,146.83,164.81];
+// 긴박한 단조 리드(상승·질주감)
+var BGM_LEAD=[440,0,523.25,659.25, 0,587.33,523.25,0, 440,0,392,440, 493.88,587.33,659.25,0];
+var BGM_KICK=[1,0,0,1, 1,0,0,0, 1,0,0,1, 1,0,1,0];      // 킥(드라이브)
+var BGM_SNR =[0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0];      // 스네어(백비트)
 var bgm={on:false,timer:null,next:0,step:0};
 function bgmNote(freq,t,dur,type,vol,cut){ var ac=audio(); if(!ac)return;
   var o=ac.createOscillator(),g=ac.createGain(); o.type=type; o.frequency.value=freq;
   if(cut){ var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=cut; o.connect(lp); lp.connect(g); } else o.connect(g);
-  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.015); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   g.connect(masterGain); o.start(t); o.stop(t+dur+0.03); }
 function bgmHat(t){ var ac=audio(); if(!ac)return; var s=ac.createBufferSource(); s.buffer=noiseBuf(0.03);
-  var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=6500;
-  var g=ac.createGain(); g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.04);
-  s.connect(hp); hp.connect(g); g.connect(masterGain); s.start(t); s.stop(t+0.05); }
+  var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000;
+  var g=ac.createGain(); g.gain.setValueAtTime(0.045,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.03);
+  s.connect(hp); hp.connect(g); g.connect(masterGain); s.start(t); s.stop(t+0.04); }
+function bgmKick(t){ var ac=audio(); if(!ac)return; var o=ac.createOscillator(),g=ac.createGain(); o.type='sine';
+  o.frequency.setValueAtTime(155,t); o.frequency.exponentialRampToValueAtTime(45,t+0.11);
+  g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.13);
+  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.14); }
+function bgmSnare(t){ var ac=audio(); if(!ac)return; var s=ac.createBufferSource(); s.buffer=noiseBuf(0.13);
+  var bp=ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1900; bp.Q.value=0.6;
+  var g=ac.createGain(); g.gain.setValueAtTime(0.11,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+  s.connect(bp); bp.connect(g); g.connect(masterGain); s.start(t); s.stop(t+0.13); }
 function bgmStep(i,t){
-  var b=BGM_BASS[i]; if(b) bgmNote(b,t,BGM_STEP*1.7,'triangle',0.055,650);   // 베이스
-  var l=BGM_LEAD[i]; if(l) bgmNote(l,t,BGM_STEP*0.9,'square',0.032,2400);     // 리드(칩튠)
-  if(i%2===0) bgmHat(t);                                                       // 행진 틱
+  var b=BGM_BASS[i]; if(b) bgmNote(b,t,BGM_STEP*1.05,'sawtooth',0.05,780);   // 톱니 저음(공격적)
+  var l=BGM_LEAD[i]; if(l) bgmNote(l,t,BGM_STEP*0.85,'square',0.03,2700);     // 긴박 리드
+  if(BGM_KICK[i]) bgmKick(t);
+  if(BGM_SNR[i])  bgmSnare(t);
+  if(i%2===1)     bgmHat(t);                                                   // 오프비트 하이햇=질주감
 }
 function bgmStart(){ if(bgm.on||muted)return; var ac=audio(); if(!ac)return; bgm.on=true; bgm.step=0; bgm.next=ac.currentTime+0.08;
   bgm.timer=setInterval(function(){ if(!bgm.on)return; var ac=audio(); if(!ac)return;
@@ -468,10 +483,15 @@ function spawnEnemy(forceTarget){
 /* ════════════════════════════════════════════════════════════
    10. 발사 · 탄막
    ════════════════════════════════════════════════════════════ */
+var _gunSide=0;
 function playerFire(){
   var t=performance.now();
-  if(t - G.fireT < 95) return; G.fireT=t;
-  G.pbul.push({x:G.px-11, y:G.py-24, vy:-620}, {x:G.px+11, y:G.py-24, vy:-620});
+  if(t - G.fireT < 68) return; G.fireT=t;      // 연사 주기 ↓ = 빠른 '다다다'
+  // 양쪽 총열 교대 발사(연발 기관총 느낌)
+  _gunSide^=1; var lx=G.px-11, rx=G.px+11, my=G.py-26;
+  G.pbul.push({x:lx, y:my, vy:-700}, {x:rx, y:my, vy:-700});
+  // 총구 화염(짧게)
+  if(G.parts.length<130){ G.parts.push({fire:true,x:_gunSide?lx:rx,y:my,age:0,life:0.05,rad:7}); }
   sndShot();
 }
 /* 총알은 기체 '총구'에서 발사 — 탄막 대신 총처럼 적게 조준 사격. 기체 로컬좌표(기수=아래 +y)를 뱅킹각으로 회전해 총구 월드좌표 계산 */
@@ -855,6 +875,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715060500 -->
+<!-- BUILD:20260715062009 -->
 </body>
 </html>
