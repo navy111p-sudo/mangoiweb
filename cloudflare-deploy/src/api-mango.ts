@@ -1099,7 +1099,7 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/textbooks') || path === '/api/lesson-video'
         || path.startsWith('/api/get-lesson-video/') || path.startsWith('/api/admin/mango-videos')
         || path.startsWith('/api/admin/students/') || path.startsWith('/api/admin/selfscore/')
-        || path === '/api/admin/attendance/import-cafe24' || path === '/api/admin/payments/import-cafe24'
+        || path === '/api/admin/attendance/import-cafe24' || path === '/api/admin/attendance/today' || path === '/api/admin/payments/import-cafe24'
         || path === '/api/admin/org/import-cafe24' || path === '/api/admin/staff/graph-list'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')

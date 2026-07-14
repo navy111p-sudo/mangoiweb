@@ -8,7 +8,7 @@
 //     (payroll rates·all·finalize·seed-demo 는 아직 api-mango — 3회차 예정)
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
-import { json, parseJsonBody, invalidBody, toCSV, csvResponse } from './api-util';
+import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -6618,6 +6618,28 @@ LIMIT $limit`;
       }
       await env.DB.prepare(`UPDATE recordings SET status = ? WHERE id = ?`).bind(b.status, id).run();
       return json({ ok: true, id, status: b.status });
+    }
+
+    // ── GET /api/admin/attendance/today?room_id= — 오늘 출석 명단 (QR 출결 카드) ──
+    //   🐛 fix(2026-07-14): admin.html QR 출결 카드가 태초부터 미구현 API 를 호출해
+    //   404 였음. 학생용 /api/attendance/checkin 이 남기는 attendance 행을 KST 오늘
+    //   기준으로 조회. 프런트 계약: { ok, list:[{joined_at, username|user_id, room_id, status}] }
+    if (method === 'GET' && path === '/api/admin/attendance/today') {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, user_id TEXT NOT NULL, username TEXT, role TEXT DEFAULT 'student', joined_at INTEGER NOT NULL, left_at INTEGER, status TEXT DEFAULT 'present', date TEXT, attended_at INTEGER, total_session_ms INTEGER DEFAULT 0, total_active_ms INTEGER DEFAULT 0, disconnect_count INTEGER DEFAULT 0);`); } catch {}
+      const day = String(url.searchParams.get('date') || today());
+      const roomQ = (url.searchParams.get('room_id') || '').trim();
+      try {
+        const sql = roomQ
+          ? `SELECT user_id, username, room_id, status, COALESCE(attended_at, joined_at) AS joined_at FROM attendance WHERE date = ? AND room_id = ? ORDER BY joined_at ASC LIMIT 500`
+          : `SELECT user_id, username, room_id, status, COALESCE(attended_at, joined_at) AS joined_at FROM attendance WHERE date = ? ORDER BY joined_at ASC LIMIT 500`;
+        const rs = roomQ
+          ? await env.DB.prepare(sql).bind(day, roomQ).all()
+          : await env.DB.prepare(sql).bind(day).all();
+        const list = (rs.results || []) as any[];
+        return json({ ok: true, date: day, count: list.length, list });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'query_failed' }, 500);
+      }
     }
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
