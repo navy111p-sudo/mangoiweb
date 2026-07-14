@@ -1629,19 +1629,38 @@
             text-shadow: 0 0 3px rgba(0,0,0,.95), 0 0 1px #000;
             pointer-events: none;
         }
-        /* 내 타일(📷/🎤)은 눌러서 켜고 끄기 */
+        /* 내 타일(📷/🎤)은 눌러서 켜고 끄기 · 🙈=얼굴 화면 숨기기 */
         #vc-local-box .video-status { pointer-events: auto; }
-        #vc-local-box .vs-cam, #vc-local-box .vs-mic {
+        #vc-local-box .vs-cam, #vc-local-box .vs-mic, #vc-local-box .vs-hide {
             cursor: pointer;
             padding: 3px 4px;
             margin: -3px -2px;
             border-radius: 5px;
         }
-        #vc-local-box .vs-cam:active, #vc-local-box .vs-mic:active { background: rgba(255,255,255,.25); }
+        #vc-local-box .vs-cam:active, #vc-local-box .vs-mic:active, #vc-local-box .vs-hide:active { background: rgba(255,255,255,.25); }
         @media (max-width: 900px) {
             /* 모바일 작은 타일에서도 손가락으로 누를 수 있게 아이콘만 키움 */
-            #vc-local-box .vs-cam, #vc-local-box .vs-mic { font-size: 1.5em; padding: 3px 5px; }
+            #vc-local-box .vs-cam, #vc-local-box .vs-mic, #vc-local-box .vs-hide { font-size: 1.5em; padding: 3px 5px; }
         }
+        /* 🙉 얼굴 화면 복귀 칩 — 얼굴 숨김(hidefaces) 동안에만 표시 */
+        #vc-faces-restore {
+            position: fixed;
+            top: 52px;
+            right: 10px;
+            z-index: 9500;
+            display: none;
+            align-items: center;
+            gap: 5px;
+            background: rgba(15,23,42,.92);
+            color: #fff;
+            border: 1px solid rgba(251,191,36,.55);
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0,0,0,.4);
+        }
+        #vc-faces-restore:active { transform: scale(.95); }
         /* 카메라 꺼짐 = 타일 화면 가림 덮개 */
         .video-box .vc-cam-cover {
             position: absolute;
@@ -12768,6 +12787,20 @@ function attachStreamMonitor(box, stream) {
         status.__tapWired = true;
         camEl.title = '카메라 켜기/끄기';
         micEl.title = '마이크 켜기/끄기';
+        // 🙈 (2026-07-14 사장님 지시) 얼굴 화면 숨기기 — 📷 왼쪽에 원터치 버튼.
+        //    내 화면에서만 숨김(상대에겐 계속 송출) → 콘텐츠가 전체 화면 차지.
+        if (!status.querySelector('.vs-hide')) {
+            const hideEl = document.createElement('span');
+            hideEl.className = 'vs-icon vs-hide';
+            hideEl.textContent = '🙈';
+            hideEl.title = (typeof currentLang !== 'undefined' && currentLang === 'en')
+                ? 'Hide faces (still in class)' : '얼굴 화면 숨기기 (수업은 계속 참여)';
+            hideEl.addEventListener('click', function(e){
+                e.stopPropagation();
+                try { vcFacesHide(); } catch(_){}
+            });
+            status.insertBefore(hideEl, camEl);
+        }
         camEl.addEventListener('click', function(e){
             e.stopPropagation();
             try { vcToggleCam(); } catch(_){}
@@ -27084,7 +27117,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714144011 -->
+<!-- BUILD:20260714144256 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
