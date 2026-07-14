@@ -212,6 +212,21 @@ async function load() {
   // 🥭 Phase 20 — 오늘의 KPI 4박스 갱신 (병렬 fetch, 실패해도 다른 위젯에 영향 없음)
   loadTodayKpi();
 
+  // 🐛 fix(2026-07-14): Chart.js 는 필요 시 CDN 지연 로드되는데, 대시보드 load() 가
+  //   그보다 먼저 뜨면 'Chart is not defined' 로 죽어 이하 위젯이 전부 멈췄음(태초 버그,
+  //   리팩토링 무관). 미로드면 CDN 로드 후 load() 1회 재실행하고 지금은 조용히 반환.
+  if (typeof Chart === 'undefined') {
+    if (!window._admChartLoading) {
+      window._admChartLoading = true;
+      var _cs = document.createElement('script');
+      _cs.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+      _cs.onload = function(){ window._admChartLoading = false; try { load(); } catch(e){} };
+      _cs.onerror = function(){ window._admChartLoading = false; };
+      document.head.appendChild(_cs);
+    }
+    return;
+  }
+
   // 출석 차트
   const byDay = (data.attendance.by_day || []).slice().reverse();
   if (chartAtt) chartAtt.destroy();
