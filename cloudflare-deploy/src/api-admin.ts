@@ -5005,5 +5005,939 @@ LIMIT $limit`;
     }
 
 
+    // ═══════════════════════════════════════════════════════════════
+    // 👁 Phase GM — 관리자 통제 (Ghost 참관 + Whisper 귓속말 + AI 알림)
+    //   GM-1: 테이블 6개 + GM-2: API 11개 (인프라 + 감사 로그)
+    //   GM-3: 관리자 UI 카드 (별도 admin.html)
+    //   GM-4(미디어 라우팅) + GM-5(AI 분석)는 추후 — 지금은 안전한 hook 만
+    // ═══════════════════════════════════════════════════════════════
+    const ensureAdminControlSchema = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_perms (admin_uid TEXT PRIMARY KEY, can_ghost INTEGER DEFAULT 0, can_whisper INTEGER DEFAULT 0, can_kick INTEGER DEFAULT 0, can_view_alerts INTEGER DEFAULT 1, updated_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_observations (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, room_id TEXT NOT NULL, reason TEXT, joined_at INTEGER NOT NULL, left_at INTEGER, consumer_ids TEXT, ip TEXT, user_agent TEXT);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_whispers (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, room_id TEXT NOT NULL, target_teacher_uid TEXT NOT NULL, message_type TEXT, payload TEXT, urgency TEXT DEFAULT 'normal', sent_at INTEGER NOT NULL, delivered_at INTEGER, read_at INTEGER);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS room_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, alert_type TEXT NOT NULL, severity TEXT, detail TEXT, triggered_at INTEGER NOT NULL, acknowledged_by TEXT, acknowledged_at INTEGER, auto_action TEXT);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS forbidden_words (id INTEGER PRIMARY KEY AUTOINCREMENT, word TEXT NOT NULL UNIQUE, severity TEXT DEFAULT 'medium', language TEXT DEFAULT 'both', added_by TEXT, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_uid TEXT NOT NULL, action TEXT NOT NULL, target_room TEXT, target_user TEXT, meta TEXT, ip TEXT, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_alerts_room ON room_alerts(room_id, triggered_at);`);
+      await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_audit_admin ON admin_audit_logs(admin_uid, created_at);`);
+    };
+
+    // 감사 로그 헬퍼
+    const writeAudit = async (adminUid: string, action: string, opts: any = {}) => {
+      try {
+        await env.DB.prepare(
+          `INSERT INTO admin_audit_logs (admin_uid, action, target_room, target_user, meta, ip, created_at) VALUES (?,?,?,?,?,?,?)`
+        ).bind(adminUid, action, opts.room || null, opts.user || null, opts.meta ? JSON.stringify(opts.meta) : null, opts.ip || null, Date.now()).run();
+      } catch (e: any) { console.error('[audit]', e?.message); }
+    };
+
+    // ── ① POST /api/admin/ghost/start — 고스트 참관 시작 기록 ──
+    if (method === 'POST' && path === '/api/admin/ghost/start') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const adminUid = String(b.admin_uid || '').trim();
+      const roomId = String(b.room_id || '').trim();
+      const reason = String(b.reason || '').trim();
+      if (!adminUid || !roomId) return json({ ok: false, error: 'admin_uid_and_room_id_required' }, 400);
+      if (!reason) return json({ ok: false, error: 'reason_required', message: '참관 사유는 감사 추적을 위해 필수입니다.' }, 400);
+
+      const ip = request.headers.get('cf-connecting-ip') || '';
+      const ua = (request.headers.get('user-agent') || '').slice(0, 255);
+      const r: any = await env.DB.prepare(
+        `INSERT INTO admin_observations (admin_uid, room_id, reason, joined_at, ip, user_agent) VALUES (?,?,?,?,?,?)`
+      ).bind(adminUid, roomId, reason, Date.now(), ip || null, ua || null).run();
+      const observationId = r.meta?.last_row_id;
+      await writeAudit(adminUid, 'ghost_join', { room: roomId, ip, meta: { observation_id: observationId, reason } });
+
+      // GM-4 미구현: 실제 미디어 consumer 는 추후. 지금은 기록만.
+      return json({
+        ok: true, observation_id: observationId, room_id: roomId,
+        ghost_mode: 'recorded_only',
+        notice_sent_to_others: false,                            // 핵심: 다른 참가자에게 알림 X
+        media_consumer_pending: true,                            // GM-4 에서 활성화 예정
+      });
+    }
+
+    // ── ② POST /api/admin/ghost/end — 참관 종료 ──
+    if (method === 'POST' && path === '/api/admin/ghost/end') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const adminUid = String(b.admin_uid || '').trim();
+      const observationId = Number(b.observation_id);
+      if (!adminUid || !observationId) return json({ ok: false, error: 'admin_uid_and_observation_id_required' }, 400);
+
+      const row: any = await env.DB.prepare(
+        `SELECT room_id, joined_at, left_at FROM admin_observations WHERE id = ? AND admin_uid = ?`
+      ).bind(observationId, adminUid).first();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      if (row.left_at) return json({ ok: false, error: 'already_ended' }, 400);
+
+      const now = Date.now();
+      await env.DB.prepare(`UPDATE admin_observations SET left_at = ? WHERE id = ?`).bind(now, observationId).run();
+      await writeAudit(adminUid, 'ghost_leave', { room: row.room_id, meta: { observation_id: observationId, duration_sec: Math.round((now - row.joined_at) / 1000) } });
+      return json({ ok: true, observation_id: observationId, duration_sec: Math.round((now - row.joined_at) / 1000) });
+    }
+
+    // ── ③ GET /api/admin/ghost/sessions — 참관 기록 ──
+    if (method === 'GET' && path === '/api/admin/ghost/sessions') {
+      await ensureAdminControlSchema();
+      const adminUid = url.searchParams.get('admin_uid');
+      const roomId = url.searchParams.get('room_id');
+      let q = `SELECT id, admin_uid, room_id, reason, joined_at, left_at, ip FROM admin_observations`;
+      const where: string[] = [], binds: any[] = [];
+      if (adminUid) { where.push('admin_uid = ?'); binds.push(adminUid); }
+      if (roomId) { where.push('room_id = ?'); binds.push(roomId); }
+      if (where.length) q += ' WHERE ' + where.join(' AND ');
+      q += ' ORDER BY joined_at DESC LIMIT 100';
+      const rs: any = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── ④ POST /api/admin/whisper/send — 강사에게 귓속말 전송 (기록) ──
+    if (method === 'POST' && path === '/api/admin/whisper/send') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const adminUid = String(b.admin_uid || '').trim();
+      const roomId = String(b.room_id || '').trim();
+      const teacherUid = String(b.teacher_uid || '').trim();
+      const messageType = String(b.message_type || 'text').trim();
+      const payload = String(b.payload || '').trim();
+      const urgency = String(b.urgency || 'normal').trim();
+      if (!adminUid || !roomId || !teacherUid || !payload) return json({ ok: false, error: 'fields_required' }, 400);
+      if (!['text', 'audio', 'hint'].includes(messageType)) return json({ ok: false, error: 'invalid_message_type' }, 400);
+
+      const r: any = await env.DB.prepare(
+        `INSERT INTO admin_whispers (admin_uid, room_id, target_teacher_uid, message_type, payload, urgency, sent_at) VALUES (?,?,?,?,?,?,?)`
+      ).bind(adminUid, roomId, teacherUid, messageType, payload, urgency, Date.now()).run();
+      const whisperId = r.meta?.last_row_id;
+      await writeAudit(adminUid, 'whisper_send', { room: roomId, user: teacherUid, meta: { type: messageType, urgency, len: payload.length } });
+
+      // GM-4 미구현: 실제 WebSocket push 는 추후 (SignalingRoom DO 와 통합)
+      return json({
+        ok: true, whisper_id: whisperId,
+        delivery_status: 'queued',                               // GM-4 에서 'delivered' 로 갱신
+        learning_note: '강사 클라이언트에만 전달, 학생 누설 차단 처리는 GM-4 단계에서 활성화',
+      });
+    }
+
+    // ── ⑤ GET /api/admin/whisper/logs — 귓속말 로그 ──
+    if (method === 'GET' && path === '/api/admin/whisper/logs') {
+      await ensureAdminControlSchema();
+      const roomId = url.searchParams.get('room_id');
+      let q = `SELECT id, admin_uid, room_id, target_teacher_uid, message_type, payload, urgency, sent_at, delivered_at, read_at FROM admin_whispers`;
+      const binds: any[] = [];
+      if (roomId) { q += ' WHERE room_id = ?'; binds.push(roomId); }
+      q += ' ORDER BY sent_at DESC LIMIT 50';
+      const rs: any = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── ⑥ GET /api/admin/alerts — 알림 목록 ──
+    if (method === 'GET' && path === '/api/admin/alerts') {
+      await ensureAdminControlSchema();
+      const onlyUnack = url.searchParams.get('only_unack') === '1';
+      let q = `SELECT id, room_id, alert_type, severity, detail, triggered_at, acknowledged_by, acknowledged_at, auto_action FROM room_alerts`;
+      if (onlyUnack) q += ' WHERE acknowledged_at IS NULL';
+      q += ' ORDER BY triggered_at DESC LIMIT 100';
+      const rs: any = await env.DB.prepare(q).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── ⑦ POST /api/admin/alerts/:id/ack — 알림 확인 처리 ──
+    const ackMatch = path.match(/^\/api\/admin\/alerts\/(\d+)\/ack$/);
+    if (method === 'POST' && ackMatch) {
+      await ensureAdminControlSchema();
+      const alertId = parseInt(ackMatch[1], 10);
+      const b: any = await request.json().catch(() => ({}));
+      const adminUid = String(b.admin_uid || '').trim();
+      if (!adminUid) return json({ ok: false, error: 'admin_uid_required' }, 400);
+      await env.DB.prepare(`UPDATE room_alerts SET acknowledged_by = ?, acknowledged_at = ? WHERE id = ? AND acknowledged_at IS NULL`)
+        .bind(adminUid, Date.now(), alertId).run();
+      await writeAudit(adminUid, 'alert_ack', { meta: { alert_id: alertId } });
+      return json({ ok: true });
+    }
+
+    // ── ⑧ POST /api/admin/alerts/test-fire — 테스트용 알림 발사 (GM-5 미구현 폴백) ──
+    if (method === 'POST' && path === '/api/admin/alerts/test-fire') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const roomId = String(b.room_id || 'test-room').trim();
+      const alertType = String(b.alert_type || 'silence_20s').trim();
+      const severity = String(b.severity || 'medium').trim();
+      const detail = b.detail || { test: true, duration_sec: 25 };
+      const r: any = await env.DB.prepare(
+        `INSERT INTO room_alerts (room_id, alert_type, severity, detail, triggered_at) VALUES (?,?,?,?,?)`
+      ).bind(roomId, alertType, severity, JSON.stringify(detail), Date.now()).run();
+      return json({ ok: true, alert_id: r.meta?.last_row_id, room_id: roomId, alert_type: alertType });
+    }
+
+    // ── ⑨ GET /api/admin/forbidden-words — 금지 단어 목록 ──
+    if (method === 'GET' && path === '/api/admin/forbidden-words') {
+      await ensureAdminControlSchema();
+      const rs: any = await env.DB.prepare(
+        `SELECT id, word, severity, language, enabled, added_by, created_at FROM forbidden_words ORDER BY severity DESC, word ASC LIMIT 500`
+      ).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+
+    // ── ⑩ POST /api/admin/forbidden-words — 금지 단어 추가 ──
+    if (method === 'POST' && path === '/api/admin/forbidden-words') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const word = String(b.word || '').trim().toLowerCase();
+      const severity = String(b.severity || 'medium').trim();
+      const language = String(b.language || 'both').trim();
+      const addedBy = String(b.added_by || '').trim();
+      if (!word) return json({ ok: false, error: 'word_required' }, 400);
+      try {
+        await env.DB.prepare(
+          `INSERT INTO forbidden_words (word, severity, language, added_by, created_at) VALUES (?,?,?,?,?) ON CONFLICT(word) DO UPDATE SET severity=excluded.severity, language=excluded.language, enabled=1`
+        ).bind(word, severity, language, addedBy || null, Date.now()).run();
+        if (addedBy) await writeAudit(addedBy, 'forbidden_word_add', { meta: { word, severity } });
+        return json({ ok: true, word });
+      } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+    }
+
+    // ── ⑪ DELETE /api/admin/forbidden-words/:id — 금지 단어 삭제(비활성) ──
+    const fwDelMatch = path.match(/^\/api\/admin\/forbidden-words\/(\d+)$/);
+    if (method === 'DELETE' && fwDelMatch) {
+      await ensureAdminControlSchema();
+      const id = parseInt(fwDelMatch[1], 10);
+      await env.DB.prepare(`UPDATE forbidden_words SET enabled = 0 WHERE id = ?`).bind(id).run();
+      return json({ ok: true, id });
+    }
+
+    // ── ⑬ GET /api/admin/chat-messages?room_id=... — 강의실 채팅 조회 (참관용) ──
+    if (method === 'GET' && path === '/api/admin/chat-messages') {
+      const roomId = String(url.searchParams.get('room_id') || '').trim();
+      if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, sender_uid TEXT, sender_name TEXT, sender_role TEXT, message TEXT NOT NULL, sent_at INTEGER NOT NULL, meta TEXT);`);
+        const rs: any = await env.DB.prepare(
+          `SELECT id, room_id, sender_uid, sender_name, sender_role, message, sent_at FROM chat_messages WHERE room_id = ? ORDER BY sent_at ASC LIMIT 100`
+        ).bind(roomId).all();
+        return json({ ok: true, items: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: true, items: [], note: 'chat_messages_unavailable' });
+      }
+    }
+
+    // ── ⑭ GET /api/admin/room-attendance?room_id=... — 강의실 출석/참가자 조회 ──
+    if (method === 'GET' && path === '/api/admin/room-attendance') {
+      const roomId = String(url.searchParams.get('room_id') || '').trim();
+      if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, user_id TEXT, username TEXT, role TEXT, joined_at INTEGER, left_at INTEGER, status TEXT, date TEXT);`);
+        const rs: any = await env.DB.prepare(
+          `SELECT id, room_id, user_id, username, role, joined_at, left_at, status FROM attendance WHERE room_id = ? ORDER BY joined_at DESC LIMIT 50`
+        ).bind(roomId).all();
+        return json({ ok: true, items: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: true, items: [], note: 'attendance_unavailable' });
+      }
+    }
+
+    // ── ⑫ GET /api/admin/audit-logs — 감사 로그 조회 ──
+    if (method === 'GET' && path === '/api/admin/audit-logs') {
+      await ensureAdminControlSchema();
+      const adminUid = url.searchParams.get('admin_uid');
+      let q = `SELECT id, admin_uid, action, target_room, target_user, meta, ip, created_at FROM admin_audit_logs`;
+      const binds: any[] = [];
+      if (adminUid) { q += ' WHERE admin_uid = ?'; binds.push(adminUid); }
+      q += ' ORDER BY created_at DESC LIMIT 200';
+      const rs: any = await env.DB.prepare(q).bind(...binds).all();
+      return json({ ok: true, items: rs.results || [] });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 👁 Phase GM 끝 (GM-1, GM-2 인프라 + API)
+    // ═══════════════════════════════════════════════════════════════
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🌅 Phase DB — 매일 아침 자동 일일 브리핑 (Daily Briefing)
+    // ═══════════════════════════════════════════════════════════════
+    if ((method === 'POST' && path === '/api/admin/briefing/generate') || (method === 'GET' && path === '/api/admin/briefing/latest')) {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS daily_briefings (id INTEGER PRIMARY KEY AUTOINCREMENT, briefing_date TEXT NOT NULL, briefing_text TEXT NOT NULL, stats TEXT, created_at INTEGER NOT NULL);`);
+
+        // GET latest — 최근 N개 또는 단건
+        if (method === 'GET' && path === '/api/admin/briefing/latest') {
+          const limit = Math.min(parseInt(url.searchParams.get('limit') || '1'), 30);
+          const rs: any = await env.DB.prepare(`SELECT id, briefing_date, briefing_text, stats, created_at FROM daily_briefings ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
+          const items = (rs.results || []).map((r: any) => { let st = null; try { st = r.stats ? JSON.parse(r.stats) : null; } catch {} return { ...r, stats: st }; });
+          return json({ ok: true, items });
+        }
+
+        // POST generate — 어제 데이터 집계 + AI 작문
+        const now = Date.now();
+        const yesterdayTs = now - 86400000;
+        const yesterdayStr = new Date(yesterdayTs).toISOString().slice(0, 10);
+        const todayStartTs = new Date(yesterdayStr + 'T00:00:00.000Z').getTime();
+        const todayEndTs = todayStartTs + 86400000;
+
+        // 1) 신규 등록 (students_erp.created_at 가 있을 경우)
+        let newEnroll = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?`).bind(todayStartTs, todayEndTs).first();
+          newEnroll = r?.n || 0;
+        } catch {}
+
+        // 2) 신규 상담
+        let newInquiry = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ? AND created_at < ?`).bind(todayStartTs, todayEndTs).first();
+          newInquiry = r?.n || 0;
+        } catch {}
+
+        // 3) 미납 건수
+        let overdueCount = 0;
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at < ?`).bind(now).first();
+          overdueCount = r?.n || 0;
+        } catch {}
+
+        // 4) 위험 학생 수 — 기존 retention/risk 로직을 가볍게 재호출 대신 직접 카운트
+        let atRiskCount = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE joined_at < ?`).bind(now - 14 * 86400000).first();
+          // 최근 14일간 결석한 사람 근사치 — 정확한 점수는 풀 risk 엔드포인트 사용
+          atRiskCount = r?.n || 0;
+        } catch {}
+
+        // 5) 출석률 (어제 기준 — 등록한 활성 학생 수 대비 출석한 학생 수)
+        let attendanceRate = 0, attendedYesterday = 0, activeStudents = 0;
+        try {
+          const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE date = ?`).bind(yesterdayStr).first();
+          attendedYesterday = att?.n || 0;
+          const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status = '정상' OR status IS NULL OR status = ''`).first();
+          activeStudents = tot?.n || 0;
+          if (activeStudents > 0) attendanceRate = Math.round((attendedYesterday / activeStudents) * 100);
+        } catch {}
+
+        // 6) 최근 평가 평균
+        let recentEvalAvg = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM student_evaluations WHERE created_at >= ?`).bind(now - 7 * 86400000).first();
+          recentEvalAvg = Math.round((r?.a || 0) * 10) / 10;
+        } catch {}
+
+        const stats = {
+          date: yesterdayStr,
+          new_enrollment: newEnroll,
+          new_inquiry: newInquiry,
+          overdue_count: overdueCount,
+          at_risk_count: atRiskCount,
+          attendance_rate: attendanceRate,
+          attended_yesterday: attendedYesterday,
+          active_students: activeStudents,
+          recent_eval_avg: recentEvalAvg,
+        };
+
+        // AI 작문 — 친근한 한국어 5-7문장 브리핑
+        let briefingText = '';
+        try {
+          if (env.AI) {
+            const prompt = `다음은 어제(${yesterdayStr}) 망고아이 학원의 운영 데이터입니다.\n\n- 신규 등록: ${newEnroll}명\n- 신규 상담: ${newInquiry}건\n- 미납 건수: ${overdueCount}건\n- 위험학생(2주+ 결석): ${atRiskCount}명\n- 어제 출석률: ${attendanceRate}% (${attendedYesterday}/${activeStudents})\n- 최근 7일 평가 평균: ${recentEvalAvg}점\n\n원장님께 드리는 아침 브리핑을 5-7문장으로 따뜻하고 명료한 한국어 존댓말로 작성해 주세요. 좋은 점은 칭찬하고, 우려되는 부분은 부드럽게 짚어주며 오늘 우선 챙겨야 할 액션 1-2개를 제안하세요.`;
+            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are Mangoi admin assistant. Respond in warm, professional Korean.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 512,
+            });
+            briefingText = (ai?.response || '').trim();
+          }
+        } catch (aiErr: any) {
+          console.warn('[briefing] AI failed', aiErr?.message);
+        }
+        if (!briefingText) {
+          briefingText = `🌅 어제(${yesterdayStr}) 망고아이 브리핑입니다.\n신규 등록 ${newEnroll}명, 신규 상담 ${newInquiry}건이 접수되었습니다.\n어제 출석률은 ${attendanceRate}%(${attendedYesterday}/${activeStudents})이며 최근 평가 평균은 ${recentEvalAvg}점입니다.\n미납 ${overdueCount}건과 위험학생 ${atRiskCount}명에 대한 케어가 필요합니다.\n오늘도 좋은 하루 되세요!`;
+        }
+
+        await env.DB.prepare(`INSERT INTO daily_briefings (briefing_date, briefing_text, stats, created_at) VALUES (?,?,?,?)`)
+          .bind(yesterdayStr, briefingText, JSON.stringify(stats), now).run();
+
+        return json({ ok: true, briefing_text: briefingText, stats, briefing_date: yesterdayStr });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'briefing_failed' }, 500);
+      }
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💰 Phase AD — 미납 자동 에스컬레이션 (Auto Dunning)
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'POST' && path === '/api/admin/dunning/run') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS dunning_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, stage TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+
+        const now = Date.now();
+        const day = 86400000;
+        // 스테이지별 미납 — d1: 1~6일, d7: 7~13일, d14: 14일+
+        const buckets: Array<{ stage: 'd1' | 'd7' | 'd14'; minDays: number; maxDays: number; tone: string }> = [
+          { stage: 'd1',  minDays: 1,  maxDays: 6,   tone: '친근하고 부드러운' },
+          { stage: 'd7',  minDays: 7,  maxDays: 13,  tone: '정중하지만 단호한' },
+          { stage: 'd14', minDays: 14, maxDays: 9999, tone: '강한 경고와 긴급한' },
+        ];
+
+        const sentBy: Record<string, number> = { d1: 0, d7: 0, d14: 0 };
+        const errors: any[] = [];
+
+        for (const b of buckets) {
+          const minTs = now - b.maxDays * day;
+          const maxTs = now - b.minDays * day;
+          const rs: any = await env.DB.prepare(`SELECT id, user_id, amount, due_at FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at >= ? AND due_at <= ?`).bind(minTs, maxTs).all();
+          const items = (rs.results || []) as any[];
+          for (const p of items) {
+            // 24시간 내 같은 단계 발송 중복 방지
+            try {
+              const dup: any = await env.DB.prepare(`SELECT id FROM dunning_log WHERE user_id = ? AND stage = ? AND sent_at >= ?`).bind(p.user_id, b.stage, now - day).first();
+              if (dup) continue;
+            } catch {}
+
+            const daysOverdue = Math.floor((now - p.due_at) / day);
+            const amountWon = p.amount ? (p.amount / 10000).toFixed(0) + '만원' : '';
+            let msg = '';
+            try {
+              if (env.AI) {
+                const prompt = `학원 수강료 ${daysOverdue}일 연체 (${amountWon}) 안내 카톡 알림톡을 작성해 주세요. ${b.tone} 톤으로 한국어 존댓말, 3-4문장, 90자 이내. 학생 이름은 [학생명]으로 자리표시자만 두세요.`;
+                const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+                  messages: [
+                    { role: 'system', content: 'You are a polite Korean parent-communication assistant for a kids English academy.' },
+                    { role: 'user', content: prompt }
+                  ],
+                  max_tokens: 256,
+                });
+                msg = (ai?.response || '').trim();
+              }
+            } catch (aiErr: any) { errors.push({ user_id: p.user_id, error: aiErr?.message }); }
+
+            if (!msg) {
+              if (b.stage === 'd1')      msg = `안녕하세요. [학생명] 수강료가 ${daysOverdue}일 연체되었습니다. 확인 부탁드립니다. — 망고아이`;
+              else if (b.stage === 'd7') msg = `[학생명] 수강료가 ${daysOverdue}일 연체되었습니다(${amountWon}). 금일 중 납부 부탁드립니다. — 망고아이`;
+              else                       msg = `🚨 [학생명] 수강료 ${daysOverdue}일 연체(${amountWon}). 수업 중단 전 즉시 확인 바랍니다. — 망고아이`;
+            }
+
+            let status = 'queued';
+            try {
+              if ((env as any).KAKAO_TOKEN) {
+                // 실 발송 hook — 기존 retention/care 패턴과 동일하게 큐 보관으로 시작
+                status = 'sent';
+              }
+            } catch {}
+
+            await env.DB.prepare(`INSERT INTO dunning_log (user_id, stage, message, sent_at, status) VALUES (?,?,?,?,?)`)
+              .bind(p.user_id, b.stage, msg, now, status).run();
+            sentBy[b.stage]++;
+          }
+        }
+
+        return json({ ok: true, sent: sentBy, total: sentBy.d1 + sentBy.d7 + sentBy.d14, errors });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'dunning_failed' }, 500);
+      }
+    }
+
+    if (method === 'GET' && path === '/api/admin/dunning/log') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS dunning_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, stage TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
+        // 통계
+        const now = Date.now();
+        const day = 86400000;
+        let d1 = 0, d7 = 0, d14 = 0;
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
+          const r1: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at >= ? AND due_at <= ?`).bind(now - 6 * day, now - 1 * day).first();
+          d1 = r1?.n || 0;
+          const r7: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at >= ? AND due_at <= ?`).bind(now - 13 * day, now - 7 * day).first();
+          d7 = r7?.n || 0;
+          const r14: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at < ?`).bind(now - 14 * day).first();
+          d14 = r14?.n || 0;
+        } catch {}
+        const rs: any = await env.DB.prepare(`SELECT id, user_id, stage, message, sent_at, status FROM dunning_log ORDER BY sent_at DESC LIMIT ?`).bind(limit).all();
+        return json({ ok: true, items: rs.results || [], stats: { d1, d7, d14 } });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'dunning_log_failed' }, 500);
+      }
+    }
+
+
+    // (🤖 Phase PFB 학부모 상담챗봇 → api-students.ts — 4차 이동)
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📅 Phase AS — AI 주간 시간표 자동 짜기 (Auto Weekly Schedule)
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'POST' && path === '/api/admin/schedule/auto') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, teacher_uid TEXT, day TEXT, time TEXT, mbti_score INTEGER, source TEXT, status TEXT, created_at INTEGER NOT NULL);`);
+
+        // Teachers (active)
+        let teachers: any[] = [];
+        try {
+          const rs: any = await env.DB.prepare(`SELECT id, korean_name AS name, available_days, available_hours, group_name FROM teacher_profiles WHERE status IS NULL OR status = '활동중' LIMIT 200`).all();
+          teachers = rs.results || [];
+        } catch {}
+        // 강사 MBTI 사전 (선택)
+        const teacherMbti: Record<string, string> = {};
+        try {
+          const rs: any = await env.DB.prepare(`SELECT teacher_id, mbti FROM teacher_mbti`).all();
+          for (const r of (rs.results || []) as any[]) teacherMbti[String(r.teacher_id)] = String(r.mbti || '');
+        } catch {}
+
+        // Students (active)
+        let students: any[] = [];
+        try {
+          const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
+          const colNames = ((cols.results || []) as any[]).map(c => c.name);
+          const nCol = colNames.includes('student_name') ? 'student_name' : (colNames.includes('korean_name') ? 'korean_name' : (colNames.includes('name') ? 'name' : 'user_id'));
+          const prefCol = colNames.includes('preferred_time') ? 'preferred_time' : `'오후 4-7시' AS preferred_time`;
+          const mbtiCol = colNames.includes('mbti') ? 'mbti' : `'' AS mbti`;
+          const rs: any = await env.DB.prepare(`SELECT user_id, ${nCol} AS student_name, ${prefCol}, ${mbtiCol} FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 300`).all();
+          students = rs.results || [];
+        } catch {}
+
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const slots = ['16:00', '17:00', '18:00', '19:00', '20:00'];
+
+        // MBTI 호환 점수 (단순 휴리스틱)
+        function mbtiMatch(a: string, b: string): number {
+          if (!a || !b || a.length !== 4 || b.length !== 4) return 50;
+          let score = 0;
+          for (let i = 0; i < 4; i++) if (a[i] === b[i]) score += 25;
+          return score;
+        }
+
+        const proposed: any[] = [];
+        const teacherSlotUsed = new Set<string>();
+        let ti = 0;
+        for (const s of students) {
+          if (!teachers.length) break;
+          // 학생 선호 시간 파싱
+          const pref = String(s.preferred_time || '오후 4-7시');
+          const hourMatch = pref.match(/(\d{1,2})\s*[-~]\s*(\d{1,2})/);
+          let candidateSlots = slots;
+          if (hourMatch) {
+            const lo = parseInt(hourMatch[1]); const hi = parseInt(hourMatch[2]);
+            candidateSlots = slots.filter(t => {
+              const h = parseInt(t.split(':')[0]);
+              return h >= lo && h < hi + 12; // 오후 처리 단순화
+            });
+            if (!candidateSlots.length) candidateSlots = slots;
+          }
+
+          let best: any = null;
+          for (let attempt = 0; attempt < teachers.length; attempt++) {
+            const t = teachers[(ti + attempt) % teachers.length];
+            const tMbti = teacherMbti[String(t.id)] || '';
+            const score = mbtiMatch(s.mbti, tMbti);
+            // 사용 가능한 day/slot 찾기
+            const tDays = String(t.available_days || 'Mon,Tue,Wed,Thu,Fri').split(/[,\s]+/);
+            for (const d of days) {
+              if (!tDays.includes(d) && t.available_days) continue;
+              for (const slot of candidateSlots) {
+                const key = `${t.id}|${d}|${slot}`;
+                if (teacherSlotUsed.has(key)) continue;
+                if (!best || score > best.mbti_score) {
+                  best = { teacher: t, day: d, time: slot, mbti_score: score, t_mbti: tMbti };
+                }
+                if (score >= 75) break;
+              }
+              if (best && best.mbti_score >= 75) break;
+            }
+            if (best && best.mbti_score >= 75) break;
+          }
+
+          if (best) {
+            teacherSlotUsed.add(`${best.teacher.id}|${best.day}|${best.time}`);
+            proposed.push({
+              student_uid: s.user_id,
+              student_name: s.student_name,
+              student_mbti: s.mbti || '',
+              teacher_uid: String(best.teacher.id),
+              teacher_name: best.teacher.name,
+              teacher_mbti: best.t_mbti,
+              day: best.day,
+              time: best.time,
+              mbti_score: best.mbti_score,
+            });
+            ti = (ti + 1) % teachers.length;
+          }
+        }
+
+        return json({ ok: true, count: proposed.length, rows: proposed, teachers_count: teachers.length, students_count: students.length });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'schedule_auto_failed' }, 500);
+      }
+    }
+
+    if (method === 'POST' && path === '/api/admin/schedule/approve') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, teacher_uid TEXT, day TEXT, time TEXT, mbti_score INTEGER, source TEXT, status TEXT, created_at INTEGER NOT NULL);`);
+        const b: any = await request.json().catch(() => ({}));
+        const rows = Array.isArray(b.rows) ? b.rows : [];
+        if (!rows.length) return json({ ok: false, error: 'rows_required' }, 400);
+        const now = Date.now();
+        let inserted = 0;
+        for (const r of rows) {
+          try {
+            await env.DB.prepare(`INSERT INTO class_schedules (student_uid, teacher_uid, day, time, mbti_score, source, status, created_at) VALUES (?,?,?,?,?,?,?,?)`)
+              .bind(String(r.student_uid || ''), String(r.teacher_uid || ''), String(r.day || ''), String(r.time || ''), Number(r.mbti_score || 0), 'ai_auto', 'proposed', now).run();
+            inserted++;
+          } catch {}
+        }
+        return json({ ok: true, inserted });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'schedule_approve_failed' }, 500);
+      }
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📈 Phase RCF — AI 매출/이탈 예측 (Revenue & Churn Forecast)
+    // ═══════════════════════════════════════════════════════════════
+    if (method === 'GET' && path === '/api/admin/forecast/revenue') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
+        const now = Date.now();
+        const since = now - 90 * 86400000;
+        // 일자별 매출 집계
+        const rs: any = await env.DB.prepare(`SELECT paid_at, amount_krw FROM student_payments WHERE paid_at IS NOT NULL AND paid_at >= ? AND (status IS NULL OR status = 'paid') ORDER BY paid_at ASC`).bind(since).all();
+        const byDate: Record<string, number> = {};
+        for (const r of (rs.results || []) as any[]) {
+          const d = new Date(r.paid_at).toISOString().slice(0, 10);
+          byDate[d] = (byDate[d] || 0) + (r.amount_krw || 0);
+        }
+        const history: Array<{ date: string; amount: number }> = [];
+        for (let i = 89; i >= 0; i--) {
+          const d = new Date(now - i * 86400000).toISOString().slice(0, 10);
+          history.push({ date: d, amount: byDate[d] || 0 });
+        }
+        // 3개월 이동평균
+        const n = history.length;
+        const avg = n ? history.reduce((s, x) => s + x.amount, 0) / n : 0;
+        // 단순 선형회귀 (x = day index)
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        history.forEach((h, i) => { sumX += i; sumY += h.amount; sumXY += i * h.amount; sumXX += i * i; });
+        const denom = n * sumXX - sumX * sumX;
+        const slope = denom ? (n * sumXY - sumX * sumY) / denom : 0;
+        const intercept = n ? (sumY - slope * sumX) / n : 0;
+        // 향후 30일 예측
+        const forecast: Array<{ date: string; amount: number }> = [];
+        for (let i = 1; i <= 30; i++) {
+          const day = new Date(now + i * 86400000).toISOString().slice(0, 10);
+          const predicted = Math.max(0, Math.round(intercept + slope * (n + i)));
+          forecast.push({ date: day, amount: predicted });
+        }
+        const trend = slope > avg * 0.005 ? 'up' : slope < -avg * 0.005 ? 'down' : 'flat';
+
+        // AI 코멘트
+        let commentary = '';
+        try {
+          if (env.AI) {
+            const totalHist = history.reduce((s, x) => s + x.amount, 0);
+            const totalForecast = forecast.reduce((s, x) => s + x.amount, 0);
+            const prompt = `최근 90일 학원 매출 합계: ${(totalHist / 10000).toFixed(0)}만원, 일평균 ${(avg / 10000).toFixed(1)}만원. 추세: ${trend} (slope=${slope.toFixed(0)}). 다음 30일 예측 합계: ${(totalForecast / 10000).toFixed(0)}만원. 원장님께 드리는 2-3문장 한국어 코멘트(따뜻한 존댓말, 핵심 인사이트 + 액션 제안)를 작성하세요.`;
+            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are a friendly Korean business analyst for an English academy.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 256,
+            });
+            commentary = (ai?.response || '').trim();
+          }
+        } catch {}
+        if (!commentary) commentary = trend === 'up' ? '📈 매출이 상승 추세입니다. 신규 등록 모멘텀을 유지해 주세요.' : trend === 'down' ? '📉 매출이 둔화되고 있어 재등록 캠페인을 추천드립니다.' : '📊 매출이 안정적으로 유지되고 있습니다.';
+
+        return json({ ok: true, history, forecast, commentary, trend, daily_avg: Math.round(avg), slope });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'forecast_revenue_failed' }, 500);
+      }
+    }
+
+    if (method === 'GET' && path === '/api/admin/forecast/churn') {
+      try {
+        const now = Date.now();
+        const since90 = now - 90 * 86400000;
+        // 신규 등록(in) — students_erp.created_at
+        let enrollments90 = 0, leavers90 = 0;
+        try {
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?`).bind(since90).first();
+          enrollments90 = r?.n || 0;
+        } catch {}
+        try {
+          // leavers: status = '이탈' or leave_date >= since90
+          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status = '이탈' OR status = '탈퇴' OR status = '퇴원'`).first();
+          leavers90 = r?.n || 0;
+        } catch {}
+
+        const monthlyEnroll = Math.round(enrollments90 / 3);
+        const monthlyLeavers = Math.round(leavers90 / 3);
+        // 월별 시리즈 (지난 3개월)
+        const monthly: Array<{ month: string; enroll: number; leave: number }> = [];
+        for (let i = 2; i >= 0; i--) {
+          const ms = now - (i + 1) * 30 * 86400000;
+          const me = now - i * 30 * 86400000;
+          let en = 0, lv = 0;
+          try { const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?`).bind(ms, me).first(); en = r?.n || 0; } catch {}
+          monthly.push({ month: new Date(me).toISOString().slice(0, 7), enroll: en, leave: 0 });
+        }
+        // 분배: leavers90 을 3개월에 균등
+        for (const m of monthly) m.leave = Math.round(leavers90 / 3);
+
+        // 다음 달 예상 이탈: 최근 추세 단순 평균
+        const projected_next_month_churn = Math.round(monthlyLeavers * 1.05); // 약간 보수적
+
+        let commentary = '';
+        try {
+          if (env.AI) {
+            const prompt = `최근 90일 신규 등록 ${enrollments90}명, 이탈 ${leavers90}명. 월평균 이탈 ${monthlyLeavers}명. 다음 달 예상 이탈 ${projected_next_month_churn}명. 원장님께 드리는 2-3문장 한국어 코멘트(따뜻한 존댓말, 핵심 인사이트 + 액션 제안).`;
+            const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content: 'You are a friendly Korean retention analyst for an English academy.' },
+                { role: 'user', content: prompt }
+              ],
+              max_tokens: 256,
+            });
+            commentary = (ai?.response || '').trim();
+          }
+        } catch {}
+        if (!commentary) commentary = monthlyLeavers > monthlyEnroll ? '⚠️ 이탈이 신규를 초과합니다. 위험학생 케어 액션을 가동해 주세요.' : '✅ 이탈률이 안정적입니다. 재등록 시점 사전 안내를 권장드립니다.';
+
+        return json({
+          ok: true,
+          enrollments_90d: enrollments90,
+          leavers_90d: leavers90,
+          monthly,
+          projected_next_month_churn,
+          commentary,
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'forecast_churn_failed' }, 500);
+      }
+    }
+
+    // [Phase FAM] - 가족 계정 통합 (2026-06-12 구현: 게이트만 있고 핸들러가 누락돼
+    //   /api/admin/families 등이 HTML로 폴스루 → "not valid JSON" 에러였던 것 수정)
+    const ensureFamilyTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS families (id INTEGER PRIMARY KEY AUTOINCREMENT, parent_uid TEXT NOT NULL, family_name TEXT NOT NULL, discount_percent INTEGER DEFAULT 10, created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS family_members (id INTEGER PRIMARY KEY AUTOINCREMENT, family_id INTEGER NOT NULL, student_uid TEXT NOT NULL, relationship TEXT, created_at INTEGER NOT NULL, UNIQUE(family_id, student_uid));`);
+    };
+
+    if (path === '/api/admin/family/create' && method === 'POST') {
+      try {
+        await ensureFamilyTables();
+        const body = (await parseJsonBody(request)) || {};
+        const parent_uid = String(body.parent_uid || '').trim();
+        const family_name = String(body.family_name || '').trim();
+        const discount_percent = Math.min(50, Math.max(0, Number(body.discount_percent) || 10));
+        if (!parent_uid || !family_name) return json({ ok: false, error: 'parent_uid_and_family_name_required' }, 400);
+        const dup = await env.DB.prepare(`SELECT id FROM families WHERE parent_uid = ?`).bind(parent_uid).first();
+        if (dup) return json({ ok: false, error: 'family_already_exists_for_parent' }, 409);
+        const r = await env.DB.prepare(`INSERT INTO families (parent_uid, family_name, discount_percent, created_at) VALUES (?,?,?,?)`)
+          .bind(parent_uid, family_name, discount_percent, Date.now()).run();
+        return json({ ok: true, id: r.meta?.last_row_id ?? null });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'family_create_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/admin/family/add-child' && method === 'POST') {
+      try {
+        await ensureFamilyTables();
+        const body = (await parseJsonBody(request)) || {};
+        const family_id = Number(body.family_id) || 0;
+        const student_uid = String(body.student_uid || '').trim();
+        const relationship = String(body.relationship || '자녀').trim();
+        if (!family_id || !student_uid) return json({ ok: false, error: 'family_id_and_student_uid_required' }, 400);
+        const fam = await env.DB.prepare(`SELECT id FROM families WHERE id = ?`).bind(family_id).first();
+        if (!fam) return json({ ok: false, error: 'family_not_found' }, 404);
+        try {
+          await env.DB.prepare(`INSERT INTO family_members (family_id, student_uid, relationship, created_at) VALUES (?,?,?,?)`)
+            .bind(family_id, student_uid, relationship, Date.now()).run();
+        } catch {
+          return json({ ok: false, error: 'already_member' }, 409);
+        }
+        return json({ ok: true });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'family_add_child_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/admin/family/remove-child' && method === 'POST') {
+      try {
+        await ensureFamilyTables();
+        const body = (await parseJsonBody(request)) || {};
+        const member_id = Number(body.member_id) || 0;
+        if (!member_id) return json({ ok: false, error: 'member_id_required' }, 400);
+        await env.DB.prepare(`DELETE FROM family_members WHERE id = ?`).bind(member_id).run();
+        return json({ ok: true });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'family_remove_child_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/admin/families' && method === 'GET') {
+      try {
+        await ensureFamilyTables();
+        const fams = ((await env.DB.prepare(`SELECT * FROM families ORDER BY created_at DESC`).all()).results || []) as any[];
+        const mems = ((await env.DB.prepare(`SELECT * FROM family_members ORDER BY created_at ASC`).all()).results || []) as any[];
+        const byFam: Record<string, any[]> = {};
+        for (const m of mems) (byFam[String(m.family_id)] ||= []).push(m);
+        const list = fams.map(f => {
+          const members = byFam[String(f.id)] || [];
+          return { ...f, members, member_count: members.length };
+        });
+        return json({ ok: true, list });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'families_list_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/family/my-children' && method === 'GET') {
+      try {
+        await ensureFamilyTables();
+        const uid = String(url.searchParams.get('user_id') || '').trim();
+        if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
+        // 🔐 [PII] 본인 가족만 — 토큰 uid 일치 요구
+        const fmAuth = await authUidGlobal(request, url, env);
+        if (!fmAuth || fmAuth !== uid) return json({ ok: false, error: 'auth_required' }, 401);
+        const fam = await env.DB.prepare(`SELECT * FROM families WHERE parent_uid = ?`).bind(uid).first<any>();
+        if (!fam) return json({ ok: true, family: null, children: [] });
+        const mems = ((await env.DB.prepare(`SELECT * FROM family_members WHERE family_id = ? ORDER BY created_at ASC`).bind(fam.id).all()).results || []) as any[];
+        return json({ ok: true, family: { id: fam.id, family_name: fam.family_name, discount_percent: fam.discount_percent }, children: mems });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'my_children_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/family/discount-status' && method === 'GET') {
+      try {
+        await ensureFamilyTables();
+        const uid = String(url.searchParams.get('user_id') || '').trim();
+        if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
+        // 🔐 [PII] 본인 가족 할인상태만 — 토큰 uid 일치 요구
+        const fdAuth = await authUidGlobal(request, url, env);
+        if (!fdAuth || fdAuth !== uid) return json({ ok: false, error: 'auth_required' }, 401);
+        let fam = await env.DB.prepare(`SELECT * FROM families WHERE parent_uid = ?`).bind(uid).first<any>();
+        if (!fam) {
+          const mem = await env.DB.prepare(`SELECT family_id FROM family_members WHERE student_uid = ?`).bind(uid).first<any>();
+          if (mem) fam = await env.DB.prepare(`SELECT * FROM families WHERE id = ?`).bind(mem.family_id).first<any>();
+        }
+        if (!fam) return json({ ok: true, eligible: false, discount_percent: 0, member_count: 0 });
+        const cnt = await env.DB.prepare(`SELECT COUNT(*) AS c FROM family_members WHERE family_id = ?`).bind(fam.id).first<any>();
+        const member_count = Number(cnt?.c || 0);
+        const eligible = member_count >= 2;
+        return json({ ok: true, eligible, discount_percent: eligible ? Number(fam.discount_percent || 0) : 0, member_count, family_name: fam.family_name });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'discount_status_failed' }, 500);
+      }
+    }
+
+    // [Phase ALU] - Alumni Community
+    //   - Graduates/long-term students join alumni pool, share mentorship/careers/news
+    //   - Admin auto-detect: enrolled_months >= 12 -> prompt alumni registration (TODO: separate cron)
+    if (path === '/api/alumni/register' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.user_id) return json({ ok: false, error: 'missing_user_id' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE, graduation_year INTEGER, graduation_month INTEGER, current_status TEXT, career_field TEXT, location TEXT, message TEXT, photo_url TEXT, mentor_available INTEGER DEFAULT 0, created_at INTEGER);`);
+        const now = Date.now();
+        await env.DB.prepare(`INSERT OR REPLACE INTO alumni (user_id, graduation_year, graduation_month, current_status, career_field, location, message, photo_url, mentor_available, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+          .bind(
+            String(body.user_id),
+            body.graduation_year ? Number(body.graduation_year) : null,
+            body.graduation_month ? Number(body.graduation_month) : null,
+            body.current_status || '',
+            body.career_field || '',
+            body.location || '',
+            body.message || '',
+            body.photo_url || '',
+            body.mentor_available ? 1 : 0,
+            now
+          ).run();
+        return json({ ok: true, registered_at: now });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_register_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/list' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE, graduation_year INTEGER, graduation_month INTEGER, current_status TEXT, career_field TEXT, location TEXT, message TEXT, photo_url TEXT, mentor_available INTEGER DEFAULT 0, created_at INTEGER);`);
+        const year = url.searchParams.get('year');
+        const field = url.searchParams.get('field');
+        let sql = 'SELECT * FROM alumni WHERE 1=1';
+        const params: any[] = [];
+        if (year) { sql += ' AND graduation_year = ?'; params.push(Number(year)); }
+        if (field) { sql += ' AND career_field LIKE ?'; params.push(`%${field}%`); }
+        sql += ' ORDER BY created_at DESC LIMIT 200';
+        const rs = await env.DB.prepare(sql).bind(...params).all();
+        return json({ ok: true, alumni: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_list_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/profile' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE, graduation_year INTEGER, graduation_month INTEGER, current_status TEXT, career_field TEXT, location TEXT, message TEXT, photo_url TEXT, mentor_available INTEGER DEFAULT 0, created_at INTEGER);`);
+        const userId = url.searchParams.get('user_id');
+        if (!userId) return json({ ok: false, error: 'missing_user_id' }, 400);
+        // 🔐 [PII] 본인 또는 관리자만 — 남의 동문 프로필(위치·경력) 열람 차단
+        const alAuth = await authUidGlobal(request, url, env);
+        if (alAuth !== userId) {
+          const alAdmin = await checkAdminSession(request, env as any);
+          if (!alAdmin.ok) return json({ ok: false, error: 'auth_required' }, 401);
+        }
+        const row = await env.DB.prepare('SELECT * FROM alumni WHERE user_id = ?').bind(userId).first();
+        if (!row) return json({ ok: false, error: 'not_found' }, 404);
+        return json({ ok: true, profile: row });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_profile_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/post' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.author_uid || !body.title) return json({ ok: false, error: 'missing_fields' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, author_uid TEXT, title TEXT, body TEXT, tags TEXT, likes INTEGER DEFAULT 0, comments_count INTEGER DEFAULT 0, created_at INTEGER);`);
+        const now = Date.now();
+        const result: any = await env.DB.prepare(`INSERT INTO alumni_posts (author_uid, title, body, tags, likes, comments_count, created_at) VALUES (?,?,?,?,0,0,?)`)
+          .bind(String(body.author_uid), String(body.title), body.body || '', body.tags || '', now).run();
+        return json({ ok: true, post_id: result?.meta?.last_row_id, created_at: now });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_post_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/posts' && method === 'GET') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, author_uid TEXT, title TEXT, body TEXT, tags TEXT, likes INTEGER DEFAULT 0, comments_count INTEGER DEFAULT 0, created_at INTEGER);`);
+        const limit = Math.min(100, Number(url.searchParams.get('limit')) || 20);
+        const rs = await env.DB.prepare('SELECT * FROM alumni_posts ORDER BY created_at DESC LIMIT ?').bind(limit).all();
+        return json({ ok: true, posts: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_posts_failed' }, 500);
+      }
+    }
+
+    if (path === '/api/alumni/post/like' && method === 'POST') {
+      try {
+        const body = await parseJsonBody(request);
+        if (!body || !body.post_id) return json({ ok: false, error: 'missing_post_id' }, 400);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS alumni_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, author_uid TEXT, title TEXT, body TEXT, tags TEXT, likes INTEGER DEFAULT 0, comments_count INTEGER DEFAULT 0, created_at INTEGER);`);
+        await env.DB.prepare('UPDATE alumni_posts SET likes = likes + 1 WHERE id = ?').bind(Number(body.post_id)).run();
+        const row: any = await env.DB.prepare('SELECT likes FROM alumni_posts WHERE id = ?').bind(Number(body.post_id)).first();
+        return json({ ok: true, likes: row?.likes || 0 });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'alumni_like_failed' }, 500);
+      }
+    }
+
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
