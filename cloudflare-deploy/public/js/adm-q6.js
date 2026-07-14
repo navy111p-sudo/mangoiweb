@@ -346,12 +346,12 @@
       var tname = nameEl ? nameEl.textContent.trim() : '';
 
       var btn = document.createElement('button');
-      btn.className = 'ph54-row-cal-btn';
+      btn.className = 'ph54-row-cal-btn tp-act-btn tp-act--cal';
       btn.title = tname + ' 스케줄 캘린더';
       btn.setAttribute('aria-label', '스케줄 캘린더');
       // Win10 이모지 깨짐 방지 — adm-core 의 인라인 SVG 아이콘/버튼 스타일 재사용 (없으면 텍스트 폴백)
       if (window._TP_IC && window._TP_ACT_BTN) {
-        btn.style.cssText = window._TP_ACT_BTN + 'background:#8b5cf6';
+        btn.style.cssText = window._TP_ACT_BTN;
         btn.innerHTML = window._TP_IC.calendar;
       } else {
         btn.textContent = '일정';

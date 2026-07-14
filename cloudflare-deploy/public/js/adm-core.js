@@ -2042,7 +2042,9 @@ const _TP_IC = {
   // 제거 (휴지통)
   trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
   // 스케줄 (달력)
-  calendar: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+  calendar: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  // 삭제 무장(2차 확인 대기) — 경고 삼각형
+  confirmDel: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
 };
 window._TP_ACT_BTN = _TP_ACT_BTN;
 window._TP_IC = _TP_IC;
@@ -2135,10 +2137,10 @@ async function loadTeacherProfiles() {
           : '<span style="color:#9ca3af;font-size:11px">—</span>') +
       '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap">' +
-        '<button class="tp-act-btn" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="' + _TP_ACT_BTN + 'background:#f59e0b" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
-        '<button class="tp-act-btn" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + 'background:#3b82f6" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
-        '<button class="tp-act-btn" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + 'background:#10b981" aria-label="수정">' + _TP_IC.edit + '</button>' +
-        '<button class="tp-act-btn" onclick="removeTeacherProfile(' + t.id + ',\'' + _aiEsc(t.korean_name||'') + '\')" title="제거" style="' + _TP_ACT_BTN + 'background:#ef4444" aria-label="제거">' + _TP_IC.trash + '</button>' +
+        '<button class="tp-act-btn tp-act--video" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="' + _TP_ACT_BTN + '" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
+        '<button class="tp-act-btn tp-act--view" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + '" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
+        '<button class="tp-act-btn tp-act--edit" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + '" aria-label="수정">' + _TP_IC.edit + '</button>' +
+        '<button class="tp-act-btn tp-act--del" onclick="removeTeacherProfile(' + t.id + ',\'' + _aiEsc(t.korean_name||'') + '\', this)" title="제거" style="' + _TP_ACT_BTN + '" aria-label="제거">' + _TP_IC.trash + '</button>' +
       '</td>' +
     '</tr>';
   }).join('');
@@ -2600,11 +2602,34 @@ async function editTeacherProfile(id) {
   if (formDetails) formDetails.open = true;
   document.getElementById('tp-name')?.focus();
 }
-async function removeTeacherProfile(id, name) {
-  if (!confirm('정말 "' + name + '" 강사를 제거하시겠습니까?\n\n⚠️ 데이터가 영구 삭제됩니다.')) return;
+// 강사 제거 — 이중 확인(더블 체크): 1차 클릭=버튼 무장(경고 표시), 2차 클릭=확인창→삭제
+function _tpDisarmDel(btn) {
+  if (!btn || !btn.dataset) return;
+  clearTimeout(btn._tpDisarmT);
+  btn.dataset.armed = '';
+  if (typeof btn._tpPrevHtml === 'string') btn.innerHTML = btn._tpPrevHtml;
+  btn.classList.remove('tp-act--del-armed');
+  btn.title = '제거';
+}
+async function removeTeacherProfile(id, name, btn) {
+  // ── 1차 클릭: 무장 (실수 삭제 방지 — 한 번 더 눌러야 확인창) ──
+  if (btn && btn.dataset && btn.dataset.armed !== '1') {
+    btn.dataset.armed = '1';
+    btn._tpPrevHtml = btn.innerHTML;
+    btn.innerHTML = (window._TP_IC && window._TP_IC.confirmDel) || '?';
+    btn.classList.add('tp-act--del-armed');
+    btn.title = '한 번 더 누르면 삭제 확인창이 열립니다';
+    clearTimeout(btn._tpDisarmT);
+    btn._tpDisarmT = setTimeout(function(){ _tpDisarmDel(btn); }, 4000);   // 4초 후 자동 해제
+    return;
+  }
+  // ── 2차 클릭: 최종 확인창 ──
+  if (btn) clearTimeout(btn._tpDisarmT);
+  const ok = confirm('정말 "' + name + '" 강사를 제거하시겠습니까?\n\n⚠️ 데이터가 영구 삭제되며 되돌릴 수 없습니다.');
+  if (!ok) { _tpDisarmDel(btn); return; }
   const r = await fetch('/api/admin/teacher-profiles/' + id, { method:'DELETE', credentials:'include' });
   const d = await r.json().catch(()=>({}));
-  if (!r.ok || d.ok === false) { alert('제거 실패: ' + (d.error || ('HTTP ' + r.status))); return; }
+  if (!r.ok || d.ok === false) { alert('제거 실패: ' + (d.error || ('HTTP ' + r.status))); _tpDisarmDel(btn); return; }
   alert('✅ 제거 완료: ' + name);
   loadTeacherProfiles();
 }

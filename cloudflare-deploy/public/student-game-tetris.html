@@ -494,6 +494,7 @@ function showMode(){
 function startGame(mode){
   MODE=mode; score=0; combo=0; maxCombo=0; lines=0; level=1; relief=0; mission=null; pieceSeq=0;
   running=true; paused=false;
+  computeDims();                              // 🔲 화면에 맞춰 열/행 수 결정(보드는 크게·셀은 작게)
   grid=[]; for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
   sentOrder=shuffle(SENTENCES[MODE].map(function(_,i){ return i; })); sentIdx=-1; nextSentence();  // 📝 첫 문장
   document.getElementById('hud-mode').textContent=VOCAB[MODE].flag+' '+VOCAB[MODE].name;
@@ -871,6 +872,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715041222 -->
+<!-- BUILD:20260715041837 -->
 </body>
 </html>

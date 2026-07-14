@@ -11474,8 +11474,27 @@ button.chip:hover,
   .ph54-slot.late   { background: #f59e0b; }
   .ph54-slot.bigLate{ background: #ef4444; }
   .ph54-slot.empty  { background: transparent; color: #475569; font-weight:600; }
-  /* 강사 행 액션 컬럼 아이콘 버튼 hover 피드백 (배경은 인라인 지정) */
-  .tp-act-btn:hover, .ph54-row-cal-btn:hover { filter: brightness(1.12); }
+  /* ─────────── 강사 목록 액션 아이콘 버튼 ───────────
+     ⚠️ 전역 룰(details.menu-card button{background:인디고 그라데이션!important; padding:9px 18px!important})
+     이 모든 버튼을 같은 인디고로 뭉개므로, #tp-list-table 접두(ID 특이도)로 색/크기를 되살린다.
+     아이콘은 인라인 SVG(흰색 stroke) — Win10 이모지 깨짐 무관하게 항상 선명. */
+  #tp-list-table td button.tp-act-btn {
+    width: 32px !important; height: 30px !important; padding: 0 !important; margin: 0 3px !important;
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+    border: 0 !important; border-radius: 7px !important; cursor: pointer !important;
+    background-image: none !important; box-shadow: 0 1px 3px rgba(0,0,0,.28) !important;
+    transition: filter .12s !important; vertical-align: middle !important;
+  }
+  #tp-list-table td button.tp-act-btn svg { width: 16px !important; height: 16px !important; display: block !important; }
+  #tp-list-table td button.tp-act--video { background: #f59e0b !important; }
+  #tp-list-table td button.tp-act--view  { background: #3b82f6 !important; }
+  #tp-list-table td button.tp-act--edit  { background: #10b981 !important; }
+  #tp-list-table td button.tp-act--del   { background: #ef4444 !important; }
+  #tp-list-table td button.tp-act--cal   { background: #8b5cf6 !important; }
+  #tp-list-table td button.tp-act-btn:hover { filter: brightness(1.15) !important; }
+  /* 삭제 무장 상태(1차 클릭 후 2차 대기) — 진한 빨강 + 맥동 */
+  #tp-list-table td button.tp-act--del-armed { background: #b91c1c !important; animation: tpDelPulse .9s ease-in-out infinite; }
+  @keyframes tpDelPulse { 0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,.55) } 50%{ box-shadow:0 0 0 5px rgba(239,68,68,0) } }
 
   /* ─────────── 구글 캘린더 스타일 주간 타임라인 (Tailwind 미사용 페이지라 동등 CSS로 작성) ─────────── */
   #ph54-cal { border:1px solid #334155; border-radius:10px; overflow:hidden; background:#0f172a; }
@@ -19921,6 +19940,6 @@ button.chip:hover,
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=1"></script><!-- 분할추출:adm-s18 -->
-<!-- BUILD:20260715041222 -->
+<!-- BUILD:20260715041837 -->
 </body>
 </html>
