@@ -266,6 +266,43 @@ function sndBuzz(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.cur
   var o=ac.createOscillator(),g=ac.createGain(); o.type='sawtooth'; o.frequency.setValueAtTime(200,t);
   o.frequency.linearRampToValueAtTime(90,t+0.25); g.gain.setValueAtTime(0.28,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
   o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.3); }
+/* 적 기관총 발사음 — 플레이어보다 짧고 높은 '핑' (총구 사격감) */
+var _eShotT=0;
+function sndEnemyShot(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime; if(t-_eShotT<0.04)return; _eShotT=t;
+  var o=ac.createOscillator(),g=ac.createGain(); o.type='square';
+  o.frequency.setValueAtTime(560,t); o.frequency.exponentialRampToValueAtTime(190,t+0.08);
+  g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.1);
+  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.11);
+  var s=ac.createBufferSource(); s.buffer=noiseBuf(0.04); var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1800;
+  var g2=ac.createGain(); g2.gain.setValueAtTime(0.14,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.05);
+  s.connect(hp); hp.connect(g2); g2.connect(masterGain); s.start(t); s.stop(t+0.06); }
+
+/* ════════════════════════════════════════════════════════════
+   3b. Web Audio — 배경음악(BGM) : WWII 오락실풍 단조 행진 루프(외부파일 없이 합성)
+   ════════════════════════════════════════════════════════════ */
+var BGM_STEP=0.256;                         // 8분음표 길이(≈117 BPM)
+var BGM_BASS=[110,0,164.81,0, 146.83,0,146.83,0, 130.81,0,196,0, 110,0,164.81,0];   // Am 행진 베이스
+var BGM_LEAD=[0,0,440,0, 523.25,0,0,493.88, 440,0,0,392, 440,0,0,0];                // 아르페지오 리드
+var bgm={on:false,timer:null,next:0,step:0};
+function bgmNote(freq,t,dur,type,vol,cut){ var ac=audio(); if(!ac)return;
+  var o=ac.createOscillator(),g=ac.createGain(); o.type=type; o.frequency.value=freq;
+  if(cut){ var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=cut; o.connect(lp); lp.connect(g); } else o.connect(g);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  g.connect(masterGain); o.start(t); o.stop(t+dur+0.03); }
+function bgmHat(t){ var ac=audio(); if(!ac)return; var s=ac.createBufferSource(); s.buffer=noiseBuf(0.03);
+  var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=6500;
+  var g=ac.createGain(); g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.04);
+  s.connect(hp); hp.connect(g); g.connect(masterGain); s.start(t); s.stop(t+0.05); }
+function bgmStep(i,t){
+  var b=BGM_BASS[i]; if(b) bgmNote(b,t,BGM_STEP*1.7,'triangle',0.055,650);   // 베이스
+  var l=BGM_LEAD[i]; if(l) bgmNote(l,t,BGM_STEP*0.9,'square',0.032,2400);     // 리드(칩튠)
+  if(i%2===0) bgmHat(t);                                                       // 행진 틱
+}
+function bgmStart(){ if(bgm.on||muted)return; var ac=audio(); if(!ac)return; bgm.on=true; bgm.step=0; bgm.next=ac.currentTime+0.08;
+  bgm.timer=setInterval(function(){ if(!bgm.on)return; var ac=audio(); if(!ac)return;
+    while(bgm.next < ac.currentTime+0.2){ bgmStep(bgm.step,bgm.next); bgm.next+=BGM_STEP; bgm.step=(bgm.step+1)%16; }
+  }, 30); }
+function bgmStop(){ bgm.on=false; if(bgm.timer){ clearInterval(bgm.timer); bgm.timer=null; } }
 
 /* ════════════════════════════════════════════════════════════
    4. Web Speech — 발음
@@ -402,7 +439,7 @@ function sameWord(a,b){ return MODE==='en' ? String(a).toLowerCase()===String(b)
 function targetOnScreen(){ var t=neededWord(); return G.enemies.some(function(e){ return e.alive && sameWord(e.word,t); }); }
 
 function spawnEnemy(forceTarget){
-  if(G.enemies.length>=7) return;
+  if(G.enemies.length>=5) return;   // 동시 적기 상한(난이도 완화)
   // 전 적기 = A6M Zero. 비행 패턴만 두 가지: weave(좌우 크게 스웝) / dive(빠른 직하강)
   var pat = Math.random()<0.5 ? 'weave' : 'dive';
   var word;
@@ -437,21 +474,30 @@ function playerFire(){
   G.pbul.push({x:G.px-11, y:G.py-24, vy:-620}, {x:G.px+11, y:G.py-24, vy:-620});
   sndShot();
 }
+/* 총알은 기체 '총구'에서 발사 — 탄막 대신 총처럼 적게 조준 사격. 기체 로컬좌표(기수=아래 +y)를 뱅킹각으로 회전해 총구 월드좌표 계산 */
+function muzzleWorld(e, lx, ly){ var a=clamp(e.bank*0.012,-0.28,0.28), ca=Math.cos(a), sa=Math.sin(a);
+  return { x:e.x + lx*ca - ly*sa, y:e.y + lx*sa + ly*ca }; }
+function fireBullet(mx,my,sp,color){ var a=Math.atan2(G.py-my, G.px-mx);
+  G.ebul.push({x:mx,y:my,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:5,c:color}); muzzleFlash(mx,my); }
 function enemyFire(e){
-  var dx=G.px-e.x, dy=G.py-e.y, d=Math.hypot(dx,dy)||1;
   if(e.pat==='dive'){
-    // 조준 2연발
-    var sp=190*SPMUL;
-    for(var k=-1;k<=1;k+=2){
-      var a=Math.atan2(dy,dx)+k*0.06;
-      G.ebul.push({x:e.x,y:e.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:5,c:'#ffcf5a'});
-    }
+    // 기수 카울총 단발 조준 사격(빠름)
+    var m=muzzleWorld(e, 0, e.dh*0.42);
+    fireBullet(m.x, m.y, 205*SPMUL, '#ffcf5a');
   } else {
-    // 방사형 스프레드(danmaku)
-    var n=5+Math.min(4,STAGE+1), base=Math.atan2(dy,dx), sp2=140*SPMUL;
-    for(var i=0;i<n;i++){ var a2=base+(i-(n-1)/2)*0.28;
-      G.ebul.push({x:e.x,y:e.y,vx:Math.cos(a2)*sp2,vy:Math.sin(a2)*sp2,r:5,c:'#ff6b6b'}); }
+    // 좌우 날개총 2발만 조준(수렴) — 탄막 아님
+    var wing=e.dw*0.24;
+    var l=muzzleWorld(e, -wing, e.dh*0.30), r=muzzleWorld(e, wing, e.dh*0.30);
+    fireBullet(l.x, l.y, 165*SPMUL, '#ff6b6b');
+    fireBullet(r.x, r.y, 165*SPMUL, '#ff6b6b');
   }
+  sndEnemyShot();
+}
+/* 총구 화염 — 짧은 화구 + 스파크(기존 파티클 렌더 재사용) */
+function muzzleFlash(x,y){
+  G.parts.push({fire:true,x:x,y:y,age:0,life:0.11,rad:10});
+  for(var i=0;i<3;i++){ var a=Math.random()*6.28, sp=45+Math.random()*40;
+    G.parts.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:0.16,age:0,size:2,rot:0,vr:0,kind:'spark'}); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -500,9 +546,9 @@ function update(dt){
 
   // 스폰
   G.spawnT-=dt;
-  if(G.spawnT<=0){ spawnEnemy(false); G.spawnT = (1.15 - STAGE*0.12)/SPMUL * (0.7+Math.random()*0.6); }
+  if(G.spawnT<=0){ spawnEnemy(false); G.spawnT = (1.7 - STAGE*0.1)/SPMUL * (0.8+Math.random()*0.6); }
   // 정답 단어 항상 화면에 존재하도록 워치독
-  G.watchT-=dt; if(G.watchT<=0){ G.watchT=1.0; if(!targetOnScreen() && G.enemies.length<7) spawnEnemy(true); }
+  G.watchT-=dt; if(G.watchT<=0){ G.watchT=1.0; if(!targetOnScreen() && G.enemies.length<5) spawnEnemy(true); }
   // 연료
   G.fuelT-=dt; if(G.fuelT<=0){ G.fuelT=6+Math.random()*5;
     G.fuels.push({x:40+Math.random()*(W-80),y:-30,vy:(52+Math.random()*20),r:16,rot:0}); }
@@ -512,7 +558,7 @@ function update(dt){
     e.t+=dt; e.y+=e.vy*dt;
     var nx = e.baseX + Math.sin(e.t*e.freq)*e.amp;
     e.bank = (nx-e.x); e.x=nx; e.x=clamp(e.x,20,W-20);
-    e.fireT-=dt; if(e.fireT<=0 && e.y>20 && e.y<H*0.75){ enemyFire(e); e.fireT=(e.pat==='dive'?1.1:1.6)*(1.2-STAGE*0.12); }
+    e.fireT-=dt; if(e.fireT<=0 && e.y>20 && e.y<H*0.75){ enemyFire(e); e.fireT=(e.pat==='dive'?1.7:2.3)*(1.25-STAGE*0.09); }
     if(e.y>H+40){ G.enemies.splice(i,1); }
   }
   // 적 탄
@@ -758,10 +804,12 @@ function startGame(){
   document.getElementById('over').classList.add('hide');
   newGame(); G.running=true; updateHUD();
   audio(); if(AC&&AC.state==='suspended')AC.resume();
+  bgmStart();                              // 🎵 배경음악 시작
   banner('✈️ 출격!', '#ffd479');
 }
 function endGame(win){
   if(!G||G.over)return; G.over=true; G.running=false; flushProg();
+  bgmStop();                               // 🎵 배경음악 정지
   try{ speechSynthesis.cancel(); }catch(_){}
   document.getElementById('overTitle').textContent = win ? '🎖️ 임무 완료!' : '💥 격추당했다!';
   document.getElementById('overStat').innerHTML =
@@ -784,10 +832,11 @@ document.getElementById('lgZh').addEventListener('click',function(){ setLang('zh
 document.getElementById('btnStart').addEventListener('click', startGame);
 document.getElementById('btnAgain').addEventListener('click', startGame);
 document.getElementById('btnMute').addEventListener('click',function(){ muted=!muted; this.textContent=muted?'🔇':'🔊';
-  if(muted){ try{speechSynthesis.cancel();}catch(_){} } });
+  if(muted){ bgmStop(); try{speechSynthesis.cancel();}catch(_){} }
+  else if(G&&G.running&&!G.paused){ bgmStart(); } });
 document.getElementById('btnPause').addEventListener('click',function(){ if(!G||!G.running)return; G.paused=!G.paused; this.textContent=G.paused?'▶️':'⏸️';
-  if(G.paused)banner('⏸️ 일시정지','#cdd9e6'); });
-document.addEventListener('visibilitychange',function(){ if(G&&G.running&&document.hidden){ G.paused=true; document.getElementById('btnPause').textContent='▶️'; } });
+  if(G.paused){ bgmStop(); banner('⏸️ 일시정지','#cdd9e6'); } else { bgmStart(); } });
+document.addEventListener('visibilitychange',function(){ if(G&&G.running&&document.hidden){ G.paused=true; bgmStop(); document.getElementById('btnPause').textContent='▶️'; } });
 
 /* ════════════════════════════════════════════════════════════
    20. 유틸
@@ -800,6 +849,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715054725 -->
+<!-- BUILD:20260715055844 -->
 </body>
 </html>
