@@ -5693,7 +5693,19 @@
       // data-* 속성 (fallback en → ko)
       document.querySelectorAll('[data-ko],[data-en]').forEach(function(el){
         var txt = _pickAttr(el, currentLang, '');
-        if(txt !== null) el.textContent = txt;
+        if(txt === null) return;
+        // 🩹 (2026-07-14) 자식에 폼 컨트롤(input 등)이 있으면 textContent 교체가
+        //   컨트롤을 삭제해 버림(예: 동영상탭 '📁 파일 업로드' label 안 file input).
+        //   이 경우 텍스트 노드만 갈아끼우고 자식 요소는 보존한다.
+        if (el.querySelector('input,select,textarea,video,iframe')) {
+          var done = false;
+          Array.prototype.slice.call(el.childNodes).forEach(function(n){
+            if (n.nodeType === 3) { n.nodeValue = done ? '' : txt; done = true; }
+          });
+          if (!done) el.insertBefore(document.createTextNode(txt), el.firstChild);
+        } else {
+          el.textContent = txt;
+        }
       });
       document.querySelectorAll('[data-ko-ph],[data-en-ph]').forEach(function(el){
         var ph = _pickAttr(el, currentLang, '-ph');
@@ -8257,8 +8269,10 @@
                             style="background:#ff0000;color:#fff;font-weight:800;border:0;display:inline-flex;align-items:center;gap:5px"
                             data-ko="▶ YouTube" data-en="▶ YouTube">▶ YouTube</button>
                     <button onclick="vpLoadUrl()" data-ko="🔗 URL 재생" data-en="🔗 Play URL">🔗 URL 재생</button>
-                    <label class="vp-file-btn" data-ko="📁 파일 업로드" data-en="📁 Upload File">
-                        📁 파일 업로드
+                    <!-- ⚠️ data-ko/en 은 반드시 안쪽 span 에만! label 에 붙이면 applyLang 의
+                         textContent 교체가 자식 <input type=file> 을 지워 버튼이 죽는다. (2026-07-14) -->
+                    <label class="vp-file-btn">
+                        <span data-ko="📁 파일 업로드" data-en="📁 Upload File">📁 파일 업로드</span>
                         <input type="file" accept="video/*" id="vp-upload" onchange="vpUploadFile(this)" />
                     </label>
                     <button onclick="vpTogglePiP()" title="미니 플레이어 토글" data-ko="📌 미니" data-en="📌 Mini">📌 미니</button>
@@ -27070,7 +27084,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714142731 -->
+<!-- BUILD:20260714143440 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
