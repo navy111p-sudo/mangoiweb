@@ -9,13 +9,15 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse } from './api-util';
-import { sendPaymentOverdueAlert } from './solapi-client';
+import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
 import { applyPIIScope, canViewPII } from './pii-mask';
+import { sendPlainSms } from './solapi-client';
+import { sendEmail, emailLayout } from './email';
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import type { MangoEnv } from './api-mango';
 
@@ -4292,6 +4294,716 @@ LIMIT $limit`;
     }
 
     // ========================================================================
+
+    // 🏢 Phase 9 — 메뉴 6개 (가맹점·교육센터·레벨테스트·수강신청·커뮤니티·교재)
+    //   각 테이블은 cold start 시 IF NOT EXISTS 자동 생성. 별도 마이그레이션 불필요.
+    // ========================================================================
+    // ─── 가맹점 ──────────────────────────────────────────────────────────
+    if ((method === 'GET' || method === 'POST') && path === '/api/admin/franchises') {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      if (method === 'GET') {
+        const rs = await env.DB.prepare(`SELECT * FROM franchises ORDER BY active DESC, name ASC`).all();
+        return json({ ok: true, items: rs.results || [] });
+      }
+      const b = await parseJsonBody(request);
+      if (!b || !b.name) return invalidBody(['name']);
+      const now = Date.now();
+      const r = await env.DB.prepare(
+        `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(b.name, b.address || null, b.phone || null, b.owner_name || null, b.opened_at || null, b.notes || null, now, now).run();
+      return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    // ─── 교육센터 ─────────────────────────────────────────────────────────
+    if ((method === 'GET' || method === 'POST') && path === '/api/admin/centers') {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS centers (id INTEGER PRIMARY KEY AUTOINCREMENT, franchise_id INTEGER, name TEXT NOT NULL, country TEXT, address TEXT, manager TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      if (method === 'GET') {
+        const rs = await env.DB.prepare(
+          `SELECT c.*, f.name AS franchise_name FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id ORDER BY c.active DESC, c.name ASC`
+        ).all();
+        return json({ ok: true, items: rs.results || [] });
+      }
+      const b = await parseJsonBody(request);
+      if (!b || !b.name) return invalidBody(['name']);
+      const now = Date.now();
+      const r = await env.DB.prepare(
+        `INSERT INTO centers (franchise_id, name, country, address, manager, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(b.franchise_id || null, b.name, b.country || null, b.address || null, b.manager || null, now, now).run();
+      return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    // ─── 레벨테스트 ───────────────────────────────────────────────────────
+    if ((method === 'GET' || method === 'POST') && path === '/api/admin/level-tests') {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS level_tests (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, tested_at INTEGER NOT NULL, level TEXT, score REAL, notes TEXT, evaluator TEXT, created_at INTEGER NOT NULL);`);
+      if (method === 'GET') {
+        const lim = Math.max(1, Math.min(500, parseInt(url.searchParams.get('limit') || '50', 10)));
+        const rs = await env.DB.prepare(`SELECT * FROM level_tests ORDER BY tested_at DESC LIMIT ?`).bind(lim).all();
+        return json({ ok: true, items: rs.results || [] });
+      }
+      const b = await parseJsonBody(request);
+      if (!b || !b.student_name) return invalidBody(['student_name']);
+      const now = Date.now();
+      const tested = b.tested_at ? Number(b.tested_at) : now;
+      const r = await env.DB.prepare(
+        `INSERT INTO level_tests (student_user_id, student_name, tested_at, level, score, notes, evaluator, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(b.student_user_id || null, b.student_name, tested, b.level || null, b.score != null ? Number(b.score) : null, b.notes || null, b.evaluator || 'admin', now).run();
+      return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    // ─── 🎯 레벨테스트 신청 (학생 제출 → 서버 저장, 관리자·강사 열람) ─────────────
+    //   공개  POST /api/leveltest/apply                        학생이 신청 (level-test.html / 홈 그리드)
+    //   관리자 GET  /api/admin/leveltest/applications?status=&limit=   목록 + 대기건수(배지)
+    //   관리자 POST /api/admin/leveltest/applications  {id, status?, assigned_teacher?, note?, final_level?}  상태/배정 변경
+    //   ※ 발음점수(pron_score)는 voice_coaching, AI점수(ai_score)는 향후 진단엔진에서 채움(③ 단계)
+    const ensureLtApps = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS leveltest_applications (id INTEGER PRIMARY KEY AUTOINCREMENT, student_name TEXT NOT NULL, student_uid TEXT, desired_date TEXT, desired_time TEXT, status TEXT DEFAULT 'pending', ai_score REAL, pron_score REAL, teacher_score REAL, final_level TEXT, assigned_teacher TEXT, source TEXT, note TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      // 선생님 1:1 평가(3번째 축) 컬럼 — 기존 테이블에도 idempotent 보강
+      // + 📱 연락처/이메일, 🧑‍🏫 자동배정 교사 상세, 🔔 교사 확인시각(마이페이지 빨간점 계산용)
+      for (const [col, type] of [
+        ['teacher_rubric', 'TEXT'], ['evaluated_by', 'TEXT'], ['evaluated_at', 'INTEGER'],
+        ['phone', 'TEXT'], ['student_email', 'TEXT'],
+        ['assigned_teacher_id', 'TEXT'], ['assigned_teacher_phone', 'TEXT'], ['assigned_teacher_email', 'TEXT'],
+        ['assigned_reason', 'TEXT'], ['teacher_seen_at', 'INTEGER'], ['teacher_confirmed_at', 'INTEGER'],
+      ] as [string, string][]) {
+        try { await env.DB.exec(`ALTER TABLE leveltest_applications ADD COLUMN ${col} ${type}`); } catch {}
+      }
+    };
+    // ── 🧑‍🏫 레벨테스트 교사 자동배정: 그 요일·시간 가능 교사 중 최고평가(동점 랜덤), 없으면 전체 최고평가 ──
+    //    반환: { id, name, phone, email, reason } | null
+    const autoAssignTeacher = async (desiredDate: string | null, desiredTime: string | null) => {
+      try {
+        // 요일(Mon..Sun) 계산 — desired_date 있을 때만 가용필터 적용
+        const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        let wantDay: string | null = null;
+        if (desiredDate && /^\d{4}-\d{2}-\d{2}$/.test(desiredDate)) {
+          const p = desiredDate.split('-').map(Number);
+          const dt = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+          wantDay = WD[dt.getUTCDay()];
+        }
+        const wantHour = desiredTime && /^\d{1,2}:/.test(desiredTime) ? parseInt(desiredTime, 10) : null;
+
+        // 활동중 교사 + 평가 평균(수업평가 class_ratings 우선, 없으면 익명칭찬 teacher_praises)
+        let rows: any[] = [];
+        try {
+          const rs: any = await env.DB.prepare(
+            `SELECT tp.id AS id, tp.korean_name AS name, tp.english_name AS en_name, tp.phone AS phone, tp.email AS email,
+                    tp.available_days AS days, tp.available_hours AS hours,
+                    (SELECT AVG(cr.score) FROM class_ratings cr WHERE cr.teacher_name = tp.korean_name OR cr.teacher_name = tp.english_name) AS rating_avg,
+                    (SELECT COUNT(*) FROM class_ratings cr WHERE cr.teacher_name = tp.korean_name OR cr.teacher_name = tp.english_name) AS rating_cnt,
+                    (SELECT AVG(pr.star_rating) FROM teacher_praises pr WHERE pr.teacher_name = tp.korean_name OR pr.teacher_name = tp.english_name) AS praise_avg
+               FROM teacher_profiles tp
+              WHERE tp.status IS NULL OR tp.status = '' OR tp.status IN ('활동중','재직')
+              LIMIT 500`
+          ).all();
+          rows = rs.results || [];
+        } catch { rows = []; }
+        if (!rows.length) return null;
+
+        const listMatch = (csv: any, token: string | null): boolean => {
+          if (!token) return true;                       // 요일/시간 미지정이면 통과
+          const s = String(csv || '').trim();
+          if (!s) return false;                          // 가용정보 없는 교사는 "가용필터"에선 탈락(폴백에서 구제)
+          return s.toLowerCase().split(/[,\s;/]+/).some(x => x && (x === token.toLowerCase() || x.startsWith(token.toLowerCase())));
+        };
+        const hourMatch = (csv: any, hour: number | null): boolean => {
+          if (hour == null) return true;
+          const s = String(csv || '').trim();
+          if (!s) return false;
+          // "16:00,17:00" / "16-21" / "16 17 18" 등 관용 표기 지원
+          const rangeM = s.match(/(\d{1,2})\s*[-~]\s*(\d{1,2})/);
+          if (rangeM) return hour >= parseInt(rangeM[1], 10) && hour <= parseInt(rangeM[2], 10);
+          return s.split(/[,\s;/]+/).map(x => parseInt(x, 10)).filter(n => !isNaN(n)).includes(hour);
+        };
+        // 그 요일·시간에 이미 수업이 잡힌 교사 id 집합(중복 배정 방지, best-effort)
+        const busy = new Set<string>();
+        if (wantDay && wantHour != null) {
+          try {
+            const bs: any = await env.DB.prepare(
+              `SELECT teacher_id FROM class_schedules WHERE (status IS NULL OR status='active') AND day_of_week = ? AND substr(start_time,1,2) = ?`
+            ).bind(wantDay.toLowerCase(), ('0' + wantHour).slice(-2)).all();
+            (bs.results || []).forEach((r: any) => { if (r.teacher_id != null) busy.add(String(r.teacher_id)); });
+          } catch {}
+        }
+
+        const scoreOf = (t: any): number => {
+          // class_ratings(0~5?) 우선. 칭찬 별점은 보조. 평가 없으면 중립값 2.5(신규교사 과도한 불이익 방지)
+          if (t.rating_avg != null) return Number(t.rating_avg);
+          if (t.praise_avg != null) return Number(t.praise_avg);
+          return 2.5;
+        };
+        const notBusy = (t: any) => !busy.has(String(t.id));
+        // 1순위: 요일+시간 가용 & 미배정
+        let pool = rows.filter(t => notBusy(t) && listMatch(t.days, wantDay) && hourMatch(t.hours, wantHour));
+        let reason = 'available_best_rated';
+        // 폴백: 가용정보로 걸러진 교사가 없으면 → 전체 활동중(중복만 제외) 최고평가
+        if (!pool.length) { pool = rows.filter(notBusy); reason = 'fallback_best_rated'; }
+        if (!pool.length) { pool = rows; reason = 'fallback_any'; }
+        if (!pool.length) return null;
+
+        // 최고평가로 정렬 → 동점(±0.05)이면 그중 랜덤
+        pool.sort((a, b) => scoreOf(b) - scoreOf(a) || (Number(b.rating_cnt || 0) - Number(a.rating_cnt || 0)));
+        const top = scoreOf(pool[0]);
+        const tied = pool.filter(t => Math.abs(scoreOf(t) - top) <= 0.05);
+        const pick = tied[Math.floor(Math.random() * tied.length)] || pool[0];
+        return {
+          id: pick.id != null ? String(pick.id) : null,
+          name: (pick.name || pick.en_name || '').toString(),
+          phone: (pick.phone || '').toString(),
+          email: (pick.email || '').toString(),
+          reason,
+        };
+      } catch (e: any) {
+        console.warn('[leveltest autoAssign] skipped:', e?.message || e);
+        return null;
+      }
+    };
+    if (method === 'POST' && path === '/api/leveltest/apply') {
+      await ensureLtApps();
+      const b = await parseJsonBody(request);
+      const name = ((b && (b.student_name || b.name)) || '').toString().trim();
+      if (!name) return invalidBody(['student_name']);
+      const now = Date.now();
+      const uid = (b && (b.student_uid || b.uid)) || null;
+      const desiredDate = ((b && (b.desired_date || b.date)) || '').toString().trim() || null;
+      const desiredTime = ((b && (b.desired_time || b.time)) || '').toString().trim() || null;
+      const phone = ((b && (b.phone || b.student_phone)) || '').toString().trim() || null;
+      const email = ((b && (b.email || b.student_email)) || '').toString().trim() || null;
+      const source = (b && b.source) || 'level-test';
+      const escapeHtmlLT = (s: any) => String(s == null ? '' : s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' } as any)[c]);
+
+      // 🧑‍🏫 자동배정 — 그 요일·시간 가능 교사 중 최고평가(없으면 전체 최고평가)
+      const teacher = await autoAssignTeacher(desiredDate, desiredTime);
+
+      const r = await env.DB.prepare(
+        `INSERT INTO leveltest_applications (student_name, student_uid, desired_date, desired_time, phone, student_email, status, assigned_teacher, assigned_teacher_id, assigned_teacher_phone, assigned_teacher_email, assigned_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        name, uid, desiredDate, desiredTime, phone, email,
+        teacher ? 'proposed' : 'pending',   // 소프트 배정 — 교사 수락 전까지 학생에게 교사명 미통보
+        teacher ? teacher.name : null,
+        teacher ? teacher.id : null,
+        teacher ? (teacher.phone || null) : null,
+        teacher ? (teacher.email || null) : null,
+        teacher ? teacher.reason : null,
+        source, now, now
+      ).run();
+      const appId = r.meta.last_row_id;
+
+      // 📅 예약 표시용 문자열
+      const whenLabel = (() => {
+        if (!desiredDate) return desiredTime || '일정 협의';
+        const p = desiredDate.split('-');
+        const wk = ['일', '월', '화', '수', '목', '금', '토'];
+        let dd = desiredDate;
+        try { const d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); dd = `${+p[1]}월 ${+p[2]}일(${wk[d.getUTCDay()]})`; } catch {}
+        return desiredTime ? `${dd} ${desiredTime}` : dd;
+      })();
+      const teacherLabel = teacher && teacher.name ? teacher.name : '담당 선생님';
+
+      // 🔔 알림은 모두 best-effort — 실패해도 신청 자체는 성공 처리
+      // 1) 신청자 "접수" 안내 — 담당 교사는 수락 후 확정 통보(과잉 약속 방지). 교사명은 아직 안 넣는다.
+      if (phone) {
+        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.\n문의: pf.kakao.com/_xlqnSxd/chat`;
+        try { await sendPlainSms(env, phone, smsText); }
+        catch (e: any) { console.warn('[leveltest] applicant receipt skipped:', e?.message || e); }
+      }
+      // 2) 관리자(필리핀) 이메일 알림 — 한/영 이중언어
+      try {
+        const adminTo = (env as any).LEVELTEST_ADMIN_EMAIL;
+        if (adminTo) {
+          const html = emailLayout({
+            title: '🎯 새 레벨테스트 신청 · New Level Test Request',
+            bodyHtml: `
+              <p><b>새 레벨테스트 신청이 접수되었습니다.</b><br>A new level test request has been received.</p>
+              <table cellpadding="6" style="border-collapse:collapse;margin:10px 0;font-size:13.5px">
+                <tr><td style="color:#64748b">학생 · Student</td><td><b>${escapeHtmlLT(name)}</b></td></tr>
+                <tr><td style="color:#64748b">희망일시 · When</td><td>${escapeHtmlLT(whenLabel)}</td></tr>
+                <tr><td style="color:#64748b">연락처 · Phone</td><td>${escapeHtmlLT(phone || '-')}</td></tr>
+                <tr><td style="color:#64748b">배정교사 · Teacher</td><td>${escapeHtmlLT(teacherLabel)}${teacher && teacher.reason === 'fallback_best_rated' ? ' <span style="color:#f59e0b">(시간대 가용 교사 없음 → 최고평가 배정 · no time-match, assigned top-rated)</span>' : ''}</td></tr>
+              </table>
+              <p style="font-size:12.5px;color:#64748b">관리자 페이지 → 레벨테스트 신청 현황에서 확인/변경할 수 있습니다.<br>Review or reassign in Admin → Level Test Applications.</p>`,
+          });
+          await sendEmail(env, { to: adminTo, subject: `[망고아이] 새 레벨테스트 신청 · New Level Test — ${name}`, html });
+        }
+      } catch (e: any) { console.warn('[leveltest] admin email skipped:', e?.message || e); }
+      // 3) 배정 후보 교사에게 "수락 요청" — 이메일 + 문자 + 마이페이지 빨간점(teacher_seen_at 미설정으로 자동)
+      //    교사가 수락하면 그때 학생에게 확정 통보(아래 accept 분기).
+      if (teacher) {
+        const tMsg = `[망고아이] 새 레벨테스트 배정 제안이 왔어요.\n👦 학생: ${name}\n📅 ${whenLabel}\n마이페이지에서 수락/거절해 주세요.`;
+        try { if (teacher.phone) await sendPlainSms(env, teacher.phone, tMsg); } catch (e: any) { console.warn('[leveltest] teacher sms skipped:', e?.message || e); }
+        try {
+          if (teacher.email) {
+            const html = emailLayout({
+              title: '🧑‍🏫 새 레벨테스트 배정 제안 · New Level Test — Please Confirm',
+              bodyHtml: `
+                <p><b>${escapeHtmlLT(teacher.name)}</b> 선생님, 새 레벨테스트가 배정 제안되었습니다. 마이페이지에서 <b>수락</b>해 주세요.<br>A new level test is proposed to you. Please <b>accept</b> it in your My Page.</p>
+                <table cellpadding="6" style="border-collapse:collapse;margin:10px 0;font-size:13.5px">
+                  <tr><td style="color:#64748b">학생 · Student</td><td><b>${escapeHtmlLT(name)}</b></td></tr>
+                  <tr><td style="color:#64748b">일시 · When</td><td>${escapeHtmlLT(whenLabel)}</td></tr>
+                </table>
+                <p style="font-size:12.5px;color:#64748b">수락하면 학생에게 담당 선생님 확정 안내가 나갑니다. · Accepting sends the student a confirmation.</p>`,
+            });
+            await sendEmail(env, { to: teacher.email, subject: `[망고아이] 새 레벨테스트 배정 제안 · Please confirm — ${name}`, html });
+          }
+        } catch (e: any) { console.warn('[leveltest] teacher email skipped:', e?.message || e); }
+      }
+
+      return json({ ok: true, id: appId, status: teacher ? 'proposed' : 'pending', proposed_teacher: teacher ? teacher.name : null, scheduled: whenLabel });
+    }
+    // ── 🧑‍🏫 교사 마이페이지: 나에게 배정된 레벨테스트 목록 + 미확인 배지 ──
+    //   GET  /api/teacher/leveltest-assignments?teacher_name=이름[&teacher_id=]  → { items, unseen }
+    //   POST /api/teacher/leveltest-assignments  { teacher_name|teacher_id, seen:true }        → 빨간점 제거(확인처리)
+    //   POST /api/teacher/leveltest-assignments  { id, teacher_name, action:'accept'|'decline' } → 배정 수락/거절
+    if (path === '/api/teacher/leveltest-assignments') {
+      await ensureLtApps();
+      const tname = (url.searchParams.get('teacher_name') || '').toString().trim();
+      const tid = (url.searchParams.get('teacher_id') || '').toString().trim();
+      if (method === 'GET') {
+        if (!tname && !tid) return invalidBody(['teacher_name']);
+        const where: string[] = []; const binds: any[] = [];
+        if (tid)   { where.push('assigned_teacher_id = ?'); binds.push(tid); }
+        if (tname) { where.push('assigned_teacher = ?');    binds.push(tname); }
+        const rs = await env.DB.prepare(
+          `SELECT id, student_name, desired_date, desired_time, phone, status, assigned_teacher, assigned_reason, teacher_seen_at, teacher_confirmed_at, created_at
+             FROM leveltest_applications WHERE (${where.join(' OR ')}) ORDER BY created_at DESC LIMIT 100`
+        ).bind(...binds).all();
+        const items = (rs.results || []) as any[];
+        const unseen = items.filter(a => !a.teacher_seen_at || a.created_at > a.teacher_seen_at).length;
+        return json({ ok: true, items, unseen });
+      }
+      const bb = await parseJsonBody(request);
+      const bn = ((bb && bb.teacher_name) || '').toString().trim();
+      const bi = ((bb && bb.teacher_id) || '').toString().trim();
+      const action = ((bb && bb.action) || '').toString().trim();
+      // ── 배정 수락/거절 ──
+      if ((action === 'accept' || action === 'decline') && bb && bb.id != null) {
+        if (!bn && !bi) return invalidBody(['teacher_name']);
+        const app = await env.DB.prepare(`SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`).bind(bb.id).first<any>();
+        if (!app) return json({ ok: false, error: 'not_found' }, 404);
+        // 소유 검증 — 나에게 제안된 건만 처리
+        const owns = (bi && String(app.assigned_teacher_id) === bi) || (bn && app.assigned_teacher === bn);
+        if (!owns) return json({ ok: false, error: 'not_your_assignment' }, 403);
+        const now2 = Date.now();
+        if (action === 'decline') {
+          // 배정 해제 → pending 으로 되돌려 관리자가 재배정
+          await env.DB.prepare(`UPDATE leveltest_applications SET status='pending', assigned_teacher=NULL, assigned_teacher_id=NULL, assigned_teacher_phone=NULL, assigned_teacher_email=NULL, assigned_reason='declined', teacher_confirmed_at=NULL, updated_at=? WHERE id=?`).bind(now2, bb.id).run();
+          return json({ ok: true, status: 'pending' });
+        }
+        // accept → confirmed + 학생에게 담당 확정 통보
+        await env.DB.prepare(`UPDATE leveltest_applications SET status='confirmed', teacher_confirmed_at=?, teacher_seen_at=?, updated_at=? WHERE id=?`).bind(now2, now2, now2, bb.id).run();
+        // 📅 예약 문자열
+        const wk = ['일', '월', '화', '수', '목', '금', '토'];
+        let whenLabel2 = app.desired_time || '일정 협의';
+        if (app.desired_date && /^\d{4}-\d{2}-\d{2}$/.test(app.desired_date)) {
+          const p = String(app.desired_date).split('-');
+          try { const d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); whenLabel2 = `${+p[1]}월 ${+p[2]}일(${wk[d.getUTCDay()]})` + (app.desired_time ? ` ${app.desired_time}` : ''); } catch {}
+        }
+        const tLabel = app.assigned_teacher || '담당 선생님';
+        if (app.phone) {
+          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}\n예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다.\n문의: pf.kakao.com/_xlqnSxd/chat`;
+          try {
+            const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
+            if (tmpl) {
+              await sendKakaoAlimtalk(env, {
+                templateCode: tmpl, recipientPhone: app.phone, recipientName: app.student_name,
+                variables: { '#{학생명}': app.student_name, '#{예약일시}': whenLabel2, '#{담당교사}': tLabel },
+                fallbackSmsText: smsText,
+                logContext: app.student_uid ? { userId: String(app.student_uid), reason: 'leveltest' } : undefined,
+              });
+            } else {
+              await sendPlainSms(env, app.phone, smsText);
+            }
+          } catch (e: any) { console.warn('[leveltest] confirm notify skipped:', e?.message || e); }
+        }
+        return json({ ok: true, status: 'confirmed' });
+      }
+      // ── 확인처리(빨간점 제거) ──
+      if (!bn && !bi) return invalidBody(['teacher_name']);
+      const where: string[] = []; const binds: any[] = [];
+      if (bi) { where.push('assigned_teacher_id = ?'); binds.push(bi); }
+      if (bn) { where.push('assigned_teacher = ?');    binds.push(bn); }
+      await env.DB.prepare(
+        `UPDATE leveltest_applications SET teacher_seen_at = ? WHERE (${where.join(' OR ')}) AND (teacher_seen_at IS NULL OR teacher_seen_at < created_at)`
+      ).bind(Date.now(), ...binds).run();
+      return json({ ok: true });
+    }
+    if (path === '/api/admin/leveltest/applications') {
+      await ensureLtApps();
+      if (method === 'GET') {
+        const statusF = url.searchParams.get('status');
+        const lim = Math.max(1, Math.min(500, parseInt(url.searchParams.get('limit') || '100', 10)));
+        let q = `SELECT * FROM leveltest_applications`;
+        const binds: any[] = [];
+        if (statusF) { q += ` WHERE status = ?`; binds.push(statusF); }
+        q += ` ORDER BY (status = 'pending') DESC, created_at DESC LIMIT ?`;
+        binds.push(lim);
+        const rs = await env.DB.prepare(q).bind(...binds).all();
+        const items = (rs.results || []) as any[];
+        // 🎤 발음 점수 자동 연결 — 학생이 speech-coach에서 남긴 최신 voice_coaching 점수를 오버레이(항상 최신)
+        try {
+          const uids = Array.from(new Set(items.filter(a => a.student_uid).map(a => a.student_uid)));
+          if (uids.length) {
+            const ph = uids.map(() => '?').join(',');
+            const vc = await env.DB.prepare(
+              `SELECT student_uid, pronunciation_score, MAX(created_at) AS mx FROM voice_coaching WHERE student_uid IN (${ph}) GROUP BY student_uid`
+            ).bind(...uids).all();
+            const pmap: Record<string, number> = {};
+            (vc.results || []).forEach((r: any) => { if (r.pronunciation_score != null) pmap[r.student_uid] = r.pronunciation_score; });
+            items.forEach(a => { if (a.pron_score == null && a.student_uid && pmap[a.student_uid] != null) a.pron_score = pmap[a.student_uid]; });
+          }
+        } catch (e) { /* voice_coaching 미존재 시 무시 */ }
+        const cnt = await env.DB.prepare(`SELECT COUNT(*) AS n FROM leveltest_applications WHERE status = 'pending'`).all();
+        const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
+        return json({ ok: true, items, pending });
+      }
+      // POST → 상태/배정/메모 업데이트
+      const b = await parseJsonBody(request);
+      if (!b || !b.id) return invalidBody(['id']);
+      const fields: string[] = [];
+      const binds: any[] = [];
+      if (b.status != null)           { fields.push('status = ?');           binds.push(String(b.status)); }
+      if (b.assigned_teacher != null) { fields.push('assigned_teacher = ?'); binds.push(String(b.assigned_teacher)); }
+      if (b.note != null)             { fields.push('note = ?');             binds.push(String(b.note)); }
+      if (b.final_level != null)      { fields.push('final_level = ?');      binds.push(String(b.final_level)); }
+      // 🧑‍🏫 선생님 1:1 평가(3번째 축) — 루브릭 점수 + 평가자 + 확정 시 완료 처리
+      if (b.teacher_score != null)    { fields.push('teacher_score = ?');    binds.push(Number(b.teacher_score)); }
+      if (b.teacher_rubric != null)   { fields.push('teacher_rubric = ?');   binds.push(typeof b.teacher_rubric === 'string' ? b.teacher_rubric : JSON.stringify(b.teacher_rubric)); }
+      if (b.evaluated_by != null)     { fields.push('evaluated_by = ?');     binds.push(String(b.evaluated_by)); }
+      if (b.teacher_score != null || b.teacher_rubric != null) { fields.push('evaluated_at = ?'); binds.push(Date.now()); }
+      if (!fields.length) return invalidBody(['status']);
+      fields.push('updated_at = ?'); binds.push(Date.now());
+      binds.push(Number(b.id));
+      await env.DB.prepare(`UPDATE leveltest_applications SET ${fields.join(', ')} WHERE id = ?`).bind(...binds).run();
+      return json({ ok: true });
+    }
+
+    // ─── 🧠 AI 자동 진단 (CEFR 객관식 배치테스트) ─────────────────────────────
+    //   변별력·객관성의 핵심: 문항은행과 채점을 서버가 소유(클라이언트 조작 불가).
+    //   레벨당 4문항(A1~C2, 총 24) · 천장기법(ceiling)으로 추정레벨 · 가중점수(0~100).
+    //   GET  /api/leveltest/questions            → 정답 없이 문항 전달
+    //   POST /api/leveltest/diagnose {answers,student_name,student_uid} → 서버채점 후 신청건에 자동첨부
+    const CEFR_BANK: Array<{ id: string; cefr: string; skill: string; q: string; choices: string[]; a: number }> = [
+      // A1
+      { id: 'a1_1', cefr: 'A1', skill: 'grammar', q: 'She ___ a student.', choices: ['be', 'am', 'is', 'are'], a: 2 },
+      { id: 'a1_2', cefr: 'A1', skill: 'vocab',   q: 'I have two ___.', choices: ['cat', 'cats', 'cates', 'caties'], a: 1 },
+      { id: 'a1_3', cefr: 'A1', skill: 'grammar', q: '___ is your name?', choices: ['What', 'Where', 'When', 'Who'], a: 0 },
+      { id: 'a1_4', cefr: 'A1', skill: 'grammar', q: 'They ___ to school every day.', choices: ['goes', 'going', 'go', 'went'], a: 2 },
+      // A2
+      { id: 'a2_1', cefr: 'A2', skill: 'grammar', q: 'I ___ TV when the phone rang.', choices: ['watch', 'watched', 'was watching', 'am watching'], a: 2 },
+      { id: 'a2_2', cefr: 'A2', skill: 'grammar', q: 'This book is ___ than that one.', choices: ['interesting', 'more interesting', 'most interesting', 'interestinger'], a: 1 },
+      { id: 'a2_3', cefr: 'A2', skill: 'grammar', q: 'We ___ finished our homework yet.', choices: ["didn't", "haven't", "don't", "aren't"], a: 1 },
+      { id: 'a2_4', cefr: 'A2', skill: 'grammar', q: 'If it rains, we ___ stay home.', choices: ['will', 'would', 'were', 'have'], a: 0 },
+      // B1
+      { id: 'b1_1', cefr: 'B1', skill: 'grammar', q: 'By the time we arrived, the movie ___.', choices: ['started', 'has started', 'had started', 'starts'], a: 2 },
+      { id: 'b1_2', cefr: 'B1', skill: 'grammar', q: 'He suggested ___ a taxi.', choices: ['to take', 'taking', 'take', 'took'], a: 1 },
+      { id: 'b1_3', cefr: 'B1', skill: 'grammar', q: "I'm not used to ___ up early.", choices: ['get', 'getting', 'got', 'gets'], a: 1 },
+      { id: 'b1_4', cefr: 'B1', skill: 'grammar', q: 'She asked me where ___.', choices: ['did I live', 'I lived', 'I live', 'lived I'], a: 1 },
+      // B2
+      { id: 'b2_1', cefr: 'B2', skill: 'grammar', q: '___ harder, he would have passed.', choices: ['If he studied', 'Had he studied', 'Did he study', 'He studied'], a: 1 },
+      { id: 'b2_2', cefr: 'B2', skill: 'grammar', q: 'The project, ___ took months, was a success.', choices: ['that', 'which', 'who', 'what'], a: 1 },
+      { id: 'b2_3', cefr: 'B2', skill: 'grammar', q: "I'd rather you ___ smoke in here.", choices: ["don't", "didn't", "won't", 'not'], a: 1 },
+      { id: 'b2_4', cefr: 'B2', skill: 'grammar', q: "It's high time we ___ a decision.", choices: ['make', 'made', 'making', 'have made'], a: 1 },
+      // C1
+      { id: 'c1_1', cefr: 'C1', skill: 'grammar', q: 'No sooner ___ than it started to rain.', choices: ['we had left', 'had we left', 'we left', 'did we leave'], a: 1 },
+      { id: 'c1_2', cefr: 'C1', skill: 'vocab',   q: "Closest in meaning to 'meticulous':", choices: ['careless', 'thorough', 'quick', 'rude'], a: 1 },
+      { id: 'c1_3', cefr: 'C1', skill: 'vocab',   q: 'The negotiations ___ down over the issue of pay.', choices: ['broke', 'fell', 'came', 'went'], a: 0 },
+      { id: 'c1_4', cefr: 'C1', skill: 'grammar', q: 'Little ___ that he was being watched.', choices: ['he knew', 'did he know', 'he did know', 'knew he'], a: 1 },
+      // C2
+      { id: 'c2_1', cefr: 'C2', skill: 'vocab',   q: "Closest in meaning to 'ubiquitous':", choices: ['rare', 'omnipresent', 'ancient', 'hidden'], a: 1 },
+      { id: 'c2_2', cefr: 'C2', skill: 'vocab',   q: 'Her argument was so ___ that no one could refute it.', choices: ['cogent', 'vague', 'trivial', 'mundane'], a: 0 },
+      { id: 'c2_3', cefr: 'C2', skill: 'vocab',   q: "'To throw in the towel' means to:", choices: ['give up', 'start a fight', 'clean up', 'win easily'], a: 0 },
+      { id: 'c2_4', cefr: 'C2', skill: 'grammar', q: 'Choose the correct sentence:', choices: ['Scarcely had I sat down when the bell rang.', 'Scarcely I had sat down when the bell rang.', 'Scarcely did I had sat down when the bell rang.', 'Scarcely I sat down when the bell rang.'], a: 0 },
+    ];
+    const CEFR_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    const CEFR_WEIGHT: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+    if (method === 'GET' && path === '/api/leveltest/questions') {
+      // 정답(a)·skill 은 숨기고 문항만 전달
+      const questions = CEFR_BANK.map(x => ({ id: x.id, cefr: x.cefr, q: x.q, choices: x.choices }));
+      return json({ ok: true, questions, total: questions.length });
+    }
+    if (method === 'POST' && path === '/api/leveltest/diagnose') {
+      await ensureLtApps();
+      const b = await parseJsonBody(request);
+      const answers = (b && b.answers) || {};
+      const name = ((b && (b.student_name || b.name)) || '').toString().trim();
+      const uid = (b && (b.student_uid || b.uid)) || null;
+      // 서버 채점
+      const correctByLevel: Record<string, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
+      const totalByLevel: Record<string, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
+      let earned = 0, maxScore = 0, correctCount = 0;
+      for (const item of CEFR_BANK) {
+        totalByLevel[item.cefr]++;
+        maxScore += CEFR_WEIGHT[item.cefr];
+        const picked = answers[item.id];
+        if (picked != null && Number(picked) === item.a) {
+          correctByLevel[item.cefr]++;
+          earned += CEFR_WEIGHT[item.cefr];
+          correctCount++;
+        }
+      }
+      const ai_score = maxScore > 0 ? Math.round((earned / maxScore) * 100) : 0;
+      // 천장기법: A1→C2 로 올라가며 각 레벨 50%(2/4) 이상 통과한 마지막 레벨을 추정레벨로.
+      let level = 'Starter';
+      for (const L of CEFR_ORDER) {
+        if (totalByLevel[L] > 0 && correctByLevel[L] >= Math.ceil(totalByLevel[L] / 2)) level = L;
+        else break;
+      }
+      const breakdown = CEFR_ORDER.map(L => ({ cefr: L, correct: correctByLevel[L], total: totalByLevel[L] }));
+      // 신청건에 자동 첨부 (uid 우선 매칭 → 이름 → 없으면 새 신청 생성)
+      const now = Date.now();
+      let appId: number | null = null;
+      if (uid) {
+        const r = await env.DB.prepare(`SELECT id FROM leveltest_applications WHERE status = 'pending' AND student_uid = ? ORDER BY created_at DESC LIMIT 1`).bind(uid).all();
+        if (r.results && r.results[0]) appId = (r.results[0] as any).id;
+      }
+      if (appId == null && name) {
+        const r = await env.DB.prepare(`SELECT id FROM leveltest_applications WHERE status = 'pending' AND student_name = ? ORDER BY created_at DESC LIMIT 1`).bind(name).all();
+        if (r.results && r.results[0]) appId = (r.results[0] as any).id;
+      }
+      if (appId != null) {
+        await env.DB.prepare(`UPDATE leveltest_applications SET ai_score = ?, final_level = ?, updated_at = ? WHERE id = ?`).bind(ai_score, level, now, appId).run();
+      } else {
+        const ins = await env.DB.prepare(
+          `INSERT INTO leveltest_applications (student_name, student_uid, status, ai_score, final_level, source, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, 'ai-diagnosis', ?, ?)`
+        ).bind(name || (uid ? String(uid) : 'AI 진단'), uid, ai_score, level, now, now).run();
+        appId = ins.meta.last_row_id as number;
+      }
+      return json({ ok: true, ai_score, level, correct: correctCount, total: CEFR_BANK.length, breakdown, application_id: appId });
+    }
+
+    // ─── 수강신청 ─────────────────────────────────────────────────────────
+    if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments') {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      // 🥭 Phase 37b — 누락 컬럼 자동 보강 (Phase 36 seed 가 사용하는 컬럼들)
+      const _addEnrCol2 = async (col: string, type: string) => {
+        try { await env.DB.exec(`ALTER TABLE enrollments ADD COLUMN ${col} ${type}`); } catch {}
+      };
+      await _addEnrCol2('days_of_week', 'TEXT');
+      await _addEnrCol2('time', 'TEXT');
+      await _addEnrCol2('class_size', 'TEXT');
+      await _addEnrCol2('type', 'TEXT');
+      await _addEnrCol2('teacher_name', 'TEXT');
+      await _addEnrCol2('end_date', 'TEXT');
+      if (method === 'GET') {
+        // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
+        const statusF = url.searchParams.get('status');
+        const userIdF = url.searchParams.get('user_id');
+        const lim = Math.max(1, Math.min(500, parseInt(url.searchParams.get('limit') || '100', 10)));
+        const where: string[] = []; const binds: any[] = [];
+        if (statusF) { where.push('status = ?'); binds.push(statusF); }
+        if (userIdF) { where.push('student_user_id = ?'); binds.push(userIdF); }
+        const sql = `SELECT * FROM enrollments${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ?`;
+        binds.push(lim);
+        try {
+          const rs = await env.DB.prepare(sql).bind(...binds).all<any>();
+          return json({ ok: true, items: rs.results || [] });
+        } catch (e: any) {
+          return json({ ok: true, items: [], warning: String(e?.message || e) });
+        }
+      }
+      const b = await parseJsonBody(request);
+      if (!b || !b.student_name || !b.package) return invalidBody(['student_name', 'package']);
+      const now = Date.now();
+      const r = await env.DB.prepare(
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        b.student_user_id || null, b.student_name, b.package,
+        b.started_at ? Number(b.started_at) : now,
+        b.ended_at ? Number(b.ended_at) : null,
+        b.monthly_fee_krw != null ? Number(b.monthly_fee_krw) : null,
+        b.status || 'pending', b.notes || null, now, now
+      ).run();
+      return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    // 수강신청 상태 변경 (pending → confirmed → cancelled 등)
+    if (method === 'PATCH' && /^\/api\/admin\/enrollments\/\d+$/.test(path)) {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      const m = path.match(/^\/api\/admin\/enrollments\/(\d+)$/);
+      const id = m ? parseInt(m[1], 10) : 0;
+      const b = await parseJsonBody(request);
+      if (!b || !b.status) return invalidBody(['status']);
+      const allowed = new Set(['pending', 'confirmed', 'active', 'cancelled', 'expired']);
+      if (!allowed.has(b.status)) return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
+      await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, Date.now(), id).run();
+      return json({ ok: true, id, status: b.status });
+    }
+
+    // ─── 커뮤니티 게시글 ──────────────────────────────────────────────────
+    if ((method === 'GET' || method === 'POST') && path === '/api/admin/community-posts') {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS community_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT, author TEXT, pinned INTEGER DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      if (method === 'GET') {
+        const rs = await env.DB.prepare(`SELECT * FROM community_posts ORDER BY pinned DESC, created_at DESC LIMIT 200`).all();
+        return json({ ok: true, items: rs.results || [] });
+      }
+      const b = await parseJsonBody(request);
+      if (!b || !b.title) return invalidBody(['title']);
+      const now = Date.now();
+      const r = await env.DB.prepare(
+        `INSERT INTO community_posts (title, body, author, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(b.title, b.body || null, b.author || 'admin', b.pinned ? 1 : 0, now, now).run();
+      return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    // 게시글 고정 토글 / 삭제
+    if (method === 'PATCH' && /^\/api\/admin\/community-posts\/\d+$/.test(path)) {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS community_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT, author TEXT, pinned INTEGER DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      const m = path.match(/^\/api\/admin\/community-posts\/(\d+)$/);
+      const id = m ? parseInt(m[1], 10) : 0;
+      const b = await parseJsonBody(request);
+      if (!b) return invalidBody(['pinned/title/body 등']);
+      const sets: string[] = [];
+      const binds: any[] = [];
+      if (b.title !== undefined)  { sets.push('title = ?');  binds.push(b.title); }
+      if (b.body !== undefined)   { sets.push('body = ?');   binds.push(b.body); }
+      if (b.pinned !== undefined) { sets.push('pinned = ?'); binds.push(b.pinned ? 1 : 0); }
+      if (sets.length === 0) return json({ ok: false, error: 'nothing_to_update' }, 400);
+      sets.push('updated_at = ?'); binds.push(Date.now());
+      binds.push(id);
+      await env.DB.prepare(`UPDATE community_posts SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+      return json({ ok: true, id });
+    }
+
+    // ─── 교재 콘텐츠 ─────────────────────────────────────────────────────
+    if ((method === 'GET' || method === 'POST') && path === '/api/admin/textbooks') {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS textbooks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, level TEXT, units INTEGER, isbn TEXT, publisher TEXT, notes TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      // 🎬 교재별 예습/복습 동영상 컬럼 (없으면 추가 — 기존 데이터 보존)
+      for (const ddl of [`ALTER TABLE textbooks ADD COLUMN video_url TEXT`, `ALTER TABLE textbooks ADD COLUMN video_type TEXT DEFAULT 'preview'`, `ALTER TABLE textbooks ADD COLUMN video_title TEXT`]) { try { await env.DB.exec(ddl); } catch {} }
+      if (method === 'GET') {
+        const rs = await env.DB.prepare(`SELECT * FROM textbooks ORDER BY active DESC, level ASC, title ASC`).all();
+        return json({ ok: true, items: rs.results || [] });
+      }
+      const b = await parseJsonBody(request);
+      if (!b || !b.title) return invalidBody(['title']);
+      const now = Date.now();
+      const r = await env.DB.prepare(
+        `INSERT INTO textbooks (title, level, units, isbn, publisher, notes, video_url, video_type, video_title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(b.title, b.level || null, b.units != null ? Number(b.units) : null, b.isbn || null, b.publisher || null, b.notes || null, b.video_url || null, b.video_type || 'preview', b.video_title || null, now, now).run();
+      return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    // 🎬 수업방 입장 시 교재 → 예습/복습 동영상 자동 매칭
+    //   GET /api/get-lesson-video/<book_id>  → { success, has_video, book, video_url, ... }
+    if (method === 'GET' && /^\/api\/get-lesson-video\/\d+$/.test(path)) {
+      const bookId = parseInt(path.split('/').pop() || '0', 10);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS textbooks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, level TEXT, units INTEGER, isbn TEXT, publisher TEXT, notes TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      for (const ddl of [`ALTER TABLE textbooks ADD COLUMN video_url TEXT`, `ALTER TABLE textbooks ADD COLUMN video_type TEXT DEFAULT 'preview'`, `ALTER TABLE textbooks ADD COLUMN video_title TEXT`]) { try { await env.DB.exec(ddl); } catch {} }
+      const bk: any = await env.DB.prepare(`SELECT * FROM textbooks WHERE id = ?`).bind(bookId).first().catch(() => null);
+      if (!bk) return json({ success: false, message: `${bookId}번 교재를 찾을 수 없습니다.` }, 404);
+      if (!bk.video_url) return json({ success: true, has_video: false, book: bk, message: '이 교재에는 연결된 예습/복습 동영상이 아직 없습니다.' });
+      const isYt0 = /youtu\.?be|youtube\.com/.test(String(bk.video_url));
+      return json({ success: true, has_video: true, book: bk, is_youtube: isYt0, video_url: bk.video_url, video_type: bk.video_type || 'preview', video_title: bk.video_title || bk.title });
+    }
+
+    // 🎬 교재명(또는 id)으로 동영상 매칭 — 등록된 망고아이 비디오(YouTube) 또는 교재 video_url
+    //   GET /api/lesson-video?q=<교재명>  또는  ?id=<교재id>
+    if (method === 'GET' && path === '/api/lesson-video') {
+      const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+      let q = (url.searchParams.get('q') || '').trim();
+      const idParam = parseInt(url.searchParams.get('id') || '0', 10);
+      // 1) 교재 id 가 오면 textbooks.video_url 우선
+      if (idParam) {
+        try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS textbooks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, level TEXT, units INTEGER, isbn TEXT, publisher TEXT, notes TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`); } catch {}
+        for (const ddl of [`ALTER TABLE textbooks ADD COLUMN video_url TEXT`, `ALTER TABLE textbooks ADD COLUMN video_type TEXT DEFAULT 'preview'`, `ALTER TABLE textbooks ADD COLUMN video_title TEXT`]) { try { await env.DB.exec(ddl); } catch {} }
+        const bk2: any = await env.DB.prepare(`SELECT * FROM textbooks WHERE id = ?`).bind(idParam).first().catch(() => null);
+        if (bk2 && bk2.video_url) {
+          const isYt = /youtu\.?be|youtube\.com/.test(String(bk2.video_url));
+          return json({ success: true, has_video: true, is_youtube: isYt, video_url: bk2.video_url, video_type: bk2.video_type || 'preview', video_title: bk2.video_title || bk2.title });
+        }
+        if (bk2 && bk2.title && !q) q = String(bk2.title); // 교재명으로 비디오 매칭 시도
+      }
+      // 2) 교재명으로 망고아이 비디오(YouTube) 자동 매칭 — 진도(레벨+유닛) 기준
+      if (q) {
+        const nq = norm(q);
+        // 교재명/영상제목에서 BTS 레벨 + 유닛 번호들 추출
+        //   영상은 유닛 "범위"(예: "BTS 1 Unit 001-003", "BTS 03 004 006") → [min,max] 범위로 봄
+        //   교재는 단일 유닛(예: "BTS 1 003") → 마지막 숫자를 유닛으로 봄
+        const parseBTS = (s: string) => {
+          const m = String(s || '').match(/BTS\s*0*([0-9]+)([\s\S]*)/i);
+          if (!m) return null;
+          const level = parseInt(m[1], 10);
+          const nums = ((m[2] || '').match(/[0-9]{1,3}/g) || []).map((n) => parseInt(n, 10)).filter((n) => n >= 1 && n <= 999);
+          return { level, nums };
+        };
+        const isReview = (s: string) => /review|복습|test|테스트/i.test(String(s || ''));
+        const tk = parseBTS(q);
+        const tbUnit = (tk && tk.nums.length) ? tk.nums[tk.nums.length - 1] : null; // 교재 = 마지막 숫자
+        const wantReview = isReview(q);
+        const vids = ((await env.DB.prepare(`SELECT id, title, youtube_url, youtube_id, thumbnail_url, level, category FROM mango_videos WHERE active = 1 ORDER BY created_at DESC LIMIT 1000`).all().catch(() => ({ results: [] }))).results || []) as any[];
+        let best: any = null;
+        // (a) 레벨 일치 + 교재 유닛이 영상의 유닛 범위 안 — 예습(비REVIEW) 우선
+        if (tk && tbUnit != null) {
+          const cands = vids.filter((v: any) => {
+            const vk = parseBTS(v.title);
+            if (!vk || vk.level !== tk.level || !vk.nums.length) return false;
+            const lo = Math.min(...vk.nums), hi = Math.max(...vk.nums);
+            return tbUnit >= lo && tbUnit <= hi;
+          });
+          best = cands.find((v: any) => isReview(v.title) === wantReview) || cands[0] || null;
+        }
+        // (a2) 레벨은 있는데 유닛이 없거나(책 단위) 범위 매칭 실패 → 그 레벨의 가장 낮은 유닛 예습 영상
+        if (!best && tk && tk.level != null) {
+          const lvCands = vids.filter((v: any) => { const vk = parseBTS(v.title); return !!(vk && vk.level === tk.level && vk.nums.length); });
+          lvCands.sort((a: any, b: any) => Math.min(...(parseBTS(a.title) as any).nums) - Math.min(...(parseBTS(b.title) as any).nums));
+          best = lvCands.find((v: any) => !isReview(v.title)) || lvCands[0] || null;
+        }
+        // (b) 제목 포함 매칭 (Phonics 등 유닛번호 없는 교재)
+        if (!best) { for (const v of vids) { const nt = norm(v.title); if (nt && nq && (nt.includes(nq) || nq.includes(nt))) { best = v; break; } } }
+        // (c) 앞 8자 부분 매칭
+        if (!best && nq.length >= 4) { const key = nq.slice(0, 8); for (const v of vids) { if (norm(v.title).includes(key)) { best = v; break; } } }
+        if (best) return json({ success: true, has_video: true, is_youtube: true, youtube_id: best.youtube_id, youtube_url: best.youtube_url, video_url: best.youtube_url, video_title: best.title, video_type: isReview(best.title) ? 'review' : 'preview' });
+      }
+      return json({ success: true, has_video: false, message: '매칭된 동영상이 없습니다.' });
+    }
+
+    // 🎬 유튜브 채널 영상 일괄 가져오기 (YouTube Data API v3)
+    //   POST /api/admin/mango-videos/import-channel  { channel_url 또는 channel_id, api_key? }
+    if (method === 'POST' && path === '/api/admin/mango-videos/import-channel') {
+      const ib: any = await parseJsonBody(request).catch(() => null);
+      const apiKey = String((ib && ib.api_key) || (env as any).YOUTUBE_API_KEY || '').trim();
+      if (!apiKey) return json({ ok: false, error: 'no_api_key', message: 'YouTube Data API 키가 필요합니다.' }, 400);
+      let channelId = String((ib && ib.channel_id) || '').trim();
+      const cu = String((ib && ib.channel_url) || '').trim();
+      if (!channelId && cu) { const m = cu.match(/channel\/(UC[\w-]+)/); if (m) channelId = m[1]; }
+      if (!channelId && /^UC[\w-]+$/.test(cu)) channelId = cu;
+      if (!channelId) return json({ ok: false, error: 'no_channel', message: '채널 ID(UC...)를 찾을 수 없습니다.' }, 400);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS mango_videos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, title_en TEXT, youtube_url TEXT NOT NULL, youtube_id TEXT NOT NULL, thumbnail_url TEXT, level TEXT, lesson_no INTEGER, category TEXT, description TEXT, description_en TEXT, duration_sec INTEGER, sort_order INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      } catch {}
+      // 1) 채널의 업로드 재생목록 id 조회
+      const chRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${apiKey}`);
+      const chData: any = await chRes.json().catch(() => ({}));
+      const uploads = chData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+      if (!uploads) return json({ ok: false, error: 'no_uploads', message: chData?.error?.message || '업로드 재생목록을 찾을 수 없습니다(키·채널 확인).' }, 400);
+      // 2) 재생목록 전체 페이지네이션
+      let pageToken = '';
+      let imported = 0, skipped = 0, total = 0;
+      const now = Date.now();
+      for (let p = 0; p < 40; p++) {
+        const plRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${uploads}&key=${apiKey}${pageToken ? '&pageToken=' + pageToken : ''}`);
+        const plData: any = await plRes.json().catch(() => ({}));
+        const items = plData?.items || [];
+        for (const it of items) {
+          total++;
+          const vid = it?.contentDetails?.videoId || it?.snippet?.resourceId?.videoId;
+          const title = (it?.snippet?.title || '').trim();
+          if (!vid || !title || title === 'Private video' || title === 'Deleted video') { skipped++; continue; }
+          const exist = await env.DB.prepare(`SELECT id FROM mango_videos WHERE youtube_id = ?`).bind(vid).first().catch(() => null);
+          if (exist) { skipped++; continue; }
+          const thumb = it?.snippet?.thumbnails?.high?.url || `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
+          const lvMatch = title.match(/(?:Lv|Level|레벨)\s*([0-9]+)/i) || title.match(/BTS\s*([0-9]+)/i);
+          const level = lvMatch ? String(lvMatch[1]) : null;
+          const lnMatch = title.match(/(?:UNIT|Unit|Lesson|LESSON|레슨)\s*([0-9]+)/) || title.match(/\b([0-9]{3})\b/);
+          const lessonNo = lnMatch ? parseInt(lnMatch[1], 10) : null;
+          await env.DB.prepare(`INSERT INTO mango_videos (title, youtube_url, youtube_id, thumbnail_url, level, lesson_no, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`)
+            .bind(title, `https://www.youtube.com/watch?v=${vid}`, vid, thumb, level, lessonNo, now, now).run();
+          imported++;
+        }
+        pageToken = plData?.nextPageToken || '';
+        if (!pageToken) break;
+      }
+      return json({ ok: true, channel_id: channelId, total, imported, skipped });
+    }
+
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
