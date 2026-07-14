@@ -12809,6 +12809,15 @@ function vcSmartFitVideo(v){
     var box = v.closest('.video-box'); if (!box) return;
     var bw = box.clientWidth, bh = box.clientHeight; if (!bw || !bh) return;
     var vr = v.videoWidth / v.videoHeight, br = bw / bh;
+    // 🖼 (2026-07-14 사장님 지시) 세로폰에서 '상대(교사 등) 타일'은 무조건 꽉 채움(cover).
+    //   PC 교사의 16:9 영상이 세로 타일에 contain 으로 들어가면 위아래 검은띠로 작게 보였음
+    //   ("교사 화면도 학생처럼 꽉차게"). 내 타일(vc-local-box)은 기존 잘림방지 로직 유지.
+    try {
+      if (box.id !== 'vc-local-box' && matchMedia('(max-width:920px) and (orientation:portrait)').matches) {
+        v.style.setProperty('object-fit', 'cover', 'important');
+        return;
+      }
+    } catch(e){}
     // 🩹 fix (2026-07-13) — 가상배경(세그멘테이션) 켜진 내 타일은 무조건 contain.
     //   가상배경 캔버스는 카메라 원본 비율이라, 세로로 긴 미리보기 타일에 cover 로 넣으면
     //   얼굴이 확대돼 아래(턱·목)가 잘림. 여백은 타일 배경 프레임이 채우므로 전체 표시가 우선.
@@ -27197,8 +27206,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714150225 -->
-
+<!-- BUILD:20260714150715 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
