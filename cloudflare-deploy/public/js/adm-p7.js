@@ -456,4 +456,11 @@
       });
     }
   });
+
+  // 🐛 fix(2026-07-14): <details open ontoggle> 은 파싱 시점에 발화해 정의 전엔
+  // ReferenceError 였음(태초부터). 정의가 끝난 지금, 열려 있으면 원 의도대로 1회 로드.
+  try {
+    var _tr = document.getElementById('sub-teacher-roster');
+    if (_tr && _tr.open) loadTeacherRoster();
+  } catch (e) { console.warn('[teacher-roster] init load skip:', e && e.message); }
 })();
