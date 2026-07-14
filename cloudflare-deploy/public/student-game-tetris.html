@@ -94,12 +94,12 @@
     border:1.5px solid rgba(125,211,252,.25);
     box-shadow:0 0 30px rgba(56,189,248,.12), inset 0 0 40px rgba(0,0,0,.5); }
 
-  /* 셀(잠긴 블록 + 낙하 조각 공통) */
-  .cell{ position:absolute; border-radius:6px; border:1.5px solid rgba(255,255,255,.28);
-    box-shadow:inset 0 2px 6px rgba(255,255,255,.3), inset 0 -3px 7px rgba(0,0,0,.35); }
-  .cell.active{ filter:brightness(1.12) saturate(1.15); box-shadow:inset 0 2px 6px rgba(255,255,255,.4), 0 3px 12px rgba(0,0,0,.4); z-index:4; }
-  .cell.ghost{ background:transparent!important; border:1.5px dashed rgba(255,255,255,.25); box-shadow:none; z-index:2; }
-  .cell.clearing{ animation:clr .28s ease-out forwards; z-index:6; }
+  /* 조각 셀 — 한 조각의 셀들은 서로 맞닿는 면의 테두리를 없애 '하나의 통짜 모양'으로 보이게 함
+     (테두리·모서리 둥글기는 바깥 면에만 → 진짜 L·T·十 실루엣) */
+  .pcell{ position:absolute; box-sizing:border-box; }
+  .pcell.active{ filter:brightness(1.08) saturate(1.1); z-index:4; }
+  .pcell.ghost{ z-index:2; }
+  .pcell.clearing{ animation:clr .28s ease-out forwards; z-index:6; }
   @keyframes clr{ 0%{ filter:brightness(2.2); transform:scale(1) } 100%{ filter:brightness(3); transform:scale(1.15); opacity:0 } }
   /* 낙하 조각 위에 뜨는 단어 라벨 */
   #wordlabel{ position:absolute; z-index:5; pointer-events:none; display:flex; align-items:center; justify-content:center;
@@ -173,6 +173,7 @@
       <span class="pill combo">🔥 <b id="hud-combo">0</b></span>
       <span class="pill">📝 <b id="hud-lines">0</b>줄</span>
       <span class="sp"></span>
+      <span class="pill" id="mus-btn" style="cursor:pointer" onclick="toggleMusic()" title="음악 켜기/끄기">🔊</span>
       <span class="pill" id="hud-mode">🇺🇸</span>
     </div>
     <div class="quest">
@@ -249,7 +250,12 @@ var PIECES = [
   { cells:[[0,0],[0,1],[0,2],[1,0]], color:'#f97316' }, // L 주황
   { cells:[[0,0],[0,1],[0,2],[1,2]], color:'#3b82f6' }, // J 파랑
   { cells:[[0,1],[0,2],[1,0],[1,1]], color:'#34d399' }, // S 초록
-  { cells:[[0,0],[0,1],[1,1],[1,2]], color:'#fb7185' }  // Z 빨강
+  { cells:[[0,0],[0,1],[1,1],[1,2]], color:'#fb7185' }, // Z 빨강
+  // ── 추가 모양(진짜 조각으로 쌓이고 줄도 지워짐) — 사장님 요청 ㄱ·ㄴ·ㄷ·십자 ──
+  { cells:[[0,0],[0,1],[1,1]],               color:'#e879f9' }, // ㄱ (3칸)
+  { cells:[[0,0],[1,0],[1,1]],               color:'#2dd4bf' }, // ㄴ (3칸)
+  { cells:[[0,0],[0,1],[1,0],[2,0],[2,1]],   color:'#f59e0b' }, // ㄷ (5칸)
+  { cells:[[0,1],[1,0],[1,1],[1,2],[2,1]],   color:'#818cf8' }  // 십자 + (5칸)
 ];
 
 /* ── 허브 파라미터 ── */
@@ -263,7 +269,8 @@ var GLANG = (QS.get('glang')==='zh') ? 'zh' : 'en';
    🔊 사운드(WebAudio 합성) + 🗣️ 발음(SpeechSynthesis)
    ════════════════════════════════════════════════════════════ */
 var AC=null;
-function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} } return AC; }
+function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} }
+  if(AC && AC.state==='suspended'){ try{ AC.resume(); }catch(_){} } return AC; }
 function beep(f0,f1,dur,type,vol){ var c=ac(); if(!c) return;
   var o=c.createOscillator(), g=c.createGain(); o.type=type||'sine';
   o.frequency.setValueAtTime(f0,c.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(40,f1),c.currentTime+dur);
@@ -274,6 +281,55 @@ function sndRot(){ beep(520,660,.06,'sine',.08); }
 function sndLock(){ beep(180,120,.09,'square',.12); }
 function sndClear(n){ [740,880,1109,1319].slice(0,Math.max(1,n)+1).forEach(function(f,i){ setTimeout(function(){ beep(f,f*1.2,.16,'triangle',.2); }, i*70); }); }
 function sndOver(){ [520,392,311,233].forEach(function(f,i){ setTimeout(function(){ beep(f,f*.8,.3,'sine',.2); }, i*220); }); }
+
+/* ── 🎵 테트리스 음악 (코로베이니키 — 1861 러시아 민요/퍼블릭 도메인) WebAudio 합성 루프 ──
+   음표=[주파수,길이(8분음표 단위)], 0=쉼표. 리드(스퀘어)+베이스(옥타브 아래)로 칩튠 느낌 */
+var NOTE={ A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880 };
+var MELODY=[
+  [NOTE.E5,2],[NOTE.B4,1],[NOTE.C5,1],[NOTE.D5,2],[NOTE.C5,1],[NOTE.B4,1],
+  [NOTE.A4,2],[NOTE.A4,1],[NOTE.C5,1],[NOTE.E5,2],[NOTE.D5,1],[NOTE.C5,1],
+  [NOTE.B4,3],[NOTE.C5,1],[NOTE.D5,2],[NOTE.E5,2],
+  [NOTE.C5,2],[NOTE.A4,2],[NOTE.A4,2],[0,2],
+  [0,1],[NOTE.D5,2],[NOTE.F5,1],[NOTE.A5,2],[NOTE.G5,1],[NOTE.F5,1],
+  [NOTE.E5,3],[NOTE.C5,1],[NOTE.E5,2],[NOTE.D5,1],[NOTE.C5,1],
+  [NOTE.B4,2],[NOTE.B4,1],[NOTE.C5,1],[NOTE.D5,2],[NOTE.E5,2],
+  [NOTE.C5,2],[NOTE.A4,2],[NOTE.A4,2],[0,2]
+];
+var MUSIC={ on:true, timer:null, gain:null };
+try{ MUSIC.on = (localStorage.getItem('mangoi_tetris_music')!=='0'); }catch(_){}
+function musicStart(){
+  var c=ac(); if(!c) return;
+  if(!MUSIC.gain){ MUSIC.gain=c.createGain(); MUSIC.gain.connect(c.destination); }
+  MUSIC.gain.gain.setValueAtTime(MUSIC.on?0.11:0, c.currentTime);
+  musicSchedule();
+}
+function musicSchedule(){
+  var c=ac(); if(!c || !MUSIC.gain) return;
+  var t=c.currentTime+0.06, U=0.16;                 // 8분음표 1개 = 0.16초
+  MELODY.forEach(function(n){ var f=n[0], d=n[1]*U;
+    if(f>0){
+      var o=c.createOscillator(), g=c.createGain(); o.type='square'; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.9,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+d*0.92);
+      o.connect(g); g.connect(MUSIC.gain); o.start(t); o.stop(t+d);
+      var ob=c.createOscillator(), gb=c.createGain(); ob.type='triangle'; ob.frequency.value=f/2;
+      gb.gain.setValueAtTime(0.0001,t); gb.gain.exponentialRampToValueAtTime(0.45,t+0.02); gb.gain.exponentialRampToValueAtTime(0.0001,t+d*0.85);
+      ob.connect(gb); gb.connect(MUSIC.gain); ob.start(t); ob.stop(t+d);
+    }
+    t+=d;
+  });
+  var totalMs=(t-c.currentTime)*1000;
+  MUSIC.timer=setTimeout(musicSchedule, totalMs-40);  // 곡 끝나기 직전 다음 루프 예약
+}
+function musicStop(){ if(MUSIC.timer){ clearTimeout(MUSIC.timer); MUSIC.timer=null; }
+  if(MUSIC.gain){ try{ MUSIC.gain.gain.setTargetAtTime(0, ac().currentTime, 0.1); }catch(_){} } }
+function toggleMusic(){
+  MUSIC.on=!MUSIC.on;
+  var b=document.getElementById('mus-btn'); if(b) b.textContent=MUSIC.on?'🔊':'🔇';
+  try{ localStorage.setItem('mangoi_tetris_music', MUSIC.on?'1':'0'); }catch(_){}
+  var c=ac();
+  if(MUSIC.on){ if(!MUSIC.timer) musicStart(); else if(MUSIC.gain) MUSIC.gain.gain.setTargetAtTime(0.11, c.currentTime, 0.15); }
+  else if(MUSIC.gain){ MUSIC.gain.gain.setTargetAtTime(0, c.currentTime, 0.15); }
+}
 
 var VOICES=[];
 function loadVoices(){ try{ VOICES=speechSynthesis.getVoices()||[]; }catch(_){} }
@@ -295,6 +351,7 @@ var COLS=8, ROWS=14, cell=34;
 var grid=[];                 // [ROWS][COLS] : null | {color, word}
 var piece=null;              // {cells:[[dr,dc]], row, col, color, word, ko, py}
 var score=0, combo=0, maxCombo=0, lines=0, level=1, relief=0;
+var pieceSeq=0;              // 조각 고유번호(같은 조각 셀끼리만 테두리 병합 → 통짜 모양 유지)
 var running=false, paused=false, gravT=null;
 var missionT=null, missionEndT=null, mission=null;
 
@@ -308,7 +365,7 @@ function dropMs(){
 function show(id){ document.querySelectorAll('.scr').forEach(function(s){ s.classList.remove('on'); }); document.getElementById(id).classList.add('on'); }
 function bestKey(){ return 'mangoi_tetris_best_'+MODE; }
 function showMode(){
-  stopTimers(); running=false;
+  stopTimers(); musicStop(); running=false;
   ['en','zh'].forEach(function(m){ var b=0; try{ b=parseInt(localStorage.getItem('mangoi_tetris_best_'+m),10)||0; }catch(_){}
     document.getElementById('best-'+m).textContent='최고 기록 '+b.toLocaleString()+'점'; });
   document.getElementById('mc-en').classList.toggle('hot', GLANG==='en');
@@ -316,11 +373,12 @@ function showMode(){
   show('scr-mode');
 }
 function startGame(mode){
-  MODE=mode; score=0; combo=0; maxCombo=0; lines=0; level=1; relief=0; mission=null;
+  MODE=mode; score=0; combo=0; maxCombo=0; lines=0; level=1; relief=0; mission=null; pieceSeq=0;
   running=true; paused=false;
   grid=[]; for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
   document.getElementById('hud-mode').textContent=VOCAB[MODE].flag+' '+VOCAB[MODE].name;
-  setBg(); updateHud(); show('scr-game'); ac();
+  document.getElementById('mus-btn').textContent=MUSIC.on?'🔊':'🔇';
+  setBg(); updateHud(); show('scr-game'); ac(); musicStart();
   layout(); spawn(); render(); startGravity(); startMissionClock();
 }
 
@@ -353,7 +411,7 @@ function spawn(){
   var wd=pickWord();
   var cells=p.cells.map(function(c){ return c.slice(); });
   var w=Math.max.apply(null,cells.map(function(c){return c[1];}))+1;
-  piece={ cells:cells, row:0, col:Math.floor((COLS-w)/2), color:p.color, word:wd.w, ko:wd.ko, py:wd.py||'' };
+  piece={ cells:cells, row:0, col:Math.floor((COLS-w)/2), color:p.color, word:wd.w, ko:wd.ko, py:wd.py||'', id:(++pieceSeq) };
   showWordMeaning(wd);
   if(collide(piece.cells, piece.row, piece.col)) return gameOver();   // 스폰 즉시 충돌 = 게임오버
 }
@@ -401,7 +459,7 @@ function lock(){
   piece.cells.forEach(function(c){
     var gr=piece.row+c[0], gc=piece.col+c[1];
     if(gr<0){ topOut=true; return; }
-    grid[gr][gc]={ color:piece.color, word:piece.word };
+    grid[gr][gc]={ color:piece.color, word:piece.word, id:piece.id };
   });
   sndLock();
   speak(piece.word, 0.95);                    // 🗣️ 놓을 때마다 단어 발음(학습)
@@ -437,7 +495,7 @@ function clearLines(){
   }
   if(full.length){
     full.forEach(function(r){                 // 폭발 애니메이션 + 파티클
-      for(var cIdx=0;cIdx<COLS;cIdx++){ var el=document.querySelector('.cell[data-r="'+r+'"][data-c="'+cIdx+'"]'); if(el) el.classList.add('clearing'); }
+      for(var cIdx=0;cIdx<COLS;cIdx++){ var el=document.querySelector('.pcell[data-r="'+r+'"][data-c="'+cIdx+'"]'); if(el) el.classList.add('clearing'); }
       var bd=document.getElementById('board').getBoundingClientRect();
       for(var cc=0;cc<COLS;cc++) burst(bd.left+cc*cell+cell/2, bd.top+r*cell+cell/2, 6, ['#fde047','#fb7185','#c084fc','#7dd3fc']);
     });
@@ -475,19 +533,45 @@ function missionSuccess(){
 function render(){
   var bd=document.getElementById('board');
   var html='';
-  for(var r=0;r<ROWS;r++) for(var c=0;c<COLS;c++){ var g=grid[r][c]; if(!g) continue; html+=cellHtml(r,c,g.color,''); }
+  // 잠긴 블록: 같은 조각(id)끼리만 테두리를 병합 → 조각 모양이 쌓인 뒤에도 유지됨
+  for(var r=0;r<ROWS;r++) for(var c=0;c<COLS;c++){
+    var g=grid[r][c]; if(!g) continue;
+    var nb={ up:same(r-1,c,g.id), down:same(r+1,c,g.id), left:same(r,c-1,g.id), right:same(r,c+1,g.id) };
+    html+=pcellHtml(r,c,g.color,nb,'');
+  }
   if(piece){
+    var occ={}; piece.cells.forEach(function(cc){ occ[cc[0]+','+cc[1]]=1; });
+    var pn=function(rr,cc){ return !!occ[rr+','+cc]; };
     var gr=ghostRow();
-    piece.cells.forEach(function(cc){ html+=cellHtml(gr+cc[0], piece.col+cc[1], piece.color, ' ghost'); });
-    piece.cells.forEach(function(cc){ html+=cellHtml(piece.row+cc[0], piece.col+cc[1], piece.color, ' active'); });
+    piece.cells.forEach(function(cc){ var nb={up:pn(cc[0]-1,cc[1]),down:pn(cc[0]+1,cc[1]),left:pn(cc[0],cc[1]-1),right:pn(cc[0],cc[1]+1)};
+      html+=pcellHtml(gr+cc[0], piece.col+cc[1], piece.color, nb, 'ghost'); });
+    piece.cells.forEach(function(cc){ var nb={up:pn(cc[0]-1,cc[1]),down:pn(cc[0]+1,cc[1]),left:pn(cc[0],cc[1]-1),right:pn(cc[0],cc[1]+1)};
+      html+=pcellHtml(piece.row+cc[0], piece.col+cc[1], piece.color, nb, 'active'); });
   }
   bd.innerHTML=html;
   drawWordLabel();
 }
-function cellHtml(r,c,color,extra){
+/* 같은 조각(id)의 셀이 (r,c)에 있는가 */
+function same(r,c,id){ if(r<0||r>=ROWS||c<0||c>=COLS) return false; var g=grid[r][c]; return !!(g && g.id===id); }
+/* 셀 하나 그리기 — nb(상하좌우 같은조각 인접여부)로 '맞닿은 면 테두리 제거 + 바깥 모서리만 둥글게' */
+function pcellHtml(r,c,color,nb,cls){
   if(r<0) return '';   // 천장 위는 안 그림
-  return '<div class="cell'+extra+'" data-r="'+r+'" data-c="'+c+'" style="left:'+(c*cell)+'px;top:'+(r*cell)+'px;'
-    + 'width:'+(cell-2)+'px;height:'+(cell-2)+'px;margin:1px;background:'+color+'"></div>';
+  var rad=Math.max(5, Math.round(cell*0.30));
+  var bw=Math.max(2, Math.round(cell*0.10));
+  var tl=(!nb.up&&!nb.left)?rad:0, tr=(!nb.up&&!nb.right)?rad:0, bl=(!nb.down&&!nb.left)?rad:0, br=(!nb.down&&!nb.right)?rad:0;
+  var st='left:'+(c*cell)+'px;top:'+(r*cell)+'px;width:'+cell+'px;height:'+cell+'px;'
+    + 'border-top-left-radius:'+tl+'px;border-top-right-radius:'+tr+'px;border-bottom-left-radius:'+bl+'px;border-bottom-right-radius:'+br+'px;';
+  if(cls==='ghost'){
+    st+='background:transparent;'
+      + 'border-top:'+(nb.up?0:2)+'px dashed rgba(255,255,255,.3);border-left:'+(nb.left?0:2)+'px dashed rgba(255,255,255,.3);'
+      + 'border-right:'+(nb.right?0:2)+'px dashed rgba(255,255,255,.3);border-bottom:'+(nb.down?0:2)+'px dashed rgba(255,255,255,.3);';
+  } else {
+    // 위/왼쪽=밝은 하이라이트, 아래/오른쪽=어두운 그림자 → 입체감(한 덩어리 느낌)
+    st+='background:'+color+';'
+      + 'border-top:'+(nb.up?0:bw)+'px solid rgba(255,255,255,.55);border-left:'+(nb.left?0:bw)+'px solid rgba(255,255,255,.38);'
+      + 'border-right:'+(nb.right?0:bw)+'px solid rgba(0,0,0,.34);border-bottom:'+(nb.down?0:bw)+'px solid rgba(0,0,0,.42);';
+  }
+  return '<div class="pcell '+cls+'" data-r="'+r+'" data-c="'+c+'" style="'+st+'"></div>';
 }
 /* 낙하 조각 위에 단어를 한 번만 크게 표시(보드 기준 절대배치) */
 function drawWordLabel(){
@@ -557,7 +641,7 @@ function rankTitle(s){
   return '🌱 새싹 학습자';
 }
 function gameOver(){
-  running=false; stopTimers(); piece=null; render();
+  running=false; stopTimers(); musicStop(); piece=null; render();
   sndOver(); flushProg();
   var best=0; try{ best=parseInt(localStorage.getItem(bestKey()),10)||0; }catch(_){}
   if(score>best){ best=score; try{ localStorage.setItem(bestKey(), String(best)); }catch(_){} }
@@ -617,6 +701,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715000503 -->
+<!-- BUILD:20260715001332 -->
 </body>
 </html>

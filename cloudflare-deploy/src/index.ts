@@ -3664,7 +3664,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/alumni/list') return true;                    // 전 동문 프로필(지역 등) 덤프
   if (path === '/api/recordings/check') return true;               // R2 녹화 객체 열거(재생키 유출 보조)
   // 🔒 [PII 4차 2026-07-10] 영상/전사 — 미성년자 수업영상 키 열거·전사 유출 통로 차단(프론트 미사용/우아한 실패).
-  if (path.startsWith('/api/recordings/stream/')) return true;     // 영상 id 스트리밍(프론트 미사용)
+  if (path.startsWith('/api/recordings/stream/')) return true;     // 영상 id 스트리밍(관리자 전용 — admin/student 드릴다운 재생이 사용, 쿠키 인증)
   if (path === '/api/recordings/list-recent') return true;         // 전체 녹화 메타+blob키 덤프(열거 벡터)
   if (/^\/api\/eval\/ai-lesson-report\/\d+$/.test(path)) return true; // 수업 전사 전문 단건(정수 id, 프론트 미사용)
   // 🔒 [PII 2차 2026-07-10] 무단구독 — 프론트 미사용 확인 후 관리자 전용 잠금.

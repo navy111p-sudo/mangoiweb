@@ -1490,7 +1490,7 @@ function renderRecording(){
       <td>${r.size_bytes?(Math.round(r.size_bytes/1024/1024*10)/10)+' MB':'—'}</td>
       <td>${statusBadge(r.status)}</td>
       <td>
-        <button class="btn-mini" onclick="window.open('/api/recordings/blob/'+${r.id}+'?stream=1','_blank')">${t('thPlay')}</button>
+        <button class="btn-mini" onclick="window.open('/api/recordings/stream/'+${r.id},'_blank')">${t('thPlay')}</button>
       </td>
     </tr>`).join('')+'</tbody></table>';
 }
@@ -1791,7 +1791,7 @@ function renderDaily(){
     pys.map(p=>`<tr><td>${fmtKrw(p.amount_krw)}</td><td>${esc(p.method)||'—'}</td><td>${esc(p.memo)||'—'}</td></tr>`).join('')+'</tbody></table>');
 
   if (recs.length > 0) html += sec(_lang==='en'?'🎬 Recordings':'🎬 녹화', '<ul style="font-size:13px;line-height:1.7">' +
-    recs.map(r=>`<li><a href="javascript:void(0)" onclick="window.open('/api/recordings/blob/${r.id}?stream=1','_blank')">${esc(r.filename)}</a> · ${fmtMs(r.duration_ms)}</li>`).join('') + '</ul>');
+    recs.map(r=>`<li><a href="javascript:void(0)" onclick="window.open('/api/recordings/stream/${r.id}','_blank')">${esc(r.filename)}</a> · ${fmtMs(r.duration_ms)}</li>`).join('') + '</ul>');
 
   if (c24day.length > 0) html += sec(_lang==='en'?'🎓 Cafe24 Daily Score':'🎓 카페24 데일리 점수',
     '<table class="list"><thead><tr><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th><th>'+(_lang==='en'?'Comment':'교사 코멘트')+'</th></tr></thead><tbody>'+
