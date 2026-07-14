@@ -52,9 +52,18 @@
           <th style="text-align:center;padding:10px 12px;color:#78350f">${H.act}</th>
         </tr></thead>
         <tbody>${rows.map(r => {
-          const typ = r.request_type === 'change'
+          const typBase = r.request_type === 'change'
             ? `<span style="padding:3px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#dbeafe;color:#1e40af">${H.change}</span>`
+            : r.request_type === 'cancel'
+            ? `<span style="padding:3px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#fee2e2;color:#b91c1c">${isEn?'🗑 Cancel':'🗑 취소'}</span>`
             : `<span style="padding:3px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#fef9c3;color:#854d0e">${H.postpone}</span>`;
+          // 🆕 유료/무료 배지 (연기·취소 요청에만 fee_type 존재)
+          const feeBadge = r.fee_type === 'paid'
+            ? `<br><span style="display:inline-block;margin-top:3px;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:800;background:#fef3c7;color:#b45309">${isEn?'💰 Paid':'💰 유료'}</span>`
+            : r.fee_type === 'free'
+            ? `<br><span style="display:inline-block;margin-top:3px;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:800;background:#dcfce7;color:#15803d">${isEn?'🆓 Free':'🆓 무료'}</span>`
+            : '';
+          const typ = typBase + feeBadge;
           const st = r.status === 'approved'
             ? `<span style="color:#10b981;font-weight:700">${H.approved}</span><br><span style="font-size:10px;color:#9ca3af">${fmtTs(r.decided_at)}<br>${esc(r.decided_by||'')}</span>`
             : r.status === 'rejected'

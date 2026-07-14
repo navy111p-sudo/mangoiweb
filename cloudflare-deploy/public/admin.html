@@ -2656,7 +2656,7 @@
     </button>
 
     <!-- 👨‍🏫 강사 통합 -->
-    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
+    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
       <div class="hub-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div>
         <div class="hub-title" data-ko="강사 통합" data-en="Teacher Hub">강사 통합</div>
@@ -8431,9 +8431,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <summary><span data-ko="💼 강사 급여 자동 정산" data-en="💼 Auto Payroll">💼 강사 급여 자동 정산</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#78350f;line-height:1.7"
-         data-ko="💡 자동 계산 — 월 선택 후 「🔍 계산」 클릭하면 강사별로 [수업 시간 ÷ 10분 × 10분 단가]를 수업 한 건씩 합산합니다. 학생 결석·강사 미입장·당일 피드백 미작성 공제가 자동 반영되고, 「📋 상세」로 수업 한 건 한 건을 확인할 수 있어요. 단위는 ₱(필리핀 페소)입니다."
-         data-en="💡 Auto Calculation — pick a month and click 🔍 Calculate. Each lesson is computed as [minutes ÷ 10 × rate per 10 min], with student-absence, teacher no-show and same-day-feedback deductions applied automatically. Click 📋 Detail to see every single lesson. Currency: ₱ (Philippine Peso).">
-      💡 <b>자동 계산</b> — 월 선택 후 「🔍 계산」 클릭하면 강사별로 <b>수업 시간 ÷ 10분 × 10분 단가</b>를 수업 한 건씩 합산합니다. 학생 결석·강사 미입장·당일 피드백 미작성 <b>공제가 자동 반영</b>되고, 「📋 상세」로 수업 한 건 한 건을 확인할 수 있어요. 단위는 <b>₱(필리핀 페소)</b>입니다.
+         data-ko="💡 자동 계산 — 월 선택 후 「🔍 계산」 클릭하면 강사별로 [수업 시간 ÷ 10분 × 10분 단가]를 수업 한 건씩 합산합니다. 강사 등급(Teacher 1=₱50 / Teacher 2=₱70, 20분 기준)을 「등급(요율)」에서 지정할 수 있고, 학생 결석·강사 미입장·당일 피드백 미작성(-25)·지각 연장실패(분당 -10) 공제가 자동 반영됩니다. 「📋 상세」로 수업 한 건 한 건(유형·등급·지각분·합계)을 확인·입력할 수 있어요. 단위는 ₱(필리핀 페소)입니다."
+         data-en="💡 Auto Calculation — pick a month and click 🔍 Calculate. Each lesson = [minutes ÷ 10 × rate per 10 min]. Assign a teacher level (Teacher 1 = ₱50 / Teacher 2 = ₱70 per 20-min class) in the Level column. Deductions applied automatically: student-absence, teacher no-show, no same-day feedback (-25) and late-lesson-not-extended (-10 per late minute). Click 📋 Detail to review/enter each lesson (type, level, late minutes, total). Currency: ₱ (Philippine Peso).">
+      💡 <b>자동 계산</b> — 월 선택 후 「🔍 계산」 클릭하면 강사별로 <b>수업 시간 ÷ 10분 × 10분 단가</b>를 수업 한 건씩 합산합니다. <b>강사 등급</b>(Teacher 1=₱50 / Teacher 2=₱70, 20분 기준)을 「등급(요율)」에서 지정할 수 있고, 학생 결석·강사 미입장·<b>당일 피드백 미작성(-25)</b>·<b>지각 연장실패(분당 -10)</b> 공제가 자동 반영됩니다. 「📋 상세」로 수업 한 건 한 건(유형·등급·지각분·합계)을 확인·입력할 수 있어요. 단위는 <b>₱(필리핀 페소)</b>입니다.
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
       <label style="font-size:12px;font-weight:700;color:#374151" data-ko="📅 정산 월" data-en="📅 Payroll Month">📅 정산 월</label>
@@ -8450,7 +8450,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script src="/js/adm-q3.js?v=1"></script><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q3.js?v=2"></script><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
@@ -8473,7 +8473,34 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="srq-table" style="overflow-x:auto"></div>
   </div>
 </details>
-<script src="/js/adm-r11.js?v=1"></script><!-- 분할추출:adm-r11 -->
+<script src="/js/adm-r11.js?v=2"></script><!-- 분할추출:adm-r11 -->
+
+<!-- 📜 수업 변경 이력 (연기·삭제·종료) — 누가·언제 했는지 감사 로그 -->
+<details class="table-card menu-card" id="card-class-audit">
+  <summary><span data-ko="📜 수업 변경 이력 (연기·삭제·종료)" data-en="📜 Class Change History (Postpone / Remove / End)">📜 수업 변경 이력 (연기·삭제·종료)</span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,#e0e7ff,#eef2ff);border:1px solid #6366f1;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#3730a3;line-height:1.7"
+         data-ko="💡 수업이 연기·이동·삭제·종료될 때마다 누가(작업자)·언제(시각)·무엇을 했는지 자동으로 기록됩니다. 관리자·강사(마이페이지)·AI 명령·연기 요청 승인 등 모든 경로의 변경을 한곳에서 조회할 수 있어요. (기록은 영구 보존)"
+         data-en="💡 Every time a class is postponed, moved, removed or ended, it is logged automatically — who did it, when, and what. Changes from admin, teacher (My Page), AI commands and approved requests are all searchable here. (Records are kept permanently.)">
+      💡 수업이 <b>연기·이동·삭제·종료</b>될 때마다 <b>누가·언제·무엇을</b> 했는지 자동으로 기록됩니다. 관리자·강사·AI 명령·연기요청 승인 등 모든 경로의 변경을 한곳에서 조회할 수 있어요. (영구 보존)
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+      <label style="font-size:12px;font-weight:700;color:#374151" data-ko="작업" data-en="Action">작업</label>
+      <select id="cau-action" onchange="caudLoad()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+        <option value="all" data-ko="전체" data-en="All">전체</option>
+        <option value="postpone" data-ko="⏸ 연기" data-en="⏸ Postpone">⏸ 연기</option>
+        <option value="reschedule" data-ko="🔀 이동" data-en="🔀 Reschedule">🔀 이동</option>
+        <option value="remove" data-ko="🗑 삭제" data-en="🗑 Remove">🗑 삭제</option>
+        <option value="end" data-ko="⏹ 종료" data-en="⏹ End">⏹ 종료</option>
+      </select>
+      <input id="cau-teacher" type="text" oninput="caudDebounced()" placeholder="강사명 (선택)" data-ph-ko="강사명 (선택)" data-ph-en="Teacher name (optional)" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:150px">
+      <button class="primary" onclick="caudLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <span id="cau-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
+    </div>
+    <div id="cau-table" style="overflow-x:auto"></div>
+  </div>
+</details>
+<script src="/js/adm-classaudit.js?v=1"></script><!-- 📜 수업 변경 이력 -->
 
 <!-- ⭐ 학생 수업 평가 — 수업 종료 직후 학생이 남긴 별 7개 평가 + 건의사항 -->
 <details class="table-card menu-card" id="card-class-ratings">
@@ -11218,7 +11245,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=1"></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=2"></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 
 </div>
 </div>
@@ -11826,7 +11853,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-schedule-requests,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
+  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-schedule-requests,card-class-audit,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div class="ph85-title">강사 통합</div>
@@ -11836,6 +11863,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-teacher-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-teacher-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-teacher-mgmt');}">강사 관리</div>
       <div class="ph85-sub" data-card="card-payroll-auto" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll-auto');}">자동 급여</div>
       <div class="ph85-sub" data-card="card-schedule-requests" onclick="event.stopPropagation();var c=document.getElementById('card-schedule-requests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-schedule-requests');}">📅 연기·변경 요청 ⭐신규</div>
+      <div class="ph85-sub" data-card="card-class-audit" onclick="event.stopPropagation();var c=document.getElementById('card-class-audit');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});if(typeof caudLoad==='function')caudLoad();var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-audit');}">📜 수업 변경 이력 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-ratings" onclick="event.stopPropagation();var c=document.getElementById('card-class-ratings');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-ratings');}">⭐ 학생 수업 평가</div>
       <div class="ph85-sub" data-card="card-payroll" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll');}">급여 관리</div>
       <div class="ph85-sub" data-card="card-mbti-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-mbti-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mbti-mgmt');}">MBTI</div>
@@ -19896,6 +19924,6 @@ button.chip:hover,
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=1"></script><!-- 분할추출:adm-s18 -->
-<!-- BUILD:20260714225239 -->
+<!-- BUILD:20260714233439 -->
 </body>
 </html>

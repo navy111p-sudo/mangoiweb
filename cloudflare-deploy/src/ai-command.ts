@@ -12,6 +12,7 @@
  *   - JSON 모드로 구조화 응답 강제
  *   - 추후 Anthropic Claude 등으로 교체 시 callLLM() 함수 한 곳만 수정
  */
+import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(AI 명령 취소/연기/이동)
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
@@ -1199,14 +1200,19 @@ export async function executeAction(
 
       const updated: any[] = [];
       const nowTs = Date.now();
+      // 📜 AI 명령으로 수업이 바뀌면 변경 이력에 남길 공통 필드
+      const _aiActor = adminUserId || 'AI 명령';
+      const _aiTeacher = c.teacher_name ? String(c.teacher_name).trim() : null;
       for (const row of matches) {
         try {
           if (op === 'cancel') {
             await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`).bind(nowTs, row.id).run();
             updated.push({ id: row.id, action: 'cancelled', old_time: row.start_time });
+            await writeClassAudit(env as any, { action: 'remove', schedule_id: row.id, teacher_name: _aiTeacher, student_name: row.student_name || null, lesson_date: row.scheduled_date || null, lesson_time: row.start_time || null, actor: _aiActor, actor_role: 'admin', source: 'ai-command' });
           } else if (op === 'postpone') {
             await env.DB.prepare(`UPDATE class_schedules SET status='postponed', updated_at=? WHERE id=?`).bind(nowTs, row.id).run();
             updated.push({ id: row.id, action: 'postponed', old_time: row.start_time });
+            await writeClassAudit(env as any, { action: 'postpone', schedule_id: row.id, teacher_name: _aiTeacher, student_name: row.student_name || null, lesson_date: row.scheduled_date || null, lesson_time: row.start_time || null, actor: _aiActor, actor_role: 'admin', source: 'ai-command' });
           } else if (op === 'reschedule') {
             // shift_minutes 만큼 시간 이동 또는 new_time 으로 변경
             let target = newTime;
@@ -1221,6 +1227,7 @@ export async function executeAction(
             if (target) {
               await env.DB.prepare(`UPDATE class_schedules SET start_time=?, updated_at=? WHERE id=?`).bind(target, nowTs, row.id).run();
               updated.push({ id: row.id, action: 'rescheduled', old_time: row.start_time, new_time: target });
+              await writeClassAudit(env as any, { action: 'reschedule', schedule_id: row.id, teacher_name: _aiTeacher, student_name: row.student_name || null, lesson_date: row.scheduled_date || null, lesson_time: row.start_time || null, actor: _aiActor, actor_role: 'admin', source: 'ai-command', detail: `→ ${target}` });
             }
           }
         } catch {}

@@ -18,6 +18,7 @@ import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
+import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import type { MangoEnv } from './api-mango';
 
@@ -881,18 +882,54 @@ export async function handleAdminApi(
     //   금액·켜기/끄기로 조절. rule_type: per_lesson(수업 1건당 차감) | policy_percent(지급률 정책)
     const ensureDeductionRules = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_deduction_rules (code TEXT PRIMARY KEY, label_ko TEXT, label_en TEXT, rule_type TEXT DEFAULT 'per_lesson', amount REAL DEFAULT 0, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, updated_at INTEGER)`);
+      const now = Date.now();
       const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM payroll_deduction_rules`).first().catch(() => null);
       if (!cnt || !(cnt.c > 0)) {
-        const now = Date.now();
         const seed: any[] = [
-          ['no_feedback_day',    '당일 피드백 미작성 (수업 1건당 차감)', 'No feedback within the day (per lesson)', 'per_lesson',     50, 1, 1],
-          ['teacher_no_show',    '강사 미입장·노쇼 (수업 1건당 차감)',   'Teacher no-show (per lesson)',            'per_lesson',      0, 0, 2],
-          ['absent_pay_percent', '학생 결석 시 지급률(%)',               'Pay rate when student is absent (%)',     'policy_percent',  0, 1, 3],
+          // rule_type: per_lesson(수업 1건당) | per_minute(지각 1분당) | policy_percent(지급률 정책)
+          ['no_feedback_day',    '당일 피드백 미작성 (수업 1건당 차감)',       'No feedback within the day (per lesson)',  'per_lesson',    25, 1, 1],
+          ['late_no_extend',     '지각 수업 연장 실패 (지각 1분당 차감)',       'Late lesson not extended (per late min)',  'per_minute',    10, 1, 2],
+          ['teacher_no_show',    '강사 미입장·노쇼 (수업 1건당 차감)',         'Teacher no-show (per lesson)',             'per_lesson',     0, 0, 3],
+          ['absent_pay_percent', '학생 결석 시 지급률(%)',                     'Pay rate when student is absent (%)',      'policy_percent', 0, 1, 4],
         ];
         for (const s of seed) {
           try { await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES (?,?,?,?,?,?,?,?)`).bind(s[0], s[1], s[2], s[3], s[4], s[5], s[6], now).run(); } catch {}
         }
       }
+      // ── 기존 배포 DB 호환 마이그레이션(멱등) ──
+      //   ① 지각 연장실패(per_minute) 규칙이 없으면 추가 (2026-07-14 신규 정책)
+      try {
+        await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES ('late_no_extend','지각 수업 연장 실패 (지각 1분당 차감)','Late lesson not extended (per late min)','per_minute',10,1,2,?)`).bind(now).run();
+      } catch {}
+      //   ② 당일 피드백 미작성 공제: 정책 변경 -50 → -25. 관리자가 손대지 않은 옛 기본값(50)만 1회 갱신.
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_meta (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)`);
+        const flag: any = await env.DB.prepare(`SELECT value FROM payroll_meta WHERE key = 'nofb_25_migrated'`).first().catch(() => null);
+        if (!flag) {
+          await env.DB.prepare(`UPDATE payroll_deduction_rules SET amount = 25, updated_at = ? WHERE code = 'no_feedback_day' AND amount = 50`).bind(now).run().catch(() => {});
+          await env.DB.prepare(`INSERT OR REPLACE INTO payroll_meta (key,value,updated_at) VALUES ('nofb_25_migrated','1',?)`).bind(now).run().catch(() => {});
+        }
+      } catch {}
+    };
+
+    // ── 💼 강사 등급(Level) — 등급별 기본 요율(per 20분 수업). 참고사 포맷의 "Teacher's level (rate)".
+    //   기본(Teacher 1)=₱50, 상위(Teacher 2)=₱70. 관리자가 등급 요율을 조정하고,
+    //   강사에게 등급을 지정하면 그 강사의 fee_per_10min 이 등급 요율/2 로 자동 세팅된다(수정 가능).
+    const ensureTeacherLevels = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_levels (code TEXT PRIMARY KEY, label_ko TEXT, label_en TEXT, rate_per_20min REAL DEFAULT 0, sort_order INTEGER DEFAULT 0, updated_at INTEGER)`);
+      const now = Date.now();
+      const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM payroll_levels`).first().catch(() => null);
+      if (!cnt || !(cnt.c > 0)) {
+        const seed: any[] = [
+          ['teacher_1', 'Teacher 1 (기본)', 'Teacher 1 (Basic)',  50, 1],
+          ['teacher_2', 'Teacher 2 (상위)', 'Teacher 2 (Senior)', 70, 2],
+        ];
+        for (const s of seed) {
+          try { await env.DB.prepare(`INSERT OR IGNORE INTO payroll_levels (code,label_ko,label_en,rate_per_20min,sort_order,updated_at) VALUES (?,?,?,?,?,?)`).bind(s[0], s[1], s[2], s[3], s[4], now).run(); } catch {}
+        }
+      }
+      // teacher_profiles 에 등급 컬럼(기존 배포 DB 호환)
+      try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN level TEXT`); } catch {}
     };
 
     // ── 💼 G3 — 월별 수업 한 건씩(Lesson Fee Summary) + 공제 자동 계산 ──
@@ -902,7 +939,10 @@ export async function handleAdminApi(
     const computeLessonFeeMonth = async (year: number, month: number) => {
       await ensurePayrollTable();
       await ensureDeductionRules();
+      await ensureTeacherLevels();
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, fee_per_10min INTEGER, status TEXT DEFAULT '활동중', email TEXT, phone TEXT);`); } catch {}
+      // 📌 지각 연장실패 수동 입력(관리자가 상세표에서 수업별 지각분 기입) — 근태 자동로그 도입 전까지 사용
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS lesson_late_minutes (schedule_id INTEGER NOT NULL, lesson_date TEXT NOT NULL, minutes INTEGER DEFAULT 0, updated_by TEXT, updated_at INTEGER, PRIMARY KEY (schedule_id, lesson_date));`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id INTEGER, teacher_name TEXT, scheduled_date TEXT, day_of_week INTEGER, start_time TEXT, duration_minutes INTEGER, status TEXT);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_no_show (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, schedule_id INTEGER, missing_role TEXT, missing_uid TEXT, student_name TEXT, teacher_name TEXT, lesson_title TEXT, waited_min INTEGER, notified_push INTEGER DEFAULT 0, notified_kakao INTEGER DEFAULT 0, created_at INTEGER NOT NULL)`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_class_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, teacher_uid TEXT, teacher_name TEXT, student_name TEXT, duration_min INTEGER, metrics_json TEXT, feedback_ko TEXT, feedback_en TEXT, source TEXT, created_at INTEGER NOT NULL, UNIQUE(room_id));`); } catch {}
@@ -914,10 +954,21 @@ export async function handleAdminApi(
       const absentPct = (rules.absent_pay_percent && rules.absent_pay_percent.enabled) ? Math.max(0, Math.min(100, Number(rules.absent_pay_percent.amount) || 0)) : 0;
       const feeNoFb = (rules.no_feedback_day && rules.no_feedback_day.enabled) ? Math.max(0, Number(rules.no_feedback_day.amount) || 0) : 0;
       const feeTNoShow = (rules.teacher_no_show && rules.teacher_no_show.enabled) ? Math.max(0, Number(rules.teacher_no_show.amount) || 0) : 0;
+      const feeLateMin = (rules.late_no_extend && rules.late_no_extend.enabled) ? Math.max(0, Number(rules.late_no_extend.amount) || 0) : 0;
 
-      // 강사 목록 + 단가
+      // 등급(Level) 요율표 로드
+      const lvlRows: any = await env.DB.prepare(`SELECT * FROM payroll_levels ORDER BY sort_order, code`).all().catch(() => ({ results: [] }));
+      const levelMap: any = {};
+      (lvlRows.results || []).forEach((r: any) => { levelMap[r.code] = r; });
+
+      // 수업별 지각(연장실패) 분 — 관리자 수동 입력값
+      const lateRows: any = await env.DB.prepare(`SELECT schedule_id, lesson_date, minutes FROM lesson_late_minutes`).all().catch(() => ({ results: [] }));
+      const lateMap: any = {};
+      (lateRows.results || []).forEach((r: any) => { lateMap[`${r.schedule_id}|${r.lesson_date}`] = Math.max(0, Number(r.minutes) || 0); });
+
+      // 강사 목록 + 단가 + 등급
       const teachers: any = await env.DB.prepare(
-        `SELECT id, korean_name, english_name, fee_per_10min FROM teacher_profiles WHERE status = '활동중' OR status IS NULL ORDER BY korean_name`
+        `SELECT id, korean_name, english_name, fee_per_10min, level FROM teacher_profiles WHERE status = '활동중' OR status IS NULL ORDER BY korean_name`
       ).all().catch(() => ({ results: [] }));
       const tMap: any = {}; const tByName: any = {};
       for (const t of (teachers.results || [])) { tMap[t.id] = t; if (t.korean_name) tByName[t.korean_name] = t; if (t.english_name) tByName[t.english_name] = t; }
@@ -1016,9 +1067,22 @@ export async function handleAdminApi(
         const dateStr = l._date;
         const roomId = `class-${l.id}-${dateStr.replace(/-/g, '')}`;
         const prof = tMap[l.teacher_id] || tByName[l.teacher_name || ''] || null;
-        const fee = (prof && prof.fee_per_10min) || 0;
         const mins = l._mins;
         const teacherName = l.teacher_name || (prof ? prof.korean_name : null);
+        // 등급(Level) + 요율: 개별 fee_per_10min 우선, 없으면 등급 기본요율(rate_per_20min/2)
+        const levelCode: string | null = (prof && prof.level) ? String(prof.level) : null;
+        const lvl = levelCode ? levelMap[levelCode] : null;
+        const rate20 = (prof && prof.fee_per_10min) ? Number(prof.fee_per_10min) * 2 : (lvl ? Number(lvl.rate_per_20min) || 0 : 0);
+        const fee = rate20 / 2; // per-10분 환산 — 기존 금액식(mins/10×fee) 그대로
+        // 수업 유형(운영 스키마별 컬럼 폴백) — 기본 'Regular Lesson'
+        const lessonType = l.lesson_type || l.class_type || l.lesson_kind || l.type || 'Regular Lesson';
+        // 종료 시각(HH:MM) — 참고 포맷의 "14:00-14:20" 표기용
+        const _st = String(l.start_time || '').slice(0, 5);
+        let endTime = '';
+        if (/^\d{2}:\d{2}$/.test(_st)) {
+          const tot = parseInt(_st.slice(0, 2), 10) * 60 + parseInt(_st.slice(3, 5), 10) + mins;
+          endTime = `${String(Math.floor(tot / 60) % 24).padStart(2, '0')}:${String(tot % 60).padStart(2, '0')}`;
+        }
 
         const upcoming = dateStr > todayKey || (dateStr === todayKey && String(l.start_time || '00:00') > nowHm);
         const ns = nsByRoom[roomId] || nsBySched[`${l.id}|${dateStr}`] || null;
@@ -1038,18 +1102,27 @@ export async function handleAdminApi(
           fbOk = fbByRoom[roomId] === dateStr || !!fbByTeacherDay[`${teacherName}|${dateStr}`];
         }
 
+        // 지각 연장실패(분당 차감) — 완료 수업에 관리자가 입력한 지각분 × 요율
+        const lateMin = (st === 'finish') ? (lateMap[`${l.id}|${dateStr}`] || 0) : 0;
+
         const dedus: any[] = [];
         if (st === 'finish' && fbOk === false && feeNoFb > 0) dedus.push({ code: 'no_feedback_day', amount: feeNoFb });
+        if (st === 'finish' && lateMin > 0 && feeLateMin > 0) dedus.push({ code: 'late_no_extend', amount: Math.round(lateMin * feeLateMin), minutes: lateMin });
         if (st === 'teacher_no_show' && feeTNoShow > 0) dedus.push({ code: 'teacher_no_show', amount: feeTNoShow });
         const dSum = dedus.reduce((a, b) => a + (b.amount || 0), 0);
+        const netAmount = Math.max(0, amount - dSum); // 참고 포맷의 'Total'(수업별 순지급)
 
         lessons.push({
-          schedule_id: l.id, room_id: roomId, date: dateStr, start_time: l.start_time || '',
+          schedule_id: l.id, room_id: roomId, date: dateStr, start_time: l.start_time || '', end_time: endTime,
           duration_minutes: mins, user_id: l.user_id || null,
           student_name: l.student_name || stuName[l.user_id] || null,
           teacher_id: l.teacher_id, teacher_name: teacherName,
+          lesson_type: lessonType,
+          level_code: levelCode, level_label_ko: lvl ? lvl.label_ko : null, level_label_en: lvl ? lvl.label_en : null,
+          rate_per_20min: rate20,
           status: st, fee_per_10min: fee, base_amount: base, amount,
-          feedback_ok: fbOk, deductions: dedus, deduction_total: dSum,
+          late_minutes: lateMin,
+          feedback_ok: fbOk, deductions: dedus, deduction_total: dSum, net_amount: netAmount,
         });
 
         const agg = perTeacher[l.teacher_id] || (perTeacher[l.teacher_id] = {
@@ -1070,7 +1143,7 @@ export async function handleAdminApi(
         agg.final_amount = agg.pay_amount - agg.deduction_total;
       }
 
-      return { rules: ruleRows.results || [], absent_pay_percent: absentPct, lessons, perTeacher, teachers: teachers.results || [] };
+      return { rules: ruleRows.results || [], levels: lvlRows.results || [], levelMap, absent_pay_percent: absentPct, lessons, perTeacher, teachers: teachers.results || [] };
     };
 
     // ── GET /api/admin/payroll/calculate?year=&month= — 월별 강사 급여 자동 계산 ──
@@ -1102,7 +1175,10 @@ export async function handleAdminApi(
         // 강사 본인 뷰: 자신의 행만 계산·노출
         if (_prOwn && !sameTeacherName(_prOwn, t.korean_name) && !sameTeacherName(_prOwn, t.english_name)) continue;
         const a = data.perTeacher[t.id] || { lesson_count: 0, upcoming_count: 0, finish_count: 0, absent_count: 0, teacher_no_show_count: 0, no_feedback_count: 0, total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0 };
-        const fee = t.fee_per_10min || 0;
+        // 등급 요율: 개별 fee_per_10min 우선, 없으면 등급 기본요율
+        const _lvl = t.level ? (data.levelMap || {})[t.level] : null;
+        const rate20 = t.fee_per_10min ? Number(t.fee_per_10min) * 2 : (_lvl ? Number(_lvl.rate_per_20min) || 0 : 0);
+        const fee = rate20 / 2;
         const s = savedMap[t.id];
         totalAmount += a.pay_amount;
         totalLessons += a.lesson_count;
@@ -1114,6 +1190,10 @@ export async function handleAdminApi(
           korean_name: t.korean_name,
           english_name: t.english_name,
           fee_per_10min: fee,
+          level_code: t.level || null,
+          level_label_ko: _lvl ? _lvl.label_ko : null,
+          level_label_en: _lvl ? _lvl.label_en : null,
+          rate_per_20min: rate20,
           lesson_count: a.lesson_count,
           total_minutes: a.total_minutes,
           calculated_amount: a.pay_amount,
@@ -1145,6 +1225,7 @@ export async function handleAdminApi(
           paid_count: paidCount,
           unpaid_count: rows.length - paidCount,
         },
+        levels: (data.levels || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rate_per_20min: r.rate_per_20min })),
         rows,
       });
     }
@@ -1196,11 +1277,20 @@ export async function handleAdminApi(
       }
       sum.final_amount = sum.pay_amount - sum.deduction_total;
 
+      const _tLvl = teacher && teacher.level ? (data.levelMap || {})[teacher.level] : null;
       return json({
         ok: true, year, month,
-        teacher: teacher ? { id: teacher.id, korean_name: teacher.korean_name, english_name: teacher.english_name, fee_per_10min: teacher.fee_per_10min || 0 } : { id: tid || null, korean_name: tname || null },
+        teacher: teacher ? {
+          id: teacher.id, korean_name: teacher.korean_name, english_name: teacher.english_name,
+          fee_per_10min: teacher.fee_per_10min || 0,
+          level_code: teacher.level || null,
+          level_label_ko: _tLvl ? _tLvl.label_ko : null,
+          level_label_en: _tLvl ? _tLvl.label_en : null,
+          rate_per_20min: teacher.fee_per_10min ? Number(teacher.fee_per_10min) * 2 : (_tLvl ? Number(_tLvl.rate_per_20min) || 0 : 0),
+        } : { id: tid || null, korean_name: tname || null },
         summary: sum,
         rules: (data.rules || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rule_type: r.rule_type, amount: r.amount, enabled: r.enabled })),
+        levels: (data.levels || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rate_per_20min: r.rate_per_20min })),
         absent_pay_percent: data.absent_pay_percent,
         lessons,
       });
@@ -1213,6 +1303,86 @@ export async function handleAdminApi(
       return json({ ok: true, rules: rs.results || [] });
     }
 
+    // ── GET /api/admin/payroll/levels — 강사 등급 요율표 + 강사별 등급 현황 ──
+    if (method === 'GET' && path === '/api/admin/payroll/levels') {
+      await ensureTeacherLevels();
+      const rs: any = await env.DB.prepare(`SELECT * FROM payroll_levels ORDER BY sort_order, code`).all().catch(() => ({ results: [] }));
+      // 강사(teacher) 로그인은 본인 것만
+      const _lvActor = await getAdminActor(request, env as any);
+      let tq = `SELECT id, korean_name, english_name, fee_per_10min, level FROM teacher_profiles WHERE status = '활동중' OR status IS NULL ORDER BY korean_name`;
+      const teachers: any = await env.DB.prepare(tq).all().catch(() => ({ results: [] }));
+      let tlist = teachers.results || [];
+      if (_lvActor.isTeacher && _lvActor.name) {
+        tlist = tlist.filter((t: any) => sameTeacherName(_lvActor.name, t.korean_name) || sameTeacherName(_lvActor.name, t.english_name));
+      }
+      return json({ ok: true, levels: rs.results || [], teachers: tlist });
+    }
+
+    // ── POST /api/admin/payroll/levels — 등급 기본요율(per 20분) 수정 ──
+    //   body: { levels: [{ code, rate_per_20min }] }
+    if (method === 'POST' && path === '/api/admin/payroll/levels') {
+      const _lvwActor = await getAdminActor(request, env as any);
+      if (_lvwActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 등급 요율을 변경할 수 없습니다.' }, 403);
+      await ensureTeacherLevels();
+      const body: any = await request.json().catch(() => ({}));
+      if (!Array.isArray(body.levels)) return json({ ok: false, error: 'levels_array_required' }, 400);
+      const now = Date.now();
+      let updated = 0;
+      for (const l of body.levels) {
+        if (!l || !l.code) continue;
+        try {
+          await env.DB.prepare(`UPDATE payroll_levels SET rate_per_20min = ?, updated_at = ? WHERE code = ?`)
+            .bind(Math.max(0, Number(l.rate_per_20min) || 0), now, String(l.code)).run();
+          updated++;
+        } catch {}
+      }
+      return json({ ok: true, updated });
+    }
+
+    // ── POST /api/admin/payroll/teacher-level — 강사에게 등급 지정 ──
+    //   body: { teacher_id, level_code, fee_per_10min? }
+    //   등급 지정 시 그 강사 fee_per_10min = 등급요율/2 자동세팅(fee_per_10min 명시하면 그 값 우선).
+    if (method === 'POST' && path === '/api/admin/payroll/teacher-level') {
+      const _tlActor = await getAdminActor(request, env as any);
+      if (_tlActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 등급을 변경할 수 없습니다.' }, 403);
+      await ensureTeacherLevels();
+      const body: any = await request.json().catch(() => ({}));
+      const tid = parseInt(body.teacher_id, 10);
+      const code = String(body.level_code || '').trim();
+      if (!tid || !code) return json({ ok: false, error: 'teacher_id_and_level_code_required' }, 400);
+      const lvl: any = await env.DB.prepare(`SELECT * FROM payroll_levels WHERE code = ? LIMIT 1`).bind(code).first().catch(() => null);
+      if (!lvl) return json({ ok: false, error: 'level_not_found' }, 404);
+      const fee = (body.fee_per_10min != null && body.fee_per_10min !== '')
+        ? Math.max(0, Number(body.fee_per_10min) || 0)
+        : Math.round((Number(lvl.rate_per_20min) || 0) / 2);
+      try {
+        await env.DB.prepare(`UPDATE teacher_profiles SET level = ?, fee_per_10min = ? WHERE id = ?`).bind(code, fee, tid).run();
+      } catch (e: any) { return json({ ok: false, error: 'update_failed', message: e?.message }, 500); }
+      return json({ ok: true, teacher_id: tid, level_code: code, fee_per_10min: fee, rate_per_20min: Number(lvl.rate_per_20min) || 0 });
+    }
+
+    // ── POST /api/admin/payroll/late-minutes — 수업별 '지각 연장실패' 분 수동 입력 ──
+    //   body: { schedule_id, lesson_date(YYYY-MM-DD), minutes }
+    //   근태 자동로그 도입 전까지 관리자가 상세표에서 직접 기입 → late_no_extend 공제에 반영.
+    if (method === 'POST' && path === '/api/admin/payroll/late-minutes') {
+      const _lmActor = await getAdminActor(request, env as any);
+      if (_lmActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 지각분을 입력할 수 없습니다.' }, 403);
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS lesson_late_minutes (schedule_id INTEGER NOT NULL, lesson_date TEXT NOT NULL, minutes INTEGER DEFAULT 0, updated_by TEXT, updated_at INTEGER, PRIMARY KEY (schedule_id, lesson_date));`); } catch {}
+      const body: any = await request.json().catch(() => ({}));
+      const sid = parseInt(body.schedule_id, 10);
+      const ldate = String(body.lesson_date || '').replace(/\//g, '-').slice(0, 10);
+      const minutes = Math.max(0, Math.min(600, Math.round(Number(body.minutes) || 0)));
+      if (!sid || !/^\d{4}-\d{2}-\d{2}$/.test(ldate)) return json({ ok: false, error: 'schedule_id_and_lesson_date_required' }, 400);
+      const now = Date.now();
+      try {
+        await env.DB.prepare(
+          `INSERT INTO lesson_late_minutes (schedule_id, lesson_date, minutes, updated_by, updated_at) VALUES (?,?,?,?,?)
+           ON CONFLICT(schedule_id, lesson_date) DO UPDATE SET minutes = excluded.minutes, updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+        ).bind(sid, ldate, minutes, _lmActor.name || '관리자', now).run();
+      } catch (e: any) { return json({ ok: false, error: 'save_failed', message: e?.message }, 500); }
+      return json({ ok: true, schedule_id: sid, lesson_date: ldate, minutes });
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // 📅 Phase SR — 수업 연기·변경 요청 (강사 → 매니저/관리자)
     //   그동안 연기/변경은 학생용 데모 화면뿐이라 기록이 어디에도 안 남았음.
@@ -1223,8 +1393,12 @@ export async function handleAdminApi(
     // ═══════════════════════════════════════════════════════════════
 
     const ensureScheduleRequestTable = async () => {
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_change_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER, request_type TEXT DEFAULT 'postpone', requester_role TEXT DEFAULT 'teacher', requester_name TEXT, teacher_name TEXT, student_name TEXT, orig_date TEXT, orig_time TEXT, new_date TEXT, new_time TEXT, reason TEXT, status TEXT DEFAULT 'pending', decided_by TEXT, decided_at INTEGER, decide_memo TEXT, created_at INTEGER NOT NULL)`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS schedule_change_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER, request_type TEXT DEFAULT 'postpone', requester_role TEXT DEFAULT 'teacher', requester_name TEXT, requester_uid TEXT, teacher_name TEXT, student_name TEXT, orig_date TEXT, orig_time TEXT, new_date TEXT, new_time TEXT, fee_type TEXT, minutes_before INTEGER, reason TEXT, status TEXT DEFAULT 'pending', decided_by TEXT, decided_at INTEGER, decide_memo TEXT, created_at INTEGER NOT NULL)`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_scr_status ON schedule_change_requests(status, created_at)`); } catch {}
+      // 🆕 유료/무료 태깅(2026-07-14) — 기존 배포 DB 호환 컬럼 추가(멱등, 이미 있으면 무시)
+      for (const col of ["fee_type TEXT", "minutes_before INTEGER", "requester_uid TEXT"]) {
+        try { await env.DB.exec(`ALTER TABLE schedule_change_requests ADD COLUMN ${col}`); } catch {}
+      }
     };
 
     // ── POST /api/admin/schedule-requests — 연기/변경 요청 제출 (강사 마이페이지) ──
@@ -1234,9 +1408,10 @@ export async function handleAdminApi(
     if (method === 'POST' && path === '/api/admin/schedule-requests') {
       await ensureScheduleRequestTable();
       const body: any = await request.json().catch(() => ({}));
-      const reqType = body.request_type === 'change' ? 'change' : 'postpone';
+      const reqType = (body.request_type === 'change' || body.request_type === 'cancel') ? body.request_type : 'postpone';
       const teacherName = (body.teacher_name || body.requester_name || '').trim();
       if (!teacherName) return json({ ok: false, error: 'teacher_name_required' }, 400);
+      const requesterUid = (body.student_uid || body.requester_uid || '').trim() || null;
 
       let origDate = (body.orig_date || '').trim() || null;
       let origTime = (body.orig_time || '').trim() || null;
@@ -1255,15 +1430,45 @@ export async function handleAdminApi(
       if (reqType === 'change' && (!newDate || !newTime)) return json({ ok: false, error: 'new_date_time_required_for_change' }, 400);
 
       const now = Date.now();
+      // 🆕 유료/무료 자동 판정 (연기·취소만): 원 수업 시작 30분 전보다 일찍 요청=무료, 이내=유료.
+      //   변경(change)은 24시간 룰(무료/차단 정책)이라 요금 대상 아님 → null.
+      let minutesBefore: number | null = null;
+      let feeType: string | null = null;
+      if (reqType !== 'change') {
+        try {
+          if (origDate && origTime) {
+            const hhmm = String(origTime).slice(0, 5);
+            const startKst = Date.parse(`${origDate}T${hhmm}:00+09:00`);   // KST 기준으로 원 수업 시작 해석
+            if (!isNaN(startKst)) minutesBefore = Math.round((startKst - now) / 60000);
+          }
+        } catch {}
+        if (minutesBefore === null && typeof body.minutes_before === 'number') minutesBefore = Math.round(body.minutes_before);
+        if (minutesBefore !== null) feeType = minutesBefore > 30 ? 'free' : 'paid';
+        else feeType = (body.fee_type === 'paid' || body.fee_type === 'free') ? body.fee_type : 'free';
+      }
+      const requesterName2 = (body.requester_name || teacherName).trim();
       const r: any = await env.DB.prepare(
-        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, teacher_name, student_name, orig_date, orig_time, new_date, new_time, reason, status, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending',?)`
+        `INSERT INTO schedule_change_requests (schedule_id, request_type, requester_role, requester_name, requester_uid, teacher_name, student_name, orig_date, orig_time, new_date, new_time, fee_type, minutes_before, reason, status, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?)`
       ).bind(
         scheduleId, reqType, body.requester_role === 'student' ? 'student' : 'teacher',
-        (body.requester_name || teacherName).trim(), teacherName, studentName,
-        origDate, origTime, newDate, newTime, (body.reason || '').trim() || null, now
+        requesterName2, requesterUid, teacherName, studentName,
+        origDate, origTime, newDate, newTime, feeType, minutesBefore, (body.reason || '').trim() || null, now
       ).run();
-      return json({ ok: true, id: r?.meta?.last_row_id || null, status: 'pending', created_at: now });
+      // 🔔 실시간 알림 — 관리자 카톡(나에게 보내기=kakao_memo 큐). 대시보드 배지는 GET pending_count 로 별도 표시.
+      try {
+        const typeKo = reqType === 'cancel' ? '취소' : reqType === 'change' ? '변경' : '연기';
+        const feeKo = feeType === 'paid' ? '💰유료' : feeType === 'free' ? '🆓무료' : '';
+        const whenKo = (origDate && origTime) ? `${origDate} ${String(origTime).slice(0, 5)}` : '';
+        await enqueueNotification(env, {
+          type: 'schedule_request',
+          title: `📅 수업 ${typeKo} 요청 ${feeKo}`.trim(),
+          body: `${studentName || requesterName2 || '학생'} 님 · 강사 ${teacherName}${whenKo ? ` · 원수업 ${whenKo}` : ''}${reqType === 'change' && newDate ? ` → ${newDate} ${String(newTime || '').slice(0, 5)}` : ''}. 관리자 페이지에서 승인/거절하세요.`,
+          meta: { request_id: r?.meta?.last_row_id || null, request_type: reqType, fee_type: feeType, minutes_before: minutesBefore, student_name: studentName, teacher_name: teacherName },
+          channel: 'kakao_memo'
+        });
+      } catch (e: any) { console.warn('[schedule-requests] notify skipped:', e?.message || e); }
+      return json({ ok: true, id: r?.meta?.last_row_id || null, status: 'pending', fee_type: feeType, minutes_before: minutesBefore, created_at: now });
     }
 
     // ── GET /api/admin/schedule-requests?status=&teacher_name=&limit= — 요청 목록 ──
@@ -1332,7 +1537,69 @@ export async function handleAdminApi(
       }
       await env.DB.prepare(`UPDATE schedule_change_requests SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ? WHERE id = ?`)
         .bind(action, (body.decided_by || '관리자').trim(), now, (body.memo || '').trim() || null, id).run();
+      // 📜 승인으로 수업이 실제 이동/연기된 경우 변경 이력에 기록(거절은 미기록)
+      if (action === 'approved' && applied) {
+        await writeClassAudit(env, {
+          action: applied === 'moved' ? 'reschedule' : 'postpone',
+          schedule_id: row.schedule_id,
+          teacher_name: row.teacher_name || null,
+          student_name: row.student_name || null,
+          lesson_date: row.orig_date || null,
+          lesson_time: row.orig_time || null,
+          actor: (body.decided_by || _srdActor.name || '관리자').trim(),
+          actor_role: 'admin',
+          source: 'schedule-request',
+          reason: row.reason || null,
+          detail: (row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null),
+        });
+      }
       return json({ ok: true, id, status: action, applied, decided_at: now });
+    }
+
+    // ── GET /api/admin/class-audit — 수업 변경 이력(연기/삭제/종료/이동) 조회 ──
+    //   query: action(all|postpone|reschedule|remove|end), teacher_name, from(ms), to(ms), limit
+    //   강사 로그인은 본인 수업 이력만.
+    if (method === 'GET' && path === '/api/admin/class-audit') {
+      const _caActor = await getAdminActor(request, env as any);
+      const filter: any = {
+        action: url.searchParams.get('action') || 'all',
+        teacher_name: (url.searchParams.get('teacher_name') || '').trim() || undefined,
+        limit: parseInt(url.searchParams.get('limit') || '300', 10) || 300,
+      };
+      const from = parseInt(url.searchParams.get('from') || '', 10); if (from) filter.from = from;
+      const to = parseInt(url.searchParams.get('to') || '', 10); if (to) filter.to = to;
+      if (_caActor.isTeacher) {
+        if (!_caActor.name) return json({ ok: false, error: 'teacher_identity_missing' }, 403);
+        filter.teacher_name = _caActor.name; // 강사는 본인 것만(요청 필터 무시)
+      }
+      const rows = await listClassAudit(env, filter);
+      return json({ ok: true, rows });
+    }
+
+    // ── POST /api/admin/class-audit — 수업 '종료(end)' 등 이벤트 수동/클라이언트 기록 ──
+    //   body: { action, schedule_id?, room_id?, teacher_name?, student_name?, lesson_date?, lesson_time?, reason?, detail? }
+    //   행위자는 관리자 세션(getAdminActor)에서 서버가 판정한 값을 우선 사용.
+    if (method === 'POST' && path === '/api/admin/class-audit') {
+      const _cawActor = await getAdminActor(request, env as any);
+      const body: any = await request.json().catch(() => ({}));
+      const allowed = ['postpone', 'reschedule', 'remove', 'end', 'restore'];
+      const action = String(body.action || '').trim();
+      if (!allowed.includes(action)) return json({ ok: false, error: 'invalid_action', allowed }, 400);
+      await writeClassAudit(env, {
+        action,
+        schedule_id: body.schedule_id ?? null,
+        room_id: body.room_id || null,
+        teacher_name: body.teacher_name || (_cawActor.isTeacher ? _cawActor.name : null),
+        student_name: body.student_name || null,
+        lesson_date: body.lesson_date || null,
+        lesson_time: body.lesson_time || null,
+        actor: _cawActor.name || (body.actor ? String(body.actor).slice(0, 60) : '관리자'),
+        actor_role: _cawActor.isTeacher ? 'teacher' : (_cawActor.name ? 'admin' : 'system'),
+        source: String(body.source || 'ui').slice(0, 20),
+        reason: body.reason ? String(body.reason).slice(0, 300) : null,
+        detail: body.detail ? String(body.detail).slice(0, 500) : null,
+      });
+      return json({ ok: true });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2976,10 +3243,26 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     if (method === 'DELETE' && /^\/api\/admin\/class-schedules\/\d+$/.test(path)) {
       const id = parseInt(path.split('/').pop() || '0', 10);
       if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      // 📜 삭제 전 수업 정보 확보(이력에 남기기 위해) + 행위자
+      const _delActor = await getAdminActor(request, env as any);
+      const _delRow: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+      let _delReason: string | null = null;
+      try { const b: any = await request.json(); _delReason = (b && b.reason) ? String(b.reason).slice(0, 300) : null; } catch {}
       try {
         await env.DB.prepare(
           `UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`
         ).bind(Date.now(), id).run();
+        // 📜 수업 변경 이력(삭제) 기록 — best-effort
+        await writeClassAudit(env, {
+          action: 'remove', schedule_id: id,
+          teacher_name: _delRow ? (_delRow.teacher_name || null) : null,
+          student_name: _delRow ? (_delRow.student_name || null) : null,
+          lesson_date: _delRow ? (_delRow.scheduled_date || null) : null,
+          lesson_time: _delRow ? (_delRow.start_time || null) : null,
+          actor: _delActor.name || '관리자',
+          actor_role: _delActor.isTeacher ? 'teacher' : 'admin',
+          source: 'ui', reason: _delReason,
+        });
         return json({ ok: true, id, status: 'cancelled' });
       } catch (e: any) {
         return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
@@ -3025,8 +3308,27 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (!sets.length) return json({ ok: false, error: 'no_valid_fields' }, 400);
       sets.push('updated_at = ?'); binds.push(Date.now());
       binds.push(id);
+      // 📜 이동 전 정보(이력용) + 행위자
+      const _pchActor = await getAdminActor(request, env as any);
+      const _pchRow: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
       try {
         await env.DB.prepare(`UPDATE class_schedules SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+        // 📜 수업 변경 이력(이동/재조정) — 날짜·시간·요일이 바뀐 경우만 기록
+        if (body.scheduled_date != null || body.start_time != null || body.day_of_week != null) {
+          const _newDate = body.scheduled_date != null ? String(body.scheduled_date) : (_pchRow ? _pchRow.scheduled_date : null);
+          const _newTime = body.start_time != null ? String(body.start_time) : (_pchRow ? _pchRow.start_time : null);
+          await writeClassAudit(env, {
+            action: 'reschedule', schedule_id: id,
+            teacher_name: _pchRow ? (_pchRow.teacher_name || null) : null,
+            student_name: _pchRow ? (_pchRow.student_name || null) : null,
+            lesson_date: _pchRow ? (_pchRow.scheduled_date || null) : null,
+            lesson_time: _pchRow ? (_pchRow.start_time || null) : null,
+            actor: _pchActor.name || '관리자',
+            actor_role: _pchActor.isTeacher ? 'teacher' : 'admin',
+            source: 'ui',
+            detail: `→ ${_newDate || ''} ${_newTime || ''}`.trim(),
+          });
+        }
         return json({ ok: true, id, updated_fields: sets.length - 1 });
       } catch (e: any) {
         return json({ ok: false, error: 'update_failed', detail: String(e?.message || e) }, 500);

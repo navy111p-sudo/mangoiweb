@@ -3556,7 +3556,7 @@
 <!-- 화상수업 라이트(파스텔) 테마 [초안] — body.vc-theme-light 일 때 적용 -->
 <link rel="stylesheet" href="/css/mango-theme-light.css?v=2">
 <!-- 복습퀴즈 옆 교재도구/필기도구 토글 도킹 [초안] -->
-<link rel="stylesheet" href="/css/mango-tools-dock.css?v=5">
+<link rel="stylesheet" href="/css/mango-tools-dock.css?v=6">
 <!-- 가로(landscape) 상단 정리: 수업중·녹화를 EN 옆으로 (추가형 / 빼면 즉시 원복) -->
 <link rel="stylesheet" href="/css/mango-landscape-topbar.css?v=1">
 </head>
@@ -19664,7 +19664,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- 📅 수업 연기/변경 모달 -->
 <div class="lc-overlay" id="lc-overlay" onclick="if(event.target===this)closeLessonChangeModal()"></div>
 <div class="lc-toast" id="lc-toast"></div>
-<script src="/js/idx-lesson-change.js?v=1"></script><!-- 분할추출:lesson-change (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/idx-lesson-change.js?v=2"></script><!-- 분할추출:lesson-change (원복: 이 파일을 이 위치에 인라인) -->
 
 <!-- 🔑 로그인 모달 -->
 <div class="login-overlay" id="login-overlay" onclick="if(event.target===this)closeLoginModal()"></div>
@@ -20391,6 +20391,7 @@ window.addEventListener('DOMContentLoaded', () => {
         '<div class="lc-actions">'+
           '<button class="lc-btn postpone" onclick="tryMyAction(&quot;'+c.id+'&quot;,&quot;postpone&quot;)">📅 '+(L?'연기':'Postpone')+'</button>'+
           '<button class="lc-btn change" onclick="tryMyAction(&quot;'+c.id+'&quot;,&quot;change&quot;)">🔄 '+(L?'변경':'Change')+'</button>'+
+          '<button class="lc-btn" onclick="tryMyAction(&quot;'+c.id+'&quot;,&quot;cancel&quot;)" style="background:rgba(239,68,68,.15);color:#fca5a5;border-color:rgba(239,68,68,.4)">🗑 '+(L?'취소':'Cancel')+'</button>'+
         '</div>'+
       '</div>';
     }).join('');
@@ -20400,8 +20401,8 @@ window.addEventListener('DOMContentLoaded', () => {
       '<button class="lc-close" onclick="closeLessonChangeModal()">✕</button></div>'+
       '<div class="lc-body">'+
         '<div class="lc-info">💡 <b>'+(L?'규정 안내':'Policy')+'</b><br>'+
-          '· '+(L?'<b>연기</b>: 수업 시작 <b>30분 전</b>까지 가능':'<b>Postpone</b>: 30 min before')+'<br>'+
-          '· '+(L?'<b>변경</b>: 수업 시작 <b>24시간 전</b>까지 가능':'<b>Change</b>: 24 h before')+
+          '· '+(L?'<b>연기·취소</b>: 시작 30분 전 <b style="color:#86efac">무료</b> · 30분 이내 <b style="color:#fbbf24">유료</b>':'<b>Postpone/Cancel</b>: <b style="color:#86efac">free</b> if 30+ min before · <b style="color:#fbbf24">charged</b> within 30 min')+'<br>'+
+          '· '+(L?'<b>변경</b>: 시작 <b>24시간 전</b>까지만 가능':'<b>Change</b>: only up to <b>24 h</b> before')+
         '</div>'+
         '<div class="lc-list">'+(items||'<div class="lc-empty">'+(L?'예정된 수업이 없습니다.':'No upcoming classes.')+'</div>')+'</div>'+
       '</div></div>';
@@ -20413,28 +20414,56 @@ window.addEventListener('DOMContentLoaded', () => {
     window.tryMyAction = function(clsId, mode){
       var c = student.classes.find(function(x){return x.id===clsId;});
       if(!c) return;
+      var L=(window.getLang?window.getLang():'ko')==='ko';
       var dt = getClsDt(c);
-      var diff = diffMin(dt);
-      var minReq = mode==='postpone'?30:1440;
-      if(diff < minReq){
-        var L=(window.getLang?window.getLang():'ko')==='ko';
-        var title = mode==='postpone'?(L?'연기할 수 없습니다':'Cannot Postpone'):(L?'변경할 수 없습니다':'Cannot Change');
-        var msg = mode==='postpone'
-          ? (L?'죄송합니다. 수업전 30분이 지나 연기할 수 없습니다.':'Sorry. Postponing is only allowed up to 30 minutes before class.')
-          : (L?'죄송합니다. 수업 전 24시간이 지나 변경하실 수 없습니다.':'Sorry. Changes are only allowed up to 24 hours before class.');
-        var detail = '📅 <b>'+fmt(dt)+'</b><br>⏰ '+(diff<0?(L?'이미 시작/종료':'Past'):(Math.round(diff)+(L?'분 남음':' min')))+'<br>'+(L?'급한 경우 학원에 직접 연락 부탁드립니다.':'Please contact the center directly.');
-        var rejHtml = '<div class="lc-reject" onclick="event.stopPropagation()"><div class="lc-rej-ico">😔</div><h3>'+title+'</h3><p>'+msg+'</p><div class="lc-rej-detail">'+detail+'</div><button onclick="closeLessonChangeModal()">'+(L?'확인':'OK')+'</button></div>';
+      var diff = diffMin(dt);   // 원 수업까지 남은 분
+
+      // ── 변경(change): 시작 24시간 이내면 차단 (정책) ──
+      if(mode==='change' && diff < 1440){
+        var detailC = '📅 <b>'+fmt(dt)+'</b><br>⏰ '+(diff<0?(L?'이미 시작/종료':'Past'):(Math.round(diff)+(L?'분 남음':' min')))+'<br>'+(L?'급한 경우 학원에 직접 연락 부탁드립니다.':'Please contact the center directly.');
+        var rejHtml = '<div class="lc-reject" onclick="event.stopPropagation()"><div class="lc-rej-ico">😔</div><h3>'+(L?'변경할 수 없습니다':'Cannot Change')+'</h3><p>'+(L?'수업 변경은 시작 <b>24시간 전</b>까지만 가능합니다.':'Changes are only allowed up to <b>24 hours</b> before class.')+'</p><div class="lc-rej-detail">'+detailC+'</div><button onclick="closeLessonChangeModal()">'+(L?'확인':'OK')+'</button></div>';
         document.getElementById('lc-overlay').innerHTML = rejHtml;
         return;
       }
-      // 통과 → 4-method 위저드 (기존)
-      if(typeof openLessonPickerModal==='function'){
-        // ★ 학생 데이터의 같은 객체 c 를 그대로 전달 (참조 유지)
-        // → lcConfirmPicker 에서 c.lessonDate/lessonHour 를 직접 수정하면 학생 데이터도 자동 동기화
-        if(!c.students) c.students = [{name:student.name, uid:student.uid}];
-        openLessonPickerModal(c, mode);
+
+      // ── 연기·취소: 30분 이내면 '유료' 안내 후 진행 (차단하지 않음 — 정책: 30분 이내=유료) ──
+      var isPaid = (mode!=='change') && (diff <= 30);
+      function proceed(){
+        if(mode==='cancel'){ doCancel(c, dt, isPaid); return; }
+        if(typeof openLessonPickerModal==='function'){
+          if(!c.students) c.students = [{name:student.name, uid:student.uid}];
+          openLessonPickerModal(c, mode);   // 연기/변경 → 기존 위저드 (확정 시 서버 저장+태깅)
+        }
       }
+      if(isPaid){
+        var feeMsg = (mode==='cancel')
+          ? (L?'수업 시작 <b>30분 이내 취소</b>는 <b style="color:#fbbf24">유료</b>로 처리됩니다.':'Cancelling within <b>30 min</b> of start is <b style="color:#fbbf24">charged</b>.')
+          : (L?'수업 시작 <b>30분 이내 연기</b>는 <b style="color:#fbbf24">유료</b>로 처리됩니다.':'Postponing within <b>30 min</b> of start is <b style="color:#fbbf24">charged</b>.');
+        var detailP = '📅 <b>'+fmt(dt)+'</b><br>⏰ '+(diff<0?(L?'이미 시작/종료':'Past'):(Math.round(diff)+(L?'분 남음':' min')));
+        var confHtml = '<div class="lc-reject" onclick="event.stopPropagation()" style="border-color:#fbbf24"><div class="lc-rej-ico">💰</div><h3 style="color:#fbbf24">'+(L?'유료 처리 안내':'Paid Notice')+'</h3><p>'+feeMsg+'<br>'+(L?'계속하시겠습니까?':'Continue?')+'</p><div class="lc-rej-detail">'+detailP+'</div><div style="display:flex;gap:8px"><button onclick="closeLessonChangeModal()" style="flex:1;background:#374151;color:#fff">'+(L?'아니요':'No')+'</button><button id="lc-paid-ok" style="flex:1">'+(L?'예, 계속':'Yes, continue')+'</button></div></div>';
+        document.getElementById('lc-overlay').innerHTML = confHtml;
+        var okb = document.getElementById('lc-paid-ok'); if(okb) okb.onclick = function(){ proceed(); };
+        return;
+      }
+      proceed();
     };
+
+    // 🆕 취소 실행 — 서버에 기록(유료/무료 태깅 + 관리자 알림) + 로컬 목록에서 제거
+    function doCancel(c, dt, isPaid){
+      var L=(window.getLang?window.getLang():'ko')==='ko';
+      try {
+        if(typeof window.lcPersistRequest==='function'){
+          window.lcPersistRequest(c, 'cancel', { origStartMs: dt.getTime(), origTeacher: c.teacher });
+        }
+      } catch(e){}
+      try { var idx = student.classes.indexOf(c); if(idx>=0) student.classes.splice(idx,1); } catch(e){}
+      var t = document.getElementById('lc-toast');
+      if(t){
+        t.innerHTML = '✅ '+(L?'수업이 취소되었습니다':'Class cancelled')+' · '+(isPaid?(L?'💰유료':'💰paid'):(L?'🆓무료':'🆓free'))+'<br><span style="font-size:11px;color:#94a3b8">'+(L?'담당자가 확인 후 연락드립니다':'Staff will confirm shortly')+'</span>';
+        t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 3500);
+      }
+      try { renderMyClassList(student); } catch(e){ closeLessonChangeModal(); }
+    }
   }
 })();
 </script>
@@ -24962,7 +24991,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260714225239 -->
+<!-- BUILD:20260714233439 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -26073,7 +26102,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
-<script src="/js/vc-dock.js?v=3" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
+<script src="/js/vc-dock.js?v=4" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=33" defer></script>
 <script src="/js/mango-rec.js?v=38" defer></script>
 <script src="/js/mango-class-time.js?v=7" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->

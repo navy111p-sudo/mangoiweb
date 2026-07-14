@@ -181,6 +181,41 @@ body.vc-in-call #tab-pdf .pdf-anno-bar #pdf-anno-legend {
 }
 
 /* ============================================================
+ * 🎨 (2026-07-14 보완) 필기도구 드롭다운을 교재도구(.pdf-controls)와
+ *   동일한 '짙은 글래스 회색 패널'로 통일 — 투명 바탕이라 흰 PDF·칠판 위에서
+ *   글자가 묻히던 문제를 근본 해결(사장님: 교재도구 회색 배경 참고, 일관 가독성).
+ *   ① 드롭다운 컨테이너에 패널 배경 부여(위 transparent 규칙을 덮어씀)
+ *   ② 직속(> button)뿐 아니라 중첩된 button·label·span 도 밝은 글자로.
+ * ============================================================ */
+body.vc-in-call #tab-pdf .pdf-anno-bar,
+body.vc-in-call #tab-whiteboard .wb-toolbar.mango-wb-dock-open {
+  background: linear-gradient(135deg, rgba(30,41,59,0.94), rgba(15,23,42,0.94)) !important;
+  border: 1px solid rgba(96,165,250,0.22) !important;
+  border-radius: 14px !important;
+  padding: 10px !important;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45) !important;
+  backdrop-filter: blur(12px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+}
+/* 중첩 버튼(예: span > button)도 교재도구식 슬레이트 pill 로 */
+body.vc-in-call #tab-pdf .pdf-anno-bar button,
+body.vc-in-call #tab-whiteboard .wb-toolbar.mango-wb-dock-open button {
+  background: linear-gradient(135deg, rgba(51,65,85,0.96), rgba(30,41,59,0.96)) !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(96,165,250,0.38) !important;
+  border-radius: 999px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+/* 라벨·범례·설명 텍스트도 밝게(회색 패널 위 가독성) */
+body.vc-in-call #tab-pdf .pdf-anno-bar label,
+body.vc-in-call #tab-pdf .pdf-anno-bar span,
+body.vc-in-call #tab-whiteboard .wb-toolbar.mango-wb-dock-open label,
+body.vc-in-call #tab-whiteboard .wb-toolbar.mango-wb-dock-open span {
+  color: #e2e8f0 !important;
+}
+
+/* ============================================================
  * "시간 정보 없음" 배지 ↔ REC 녹화 배지 크기 동일하게 (데스크탑)
  *  - 모바일(REC 원형)은 건드리지 않도록 데스크탑 폭에서만 적용
  * ============================================================ */

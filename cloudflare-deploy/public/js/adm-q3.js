@@ -10,6 +10,8 @@
   let _prRows = [];
   let _prY = 0, _prM = 0;
   let _prRules = [];
+  let _prDetailTid = 0, _prDetailName = '';   // 📋 상세표 재로딩(지각분 저장 후)용
+  let _prLevels = [];   // 🎖 강사 등급(요율) 목록
 
   function initYearSelect() {
     const sel = document.getElementById('pr-year');
@@ -55,19 +57,39 @@
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'load failed');
       _prRules = d.rules || [];
+      // 🎖 등급 요율표도 함께 로드(편집용)
+      try { const lr = await fetch('/api/admin/payroll/levels'); const ld = await lr.json(); if (ld.ok) _prLevels = ld.levels || []; } catch(e){}
       const help = isEn
         ? 'Turn each rule on/off and set the amount. Changes apply the next time you click 🔍 Calculate.'
         : '규칙마다 켜기/끄기와 금액을 정할 수 있어요. 저장 후 「🔍 계산」을 다시 누르면 바로 반영됩니다.';
+      // 등급 요율 편집기 (per 20분)
+      const lvlEditor = _prLevels.length ? `
+          <div style="font-weight:800;font-size:13.5px;color:#92400e;margin:2px 0 8px">🎖 ${isEn?'Teacher Level Rates (per 20-min class)':'강사 등급 요율 (20분 수업 기준)'}</div>
+          ${_prLevels.map((v,i)=>`
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:#fff;border:1px solid #fde68a;border-radius:10px;margin-bottom:8px">
+              <div style="flex:1;min-width:150px;font-weight:800;font-size:13px;color:#1f2937">${esc(isEn?(v.label_en||v.code):(v.label_ko||v.code))}</div>
+              <div style="display:flex;align-items:center;gap:4px">
+                <span style="font-size:13px;font-weight:800;color:#b45309">₱</span>
+                <input type="number" min="0" data-lvl-rate="${i}" value="${Number(v.rate_per_20min)||0}" style="width:90px;padding:7px 10px;font-size:14px;font-weight:800;border:1.5px solid #d1d5db;border-radius:8px;text-align:right">
+                <span style="font-size:11.5px;color:#a16207">/20m</span>
+              </div>
+            </div>`).join('')}
+          <button onclick="prSaveLevels()" style="padding:8px 16px;font-size:12.5px;font-weight:800;background:#fff;border:1.5px solid #f59e0b;color:#b45309;border-radius:8px;cursor:pointer;margin-bottom:14px">💾 ${isEn?'Save Level Rates':'등급 요율 저장'}</button>
+          <div style="border-top:1px dashed #fde68a;margin-bottom:12px"></div>` : '';
       box.innerHTML = `
         <div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:12px;padding:14px 16px">
+          ${lvlEditor}
           <div style="font-weight:800;font-size:13.5px;color:#92400e;margin-bottom:4px">⚙️ ${isEn?'Deduction Rules':'공제 규칙'}</div>
           <div style="font-size:12px;color:#a16207;margin-bottom:12px">${help}</div>
           ${_prRules.map((r,i)=>{
             const isPct = r.rule_type === 'policy_percent';
+            const isPerMin = r.rule_type === 'per_minute';
             const unit = isPct ? '%' : '₱';
             const desc = isPct
               ? (isEn?'0% = no pay when student is absent, 100% = full pay':'0%면 학생 결석 시 지급 없음, 100%면 전액 지급')
-              : (isEn?'Deducted per lesson':'수업 1건당 차감되는 금액');
+              : isPerMin
+                ? (isEn?'Deducted per late minute (enter late minutes on the lesson detail)':'지각 1분당 차감 (지각 분은 「📋 상세」에서 입력)')
+                : (isEn?'Deducted per lesson':'수업 1건당 차감되는 금액');
             return `
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:#fff;border:1px solid #fde68a;border-radius:10px;margin-bottom:8px">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;min-width:40px">
@@ -93,6 +115,25 @@
     }
   }
 
+  // ── 🎖 등급 요율(per 20분) 저장 ──
+  window.prSaveLevels = async function(){
+    const isEn = (window.adminLang === 'en');
+    const box = document.getElementById('pr-rules');
+    const levels = _prLevels.map((v,i)=>{
+      const inp = box.querySelector(`[data-lvl-rate="${i}"]`);
+      return { code: v.code, rate_per_20min: inp ? Number(inp.value)||0 : v.rate_per_20min };
+    });
+    try {
+      const r = await fetch('/api/admin/payroll/levels', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ levels })
+      });
+      const d = await r.json();
+      if (d.ok) { alert(isEn?'✅ Level rates saved. Re-assign a level or click 🔍 Calculate to apply.':'✅ 등급 요율 저장 완료. 등급을 다시 지정하거나 「🔍 계산」을 누르면 반영돼요.'); prLoadRules(); }
+      else alert('❌ ' + (d.error||(isEn?'failed':'실패')));
+    } catch(e) { alert('❌ '+e.message); }
+  };
+
   window.prSaveRules = async function(){
     const isEn = (window.adminLang === 'en');
     const box = document.getElementById('pr-rules');
@@ -115,6 +156,7 @@
   // ── 📋 강사별 수업 상세 (Lesson Fee Summary) ──
   window.prShowDetail = async function(teacherId, teacherName){
     const isEn = (window.adminLang === 'en');
+    _prDetailTid = teacherId; _prDetailName = teacherName || '';
     const box = document.getElementById('pr-detail');
     box.innerHTML = `<div style="padding:16px;color:#6b7280;text-align:center">${isEn?'Loading lessons…':'수업 내역 불러오는 중…'}</div>`;
     box.scrollIntoView({ behavior:'smooth', block:'nearest' });
@@ -127,14 +169,18 @@
       const upcoming = (d.lessons||[]).filter(l=>l.status==='upcoming');
       const T = isEn ? {
         title:'Lesson Fee Summary', close:'✕ Close', time:'Lesson Time', student:'Student', status:'Status',
+        type:'Lesson Type', level:"Teacher's level (rate)", late:'Late min', total:'Total',
         mins:'Min', rate:'Rate/10m', fee:'Fee', fb:'Feedback', ded:'Deduction', none:'No lessons this month.',
         fbOk:'✅ Done', fbNo:'❌ Missing', sum:'Summary', lessons:'Lessons', absent:'Absent', noShow:'No-show',
         noFb:'No feedback', lessonFee:'Lesson fee', dedTotal:'Deductions', final:'Final pay', upc:'upcoming lessons not included yet',
+        lateTip:'Late minutes not compensated by extending the class (auto-deducted per minute).',
       } : {
         title:'수업별 정산 내역', close:'✕ 닫기', time:'수업 시간', student:'학생', status:'상태',
+        type:'수업 유형', level:'강사 등급(요율)', late:'지각(분)', total:'합계',
         mins:'분', rate:'10분 단가', fee:'수업료', fb:'당일 피드백', ded:'공제', none:'이 달에 수업이 없습니다.',
         fbOk:'✅ 작성', fbNo:'❌ 미작성', sum:'요약', lessons:'수업', absent:'학생 결석', noShow:'강사 미입장',
         noFb:'피드백 미작성', lessonFee:'수업료 합계', dedTotal:'공제 합계', final:'실지급액', upc:'회는 아직 하지 않은 수업이라 계산에 포함되지 않아요',
+        lateTip:'수업을 연장해 보충하지 못한 지각 분 (분당 자동 공제).',
       };
       const tile = (label, value, bg, color) =>
         `<div style="padding:10px 14px;background:${bg};border-radius:10px;min-width:110px">
@@ -147,15 +193,28 @@
         const dedCell = l.deduction_total > 0
           ? `<b style="color:#dc2626">− ${fmtP(l.deduction_total)}</b>`
           : '<span style="color:#9ca3af">—</span>';
+        // ⏱ 시간 표기: 14:00-14:20 (종료시각은 서버 계산)
+        const timeCell = esc(l.start_time||'') + (l.end_time ? '-'+esc(l.end_time) : '');
+        // 🎖 강사 등급(요율): "Teacher 1 (₱50/20m)" — 미지정 강사는 요율만
+        const lvlName = isEn ? (l.level_label_en || '') : (l.level_label_ko || '');
+        const rate20 = l.rate_per_20min || ((l.fee_per_10min||0)*2);
+        const levelCell = `${lvlName ? esc(lvlName)+'<br>' : ''}<span style="color:#6b7280;font-size:11px">₱${fmt(rate20)}/20m</span>`;
+        // 📝 지각(분) — 완료 수업만 입력칸(연장실패 지각분), 즉시 저장→재계산
+        const lateCell = l.status==='finish'
+          ? `<input type="number" min="0" max="120" value="${Number(l.late_minutes)||0}" onchange="prSaveLate(${l.schedule_id}, '${esc(l.date)}', this.value)" title="${esc(T.lateTip)}" style="width:50px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;text-align:right;font-size:12px">`
+          : '<span style="color:#9ca3af">—</span>';
         return `<tr style="border-bottom:1px solid #f3f4f6">
-          <td style="padding:9px 12px;white-space:nowrap"><b>${esc(l.date)}</b> ${esc(l.start_time||'')}</td>
+          <td style="padding:9px 12px;white-space:nowrap"><b>${esc(l.date)}</b><br><span style="color:#6b7280;font-size:11px">${timeCell}</span></td>
           <td style="padding:9px 12px">${esc(l.student_name || l.user_id || '-')}</td>
           <td style="padding:9px 12px;text-align:center">${stBadge(l.status, isEn)}</td>
+          <td style="padding:9px 12px;color:#475569;white-space:nowrap">${esc(l.lesson_type || 'Regular Lesson')}</td>
+          <td style="padding:9px 12px;text-align:right;white-space:nowrap">${levelCell}</td>
           <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmt(l.duration_minutes)}${T.mins}</td>
-          <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(l.fee_per_10min)}</td>
-          <td style="padding:9px 12px;text-align:right;font-weight:800;color:${l.amount>0?'#d97706':'#9ca3af'}">${fmtP(l.amount)}</td>
+          <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(l.amount)}</td>
           <td style="padding:9px 12px;text-align:center">${fbCell}</td>
+          <td style="padding:9px 12px;text-align:center">${lateCell}</td>
           <td style="padding:9px 12px;text-align:right">${dedCell}</td>
+          <td style="padding:9px 12px;text-align:right;font-weight:900;color:${(l.net_amount??l.amount)>0?'#166534':'#9ca3af'}">${fmtP(l.net_amount ?? l.amount)}</td>
         </tr>`;
       }).join('');
       box.innerHTML = `
@@ -180,11 +239,14 @@
               <th style="text-align:left;padding:9px 12px;color:#334155">${T.time}</th>
               <th style="text-align:left;padding:9px 12px;color:#334155">${T.student}</th>
               <th style="text-align:center;padding:9px 12px;color:#334155">${T.status}</th>
+              <th style="text-align:left;padding:9px 12px;color:#334155">${T.type}</th>
+              <th style="text-align:right;padding:9px 12px;color:#334155">${T.level}</th>
               <th style="text-align:right;padding:9px 12px;color:#334155">${T.mins}</th>
-              <th style="text-align:right;padding:9px 12px;color:#334155">${T.rate}</th>
               <th style="text-align:right;padding:9px 12px;color:#334155">${T.fee}</th>
               <th style="text-align:center;padding:9px 12px;color:#334155">${T.fb}</th>
+              <th style="text-align:center;padding:9px 12px;color:#334155">${T.late}</th>
               <th style="text-align:right;padding:9px 12px;color:#334155">${T.ded}</th>
+              <th style="text-align:right;padding:9px 12px;color:#334155">${T.total}</th>
             </tr></thead><tbody>${rows}</tbody></table>`
           : `<div style="padding:26px;text-align:center;color:#6b7280">${T.none}</div>`}
           </div>
@@ -192,6 +254,20 @@
     } catch(e) {
       box.innerHTML = `<div style="padding:16px;color:#ef4444">${isEn?'Failed: ':'상세 로드 실패: '}${esc(e.message)}</div>`;
     }
+  };
+
+  // ── 📝 지각(연장실패) 분 저장 → 공제 재계산 후 상세표 재로딩 ──
+  window.prSaveLate = async function(scheduleId, lessonDate, minutes){
+    const isEn = (window.adminLang === 'en');
+    try {
+      const r = await fetch('/api/admin/payroll/late-minutes', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ schedule_id: scheduleId, lesson_date: lessonDate, minutes: parseInt(minutes,10)||0 })
+      });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error || (isEn?'save failed':'저장 실패'))); return; }
+      if (_prDetailTid) window.prShowDetail(_prDetailTid, _prDetailName);   // 재계산 반영
+    } catch(e){ alert('❌ ' + e.message); }
   };
 
   window.prCalculate = async function(){
@@ -206,6 +282,7 @@
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || (isEn?'Calculation failed':'계산 실패'));
       _prRows = d.rows || [];
+      _prLevels = d.levels || [];
       // 🎭🔐 유효 역할(실제 로그인 또는 미리보기) 반영 — 강사=본인 급여만, 지사/대리점/학부모/학생=차단.
       //   서버도 강사 로그인 시 본인 행만 내려주지만(2중 방어), 관리자의 '강사 모드 미리보기'에선
       //   서버 쿠키가 관리자라 전체가 오므로 여기서 유효 역할 기준으로 정직하게 걸러준다.
@@ -256,19 +333,34 @@
       }
       // 컬럼 헤더 + 셀 라벨 i18n
       const H = isEn ? {
-        teacher:'Teacher', classes:'Classes', mins:'Total Min', rate:'Rate/10m',
+        teacher:'Teacher', level:'Level (rate)', classes:'Classes', mins:'Total Min', rate:'Rate/10m',
         calc:'Lesson Fee', ded:'Deduction', fin:'Final Pay', adj:'Adjusted', status:'Status', actions:'Actions',
         paid:'Paid', pending:'Pending', cancel:'Cancel', markPaid:'✅ Mark Paid', detail:'📋 Detail',
         saveFirst:'Save first', minutes:' min', absent:' absent'
       } : {
-        teacher:'강사', classes:'수업', mins:'총 분', rate:'10분 단가',
+        teacher:'강사', level:'등급(요율)', classes:'수업', mins:'총 분', rate:'10분 단가',
         calc:'수업료', ded:'공제', fin:'실지급액', adj:'조정 금액', status:'상태', actions:'조작',
         paid:'지급', pending:'대기', cancel:'취소', markPaid:'✅ 지급 완료', detail:'📋 상세',
         saveFirst:'먼저 저장', minutes:'분', absent:'결석'
       };
+      // 🎖 등급 선택 셀 — 관리자만 변경 가능(강사 뷰는 읽기전용). 등급 미지정 시 요율만 표시.
+      const _lvlLabel = (code) => { const x = _prLevels.find(v=>v.code===code); return x ? (isEn ? x.label_en : x.label_ko) : ''; };
+      const levelCellMain = (r) => {
+        const cur = r.level_code || '';
+        const rate20 = r.rate_per_20min || ((r.fee_per_10min||0)*2);
+        const rateTxt = `<span style="font-size:10.5px;color:#9ca3af">₱${fmt(rate20)}/20m</span>`;
+        if (_prTeacherView || !_prLevels.length) {
+          const nm = _lvlLabel(cur) || (isEn?'—':'미지정');
+          return `<div style="font-weight:600">${esc(nm)}</div>${rateTxt}`;
+        }
+        const opts = `<option value=""${cur?'':' selected'}>${isEn?'— none —':'— 미지정 —'}</option>` +
+          _prLevels.map(v=>`<option value="${esc(v.code)}"${v.code===cur?' selected':''}>${esc(isEn?v.label_en:v.label_ko)} (₱${fmt(v.rate_per_20min)})</option>`).join('');
+        return `<select onchange="prSetLevel(${r.teacher_id}, this.value)" style="max-width:150px;padding:4px 6px;font-size:11.5px;border:1px solid #d1d5db;border-radius:5px">${opts}</select><br>${rateTxt}`;
+      };
       tbody.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
         <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)"><tr>
           <th style="text-align:left;padding:10px 12px;color:#78350f">${H.teacher}</th>
+          <th style="text-align:left;padding:10px 12px;color:#78350f">${H.level}</th>
           <th style="text-align:center;padding:10px 12px;color:#78350f">${H.classes}</th>
           <th style="text-align:right;padding:10px 12px;color:#78350f">${H.mins}</th>
           <th style="text-align:right;padding:10px 12px;color:#78350f">${H.rate}</th>
@@ -287,6 +379,7 @@
           return `
           <tr style="border-bottom:1px solid #e5e7eb">
             <td style="padding:9px 12px"><b>${esc(r.korean_name||'-')}</b>${r.english_name?'<br><span style="font-size:11px;color:#9ca3af">'+esc(r.english_name)+'</span>':''}</td>
+            <td style="padding:9px 12px">${levelCellMain(r)}</td>
             <td style="padding:9px 12px;text-align:center;font-weight:700">${fmt(r.lesson_count)}${subCnt.length?'<br><span style="font-size:10px;color:#dc2626">'+subCnt.join(' ')+'</span>':''}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmt(r.total_minutes)}${H.minutes}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(r.fee_per_10min)}</td>
@@ -320,6 +413,21 @@
 
   window.prRowAdjust = function(idx, val){
     if (_prRows[idx]) _prRows[idx].adjusted_amount = val === '' ? null : parseInt(val, 10);
+  };
+
+  // ── 🎖 강사 등급 지정 → fee_per_10min 자동 세팅 후 재계산 ──
+  window.prSetLevel = async function(teacherId, levelCode){
+    const isEn = (window.adminLang === 'en');
+    if (!levelCode) return;   // '미지정' 선택은 무시(등급 해제는 미지원)
+    try {
+      const r = await fetch('/api/admin/payroll/teacher-level', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ teacher_id: teacherId, level_code: levelCode })
+      });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error || (isEn?'failed':'실패'))); return; }
+      window.prCalculate();   // 요율 반영 재계산
+    } catch(e){ alert('❌ ' + e.message); }
   };
 
   window.prSaveAll = async function(){

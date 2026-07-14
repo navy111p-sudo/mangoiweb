@@ -746,6 +746,8 @@ const worker = {
         path.startsWith('/api/admin/payroll/') ||
         // 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 + 관리자 승인/거절)
         path.startsWith('/api/admin/schedule-requests') ||
+        // 📜 수업 변경 이력(연기/삭제/종료) 조회·기록
+        path === '/api/admin/class-audit' ||
         // 📝 Phase FD — AI 학부모 피드백 초안 + 강사 원클릭 승인
         path.startsWith('/api/admin/feedback-drafts') ||
         path === '/api/admin/payroll/all' ||
@@ -3607,6 +3609,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/ai-command' || path === '/api/admin/ai-action') return true;
   if (path === '/api/admin/omnisearch') return true;
   if (path === '/api/admin/class-schedules' || path === '/api/admin/class-schedules/seed-demo' || /^\/api\/admin\/class-schedules\/\d+$/.test(path)) return true;
+  if (path === '/api/admin/class-audit') return true;   // 📜 수업 변경 이력(연기/삭제/종료)
   if (path === '/api/admin/schedules') return true;
   if (path === '/api/admin/unassigned-students') return true;
   if (path === '/api/admin/notify-queue') return true;

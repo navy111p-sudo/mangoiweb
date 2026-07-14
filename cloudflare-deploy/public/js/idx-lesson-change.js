@@ -34,6 +34,42 @@
     document.body.style.overflow = '';
   };
 
+  // 🆕 (2026-07-14) 연기/취소/변경을 서버에 실제 기록 + 유료/무료 자동 태깅 + 관리자 알림.
+  //   그동안 학생 연기/변경은 데모(로컬)뿐이라 어디에도 안 남았음 → 이제 /api/admin/schedule-requests 로 저장.
+  //   유료/무료: 원 수업 시작 30분 전보다 일찍=무료, 이내=유료 (연기·취소만. 변경은 24h 룰이라 요금대상 아님).
+  window.lcComputeFee = function(origStartMs){
+    var mins = Math.round((origStartMs - Date.now())/60000);
+    return { minutes_before: mins, fee_type: mins > 30 ? 'free' : 'paid' };
+  };
+  window.lcPersistRequest = function(cls, mode, opts){
+    opts = opts || {};
+    try {
+      var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
+      // 원 수업 시작 (연기 확정 시 cls가 이미 새 시간으로 바뀌었을 수 있어 opts.origStartMs 우선)
+      var origMs = (typeof opts.origStartMs === 'number') ? opts.origStartMs : getClassDateTime(cls).getTime();
+      var od = new Date(origMs);
+      var origDate = od.getFullYear()+'-'+pad(od.getMonth()+1)+'-'+pad(od.getDate());
+      var origTime = pad(od.getHours())+':'+pad(od.getMinutes());
+      var mins = Math.round((origMs - Date.now())/60000);
+      var fee = (mode==='change') ? null : (mins > 30 ? 'free' : 'paid');
+      var body = {
+        request_type: mode,
+        requester_role: 'student',
+        requester_name: (u&&u.name) || cls.studentName || cls.student_name || '',
+        teacher_name: opts.origTeacher || cls.teacher || cls.origTeacher || '강사',
+        student_name: (u&&u.name) || cls.studentName || cls.student_name || '',
+        student_uid: (u&&u.uid) || '',
+        schedule_id: cls.schedule_id || cls.scheduleId || null,
+        orig_date: origDate, orig_time: origTime,
+        new_date: opts.new_date || null, new_time: opts.new_time || null,
+        fee_type: fee, minutes_before: mins,
+        reason: opts.reason || null
+      };
+      return fetch('/api/admin/schedule-requests', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+        .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    } catch(e){ console.warn('[lc] persist err', e); return Promise.resolve(null); }
+  };
+
   // 🆕 권한 기반 시간 제한 우회 — 본사/강사는 언제든 가능, 지사/대리점/학생은 24h/30분 룰
   //    관리자 페이지 권한 매트릭스(mangoi_perm_matrix)에서 해당 권한이 '✅' 인지 확인
   //    역할은 mangoi_logged_user.role 또는 mangoi_user_role 키에서 가져옴 (기본 'student')
@@ -255,6 +291,9 @@
     var p = lcPicker;
     if(!p.pickedDate || p.pickedHour==null){ return; }
     var newDate = p.pickedDate, newHour = p.pickedHour;
+    // 🆕 변형 전 원 수업 시작시각 + 강사 캡처 (유료/무료 판정용)
+    var _origMs = getClassDateTime(p.cls).getTime();
+    var _origTeacher = p.cls.teacher;
 
     // 1) 학생 데이터 업데이트 (cls.id 매칭)
     try {
@@ -284,6 +323,9 @@
     p.step = 'date';
     renderLessonPicker();
 
+    // 🆕 서버에 연기 기록 + 유료/무료 태깅 + 관리자 알림
+    try { window.lcPersistRequest(p.cls, 'postpone', { origStartMs:_origMs, origTeacher:_origTeacher, new_date:newDate, new_time:String(newHour).padStart(2,'0')+':00' }); } catch(e){}
+
     // 5) 성공 토스트
     showLcToast('✅ '+(L?'수업 시간 변경 완료 — 새 시간: ':'Time changed — new: ')+
       '<b>'+newDate+' '+String(newHour).padStart(2,'0')+':00</b><br>'+
@@ -306,6 +348,9 @@
     var modeKr = p.mode==='postpone'?(L?'연기':'Postponed'):(L?'변경':'Changed');
     var summary;
     var didChange = false;
+    // 🆕 변형 전 원 수업 시작시각 + 강사 캡처 (유료/무료 판정용)
+    var _origMs2 = getClassDateTime(p.cls).getTime();
+    var _origTeacher2 = p.cls.teacher;
 
     // ── 학생 데이터 실제 업데이트 ──
     function applyToStudent(){
@@ -346,6 +391,13 @@
     } else {
       return;
     }
+
+    // 🆕 서버에 변경/연기 기록 + (연기·취소면) 유료/무료 태깅 + 관리자 알림
+    try {
+      var _newDate2 = p.pickedDate || null;
+      var _newTime2 = (p.pickedHour!=null) ? (String(p.pickedHour).padStart(2,'0')+':00') : null;
+      window.lcPersistRequest(p.cls, p.mode, { origStartMs:_origMs2, origTeacher:_origTeacher2, new_date:_newDate2, new_time:_newTime2, reason: (p.pickedTeacher?('강사 변경: '+p.pickedTeacher.name):null) });
+    } catch(e){}
 
     // 토스트 띄움
     showLcToast('✅ '+(L?'수업 ':'Class ')+modeKr+(L?' 완료 — ':' done — ')+summary+'<br><span style="font-size:11px;color:#94a3b8">'+(L?'담당자가 확인 후 연락드립니다':'Staff will confirm shortly')+'</span>');
@@ -876,6 +928,14 @@
     if(!lcPicker)return;
     var L=(window.getLang?window.getLang():'ko')==='ko';
     var preview = lcPicker.shiftPreview||[];
+    // 🆕 서버에 '전체 뒤로 밀기(연기)' 기록 + 유료/무료 태깅 + 관리자 알림
+    try {
+      var _shiftCls = lcPicker.cls;
+      var _first = preview[0];
+      var _nd = (_first && _first.newDate) ? (_first.newDate.getFullYear()+'-'+pad(_first.newDate.getMonth()+1)+'-'+pad(_first.newDate.getDate())) : null;
+      var _nt = (_first && _first.newDate) ? (pad(_first.newDate.getHours())+':'+pad(_first.newDate.getMinutes())) : null;
+      window.lcPersistRequest(_shiftCls, 'postpone', { new_date:_nd, new_time:_nt, reason: (L?('전체 '+preview.length+'개 수업 1주씩 뒤로 밀기'):('Shift '+preview.length+' lessons +1week')) });
+    } catch(e){}
     lcCancelPicker();
     showLcToast('✅ '+(L?preview.length+'개 수업이 1주씩 뒤로 이동되었습니다.':preview.length+' lessons shifted by 1 week.')+'<br><span style="font-size:11px;color:#94a3b8">'+(L?'담당자가 확인 후 연락드립니다':'Staff will confirm shortly')+'</span>');
   };

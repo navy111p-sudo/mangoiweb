@@ -199,26 +199,26 @@
 
     setPop = document.createElement('div'); setPop.id = 'vc-dock-settings';
     setPop.innerHTML =
-      '<div class="sg-head"><h3>⚙️ 설정</h3><button class="sg-x" data-act="close">✕</button></div>' +
+      '<div class="sg-head"><h3 data-ko="⚙️ 설정" data-en="⚙️ Settings">⚙️ 설정</h3><button class="sg-x" data-act="close">✕</button></div>' +
       '<div class="sg-group">' +
-        '<div class="sg-gtitle">장치</div>' +
-        '<div class="sg-row"><label>마이크</label><select id="sg-mic-dev"><option>기본 마이크</option></select></div>' +
-        '<div class="sg-row"><label>마이크 음량</label><input type="range" id="sg-mic-vol" min="0" max="100" value="70"></div>' +
-        '<div class="sg-row"><label>스피커</label><button class="sg-test" data-act="spk">테스트 ▶</button></div>' +
-        '<div class="sg-row"><label>카메라</label><select id="sg-cam-dev"><option>기본 카메라</option></select></div>' +
-        '<div class="sg-row"><label>잡음 제거</label><div class="sg-sw on" data-act="noise"></div></div>' +
+        '<div class="sg-gtitle" data-ko="장치" data-en="Devices">장치</div>' +
+        '<div class="sg-row"><label data-ko="마이크" data-en="Microphone">마이크</label><select id="sg-mic-dev"><option data-ko="기본 마이크" data-en="Default mic">기본 마이크</option></select></div>' +
+        '<div class="sg-row"><label data-ko="마이크 음량" data-en="Mic volume">마이크 음량</label><input type="range" id="sg-mic-vol" min="0" max="100" value="70"></div>' +
+        '<div class="sg-row"><label data-ko="스피커" data-en="Speaker">스피커</label><button class="sg-test" data-act="spk" data-ko="테스트 ▶" data-en="Test ▶">테스트 ▶</button></div>' +
+        '<div class="sg-row"><label data-ko="카메라" data-en="Camera">카메라</label><select id="sg-cam-dev"><option data-ko="기본 카메라" data-en="Default camera">기본 카메라</option></select></div>' +
+        '<div class="sg-row"><label data-ko="잡음 제거" data-en="Noise removal">잡음 제거</label><div class="sg-sw on" data-act="noise"></div></div>' +
       '</div>' +
       '<div class="sg-group">' +
-        '<div class="sg-gtitle">영상 · 녹화</div>' +
-        '<div class="sg-row"><label>영상 화질</label><div class="sg-seg" id="sg-quality"><button data-q="auto" class="on">자동</button><button data-q="high">고</button><button data-q="low">저</button></div></div>' +
-        '<div class="sg-row"><label>자동 녹화</label><div class="sg-sw on" data-act="autorec"></div></div>' +
-        '<div class="sg-row"><label>배경 흐림</label><div class="sg-sw" data-act="blur"></div></div>' +
+        '<div class="sg-gtitle" data-ko="영상 · 녹화" data-en="Video · Recording">영상 · 녹화</div>' +
+        '<div class="sg-row"><label data-ko="영상 화질" data-en="Video quality">영상 화질</label><div class="sg-seg" id="sg-quality"><button data-q="auto" class="on" data-ko="자동" data-en="Auto">자동</button><button data-q="high" data-ko="고" data-en="High">고</button><button data-q="low" data-ko="저" data-en="Low">저</button></div></div>' +
+        '<div class="sg-row"><label data-ko="자동 녹화" data-en="Auto record">자동 녹화</label><div class="sg-sw on" data-act="autorec"></div></div>' +
+        '<div class="sg-row"><label data-ko="배경 흐림" data-en="Background blur">배경 흐림</label><div class="sg-sw" data-act="blur"></div></div>' +
       '</div>' +
       '<div class="sg-group" style="margin-bottom:2px;">' +
-        '<div class="sg-gtitle">표시</div>' +
-        '<div class="sg-row"><label>언어</label><div class="sg-seg" id="sg-lang"><button data-l="ko">한국어</button><button data-l="en">EN</button></div></div>' +
-        '<div class="sg-row"><label>테마</label><div class="sg-seg" id="sg-theme"><button data-t="light">라이트</button><button data-t="dark">다크</button></div></div>' +
-        '<div class="sg-row"><label>전체화면</label><div class="sg-sw" data-act="full"></div></div>' +
+        '<div class="sg-gtitle" data-ko="표시" data-en="Display">표시</div>' +
+        '<div class="sg-row"><label data-ko="언어" data-en="Language">언어</label><div class="sg-seg" id="sg-lang"><button data-l="ko">한국어</button><button data-l="en">EN</button></div></div>' +
+        '<div class="sg-row"><label data-ko="테마" data-en="Theme">테마</label><div class="sg-seg" id="sg-theme"><button data-t="light" data-ko="라이트" data-en="Light">라이트</button><button data-t="dark" data-ko="다크" data-en="Dark">다크</button></div></div>' +
+        '<div class="sg-row"><label data-ko="전체화면" data-en="Fullscreen">전체화면</label><div class="sg-sw" data-act="full"></div></div>' +
       '</div>';
     setPop.addEventListener('click', function(e){ e.stopPropagation(); });
 
@@ -249,6 +249,8 @@
     setPop.querySelector('[data-act="full"]').onclick = function(){ toggleFullscreen(); setTimeout(refreshSettings, 80); };
 
     document.body.appendChild(setPop);
+    // 현재 언어(EN/KO)를 즉시 반영 — MutationObserver 폴백 없이도 바로 번역
+    try { if (window.applyI18n) window.applyI18n(setPop); } catch(e){}
     fillDevices();
     return setPop;
   }
