@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>랭귀지 에이스 — B-17 단어 폭격대</title>
+<!--
+  ✈️ 랭귀지 에이스(Language Ace): B-17 단어 폭격대
+  · 단일 HTML SPA. 허브 파라미터: ?uid= &speed=1..5 &stage=1..3 &goal=N(정답 단어 목표, 허브 기본 10) &glang=en|zh &sentence=...
+  · 플레이어 B-17 = 실사 이미지(/img/b17-player.png) 런타임 크로마키(초록 제거) 스프라이트
+  · 적기 전부 = A6M Zero 실사 스프라이트(/img/zero-enemy.png, 편대사진서 선두기 크롭+크로마키). 비행패턴 weave/dive 2종
+  · 문장을 어순대로 '단어를 실은 적기'를 격추해 완성 → 발음 재생(Web Speech API)
+  · 연료(드럼통) 획득 → 점수+시간 증가 · 적 탄막(danmaku) 회피
+  · 사운드 = Web Audio API(기관총/폭발/획득/오답), 발음 = Web Speech API
+  · 학습기록 = /api/games/progress 배치 전송(실패해도 게임 무관)
+-->
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#0a0f14;
+    font-family:'Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8eef5;user-select:none;touch-action:none}
+  #wrap{position:fixed;inset:0;overflow:hidden}
+  canvas{display:block;position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+
+  /* ── 상단 문장 바 ── */
+  #topbar{position:absolute;top:0;left:0;right:0;z-index:6;padding:8px 12px 10px;
+    background:linear-gradient(180deg,rgba(8,14,20,.92),rgba(8,14,20,.55) 70%,transparent);
+    pointer-events:none}
+  #sentKo{font-size:14px;color:#ffd479;text-align:center;font-weight:700;letter-spacing:.3px;
+    text-shadow:0 1px 3px #000}
+  #sentEn{margin-top:5px;display:flex;flex-wrap:wrap;gap:5px 7px;justify-content:center;align-items:center}
+  .wtok{font-size:16px;font-weight:800;padding:3px 9px;border-radius:8px;line-height:1.1;
+    background:rgba(20,30,42,.7);color:#5f7089;border:1px solid rgba(120,140,170,.25);
+    text-shadow:0 1px 2px #000;transition:.15s}
+  .wtok .py{display:block;font-size:10px;font-weight:600;color:#7d8ba0;margin-top:1px}
+  .wtok.done{background:linear-gradient(180deg,#2e7d46,#1c5a30);color:#d8ffe4;border-color:#41d178}
+  .wtok.done .py{color:#a5e6bd}
+  .wtok.next{background:linear-gradient(180deg,#c9942a,#a2711a);color:#fff6da;border-color:#ffd479;
+    box-shadow:0 0 0 2px rgba(255,212,121,.5),0 0 14px rgba(255,190,60,.55);
+    animation:pulseTok .9s ease-in-out infinite}
+  .wtok.next .py{color:#ffe9b8}
+  @keyframes pulseTok{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+  /* ── HUD ── */
+  #hud{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:8px 12px 10px;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:10px;pointer-events:none;
+    background:linear-gradient(0deg,rgba(8,14,20,.9),transparent)}
+  .hbox{background:rgba(10,18,26,.72);border:1px solid rgba(120,150,180,.22);border-radius:10px;
+    padding:5px 11px;backdrop-filter:blur(3px)}
+  .hlab{font-size:10px;color:#8aa0b8;font-weight:700;letter-spacing:1px}
+  .hval{font-size:20px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
+  #hScore .hval{color:#ffd479}
+  #hClear .hval{color:#7fd1ff}
+  #timeWrap{flex:1;max-width:340px}
+  #timeBar{height:12px;border-radius:7px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:4px;
+    border:1px solid rgba(255,255,255,.14)}
+  #timeFill{height:100%;width:100%;border-radius:7px;
+    background:linear-gradient(90deg,#3ddc84,#a3e635);transition:width .25s linear}
+  #timeFill.warn{background:linear-gradient(90deg,#f97316,#ef4444)}
+  #hHearts{font-size:19px;letter-spacing:1px;filter:drop-shadow(0 1px 2px #000)}
+
+  /* ── 오버레이(시작/종료) ── */
+  .overlay{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:22px;
+    background:radial-gradient(120% 90% at 50% 35%,rgba(24,36,50,.86),rgba(6,10,14,.96))}
+  .overlay.hide{display:none}
+  .oTitle{font-size:34px;font-weight:900;letter-spacing:.5px;
+    background:linear-gradient(180deg,#ffe9a8,#e0b048);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;text-shadow:0 2px 8px rgba(0,0,0,.4);line-height:1.1}
+  .oSub{margin-top:6px;font-size:15px;color:#b8c6d6;font-weight:600}
+  .oRules{margin:16px 0;font-size:14px;color:#c8d4e2;line-height:1.9;max-width:400px}
+  .oRules b{color:#ffd479}
+  .langRow{display:flex;gap:12px;margin:6px 0 4px}
+  .langBtn{padding:10px 22px;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;
+    border:2px solid rgba(140,165,195,.35);background:rgba(20,32,46,.7);color:#c8d4e2;transition:.15s}
+  .langBtn.on{border-color:#ffd479;color:#fff6da;background:linear-gradient(180deg,#3a4a5e,#26323f);
+    box-shadow:0 0 16px rgba(255,190,60,.4)}
+  .bigBtn{margin-top:14px;padding:14px 44px;border-radius:14px;font-size:20px;font-weight:900;cursor:pointer;
+    border:none;color:#1a2028;background:linear-gradient(180deg,#ffe08a,#e0a838);
+    box-shadow:0 6px 20px rgba(224,168,56,.45),inset 0 1px 0 rgba(255,255,255,.6);letter-spacing:.5px}
+  .bigBtn:active{transform:translateY(2px)}
+  #overStat{font-size:17px;color:#dbe6f2;margin:8px 0 2px;line-height:1.7}
+  #overStat b{color:#ffd479;font-size:22px}
+
+  /* 단어 발음 팝업 */
+  #wordpop{position:absolute;z-index:15;display:none;pointer-events:none;
+    background:rgba(12,20,28,.94);border:1px solid #ffd479;border-radius:9px;padding:5px 11px;
+    font-size:14px;font-weight:700;color:#fff6da;box-shadow:0 4px 16px rgba(0,0,0,.5);white-space:nowrap;
+    transform:translate(-50%,-120%)}
+
+  /* 상단 우측 컨트롤 */
+  #ctlRow{position:absolute;top:8px;right:10px;z-index:7;display:flex;gap:6px}
+  .ctlBtn{width:34px;height:34px;border-radius:9px;border:1px solid rgba(140,165,195,.3);
+    background:rgba(12,20,28,.7);color:#cdd9e6;font-size:16px;font-weight:800;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;pointer-events:auto}
+  .ctlBtn:active{transform:scale(.92)}
+  #bannerMsg{position:absolute;top:34%;left:50%;transform:translateX(-50%);z-index:8;
+    font-size:30px;font-weight:900;pointer-events:none;opacity:0;text-shadow:0 3px 12px rgba(0,0,0,.7);
+    transition:opacity .2s}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+
+  <div id="topbar">
+    <div id="sentKo">—</div>
+    <div id="sentEn"></div>
+  </div>
+
+  <div id="ctlRow">
+    <button class="ctlBtn" id="btnMute" title="소리">🔊</button>
+    <button class="ctlBtn" id="btnPause" title="일시정지">⏸️</button>
+  </div>
+
+  <div id="bannerMsg"></div>
+
+  <div id="hud">
+    <div class="hbox" id="hScore"><div class="hlab">SCORE</div><div class="hval" id="vScore">0</div></div>
+    <div class="hbox" id="timeWrap"><div class="hlab">FUEL / TIME <span id="vTime" style="float:right;color:#a3e635">60</span></div>
+      <div id="timeBar"><div id="timeFill"></div></div>
+      <div id="hHearts" style="margin-top:5px">❤️❤️❤️</div></div>
+    <div class="hbox" id="hClear"><div class="hlab">정답</div><div class="hval" id="vClear">0/10</div></div>
+  </div>
+
+  <div id="wordpop"></div>
+
+  <!-- 시작 화면 -->
+  <div class="overlay" id="start">
+    <div class="oTitle">✈️ 랭귀지 에이스<br><span style="font-size:22px">B-17 단어 폭격대</span></div>
+    <div class="oSub" id="startSub">문장을 어순대로 격추하라!</div>
+    <div class="langRow">
+      <button class="langBtn" id="lgEn" data-l="en">🇺🇸 English</button>
+      <button class="langBtn" id="lgZh" data-l="zh">🇨🇳 中文</button>
+    </div>
+    <div class="oRules">
+      🖱️ <b>마우스로 조종</b> — B-17이 부드럽게 따라와요<br>
+      🔫 <b>누르고 있으면 연사</b> — 기관총 발사<br>
+      🎯 위 문장에서 <b>금색으로 빛나는 단어</b>를 실은 적기를 순서대로 격추!<br>
+      🛢️ <b>연료 드럼통</b>을 쏘면 시간·점수 증가<br>
+      💥 <b>A6M 제로센 편대</b>의 탄막을 피하세요!
+    </div>
+    <button class="bigBtn" id="btnStart">▶ 출격!</button>
+  </div>
+
+  <!-- 종료 화면 -->
+  <div class="overlay hide" id="over">
+    <div class="oTitle" id="overTitle">임무 완료!</div>
+    <div id="overStat"></div>
+    <button class="bigBtn" id="btnAgain">🔄 다시 출격</button>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   0. 파라미터 · 상태
+   ════════════════════════════════════════════════════════════ */
+var QS    = new URLSearchParams(location.search);
+var UID   = QS.get('uid') || '';
+var SPEED = Math.max(1, Math.min(5, parseInt(QS.get('speed')||'2',10) || 2));
+var STAGE = Math.max(1, Math.min(3, parseInt(QS.get('stage')||'1',10) || 1));
+// 🎯 GOAL = 정답 단어 명중 목표(허브 goal=10 컨벤션과 동일 단위 — shooter 등 형제 게임과 통일).
+//    문장은 이 목표를 향한 '수단'이고, 정답 단어를 어순대로 맞히다 GOAL 개 달성 시 임무 완료.
+var GOAL  = (function(){ var g=parseInt(QS.get('goal'),10); return (g>=3 && g<=50) ? g : 10; })();
+// glang 파라미터 우선, 없으면 localStorage 폴백(직접 링크 시에도 형제 게임과 언어 일관)
+var MODE  = (function(){ var g=QS.get('glang'); if(g==='zh'||g==='en') return g;
+  try{ var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(_){ return 'en'; } })();
+var SPMUL = 0.8 + SPEED*0.16;            // 속도 배수(1..5 → 0.96..1.6)
+var DIFF  = 0.85 + STAGE*0.18;           // 난이도 배수
+
+/* ════════════════════════════════════════════════════════════
+   1. 데이터 — 문장 세트(영/중) · 단어 뜻/병음
+   ════════════════════════════════════════════════════════════ */
+var LANGMETA = { en:{name:'영어',flag:'🇺🇸',tts:'en-US'}, zh:{name:'중국어',flag:'🇨🇳',tts:'zh-CN'} };
+
+var SETS = {
+  en:[
+    {w:['I','like','to','read','books'],       ko:'나는 책 읽기를 좋아해요'},
+    {w:['We','go','to','school'],              ko:'우리는 학교에 가요'},
+    {w:['The','big','dog','runs','fast'],      ko:'큰 개가 빠르게 달려요'},
+    {w:['My','cat','is','very','happy'],       ko:'내 고양이는 아주 행복해요'},
+    {w:['Birds','sing','a','song'],            ko:'새들이 노래를 불러요'},
+    {w:['I','drink','milk','at','home'],       ko:'나는 집에서 우유를 마셔요'},
+    {w:['The','sun','is','big','and','bright'],ko:'태양은 크고 밝아요'},
+    {w:['We','play','games','at','school'],    ko:'우리는 학교에서 게임을 해요'}
+  ],
+  zh:[
+    {w:['我','喜欢','读','书'],        ko:'나는 책 읽기를 좋아해요'},
+    {w:['我们','去','学校'],           ko:'우리는 학교에 가요'},
+    {w:['大','狗','跑','得','快'],      ko:'큰 개가 빠르게 달려요'},
+    {w:['我的','猫','很','高兴'],       ko:'내 고양이는 행복해요'},
+    {w:['鸟','唱','歌'],              ko:'새가 노래해요'},
+    {w:['我','在','家','喝','牛奶'],    ko:'나는 집에서 우유를 마셔요'},
+    {w:['太阳','又','大','又','亮'],    ko:'태양은 크고 밝아요'},
+    {w:['我们','在','学校','玩'],       ko:'우리는 학교에서 놀아요'}
+  ]
+};
+
+/* 단어 뜻/병음(발음 팝업·디코이 라벨용) */
+var GLOSS = {
+  en:{ I:'나',like:'좋아하다',to:'~하기',read:'읽다',books:'책들',We:'우리',go:'가다',school:'학교',
+    The:'그',big:'큰',dog:'개',runs:'달린다',fast:'빠르게',My:'나의',cat:'고양이',is:'~이다',very:'아주',
+    happy:'행복한',Birds:'새들',sing:'노래하다',a:'하나의',song:'노래',drink:'마시다',milk:'우유',at:'~에서',
+    home:'집',sun:'태양',and:'그리고',bright:'밝은',play:'놀다',games:'게임' },
+  zh:{ '我':{k:'나',p:'wǒ'},'喜欢':{k:'좋아하다',p:'xǐhuan'},'读':{k:'읽다',p:'dú'},'书':{k:'책',p:'shū'},
+    '我们':{k:'우리',p:'wǒmen'},'去':{k:'가다',p:'qù'},'学校':{k:'학교',p:'xuéxiào'},'大':{k:'큰',p:'dà'},
+    '狗':{k:'개',p:'gǒu'},'跑':{k:'달리다',p:'pǎo'},'得':{k:'(정도)',p:'de'},'快':{k:'빠른',p:'kuài'},
+    '我的':{k:'나의',p:'wǒde'},'猫':{k:'고양이',p:'māo'},'很':{k:'아주',p:'hěn'},'高兴':{k:'기쁜',p:'gāoxìng'},
+    '鸟':{k:'새',p:'niǎo'},'唱':{k:'노래하다',p:'chàng'},'歌':{k:'노래',p:'gē'},'在':{k:'~에서',p:'zài'},
+    '家':{k:'집',p:'jiā'},'喝':{k:'마시다',p:'hē'},'牛奶':{k:'우유',p:'niúnǎi'},'太阳':{k:'태양',p:'tàiyáng'},
+    '又':{k:'또한',p:'yòu'},'亮':{k:'밝은',p:'liàng'},'玩':{k:'놀다',p:'wán'} }
+};
+function glossKo(w){ if(!w)return''; if(MODE==='en'){ return GLOSS.en[w]||GLOSS.en[String(w).toLowerCase()]||''; } var g=GLOSS.zh[w]; return g?g.k:''; }
+function glossPy(w){ if(!w||MODE!=='zh')return''; var g=GLOSS.zh[w]; return g?g.p:''; }
+/* 디코이 단어 풀(문장에 없어도 라벨로 등장) */
+function decoyPool(){ return MODE==='en'
+  ? ['run','jump','apple','water','star','moon','tree','fish','red','blue','small','eat','sing','friend','play','book']
+  : ['苹果','水','星星','月亮','树','鱼','红','蓝','小','吃','朋友','花','门','手','火','风']; }
+
+/* ════════════════════════════════════════════════════════════
+   2. 캔버스 · 리사이즈 (DPR 캡)
+   ════════════════════════════════════════════════════════════ */
+var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+var W=0,H=0,DPR=1;
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio||1);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  buildBackdrop();
+}
+window.addEventListener('resize', resize);
+
+/* ════════════════════════════════════════════════════════════
+   3. Web Audio — 기관총 · 폭발 · 획득 · 오답
+   ════════════════════════════════════════════════════════════ */
+var AC=null, muted=false, masterGain=null;
+function audio(){ if(AC) return AC; try{ AC=new (window.AudioContext||window.webkitAudioContext)();
+  masterGain=AC.createGain(); masterGain.gain.value=0.9; masterGain.connect(AC.destination);}catch(_){} return AC; }
+function noiseBuf(dur){ var ac=audio(); if(!ac)return null; var n=Math.floor(ac.sampleRate*dur),b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0);
+  for(var i=0;i<n;i++) d[i]=Math.random()*2-1; return b; }
+var _shotT=0;
+function sndShot(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime; if(t-_shotT<0.045)return; _shotT=t;
+  // 짧은 노이즈 버스트 + 로우패스 = 기관총 탁탁
+  var src=ac.createBufferSource(); src.buffer=noiseBuf(0.05);
+  var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400;
+  var g=ac.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.06);
+  src.connect(lp); lp.connect(g); g.connect(masterGain); src.start(t); src.stop(t+0.07);
+  var o=ac.createOscillator(); o.type='square'; o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(70,t+0.05);
+  var g2=ac.createGain(); g2.gain.setValueAtTime(0.18,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.06);
+  o.connect(g2); g2.connect(masterGain); o.start(t); o.stop(t+0.07); }
+function sndBoom(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime;
+  var src=ac.createBufferSource(); src.buffer=noiseBuf(0.5);
+  var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(900,t); lp.frequency.exponentialRampToValueAtTime(120,t+0.4);
+  var g=ac.createGain(); g.gain.setValueAtTime(0.7,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.5);
+  src.connect(lp); lp.connect(g); g.connect(masterGain); src.start(t); src.stop(t+0.5);
+  var o=ac.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(90,t); o.frequency.exponentialRampToValueAtTime(30,t+0.4);
+  var g2=ac.createGain(); g2.gain.setValueAtTime(0.6,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.45);
+  o.connect(g2); g2.connect(masterGain); o.start(t); o.stop(t+0.45); }
+function sndPickup(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime;
+  [523,784,1047].forEach(function(f,i){ var o=ac.createOscillator(),g=ac.createGain(); o.type='triangle';
+    o.frequency.value=f; g.gain.setValueAtTime(0.0001,t+i*0.07); g.gain.exponentialRampToValueAtTime(0.3,t+i*0.07+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+i*0.07+0.16); o.connect(g); g.connect(masterGain);
+    o.start(t+i*0.07); o.stop(t+i*0.07+0.18); }); }
+function sndBuzz(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime;
+  var o=ac.createOscillator(),g=ac.createGain(); o.type='sawtooth'; o.frequency.setValueAtTime(200,t);
+  o.frequency.linearRampToValueAtTime(90,t+0.25); g.gain.setValueAtTime(0.28,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
+  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.3); }
+
+/* ════════════════════════════════════════════════════════════
+   4. Web Speech — 발음
+   ════════════════════════════════════════════════════════════ */
+var VOICES=[];
+function loadVoices(){ try{ VOICES=speechSynthesis.getVoices()||[]; }catch(_){} }
+loadVoices(); try{ speechSynthesis.onvoiceschanged=loadVoices; }catch(_){}
+function pickVoice(lang){ return VOICES.find(function(v){return v.lang===lang;})
+  || VOICES.find(function(v){return v.lang && v.lang.indexOf(lang.slice(0,2))===0;}); }
+function speak(text, rate, times){ if(muted)return; times=Math.max(1,times||1);
+  try{ speechSynthesis.cancel(); }catch(_){}
+  var lang=LANGMETA[MODE].tts, v=pickVoice(lang), n=0;
+  function once(){ n++; try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.95; if(v)u.voice=v;
+    if(n<times) u.onend=function(){ setTimeout(once,360); }; speechSynthesis.speak(u); }catch(_){} }
+  once(); }
+
+/* ════════════════════════════════════════════════════════════
+   5. 플레이어 스프라이트 — B-17 이미지 크로마키(초록 제거)
+   ════════════════════════════════════════════════════════════ */
+var B17 = { ready:false, cnv:null, w:0, h:0 };
+(function loadB17(){
+  var img=new Image();
+  img.onload=function(){
+    try{
+      var oc=document.createElement('canvas'); oc.width=img.width; oc.height=img.height;
+      var octx=oc.getContext('2d'); octx.drawImage(img,0,0);
+      var id=octx.getImageData(0,0,oc.width,oc.height), d=id.data;
+      var minX=oc.width,minY=oc.height,maxX=0,maxY=0;
+      for(var i=0;i<d.length;i+=4){
+        var r=d[i],g=d[i+1],b=d[i+2];
+        // 형광 초록 판정: g가 확실히 우세 → 투명 처리 + 그린 스필 억제
+        if(g>90 && g>r*1.25 && g>b*1.25 && (g-Math.max(r,b))>40){ d[i+3]=0; }
+        else{
+          if(g>r && g>b){ d[i+1]=Math.round((r+b)/2 + (g-(r+b)/2)*0.35); } // despill
+          var p=(i/4), x=p%oc.width, y=(p-x)/oc.width;
+          if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y;
+        }
+      }
+      octx.putImageData(id,0,0);
+      // 타이트 크롭
+      var cw=Math.max(1,maxX-minX+1), ch=Math.max(1,maxY-minY+1);
+      var tc=document.createElement('canvas'); tc.width=cw; tc.height=ch;
+      tc.getContext('2d').drawImage(oc,minX,minY,cw,ch,0,0,cw,ch);
+      B17.cnv=tc; B17.w=cw; B17.h=ch; B17.ready=true;
+    }catch(_){ B17.ready=false; }
+  };
+  img.onerror=function(){ B17.ready=false; };
+  img.src='/img/b17-player.png';
+})();
+
+/* 적기 스프라이트 — A6M Zero 실사(이미 크로마키 제거된 투명 PNG, 기수 아래 방향) */
+var ZERO = { ready:false, img:null, w:0, h:0 };
+(function loadZero(){
+  var img=new Image();
+  img.onload=function(){ ZERO.img=img; ZERO.w=img.width; ZERO.h=img.height; ZERO.ready=true; };
+  img.onerror=function(){ ZERO.ready=false; };
+  img.src='/img/zero-enemy.png';
+})();
+
+/* ════════════════════════════════════════════════════════════
+   6. 배경 — 스크롤 지형/구름(전진 비행감) · 오프스크린 프리렌더
+   ════════════════════════════════════════════════════════════ */
+var bd=null, bdH=0, bdScroll=0;
+function buildBackdrop(){
+  bdH = Math.max(H*2, 1200);
+  bd = document.createElement('canvas'); bd.width=Math.max(1,Math.round(W)); bd.height=bdH;
+  var g=bd.getContext('2d');
+  // 하늘(황혼 밀리터리 톤)
+  var sky=g.createLinearGradient(0,0,0,bdH); sky.addColorStop(0,'#243447'); sky.addColorStop(0.5,'#33475c');
+  sky.addColorStop(1,'#3b5a55'); g.fillStyle=sky; g.fillRect(0,0,bd.width,bdH);
+  // 지형 패치(밭/숲) — 아래로 흐르며 전진감
+  function rnd(s){ var x=Math.sin(s*99.7)*43758.5; return x-Math.floor(x); }
+  for(var i=0;i<90;i++){
+    var x=rnd(i)*bd.width, y=rnd(i+7)*bdH, w=40+rnd(i+3)*130, h=30+rnd(i+9)*90;
+    var greens=['#3d5842','#47603f','#54613a','#3a5347','#5b5f3a'];
+    g.fillStyle=greens[Math.floor(rnd(i+2)*greens.length)]; g.globalAlpha=0.5;
+    g.beginPath(); g.ellipse(x,y,w,h,rnd(i)*3,0,7); g.fill();
+  }
+  g.globalAlpha=1;
+  // 강 한 줄
+  g.strokeStyle='rgba(120,150,175,.28)'; g.lineWidth=14; g.beginPath();
+  g.moveTo(bd.width*0.2,0);
+  for(var yy=0;yy<=bdH;yy+=60){ g.lineTo(bd.width*(0.2+0.15*Math.sin(yy*0.01)), yy); } g.stroke();
+  // 구름(반투명)
+  for(var c=0;c<26;c++){ var cx=rnd(c+40)*bd.width, cy=rnd(c+50)*bdH, cr=30+rnd(c+60)*70;
+    var rg=g.createRadialGradient(cx,cy,0,cx,cy,cr); rg.addColorStop(0,'rgba(230,238,246,.5)');
+    rg.addColorStop(1,'rgba(230,238,246,0)'); g.fillStyle=rg; g.beginPath(); g.arc(cx,cy,cr,0,7); g.fill(); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   7. 게임 상태
+   ════════════════════════════════════════════════════════════ */
+var G = null;
+function newGame(){
+  var order = shuffle(SETS[MODE].slice());
+  G = {
+    running:false, over:false, paused:false,
+    score:0, time:60, timeMax:60, hearts:3, clears:0, correct:0,   // clears=완성 문장 / correct=정답 단어 명중(승리 판정 단위)
+    px:W/2, py:H*0.72, tx:W/2, ty:H*0.72,   // player pos & target
+    firing:false, fireT:0, invuln:0, shake:0, flash:0,
+    enemies:[], ebul:[], pbul:[], fuels:[], parts:[],
+    spawnT:0, fuelT:0, watchT:0,
+    queue:order, si:0, sent:null, next:0,
+    prog:[]
+  };
+  loadSentence();
+}
+function loadSentence(){
+  if(G.si>=G.queue.length) G.queue=shuffle(SETS[MODE].slice()), G.si=0;
+  var s=G.queue[G.si++];
+  G.sent = { w:s.w.slice(), ko:s.ko }; G.next=0;
+  renderSentence();
+}
+
+/* ════════════════════════════════════════════════════════════
+   8. 문장 바 렌더
+   ════════════════════════════════════════════════════════════ */
+function renderSentence(){
+  document.getElementById('sentKo').textContent = '🎯 '+G.sent.ko;
+  var host=document.getElementById('sentEn'); host.innerHTML='';
+  G.sent.w.forEach(function(w,i){
+    var cls = i<G.next ? 'done' : (i===G.next ? 'next' : '');
+    var py = glossPy(w); var pyh = py ? '<span class="py">'+py+'</span>' : '';
+    host.insertAdjacentHTML('beforeend','<span class="wtok '+cls+'">'+esc(w)+pyh+'</span>');
+  });
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+/* ════════════════════════════════════════════════════════════
+   9. 적기 스폰 — Bf109 / Zero, 단어 탑재
+   ════════════════════════════════════════════════════════════ */
+function neededWord(){ return G.sent.w[G.next]; }
+function sameWord(a,b){ return MODE==='en' ? String(a).toLowerCase()===String(b).toLowerCase() : a===b; }
+function targetOnScreen(){ var t=neededWord(); return G.enemies.some(function(e){ return e.alive && sameWord(e.word,t); }); }
+
+function spawnEnemy(forceTarget){
+  if(G.enemies.length>=7) return;
+  // 전 적기 = A6M Zero. 비행 패턴만 두 가지: weave(좌우 크게 스웝) / dive(빠른 직하강)
+  var pat = Math.random()<0.5 ? 'weave' : 'dive';
+  var word;
+  if(forceTarget){ word=neededWord(); }
+  else {
+    var r=Math.random();
+    if(r<0.42) word=neededWord();                                   // 정답 단어 자주
+    else if(r<0.72){ var rem=G.sent.w.filter(function(w,i){return i!==G.next;}); word=rem.length?rem[Math.floor(Math.random()*rem.length)]:neededWord(); }
+    else { var dp=decoyPool(); word=dp[Math.floor(Math.random()*dp.length)]; }
+  }
+  var x = 60+Math.random()*(W-120);
+  var dw = pat==='dive' ? 76 : 88;              // 표시 폭(px)
+  var dh = dw * 445/887;                         // 원본 비율 유지
+  var e = {
+    pat:pat, alive:true, word:word, x:x, y:-dh,
+    dw:dw, dh:dh, hw:dw*0.42, hh:dh*0.44, r:dh*0.42,
+    t:Math.random()*6.28, bank:0,
+    vy: (pat==='dive'? (54+Math.random()*22) : (34+Math.random()*16)) * SPMUL * DIFF,
+    amp: pat==='weave' ? (60+Math.random()*80) : (22+Math.random()*26),
+    freq: pat==='weave' ? (0.9+Math.random()*0.6) : (1.5+Math.random()*0.8),
+    baseX:x, fireT: 0.6+Math.random()*1.2
+  };
+  G.enemies.push(e);
+}
+
+/* ════════════════════════════════════════════════════════════
+   10. 발사 · 탄막
+   ════════════════════════════════════════════════════════════ */
+function playerFire(){
+  var t=performance.now();
+  if(t - G.fireT < 95) return; G.fireT=t;
+  G.pbul.push({x:G.px-11, y:G.py-24, vy:-620}, {x:G.px+11, y:G.py-24, vy:-620});
+  sndShot();
+}
+function enemyFire(e){
+  var dx=G.px-e.x, dy=G.py-e.y, d=Math.hypot(dx,dy)||1;
+  if(e.pat==='dive'){
+    // 조준 2연발
+    var sp=190*SPMUL;
+    for(var k=-1;k<=1;k+=2){
+      var a=Math.atan2(dy,dx)+k*0.06;
+      G.ebul.push({x:e.x,y:e.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:5,c:'#ffcf5a'});
+    }
+  } else {
+    // 방사형 스프레드(danmaku)
+    var n=5+Math.min(4,STAGE+1), base=Math.atan2(dy,dx), sp2=140*SPMUL;
+    for(var i=0;i<n;i++){ var a2=base+(i-(n-1)/2)*0.28;
+      G.ebul.push({x:e.x,y:e.y,vx:Math.cos(a2)*sp2,vy:Math.sin(a2)*sp2,r:5,c:'#ff6b6b'}); }
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   11. 폭발 · 파티클
+   ════════════════════════════════════════════════════════════ */
+function explode(x,y,big){
+  var n = big?26:16;
+  for(var i=0;i<n;i++){ var a=Math.random()*6.28, sp=(big?80:50)+Math.random()*(big?260:160);
+    G.parts.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:0.5+Math.random()*0.5,age:0,
+      size:2+Math.random()*(big?5:3),rot:Math.random()*6.28,vr:(Math.random()-0.5)*10,
+      kind: Math.random()<0.55?'debris':'spark'}); }
+  // 충격 링 + 화구
+  G.parts.push({ring:true,x:x,y:y,age:0,life:0.45,r0:6,r1:big?90:56});
+  G.parts.push({fire:true,x:x,y:y,age:0,life:big?0.5:0.36,rad:big?52:36});
+  G.shake=Math.min(16, G.shake+(big?12:7));
+}
+
+/* ════════════════════════════════════════════════════════════
+   12. 입력 — 포인터 조종/발사
+   ════════════════════════════════════════════════════════════ */
+function ptr(ev){ var r=cv.getBoundingClientRect(); var t=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
+  return {x:t.clientX-r.left, y:t.clientY-r.top}; }
+cv.addEventListener('pointermove',function(ev){ if(!G||!G.running)return; var p=ptr(ev); G.tx=p.x; G.ty=p.y; });
+cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running)return; audio(); if(AC&&AC.state==='suspended')AC.resume();
+  var p=ptr(ev); G.tx=p.x; G.ty=p.y; G.firing=true; playerFire(); });
+window.addEventListener('pointerup',function(){ if(G)G.firing=false; });
+cv.addEventListener('contextmenu',function(e){e.preventDefault();});
+
+/* ════════════════════════════════════════════════════════════
+   13. 업데이트
+   ════════════════════════════════════════════════════════════ */
+function update(dt){
+  if(!G.running||G.paused) return;
+  // 시간
+  G.time -= dt; if(G.time<=0){ G.time=0; return endGame(false); }
+  bdScroll = (bdScroll + dt*90*SPMUL) % bdH;
+
+  // 플레이어(정밀 lerp 추종)
+  var lp=1-Math.pow(0.0016, dt);
+  G.px += (G.tx-G.px)*lp; G.py += (G.ty-G.py)*lp;
+  G.px=clamp(G.px,24,W-24); G.py=clamp(G.py,60,H-70);
+  if(G.invuln>0)G.invuln-=dt; if(G.shake>0)G.shake=Math.max(0,G.shake-dt*40); if(G.flash>0)G.flash-=dt;
+
+  // 연사
+  if(G.firing) playerFire();
+
+  // 스폰
+  G.spawnT-=dt;
+  if(G.spawnT<=0){ spawnEnemy(false); G.spawnT = (1.15 - STAGE*0.12)/SPMUL * (0.7+Math.random()*0.6); }
+  // 정답 단어 항상 화면에 존재하도록 워치독
+  G.watchT-=dt; if(G.watchT<=0){ G.watchT=1.0; if(!targetOnScreen() && G.enemies.length<7) spawnEnemy(true); }
+  // 연료
+  G.fuelT-=dt; if(G.fuelT<=0){ G.fuelT=6+Math.random()*5;
+    G.fuels.push({x:40+Math.random()*(W-80),y:-30,vy:(52+Math.random()*20),r:16,rot:0}); }
+
+  // 적기 이동/사격
+  for(var i=G.enemies.length-1;i>=0;i--){ var e=G.enemies[i]; if(!e.alive){G.enemies.splice(i,1);continue;}
+    e.t+=dt; e.y+=e.vy*dt;
+    var nx = e.baseX + Math.sin(e.t*e.freq)*e.amp;
+    e.bank = (nx-e.x); e.x=nx; e.x=clamp(e.x,20,W-20);
+    e.fireT-=dt; if(e.fireT<=0 && e.y>20 && e.y<H*0.75){ enemyFire(e); e.fireT=(e.pat==='dive'?1.1:1.6)*(1.2-STAGE*0.12); }
+    if(e.y>H+40){ G.enemies.splice(i,1); }
+  }
+  // 적 탄
+  for(var b=G.ebul.length-1;b>=0;b--){ var eb=G.ebul[b]; eb.x+=eb.vx*dt; eb.y+=eb.vy*dt;
+    if(eb.x<-20||eb.x>W+20||eb.y<-20||eb.y>H+20){ G.ebul.splice(b,1); continue; }
+    if(G.invuln<=0 && Math.hypot(eb.x-G.px,eb.y-G.py) < 20){ G.ebul.splice(b,1); hitPlayer(); }
+  }
+  // 플레이어 탄
+  for(var p=G.pbul.length-1;p>=0;p--){ var pb=G.pbul[p]; pb.y+=pb.vy*dt;
+    if(pb.y<-20){ G.pbul.splice(p,1); continue; }
+    var hit=false;
+    for(var j=0;j<G.enemies.length;j++){ var en=G.enemies[j]; if(!en.alive)continue;
+      if(Math.abs(pb.x-en.x)<en.hw && Math.abs(pb.y-en.y)<en.hh){ resolveHit(en); hit=true; break; } }
+    if(!hit){ for(var f=0;f<G.fuels.length;f++){ var fu=G.fuels[f];
+      if(Math.abs(pb.x-fu.x)<fu.r+4 && Math.abs(pb.y-fu.y)<fu.r+4){ collectFuel(fu); G.fuels.splice(f,1); hit=true; break; } } }
+    if(hit) G.pbul.splice(p,1);
+  }
+  // 연료 낙하 + 몸통 획득
+  for(var g2=G.fuels.length-1;g2>=0;g2--){ var fl=G.fuels[g2]; fl.y+=fl.vy*dt; fl.rot+=dt*2;
+    if(fl.y>H+30){ G.fuels.splice(g2,1); continue; }
+    if(Math.hypot(fl.x-G.px,fl.y-G.py)<fl.r+18){ collectFuel(fl); G.fuels.splice(g2,1); } }
+  // 적기 몸통 충돌
+  for(var k2=0;k2<G.enemies.length;k2++){ var em=G.enemies[k2]; if(!em.alive)continue;
+    if(G.invuln<=0 && Math.hypot(em.x-G.px,em.y-G.py)<em.r+16){ explode(em.x,em.y,false); sndBoom(); em.alive=false; hitPlayer(); } }
+  // 파티클
+  for(var q=G.parts.length-1;q>=0;q--){ var pt=G.parts[q]; pt.age+=dt; if(pt.age>=pt.life){ G.parts.splice(q,1); continue; }
+    if(!pt.ring&&!pt.fire){ pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vy+=260*dt; pt.vx*=0.98; pt.rot+=pt.vr*dt; } }
+}
+
+function hitPlayer(){ if(G.invuln>0)return; G.hearts--; G.invuln=1.3; G.flash=0.35; G.shake=Math.min(18,G.shake+10);
+  G.time=Math.max(0,G.time-2); sndBuzz(); updateHUD();
+  if(G.hearts<=0){ endGame(false); } }
+
+function resolveHit(en){
+  en.alive=false;
+  if(sameWord(en.word, neededWord())){
+    explode(en.x,en.y,true); sndBoom();
+    G.correct++;                                  // 🎯 정답 단어 명중 누적(허브 goal 컨벤션과 동일 단위)
+    G.score += 100 + G.clears*10;
+    pushProg(en.word,true);
+    speak(en.word, 0.95, 1);
+    wordPopAt(en.x,en.y, en.word);
+    G.next++;
+    banner('+'+(100+G.clears*10), '#a3e635');
+    if(G.correct>=GOAL){ updateHUD(); return winGame(); }   // 목표 정답 수 달성 → 임무 완료
+    if(G.next>=G.sent.w.length){ sentenceComplete(); }
+    else renderSentence();
+  } else {
+    explode(en.x,en.y,false); sndBuzz();
+    pushProg(en.word,false);
+    G.time=Math.max(0,G.time-2.5);
+    G.flash=0.25;
+    banner('오답! -2.5s', '#ff6b6b');
+  }
+  updateHUD();
+}
+function sentenceComplete(){
+  G.clears++;
+  var full = G.sent.w.join(MODE==='zh'?'':' ');
+  speak(full, 0.92, 2);
+  G.score += 300; G.time=Math.min(G.timeMax, G.time+5);
+  banner('✦ 문장 완성! +300 ✦', '#ffd479');
+  updateHUD();
+  loadSentence();   // 승리 판정은 정답 단어 수(GOAL)로 resolveHit 에서 처리 → 여기선 항상 다음 문장
+}
+function winGame(){ if(!G||!G.running)return; G.running=false; setTimeout(function(){ endGame(true); }, 900); }  // 마지막 폭발/발음만 재생 후 종료
+function collectFuel(fu){ explode(fu.x,fu.y,false); sndPickup();
+  G.time=Math.min(G.timeMax, G.time+8); G.score+=30;
+  for(var i=0;i<8;i++){ var a=Math.random()*6.28; G.parts.push({x:fu.x,y:fu.y,vx:Math.cos(a)*90,vy:Math.sin(a)*90-40,
+    life:0.5,age:0,size:3,rot:0,vr:5,kind:'spark',fuel:true}); }
+  banner('⛽ +8s', '#7fd1ff'); updateHUD(); }
+
+/* ════════════════════════════════════════════════════════════
+   14. 렌더
+   ════════════════════════════════════════════════════════════ */
+function render(){
+  ctx.save();
+  if(G && G.shake>0){ var s=G.shake; ctx.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+  // 배경(2회 타일 스크롤)
+  if(bd){ var off = bdScroll; ctx.drawImage(bd,0,off-bdH); ctx.drawImage(bd,0,off); }
+  else { ctx.fillStyle='#2b3d4f'; ctx.fillRect(0,0,W,H); }
+
+  if(G){
+    // 연료
+    G.fuels.forEach(function(fu){ drawFuel(fu); });
+    // 적기(라벨 포함) — 전 기체 A6M Zero 실사 스프라이트
+    G.enemies.forEach(function(e){ drawZeroSprite(e); drawLabel(e); });
+    // 적 탄
+    G.ebul.forEach(function(eb){ drawEbul(eb); });
+    // 플레이어 탄
+    ctx.fillStyle='#fff2b0';
+    G.pbul.forEach(function(pb){ ctx.fillRect(pb.x-2,pb.y-9,4,12);
+      ctx.fillStyle='rgba(255,220,120,.5)'; ctx.fillRect(pb.x-1,pb.y+3,2,7); ctx.fillStyle='#fff2b0'; });
+    // 플레이어
+    drawPlayer();
+    // 파티클
+    G.parts.forEach(function(pt){ drawPart(pt); });
+    // 피격 플래시
+    if(G.flash>0){ ctx.fillStyle='rgba(255,40,40,'+(G.flash*0.5)+')'; ctx.fillRect(0,0,W,H); }
+  }
+  ctx.restore();
+}
+
+function drawPlayer(){
+  var blink = (G.invuln>0 && Math.floor(performance.now()/90)%2===0);
+  ctx.save(); ctx.translate(G.px,G.py);
+  // 연한 그림자(방사형 — shadowBlur 대신 = 성능)
+  var sh=ctx.createRadialGradient(6,26,4,6,26,46); sh.addColorStop(0,'rgba(0,0,0,.34)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sh; ctx.beginPath(); ctx.ellipse(6,26,44,20,0,0,7); ctx.fill();
+  if(!blink){
+    if(B17.ready){ var sc=76/B17.h; var w=B17.w*sc, h=B17.h*sc; ctx.drawImage(B17.cnv,-w/2,-h/2,w,h); }
+    else { drawB17fallback(); }
+  }
+  ctx.restore();
+}
+function drawB17fallback(){ // 이미지 로드 전/실패 시 벡터 대체(올리브 드랩)
+  ctx.save();
+  var body=ctx.createLinearGradient(-8,0,10,0); body.addColorStop(0,'#6a6f45'); body.addColorStop(.5,'#878c5a'); body.addColorStop(1,'#565a38');
+  ctx.fillStyle=body; rr(-7,-34,14,66,7); ctx.fill();
+  var wing=ctx.createLinearGradient(0,-6,0,6); wing.addColorStop(0,'#7d8252'); wing.addColorStop(1,'#565a38');
+  ctx.fillStyle=wing; rr(-46,-8,92,15,5); ctx.fill(); rr(-22,26,44,10,4); ctx.fill();
+  ctx.fillStyle='#3a3d28'; [-34,-16,16,34].forEach(function(ex){ rr(ex-4,-14,8,12,3); ctx.fill(); });
+  ctx.fillStyle='#9fd0e6'; rr(-5,-30,10,10,4); ctx.fill();
+  ctx.restore();
+}
+
+/* ── A6M Zero 실사 스프라이트(기수 아래) + 연한 그림자 + 뱅킹 ── */
+function drawZeroSprite(e){
+  if(!ZERO.ready){ drawZeroVec(e); return; }
+  ctx.save(); ctx.translate(e.x,e.y); ctx.rotate(clamp(e.bank*0.012,-0.28,0.28));
+  // 연한 그림자(방사형 = shadowBlur 대비 성능)
+  var shy=e.dh*0.32, shrx=e.dw*0.5, shry=e.dh*0.34;
+  var sh=ctx.createRadialGradient(4,shy,3,4,shy,shrx); sh.addColorStop(0,'rgba(0,0,0,.3)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sh; ctx.beginPath(); ctx.ellipse(4,shy,shrx,shry,0,0,7); ctx.fill();
+  ctx.drawImage(ZERO.img, -e.dw/2, -e.dh/2, e.dw, e.dh);
+  ctx.restore();
+}
+/* 이미지 로드 전/실패 시 벡터 대체(회녹색 + 히노마루, 기수 아래) */
+function drawZeroVec(e){
+  ctx.save(); ctx.translate(e.x,e.y); ctx.rotate(Math.PI + clamp(e.bank*0.01,-0.3,0.3));
+  var wg=ctx.createLinearGradient(0,-4,0,6); wg.addColorStop(0,'#9aa585'); wg.addColorStop(.5,'#77835f'); wg.addColorStop(1,'#4c5539');
+  ctx.fillStyle=wg; ctx.beginPath(); ctx.ellipse(0,2,30,7,0,0,7); ctx.fill();
+  ctx.fillStyle='#c0392b'; [-19,19].forEach(function(wx){ ctx.beginPath(); ctx.arc(wx,2,4,0,7); ctx.fill(); });
+  var bg=ctx.createLinearGradient(-6,0,7,0); bg.addColorStop(0,'#8a9370'); bg.addColorStop(.5,'#b3bd97'); bg.addColorStop(1,'#59613f');
+  ctx.fillStyle=bg; ctx.beginPath(); ctx.moveTo(0,-32); ctx.quadraticCurveTo(7,-16,6,6); ctx.quadraticCurveTo(5,22,0,29);
+  ctx.quadraticCurveTo(-5,22,-6,6); ctx.quadraticCurveTo(-7,-16,0,-32); ctx.closePath(); ctx.fill();
+  var cg=ctx.createLinearGradient(0,-8,0,8); cg.addColorStop(0,'#3a5a4a'); cg.addColorStop(1,'#1e352a');
+  ctx.fillStyle=cg; rr(-4,-6,8,15,4); ctx.fill();
+  ctx.fillStyle=wg; ctx.beginPath(); ctx.moveTo(0,20); ctx.lineTo(-10,30); ctx.lineTo(10,30); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+/* 단어 라벨(적기 아래) */
+function drawLabel(e){
+  var isT = sameWord(e.word, neededWord());
+  ctx.save(); ctx.font='bold 15px "Segoe UI",sans-serif'; ctx.textAlign='center';
+  var tw=ctx.measureText(e.word).width, pad=7, bw=tw+pad*2, by=e.y+e.r+4;
+  ctx.fillStyle = isT ? 'rgba(60,44,10,.92)' : 'rgba(10,16,22,.82)';
+  rr(e.x-bw/2, by, bw, 21, 6); ctx.fill();
+  if(isT){ ctx.strokeStyle='#ffd479'; ctx.lineWidth=1.5; rr(e.x-bw/2,by,bw,21,6); ctx.stroke(); }
+  ctx.fillStyle = isT ? '#ffe9a8' : '#dbe6f2'; ctx.textBaseline='middle';
+  ctx.fillText(e.word, e.x, by+11);
+  ctx.restore();
+}
+
+function drawEbul(eb){
+  ctx.save();
+  var gg=ctx.createRadialGradient(eb.x,eb.y,0,eb.x,eb.y,eb.r*2); gg.addColorStop(0,'#fff'); gg.addColorStop(.4,eb.c);
+  gg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(eb.x,eb.y,eb.r*1.8,0,7); ctx.fill();
+  ctx.fillStyle=eb.c; ctx.beginPath(); ctx.arc(eb.x,eb.y,eb.r*0.7,0,7); ctx.fill();
+  ctx.restore();
+}
+function drawFuel(fu){
+  ctx.save(); ctx.translate(fu.x,fu.y); ctx.rotate(Math.sin(fu.rot)*0.15);
+  var sh=ctx.createRadialGradient(3,18,2,3,18,20); sh.addColorStop(0,'rgba(0,0,0,.3)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sh; ctx.beginPath(); ctx.ellipse(3,18,16,7,0,0,7); ctx.fill();
+  var bg=ctx.createLinearGradient(-fu.r,0,fu.r,0); bg.addColorStop(0,'#8a5a1e'); bg.addColorStop(.5,'#d08a2e'); bg.addColorStop(1,'#6e4416');
+  ctx.fillStyle=bg; rr(-fu.r*0.72,-fu.r,fu.r*1.44,fu.r*2,4); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-fu.r*0.72,-4); ctx.lineTo(fu.r*0.72,-4);
+  ctx.moveTo(-fu.r*0.72,5); ctx.lineTo(fu.r*0.72,5); ctx.stroke();
+  ctx.fillStyle='#1a1a1a'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('⛽',0,0);
+  ctx.restore();
+}
+function drawPart(pt){
+  var k=1-pt.age/pt.life;
+  if(pt.ring){ var r=pt.r0+(pt.r1-pt.r0)*(pt.age/pt.life); ctx.strokeStyle='rgba(255,220,150,'+(k*0.8)+')';
+    ctx.lineWidth=3*k+0.5; ctx.beginPath(); ctx.arc(pt.x,pt.y,r,0,7); ctx.stroke(); return; }
+  if(pt.fire){ var rr2=pt.rad*(0.5+0.5*(pt.age/pt.life));
+    var fg=ctx.createRadialGradient(pt.x,pt.y,0,pt.x,pt.y,rr2);
+    fg.addColorStop(0,'rgba(255,255,240,'+k+')'); fg.addColorStop(.3,'rgba(255,210,80,'+(k*0.95)+')');
+    fg.addColorStop(.6,'rgba(255,120,30,'+(k*0.8)+')'); fg.addColorStop(.85,'rgba(190,40,20,'+(k*0.5)+')');
+    fg.addColorStop(1,'rgba(60,20,15,0)'); ctx.fillStyle=fg; ctx.beginPath(); ctx.arc(pt.x,pt.y,rr2,0,7); ctx.fill(); return; }
+  if(pt.kind==='spark'){ ctx.fillStyle= pt.fuel ? 'rgba(140,210,255,'+k+')' : 'rgba(255,'+(160+Math.floor(80*k))+',80,'+k+')';
+    ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.size*k+0.5,0,7); ctx.fill(); }
+  else { ctx.save(); ctx.translate(pt.x,pt.y); ctx.rotate(pt.rot);
+    ctx.fillStyle='rgba('+(70+Math.floor(40*k))+','+(70+Math.floor(30*k))+',60,'+(0.6+0.4*k)+')';
+    ctx.fillRect(-pt.size,-pt.size,pt.size*2,pt.size*2); ctx.restore(); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   15. HUD · 배너 · 팝업
+   ════════════════════════════════════════════════════════════ */
+function updateHUD(){
+  document.getElementById('vScore').textContent=G.score;
+  document.getElementById('vClear').textContent=G.correct+'/'+GOAL;
+  document.getElementById('vTime').textContent=Math.ceil(G.time);
+  var pct=Math.max(0,Math.min(1,G.time/G.timeMax))*100;
+  var tf=document.getElementById('timeFill'); tf.style.width=pct+'%'; tf.classList.toggle('warn', G.time<15);
+  document.getElementById('hHearts').textContent = '❤️'.repeat(Math.max(0,G.hearts)) + '🤍'.repeat(Math.max(0,3-G.hearts));
+}
+var _bnT=null;
+function banner(txt,color){ var el=document.getElementById('bannerMsg'); el.textContent=txt; el.style.color=color||'#ffd479';
+  el.style.opacity='1'; if(_bnT)clearTimeout(_bnT); _bnT=setTimeout(function(){ el.style.opacity='0'; },700); }
+var _popT=null;
+function wordPopAt(x,y,w){ var el=document.getElementById('wordpop'); var ko=glossKo(w), py=glossPy(w);
+  el.innerHTML = esc(w)+(py?' <span style="color:#ffcf5a">['+py+']</span>':'')+(ko?' · '+esc(ko):'');
+  el.style.left=x+'px'; el.style.top=y+'px'; el.style.display='block';
+  if(_popT)clearTimeout(_popT); _popT=setTimeout(function(){ el.style.display='none'; },1100); }
+
+/* ════════════════════════════════════════════════════════════
+   16. 학습기록
+   ════════════════════════════════════════════════════════════ */
+function pushProg(word,ok){ G.prog.push({item:word,ko:glossKo(word)||'',correct:!!ok}); if(G.prog.length>=20)flushProg(); }
+function flushProg(){ if(!G||!G.prog.length)return; var ev=G.prog.splice(0,60),body=JSON.stringify({user_id:UID,lang:MODE,game:'language-ace',events:ev});
+  try{ if(navigator.sendBeacon)navigator.sendBeacon('/api/games/progress',new Blob([body],{type:'application/json'}));
+    else fetch('/api/games/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true}).catch(function(){}); }catch(_){} }
+
+/* ════════════════════════════════════════════════════════════
+   17. 루프
+   ════════════════════════════════════════════════════════════ */
+var last=0, raf=null;
+function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts-last)/1000; last=ts;
+  if(dt>0.05)dt=0.05;  // 탭 복귀 등 큰 점프 클램프
+  if(G&&G.running&&!G.paused){ update(dt); if(G.running) updateHUD(); }
+  render(); }
+
+/* ════════════════════════════════════════════════════════════
+   18. 시작 / 종료
+   ════════════════════════════════════════════════════════════ */
+function startGame(){
+  document.getElementById('start').classList.add('hide');
+  document.getElementById('over').classList.add('hide');
+  newGame(); G.running=true; updateHUD();
+  audio(); if(AC&&AC.state==='suspended')AC.resume();
+  banner('✈️ 출격!', '#ffd479');
+}
+function endGame(win){
+  if(!G||G.over)return; G.over=true; G.running=false; flushProg();
+  try{ speechSynthesis.cancel(); }catch(_){}
+  document.getElementById('overTitle').textContent = win ? '🎖️ 임무 완료!' : '💥 격추당했다!';
+  document.getElementById('overStat').innerHTML =
+    '정답 <b>'+G.correct+'</b> / '+GOAL+' · 완성 문장 <b>'+G.clears+'</b><br>최종 점수 <b>'+G.score+'</b>';
+  document.getElementById('over').classList.remove('hide');
+  if(win){ sndPickup(); } else { sndBoom(); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   19. UI 바인딩
+   ════════════════════════════════════════════════════════════ */
+function setLang(l){ MODE=(l==='zh')?'zh':'en';
+  document.getElementById('lgEn').classList.toggle('on',MODE==='en');
+  document.getElementById('lgZh').classList.toggle('on',MODE==='zh');
+  document.getElementById('startSub').textContent = MODE==='zh' ? '한자 문장을 어순대로 격추하라!' : '문장을 어순대로 격추하라!';
+  try{ localStorage.setItem('mangoi_game_lang',MODE); }catch(_){}
+}
+document.getElementById('lgEn').addEventListener('click',function(){ setLang('en'); });
+document.getElementById('lgZh').addEventListener('click',function(){ setLang('zh'); });
+document.getElementById('btnStart').addEventListener('click', startGame);
+document.getElementById('btnAgain').addEventListener('click', startGame);
+document.getElementById('btnMute').addEventListener('click',function(){ muted=!muted; this.textContent=muted?'🔇':'🔊';
+  if(muted){ try{speechSynthesis.cancel();}catch(_){} } });
+document.getElementById('btnPause').addEventListener('click',function(){ if(!G||!G.running)return; G.paused=!G.paused; this.textContent=G.paused?'▶️':'⏸️';
+  if(G.paused)banner('⏸️ 일시정지','#cdd9e6'); });
+document.addEventListener('visibilitychange',function(){ if(G&&G.running&&document.hidden){ G.paused=true; document.getElementById('btnPause').textContent='▶️'; } });
+
+/* ════════════════════════════════════════════════════════════
+   20. 유틸
+   ════════════════════════════════════════════════════════════ */
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+/* ── 부트 ── */
+resize(); setLang(MODE); raf=requestAnimationFrame(loop);
+</script>
+<!-- BUILD:20260715054619 -->
+</body>
+</html>
