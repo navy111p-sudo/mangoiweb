@@ -2027,6 +2027,26 @@ window.toggleHrEval = function() {
   }
 };
 
+// 🎨 강사 목록 액션 버튼 — Win10 이모지 깨짐 방지용 인라인 SVG 아이콘 (어디서나 선명하게 렌더)
+//   흰색 stroke, 색상 배경 버튼에 중앙 정렬. window.* 로 노출해 다른 스크립트(adm-q6 📅)도 재사용.
+const _TP_ACT_BTN = 'display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;'
+  + 'padding:0;margin:0 2px;border:0;border-radius:6px;cursor:pointer;color:#fff;vertical-align:middle;'
+  + 'box-shadow:0 1px 2px rgba(0,0,0,.18);transition:filter .12s;';
+const _TP_IC = {
+  // 수업 입장 (비디오 카메라)
+  video: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>',
+  // 상세 보기 (돋보기)
+  view: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>',
+  // 수정 (연필)
+  edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
+  // 제거 (휴지통)
+  trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  // 스케줄 (달력)
+  calendar: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+};
+window._TP_ACT_BTN = _TP_ACT_BTN;
+window._TP_IC = _TP_IC;
+
 async function loadTeacherProfiles() {
   const status = document.getElementById('tp-filter-status')?.value || '';
   const group  = document.getElementById('tp-filter-group')?.value || '';
@@ -2115,10 +2135,10 @@ async function loadTeacherProfiles() {
           : '<span style="color:#9ca3af;font-size:11px">—</span>') +
       '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap">' +
-        '<button onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="🎥 수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="padding:3px 8px;font-size:10px;background:#f59e0b;color:#fff;border:0;border-radius:4px;cursor:pointer">🎥</button> ' +
-        '<button onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="padding:3px 8px;font-size:10px;background:#3b82f6;color:#fff;border:0;border-radius:4px;cursor:pointer">🔍</button> ' +
-        '<button onclick="editTeacherProfile(' + t.id + ')" title="수정" style="padding:3px 8px;font-size:10px;background:#10b981;color:#fff;border:0;border-radius:4px;cursor:pointer">✏️</button> ' +
-        '<button onclick="removeTeacherProfile(' + t.id + ',\'' + _aiEsc(t.korean_name||'') + '\')" title="제거" style="padding:3px 8px;font-size:10px;background:#ef4444;color:#fff;border:0;border-radius:4px;cursor:pointer">🗑️</button>' +
+        '<button class="tp-act-btn" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="' + _TP_ACT_BTN + 'background:#f59e0b" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
+        '<button class="tp-act-btn" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + 'background:#3b82f6" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
+        '<button class="tp-act-btn" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + 'background:#10b981" aria-label="수정">' + _TP_IC.edit + '</button>' +
+        '<button class="tp-act-btn" onclick="removeTeacherProfile(' + t.id + ',\'' + _aiEsc(t.korean_name||'') + '\')" title="제거" style="' + _TP_ACT_BTN + 'background:#ef4444" aria-label="제거">' + _TP_IC.trash + '</button>' +
       '</td>' +
     '</tr>';
   }).join('');

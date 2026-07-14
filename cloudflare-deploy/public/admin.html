@@ -11474,12 +11474,8 @@ button.chip:hover,
   .ph54-slot.late   { background: #f59e0b; }
   .ph54-slot.bigLate{ background: #ef4444; }
   .ph54-slot.empty  { background: transparent; color: #475569; font-weight:600; }
-  /* 강사 행 액션 컬럼에 추가된 📅 버튼 */
-  .ph54-row-cal-btn {
-    padding: 3px 8px; font-size: 10px; background: #0ea5e9; color: #fff;
-    border: 0; border-radius: 4px; cursor: pointer; margin-left: 2px;
-  }
-  .ph54-row-cal-btn:hover { background: #0369a1; }
+  /* 강사 행 액션 컬럼 아이콘 버튼 hover 피드백 (배경은 인라인 지정) */
+  .tp-act-btn:hover, .ph54-row-cal-btn:hover { filter: brightness(1.12); }
 
   /* ─────────── 구글 캘린더 스타일 주간 타임라인 (Tailwind 미사용 페이지라 동등 CSS로 작성) ─────────── */
   #ph54-cal { border:1px solid #334155; border-radius:10px; overflow:hidden; background:#0f172a; }
@@ -19925,6 +19921,6 @@ button.chip:hover,
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=1"></script><!-- 분할추출:adm-s18 -->
-<!-- BUILD:20260715032750 -->
+<!-- BUILD:20260715034716 -->
 </body>
 </html>

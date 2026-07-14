@@ -8255,6 +8255,7 @@
         <!-- 🧠 복습퀴즈 탭 (학생 사이드바와 동일한 퀴즈 + AI 자동 출제) -->
         <div class="tab-panel" id="tab-review-quiz" style="flex-direction:column;background:#0a1530;color:#e6ecff">
           <div style="padding:12px 16px;border-bottom:1px solid rgba(251,191,36,0.18);display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0">
+            <button onclick="vcSetContentCollapsed(true)" title="수업 화면으로 돌아가기" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(148,163,184,0.4);border-radius:8px;background:rgba(255,255,255,0.06);color:#e6ecff;font-size:13px;font-weight:800;cursor:pointer" data-ko="← 수업으로" data-en="← Back to class">← <span data-ko="수업으로" data-en="Back to class">수업으로</span></button>
             <span style="font-size:14px;font-weight:800;color:#fbbf24">🧠 <span data-ko="복습퀴즈" data-en="Review Quiz">복습퀴즈</span></span>
             <span id="rqv-ctx" style="font-size:11.5px;color:#a3b3d1"></span>
             <button onclick="rqvAuto(true)" style="margin-left:auto;padding:6px 13px;border:0;border-radius:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:12px;font-weight:800;cursor:pointer" data-ko="🤖 이 수업 맞춤 퀴즈" data-en="🤖 Auto quiz for this class">🤖 <span data-ko="이 수업 맞춤 퀴즈" data-en="Auto quiz">이 수업 맞춤 퀴즈</span></button>
@@ -24982,7 +24983,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260715032750 -->
+<!-- BUILD:20260715034716 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

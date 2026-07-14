@@ -61,20 +61,28 @@
 
   /* 2) 게임 화면 */
   #scr-game{ padding:8px 8px 0; }
-  .hud{ width:100%; max-width:560px; display:flex; align-items:center; gap:8px; font-size:13px; padding:2px 4px; }
+  .hud{ width:100%; max-width:560px; display:flex; align-items:center; gap:8px; font-size:13px; padding:2px 4px; flex-wrap:wrap; row-gap:6px; }
   .hud .pill{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:999px; padding:4px 11px; white-space:nowrap; }
   .hud b{ color:#fbbf24; }
   .hud .combo b{ color:#f472b6; }
   #hud-level b{ color:#34d399; }
   .hud .sp{ flex:1; }
+  /* ⚙️ 속도 조절 스테퍼 */
+  .hud .spd{ display:inline-flex; align-items:center; gap:7px; padding:3px 8px; }
+  .hud .spd b{ color:#38bdf8; min-width:10px; text-align:center; }
+  .spd-btn{ display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:8px;
+    background:rgba(56,189,248,.18); border:1px solid rgba(56,189,248,.42); color:#e6edff; font-weight:900; font-size:16px; line-height:1; cursor:pointer; }
+  .spd-btn:active{ transform:scale(.9); background:rgba(56,189,248,.42); }
 
   /* 현재 조각 단어 뜻(학습 표시) */
   .quest{ width:100%; max-width:560px; margin-top:6px; text-align:center;
     background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:7px 10px; }
   .quest .qko{ font-size:14px; color:#93c5fd; }
   .quest .slots{ margin-top:6px; display:flex; gap:5px; justify-content:center; flex-wrap:wrap; }
-  .quest .qslot{ min-width:32px; padding:3px 9px; border-radius:8px; font-weight:800; font-size:15px;
+  .quest .qslot{ min-width:32px; padding:3px 9px; border-radius:8px; font-weight:800; font-size:15px; cursor:pointer;
     background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.14); color:#8090b4; transition:.2s; }
+  .quest .qslot:active{ transform:scale(.92); }
+  .quest .hint{ font-size:10.5px; color:#6b7ba6; margin-top:5px; }
   .quest .qslot.done{ border-color:#34d399; color:#bbf7d0; background:rgba(52,211,153,.18); }
   .quest .qslot.next{ border-color:#fbbf24; color:#fde68a; background:rgba(251,191,36,.18); animation:missionPulse 1s infinite; }
 
@@ -122,6 +130,13 @@
     background:rgba(15,23,42,.92); border:1px solid rgba(255,255,255,.18); color:#fca5a5;
     border-radius:999px; padding:7px 16px; font-size:14px; font-weight:700; opacity:0; transition:opacity .25s; }
   #toast.on{ opacity:1; }
+
+  /* 🔊 단어 클릭 시 뜨는 발음·뜻 말풍선 */
+  #wordpop{ position:fixed; z-index:70; display:none; pointer-events:none; max-width:82vw;
+    background:rgba(15,23,42,.97); border:1px solid rgba(56,189,248,.55); color:#e6edff;
+    border-radius:12px; padding:8px 14px; font-size:15px; font-weight:800; white-space:nowrap;
+    box-shadow:0 8px 24px rgba(0,0,0,.5); opacity:0; transition:opacity .16s; }
+  #wordpop.on{ opacity:1; }
 
   /* 조작 버튼(모바일 큼직 + 즉각 반응) */
   #pad{ width:100%; max-width:560px; display:flex; gap:8px; padding:10px 8px calc(10px + env(safe-area-inset-bottom)); }
@@ -176,12 +191,18 @@
       <span class="pill combo">🔥 <b id="hud-combo">0</b></span>
       <span class="pill">📝 <b id="hud-lines">0</b>줄</span>
       <span class="sp"></span>
+      <span class="pill spd" title="낙하 속도 (느리게 / 빠르게)">
+        <span class="spd-btn" id="spd-dn">−</span>
+        🏃 <b id="spd-val">3</b>
+        <span class="spd-btn" id="spd-up">＋</span>
+      </span>
       <span class="pill" id="mus-btn" style="cursor:pointer" onclick="toggleMusic()" title="음악 켜기/끄기">🔊</span>
       <span class="pill" id="hud-mode">🇺🇸</span>
     </div>
     <div class="quest">
       <div class="qko" id="q-sentko">—</div>
       <div class="slots" id="q-slots"></div>
+      <div class="hint">👆 단어를 누르면 발음과 뜻이 나와요</div>
     </div>
     <div id="mission"></div>
     <div id="board-wrap">
@@ -215,6 +236,7 @@
 
 <div id="splash"></div>
 <div id="toast"></div>
+<div id="wordpop"></div>
 
 <script>
 /* ════════════════════════════════════════════════════════════
@@ -289,7 +311,7 @@ var SENTENCES = {
 var EXTRA = {
   en:{ I:'나는', The:'그', the:'그', is:'~이다', We:'우리', at:'~에서', a:'하나의', song:'노래',
        like:'좋아하다', Birds:'새들', My:'나의', can:'~할 수 있다', drink:'마시다', apples:'사과' },
-  zh:{ '我':{ko:'나',py:'wǒ'}, '喜欢':{ko:'좋아하다',py:'xǐhuan'}, '很':{ko:'매우',py:'hěn'},
+  zh:{ '我':{ko:'나',py:'wǒ'}, '我们':{ko:'우리',py:'wǒmen'}, '喜欢':{ko:'좋아하다',py:'xǐhuan'}, '很':{ko:'매우',py:'hěn'},
        '去':{ko:'가다',py:'qù'}, '歌':{ko:'노래',py:'gē'}, '会':{ko:'~할 수 있다',py:'huì'}, '喝':{ko:'마시다',py:'hē'} }
 };
 function meanOf(w){
@@ -379,13 +401,55 @@ function toggleMusic(){
 var VOICES=[];
 function loadVoices(){ try{ VOICES=speechSynthesis.getVoices()||[]; }catch(_){} }
 loadVoices(); try{ speechSynthesis.onvoiceschanged=loadVoices; }catch(_){}
+function pickVoice(lang){
+  return VOICES.find(function(x){ return x.lang===lang; }) || VOICES.find(function(x){ return x.lang && x.lang.indexOf(lang.slice(0,2))===0; });
+}
 function speak(text, rate){
   try{ speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(text), lang=VOCAB[MODE].tts;
     u.lang=lang; u.rate=rate||0.95;
-    var v=VOICES.find(function(x){ return x.lang===lang; }) || VOICES.find(function(x){ return x.lang && x.lang.indexOf(lang.slice(0,2))===0; });
-    if(v) u.voice=v; speechSynthesis.speak(u);
+    var v=pickVoice(lang); if(v) u.voice=v; speechSynthesis.speak(u);
   }catch(_){}
+}
+/* 🗣️ 문장을 지정 횟수만큼 이어서 낭독 (문장 완성 시 2번 반복) */
+function speakSentence(text, rate, times){
+  times=Math.max(1, times||1);
+  try{ speechSynthesis.cancel(); }catch(_){}
+  var lang=VOCAB[MODE].tts, v=pickVoice(lang), n=0;
+  function once(){
+    n++;
+    try{
+      var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.95; if(v) u.voice=v;
+      if(n<times){ u.onend=function(){ setTimeout(once, 420); }; }   // 한 번 끝나면 잠깐 쉬고 반복
+      speechSynthesis.speak(u);
+    }catch(_){}
+  }
+  once();
+}
+/* 🔊 단어 클릭 → 발음 재생 + 뜻/병음 말풍선 */
+function sayWord(w, el){
+  if(!w) return;
+  speak(w, 0.9);
+  var mn=meanOf(w), py=pyOf(w);
+  var info=w+(py?'  ['+py+']':'')+(mn?'  ·  '+mn:'');
+  showWordPop(info, el);
+}
+var wordPopT=null;
+function showWordPop(txt, el){
+  var p=document.getElementById('wordpop'); if(!p) return;
+  p.textContent=txt; p.style.display='block';
+  var r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+  if(r){
+    var left=Math.max(8, Math.min(window.innerWidth-8-p.offsetWidth, r.left + r.width/2 - p.offsetWidth/2));
+    var top =r.top - p.offsetHeight - 8;
+    if(top<8) top=r.bottom+8;   // 위 공간 부족하면 아래로
+    p.style.left=left+'px'; p.style.top=top+'px';
+  } else {
+    p.style.left=(window.innerWidth/2 - p.offsetWidth/2)+'px'; p.style.top='72px';
+  }
+  requestAnimationFrame(function(){ p.classList.add('on'); });
+  if(wordPopT) clearTimeout(wordPopT);
+  wordPopT=setTimeout(function(){ p.classList.remove('on'); setTimeout(function(){ p.style.display='none'; },180); }, 2200);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -401,11 +465,20 @@ var running=false, paused=false, gravT=null;
 var missionT=null, missionEndT=null, mission=null;
 var SENT=null, sentPos=0, sentIdx=-1, sentOrder=[];   // 📝 현재 문장 / 다음 채울 자리 / 순서
 
+var SPEED = HUBSPEED;                        // 🏃 플레이 중 조절 가능한 낙하 속도(1느림 ~ 5빠름)
 function dropMs(){
-  var base=[0,980,880,780,670,570][HUBSPEED];
+  var base=[0,1250,1000,800,640,480][SPEED]; // 1=아주 느림 … 5=아주 빠름
   var press=Math.max(0,(level-1)*65 - relief);
-  return Math.max(120, base - press);
+  return Math.max(110, base - press);
 }
+/* 🏃 낙하 속도 조절 — 즉시 반영(진행 중이면 중력 타이머 재시작) */
+function setSpeed(v){
+  SPEED=Math.max(1, Math.min(5, v));
+  var el=document.getElementById('spd-val'); if(el) el.textContent=SPEED;
+  try{ localStorage.setItem('mangoi_tetris_speed', String(SPEED)); }catch(_){}
+  if(running && piece && !paused) startGravity();
+}
+try{ var _sv=parseInt(localStorage.getItem('mangoi_tetris_speed'),10); if(_sv>=1&&_sv<=5) SPEED=_sv; }catch(_){}
 
 /* ── 화면 전환 / 최고기록 ── */
 function show(id){ document.querySelectorAll('.scr').forEach(function(s){ s.classList.remove('on'); }); document.getElementById(id).classList.add('on'); }
@@ -425,6 +498,7 @@ function startGame(mode){
   sentOrder=shuffle(SENTENCES[MODE].map(function(_,i){ return i; })); sentIdx=-1; nextSentence();  // 📝 첫 문장
   document.getElementById('hud-mode').textContent=VOCAB[MODE].flag+' '+VOCAB[MODE].name;
   document.getElementById('mus-btn').textContent=MUSIC.on?'🔊':'🔇';
+  var _spd=document.getElementById('spd-val'); if(_spd) _spd.textContent=SPEED;
   setBg(); updateHud(); show('scr-game'); ac(); musicStart();
   layout(); spawn(); render(); startGravity();
 }
@@ -432,12 +506,12 @@ function startGame(mode){
 /* ── 보드 크기 계산(정사각 셀, PC에서 크게) ── */
 function layout(){
   var wide=window.innerWidth>=700;
-  var reserve=wide?232:250;                 // HUD+뜻+미션+패드 세로 예약
-  var maxBW=wide?520:400;
+  var reserve=wide?205:250;                 // HUD+뜻+미션+패드 세로 예약(PC는 여유 축소)
+  var maxBW=wide?640:400;                    // PC에서 보드 폭 크게
   var bw=Math.min(window.innerWidth-16, maxBW);
   var byW=Math.floor(bw/COLS);
   var byH=Math.floor((window.innerHeight-reserve)/ROWS);
-  cell=Math.max(22, Math.min(byW, byH, wide?46:40));
+  cell=Math.max(22, Math.min(byW, byH, wide?60:40));   // PC 셀 상한 46→60
   var bd=document.getElementById('board');
   bd.style.width=(cell*COLS)+'px'; bd.style.height=(cell*ROWS)+'px';
   document.documentElement.style.setProperty('--cell', cell+'px');
@@ -470,7 +544,7 @@ function renderSlots(){
   document.getElementById('q-sentko').textContent='💡 '+SENT.ko;
   document.getElementById('q-slots').innerHTML=SENT.words.map(function(w,i){
     var cls=i<sentPos?'done':(i===sentPos?'next':'');
-    return '<span class="qslot '+cls+'">'+w+'</span>';
+    return '<span class="qslot '+cls+'" onclick="sayWord(this.dataset.w,this)" data-w="'+w.replace(/"/g,'&quot;')+'">'+w+'</span>';
   }).join('');
   var need=SENT.words[sentPos], m=document.getElementById('mission');
   if(need){ var mn=meanOf(need), py=pyOf(need);
@@ -486,7 +560,7 @@ function nextSentence(){
 function sentenceComplete(){
   score += 500 + level*100;
   splash('문장 완성! 🎉');
-  speak(SENT.words.join(MODE==='zh'?'':' '), 0.98);
+  speakSentence(SENT.words.join(MODE==='zh'?'':' '), 0.98, 2);   // 🗣️ 완성 문장 2번 반복
   var bd=document.getElementById('board').getBoundingClientRect();
   for(var i=0;i<6;i++){ (function(k){ setTimeout(function(){ if(running) burst(bd.left+Math.random()*bd.width, bd.top+30+Math.random()*bd.height*0.5, 12, ['#fde047','#fb7185','#c084fc','#7dd3fc','#34d399']); }, k*120); })(i); }
   sndClear(3);
@@ -759,6 +833,20 @@ bindBtn('b-down', soft, true);
 bindBtn('b-rot', rotate, false);
 bindBtn('b-drop', hard, false);
 
+/* 🏃 속도 조절 버튼 (− 느리게 / ＋ 빠르게) */
+(function(){
+  var dn=document.getElementById('spd-dn'), up=document.getElementById('spd-up');
+  if(dn) dn.addEventListener('click', function(e){ e.stopPropagation(); setSpeed(SPEED-1); });
+  if(up) up.addEventListener('click', function(e){ e.stopPropagation(); setSpeed(SPEED+1); });
+})();
+
+/* 🔊 떨어지는 조각의 단어를 눌러도 발음·뜻이 나오게 */
+(function(){
+  var lab=document.getElementById('wordlabel');
+  if(lab){ lab.style.pointerEvents='auto'; lab.style.cursor='pointer';
+    lab.addEventListener('click', function(){ if(piece) sayWord(piece.word, lab); }); }
+})();
+
 document.addEventListener('visibilitychange', function(){ paused=document.hidden; if(!paused && running && piece) startGravity(); });
 
 /* ════════════════════════════════════════════════════════════
@@ -782,6 +870,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715032750 -->
+<!-- BUILD:20260715034716 -->
 </body>
 </html>
