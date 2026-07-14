@@ -1642,25 +1642,45 @@
             /* 모바일 작은 타일에서도 손가락으로 누를 수 있게 아이콘만 키움 */
             #vc-local-box .vs-cam, #vc-local-box .vs-mic, #vc-local-box .vs-hide { font-size: 1.5em; padding: 3px 5px; }
         }
-        /* 🙉 얼굴 화면 복귀 칩 — 얼굴 숨김(hidefaces) 동안에만 표시 */
+        /* 🙂✕ 얼굴 화면 복귀 칩 — 얼굴 숨김(hidefaces) 동안에만 표시.
+           이모지 원형 소형 버튼: 우상단 ☀라이트(테마) 버튼(top:56px right:10px)과 겹치지 않게
+           오른쪽 '중간 높이'에 배치 (FAB·독·토스트와도 안 겹침) */
         #vc-faces-restore {
             position: fixed;
-            top: 52px;
-            right: 10px;
+            top: 45%;
+            right: 8px;
             z-index: 9500;
             display: none;
             align-items: center;
-            gap: 5px;
-            background: rgba(15,23,42,.92);
-            color: #fff;
+            justify-content: center;
+            width: 46px;
+            height: 46px;
+            padding: 0;
+            background: rgba(15,23,42,.88);
             border: 1px solid rgba(251,191,36,.55);
-            border-radius: 20px;
-            padding: 6px 12px;
-            font-size: 13px;
+            border-radius: 50%;
+            font-size: 22px;
+            line-height: 1;
             cursor: pointer;
             box-shadow: 0 4px 14px rgba(0,0,0,.4);
         }
-        #vc-faces-restore:active { transform: scale(.95); }
+        #vc-faces-restore .fr-x {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ef4444;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #0b1220;
+        }
+        #vc-faces-restore:active { transform: scale(.92); }
         /* 카메라 꺼짐 = 타일 화면 가림 덮개 */
         .video-box .vc-cam-cover {
             position: absolute;
@@ -10960,6 +10980,7 @@ async function vcJoinRoom(skipUI) {
       // 🙉 얼굴 숨김 이외의 모드로 바뀌면 복귀 칩은 자동 숨김 (⋯ 메뉴로 복귀해도 칩이 남지 않게)
       try {
         if (mode !== 'hidefaces') {
+          window.__vcFacesHidden = false;   // 다른 모드로 바뀌면 얼굴 숨김 상태 해제
           const chip = document.getElementById('vc-faces-restore');
           if (chip) chip.style.display = 'none';
         }
@@ -10990,7 +11011,8 @@ async function vcJoinRoom(skipUI) {
         if (row.classList.contains(cls)) { window.__vcFacesPrevMode = modeMap[cls]; break; }
       }
       vcScreenSet('hidefaces');
-      // 🙉 복귀 칩
+      window.__vcFacesHidden = true;   // 세로폰 자동 레이아웃(공유 재평가 포함)이 되돌리지 못하게 표시
+      // 🙂✕ 복귀 칩 — 이모지 원형 버튼(작게, 라이트 버튼 등 다른 버튼을 가리지 않는 위치)
       let chip = document.getElementById('vc-faces-restore');
       if (!chip) {
         chip = document.createElement('button');
@@ -11000,11 +11022,13 @@ async function vcJoinRoom(skipUI) {
         document.body.appendChild(chip);
       }
       const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
-      chip.innerHTML = '🙉 <span>' + (en ? 'Show faces' : '얼굴 보기') + '</span>';
-      chip.title = en ? 'Bring back the face tiles' : '얼굴 화면 다시 보기';
+      chip.innerHTML = '<span class="fr-face">🙂</span><span class="fr-x">✕</span>';
+      chip.title = en ? 'Faces hidden — tap to show again' : '얼굴 화면 꺼짐 — 누르면 다시 보여요';
+      chip.setAttribute('aria-label', chip.title);
       chip.style.display = 'flex';
     };
     window.vcFacesShow = function(){
+      window.__vcFacesHidden = false;
       const chip = document.getElementById('vc-faces-restore');
       if (chip) chip.style.display = 'none';
       const prev = window.__vcFacesPrevMode;
@@ -27173,7 +27197,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714145331 -->
+<!-- BUILD:20260714150225 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
@@ -29554,6 +29578,9 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     //    pip 를 발동시키던 문제도 이걸로 함께 사라짐.
     var want = 'half';
     if(fromShare){
+      // 🙈 (2026-07-14) 얼굴 숨김(hidefaces)은 명시적 선택 — 공유 재평가(room-media 폴링 포함)가
+      //   half 로 되돌려 얼굴을 다시 띄우던 회귀의 원인. 숨김 중엔 절대 건드리지 않는다.
+      if(window.__vcFacesHidden){ window.vcUpdatePheroLabels(); return; }
       // 교사의 공유 시작/중지는 최우선 — 학생이 다른 모드를 골랐어도 교사가 보여주는 대로 따라간다.
       _userChose = false;
     } else {
