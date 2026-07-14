@@ -1714,5 +1714,352 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     // 🔥 Phase ST 끝
     // ═══════════════════════════════════════════════════════════════
 
+    // ═══════════════════════════════════════════════════════════════
+    // 🎙 Phase AV — AI 음성 코칭 (Workers AI Whisper 전사 + LLM 피드백)
+    //   POST /api/voice/transcribe — multipart/form-data 의 audio 파일 받아 Whisper 로 전사
+    //   POST /api/voice/coach      — 학생 발화 텍스트 + 모범 텍스트 → AI 피드백 + 점수
+    //   GET  /api/voice/history    — 학생별 최근 음성 코칭 이력
+    // ═══════════════════════════════════════════════════════════════
+    const ensureVoiceTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, target_text TEXT, transcribed_text TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, ai_feedback TEXT, suggestion TEXT, audio_url TEXT, created_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_voice_student ON voice_coaching(student_uid, created_at DESC)`); } catch {}
+    };
+
+    // ── POST /api/voice/tts — 모범 음성 (원어민 TTS: Deepgram Aura-1 / MeloTTS) ──
+    if (method === 'POST' && path === '/api/voice/tts') {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        // 400자 컷은 문장 중간에서 낭독이 뚝 끊기는 원인이었다 — Aura 한도(2000자) 안에서 여유있게.
+        const text = String(b.text || '').trim().slice(0, 1500);
+        const lang = String(b.lang || 'en').toLowerCase();
+        if (!text) return json({ ok: false, error: 'text_required' }, 400);
+        const ai = (env as any).AI;
+        if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
+
+        const audioHeaders = {
+          'Content-Type': 'audio/mpeg',
+          'Cache-Control': 'public, max-age=604800',
+          'Access-Control-Allow-Origin': '*'
+        };
+        const b64ToBytes = (b64: string) => {
+          const bin = atob(b64);
+          const u8 = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          return u8;
+        };
+        // 🔁 R2 캐시: 같은 단어/문장은 1회만 생성 → 이후엔 뉴런 소모 없이 즉시 제공.
+        //   무료 뉴런 소진(429) 후에도 캐시본이 있으면 계속 소리가 난다.
+        const r2: any = (env as any).RECORDINGS;
+        let cacheKey = '';
+        try {
+          // v2: 영어 TTS 를 Aura-2 로 올리면서 캐시 세대 교체 (v1 캐시본은 구형 Aura-1 음성)
+          const enc = new TextEncoder().encode('v2|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
+          const dig = await crypto.subtle.digest('SHA-256', enc);
+          cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
+        } catch {}
+        if (cacheKey && r2) {
+          try { const hit = await r2.get(cacheKey); if (hit) return new Response(hit.body, { headers: audioHeaders }); } catch {}
+        }
+        const putCache = async (bytes: ArrayBuffer | Uint8Array) => {
+          if (!cacheKey || !r2) return;
+          try { await r2.put(cacheKey, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+        };
+        const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
+        // MeloTTS — base64 MP3 반환 (en/zh 지원)
+        //   ⚠️ 캐시 금지: Aura 일시 장애 때 만들어진 기계음이 Aura 화자 키에 저장되면
+        //   장애가 끝나도 그 문장은 영원히 기계음으로 재생된다(캐시 오염). 폴백은 그때그때만.
+        const melo = async (meloLang: string) => {
+          const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: meloLang });
+          const b64 = typeof r === 'string' ? r : (r?.audio || '');
+          if (!b64) throw new Error('melotts_empty');
+          const bytes = b64ToBytes(b64);
+          return new Response(bytes, { headers: audioHeaders });
+        };
+        // MeloTTS 원본 바이트 (크기 검증용 — Workers AI 가 빈 WAV(44B) 반환하는 케이스 감지)
+        const meloBytes = async (meloLang: string) => {
+          const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: meloLang });
+          const b64 = typeof r === 'string' ? r : (r?.audio || '');
+          return b64 ? b64ToBytes(b64) : new Uint8Array(0);
+        };
+        // Google 번역 TTS — 원어민 만다린 폴백 (MeloTTS zh 가 빈 오디오일 때).
+        //   client=tw-ob 엔드포인트는 MP3 스트림 반환. 요청당 ~200자 제한이라 잘라서 전송.
+        const gtts = async (txt: string, tl: string) => {
+          const q = encodeURIComponent(String(txt).slice(0, 190));
+          const gurl = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' + tl + '&q=' + q;
+          const gr = await fetch(gurl, { headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://translate.google.com/'
+          } });
+          if (!gr.ok) throw new Error('gtts_' + gr.status);
+          const gb = await gr.arrayBuffer();
+          if (!gb || gb.byteLength < 300) throw new Error('gtts_empty');
+          await putCache(gb);
+          return new Response(gb, { headers: audioHeaders });
+        };
+
+        // 중국어 → 진짜 원어민 만다린. ⚠️ Cloudflare @cf/myshell-ai/melotts(zh) 는 비어있지 않은
+        //   불량 WAV(51KB짜리 "앙캉캉캉" 잡음)를 반환해 크기검사로도 못 거른다. 그래서 zh 는
+        //   Google 번역 TTS(원어민 만다린 MP3)를 1순위로 쓰고, 실패 시에만 MeloTTS 로 폴백한다.
+        if (lang.startsWith('zh') || lang === 'cn') {
+          try {
+            return await gtts(text, 'zh-CN');
+          } catch (gErr: any) {
+            console.warn('[voice/tts] google zh failed, fallback melotts:', gErr?.message);
+            try {
+              const bytes = await meloBytes('zh');
+              if (bytes.byteLength >= 1000) return new Response(bytes, { headers: audioHeaders });
+            } catch {}
+            return json({ ok: false, error: 'zh_tts_failed' }, 502);
+          }
+        }
+
+        // 영어 → Deepgram Aura-2 (차세대, 훨씬 자연스러움) → Aura-1 → MeloTTS(en) 순 폴백
+        //   ⚠️ 무료 뉴런 소진 시 Workers AI 는 200 이 아닌 429 에러 Response(JSON) 를 준다.
+        //   예전 코드는 그 JSON 바디(~487B)를 audio/mpeg 로 그대로 브라우저에 내보내서
+        //   "소리가 안 나는" 원인이 됐다. raw.ok + content-type=audio 로 진짜 음성만 통과시킨다.
+        let quota = false;
+        const auraRun = async (model: string, speaker: string): Promise<ArrayBuffer> => {
+          const raw: any = await ai.run(model, { text, speaker }, { returnRawResponse: true });
+          let buf: ArrayBuffer | null = null;
+          if (raw instanceof Response) {
+            const rct = raw.headers.get('content-type') || '';
+            if (raw.ok && /audio/i.test(rct)) buf = await raw.arrayBuffer();
+            else { if (raw.status === 429) quota = true; throw new Error('aura_http_' + raw.status); }
+          }
+          else if (raw instanceof ArrayBuffer) buf = raw;
+          else if (raw && raw.body) buf = await new Response(raw.body).arrayBuffer();
+          else if (raw && raw.audio) buf = b64ToBytes(String(raw.audio)).buffer as ArrayBuffer;
+          if (!buf || buf.byteLength < 200) throw new Error('aura_empty');
+          return buf;
+        };
+        const requested = String(b.speaker || 'asteria').toLowerCase();
+        // Aura-2(en) 지원 화자 — 목록 밖 이름이 오면 여자 기본값으로 안전하게.
+        const AURA2 = new Set(['amalthea','andromeda','apollo','arcas','aries','asteria','athena','atlas','aurora','callista','cora','cordelia','delia','draco','electra','harmonia','helena','hera','hermes','hyperion','iris','janus','juno','jupiter','luna','mars','minerva','neptune','odysseus','ophelia','orion','orpheus','pandora','phoebe','pluto','saturn','thalia','theia','vesta','zeus']);
+        const AURA2_MALE = new Set(['apollo','arcas','aries','atlas','draco','hermes','hyperion','janus','jupiter','mars','neptune','odysseus','orion','orpheus','pluto','saturn','zeus']);
+        const AURA1 = new Set(['angus','asteria','arcas','orion','orpheus','athena','luna','zeus','perseus','helios','hera','stella']);
+        try {
+          const buf = await auraRun('@cf/deepgram/aura-2-en', AURA2.has(requested) ? requested : 'asteria');
+          await putCache(buf);
+          return new Response(buf, { headers: audioHeaders });
+        } catch (a2Err: any) {
+          if (isQuota(a2Err?.message)) quota = true;
+          console.warn('[voice/tts] aura-2 failed, fallback aura-1:', a2Err?.message);
+        }
+        try {
+          // Aura-1 폴백: 요청 화자가 Aura-1 에 없으면 성별만 맞춰 대체 (남=orion / 여=asteria)
+          const spk1 = AURA1.has(requested) ? requested : (AURA2_MALE.has(requested) ? 'orion' : 'asteria');
+          const buf = await auraRun('@cf/deepgram/aura-1', spk1);
+          await putCache(buf);
+          return new Response(buf, { headers: audioHeaders });
+        } catch (auraErr: any) {
+          if (isQuota(auraErr?.message)) quota = true;
+          console.warn('[voice/tts] aura-1 failed, fallback melotts:', auraErr?.message);
+          try {
+            return await melo('en');
+          } catch (meloErr: any) {
+            if (isQuota(meloErr?.message)) quota = true;
+            // 서버 TTS 전부 실패 → JSON 에러로 명확히 알린다(브라우저가 기기 음성으로 폴백하게).
+            return json({ ok: false, error: quota ? 'ai_quota_exceeded' : 'tts_failed', quota }, quota ? 503 : 502);
+          }
+        }
+      } catch (e: any) {
+        console.warn('[voice/tts] error:', e?.message);
+        return json({ ok: false, error: e?.message || 'tts_failed' }, 500);
+      }
+    }
+
+    // ── POST /api/voice/transcribe — 오디오 → 텍스트 (Whisper) ──
+    if (method === 'POST' && path === '/api/voice/transcribe') {
+      try {
+        const ct = request.headers.get('content-type') || '';
+        let audio: ArrayBuffer | null = null;
+        if (ct.includes('multipart/form-data')) {
+          const fd = await request.formData();
+          const file = fd.get('audio') as File | null;
+          if (!file) return json({ ok: false, error: 'no_audio_file' }, 400);
+          audio = await file.arrayBuffer();
+        } else {
+          audio = await request.arrayBuffer();
+        }
+        if (!audio || audio.byteLength < 100) return json({ ok: false, error: 'audio_too_small' }, 400);
+        if (audio.byteLength > 25 * 1024 * 1024) return json({ ok: false, error: 'audio_too_large', max: '25MB' }, 400);
+
+        const ai = (env as any).AI;
+        if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
+
+        const arr = [...new Uint8Array(audio)];
+        const result = await ai.run('@cf/openai/whisper', { audio: arr });
+        return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0 });
+      } catch (e: any) {
+        console.warn('[voice/transcribe] error:', e?.message);
+        return json({ ok: false, error: e?.message || 'transcribe_failed' }, 500);
+      }
+    }
+
+    // ── POST /api/voice/coach — 발음/유창성 평가 + LLM 피드백 ──
+    if (method === 'POST' && path === '/api/voice/coach') {
+      await ensureVoiceTable();
+      const b: any = await request.json().catch(() => ({}));
+      const target = String(b.target || '').trim();
+      const spoken = String(b.spoken || '').trim();
+      const studentUid = String(b.student_uid || '').trim() || 'guest';
+      const studentName = String(b.student_name || '').trim();
+
+      if (!target || !spoken) return json({ ok: false, error: 'target_and_spoken_required' }, 400);
+
+      // 단순 유사도 (단어 일치율)
+      const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+      const tWords = normalize(target).split(' ');
+      const sWords = normalize(spoken).split(' ');
+      const matched = sWords.filter(w => tWords.includes(w)).length;
+      const accuracy = tWords.length ? Math.round((matched / tWords.length) * 100) : 0;
+
+      // 길이 비율 → 유창성 추정 (너무 짧거나 길면 점수 낮음)
+      const lengthRatio = sWords.length / (tWords.length || 1);
+      const fluency = Math.round(100 * Math.max(0, 1 - Math.abs(1 - lengthRatio) * 0.6));
+
+      // Workers AI LLM 으로 발음/문법 피드백
+      let aiFeedback = '';
+      let suggestion = '';
+      let pronunciation = accuracy;
+      const ai = (env as any).AI;
+      if (ai) {
+        try {
+          const prompt = `You are an English pronunciation coach for Korean students. Analyze this:
+
+TARGET: "${target}"
+STUDENT SAID: "${spoken}"
+
+Respond in JSON ONLY:
+{
+  "pronunciation_score": <0-100>,
+  "feedback": "<one short Korean sentence about what was good and what to improve>",
+  "suggestion": "<one Korean tip to practice next time>"
+}`;
+          const resp = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+            messages: [
+              { role: 'system', content: 'You are a friendly Korean-English pronunciation coach. Reply in JSON only.' },
+              { role: 'user', content: prompt }
+            ],
+            max_tokens: 300,
+          });
+          // 응답을 안전하게 문자열로 정규화
+          let text = '';
+          if (typeof resp === 'string') text = resp;
+          else if (resp && typeof resp.response === 'string') text = resp.response;
+          else if (resp && resp.response) text = JSON.stringify(resp.response);
+          text = String(text || '');
+          const m = text.match(/\{[\s\S]*\}/);
+          if (m) {
+            try {
+              const j = JSON.parse(m[0]);
+              if (typeof j.pronunciation_score === 'number') pronunciation = Math.max(0, Math.min(100, Math.round(j.pronunciation_score)));
+              if (j.feedback) aiFeedback = String(j.feedback).slice(0, 300);
+              if (j.suggestion) suggestion = String(j.suggestion).slice(0, 300);
+            } catch (e) { /* fall back */ }
+          }
+        } catch (e: any) {
+          console.warn('[voice/coach] AI fail:', e?.message);
+        }
+      }
+
+      // 기본값 채우기
+      if (!aiFeedback) {
+        aiFeedback = accuracy >= 90 ? '완벽해요! 발음이 아주 정확합니다.' :
+                     accuracy >= 70 ? '좋아요! 대부분의 단어를 잘 발음했어요.' :
+                     accuracy >= 50 ? '한 번 더 천천히 따라해볼까요? 일부 단어를 확인해봐요.' :
+                                     '괜찮아요, 모범 음성을 들어보고 다시 시도해봐요!';
+      }
+      if (!suggestion) suggestion = '모범 문장을 3번 듣고 큰 소리로 따라 말해보세요.';
+
+      const overall = Math.round((accuracy * 0.5) + (pronunciation * 0.3) + (fluency * 0.2));
+
+      // 저장
+      const now = Date.now();
+      await env.DB.prepare(
+        `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now).run();
+
+      return json({
+        ok: true,
+        scores: { accuracy, pronunciation, fluency, overall },
+        feedback: aiFeedback,
+        suggestion,
+        word_stats: { target: tWords.length, spoken: sWords.length, matched },
+      });
+    }
+
+    // ── GET /api/voice/history?uid=X — 학생별 음성 코칭 이력 ──
+    if (method === 'GET' && path === '/api/voice/history') {
+      await ensureVoiceTable();
+      const uid = (url.searchParams.get('uid') || 'guest').trim();
+      // 🔐 [PII] 본인 발화연습 이력만 — 토큰 uid 일치 요구(남의 전사·발음점수 조회 차단)
+      const vhAuth = await authUidGlobal(request, url, env);
+      if (!vhAuth || vhAuth !== uid) return json({ ok: false, error: 'auth_required' }, 401);
+      const rs = await env.DB.prepare(
+        `SELECT id, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, created_at FROM voice_coaching WHERE student_uid = ? ORDER BY created_at DESC LIMIT 30`
+      ).bind(uid).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── GET /api/voice/stats?uid=X — 학생별 음성 코칭 통계 (그래프용)
+    //   반환: 일별 평균 점수 + 총 연습 횟수 + 최고/최근 점수
+    if (method === 'GET' && path === '/api/voice/stats') {
+      await ensureVoiceTable();
+      const uid = (url.searchParams.get('uid') || 'guest').trim();
+      // 🔐 [PII] 본인(학생/학부모 토큰) 만 발음 통계 조회 — IDOR 차단
+      const vsAuth = await authUidGlobal(request, url, env);
+      if (!vsAuth || vsAuth !== uid) return json({ ok: false, error: 'auth_required' }, 401);
+      const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10), 90);
+      const sinceMs = Date.now() - days * 86400000;
+      const rs = await env.DB.prepare(
+        `SELECT accuracy_score, pronunciation_score, fluency_score, created_at FROM voice_coaching WHERE student_uid = ? AND created_at >= ? ORDER BY created_at ASC`
+      ).bind(uid, sinceMs).all();
+      const rows = (rs.results || []) as any[];
+      // 일별 집계
+      const byDay: Record<string, { acc: number[], pron: number[], flu: number[] }> = {};
+      for (const r of rows) {
+        const d = new Date(r.created_at).toISOString().slice(0, 10);
+        if (!byDay[d]) byDay[d] = { acc: [], pron: [], flu: [] };
+        byDay[d].acc.push(r.accuracy_score || 0);
+        byDay[d].pron.push(r.pronunciation_score || 0);
+        byDay[d].flu.push(r.fluency_score || 0);
+      }
+      const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+      const daily = Object.keys(byDay).sort().map(d => ({
+        date: d,
+        accuracy: avg(byDay[d].acc),
+        pronunciation: avg(byDay[d].pron),
+        fluency: avg(byDay[d].flu),
+        overall: Math.round((avg(byDay[d].acc) * 0.5) + (avg(byDay[d].pron) * 0.3) + (avg(byDay[d].flu) * 0.2)),
+        count: byDay[d].acc.length,
+      }));
+      // 전체 통계
+      const allAcc = rows.map(r => r.accuracy_score || 0);
+      const allPron = rows.map(r => r.pronunciation_score || 0);
+      const allFlu = rows.map(r => r.fluency_score || 0);
+      const totalAvg = {
+        accuracy: avg(allAcc),
+        pronunciation: avg(allPron),
+        fluency: avg(allFlu),
+        overall: Math.round((avg(allAcc) * 0.5) + (avg(allPron) * 0.3) + (avg(allFlu) * 0.2)),
+      };
+      const best = rows.length ? Math.max(...rows.map(r => Math.round((r.accuracy_score || 0) * 0.5 + (r.pronunciation_score || 0) * 0.3 + (r.fluency_score || 0) * 0.2))) : 0;
+      const latest = rows.length ? Math.round((rows[rows.length - 1].accuracy_score || 0) * 0.5 + (rows[rows.length - 1].pronunciation_score || 0) * 0.3 + (rows[rows.length - 1].fluency_score || 0) * 0.2) : 0;
+      return json({
+        ok: true,
+        total_sessions: rows.length,
+        days_active: daily.length,
+        average: totalAvg,
+        best_score: best,
+        latest_score: latest,
+        daily,
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎙 Phase AV 끝
+    // ═══════════════════════════════════════════════════════════════
+
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
