@@ -3,7 +3,7 @@
 > 이 문서는 "개발자 없이 혼자 관리해야 하는 사람"을 위한 최상위 안내서입니다.
 > 상세 문서: [환경변수·시크릿 목록](docs/ENVIRONMENT.md) · [문제 해결 가이드](docs/TROUBLESHOOTING.md) · [코드 분리 계획](docs/REFACTOR_PLAN.md)
 
-최종 갱신: 2026-07-09
+최종 갱신: 2026-07-14 (대규모 코드분리 36차 반영)
 
 ---
 
@@ -45,7 +45,26 @@
   - 주의: `[env.production]` 쪽에도 **같은 값이 한 벌 더** 있음. 둘 다 고쳐야 함.
 
 ### ❌ 개발자(또는 AI에게 맡기고 검증) 영역
-- `cloudflare-deploy/src/` 전체 — 특히 `index.ts`(라우팅), `api-mango.ts`(API 1.2만 줄), Durable Object 파일들(`video-call-room.ts`, `signaling-room.ts` — **SignalingRoom 삭제 금지**, 진단페이지가 사용)
+- `cloudflare-deploy/src/` 전체 — 특히 `index.ts`(라우팅+admin 인증게이트), Durable Object 파일들(`video-call-room.ts`, `signaling-room.ts` — **SignalingRoom 삭제 금지**, 진단페이지가 사용)
+
+#### 📦 백엔드 모듈 지도 (2026-07-14 대분리 후 — "이 기능 어디 있지?" 찾을 때)
+| 파일 | 담당 |
+|---|---|
+| `src/api-mango.ts` (3.5천줄) | 라우팅 진입점 + 소수 잔여(수업입장 class/*, 번역, omnisearch) |
+| `src/api-admin.ts` (6.6천줄) | 관리자: 통계·KPI·급여·강사관리·팝업·스케줄·노쇼·구독·NPS·가족·동문회·레벨테스트·교재파일 |
+| `src/api-games.ts` | 단어장·마이크로러닝·복습퀴즈·배지·스트릭·음성코칭 |
+| `src/api-points.ts` | 포인트·기프티콘(기프티쇼)·수업 별점평가 |
+| `src/api-students.ts` | 학부모(대시보드·다이제스트·상담챗)·학생 로그인/가입·소셜로그인 |
+| `src/api-lessons.ts` | 평가서·숙제·캘린더·AI 학습리포트 |
+| `src/api-notify.ts` | 알림톡·웹푸시·채팅영속화·카카오 양방향 |
+| `src/api-ai.ts` | AI 영작첨삭·영어친구챗·AI 명령 라우터 |
+| `src/api-reports.ts` | 월간 학습보고서(크론 포함) |
+| `src/api-util.ts` / `auth-token.ts` / `scope.ts` | 공용 응답·CSV·토큰·지사격리 |
+
+#### 📦 프런트 분리 파일 (외부 js — 원복법은 각 파일 머리주석)
+- `public/js/adm-core.js` + `adm-p*/q*/r*/s*.js` (68개) — admin.html 에서 추출된 로직
+- `public/js/idx-*.js` + `idx-x1~8.js` — index.html 에서 추출 (⚠ index.html 의 화상수업(VC)·부팅 코드는 의도적으로 인라인 유지)
+- 배포 시 `?v=` 캐시버스터를 올려야 즉시 반영
 - `public/index.html`·`admin.html` 안의 `<script>` 로직
 - `sw.js` (서비스워커 — 잘못 고치면 전 사용자 화면이 옛 버전에 갇힘)
 - `deploy.ps1` 자체
