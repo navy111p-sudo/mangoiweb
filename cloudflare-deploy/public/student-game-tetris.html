@@ -71,9 +71,12 @@
   /* 현재 조각 단어 뜻(학습 표시) */
   .quest{ width:100%; max-width:560px; margin-top:6px; text-align:center;
     background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:7px 10px; }
-  .quest .w{ font-size:20px; font-weight:900; }
-  .quest .m{ font-size:14px; color:#93c5fd; }
-  .quest .py{ font-size:12px; color:#a5b4d8; }
+  .quest .qko{ font-size:14px; color:#93c5fd; }
+  .quest .slots{ margin-top:6px; display:flex; gap:5px; justify-content:center; flex-wrap:wrap; }
+  .quest .qslot{ min-width:32px; padding:3px 9px; border-radius:8px; font-weight:800; font-size:15px;
+    background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.14); color:#8090b4; transition:.2s; }
+  .quest .qslot.done{ border-color:#34d399; color:#bbf7d0; background:rgba(52,211,153,.18); }
+  .quest .qslot.next{ border-color:#fbbf24; color:#fde68a; background:rgba(251,191,36,.18); animation:missionPulse 1s infinite; }
 
   /* ⚡ 미션 배너 */
   #mission{ width:100%; max-width:560px; margin-top:6px; display:none; text-align:center; font-size:13px; font-weight:700;
@@ -160,8 +163,8 @@
     </div>
     <div class="howto">
       ◀ ▶ 이동 · 🔄 회전 · ▼ 빨리 · ⤓ 한번에 떨어뜨리기<br>
-      조각이 <b>바닥에 쌓이고</b> 가로줄이 꽉 차면 💥 그 줄이 사라져요!<br>
-      조각이 놓일 때마다 단어를 <b>원어민 발음</b>으로 들려줘요 🔊
+      위 <b>문장 순서</b>대로 단어 조각을 놓아 <b>문장을 완성</b>하세요!<br>
+      다른 단어는 쌓여요 — 가로줄 꽉 차면 💥삭제(정통 테트리스) · 놓을 때 발음 🔊
     </div>
   </div>
 
@@ -177,9 +180,8 @@
       <span class="pill" id="hud-mode">🇺🇸</span>
     </div>
     <div class="quest">
-      <span class="w" id="q-word">—</span>
-      <span class="m" id="q-mean"></span>
-      <span class="py" id="q-py"></span>
+      <div class="qko" id="q-sentko">—</div>
+      <div class="slots" id="q-slots"></div>
     </div>
     <div id="mission"></div>
     <div id="board-wrap">
@@ -257,6 +259,49 @@ var PIECES = [
   { cells:[[0,0],[0,1],[1,0],[2,0],[2,1]],   color:'#f59e0b' }, // ㄷ (5칸)
   { cells:[[0,1],[1,0],[1,1],[1,2],[2,1]],   color:'#818cf8' }  // 십자 + (5칸)
 ];
+
+/* ════════════════════════════════════════════════════════════
+   📝 문장 데이터 — 어순대로 단어 조각을 놓아 완성 (영어/중국어 분리)
+   ════════════════════════════════════════════════════════════ */
+var SENTENCES = {
+  en:[
+    {words:['I','like','apples'],      ko:'나는 사과를 좋아해요'},
+    {words:['The','cat','is','happy'], ko:'고양이가 행복해요'},
+    {words:['We','play','at','school'],ko:'우리는 학교에서 놀아요'},
+    {words:['Birds','sing','a','song'],ko:'새들이 노래를 불러요'},
+    {words:['I','read','a','book'],    ko:'나는 책을 읽어요'},
+    {words:['The','sun','is','big'],   ko:'태양은 커요'},
+    {words:['My','dog','can','run'],   ko:'내 개는 달릴 수 있어요'},
+    {words:['We','drink','milk'],      ko:'우리는 우유를 마셔요'}
+  ],
+  zh:[
+    {words:['我','喜欢','苹果'],   ko:'나는 사과를 좋아해요'},
+    {words:['猫','很','高兴'],     ko:'고양이가 행복해요'},
+    {words:['我们','去','学校'],   ko:'우리는 학교에 가요'},
+    {words:['鸟','唱','歌'],       ko:'새가 노래해요'},
+    {words:['我','读','书'],       ko:'나는 책을 읽어요'},
+    {words:['太阳','很','大'],     ko:'태양은 커요'},
+    {words:['狗','会','跑'],       ko:'개는 달릴 수 있어요'},
+    {words:['我们','喝','牛奶'],   ko:'우리는 우유를 마셔요'}
+  ]
+};
+/* VOCAB에 없는 기능어 뜻/병음 보충 */
+var EXTRA = {
+  en:{ I:'나는', The:'그', the:'그', is:'~이다', We:'우리', at:'~에서', a:'하나의', song:'노래',
+       like:'좋아하다', Birds:'새들', My:'나의', can:'~할 수 있다', drink:'마시다', apples:'사과' },
+  zh:{ '我':{ko:'나',py:'wǒ'}, '喜欢':{ko:'좋아하다',py:'xǐhuan'}, '很':{ko:'매우',py:'hěn'},
+       '去':{ko:'가다',py:'qù'}, '歌':{ko:'노래',py:'gē'}, '会':{ko:'~할 수 있다',py:'huì'}, '喝':{ko:'마시다',py:'hē'} }
+};
+function meanOf(w){
+  var v=VOCAB[MODE].words.find(function(x){ return x.w===w; }); if(v) return v.ko;
+  var e=EXTRA[MODE][w]; if(e) return (typeof e==='string')?e:e.ko; return '';
+}
+function pyOf(w){
+  if(MODE!=='zh') return '';
+  var v=VOCAB.zh.words.find(function(x){ return x.w===w; }); if(v&&v.py) return v.py;
+  var e=EXTRA.zh[w]; if(e&&e.py) return e.py; return '';
+}
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)),t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 
 /* ── 허브 파라미터 ── */
 var QS  = new URLSearchParams(location.search);
@@ -354,6 +399,7 @@ var score=0, combo=0, maxCombo=0, lines=0, level=1, relief=0;
 var pieceSeq=0;              // 조각 고유번호(같은 조각 셀끼리만 테두리 병합 → 통짜 모양 유지)
 var running=false, paused=false, gravT=null;
 var missionT=null, missionEndT=null, mission=null;
+var SENT=null, sentPos=0, sentIdx=-1, sentOrder=[];   // 📝 현재 문장 / 다음 채울 자리 / 순서
 
 function dropMs(){
   var base=[0,980,880,780,670,570][HUBSPEED];
@@ -376,10 +422,11 @@ function startGame(mode){
   MODE=mode; score=0; combo=0; maxCombo=0; lines=0; level=1; relief=0; mission=null; pieceSeq=0;
   running=true; paused=false;
   grid=[]; for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
+  sentOrder=shuffle(SENTENCES[MODE].map(function(_,i){ return i; })); sentIdx=-1; nextSentence();  // 📝 첫 문장
   document.getElementById('hud-mode').textContent=VOCAB[MODE].flag+' '+VOCAB[MODE].name;
   document.getElementById('mus-btn').textContent=MUSIC.on?'🔊':'🔇';
   setBg(); updateHud(); show('scr-game'); ac(); musicStart();
-  layout(); spawn(); render(); startGravity(); startMissionClock();
+  layout(); spawn(); render(); startGravity();
 }
 
 /* ── 보드 크기 계산(정사각 셀, PC에서 크게) ── */
@@ -400,25 +447,51 @@ window.addEventListener('resize', function(){ if(running){ layout(); render(); }
 /* ════════════════════════════════════════════════════════════
    조각 생성 / 충돌 / 이동 / 회전
    ════════════════════════════════════════════════════════════ */
+/* 조각에 붙일 단어 선택: '다음 필요 단어'를 자주 띄우되, 문장 내 다른 단어·함정도 섞음 */
 function pickWord(){
-  var pool=VOCAB[MODE].words;
-  if(mission && Math.random()<0.28) return mission;   // 미션 단어에 기회 부여
-  return pool[Math.floor(Math.random()*pool.length)];
+  var r=Math.random();
+  if(SENT && r<0.45) return SENT.words[sentPos];                                  // 다음 필요 단어
+  if(SENT && r<0.62) return SENT.words[Math.floor(Math.random()*SENT.words.length)]; // 문장 내 다른 단어(디코이)
+  var pool=VOCAB[MODE].words; return pool[Math.floor(Math.random()*pool.length)].w; // 완전 함정
 }
 function spawn(){
   if(!running) return;
   var p=PIECES[Math.floor(Math.random()*PIECES.length)];
-  var wd=pickWord();
+  var word=pickWord();
   var cells=p.cells.map(function(c){ return c.slice(); });
   var w=Math.max.apply(null,cells.map(function(c){return c[1];}))+1;
-  piece={ cells:cells, row:0, col:Math.floor((COLS-w)/2), color:p.color, word:wd.w, ko:wd.ko, py:wd.py||'', id:(++pieceSeq) };
-  showWordMeaning(wd);
+  piece={ cells:cells, row:0, col:Math.floor((COLS-w)/2), color:p.color, word:word, id:(++pieceSeq) };
   if(collide(piece.cells, piece.row, piece.col)) return gameOver();   // 스폰 즉시 충돌 = 게임오버
 }
-function showWordMeaning(wd){
-  document.getElementById('q-word').textContent=wd.w;
-  document.getElementById('q-mean').textContent=' = '+wd.ko;
-  document.getElementById('q-py').textContent=wd.py?('  ['+wd.py+']'):'';
+
+/* ── 📝 문장 진행 표시 ── */
+function renderSlots(){
+  if(!SENT) return;
+  document.getElementById('q-sentko').textContent='💡 '+SENT.ko;
+  document.getElementById('q-slots').innerHTML=SENT.words.map(function(w,i){
+    var cls=i<sentPos?'done':(i===sentPos?'next':'');
+    return '<span class="qslot '+cls+'">'+w+'</span>';
+  }).join('');
+  var need=SENT.words[sentPos], m=document.getElementById('mission');
+  if(need){ var mn=meanOf(need), py=pyOf(need);
+    m.style.display='block';
+    m.textContent='🎯 다음 단어: '+need+(mn?' = '+mn:'')+(py?' ['+py+']':'')+' 조각을 찾아 놓으세요!';
+  } else { m.style.display='none'; }
+}
+function nextSentence(){
+  sentIdx++; if(sentIdx>=sentOrder.length){ sentOrder=shuffle(sentOrder.slice()); sentIdx=0; }
+  SENT=SENTENCES[MODE][sentOrder[sentIdx]]; sentPos=0; renderSlots();
+}
+/* 문장 완성: 보너스 + 전체 낭독 + 폭죽 + 바닥 정리(보상) + 다음 문장 */
+function sentenceComplete(){
+  score += 500 + level*100;
+  splash('문장 완성! 🎉');
+  speak(SENT.words.join(MODE==='zh'?'':' '), 0.98);
+  var bd=document.getElementById('board').getBoundingClientRect();
+  for(var i=0;i<6;i++){ (function(k){ setTimeout(function(){ if(running) burst(bd.left+Math.random()*bd.width, bd.top+30+Math.random()*bd.height*0.5, 12, ['#fde047','#fb7185','#c084fc','#7dd3fc','#34d399']); }, k*120); })(i); }
+  sndClear(3);
+  grid.splice(ROWS-3,3); while(grid.length<ROWS) grid.unshift(new Array(COLS).fill(null));  // 🎁 바닥 3줄 정리
+  nextSentence();
 }
 /* 충돌: 벽/바닥/이미 쌓인 블록과 겹치면 true (천장 위 gr<0 는 허용) */
 function collide(cells,row,col){
@@ -462,25 +535,33 @@ function lock(){
     grid[gr][gc]={ color:piece.color, word:piece.word, id:piece.id };
   });
   sndLock();
-  speak(piece.word, 0.95);                    // 🗣️ 놓을 때마다 단어 발음(학습)
-  var lockedWord=piece.word;
+  var lockedWord=piece.word, lockRow=piece.row, lockCol=piece.col;
   piece=null;
   if(topOut) return gameOver();               // 천장 위에서 잠김 = 게임오버
 
-  var cleared=clearLines();                   // 💥 줄 지우기
+  // 📝 문장 어순 진행: 놓은 단어가 '다음 필요 단어'와 같으면 슬롯을 채움
+  if(SENT && lockedWord===SENT.words[sentPos]){
+    sentPos++; score += 120 + combo*20; pushProg(lockedWord, true);
+    speak(lockedWord, 0.95);
+    var b=document.getElementById('board').getBoundingClientRect();
+    burst(b.left+(lockCol+0.5)*cell, b.top+(lockRow+0.5)*cell, 10, ['#34d399','#a7f3d0','#fde047']);
+    renderSlots();
+    if(sentPos>=SENT.words.length) sentenceComplete();   // 마지막 자리까지 채움 → 문장 완성
+  } else {
+    speak(lockedWord, 0.98);                              // 틀린/다른 단어여도 발음은 들려줌(학습)
+  }
+
+  var cleared=clearLines();                   // 💥 정통 테트리스 줄 지우기(쌓인 함정 정리)
   if(cleared.count>0){
     lines+=cleared.count; combo++; maxCombo=Math.max(maxCombo,combo);
-    var lineScore=[0,100,300,500,800][cleared.count]*level + combo*40;
-    score+=lineScore;
+    score += [0,100,300,500,800][cleared.count]*level + combo*40;
     level=1+Math.floor(lines/8); setBg();
     splash([ '','GREAT!','EXCELLENT!','AMAZING!','TETRIS!!' ][cleared.count]);
     sndClear(cleared.count);
     var uniq={}; cleared.words.forEach(function(w){ if(w) uniq[w]=1; });
-    Object.keys(uniq).forEach(function(w){ pushProg(w, true); });   // 지운 줄 단어 학습기록
-    if(mission && uniq[mission.w]) missionSuccess();
+    Object.keys(uniq).forEach(function(w){ pushProg(w, true); });
   } else {
     combo=0; setBg();
-    pushProg(lockedWord, true);
   }
   updateHud();
   if(!running) return;
@@ -701,6 +782,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715022256 -->
+<!-- BUILD:20260715031231 -->
 </body>
 </html>
