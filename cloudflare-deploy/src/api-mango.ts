@@ -1077,7 +1077,9 @@ export async function handleMangoApi(
       const rPoints = await handlePointsApi(request, url, env);
       if (rPoints) return rPoints;
     }
-    if (path.startsWith('/api/admin/inquiry/') || path === '/api/consult-bot' || path === '/api/student/inquiry'
+    if (path.startsWith('/api/admin/nps/') || path === '/api/nps/respond'
+        || path.startsWith('/api/admin/subscription') || path === '/api/subscription/create'
+        || path.startsWith('/api/admin/inquiry/') || path === '/api/consult-bot' || path === '/api/student/inquiry'
         || path.startsWith('/api/admin/alerts') || path === '/api/admin/audit-logs'
         || path.startsWith('/api/admin/briefing') || path === '/api/admin/chat-messages'
         || path.startsWith('/api/admin/dunning') || path === '/api/admin/exams'
@@ -3498,120 +3500,7 @@ Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific a
 
     // ════════════════════════════════════════════════════════════
     // 📊 월간 NPS 설문 (Net Promoter Score) — stats / send / respond
-    // ════════════════════════════════════════════════════════════
-    if (path === '/api/admin/nps/stats' || path === '/api/admin/nps/send-monthly' || path === '/api/nps/respond') {
-      try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS nps_responses (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, parent_phone TEXT, score INTEGER NOT NULL, comment TEXT, ym TEXT NOT NULL, created_at INTEGER NOT NULL);`);
-      } catch {}
-      const kstYm = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
-
-      // ── 통계 조회 ──
-      if (method === 'GET' && path === '/api/admin/nps/stats') {
-        const ym = (url.searchParams.get('ym') || kstYm());
-        const agg: any = await env.DB.prepare(
-          `SELECT COUNT(*) AS total, IFNULL(AVG(score),0) AS avg_score,
-                  SUM(CASE WHEN score>=9 THEN 1 ELSE 0 END) AS promoters,
-                  SUM(CASE WHEN score BETWEEN 7 AND 8 THEN 1 ELSE 0 END) AS passives,
-                  SUM(CASE WHEN score<=6 THEN 1 ELSE 0 END) AS detractors
-           FROM nps_responses WHERE ym = ?`
-        ).bind(ym).first().catch(() => ({}));
-        const total = agg?.total || 0;
-        const promoters = agg?.promoters || 0;
-        const passives = agg?.passives || 0;
-        const detractors = agg?.detractors || 0;
-        const promoter_pct = total > 0 ? Math.round(promoters * 100 / total) : 0;
-        const detractor_pct = total > 0 ? Math.round(detractors * 100 / total) : 0;
-        const nps = total > 0 ? (promoter_pct - detractor_pct) : 0;
-        const cm = await env.DB.prepare(
-          `SELECT score, comment, created_at FROM nps_responses WHERE ym = ? AND comment IS NOT NULL AND comment != '' ORDER BY created_at DESC LIMIT 10`
-        ).bind(ym).all().catch(() => ({ results: [] }));
-        return json({ ok: true, ym, nps, avg_score: Math.round((agg?.avg_score || 0) * 10) / 10, total, promoters, passives, detractors, promoter_pct, detractor_pct, recent_comments: (cm as any).results || [] });
-      }
-
-      // ── 월간 발송 (학부모 수만큼 큐 등록) ──
-      if (method === 'POST' && path === '/api/admin/nps/send-monthly') {
-        const cnt: any = await env.DB.prepare(
-          `SELECT COUNT(*) AS n FROM students_erp WHERE status='정상' OR status='활동' OR status IS NULL OR status=''`
-        ).first().catch(() => ({ n: 0 }));
-        return json({ ok: true, queued: cnt?.n || 0, ym: kstYm() });
-      }
-
-      // ── 응답 수집 (학부모) ──
-      if (method === 'POST' && path === '/api/nps/respond') {
-        const b: any = await parseJsonBody(request);
-        const score = Math.max(0, Math.min(10, parseInt(b?.score, 10) || 0));
-        const ym = (b?.ym || kstYm());
-        await env.DB.prepare(
-          `INSERT INTO nps_responses (user_id, student_name, parent_phone, score, comment, ym, created_at) VALUES (?,?,?,?,?,?,?)`
-        ).bind(b?.user_id || null, b?.student_name || null, b?.parent_phone || null, score, b?.comment || null, ym, Date.now()).run();
-        return json({ ok: true });
-      }
-    }
-
-    // ════════════════════════════════════════════════════════════
-    // 💳 정기결제 자동화 (Recurring Billing / Subscriptions)
-    // ════════════════════════════════════════════════════════════
-    if (path === '/api/admin/subscriptions' || path === '/api/admin/subscription/charge-now' || path === '/api/admin/subscription/cancel' || path === '/api/subscription/create' || path === '/api/admin/subscription/cron-check') {
-      try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, plan TEXT, amount INTEGER, status TEXT DEFAULT 'active', next_billing_at INTEGER, last_billed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-      } catch {}
-
-      if (method === 'GET' && path === '/api/admin/subscriptions') {
-        const st: any = await env.DB.prepare(
-          `SELECT SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) AS active,
-                  SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cancelled,
-                  IFNULL(SUM(CASE WHEN status='active' THEN amount ELSE 0 END),0) AS month_revenue
-           FROM subscriptions`
-        ).first().catch(() => ({}));
-        const lr = await env.DB.prepare(
-          `SELECT id, user_id, student_name, plan, amount, status, next_billing_at FROM subscriptions ORDER BY (status='active') DESC, next_billing_at ASC LIMIT 500`
-        ).all().catch(() => ({ results: [] }));
-        return json({ ok: true, stats: { active: st?.active || 0, cancelled: st?.cancelled || 0, month_revenue: st?.month_revenue || 0 }, list: (lr as any).results || [] });
-      }
-
-      if (method === 'POST' && path === '/api/admin/subscription/charge-now') {
-        const b: any = await parseJsonBody(request);
-        const id = parseInt(b?.id, 10);
-        if (!id) return json({ ok: false, error: 'id_required' }, 400);
-        const sub: any = await env.DB.prepare(`SELECT * FROM subscriptions WHERE id = ?`).bind(id).first();
-        if (!sub) return json({ ok: false, error: 'not_found' }, 404);
-        const now = Date.now();
-        await env.DB.prepare(`INSERT INTO student_payments (user_id, paid_at, amount_krw, method, memo, status, created_at) VALUES (?,?,?,?,?,?,?)`)
-          .bind(sub.user_id, now, sub.amount || 0, '정기결제', '정기결제 즉시청구', 'paid', now).run();
-        await env.DB.prepare(`UPDATE subscriptions SET last_billed_at = ?, next_billing_at = ?, updated_at = ? WHERE id = ?`).bind(now, now + 30 * 86400 * 1000, now, id).run();
-        return json({ ok: true, charged: sub.amount || 0 });
-      }
-
-      if (method === 'POST' && path === '/api/admin/subscription/cancel') {
-        const b: any = await parseJsonBody(request);
-        const id = parseInt(b?.id, 10);
-        if (!id) return json({ ok: false, error: 'id_required' }, 400);
-        await env.DB.prepare(`UPDATE subscriptions SET status = 'cancelled', updated_at = ? WHERE id = ?`).bind(Date.now(), id).run();
-        return json({ ok: true });
-      }
-
-      if (method === 'POST' && path === '/api/subscription/create') {
-        const b: any = await parseJsonBody(request);
-        if (!b?.user_id) return json({ ok: false, error: 'user_id_required' }, 400);
-        const now = Date.now();
-        const r = await env.DB.prepare(`INSERT INTO subscriptions (user_id, student_name, plan, amount, status, next_billing_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`)
-          .bind(b.user_id, b.student_name || null, b.plan || '월정기', parseInt(b.amount, 10) || 0, 'active', now + 30 * 86400 * 1000, now, now).run();
-        return json({ ok: true, id: r.meta.last_row_id });
-      }
-
-      if (method === 'POST' && path === '/api/admin/subscription/cron-check') {
-        const now = Date.now();
-        const due = await env.DB.prepare(`SELECT * FROM subscriptions WHERE status='active' AND next_billing_at IS NOT NULL AND next_billing_at <= ?`).bind(now).all().catch(() => ({ results: [] }));
-        let charged = 0;
-        for (const sub of (((due as any).results) || [])) {
-          await env.DB.prepare(`INSERT INTO student_payments (user_id, paid_at, amount_krw, method, memo, status, created_at) VALUES (?,?,?,?,?,?,?)`)
-            .bind(sub.user_id, now, sub.amount || 0, '정기결제', '정기결제 자동청구(cron)', 'paid', now).run();
-          await env.DB.prepare(`UPDATE subscriptions SET last_billed_at = ?, next_billing_at = ?, updated_at = ? WHERE id = ?`).bind(now, now + 30 * 86400 * 1000, now, sub.id).run();
-          charged++;
-        }
-        return json({ ok: true, charged });
-      }
-    }
+    // (💚 NPS + 🔁 구독결제 route-group → api-admin.ts — 26차)
 
     // No matching route in this handler
     return null;
