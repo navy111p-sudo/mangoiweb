@@ -376,11 +376,40 @@
           p.insertBefore(b, p.firstChild); }
       }catch(e){}
     }
+    /* 📖 독해 문단 배틀 — /api/games/zh-passage(과별 자체 제작 문단)의 문장에서
+       핵심단어를 빈칸으로 낸 문제 10개. 문단 문장을 배틀 형식(빈칸+4지선다)에 녹인 것. */
+    function buildPassageItemsZh(d){
+      if(!d || !d.ok || !d.passages) return [];
+      var items=[], allKw=[];
+      d.passages.forEach(function(p){ (p.keywords||[]).forEach(function(k){ if(k&&k.hz) allKw.push(k.hz); }); });
+      d.passages.forEach(function(p){
+        (p.keywords||[]).forEach(function(k){
+          if(!k || !k.hz) return;
+          var sent=(p.sentences||[]).filter(function(s){ return s && s.hz && s.hz.indexOf(k.hz)>=0; })[0];
+          if(!sent) return;
+          pyReg(k.hz, k.py); koReg(k.hz, k.ko);
+          // 오답 보기: 다른 문단들의 핵심단어(정답과 포함관계인 단어는 제외 — 부분일치 혼란 방지)
+          var wrongs=_shuf(allKw.filter(function(w){ return w!==k.hz && k.hz.indexOf(w)<0 && w.indexOf(k.hz)<0; })).slice(0,3);
+          while(wrongs.length<3){ wrongs.push(['书','水','猫','花'][wrongs.length]); }
+          items.push({ type:'독해', q:sent.hz.replace(k.hz,'___'), hint:(sent.ko?'('+sent.ko+')':''), a:k.hz, ch:_shuf([k.hz].concat(wrongs)) });
+        });
+      });
+      return items;
+    }
     if(IS_ZH){
       // 🀄 다락원 zh_vocab 실교재 어휘 → 오늘의 교재 배틀
       fetch('/api/games/zh-vocab?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
         .then(function(r){ return r.ok?r.json():null; })
         .then(function(d){ if(d) _addStudentLesson(buildStudentLessonZh(d)); })
+        .catch(function(){});
+      // 📖 독해 문단 배틀 레슨 추가 (문단 5개 이상 확보될 때만)
+      fetch('/api/games/zh-passage?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
+        .then(function(r){ return r.ok?r.json():null; })
+        .then(function(d){
+          var its=buildPassageItemsZh(d);
+          if(its.length>=5) _addStudentLesson({ name:'📖 독해 문단 배틀', boss:'👹 阅读王 (독해 왕)',
+            color:0xd97706, color2:0x7c2d12, badge:'trophy', items:_shuf(its).slice(0,10) });
+        })
         .catch(function(){});
     } else {
       try{
@@ -1512,6 +1541,6 @@
 }
 </style>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260714210144 -->
+<!-- BUILD:20260714212154 -->
 </body>
 </html>

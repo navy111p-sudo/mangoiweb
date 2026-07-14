@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>🎮 단어 테트리스 — Mangoi</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  🎮 단어 테트리스 서바이벌 (영어/중국어)
+  ───────────────────────────────────────────────────────────────
+  · 시작 화면에서 [영어 모드] / [중국어 모드] 선택
+  · 상단에 목표 문장(+한국어 뜻)이 나오고, 단어 블록이 떨어진다
+  · 블록을 좌우로 움직여 "그 단어의 자리(열)"에 떨어뜨리면 초록 확정,
+    바닥 가로줄(=문장)이 모두 채워지면 💥 폭발 + 원어민 발음(TTS) + 점수
+  · 🔄 버튼(회전)은 블록 안의 단어를 다음 후보로 교체한다
+  · 틀린 자리에 넣으면 화면 흔들림 + 회색 쓰레기 블록 2단 적립(서바이벌)
+    └ 쓰레기 위에 "그 열의 정답 단어"를 떨어뜨리면 1칸 뚫린다(드릴)
+  · 10초마다 ⚡콤보 미션: 지정 단어를 맞추면 낙하 속도 초기화
+  · 콤보가 쌓일수록 배경이 점점 밝고 화려해진다
+  · 허브 전달 파라미터: ?uid= &speed=1..5 &glang=en|zh
+  · 학습기록: /api/games/progress 로 정오답 배치 전송 (실패해도 게임엔 무관)
+  · 단어 데이터(JSON)는 아래 WORD_DATA 에 영어/중국어 분리 — 쉽게 수정 가능
+  ═══════════════════════════════════════════════════════════════
+-->
+<style>
+  /* ── 기본: 다크 모드 베이스 + 콤보에 따라 밝아지는 배경 ── */
+  :root{
+    --h1: 225;            /* 배경 그라디언트 색상(hue) — 콤보로 변함 */
+    --h2: 265;
+    --glowa: .14;         /* 배경 광채 강도 — 콤보로 변함 */
+    --ch: 44px;           /* 보드 셀 높이(JS가 재계산) */
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; overflow:hidden; }
+  body{
+    font-family:'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+    color:#e6edff; background:#0b0f1e; user-select:none; -webkit-user-select:none;
+    touch-action:manipulation;
+  }
+  /* 콤보 배경: 두 개의 라디얼 광채가 hue/강도를 바꾸며 살아 움직임 */
+  body::before{
+    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(60% 50% at 20% 10%, hsla(var(--h1),90%,60%,var(--glowa)), transparent 70%),
+      radial-gradient(55% 45% at 85% 85%, hsla(var(--h2),90%,55%,var(--glowa)), transparent 70%),
+      linear-gradient(180deg,#0b0f1e 0%,#101631 55%,#0b0f1e 100%);
+    transition: background 1s ease;
+  }
+  .wrap{ position:relative; z-index:1; height:100%; display:flex; flex-direction:column; align-items:center; }
+
+  /* ═══ 화면 전환(모드선택 / 게임 / 게임오버) ═══ */
+  .scr{ display:none; width:100%; height:100%; flex-direction:column; align-items:center; }
+  .scr.on{ display:flex; }
+
+  /* ── 1) 모드 선택 화면 ── */
+  #scr-mode{ justify-content:center; gap:18px; padding:20px; text-align:center; }
+  #scr-mode h1{ font-size:clamp(26px,6vw,40px); letter-spacing:1px;
+    background:linear-gradient(90deg,#7dd3fc,#c084fc,#f472b6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #scr-mode .sub{ color:#9fb0d8; font-size:14px; line-height:1.6; }
+  .mode-row{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .mode-card{
+    width:min(42vw,220px); padding:22px 14px; border-radius:20px; cursor:pointer;
+    background:rgba(255,255,255,.05); border:2px solid rgba(255,255,255,.12);
+    transition:transform .15s, border-color .15s, background .15s;
+  }
+  .mode-card:active{ transform:scale(.96); }
+  .mode-card.hot{ border-color:#38bdf8; background:rgba(56,189,248,.12); box-shadow:0 0 24px rgba(56,189,248,.25); }
+  .mode-card .flag{ font-size:44px; display:block; }
+  .mode-card .nm{ font-size:19px; font-weight:800; margin-top:8px; display:block; }
+  .mode-card .bs{ font-size:12px; color:#8fa2cc; margin-top:6px; display:block; }
+  .howto{ font-size:12.5px; color:#7f92bd; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+    border-radius:14px; padding:10px 16px; max-width:440px; line-height:1.7; }
+
+  /* ── 2) 게임 화면 ── */
+  #scr-game{ padding:8px 8px 0; max-width:520px; margin:0 auto; }
+  .hud{ width:100%; display:flex; align-items:center; gap:8px; font-size:13px; padding:2px 4px; }
+  .hud .pill{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:999px; padding:4px 11px; white-space:nowrap; }
+  .hud b{ color:#fbbf24; }
+  .hud .combo b{ color:#f472b6; }
+  #hud-level b{ color:#34d399; }
+  .hud .sp{ flex:1; }
+
+  /* 문제(목표 문장) 영역 */
+  .quest{
+    width:100%; margin-top:6px; text-align:center;
+    background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:8px 10px;
+  }
+  .quest .ko{ color:#93c5fd; font-size:13.5px; }
+  .quest .slots{ margin-top:5px; display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+  .quest .qslot{ min-width:44px; padding:3px 9px; border-radius:8px; font-weight:800; font-size:15px;
+    background:rgba(255,255,255,.06); border:1.5px dashed rgba(255,255,255,.25); color:#64748b; }
+  .quest .qslot.done{ border-style:solid; border-color:#34d399; color:#a7f3d0; background:rgba(52,211,153,.15); }
+
+  /* ⚡ 콤보 미션 배너 */
+  #mission{ width:100%; margin-top:6px; display:none; text-align:center; font-size:13.5px; font-weight:700;
+    color:#0b0f1e; background:linear-gradient(90deg,#fde047,#fb923c); border-radius:10px; padding:6px 8px;
+    animation:missionPulse 1s infinite; }
+  @keyframes missionPulse{ 50%{ filter:brightness(1.18); } }
+
+  /* 게임 보드 */
+  #board-wrap{ position:relative; margin-top:8px; }
+  #board-wrap.shake{ animation:shake .45s; }
+  @keyframes shake{ 0%,100%{transform:translate(0)} 15%{transform:translate(-9px,3px)} 30%{transform:translate(8px,-4px)}
+    45%{transform:translate(-7px,-3px)} 60%{transform:translate(6px,4px)} 75%{transform:translate(-4px,2px)} 90%{transform:translate(3px,-2px)} }
+  #board{
+    position:relative; overflow:hidden; border-radius:14px;
+    background:rgba(6,10,26,.75); border:1.5px solid rgba(125,211,252,.25);
+    box-shadow:0 0 30px rgba(56,189,248,.12), inset 0 0 40px rgba(0,0,0,.5);
+  }
+  /* 세로 열 구분선(은은하게) */
+  .colline{ position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.05); }
+  /* 바닥 정답 줄 안내 */
+  .ansrow{ position:absolute; left:0; right:0; height:var(--ch); background:rgba(52,211,153,.06); border-top:1.5px dashed rgba(52,211,153,.4); }
+
+  /* 블록(공통 타일) */
+  .tile{
+    position:absolute; display:flex; align-items:center; justify-content:center; text-align:center;
+    font-weight:800; border-radius:9px; line-height:1.1; padding:2px 3px; overflow:hidden;
+    border:1.5px solid rgba(255,255,255,.25);
+  }
+  .tile.active{ background:linear-gradient(160deg,#38bdf8,#6366f1); color:#fff;
+    box-shadow:0 4px 16px rgba(56,189,248,.45); transition:top .09s linear, left .06s ease; z-index:5; }
+  .tile.fixed { background:linear-gradient(160deg,#10b981,#059669); color:#eafff5; border-color:rgba(167,243,208,.5); }
+  .tile.junk  { background:linear-gradient(160deg,#475569,#334155); color:#94a3b8; border-color:rgba(148,163,184,.3); }
+  .tile.slotmark{ background:transparent; border:1.5px dashed rgba(255,255,255,.16); color:#3d4c72; font-size:12px; }
+  .tile .alt{ position:absolute; right:3px; top:1px; font-size:9px; opacity:.75; }  /* 🔄 남은 후보 표시 */
+  .tile.flip{ animation:flip .18s; }
+  @keyframes flip{ 0%{ transform:rotateX(0) } 50%{ transform:rotateX(90deg) } 100%{ transform:rotateX(0) } }
+
+  /* 파티클 & 스플래시 */
+  .ptc{ position:fixed; width:9px; height:9px; border-radius:3px; z-index:50; pointer-events:none;
+    transition:transform .7s cubic-bezier(.15,.65,.3,1), opacity .7s; }
+  #splash{ position:fixed; left:50%; top:38%; transform:translate(-50%,-50%); z-index:60; pointer-events:none;
+    font-size:clamp(34px,9vw,58px); font-weight:900; letter-spacing:2px; opacity:0; white-space:nowrap;
+    background:linear-gradient(90deg,#fde047,#fb7185,#c084fc); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 14px rgba(251,191,36,.55)); }
+  #splash.go{ animation:splash 1.1s ease-out; }
+  @keyframes splash{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.3) } 20%{ opacity:1; transform:translate(-50%,-50%) scale(1.25) }
+    40%{ transform:translate(-50%,-50%) scale(1) } 80%{ opacity:1 } 100%{ opacity:0; transform:translate(-50%,-60%) scale(1.05) } }
+  /* 작은 토스트(오답 정답 힌트 등) */
+  #toast{ position:fixed; left:50%; bottom:32vh; transform:translateX(-50%); z-index:55; pointer-events:none;
+    background:rgba(15,23,42,.92); border:1px solid rgba(255,255,255,.18); color:#fca5a5;
+    border-radius:999px; padding:7px 16px; font-size:14px; font-weight:700; opacity:0; transition:opacity .25s; }
+  #toast.on{ opacity:1; }
+
+  /* 라운드 시작 안내 오버레이(문장 미리 듣고 보기 = 학습) */
+  #intro{ position:absolute; inset:0; z-index:20; display:none; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; background:rgba(8,12,28,.88); border-radius:14px; text-align:center; padding:14px; }
+  #intro .t1{ font-size:13px; color:#7dd3fc; letter-spacing:2px; }
+  #intro .t2{ font-size:clamp(19px,5.4vw,26px); font-weight:900; }
+  #intro .t3{ font-size:14px; color:#93c5fd; }
+
+  /* ── 모바일 조작 버튼(큼직 + 즉각 반응) ── */
+  #pad{ width:100%; max-width:520px; display:flex; gap:8px; padding:10px 8px calc(10px + env(safe-area-inset-bottom)); }
+  .pbtn{
+    flex:1; height:62px; border:none; border-radius:16px; font-size:24px; font-weight:900; color:#e6edff;
+    background:rgba(255,255,255,.08); border:1.5px solid rgba(255,255,255,.14); cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+    touch-action:none;   /* 터치 지연 제거 → 최상의 반응속도 */
+  }
+  .pbtn small{ font-size:10px; font-weight:700; color:#8fa2cc; }
+  .pbtn:active,.pbtn.pressed{ background:rgba(56,189,248,.28); transform:scale(.95); }
+  .pbtn.rot{ background:rgba(192,132,252,.16); border-color:rgba(192,132,252,.4); }
+  .pbtn.drop{ background:rgba(251,191,36,.14); border-color:rgba(251,191,36,.4); }
+
+  /* ── 3) 게임 오버 화면 ── */
+  #scr-over{ justify-content:center; gap:14px; padding:24px; text-align:center; }
+  #scr-over .big{ font-size:46px; }
+  #scr-over h2{ font-size:26px; }
+  #ov-title{ font-size:20px; font-weight:900; color:#fbbf24; }
+  .ov-rows{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:16px;
+    padding:14px 22px; min-width:min(84vw,320px); }
+  .ov-rows .r{ display:flex; justify-content:space-between; gap:30px; padding:5px 0; font-size:15px; color:#b9c6e8; }
+  .ov-rows .r b{ color:#fff; }
+  .btn{ border:none; border-radius:999px; padding:13px 30px; font-size:16px; font-weight:800; cursor:pointer; color:#fff; }
+  .btn.play{ background:linear-gradient(90deg,#6366f1,#38bdf8); box-shadow:0 6px 20px rgba(99,102,241,.4); }
+  .btn.ghost{ background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ═══ 1) 모드 선택 ═══ -->
+  <div class="scr on" id="scr-mode">
+    <h1>🎮 단어 테트리스</h1>
+    <div class="sub">떨어지는 단어 블록으로 문장 줄을 완성하라!<br>살아남을수록 빨라지는 서바이벌 학습 게임</div>
+    <div class="mode-row">
+      <div class="mode-card" id="mc-en" onclick="startGame('en')">
+        <span class="flag">🇺🇸</span><span class="nm">영어 학습 모드</span>
+        <span class="bs" id="best-en">최고 기록 0점</span>
+      </div>
+      <div class="mode-card" id="mc-zh" onclick="startGame('zh')">
+        <span class="flag">🇨🇳</span><span class="nm">중국어 학습 모드</span>
+        <span class="bs" id="best-zh">최고 기록 0점</span>
+      </div>
+    </div>
+    <div class="howto">
+      ◀ ▶ 이동 · 🔄 단어 바꾸기 · ▼ 빨리 · ⤓ 한번에 떨어뜨리기<br>
+      단어를 <b>알맞은 자리(열)</b>에 넣으면 초록불! 한 줄 완성 = 💥문장 폭발<br>
+      틀리면 회색 블록이 2단씩 쌓여요 — 정답 단어로 뚫을 수 있어요 ⛏️
+    </div>
+  </div>
+
+  <!-- ═══ 2) 게임 화면 ═══ -->
+  <div class="scr" id="scr-game">
+    <div class="hud">
+      <span class="pill">⭐ <b id="hud-score">0</b></span>
+      <span class="pill" id="hud-level">Lv <b>1</b></span>
+      <span class="pill combo">🔥 <b id="hud-combo">0</b> 콤보</span>
+      <span class="sp"></span>
+      <span class="pill" id="hud-mode">🇺🇸</span>
+    </div>
+    <div class="quest">
+      <div class="ko" id="q-ko">뜻</div>
+      <div class="slots" id="q-slots"></div>
+    </div>
+    <div id="mission"></div>
+    <div id="board-wrap">
+      <div id="board"></div>
+      <div id="intro">
+        <div class="t1">이번 문장</div>
+        <div class="t2" id="intro-sent"></div>
+        <div class="t3" id="intro-ko"></div>
+      </div>
+    </div>
+    <div id="pad">
+      <button class="pbtn" id="b-left">◀<small>이동</small></button>
+      <button class="pbtn" id="b-down">▼<small>빨리</small></button>
+      <button class="pbtn" id="b-right">▶<small>이동</small></button>
+      <button class="pbtn rot" id="b-rot">🔄<small>단어</small></button>
+      <button class="pbtn drop" id="b-drop">⤓<small>드롭</small></button>
+    </div>
+  </div>
+
+  <!-- ═══ 3) 게임 오버 ═══ -->
+  <div class="scr" id="scr-over">
+    <div class="big">🏁</div>
+    <h2>게임 오버!</h2>
+    <div id="ov-title">🌱 새싹 학습자</div>
+    <div class="ov-rows">
+      <div class="r"><span>⭐ 점수</span><b id="ov-score">0</b></div>
+      <div class="r"><span>🔥 최고 콤보</span><b id="ov-combo">0</b></div>
+      <div class="r"><span>📝 완성한 문장</span><b id="ov-lines">0</b></div>
+      <div class="r"><span>🏆 최고 기록</span><b id="ov-best">0</b></div>
+    </div>
+    <button class="btn play" onclick="startGame(MODE)">🔁 다시 하기</button>
+    <button class="btn ghost" onclick="showMode()">🌐 모드 선택으로</button>
+  </div>
+</div>
+
+<div id="splash"></div>
+<div id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   📚 단어 데이터 (JSON) — 영어/중국어 완전 분리, 여기만 고치면 됨
+   · sentences: words(단어 순서 배열, 3~6개) + ko(한국어 뜻)
+   · distractors: 오답 후보 단어(블록 안 함정으로 등장)
+   ════════════════════════════════════════════════════════════ */
+const WORD_DATA = {
+  en: {
+    name:'영어', flag:'🇺🇸', tts:'en-US', joiner:' ',
+    sentences: [
+      { words:['I','like','apples'],                    ko:'나는 사과를 좋아해요' },
+      { words:['She','is','my','friend'],               ko:'그녀는 나의 친구예요' },
+      { words:['We','play','soccer','together'],        ko:'우리는 함께 축구를 해요' },
+      { words:['He','can','swim','fast'],               ko:'그는 빠르게 수영할 수 있어요' },
+      { words:['The','cat','is','sleeping'],            ko:'고양이가 자고 있어요' },
+      { words:['I','go','to','school'],                 ko:'나는 학교에 가요' },
+      { words:['They','are','very','happy'],            ko:'그들은 매우 행복해요' },
+      { words:['My','mom','cooks','dinner'],            ko:'엄마가 저녁을 요리해요' },
+      { words:['Birds','fly','in','the','sky'],         ko:'새들이 하늘을 날아요' },
+      { words:['I','want','some','water'],              ko:'물을 조금 마시고 싶어요' },
+      { words:['This','book','is','fun'],               ko:'이 책은 재미있어요' },
+      { words:['We','study','English','every','day'],   ko:'우리는 매일 영어를 공부해요' },
+      { words:['The','sun','is','very','bright'],       ko:'태양이 아주 밝아요' },
+      { words:['I','have','two','little','dogs'],       ko:'나는 작은 강아지 두 마리가 있어요' },
+      { words:['She','sings','a','beautiful','song'],   ko:'그녀는 아름다운 노래를 불러요' },
+      { words:['Let','us','go','home','now'],           ko:'이제 집에 가자' }
+    ],
+    distractors: ['cat','run','blue','apple','green','quickly','does','jump','red','table','under','big','milk','small','eat','cold']
+  },
+  zh: {
+    name:'중국어', flag:'🇨🇳', tts:'zh-CN', joiner:'',
+    sentences: [
+      { words:['我','喜欢','苹果'],           ko:'나는 사과를 좋아해요' },
+      { words:['她','是','我的','朋友'],      ko:'그녀는 나의 친구예요' },
+      { words:['我们','一起','踢','足球'],    ko:'우리는 함께 축구를 해요' },
+      { words:['他','会','游泳'],             ko:'그는 수영을 할 수 있어요' },
+      { words:['猫','在','睡觉'],             ko:'고양이가 자고 있어요' },
+      { words:['我','去','学校'],             ko:'나는 학교에 가요' },
+      { words:['他们','很','高兴'],           ko:'그들은 매우 기뻐요' },
+      { words:['妈妈','做','晚饭'],           ko:'엄마가 저녁을 만들어요' },
+      { words:['鸟','在','天上','飞'],        ko:'새가 하늘을 날아요' },
+      { words:['我','想','喝','水'],          ko:'나는 물을 마시고 싶어요' },
+      { words:['这','本','书','很','有意思'], ko:'이 책은 아주 재미있어요' },
+      { words:['我们','每天','学习','汉语'],  ko:'우리는 매일 중국어를 공부해요' },
+      { words:['今天','天气','很','好'],      ko:'오늘 날씨가 아주 좋아요' },
+      { words:['我','有','两','只','小狗'],   ko:'나는 강아지 두 마리가 있어요' },
+      { words:['她','唱','一','首','歌'],     ko:'그녀는 노래 한 곡을 불러요' },
+      { words:['现在','我们','回家','吧'],    ko:'이제 우리 집에 가자' }
+    ],
+    distractors: ['跑','蓝','绿','快','做','跳','红','桌子','下面','大','牛奶','小','吃','冷','猫','水果']
+  }
+};
+
+/* ── 허브 전달 파라미터: uid(학생), speed(1~5), glang(추천 언어) ── */
+var QS    = new URLSearchParams(location.search);
+var UID   = QS.get('uid') || (function(){ try{ var k='mangoi_guest_uid', v=localStorage.getItem(k);
+  if(!v){ v='guest-'+Math.random().toString(36).slice(2,9); localStorage.setItem(k,v); } return v; }catch(_){ return 'guest'; } })();
+var HUBSPEED = Math.max(1, Math.min(5, parseInt(QS.get('speed')||'3',10)||3));
+var GLANG = (QS.get('glang')==='zh') ? 'zh' : 'en';
+
+/* ── 🧠 교재 맞춤 문장 흡수(선택): 서버가 있으면 실제 배정 교재 문장으로 교체.
+      fetch 실패 시 조용히 내장 데이터 사용 → 파일 단독 실행도 100% 동작 ── */
+(function absorbServer(){
+  function clean(list){  // 3~6단어 문장만 게임에 적합
+    return (list||[]).filter(function(s){ return s.words && s.words.length>=3 && s.words.length<=6 && s.ko; });
+  }
+  try{
+    fetch('/api/games/vocab?user_id='+encodeURIComponent(UID))
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(d){
+        if(!d || !d.sentences) return;
+        var conv = clean(d.sentences.map(function(s){ return { words:String(s.en||'').split(' ').filter(Boolean), ko:s.ko||'' }; }));
+        if(conv.length>=5) WORD_DATA.en.sentences = conv;
+      }).catch(function(){});
+    fetch('/api/games/zh-vocab?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(d){
+        if(!d || !d.ok) return;
+        var conv = clean((d.sentences||[]).map(function(s){ return { words:s.words||[], ko:s.ko||'' }; }));
+        if(conv.length>=5) WORD_DATA.zh.sentences = conv;
+      }).catch(function(){});
+  }catch(_){}
+})();
+
+/* ════════════════════════════════════════════════════════════
+   🔊 사운드(WebAudio 자체 합성 — 외부 파일 불필요)
+   ════════════════════════════════════════════════════════════ */
+var AC=null;
+function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} } return AC; }
+function beep(f0,f1,dur,type,vol){
+  var c=ac(); if(!c) return;
+  var o=c.createOscillator(), g=c.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f0,c.currentTime);
+  o.frequency.exponentialRampToValueAtTime(Math.max(40,f1), c.currentTime+dur);
+  g.gain.setValueAtTime(vol||.16, c.currentTime);
+  g.gain.exponentialRampToValueAtTime(.0001, c.currentTime+dur);
+  o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+dur);
+}
+function sndPop(){ beep(660,990,.12,'triangle',.2); }                                    // 정답 착지
+function sndNo(){ beep(220,90,.3,'sawtooth',.22); }                                      // 오답
+function sndThud(){ beep(150,80,.1,'square',.12); }                                      // 쓰레기 착지
+function sndDrill(){ beep(880,420,.14,'square',.14); }                                   // 쓰레기 뚫기
+function sndLine(){ [740,880,1109,1319].forEach(function(f,i){ setTimeout(function(){ beep(f,f*1.2,.16,'triangle',.2); }, i*80); }); }  // 줄 폭발
+function sndOver(){ [520,392,311,233].forEach(function(f,i){ setTimeout(function(){ beep(f,f*.8,.3,'sine',.2); }, i*220); }); }
+
+/* ── 🗣️ 원어민 발음(SpeechSynthesis) — 언어별 목소리 자동 선택 ── */
+var VOICES=[];
+function loadVoices(){ try{ VOICES = speechSynthesis.getVoices()||[]; }catch(_){} }
+loadVoices(); try{ speechSynthesis.onvoiceschanged = loadVoices; }catch(_){}
+function speak(text, rate){
+  try{
+    speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    var lang = WORD_DATA[MODE].tts;
+    u.lang = lang; u.rate = rate||0.95;
+    var v = VOICES.find(function(x){ return x.lang===lang; }) ||
+            VOICES.find(function(x){ return x.lang && x.lang.indexOf(lang.slice(0,2))===0; });
+    if(v) u.voice = v;
+    speechSynthesis.speak(u);
+  }catch(_){}
+}
+
+/* ════════════════════════════════════════════════════════════
+   🎮 게임 상태
+   ════════════════════════════════════════════════════════════ */
+var MODE='en';           // 현재 언어 모드
+var ROWS=9;              // 보드 세로 칸(마지막 줄 = 정답 줄)
+var COLS=4;              // 문장 단어 수에 따라 매 라운드 변경
+var cellW=0, cellH=0;    // 셀 픽셀 크기(JS 계산)
+var sent=null;           // 현재 문장 {words, ko}
+var filled=[];           // 열별 정답 확정 여부
+var junk=[];             // 열별 회색 쓰레기 높이
+var act=null;            // 낙하 중 블록 {col,row,words[3],idx,el}
+var score=0, combo=0, maxCombo=0, lines=0, level=1;
+var relief=0;            // ⚡미션 성공 시 속도 초기화용 감속치
+var running=false, paused=false;
+var gravT=null, missionT=null, mission=null, missionEndT=null;
+var sentIdx=-1, sentOrder=[];
+var roundToken=0;        // 라운드 토큰: 지난 라운드의 지연 타이머(인트로/완성)가 새 라운드에 끼어드는 것 방지
+
+/* ── 낙하 간격(ms): 허브 속도 + 레벨 가속 - 미션 감속 ── */
+function dropMs(){
+  var base = [0, 980, 880, 780, 670, 570][HUBSPEED];
+  var press = Math.max(0, (level-1)*70 - relief);
+  return Math.max(230, base - press);
+}
+
+/* ════════════════════════════════════════════════════════════
+   화면 전환 & 시작
+   ════════════════════════════════════════════════════════════ */
+function show(id){ document.querySelectorAll('.scr').forEach(function(s){ s.classList.remove('on'); });
+  document.getElementById(id).classList.add('on'); }
+function bestKey(){ return 'mangoi_tetris_best_'+MODE; }
+function showMode(){
+  stopTimers(); running=false;
+  ['en','zh'].forEach(function(m){
+    var b=0; try{ b=parseInt(localStorage.getItem('mangoi_tetris_best_'+m),10)||0; }catch(_){}
+    document.getElementById('best-'+m).textContent = '최고 기록 '+b.toLocaleString()+'점';
+  });
+  // 허브가 넘겨준 언어(glang)를 추천 하이라이트
+  document.getElementById('mc-en').classList.toggle('hot', GLANG==='en');
+  document.getElementById('mc-zh').classList.toggle('hot', GLANG==='zh');
+  show('scr-mode');
+}
+function startGame(mode){
+  MODE = mode;
+  score=0; combo=0; maxCombo=0; lines=0; level=1; relief=0; mission=null;
+  sentOrder = shuffle(WORD_DATA[MODE].sentences.map(function(_,i){ return i; })); sentIdx=-1;
+  junk=[]; act=null; running=true; paused=false;
+  document.getElementById('hud-mode').textContent = WORD_DATA[MODE].flag+' '+WORD_DATA[MODE].name;
+  setBg(); updateHud();
+  show('scr-game');
+  ac();                        // 첫 사용자 제스처에서 오디오 잠금 해제
+  nextSentence(true);
+}
+
+/* ════════════════════════════════════════════════════════════
+   문장 라운드 준비
+   ════════════════════════════════════════════════════════════ */
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function nextSentence(first){
+  stopGravity();
+  sentIdx++; if(sentIdx>=sentOrder.length){ sentOrder=shuffle(sentOrder); sentIdx=0; }
+  sent = WORD_DATA[MODE].sentences[sentOrder[sentIdx]];
+  var newCols = sent.words.length;
+  // 쓰레기 총량은 유지한 채(서바이벌!) 새 열 수에 맞게 재분배
+  var total = junk.reduce(function(s,v){ return s+v; }, 0);
+  COLS=newCols; filled=[]; junk=[];
+  for(var c=0;c<COLS;c++){ filled.push(false); junk.push(0); }
+  var c2=0; while(total>0){ if(junk[c2%COLS] < ROWS-4) { junk[c2%COLS]++; total--; } c2++; if(c2>200) break; }
+
+  layoutBoard(); renderQuest(); renderBoard();
+
+  // 📖 라운드 인트로: 문장을 보여주고 원어민 발음으로 먼저 들려줌(학습→게임)
+  var jn = WORD_DATA[MODE].joiner;
+  document.getElementById('intro-sent').textContent = sent.words.join(jn);
+  document.getElementById('intro-ko').textContent = sent.ko;
+  var intro = document.getElementById('intro'); intro.style.display='flex';
+  speak(sent.words.join(jn), 0.9);
+  var tok = ++roundToken;
+  setTimeout(function(){
+    if(!running || tok!==roundToken || act) return;   // 새 게임/라운드가 이미 시작됐으면 무시
+    intro.style.display='none';
+    spawnBlock(); startGravity();
+    if(first) startMissionClock();
+  }, 2300);
+}
+
+/* ── 보드 픽셀 배치: 열 수에 맞춰 셀 크기 계산 ── */
+function layoutBoard(){
+  var bw = Math.min(window.innerWidth-16, 500);
+  var maxH = window.innerHeight - 300;             // HUD+문제+패드 제외 가용 높이
+  cellW = Math.floor(bw / COLS);
+  cellH = Math.max(30, Math.min(48, Math.floor(maxH / ROWS)));
+  var bd = document.getElementById('board');
+  bd.style.width  = (cellW*COLS)+'px';
+  bd.style.height = (cellH*ROWS)+'px';
+  document.documentElement.style.setProperty('--ch', cellH+'px');
+}
+window.addEventListener('resize', function(){ if(running){ layoutBoard(); renderBoard(); } });
+
+/* ── 문제 영역(뜻 + 자리 슬롯) ── */
+function renderQuest(){
+  document.getElementById('q-ko').textContent = '💡 '+sent.ko;
+  document.getElementById('q-slots').innerHTML = sent.words.map(function(w,i){
+    return '<span class="qslot '+(filled[i]?'done':'')+'" id="qs-'+i+'">'+(filled[i]? w : (i+1)+'.___')+'</span>';
+  }).join('');
+}
+
+/* ── 보드 그리기(고정물: 정답줄 안내·열선·확정 타일·쓰레기·자리표시) ── */
+function renderBoard(){
+  var bd = document.getElementById('board');
+  var html = '';
+  for(var c=1;c<COLS;c++) html += '<div class="colline" style="left:'+(c*cellW)+'px"></div>';
+  html += '<div class="ansrow" style="top:'+((ROWS-1)*cellH)+'px"></div>';
+  for(var col=0; col<COLS; col++){
+    // 바닥 정답 칸: 미확정이면 자리번호 힌트, 확정이면 초록 단어
+    if(filled[col]) html += tileHtml(sent.words[col],'fixed',col,ROWS-1);
+    else            html += tileHtml((col+1)+'번','slotmark',col,ROWS-1);
+    for(var k=0;k<junk[col];k++) html += tileHtml('▦','junk',col,ROWS-2-k);
+  }
+  bd.innerHTML = html;
+  if(act) bd.appendChild(act.el);
+}
+function tileHtml(txt, cls, col, row){
+  var fs = fontFor(txt);
+  return '<div class="tile '+cls+'" style="left:'+(col*cellW+2)+'px;top:'+(row*cellH+2)+'px;width:'+(cellW-4)+'px;height:'+(cellH-4)+'px;font-size:'+fs+'px">'+txt+'</div>';
+}
+function fontFor(txt){
+  var per = cellW / Math.max(2, String(txt).length);   // 셀 폭 대비 글자수로 크기 자동 조절
+  return Math.max(11, Math.min(MODE==='zh'?22:17, Math.floor(per*1.15)));
+}
+
+/* ════════════════════════════════════════════════════════════
+   낙하 블록: 단어 3후보(🔄로 교체) — 항상 "필요한 단어" 1개 이상 포함
+   ════════════════════════════════════════════════════════════ */
+function neededWords(){ return sent.words.filter(function(w,i){ return !filled[i]; }); }
+function spawnBlock(){
+  if(!running) return;
+  var need = neededWords();
+  if(!need.length) return;                    // 문장 완성 직후엔 스폰 안 함
+  var D = WORD_DATA[MODE].distractors;
+  var w1 = need[Math.floor(Math.random()*need.length)];
+  var w2 = (Math.random()<0.5 && need.length>1) ? need[Math.floor(Math.random()*need.length)] : D[Math.floor(Math.random()*D.length)];
+  var w3 = D[Math.floor(Math.random()*D.length)];
+  var hand = shuffle([w1,w2,w3].filter(function(v,i,a){ return a.indexOf(v)===i; }));
+  while(hand.length<3) hand.push(D[Math.floor(Math.random()*D.length)]);
+
+  var col = Math.floor(COLS/2);
+  var el = document.createElement('div');
+  el.className='tile active';
+  act = { col:col, row:0, words:hand, idx:0, el:el };
+  paintAct(); positionAct(true);
+  document.getElementById('board').appendChild(el);
+  // 스폰 칸이 이미 막혀 있으면 = 천장 도달 → 게임 오버
+  if(landRow(col) < 0) return gameOver();
+}
+function paintAct(){
+  var w = act.words[act.idx];
+  act.el.style.fontSize = fontFor(w)+'px';
+  act.el.innerHTML = w + '<span class="alt">🔄'+((act.idx+1))+'/'+act.words.length+'</span>';
+}
+function positionAct(snap){
+  act.el.style.width  = (cellW-4)+'px';
+  act.el.style.height = (cellH-4)+'px';
+  if(snap) act.el.style.transition='none';
+  act.el.style.left = (act.col*cellW+2)+'px';
+  act.el.style.top  = (act.row*cellH+2)+'px';
+  if(snap){ void act.el.offsetWidth; act.el.style.transition=''; }
+}
+/* ── 중력 루프 ── */
+function startGravity(){ stopGravity(); gravT = setTimeout(gravStep, dropMs()); }
+function stopGravity(){ if(gravT){ clearTimeout(gravT); gravT=null; } }
+function gravStep(){
+  if(!running || paused || !act){ return; }
+  if(act.row >= landRow(act.col)) land();
+  else { act.row++; positionAct(); gravT = setTimeout(gravStep, dropMs()); }
+}
+/* 해당 열에서 블록이 멈추는 행:
+   · 쓰레기가 있으면 그 더미 바로 위 (쓰레기는 ROWS-2 부터 위로 쌓임)
+   · 없으면 정답 확정 여부에 따라 정답 줄(ROWS-1) 또는 그 위(ROWS-2) */
+function landRow(col){
+  if(junk[col] > 0) return ROWS-2 - junk[col];
+  return filled[col] ? ROWS-2 : ROWS-1;
+}
+
+/* ════════════════════════════════════════════════════════════
+   조작: ◀ ▶ 이동, 🔄 단어교체, ▼ 소프트드롭, ⤓ 하드드롭
+   ════════════════════════════════════════════════════════════ */
+function canPlay(){ return running && !paused && act; }
+function mv(d){ if(!canPlay()) return; var nc=act.col+d; if(nc<0||nc>=COLS) return;
+  if(act.row > landRow(nc)) return;            // 옆 칸 더미 속으로는 못 들어감
+  act.col=nc; positionAct(); }
+function rot(){ if(!canPlay()) return; act.idx=(act.idx+1)%act.words.length; paintAct();
+  act.el.classList.remove('flip'); void act.el.offsetWidth; act.el.classList.add('flip'); beep(520,660,.06,'sine',.08); }
+function soft(){ if(!canPlay()) return; if(act.row < landRow(act.col)){ act.row++; positionAct(); } else land(); }
+function hard(){ if(!canPlay()) return; act.row = landRow(act.col); positionAct(); setTimeout(land, 60); }
+
+/* ════════════════════════════════════════════════════════════
+   착지 판정 — 게임의 심장부
+   ════════════════════════════════════════════════════════════ */
+function land(){
+  if(!act) return;
+  stopGravity();
+  var col=act.col, w=act.words[act.idx];
+  var rect=act.el.getBoundingClientRect();
+  act.el.remove(); act=null;
+
+  if(!filled[col] && junk[col]===0){
+    /* ① 정답 줄에 직접 착지 */
+    if(w === sent.words[col]){
+      filled[col]=true;
+      score += 100 + combo*20;
+      sndPop(); burst(rect.left+rect.width/2, rect.top+rect.height/2, 12, ['#34d399','#a7f3d0','#fbbf24']);
+      pushProg(w, true);
+      checkMission(w);
+      if(filled.every(Boolean)){ renderQuest(); renderBoard(); updateHud(); return sentenceComplete(); }
+    }else{
+      /* ❌ 오답: 화면 흔들림 + 쓰레기 2단 + 콤보 리셋 */
+      junk[col] = Math.min(ROWS-2, junk[col]+2);
+      combo=0; setBg(); sndNo(); shake();
+      toast('❌ '+(col+1)+'번 자리는 "'+sent.words[col]+'"');
+      pushProg(sent.words[col], false);
+    }
+  } else if(!filled[col] && junk[col]>0 && w === sent.words[col]){
+    /* ② ⛏️ 드릴: 그 열의 정답 단어로 쓰레기 1칸 제거 */
+    junk[col]--;
+    score += 30; sndDrill();
+    burst(rect.left+rect.width/2, rect.top+rect.height/2, 8, ['#94a3b8','#e2e8f0']);
+  } else {
+    /* ③ 그 외(막힌 열/이미 확정된 열)는 쓰레기로 적립 */
+    junk[col] = Math.min(ROWS-1, junk[col]+1);
+    sndThud();
+  }
+
+  renderQuest(); renderBoard(); updateHud();
+
+  // ☠️ 천장까지 쌓이면 게임 오버
+  if(junk.some(function(h,c){ return h + (filled[c]?1:0) >= ROWS-1; })) return gameOver();
+  spawnBlock(); startGravity();
+}
+
+/* ── 💥 문장(가로줄) 완성 ── */
+var SPLASH_WORDS=['GREAT!','EXCELLENT!','PERFECT!','AMAZING!','UNSTOPPABLE!'];
+function sentenceComplete(){
+  lines++; combo++; maxCombo=Math.max(maxCombo,combo);
+  score += 300 + combo*100;
+  level = 1 + Math.floor(score/800);           // 점수 ↑ → 레벨 ↑ → 낙하 가속(아드레날린)
+  setBg();                                     // 콤보 배경 밝아짐(도파민)
+  splash(SPLASH_WORDS[Math.min(combo-1, SPLASH_WORDS.length-1)]);
+  sndLine();
+  speak(sent.words.join(WORD_DATA[MODE].joiner), 0.95);   // 🗣️ 완성 문장 원어민 발음
+  pushProg(sent.words.join(WORD_DATA[MODE].joiner), true);
+
+  // 줄 전체 폭발 파티클 + 보너스: 모든 열 쓰레기 1칸 청소
+  var bd=document.getElementById('board').getBoundingClientRect();
+  for(var c=0;c<COLS;c++){
+    burst(bd.left+c*cellW+cellW/2, bd.top+(ROWS-1)*cellH+cellH/2, 10, ['#fde047','#fb7185','#c084fc','#7dd3fc']);
+    if(junk[c]>0) junk[c]--;
+  }
+  updateHud();
+  var tok = roundToken;
+  setTimeout(function(){ if(running && tok===roundToken) nextSentence(false); }, 1000);
+}
+
+/* ════════════════════════════════════════════════════════════
+   ⚡ 콤보 미션: 10초마다 등장 — 지정 단어 맞추면 속도 초기화 + 보너스
+   ════════════════════════════════════════════════════════════ */
+function startMissionClock(){
+  stopMissionClock();
+  missionT = setInterval(function(){
+    if(!running || paused || mission) return;
+    var need=neededWords(); if(!need.length) return;
+    mission = need[Math.floor(Math.random()*need.length)];
+    var m=document.getElementById('mission');
+    m.style.display='block';
+    m.textContent = '⚡ 콤보 미션! "'+mission+'" 를 맞추면 속도 초기화 +300점';
+    missionEndT = setTimeout(function(){ mission=null; m.style.display='none'; }, 8000);
+  }, 10000);
+}
+function stopMissionClock(){ if(missionT){ clearInterval(missionT); missionT=null; }
+  if(missionEndT){ clearTimeout(missionEndT); missionEndT=null; }
+  var m=document.getElementById('mission'); if(m) m.style.display='none'; mission=null; }
+function checkMission(word){
+  if(!mission || word!==mission) return;
+  relief = (level-1)*70;                       // 현재 레벨 가속을 전부 상쇄 = 속도 초기화
+  score += 300; mission=null;
+  document.getElementById('mission').style.display='none';
+  splash('SPEED RESET!');
+  sndLine();
+}
+
+/* ════════════════════════════════════════════════════════════
+   연출: 파티클 / 스플래시 / 셰이크 / 토스트 / 콤보 배경
+   ════════════════════════════════════════════════════════════ */
+function burst(x,y,n,colors){
+  for(var i=0;i<n;i++){
+    var p=document.createElement('div'); p.className='ptc';
+    p.style.background = colors[i%colors.length];
+    p.style.left=x+'px'; p.style.top=y+'px';
+    document.body.appendChild(p);
+    (function(p){
+      requestAnimationFrame(function(){
+        var a=Math.random()*Math.PI*2, d=40+Math.random()*90;
+        p.style.transform='translate('+(Math.cos(a)*d)+'px,'+(Math.sin(a)*d - 30)+'px) rotate('+(Math.random()*300)+'deg) scale('+(0.4+Math.random())+')';
+        p.style.opacity='0';
+      });
+      setTimeout(function(){ p.remove(); }, 750);
+    })(p);
+  }
+}
+function splash(txt){
+  var s=document.getElementById('splash');
+  s.textContent=txt; s.classList.remove('go'); void s.offsetWidth; s.classList.add('go');
+}
+function shake(){
+  var w=document.getElementById('board-wrap');
+  w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake');
+}
+var toastT=null;
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('on');
+  if(toastT) clearTimeout(toastT);
+  toastT=setTimeout(function(){ t.classList.remove('on'); }, 1600);
+}
+/* 콤보 ↑ → 배경 hue 이동 + 광채 강화(점점 밝고 화려하게) */
+function setBg(){
+  var r=document.documentElement.style;
+  r.setProperty('--h1', String(225 + Math.min(combo,8)*22));
+  r.setProperty('--h2', String(265 + Math.min(combo,8)*28));
+  r.setProperty('--glowa', String(Math.min(0.14 + combo*0.07, 0.55)));
+}
+function updateHud(){
+  document.getElementById('hud-score').textContent = score.toLocaleString();
+  document.querySelector('#hud-level b').textContent = level;
+  document.getElementById('hud-combo').textContent = combo;
+}
+
+/* ════════════════════════════════════════════════════════════
+   🏁 게임 오버 — 언어 마스터 칭호 + 최고 기록
+   ════════════════════════════════════════════════════════════ */
+function rankTitle(s){
+  if(s>=10000) return '👑 언어 마스터';
+  if(s>= 6000) return '🏆 언어 챔피언';
+  if(s>= 3000) return '🎓 문장 마스터';
+  if(s>= 1000) return '📘 단어 견습생';
+  return '🌱 새싹 학습자';
+}
+function gameOver(){
+  running=false; stopTimers();
+  if(act){ act.el.remove(); act=null; }
+  sndOver(); flushProg();
+  var best=0; try{ best=parseInt(localStorage.getItem(bestKey()),10)||0; }catch(_){}
+  if(score>best){ best=score; try{ localStorage.setItem(bestKey(), String(best)); }catch(_){} }
+  document.getElementById('ov-title').textContent = rankTitle(score);
+  document.getElementById('ov-score').textContent = score.toLocaleString();
+  document.getElementById('ov-combo').textContent = maxCombo;
+  document.getElementById('ov-lines').textContent = lines;
+  document.getElementById('ov-best').textContent = best.toLocaleString();
+  show('scr-over');
+}
+function stopTimers(){ stopGravity(); stopMissionClock(); }
+
+/* ════════════════════════════════════════════════════════════
+   입력 배선: 키보드 + 모바일 대형 버튼(pointerdown = 즉각 반응)
+   ════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', function(e){
+  if(!running) return;
+  if(e.key==='ArrowLeft')  { e.preventDefault(); mv(-1); }
+  if(e.key==='ArrowRight') { e.preventDefault(); mv(1); }
+  if(e.key==='ArrowDown')  { e.preventDefault(); soft(); }
+  if(e.key==='ArrowUp' || e.key==='r' || e.key==='R'){ e.preventDefault(); rot(); }
+  if(e.key===' ')          { e.preventDefault(); hard(); }
+});
+/* 버튼: pointerdown 즉시 실행 + ◀▶▼는 길게 누르면 연속 동작 */
+function bindBtn(id, fn, repeat){
+  var el=document.getElementById(id), rT=null;
+  function down(e){ e.preventDefault(); el.classList.add('pressed'); fn();
+    if(repeat){ rT=setInterval(fn, 110); } }
+  function up(){ el.classList.remove('pressed'); if(rT){ clearInterval(rT); rT=null; } }
+  el.addEventListener('pointerdown', down);
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
+}
+bindBtn('b-left',  function(){ mv(-1); }, true);
+bindBtn('b-right', function(){ mv(1);  }, true);
+bindBtn('b-down',  soft, true);
+bindBtn('b-rot',   rot,  false);
+bindBtn('b-drop',  hard, false);
+
+/* 탭이 백그라운드로 가면 자동 일시정지(억울한 게임오버 방지) */
+document.addEventListener('visibilitychange', function(){
+  paused = document.hidden;
+  if(!paused && running && act) startGravity();
+});
+
+/* ════════════════════════════════════════════════════════════
+   🧠 학습기록(/api/games/progress) — 정오답 배치 전송(실패 무시)
+   ════════════════════════════════════════════════════════════ */
+var progQ=[];
+function pushProg(item, ok){ progQ.push({ item:item, ko:(sent&&sent.ko)||'', correct:!!ok }); if(progQ.length>=20) flushProg(); }
+function flushProg(){
+  if(!progQ.length) return;
+  var events = progQ.splice(0, 60);
+  var body = JSON.stringify({ user_id:UID, lang:MODE, events:events });
+  try{
+    if(navigator.sendBeacon) navigator.sendBeacon('/api/games/progress', new Blob([body],{type:'application/json'}));
+    else fetch('/api/games/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true}).catch(function(){});
+  }catch(_){}
+}
+setInterval(flushProg, 15000);
+window.addEventListener('beforeunload', flushProg);
+
+/* 시작: 모드 선택 화면 */
+showMode();
+</script>
+<!-- BUILD:20260714212154 -->
+</body>
+</html>
