@@ -10936,6 +10936,11 @@ async function vcJoinRoom(skipUI) {
       else if (mode === 'pip')        row.classList.add('video-pip');
       else if (mode === 'facepip')    row.classList.add('video-facepip');
       else if (mode === 'solo')       row.classList.add('video-solo');
+      // 🙈 (2026-07-14) 얼굴 화면 숨기기 — 솔로 레이아웃 재활용(내 화면만, 송출은 계속)
+      else if (mode === 'hidefaces') {
+        row.classList.add('video-solo');
+        try { if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(false); } catch(e){}
+      }
       // 📝/📖 (2026-07-13 항목6) 칠판만·교재만 — 영상 숨김(솔로 레이아웃 재활용) + 해당 탭으로
       else if (mode === 'boardonly' || mode === 'bookonly') {
         row.classList.add('video-solo');
@@ -10952,8 +10957,15 @@ async function vcJoinRoom(skipUI) {
         //   ("화면 이동하면 영상이 나왔다 안 나왔다" 대책 — 5초 감시를 기다리지 않음)
         if (typeof vcResumeAllVideos === 'function') try { vcResumeAllVideos(); } catch(e){}
       }, 280);
+      // 🙉 얼굴 숨김 이외의 모드로 바뀌면 복귀 칩은 자동 숨김 (⋯ 메뉴로 복귀해도 칩이 남지 않게)
+      try {
+        if (mode !== 'hidefaces') {
+          const chip = document.getElementById('vc-faces-restore');
+          if (chip) chip.style.display = 'none';
+        }
+      } catch(e){}
       // 사용자 피드백 토스트
-      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)', boardonly:'📝 칠판만', bookonly:'📖 교재만' };
+      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)', boardonly:'📝 칠판만', bookonly:'📖 교재만', hidefaces:'🙈 얼굴 숨김 (수업은 계속 참여 중)' };
       try {
         const t = document.createElement('div');
         t.textContent = '🖥️ 화면 모드: ' + (labels[mode] || mode);
@@ -10962,6 +10974,50 @@ async function vcJoinRoom(skipUI) {
         setTimeout(() => t.remove(), 1800);
       } catch(e){}
       console.log('[vcScreenSet] applied mode:', mode);
+    };
+
+    // 🙈/🙉 (2026-07-14 사장님 지시) 얼굴 화면 숨기기·다시 보기
+    //   - 내 타일 🙈 버튼 → 얼굴 영역 전체 숨김(video-solo 재활용), 칠판·동영상·학생게임이 전체 차지
+    //   - 내 화면에서만 숨김 — 카메라 송출은 계속되므로 상대(교사/학생)는 그대로 봄
+    //   - 숨김 동안 우상단 🙉 복귀 칩 표시 → 누르면 이전 화면 모드로 복귀
+    window.vcFacesHide = function(){
+      const row = document.querySelector('.vc-main-row');
+      if (!row) return;
+      // 복귀용: 현재 화면 모드 기억
+      const modeMap = { 'video-quarter':'quarter', 'video-half':'half', 'video-threequarter':'threequarter', 'video-full':'full', 'video-pip':'pip', 'video-facepip':'facepip' };
+      window.__vcFacesPrevMode = null;
+      for (const cls in modeMap) {
+        if (row.classList.contains(cls)) { window.__vcFacesPrevMode = modeMap[cls]; break; }
+      }
+      vcScreenSet('hidefaces');
+      // 🙉 복귀 칩
+      let chip = document.getElementById('vc-faces-restore');
+      if (!chip) {
+        chip = document.createElement('button');
+        chip.id = 'vc-faces-restore';
+        chip.type = 'button';
+        chip.addEventListener('click', function(){ try { vcFacesShow(); } catch(e){} });
+        document.body.appendChild(chip);
+      }
+      const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+      chip.innerHTML = '🙉 <span>' + (en ? 'Show faces' : '얼굴 보기') + '</span>';
+      chip.title = en ? 'Bring back the face tiles' : '얼굴 화면 다시 보기';
+      chip.style.display = 'flex';
+    };
+    window.vcFacesShow = function(){
+      const chip = document.getElementById('vc-faces-restore');
+      if (chip) chip.style.display = 'none';
+      const prev = window.__vcFacesPrevMode;
+      window.__vcFacesPrevMode = null;
+      if (prev) { vcScreenSet(prev); return; }
+      // 기억된 모드가 없으면(입장 기본 레이아웃이었으면) solo 클래스만 해제해 원래대로
+      const row = document.querySelector('.vc-main-row');
+      if (row) row.classList.remove('video-solo');
+      setTimeout(() => {
+        if (typeof wbResize === 'function') try { wbResize(); } catch(e){}
+        if (typeof pdfResize === 'function') try { pdfResize(); } catch(e){}
+        if (typeof vcResumeAllVideos === 'function') try { vcResumeAllVideos(); } catch(e){}
+      }, 280);
     };
 
     // ESC 키로 폴더 시트 닫기
@@ -27117,7 +27173,7 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<!-- BUILD:20260714144256 -->
+<!-- BUILD:20260714144654 -->
 
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
