@@ -1091,7 +1091,8 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/whisper') || path.startsWith('/api/alumni/')
         || path.startsWith('/api/family/') || path.startsWith('/api/nps/')
         || path.startsWith('/api/subscription/')
-        || path.startsWith('/api/textbook-files') || path === '/api/admin/textbook-files'
+        || path.startsWith('/api/textbook-files') || path.startsWith('/api/admin/textbook-files')
+        || path.startsWith('/api/recordings/')
         || path.startsWith('/api/mango-videos') || path.startsWith('/api/admin/mango-videos')
         || path.startsWith('/api/admin/franchises') || path.startsWith('/api/admin/centers')
         || path.startsWith('/api/leveltest/') || path === '/api/teacher/leveltest-assignments'
