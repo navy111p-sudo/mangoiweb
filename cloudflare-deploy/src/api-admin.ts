@@ -9,9 +9,11 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse } from './api-util';
+import { sendPaymentOverdueAlert } from './solapi-client';
+import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { enqueueNotification, sendPushToUser } from './api-notify';
-import { scopeFragments } from './scope';   // 🔒 지사/대리점 데이터 격리
-import { getAdminActor, sameTeacherName } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
+import { scopeFragments, studentScopeWhere } from './scope';   // 🔒 지사/대리점 데이터 격리
+import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import type { MangoEnv } from './api-mango';
 
 
@@ -3021,6 +3023,421 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
     }
 
+
+    // ═══════════════════════════════════════════════════════════════
+    // 💰 Phase F1~F2 — 수강료 미납 자동 알림
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensurePaymentTables = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS payment_overdue_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, days_overdue INTEGER, amount_krw INTEGER, parent_phone TEXT, status TEXT, error_message TEXT, sent_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_overdue_user ON payment_overdue_log(user_id, sent_at DESC);`); } catch {}
+    };
+
+    // ── GET /api/admin/payments/overdue?grace_days=35&monthly_fee=200000 ──
+    //   학생별 마지막 결제일 조회 → grace_days 초과면 미납으로 분류
+    if (method === 'GET' && path === '/api/admin/payments/overdue') {
+      await ensurePaymentTables();
+      const graceDays = Math.max(1, parseInt(url.searchParams.get('grace_days') || '35', 10));
+      const defaultMonthlyFee = Math.max(0, parseInt(url.searchParams.get('monthly_fee') || '200000', 10));
+      const now = Date.now();
+      const cutoff = now - graceDays * 86400 * 1000;
+
+      // students_erp 테이블에서 활동중 학생만
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT);`); } catch {}
+
+      // 각 학생의 마지막 paid 결제 + 미납일수 계산
+      const _sw = await studentScopeWhere(env, request, 's');  // 🔒 지사/대리점 격리
+      // 🥭 fix(2026-07): 스키마에 s.name 없어 항상 에러였던 것 + 2.9만 학생 규모 대응.
+      //   기존: 학생당 상관 서브쿼리 → 수억 행 read 로 D1 한도 초과 실패.
+      //   개선: student_payments 를 user_id 인덱스로 1회 GROUP BY 집계(결제자만) 후
+      //         students_erp 와 매칭. 상세 리스트는 성능/응답크기 위해 카테고리별 500건 캡,
+      //         summary 카운트는 정확값. (결제자 ~수천명이라 overdue/up_to_date 는 전량)
+      const CAP = 500;
+      const activeWhere = `(s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}`;
+      // 활동 학생 총수
+      const totalActiveRow = await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM students_erp s WHERE ${activeWhere}`
+      ).bind(..._sw.binds).first<any>().catch(() => ({ c: 0 }));
+      const totalActive = totalActiveRow?.c || 0;
+      // 결제 이력 있는 활동 학생(마지막 결제일 + 마지막 금액) — 인덱스 GROUP BY
+      const paidRs = await env.DB.prepare(
+        `SELECT s.user_id,
+                COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS student_name,
+                s.parent_phone, s.student_phone,
+                MAX(p.paid_at) AS last_paid_at
+           FROM students_erp s
+           JOIN student_payments p ON p.user_id = s.user_id AND p.status = 'paid'
+          WHERE ${activeWhere}
+          GROUP BY s.user_id`
+      ).bind(..._sw.binds).all<any>().catch(() => ({ results: [] } as any));
+      const overdue: any[] = [];
+      const upToDate: any[] = [];
+      let paidCount = 0;
+      for (const row of (paidRs.results || [])) {
+        paidCount++;
+        if (row.last_paid_at < cutoff) {
+          const daysOverdue = Math.floor((now - row.last_paid_at) / (86400 * 1000)) - graceDays;
+          if (overdue.length < CAP) overdue.push({ ...row, days_overdue: daysOverdue, amount_krw: defaultMonthlyFee });
+        } else {
+          if (upToDate.length < CAP) upToDate.push({ ...row, days_overdue: 0 });
+        }
+      }
+      // 미결제 = 활동학생 - 결제이력학생. 상세는 표시하지 않음(대규모라 카운트만).
+      const neverPaidCount = Math.max(0, totalActive - paidCount);
+      const overdueCount = (paidRs.results || []).filter((r: any) => r.last_paid_at < cutoff).length;
+      const upToDateCount = paidCount - overdueCount;
+      return json({
+        ok: true,
+        grace_days: graceDays,
+        default_fee: defaultMonthlyFee,
+        overdue, never_paid: [], up_to_date: upToDate,
+        capped: CAP,
+        summary: {
+          total_active: totalActive,
+          total_paid_students: paidCount,
+          total_overdue: overdueCount,
+          total_never_paid: neverPaidCount,
+          total_up_to_date: upToDateCount,
+        }
+      });
+    }
+
+    // ── POST /api/admin/payments/notify-overdue — 1명 미납 알림 발송 ──
+    //   body: { user_id, student_name, parent_phone, days_overdue, amount_krw }
+    if (method === 'POST' && path === '/api/admin/payments/notify-overdue') {
+      await ensurePaymentTables();
+      const body: any = await request.json().catch(() => ({}));
+      const phone = body.parent_phone || body.student_phone;
+      if (!phone) return json({ ok: false, error: 'phone_required' }, 400);
+      const r = await sendPaymentOverdueAlert(env, phone, {
+        studentName: body.student_name || '학생',
+        daysOverdue: parseInt(body.days_overdue, 10) || 0,
+        amountKrw: parseInt(body.amount_krw, 10) || 0,
+        paymentUrl: body.payment_url,
+      });
+      // 발송 이력 기록
+      await env.DB.prepare(
+        `INSERT INTO payment_overdue_log (user_id, student_name, days_overdue, amount_krw, parent_phone, status, error_message, sent_at) VALUES (?,?,?,?,?,?,?,?)`
+      ).bind(
+        body.user_id || null,
+        body.student_name || null,
+        parseInt(body.days_overdue, 10) || 0,
+        parseInt(body.amount_krw, 10) || 0,
+        phone,
+        r.ok ? 'sent' : 'failed',
+        r.ok ? null : (r.message || r.error || '실패'),
+        Date.now()
+      ).run();
+      // 🆕 Web Push 도 함께
+      let pushResult: any = { skipped: true };
+      if (body.user_id) {
+        const fee = parseInt(body.amount_krw, 10) || 200000;
+        pushResult = await sendPushToUser(env, 
+          body.user_id,
+          `💸 ${body.student_name || '학생'}님 수강료 안내`,
+          `미납 ${body.days_overdue}일 / ${fee.toLocaleString('ko-KR')}원. 결제 부탁드립니다.`,
+          body.payment_url || '/?go=payment',
+          `overdue-${body.user_id}`
+        );
+      }
+      return json({ ...r, push: pushResult });
+    }
+
+    // ── POST /api/admin/payments/notify-all-overdue — 미납 전체 일괄 ──
+    //   body: { user_ids: ["uid1","uid2"], grace_days?, default_fee? }
+    //   user_ids 미지정 시 자동으로 모든 미납 학생 일괄 발송
+    if (method === 'POST' && path === '/api/admin/payments/notify-all-overdue') {
+      await ensurePaymentTables();
+      const body: any = await request.json().catch(() => ({}));
+      const graceDays = Math.max(1, parseInt(body.grace_days, 10) || 35);
+      const defaultFee = Math.max(0, parseInt(body.default_fee, 10) || 200000);
+      const onlyUids: string[] | null = Array.isArray(body.user_ids) && body.user_ids.length > 0 ? body.user_ids : null;
+      const now = Date.now();
+      const cutoff = now - graceDays * 86400 * 1000;
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT);`); } catch {}
+      const _sw = await studentScopeWhere(env, request, 's');  // 🔒 지사/대리점 격리 (본사 전체 발송 방지)
+      const rs = await env.DB.prepare(
+        `SELECT s.user_id, s.name AS student_name, s.parent_phone, s.phone AS student_phone,
+                (SELECT MAX(paid_at) FROM student_payments WHERE user_id = s.user_id AND status='paid') AS last_paid_at,
+                (SELECT amount_krw FROM student_payments WHERE user_id = s.user_id AND status='paid' ORDER BY paid_at DESC LIMIT 1) AS last_amount
+           FROM students_erp s
+          WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}`
+      ).bind(..._sw.binds).all().catch(() => ({ results: [] } as any));
+      const results: any[] = [];
+      let sent = 0, failed = 0, skipped = 0;
+      for (const r of (rs.results || [])) {
+        const row: any = r;
+        if (onlyUids && !onlyUids.includes(row.user_id)) continue;
+        // 미납 조건
+        const isOverdue = !row.last_paid_at || row.last_paid_at < cutoff;
+        if (!isOverdue) continue;
+        const phone = row.parent_phone || row.student_phone;
+        if (!phone) { skipped++; results.push({ user_id: row.user_id, status: 'skipped', reason: 'no_phone' }); continue; }
+        const daysOverdue = row.last_paid_at
+          ? (Math.floor((now - row.last_paid_at) / (86400*1000)) - graceDays)
+          : 999;
+        const amount = row.last_amount || defaultFee;
+        const r2 = await sendPaymentOverdueAlert(env, phone, {
+          studentName: row.student_name || '학생',
+          daysOverdue, amountKrw: amount,
+        });
+        if (r2.ok) sent++; else failed++;
+        await env.DB.prepare(
+          `INSERT INTO payment_overdue_log (user_id, student_name, days_overdue, amount_krw, parent_phone, status, error_message, sent_at) VALUES (?,?,?,?,?,?,?,?)`
+        ).bind(
+          row.user_id, row.student_name, daysOverdue, amount, phone,
+          r2.ok ? 'sent' : 'failed',
+          r2.ok ? null : (r2.message || r2.error || '실패'),
+          Date.now()
+        ).run();
+        results.push({ user_id: row.user_id, student_name: row.student_name, phone, days_overdue: daysOverdue, ...r2 });
+      }
+      return json({ ok: true, summary: { sent, failed, skipped, total: results.length }, results });
+    }
+
+    // ── GET /api/admin/payments/overdue-log — 최근 미납 알림 발송 이력 ──
+    if (method === 'GET' && path === '/api/admin/payments/overdue-log') {
+      await ensurePaymentTables();
+      const rs = await env.DB.prepare(
+        `SELECT * FROM payment_overdue_log ORDER BY sent_at DESC LIMIT 200`
+      ).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ── POST /api/admin/payments/record — 수동으로 결제 기록 추가 (영수증 등) ──
+    if (method === 'POST' && path === '/api/admin/payments/record') {
+      await ensurePaymentTables();
+      const body: any = await request.json().catch(() => ({}));
+      if (!body.user_id || !body.amount_krw) return json({ ok: false, error: 'user_id_and_amount_required' }, 400);
+      const now = Date.now();
+      const paidAt = body.paid_at ? parseInt(body.paid_at, 10) : now;
+      const ins = await env.DB.prepare(
+        `INSERT INTO student_payments (user_id, paid_at, period_start, period_end, amount_krw, method, memo, status, created_at) VALUES (?,?,?,?,?,?,?,?,?)`
+      ).bind(
+        body.user_id, paidAt,
+        body.period_start || null, body.period_end || null,
+        parseInt(body.amount_krw, 10), body.method || '카드',
+        body.memo || null, body.status || 'paid', now
+      ).run();
+      return json({ ok: true, id: ins?.meta?.last_row_id, paid_at: paidAt });
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // 💰 Phase F1~F2 끝
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🤖 Phase A1~A2 — AI 학습 분석 (Workers AI / Llama 3.3 70B)
+    // ═══════════════════════════════════════════════════════════════
+
+    const ensureAiAnalysisTable = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_student_analysis (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, summary TEXT, strengths TEXT, weaknesses TEXT, recommendations TEXT, risk_level TEXT, raw_response TEXT, model TEXT, generated_at INTEGER NOT NULL);`);
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ai_an_student ON ai_student_analysis(student_uid, generated_at DESC)`); } catch {}
+    };
+
+    // ── POST /api/admin/ai-analyze/student — 학생 1명 AI 학습 분석 ──
+    //   body: { student_uid, student_name?, force_refresh? }
+    //   캐시: 12시간 이내 분석은 재사용 (Workers AI 호출 비용 절약)
+    if (method === 'POST' && path === '/api/admin/ai-analyze/student') {
+      await ensureAiAnalysisTable();
+      const body: any = await request.json().catch(() => ({}));
+      const uid = (body.student_uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'student_uid_required' }, 400);
+      // 🔐 [PII] 관리자(세션) 또는 본인/학부모(토큰 uid 일치) 만 자녀 AI 분석 조회
+      const aaAuth = await authUidGlobal(request, url, env, body);
+      const aaAdmin = await checkAdminSession(request, env as any);
+      if (!aaAdmin.ok && (!aaAuth || aaAuth !== uid)) {
+        return json({ ok: false, error: 'auth_required', message: '자녀 계정으로 로그인해주세요.' }, 401);
+      }
+
+      // 1) 캐시 확인 (12시간)
+      if (!body.force_refresh) {
+        const cached: any = await env.DB.prepare(
+          `SELECT * FROM ai_student_analysis WHERE student_uid = ? ORDER BY generated_at DESC LIMIT 1`
+        ).bind(uid).first();
+        if (cached && (Date.now() - cached.generated_at) < 12 * 3600 * 1000) {
+          return json({ ok: true, cached: true, analysis: cached });
+        }
+      }
+
+      // 2) 학생 데이터 종합 수집
+      const fetch1 = async (sql: string, ...binds: any[]): Promise<any> => {
+        try { return await env.DB.prepare(sql).bind(...binds).first(); } catch { return {}; }
+      };
+      const fetchAll = async (sql: string, ...binds: any[]): Promise<any[]> => {
+        try { const rs = await env.DB.prepare(sql).bind(...binds).all(); return rs.results || []; } catch { return []; }
+      };
+      const since = Date.now() - 60 * 86400 * 1000;  // 최근 60일
+
+      // 평가서 통계 (최근 60일)
+      const evalStats: any = await fetch1(
+        `SELECT COUNT(*) AS n,
+                AVG(score_participation) AS avg_part,
+                AVG(score_comprehension) AS avg_comp,
+                AVG(score_homework) AS avg_hw,
+                AVG(score_attitude) AS avg_att,
+                AVG(score_speaking) AS avg_spk,
+                AVG(score_overall) AS avg_overall
+           FROM student_evaluations WHERE student_uid = ? AND created_at >= ?`,
+        uid, since
+      );
+      // 평가서 코멘트 (최근 3건)
+      const evalComments = await fetchAll(
+        `SELECT lesson_date, strengths, improvements, next_goals, teacher_comment, score_overall
+           FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 3`,
+        uid
+      );
+      // 출석 (최근 60일)
+      const attendanceCount: any = await fetch1(
+        `SELECT COUNT(*) AS n FROM point_rule_log WHERE user_id = ? AND rule_code = 'attendance' AND triggered_at >= ?`,
+        uid, since
+      ).catch(() => ({ n: 0 }));
+      // 채팅 활동 (최근 60일)
+      const chatStats: any = await fetch1(
+        `SELECT COUNT(*) AS msg_count FROM chat_messages WHERE sender_uid = ? AND sent_at >= ?`,
+        uid, since
+      ).catch(() => ({ msg_count: 0 }));
+      // 최근 채팅 샘플 (5개)
+      const chatSample = await fetchAll(
+        `SELECT message, sent_at FROM chat_messages WHERE sender_uid = ? AND sent_at >= ? ORDER BY sent_at DESC LIMIT 5`,
+        uid, since
+      );
+      // 포인트 (적립 vs 사용)
+      const pointStats: any = await fetch1(
+        `SELECT IFNULL(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) AS earned,
+                IFNULL(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END),0) AS spent
+           FROM point_transactions WHERE user_id = ? AND created_at >= ?`,
+        uid, since
+      ).catch(() => ({ earned: 0, spent: 0 }));
+      // 학생 이름
+      const studentRow: any = await fetch1(`SELECT name FROM students_erp WHERE user_id = ?`, uid);
+      const studentName = body.student_name || studentRow?.name || uid;
+
+      // 3) AI 가 분석할 프롬프트 구성
+      const evalCommentSummary = evalComments.length > 0
+        ? evalComments.map((c: any, i: number) => `평가${i+1} (${c.lesson_date}, 종합 ${c.score_overall||'-'}/5점)\n  잘한 점: ${c.strengths || '-'}\n  보완 점: ${c.improvements || '-'}\n  강사 코멘트: ${c.teacher_comment || '-'}`).join('\n\n')
+        : '(아직 평가서 없음)';
+
+      const chatSampleText = chatSample.length > 0
+        ? chatSample.map((c: any) => `  - "${(c.message || '').slice(0, 100)}"`).join('\n')
+        : '(채팅 활동 없음)';
+
+      const prompt = `당신은 한국 영어학원의 학습 분석 AI 입니다. 아래 학생의 최근 60일 데이터를 보고 강점·약점·추천 학습을 한국어로 친절하게 분석하세요.
+
+학생: ${studentName}
+ID: ${uid}
+
+[평가서 통계 (최근 60일)]
+- 작성 건수: ${evalStats?.n || 0}건
+- 평균 종합 점수: ${evalStats?.avg_overall ? evalStats.avg_overall.toFixed(2) : '-'}/5
+- 참여도: ${evalStats?.avg_part ? evalStats.avg_part.toFixed(1) : '-'}/5
+- 이해도: ${evalStats?.avg_comp ? evalStats.avg_comp.toFixed(1) : '-'}/5
+- 숙제: ${evalStats?.avg_hw ? evalStats.avg_hw.toFixed(1) : '-'}/5
+- 태도: ${evalStats?.avg_att ? evalStats.avg_att.toFixed(1) : '-'}/5
+- 말하기: ${evalStats?.avg_spk ? evalStats.avg_spk.toFixed(1) : '-'}/5
+
+[최근 평가서 코멘트]
+${evalCommentSummary}
+
+[활동]
+- 출석 횟수: ${attendanceCount?.n || 0}회
+- 채팅 메시지: ${chatStats?.msg_count || 0}개
+- 포인트 적립: ${pointStats?.earned || 0}P / 사용: ${pointStats?.spent || 0}P
+
+[최근 채팅 샘플]
+${chatSampleText}
+
+[지시]
+다음 JSON 형식으로만 답변하세요. 한국어로 작성. 다른 텍스트 없이 JSON 만.
+
+{
+  "summary": "1~2문장 요약 (학생 현재 학습 상황)",
+  "strengths": ["강점 1", "강점 2", "강점 3"],
+  "weaknesses": ["약점 1", "약점 2", "약점 3"],
+  "recommendations": ["추천 학습 1", "추천 학습 2", "추천 학습 3"],
+  "risk_level": "low" 또는 "medium" 또는 "high",
+  "next_action": "강사가 다음 수업에서 우선시할 것 한 줄"
+}`;
+
+      // 4) Workers AI 호출
+      if (!env.AI) {
+        return json({ ok: false, error: 'AI_binding_missing', message: 'env.AI 가 wrangler.toml 에 설정되지 않음' }, 503);
+      }
+
+      let aiResponse: string = '';
+      let model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+      try {
+        const aiResult: any = await env.AI.run(model, {
+          messages: [
+            { role: 'system', content: '당신은 한국 영어 학원의 학습 분석 AI 입니다. 항상 JSON 형식으로만 응답하세요.' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 1500,
+        });
+        // 응답을 안전하게 문자열로 정규화
+        if (typeof aiResult === 'string') aiResponse = aiResult;
+        else if (aiResult && typeof aiResult.response === 'string') aiResponse = aiResult.response;
+        else if (aiResult && aiResult.response) aiResponse = JSON.stringify(aiResult.response);
+        else aiResponse = JSON.stringify(aiResult || {});
+        aiResponse = String(aiResponse || '');
+      } catch (e: any) {
+        return json({ ok: false, error: 'ai_call_failed', detail: String(e?.message || e) }, 500);
+      }
+
+      // 5) JSON 파싱
+      let parsed: any = null;
+      try {
+        const m = aiResponse.match(/\{[\s\S]*\}/);
+        if (m) parsed = JSON.parse(m[0]);
+      } catch (e: any) {
+        console.warn('[ai-analyze] JSON parse fail:', e?.message, aiResponse.slice(0, 300));
+      }
+
+      const analysis = {
+        student_uid: uid,
+        student_name: studentName,
+        summary: parsed?.summary || '(AI 응답 파싱 실패 - raw 참고)',
+        strengths: Array.isArray(parsed?.strengths) ? parsed.strengths.join(' | ') : (parsed?.strengths || ''),
+        weaknesses: Array.isArray(parsed?.weaknesses) ? parsed.weaknesses.join(' | ') : (parsed?.weaknesses || ''),
+        recommendations: Array.isArray(parsed?.recommendations) ? parsed.recommendations.join(' | ') : (parsed?.recommendations || ''),
+        risk_level: parsed?.risk_level || 'unknown',
+        next_action: parsed?.next_action || '',
+        raw_response: aiResponse.slice(0, 4000),
+        model,
+        generated_at: Date.now(),
+        data_sources: {
+          eval_count: evalStats?.n || 0,
+          attendance_count: attendanceCount?.n || 0,
+          chat_messages: chatStats?.msg_count || 0,
+          point_earned: pointStats?.earned || 0,
+        }
+      };
+
+      // 6) D1 저장 (히스토리 관리)
+      await env.DB.prepare(
+        `INSERT INTO ai_student_analysis (student_uid, student_name, summary, strengths, weaknesses, recommendations, risk_level, raw_response, model, generated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`
+      ).bind(
+        uid, studentName, analysis.summary, analysis.strengths, analysis.weaknesses,
+        analysis.recommendations, analysis.risk_level, analysis.raw_response, model, analysis.generated_at
+      ).run();
+
+      return json({ ok: true, cached: false, analysis });
+    }
+
+    // ── GET /api/admin/ai-analyze/history?uid=X — 학생별 분석 이력 ──
+    if (method === 'GET' && path === '/api/admin/ai-analyze/history') {
+      await ensureAiAnalysisTable();
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const rs = await env.DB.prepare(
+        `SELECT id, summary, risk_level, generated_at FROM ai_student_analysis WHERE student_uid = ? ORDER BY generated_at DESC LIMIT 20`
+      ).bind(uid).all();
+      return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🤖 Phase A1 끝
+    // ═══════════════════════════════════════════════════════════════
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
 }
