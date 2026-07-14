@@ -506,12 +506,13 @@ function startGame(mode){
 /* ── 보드 크기 계산(정사각 셀, PC에서 크게) ── */
 function layout(){
   var wide=window.innerWidth>=700;
-  var reserve=wide?205:250;                 // HUD+뜻+미션+패드 세로 예약(PC는 여유 축소)
+  var reserve=wide?238:252;                 // HUD+뜻+미션+패드 세로 예약 — 하단 패드가 항상 보이도록 정확히 잡음
   var maxBW=wide?640:400;                    // PC에서 보드 폭 크게
   var bw=Math.min(window.innerWidth-16, maxBW);
   var byW=Math.floor(bw/COLS);
   var byH=Math.floor((window.innerHeight-reserve)/ROWS);
-  cell=Math.max(22, Math.min(byW, byH, wide?60:40));   // PC 셀 상한 46→60
+  var fit=Math.min(byW, byH, wide?60:40);   // 화면에 꽉 차는 최대 셀
+  cell=Math.max(16, Math.round(fit*0.7));   // 🔽 도형 30% 작게(사장님 요청) → 보드도 작아져 하단 안 잘림
   var bd=document.getElementById('board');
   bd.style.width=(cell*COLS)+'px'; bd.style.height=(cell*ROWS)+'px';
   document.documentElement.style.setProperty('--cell', cell+'px');
@@ -870,6 +871,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715034716 -->
+<!-- BUILD:20260715041222 -->
 </body>
 </html>
