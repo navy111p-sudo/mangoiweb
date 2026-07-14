@@ -13142,10 +13142,12 @@ window.vcSetContentCollapsed = function(collapsed){
     if (row) row.classList.toggle('vc-content-hidden', collapsed);
 };
 // 칠판/동영상/학생게임/배경화면/AI웜업/복습퀴즈 — 다른 탭이면 전환+펼치기, 이미 보이는 같은 탭이면 접기.
+//   🔧 (2026-07-15) 칠판(whiteboard)은 예외 — 다시 눌러도 접지 않음.
+//     사장님 요청: 칠판을 클릭하면 (전체 얼굴 화면으로 접히지 말고) 항상 '얼굴 + 칠판' 화면이 나오게.
 window.vcToggleContentTab = function(tabName){
     var panel = document.getElementById('tab-' + tabName);
     var alreadyShowing = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
-    if (alreadyShowing) {
+    if (alreadyShowing && tabName !== 'whiteboard') {
         vcSetContentCollapsed(true);
     } else {
         vcSetContentCollapsed(false);
@@ -20122,14 +20124,6 @@ window.addEventListener('DOMContentLoaded', () => {
   window.openLoginModal = function(){
     var L = (window.getLang?window.getLang():'ko')==='ko';
     var ov = document.getElementById('login-overlay');
-    var cards = Object.values(demoStudents).map(function(s){
-      var ini = s.name.charAt(0);
-      return '<div class="student-card" onclick="doLogin(&quot;'+s.uid+'&quot;)">'+
-        '<div class="sc-avatar">'+ini+'</div>'+
-        '<div class="sc-name">'+s.name+'</div>'+
-        '<div class="sc-uid">'+s.uid+'</div>'+
-      '</div>';
-    }).join('');
     var html = '<div class="login-modal" onclick="event.stopPropagation()">'+
       '<h2>🔑 '+(L?'학생/학부모 로그인':'Login')+'</h2>'+
       '<div class="lm-sub">'+(L?'학생 ID + 비밀번호 또는 소셜 계정으로 빠르게 로그인하세요.':'Login with student ID or social account.')+'</div>'+
@@ -20167,9 +20161,6 @@ window.addEventListener('DOMContentLoaded', () => {
             (L?'구글 아이디로 로그인':'Sign in with Google')+
           '</button>'+
         '</div>'+
-        // ━━━━ 데모 학생 카드 (기존, 빠른 로그인) ━━━━
-        '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:10px 0">'+(L?'🎭 데모 빠른 로그인':'🎭 Demo Quick Login')+'</div>'+
-        '<div class="student-cards">'+cards+'</div>'+
       '</div>'+
       '<div class="lm-actions" style="display:flex;gap:8px">'+
         '<button class="lm-btn" onclick="closeLoginModal();(history.length>1?history.back():null)" style="background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.45);color:#c7d2fe">← '+(L?'뒤로':'Back')+'</button>'+
@@ -24991,7 +24982,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260715031231 -->
+<!-- BUILD:20260715031835 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
