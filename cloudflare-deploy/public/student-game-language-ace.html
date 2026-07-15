@@ -261,10 +261,11 @@ function decoyPool(){ return MODE==='en'
    2. 캔버스 · 리사이즈 (DPR 캡)
    ════════════════════════════════════════════════════════════ */
 var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-var W=0,H=0,DPR=1;
+var W=0,H=0,DPR=1,SCALE=1;
 function resize(){
   DPR = Math.min(2, window.devicePixelRatio||1);
   W = cv.clientWidth; H = cv.clientHeight;
+  SCALE = (W>=760) ? 2 : 1;   // 🖥️ PC(넓은 화면)에선 비행기 등 2배 크게
   cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
   ctx.setTransform(DPR,0,0,DPR,0,0);
   buildBackdrop();
@@ -432,6 +433,15 @@ var ZERO = { ready:false, img:null, w:0, h:0 };
   img.src='/img/zero-enemy.png';
 })();
 
+/* 🪂 조종사 낙하산 스프라이트 — B-17 격추 시 탈출 장면(크로마키 제거 투명 PNG) */
+var PILOT = { ready:false, img:null, w:0, h:0 };
+(function loadPilot(){
+  var img=new Image();
+  img.onload=function(){ PILOT.img=img; PILOT.w=img.width; PILOT.h=img.height; PILOT.ready=true; };
+  img.onerror=function(){ PILOT.ready=false; };
+  img.src='/img/pilot-parachute.png';
+})();
+
 /* ════════════════════════════════════════════════════════════
    6. 배경 — 스크롤 지형/구름(전진 비행감) · 오프스크린 프리렌더
    ════════════════════════════════════════════════════════════ */
@@ -473,7 +483,7 @@ function newGame(){
     score:0, time:60, timeMax:60, hearts:3, clears:0, correct:0,   // clears=완성 문장 / correct=정답 단어 명중(승리 판정 단위)
     px:W/2, py:H*0.72, tx:W/2, ty:H*0.72,   // player pos & target
     firing:false, fireT:0, invuln:0, shake:0, flash:0,
-    enemies:[], ebul:[], pbul:[], fuels:[], parts:[],
+    enemies:[], ebul:[], pbul:[], fuels:[], parts:[], pilot:null,
     spawnT:0, fuelT:0, watchT:0,
     queue:order, si:0, sent:null, next:0,
     prog:[]
@@ -521,7 +531,7 @@ function spawnEnemy(forceTarget){
     else { var dp=decoyPool(); word=dp[Math.floor(Math.random()*dp.length)]; }
   }
   var x = 60+Math.random()*(W-120);
-  var dw = pat==='dive' ? 76 : 88;              // 표시 폭(px)
+  var dw = (pat==='dive' ? 76 : 88) * SCALE;     // 표시 폭(px) · 🖥️ PC 2배
   var dh = dw * 445/887;                         // 원본 비율 유지
   var e = {
     pat:pat, alive:true, word:word, x:x, y:-dh,
@@ -606,7 +616,9 @@ cv.addEventListener('contextmenu',function(e){e.preventDefault();});
    ════════════════════════════════════════════════════════════ */
 function update(dt){
   if(!G.running||G.paused||G.speaking) return;   // 말하기연습 중엔 게임/타이머 정지
-  if(G.dead){ stepParticles(dt); return; }        // 격추 연출: 폭발 파티클/흔들림만 갱신(적·탄·타이머 정지)
+  if(G.dead){ stepParticles(dt);                   // 격추 연출: 폭발 파티클 + 조종사 낙하산 하강만
+    if(G.pilot){ var pl=G.pilot; pl.t+=dt; pl.y+=pl.vy*dt; pl.x=pl.baseX+Math.sin(pl.t*1.1)*24*SCALE; }
+    return; }
   // 시간
   G.time -= dt; if(G.time<=0){ G.time=0; return endGame(false); }
   bdScroll = (bdScroll + dt*90*SPMUL) % bdH;
@@ -627,7 +639,7 @@ function update(dt){
   G.watchT-=dt; if(G.watchT<=0){ G.watchT=1.0; if(!targetOnScreen() && G.enemies.length<5) spawnEnemy(true); }
   // 연료
   G.fuelT-=dt; if(G.fuelT<=0){ G.fuelT=6+Math.random()*5;
-    G.fuels.push({x:40+Math.random()*(W-80),y:-30,vy:(52+Math.random()*20),r:16,rot:0}); }
+    G.fuels.push({x:40+Math.random()*(W-80),y:-30,vy:(52+Math.random()*20),r:16*SCALE,rot:0}); }
 
   // 적기 이동/사격
   for(var i=G.enemies.length-1;i>=0;i--){ var e=G.enemies[i]; if(!e.alive){G.enemies.splice(i,1);continue;}
@@ -640,7 +652,7 @@ function update(dt){
   // 적 탄
   for(var b=G.ebul.length-1;b>=0;b--){ var eb=G.ebul[b]; eb.x+=eb.vx*dt; eb.y+=eb.vy*dt;
     if(eb.x<-20||eb.x>W+20||eb.y<-20||eb.y>H+20){ G.ebul.splice(b,1); continue; }
-    if(G.invuln<=0 && Math.hypot(eb.x-G.px,eb.y-G.py) < 20){ G.ebul.splice(b,1); hitPlayer(); }
+    if(G.invuln<=0 && Math.hypot(eb.x-G.px,eb.y-G.py) < 20*SCALE){ G.ebul.splice(b,1); hitPlayer(); }
   }
   // 플레이어 탄
   for(var p=G.pbul.length-1;p>=0;p--){ var pb=G.pbul[p]; pb.y+=pb.vy*dt;
@@ -655,10 +667,10 @@ function update(dt){
   // 연료 낙하 + 몸통 획득
   for(var g2=G.fuels.length-1;g2>=0;g2--){ var fl=G.fuels[g2]; fl.y+=fl.vy*dt; fl.rot+=dt*2;
     if(fl.y>H+30){ G.fuels.splice(g2,1); continue; }
-    if(Math.hypot(fl.x-G.px,fl.y-G.py)<fl.r+18){ collectFuel(fl); G.fuels.splice(g2,1); } }
+    if(Math.hypot(fl.x-G.px,fl.y-G.py)<fl.r+18*SCALE){ collectFuel(fl); G.fuels.splice(g2,1); } }
   // 적기 몸통 충돌
   for(var k2=0;k2<G.enemies.length;k2++){ var em=G.enemies[k2]; if(!em.alive)continue;
-    if(G.invuln<=0 && Math.hypot(em.x-G.px,em.y-G.py)<em.r+16){ explode(em.x,em.y,false); sndBoom(); em.alive=false; hitPlayer(); } }
+    if(G.invuln<=0 && Math.hypot(em.x-G.px,em.y-G.py)<em.r+16*SCALE){ explode(em.x,em.y,false); sndBoom(); em.alive=false; hitPlayer(); } }
   // 파티클/흔들림
   stepParticles(dt);
 }
@@ -673,16 +685,19 @@ function hitPlayer(){ if(G.invuln>0||G.dead)return; G.hearts--; G.invuln=1.3; G.
   G.time=Math.max(0,G.time-2); sndBuzz(); updateHUD();
   if(G.hearts<=0){ playerDestroyed(); } }   // 💥 격추 → 대형 폭발 연출
 
-/* 💥 격추 연출 — 대형 폭발(화구+충격파+파편) + 큰 폭발음, 잠시 후 종료화면 */
+/* 💥 격추 연출 — 대형 폭발 + 큰 폭발음 → 🪂 조종사 낙하산 탈출 → 종료화면 */
 function playerDestroyed(){
   if(G.dead)return; G.dead=true; G.firing=false;
   bgmStop();
-  bigExplode(G.px, G.py);
+  var px0=G.px, py0=G.py;
+  bigExplode(px0, py0);
   sndBigBoom();
   G.shake=Math.min(46,G.shake+34); G.flash=0.8;
-  setTimeout(function(){ if(G&&G.dead){ bigExplode(G.px+20,G.py-14); sndBoom(); } }, 220);
-  setTimeout(function(){ if(G&&G.dead){ bigExplode(G.px-18,G.py+16); } }, 440);
-  setTimeout(function(){ if(G&&G.dead) endGame(false); }, 1400);
+  setTimeout(function(){ if(G&&G.dead){ bigExplode(px0+20,py0-14); sndBoom(); } }, 220);
+  setTimeout(function(){ if(G&&G.dead){ bigExplode(px0-18,py0+16); } }, 440);
+  // 🪂 폭발 직후 조종사가 낙하산으로 탈출해 천천히 하강
+  setTimeout(function(){ if(G&&G.dead){ G.pilot={ baseX:px0, x:px0, y:py0-40*SCALE, vy:30*SCALE, t:0 }; sndPickup(); } }, 560);
+  setTimeout(function(){ if(G&&G.dead) endGame(false); }, 2800);   // 낙하산 하강이 보이도록 연장
 }
 /* 대형 폭발 = 다층 화구 + 다중 충격링 + 다량 파편(기존 파티클 렌더 재사용) */
 function bigExplode(x,y){
@@ -894,6 +909,8 @@ function render(){
     drawPlayer();
     // 파티클
     G.parts.forEach(function(pt){ drawPart(pt); });
+    // 🪂 조종사 낙하산 탈출(격추 연출)
+    if(G.pilot) drawPilot(G.pilot);
     // 피격 플래시
     if(G.flash>0){ ctx.fillStyle='rgba(255,40,40,'+(G.flash*0.5)+')'; ctx.fillRect(0,0,W,H); }
   }
@@ -903,7 +920,7 @@ function render(){
 function drawPlayer(){
   if(G.dead) return;                      // 격추됨 → 기체 사라지고 폭발만
   var blink = (G.invuln>0 && Math.floor(performance.now()/90)%2===0);
-  ctx.save(); ctx.translate(G.px,G.py);
+  ctx.save(); ctx.translate(G.px,G.py); ctx.scale(SCALE,SCALE);   // 🖥️ PC 2배 확대
   // 연한 그림자(방사형 — shadowBlur 대신 = 성능)
   var sh=ctx.createRadialGradient(6,26,4,6,26,46); sh.addColorStop(0,'rgba(0,0,0,.34)'); sh.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=sh; ctx.beginPath(); ctx.ellipse(6,26,44,20,0,0,7); ctx.fill();
@@ -911,6 +928,14 @@ function drawPlayer(){
     if(B17.ready){ var sc=76/B17.h; var w=B17.w*sc, h=B17.h*sc; ctx.drawImage(B17.cnv,-w/2,-h/2,w,h); }
     else { drawB17fallback(); }
   }
+  ctx.restore();
+}
+/* 🪂 조종사 낙하산 — 격추 후 천천히 하강하며 좌우로 흔들림 */
+function drawPilot(p){
+  if(!PILOT.ready) return;
+  var h=150*SCALE, w=h*PILOT.w/PILOT.h;
+  ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(Math.sin(p.t*1.1)*0.1);
+  ctx.drawImage(PILOT.img, -w/2, -h/2, w, h);
   ctx.restore();
 }
 function drawB17fallback(){ // 이미지 로드 전/실패 시 벡터 대체(올리브 드랩)
@@ -1101,6 +1126,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715153450 -->
+<!-- BUILD:20260715154958 -->
 </body>
 </html>
