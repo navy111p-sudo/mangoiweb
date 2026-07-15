@@ -144,7 +144,7 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       SELECT
         (SELECT COUNT(*) FROM students_erp WHERE substr(COALESCE(signup_date,''),1,7) = ?) AS new_signups,
         (SELECT COUNT(*) FROM students_erp WHERE substr(COALESCE(end_date,''),1,7) = ?) AS expirations,
-        (SELECT COUNT(*) FROM students_erp WHERE status='정상') AS active_total
+        (SELECT COUNT(*) FROM students_erp WHERE status IN ('정상','활동','active')) AS active_total
     `).bind(yyyymm, yyyymm).first<{ new_signups: number; expirations: number; active_total: number }>();
     return r || { new_signups: 0, expirations: 0, active_total: 0 };
   }, { new_signups: 0, expirations: 0, active_total: 0 });
@@ -482,7 +482,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
 
   // 활성 학생
   const active = await safe(async () => {
-    const r = await env.DB.prepare(`SELECT COUNT(*) AS c FROM students_erp WHERE status='정상'`).first<{ c: number }>();
+    const r = await env.DB.prepare(`SELECT COUNT(*) AS c FROM students_erp WHERE status IN ('정상','활동','active')`).first<{ c: number }>();
     return r?.c || 0;
   }, 0);
 
@@ -910,13 +910,13 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   let rows: any[] = [];
   let label = '';
   if (kind === 'receivable') {
-    // 학생 만료 임박 + 미납 (status='정상' 인데 end_date 가 지났거나, pending 결제)
+    // 학생 만료 임박 + 미납 (status IN ('정상','활동','active') 인데 end_date 가 지났거나, pending 결제)
     rows = await safe(async () => {
       const r = await env.DB.prepare(`
         SELECT user_id, korean_name, end_date,
                (julianday(?) - julianday(end_date)) AS days_overdue
         FROM students_erp
-        WHERE status='정상' AND end_date IS NOT NULL AND end_date < ?
+        WHERE status IN ('정상','활동','active') AND end_date IS NOT NULL AND end_date < ?
         ORDER BY days_overdue DESC LIMIT 200
       `).bind(todayKst, todayKst).all();
       return ((r.results || []) as Array<any>).map(s => ({

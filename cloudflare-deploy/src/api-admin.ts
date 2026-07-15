@@ -388,7 +388,7 @@ export async function handleAdminApi(
       };
 
       // 1. 학생 수
-      const studentTotal: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status = '정상' OR status = '활동' OR status IS NULL OR status = '')${_erpScope}`, ..._sb);
+      const studentTotal: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb);
       const studentNewThisMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?${_erpScope}`, thisMonthStart, ..._sb);
       const studentNewLastMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastMonthEnd, ..._sb);
 
@@ -441,7 +441,7 @@ export async function handleAdminApi(
       try {
         const cutoff = now - 35 * 86400 * 1000;
         const oc: any = await fetch1(`SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
-                                       WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')
+                                       WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
                                          AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)${_uidScope}`, cutoff, ..._sb);
         overdueCount = oc?.n || 0;
       } catch {}
@@ -753,7 +753,7 @@ export async function handleAdminApi(
            FROM students_erp
            WHERE end_date IS NOT NULL AND end_date BETWEEN ? AND ?
              AND end_date < ?
-             AND status != '정상'` + _sf.erpScope + `
+             AND status NOT IN ('정상','활동','active')` + _sf.erpScope + `
            GROUP BY end_date ORDER BY end_date ASC`
         ).bind(from, to, today, ..._sf.binds).all<{ date: string; cnt: number }>();
 
@@ -2995,7 +2995,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           `SELECT s.user_id AS uid,
                   COALESCE(s.korean_name, s.english_name, s.user_id) AS name
              FROM students_erp s
-            WHERE (s.status = '정상' OR s.status IS NULL OR s.status = '')
+            WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
               AND NOT EXISTS (
                     SELECT 1 FROM class_schedules cs
                      WHERE (cs.status IS NULL OR cs.status = 'active')
@@ -3210,7 +3210,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
            FROM students_erp
            WHERE COALESCE(korean_name, username) IS NOT NULL
              AND COALESCE(korean_name, username) != ''
-             AND COALESCE(status, '정상') = '정상'
+             AND COALESCE(status, '정상') IN ('정상','활동','active')
            GROUP BY COALESCE(korean_name, username)
            HAVING cnt > 1`
         ).all<any>();
@@ -3222,7 +3222,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             `SELECT id, COALESCE(user_id, login_id, ('stu_' || id)) AS uid, korean_name, username, signup_date
              FROM students_erp
              WHERE (korean_name = ? OR username = ?)
-               AND COALESCE(status, '정상') = '정상'
+               AND COALESCE(status, '정상') IN ('정상','활동','active')
              ORDER BY id ASC`
           ).bind(name, name).all<any>();
           const rows = dups.results || [];
@@ -3279,7 +3279,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // user_id 안 주면 students_erp 첫 학생 사용
       if (!userId) {
         try {
-          const r = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, 'stu_' || id) AS uid, COALESCE(korean_name, username) AS name FROM students_erp WHERE COALESCE(status,'정상')='정상' ORDER BY rowid DESC LIMIT 1`).first<any>();
+          const r = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, 'stu_' || id) AS uid, COALESCE(korean_name, username) AS name FROM students_erp WHERE COALESCE(status,'정상') IN ('정상','활동','active') ORDER BY rowid DESC LIMIT 1`).first<any>();
           if (r?.uid) userId = r.uid;
         } catch {}
         if (!userId) return json({ ok: false, error: 'no_student' }, 400);
@@ -3554,7 +3554,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
                 (SELECT MAX(paid_at) FROM student_payments WHERE user_id = s.user_id AND status='paid') AS last_paid_at,
                 (SELECT amount_krw FROM student_payments WHERE user_id = s.user_id AND status='paid' ORDER BY paid_at DESC LIMIT 1) AS last_amount
            FROM students_erp s
-          WHERE (s.status = '정상' OR s.status = '활동' OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}`
+          WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}`
       ).bind(..._sw.binds).all().catch(() => ({ results: [] } as any));
       const results: any[] = [];
       let sent = 0, failed = 0, skipped = 0;
@@ -5740,7 +5740,7 @@ LIMIT $limit`;
         try {
           const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE date = ?`).bind(yesterdayStr).first();
           attendedYesterday = att?.n || 0;
-          const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status = '정상' OR status IS NULL OR status = ''`).first();
+          const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp WHERE status IN ('정상','활동','active') OR status IS NULL OR status = ''`).first();
           activeStudents = tot?.n || 0;
           if (activeStudents > 0) attendanceRate = Math.round((attendedYesterday / activeStudents) * 100);
         } catch {}
@@ -5925,7 +5925,7 @@ LIMIT $limit`;
           const nCol = colNames.includes('student_name') ? 'student_name' : (colNames.includes('korean_name') ? 'korean_name' : (colNames.includes('name') ? 'name' : 'user_id'));
           const prefCol = colNames.includes('preferred_time') ? 'preferred_time' : `'오후 4-7시' AS preferred_time`;
           const mbtiCol = colNames.includes('mbti') ? 'mbti' : `'' AS mbti`;
-          const rs: any = await env.DB.prepare(`SELECT user_id, ${nCol} AS student_name, ${prefCol}, ${mbtiCol} FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 300`).all();
+          const rs: any = await env.DB.prepare(`SELECT user_id, ${nCol} AS student_name, ${prefCol}, ${mbtiCol} FROM students_erp WHERE status IN ('정상','활동','active') OR status IS NULL OR status = '' LIMIT 300`).all();
           students = rs.results || [];
         } catch {}
 
@@ -6692,7 +6692,7 @@ LIMIT $limit`;
       // ── 월간 발송 (학부모 수만큼 큐 등록) ──
       if (method === 'POST' && path === '/api/admin/nps/send-monthly') {
         const cnt: any = await env.DB.prepare(
-          `SELECT COUNT(*) AS n FROM students_erp WHERE status='정상' OR status='활동' OR status IS NULL OR status=''`
+          `SELECT COUNT(*) AS n FROM students_erp WHERE status IN ('정상','활동','active') OR status IS NULL OR status=''`
         ).first().catch(() => ({ n: 0 }));
         return json({ ok: true, queued: cnt?.n || 0, ym: kstYm() });
       }
