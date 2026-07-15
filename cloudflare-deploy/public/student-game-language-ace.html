@@ -696,7 +696,7 @@ cv.addEventListener('contextmenu',function(e){e.preventDefault();});
 function update(dt){
   if(!G.running||G.paused||G.speaking) return;   // 말하기연습 중엔 게임/타이머 정지
   if(G.dead){ stepParticles(dt);                   // 격추 연출: 폭발 파티클 + 조종사 낙하산 하강만
-    if(G.pilot){ var pl=G.pilot; pl.t+=dt; pl.y+=pl.vy*dt; pl.x=pl.baseX+Math.sin(pl.t*1.1)*24*SCALE; }
+    if(G.pilot){ var pl=G.pilot; pl.t+=dt; pl.y+=pl.vy*dt; }   // 좌우 흔들림은 drawPilot(실시간 시계)에서 → 종료화면서도 계속 움직임
     return; }
   // 시간
   G.time -= dt; if(G.time<=0){ G.time=0; return endGame(false); }
@@ -1028,10 +1028,10 @@ var _pfx=null;
 function pilotFxCanvas(w,h){ if(!_pfx)_pfx=document.createElement('canvas'); if(_pfx.width!==w)_pfx.width=w; if(_pfx.height!==h)_pfx.height=h; return _pfx; }
 function drawPilot(p){
   if(!PILOT.ready) return;
-  var sway=Math.sin(p.t*1.1);
+  var sway=Math.sin(performance.now()/1000*1.3);             // ⏱️ 실시간 흔들림 → 종료화면서도 계속 좌우로 움직임
   var grow = 0.16 + Math.min(1, p.t/2.5)*1.16;               // 조종석 크기(0.16) → 크게(1.32)
   var h=Math.min(150*SCALE*grow, H*0.86), pw=h*PILOT.w/PILOT.h;
-  var dx=clampPos(p.x, pw*0.5, W), dy=clampPos(p.y, h*0.5, H);
+  var dx=clampPos((p.baseX!=null?p.baseX:p.x)+sway*28*SCALE, pw*0.5, W), dy=clampPos(p.y, h*0.5, H);   // 좌우로 조금 왔다갔다
   // 오프스크린에 조종사 그린 뒤 얼굴만 빨갛게 착색
   var fw=Math.max(2,Math.ceil(pw)), fh=Math.max(2,Math.ceil(h));
   var fx=pilotFxCanvas(fw,fh), fc=fx.getContext('2d');
@@ -1057,7 +1057,7 @@ function drawPilot(p){
       fc.putImageData(im, x0,y0);
     }
   }
-  ctx.save(); ctx.translate(dx,dy); ctx.rotate(sway*0.09);
+  ctx.save(); ctx.translate(dx,dy); ctx.rotate(sway*0.13);
   ctx.drawImage(fx, -pw/2, -h/2, pw, h);
   ctx.restore();
   drawPilotBubble(dx, dy - h*0.42);   // 💬 "Oh no!" 말풍선(머리 위)
@@ -1276,6 +1276,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260716022320 -->
+<!-- BUILD:20260716023021 -->
 </body>
 </html>
