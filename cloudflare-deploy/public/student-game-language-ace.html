@@ -28,10 +28,10 @@
   #sentKo{font-size:14px;color:#ffd479;text-align:center;font-weight:700;letter-spacing:.3px;
     text-shadow:0 1px 3px #000}
   #sentEn{margin-top:5px;display:flex;flex-wrap:wrap;gap:5px 7px;justify-content:center;align-items:center}
-  .wtok{font-size:16px;font-weight:800;padding:3px 9px;border-radius:8px;line-height:1.1;
+  .wtok{font-size:28px;font-weight:800;padding:5px 13px;border-radius:9px;line-height:1.15;
     background:rgba(20,30,42,.7);color:#5f7089;border:1px solid rgba(120,140,170,.25);
-    text-shadow:0 1px 2px #000;transition:.15s}
-  .wtok .py{display:block;font-size:10px;font-weight:600;color:#7d8ba0;margin-top:1px}
+    text-shadow:0 1px 3px #000;transition:.15s}
+  .wtok .py{display:block;font-size:15px;font-weight:600;color:#7d8ba0;margin-top:1px}
   .wtok.done{background:linear-gradient(180deg,#2e7d46,#1c5a30);color:#d8ffe4;border-color:#41d178}
   .wtok.done .py{color:#a5e6bd}
   .wtok.next{background:linear-gradient(180deg,#c9942a,#a2711a);color:#fff6da;border-color:#ffd479;
@@ -395,10 +395,20 @@ function speak(text, rate, times){ if(muted)return; times=Math.max(1,times||1);
   function once(){ n++; try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.95; if(v)u.voice=v;
     if(n<times) u.onend=function(){ setTimeout(once,360); }; speechSynthesis.speak(u); }catch(_){} }
   once(); }
-/* 특정 언어 음성으로 한마디(조종사 "Oh no!" 등) — MODE 무관 강제 lang */
+/* 남성 음성 우선 선택(이름 힌트 기반) — 브라우저마다 목소리명이 다름 */
+function pickMaleVoice(lang){
+  var pref=VOICES.filter(function(v){ return v.lang && v.lang.indexOf((lang||'en').slice(0,2))===0; });
+  var male=['david','mark','daniel','alex','fred','george','james','guy','aaron','arthur','richard','eric','ryan','male','man','thomas','paul'];
+  var female=['zira','female','woman','samantha','victoria','karen','moira','tessa','fiona','susan','linda','heather','catherine','hazel','google uk english female'];
+  var m=pref.find(function(v){ var n=(v.name||'').toLowerCase(); return male.some(function(x){return n.indexOf(x)>=0;}); });
+  if(m) return m;
+  var nf=pref.find(function(v){ var n=(v.name||'').toLowerCase(); return !female.some(function(x){return n.indexOf(x)>=0;}); });
+  return nf || pref[0] || pickVoice(lang);
+}
+/* 특정 언어 음성으로 한마디(조종사 "Oh no!" 등) — MODE 무관 강제 lang · 자연스러운 남자 목소리 */
 function speakVoice(text, lang, rate){ if(muted)return;
-  try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang||'en-US'; u.rate=rate||1; u.pitch=1.1;
-    var v=pickVoice(lang||'en-US'); if(v)u.voice=v; speechSynthesis.speak(u); }catch(_){} }
+  try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang||'en-US'; u.rate=rate||0.95; u.pitch=0.82;
+    var v=pickMaleVoice(lang||'en-US'); if(v)u.voice=v; speechSynthesis.speak(u); }catch(_){} }
 
 /* ════════════════════════════════════════════════════════════
    5. 플레이어 스프라이트 — B-17 이미지 크로마키(초록 제거)
@@ -1230,6 +1240,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260716002725 -->
+<!-- BUILD:20260716003317 -->
 </body>
 </html>
