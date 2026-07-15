@@ -514,6 +514,9 @@ function _speechText(s){
     .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')                 // 이모지 전체(astral 대리쌍)
     .replace(/[←-⇿⌀-➿☀-⛿⬀-⯿]/g, '') // BMP 화살표·기술기호·딩벳·별
     .replace(/[︀-️‍⃣]/g, '')                    // 변형선택자·ZWJ·키캡 결합문자
+    .replace(/[\(\[（【][^\)\]）】]*[\)\]）】]/g, ' ')     // 괄호·대괄호 부가설명 제거 (예: "Hello (안녕) there" → "Hello there")
+    .replace(/[*_`~#|\\^{}]/g, ' ')                        // 마크다운·특수기호 정리 (**굵게** ` # 등)
+    .replace(/\s+([,.!?;:’'”"])/g, '$1')                  // 문장부호 앞 공백 제거
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -851,6 +854,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260715184606 -->
+<!-- BUILD:20260715190100 -->
 </body>
 </html>
