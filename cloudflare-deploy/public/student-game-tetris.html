@@ -36,6 +36,10 @@
       radial-gradient(55% 45% at 85% 85%, hsla(var(--h2),90%,55%,var(--glowa)), transparent 70%),
       linear-gradient(180deg,#0b0f1e 0%,#101631 55%,#0b0f1e 100%);
     transition:background 1s ease; }
+  /* 🈶 한자 자형 통일 — 한자 표시 요소는 '같은' 명시적 CJK 폰트 스택으로(요소마다 폴백 달라 보이던 문제 해결).
+     라틴(영어모드)=Segoe, 한자(중국어모드)=YaHei/PingFang 등으로 일관 렌더 */
+  .quest .qslot, #wordlabel, .sp-sentence, #mission{
+    font-family:'Segoe UI','Microsoft YaHei','微软雅黑','PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
   .wrap{ position:relative; z-index:1; height:100%; display:flex; flex-direction:column; align-items:center; }
 
   .scr{ display:none; width:100%; height:100%; flex-direction:column; align-items:center; }
@@ -1060,6 +1064,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260716011719 -->
+<!-- BUILD:20260716014548 -->
 </body>
 </html>
