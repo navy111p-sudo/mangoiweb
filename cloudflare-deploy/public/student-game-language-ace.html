@@ -949,6 +949,8 @@ function drawPlayer(){
 /* 🪂 조종사 낙하산 — 격추 후 천천히 하강하며 좌우로 흔들림. 실사 영상(크로마키) 우선, 실패 시 PNG */
 function drawPilot(p){
   var v=PVID.vid, sway=Math.sin(p.t*1.1);
+  // 🔎 처음엔 작게 → 점점 크게(가까이 다가오는 느낌): 0.42배 → 1.5배로 확대
+  var grow = 0.42 + Math.min(1, p.t/2.4)*1.08;
   if(PVID.ready && v && v.readyState>=2){
     var kc=PVID.kcv, kx=PVID.kctx, w0=kc.width, h0=kc.height;
     kx.clearRect(0,0,w0,h0); kx.drawImage(v,0,0,w0,h0);
@@ -959,14 +961,14 @@ function drawPilot(p){
         else if(ex>34){ d[i+3]=(255-(ex-34)*12)|0; d[i+1]=mx+8; } }  // 가장자리 반투명+그린 스필 억제
       kx.putImageData(im,0,0);
     }catch(_){}
-    var dh=180*SCALE, w=dh*w0/h0;
+    var dh=180*SCALE*grow, w=dh*w0/h0;
     ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(sway*0.05);
     ctx.drawImage(kc, -w/2, -dh/2, w, dh);
     ctx.restore();
     return;
   }
   if(!PILOT.ready) return;                                   // 폴백: 정지 이미지
-  var h=150*SCALE, pw=h*PILOT.w/PILOT.h;
+  var h=150*SCALE*grow, pw=h*PILOT.w/PILOT.h;
   ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(sway*0.1);
   ctx.drawImage(PILOT.img, -pw/2, -h/2, pw, h);
   ctx.restore();
@@ -1162,6 +1164,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715160531 -->
+<!-- BUILD:20260715160922 -->
 </body>
 </html>
