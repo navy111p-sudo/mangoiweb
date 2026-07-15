@@ -4697,6 +4697,24 @@
             </div>
           </details>
 
+          <!-- 📥 로스터 대량 임포트 (구글시트 붙여넣기 → 이름 매칭 업서트) -->
+          <details id="tp-import-card" style="margin:10px 0;border:1px solid #fcd9a0;border-radius:10px;background:#fffdf7">
+            <summary style="cursor:pointer;padding:10px 14px;font-weight:800;font-size:13.5px;color:#b45309" data-ko="📥 로스터 대량 임포트 — 구글시트에서 복사해 붙여넣기" data-en="📥 Bulk Roster Import — paste from Google Sheets">📥 로스터 대량 임포트 <span style="font-weight:500;color:#9ca3af;font-size:11.5px">— 구글시트에서 복사해 붙여넣기</span></summary>
+            <div style="padding:0 14px 14px">
+              <div style="font-size:11.5px;color:#6b7280;line-height:1.6;margin-bottom:8px">
+                첫 줄은 <b>헤더</b>(탭 또는 콤마 구분). 인식 컬럼: <code style="font-size:10.5px">name · phone · email · kakao_id · available_days · available_hours · mbti · group_name · status · fee_per_10min · active_region · notes</code>.
+                이름으로 기존 강사를 찾아 <b>빈칸이 아닌 값만</b> 갱신하고, 없으면 새로 추가합니다. MBTI는 매칭 그래프에도 자동 반영됩니다.
+              </div>
+              <textarea id="tp-import-text" rows="7" placeholder="name&#9;phone&#9;email&#9;mbti&#9;available_days&#9;available_hours&#10;Teacher Belle&#9;0935-844-4527&#9;marybellejavien4@gmail.com&#9;ESFJ&#9;Mon,Tue,Wed,Thu,Fri&#9;15:00-23:00" style="width:100%;font-family:monospace;font-size:11.5px;padding:8px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box"></textarea>
+              <div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
+                <button type="button" onclick="tpImportPreview()" style="padding:6px 14px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-weight:700">👁 미리보기</button>
+                <button type="button" id="tp-import-apply" onclick="tpImportApply()" disabled style="padding:6px 16px;font-size:12px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:6px;cursor:not-allowed;font-weight:800">✅ 적용</button>
+                <span id="tp-import-status" style="font-size:11.5px;color:#6b7280"></span>
+              </div>
+              <div id="tp-import-result" style="margin-top:8px;font-size:11.5px;max-height:240px;overflow:auto"></div>
+            </div>
+          </details>
+
           <!-- 필터 + 새로고침 + 인사평가 토글 -->
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;align-items:center">
             <select id="tp-filter-status" style="padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px">
@@ -11247,7 +11265,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=3"></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=4"></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 
 </div>
 </div>
@@ -19943,6 +19961,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=1"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260716005005 -->
+<!-- BUILD:20260716005433 -->
 </body>
 </html>

@@ -222,8 +222,10 @@ async function loadTeacherMatches(mbti){
         + '<img src="'+esc(photo)+'" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;background:#1e293b">'
         + '<div style="text-align:center;min-width:44px"><div style="font-size:22px;font-weight:900;color:'+tier+'">'+t.match_score+'</div><div style="font-size:8px;letter-spacing:1px;color:#a3b3d1;font-weight:700">SCORE</div></div>'
         + '<div style="flex:1;min-width:0;text-align:left">'
-          + '<div style="font-weight:800;color:#fff;font-size:14px">'+esc(t.teacher_name)+(top?' 🥇':'')+' <span style="padding:1px 7px;background:rgba(79,124,255,0.25);color:#a5b4fc;border-radius:99px;font-size:10px;font-weight:800">'+esc(t.mbti)+'</span></div>'
-          + (t.teaching_style ? '<div style="font-size:11px;color:#c4b5fd;margin-top:2px">🎓 '+esc(t.teaching_style)+'</div>' : '')
+          + '<div style="font-weight:800;color:#fff;font-size:14px">'+esc(t.teacher_name)+(top?' 🥇':'')+' <span style="padding:1px 7px;background:rgba(79,124,255,0.25);color:#a5b4fc;border-radius:99px;font-size:10px;font-weight:800">'+esc(t.mbti)+(MBTI_NAMES[(t.mbti||'').toUpperCase()]?(' '+esc(MBTI_NAMES[(t.mbti||'').toUpperCase()].name)):'')+'</span></div>'
+          + (t.teaching_style
+              ? '<div style="font-size:11px;color:#c4b5fd;margin-top:2px">🎓 '+esc(t.teaching_style)+'</div>'
+              : (MBTI_NAMES[(t.mbti||'').toUpperCase()] ? '<div style="font-size:11px;color:#c4b5fd;margin-top:2px">'+esc(MBTI_NAMES[(t.mbti||'').toUpperCase()].desc)+'</div>' : ''))
           + (t.hobby ? '<div style="font-size:11px;color:#a3b3d1;margin-top:1px">🎨 '+esc(t.hobby)+'</div>' : '')
         + '</div>'
         + '<div style="flex:none;color:#fbbf24;font-weight:800;font-size:20px">›</div>'
@@ -236,7 +238,7 @@ async function loadTeacherMatches(mbti){
 
 render();
 </script>
-<!-- BUILD:20260716005005 -->
+<!-- BUILD:20260716005433 -->
 <!-- 🔊 MBTI 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="mbti-voice" src="/audio/mbti-test.mp3" preload="auto"></audio>
 <script>

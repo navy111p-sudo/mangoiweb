@@ -2061,6 +2061,73 @@ function _tpMbtiBadge(mbti){
 }
 window._tpMbtiBadge = _tpMbtiBadge;
 
+// 📥 로스터 대량 임포트 — 붙여넣기 파싱 → dry-run 미리보기 → 적용 (이름 매칭 업서트)
+(function(){
+  var _lastRows = null;
+  function parseRoster(text){
+    var lines = String(text||'').replace(/\r/g,'').split('\n').filter(function(l){ return l.trim() !== ''; });
+    if (lines.length < 2) return { error: '헤더 줄 + 최소 1개 데이터 줄이 필요합니다.' };
+    var delim = lines[0].indexOf('\t') >= 0 ? '\t' : ',';
+    var alias = { 'teacher_name':'name','display_name':'name','name':'name','이름':'name',
+      'mobile':'phone','mobile_no.':'phone','mobile_no':'phone','휴대폰':'phone','전화':'phone','phone':'phone',
+      'email':'email','이메일':'email','kakaotalk':'kakao_id','kakaotalk_id':'kakao_id','kakao':'kakao_id','kakao_id':'kakao_id','카카오톡':'kakao_id','카카오톡_id':'kakao_id',
+      'available_days':'available_days','가능_요일':'available_days','요일':'available_days',
+      'available_hours':'available_hours','가능_시간':'available_hours','시간':'available_hours',
+      'mbti':'mbti','group_name':'group_name','group':'group_name','status':'status','상태':'status',
+      'fee_per_10min':'fee_per_10min','active_region':'active_region','level':'notes','notes':'notes','비고':'notes' };
+    var header = lines[0].split(delim).map(function(h){ return h.trim().toLowerCase().replace(/\s+/g,'_'); });
+    var cols = header.map(function(h){ return alias[h] || h; });
+    var rows = [];
+    for (var i=1;i<lines.length;i++){
+      var parts = lines[i].split(delim), o = {};
+      for (var j=0;j<cols.length;j++){ o[cols[j]] = (parts[j]||'').trim(); }
+      if ((o.name||o.english_name||o.korean_name||'').trim()) rows.push(o);
+    }
+    return { rows: rows };
+  }
+  window.tpImportPreview = async function(){
+    var st = document.getElementById('tp-import-status'), res = document.getElementById('tp-import-result');
+    var applyBtn = document.getElementById('tp-import-apply');
+    var p = parseRoster((document.getElementById('tp-import-text')||{}).value || '');
+    if (p.error){ st.textContent = '⚠ ' + p.error; return; }
+    if (!p.rows.length){ st.textContent = '⚠ 인식된 행이 없습니다. (헤더에 name 컬럼이 있는지 확인)'; return; }
+    st.textContent = '미리보기 요청 중…';
+    try{
+      var r = await fetch('/api/admin/teacher-profiles/import', { method:'POST', credentials:'include', cache:'no-store', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rows: p.rows, dry_run: true }) });
+      var d = await r.json();
+      if (!d.ok){ st.textContent = '⚠ ' + (d.message||d.error||'실패'); return; }
+      _lastRows = p.rows;
+      var s = d.summary;
+      st.innerHTML = '미리보기 — 신규 <b style="color:#059669">'+s.created+'</b> · 갱신 <b style="color:#2563eb">'+s.updated+'</b> · 건너뜀 <b style="color:#9ca3af">'+s.skipped+'</b>';
+      res.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:11px">' + d.results.map(function(x){
+        var color = x.action==='create'?'#059669':(x.action==='update'?'#2563eb':'#9ca3af');
+        var badge = x.action==='create'?'신규':(x.action==='update'?'갱신':(x.action==='skip'?'건너뜀':x.action));
+        var detail = (x.fields && x.fields.length) ? x.fields.join(', ') : (x.mbti ? ('MBTI '+x.mbti) : '');
+        return '<tr><td style="padding:2px 6px;border-bottom:1px solid #f0f0f0"><b>'+_aiEsc(x.name||'—')+'</b></td>'+
+               '<td style="padding:2px 6px;border-bottom:1px solid #f0f0f0;color:'+color+';font-weight:700;white-space:nowrap">'+badge+'</td>'+
+               '<td style="padding:2px 6px;border-bottom:1px solid #f0f0f0;color:#6b7280">'+_aiEsc(detail)+'</td></tr>';
+      }).join('') + '</table>';
+      applyBtn.disabled = false;
+      applyBtn.style.cssText = 'padding:6px 16px;font-size:12px;background:#059669;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800';
+    }catch(e){ st.textContent = '⚠ ' + e; }
+  };
+  window.tpImportApply = async function(){
+    if (!_lastRows){ return; }
+    var st = document.getElementById('tp-import-status'), applyBtn = document.getElementById('tp-import-apply');
+    if (!confirm('강사 정보 '+_lastRows.length+'행을 반영할까요?\n(기존 강사는 빈칸이 아닌 값만 갱신됩니다)')) return;
+    applyBtn.disabled = true; st.textContent = '반영 중…';
+    try{
+      var r = await fetch('/api/admin/teacher-profiles/import', { method:'POST', credentials:'include', cache:'no-store', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rows: _lastRows, dry_run: false }) });
+      var d = await r.json();
+      if (!d.ok){ st.textContent = '⚠ ' + (d.message||d.error||'실패'); applyBtn.disabled = false; return; }
+      var s = d.summary;
+      st.innerHTML = '✅ 완료 — 신규 '+s.created+' · 갱신 '+s.updated+' · 건너뜀 '+s.skipped;
+      _lastRows = null;
+      if (typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
+    }catch(e){ st.textContent = '⚠ ' + e; applyBtn.disabled = false; }
+  };
+})();
+
 async function loadTeacherProfiles() {
   const status = document.getElementById('tp-filter-status')?.value || '';
   const group  = document.getElementById('tp-filter-group')?.value || '';
