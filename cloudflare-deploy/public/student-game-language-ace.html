@@ -478,9 +478,8 @@ function buildBackdrop(){
   var g=bd.getContext('2d');
   function rnd(s){ var x=Math.sin(s*99.7)*43758.5; return x-Math.floor(x); }
   if(SKY==='evening'){
-    // 🌙 저녁/밤 하늘 그라데이션(짙은 남색 → 보랏빛)
-    var nsky=g.createLinearGradient(0,0,0,bdH); nsky.addColorStop(0,'#0b1330'); nsky.addColorStop(0.5,'#1a2450'); nsky.addColorStop(1,'#3a3560');
-    g.fillStyle=nsky; g.fillRect(0,0,bd.width,bdH);
+    // 🌙 저녁/밤 하늘 — 단색(타일 반복 시 이음매 없게 통일)
+    g.fillStyle='#182a52'; g.fillRect(0,0,bd.width,bdH);
     // ⭐ 별 — 밝기·크기 랜덤, 일부는 십자 반짝임
     var stars=Math.round(bd.width*bdH/2600);
     for(var i=0;i<stars;i++){ var sx=rnd(i)*bd.width, sy=rnd(i+7)*bdH, sr=rnd(i+3)*1.5+0.4, sa=0.35+rnd(i+9)*0.65;
@@ -491,9 +490,8 @@ function buildBackdrop(){
     for(var c=0;c<8;c++){ drawCloud(g, rnd(c+40)*bd.width, rnd(c+50)*bdH, 0.7+rnd(c+3)*0.9, c+1, true); }
     return;
   }
-  // ☀️ 낮 — 맑은 하늘색 그라데이션 + 뭉게구름
-  var sky=g.createLinearGradient(0,0,0,bdH); sky.addColorStop(0,'#4aa8ea'); sky.addColorStop(0.5,'#7cc6f2');
-  sky.addColorStop(1,'#b9e4fb'); g.fillStyle=sky; g.fillRect(0,0,bd.width,bdH);
+  // ☀️ 낮 — 단색 하늘색(타일 반복 시 이음매 없게 통일) + 뭉게구름
+  g.fillStyle='#77c6f2'; g.fillRect(0,0,bd.width,bdH);
   var n=Math.max(9, Math.round(bdH/140));
   for(var i2=0;i2<n;i2++){ drawCloud(g, rnd(i2)*bd.width, rnd(i2+7)*bdH, 0.7+rnd(i2+3)*1.2, i2+1); }
 }
@@ -1232,6 +1230,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715190100 -->
+<!-- BUILD:20260716002725 -->
 </body>
 </html>
