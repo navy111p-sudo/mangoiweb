@@ -3601,6 +3601,7 @@
   // 예 → 복습퀴즈 탭 + 이 수업 맞춤 자동 출제
   function goReviewQuiz(){
     STATE.done = true;
+    try { window._vcTabBeforeReviewQuiz = ''; } catch(e){}   // 수업 종료 흐름 → 복귀 시 얼굴 위주
     try { if (typeof vcSwitchTab === 'function') vcSwitchTab('review-quiz'); } catch(e){}
     // 🧠 '예' 선택 시: 상단 수업 영상/카메라 화면을 완전히 숨기고 복습퀴즈만 화면 전체에 보이게 (확실히 보장)
     try {
@@ -8255,7 +8256,7 @@
         <!-- 🧠 복습퀴즈 탭 (학생 사이드바와 동일한 퀴즈 + AI 자동 출제) -->
         <div class="tab-panel" id="tab-review-quiz" style="flex-direction:column;background:#0a1530;color:#e6ecff">
           <div style="padding:12px 16px;border-bottom:1px solid rgba(251,191,36,0.18);display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0">
-            <button onclick="vcSetContentCollapsed(true)" title="수업 화면으로 돌아가기" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(148,163,184,0.4);border-radius:8px;background:rgba(255,255,255,0.06);color:#e6ecff;font-size:13px;font-weight:800;cursor:pointer" data-ko="← 수업으로" data-en="← Back to class">← <span data-ko="수업으로" data-en="Back to class">수업으로</span></button>
+            <button onclick="vcReviewQuizBackToClass()" title="수업 화면으로 돌아가기" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(148,163,184,0.4);border-radius:8px;background:rgba(255,255,255,0.06);color:#e6ecff;font-size:13px;font-weight:800;cursor:pointer" data-ko="← 수업으로" data-en="← Back to class">← <span data-ko="수업으로" data-en="Back to class">수업으로</span></button>
             <span style="font-size:14px;font-weight:800;color:#fbbf24">🧠 <span data-ko="복습퀴즈" data-en="Review Quiz">복습퀴즈</span></span>
             <span id="rqv-ctx" style="font-size:11.5px;color:#a3b3d1"></span>
             <button onclick="rqvAuto(true)" style="margin-left:auto;padding:6px 13px;border:0;border-radius:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:12px;font-weight:800;cursor:pointer" data-ko="🤖 이 수업 맞춤 퀴즈" data-en="🤖 Auto quiz for this class">🤖 <span data-ko="이 수업 맞춤 퀴즈" data-en="Auto quiz">이 수업 맞춤 퀴즈</span></button>
@@ -13141,11 +13142,43 @@ window.vcSetContentCollapsed = function(collapsed){
     var row = document.getElementById('vc-main-row');
     if (pane) pane.classList.toggle('vc-content-collapsed', collapsed);
     if (row) row.classList.toggle('vc-content-hidden', collapsed);
+    // 🔧 (2026-07-16) 수업 화면으로 접을 때(=콘텐츠 숨김)는 복습퀴즈 전체화면이 얼굴(영상) 영역을
+    //   숨겨둔 흔적(content-full 클래스 + #vc-video-pane 인라인 display:none)을 반드시 원복한다.
+    //   안 하면 콘텐츠(퀴즈)도 숨고 얼굴도 숨어 화면이 하얗게 나온다.
+    if (collapsed) {
+        if (row) row.classList.remove('content-full');
+        try { var _vp = document.getElementById('vc-video-pane'); if (_vp) _vp.style.removeProperty('display'); } catch(e){}
+    }
+};
+// 🔧 (2026-07-16) 복습퀴즈 '← 수업으로' 전용 복귀 — 얼굴 영역을 되살리고,
+//   복습퀴즈 직전에 보던 콘텐츠(교재/칠판 등)가 있으면 그걸 함께 복원(얼굴+교재 분할),
+//   없으면 얼굴 위주(콘텐츠 접기). 어느 경우든 '하얀 화면'이 되지 않게 보장한다.
+window.vcReviewQuizBackToClass = function(){
+    var row = document.getElementById('vc-main-row');
+    if (row) row.classList.remove('content-full');
+    try { var _vp = document.getElementById('vc-video-pane'); if (_vp) _vp.style.removeProperty('display'); } catch(e){}
+    var prev = window._vcTabBeforeReviewQuiz;
+    if (prev && prev !== 'review-quiz' && document.getElementById('tab-' + prev)) {
+        vcSetContentCollapsed(false);
+        vcSwitchTab(prev);              // 얼굴 + 이전 콘텐츠(교재 등) 분할로 복귀
+    } else {
+        vcSetContentCollapsed(true);    // 이전 콘텐츠 없음 → 얼굴 위주 (video-pane 원복은 위에서 보장)
+        try { document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); }); } catch(e){}
+    }
 };
 // 칠판/동영상/학생게임/배경화면/AI웜업/복습퀴즈 — 다른 탭이면 전환+펼치기, 이미 보이는 같은 탭이면 접기.
 //   🔧 (2026-07-15) 칠판(whiteboard)은 예외 — 다시 눌러도 접지 않음.
 //     사장님 요청: 칠판을 클릭하면 (전체 얼굴 화면으로 접히지 말고) 항상 '얼굴 + 칠판' 화면이 나오게.
 window.vcToggleContentTab = function(tabName){
+    // 🔧 (2026-07-16) 복습퀴즈로 들어갈 때, 지금 보고 있던 콘텐츠 탭(교재/칠판 등)을 기억한다.
+    //   '← 수업으로' 복귀 시 그 콘텐츠를 얼굴과 함께 되살리기 위함. (콘텐츠가 접혀 있었으면 기억 안 함)
+    if (tabName === 'review-quiz') {
+        try {
+            var _cur = document.querySelector('.tab-panel.active');
+            var _curId = _cur && _cur.id ? _cur.id.replace('tab-', '') : '';
+            window._vcTabBeforeReviewQuiz = (_curId && _curId !== 'review-quiz' && !vcIsContentCollapsed()) ? _curId : '';
+        } catch(e){ window._vcTabBeforeReviewQuiz = ''; }
+    }
     var panel = document.getElementById('tab-' + tabName);
     var alreadyShowing = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
     if (alreadyShowing && tabName !== 'whiteboard') {
@@ -24998,7 +25031,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260716023021 -->
+<!-- BUILD:20260716023956 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -27558,9 +27591,56 @@ body.vc-in-call #vc-main-row:not(.video-pip):not(.video-facepip):not(.video-solo
 <script>
 /* ★ (2026-07-14) 수업 첫 화면 기본 콘텐츠 = 당일 교재(교재/PDF 탭).
    사장님 요청: 모든 수업 처음에 얼굴(위) + 당일 교재(아래 크게)가 보이게.
-   - body.vc-in-call 추가(입장) 감지 → 잠시 뒤, 아직 칠판(기본)에 머물러 있으면 교재 탭으로 전환.
-   - 방에 이미 공유된 교재(PDF)가 있으면 room-media 폴링이 먼저 교재로 바꿔줌 → 그대로 존중.
-   - 사용자가 스스로 다른 탭(동영상·게임 등)을 누르면 그것도 존중(다시 안 바꿈). */
+   ★ (2026-07-16) 추가: 동영상이 아니라 '학생에 맞는 교재'가 자동으로 뜨게.
+   - 입장 시 로그인 학생의 배정 교재(students_erp.textbook)를 /api/warmup/context 로 조회
+     → /api/textbook-files 로 그 교재 파일을 불러와 뷰어에 표시 + 방에 공유(양쪽 동일 화면).
+   - 방에 이미 '실제로 공유된' 교재/동영상이 있으면(교사가 의도적으로 튼 것) 그대로 존중.
+   - 교재를 못 찾으면(계정에 미배정/이름 불일치) 최소한 빈 교재 탭으로 전환(라이브러리에서 선택 가능). */
+
+// 🎓 입장 시 로그인 학생의 배정 교재를 자동으로 뷰어에 로드 (성공=true)
+window.vcAutoLoadStudentTextbook = async function(){
+  try {
+    // 이미 방에 '실제 공유된' 교재/동영상이 있으면 존중 (덮어쓰지 않음)
+    if (window._vcShownPdfUrl || window._vcShownVideoUrl) return false;
+    // 현재 로그인 uid (mangoi_logged_user = {uid,name}; mango_user 폴백)
+    var uid = '';
+    try { var lu = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if (lu && (lu.uid||lu.user_id)) uid = lu.uid||lu.user_id; } catch(e){}
+    if (!uid) { try { var mu = JSON.parse(localStorage.getItem('mango_user')||'null'); if (mu && (mu.uid||mu.user_id)) uid = mu.uid||mu.user_id; } catch(e){} }
+    if (!uid) return false;
+    // 오늘 배정 교재/레벨 조회
+    var ctx = null;
+    try { var rc = await fetch('/api/warmup/context?user_id=' + encodeURIComponent(uid), { cache:'no-store' }); ctx = await rc.json(); } catch(e){ return false; }
+    if (!ctx || !ctx.ok) return false;
+    var book = String(ctx.textbook || '').trim();
+    if (ctx.level) { try { localStorage.setItem('mangoi_current_level', String(ctx.level)); } catch(e){} }  // 웜업·복습퀴즈도 이 레벨 사용
+    if (!book) return false;
+    // 그 교재의 파일(페이지) 목록 → 라이브러리와 동일한 자연 정렬로 시퀀스 구성
+    var items = [];
+    try { var rf = await fetch('/api/textbook-files?book=' + encodeURIComponent(book) + '&limit=20000', { cache:'no-store' }); var d = await rf.json(); items = (d && d.items) || []; } catch(e){ return false; }
+    var cmp = function(a,b){ return String(a||'').localeCompare(String(b||''), undefined, { numeric:true, sensitivity:'base' }); };
+    var parsed = [];
+    items.forEach(function(it){
+      if (it.kind !== 'image' && it.kind !== 'pdf') return;
+      var lesson = '미분류', fileName = it.name || '';
+      var mm = String(it.name || '').match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (mm){ var rest = mm[2] || ''; var slash = rest.indexOf('/'); if (slash >= 0){ lesson = rest.slice(0, slash).trim() || '미분류'; fileName = rest.slice(slash + 1).trim() || it.name; } else fileName = rest.trim() || it.name; }
+      parsed.push({ id: it.id, url: it.url, kind: it.kind, lesson: lesson, file: fileName, name: it.name });
+    });
+    parsed.sort(function(a,b){ return cmp(a.lesson, b.lesson) || cmp(a.file, b.file); });
+    var seq = parsed.map(function(x){ return { id: 'srv_' + x.id, url: x.url, kind: x.kind, name: x.name }; });
+    if (!seq.length) return false;
+    window._libSequence = seq; window._libSeqIdx = 0;               // ◀▶ 페이지 화살표도 동작하게
+    try { if (typeof window.vcSwitchTab === 'function') window.vcSwitchTab('pdf'); } catch(e){}
+    var f = seq[0];
+    await Promise.resolve(window.pdfLoad ? window.pdfLoad(f.url, f.kind) : null);
+    try { window._vcShownPdfName = f.name; } catch(e){}
+    // 방에 공유 → 교사·학생 모두 같은 교재를 봄
+    try { if (typeof window.vcShareTextbook === 'function') window.vcShareTextbook('lib_' + f.id, f.url, f.kind, f.name); } catch(e){}
+    try { if (typeof window._pdfToast === 'function') window._pdfToast('📚 ' + book); } catch(e){}
+    return true;
+  } catch(e){ try { console.warn('[vcAutoLoadStudentTextbook]', e); } catch(_){}; return false; }
+};
+
 (function(){
   var _did = false;
   function activeTabId(){
@@ -27569,12 +27649,19 @@ body.vc-in-call #vc-main-row:not(.video-pip):not(.video-facepip):not(.video-solo
   }
   function defaultToTextbook(){
     if (_did) return;
+    // 이미 방에 '실제 공유된' 교재/동영상이 있으면(교사가 의도적으로 튼 콘텐츠) 그대로 존중
+    if (window._vcShownPdfUrl || window._vcShownVideoUrl) { _did = true; return; }
     var t = activeTabId();
-    if (t === 'tab-pdf') { _did = true; return; }          // 이미 교재/공유교재 보는 중 → 그대로
-    if (t && t !== 'tab-whiteboard') { _did = true; return; } // 사용자가 다른 탭 선택 → 존중
-    try {
-      if (typeof window.vcSwitchTab === 'function') { window.vcSwitchTab('pdf'); _did = true; }
-    } catch(e){}
+    if (t === 'tab-pdf') { _did = true; return; }              // 이미 교재 탭 → 그대로
+    _did = true;
+    // 입장 첫 화면: 학생 배정 교재 자동 로드 → 실패 시 최소한 빈 교재 탭으로
+    if (typeof window.vcAutoLoadStudentTextbook === 'function') {
+      window.vcAutoLoadStudentTextbook().then(function(ok){
+        if (!ok) { try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){} }
+      }).catch(function(){ try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){} });
+    } else {
+      try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){}
+    }
   }
   try {
     new MutationObserver(function(){
