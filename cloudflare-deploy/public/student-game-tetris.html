@@ -157,14 +157,15 @@
   .rbtn.drop small{ color:#fde68a; }
 
   /* 3) 게임 오버 */
-  #scr-over{ justify-content:center; gap:14px; padding:24px; text-align:center; }
-  #scr-over .big{ font-size:46px; }
-  #scr-over h2{ font-size:26px; }
-  #ov-title{ font-size:20px; font-weight:900; color:#fbbf24; }
-  .ov-rows{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:16px; padding:14px 22px; min-width:min(84vw,320px); }
-  .ov-rows .r{ display:flex; justify-content:space-between; gap:30px; padding:5px 0; font-size:15px; color:#b9c6e8; }
+  /* 🏁 게임 오버 화면 — 2배 크게 */
+  #scr-over{ justify-content:center; gap:26px; padding:24px; text-align:center; }
+  #scr-over .big{ font-size:88px; }
+  #scr-over h2{ font-size:50px; }
+  #ov-title{ font-size:38px; font-weight:900; color:#fbbf24; }
+  .ov-rows{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:28px; padding:26px 40px; min-width:min(92vw,560px); }
+  .ov-rows .r{ display:flex; justify-content:space-between; gap:56px; padding:10px 0; font-size:28px; color:#b9c6e8; }
   .ov-rows .r b{ color:#fff; }
-  .btn{ border:none; border-radius:999px; padding:13px 30px; font-size:16px; font-weight:800; cursor:pointer; color:#fff; }
+  .btn{ border:none; border-radius:999px; padding:24px 56px; font-size:30px; font-weight:800; cursor:pointer; color:#fff; }
   .btn.play{ background:linear-gradient(90deg,#6366f1,#38bdf8); box-shadow:0 6px 20px rgba(99,102,241,.4); }
   .btn.ghost{ background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.2); }
 </style>
@@ -907,6 +908,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715144538 -->
+<!-- BUILD:20260715144842 -->
 </body>
 </html>
