@@ -506,9 +506,21 @@ function _synthSpeak(text, btn){
     window.speechSynthesis.speak(u);
   }catch(e){}
 }
+/* 🔇 낭독용 텍스트 정리 — 화면 말풍선엔 이모지를 그대로 두되, TTS로 넘길 때는
+   이모지·그림문자를 제거한다. (안 그러면 "smiling face" "tree" 처럼 이름이 읽힘)
+   구형 안드로이드 WebView 안전: u 플래그/\u{} 미사용, 대리쌍(astral)만 통째로 제거. */
+function _speechText(s){
+  return String(s)
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')                 // 이모지 전체(astral 대리쌍)
+    .replace(/[←-⇿⌀-➿☀-⛿⬀-⯿]/g, '') // BMP 화살표·기술기호·딩벳·별
+    .replace(/[︀-️‍⃣]/g, '')                    // 변형선택자·ZWJ·키캡 결합문자
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 function speak(text, btn){
   if(!_speechOn || !text) return;
-  text=String(text); _lastAiSpeak=text;
+  text=_speechText(text); if(!text){ if(btn) btn.classList.remove('playing'); return; }
+  _lastAiSpeak=text;
   _stopSpeak();
   if(btn) btn.classList.add('playing');
   var done=function(){ if(btn) btn.classList.remove('playing'); };
@@ -839,6 +851,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260715183820 -->
+<!-- BUILD:20260715184606 -->
 </body>
 </html>
