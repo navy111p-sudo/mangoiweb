@@ -186,8 +186,8 @@
     </div>
     <div class="howto">
       ◀ ▶ 이동 · 🔄 회전 · ▼ 빨리 · ⤓ 한번에 떨어뜨리기<br>
-      위 <b>두 문장</b>을 순서대로 단어 조각으로 채워 완성하면 💯 점수!<br>
-      나오는 조각은 모두 문장 속 단어예요 · 순서 아닌 건 쌓여요 · 놓을 때 발음 🔊
+      단어가 <b>문장 순서대로</b> 하나씩 내려와요 — 잘 쌓아 <b>두 문장</b>을 완성! 💯<br>
+      긴 단어는 넓은 조각, 짧은 단어는 작은 조각 · 끼워 맞춰 줄도 지워요 · 놓을 때 발음 🔊
     </div>
   </div>
 
@@ -546,18 +546,26 @@ window.addEventListener('resize', function(){ if(running){ layout(); render(); }
    ════════════════════════════════════════════════════════════ */
 /* 조각에 붙일 단어 선택: '다음 필요 단어'를 자주 띄우되, 문장 내 다른 단어·함정도 섞음 */
 /* 조각 단어는 '이번 세트 안의 단어'만 등장(함정 없음). 다음 필요 단어를 자주 띄움. */
-function pickWord(){
-  if(!goalWords.length) return 'a';
-  var need=goalWords[sentPos];
-  if(need && Math.random()<0.6) return need;                        // 다음 필요 단어 자주
-  return goalWords[Math.floor(Math.random()*goalWords.length)];     // 세트 안의 다른 단어(순서 아니면 쌓임)
+/* 조각 단어는 '문장 순서대로' 다음 단어가 내려옴(학습). 무작위·함정 없음. */
+function pickWord(){ return goalWords.length ? (goalWords[sentPos] || goalWords[0]) : 'a'; }
+
+/* 조각 폭(열 개수) */
+function pieceW(p){ return Math.max.apply(null, p.cells.map(function(c){ return c[1]; }))+1; }
+/* 단어 길이에 '맞는' 도형 선택 — 긴 단어=넓은 조각, 짧은 단어=작은 조각(잘 끼워 맞추게) */
+function pickPiece(word){
+  var len = (MODE==='zh') ? word.length*1.8 : word.length;   // 표시 폭 근사
+  var tier = (len>=5) ? 4 : (len>=3 ? 3 : 2);                 // 목표 폭
+  var pool = PIECES.filter(function(p){ return pieceW(p)===tier; });
+  if(!pool.length) pool = PIECES.filter(function(p){ return pieceW(p)<=tier; });
+  if(!pool.length) pool = PIECES;
+  return pool[Math.floor(Math.random()*pool.length)];
 }
 function spawn(){
   if(!running) return;
-  var p=PIECES[Math.floor(Math.random()*PIECES.length)];
   var word=pickWord();
+  var p=pickPiece(word);
   var cells=p.cells.map(function(c){ return c.slice(); });
-  var w=Math.max.apply(null,cells.map(function(c){return c[1];}))+1;
+  var w=pieceW(p);
   piece={ cells:cells, row:0, col:Math.floor((COLS-w)/2), color:p.color, word:word, id:(++pieceSeq) };
   if(collide(piece.cells, piece.row, piece.col)) return gameOver();   // 스폰 즉시 충돌 = 게임오버
 }
@@ -586,6 +594,12 @@ function nextSet(){
   curSet=SETS[MODE][setOrder[setIdx]];
   goalWords=[]; curSet.forEach(function(s){ goalWords=goalWords.concat(s.words); });   // 두 문장 이어붙임
   sentPos=0; renderSlots();
+}
+/* sentPos가 '문장 하나'를 막 끝낸 경계인지 (마지막 문장 경계는 제외 — 그건 세트 완성) */
+function sentenceJustFinished(){
+  var cum=0;
+  for(var i=0;i<curSet.length-1;i++){ cum+=curSet[i].words.length; if(sentPos===cum) return true; }
+  return false;
 }
 /* 세트(두 문장 모두) 완성: 큰 보너스 + 두 문장 낭독 + 폭죽 + 바닥 정리 + 다음 세트 */
 function setComplete(){
@@ -652,7 +666,11 @@ function lock(){
     var b=document.getElementById('board').getBoundingClientRect();
     burst(b.left+(lockCol+0.5)*cell, b.top+(lockRow+0.5)*cell, 10, ['#34d399','#a7f3d0','#fde047']);
     renderSlots();
-    if(sentPos>=goalWords.length) setComplete();          // 두 문장 모두 채움 → 세트 완성 점수
+    if(sentPos>=goalWords.length){ setComplete(); }        // 두 문장 모두 채움 → 세트 완성 점수
+    else if(sentenceJustFinished()){                       // 문장 1개 완성(중간) → 미니 보너스 + 바닥 살짝 정리(초보 여유)
+      score+=200; splash('문장 완성! 🎉'); sndClear(2);
+      grid.splice(ROWS-2,2); while(grid.length<ROWS) grid.unshift(new Array(COLS).fill(null));
+    }
   } else {
     speak(lockedWord, 0.98);                              // 순서 아닌 단어도 발음은 들려줌(학습)
   }
@@ -889,6 +907,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260715143933 -->
+<!-- BUILD:20260715144429 -->
 </body>
 </html>

@@ -287,6 +287,20 @@ function sndBoom(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.cur
   var o=ac.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(90,t); o.frequency.exponentialRampToValueAtTime(30,t+0.4);
   var g2=ac.createGain(); g2.gain.setValueAtTime(0.6,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.45);
   o.connect(g2); g2.connect(masterGain); o.start(t); o.stop(t+0.45); }
+/* 💥 격추 대형 폭발음 — 깊은 저역 붐 + 긴 노이즈 블라스트 + 초기 크랙(길고 묵직) */
+function sndBigBoom(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime;
+  var o=ac.createOscillator(),g=ac.createGain(); o.type='sine';
+  o.frequency.setValueAtTime(125,t); o.frequency.exponentialRampToValueAtTime(24,t+0.8);
+  g.gain.setValueAtTime(0.85,t); g.gain.exponentialRampToValueAtTime(0.0001,t+1.0);
+  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+1.05);
+  var src=ac.createBufferSource(); src.buffer=noiseBuf(1.0);
+  var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(2000,t); lp.frequency.exponentialRampToValueAtTime(110,t+0.75);
+  var g2=ac.createGain(); g2.gain.setValueAtTime(0.8,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.9);
+  src.connect(lp); lp.connect(g2); g2.connect(masterGain); src.start(t); src.stop(t+0.95);
+  var o2=ac.createOscillator(),g3=ac.createGain(); o2.type='square';
+  o2.frequency.setValueAtTime(85,t); o2.frequency.exponentialRampToValueAtTime(28,t+0.2);
+  g3.gain.setValueAtTime(0.5,t); g3.gain.exponentialRampToValueAtTime(0.0001,t+0.25);
+  o2.connect(g3); g3.connect(masterGain); o2.start(t); o2.stop(t+0.28); }
 function sndPickup(){ if(muted)return; var ac=audio(); if(!ac)return; var t=ac.currentTime;
   [523,784,1047].forEach(function(f,i){ var o=ac.createOscillator(),g=ac.createGain(); o.type='triangle';
     o.frequency.value=f; g.gain.setValueAtTime(0.0001,t+i*0.07); g.gain.exponentialRampToValueAtTime(0.3,t+i*0.07+0.02);
@@ -443,7 +457,7 @@ var G = null;
 function newGame(){
   var order = shuffle(SETS[MODE].slice());
   G = {
-    running:false, over:false, paused:false, speaking:false,   // speaking=문장완성 후 말하기연습(게임 일시정지)
+    running:false, over:false, paused:false, speaking:false, dead:false,   // dead=격추 연출 중(게임 정지, 폭발 파티클만)
     score:0, time:60, timeMax:60, hearts:3, clears:0, correct:0,   // clears=완성 문장 / correct=정답 단어 명중(승리 판정 단위)
     px:W/2, py:H*0.72, tx:W/2, ty:H*0.72,   // player pos & target
     firing:false, fireT:0, invuln:0, shake:0, flash:0,
@@ -580,6 +594,7 @@ cv.addEventListener('contextmenu',function(e){e.preventDefault();});
    ════════════════════════════════════════════════════════════ */
 function update(dt){
   if(!G.running||G.paused||G.speaking) return;   // 말하기연습 중엔 게임/타이머 정지
+  if(G.dead){ stepParticles(dt); return; }        // 격추 연출: 폭발 파티클/흔들림만 갱신(적·탄·타이머 정지)
   // 시간
   G.time -= dt; if(G.time<=0){ G.time=0; return endGame(false); }
   bdScroll = (bdScroll + dt*90*SPMUL) % bdH;
@@ -588,7 +603,7 @@ function update(dt){
   var lp=1-Math.pow(0.0016, dt);
   G.px += (G.tx-G.px)*lp; G.py += (G.ty-G.py)*lp;
   G.px=clamp(G.px,24,W-24); G.py=clamp(G.py,60,H-70);
-  if(G.invuln>0)G.invuln-=dt; if(G.shake>0)G.shake=Math.max(0,G.shake-dt*40); if(G.flash>0)G.flash-=dt;
+  if(G.invuln>0)G.invuln-=dt;
 
   // 연사
   if(G.firing) playerFire();
@@ -632,14 +647,43 @@ function update(dt){
   // 적기 몸통 충돌
   for(var k2=0;k2<G.enemies.length;k2++){ var em=G.enemies[k2]; if(!em.alive)continue;
     if(G.invuln<=0 && Math.hypot(em.x-G.px,em.y-G.py)<em.r+16){ explode(em.x,em.y,false); sndBoom(); em.alive=false; hitPlayer(); } }
-  // 파티클
+  // 파티클/흔들림
+  stepParticles(dt);
+}
+/* 파티클 + 화면흔들림/플래시 감쇠(정상·격추연출 공용) */
+function stepParticles(dt){
+  if(G.shake>0)G.shake=Math.max(0,G.shake-dt*40); if(G.flash>0)G.flash-=dt;
   for(var q=G.parts.length-1;q>=0;q--){ var pt=G.parts[q]; pt.age+=dt; if(pt.age>=pt.life){ G.parts.splice(q,1); continue; }
     if(!pt.ring&&!pt.fire){ pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vy+=260*dt; pt.vx*=0.98; pt.rot+=pt.vr*dt; } }
 }
 
-function hitPlayer(){ if(G.invuln>0)return; G.hearts--; G.invuln=1.3; G.flash=0.35; G.shake=Math.min(18,G.shake+10);
+function hitPlayer(){ if(G.invuln>0||G.dead)return; G.hearts--; G.invuln=1.3; G.flash=0.35; G.shake=Math.min(18,G.shake+10);
   G.time=Math.max(0,G.time-2); sndBuzz(); updateHUD();
-  if(G.hearts<=0){ endGame(false); } }
+  if(G.hearts<=0){ playerDestroyed(); } }   // 💥 격추 → 대형 폭발 연출
+
+/* 💥 격추 연출 — 대형 폭발(화구+충격파+파편) + 큰 폭발음, 잠시 후 종료화면 */
+function playerDestroyed(){
+  if(G.dead)return; G.dead=true; G.firing=false;
+  bgmStop();
+  bigExplode(G.px, G.py);
+  sndBigBoom();
+  G.shake=Math.min(46,G.shake+34); G.flash=0.8;
+  setTimeout(function(){ if(G&&G.dead){ bigExplode(G.px+20,G.py-14); sndBoom(); } }, 220);
+  setTimeout(function(){ if(G&&G.dead){ bigExplode(G.px-18,G.py+16); } }, 440);
+  setTimeout(function(){ if(G&&G.dead) endGame(false); }, 1400);
+}
+/* 대형 폭발 = 다층 화구 + 다중 충격링 + 다량 파편(기존 파티클 렌더 재사용) */
+function bigExplode(x,y){
+  G.parts.push({fire:true,x:x,y:y,age:0,life:0.75,rad:130});
+  G.parts.push({fire:true,x:x,y:y,age:0,life:0.5,rad:85});
+  G.parts.push({ring:true,x:x,y:y,age:0,life:0.6,r0:12,r1:185});
+  G.parts.push({ring:true,x:x,y:y,age:0,life:0.42,r0:6,r1:120});
+  for(var i=0;i<44;i++){ var a=Math.random()*6.28, sp=110+Math.random()*380;
+    G.parts.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:0.6+Math.random()*0.8,age:0,
+      size:2+Math.random()*6,rot:Math.random()*6.28,vr:(Math.random()-0.5)*15,
+      kind: Math.random()<0.5?'debris':'spark'}); }
+  G.shake=Math.min(46,G.shake+16);
+}
 
 function resolveHit(en){
   en.alive=false;
@@ -829,6 +873,7 @@ function render(){
 }
 
 function drawPlayer(){
+  if(G.dead) return;                      // 격추됨 → 기체 사라지고 폭발만
   var blink = (G.invuln>0 && Math.floor(performance.now()/90)%2===0);
   ctx.save(); ctx.translate(G.px,G.py);
   // 연한 그림자(방사형 — shadowBlur 대신 = 성능)
@@ -1022,6 +1067,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715143933 -->
+<!-- BUILD:20260715144429 -->
 </body>
 </html>
