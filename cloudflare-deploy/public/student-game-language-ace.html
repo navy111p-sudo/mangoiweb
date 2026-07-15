@@ -156,6 +156,10 @@
       <button class="langBtn" id="lgEn" data-l="en">🇺🇸 English</button>
       <button class="langBtn" id="lgZh" data-l="zh">🇨🇳 中文</button>
     </div>
+    <div class="langRow" id="skyRow">
+      <button class="langBtn skyBtn" data-s="day">☀️ 낮</button>
+      <button class="langBtn skyBtn" data-s="evening">🌙 저녁</button>
+    </div>
     <div class="oRules">
       🖱️ <b>마우스로 조종</b> — B-17이 부드럽게 따라와요<br>
       🔫 <b>누르고 있으면 연사</b> — 기관총 발사<br>
@@ -1164,6 +1168,16 @@ function setLang(l){ MODE=(l==='zh')?'zh':'en';
 }
 document.getElementById('lgEn').addEventListener('click',function(){ setLang('en'); });
 document.getElementById('lgZh').addEventListener('click',function(){ setLang('zh'); });
+// 🌤️ 낮/저녁 배경 선택
+function setSky(s){ SKY=(s==='evening')?'evening':'day';
+  var b=document.querySelectorAll('#skyRow .skyBtn');
+  for(var i=0;i<b.length;i++){ b[i].classList.toggle('on', b[i].getAttribute('data-s')===SKY); }
+  try{ localStorage.setItem('mangoi_langace_sky',SKY); }catch(_){}
+  buildBackdrop();   // 배경 즉시 재생성
+}
+(function(){ var b=document.querySelectorAll('#skyRow .skyBtn');
+  for(var i=0;i<b.length;i++){ (function(el){ el.addEventListener('click', function(){ setSky(el.getAttribute('data-s')); }); })(b[i]); }
+})();
 document.getElementById('btnStart').addEventListener('click', startGame);
 document.getElementById('btnAgain').addEventListener('click', startGame);
 document.getElementById('btnMute').addEventListener('click',function(){ muted=!muted; this.textContent=muted?'🔇':'🔊';
@@ -1191,8 +1205,8 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 
 /* ── 부트 ── */
-resize(); setLang(MODE); raf=requestAnimationFrame(loop);
+resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715162646 -->
+<!-- BUILD:20260715162911 -->
 </body>
 </html>
