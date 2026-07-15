@@ -28,6 +28,8 @@
   #sentKo{font-size:14px;color:#ffd479;text-align:center;font-weight:700;letter-spacing:.3px;
     text-shadow:0 1px 3px #000}
   #sentEn{margin-top:5px;display:flex;flex-wrap:wrap;gap:5px 7px;justify-content:center;align-items:center}
+  /* 🈶 한자 자형 통일 — 정식 중국어 폰트(YaHei/PingFang) 우선, 라틴은 Segoe */
+  .wtok, .spSent{ font-family:'Segoe UI','Microsoft YaHei','微软雅黑','PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
   .wtok{font-size:28px;font-weight:800;padding:5px 13px;border-radius:9px;line-height:1.15;
     background:rgba(20,30,42,.7);color:#5f7089;border:1px solid rgba(120,140,170,.25);
     text-shadow:0 1px 3px #000;transition:.15s}
@@ -1113,7 +1115,7 @@ function drawZeroVec(e){
 /* 단어 라벨(적기 아래) */
 function drawLabel(e){
   var isT = sameWord(e.word, neededWord());
-  ctx.save(); ctx.font='bold 15px "Segoe UI",sans-serif'; ctx.textAlign='center';
+  ctx.save(); ctx.font='bold 15px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif'; ctx.textAlign='center';   // 🈶 한자 정식 자형
   var tw=ctx.measureText(e.word).width, pad=7, bw=tw+pad*2, by=e.y+e.r+4;
   ctx.fillStyle = isT ? 'rgba(60,44,10,.92)' : 'rgba(10,16,22,.82)';
   rr(e.x-bw/2, by, bw, 21, 6); ctx.fill();
@@ -1274,6 +1276,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260716014548 -->
+<!-- BUILD:20260716015644 -->
 </body>
 </html>
