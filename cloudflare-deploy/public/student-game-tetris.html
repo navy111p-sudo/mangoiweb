@@ -329,28 +329,36 @@ var PIECES = [
 /* ════════════════════════════════════════════════════════════
    📝 문장 데이터 — 어순대로 단어 조각을 놓아 완성 (영어/중국어 분리)
    ════════════════════════════════════════════════════════════ */
-/* 📝 문장 세트 — 한 세트 = 2문장(초보용). 두 문장을 순서대로 모두 완성하면 점수.
-   조각엔 이 세트 안의 단어만 등장(함정 단어 없음). */
+/* 📝 문장 세트 — 한 세트 = 3문장. 세 문장을 순서대로 '모두' 완성해야 세트 성공.
+   조각엔 이 세트 안의 단어 조각 + 사이사이 '뜻 없는 도형(필러)'이 섞여 내려옴(정통 테트리스처럼 쌓기). */
 var SETS = {
   en:[
     [ {words:['I','like','to','read','books'],       ko:'나는 책 읽기를 좋아해요'},
-      {words:['We','go','to','school'],              ko:'우리는 학교에 가요'} ],
+      {words:['We','go','to','school'],              ko:'우리는 학교에 가요'},
+      {words:['I','eat','apples'],                   ko:'나는 사과를 먹어요'} ],
     [ {words:['The','big','dog','can','run','fast'],  ko:'큰 개는 빠르게 달릴 수 있어요'},
-      {words:['My','cat','is','very','happy'],        ko:'내 고양이는 아주 행복해요'} ],
+      {words:['My','cat','is','very','happy'],        ko:'내 고양이는 아주 행복해요'},
+      {words:['The','bird','is','small'],             ko:'새는 작아요'} ],
     [ {words:['Birds','sing','a','song','every','day'],ko:'새들이 매일 노래를 불러요'},
-      {words:['I','drink','milk','at','home'],         ko:'나는 집에서 우유를 마셔요'} ],
+      {words:['I','drink','milk','at','home'],         ko:'나는 집에서 우유를 마셔요'},
+      {words:['I','read','a','book'],                  ko:'나는 책을 읽어요'} ],
     [ {words:['The','sun','is','big','and','bright'],  ko:'태양은 크고 밝아요'},
-      {words:['We','play','at','school'],              ko:'우리는 학교에서 놀아요'} ]
+      {words:['We','play','at','school'],              ko:'우리는 학교에서 놀아요'},
+      {words:['The','moon','is','bright'],             ko:'달은 밝아요'} ]
   ],
   zh:[
     [ {words:['我','喜欢','读','书'],        ko:'나는 책 읽기를 좋아해요'},
-      {words:['我们','去','学校'],           ko:'우리는 학교에 가요'} ],
+      {words:['我们','去','学校'],           ko:'우리는 학교에 가요'},
+      {words:['我','喜欢','苹果'],           ko:'나는 사과를 좋아해요'} ],
     [ {words:['大','狗','跑','得','很','快'], ko:'큰 개는 빠르게 달려요'},
-      {words:['我的','猫','很','高兴'],       ko:'내 고양이는 행복해요'} ],
+      {words:['我的','猫','很','高兴'],       ko:'내 고양이는 행복해요'},
+      {words:['鸟','很','小'],               ko:'새는 작아요'} ],
     [ {words:['鸟','每天','唱','歌'],        ko:'새가 매일 노래해요'},
-      {words:['我','喝','牛奶'],             ko:'나는 우유를 마셔요'} ],
+      {words:['我','喝','牛奶'],             ko:'나는 우유를 마셔요'},
+      {words:['我','读','书'],               ko:'나는 책을 읽어요'} ],
     [ {words:['太阳','很','大'],             ko:'태양은 커요'},
-      {words:['我们','玩','游戏'],           ko:'우리는 게임을 해요'} ]
+      {words:['我们','玩','游戏'],           ko:'우리는 게임을 해요'},
+      {words:['猫','喜欢','鱼'],             ko:'고양이는 물고기를 좋아해요'} ]
   ]
 };
 /* VOCAB에 없는 기능어 뜻/병음 보충 */
@@ -630,7 +638,7 @@ function showMode(){
   show('scr-mode');
 }
 function startGame(mode){
-  MODE=mode; score=0; combo=0; maxCombo=0; lines=0; level=1; mission=null; pieceSeq=0;
+  MODE=mode; score=0; combo=0; maxCombo=0; lines=0; level=1; mission=null; pieceSeq=0; fillerQ=0;
   running=true; paused=false;
   computeDims();                              // 🔲 화면에 맞춰 열/행 수 결정(보드는 크게·셀은 작게)
   grid=[]; for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
@@ -646,7 +654,7 @@ function startGame(mode){
 function availArea(){
   var wide=window.innerWidth>=700;
   var availW=Math.min(window.innerWidth-12, wide?600:window.innerWidth-12);
-  var availH=window.innerHeight - (wide?306:338);   // 상단(HUD+2문장세트+미션) + 하단 가로 리모컨 예약
+  var availH=window.innerHeight - (wide?338:370);   // 상단(HUD+3문장세트+미션) + 하단 가로 리모컨 예약
   return { wide:wide, w:Math.max(160,availW), h:Math.max(240,availH) };
 }
 /* 🔲 열/행 수 결정 — 보드는 영역을 꽉 채우되(직사각형만큼 크게), 셀(도형)은 작게.
@@ -686,10 +694,18 @@ function pickPiece(word){
   if(!pool.length) pool = PIECES;
   return pool[Math.floor(Math.random()*pool.length)];
 }
+var fillerQ=0;   // 다음 '단어 조각'까지 남은 필러(뜻 없는 도형) 개수
 function spawn(){
   if(!running) return;
-  var word=pickWord();
-  var p=pickPiece(word);
+  var isWord = (fillerQ<=0) || !goalWords.length;
+  var word, p;
+  if(isWord){
+    fillerQ = 1 + Math.floor(Math.random()*2);   // 이 단어 뒤에 필러 1~2개(단어 사이사이)
+    word = pickWord(); p = pickPiece(word);
+  } else {
+    fillerQ--;
+    word = null; p = PIECES[Math.floor(Math.random()*PIECES.length)];   // 뜻 없는 그냥 도형
+  }
   var cells=p.cells.map(function(c){ return c.slice(); });
   var w=pieceW(p);
   piece={ cells:cells, row:0, col:Math.floor((COLS-w)/2), color:p.color, word:word, id:(++pieceSeq) };
@@ -729,8 +745,8 @@ function sentenceJustFinished(){
 }
 /* 세트(두 문장 모두) 완성: 큰 보너스 + 두 문장 낭독 + 폭죽 + 바닥 정리 + 다음 세트 */
 function setComplete(){
-  score += 800 + level*150;
-  splash('두 문장 완성! 🎉🎉');
+  score += 1000 + level*150;
+  splash('세 문장 모두 완성! 🎉🎉🎉');
   // 낭독은 말하기 연습 팝업(speakPractice)이 담당 — 여기선 중복 재생 안 함
   var bd=document.getElementById('board').getBoundingClientRect();
   for(var i=0;i<8;i++){ (function(k){ setTimeout(function(){ if(running) burst(bd.left+Math.random()*bd.width, bd.top+30+Math.random()*bd.height*0.5, 12, ['#fde047','#fb7185','#c084fc','#7dd3fc','#34d399']); }, k*110); })(i); }
@@ -800,8 +816,8 @@ function lock(){
       grid.splice(ROWS-2,2); while(grid.length<ROWS) grid.unshift(new Array(COLS).fill(null));
     }
     if(finished){ speakPractice(finished); }               // 🎤 3번 듣고 3번 말하기(게임 일시정지) — 아래에서 다음 조각은 스폰(정지 상태)되고, 팝업 종료 시 재개
-  } else {
-    speak(lockedWord, 0.98);                              // 순서 아닌 단어도 발음은 들려줌(학습)
+  } else if(lockedWord){
+    speak(lockedWord, 0.98);                              // 순서 아닌 단어도 발음은 들려줌(학습). 필러(null)는 무음
   }
 
   var cleared=clearLines();                   // 💥 정통 테트리스 줄 지우기(쌓인 함정 정리)
@@ -897,7 +913,7 @@ function pcellHtml(r,c,color,nb,cls){
 /* 낙하 조각 위에 단어를 한 번만 크게 표시(보드 기준 절대배치) */
 function drawWordLabel(){
   var lab=document.getElementById('wordlabel');
-  if(!piece){ lab.style.display='none'; return; }
+  if(!piece || !piece.word){ lab.style.display='none'; return; }   // 필러(뜻 없는 도형)는 라벨 없음
   var bd=document.getElementById('board');
   var minR=Math.min.apply(null,piece.cells.map(function(c){return c[0];}));
   var maxR=Math.max.apply(null,piece.cells.map(function(c){return c[0];}));
@@ -1044,6 +1060,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260716005646 -->
+<!-- BUILD:20260716011719 -->
 </body>
 </html>
