@@ -168,16 +168,18 @@
   /* 🎮 리모컨 — 한 손 조작용 가로 한 줄(작게). 왼·오른·회전·빨리·드롭 */
   #pad.rowpad{ width:100%; max-width:520px; margin:8px auto 0; display:flex; gap:7px;
     padding:8px 10px calc(8px + env(safe-area-inset-bottom)); touch-action:none; }
-  .rbtn{ flex:1; height:50px; border-radius:14px; font-size:21px; font-weight:900; color:#e6edff; cursor:pointer;
-    background:linear-gradient(180deg,#2c3760,#1a2138); border:1.5px solid rgba(125,211,252,.2); touch-action:none;
+  .rbtn{ flex:1; height:54px; border-radius:14px; font-size:22px; font-weight:900; color:#fff; cursor:pointer;
+    background:linear-gradient(180deg,#4d61a0,#334072); border:2px solid rgba(170,210,255,.65); touch-action:none;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0;
-    box-shadow:0 3px 8px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.1); }
-  .rbtn small{ font-size:9.5px; font-weight:700; color:#9fb0d8; margin-top:1px; }
-  .rbtn:active,.rbtn.pressed{ background:linear-gradient(180deg,#3f5cff,#2f45cc); transform:scale(.94); }
-  .rbtn.rot{ background:linear-gradient(180deg,#7c3aed,#5b21b6); }
-  .rbtn.rot small{ color:#e9d5ff; }
-  .rbtn.drop{ background:linear-gradient(180deg,#d97706,#b45309); }
-  .rbtn.drop small{ color:#fde68a; }
+    box-shadow:0 3px 12px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.28); }
+  .rbtn small{ font-size:10.5px; font-weight:800; color:#e8f0ff; margin-top:1px; }
+  .rbtn:active,.rbtn.pressed{ background:linear-gradient(180deg,#6183ff,#3f52d8); transform:scale(.94); }
+  .rbtn.rot{ background:linear-gradient(180deg,#8b5cf6,#6d28d9); border-color:rgba(216,180,254,.7); }
+  .rbtn.rot small{ color:#f2ecff; }
+  .rbtn.down{ background:linear-gradient(180deg,#14b8a6,#0d9488); border-color:rgba(153,246,228,.7); }
+  .rbtn.down small{ color:#d6fff5; }
+  .rbtn.drop{ background:linear-gradient(180deg,#f59e0b,#c2650a); border-color:rgba(253,230,138,.75); }
+  .rbtn.drop small{ color:#fff7d6; }
 
   /* 3) 게임 오버 */
   /* 🏁 게임 오버 화면 — 2배 크게 */
@@ -245,7 +247,7 @@
       <button class="rbtn" id="b-left"  aria-label="왼쪽">◀<small>왼쪽</small></button>
       <button class="rbtn" id="b-right" aria-label="오른쪽">▶<small>오른쪽</small></button>
       <button class="rbtn rot" id="b-rot" aria-label="회전">🔄<small>회전</small></button>
-      <button class="rbtn" id="b-down"  aria-label="빨리">▼<small>빨리</small></button>
+      <button class="rbtn down" id="b-down"  aria-label="빨리">▼<small>빨리</small></button>
       <button class="rbtn drop" id="b-drop" aria-label="드롭">⤓<small>드롭</small></button>
     </div>
   </div>
@@ -1064,6 +1066,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260716015644 -->
+<!-- BUILD:20260716022320 -->
 </body>
 </html>
