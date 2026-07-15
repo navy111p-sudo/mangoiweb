@@ -25031,7 +25031,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260716023956 -->
+<!-- BUILD:20260716024259 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -27597,7 +27597,36 @@ body.vc-in-call #vc-main-row:not(.video-pip):not(.video-facepip):not(.video-solo
    - 방에 이미 '실제로 공유된' 교재/동영상이 있으면(교사가 의도적으로 튼 것) 그대로 존중.
    - 교재를 못 찾으면(계정에 미배정/이름 불일치) 최소한 빈 교재 탭으로 전환(라이브러리에서 선택 가능). */
 
-// 🎓 입장 시 로그인 학생의 배정 교재를 자동으로 뷰어에 로드 (성공=true)
+// 📚 교재명(라이브러리 book)으로 파일을 불러와 뷰어에 표시 + 방에 공유 (성공=true)
+window._vcLoadTextbookByName = async function(book){
+  book = String(book || '').trim();
+  if (!book) return false;
+  var items = [];
+  try { var rf = await fetch('/api/textbook-files?book=' + encodeURIComponent(book) + '&limit=20000', { cache:'no-store' }); var d = await rf.json(); items = (d && d.items) || []; } catch(e){ return false; }
+  var cmp = function(a,b){ return String(a||'').localeCompare(String(b||''), undefined, { numeric:true, sensitivity:'base' }); };
+  var parsed = [];
+  items.forEach(function(it){
+    if (it.kind !== 'image' && it.kind !== 'pdf') return;
+    var lesson = '미분류', fileName = it.name || '';
+    var mm = String(it.name || '').match(/^\[([^\]]+)\]\s*(.*)$/);
+    if (mm){ var rest = mm[2] || ''; var slash = rest.indexOf('/'); if (slash >= 0){ lesson = rest.slice(0, slash).trim() || '미분류'; fileName = rest.slice(slash + 1).trim() || it.name; } else fileName = rest.trim() || it.name; }
+    parsed.push({ id: it.id, url: it.url, kind: it.kind, lesson: lesson, file: fileName, name: it.name });
+  });
+  parsed.sort(function(a,b){ return cmp(a.lesson, b.lesson) || cmp(a.file, b.file); });
+  var seq = parsed.map(function(x){ return { id: 'srv_' + x.id, url: x.url, kind: x.kind, name: x.name }; });
+  if (!seq.length) return false;
+  window._libSequence = seq; window._libSeqIdx = 0;               // ◀▶ 페이지 화살표도 동작하게
+  try { if (typeof window.vcSwitchTab === 'function') window.vcSwitchTab('pdf'); } catch(e){}
+  var f = seq[0];
+  await Promise.resolve(window.pdfLoad ? window.pdfLoad(f.url, f.kind) : null);
+  try { window._vcShownPdfName = f.name; } catch(e){}
+  // 방에 공유 → 교사·학생 모두 같은 교재를 봄
+  try { if (typeof window.vcShareTextbook === 'function') window.vcShareTextbook('lib_' + f.id, f.url, f.kind, f.name); } catch(e){}
+  try { if (typeof window._pdfToast === 'function') window._pdfToast('📚 ' + book); } catch(e){}
+  return true;
+};
+
+// 🎓 입장 시: 로그인 학생의 배정 교재를 자동 로드. 배정 없으면 기본 교재로 폴백. (성공=true)
 window.vcAutoLoadStudentTextbook = async function(){
   try {
     // 이미 방에 '실제 공유된' 교재/동영상이 있으면 존중 (덮어쓰지 않음)
@@ -27606,38 +27635,21 @@ window.vcAutoLoadStudentTextbook = async function(){
     var uid = '';
     try { var lu = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if (lu && (lu.uid||lu.user_id)) uid = lu.uid||lu.user_id; } catch(e){}
     if (!uid) { try { var mu = JSON.parse(localStorage.getItem('mango_user')||'null'); if (mu && (mu.uid||mu.user_id)) uid = mu.uid||mu.user_id; } catch(e){} }
-    if (!uid) return false;
-    // 오늘 배정 교재/레벨 조회
-    var ctx = null;
-    try { var rc = await fetch('/api/warmup/context?user_id=' + encodeURIComponent(uid), { cache:'no-store' }); ctx = await rc.json(); } catch(e){ return false; }
-    if (!ctx || !ctx.ok) return false;
-    var book = String(ctx.textbook || '').trim();
-    if (ctx.level) { try { localStorage.setItem('mangoi_current_level', String(ctx.level)); } catch(e){} }  // 웜업·복습퀴즈도 이 레벨 사용
-    if (!book) return false;
-    // 그 교재의 파일(페이지) 목록 → 라이브러리와 동일한 자연 정렬로 시퀀스 구성
-    var items = [];
-    try { var rf = await fetch('/api/textbook-files?book=' + encodeURIComponent(book) + '&limit=20000', { cache:'no-store' }); var d = await rf.json(); items = (d && d.items) || []; } catch(e){ return false; }
-    var cmp = function(a,b){ return String(a||'').localeCompare(String(b||''), undefined, { numeric:true, sensitivity:'base' }); };
-    var parsed = [];
-    items.forEach(function(it){
-      if (it.kind !== 'image' && it.kind !== 'pdf') return;
-      var lesson = '미분류', fileName = it.name || '';
-      var mm = String(it.name || '').match(/^\[([^\]]+)\]\s*(.*)$/);
-      if (mm){ var rest = mm[2] || ''; var slash = rest.indexOf('/'); if (slash >= 0){ lesson = rest.slice(0, slash).trim() || '미분류'; fileName = rest.slice(slash + 1).trim() || it.name; } else fileName = rest.trim() || it.name; }
-      parsed.push({ id: it.id, url: it.url, kind: it.kind, lesson: lesson, file: fileName, name: it.name });
-    });
-    parsed.sort(function(a,b){ return cmp(a.lesson, b.lesson) || cmp(a.file, b.file); });
-    var seq = parsed.map(function(x){ return { id: 'srv_' + x.id, url: x.url, kind: x.kind, name: x.name }; });
-    if (!seq.length) return false;
-    window._libSequence = seq; window._libSeqIdx = 0;               // ◀▶ 페이지 화살표도 동작하게
-    try { if (typeof window.vcSwitchTab === 'function') window.vcSwitchTab('pdf'); } catch(e){}
-    var f = seq[0];
-    await Promise.resolve(window.pdfLoad ? window.pdfLoad(f.url, f.kind) : null);
-    try { window._vcShownPdfName = f.name; } catch(e){}
-    // 방에 공유 → 교사·학생 모두 같은 교재를 봄
-    try { if (typeof window.vcShareTextbook === 'function') window.vcShareTextbook('lib_' + f.id, f.url, f.kind, f.name); } catch(e){}
-    try { if (typeof window._pdfToast === 'function') window._pdfToast('📚 ' + book); } catch(e){}
-    return true;
+    // ① 배정 교재/레벨 조회 (students_erp.textbook — 배정되면 자동으로 개인 교재 우선)
+    var book = '';
+    if (uid) {
+      try {
+        var rc = await fetch('/api/warmup/context?user_id=' + encodeURIComponent(uid), { cache:'no-store' });
+        var ctx = await rc.json();
+        if (ctx && ctx.ok) {
+          book = String(ctx.textbook || '').trim();
+          if (ctx.level) { try { localStorage.setItem('mangoi_current_level', String(ctx.level)); } catch(e){} }  // 웜업·복습퀴즈도 이 레벨 사용
+        }
+      } catch(e){}
+    }
+    // ② 배정 교재가 없으면 기본 교재로 폴백 (관리자가 localStorage.mangoi_default_textbook 로 변경 가능)
+    if (!book) { try { book = (localStorage.getItem('mangoi_default_textbook') || '').trim(); } catch(e){} if (!book) book = 'Mangoi Books'; }
+    return await window._vcLoadTextbookByName(book);
   } catch(e){ try { console.warn('[vcAutoLoadStudentTextbook]', e); } catch(_){}; return false; }
 };
 

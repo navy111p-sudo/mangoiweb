@@ -1028,7 +1028,7 @@ var _pfx=null;
 function pilotFxCanvas(w,h){ if(!_pfx)_pfx=document.createElement('canvas'); if(_pfx.width!==w)_pfx.width=w; if(_pfx.height!==h)_pfx.height=h; return _pfx; }
 function drawPilot(p){
   if(!PILOT.ready) return;
-  var sway=Math.sin(performance.now()/1000*1.3);             // ⏱️ 실시간 흔들림 → 종료화면서도 계속 좌우로 움직임
+  var sway=Math.sin(performance.now()/1000*2.2);             // ⏱️ 실시간 흔들림(속도↑) → 종료화면서도 계속 좌우로 움직임
   var grow = 0.16 + Math.min(1, p.t/2.5)*1.16;               // 조종석 크기(0.16) → 크게(1.32)
   var h=Math.min(150*SCALE*grow, H*0.86), pw=h*PILOT.w/PILOT.h;
   var dx=clampPos((p.baseX!=null?p.baseX:p.x)+sway*28*SCALE, pw*0.5, W), dy=clampPos(p.y, h*0.5, H);   // 좌우로 조금 왔다갔다
@@ -1276,6 +1276,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260716023956 -->
+<!-- BUILD:20260716024259 -->
 </body>
 </html>
