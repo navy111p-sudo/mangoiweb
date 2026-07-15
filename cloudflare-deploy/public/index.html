@@ -13906,15 +13906,30 @@ function gameShadow(enc){
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ if(fb) fb.innerHTML='<span style="color:#38bdf8">🔊 잘 듣고 소리내어 따라 말해보세요!</span>'; _gameState._advTimer=setTimeout(gameNextRound,2400); return; }
   setTimeout(function(){
-    try{ var rec=new SR(); rec.lang=(_glang()==='zh'?'zh-CN':'en-US'); rec.interimResults=false; rec.maxAlternatives=3;
-      if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (듣는 중)</span>'; var done=false;
-      rec.onresult=function(e){ done=true; var said=''; for(var i=0;i<e.results.length;i++) said+=e.results[i][0].transcript+' '; var sc=_shadowScore(said,text);
+    try{ var rec=new SR(); rec.lang=(_glang()==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
+      // 🎤 말 중간에 숨 쉬어도 안 끊기게: 4.5초 강제 종료를 없애고, "말이 끝나고 조용해지면" 우리가 종료.
+      //    발음이 충분히 맞으면 즉시 통과, 아니면 침묵(SILENCE_MS)까지 기다렸다가 마지막 인식으로 채점.
+      if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (듣는 중)</span>'; var done=false, said='', _sil=null;
+      var SILENCE_MS=2500;                 // 마지막 말 이후 이 시간(ms) 조용하면 종료 → 긴 문장도 끝까지 말할 시간 확보
+      function arm(){ if(_sil) clearTimeout(_sil); _sil=setTimeout(function(){ try{ rec.stop(); }catch(_){} }, SILENCE_MS); }
+      function evaluate(){
+        if(done) return; done=true; if(_sil) clearTimeout(_sil);
+        var sc=_shadowScore(said,text);
         if(fb) fb.innerHTML=sc>=0.6?'<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>':'<span style="color:#f59e0b">🔁 거의 됐어요! 🔊 다시 듣고 도전</span>';
         try{ var _s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text,(_s&&_s.ko)||'',sc); }catch(_){}   // 🎤 발음점수 서버 저장
-        _gameState._advTimer=setTimeout(gameNextRound,1700); };
-      rec.onerror=function(){ if(!done){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
-      rec.onend=function(){ if(!done&&!_gameState._advTimer) _gameState._advTimer=setTimeout(gameNextRound,1500); };
-      rec.start(); setTimeout(function(){ try{ rec.stop(); }catch(_){} },4500);
+        _gameState._advTimer=setTimeout(gameNextRound,1700);
+      }
+      rec.onstart=function(){ arm(); };
+      rec.onresult=function(e){
+        if(done) return;
+        said=''; for(var i=0;i<e.results.length;i++) said+=(e.results[i][0].transcript||'')+' ';
+        if(_shadowScore(said,text)>=0.6){ evaluate(); try{ rec.stop(); }catch(_){} return; }   // 충분히 맞음 → 즉시 통과
+        if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 …(듣는 중) "'+said.trim()+'"</span>';
+        arm();                             // 말할 때마다 종료 타이머 리셋
+      };
+      rec.onerror=function(){ if(_sil) clearTimeout(_sil); if(!done){ done=true; if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
+      rec.onend=function(){ if(_sil) clearTimeout(_sil); if(!done){ if(said.trim()) evaluate(); else if(!_gameState._advTimer){ _gameState._advTimer=setTimeout(gameNextRound,1500); } } };
+      rec.start();
     }catch(_){ _gameState._advTimer=setTimeout(gameNextRound,1700); }
   },850);
 }
@@ -24983,7 +24998,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260715162918 -->
+<!-- BUILD:20260715164718 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

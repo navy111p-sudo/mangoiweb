@@ -701,13 +701,22 @@
   document.getElementById('r2listen').addEventListener('click', speakSentence);
   document.getElementById('r2speak').addEventListener('click', function(){
     if(!SR){ r2heard.innerHTML='🎤 큰 소리로 따라 말했나요? <b>좋아요!</b>'; score+=40; updateHUD(); r2next.style.display='inline-block'; return; }
-    try{ var rec=new SR(); rec.lang=(GLANG==='zh'?'zh-CN':'en-US'); rec.interimResults=false; r2heard.textContent='🎙️ 듣는 중…';   // 🌐 중국어 모드는 중국어 인식
-      rec.onresult=function(e){ var said=(e.results[0][0].transcript||'').trim(); var goal=targetWords.join(' ').replace(/[.?!,。？！，]/g,'').toLowerCase(), norm=said.replace(/[.?!,。？！，]/g,'').toLowerCase();
-        var ok = (GLANG==='zh')
-          ? (norm.replace(/\s+/g,'')===goal.replace(/\s+/g,'') || simCh(norm,goal)>=0.7)   // 한자: 붙여쓰기 비교 + 글자 겹침
-          : (norm===goal || sim(norm,goal)>=0.7);
-        r2heard.innerHTML='들린 말: <b>'+said+'</b> '+(ok?'✅':'🔁 다시!'); if(ok){ score+=60; updateHUD(); sndWin(); r2next.style.display='inline-block'; } };
-      rec.onerror=function(){ r2heard.innerHTML='🎤 큰 소리로 말했다면 <b>통과!</b>'; r2next.style.display='inline-block'; }; rec.start();
+    // 🎤 말 중간에 숨 쉬어도 안 끊기게: continuous=true + 침묵 감시. 맞으면 즉시 통과, 아니면 조용해질 때까지 대기.
+    try{ var rec=new SR(); rec.lang=(GLANG==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.continuous=true; rec.maxAlternatives=3; r2heard.textContent='🎙️ 듣는 중…';   // 🌐 중국어 모드는 중국어 인식
+      var _done=false, _said='', _sil=null, SILENCE_MS=2200;
+      var goal=targetWords.join(' ').replace(/[.?!,。？！，]/g,'').toLowerCase();
+      function arm(){ if(_sil)clearTimeout(_sil); _sil=setTimeout(function(){ try{rec.stop();}catch(e){} }, SILENCE_MS); }
+      function isOk(said){ var norm=said.replace(/[.?!,。？！，]/g,'').toLowerCase();
+        return (GLANG==='zh') ? (norm.replace(/\s+/g,'')===goal.replace(/\s+/g,'') || simCh(norm,goal)>=0.7) : (norm===goal || sim(norm,goal)>=0.7); }
+      function judge(){ if(_done)return; _done=true; if(_sil)clearTimeout(_sil); var ok=isOk(_said);
+        r2heard.innerHTML='들린 말: <b>'+_said.trim()+'</b> '+(ok?'✅':'🔁 다시!'); if(ok){ score+=60; updateHUD(); sndWin(); } r2next.style.display='inline-block'; }
+      rec.onstart=function(){ arm(); };
+      rec.onresult=function(e){ if(_done)return; _said=''; for(var i=0;i<e.results.length;i++) _said+=(e.results[i][0].transcript||'')+' '; _said=_said.trim();
+        if(isOk(_said)){ judge(); try{rec.stop();}catch(e){} return; }
+        r2heard.innerHTML='🎙️ …(듣는 중) <b>'+_said+'</b>'; arm(); };
+      rec.onerror=function(){ if(_sil)clearTimeout(_sil); if(!_done){ _done=true; r2heard.innerHTML='🎤 큰 소리로 말했다면 <b>통과!</b>'; r2next.style.display='inline-block'; } };
+      rec.onend=function(){ if(_sil)clearTimeout(_sil); if(!_done){ if(_said) judge(); else { r2heard.innerHTML='🎤 큰 소리로 말했다면 <b>통과!</b>'; r2next.style.display='inline-block'; } } };
+      rec.start();
     }catch(e){ r2next.style.display='inline-block'; } });
   r2next.addEventListener('click', startReview3);
   function sim(a,b){ var wa=a.split(/\s+/),wb=b.split(/\s+/),set={},hit=0; wb.forEach(function(w){ set[w]=(set[w]||0)+1; }); wa.forEach(function(w){ if(set[w]>0){ hit++; set[w]--; } }); return wb.length?hit/wb.length:0; }
@@ -805,6 +814,6 @@
 })();
 </script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260715162918 -->
+<!-- BUILD:20260715164718 -->
 </body>
 </html>

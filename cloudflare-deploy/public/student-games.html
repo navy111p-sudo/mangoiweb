@@ -1634,7 +1634,23 @@ function _shadowViaWhisper(text, fb){
           _shadowResult(_shadowScore(d.text||'', text), text);
         }).catch(function(){ _gameState._advTimer=setTimeout(gameNextRound,1400); });
     };
-    mr.start(); setTimeout(function(){ try{ mr.stop(); }catch(_){} }, 4200);
+    mr.start();
+    // 🎤 4.2초 고정 종료 대신, 말이 끝나고 잠깐(1.2초) 조용해지면 멈춤 + 최대 9초 안전 상한(긴 문장 지원).
+    (function(){
+      var stopped=false, stopRec=function(){ if(stopped)return; stopped=true; try{ mr.stop(); }catch(_){} };
+      var maxT=setTimeout(stopRec, 9000);
+      try{
+        var AC=window.AudioContext||window.webkitAudioContext, ac=new AC();
+        var srcN=ac.createMediaStreamSource(stream), an=ac.createAnalyser(); an.fftSize=512; srcN.connect(an);
+        var buf=new Uint8Array(an.fftSize), spoke=false, silence=0, t0=Date.now();
+        var iv=setInterval(function(){
+          if(stopped){ clearInterval(iv); clearTimeout(maxT); try{ac.close();}catch(_){}; return; }
+          an.getByteTimeDomainData(buf); var peak=0; for(var i=0;i<buf.length;i++){ var v=Math.abs(buf[i]-128); if(v>peak)peak=v; }
+          if(peak>8){ spoke=true; silence=0; } else if(spoke){ silence+=100; }
+          if(spoke && silence>=1200 && (Date.now()-t0)>1000){ clearInterval(iv); clearTimeout(maxT); try{ac.close();}catch(_){}; stopRec(); }
+        }, 100);
+      }catch(_){ /* WebAudio 불가 → 9초 상한 타이머로 종료 */ }
+    })();
   }).catch(function(){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크 권한이 필요해요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1600); });
 }
 function gameShadow(enc){
@@ -1647,16 +1663,21 @@ function gameShadow(enc){
   if(!SR){ setTimeout(function(){ _shadowViaWhisper(text, fb); }, 850); return; }
   setTimeout(function(){
     try{
-      var rec=new SR(); rec.lang=(GAME_LANG==='zh'?'zh-CN':'en-US'); rec.interimResults=false; rec.maxAlternatives=3;
+      // 🎤 말 중간에 숨 쉬어도 안 끊기게: continuous=true + 침묵 감시(4.5초 강제 종료 제거).
+      var rec=new SR(); rec.lang=(GAME_LANG==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
       if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (듣는 중)</span>';
-      var done=false;
-      rec.onresult=function(e){ done=true;
-        var said=''; for(var i=0;i<e.results.length;i++) said+=e.results[i][0].transcript+' ';
-        _shadowResult(_shadowScore(said, text), text);
+      var done=false, said='', _sil=null, SILENCE_MS=2500;
+      function arm(){ if(_sil)clearTimeout(_sil); _sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, SILENCE_MS); }
+      function evaluate(){ if(done)return; done=true; if(_sil)clearTimeout(_sil); _shadowResult(_shadowScore(said, text), text); }
+      rec.onstart=function(){ arm(); };
+      rec.onresult=function(e){ if(done)return;
+        said=''; for(var i=0;i<e.results.length;i++) said+=(e.results[i][0].transcript||'')+' ';
+        if(_shadowScore(said, text)>=0.6){ evaluate(); try{rec.stop();}catch(_){} return; }   // 충분히 맞음 → 즉시 통과
+        if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 …(듣는 중) "'+said.trim()+'"</span>'; arm();
       };
-      rec.onerror=function(){ if(!done){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
-      rec.onend=function(){ if(!done && !_gameState._advTimer) _gameState._advTimer=setTimeout(gameNextRound,1500); };
-      rec.start(); setTimeout(function(){ try{ rec.stop(); }catch(_){} }, 4500);
+      rec.onerror=function(){ if(_sil)clearTimeout(_sil); if(!done){ done=true; if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
+      rec.onend=function(){ if(_sil)clearTimeout(_sil); if(!done){ if(said.trim()) evaluate(); else if(!_gameState._advTimer) _gameState._advTimer=setTimeout(gameNextRound,1500); } };
+      rec.start();
     }catch(_){ _gameState._advTimer=setTimeout(gameNextRound,1700); }
   }, 850);
 }
@@ -2259,7 +2280,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260715162918 -->
+<!-- BUILD:20260715164718 -->
 <script defer src="/js/flow.js?v=6"></script>
 </body>
 </html>

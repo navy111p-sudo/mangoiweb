@@ -650,10 +650,14 @@
         // Speech Recognition Setup
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
+        let _smSilence = null;   // 🎤 침묵 감시 타이머(말이 끝나고 조용해지면 종료)
+        const SM_SILENCE_MS = 2600;
+        function armSmSilence(){ if (_smSilence) clearTimeout(_smSilence); _smSilence = setTimeout(() => { try { recognition && recognition.stop(); } catch(e){} }, SM_SILENCE_MS); }
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
-            recognition.continuous = false;
+            // 🎤 말 중간에 숨 쉬어도 안 끊기게 continuous=true(브라우저 성급한 자동종료 차단). 대신 위 침묵 타이머로 종료.
+            recognition.continuous = true;
             recognition.lang = ZH ? 'zh-CN' : 'en-US';   // 🀄 중국어 모드는 만다린 인식
             recognition.interimResults = true;
 
@@ -667,9 +671,11 @@
                 document.getElementById('speechResultText').innerText = " listening...";
                 document.getElementById('speechMatchBadge').innerText = "듣는 중";
                 document.getElementById('speechMatchBadge').className = "bg-yellow-600 text-sm px-2.5 py-1 rounded-full text-yellow-100";
+                armSmSilence();
             };
 
             recognition.onresult = (event) => {
+                armSmSilence();   // 말할 때마다 종료 타이머 리셋 → 계속 말하면 안 끊김
                 const speechToText = Array.from(event.results)
                     .map(result => result[0])
                     .map(result => result.transcript)
@@ -706,6 +712,7 @@
         }
 
         function stopSpeechRecognition() {
+            if (_smSilence) { clearTimeout(_smSilence); _smSilence = null; }
             isRecording = false;
             document.getElementById('micBtn').classList.remove('bg-green-500', 'hover:bg-green-400', 'animate-pulse');
             document.getElementById('micBtn').classList.add('bg-red-600', 'hover:bg-red-500');
@@ -1146,6 +1153,6 @@ html{overflow-x:hidden}
 }
 </style>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260715162918 -->
+<!-- BUILD:20260715164718 -->
 </body>
 </html>
