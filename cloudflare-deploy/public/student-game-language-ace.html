@@ -433,7 +433,7 @@ var ZERO = { ready:false, img:null, w:0, h:0 };
   img.src='/img/zero-enemy.png';
 })();
 
-/* 🪂 조종사 낙하산 스프라이트 — B-17 격추 시 탈출 장면(크로마키 제거 투명 PNG) */
+/* 🪂 조종사 낙하산 스프라이트 — B-17 격추 시 탈출 장면(크로마키 제거 투명 PNG · 영상 실패 시 폴백) */
 var PILOT = { ready:false, img:null, w:0, h:0 };
 (function loadPilot(){
   var img=new Image();
@@ -441,6 +441,22 @@ var PILOT = { ready:false, img:null, w:0, h:0 };
   img.onerror=function(){ PILOT.ready=false; };
   img.src='/img/pilot-parachute.png';
 })();
+/* 🎥 조종사 낙하산 '실사 영상' — 격추 시 캔버스 실시간 크로마키(초록 제거)로 재생. 실패 시 위 PNG 폴백 */
+var PVID = { ready:false, vid:null, kcv:null, kctx:null };
+(function loadPilotVid(){
+  try{
+    var v=document.createElement('video');
+    v.muted=true; v.defaultMuted=true; v.loop=true; v.preload='auto';
+    v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline','');
+    v.addEventListener('loadeddata', function(){ PVID.ready=true; });
+    v.addEventListener('error', function(){ PVID.ready=false; });
+    v.src='/pilot-parachute.mp4';
+    var kcv=document.createElement('canvas'); kcv.width=480; kcv.height=270;
+    PVID.vid=v; PVID.kcv=kcv; PVID.kctx=kcv.getContext('2d',{willReadFrequently:true});
+  }catch(_){ PVID.ready=false; }
+})();
+function pilotVidStart(){ var v=PVID.vid; if(!v)return; try{ v.currentTime=0; var p=v.play(); if(p&&p.catch)p.catch(function(){}); }catch(_){} }
+function pilotVidStop(){ var v=PVID.vid; if(v){ try{ v.pause(); }catch(_){} } }
 
 /* ════════════════════════════════════════════════════════════
    6. 배경 — 스크롤 지형/구름(전진 비행감) · 오프스크린 프리렌더
@@ -696,7 +712,7 @@ function playerDestroyed(){
   setTimeout(function(){ if(G&&G.dead){ bigExplode(px0+20,py0-14); sndBoom(); } }, 220);
   setTimeout(function(){ if(G&&G.dead){ bigExplode(px0-18,py0+16); } }, 440);
   // 🪂 폭발 직후 조종사가 낙하산으로 탈출해 천천히 하강
-  setTimeout(function(){ if(G&&G.dead){ G.pilot={ baseX:px0, x:px0, y:py0-40*SCALE, vy:30*SCALE, t:0 }; sndPickup(); } }, 560);
+  setTimeout(function(){ if(G&&G.dead){ G.pilot={ baseX:px0, x:px0, y:py0-40*SCALE, vy:30*SCALE, t:0 }; sndPickup(); pilotVidStart(); } }, 560);
   setTimeout(function(){ if(G&&G.dead) endGame(false); }, 2800);   // 낙하산 하강이 보이도록 연장
 }
 /* 대형 폭발 = 다층 화구 + 다중 충격링 + 다량 파편(기존 파티클 렌더 재사용) */
@@ -930,12 +946,29 @@ function drawPlayer(){
   }
   ctx.restore();
 }
-/* 🪂 조종사 낙하산 — 격추 후 천천히 하강하며 좌우로 흔들림 */
+/* 🪂 조종사 낙하산 — 격추 후 천천히 하강하며 좌우로 흔들림. 실사 영상(크로마키) 우선, 실패 시 PNG */
 function drawPilot(p){
-  if(!PILOT.ready) return;
-  var h=150*SCALE, w=h*PILOT.w/PILOT.h;
-  ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(Math.sin(p.t*1.1)*0.1);
-  ctx.drawImage(PILOT.img, -w/2, -h/2, w, h);
+  var v=PVID.vid, sway=Math.sin(p.t*1.1);
+  if(PVID.ready && v && v.readyState>=2){
+    var kc=PVID.kcv, kx=PVID.kctx, w0=kc.width, h0=kc.height;
+    kx.clearRect(0,0,w0,h0); kx.drawImage(v,0,0,w0,h0);
+    try{
+      var im=kx.getImageData(0,0,w0,h0), d=im.data;
+      for(var i=0;i<d.length;i+=4){ var r=d[i],g=d[i+1],b=d[i+2],mx=(r>b?r:b),ex=g-mx;
+        if(ex>55) d[i+3]=0;                                   // 초록 배경 제거
+        else if(ex>34){ d[i+3]=(255-(ex-34)*12)|0; d[i+1]=mx+8; } }  // 가장자리 반투명+그린 스필 억제
+      kx.putImageData(im,0,0);
+    }catch(_){}
+    var dh=180*SCALE, w=dh*w0/h0;
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(sway*0.05);
+    ctx.drawImage(kc, -w/2, -dh/2, w, dh);
+    ctx.restore();
+    return;
+  }
+  if(!PILOT.ready) return;                                   // 폴백: 정지 이미지
+  var h=150*SCALE, pw=h*PILOT.w/PILOT.h;
+  ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(sway*0.1);
+  ctx.drawImage(PILOT.img, -pw/2, -h/2, pw, h);
   ctx.restore();
 }
 function drawB17fallback(){ // 이미지 로드 전/실패 시 벡터 대체(올리브 드랩)
@@ -1070,6 +1103,9 @@ function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts
 function startGame(){
   document.getElementById('start').classList.add('hide');
   document.getElementById('over').classList.add('hide');
+  pilotVidStop();                          // 🎥 이전 판 낙하산 영상 정지
+  // 출격 클릭(사용자 제스처)으로 영상 autoplay 잠금 해제: 잠깐 재생→즉시 정지
+  try{ var _pp=PVID.vid&&PVID.vid.play(); if(_pp&&_pp.then) _pp.then(function(){ try{ PVID.vid.pause(); PVID.vid.currentTime=0; }catch(_){} }).catch(function(){}); }catch(_){}
   newGame(); G.running=true; updateHUD();
   audio(); if(AC&&AC.state==='suspended')AC.resume();
   bgmStart();                              // 🎵 배경음악 시작
@@ -1077,7 +1113,7 @@ function startGame(){
 }
 function endGame(win){
   if(!G||G.over)return; G.over=true; G.running=false; flushProg();
-  bgmStop();                               // 🎵 배경음악 정지
+  bgmStop(); pilotVidStop();               // 🎵 배경음악·🎥 낙하산 영상 정지
   try{ speechSynthesis.cancel(); }catch(_){}
   document.getElementById('overTitle').textContent = win ? '🎖️ 임무 완료!' : '💥 격추당했다!';
   document.getElementById('overStat').innerHTML =
@@ -1126,6 +1162,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715154958 -->
+<!-- BUILD:20260715160531 -->
 </body>
 </html>
