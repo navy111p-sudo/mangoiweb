@@ -104,6 +104,11 @@
     color:#c8d4e2;font-size:14px;font-weight:800;cursor:pointer;transition:.12s}
   .spSpd.on{border-color:#ffd479;color:#1a2028;background:linear-gradient(180deg,#ffe08a,#e0a838);box-shadow:0 0 12px rgba(255,190,60,.4)}
   .spSpd:active{transform:scale(.95)}
+  /* 🔴 녹음 중(마이크 켜짐) — 버튼 빨갛게 + 맥동 */
+  #spMic.recording{background:linear-gradient(180deg,#ff6b6b,#e03131);color:#fff;
+    box-shadow:0 0 0 4px rgba(255,90,90,.35),0 6px 20px rgba(224,49,49,.55);animation:recPulse .9s ease-in-out infinite}
+  @keyframes recPulse{0%,100%{box-shadow:0 0 0 4px rgba(255,90,90,.35),0 6px 20px rgba(224,49,49,.55)}
+    50%{box-shadow:0 0 0 10px rgba(255,90,90,.12),0 6px 26px rgba(224,49,49,.75)}}
 
   /* 단어 발음 팝업 */
   #wordpop{position:absolute;z-index:15;display:none;pointer-events:none;
@@ -1240,6 +1245,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260716003317 -->
+<!-- BUILD:20260716004213 -->
 </body>
 </html>

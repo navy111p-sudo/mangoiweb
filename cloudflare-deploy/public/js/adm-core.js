@@ -2049,6 +2049,18 @@ const _TP_IC = {
 window._TP_ACT_BTN = _TP_ACT_BTN;
 window._TP_IC = _TP_IC;
 
+// 🧠 MBTI 배지 — 강사 목록/상세 공용. 유효한 4글자만 렌더, 없으면 빈 문자열. (E=웜톤/I=쿨톤)
+function _tpMbtiBadge(mbti){
+  var m = String(mbti||'').toUpperCase().trim();
+  if(!/^[IE][NS][TF][JP]$/.test(m)) return '';
+  var warm = m.charAt(0)==='E';
+  var bg = warm ? 'rgba(192,57,43,.13)' : 'rgba(31,111,178,.13)';
+  var fg = warm ? '#c0392b' : '#1f6fb2';
+  return '<span title="MBTI ' + m + '" style="display:inline-block;margin-left:5px;padding:1px 6px;border-radius:8px;'
+    + 'font-size:10px;font-weight:800;letter-spacing:.5px;background:' + bg + ';color:' + fg + ';vertical-align:middle">' + m + '</span>';
+}
+window._tpMbtiBadge = _tpMbtiBadge;
+
 async function loadTeacherProfiles() {
   const status = document.getElementById('tp-filter-status')?.value || '';
   const group  = document.getElementById('tp-filter-group')?.value || '';
@@ -2119,7 +2131,7 @@ async function loadTeacherProfiles() {
     const tip = '수업 ' + score.cls + ' · 재등록 ' + score.ret + ' · 근태 ' + score.punct + ' · 행정 ' + score.admin + ' · 조직 ' + score.contr;
     return '<tr>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + img + '</td>' +
-      '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' +
+      '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' + _tpMbtiBadge(t.mbti) +
         (t.english_name ? '<br><span style="font-size:11px;color:#6b7280">' + _aiEsc(t.english_name) + '</span>' : '') + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpStatusBadge(t.status)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpGroupBadge(t.group_name)) + '</td>' +
