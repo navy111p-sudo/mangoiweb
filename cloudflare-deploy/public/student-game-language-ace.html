@@ -1034,7 +1034,7 @@ function drawPilot(p){
   var dx=clampPos((p.baseX!=null?p.baseX:p.x)+sway*28*SCALE, pw*0.5, W), dy=clampPos(p.y, h*0.5, H);   // 좌우로 조금 왔다갔다
   // 오프스크린에 조종사 그린 뒤 얼굴만 빨갛게 착색
   var fw=Math.max(2,Math.ceil(pw)), fh=Math.max(2,Math.ceil(h));
-  var fx=pilotFxCanvas(fw,fh), fc=fx.getContext('2d');
+  var fx=pilotFxCanvas(fw,fh), fc=fx.getContext('2d',{willReadFrequently:true});   // 매 프레임 getImageData → 읽기최적화 힌트(콘솔 경고 제거)
   fc.clearRect(0,0,fw,fh); fc.drawImage(PILOT.img, 0,0, fw, fh);
   var red=Math.min(0.85, p.t*0.34);                          // 시간↑ → 얼굴 점점 빨갛게
   if(red>0.02){
@@ -1251,10 +1251,10 @@ document.getElementById('btnStart').addEventListener('click', startGame);
 document.getElementById('btnAgain').addEventListener('click', startGame);
 document.getElementById('btnMute').addEventListener('click',function(){ muted=!muted; this.textContent=muted?'🔇':'🔊';
   if(muted){ bgmStop(); try{speechSynthesis.cancel();}catch(_){} }
-  else if(G&&G.running&&!G.paused){ bgmStart(); } });
+  else if(G&&G.running&&!G.paused&&!G.speaking){ bgmStart(); } });   // 말하기 연습 중엔 BGM 재개 안 함(TTS 위 겹침 방지)
 document.getElementById('btnPause').addEventListener('click',function(){ if(!G||!G.running||G.speaking)return; G.paused=!G.paused; this.textContent=G.paused?'▶️':'⏸️';
   if(G.paused){ bgmStop(); banner('⏸️ 일시정지','#cdd9e6'); } else { bgmStart(); } });
-document.addEventListener('visibilitychange',function(){ if(G&&G.running&&document.hidden){ G.paused=true; bgmStop(); document.getElementById('btnPause').textContent='▶️'; } });
+document.addEventListener('visibilitychange',function(){ if(G&&G.running&&!G.speaking&&document.hidden){ G.paused=true; bgmStop(); document.getElementById('btnPause').textContent='▶️'; } });   // 말하기 연습 중엔 pause 걸지 않음(update는 이미 speaking으로 멈춤 → 복귀 후 멈춤고착 방지)
 // 말하기 연습 버튼
 document.getElementById('spMic').addEventListener('click', function(){ if(SP) spDoRep(); });
 document.getElementById('spSkip').addEventListener('click', function(){ if(SP) spSkip(); });
@@ -1276,6 +1276,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260716024338 -->
+<!-- BUILD:20260716025739 -->
 </body>
 </html>
