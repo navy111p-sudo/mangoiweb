@@ -410,9 +410,9 @@ function pickMaleVoice(lang){
   var nf=pref.find(function(v){ var n=(v.name||'').toLowerCase(); return !female.some(function(x){return n.indexOf(x)>=0;}); });
   return nf || pref[0] || pickVoice(lang);
 }
-/* 특정 언어 음성으로 한마디(조종사 "Oh no!" 등) — MODE 무관 강제 lang · 자연스러운 남자 목소리 */
+/* 특정 언어 음성으로 한마디(조종사 "Oh no!" 등) — 최대 음량·낮은 톤·느리게 = 감성적/아쉬운 남자 목소리 */
 function speakVoice(text, lang, rate){ if(muted)return;
-  try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang||'en-US'; u.rate=rate||0.95; u.pitch=0.82;
+  try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang||'en-US'; u.rate=rate||0.95; u.pitch=0.72; u.volume=1;
     var v=pickMaleVoice(lang||'en-US'); if(v)u.voice=v; speechSynthesis.speak(u); }catch(_){} }
 
 /* ════════════════════════════════════════════════════════════
@@ -774,7 +774,7 @@ function playerDestroyed(){
   setTimeout(function(){ if(G&&G.dead){ bigExplode(px0-18,py0+16); } }, 440);
   // 🪂 폭발 직후 조종사가 낙하산으로 탈출해 천천히 하강
   setTimeout(function(){ if(G&&G.dead){ G.pilot={ baseX:px0, x:px0, y:py0-40*SCALE, vy:30*SCALE, t:0 }; sndPickup(); pilotVidStart();
-    speakVoice('Oh no!', 'en-US', 0.95); } }, 560);   // 🗣️ 조종사 "Oh no!" 음성
+    speakVoice('Oh no...', 'en-US', 0.68); } }, 560);   // 🗣️ 조종사 "Oh no..." 감성·아쉬운 목소리(느리게)
   setTimeout(function(){ if(G&&G.dead) endGame(false); }, 2800);   // 낙하산 하강이 보이도록 연장
 }
 /* 대형 폭발 = 다층 화구 + 다중 충격링 + 다량 파편(기존 파티클 렌더 재사용) */
@@ -1020,15 +1020,30 @@ function drawPlayer(){
 /* 🪂 조종사 낙하산 — 격추 후 천천히 하강하며 좌우로 흔들림. 실사 영상(크로마키) 우선, 실패 시 PNG */
 /* 화면 밖으로 짤리지 않게 그리기 중심을 클램프(피사체가 화면 안에 통째로 보이도록) */
 function clampPos(v, half, span){ var a=half+6, b=span-half-6; if(a>b) return span/2; return v<a?a:(v>b?b:v); }
-/* 🪂 조종사 낙하산 = 전신 컷 이미지(몸통 전체 보장). 처음 조종석 크기→나오며 크게(가까이). 화면 밖 안짤리게 클램프 */
+/* 🪂 조종사 낙하산 = 전신 컷 이미지(몸통 전체 보장). 처음 조종석 크기→나오며 크게(가까이). 화면 밖 안짤리게 클램프
+   + 😱 얼굴이 시간에 따라 점점 빨갛게(오프스크린 source-atop 으로 스프라이트 위에만 착색) */
+var _pfx=null;
+function pilotFxCanvas(w,h){ if(!_pfx)_pfx=document.createElement('canvas'); if(_pfx.width!==w)_pfx.width=w; if(_pfx.height!==h)_pfx.height=h; return _pfx; }
 function drawPilot(p){
   if(!PILOT.ready) return;
   var sway=Math.sin(p.t*1.1);
   var grow = 0.16 + Math.min(1, p.t/2.5)*1.16;               // 조종석 크기(0.16) → 크게(1.32)
   var h=Math.min(150*SCALE*grow, H*0.86), pw=h*PILOT.w/PILOT.h;
   var dx=clampPos(p.x, pw*0.5, W), dy=clampPos(p.y, h*0.5, H);
+  // 오프스크린에 조종사 그린 뒤 얼굴만 빨갛게 착색
+  var fw=Math.max(2,Math.ceil(pw)), fh=Math.max(2,Math.ceil(h));
+  var fx=pilotFxCanvas(fw,fh), fc=fx.getContext('2d');
+  fc.clearRect(0,0,fw,fh); fc.drawImage(PILOT.img, 0,0, fw, fh);
+  var red=Math.min(0.8, p.t*0.32);                           // 시간↑ → 얼굴 점점 빨갛게
+  if(red>0.02){
+    var cx=fw*0.524, cy=fh*0.558, fr=fw*0.30;                // PNG 얼굴 중심(297/567, 555/994)
+    fc.save(); fc.globalCompositeOperation='source-atop';    // 스프라이트 픽셀 위에만
+    var rg=fc.createRadialGradient(cx,cy,fr*0.15,cx,cy,fr);
+    rg.addColorStop(0,'rgba(210,32,24,'+red.toFixed(2)+')'); rg.addColorStop(1,'rgba(210,32,24,0)');
+    fc.fillStyle=rg; fc.fillRect(0,0,fw,fh); fc.restore();
+  }
   ctx.save(); ctx.translate(dx,dy); ctx.rotate(sway*0.09);
-  ctx.drawImage(PILOT.img, -pw/2, -h/2, pw, h);
+  ctx.drawImage(fx, -pw/2, -h/2, pw, h);
   ctx.restore();
   drawPilotBubble(dx, dy - h*0.42);   // 💬 "Oh no!" 말풍선(머리 위)
 }
@@ -1246,6 +1261,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260716004323 -->
+<!-- BUILD:20260716005005 -->
 </body>
 </html>

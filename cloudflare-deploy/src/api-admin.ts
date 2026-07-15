@@ -2004,6 +2004,86 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
     }
 
+    // 📥 강사 정보 대량 임포트 — 로스터(구글시트) 붙여넣기 업서트. english_name/korean_name 매칭.
+    //   body: { rows: [{ name?, korean_name?, english_name?, phone?, email?, kakao_id?,
+    //                    available_days?, available_hours?, mbti?, group_name?, status?, fee_per_10min?, active_region?, notes? }...], dry_run?: bool }
+    //   기존행=제공된(빈칸 아닌) 필드만 UPDATE(빈값은 건너뜀·기존값 보존), 없으면 INSERT. mbti 유효시 teacher_mbti(tp-id) 동기화(+사진).
+    if (method === 'POST' && path === '/api/admin/teacher-profiles/import') {
+      const _impActor = await getAdminActor(request, env as any);
+      if (_impActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 임포트할 수 없습니다.' }, 403);
+      try { await ensureTeacherProfilesSchema(); }
+      catch (e: any) { return json({ ok: false, error: '스키마 실패: ' + String(e?.message || e) }, 500); }
+      const body = await parseJsonBody(request);
+      const rows: any[] = (body && Array.isArray(body.rows)) ? body.rows : [];
+      const dryRun = !!(body && body.dry_run);
+      if (!rows.length) return invalidBody(['rows']);
+      const now = Date.now();
+      const existing: any = await env.DB.prepare(`SELECT id, korean_name, english_name FROM teacher_profiles`).all().catch(() => ({ results: [] }));
+      const byName = new Map<string, any>();
+      for (const t of (existing.results || [])) {
+        if (t.korean_name) byName.set(String(t.korean_name).trim().toLowerCase(), t);
+        if (t.english_name) byName.set(String(t.english_name).trim().toLowerCase(), t);
+      }
+      const UPD_COLS = ['korean_name','english_name','email','phone','kakao_id','group_name','status','available_days','available_hours','fee_per_10min','active_region','notes'];
+      const clean = (v: any) => { const s = (v == null ? '' : String(v)).trim(); return s === '' ? undefined : s; };
+      const validMbti = (v: any) => { const m = (v == null ? '' : String(v)).toUpperCase().trim(); return /^[IE][NS][TF][JP]$/.test(m) ? m : undefined; };
+      const results: any[] = [];
+      let created = 0, updated = 0, skipped = 0;
+      for (const raw of rows) {
+        const name = clean(raw.english_name) || clean(raw.name) || clean(raw.korean_name);
+        if (!name) { results.push({ name: null, action: 'skip', reason: 'no_name' }); skipped++; continue; }
+        const mbti = validMbti(raw.mbti);
+        const match = byName.get(name.toLowerCase());
+        const fields: any = {};
+        for (const c of UPD_COLS) { const val = clean(raw[c]); if (val !== undefined) fields[c] = val; }
+        if (clean(raw.name) && !fields.english_name) fields.english_name = clean(raw.name);
+        if (mbti) fields.mbti = mbti;
+        if (dryRun) {
+          results.push({ name, action: match ? 'update' : 'create', id: match ? match.id : null, fields: Object.keys(fields), mbti: mbti || null });
+          if (match) updated++; else created++;
+          continue;
+        }
+        try {
+          let tid = 0;
+          if (match) {
+            const keys = Object.keys(fields);
+            if (keys.length) {
+              const sets = keys.map(k => `${k} = ?`); sets.push('updated_at = ?');
+              const binds = keys.map(k => fields[k]); binds.push(now, match.id);
+              await env.DB.prepare(`UPDATE teacher_profiles SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+            }
+            tid = match.id; updated++;
+            results.push({ name, action: 'update', id: tid, changed: keys });
+          } else {
+            const kn = fields.korean_name || fields.english_name || name;
+            const en = fields.english_name || name;
+            const r = await env.DB.prepare(
+              `INSERT INTO teacher_profiles (korean_name, english_name, email, phone, kakao_id, group_name, status, available_days, available_hours, fee_per_10min, active_region, notes, mbti, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+            ).bind(kn, en, fields.email||null, fields.phone||null, fields.kakao_id||null, fields.group_name||null, fields.status||'활동중',
+                   fields.available_days||null, fields.available_hours||null, fields.fee_per_10min||null, fields.active_region||null, fields.notes||null, fields.mbti||null, now, now).run();
+            tid = Number(r.meta?.last_row_id || 0); created++;
+            byName.set(name.toLowerCase(), { id: tid, korean_name: kn, english_name: en });
+            results.push({ name, action: 'create', id: tid });
+          }
+          if (mbti && tid) {
+            try {
+              await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_mbti (teacher_uid TEXT PRIMARY KEY, teacher_name TEXT, mbti TEXT, hobby TEXT, teaching_style TEXT, intro TEXT, photo_url TEXT, updated_at INTEGER);`);
+              const prof: any = await env.DB.prepare(`SELECT korean_name, english_name, image_url FROM teacher_profiles WHERE id=?`).bind(tid).first();
+              await env.DB.prepare(
+                `INSERT INTO teacher_mbti (teacher_uid, teacher_name, mbti, photo_url, updated_at) VALUES (?,?,?,?,?)
+                 ON CONFLICT(teacher_uid) DO UPDATE SET teacher_name=excluded.teacher_name, mbti=excluded.mbti, photo_url=COALESCE(excluded.photo_url, teacher_mbti.photo_url), updated_at=excluded.updated_at`
+              ).bind('tp-' + tid, (prof?.korean_name || prof?.english_name || name), mbti, (prof?.image_url || null), now).run();
+            } catch { /* 그래프 동기화 best-effort */ }
+          }
+        } catch (e: any) {
+          skipped++;
+          results.push({ name, action: 'error', error: String(e?.message || e) });
+        }
+      }
+      return json({ ok: true, dry_run: dryRun, summary: { created, updated, skipped, total: rows.length }, results });
+    }
+
     // /:id 단건 (GET / PATCH / DELETE)
     const tpMatch = path.match(/^\/api\/admin\/teacher-profiles\/(\d+)$/);
     if (tpMatch) {

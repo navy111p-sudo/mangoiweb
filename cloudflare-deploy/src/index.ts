@@ -737,6 +737,7 @@ const worker = {
         path === '/api/admin/students/merge-duplicates' ||
         /^\/api\/admin\/class-schedules\/\d+$/.test(path) ||
         path === '/api/admin/teacher-profiles' ||
+        path === '/api/admin/teacher-profiles/import' ||
         /^\/api\/admin\/teacher-profiles\/\d+$/.test(path) ||
         path === '/api/admin/teachers' ||
         /^\/api\/admin\/teachers\/\d+$/.test(path) ||
@@ -3617,7 +3618,7 @@ function isAdminPath(path: string, method: string): boolean {
   // 💼 강사 급여·평가 (Phase 8) — 관리자 전용
   if (path === '/api/admin/teachers' || /^\/api\/admin\/teachers\/\d+$/.test(path)) return true;
   // 🥭 Phase 34 — 강사 정보 (Teacher Profiles)
-  if (path === '/api/admin/teacher-profiles' || /^\/api\/admin\/teacher-profiles\/\d+$/.test(path)) return true;
+  if (path === '/api/admin/teacher-profiles' || path === '/api/admin/teacher-profiles/import' || /^\/api\/admin\/teacher-profiles\/\d+$/.test(path)) return true;
   if (path === '/api/admin/teacher-hours') return true;          // (deprecated, 호환성)
   if (path === '/api/admin/teacher-classes') return true;
   if (path === '/api/admin/teacher-evaluation') return true;
