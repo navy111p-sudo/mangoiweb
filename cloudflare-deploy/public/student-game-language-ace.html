@@ -874,9 +874,10 @@ function spBeginSpeak(){
   var mic=document.getElementById('spMic'); mic.classList.remove('hide'); mic.textContent='🎤 탭해서 말하기'; mic.disabled=false;
 }
 function spDoRep(){
-  var mic=document.getElementById('spMic'); mic.disabled=true; mic.textContent='🎙️ 듣는 중…';
+  var mic=document.getElementById('spMic'); mic.disabled=true; mic.textContent='🔴 녹음 중…'; mic.classList.add('recording');   // 녹음 중=빨강
   spHeard('말해보세요…');
   listenOnce(function(ok, said){
+    mic.classList.remove('recording');    // 녹음 끝 → 빨강 해제
     var idx=SP.done; SP.done++; if(ok) SP.ok++;
     spSetDot(idx, ok);
     spHeard(said ? ('들린 말: <b>'+esc(said)+'</b> '+(ok?'✅':'❌')) : '❌ 잘 안 들렸어요');
@@ -1245,6 +1246,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260716004213 -->
+<!-- BUILD:20260716004323 -->
 </body>
 </html>
