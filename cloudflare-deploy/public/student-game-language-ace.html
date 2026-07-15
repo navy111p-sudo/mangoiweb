@@ -81,6 +81,24 @@
   #overStat{font-size:17px;color:#dbe6f2;margin:8px 0 2px;line-height:1.7}
   #overStat b{color:#ffd479;font-size:22px}
 
+  /* 말하기 연습 오버레이 */
+  .spPhase{font-size:22px;font-weight:900;color:#ffd479;text-shadow:0 2px 6px #000;text-align:center}
+  .spSent{font-size:32px;font-weight:900;color:#fff;margin:12px 0 2px;line-height:1.35;max-width:92%;text-align:center;
+    text-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .spSent .py{font-size:15px;color:#7fd1ff;font-weight:700}
+  .spKo{font-size:16px;color:#b8c6d6;margin-bottom:4px;text-align:center}
+  .spDots{display:flex;gap:12px;margin:14px 0 6px}
+  .spDot{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.25);
+    display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#8aa0b8;transition:.15s}
+  .spDot.ok{background:linear-gradient(180deg,#2e7d46,#1c5a30);border-color:#41d178;color:#d8ffe4}
+  .spDot.no{background:linear-gradient(180deg,#7d2e2e,#5a1c1c);border-color:#ef4444;color:#ffd8d8}
+  .spDot.cur{border-color:#ffd479;box-shadow:0 0 12px rgba(255,190,60,.6);animation:pulseTok .9s ease-in-out infinite}
+  .spHeard{font-size:15px;color:#cdd9e6;min-height:24px;margin-top:4px;text-align:center;max-width:90%}
+  .spHeard b{color:#7fd1ff}
+  .spSkip{margin-top:16px;background:none;border:1px solid rgba(140,165,195,.4);color:#9fb0c4;
+    padding:8px 18px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+  .spSkip:active{transform:scale(.96)}
+
   /* 단어 발음 팝업 */
   #wordpop{position:absolute;z-index:15;display:none;pointer-events:none;
     background:rgba(12,20,28,.94);border:1px solid #ffd479;border-radius:9px;padding:5px 11px;
@@ -147,6 +165,17 @@
     <div class="oTitle" id="overTitle">임무 완료!</div>
     <div id="overStat"></div>
     <button class="bigBtn" id="btnAgain">🔄 다시 출격</button>
+  </div>
+
+  <!-- 말하기 연습 화면(문장 완성 시): 듣기 3번 → 따라 말하기 3번 -->
+  <div class="overlay hide" id="speak">
+    <div class="spPhase" id="spPhase">🔊 잘 들어보세요</div>
+    <div class="spSent" id="spSent">—</div>
+    <div class="spKo" id="spKo"></div>
+    <div class="spDots" id="spDots"></div>
+    <div class="spHeard" id="spHeard"></div>
+    <button class="bigBtn hide" id="spMic">🎤 탭해서 말하기</button>
+    <button class="spSkip" id="spSkip">건너뛰기 ▶</button>
   </div>
 </div>
 
@@ -414,7 +443,7 @@ var G = null;
 function newGame(){
   var order = shuffle(SETS[MODE].slice());
   G = {
-    running:false, over:false, paused:false,
+    running:false, over:false, paused:false, speaking:false,   // speaking=문장완성 후 말하기연습(게임 일시정지)
     score:0, time:60, timeMax:60, hearts:3, clears:0, correct:0,   // clears=완성 문장 / correct=정답 단어 명중(승리 판정 단위)
     px:W/2, py:H*0.72, tx:W/2, ty:H*0.72,   // player pos & target
     firing:false, fireT:0, invuln:0, shake:0, flash:0,
@@ -540,8 +569,8 @@ function explode(x,y,big){
    ════════════════════════════════════════════════════════════ */
 function ptr(ev){ var r=cv.getBoundingClientRect(); var t=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
   return {x:t.clientX-r.left, y:t.clientY-r.top}; }
-cv.addEventListener('pointermove',function(ev){ if(!G||!G.running)return; var p=ptr(ev); G.tx=p.x; G.ty=p.y; });
-cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running)return; audio(); if(AC&&AC.state==='suspended')AC.resume();
+cv.addEventListener('pointermove',function(ev){ if(!G||!G.running||G.speaking)return; var p=ptr(ev); G.tx=p.x; G.ty=p.y; });
+cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running||G.speaking)return; audio(); if(AC&&AC.state==='suspended')AC.resume();
   var p=ptr(ev); G.tx=p.x; G.ty=p.y; G.firing=true; playerFire(); });
 window.addEventListener('pointerup',function(){ if(G)G.firing=false; });
 cv.addEventListener('contextmenu',function(e){e.preventDefault();});
@@ -550,7 +579,7 @@ cv.addEventListener('contextmenu',function(e){e.preventDefault();});
    13. 업데이트
    ════════════════════════════════════════════════════════════ */
 function update(dt){
-  if(!G.running||G.paused) return;
+  if(!G.running||G.paused||G.speaking) return;   // 말하기연습 중엔 게임/타이머 정지
   // 시간
   G.time -= dt; if(G.time<=0){ G.time=0; return endGame(false); }
   bdScroll = (bdScroll + dt*90*SPMUL) % bdH;
@@ -637,14 +666,129 @@ function resolveHit(en){
 }
 function sentenceComplete(){
   G.clears++;
-  var full = G.sent.w.join(MODE==='zh'?'':' ');
-  speak(full, 0.92, 2);
-  G.score += 300; G.time=Math.min(G.timeMax, G.time+5);
+  G.score += 300; G.time=Math.min(G.timeMax, G.time+5);   // 보너스 점수 + 시간
   banner('✦ 문장 완성! +300 ✦', '#ffd479');
   updateHUD();
-  loadSentence();   // 승리 판정은 정답 단어 수(GOAL)로 resolveHit 에서 처리 → 여기선 항상 다음 문장
+  startSpeaking();   // 🎤 듣기 3번 → 따라 말하기 3번 연습(게임 일시정지). 끝나면 다음 문장
 }
-function winGame(){ if(!G||!G.running)return; G.running=false; setTimeout(function(){ endGame(true); }, 900); }  // 마지막 폭발/발음만 재생 후 종료
+function winGame(){ if(!G||!G.running)return; G.running=false; G.speaking=false;
+  try{ document.getElementById('speak').classList.add('hide'); }catch(_){}
+  setTimeout(function(){ endGame(true); }, 900); }  // 마지막 폭발/발음만 재생 후 종료
+
+/* ════════════════════════════════════════════════════════════
+   말하기 연습 — 듣기 3번 → 따라 말하기 3번(음성인식) → 모두 성공 시 추가 포인트 / 실패 시 같은 문장 재도전
+   ════════════════════════════════════════════════════════════ */
+var SP=null;
+function spFull(){ return SP.sent.w.join(MODE==='zh'?'':' '); }
+function dotsHtml(n,cur){ var s=''; for(var i=0;i<n;i++){ s+='<div class="spDot'+(i===cur?' cur':'')+'">'+(i+1)+'</div>'; } return s; }
+function spSetDot(i,ok){ var d=document.querySelectorAll('#spDots .spDot'); if(!d[i])return;
+  d[i].classList.remove('cur'); d[i].classList.add(ok?'ok':'no'); d[i].textContent=ok?'✓':'✗';
+  if(d[i+1]) d[i+1].classList.add('cur'); }
+function spPhase(t){ document.getElementById('spPhase').textContent=t; }
+function spHeard(html){ document.getElementById('spHeard').innerHTML=html||''; }
+
+function startSpeaking(){
+  SP={ sent:G.sent, done:0, ok:0 };
+  G.speaking=true; bgmStop();
+  document.getElementById('speak').classList.remove('hide');
+  // 문장 표시(zh는 병음 함께)
+  var host=document.getElementById('spSent'); host.innerHTML='';
+  SP.sent.w.forEach(function(w,i){ var py=glossPy(w);
+    host.insertAdjacentHTML('beforeend','<span>'+(i&&MODE!=='zh'?' ':'')+esc(w)+(py?'<span class="py"> '+py+'</span>':'')+'</span>'); });
+  document.getElementById('spKo').textContent='🔊 '+SP.sent.ko;
+  spListen();
+}
+function spListen(){
+  document.getElementById('spMic').classList.add('hide');
+  document.getElementById('spDots').innerHTML=dotsHtml(3,-1);
+  spHeard(''); spPhase('🔊 잘 들어보세요 (3번)');
+  speakTimes(spFull(), 0.88, 3, spBeginSpeak);
+}
+function spBeginSpeak(){
+  SP.done=0; SP.ok=0;
+  document.getElementById('spDots').innerHTML=dotsHtml(3,0);
+  spPhase('🎤 따라 말해보세요! (1/3)');
+  spHeard('아래 버튼을 <b>탭</b>하고 문장을 말하세요');
+  var mic=document.getElementById('spMic'); mic.classList.remove('hide'); mic.textContent='🎤 탭해서 말하기'; mic.disabled=false;
+}
+function spDoRep(){
+  var mic=document.getElementById('spMic'); mic.disabled=true; mic.textContent='🎙️ 듣는 중…';
+  spHeard('말해보세요…');
+  listenOnce(function(ok, said){
+    var idx=SP.done; SP.done++; if(ok) SP.ok++;
+    spSetDot(idx, ok);
+    spHeard(said ? ('들린 말: <b>'+esc(said)+'</b> '+(ok?'✅':'❌')) : '❌ 잘 안 들렸어요');
+    if(ok) sndPickup(); else sndBuzz();
+    if(SP.done<3){
+      spPhase('🎤 따라 말해보세요! ('+(SP.done+1)+'/3)');
+      mic.disabled=false; mic.textContent='🎤 탭해서 말하기';
+    } else { mic.classList.add('hide'); setTimeout(spResult, 1000); }
+  });
+}
+function spResult(){
+  if(SP.ok>=3){
+    G.score += 150; updateHUD();                       // ✅ 모두 성공 → 추가 포인트
+    spPhase('🏆 완벽해요! 추가 +150');
+    spHeard('세 번 모두 성공! 🎉');
+    speak(spFull(), 0.95, 1);
+    setTimeout(spNext, 1700);
+  } else {
+    spPhase('💪 아쉬워요! 다시 해볼까요? ('+SP.ok+'/3)');   // ❌ 실패 → 같은 문장 재도전
+    spHeard('같은 문장을 다시 들려줄게요…');
+    setTimeout(spListen, 1800);
+  }
+}
+function spNext(){ document.getElementById('speak').classList.add('hide'); G.speaking=false;
+  if(!muted) bgmStart(); loadSentence(); }
+function spSkip(){ try{ speechSynthesis.cancel(); }catch(_){} document.getElementById('speak').classList.add('hide');
+  G.speaking=false; if(!muted) bgmStart(); loadSentence(); }
+
+/* TTS N회 반복 후 콜백(끝 이벤트 유실 대비 안전 타임아웃) */
+function speakTimes(text, rate, times, cb){
+  var called=false; function fin(){ if(called)return; called=true; if(cb) cb(); }
+  if(muted){ setTimeout(fin, 600); return; }
+  try{ speechSynthesis.cancel(); }catch(_){}
+  var lang=LANGMETA[MODE].tts, v=pickVoice(lang), n=0;
+  var est=Math.max(2600, text.length*150)*times;
+  var safety=setTimeout(fin, est+2000);
+  function once(){ n++;
+    try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.9; if(v)u.voice=v;
+      u.onend=function(){ if(n<times) setTimeout(once,450); else { clearTimeout(safety); fin(); } };
+      u.onerror=function(){ if(n<times) setTimeout(once,450); else { clearTimeout(safety); fin(); } };
+      speechSynthesis.speak(u);
+    }catch(_){ clearTimeout(safety); fin(); }
+  }
+  once();
+}
+/* 음성인식 1회 — 미지원/오류는 통과(soft-lock 방지) */
+function listenOnce(cb){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ cb(true,'(음성인식 미지원 · 통과)'); return; }
+  var rec; try{ rec=new SR(); }catch(_){ cb(true,'(통과)'); return; }
+  rec.lang=(MODE==='zh'?'zh-CN':'en-US'); rec.interimResults=false; rec.maxAlternatives=3; rec.continuous=false;
+  var done=false; function finish(ok,txt){ if(done)return; done=true; try{rec.stop();}catch(_){}; cb(ok,txt); }
+  rec.onresult=function(e){ var target=spFull(), best='', ok=false, alts=e.results[0];
+    for(var i=0;i<alts.length;i++){ var tx=alts[i].transcript; if(!best)best=tx; if(matchSentence(tx,target)){ ok=true; best=tx; break; } }
+    finish(ok, best); };
+  rec.onerror=function(){ finish(false,''); };
+  rec.onend=function(){ finish(false,''); };
+  try{ rec.start(); }catch(_){ finish(false,''); return; }
+  setTimeout(function(){ finish(false,''); }, 8000);   // 8초 타임아웃
+}
+/* 발화 vs 정답 문장 매칭(관대) — en=단어 65%↑, zh=글자 70%↑ */
+function matchSentence(said, target){
+  if(!said) return false;
+  if(MODE==='zh'){
+    var s=said.replace(/[\s，。,.!?！？、]/g,''), t=target.replace(/[\s，。,.!?！？、]/g,'');
+    if(!t) return false; var hit=0; for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; }
+    return hit/t.length >= 0.7;
+  }
+  function norm(x){ return x.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
+  var sw=norm(said), tw=norm(target); if(!tw.length) return false;
+  var setS={}; sw.forEach(function(w){ setS[w]=1; });
+  var hit2=0; tw.forEach(function(w){ if(setS[w]) hit2++; });
+  return hit2/tw.length >= 0.65;
+}
 function collectFuel(fu){ explode(fu.x,fu.y,false); sndPickup();
   G.time=Math.min(G.timeMax, G.time+8); G.score+=30;
   for(var i=0;i<8;i++){ var a=Math.random()*6.28; G.parts.push({x:fu.x,y:fu.y,vx:Math.cos(a)*90,vy:Math.sin(a)*90-40,
@@ -860,9 +1004,12 @@ document.getElementById('btnAgain').addEventListener('click', startGame);
 document.getElementById('btnMute').addEventListener('click',function(){ muted=!muted; this.textContent=muted?'🔇':'🔊';
   if(muted){ bgmStop(); try{speechSynthesis.cancel();}catch(_){} }
   else if(G&&G.running&&!G.paused){ bgmStart(); } });
-document.getElementById('btnPause').addEventListener('click',function(){ if(!G||!G.running)return; G.paused=!G.paused; this.textContent=G.paused?'▶️':'⏸️';
+document.getElementById('btnPause').addEventListener('click',function(){ if(!G||!G.running||G.speaking)return; G.paused=!G.paused; this.textContent=G.paused?'▶️':'⏸️';
   if(G.paused){ bgmStop(); banner('⏸️ 일시정지','#cdd9e6'); } else { bgmStart(); } });
 document.addEventListener('visibilitychange',function(){ if(G&&G.running&&document.hidden){ G.paused=true; bgmStop(); document.getElementById('btnPause').textContent='▶️'; } });
+// 말하기 연습 버튼
+document.getElementById('spMic').addEventListener('click', function(){ if(SP) spDoRep(); });
+document.getElementById('spSkip').addEventListener('click', function(){ if(SP) spSkip(); });
 
 /* ════════════════════════════════════════════════════════════
    20. 유틸
@@ -875,6 +1022,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715062507 -->
+<!-- BUILD:20260715143933 -->
 </body>
 </html>
