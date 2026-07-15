@@ -207,6 +207,8 @@ var MODE  = (function(){ var g=QS.get('glang'); if(g==='zh'||g==='en') return g;
   try{ var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(_){ return 'en'; } })();
 var SPMUL = 0.8 + SPEED*0.16;            // 속도 배수(1..5 → 0.96..1.6)
 var DIFF  = 0.85 + STAGE*0.18;           // 난이도 배수
+// 🌤️ 배경 시간대: day(하늘색+구름) | evening(밤하늘+별·달·별똥별)
+var SKY = (function(){ try{ var s=localStorage.getItem('mangoi_langace_sky'); return (s==='evening')?'evening':'day'; }catch(_){ return 'day'; } })();
 
 /* ════════════════════════════════════════════════════════════
    1. 데이터 — 문장 세트(영/중) · 단어 뜻/병음
@@ -466,25 +468,63 @@ function buildBackdrop(){
   bdH = Math.max(H*2, 1200);
   bd = document.createElement('canvas'); bd.width=Math.max(1,Math.round(W)); bd.height=bdH;
   var g=bd.getContext('2d');
-  // 맑은 하늘색 그라데이션(위=진한 하늘, 아래=옅은 하늘)
+  function rnd(s){ var x=Math.sin(s*99.7)*43758.5; return x-Math.floor(x); }
+  if(SKY==='evening'){
+    // 🌙 저녁/밤 하늘 그라데이션(짙은 남색 → 보랏빛)
+    var nsky=g.createLinearGradient(0,0,0,bdH); nsky.addColorStop(0,'#0b1330'); nsky.addColorStop(0.5,'#1a2450'); nsky.addColorStop(1,'#3a3560');
+    g.fillStyle=nsky; g.fillRect(0,0,bd.width,bdH);
+    // ⭐ 별 — 밝기·크기 랜덤, 일부는 십자 반짝임
+    var stars=Math.round(bd.width*bdH/2600);
+    for(var i=0;i<stars;i++){ var sx=rnd(i)*bd.width, sy=rnd(i+7)*bdH, sr=rnd(i+3)*1.5+0.4, sa=0.35+rnd(i+9)*0.65;
+      g.fillStyle='rgba(255,255,255,'+sa.toFixed(2)+')'; g.beginPath(); g.arc(sx,sy,sr,0,7); g.fill();
+      if(rnd(i+13)>0.9){ g.strokeStyle='rgba(255,255,255,'+(sa*0.5).toFixed(2)+')'; g.lineWidth=0.7;
+        g.beginPath(); g.moveTo(sx-3.5,sy); g.lineTo(sx+3.5,sy); g.moveTo(sx,sy-3.5); g.lineTo(sx,sy+3.5); g.stroke(); } }
+    // 옅은 밤 구름(어둡게, 성글게)
+    for(var c=0;c<8;c++){ drawCloud(g, rnd(c+40)*bd.width, rnd(c+50)*bdH, 0.7+rnd(c+3)*0.9, c+1, true); }
+    return;
+  }
+  // ☀️ 낮 — 맑은 하늘색 그라데이션 + 뭉게구름
   var sky=g.createLinearGradient(0,0,0,bdH); sky.addColorStop(0,'#4aa8ea'); sky.addColorStop(0.5,'#7cc6f2');
   sky.addColorStop(1,'#b9e4fb'); g.fillStyle=sky; g.fillRect(0,0,bd.width,bdH);
-  function rnd(s){ var x=Math.sin(s*99.7)*43758.5; return x-Math.floor(x); }
-  // 뭉게구름(cumulus) 다수 — 아래로 흐르며 전진감
   var n=Math.max(9, Math.round(bdH/140));
-  for(var i=0;i<n;i++){ drawCloud(g, rnd(i)*bd.width, rnd(i+7)*bdH, 0.7+rnd(i+3)*1.2, i+1); }
+  for(var i2=0;i2<n;i2++){ drawCloud(g, rnd(i2)*bd.width, rnd(i2+7)*bdH, 0.7+rnd(i2+3)*1.2, i2+1); }
 }
-/* 뭉게구름 한 덩이 = 겹친 흰 퍼프 + 옅은 회색 밑면(볼륨감) */
-function drawCloud(g,x,y,s,seed){
+/* 🌙 달 — 은은한 글로우 + 크레이터(고정 위치로 render 에서 호출) */
+function drawMoonAt(g,x,y,r){
+  var gl=g.createRadialGradient(x,y,r*0.55,x,y,r*2.5); gl.addColorStop(0,'rgba(255,250,225,.45)'); gl.addColorStop(1,'rgba(255,250,225,0)');
+  g.fillStyle=gl; g.beginPath(); g.arc(x,y,r*2.5,0,7); g.fill();
+  var mg=g.createRadialGradient(x-r*0.3,y-r*0.3,r*0.2,x,y,r); mg.addColorStop(0,'#fffdf2'); mg.addColorStop(1,'#e6dfbe');
+  g.fillStyle=mg; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+  g.fillStyle='rgba(198,190,158,.55)';
+  [[0.32,-0.22,0.17],[-0.28,0.26,0.12],[0.12,0.38,0.1],[-0.35,-0.28,0.08]].forEach(function(c){ g.beginPath(); g.arc(x+c[0]*r,y+c[1]*r,c[2]*r,0,7); g.fill(); });
+}
+/* 🌠 별똥별 — 저녁에만, 가끔 사선으로 지나가며 사라짐 */
+var _shoot={list:[], next:1.2, last:0};
+function drawShooters(){
+  if(SKY!=='evening') return;
+  var now=performance.now(), dt=_shoot.last?(now-_shoot.last)/1000:0; _shoot.last=now; if(dt>0.06)dt=0.06;
+  _shoot.next-=dt;
+  if(_shoot.next<=0){ _shoot.next=1.0+Math.random()*3.2;
+    _shoot.list.push({x:Math.random()*W*0.8, y:Math.random()*H*0.3, vx:(190+Math.random()*170), vy:(110+Math.random()*90), life:0, max:0.7+Math.random()*0.5}); }
+  for(var i=_shoot.list.length-1;i>=0;i--){ var s=_shoot.list[i]; s.life+=dt; if(s.life>=s.max){ _shoot.list.splice(i,1); continue; }
+    s.x+=s.vx*dt; s.y+=s.vy*dt;
+    var k=1-s.life/s.max, ang=Math.atan2(s.vy,s.vx), L=70, tx=s.x-Math.cos(ang)*L, ty=s.y-Math.sin(ang)*L;
+    var gr=ctx.createLinearGradient(tx,ty,s.x,s.y); gr.addColorStop(0,'rgba(255,255,255,0)'); gr.addColorStop(1,'rgba(255,255,255,'+k.toFixed(2)+')');
+    ctx.strokeStyle=gr; ctx.lineWidth=2.2; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(s.x,s.y); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,'+k.toFixed(2)+')'; ctx.beginPath(); ctx.arc(s.x,s.y,2.1,0,7); ctx.fill(); }
+}
+/* 뭉게구름 한 덩이 = 겹친 퍼프 + 옅은 밑면(볼륨감). dark=true 면 밤 구름(어둡게) */
+function drawCloud(g,x,y,s,seed,dark){
   function rnd(k){ var v=Math.sin(seed*13.1+k*7.3)*43758.5; return v-Math.floor(v); }
   var puffs=5+Math.floor(rnd(1)*4);
-  // 밑면 옅은 회색(입체감)
+  var body = dark ? ['rgba(60,72,104,','rgba(46,56,88,'] : ['rgba(255,255,255,','rgba(188,206,224,'];
+  // 밑면(입체감)
   for(var k=0;k<puffs;k++){ var px=x+(k-(puffs-1)/2)*34*s+(rnd(k)*20-10)*s, py=y+8*s+rnd(k+30)*10*s, r=(26+rnd(k+10)*20)*s;
-    var sg=g.createRadialGradient(px,py,0,px,py,r); sg.addColorStop(0,'rgba(188,206,224,.85)'); sg.addColorStop(1,'rgba(188,206,224,0)');
+    var sg=g.createRadialGradient(px,py,0,px,py,r); sg.addColorStop(0,body[1]+(dark?'.75)':'.85)')); sg.addColorStop(1,body[1]+'0)');
     g.fillStyle=sg; g.beginPath(); g.arc(px,py,r,0,7); g.fill(); }
-  // 흰 본체 퍼프
+  // 본체 퍼프
   for(var k2=0;k2<puffs;k2++){ var px2=x+(k2-(puffs-1)/2)*32*s+(rnd(k2+3)*16-8)*s, py2=y-rnd(k2+5)*14*s, r2=(30+rnd(k2+2)*22)*s;
-    var wg=g.createRadialGradient(px2,py2-r2*0.25,r2*0.2,px2,py2,r2); wg.addColorStop(0,'#ffffff'); wg.addColorStop(.72,'rgba(255,255,255,.97)'); wg.addColorStop(1,'rgba(255,255,255,0)');
+    var wg=g.createRadialGradient(px2,py2-r2*0.25,r2*0.2,px2,py2,r2); wg.addColorStop(0,body[0]+'1)'); wg.addColorStop(.72,body[0]+(dark?'.9)':'.97)')); wg.addColorStop(1,body[0]+'0)');
     g.fillStyle=wg; g.beginPath(); g.arc(px2,py2,r2,0,7); g.fill(); }
 }
 
@@ -907,6 +947,8 @@ function render(){
   // 배경(2회 타일 스크롤)
   if(bd){ var off = bdScroll; ctx.drawImage(bd,0,off-bdH); ctx.drawImage(bd,0,off); }
   else { ctx.fillStyle='#2b3d4f'; ctx.fillRect(0,0,W,H); }
+  // 🌙 저녁: 달(고정) + 🌠 별똥별(애니메이션) — 배경 위, 게임요소 아래
+  if(SKY==='evening'){ drawMoonAt(ctx, W*0.82, H*0.15, 30*(SCALE>1?1.5:1)); drawShooters(); }
 
   if(G){
     // 연료
@@ -947,29 +989,16 @@ function drawPlayer(){
   ctx.restore();
 }
 /* 🪂 조종사 낙하산 — 격추 후 천천히 하강하며 좌우로 흔들림. 실사 영상(크로마키) 우선, 실패 시 PNG */
+/* 화면 밖으로 짤리지 않게 그리기 중심을 클램프(피사체가 화면 안에 통째로 보이도록) */
+function clampPos(v, half, span){ var a=half+6, b=span-half-6; if(a>b) return span/2; return v<a?a:(v>b?b:v); }
+/* 🪂 조종사 낙하산 = 전신 컷 이미지(몸통 전체 보장). 처음 조종석 크기→나오며 크게(가까이). 화면 밖 안짤리게 클램프 */
 function drawPilot(p){
-  var v=PVID.vid, sway=Math.sin(p.t*1.1);
-  // 🔎 처음엔 작게 → 점점 크게(가까이 다가오는 느낌): 0.42배 → 1.5배로 확대
-  var grow = 0.42 + Math.min(1, p.t/2.4)*1.08;
-  if(PVID.ready && v && v.readyState>=2){
-    var kc=PVID.kcv, kx=PVID.kctx, w0=kc.width, h0=kc.height;
-    kx.clearRect(0,0,w0,h0); kx.drawImage(v,0,0,w0,h0);
-    try{
-      var im=kx.getImageData(0,0,w0,h0), d=im.data;
-      for(var i=0;i<d.length;i+=4){ var r=d[i],g=d[i+1],b=d[i+2],mx=(r>b?r:b),ex=g-mx;
-        if(ex>55) d[i+3]=0;                                   // 초록 배경 제거
-        else if(ex>34){ d[i+3]=(255-(ex-34)*12)|0; d[i+1]=mx+8; } }  // 가장자리 반투명+그린 스필 억제
-      kx.putImageData(im,0,0);
-    }catch(_){}
-    var dh=180*SCALE*grow, w=dh*w0/h0;
-    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(sway*0.05);
-    ctx.drawImage(kc, -w/2, -dh/2, w, dh);
-    ctx.restore();
-    return;
-  }
-  if(!PILOT.ready) return;                                   // 폴백: 정지 이미지
-  var h=150*SCALE*grow, pw=h*PILOT.w/PILOT.h;
-  ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(sway*0.1);
+  if(!PILOT.ready) return;
+  var sway=Math.sin(p.t*1.1);
+  var grow = 0.16 + Math.min(1, p.t/2.5)*1.16;               // 조종석 크기(0.16) → 크게(1.32)
+  var h=Math.min(150*SCALE*grow, H*0.86), pw=h*PILOT.w/PILOT.h;
+  var dx=clampPos(p.x, pw*0.5, W), dy=clampPos(p.y, h*0.5, H);
+  ctx.save(); ctx.translate(dx,dy); ctx.rotate(sway*0.09);
   ctx.drawImage(PILOT.img, -pw/2, -h/2, pw, h);
   ctx.restore();
 }
@@ -1164,6 +1193,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260715160922 -->
+<!-- BUILD:20260715162646 -->
 </body>
 </html>
