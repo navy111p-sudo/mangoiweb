@@ -21,26 +21,27 @@
   #wrap{position:fixed;inset:0;overflow:hidden}
   canvas{display:block;position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
 
-  /* ── 상단 문장 바 ── */
-  #topbar{position:absolute;top:0;left:0;right:0;z-index:6;padding:8px 12px 10px;
-    background:linear-gradient(180deg,rgba(8,14,20,.92),rgba(8,14,20,.55) 70%,transparent);
-    pointer-events:none}
-  #sentKo{font-size:14px;color:#ffd479;text-align:center;font-weight:700;letter-spacing:.3px;
-    text-shadow:0 1px 3px #000}
-  #sentEn{margin-top:5px;display:flex;flex-wrap:wrap;gap:5px 7px;justify-content:center;align-items:center}
+  /* ── 상단 문장 바 (배경 박스 없이 글자만 — 전투기 가림 방지) ── */
+  #topbar{position:absolute;top:0;left:0;right:0;z-index:6;padding:5px 12px 2px;
+    background:transparent; pointer-events:none}
+  #sentKo{font-size:13px;color:#ffe07a;text-align:center;font-weight:800;letter-spacing:.3px;
+    text-shadow:0 1px 2px #000,0 0 5px rgba(0,0,0,.85),-1px 0 2px #000,1px 0 2px #000}
+  #sentEn{margin-top:2px;display:flex;flex-wrap:wrap;gap:1px 10px;justify-content:center;align-items:flex-start}
   /* 🈶 한자 자형 통일 — 정식 중국어 폰트(YaHei/PingFang) 우선, 라틴은 Segoe */
   .wtok, .spSent{ font-family:'Segoe UI','Microsoft YaHei','微软雅黑','PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
-  .wtok{font-size:28px;font-weight:800;padding:5px 13px;border-radius:9px;line-height:1.15;
-    background:rgba(20,30,42,.7);color:#5f7089;border:1px solid rgba(120,140,170,.25);
-    text-shadow:0 1px 3px #000;transition:.15s}
-  .wtok .py{display:block;font-size:15px;font-weight:600;color:#7d8ba0;margin-top:1px}
-  .wtok.done{background:linear-gradient(180deg,#2e7d46,#1c5a30);color:#d8ffe4;border-color:#41d178}
-  .wtok.done .py{color:#a5e6bd}
-  .wtok.next{background:linear-gradient(180deg,#c9942a,#a2711a);color:#fff6da;border-color:#ffd479;
-    box-shadow:0 0 0 2px rgba(255,212,121,.5),0 0 14px rgba(255,190,60,.55);
-    animation:pulseTok .9s ease-in-out infinite}
+  /* 배경/테두리 제거 = 글자만. 상태는 '글자색'으로 표시 */
+  .wtok{font-size:19px;font-weight:900;padding:0;border:0;border-radius:0;line-height:1.05;
+    background:none;color:#eef5ff;text-align:center;transition:color .2s;
+    text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.95),-1px 0 2px #000,1px 0 2px #000,0 -1px 2px #000}
+  .wtok .py{display:block;font-size:11px;font-weight:800;color:#e3ecf7;margin-top:0;
+    text-shadow:0 1px 2px #000,0 0 3px rgba(0,0,0,.9)}
+  .wtok.done{color:#74ffa6}                       /* 완료 = 초록 글자 */
+  .wtok.done .py{color:#b6f2cc}
+  .wtok.next{color:#ffd84a; animation:tokColor .8s ease-in-out infinite}  /* 지금 맞출 단어 = 노랑 + 색 깜빡임 */
   .wtok.next .py{color:#ffe9b8}
-  @keyframes pulseTok{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  @keyframes tokColor{
+    0%,100%{color:#ffd84a;text-shadow:0 1px 2px #000,0 0 8px rgba(255,205,60,.95),-1px 0 2px #000,1px 0 2px #000}
+    50%    {color:#fff6a0;text-shadow:0 1px 2px #000,0 0 15px rgba(255,225,90,1),-1px 0 2px #000,1px 0 2px #000} }
 
   /* ── HUD ── */
   #hud{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:8px 12px 10px;
@@ -954,6 +955,7 @@ function resolveHit(en){
     else renderSentence();
   } else {
     explode(en.x,en.y,false); sndBuzz();
+    speak(en.word, 0.95, 1);                       // 쏴서 맞춘 비행기의 단어는 오답이어도 발음해 준다(듣고 학습)
     pushProg(en.word,false);
     G.time=Math.max(0,G.time-2.5);
     G.flash=0.25;
@@ -1463,6 +1465,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260718051714 -->
+<!-- BUILD:20260718054406 -->
 </body>
 </html>
