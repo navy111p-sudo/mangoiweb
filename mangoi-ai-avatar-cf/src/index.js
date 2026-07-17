@@ -499,8 +499,39 @@ async function handleTTS(request, env) {
   });
 }
 __name(handleTTS, "handleTTS");
-// 무료 서버 TTS — Google 번역 TTS(무키·크레딧 0). 브라우저 speechSynthesis가 없는
-// 환경(안드로이드 앱 WebView, 한국어 음성 미설치 PC)에서도 소리가 나도록 하는 1순위 경로.
+// ── 여성 음성 서버 TTS(Workers AI) — 상담직원은 "여자 목소리"여야 해서 화자를 고를 수 있는
+//    Workers AI 모델을 1순위로 쓴다: ko=MeloTTS(kr, 여성) · en=Aura-2(asteria, 여성).
+//    Google 번역 TTS는 화자 선택이 불가(한국어 기본음이 남자처럼 들림) → 폴백으로 강등.
+//    ※ Edge readaloud 무료 API·StreamElements는 2026-07 현재 폐쇄(404/401)라 사용 불가.
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return u8;
+}
+__name(b64ToBytes, "b64ToBytes");
+async function aiFemaleTTS(env, text, tl) {
+  if (!env.AI) throw new Error("no_ai_binding");
+  // ko: MeloTTS(kr)는 한국어를 제대로 발화 못함(웅얼거림, Whisper 전사로 확인) → Google 폴백 사용.
+  //     여성 톤은 프론트에서 playbackRate 피치업으로 만든다(student.html/index.html speak()).
+  if (tl === "en") {
+    const raw = await env.AI.run("@cf/deepgram/aura-2-en", { text, speaker: "asteria" }, { returnRawResponse: true });
+    let buf = null;
+    if (raw instanceof Response) {
+      const ct = raw.headers.get("content-type") || "";
+      if (raw.ok && /audio/i.test(ct)) buf = await raw.arrayBuffer();
+      else throw new Error("aura_http_" + raw.status);
+    } else if (raw instanceof ArrayBuffer) buf = raw;
+    else if (raw && raw.body) buf = await new Response(raw.body).arrayBuffer();
+    else if (raw && raw.audio) buf = b64ToBytes(String(raw.audio)).buffer;
+    if (!buf || buf.byteLength < 200) throw new Error("aura_empty");
+    return ["aura2-asteria", new Uint8Array(buf)];
+  }
+  throw new Error("no_ai_route_" + tl);   // zh 등은 바로 Google 폴백
+}
+__name(aiFemaleTTS, "aiFemaleTTS");
+// 무료 서버 TTS — 1순위 Edge 신경망 여성 음성, 실패 시 Google 번역 TTS(무키·크레딧 0) 폴백.
+// 브라우저 speechSynthesis가 없는 환경(안드로이드 앱 WebView 등)에서도 소리가 나도록 보장.
 // Google TTS는 요청당 ~200자 제한 → 문장 경계로 잘라 여러 MP3를 이어붙여 반환.
 async function handleTTSFree(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -521,6 +552,18 @@ async function handleTTSFree(request, env) {
   const tl = lang === "en" || lang === "en-us" ? "en" : lang === "zh" || lang === "zh-cn" || lang === "cn" ? "zh-CN" : "ko";
   text = text.replace(/\s+/g, " ").trim().slice(0, 600);
   if (!text) return json({ error: "empty" }, 400);
+  // 1순위: Workers AI 여성 음성(ko=MeloTTS kr · en=Aura-2 asteria) — 600자까지 한 번에 처리
+  let aiFailReason = "";
+  try {
+    const [engine, out] = await aiFemaleTTS(env, text, tl);
+    return new Response(out, {
+      status: 200,
+      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "x-tts-engine": engine, ...CORS }
+    });
+  } catch (e) {
+    aiFailReason = String(e && e.message || e).slice(0, 120);
+    console.warn("[tts-free] ai tts failed, fallback google:", aiFailReason);
+  }
   const chunks = [];
   let rest = text;
   while (rest.length) {
@@ -535,9 +578,14 @@ async function handleTTSFree(request, env) {
     rest = rest.slice(cut.length);
   }
   const parts = [];
+  // src=gtx 디버그: translate.googleapis.com(client=gtx) 경유 시험용
+  const useGtx = url.searchParams.get("src") === "gtx";
   for (const c of chunks) {
     if (!c) continue;
-    const g = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${encodeURIComponent(c)}`, {
+    const gurl = useGtx
+      ? `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&tl=${tl}&q=${encodeURIComponent(c)}`
+      : `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${encodeURIComponent(c)}`;
+    const g = await fetch(gurl, {
       headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://translate.google.com/" }
     });
     if (g.ok) {
@@ -555,7 +603,7 @@ async function handleTTSFree(request, env) {
   }
   return new Response(out, {
     status: 200,
-    headers: { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", ...CORS }
+    headers: { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "x-tts-engine": "google", "x-tts-ai-fail": encodeURIComponent(aiFailReason), ...CORS }
   });
 }
 __name(handleTTSFree, "handleTTSFree");
