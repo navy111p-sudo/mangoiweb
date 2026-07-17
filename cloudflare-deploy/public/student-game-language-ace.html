@@ -76,6 +76,16 @@
     border:2px solid rgba(140,165,195,.35);background:rgba(20,32,46,.7);color:#c8d4e2;transition:.15s}
   .langBtn.on{border-color:#ffd479;color:#fff6da;background:linear-gradient(180deg,#3a4a5e,#26323f);
     box-shadow:0 0 16px rgba(255,190,60,.4)}
+  /* 🎯 난이도 스테퍼 */
+  .diffRow{display:flex;gap:10px;align-items:center;margin:8px 0 2px}
+  .diffLab{font-size:16px;font-weight:800;color:#c8d4e2}
+  .diffBtn{width:42px;height:42px;border-radius:11px;font-size:24px;font-weight:900;cursor:pointer;line-height:1;
+    border:2px solid rgba(140,165,195,.4);background:rgba(20,32,46,.85);color:#ffe08a;display:flex;align-items:center;justify-content:center}
+  .diffBtn:active{transform:scale(.9)}
+  .diffVal{min-width:46px;text-align:center;font-size:30px;font-weight:900;color:#ffd479;
+    text-shadow:0 2px 6px #000;font-variant-numeric:tabular-nums}
+  .diffTag{font-size:15px;font-weight:800;color:#a7c4e6;min-width:64px;text-align:left}
+  .diffHint{font-size:12px;color:#8aa0b8;margin:0 0 2px;max-width:400px;text-align:center;line-height:1.4}
   .bigBtn{margin-top:14px;padding:14px 44px;border-radius:14px;font-size:20px;font-weight:900;cursor:pointer;
     border:none;color:#1a2028;background:linear-gradient(180deg,#ffe08a,#e0a838);
     box-shadow:0 6px 20px rgba(224,168,56,.45),inset 0 1px 0 rgba(255,255,255,.6);letter-spacing:.5px}
@@ -167,6 +177,14 @@
       <button class="langBtn skyBtn" data-s="day">☀️ 낮</button>
       <button class="langBtn skyBtn" data-s="evening">🌙 저녁</button>
     </div>
+    <div class="diffRow" id="diffRow">
+      <span class="diffLab">🎯 난이도</span>
+      <button class="diffBtn" id="diffMinus" aria-label="난이도 낮추기">−</button>
+      <span class="diffVal" id="diffVal">4</span>
+      <button class="diffBtn" id="diffPlus" aria-label="난이도 높이기">＋</button>
+      <span class="diffTag" id="diffTag">보통</span>
+    </div>
+    <div class="diffHint">난이도↑ = 전투기·총알 빠르고 많이, 발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
     <div class="oRules">
       🖱️ <b>마우스로 조종</b> — B-17이 부드럽게 따라와요<br>
       🔫 <b>누르고 있으면 연사</b> — 기관총 발사<br>
@@ -208,16 +226,24 @@
    ════════════════════════════════════════════════════════════ */
 var QS    = new URLSearchParams(location.search);
 var UID   = QS.get('uid') || '';
-var SPEED = Math.max(1, Math.min(5, parseInt(QS.get('speed')||'2',10) || 2));
-var STAGE = Math.max(1, Math.min(3, parseInt(QS.get('stage')||'1',10) || 1));
+// 🎯 통합 난이도 1(쉬움)~7(어려움) — 전투기 비행속도·총알(속도/발사빈도)·적기 수·발음(말하기)속도까지 함께.
+//    저장값(mangoi_langace_diff) 우선, 없으면 허브 speed(1..5) 매핑.
+var DLEVEL = (function(){
+  try{ var d=parseInt(localStorage.getItem('mangoi_langace_diff'),10); if(d>=1&&d<=7) return d; }catch(_){}
+  var sp=Math.max(1,Math.min(5,parseInt(QS.get('speed')||'3',10)||3));
+  return Math.max(1,Math.min(7, Math.round(1+(sp-1)/4*6)));
+})();
+function diffSpmul(){ return 0.5 + (DLEVEL-1)/6*1.2; }            // 0.5..1.7 (전투기·총알 속도)
+function diffFireMul(){ return 1.7 - DLEVEL*0.14; }              // 발사 간격 배수(저난이도=길게 = 천천히 쏨)
+function diffSpawnBase(){ return 2.3 - DLEVEL*0.13; }            // 스폰 기본 간격(저난이도=드물게)
+function diffMaxEnemies(){ return 3 + Math.round((DLEVEL-1)/6*3); }  // 3..6대
+function diffRate(){ return +(0.6 + (DLEVEL-1)/6*0.6).toFixed(2); }  // 0.6..1.2 (말하기 속도)
 // 🎯 GOAL = 정답 단어 명중 목표(허브 goal=10 컨벤션과 동일 단위 — shooter 등 형제 게임과 통일).
-//    문장은 이 목표를 향한 '수단'이고, 정답 단어를 어순대로 맞히다 GOAL 개 달성 시 임무 완료.
 var GOAL  = (function(){ var g=parseInt(QS.get('goal'),10); return (g>=3 && g<=50) ? g : 10; })();
 // glang 파라미터 우선, 없으면 localStorage 폴백(직접 링크 시에도 형제 게임과 언어 일관)
 var MODE  = (function(){ var g=QS.get('glang'); if(g==='zh'||g==='en') return g;
   try{ var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(_){ return 'en'; } })();
-var SPMUL = 0.8 + SPEED*0.16;            // 속도 배수(1..5 → 0.96..1.6)
-var DIFF  = 0.85 + STAGE*0.18;           // 난이도 배수
+var SPMUL = diffSpmul();                  // 전투기·총알 속도 배수(난이도에서 파생)
 // 🌤️ 배경 시간대: day(하늘색+구름) | evening(밤하늘+별·달·별똥별)
 var SKY = (function(){ try{ var s=localStorage.getItem('mangoi_langace_sky'); return (s==='evening')?'evening':'day'; }catch(_){ return 'day'; } })();
 
@@ -394,18 +420,25 @@ function bgmStop(){ bgm.on=false; if(bgm.timer){ clearInterval(bgm.timer); bgm.t
 var VOICES=[];
 function loadVoices(){ try{ VOICES=speechSynthesis.getVoices()||[]; }catch(_){} }
 loadVoices(); try{ speechSynthesis.onvoiceschanged=loadVoices; }catch(_){}
-/* 📱 모바일(특히 iOS) TTS 잠금 해제 — 사용자 제스처 안에서 무음 발화 1회 → 이후 프로그램 발음도 재생됨 */
+/* 📱 모바일(특히 iOS) TTS 잠금 해제 — 사용자 제스처 안에서 무음 발화 1회 → 이후 프로그램 발음도 재생됨
+   ⚠️ 앱 WebView엔 speechSynthesis 자체가 없어 예외가 나는데, 예전엔 _ttsUnlocked=true 가 try 안에 있어
+   영영 안 세워졌고 → 터치(조준)할 때마다 이 함수가 _ttsAudio.src 를 무음 WAV 로 덮어써
+   재생 중인 발음을 즉시 끊었다(= 앱에서 중국어 소리 안 남). 플래그를 맨 앞에서 세워 1회만 실행. */
 var _ttsUnlocked=false;
-function ttsUnlock(){ if(_ttsUnlocked)return; try{
-  var u=new SpeechSynthesisUtterance(' '); u.volume=0; u.rate=2;
-  var v=pickVoice(LANGMETA[MODE].tts); if(v)u.voice=v;
-  speechSynthesis.speak(u); loadVoices(); _ttsUnlocked=true;
-}catch(_){}
+function ttsUnlock(){ if(_ttsUnlocked)return; _ttsUnlocked=true;
+  try{
+    var u=new SpeechSynthesisUtterance(' '); u.volume=0; u.rate=2;
+    var v=pickVoice(LANGMETA[MODE].tts); if(v)u.voice=v;
+    speechSynthesis.speak(u); loadVoices();
+  }catch(_){}
   // 서버 TTS용 <audio>도 같은 제스처 안에서 무음 재생 1회 → 자동재생 정책 잠금 해제
   try{ if(!_ttsAudio) _ttsAudio=new Audio();
     _ttsAudio.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
     var p=_ttsAudio.play(); if(p&&p.catch)p.catch(function(){});
   }catch(_){}}
+// 게임 시작 전 어느 화면에서든 첫 제스처에 바로 잠금 해제(아바타 상담사와 동일 방식)
+['touchstart','pointerdown','mousedown','click','keydown'].forEach(function(ev){
+  document.addEventListener(ev, ttsUnlock, {passive:true, capture:true}); });
 function pickVoice(lang){ return VOICES.find(function(v){return v.lang===lang;})
   || VOICES.find(function(v){return v.lang && v.lang.indexOf(lang.slice(0,2))===0;}); }
 
@@ -656,7 +689,7 @@ function sameWord(a,b){ return MODE==='en' ? String(a).toLowerCase()===String(b)
 function targetOnScreen(){ var t=neededWord(); return G.enemies.some(function(e){ return e.alive && sameWord(e.word,t); }); }
 
 function spawnEnemy(forceTarget){
-  if(G.enemies.length>=5) return;   // 동시 적기 상한(난이도 완화)
+  if(G.enemies.length>=diffMaxEnemies()) return;   // 동시 적기 상한(난이도별 3~6대)
   // 전 적기 = A6M Zero. 비행 패턴만 두 가지: weave(좌우 크게 스웝) / dive(빠른 직하강)
   var pat = Math.random()<0.5 ? 'weave' : 'dive';
   var word;
@@ -674,7 +707,7 @@ function spawnEnemy(forceTarget){
     pat:pat, alive:true, word:word, x:x, y:-dh,
     dw:dw, dh:dh, hw:dw*0.42, hh:dh*0.44, r:dh*0.42,
     t:Math.random()*6.28, bank:0,
-    vy: (pat==='dive'? (54+Math.random()*22) : (34+Math.random()*16)) * SPMUL * DIFF,
+    vy: (pat==='dive'? (54+Math.random()*22) : (34+Math.random()*16)) * SPMUL,
     amp: pat==='weave' ? (60+Math.random()*80) : (22+Math.random()*26),
     freq: pat==='weave' ? (0.9+Math.random()*0.6) : (1.5+Math.random()*0.8),
     baseX:x, fireT: 0.6+Math.random()*1.2
@@ -771,9 +804,9 @@ function update(dt){
 
   // 스폰
   G.spawnT-=dt;
-  if(G.spawnT<=0){ spawnEnemy(false); G.spawnT = (1.7 - STAGE*0.1)/SPMUL * (0.8+Math.random()*0.6); }
+  if(G.spawnT<=0){ spawnEnemy(false); G.spawnT = diffSpawnBase()/SPMUL * (0.8+Math.random()*0.6); }
   // 정답 단어 항상 화면에 존재하도록 워치독
-  G.watchT-=dt; if(G.watchT<=0){ G.watchT=1.0; if(!targetOnScreen() && G.enemies.length<5) spawnEnemy(true); }
+  G.watchT-=dt; if(G.watchT<=0){ G.watchT=1.0; if(!targetOnScreen() && G.enemies.length<diffMaxEnemies()) spawnEnemy(true); }
   // 연료
   G.fuelT-=dt; if(G.fuelT<=0){ G.fuelT=6+Math.random()*5;
     G.fuels.push({x:40+Math.random()*(W-80),y:-30,vy:(52+Math.random()*20),r:16*SCALE,rot:0}); }
@@ -783,7 +816,7 @@ function update(dt){
     e.t+=dt; e.y+=e.vy*dt;
     var nx = e.baseX + Math.sin(e.t*e.freq)*e.amp;
     e.bank = (nx-e.x); e.x=nx; e.x=clamp(e.x,20,W-20);
-    e.fireT-=dt; if(e.fireT<=0 && e.y>20 && e.y<H*0.75){ enemyFire(e); e.fireT=(e.pat==='dive'?2.2:2.9)*(1.25-STAGE*0.08); }
+    e.fireT-=dt; if(e.fireT<=0 && e.y>20 && e.y<H*0.75){ enemyFire(e); e.fireT=(e.pat==='dive'?2.2:2.9)*diffFireMul(); }
     if(e.y>H+40){ G.enemies.splice(i,1); }
   }
   // 적 탄
@@ -888,7 +921,7 @@ function winGame(){ if(!G||!G.running)return; G.running=false; G.speaking=false;
    말하기 연습 — 듣기 3번 → 따라 말하기 3번(음성인식) → 모두 성공 시 추가 포인트 / 실패 시 같은 문장 재도전
    ════════════════════════════════════════════════════════════ */
 var SP=null, spState='';   // spState: 'listen' | 'speak' | 'result'
-var spRate=(function(){ try{ var r=parseFloat(localStorage.getItem('mangoi_langace_rate')); return (r>=0.4&&r<=1.6)?r:0.85; }catch(_){ return 0.85; } })();
+var spRate=diffRate();   // 말하기(발음) 속도 = 난이도에서 파생(연습 중 3버튼으로 미세조정 가능)
 function spFull(){ return SP.sent.w.join(MODE==='zh'?'':' '); }
 function spStopAudio(){ _spkSeq++; _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){} }   // 진행 중 낭독 시퀀스 취소(서버 오디오 포함)
 /* 🔉 읽어주기 속도 변경 — 듣기 중이면 새 속도로 다시 들려주고, 아니면 1회 미리듣기 */
@@ -1312,6 +1345,19 @@ function setSky(s){ SKY=(s==='evening')?'evening':'day';
 (function(){ var b=document.querySelectorAll('#skyRow .skyBtn');
   for(var i=0;i<b.length;i++){ (function(el){ el.addEventListener('click', function(){ setSky(el.getAttribute('data-s')); }); })(b[i]); }
 })();
+// 🎯 난이도 1~7 — 전투기·총알 속도/발사·적기수·발음속도 통합
+var DIFF_TAGS=['','🐢 아주쉬움','쉬움','조금쉬움','보통','조금어려움','어려움','🔥 아주어려움'];
+function setDiff(d){
+  DLEVEL=Math.max(1,Math.min(7, d|0));
+  SPMUL=diffSpmul(); spRate=diffRate();                 // 게임 속도 + 말하기 속도 즉시 반영
+  try{ localStorage.setItem('mangoi_langace_diff', String(DLEVEL)); }catch(_){}
+  var v=document.getElementById('diffVal'); if(v) v.textContent=DLEVEL;
+  var t=document.getElementById('diffTag'); if(t) t.textContent=DIFF_TAGS[DLEVEL];
+  // 말하기 속도 버튼 활성표시 동기화(가장 가까운 값)
+  try{ var btns=document.querySelectorAll('#spSpeed .spSpd'); for(var i=0;i<btns.length;i++){ btns[i].classList.toggle('on', Math.abs(parseFloat(btns[i].getAttribute('data-r'))-spRate)<0.13); } }catch(_){}
+}
+document.getElementById('diffMinus').addEventListener('click', function(){ setDiff(DLEVEL-1); });
+document.getElementById('diffPlus').addEventListener('click', function(){ setDiff(DLEVEL+1); });
 document.getElementById('btnStart').addEventListener('click', startGame);
 document.getElementById('btnAgain').addEventListener('click', startGame);
 document.getElementById('btnMute').addEventListener('click',function(){ muted=!muted; this.textContent=muted?'🔇':'🔊';
@@ -1339,8 +1385,8 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 
 /* ── 부트 ── */
-resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
+resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260718043334 -->
+<!-- BUILD:20260718044944 -->
 </body>
 </html>
