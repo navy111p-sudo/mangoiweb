@@ -8011,8 +8011,10 @@
                 <span style="font-size:9px;color:#94a3b8">▼</span>
               </button>
               <div class="vc-game-modes" id="game-mode-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:80;flex-direction:column;min-width:200px;background:#0f172a;border:1px solid #475569;border-radius:10px;overflow:hidden;box-shadow:0 14px 34px -8px rgba(0,0,0,.65)">
+                <button id="game-mode-langace" type="button" onclick="gameSwitchMode('langace')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">✈️ <span data-ko="B-17 폭격기" data-en="B-17 Flying Fortress">B-17 폭격기</span></button>
                 <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
-                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
                 <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
                         style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🚀 <span data-ko="슈팅+말하기" data-en="Shoot &amp; Speak">슈팅+말하기</span></button>
                 <button id="game-mode-battle3d" type="button" onclick="gameSwitchMode('battle3d')"
@@ -8025,6 +8027,8 @@
                         style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🔤 <span data-ko="빈칸 채우기" data-en="Fill Blank">빈칸 채우기</span></button>
                 <button id="game-mode-balloon" type="button" onclick="gameSwitchMode('balloon')"
                         style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🎈 <span data-ko="풍선 터뜨리기" data-en="Balloon Pop">풍선 터뜨리기</span></button>
+                <button id="game-mode-tetris" type="button" onclick="gameSwitchMode('tetris')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🎮 <span data-ko="단어 테트리스" data-en="Word Tetris">단어 테트리스</span></button>
               </div>
             </div>
             <button class="vc-game-next" onclick="gameNextRound()"
@@ -14171,7 +14175,7 @@ function gameSwitchMode(mode) {
   // 풍선 게임 정지 (전환 시 타이머 클리어)
   if (_gameState.balloonTimer) { clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   // 모드 토글 활성화 표시
-  ['brick','match','fill','balloon','fish','shooter','battle3d'].forEach(m => {   // 'shoot'는 'shooter'(슈팅+말하기 통합)로 흡수
+  ['brick','match','fill','balloon','fish','shooter','battle3d','tetris','langace'].forEach(m => {   // 'shoot'는 'shooter'(슈팅+말하기 통합)로 흡수
     const btn = document.getElementById('game-mode-' + m);
     if (!btn) return;
     btn.style.background = mode === m ? '#10b981' : 'transparent';
@@ -14207,7 +14211,7 @@ function gameNextRound() {
   if(_gameState._advTimer){ clearTimeout(_gameState._advTimer); _gameState._advTimer = null; }   // 🎤 섀도잉 대기 정리
   // 슈팅/낚시(iframe)는 패딩 0, 카드형 모드는 기본 패딩 복원
   const _ga = document.getElementById('game-area');
-  if (_ga) _ga.style.padding = (_gameState.mode === 'shoot' || _gameState.mode === 'fish' || _gameState.mode === 'shooter' || _gameState.mode === 'battle3d') ? '0' : '24px';
+  if (_ga) _ga.style.padding = (_gameState.mode === 'shoot' || _gameState.mode === 'fish' || _gameState.mode === 'shooter' || _gameState.mode === 'battle3d' || _gameState.mode === 'tetris' || _gameState.mode === 'langace') ? '0' : '24px';
   _gameApplyTheme(_ga, _gameState.mode);
   var _mode = _gameState.mode;
   // 🧠 약점 우선 선뽑기 + 새 항목 선학습 + 👹 보스(문장게임 5번째)
@@ -14231,6 +14235,8 @@ function gameNextRound() {
   else if (_gameState.mode === 'fish') _gameRenderSuite('fish');
   else if (_gameState.mode === 'shooter') _gameRenderShooter();
   else if (_gameState.mode === 'battle3d') _gameRenderBattle3d();
+  else if (_gameState.mode === 'tetris') _gameRenderTetris();
+  else if (_gameState.mode === 'langace') _gameRenderLangace();
 }
 
 // 🥭 슈팅+말하기 / 낚시+말하기 — english-mastery-suite.html 를 iframe 으로 임베드.
@@ -14270,6 +14276,35 @@ function _gameRenderBattle3d() {
     'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#070b16"></iframe>';
   const fb = document.getElementById('game-feedback');
   if (fb) fb.innerHTML = '<span style="color:#94a3b8">⚔️ 레슨 보스와 퀴즈 대결 → 3D 공격 + 배지 보상</span>';
+}
+
+// 🎮/✈️ 학생게임 임베드 언어 — 게임 허브(student-games.html)와 공유하는 학생의 선택 언어
+function _gameEmbedLang(){ try{ return localStorage.getItem('mangoi_game_lang')==='zh' ? 'zh' : 'en'; }catch(_){ return 'en'; } }
+
+// 🎮 단어 테트리스 — student-game-tetris.html 임베드(정통 테트리스 + 어순대로 3문장 완성, 영/중)
+function _gameRenderTetris() {
+  const area = document.getElementById('game-area');
+  if (!area) return;
+  area.style.padding = '0';
+  area.innerHTML =
+    '<iframe id="game-suite-frame" src="/student-game-tetris.html?glang=' + _gameEmbedLang() + '" ' +
+    'allow="microphone; autoplay; speaker-selection" ' +
+    'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#0b0f1e"></iframe>';
+  const fb = document.getElementById('game-feedback');
+  if (fb) fb.innerHTML = '<span style="color:#94a3b8">🎮 단어 조각으로 3문장 완성! 사이사이 도형은 쌓아서 줄 지우기</span>';
+}
+
+// ✈️ B-17 폭격기 — student-game-language-ace.html 임베드(문장 어순대로 제로센 격추 → 발음, 영/중)
+function _gameRenderLangace() {
+  const area = document.getElementById('game-area');
+  if (!area) return;
+  area.style.padding = '0';
+  area.innerHTML =
+    '<iframe id="game-suite-frame" src="/student-game-language-ace.html?glang=' + _gameEmbedLang() + '&goal=10" ' +
+    'allow="microphone; autoplay; speaker-selection" ' +
+    'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#0a0f14"></iframe>';
+  const fb = document.getElementById('game-feedback');
+  if (fb) fb.innerHTML = '<span style="color:#94a3b8">✈️ B-17로 출격! 문장 어순대로 단어 실은 제로센을 격추하세요</span>';
 }
 
 // 🚀 슈팅+말하기(통합) — student-game-shooter.html 임베드. 오늘 교재 문장 주입 + 원어민 음성 + 총별 효과음
@@ -25031,7 +25066,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260717215103 -->
+<!-- BUILD:20260717221440 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
