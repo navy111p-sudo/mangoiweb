@@ -216,6 +216,65 @@ body.vc-in-call #tab-whiteboard .wb-toolbar.mango-wb-dock-open span {
 }
 
 /* ============================================================
+ * 🎨 (2026-07-17) 교재도구(Textbook Tools) 드롭다운 = 필기도구와 동일한 디자인
+ *   [문제] 위 56~80행이 교재도구 컨테이너를 background:transparent + padding:0 으로
+ *          만들어, 필기도구만 '짙은 글래스 패널'이고 교재도구는 버튼이 흰 PDF 위에
+ *          반투명하게 떠 있어 글자가 묻혔다(사장님: 두 메뉴 배경 똑같이).
+ *   [해결] 필기도구(.pdf-anno-bar)에 쓴 패널·pill 규칙을 그대로 교재도구에도 적용.
+ *          선택자 특이도가 같고 더 뒤에 오므로 위 transparent 규칙을 덮어쓴다.
+ *   [예외] 라이브러리(파랑)·공유 중지(빨강)는 의도된 강조색이라 :not() 으로 보존.
+ * ============================================================ */
+body.vc-in-call #tab-pdf .pdf-controls {
+  background: linear-gradient(135deg, rgba(30,41,59,0.94), rgba(15,23,42,0.94)) !important;
+  border: 1px solid rgba(96,165,250,0.22) !important;
+  border-radius: 14px !important;
+  padding: 10px !important;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45) !important;
+  backdrop-filter: blur(12px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+}
+/* 일반 버튼 — 필기도구와 동일한 슬레이트 pill (거의 불투명 → 어떤 배경에서도 또렷) */
+body.vc-in-call #tab-pdf .pdf-controls button:not([onclick*="openTextbookLibrary"]):not([onclick*="pdfStopShare"]),
+body.vc-in-call #tab-pdf .pdf-controls > label {
+  padding: 8px 14px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, rgba(51,65,85,0.96), rgba(30,41,59,0.96)) !important;
+  color: #f1f5f9 !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(96,165,250,0.38) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35) !important;
+  cursor: pointer !important;
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease !important;
+  white-space: nowrap !important;
+}
+body.vc-in-call #tab-pdf .pdf-controls button:not([onclick*="openTextbookLibrary"]):not([onclick*="pdfStopShare"]):hover,
+body.vc-in-call #tab-pdf .pdf-controls > label:hover {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+  border-color: rgba(147,197,253,0.7) !important;
+  color: #fff !important;
+  transform: translateY(-1px) !important;
+}
+body.vc-in-call #tab-pdf .pdf-controls button.active:not([onclick*="openTextbookLibrary"]):not([onclick*="pdfStopShare"]) {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 12px rgba(59,130,246,0.5) !important;
+}
+/* 페이지·줌 정보와 그룹 구분선도 패널 위에서 또렷하게 */
+body.vc-in-call #tab-pdf .pdf-controls span,
+body.vc-in-call #tab-pdf .pdf-controls label {
+  color: #e2e8f0 !important;
+}
+body.vc-in-call #tab-pdf .pdf-controls #pdf-page-info,
+body.vc-in-call #tab-pdf .pdf-controls #pdf-zoom-info {
+  color: #e2e8f0 !important;
+  background: rgba(15,23,42,0.85) !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+}
+
+/* ============================================================
  * "시간 정보 없음" 배지 ↔ REC 녹화 배지 크기 동일하게 (데스크탑)
  *  - 모바일(REC 원형)은 건드리지 않도록 데스크탑 폭에서만 적용
  * ============================================================ */
