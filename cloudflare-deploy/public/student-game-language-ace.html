@@ -138,6 +138,19 @@
   #bannerMsg{position:absolute;top:34%;left:50%;transform:translateX(-50%);z-index:8;
     font-size:30px;font-weight:900;pointer-events:none;opacity:0;text-shadow:0 3px 12px rgba(0,0,0,.7);
     transition:opacity .2s}
+
+  /* 🔥 발사 버튼 — 이동(드래그)과 분리. 누르는 동안만 발사 */
+  #fireBtn{position:absolute;right:18px;bottom:118px;z-index:9;width:86px;height:86px;border-radius:50%;
+    border:3px solid rgba(255,255,255,.8);
+    background:radial-gradient(circle at 38% 30%,#ff9a63,#e5342b 68%,#ac2019);
+    color:#fff;font-size:15px;font-weight:900;letter-spacing:.5px;line-height:1;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    box-shadow:0 7px 18px rgba(200,30,20,.55),inset 0 2px 7px rgba(255,255,255,.45);
+    text-shadow:0 1px 2px rgba(0,0,0,.45);cursor:pointer;
+    touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    pointer-events:auto;transition:transform .06s,filter .06s}
+  #fireBtn .fi{font-size:26px;line-height:1}
+  #fireBtn:active{transform:scale(.9);filter:brightness(1.18)}
 </style>
 </head>
 <body>
@@ -163,6 +176,8 @@
       <div id="hHearts" style="margin-top:5px">❤️❤️❤️</div></div>
     <div class="hbox" id="hClear"><div class="hlab">정답</div><div class="hval" id="vClear">0/10</div></div>
   </div>
+
+  <button id="fireBtn"><span class="fi">💥</span>발사</button>
 
   <div id="wordpop"></div>
 
@@ -831,11 +846,30 @@ function explode(x,y,big){
    ════════════════════════════════════════════════════════════ */
 function ptr(ev){ var r=cv.getBoundingClientRect(); var t=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
   return {x:t.clientX-r.left, y:t.clientY-r.top}; }
+// 📱 이동과 발사 분리: 손가락 드래그는 '이동'만(발사는 🔥버튼). 🖱️ PC 마우스는 종전대로 클릭=발사.
 cv.addEventListener('pointermove',function(ev){ if(!G||!G.running||G.speaking)return; var p=ptr(ev); G.tx=p.x; G.ty=p.y; });
 cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running||G.speaking)return; audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock();
-  var p=ptr(ev); G.tx=p.x; G.ty=p.y; G.firing=true; playerFire(); });
-window.addEventListener('pointerup',function(){ if(G)G.firing=false; });
+  var p=ptr(ev); G.tx=p.x; G.ty=p.y;
+  if(ev.pointerType==='mouse'){ G.firing=true; playerFire(); }   // PC만 캔버스 클릭=발사. 터치는 이동만.
+});
+window.addEventListener('pointerup',function(ev){ if(G && (!ev||ev.pointerType==='mouse')) G.firing=false; });
 cv.addEventListener('contextmenu',function(e){e.preventDefault();});
+
+// 🔥 발사 버튼(모바일 오발 방지의 핵심) — 누르고 있는 동안에만 연사, 떼면 멈춤
+(function(){ var fb=document.getElementById('fireBtn'); if(!fb)return;
+  function fireOn(ev){ ev.preventDefault(); if(!G||!G.running||G.speaking)return;
+    audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock();
+    G.firing=true; try{ fb.setPointerCapture(ev.pointerId); }catch(_){}; playerFire(); }
+  function fireOff(){ if(G)G.firing=false; }
+  fb.addEventListener('pointerdown', fireOn);
+  fb.addEventListener('pointerup', fireOff);
+  fb.addEventListener('pointercancel', fireOff);
+  fb.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+})();
+
+// ⌨️ PC 스페이스바=발사(길게 누르면 연사)
+window.addEventListener('keydown',function(e){ if(e.code==='Space' && G && G.running && !G.speaking){ e.preventDefault(); G.firing=true; } });
+window.addEventListener('keyup',function(e){ if(e.code==='Space' && G) G.firing=false; });
 
 /* ════════════════════════════════════════════════════════════
    13. 업데이트
@@ -1465,6 +1499,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260718054406 -->
+<!-- BUILD:20260718063214 -->
 </body>
 </html>
