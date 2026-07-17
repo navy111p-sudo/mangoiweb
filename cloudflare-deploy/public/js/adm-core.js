@@ -2726,13 +2726,18 @@ async function removeTeacherProfile(id, name, btn) {
 }
 
 // ── 가맹점 ──────────────────────────────────────────────────────────
+// 카페24 레거시가 AES 암호문(32자리+ HEX)으로 저장한 전화번호는 복호화 전까지 빈값 취급
+function _frnPhone(v) {
+  v = (v == null ? '' : String(v)).trim();
+  return /^[0-9A-F]{32,}$/i.test(v) ? '' : v;
+}
 async function loadFranchises() {
   const r = await fetch('/api/admin/franchises',{cache:'no-store',credentials:'include'});
   const d = await r.json().catch(()=>({}));
   const tb = document.getElementById('franchises-table');
   if (!d.ok || !d.items || d.items.length === 0) { tb.innerHTML='<tr><td colspan="6" class="empty">—</td></tr>'; _populateFranchiseSelect([]); return; }
   tb.innerHTML = d.items.map(f =>
-    `<tr><td>${f.id}</td><td><b>${_esc(f.name)}</b></td><td>${_esc(f.owner_name)||'—'}</td><td>${_esc(f.phone)||'—'}</td><td>${_esc(f.address)||'—'}</td><td>${_esc(f.opened_at)||'—'}</td></tr>`
+    `<tr><td>${f.id}</td><td><b>${_esc(f.name)}</b></td><td>${_esc(f.owner_name)||'—'}</td><td>${_esc(_frnPhone(f.phone))||'—'}</td><td>${_esc(f.address)||'—'}</td><td>${_esc(f.opened_at)||'—'}</td></tr>`
   ).join('');
   _populateFranchiseSelect(d.items);
 }
