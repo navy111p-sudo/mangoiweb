@@ -484,6 +484,16 @@ function beep(f0,f1,dur,type,vol){ var c=ac(); if(!c) return;
   o.frequency.setValueAtTime(f0,c.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(40,f1),c.currentTime+dur);
   g.gain.setValueAtTime(vol||.16,c.currentTime); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+dur);
   o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+dur); }
+/* 📱 모바일(iOS·안드로이드 웹뷰) 오디오 잠금 해제 — 아무 터치에서나 AudioContext 재개+무음 버퍼 1회 재생 */
+function audioUnlock(){
+  var c=ac(); if(!c) return;
+  if(!audioUnlock._d && c.state==='running'){
+    try{ var b=c.createBuffer(1,1,22050), s=c.createBufferSource(); s.buffer=b; s.connect(c.destination); s.start(0); audioUnlock._d=true; }catch(_){}
+  }
+  if(running && MUSIC.on && !MUSIC.timer) musicStart();          // 잠금 때문에 못 시작한 음악 재시작
+  try{ if(window.speechSynthesis && speechSynthesis.paused) speechSynthesis.resume(); }catch(_){}
+}
+['pointerdown','touchend','click','keydown'].forEach(function(ev){ document.addEventListener(ev, audioUnlock, true); });
 function sndMove(){ beep(300,320,.03,'square',.05); }
 function sndRot(){ beep(520,660,.06,'sine',.08); }
 function sndLock(){ beep(180,120,.09,'square',.12); }
@@ -513,6 +523,8 @@ function musicStart(){
 }
 function musicSchedule(){
   var c=ac(); if(!c || !MUSIC.gain) return;
+  // 📱 오디오 잠금(suspended) 중엔 currentTime이 멈춰 음표가 같은 시각에 겹겹이 쌓임 → 해제될 때까지 대기
+  if(c.state!=='running'){ MUSIC.timer=setTimeout(musicSchedule, 350); return; }
   var t=c.currentTime+0.06, U=0.16;                 // 8분음표 1개 = 0.16초
   MELODY.forEach(function(n){ var f=n[0], d=n[1]*U;
     if(f>0){
@@ -530,6 +542,14 @@ function musicSchedule(){
 }
 function musicStop(){ if(MUSIC.timer){ clearTimeout(MUSIC.timer); MUSIC.timer=null; }
   if(MUSIC.gain){ try{ MUSIC.gain.gain.setTargetAtTime(0, ac().currentTime, 0.1); }catch(_){} } }
+/* 📱 ☰ HUD 메뉴(세로폰: 점수·속도·음악·언어 칩이 이 안에 있음) 열고 닫기 */
+function toggleHudMenu(e){ if(e){ e.stopPropagation(); e.preventDefault(); }
+  var h=document.getElementById('hud'); if(h) h.classList.toggle('open'); }
+document.addEventListener('pointerdown', function(e){
+  var h=document.getElementById('hud');
+  if(h && h.classList.contains('open') && !h.contains(e.target)) h.classList.remove('open');
+}, true);
+
 function toggleMusic(){
   MUSIC.on=!MUSIC.on;
   var b=document.getElementById('mus-btn'); if(b) b.textContent=MUSIC.on?'🔊':'🔇';
@@ -780,7 +800,11 @@ function layout(){
   bd.style.width=(cell*COLS)+'px'; bd.style.height=(cell*ROWS)+'px';
   document.documentElement.style.setProperty('--cell', cell+'px');
 }
-window.addEventListener('resize', function(){ if(running){ layout(); render(); } });
+function relayout(){ if(running){ layout(); render(); } }
+window.addEventListener('resize', relayout);
+// 📱 회전 직후엔 innerHeight가 늦게 갱신되는 기기가 있어 잠깐 뒤 한 번 더
+window.addEventListener('orientationchange', function(){ setTimeout(relayout, 250); });
+if(window.visualViewport) visualViewport.addEventListener('resize', relayout);   // iOS 주소창 접힘/펼침
 
 /* ════════════════════════════════════════════════════════════
    조각 생성 / 충돌 / 이동 / 회전
@@ -1169,6 +1193,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260718040452 -->
+<!-- BUILD:20260718040922 -->
 </body>
 </html>
