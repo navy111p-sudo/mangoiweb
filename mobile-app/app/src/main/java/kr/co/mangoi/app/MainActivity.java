@@ -16,8 +16,10 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Message;
 import android.provider.Settings;
+import android.speech.tts.TextToSpeech;
 import android.view.KeyEvent;
 import android.view.View;
+import android.webkit.JavascriptInterface;
 import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
@@ -56,6 +58,13 @@ public class MainActivity extends AppCompatActivity {
     private PermissionRequest pendingWebPermissionRequest;
     private BroadcastReceiver downloadReceiver;
 
+    // ── 네이티브 TTS (AI 상담직원 여자 목소리) ──
+    // WebView 에는 speechSynthesis 가 없어 웹의 음성 합성이 전부 무음이다.
+    // 안드로이드 시스템 TTS(구글 한국어 = 여성 음성)를 JS 브리지(window.AndroidTTS)로 노출해
+    // 상담직원/게임 발음이 앱에서도 자연스러운 목소리로 나오게 한다.
+    private TextToSpeech tts;
+    private volatile boolean ttsReady = false;
+
     private ValueCallback<Uri[]> filePathCallback;
     private final ActivityResultLauncher<Intent> fileChooserLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -79,6 +88,13 @@ public class MainActivity extends AppCompatActivity {
         // 시작 시 카메라/마이크 권한 요청 (화상통화 필수)
         requestRuntimePermissions();
 
+        // 시스템 TTS 초기화 (기본 엔진=구글 TTS, 한국어 기본 음성은 여성)
+        try {
+            tts = new TextToSpeech(getApplicationContext(), status -> {
+                ttsReady = (status == TextToSpeech.SUCCESS);
+            });
+        } catch (Exception ignored) {}
+
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -99,6 +115,9 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             s.setSafeBrowsingEnabled(false);
         }
+
+        // JS 브리지: 페이지에서 window.AndroidTTS.speak('안녕', 'ko', 1.05, 1.0) 로 호출
+        webView.addJavascriptInterface(new TtsBridge(), "AndroidTTS");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -395,6 +414,47 @@ public class MainActivity extends AppCompatActivity {
         return false; // 카카오톡 미설치/미대응 → 웹 채팅 페이지로 폴백
     }
 
+    // ====================== 네이티브 TTS 브리지 ======================
+
+    /** 페이지 JS 에서 쓰는 음성 합성 브리지 — window.AndroidTTS.* */
+    private class TtsBridge {
+        @JavascriptInterface
+        public boolean isReady() { return ttsReady && tts != null; }
+
+        /**
+         * @param text  읽을 문장
+         * @param lang  "ko" | "en" | "zh" (그 외는 ko)
+         * @param pitch 1.0=원음, 1.05~1.15=여성 톤 강조 (0 이하는 1.05)
+         * @param rate  말 속도 (0 이하는 1.0)
+         */
+        @JavascriptInterface
+        public void speak(String text, String lang, float pitch, float rate) {
+            if (!isReady() || text == null || text.trim().isEmpty()) return;
+            try {
+                java.util.Locale loc = java.util.Locale.KOREAN;
+                if (lang != null) {
+                    String l = lang.toLowerCase();
+                    if (l.startsWith("en")) loc = java.util.Locale.US;
+                    else if (l.startsWith("zh") || l.startsWith("cn")) loc = java.util.Locale.SIMPLIFIED_CHINESE;
+                }
+                tts.setLanguage(loc);
+                tts.setPitch(pitch > 0 ? pitch : 1.05f);
+                tts.setSpeechRate(rate > 0 ? rate : 1.0f);
+                tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "mangoi-tts");
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void stop() {
+            try { if (tts != null) tts.stop(); } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public boolean isSpeaking() {
+            try { return tts != null && tts.isSpeaking(); } catch (Exception e) { return false; }
+        }
+    }
+
     /** 새 창 처리용 임시 WebView 를 안전하게 정리(메모리 누수 방지) */
     private void destroyTemp(final WebView v) {
         if (v == null) return;
@@ -456,6 +516,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         unregisterDownloadReceiver();
+        try { if (tts != null) { tts.stop(); tts.shutdown(); tts = null; } } catch (Exception ignored) {}
         if (webView != null) {
             webView.destroy();
             webView = null;
