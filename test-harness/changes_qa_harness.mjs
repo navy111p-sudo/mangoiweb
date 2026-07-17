@@ -17,6 +17,10 @@ function ok(name, cond, detail='') {
   log.push(line); console.log(line);
 }
 const read = p => readFileSync(p, 'utf8');
+// 🔁 리팩토링 내성: 백엔드는 api-mango.ts 가 도메인 모듈로 분리됨 → src/*.ts 전체를 합쳐 검사.
+//    admin 사이드바 로직은 admin.html 에서 /js/adm-*.js 로 추출됨 → 둘을 합쳐 검사(코드 위치 무관하게 패턴 추적).
+const readAllTs = () => { try { return readdirSync(CD + '/src').filter(f => f.endsWith('.ts')).map(f => read(CD + '/src/' + f)).join('\n/*───*/\n'); } catch { return read(CD + '/src/api-mango.ts'); } };
+const readAllAdm = () => { let s = read(CD + '/public/admin.html'); try { readdirSync(CD + '/public/js').filter(f => /^adm-.*\.js$/.test(f)).forEach(f => { s += '\n' + read(CD + '/public/js/' + f); }); } catch {} return s; };
 const headLines = rel => { try { return parseInt(execSync(`git -C "${ROOT}" show HEAD:${rel} | wc -l`).toString().trim()); } catch { return -1; } };
 const wcLines = p => read(p).split('\n').length - 1;
 
@@ -61,7 +65,7 @@ function checkInlineScripts(rel) {
 
 console.log('\n=== 3) ENDPOINT WIRING (/api/student/lookup) ===');
 const idxTs = read(CD + '/src/index.ts');
-const apiTs = read(CD + '/src/api-mango.ts');
+const apiTs = readAllTs();
 // index.html + 분할추출된 외부 idx-*.js 합본 — 콘텐츠 검사가 코드 위치(인라인/외부)에 무관하게 통과
 //   (2026-06-28: index.html 경량화로 일부 와이어링 코드가 /js/idx-*.js 로 이동 → 합본으로 추적)
 const indexHtml = (() => {
@@ -163,14 +167,14 @@ ok('lp:visibility sync on screen change', /function syncVis/.test(lp612) && /gv-
 ok('lp:FAB z-index above sticky bar', /\.consult-fab\{[^}]*z-index:70/.test(lp612));
 
 console.log('\n=== 7) 2026-06-12 2차 — 사이드바 active 색상 + 가족 API + 하이라이트 ===');
-const adm7 = read(CD + '/public/admin.html');
+const adm7 = readAllAdm();
 ok('sb:sub active CSS (!important)', /\.ph85-sub\.ph85-active[\s\S]{0,200}inset 3px 0 0 #fbbf24/.test(adm7));
 ok('sb:head active CSS', /\.ph85-head\.ph85-active/.test(adm7));
 ok('sb:click sets active + clears prev', adm7.includes("sub.classList.add('ph85-active')") && adm7.includes(".ph85-active').forEach(function(x){ x.classList.remove('ph85-active')"));
 ok('sb:ancestor details opened (손자 카드)', /__anc\.tagName === 'DETAILS'\) __anc\.open = true/.test(adm7));
 ok('hl:::after overlay pulse', adm7.includes('.ph96-highlight::after') && adm7.includes('@keyframes ph96pulse'));
 ok('hl:rAFx2 start in ph97 + jumpToMenu', (adm7.match(/requestAnimationFrame\(/g)||[]).length >= 4);
-const api7 = read(CD + '/src/api-mango.ts');
+const api7 = readAllTs();
 const famPaths = ['/api/admin/family/create','/api/admin/family/add-child','/api/admin/family/remove-child','/api/admin/families','/api/family/my-children','/api/family/discount-status'];
 ok('fam:6 handlers implemented', famPaths.every(pp => api7.includes(`path === '${pp}'`)));
 ok('fam:lazy tables', api7.includes('CREATE TABLE IF NOT EXISTS families') && api7.includes('CREATE TABLE IF NOT EXISTS family_members'));
