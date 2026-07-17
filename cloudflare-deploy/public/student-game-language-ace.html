@@ -484,6 +484,38 @@ function srvTts(text, rate, onend, onfail, lang, speaker){
     .catch(function(){ if(onfail)onfail(); });
 }
 
+/* ── 중국어 서버 TTS = /api/tts-free (Google 만다린) ──
+   ⚠️ /api/voice/tts 의 zh 는 깨진 오디오(Whisper 전사 실패)라 안 씀. /api/tts-free 는 정상 만다린(Whisper 전사 통과).
+   기기(브라우저)에 중국어 음성이 없는 폰에서도 서버 오디오 파일이라 소리가 난다. 실패 시에만 기기 음성 폴백. */
+var _freeCache={};
+function _freeTts(text, rate, onend, onfail){
+  var lang=LANGMETA[MODE].tts.slice(0,2), key=lang+'|'+text;
+  function play(u, retried){
+    try{
+      if(!_ttsAudio) _ttsAudio=new Audio();
+      _ttsStop();
+      var done=false;
+      function fin(ok){ if(done)return; done=true;
+        if(!ok && !retried){ setTimeout(function(){ play(u,true); }, 320); return; }  // 자동재생 차단 1회 재시도
+        if(!ok && onfail){ onfail(); } else if(ok && onend){ onend(); } }
+      _ttsAudio.onended=function(){ fin(true); };
+      _ttsAudio.onerror=function(){ fin(false); };
+      _ttsAudio.src=u; _ttsAudio.playbackRate=_audRate(rate);
+      try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(_){}
+      var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fin(false); });
+    }catch(_){ if(onfail)onfail(); }
+  }
+  if(_freeCache[key]){ play(_freeCache[key]); return; }
+  fetch('/api/tts-free?lang='+lang+'&q='+encodeURIComponent(text))
+    .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0) throw new Error('free'); return r.blob(); })
+    .then(function(b){ if(b.size<300) throw new Error('empty');
+      var fr=new FileReader();
+      fr.onload=function(){ var u=String(fr.result||''); if(!u){ if(onfail)onfail(); return; } _freeCache[key]=u; play(u); };
+      fr.onerror=function(){ try{ var u2=URL.createObjectURL(b); _freeCache[key]=u2; play(u2); }catch(_){ if(onfail)onfail(); } };
+      fr.readAsDataURL(b);
+    })
+    .catch(function(){ if(onfail)onfail(); });
+}
 /* 앱(APK v1.8+) 네이티브 TTS 브리지 — WebView 에는 speechSynthesis 가 없어 이것이 유일한 정상 경로 */
 function _bridgeSpeak(text, rate){
   try{ if(window.AndroidTTS && window.AndroidTTS.isReady && window.AndroidTTS.isReady()){
@@ -491,8 +523,16 @@ function _bridgeSpeak(text, rate){
   return false; }
 function speak(text, rate, times){ if(muted)return; times=Math.max(1,times||1);
   _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
+  if(MODE==='zh'){                                          // ★ 중국어 = 서버 오디오(/api/tts-free 구글 만다린) 우선.
+    var zn=0;                                               //    기기·앱에 중국어 음성이 없어도 오디오 파일이라 소리가 난다.
+    (function zonce(){ zn++;
+      _freeTts(text, rate,
+        function(){ if(zn<times) setTimeout(zonce,360); },
+        function(){ if(!_bridgeSpeak(text, rate)) _synthSpeak(text, rate, times-(zn-1)); }); // 서버 실패 → 앱 네이티브 → 기기 음성
+    })();
+    return;
+  }
   if(_bridgeSpeak(text, rate)) return;                      // ① 앱 네이티브(시스템 음성)
-  if(MODE==='zh'){ _synthSpeak(text, rate, times); return; } // ② zh 는 서버 경로 오염(CF발 구글=깨진소리) → 기기 음성
   var n=0;
   function once(){ n++;
     srvTts(text, rate,                                       // ③ en 은 서버 Aura-2(원어민) 우선
@@ -1026,6 +1066,15 @@ function speakTimes(text, rate, times, cb){
   var safety=setTimeout(fin, est+4000);   // 서버 TTS 첫 생성(fetch) 여유 포함
   var n=0;
   function done(){ clearTimeout(safety); fin(); }
+  // ★ 중국어 = 서버 오디오(/api/tts-free 구글 만다린) 우선 — 기기·앱 WebView 에 zh 음성 없어도 소리가 난다. 실패 시 기기 음성 폴백.
+  if(MODE==='zh'){
+    (function frep(){ if(seq!==_spkSeq)return; n++;
+      _freeTts(text, rate,
+        function(){ if(seq!==_spkSeq)return; if(n<times) setTimeout(frep,450); else done(); },
+        function(){ if(seq!==_spkSeq)return; synthOnce(); });   // 서버 실패 → 남은 횟수 기기 음성
+    })();
+    return;
+  }
   // ① 앱 네이티브 TTS — 종료 이벤트가 없어 예상 시간으로 반복·완료 판정(안전타임아웃 별도)
   if(window.AndroidTTS && window.AndroidTTS.isReady){
     var ready=false; try{ ready=window.AndroidTTS.isReady(); }catch(_){}
@@ -1038,8 +1087,6 @@ function speakTimes(text, rate, times, cb){
       return;
     }
   }
-  // ② zh 는 서버 경로 오염(CF발 구글=깨진소리·MeloTTS zh=잡음) → 기기 음성만
-  if(MODE==='zh'){ n=1; synthOnce(); return; }
   function once(){ if(seq!==_spkSeq)return; n++;
     srvTts(text, rate,                                       // ③ en 은 서버 Aura-2 우선
       function(){ if(seq!==_spkSeq)return; if(n<times) setTimeout(once,450); else done(); },
@@ -1416,6 +1463,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260718050246 -->
+<!-- BUILD:20260718051714 -->
 </body>
 </html>
