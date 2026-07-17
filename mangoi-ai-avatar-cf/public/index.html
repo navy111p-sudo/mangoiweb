@@ -241,12 +241,36 @@
   }
 
   // 답변 읽어주기: Typecast(성우) 미사용 — 크레딧이 너무 빨리 소진돼 배제.
-  // 첫 인사말만 녹화된 원어민 음성(ops-greeting.mp4)으로 하고, 이후 답변은 브라우저 음성(다듬은 톤)으로 읽는다.
+  // 첫 인사말만 녹화된 원어민 음성(ops-greeting.mp4)으로 하고, 이후 답변은
+  // 1순위 서버 무료 TTS(/api/tts-free, Google 기계음)로 읽는다 — 한국어 음성이 없는
+  // 윈도우 PC·앱 WebView에서도 소리 보장. 실패 시에만 브라우저 음성.
+  function _ttsClean(t){
+    return (t||"").replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu,"")
+                  .replace(/\s{2,}/g," ").trim();
+  }
   function speak(text){
     lastAnswer=text;
     stopListening();
     stopSpeaking();
-    speakBrowser(text);
+    var spoken=_ttsClean(text);
+    if(!spoken){ return; }
+    var mySeq=speakSeq;
+    ttsAbort=new AbortController();
+    fetch("/api/tts-free",{ method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ text:spoken, lang:/[가-힣]/.test(spoken)?"ko":"en" }),
+        signal:ttsAbort.signal })
+      .then(function(r){ if(!r.ok) throw new Error("tts_"+r.status); return r.blob(); })
+      .then(function(b){
+        if(mySeq!==speakSeq) return;
+        if(lastBlobUrl){ try{ URL.revokeObjectURL(lastBlobUrl); }catch(e){} }
+        lastBlobUrl=URL.createObjectURL(b);
+        audioEl.src=lastBlobUrl;
+        var p=audioEl.play();
+        if(p&&p.catch) p.catch(function(){ if(mySeq===speakSeq) speakBrowser(text); });
+      })
+      .catch(function(e){
+        if(mySeq===speakSeq && (!e||e.name!=="AbortError")) speakBrowser(text);
+      });
   }
 
   // === 정지 트리거 ===

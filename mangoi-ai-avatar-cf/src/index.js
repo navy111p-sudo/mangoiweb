@@ -499,6 +499,66 @@ async function handleTTS(request, env) {
   });
 }
 __name(handleTTS, "handleTTS");
+// 무료 서버 TTS — Google 번역 TTS(무키·크레딧 0). 브라우저 speechSynthesis가 없는
+// 환경(안드로이드 앱 WebView, 한국어 음성 미설치 PC)에서도 소리가 나도록 하는 1순위 경로.
+// Google TTS는 요청당 ~200자 제한 → 문장 경계로 잘라 여러 MP3를 이어붙여 반환.
+async function handleTTSFree(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  const url = new URL(request.url);
+  let text = "";
+  let lang = "ko";
+  if (request.method === "GET") {
+    text = url.searchParams.get("q") || "";
+    lang = (url.searchParams.get("lang") || "ko").toLowerCase();
+  } else {
+    try {
+      const j = await request.json();
+      text = String(j && j.text || "");
+      lang = String(j && j.lang || "ko").toLowerCase();
+    } catch (_) {
+    }
+  }
+  const tl = lang === "en" || lang === "en-us" ? "en" : lang === "zh" || lang === "zh-cn" || lang === "cn" ? "zh-CN" : "ko";
+  text = text.replace(/\s+/g, " ").trim().slice(0, 600);
+  if (!text) return json({ error: "empty" }, 400);
+  const chunks = [];
+  let rest = text;
+  while (rest.length) {
+    if (rest.length <= 180) {
+      chunks.push(rest);
+      break;
+    }
+    let cut = rest.slice(0, 180);
+    const b = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("。"), cut.lastIndexOf(", "), cut.lastIndexOf(" "));
+    if (b > 60) cut = rest.slice(0, b + 1);
+    chunks.push(cut.trim());
+    rest = rest.slice(cut.length);
+  }
+  const parts = [];
+  for (const c of chunks) {
+    if (!c) continue;
+    const g = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${encodeURIComponent(c)}`, {
+      headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://translate.google.com/" }
+    });
+    if (g.ok) {
+      const buf = new Uint8Array(await g.arrayBuffer());
+      if (buf.byteLength > 200) parts.push(buf);
+    }
+  }
+  if (!parts.length) return json({ error: "tts_failed" }, 502);
+  const total = parts.reduce((n, p) => n + p.byteLength, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) {
+    out.set(p, off);
+    off += p.byteLength;
+  }
+  return new Response(out, {
+    status: 200,
+    headers: { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", ...CORS }
+  });
+}
+__name(handleTTSFree, "handleTTSFree");
 async function handleSTT(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method !== "POST") return json({ error: "POST \uBA54\uC11C\uB4DC\uB9CC \uD5C8\uC6A9\uB429\uB2C8\uB2E4." }, 405);
@@ -542,6 +602,7 @@ var index_default = {
     const url = new URL(request.url);
     if (url.pathname === "/api/chat") return handleChat(request, env);
     if (url.pathname === "/api/tts") return handleTTS(request, env);
+    if (url.pathname === "/api/tts-free") return handleTTSFree(request, env);
     if (url.pathname === "/api/stt") return handleSTT(request, env);
     if (env.ASSETS) return env.ASSETS.fetch(request);
     return new Response("Not found", { status: 404 });
