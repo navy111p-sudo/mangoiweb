@@ -10085,6 +10085,68 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </details>
 
+<!-- 🔍 (2026-07-17) 가맹점 관리 — ① 등록 폼 클릭 토글 보장 ② 목록 검색 필터 -->
+<style id="ph-frn-filter-css">
+  .frn-filter-wrap{ display:flex; gap:8px; align-items:center; margin:10px 0 2px; }
+  .frn-filter-wrap input{
+    width:240px; max-width:60vw; padding:5px 10px; font-size:12px;
+    border:1px solid #d1d5db; border-radius:6px;
+  }
+  .frn-filter-count{ font-size:11.5px; color:#94a3b8; }
+</style>
+<script id="ph-frn-filter-js">
+(function(){
+  // ① 등록 폼(＋ 대리점 신규 등록 등) — 클릭할 때마다 확실히 열림↔닫힘 토글
+  //    (summary 를 건드리는 다른 전역 클릭/툴팁 스크립트와 무관하게 동작 보장)
+  function bindToggles(){
+    document.querySelectorAll('#card-franchises .sub-body > details > summary, #card-centers .menu-body > details > summary').forEach(function(sm){
+      if (sm.__frnTgl) return; sm.__frnTgl = true;
+      sm.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var d = sm.parentElement;
+        if (d && d.tagName === 'DETAILS') d.open = !d.open;
+      });
+    });
+  }
+  // ② 목록 필터 — 각 표 위에 검색 입력 자동 삽입 (모든 열 텍스트 대상 즉시 필터)
+  var TABLES = ['franchises-table','branches-table','mbranches-table','recruit-table','hq-table','indep-table','centers-table'];
+  function bindFilters(){
+    TABLES.forEach(function(id){
+      var tb = document.getElementById(id); if (!tb) return;
+      var table = tb.closest('table'); if (!table || table.__frnFlt) return; table.__frnFlt = true;
+      var wrap = document.createElement('div'); wrap.className = 'frn-filter-wrap';
+      var inp = document.createElement('input');
+      inp.type = 'search'; inp.id = id + '-filter';
+      inp.placeholder = '🔍 목록 검색 (이름·대표·전화·주소…)';
+      inp.setAttribute('data-ko-placeholder','🔍 목록 검색 (이름·대표·전화·주소…)');
+      inp.setAttribute('data-en-placeholder','🔍 Filter list (name·owner·phone…)');
+      inp.setAttribute('data-ko-ph','🔍 목록 검색 (이름·대표·전화·주소…)');
+      inp.setAttribute('data-en-ph','🔍 Filter list (name·owner·phone…)');
+      var cnt = document.createElement('span'); cnt.className = 'frn-filter-count';
+      wrap.appendChild(inp); wrap.appendChild(cnt);
+      table.parentNode.insertBefore(wrap, table);
+      function apply(){
+        var q = (inp.value || '').trim().toLowerCase();
+        var rows = Array.prototype.filter.call(tb.rows, function(r){ return !r.querySelector('td.empty'); });
+        var shown = 0;
+        rows.forEach(function(r){
+          var hit = !q || r.textContent.toLowerCase().indexOf(q) !== -1;
+          r.style.display = hit ? '' : 'none';
+          if (hit) shown++;
+        });
+        cnt.textContent = q ? (shown + '/' + rows.length) : '';
+      }
+      inp.addEventListener('input', apply);
+      // 목록이 다시 그려져도(innerHTML 교체) 입력해 둔 필터 유지
+      new MutationObserver(apply).observe(tb, { childList:true });
+    });
+  }
+  function init(){ bindToggles(); bindFilters(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  setTimeout(init, 1200); // 늦게 렌더되는 경우 재시도
+})();
+</script>
+
 <!-- 교육센터 -->
 <details class="table-card menu-card" id="card-centers">
   <summary><span data-ko="🏫 교육센터" data-en="🏫 Education Centers">🏫 교육센터</span></summary>
@@ -19961,6 +20023,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=1"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260717221440 -->
+<!-- BUILD:20260717224420 -->
 </body>
 </html>
