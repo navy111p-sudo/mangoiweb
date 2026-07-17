@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>🎮 단어 테트리스 — Mangoi</title>
 <!--
   ═══════════════════════════════════════════════════════════════
@@ -28,6 +28,8 @@
   }
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ height:100%; overflow:hidden; }
+  /* 📱 모바일 주소창 변동 대응 — 실제 보이는 화면 높이에 맞춤(하단 잘림 방지) */
+  @supports (height:100dvh){ html,body{ height:100dvh; } }
   body{ font-family:'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif;
     color:#e6edff; background:#0b0f1e; user-select:none; -webkit-user-select:none; touch-action:manipulation; }
   body::before{ content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
@@ -66,6 +68,9 @@
   #scr-game{ padding:8px 8px 0; }
   .hud{ width:100%; max-width:560px; display:flex; align-items:center; gap:8px; font-size:13px; padding:2px 4px; flex-wrap:wrap; row-gap:6px; }
   .hud .pill{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:999px; padding:4px 11px; white-space:nowrap; }
+  /* PC: 칩을 기존처럼 한 줄로(컨테이너는 투명), ☰ 버튼은 숨김 */
+  #hud-chips{ display:contents; }
+  #hud-menu-btn{ display:none; }
   .hud b{ color:#fbbf24; }
   .hud .combo b{ color:#f472b6; }
   #hud-level b{ color:#34d399; }
@@ -193,6 +198,44 @@
   .btn{ border:none; border-radius:999px; padding:24px 56px; font-size:30px; font-weight:800; cursor:pointer; color:#fff; }
   .btn.play{ background:linear-gradient(90deg,#6366f1,#38bdf8); box-shadow:0 6px 20px rgba(99,102,241,.4); }
   .btn.ghost{ background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.2); }
+
+  /* 상단 UI 묶음(HUD+문장세트+미션) — JS가 이 높이를 실측해 보드 크기를 정함 */
+  #tetris-top{ width:100%; display:flex; flex-direction:column; align-items:center; }
+
+  /* 모드선택·게임오버 화면은 작은 화면에서 스크롤 허용(버튼 잘림 방지) */
+  #scr-mode, #scr-over{ overflow-y:auto; }
+  @media (max-height:860px){
+    #scr-over{ justify-content:flex-start; gap:14px; padding:16px; }
+    #scr-over .big{ font-size:54px; } #scr-over h2{ font-size:32px; } #ov-title{ font-size:24px; }
+    .ov-rows{ padding:14px 26px; border-radius:20px; } .ov-rows .r{ font-size:19px; padding:6px 0; gap:30px; }
+    .btn{ padding:16px 36px; font-size:22px; }
+  }
+  @media (max-height:520px){
+    #scr-mode{ justify-content:flex-start; gap:10px; padding:12px; }
+    #scr-over{ gap:10px; padding:12px; }
+    #scr-over .big{ font-size:38px; } #scr-over h2{ font-size:24px; } #ov-title{ font-size:19px; }
+    .ov-rows{ padding:8px 20px; } .ov-rows .r{ font-size:15px; padding:4px 0; gap:22px; }
+    .btn{ padding:11px 26px; font-size:17px; }
+  }
+
+  /* 📱 짧은 가로 화면(폰 가로) — 좌: HUD·문장, 우: 보드, 하단: 리모컨(하단 잘림 방지 분할 레이아웃) */
+  @media (orientation:landscape) and (max-height:520px){
+    #scr-game.on{ display:grid; width:100%; height:100%;
+      grid-template-columns:minmax(210px,42vw) minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto;
+      column-gap:10px; align-items:start; justify-items:center; padding:6px 8px 0; }
+    #tetris-top{ grid-column:1; grid-row:1; min-height:0; max-height:100%; overflow-y:auto; }
+    #board-wrap{ grid-column:2; grid-row:1; margin-top:0; align-self:center; }
+    #pad.rowpad{ grid-column:1 / -1; grid-row:2; margin:4px auto 0; max-width:440px;
+      padding:4px 8px calc(4px + env(safe-area-inset-bottom)); }
+    .rbtn{ height:40px; font-size:18px; }
+    .rbtn small{ display:none; }
+    .hud{ font-size:11.5px; }
+    .quest{ padding:5px 8px; margin-top:4px; }
+    .quest .qslot{ font-size:12px; padding:2px 6px; min-width:24px; }
+    .sline .sko{ font-size:11px; }
+    .quest .hint{ display:none; }
+    #mission{ font-size:11.5px; padding:4px 6px; margin-top:4px; }
+  }
 </style>
 </head>
 <body>
@@ -219,6 +262,7 @@
 
   <!-- 2) 게임 -->
   <div class="scr" id="scr-game">
+    <div id="tetris-top">
     <div class="hud">
       <span class="pill">⭐ <b id="hud-score">0</b></span>
       <span class="pill" id="hud-level">Lv <b>1</b></span>
@@ -238,6 +282,7 @@
       <div class="hint">👆 단어를 누르면 발음과 뜻이 나와요</div>
     </div>
     <div id="mission"></div>
+    </div><!-- /#tetris-top -->
     <div id="board-wrap">
       <div id="board"></div>
       <div id="wordlabel"></div>
@@ -463,6 +508,12 @@ function toggleMusic(){
 var VOICES=[];
 function loadVoices(){ try{ VOICES=speechSynthesis.getVoices()||[]; }catch(_){} }
 loadVoices(); try{ speechSynthesis.onvoiceschanged=loadVoices; }catch(_){}
+/* 📱 모바일(iOS) TTS 잠금 해제 — 사용자 제스처(게임 시작) 안에서 무음 발화 1회 */
+var _ttsUnlocked=false;
+function ttsUnlock(){ if(_ttsUnlocked)return; try{
+  var u=new SpeechSynthesisUtterance(' '); u.volume=0; u.rate=2;
+  speechSynthesis.speak(u); loadVoices(); _ttsUnlocked=true;
+}catch(_){}}
 function pickVoice(lang){
   return VOICES.find(function(x){ return x.lang===lang; }) || VOICES.find(function(x){ return x.lang && x.lang.indexOf(lang.slice(0,2))===0; });
 }
@@ -646,30 +697,46 @@ function showMode(){
 function startGame(mode){
   MODE=mode; score=0; combo=0; maxCombo=0; lines=0; level=1; mission=null; pieceSeq=0; fillerQ=0;
   running=true; paused=false;
-  computeDims();                              // 🔲 화면에 맞춰 열/행 수 결정(보드는 크게·셀은 작게)
-  grid=[]; for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
   setOrder=shuffle(SETS[MODE].map(function(_,i){ return i; })); setIdx=-1; nextSet();  // 📝 첫 세트(2문장)
   document.getElementById('hud-mode').textContent=VOCAB[MODE].flag+' '+VOCAB[MODE].name;
   document.getElementById('mus-btn').textContent=MUSIC.on?'🔊':'🔇';
   var _spd=document.getElementById('spd-val'); if(_spd) _spd.textContent=SPEED;
-  setBg(); updateHud(); show('scr-game'); ac(); musicStart();
+  setBg(); updateHud(); show('scr-game');
+  computeDims();                              // 🔲 화면 표시 후 상단UI·리모컨 실측 → 열/행 수 결정(하단 잘림 방지)
+  grid=[]; for(var r=0;r<ROWS;r++){ grid.push(new Array(COLS).fill(null)); }
+  ac(); ttsUnlock(); musicStart();   // 📱 발음(TTS) 잠금 해제
   layout(); spawn(); render(); startGravity();
 }
 
-/* ── 사용 가능한 영역(가로/세로) 계산 — 리모컨·상단 UI 예약분 제외 ── */
+/* ── 사용 가능한 영역(가로/세로) 계산 — 상단 UI·리모컨을 '실측'해서 제외(고정 예약값이 실제보다 작아 하단이 잘리던 문제 해결) ── */
 function availArea(){
-  var wide=window.innerWidth>=700;
-  var availW=Math.min(window.innerWidth-12, wide?600:window.innerWidth-12);
-  var availH=window.innerHeight - (wide?338:370);   // 상단(HUD+3문장세트+미션) + 하단 가로 리모컨 예약
-  return { wide:wide, w:Math.max(160,availW), h:Math.max(240,availH) };
+  var W=window.innerWidth||360, H=window.innerHeight||640;
+  var wide=W>=700;
+  var land=(W>H)&&H<=520;                    // 📱 짧은 가로 화면(폰 가로) = 좌(문장)/우(보드) 분할 레이아웃
+  var topEl=document.getElementById('tetris-top'), padEl=document.getElementById('pad');
+  var topH=topEl?topEl.offsetHeight:0, padH=padEl?padEl.offsetHeight:0;
+  var measured=(topH>0&&padH>0);             // 화면 표시 전(display:none·헤드리스)엔 0 → 예전 고정값 폴백
+  var availW, availH;
+  if(land){
+    var leftW=Math.max(210, Math.round(W*0.42));       // CSS grid 좌측 열(minmax(210px,42vw))과 동일 근사
+    availW=W-leftW-30;
+    availH=H-(measured?padH:70)-16;
+  }else{
+    availW=Math.min(W-12, wide?600:W-12);
+    availH=measured ? (H-topH-padH-28) : (H-(wide?338:370));
+  }
+  return { wide:wide, land:land, w:Math.max(160,availW), h:Math.max(200,availH) };
 }
 /* 🔲 열/행 수 결정 — 보드는 영역을 꽉 채우되(직사각형만큼 크게), 셀(도형)은 작게.
    ※ startGame에서 1회만 호출(게임 중 grid 크기 고정) */
 function computeDims(){
   var a=availArea();
-  var target=a.wide?36:33;                          // 목표 셀 크기(칸 크게 — 보드가 옆·위아래로 프레임 채움)
+  var target=(a.wide&&!a.land)?36:33;               // 목표 셀 크기(칸 크게 — 보드가 옆·위아래로 프레임 채움)
   COLS=Math.max(8, Math.min(11, Math.round(a.w/target)));
-  ROWS=Math.max(12, Math.min(20, Math.round(a.h/target)));
+  ROWS=Math.max(a.land?10:12, Math.min(20, Math.round(a.h/target)));
+  // 최소 셀(15px)로도 실측 공간에 안 들어가는 행·열은 줄임 → 리모컨이 절대 화면 밖으로 안 밀림
+  ROWS=Math.min(ROWS, Math.max(8, Math.floor(a.h/15)));
+  COLS=Math.min(COLS, Math.max(6, Math.floor(a.w/15)));
 }
 /* ── 셀 픽셀 크기만 화면에 맞춰 갱신(열/행 수는 고정) → 보드가 영역을 채움 ── */
 function layout(){
@@ -1066,6 +1133,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260718014721 -->
+<!-- BUILD:20260718040325 -->
 </body>
 </html>

@@ -11,7 +11,7 @@
   · 적기 전부 = A6M Zero 실사 스프라이트(/img/zero-enemy.png, 편대사진서 선두기 크롭+크로마키). 비행패턴 weave/dive 2종
   · 문장을 어순대로 '단어를 실은 적기'를 격추해 완성 → 발음 재생(Web Speech API)
   · 연료(드럼통) 획득 → 점수+시간 증가 · 적 탄막(danmaku) 회피
-  · 사운드 = Web Audio API(기관총/폭발/획득/오답), 발음 = Web Speech API
+  · 사운드 = Web Audio API(기관총/폭발/획득/오답), 발음 = 서버 원어민 TTS(/api/voice/tts) 우선 → 기기 음성(Web Speech) 폴백
   · 학습기록 = /api/games/progress 배치 전송(실패해도 게임 무관)
 -->
 <style>
@@ -394,10 +394,66 @@ function bgmStop(){ bgm.on=false; if(bgm.timer){ clearInterval(bgm.timer); bgm.t
 var VOICES=[];
 function loadVoices(){ try{ VOICES=speechSynthesis.getVoices()||[]; }catch(_){} }
 loadVoices(); try{ speechSynthesis.onvoiceschanged=loadVoices; }catch(_){}
+/* 📱 모바일(특히 iOS) TTS 잠금 해제 — 사용자 제스처 안에서 무음 발화 1회 → 이후 프로그램 발음도 재생됨 */
+var _ttsUnlocked=false;
+function ttsUnlock(){ if(_ttsUnlocked)return; try{
+  var u=new SpeechSynthesisUtterance(' '); u.volume=0; u.rate=2;
+  var v=pickVoice(LANGMETA[MODE].tts); if(v)u.voice=v;
+  speechSynthesis.speak(u); loadVoices(); _ttsUnlocked=true;
+}catch(_){}
+  // 서버 TTS용 <audio>도 같은 제스처 안에서 무음 재생 1회 → 자동재생 정책 잠금 해제
+  try{ if(!_ttsAudio) _ttsAudio=new Audio();
+    _ttsAudio.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+    var p=_ttsAudio.play(); if(p&&p.catch)p.catch(function(){});
+  }catch(_){}}
 function pickVoice(lang){ return VOICES.find(function(v){return v.lang===lang;})
   || VOICES.find(function(v){return v.lang && v.lang.indexOf(lang.slice(0,2))===0;}); }
+
+/* ── 서버 원어민 TTS(오디오 파일) 우선 재생 ──
+   안드로이드 앱(WebView)은 speechSynthesis 가 소리를 못 내는 기기가 많다(웜업과 동일 문제).
+   → /api/voice/tts (en=Aura-2 · zh=원어민 만다린)를 먼저 재생하고, 실패 시에만 기기 음성 폴백. */
+var _ttsCache={}, _ttsAudio=null;
+function _audRate(r){ r=r||0.95; return r>=1 ? Math.min(1.6,r) : Math.max(0.6, 1-(1-r)*0.6); }   // 저속 왜곡 완화(원음 쪽으로 완만하게)
+function _ttsStop(){ try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(_){} }
+function srvTts(text, rate, onend, onfail, lang, speaker){
+  lang = lang || LANGMETA[MODE].tts.slice(0,2);          // 'en' | 'zh'
+  speaker = speaker || 'asteria';
+  var key = lang+'|'+speaker+'|'+text;
+  function play(u){
+    try{
+      if(!_ttsAudio) _ttsAudio=new Audio();
+      _ttsStop();
+      var done=false;
+      function fin(ok){ if(done)return; done=true;
+        if(!ok && onfail){ onfail(); } else if(ok && onend){ onend(); } }
+      _ttsAudio.onended=function(){ fin(true); };
+      _ttsAudio.onerror=function(){ fin(false); };
+      _ttsAudio.src=u; _ttsAudio.playbackRate=_audRate(rate);
+      try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(_){}
+      var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fin(false); });
+    }catch(_){ if(onfail)onfail(); }
+  }
+  if(_ttsCache[key]){ play(_ttsCache[key]); return; }
+  fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ text:text, lang:lang, speaker:speaker }) })
+    .then(function(r){ var ct=r.headers.get('content-type')||'';
+      if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
+    .then(function(b){ if(b.size<200) throw new Error('empty');
+      var u=URL.createObjectURL(b); _ttsCache[key]=u; play(u); })
+    .catch(function(){ if(onfail)onfail(); });
+}
+
 function speak(text, rate, times){ if(muted)return; times=Math.max(1,times||1);
-  try{ speechSynthesis.cancel(); }catch(_){}
+  _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
+  var n=0;
+  function once(){ n++;
+    srvTts(text, rate,
+      function(){ if(n<times) setTimeout(once,360); },
+      function(){ _synthSpeak(text, rate, times-(n-1)); });   // 서버 실패 → 남은 횟수는 기기 음성
+  }
+  once(); }
+/* 기기 음성(브라우저 speechSynthesis) — 서버 TTS 실패 시 폴백 */
+function _synthSpeak(text, rate, times){
   var lang=LANGMETA[MODE].tts, v=pickVoice(lang), n=0;
   function once(){ n++; try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.95; if(v)u.voice=v;
     if(n<times) u.onend=function(){ setTimeout(once,360); }; speechSynthesis.speak(u); }catch(_){} }
@@ -414,6 +470,8 @@ function pickMaleVoice(lang){
 }
 /* 특정 언어 음성으로 한마디(조종사 "Oh no!" 등) — 최대 음량·낮은 톤·느리게 = 감성적/아쉬운 남자 목소리 */
 function speakVoice(text, lang, rate){ if(muted)return;
+  srvTts(text, rate, null, function(){ _synthVoice(text, lang, rate); }, (lang||'en-US').slice(0,2), 'orion'); }   // orion=남자 음색
+function _synthVoice(text, lang, rate){
   try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang||'en-US'; u.rate=rate||0.95; u.pitch=0.72; u.volume=1;
     var v=pickMaleVoice(lang||'en-US'); if(v)u.voice=v; speechSynthesis.speak(u); }catch(_){} }
 
@@ -685,7 +743,7 @@ function explode(x,y,big){
 function ptr(ev){ var r=cv.getBoundingClientRect(); var t=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
   return {x:t.clientX-r.left, y:t.clientY-r.top}; }
 cv.addEventListener('pointermove',function(ev){ if(!G||!G.running||G.speaking)return; var p=ptr(ev); G.tx=p.x; G.ty=p.y; });
-cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running||G.speaking)return; audio(); if(AC&&AC.state==='suspended')AC.resume();
+cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running||G.speaking)return; audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock();
   var p=ptr(ev); G.tx=p.x; G.ty=p.y; G.firing=true; playerFire(); });
 window.addEventListener('pointerup',function(){ if(G)G.firing=false; });
 cv.addEventListener('contextmenu',function(e){e.preventDefault();});
@@ -832,7 +890,7 @@ function winGame(){ if(!G||!G.running)return; G.running=false; G.speaking=false;
 var SP=null, spState='';   // spState: 'listen' | 'speak' | 'result'
 var spRate=(function(){ try{ var r=parseFloat(localStorage.getItem('mangoi_langace_rate')); return (r>=0.4&&r<=1.6)?r:0.85; }catch(_){ return 0.85; } })();
 function spFull(){ return SP.sent.w.join(MODE==='zh'?'':' '); }
-function spStopAudio(){ _spkSeq++; try{ speechSynthesis.cancel(); }catch(_){} }   // 진행 중 낭독 시퀀스 취소
+function spStopAudio(){ _spkSeq++; _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){} }   // 진행 중 낭독 시퀀스 취소(서버 오디오 포함)
 /* 🔉 읽어주기 속도 변경 — 듣기 중이면 새 속도로 다시 들려주고, 아니면 1회 미리듣기 */
 function setSpRate(r){
   spRate=r; try{ localStorage.setItem('mangoi_langace_rate', String(r)); }catch(_){}
@@ -915,16 +973,22 @@ function speakTimes(text, rate, times, cb){
   var seq=++_spkSeq;
   var called=false; function fin(){ if(called||seq!==_spkSeq)return; called=true; if(cb) cb(); }
   if(muted){ setTimeout(fin, 600); return; }
-  try{ speechSynthesis.cancel(); }catch(_){}
-  var lang=LANGMETA[MODE].tts, v=pickVoice(lang), n=0;
+  _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
   var est=Math.max(2600, text.length*150)*times;
-  var safety=setTimeout(fin, est+2000);
+  var safety=setTimeout(fin, est+4000);   // 서버 TTS 첫 생성(fetch) 여유 포함
+  var n=0;
+  function done(){ clearTimeout(safety); fin(); }
   function once(){ if(seq!==_spkSeq)return; n++;
+    srvTts(text, rate,
+      function(){ if(seq!==_spkSeq)return; if(n<times) setTimeout(once,450); else done(); },
+      function(){ if(seq!==_spkSeq)return; synthOnce(); });   // 서버 실패 → 남은 횟수 기기 음성
+  }
+  function synthOnce(){ if(seq!==_spkSeq)return;
+    var lang=LANGMETA[MODE].tts, v=pickVoice(lang);
     try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.9; if(v)u.voice=v;
-      u.onend=function(){ if(seq!==_spkSeq)return; if(n<times) setTimeout(once,450); else { clearTimeout(safety); fin(); } };
-      u.onerror=function(){ if(seq!==_spkSeq)return; if(n<times) setTimeout(once,450); else { clearTimeout(safety); fin(); } };
+      u.onend=u.onerror=function(){ if(seq!==_spkSeq)return; if(n<times){ n++; setTimeout(synthOnce,450); } else done(); };
       speechSynthesis.speak(u);
-    }catch(_){ clearTimeout(safety); fin(); }
+    }catch(_){ done(); }
   }
   once();
 }
@@ -1212,13 +1276,14 @@ function startGame(){
   try{ var _pp=PVID.vid&&PVID.vid.play(); if(_pp&&_pp.then) _pp.then(function(){ try{ PVID.vid.pause(); PVID.vid.currentTime=0; }catch(_){} }).catch(function(){}); }catch(_){}
   newGame(); G.running=true; updateHUD();
   audio(); if(AC&&AC.state==='suspended')AC.resume();
+  ttsUnlock();                             // 📱 모바일 발음(TTS) 잠금 해제
   bgmStart();                              // 🎵 배경음악 시작
   banner('✈️ 출격!', '#ffd479');
 }
 function endGame(win){
   if(!G||G.over)return; G.over=true; G.running=false; flushProg();
   bgmStop(); pilotVidStop();               // 🎵 배경음악·🎥 낙하산 영상 정지
-  try{ speechSynthesis.cancel(); }catch(_){}
+  _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
   document.getElementById('overTitle').textContent = win ? '🎖️ 임무 완료!' : '💥 격추당했다!';
   document.getElementById('overStat').innerHTML =
     '정답 <b>'+G.correct+'</b> / '+GOAL+' · 완성 문장 <b>'+G.clears+'</b><br>최종 점수 <b>'+G.score+'</b>';
@@ -1250,7 +1315,7 @@ function setSky(s){ SKY=(s==='evening')?'evening':'day';
 document.getElementById('btnStart').addEventListener('click', startGame);
 document.getElementById('btnAgain').addEventListener('click', startGame);
 document.getElementById('btnMute').addEventListener('click',function(){ muted=!muted; this.textContent=muted?'🔇':'🔊';
-  if(muted){ bgmStop(); try{speechSynthesis.cancel();}catch(_){} }
+  if(muted){ bgmStop(); _ttsStop(); try{speechSynthesis.cancel();}catch(_){} }
   else if(G&&G.running&&!G.paused&&!G.speaking){ bgmStart(); } });   // 말하기 연습 중엔 BGM 재개 안 함(TTS 위 겹침 방지)
 document.getElementById('btnPause').addEventListener('click',function(){ if(!G||!G.running||G.speaking)return; G.paused=!G.paused; this.textContent=G.paused?'▶️':'⏸️';
   if(G.paused){ bgmStop(); banner('⏸️ 일시정지','#cdd9e6'); } else { bgmStart(); } });
@@ -1276,6 +1341,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260718014721 -->
+<!-- BUILD:20260718040325 -->
 </body>
 </html>
