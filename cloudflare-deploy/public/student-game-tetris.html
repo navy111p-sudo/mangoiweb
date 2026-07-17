@@ -90,6 +90,8 @@
   #q-sets{ display:flex; flex-direction:column; gap:7px; }
   .sline{ display:flex; flex-direction:column; align-items:center; gap:3px; }
   .sline .sko{ font-size:12.5px; color:#93c5fd; }
+  .sline .snum{ display:none; font-size:10.5px; font-weight:800; color:#8fa2cc;
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:1px 6px; }
   .sline .sslots{ display:flex; gap:4px; justify-content:center; flex-wrap:wrap; }
   .quest .slots{ margin-top:6px; display:flex; gap:5px; justify-content:center; flex-wrap:wrap; }
   .quest .qslot{ min-width:30px; padding:3px 8px; border-radius:8px; font-weight:800; font-size:14px; cursor:pointer;
@@ -236,6 +238,35 @@
     .quest .hint{ display:none; }
     #mission{ font-size:11.5px; padding:4px 6px; margin-top:4px; }
   }
+
+  /* 📱 세로 폰 — ① HUD 칩 전부 우상단 ☰ 메뉴 속으로 ② 문장은 '지금 만들 문장'만 최대 2줄
+     ③ 상단이 줄어든 만큼 보드(게임판) 최대화(availArea 실측이 자동 반영) */
+  @media (max-width:699px) and (orientation:portrait){
+    .hud{ margin:0; padding:0; row-gap:0; min-height:0; }
+    #hud-menu-btn{ display:flex; position:fixed; top:8px; right:8px; z-index:46; width:38px; height:38px;
+      align-items:center; justify-content:center; border-radius:11px; font-size:20px; color:#e6edff; cursor:pointer;
+      background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.25); }
+    #hud-menu-btn:active{ transform:scale(.92); background:rgba(255,255,255,.2); }
+    #hud-chips{ display:none; position:fixed; top:52px; right:8px; z-index:45; flex-direction:column; align-items:stretch;
+      gap:9px; font-size:14px; background:rgba(13,19,40,.97); border:1px solid rgba(125,211,252,.4); border-radius:14px;
+      padding:12px 14px; box-shadow:0 14px 40px rgba(0,0,0,.55); }
+    .hud.open #hud-chips{ display:flex; }
+    #hud-chips .pill{ text-align:center; }
+    #hud-chips .spd{ justify-content:center; }
+    .hud .sp{ display:none; }
+    .quest{ margin-top:0; padding:4px 42px; }
+    .quest .hint{ display:none; }
+    .sline.done, .sline.todo{ display:none; }        /* 지금 만들 문장만 보여줌 → 글자 최대 2줄 */
+    .sline{ flex-direction:row; flex-wrap:wrap; justify-content:center; align-items:center; gap:5px; row-gap:3px; }
+    .sline .snum{ display:inline-block; }
+    .sline .sko{ font-size:12px; }
+    .quest .qslot{ font-size:12.5px; padding:2px 7px; min-width:26px; }
+    #mission{ margin-top:4px; font-size:12px; padding:4px 6px; }
+    #board-wrap{ margin-top:6px; }
+    #pad.rowpad{ margin-top:6px; padding:6px 8px calc(6px + env(safe-area-inset-bottom)); }
+    .rbtn{ height:48px; font-size:20px; }
+    .rbtn small{ font-size:10px; }
+  }
 </style>
 </head>
 <body>
@@ -263,7 +294,9 @@
   <!-- 2) 게임 -->
   <div class="scr" id="scr-game">
     <div id="tetris-top">
-    <div class="hud">
+    <div class="hud" id="hud">
+      <button id="hud-menu-btn" aria-label="게임 메뉴" onclick="toggleHudMenu(event)">☰</button>
+      <div id="hud-chips">
       <span class="pill">⭐ <b id="hud-score">0</b></span>
       <span class="pill" id="hud-level">Lv <b>1</b></span>
       <span class="pill combo">🔥 <b id="hud-combo">0</b></span>
@@ -276,6 +309,7 @@
       </span>
       <span class="pill" id="mus-btn" style="cursor:pointer" onclick="toggleMusic()" title="음악 켜기/끄기">🔊</span>
       <span class="pill" id="hud-mode">🇺🇸</span>
+      </div>
     </div>
     <div class="quest">
       <div id="q-sets"></div>
@@ -789,12 +823,14 @@ function spawn(){
 function renderSlots(){
   if(!curSet) return;
   var off=0, html='';
-  curSet.forEach(function(s){
+  curSet.forEach(function(s,si){
     var slots=s.words.map(function(w,i){
       var gi=off+i, cls=gi<sentPos?'done':(gi===sentPos?'next':'');
       return '<span class="qslot '+cls+'" onclick="sayWord(this.dataset.w,this)" data-w="'+w.replace(/"/g,'&quot;')+'">'+w+'</span>';
     }).join('');
-    html+='<div class="sline"><span class="sko">'+s.ko+'</span><span class="sslots">'+slots+'</span></div>';
+    // 문장 단위 상태: done=다 채움 / cur=지금 만드는 중 / todo=아직 — 📱 세로폰에선 cur만 표시(2줄 압축)
+    var st=(sentPos>=off+s.words.length)?'done':(sentPos>=off?'cur':'todo');
+    html+='<div class="sline '+st+'"><span class="snum">'+(si+1)+'/'+curSet.length+'</span><span class="sko">'+s.ko+'</span><span class="sslots">'+slots+'</span></div>';
     off+=s.words.length;
   });
   document.getElementById('q-sets').innerHTML=html;
@@ -1133,6 +1169,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260718040325 -->
+<!-- BUILD:20260718040452 -->
 </body>
 </html>
