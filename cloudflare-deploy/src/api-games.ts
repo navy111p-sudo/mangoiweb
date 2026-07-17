@@ -1753,7 +1753,10 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         let cacheKey = '';
         try {
           // v2: 영어 TTS 를 Aura-2 로 올리면서 캐시 세대 교체 (v1 캐시본은 구형 Aura-1 음성)
-          const enc = new TextEncoder().encode('v2|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
+          // v3: CF 발신 Google TTS 가 깨진 오디오를 반환하던 시기의 zh 캐시본 오염 제거(2026-07-18)
+          //     ⚠️ zh 는 현재 서버 정상 경로 없음(Google=CF발 오염·MeloTTS zh=잡음) → 프론트가
+          //     앱 네이티브 TTS/브라우저 음성을 우선하도록 정리됨. 서버 zh 는 최후 폴백일 뿐.
+          const enc = new TextEncoder().encode('v3|' + lang + '|' + String(b.speaker || 'asteria') + '|' + text);
           const dig = await crypto.subtle.digest('SHA-256', enc);
           cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         } catch {}
