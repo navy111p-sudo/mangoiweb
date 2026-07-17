@@ -1416,8 +1416,8 @@ const HUB_GAMES = [
     src:function(){ return '/speaking-quiz.html'; } },
   { mode:'wordfighter', kind:'iframe', ico:'🧟', ttl:'워드 파이터', dsc:'좀비 격투! 문장 단어를 순서대로 눌러 좀비를 물리쳐요!', bg:'#84cc16', badge:'문장',
     src:function(){ return '/student-game-wordfighter.html'; } },
-  { mode:'tetris', kind:'iframe', ico:'🎮', ttl:'단어 테트리스', dsc:'떨어지는 단어 블록으로 문장 줄 완성! 영어·중국어 서바이벌', bg:'#06b6d4', badge:'문장·NEW',
-    src:function(){ return '/student-game-tetris.html'; } }
+  { mode:'tetris', kind:'iframe', ico:'🎮', ttl:'단어 테트리스', dsc:'떨어지는 단어 블록으로 문장 줄 완성! 영어·중국어 서바이벌', bg:'#06b6d4', badge:'문장·NEW', ownSpeed:true,
+    src:function(){ return '/student-game-tetris.html'; } }   // ownSpeed=게임 자체 ☰에 속도 있음 → 상단바 ⋮(속도) 숨김
 ];
 
 /* ============================================================
@@ -1462,6 +1462,8 @@ function hubOpenGame(mode){
   document.getElementById('hub-gname').textContent = g.ico+' '+_gameTitle(g);
   _applyGameTheme(mode);   // 🎨 이 게임 성격에 맞는 배경 테마
   hubCloseTopMenu();
+  // ⋮ 상단바 속도 메뉴 — 게임 자체에 속도 UI(☰)가 있으면 숨김(중복 제거)
+  var _kb=document.getElementById('hub-kebab'); if(_kb) _kb.style.display = g.ownSpeed ? 'none' : '';
   var hubGameEl = document.getElementById('hub-game');
 
   if(g.kind === 'iframe'){
@@ -2280,7 +2282,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260718040943 -->
+<!-- BUILD:20260718043231 -->
 <script defer src="/js/flow.js?v=6"></script>
 </body>
 </html>
