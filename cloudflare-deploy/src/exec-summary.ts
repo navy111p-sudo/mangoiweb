@@ -118,6 +118,21 @@ async function getScope(env: Env, request: Request): Promise<Scope> {
       if (t === 'branch' && v) return { type: 'branch', value: v, label: scopeLabel('branch', v) };
     }
   }
+  // 🏬 (2026-07-19) 지사 드릴다운 — ?as=agency:<shop_name> 이 **자기 지사 산하**일 때만 허용(DB 검증).
+  //   아니면 조용히 자기 지사 스코프 유지(권한 상승 불가). 대시보드 '대리점 카드' 클릭 이동용.
+  //   ⚠️ scope.ts getScope 에도 동일 로직 있음(이 파일은 자체 getScope 복제본을 씀 — 수정 시 양쪽 함께).
+  if (base.type === 'branch' && base.value) {
+    const as = new URL(request.url).searchParams.get('as');
+    if (as && as.startsWith('agency:')) {
+      const v = as.slice('agency:'.length);
+      if (v) {
+        const own = await safe(async () => await env.DB.prepare(
+          `SELECT 1 ok FROM students_erp WHERE shop_name = ? AND franchise LIKE ? LIMIT 1`
+        ).bind(v, base.value + '%').first<{ ok: number }>(), null as any);
+        if (own) return { type: 'agency', value: v, label: scopeLabel('agency', v) };
+      }
+    }
+  }
   return base;
 }
 
