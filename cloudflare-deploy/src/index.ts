@@ -1141,7 +1141,7 @@ const worker = {
       // fix (2026-06-01) — 미처리 예외가 Cloudflare 503 으로 새지 않도록 방어:
       //   어떤 경우에도 JSON 응답을 보장 (콘솔 503 도배 방지).
       try {
-        const res = await handleMangoApi(request, url, env);
+        const res = await handleMangoApi(request, url, env, ctx);
         if (res) return res;
       } catch (e: any) {
         return new Response(

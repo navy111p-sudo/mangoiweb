@@ -104,7 +104,8 @@ export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
 export async function handleMangoApi(
   request: Request,
   url: URL,
-  env: MangoEnv
+  env: MangoEnv,
+  ctx?: ExecutionContext   // 🧠 판단력 비동기 분석(waitUntil) 전달용 — 선택적(하위호환)
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
@@ -1075,7 +1076,7 @@ export async function handleMangoApi(
         || path.startsWith('/api/ratings') || path.startsWith('/api/admin/ratings')
         || path.startsWith('/api/ai-feedback') || path === '/api/teacher/my-ratings'
         || path === '/api/vc/roster') {
-      const rPoints = await handlePointsApi(request, url, env);
+      const rPoints = await handlePointsApi(request, url, env, ctx);
       if (rPoints) return rPoints;
     }
     if (path.startsWith('/api/admin/nps/') || path === '/api/nps/respond'

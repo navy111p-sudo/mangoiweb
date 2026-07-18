@@ -9,6 +9,7 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor } from './auth-admin';
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
+import { runJudgmentAnalysis } from './api-judgment';  // 🧠 판단력 엔진(2단계, Mode A)
 
 /**
  * 🎁 기프트 카탈로그 기본 상품 시드 (멱등 — 이미 있으면 건너뜀).
@@ -100,7 +101,8 @@ export const applyPointTransaction = async (env: MangoEnv, params: {
 export async function handlePointsApi(
   request: Request,
   url: URL,
-  env: MangoEnv
+  env: MangoEnv,
+  ctx?: ExecutionContext   // 🧠 판단력 비동기 분석(waitUntil)용 — 없으면 인라인 폴백
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
@@ -593,6 +595,26 @@ Return STRICT JSON only, in BOTH Korean and English:
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 500);
       }
+
+      // 🧠 [판단력 엔진 2단계] 같은 전사·신호로 학생의 '판단 이벤트'를 추출·채점해
+      //    judgment_events + judgment_analysis 에 적재(성능 로깅 포함). 교사 피드백 응답은
+      //    절대 막지 않도록 ctx.waitUntil 로 백그라운드 실행(없으면 인라인 best-effort).
+      //    학생 계정(vc_roster) 을 room 기준으로 해석 — 없으면 내부에서 조용히 스킵.
+      try {
+        let studentUidJ = '';
+        try {
+          const su: any = await env.DB.prepare(`SELECT account_uid FROM vc_roster WHERE room_id=? AND role='student' AND account_uid IS NOT NULL ORDER BY updated_at DESC LIMIT 1`).bind(roomId).first();
+          studentUidJ = String(su?.account_uid || '').trim();
+        } catch { /* roster 없으면 빈 값 → 내부 스킵 */ }
+        const judgeInput = {
+          roomId, studentUid: studentUidJ, studentName: studentName || undefined,
+          scheduleId: (b.schedule_id != null ? Number(b.schedule_id) : null),
+          lessonDate: (b.lesson_date || undefined), transcript, lang: 'en',
+          judgments: Array.isArray(b.judgments) ? b.judgments : undefined,
+        };
+        const p = runJudgmentAnalysis(env, judgeInput).catch((e: any) => console.warn('[judgment] enqueue fail:', e?.message));
+        if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(p); else await p;
+      } catch (e: any) { console.warn('[judgment] hook skip:', e?.message); }
 
       return json({ ok: true, room_id: roomId, teacher_uid: teacherUid || null, teacher_name: teacherName || null, student_name: studentName || null, duration_min: durationMin || null, metrics, feedback_ko: ko, feedback_en: en, source, generated_at: now });
     }

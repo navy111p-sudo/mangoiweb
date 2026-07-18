@@ -25066,7 +25066,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260718145701 -->
+<!-- BUILD:20260718150611 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -25660,6 +25660,12 @@ document.addEventListener('keydown', function(e){
   function nIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function nEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function nFmt(iso){var p=(iso||'').split('-');return p.length===3?(p[1]+'/'+p[2]):iso;}
+  // 🌐 영어 병기 — 현재 언어 감지 + 한국 공휴일 이름 영어 매핑
+  function nLang(){try{return String(window.getLang?window.getLang():(localStorage.getItem('mangoi_lang')||document.documentElement.lang||'ko'));}catch(e){return 'ko';}}
+  function nIsEn(){return nLang().toLowerCase().indexOf('en')===0;}
+  var N_HOL_EN={'신정':"New Year's Day",'설날':'Lunar New Year (Seollal)','설날 연휴':'Lunar New Year Holiday','삼일절':'Independence Movement Day','어린이날':"Children's Day",'부처님오신날':"Buddha's Birthday",'현충일':'Memorial Day','광복절':'Liberation Day','추석':'Chuseok','추석 연휴':'Chuseok Holiday','개천절':'National Foundation Day','한글날':'Hangeul Day','크리스마스':'Christmas'};
+  function nHolEn(t){t=String(t==null?'':t).trim();if(N_HOL_EN[t])return N_HOL_EN[t];var m=t.match(/^대체공휴일\((.+)\)$/);if(m){var inner=m[1].trim();return 'Substitute Holiday ('+(N_HOL_EN[inner]||inner)+')';}return t;}   // 매핑 없으면 원문(관리자 커스텀·필리핀 영어명)
+  function nTitle(e){return nIsEn()?nHolEn(e.title):e.title;}
   window.closeClassEntryNotice=function(){var el=document.getElementById('mangoi-class-notice');if(el&&el.parentNode)el.parentNode.removeChild(el);};
   window.mangoiClassEntryNotice=async function(){
     try{
@@ -25679,16 +25685,16 @@ document.addEventListener('keydown', function(e){
         return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(255,255,255,0.08)">'
           +'<span style="flex:0 0 auto;width:9px;height:9px;border-radius:3px;background:'+col+'"></span>'
           +'<span style="flex:0 0 auto;font-size:11.5px;font-weight:800;color:#cbd5e1;min-width:50px">'+span+'</span>'
-          +'<span style="flex:1;font-size:12.5px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(e.event_type==='vacation'?'🏖 ':'')+nEsc(e.title)+(e.country?' ('+nEsc(e.country)+')':'')+'</span></div>';
+          +'<span style="flex:1;font-size:12.5px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(e.event_type==='vacation'?'🏖 ':'')+nEsc(nTitle(e))+(e.country?' ('+nEsc(e.country)+')':'')+'</span></div>';
       }).join('');
       var box=document.createElement('div');
       box.id='mangoi-class-notice';
       box.setAttribute('style','position:fixed;top:72px;right:16px;z-index:2147482000;width:300px;max-width:84vw;background:rgba(15,23,42,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.18);border-radius:16px;box-shadow:0 18px 50px -16px rgba(0,0,0,0.7);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;padding:14px 16px 12px;animation:mgNoticeIn .35s cubic-bezier(.2,.8,.2,1)');
       box.innerHTML='<style>@keyframes mgNoticeIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}</style>'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
-        +'<div style="font-size:13.5px;font-weight:800;letter-spacing:.2px">📅 휴가·공휴일 안내</div>'
-        +'<button type="button" aria-label="닫기" onclick="closeClassEntryNotice()" style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:14px;font-weight:800;cursor:pointer;line-height:1">✕</button></div>'
-        +'<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">다가오는 일정 (30일)</div>'
+        +'<div style="font-size:13.5px;font-weight:800;letter-spacing:.2px">'+(nIsEn()?'📅 Vacation · Holiday Notice':'📅 휴가·공휴일 안내')+'</div>'
+        +'<button type="button" aria-label="'+(nIsEn()?'Close':'닫기')+'" onclick="closeClassEntryNotice()" style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:14px;font-weight:800;cursor:pointer;line-height:1">✕</button></div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">'+(nIsEn()?'Upcoming (30 days)':'다가오는 일정 (30일)')+'</div>'
         +rows;
       document.body.appendChild(box);
     }catch(e){}
