@@ -5753,6 +5753,60 @@ function renderStudentTable() {
   }).join('');
 }
 
+// 📥 (2026-07-18) 학생 목록 CSV 내보내기 — 화면에 보이는 것과 100% 동일(스코프+검색 필터+정렬 그대로).
+//   ⚠️ PII 마스킹도 테이블과 똑같이 _piiPhone 을 거쳐, 마스킹된 전화번호가 CSV 로 새지 않게 한다.
+//   서버가 이미 지사/대리점을 격리한 _smStudents 만 다루므로, 대리점이 눌러도 자기 학생만 내려받는다.
+function smExportStudentsCsv() {
+  const _L = adminLang === 'en';
+  if (!_smStudents || !_smStudents.length) { alert(_L ? 'Load the student list first.' : '먼저 “불러오기”로 학생 목록을 불러오세요.'); return; }
+  const _q = String(_smSearch || '').trim().toLowerCase();
+  const rows = (_q
+    ? _smStudents.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0)
+    : _smStudents).slice().sort((a, b) => {
+      for (const so of _smSort) {
+        const k = so.key === 'username' ? '_username_lc' : so.key;
+        const va = a[k] != null ? a[k] : '', vb = b[k] != null ? b[k] : '';
+        const cmp = (typeof va === 'number' && typeof vb === 'number') ? (va - vb) : String(va).localeCompare(String(vb));
+        if (cmp !== 0) return so.dir === 'asc' ? cmp : -cmp;
+      }
+      return 0;
+    });
+  if (!rows.length) { alert(_L ? 'No students to export.' : '내보낼 학생이 없습니다.'); return; }
+  const _date = v => v ? String(v).slice(0, 10) : '';
+  const cols = [
+    ['아이디',        s => s.user_id],
+    ['학생명',        s => s.username || s.user_id],
+    ['결제타입',      s => s.payment_type],
+    ['수강시작일',    s => _date(s.signup_date)],
+    ['수강종료일',    s => _date(s.end_date)],
+    ['요약',          s => s.summary],
+    ['가입일',        s => _date(s.created_at)],
+    ['수업회수(주)',  s => s.classes_per_week],
+    ['포인트',        s => Number(s.points) || 0],
+    ['수강신청',      s => s.enroll_req],
+    ['학생번호',      s => _piiPhone(s.student_phone)],
+    ['부모님번호',    s => _piiPhone(s.parent_phone)],
+    ['대리점연락처',  s => _piiPhone(s.teacher_phone)],
+    ['대리점명',      s => s.shop_name],
+    ['본사명',        s => s.hq_name],
+    ['지사명',        s => s.branch2_name],
+    ['세션수',        s => s.session_count || 0],
+    ['상태',          s => s.status],
+  ];
+  const cell = v => { let x = (v == null ? '' : String(v)); return /[",\r\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  const out = [cols.map(c => cell(c[0])).join(',')];
+  for (const s of rows) out.push(cols.map(c => cell(c[1](s))).join(','));
+  const csv = '﻿' + out.join('\r\n');   // UTF-8 BOM → Excel 에서 한글 안 깨짐
+  const now = new Date(), pad = n => String(n).padStart(2, '0');
+  const stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes());
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'mangoi_students_' + stamp + '.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 150);
+}
+window.smExportStudentsCsv = smExportStudentsCsv;
+
 // 헤더 클릭 → 정렬 토글 (위임). Shift+클릭으로 멀티 정렬 (최대 3개).
 document.addEventListener('click', (ev) => {
   const th = ev.target.closest('#sm-students-table th.sortable');
