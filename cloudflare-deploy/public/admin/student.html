@@ -262,6 +262,14 @@
           <h3>일자별 활동 (출석·세션·집중도)</h3>
           <div class="chart-box"><canvas id="dayChart"></canvas></div>
         </div>
+        <div class="chart-wrap" style="margin-top:12px">
+          <h3 data-ko="🧠 판단력 성장 (Decision-making)" data-en="🧠 Decision-making Growth">🧠 판단력 성장 (Decision-making)</h3>
+          <div id="ovJudgeIndex" style="font-size:13px;color:#bbb;margin:0 0 8px">—</div>
+          <div class="grid-2">
+            <div class="chart-box"><canvas id="ovJudgeRadar"></canvas></div>
+            <div class="chart-box"><canvas id="ovJudgeTrend"></canvas></div>
+          </div>
+        </div>
         <div class="grid-2">
           <div class="chart-wrap">
             <h3>최근 보상</h3>
@@ -987,6 +995,9 @@ function renderOverview(){
     }
   });
 
+  // 🧠 판단력 성장 (개요 탭 — 평가서 유무와 무관하게 표시)
+  renderOverviewJudgment(typeof uid !== 'undefined' ? uid : (erp.user_id || (_state.full.profile||{}).user_id));
+
   // 보상
   const rewards = _state.full.rewards || [];
   $('overviewRewards').innerHTML = rewards.length===0
@@ -1009,6 +1020,55 @@ function renderOverview(){
       `<div>${t('consentKakao')}: ${c.kakao_consent?yes:no}</div>`+
       `<div style="margin-top:6px;color:var(--mut);font-size:11px">${t('consentDate')}: ${fmtDate(c.consented_at)} (v${esc(c.consent_version)})</div>`+
       '</div>';
+}
+
+// 🧠 판단력 성장 (개요 탭 — 다크 테마). /api/judgment/growth 로드 → 레이더 5축 + 월별 추세선
+async function renderOverviewJudgment(sid){
+  const idxEl = $('ovJudgeIndex');
+  if (!idxEl) return;
+  if (_charts.ovjradar) { _charts.ovjradar.destroy(); _charts.ovjradar = null; }
+  if (_charts.ovjtrend) { _charts.ovjtrend.destroy(); _charts.ovjtrend = null; }
+  if (!sid) { idxEl.innerHTML = '<span style="color:#64748b">'+(_lang==='en'?'No student id.':'학생 ID 없음')+'</span>'; return; }
+  try {
+    const r = await fetch('/api/judgment/growth?uid=' + encodeURIComponent(sid), { credentials:'include' });
+    const d = await r.json();
+    if (!d || d.ok === false) throw new Error((d && d.error) || 'no_data');
+    const rad = d.radar || {};
+    const axes = _lang==='en'
+      ? ['Choice','Reasoning','Self-correction','Register','Consistency']
+      : ['선택적절성','이유논리','자기교정력','어투민감도','일관성'];
+    const vals = [rad['선택적절성'], rad['이유논리'], rad['자기교정력'], rad['어투민감도'], rad['일관성']].map(v => v==null?0:v);
+    const hasData = (d.events_count||0) > 0;
+    idxEl.innerHTML = hasData
+      ? '<b style="color:#a78bfa;font-size:16px">' + (_lang==='en'?'Judgment Index':'판단력 지수') + ': ' + (d.judgment_index!=null?d.judgment_index:'—') + '</b>'
+        + ' <span style="color:#94a3b8">· ' + d.events_count + (_lang==='en'?' decisions':'회 판단') + '</span>'
+        + ((Array.isArray(d.top_misconceptions)&&d.top_misconceptions.length) ? ' · ' + (_lang==='en'?'top gaps':'주요 오답') + ': ' + d.top_misconceptions.slice(0,3).map(m=>esc(m.code)).join(', ') : '')
+      : '<span style="color:#64748b">' + (_lang==='en'?'No decision data yet — appears after class-end judgment analysis accrues.':'아직 판단 데이터가 없습니다 — 수업 종료 분석이 쌓이면 표시됩니다.') + '</span>';
+    _charts.ovjradar = new Chart($('ovJudgeRadar').getContext('2d'), {
+      type: 'radar',
+      data: { labels: axes, datasets: [{ label:_lang==='en'?'Decision-making':'판단력', data: vals,
+        backgroundColor:'rgba(167,139,250,0.22)', borderColor:'#a78bfa', borderWidth:2, pointBackgroundColor:'#a78bfa', pointRadius:4 }] },
+      options: { responsive:true, maintainAspectRatio:false,
+        scales: { r: { beginAtZero:true, max:100, pointLabels:{font:{size:11,weight:'700'},color:'#cbd5e1'},
+          ticks:{backdropColor:'transparent',color:'#64748b',stepSize:20}, grid:{color:'#334155'}, angleLines:{color:'#334155'} } },
+        plugins: { legend:{labels:{color:'#e2e8f0',font:{size:12}}},
+          title:{display:true,text:_lang==='en'?'Decision-making (5 axes)':'판단력 5축',color:'#94a3b8',font:{size:12,weight:'700'}} } }
+    });
+    const tr = Array.isArray(d.trend) ? d.trend : [];
+    _charts.ovjtrend = new Chart($('ovJudgeTrend').getContext('2d'), {
+      type: 'line',
+      data: { labels: tr.map(x=>x.period), datasets: [{ label:_lang==='en'?'Judgment Index':'판단력 지수',
+        data: tr.map(x=> x.judgment_index==null?null:x.judgment_index),
+        borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.15)', borderWidth:2, tension:.3, fill:true, pointRadius:4, spanGaps:true }] },
+      options: { responsive:true, maintainAspectRatio:false,
+        scales: { y:{ beginAtZero:true, max:100, ticks:{color:'#94a3b8'}, grid:{color:'#334155'} },
+          x:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#334155'} } },
+        plugins: { legend:{display:false},
+          title:{display:true,text:_lang==='en'?'Growth Trend (monthly)':'성장 추이 (월별)',color:'#94a3b8',font:{size:12,weight:'700'}} } }
+    });
+  } catch(e){
+    idxEl.innerHTML = '<span style="color:#64748b">' + (_lang==='en'?'Decision-making data unavailable yet.':'판단력 데이터가 아직 없습니다.') + '</span>';
+  }
 }
 
 // ═══════════════════════ 2. 등록·수강 ═══════════════════════
