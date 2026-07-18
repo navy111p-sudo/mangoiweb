@@ -668,13 +668,10 @@ Return STRICT JSON only, in BOTH Korean and English:
     //   본인(토큰) 또는 관리자(세션)만. IDOR 차단.
     // ══════════════════════════════════════════════════════════════
 
-    // ── GET /api/judgment/growth?uid= — 성장 추이(레이더 5축 + 추세선) ──
+    // ── GET /api/judgment/growth?uid= — 성장 추이(레이더 5축 + 추세선) — 학습 진척도(uid 기반) ──
     if (method === 'GET' && path === '/api/judgment/growth') {
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      const adm = await checkAdminSession(request, env as any);
-      const who = await authUidGlobal(request, url, env);
-      if (!adm.ok && (!who || who !== uid)) return json({ ok: false, error: 'auth_required' }, 401);
       try {
         const report = await getGrowthReport(env, uid);
         return json({ ok: true, ...report });

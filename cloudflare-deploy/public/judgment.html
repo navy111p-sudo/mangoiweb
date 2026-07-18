@@ -57,10 +57,11 @@
 <div class="wrap">
   <div class="top">
     <img src="/img/mango-char.png" alt="망고아이" onerror="this.style.display='none'">
-    <div>
+    <div style="flex:1">
       <h1>판단력 훈련</h1>
       <div class="sub">상황에 가장 잘 맞는 표현을 고르고, <b>왜 그런지</b> 말해봐요!</div>
     </div>
+    <button id="growthBtn" style="flex:0 0 auto;background:#efeafe;color:#5b21b6;border:0;border-radius:12px;padding:9px 12px;font-size:13px;font-weight:800;cursor:pointer">🌱 내 성장</button>
   </div>
 
   <div id="stage" class="card">
@@ -159,14 +160,67 @@
         '<div class="fb">'+esc(d.feedback_ko||'')+'</div>'+
         scores+
         '<button class="btn" id="next">다음 문제 →</button>'+
+        '<button class="btn ghost" id="mygrowth" style="margin-top:8px">🌱 내 성장 보기</button>'+
       '</div>';
     document.getElementById('next').addEventListener('click', loadScenario);
+    var mg=document.getElementById('mygrowth'); if(mg) mg.addEventListener('click', showGrowth);
     streakEl.innerHTML = '오늘 <b>'+solved+'</b>문제 풀었어요! 계속 도전해봐요 🔥';
   }
+
+  // 🌱 내 성장 보기 — 학생 본인 판단력 지수 + 5축 막대 + 더 연습할 점
+  var MISC_KO = { REGISTER_MISMATCH:'상황에 맞는 말투', DIRECT_TRANSLATION:'자연스러운 영어(직역 X)', TENSE_CONFUSION:'시제(때) 맞추기', WORD_CHOICE:'더 알맞은 단어 고르기', OVER_LITERAL_REASON:'이유를 더 깊이 설명', NO_CONTEXT:'상황 살피기', GRAMMAR_FORM:'문법 형태' };
+  function bar(label, v){
+    var val = (v==null? 0 : v);
+    return '<div style="margin-bottom:9px">'
+      + '<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:3px"><span>'+label+'</span><span style="color:#5b21b6">'+(v==null?'—':v)+'</span></div>'
+      + '<div style="height:12px;background:#ece7fb;border-radius:8px;overflow:hidden"><div style="height:100%;width:'+val+'%;background:#7c3aed;border-radius:8px;transition:width .5s"></div></div>'
+      + '</div>';
+  }
+  async function showGrowth(){
+    loading('내 성장을 불러오고 있어요…');
+    try{
+      var r = await fetch('/api/judgment/growth?uid='+encodeURIComponent(UID), {credentials:'include'});
+      var d = await r.json();
+      if(!d || d.ok===false) throw new Error('no growth');
+      renderGrowth(d);
+    }catch(e){
+      stage.innerHTML = '<div class="center">성장 기록을 불러오지 못했어요.<br><button class="btn ghost" style="max-width:200px;margin:14px auto 0" id="g-back">← 문제 풀기</button></div>';
+      var b=document.getElementById('g-back'); if(b) b.addEventListener('click', loadScenario);
+    }
+  }
+  function renderGrowth(d){
+    var rad = d.radar || {};
+    var has = (d.events_count||0) > 0;
+    var idx = (d.judgment_index!=null? d.judgment_index : '—');
+    var miscs = Array.isArray(d.top_misconceptions)? d.top_misconceptions.slice(0,3) : [];
+    var practice = has
+      ? '<div style="text-align:center;margin-bottom:14px">'
+        + '<div style="font-size:13px;color:#6b7280">나의 판단력 지수</div>'
+        + '<div style="font-size:46px;font-weight:900;color:#5b21b6;line-height:1.1">'+idx+'</div>'
+        + '<div style="font-size:13px;color:#6b7280">지금까지 <b>'+(d.events_count||0)+'</b>번 판단했어요</div>'
+        + '</div>'
+        + bar('선택 적절성', rad['선택적절성'])
+        + bar('이유 논리', rad['이유논리'])
+        + bar('자기 교정력', rad['자기교정력'])
+        + bar('어투 민감도', rad['어투민감도'])
+        + bar('일관성', rad['일관성'])
+        + (miscs.length ? '<div style="margin-top:14px;background:#f6f4ff;border-radius:12px;padding:12px 14px">'
+            + '<div style="font-size:13px;font-weight:800;color:#5b21b6;margin-bottom:6px">💪 이런 걸 더 연습하면 좋아요</div>'
+            + miscs.map(function(m){ return '<div style="font-size:14px;margin:3px 0">· '+esc(MISC_KO[m.code]||m.code)+'</div>'; }).join('')
+            + '</div>' : '')
+      : '<div class="center">아직 판단 기록이 없어요.<br>문제를 풀면 나의 성장이 여기 나타나요! 🌱</div>';
+    stage.innerHTML = '<div class="res">'
+      + '<div class="sit-label">🌱 나의 판단력 성장</div>'
+      + practice
+      + '<button class="btn" id="g-train" style="margin-top:16px">문제 풀러 가기 →</button>'
+      + '</div>';
+    var t=document.getElementById('g-train'); if(t) t.addEventListener('click', loadScenario);
+  }
+  var gb = document.getElementById('growthBtn'); if(gb) gb.addEventListener('click', showGrowth);
 
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260718171714 -->
+<!-- BUILD:20260718180052 -->
 </body>
 </html>
