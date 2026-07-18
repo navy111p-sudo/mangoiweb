@@ -33,7 +33,7 @@
     { kws:['랭킹','리더보드','순위','랭킹보드','포인트 랭킹','1등','탑10','top10','leaderboard','ranking'], action: () => { if (typeof window.openLeaderboard==='function') window.openLeaderboard(); }, label:'🏆 랭킹·리더보드' },
     { kws:['포인트','포인트상점','포인트 상점','포인트샵','포인트 샵','포인트몰','기프트','기프티콘','기프티쇼','선물','상점','쇼핑','리워드','적립','마일리지','교환','point','points','gift','shop','reward'], action: () => { if (typeof window.showPointsShop==='function') window.showPointsShop(); }, label:'🎁 포인트 상점' },
     { kws:['주간 스케줄','주간스케줄','내 스케줄','내스케줄','스케줄','시간표','주간 시간표','내 수업 일정','수업 일정','일정표','schedule','timetable'], action: () => location.href='/admin/weekly-schedule.html?role=student', label:'📅 내 주간 스케줄' },
-    { kws:['학생관리','학생 관리','학생목록','학생 목록','학생리스트','학생 명단','반 학생','students'], action: () => location.href='/admin/students.html', label:'👨‍🎓 학생 관리' },
+    { kws:['학생관리','학생 관리','학생목록','학생 목록','학생리스트','학생 명단','반 학생','students'], action: () => location.href='/admin.html#card-students-mgmt', label:'👨‍🎓 학생 관리' },
     { kws:['수업자료','수업 자료','학습자료','학습 자료','강의자료','수업 교재','수업노트','materials'], action: () => location.href='/lessons.html', label:'📖 수업 자료' },
     { kws:['평가서','월말평가','월간평가','평가 결과','평가결과','evaluation'], action: () => location.href='/eval.html', label:'📝 평가서' },
     { kws:['리포트','학습리포트','학습 리포트','월간리포트','분석 리포트','report'], action: () => location.href='/report.html', label:'📊 리포트' },

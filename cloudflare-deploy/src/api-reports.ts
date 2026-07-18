@@ -42,19 +42,36 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
   try { voiceStats = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc, AVG(pronunciation_score) AS pron, AVG(fluency_score) AS flu, MAX(accuracy_score) AS best FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first(); } catch {}
   const evalAvg = evalRows.length ? Math.round((evalRows.reduce((s, r) => s + (r.score_overall || 0), 0) / evalRows.length) * 10) / 10 : 0;
 
+  // 🧠 판단력 성장(해당 월) — 이벤트가 있을 때만
+  let judgment: any = null;
+  try {
+    const g = await computeGrowthForStudent(env, uid, period);
+    if (g && (g.events_count || 0) > 0) {
+      const MISC_KO: Record<string, string> = { REGISTER_MISMATCH: '상황에 맞는 말투', DIRECT_TRANSLATION: '자연스러운 영어', TENSE_CONFUSION: '시제', WORD_CHOICE: '알맞은 단어 고르기', OVER_LITERAL_REASON: '이유 설명', NO_CONTEXT: '맥락 살피기', GRAMMAR_FORM: '문법 형태' };
+      judgment = {
+        events: g.events_count, index: g.judgment_index,
+        axis: { choice: g.axis_choice, reasoning: g.axis_reasoning, selfcorrection: g.axis_selfcorrection, register: g.axis_register, consistency: g.axis_consistency },
+        top_gaps: (g.top_misconceptions || []).slice(0, 3).map((m: any) => MISC_KO[m.code] || m.code),
+      };
+    }
+  } catch { /* 판단력 데이터 없으면 리포트에서 생략 */ }
+
   let aiText = '';
   if (withAI) {
     try {
       const nm = (student && student.student_name) || uid;
-      if (evalRows.length === 0 && (att?.d || 0) === 0) {
+      if (evalRows.length === 0 && (att?.d || 0) === 0 && !judgment) {
         aiText = `${nm} 학부모님, 이번 달은 수업 기록이 많지 않아 상세 요약을 생략합니다. 다음 달 꾸준한 참여를 함께 응원하겠습니다. 감사합니다.`;
       } else {
         const recentComment = evalRows.length ? (evalRows[evalRows.length - 1].teacher_comment || '') : '';
         const strengths = evalRows.map((r: any) => r.strengths).filter(Boolean).slice(-3).join('; ');
         const improvements = evalRows.map((r: any) => r.improvements).filter(Boolean).slice(-3).join('; ');
         const nextGoals = evalRows.map((r: any) => r.next_goals).filter(Boolean).slice(-2).join('; ');
-        const sys = '당신은 영어학원 담임 강사입니다. 학부모님께 보내는 따뜻하고 구체적인 한국어 월간 학습 레포트를 4~6문장으로 작성하세요. 반드시 칭찬 1가지, 성장 영역 1가지, 다음 달 목표 1가지를 포함하세요. 과장하지 말고, 주어진 숫자/사실만 사용하며 없는 내용은 지어내지 마세요. 존댓말로 작성하세요.';
-        const usr = `학생: ${nm}\n기간: ${period}\n출석일수: ${att?.d || 0}\n평가 횟수: ${evalRows.length}, 종합 평균(5점 만점): ${evalAvg}\n발음 평균: 정확도 ${Math.round(voiceStats?.acc || 0)}, 발음 ${Math.round(voiceStats?.pron || 0)}, 유창성 ${Math.round(voiceStats?.flu || 0)}\n강점: ${strengths || '기록 적음'}\n개선점: ${improvements || '기록 적음'}\n다음 목표(강사 기록): ${nextGoals || '없음'}\n최근 강사 코멘트: ${recentComment || '없음'}`;
+        const sys = '당신은 영어학원 담임 강사입니다. 학부모님께 보내는 따뜻하고 구체적인 한국어 월간 학습 레포트를 4~6문장으로 작성하세요. 반드시 칭찬 1가지, 성장 영역 1가지, 다음 달 목표 1가지를 포함하세요. 판단력 정보가 주어지면 "AI와 대화하며 스스로 표현을 고르고 이유를 설명하는 판단력"이 어떻게 자라고 있는지 1문장으로 반드시 언급하세요. 과장하지 말고, 주어진 숫자/사실만 사용하며 없는 내용은 지어내지 마세요. 존댓말로 작성하세요.';
+        const judgeLine = judgment
+          ? `\n판단력(선택+이유): 판단력지수 ${judgment.index ?? '-'}/100, ${judgment.events}회 판단${judgment.top_gaps && judgment.top_gaps.length ? `, 더 연습할 점: ${judgment.top_gaps.join(', ')}` : ''}`
+          : '';
+        const usr = `학생: ${nm}\n기간: ${period}\n출석일수: ${att?.d || 0}\n평가 횟수: ${evalRows.length}, 종합 평균(5점 만점): ${evalAvg}\n발음 평균: 정확도 ${Math.round(voiceStats?.acc || 0)}, 발음 ${Math.round(voiceStats?.pron || 0)}, 유창성 ${Math.round(voiceStats?.flu || 0)}${judgeLine}\n강점: ${strengths || '기록 적음'}\n개선점: ${improvements || '기록 적음'}\n다음 목표(강사 기록): ${nextGoals || '없음'}\n최근 강사 코멘트: ${recentComment || '없음'}`;
         const aiRes: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }], max_tokens: 420,
         });
@@ -76,6 +93,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
       avg_fluency: Math.round(voiceStats?.flu || 0),
       best: voiceStats?.best || 0,
     },
+    judgment,
     ai_text: aiText,
     generated_at: Date.now(),
   };

@@ -141,7 +141,7 @@
     var att = (d.attendance||{}).days||0;
     var items = ev.items||[];
     var lastEval = items.length?items[items.length-1]:null;
-    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0);
+    var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment;
 
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
     var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
@@ -171,6 +171,19 @@
       if((vo.sessions||0)>0){
         html += '<div class="card"><h3>🎤 '+t('발음 영역별','Pronunciation')+'</h3>'+
           pronRow(t('정확도','Accuracy'),vo.avg_accuracy)+pronRow(t('발음','Pron.'),vo.avg_pronunciation)+pronRow(t('유창성','Fluency'),vo.avg_fluency)+'</div>';
+      }
+      // 🧠 판단력 성장 (스스로 고르고 이유 말하기)
+      var jd = d.judgment;
+      if(jd){
+        html += '<div class="card"><h3>🧠 '+t('판단력 성장','Decision-making')+' <span class="ai-tag">AI</span></h3>'+
+          '<div style="text-align:center;margin:2px 0 10px"><span style="font-size:32px;font-weight:900;color:#7c3aed">'+(jd.index!=null?jd.index:'—')+'</span>'+
+          '<span style="color:#94a3b8;font-size:12.5px"> / 100 · '+(jd.events||0)+t('회 판단','')+'</span>'+
+          '<div style="font-size:12px;color:#64748b;margin-top:2px">'+t('상황에 맞는 표현을 스스로 고르고 이유를 설명하는 힘','Choosing the best expression and explaining why')+'</div></div>'+
+          pronRow(t('선택 적절성','Choice'), jd.axis&&jd.axis.choice)+
+          pronRow(t('이유 논리','Reasoning'), jd.axis&&jd.axis.reasoning)+
+          pronRow(t('어투 민감도','Register'), jd.axis&&jd.axis.register)+
+          ((jd.top_gaps&&jd.top_gaps.length)? '<div style="font-size:12.5px;color:#7c3aed;margin-top:8px">💪 '+t('더 연습할 점','Practice more')+': '+jd.top_gaps.map(esc).join(', ')+'</div>':'')+
+          '</div>';
       }
       // 강사 코멘트
       if(lastEval && lastEval.teacher_comment){
@@ -211,7 +224,7 @@
   if(uid && period){ loadReport(); } else { renderForm(); }
 })();
 </script>
-<!-- BUILD:20260718183012 -->
+<!-- BUILD:20260718183301 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
