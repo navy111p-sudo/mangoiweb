@@ -12,7 +12,7 @@ import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './a
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { enqueueNotification, sendPushToUser } from './api-notify';
-import { scopeFragments, studentScopeWhere } from './scope';   // 🔒 지사/대리점 데이터 격리
+import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
 import { applyPIIScope, canViewPII } from './pii-mask';
@@ -4620,11 +4620,28 @@ ${chatSampleText}
     if (method === 'GET' && path === '/api/admin/students/graph-list') {
       const limitG = Math.max(1, Math.min(2000, parseInt(url.searchParams.get('limit') || '1000', 10)));
       const qG = (url.searchParams.get('q') || '').trim().toLowerCase();
+      // 🔒 (2026-07-18) 그래프 학생 명부도 세션 스코프로 서버에서 격리(이중 안전장치).
+      //   본사(hq)·내부직원(none) = 조건 없음 → 기존 '전체 보기' 동작 변화 0.
+      //   지사(branch) = franchise 접두, 대리점(agency) = shop_name 일치, 지사본사(franchise) = 소유 지사 목록만.
+      //   라우팅 화이트리스트 게이트(index.ts isAgencyAllowedApi)에 더한 방어라, 게이트가 뚫려도 데이터가 안 샘.
+      const _gScope = await getScope(env, request);
+      const _gp: Record<string, any> = { q: qG, limit: limitG };
+      let _gScopeClause = '';
+      if (_gScope.type === 'agency' && _gScope.value) {
+        _gScopeClause = ' AND s.shop_name = $scopeVal'; _gp.scopeVal = _gScope.value;
+      } else if (_gScope.type === 'branch' && _gScope.value) {
+        _gScopeClause = " AND coalesce(s.franchise, '') STARTS WITH $scopeVal"; _gp.scopeVal = _gScope.value;
+      } else if (_gScope.type === 'franchise') {
+        const _fl = franchiseList(_gScope.value);
+        if (!_fl.length) { _gScopeClause = ' AND false'; }                                  // 소유 지사 없음 → 아무것도 안 보이게
+        else { _gScopeClause = " AND coalesce(s.franchise, '') IN $scopeList"; _gp.scopeList = _fl; }
+      }
+      // hq | none → _gScopeClause = '' (전체)
       const GRAPH_STUDENT_LIST_QUERY = `
 MATCH (s:Student)
-WHERE $q = ''
+WHERE ($q = ''
    OR toLower(coalesce(s.name, s.korean_name, ''))       CONTAINS $q
-   OR toLower(coalesce(s.student_id, s.user_id, ''))     CONTAINS $q
+   OR toLower(coalesce(s.student_id, s.user_id, ''))     CONTAINS $q)${_gScopeClause}
 OPTIONAL MATCH (s)-[:FAMILY_OF]-(fam:Student)
 OPTIONAL MATCH (par:Parent)-[]->(s)
 WITH s,
@@ -4656,7 +4673,7 @@ ORDER BY name
 LIMIT $limit`;
       try {
         const { fields, values } = await runCypher(
-          env, GRAPH_STUDENT_LIST_QUERY, { q: qG, limit: limitG }, 'READ',
+          env, GRAPH_STUDENT_LIST_QUERY, _gp, 'READ',
         );
         const students = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
         return json({ ok: true, source: 'neo4j', count: students.length, students });
