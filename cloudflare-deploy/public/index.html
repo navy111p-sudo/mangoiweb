@@ -359,7 +359,7 @@
             /* 진입 애니메이션: 빠르게 다가오기 (4초) + 이후 떠다님 — 약 2배 크게(얼굴 클로즈업) */
             animation:
               astroApproach 4s cubic-bezier(0.22, 0.7, 0.3, 1) forwards,
-              astroIdle 16s ease-in-out 4s infinite;
+              astroIdle 26s ease-in-out 4s infinite;
             filter:
               drop-shadow(0 18px 36px rgba(0,0,0,0.55))
               drop-shadow(0 0 22px rgba(251,191,36,0.30))
@@ -385,14 +385,18 @@
             72%  { transform: translate(4vw, 4vh) scale(0.78) rotate(-2deg); opacity: 1; }
             100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
         }
-        /* ── 자연스러운 무중력 부유 (부드러운 단일 애니메이션) ── */
+        /* ── 자연스러운 무중력 부유 + 오른쪽 절벽(원 표시 지점, ~+9vw)까지 유영 왕복 ──
+           2026-07-19 사장님 요청: 제자리 부유 → 오른쪽으로 크게 미끄러지듯 다녀오기.
+           단위를 px→vw 로 바꿔 화면 크기와 무관하게 같은 지점에 닿음.
+           z-index 1 이라 검색창·수업입장 버튼(hero z2)은 항상 위에 보임 — 가림 없음. */
         @keyframes astroIdle {
-            0%   { transform: translate(0px, 0px) rotate(0deg); }
-            20%  { transform: translate(-12px, -18px) rotate(-2deg); }
-            40%  { transform: translate(9px, -28px) rotate(1.5deg); }
-            60%  { transform: translate(14px, -14px) rotate(2deg); }
-            80%  { transform: translate(-7px, -22px) rotate(-1.5deg); }
-            100% { transform: translate(0px, 0px) rotate(0deg); }
+            0%   { transform: translate(0, 0) rotate(0deg); }
+            14%  { transform: translate(2.5vw, -2.2vh) rotate(2deg); }
+            32%  { transform: translate(6.5vw, 1.6vh) rotate(4deg); }
+            50%  { transform: translate(9vw, -1.2vh) rotate(2.5deg); }   /* 오른쪽 원 지점 도달 */
+            66%  { transform: translate(6vw, -3vh) rotate(-1deg); }
+            84%  { transform: translate(2vw, 1.2vh) rotate(-2.5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
         }
         /* 태블릿 */
         @media (max-width: 980px) and (min-width: 641px) {
@@ -25114,7 +25118,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260719055204 -->
+<!-- BUILD:20260719060626 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
