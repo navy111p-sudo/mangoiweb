@@ -597,27 +597,30 @@ Return STRICT JSON only:
   "why": "<1-2 sentences: WHY the best option is best and why the others are less appropriate — this trains judgment>",
   "why_ko": "<same explanation in NATURAL, CORRECT KOREAN ONLY — use only Hangul, numbers, and basic punctuation; never insert Chinese, Hindi, or other scripts>"
 }`;
-    try {
-      const resp: any = await ai.run(JUDGE_MODEL, {
-        messages: [
-          { role: 'system', content: 'You design English decision-making practice. Reply in strict JSON only.' },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 700,
-      });
-      const j = parseFirstJson(resp);
-      if (j && Array.isArray(j.options) && j.options.length >= 2) {
-        const ci = Number.isInteger(+j.correct_index) ? Math.max(0, Math.min(j.options.length - 1, +j.correct_index)) : 0;
-        scenario = {
-          situation: String(j.situation || '').slice(0, 500),
-          skill_tag: String(j.skill_tag || target?.skill || '').slice(0, 60) || null,
-          options: j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4),
-          correct_index: ci,
-          why: String(j.why || '').slice(0, 600),
-          why_ko: cleanKo(String(j.why_ko || '')).slice(0, 600),
-        };
-      }
-    } catch (e: any) { console.warn('[judgment] scenario LLM fail:', e?.message); }
+    // LLM 이 가끔 깨진 JSON 을 반환 → 최대 3회 재시도(아이가 실패화면 보지 않게)
+    for (let attempt = 0; attempt < 3 && !scenario; attempt++) {
+      try {
+        const resp: any = await ai.run(JUDGE_MODEL, {
+          messages: [
+            { role: 'system', content: 'You design English decision-making practice. Reply in strict JSON only.' },
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 700,
+        });
+        const j = parseFirstJson(resp);
+        if (j && Array.isArray(j.options) && j.options.length >= 2) {
+          const ci = Number.isInteger(+j.correct_index) ? Math.max(0, Math.min(j.options.length - 1, +j.correct_index)) : 0;
+          scenario = {
+            situation: String(j.situation || '').slice(0, 500),
+            skill_tag: String(j.skill_tag || target?.skill || '').slice(0, 60) || null,
+            options: j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4),
+            correct_index: ci,
+            why: String(j.why || '').slice(0, 600),
+            why_ko: cleanKo(String(j.why_ko || '')).slice(0, 600),
+          };
+        }
+      } catch (e: any) { console.warn('[judgment] scenario LLM fail (attempt ' + (attempt + 1) + '):', e?.message); }
+    }
   }
   await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null });
   if (!scenario) return { ok: false, error: 'scenario_unavailable', based_on: { source, weak } };
