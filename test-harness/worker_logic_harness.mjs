@@ -10,7 +10,7 @@
 //       규칙을 바꾸면 여기도 같이 바꿔야 회귀를 잡습니다.
 
 import { readFileSync } from 'node:fs';
-import { allSrc } from './_srcbundle.mjs';
+import { allSrc, allAdm } from './_srcbundle.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -74,7 +74,7 @@ check('방코드 없음 → 차단', !validateJoin({room:'',mic:true,cam:true}).
 // ── 5) 교사 메뉴 권한 — 실제 admin.html PERMS 검증 ──
 console.log('\n[5] 교사 메뉴 권한 (실제 cloudflare-deploy/public/admin.html PERMS)');
 try {
-  const html = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const html = allAdm();
   const teacherPerm = (cardId) => {
     const m = html.match(new RegExp("'" + cardId + "':\\s*\\{([^}]*)\\}"));
     if (!m) return 'NOCARD';
@@ -94,7 +94,7 @@ try {
 // ── 6) 캘린더 기능(휴가/공휴일) 통합 검증 — 실제 파일 ──
 console.log('\n[6] 캘린더 기능 (사이드바·정책·게이트·API·주간·팝업)');
 try {
-  const admin = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const admin = allAdm();
   // (a) 카드 자체
   check('admin: card-calendar 카드 존재', /id="card-calendar"/.test(admin));
   check('admin: 캘린더 관리 라벨', admin.includes('캘린더 관리'));
@@ -153,7 +153,7 @@ try {
 // ── 8) 실제 admin.html 개선 검증 (P1 PDF CDN · P2-1 실시간 수업 이상감지) ──
 console.log('\n[8] 실제 admin.html 개선 (P1 안전수정 · P2-1 즉시대응)');
 try {
-  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const a = allAdm();
   // P1-1: PDF 라이브러리 cdnjs(차단) → jsDelivr
   check('P1-1: admin.html 에 cdnjs 잔여 없음', !a.includes('cdnjs.cloudflare.com'));
   check('P1-1: jsPDF jsDelivr 로드', a.includes('jsdelivr.net/npm/jspdf'));
@@ -171,7 +171,7 @@ try {
 // ── 9) P2-3 차트 툴팁 전역 개선 ──
 console.log('\n[9] P2-3 차트 툴팁 전역 개선 (Chart.js 지연로드 대응)');
 try {
-  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const a = allAdm();
   check('P2-3: Chart 전역 tooltip 기본값 설정', a.includes('Chart.defaults.plugins.tooltip') || a.includes('Chart.defaults.plugins'));
   check('P2-3: 지연로드 대응 폴링(가드)', a.includes('__miTipDone') && a.includes('applyChartDefaults'));
   check('P2-3: 포인트 hover 반응 강화', a.includes('hoverRadius') && a.includes('hitRadius'));
@@ -183,7 +183,7 @@ try {
 // ── 10) P3 AI 운영 비서 대화 패널 (가산적·비파괴) ──
 console.log('\n[10] P3 AI 운영 비서 대화 패널 (기존 ai-command 연결)');
 try {
-  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const a = allAdm();
   check('P3: 비서 FAB + 패널 존재', a.includes('mi-asst-fab') && a.includes('mi-asst-panel'));
   check('P3: 실제 /api/admin/ai-command 연결', /miAsstAsk|mi-asst-form[\s\S]{0,1200}\/api\/admin\/ai-command/.test(a) || a.includes("body:JSON.stringify({command:q})"));
   // 2026-06-27: 폴백 구현이 fb(q)/FB.eval → FB(key)+fbKey(q)+localRoute/MI_ROUTES(결정적 키워드 라우터)로 강화됨. 두 형태 모두 인정.
@@ -199,7 +199,7 @@ try {
 // ── 11) P4-a 접근성 개선 (가산적·비파괴) ──
 console.log('\n[11] P4-a 접근성 (focus-visible · reduced-motion · aria-live)');
 try {
-  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const a = allAdm();
   check('P4-a: 키보드 포커스 링(focus-visible)', a.includes(':focus-visible') && a.includes('mi-a11y'));
   check('P4-a: 모션 최소화 전역 존중', a.includes('@media (prefers-reduced-motion: reduce)'));
   check('P4-a: AI 비서 화면낭독(aria-live)', a.includes('aria-live="polite"') && a.includes('role="log"'));
@@ -209,7 +209,7 @@ try {
 // ── 12) P4 구조 정리 — 중복 id 버그 수정 ──
 console.log('\n[12] P4 구조 — 중복 id(mr-uid) 버그 수정');
 try {
-  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const a = allAdm();
   const defUid = (a.match(/id="mr-uid"/g)||[]).length;
   const defMar = (a.match(/id="mar-uid"/g)||[]).length;
   check('P4: mr-uid 정의 1개로 정상화(중복 해소)', defUid === 1);
@@ -221,7 +221,7 @@ try {
 // ── 13) 사이드바 hover·아코디언 UX 개선 ──
 console.log('\n[13] 사이드바 hover·아코디언 UX (부드럽게+클릭 쉽게)');
 try {
-  const a = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+  const a = allAdm();
   check('사이드바: hover 부드러운 전환 추가', a.includes('mi-sidebar-ux') && /\.ph85-head[\s\S]{0,80}transition/.test(a));
   check('사이드바: 클릭 영역 확대(padding 키움)', a.includes('padding:13px 12px !important') && a.includes('padding-top:11px !important'));
   check('사이드바: 아코디언 부드럽게(0.55s)', a.includes('transition: max-height .55s'));

@@ -7,14 +7,14 @@
 //          핵심 항목은 소스를 직접 읽어 일치 여부를 교차검증한다.
 
 import { readFileSync } from 'node:fs';
-import { allSrc } from './_srcbundle.mjs';
+import { allSrc, allAdm } from './_srcbundle.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dir, '..');
 const read = (rel) => { try { return readFileSync(resolve(ROOT, rel), 'utf8'); } catch { return ''; } };
 const API = allSrc();
-const ADMIN = read('cloudflare-deploy/public/admin.html');
+const ADMIN = allAdm();
 const STUDENT = read('cloudflare-deploy/public/review-quiz.html');
 
 let PASS = 0, FAIL = 0; const FAILS = []; const SECT = {}; let cur = '(init)';

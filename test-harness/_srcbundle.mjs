@@ -18,3 +18,17 @@ export function allSrc() {
     return '';
   }
 }
+
+// admin.html + 추출된 /js/adm-*.js 전체 합본 — 관리자 인라인 로직이 adm-*.js 로 분리됐으므로
+// (PERMS/CARD_POLICY→adm-core.js 등) 둘을 합쳐 검사해야 코드 위치와 무관하게 패턴을 찾는다.
+const PUB_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../cloudflare-deploy/public');
+export function allAdm() {
+  let s = '';
+  try { s = readFileSync(join(PUB_DIR, 'admin.html'), 'utf8'); } catch {}
+  try {
+    for (const f of readdirSync(join(PUB_DIR, 'js'))) {
+      if (/^adm-.*\.js$/.test(f)) { try { s += '\n/*───*/\n' + readFileSync(join(PUB_DIR, 'js', f), 'utf8'); } catch {} }
+    }
+  } catch {}
+  return s;
+}

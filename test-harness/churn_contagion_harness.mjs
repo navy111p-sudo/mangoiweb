@@ -14,6 +14,7 @@
 //        - card-retention(보관기간 자동 파기)은 고객유지와 무관 — 멤버에 끼면 안 됨
 
 import { readFileSync, existsSync } from 'node:fs';
+import { allAdm } from './_srcbundle.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -98,7 +99,7 @@ check('cron: NEO4J_QUERY_URL 게이트(미설정 시 skip)',
 
 // ═══════════════ [5] admin.html 🧲 리텐션 센터 허브 ═══════════════
 console.log('\n[5] admin.html 리텐션 센터 허브');
-const html = read(resolve(CF, 'public/admin.html'));
+const html = allAdm();
 check('허브 스크립트 존재(initRetentionCenterHub)', html.includes('initRetentionCenterHub'));
 check('허브 CSS 존재(rc-hub-css)', html.includes('id="rc-hub-css"'));
 check('허브 카드 id = card-retention-center', html.includes("hub.id = 'card-retention-center'"));
