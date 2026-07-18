@@ -15,8 +15,12 @@
 //   KV : env.SESSION_STATE (오답사전 캐시 + 동일 판단 반복 캐시).
 // ═══════════════════════════════════════════════════════════════════════
 import type { MangoEnv } from './api-mango';
+import { getWeakDecisionSkills } from './decision-graph';  // 3단계: 취약 스킬(Neo4j) — 시나리오 입력
 
 const JUDGE_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+// 🔀 정본 페이로드 버전 — Mode A(엣지) / Mode B(Celery/Redis) 가 동일하게 읽고 쓰는 계약.
+//    엔벨로프 구조가 바뀌면 이 값을 올려 소비자가 버전 분기 가능.
+const JUDGMENT_SCHEMA_VER = 'judg-1';
 const TAXONOMY_KV_KEY = 'judg:taxonomy:v1';
 const TAXONOMY_KV_TTL = 3600;            // 1h — 사전은 거의 안 변하므로 길게
 const REPEAT_CACHE_TTL = 30 * 24 * 3600; // 30d — 동일 상황·선택·이유 반복 학습 캐시
@@ -33,9 +37,17 @@ export async function ensureJudgmentTables(env: MangoEnv): Promise<void> {
   await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_je_student ON judgment_events(student_uid, created_at);`);
   await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_je_pending ON judgment_events(analyzed);`);
   // 2) AI 채점 결과 (1:1)
-  await env.DB.exec(`CREATE TABLE IF NOT EXISTS judgment_analysis (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER UNIQUE, student_uid TEXT NOT NULL, choice_score INTEGER, best_option TEXT, is_optimal INTEGER, reasoning_score INTEGER, reasoning_features_json TEXT, misconception_tag TEXT, feedback_ko TEXT, feedback_en TEXT, model TEXT, cache_hit INTEGER DEFAULT 0, latency_ms INTEGER, created_at INTEGER NOT NULL);`);
+  //   raw_json  = 이벤트+분석을 합친 '정본 엔벨로프' 통째 저장 → Mode B 이관 시 조인 없이 그대로 추출/재생.
+  //   schema_ver= 엔벨로프 버전(소비자 버전 분기용).
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS judgment_analysis (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER UNIQUE, student_uid TEXT NOT NULL, choice_score INTEGER, best_option TEXT, is_optimal INTEGER, reasoning_score INTEGER, reasoning_features_json TEXT, misconception_tag TEXT, feedback_ko TEXT, feedback_en TEXT, model TEXT, cache_hit INTEGER DEFAULT 0, latency_ms INTEGER, raw_json TEXT, schema_ver TEXT, migrated_at INTEGER, created_at INTEGER NOT NULL);`);
   await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ja_student ON judgment_analysis(student_uid, created_at);`);
   await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ja_misc ON judgment_analysis(misconception_tag);`);
+  // 🔀 마이그레이션 추출용 인덱스 — 아직 Mode B 로 넘기지 않은(raw_json 있고 migrated_at NULL) 행을 증분 추출.
+  await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_ja_export ON judgment_analysis(migrated_at, id);`);
+  // 방어적 ALTER — 이미 배포된 구(舊) 스키마가 있으면 컬럼 보강(멱등, 실패 무시).
+  for (const col of ['raw_json TEXT', 'schema_ver TEXT', 'migrated_at INTEGER']) {
+    try { await env.DB.exec(`ALTER TABLE judgment_analysis ADD COLUMN ${col};`); } catch { /* 이미 있음 */ }
+  }
   // 3) 오답 유형 사전 (시드 대상)
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS misconception_taxonomy (code TEXT PRIMARY KEY, label_ko TEXT, label_en TEXT, dimension TEXT, description TEXT, sort_order INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, updated_at INTEGER);`);
   // 4) 판단력 성장 추이 집계
@@ -119,6 +131,51 @@ export interface JudgmentInput {
   lang?: string;
   /** 향후 인-클래스 판단 UI 가 직접 넘기는 구조화 이벤트(있으면 전사 추출을 건너뜀). */
   judgments?: Array<any>;
+}
+
+/**
+ * 🔀 정본 판단 엔벨로프 — Mode A/B 공통 계약(single source of truth).
+ *   지금은 D1 judgment_analysis.raw_json 에 저장하고, Mode B 전환 시 이 객체를
+ *   그대로 Redis enqueue / FastAPI POST /api/v1/judgment/ingest 페이로드로 재사용한다.
+ *   구조 변경 시 JUDGMENT_SCHEMA_VER 를 올릴 것.
+ */
+export function buildJudgmentEnvelope(e: {
+  event_uid: string; student_uid: string; student_name?: string | null; room_id: string;
+  schedule_id?: number | null; lesson_date: string; source: string;
+  situation_text?: string | null; skill_tag?: string | null; options?: string[];
+  chosen_option?: string | null; reasoning_text?: string | null; lang: string;
+  choice_score: number | null; best_option?: string | null; is_optimal: number;
+  reasoning_score: number | null; reasoning_features: any; misconception_tag: string | null;
+  feedback_ko?: string | null; feedback_en?: string | null; model: string; created_at: number;
+}): any {
+  return {
+    schema_ver: JUDGMENT_SCHEMA_VER,
+    event_uid: e.event_uid,
+    student_uid: e.student_uid,
+    student_name: e.student_name || null,
+    room_id: e.room_id,
+    schedule_id: e.schedule_id ?? null,
+    lesson_date: e.lesson_date,
+    source: e.source,
+    situation_text: e.situation_text || null,
+    skill_tag: e.skill_tag || null,
+    options: e.options || [],
+    chosen_option: e.chosen_option || null,
+    reasoning_text: e.reasoning_text || null,
+    lang: e.lang,
+    analysis: {
+      choice_score: e.choice_score,
+      best_option: e.best_option || null,
+      is_optimal: !!e.is_optimal,
+      reasoning_score: e.reasoning_score,
+      reasoning_features: e.reasoning_features || {},
+      misconception_tag: e.misconception_tag || null,
+      feedback_ko: e.feedback_ko || null,
+      feedback_en: e.feedback_en || null,
+    },
+    model: e.model,
+    created_at: e.created_at,
+  };
 }
 
 /** LLM 원응답에서 첫 JSON 오브젝트 파싱 */
@@ -256,9 +313,21 @@ Only include real moments grounded in the transcript. Do NOT invent quotes. If t
         const row: any = await env.DB.prepare(`SELECT id FROM judgment_events WHERE event_uid=?`).bind(eventUid).first();
         const eventId = row?.id;
         if (!eventId) continue;
-        // 2) 채점 결과 — event_id UNIQUE upsert
-        await env.DB.prepare(`INSERT INTO judgment_analysis (event_id, student_uid, choice_score, best_option, is_optimal, reasoning_score, reasoning_features_json, misconception_tag, feedback_ko, feedback_en, model, cache_hit, latency_ms, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(event_id) DO UPDATE SET choice_score=excluded.choice_score, best_option=excluded.best_option, is_optimal=excluded.is_optimal, reasoning_score=excluded.reasoning_score, reasoning_features_json=excluded.reasoning_features_json, misconception_tag=excluded.misconception_tag, feedback_ko=excluded.feedback_ko, feedback_en=excluded.feedback_en, model=excluded.model, cache_hit=excluded.cache_hit, latency_ms=excluded.latency_ms`)
-          .bind(eventId, studentUid, choiceScore, better || null, isOptimal, reasoningScore, featuresJson, misc, String(ev.feedback_ko || '').slice(0, 400) || null, String(ev.feedback_en || '').slice(0, 400) || null, hasStructured ? 'structured' : JUDGE_MODEL, cacheHit, llmMs, now).run();
+        const modelUsed = hasStructured ? 'structured' : JUDGE_MODEL;
+        const fbKo = String(ev.feedback_ko || '').slice(0, 400) || null;
+        const fbEn = String(ev.feedback_en || '').slice(0, 400) || null;
+        const features = { register_awareness: registerAwareness, has_reasoning: reasoning.length > 0, source_llm: !hasStructured };
+        // 🔀 정본 엔벨로프 — 이관 시 조인 없이 그대로 추출/재생 가능한 통짜 레코드
+        const envelope = buildJudgmentEnvelope({
+          event_uid: eventUid, student_uid: studentUid, student_name: input.studentName, room_id: roomId,
+          schedule_id: input.scheduleId ?? null, lesson_date: lessonDate, source: 'in_class',
+          situation_text: situation, skill_tag: skillTag, options, chosen_option: chosen, reasoning_text: reasoning, lang,
+          choice_score: choiceScore, best_option: better, is_optimal: isOptimal, reasoning_score: reasoningScore,
+          reasoning_features: features, misconception_tag: misc, feedback_ko: fbKo, feedback_en: fbEn, model: modelUsed, created_at: now,
+        });
+        // 2) 채점 결과 — event_id UNIQUE upsert (raw_json 정본 + schema_ver 포함)
+        await env.DB.prepare(`INSERT INTO judgment_analysis (event_id, student_uid, choice_score, best_option, is_optimal, reasoning_score, reasoning_features_json, misconception_tag, feedback_ko, feedback_en, model, cache_hit, latency_ms, raw_json, schema_ver, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(event_id) DO UPDATE SET choice_score=excluded.choice_score, best_option=excluded.best_option, is_optimal=excluded.is_optimal, reasoning_score=excluded.reasoning_score, reasoning_features_json=excluded.reasoning_features_json, misconception_tag=excluded.misconception_tag, feedback_ko=excluded.feedback_ko, feedback_en=excluded.feedback_en, model=excluded.model, cache_hit=excluded.cache_hit, latency_ms=excluded.latency_ms, raw_json=excluded.raw_json, schema_ver=excluded.schema_ver, migrated_at=NULL`)
+          .bind(eventId, studentUid, choiceScore, better || null, isOptimal, reasoningScore, featuresJson, misc, fbKo, fbEn, modelUsed, cacheHit, llmMs, JSON.stringify(envelope), JUDGMENT_SCHEMA_VER, now).run();
         inserted++;
       } catch (e: any) {
         console.warn('[judgment] persist fail:', e?.message);
@@ -273,6 +342,286 @@ Only include real moments grounded in the transcript. Do NOT invent quotes. If t
     await logPerf(env, 'judgment_analyze', roomId, Date.now() - t0, cacheHit, 'error', { error: String(e?.message || e) });
     return { ok: false, error: String(e?.message || e) };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🔀 Mode B(Celery/Redis) 이관 지원 — 증분 추출 / 이관 표시
+//   흐름: exportJudgmentEnvelopes(증분 추출) → NCP FastAPI /api/v1/judgment/ingest 로 POST
+//        → 성공 id 들을 markJudgmentMigrated 로 표시 → 다음 배치는 미이관분만.
+//   raw_json 이 이미 정본 엔벨로프라 조인/재구성 불필요(그대로 Redis/큐 페이로드).
+// ═══════════════════════════════════════════════════════════════════════
+
+/** 아직 이관하지 않은(migrated_at IS NULL) 판단 레코드를 정본 엔벨로프로 증분 추출. */
+export async function exportJudgmentEnvelopes(env: MangoEnv, opts?: { sinceId?: number; limit?: number; includeMigrated?: boolean }): Promise<{ rows: Array<{ id: number; envelope: any }>; max_id: number }> {
+  await ensureJudgmentTables(env);
+  const sinceId = Math.max(0, Number(opts?.sinceId) || 0);
+  const limit = Math.min(1000, Math.max(1, Number(opts?.limit) || 200));
+  const where = opts?.includeMigrated ? `WHERE id > ?` : `WHERE id > ? AND migrated_at IS NULL`;
+  const rs = await env.DB.prepare(`SELECT id, raw_json FROM judgment_analysis ${where} ORDER BY id ASC LIMIT ?`).bind(sinceId, limit).all();
+  const rows: Array<{ id: number; envelope: any }> = [];
+  let maxId = sinceId;
+  for (const r of (rs.results || []) as any[]) {
+    maxId = Math.max(maxId, Number(r.id));
+    let env0: any = null;
+    try { env0 = r.raw_json ? JSON.parse(r.raw_json) : null; } catch { env0 = null; }
+    // raw_json 이 없는 구(舊) 행은 정규 컬럼으로 최소 엔벨로프 재구성(하위호환)
+    if (!env0) {
+      const j: any = await env.DB.prepare(`SELECT a.*, e.event_uid, e.room_id, e.lesson_date, e.source, e.situation_text, e.skill_tag, e.chosen_option, e.reasoning_text, e.options_json, e.lang FROM judgment_analysis a JOIN judgment_events e ON e.id=a.event_id WHERE a.id=?`).bind(r.id).first();
+      if (j) env0 = buildJudgmentEnvelope({
+        event_uid: j.event_uid, student_uid: j.student_uid, room_id: j.room_id, lesson_date: j.lesson_date || '', source: j.source || 'in_class',
+        situation_text: j.situation_text, skill_tag: j.skill_tag, options: (() => { try { return JSON.parse(j.options_json || '[]'); } catch { return []; } })(),
+        chosen_option: j.chosen_option, reasoning_text: j.reasoning_text, lang: j.lang || 'en',
+        choice_score: j.choice_score, best_option: j.best_option, is_optimal: j.is_optimal, reasoning_score: j.reasoning_score,
+        reasoning_features: (() => { try { return JSON.parse(j.reasoning_features_json || '{}'); } catch { return {}; } })(),
+        misconception_tag: j.misconception_tag, feedback_ko: j.feedback_ko, feedback_en: j.feedback_en, model: j.model || '', created_at: j.created_at,
+      });
+    }
+    if (env0) rows.push({ id: Number(r.id), envelope: env0 });
+  }
+  return { rows, max_id: maxId };
+}
+
+/** 이관 완료 표시(멱등) — 재추출 시 제외되어 정확히 1회만 이관. */
+export async function markJudgmentMigrated(env: MangoEnv, ids: number[]): Promise<number> {
+  if (!Array.isArray(ids) || !ids.length) return 0;
+  const now = Date.now();
+  let n = 0;
+  // D1 바인드 100개 한도 → 90개 청크 (관례)
+  for (let i = 0; i < ids.length; i += 90) {
+    const chunk = ids.slice(i, i + 90).map((x) => Number(x)).filter(Number.isFinite);
+    if (!chunk.length) continue;
+    const ph = chunk.map(() => '?').join(',');
+    const r = await env.DB.prepare(`UPDATE judgment_analysis SET migrated_at=? WHERE id IN (${ph})`).bind(now, ...chunk).run();
+    n += Number(r?.meta?.changes || 0);
+  }
+  return n;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 📈 3단계-A: 판단력 성장 추이(decision_growth_snapshots) 집계
+//   판단력 지수 5축(설계서 §2.2): 선택/이유/자기교정/어투/일관성 → 가중합 index.
+//   순수 D1 집계(무 LLM 비용). 기간=KST 월(YYYY-MM).
+// ═══════════════════════════════════════════════════════════════════════
+const AXIS_WEIGHTS: Record<string, number> = { choice: 0.30, reasoning: 0.30, selfcorrection: 0.15, register: 0.15, consistency: 0.10 };
+
+function kstPeriod(ts = Date.now()): string {
+  const d = new Date(ts + 9 * 3600 * 1000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
+function kstPeriodBounds(period: string): [number, number] {
+  const [y, m] = period.split('-').map(Number);
+  const start = Date.UTC(y, m - 1, 1) - 9 * 3600 * 1000;                       // KST 월초
+  const end = Date.UTC(m === 12 ? y + 1 : y, m === 12 ? 0 : m, 1) - 9 * 3600 * 1000; // 다음 KST 월초
+  return [start, end];
+}
+function prevPeriod(period: string): string {
+  const [y, m] = period.split('-').map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+}
+const avg = (arr: number[]): number | null => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+function stddev(arr: number[]): number {
+  if (arr.length < 2) return 0;
+  const m = arr.reduce((a, b) => a + b, 0) / arr.length;
+  return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length);
+}
+
+export interface GrowthAxes {
+  events_count: number;
+  axis_choice: number | null; axis_reasoning: number | null; axis_selfcorrection: number | null;
+  axis_register: number | null; axis_consistency: number | null;
+  judgment_index: number | null; top_misconceptions: Array<{ code: string; count: number }>;
+}
+
+/** 한 학생·한 기간의 판단력 5축 + 지수 계산 (순수 D1). */
+export async function computeGrowthForStudent(env: MangoEnv, studentUid: string, period: string): Promise<GrowthAxes> {
+  const [start, end] = kstPeriodBounds(period);
+  const rs = await env.DB.prepare(`SELECT choice_score, reasoning_score, reasoning_features_json, misconception_tag, created_at FROM judgment_analysis WHERE student_uid=? AND created_at>=? AND created_at<? ORDER BY created_at ASC`)
+    .bind(studentUid, start, end).all<any>();
+  const rows = rs.results || [];
+
+  const choiceArr: number[] = [], reasoningArr: number[] = [], registerArr: number[] = [];
+  const miscSeq: string[] = []; const miscCount = new Map<string, number>();
+  for (const r of rows) {
+    if (r.choice_score != null) choiceArr.push(Number(r.choice_score));
+    let feat: any = {}; try { feat = r.reasoning_features_json ? JSON.parse(r.reasoning_features_json) : {}; } catch { feat = {}; }
+    if (feat.has_reasoning && r.reasoning_score != null) reasoningArr.push(Number(r.reasoning_score));
+    if (feat.register_awareness != null) registerArr.push(Number(feat.register_awareness));
+    if (r.misconception_tag) { miscSeq.push(String(r.misconception_tag)); miscCount.set(r.misconception_tag, (miscCount.get(r.misconception_tag) || 0) + 1); }
+  }
+
+  // 자기교정력 — 오답유형 재발률의 역수. 재발이 적을수록 높음. 오답 없으면 100(고칠 게 없음).
+  let axisSelf: number | null = null;
+  if (miscSeq.length) {
+    const seen = new Set<string>(); let repeated = 0;
+    for (const c of miscSeq) { if (seen.has(c)) repeated++; else seen.add(c); }
+    axisSelf = Math.round(100 * (1 - repeated / miscSeq.length));
+  }
+  // 일관성 — 선택점수 표준편차의 역(안정적일수록 높음)
+  const axisConsistency = choiceArr.length >= 2 ? Math.max(0, Math.min(100, Math.round(100 - stddev(choiceArr)))) : null;
+
+  const a: GrowthAxes = {
+    events_count: rows.length,
+    axis_choice: choiceArr.length ? Math.round(avg(choiceArr)!) : null,
+    axis_reasoning: reasoningArr.length ? Math.round(avg(reasoningArr)!) : null,
+    axis_selfcorrection: axisSelf,
+    axis_register: registerArr.length ? Math.round(avg(registerArr)!) : null,
+    axis_consistency: axisConsistency,
+    judgment_index: null,
+    top_misconceptions: [...miscCount.entries()].map(([code, count]) => ({ code, count })).sort((x, y) => y.count - x.count).slice(0, 5),
+  };
+  // 지수 — 존재하는 축만으로 가중치 재정규화
+  const parts: Array<[number, number]> = [];
+  if (a.axis_choice != null) parts.push([AXIS_WEIGHTS.choice, a.axis_choice]);
+  if (a.axis_reasoning != null) parts.push([AXIS_WEIGHTS.reasoning, a.axis_reasoning]);
+  if (a.axis_selfcorrection != null) parts.push([AXIS_WEIGHTS.selfcorrection, a.axis_selfcorrection]);
+  if (a.axis_register != null) parts.push([AXIS_WEIGHTS.register, a.axis_register]);
+  if (a.axis_consistency != null) parts.push([AXIS_WEIGHTS.consistency, a.axis_consistency]);
+  const wSum = parts.reduce((s, [w]) => s + w, 0);
+  a.judgment_index = wSum > 0 ? Math.round(parts.reduce((s, [w, v]) => s + w * v, 0) / wSum) : null;
+  return a;
+}
+
+/**
+ * 성장 스냅샷 배치 — 기간 내 이벤트가 있는 학생(또는 지정 1명)의 지수를 계산·저장(delta 포함).
+ * 야간 03:00 cron + 관리자 수동 트리거에서 호출.
+ */
+export async function runGrowthSnapshot(env: MangoEnv, opts?: { period?: string; studentUid?: string }): Promise<{ period: string; students: number }> {
+  const t0 = Date.now();
+  await ensureJudgmentTables(env);
+  const period = opts?.period || kstPeriod();
+  const [start, end] = kstPeriodBounds(period);
+  const pPrev = prevPeriod(period);
+
+  let uids: string[] = [];
+  if (opts?.studentUid) uids = [opts.studentUid];
+  else {
+    const rs = await env.DB.prepare(`SELECT DISTINCT student_uid FROM judgment_analysis WHERE created_at>=? AND created_at<?`).bind(start, end).all<any>();
+    uids = (rs.results || []).map((r: any) => String(r.student_uid)).filter(Boolean);
+  }
+
+  let n = 0; const now = Date.now();
+  for (const uid of uids) {
+    const g = await computeGrowthForStudent(env, uid, period);
+    if (!g.events_count) continue;
+    const prev: any = await env.DB.prepare(`SELECT judgment_index FROM decision_growth_snapshots WHERE period=? AND student_uid=?`).bind(pPrev, uid).first();
+    const delta = (g.judgment_index != null && prev?.judgment_index != null) ? Math.round(g.judgment_index - Number(prev.judgment_index)) : null;
+    const nm: any = await env.DB.prepare(`SELECT student_name FROM judgment_events WHERE student_uid=? AND student_name IS NOT NULL ORDER BY created_at DESC LIMIT 1`).bind(uid).first();
+    await env.DB.prepare(`INSERT INTO decision_growth_snapshots (period, student_uid, student_name, events_count, axis_choice, axis_reasoning, axis_selfcorrection, axis_register, axis_consistency, judgment_index, delta_index, top_misconceptions, generated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(period, student_uid) DO UPDATE SET student_name=excluded.student_name, events_count=excluded.events_count, axis_choice=excluded.axis_choice, axis_reasoning=excluded.axis_reasoning, axis_selfcorrection=excluded.axis_selfcorrection, axis_register=excluded.axis_register, axis_consistency=excluded.axis_consistency, judgment_index=excluded.judgment_index, delta_index=excluded.delta_index, top_misconceptions=excluded.top_misconceptions, generated_at=excluded.generated_at`)
+      .bind(period, uid, nm?.student_name || null, g.events_count, g.axis_choice, g.axis_reasoning, g.axis_selfcorrection, g.axis_register, g.axis_consistency, g.judgment_index, delta, JSON.stringify(g.top_misconceptions), now).run();
+    n++;
+  }
+  await logPerf(env, 'growth_snapshot', period, Date.now() - t0, 0, 'ok', { students: n });
+  return { period, students: n };
+}
+
+/**
+ * 학생 성장 리포트 — 현재 기간(실시간 계산) + 과거 스냅샷 추세(최대 12개월).
+ *   레이더(5축) + 추세선(index) 시각화 소스.
+ */
+export async function getGrowthReport(env: MangoEnv, studentUid: string): Promise<any> {
+  await ensureJudgmentTables(env);
+  const period = kstPeriod();
+  const current = await computeGrowthForStudent(env, studentUid, period);
+  const hist = await env.DB.prepare(`SELECT period, judgment_index, delta_index, events_count FROM decision_growth_snapshots WHERE student_uid=? ORDER BY period DESC LIMIT 12`).bind(studentUid).all<any>();
+  const trend = (hist.results || []).map((r: any) => ({ period: r.period, judgment_index: r.judgment_index, delta_index: r.delta_index, events_count: r.events_count })).reverse();
+  // 현재 기간을 추세 끝에 실시간 반영(스냅샷 아직 없을 수 있음)
+  const last = trend[trend.length - 1];
+  if (!last || last.period !== period) trend.push({ period, judgment_index: current.judgment_index, delta_index: null, events_count: current.events_count });
+  else { last.judgment_index = current.judgment_index; last.events_count = current.events_count; }
+  return {
+    student_uid: studentUid,
+    period,
+    radar: {
+      선택적절성: current.axis_choice, 이유논리: current.axis_reasoning, 자기교정력: current.axis_selfcorrection,
+      어투민감도: current.axis_register, 일관성: current.axis_consistency,
+    },
+    judgment_index: current.judgment_index,
+    events_count: current.events_count,
+    top_misconceptions: current.top_misconceptions,
+    trend,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🎯 3단계-B: 취약 패턴 기반 맞춤 시나리오 훈련
+//   취약 스킬/오답유형(Neo4j 우선, 미설정 시 D1 폴백) → LLM 이 판단 시나리오 생성.
+// ═══════════════════════════════════════════════════════════════════════
+
+/** D1 폴백 — Neo4j 미설정/실패 시 판단 데이터에서 직접 취약 스킬·오답유형 집계. */
+async function weakFromD1(env: MangoEnv, studentUid: string, limit = 3): Promise<Array<{ skill: string; weakCount: number; misconceptions: string[] }>> {
+  const rs = await env.DB.prepare(`SELECT e.skill_tag AS skill, COUNT(*) AS c, GROUP_CONCAT(a.misconception_tag) AS miscs FROM judgment_events e JOIN judgment_analysis a ON a.event_id=e.id WHERE e.student_uid=? AND e.skill_tag IS NOT NULL AND (a.is_optimal=0 OR a.misconception_tag IS NOT NULL) GROUP BY e.skill_tag ORDER BY c DESC LIMIT ?`)
+    .bind(studentUid, Math.min(10, Math.max(1, limit))).all<any>();
+  return (rs.results || []).map((r: any) => ({
+    skill: String(r.skill), weakCount: Number(r.c) || 0,
+    misconceptions: [...new Set(String(r.miscs || '').split(',').map((s) => s.trim()).filter(Boolean))].slice(0, 3),
+  }));
+}
+
+/**
+ * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
+ *   반환: { situation, options[], correct_index, why, skill_tag, target_misconception, based_on }
+ */
+export async function generatePersonalizedScenario(env: MangoEnv, studentUid: string, lang = 'en'): Promise<any> {
+  const t0 = Date.now();
+  await ensureJudgmentTables(env);
+  // 1) 취약 패턴 — Neo4j 우선, 실패 시 D1 폴백
+  let weak: Array<{ skill: string; weakCount: number; misconceptions: string[] }> = [];
+  let source = 'neo4j';
+  try {
+    weak = await getWeakDecisionSkills(env as any, studentUid, 3);
+    if (!weak.length) { weak = await weakFromD1(env, studentUid, 3); source = 'd1_fallback'; }
+  } catch {
+    try { weak = await weakFromD1(env, studentUid, 3); source = 'd1_fallback'; } catch { weak = []; source = 'none'; }
+  }
+  const taxonomy = await getMisconceptionTaxonomy(env);
+  const target = weak[0] || null;
+  const targetMisc = target?.misconceptions?.[0] || null;
+  const miscLabel = targetMisc ? (taxonomy.find((t) => t.code === targetMisc)?.label_en || targetMisc) : null;
+
+  const ai = (env as any).AI;
+  let scenario: any = null;
+  if (ai) {
+    const focus = target
+      ? `The student is WEAK at the skill "${target.skill}"${miscLabel ? ` and tends to make this mistake: "${miscLabel}" (${targetMisc})` : ''}. Design the scenario to target exactly this weakness.`
+      : `This is a new student with no weakness data yet. Design a friendly beginner decision scenario.`;
+    const prompt = `You design DECISION-MAKING English practice for a Korean child. Create ONE short real-life situation and 3-4 candidate English expressions the child could say. Exactly one is clearly the best/most natural for the situation.
+
+${focus}
+
+Return STRICT JSON only:
+{
+  "situation": "<1-2 sentence real-life context, English, child-friendly>",
+  "skill_tag": "<short kebab tag>",
+  "options": ["<expression A>", "<expression B>", "<expression C>"],
+  "correct_index": <0-based index of the best option>,
+  "why": "<1-2 sentences: WHY the best option is best and why the others are less appropriate — this trains judgment>",
+  "why_ko": "<same explanation in Korean>"
+}`;
+    try {
+      const resp: any = await ai.run(JUDGE_MODEL, {
+        messages: [
+          { role: 'system', content: 'You design English decision-making practice. Reply in strict JSON only.' },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 700,
+      });
+      const j = parseFirstJson(resp);
+      if (j && Array.isArray(j.options) && j.options.length >= 2) {
+        const ci = Number.isInteger(+j.correct_index) ? Math.max(0, Math.min(j.options.length - 1, +j.correct_index)) : 0;
+        scenario = {
+          situation: String(j.situation || '').slice(0, 500),
+          skill_tag: String(j.skill_tag || target?.skill || '').slice(0, 60) || null,
+          options: j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4),
+          correct_index: ci,
+          why: String(j.why || '').slice(0, 600),
+          why_ko: String(j.why_ko || '').slice(0, 600),
+        };
+      }
+    } catch (e: any) { console.warn('[judgment] scenario LLM fail:', e?.message); }
+  }
+  await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null });
+  if (!scenario) return { ok: false, error: 'scenario_unavailable', based_on: { source, weak } };
+  return { ok: true, ...scenario, target_misconception: targetMisc, based_on: { source, weak_skills: weak.map((w) => w.skill) } };
 }
 
 /** analysis_perf_log 기록 (실패해도 본 흐름에 무영향). */

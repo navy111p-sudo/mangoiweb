@@ -31,6 +31,8 @@ import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
+import { decisionGraphRouter, runDecisionGraphSync } from './decision-graph';  // 🧠 판단 경로 그래프(3단계)
+import { runGrowthSnapshot } from './api-judgment';                            // 📈 판단력 성장 스냅샷(3단계)
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
 import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야간 자동 새로고침
 
@@ -1463,6 +1465,10 @@ const worker = {
     if (path.startsWith('/api/admin/warmup-graph/')) {
       return warmupGraphRouter(request, env);
     }
+    // 🧠 판단 경로 그래프 ETL/디버그 (decision-graph) — 관리자 전용
+    if (path.startsWith('/api/admin/decision-graph/')) {
+      return decisionGraphRouter(request, env as any);
+    }
 
     // 🕸 이탈 전염 위험: 가족·동반수업·추천 관계망 기반 (Neo4j Aura)
     //   POST /sync · GET /risk · GET /student?uid= · GET /stats. 자체 try/catch 독립 동작.
@@ -1743,6 +1749,25 @@ const worker = {
           } catch (err) {
             console.error('[churn-contagion-sync] error', err);
           }
+        }
+
+        // 🧠 판단 경로 그래프 동기화 (KST 03:00) — D1(judgment_events·judgment_analysis) → Neo4j Aura
+        //   학생별 판단 이벤트·취약 스킬·오답유형·시간순 경로. Neo4j 미설정이면 조용히 건너뜀. 멱등 MERGE.
+        if (env.NEO4J_QUERY_URL) {
+          try {
+            const ds = await runDecisionGraphSync(env as any);
+            console.log('[decision-graph-sync] cron ran', JSON.stringify(ds));
+          } catch (err) {
+            console.error('[decision-graph-sync] error', err);
+          }
+        }
+
+        // 📈 판단력 성장 스냅샷 (KST 03:00) — 이번 달 이벤트가 있는 학생의 5축 지수·delta 재계산(순수 D1)
+        try {
+          const gs = await runGrowthSnapshot(env as any);
+          console.log('[growth-snapshot] cron ran', JSON.stringify(gs));
+        } catch (err) {
+          console.error('[growth-snapshot] error', err);
         }
 
         // 📅 Weekly schedule auto-generation — every Sunday only (KST Monday 03:00)
@@ -3583,6 +3608,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/teacher-match/')) return true;
   // 🗣️ 웜업 개인화 그래프 ETL/디버그 (warmup-graph) — 관리자 전용 (인증 필수)
   if (path.startsWith('/api/admin/warmup-graph/')) return true;
+  // 🧠 판단 경로 그래프 ETL/디버그 (decision-graph) — 관리자 전용 (인증 필수)
+  if (path.startsWith('/api/admin/decision-graph/')) return true;
   // 🕸 이탈 전염 위험 그래프 (churn-contagion) — 관리자 전용 (인증 필수)
   if (path.startsWith('/api/admin/churn-contagion/')) return true;
   // 📣 마케팅 스튜디오 대시보드 + API (2026-06-03) — 관리자 전용

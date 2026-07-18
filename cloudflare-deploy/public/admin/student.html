@@ -597,6 +597,13 @@
         <div class="report-chartbox tall"><canvas id="rpEngage"></canvas></div>
       </div>
 
+      <h3 data-ko="🧠 판단력 성장 (Decision-making)" data-en="🧠 Decision-making Growth">🧠 판단력 성장 (Decision-making)</h3>
+      <div id="rpJudgeIndex" style="font-size:13px;color:#444;margin:0 0 8px">—</div>
+      <div class="grid-charts">
+        <div class="report-chartbox tall"><canvas id="rpJudgeRadar"></canvas></div>
+        <div class="report-chartbox tall"><canvas id="rpJudgeTrend"></canvas></div>
+      </div>
+
       <h3 data-ko="🎙 발음연습 추이" data-en="🎙 Pronunciation Trend">🎙 발음연습 추이</h3>
       <div class="grid-charts">
         <div class="report-chartbox tall"><canvas id="rpPron"></canvas></div>
@@ -2155,10 +2162,67 @@ window.openReport = function(evalId){
     '<span style="display:inline-block;width:10px;height:10px;background:#f0f0f0;border-radius:2px;margin-left:8px;vertical-align:middle"></span> '+t('rpAbsentLgd')+
     '</div>';
 
+  // ── 🧠 판단력 성장 (비동기 로드 — 없으면 안내 후 graceful) ──
+  renderJudgmentGrowth(uid);
+
   // ── 모달 열기 ──
   $('reportBackdrop').classList.add('show');
   document.body.style.overflow = 'hidden';
 };
+
+// 🧠 판단력 성장 리포트 — /api/judgment/growth (레이더 5축 + 월별 추세선)
+async function renderJudgmentGrowth(sid){
+  const idxEl = $('rpJudgeIndex');
+  if (_rpCharts.jradar) { _rpCharts.jradar.destroy(); _rpCharts.jradar = null; }
+  if (_rpCharts.jtrend) { _rpCharts.jtrend.destroy(); _rpCharts.jtrend = null; }
+  try {
+    const r = await fetch('/api/judgment/growth?uid=' + encodeURIComponent(sid), { credentials:'include' });
+    const d = await r.json();
+    if (!d || d.ok === false) throw new Error((d && d.error) || 'no_data');
+    const rad = d.radar || {};
+    const axes = _lang==='en'
+      ? ['Choice','Reasoning','Self-correction','Register','Consistency']
+      : ['선택적절성','이유논리','자기교정력','어투민감도','일관성'];
+    const vals = [rad['선택적절성'], rad['이유논리'], rad['자기교정력'], rad['어투민감도'], rad['일관성']].map(v => v==null?0:v);
+    const hasData = (d.events_count||0) > 0;
+    idxEl.innerHTML = hasData
+      ? '<b style="color:#7c3aed;font-size:16px">' + (_lang==='en'?'Judgment Index':'판단력 지수') + ': ' + (d.judgment_index!=null?d.judgment_index:'—') + '</b>'
+        + ' <span style="color:#888">· ' + d.events_count + (_lang==='en'?' decisions':'회 판단') + '</span>'
+        + ((Array.isArray(d.top_misconceptions)&&d.top_misconceptions.length) ? ' · ' + (_lang==='en'?'top gaps':'주요 오답') + ': ' + d.top_misconceptions.slice(0,3).map(m=>esc(m.code)).join(', ') : '')
+      : '<span style="color:#aaa">' + (_lang==='en'?'No decision data yet — appears after class-end judgment analysis accrues.':'아직 판단 데이터가 없습니다 — 수업 종료 분석이 쌓이면 표시됩니다.') + '</span>';
+    // 레이더 5축
+    _rpCharts.jradar = new Chart($('rpJudgeRadar').getContext('2d'), {
+      type: 'radar',
+      data: { labels: axes, datasets: [{
+        label: _lang==='en'?'Decision-making':'판단력', data: vals,
+        backgroundColor: 'rgba(124,58,237,0.22)', borderColor: '#7c3aed', borderWidth: 2,
+        pointBackgroundColor: '#7c3aed', pointRadius: 5, pointHoverRadius: 7 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        scales: { r: { beginAtZero: true, max: 100,
+          pointLabels: { font: { size: 12, weight: '700' }, color: '#222' },
+          ticks: { backdropColor: 'transparent', color: '#888', stepSize: 20 },
+          grid: { color: '#e0e0e0' }, angleLines: { color: '#e0e0e0' } } },
+        plugins: { legend: { labels: { color: '#222', font: { size: 12 } } },
+          title: { display: true, text: _lang==='en'?'Decision-making (5 axes)':'판단력 5축', color: '#666', font: { size: 12, weight: '700' } } } }
+    });
+    // 월별 추세선
+    const tr = Array.isArray(d.trend) ? d.trend : [];
+    _rpCharts.jtrend = new Chart($('rpJudgeTrend').getContext('2d'), {
+      type: 'line',
+      data: { labels: tr.map(x=>x.period), datasets: [{
+        label: _lang==='en'?'Judgment Index':'판단력 지수', data: tr.map(x=> x.judgment_index==null?null:x.judgment_index),
+        borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.12)', borderWidth: 2,
+        tension: .3, fill: true, pointRadius: 4, spanGaps: true }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#666' }, grid: { color: '#e0e0e0' } },
+          x: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#e0e0e0' } } },
+        plugins: { legend: { display: false },
+          title: { display: true, text: _lang==='en'?'Growth Trend (monthly)':'성장 추이 (월별)', color: '#666', font: { size: 12, weight: '700' } } } }
+    });
+  } catch(e){
+    idxEl.innerHTML = '<span style="color:#aaa">' + (_lang==='en'?'Decision-making data unavailable yet.':'판단력 데이터가 아직 없습니다.') + '</span>';
+  }
+}
 
 window.closeReport = function(){
   $('reportBackdrop').classList.remove('show');
@@ -2166,6 +2230,8 @@ window.closeReport = function(){
   if (_rpCharts.radar) { _rpCharts.radar.destroy(); _rpCharts.radar = null; }
   if (_rpCharts.engage){ _rpCharts.engage.destroy(); _rpCharts.engage = null; }
   if (_rpCharts.pron)  { _rpCharts.pron.destroy();   _rpCharts.pron = null; }
+  if (_rpCharts.jradar){ _rpCharts.jradar.destroy(); _rpCharts.jradar = null; }
+  if (_rpCharts.jtrend){ _rpCharts.jtrend.destroy(); _rpCharts.jtrend = null; }
 };
 
 document.addEventListener('keydown', (ev) => {

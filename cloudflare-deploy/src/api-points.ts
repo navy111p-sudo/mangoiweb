@@ -9,7 +9,7 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor } from './auth-admin';
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
-import { runJudgmentAnalysis } from './api-judgment';  // 🧠 판단력 엔진(2단계, Mode A)
+import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오)
 
 /**
  * 🎁 기프트 카탈로그 기본 상품 시드 (멱등 — 이미 있으면 건너뜀).
@@ -617,6 +617,82 @@ Return STRICT JSON only, in BOTH Korean and English:
       } catch (e: any) { console.warn('[judgment] hook skip:', e?.message); }
 
       return json({ ok: true, room_id: roomId, teacher_uid: teacherUid || null, teacher_name: teacherName || null, student_name: studentName || null, duration_min: durationMin || null, metrics, feedback_ko: ko, feedback_en: en, source, generated_at: now });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 🔀 판단력 데이터 Mode B(Celery/Redis) 이관 추출 — 관리자 전용
+    //   정본 엔벨로프(raw_json)를 조인 없이 JSONL/JSON 으로 증분 추출.
+    //   운영: since_id 커서로 반복 호출 → NCP FastAPI 로 POST → mark-migrated.
+    // ══════════════════════════════════════════════════════════════
+
+    // ── GET /api/admin/judgment/export?since_id=&limit=&format=jsonl|json&all=1 ──
+    if (method === 'GET' && path === '/api/admin/judgment/export') {
+      const adm = await checkAdminSession(request, env as any);
+      if (!adm.ok) return json({ ok: false, error: 'admin_required' }, 401);
+      const sinceId = parseInt(url.searchParams.get('since_id') || '0', 10) || 0;
+      const limit = parseInt(url.searchParams.get('limit') || '200', 10) || 200;
+      const includeMigrated = url.searchParams.get('all') === '1';
+      const fmt = (url.searchParams.get('format') || 'jsonl').toLowerCase();
+      const { rows, max_id } = await exportJudgmentEnvelopes(env, { sinceId, limit, includeMigrated });
+      if (fmt === 'json') {
+        return json({ ok: true, count: rows.length, max_id, next_cursor: max_id, envelopes: rows.map((r) => r.envelope) });
+      }
+      // JSONL — 한 줄 = 한 엔벨로프 (Mode B 스트리밍 인제스트에 최적)
+      const body = rows.map((r) => JSON.stringify(r.envelope)).join('\n');
+      return new Response(body, { headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'X-Max-Id': String(max_id), 'X-Count': String(rows.length), 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' } });
+    }
+
+    // ── POST /api/admin/judgment/mark-migrated  body:{ ids:[...] } ── (이관 완료 표시, 멱등) ──
+    if (method === 'POST' && path === '/api/admin/judgment/mark-migrated') {
+      const adm = await checkAdminSession(request, env as any);
+      if (!adm.ok) return json({ ok: false, error: 'admin_required' }, 401);
+      const body: any = await request.json().catch(() => ({}));
+      const ids = Array.isArray(body.ids) ? body.ids : [];
+      const marked = await markJudgmentMigrated(env, ids);
+      return json({ ok: true, marked });
+    }
+
+    // ── POST /api/admin/judgment/snapshot  body:{ period?, uid? } ── (성장 스냅샷 배치, 관리자) ──
+    if (method === 'POST' && path === '/api/admin/judgment/snapshot') {
+      const adm = await checkAdminSession(request, env as any);
+      if (!adm.ok) return json({ ok: false, error: 'admin_required' }, 401);
+      const body: any = await request.json().catch(() => ({}));
+      try {
+        const r = await runGrowthSnapshot(env, { period: body.period || undefined, studentUid: (body.uid || '').trim() || undefined });
+        return json({ ok: true, ...r });
+      } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 🧠 3단계 학생/학부모용 — 판단력 성장 리포트 + 맞춤 시나리오
+    //   본인(토큰) 또는 관리자(세션)만. IDOR 차단.
+    // ══════════════════════════════════════════════════════════════
+
+    // ── GET /api/judgment/growth?uid= — 성장 추이(레이더 5축 + 추세선) ──
+    if (method === 'GET' && path === '/api/judgment/growth') {
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const adm = await checkAdminSession(request, env as any);
+      const who = await authUidGlobal(request, url, env);
+      if (!adm.ok && (!who || who !== uid)) return json({ ok: false, error: 'auth_required' }, 401);
+      try {
+        const report = await getGrowthReport(env, uid);
+        return json({ ok: true, ...report });
+      } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+    }
+
+    // ── POST /api/judgment/scenario  body:{ uid } — 취약 패턴 맞춤 시나리오 1건 ──
+    if (method === 'POST' && path === '/api/judgment/scenario') {
+      const body: any = await request.json().catch(() => ({}));
+      const uid = (body.uid || url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const adm = await checkAdminSession(request, env as any);
+      const who = await authUidGlobal(request, url, env);
+      if (!adm.ok && (!who || who !== uid)) return json({ ok: false, error: 'auth_required' }, 401);
+      try {
+        const sc = await generatePersonalizedScenario(env, uid, body.lang || 'en');
+        return json(sc, sc?.ok === false ? 200 : 200);
+      } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }
 
     // ── GET /api/ai-feedback?room_id=  또는  ?teacher_uid=&limit= — 피드백 조회 ──

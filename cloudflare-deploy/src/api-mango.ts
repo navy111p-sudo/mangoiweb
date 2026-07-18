@@ -1075,6 +1075,7 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/points') || path.startsWith('/api/admin/gifts')
         || path.startsWith('/api/ratings') || path.startsWith('/api/admin/ratings')
         || path.startsWith('/api/ai-feedback') || path === '/api/teacher/my-ratings'
+        || path.startsWith('/api/admin/judgment') || path.startsWith('/api/judgment/')
         || path === '/api/vc/roster') {
       const rPoints = await handlePointsApi(request, url, env, ctx);
       if (rPoints) return rPoints;
