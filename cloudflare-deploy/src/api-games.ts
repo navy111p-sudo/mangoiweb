@@ -11,6 +11,7 @@
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
 import { checkAdminSession } from './auth-admin';
+import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import type { MangoEnv } from './api-mango';
 
 
@@ -1253,6 +1254,27 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const today = Math.floor((now + 32400000) / 86400000);
         if (ds.length && (ds[0] === today || ds[0] === today - 1)) { streak = 1; for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) streak++; }
       } catch {}
+      // 🧠 [판단력 D3] 복습퀴즈 채점 = 판단 이벤트. detail(정/오답)을 그대로 기록(재-LLM 없음).
+      //   guest 는 제외(파밍/노이즈 방지). refId=결과행 id 로 멱등.
+      try {
+        if (userId && !userId.startsWith('guest_')) {
+          const refId = (insRes && insRes.meta && (insRes.meta as any).last_row_id) ? (insRes.meta as any).last_row_id : now;
+          const jList = (detail || []).slice(0, 5).map((d: any) => {
+            const isWrite = d.type === 'write' || d.type === 'speak';
+            return {
+              situation: 'Review quiz (' + (d.type || 'choice') + ')', skill_tag: 'review_quiz',
+              chosen: isWrite ? String(d.your_text || '') : '',
+              better: isWrite ? String(d.answer_text || '') : String(d.audio_text || ''),
+              is_optimal: d.correct ? 1 : 0,
+              choice_score: isWrite ? (Number.isFinite(+d.accuracy) ? +d.accuracy : (d.correct ? 100 : 0)) : (d.correct ? 100 : 40),
+              misconception: d.correct ? null : guessMisconception(String(d.explain || '')),
+              feedback_ko: String(d.explain || '').slice(0, 200),
+            };
+          });
+          if (jList.length) await recordJudgmentEvents(env, { studentUid: userId, studentName: userName, source: 'review_quiz', refId, judgments: jList });
+        }
+      } catch (e: any) { console.warn('[review-quiz] judgment capture skip:', e?.message); }
+
       return json({ ok: true, score, total, percent, detail, awarded, balance, streak, first_clear: firstClear });
     }
 

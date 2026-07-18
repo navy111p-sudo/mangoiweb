@@ -7,6 +7,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { ensurePointTables, applyPointTransaction } from './api-points';
 import { checkAndAwardBadges, BADGE_CATALOG } from './api-games';
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
+import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
@@ -206,6 +207,24 @@ Student text: """${text}"""`;
         } catch (e: any) {
           console.error('[write-correct] badge check failed:', e?.message || e);
         }
+
+        // 🧠 [판단력 D3] 영작 교정 = 판단 이벤트. issues(원문→교정)를 그대로 기록(재-LLM 없음).
+        //   issue 있으면 각 issue = "더 나은 표현을 지나친 판단"(오답유형 매핑), 없으면 최적 판단 1건.
+        try {
+          const jList = issues.length
+            ? issues.slice(0, 3).map((iss: any) => ({
+                situation: 'AI writing correction', skill_tag: 'writing',
+                chosen: String(iss?.original || '').slice(0, 300),
+                better: String(iss?.suggested || '').slice(0, 300),
+                is_optimal: 0, choice_score: score,
+                misconception: guessMisconception(String(iss?.reason || '')),
+                feedback_ko: String(iss?.reason || '').slice(0, 200),
+              })).filter((j: any) => j.chosen || j.better)
+            : [{ situation: 'AI writing correction', skill_tag: 'writing',
+                 chosen: text.slice(0, 200), better: corrected.slice(0, 200),
+                 is_optimal: 1, choice_score: score }];
+          if (jList.length) await recordJudgmentEvents(env, { studentUid: uid, source: 'writing', refId: Date.now(), judgments: jList });
+        } catch (e: any) { console.warn('[write-correct] judgment capture skip:', e?.message); }
       }
 
       // raw 도 lastErr 도 없을 일이 거의 없지만, 어느쪽이든 결과는 반환 (ok: true)

@@ -624,6 +624,98 @@ Return STRICT JSON only:
   return { ok: true, ...scenario, target_misconception: targetMisc, based_on: { source, weak_skills: weak.map((w) => w.skill) } };
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 🧩 3단계-C(D3): 수업 외 판단 이벤트 캡처 — LLM 없이 기존 채점 결과를 판단 이벤트로 기록
+//   영작 교정(issues: 원문→교정)·복습퀴즈(오답: 선택≠정답) 등에서 이미 나온 결과를
+//   judgment_events + judgment_analysis 에 그대로 적재(재-LLM 없음, 저비용).
+//   호출측(api-ai/api-games)에서 best-effort 로 감싸 본 응답을 막지 않는다.
+// ═══════════════════════════════════════════════════════════════════════
+export interface RecordJudgmentInput {
+  studentUid: string; studentName?: string | null; source: string; refId: string | number;
+  lessonDate?: string; lang?: string;
+  judgments: Array<{
+    situation?: string; skill_tag?: string; chosen?: string; better?: string;
+    is_optimal?: boolean | number; choice_score?: number | null; reasoning?: string;
+    reasoning_score?: number | null; register_awareness?: number | null;
+    misconception?: string | null; feedback_ko?: string; feedback_en?: string;
+  }>;
+}
+
+/** 이미 채점된 판단 결과를 D1 에 기록(멱등). LLM 미사용. */
+export async function recordJudgmentEvents(env: MangoEnv, input: RecordJudgmentInput): Promise<{ ok: boolean; inserted: number }> {
+  const t0 = Date.now();
+  const studentUid = String(input.studentUid || '').trim();
+  const source = String(input.source || 'external');
+  const refId = String(input.refId ?? '');
+  const list = Array.isArray(input.judgments) ? input.judgments.slice(0, MAX_EVENTS_PER_CLASS) : [];
+  if (!studentUid || !list.length) return { ok: true, inserted: 0 };
+  let inserted = 0;
+  try {
+    await ensureJudgmentTables(env);
+    const taxonomy = await getMisconceptionTaxonomy(env);
+    const validCodes = new Set(taxonomy.map((t) => t.code));
+    const lang = input.lang || 'en';
+    const lessonDate = input.lessonDate || new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    const clamp = (v: any) => { const n = Math.round(+v); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null; };
+
+    for (let i = 0; i < list.length; i++) {
+      const ev = list[i] || {};
+      const eventUid = `${source}:${refId}:${i}`;              // 소스·참조·순번 멱등키
+      const chosen = String(ev.chosen ?? '').slice(0, 500);
+      const better = String(ev.better ?? '').slice(0, 500);
+      const reasoning = String(ev.reasoning ?? '').slice(0, 1000);
+      const skillTag = String(ev.skill_tag ?? source).slice(0, 60) || null;
+      const situation = String(ev.situation ?? '').slice(0, 500) || null;
+      const options = [chosen, better].filter(Boolean);
+      const choiceScore = clamp(ev.choice_score);
+      const reasoningScore = clamp(ev.reasoning_score);
+      const registerAwareness = clamp(ev.register_awareness);
+      const isOptimal = (ev.is_optimal === true || ev.is_optimal === 1) ? 1 : 0;
+      let misc = (ev.misconception && ev.misconception !== 'null') ? String(ev.misconception).toUpperCase().trim() : null;
+      if (misc && !validCodes.has(misc)) misc = null;
+      const features = { register_awareness: registerAwareness, has_reasoning: reasoning.length > 0, source_llm: false };
+      const featuresJson = JSON.stringify(features);
+      try {
+        await env.DB.prepare(`INSERT INTO judgment_events (event_uid, student_uid, student_name, room_id, schedule_id, lesson_date, source, situation_id, situation_text, skill_tag, options_json, chosen_option, chosen_index, reasoning_text, lang, analyzed, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?) ON CONFLICT(event_uid) DO UPDATE SET situation_text=excluded.situation_text, skill_tag=excluded.skill_tag, options_json=excluded.options_json, chosen_option=excluded.chosen_option, reasoning_text=excluded.reasoning_text, analyzed=1`)
+          .bind(eventUid, studentUid, input.studentName || null, null, null, lessonDate, source, null, situation, skillTag, options.length ? JSON.stringify(options) : null, chosen || null, 0, reasoning || null, lang, now).run();
+        const row: any = await env.DB.prepare(`SELECT id FROM judgment_events WHERE event_uid=?`).bind(eventUid).first();
+        const eventId = row?.id;
+        if (!eventId) continue;
+        const envelope = buildJudgmentEnvelope({
+          event_uid: eventUid, student_uid: studentUid, student_name: input.studentName, room_id: '',
+          schedule_id: null, lesson_date: lessonDate, source,
+          situation_text: situation, skill_tag: skillTag, options, chosen_option: chosen, reasoning_text: reasoning, lang,
+          choice_score: choiceScore, best_option: better, is_optimal: isOptimal, reasoning_score: reasoningScore,
+          reasoning_features: features, misconception_tag: misc,
+          feedback_ko: ev.feedback_ko || null, feedback_en: ev.feedback_en || null, model: 'record', created_at: now,
+        });
+        await env.DB.prepare(`INSERT INTO judgment_analysis (event_id, student_uid, choice_score, best_option, is_optimal, reasoning_score, reasoning_features_json, misconception_tag, feedback_ko, feedback_en, model, cache_hit, latency_ms, raw_json, schema_ver, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,?,?,?) ON CONFLICT(event_id) DO UPDATE SET choice_score=excluded.choice_score, best_option=excluded.best_option, is_optimal=excluded.is_optimal, reasoning_score=excluded.reasoning_score, reasoning_features_json=excluded.reasoning_features_json, misconception_tag=excluded.misconception_tag, feedback_ko=excluded.feedback_ko, feedback_en=excluded.feedback_en, model=excluded.model, raw_json=excluded.raw_json, schema_ver=excluded.schema_ver, migrated_at=NULL`)
+          .bind(eventId, studentUid, choiceScore, better || null, isOptimal, reasoningScore, featuresJson, misc, ev.feedback_ko || null, ev.feedback_en || null, 'record', JSON.stringify(envelope), JUDGMENT_SCHEMA_VER, now).run();
+        inserted++;
+      } catch (e: any) { console.warn('[judgment] record persist fail:', e?.message); }
+    }
+    await logPerf(env, 'judgment_record', `${source}:${refId}`, Date.now() - t0, 0, 'ok', { source, inserted });
+  } catch (e: any) {
+    console.warn('[judgment] recordJudgmentEvents fatal:', e?.message);
+    return { ok: false, inserted };
+  }
+  return { ok: true, inserted };
+}
+
+/** 자유 텍스트 사유(한국어)를 오답 유형 코드로 경량 매핑 — 매칭 없으면 null. */
+export function guessMisconception(reason: string): string | null {
+  const s = String(reason || '').toLowerCase();
+  if (/시제|tense|과거|현재|미래/.test(s)) return 'TENSE_CONFUSION';
+  if (/어순|word order|순서|배열/.test(s)) return 'GRAMMAR_FORM';
+  if (/격식|공손|정중|반말|formal|polite|register/.test(s)) return 'REGISTER_MISMATCH';
+  if (/직역|literal|콩글리시|konglish/.test(s)) return 'DIRECT_TRANSLATION';
+  if (/맥락|context|상황/.test(s)) return 'NO_CONTEXT';
+  if (/단어|어휘|word choice|표현|vocabular/.test(s)) return 'WORD_CHOICE';
+  if (/문법|형태|일치|관사|전치사|grammar|article|preposition/.test(s)) return 'GRAMMAR_FORM';
+  return null;
+}
+
 /** analysis_perf_log 기록 (실패해도 본 흐름에 무영향). */
 async function logPerf(env: MangoEnv, task: string, refId: string, durationMs: number, cacheHit: number, statusStr: string, detail?: any): Promise<void> {
   try {
