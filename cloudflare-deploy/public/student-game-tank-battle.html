@@ -188,7 +188,7 @@
     </div>
     <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
     <div class="oRules">
-      🎯 <b>마우스(터치)로 포탑을 조준</b> — 셔먼은 스스로 달려요<br>
+      🎯 <b>마우스 좌드래그(터치 드래그)로 셔먼 이동</b> — 빠르게 조종!<br>
       💥 <b>우클릭 / 스페이스 / 발사버튼</b>으로 포 발사!<br>
       🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
       ⛽ <b>젤리 연료통</b>을 쏘거나 밟으면 연료(시간) 충전<br>
@@ -548,7 +548,7 @@ var G=null;
 function newGame(){
   G={ px:W/2, py:H*0.62, hullAng:-Math.PI/2, turAng:-Math.PI/2,
       vx:0, vy:0, wpx:W/2, wpy:H*0.5, track:0,
-      tx:W/2, ty:H*0.2, firing:false, fireT:0,
+      tx:W/2, ty:H*0.2, firing:false, dragging:false, fireT:0,
       enemies:[], pbul:[], ebul:[], fuels:[], parts:[], wrecks:[],
       sent:null, next:0, correct:0, clears:0, score:0,
       time:70, timeMax:70, lives:3, prog:[],
@@ -642,8 +642,10 @@ cv.addEventListener('pointermove',function(ev){ if(!G||!G.running||G.speaking)re
 cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running||G.speaking)return;
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock();
   var p=ptr(ev); G.tx=p.x; G.ty=p.y;
-  if(ev.pointerType==='mouse'){ playerFire(); }   // 🖱️ PC = 클릭(좌/우 아무거나) 발사. 터치는 발사버튼.
+  if(ev.button===2) return;         // 🖱️ 우클릭은 contextmenu에서 발사
+  G.dragging=true;                   // 좌클릭 드래그 / 터치 드래그 = 셔먼 이동
 });
+window.addEventListener('pointerup',function(){ if(G) G.dragging=false; });
 cv.addEventListener('contextmenu',function(e){ e.preventDefault(); if(G&&G.running&&!G.speaking) playerFire(); });  // 우클릭 발사
 // 🔥 발사 버튼(모바일)
 (function(){ var fb=document.getElementById('fireBtn'); if(!fb)return;
@@ -666,18 +668,19 @@ function update(dt){
   // 시간(연료)
   G.time-=dt; if(G.time<=0){ G.time=0; return endGame(false); }
 
-  // 🚗 셔먼 자동 주행(스스로 계속 이동) — 웨이포인트 향해 이동, 다 오면 새 목표
-  var dxw=G.wpx-G.px, dyw=G.wpy-G.py, dw=Math.hypot(dxw,dyw)||1;
-  if(dw<40) pickWaypoint();
-  var drv=52*SCALE*(0.8+SPMUL*0.2);
-  G.vx += (dxw/dw*drv - G.vx)*Math.min(1,dt*2);
-  G.vy += (dyw/dw*drv - G.vy)*Math.min(1,dt*2);
+  // 🚗 셔먼 조종 — 마우스 좌드래그(또는 터치 드래그)로 그 지점까지 '빠르게' 이동. 놓으면 관성으로 감속.
+  if(G.dragging){
+    var dxw=G.tx-G.px, dyw=G.ty-G.py, dw=Math.hypot(dxw,dyw);
+    var drv = (dw>20 ? 165*SCALE*(0.85+SPMUL*0.2) : 0);   // ⚡ 빠른 이동
+    if(dw>0){ G.vx += (dxw/dw*drv - G.vx)*Math.min(1,dt*9); G.vy += (dyw/dw*drv - G.vy)*Math.min(1,dt*9); }
+  } else { var damp=Math.pow(0.02,dt); G.vx*=damp; G.vy*=damp; }
   G.px+=G.vx*dt; G.py+=G.vy*dt;
   G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
   var sp=Math.hypot(G.vx,G.vy);
-  if(sp>4){ G.hullAng=angLerp(G.hullAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*3)); G.track+=sp*dt*0.05; }
-  // 포탑 = 조준점(마우스/터치)으로 부드럽게
-  G.turAng=angLerp(G.turAng, Math.atan2(G.ty-G.py, G.tx-G.px), Math.min(1,dt*8));
+  // 실사 = 통짜 스프라이트 → 이동 중엔 진행방향, 멈추면 조준점(마우스)으로 포신 정렬
+  var faceAng = (sp>14) ? Math.atan2(G.vy,G.vx) : Math.atan2(G.ty-G.py, G.tx-G.px);
+  G.turAng=angLerp(G.turAng, faceAng, Math.min(1,dt*10)); G.hullAng=G.turAng;
+  if(sp>4){ G.track+=sp*dt*0.05; }
   if(G.invuln>0)G.invuln-=dt;
   // 연사(버튼/스페이스 유지)
   if(G.firing) playerFire();
@@ -913,11 +916,53 @@ function positionFireBtn(){ var fb=document.getElementById('fireBtn'); if(!fb)re
   var show=(G && G.running && !G.dead && !G.speaking && !('ontouchstart' in window ? false : false));
   fb.classList.toggle('on', !!(G && G.running && !G.dead && !G.speaking)); }
 
-/* ── 전차 그리기(차체 회전 + 포탑 독립 회전) ── */
+/* ── 🖼️ 실사 전차 스프라이트(초록 크로마키 런타임 제거 + 오토크롭). 없으면 아래 벡터 폴백 ──
+   ⚠️ 이미지는 '포신이 위(↑)를 향한' 탑다운. orient=이미지 기본각 보정(라디안). */
+var TANKIMG={   // orient=Math.PI/2 : 원본 이미지의 포신이 '왼쪽'을 향함 → aim 방향으로 보정
+  sherman:{ready:false,cnv:null,w:0,h:0,orient:Math.PI/2,src:'/img/tank-sherman.png?v=1'},
+  tiger:{ready:false,cnv:null,w:0,h:0,orient:Math.PI/2,src:'/img/tank-tiger.png?v=1'},
+  stug:{ready:false,cnv:null,w:0,h:0,orient:Math.PI/2,src:'/img/tank-stug.png?v=1'}
+};
+function loadTankImg(key){ var o=TANKIMG[key]; var img=new Image();
+  img.onload=function(){ try{
+    var oc=document.createElement('canvas'); oc.width=img.width; oc.height=img.height;
+    var octx=oc.getContext('2d'); octx.drawImage(img,0,0);
+    var id=octx.getImageData(0,0,oc.width,oc.height), d=id.data;
+    var minX=oc.width,minY=oc.height,maxX=0,maxY=0, any=false;
+    for(var i=0;i<d.length;i+=4){ var r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
+      if(a<12){ continue; }                                                    // 이미 투명 = 배경
+      if(g>90 && g>r*1.25 && g>b*1.25 && (g-Math.max(r,b))>40){ d[i+3]=0; continue; }  // 형광 초록 제거
+      if(g>r && g>b){ d[i+1]=Math.round((r+b)/2 + (g-(r+b)/2)*0.35); }         // 그린 스필 억제
+      var p=(i/4), x=p%oc.width, y=(p-x)/oc.width;
+      if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; any=true;
+    }
+    octx.putImageData(id,0,0);
+    if(!any){ o.ready=false; return; }
+    var cw=Math.max(1,maxX-minX+1), ch=Math.max(1,maxY-minY+1);
+    var tc=document.createElement('canvas'); tc.width=cw; tc.height=ch;
+    tc.getContext('2d').drawImage(oc,minX,minY,cw,ch,0,0,cw,ch);
+    o.cnv=tc; o.w=cw; o.h=ch; o.ready=true;
+  }catch(_){ o.ready=false; } };
+  img.onerror=function(){ o.ready=false; }; img.src=o.src; }
+Object.keys(TANKIMG).forEach(loadTankImg);
+/* 실사 스프라이트를 aim 방향으로 통째 회전 렌더 */
+function drawTankImg(x,y,ang,key,flash){ var o=TANKIMG[key];
+  var targetL = 50*SCALE, sc=targetL/Math.max(o.w,o.h), w=o.w*sc, h=o.h*sc;
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(3,5,Math.max(w,h)*0.42,Math.max(w,h)*0.30,0,0,7); ctx.fill();
+  ctx.rotate(ang + Math.PI/2 + (o.orient||0));   // 이미지 포신=위(-Y) → ang 방향으로
+  ctx.drawImage(o.cnv, -w/2, -h/2, w, h);
+  if(flash){ ctx.globalAlpha=0.5; ctx.globalCompositeOperation='lighter'; ctx.drawImage(o.cnv,-w/2,-h/2,w,h);
+    ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; }
+  ctx.restore(); }
+
+/* ── 전차 그리기(실사 우선 → 벡터 폴백: 차체 회전 + 포탑 독립 회전) ── */
 var TANK_COL={ sherman:{h:'#5a6a3a',t:'#65753f',trk:'#2c3120',hi:'#7d8c52'},
   tiger:{h:'#7a6f4a',t:'#867a52',trk:'#3a3526',hi:'#9c9066'},
   stug:{h:'#5f6a52',t:'#69745b',trk:'#33392b',hi:'#7d8a6c'} };
 function drawTank(x,y,hullAng,turAng,type,sc,flash){
+  var key=(type==='sherman')?'sherman':(type==='tiger'?'tiger':'stug');
+  if(TANKIMG[key] && TANKIMG[key].ready){ drawTankImg(x,y,turAng,key,flash); return; }   // 🖼️ 실사 있으면 우선(포신=조준방향)
   var c=TANK_COL[type]||TANK_COL.sherman; sc=(sc||1);
   var L=42*SCALE, Wd=26*SCALE;
   ctx.save(); ctx.translate(x,y);
@@ -968,12 +1013,23 @@ function drawShell(b,col){ var sp=Math.hypot(b.vx,b.vy)||1, ux=b.vx/sp, uy=b.vy/
   ctx.strokeStyle='rgba(90,50,10,.5)'; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(b.x-ux*len,b.y-uy*len); ctx.lineTo(b.x,b.y); ctx.stroke();
   ctx.strokeStyle=col; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(b.x-ux*len*0.7,b.y-uy*len*0.7); ctx.lineTo(b.x,b.y); ctx.stroke();
   ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(b.x,b.y,2.4*SCALE,0,7); ctx.fill(); ctx.restore(); }
-function drawFuel(fu){ ctx.save(); ctx.translate(fu.x,fu.y+Math.sin(fu.bob)*3);
-  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,fu.r*0.9,fu.r*0.9,fu.r*0.4,0,0,7); ctx.fill();
-  var r=fu.r; var gg=ctx.createLinearGradient(-r,0,r,0); gg.addColorStop(0,'#7ce0a0'); gg.addColorStop(.5,'#37c46a'); gg.addColorStop(1,'#1f9a4c');
-  ctx.fillStyle=gg; rr(-r*0.7,-r, r*1.4, r*2, 6); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.35)'; rr(-r*0.5,-r*0.85, r*0.4, r*1.6, 4); ctx.fill();
-  ctx.fillStyle='#155c30'; ctx.font='bold '+(r*1.1)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('⛽',0,0);
+/* ⛟ 젤리(제리캔) 연료통 — 앞면에 X 프레스 패널 있는 WWII 석유통 */
+function drawFuel(fu){ var r=fu.r; ctx.save(); ctx.translate(fu.x,fu.y+Math.sin(fu.bob)*3);
+  ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.beginPath(); ctx.ellipse(0,r*1.05,r*0.95,r*0.4,0,0,7); ctx.fill();
+  var bw=r*1.5, bh=r*2.0;
+  var gg=ctx.createLinearGradient(-bw/2,0,bw/2,0); gg.addColorStop(0,'#3f7a3a'); gg.addColorStop(.5,'#5aa24e'); gg.addColorStop(1,'#356b31');
+  ctx.fillStyle=gg; rr(-bw/2,-bh/2,bw,bh,4); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=2; rr(-bw/2,-bh/2,bw,bh,4); ctx.stroke();
+  // ✖ X 각인
+  var ix=bw*0.32, iy=bh*0.34;
+  ctx.lineCap='round';
+  ctx.strokeStyle='#274d24'; ctx.lineWidth=Math.max(2.2,r*0.17);
+  ctx.beginPath(); ctx.moveTo(-ix,-iy); ctx.lineTo(ix,iy); ctx.moveTo(ix,-iy); ctx.lineTo(-ix,iy); ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,0.28)'; ctx.lineWidth=Math.max(1,r*0.07);
+  ctx.beginPath(); ctx.moveTo(-ix,-iy); ctx.lineTo(ix,iy); ctx.moveTo(ix,-iy); ctx.lineTo(-ix,iy); ctx.stroke();
+  // 상단 3핸들 바 + 주유 캡
+  ctx.fillStyle='#2c3a2a'; rr(-bw*0.18,-bh*0.5-r*0.32, bw*0.36, r*0.32, 2); ctx.fill();
+  ctx.fillStyle='#1e2c1c'; ctx.beginPath(); ctx.arc(bw*0.30,-bh*0.5-r*0.10, r*0.20,0,7); ctx.fill();
   ctx.restore(); }
 function drawPart(p){ var k=1-p.age/p.life;
   if(p.flash){ var fr=p.rad*(0.6+0.4*(p.age/p.life)); var fg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,fr);
@@ -1076,6 +1132,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260719082109 -->
+<!-- BUILD:20260719085132 -->
 </body>
 </html>

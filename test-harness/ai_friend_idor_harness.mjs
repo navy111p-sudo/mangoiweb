@@ -47,24 +47,24 @@ function handlerBlock(src, pathLit) {
 // 1) 세 엔드포인트 모두 토큰 검증 + uid 일치 확인이 DB 접근보다 먼저
 for (const p of ['/api/ai/chat-friend', '/api/ai/chat-history', '/api/ai/chat-clear']) {
   const blk = handlerBlock(apiMango, `path === '${p}'`);
-  ok(blk.includes('authUidFromRequest'), `${p} — 서명 토큰 검증(authUidFromRequest) 수행`);
+  ok((blk.includes('authUidGlobal') || blk.includes('authUidFromRequest')), `${p} — 서명 토큰 검증(authUidGlobal) 수행`);
   ok(/authUid\s*!==\s*uid/.test(blk), `${p} — 토큰 uid 와 요청 uid 일치 강제 (불일치 403)`);
-  const authIdx = blk.indexOf('authUidFromRequest');
+  const authIdx = Math.max(blk.indexOf('authUidGlobal'), blk.indexOf('authUidFromRequest'));
   const dbIdx = blk.indexOf('env.DB.prepare');
   ok(authIdx > 0 && (dbIdx < 0 || authIdx < dbIdx), `${p} — 인증이 DB 접근보다 먼저 수행됨`);
   ok(/auth_required/.test(blk), `${p} — 토큰 없으면 401 auth_required`);
 }
 
 // 2) 토큰 유틸: HMAC-SHA256 서명 + 만료 검증
-ok(/const\s+signUidToken\s*=/.test(apiMango) && /const\s+verifyUidToken\s*=/.test(apiMango),
+ok(/function\s+signUidToken/.test(apiMango) && /function\s+verifyUidToken/.test(apiMango),
   'signUidToken / verifyUidToken 유틸 존재');
-const verifyBlk = handlerBlock(apiMango, 'const verifyUidToken');
+const verifyBlk = handlerBlock(apiMango, 'function verifyUidToken');
 ok(/crypto\.subtle\.verify\('HMAC'/.test(verifyBlk), 'verifyUidToken — HMAC-SHA256 서명 검증');
 ok(/p\.exp\s*&&\s*p\.exp\s*<\s*Date\.now\(\)/.test(verifyBlk), 'verifyUidToken — 만료(exp) 검증');
 
 // 3) 로그인 응답에 토큰 포함
 const loginBlk = handlerBlock(apiMango, "path === '/api/student/login'");
-ok(/token:\s*await\s+signUidToken\(uid\)/.test(loginBlk), '/api/student/login — 성공 시 서명 토큰 발급');
+ok(/token:\s*await\s+signUidToken\(uid/.test(loginBlk), '/api/student/login — 성공 시 서명 토큰 발급');
 
 // 4) 게스트 토큰: 서버 발급 랜덤 uid (클라이언트 Math.random uid 금지)
 const guestBlk = handlerBlock(apiMango, "path === '/api/ai/chat-guest-token'");
