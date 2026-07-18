@@ -100,6 +100,21 @@ export async function getScope(env: ScopeEnv, request: Request): Promise<Scope> 
       if (t === 'branch' && v) return { type: 'branch', value: v, label: scopeLabel('branch', v) };
     }
   }
+  // 🏬 (2026-07-19) 지사 드릴다운 — 지사도 ?as=agency:<shop_name> 으로 대리점 상세를 볼 수 있다.
+  //   단, **그 대리점이 이 지사 산하인지 DB 로 검증**한 뒤에만 허용(다른 지사 대리점은 조용히 무시하고
+  //   자기 지사 스코프 유지 — 권한 상승 불가). 지사 대시보드 '대리점별 현황' 카드 클릭 이동에 사용.
+  if (base.type === 'branch' && base.value) {
+    const as = new URL(request.url).searchParams.get('as');
+    if (as && as.startsWith('agency:')) {
+      const v = as.slice('agency:'.length);
+      if (v) {
+        const own = await s_safe(async () => await env.DB.prepare(
+          `SELECT 1 ok FROM students_erp WHERE shop_name = ? AND franchise LIKE ? LIMIT 1`
+        ).bind(v, base.value + '%').first<{ ok: number }>(), null as any);
+        if (own) return { type: 'agency', value: v, label: scopeLabel('agency', v) };
+      }
+    }
+  }
   return base;
 }
 

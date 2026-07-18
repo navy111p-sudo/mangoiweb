@@ -310,7 +310,9 @@ function trendTag(v){
   return `<span class="trend ${cls}">${arw} ${Math.abs(v)}%</span>`;
 }
 let stuChart, finChart, branchChart, methodChart, curDays=30, seriesCache=[];
-let asParam='';
+// 🏬 (2026-07-19) URL ?as=agency:<shop> 지원 — 지사 대시보드 '대리점 카드' 클릭 진입 시
+//   해당 대리점 스코프로 바로 조회한다(서버 getScope 가 산하 여부 검증). 드롭다운 변경 시엔 기존대로 덮어씀.
+let asParam=(function(){ try{ return new URLSearchParams(location.search).get('as')||''; }catch(e){ return ''; } })();
 function withAs(u){ return asParam ? u + (u.includes('?')?'&':'?') + 'as=' + encodeURIComponent(asParam) : u; }
 async function jget(u){ const r=await fetch(u,{credentials:'same-origin'}); if(!r.ok) throw new Error(u+' '+r.status); return r.json(); }
 
