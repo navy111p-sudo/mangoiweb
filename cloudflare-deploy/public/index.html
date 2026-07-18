@@ -5461,6 +5461,14 @@
       spot.addEventListener('click', function(e){ e.stopPropagation(); a.classList.toggle('astro-say'); });
       spot.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); a.classList.toggle('astro-say'); } });
       document.addEventListener('click', function(){ a.classList.remove('astro-say'); });
+      // 첫 진입: 자동으로 fade-in → 5초 후 fade-out (우주인 등장 애니메이션 후)
+      var autoHide;
+      setTimeout(function(){
+        a.classList.add('astro-say');
+        autoHide = setTimeout(function(){ a.classList.remove('astro-say'); }, 5000);
+      }, 1600);
+      // 사용자가 그 사이 호버하면 자동숨김 타이머 취소(호버가 우선)
+      spot.addEventListener('mouseenter', function(){ clearTimeout(autoHide); });
     })();
     </script>
 
@@ -25103,7 +25111,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260718213139 -->
+<!-- BUILD:20260718213319 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
