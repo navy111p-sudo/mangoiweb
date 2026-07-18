@@ -2498,6 +2498,8 @@
 <script src="/js/adm-r1.js?v=1"></script><!-- 분할추출:adm-r1 -->
 <!-- 🏬 지사 전용 — 대리점별 현황 (학생수·매출·지사 수수료) : 지사 로그인 시 대시보드 최상단 -->
 <div id="branch-agency-overview" style="display:none"></div>
+<!-- ⏰ 지사 전용 — 만료 임박 학생을 '대리점별'로 묶어 독려 전화 돌리기 좋게 (2026-07-19, 지사 액션 1순위) -->
+<div id="branch-expiring-overview" style="display:none"></div>
 <script>
 (function(){
   function won(n){ try{ return '₩' + Math.round(n).toLocaleString('ko-KR'); }catch(e){ return '₩'+n; } }
@@ -2576,11 +2578,74 @@
       +'<div style="font-size:13px;color:#cbb58a">'+msg+'</div></div>';
     host.style.display='block';
   }
+  // ⏰ (2026-07-19) 만료 임박 — 대리점별 챙기기. erp-list 는 서버가 지사 스코프+PII 마스킹을 이미 적용하므로
+  //    여기선 D-day 계산·대리점 그룹핑·표시만 한다. 지사장의 실질 액션(연장 독려 전화) 1순위 화면.
+  function loadBranchExpiring(s){
+    var host=document.getElementById('branch-expiring-overview'); if(!host) return;
+    fetch('/api/admin/students/erp-list?limit=2000', {credentials:'include', headers:{'Accept':'application/json'}})
+      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(j){
+        var items=(j&&j.items)||[];
+        var today=new Date(); today.setHours(0,0,0,0);
+        var rows=[];
+        items.forEach(function(st){
+          if(!/^\d{4}-\d{2}-\d{2}/.test(st.end_date||'')) return;
+          var d=Math.ceil((new Date(String(st.end_date).slice(0,10)+'T23:59:59')-today)/86400000);
+          if(d<-30||d>30) return;                                   // 창: 만료 후 30일 ~ D-30
+          rows.push({ shop:st.shop_name||'(대리점 미지정)', name:st.korean_name||st.username||st.login_id||st.user_id||'?',
+                      end:String(st.end_date).slice(0,10), d:d, phone:st.parent_phone||st.student_phone||'',
+                      uid:st.user_id||st.login_id||st.student_id||'' });
+        });
+        if(!rows.length){
+          host.innerHTML='<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35);border-radius:18px;padding:16px 20px;margin-bottom:18px">'
+            +'<h2 style="margin:0 0 6px;font-size:17px;font-weight:900;color:#34d399">⏰ 만료 임박 · 대리점별 챙기기</h2>'
+            +'<div style="font-size:13px;color:#86efac">D-30 이내 만료 예정 학생이 없습니다 🎉</div></div>';
+          host.style.display='block'; return;
+        }
+        var groups={};
+        rows.forEach(function(r){ (groups[r.shop]=groups[r.shop]||[]).push(r); });
+        var shops=Object.keys(groups).map(function(k){
+          var g=groups[k].sort(function(a,b){ return a.d-b.d; });
+          return { shop:k, list:g, urgent:g[0].d, n:g.length };
+        }).sort(function(a,b){ return a.urgent-b.urgent || b.n-a.n; });
+        var expired=rows.filter(function(r){return r.d<0;}).length, d7=rows.filter(function(r){return r.d>=0&&r.d<=7;}).length;
+        function badge(d){
+          var st = d<0 ? 'background:rgba(239,68,68,.2);color:#f87171' : d<=7 ? 'background:rgba(245,158,11,.22);color:#fbbf24' : 'background:rgba(148,163,184,.18);color:#cbd5e1';
+          var t  = d<0 ? ('만료 D+'+Math.abs(d)) : d===0 ? 'D-DAY' : ('D-'+d);
+          return '<span style="'+st+';padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;white-space:nowrap">'+t+'</span>';
+        }
+        var body=shops.map(function(gr,i){
+          var lines=gr.list.map(function(r){
+            return '<div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-top:1px dashed rgba(148,163,184,.15);flex-wrap:wrap">'
+              +'<b style="min-width:76px;color:#e2e8f0;font-size:13px">'+escA(r.name)+'</b>'
+              +badge(r.d)
+              +'<span style="font-size:12px;color:#94a3b8">종료 '+escA(r.end)+'</span>'
+              +(r.phone?('<span style="font-size:12px;color:#94a3b8">📞 '+escA(r.phone)+'</span>'):'')
+              +(r.uid?('<a href="/admin/student?uid='+encodeURIComponent(r.uid)+'&tab=extension" target="_blank" style="margin-left:auto;padding:3px 10px;font-size:11px;background:#f59e0b;color:#1a1a1a;border-radius:6px;text-decoration:none;font-weight:800;white-space:nowrap">🔍 연장 처리</a>'):'')
+              +'</div>';
+          }).join('');
+          return '<details '+(i===0?'open ':'')+'style="background:rgba(255,255,255,.05);border:1px solid rgba(148,163,184,.22);border-radius:12px;padding:10px 14px">'
+            +'<summary style="cursor:pointer;font-weight:800;color:#fcd34d;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">🤝 '+escA(gr.shop)
+            +'<span style="font-size:12px;color:#94a3b8;font-weight:700">'+gr.n+'명</span>'+badge(gr.urgent)+'</summary>'
+            +'<div style="margin-top:6px">'+lines+'</div></details>';
+        }).join('');
+        host.innerHTML='<div style="background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(245,158,11,.05));border:1px solid rgba(245,158,11,.35);border-radius:18px;padding:18px 20px;margin-bottom:18px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">'
+          +'<h2 style="margin:0;font-size:19px;font-weight:900;color:#fcd34d">⏰ 만료 임박 · 대리점별 챙기기</h2>'
+          +'<span style="font-size:12px;color:#cbb58a">총 <b style="color:#fbbf24">'+rows.length+'명</b> · 🔴 만료됨 '+expired+' · 🟠 D-7 이내 '+d7+' · 대리점 '+shops.length+'곳 — 지금 전화 돌릴 곳부터 위에</span>'
+          +'</div>'
+          +'<div style="display:grid;gap:10px">'+body+'</div>'
+          +'</div>';
+        host.style.display='block';
+      })
+      .catch(function(){ /* 만료 패널은 실패 시 조용히 숨김(대시보드 본체에 영향 X) */ });
+  }
   function init(){
     var s=sess();
     if(!s || s.role!=='branch') return;
     if(!document.getElementById('branch-agency-overview')) return;
     var _ao=document.getElementById('agency-academy-overview'); if(_ao){ _ao.style.display='none'; _ao.innerHTML=''; }
+    loadBranchExpiring(s);   // ⏰ 만료 임박(대리점별) — 대리점 현황과 병렬 로드
     // 🔒 서버 exec/breakdown 이 세션 스코프로 '우리 지사'의 실제 대리점만 집계(다른 지역 대리점은 서버에서 애초에 제외).
     //    ⚠️ summary 가 아니라 breakdown 에 branches 배열이 있음(2026-07-19 확인 — summary 는 branches 필드 자체가 없어 빈화면 원인이었다).
     try {
@@ -20092,6 +20157,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260719054227 -->
+<!-- BUILD:20260719054600 -->
 </body>
 </html>
