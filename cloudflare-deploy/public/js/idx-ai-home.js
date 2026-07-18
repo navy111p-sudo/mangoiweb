@@ -403,7 +403,7 @@
         try { _isAdmin = !!localStorage.getItem('mangoi_admin_session'); } catch(e){}
         if (_isAdmin) {
           showSuggest(`<b>👤 '${text}' 학생 정보</b> 로 이동합니다...`, true);
-          setTimeout(() => { location.href = '/admin/students-unified.html?q=' + encodeURIComponent(text); }, 400);
+          setTimeout(() => { location.href = '/admin.html?smq=' + encodeURIComponent(text) + '#card-students-mgmt'; }, 400);
           return;
         }
         // 비관리자: 아래 퍼지 매칭/추천으로 계속 진행 (예: 2~4자 메뉴 오타)

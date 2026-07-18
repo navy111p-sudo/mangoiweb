@@ -1,257 +1,48 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>👨‍🎓 학생관리 — 망고아이</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>학생관리로 이동 중… — Mangoi 관리</title>
+<!--
+  ============================================================================
+   ♻️ (2026-07-18) 학생관리 일원화 리다이렉트
+   ----------------------------------------------------------------------------
+   이 통합(unified) 학생관리 페이지도 메인 콘솔 학생관리 카드로 합쳐졌다.
+   (데이터 소스 /api/admin/students/unified 는 admin.html #card-students-mgmt 와 동일)
+     → /admin.html#card-students-mgmt
+   구 링크 호환: ?q=이름 → ?smq=이름 으로 매핑. 원복은 git 이력에서 이전 버전 복원.
+   함께 리다이렉트되는 자매 페이지: /admin/students.html
+  ============================================================================
+-->
+<script>
+  (function(){
+    try {
+      var p = new URLSearchParams(location.search);
+      var q = p.get('smq') || p.get('q') || '';
+      var url = '/admin.html' + (q ? ('?smq=' + encodeURIComponent(q)) : '') + '#card-students-mgmt';
+      location.replace(url);
+    } catch(e) {
+      location.replace('/admin.html#card-students-mgmt');
+    }
+  })();
+</script>
+<meta http-equiv="refresh" content="0;url=/admin.html#card-students-mgmt" />
 <style>
-  :root{
-    --bg:#0f172a; --panel:#1e293b; --panel2:#263449;
-    --fg:#e2e8f0; --mut:#94a3b8; --dim:#64748b; --bd:#334155;
-    --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7; --c:#06b6d4;
-  }
-  *,*::before,*::after{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
-  a{color:#fde68a;text-decoration:none}
-
-  header.top{height:56px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--bd);background:#0b1220;position:sticky;top:0;z-index:50}
-  header.top .brand{font-weight:800;color:#fbbf24;white-space:nowrap}
-  header.top .crumb{color:var(--mut);font-size:13px}
-  header.top .right{margin-left:auto;display:flex;gap:8px}
-  header.top a.btn,header.top button.btn{padding:6px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12px;cursor:pointer}
-  header.top a.btn:hover,header.top button.btn:hover{background:var(--panel2)}
-
-  main{max-width:1500px;margin:0 auto;padding:18px}
-
-  /* KPI */
-  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
-  .kpi{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:15px 16px;position:relative;overflow:hidden}
-  .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}
-  .kpi.tot::before{background:var(--b)} .kpi.elem::before{background:var(--g)} .kpi.mid::before{background:var(--y)} .kpi.high::before{background:var(--p)} .kpi.kakao::before{background:var(--c)}
-  .kpi .lab{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
-  .kpi .val{font-size:27px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
-  .kpi .sub{font-size:11px;color:var(--dim);margin-top:2px}
-
-  /* toolbar */
-  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
-  .search{position:relative;flex:1;min-width:220px;max-width:420px}
-  .search input{width:100%;padding:11px 14px 11px 38px;border-radius:11px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:14px}
-  .search input:focus{outline:none;border-color:var(--b);box-shadow:0 0 0 3px rgba(59,130,246,.18)}
-  .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mut)}
-  .chips{display:flex;gap:6px;flex-wrap:wrap}
-  .chip{padding:7px 13px;border-radius:9px;border:1px solid var(--bd);background:var(--panel);color:var(--mut);font-size:12.5px;cursor:pointer;font-weight:600}
-  .chip.active{background:#0b1220;color:#93c5fd;border-color:var(--b)}
-  .tbtn{padding:9px 13px;border-radius:9px;border:1px solid var(--bd);background:var(--panel);color:var(--fg);font-size:12.5px;cursor:pointer;text-decoration:none}
-  .tbtn:hover{background:var(--panel2)}
-  .count{margin-left:auto;color:var(--mut);font-size:12.5px}
-
-  /* table */
-  .card{background:var(--panel);border:1px solid var(--bd);border-radius:14px;overflow:hidden}
-  .scroll{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:13px;min-width:1040px}
-  thead th{background:var(--panel2);color:var(--mut);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:11px 12px;text-align:left;position:sticky;top:0;white-space:nowrap;cursor:pointer;user-select:none}
-  thead th .ar{opacity:.4;font-size:9px;margin-left:3px}
-  tbody td{padding:11px 12px;border-top:1px solid var(--bd);white-space:nowrap;vertical-align:middle}
-  tbody tr:hover td{background:rgba(59,130,246,.06)}
-  .av{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#0b1220;background:linear-gradient(135deg,#60a5fa,#3b82f6);margin-right:9px;vertical-align:middle}
-  .nm{font-weight:700;color:var(--fg)}
-  .uid{font-family:ui-monospace,monospace;font-size:11px;color:#93c5fd;background:rgba(59,130,246,.12);padding:2px 7px;border-radius:6px}
-  .lvl{font-weight:700;color:#c4b5fd;background:rgba(168,85,247,.14);padding:2px 8px;border-radius:8px;font-size:11.5px}
-  .bk{color:#7dd3fc;font-size:12px}
-  .badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700}
-  .badge.ok{background:rgba(16,185,129,.16);color:#6ee7b7}
-  .badge.off{background:rgba(148,163,184,.16);color:#cbd5e1}
-  .muted{color:var(--mut)}
-  .detail{padding:5px 11px;border-radius:8px;border:0;background:linear-gradient(135deg,#f59e0b,#d97706);color:#1b1b1b;font-weight:800;font-size:11.5px;cursor:pointer;text-decoration:none;white-space:nowrap}
-  .detail:hover{filter:brightness(1.07)}
-  .empty{text-align:center;padding:48px 10px;color:var(--mut)}
-  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0b1220;border:1px solid var(--bd);color:var(--fg);padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:99}
-  .toast.show{opacity:1}
-
-  /* mobile cards */
-  .m-list{display:none;flex-direction:column;gap:10px}
-  .m-card{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:14px}
-  .m-card .top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-  .m-card .meta{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;font-size:12.5px}
-  .m-card .meta b{color:var(--mut);font-weight:600;margin-right:5px}
-  @media(max-width:820px){
-    .scroll{display:none}
-    .m-list{display:flex}
-  }
+  html,body{margin:0;height:100%}
+  body{display:flex;align-items:center;justify-content:center;
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+    background:#0f172a;color:#e2e8f0}
+  .box{text-align:center;padding:24px}
+  .t{font-size:15px;font-weight:800}
+  .s{font-size:12.5px;color:#94a3b8;margin-top:8px}
+  a{color:#38bdf8;font-weight:700}
 </style>
-<link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
 </head>
 <body>
-<header class="top">
-  <span class="brand"><img src="/img/mango-char.png" alt="망고아이" style="height:1.15em;width:auto;vertical-align:-0.2em;margin-right:.1em">망고아이</span>
-  <span class="crumb">／ 학생관리</span>
-  <div class="right">
-    <button class="btn" id="refreshBtn">↻ 새로고침</button>
-    <a class="btn" href="/admin">← 관리자</a>
+  <div class="box">
+    <div class="t">👨‍🎓 학생관리로 이동 중…</div>
+    <div class="s">자동으로 넘어가지 않으면 <a href="/admin.html#card-students-mgmt">여기</a>를 누르세요.</div>
   </div>
-</header>
-
-<main>
-  <div class="kpi-row" id="kpiRow">
-    <div class="kpi tot"><div class="lab">전체 학생</div><div class="val">…</div></div>
-  </div>
-
-  <div class="toolbar">
-    <div class="search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
-      <input id="q" type="search" placeholder="이름 · 아이디 · 전화번호 검색">
-    </div>
-    <div class="chips" id="chips">
-      <span class="chip active" data-f="all">전체</span>
-      <span class="chip" data-f="elem">초등</span>
-      <span class="chip" data-f="mid">중등</span>
-      <span class="chip" data-f="high">고등</span>
-    </div>
-    <a class="tbtn" id="csvBtn" href="#" download>⬇ CSV</a>
-    <span class="count" id="count">—</span>
-  </div>
-
-  <div class="card">
-    <div class="scroll">
-      <table id="tbl">
-        <thead><tr>
-          <th data-k="name">학생<span class="ar">↕</span></th>
-          <th data-k="user_id">아이디<span class="ar">↕</span></th>
-          <th data-k="school">학교</th>
-          <th data-k="grade">학년<span class="ar">↕</span></th>
-          <th data-k="level">레벨<span class="ar">↕</span></th>
-          <th data-k="textbook">배정교재</th>
-          <th data-k="student_phone">휴대폰</th>
-          <th data-k="kakao_id">카카오</th>
-          <th data-k="sessions" style="text-align:right">세션<span class="ar">↕</span></th>
-          <th data-k="last_seen">최근수업</th>
-          <th data-k="status">상태</th>
-          <th>상세</th>
-        </tr></thead>
-        <tbody id="tb"><tr><td colspan="12" class="empty">불러오는 중…</td></tr></tbody>
-      </table>
-    </div>
-    <div class="m-list" id="mlist"></div>
-  </div>
-</main>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const $ = s => document.querySelector(s);
-let ALL = [], view = [], filter = 'all', sortK = 'name', sortDir = 1;
-
-function toast(m){const t=$('#toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2000);}
-function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function gradeCat(g){ g=g||''; if(g.indexOf('초')>=0)return'elem'; if(g.indexOf('중')>=0)return'mid'; if(g.indexOf('고')>=0)return'high'; return'etc'; }
-
-// 콘솔(localStorage 'mangoi_admin_session') 로그인 상태면 401이어도 로그인으로 튕기지 않는다(하위페이지 인증 미스매치 방지)
-function hasLocalAdminSession(){ try{ const s=JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}'); return !!(s && (s.role||s.uid)); }catch(e){ return false; } }
-async function load(){
-  try{
-    const r = await fetch('/api/admin/students/unified', { credentials:'include', cache:'no-store' });
-    if(r.status===401){
-      if(!hasLocalAdminSession()){ location.href='/admin/login?next='+encodeURIComponent(location.pathname); return; }
-      throw new Error('세션 만료 — 다시 로그인해 주세요');
-    }
-    const d = await r.json();
-    ALL = (d.students||[]);
-    renderKpi();
-    apply();
-  }catch(e){ $('#tb').innerHTML='<tr><td colspan="12" class="empty">로드 실패: '+esc(e.message)+'</td></tr>'; }
-}
-
-function renderKpi(){
-  const n=ALL.length;
-  const elem=ALL.filter(s=>gradeCat(s.grade)==='elem').length;
-  const mid=ALL.filter(s=>gradeCat(s.grade)==='mid').length;
-  const high=ALL.filter(s=>gradeCat(s.grade)==='high').length;
-  const kakao=ALL.filter(s=>s.kakao_id).length;
-  $('#kpiRow').innerHTML =
-    '<div class="kpi tot"><div class="lab">전체 학생</div><div class="val">'+n+'</div><div class="sub">명</div></div>'+
-    '<div class="kpi elem"><div class="lab">초등</div><div class="val">'+elem+'</div></div>'+
-    '<div class="kpi mid"><div class="lab">중등</div><div class="val">'+mid+'</div></div>'+
-    '<div class="kpi high"><div class="lab">고등</div><div class="val">'+high+'</div></div>'+
-    '<div class="kpi kakao"><div class="lab">카카오 연동</div><div class="val">'+kakao+'</div><div class="sub">명</div></div>';
-}
-
-function apply(){
-  const q = ($('#q').value||'').toLowerCase().trim();
-  view = ALL.filter(s=>{
-    if(filter!=='all' && gradeCat(s.grade)!==filter) return false;
-    if(!q) return true;
-    return (s.name||'').toLowerCase().includes(q) || (s.user_id||'').toLowerCase().includes(q) || (s.student_phone||'').includes(q) || (s.kakao_id||'').toLowerCase().includes(q);
-  });
-  view.sort((a,b)=>{
-    let x=a[sortK], y=b[sortK];
-    if(sortK==='sessions'){ x=+x||0; y=+y||0; return (x-y)*sortDir; }
-    return String(x||'').localeCompare(String(y||''),'ko')*sortDir;
-  });
-  $('#count').textContent = view.length + ' / ' + ALL.length + '명';
-  $('#csvBtn').href = csvUrl();
-  renderTable(); renderMobile();
-}
-
-function lastSeen(s){ return s.last_seen ? s.last_seen : '<span class="muted">—</span>'; }
-function statusBadge(s){ const ok=(s.status==='정상'||!s.status); return '<span class="badge '+(ok?'ok':'off')+'">'+esc(s.status||'정상')+'</span>'; }
-function av(s){ return '<span class="av">'+esc((s.name||'?').slice(0,1))+'</span>'; }
-
-function renderTable(){
-  if(!view.length){ $('#tb').innerHTML='<tr><td colspan="12" class="empty">학생이 없습니다.</td></tr>'; return; }
-  $('#tb').innerHTML = view.map(s=>`<tr>
-    <td>${av(s)}<span class="nm">${esc(s.name)}</span></td>
-    <td><span class="uid">${esc(s.user_id)}</span></td>
-    <td>${esc(s.school)||'<span class="muted">—</span>'}</td>
-    <td>${esc(s.grade)||'<span class="muted">—</span>'}</td>
-    <td>${s.level?'<span class="lvl">'+esc(s.level)+'</span>':'<span class="muted">—</span>'}</td>
-    <td><span class="bk">${esc(s.textbook)||'—'}</span></td>
-    <td>${esc(s.student_phone)||'<span class="muted">—</span>'}</td>
-    <td>${esc(s.kakao_id)||'<span class="muted">—</span>'}</td>
-    <td style="text-align:right;font-variant-numeric:tabular-nums">${s.sessions||0}</td>
-    <td>${lastSeen(s)}</td>
-    <td>${statusBadge(s)}</td>
-    <td><a class="detail" href="/admin/student?uid=${encodeURIComponent(s.user_id)}" target="_blank">상세 →</a></td>
-  </tr>`).join('');
-}
-
-function renderMobile(){
-  if(!view.length){ $('#mlist').innerHTML='<div class="empty">학생이 없습니다.</div>'; return; }
-  $('#mlist').innerHTML = view.map(s=>`<div class="m-card">
-    <div class="top">${av(s)}<div><div class="nm">${esc(s.name)}</div><span class="uid">${esc(s.user_id)}</span></div>
-      <a class="detail" style="margin-left:auto" href="/admin/student?uid=${encodeURIComponent(s.user_id)}" target="_blank">상세 →</a></div>
-    <div class="meta">
-      <div><b>학교</b>${esc(s.school)||'—'}</div><div><b>학년</b>${esc(s.grade)||'—'}</div>
-      <div><b>레벨</b>${esc(s.level)||'—'}</div><div><b>교재</b>${esc(s.textbook)||'—'}</div>
-      <div><b>휴대폰</b>${esc(s.student_phone)||'—'}</div><div><b>카카오</b>${esc(s.kakao_id)||'—'}</div>
-      <div><b>세션</b>${s.sessions||0}</div><div><b>상태</b>${statusBadge(s)}</div>
-    </div>
-  </div>`).join('');
-}
-
-function csvUrl(){
-  const head=['이름','아이디','학교','학년','레벨','배정교재','휴대폰','부모휴대폰','카카오','세션','최근수업','상태','가입일'];
-  const rows=view.map(s=>[s.name,s.user_id,s.school,s.grade,s.level,s.textbook,s.student_phone,s.parent_phone,s.kakao_id,s.sessions||0,s.last_seen,s.status,s.signup_date]);
-  const esc2=v=>{const t=String(v==null?'':v);return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
-  const body='﻿'+[head].concat(rows).map(r=>r.map(esc2).join(',')).join('\n');
-  return 'data:text/csv;charset=utf-8,'+encodeURIComponent(body);
-}
-
-// events
-let qt; $('#q').addEventListener('input',()=>{clearTimeout(qt);qt=setTimeout(apply,180);});
-$('#chips').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c)return;
-  $('#chips').querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));c.classList.add('active');filter=c.dataset.f;apply();});
-$('#tbl').addEventListener('click',e=>{const th=e.target.closest('th[data-k]');if(!th)return;
-  const k=th.dataset.k; if(sortK===k)sortDir=-sortDir;else{sortK=k;sortDir=1;} apply();});
-$('#refreshBtn').addEventListener('click',()=>{load();toast('새로고침 완료');});
-$('#csvBtn').addEventListener('click',()=>toast('CSV 다운로드'));
-
-// 홈 검색창에서 학생 이름으로 진입 시 ?q= 자동 검색
-(async function(){
-  var pq = new URLSearchParams(location.search).get('q');
-  if (pq) { var qi = document.getElementById('q'); if (qi) qi.value = pq; }
-  try { await load(); } catch(e){ console.warn(e); }
-  if (pq && typeof apply === 'function') apply();
-})();
-</script>
 </body>
 </html>
