@@ -1,6 +1,7 @@
 // 단어장 파일 일괄 추가 하니스 — vocab.html의 vocabParsePairs 파서를 그대로 실행해 검증
 // 실행: node test-harness/vocab_bulk_add_harness.mjs
 import { readFileSync } from 'fs';
+import { allSrc } from './_srcbundle.mjs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -62,7 +63,7 @@ r = vocabParsePairs("mother-in-law,시어머니\ndon't,하지마");
 check('특수: 하이픈/아포스트로피', r.length === 2, r);
 
 // ── 백엔드 코드 존재/게이트 등록 확인 ──
-const api = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'src', 'api-mango.ts'), 'utf8');
+const api = allSrc();
 const idx = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'src', 'index.ts'), 'utf8');
 check('api: /api/vocab/extract 핸들러', api.includes("path === '/api/vocab/extract'"));
 check('api: /api/vocab/bulk-add 핸들러', api.includes("path === '/api/vocab/bulk-add'"));

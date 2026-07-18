@@ -8,6 +8,7 @@
 //          ③ 클라이언트 발화비율·참여도 수학 (소스와 동일 공식) + 엣지케이스
 //          ④ 연결/폴링 안정성 (실패 격리·abort·백오프·탭숨김·연결상태)
 import { readFileSync, existsSync } from 'node:fs';
+import { allSrc } from './_srcbundle.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -15,7 +16,7 @@ const CF = resolve(__dir, '../cloudflare-deploy');
 const read = p => existsSync(p) ? readFileSync(p, 'utf8') : '';
 const GHOST = read(resolve(CF, 'public/admin/ghost-view.html'));
 const ADMIN = read(resolve(CF, 'public/admin.html'));
-const API   = read(resolve(CF, 'src/api-mango.ts'));
+const API   = allSrc();
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond) { if (cond) { PASS++; } else { FAIL++; FAILS.push(name); }

@@ -10,6 +10,7 @@
 //     [4] 보안 불변식: 권한 판정 / 마스킹 누락 0 / 원본 불변
 //     [5] 소스 와이어링: api-mango.ts · admin.html 에 실제로 연결됐는가
 import { readFileSync, mkdirSync } from 'node:fs';
+import { allSrc } from './_srcbundle.mjs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -37,7 +38,7 @@ const winSandbox = {}; global.window = winSandbox;
 require(resolve(__dir, '../cloudflare-deploy/public/js/pii-mask.js')); // 프런트 → window.PIIMask
 const FE = winSandbox.PIIMask;
 
-const srcApi  = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-mango.ts'), 'utf8');
+const srcApi  = allSrc();
 const srcHtml = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
 
 // 공통 케이스 (입력, 기대 전화, 기대ID는 별도)

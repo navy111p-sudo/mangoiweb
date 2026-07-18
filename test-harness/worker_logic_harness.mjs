@@ -10,6 +10,7 @@
 //       규칙을 바꾸면 여기도 같이 바꿔야 회귀를 잡습니다.
 
 import { readFileSync } from 'node:fs';
+import { allSrc } from './_srcbundle.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -112,7 +113,7 @@ try {
   check('index.ts: seed-holidays 게이트 등록', idx.includes("path === '/api/admin/calendar/seed-holidays'"));
 } catch (e) { check('index.ts 캘린더 게이트 읽기', false); console.log('    →', e.message); }
 try {
-  const api = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-mango.ts'), 'utf8');
+  const api = allSrc();
   check('api-mango: calendar_events 테이블', api.includes('CREATE TABLE IF NOT EXISTS calendar_events'));
   check('api-mango: GET /api/calendar/events 핸들러', api.includes("path === '/api/calendar/events'"));
   check('api-mango: seed-holidays 핸들러', api.includes("path === '/api/admin/calendar/seed-holidays'"));

@@ -18,6 +18,7 @@
  * 실행: node test-harness/ai_friend_idor_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { allSrc } from './_srcbundle.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -28,7 +29,7 @@ const read = (p) => readFileSync(join(CF, p), 'utf8');
 let pass = 0, fail = 0; const out = [];
 const ok = (c, l) => { c ? (pass++, out.push('  ✅ ' + l)) : (fail++, out.push('  ❌ ' + l)); };
 
-const apiMango = read('src/api-mango.ts');
+const apiMango = allSrc();
 const indexTs = read('src/index.ts');
 const aiFriend = read('public/ai-friend.html');
 const indexHtml = read('public/index.html');
