@@ -109,7 +109,9 @@
     var opts = scenario.options.map(function(o,i){
       return '<button class="opt" data-i="'+i+'"><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span></button>';
     }).join('');
+    var tbChip = scenario.textbook ? '<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-bottom:6px">📖 '+esc(scenario.textbook)+' 연계</div>' : '';
     stage.innerHTML =
+      tbChip+
       '<div class="sit-label">🗣️ 이런 상황이에요</div>'+
       '<div class="sit">'+esc(scenario.situation)+'</div>'+
       '<div class="opts">'+opts+'</div>'+
@@ -221,6 +223,6 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260718180758 -->
+<!-- BUILD:20260718181624 -->
 </body>
 </html>

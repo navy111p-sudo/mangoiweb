@@ -558,8 +558,39 @@ async function weakFromD1(env: MangoEnv, studentUid: string, limit = 3): Promise
 }
 
 /**
+ * D4: 학생 교재 컨텍스트 — 지금 배우는 교재명 + 대표 문장 몇 개(시나리오 관련성↑).
+ *   students_erp.textbook → review_quizzes(같은 교재) 문장 추출. 없으면 {textbook:null, samples:[]}.
+ */
+export async function getStudentTextbookContext(env: MangoEnv, studentUid: string): Promise<{ textbook: string | null; samples: string[] }> {
+  let textbook: string | null = null;
+  try {
+    const row: any = await env.DB.prepare(`SELECT textbook FROM students_erp WHERE user_id=? AND textbook IS NOT NULL AND textbook!='' LIMIT 1`).bind(studentUid).first();
+    if (row?.textbook) textbook = String(row.textbook).trim();
+  } catch { /* textbook 컬럼 없거나 학생 미존재 → 무시 */ }
+  const samples: string[] = [];
+  if (textbook) {
+    try {
+      const rs = await env.DB.prepare(`SELECT questions FROM review_quizzes WHERE textbook=? AND active=1 ORDER BY created_at DESC LIMIT 3`).bind(textbook).all<any>();
+      for (const q of (rs.results || [])) {
+        let arr: any[] = []; try { arr = JSON.parse(String(q.questions || '[]')) || []; } catch { arr = []; }
+        for (const it of arr) {
+          for (const c of [it?.answer_text, it?.audio_text, it?.target]) {
+            const s = String(c || '').trim();
+            if (s && /[a-zA-Z]/.test(s) && s.length <= 60 && !samples.includes(s)) samples.push(s);
+            if (samples.length >= 8) break;
+          }
+          if (samples.length >= 8) break;
+        }
+        if (samples.length >= 8) break;
+      }
+    } catch { /* review_quizzes 없거나 스키마 상이 → 교재명만 사용 */ }
+  }
+  return { textbook, samples };
+}
+
+/**
  * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
- *   반환: { situation, options[], correct_index, why, skill_tag, target_misconception, based_on }
+ *   반환: { situation, options[], correct_index, why, skill_tag, target_misconception, textbook, based_on }
  */
 export async function generatePersonalizedScenario(env: MangoEnv, studentUid: string, lang = 'en'): Promise<any> {
   const t0 = Date.now();
@@ -577,6 +608,7 @@ export async function generatePersonalizedScenario(env: MangoEnv, studentUid: st
   const target = weak[0] || null;
   const targetMisc = target?.misconceptions?.[0] || null;
   const miscLabel = targetMisc ? (taxonomy.find((t) => t.code === targetMisc)?.label_en || targetMisc) : null;
+  const tb = await getStudentTextbookContext(env, studentUid);   // D4: 교재 컨텍스트
 
   const ai = (env as any).AI;
   let scenario: any = null;
@@ -584,9 +616,13 @@ export async function generatePersonalizedScenario(env: MangoEnv, studentUid: st
     const focus = target
       ? `The student is WEAK at the skill "${target.skill}"${miscLabel ? ` and tends to make this mistake: "${miscLabel}" (${targetMisc})` : ''}. Design the scenario to target exactly this weakness.`
       : `This is a new student with no weakness data yet. Design a friendly beginner decision scenario.`;
+    const tbLine = tb.textbook
+      ? `The child is currently studying the textbook "${tb.textbook}". ${tb.samples.length ? `Sentences they are learning: ${tb.samples.slice(0, 6).map((s) => `"${s}"`).join(', ')}. ` : ''}Match the situation's THEME and VOCABULARY LEVEL to this textbook so it connects to their class.`
+      : `Keep vocabulary simple and age-appropriate for a young learner.`;
     const prompt = `You design DECISION-MAKING English practice for a Korean child. Create ONE short real-life situation and 3-4 candidate English expressions the child could say. Exactly one is clearly the best/most natural for the situation.
 
 ${focus}
+${tbLine}
 
 Return STRICT JSON only:
 {
@@ -622,9 +658,9 @@ Return STRICT JSON only:
       } catch (e: any) { console.warn('[judgment] scenario LLM fail (attempt ' + (attempt + 1) + '):', e?.message); }
     }
   }
-  await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null });
-  if (!scenario) return { ok: false, error: 'scenario_unavailable', based_on: { source, weak } };
-  return { ok: true, ...scenario, target_misconception: targetMisc, based_on: { source, weak_skills: weak.map((w) => w.skill) } };
+  await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null, textbook: tb.textbook });
+  if (!scenario) return { ok: false, error: 'scenario_unavailable', based_on: { source, weak, textbook: tb.textbook } };
+  return { ok: true, ...scenario, target_misconception: targetMisc, textbook: tb.textbook, based_on: { source, weak_skills: weak.map((w) => w.skill), textbook: tb.textbook } };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
