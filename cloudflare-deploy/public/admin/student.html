@@ -184,13 +184,18 @@
   }
 
   /* 인쇄용 — A4 한 장에 들어가게 */
-  /* 🖥️ PC 데스크탑: 가장 작은 글자도 최소 12px (인라인 9·10·11px 포함 전부 상향) — 가독성 */
+  /* 🔎 가독성: 가장 작은 글자도 최소 12px (인라인 9·10·11px 포함 전부 상향, 창 너비 무관) */
+  .kpi .lab,.kpi .sub,.stat-card .lab,.stat-card .sub,table.list th,.badge,.btn-mini,
+  .status-pill,.comment-label,.report-foot,.name-sub{ font-size:12px !important; }
+  .quick{ font-size:13px !important; }
+  [style*="font-size:9px"],[style*="font-size:10px"],[style*="font-size:11px"],
+  [style*="font-size: 9px"],[style*="font-size: 10px"],[style*="font-size: 11px"],
+  [style*="font-size:11.5px"],[style*="font-size: 11.5px"]{ font-size:12px !important; }
+  /* PC 데스크탑에선 한 단계 더 크게 */
   @media (min-width:1024px){
-    .kpi .lab,.kpi .sub,.stat-card .lab,.stat-card .sub,table.list th,.badge,.btn-mini,
-    .status-pill,.comment-label,.report-foot,.name-sub{ font-size:12px !important; }
-    [style*="font-size:9px"],[style*="font-size:10px"],[style*="font-size:11px"],
-    [style*="font-size: 9px"],[style*="font-size: 10px"],[style*="font-size: 11px"],
-    [style*="font-size:11.5px"],[style*="font-size: 11.5px"]{ font-size:12px !important; }
+    .kpi .lab{ font-size:12px !important; } .kpi .sub{ font-size:12px !important; }
+    .quick{ font-size:13.5px !important; }
+    table.list th,.badge{ font-size:12px !important; }
   }
   @media print{
     body > *{display:none !important}
@@ -1127,8 +1132,8 @@ async function renderOverviewJudgment(sid){
       data: { labels: axes, datasets: [{ label:_lang==='en'?'Decision-making':'판단력', data: vals,
         backgroundColor:'rgba(167,139,250,0.22)', borderColor:'#a78bfa', borderWidth:2, pointBackgroundColor:'#a78bfa', pointRadius:4 }] },
       options: { responsive:true, maintainAspectRatio:false,
-        scales: { r: { beginAtZero:true, max:100, pointLabels:{font:{size:13,weight:'700'},color:'#cbd5e1'},
-          ticks:{backdropColor:'transparent',color:'#64748b',stepSize:20,font:{size:12}}, grid:{color:'#334155'}, angleLines:{color:'#334155'} } },
+        scales: { r: { beginAtZero:true, max:100, pointLabels:{font:{size:15,weight:'700'},color:'#cbd5e1'},
+          ticks:{backdropColor:'transparent',color:'#64748b',stepSize:20,font:{size:13}}, grid:{color:'#334155'}, angleLines:{color:'#334155'} } },
         plugins: { legend:{labels:{color:'#e2e8f0',font:{size:13}}},
           title:{display:true,text:_lang==='en'?'Decision-making (5 axes)':'판단력 5축',color:'#94a3b8',font:{size:14,weight:'700'}} } }
     });
@@ -2338,8 +2343,8 @@ async function renderJudgmentGrowth(sid){
         pointBackgroundColor: '#7c3aed', pointRadius: 5, pointHoverRadius: 7 }] },
       options: { responsive: true, maintainAspectRatio: false,
         scales: { r: { beginAtZero: true, max: 100,
-          pointLabels: { font: { size: 14, weight: '700' }, color: '#222' },
-          ticks: { backdropColor: 'transparent', color: '#888', stepSize: 20, font: { size: 12 } },
+          pointLabels: { font: { size: 15, weight: '700' }, color: '#222' },
+          ticks: { backdropColor: 'transparent', color: '#888', stepSize: 20, font: { size: 13 } },
           grid: { color: '#e0e0e0' }, angleLines: { color: '#e0e0e0' } } },
         plugins: { legend: { labels: { color: '#222', font: { size: 13 } } },
           title: { display: true, text: _lang==='en'?'Decision-making (5 axes)':'판단력 5축', color: '#666', font: { size: 14, weight: '700' } } } }
