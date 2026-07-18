@@ -703,6 +703,85 @@ export async function recordJudgmentEvents(env: MangoEnv, input: RecordJudgmentI
   return { ok: true, inserted };
 }
 
+/**
+ * 🎯 3단계-D: 판단력 훈련 답안 채점 — 학생이 '선택 + 이유'를 낸 것을 AI가 두 축으로 채점.
+ *   이유논리·어투민감도 축을 실제로 채우는 최고 품질 캡처(source='practice').
+ *   반환: { ok, correct, choice_score, reasoning_score, register_awareness, misconception, best_option, feedback_ko, feedback_en }
+ */
+export async function evaluateJudgmentAnswer(env: MangoEnv, input: {
+  studentUid: string; studentName?: string | null; situation: string; skillTag?: string;
+  options: string[]; chosenIndex: number; correctIndex?: number | null; reasoning: string; lang?: string;
+}): Promise<any> {
+  const t0 = Date.now();
+  await ensureJudgmentTables(env);
+  const opts = (input.options || []).map((o) => String(o)).slice(0, 6);
+  const ci = Number(input.chosenIndex);
+  const chosen = (ci >= 0 && ci < opts.length) ? opts[ci] : '';
+  const correctIdx = (input.correctIndex == null) ? null : Number(input.correctIndex);
+  const correct = (correctIdx != null && correctIdx >= 0 && correctIdx < opts.length) ? opts[correctIdx] : '';
+  const isOptimal = (correctIdx != null && ci === correctIdx) ? 1 : 0;
+  const choiceScore = isOptimal ? 100 : (correctIdx != null ? 45 : 70);
+  const reasoning = String(input.reasoning || '').slice(0, 800).trim();
+  const lang = input.lang || 'en';
+  const taxonomy = await getMisconceptionTaxonomy(env);
+  const taxonomyList = taxonomy.map((t) => `${t.code} (${t.label_en})`).join(', ');
+
+  let reasoningScore: number | null = null, registerAwareness: number | null = null;
+  let misconception: string | null = null, feedbackKo = '', feedbackEn = '';
+  const ai = (env as any).AI;
+  if (ai) {
+    const prompt = `A Korean child practiced DECISION-MAKING English. Situation: "${input.situation}". Options: ${opts.map((o, i) => `[${i}] ${o}`).join(' ')}. The child CHOSE [${ci}] "${chosen}"${correct ? `; the best option was [${correctIdx}] "${correct}"` : ''}. The child's REASON (may be Korean or English): "${reasoning || '(none)'}".
+
+Judge the child's REASONING (not just the choice). Return STRICT JSON only:
+{
+  "reasoning_score": <0-100 logic/depth of the child's reason; if no reason given, 0-20>,
+  "register_awareness": <0-100 how well the child considered formality/context>,
+  "misconception": "<if the choice was wrong, ONE of: ${taxonomyList}; else null>",
+  "feedback_ko": "<1-2 warm, simple Korean sentences: praise + one tip>",
+  "feedback_en": "<same in simple English>"
+}`;
+    try {
+      const resp: any = await ai.run(JUDGE_MODEL, {
+        messages: [
+          { role: 'system', content: 'You coach English decision-making for children. Reply in strict JSON only.' },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 500,
+      });
+      const j = parseFirstJson(resp);
+      if (j) {
+        const clamp = (v: any) => { const n = Math.round(+v); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null; };
+        reasoningScore = clamp(j.reasoning_score);
+        registerAwareness = clamp(j.register_awareness);
+        const mc = (j.misconception && j.misconception !== 'null') ? String(j.misconception).toUpperCase().trim() : null;
+        misconception = (mc && taxonomy.some((t) => t.code === mc)) ? mc : null;
+        feedbackKo = String(j.feedback_ko || '').slice(0, 300);
+        feedbackEn = String(j.feedback_en || '').slice(0, 300);
+      }
+    } catch (e: any) { console.warn('[judgment] answer LLM fail:', e?.message); }
+  }
+  // 폴백 피드백
+  if (!feedbackKo) feedbackKo = isOptimal ? '잘 골랐어요! 이유도 함께 생각하니 판단력이 자라요.' : '아쉽지만 더 자연스러운 표현이 있어요. 왜 그런지 같이 살펴봐요.';
+  if (!feedbackEn) feedbackEn = isOptimal ? 'Great choice! Thinking about why builds your judgment.' : 'Close! There is a more natural option — let’s see why.';
+  if (reasoningScore == null) reasoningScore = reasoning.length >= 5 ? 55 : 10;
+
+  // 판단 이벤트 기록(이유 포함 → axis_reasoning·register 채워짐)
+  await recordJudgmentEvents(env, {
+    studentUid: input.studentUid, studentName: input.studentName || null, source: 'practice', refId: Date.now(), lang,
+    judgments: [{
+      situation: input.situation, skill_tag: input.skillTag || 'practice', chosen, better: correct,
+      is_optimal: isOptimal, choice_score: choiceScore, reasoning, reasoning_score: reasoningScore,
+      register_awareness: registerAwareness, misconception, feedback_ko: feedbackKo, feedback_en: feedbackEn,
+    }],
+  });
+  await logPerf(env, 'judgment_answer', input.studentUid, Date.now() - t0, 0, 'ok', { optimal: isOptimal });
+  return {
+    ok: true, correct: !!isOptimal, choice_score: choiceScore, reasoning_score: reasoningScore,
+    register_awareness: registerAwareness, misconception, best_option: correct || null,
+    feedback_ko: feedbackKo, feedback_en: feedbackEn,
+  };
+}
+
 /** 자유 텍스트 사유(한국어)를 오답 유형 코드로 경량 매핑 — 매칭 없으면 null. */
 export function guessMisconception(reason: string): string | null {
   const s = String(reason || '').toLowerCase();

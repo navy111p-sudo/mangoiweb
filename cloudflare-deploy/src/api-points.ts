@@ -9,7 +9,7 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor } from './auth-admin';
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
-import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오)
+import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
 /**
  * 🎁 기프트 카탈로그 기본 상품 시드 (멱등 — 이미 있으면 건너뜀).
@@ -681,17 +681,34 @@ Return STRICT JSON only, in BOTH Korean and English:
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }
 
-    // ── POST /api/judgment/scenario  body:{ uid } — 취약 패턴 맞춤 시나리오 1건 ──
+    // ── POST /api/judgment/scenario  body:{ uid } — 취약 패턴 맞춤 시나리오 1건 (학습 액션: uid 기반) ──
     if (method === 'POST' && path === '/api/judgment/scenario') {
       const body: any = await request.json().catch(() => ({}));
       const uid = (body.uid || url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      const adm = await checkAdminSession(request, env as any);
-      const who = await authUidGlobal(request, url, env);
-      if (!adm.ok && (!who || who !== uid)) return json({ ok: false, error: 'auth_required' }, 401);
       try {
         const sc = await generatePersonalizedScenario(env, uid, body.lang || 'en');
-        return json(sc, sc?.ok === false ? 200 : 200);
+        return json(sc, 200);
+      } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+    }
+
+    // ── POST /api/judgment/answer — 판단력 훈련 답안(선택+이유) 채점 + 기록 (학습 액션) ──
+    //   body: { uid, student_name?, situation, skill_tag?, options[], chosen_index, correct_index?, reasoning, lang? }
+    if (method === 'POST' && path === '/api/judgment/answer') {
+      const body: any = await request.json().catch(() => ({}));
+      const uid = (body.uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      if (!Array.isArray(body.options) || body.options.length < 2) return json({ ok: false, error: 'options_required' }, 400);
+      if (!Number.isInteger(body.chosen_index)) return json({ ok: false, error: 'chosen_index_required' }, 400);
+      try {
+        const r = await evaluateJudgmentAnswer(env, {
+          studentUid: uid, studentName: body.student_name || null,
+          situation: String(body.situation || '').slice(0, 500), skillTag: body.skill_tag,
+          options: body.options, chosenIndex: body.chosen_index,
+          correctIndex: (body.correct_index == null ? null : Number(body.correct_index)),
+          reasoning: String(body.reasoning || ''), lang: body.lang || 'en',
+        });
+        return json(r);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }
 

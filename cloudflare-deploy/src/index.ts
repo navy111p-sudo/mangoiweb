@@ -1136,9 +1136,10 @@ const worker = {
         // 🤖 교사 수업 AI 피드백 (수업 종료 직후 잘한점/개선점 한·영 생성·조회)
         path === '/api/ai-feedback/generate' ||
         path === '/api/ai-feedback' ||
-        // 🧠 판단력 엔진(3단계) — 학생/학부모 성장 리포트 + 맞춤 시나리오 (본인 토큰/관리자)
+        // 🧠 판단력 엔진(3단계) — 학생/학부모 성장 리포트 + 맞춤 시나리오 + 훈련 답안 채점
         path === '/api/judgment/growth' ||
         path === '/api/judgment/scenario' ||
+        path === '/api/judgment/answer' ||
         // 🌐 양방향 번역 (평가 글·건의사항 영↔한)
         path === '/api/translate' ||
         // Audit-added: student recordings listing

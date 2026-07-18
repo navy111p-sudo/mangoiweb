@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>판단력 훈련 · 망고아이</title>
+<style>
+  :root{ --pp:#7c3aed; --pp-d:#5b21b6; --bg:#f6f4ff; --card:#fff; --ok:#16a34a; --no:#e0a423; --ink:#1f2130; --mut:#6b7280; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{font-family:'Malgun Gothic','Segoe UI',sans-serif;background:var(--bg);color:var(--ink);
+    min-height:100dvh;padding:14px;display:flex;flex-direction:column;align-items:center}
+  .wrap{width:100%;max-width:560px}
+  .top{display:flex;align-items:center;gap:8px;margin:4px 2px 12px}
+  .top img{height:30px;width:auto}
+  .top h1{font-size:19px;margin:0;font-weight:800;color:var(--pp-d)}
+  .top .sub{font-size:12px;color:var(--mut);margin-top:1px}
+  .card{background:var(--card);border-radius:18px;padding:18px 16px;box-shadow:0 6px 22px rgba(124,58,237,.10);border:1px solid #ece7fb}
+  .sit-label{font-size:12px;font-weight:700;color:var(--pp);letter-spacing:.4px;margin-bottom:6px}
+  .sit{font-size:17px;line-height:1.5;font-weight:700;margin-bottom:14px}
+  .opts{display:flex;flex-direction:column;gap:9px}
+  .opt{display:flex;align-items:center;gap:10px;text-align:left;font-size:16px;padding:13px 14px;border-radius:13px;
+    border:2px solid #e6e1f7;background:#faf9ff;cursor:pointer;transition:all .12s;font-weight:600;color:var(--ink)}
+  .opt:hover{border-color:#c9bdf3}
+  .opt.sel{border-color:var(--pp);background:#f1ecfe}
+  .opt .k{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#e6e1f7;color:var(--pp-d);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+  .opt.sel .k{background:var(--pp);color:#fff}
+  .why-label{font-size:14px;font-weight:700;margin:16px 0 6px}
+  textarea{width:100%;min-height:74px;border:2px solid #e6e1f7;border-radius:13px;padding:11px 12px;font-size:15px;
+    font-family:inherit;resize:vertical;background:#faf9ff;color:var(--ink)}
+  textarea:focus{outline:none;border-color:var(--pp)}
+  .hint{font-size:12px;color:var(--mut);margin-top:4px}
+  .btn{width:100%;margin-top:14px;padding:14px;border:0;border-radius:14px;background:var(--pp);color:#fff;
+    font-size:16px;font-weight:800;cursor:pointer;transition:opacity .12s}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.ghost{background:#efeafe;color:var(--pp-d)}
+  .res{margin-top:4px}
+  .banner{border-radius:14px;padding:13px 15px;font-weight:800;font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .banner.ok{background:#e7f6ee;color:var(--ok)}
+  .banner.no{background:#fdf3e0;color:#b9791a}
+  .fb{font-size:15px;line-height:1.55;background:#f6f4ff;border-radius:12px;padding:12px 14px;margin-bottom:10px}
+  .best{font-size:14px;color:var(--mut);margin-bottom:12px}
+  .best b{color:var(--pp-d)}
+  .scores{display:flex;gap:10px;margin-bottom:6px}
+  .sc{flex:1;background:#faf9ff;border:1px solid #ece7fb;border-radius:12px;padding:10px;text-align:center}
+  .sc .v{font-size:22px;font-weight:800;color:var(--pp-d)}
+  .sc .l{font-size:11px;color:var(--mut);margin-top:2px}
+  .center{text-align:center;color:var(--mut);font-size:15px;padding:30px 10px}
+  .spin{display:inline-block;width:26px;height:26px;border:3px solid #e6e1f7;border-top-color:var(--pp);border-radius:50%;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .streak{font-size:13px;color:var(--mut);text-align:center;margin-top:10px}
+  .streak b{color:var(--pp-d)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="/img/mango-char.png" alt="망고아이" onerror="this.style.display='none'">
+    <div>
+      <h1>판단력 훈련</h1>
+      <div class="sub">상황에 가장 잘 맞는 표현을 고르고, <b>왜 그런지</b> 말해봐요!</div>
+    </div>
+  </div>
+
+  <div id="stage" class="card">
+    <div class="center"><span class="spin"></span><div style="margin-top:10px">문제를 준비하고 있어요…</div></div>
+  </div>
+
+  <div class="streak" id="streak"></div>
+</div>
+
+<script>
+(function(){
+  var UID = new URLSearchParams(location.search).get('uid')
+    || localStorage.getItem('mango_uid') || localStorage.getItem('mangoUid')
+    || localStorage.getItem('uid') || localStorage.getItem('student_uid') || '';
+  var NAME = localStorage.getItem('mango_name') || localStorage.getItem('studentName') || '';
+  var stage = document.getElementById('stage');
+  var streakEl = document.getElementById('streak');
+  var scenario = null, chosen = -1, solved = 0;
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  if(!UID){
+    stage.innerHTML = '<div class="center">앱에서 로그인 후 이용해 주세요.<br><span style="font-size:13px">(학생 계정으로 접속하면 자동으로 시작됩니다)</span></div>';
+    return;
+  }
+
+  function loading(msg){ stage.innerHTML = '<div class="center"><span class="spin"></span><div style="margin-top:10px">'+esc(msg)+'</div></div>'; }
+
+  async function loadScenario(){
+    loading('맞춤 문제를 만들고 있어요…');
+    chosen = -1;
+    try{
+      var r = await fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({uid:UID, lang:'en'})});
+      var d = await r.json();
+      if(!d || d.ok===false || !Array.isArray(d.options) || d.options.length<2) throw new Error('no scenario');
+      scenario = d;
+      renderQuestion();
+    }catch(e){
+      stage.innerHTML = '<div class="center">문제를 불러오지 못했어요.<br><button class="btn ghost" style="max-width:200px;margin:14px auto 0" onclick="location.reload()">다시 시도</button></div>';
+    }
+  }
+
+  function renderQuestion(){
+    var letters = ['A','B','C','D'];
+    var opts = scenario.options.map(function(o,i){
+      return '<button class="opt" data-i="'+i+'"><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span></button>';
+    }).join('');
+    stage.innerHTML =
+      '<div class="sit-label">🗣️ 이런 상황이에요</div>'+
+      '<div class="sit">'+esc(scenario.situation)+'</div>'+
+      '<div class="opts">'+opts+'</div>'+
+      '<div class="why-label">왜 그 표현을 골랐어요?</div>'+
+      '<textarea id="why" placeholder="예: 선생님께 말하는 거라서 공손하게…  (한국어로 써도 괜찮아요)"></textarea>'+
+      '<div class="hint">이유를 잘 설명할수록 판단력 점수가 올라가요.</div>'+
+      '<button class="btn" id="submit" disabled>제출하기</button>';
+    Array.prototype.forEach.call(stage.querySelectorAll('.opt'), function(el){
+      el.addEventListener('click', function(){
+        chosen = Number(el.getAttribute('data-i'));
+        Array.prototype.forEach.call(stage.querySelectorAll('.opt'), function(x){ x.classList.remove('sel'); });
+        el.classList.add('sel');
+        document.getElementById('submit').disabled = false;
+      });
+    });
+    document.getElementById('submit').addEventListener('click', submitAnswer);
+  }
+
+  async function submitAnswer(){
+    if(chosen<0) return;
+    var reasoning = (document.getElementById('why')||{}).value || '';
+    loading('망고 선생님이 채점하고 있어요…');
+    try{
+      var r = await fetch('/api/judgment/answer', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+        body:JSON.stringify({ uid:UID, student_name:NAME, situation:scenario.situation, skill_tag:scenario.skill_tag,
+          options:scenario.options, chosen_index:chosen, correct_index:scenario.correct_index, reasoning:reasoning, lang:'en' })});
+      var d = await r.json();
+      if(!d || d.ok===false) throw new Error('score fail');
+      solved++;
+      renderResult(d);
+    }catch(e){
+      stage.innerHTML = '<div class="center">채점에 실패했어요.<br><button class="btn ghost" style="max-width:200px;margin:14px auto 0" onclick="location.reload()">다시 시도</button></div>';
+    }
+  }
+
+  function renderResult(d){
+    var ok = !!d.correct;
+    var scores =
+      '<div class="scores">'+
+        '<div class="sc"><div class="v">'+(d.choice_score!=null?d.choice_score:'—')+'</div><div class="l">선택 적절성</div></div>'+
+        '<div class="sc"><div class="v">'+(d.reasoning_score!=null?d.reasoning_score:'—')+'</div><div class="l">이유 논리</div></div>'+
+      '</div>';
+    var best = (!ok && d.best_option) ? '<div class="best">가장 자연스러운 표현: <b>'+esc(d.best_option)+'</b></div>' : '';
+    stage.innerHTML =
+      '<div class="res">'+
+        '<div class="banner '+(ok?'ok':'no')+'">'+(ok?'👍 잘 골랐어요!':'🤔 거의 다 왔어요!')+'</div>'+
+        best+
+        '<div class="fb">'+esc(d.feedback_ko||'')+'</div>'+
+        scores+
+        '<button class="btn" id="next">다음 문제 →</button>'+
+      '</div>';
+    document.getElementById('next').addEventListener('click', loadScenario);
+    streakEl.innerHTML = '오늘 <b>'+solved+'</b>문제 풀었어요! 계속 도전해봐요 🔥';
+  }
+
+  loadScenario();
+})();
+</script>
+<!-- BUILD:20260718171306 -->
+</body>
+</html>
