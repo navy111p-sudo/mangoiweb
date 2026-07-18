@@ -199,10 +199,19 @@
 
 <script>
 (function(){
-  var UID = new URLSearchParams(location.search).get('uid')
-    || localStorage.getItem('mango_uid') || localStorage.getItem('mangoUid')
-    || localStorage.getItem('uid') || localStorage.getItem('student_uid') || '';
-  var NAME = localStorage.getItem('mango_name') || localStorage.getItem('studentName') || '';
+  // 로그인 사용자: ?uid= → 사이트 공통 로그인(mango_user/mangoi_logged_user JSON) → 개별 키
+  function resolveUser(){
+    var qs = new URLSearchParams(location.search).get('uid');
+    if(qs) return { uid:qs, name:'' };
+    try{ var u=JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if(u&&(u.uid||u.user_id||u.id)) return { uid:u.uid||u.user_id||u.id, name:u.name||'' }; }catch(e){}
+    try{ var a=JSON.parse(localStorage.getItem('mango_user')||'null'); if(a&&(a.uid||a.user_id||a.id)) return { uid:a.uid||a.user_id||a.id, name:a.name||'' }; }catch(e){}
+    var plain = localStorage.getItem('mangoi_uid') || localStorage.getItem('mango_uid') || localStorage.getItem('mangoUid')
+      || localStorage.getItem('uid') || localStorage.getItem('student_uid') || '';
+    return { uid:plain, name:'' };
+  }
+  var _USER = resolveUser();
+  var UID = _USER.uid;
+  var NAME = _USER.name || localStorage.getItem('mango_name') || localStorage.getItem('studentName') || '';
   var TEXTBOOK = localStorage.getItem('mangoi_default_textbook') || localStorage.getItem('mango_textbook') || localStorage.getItem('textbook') || '';
   // 🌐 언어: ?lang= → localStorage → 기본 ko
   var LANG = (new URLSearchParams(location.search).get('lang') || localStorage.getItem('mango_lang') || localStorage.getItem('lang') || 'ko').slice(0,2).toLowerCase();
@@ -461,6 +470,6 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260719054600 -->
+<!-- BUILD:20260719055204 -->
 </body>
 </html>
