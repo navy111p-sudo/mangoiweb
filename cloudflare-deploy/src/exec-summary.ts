@@ -379,7 +379,7 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
               COALESCE(SUM(CASE WHEN sp.status='paid' AND sp.paid_at>=? THEN sp.amount_krw ELSE 0 END),0) rev_month
        FROM students_erp se
        LEFT JOIN student_payments sp ON sp.user_id = se.user_id
-       WHERE se.status='정상' AND se.shop_name IS NOT NULL AND se.shop_name<>''` + bWhere + `
+       WHERE se.status IN ('정상','active') AND se.shop_name IS NOT NULL AND se.shop_name<>''` + bWhere + `
        GROUP BY se.shop_name ORDER BY rev_month DESC`
     ).bind(monStart, ...bc.binds).all()).results as any[], []);
   }

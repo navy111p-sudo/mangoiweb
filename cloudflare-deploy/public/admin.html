@@ -2503,14 +2503,9 @@
   function won(n){ try{ return '₩' + Math.round(n).toLocaleString('ko-KR'); }catch(e){ return '₩'+n; } }
   function num(n){ try{ return Number(n).toLocaleString('ko-KR'); }catch(e){ return n; } }
   function sess(){ try{ return JSON.parse(localStorage.getItem('mangoi_admin_session')||'null'); }catch(e){ return null; } }
-  function demoAgencies(){
-    return [
-      { name:'강남점', students:128, revenue:18400000, rate:0.05 },
-      { name:'서초점', students: 96, revenue:13900000, rate:0.05 },
-      { name:'분당점', students: 74, revenue:10200000, rate:0.045 },
-      { name:'판교점', students: 53, revenue: 7300000, rate:0.04 }
-    ];
-  }
+  // ❌ (2026-07-19) 하드코딩 데모 대리점(강남/서초/분당/판교) 제거.
+  //    지사가 자기 것도 아닌 가짜 대리점을 보던 원인이었다(대구 지사인데 강남/서초가 뜸).
+  //    이제 서버 /api/admin/exec/summary 가 세션 스코프로 '우리 지사'의 실제 대리점만 집계해 준다.
   function normalize(list){
     return (list||[]).map(function(a){
       var revenue = (a.revenue!=null)?a.revenue:((a.revenue_month!=null)?a.revenue_month:(a.sales||0));
@@ -2558,20 +2553,37 @@
       +'</div>';
     host.style.display='block';
   }
+  // 실데이터 없거나 오류 시 — 가짜 대리점 대신 정직한 안내만 표시(오해 방지)
+  function showEmpty(branchName, msg){
+    var host=document.getElementById('branch-agency-overview'); if(!host) return;
+    host.innerHTML='<div style="background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(245,158,11,.04));border:1px solid rgba(245,158,11,.35);border-radius:18px;padding:18px 20px;margin-bottom:18px">'
+      +'<h2 style="margin:0 0 8px;font-size:19px;font-weight:900;color:#fcd34d">🏬 '+(branchName||'우리 지사')+' · 대리점별 현황</h2>'
+      +'<div style="font-size:13px;color:#cbb58a">'+msg+'</div></div>';
+    host.style.display='block';
+  }
   function init(){
     var s=sess();
     if(!s || s.role!=='branch') return;
     if(!document.getElementById('branch-agency-overview')) return;
     var _ao=document.getElementById('agency-academy-overview'); if(_ao){ _ao.style.display='none'; _ao.innerHTML=''; }
-    var bid=s.branch_id||'';
-    var fb=function(){ render(normalize(demoAgencies()), s.branch); };
+    // 🔒 서버 exec/summary 가 세션 스코프로 '우리 지사'의 실제 대리점만 집계(다른 지역 대리점은 서버에서 애초에 제외).
     try {
-      if(typeof fetch!=='function'){ fb(); return; }
-      fetch('/api/admin/branch/agency-stats?branch_id='+encodeURIComponent(bid), {headers:{'Accept':'application/json'}})
+      if(typeof fetch!=='function'){ showEmpty(s.branch,'대리점 현황을 불러올 수 없습니다.'); return; }
+      fetch('/api/admin/exec/summary', {credentials:'include', headers:{'Accept':'application/json'}})
         .then(function(r){ if(!r.ok) throw 0; return r.json(); })
-        .then(function(d){ var list=Array.isArray(d)?d:(d.agencies||d.items||d.data||[]); list=normalize(list); if(!list.length) throw 0; render(list, s.branch); })
-        .catch(fb);
-    } catch(e){ fb(); }
+        .then(function(d){
+          var raw=(d && Array.isArray(d.branches))?d.branches:[];
+          var rate=(d && d.fee_rate!=null)?d.fee_rate:0.05;
+          var list=raw.map(function(b){
+            var nm=String(b.shop||'').replace('망고아이 ','').trim() || '대리점';
+            return { name:nm, students:b.students||0, revenue:b.rev_month||0,
+                     fee:(b.fee_month!=null?b.fee_month:Math.round((b.rev_month||0)*rate)), rate:rate };
+          });
+          if(!list.length){ showEmpty(s.branch,'아직 등록된 산하 대리점이 없습니다. (학생이 대리점에 배정되면 여기 표시됩니다.)'); return; }
+          render(list, s.branch);
+        })
+        .catch(function(){ showEmpty(s.branch,'대리점 현황을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.'); });
+    } catch(e){ showEmpty(s.branch,'대리점 현황을 불러오지 못했습니다.'); }
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
@@ -20064,6 +20076,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260719040702 -->
+<!-- BUILD:20260719044701 -->
 </body>
 </html>
