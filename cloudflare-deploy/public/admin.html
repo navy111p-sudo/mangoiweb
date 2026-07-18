@@ -2566,10 +2566,11 @@
     if(!s || s.role!=='branch') return;
     if(!document.getElementById('branch-agency-overview')) return;
     var _ao=document.getElementById('agency-academy-overview'); if(_ao){ _ao.style.display='none'; _ao.innerHTML=''; }
-    // 🔒 서버 exec/summary 가 세션 스코프로 '우리 지사'의 실제 대리점만 집계(다른 지역 대리점은 서버에서 애초에 제외).
+    // 🔒 서버 exec/breakdown 이 세션 스코프로 '우리 지사'의 실제 대리점만 집계(다른 지역 대리점은 서버에서 애초에 제외).
+    //    ⚠️ summary 가 아니라 breakdown 에 branches 배열이 있음(2026-07-19 확인 — summary 는 branches 필드 자체가 없어 빈화면 원인이었다).
     try {
       if(typeof fetch!=='function'){ showEmpty(s.branch,'대리점 현황을 불러올 수 없습니다.'); return; }
-      fetch('/api/admin/exec/summary', {credentials:'include', headers:{'Accept':'application/json'}})
+      fetch('/api/admin/exec/breakdown', {credentials:'include', headers:{'Accept':'application/json'}})
         .then(function(r){ if(!r.ok) throw 0; return r.json(); })
         .then(function(d){
           var raw=(d && Array.isArray(d.branches))?d.branches:[];
@@ -20076,6 +20077,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260719044701 -->
+<!-- BUILD:20260719045626 -->
 </body>
 </html>
