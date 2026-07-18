@@ -184,6 +184,14 @@
   }
 
   /* 인쇄용 — A4 한 장에 들어가게 */
+  /* 🖥️ PC 데스크탑: 가장 작은 글자도 최소 12px (인라인 9·10·11px 포함 전부 상향) — 가독성 */
+  @media (min-width:1024px){
+    .kpi .lab,.kpi .sub,.stat-card .lab,.stat-card .sub,table.list th,.badge,.btn-mini,
+    .status-pill,.comment-label,.report-foot,.name-sub{ font-size:12px !important; }
+    [style*="font-size:9px"],[style*="font-size:10px"],[style*="font-size:11px"],
+    [style*="font-size: 9px"],[style*="font-size: 10px"],[style*="font-size: 11px"],
+    [style*="font-size:11.5px"],[style*="font-size: 11.5px"]{ font-size:12px !important; }
+  }
   @media print{
     body > *{display:none !important}
     .modal-backdrop{display:block !important; position:static; padding:0; background:#fff; backdrop-filter:none}
