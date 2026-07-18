@@ -4445,6 +4445,7 @@
       <summary><span class="mg-acc-ic">🤖</span><span class="mg-acc-tx" data-ko="AI 학습 도구" data-en="AI Learning Tools">AI 학습 도구</span><span class="mg-acc-chev" aria-hidden="true">›</span></summary>
       <div class="mg-acc-body">
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/warmup.html';" data-ko="🗣️ 수업 전 AI 웜업" data-en="🗣️ Pre-class AI Warm-up">🗣️ 수업 전 AI 웜업</button>
+        <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/judgment.html';" data-ko="🧠 판단력 훈련" data-en="🧠 Decision Training">🧠 판단력 훈련</button>
         <button onclick="mgGo('speech')" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
         <button onclick="mgDrawerClose();location.href='/ai-friend.html';" data-ko="🤖 AI 친구 대화" data-en="🤖 AI Friend Chat">🤖 AI 친구 대화</button>
         <button onclick="mgDrawerClose();location.href='/ai-write.html';" data-ko="✍️ AI 글쓰기" data-en="✍️ AI Writing">✍️ AI 글쓰기</button>
@@ -5992,7 +5993,9 @@
           {ic:aifSvg('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>'),
            ko:'AI 단어 퀴즈', en:'AI Vocab Quiz', dko:'AI가 내 레벨 단어로 출제', den:'AI-made vocab quiz at your level', url:'/micro-quiz.html'},
           {ic:aifSvg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 5.36A9 9 0 0 0 20.49 15"/>'),
-           ko:'복습 퀴즈', en:'Review Quiz', dko:'배운 내용 복습 문제', den:'Review what you learned', url:'/review-quiz.html'}
+           ko:'복습 퀴즈', en:'Review Quiz', dko:'배운 내용 복습 문제', den:'Review what you learned', url:'/review-quiz.html'},
+          {ic:aifSvg('<path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/><path d="M9.5 19h5"/><path d="M10.5 22h3"/>'),
+           ko:'판단력 훈련', en:'Decision Training', dko:'상황 판단 + 이유 설명으로 AI 판단력 UP', den:'Judge situations & explain why', url:'/judgment.html'}
         ];
         if(!document.getElementById('ai-friends-style')){
           var st=document.createElement('style'); st.id='ai-friends-style';
@@ -25111,7 +25114,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260719053344 -->
+<!-- BUILD:20260719054227 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

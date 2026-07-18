@@ -5,63 +5,175 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>판단력 훈련 · 망고아이</title>
 <style>
-  :root{ --pp:#7c3aed; --pp-d:#5b21b6; --bg:#f6f4ff; --card:#fff; --ok:#16a34a; --no:#e0a423; --ink:#1f2130; --mut:#6b7280; }
+  :root{
+    --pp:#a78bfa; --pp-d:#7c3aed; --gold:#fbbf24; --ink:#f4f1ff; --mut:#b6aed6;
+    --card:rgba(255,255,255,.055); --line:rgba(167,139,250,.28);
+    --ok:#34d399; --no:#fbbf24;
+  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
-  body{font-family:'Malgun Gothic','Segoe UI',sans-serif;background:var(--bg);color:var(--ink);
-    min-height:100dvh;padding:14px;display:flex;flex-direction:column;align-items:center}
-  .wrap{width:100%;max-width:560px}
-  .top{display:flex;align-items:center;gap:8px;margin:4px 2px 12px}
-  .top img{height:30px;width:auto}
-  .top h1{font-size:19px;margin:0;font-weight:800;color:var(--pp-d)}
-  .top .sub{font-size:12px;color:var(--mut);margin-top:1px}
-  .top .btns{display:flex;gap:6px;flex:0 0 auto}
-  .pill{background:#efeafe;color:#5b21b6;border:0;border-radius:12px;padding:9px 12px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}
-  .card{background:var(--card);border-radius:18px;padding:18px 16px;box-shadow:0 6px 22px rgba(124,58,237,.10);border:1px solid #ece7fb}
-  .sit-label{font-size:12px;font-weight:700;color:var(--pp);letter-spacing:.4px;margin-bottom:6px}
-  .sit{font-size:17px;line-height:1.5;font-weight:700;margin-bottom:14px}
-  .opts{display:flex;flex-direction:column;gap:9px}
-  .opt{display:flex;align-items:center;gap:10px;text-align:left;font-size:16px;padding:13px 14px;border-radius:13px;
-    border:2px solid #e6e1f7;background:#faf9ff;cursor:pointer;transition:all .12s;font-weight:600;color:var(--ink)}
-  .opt:hover{border-color:#c9bdf3}
-  .opt.sel{border-color:var(--pp);background:#f1ecfe}
-  .opt .k{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#e6e1f7;color:var(--pp-d);
-    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
-  .opt.sel .k{background:var(--pp);color:#fff}
-  .why-label{font-size:14px;font-weight:700;margin:16px 0 6px}
-  textarea{width:100%;min-height:74px;border:2px solid #e6e1f7;border-radius:13px;padding:11px 12px;font-size:15px;
-    font-family:inherit;resize:vertical;background:#faf9ff;color:var(--ink)}
-  textarea:focus{outline:none;border-color:var(--pp)}
-  .hint{font-size:12px;color:var(--mut);margin-top:4px}
-  .btn{width:100%;margin-top:14px;padding:14px;border:0;border-radius:14px;background:var(--pp);color:#fff;
-    font-size:16px;font-weight:800;cursor:pointer;transition:opacity .12s}
-  .btn:disabled{opacity:.45;cursor:not-allowed}
-  .btn.ghost{background:#efeafe;color:var(--pp-d)}
-  .res{margin-top:4px}
-  .banner{border-radius:14px;padding:13px 15px;font-weight:800;font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-  .banner.ok{background:#e7f6ee;color:var(--ok)}
-  .banner.no{background:#fdf3e0;color:#b9791a}
-  .fb{font-size:15px;line-height:1.55;background:#f6f4ff;border-radius:12px;padding:12px 14px;margin-bottom:10px}
-  .best{font-size:14px;color:var(--mut);margin-bottom:12px}
-  .best b{color:var(--pp-d)}
-  .scores{display:flex;gap:10px;margin-bottom:6px}
-  .sc{flex:1;background:#faf9ff;border:1px solid #ece7fb;border-radius:12px;padding:10px;text-align:center}
-  .sc .v{font-size:22px;font-weight:800;color:var(--pp-d)}
-  .sc .l{font-size:11px;color:var(--mut);margin-top:2px}
-  .center{text-align:center;color:var(--mut);font-size:15px;padding:30px 10px}
-  .spin{display:inline-block;width:26px;height:26px;border:3px solid #e6e1f7;border-top-color:var(--pp);border-radius:50%;animation:sp 1s linear infinite}
+  body{font-family:'Pretendard','Noto Sans KR','Malgun Gothic','Segoe UI',sans-serif;
+    background:#0b1020;color:var(--ink);min-height:100dvh;padding:clamp(14px,3vw,34px);
+    display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
+  /* 🌌 살아있는 배경 — 은은히 떠다니는 빛 덩어리 */
+  .blob{position:fixed;border-radius:50%;filter:blur(90px);opacity:.55;pointer-events:none;z-index:0}
+  .b1{width:46vw;height:46vw;background:#3b1d8f;top:-14vw;left:-10vw;animation:drift 16s ease-in-out infinite alternate}
+  .b2{width:38vw;height:38vw;background:#6d28d9;bottom:-12vw;right:-8vw;animation:drift 20s ease-in-out infinite alternate-reverse}
+  .b3{width:22vw;height:22vw;background:#b45309;top:40%;left:60%;opacity:.22;animation:drift 24s ease-in-out infinite alternate}
+  @keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(6vw,4vw) scale(1.12)}}
+  @media (prefers-reduced-motion:reduce){.blob{animation:none}}
+
+  .wrap{position:relative;z-index:1;width:100%;max-width:1080px}
+
+  /* ── 헤더 (기존 대비 2배 스케일) ── */
+  .top{display:flex;align-items:center;gap:16px;margin:6px 4px 20px;flex-wrap:wrap}
+  .top img{height:clamp(44px,6vw,64px);width:auto;filter:drop-shadow(0 6px 16px rgba(245,158,11,.4));animation:bob 3.2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-7px) rotate(3deg)}}
+  .top h1{font-size:clamp(28px,4.2vw,44px);margin:0;font-weight:900;letter-spacing:-.5px;
+    background:linear-gradient(92deg,#fdf6e3 20%,var(--gold) 55%,var(--pp) 90%);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .top .sub{font-size:clamp(14px,1.8vw,19px);color:var(--mut);margin-top:4px;font-weight:600}
+  .top .sub b{color:var(--gold)}
+  .top .btns{display:flex;gap:10px;flex:0 0 auto;margin-left:auto}
+  .pill{background:rgba(167,139,250,.14);color:#e6ddff;border:1px solid var(--line);border-radius:16px;
+    padding:14px 20px;font-size:clamp(14px,1.7vw,18px);font-weight:800;cursor:pointer;white-space:nowrap;
+    transition:transform .15s,background .15s,box-shadow .15s;font-family:inherit}
+  .pill:hover{transform:translateY(-2px);background:rgba(167,139,250,.26);box-shadow:0 8px 20px -8px rgba(124,58,237,.55)}
+
+  /* ── 💡 왜 하나요? 설명 카드 ── */
+  .explain{background:linear-gradient(150deg,rgba(251,191,36,.10),rgba(124,58,237,.12));
+    border:1px solid rgba(251,191,36,.30);border-radius:22px;margin-bottom:20px;overflow:hidden}
+  .explain-head{width:100%;display:flex;align-items:center;gap:12px;background:none;border:0;cursor:pointer;
+    padding:18px 24px;font-family:inherit;font-size:clamp(16px,2vw,21px);font-weight:900;color:#fde68a;text-align:left}
+  .explain-head .chev{margin-left:auto;transition:transform .25s;font-size:.85em;color:var(--mut)}
+  .explain.open .explain-head .chev{transform:rotate(90deg)}
+  .explain-body{max-height:0;opacity:0;transition:max-height .35s ease,opacity .3s ease,padding .3s ease;padding:0 24px}
+  .explain.open .explain-body{max-height:640px;opacity:1;padding:0 24px 22px}
+  .explain-body p{margin:0 0 16px;font-size:clamp(15px,1.9vw,19px);line-height:1.65;color:#e9e2ff;font-weight:500}
+  .explain-body p b{color:var(--gold)}
+  .exp-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .exp-chip{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+  .exp-chip .ic{font-size:clamp(20px,2.6vw,28px)}
+  .exp-chip b{display:block;font-size:clamp(13px,1.7vw,17px);margin-top:6px;color:#fdf6e3}
+  .exp-chip span{display:block;font-size:clamp(12px,1.5vw,14.5px);color:var(--mut);margin-top:3px;line-height:1.45}
+  @media(max-width:640px){.exp-chips{grid-template-columns:1fr}}
+
+  /* ── 메인 스테이지 카드 ── */
+  .card{background:linear-gradient(160deg,rgba(30,24,64,.92),rgba(15,14,38,.94));
+    border-radius:28px;padding:clamp(22px,3.4vw,40px);border:1px solid var(--line);
+    box-shadow:0 30px 80px -24px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.06)}
+  .enter{animation:cardIn .4s cubic-bezier(.34,1.4,.64,1)}
+  @keyframes cardIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+
+  .sit-label{font-size:clamp(14px,1.8vw,18px);font-weight:800;color:var(--pp);letter-spacing:.5px;margin-bottom:12px}
+  .tb-chip{display:inline-block;font-size:clamp(12px,1.5vw,15px);color:#c4b5fd;font-weight:700;margin-bottom:12px;
+    background:rgba(124,58,237,.18);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
+  .sit{font-size:clamp(20px,3vw,30px);line-height:1.55;font-weight:800;margin-bottom:26px;color:#fdf6e3}
+
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.opts{grid-template-columns:1fr}}
+  .opt{display:flex;align-items:center;gap:16px;text-align:left;font-size:clamp(16px,2vw,21px);
+    padding:clamp(16px,2.2vw,24px) clamp(16px,2vw,22px);border-radius:18px;font-family:inherit;
+    border:2px solid rgba(167,139,250,.22);background:rgba(255,255,255,.045);cursor:pointer;
+    transition:transform .15s,border-color .15s,background .15s,box-shadow .15s;font-weight:700;color:var(--ink);
+    opacity:0;animation:optIn .35s ease forwards}
+  .opt:nth-child(1){animation-delay:.02s}.opt:nth-child(2){animation-delay:.09s}
+  .opt:nth-child(3){animation-delay:.16s}.opt:nth-child(4){animation-delay:.23s}
+  @keyframes optIn{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+  .opt:hover{transform:translateY(-2px);border-color:var(--pp);background:rgba(124,58,237,.14);box-shadow:0 10px 24px -10px rgba(124,58,237,.5)}
+  .opt.sel{border-color:var(--gold);background:linear-gradient(140deg,rgba(251,191,36,.16),rgba(124,58,237,.18));
+    box-shadow:0 0 0 3px rgba(251,191,36,.18),0 12px 26px -10px rgba(245,158,11,.4)}
+  .opt .k{width:clamp(36px,4.4vw,48px);height:clamp(36px,4.4vw,48px);flex:0 0 auto;border-radius:14px;
+    background:rgba(167,139,250,.16);color:#e6ddff;display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:clamp(16px,2vw,21px);transition:background .15s,color .15s}
+  .opt.sel .k{background:var(--gold);color:#1a1a1a}
+
+  .why-label{font-size:clamp(16px,2vw,21px);font-weight:800;margin:26px 0 10px;color:#fdf6e3}
+  textarea{width:100%;min-height:clamp(96px,13vw,140px);border:2px solid rgba(167,139,250,.25);border-radius:18px;
+    padding:16px 18px;font-size:clamp(16px,1.9vw,20px);font-family:inherit;resize:vertical;
+    background:rgba(255,255,255,.05);color:var(--ink);transition:border-color .15s,box-shadow .15s}
+  textarea::placeholder{color:#7f77a3}
+  textarea:focus{outline:none;border-color:var(--pp);box-shadow:0 0 0 4px rgba(124,58,237,.18)}
+  .hint{font-size:clamp(13px,1.6vw,16px);color:var(--mut);margin-top:8px}
+
+  .btn{width:100%;margin-top:22px;padding:clamp(16px,2.2vw,22px);border:0;border-radius:18px;
+    background:linear-gradient(92deg,#7c3aed,#a855f7 55%,#c084fc);color:#fff;font-family:inherit;
+    font-size:clamp(17px,2.2vw,23px);font-weight:900;cursor:pointer;letter-spacing:.3px;
+    box-shadow:0 14px 30px -10px rgba(124,58,237,.6);transition:transform .15s,box-shadow .15s,opacity .15s}
+  .btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 18px 36px -10px rgba(124,58,237,.75)}
+  .btn:active:not(:disabled){transform:scale(.985)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.ghost{background:rgba(167,139,250,.14);color:#e6ddff;border:1px solid var(--line);box-shadow:none}
+  .btn.gold{background:linear-gradient(92deg,#f59e0b,#fbbf24);color:#1a1a1a;box-shadow:0 14px 30px -10px rgba(245,158,11,.5)}
+
+  /* ── 결과 ── */
+  .res{margin-top:2px}
+  .banner{border-radius:18px;padding:18px 22px;font-weight:900;font-size:clamp(19px,2.6vw,27px);
+    margin-bottom:18px;display:flex;align-items:center;gap:12px;animation:pop .45s cubic-bezier(.34,1.8,.64,1)}
+  @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+  .banner.ok{background:rgba(52,211,153,.14);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+  .banner.no{background:rgba(251,191,36,.12);color:var(--no);border:1px solid rgba(251,191,36,.35)}
+  .fb{font-size:clamp(16px,2vw,20px);line-height:1.65;background:rgba(124,58,237,.12);border:1px solid var(--line);
+    border-radius:16px;padding:18px 20px;margin-bottom:16px;color:#efe9ff}
+  .best{font-size:clamp(15px,1.8vw,18px);color:var(--mut);margin-bottom:16px}
+  .best b{color:var(--gold)}
+  .scores{display:flex;gap:14px;margin-bottom:10px}
+  .sc{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:18px;
+    padding:clamp(14px,2vw,20px);text-align:center}
+  .sc .v{font-size:clamp(30px,4.4vw,46px);font-weight:900;color:#fdf6e3}
+  .sc .l{font-size:clamp(12px,1.6vw,15px);color:var(--mut);margin-top:4px;font-weight:700}
+
+  /* ── 성장 뷰 ── */
+  .ring-box{display:flex;align-items:center;justify-content:center;gap:clamp(20px,4vw,48px);flex-wrap:wrap;margin:8px 0 24px}
+  .ring{position:relative;width:clamp(170px,24vw,240px);height:clamp(170px,24vw,240px)}
+  .ring svg{transform:rotate(-90deg);width:100%;height:100%}
+  .ring .track{fill:none;stroke:rgba(167,139,250,.16);stroke-width:14}
+  .ring .prog{fill:none;stroke:url(#rg);stroke-width:14;stroke-linecap:round;
+    transition:stroke-dashoffset 1.1s cubic-bezier(.3,.8,.3,1)}
+  .ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .num{font-size:clamp(52px,8vw,84px);font-weight:900;line-height:1;
+    background:linear-gradient(180deg,#fdf6e3,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ring .cap{font-size:clamp(12px,1.6vw,15px);color:var(--mut);font-weight:700;margin-top:6px}
+  .ring-side{flex:1;min-width:230px}
+  .bar-row{margin-bottom:14px}
+  .bar-head{display:flex;justify-content:space-between;font-size:clamp(14px,1.8vw,18px);font-weight:800;margin-bottom:6px}
+  .bar-head .bv{color:var(--gold)}
+  .bar-track{height:clamp(14px,1.9vw,20px);background:rgba(167,139,250,.14);border-radius:999px;overflow:hidden}
+  .bar-fill{height:100%;width:0;border-radius:999px;position:relative;
+    background:linear-gradient(90deg,#7c3aed,#a855f7 60%,#fbbf24);
+    transition:width 1s cubic-bezier(.3,.8,.3,1)}
+  .bar-fill::after{content:'';position:absolute;inset:0;
+    background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);
+    transform:translateX(-100%);animation:shine 2.4s ease infinite}
+  @keyframes shine{60%,100%{transform:translateX(100%)}}
+  .misc-box{margin-top:18px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);border-radius:18px;padding:16px 20px}
+  .misc-box .mt{font-size:clamp(14px,1.8vw,18px);font-weight:900;color:#fde68a;margin-bottom:8px}
+  .misc-box div.mi{font-size:clamp(14px,1.8vw,17px);margin:5px 0;color:#efe9ff}
+
+  .center{text-align:center;color:var(--mut);font-size:clamp(16px,2vw,20px);padding:56px 16px;line-height:1.7}
+  .spin{display:inline-block;width:44px;height:44px;border:4px solid rgba(167,139,250,.2);border-top-color:var(--pp);
+    border-radius:50%;animation:sp 1s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .streak{font-size:13px;color:var(--mut);text-align:center;margin-top:10px}
-  .streak b{color:var(--pp-d)}
+  .streak{font-size:clamp(14px,1.8vw,18px);color:var(--mut);text-align:center;margin-top:18px;font-weight:600}
+  .streak b{color:var(--gold);font-size:1.15em}
+
+  /* 🎉 콘페티 */
+  .cf{position:fixed;top:-14px;z-index:999;pointer-events:none;border-radius:3px;animation:cfall linear forwards}
+  @keyframes cfall{to{transform:translateY(105vh) rotate(720deg);opacity:.9}}
+  /* ✨ 점수 팝 */
+  .xp-pop{position:fixed;z-index:999;pointer-events:none;font-weight:900;color:var(--gold);
+    font-size:clamp(22px,3vw,32px);text-shadow:0 3px 10px rgba(0,0,0,.5);animation:xpUp 1.1s ease forwards}
+  @keyframes xpUp{from{opacity:1;transform:translateY(0) scale(.8)}to{opacity:0;transform:translateY(-90px) scale(1.25)}}
 </style>
 </head>
 <body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
 <div class="wrap">
   <div class="top">
     <img src="/img/mango-char.png" alt="Mangoi" onerror="this.style.display='none'">
-    <div style="flex:1">
+    <div style="flex:1;min-width:200px">
       <h1 id="hTitle">판단력 훈련</h1>
-      <div class="sub" id="hSub">상황에 가장 잘 맞는 표현을 고르고, <b>왜 그런지</b> 말해봐요!</div>
+      <div class="sub" id="hSub"></div>
     </div>
     <div class="btns">
       <button id="growthBtn" class="pill">🌱 <span id="hGrowth">내 성장</span></button>
@@ -69,8 +181,17 @@
     </div>
   </div>
 
-  <div id="stage" class="card">
-    <div class="center"><span class="spin"></span><div style="margin-top:10px">…</div></div>
+  <!-- 💡 왜 판단력 훈련을 하나요? -->
+  <div class="explain open" id="explain">
+    <button class="explain-head" id="explainHead"><span>💡</span><span id="expTitle"></span><span class="chev">▶</span></button>
+    <div class="explain-body">
+      <p id="expDesc"></p>
+      <div class="exp-chips" id="expChips"></div>
+    </div>
+  </div>
+
+  <div id="stage" class="card enter">
+    <div class="center"><span class="spin"></span><div style="margin-top:14px">…</div></div>
   </div>
 
   <div class="streak" id="streak"></div>
@@ -93,6 +214,7 @@
   var scenario = null, chosen = -1, solved = 0, view = 'q';
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function reEnter(){ stage.classList.remove('enter'); void stage.offsetWidth; stage.classList.add('enter'); }
 
   // 오답 유형 → 쉬운 라벨 (한/영)
   var MISC = {
@@ -108,11 +230,23 @@
 
   function applyStatic(){
     document.documentElement.lang = LANG;
-    document.getElementById('hTitle').textContent = T('판단력 훈련','Decision-making');
+    document.getElementById('hTitle').textContent = T('판단력 훈련','Decision Training');
     document.getElementById('hSub').innerHTML = T('상황에 가장 잘 맞는 표현을 고르고, <b>왜 그런지</b> 말해봐요!','Pick the best expression, and say <b>why</b>!');
     document.getElementById('hGrowth').textContent = T('내 성장','My growth');
     document.getElementById('langBtn').textContent = LANG==='en' ? '한국어' : 'EN';
+    document.getElementById('expTitle').textContent = T('왜 판단력 훈련을 하나요?','Why train your judgment?');
+    document.getElementById('expDesc').innerHTML = T(
+      'AI 시대에는 정답을 외우는 것보다 <b>상황을 읽고 스스로 판단하는 힘</b>이 진짜 실력이에요. 표현을 고르고 <b>왜 그런지 이유를 설명</b>하면, 망고 AI가 여러분의 판단 과정을 분석해서 판단력이 어떻게 자라는지 보여줘요.',
+      'In the AI era, real skill is not memorizing answers — it is <b>reading the situation and deciding for yourself</b>. Choose an expression, <b>explain why</b>, and Mango AI analyzes your thinking to show how your judgment grows.');
+    document.getElementById('expChips').innerHTML =
+      '<div class="exp-chip"><div class="ic">🔍</div><b>'+T('상황을 읽는 힘','Read the situation')+'</b><span>'+T('말투·상대·때에 맞는 표현을 고르는 감각을 키워요.','Build a feel for tone, listener, and timing.')+'</span></div>'
+      +'<div class="exp-chip"><div class="ic">🗣️</div><b>'+T('이유를 설명하는 힘','Explain your why')+'</b><span>'+T('"왜?"를 말로 풀면 생각이 단단해져요.','Putting your "why" into words makes thinking stronger.')+'</span></div>'
+      +'<div class="exp-chip"><div class="ic">📈</div><b>'+T('AI 성장 분석','AI growth tracking')+'</b><span>'+T('판단력 지수 5가지 축으로 성장을 한눈에 확인해요.','See your growth on 5 judgment-index axes.')+'</span></div>';
   }
+
+  document.getElementById('explainHead').addEventListener('click', function(){
+    document.getElementById('explain').classList.toggle('open');
+  });
 
   document.getElementById('langBtn').addEventListener('click', function(){
     LANG = (LANG==='en') ? 'ko' : 'en';
@@ -121,15 +255,47 @@
     if(view==='q' && scenario) renderQuestion();
     else if(view==='result' && window._lastResult) renderResult(window._lastResult);
     else if(view==='growth' && window._lastGrowth) renderGrowth(window._lastGrowth);
+    if(solved>0) streakEl.innerHTML = T('오늘 <b>'+solved+'</b>문제 풀었어요! 계속 도전해봐요 🔥','You solved <b>'+solved+'</b> today! Keep going 🔥');
   });
 
   if(!UID){
     applyStatic();
-    stage.innerHTML = '<div class="center">'+T('앱에서 로그인 후 이용해 주세요.','Please log in through the app to start.')+'<br><span style="font-size:13px">'+T('(학생 계정으로 접속하면 자동으로 시작됩니다)','(It starts automatically when you sign in as a student)')+'</span></div>';
+    stage.innerHTML = '<div class="center">'+T('앱에서 로그인 후 이용해 주세요.','Please log in through the app to start.')+'<br><span style="font-size:.8em">'+T('(학생 계정으로 접속하면 자동으로 시작됩니다)','(It starts automatically when you sign in as a student)')+'</span></div>';
     return;
   }
 
-  function loading(msg){ stage.innerHTML = '<div class="center"><span class="spin"></span><div style="margin-top:10px">'+esc(msg)+'</div></div>'; }
+  function loading(msg){ stage.innerHTML = '<div class="center"><span class="spin"></span><div style="margin-top:14px">'+esc(msg)+'</div></div>'; }
+
+  // 🎉 콘페티 + XP 팝
+  function confetti(){
+    var colors=['#fbbf24','#a78bfa','#34d399','#f472b6','#60a5fa','#fdf6e3'];
+    for(var i=0;i<70;i++){
+      var d=document.createElement('div'); d.className='cf';
+      var s=6+Math.random()*8;
+      d.style.cssText='left:'+(Math.random()*100)+'vw;width:'+s+'px;height:'+(s*0.5)+'px;background:'+colors[i%colors.length]
+        +';animation-duration:'+(1.4+Math.random()*1.6)+'s;animation-delay:'+(Math.random()*0.5)+'s';
+      document.body.appendChild(d);
+      setTimeout(function(el){ return function(){ el.remove(); }; }(d), 3600);
+    }
+  }
+  function xpPop(txt){
+    var p=document.createElement('div'); p.className='xp-pop'; p.textContent=txt;
+    p.style.left=(38+Math.random()*24)+'vw'; p.style.top='38vh';
+    document.body.appendChild(p);
+    setTimeout(function(){ p.remove(); }, 1200);
+  }
+  // 🔢 숫자 카운트업
+  function countUp(el, target, ms){
+    if(target==null || isNaN(target)){ el.textContent='—'; return; }
+    var t0=null;
+    function step(ts){
+      if(!t0) t0=ts;
+      var k=Math.min(1,(ts-t0)/ms); k=1-Math.pow(1-k,3);
+      el.textContent=Math.round(target*k);
+      if(k<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
 
   async function loadScenario(){
     view='q'; chosen = -1;
@@ -139,9 +305,9 @@
       var d = await r.json();
       if(!d || d.ok===false || !Array.isArray(d.options) || d.options.length<2) throw new Error('no scenario');
       scenario = d;
-      renderQuestion();
+      renderQuestion(); reEnter();
     }catch(e){
-      stage.innerHTML = '<div class="center">'+T('문제를 불러오지 못했어요.','Could not load a question.')+'<br><button class="btn ghost" style="max-width:200px;margin:14px auto 0" onclick="location.reload()">'+T('다시 시도','Try again')+'</button></div>';
+      stage.innerHTML = '<div class="center">'+T('문제를 불러오지 못했어요.','Could not load a question.')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" onclick="location.reload()">'+T('다시 시도','Try again')+'</button></div>';
     }
   }
 
@@ -151,16 +317,16 @@
     var opts = scenario.options.map(function(o,i){
       return '<button class="opt" data-i="'+i+'"'+(i===chosen?' data-sel="1"':'')+'><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span></button>';
     }).join('');
-    var tbChip = scenario.textbook ? '<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-bottom:6px">📖 '+esc(scenario.textbook)+' '+T('연계','linked')+'</div>' : '';
+    var tbChip = scenario.textbook ? '<div><span class="tb-chip">📖 '+esc(scenario.textbook)+' '+T('연계','linked')+'</span></div>' : '';
     stage.innerHTML =
       tbChip+
       '<div class="sit-label">🗣️ '+T('이런 상황이에요','Here is the situation')+'</div>'+
       '<div class="sit">'+esc(scenario.situation)+'</div>'+
       '<div class="opts">'+opts+'</div>'+
-      '<div class="why-label">'+T('왜 그 표현을 골랐어요?','Why did you choose it?')+'</div>'+
+      '<div class="why-label">🤔 '+T('왜 그 표현을 골랐어요?','Why did you choose it?')+'</div>'+
       '<textarea id="why" placeholder="'+T('예: 선생님께 말하는 거라서 공손하게…  (한국어로 써도 괜찮아요)','e.g. Because I am talking to my teacher, so I chose a polite one…')+'"></textarea>'+
-      '<div class="hint">'+T('이유를 잘 설명할수록 판단력 점수가 올라가요.','The better you explain, the higher your score.')+'</div>'+
-      '<button class="btn" id="submit"'+(chosen<0?' disabled':'')+'>'+T('제출하기','Submit')+'</button>';
+      '<div class="hint">✨ '+T('이유를 잘 설명할수록 판단력 점수가 올라가요.','The better you explain, the higher your score.')+'</div>'+
+      '<button class="btn" id="submit"'+(chosen<0?' disabled':'')+'>'+T('제출하기 🚀','Submit 🚀')+'</button>';
     Array.prototype.forEach.call(stage.querySelectorAll('.opt'), function(el){
       if(el.getAttribute('data-sel')) el.classList.add('sel');
       el.addEventListener('click', function(){
@@ -185,9 +351,10 @@
       if(!d || d.ok===false) throw new Error('score fail');
       solved++;
       window._lastResult = d;
-      renderResult(d);
+      renderResult(d); reEnter();
+      if(d.correct){ confetti(); xpPop('+'+(d.choice_score!=null?d.choice_score:'💯')); }
     }catch(e){
-      stage.innerHTML = '<div class="center">'+T('채점에 실패했어요.','Grading failed.')+'<br><button class="btn ghost" style="max-width:200px;margin:14px auto 0" onclick="location.reload()">'+T('다시 시도','Try again')+'</button></div>';
+      stage.innerHTML = '<div class="center">'+T('채점에 실패했어요.','Grading failed.')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" onclick="location.reload()">'+T('다시 시도','Try again')+'</button></div>';
     }
   }
 
@@ -197,19 +364,23 @@
     var fb = LANG==='en' ? (d.feedback_en||d.feedback_ko||'') : (d.feedback_ko||d.feedback_en||'');
     var scores =
       '<div class="scores">'+
-        '<div class="sc"><div class="v">'+(d.choice_score!=null?d.choice_score:'—')+'</div><div class="l">'+T('선택 적절성','Choice')+'</div></div>'+
-        '<div class="sc"><div class="v">'+(d.reasoning_score!=null?d.reasoning_score:'—')+'</div><div class="l">'+T('이유 논리','Reasoning')+'</div></div>'+
+        '<div class="sc"><div class="v" data-cnt="'+(d.choice_score!=null?d.choice_score:'')+'">—</div><div class="l">'+T('선택 적절성','Choice')+'</div></div>'+
+        '<div class="sc"><div class="v" data-cnt="'+(d.reasoning_score!=null?d.reasoning_score:'')+'">—</div><div class="l">'+T('이유 논리','Reasoning')+'</div></div>'+
       '</div>';
-    var best = (!ok && d.best_option) ? '<div class="best">'+T('가장 자연스러운 표현','Most natural expression')+': <b>'+esc(d.best_option)+'</b></div>' : '';
+    var best = (!ok && d.best_option) ? '<div class="best">💡 '+T('가장 자연스러운 표현','Most natural expression')+': <b>'+esc(d.best_option)+'</b></div>' : '';
     stage.innerHTML =
       '<div class="res">'+
-        '<div class="banner '+(ok?'ok':'no')+'">'+(ok?('👍 '+T('잘 골랐어요!','Great choice!')):('🤔 '+T('거의 다 왔어요!','So close!')))+'</div>'+
+        '<div class="banner '+(ok?'ok':'no')+'">'+(ok?('🎉 '+T('잘 골랐어요!','Great choice!')):('🤔 '+T('거의 다 왔어요!','So close!')))+'</div>'+
         best+
         '<div class="fb">'+esc(fb)+'</div>'+
         scores+
         '<button class="btn" id="next">'+T('다음 문제 →','Next question →')+'</button>'+
-        '<button class="btn ghost" id="mygrowth" style="margin-top:8px">🌱 '+T('내 성장 보기','See my growth')+'</button>'+
+        '<button class="btn ghost" id="mygrowth" style="margin-top:10px">🌱 '+T('내 성장 보기','See my growth')+'</button>'+
       '</div>';
+    Array.prototype.forEach.call(stage.querySelectorAll('.sc .v'), function(el){
+      var v=el.getAttribute('data-cnt');
+      if(v==='') el.textContent='—'; else countUp(el, Number(v), 900);
+    });
     document.getElementById('next').addEventListener('click', loadScenario);
     var mg=document.getElementById('mygrowth'); if(mg) mg.addEventListener('click', showGrowth);
     streakEl.innerHTML = T('오늘 <b>'+solved+'</b>문제 풀었어요! 계속 도전해봐요 🔥','You solved <b>'+solved+'</b> today! Keep going 🔥');
@@ -217,9 +388,9 @@
 
   function bar(label, v){
     var val = (v==null? 0 : v);
-    return '<div style="margin-bottom:9px">'
-      + '<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:3px"><span>'+label+'</span><span style="color:#5b21b6">'+(v==null?'—':v)+'</span></div>'
-      + '<div style="height:12px;background:#ece7fb;border-radius:8px;overflow:hidden"><div style="height:100%;width:'+val+'%;background:#7c3aed;border-radius:8px;transition:width .5s"></div></div>'
+    return '<div class="bar-row">'
+      + '<div class="bar-head"><span>'+label+'</span><span class="bv">'+(v==null?'—':v)+'</span></div>'
+      + '<div class="bar-track"><div class="bar-fill" data-w="'+val+'"></div></div>'
       + '</div>';
   }
   async function showGrowth(){
@@ -230,9 +401,9 @@
       var d = await r.json();
       if(!d || d.ok===false) throw new Error('no growth');
       window._lastGrowth = d;
-      renderGrowth(d);
+      renderGrowth(d); reEnter();
     }catch(e){
-      stage.innerHTML = '<div class="center">'+T('성장 기록을 불러오지 못했어요.','Could not load your growth.')+'<br><button class="btn ghost" style="max-width:200px;margin:14px auto 0" id="g-back">← '+T('문제 풀기','Practice')+'</button></div>';
+      stage.innerHTML = '<div class="center">'+T('성장 기록을 불러오지 못했어요.','Could not load your growth.')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" id="g-back">← '+T('문제 풀기','Practice')+'</button></div>';
       var b=document.getElementById('g-back'); if(b) b.addEventListener('click', loadScenario);
     }
   }
@@ -240,29 +411,48 @@
     view='growth';
     var rad = d.radar || {};
     var has = (d.events_count||0) > 0;
-    var idx = (d.judgment_index!=null? d.judgment_index : '—');
+    var idx = (d.judgment_index!=null? d.judgment_index : null);
     var miscs = Array.isArray(d.top_misconceptions)? d.top_misconceptions.slice(0,3) : [];
+    var R=86, C=2*Math.PI*R;
     var practice = has
-      ? '<div style="text-align:center;margin-bottom:14px">'
-        + '<div style="font-size:13px;color:#6b7280">'+T('나의 판단력 지수','My judgment index')+'</div>'
-        + '<div style="font-size:46px;font-weight:900;color:#5b21b6;line-height:1.1">'+idx+'</div>'
-        + '<div style="font-size:13px;color:#6b7280">'+T('지금까지 <b>'+(d.events_count||0)+'</b>번 판단했어요','<b>'+(d.events_count||0)+'</b> decisions so far')+'</div>'
+      ? '<div class="ring-box">'
+        + '<div class="ring">'
+        +   '<svg viewBox="0 0 200 200"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">'
+        +   '<stop offset="0%" stop-color="#7c3aed"/><stop offset="60%" stop-color="#a855f7"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient></defs>'
+        +   '<circle class="track" cx="100" cy="100" r="'+R+'"/>'
+        +   '<circle class="prog" id="ringProg" cx="100" cy="100" r="'+R+'" stroke-dasharray="'+C+'" stroke-dashoffset="'+C+'"/></svg>'
+        +   '<div class="mid"><div class="num" id="ringNum">0</div><div class="cap">'+T('나의 판단력 지수','My judgment index')+'</div></div>'
         + '</div>'
-        + bar(T('선택 적절성','Choice'), rad['선택적절성'])
-        + bar(T('이유 논리','Reasoning'), rad['이유논리'])
-        + bar(T('자기 교정력','Self-correction'), rad['자기교정력'])
-        + bar(T('어투 민감도','Register'), rad['어투민감도'])
-        + bar(T('일관성','Consistency'), rad['일관성'])
-        + (miscs.length ? '<div style="margin-top:14px;background:#f6f4ff;border-radius:12px;padding:12px 14px">'
-            + '<div style="font-size:13px;font-weight:800;color:#5b21b6;margin-bottom:6px">💪 '+T('이런 걸 더 연습하면 좋아요','Practice these a bit more')+'</div>'
-            + miscs.map(function(m){ return '<div style="font-size:14px;margin:3px 0">· '+esc(miscLabel(m.code))+'</div>'; }).join('')
+        + '<div class="ring-side">'
+        +   '<div style="font-size:clamp(14px,1.8vw,18px);color:var(--mut);font-weight:700;margin-bottom:12px">🏅 '
+        +     T('지금까지 <b style="color:#fbbf24">'+(d.events_count||0)+'</b>번 판단했어요','<b style="color:#fbbf24">'+(d.events_count||0)+'</b> decisions so far')+'</div>'
+        +   bar(T('선택 적절성','Choice'), rad['선택적절성'])
+        +   bar(T('이유 논리','Reasoning'), rad['이유논리'])
+        +   bar(T('자기 교정력','Self-correction'), rad['자기교정력'])
+        +   bar(T('어투 민감도','Register'), rad['어투민감도'])
+        +   bar(T('일관성','Consistency'), rad['일관성'])
+        + '</div>'
+        + '</div>'
+        + (miscs.length ? '<div class="misc-box">'
+            + '<div class="mt">💪 '+T('이런 걸 더 연습하면 좋아요','Practice these a bit more')+'</div>'
+            + miscs.map(function(m){ return '<div class="mi">· '+esc(miscLabel(m.code))+'</div>'; }).join('')
             + '</div>' : '')
       : '<div class="center">'+T('아직 판단 기록이 없어요.<br>문제를 풀면 나의 성장이 여기 나타나요! 🌱','No records yet.<br>Solve questions and your growth appears here! 🌱')+'</div>';
     stage.innerHTML = '<div class="res">'
       + '<div class="sit-label">🌱 '+T('나의 판단력 성장','My decision-making growth')+'</div>'
       + practice
-      + '<button class="btn" id="g-train" style="margin-top:16px">'+T('문제 풀러 가기 →','Go practice →')+'</button>'
+      + '<button class="btn gold" id="g-train" style="margin-top:22px">'+T('문제 풀러 가기 →','Go practice →')+'</button>'
       + '</div>';
+    // 애니메이션: 링 채우기 + 지수 카운트업 + 막대 채우기
+    requestAnimationFrame(function(){
+      var rp=document.getElementById('ringProg');
+      if(rp && idx!=null){ rp.style.strokeDashoffset = String(C*(1-Math.max(0,Math.min(100,idx))/100)); }
+      var rn=document.getElementById('ringNum');
+      if(rn){ if(idx==null){ rn.textContent='—'; } else countUp(rn, idx, 1100); }
+      Array.prototype.forEach.call(stage.querySelectorAll('.bar-fill'), function(el){
+        setTimeout(function(){ el.style.width = el.getAttribute('data-w')+'%'; }, 80);
+      });
+    });
     var t=document.getElementById('g-train'); if(t) t.addEventListener('click', loadScenario);
   }
   var gb = document.getElementById('growthBtn'); if(gb) gb.addEventListener('click', showGrowth);
@@ -271,6 +461,6 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260719053344 -->
+<!-- BUILD:20260719054227 -->
 </body>
 </html>
