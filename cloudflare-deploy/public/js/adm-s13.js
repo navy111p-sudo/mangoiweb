@@ -69,13 +69,13 @@
       });
     });
   }
-  window.__ivoryLighten = ivoryLighten;   /* 🎨 즉시 테마 전환에서 호출 */
+  window.__ivoryLighten = ivoryLighten;   /* 🎨 즉시 테마 전환에서 호출 (현재 '어둡게' 단일 고정이라 사실상 미사용) */
+  // ⚡ (2026-07-18) 관리자 테마 '어둡게' 단일 고정 후, 이 ivory 페인터를 1.5초 인터벌 + 전역
+  //   MutationObserver 로 '영원히' 돌리던 것을 제거. data-admin-theme 이 항상 'dark' 라 매번
+  //   '정리 분기'만 타며 카드 전체 하위요소를 재스캔(리플로우)하던 순수 오버헤드였음(버벅임 잔여 원인).
+  //   과거 ivory 잔여 인라인 정리를 위해 로드 시 1회만 실행(신규 로드엔 정리할 것도 없어 즉시 반환).
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ivoryLighten);
   else ivoryLighten();
-  setInterval(ivoryLighten, 1500);
-  if (window.MutationObserver) {
-    new MutationObserver(function(){ ivoryLighten(); }).observe(document.body, { childList: true, subtree: true });
-  }
 
   /* 🎨 즉시(새로고침 없이) 밝게↔어둡게 전환 — 페인터가 칠한 인라인 스타일을 즉시 다시 칠함 */
   window.applyAdminColor = function(theme){
