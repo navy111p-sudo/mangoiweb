@@ -4687,6 +4687,31 @@ LIMIT $limit`;
     }
 
     // 💰 카페24 결제 이관 — Neo4j (:Payment 1.1만) → D1 student_payments (cafe24-sync.ts)
+    // 🔎 (2026-07-19) 결제 미매칭 진단 — 특정 회원ID가 Neo4j 그래프에 어떤 노드/결제/관계로 존재하는지 원자료 확인.
+    //   지사 대시보드 매출 미집계(결제자 user_id가 students_erp에 없음, 7월 기준 금액 79% 미매칭) 원인 추적용.
+    //   /api/admin/* default-deny + 비본사 403 게이트 뒤라 본사(hq)/내부직원만 호출 가능.
+    if (method === 'GET' && path === '/api/admin/payments/cafe24-diag') {
+      const uid = (url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid required' }, 400);
+      try {
+        const pay = await runCypher(env, `MATCH (p:Payment {user_id:$uid}) RETURN properties(p) AS props LIMIT 3`, { uid }, 'READ');
+        const node = await runCypher(env,
+          `MATCH (n) WHERE n.user_id = $uid OR n.member_id = $uid OR n.login_id = $uid OR n.student_id = $uid
+           RETURN labels(n) AS labels, properties(n) AS props LIMIT 6`, { uid }, 'READ');
+        const rel = await runCypher(env,
+          `MATCH (p:Payment {user_id:$uid})-[r]-(x) RETURN type(r) AS rel, labels(x) AS labels, properties(x) AS props LIMIT 6`, { uid }, 'READ');
+        return json({
+          ok: true,
+          payments: pay.values.map(v => v[0]),
+          nodes: node.values.map(v => ({ labels: v[0], props: v[1] })),
+          rels: rel.values.map(v => ({ rel: v[0], labels: v[1], props: v[2] })),
+        });
+      } catch (e: any) {
+        if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED' }, 503);
+        return json({ ok: false, error: String(e?.message || e) }, 502);
+      }
+    }
+
     if (method === 'GET' && path === '/api/admin/payments/import-cafe24') {
       try {
         const r = await importCafe24Payments(env);
