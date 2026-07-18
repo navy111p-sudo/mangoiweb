@@ -273,11 +273,16 @@ async function load() {
   // 비상 이벤트 렌더 블록 제거됨 — #emergency-table DOM 이 없으므로 null 참조 방지.
   //   백엔드 /api/dashboard 는 여전히 emergency 배열을 반환하지만, UI 에서 쓰지 않음.
 
-  // 매출·학생흐름 차트 + 학생 랭킹 — 별도 endpoint 라 dashboard load 와 함께 같이 호출
-  loadRevenueChart();
-  loadStudentFlowChart();
-  loadKpiSparklines();           // 5개 KPI 카드의 미니 꺾은선 그래프
-  loadStudentRankings();          // 발화·시선·집중도 랭킹
+  // 매출·학생흐름 차트 + 학생 랭킹 — 무겁고 화면 하단이라, 브라우저가 한가할 때 지연 로드
+  //   (2026-07-18 성능: 이 4개 fetch 가 초기 렌더/탭 로딩 스피너를 붙잡지 않도록 유휴시간에 실행)
+  var _loadDashCharts = function(){
+    try{ loadRevenueChart(); }catch(e){}
+    try{ loadStudentFlowChart(); }catch(e){}
+    try{ loadKpiSparklines(); }catch(e){}     // 5개 KPI 카드의 미니 꺾은선 그래프
+    try{ loadStudentRankings(); }catch(e){}    // 발화·시선·집중도 랭킹
+  };
+  if (window.requestIdleCallback) requestIdleCallback(_loadDashCharts, { timeout: 3000 });
+  else setTimeout(_loadDashCharts, 200);
 }
 
 /* ════════════════════════════════════════════════════════════

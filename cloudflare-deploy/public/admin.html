@@ -120,6 +120,14 @@
     var _swReloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', function(){
       if (_swReloaded) return;
+      // ⏱️ (2026-07-18) 30초 가드: 배포가 잦을 때 새 SW가 계속 잡혀 controllerchange 로
+      //   2.8MB 페이지를 반복 재로딩(=새로고침이 오래 도는 주원인)하던 것을 방지.
+      //   최근 30초 내 이미 재로딩했으면 이번 전환은 스킵 — 새 SW는 다음 진입/새로고침에 자연 적용됨.
+      try {
+        var _last = +sessionStorage.getItem('__sw_reload_at') || 0;
+        if (Date.now() - _last < 30000) return;
+        sessionStorage.setItem('__sw_reload_at', Date.now().toString());
+      } catch(e){}
       _swReloaded = true;
       location.reload();
     });
@@ -1998,43 +2006,17 @@
   /* 지금 적용할 색상 결정 */
   function cur(){ return manualToday() ? (saved() || autoTheme()) : autoTheme(); }
 
-  /* 1) 깜빡임 방지: 결정된 색상 즉시 적용 + 저장 */
-  var t = cur();
-  document.documentElement.setAttribute('data-admin-theme', t);
-  try { localStorage.setItem(KEY, t); } catch(e){}
-
-  /* 2) 버튼 라벨을 현재 색상으로 표시 (밝게/어둡게) */
-  window.__refreshThemeLabel = function(){
-    var el = document.getElementById('admin-theme-label');
-    if (el) el.textContent = (saved() === 'ivory') ? '밝게' : '어둡게';
-  };
-  /* 3) 수동 토글: 오늘 하루는 자동 전환을 멈추고 사용자 선택 유지 */
-  window.toggleAdminColor = function(){
-    var next = ((saved() || autoTheme()) === 'ivory') ? 'dark' : 'ivory';
-    try { localStorage.setItem(OVR, dayKey()); } catch(e){}
-    if (window.applyAdminColor) { window.applyAdminColor(next); }
-    else { try { localStorage.setItem(KEY, next); } catch(e){} location.reload(); }
-  };
-  /* 4) 자동 모드로 즉시 복귀(원할 때 콘솔/버튼에서 호출 가능) */
-  window.resetAutoAdminColor = function(){
-    try { localStorage.removeItem(OVR); } catch(e){}
-    if (window.applyAdminColor) { window.applyAdminColor(autoTheme()); }
-    else location.reload();
-  };
-  /* 5) 18시 경계·자정을 새로고침 없이 자동 반영(1분마다 점검) */
-  window.__scheduleAutoTheme = function(){
-    setInterval(function(){
-      if (!manualToday()) {
-        var want = autoTheme();
-        if (saved() !== want && window.applyAdminColor) window.applyAdminColor(want);
-      }
-      if (window.__refreshThemeLabel) window.__refreshThemeLabel();
-    }, 60 * 1000);
-  };
-  document.addEventListener('DOMContentLoaded', function(){
-    if (window.__refreshThemeLabel) window.__refreshThemeLabel();
-    window.__scheduleAutoTheme();
-  });
+  /* 🎨 2026-07-18 사장님 요청: 관리자 페이지는 '어둡게(dark)' 단일 테마로 고정.
+     밝게(ivory)·시간대 자동전환(낮=밝게)·수동토글·1분 점검 인터벌을 전부 제거
+     (밝았다 어두웠다 전환하며 로딩 가중되던 것 방지). 학생 페이지 테마와는 무관.
+     위 helper(saved/autoTheme/cur 등)는 미사용이나 무해하여 잔존. */
+  document.documentElement.setAttribute('data-admin-theme', 'dark');
+  try { localStorage.setItem(KEY, 'dark'); localStorage.removeItem(OVR); } catch(e){}
+  window.__refreshThemeLabel = function(){ var el = document.getElementById('admin-theme-label'); if (el) el.textContent = '어둡게'; };
+  window.toggleAdminColor   = function(){ document.documentElement.setAttribute('data-admin-theme','dark'); };  /* 단일 테마 — 전환 없음 */
+  window.resetAutoAdminColor= function(){};
+  window.__scheduleAutoTheme= function(){};
+  document.addEventListener('DOMContentLoaded', function(){ if (window.__refreshThemeLabel) window.__refreshThemeLabel(); });
 })();
 </script>
 
@@ -2072,12 +2054,7 @@
   <div class="th-controls">
     <!-- 🗑️ (2026-06-23) 기간 셀렉트(#period) 제거 — 헤더 중앙 빈 박스 원인. 기본 7일 보기는 JS에서 상수로 유지 -->
     <a class="th-btn th-btn-amber" href="/admin/health" title="셀프 진단" data-ko="🩺 셀프 진단" data-en="🩺 Health">🩺 셀프 진단</a>
-    <!-- 🎨 화면 색상 토글 (밝게 ↔ 어둡게) — inline onclick 자체 완결: 클릭=즉시 전환 보장 -->
-    <button id="admin-theme-btn" type="button" class="th-btn th-btn-ghost"
-            title="화면 색상 전환 (밝게/어둡게)" data-ko-title="화면 색상 전환 (밝게/어둡게)" data-en-title="Toggle light / dark"
-            onclick="if(window.toggleAdminColor){window.toggleAdminColor();}else{(function(){var k='mangoi_admin_theme';var c='dark';try{c=(localStorage.getItem(k)==='ivory')?'ivory':'dark';}catch(e){}var n=(c==='ivory')?'dark':'ivory';try{localStorage.setItem(k,n);}catch(e){}location.reload();})();}">
-      🎨 <span data-ko="색상" data-en="Color">색상</span> · <span id="admin-theme-label" style="font-weight:800">어둡게</span>
-    </button>
+    <!-- 🎨 (2026-07-18) 화면 색상 토글 제거 — 관리자 페이지는 '어둡게' 단일 테마로 고정(사장님 요청) -->
     <button class="th-btn th-btn-ghost" onclick="toggleAdminLang()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span id="admin-lang-label">EN</span>
@@ -20054,6 +20031,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260718163152 -->
+<!-- BUILD:20260718170425 -->
 </body>
 </html>
