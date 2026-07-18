@@ -840,6 +840,7 @@ const worker = {
         // 💸 Phase F1-F2 미납 자동 알림
         path === '/api/admin/payments/overdue' ||
         path === '/api/admin/payments/import-cafe24' ||
+        path === '/api/admin/payments/cafe24-diag' ||
         path === '/api/admin/payments/notify-overdue' ||
         path === '/api/admin/payments/notify-all-overdue' ||
         path === '/api/admin/payments/overdue-log' ||
