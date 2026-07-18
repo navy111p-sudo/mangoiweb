@@ -5573,7 +5573,38 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       if (btn.parentNode) btn.parentNode.removeChild(btn);
     });
   }
-  setInterval(ph80BindMenuButtons, 500);
+  // ⚡ 성능(2026-07-16): 아래 UI/테마 보정 함수들이 setInterval 로 0.3~2초마다 '영원히' 도는 것이
+  //   204카드/1.25MB DOM 을 계속 재스캔(getComputedStyle=강제 리플로우)해 관리자 화면 버벅임·깜빡임의 주원인이었음.
+  //   → '시계 폴링'을 '변화 감지(MutationObserver)'로 전환: DOM 에 새 노드가 추가/삭제될 때만(디바운스 350ms) 재보정.
+  //     노드 add/remove(childList)만 관찰 → 함수들의 스타일 변경(attribute)엔 재발동 안 함(무한루프 방지).
+  //     서킷브레이커: 만일 예기치 못한 노드 폭주 시 옵저버 해제 후 4초 폴백(원본 2초보다 여전히 가벼움).
+  window.__admSettleRun = function(fn){
+    var S = window.__admSettle;
+    if (!S) {
+      S = window.__admSettle = { fns: [], t: null, runs: 0, winStart: Date.now() };
+      S.runAll = function(){
+        S.t = null;
+        var now = Date.now();
+        if (now - S.winStart > 10000) { S.winStart = now; S.runs = 0; }
+        if (++S.runs > 40) {
+          try { S.obs && S.obs.disconnect(); } catch(e){}
+          if (!S.fallback) S.fallback = setInterval(function(){ S.fns.forEach(function(f){ try{f();}catch(e){} }); }, 4000);
+          return;
+        }
+        S.fns.forEach(function(f){ try { f(); } catch(e){} });
+      };
+      S.schedule = function(){ if (S.t) clearTimeout(S.t); S.t = setTimeout(S.runAll, 350); };
+      try {
+        S.obs = new MutationObserver(function(muts){
+          for (var i=0;i<muts.length;i++){ if (muts[i].addedNodes.length || muts[i].removedNodes.length){ S.schedule(); return; } }
+        });
+        S.obs.observe(document.body, { childList: true, subtree: true });
+      } catch(e){}
+    }
+    S.fns.push(fn);
+    try { fn(); } catch(e){}   // 최초 1회 즉시 실행(초기 렌더 보정)
+  };
+  window.__admSettleRun(ph80BindMenuButtons);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph80BindMenuButtons);
   else ph80BindMenuButtons();
 })();
@@ -11702,7 +11733,7 @@ button.chip:hover,
       });
     });
   }
-  setInterval(ph81RemoveToggle, 300);
+  window.__admSettleRun(ph81RemoveToggle);   // ⚡ 폴링→변화감지 (위 __admSettleRun 참조)
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph81RemoveToggle);
   else ph81RemoveToggle();
 })();
@@ -13705,7 +13736,7 @@ button.chip:hover,
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph103DarkifyWhites);
   else ph103DarkifyWhites();
   // 새 카드/결과 생성될 때마다 재검사
-  setInterval(ph103DarkifyWhites, 2000);
+  window.__admSettleRun(ph103DarkifyWhites);   // ⚡ 폴링→변화감지 (위 __admSettleRun 참조)
   // MutationObserver 로 새 element 추가 즉시 감지
   if (window.MutationObserver) {
     var obs = new MutationObserver(function(){ ph103DarkifyWhites(); });
@@ -14033,7 +14064,7 @@ button.chip:hover,
   window.__ph105Run = ph105ForceUniversal;   /* 🎨 즉시 테마 전환에서 호출 */
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph105ForceUniversal);
   else ph105ForceUniversal();
-  setInterval(ph105ForceUniversal, 2000);
+  window.__admSettleRun(ph105ForceUniversal);   // ⚡ 폴링→변화감지 (위 __admSettleRun 참조)
   if (window.MutationObserver) {
     new MutationObserver(function(){ ph105ForceUniversal(); }).observe(document.body, { childList: true, subtree: true });
   }
@@ -20023,6 +20054,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260718161138 -->
+<!-- BUILD:20260718163152 -->
 </body>
 </html>

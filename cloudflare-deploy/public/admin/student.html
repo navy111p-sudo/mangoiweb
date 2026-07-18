@@ -269,6 +269,7 @@
             <div class="chart-box"><canvas id="ovJudgeRadar"></canvas></div>
             <div class="chart-box"><canvas id="ovJudgeTrend"></canvas></div>
           </div>
+          <div id="ovJudgeTerms"></div>
         </div>
         <div class="grid-2">
           <div class="chart-wrap">
@@ -611,6 +612,7 @@
         <div class="report-chartbox tall"><canvas id="rpJudgeRadar"></canvas></div>
         <div class="report-chartbox tall"><canvas id="rpJudgeTrend"></canvas></div>
       </div>
+      <div id="rpJudgeTerms"></div>
 
       <h3 data-ko="🎙 발음연습 추이" data-en="🎙 Pronunciation Trend">🎙 발음연습 추이</h3>
       <div class="grid-charts">
@@ -1022,10 +1024,78 @@ function renderOverview(){
       '</div>';
 }
 
+// ═══ 🧠 판단력 용어 사전 (쉬운 설명) + 반응형 툴팁(마우스 hover / 터치 탭) ═══
+const JUDGE_GLOSSARY = {
+  '판단력':      { t:'판단력', d:'여러 표현 중에서 상황에 가장 잘 맞는 것을 <b>스스로 고르고</b>, <b>왜 그게 좋은지 설명하는</b> 힘이에요. 단순 암기가 아니라 “생각해서 고르는” 능력이에요.' },
+  '판단력지수':  { t:'판단력 지수', d:'아래 5가지를 합쳐 <b>100점 만점</b>으로 나타낸 종합 점수예요. 높을수록 표현을 더 똑똑하게 고른다는 뜻이에요.' },
+  '선택적절성':  { t:'선택 적절성', d:'상황에 <b>딱 맞는 표현</b>을 골랐는지 봐요. 예) 친구에겐 “Hi”, 선생님껜 “Hello”.' },
+  '이유논리':    { t:'이유 논리', d:'“왜 그 표현을 골랐는지” <b>이유를 잘 설명</b>하는지 봐요. 이유가 탄탄할수록 높아요.' },
+  '자기교정력':  { t:'자기 교정력', d:'전에 틀린 것을 다음엔 <b>스스로 고치는</b> 힘이에요. 같은 실수를 안 반복할수록 높아요.' },
+  '어투민감도':  { t:'어투 민감도', d:'상황에 맞게 <b>말투를 조절</b>하는 감각이에요. 공손해야 할 때 공손하게 말하는지 봐요.' },
+  '일관성':      { t:'일관성', d:'실력이 들쭉날쭉하지 않고 <b>꾸준한지</b> 봐요. 매번 비슷하게 잘하면 높아요.' },
+};
+function ensureJTip(){
+  if (window.__jtip) return window.__jtip;
+  const st = document.createElement('style');
+  st.textContent = '.jterms{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}'
+    + '.jterm{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;cursor:pointer;'
+    + 'padding:3px 9px;border-radius:999px;background:rgba(124,58,237,.13);color:#7c3aed;border:1px solid rgba(124,58,237,.35);white-space:nowrap;user-select:none}'
+    + '.jterm:hover{background:rgba(124,58,237,.22)}'
+    + '.jtip{position:absolute;z-index:99999;background:#111827;color:#f1f5f9;border:1px solid #7c3aed;border-radius:10px;'
+    + 'padding:10px 12px;font-size:12.5px;line-height:1.55;box-shadow:0 8px 24px rgba(0,0,0,.4);pointer-events:none}'
+    + '.jtip b{color:#c4b5fd}';
+  document.head.appendChild(st);
+  const tip = document.createElement('div');
+  tip.className = 'jtip'; tip.style.display = 'none';
+  document.body.appendChild(tip);
+  window.__jtip = tip; window.__jtipEl = null;
+  document.addEventListener('click', (e)=>{ if(!e.target.closest('.jterm')) hideJTip(); });
+  window.addEventListener('scroll', hideJTip, true);
+  window.addEventListener('resize', hideJTip);
+  return tip;
+}
+function showJTip(el){
+  const tip = ensureJTip();
+  const g = JUDGE_GLOSSARY[el.getAttribute('data-jterm')];
+  if(!g){ return; }
+  tip.innerHTML = '<b>'+g.t+'</b><br>'+g.d;
+  tip.style.display = 'block';
+  const tw = Math.min(280, window.innerWidth - 20);
+  tip.style.width = tw + 'px';
+  const r = el.getBoundingClientRect();
+  let left = r.left + r.width/2 - tw/2 + window.scrollX;
+  left = Math.max(10, Math.min(left, window.scrollX + window.innerWidth - tw - 10));
+  let top = r.bottom + window.scrollY + 8;
+  // 화면 아래쪽이면 위로 뒤집기
+  if (r.bottom + 120 > window.innerHeight) top = r.top + window.scrollY - tip.offsetHeight - 8;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+function hideJTip(){ if(window.__jtip){ window.__jtip.style.display='none'; window.__jtipEl=null; } }
+// 용어 칩 렌더 + hover(데스크탑)/tap(모바일) 바인딩
+function renderJudgeTerms(containerId){
+  const box = document.getElementById(containerId);
+  if(!box) return;
+  const keys = ['판단력','판단력지수','선택적절성','이유논리','자기교정력','어투민감도','일관성'];
+  box.className = 'jterms';
+  box.innerHTML = '<span style="font-size:11px;color:#94a3b8;align-self:center;margin-right:2px">'
+    + (_lang==='en'?'Tap a term:':'용어를 눌러보세요:') + '</span>'
+    + keys.map(k=>'<span class="jterm" data-jterm="'+k+'">'+JUDGE_GLOSSARY[k].t+' ⓘ</span>').join('');
+  box.querySelectorAll('.jterm').forEach(el=>{
+    el.addEventListener('mouseenter', ()=>showJTip(el));
+    el.addEventListener('mouseleave', hideJTip);
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const open = window.__jtip && window.__jtip.style.display==='block' && window.__jtipEl===el;
+      if(open){ hideJTip(); } else { showJTip(el); window.__jtipEl = el; }
+    });
+  });
+}
+
 // 🧠 판단력 성장 (개요 탭 — 다크 테마). /api/judgment/growth 로드 → 레이더 5축 + 월별 추세선
 async function renderOverviewJudgment(sid){
   const idxEl = $('ovJudgeIndex');
   if (!idxEl) return;
+  renderJudgeTerms('ovJudgeTerms');   // 용어 툴팁(데이터 유무와 무관하게 항상 표시)
   if (_charts.ovjradar) { _charts.ovjradar.destroy(); _charts.ovjradar = null; }
   if (_charts.ovjtrend) { _charts.ovjtrend.destroy(); _charts.ovjtrend = null; }
   if (!sid) { idxEl.innerHTML = '<span style="color:#64748b">'+(_lang==='en'?'No student id.':'학생 ID 없음')+'</span>'; return; }
@@ -2233,6 +2303,7 @@ window.openReport = function(evalId){
 // 🧠 판단력 성장 리포트 — /api/judgment/growth (레이더 5축 + 월별 추세선)
 async function renderJudgmentGrowth(sid){
   const idxEl = $('rpJudgeIndex');
+  renderJudgeTerms('rpJudgeTerms');   // 용어 툴팁(데이터 유무와 무관하게 항상 표시)
   if (_rpCharts.jradar) { _rpCharts.jradar.destroy(); _rpCharts.jradar = null; }
   if (_rpCharts.jtrend) { _rpCharts.jtrend.destroy(); _rpCharts.jtrend = null; }
   try {
