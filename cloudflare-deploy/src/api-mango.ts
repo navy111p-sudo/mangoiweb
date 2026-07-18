@@ -1104,6 +1104,7 @@ export async function handleMangoApi(
         || path.startsWith('/api/get-lesson-video/') || path.startsWith('/api/admin/mango-videos')
         || path.startsWith('/api/admin/students/') || path.startsWith('/api/admin/selfscore/')
         || path === '/api/admin/attendance/import-cafe24' || path === '/api/admin/attendance/today' || path === '/api/admin/payments/import-cafe24'
+        || path === '/api/admin/payments/cafe24-diag'
         || path.startsWith('/api/admin/referrals') || path.startsWith('/api/admin/counseling/')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'
         || path === '/api/battle/leaderboard' || path === '/api/battle/history'
