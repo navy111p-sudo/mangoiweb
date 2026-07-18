@@ -5852,6 +5852,9 @@ document.addEventListener('click', (ev) => {
 (function bindStudentList(){
   const btn = document.getElementById('sm-load-students');
   if (btn) btn.addEventListener('click', loadStudentList);
+  // 📥 CSV 다운로드 — 화면에 보이는(스코프+검색+정렬) 학생만, PII 마스킹 유지
+  const xb = document.getElementById('sm-export-csv');
+  if (xb) xb.addEventListener('click', smExportStudentsCsv);
   // 🔍 학생명·아이디 검색 — 입력 즉시 필터링
   const sr = document.getElementById('sm-student-search');
   if (sr) sr.addEventListener('input', () => { _smSearch = sr.value; renderStudentTable(); });
