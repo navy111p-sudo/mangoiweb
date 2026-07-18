@@ -5529,8 +5529,13 @@ async function loadStudentList() {
     }));
   } catch (e) {}
   let merged = apiItems;
-  // 🔐 RBAC 스코프 필터 — 본사는 모두, 지사는 산하 대리점만, 대리점은 자기 학생만
-  if (typeof window.adminScopeFilter === 'function') merged = window.adminScopeFilter(merged, 'students');
+  // 🔐 RBAC 스코프 — 학생 목록은 **서버가 세션 기준으로 이미 격리**해서 준다:
+  //   · unified: studentScopeWhere(대리점=shop_name, 지사=franchise LIKE …)
+  //   · graph-list: 본사 전용(비본사는 403 → unified 폴백)
+  //   과거의 클라 adminScopeFilter(merged,'students')는 branch_id/agency_id(숫자ID)로 걸렀는데,
+  //   unified/graph 데이터엔 그 ID가 없고 franchise/shop_name(문자열)만 있어서 지사·대리점이 전부
+  //   탈락 → 0명으로 나오는 버그였다(2026-07-18, branch_daegu 643→0). 서버 격리가 권위 소스이므로
+  //   여기서 다시 거르지 않는다. (merged 는 이미 스코프된 rows)
   if (!merged.length) {
     tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'No students yet':'아직 학생 데이터 없음') + '</td></tr>';
     return;
