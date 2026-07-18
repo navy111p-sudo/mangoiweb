@@ -403,6 +403,33 @@
             .astronaut-wrap { width: 92px; height: 122px; left: 1%; top: 4%; opacity: 0.96; }
         }
 
+        /* ═══════ 🗨️ 우주인 호버 말풍선 (코믹북) — 2026-07-18 ═══════
+           래퍼는 pointer-events:none 유지(검색창·수업입장·메뉴 버튼 절대 안 가림).
+           우주인 형상 위에만 얹은 .astro-hotspot 만 마우스에 반응 → 왼쪽 끝 메뉴 버튼은
+           호트스팟 바깥이라 영향 없음. 말풍선 표시는 JS가 .astro-say 토글로 처리. */
+        .astro-hotspot { position:absolute; left:28%; right:-8%; top:4%; height:74%;
+            z-index:2; pointer-events:auto; cursor:pointer; }
+        .astronaut-wrap.astro-say { z-index: 60; }
+        .astronaut-wrap.astro-say .astronaut-img { animation-play-state: paused; }
+        .astro-bubble {
+            position: absolute; left: 50%; bottom: calc(100% - 6px); z-index: 61;
+            width: 300px; max-width: 78vw; transform: translate(-50%, 14px) scale(.8);
+            transform-origin: 50% 130%; opacity: 0; pointer-events: none; text-align: center;
+            background: #f6f9ff; color: #14204a; border: 3px solid #14204a; border-radius: 26px;
+            padding: 14px 18px; box-shadow: 6px 7px 0 0 rgba(20,30,70,.35);
+            transition: opacity .42s cubic-bezier(.22,.7,.3,1), transform .52s cubic-bezier(.34,1.7,.5,1);
+        }
+        .astro-bubble b { display:block; font-size: 15px; font-weight: 900; line-height: 1.35; color:#1b3aa0; }
+        .astro-bubble span { display:block; font-size: 16px; font-weight: 900; line-height: 1.4; margin-top: 3px; color:#14204a; }
+        .astro-bubble em { font-style: normal; color:#e8760a; }
+        .astro-bubble .astro-tail { position:absolute; left:50%; bottom:-25px; transform:translateX(-50%);
+            width:0; height:0; border-left:15px solid transparent; border-right:15px solid transparent;
+            border-top:26px solid #f6f9ff; z-index:2; }
+        .astro-bubble .astro-tail::before { content:""; position:absolute; left:-19px; top:-4px; width:0; height:0;
+            border-left:19px solid transparent; border-right:19px solid transparent; border-top:33px solid #14204a; z-index:-1; }
+        .astronaut-wrap.astro-say .astro-bubble { opacity:1; transform:translate(-50%,0) scale(1); }
+        @media (max-width: 640px) { .astro-bubble, .astro-hotspot { display:none; } }
+
         /* ═══════ 🛸 망고 UFO — 왼쪽 멀리서 작게 → 오른쪽으로 크게 가로지름 (2026-06-09) ═══════ */
         .mango-ufo {
             position: absolute;
@@ -5423,9 +5450,28 @@
     </div>
 
     <!-- 🐶 마티즈 우주비행사 (입체감 강화 — 다층 그라데이션 + 명암 + 하이라이트) -->
-    <div id="astronaut" class="astronaut-wrap" aria-hidden="true">
+    <div id="astronaut" class="astronaut-wrap">
+      <div class="astro-bubble" role="status" aria-hidden="true">
+        <b>AI 시대를 이끄는 힘,</b>
+        <span>생각하고 결정하는 영어: <em>망고아이!</em></span>
+        <span class="astro-tail"></span>
+      </div>
       <img src="/img/astronaut.png?v=20260713b" class="astronaut-img" alt="망고 우주비행사" /><!-- ?v 갱신: 신발 밑창 잘림 수정판(크로마키 임계 150 + 그림자 제거) 강제 로드 -->
+      <div class="astro-hotspot" role="button" tabindex="0" aria-label="망고 우주비행사 인사말"></div>
     </div>
+    <script>
+    (function(){
+      var a = document.getElementById('astronaut');
+      if (!a) return;
+      var spot = a.querySelector('.astro-hotspot');
+      // 데스크톱: 우주인 형상 위 호버 시 말풍선. 터치: 탭 토글(다른 곳 탭하면 닫힘).
+      spot.addEventListener('mouseenter', function(){ a.classList.add('astro-say'); });
+      spot.addEventListener('mouseleave', function(){ a.classList.remove('astro-say'); });
+      spot.addEventListener('click', function(e){ e.stopPropagation(); a.classList.toggle('astro-say'); });
+      spot.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); a.classList.toggle('astro-say'); } });
+      document.addEventListener('click', function(){ a.classList.remove('astro-say'); });
+    })();
+    </script>
 
     <script>
     (function(){
@@ -25066,7 +25112,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260718183908 -->
+<!-- BUILD:20260718185545 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
