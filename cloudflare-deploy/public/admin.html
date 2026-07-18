@@ -2761,11 +2761,14 @@
       if (!el) return;
       var node = el;                                   // 대상 + 모든 상위 details 펼치기
       while (node) { if (node.tagName === 'DETAILS') node.open = true; node = node.parentElement; }
-      try { var sub = el.querySelector('details.sub-item'); if (sub) sub.open = true; } catch(e){}   // 첫 하위 목록 펼침 → 자동 로드
+      try { var sub = el.querySelector('details.sub-item'); if (sub) sub.open = true; } catch(e){}   // 첫 하위 목록 펼침
       try {
         var smq = new URLSearchParams(location.search).get('smq');
         if (smq) { var si = document.getElementById('sm-student-search'); if (si) { si.value = smq; si.dispatchEvent(new Event('input', { bubbles:true })); } }
       } catch(e){}
+      // 실제 학생 로드는 toggle 이벤트(프로그램적 open 시 브라우저별로 안 뜰 수 있음)에 의존하지 말고
+      //   학생관리 카드일 때 로드 버튼을 명시적으로 눌러 확실히 실데이터를 불러온다.
+      try { if (h === 'card-students-mgmt') { var lb = document.getElementById('sm-load-students'); if (lb) lb.click(); } } catch(e){}
       setTimeout(function(){ try { el.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(e){} }, 140);
     }
     window.openCardFromHash = openCardFromHash;
@@ -20058,6 +20061,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260718182730 -->
+<!-- BUILD:20260718183012 -->
 </body>
 </html>

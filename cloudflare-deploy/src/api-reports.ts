@@ -6,6 +6,7 @@ import { json, parseJsonBody } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession } from './auth-admin';
 import { sendKakaoAlimtalk, getSolapiMode } from './solapi-client';
+import { computeGrowthForStudent } from './api-judgment';  // 🧠 판단력 성장(월간 리포트 삽입)
 import type { MangoEnv } from './api-mango';
 
 // ═══════════════════════════════════════════════════════════════════════
