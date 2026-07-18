@@ -684,7 +684,7 @@ Return STRICT JSON only, in BOTH Korean and English:
       const uid = (body.uid || url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       try {
-        const sc = await generatePersonalizedScenario(env, uid, body.lang || 'en');
+        const sc = await generatePersonalizedScenario(env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined);
         return json(sc, 200);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }

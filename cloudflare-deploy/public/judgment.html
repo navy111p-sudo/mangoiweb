@@ -77,6 +77,7 @@
     || localStorage.getItem('mango_uid') || localStorage.getItem('mangoUid')
     || localStorage.getItem('uid') || localStorage.getItem('student_uid') || '';
   var NAME = localStorage.getItem('mango_name') || localStorage.getItem('studentName') || '';
+  var TEXTBOOK = localStorage.getItem('mangoi_default_textbook') || localStorage.getItem('mango_textbook') || localStorage.getItem('textbook') || '';
   var stage = document.getElementById('stage');
   var streakEl = document.getElementById('streak');
   var scenario = null, chosen = -1, solved = 0;
@@ -94,7 +95,7 @@
     loading('맞춤 문제를 만들고 있어요…');
     chosen = -1;
     try{
-      var r = await fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({uid:UID, lang:'en'})});
+      var r = await fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({uid:UID, lang:'en', textbook:TEXTBOOK})});
       var d = await r.json();
       if(!d || d.ok===false || !Array.isArray(d.options) || d.options.length<2) throw new Error('no scenario');
       scenario = d;
@@ -223,6 +224,6 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260718181624 -->
+<!-- BUILD:20260718181933 -->
 </body>
 </html>

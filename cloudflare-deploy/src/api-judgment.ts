@@ -561,12 +561,14 @@ async function weakFromD1(env: MangoEnv, studentUid: string, limit = 3): Promise
  * D4: 학생 교재 컨텍스트 — 지금 배우는 교재명 + 대표 문장 몇 개(시나리오 관련성↑).
  *   students_erp.textbook → review_quizzes(같은 교재) 문장 추출. 없으면 {textbook:null, samples:[]}.
  */
-export async function getStudentTextbookContext(env: MangoEnv, studentUid: string): Promise<{ textbook: string | null; samples: string[] }> {
+export async function getStudentTextbookContext(env: MangoEnv, studentUid: string, hint?: string): Promise<{ textbook: string | null; samples: string[] }> {
   let textbook: string | null = null;
   try {
     const row: any = await env.DB.prepare(`SELECT textbook FROM students_erp WHERE user_id=? AND textbook IS NOT NULL AND textbook!='' LIMIT 1`).bind(studentUid).first();
     if (row?.textbook) textbook = String(row.textbook).trim();
   } catch { /* textbook 컬럼 없거나 학생 미존재 → 무시 */ }
+  // prod 는 students_erp.textbook 이 대체로 빈값 → 클라이언트가 넘긴 교재(localStorage 기본교재) 폴백
+  if (!textbook && hint) { const h = String(hint).trim(); if (h && h.length <= 120) textbook = h; }
   const samples: string[] = [];
   if (textbook) {
     try {
@@ -592,7 +594,7 @@ export async function getStudentTextbookContext(env: MangoEnv, studentUid: strin
  * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
  *   반환: { situation, options[], correct_index, why, skill_tag, target_misconception, textbook, based_on }
  */
-export async function generatePersonalizedScenario(env: MangoEnv, studentUid: string, lang = 'en'): Promise<any> {
+export async function generatePersonalizedScenario(env: MangoEnv, studentUid: string, lang = 'en', textbookHint?: string): Promise<any> {
   const t0 = Date.now();
   await ensureJudgmentTables(env);
   // 1) 취약 패턴 — Neo4j 우선, 실패 시 D1 폴백
@@ -608,7 +610,7 @@ export async function generatePersonalizedScenario(env: MangoEnv, studentUid: st
   const target = weak[0] || null;
   const targetMisc = target?.misconceptions?.[0] || null;
   const miscLabel = targetMisc ? (taxonomy.find((t) => t.code === targetMisc)?.label_en || targetMisc) : null;
-  const tb = await getStudentTextbookContext(env, studentUid);   // D4: 교재 컨텍스트
+  const tb = await getStudentTextbookContext(env, studentUid, textbookHint);   // D4: 교재 컨텍스트(클라 힌트 폴백)
 
   const ai = (env as any).AI;
   let scenario: any = null;
