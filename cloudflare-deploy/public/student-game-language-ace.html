@@ -139,18 +139,19 @@
     font-size:30px;font-weight:900;pointer-events:none;opacity:0;text-shadow:0 3px 12px rgba(0,0,0,.7);
     transition:opacity .2s}
 
-  /* 🔥 발사 버튼 — 이동(드래그)과 분리. 누르는 동안만 발사 */
-  #fireBtn{position:absolute;right:18px;bottom:118px;z-index:9;width:86px;height:86px;border-radius:50%;
-    border:3px solid rgba(255,255,255,.8);
+  /* 🔥 발사 버튼 — 작게, 폭격기 기수(맨 앞)에 붙어 따라다님. 누르는 동안만 발사 */
+  #fireBtn{position:absolute;left:0;top:0;z-index:9;width:52px;height:52px;border-radius:50%;
+    border:2px solid rgba(255,255,255,.85);
     background:radial-gradient(circle at 38% 30%,#ff9a63,#e5342b 68%,#ac2019);
-    color:#fff;font-size:15px;font-weight:900;letter-spacing:.5px;line-height:1;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-    box-shadow:0 7px 18px rgba(200,30,20,.55),inset 0 2px 7px rgba(255,255,255,.45);
-    text-shadow:0 1px 2px rgba(0,0,0,.45);cursor:pointer;
+    color:#fff;font-size:11px;font-weight:900;letter-spacing:.3px;line-height:1;
+    display:none;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    box-shadow:0 4px 11px rgba(200,30,20,.5),inset 0 2px 5px rgba(255,255,255,.45);
+    text-shadow:0 1px 2px rgba(0,0,0,.5);cursor:pointer;
     touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
-    pointer-events:auto;transition:transform .06s,filter .06s}
-  #fireBtn .fi{font-size:26px;line-height:1}
-  #fireBtn:active{transform:scale(.9);filter:brightness(1.18)}
+    pointer-events:auto;transition:transform .05s,filter .05s}
+  #fireBtn.on{display:flex}
+  #fireBtn .fi{font-size:18px;line-height:1}
+  #fireBtn:active{transform:scale(.86);filter:brightness(1.2)}
 </style>
 </head>
 <body>
@@ -1213,6 +1214,18 @@ function render(){
     if(G.flash>0){ ctx.fillStyle='rgba(255,40,40,'+(G.flash*0.5)+')'; ctx.fillRect(0,0,W,H); }
   }
   ctx.restore();
+  positionFireBtn();
+}
+
+/* 🔥 발사 버튼을 폭격기 기수(맨 앞)에 붙여 매 프레임 따라다니게 */
+function positionFireBtn(){
+  var fb=document.getElementById('fireBtn'); if(!fb)return;
+  if(!G || !G.running || G.dead || G.speaking){ fb.classList.remove('on'); return; }
+  fb.classList.add('on');
+  var noseY = G.py - 38*SCALE;                        // 스프라이트 상단 = 기수
+  var bw=fb.offsetWidth||52, bh=fb.offsetHeight||52;
+  fb.style.left = Math.round(G.px - bw/2) + 'px';     // 기수 중앙
+  fb.style.top  = Math.round(noseY - bh*0.5) + 'px';  // 기수 끝에 걸치게
 }
 
 function drawPlayer(){
@@ -1499,6 +1512,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260718063214 -->
+<!-- BUILD:20260718145123 -->
 </body>
 </html>
