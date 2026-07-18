@@ -595,7 +595,7 @@ Return STRICT JSON only:
   "options": ["<expression A>", "<expression B>", "<expression C>"],
   "correct_index": <0-based index of the best option>,
   "why": "<1-2 sentences: WHY the best option is best and why the others are less appropriate — this trains judgment>",
-  "why_ko": "<same explanation in Korean>"
+  "why_ko": "<same explanation in NATURAL, CORRECT KOREAN ONLY — use only Hangul, numbers, and basic punctuation; never insert Chinese, Hindi, or other scripts>"
 }`;
     try {
       const resp: any = await ai.run(JUDGE_MODEL, {
@@ -614,7 +614,7 @@ Return STRICT JSON only:
           options: j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4),
           correct_index: ci,
           why: String(j.why || '').slice(0, 600),
-          why_ko: String(j.why_ko || '').slice(0, 600),
+          why_ko: cleanKo(String(j.why_ko || '')).slice(0, 600),
         };
       }
     } catch (e: any) { console.warn('[judgment] scenario LLM fail:', e?.message); }
@@ -737,7 +737,7 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
   "reasoning_score": <0-100 logic/depth of the child's reason; if no reason given, 0-20>,
   "register_awareness": <0-100 how well the child considered formality/context>,
   "misconception": "<if the choice was wrong, ONE of: ${taxonomyList}; else null>",
-  "feedback_ko": "<1-2 warm, simple Korean sentences: praise + one tip>",
+  "feedback_ko": "<1-2 warm, simple sentences in NATURAL KOREAN ONLY (Hangul + basic punctuation; no Chinese/other scripts): praise + one tip>",
   "feedback_en": "<same in simple English>"
 }`;
     try {
@@ -755,7 +755,7 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
         registerAwareness = clamp(j.register_awareness);
         const mc = (j.misconception && j.misconception !== 'null') ? String(j.misconception).toUpperCase().trim() : null;
         misconception = (mc && taxonomy.some((t) => t.code === mc)) ? mc : null;
-        feedbackKo = String(j.feedback_ko || '').slice(0, 300);
+        feedbackKo = cleanKo(String(j.feedback_ko || '')).slice(0, 300);
         feedbackEn = String(j.feedback_en || '').slice(0, 300);
       }
     } catch (e: any) { console.warn('[judgment] answer LLM fail:', e?.message); }
@@ -780,6 +780,11 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
     register_awareness: registerAwareness, misconception, best_option: correct || null,
     feedback_ko: feedbackKo, feedback_en: feedbackEn,
   };
+}
+
+/** 한국어 출력 정제 — LLM이 가끔 섞는 한자·데바나가리·키릴 문자 제거(한글·ASCII·이모지·문장부호 유지). */
+export function cleanKo(s: string): string {
+  return String(s || '').replace(/[ऀ-ॿ㐀-䶿一-鿿Ѐ-ӿ؀-ۿ]/g, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 /** 자유 텍스트 사유(한국어)를 오답 유형 코드로 경량 매핑 — 매칭 없으면 null. */
