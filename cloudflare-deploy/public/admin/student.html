@@ -264,7 +264,7 @@
         </div>
         <div class="chart-wrap" style="margin-top:12px">
           <h3 data-ko="🧠 판단력 성장 (Decision-making)" data-en="🧠 Decision-making Growth">🧠 판단력 성장 (Decision-making)</h3>
-          <div id="ovJudgeIndex" style="font-size:13px;color:#bbb;margin:0 0 8px">—</div>
+          <div id="ovJudgeIndex" style="font-size:15px;color:#cbd5e1;margin:0 0 10px">—</div>
           <div class="grid-2">
             <div class="chart-box"><canvas id="ovJudgeRadar"></canvas></div>
             <div class="chart-box"><canvas id="ovJudgeTrend"></canvas></div>
@@ -607,7 +607,7 @@
       </div>
 
       <h3 data-ko="🧠 판단력 성장 (Decision-making)" data-en="🧠 Decision-making Growth">🧠 판단력 성장 (Decision-making)</h3>
-      <div id="rpJudgeIndex" style="font-size:13px;color:#444;margin:0 0 8px">—</div>
+      <div id="rpJudgeIndex" style="font-size:15px;color:#444;margin:0 0 10px">—</div>
       <div class="grid-charts">
         <div class="report-chartbox tall"><canvas id="rpJudgeRadar"></canvas></div>
         <div class="report-chartbox tall"><canvas id="rpJudgeTrend"></canvas></div>
@@ -1038,7 +1038,7 @@ function ensureJTip(){
   if (window.__jtip) return window.__jtip;
   const st = document.createElement('style');
   st.textContent = '.jterms{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}'
-    + '.jterm{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;cursor:pointer;'
+    + '.jterm{display:inline-flex;align-items:center;gap:3px;font-size:14px;font-weight:600;cursor:pointer;'
     + 'padding:3px 9px;border-radius:999px;background:rgba(124,58,237,.13);color:#7c3aed;border:1px solid rgba(124,58,237,.35);white-space:nowrap;user-select:none}'
     + '.jterm:hover{background:rgba(124,58,237,.22)}'
     + '.jtip{position:absolute;z-index:99999;background:#111827;color:#f1f5f9;border:1px solid #7c3aed;border-radius:10px;'
@@ -1077,7 +1077,7 @@ function renderJudgeTerms(containerId){
   if(!box) return;
   const keys = ['판단력','판단력지수','선택적절성','이유논리','자기교정력','어투민감도','일관성'];
   box.className = 'jterms';
-  box.innerHTML = '<span style="font-size:11px;color:#94a3b8;align-self:center;margin-right:2px">'
+  box.innerHTML = '<span style="font-size:13px;color:#94a3b8;align-self:center;margin-right:2px">'
     + (_lang==='en'?'Tap a term:':'용어를 눌러보세요:') + '</span>'
     + keys.map(k=>'<span class="jterm" data-jterm="'+k+'">'+JUDGE_GLOSSARY[k].t+' ⓘ</span>').join('');
   box.querySelectorAll('.jterm').forEach(el=>{
@@ -1110,7 +1110,7 @@ async function renderOverviewJudgment(sid){
     const vals = [rad['선택적절성'], rad['이유논리'], rad['자기교정력'], rad['어투민감도'], rad['일관성']].map(v => v==null?0:v);
     const hasData = (d.events_count||0) > 0;
     idxEl.innerHTML = hasData
-      ? '<b style="color:#a78bfa;font-size:16px">' + (_lang==='en'?'Judgment Index':'판단력 지수') + ': ' + (d.judgment_index!=null?d.judgment_index:'—') + '</b>'
+      ? '<b style="color:#a78bfa;font-size:20px">' + (_lang==='en'?'Judgment Index':'판단력 지수') + ': ' + (d.judgment_index!=null?d.judgment_index:'—') + '</b>'
         + ' <span style="color:#94a3b8">· ' + d.events_count + (_lang==='en'?' decisions':'회 판단') + '</span>'
         + ((Array.isArray(d.top_misconceptions)&&d.top_misconceptions.length) ? ' · ' + (_lang==='en'?'top gaps':'주요 오답') + ': ' + d.top_misconceptions.slice(0,3).map(m=>esc(m.code)).join(', ') : '')
       : '<span style="color:#64748b">' + (_lang==='en'?'No decision data yet — appears after class-end judgment analysis accrues.':'아직 판단 데이터가 없습니다 — 수업 종료 분석이 쌓이면 표시됩니다.') + '</span>';
@@ -1119,10 +1119,10 @@ async function renderOverviewJudgment(sid){
       data: { labels: axes, datasets: [{ label:_lang==='en'?'Decision-making':'판단력', data: vals,
         backgroundColor:'rgba(167,139,250,0.22)', borderColor:'#a78bfa', borderWidth:2, pointBackgroundColor:'#a78bfa', pointRadius:4 }] },
       options: { responsive:true, maintainAspectRatio:false,
-        scales: { r: { beginAtZero:true, max:100, pointLabels:{font:{size:11,weight:'700'},color:'#cbd5e1'},
-          ticks:{backdropColor:'transparent',color:'#64748b',stepSize:20}, grid:{color:'#334155'}, angleLines:{color:'#334155'} } },
-        plugins: { legend:{labels:{color:'#e2e8f0',font:{size:12}}},
-          title:{display:true,text:_lang==='en'?'Decision-making (5 axes)':'판단력 5축',color:'#94a3b8',font:{size:12,weight:'700'}} } }
+        scales: { r: { beginAtZero:true, max:100, pointLabels:{font:{size:13,weight:'700'},color:'#cbd5e1'},
+          ticks:{backdropColor:'transparent',color:'#64748b',stepSize:20,font:{size:12}}, grid:{color:'#334155'}, angleLines:{color:'#334155'} } },
+        plugins: { legend:{labels:{color:'#e2e8f0',font:{size:13}}},
+          title:{display:true,text:_lang==='en'?'Decision-making (5 axes)':'판단력 5축',color:'#94a3b8',font:{size:14,weight:'700'}} } }
     });
     const tr = Array.isArray(d.trend) ? d.trend : [];
     _charts.ovjtrend = new Chart($('ovJudgeTrend').getContext('2d'), {
@@ -1131,10 +1131,10 @@ async function renderOverviewJudgment(sid){
         data: tr.map(x=> x.judgment_index==null?null:x.judgment_index),
         borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.15)', borderWidth:2, tension:.3, fill:true, pointRadius:4, spanGaps:true }] },
       options: { responsive:true, maintainAspectRatio:false,
-        scales: { y:{ beginAtZero:true, max:100, ticks:{color:'#94a3b8'}, grid:{color:'#334155'} },
-          x:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#334155'} } },
+        scales: { y:{ beginAtZero:true, max:100, ticks:{color:'#94a3b8',font:{size:12}}, grid:{color:'#334155'} },
+          x:{ ticks:{color:'#94a3b8',font:{size:12}}, grid:{color:'#334155'} } },
         plugins: { legend:{display:false},
-          title:{display:true,text:_lang==='en'?'Growth Trend (monthly)':'성장 추이 (월별)',color:'#94a3b8',font:{size:12,weight:'700'}} } }
+          title:{display:true,text:_lang==='en'?'Growth Trend (monthly)':'성장 추이 (월별)',color:'#94a3b8',font:{size:14,weight:'700'}} } }
     });
   } catch(e){
     idxEl.innerHTML = '<span style="color:#64748b">' + (_lang==='en'?'Decision-making data unavailable yet.':'판단력 데이터가 아직 없습니다.') + '</span>';
@@ -2317,8 +2317,8 @@ async function renderJudgmentGrowth(sid){
     const vals = [rad['선택적절성'], rad['이유논리'], rad['자기교정력'], rad['어투민감도'], rad['일관성']].map(v => v==null?0:v);
     const hasData = (d.events_count||0) > 0;
     idxEl.innerHTML = hasData
-      ? '<b style="color:#7c3aed;font-size:16px">' + (_lang==='en'?'Judgment Index':'판단력 지수') + ': ' + (d.judgment_index!=null?d.judgment_index:'—') + '</b>'
-        + ' <span style="color:#888">· ' + d.events_count + (_lang==='en'?' decisions':'회 판단') + '</span>'
+      ? '<b style="color:#7c3aed;font-size:20px">' + (_lang==='en'?'Judgment Index':'판단력 지수') + ': ' + (d.judgment_index!=null?d.judgment_index:'—') + '</b>'
+        + ' <span style="color:#666;font-size:14px">· ' + d.events_count + (_lang==='en'?' decisions':'회 판단') + '</span>'
         + ((Array.isArray(d.top_misconceptions)&&d.top_misconceptions.length) ? ' · ' + (_lang==='en'?'top gaps':'주요 오답') + ': ' + d.top_misconceptions.slice(0,3).map(m=>esc(m.code)).join(', ') : '')
       : '<span style="color:#aaa">' + (_lang==='en'?'No decision data yet — appears after class-end judgment analysis accrues.':'아직 판단 데이터가 없습니다 — 수업 종료 분석이 쌓이면 표시됩니다.') + '</span>';
     // 레이더 5축
@@ -2330,11 +2330,11 @@ async function renderJudgmentGrowth(sid){
         pointBackgroundColor: '#7c3aed', pointRadius: 5, pointHoverRadius: 7 }] },
       options: { responsive: true, maintainAspectRatio: false,
         scales: { r: { beginAtZero: true, max: 100,
-          pointLabels: { font: { size: 12, weight: '700' }, color: '#222' },
-          ticks: { backdropColor: 'transparent', color: '#888', stepSize: 20 },
+          pointLabels: { font: { size: 14, weight: '700' }, color: '#222' },
+          ticks: { backdropColor: 'transparent', color: '#888', stepSize: 20, font: { size: 12 } },
           grid: { color: '#e0e0e0' }, angleLines: { color: '#e0e0e0' } } },
-        plugins: { legend: { labels: { color: '#222', font: { size: 12 } } },
-          title: { display: true, text: _lang==='en'?'Decision-making (5 axes)':'판단력 5축', color: '#666', font: { size: 12, weight: '700' } } } }
+        plugins: { legend: { labels: { color: '#222', font: { size: 13 } } },
+          title: { display: true, text: _lang==='en'?'Decision-making (5 axes)':'판단력 5축', color: '#666', font: { size: 14, weight: '700' } } } }
     });
     // 월별 추세선
     const tr = Array.isArray(d.trend) ? d.trend : [];
@@ -2345,10 +2345,10 @@ async function renderJudgmentGrowth(sid){
         borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.12)', borderWidth: 2,
         tension: .3, fill: true, pointRadius: 4, spanGaps: true }] },
       options: { responsive: true, maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#666' }, grid: { color: '#e0e0e0' } },
-          x: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#e0e0e0' } } },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#666', font: { size: 12 } }, grid: { color: '#e0e0e0' } },
+          x: { ticks: { color: '#666', font: { size: 12 } }, grid: { color: '#e0e0e0' } } },
         plugins: { legend: { display: false },
-          title: { display: true, text: _lang==='en'?'Growth Trend (monthly)':'성장 추이 (월별)', color: '#666', font: { size: 12, weight: '700' } } } }
+          title: { display: true, text: _lang==='en'?'Growth Trend (monthly)':'성장 추이 (월별)', color: '#666', font: { size: 14, weight: '700' } } } }
     });
   } catch(e){
     idxEl.innerHTML = '<span style="color:#aaa">' + (_lang==='en'?'Decision-making data unavailable yet.':'판단력 데이터가 아직 없습니다.') + '</span>';

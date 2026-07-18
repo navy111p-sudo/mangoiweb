@@ -2748,6 +2748,33 @@
   };
 </script>
 
+<script>
+  // 🔗 (2026-07-16) 학생관리 일원화 — 외부 진입점(홈 타일·AI 명령·구 /admin/students ERP 페이지 리다이렉트)이
+  //   해시로 실데이터 학생관리 카드를 바로 펼치게 한다. 예: /admin.html#card-students-mgmt
+  //   · 카드 + 첫 하위(학생 목록)를 펼치면 adm-core 의 lazy-load(toggle)로 실제 학생이 자동 로드됨.
+  //   · ?smq=이름 이 함께 오면 로드 후 검색창에 자동 입력해 해당 학생을 바로 찾는다.
+  (function(){
+    function openCardFromHash(){
+      var h = (location.hash || '').replace(/^#/, '');
+      if (!h) return;
+      var el = document.getElementById(h);
+      if (!el) return;
+      var node = el;                                   // 대상 + 모든 상위 details 펼치기
+      while (node) { if (node.tagName === 'DETAILS') node.open = true; node = node.parentElement; }
+      try { var sub = el.querySelector('details.sub-item'); if (sub) sub.open = true; } catch(e){}   // 첫 하위 목록 펼침 → 자동 로드
+      try {
+        var smq = new URLSearchParams(location.search).get('smq');
+        if (smq) { var si = document.getElementById('sm-student-search'); if (si) { si.value = smq; si.dispatchEvent(new Event('input', { bubbles:true })); } }
+      } catch(e){}
+      setTimeout(function(){ try { el.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(e){} }, 140);
+    }
+    window.openCardFromHash = openCardFromHash;
+    if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', openCardFromHash);
+    else openCardFromHash();
+    window.addEventListener('hashchange', openCardFromHash);
+  })();
+</script>
+
 <details class="table-card menu-card" open id="card-ai-insights">
   <summary><span data-ko="🤖 AI 인사이트 대시보드" data-en="🤖 AI Insight Dashboards">🤖 AI 인사이트 대시보드</span></summary>
   <div class="menu-body">
@@ -20031,6 +20058,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260718181933 -->
+<!-- BUILD:20260718182730 -->
 </body>
 </html>

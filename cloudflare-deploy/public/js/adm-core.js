@@ -7680,7 +7680,7 @@ async function executeAiAction(name, args) {
 
       // 액션 버튼들 (Phase 3: 미등록 학생 자동등록 + 재시도)
       html += '<div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">' +
-        '<a href="/admin/students.html" class="ai-action-confirm-btn" style="flex:1;min-width:140px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px">👥 학생관리 열기</a>';
+        '<a href="/admin.html#card-students-mgmt" class="ai-action-confirm-btn" style="flex:1;min-width:140px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px">👥 학생관리 열기</a>';
       // 미등록 학생이 있으면 신청양식 + 빠른 자동등록 버튼 (Phase 3-3 + Phase 5)
       if (notFound.length) {
         const retryItems = notFound.map(x => ({ action: x.action, student_name: x.student_name, days: x.days, date: x.date, time: x.time, type: x.type, label: x.label }));

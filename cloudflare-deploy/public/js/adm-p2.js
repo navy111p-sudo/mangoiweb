@@ -225,7 +225,7 @@
     {re:/매출|차트|일자별|revenue|chart/i, menu_id:'card-daily-charts', ko:'일자별 차트 카드로 이동할게요.', en:'Opening the daily charts card.'},
     {re:/녹화|recording/i, menu_id:'card-recording-storage', ko:'녹화 관리 카드로 이동할게요.', en:'Opening the recording storage card.'},
     {re:/수업\s*일지|일지|lesson\s*log/i, menu_id:'card-lesson-log', ko:'수업 일지 카드로 이동할게요.', en:'Opening the lesson log card.'},
-    {re:/학생\s*관리|학생관리|학생\s*목록|student\s*manage/i, url:'/admin/students.html', ko:'학생관리 페이지로 이동할게요.', en:'Opening the student management page.'},
+    {re:/학생\s*관리|학생관리|학생\s*목록|student\s*manage/i, url:'/admin.html#card-students-mgmt', ko:'학생관리로 이동할게요.', en:'Opening student management.'},
     {re:/전체\s*학생\s*스케줄|전체학생\s*스케줄|전교생\s*스케줄|모든\s*학생\s*스케줄|전체\s*학생\s*일정|전체\s*스케줄|전체\s*일정|학원\s*전체|all\s*(student\s*)?schedule/i, url:'/admin/all-schedules.html', ko:'학원 전체 학생 스케줄 페이지로 이동할게요.', en:'Opening the academy-wide student schedule page.'},
     {re:/마이\s*페이지|마이페이지|내\s*정보|mypage|profile/i, url:'/admin/mypage.html', ko:'마이페이지로 이동할게요.', en:'Opening my page.'},
     {re:/단체\s*등록|단체등록|일괄\s*등록|대량\s*등록|bulk\s*regist/i, menu_id:'card-enrollments', ko:'수강신청 관리에서 일괄(단체) 등록을 할 수 있어요.', en:'You can bulk-register in the enrollment card.'},
@@ -238,7 +238,7 @@
     var sm=s.match(/([가-힣]{2,4})\s*학생/);
     if(sm && !/관리|목록|랭킹|평가|성적|배지|출석|급여|이탈|전체|전학|전반/.test(s)){
       var nm=sm[1];
-      return {url:'/admin/students.html?q='+encodeURIComponent(nm), ko:'"'+nm+'" 학생을 학생관리에서 검색할게요.', en:'Searching for student "'+nm+'".'};
+      return {url:'/admin.html?smq='+encodeURIComponent(nm)+'#card-students-mgmt', ko:'"'+nm+'" 학생을 학생관리에서 검색할게요.', en:'Searching for student "'+nm+'".'};
     }
     return null;
   }
