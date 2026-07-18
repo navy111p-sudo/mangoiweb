@@ -411,22 +411,18 @@
             z-index:2; pointer-events:auto; cursor:pointer; }
         .astronaut-wrap.astro-say { z-index: 60; }
         .astronaut-wrap.astro-say .astronaut-img { animation-play-state: paused; }
+        /* 둥근 말풍선(꼬리 없음) — 머리에서 떨어져 오른쪽 위에 떠 있음 */
         .astro-bubble {
-            position: absolute; left: 50%; bottom: calc(100% - 6px); z-index: 61;
-            width: 300px; max-width: 78vw; transform: translate(-50%, 14px) scale(.8);
-            transform-origin: 50% 130%; opacity: 0; pointer-events: none; text-align: center;
-            background: #f6f9ff; color: #14204a; border: 3px solid #14204a; border-radius: 26px;
-            padding: 14px 18px; box-shadow: 6px 7px 0 0 rgba(20,30,70,.35);
+            position: absolute; left: 96%; bottom: calc(100% + 14px); z-index: 61;
+            width: 296px; max-width: 74vw; transform: translate(-50%, 12px) scale(.82);
+            transform-origin: 18% 118%; opacity: 0; pointer-events: none; text-align: center;
+            background: #ffffff; color: #14204a; border: 3px solid #2f6fe0; border-radius: 46px;
+            padding: 16px 26px; box-shadow: 0 16px 36px -10px rgba(6,14,40,.55), 0 2px 0 rgba(47,111,224,.25);
             transition: opacity .42s cubic-bezier(.22,.7,.3,1), transform .52s cubic-bezier(.34,1.7,.5,1);
         }
-        .astro-bubble b { display:block; font-size: 15px; font-weight: 900; line-height: 1.35; color:#1b3aa0; }
+        .astro-bubble b { display:block; font-size: 15px; font-weight: 900; line-height: 1.35; color:#1b5fc0; }
         .astro-bubble span { display:block; font-size: 16px; font-weight: 900; line-height: 1.4; margin-top: 3px; color:#14204a; }
         .astro-bubble em { font-style: normal; color:#e8760a; }
-        .astro-bubble .astro-tail { position:absolute; left:50%; bottom:-25px; transform:translateX(-50%);
-            width:0; height:0; border-left:15px solid transparent; border-right:15px solid transparent;
-            border-top:26px solid #f6f9ff; z-index:2; }
-        .astro-bubble .astro-tail::before { content:""; position:absolute; left:-19px; top:-4px; width:0; height:0;
-            border-left:19px solid transparent; border-right:19px solid transparent; border-top:33px solid #14204a; z-index:-1; }
         .astronaut-wrap.astro-say .astro-bubble { opacity:1; transform:translate(-50%,0) scale(1); }
         @media (max-width: 640px) { .astro-bubble, .astro-hotspot { display:none; } }
 
@@ -5454,7 +5450,6 @@
       <div class="astro-bubble" role="status" aria-hidden="true">
         <b>AI 시대를 이끄는 힘,</b>
         <span>생각하고 결정하는 영어: <em>망고아이!</em></span>
-        <span class="astro-tail"></span>
       </div>
       <img src="/img/astronaut.png?v=20260713b" class="astronaut-img" alt="망고 우주비행사" /><!-- ?v 갱신: 신발 밑창 잘림 수정판(크로마키 임계 150 + 그림자 제거) 강제 로드 -->
       <div class="astro-hotspot" role="button" tabindex="0" aria-label="망고 우주비행사 인사말"></div>
@@ -25112,7 +25107,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260718185545 -->
+<!-- BUILD:20260718191416 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
