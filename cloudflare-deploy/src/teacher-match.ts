@@ -325,11 +325,19 @@ export async function runCypher(
   const isLegacy = /\/tx\/commit\/?$/.test(endpoint) || /\/transaction\/commit\/?$/.test(endpoint);
 
   const post = async (url: string, body: unknown): Promise<Response> => {
+    // ⏱️ (2026-07-18) 8초 타임아웃 — 외부 Neo4j(카페24 :8880)가 느리거나 응답 없을 때
+    //   Workers fetch 가 무한 대기해 관리자 화면이 버퍼링되던 것 방지. 초과 시 abort →
+    //   상위 catch 가 502/503(NEO4J_UNREACHABLE)로 매핑 → 화면 스피너가 즉시 풀림.
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 8000);
     try {
-      return await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      return await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ac.signal });
     } catch (e: any) {
       // 네트워크/DNS/타임아웃 — 상위에서 503 으로 매핑
+      if (e && e.name === 'AbortError') throw new Error(`Neo4j 응답 시간 초과(8s): ${url}`);
       throw new Error(`Neo4j 연결 실패(${url}): ${e?.message || e}`);
+    } finally {
+      clearTimeout(timer);
     }
   };
 
