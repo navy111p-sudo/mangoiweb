@@ -411,7 +411,7 @@
             z-index:2; pointer-events:auto; cursor:pointer; }
         .astronaut-wrap.astro-say { z-index: 60; }
         .astronaut-wrap.astro-say .astronaut-img { animation-play-state: paused; }
-        /* "질문 있어요?" 스타일 — 연녹색 파스텔 프레임 + 사지그린 테두리 + 아래 꼬리 */
+        /* "질문 있어요?" 스타일 — 연녹색 파스텔 프레임 + 사지그린 테두리 (꼬리·삼각형 없음) */
         .astro-bubble {
             position: absolute; left: 82%; bottom: calc(100% + 8px); z-index: 61;
             width: 300px; max-width: 74vw; transform: translate(-50%, 12px) scale(.82);
@@ -423,11 +423,6 @@
         .astro-bubble b { display:block; font-size: 15px; font-weight: 900; line-height: 1.35; color:#3f7a26; }
         .astro-bubble span { display:block; font-size: 16px; font-weight: 900; line-height: 1.4; margin-top: 3px; color:#24361a; }
         .astro-bubble em { font-style: normal; color:#e8760a; }
-        .astro-bubble .astro-tail { position:absolute; left:24%; bottom:-15px; transform:translateX(-50%);
-            width:0; height:0; border-left:13px solid transparent; border-right:13px solid transparent;
-            border-top:19px solid #eaf5e0; z-index:2; }
-        .astro-bubble .astro-tail::before { content:""; position:absolute; left:-16px; top:-3px; width:0; height:0;
-            border-left:16px solid transparent; border-right:16px solid transparent; border-top:25px solid #86bd63; z-index:-1; }
         .astronaut-wrap.astro-say .astro-bubble { opacity:1; transform:translate(-50%,0) scale(1); }
         @media (max-width: 640px) { .astro-bubble, .astro-hotspot { display:none; } }
 
@@ -5455,7 +5450,6 @@
       <div class="astro-bubble" role="status" aria-hidden="true">
         <b>AI 시대를 이끄는 힘,</b>
         <span>생각하고 결정하는 영어: <em>망고아이!</em></span>
-        <span class="astro-tail"></span>
       </div>
       <img src="/img/astronaut.png?v=20260713b" class="astronaut-img" alt="망고 우주비행사" /><!-- ?v 갱신: 신발 밑창 잘림 수정판(크로마키 임계 150 + 그림자 제거) 강제 로드 -->
       <div class="astro-hotspot" role="button" tabindex="0" aria-label="망고 우주비행사 인사말"></div>
@@ -25113,7 +25107,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260718193112 -->
+<!-- BUILD:20260718193529 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
