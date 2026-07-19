@@ -542,7 +542,8 @@ function newGame(){
       time:70, timeMax:70, lives:3, prog:[],
       shake:0, flash:0, invuln:0,
       running:false, paused:false, speaking:false, over:false, dead:false,
-      spawnT:1.0, watchT:1.0, fuelT:5 };
+      spawnT:1.0, watchT:1.0, fuelT:5,
+      lock:null, lockUntil:0, combo:0, comboT:0, maxCombo:0, fuelWarned:false };
   pickWaypoint();
   loadSentence();
 }
@@ -640,7 +641,7 @@ function _leadAngle(e){
   return Math.atan2(ty-G.py, tx-G.px);
 }
 function fireAt(px,py){ var e=_pickTargetNear(px,py);
-  if(e){ G.lockId=e; G.lockT=0.5; playerFire(_leadAngle(e)); }   // 적 자동조준 발사
+  if(e){ G.lock=e; G.lockUntil=performance.now()+2200; playerFire(_leadAngle(e)); }  // 🔒 타깃 락 → 이후 자동 추적·연사
   else playerFire(Math.atan2(py-G.py, px-G.px)); }               // 빈 곳=그 방향 발사
 function enemyFire(e){
   var m=muzzle(e.x,e.y,e.turAng,26*SCALE);
@@ -713,6 +714,18 @@ function update(dt){
   if(sp>4){ G.track+=sp*dt*0.05; }
   if(G.invuln>0)G.invuln-=dt;
 
+  // 🔒 타깃 락 — 탭한 적을 포탑이 자동 추적하며 재장전마다 자동 연사(맞을 때까지)
+  if(G.lock && G.lock.alive && performance.now()<G.lockUntil){
+    var la=_leadAngle(G.lock);
+    G.turAng=angLerp(G.turAng, la, Math.min(1,dt*14)); G.hullAng=G.turAng;
+    if(performance.now()-G.fireT >= 380) playerFire(la);
+  } else { G.lock=null; }
+  // 🔥 콤보 감쇠(2.6초 안에 다음 정답 없으면 리셋)
+  if(G.combo>0 && performance.now()-G.comboT>2600) G.combo=0;
+  // ⛽ 연료 부족 경고(1회)
+  if(G.time<12 && !G.fuelWarned){ G.fuelWarned=true; banner('⛽ 연료 부족! 젤리통을 쏘거나 밟으세요','#ff6b6b'); }
+  if(G.time>20) G.fuelWarned=false;
+
   // 스폰
   G.spawnT-=dt;
   if(G.spawnT<=0){ spawnEnemy(false); G.spawnT=diffSpawnBase()*(0.8+Math.random()*0.6); }
@@ -735,9 +748,10 @@ function update(dt){
     if(e.type==='stug'){ e.hullAng=angLerp(e.hullAng, aim, Math.min(1,dt*1.4)); e.turAng=e.hullAng; }
     else { e.turAng=angLerp(e.turAng, aim, Math.min(1,dt*2.5)); }
     if(e.hitFlash>0)e.hitFlash-=dt;
-    // 사격(화면 안이고 재장전 끝)
+    // 사격 — 쏘기 전 0.5초 '조준 예고선'(회피 가능) 후 발사
     e.fireT-=dt; var inView=(e.x>-10&&e.x<W+10&&e.y>-10&&e.y<H+10);
-    if(e.fireT<=0 && inView){ enemyFire(e); e.fireT=(e.type==='tiger'?2.6:3.2)*diffFireMul()*(0.8+Math.random()*0.5); }
+    if(e.aiming){ e.aimT-=dt; if(e.aimT<=0){ e.aiming=false; enemyFire(e); e.fireT=(e.type==='tiger'?2.6:3.2)*diffFireMul()*(0.8+Math.random()*0.5); } }
+    else if(e.fireT<=0 && inView){ e.aiming=true; e.aimT=0.5; e.aimAng=Math.atan2(G.py-e.y, G.px-e.x); }
   }
 
   // 플레이어 포탄
@@ -798,15 +812,22 @@ function resolveHit(en){
   G.wrecks.push({ x:en.x, y:en.y, age:0, ang:en.hullAng, type:en.type });
   if(sameWord(en.word, neededWord())){
     bigExplode(en.x,en.y); sndBigBoom();
-    G.correct++; G.score += 100 + G.clears*10;
+    // 🔥 콤보: 연속 정답마다 배율 보너스
+    G.combo++; G.comboT=performance.now(); if(G.combo>G.maxCombo)G.maxCombo=G.combo;
+    var cmul = 1 + Math.min(1.5, (G.combo-1)*0.25);        // x1 ~ x2.5
+    var gain = Math.round((100 + G.clears*10) * cmul);
+    G.correct++; G.score += gain;
     pushProg(en.word,true); speak(en.word, 0.95, 1); wordPopAt(en.x,en.y, en.word);
-    G.next++; banner('+'+(100+G.clears*10), '#a3e635');
+    G.next++;
+    if(G.combo>=3){ banner('🔥 '+G.combo+' 콤보!  +'+gain, '#ffd479'); if(G.combo>=3) comboFx(en.x,en.y); }
+    else banner('+'+gain, '#a3e635');
     if(G.correct>=GOAL){ updateHUD(); return winGame(); }
     if(G.next>=G.sent.w.length){ sentenceComplete(); } else renderSentence();
   } else {
     bigExplode(en.x,en.y); sndBoom(); sndBuzz();
     speak(en.word, 0.95, 1);
     pushProg(en.word,false);
+    G.combo=0;                                             // 오답 = 콤보 리셋
     G.time=Math.max(0,G.time-2.5); G.flash=0.25;
     banner('오답! -2.5s', '#ff6b6b');
   }
@@ -926,7 +947,13 @@ function render(){
   if(G){
     G.wrecks.forEach(drawWreck);
     G.fuels.forEach(drawFuel);
-    G.enemies.forEach(function(e){ drawTank(e.x,e.y,e.hullAng,e.turAng,e.type==='tiger'?'tiger':'stug',e.r/24, e.hitFlash>0); drawLabel(e); });
+    // 적 사격 예고선(빨간 점선) — 탱크 아래에 먼저
+    G.enemies.forEach(function(e){ if(e.aiming){ var a=e.aimAng||0, L=Math.hypot(W,H);
+      ctx.save(); ctx.setLineDash([8,7]); ctx.strokeStyle='rgba(255,70,50,'+(0.35+0.35*Math.sin(performance.now()/60))+')'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(e.x,e.y); ctx.lineTo(e.x+Math.cos(a)*L, e.y+Math.sin(a)*L); ctx.stroke(); ctx.restore(); } });
+    G.enemies.forEach(function(e){ drawTank(e.x,e.y,e.hullAng,e.turAng,e.type==='tiger'?'tiger':'stug',e.r/24, e.hitFlash>0); drawLabel(e);
+      if(G.lock===e && e.alive){ ctx.save(); ctx.strokeStyle='#ff4d4d'; ctx.lineWidth=2.4; ctx.setLineDash([5,4]);
+        ctx.beginPath(); ctx.arc(e.x,e.y,e.r+13*SCALE,0,7); ctx.stroke(); ctx.restore(); } });
     // 적 포탄
     G.ebul.forEach(function(b){ drawShell(b,'#ff7b3c'); });
     // 플레이어 포탄
@@ -936,10 +963,22 @@ function render(){
       if(!blink) drawTank(G.px,G.py,G.hullAng,G.turAng,'sherman',SCALE/1.0,false); }
     G.parts.forEach(drawPart);
     if(G.flash>0){ ctx.fillStyle='rgba(255,60,40,'+(G.flash*0.5)+')'; ctx.fillRect(0,0,W,H); }
+    // ⛽ 연료 부족 = 화면 가장자리 빨간 맥동
+    if(G.time<12){ var fp=0.12+0.12*Math.sin(performance.now()/180); var vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.62);
+      vg.addColorStop(0,'rgba(255,40,40,0)'); vg.addColorStop(1,'rgba(255,30,30,'+fp+')'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H); }
+    // 🔥 콤보 카운터(상단 중앙)
+    if(G.combo>=2){ ctx.save(); ctx.textAlign='center'; var cs=1+Math.min(0.4,(performance.now()-G.comboT)<180?0.4:0);
+      ctx.font='900 '+Math.round(26*SCALE*cs)+'px "Segoe UI",sans-serif'; ctx.fillStyle='#ffd479';
+      ctx.shadowColor='rgba(0,0,0,.6)'; ctx.shadowBlur=8; ctx.fillText('🔥 '+G.combo+' COMBO', W/2, 70); ctx.restore(); }
   }
   ctx.restore();
   positionFireBtn();
 }
+/* 🔥 콤보 이펙트 — 금빛 링 + 스파크 */
+function comboFx(x,y){ if(!G)return; G.parts.push({ring:true,x:x,y:y,age:0,life:0.5,r0:8,r1:95*SCALE});
+  for(var i=0;i<14;i++){ var a=Math.random()*6.28, sp=130+Math.random()*180;
+    G.parts.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:0.5+Math.random()*0.4,age:0,size:2+Math.random()*3,kind:'spark'}); }
+  G.shake=Math.min(16,G.shake+5); }
 /* 🔫 발사 버튼 — 셔먼 위(머리쪽)에 작게 따라다님(매 프레임 위치). PC는 마우스 우클릭/스페이스도 가능 */
 function positionFireBtn(){ var fb=document.getElementById('fireBtn'); if(!fb)return;
   if(!(G && G.running && !G.dead && !G.speaking)){ fb.classList.remove('on'); return; }
@@ -1057,6 +1096,9 @@ function drawShell(b,col){ var sp=Math.hypot(b.vx,b.vy)||1, ux=b.vx/sp, uy=b.vy/
   ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(b.x,b.y,2.4*SCALE,0,7); ctx.fill(); ctx.restore(); }
 /* ⛟ 젤리(제리캔) 연료통 — 앞면에 X 프레스 패널 있는 WWII 석유통 */
 function drawFuel(fu){ var r=fu.r; ctx.save(); ctx.translate(fu.x,fu.y+Math.sin(fu.bob)*3);
+  // ⛽ 연료 부족 시 젤리통 강조(맥동 초록 글로우)
+  if(G && G.time<15){ var gp=0.4+0.4*Math.sin(performance.now()/200+fu.bob);
+    ctx.fillStyle='rgba(90,240,120,'+(gp*0.5)+')'; ctx.beginPath(); ctx.arc(0,0,r*2.1,0,7); ctx.fill(); }
   ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.beginPath(); ctx.ellipse(0,r*1.05,r*0.95,r*0.4,0,0,7); ctx.fill();
   var bw=r*1.5, bh=r*2.0;
   var gg=ctx.createLinearGradient(-bw/2,0,bw/2,0); gg.addColorStop(0,'#3f7a3a'); gg.addColorStop(.5,'#5aa24e'); gg.addColorStop(1,'#356b31');
@@ -1123,6 +1165,10 @@ function startGame(){
   newGame(); G.running=true; updateHUD();
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock(); bgmStart();
   banner('🛡️ 전투 시작!', '#ffd479');
+  // 👋 첫 판 온보딩 힌트
+  var onb=false; try{ onb=!!localStorage.getItem('mangoi_tank_onboarded'); }catch(_){}
+  if(!onb){ try{ localStorage.setItem('mangoi_tank_onboarded','1'); }catch(_){}
+    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('🎯 빛나는 ▼ 적 탱크를 탭(클릭)하면 자동 조준!','#7fd1ff'); }, 1400); }
 }
 function endGame(win){ if(!G||G.over)return; G.over=true; G.running=false; flushProg();
   bgmStop(); _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
@@ -1175,6 +1221,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260719171745 -->
+<!-- BUILD:20260719173213 -->
 </body>
 </html>
