@@ -159,13 +159,33 @@ export async function handleNotifyApi(
       const roomId = (body.room_id || '').trim();
       const message = String(body.message || '').slice(0, 2000);
       if (!roomId || !message) return json({ ok: false, error: 'room_id_and_message_required' }, 400);
+      // 🔐 [무결성] 이 수업 참여자만 채팅 이력 저장 — 방ID(class-{id}-{날짜})는 추측 가능 → 무인증·비참여자가
+      //   가짜 발신자(sender_role='teacher' 등)로 남의 수업 채팅에 메시지 주입하는 것을 차단 (2026-07-19).
+      //   GET 과 동일한 이중 인증: 관리자/교사(쿠키세션)=신뢰 / 학생(mango_token)=vc_roster 참여 확인.
+      //   ⚠️ 실시간 채팅은 WebRTC(vcConn)로 별도 전송되므로 저장이 거부돼도 수업 채팅 자체는 끊기지 않음(이력만 미저장).
+      let cmRole: 'admin' | 'student' | null = null;
+      let cmAuthedUid: string | null = null;
+      try {
+        const cmAdmin = await checkAdminSession(request, env as any);
+        if (cmAdmin.ok) cmRole = 'admin';
+        else {
+          const cmAuth = await authUidGlobal(request, url, env, body);   // Bearer > body.token > ?token=
+          if (cmAuth) {
+            const inRoster: any = await env.DB.prepare(`SELECT 1 FROM vc_roster WHERE room_id=? AND account_uid=? LIMIT 1`).bind(roomId, cmAuth).first();
+            if (inRoster) { cmRole = 'student'; cmAuthedUid = cmAuth; }
+          }
+        }
+      } catch (e) { /* vc_roster 미존재 등 — 아래에서 차단 */ }
+      if (!cmRole) return json({ ok: false, error: 'auth_required', message: '이 수업 참여자만 채팅을 저장할 수 있습니다.' }, 401);
+      // 학생은 sender_uid 위조 방지: 클라이언트가 보낸 값 대신 인증된 uid 로 고정(교사/관리자는 신뢰).
+      const safeSenderUid = (cmRole === 'student') ? cmAuthedUid : (body.sender_uid || null);
       const now = Date.now();
       const ins = await env.DB.prepare(
         `INSERT INTO chat_messages (room_id, sender_uid, sender_name, sender_role, message, sent_at, meta)
          VALUES (?,?,?,?,?,?,?)`
       ).bind(
         roomId,
-        body.sender_uid || null,
+        safeSenderUid,
         body.sender_name || null,
         body.sender_role || null,
         message,
