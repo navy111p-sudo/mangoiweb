@@ -608,6 +608,17 @@ function spawnEnemy(forceTarget){
     fireT: 1.4 + Math.random()*2.0, r:24*SCALE,
     hp: type==='tiger'?2:1, hitFlash:0, track:0 });
 }
+// 👑 보스 전차 — 큰 타이거, 체력 많고 큰 점수. 몇 문장마다 등장(항상 현재 목표 단어 탑재)
+function spawnBoss(){
+  if(G.enemies.some(function(e){ return e.isBoss && e.alive; })) return;
+  var edge=Math.floor(Math.random()*4), m=90, x,y;
+  if(edge===0){ x=Math.random()*W; y=-m; } else if(edge===1){ x=W+m; y=Math.random()*H; }
+  else if(edge===2){ x=Math.random()*W; y=H+m; } else { x=-m; y=Math.random()*H; }
+  G.enemies.push({ x:x, y:y, word:neededWord(), alive:true, type:'tiger', isBoss:true,
+    hullAng:Math.atan2(H*0.5-y,W*0.5-x), turAng:0, wpx:W*0.5, wpy:H*0.42, rewp:0,
+    fireT:1.6, r:40*SCALE, hp:6, hpMax:6, hitFlash:0, track:0, _vx:0, _vy:0 });
+  banner('👑 보스 전차 등장! 집중 사격!', '#ff6b6b'); sndBigBoom(); G.shake=Math.min(30,G.shake+14);
+}
 
 /* ════════════════════════════════════════════════════════════
    9. 발사 — 셔먼 주포 / 적 포
@@ -722,6 +733,9 @@ function update(dt){
   } else { G.lock=null; }
   // 🔥 콤보 감쇠(2.6초 안에 다음 정답 없으면 리셋)
   if(G.combo>0 && performance.now()-G.comboT>2600) G.combo=0;
+  // 💨 셔먼 데미지 연기(하트 적을수록 자욱하게)
+  if(G.lives<3){ G.smokeT=(G.smokeT||0)-dt; if(G.smokeT<=0){ G.smokeT=(G.lives<=1?0.13:0.3);
+    G.parts.push({x:G.px+(Math.random()-0.5)*22*SCALE,y:G.py-4,vx:(Math.random()-0.5)*14,vy:-28-Math.random()*22,life:1.0+Math.random()*0.6,age:0,size:(6+Math.random()*4)*SCALE,kind:'smoke'}); } }
   // ⛽ 연료 부족 경고(1회)
   if(G.time<12 && !G.fuelWarned){ G.fuelWarned=true; banner('⛽ 연료 부족! 젤리통을 쏘거나 밟으세요','#ff6b6b'); }
   if(G.time>20) G.fuelWarned=false;
@@ -736,6 +750,7 @@ function update(dt){
 
   // 적 전차 업데이트
   for(var i=G.enemies.length-1;i>=0;i--){ var e=G.enemies[i]; if(!e.alive){ G.enemies.splice(i,1); continue; }
+    if(e.isBoss) e.word=neededWord();               // 👑 보스는 항상 현재 목표 단어(=명확한 타깃)
     e.rewp-=dt; var edx=e.wpx-e.x, edy=e.wpy-e.y, ed=Math.hypot(edx,edy)||1;
     if(ed<36 || e.rewp<=0){ e.wpx=W*(0.12+Math.random()*0.76); e.wpy=H*(0.14+Math.random()*0.62); e.rewp=2+Math.random()*2.5; }
     var esp=32*SCALE*SPMUL;
@@ -815,10 +830,12 @@ function resolveHit(en){
     // 🔥 콤보: 연속 정답마다 배율 보너스
     G.combo++; G.comboT=performance.now(); if(G.combo>G.maxCombo)G.maxCombo=G.combo;
     var cmul = 1 + Math.min(1.5, (G.combo-1)*0.25);        // x1 ~ x2.5
-    var gain = Math.round((100 + G.clears*10) * cmul);
+    var gain = Math.round((100 + G.clears*10) * cmul * (en.isBoss?1.5:1));
     G.correct++; G.score += gain;
+    if(en.isBoss){ var bb=300+G.clears*20; G.score+=bb; banner('💥 보스 격파! +'+(gain+bb), '#ffd479'); comboFx(en.x,en.y); G.shake=Math.min(40,G.shake+18); }
     pushProg(en.word,true); speak(en.word, 0.95, 1); wordPopAt(en.x,en.y, en.word);
     G.next++;
+    if(!en.isBoss && G.correct>0 && G.correct%4===0) spawnBoss();   // 👑 4정답마다 보스 등장
     if(G.combo>=3){ banner('🔥 '+G.combo+' 콤보!  +'+gain, '#ffd479'); if(G.combo>=3) comboFx(en.x,en.y); }
     else banner('+'+gain, '#a3e635');
     if(G.correct>=GOAL){ updateHUD(); return winGame(); }
@@ -953,7 +970,12 @@ function render(){
       ctx.beginPath(); ctx.moveTo(e.x,e.y); ctx.lineTo(e.x+Math.cos(a)*L, e.y+Math.sin(a)*L); ctx.stroke(); ctx.restore(); } });
     G.enemies.forEach(function(e){ drawTank(e.x,e.y,e.hullAng,e.turAng,e.type==='tiger'?'tiger':'stug',e.r/24, e.hitFlash>0); drawLabel(e);
       if(G.lock===e && e.alive){ ctx.save(); ctx.strokeStyle='#ff4d4d'; ctx.lineWidth=2.4; ctx.setLineDash([5,4]);
-        ctx.beginPath(); ctx.arc(e.x,e.y,e.r+13*SCALE,0,7); ctx.stroke(); ctx.restore(); } });
+        ctx.beginPath(); ctx.arc(e.x,e.y,e.r+13*SCALE,0,7); ctx.stroke(); ctx.restore(); }
+      if(e.isBoss && e.alive){ var bw=54*SCALE, bx=e.x-bw/2, byy=e.y-e.r-34*SCALE;   // 👑 보스 체력바
+        ctx.fillStyle='rgba(0,0,0,.55)'; rr(bx-2,byy-2,bw+4,8*SCALE+4,3); ctx.fill();
+        ctx.fillStyle='#3a0d0d'; rr(bx,byy,bw,8*SCALE,2); ctx.fill();
+        ctx.fillStyle='#ff4d4d'; rr(bx,byy,bw*Math.max(0,e.hp/(e.hpMax||6)),8*SCALE,2); ctx.fill();
+        ctx.fillStyle='#ffd479'; ctx.font='900 '+(12*SCALE)+'px sans-serif'; ctx.textAlign='center'; ctx.fillText('👑 BOSS', e.x, byy-4*SCALE); } });
     // 적 포탄
     G.ebul.forEach(function(b){ drawShell(b,'#ff7b3c'); });
     // 플레이어 포탄
@@ -972,8 +994,21 @@ function render(){
       ctx.shadowColor='rgba(0,0,0,.6)'; ctx.shadowBlur=8; ctx.fillText('🔥 '+G.combo+' COMBO', W/2, 70); ctx.restore(); }
   }
   ctx.restore();
+  drawMinimap();
   positionFireBtn();
 }
+/* 🗺️ 미니맵(레이더) — 적(빨강)·정답적(금색)·보스(큰빨강)·연료(초록)·셔먼(파랑) 위치 */
+function drawMinimap(){ if(!G||!G.running||G.dead)return;
+  var mw=88*SCALE, mh=64*SCALE, mx=W-mw-10, my=46;
+  ctx.save(); ctx.fillStyle='rgba(10,16,22,.62)'; rr(mx,my,mw,mh,6); ctx.fill();
+  ctx.strokeStyle='rgba(140,165,195,.45)'; ctx.lineWidth=1; rr(mx,my,mw,mh,6); ctx.stroke();
+  function fx(x){ return mx+clamp(x/W,0,1)*mw; } function fy(y){ return my+clamp(y/H,0,1)*mh; }
+  G.fuels.forEach(function(f){ ctx.fillStyle='#5af078'; ctx.beginPath(); ctx.arc(fx(f.x),fy(f.y),2,0,7); ctx.fill(); });
+  G.enemies.forEach(function(e){ if(!e.alive)return;
+    ctx.fillStyle=e.isBoss?'#ff2a2a':(sameWord(e.word,neededWord())?'#ffd479':'#ff8888');
+    ctx.beginPath(); ctx.arc(fx(e.x),fy(e.y),e.isBoss?3.6:2.2,0,7); ctx.fill(); });
+  ctx.fillStyle='#7fd1ff'; ctx.beginPath(); ctx.arc(fx(G.px),fy(G.py),3,0,7); ctx.fill();
+  ctx.restore(); }
 /* 🔥 콤보 이펙트 — 금빛 링 + 스파크 */
 function comboFx(x,y){ if(!G)return; G.parts.push({ring:true,x:x,y:y,age:0,life:0.5,r0:8,r1:95*SCALE});
   for(var i=0;i<14;i++){ var a=Math.random()*6.28, sp=130+Math.random()*180;
@@ -1173,7 +1208,10 @@ function startGame(){
 function endGame(win){ if(!G||G.over)return; G.over=true; G.running=false; flushProg();
   bgmStop(); _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
   document.getElementById('overTitle').textContent = win ? '🎖️ 임무 완료!' : '💥 격파당했다!';
-  document.getElementById('overStat').innerHTML = '정답 <b>'+G.correct+'</b> / '+GOAL+' · 완성 문장 <b>'+G.clears+'</b><br>최종 점수 <b>'+G.score+'</b>';
+  // ⭐ 성과 별점(승리 시): 라이프·최고콤보 기준 1~3개
+  var stars = win ? (1 + (G.lives>=2?1:0) + ((G.maxCombo>=4||G.lives>=3)?1:0)) : 0;
+  var starStr = win ? '<div style="font-size:34px;margin:2px 0 6px;letter-spacing:4px">'+'⭐'.repeat(stars)+'<span style="opacity:.3">'+'☆'.repeat(3-stars)+'</span></div>' : '';
+  document.getElementById('overStat').innerHTML = starStr + '정답 <b>'+G.correct+'</b> / '+GOAL+' · 완성 문장 <b>'+G.clears+'</b><br>🔥 최고 콤보 <b>'+(G.maxCombo||0)+'</b> · 최종 점수 <b>'+G.score+'</b>';
   document.getElementById('over').classList.remove('hide');
   if(win){ sndPickup(); } else { sndBoom(); } }
 
@@ -1221,6 +1259,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260719173213 -->
+<!-- BUILD:20260719181150 -->
 </body>
 </html>
