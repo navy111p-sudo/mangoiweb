@@ -374,6 +374,7 @@
       <!-- 속도/무기 선택은 통합 ⋮ 모달(#gunModal)로 이동 — 아래 두 피커는 하위호환용 숨김 컨테이너 -->
       <div class="gunpick" id="speedPicker" style="display:none"></div>
       <div class="gunpick" id="gunPicker" style="display:none"></div>
+      <div id="lessonNav" style="margin:4px 0"></div>
       <button class="btn" id="startBtn">게임 시작 ▶</button>
       <div class="warn" id="voiceWarn"></div>
     </div>
@@ -381,6 +382,7 @@
 </div>
 
 <script src="/js/game-vocab.js"></script>
+<script src="/js/lesson-nav.js?v=2"></script>
 <script>
 (function(){
   'use strict';
@@ -486,10 +488,11 @@
     })();
   }
   // 📚 로그인 학생의 교재/레벨 맞춤 문장으로 교체 (영어 모드에서만 — 중국어는 허브가 넘긴 중국어 문장 사용)
+  var _lessonActive=false;   // 레슨 네비가 문장 지정하면 true → 자동 로더가 덮지 않음
   try{
     if(window.MangoiGameVocab && GLANG!=='zh'){
       MangoiGameVocab.load().then(function(d){
-        if(d && d.sentences && d.sentences.length >= 3){
+        if(!_lessonActive && d && d.sentences && d.sentences.length >= 3){
           var head = (typeof _inj==='string' && _inj) ? [_inj] : [];
           SENTENCES = head.concat(d.sentences.map(function(s){ return s.en; }).filter(function(s){ return head.indexOf(s)<0; }));
           d.sentences.forEach(function(s){ if(s.ko) KO[s.en]=s.ko; });   // 🎤 말하기 미션 카드 한국어 뜻
@@ -498,6 +501,17 @@
       });
     }
   }catch(e){}
+  // 📚 진도(레슨) 네비게이터 — 교재 선택 + ◀복습/▶예습(선택 시 자동 로더보다 우선)
+  function mountLessonNav(){
+    if(!window.MangoiLessonNav) return;
+    MangoiLessonNav.mount({ glang:GLANG, mount:document.getElementById('lessonNav'), onSet:function(sets){
+      if(sets && sets.length){ _lessonActive=true;
+        var arr=[]; sets.forEach(function(s){ var key=((s.w||[]).join(' ')).trim(); if(!key)return; arr.push(key); if(s.ko)KO[key]=s.ko; });
+        if(arr.length) SENTENCES=arr;
+      } else { _lessonActive=false; }
+    }});
+  }
+  mountLessonNav();
   // 🎯 목표: 정답 단어 10개 명중 → 결과 화면 (?goal= 로 조정 가능)
   var GOAL = (function(){ try{ var g=parseInt(new URLSearchParams(location.search).get('goal'),10); return (g>=3&&g<=50)?g:10; }catch(e){ return 10; } })();
   var correctWords = 0;
@@ -1483,6 +1497,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260719165208 -->
+<!-- BUILD:20260719165704 -->
 </body>
 </html>
