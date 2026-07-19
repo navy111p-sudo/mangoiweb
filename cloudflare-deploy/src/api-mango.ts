@@ -346,9 +346,25 @@ export async function handleMangoApi(
     }
 
     // ===== 출석 =====
+    // 🔐 [무결성·제로회귀] 출석 쓰기용 소프트 인증 가드 (2026-07-19).
+    //   원칙: "자격증명이 있는데 그게 다른 uid 를 가리킬 때만" 거부(=인증된 크로스유저 위조 차단).
+    //   자격증명이 아예 없는 요청은 통과 → 결석률 100% 버그 방어 설계(무인증도 출석 인정)를 절대 안 깬다.
+    //   교사=관리자 세션 쿠키(checkAdminSession, role 무관 통과)·학생=mango_token 이면 본인은 항상 OK.
+    //   반환값: true = 진행 허용, false = 명백한 위조(거부해야 함).
+    const _attnSoftAuthOk = async (claimedUid: string, body: any): Promise<boolean> => {
+      try {
+        const _adm = await checkAdminSession(request, env as any);
+        if (_adm.ok) return true;                          // 교사/관리자 세션 → 허용(대상 uid 무관)
+        const _tok = await authUidGlobal(request, url, env, body);
+        if (!_tok) return true;                             // 자격증명 없음 → 기존대로 허용(회귀 0)
+        return _tok === String(claimedUid || '').trim();   // 토큰 있음 → 본인일 때만 허용, 남이면 위조 거부
+      } catch { return true; }                              // 검증 중 오류는 출석을 막지 않음(보수적)
+    };
+
     if (path === '/api/attendance/join' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
+      if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const date = today(now);
       // 📣 오늘 처음 보는 (room_id, date) 조합이면 "수업 시작" 알림 큐에 적재
@@ -425,6 +441,8 @@ export async function handleMangoApi(
       if (!ID_RE.test(userId) || !ID_RE.test(roomId)) {
         return invalidBody(['room_id', 'user_id']);
       }
+      // 🔐 소프트 인증(위 join 과 동일): 자격증명 있는데 남의 uid 면 위조 거부, 없으면 통과(결석버그 방어 유지).
+      if (!(await _attnSoftAuthOk(userId, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const role = (b.role === 'teacher') ? 'teacher' : 'student';
 
       // 입장 시각: 클라이언트가 보낸 timestamp(ms 또는 ISO 문자열)를 신뢰하되,

@@ -163,6 +163,12 @@
       role,
       timestamp: Date.now()
     };
+    // 🔐 학생 본인 확인용 서명 토큰(서버 소프트 인증). 없으면 서버가 그대로 통과시켜 출석 안 깨짐.
+    //    ⚠️ 교사는 관리자 세션 쿠키(credentials:'include')로 통과 → 토큰을 보내지 않는다.
+    //    (교사가 다른 계정의 잔여 mango_token 을 갖고 있어도 uid_mismatch 오탐이 안 나게 하기 위함)
+    if (role !== 'teacher') {
+      try { var _t = localStorage.getItem('mango_token') || ''; if (_t) body.token = _t; } catch (e) {}
+    }
     // 1) join — 입장 알림/푸시(본인·학부모) 트리거 (기존 동작 유지)
     const ok = await apiPost('/api/attendance/join', body);
     // 2) checkin — 출석(attended) 확정 + attended_at 기록 + 결석 복구
