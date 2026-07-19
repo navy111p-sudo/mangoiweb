@@ -2,7 +2,9 @@
 
 감사일: 2026-07-10 (Claude 전수 감사). 대상: `cloudflare-deploy/src` 비관리자 API 전체.
 
-> **한 줄 요약:** 인증 도구(`authUidFromRequest` — 서명 토큰 소유자 확인)는 이미 코드에 있으나 **5개 엔드포인트에만** 적용돼 있고, 나머지 **수십 개 개인정보 엔드포인트가 "user_id만 넣으면 남의 정보를 내주는"(IDOR)** 상태다. 라이브로 무인증 200 응답 다수 확인됨.
+> **한 줄 요약(원본, 2026-07-10):** 인증 도구는 있으나 5개에만 적용, 수십 개가 IDOR 상태였음.
+>
+> **🔄 2026-07-19 재검증 업데이트:** 그 사이 IDOR 작업이 크게 진척돼 **§3 HIGH 항목이 사실상 전부 닫힘**(라이브 무인증 401 확인): parent/dashboard·report/monthly-view(공유토큰)·kakao-id·consents·eval/list·chat/messages·parent/link-child·voice/history·voice/stats·gifts/redemptions·diary/list 모두 인증됨. livekit/token은 미설정(503)·앱 미사용. **잔여로 발견·수정: `GET /api/exam/results?user_id=`(남의 시험점수 200 노출) → authUidFromRequest uid일치 요구 + idx-x4.js `?token=` 첨부. 데모학생 검증(무인증401·본인토큰200·타uid401), build 20260719112301.** 남은 것은 §4 MEDIUM(포인트·퀴즈·출석 등 저민감, 게스트 지원)과 외부 pentest 권장(§6).
 
 ---
 
