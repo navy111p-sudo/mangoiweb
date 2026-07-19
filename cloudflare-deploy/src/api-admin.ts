@@ -4470,6 +4470,9 @@ ${chatSampleText}
     //   Neo4j 미설정/실패 시 503/502. 강사관리 화면이 실데이터로 뜨게 함.
     if (method === 'GET' && path === '/api/admin/teachers/graph-list') {
       const qT = (url.searchParams.get('q') || '').trim().toLowerCase();
+      // ⚡ KV 캐시(120초) — Neo4j(카페24 8880) 외부 홉을 반복 열람마다 왕복하지 않도록. 원본은 야간 cron 동기화라 분단위 신선도면 충분. 조직 공용 명부라 scope 무관(q만).
+      const _glKeyT = 'gl:teachers:' + qT;
+      try { const _h = await env.SESSION_STATE.get(_glKeyT); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
       try {
         // 담당수업수(class_count)·학생수(student_count)는 노드에 미리 계산돼 있음(대량 Class 스캔 회피)
         const { fields, values } = await runCypher(env, `
@@ -4486,7 +4489,9 @@ ${chatSampleText}
                  t.score_avg AS score_avg, coalesce(t.score_count,0) AS score_count
           ORDER BY coalesce(t.class_count,0) DESC, t.name`, { q: qT }, 'READ');
         const teachers = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        return json({ ok: true, source: 'neo4j', count: teachers.length, teachers });
+        const _bodyT = JSON.stringify({ ok: true, source: 'neo4j', count: teachers.length, teachers });
+        try { await env.SESSION_STATE.put(_glKeyT, _bodyT, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
+        return new Response(_bodyT, { status: 200, headers: { 'Content-Type': 'application/json' } });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         console.warn('[teachers/graph-list] 실패:', e?.message || e);
@@ -4597,6 +4602,9 @@ ${chatSampleText}
     // 🧑‍💼 카페24 직원 명부 (그래프DB) — 지사 직원
     if (method === 'GET' && path === '/api/admin/staff/graph-list') {
       const qS = (url.searchParams.get('q') || '').trim().toLowerCase();
+      // ⚡ KV 캐시(120초) — 위 teachers/graph-list 와 동일 패턴(Neo4j 외부 홉 절감).
+      const _glKeyS = 'gl:staff:' + qS;
+      try { const _h = await env.SESSION_STATE.get(_glKeyS); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
       try {
         const { fields, values } = await runCypher(env, `
           MATCH (s:Staff) WHERE s.name IS NOT NULL
@@ -4605,7 +4613,9 @@ ${chatSampleText}
                  s.intro AS intro, s.status AS status, s.retire_date AS retire_date, s.franchise_id AS franchise_id
           ORDER BY s.status, s.name`, { q: qS }, 'READ');
         const staff = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        return json({ ok: true, source: 'neo4j', count: staff.length, staff });
+        const _bodyS = JSON.stringify({ ok: true, source: 'neo4j', count: staff.length, staff });
+        try { await env.SESSION_STATE.put(_glKeyS, _bodyS, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
+        return new Response(_bodyS, { status: 200, headers: { 'Content-Type': 'application/json' } });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4615,6 +4625,9 @@ ${chatSampleText}
     // 📚 카페24 교재 명부 (그래프DB)
     if (method === 'GET' && path === '/api/admin/books/graph-list') {
       const qB = (url.searchParams.get('q') || '').trim().toLowerCase();
+      // ⚡ KV 캐시(120초) — 위 graph-list 들과 동일 패턴(Neo4j 외부 홉 절감).
+      const _glKeyB = 'gl:books:' + qB;
+      try { const _h = await env.SESSION_STATE.get(_glKeyB); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
       try {
         const { fields, values } = await runCypher(env, `
           MATCH (b:Book) WHERE b.name IS NOT NULL
@@ -4622,7 +4635,9 @@ ${chatSampleText}
           RETURN b.book_id AS book_id, b.name AS name, b.memo AS memo, b.status AS status, b.group_id AS group_id
           ORDER BY b.status, b.name`, { q: qB }, 'READ');
         const books = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        return json({ ok: true, source: 'neo4j', count: books.length, books });
+        const _bodyB = JSON.stringify({ ok: true, source: 'neo4j', count: books.length, books });
+        try { await env.SESSION_STATE.put(_glKeyB, _bodyB, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
+        return new Response(_bodyB, { status: 200, headers: { 'Content-Type': 'application/json' } });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4655,6 +4670,9 @@ ${chatSampleText}
         else { _gScopeClause = " AND coalesce(s.franchise, '') IN $scopeList"; _gp.scopeList = _fl; }
       }
       // hq | none → _gScopeClause = '' (전체)
+      // ⚡ KV 캐시(120초) — Neo4j 외부 홉 절감. ⚠️ 학부모전화 등 PII 포함이므로 scope(type:value)를 키에 넣어 크로스테넌트 격리(retention/risk 캐시와 동일 원칙). q·limit 도 키에 포함.
+      const _glKeyStu = 'gl:students:' + (_gScope.type || 'all') + ':' + (_gScope.value || '') + ':' + limitG + ':' + qG;
+      try { const _h = await env.SESSION_STATE.get(_glKeyStu); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
       const GRAPH_STUDENT_LIST_QUERY = `
 MATCH (s:Student)
 WHERE ($q = ''
@@ -4694,7 +4712,9 @@ LIMIT $limit`;
           env, GRAPH_STUDENT_LIST_QUERY, _gp, 'READ',
         );
         const students = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        return json({ ok: true, source: 'neo4j', count: students.length, students });
+        const _bodyStu = JSON.stringify({ ok: true, source: 'neo4j', count: students.length, students });
+        try { await env.SESSION_STATE.put(_glKeyStu, _bodyStu, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
+        return new Response(_bodyStu, { status: 200, headers: { 'Content-Type': 'application/json' } });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) {
           return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);

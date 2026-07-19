@@ -181,8 +181,11 @@
     });
     // 모든 button 클릭 후 (불러오기 등)
     document.addEventListener('click', () => setTimeout(syncAll, 600), true);
-    // 주기적 (5초마다)
-    setInterval(syncAll, 5000);
+    // 주기적 백스톱 → DOM 변화감지 스케줄러로 라우팅(유휴 시 폴링 제거). setupTriggers 이중호출 대비 1회만 등록
+    if (!window.__ph_syncAllSettleBound) {
+      window.__ph_syncAllSettleBound = true;
+      (window.__admSettleRun ? window.__admSettleRun(syncAll) : setInterval(syncAll, 5000));
+    }
   }
 
   if (document.readyState === 'loading') {

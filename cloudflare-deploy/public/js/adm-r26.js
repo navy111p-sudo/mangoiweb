@@ -128,7 +128,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph128Init);
   else ph128Init();
-  setInterval(ph128Init, 2000);
+  (window.__admSettleRun ? window.__admSettleRun(ph128Init) : setInterval(ph128Init, 2000));
 
   console.log('[ph128] 결제 표 다중 컬럼 동시 필터 활성 — 4개 표 적용');
 })();

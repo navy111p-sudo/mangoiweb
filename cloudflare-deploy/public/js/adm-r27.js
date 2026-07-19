@@ -163,7 +163,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph130Init);
   else ph130Init();
-  setInterval(ph130Init, 2000);
+  (window.__admSettleRun ? window.__admSettleRun(ph130Init) : setInterval(ph130Init, 2000));
 
   console.log('[ph130] MBTI 강사 사진 업로드 + 다중 필터 자동완성 활성');
 })();

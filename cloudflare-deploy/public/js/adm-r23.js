@@ -159,7 +159,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph120Init);
   else ph120Init();
-  setInterval(ph120Init, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph120Init) : setInterval(ph120Init, 1500));
 
   console.log('[ph120] 홈 버튼 → 관리자 상단 + 학원별 수업현황 검색 실제 작동');
 })();
