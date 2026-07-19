@@ -65,7 +65,7 @@
     setCtxLabel();
     body.innerHTML = '<div style="text-align:center;padding:30px;color:#a3b3d1;font-size:13px">⏳ '+(isEn()?'Loading…':'불러오는 중…')+'</div>';
     try {
-      var r = await fetch('/api/review-quiz/list?user_id='+encodeURIComponent(me().uid)).then(function(x){return x.json();});
+      var r = await fetch('/api/review-quiz/list?user_id='+encodeURIComponent(me().uid)+'&token='+encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(function(x){return x.json();});
       if (!r.ok) throw new Error(r.error||'load_fail');
       if (!r.quizzes.length){ body.innerHTML = '<div style="text-align:center;padding:34px;color:#a3b3d1;font-size:13.5px">📭 '+(isEn()?'No quizzes yet.':'아직 등록된 퀴즈가 없어요.<br>위 [🤖 이 수업 맞춤 퀴즈]를 눌러 AI 출제를 받아보세요.')+'</div>'; return; }
       body.innerHTML = r.quizzes.map(function(q){
@@ -186,8 +186,16 @@
     var btn=$('rqv-next'); if(btn){ btn.disabled=true; btn.textContent=isEn()?'Scoring…':'채점 중…'; }
     var u=me();
     try {
+      // 🔐 실계정은 mango_token 으로 본인 확인(서버 IDOR 가드). 게스트(guest_*)는 토큰 불필요.
+      var _tok=(function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })();
+      var _payload={ quiz_id:st.quiz.id, user_id:u.uid, user_name:u.name, answers:st.answers, served: st.quiz.questions.map(function(q){ return (q && q.idx!=null) ? q.idx : 0; }), token:_tok };
       var r = await fetch('/api/review-quiz/submit', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ quiz_id:st.quiz.id, user_id:u.uid, user_name:u.name, answers:st.answers, served: st.quiz.questions.map(function(q){ return (q && q.idx!=null) ? q.idx : 0; }) }) }).then(function(x){return x.json();});
+        body: JSON.stringify(_payload) }).then(function(x){return x.json();});
+      if(!r.ok && r.error==='auth_required'){
+        // 토큰 없는 옛 세션 폴백: 게스트 uid 로 재제출(점수 표시 유지 — 수업 흐름 안 끊김)
+        _payload.user_id=(function(){ try { var g=localStorage.getItem('rqv_guest'); if(!g){ g='guest_'+Math.random().toString(36).slice(2,9); localStorage.setItem('rqv_guest',g);} return g; } catch(e){ return 'guest_fb'; } })();
+        r = await fetch('/api/review-quiz/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_payload) }).then(function(x){return x.json();});
+      }
       if(!r.ok) throw new Error(r.error||'submit');
       showResult(r);
     } catch(e){ alert(isEn()?'Submit failed.':'제출 실패. 다시 시도해주세요.'); renderQ(); }

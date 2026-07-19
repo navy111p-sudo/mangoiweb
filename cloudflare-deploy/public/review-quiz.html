@@ -278,7 +278,7 @@
     async function loadList() {
       var box = document.getElementById('quizList');
       try {
-        var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid)).then(function(x){ return x.json(); });
+        var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(function(x){ return x.json(); });
         if (!r.ok) throw new Error(r.error||'load_fail');
         if (!r.quizzes.length) {
           box.innerHTML = '<div class="empty-box">📭 ' + (isEn() ? 'No quizzes yet. Your teacher will add some soon!' : '아직 등록된 퀴즈가 없어요.<br>선생님이 곧 퀴즈를 올려주실 거예요!') + '</div>';
@@ -503,10 +503,19 @@
       var pb = document.querySelector('#playView .nav-btn.primary') || document.querySelector('#playView .nav-btn');
       if (pb) { pb.disabled = true; pb.textContent = isEn()?'Scoring…':'채점 중…'; }
       try {
+        // 🔐 실계정은 mango_token 으로 본인 확인(서버 IDOR 가드). 게스트(guest_*)는 토큰 불필요.
+        var _tok = (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })();
+        var _served = state.quiz.questions.map(function(q){ return (q && q.idx!=null) ? q.idx : 0; });
+        var _payload = { quiz_id: state.quiz.id, user_id: ME.uid, user_name: ME.name, answers: state.answers, served: _served, token: _tok };
         var r = await fetch('/api/review-quiz/submit', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ quiz_id: state.quiz.id, user_id: ME.uid, user_name: ME.name, answers: state.answers, served: state.quiz.questions.map(function(q){ return (q && q.idx!=null) ? q.idx : 0; }) })
+          body: JSON.stringify(_payload)
         }).then(function(x){ return x.json(); });
+        if (!r.ok && r.error === 'auth_required') {
+          // 토큰 없는 옛 세션 폴백: 게스트 uid 로 재제출(점수는 보여주되 실계정 기록만 미저장 — 흐름 안 끊김)
+          _payload.user_id = (function(){ try { var g=localStorage.getItem('rq_guest_id'); if(!g){ g='guest_'+Math.random().toString(36).slice(2,10); localStorage.setItem('rq_guest_id',g);} return g; } catch(e){ return 'guest_fb'; } })();
+          r = await fetch('/api/review-quiz/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_payload) }).then(function(x){ return x.json(); });
+        }
         if (!r.ok) throw new Error(r.error||'submit_fail');
         showResult(r);
       } catch(e) {
@@ -614,7 +623,7 @@
 
     loadList();
   </script>
-<!-- BUILD:20260719152411 -->
+<!-- BUILD:20260719153524 -->
 <!-- ━━━ 복습퀴즈 선생님 영상 메시지 팝업 (1회만 표시) ━━━ -->
 <div id="rq-video-pop" style="display:none;position:fixed;top:64px;right:14px;z-index:99998;width:220px;background:rgba(13,20,40,0.97);border:1px solid rgba(251,191,36,0.45);border-radius:18px;box-shadow:0 14px 40px -6px rgba(0,0,0,0.6);overflow:hidden;font-family:'Noto Sans KR',-apple-system,sans-serif;backdrop-filter:blur(8px)">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,0.08)">

@@ -1168,7 +1168,14 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     // ── GET /api/review-quiz/list?user_id=xxx — 학생: 활성 퀴즈 목록 (+내 최고점/시도수) ──
     if (method === 'GET' && path === '/api/review-quiz/list') {
       await ensureReviewQuizTables();
-      const userId = (url.searchParams.get('user_id') || '').trim();
+      let userId = (url.searchParams.get('user_id') || '').trim();
+      // 🔐 [IDOR] 개인 기록(최고점·시도수)은 본인만 — 임의 user_id 로 남의 점수 열람 차단 (2026-07-19).
+      //   게스트(guest_*, 클라 랜덤 생성·추측 불가·토큰 없음)는 그대로 허용해 게스트 흐름 안 깨짐.
+      //   실계정 uid 인데 토큰 불일치면 401 대신 개인 필드만 생략(퀴즈 목록은 공개 설계 유지 → 페이지 안 깨짐).
+      if (userId && !userId.startsWith('guest_')) {
+        const rqAuth = await authUidGlobal(request, url, env);
+        if (!rqAuth || rqAuth !== userId) userId = '';   // 통계만 익명화
+      }
       const rs = await env.DB.prepare(`SELECT id, title, description, questions, level, textbook, lesson_no, source, draw, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
       const quizzes: any[] = [];
       for (const row of (((rs.results as any[]) || []))) {
@@ -1210,6 +1217,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const answers: any[] = Array.isArray(b.answers) ? b.answers : [];
       if (!quizId) return json({ ok: false, error: 'quiz_id_required' }, 400);
       if (!userId) return json({ ok: false, error: 'user_id_required' }, 400);
+      // 🔐 [IDOR 무결성] 실계정 user_id 로 남 대신 제출(기록 오염+포인트 적립) 차단 (2026-07-19).
+      //   게스트(guest_*)는 토큰 없이 그대로 허용(게스트 흐름 유지). 실계정은 mango_token uid 일치 필수.
+      //   프론트(review-quiz.html·idx-x8.js)는 body.token 전송 + 401 시 게스트 폴백 재시도(수업 흐름 안 끊김).
+      if (!userId.startsWith('guest_')) {
+        const rqSubAuth = await authUidGlobal(request, url, env, b);
+        if (!rqSubAuth || rqSubAuth !== userId) return json({ ok: false, error: 'auth_required' }, 401);
+      }
       const row: any = await env.DB.prepare(`SELECT id, title, questions FROM review_quizzes WHERE id = ? AND active = 1`).bind(quizId).first();
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
       let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
