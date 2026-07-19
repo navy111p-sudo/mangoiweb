@@ -13,7 +13,8 @@
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; min-height:100%;}
   body{
-    font-family:'Pretendard','Malgun Gothic',sans-serif; color:#3d2405;
+    /* 한/영/중 모든 텍스트가 같은 폰트 스택을 쓰도록 통일 (중국어 포함) */
+    font-family:'Pretendard','Malgun Gothic','Microsoft YaHei','PingFang SC','Noto Sans SC',sans-serif; color:#3d2405;
     display:flex; flex-direction:column; align-items:center;
     padding:10px 10px 30px; overflow-x:hidden;
     /* 주방 배경(위: 흐린 주방 보케) + 아래: 원목 테이블 */
@@ -60,7 +61,7 @@
     box-shadow:0 6px 18px rgba(60,30,0,.35), inset 0 1px 0 #fff;
     padding:10px 14px; backdrop-filter:blur(2px);
   }
-  #sentence-display{font-size:clamp(1.05em, 3.4vw, 1.5em); font-weight:900; color:#2d1a04; letter-spacing:.01em;}
+  #sentence-display{font-size:clamp(1.05em, 3.4vw, 1.5em); font-weight:800; font-family:inherit; color:#2d1a04; letter-spacing:.01em;}
   #ko-hint{font-size:.85em; color:#8a5a1a; font-weight:700; margin-top:2px;}
   #lessonNav{width:100%; max-width:860px;}
 
@@ -118,7 +119,7 @@
   .word-chip{
     position:absolute; transform:translate(-50%,-50%);
     background:rgba(255,255,255,.93); border-radius:12px; padding:2px 9px 3px;
-    font-weight:900; font-size:clamp(.72em,2.6vw,.95em); color:#2d1a04;
+    font-weight:800; font-size:clamp(.72em,2.6vw,.95em); font-family:inherit; color:#2d1a04;
     box-shadow:0 2px 6px rgba(60,25,0,.4); border:1.5px solid rgba(210,160,90,.8);
     animation:chipin .3s ease-out; white-space:nowrap;
   }
@@ -158,7 +159,7 @@
   }
   .bowl .dish .w{
     position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-    font-weight:900; font-size:1.02em; color:#1c1002;
+    font-weight:800; font-size:1.02em; font-family:inherit; color:#1c1002;
     text-shadow:0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 2px 5px rgba(255,255,255,.9);
     pointer-events:none; white-space:nowrap;
   }
@@ -239,6 +240,33 @@
 
   .burst{position:fixed; font-size:1.6em; pointer-events:none; z-index:70; animation:fly 1.1s ease-out forwards;}
   @keyframes fly{from{transform:translate(0,0) scale(1); opacity:1;} to{transform:translate(var(--dx),var(--dy)) scale(.4); opacity:0;}}
+
+  /* 📚 lesson-nav(공용 다크 테마) → 밝은 우드 배경 가독성 오버라이드
+     lesson-nav.js가 자기 스타일을 나중에 head에 넣으므로 !important 필수 */
+  .lnav-book label{color:#fff3dd !important; text-shadow:0 1px 3px rgba(70,35,0,.7);}
+  .lnav-sel{background:#fffdf6 !important; color:#4a2a06 !important; border:2px solid #e2b56b !important;}
+  .lnav-btn{background:#fff3cf !important; color:#7a4a12 !important; border:2px solid #e2b56b !important;}
+  .lnav-btn:disabled{opacity:.45 !important;}
+  .lnav-label{color:#fff3dd !important; text-shadow:0 1px 3px rgba(70,35,0,.7);}
+  .lnav-label b{color:#ffe08a !important;}
+  .lnav-pos{color:#ffd9a0 !important;}
+  .lnav-mine{color:#b9f6a3 !important;}
+  .lnav-empty{color:#fff3dd !important; text-shadow:0 1px 3px rgba(70,35,0,.7);}
+
+  /* 🍄 재료 이름 말풍선 (접시 클릭 시: 중/영 + 한국어) */
+  .ing-tip{
+    position:fixed; transform:translate(-50%,-100%); z-index:65;
+    background:rgba(255,253,246,.97); color:#4a2a06; font-weight:800; font-size:.82em;
+    padding:5px 12px 4px; border-radius:12px; border:2px solid #e2b56b;
+    box-shadow:0 4px 12px rgba(60,30,0,.4); white-space:nowrap; pointer-events:none;
+    animation:tipin .18s ease-out;
+  }
+  .ing-tip::after{
+    content:''; position:absolute; left:50%; bottom:-7px; transform:translateX(-50%);
+    border:6px solid transparent; border-top-color:#e2b56b; border-bottom:0;
+  }
+  @keyframes tipin{from{opacity:0; transform:translate(-50%,-80%);}}
+  .ing-tip.out{opacity:0; transition:opacity .3s;}
 
   #level-bar{display:flex; gap:6px; margin:4px 0 2px; flex-wrap:wrap; justify-content:center;}
   .lv-btn{
@@ -334,12 +362,36 @@ var ROLE_INFO = {
   word:   {ko:'단어',   cls:'r-word'}
 };
 
-/* 실사 토핑 이미지 (크로마키 추출 스프라이트) */
-var TOPPING_IMGS = [
-  'pepperoni','cheese','mushroom','olive','tomato','greenpepper','onion','basil',
-  'ham','bacon','corn','pineapple','shrimp','spinach','beef','jalapeno',
-  'prosciutto','squid','cherrytomato','artichoke','caramelonion','mozzarella'
-].map(function(n){ return '/img/pizza/' + n + '.png'; });
+/* 실사 토핑 (크로마키 추출 스프라이트) + 재료 이름 (영/중/한) */
+var TOPPINGS = [
+  {f:'pepperoni',   en:'Pepperoni',         zh:'意大利辣香肠', ko:'페퍼로니'},
+  {f:'cheese',      en:'Cheese',            zh:'奶酪',        ko:'치즈'},
+  {f:'mushroom',    en:'Mushroom',          zh:'蘑菇',        ko:'버섯'},
+  {f:'olive',       en:'Olive',             zh:'橄榄',        ko:'올리브'},
+  {f:'tomato',      en:'Tomato',            zh:'西红柿',      ko:'토마토'},
+  {f:'greenpepper', en:'Green Pepper',      zh:'青椒',        ko:'피망'},
+  {f:'onion',       en:'Onion',             zh:'洋葱',        ko:'양파'},
+  {f:'basil',       en:'Basil',             zh:'罗勒',        ko:'바질'},
+  {f:'ham',         en:'Ham',               zh:'火腿',        ko:'햄'},
+  {f:'bacon',       en:'Bacon',             zh:'培根',        ko:'베이컨'},
+  {f:'corn',        en:'Corn',              zh:'玉米',        ko:'옥수수'},
+  {f:'pineapple',   en:'Pineapple',         zh:'菠萝',        ko:'파인애플'},
+  {f:'shrimp',      en:'Shrimp',            zh:'虾',          ko:'새우'},
+  {f:'spinach',     en:'Spinach',           zh:'菠菜',        ko:'시금치'},
+  {f:'beef',        en:'Beef',              zh:'牛肉',        ko:'소고기'},
+  {f:'jalapeno',    en:'Jalapeno',          zh:'墨西哥辣椒',   ko:'할라피뇨'},
+  {f:'prosciutto',  en:'Prosciutto',        zh:'意大利火腿',   ko:'프로슈토'},
+  {f:'squid',       en:'Squid',             zh:'鱿鱼',        ko:'오징어'},
+  {f:'cherrytomato',en:'Cherry Tomato',     zh:'圣女果',      ko:'방울토마토'},
+  {f:'artichoke',   en:'Artichoke',         zh:'洋蓟',        ko:'아티초크'},
+  {f:'caramelonion',en:'Caramelized Onion', zh:'焦糖洋葱',    ko:'카라멜 양파'},
+  {f:'mozzarella',  en:'Mozzarella',        zh:'马苏里拉奶酪', ko:'모차렐라'}
+];
+var TOPPING_IMGS = TOPPINGS.map(function(t){ return '/img/pizza/' + t.f + '.png'; });
+function toppingName(tokenIdx){
+  var t = TOPPINGS[tokenIdx % TOPPINGS.length];
+  return (GLANG === 'zh' ? t.zh : t.en) + ' · ' + t.ko;
+}
 
 /* ══════════════════════════════════════════════════════════
    내장 교재 문장 (레벨 1~3) — 레슨 데이터 있으면 교체됨
@@ -411,6 +463,8 @@ var PRONOUNS = ['i','you','he','she','it','we','they'];
 function tagTokens(words){
   var seenVerb = false;
   return words.map(function(word, i){
+    // 중국어(한자) 단어엔 영어 성분 규칙이 안 맞음 → 배지 없는 'word'
+    if(/[㐀-鿿]/.test(String(word))) return [word, 'word'];
     var w = String(word).toLowerCase().replace(/[^a-z']/g, '');
     var role = 'word';
     if(['a','an','the'].indexOf(w) > -1) role = 'article';
@@ -486,28 +540,38 @@ function startTimer(){
 }
 function stopTimer(){ if(timerInt){ clearInterval(timerInt); timerInt = null; } }
 
-/* ══════════ TTS ══════════ */
+/* ══════════ TTS — 단어/문장 언어 자동 감지 (중국어=중국어, 영어=영어) ══════════ */
 var TTS_LANG = (GLANG === 'zh') ? 'zh-CN' : 'en-US';
-var pickedVoice = null;
-function pickVoice(){
-  if(!('speechSynthesis' in window)) return;
+function langOf(text){ return /[㐀-鿿]/.test(String(text)) ? 'zh-CN' : 'en-US'; }
+var voiceCache = {};
+function voiceFor(lang){
+  if(!('speechSynthesis' in window)) return null;
+  if(voiceCache[lang] !== undefined) return voiceCache[lang];
   var vs = speechSynthesis.getVoices();
-  var pref = (GLANG === 'zh') ? /zh[-_](CN|Hans)/i : /en[-_]US/i;
-  pickedVoice = vs.find(function(v){ return pref.test(v.lang) && /female|zira|aria|jenny|samantha|xiaoxiao|yaoyao|huihui/i.test(v.name); })
-             || vs.find(function(v){ return pref.test(v.lang); })
-             || vs.find(function(v){ return v.lang.slice(0,2).toLowerCase() === TTS_LANG.slice(0,2); }) || null;
+  var pref = (lang === 'zh-CN') ? /zh[-_](CN|Hans)/i : /en[-_]US/i;
+  var v = vs.find(function(x){ return pref.test(x.lang) && /female|zira|aria|jenny|samantha|xiaoxiao|yaoyao|huihui/i.test(x.name); })
+       || vs.find(function(x){ return pref.test(x.lang); })
+       || vs.find(function(x){ return x.lang.slice(0,2).toLowerCase() === lang.slice(0,2); }) || null;
+  voiceCache[lang] = v;
+  return v;
 }
-if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-function speak(text, done){
+if('speechSynthesis' in window){
+  speechSynthesis.onvoiceschanged = function(){ voiceCache = {}; };
+}
+function speak(text, done, lang){
   if(!('speechSynthesis' in window)){ if(done) done(); return; }
+  lang = lang || langOf(text);
   speechSynthesis.cancel();
   var u = new SpeechSynthesisUtterance(text);
-  u.lang = TTS_LANG; u.rate = 0.9;
-  if(pickedVoice) u.voice = pickedVoice;
+  u.lang = lang; u.rate = 0.9;
+  var v = voiceFor(lang);
+  if(v) u.voice = v;
   u.onend = function(){ if(done) done(); };
   u.onerror = function(){ if(done) done(); };
   speechSynthesis.speak(u);
 }
+/* 재료 클릭 즉시 그 단어 발음 */
+function speakWord(word){ speak(word); }
 
 /* ══════════ 음성 인식 ══════════ */
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -568,7 +632,7 @@ function bowlEl(word, role, tokenIdx){
   div.innerHTML =
     '<div class="dish"><img src="' + TOPPING_IMGS[tokenIdx % TOPPING_IMGS.length] + '" alt="">' +
     '<span class="w">' + word + '</span></div>' +
-    '<span class="role ' + info.cls + '">' + info.ko + '</span>';
+    (role === 'word' ? '' : '<span class="role ' + info.cls + '">' + info.ko + '</span>');
   return div;
 }
 
@@ -595,7 +659,8 @@ function placeTopping(word, role, tokenIdx, total){
   var info = ROLE_INFO[role] || ROLE_INFO.word;
   var chip = document.createElement('div');
   chip.className = 'word-chip';
-  chip.innerHTML = word + '<small><span class="role ' + info.cls + '" style="display:inline-block;padding:0 7px;border-radius:6px;color:#fff;">' + info.ko + '</span></small>';
+  chip.innerHTML = word + (role === 'word' ? '' :
+    '<small><span class="role ' + info.cls + '" style="display:inline-block;padding:0 7px;border-radius:6px;color:#fff;">' + info.ko + '</span></small>');
   chip.style.left = (50 + Math.cos(angC) * 38) + '%';
   chip.style.top = (50 + Math.sin(angC) * 38) + '%';
   layer.appendChild(chip);
@@ -632,9 +697,24 @@ function setupSentence(){
   startTimer();
 }
 
+/* 접시 위에 재료 이름 말풍선 (중/영 + 한국어) */
+function showIngTip(el, tokenIdx){
+  var r = el.getBoundingClientRect();
+  var tip = document.createElement('div');
+  tip.className = 'ing-tip';
+  tip.textContent = '🍕 ' + toppingName(tokenIdx);
+  tip.style.left = (r.left + r.width / 2) + 'px';
+  tip.style.top = (r.top - 6) + 'px';
+  document.body.appendChild(tip);
+  setTimeout(function(){ tip.classList.add('out'); }, 1400);
+  setTimeout(function(){ tip.remove(); }, 1750);
+}
+
 function onBowlClick(el, tokenIdx){
   if(missionActive || baking) return;
   var s = cur();
+  speakWord(s.tokens[tokenIdx][0]);          // 클릭할 때마다 그 단어 발음 (zh=중국어, en=영어)
+  showIngTip(el, tokenIdx);                  // 재료 이름 (중/영 + 한국어) 말풍선
   if(tokenIdx === placedCount){
     el.onclick = null;
     el.remove();
@@ -676,6 +756,7 @@ function renderDots(elId, count){
 function startMission(){
   baking = false;
   missionActive = true;
+  if(recognition) recognition.lang = langOf(sentenceText());   // 문장 언어에 맞춰 인식
   $('mission-sentence').textContent = '"' + sentenceText() + '"';
   $('mission-py').textContent = (GLANG === 'zh' && cur().py) ? cur().py : '';
   $('status').textContent = '🍕 완성! 3번 듣고 3번 말하면 토큰 획득!';
@@ -814,6 +895,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720020907 -->
+<!-- BUILD:20260720023311 -->
 </body>
 </html>
