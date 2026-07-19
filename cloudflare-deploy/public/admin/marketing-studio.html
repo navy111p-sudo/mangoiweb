@@ -80,6 +80,10 @@
   @media(max-width:860px){ .grid{grid-template-columns:1fr} }
 </style>
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
+<style id="pc-scale">
+  /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
+  @media (min-width: 1024px) { body { zoom: 1.3; } }
+</style>
 </head>
 <body>
 <header class="top">

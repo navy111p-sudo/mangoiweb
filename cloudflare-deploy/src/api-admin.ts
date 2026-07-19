@@ -4507,6 +4507,9 @@ ${chatSampleText}
         const kind = finM[1];
         const lim = Math.max(1, Math.min(2000, parseInt(url.searchParams.get('limit') || '500', 10)));
         const month = (url.searchParams.get('month') || '').trim();
+        // ⚡ KV 캐시(120초) — 카페24 Neo4j(8880) 외부 홉 절감. 회계 원본은 야간 cron 동기화라 분단위 신선도 충분. 본사 전용(권한게이트 뒤)이라 조직공용 키.
+        const _finKey = 'fin:' + kind + ':' + month + ':' + lim;
+        try { const _h = await env.SESSION_STATE.get(_finKey); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
         // 월별 손익 집계 (AccBookType 1=수입, 2=지출) — 최근 24개월
         if (kind === 'summary') {
           try {
@@ -4524,7 +4527,9 @@ ${chatSampleText}
               return o;
             });
             const totals = rows.reduce((a: any, r: any) => ({ income: a.income + (Number(r.income) || 0), expense: a.expense + (Number(r.expense) || 0) }), { income: 0, expense: 0 });
-            return json({ ok: true, source: 'neo4j', kind: 'summary', months: rows, totals: { ...totals, net: totals.income - totals.expense } });
+            const _finBody = JSON.stringify({ ok: true, source: 'neo4j', kind: 'summary', months: rows, totals: { ...totals, net: totals.income - totals.expense } });
+            try { await env.SESSION_STATE.put(_finKey, _finBody, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
+            return new Response(_finBody, { status: 200, headers: { 'Content-Type': 'application/json' } });
           } catch (e: any) {
             if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
             return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4542,7 +4547,9 @@ ${chatSampleText}
         try {
           const { fields, values } = await runCypher(env, cy, { lim, month }, 'READ');
           const rows = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-          return json({ ok: true, source: 'neo4j', kind, count: rows.length, rows });
+          const _finBody2 = JSON.stringify({ ok: true, source: 'neo4j', kind, count: rows.length, rows });
+          try { await env.SESSION_STATE.put(_finKey, _finBody2, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
+          return new Response(_finBody2, { status: 200, headers: { 'Content-Type': 'application/json' } });
         } catch (e: any) {
           if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
           return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4554,6 +4561,9 @@ ${chatSampleText}
     //   GET /api/admin/selfscore/trend?months=24  → {ok, months:[{ym,cnt,avg_score}], totals}
     if (method === 'GET' && path === '/api/admin/selfscore/trend') {
         const lim = Math.max(1, Math.min(84, parseInt(url.searchParams.get('months') || '24', 10)));
+        // ⚡ KV 캐시(120초) — Neo4j 외부 홉 절감(야간 동기화 데이터).
+        const _sstKey = 'selfscore:trend:' + lim;
+        try { const _h = await env.SESSION_STATE.get(_sstKey); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
         try {
           const { fields, values } = await runCypher(env, `
             MATCH (s:SelfScoreTrend)
@@ -4565,7 +4575,9 @@ ${chatSampleText}
             total_responses: months.reduce((a: number, m: any) => a + (Number(m.cnt) || 0), 0),
             avg_overall: withCount.length ? Math.round((withCount.reduce((a: number, m: any) => a + Number(m.avg_score), 0) / withCount.length) * 100) / 100 : null,
           };
-          return json({ ok: true, source: 'neo4j', months, totals });
+          const _sstBody = JSON.stringify({ ok: true, source: 'neo4j', months, totals });
+          try { await env.SESSION_STATE.put(_sstKey, _sstBody, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
+          return new Response(_sstBody, { status: 200, headers: { 'Content-Type': 'application/json' } });
         } catch (e: any) {
           if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
           return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4575,6 +4587,9 @@ ${chatSampleText}
     // 🏅 카페24 레벨테스트 배치 현황 (그래프DB) — 레벨별 분포·합격률 + 최근 응시
     //   GET /api/admin/leveltest/overview  → {ok, by_level:[{level,total,pass,pass_rate}], recent:[...], totals}
     if (method === 'GET' && path === '/api/admin/leveltest/overview') {
+      // ⚡ KV 캐시(120초) — Neo4j 외부 홉 2회(agg+recent) 절감(야간 동기화 데이터).
+      const _ltKey = 'leveltest:overview';
+      try { const _h = await env.SESSION_STATE.get(_ltKey); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
       try {
         const agg = await runCypher(env, `
           MATCH (l:LevelTest) WHERE l.level IS NOT NULL AND l.level <> ''
@@ -4592,7 +4607,9 @@ ${chatSampleText}
           ORDER BY l.year DESC, l.month DESC, l.day DESC LIMIT 200`, {}, 'READ');
         const recent = rec.values.map(row => Object.fromEntries(rec.fields.map((f, i) => [f, row[i]])));
         const totals = byLevel.reduce((a: any, r: any) => ({ total: a.total + Number(r.total), pass: a.pass + Number(r.pass) }), { total: 0, pass: 0 });
-        return json({ ok: true, source: 'neo4j', by_level: byLevel, recent, totals: { ...totals, pass_rate: totals.total > 0 ? Math.round((totals.pass / totals.total) * 1000) / 10 : 0 } });
+        const _ltBody = JSON.stringify({ ok: true, source: 'neo4j', by_level: byLevel, recent, totals: { ...totals, pass_rate: totals.total > 0 ? Math.round((totals.pass / totals.total) * 1000) / 10 : 0 } });
+        try { await env.SESSION_STATE.put(_ltKey, _ltBody, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
+        return new Response(_ltBody, { status: 200, headers: { 'Content-Type': 'application/json' } });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
