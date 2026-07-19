@@ -175,6 +175,8 @@
       <button class="langBtn fieldBtn" data-f="desert">🏜️ 사막(이집트)</button>
       <button class="langBtn fieldBtn" data-f="snow">❄️ 설원(러시아)</button>
     </div>
+    <!-- 📚 진도(레슨) 네비게이션: ◀복습 / ▶예습 -->
+    <div id="lessonNav" style="margin-top:4px"></div>
     <div class="diffRow" id="diffRow">
       <span class="diffLab">🎯 난이도</span>
       <button class="diffBtn" id="diffMinus" aria-label="난이도 낮추기">−</button>
@@ -218,6 +220,7 @@
   </div>
 </div>
 
+<script src="/js/lesson-nav.js?v=1"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    0. 파라미터 · 상태
@@ -549,11 +552,22 @@ function pickWaypoint(){ G.wpx=W*(0.2+Math.random()*0.6); G.wpy=H*(0.35+Math.ran
    7. 문장 바
    ════════════════════════════════════════════════════════════ */
 var _queue=[], _qi=0;
+var LESSON_SETS=null;   // 📚 교재 레슨에서 온 문장(있으면 우선). 없으면 내장 SETS.
 function loadSentence(){
-  if(_qi>=_queue.length){ _queue=shuffle(SETS[MODE].slice()); _qi=0; }
+  var pool = (LESSON_SETS && LESSON_SETS.length) ? LESSON_SETS : SETS[MODE];
+  if(_qi>=_queue.length){ _queue=shuffle(pool.slice()); _qi=0; }
   var s=_queue[_qi++];
   G.sent={ w:s.w.slice(), ko:s.ko }; G.next=0;
   renderSentence();
+}
+/* 📚 진도(레슨) 네비게이터 연결 — 로그인 학생 교재의 레슨별 문장 로드 + ◀복습/▶예습 */
+function mountLessonNav(){
+  if(!window.MangoiLessonNav) return;
+  MangoiLessonNav.mount({ glang:MODE, mount:document.getElementById('lessonNav'), onSet:function(sets){
+    LESSON_SETS = (sets && sets.length) ? sets : null;
+    _queue=[]; _qi=0;                                    // 레슨 바뀌면 문장 큐 리셋
+    if(G && G.running && !G.speaking){ loadSentence(); } // 게임 중이면 새 레슨 즉시 반영
+  }});
 }
 function renderSentence(){
   document.getElementById('sentKo').textContent = '🎯 '+G.sent.ko;
@@ -1082,7 +1096,8 @@ function setLang(l){ MODE=(l==='zh')?'zh':'en';
   document.getElementById('lgEn').classList.toggle('on',MODE==='en');
   document.getElementById('lgZh').classList.toggle('on',MODE==='zh');
   document.getElementById('startSub').textContent = MODE==='zh' ? '한자 문장을 어순대로 격파하라!' : '문장을 어순대로 격파하라!';
-  try{ localStorage.setItem('mangoi_game_lang',MODE); }catch(_){} }
+  try{ localStorage.setItem('mangoi_game_lang',MODE); }catch(_){}
+  LESSON_SETS=null; _queue=[]; _qi=0; mountLessonNav(); }   // 📚 언어별 교재 레슨 다시 로드
 document.getElementById('lgEn').addEventListener('click',function(){ setLang('en'); });
 document.getElementById('lgZh').addEventListener('click',function(){ setLang('zh'); });
 function setField(f){ FIELD=(f==='desert'||f==='snow')?f:'grass';
@@ -1118,6 +1133,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260719153524 -->
+<!-- BUILD:20260719161604 -->
 </body>
 </html>

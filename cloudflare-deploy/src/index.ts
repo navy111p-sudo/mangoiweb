@@ -273,6 +273,10 @@ const worker = {
     if (path === '/api/games/zh-passage' && request.method === 'GET') {
       return handleGamesZhPassage(request, env);
     }
+    // 📚 진도(레슨) 순차 — GET /api/games/lessons?glang=&textbook=&level=&user_id=  → 교재의 레슨별 문장(예습/복습 네비게이션)
+    if (path === '/api/games/lessons' && request.method === 'GET') {
+      return handleGamesLessons(request, env);
+    }
     // 🔤 영어 게임 어휘 은행 — GET /api/games/en-vocab  → 난이도별 영어 문장+단어(en_vocab, 폴백 강화)
     if (path === '/api/games/en-vocab' && request.method === 'GET') {
       return handleGamesEnVocab(request, env);
@@ -2264,6 +2268,81 @@ async function handleGamesZhVocab(request: Request, env: Env): Promise<Response>
       }
     }
     return new Response(JSON.stringify({ ok: true, textbook, level, sentences, words }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  📚 진도(레슨) 순차 — GET /api/games/lessons?glang=en|zh&textbook=&level=&user_id=
+ *  교재의 레슨(lesson_no)별 문장을 '순서대로' 묶어 반환 → 게임에서 ◀복습/▶예습 이동.
+ *  zh=zh_vocab(다락원 등 실제 교재), en=review_quizzes. 학생 user_id 주면 배정 교재 자동사용.
+ *  응답: { ok, glang, textbook, level, assigned, textbooks:[교재명…], lessons:[{lesson_no,count,sentences:[{en,ko,pinyin?,words}]}] }
+ * ════════════════════════════════════════════════════════════════════════ */
+async function handleGamesLessons(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const glang = ((u.searchParams.get('glang') || 'en').trim() === 'zh') ? 'zh' : 'en';
+    const userId = (u.searchParams.get('user_id') || '').trim();
+    let textbook = (u.searchParams.get('textbook') || '').trim();
+    let level = (u.searchParams.get('level') || '').trim();
+    let assigned = false;
+    if (userId && !textbook) {
+      try {
+        const s: any = await env.DB.prepare(`SELECT level, textbook FROM students_erp WHERE user_id = ? LIMIT 1`).bind(userId).first();
+        if (s) { if (s.textbook) { textbook = String(s.textbook).trim(); assigned = true; } if (!level && s.level) level = String(s.level).trim(); }
+      } catch {}
+    }
+    // 데이터가 실제로 있는 교재 목록(선택기용)
+    const textbooks: string[] = [];
+    try {
+      const tsql = glang === 'zh'
+        ? `SELECT textbook, COUNT(*) c FROM zh_vocab WHERE active=1 AND type='sentence' AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY c DESC LIMIT 20`
+        : `SELECT textbook, COUNT(*) c FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY c DESC LIMIT 20`;
+      const rs = await env.DB.prepare(tsql).all();
+      for (const r of (((rs.results as any[]) || []))) { const t = String((r as any).textbook || '').trim(); if (t) textbooks.push(t); }
+    } catch {}
+    // 교재 미지정 → 데이터 있는 첫 교재 기본 사용(그래도 뭔가 보이게)
+    if (!textbook && textbooks.length) textbook = textbooks[0];
+
+    const lessonsMap = new Map<number, Array<any>>();
+    if (textbook) {
+      if (glang === 'zh') {
+        const conds = ['active=1', "type='sentence'", 'LOWER(textbook)=LOWER(?)']; const binds: any[] = [textbook];
+        if (level) { conds.push('LOWER(level)=LOWER(?)'); binds.push(level); }
+        const rs = await env.DB.prepare(`SELECT lesson_no, hanzi, pinyin, ko, words FROM zh_vocab WHERE ${conds.join(' AND ')} ORDER BY lesson_no ASC, id ASC LIMIT 900`).bind(...binds).all();
+        for (const r of (((rs.results as any[]) || []))) {
+          const ln = parseInt((r as any).lesson_no, 10) || 0; const hz = String((r as any).hanzi || '').trim(); if (!hz) continue;
+          let ws: string[] = []; try { ws = JSON.parse((r as any).words || '[]') || []; } catch {}
+          const cjk = (hz.match(/[㐀-鿿]/g) || []); if (cjk.length && ws.join('') !== cjk.join('')) ws = cjk;
+          if (ws.length < 2) continue;
+          if (!lessonsMap.has(ln)) lessonsMap.set(ln, []);
+          const arr = lessonsMap.get(ln)!; if (arr.length < 8) arr.push({ en: hz, ko: String((r as any).ko || '').trim(), pinyin: String((r as any).pinyin || '').trim(), words: ws });
+        }
+      } else {
+        const conds = ['active=1', 'LOWER(textbook)=LOWER(?)']; const binds: any[] = [textbook];
+        if (level) { conds.push('LOWER(level)=LOWER(?)'); binds.push(level); }
+        const rs = await env.DB.prepare(`SELECT lesson_no, questions FROM review_quizzes WHERE ${conds.join(' AND ')} ORDER BY lesson_no ASC, id ASC LIMIT 200`).bind(...binds).all();
+        for (const r of (((rs.results as any[]) || []))) {
+          const ln = parseInt((r as any).lesson_no, 10) || 0;
+          let qs: any[] = []; try { qs = JSON.parse((r as any).questions) || []; } catch {}
+          for (const q of qs) {
+            const en = String(q?.answer_text || q?.audio_text || q?.target || '').trim();
+            if (!en || !/[a-zA-Z]/.test(en) || en.length > 90) continue;
+            const t = String(q?.q || ''); const i = Math.max(t.lastIndexOf(':'), t.lastIndexOf('：')); const tail = i >= 0 ? t.slice(i + 1).trim() : '';
+            const ko = (/[가-힣]/.test(tail) && tail.length >= 2 && tail.length <= 60) ? tail : '';
+            const words = en.replace(/[.,!?;:"]/g, '').split(/\s+/).filter(Boolean);
+            if (words.length < 2) continue;
+            if (!lessonsMap.has(ln)) lessonsMap.set(ln, []);
+            const arr = lessonsMap.get(ln)!;
+            if (arr.length < 8 && !arr.some((x: any) => x.en.toLowerCase() === en.toLowerCase())) arr.push({ en, ko, words });
+          }
+        }
+      }
+    }
+    const lessons = [...lessonsMap.entries()].filter(([, arr]) => arr.length > 0).sort((a, b) => a[0] - b[0])
+      .map(([ln, arr]) => ({ lesson_no: ln, count: arr.length, sentences: arr }));
+    return new Response(JSON.stringify({ ok: true, glang, textbook, level, assigned, textbooks, lessons }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
