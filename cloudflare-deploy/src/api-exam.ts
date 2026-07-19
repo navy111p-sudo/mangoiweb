@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody } from './api-util';
+import { authUidFromRequest } from './auth-token';   // 🔐 IDOR 방지 — 본인 시험결과만
 import type { MangoEnv } from './api-mango';
 
 async function ensureExamTables(env: MangoEnv): Promise<void> {
@@ -355,6 +356,9 @@ export async function handleExamApi(request: Request, url: URL, env: MangoEnv): 
     await ensureExamTables(env);
     const userId = String(url.searchParams.get('user_id') || '').trim();
     if (!userId) return json({ ok: false, error: 'user_id_required' }, 400);
+    // 🔐 [IDOR] 본인 시험 결과만 — 서명 토큰 uid 일치 요구(남의 듣기·읽기 점수·이력 조회 차단)
+    const _exAuth = await authUidFromRequest(request, url, env);
+    if (!_exAuth || _exAuth !== userId) return json({ ok: false, error: 'auth_required' }, 401);
     const rs = await env.DB.prepare(`SELECT a.exam_id, e.title, a.score, a.listening_score, a.reading_score, a.correct_count, a.total_questions, a.finished_at
       FROM mt_attempts a JOIN mt_exams e ON e.id = a.exam_id
       WHERE a.user_id = ? AND a.finished_at IS NOT NULL ORDER BY a.finished_at DESC LIMIT 30`).bind(userId).all();

@@ -147,7 +147,8 @@
     if (!body) return;
     body.innerHTML = `<div style="text-align:center;padding:30px;color:#a5b4fc">⏳ ${en?'Loading...':'불러오는 중...'}</div>`;
     try {
-      const r = await fetch('/api/exam/results?user_id=' + encodeURIComponent(uid())).then(x=>x.json());
+      const _mtTok = (function(){ try{ return localStorage.getItem('mango_token') || ''; }catch(e){ return ''; } })();   // 🔐 본인 시험결과 인증(IDOR 방지)
+      const r = await fetch('/api/exam/results?user_id=' + encodeURIComponent(uid()) + '&token=' + encodeURIComponent(_mtTok)).then(x=>x.json());
       const list = r.list || [];
       body.innerHTML = `<button onclick="mtShowList()" style="background:#475569;color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer;margin-bottom:10px">◀ ${en?'Back':'뒤로'}</button>
         ${list.length ? list.map(x => `<div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px;margin-bottom:6px;display:flex;justify-content:space-between;font-size:13px;color:#e2e8f0">
