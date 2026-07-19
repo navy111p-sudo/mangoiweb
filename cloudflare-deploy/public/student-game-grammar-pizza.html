@@ -105,6 +105,15 @@
   }
   #pizza.saucy img.sauce-base{opacity:.96;}
   #pizza.baked{filter:sepia(.32) saturate(1.25) brightness(.95) contrast(1.05); transform:scale(1.015);}
+  /* 🔥 완성: 실사 구운 피자 사진으로 크로스페이드 */
+  #pizza img.baked-photo{
+    position:absolute; inset:-2%; width:104%; height:104%; object-fit:contain;
+    opacity:0; transition:opacity .9s ease; z-index:5; pointer-events:none;
+    user-select:none; -webkit-user-drag:none;
+  }
+  #pizza.served img.baked-photo{opacity:1;}
+  #pizza.served{animation:servedPulse 1s ease; filter:none;}
+  @keyframes servedPulse{0%{transform:scale(.96);}55%{transform:scale(1.06);}100%{transform:scale(1.015);}}
   #toppings-layer{position:absolute; inset:0; pointer-events:none;}
   .top-sprite{
     position:absolute; transform:translate(-50%,-50%) rotate(var(--rot)) scale(0);
@@ -175,6 +184,23 @@
   .r-adj{background:#ab47bc;}     .r-adv{background:#00897b;}
   .r-comp{background:#5c6bc0;}    .r-aux{background:#fb8c00;}
   .r-inf{background:#7e57c2;}     .r-word{background:#78909c;}
+
+  /* ── ▶ 시작 전 듣기 오버레이 ─────────────── */
+  #ready{
+    position:fixed; inset:0; z-index:45; display:none;
+    align-items:center; justify-content:center; padding:16px;
+    background:rgba(45,22,0,.55);
+  }
+  #ready.show{display:flex;}
+  #ready-card{
+    background:linear-gradient(180deg,#fffdf6,#fff3da); border-radius:20px;
+    max-width:440px; width:100%; padding:22px 18px; text-align:center;
+    border:4px solid var(--mango-yellow); box-shadow:0 14px 40px rgba(0,0,0,.45);
+    animation:pop .3s;
+  }
+  #ready-card .head{font-size:1em; font-weight:900; color:var(--mango-deep);}
+  #ready-card .sent{font-size:1.25em; font-weight:800; color:#4a2a06; margin:10px 0 4px;}
+  #ready-card .ko{font-size:.88em; color:#9a6a20; font-weight:700; margin-bottom:14px;}
 
   /* ── 듣기·말하기 미션 오버레이 ───────────── */
   #mission{
@@ -282,6 +308,7 @@
 <header>
   <h1>🍕 망고아이 문법 피자 마스터</h1>
   <div id="hud">
+    <div class="hud-chip"><small>⚡ 난이도</small><select id="diff-sel" style="border:0;background:transparent;font-family:inherit;font-weight:800;font-size:1em;color:#7a4a12;cursor:pointer;outline:none;"></select></div>
     <div class="hud-chip" id="time-chip"><small>남은 시간</small><span id="timer">0:45</span></div>
     <div class="hud-chip"><small>내 토큰</small><span id="tokens">0</span> 🪙</div>
     <div class="hud-chip"><small>진행</small><span id="progress">1 / 1</span></div>
@@ -304,11 +331,22 @@
       <img class="dough" src="/img/pizza/dough.png" alt="pizza dough">
       <img class="sauce-base" src="/img/pizza/sauce.png" alt="">
       <div id="toppings-layer"></div>
+      <img class="baked-photo" src="/img/pizza/baked.png" alt="">
     </div>
   </div>
 </div>
 
 <div id="tray"></div>
+
+<!-- ▶ 라운드 시작 전: 문장 먼저 듣기 -->
+<div id="ready">
+  <div id="ready-card">
+    <div class="head">👂 먼저 문장을 잘 들어 보세요!</div>
+    <div class="sent" id="ready-sentence"></div>
+    <div class="ko" id="ready-ko"></div>
+    <button class="big-btn" id="btn-ready">🔊 듣고 시작하기</button>
+  </div>
+</div>
 
 <div id="mission">
   <div id="mission-card">
@@ -483,11 +521,20 @@ var GENERIC_GRAMMAR = {
   desc:'영어 문장은 [주어 → 동사 → 목적어] 순서가 기본이에요.\n"누가 + 어떻게 하다 + 무엇을" 순서로\n재료를 올려 보세요!'
 };
 
+/* ══════════ ⚡ 난이도 1~7 (제한시간·발음속도) ══════════ */
+var TIME_BY_DIFF = [70, 60, 52, 45, 38, 32, 26];        // 초
+var RATE_BY_DIFF = [0.72, 0.8, 0.85, 0.9, 0.98, 1.06, 1.15]; // TTS 속도
+var DIFF = (function(){
+  var v = parseInt(localStorage.getItem('mangoi_pizza_diff') || QS.get('speed') || '4', 10);
+  return (v >= 1 && v <= 7) ? v : 4;
+})();
+
 /* ══════════ 상태 ══════════ */
 var LESSON_POOL = null;     // 레슨 데이터 로드 시 [{tokens, ko, py, grammar}]
 var LESSON_INFO = null;
 var levelIdx = 0, sentIdx = 0, placedCount = 0;
 var listenCount = 0, speakCount = 0, missionActive = false, baking = false;
+var awaitingStart = true;   // ▶ 시작 전 문장 듣기 대기
 var tokens = parseInt(localStorage.getItem('mangoi_pizza_tokens') || '0', 10) || 0;
 var timerLeft = 45, timerInt = null;
 
@@ -526,7 +573,7 @@ function burst(x, y){
 function fmtTime(s){ return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function startTimer(){
   stopTimer();
-  timerLeft = 45;
+  timerLeft = TIME_BY_DIFF[DIFF - 1];
   $('timer').textContent = fmtTime(timerLeft);
   timerInt = setInterval(function(){
     timerLeft--;
@@ -563,7 +610,7 @@ function speak(text, done, lang){
   lang = lang || langOf(text);
   speechSynthesis.cancel();
   var u = new SpeechSynthesisUtterance(text);
-  u.lang = lang; u.rate = 0.9;
+  u.lang = lang; u.rate = RATE_BY_DIFF[DIFF - 1];
   var v = voiceFor(lang);
   if(v) u.voice = v;
   u.onend = function(){ if(done) done(); };
@@ -668,11 +715,15 @@ function placeTopping(word, role, tokenIdx, total){
 
 function setupSentence(){
   placedCount = 0; listenCount = 0; speakCount = 0;
-  missionActive = false; baking = false;
+  missionActive = false; baking = false; awaitingStart = true;
+  stopTimer();
   var s = cur();
   $('toppings-layer').innerHTML = '';
   $('pizza').classList.remove('baked');
   $('pizza').classList.remove('saucy');
+  $('pizza').classList.remove('served');
+  var _bp = document.querySelector('#pizza img.baked-photo');
+  if(_bp) _bp.style.opacity = '';
   $('tray').innerHTML = '';
   $('mission').classList.remove('show');
   $('sentence-display').textContent = sentenceText() + (GLANG === 'zh' ? '' : '.');
@@ -694,8 +745,31 @@ function setupSentence(){
     $('tray').appendChild(el);
   });
   updateHud();
-  startTimer();
+  // ▶ 타이머는 바로 안 돌리고, 먼저 문장 듣기 오버레이부터
+  $('timer').textContent = fmtTime(TIME_BY_DIFF[DIFF - 1]);
+  showReady();
 }
+
+/* ══════════ ▶ 시작 전 문장 듣기 ══════════ */
+function showReady(){
+  $('ready-sentence').textContent = sentenceText();
+  $('ready-ko').textContent = cur().ko ? ('💬 ' + cur().ko) : '';
+  $('btn-ready').disabled = false;
+  $('btn-ready').textContent = '🔊 듣고 시작하기';
+  $('ready').classList.add('show');
+}
+$('btn-ready').onclick = function(){
+  var btn = $('btn-ready');
+  if(btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '👂 잘 들어 보세요...';
+  speak(sentenceText(), function(){
+    $('ready').classList.remove('show');
+    awaitingStart = false;
+    startTimer();
+    toast('▶ 시작! 문장 순서대로 재료를 올려요!');
+  });
+};
 
 /* 접시 위에 재료 이름 말풍선 (중/영 + 한국어) */
 function showIngTip(el, tokenIdx){
@@ -711,7 +785,7 @@ function showIngTip(el, tokenIdx){
 }
 
 function onBowlClick(el, tokenIdx){
-  if(missionActive || baking) return;
+  if(missionActive || baking || awaitingStart) return;
   var s = cur();
   speakWord(s.tokens[tokenIdx][0]);          // 클릭할 때마다 그 단어 발음 (zh=중국어, en=영어)
   showIngTip(el, tokenIdx);                  // 재료 이름 (중/영 + 한국어) 말풍선
@@ -740,7 +814,14 @@ function bakePizza(){
   $('status').textContent = '🔥 화덕에서 굽는 중...';
   $('pizza').classList.add('baked');
   toast('🔥 피자를 굽고 있어요!');
-  setTimeout(startMission, 1400);
+  // 1.2초 굽기 → 실사 구운 피자 사진으로 크로스페이드 (인라인 스타일 병행: CSS 적용 실패 환경 대비)
+  setTimeout(function(){
+    $('pizza').classList.add('served');
+    var bp = document.querySelector('#pizza img.baked-photo');
+    if(bp) bp.style.opacity = '1';
+    $('status').textContent = '🍕 짜잔! 노릇노릇하게 구워졌어요!';
+  }, 1200);
+  setTimeout(startMission, 2600);
 }
 
 function renderDots(elId, count){
@@ -891,10 +972,28 @@ function mountLessonNav(){
   }});
 }
 
+/* ══════════ ⚡ 난이도 선택 ══════════ */
+(function(){
+  var sel = $('diff-sel');
+  for(var i = 1; i <= 7; i++){
+    var o = document.createElement('option');
+    o.value = i;
+    o.textContent = i + '단계';
+    sel.appendChild(o);
+  }
+  sel.value = DIFF;
+  sel.onchange = function(){
+    DIFF = parseInt(sel.value, 10) || 4;
+    try{ localStorage.setItem('mangoi_pizza_diff', String(DIFF)); }catch(_){}
+    toast('⚡ 난이도 ' + DIFF + '단계 — 제한시간 ' + TIME_BY_DIFF[DIFF - 1] + '초');
+    setupSentence();   // 새 난이도로 현재 문장 재시작
+  };
+})();
+
 renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720023311 -->
+<!-- BUILD:20260720025935 -->
 </body>
 </html>
