@@ -113,6 +113,20 @@ export async function handleMangoApi(
   // (sendPushToUser → api-notify.ts 로 승격 — admin 5회차)
 
   try {
+    // ===== 📶 화상수업 회선품질 로깅 (fire-and-forget, 통화 경로와 무관) — 강사별 인터넷 품질 파악 =====
+    if (path === '/api/vc/quality-log' && method === 'POST') {
+      try {
+        const b: any = await request.json().catch(() => null);
+        if (!b || !b.uid) return json({ ok: true });   // 로깅은 실패해도 무관 → 조용히 무시
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+          .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
+            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0).run();
+        if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
+        return json({ ok: true });
+      } catch { return json({ ok: true }); }
+    }
+
     // ===== 🛠️ 진단 + 테이블 부트스트랩 =====
     if (path === '/api/_bootstrap' && method === 'GET') {
       const result: any = { ok: true, ts: new Date().toISOString(), tables_created: [], errors: [] };

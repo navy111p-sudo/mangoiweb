@@ -253,6 +253,24 @@ export async function handleAdminApi(
   const method = request.method;
 
     // ════════════════════════════════════════════════════════════
+    // 📶 화상수업 회선품질 — 강사/학생별 손실·RTT 집계 (어느 강사 인터넷이 나쁜지 파악)
+    // ════════════════════════════════════════════════════════════
+    if (method === 'GET' && path === '/api/admin/vc/quality') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
+        const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '7', 10) || 7));
+        const since = Date.now() - days * 86400000;
+        const rs: any = await env.DB.prepare(
+          `SELECT uid, MAX(name) AS name, role, COUNT(*) AS windows,
+                  ROUND(AVG(avg_loss), 1) AS avg_loss, ROUND(MAX(max_loss), 1) AS worst_loss,
+                  ROUND(AVG(avg_rtt)) AS avg_rtt, SUM(aao) AS aao_events, MAX(ts) AS last_seen
+           FROM vc_quality WHERE ts >= ? GROUP BY uid, role ORDER BY avg_loss DESC LIMIT 200`
+        ).bind(since).all();
+        return json({ ok: true, days, rows: rs.results || [] });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'vc_quality_failed' }, 500); }
+    }
+
+    // ════════════════════════════════════════════════════════════
     // 💵 Phase 15 — 매출 / 학생 흐름 통계
     //   GET /api/admin/stats/revenue?period=day|month|quarter|half|year&from=YYYY-MM-DD&to=YYYY-MM-DD
     //     · student_payments 테이블 기준 (status='paid' 만 합산)

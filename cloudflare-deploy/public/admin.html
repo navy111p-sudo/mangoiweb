@@ -8657,6 +8657,58 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-classaudit.js?v=1"></script><!-- 📜 수업 변경 이력 -->
 
 <!-- ⭐ 학생 수업 평가 — 수업 종료 직후 학생이 남긴 별 7개 평가 + 건의사항 -->
+<details class="table-card menu-card" id="card-vc-quality">
+  <summary><span data-ko="📶 강사 회선품질 (화상수업 인터넷)" data-en="📶 Teacher Line Quality (class internet)">📶 강사 회선품질 (화상수업 인터넷)</span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,#e0f2fe,#eff6ff);border:1px solid #0ea5e9;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#075985;line-height:1.7"
+         data-ko="💡 화상수업 중 강사·학생의 실시간 손실률·지연(RTT)을 30초마다 자동 수집합니다. 손실률이 높은 강사가 인터넷이 나쁜 것이니, 그 회선을 개선(유선 랜·회선 업그레이드)하면 수업 품질이 좋아집니다. AAO=인터넷이 나빠 자동으로 '음성만' 전송된 횟수."
+         data-en="💡 Real-time packet loss / RTT of teachers & students during class, sampled every 30s. High loss = that teacher's internet is bad. AAO = times auto audio-only kicked in.">
+      💡 화상수업 중 <b>손실률·지연(RTT)</b>을 30초마다 자동 수집합니다. <b>손실률 높은 강사 = 인터넷 나쁨</b> → 그 회선을 개선(유선 랜 등)하면 수업 품질↑. <b>AAO</b>=자동 음성전용 전환 횟수.
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;color:#475569">기간
+        <select id="vcq-days" onchange="vcqLoad()" style="margin-left:6px;padding:4px 8px;border-radius:6px">
+          <option value="1">1일</option><option value="7" selected>7일</option><option value="30">30일</option>
+        </select>
+      </label>
+      <button onclick="vcqLoad()" style="margin-left:8px;padding:5px 12px;border:0;border-radius:6px;background:#0ea5e9;color:#fff;cursor:pointer">새로고침</button>
+    </div>
+    <div id="vcq-body" style="font-size:13px;color:#64748b">불러오려면 새로고침을 누르세요.</div>
+  </div>
+  <script>
+  async function vcqLoad(){
+    var body=document.getElementById('vcq-body'); if(!body) return;
+    var days=(document.getElementById('vcq-days')||{}).value||'7';
+    body.innerHTML='불러오는 중…';
+    function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+    function color(l){ return l>=6?'#dc2626':(l>=3?'#d97706':'#16a34a'); }
+    try{
+      var r=await fetch('/api/admin/vc/quality?days='+encodeURIComponent(days),{credentials:'include'});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok||!d.ok){ body.innerHTML='조회 실패'; return; }
+      var rows=d.rows||[];
+      if(!rows.length){ body.innerHTML='<span style="color:#94a3b8">아직 수집된 회선품질 데이터가 없습니다. (화상수업이 진행되면 자동으로 쌓입니다)</span>'; return; }
+      var h='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+        '<tr style="background:#f1f5f9;text-align:left"><th style="padding:7px 8px">이름</th><th>역할</th><th>평균손실</th><th>최악손실</th><th>평균RTT</th><th>AAO</th><th>표본</th><th>마지막</th></tr>';
+      rows.forEach(function(x){
+        var when=x.last_seen?new Date(x.last_seen).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
+        h+='<tr style="border-bottom:1px solid #e2e8f0">'+
+          '<td style="padding:6px 8px;font-weight:700">'+esc(x.name||'—')+'</td>'+
+          '<td>'+(x.role==='teacher'?'👩‍🏫 강사':'🧑‍🎓 학생')+'</td>'+
+          '<td style="font-weight:800;color:'+color(x.avg_loss)+'">'+x.avg_loss+'%</td>'+
+          '<td style="color:'+color(x.worst_loss)+'">'+x.worst_loss+'%</td>'+
+          '<td>'+x.avg_rtt+'ms</td>'+
+          '<td>'+((x.aao_events||0)>0?'⚠ '+x.aao_events:'0')+'</td>'+
+          '<td style="color:#94a3b8">'+x.windows+'</td>'+
+          '<td style="color:#94a3b8">'+when+'</td></tr>';
+      });
+      h+='</table></div>';
+      body.innerHTML=h;
+    }catch(e){ body.innerHTML='오류: '+esc(e.message); }
+  }
+  </script>
+</details>
+
 <details class="table-card menu-card" id="card-class-ratings">
   <summary><span data-ko="⭐ 학생 수업 평가 (수업 직후 별 7개)" data-en="⭐ Student Class Ratings (7-star)">⭐ 학생 수업 평가 (수업 직후 별 7개)</span></summary>
   <div class="menu-body">
@@ -12096,6 +12148,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-schedule-requests" onclick="event.stopPropagation();var c=document.getElementById('card-schedule-requests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-schedule-requests');}">📅 연기·변경 요청 ⭐신규</div>
       <div class="ph85-sub" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-audit" onclick="event.stopPropagation();var c=document.getElementById('card-class-audit');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});if(typeof caudLoad==='function')caudLoad();var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-audit');}">📜 수업 변경 이력 ⭐신규</div>
+      <div class="ph85-sub" data-card="card-vc-quality" onclick="event.stopPropagation();var c=document.getElementById('card-vc-quality');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});if(typeof vcqLoad==='function')vcqLoad();var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-vc-quality');}">📶 강사 회선품질 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-ratings" onclick="event.stopPropagation();var c=document.getElementById('card-class-ratings');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-ratings');}">⭐ 학생 수업 평가</div>
       <div class="ph85-sub" data-card="card-payroll" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll');}">급여 관리</div>
       <div class="ph85-sub" data-card="card-mbti-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-mbti-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-mbti-mgmt');}">MBTI</div>
@@ -20157,6 +20210,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260719104424 -->
+<!-- BUILD:20260719105552 -->
 </body>
 </html>

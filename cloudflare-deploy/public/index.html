@@ -11579,6 +11579,7 @@ function vcTuneAudioSdp(sdp) {
                     pc.__qStep = step;
                     applyStep(pc, step);
                 }
+                try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(30초마다 전송, fire-and-forget)
             }).catch(function() {});
 
             // 📶 저대역 자동 음성전용(AAO) — 오디오 손실 기준 판정(영상을 꺼도 오디오는 흐르므로 회복 감지가 신뢰됨).
@@ -11641,6 +11642,30 @@ function vcAAONotify(html) {
         if (__vcAAOtoastT) clearTimeout(__vcAAOtoastT);
         __vcAAOtoastT = setTimeout(function () { el.style.opacity = '0'; }, 4000);
     } catch (_) {}
+}
+
+/* 📶 회선품질 로깅 — 적응루프에서 손실/RTT를 누적, 30초마다 요약 1건 전송(fire-and-forget, 통화 무관). 강사별 인터넷 품질 파악용. */
+function vcQualityAcc(loss, rtt) {
+    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], sentAt: Date.now() });
+    if (typeof loss === 'number' && isFinite(loss)) Q.s.push(loss);
+    if (typeof rtt === 'number' && isFinite(rtt) && rtt > 0) Q.r.push(rtt);
+    if (Date.now() - Q.sentAt < 30000 || !Q.s.length) return;
+    try {
+        var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
+        var A = window.__vcAAO || {};
+        var body = JSON.stringify({
+            room: (window.vcRoomId || window.currentRoomId || ''),
+            uid: (u && u.uid) || '', name: (u && u.name) || '',
+            role: isT ? 'teacher' : ((u && u.role) || 'student'),
+            avg_loss: +avg(Q.s).toFixed(1), max_loss: +Math.max.apply(null, Q.s).toFixed(1),
+            avg_rtt: Math.round(avg(Q.r)), aao: A.active ? 1 : 0, samples: Q.s.length
+        });
+        if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
+        else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
+    } catch (_) {}
+    window.__vcQ = { s: [], r: [], sentAt: Date.now() };
 }
 
 /** RTCPeerConnection을 생성합니다 (다자간 통화용). */
@@ -25194,7 +25219,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260719104424 -->
+<!-- BUILD:20260719105552 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
