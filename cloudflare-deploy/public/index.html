@@ -11681,12 +11681,19 @@ function vcCreatePeer(userId, username) {
     console.log('[vc-webrtc] createPeer:', userId, username, 'ICE서버:', ICE_SERVERS.iceServers.length, '개');
     // 📶 연결 수립 시간 단축 설정 — 후보 사전수집(pool) + 단일 번들(포트 1개)로 ICE 검사쌍 최소화.
     //   iceCandidatePoolSize: PC 생성 즉시 후보를 미리 모아 offer/answer 후 곧바로 연결 검사 시작.
-    const pc = new RTCPeerConnection({
+    // 📶 직접(P2P) 연결에 실패해 재연결하는 경우엔 TURN 릴레이만 강제 → restrictive 망(필리핀 모바일/CGNAT) 복구율↑.
+    //   최초/건강한 연결엔 영향 없음(플래그 미설정). 성공 시 해제되어 다음엔 다시 직접부터 시도.
+    const _pcCfg = {
         iceServers: ICE_SERVERS.iceServers,
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require',
         iceCandidatePoolSize: 2
-    });
+    };
+    if (window.__vcForceRelay && window.__vcForceRelay[userId] && window.__vcIceHasTurn) {
+        _pcCfg.iceTransportPolicy = 'relay';
+        console.warn('[vc-webrtc] 🔁 relay 강제(직접연결 실패 복구):', userId);
+    }
+    const pc = new RTCPeerConnection(_pcCfg);
     vcPeerConnections[userId] = pc;
     pc.__username = username;   // 이동 중 끊김 → 재연결 시 이름 복원용
 
@@ -11730,9 +11737,11 @@ function vcCreatePeer(userId, username) {
         }
         if (st === 'connected' || st === 'completed') {
             console.log('[vc-webrtc] ✅ ICE 연결 성공:', userId);
+            try { if (window.__vcForceRelay) delete window.__vcForceRelay[userId]; } catch(_) {}   // 성공 → 다음엔 다시 직접연결부터 시도
         }
         if (st === 'failed') {
             console.warn('[vc-webrtc] ❌ ICE 실패 → 재연결:', userId);
+            try { (window.__vcForceRelay || (window.__vcForceRelay = {}))[userId] = true; } catch(_) {}   // 다음 재연결은 TURN 릴레이 강제(직접 실패 → 릴레이가 더 확실)
             try { pc.restartIce(); } catch(_) {}      // 가벼운 시도 먼저
             vcReconnectPeer(userId);                   // 실제 복구(PC 재생성 + offer 재전송)
         }
@@ -25219,7 +25228,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260719105552 -->
+<!-- BUILD:20260719110305 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
