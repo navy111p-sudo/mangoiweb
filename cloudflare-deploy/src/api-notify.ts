@@ -468,11 +468,13 @@ export async function handleNotifyApi(
         console.warn('[k5] chat insert fail:', e?.message);
       }
 
+      // 🔐 [PII 오라클 차단] 응답에서 mapped_user_id·room_id 제거 (2026-07-19).
+      //   이 webhook 은 무인증(외부 SOLAPI/카카오가 호출)이라, 전화번호를 POST 하고 응답의
+      //   mapped_user_id 를 받으면 "이 번호가 등록됐는지 + 학생 uid" 를 열거할 수 있는 오라클이었음.
+      //   매핑은 서버 내부(저장·채팅삽입)에만 쓰고 외부로 돌려주지 않는다. 카카오 openbuilder 는 reply 만 사용.
       return json({
         ok: true,
         id: ins.meta?.last_row_id || null,
-        mapped_user_id: mappedUserId,
-        room_id: roomId,
         reply: '메시지를 받았습니다. 강사가 곧 답변드릴게요!', // 카카오 i 오픈빌더가 이 reply 를 학부모에게 전달
       });
     }
