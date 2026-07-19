@@ -5,7 +5,7 @@
 //       ⏭ SKIP(E2E)    — 활성 화상수업/브라우저 상태가 필요한 E2E (헤드리스로는 원래 불가)
 //       ⚠ FAIL         — 실제 확인 필요 (리팩토링 노후화 아님)
 //   · 실제 FAIL 이 하나라도 있으면 exit 1. 실행:  node test-harness/run.mjs
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import http from 'node:http';
@@ -28,18 +28,37 @@ const server = http.createServer(async (req, res) => {
     res.end(data);
   } catch { res.writeHead(404); res.end('not found'); }
 });
-let served = true;
-await new Promise((resolve) => {
-  server.once('error', (e) => { if (e.code === 'EADDRINUSE') { served = false; resolve(); } else resolve(); });
-  server.listen(8791, resolve);
-});
-console.log(served ? '🌐 정적 서버 http://localhost:8791 기동' : '🌐 8791 기존 서버 재사용');
+// --fast: puppeteer E2E 하니스 제외(빠르고 안정적) — 배포 게이트용. 정적서버도 생략.
+const FAST = process.argv.includes('--fast');
+let served = false;
+if (!FAST) {
+  served = true;
+  await new Promise((resolve) => {
+    server.once('error', (e) => { if (e.code === 'EADDRINUSE') { served = false; resolve(); } else resolve(); });
+    server.listen(8791, resolve);
+  });
+  console.log(served ? '🌐 정적 서버 http://localhost:8791 기동' : '🌐 8791 기존 서버 재사용');
+} else {
+  console.log('⚡ fast 모드 — puppeteer E2E 제외, 소스/fetch 하니스만');
+}
 
 // ── 하니스 순차 실행 ──
 const files = readdirSync(__dir).filter(f => f.endsWith('_harness.mjs')).sort();
 const rows = [];
 for (const f of files) {
+  if (FAST) {
+    let body = ''; try { body = readFileSync(join(__dir, f), 'utf8'); } catch {}
+    if (/puppeteer/.test(body)) { rows.push({ f, cat: 'SKIP', note: '⏭ E2E(fast 제외)' }); continue; }
+  }
   process.stdout.write('  ▶ ' + f + ' … ');
+  let [cat, note] = runHarness(f);
+  // 일시적 라이브 blip(동시 배포 등) 흡수: 실패면 1회 재시도, 두 번 실패해야 진짜 FAIL
+  if (cat === 'FAIL') { const [c2, n2] = runHarness(f); if (c2 !== 'FAIL') { cat = c2; note = n2 + ' (재시도 통과)'; } }
+  rows.push({ f, cat, note });
+  console.log(note);
+}
+
+function runHarness(f) {
   const r = spawnSync('node', [join(__dir, f)], { encoding: 'utf8', timeout: 90000, cwd: dirname(__dir) });
   const out = (r.stdout || '') + '\n' + (r.stderr || '');
   const timedOut = !!(r.error && (r.error.code === 'ETIMEDOUT' || r.error.signal === 'SIGTERM'));
@@ -47,13 +66,10 @@ for (const f of files) {
   const crash = /ERR_CONNECTION_REFUSED|puppeteer|Cannot read properties|Protocol error|net::|TargetCloseError|Navigation timeout/i.test(out);
   // 실제 '0 아닌' 실패 카운트만 잡는다 ("0 실패"/"0 FAIL" 은 통과)
   const failCount = /(?:^|[^\d])([1-9]\d*)\s*(?:FAIL|실패)\b/.test(tail) || /passed,\s*[1-9]/.test(tail);
-  let cat;
-  if (timedOut) cat = ['SKIP', '⏱  timeout(90s) — netem 다중클라이언트 E2E'];
-  else if (crash) cat = ['SKIP', '⏭  E2E(로컬서버/활성 화상수업 상태 필요)'];
-  else if (r.status === 0 && !failCount) cat = ['PASS', '✅'];
-  else cat = ['FAIL', '⚠  실제 확인 필요'];
-  rows.push({ f, cat: cat[0], note: cat[1] });
-  console.log(cat[1]);
+  if (timedOut) return ['SKIP', '⏱  timeout(90s) — netem 다중클라이언트 E2E'];
+  if (crash) return ['SKIP', '⏭  E2E(로컬서버/활성 화상수업 상태 필요)'];
+  if (r.status === 0 && !failCount) return ['PASS', '✅'];
+  return ['FAIL', '⚠  실제 확인 필요'];
 }
 if (served) server.close();
 

@@ -27,7 +27,7 @@ Write-Header "Mangoi 강제 재배포 v3 — $(Get-Date -Format 'yyyy-MM-dd HH:m
 #   ① tsc 컴파일: 새 코드가 깨졌으면 배포 금지
 #   ② 라이브 스모크 15종: 현재 운영이 이미 비정상이면(깨진 위에 덮어쓰기 방지) 배포 금지
 if (-not $SkipSmoke) {
-    Write-Step "0/7" "배포 전 게이트: tsc 컴파일 + 라이브 스모크 (우회: -SkipSmoke)"
+    Write-Step "0/7" "배포 전 게이트: tsc 컴파일 + 라이브 스모크 15종 + 회귀 하니스 fast (우회: -SkipSmoke)"
     Push-Location (Join-Path $scriptDir "cloudflare-deploy")
     try {
         $tscOut = & npx --yes tsc --noEmit 2>&1
@@ -45,6 +45,14 @@ if (-not $SkipSmoke) {
         Write-Host "      (지금 상태 그대로 급히 배포해야 하면: powershell -File deploy.ps1 -SkipSmoke)" -ForegroundColor Yellow
         exit 1
     }
+    # ③ 회귀 하니스(fast) — 소스/fetch 하니스 전체 실행(puppeteer E2E 제외, ~25초). 실제 결함이면 배포 중단.
+    Write-Host "  라이브 스모크 통과 — 회귀 하니스(fast) 실행..." -ForegroundColor Green
+    & node (Join-Path $scriptDir "test-harness\run.mjs") --fast
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [X] 회귀 하니스 실패 — 실제 코드 결함 가능. 배포 중단 (우회: -SkipSmoke)." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "  회귀 하니스 통과" -ForegroundColor Green
 }
 
 # [1] git lock — stale lock 전부 정리 (index/HEAD/maintenance/config/packed-refs + refs/**)
