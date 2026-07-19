@@ -26,10 +26,10 @@ async function join(vw, vh){
 const results = [];
 function check(name, ok, detail){ results.push(ok); console.log(`${ok?'✅':'❌'} ${name}${detail?' — '+detail:''}`); }
 
-// 1) 세로 입장 → video-pip 단독 (조합 없음)
+// 1) 세로 입장 → video-half 단독 (조합 없음) — 세로 기본=half 설계(2026-07; 옛 video-pip 아님, [[vc-portrait-default-faces-textbook]])
 {
   const { page, rc } = await join(390, 844);
-  check('세로 입장 기본 = video-pip 단독', rc==='vc-main-row video-pip', rc);
+  check('세로 입장 기본 = video-half 단독', rc==='vc-main-row video-half', rc);
   check('세로: video-threequarter 조합 없음', !rc.includes('threequarter'), rc);
   // 세로에서 사이즈바 3/4 누르면 pip 제거(상호배타)
   const rc2 = await page.evaluate(()=>{ var b=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize('threequarter', b); return document.querySelector('.vc-main-row').className; });

@@ -18,6 +18,7 @@
 //   ⑦ 조직 이관: cafe24 ID 를 D1 id 로 보존(franchise_id 연결)
 
 import { DatabaseSync } from 'node:sqlite';
+import { allSrc } from './_srcbundle.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -260,7 +261,7 @@ console.log('\n⑦ 조직 이관 (cafe24 BranchID/CenterID → D1 id 보존)');
 console.log('\n⑧ 소스 드리프트 가드 (cafe24-sync.ts / api-mango.ts / index.ts 실재)');
 {
   const sync = readFileSync(resolve(CD, 'src/cafe24-sync.ts'), 'utf8');
-  const api = readFileSync(resolve(CD, 'src/api-mango.ts'), 'utf8');
+  const api = allSrc();
   const idx = readFileSync(resolve(CD, 'src/index.ts'), 'utf8');
   check('sync: 결제 멱등 삭제', sync.includes(`DELETE FROM student_payments WHERE memo LIKE '[cafe24]%'`));
   check('sync: 학생 센티넬', sync.includes('CAFE24_STUDENT_SENTINEL') && sync.includes('1751500000000'));
