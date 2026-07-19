@@ -160,8 +160,6 @@
     <div class="hbox" id="hClear"><div class="hlab">정답</div><div class="hval" id="vClear">0/10</div></div>
   </div>
 
-  <button id="fireBtn">발사</button>
-
   <div id="wordpop"></div>
 
   <!-- 시작 화면 -->
@@ -186,8 +184,8 @@
     </div>
     <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
     <div class="oRules">
-      🎯 <b>마우스 좌드래그(터치 드래그)로 셔먼 이동</b> — 빠르게 조종!<br>
-      💥 <b>우클릭 / 스페이스 / 발사버튼</b>으로 포 발사!<br>
+      🎯 <b>셔먼이 마우스(손가락)를 따라와요</b> — 원하는 곳으로!<br>
+      💥 <b>적 탱크를 클릭(탭)</b>하면 그쪽으로 포탄 발사·명중!<br>
       🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
       ⛽ <b>젤리 연료통</b>을 쏘거나 밟으면 연료(시간) 충전<br>
       💣 적 <b>타이거·자주포</b>의 포탄을 피하세요!
@@ -626,25 +624,16 @@ function enemyFire(e){
    ════════════════════════════════════════════════════════════ */
 function ptr(ev){ var r=cv.getBoundingClientRect(); var t=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
   return {x:t.clientX-r.left, y:t.clientY-r.top}; }
+// 🖱️ 마우스(터치)가 가는 곳으로 셔먼이 따라가고, 클릭/탭한 그 지점(적 탱크)으로 포탄 발사
 cv.addEventListener('pointermove',function(ev){ if(!G||!G.running||G.speaking)return; var p=ptr(ev); G.tx=p.x; G.ty=p.y; });
 cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running||G.speaking)return;
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock();
   var p=ptr(ev); G.tx=p.x; G.ty=p.y;
-  if(ev.button===2) return;         // 🖱️ 우클릭은 contextmenu에서 발사
-  G.dragging=true;                   // 좌클릭 드래그 / 터치 드래그 = 셔먼 이동
+  playerFire(Math.atan2(p.y-G.py, p.x-G.px));    // 🎯 클릭/탭한 지점으로 포탄 발사
 });
-window.addEventListener('pointerup',function(){ if(G) G.dragging=false; });
-cv.addEventListener('contextmenu',function(e){ e.preventDefault(); if(G&&G.running&&!G.speaking) playerFire(); });  // 우클릭 발사
-// 🔥 발사 버튼(모바일)
-(function(){ var fb=document.getElementById('fireBtn'); if(!fb)return;
-  function on(ev){ ev.preventDefault(); if(!G||!G.running||G.speaking)return; audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock();
-    G.firing=true; try{ fb.setPointerCapture(ev.pointerId); }catch(_){}; playerFire(); }
-  function off(){ if(G)G.firing=false; }
-  fb.addEventListener('pointerdown', on); fb.addEventListener('pointerup', off); fb.addEventListener('pointercancel', off);
-  fb.addEventListener('contextmenu', function(e){ e.preventDefault(); });
-})();
-window.addEventListener('keydown',function(e){ if(e.code==='Space' && G && G.running && !G.speaking){ e.preventDefault(); G.firing=true; } });
-window.addEventListener('keyup',function(e){ if(e.code==='Space' && G) G.firing=false; });
+cv.addEventListener('contextmenu',function(e){ e.preventDefault(); });
+// ⌨️ (PC 보조) 스페이스 = 커서 방향으로 발사
+window.addEventListener('keydown',function(e){ if(e.code==='Space' && G && G.running && !G.speaking){ e.preventDefault(); playerFire(Math.atan2(G.ty-G.py, G.tx-G.px)); } });
 
 /* ════════════════════════════════════════════════════════════
    11. 업데이트
@@ -656,22 +645,18 @@ function update(dt){
   // 시간(연료)
   G.time-=dt; if(G.time<=0){ G.time=0; return endGame(false); }
 
-  // 🚗 셔먼 조종 — 마우스 좌드래그(또는 터치 드래그)로 그 지점까지 '빠르게' 이동. 놓으면 관성으로 감속.
-  if(G.dragging){
-    var dxw=G.tx-G.px, dyw=G.ty-G.py, dw=Math.hypot(dxw,dyw);
-    var drv = (dw>20 ? 165*SCALE*(0.85+SPMUL*0.2) : 0);   // ⚡ 빠른 이동
-    if(dw>0){ G.vx += (dxw/dw*drv - G.vx)*Math.min(1,dt*9); G.vy += (dyw/dw*drv - G.vy)*Math.min(1,dt*9); }
-  } else { var damp=Math.pow(0.02,dt); G.vx*=damp; G.vy*=damp; }
+  // 🚗 셔먼 = 마우스(터치)를 부드럽고 빠르게 따라감. 커서 근처(50px)면 정지.
+  var dxw=G.tx-G.px, dyw=G.ty-G.py, dw=Math.hypot(dxw,dyw);
+  var drv = (dw>50 ? 215*SCALE*(0.8+SPMUL*0.2) : 0);      // ⚡ 잘 따라오게 빠르게
+  var tvx = dw>0? dxw/dw*drv : 0, tvy = dw>0? dyw/dw*drv : 0;
+  G.vx += (tvx-G.vx)*Math.min(1,dt*11); G.vy += (tvy-G.vy)*Math.min(1,dt*11);
   G.px+=G.vx*dt; G.py+=G.vy*dt;
   G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
   var sp=Math.hypot(G.vx,G.vy);
-  // 실사 = 통짜 스프라이트 → 이동 중엔 진행방향, 멈추면 조준점(마우스)으로 포신 정렬
-  var faceAng = (sp>14) ? Math.atan2(G.vy,G.vx) : Math.atan2(G.ty-G.py, G.tx-G.px);
-  G.turAng=angLerp(G.turAng, faceAng, Math.min(1,dt*10)); G.hullAng=G.turAng;
+  // 통짜 스프라이트 → 커서(=조준·발사 방향)를 향해 정렬
+  G.turAng=angLerp(G.turAng, Math.atan2(G.ty-G.py, G.tx-G.px), Math.min(1,dt*12)); G.hullAng=G.turAng;
   if(sp>4){ G.track+=sp*dt*0.05; }
   if(G.invuln>0)G.invuln-=dt;
-  // 연사(버튼/스페이스 유지)
-  if(G.firing) playerFire();
 
   // 스폰
   G.spawnT-=dt;
@@ -1126,6 +1111,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260719110305 -->
+<!-- BUILD:20260719110554 -->
 </body>
 </html>
