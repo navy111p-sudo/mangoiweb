@@ -310,7 +310,7 @@
   <div id="hud">
     <div class="hud-chip"><small>⚡ 난이도</small><select id="diff-sel" style="border:0;background:transparent;font-family:inherit;font-weight:800;font-size:1em;color:#7a4a12;cursor:pointer;outline:none;"></select></div>
     <div class="hud-chip" id="time-chip"><small>남은 시간</small><span id="timer">0:45</span></div>
-    <div class="hud-chip"><small>내 토큰</small><span id="tokens">0</span> 🪙</div>
+    <div class="hud-chip"><small>내 토큰</small><span id="tokens">0</span> 💰</div>
     <div class="hud-chip"><small>진행</small><span id="progress">1 / 1</span></div>
     <button id="btn-hint">💡 힌트!</button>
   </div>
@@ -742,6 +742,8 @@ function setupSentence(){
     var tk = s.tokens[tokenIdx];
     var el = bowlEl(tk[0], tk[1], tokenIdx);
     el.onclick = function(){ onBowlClick(el, tokenIdx); };
+    el.onmouseenter = function(){ showHoverTip(el, tokenIdx); };   // 호버 → 재료 이름
+    el.onmouseleave = removeHoverTip;
     $('tray').appendChild(el);
   });
   updateHud();
@@ -771,6 +773,20 @@ $('btn-ready').onclick = function(){
   });
 };
 
+/* 마우스 호버: 재료 이름 말풍선 (호버 중 유지) */
+var hoverTip = null;
+function showHoverTip(el, tokenIdx){
+  removeHoverTip();
+  var r = el.getBoundingClientRect();
+  hoverTip = document.createElement('div');
+  hoverTip.className = 'ing-tip';
+  hoverTip.textContent = '🍕 ' + toppingName(tokenIdx);
+  hoverTip.style.left = (r.left + r.width / 2) + 'px';
+  hoverTip.style.top = (r.top - 6) + 'px';
+  document.body.appendChild(hoverTip);
+}
+function removeHoverTip(){ if(hoverTip){ hoverTip.remove(); hoverTip = null; } }
+
 /* 접시 위에 재료 이름 말풍선 (중/영 + 한국어) */
 function showIngTip(el, tokenIdx){
   var r = el.getBoundingClientRect();
@@ -787,6 +803,7 @@ function showIngTip(el, tokenIdx){
 function onBowlClick(el, tokenIdx){
   if(missionActive || baking || awaitingStart) return;
   var s = cur();
+  removeHoverTip();                          // 호버 말풍선과 중복 방지
   speakWord(s.tokens[tokenIdx][0]);          // 클릭할 때마다 그 단어 발음 (zh=중국어, en=영어)
   showIngTip(el, tokenIdx);                  // 재료 이름 (중/영 + 한국어) 말풍선
   if(tokenIdx === placedCount){
@@ -994,6 +1011,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720025935 -->
+<!-- BUILD:20260720030451 -->
 </body>
 </html>
