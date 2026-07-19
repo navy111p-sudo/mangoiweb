@@ -228,7 +228,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph109InjectButtons);
   else ph109InjectButtons();
-  setInterval(ph109InjectButtons, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph109InjectButtons) : setInterval(ph109InjectButtons, 1500));
 
   console.log('[ph109] 인쇄/PDF/Excel/Word 다운로드 4종 초기화 완료');
 })();

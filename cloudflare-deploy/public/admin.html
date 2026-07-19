@@ -5639,6 +5639,38 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     }
   }
 </style>
+<script id="adm-settle-scheduler">
+/* ⚡ 관리자 UI/테마 보정 공용 스케줄러 — 반드시 전역(데스크톱 포함). 폴링(setInterval) 대신 DOM 변화 감지로
+   등록 함수들을 재보정(디바운스 350ms) → 유휴 시 리플로우 0. childList만 관찰(스타일 변경엔 무재발동)+서킷브레이커.
+   ⚠️ 2026-07-19: 예전엔 아래 모바일 전용 IIFE(max-width 가드) 안에 정의돼 데스크톱에선 정의 안 돼 폴백만 돌던 것 수정. */
+window.__admSettleRun = function(fn){
+  var S = window.__admSettle;
+  if (!S) {
+    S = window.__admSettle = { fns: [], t: null, runs: 0, winStart: Date.now() };
+    S.runAll = function(){
+      S.t = null;
+      var now = Date.now();
+      if (now - S.winStart > 10000) { S.winStart = now; S.runs = 0; }
+      if (++S.runs > 40) {
+        try { S.obs && S.obs.disconnect(); } catch(e){}
+        if (!S.fallback) S.fallback = setInterval(function(){ S.fns.forEach(function(f){ try{f();}catch(e){} }); }, 4000);
+        return;
+      }
+      S.fns.forEach(function(f){ try { f(); } catch(e){} });
+    };
+    S.schedule = function(){ if (S.t) clearTimeout(S.t); S.t = setTimeout(S.runAll, 350); };
+    try {
+      S.obs = new MutationObserver(function(muts){
+        for (var i=0;i<muts.length;i++){ if (muts[i].addedNodes.length || muts[i].removedNodes.length){ S.schedule(); return; } }
+      });
+      if (document.body) S.obs.observe(document.body, { childList: true, subtree: true });
+      else document.addEventListener('DOMContentLoaded', function(){ try{ S.obs.observe(document.body, { childList: true, subtree: true }); }catch(e){} });
+    } catch(e){}
+  }
+  S.fns.push(fn);
+  try { fn(); } catch(e){}   // 최초 1회 즉시 실행(초기 렌더 보정)
+};
+</script>
 <script>
 (function(){
   'use strict';
@@ -5681,32 +5713,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   //   → '시계 폴링'을 '변화 감지(MutationObserver)'로 전환: DOM 에 새 노드가 추가/삭제될 때만(디바운스 350ms) 재보정.
   //     노드 add/remove(childList)만 관찰 → 함수들의 스타일 변경(attribute)엔 재발동 안 함(무한루프 방지).
   //     서킷브레이커: 만일 예기치 못한 노드 폭주 시 옵저버 해제 후 4초 폴백(원본 2초보다 여전히 가벼움).
-  window.__admSettleRun = function(fn){
-    var S = window.__admSettle;
-    if (!S) {
-      S = window.__admSettle = { fns: [], t: null, runs: 0, winStart: Date.now() };
-      S.runAll = function(){
-        S.t = null;
-        var now = Date.now();
-        if (now - S.winStart > 10000) { S.winStart = now; S.runs = 0; }
-        if (++S.runs > 40) {
-          try { S.obs && S.obs.disconnect(); } catch(e){}
-          if (!S.fallback) S.fallback = setInterval(function(){ S.fns.forEach(function(f){ try{f();}catch(e){} }); }, 4000);
-          return;
-        }
-        S.fns.forEach(function(f){ try { f(); } catch(e){} });
-      };
-      S.schedule = function(){ if (S.t) clearTimeout(S.t); S.t = setTimeout(S.runAll, 350); };
-      try {
-        S.obs = new MutationObserver(function(muts){
-          for (var i=0;i<muts.length;i++){ if (muts[i].addedNodes.length || muts[i].removedNodes.length){ S.schedule(); return; } }
-        });
-        S.obs.observe(document.body, { childList: true, subtree: true });
-      } catch(e){}
-    }
-    S.fns.push(fn);
-    try { fn(); } catch(e){}   // 최초 1회 즉시 실행(초기 렌더 보정)
-  };
+  // __admSettleRun 은 위 별도 스크립트(#adm-settle-scheduler)에서 전역 정의됨 — 여기선 사용만(모바일 ph80 등록).
   window.__admSettleRun(ph80BindMenuButtons);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph80BindMenuButtons);
   else ph80BindMenuButtons();
@@ -20210,6 +20217,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260719112732 -->
+<!-- BUILD:20260719114548 -->
 </body>
 </html>

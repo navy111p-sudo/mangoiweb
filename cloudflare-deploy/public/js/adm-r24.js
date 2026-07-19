@@ -145,7 +145,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph123BindHover);
   else ph123BindHover();
-  setInterval(ph123BindHover, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph123BindHover) : setInterval(ph123BindHover, 1500));
 
   // ESC 키로 플라이아웃 닫기
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') hideFlyout(0); });

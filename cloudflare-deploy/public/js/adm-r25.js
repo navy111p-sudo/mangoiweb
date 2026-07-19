@@ -208,7 +208,7 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph125Build);
   else ph125Build();
-  setInterval(ph125Build, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph125Build) : setInterval(ph125Build, 1500));
 
   console.log('[ph125] 인라인 아코디언 손자 메뉴 활성 — 호버 자동 펼침 + ▸ 클릭 토글');
 })();

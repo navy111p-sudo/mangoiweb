@@ -321,7 +321,7 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph118Apply);
   else ph118Apply();
-  setInterval(ph118Apply, 1000);  // ph116 보다 빠르게 (ph116=1.5s)
+  (window.__admSettleRun ? window.__admSettleRun(ph118Apply) : setInterval(ph118Apply, 1000));  // ph116 보다 빠르게 (ph116=1.5s)
 
   console.log('[ph118] 권한 매트릭스 73 메뉴 × 7 역할 초기화 완료');
 })();

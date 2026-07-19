@@ -90,7 +90,7 @@
   window.__ph104Run = ph104Run;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph104Run);
   else ph104Run();
-  setInterval(ph104Run, 2500);
+  (window.__admSettleRun ? window.__admSettleRun(ph104Run) : setInterval(ph104Run, 2500));
   if (window.MutationObserver){
     var t = null;
     new MutationObserver(function(){ clearTimeout(t); t = setTimeout(ph104Run, 300); })

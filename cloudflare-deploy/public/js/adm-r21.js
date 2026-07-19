@@ -147,5 +147,5 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph115Mount);
   else ph115Mount();
-  setInterval(ph115Mount, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph115Mount) : setInterval(ph115Mount, 1500));
 })();

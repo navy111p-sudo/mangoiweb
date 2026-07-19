@@ -247,7 +247,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph124RebindHover);
   else ph124RebindHover();
-  setInterval(ph124RebindHover, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph124RebindHover) : setInterval(ph124RebindHover, 1500));
 
   console.log('[ph124] 손자 메뉴 데모 매핑 73개 카드 활성 — 호버 시 의미 있는 손자 메뉴 표시');
 })();

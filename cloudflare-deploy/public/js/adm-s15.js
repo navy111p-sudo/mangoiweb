@@ -110,7 +110,7 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph127ApplyTips);
   else ph127ApplyTips();
-  setInterval(ph127ApplyTips, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph127ApplyTips) : setInterval(ph127ApplyTips, 1500));
 
   console.log('[ph127] 사이드바 73개 메뉴 호버 툴팁 활성 (투명 + 테두리)');
 })();

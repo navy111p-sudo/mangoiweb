@@ -97,7 +97,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph121DemoNote);
   else ph121DemoNote();
-  setInterval(ph121DemoNote, 2000);
+  (window.__admSettleRun ? window.__admSettleRun(ph121DemoNote) : setInterval(ph121DemoNote, 2000));
 
   console.log('[ph121] 검색 결과 통계 박스 가독성 강화 (큰 글자 + 3색 카드 + 큰 초기화 버튼)');
 })();

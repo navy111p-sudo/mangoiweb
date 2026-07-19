@@ -127,7 +127,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph113ForceUserBtnClick);
   else ph113ForceUserBtnClick();
-  setInterval(ph113ForceUserBtnClick, 1500);
+  (window.__admSettleRun ? window.__admSettleRun(ph113ForceUserBtnClick) : setInterval(ph113ForceUserBtnClick, 1500));
 
   console.log('[ph113] 사용자 메뉴 inline onclick 강제 부착 — 클릭하면 로그인/로그아웃/자료실/도움말');
 })();
