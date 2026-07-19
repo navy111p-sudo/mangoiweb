@@ -184,8 +184,8 @@
     </div>
     <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
     <div class="oRules">
-      🎯 <b>셔먼이 마우스(손가락)를 따라와요</b> — 원하는 곳으로!<br>
-      💥 <b>적 탱크를 클릭(탭)</b>하면 그쪽으로 포탄 발사·명중!<br>
+      🎯 셔먼이 마우스(손가락)를 따라와요. <b>한 번 클릭=정지!</b><br>
+      💥 정지 후 <b>적 탱크를 클릭(탭)</b>하면 그쪽으로 포탄 발사·명중!<br>
       🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
       ⛽ <b>젤리 연료통</b>을 쏘거나 밟으면 연료(시간) 충전<br>
       💣 적 <b>타이거·자주포</b>의 포탄을 피하세요!
@@ -533,7 +533,7 @@ var G=null;
 function newGame(){
   G={ px:W/2, py:H*0.62, hullAng:-Math.PI/2, turAng:-Math.PI/2,
       vx:0, vy:0, wpx:W/2, wpy:H*0.5, track:0,
-      tx:W/2, ty:H*0.2, firing:false, dragging:false, fireT:0,
+      tx:W/2, ty:H*0.2, firing:false, dragging:false, halted:false, fireT:0,
       enemies:[], pbul:[], ebul:[], fuels:[], parts:[], wrecks:[],
       sent:null, next:0, correct:0, clears:0, score:0,
       time:70, timeMax:70, lives:3, prog:[],
@@ -624,14 +624,18 @@ function enemyFire(e){
    ════════════════════════════════════════════════════════════ */
 function ptr(ev){ var r=cv.getBoundingClientRect(); var t=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
   return {x:t.clientX-r.left, y:t.clientY-r.top}; }
-// 🖱️ 마우스(터치)가 가는 곳으로 셔먼이 따라가고, 클릭/탭한 그 지점(적 탱크)으로 포탄 발사
+// 🖱️ 조작: 셔먼은 마우스(손가락)를 따라감. ① 한번 클릭=정지 → ② 다시 적 탱크 클릭=발사. (정지 중 빈 곳 클릭=다시 이동)
+function enemyNear(px,py){ for(var i=0;i<G.enemies.length;i++){ var e=G.enemies[i]; if(e.alive && Math.hypot(px-e.x,py-e.y) < e.r+34) return true; } return false; }
 cv.addEventListener('pointermove',function(ev){ if(!G||!G.running||G.speaking)return; var p=ptr(ev); G.tx=p.x; G.ty=p.y; });
 cv.addEventListener('pointerdown',function(ev){ if(!G||!G.running||G.speaking)return;
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock();
-  var p=ptr(ev); G.tx=p.x; G.ty=p.y;
-  playerFire(Math.atan2(p.y-G.py, p.x-G.px));    // 🎯 클릭/탭한 지점으로 포탄 발사
+  var p=ptr(ev); G.tx=p.x; G.ty=p.y; var ang=Math.atan2(p.y-G.py, p.x-G.px);
+  if(!G.halted){ G.halted=true; G.vx=0; G.vy=0; G.turAng=ang; G.hullAng=ang;   // ① 첫 클릭 = 정지(+조준)
+    banner('⏹ 정지! 적 탱크를 클릭하면 발사', '#ffd479'); }
+  else if(enemyNear(p.x,p.y)){ playerFire(ang); }                               // ② 적 클릭 = 발사
+  else { G.halted=false; banner('▶ 이동', '#7fd1ff'); }                          // 빈 곳 클릭 = 다시 이동
 });
-cv.addEventListener('contextmenu',function(e){ e.preventDefault(); });
+cv.addEventListener('contextmenu',function(e){ e.preventDefault(); if(G&&G.running&&!G.speaking) playerFire(Math.atan2(G.ty-G.py, G.tx-G.px)); });  // 우클릭=즉시 발사
 // ⌨️ (PC 보조) 스페이스 = 커서 방향으로 발사
 window.addEventListener('keydown',function(e){ if(e.code==='Space' && G && G.running && !G.speaking){ e.preventDefault(); playerFire(Math.atan2(G.ty-G.py, G.tx-G.px)); } });
 
@@ -645,11 +649,14 @@ function update(dt){
   // 시간(연료)
   G.time-=dt; if(G.time<=0){ G.time=0; return endGame(false); }
 
-  // 🚗 셔먼 = 마우스(터치)를 부드럽고 빠르게 따라감. 커서 근처(50px)면 정지.
-  var dxw=G.tx-G.px, dyw=G.ty-G.py, dw=Math.hypot(dxw,dyw);
-  var drv = (dw>50 ? 215*SCALE*(0.8+SPMUL*0.2) : 0);      // ⚡ 잘 따라오게 빠르게
-  var tvx = dw>0? dxw/dw*drv : 0, tvy = dw>0? dyw/dw*drv : 0;
-  G.vx += (tvx-G.vx)*Math.min(1,dt*11); G.vy += (tvy-G.vy)*Math.min(1,dt*11);
+  // 🚗 셔먼 = 마우스(터치)를 따라 이동. 단 '정지(halted)' 중이면 멈춰서 발사 대기.
+  if(G.halted){ var damp=Math.pow(0.0008,dt); G.vx*=damp; G.vy*=damp; }
+  else {
+    var dxw=G.tx-G.px, dyw=G.ty-G.py, dw=Math.hypot(dxw,dyw);
+    var drv = (dw>50 ? 215*SCALE*(0.8+SPMUL*0.2) : 0);      // ⚡ 잘 따라오게 빠르게
+    var tvx = dw>0? dxw/dw*drv : 0, tvy = dw>0? dyw/dw*drv : 0;
+    G.vx += (tvx-G.vx)*Math.min(1,dt*11); G.vy += (tvy-G.vy)*Math.min(1,dt*11);
+  }
   G.px+=G.vx*dt; G.py+=G.vy*dt;
   G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
   var sp=Math.hypot(G.vx,G.vy);
@@ -1111,6 +1118,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260719112301 -->
+<!-- BUILD:20260719112732 -->
 </body>
 </html>
