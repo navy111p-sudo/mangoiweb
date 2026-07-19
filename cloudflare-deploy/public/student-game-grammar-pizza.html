@@ -906,8 +906,19 @@ $('btn-speak').onclick = function(){
     if(matchScore(said, sentenceText()) >= 0.7){
       speakSuccess();
     } else {
-      $('speech-result').textContent = '들린 말: "' + said + '" — 다시 정확하게 말해 볼까요?';
-      toast('조금만 더 정확하게!');
+      // ❌ 틀리면: 정답 문장을 자동으로 다시 들려주고 → 다시 말하기
+      $('speech-result').textContent = '들린 말: "' + said + '" — 정답 문장을 다시 들려줄게요!';
+      toast('🔊 잘 듣고 다시 따라해 보세요!');
+      $('btn-speak').disabled = true;
+      var reEnabled = false;
+      var reEnable = function(){
+        if(reEnabled) return;
+        reEnabled = true;
+        $('btn-speak').disabled = false;
+        $('speech-result').textContent = '👂 들었죠? 이제 🎤 말하기를 눌러 다시 따라해 보세요!';
+      };
+      setTimeout(function(){ speak(sentenceText(), reEnable); }, 600);
+      setTimeout(reEnable, 9000);   // TTS 이벤트 유실 대비 안전 복구
     }
   };
   recognition.onerror = function(ev){
@@ -1011,6 +1022,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720030451 -->
+<!-- BUILD:20260720031014 -->
 </body>
 </html>
