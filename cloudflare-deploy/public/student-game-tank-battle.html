@@ -1136,11 +1136,15 @@ function drawShell(b,col){ var sp=Math.hypot(b.vx,b.vy)||1, ux=b.vx/sp, uy=b.vy/
   ctx.strokeStyle=col; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(b.x-ux*len*0.7,b.y-uy*len*0.7); ctx.lineTo(b.x,b.y); ctx.stroke();
   ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(b.x,b.y,2.4*SCALE,0,7); ctx.fill(); ctx.restore(); }
 /* ⛟ 젤리(제리캔) 연료통 — 앞면에 X 프레스 패널 있는 WWII 석유통 */
+// 🖼️ 실사 미군 제리캔 스프라이트(크로마키 제거·투명 PNG). 로드 전엔 벡터 폴백.
+var FUELIMG=new Image(); FUELIMG.src='/img/fuel-jerrycan.png?v=1'; var FUELRDY=false; FUELIMG.onload=function(){FUELRDY=true;};
 function drawFuel(fu){ var r=fu.r; ctx.save(); ctx.translate(fu.x,fu.y+Math.sin(fu.bob)*3);
   // ⛽ 연료 부족 시 젤리통 강조(맥동 초록 글로우)
   if(G && G.time<15){ var gp=0.4+0.4*Math.sin(performance.now()/200+fu.bob);
     ctx.fillStyle='rgba(90,240,120,'+(gp*0.5)+')'; ctx.beginPath(); ctx.arc(0,0,r*2.1,0,7); ctx.fill(); }
   ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.beginPath(); ctx.ellipse(0,r*1.05,r*0.95,r*0.4,0,0,7); ctx.fill();
+  if(FUELRDY){ var ih=r*2.6, iw=ih*(FUELIMG.width/FUELIMG.height);
+    ctx.drawImage(FUELIMG,-iw/2,-ih/2,iw,ih); ctx.restore(); return; }
   var bw=r*1.5, bh=r*2.0;
   var gg=ctx.createLinearGradient(-bw/2,0,bw/2,0); gg.addColorStop(0,'#3f7a3a'); gg.addColorStop(.5,'#5aa24e'); gg.addColorStop(1,'#356b31');
   ctx.fillStyle=gg; rr(-bw/2,-bh/2,bw,bh,4); ctx.fill();
@@ -1265,6 +1269,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260720033602 -->
+<!-- BUILD:20260720034453 -->
 </body>
 </html>

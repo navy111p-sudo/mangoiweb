@@ -1370,10 +1370,14 @@ function drawEbul(eb){
   ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(eb.x, eb.y, 2.2, 0, 7); ctx.fill();  // 탄두
   ctx.restore();
 }
+// 🖼️ 실사 미군 제리캔 스프라이트(크로마키 제거·투명 PNG). 로드 전엔 벡터 폴백.
+var FUELIMG=new Image(); FUELIMG.src='/img/fuel-jerrycan.png?v=1'; var FUELRDY=false; FUELIMG.onload=function(){FUELRDY=true;};
 function drawFuel(fu){
   ctx.save(); ctx.translate(fu.x,fu.y); ctx.rotate(Math.sin(fu.rot)*0.15);
   var sh=ctx.createRadialGradient(3,18,2,3,18,20); sh.addColorStop(0,'rgba(0,0,0,.3)'); sh.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=sh; ctx.beginPath(); ctx.ellipse(3,18,16,7,0,0,7); ctx.fill();
+  if(FUELRDY){ var ih=fu.r*2.6, iw=ih*(FUELIMG.width/FUELIMG.height);
+    ctx.drawImage(FUELIMG,-iw/2,-ih/2,iw,ih); ctx.restore(); return; }
   var bg=ctx.createLinearGradient(-fu.r,0,fu.r,0); bg.addColorStop(0,'#8a5a1e'); bg.addColorStop(.5,'#d08a2e'); bg.addColorStop(1,'#6e4416');
   ctx.fillStyle=bg; rr(-fu.r*0.72,-fu.r,fu.r*1.44,fu.r*2,4); ctx.fill();
   ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-fu.r*0.72,-4); ctx.lineTo(fu.r*0.72,-4);
@@ -1525,6 +1529,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260720033602 -->
+<!-- BUILD:20260720034453 -->
 </body>
 </html>
