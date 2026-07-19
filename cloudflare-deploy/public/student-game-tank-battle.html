@@ -600,15 +600,16 @@ function spawnEnemy(forceTarget){
    9. 발사 — 셔먼 주포 / 적 포
    ════════════════════════════════════════════════════════════ */
 function muzzle(x,y,ang,len){ return { x:x+Math.cos(ang)*len, y:y+Math.sin(ang)*len }; }
-function playerFire(){ if(!G||!G.running||G.speaking||G.dead)return;
-  var t=performance.now(); if(t-G.fireT < 430) return; G.fireT=t;   // 주포 재장전
-  var m=muzzle(G.px,G.py,G.turAng,30*SCALE);
-  var sp=440*(0.9+SPMUL*0.15);
-  G.pbul.push({ x:m.x, y:m.y, vx:Math.cos(G.turAng)*sp, vy:Math.sin(G.turAng)*sp, life:0, mine:true });
+function playerFire(ang){ if(!G||!G.running||G.speaking||G.dead)return;
+  var t=performance.now(); if(t-G.fireT < 380) return; G.fireT=t;   // 주포 재장전
+  var a = (ang!=null) ? ang : G.turAng;
+  G.turAng=a; G.hullAng=a;                         // 🎯 클릭 방향으로 포신·차체 즉시 정렬(그쪽으로 발사)
+  var m=muzzle(G.px,G.py,a,34*SCALE);
+  var sp=460*(0.9+SPMUL*0.15);
+  G.pbul.push({ x:m.x, y:m.y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0, mine:true });
   sndShot();
-  // 총구 화염 + 반동 연기
   G.parts.push({flash:true,x:m.x,y:m.y,age:0,life:0.12,rad:16*SCALE});
-  for(var i=0;i<4;i++){ var a=G.turAng+(Math.random()-0.5)*0.5; G.parts.push({x:m.x,y:m.y,vx:Math.cos(a)*120,vy:Math.sin(a)*120,life:0.4,age:0,size:3,kind:'smoke'}); }
+  for(var i=0;i<4;i++){ var ea=a+(Math.random()-0.5)*0.5; G.parts.push({x:m.x,y:m.y,vx:Math.cos(ea)*120,vy:Math.sin(ea)*120,life:0.4,age:0,size:3,kind:'smoke'}); }
   G.shake=Math.min(10,G.shake+4);
 }
 function enemyFire(e){
@@ -1125,6 +1126,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260719100845 -->
+<!-- BUILD:20260719104424 -->
 </body>
 </html>

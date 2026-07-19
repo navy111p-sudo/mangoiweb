@@ -11493,10 +11493,11 @@ function vcTuneAudioSdp(sdp) {
                 let p = params;
                 if (!/useinbandfec/.test(p)) p += ';useinbandfec=1';
                 if (!/maxaveragebitrate/.test(p)) p += ';maxaveragebitrate=40000';
+                if (!/usedtx/.test(p)) p += ';usedtx=1';   // 📶 무음 구간 전송 중단 → 저대역(필리핀) 업로드 절감
                 return 'a=fmtp:' + pt + ' ' + p;
             });
         } else {
-            sdp = sdp.replace(m[0], m[0] + '\r\na=fmtp:' + pt + ' useinbandfec=1;maxaveragebitrate=40000');
+            sdp = sdp.replace(m[0], m[0] + '\r\na=fmtp:' + pt + ' useinbandfec=1;maxaveragebitrate=40000;usedtx=1');
         }
     } catch (e) { console.warn('[vc-sdp] 오디오 튜닝 실패(원본 사용):', e); }
     return sdp;
@@ -11579,9 +11580,68 @@ function vcTuneAudioSdp(sdp) {
                     applyStep(pc, step);
                 }
             }).catch(function() {});
+
+            // 📶 저대역 자동 음성전용(AAO) — 오디오 손실 기준 판정(영상을 꺼도 오디오는 흐르므로 회복 감지가 신뢰됨).
+            //   연결 재협상 없음(트랙 enabled 토글만) → 수업 절대 안 끊김. 오디오 손실 심하게 지속 → 영상 끔, 회복 → 복구.
+            try {
+                const aS = pc.getSenders && pc.getSenders().find(function(s){ return s.track && s.track.kind === 'audio'; });
+                if (aS && aS.getStats) aS.getStats().then(function(ast) {
+                    let al = 0, ap = 0, art = 0;
+                    ast.forEach(function(r) {
+                        if (r.type === 'remote-inbound-rtp') { al = r.packetsLost || 0; if (typeof r.roundTripTime === 'number') art = r.roundTripTime * 1000; }
+                        if (r.type === 'outbound-rtp') ap = r.packetsSent || 0;
+                    });
+                    const apv = pc.__aPrev || { l: 0, p: 0 }; pc.__aPrev = { l: al, p: ap };
+                    const adl = Math.max(0, al - apv.l), adp = Math.max(0, ap - apv.p);
+                    if (adp + adl < 8) return;                              // 표본 부족(무음/DTX 등) → 판단 보류
+                    const alp = 100 * adl / (adp + adl);
+                    const A = window.__vcAAO || (window.__vcAAO = { active: false, sev: 0, good: 0 });
+                    if (alp > 12 || art > 600) { A.sev++; A.good = 0; }     // 오디오 12%↑ 손실/RTT 600ms↑ = 망 붕괴
+                    else if (alp < 3) { A.good++; if (A.sev > 0) A.sev--; } // 회복
+                    else { A.good = 0; }
+                    vcAAOApply();
+                }).catch(function(){});
+            } catch (_) {}
         });
     }, 4000);
 })();
+
+/* 📶 저대역 자동 음성전용(AAO) 적용/복구 — vcLocalStream 영상트랙 enabled 토글(재협상 없음, vcBackgroundThrottle 와 동일 안전패턴).
+   사용자가 수동으로 카메라를 꺼둔 경우(vcCamOn===false)엔 관여하지 않는다. sev>=3(≈12초)에서 진입, good>=2(≈8초)에서 복구. */
+function vcAAOApply() {
+    const A = window.__vcAAO; if (!A) return;
+    if (typeof vcCamOn === 'undefined') return;
+    if (!A.active && A.sev >= 3 && vcCamOn !== false) {
+        A.active = true;
+        try { if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_) {}
+        try { if (window.vcBg && vcBg.isProcessing) { vcBg._aaoWas = true; vcBg.isProcessing = false; } } catch (_) {}
+        vcAAONotify('📶 인터넷이 약해 잠시 <b>음성만</b> 전송합니다 — 수업은 계속됩니다');
+        console.warn('[vc-aao] 음성전용 진입 (오디오 손실 지속)');
+    } else if (A.active && A.good >= 2) {
+        A.active = false; A.sev = 0;
+        try { if (vcCamOn !== false && window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_) {}
+        try { if (window.vcBg && vcBg._aaoWas) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._aaoWas = false; } } catch (_) {}
+        vcAAONotify('📶 연결이 회복되어 <b>영상을 다시 켭니다</b>');
+        console.warn('[vc-aao] 영상 복구');
+    }
+}
+var __vcAAOtoastT = null;
+function vcAAONotify(html) {
+    try {
+        let el = document.getElementById('vc-aao-toast');
+        if (!el) {
+            el = document.createElement('div'); el.id = 'vc-aao-toast';
+            el.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:99999;max-width:86vw;' +
+                'background:rgba(15,23,42,.94);color:#e6edff;border:1px solid rgba(125,211,252,.45);border-radius:12px;' +
+                'padding:10px 16px;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.5);text-align:center;' +
+                'opacity:0;transition:opacity .2s;pointer-events:none';
+            document.body.appendChild(el);
+        }
+        el.innerHTML = html; el.style.opacity = '1';
+        if (__vcAAOtoastT) clearTimeout(__vcAAOtoastT);
+        __vcAAOtoastT = setTimeout(function () { el.style.opacity = '0'; }, 4000);
+    } catch (_) {}
+}
 
 /** RTCPeerConnection을 생성합니다 (다자간 통화용). */
 function vcCreatePeer(userId, username) {
@@ -25134,7 +25194,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260719100845 -->
+<!-- BUILD:20260719104424 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
