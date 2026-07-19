@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>망고아이 문법 피자 마스터</title>
+<style>
+  :root{
+    --wood-1:#8c5a2b; --wood-2:#7a4a20; --wood-3:#9c6a35;
+    --mango-orange:#ff9800; --mango-deep:#f57c00; --mango-yellow:#ffc107;
+    --ok:#4caf50; --bad:#e53935;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; min-height:100%;}
+  body{
+    font-family:'Pretendard','Malgun Gothic',sans-serif; color:#3d2405;
+    display:flex; flex-direction:column; align-items:center;
+    padding:10px 10px 30px; overflow-x:hidden;
+    /* 주방 배경(위: 흐린 주방 보케) + 아래: 원목 테이블 */
+    background:
+      radial-gradient(220px 140px at 12% 6%, rgba(255,236,200,.55), transparent 70%),
+      radial-gradient(260px 160px at 85% 4%, rgba(255,210,150,.45), transparent 70%),
+      radial-gradient(200px 130px at 55% 10%, rgba(255,255,235,.35), transparent 70%),
+      linear-gradient(180deg, #d9b98c 0%, #cfa671 16%, #b98a52 30%, #a5713a 46%, #96622e 100%);
+    background-attachment:fixed;
+  }
+  /* 원목 널빤지 결 */
+  body::before{
+    content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      repeating-linear-gradient(90deg, rgba(90,50,10,.14) 0 2px, transparent 2px 120px),
+      repeating-linear-gradient(0deg, rgba(255,235,200,.05) 0 3px, rgba(80,40,5,.05) 3px 6px);
+  }
+
+  header{width:100%; max-width:860px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;}
+  h1{
+    margin:2px 0; font-size:1.25em; color:#fff8ec;
+    text-shadow:0 2px 4px rgba(80,40,0,.6);
+  }
+  #hud{display:flex; gap:7px; align-items:center; flex-wrap:wrap;}
+  .hud-chip{
+    background:rgba(255,252,244,.94); border:2px solid #e2b56b; border-radius:12px;
+    padding:4px 12px; font-weight:800; font-size:.86em; color:#7a4a12;
+    box-shadow:0 3px 8px rgba(60,30,0,.3); text-align:center; line-height:1.15;
+  }
+  .hud-chip small{display:block; font-size:.66em; font-weight:700; color:#b07f38;}
+  #time-chip span{color:#d32f2f; font-size:1.12em;}
+  #btn-hint{
+    border:none; border-radius:12px; padding:8px 14px; cursor:pointer;
+    background:linear-gradient(180deg,#fff3cf,#ffd97a); color:#7a4a12;
+    font-weight:900; font-size:.88em; font-family:inherit; border:2px solid #e2b56b;
+    box-shadow:0 3px 8px rgba(60,30,0,.3);
+  }
+
+  /* ── 유리 미션 패널 ─────────────────────── */
+  #mission-glass{
+    width:100%; max-width:860px; margin:8px 0 4px; text-align:center;
+    background:linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.6));
+    border:1px solid rgba(255,255,255,.9); border-radius:14px;
+    box-shadow:0 6px 18px rgba(60,30,0,.35), inset 0 1px 0 #fff;
+    padding:10px 14px; backdrop-filter:blur(2px);
+  }
+  #sentence-display{font-size:clamp(1.05em, 3.4vw, 1.5em); font-weight:900; color:#2d1a04; letter-spacing:.01em;}
+  #ko-hint{font-size:.85em; color:#8a5a1a; font-weight:700; margin-top:2px;}
+  #lessonNav{width:100%; max-width:860px;}
+
+  #status{
+    width:100%; max-width:860px; text-align:center; margin:4px 0;
+    color:#fff3dd; font-weight:800; font-size:.92em;
+    text-shadow:0 2px 4px rgba(70,35,0,.7);
+  }
+
+  /* ── 나무 도마 + 실사 도우 ──────────────── */
+  #board-wrap{position:relative; margin:6px 0 2px; filter:drop-shadow(0 14px 18px rgba(50,25,0,.45));}
+  #paddle{
+    position:relative;
+    width:min(400px,92vw); height:min(400px,92vw);
+    border-radius:50%;
+    background:
+      radial-gradient(circle at 38% 32%, #b98a52 0%, #a06a33 55%, #8a5626 100%);
+    box-shadow:inset 0 0 0 6px rgba(120,70,25,.55), inset 0 0 34px rgba(60,30,5,.5);
+  }
+  #paddle::before{ /* 도마 손잡이 */
+    content:''; position:absolute; right:-13%; top:50%;
+    width:34%; height:16%; transform:translateY(-50%) rotate(-8deg);
+    background:linear-gradient(180deg,#a5713a,#8a5626);
+    border-radius:40px; z-index:-1;
+    box-shadow:inset 0 3px 6px rgba(255,220,170,.35), inset 0 -4px 8px rgba(50,25,0,.4);
+  }
+  #paddle::after{ /* 손잡이 구멍 */
+    content:''; position:absolute; right:-9%; top:50%; transform:translateY(-50%);
+    width:5.5%; height:5.5%; border-radius:50%; background:#6d4218;
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.5); z-index:0;
+  }
+  #pizza{
+    position:absolute; inset:4.5%;
+    transition:filter 1.1s ease, transform .5s;
+  }
+  #pizza img.dough{width:100%; height:100%; display:block; user-select:none; -webkit-user-drag:none;}
+  #pizza img.sauce-base{
+    position:absolute; left:14%; top:15%; width:72%; height:70%;
+    object-fit:fill; opacity:0; transition:opacity .8s; border-radius:50%;
+    filter:saturate(1.05);
+  }
+  #pizza.saucy img.sauce-base{opacity:.96;}
+  #pizza.baked{filter:sepia(.32) saturate(1.25) brightness(.95) contrast(1.05); transform:scale(1.015);}
+  #toppings-layer{position:absolute; inset:0; pointer-events:none;}
+  .top-sprite{
+    position:absolute; transform:translate(-50%,-50%) rotate(var(--rot)) scale(0);
+    animation:drop .45s cubic-bezier(.2,1.6,.4,1) forwards;
+    filter:drop-shadow(0 3px 3px rgba(60,20,0,.35));
+    user-select:none; -webkit-user-drag:none;
+  }
+  @keyframes drop{
+    0%{transform:translate(-50%,-160%) rotate(var(--rot)) scale(1.25); opacity:.4;}
+    100%{transform:translate(-50%,-50%) rotate(var(--rot)) scale(1); opacity:1;}
+  }
+  .word-chip{
+    position:absolute; transform:translate(-50%,-50%);
+    background:rgba(255,255,255,.93); border-radius:12px; padding:2px 9px 3px;
+    font-weight:900; font-size:clamp(.72em,2.6vw,.95em); color:#2d1a04;
+    box-shadow:0 2px 6px rgba(60,25,0,.4); border:1.5px solid rgba(210,160,90,.8);
+    animation:chipin .3s ease-out; white-space:nowrap;
+  }
+  .word-chip small{
+    display:block; text-align:center; font-size:.62em; font-weight:800;
+    margin-top:-1px; line-height:1.1;
+  }
+  @keyframes chipin{from{transform:translate(-50%,-50%) scale(.3); opacity:0;}}
+  #board-wrap.shake{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-9px);}75%{transform:translateX(9px);}}
+
+  /* ── 스테인리스 트레이 + 재료 볼 ─────────── */
+  #tray{
+    width:100%; max-width:860px; margin-top:14px;
+    background:linear-gradient(180deg,#e8e8ea 0%, #c9cbd0 30%, #a9adb5 70%, #8f939c 100%);
+    border-radius:18px; padding:14px 10px 12px;
+    box-shadow:inset 0 3px 8px rgba(255,255,255,.8), inset 0 -6px 12px rgba(40,45,55,.45), 0 10px 20px rgba(50,25,0,.45);
+    display:flex; flex-wrap:wrap; justify-content:center; gap:10px; min-height:112px;
+  }
+  #tray:empty::after{content:'모든 재료를 올렸어요! 🔥 굽는 중...'; color:#5a5f68; font-weight:800; font-size:.9em; align-self:center;}
+  .bowl{
+    width:96px; cursor:pointer; text-align:center; user-select:none;
+    transition:transform .15s;
+  }
+  .bowl:active{transform:scale(.93);}
+  .bowl .dish{
+    width:88px; height:88px; margin:0 auto; border-radius:50%;
+    background:
+      radial-gradient(circle at 34% 28%, #ffffff 0%, #e9eaee 34%, #b9bcc4 62%, #83878f 88%, #6e727b 100%);
+    box-shadow:inset 0 4px 8px rgba(255,255,255,.9), inset 0 -6px 10px rgba(40,45,55,.5), 0 4px 8px rgba(30,20,5,.4);
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .bowl .dish img{
+    max-width:68%; max-height:68%; object-fit:contain;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));
+    pointer-events:none; -webkit-user-drag:none;
+  }
+  .bowl .dish .w{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    font-weight:900; font-size:1.02em; color:#1c1002;
+    text-shadow:0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 2px 5px rgba(255,255,255,.9);
+    pointer-events:none; white-space:nowrap;
+  }
+  .bowl .role{
+    display:inline-block; margin-top:4px; font-size:.62em; font-weight:800;
+    padding:1px 9px; border-radius:8px; color:#fff; letter-spacing:.02em;
+    box-shadow:0 1px 3px rgba(0,0,0,.35);
+  }
+  /* 문법 성분 색 */
+  .r-subject{background:#e53935;} .r-verb{background:#f57c00;}
+  .r-object{background:#43a047;}  .r-article{background:#8d6e63;}
+  .r-prep{background:#1e88e5;}    .r-noun{background:#c0a000;}
+  .r-adj{background:#ab47bc;}     .r-adv{background:#00897b;}
+  .r-comp{background:#5c6bc0;}    .r-aux{background:#fb8c00;}
+  .r-inf{background:#7e57c2;}     .r-word{background:#78909c;}
+
+  /* ── 듣기·말하기 미션 오버레이 ───────────── */
+  #mission{
+    position:fixed; inset:0; z-index:40; display:none;
+    align-items:center; justify-content:center; padding:16px;
+    background:rgba(45,22,0,.55);
+  }
+  #mission.show{display:flex;}
+  #mission-card{
+    background:linear-gradient(180deg,#fffdf6,#fff3da); border-radius:20px;
+    max-width:440px; width:100%; padding:20px 18px; text-align:center;
+    border:4px solid var(--mango-yellow); box-shadow:0 14px 40px rgba(0,0,0,.45);
+    animation:pop .3s;
+  }
+  @keyframes pop{from{transform:scale(.88); opacity:0;} to{transform:scale(1); opacity:1;}}
+  #mission-card .head{font-size:1em; font-weight:900; color:var(--mango-deep);}
+  #mission-card .sent{font-size:1.18em; font-weight:900; color:#4a2a06; margin:8px 0 2px;}
+  #mission-card .py{font-size:.85em; color:#9a6a20; margin-bottom:6px;}
+  .mission-row{display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap; margin:10px 0;}
+  .big-btn{
+    border:none; border-radius:14px; padding:12px 22px; font-size:1em;
+    font-weight:900; cursor:pointer; color:#fff; font-family:inherit;
+    background:linear-gradient(180deg,var(--mango-orange),var(--mango-deep));
+    box-shadow:0 3px 0 #c05f00; transition:transform .1s;
+  }
+  .big-btn:active{transform:translateY(2px); box-shadow:none;}
+  .big-btn:disabled{opacity:.45; cursor:not-allowed;}
+  .big-btn.green{background:linear-gradient(180deg,#66bb6a,#43a047); box-shadow:0 3px 0 #2e7d32;}
+  .dots{display:flex; gap:6px; justify-content:center; margin-top:4px;}
+  .dot{width:14px; height:14px; border-radius:50%; background:#ffe0a3; border:2px solid #e8a13c;}
+  .dot.on{background:var(--ok); border-color:#2e7d32;}
+  #speech-result{font-size:.85em; color:#8a6a30; min-height:1.3em; margin-top:4px;}
+
+  /* ── 문법 힌트 팝업 ─────────────────────── */
+  #hint-overlay{
+    position:fixed; inset:0; background:rgba(45,22,0,.55);
+    display:none; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  #hint-overlay.show{display:flex;}
+  #hint-card{
+    background:#fffdf6; border-radius:20px; max-width:430px; width:100%;
+    border:4px solid var(--mango-yellow); padding:22px 20px; text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,.4); animation:pop .25s;
+  }
+  #hint-card h3{margin:0 0 8px; color:#c05f00; font-size:1.1em;}
+  #hint-card .badge{
+    display:inline-block; background:var(--mango-orange); color:#fff;
+    font-size:.72em; font-weight:900; border-radius:10px; padding:3px 12px; margin-bottom:8px;
+  }
+  #hint-body{font-size:.92em; line-height:1.6; color:#6b4a12; white-space:pre-line;}
+  #hint-order{
+    margin-top:10px; background:#fff3d6; border-radius:12px; padding:8px;
+    font-weight:900; color:var(--mango-deep); font-size:.9em;
+  }
+
+  #toast{
+    position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:rgba(45,22,0,.92); color:#ffe9c4; padding:10px 22px; border-radius:24px;
+    font-weight:800; font-size:.9em; opacity:0; pointer-events:none;
+    transition:opacity .25s, transform .25s; z-index:60; white-space:nowrap;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .burst{position:fixed; font-size:1.6em; pointer-events:none; z-index:70; animation:fly 1.1s ease-out forwards;}
+  @keyframes fly{from{transform:translate(0,0) scale(1); opacity:1;} to{transform:translate(var(--dx),var(--dy)) scale(.4); opacity:0;}}
+
+  #level-bar{display:flex; gap:6px; margin:4px 0 2px; flex-wrap:wrap; justify-content:center;}
+  .lv-btn{
+    border:2px solid #e2b56b; background:rgba(255,250,238,.92); color:#8a5a1a;
+    border-radius:12px; padding:5px 13px; font-weight:900; cursor:pointer; font-family:inherit; font-size:.82em;
+    box-shadow:0 2px 6px rgba(60,30,0,.25);
+  }
+  .lv-btn.on{background:linear-gradient(180deg,var(--mango-orange),var(--mango-deep)); color:#fff; border-color:#c05f00;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍕 망고아이 문법 피자 마스터</h1>
+  <div id="hud">
+    <div class="hud-chip" id="time-chip"><small>남은 시간</small><span id="timer">0:45</span></div>
+    <div class="hud-chip"><small>내 토큰</small><span id="tokens">0</span> 🪙</div>
+    <div class="hud-chip"><small>진행</small><span id="progress">1 / 1</span></div>
+    <button id="btn-hint">💡 힌트!</button>
+  </div>
+</header>
+
+<div id="mission-glass">
+  <div id="sentence-display"></div>
+  <div id="ko-hint"></div>
+</div>
+
+<div id="level-bar"></div>
+<div id="lessonNav"></div>
+<div id="status">문장 순서대로 재료를 도우 위에 올려 보세요!</div>
+
+<div id="board-wrap">
+  <div id="paddle">
+    <div id="pizza">
+      <img class="dough" src="/img/pizza/dough.png" alt="pizza dough">
+      <img class="sauce-base" src="/img/pizza/sauce.png" alt="">
+      <div id="toppings-layer"></div>
+    </div>
+  </div>
+</div>
+
+<div id="tray"></div>
+
+<div id="mission">
+  <div id="mission-card">
+    <div class="head">🔥 피자 완성! 이제 3번 듣고, 3번 말해요!</div>
+    <div class="sent" id="mission-sentence"></div>
+    <div class="py" id="mission-py"></div>
+    <div class="mission-row">
+      <button class="big-btn" id="btn-listen">🔊 듣기</button>
+      <div><div class="dots" id="listen-dots"></div><small style="color:#a06a1b;">듣기 3회</small></div>
+    </div>
+    <div class="mission-row">
+      <button class="big-btn green" id="btn-speak" disabled>🎤 말하기</button>
+      <div><div class="dots" id="speak-dots"></div><small style="color:#a06a1b;">말하기 3회</small></div>
+    </div>
+    <div id="speech-result"></div>
+  </div>
+</div>
+
+<div id="hint-overlay">
+  <div id="hint-card">
+    <span class="badge">📖 문법 힌트</span>
+    <h3 id="hint-title"></h3>
+    <div id="hint-body"></div>
+    <div id="hint-order"></div>
+    <div style="margin-top:14px;"><button class="big-btn" id="hint-close">알겠어요!</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/js/lesson-nav.js?v=2"></script>
+<script>
+/* ══════════════════════════════════════════════════════════
+   파라미터 · 문법 성분 정의
+   ══════════════════════════════════════════════════════════ */
+var QS = new URLSearchParams(location.search);
+var GLANG = (QS.get('glang') === 'zh') ? 'zh' : 'en';
+
+var ROLE_INFO = {
+  subject:{ko:'주어',   cls:'r-subject'},
+  verb:   {ko:'동사',   cls:'r-verb'},
+  object: {ko:'목적어', cls:'r-object'},
+  article:{ko:'관사',   cls:'r-article'},
+  prep:   {ko:'전치사', cls:'r-prep'},
+  noun:   {ko:'명사',   cls:'r-noun'},
+  adj:    {ko:'형용사', cls:'r-adj'},
+  adv:    {ko:'부사',   cls:'r-adv'},
+  comp:   {ko:'보어',   cls:'r-comp'},
+  aux:    {ko:'조동사', cls:'r-aux'},
+  inf:    {ko:'to부정사',cls:'r-inf'},
+  word:   {ko:'단어',   cls:'r-word'}
+};
+
+/* 실사 토핑 이미지 (크로마키 추출 스프라이트) */
+var TOPPING_IMGS = [
+  'pepperoni','cheese','mushroom','olive','tomato','greenpepper','onion','basil',
+  'ham','bacon','corn','pineapple','shrimp','spinach','beef','jalapeno',
+  'prosciutto','squid','cherrytomato','artichoke','caramelonion','mozzarella'
+].map(function(n){ return '/img/pizza/' + n + '.png'; });
+
+/* ══════════════════════════════════════════════════════════
+   내장 교재 문장 (레벨 1~3) — 레슨 데이터 있으면 교체됨
+   ══════════════════════════════════════════════════════════ */
+var LEVELS = [
+  { name:'레벨 1 · 기본 문장',
+    sentences:[
+      { tokens:[['I','subject'],['like','verb'],['pizza','object']],
+        ko:'나는 피자를 좋아해요.',
+        grammar:{title:'영어의 기본 어순 (3형식)',
+          desc:'영어 문장은 [주어 → 동사 → 목적어] 순서예요.\n"누가(I) + 어떻게 하다(like) + 무엇을(pizza)" 순서로 말해요.\n한국어와 순서가 다르니 주의!'} },
+      { tokens:[['She','subject'],['eats','verb'],['an','article'],['apple','object']],
+        ko:'그녀는 사과 하나를 먹어요.',
+        grammar:{title:'관사 a / an',
+          desc:'셀 수 있는 명사 하나 앞에는 a나 an을 붙여요.\napple처럼 모음 소리(a·e·i·o·u)로 시작하면 an을 써요.\n주어가 She(3인칭 단수)라서 동사에 -s가 붙어 eats!'} },
+      { tokens:[['We','subject'],['play','verb'],['soccer','object'],['together','adv']],
+        ko:'우리는 함께 축구를 해요.',
+        grammar:{title:'부사의 위치',
+          desc:'together(함께)처럼 꾸며 주는 부사는\n보통 문장 맨 뒤에 와요.\n[주어 + 동사 + 목적어 + 부사] 순서를 기억하세요!'} },
+      { tokens:[['My','adj'],['dog','subject'],['is','verb'],['cute','comp']],
+        ko:'내 강아지는 귀여워요.',
+        grammar:{title:'be동사 + 보어 (2형식)',
+          desc:'is/am/are(be동사) 뒤에는 주어를 설명하는\n보어(cute)가 와요.\nMy(나의)는 명사 dog를 꾸며 주는 말이에요.'} }
+    ]},
+  { name:'레벨 2 · 확장 문장',
+    sentences:[
+      { tokens:[['I','subject'],['want','verb'],['to','inf'],['eat','verb'],['a','article'],['slice','noun'],['of','prep'],['pizza','noun']],
+        ko:'나는 피자 한 조각을 먹고 싶어요.',
+        grammar:{title:'want + to부정사',
+          desc:'"~하고 싶다"는 [want + to + 동사원형]으로 말해요.\nwant to eat = 먹고 싶다.\na slice of pizza = 피자 한 조각 (of는 "~의" 전치사).'} },
+      { tokens:[['He','subject'],['is','aux'],['making','verb'],['a','article'],['big','adj'],['pizza','object']],
+        ko:'그는 큰 피자를 만들고 있어요.',
+        grammar:{title:'현재진행형 (be + -ing)',
+          desc:'지금 하고 있는 일은 [be동사 + 동사-ing]로 말해요.\nis making = 만들고 있는 중.\n형용사 big은 명사 pizza 바로 앞!'} },
+      { tokens:[['They','subject'],['are','aux'],['playing','verb'],['in','prep'],['the','article'],['park','noun']],
+        ko:'그들은 공원에서 놀고 있어요.',
+        grammar:{title:'장소 전치사 in',
+          desc:'"~안에서/~에서"는 전치사 in을 써요.\nin the park = 공원에서.\n장소 표현은 보통 문장 맨 뒤에 와요.'} },
+      { tokens:[['Can','aux'],['you','subject'],['help','verb'],['me','object'],['please','adv']],
+        ko:'저를 도와줄 수 있나요?',
+        grammar:{title:'조동사 의문문',
+          desc:'부탁할 때는 [Can + 주어 + 동사원형 ~?] 순서예요.\n조동사 Can이 주어보다 앞에 나와요.\nplease를 붙이면 더 공손해져요!'} }
+    ]},
+  { name:'레벨 3 · 도전 문장',
+    sentences:[
+      { tokens:[['I','subject'],['have','aux'],['finished','verb'],['my','adj'],['homework','object']],
+        ko:'나는 숙제를 다 끝냈어요.',
+        grammar:{title:'현재완료 (have + 과거분사)',
+          desc:'막 끝낸 일, 경험은 [have/has + 과거분사]로 말해요.\nhave finished = (지금 막) 끝냈다.\nfinish의 과거분사는 finished!'} },
+      { tokens:[['She','subject'],['has','aux'],['lived','verb'],['in','prep'],['Seoul','noun'],['for','prep'],['two','adj'],['years','noun']],
+        ko:'그녀는 서울에서 2년 동안 살았어요.',
+        grammar:{title:'현재완료 + for 기간',
+          desc:'"~동안 계속"은 [has + 과거분사 + for + 기간]이에요.\nfor two years = 2년 동안.\n지금도 살고 있다는 뜻이 담겨 있어요!'} },
+      { tokens:[['You','subject'],['should','aux'],['study','verb'],['English','object'],['every','adj'],['day','noun']],
+        ko:'너는 매일 영어를 공부해야 해요.',
+        grammar:{title:'조동사 should',
+          desc:'"~해야 해요(권유)"는 [should + 동사원형]이에요.\nshould study = 공부해야 한다.\nevery day = 매일 (시간 표현은 문장 끝!).'} },
+      { tokens:[['There','adv'],['are','verb'],['many','adj'],['toppings','subject'],['on','prep'],['the','article'],['pizza','noun']],
+        ko:'피자 위에 토핑이 많이 있어요.',
+        grammar:{title:'There is / There are',
+          desc:'"~이 있다"는 [There + be동사 + 명사]로 말해요.\n토핑이 여러 개니까 are를 써요.\non the pizza = 피자 위에 (접촉 전치사 on).'} }
+    ]}
+];
+
+/* ── 교재(레슨) 문장 자동 성분 태거 — 데이터에 성분 정보가 없을 때 ── */
+var AUX_WORDS = ['is','am','are','was','were','be','can','could','will','would','should','must','may','might','do','does','did','have','has','had'];
+var PREP_WORDS = ['in','on','at','of','for','with','from','by','about','under','over','near','behind','into','after','before'];
+var PRONOUNS = ['i','you','he','she','it','we','they'];
+function tagTokens(words){
+  var seenVerb = false;
+  return words.map(function(word, i){
+    var w = String(word).toLowerCase().replace(/[^a-z']/g, '');
+    var role = 'word';
+    if(['a','an','the'].indexOf(w) > -1) role = 'article';
+    else if(w === 'to') role = 'inf';
+    else if(PREP_WORDS.indexOf(w) > -1) role = 'prep';
+    else if(AUX_WORDS.indexOf(w) > -1){ role = (i < words.length - 1 && !seenVerb) ? 'aux' : 'verb'; if(role !== 'aux') seenVerb = true; }
+    else if(PRONOUNS.indexOf(w) > -1) role = (i === 0 || !seenVerb) ? 'subject' : 'object';
+    else if(/ly$/.test(w) && w.length > 3) role = 'adv';
+    else if(i === 0) role = 'subject';
+    else role = 'noun';
+    return [word, role];
+  });
+}
+var GENERIC_GRAMMAR = {
+  title:'영어의 기본 어순',
+  desc:'영어 문장은 [주어 → 동사 → 목적어] 순서가 기본이에요.\n"누가 + 어떻게 하다 + 무엇을" 순서로\n재료를 올려 보세요!'
+};
+
+/* ══════════ 상태 ══════════ */
+var LESSON_POOL = null;     // 레슨 데이터 로드 시 [{tokens, ko, py, grammar}]
+var LESSON_INFO = null;
+var levelIdx = 0, sentIdx = 0, placedCount = 0;
+var listenCount = 0, speakCount = 0, missionActive = false, baking = false;
+var tokens = parseInt(localStorage.getItem('mangoi_pizza_tokens') || '0', 10) || 0;
+var timerLeft = 45, timerInt = null;
+
+function $(id){ return document.getElementById(id); }
+function pool(){ return LESSON_POOL || LEVELS[levelIdx].sentences; }
+function cur(){ return pool()[sentIdx]; }
+function sentenceText(){ return cur().tokens.map(function(t){ return t[0]; }).join(GLANG === 'zh' ? '' : ' '); }
+
+/* ══════════ 토스트 ══════════ */
+var toastTimer = null;
+function toast(msg){
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 1800);
+}
+
+/* ══════════ 축하 이펙트 ══════════ */
+function burst(x, y){
+  var emojis = ['🍕','⭐','🧀','🎉','🍅'];
+  for(var i = 0; i < 10; i++){
+    var s = document.createElement('span');
+    s.className = 'burst';
+    s.textContent = emojis[i % emojis.length];
+    var ang = (Math.PI * 2 / 10) * i;
+    s.style.left = x + 'px'; s.style.top = y + 'px';
+    s.style.setProperty('--dx', Math.cos(ang) * 130 + 'px');
+    s.style.setProperty('--dy', (Math.sin(ang) * 130 - 40) + 'px');
+    document.body.appendChild(s);
+    (function(el){ setTimeout(function(){ el.remove(); }, 1200); })(s);
+  }
+}
+
+/* ══════════ 타이머 ══════════ */
+function fmtTime(s){ return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function startTimer(){
+  stopTimer();
+  timerLeft = 45;
+  $('timer').textContent = fmtTime(timerLeft);
+  timerInt = setInterval(function(){
+    timerLeft--;
+    $('timer').textContent = fmtTime(Math.max(0, timerLeft));
+    if(timerLeft <= 0){
+      stopTimer();
+      toast('⏰ 시간 초과! 피자가 탔어요... 다시 도전!');
+      setTimeout(setupSentence, 1200);
+    }
+  }, 1000);
+}
+function stopTimer(){ if(timerInt){ clearInterval(timerInt); timerInt = null; } }
+
+/* ══════════ TTS ══════════ */
+var TTS_LANG = (GLANG === 'zh') ? 'zh-CN' : 'en-US';
+var pickedVoice = null;
+function pickVoice(){
+  if(!('speechSynthesis' in window)) return;
+  var vs = speechSynthesis.getVoices();
+  var pref = (GLANG === 'zh') ? /zh[-_](CN|Hans)/i : /en[-_]US/i;
+  pickedVoice = vs.find(function(v){ return pref.test(v.lang) && /female|zira|aria|jenny|samantha|xiaoxiao|yaoyao|huihui/i.test(v.name); })
+             || vs.find(function(v){ return pref.test(v.lang); })
+             || vs.find(function(v){ return v.lang.slice(0,2).toLowerCase() === TTS_LANG.slice(0,2); }) || null;
+}
+if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(text, done){
+  if(!('speechSynthesis' in window)){ if(done) done(); return; }
+  speechSynthesis.cancel();
+  var u = new SpeechSynthesisUtterance(text);
+  u.lang = TTS_LANG; u.rate = 0.9;
+  if(pickedVoice) u.voice = pickedVoice;
+  u.onend = function(){ if(done) done(); };
+  u.onerror = function(){ if(done) done(); };
+  speechSynthesis.speak(u);
+}
+
+/* ══════════ 음성 인식 ══════════ */
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+var recognition = null, listening = false;
+if(SR){
+  recognition = new SR();
+  recognition.lang = TTS_LANG;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 3;
+}
+function norm(s){
+  if(GLANG === 'zh') return String(s).replace(/[\s\p{P}]/gu, '');
+  return String(s).toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+function matchScore(said, target){
+  if(GLANG === 'zh'){
+    var a = norm(said), b = norm(target);
+    if(!b.length) return 0;
+    var hit = 0;
+    for(var i = 0; i < b.length; i++){ if(a.indexOf(b[i]) > -1) hit++; }
+    return hit / b.length;
+  }
+  var saidW = norm(said).split(' ').filter(Boolean);
+  var tgtW = norm(target).split(' ').filter(Boolean);
+  if(!tgtW.length) return 0;
+  var pool2 = saidW.slice(), hit2 = 0;
+  tgtW.forEach(function(w){
+    var i = pool2.indexOf(w);
+    if(i > -1){ hit2++; pool2.splice(i, 1); }
+  });
+  return hit2 / tgtW.length;
+}
+
+/* ══════════ 문법 힌트 ══════════ */
+function showHint(){
+  var g = cur().grammar || GENERIC_GRAMMAR;
+  $('hint-title').textContent = g.title;
+  $('hint-body').textContent = g.desc;
+  $('hint-order').textContent = '정답 순서: ' + sentenceText();
+  $('hint-overlay').classList.add('show');
+}
+$('btn-hint').onclick = showHint;
+$('hint-close').onclick = function(){ $('hint-overlay').classList.remove('show'); };
+$('hint-overlay').onclick = function(e){ if(e.target === $('hint-overlay')) $('hint-overlay').classList.remove('show'); };
+
+/* ══════════ HUD ══════════ */
+function updateHud(){
+  $('tokens').textContent = tokens;
+  $('progress').textContent = (sentIdx + 1) + ' / ' + pool().length;
+  localStorage.setItem('mangoi_pizza_tokens', tokens);
+}
+
+/* ══════════ 재료(볼) · 피자 렌더 ══════════ */
+function bowlEl(word, role, tokenIdx){
+  var info = ROLE_INFO[role] || ROLE_INFO.word;
+  var div = document.createElement('div');
+  div.className = 'bowl';
+  div.innerHTML =
+    '<div class="dish"><img src="' + TOPPING_IMGS[tokenIdx % TOPPING_IMGS.length] + '" alt="">' +
+    '<span class="w">' + word + '</span></div>' +
+    '<span class="role ' + info.cls + '">' + info.ko + '</span>';
+  return div;
+}
+
+/* 정답 재료를 피자 위 섹터에 흩뿌리기 + 단어 칩 */
+function placeTopping(word, role, tokenIdx, total){
+  var layer = $('toppings-layer');
+  var img = TOPPING_IMGS[tokenIdx % TOPPING_IMGS.length];
+  var angC = (tokenIdx / total) * Math.PI * 2 - Math.PI / 2;
+  var spread = Math.PI * 2 / total;
+  for(var i = 0; i < 3; i++){
+    var ang = angC + (Math.random() - 0.5) * spread * 0.8;
+    var rad = 18 + Math.random() * 16;                    // 중심 기준 %
+    var x = 50 + Math.cos(ang) * rad;
+    var y = 50 + Math.sin(ang) * rad;
+    var el = document.createElement('img');
+    el.className = 'top-sprite';
+    el.src = img;
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    el.style.width = (13 + Math.random() * 5) + '%';
+    el.style.setProperty('--rot', Math.floor(Math.random() * 360) + 'deg');
+    layer.appendChild(el);
+  }
+  var info = ROLE_INFO[role] || ROLE_INFO.word;
+  var chip = document.createElement('div');
+  chip.className = 'word-chip';
+  chip.innerHTML = word + '<small><span class="role ' + info.cls + '" style="display:inline-block;padding:0 7px;border-radius:6px;color:#fff;">' + info.ko + '</span></small>';
+  chip.style.left = (50 + Math.cos(angC) * 38) + '%';
+  chip.style.top = (50 + Math.sin(angC) * 38) + '%';
+  layer.appendChild(chip);
+}
+
+function setupSentence(){
+  placedCount = 0; listenCount = 0; speakCount = 0;
+  missionActive = false; baking = false;
+  var s = cur();
+  $('toppings-layer').innerHTML = '';
+  $('pizza').classList.remove('baked');
+  $('pizza').classList.remove('saucy');
+  $('tray').innerHTML = '';
+  $('mission').classList.remove('show');
+  $('sentence-display').textContent = sentenceText() + (GLANG === 'zh' ? '' : '.');
+  $('ko-hint').textContent = s.ko ? ('💬 ' + s.ko) : '';
+  $('status').textContent = (LESSON_POOL && LESSON_INFO ? ('📚 ' + (LESSON_INFO.title || 'Lesson ' + LESSON_INFO.seq) + ' — ') : (LEVELS[levelIdx].name + ' — ')) + '문장 순서대로 재료를 올려 보세요!';
+
+  var order = s.tokens.map(function(_, i){ return i; });
+  do {
+    for(var i = order.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = order[i]; order[i] = order[j]; order[j] = t;
+    }
+  } while(order.length > 2 && order.every(function(v, i){ return v === i; }));
+
+  order.forEach(function(tokenIdx){
+    var tk = s.tokens[tokenIdx];
+    var el = bowlEl(tk[0], tk[1], tokenIdx);
+    el.onclick = function(){ onBowlClick(el, tokenIdx); };
+    $('tray').appendChild(el);
+  });
+  updateHud();
+  startTimer();
+}
+
+function onBowlClick(el, tokenIdx){
+  if(missionActive || baking) return;
+  var s = cur();
+  if(tokenIdx === placedCount){
+    el.onclick = null;
+    el.remove();
+    if(placedCount === 0) $('pizza').classList.add('saucy');   // 첫 재료 = 소스부터!
+    placeTopping(s.tokens[tokenIdx][0], s.tokens[tokenIdx][1], tokenIdx, s.tokens.length);
+    placedCount++;
+    if(placedCount === s.tokens.length){
+      stopTimer();
+      bakePizza();
+    }
+  } else {
+    var bw = $('board-wrap');
+    bw.classList.remove('shake');
+    void bw.offsetWidth;
+    bw.classList.add('shake');
+    showHint();
+  }
+}
+
+/* ══════════ 굽기 → 미션 ══════════ */
+function bakePizza(){
+  baking = true;
+  $('status').textContent = '🔥 화덕에서 굽는 중...';
+  $('pizza').classList.add('baked');
+  toast('🔥 피자를 굽고 있어요!');
+  setTimeout(startMission, 1400);
+}
+
+function renderDots(elId, count){
+  var box = $(elId);
+  box.innerHTML = '';
+  for(var i = 0; i < 3; i++){
+    var d = document.createElement('span');
+    d.className = 'dot' + (i < count ? ' on' : '');
+    box.appendChild(d);
+  }
+}
+
+function startMission(){
+  baking = false;
+  missionActive = true;
+  $('mission-sentence').textContent = '"' + sentenceText() + '"';
+  $('mission-py').textContent = (GLANG === 'zh' && cur().py) ? cur().py : '';
+  $('status').textContent = '🍕 완성! 3번 듣고 3번 말하면 토큰 획득!';
+  renderDots('listen-dots', 0);
+  renderDots('speak-dots', 0);
+  $('btn-listen').disabled = false;
+  $('btn-speak').disabled = true;
+  $('speech-result').textContent = recognition ? '' :
+    '⚠ 이 브라우저는 음성 인식을 지원하지 않아요. 듣기 후 크게 3번 따라 읽고 말하기 버튼을 눌러 주세요!';
+  $('mission').classList.add('show');
+}
+
+$('btn-listen').onclick = function(){
+  if(listenCount >= 3) return;
+  $('btn-listen').disabled = true;
+  speak(sentenceText(), function(){
+    listenCount++;
+    renderDots('listen-dots', listenCount);
+    if(listenCount >= 3){
+      $('btn-listen').disabled = true;
+      $('btn-speak').disabled = false;
+      toast('듣기 완료! 이제 말하기!');
+    } else {
+      $('btn-listen').disabled = false;
+      toast('듣기 ' + listenCount + ' / 3');
+    }
+  });
+};
+
+function speakSuccess(){
+  speakCount++;
+  renderDots('speak-dots', speakCount);
+  if(speakCount >= 3){
+    missionComplete();
+  } else {
+    toast('말하기 ' + speakCount + ' / 3 — 잘했어요!');
+    $('speech-result').textContent = '✅ 정확해요! ' + (3 - speakCount) + '번 더!';
+  }
+}
+
+$('btn-speak').onclick = function(){
+  if(speakCount >= 3 || listening) return;
+  if(!recognition){ speakSuccess(); return; }
+  listening = true;
+  $('btn-speak').textContent = '👂 듣는 중...';
+  $('speech-result').textContent = '';
+  recognition.onresult = function(e){
+    var said = e.results[0][0].transcript;
+    if(matchScore(said, sentenceText()) >= 0.7){
+      speakSuccess();
+    } else {
+      $('speech-result').textContent = '들린 말: "' + said + '" — 다시 정확하게 말해 볼까요?';
+      toast('조금만 더 정확하게!');
+    }
+  };
+  recognition.onerror = function(ev){
+    $('speech-result').textContent = ev.error === 'not-allowed'
+      ? '🎤 마이크 권한을 허용해 주세요!'
+      : '🎤 잘 안 들렸어요. 다시 눌러 주세요!';
+  };
+  recognition.onend = function(){
+    listening = false;
+    $('btn-speak').textContent = '🎤 말하기';
+  };
+  try { recognition.start(); } catch(e){ listening = false; }
+};
+
+function missionComplete(){
+  missionActive = false;
+  tokens += 10;
+  updateHud();
+  $('mission').classList.remove('show');
+  var r = $('paddle').getBoundingClientRect();
+  burst(r.left + r.width / 2, r.top + r.height / 2);
+  $('status').textContent = '🎉 미션 성공! 10토큰 획득! 다음 피자를 준비할게요...';
+  toast('+10 토큰!');
+  setTimeout(nextSentence, 2000);
+}
+
+function nextSentence(){
+  sentIdx++;
+  if(sentIdx >= pool().length){
+    if(!LESSON_POOL && levelIdx < LEVELS.length - 1){
+      levelIdx++;
+      sentIdx = 0;
+      renderLevelBar();
+      toast('🎊 ' + LEVELS[levelIdx].name + ' 시작!');
+    } else {
+      $('status').textContent = '👑 전부 완료! 최고의 피자 마스터예요!';
+      sentIdx = 0;
+      if(!LESSON_POOL){ levelIdx = 0; renderLevelBar(); }
+    }
+  }
+  setupSentence();
+}
+
+/* ══════════ 레벨 바 (내장 문장 모드) ══════════ */
+function renderLevelBar(){
+  var bar = $('level-bar');
+  bar.innerHTML = '';
+  if(LESSON_POOL) return;                                  // 레슨 모드에선 숨김
+  LEVELS.forEach(function(lv, i){
+    var b = document.createElement('button');
+    b.className = 'lv-btn' + (i === levelIdx ? ' on' : '');
+    b.textContent = lv.name.split(' · ')[0];
+    b.onclick = function(){ levelIdx = i; sentIdx = 0; renderLevelBar(); setupSentence(); };
+    bar.appendChild(b);
+  });
+}
+
+/* ══════════ 📚 교재(레슨) 연동 — MangoiLessonNav ══════════ */
+function mountLessonNav(){
+  if(!window.MangoiLessonNav) return;
+  MangoiLessonNav.mount({ glang:GLANG, mount:$('lessonNav'), onSet:function(sets, info){
+    if(sets && sets.length){
+      LESSON_POOL = sets.map(function(s){
+        return {
+          tokens: tagTokens(s.w),
+          ko: s.ko || '',
+          py: s.py || '',
+          grammar: GENERIC_GRAMMAR
+        };
+      });
+      LESSON_INFO = info || null;
+    } else {
+      LESSON_POOL = null;
+      LESSON_INFO = null;
+    }
+    sentIdx = 0;
+    renderLevelBar();
+    setupSentence();
+  }});
+}
+
+renderLevelBar();
+setupSentence();
+mountLessonNav();
+</script>
+<!-- BUILD:20260720020907 -->
+</body>
+</html>
