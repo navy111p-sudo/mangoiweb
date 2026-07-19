@@ -1204,11 +1204,13 @@ async function loadCollection(){
 }
 async function delWord(id){
   if (!confirm('이 카드를 삭제할까요?')) return;
-  await fetch('/api/vocab/'+id, { method:'DELETE' });
+  // 🔐 본인 단어 확인용 토큰(서버 소유자 검증). 게스트는 토큰 없이 통과.
+  var _t = (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })();
+  await fetch('/api/vocab/'+id + (_t ? '?token='+encodeURIComponent(_t) : ''), { method:'DELETE' });
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260719170829 -->
+<!-- BUILD:20260719171742 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

@@ -2602,6 +2602,9 @@ export async function handleMangoApi(
     if (path.startsWith('/api/recordings/') && method === 'DELETE') {
       const id = parseInt(path.replace('/api/recordings/', ''), 10);
       if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      // 🔐 [무결성/파괴] 관리자만 녹화 삭제 — 미성년자 수업영상을 무인증 정수 id 열거로 삭제(은폐)하는 것을 차단 (2026-07-19 self-pentest).
+      const rdAdmin = await checkAdminSession(request, env as any);
+      if (!rdAdmin.ok) return json({ ok: false, error: 'auth_required' }, 401);
       await env.DB.prepare(`UPDATE recordings SET status = 'deleted' WHERE id = ?`).bind(id).run();
       return json({ ok: true });
     }

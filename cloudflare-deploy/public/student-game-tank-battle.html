@@ -624,6 +624,24 @@ function playerFire(ang){ if(!G||!G.running||G.speaking||G.dead)return;
   for(var i=0;i<4;i++){ var ea=a+(Math.random()-0.5)*0.5; G.parts.push({x:m.x,y:m.y,vx:Math.cos(ea)*120,vy:Math.sin(ea)*120,life:0.4,age:0,size:3,kind:'smoke'}); }
   G.shake=Math.min(10,G.shake+4);
 }
+// 🎯 자동조준: 탭 근처의 적을 골라 '이동 예측(리드)'으로 정확히 조준 → 정밀 조준 부담 제거
+function _shellSp(){ return 460*(0.9+SPMUL*0.15); }
+function _pickTargetNear(x,y){
+  var best=null, bd=95*SCALE;
+  for(var i=0;i<G.enemies.length;i++){ var e=G.enemies[i]; if(!e.alive)continue;
+    var d=Math.hypot(x-e.x,y-e.y);
+    var pri = sameWord(e.word, neededWord()) ? d-40*SCALE : d;   // 정답 단어 적이면 우선
+    if(d < bd+e.r && (!best || pri<best.pri)) best={e:e, pri:pri}; }
+  return best ? best.e : null;
+}
+function _leadAngle(e){
+  var sp=_shellSp(), t=Math.hypot(e.x-G.px,e.y-G.py)/sp, tx=e.x, ty=e.y;
+  for(var i=0;i<4;i++){ tx=e.x+(e._vx||0)*t; ty=e.y+(e._vy||0)*t; t=Math.hypot(tx-G.px,ty-G.py)/sp; }
+  return Math.atan2(ty-G.py, tx-G.px);
+}
+function fireAt(px,py){ var e=_pickTargetNear(px,py);
+  if(e){ G.lockId=e; G.lockT=0.5; playerFire(_leadAngle(e)); }   // 적 자동조준 발사
+  else playerFire(Math.atan2(py-G.py, px-G.px)); }               // 빈 곳=그 방향 발사
 function enemyFire(e){
   var m=muzzle(e.x,e.y,e.turAng,26*SCALE);
   var sp=(180+SPMUL*70);
@@ -659,14 +677,14 @@ function _dragEnd(ev){
   var was=_drag.on; _drag.on=false; if(G) G.dragging=false;
   if(!was || !G || !G.running || G.speaking) return;
   var p=ptr(ev);
-  if(!_drag.moved && performance.now()-_drag.t<350){          // 짧은 탭 = 그 방향으로 발사
-    playerFire(Math.atan2(p.y-G.py, p.x-G.px)); }
+  if(!_drag.moved && performance.now()-_drag.t<350){          // 짧은 탭 = 그 지점의 적 자동조준 발사
+    fireAt(p.x, p.y); }
 }
 cv.addEventListener('pointerup',_dragEnd);
 cv.addEventListener('pointercancel',function(){ _drag.on=false; if(G)G.dragging=false; });
-cv.addEventListener('contextmenu',function(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p=ptr(e); playerFire(Math.atan2(p.y-G.py, p.x-G.px)); } });  // 우클릭=즉시 발사
-// ⌨️ (PC 보조) 스페이스 = 커서 방향으로 발사
-window.addEventListener('keydown',function(e){ if(e.code==='Space' && G && G.running && !G.speaking){ e.preventDefault(); playerFire(Math.atan2(_aim.y-G.py, _aim.x-G.px)); } });
+cv.addEventListener('contextmenu',function(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p=ptr(e); fireAt(p.x, p.y); } });  // 우클릭=자동조준 발사
+// ⌨️ (PC 보조) 스페이스 = 커서 위치 적 자동조준 발사
+window.addEventListener('keydown',function(e){ if(e.code==='Space' && G && G.running && !G.speaking){ e.preventDefault(); fireAt(_aim.x, _aim.y); } });
 
 /* ════════════════════════════════════════════════════════════
    11. 업데이트
@@ -708,7 +726,8 @@ function update(dt){
     e.rewp-=dt; var edx=e.wpx-e.x, edy=e.wpy-e.y, ed=Math.hypot(edx,edy)||1;
     if(ed<36 || e.rewp<=0){ e.wpx=W*(0.12+Math.random()*0.76); e.wpy=H*(0.14+Math.random()*0.62); e.rewp=2+Math.random()*2.5; }
     var esp=32*SCALE*SPMUL;
-    e.x+=edx/ed*esp*dt; e.y+=edy/ed*esp*dt;
+    e._vx=edx/ed*esp; e._vy=edy/ed*esp;                 // 리드 예측용 현재 속도
+    e.x+=e._vx*dt; e.y+=e._vy*dt;
     e.hullAng=angLerp(e.hullAng, Math.atan2(edy,edx), Math.min(1,dt*2));
     e.track+=esp*dt*0.05;
     // 포탑/포 = 플레이어 조준. 자주포(stug)는 차체가 곧 포 → 차체를 플레이어 쪽으로
@@ -1017,7 +1036,14 @@ function drawWreck(w){ ctx.save(); ctx.translate(w.x,w.y); ctx.rotate(w.ang||0);
   ctx.fillStyle='#3a3126'; ctx.beginPath(); ctx.ellipse(4*SCALE,-3*SCALE,10*SCALE,8*SCALE,0.5,0,7); ctx.fill();  // 뒤집힌 포탑
   ctx.globalAlpha=1; ctx.restore(); }
 function drawLabel(e){ var isT=sameWord(e.word, neededWord());
-  ctx.save(); ctx.font='bold '+(15*Math.min(1.4,SCALE))+'px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif'; ctx.textAlign='center';
+  ctx.save();
+  // 🎯 지금 맞춰야 할 단어의 적 = 빛나는 링 + ▼ 화살표로 강조(어느 걸 쏠지 한눈에)
+  if(isT){ var pu=0.5+0.5*Math.sin(performance.now()/220);
+    ctx.strokeStyle='rgba(255,214,90,'+(0.45+pu*0.5)+')'; ctx.lineWidth=3*SCALE;
+    ctx.beginPath(); ctx.arc(e.x,e.y,(e.r+8*SCALE),0,7); ctx.stroke();
+    ctx.fillStyle='rgba(255,214,90,'+(0.55+pu*0.45)+')';
+    var ay=e.y-e.r-30-pu*4*SCALE; ctx.beginPath(); ctx.moveTo(e.x-8*SCALE,ay); ctx.lineTo(e.x+8*SCALE,ay); ctx.lineTo(e.x,ay+9*SCALE); ctx.closePath(); ctx.fill(); }
+  ctx.font='bold '+(15*Math.min(1.4,SCALE))+'px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif'; ctx.textAlign='center';
   var tw=ctx.measureText(e.word).width, pad=7, bw=tw+pad*2, by=e.y - e.r - 20;
   ctx.fillStyle = isT ? 'rgba(60,44,10,.92)' : 'rgba(10,16,22,.82)';
   rr(e.x-bw/2, by, bw, 21, 6); ctx.fill();
@@ -1149,6 +1175,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260719170829 -->
+<!-- BUILD:20260719171742 -->
 </body>
 </html>

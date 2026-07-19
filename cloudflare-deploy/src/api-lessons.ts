@@ -259,6 +259,11 @@ export async function handleLessonsApi(
     if (method === 'DELETE' && /^\/api\/eval\/\d+$/.test(path)) {
       await ensureEvalTable();
       const id = parseInt(path.split('/').pop() || '0', 10);
+      // 🔐 [무결성/파괴] 관리자·강사(관리자 세션 쿠키)만 삭제 — 무인증 임의 삭제(정수 id 열거로 전체 평가서 삭제) 차단.
+      //   (2026-07-19 self-pentest 발견: 바로 위 GET 은 인증됐으나 DELETE 는 게이트 누락돼 있었음)
+      //   호출부 adm-r6.js 는 관리자 콘솔(same-origin)이라 세션 쿠키가 자동 전송됨.
+      const edAdmin = await checkAdminSession(request, env as any);
+      if (!edAdmin.ok) return json({ ok: false, error: 'auth_required', message: '관리자만 삭제할 수 있습니다.' }, 401);
       await env.DB.prepare(`DELETE FROM student_evaluations WHERE id=?`).bind(id).run();
       return json({ ok: true, id, deleted: true });
     }

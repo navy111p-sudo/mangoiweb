@@ -608,6 +608,18 @@ export async function handleGamesApi(
     if (method === 'DELETE' && /^\/api\/vocab\/\d+$/.test(path)) {
       await ensureVocab();
       const id = parseInt(path.split('/').pop() || '0', 10);
+      // 🔐 [무결성/IDOR] 단어는 user_id 소유물 — 남의 단어를 정수 id 열거로 삭제하는 것을 차단 (2026-07-19 self-pentest).
+      //   소유자 확인: 게스트(guest_*)는 통과(익명), 실계정은 토큰 uid 일치 OR 관리자.
+      const vdRow: any = await env.DB.prepare(`SELECT user_id FROM vocabulary WHERE id = ?`).bind(id).first();
+      if (!vdRow) return json({ ok: true, deleted: 0 });   // 이미 없음 — 멱등
+      const vdOwner = String(vdRow.user_id || '');
+      if (!/^guest/i.test(vdOwner)) {
+        const vdAuth = await authUidGlobal(request, url, env);
+        if (vdAuth !== vdOwner) {
+          const vdAdmin = await checkAdminSession(request, env as any);
+          if (!vdAdmin.ok) return json({ ok: false, error: 'auth_required' }, 401);
+        }
+      }
       await env.DB.prepare(`DELETE FROM vocabulary WHERE id = ?`).bind(id).run();
       return json({ ok: true });
     }
