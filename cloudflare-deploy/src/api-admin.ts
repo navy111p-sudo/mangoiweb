@@ -22,6 +22,23 @@ import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수�
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import type { MangoEnv } from './api-mango';
 
+// ═══ ⚡ 관리자 KV 캐시 공용 헬퍼 (2026-07-19 통합) ═══
+//   graph-list·finance·selfscore·leveltest 등에서 반복되던
+//   "get→hit면 Response 반환 / put 후 Response 반환" 보일러플레이트를 한 곳으로.
+//   실패는 조용히 무시(캐시는 최적화일 뿐 정확성 아님). 본사 권한게이트 뒤라 조직공용.
+async function admCacheHit(env: any, key: string): Promise<Response | null> {
+  try {
+    const h = await env.SESSION_STATE.get(key);
+    if (h) return new Response(h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } });
+  } catch { /* miss */ }
+  return null;
+}
+async function admCachePut(env: any, key: string, obj: any, ttl = 120): Promise<Response> {
+  const body = JSON.stringify(obj);
+  try { await env.SESSION_STATE.put(key, body, { expirationTtl: ttl }); } catch { /* 저장 실패 무시 */ }
+  return new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
 
 // ═══ 💼 급여 상수·계산 클러스터 (api-mango.ts 에서 이동, 8차) ═══
 //   - 환율: 1 PHP = 24.34 KRW (트리맵·요약용)
@@ -4472,7 +4489,7 @@ ${chatSampleText}
       const qT = (url.searchParams.get('q') || '').trim().toLowerCase();
       // ⚡ KV 캐시(120초) — Neo4j(카페24 8880) 외부 홉을 반복 열람마다 왕복하지 않도록. 원본은 야간 cron 동기화라 분단위 신선도면 충분. 조직 공용 명부라 scope 무관(q만).
       const _glKeyT = 'gl:teachers:' + qT;
-      try { const _h = await env.SESSION_STATE.get(_glKeyT); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
+      { const _hit = await admCacheHit(env, _glKeyT); if (_hit) return _hit; }
       try {
         // 담당수업수(class_count)·학생수(student_count)는 노드에 미리 계산돼 있음(대량 Class 스캔 회피)
         const { fields, values } = await runCypher(env, `
@@ -4489,9 +4506,7 @@ ${chatSampleText}
                  t.score_avg AS score_avg, coalesce(t.score_count,0) AS score_count
           ORDER BY coalesce(t.class_count,0) DESC, t.name`, { q: qT }, 'READ');
         const teachers = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        const _bodyT = JSON.stringify({ ok: true, source: 'neo4j', count: teachers.length, teachers });
-        try { await env.SESSION_STATE.put(_glKeyT, _bodyT, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
-        return new Response(_bodyT, { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return admCachePut(env, _glKeyT, { ok: true, source: 'neo4j', count: teachers.length, teachers });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         console.warn('[teachers/graph-list] 실패:', e?.message || e);
@@ -4509,7 +4524,7 @@ ${chatSampleText}
         const month = (url.searchParams.get('month') || '').trim();
         // ⚡ KV 캐시(120초) — 카페24 Neo4j(8880) 외부 홉 절감. 회계 원본은 야간 cron 동기화라 분단위 신선도 충분. 본사 전용(권한게이트 뒤)이라 조직공용 키.
         const _finKey = 'fin:' + kind + ':' + month + ':' + lim;
-        try { const _h = await env.SESSION_STATE.get(_finKey); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
+        { const _hit = await admCacheHit(env, _finKey); if (_hit) return _hit; }
         // 월별 손익 집계 (AccBookType 1=수입, 2=지출) — 최근 24개월
         if (kind === 'summary') {
           try {
@@ -4527,9 +4542,7 @@ ${chatSampleText}
               return o;
             });
             const totals = rows.reduce((a: any, r: any) => ({ income: a.income + (Number(r.income) || 0), expense: a.expense + (Number(r.expense) || 0) }), { income: 0, expense: 0 });
-            const _finBody = JSON.stringify({ ok: true, source: 'neo4j', kind: 'summary', months: rows, totals: { ...totals, net: totals.income - totals.expense } });
-            try { await env.SESSION_STATE.put(_finKey, _finBody, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
-            return new Response(_finBody, { status: 200, headers: { 'Content-Type': 'application/json' } });
+            return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind: 'summary', months: rows, totals: { ...totals, net: totals.income - totals.expense } });
           } catch (e: any) {
             if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
             return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4547,9 +4560,7 @@ ${chatSampleText}
         try {
           const { fields, values } = await runCypher(env, cy, { lim, month }, 'READ');
           const rows = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-          const _finBody2 = JSON.stringify({ ok: true, source: 'neo4j', kind, count: rows.length, rows });
-          try { await env.SESSION_STATE.put(_finKey, _finBody2, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
-          return new Response(_finBody2, { status: 200, headers: { 'Content-Type': 'application/json' } });
+          return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind, count: rows.length, rows });
         } catch (e: any) {
           if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
           return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4563,7 +4574,7 @@ ${chatSampleText}
         const lim = Math.max(1, Math.min(84, parseInt(url.searchParams.get('months') || '24', 10)));
         // ⚡ KV 캐시(120초) — Neo4j 외부 홉 절감(야간 동기화 데이터).
         const _sstKey = 'selfscore:trend:' + lim;
-        try { const _h = await env.SESSION_STATE.get(_sstKey); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
+        { const _hit = await admCacheHit(env, _sstKey); if (_hit) return _hit; }
         try {
           const { fields, values } = await runCypher(env, `
             MATCH (s:SelfScoreTrend)
@@ -4575,9 +4586,7 @@ ${chatSampleText}
             total_responses: months.reduce((a: number, m: any) => a + (Number(m.cnt) || 0), 0),
             avg_overall: withCount.length ? Math.round((withCount.reduce((a: number, m: any) => a + Number(m.avg_score), 0) / withCount.length) * 100) / 100 : null,
           };
-          const _sstBody = JSON.stringify({ ok: true, source: 'neo4j', months, totals });
-          try { await env.SESSION_STATE.put(_sstKey, _sstBody, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
-          return new Response(_sstBody, { status: 200, headers: { 'Content-Type': 'application/json' } });
+          return admCachePut(env, _sstKey, { ok: true, source: 'neo4j', months, totals });
         } catch (e: any) {
           if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
           return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4589,7 +4598,7 @@ ${chatSampleText}
     if (method === 'GET' && path === '/api/admin/leveltest/overview') {
       // ⚡ KV 캐시(120초) — Neo4j 외부 홉 2회(agg+recent) 절감(야간 동기화 데이터).
       const _ltKey = 'leveltest:overview';
-      try { const _h = await env.SESSION_STATE.get(_ltKey); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
+      { const _hit = await admCacheHit(env, _ltKey); if (_hit) return _hit; }
       try {
         const agg = await runCypher(env, `
           MATCH (l:LevelTest) WHERE l.level IS NOT NULL AND l.level <> ''
@@ -4607,9 +4616,7 @@ ${chatSampleText}
           ORDER BY l.year DESC, l.month DESC, l.day DESC LIMIT 200`, {}, 'READ');
         const recent = rec.values.map(row => Object.fromEntries(rec.fields.map((f, i) => [f, row[i]])));
         const totals = byLevel.reduce((a: any, r: any) => ({ total: a.total + Number(r.total), pass: a.pass + Number(r.pass) }), { total: 0, pass: 0 });
-        const _ltBody = JSON.stringify({ ok: true, source: 'neo4j', by_level: byLevel, recent, totals: { ...totals, pass_rate: totals.total > 0 ? Math.round((totals.pass / totals.total) * 1000) / 10 : 0 } });
-        try { await env.SESSION_STATE.put(_ltKey, _ltBody, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
-        return new Response(_ltBody, { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return admCachePut(env, _ltKey, { ok: true, source: 'neo4j', by_level: byLevel, recent, totals: { ...totals, pass_rate: totals.total > 0 ? Math.round((totals.pass / totals.total) * 1000) / 10 : 0 } });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4621,7 +4628,7 @@ ${chatSampleText}
       const qS = (url.searchParams.get('q') || '').trim().toLowerCase();
       // ⚡ KV 캐시(120초) — 위 teachers/graph-list 와 동일 패턴(Neo4j 외부 홉 절감).
       const _glKeyS = 'gl:staff:' + qS;
-      try { const _h = await env.SESSION_STATE.get(_glKeyS); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
+      { const _hit = await admCacheHit(env, _glKeyS); if (_hit) return _hit; }
       try {
         const { fields, values } = await runCypher(env, `
           MATCH (s:Staff) WHERE s.name IS NOT NULL
@@ -4630,9 +4637,7 @@ ${chatSampleText}
                  s.intro AS intro, s.status AS status, s.retire_date AS retire_date, s.franchise_id AS franchise_id
           ORDER BY s.status, s.name`, { q: qS }, 'READ');
         const staff = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        const _bodyS = JSON.stringify({ ok: true, source: 'neo4j', count: staff.length, staff });
-        try { await env.SESSION_STATE.put(_glKeyS, _bodyS, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
-        return new Response(_bodyS, { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return admCachePut(env, _glKeyS, { ok: true, source: 'neo4j', count: staff.length, staff });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4644,7 +4649,7 @@ ${chatSampleText}
       const qB = (url.searchParams.get('q') || '').trim().toLowerCase();
       // ⚡ KV 캐시(120초) — 위 graph-list 들과 동일 패턴(Neo4j 외부 홉 절감).
       const _glKeyB = 'gl:books:' + qB;
-      try { const _h = await env.SESSION_STATE.get(_glKeyB); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
+      { const _hit = await admCacheHit(env, _glKeyB); if (_hit) return _hit; }
       try {
         const { fields, values } = await runCypher(env, `
           MATCH (b:Book) WHERE b.name IS NOT NULL
@@ -4652,9 +4657,7 @@ ${chatSampleText}
           RETURN b.book_id AS book_id, b.name AS name, b.memo AS memo, b.status AS status, b.group_id AS group_id
           ORDER BY b.status, b.name`, { q: qB }, 'READ');
         const books = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        const _bodyB = JSON.stringify({ ok: true, source: 'neo4j', count: books.length, books });
-        try { await env.SESSION_STATE.put(_glKeyB, _bodyB, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
-        return new Response(_bodyB, { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return admCachePut(env, _glKeyB, { ok: true, source: 'neo4j', count: books.length, books });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
         return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
@@ -4689,7 +4692,7 @@ ${chatSampleText}
       // hq | none → _gScopeClause = '' (전체)
       // ⚡ KV 캐시(120초) — Neo4j 외부 홉 절감. ⚠️ 학부모전화 등 PII 포함이므로 scope(type:value)를 키에 넣어 크로스테넌트 격리(retention/risk 캐시와 동일 원칙). q·limit 도 키에 포함.
       const _glKeyStu = 'gl:students:' + (_gScope.type || 'all') + ':' + (_gScope.value || '') + ':' + limitG + ':' + qG;
-      try { const _h = await env.SESSION_STATE.get(_glKeyStu); if (_h) return new Response(_h, { status: 200, headers: { 'Content-Type': 'application/json', 'X-Adm-Cache': 'hit' } }); } catch { /* miss */ }
+      { const _hit = await admCacheHit(env, _glKeyStu); if (_hit) return _hit; }
       const GRAPH_STUDENT_LIST_QUERY = `
 MATCH (s:Student)
 WHERE ($q = ''
@@ -4729,9 +4732,7 @@ LIMIT $limit`;
           env, GRAPH_STUDENT_LIST_QUERY, _gp, 'READ',
         );
         const students = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-        const _bodyStu = JSON.stringify({ ok: true, source: 'neo4j', count: students.length, students });
-        try { await env.SESSION_STATE.put(_glKeyStu, _bodyStu, { expirationTtl: 120 }); } catch { /* 캐시 저장 실패 무시 */ }
-        return new Response(_bodyStu, { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return admCachePut(env, _glKeyStu, { ok: true, source: 'neo4j', count: students.length, students });
       } catch (e: any) {
         if (e instanceof Neo4jNotConfiguredError) {
           return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);

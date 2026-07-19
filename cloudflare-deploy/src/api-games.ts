@@ -10,7 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
-import { checkAdminSession } from './auth-admin';
+import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(게스트 예외+관리자/토큰)
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import type { MangoEnv } from './api-mango';
 
@@ -613,12 +613,9 @@ export async function handleGamesApi(
       const vdRow: any = await env.DB.prepare(`SELECT user_id FROM vocabulary WHERE id = ?`).bind(id).first();
       if (!vdRow) return json({ ok: true, deleted: 0 });   // 이미 없음 — 멱등
       const vdOwner = String(vdRow.user_id || '');
-      if (!/^guest/i.test(vdOwner)) {
-        const vdAuth = await authUidGlobal(request, url, env);
-        if (vdAuth !== vdOwner) {
-          const vdAdmin = await checkAdminSession(request, env as any);
-          if (!vdAdmin.ok) return json({ ok: false, error: 'auth_required' }, 401);
-        }
+      // 🔐 소유자(게스트 예외 + 관리자/토큰) — 토큰은 ?token= 쿼리(DELETE 라 body 없음)
+      if ((await resolveOwnerScope(request, url, env as any, vdOwner)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
       }
       await env.DB.prepare(`DELETE FROM vocabulary WHERE id = ?`).bind(id).run();
       return json({ ok: true });
@@ -1232,9 +1229,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       // 🔐 [IDOR 무결성] 실계정 user_id 로 남 대신 제출(기록 오염+포인트 적립) 차단 (2026-07-19).
       //   게스트(guest_*)는 토큰 없이 그대로 허용(게스트 흐름 유지). 실계정은 mango_token uid 일치 필수.
       //   프론트(review-quiz.html·idx-x8.js)는 body.token 전송 + 401 시 게스트 폴백 재시도(수업 흐름 안 끊김).
-      if (!userId.startsWith('guest_')) {
-        const rqSubAuth = await authUidGlobal(request, url, env, b);
-        if (!rqSubAuth || rqSubAuth !== userId) return json({ ok: false, error: 'auth_required' }, 401);
+      // 🔐 실계정 남 대신 제출(기록 오염+포인트 적립) 차단. 게스트는 통과. [공용 헬퍼]
+      if ((await resolveOwnerScope(request, url, env as any, userId, b)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
       }
       const row: any = await env.DB.prepare(`SELECT id, title, questions FROM review_quizzes WHERE id = ? AND active = 1`).bind(quizId).first();
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
@@ -1618,12 +1615,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       // 🔐 [무결성] 본인만 출석 체크 — 임의 uid 로 남의 스트릭·보석 조작 차단 (2026-07-19).
       //   게스트(guest*)는 통과(랜덤 uid, 실계정 무관), 실계정은 토큰 소유자 OR 관리자 (earn-by-rule 과 동일 패턴).
-      if (!/^guest/i.test(uid)) {
-        const skAdmin = await checkAdminSession(request, env as any);
-        if (!skAdmin.ok) {
-          const skAuth = await authUidGlobal(request, url, env, b);
-          if (!skAuth || skAuth !== uid) return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 출석할 수 있습니다.' }, 401);
-        }
+      // 🔐 본인만 출석 체크(스트릭·보석 조작 차단). 게스트는 통과. [공용 헬퍼]
+      if ((await resolveOwnerScope(request, url, env as any, uid, b)) === 'deny') {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 출석할 수 있습니다.' }, 401);
       }
 
       const today = todayKST();
@@ -1968,12 +1962,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       if (!target || !spoken) return json({ ok: false, error: 'target_and_spoken_required' }, 400);
       // 🔐 [무결성] 실계정 uid 로 남의 연습기록 오염 차단 (2026-07-19) — 기록이 발화이력/학부모 화면에 노출됨.
       //   게스트(guest*)는 통과(익명 연습 지원, 프론트 기본값 'guest'), 실계정은 토큰 소유자 OR 관리자.
-      if (!/^guest/i.test(studentUid)) {
-        const vgAdmin = await checkAdminSession(request, env as any);
-        if (!vgAdmin.ok) {
-          const vgAuth = await authUidGlobal(request, url, env, b);
-          if (!vgAuth || vgAuth !== studentUid) return json({ ok: false, error: 'auth_required' }, 401);
-        }
+      // 🔐 실계정 uid 로 남의 연습기록 오염 차단. 게스트(기본값 'guest' 포함) 통과. [공용 헬퍼]
+      if ((await resolveOwnerScope(request, url, env as any, studentUid, b)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
       }
 
       // 단순 유사도 (단어 일치율)

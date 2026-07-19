@@ -19,6 +19,7 @@
 import { getScope } from './scope';
 import { generateSecret, otpauthURI, verifyTOTP } from './totp';
 import { sendPlainSms } from './solapi-client';
+import { authUidFromRequest } from './auth-token';   // 🔐 소유자 검증(단방향 의존: auth-admin → auth-token)
 
 export interface AuthEnv {
   DB: D1Database;
@@ -273,6 +274,28 @@ export async function checkAdminSession(request: Request, env: AuthEnv): Promise
     console.warn('[auth-admin] checkAdminSession err:', (e as any)?.message);
     return { ok: false };
   }
+}
+
+// ────────────────────────────────────────────────────────────
+// 🔐 uid 소유 데이터 접근 판정 — "게스트 지원" 개인 엔드포인트 공용 (2026-07-19 통합)
+// ────────────────────────────────────────────────────────────
+//   review-quiz·streak·voice/coach·vocab 등에서 5벌 이상 복붙되던 가드
+//   (게스트 예외 + 관리자세션 OR 토큰 소유자)를 한 곳으로 통합.
+//   ⚠️ 게스트 판정은 반드시 /^guest/i (bare 'guest' 및 guest_* 모두 포함) —
+//      voice/coach 는 미로그인 시 uid 기본값이 bare 'guest' 라, startsWith('guest_')로
+//      좁히면 게스트 발음코칭이 401 로 깨진다(통합 전 불일치 버그를 여기서 흡수).
+//   반환: 'guest'(익명·통과) | 'admin'(관리자/교사 세션) | 'self'(토큰 uid 일치) | 'deny'(위조)
+export type OwnerScope = 'guest' | 'admin' | 'self' | 'deny';
+export async function resolveOwnerScope(
+  request: Request, url: URL, env: AuthEnv, uid: string, body?: any,
+): Promise<OwnerScope> {
+  const u = String(uid || '').trim();
+  if (/^guest/i.test(u)) return 'guest';                 // 게스트(추측 불가 랜덤/기본값) → 검증 생략
+  const adm = await checkAdminSession(request, env);
+  if (adm.ok) return 'admin';                            // 관리자·교사 세션 쿠키
+  const authed = await authUidFromRequest(request, url, env, body);
+  if (authed && authed === u) return 'self';             // 서명 토큰 uid == 요청 uid
+  return 'deny';
 }
 
 // ────────────────────────────────────────────────────────────
