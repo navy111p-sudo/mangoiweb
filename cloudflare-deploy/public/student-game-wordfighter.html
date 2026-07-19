@@ -326,6 +326,7 @@
         • <b>속도 4단계</b> — 🐌 아주 천천히 → 🔥 광속. 빠를수록 점수 배율 ↑ (광속 <b>1.3배</b>) ⚖
       </div>
       <div class="speedrow"><span class="sr-lab">🌐 언어</span><button class="lng" data-l="en">🇺🇸 영어</button><button class="lng" data-l="zh">🇨🇳 중국어</button></div>
+      <div id="lessonNav" style="margin:2px 0"></div>
       <div class="speedrow"><span class="sr-lab">⚙ 속도</span><button class="spd" data-k="snail">🐌 아주 천천히</button><button class="spd" data-k="relax">🐢 느긋</button><button class="spd sel" data-k="normal">⚔️ 보통</button><button class="spd" data-k="turbo">🔥 광속</button></div>
       <button class="btn red" id="startBtn">전투 시작 ▶</button>
       <div class="warn" id="voiceWarn"></div>
@@ -334,6 +335,7 @@
 </div>
 
 <script src="/js/game-vocab.js"></script>
+<script src="/js/lesson-nav.js?v=1"></script>
 <script>
 (function(){
   'use strict';
@@ -420,6 +422,7 @@
   var ZH_DISTRACTORS=["猫","跑","蓝","绿","快","做","高兴","跳","红","桌子","下面","他们","大","牛奶","慢","七","云","书","花","月亮"];
   var _inj=''; try{ _inj=(new URLSearchParams(location.search).get('sentence')||'').trim(); }catch(e){}
   var SENT_PY={}, DISTRACTORS=EN_DISTRACTORS, enBadge='', zhBadge='';
+  var _lessonActive=false;   // 📚 레슨 네비가 문장을 지정하면 true → 기존 자동 로더가 덮어쓰지 않음
   function applyBadge(){ var bb=document.getElementById('bookBadge'), t=(GLANG==='zh')?zhBadge:enBadge;
     if(t){ bb.textContent=t; bb.style.display='inline-block'; } else bb.style.display='none'; }
   // 현재 언어의 세트를 활성 변수로 적용 (허브가 ?sentence= 로 넘긴 문장은 맨 앞에)
@@ -434,7 +437,7 @@
   try{
     if(window.MangoiGameVocab){
       MangoiGameVocab.load().then(function(d){
-        if(d && d.sentences && d.sentences.length>=3){
+        if(!_lessonActive && d && d.sentences && d.sentences.length>=3){
           EN_SENTENCES=d.sentences.map(function(s){ return s.en; });
           d.sentences.forEach(function(s){ if(s.ko) EN_SENT_KO[s.en]=s.ko; });
           var tb=[d.textbook,d.level].filter(Boolean).join(' · ');
@@ -450,7 +453,7 @@
     function apply(d){
       if(!d || !d.ok) return;
       var sents=(d.sentences||[]).filter(function(s){ return s && s.en && s.words && s.words.length>=2 && s.words.length<=9; });
-      if(sents.length>=3){
+      if(!_lessonActive && sents.length>=3){
         sents.sort(function(a,b){ return a.words.length-b.words.length; });   // 짧은 문장부터 → 레벨 진행
         ZH_SENTENCES=[]; ZH_SENT_KO={}; ZH_SENT_PY={};
         sents.slice(0,40).forEach(function(s){
@@ -470,6 +473,22 @@
       .catch(function(){});
   }
   loadZhVocab();
+  // 📚 진도(레슨) 네비게이터 — 로그인 학생 교재의 레슨별 문장 + ◀복습/▶예습(선택 시 자동 로더보다 우선)
+  function mountLessonNav(){
+    if(!window.MangoiLessonNav) return;
+    MangoiLessonNav.mount({ glang:GLANG, mount:document.getElementById('lessonNav'), onSet:function(sets){
+      if(sets && sets.length){
+        var arr=[], ko={}, py={};
+        sets.forEach(function(s){ var key=((s.w||[]).join(' ')).trim(); if(!key) return; arr.push(key); ko[key]=s.ko||''; if(s.py) py[key]=s.py; });
+        if(arr.length){ _lessonActive=true;
+          if(GLANG==='zh'){ ZH_SENTENCES=arr; ZH_SENT_KO=ko; ZH_SENT_PY=py; zhBadge='📚 레슨'; }
+          else { EN_SENTENCES=arr; EN_SENT_KO=ko; enBadge='📚 레슨'; }
+          applyLangData(); level=0;
+        }
+      } else { _lessonActive=false; }
+    }});
+  }
+  mountLessonNav();
   var COMBO_WINDOW=2500;
   // 🧟 좀비 도감 — 종류별 속도·크기·좌우 흔들림(지그재그 %)이 다르다
   var ZTYPES=[
@@ -799,7 +818,8 @@
     [].forEach.call(document.querySelectorAll('.lng'),function(b){ b.classList.toggle('sel', b.getAttribute('data-l')===GLANG); });
     var tg=document.querySelector('#card .tag'); if(tg) tg.textContent=(GLANG==='zh')?'⚡ 실사 좀비 서바이벌 · 중국어 문장 학습 ⚡':'⚡ 실사 좀비 서바이벌 · 영어 문장 학습 ⚡'; }
   function setLang(l,announce){ if(GLANG===l){ applyLangUI(); return; }
-    GLANG=l; LSset('mangoi_game_lang',l); applyLangData(); applyLangUI();
+    GLANG=l; LSset('mangoi_game_lang',l); _lessonActive=false; applyLangData(); applyLangUI();
+    mountLessonNav();   // 📚 언어별 교재 레슨 다시 로드
     if(synth){ enVoice=null; pickVoice(); }
     if(running){ if(synth) synth.cancel(); startRound(); if(announce) showCombo(l==='zh'?'🀄 중국어 모드!':'🔤 영어 모드!'); } }
   langBtn.addEventListener('click', function(){ setLang(GLANG==='zh'?'en':'zh',true); });
@@ -814,6 +834,6 @@
 })();
 </script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260719163043 -->
+<!-- BUILD:20260719163342 -->
 </body>
 </html>
