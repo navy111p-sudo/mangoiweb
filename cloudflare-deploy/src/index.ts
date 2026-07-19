@@ -2284,65 +2284,92 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
     const u = new URL(request.url);
     const glang = ((u.searchParams.get('glang') || 'en').trim() === 'zh') ? 'zh' : 'en';
     const userId = (u.searchParams.get('user_id') || '').trim();
-    let textbook = (u.searchParams.get('textbook') || '').trim();
+    const wantCourse = (u.searchParams.get('course') || '').trim();
     let level = (u.searchParams.get('level') || '').trim();
-    let assigned = false;
-    if (userId && !textbook) {
+    let myTextbook = '';
+    if (userId) {
       try {
         const s: any = await env.DB.prepare(`SELECT level, textbook FROM students_erp WHERE user_id = ? LIMIT 1`).bind(userId).first();
-        if (s) { if (s.textbook) { textbook = String(s.textbook).trim(); assigned = true; } if (!level && s.level) level = String(s.level).trim(); }
+        if (s) { if (s.textbook) myTextbook = String(s.textbook).trim(); if (!level && s.level) level = String(s.level).trim(); }
       } catch {}
     }
-    // 데이터가 실제로 있는 교재 목록(선택기용)
-    const textbooks: string[] = [];
-    try {
-      const tsql = glang === 'zh'
-        ? `SELECT textbook, COUNT(*) c FROM zh_vocab WHERE active=1 AND type='sentence' AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY c DESC LIMIT 20`
-        : `SELECT textbook, COUNT(*) c FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY c DESC LIMIT 20`;
-      const rs = await env.DB.prepare(tsql).all();
-      for (const r of (((rs.results as any[]) || []))) { const t = String((r as any).textbook || '').trim(); if (t) textbooks.push(t); }
-    } catch {}
-    // 교재 미지정 → 데이터 있는 첫 교재 기본 사용(그래도 뭔가 보이게)
-    if (!textbook && textbooks.length) textbook = textbooks[0];
+    // 교재명 파싱: "BTS 1 001 (Welcome to school)" → {course:'BTS 1', seq:1, title:'Welcome to school'} / "004. 제목" → {course:'기타 교재', seq:4}
+    function parseEn(tb: string): { course: string; seq: number; title: string; key: string } {
+      const s = String(tb || '').trim();
+      let m = s.match(/^(.*\S)\s+0*(\d{1,4})\s*(?:[（(]([^)）]*)[)）])?\s*$/);
+      if (m && /[A-Za-z가-힣]/.test(m[1])) return { course: m[1].trim(), seq: parseInt(m[2], 10) || 0, title: (m[3] || '').trim(), key: s };
+      const n = s.match(/^0*(\d{1,4})[.)\s]+(.*)$/);
+      if (n) return { course: '기타 교재', seq: parseInt(n[1], 10) || 0, title: n[2].trim(), key: s };
+      return { course: s, seq: 0, title: '', key: s };
+    }
 
-    const lessonsMap = new Map<number, Array<any>>();
-    if (textbook) {
+    // ── 코스(교재) 목록 ──
+    const courseMap = new Map<string, { course: string; count: number; keys: Array<{ key: string; seq: number; title: string }> }>();
+    try {
       if (glang === 'zh') {
-        const conds = ['active=1', "type='sentence'", 'LOWER(textbook)=LOWER(?)']; const binds: any[] = [textbook];
+        const rs = await env.DB.prepare(`SELECT textbook, COUNT(DISTINCT lesson_no) c FROM zh_vocab WHERE active=1 AND type='sentence' AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY c DESC LIMIT 50`).all();
+        for (const r of (((rs.results as any[]) || []))) { const t = String((r as any).textbook || '').trim(); if (t) courseMap.set(t, { course: t, count: Number((r as any).c) || 0, keys: [] }); }
+      } else {
+        const rs = await env.DB.prepare(`SELECT textbook FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY textbook ASC LIMIT 500`).all();
+        for (const r of (((rs.results as any[]) || []))) {
+          const p = parseEn(String((r as any).textbook || '')); if (!p.key) continue;
+          if (!courseMap.has(p.course)) courseMap.set(p.course, { course: p.course, count: 0, keys: [] });
+          const cc = courseMap.get(p.course)!; cc.keys.push({ key: p.key, seq: p.seq, title: p.title }); cc.count = cc.keys.length;
+        }
+        for (const cc of courseMap.values()) cc.keys.sort((a, b) => a.seq - b.seq);
+      }
+    } catch {}
+    const courses = [...courseMap.values()].map((c) => ({ course: c.course, count: c.count })).sort((a, b) => b.count - a.count).slice(0, 80);
+
+    const myCourse = glang === 'zh' ? myTextbook : (myTextbook ? parseEn(myTextbook).course : '');
+    let course = wantCourse;
+    if (!course) { if (myCourse && courseMap.has(myCourse)) course = myCourse; else if (courses.length) course = courses[0].course; }
+
+    // ── 선택 코스의 레슨(과)별 문장 + 단어 ──
+    const lessons: Array<any> = [];
+    if (course && courseMap.has(course)) {
+      if (glang === 'zh') {
+        const conds = ['active=1', 'LOWER(textbook)=LOWER(?)']; const binds: any[] = [course];
         if (level) { conds.push('LOWER(level)=LOWER(?)'); binds.push(level); }
-        const rs = await env.DB.prepare(`SELECT lesson_no, hanzi, pinyin, ko, words FROM zh_vocab WHERE ${conds.join(' AND ')} ORDER BY lesson_no ASC, id ASC LIMIT 900`).bind(...binds).all();
+        const rs = await env.DB.prepare(`SELECT lesson_no, type, hanzi, pinyin, ko, words FROM zh_vocab WHERE ${conds.join(' AND ')} ORDER BY lesson_no ASC, id ASC LIMIT 1500`).bind(...binds).all();
+        const lm = new Map<number, { sentences: any[]; words: any[] }>();
         for (const r of (((rs.results as any[]) || []))) {
           const ln = parseInt((r as any).lesson_no, 10) || 0; const hz = String((r as any).hanzi || '').trim(); if (!hz) continue;
-          let ws: string[] = []; try { ws = JSON.parse((r as any).words || '[]') || []; } catch {}
-          const cjk = (hz.match(/[㐀-鿿]/g) || []); if (cjk.length && ws.join('') !== cjk.join('')) ws = cjk;
-          if (ws.length < 2) continue;
-          if (!lessonsMap.has(ln)) lessonsMap.set(ln, []);
-          const arr = lessonsMap.get(ln)!; if (arr.length < 8) arr.push({ en: hz, ko: String((r as any).ko || '').trim(), pinyin: String((r as any).pinyin || '').trim(), words: ws });
+          if (!lm.has(ln)) lm.set(ln, { sentences: [], words: [] }); const L = lm.get(ln)!;
+          if ((r as any).type === 'sentence') {
+            let ws: string[] = []; try { ws = JSON.parse((r as any).words || '[]') || []; } catch {}
+            const cjk = (hz.match(/[㐀-鿿]/g) || []); if (cjk.length && ws.join('') !== cjk.join('')) ws = cjk;
+            if (ws.length >= 2 && L.sentences.length < 8) L.sentences.push({ en: hz, ko: String((r as any).ko || '').trim(), pinyin: String((r as any).pinyin || '').trim(), words: ws });
+          } else if (L.words.length < 24) L.words.push({ en: hz, pinyin: String((r as any).pinyin || '').trim(), ko: String((r as any).ko || '').trim() });
         }
+        [...lm.entries()].filter(([, v]) => v.sentences.length > 0).sort((a, b) => a[0] - b[0]).forEach(([ln, v]) => lessons.push({ seq: ln, title: '', key: course + ' · ' + ln, sentences: v.sentences, words: v.words }));
       } else {
-        const conds = ['active=1', 'LOWER(textbook)=LOWER(?)']; const binds: any[] = [textbook];
-        if (level) { conds.push('LOWER(level)=LOWER(?)'); binds.push(level); }
-        const rs = await env.DB.prepare(`SELECT lesson_no, questions FROM review_quizzes WHERE ${conds.join(' AND ')} ORDER BY lesson_no ASC, id ASC LIMIT 200`).bind(...binds).all();
-        for (const r of (((rs.results as any[]) || []))) {
-          const ln = parseInt((r as any).lesson_no, 10) || 0;
-          let qs: any[] = []; try { qs = JSON.parse((r as any).questions) || []; } catch {}
-          for (const q of qs) {
-            const en = String(q?.answer_text || q?.audio_text || q?.target || '').trim();
-            if (!en || !/[a-zA-Z]/.test(en) || en.length > 90) continue;
-            const t = String(q?.q || ''); const i = Math.max(t.lastIndexOf(':'), t.lastIndexOf('：')); const tail = i >= 0 ? t.slice(i + 1).trim() : '';
-            const ko = (/[가-힣]/.test(tail) && tail.length >= 2 && tail.length <= 60) ? tail : '';
-            const words = en.replace(/[.,!?;:"]/g, '').split(/\s+/).filter(Boolean);
-            if (words.length < 2) continue;
-            if (!lessonsMap.has(ln)) lessonsMap.set(ln, []);
-            const arr = lessonsMap.get(ln)!;
-            if (arr.length < 8 && !arr.some((x: any) => x.en.toLowerCase() === en.toLowerCase())) arr.push({ en, ko, words });
+        const keys = courseMap.get(course)!.keys.slice(0, 50);
+        const byKey = new Map<string, any[]>();
+        if (keys.length) {
+          const ph = keys.map(() => '?').join(',');
+          const rs = await env.DB.prepare(`SELECT textbook, questions FROM review_quizzes WHERE active=1 AND textbook IN (${ph}) LIMIT 400`).bind(...keys.map((k) => k.key)).all();
+          for (const r of (((rs.results as any[]) || []))) { const tb = String((r as any).textbook || '').trim(); if (!byKey.has(tb)) byKey.set(tb, []); byKey.get(tb)!.push(r); }
+        }
+        for (const k of keys) {
+          const rows = byKey.get(k.key) || []; const sents: any[] = []; const seen = new Set<string>(); const words: any[] = []; const wseen = new Set<string>();
+          for (const r of rows) {
+            let qs: any[] = []; try { qs = JSON.parse((r as any).questions) || []; } catch {}
+            for (const q of qs) {
+              const en = String(q?.answer_text || q?.audio_text || q?.target || '').trim();
+              if (!en || !/[a-zA-Z]/.test(en) || en.length > 90) continue;
+              const t = String(q?.q || ''); const ci = Math.max(t.lastIndexOf(':'), t.lastIndexOf('：')); const tail = ci >= 0 ? t.slice(ci + 1).trim() : '';
+              const ko = (/[가-힣]/.test(tail) && tail.length >= 2 && tail.length <= 60) ? tail : '';
+              const w = en.replace(/[.,!?;:"]/g, '').split(/\s+/).filter(Boolean); if (w.length < 2) continue;
+              const kk = en.toLowerCase(); if (!seen.has(kk) && sents.length < 8) { seen.add(kk); sents.push({ en, ko, words: w }); }
+              for (const tok of w) { const lw = tok.toLowerCase(); if (lw.length >= 2 && !wseen.has(lw) && words.length < 24) { wseen.add(lw); words.push({ en: tok }); } }
+            }
           }
+          if (sents.length > 0) lessons.push({ seq: k.seq, title: k.title, key: k.key, sentences: sents, words });
         }
       }
     }
-    const lessons = [...lessonsMap.entries()].filter(([, arr]) => arr.length > 0).sort((a, b) => a[0] - b[0])
-      .map(([ln, arr]) => ({ lesson_no: ln, count: arr.length, sentences: arr }));
-    return new Response(JSON.stringify({ ok: true, glang, textbook, level, assigned, textbooks, lessons }), { status: 200, headers: _MS_JSON });
+    return new Response(JSON.stringify({ ok: true, glang, myCourse, course, courses, lessons }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
