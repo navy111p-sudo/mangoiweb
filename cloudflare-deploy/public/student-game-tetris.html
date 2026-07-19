@@ -903,6 +903,7 @@ function nextSet(){
   curSet=curPool()[setOrder[setIdx]] || SETS[MODE][0];
   goalWords=[]; curSet.forEach(function(s){ goalWords=goalWords.concat(s.words); });   // 두 문장 이어붙임
   sentPos=0; renderSlots();
+  try{ speakSentence(curSet[0].words.join(MODE==='zh'?'':' '), 0.9, 2); }catch(_){}   // 🔊 첫 문장 자동 2회 듣기
 }
 /* sentPos가 '문장 하나'를 막 끝낸 경계인지 (마지막 문장 경계는 제외 — 그건 세트 완성) */
 function sentenceJustFinished(){
@@ -1227,6 +1228,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260720031014 -->
+<!-- BUILD:20260720032335 -->
 </body>
 </html>

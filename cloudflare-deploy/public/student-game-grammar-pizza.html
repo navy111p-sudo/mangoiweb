@@ -764,12 +764,18 @@ $('btn-ready').onclick = function(){
   var btn = $('btn-ready');
   if(btn.disabled) return;
   btn.disabled = true;
-  btn.textContent = '👂 잘 들어 보세요...';
+  btn.textContent = '👂 잘 들어 보세요... (1/2)';
+  // 🔊 문장을 2회 반복해서 들려준 뒤 시작
   speak(sentenceText(), function(){
-    $('ready').classList.remove('show');
-    awaitingStart = false;
-    startTimer();
-    toast('▶ 시작! 문장 순서대로 재료를 올려요!');
+    btn.textContent = '👂 한 번 더! (2/2)';
+    setTimeout(function(){
+      speak(sentenceText(), function(){
+        $('ready').classList.remove('show');
+        awaitingStart = false;
+        startTimer();
+        toast('▶ 시작! 문장 순서대로 재료를 올려요!');
+      });
+    }, 450);
   });
 };
 
@@ -1022,6 +1028,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720031014 -->
+<!-- BUILD:20260720032335 -->
 </body>
 </html>

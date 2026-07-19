@@ -1071,7 +1071,7 @@
     var _lanes=laneXs(items.length, 8, Math.max(40, field.clientWidth-86));
     items.forEach(function(it,i){ spawnMonster(it.word, it.isTarget, it.golden, i, items.length, _lanes[i]); });
     renderSentence();
-    setTimeout(speakSentence, 250); // 라운드 시작 시 목표 문장을 원어민 음성으로 들려줌
+    setTimeout(function(){ speakSentence(function(){ setTimeout(speakSentence, 420); }); }, 250); // 🔊 라운드 시작 시 목표 문장 자동 2회 듣기
   }
   function spawnMonster(word,isTarget,isGolden,i,n,laneX){
     n=n||1; i=i||0;
@@ -1497,6 +1497,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260720031014 -->
+<!-- BUILD:20260720032335 -->
 </body>
 </html>

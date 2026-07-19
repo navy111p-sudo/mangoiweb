@@ -14453,7 +14453,7 @@ function _gameRenderLangace() {
   if (!area) return;
   area.style.padding = '0';
   area.innerHTML =
-    '<iframe id="game-suite-frame" src="/student-game-language-ace.html?v=3&glang=' + _gameEmbedLang() + '&goal=10" ' +
+    '<iframe id="game-suite-frame" src="/student-game-language-ace.html?v=4&glang=' + _gameEmbedLang() + '&goal=10" ' +
     'allow="microphone; autoplay; speaker-selection" ' +
     'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#0a0f14"></iframe>';
   const fb = document.getElementById('game-feedback');
@@ -14466,7 +14466,7 @@ function _gameRenderPizza() {
   if (!area) return;
   area.style.padding = '0';
   area.innerHTML =
-    '<iframe id="game-suite-frame" src="/student-game-grammar-pizza.html?v=6&glang=' + _gameEmbedLang() + '" ' +
+    '<iframe id="game-suite-frame" src="/student-game-grammar-pizza.html?v=7&glang=' + _gameEmbedLang() + '" ' +
     'allow="microphone; autoplay; speaker-selection" ' +
     'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#a5713a"></iframe>';
   const fb = document.getElementById('game-feedback');
@@ -14479,7 +14479,7 @@ function _gameRenderTank() {
   if (!area) return;
   area.style.padding = '0';
   area.innerHTML =
-    '<iframe id="game-suite-frame" src="/student-game-tank-battle.html?v=1&glang=' + _gameEmbedLang() + '&goal=10" ' +
+    '<iframe id="game-suite-frame" src="/student-game-tank-battle.html?v=2&glang=' + _gameEmbedLang() + '&goal=10" ' +
     'allow="microphone; autoplay; speaker-selection" ' +
     'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#0a0f14"></iframe>';
   const fb = document.getElementById('game-feedback');
@@ -14568,6 +14568,11 @@ try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoic
 window.gameSpeak = function(text){ try{ if(!text) return;
   if(window.MangoiTTS){ MangoiTTS.speak(text); return; }
   if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=0.95; u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
+// 🔊 라운드 시작 자동 2회 듣기 — 문장/단어가 나오면 무조건 먼저 두 번 들려줌 (들어야 맞추니까)
+window.gameSpeakTwice = function(text){ try{ if(!text) return;
+  if(window.MangoiTTS){ MangoiTTS.speak(text, null, function(){ setTimeout(function(){ try{ MangoiTTS.speak(text); }catch(_){} }, 380); }); return; }
+  gameSpeak(text); setTimeout(function(){ try{ gameSpeak(text); }catch(_){} }, Math.max(2200, String(text).length*110));
+}catch(_){} };
 window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length){ gameSpeak(pk.join(' ')); return; } var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 아직 안 골랐으면 정답 문장 발음
 window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 🎧 듣기형(번역 없음) 문제의 문장 듣기
 window.gameSpeakAnswer = function(){ try{ var a=_gameState.current&&_gameState.current.answer; if(a) gameSpeak(a); }catch(_){} };   // 🎈 풍선 등 정답 단어 발음 듣기
@@ -14650,6 +14655,7 @@ function gameRenderBrick() {
   const sentence = _zhSafeWords(_gameState._queued || _nextVocab());   // 🧠 약점 우선(+중국어 분절 보정)
   _gameState._queued = null;
   _gameState.current = { sentence, picked: [] };
+  try{ window.gameSpeakTwice && gameSpeakTwice(sentence.en); }catch(_){}   // 🔊 자동 2회 듣기
   const shuffled = _gameShuffle(sentence.words);
   // 교재 문장에 한국어 번역이 없으면 듣기 문제로 전환 (🔊 버튼으로 문장 듣고 순서 조립)
   const promptBlock = sentence.ko
@@ -14830,6 +14836,7 @@ function gameRenderFill() {
   const wrongs = _gameShuffle(allWords).slice(0, 3);
   const options = _gameShuffle([answer, ...wrongs]);
   _gameState.current = { answer, sentence: sent };
+  try{ window.gameSpeakTwice && gameSpeakTwice(sent.en); }catch(_){}   // 🔊 자동 2회 듣기
   // 🎨 내용어 밝게 / 기능어 흐리게 → 문장 구조가 눈에 보임
   const maskedHtml = sent.words.map((w, i) =>
     i === blankIdx
@@ -14898,6 +14905,7 @@ function gameRenderBalloon() {
   const wrongs = _gameShuffle(_GAME_WORDS.filter(w => w.en !== word.en)).slice(0, 3);
   const balloons = _gameShuffle([word, ...wrongs]);
   _gameState.current = { answer: word.en, popped: false, word: word };
+  try{ window.gameSpeakTwice && gameSpeakTwice(word.en); }catch(_){}   // 🔊 단어도 자동 2회 듣기
   const _em = _emojiFor(word, 'word');
   let html =
     '<div style="text-align:center;margin-bottom:14px">' +
@@ -25247,7 +25255,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260720031014 -->
+<!-- BUILD:20260720032335 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

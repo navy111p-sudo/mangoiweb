@@ -1399,11 +1399,11 @@ function _startRoundTimer(){
 // 8개 게임 정의 — kind: 'inline' (이 페이지 내 렌더) | 'iframe'
 const HUB_GAMES = [
   { mode:'pizza',   kind:'iframe', ico:'🍕', ttl:'문법 피자 마스터 (Grammar Pizza)', dsc:'실사 재료를 문장 어순대로 도우에 올려 피자 완성! 문법 성분 배지 + 듣기·말하기 3회', bg:'#c0632a', badge:'문법·NEW',
-    src:function(){ return '/student-game-grammar-pizza.html?v=6'; } },
+    src:function(){ return '/student-game-grammar-pizza.html?v=7'; } },
   { mode:'tank',    kind:'iframe', ico:'🛡️', ttl:'셔먼 탱크대전 (Tank Battle)', dsc:'셔먼 전차로 출격! 독일 타이거·자주포를 어순대로 격파하고 발음까지! 영어·중국어', bg:'#5a6a3a', badge:'전차·NEW',
-    src:function(){ return '/student-game-tank-battle.html?v=1'; } },
+    src:function(){ return '/student-game-tank-battle.html?v=2'; } },
   { mode:'langace', kind:'iframe', ico:'✈️', ttl:'P-38 라이트닝 (Lightning)', dsc:'P-38로 출격! 적 제로센에 실린 단어를 어순대로 폭격! 영어·중국어', bg:'#4d6b3f', badge:'문장·NEW',
-    src:function(){ return '/student-game-language-ace.html?v=3'; } },
+    src:function(){ return '/student-game-language-ace.html?v=4'; } },
   { mode:'battle3d',kind:'iframe', ico:'⚔️', ttl:'3D 배틀',      dsc:'레슨 보스와 퀴즈 대결! 3D 캐릭터 공격+배지', bg:'#f43f5e', badge:'3D',
     src:function(){ return '/battle-3d.html'; } },
   { mode:'fish',    kind:'iframe', ico:'🎣', ttl:'낚시+말하기',   dsc:'문장 단어를 순서대로 낚아 발음까지!', bg:'#0ea5e9', badge:'말하기',
@@ -1586,6 +1586,11 @@ window.gameSpeak = function(text){ try{ if(!text) return;
   var _rate = 1;   // 🔊 발음(말)은 난이도와 무관하게 항상 평상시 속도 — 난이도는 풍선 낙하 속도만 조절
   if(window.MangoiTTS){ MangoiTTS.speak(text, _rate); return; }
   if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=Math.max(0.5,Math.min(3,0.95*_rate)); u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
+// 🔊 라운드 시작 자동 2회 듣기 — 문장/단어가 나오면 무조건 먼저 두 번 들려줌 (들어야 맞추니까)
+window.gameSpeakTwice = function(text){ try{ if(!text) return;
+  if(window.MangoiTTS){ MangoiTTS.speak(text, null, function(){ setTimeout(function(){ try{ MangoiTTS.speak(text); }catch(_){} }, 380); }); return; }
+  gameSpeak(text); setTimeout(function(){ try{ gameSpeak(text); }catch(_){} }, Math.max(2200, String(text).length*110));
+}catch(_){} };
 window.gameSpeakBuilt = function(){ try{ var pk=(_gameState.current&&_gameState.current.picked)||[]; if(pk.length){ gameSpeak(pk.join(GAME_LANG==='zh'?'':' ')); return; } var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 중국어는 붙여쓰기로 발음 · 아직 안 골랐으면 정답 문장 발음
 window.gameSpeakTarget = function(){ try{ var s=_gameState.current&&_gameState.current.sentence; if(s&&s.en) gameSpeak(s.en); }catch(_){} };   // 🎧 듣기형(번역 없음) 문제의 문장 듣기
 window.gameSpeakAnswer = function(){ try{ var a=_gameState.current&&_gameState.current.answer; if(a) gameSpeak(a); }catch(_){} };   // 🎈 풍선 등 정답 단어 발음 듣기
@@ -1781,6 +1786,7 @@ function gameRenderBrick(){
   const sentence = _gameState._queued || _nextVocab();   // 🧠 약점 우선 출제(선학습은 gameNextRound 에서)
   _gameState._queued = null;
   _gameState.current = { sentence, picked: [] };
+  try{ if(!sentence.passage && window.gameSpeakTwice) gameSpeakTwice(sentence.en); }catch(_){}   // 🔊 자동 2회 듣기(문단 보스 제외)
   const shuffled = _gameShuffle(sentence.words);
   // 교재 문장에 한국어 번역이 없으면 듣기 문제로 전환 (🔊 버튼으로 문장 듣고 순서 조립)
   // 📖 문단 보스: 번역(줄거리)과 함께 "문단 듣기" 버튼 제공 — 귀로 흐름을 잡고 배열
@@ -2019,6 +2025,7 @@ function gameRenderFill(){
     : (w.length > 2 && EN_STOP.indexOf(w.toLowerCase()) < 0);
   // 📖 문단 보스: 빈칸=무작위 "문장", 오답 보기=다른 문단의 문장(같은 문단 문장은 화면에 보여서 제외)
   const _isPsg = !!sent.passage;
+  try{ if(!_isPsg && window.gameSpeakTwice) gameSpeakTwice(sent.en); }catch(_){}   // 🔊 자동 2회 듣기
   let meaningfulIdx = sent.words.findIndex(isContent);
   const blankIdx = _isPsg ? Math.floor(Math.random()*sent.words.length)
     : (meaningfulIdx >= 0 ? meaningfulIdx : Math.floor(sent.words.length / 2));
@@ -2112,6 +2119,7 @@ function gameRenderBalloon(){
   const wrongs = _gameShuffle(_GAME_WORDS.filter(w => w.en !== word.en)).slice(0, 3);
   const balloons = _gameShuffle([word, ...wrongs]);
   _gameState.current = { answer: word.en, popped: false, word: word };
+  try{ window.gameSpeakTwice && gameSpeakTwice(word.en); }catch(_){}   // 🔊 단어도 자동 2회 듣기
   const _em = _emojiFor(word, 'word');
   let html =
     '<div style="text-align:center;margin-bottom:14px">' +
@@ -2286,7 +2294,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260720031014 -->
+<!-- BUILD:20260720032335 -->
 <script defer src="/js/flow.js?v=6"></script>
 </body>
 </html>

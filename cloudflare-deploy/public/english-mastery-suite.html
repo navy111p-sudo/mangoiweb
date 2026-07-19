@@ -1304,7 +1304,7 @@
       SH.field.appendChild(el); SH.monsters.push(m);
     });
     renderSentenceStrip('#shoot', SH.words, SH.idx);
-    setTimeout(function(){ if(SH.running) speakSentence(); }, 250);
+    setTimeout(function(){ if(SH.running) speakSentence(function(){ setTimeout(function(){ if(SH.running) speakSentence(); }, 420); }); }, 250);   // 🔊 자동 2회 듣기
   }
   function shootClear(){ SH.monsters.forEach(function(m){ if(m.el&&m.el.parentNode) m.el.remove(); }); SH.monsters=[]; }
 
@@ -1564,7 +1564,7 @@
     });
     renderSentenceStrip('#fish', FI.words, FI.idx);
     updateCatch(); resetLine();
-    setTimeout(function(){ if(FI.running) speakSentence(); }, 250);
+    setTimeout(function(){ if(FI.running) speakSentence(function(){ setTimeout(function(){ if(FI.running) speakSentence(); }, 420); }); }, 250);   // 🔊 자동 2회 듣기
   }
   function fishClear(){ FI.fish.forEach(function(f){ if(f.el&&f.el.parentNode) f.el.remove(); }); FI.fish=[]; }
   function updateCatch(){ catchCnt.textContent = FI.idx + ' / ' + FI.words.length; }
@@ -1986,6 +1986,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260720031014 -->
+<!-- BUILD:20260720032335 -->
 </body>
 </html>

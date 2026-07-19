@@ -620,7 +620,9 @@
     showWaveTitle('WAVE '+(level+1), isBossWave()?'👹 보스 출현!':'');
     bgmStart();   // 🥁 전투 구간에만 드럼
     lastProgressTs=performance.now();
-    renderSentence(); setTimeout(speakSentence,650);
+    renderSentence();
+    setTimeout(speakSentence,650);
+    setTimeout(speakSentence, 650 + Math.max(2400, joinW(targetWords).length*130));   // 🔊 자동 2회 듣기(들어야 맞추니까)
   }
   function spawnZombie(it,i,n,laneX){
     n=n||1;
@@ -834,6 +836,6 @@
 })();
 </script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260720031014 -->
+<!-- BUILD:20260720032335 -->
 </body>
 </html>
