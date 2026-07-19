@@ -1604,6 +1604,15 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 [무결성] 본인만 출석 체크 — 임의 uid 로 남의 스트릭·보석 조작 차단 (2026-07-19).
+      //   게스트(guest*)는 통과(랜덤 uid, 실계정 무관), 실계정은 토큰 소유자 OR 관리자 (earn-by-rule 과 동일 패턴).
+      if (!/^guest/i.test(uid)) {
+        const skAdmin = await checkAdminSession(request, env as any);
+        if (!skAdmin.ok) {
+          const skAuth = await authUidGlobal(request, url, env, b);
+          if (!skAuth || skAuth !== uid) return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 출석할 수 있습니다.' }, 401);
+        }
+      }
 
       const today = todayKST();
       const now = Date.now();
@@ -1945,6 +1954,15 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const studentName = String(b.student_name || '').trim();
 
       if (!target || !spoken) return json({ ok: false, error: 'target_and_spoken_required' }, 400);
+      // 🔐 [무결성] 실계정 uid 로 남의 연습기록 오염 차단 (2026-07-19) — 기록이 발화이력/학부모 화면에 노출됨.
+      //   게스트(guest*)는 통과(익명 연습 지원, 프론트 기본값 'guest'), 실계정은 토큰 소유자 OR 관리자.
+      if (!/^guest/i.test(studentUid)) {
+        const vgAdmin = await checkAdminSession(request, env as any);
+        if (!vgAdmin.ok) {
+          const vgAuth = await authUidGlobal(request, url, env, b);
+          if (!vgAuth || vgAuth !== studentUid) return json({ ok: false, error: 'auth_required' }, 401);
+        }
+      }
 
       // 단순 유사도 (단어 일치율)
       const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();

@@ -410,11 +410,20 @@ async function processAudio(blob) {
     // 2) 발음 평가 + AI 피드백
     const target = document.getElementById('target-display').textContent;
     let user = null; try { user = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
-    const coachResp = await fetch('/api/voice/coach', {
+    // 🔐 실계정은 mango_token 으로 본인 확인(서버 IDOR 가드). 게스트는 토큰 불필요.
+    const _scTok = (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })();
+    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok };
+    let coachResp = await fetch('/api/voice/coach', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '' })
+      body: JSON.stringify(_scPayload)
     });
-    const cD = await coachResp.json();
+    let cD = await coachResp.json();
+    if (!cD.ok && cD.error === 'auth_required') {
+      // 토큰 없는 옛 세션 폴백: 게스트로 재채점(점수·피드백 표시 유지 — 연습 흐름 안 끊김)
+      _scPayload.student_uid = 'guest';
+      coachResp = await fetch('/api/voice/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(_scPayload) });
+      cD = await coachResp.json();
+    }
     if (!cD.ok) throw new Error('평가 실패: ' + (cD.error || ''));
 
     // 3) 화면 표시
@@ -442,7 +451,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260719161604 -->
+<!-- BUILD:20260719161852 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

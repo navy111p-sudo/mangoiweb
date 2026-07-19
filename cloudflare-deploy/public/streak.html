@@ -180,7 +180,8 @@
       try {
         const r = await fetch('/api/streak/check-in', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid })
+          // 🔐 실계정은 mango_token 으로 본인 확인(서버 IDOR 가드). 게스트는 토큰 불필요.
+          body: JSON.stringify({ uid, token: (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })() })
         });
         const d = await r.json();
         if (d.ok) {
@@ -192,6 +193,10 @@
             btn.innerHTML = '✓ 출석 완료!';
           }
           await loadStatus();
+        } else if (d.error === 'auth_required') {
+          // 토큰 없는 옛 세션 — 게스트로 몰래 기록하면 진짜 스트릭이 안 쌓이므로 정직하게 재로그인 안내
+          alert('로그인 정보가 만료됐어요. 홈에서 다시 로그인한 뒤 출석해주세요!');
+          btn.disabled = false; btn.innerHTML = '✅ 오늘 출석 체크';
         } else {
           alert('오류: ' + (d.error || 'unknown'));
           btn.disabled = false; btn.innerHTML = '✅ 오늘 출석 체크';
@@ -202,7 +207,7 @@
     }
     loadStatus(); loadLeaderboard();
   </script>
-<!-- BUILD:20260719161604 -->
+<!-- BUILD:20260719161852 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
