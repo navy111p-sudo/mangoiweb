@@ -44,7 +44,7 @@ ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 #   ⚠️ 테스트 종료 후 반드시 "false" 로 되돌릴 것(env.production 쪽도 함께).
 ADMIN_2FA_DISABLED = "true"
 # /admin/health "Last Deploy" tile identifier - auto-updated by fix-and-deploy.ps1
-BUILD_STAMP = "2026-07-20T03:23:35Z"
+BUILD_STAMP = "2026-07-20T03:26:07Z"
 # 📟 UptimeRobot 장애 웹훅 → 관리자 문자(SMS) 알림 (api-uptime.ts)
 #   UPTIME_HOOK_KEY: 웹훅 URL 의 ?key= 토큰(무단 호출 방지). OWNER_ALERT_PHONE: 문자 받을 번호.
 UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"
@@ -124,7 +124,7 @@ MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 # 🔧 (2026-07-14) 관리자 테스트 기간 2FA 임시 중단 — 종료 후 "false" 로 원복
 ADMIN_2FA_DISABLED = "true"
-BUILD_STAMP = "2026-07-20T03:23:35Z"
+BUILD_STAMP = "2026-07-20T03:26:07Z"
 UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"
 OWNER_ALERT_PHONE = "01089862224"
 SOLAPI_FROM_PHONE = "01089862224"

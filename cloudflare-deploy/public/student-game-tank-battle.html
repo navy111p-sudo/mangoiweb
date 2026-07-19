@@ -58,8 +58,13 @@
 
   /* ── 오버레이(시작/종료) ── */
   .overlay{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;text-align:center;padding:22px;
-    background:radial-gradient(120% 90% at 50% 35%,rgba(24,36,50,.86),rgba(6,10,14,.96))}
+    justify-content:flex-start;text-align:center;padding:22px;
+    background:radial-gradient(120% 90% at 50% 35%,rgba(24,36,50,.86),rgba(6,10,14,.96));
+    overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+  .overlay>*{flex-shrink:0}
+  /* 내용이 짧으면 세로 중앙, 길면(모바일) 위부터 스크롤 */
+  .overlay>:first-child{margin-top:auto}
+  .overlay>:last-child{margin-bottom:auto}
   .overlay.hide{display:none}
   .oTitle{font-size:34px;font-weight:900;letter-spacing:.5px;
     background:linear-gradient(180deg,#ffe9a8,#e0b048);-webkit-background-clip:text;background-clip:text;
@@ -1260,6 +1265,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260720032335 -->
+<!-- BUILD:20260720032607 -->
 </body>
 </html>
