@@ -299,6 +299,8 @@
         <span class="flag">🇨🇳</span><span class="nm">중국어 모드</span><span class="bs" id="best-zh">최고 기록 0점</span>
       </div>
     </div>
+    <!-- 📚 진도(레슨) 네비게이션: 아래에서 교재·과를 고르면 같은 언어 모드에 적용 -->
+    <div id="lessonNav" style="margin:6px 0 2px"></div>
     <div class="howto">
       ◀ ▶ 이동 · 🔄 회전 · ▼ 빨리 · ⤓ 한번에 떨어뜨리기<br>
       단어가 <b>문장 순서대로</b> 하나씩 내려와요 — 잘 쌓아 <b>두 문장</b>을 완성! 💯<br>
@@ -382,6 +384,7 @@
   </div>
 </div>
 
+<script src="/js/lesson-nav.js?v=2"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    📚 단어 데이터 (JSON) — 영어/중국어 분리, 여기만 고치면 됨
@@ -755,18 +758,33 @@ try{ var _sv=parseInt(localStorage.getItem('mangoi_tetris_speed'),10); if(_sv>=1
 /* ── 화면 전환 / 최고기록 ── */
 function show(id){ document.querySelectorAll('.scr').forEach(function(s){ s.classList.remove('on'); }); document.getElementById(id).classList.add('on'); }
 function bestKey(){ return 'mangoi_tetris_best_'+MODE; }
+// 📚 교재 레슨에서 온 세트(있고 언어 일치 시 우선). 없으면 내장 SETS.
+var LESSON_TETRIS=null, LESSON_TETRIS_LANG='';
+function curPool(){ return (LESSON_TETRIS && LESSON_TETRIS_LANG===MODE && LESSON_TETRIS.length) ? LESSON_TETRIS : SETS[MODE]; }
+function mountLessonNav(){
+  if(!window.MangoiLessonNav) return;
+  MangoiLessonNav.mount({ glang:GLANG, mount:document.getElementById('lessonNav'), onSet:function(sets){
+    if(sets && sets.length){
+      var groups=[], cur=[];
+      sets.forEach(function(s){ cur.push({ ko:s.ko||'', words:(s.w||[]).slice() }); if(cur.length>=2){ groups.push(cur); cur=[]; } });
+      if(cur.length) groups.push(cur);
+      LESSON_TETRIS = groups.length?groups:null; LESSON_TETRIS_LANG = GLANG;
+    } else { LESSON_TETRIS=null; }
+  }});
+}
 function showMode(){
   stopTimers(); musicStop(); running=false;
   ['en','zh'].forEach(function(m){ var b=0; try{ b=parseInt(localStorage.getItem('mangoi_tetris_best_'+m),10)||0; }catch(_){}
     document.getElementById('best-'+m).textContent='최고 기록 '+b.toLocaleString()+'점'; });
   document.getElementById('mc-en').classList.toggle('hot', GLANG==='en');
   document.getElementById('mc-zh').classList.toggle('hot', GLANG==='zh');
+  mountLessonNav();
   show('scr-mode');
 }
 function startGame(mode){
   MODE=mode; score=0; combo=0; maxCombo=0; lines=0; level=1; mission=null; pieceSeq=0; fillerQ=0;
   running=true; paused=false;
-  setOrder=shuffle(SETS[MODE].map(function(_,i){ return i; })); setIdx=-1; nextSet();  // 📝 첫 세트(2문장)
+  setOrder=shuffle(curPool().map(function(_,i){ return i; })); setIdx=-1; nextSet();  // 📝 첫 세트(2문장)
   document.getElementById('hud-mode').textContent=VOCAB[MODE].flag+' '+VOCAB[MODE].name;
   document.getElementById('mus-btn').textContent=MUSIC.on?'🔊':'🔇';
   var _spd=document.getElementById('spd-val'); if(_spd) _spd.textContent=SPEED;
@@ -882,7 +900,7 @@ function renderSlots(){
 }
 function nextSet(){
   setIdx++; if(setIdx>=setOrder.length){ setOrder=shuffle(setOrder.slice()); setIdx=0; }
-  curSet=SETS[MODE][setOrder[setIdx]];
+  curSet=curPool()[setOrder[setIdx]] || SETS[MODE][0];
   goalWords=[]; curSet.forEach(function(s){ goalWords=goalWords.concat(s.words); });   // 두 문장 이어붙임
   sentPos=0; renderSlots();
 }
@@ -1209,6 +1227,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260719165704 -->
+<!-- BUILD:20260719170829 -->
 </body>
 </html>

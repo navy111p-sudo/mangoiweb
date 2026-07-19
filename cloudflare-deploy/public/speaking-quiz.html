@@ -216,6 +216,7 @@
         <button data-mode="sentence">💬 문장만</button>
       </div>
 
+      <div id="lessonNav" style="margin:6px 0"></div>
       <button class="startbtn" id="startBtn">시작하기 ▶</button>
       <div class="warn" id="voiceWarn"></div>
     </div>
@@ -257,6 +258,7 @@
 </div>
 
 <script src="/js/game-vocab.js"></script>
+<script src="/js/lesson-nav.js?v=2"></script>
 <script>
 (function(){
   'use strict';
@@ -311,6 +313,7 @@
   var VOCAB = IS_ZH
     ? { words: ZH_FALLBACK_WORDS.slice(), sentences: ZH_FALLBACK_SENTENCES.slice(), textbook:'중국어 마스터', level:'Lv 3', student:'', matched:true }
     : { words: FALLBACK_WORDS.slice(), sentences: FALLBACK_SENTENCES.slice(), textbook:'', level:'', student:'', matched:false };
+  var _lessonActive=false;   // 📚 레슨 네비가 문장 지정하면 true → 자동 로더가 덮지 않음
 
   /* ── 🖼️ 이모지 일러스트 사전 (단어 → 그림) ──
      초등 영어에서 자주 쓰는 명사/동사/형용사를 폭넓게 매핑. 없으면 기본 아이콘 폴백. */
@@ -498,6 +501,7 @@
 
   /* ── 📚 로그인 학생 교재/레벨 맞춤 어휘 로드 ── */
   function loadVocab(){
+    if(_lessonActive) return Promise.resolve(VOCAB);   // 📚 레슨 선택됨 → 자동 로더 건너뜀
     if(IS_ZH){   // 🀄 다락원 중국어 마스터 실제 어휘 로드(레벨 맞춤), 실패 시 내장 폴백
       return fetch('/api/games/zh-vocab?textbook='+encodeURIComponent('다락원')+'&level='+encodeURIComponent('Lv 3'))
         .then(function(r){ return r.ok ? r.json() : null; })
@@ -850,11 +854,25 @@
   if(warn.length) $('#voiceWarn').textContent='⚠ 이 브라우저는 '+warn.join(' / ')+'을(를) 지원하지 않을 수 있어요. (Chrome 권장 · 말하기는 통과로 진행 가능)';
 
   loadVocab().then(function(){ paintInfo(); });
+  // 📚 진도(레슨) 네비게이터 — 교재 선택 + ◀복습/▶예습(선택 시 자동 로더보다 우선)
+  function mountLessonNav(){
+    if(!window.MangoiLessonNav) return;
+    MangoiLessonNav.mount({ glang:GLANG, mount:document.getElementById('lessonNav'), onSet:function(sets, info){
+      if(sets && sets.length){ _lessonActive=true;
+        VOCAB.sentences = sets.map(function(s){ return { en:(s.w||[]).join(IS_ZH?'':' '), ko:s.ko||'', pinyin:s.py||'' }; });
+        if(info && info.words && info.words.length && info.words[0] && info.words[0].ko)
+          VOCAB.words = info.words.map(function(w){ return {en:w.en, ko:w.ko||'', pinyin:w.pinyin||''}; });
+        if(info && info.course){ VOCAB.textbook=String(info.course).replace(/다락원\s*/g,'').trim()||info.course; VOCAB.matched=true; }
+        paintInfo();
+      } else { _lessonActive=false; }
+    }});
+  }
+  mountLessonNav();
 
 })();
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260719165704 -->
+<!-- BUILD:20260719170829 -->
 </body>
 </html>
