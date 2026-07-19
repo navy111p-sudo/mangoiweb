@@ -779,8 +779,8 @@ $('btn-ready').onclick = function(){
   });
 };
 
-/* 마우스 호버: 재료 이름 말풍선 (호버 중 유지) */
-var hoverTip = null;
+/* 마우스 호버: 재료 이름 말풍선 (호버 중 유지) + 재료 이름 발음(영/중) */
+var hoverTip = null, hoverSpeakTimer = null;
 function showHoverTip(el, tokenIdx){
   removeHoverTip();
   var r = el.getBoundingClientRect();
@@ -790,8 +790,16 @@ function showHoverTip(el, tokenIdx){
   hoverTip.style.left = (r.left + r.width / 2) + 'px';
   hoverTip.style.top = (r.top - 6) + 'px';
   document.body.appendChild(hoverTip);
+  // 🔊 재료 이름 발음 — 빠르게 스치는 호버는 건너뛰도록 짧은 지연
+  hoverSpeakTimer = setTimeout(function(){
+    var t = TOPPINGS[tokenIdx % TOPPINGS.length];
+    speak(GLANG === 'zh' ? t.zh : t.en);
+  }, 180);
 }
-function removeHoverTip(){ if(hoverTip){ hoverTip.remove(); hoverTip = null; } }
+function removeHoverTip(){
+  if(hoverSpeakTimer){ clearTimeout(hoverSpeakTimer); hoverSpeakTimer = null; }
+  if(hoverTip){ hoverTip.remove(); hoverTip = null; }
+}
 
 /* 접시 위에 재료 이름 말풍선 (중/영 + 한국어) */
 function showIngTip(el, tokenIdx){
@@ -1028,6 +1036,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720032607 -->
+<!-- BUILD:20260720032731 -->
 </body>
 </html>
