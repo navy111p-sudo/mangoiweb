@@ -3997,7 +3997,11 @@ function isAdminPath(path: string, method: string): boolean {
   // 학생 클라이언트 자동 호출인 /start, /stop, /upload, /stream, /complete, /blob/upload 는 열어둠.
   if (path === '/api/recordings' && method === 'GET') return true;
   if (path === '/api/recordings/blob/list' && method === 'GET') return true;
-  // 🎬 GET /api/recordings/blob/{key} — 학생 본인 녹화본 재생용. 공개 허용 (DELETE 만 관리자)
+  // 🔒 [PII 2026-07-20] GET /api/recordings/blob/{key} — 키만 알면 누구나 미성년자 수업영상을
+  //   받을 수 있던 공개 통로. 학생 재생은 인증 게이트가 있는 /api/recording/play?id= 로 전면
+  //   전환됐고(목록 API가 blob 키를 더는 노출 안 함), 남은 소비처는 관리자 화면(adm-core.js)
+  //   뿐이라 관리자 전용으로 잠금. (blob/upload 는 POST 라 이 GET 게이트에 안 걸림)
+  if (path.startsWith('/api/recordings/blob/') && method === 'GET') return true;
   if (path.startsWith('/api/recordings/blob/') && method === 'DELETE') return true;
   // DELETE /api/recordings/{숫자ID} (Mango DB 레코드 삭제) — 관리자
   // 단, /api/recordings/blob/* 는 위에서 이미 처리됐고, /start·/stop 은 POST 라 method 체크로 통과
