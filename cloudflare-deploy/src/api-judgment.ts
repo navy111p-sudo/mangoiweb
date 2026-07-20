@@ -828,11 +828,12 @@ export async function evaluateJudgmentAnswer(env: MangoEnv, input: {
   const taxonomy = await getMisconceptionTaxonomy(env);
   const taxonomyList = taxonomy.map((t) => `${t.code} (${t.label_en})`).join(', ');
 
+  const wantZh = lang === 'zh';
   let reasoningScore: number | null = null, registerAwareness: number | null = null;
-  let misconception: string | null = null, feedbackKo = '', feedbackEn = '';
+  let misconception: string | null = null, feedbackKo = '', feedbackEn = '', feedbackZh = '';
   const ai = (env as any).AI;
   if (ai) {
-    const prompt = `A Korean child practiced DECISION-MAKING English. Situation: "${input.situation}". Options: ${opts.map((o, i) => `[${i}] ${o}`).join(' ')}. The child CHOSE [${ci}] "${chosen}"${correct ? `; the best option was [${correctIdx}] "${correct}"` : ''}. The child's REASON (may be Korean or English): "${reasoning || '(none)'}".
+    const prompt = `A child practiced DECISION-MAKING English. Situation: "${input.situation}". Options: ${opts.map((o, i) => `[${i}] ${o}`).join(' ')}. The child CHOSE [${ci}] "${chosen}"${correct ? `; the best option was [${correctIdx}] "${correct}"` : ''}. The child's REASON (may be Korean, Chinese, or English): "${reasoning || '(none)'}".
 
 Judge the child's REASONING (not just the choice). Return STRICT JSON only:
 {
@@ -840,7 +841,8 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
   "register_awareness": <0-100 how well the child considered formality/context>,
   "misconception": "<if the choice was wrong, ONE of: ${taxonomyList}; else null>",
   "feedback_ko": "<1-2 warm, simple sentences in NATURAL KOREAN ONLY (Hangul + basic punctuation; no Chinese/other scripts): praise + one tip>",
-  "feedback_en": "<same in simple English>"
+  "feedback_en": "<same in simple English>"${wantZh ? `,
+  "feedback_zh": "<same in simple Simplified Chinese>"` : ''}
 }`;
     try {
       const resp: any = await ai.run(JUDGE_MODEL, {
@@ -859,12 +861,14 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
         misconception = (mc && taxonomy.some((t) => t.code === mc)) ? mc : null;
         feedbackKo = cleanKo(String(j.feedback_ko || '')).slice(0, 300);
         feedbackEn = String(j.feedback_en || '').slice(0, 300);
+        if (wantZh) feedbackZh = String(j.feedback_zh || '').slice(0, 300);
       }
     } catch (e: any) { console.warn('[judgment] answer LLM fail:', e?.message); }
   }
   // 폴백 피드백
   if (!feedbackKo) feedbackKo = isOptimal ? '잘 골랐어요! 이유도 함께 생각하니 판단력이 자라요.' : '아쉽지만 더 자연스러운 표현이 있어요. 왜 그런지 같이 살펴봐요.';
   if (!feedbackEn) feedbackEn = isOptimal ? 'Great choice! Thinking about why builds your judgment.' : 'Close! There is a more natural option — let’s see why.';
+  if (wantZh && !feedbackZh) feedbackZh = isOptimal ? '选得好！一起思考理由，判断力会不断成长。' : '很接近了！还有更自然的表达，我们一起看看为什么。';
   if (reasoningScore == null) reasoningScore = reasoning.length >= 5 ? 55 : 10;
 
   // 판단 이벤트 기록(이유 포함 → axis_reasoning·register 채워짐)
@@ -880,7 +884,7 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
   return {
     ok: true, correct: !!isOptimal, choice_score: choiceScore, reasoning_score: reasoningScore,
     register_awareness: registerAwareness, misconception, best_option: correct || null,
-    feedback_ko: feedbackKo, feedback_en: feedbackEn,
+    feedback_ko: feedbackKo, feedback_en: feedbackEn, ...(wantZh ? { feedback_zh: feedbackZh } : {}),
   };
 }
 

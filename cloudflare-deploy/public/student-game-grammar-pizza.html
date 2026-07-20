@@ -480,9 +480,10 @@ function pickMenuPizza(){
   });
   return best || PIZZA_MENU[0];
 }
-/* 완성 피자 이미지 미리받기 (게임 중 끊김 방지) */
+/* 완성 피자 이미지 미리받기 (게임 중 끊김 방지) — 초해상도 webp */
+function menuImgUrl(p){ return '/img/pizza/menu/' + p.img + '.webp?v=2'; }
 setTimeout(function(){
-  PIZZA_MENU.forEach(function(p){ var im = new Image(); im.src = '/img/pizza/menu/' + p.img + '.png'; });
+  PIZZA_MENU.forEach(function(p){ var im = new Image(); im.src = menuImgUrl(p); });
 }, 2500);
 
 /* ══════════════════════════════════════════════════════════
@@ -907,7 +908,7 @@ function bakePizza(){
   // 🍕 사용한 재료와 가장 잘 맞는 실사 메뉴 피자 선택
   var menu = pickMenuPizza();
   var bp = document.querySelector('#pizza img.baked-photo');
-  if(bp) bp.src = '/img/pizza/menu/' + menu.img + '.png';
+  if(bp) bp.src = menuImgUrl(menu);
   // 1.2초 굽기 → 실사 구운 피자 사진으로 크로스페이드 (인라인 스타일 병행: CSS 적용 실패 환경 대비)
   setTimeout(function(){
     $('pizza').classList.add('served');
@@ -1101,6 +1102,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720234050 -->
+<!-- BUILD:20260721000512 -->
 </body>
 </html>

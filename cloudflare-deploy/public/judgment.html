@@ -213,10 +213,10 @@
   var UID = _USER.uid;
   var NAME = _USER.name || localStorage.getItem('mango_name') || localStorage.getItem('studentName') || '';
   var TEXTBOOK = localStorage.getItem('mangoi_default_textbook') || localStorage.getItem('mango_textbook') || localStorage.getItem('textbook') || '';
-  // 🌐 언어: ?lang= → localStorage → 기본 ko
-  var LANG = (new URLSearchParams(location.search).get('lang') || localStorage.getItem('mango_lang') || localStorage.getItem('lang') || 'ko').slice(0,2).toLowerCase();
-  if (LANG !== 'en') LANG = 'ko';
-  function T(ko,en){ return LANG==='en' ? en : ko; }
+  // 🌐 언어: ?lang= → 사이트 공통 mangoi_lang(홈 토글과 자동 동기화) → 구키 폴백 → 기본 ko
+  function normLang(l){ l=String(l||'').slice(0,2).toLowerCase(); return (l==='en'||l==='zh') ? l : 'ko'; }
+  var LANG = normLang(new URLSearchParams(location.search).get('lang') || localStorage.getItem('mangoi_lang') || localStorage.getItem('mango_lang') || localStorage.getItem('lang') || 'ko');
+  function T(ko,en,zh){ return LANG==='en' ? en : LANG==='zh' ? (zh||en) : ko; }
 
   var stage = document.getElementById('stage');
   var streakEl = document.getElementById('streak');
@@ -225,51 +225,60 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function reEnter(){ stage.classList.remove('enter'); void stage.offsetWidth; stage.classList.add('enter'); }
 
-  // 오답 유형 → 쉬운 라벨 (한/영)
+  // 오답 유형 → 쉬운 라벨 (한/영/중)
   var MISC = {
-    REGISTER_MISMATCH:['상황에 맞는 말투','Right tone for the situation'],
-    DIRECT_TRANSLATION:['자연스러운 영어(직역 X)','Natural English (not word-for-word)'],
-    TENSE_CONFUSION:['시제(때) 맞추기','Getting the tense right'],
-    WORD_CHOICE:['더 알맞은 단어 고르기','Choosing a better word'],
-    OVER_LITERAL_REASON:['이유를 더 깊이 설명','Explaining your reason more deeply'],
-    NO_CONTEXT:['상황 살피기','Reading the situation'],
-    GRAMMAR_FORM:['문법 형태','Grammar form']
+    REGISTER_MISMATCH:['상황에 맞는 말투','Right tone for the situation','符合情境的语气'],
+    DIRECT_TRANSLATION:['자연스러운 영어(직역 X)','Natural English (not word-for-word)','自然的英语（不要逐字直译）'],
+    TENSE_CONFUSION:['시제(때) 맞추기','Getting the tense right','用对时态'],
+    WORD_CHOICE:['더 알맞은 단어 고르기','Choosing a better word','选更合适的词'],
+    OVER_LITERAL_REASON:['이유를 더 깊이 설명','Explaining your reason more deeply','把理由说得更深入'],
+    NO_CONTEXT:['상황 살피기','Reading the situation','观察情境'],
+    GRAMMAR_FORM:['문법 형태','Grammar form','语法形式']
   };
-  function miscLabel(code){ var m=MISC[code]; return m ? T(m[0],m[1]) : code; }
+  function miscLabel(code){ var m=MISC[code]; return m ? T(m[0],m[1],m[2]) : code; }
 
   function applyStatic(){
     document.documentElement.lang = LANG;
-    document.getElementById('hTitle').textContent = T('판단력 훈련','Decision Training');
-    document.getElementById('hSub').innerHTML = T('상황에 가장 잘 맞는 표현을 고르고, <b>왜 그런지</b> 말해봐요!','Pick the best expression, and say <b>why</b>!');
-    document.getElementById('hGrowth').textContent = T('내 성장','My growth');
-    document.getElementById('langBtn').textContent = LANG==='en' ? '한국어' : 'EN';
-    document.getElementById('expTitle').textContent = T('왜 판단력 훈련을 하나요?','Why train your judgment?');
+    document.getElementById('hTitle').textContent = T('판단력 훈련','Decision Training','判断力训练');
+    document.getElementById('hSub').innerHTML = T('상황에 가장 잘 맞는 표현을 고르고, <b>왜 그런지</b> 말해봐요!','Pick the best expression, and say <b>why</b>!','选出最适合情境的表达，并说说<b>为什么</b>！');
+    document.getElementById('hGrowth').textContent = T('내 성장','My growth','我的成长');
+    document.getElementById('langBtn').textContent = LANG==='ko' ? 'EN' : LANG==='en' ? '中文' : '한국어';
+    document.getElementById('expTitle').textContent = T('왜 판단력 훈련을 하나요?','Why train your judgment?','为什么要练习判断力？');
     document.getElementById('expDesc').innerHTML = T(
       '영어를 잘한다는 건 뭘까요? 발음이 좋고 문장을 술술 말하는 것? 사실 진짜 실력은 그다음에 있어요. 같은 말도 <b>누구에게, 언제, 어떤 말투로</b> 하느냐에 따라 완전히 다르게 들리거든요. 친구에게는 "Give me that!"이 자연스럽지만, 선생님께는 "Could I have that, please?"가 맞는 것처럼요. 영어는 말을 많이 하는 능력이 아니라, <b>말과 말 사이에서 \'지금은 어떤 말이 맞을까\'를 스스로 판단하는 능력</b>이에요.<br><br>AI가 문장을 대신 만들어 주는 시대일수록, 정답을 외우는 것보다 <b>상황을 읽고 스스로 판단하는 힘</b>이 진짜 실력이 돼요. 표현을 고르고 <b>왜 그런지 이유를 설명</b>하면, 망고 AI가 여러분의 판단 과정을 분석해서 판단력이 어떻게 자라는지 보여줘요.',
-      'What does it really mean to be good at English? Great pronunciation? Speaking fast and fluently? Actually, real skill comes one step later. The very same words can sound completely different depending on <b>who you say them to, when, and in what tone</b>. "Give me that!" is fine with a friend — but with a teacher, "Could I have that, please?" is the right call. English is not about how much you can say; it is about <b>judging, between the words, which expression fits right now</b>.<br><br>In an era when AI can write sentences for you, real skill is not memorizing answers — it is <b>reading the situation and deciding for yourself</b>. Choose an expression, <b>explain why</b>, and Mango AI analyzes your thinking to show how your judgment grows.');
+      'What does it really mean to be good at English? Great pronunciation? Speaking fast and fluently? Actually, real skill comes one step later. The very same words can sound completely different depending on <b>who you say them to, when, and in what tone</b>. "Give me that!" is fine with a friend — but with a teacher, "Could I have that, please?" is the right call. English is not about how much you can say; it is about <b>judging, between the words, which expression fits right now</b>.<br><br>In an era when AI can write sentences for you, real skill is not memorizing answers — it is <b>reading the situation and deciding for yourself</b>. Choose an expression, <b>explain why</b>, and Mango AI analyzes your thinking to show how your judgment grows.',
+      '学好英语到底是什么？发音好、说得流利吗？其实，真正的实力在后面一步。同样一句话，<b>对谁说、什么时候说、用什么语气说</b>，听起来会完全不同。对朋友说 "Give me that!" 很自然，但对老师就应该说 "Could I have that, please?"。英语不是"能说多少"的能力，而是<b>在话与话之间判断"此刻该说哪句"的能力</b>。<br><br>在 AI 能替你写句子的时代，比起背标准答案，<b>读懂情境、自己做判断的能力</b>才是真本事。选出表达并<b>说明理由</b>，芒果 AI 会分析你的思考过程，展示你的判断力如何成长。');
     document.getElementById('expChips').innerHTML =
-      '<div class="exp-chip"><div class="ic">🔍</div><b>'+T('상황을 읽는 힘','Read the situation')+'</b><span>'+T('말투·상대·때에 맞는 표현을 고르는 감각을 키워요.','Build a feel for tone, listener, and timing.')+'</span></div>'
-      +'<div class="exp-chip"><div class="ic">🗣️</div><b>'+T('이유를 설명하는 힘','Explain your why')+'</b><span>'+T('"왜?"를 말로 풀면 생각이 단단해져요.','Putting your "why" into words makes thinking stronger.')+'</span></div>'
-      +'<div class="exp-chip"><div class="ic">📈</div><b>'+T('AI 성장 분석','AI growth tracking')+'</b><span>'+T('판단력 지수 5가지 축으로 성장을 한눈에 확인해요.','See your growth on 5 judgment-index axes.')+'</span></div>';
+      '<div class="exp-chip"><div class="ic">🔍</div><b>'+T('상황을 읽는 힘','Read the situation','读懂情境的能力')+'</b><span>'+T('말투·상대·때에 맞는 표현을 고르는 감각을 키워요.','Build a feel for tone, listener, and timing.','培养根据语气、对象和时机选择表达的语感。')+'</span></div>'
+      +'<div class="exp-chip"><div class="ic">🗣️</div><b>'+T('이유를 설명하는 힘','Explain your why','说明理由的能力')+'</b><span>'+T('"왜?"를 말로 풀면 생각이 단단해져요.','Putting your "why" into words makes thinking stronger.','把"为什么"说出来，思考会更扎实。')+'</span></div>'
+      +'<div class="exp-chip"><div class="ic">📈</div><b>'+T('AI 성장 분석','AI growth tracking','AI 成长分析')+'</b><span>'+T('판단력 지수 5가지 축으로 성장을 한눈에 확인해요.','See your growth on 5 judgment-index axes.','通过 5 个判断力指标一眼看到成长。')+'</span></div>';
   }
 
   document.getElementById('explainHead').addEventListener('click', function(){
     document.getElementById('explain').classList.toggle('open');
   });
 
-  document.getElementById('langBtn').addEventListener('click', function(){
-    LANG = (LANG==='en') ? 'ko' : 'en';
-    try{ localStorage.setItem('mango_lang', LANG); }catch(e){}
+  function streakText(){ return T('오늘 <b>'+solved+'</b>문제 풀었어요! 계속 도전해봐요 🔥','You solved <b>'+solved+'</b> today! Keep going 🔥','今天已经做了 <b>'+solved+'</b> 道题！继续挑战吧 🔥'); }
+  function setLangAndRefresh(l, persist){
+    LANG = normLang(l);
+    if(persist!==false){ try{ localStorage.setItem('mangoi_lang', LANG); localStorage.setItem('mango_lang', LANG); }catch(e){} }
     applyStatic();
     if(view==='q' && scenario) renderQuestion();
     else if(view==='result' && window._lastResult) renderResult(window._lastResult);
     else if(view==='growth' && window._lastGrowth) renderGrowth(window._lastGrowth);
-    if(solved>0) streakEl.innerHTML = T('오늘 <b>'+solved+'</b>문제 풀었어요! 계속 도전해봐요 🔥','You solved <b>'+solved+'</b> today! Keep going 🔥');
+    if(solved>0) streakEl.innerHTML = streakText();
+  }
+  document.getElementById('langBtn').addEventListener('click', function(){
+    setLangAndRefresh(LANG==='ko' ? 'en' : LANG==='en' ? 'zh' : 'ko');
+  });
+  // 🏠 홈(다른 탭)에서 언어를 바꾸면 이 페이지도 즉시 따라감
+  window.addEventListener('storage', function(ev){
+    if(ev.key==='mangoi_lang' && ev.newValue && normLang(ev.newValue)!==LANG) setLangAndRefresh(ev.newValue, false);
   });
 
   if(!UID){
     applyStatic();
-    stage.innerHTML = '<div class="center">'+T('앱에서 로그인 후 이용해 주세요.','Please log in through the app to start.')+'<br><span style="font-size:.8em">'+T('(학생 계정으로 접속하면 자동으로 시작됩니다)','(It starts automatically when you sign in as a student)')+'</span></div>';
+    stage.innerHTML = '<div class="center">'+T('앱에서 로그인 후 이용해 주세요.','Please log in through the app to start.','请先在应用中登录后使用。')+'<br><span style="font-size:.8em">'+T('(학생 계정으로 접속하면 자동으로 시작됩니다)','(It starts automatically when you sign in as a student)','（以学生账号登录后会自动开始）')+'</span></div>';
     return;
   }
 
@@ -308,7 +317,7 @@
 
   async function loadScenario(){
     view='q'; chosen = -1;
-    loading(T('맞춤 문제를 만들고 있어요…','Creating your question…'));
+    loading(T('맞춤 문제를 만들고 있어요…','Creating your question…','正在为你出题…'));
     try{
       var r = await fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({uid:UID, lang:'en', textbook:TEXTBOOK})});
       var d = await r.json();
@@ -316,7 +325,7 @@
       scenario = d;
       renderQuestion(); reEnter();
     }catch(e){
-      stage.innerHTML = '<div class="center">'+T('문제를 불러오지 못했어요.','Could not load a question.')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" onclick="location.reload()">'+T('다시 시도','Try again')+'</button></div>';
+      stage.innerHTML = '<div class="center">'+T('문제를 불러오지 못했어요.','Could not load a question.','题目加载失败。')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" onclick="location.reload()">'+T('다시 시도','Try again','再试一次')+'</button></div>';
     }
   }
 
@@ -326,16 +335,16 @@
     var opts = scenario.options.map(function(o,i){
       return '<button class="opt" data-i="'+i+'"'+(i===chosen?' data-sel="1"':'')+'><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span></button>';
     }).join('');
-    var tbChip = scenario.textbook ? '<div><span class="tb-chip">📖 '+esc(scenario.textbook)+' '+T('연계','linked')+'</span></div>' : '';
+    var tbChip = scenario.textbook ? '<div><span class="tb-chip">📖 '+esc(scenario.textbook)+' '+T('연계','linked','关联')+'</span></div>' : '';
     stage.innerHTML =
       tbChip+
-      '<div class="sit-label">🗣️ '+T('이런 상황이에요','Here is the situation')+'</div>'+
+      '<div class="sit-label">🗣️ '+T('이런 상황이에요','Here is the situation','情境是这样的')+'</div>'+
       '<div class="sit">'+esc(scenario.situation)+'</div>'+
       '<div class="opts">'+opts+'</div>'+
-      '<div class="why-label">🤔 '+T('왜 그 표현을 골랐어요?','Why did you choose it?')+'</div>'+
-      '<textarea id="why" placeholder="'+T('예: 선생님께 말하는 거라서 공손하게…  (한국어로 써도 괜찮아요)','e.g. Because I am talking to my teacher, so I chose a polite one…')+'"></textarea>'+
-      '<div class="hint">✨ '+T('이유를 잘 설명할수록 판단력 점수가 올라가요.','The better you explain, the higher your score.')+'</div>'+
-      '<button class="btn" id="submit"'+(chosen<0?' disabled':'')+'>'+T('제출하기 🚀','Submit 🚀')+'</button>';
+      '<div class="why-label">🤔 '+T('왜 그 표현을 골랐어요?','Why did you choose it?','你为什么选这个表达？')+'</div>'+
+      '<textarea id="why" placeholder="'+T('예: 선생님께 말하는 거라서 공손하게…  (한국어로 써도 괜찮아요)','e.g. Because I am talking to my teacher, so I chose a polite one…','例如：因为是对老师说的话，所以选了礼貌的表达…（用中文写也可以）')+'"></textarea>'+
+      '<div class="hint">✨ '+T('이유를 잘 설명할수록 판단력 점수가 올라가요.','The better you explain, the higher your score.','理由说明得越好，判断力分数就越高。')+'</div>'+
+      '<button class="btn" id="submit"'+(chosen<0?' disabled':'')+'>'+T('제출하기 🚀','Submit 🚀','提交 🚀')+'</button>';
     Array.prototype.forEach.call(stage.querySelectorAll('.opt'), function(el){
       if(el.getAttribute('data-sel')) el.classList.add('sel');
       el.addEventListener('click', function(){
@@ -351,7 +360,7 @@
   async function submitAnswer(){
     if(chosen<0) return;
     var reasoning = (document.getElementById('why')||{}).value || '';
-    loading(T('망고 선생님이 채점하고 있어요…','Teacher Mango is grading…'));
+    loading(T('망고 선생님이 채점하고 있어요…','Teacher Mango is grading…','芒果老师正在批改…'));
     try{
       var r = await fetch('/api/judgment/answer', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
         body:JSON.stringify({ uid:UID, student_name:NAME, situation:scenario.situation, skill_tag:scenario.skill_tag,
@@ -363,28 +372,30 @@
       renderResult(d); reEnter();
       if(d.correct){ confetti(); xpPop('+'+(d.choice_score!=null?d.choice_score:'💯')); }
     }catch(e){
-      stage.innerHTML = '<div class="center">'+T('채점에 실패했어요.','Grading failed.')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" onclick="location.reload()">'+T('다시 시도','Try again')+'</button></div>';
+      stage.innerHTML = '<div class="center">'+T('채점에 실패했어요.','Grading failed.','批改失败了。')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" onclick="location.reload()">'+T('다시 시도','Try again','再试一次')+'</button></div>';
     }
   }
 
   function renderResult(d){
     view='result';
     var ok = !!d.correct;
-    var fb = LANG==='en' ? (d.feedback_en||d.feedback_ko||'') : (d.feedback_ko||d.feedback_en||'');
+    var fb = LANG==='en' ? (d.feedback_en||d.feedback_ko||'')
+           : LANG==='zh' ? (d.feedback_zh||d.feedback_en||d.feedback_ko||'')
+           : (d.feedback_ko||d.feedback_en||'');
     var scores =
       '<div class="scores">'+
-        '<div class="sc"><div class="v" data-cnt="'+(d.choice_score!=null?d.choice_score:'')+'">—</div><div class="l">'+T('선택 적절성','Choice')+'</div></div>'+
-        '<div class="sc"><div class="v" data-cnt="'+(d.reasoning_score!=null?d.reasoning_score:'')+'">—</div><div class="l">'+T('이유 논리','Reasoning')+'</div></div>'+
+        '<div class="sc"><div class="v" data-cnt="'+(d.choice_score!=null?d.choice_score:'')+'">—</div><div class="l">'+T('선택 적절성','Choice','选择恰当度')+'</div></div>'+
+        '<div class="sc"><div class="v" data-cnt="'+(d.reasoning_score!=null?d.reasoning_score:'')+'">—</div><div class="l">'+T('이유 논리','Reasoning','理由逻辑')+'</div></div>'+
       '</div>';
-    var best = (!ok && d.best_option) ? '<div class="best">💡 '+T('가장 자연스러운 표현','Most natural expression')+': <b>'+esc(d.best_option)+'</b></div>' : '';
+    var best = (!ok && d.best_option) ? '<div class="best">💡 '+T('가장 자연스러운 표현','Most natural expression','最自然的表达')+': <b>'+esc(d.best_option)+'</b></div>' : '';
     stage.innerHTML =
       '<div class="res">'+
-        '<div class="banner '+(ok?'ok':'no')+'">'+(ok?('🎉 '+T('잘 골랐어요!','Great choice!')):('🤔 '+T('거의 다 왔어요!','So close!')))+'</div>'+
+        '<div class="banner '+(ok?'ok':'no')+'">'+(ok?('🎉 '+T('잘 골랐어요!','Great choice!','选得好！')):('🤔 '+T('거의 다 왔어요!','So close!','就差一点！')))+'</div>'+
         best+
         '<div class="fb">'+esc(fb)+'</div>'+
         scores+
-        '<button class="btn" id="next">'+T('다음 문제 →','Next question →')+'</button>'+
-        '<button class="btn ghost" id="mygrowth" style="margin-top:10px">🌱 '+T('내 성장 보기','See my growth')+'</button>'+
+        '<button class="btn" id="next">'+T('다음 문제 →','Next question →','下一题 →')+'</button>'+
+        '<button class="btn ghost" id="mygrowth" style="margin-top:10px">🌱 '+T('내 성장 보기','See my growth','查看我的成长')+'</button>'+
       '</div>';
     Array.prototype.forEach.call(stage.querySelectorAll('.sc .v'), function(el){
       var v=el.getAttribute('data-cnt');
@@ -392,7 +403,7 @@
     });
     document.getElementById('next').addEventListener('click', loadScenario);
     var mg=document.getElementById('mygrowth'); if(mg) mg.addEventListener('click', showGrowth);
-    streakEl.innerHTML = T('오늘 <b>'+solved+'</b>문제 풀었어요! 계속 도전해봐요 🔥','You solved <b>'+solved+'</b> today! Keep going 🔥');
+    streakEl.innerHTML = streakText();
   }
 
   function bar(label, v){
@@ -404,7 +415,7 @@
   }
   async function showGrowth(){
     view='growth';
-    loading(T('내 성장을 불러오고 있어요…','Loading your growth…'));
+    loading(T('내 성장을 불러오고 있어요…','Loading your growth…','正在加载你的成长记录…'));
     try{
       var r = await fetch('/api/judgment/growth?uid='+encodeURIComponent(UID), {credentials:'include'});
       var d = await r.json();
@@ -412,7 +423,7 @@
       window._lastGrowth = d;
       renderGrowth(d); reEnter();
     }catch(e){
-      stage.innerHTML = '<div class="center">'+T('성장 기록을 불러오지 못했어요.','Could not load your growth.')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" id="g-back">← '+T('문제 풀기','Practice')+'</button></div>';
+      stage.innerHTML = '<div class="center">'+T('성장 기록을 불러오지 못했어요.','Could not load your growth.','成长记录加载失败。')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" id="g-back">← '+T('문제 풀기','Practice','去做题')+'</button></div>';
       var b=document.getElementById('g-back'); if(b) b.addEventListener('click', loadScenario);
     }
   }
@@ -430,27 +441,27 @@
         +   '<stop offset="0%" stop-color="#7c3aed"/><stop offset="60%" stop-color="#a855f7"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient></defs>'
         +   '<circle class="track" cx="100" cy="100" r="'+R+'"/>'
         +   '<circle class="prog" id="ringProg" cx="100" cy="100" r="'+R+'" stroke-dasharray="'+C+'" stroke-dashoffset="'+C+'"/></svg>'
-        +   '<div class="mid"><div class="num" id="ringNum">0</div><div class="cap">'+T('나의 판단력 지수','My judgment index')+'</div></div>'
+        +   '<div class="mid"><div class="num" id="ringNum">0</div><div class="cap">'+T('나의 판단력 지수','My judgment index','我的判断力指数')+'</div></div>'
         + '</div>'
         + '<div class="ring-side">'
         +   '<div style="font-size:clamp(14px,1.8vw,18px);color:var(--mut);font-weight:700;margin-bottom:12px">🏅 '
-        +     T('지금까지 <b style="color:#fbbf24">'+(d.events_count||0)+'</b>번 판단했어요','<b style="color:#fbbf24">'+(d.events_count||0)+'</b> decisions so far')+'</div>'
-        +   bar(T('선택 적절성','Choice'), rad['선택적절성'])
-        +   bar(T('이유 논리','Reasoning'), rad['이유논리'])
-        +   bar(T('자기 교정력','Self-correction'), rad['자기교정력'])
-        +   bar(T('어투 민감도','Register'), rad['어투민감도'])
-        +   bar(T('일관성','Consistency'), rad['일관성'])
+        +     T('지금까지 <b style="color:#fbbf24">'+(d.events_count||0)+'</b>번 판단했어요','<b style="color:#fbbf24">'+(d.events_count||0)+'</b> decisions so far','到目前为止做了 <b style="color:#fbbf24">'+(d.events_count||0)+'</b> 次判断')+'</div>'
+        +   bar(T('선택 적절성','Choice','选择恰当度'), rad['선택적절성'])
+        +   bar(T('이유 논리','Reasoning','理由逻辑'), rad['이유논리'])
+        +   bar(T('자기 교정력','Self-correction','自我纠正力'), rad['자기교정력'])
+        +   bar(T('어투 민감도','Register','语气敏感度'), rad['어투민감도'])
+        +   bar(T('일관성','Consistency','一致性'), rad['일관성'])
         + '</div>'
         + '</div>'
         + (miscs.length ? '<div class="misc-box">'
-            + '<div class="mt">💪 '+T('이런 걸 더 연습하면 좋아요','Practice these a bit more')+'</div>'
+            + '<div class="mt">💪 '+T('이런 걸 더 연습하면 좋아요','Practice these a bit more','这些再多练练会更好')+'</div>'
             + miscs.map(function(m){ return '<div class="mi">· '+esc(miscLabel(m.code))+'</div>'; }).join('')
             + '</div>' : '')
-      : '<div class="center">'+T('아직 판단 기록이 없어요.<br>문제를 풀면 나의 성장이 여기 나타나요! 🌱','No records yet.<br>Solve questions and your growth appears here! 🌱')+'</div>';
+      : '<div class="center">'+T('아직 판단 기록이 없어요.<br>문제를 풀면 나의 성장이 여기 나타나요! 🌱','No records yet.<br>Solve questions and your growth appears here! 🌱','还没有判断记录。<br>做题之后你的成长会显示在这里！🌱')+'</div>';
     stage.innerHTML = '<div class="res">'
-      + '<div class="sit-label">🌱 '+T('나의 판단력 성장','My decision-making growth')+'</div>'
+      + '<div class="sit-label">🌱 '+T('나의 판단력 성장','My decision-making growth','我的判断力成长')+'</div>'
       + practice
-      + '<button class="btn gold" id="g-train" style="margin-top:22px">'+T('문제 풀러 가기 →','Go practice →')+'</button>'
+      + '<button class="btn gold" id="g-train" style="margin-top:22px">'+T('문제 풀러 가기 →','Go practice →','去做题 →')+'</button>'
       + '</div>';
     // 애니메이션: 링 채우기 + 지수 카운트업 + 막대 채우기
     requestAnimationFrame(function(){
@@ -470,6 +481,6 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260720234050 -->
+<!-- BUILD:20260721000512 -->
 </body>
 </html>
