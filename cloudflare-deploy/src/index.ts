@@ -12,6 +12,7 @@ import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
 import { handlePayApi, runPaymentAudit } from './api-pay';
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
 import { handleRetentionIngest, getRetention, markRetentionContacted, getRetentionSettings, setRetentionSettings, previewRetentionMessage, sendRetentionMessages, runRetentionAutoSend } from './api-retention';
+import { runAbsentStudentSweep } from './absent-sweep';
 import { handleTraitsApi } from './api-traits';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
@@ -841,6 +842,8 @@ const worker = {
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
         path === '/api/admin/students/erp-seed' ||
+        // 📚 교재 일괄 배정 (학생관리 카드)
+        path === '/api/admin/students/bulk-assign-textbook' ||
         path === '/api/community/posts' ||
         path === '/api/teacher-profiles' ||
         path === '/api/_bootstrap' ||
@@ -851,6 +854,8 @@ const worker = {
         path === '/api/admin/payments/overdue' ||
         path === '/api/admin/payments/import-cafe24' ||
         path === '/api/admin/payments/cafe24-diag' ||
+        // 🚨 결석 위험 자동 알림 수동 실행/진단 (dry=1 지원)
+        path === '/api/admin/absent-sweep/run' ||
         path === '/api/admin/payments/notify-overdue' ||
         path === '/api/admin/payments/notify-all-overdue' ||
         path === '/api/admin/payments/overdue-log' ||
@@ -1609,6 +1614,15 @@ const worker = {
         if (w.changed) console.log('[watchdog] state change', JSON.stringify(w));
       } catch (err) {
         console.error('[watchdog] error', err);
+      }
+
+      // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지 → 문자.
+      //   기본 = 안전 모드(운영자 문자 + 기록만). 학부모 발송은 KV 'absent_alert_parent_send'='on' 일 때만.
+      try {
+        const ab = await runAbsentStudentSweep(env as any);
+        if (ab && (ab.alerted > 0 || !ab.ok)) console.log('[absent-sweep]', JSON.stringify(ab));
+      } catch (err) {
+        console.error('[absent-sweep] error', err);
       }
 
       // 📨 수강권 만료·휴면 자동 연락 (KST 10:00 = UTC 01:00) — 설정에서 켰을 때만 발송(기본 OFF, 하루 상한·재발송갭 안전장치 내장).

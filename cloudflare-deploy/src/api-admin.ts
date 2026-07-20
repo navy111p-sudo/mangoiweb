@@ -19,6 +19,7 @@ import { applyPIIScope, canViewPII } from './pii-mask';
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
+import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import type { MangoEnv } from './api-mango';
 
@@ -4766,6 +4767,73 @@ LIMIT $limit`;
         if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED' }, 503);
         return json({ ok: false, error: String(e?.message || e) }, 502);
       }
+    }
+
+    // 🚨 결석 위험 자동 알림 수동 실행/진단 — cron(15분)과 동일 로직.
+    //   ?dry=1 이면 발송·기록 없이 감지 결과만 반환. /api/admin/* default-deny + 비본사 403 뒤.
+    if (method === 'GET' && path === '/api/admin/absent-sweep/run') {
+      const dry = url.searchParams.get('dry') === '1';
+      try {
+        const out = await runAbsentStudentSweep(env as any, { dry });
+        return json(out);
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
+    // 📚 학생 교재 일괄 배정 — 학생관리 카드 '일괄 교재 배정' 모달용 (adm-bulkbook.js).
+    //   body: { textbook_title, level?, q?, only_empty?(기본 true), dry?, force? }
+    //   대상 = 스코프(본사/지사/대리점) 내 학생 ∩ (q=이름·아이디 검색) ∩ (only_empty=교재 미배정만).
+    //   dry=true → 대상 인원수만 반환(실행 전 미리보기). 2000명 초과는 force=true 필요(오배정 방지).
+    //   students_erp.textbook/level 이 화상수업 '배정 교재 자동 로드'가 읽는 정본이며,
+    //   student_textbook_assignments 에 이력도 남긴다.
+    if (method === 'POST' && path === '/api/admin/students/bulk-assign-textbook') {
+      const b: any = await parseJsonBody(request);
+      if (!b || !String(b.textbook_title || '').trim()) return invalidBody(['textbook_title']);
+      const title = String(b.textbook_title).trim();
+      const level = String(b.level || '').trim();
+      const q = String(b.q || '').trim();
+      const onlyEmpty = b.only_empty !== false;   // 기본 = 미배정 학생만 (기존 배정 실수 덮어쓰기 방지)
+      const dry = !!b.dry;
+
+      // textbook/level 컬럼은 기본 DDL 에 없음(운영 DB엔 있을 수 있음) → 멱등 보강
+      for (const ddl of [`ALTER TABLE students_erp ADD COLUMN textbook TEXT`, `ALTER TABLE students_erp ADD COLUMN level TEXT`]) {
+        try { await env.DB.exec(ddl); } catch {}
+      }
+
+      const sw: any = await studentScopeWhere(env, request);
+      if (sw?.scope?.type === 'none') return json({ ok: false, error: 'no_scope' }, 403);
+      const conds: string[] = [];
+      const binds: any[] = [];
+      if (sw.cond) { conds.push(sw.cond); binds.push(...sw.binds); }
+      if (q) {
+        conds.push(`(korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ? OR login_id LIKE ?)`);
+        const like = `%${q}%`;
+        binds.push(like, like, like, like, like);
+      }
+      if (onlyEmpty) conds.push(`(textbook IS NULL OR textbook = '')`);
+      const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+
+      const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM students_erp ${where}`).bind(...binds).first();
+      const targets = Number(cnt?.n || 0);
+      if (dry) return json({ ok: true, dry: true, targets, textbook_title: title, level: level || null, only_empty: onlyEmpty, q: q || null });
+      if (!targets) return json({ ok: true, updated: 0, targets: 0 });
+      if (targets > 2000 && !b.force) return json({ ok: false, error: 'too_many_targets', targets, hint: 'force=true 로 재요청하면 실행합니다' }, 400);
+
+      const now = Date.now();
+      // 이력 먼저 (UPDATE 후엔 only_empty 조건이 더 이상 같은 대상을 가리키지 않음)
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_textbook_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, textbook_id INTEGER, textbook_name TEXT, level TEXT, started_at INTEGER, ended_at INTEGER, progress_pct REAL, status TEXT DEFAULT 'active', created_at INTEGER)`);
+        await env.DB.prepare(
+          `INSERT INTO student_textbook_assignments (user_id, textbook_name, level, started_at, status, created_at)
+           SELECT COALESCE(user_id, login_id, 'stu_' || id), ?, CASE WHEN ? = '' THEN level ELSE ? END, ?, 'active', ? FROM students_erp ${where}`
+        ).bind(title, level, level, now, now, ...binds).run();
+      } catch (e: any) { console.warn('[bulk-assign-textbook] history insert skipped:', e?.message); }
+      const upd: any = await env.DB.prepare(
+        `UPDATE students_erp SET textbook = ?, level = CASE WHEN ? = '' THEN level ELSE ? END ${where}`
+      ).bind(title, level, level, ...binds).run();
+      const updated = Number(upd?.meta?.changes ?? targets);
+      return json({ ok: true, updated, targets, textbook_title: title, level: level || null });
     }
 
     if (method === 'GET' && path === '/api/admin/payments/import-cafe24') {

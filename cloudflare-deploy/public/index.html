@@ -10019,6 +10019,8 @@ if (typeof _origShowView_vc === 'function') {
       var role = (sp.get('vc_role') || '').trim().toLowerCase();
       if (role === 'teacher' || role === 'admin' || role === 'student') {
         window.vcMyRole = role;
+        // 🔒 역할 확정 직후 수업 통제 칩(전체 음소거/집중 모드) 노출 갱신 — 강사/관리자만 보임
+        try { setTimeout(function(){ if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender(); }, 300); } catch(_){}
         try { localStorage.setItem('mangoi_user_role', role); } catch(e){}
       }
       (function tryJoin(attempt){
@@ -10091,6 +10093,8 @@ async function vcJoinMyClass() {
 function vcEnterResolvedRoom(session, name, role) {
     if (role === 'teacher' || role === 'admin' || role === 'student') {
         window.vcMyRole = role;
+        // 🔒 역할 확정 직후 수업 통제 칩(전체 음소거/집중 모드) 노출 갱신 — 강사/관리자만 보임
+        try { setTimeout(function(){ if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender(); }, 300); } catch(_){}
         try { localStorage.setItem('mangoi_user_role', role); } catch (e) {}
     }
     var ni = document.getElementById('vc-name-input');
@@ -13933,6 +13937,120 @@ window.vcBgLockApply = function(locked){
       return _origSetFace.apply(this, arguments);
     };
     window.__vcSetFaceLockWrapped = true;
+  }
+};
+
+// ── 🎤/🎯 수업 통제 칩 2종: 전체 음소거(mic-lock)·집중 모드(focus-lock) (2026-07-21) ──
+//   bg-lock 과 동일 구조 — 서버(DO)가 role 검증·storage 저장·늦은 입장 재전송·빈 방 자동 해제.
+//   칩은 상단 탭바(.tab-bar)에 상주, 강사/관리자에게만 노출.
+window.__vcMicLockOn = false;      window.__vcMicLockedByTeacher = false;
+window.__vcFocusLockOn = false;    window.__vcFocusLockedByTeacher = false;
+
+window.vcClassLockChipsRender = function(){
+  var staff = _vcBgLockIsStaff() || ((typeof vcIsTeacherRole === 'function') && vcIsTeacherRole());
+  var en = _vcBgLockEn();
+  var mic = document.getElementById('vc-miclock-btn');
+  if (mic) {
+    mic.style.display = staff ? 'inline-flex' : 'none';
+    if (staff) {
+      var mOn = !!window.__vcMicLockOn;
+      var mKo = mOn ? '🔊 전체 음소거 해제' : '🎤 전체 음소거';
+      var mEn = mOn ? '🔊 Unmute all' : '🎤 Mute all';
+      mic.setAttribute('data-ko', mKo); mic.setAttribute('data-en', mEn);
+      mic.textContent = en ? mEn : mKo;
+      mic.style.background = mOn ? '#dc2626' : '#16a34a';
+    }
+  }
+  var fc = document.getElementById('vc-focuslock-btn');
+  if (fc) {
+    fc.style.display = staff ? 'inline-flex' : 'none';
+    if (staff) {
+      var fOn = !!window.__vcFocusLockOn;
+      var fKo = fOn ? '🎯 집중 모드 해제' : '🎯 집중 모드';
+      var fEn = fOn ? '🎯 End focus mode' : '🎯 Focus mode';
+      fc.setAttribute('data-ko', fKo); fc.setAttribute('data-en', fEn);
+      fc.textContent = en ? fEn : fKo;
+      fc.style.background = fOn ? '#dc2626' : '#16a34a';
+    }
+  }
+};
+
+window.vcMicLockToggle = function(){
+  window.__vcMicLockOn = !window.__vcMicLockOn;
+  window.vcClassLockChipsRender();
+  try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'mic-lock', data: { locked: window.__vcMicLockOn } }); } catch(_){}
+  try {
+    if (typeof showToast === 'function') showToast(window.__vcMicLockOn
+      ? (_vcBgLockEn() ? '🔇 All students muted' : '🔇 학생 전체 음소거를 켰어요')
+      : (_vcBgLockEn() ? '🔊 All students unmuted' : '🔊 전체 음소거를 해제했어요'));
+  } catch(_){}
+};
+
+window.vcFocusLockToggle = function(){
+  window.__vcFocusLockOn = !window.__vcFocusLockOn;
+  window.vcClassLockChipsRender();
+  try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'focus-lock', data: { locked: window.__vcFocusLockOn } }); } catch(_){}
+  try {
+    if (typeof showToast === 'function') showToast(window.__vcFocusLockOn
+      ? (_vcBgLockEn() ? '🎯 Focus mode ON — students follow you' : '🎯 집중 모드 시작 — 학생이 화면을 못 바꿔요')
+      : (_vcBgLockEn() ? '🎯 Focus mode OFF' : '🎯 집중 모드를 해제했어요'));
+  } catch(_){}
+};
+
+// 학생: 전체 음소거 적용/해제 — 현재 마이크 상태 기억 후 강제 off, 해제 시 원복.
+//   window.vcMicOn=false 로 두므로 자가치유(vcHealLocalMic)·복귀 재점검(vcResumeClassSession)·
+//   하단 독(1.5초 주기 sync)이 자연히 잠금을 존중/반영한다.
+window.vcMicLockApply = function(locked){
+  locked = !!locked;
+  var changed = window.__vcMicLockedByTeacher !== locked;
+  window.__vcMicLockedByTeacher = locked;
+  try {
+    if (locked) {
+      if (window.__vcMicPrevOn === undefined) window.__vcMicPrevOn = (window.vcMicOn !== false);
+      window.vcMicOn = false;
+      if (window.vcLocalStream) vcLocalStream.getAudioTracks().forEach(function(t){ t.enabled = false; });
+      try { if (typeof stopMicLevelMeter === 'function') stopMicLevelMeter(); } catch(_){}
+      // 🛡 잠금 수신 시점에 아직 스트림이 없던 학생(입장 직후)도 확실히 음소거되도록 상시 집행
+      if (!window.__vcMicLockTimer) window.__vcMicLockTimer = setInterval(function(){
+        try {
+          if (!window.__vcMicLockedByTeacher) { clearInterval(window.__vcMicLockTimer); window.__vcMicLockTimer = null; return; }
+          if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') return;
+          window.vcMicOn = false;
+          if (window.vcLocalStream) vcLocalStream.getAudioTracks().forEach(function(t){ if (t.enabled) t.enabled = false; });
+        } catch(_){}
+      }, 2000);
+    } else if (changed) {
+      var prev = (window.__vcMicPrevOn === undefined) ? true : !!window.__vcMicPrevOn;
+      window.__vcMicPrevOn = undefined;
+      window.vcMicOn = prev;
+      if (window.vcLocalStream) vcLocalStream.getAudioTracks().forEach(function(t){ t.enabled = prev; });
+      try { if (prev && typeof startMicLevelMeter === 'function') startMicLevelMeter(); } catch(_){}
+    }
+    // 상단 툴바 마이크 버튼 UI 동기화 (독은 sync 주기가 알아서 반영)
+    var on = (window.vcMicOn !== false);
+    var btn = document.getElementById('vc-btn-mic');
+    if (btn) { btn.className = 'ctrl-btn ' + (on ? 'on' : 'off'); btn.textContent = on ? '🎤' : '🔇'; }
+  } catch(_){}
+  if (changed) {
+    try {
+      if (typeof showToast === 'function') showToast(locked
+        ? (_vcBgLockEn() ? '🔇 Teacher muted everyone' : '🔇 선생님이 전체 음소거를 켰어요')
+        : (_vcBgLockEn() ? '🔊 You can unmute now' : '🔊 이제 마이크를 켤 수 있어요'));
+    } catch(_){}
+  }
+};
+
+// 학생: 집중 모드 적용/해제 — 실제 차단은 vcToggleContentTab/vcMobileTabSwitch 가드가 수행
+window.vcFocusLockApply = function(locked){
+  locked = !!locked;
+  var changed = window.__vcFocusLockedByTeacher !== locked;
+  window.__vcFocusLockedByTeacher = locked;
+  if (changed) {
+    try {
+      if (typeof showToast === 'function') showToast(locked
+        ? (_vcBgLockEn() ? '🎯 Focus mode — follow your teacher' : '🎯 집중 모드 시작 — 선생님 화면을 따라가요')
+        : (_vcBgLockEn() ? '🎯 Focus mode ended' : '🎯 집중 모드가 끝났어요'));
+    } catch(_){}
   }
 };
 
@@ -25544,7 +25662,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260720230041 -->
+<!-- BUILD:20260720230631 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
