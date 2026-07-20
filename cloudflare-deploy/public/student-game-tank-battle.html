@@ -1034,8 +1034,8 @@ function positionFireBtn(){ var fb=document.getElementById('fireBtn'); if(!fb)re
    ⚠️ 이미지는 '포신이 위(↑)를 향한' 탑다운. orient=이미지 기본각 보정(라디안). */
 var TANKIMG={   // orient=Math.PI/2 : 원본 포신 '왼쪽' → aim 보정. sizeMul=크기배수. tint=식별 색보정(아군=위장녹색/적=연하게)
   sherman:{ready:false,cnv:null,w:0,h:0,orient:Math.PI/2,sizeMul:1.3,tint:'rgba(70,120,42,0.40)',src:'/img/tank-sherman.png?v=2'},
-  tiger:{ready:false,cnv:null,w:0,h:0,orient:Math.PI/2,sizeMul:1.0,tint:'rgba(238,232,205,0.34)',src:'/img/tank-tiger.png?v=2'},
-  stug:{ready:false,cnv:null,w:0,h:0,orient:Math.PI/2,sizeMul:1.0,tint:'rgba(238,232,205,0.34)',src:'/img/tank-stug.png?v=2'}
+  tiger:{ready:false,cnv:null,w:0,h:0,orient:Math.PI/2,sizeMul:1.0,tint:'rgba(240,236,214,0.50)',src:'/img/tank-tiger.png?v=3'},
+  stug:{ready:false,cnv:null,w:0,h:0,orient:Math.PI/2,sizeMul:1.0,tint:'rgba(240,236,214,0.50)',src:'/img/tank-stug.png?v=3'}
 };
 function loadTankImg(key){ var o=TANKIMG[key]; var img=new Image();
   img.onload=function(){ try{
@@ -1269,6 +1269,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260720172320 -->
+<!-- BUILD:20260720173232 -->
 </body>
 </html>
