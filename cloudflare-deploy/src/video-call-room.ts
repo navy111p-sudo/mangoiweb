@@ -188,6 +188,19 @@ export class VideoCallRoom {
 
     const userCount = this.joinedUsers().length;
 
+    // 🧹 (2026-07-20) 첫 입장자(방에 나 혼자)에게 지난 수업의 잔존 공유 상태를 재전송하지 않는다.
+    //   방이 빈 뒤에도 pdfState/videoState 가 storage 에 남아, 다음 수업 입장 첫 화면을 며칠 전
+    //   교재/유튜브가 차지하고 '학생 배정 교재 자동 로드'(_vcShownVideoUrl 존중 로직)까지 막았음.
+    //   사장님 지시: 수업 입장 첫 화면 = 해당 학생의 배정 교재. 진행 중 수업에 늦게 합류한
+    //   참가자(기존 참가자 존재)에게는 지금처럼 현재 공유 상태를 그대로 재전송한다.
+    if (userCount <= 1 && (this.pdfState || this.videoState)) {
+      this.pdfState = null;
+      this.videoState = null;
+      void this.state.storage.delete('pdfState');
+      void this.state.storage.delete('videoState');
+      console.log(`[VideoChat] Stale shared media cleared on first join in room ${this.roomId}`);
+    }
+
     this.send(userId, {
       type: 'room-joined',
       data: { roomId: this.roomId, userId, userCount, pdfState: this.pdfState }
@@ -216,6 +229,17 @@ export class VideoCallRoom {
     const username = (knownUsername !== undefined) ? knownUsername : found;
     if (username === null || username === undefined) return; // 입장한 적 없음
     const userCount = this.joinedUsers(exclude).length;
+
+    // 🧹 (2026-07-20) 마지막 참가자까지 나가 방이 비면 공유 상태(pdfState/videoState)도 함께 정리.
+    //   다음 수업이 지난 수업의 교재/동영상으로 시작하지 않게 함(첫 화면 = 배정 교재 보장의 짝 수정).
+    //   'dropped'(순단)로 비어도 지우지만, 재입장 시 클라이언트가 배정 교재를 자동 로드하므로 무해.
+    if (userCount === 0 && (this.pdfState || this.videoState)) {
+      this.pdfState = null;
+      this.videoState = null;
+      void this.state.storage.delete('pdfState');
+      void this.state.storage.delete('videoState');
+      console.log(`[VideoChat] Shared media cleared — room ${this.roomId} is now empty`);
+    }
 
     this.broadcastAll({ type: 'user-left', data: { userId, username, userCount, reason } }, exclude);
     if (username) {

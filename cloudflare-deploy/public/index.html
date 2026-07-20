@@ -7895,7 +7895,8 @@
         <div class="content-pane" id="vc-content-pane">
             <!-- 탭 메뉴 -->
             <div class="tab-bar">
-                <button class="tab-btn active" onclick="vcToggleContentTab('whiteboard')" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
+                <!-- ★ (2026-07-20) 기본 탭이 교재(tab-pdf)가 되면서 칠판 버튼의 기본 active 제거 (교재 탭은 버튼 없이 교재도구 칩으로 접근) -->
+                <button class="tab-btn" onclick="vcToggleContentTab('whiteboard')" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
                 <!-- 🔧 (2026-06-27) '📄 교재' 탭 버튼 제거 — 중복. PDF는 '📚 교재도구' 칩으로 접근(클릭 시 vcSwitchTab('pdf') 자동 호출). -->
                 <button class="tab-btn" onclick="vcToggleContentTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
                 <button class="tab-btn" onclick="vcToggleContentTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
@@ -7910,8 +7911,8 @@
             <!-- 탭 콘텐츠 -->
             <div class="tab-content">
 
-        <!-- 칠판 탭 -->
-        <div class="tab-panel active" id="tab-whiteboard">
+        <!-- 칠판 탭 — ★ (2026-07-20 사장님) 입장 첫 화면 = 교재. 기본 active 를 칠판→교재(tab-pdf)로 이동 -->
+        <div class="tab-panel" id="tab-whiteboard">
             <div class="whiteboard-container">
                 <div class="wb-toolbar">
                     <button class="active" onclick="wbSetTool('pen')" data-ko="✏️ 펜 (Pen)" data-en="✏️ Pen (펜)">✏️ 펜 (Pen)</button>
@@ -7936,8 +7937,8 @@
             </div>
         </div>
 
-        <!-- PDF 탭 -->
-        <div class="tab-panel" id="tab-pdf">
+        <!-- PDF 탭 — ★ (2026-07-20) 입장 기본 탭(첫 화면 = 교재, 입장 직후 배정 교재 자동 로드) -->
+        <div class="tab-panel active" id="tab-pdf">
             <div class="pdf-container">
                 <div class="pdf-controls">
                     <!-- 업로드 버튼: label 대신 button+명시적 트리거로 교체 (클릭 확실히 등록 + 콘솔 로그) -->
@@ -8787,7 +8788,7 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
 let vcConn = null;              // WebSocket 연결
 // fix (2026-06-01) — 교재 공유 전용 전송 함수. selectFromTextbookLibrary(다른 스코프)가 window.vcConn 타이밍에
 //   의존하지 않고, 여기 '지역 vcConn'을 직접 써서 확실히 전송. 교사 화면에 전송 확인 토스트도 표시.
-window.vcShareTextbook = function(pdfId, url, kind, name){
+window.vcShareTextbook = function(pdfId, url, kind, name, quiet){
   try {
     var shareUrl = url || '';
     if (shareUrl && shareUrl.charAt(0) === '/') shareUrl = location.origin + shareUrl;
@@ -8796,11 +8797,12 @@ window.vcShareTextbook = function(pdfId, url, kind, name){
       // 교사 자신은 이미 교재를 보고 있으므로, 폴링이 재로드하지 않도록 표시 키/URL 을 맞춰둠
       try { var _abs = (shareUrl && shareUrl.charAt(0)==='/') ? location.origin+shareUrl : shareUrl; window._vcShownPdfUrl = _abs; window._vcShownPdfKey = _abs + '|1'; window._vcShownPdfName = name || window._vcShownPdfName || ''; } catch(_){}
       console.log('[vcShareTextbook] ✅ 전송:', shareUrl, kind);
-      try { if (typeof showToast === 'function') showToast('📤 교재 공유 전송됨 → 학생'); } catch(_){}
+      if (!quiet) { try { if (typeof showToast === 'function') showToast('📤 교재 공유 전송됨 → 학생'); } catch(_){} }
       return true;
     }
-    console.warn('[vcShareTextbook] ❌ vcConn 연결 없음 — 방에 입장했는지 확인');
-    try { if (typeof showToast === 'function') showToast('⚠️ 화상수업 연결이 없어 교재 공유 못함(방 재입장 필요)'); } catch(_){}
+    // quiet=입장 자동 공유의 재시도 경로 — WS 가 아직 안 열린 정상 타이밍이므로 경고 토스트 생략
+    console.warn('[vcShareTextbook] ❌ vcConn 연결 없음' + (quiet ? ' (자동 공유 재시도 예정)' : ' — 방에 입장했는지 확인'));
+    if (!quiet) { try { if (typeof showToast === 'function') showToast('⚠️ 화상수업 연결이 없어 교재 공유 못함(방 재입장 필요)'); } catch(_){} }
     return false;
   } catch(e){ console.warn('[vcShareTextbook] 예외', e); return false; }
 };
@@ -8869,11 +8871,16 @@ window.vcStartPdfPoll = function(){
     window._vcShownPdfKey = '';
     window._vcShownPdfUrl = '';
     window._vcShownVideoUrl = '';
+    window._vcJoinedRoomId = '';   // ★ (2026-07-20) room-joined 수신 전엔 폴링 미적용 (아래 참조)
     if (window._vcPdfPollTimer) clearInterval(window._vcPdfPollTimer);
     // 입장 직후 즉시 1회 확인(3초 기다리지 않고 바로 교재 표시)
     var _pollOnce = function(){
       try {
         if (!vcRoomId) return;
+        // ★ (2026-07-20) WS 입장(room-joined)이 완료되기 전엔 방 미디어 상태를 적용하지 않는다.
+        //   서버(DO)가 '첫 입장 시 지난 수업 잔존 pdf/video 상태 정리'를 room-joined 전에 수행하므로,
+        //   그 전에 폴링이 먼저 닿으면 이미 지워질 낡은 유튜브/교재가 첫 화면을 한 번 차지할 수 있음.
+        if (window._vcJoinedRoomId !== vcRoomId) return;
         // fix (2026-07-13) — /api/room-status 는 보안 잠금(관리자 전용)으로 학생에게 401.
         //   참가자용 공개 미디어 상태 엔드포인트(/api/room-media, PII 없음)로 폴링.
         fetch('/api/room-media/' + encodeURIComponent(vcRoomId), { cache: 'no-store' })
@@ -10170,6 +10177,7 @@ function vcRemoveDemoTeacher(){
 /** 다자간 통화 방 입장 */
 async function vcJoinRoom(skipUI) {
     vcIsObserver = false; // 일반 입장 모드 확인
+    window._vcObserverMode = false;   // ★ (2026-07-20) 별도 스크립트(입장 자동 교재 로드)에서 참조용 미러
     vcUsername = document.getElementById('vc-name-input').value.trim();
     if (!vcUsername) { alert('아이디를 입력하세요.'); return; }
     // 📶 TURN 자격증명 확보 후 입장 (자동입장이 ICE fetch를 앞지르는 레이스 방지)
@@ -11078,6 +11086,7 @@ function vcShowEarnToast(msg) {
 /** 관찰자 모드로 입장 (관리자 전용 — 미디어 없이 수신만) */
 async function vcJoinAsObserver(roomId) {
     vcIsObserver = true;
+    window._vcObserverMode = true;   // ★ 관찰자는 입장 자동 교재 로드/공유 금지 (수신 전용)
     vcUsername = '관찰자';
     vcRoomId = roomId;
 
@@ -11129,6 +11138,7 @@ function vcHandleMessage(msg) {
     switch (msg.type) {
         case 'room-joined':
             vcUserId = msg.data.userId;
+            window._vcJoinedRoomId = msg.data.roomId || vcRoomId;   // ★ 이때부터 room-media 폴링 적용 허용
             updateUserCount(msg.data.userCount);
             // 🌟 학생이면 (방·피어ID → 내 계정 uid) 를 서버에 등록 → 선생님이 별 누르면 서버가 내 계정에 확실히 적립.
             try { vcRegisterRosterIdentity(); setTimeout(vcRegisterRosterIdentity, 3000); } catch(e){}
@@ -12923,6 +12933,7 @@ async function vcLeaveRoom() {
     // 관찰자 모드 해제 시 UI 복원
     if (vcIsObserver) {
         vcIsObserver = false;
+        window._vcObserverMode = false;
         const localBox = document.getElementById('vc-local-box');
         if (localBox) localBox.style.display = '';
         const toolbar = document.getElementById('vc-bottom-toolbar');
@@ -15447,6 +15458,7 @@ function vcRestorePipPos() {
 }
 
 function updateUserCount(count) {
+    window._vcJoinUserCount = count || 0;   // ★ (2026-07-20) 입장 자동 교재 로드가 '혼자/합류' 구분에 사용
     document.getElementById('vc-user-count').textContent = count || 0;
     // 🥭 Phase 48 — 게임 탭이 열려있고 수업이 시작되면 즉시 차단 화면
     const gameTab = document.getElementById('tab-game');
@@ -25255,7 +25267,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260720040804 -->
+<!-- BUILD:20260720171216 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -27851,7 +27863,18 @@ window._vcLoadTextbookByName = async function(book){
   await Promise.resolve(window.pdfLoad ? window.pdfLoad(f.url, f.kind) : null);
   try { window._vcShownPdfName = f.name; } catch(e){}
   // 방에 공유 → 교사·학생 모두 같은 교재를 봄
-  try { if (typeof window.vcShareTextbook === 'function') window.vcShareTextbook('lib_' + f.id, f.url, f.kind, f.name); } catch(e){}
+  //   ★ (2026-07-20) 입장 직후엔 WS(vcConn)가 아직 안 열려 있을 수 있음 → 조용히(quiet) 몇 번 재시도.
+  //     그 사이 다른 참가자의 공유가 도착하면(_vcShownPdfKey 가 내 것과 달라짐) 재시도 중단.
+  try {
+    var _myKey = ((f.url && f.url.charAt(0)==='/') ? location.origin + f.url : f.url) + '|1';
+    (function _tryShare(n){
+      try {
+        if (window._vcShownPdfKey && window._vcShownPdfKey !== _myKey) return;   // 남의 공유가 이미 적용됨
+        var ok = (typeof window.vcShareTextbook === 'function') && window.vcShareTextbook('lib_' + f.id, f.url, f.kind, f.name, true);
+        if (!ok && n > 0 && document.body.classList.contains('vc-in-call')) setTimeout(function(){ _tryShare(n - 1); }, 700);
+      } catch(e){}
+    })(8);
+  } catch(e){}
   try { if (typeof window._pdfToast === 'function') window._pdfToast('📚 ' + book); } catch(e){}
   return true;
 };
@@ -27860,7 +27883,8 @@ window._vcLoadTextbookByName = async function(book){
 window.vcAutoLoadStudentTextbook = async function(){
   try {
     // 이미 방에 '실제 공유된' 교재/동영상이 있으면 존중 (덮어쓰지 않음)
-    if (window._vcShownPdfUrl || window._vcShownVideoUrl) return false;
+    //   _vcShownPdfKey 는 공유 수신 즉시(로드 완료 전) 기록되므로 함께 확인 — 레이스 방지
+    if (window._vcShownPdfKey || window._vcShownPdfUrl || window._vcShownVideoUrl) return false;
     // 현재 로그인 uid (mangoi_logged_user = {uid,name}; mango_user 폴백)
     var uid = '';
     try { var lu = JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if (lu && (lu.uid||lu.user_id)) uid = lu.uid||lu.user_id; } catch(e){}
@@ -27884,17 +27908,21 @@ window.vcAutoLoadStudentTextbook = async function(){
 };
 
 (function(){
-  var _did = false;
-  function activeTabId(){
-    var el = document.querySelector('#view-videocall-call .tab-panel.active');
-    return el ? el.id : null;
-  }
+  var _did = false, _waited = false;
   function defaultToTextbook(){
     if (_did) return;
+    // 관찰자(관리자 수신 전용) 입장은 자동 로드/공유 금지 — 진행 중 수업 화면을 건드리면 안 됨
+    if (window._vcObserverMode) { _did = true; return; }
     // 이미 방에 '실제 공유된' 교재/동영상이 있으면(교사가 의도적으로 튼 콘텐츠) 그대로 존중
-    if (window._vcShownPdfUrl || window._vcShownVideoUrl) { _did = true; return; }
-    var t = activeTabId();
-    if (t === 'tab-pdf') { _did = true; return; }              // 이미 교재 탭 → 그대로
+    //   _vcShownPdfKey 는 pdf-sync 수신 즉시 기록되므로 함께 확인 (로드 완료 전 레이스 방지)
+    if (window._vcShownPdfKey || window._vcShownPdfUrl || window._vcShownVideoUrl) { _did = true; return; }
+    // ★ (2026-07-20) 진행 중 수업에 합류(다른 참가자 존재)면 서버가 재전송하는 현재 공유 상태를
+    //   잠깐 기다렸다가, 그래도 없을 때만 내 배정 교재를 로드 (교사 화면을 덮어쓰지 않게)
+    if (!_waited && (window._vcJoinUserCount || 1) > 1) {
+      _waited = true;
+      setTimeout(defaultToTextbook, 1600);
+      return;
+    }
     _did = true;
     // 입장 첫 화면: 학생 배정 교재 자동 로드 → 실패 시 최소한 빈 교재 탭으로
     if (typeof window.vcAutoLoadStudentTextbook === 'function') {
@@ -27907,8 +27935,10 @@ window.vcAutoLoadStudentTextbook = async function(){
   }
   try {
     new MutationObserver(function(){
-      if (document.body.classList.contains('vc-in-call')) setTimeout(defaultToTextbook, 1200);
-      else _did = false;   // 통화 종료 → 다음 수업 위해 리셋
+      // ★ (2026-07-20) 1200→350ms — 사장님 지시 '입장하면 바로 첫 화면 = 해당 교재'.
+      //   잔존 공유 상태 하이재킹은 서버(DO) 첫 입장 정리로 해결됐으므로 길게 기다릴 이유 없음.
+      if (document.body.classList.contains('vc-in-call')) setTimeout(defaultToTextbook, 350);
+      else { _did = false; _waited = false; }   // 통화 종료 → 다음 수업 위해 리셋
     }).observe(document.body, { attributes:true, attributeFilter:['class'] });
   } catch(e){}
 })();
