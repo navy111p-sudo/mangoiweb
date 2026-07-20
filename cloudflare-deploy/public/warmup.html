@@ -288,7 +288,7 @@
     <!-- 💡 AI 동적 추가 질문: 레벨·교재·주제 맞춤 새 질문 3개 (탭하면 AI가 그 질문을 물어봄) -->
     <div class="qs-row" id="qsRow">
       <button type="button" class="qs-get" id="qsBtn" onclick="loadFollowups()">💡 새 질문 추천</button>
-      <span id="qsChips" style="display:contents"></span>
+      <span id="qsChips" style="display:flex;flex-wrap:wrap;gap:7px;min-width:0"></span>
     </div>
   </div>
 
@@ -919,6 +919,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260720224344 -->
+<!-- BUILD:20260720224856 -->
 </body>
 </html>

@@ -181,6 +181,10 @@ export async function handleMangoApi(
       if (!recAuthUid) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
       }
+      // 재생 URL 에 동봉할 원본 토큰 (authUidGlobal 과 동일한 우선순위: Bearer > ?token=)
+      const recPlayHdr = request.headers.get('Authorization') || '';
+      const recPlayTok = recPlayHdr.startsWith('Bearer ') ? recPlayHdr.slice(7).trim()
+        : String(url.searchParams.get('token') || '').trim();
       if (recAuthUid !== uid) {
         let recOwnNames: string[] = [];
         try {
@@ -219,21 +223,16 @@ export async function handleMangoApi(
           const sizeMB = r.size_bytes
             ? (r.size_bytes >= 1048576 ? (Math.round(r.size_bytes / 104857.6) / 10) + ' MB' : Math.round(r.size_bytes / 1024) + ' KB')
             : '-';
-          // 🎬 file_url 은 실제 R2 키(rec/{room}/{id}_{ts}.webm). blob endpoint 로 직접 가리킴
+          // 🎬 재생 URL — 인증 게이트가 있는 /api/recording/play?id= 로 발급 (2026-07-20).
+          //   과거엔 공개 blob 키 URL 을 그대로 줬는데, 키를 아는 누구나 재생 가능한 통로라
+          //   서명 토큰을 동봉한 play 엔드포인트로 교체(소유권은 서버가 재검증).
+          //   이 핸들러는 토큰 없으면 위에서 401 이므로 recPlayTok 은 항상 존재.
           let playUrl = '';
-          if (r.file_url) {
-            // file_url 이 http(s) URL 이면 그대로, 아니면 R2 키로 보고 blob endpoint 경유
-            if (/^https?:\/\//.test(String(r.file_url))) {
-              playUrl = String(r.file_url);
-            } else {
-              playUrl = '/api/recordings/blob/' + encodeURIComponent(String(r.file_url));
-            }
-          } else if (r.filename) {
-            // legacy fallback — file_url 없는 옛날 row
-            const blobKey = String(r.filename).startsWith('rec/') || String(r.filename).startsWith('recordings/')
-              ? r.filename
-              : ('recordings/' + r.filename);
-            playUrl = '/api/recordings/blob/' + encodeURIComponent(blobKey);
+          if (r.file_url && /^https?:\/\//.test(String(r.file_url))) {
+            playUrl = String(r.file_url);         // 외부 http(s) 녹화는 그대로
+          } else if (r.file_url || r.filename) {
+            playUrl = '/api/recording/play?id=' + r.id
+              + (recPlayTok ? '&token=' + encodeURIComponent(recPlayTok) : '');
           }
           return {
             id: r.id,

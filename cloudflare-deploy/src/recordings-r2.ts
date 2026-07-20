@@ -169,23 +169,58 @@ export async function handleRecordingUpload(
     }
 
     const row = await env.DB.prepare(
-      `SELECT file_url, status, storage, filename, participant_ids, expires_at
+      `SELECT file_url, status, storage, filename, participant_ids, participant_names,
+              teacher_id, teacher_name, expires_at
          FROM recordings WHERE id = ?`
     ).bind(id).first<{
       file_url: string | null; status: string | null; storage: string | null;
-      filename: string | null; participant_ids: string | null; expires_at: number | null;
+      filename: string | null; participant_ids: string | null; participant_names: string | null;
+      teacher_id: string | null; teacher_name: string | null; expires_at: number | null;
     }>();
-    if (!row || row.status === "deleted" || !row.file_url) return new Response("Not found", { status: 404 });
+    if (!row || row.status === "deleted") return new Response("Not found", { status: 404 });
     if (row.expires_at && row.expires_at < Date.now()) return new Response("Not found", { status: 404 });
 
-    // 학생은 본인이 참여한 녹화만 — 불일치도 404(존재 여부 오라클 방지)
+    // 학생은 본인이 참여한 녹화만 — 불일치도 404(존재 여부 오라클 방지).
+    // 판정은 목록 API(/api/student/recordings)와 동일: 녹화가 학생 '이름'으로 저장되는
+    // 관례가 있어 uid 외에 students_erp 등록 이름·데모 카드 이름·교사 본인까지 인정.
     if (!sess.ok) {
-      let participants: string[] = [];
-      try { participants = JSON.parse(row.participant_ids || "[]"); } catch { participants = []; }
-      if (!participants.map(String).includes(String(uid))) return new Response("Not found", { status: 404 });
+      const identities = new Set<string>([String(uid)]);
+      try {
+        const s: any = await env.DB.prepare(
+          `SELECT student_name, korean_name, english_name, username FROM students_erp WHERE user_id = ?`
+        ).bind(uid).first();
+        for (const v of [s?.student_name, s?.korean_name, s?.english_name, s?.username]) {
+          const t = String(v || "").trim();
+          if (t) identities.add(t);
+        }
+      } catch {}
+      // 데모 빠른 로그인 카드 표시이름 (api-mango.ts DEMO_CARD_NAMES 와 동일하게 유지)
+      const DEMO_CARD_NAMES: Record<string, string> = {
+        hong: "홍길동", kim: "김민수", lee: "이지민", park: "박서연", navy111p: "정우영", student: "데모학생",
+      };
+      if (DEMO_CARD_NAMES[String(uid)]) identities.add(DEMO_CARD_NAMES[String(uid)]);
+
+      const rowSide = new Set<string>();
+      for (const js of [row.participant_ids, row.participant_names]) {
+        try { for (const p of JSON.parse(js || "[]")) rowSide.add(String(p)); } catch {}
+      }
+      if (row.teacher_id) rowSide.add(String(row.teacher_id));
+      if (row.teacher_name) rowSide.add(String(row.teacher_name));
+
+      let owned = false;
+      for (const idn of identities) if (rowSide.has(idn)) { owned = true; break; }
+      if (!owned) return new Response("Not found", { status: 404 });
     }
 
-    const obj2 = await env.RECORDINGS.get(row.file_url, (() => {
+    // R2 키 해석 — file_url 우선, 없으면 레거시 filename 폴백(목록 API 의 옛 규칙과 동일)
+    let r2Key = String(row.file_url || "");
+    if (!r2Key && row.filename) {
+      const fn = String(row.filename);
+      r2Key = fn.startsWith("rec/") || fn.startsWith("recordings/") ? fn : "recordings/" + fn;
+    }
+    if (!r2Key || /^https?:\/\//.test(r2Key)) return new Response("Not found", { status: 404 });
+
+    const obj2 = await env.RECORDINGS.get(r2Key, (() => {
       const range = request.headers.get("Range");
       const opts: R2GetOptions = {};
       if (range) {
