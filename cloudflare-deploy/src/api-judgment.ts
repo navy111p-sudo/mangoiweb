@@ -116,7 +116,7 @@ export async function getMisconceptionTaxonomy(env: MangoEnv): Promise<TaxonomyE
 function normalizeText(s: string): string {
   return String(s || '').toLowerCase().replace(/[^a-z0-9가-힣 ]/g, '').replace(/\s+/g, ' ').trim();
 }
-async function sha256hex(s: string): Promise<string> {
+export async function sha256hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -131,6 +131,9 @@ export interface JudgmentInput {
   lang?: string;
   /** 향후 인-클래스 판단 UI 가 직접 넘기는 구조화 이벤트(있으면 전사 추출을 건너뜀). */
   judgments?: Array<any>;
+  /** 이벤트 멱등키 접두사(기본=roomId). 수업 중 청크 분석(/api/judgment/inclass)은
+   *  청크마다 고유 접두사를 넘겨야 함 — 없으면 `${roomId}:0..` 이 청크끼리 덮어씀. */
+  eventUidPrefix?: string;
 }
 
 /**
@@ -290,7 +293,7 @@ Only include real moments grounded in the transcript. Do NOT invent quotes. If t
     const now = Date.now();
     for (let i = 0; i < events.length; i++) {
       const ev = events[i] || {};
-      const eventUid = `${roomId}:${i}`;                 // 방·순번 멱등키(재생성 시 중복 방지)
+      const eventUid = `${String(input.eventUidPrefix || roomId)}:${i}`;   // 접두사·순번 멱등키(재생성 시 중복 방지, 인클래스 청크는 청크별 접두사)
       const chosen = String(ev.student_said ?? ev.chosen_option ?? '').slice(0, 500);
       const better = String(ev.better_option ?? ev.best_option ?? '').slice(0, 500);
       const reasoning = String(ev.student_reasoning ?? ev.reasoning_text ?? '').slice(0, 1000);

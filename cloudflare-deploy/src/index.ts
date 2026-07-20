@@ -1157,6 +1157,7 @@ const worker = {
         path === '/api/judgment/growth' ||
         path === '/api/judgment/scenario' ||
         path === '/api/judgment/answer' ||
+        path === '/api/judgment/inclass' ||
         // 🌐 양방향 번역 (평가 글·건의사항 영↔한)
         path === '/api/translate' ||
         // Audit-added: student recordings listing

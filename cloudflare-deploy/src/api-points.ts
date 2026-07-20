@@ -9,7 +9,7 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor } from './auth-admin';
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
-import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
+import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
 /**
  * 🎁 기프트 카탈로그 기본 상품 시드 (멱등 — 이미 있으면 건너뜀).
@@ -707,6 +707,46 @@ Return STRICT JSON only, in BOTH Korean and English:
         });
         return json(r);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+    }
+
+    // ── POST /api/judgment/inclass — 🎥 수업 중 실시간 판단 캡처(학습 액션, 사장님 승인 2026-07-21) ──
+    //   body: { room_id, uid, name?, items:[{ text, ts? }] }  — 학생 본인 공개 채팅 발화 청크.
+    //   설계 원칙(수업 절대 안 끊김): 즉시 202 응답 + ctx.waitUntil 백그라운드 분석.
+    //   수업 통신 경로(WS/DO)와 완전 분리된 별도 HTTP 경로. 실패해도 수업엔 무영향.
+    //   멱등: 청크 내용 해시를 event_uid 접두사로 사용 → 같은 청크 재전송돼도 중복 적재 없음.
+    //   킬스위치: KV 'judg:inclass:off' 존재 시 수집 중단(클라도 disabled 응답 보고 스스로 꺼짐).
+    if (method === 'POST' && path === '/api/judgment/inclass') {
+      const b: any = await request.json().catch(() => ({}));
+      const roomId = String(b.room_id || '').trim().slice(0, 120);
+      const uid = String(b.uid || '').trim().slice(0, 80);
+      const rawItems = Array.isArray(b.items) ? b.items.slice(0, 40) : [];
+      if (!roomId || !uid || !rawItems.length) return json({ ok: false, error: 'bad_request' }, 400);
+      const kvJ = (env as any).SESSION_STATE as KVNamespace | undefined;
+      try { if (kvJ && await kvJ.get('judg:inclass:off')) return json({ ok: true, disabled: true }); } catch { /* KV 불가 시 계속 */ }
+      // 발화 정제: 문자열만, 2~300자, 공백 정규화
+      const lines: string[] = [];
+      for (const it of rawItems) {
+        const t = String((it && it.text) || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+        if (t.length >= 2) lines.push(t);
+      }
+      if (!lines.length) return json({ ok: false, error: 'no_material' }, 400);
+      // 남용 가드: uid 당 시간당 40청크(레이스 허용 best-effort)
+      try {
+        if (kvJ) {
+          const rlKey = `judg:ic:rl:${uid}:${Math.floor(Date.now() / 3600_000)}`;
+          const n = parseInt((await kvJ.get(rlKey)) || '0', 10) || 0;
+          if (n >= 40) return json({ ok: false, error: 'rate_limited' }, 429);
+          await kvJ.put(rlKey, String(n + 1), { expirationTtl: 3700 });
+        }
+      } catch { /* 가드 실패는 무시(수집이 우선) */ }
+      const transcript = lines.map((l) => `Student: ${l}`).join('\n').slice(0, 6000);
+      const chunkHash = (await sha256hex(roomId + '|' + uid + '|' + transcript)).slice(0, 16);
+      const p = runJudgmentAnalysis(env, {
+        roomId, studentUid: uid, studentName: String(b.name || '').slice(0, 80) || undefined,
+        transcript, lang: 'en', eventUidPrefix: `${roomId}#ic:${chunkHash}`,
+      }).catch((e: any) => console.warn('[judgment] inclass enqueue fail:', e?.message));
+      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(p); else await p;
+      return json({ ok: true, queued: lines.length }, 202);
     }
 
     // ── GET /api/ai-feedback?room_id=  또는  ?teacher_uid=&limit= — 피드백 조회 ──
