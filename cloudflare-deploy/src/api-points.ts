@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json, today } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { checkAdminSession, getAdminActor } from './auth-admin';
+import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
 import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
@@ -225,12 +225,8 @@ export async function handlePointsApi(
       if (!userId || !ruleCode) return json({ ok: false, error: 'user_id_and_rule_required' }, 400);
       // 🔐 [무결성] 본인 계정에만 적립 — 게스트(guest*)는 통과(교환 불가), 실계정은 토큰 소유자 OR 관리자.
       //   남의 계정/무인증 셀프적립(→기프티콘) 통로 차단 (2026-07-11)
-      if (!/^guest/i.test(userId)) {
-        const ebAdmin = await checkAdminSession(request, env as any);
-        const ebAuth = await authUidGlobal(request, url, env, body);
-        if (!ebAdmin.ok && (!ebAuth || ebAuth !== userId)) {
-          return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 적립됩니다.' }, 401);
-        }
+      if ((await resolveOwnerScope(request, url, env as any, userId, body)) === 'deny') {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 적립됩니다.' }, 401);
       }
       // 🌟 실시간 수업 칭찬 포인트 — 학생 본인 브라우저가 자기 계정으로 적립하는 경로.
       //   awardId(멱등키)를 함께 넘겨, 서버-선생님적립 경로(/api/points/award-praise)와 겹쳐도 1점만 적립.
@@ -297,10 +293,8 @@ export async function handlePointsApi(
         if (!room || !peerId || !accountUid) return json({ ok: false, error: 'room_peer_account_required' }, 400);
         // 🔐 본인 계정만 로스터 등록 — 게스트(guest*) 통과, 실계정은 토큰 소유자 OR 관리자.
         //   (남의 account_uid 를 임의 방·피어에 매핑해 칭찬적립 가로채는 위조 차단, 2026-07-11)
-        if (!/^guest/i.test(accountUid)) {
-          const vrAdmin = await checkAdminSession(request, env as any);
-          const vrAuth = await authUidGlobal(request, url, env, body);
-          if (!vrAdmin.ok && (!vrAuth || vrAuth !== accountUid)) return json({ ok: false, error: 'auth_required' }, 401);
+        if ((await resolveOwnerScope(request, url, env as any, accountUid, body)) === 'deny') {
+          return json({ ok: false, error: 'auth_required' }, 401);
         }
         await env.DB.prepare(`INSERT INTO vc_roster (room_id, peer_id, account_uid, name, role, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(room_id, peer_id) DO UPDATE SET account_uid=excluded.account_uid, name=excluded.name, role=excluded.role, updated_at=excluded.updated_at`)
           .bind(room, peerId, accountUid, name || null, role, Date.now()).run();
