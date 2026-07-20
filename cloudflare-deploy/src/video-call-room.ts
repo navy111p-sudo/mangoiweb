@@ -29,6 +29,8 @@ export class VideoCallRoom {
   private pdfState: PdfShareData | null = null;
   // 🎬 동영상 공유 상태 — pdfState 와 동일하게 저장해야 늦게 입장한 학생도 영상을 받음
   private videoState: { url: string; type?: string } | null = null;
+  // 🔒 강사의 학생 가상배경 변경 잠금 — 저장해야 늦게 입장/재접속한 학생에게도 적용됨
+  private bgLock: boolean = false;
 
   constructor(state: DurableObjectState) {
     this.state = state;
@@ -37,6 +39,7 @@ export class VideoCallRoom {
     this.state.blockConcurrencyWhile(async () => {
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
       this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
+      this.bgLock = (await this.state.storage.get<boolean>('bgLock')) || false;
       const rid = await this.state.storage.get<string>('roomId');
       if (rid) this.roomId = rid;
     });
@@ -62,7 +65,7 @@ export class VideoCallRoom {
     if (url.pathname === '/status') {
       const users = this.joinedUsers();
       return new Response(
-        JSON.stringify({ roomId: this.roomId, userCount: users.length, users, pdfState: this.pdfState, videoState: this.videoState }),
+        JSON.stringify({ roomId: this.roomId, userCount: users.length, users, pdfState: this.pdfState, videoState: this.videoState, bgLock: this.bgLock }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -126,6 +129,17 @@ export class VideoCallRoom {
         case 'file-share':           // 📎 파일 공유 다운로드 카드 (워드/엑셀/PPT 등)
           if (this.isJoined(userId)) this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
+        case 'bg-lock': {            // 🔒 강사 → 학생 가상배경 변경 잠금/해제
+          // 학생이 위조 전송해도 무시 — 소켓 attachment 의 role 로만 판정
+          const senderRole = (att.role || '').toLowerCase();
+          if (!this.isJoined(userId) || (senderRole !== 'teacher' && senderRole !== 'admin')) break;
+          this.bgLock = !!((msg.data as any) && (msg.data as any).locked);
+          // 저장 — 잠금 중 재접속/늦은 입장에도 유지 (handleJoinRoom 에서 재전송)
+          if (this.bgLock) void this.state.storage.put('bgLock', true);
+          else void this.state.storage.delete('bgLock');
+          this.broadcast(userId, { type: 'bg-lock', data: { locked: this.bgLock } });
+          break;
+        }
         case 'offer':           this.handleOffer(userId, msg.data as any); break;
         case 'answer':          this.handleAnswer(userId, msg.data as any); break;
         case 'ice-candidate':   this.handleIceCandidate(userId, msg.data as any); break;
@@ -200,6 +214,11 @@ export class VideoCallRoom {
       void this.state.storage.delete('videoState');
       console.log(`[VideoChat] Stale shared media cleared on first join in room ${this.roomId}`);
     }
+    // 🔒 지난 수업의 배경 잠금도 새 수업 첫 입장 시엔 해제 상태로 시작
+    if (userCount <= 1 && this.bgLock) {
+      this.bgLock = false;
+      void this.state.storage.delete('bgLock');
+    }
 
     this.send(userId, {
       type: 'room-joined',
@@ -214,6 +233,8 @@ export class VideoCallRoom {
     if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
     // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
     if (this.videoState) this.send(userId, { type: 'video-share', data: this.videoState });
+    // 🔒 배경 잠금 중이면 늦게 입장한 학생에게도 즉시 적용
+    if (this.bgLock) this.send(userId, { type: 'bg-lock', data: { locked: true } });
 
     this.broadcastAll({
       type: 'chat-message',
@@ -239,6 +260,11 @@ export class VideoCallRoom {
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
       console.log(`[VideoChat] Shared media cleared — room ${this.roomId} is now empty`);
+    }
+    // 🔒 방이 비면 배경 잠금도 해제 — 다음 수업이 잠긴 채로 시작하지 않게
+    if (userCount === 0 && this.bgLock) {
+      this.bgLock = false;
+      void this.state.storage.delete('bgLock');
     }
 
     this.broadcastAll({ type: 'user-left', data: { userId, username, userCount, reason } }, exclude);

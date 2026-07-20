@@ -113,6 +113,20 @@
     border-radius:12px;padding:0 20px;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit}
   .inbar button:disabled{opacity:.5;cursor:not-allowed}
   .hint{padding:0 16px 10px;font-size:14px;color:var(--text2)}
+  /* 💡 AI 동적 추가 질문(Follow-up) 칩 — 탭하면 AI가 그 질문을 물어봄 */
+  .qs-row{display:flex;flex-wrap:wrap;gap:7px;align-items:center;padding:0 16px 10px}
+  .qs-get{background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.4);color:#fcd34d;
+    border-radius:999px;padding:7px 14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;
+    transition:background .15s,transform .08s}
+  .qs-get:hover{background:rgba(251,191,36,.26)}
+  .qs-get:active{transform:scale(.95)}
+  .qs-get:disabled{opacity:.55;cursor:wait}
+  .qs-chip{background:rgba(56,189,248,.12);border:1px solid var(--border);color:var(--text);
+    border-radius:14px;padding:7px 13px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;
+    max-width:100%;text-align:left;line-height:1.35;animation:msgIn .22s ease both;
+    transition:background .15s,transform .08s}
+  .qs-chip:hover{background:rgba(56,189,248,.24)}
+  .qs-chip:active{transform:scale(.97)}
   .settings{padding:10px 16px;border-top:1px dashed var(--border);font-size:12px;color:var(--text2)}
   .settings summary{cursor:pointer;font-weight:700;color:var(--accent)}
   .settings input{width:100%;margin-top:8px;background:var(--card);border:1px solid var(--border);
@@ -271,6 +285,11 @@
       <button id="sendBtn" onclick="sendMsg()">보내기</button>
     </div>
     <div class="hint">💡 🎤 를 눌러 <b>영어로 말하면</b> AI가 듣고 <b>음성으로 답</b>해줘요. 텍스트 입력도 가능합니다.</div>
+    <!-- 💡 AI 동적 추가 질문: 레벨·교재·주제 맞춤 새 질문 3개 (탭하면 AI가 그 질문을 물어봄) -->
+    <div class="qs-row" id="qsRow">
+      <button type="button" class="qs-get" id="qsBtn" onclick="loadFollowups()">💡 새 질문 추천</button>
+      <span id="qsChips" style="display:contents"></span>
+    </div>
   </div>
 
   <!-- 🚀 채팅 셸 아래(일반 문서 흐름): 아래로 스크롤하면 나오는 '다음 이동' 버튼 + 서버 설정 -->
@@ -797,6 +816,52 @@ function fanfare(){
   }catch(e){}
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   💡 AI 동적 추가 질문(Follow-up Questions)
+   서버(/api/warmup/questions)가 학생 레벨·교재·주제로 매번 새로운 질문 3개를
+   생성(같은 문장 반복 방지: 세션별 사용 질문 제외). 칩을 탭하면 AI가 그
+   질문을 음성으로 물어보고, 서버 대화 히스토리에도 기록해 문맥이 이어진다.
+   ══════════════════════════════════════════════════════════════════ */
+async function loadFollowups(){
+  var btn = document.getElementById('qsBtn'), box = document.getElementById('qsChips');
+  if(!btn || !box || btn.disabled) return;
+  btn.disabled = true; btn.textContent = '💡 질문 만드는 중…';
+  try{
+    var body = withCtx({ session_id: SESSION_ID });
+    if(LESSON_TOPIC) body.topic = LESSON_TOPIC;
+    var r = await fetch((API_BASE||'') + '/api/warmup/questions', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    var d = r.ok ? await r.json() : null;
+    box.innerHTML = '';
+    if(d && d.ok && d.questions && d.questions.length){
+      d.questions.forEach(function(q){
+        var c = document.createElement('button');
+        c.type = 'button'; c.className = 'qs-chip'; c.textContent = q;
+        c.onclick = function(){ pickFollowup(q); };
+        box.appendChild(c);
+      });
+    } else {
+      addMsg('⚠️ 지금은 새 질문을 만들 수 없어요. 잠시 후 다시 눌러주세요.', 'sys');
+    }
+  }catch(e){
+    addMsg('⚠️ 질문 추천 서버에 연결할 수 없어요.', 'sys');
+  }finally{
+    btn.disabled = false; btn.textContent = '💡 새 질문 추천';
+  }
+}
+function pickFollowup(q){
+  var box = document.getElementById('qsChips'); if(box) box.innerHTML = '';
+  addMsg(q, 'ai');                        // AI가 그 질문을 말함(자동 낭독 포함)
+  // 서버 대화 히스토리에도 AI 발화로 기록 → 다음 답변에서 문맥 유지 (실패해도 대화는 계속)
+  try{
+    fetch((API_BASE||'') + '/api/warmup/questions', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ session_id: SESSION_ID, pick: q })
+    });
+  }catch(e){}
+}
+
 /* ── 5. 전송 ────────────────────────────────────────────────────── */
 var sending = false;
 function saveApi(v){
@@ -841,7 +906,7 @@ async function sendMsg(){
   }
 }
 </script>
-<!-- BUILD:warmup3-bigtext-ratebar -->
+<!-- BUILD:warmup4-dynamic-followups -->
 <style id="mb-tidy-2026-07-10">
 /* 모바일(≤640px) 보정: 입력줄 가로 넘침 */
 .inbar input{min-width:0}
@@ -854,6 +919,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260720183940 -->
+<!-- BUILD:20260720223026 -->
 </body>
 </html>

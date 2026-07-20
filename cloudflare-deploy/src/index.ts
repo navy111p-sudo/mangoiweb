@@ -261,6 +261,11 @@ const worker = {
     if (path === '/api/warmup/context' && request.method === 'GET') {
       return handleWarmupContext(request, env);
     }
+    //   - POST /api/warmup/questions {session_id?, user_id?, textbook?, level?, topic?, difficulty?, pick?}
+    //     → 레벨·교재·주제 기반 추가 질문(Follow-up Questions) 3개 동적 생성 (반복 방지)
+    if (path === '/api/warmup/questions' && request.method === 'POST') {
+      return handleWarmupQuestions(request, env);
+    }
     // 🎮 학생게임 맞춤 출제 — GET /api/games/vocab?user_id=  → 학생 배정 교재/레벨의 문장+단어(en/ko)
     if (path === '/api/games/vocab' && request.method === 'GET') {
       return handleGamesVocab(request, env);
@@ -2764,6 +2769,8 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
         }
       } catch {}
     }
+    // 🔁 반복 방지: 직전에 했던 질문/문장을 그대로 다시 묻는 문제(한 문장 반복) 차단
+    sys += ' [중요] 이전 대화에서 이미 했던 질문이나 문장을 그대로 반복하지 마. 매번 새로운 표현과 다른 각도의 질문으로 대화를 이어가.';
     const messages = [{ role: 'system', content: sys }]
       .concat(history)
       .concat([{ role: 'user', content: studentInput }]);
@@ -2773,6 +2780,18 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     try {
       const result: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.7 });
       aiText = (result && (result.response || result.result || '')).toString().trim();
+      // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
+      if (aiText && warmupIsRepeat(aiText, history)) {
+        const retry: any = await env.AI.run(WARMUP_MODEL, {
+          messages: messages.concat([
+            { role: 'assistant', content: aiText },
+            { role: 'user', content: '(방금 질문은 이미 했던 거야. 완전히 다른 새로운 질문 하나로 다시 물어봐 줘!)' },
+          ]),
+          max_tokens: 200, temperature: 0.95,
+        });
+        const retryText = (retry && (retry.response || retry.result || '')).toString().trim();
+        if (retryText && !warmupIsRepeat(retryText, history)) aiText = retryText;
+      }
     } catch (e: any) {
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
     }
@@ -2792,6 +2811,134 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
+/* ── 🔁 웜업 반복 감지 헬퍼 — 정규화 후 직전 AI 발화들과 (거의) 같은지 판정 ── */
+function warmupNormSent(s: string): string {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9가-힣' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function warmupIsRepeat(text: string, history: any[]): boolean {
+  const t = warmupNormSent(text);
+  if (t.length < 8) return false;   // 아주 짧은 리액션("wow", "great")은 반복 허용
+  const recent = history.filter((m) => m && m.role === 'assistant').slice(-4);
+  for (const m of recent) {
+    const p = warmupNormSent(String(m.content || ''));
+    if (!p) continue;
+    if (p === t) return true;
+    if (t.length >= 20 && p.length >= 20 && (p.includes(t) || t.includes(p))) return true;
+  }
+  return false;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  🗣️ POST /api/warmup/questions — AI 동적 추가 질문(Follow-up Questions) 생성
+ *    학생 레벨·교재·주제를 반영해 자연스럽고 다양한 질문 3개를 JSON 으로 반환.
+ *    같은 문장 반복을 막기 위해 세션별 최근 생성 질문(KV)을 제외 목록으로 주입.
+ *    body: { session_id?, user_id?, textbook?, level?, lesson_no?, topic?, difficulty?(1~8), count?(1~5),
+ *            pick? }  — pick(질문 문자열)이 오면 생성 대신 그 질문을 대화 히스토리에 AI 발화로 기록만 한다
+ *    응답: { ok, questions: string[], textbook, level, topic }
+ * ════════════════════════════════════════════════════════════════════════ */
+const WARMUP_FALLBACK_QUESTIONS: Record<'low' | 'mid' | 'high', string[]> = {
+  low: ['What is your favorite color?', 'Do you like pizza or chicken?', 'What did you eat today?', 'Do you have a pet?', 'What day is it today?'],
+  mid: ['What did you do last weekend?', 'What is your favorite subject, and why?', 'If you could travel anywhere, where would you go?', 'What makes you happy these days?', 'Would you rather live in the mountains or by the sea?'],
+  high: ['What is something new you learned recently, and how did it change your thinking?', 'If you could change one rule at school, what would it be and why?', 'What do you think the world will look like in 20 years?', "Describe a moment you felt proud of yourself.", 'Would you rather be able to fly or read minds? Defend your choice!'],
+};
+async function handleWarmupQuestions(request: Request, env: Env): Promise<Response> {
+  try {
+    let body: any = {};
+    try { body = await request.json(); } catch {}
+    const sessionId = (typeof body.session_id === 'string') ? body.session_id.trim().slice(0, 200) : '';
+    const userId = (typeof body.user_id === 'string') ? body.user_id.trim().slice(0, 100) : '';
+    const reqTextbook = (typeof body.textbook === 'string') ? body.textbook.trim().slice(0, 200) : '';
+    const reqLevel = (typeof body.level === 'string') ? body.level.trim().slice(0, 100) : '';
+    const topic = (typeof body.topic === 'string') ? body.topic.trim().slice(0, 200) : '';
+    const lessonNo = Number(body.lesson_no) > 0 ? Number(body.lesson_no) : null;
+    const rawDiff = Math.floor(Number(body.difficulty));
+    const difficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    const rawCount = Math.floor(Number(body.count));
+    const count = (rawCount >= 1 && rawCount <= 5) ? rawCount : 3;
+
+    // ── pick 모드: 학생이 고른 질문을 대화 히스토리에 AI 발화로 기록 (문맥 유지) ──
+    const pick = (typeof body.pick === 'string') ? body.pick.trim().slice(0, 500) : '';
+    if (pick) {
+      if (sessionId && env.SESSION_STATE) {
+        try {
+          const hkey = 'warmup:' + sessionId;
+          let history: any[] = [];
+          try { const raw = await env.SESSION_STATE.get(hkey); if (raw) history = JSON.parse(raw); } catch {}
+          history = history.concat([{ role: 'assistant', content: pick }]).slice(-WARMUP_MAX_TURNS * 2);
+          await env.SESSION_STATE.put(hkey, JSON.stringify(history), { expirationTtl: 6 * 3600 });
+        } catch {}
+      }
+      return new Response(JSON.stringify({ ok: true, picked: pick }), { status: 200, headers: _MS_JSON });
+    }
+
+    if (!env.AI) {
+      return new Response(JSON.stringify({ ok: false, detail: 'Workers AI(AI 바인딩)를 사용할 수 없습니다.' }), { status: 502, headers: _MS_JSON });
+    }
+
+    // ── 학생 컨텍스트 (배정 교재/레벨/오늘 문장) ──
+    let lc = { textbook: reqTextbook, level: reqLevel, lesson_no: lessonNo, student_name: '', sentences: [] as string[] };
+    try { lc = await warmupLessonContext(env, { userId, textbook: reqTextbook, level: reqLevel, lessonNo }); } catch {}
+
+    // ── 반복 방지: 이 세션에서 이미 생성/사용한 질문 목록 (KV, 6시간) ──
+    const qkey = sessionId ? ('warmupq:' + sessionId) : '';
+    let recentQs: string[] = [];
+    if (qkey && env.SESSION_STATE) {
+      try { const raw = await env.SESSION_STATE.get(qkey); if (raw) recentQs = JSON.parse(raw) || []; } catch {}
+    }
+
+    // ── 프롬프트 (전문 화상영어 AI 조교 — 사장님 사양 이식) ──
+    const levelDesc = difficulty ? WARMUP_LEVELS[difficulty] : (lc.level ? `학생 레벨: ${lc.level}` : '');
+    let prompt = `당신은 전문 화상영어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
+    if (levelDesc) prompt += `- 학생 수준: ${levelDesc}\n`;
+    if (lc.textbook) prompt += `- 교재 이름: '${lc.textbook}'${lc.lesson_no ? ` (Lesson ${lc.lesson_no})` : ''}\n`;
+    if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
+    if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
+    if (recentQs.length) prompt += `- 이미 사용한 질문(절대 반복 금지): ${recentQs.slice(-12).map((q) => `"${q}"`).join(' / ')}\n`;
+    prompt += `하나의 문장만 반복되는 것을 방지하기 위해, 학생의 수준에 맞는 자연스럽고 서로 다른 유형의 추가 질문(Follow-up Questions) ${count}가지를 영어로 생성하세요. `;
+    prompt += `각 질문은 한 문장으로 짧게, 서로 다른 각도(경험 묻기, 양자택일, 상상 질문 등)로 만드세요. `;
+    prompt += `결과는 반드시 JSON 문자열 배열만 반환하세요. 예: ["...", "...", "..."]`;
+
+    let questions: string[] = [];
+    try {
+      const result: any = await env.AI.run(WARMUP_MODEL, {
+        messages: [
+          { role: 'system', content: 'You are a helpful English teaching assistant. Reply with a JSON array of strings only — no prose, no code fence.' },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 300, temperature: 0.9,
+      });
+      const text = (result && (result.response || result.result || '')).toString();
+      const m = text.match(/\[[\s\S]*\]/);
+      if (m) {
+        const arr = JSON.parse(m[0]);
+        if (Array.isArray(arr)) {
+          questions = arr
+            .map((q: any) => String((q && typeof q === 'object') ? (q.question || q.q || '') : q).trim())
+            .filter((q: string) => q.length >= 5 && q.length <= 200);
+        }
+      }
+    } catch {}
+
+    // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
+    const seen = new Set(recentQs.map(warmupNormSent));
+    questions = questions.filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+    if (!questions.length) {
+      // AI 실패/전부 중복 → 레벨대별 준비 질문에서 미사용분 채움 (화면이 비지 않게)
+      const band = difficulty >= 6 ? 'high' : difficulty >= 4 ? 'mid' : 'low';
+      questions = WARMUP_FALLBACK_QUESTIONS[band].filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
+    }
+
+    // 사용 질문 목록 갱신 (최근 30개, 6시간)
+    if (qkey && env.SESSION_STATE && questions.length) {
+      try { await env.SESSION_STATE.put(qkey, JSON.stringify(recentQs.concat(questions).slice(-30)), { expirationTtl: 6 * 3600 }); } catch {}
+    }
+
+    return new Response(JSON.stringify({ ok: true, questions, textbook: lc.textbook || '', level: lc.level || '', topic }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, detail: 'warmup_questions_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
 }
 

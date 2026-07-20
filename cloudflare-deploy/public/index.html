@@ -8201,6 +8201,8 @@
             <span style="font-size:14px;font-weight:700;color:#fbbf24">🎨 <span data-ko="가상 배경" data-en="Virtual Background">가상 배경</span></span>
             <span id="vc-bg-status" style="font-size:11.5px;color:#94a3b8" data-ko="원하는 배경을 클릭하세요" data-en="Click any background to apply">원하는 배경을 클릭하세요</span>
             <span style="margin-left:auto;font-size:11px;color:#64748b" data-ko="첫 적용 시 모델 로드(약 3MB)가 필요합니다" data-en="First use downloads ~3MB model">첫 적용 시 모델 로드(약 3MB)가 필요합니다</span>
+            <!-- 🔒 강사 전용: 학생 배경 변경 잠금 토글 (vcIsTeacherRole 일 때만 노출, vcBgLockBtnRender 가 라벨·색 관리) -->
+            <button id="vc-bg-lock-btn" type="button" onclick="vcBgLockToggle()" style="display:none;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🔒 학생 배경 변경 잠금</button>
           </div>
           <div style="flex:1;min-height:0;overflow-y:auto;padding:18px;">
             <div id="vc-bg-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">
@@ -8534,7 +8536,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
     //   예전엔 연결 끊김 상태에서 send() 하면 그냥 버림 → 교사가 튼 동영상/교재 신호가
     //   사라져 학생이 폴링/재입장 때까지 못 봤음. 시그널링(offer/ice 등)은 재연결 시
     //   어차피 새로 시작하므로 큐잉하지 않고, '내용 공유' 타입만 큐에 담아 재연결 즉시 재전송.
-    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1 };
+    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1, 'bg-lock':1 };
     let sendQueue = [];   // [{type,...}] 최대 20개 — 같은 type 은 마지막 것만 유지
     function flushQueue() {
         if (!ws || ws.readyState !== WebSocket.OPEN || !sendQueue.length) return;
@@ -11341,6 +11343,20 @@ function vcHandleMessage(msg) {
             } catch(_){ window._vcTabSyncApplying = false; }
             break;
         }
+        // 🔒 (2026-07-20) 강사의 학생 배경 변경 잠금/해제 수신 — 서버(DO)가 강사 role 검증 후 릴레이.
+        //   학생/관찰자만 적용, 강사·관리자(공동 진행 등)는 자기 버튼 상태만 동기화.
+        case 'bg-lock': {
+            try {
+                var _bgLk = !!(msg.data && msg.data.locked);
+                if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') {
+                    window.__vcBgLockOn = _bgLk;
+                    if (typeof vcBgLockBtnRender === 'function') vcBgLockBtnRender();
+                } else if (typeof vcBgLockApply === 'function') {
+                    vcBgLockApply(_bgLk);
+                }
+            } catch(_){}
+            break;
+        }
         case 'pdf-page-change':
             pdfGoToPage(msg.data.currentPage || msg.data.pageNum);
             break;
@@ -13249,6 +13265,17 @@ function vcSwitchTab(tabName, evt) {
         });
     }
     if (tabName === 'whiteboard') wbResize();
+    // 🔒 배경 탭 진입 시 잠금 UI 갱신 — 강사는 잠금 버튼 노출, 학생은 잠금 중이면
+    //   (얼굴꾸미기 그리드가 이 진입 때 늦게 생성되므로) 타일 비활성화를 재적용
+    if (tabName === 'bg') {
+        setTimeout(function(){
+            try {
+                if (typeof vcBgLockBtnRender === 'function') vcBgLockBtnRender();
+                var _staff = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+                if (!_staff && window.__vcBgLockedByTeacher && typeof vcBgLockApply === 'function') vcBgLockApply(true);
+            } catch(e){}
+        }, 0);
+    }
     // 🥭 Phase 41 — 게임 탭 진입 시 자동 시작
     if (tabName === 'game' && typeof gameInit === 'function') {
       if (!_gameState.started) gameInit();
@@ -13664,8 +13691,86 @@ function vcSwapVideoTrack(newTrack){
   }
 }
 
+// ── 🔒 학생 가상배경 변경 잠금 (2026-07-20) ─────────────────────────────
+//   강사가 배경 탭의 잠금 버튼을 누르면 DO 릴레이('bg-lock' — 서버가 소켓 role 로
+//   강사/관리자만 허용)로 모든 학생의 배경/얼굴꾸미기 변경이 잠긴다.
+//   잠금 상태는 DO storage 에 저장되어 늦게 입장·재접속한 학생에게도 적용되고,
+//   방이 비거나 새 수업 첫 입장 시 자동 해제된다.
+window.__vcBgLockOn = false;            // 강사 화면: 내가 켠 잠금 상태
+window.__vcBgLockedByTeacher = false;   // 학생 화면: 선생님이 잠갔는지
+function _vcBgLockEn(){ try { return localStorage.getItem('mango_lang') === 'en'; } catch(_) { return false; } }
+function _vcBgLockIsStaff(){ return window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'; }
+function _vcBgLockMsg(locked){
+  return locked
+    ? (_vcBgLockEn() ? '🔒 Teacher locked background changes' : '🔒 선생님이 배경화면 변경을 잠갔어요')
+    : (_vcBgLockEn() ? '🔓 Background changes are available again' : '🔓 배경화면 변경이 다시 가능해요');
+}
+
+// 강사 버튼: 노출 여부(강사/관리자만) + 라벨·색 갱신
+window.vcBgLockBtnRender = function(){
+  var btn = document.getElementById('vc-bg-lock-btn');
+  if (!btn) return;
+  var staff = _vcBgLockIsStaff() || ((typeof vcIsTeacherRole === 'function') && vcIsTeacherRole());
+  btn.style.display = staff ? 'inline-flex' : 'none';
+  if (!staff) return;
+  var on = !!window.__vcBgLockOn;
+  var ko = on ? '🔓 학생 배경 변경 잠금 해제' : '🔒 학생 배경 변경 잠금';
+  var en = on ? '🔓 Unlock student backgrounds' : '🔒 Lock student backgrounds';
+  btn.setAttribute('data-ko', ko); btn.setAttribute('data-en', en);
+  btn.textContent = _vcBgLockEn() ? en : ko;
+  btn.style.background = on ? '#dc2626' : '#16a34a';
+};
+
+// 강사: 잠금 토글 → 서버로 방송 (연결 순단 중엔 재연결 큐가 재전송)
+window.vcBgLockToggle = function(){
+  window.__vcBgLockOn = !window.__vcBgLockOn;
+  window.vcBgLockBtnRender();
+  try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'bg-lock', data: { locked: window.__vcBgLockOn } }); } catch(_){}
+  try {
+    if (typeof showToast === 'function') showToast(window.__vcBgLockOn
+      ? (_vcBgLockEn() ? '🔒 Student background changes locked' : '🔒 학생 배경 변경을 잠갔어요')
+      : (_vcBgLockEn() ? '🔓 Student background changes unlocked' : '🔓 학생 배경 변경 잠금을 해제했어요'));
+  } catch(_){}
+};
+
+// 학생: 잠금 적용/해제 — 배경·얼굴꾸미기 타일 비활성화 + 안내 문구.
+//   얼굴꾸미기 타일은 탭 첫 진입 때 늦게 생성되므로, 배경 탭 진입 시(vcSwitchTab)
+//   재적용 + vcSetFace 함수 래퍼 가드로 이중 방어한다.
+window.vcBgLockApply = function(locked){
+  locked = !!locked;
+  var changed = window.__vcBgLockedByTeacher !== locked;
+  window.__vcBgLockedByTeacher = locked;
+  document.querySelectorAll('.vc-bg-tile, .vc-fx-tile').forEach(function(b){
+    b.disabled = locked;
+    b.style.opacity = locked ? '0.4' : '';
+    b.style.cursor = locked ? 'not-allowed' : 'pointer';
+  });
+  var status = document.getElementById('vc-bg-status');
+  if (status) status.textContent = locked
+    ? (_vcBgLockEn() ? '🔒 Teacher locked background changes' : '🔒 선생님이 배경화면 변경을 잠갔어요')
+    : (_vcBgLockEn() ? 'Click any background to apply' : '원하는 배경을 클릭하세요');
+  if (changed) { try { if (typeof showToast === 'function') showToast(_vcBgLockMsg(locked)); } catch(_){} }
+  // 얼굴꾸미기 진입점(idx-x6.js 의 vcSetFace)도 1회 래핑해 잠금 가드
+  if (!window.__vcSetFaceLockWrapped && typeof window.vcSetFace === 'function') {
+    var _origSetFace = window.vcSetFace;
+    window.vcSetFace = function(){
+      if (window.__vcBgLockedByTeacher && !_vcBgLockIsStaff()) {
+        try { if (typeof showToast === 'function') showToast(_vcBgLockMsg(true)); } catch(_){}
+        return;
+      }
+      return _origSetFace.apply(this, arguments);
+    };
+    window.__vcSetFaceLockWrapped = true;
+  }
+};
+
 // --- 7) 메인 진입점 ---
 window.vcSetBackground = async function(mode){
+  // 🔒 선생님이 잠근 동안 학생은 배경 변경 불가 (타일 disabled 를 우회하는 호출도 차단)
+  if (window.__vcBgLockedByTeacher && !_vcBgLockIsStaff()) {
+    try { if (typeof showToast === 'function') showToast(_vcBgLockMsg(true)); } catch(_){}
+    return;
+  }
   // 활성 타일 표시
   document.querySelectorAll('.vc-bg-tile').forEach(t => {
     if (t.getAttribute('data-bg') === mode) {
@@ -25267,7 +25372,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260720183940 -->
+<!-- BUILD:20260720223026 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -28867,6 +28972,124 @@ window.vcAutoLoadStudentTextbook = async function(){
       location.reload();
     }
   });
+})();
+</script>
+
+<!-- ============================================================
+     🔙 수업 중 뒤로가기 가드 (2026-07-20)
+     · 문제: 수업(통화) 중 브라우저/폰 뒤로가기 → 예고 없이 수업 이탈(홈 튕김·앱 종료),
+       복귀해도 오디오가 멈춘 채로 남는 경우(WebRTC audio freeze) 발생.
+     · 해결: 수업 입장 감지(body.vc-in-call) 시 history 센티널 push →
+       popstate 가로채서 선택 모달(한/영):
+       [수업으로 복귀] = 남기 + 오디오 재점검(수신트랙 enable·재생 재개·자가치유 재사용)
+       [홈으로 나가기] = 기존 강제 종료 경로(v34→v32→vcLeaveRoom→location) 재사용
+     · 통화 중에만 개입 — 평상시 화면의 뒤로가기엔 관여하지 않음. 빼면 즉시 원복.
+     ============================================================ -->
+<script id="vc-back-guard">
+(function(){
+  'use strict';
+  var pushed = false, modalOpen = false;
+
+  function inCall(){ try { return document.body.classList.contains('vc-in-call'); } catch(e){ return false; } }
+
+  function armGuard(){
+    if (pushed) return;
+    pushed = true;
+    try { history.pushState({ vcBackGuard: 1 }, '', location.href); } catch(e){}
+    console.log('[back-guard] 수업 입장 감지 — 뒤로가기 가드 활성');
+  }
+
+  // 통화 시작/종료 감지 — SPA 경로로 통화만 끝난 경우 리셋해 다음 수업에도 작동
+  try {
+    new MutationObserver(function(){
+      if (inCall()) armGuard();
+      else if (pushed && !modalOpen) pushed = false;
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  } catch(e){}
+  if (inCall()) armGuard();   // 스크립트 로드 시점에 이미 통화 중인 경우
+
+  window.addEventListener('popstate', function(){
+    if (!inCall()) return;                                                        // 수업 중 아닐 땐 관여 안 함
+    try { history.pushState({ vcBackGuard: 1 }, '', location.href); } catch(e){}  // 상태 유지 재적용(연타 대비)
+    if (modalOpen) return;
+    showModal();
+  });
+
+  /* ── 수업 화면 복귀 + 오디오 스트림 재점검 (WebRTC audio freeze 대책) ──
+     · 내 마이크: 사용자가 켜둔 상태(vcMicOn)일 때만 enable 보장 — 음소거 존중
+     · 상대 오디오: 수신(receiver) 오디오 트랙 enable + srcObject 붙은 media 재생 재개
+       (mp4 공유영상은 src 재생이라 srcObject 필터로 자연히 제외 → 오작동 없음)
+     · 트랙이 아예 죽은(ended) 경우는 기존 자가치유(vcHealLocalMic/Video)가 replaceTrack 복구 */
+  window.vcResumeClassSession = function(){
+    console.log('[back-guard] 수업 복귀 — 오디오 스트림 재점검');
+    try {
+      if (window.vcLocalStream && (typeof vcMicOn === 'undefined' || vcMicOn === null || vcMicOn)) {
+        vcLocalStream.getAudioTracks().forEach(function(t){ t.enabled = true; });
+      }
+      Object.values(window.vcPeerConnections || {}).forEach(function(pc){
+        try {
+          pc.getReceivers().forEach(function(r){
+            if (r.track && r.track.kind === 'audio') r.track.enabled = true;
+          });
+        } catch(e){}
+      });
+      document.querySelectorAll('video, audio').forEach(function(el){
+        try {
+          if (el.srcObject && el.paused) { var p = el.play(); if (p && p.catch) p.catch(function(){}); }
+        } catch(e){}
+      });
+      try { if (typeof vcHealLocalMic === 'function') vcHealLocalMic(); } catch(e){}
+      try { if (typeof vcHealLocalVideo === 'function') vcHealLocalVideo(); } catch(e){}
+      console.log('[back-guard] ✅ 오디오 스트림 복구 점검 완료');
+    } catch (err) {
+      console.warn('[back-guard] 오디오 복구 중 오류:', err);
+    }
+  };
+
+  function exitToHome(){
+    // 기존 강제 종료 경로 재사용 (vc-review-quiz-on-end 의 reallyExit 와 동일 체인)
+    try { if (typeof window.__v34_FORCE_HOME === 'function') { window.__v34_FORCE_HOME(); return; } } catch(e){}
+    try { if (typeof window.__forceExit_v32 === 'function') { window.__forceExit_v32(); return; } } catch(e){}
+    try { if (typeof window.vcLeaveRoom === 'function') window.vcLeaveRoom(); } catch(e){}
+    try { location.replace('/?_e=' + Date.now()); } catch(e){ try { location.href = '/'; } catch(_){} }
+  }
+
+  function closeModal(){
+    modalOpen = false;
+    var m = document.getElementById('vc-back-guard-modal');
+    if (m) m.remove();
+    document.removeEventListener('keydown', onKey, true);
+  }
+  function onKey(e){
+    if (e.key === 'Escape') { e.stopPropagation(); closeModal(); window.vcResumeClassSession(); }
+  }
+
+  function showModal(){
+    modalOpen = true;
+    var en = (document.documentElement.lang === 'en');
+    var ov = document.createElement('div');
+    ov.id = 'vc-back-guard-modal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,sans-serif';
+    ov.innerHTML =
+      '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:30px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.7);color:#e6ecff">'
+      + '<div style="font-size:46px;margin-bottom:12px">🔙</div>'
+      + '<h2 style="font-size:19px;font-weight:800;color:#fbbf24;margin-bottom:8px">' + (en?'Where would you like to go?':'이동할 화면을 선택해 주세요') + '</h2>'
+      + '<p style="font-size:13px;color:#a3b3d1;line-height:1.6;margin-bottom:22px">' + (en?'The class is still in progress. Leaving will end your class screen.':'수업이 아직 진행 중이에요. 나가면 수업 화면이 종료됩니다.') + '</p>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + '<button id="vc-bg-stay" style="padding:13px;border:0;border-radius:11px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:15px;font-weight:800;cursor:pointer">' + (en?'📚 Back to class':'📚 수업으로 복귀') + '</button>'
+      + '<button id="vc-bg-home" style="padding:13px;border:1px solid rgba(148,163,184,0.4);border-radius:11px;background:rgba(255,255,255,0.06);color:#cbd5e1;font-size:15px;font-weight:800;cursor:pointer">' + (en?'🏠 Go home':'🏠 홈으로 나가기') + '</button>'
+      + '</div></div>';
+    document.body.appendChild(ov);
+    var stay = document.getElementById('vc-bg-stay');
+    var home = document.getElementById('vc-bg-home');
+    if (stay) stay.addEventListener('click', function(){ closeModal(); window.vcResumeClassSession(); });
+    if (home) home.addEventListener('click', function(){ closeModal(); exitToHome(); });
+    // 배경 클릭·Escape = 안전한 기본값(수업 복귀)
+    ov.addEventListener('click', function(e){ if (e.target === ov) { closeModal(); window.vcResumeClassSession(); } });
+    document.addEventListener('keydown', onKey, true);
+  }
+
+  console.log('[back-guard] 수업 중 뒤로가기 가드 로드 완료');
 })();
 </script>
 
