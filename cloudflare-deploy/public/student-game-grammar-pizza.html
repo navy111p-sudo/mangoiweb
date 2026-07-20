@@ -113,6 +113,17 @@
   }
   #pizza.served img.baked-photo{opacity:1;}
   #pizza.served{animation:servedPulse 1s ease; filter:none;}
+  /* 완성 피자 이름 배지 */
+  #pizza-name{
+    position:absolute; left:50%; bottom:-4%; transform:translateX(-50%) scale(0);
+    z-index:7; white-space:nowrap; pointer-events:none;
+    background:linear-gradient(180deg,#fffdf6,#ffe9b8); color:#7a3a00;
+    font-weight:900; font-size:clamp(.85em,3vw,1.1em); padding:6px 18px;
+    border-radius:20px; border:3px solid var(--mango-yellow);
+    box-shadow:0 6px 16px rgba(60,25,0,.45);
+    transition:transform .35s cubic-bezier(.2,1.5,.4,1);
+  }
+  #pizza-name.show{transform:translateX(-50%) scale(1);}
   @keyframes servedPulse{0%{transform:scale(.96);}55%{transform:scale(1.06);}100%{transform:scale(1.015);}}
   #toppings-layer{position:absolute; inset:0; pointer-events:none;}
   .top-sprite{
@@ -332,6 +343,7 @@
       <img class="sauce-base" src="/img/pizza/sauce.png" alt="">
       <div id="toppings-layer"></div>
       <img class="baked-photo" src="/img/pizza/baked.png" alt="">
+      <div id="pizza-name"></div>
     </div>
   </div>
 </div>
@@ -430,6 +442,48 @@ function toppingName(tokenIdx){
   var t = TOPPINGS[tokenIdx % TOPPINGS.length];
   return (GLANG === 'zh' ? t.zh : t.en) + ' · ' + t.ko;
 }
+
+/* ══════════ 🍕 완성 피자 메뉴 20종 (실사, /img/pizza/menu/) ══════════
+   사용한 재료와 가장 비슷한 레시피의 실사 피자가 완성품으로 나온다 */
+var PIZZA_MENU = [
+  {img:'combination',    name:'콤비네이션 피자',          ing:['pepperoni','ham','onion','greenpepper','olive','mushroom','cheese']},
+  {img:'pep-mush-cheese',name:'페퍼로니 머쉬룸 치즈 피자', ing:['pepperoni','mushroom','cheese','mozzarella']},
+  {img:'cheese',         name:'치즈 피자',                ing:['cheese','mozzarella']},
+  {img:'meat-lover',     name:'미트 러버 피자',           ing:['pepperoni','ham','bacon','beef']},
+  {img:'hawaiian',       name:'하와이안 피자',            ing:['pineapple','ham','mozzarella','cheese']},
+  {img:'vegetarian',     name:'베지테리언 피자',          ing:['olive','onion','greenpepper','cherrytomato','mushroom','basil']},
+  {img:'bulgogi',        name:'불고기 피자',              ing:['beef','onion','mushroom','greenpepper']},
+  {img:'super-supreme',  name:'슈퍼 슈프림 피자',         ing:['pepperoni','beef','ham','onion','greenpepper','mushroom','olive']},
+  {img:'potato',         name:'포테이토 피자',            ing:['bacon','onion','caramelonion']},
+  {img:'sweet-potato',   name:'고구마 피자',              ing:['bacon','onion','corn']},
+  {img:'pepperoni',      name:'페퍼로니 피자',            ing:['pepperoni','mozzarella','cheese']},
+  {img:'margherita',     name:'마르게리타 피자',          ing:['mozzarella','tomato','basil','cherrytomato']},
+  {img:'hot-chicken',    name:'핫 치킨 피자',             ing:['jalapeno','onion','beef']},
+  {img:'shrimp',         name:'쉬림프 피자',              ing:['shrimp','onion','greenpepper']},
+  {img:'diablo',         name:'디아블로 피자',            ing:['pepperoni','jalapeno','olive']},
+  {img:'garlic-shrimp',  name:'갈릭 쉬림프 피자',         ing:['shrimp','basil','onion','squid']},
+  {img:'bacon-potato',   name:'베이컨 포테이토 피자',     ing:['bacon','onion','ham']},
+  {img:'mushroom-cream', name:'머쉬룸 크림 피자',         ing:['mushroom','cheese','mozzarella','artichoke']},
+  {img:'triple-cheese',  name:'트리플 치즈 피자',         ing:['cheese','mozzarella','prosciutto']},
+  {img:'spicy-italian',  name:'스파이시 이탈리안 피자',   ing:['beef','pepperoni','jalapeno','olive','greenpepper','spinach']}
+];
+/* 이번 문장에 쓴 재료들과 겹침이 가장 큰 레시피 선택 */
+function pickMenuPizza(){
+  var used = {};
+  cur().tokens.forEach(function(_, i){ used[TOPPINGS[i % TOPPINGS.length].f] = 1; });
+  var best = null, bestScore = -1e9;
+  PIZZA_MENU.forEach(function(p, idx){
+    var hit = 0;
+    p.ing.forEach(function(k){ if(used[k]) hit++; });
+    var score = hit * 2 - (p.ing.length - hit) * 0.4 + ((sentIdx + idx) % 7) * 0.01;  // 겹침 우선 + 살짝 회전
+    if(score > bestScore){ bestScore = score; best = p; }
+  });
+  return best || PIZZA_MENU[0];
+}
+/* 완성 피자 이미지 미리받기 (게임 중 끊김 방지) */
+setTimeout(function(){
+  PIZZA_MENU.forEach(function(p){ var im = new Image(); im.src = '/img/pizza/menu/' + p.img + '.png'; });
+}, 2500);
 
 /* ══════════════════════════════════════════════════════════
    내장 교재 문장 (레벨 1~3) — 레슨 데이터 있으면 교체됨
@@ -724,6 +778,8 @@ function setupSentence(){
   $('pizza').classList.remove('served');
   var _bp = document.querySelector('#pizza img.baked-photo');
   if(_bp) _bp.style.opacity = '';
+  var _nm = $('pizza-name');
+  if(_nm) _nm.classList.remove('show');
   $('tray').innerHTML = '';
   $('mission').classList.remove('show');
   $('sentence-display').textContent = sentenceText() + (GLANG === 'zh' ? '' : '.');
@@ -848,12 +904,18 @@ function bakePizza(){
   $('status').textContent = '🔥 화덕에서 굽는 중...';
   $('pizza').classList.add('baked');
   toast('🔥 피자를 굽고 있어요!');
+  // 🍕 사용한 재료와 가장 잘 맞는 실사 메뉴 피자 선택
+  var menu = pickMenuPizza();
+  var bp = document.querySelector('#pizza img.baked-photo');
+  if(bp) bp.src = '/img/pizza/menu/' + menu.img + '.png';
   // 1.2초 굽기 → 실사 구운 피자 사진으로 크로스페이드 (인라인 스타일 병행: CSS 적용 실패 환경 대비)
   setTimeout(function(){
     $('pizza').classList.add('served');
-    var bp = document.querySelector('#pizza img.baked-photo');
     if(bp) bp.style.opacity = '1';
-    $('status').textContent = '🍕 짜잔! 노릇노릇하게 구워졌어요!';
+    var nm = $('pizza-name');
+    if(nm){ nm.textContent = '🍕 ' + menu.name + ' 완성!'; nm.classList.add('show'); }
+    $('status').textContent = '🍕 짜잔! ' + menu.name + ' 완성!';
+    toast('🍕 ' + menu.name + '!');
   }, 1200);
   setTimeout(startMission, 2600);
 }
@@ -1039,6 +1101,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720232341 -->
+<!-- BUILD:20260720234050 -->
 </body>
 </html>
