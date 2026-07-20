@@ -561,12 +561,14 @@ async function weakFromD1(env: MangoEnv, studentUid: string, limit = 3): Promise
  * D4: 학생 교재 컨텍스트 — 지금 배우는 교재명 + 대표 문장 몇 개(시나리오 관련성↑).
  *   students_erp.textbook → review_quizzes(같은 교재) 문장 추출. 없으면 {textbook:null, samples:[]}.
  */
-export async function getStudentTextbookContext(env: MangoEnv, studentUid: string, hint?: string): Promise<{ textbook: string | null; samples: string[] }> {
+export async function getStudentTextbookContext(env: MangoEnv, studentUid: string, hint?: string): Promise<{ textbook: string | null; level: string | null; samples: string[] }> {
   let textbook: string | null = null;
+  let level: string | null = null;
   try {
-    const row: any = await env.DB.prepare(`SELECT textbook FROM students_erp WHERE user_id=? AND textbook IS NOT NULL AND textbook!='' LIMIT 1`).bind(studentUid).first();
-    if (row?.textbook) textbook = String(row.textbook).trim();
-  } catch { /* textbook 컬럼 없거나 학생 미존재 → 무시 */ }
+    const row: any = await env.DB.prepare(`SELECT textbook, level FROM students_erp WHERE user_id=? LIMIT 1`).bind(studentUid).first();
+    if (row?.textbook) textbook = String(row.textbook).trim() || null;
+    if (row?.level) level = String(row.level).trim() || null;
+  } catch { /* textbook/level 컬럼 없거나 학생 미존재 → 무시 */ }
   // prod 는 students_erp.textbook 이 대체로 빈값 → 클라이언트가 넘긴 교재(localStorage 기본교재) 폴백
   if (!textbook && hint) { const h = String(hint).trim(); if (h && h.length <= 120) textbook = h; }
   const samples: string[] = [];
@@ -587,8 +589,30 @@ export async function getStudentTextbookContext(env: MangoEnv, studentUid: strin
       }
     } catch { /* review_quizzes 없거나 스키마 상이 → 교재명만 사용 */ }
   }
-  return { textbook, samples };
+  return { textbook, level, samples };
 }
+
+// 🎲 시나리오 다양화 풀 — LLM 이 매번 같은 최빈 시나리오로 수렴하는 것을 막기 위해
+//    요청(및 재시도)마다 주제·판단각도를 랜덤 주입한다. (워밍업 질문 반복금지와 동일 사상)
+const SCENARIO_THEMES = [
+  'at school talking with your teacher', 'lunch time at the school cafeteria', "a friend's birthday party",
+  'shopping at a store with your mom', 'ordering food at a restaurant', 'you lost something important',
+  'a new student joins your class', 'playing at the playground', 'visiting your grandparents',
+  "at the doctor's office", 'a school field trip', 'borrowing something from a friend',
+  'the school talent show', 'helping with chores at home', 'taking care of a pet',
+  'being quiet in the library', 'sports day at school', 'a video call with a friend from another country',
+  'the weather changed your plans', 'waiting in line for your turn', 'a small misunderstanding with a friend',
+  'your friend looks sad today', 'inviting someone to play with you', 'you made a mistake and broke something',
+];
+const SCENARIO_ANGLES = [
+  'making a polite request', 'making a suggestion', 'apologizing sincerely', 'asking for permission',
+  'inviting someone kindly', 'refusing politely', 'expressing your feelings', 'asking for help',
+  'giving a compliment', 'solving a small conflict with words', 'comforting someone', 'offering to help',
+];
+const SCENARIO_RECENT_TTL = 48 * 3600;   // 최근 출제 이력 보존 48h — 다음날 재방문에도 반복 방지
+const SCENARIO_RECENT_MAX = 15;          // 학생당 반복금지 목록 최대 문항 수
+/** 상황문 정규화(중복 판정용) — 소문자 + 영숫자 외 제거 */
+function normSituation(s: any): string { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 
 /**
  * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
@@ -612,6 +636,19 @@ export async function generatePersonalizedScenario(env: MangoEnv, studentUid: st
   const miscLabel = targetMisc ? (taxonomy.find((t) => t.code === targetMisc)?.label_en || targetMisc) : null;
   const tb = await getStudentTextbookContext(env, studentUid, textbookHint);   // D4: 교재 컨텍스트(클라 힌트 폴백)
 
+  // 🎲 다양화 컨텍스트 — 같은 문항 반복 방지의 핵심.
+  //   ① KV 최근 출제 이력(judgrecent:<uid>, 48h): 프롬프트 '반복 금지' 목록 + 생성 후 중복 검사
+  //   ② 주제(theme)·판단 각도(angle)를 시도마다 랜덤 회전 — LLM 이 최빈 시나리오(비오는 날 등)로 수렴하는 것을 차단
+  //   ③ 학생 레벨(students_erp.level) 을 문장 난이도 지시로 주입
+  const kv = (env as any).SESSION_STATE;
+  const rkey = 'judgrecent:' + studentUid;
+  let recent: { sits: string[]; themes: string[] } = { sits: [], themes: [] };
+  if (kv) {
+    try { const raw = await kv.get(rkey); if (raw) { const j = JSON.parse(raw); recent = { sits: Array.isArray(j?.sits) ? j.sits : [], themes: Array.isArray(j?.themes) ? j.themes : [] }; } } catch {}
+  }
+  const seenSits = new Set(recent.sits.map(normSituation));
+  let usedTheme: string | null = null;
+
   const ai = (env as any).AI;
   let scenario: any = null;
   if (ai) {
@@ -619,12 +656,23 @@ export async function generatePersonalizedScenario(env: MangoEnv, studentUid: st
       ? `The student is WEAK at the skill "${target.skill}"${miscLabel ? ` and tends to make this mistake: "${miscLabel}" (${targetMisc})` : ''}. Design the scenario to target exactly this weakness.`
       : `This is a new student with no weakness data yet. Design a friendly beginner decision scenario.`;
     const tbLine = tb.textbook
-      ? `The child is currently studying the textbook "${tb.textbook}". ${tb.samples.length ? `Sentences they are learning: ${tb.samples.slice(0, 6).map((s) => `"${s}"`).join(', ')}. ` : ''}Match the situation's THEME and VOCABULARY LEVEL to this textbook so it connects to their class.`
+      ? `The child is currently studying the textbook "${tb.textbook}". ${tb.samples.length ? `Sentences they are learning: ${tb.samples.slice(0, 6).map((s) => `"${s}"`).join(', ')}. ` : ''}Match the situation's VOCABULARY LEVEL to this textbook so it connects to their class.`
       : `Keep vocabulary simple and age-appropriate for a young learner.`;
-    const prompt = `You design DECISION-MAKING English practice for a Korean child. Create ONE short real-life situation and 3-4 candidate English expressions the child could say. Exactly one is clearly the best/most natural for the situation.
+    const levelLine = tb.level
+      ? `The student's English level is "${tb.level}". Match sentence length, grammar complexity, and vocabulary difficulty to exactly this level — not easier, not harder.`
+      : '';
+    // LLM 이 가끔 깨진 JSON/중복 시나리오를 반환 → 최대 4회 재시도, 시도마다 주제·각도를 새로 뽑아 변주
+    for (let attempt = 0; attempt < 4 && !scenario; attempt++) {
+      const themePool = SCENARIO_THEMES.filter((t) => !recent.themes.includes(t));
+      const theme = (themePool.length ? themePool : SCENARIO_THEMES)[Math.floor(Math.random() * (themePool.length || SCENARIO_THEMES.length))];
+      const angle = SCENARIO_ANGLES[Math.floor(Math.random() * SCENARIO_ANGLES.length)];
+      const prompt = `You design DECISION-MAKING English practice for a Korean child. Create ONE short real-life situation and 3-4 candidate English expressions the child could say. Exactly one is clearly the best/most natural for the situation.
 
 ${focus}
 ${tbLine}
+${levelLine}
+Set the situation in this specific context: "${theme}". The decision the child faces should involve: ${angle}.
+${recent.sits.length ? `NEVER repeat or paraphrase any of these situations already used with this student: ${recent.sits.slice(-10).map((s) => `"${s.slice(0, 120)}"`).join(' / ')}. Your situation must be clearly different from all of them.` : ''}
 
 Return STRICT JSON only:
 {
@@ -635,30 +683,43 @@ Return STRICT JSON only:
   "why": "<1-2 sentences: WHY the best option is best and why the others are less appropriate — this trains judgment>",
   "why_ko": "<same explanation in NATURAL, CORRECT KOREAN ONLY — use only Hangul, numbers, and basic punctuation; never insert Chinese, Hindi, or other scripts>"
 }`;
-    // LLM 이 가끔 깨진 JSON 을 반환 → 최대 3회 재시도(아이가 실패화면 보지 않게)
-    for (let attempt = 0; attempt < 3 && !scenario; attempt++) {
       try {
         const resp: any = await ai.run(JUDGE_MODEL, {
           messages: [
             { role: 'system', content: 'You design English decision-making practice. Reply in strict JSON only.' },
             { role: 'user', content: prompt },
           ],
-          max_tokens: 700,
+          max_tokens: 700, temperature: 0.9,
         });
         const j = parseFirstJson(resp);
         if (j && Array.isArray(j.options) && j.options.length >= 2) {
+          const situation = String(j.situation || '').slice(0, 500);
+          if (seenSits.has(normSituation(situation))) {
+            console.warn('[judgment] scenario duplicate of recent, retrying (attempt ' + (attempt + 1) + ')');
+            continue;
+          }
           const ci = Number.isInteger(+j.correct_index) ? Math.max(0, Math.min(j.options.length - 1, +j.correct_index)) : 0;
           scenario = {
-            situation: String(j.situation || '').slice(0, 500),
+            situation,
             skill_tag: String(j.skill_tag || target?.skill || '').slice(0, 60) || null,
             options: j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4),
             correct_index: ci,
             why: String(j.why || '').slice(0, 600),
             why_ko: cleanKo(String(j.why_ko || '')).slice(0, 600),
           };
+          usedTheme = theme;
         }
       } catch (e: any) { console.warn('[judgment] scenario LLM fail (attempt ' + (attempt + 1) + '):', e?.message); }
     }
+  }
+  // 출제 이력 갱신 — 다음 요청의 '반복 금지' 목록이 된다 (최근 15문항 / 주제 8개, 48h)
+  if (scenario && kv) {
+    try {
+      await kv.put(rkey, JSON.stringify({
+        sits: recent.sits.concat([scenario.situation]).slice(-SCENARIO_RECENT_MAX),
+        themes: usedTheme ? recent.themes.concat([usedTheme]).slice(-8) : recent.themes,
+      }), { expirationTtl: SCENARIO_RECENT_TTL });
+    } catch {}
   }
   await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null, textbook: tb.textbook });
   if (!scenario) return { ok: false, error: 'scenario_unavailable', based_on: { source, weak, textbook: tb.textbook } };
