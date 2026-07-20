@@ -520,6 +520,19 @@
   }
   .checklist-row .cl-text b { font-weight: 800; color: #fff; }
   .checklist-row .cl-text .cl-sub { color: var(--text-secondary); font-weight: 500; margin-left: 8px; }
+  /* ★ (2026-07-20 사장님) 맨 아래 '전체 동의' 행 — 일반 항목과 구분되는 강조 스타일.
+     체크하면 위 항목 전부 자동 체크 + 이 행도 체크(약속 동의). */
+  .checklist-row.cl-agree {
+    margin-top: 6px;
+    border: 1.5px dashed rgba(96,165,250,0.55);
+    background: rgba(37,99,235,0.10);
+  }
+  .checklist-row.cl-agree:hover { border-color: rgba(96,165,250,0.85); background: rgba(37,99,235,0.16); }
+  .checklist-row.cl-agree.checked { border: 1.5px solid rgba(16,185,129,0.55); background: rgba(16,185,129,0.14); }
+  .checklist-row.cl-agree .cl-text b { color: #93c5fd; }
+  .checklist-row.cl-agree.checked .cl-text b { color: #6ee7b7; }
+  html[data-theme="light"] .checklist-row.cl-agree .cl-text b { color: #1d4ed8; }
+  html[data-theme="light"] .checklist-row.cl-agree.checked .cl-text b { color: #047857; }
 
   /* ── 🔎 글자 크게 (가독성 향상) — 데스크톱 기준, 모바일은 아래 미디어쿼리가 우선 ── */
   main { max-width: 1160px; }
@@ -801,7 +814,7 @@
           <div style="font-size:15.5px;font-weight:800;color:var(--text-primary)" data-ko="🎯 수업 전 지도법 체크리스트" data-en="🎯 Pre-class teaching checklist">🎯 수업 전 지도법 체크리스트</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px" data-ko="오늘 이 학생을 어떻게 가르칠지 체크하고 입장하세요 (매일 초기화)" data-en="Check how you'll teach this student today before entering (resets daily)">오늘 이 학생을 어떻게 가르칠지 체크하고 입장하세요 (매일 초기화)</div>
         </div>
-        <span id="checklist-progress" style="font-size:12.5px;font-weight:800;padding:5px 12px;border-radius:99px;background:rgba(239,68,68,0.15);color:#fca5a5;white-space:nowrap">0 / 4</span>
+        <span id="checklist-progress" style="font-size:12.5px;font-weight:800;padding:5px 12px;border-radius:99px;background:rgba(239,68,68,0.15);color:#fca5a5;white-space:nowrap">0 / 5</span>
       </div>
       <div id="checklist-items" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
@@ -822,6 +835,13 @@
           ko:'배운 표현을 실제 상황에 적용해보게 하기', en:'Have them apply what they learned',
           koSub:'역할극·예시 문장으로 오늘 배운 표현을 직접 써보게 해요', enSub:"Use role-play or example sentences to practice today's expressions" }
       ];
+      // ★ (2026-07-20 사장님) 맨 아래 '전체 동의' 행 — 체크하면 위 항목 전부 자동 체크 + 약속 동의.
+      //   위 항목 중 하나라도 해제되면 동의도 자동 해제. 수업 입장 게이트는 이 동의까지 포함.
+      var AGREE = { id:'agree-all', icon:'🤝',
+        ko:'위의 체크리스트들 모두 동의하고 실행할 것을 약속하고 동의합니다!',
+        en:'I agree to all of the above and promise to put them into practice!',
+        koSub:'전체 동의 — 체크하면 위 항목이 모두 체크됩니다',
+        enSub:'Agree to all — checking this checks every item above' };
       function en(){ return window.getLang && window.getLang() === 'en'; }
       function todayKey(){
         var d = new Date();
@@ -833,7 +853,8 @@
       function saveState(state){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){} }
       function isAllChecked(){
         var state = loadState();
-        return CHECKLIST.every(function(item){ return !!state[item.id]; });
+        // 4개 항목 + 맨 아래 '전체 동의'까지 모두 체크되어야 수업 입장 가능
+        return CHECKLIST.every(function(item){ return !!state[item.id]; }) && !!state[AGREE.id];
       }
 
       function showToast(msg, isErr){
@@ -866,7 +887,16 @@
 
       function toggle(id){
         var state = loadState();
-        state[id] = !state[id];
+        if (id === AGREE.id){
+          // 전체 동의 켬 → 위 항목 전부 체크. 끔 → 동의만 해제(개별 체크는 유지)
+          var on = !state[AGREE.id];
+          if (on) CHECKLIST.forEach(function(item){ state[item.id] = true; });
+          state[AGREE.id] = on;
+        } else {
+          state[id] = !state[id];
+          // 항목 하나라도 해제되면 '전체 동의'도 함께 해제 (약속과 실제 체크 상태 불일치 방지)
+          if (!state[id]) state[AGREE.id] = false;
+        }
         saveState(state);
         renderChecklist();
       }
@@ -897,9 +927,27 @@
           row.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(item.id); } });
           wrap.appendChild(row);
         });
+        // ★ 맨 아래 '전체 동의' 행 (강조 스타일 .cl-agree)
+        var agreeChecked = !!state[AGREE.id];
+        if (agreeChecked) doneCount++;
+        var agreeRow = document.createElement('div');
+        agreeRow.className = 'checklist-row cl-agree' + (agreeChecked ? ' checked' : '');
+        agreeRow.setAttribute('role', 'checkbox');
+        agreeRow.setAttribute('aria-checked', agreeChecked ? 'true' : 'false');
+        agreeRow.tabIndex = 0;
+        agreeRow.innerHTML =
+          '<span class="cl-icon">' + AGREE.icon + '</span>' +
+          '<span class="cl-text"><b>' + (en() ? AGREE.en : AGREE.ko) + '</b>' +
+            '<span class="cl-sub">' + (en() ? AGREE.enSub : AGREE.koSub) + '</span>' +
+          '</span>' +
+          '<span class="cl-box">' + (agreeChecked ? '✓' : '') + '</span>';
+        agreeRow.addEventListener('click', function(){ toggle(AGREE.id); });
+        agreeRow.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(AGREE.id); } });
+        wrap.appendChild(agreeRow);
         if (progress){
-          var allDone = doneCount === CHECKLIST.length;
-          progress.textContent = doneCount + ' / ' + CHECKLIST.length;
+          var totalCount = CHECKLIST.length + 1;   // 4개 항목 + 전체 동의
+          var allDone = doneCount === totalCount;
+          progress.textContent = doneCount + ' / ' + totalCount;
           progress.style.background = allDone ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.15)';
           progress.style.color = allDone ? '#6ee7b7' : '#fca5a5';
         }
