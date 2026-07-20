@@ -2913,14 +2913,24 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
       const text = (result && (result.response || result.result || '')).toString();
       const m = text.match(/\[[\s\S]*\]/);
       if (m) {
-        const arr = JSON.parse(m[0]);
-        if (Array.isArray(arr)) {
-          questions = arr
-            .map((q: any) => String((q && typeof q === 'object') ? (q.question || q.q || '') : q).trim())
-            .filter((q: string) => q.length >= 5 && q.length <= 200);
-        }
+        try {
+          const arr = JSON.parse(m[0]);
+          if (Array.isArray(arr)) {
+            questions = arr
+              .map((q: any) => String((q && typeof q === 'object') ? (q.question || q.q || '') : q).trim())
+              .filter((q: string) => q.length >= 5 && q.length <= 200);
+          }
+        } catch {}
       }
-    } catch {}
+      // JSON 파싱 실패(홑따옴표·후행쉼표 등 모델 변주) → 따옴표 문자열만 긁어 복구
+      if (!questions.length) {
+        const qs = text.match(/"([^"\n]{5,200}\?)"/g) || [];
+        questions = qs.map((s: string) => s.slice(1, -1).trim());
+      }
+      if (!questions.length) console.error('[warmup-questions] unparsed AI output:', text.slice(0, 300));
+    } catch (e: any) {
+      console.error('[warmup-questions] AI error:', String(e?.message || e));
+    }
 
     // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
     const seen = new Set(recentQs.map(warmupNormSent));
