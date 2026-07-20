@@ -2898,6 +2898,25 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
     if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
     if (recentQs.length) prompt += `- 이미 사용한 질문(절대 반복 금지): ${recentQs.slice(-12).map((q) => `"${q}"`).join(' / ')}\n`;
+    // 🕸️ 개인화(Neo4j): 이 학생이 복습퀴즈에서 자주 틀린 문장 → 그 표현·문형을 다시 쓰게 만드는 질문 우선.
+    //    채팅(handleWarmupChat)과 동일하게 세션당 1회 조회 + KV 30분 캐시, 장애 시 조용히 생략.
+    if (userId && env.NEO4J_QUERY_URL) {
+      let weak: Array<{ text: string; wrongCount: number; inTodayTextbook: boolean }> = [];
+      const wkey = 'warmupweak:' + (sessionId || 'noses') + ':' + userId;
+      let cached = false;
+      try {
+        const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(wkey) : null;
+        if (raw != null) { weak = JSON.parse(raw); cached = true; }
+      } catch {}
+      if (!cached) {
+        try { weak = await getWeakSentences(env as any, userId, lc.textbook || '', 5); } catch { weak = []; }
+        try { if (env.SESSION_STATE) await env.SESSION_STATE.put(wkey, JSON.stringify(weak), { expirationTtl: 1800 }); } catch {}
+      }
+      if (weak.length) {
+        prompt += `- 이 학생이 자주 틀리는 표현: ${weak.slice(0, 5).map((w) => `"${w.text}"`).join(' / ')}\n`;
+        prompt += `  → 이 표현들의 단어·문형을 학생이 대답에서 자연스럽게 다시 쓰게 만드는 질문을 1~2개 포함하세요(틀렸다는 언급은 금지).\n`;
+      }
+    }
     prompt += `하나의 문장만 반복되는 것을 방지하기 위해, 학생의 수준에 맞는 자연스럽고 서로 다른 유형의 추가 질문(Follow-up Questions) ${count}가지를 영어로 생성하세요. `;
     prompt += `각 질문은 한 문장으로 짧게, 서로 다른 각도(경험 묻기, 양자택일, 상상 질문 등)로 만드세요. `;
     prompt += `결과는 반드시 JSON 문자열 배열만 반환하세요. 예: ["...", "...", "..."]`;

@@ -363,6 +363,7 @@ function addMsg(text, who){
   }
   log.appendChild(d); log.scrollTop = log.scrollHeight;
   if(who==='ai'){ speak(text); }   // AI 답변/첫 인사 자동 낭독(원어민 음성)
+  try{ idleHookOnMsg(who); }catch(e){}   // ⏱ 머뭇거림 감지 타이머 (AI 질문 후 재시작, 내 답변 시 해제)
   return d;
 }
 function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
@@ -850,6 +851,32 @@ async function loadFollowups(){
     btn.disabled = false; btn.textContent = '💡 새 질문 추천';
   }
 }
+/* ⏱ 머뭇거림 감지 — AI 질문 뒤 25초간 답이 없으면(입력·마이크 활동 없음) 새 질문 칩을
+   자동으로 제안한다. 도움이 필요한 순간 = "뭐라고 답할지 모를 때"라서 버튼을 기다리지 않는다.
+   AI 턴당 최대 1회, 입력 중·마이크 사용 중·칩이 이미 떠 있으면 방해하지 않는다. */
+var _idleTimer=null, _idleShownForTurn=false;
+function scheduleIdleSuggest(){
+  clearTimeout(_idleTimer);
+  _idleTimer=setTimeout(function(){
+    try{
+      if(sending || _recognizing || _idleShownForTurn) return;
+      var inp=document.getElementById('inp');
+      if(inp && inp.value.trim()) return;                       // 입력 중이면 방해 금지
+      var box=document.getElementById('qsChips');
+      if(box && box.children.length) return;                     // 이미 칩이 떠 있음
+      _idleShownForTurn=true;
+      addMsg('💡 지금 질문이 어려우면, 아래 새 질문 중에서 골라 대답해도 좋아요!','sys');
+      loadFollowups();
+    }catch(e){}
+  }, 25000);
+}
+function idleHookOnMsg(who){
+  if(who==='ai'){ _idleShownForTurn=false; scheduleIdleSuggest(); }
+  else if(who==='me'){ clearTimeout(_idleTimer); }
+}
+// 타이핑하는 동안은 타이머를 뒤로 미룬다(마지막 키 입력 기준 25초)
+try{ document.getElementById('inp').addEventListener('input', function(){ if(!_idleShownForTurn) scheduleIdleSuggest(); }); }catch(e){}
+
 function pickFollowup(q){
   var box = document.getElementById('qsChips'); if(box) box.innerHTML = '';
   addMsg(q, 'ai');                        // AI가 그 질문을 말함(자동 낭독 포함)
@@ -919,6 +946,6 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260720225501 -->
+<!-- BUILD:20260720230041 -->
 </body>
 </html>

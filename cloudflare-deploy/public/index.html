@@ -6309,6 +6309,133 @@
         if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
       })();
       </script>
+      <!-- 💡 강사 AI 추천 질문 FAB — 수업 중(vc-in-call) 강사에게만 노출.
+           /api/warmup/questions 로 학생 레벨·배정 교재·취약 문장 맞춤 질문 3개를 받아
+           대화가 끊겼을 때 바로 던질 수 있게 한다. 질문 탭 = 클립보드 복사(채팅에 붙여넣기용). -->
+      <script>
+      (function aiQuestionFab(){
+        function L(){ try{ return (window.getLang?window.getLang():'ko')!=='en'; }catch(e){ return true; } }
+        function isTeacher(){ try{ return (typeof vcIsTeacherRole==='function') && vcIsTeacherRole(); }catch(e){ return false; } }
+        function inCall(){ try{ return document.body.classList.contains('vc-in-call'); }catch(e){ return false; } }
+        // 방에 있는 학생 1명의 uid — 서버가 이 uid 로 배정 교재+자주 틀린 문장까지 개인화한다
+        function studentUid(){ try{ var r=window.vcPeerRoles||{}; for(var k in r){ if((r[k]||'')==='student') return k; } }catch(e){} return ''; }
+        var fab=null, panel=null, loading=false;
+        var lvl=3; try{ var s=parseInt(localStorage.getItem('mangoi_vcq_level')||'3',10); if(s>=1&&s<=8) lvl=s; }catch(e){}
+
+        function ensureStyle(){
+          if(document.getElementById('vcq-style')) return;
+          var st=document.createElement('style'); st.id='vcq-style';
+          st.textContent='#vcq-fab{position:fixed;left:14px;bottom:64px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fcd34d;border:1px solid rgba(251,191,36,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
+            +'#vcq-fab:hover{background:#f59e0b;color:#1e293b;border-color:#f59e0b}'
+            +'@media(max-width:480px){#vcq-fab .vcq-label{display:none}#vcq-fab{padding:11px;left:12px;bottom:60px}}'
+            +'#vcq-panel{position:fixed;left:14px;bottom:112px;z-index:10500;display:none;width:330px;max-width:calc(100vw - 28px);background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,.35);border-radius:18px;padding:16px;color:#e2e8f0;box-shadow:0 24px 60px -16px rgba(0,0,0,.7);font-family:"Noto Sans KR",sans-serif}'
+            +'#vcq-panel.show{display:block}'
+            +'#vcq-panel h4{margin:0 0 3px;font-size:15px;font-weight:800;color:#fcd34d}'
+            +'#vcq-panel .vcq-sub{margin:0 0 10px;font-size:11.5px;color:#94a3b8;line-height:1.45}'
+            +'.vcq-lvls{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}'
+            +'.vcq-lvls button{flex:1;min-width:30px;padding:5px 0;border-radius:8px;border:1px solid rgba(148,163,184,.3);background:#0f172a;color:#cbd5e1;font-size:12px;font-weight:800;cursor:pointer}'
+            +'.vcq-lvls button.on{background:#f59e0b;border-color:#f59e0b;color:#1e293b}'
+            +'.vcq-list{display:flex;flex-direction:column;gap:7px;margin-bottom:10px;min-height:44px}'
+            +'.vcq-q{display:block;width:100%;text-align:left;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:11px;color:#e2e8f0;font-size:13.5px;line-height:1.45;padding:9px 11px;cursor:pointer;font-family:inherit}'
+            +'.vcq-q:hover{background:rgba(251,191,36,.2)}'
+            +'.vcq-q.copied{background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.5)}'
+            +'.vcq-empty{color:#94a3b8;font-size:12.5px;text-align:center;padding:12px 0}'
+            +'.vcq-row{display:flex;gap:8px}'
+            +'.vcq-btn{flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;border:none;font-family:inherit}'
+            +'.vcq-new{background:#f59e0b;color:#1e293b}.vcq-new:hover{background:#fbbf24}.vcq-new:disabled{opacity:.55;cursor:wait}'
+            +'.vcq-close{background:rgba(148,163,184,.15);color:#cbd5e1}';
+          document.head.appendChild(st);
+        }
+
+        function ensureFab(){
+          if(fab) return fab;
+          ensureStyle();
+          fab=document.createElement('button');
+          fab.id='vcq-fab'; fab.type='button';
+          fab.innerHTML='💡 <span class="vcq-label">'+(L()?'AI 질문':'AI questions')+'</span>';
+          fab.title=(L()?'학생 맞춤 워밍업/대화 질문 추천':'AI-suggested questions for this student');
+          fab.onclick=togglePanel;
+          document.body.appendChild(fab);
+          return fab;
+        }
+
+        function ensurePanel(){
+          if(panel) return panel;
+          panel=document.createElement('div'); panel.id='vcq-panel';
+          panel.innerHTML='<h4>💡 '+(L()?'AI 추천 질문':'AI question ideas')+'</h4>'
+            +'<p class="vcq-sub">'+(L()?'학생 레벨·교재·자주 틀린 표현 기반 새 질문. 탭하면 복사돼요(채팅 붙여넣기).':'Personalized to this student. Tap to copy (paste into chat).')+'</p>'
+            +'<div class="vcq-lvls" id="vcq-lvls"></div>'
+            +'<div class="vcq-list" id="vcq-list"><div class="vcq-empty">'+(L()?'아래 「새 질문」을 눌러주세요':'Tap "New questions" below')+'</div></div>'
+            +'<div class="vcq-row">'
+              +'<button type="button" class="vcq-btn vcq-new" id="vcq-new">🔄 '+(L()?'새 질문':'New questions')+'</button>'
+              +'<button type="button" class="vcq-btn vcq-close" id="vcq-close">'+(L()?'닫기':'Close')+'</button>'
+            +'</div>';
+          document.body.appendChild(panel);
+          var lv=panel.querySelector('#vcq-lvls');
+          for(var i=1;i<=8;i++){
+            (function(n){
+              var b=document.createElement('button'); b.type='button'; b.textContent=n;
+              b.className=(n===lvl?'on':''); b.title=(L()?'대화 레벨 ':'Level ')+n;
+              b.onclick=function(){ lvl=n; try{ localStorage.setItem('mangoi_vcq_level',String(n)); }catch(e){}
+                var bs=lv.querySelectorAll('button'); for(var j=0;j<bs.length;j++) bs[j].classList.toggle('on', bs[j]===b); };
+              lv.appendChild(b);
+            })(i);
+          }
+          panel.querySelector('#vcq-new').onclick=loadQs;
+          panel.querySelector('#vcq-close').onclick=function(){ panel.classList.remove('show'); };
+          return panel;
+        }
+
+        function togglePanel(){
+          ensurePanel();
+          var show=!panel.classList.contains('show');
+          panel.classList.toggle('show', show);
+          // 처음 열 때 자동으로 1회 로드 — 강사가 버튼 두 번 누를 필요 없게
+          if(show){ var list=panel.querySelector('#vcq-list'); if(list && !list.querySelector('.vcq-q')) loadQs(); }
+        }
+
+        async function loadQs(){
+          if(loading) return;
+          ensurePanel();
+          loading=true;
+          var btn=panel.querySelector('#vcq-new'); btn.disabled=true;
+          var list=panel.querySelector('#vcq-list');
+          list.innerHTML='<div class="vcq-empty">'+(L()?'질문 만드는 중…':'Generating…')+'</div>';
+          try{
+            var body={ session_id:'vcq_'+(window.vcRoomId||'noroom'), difficulty:lvl, count:3 };
+            var su=studentUid(); if(su) body.user_id=su;
+            var r=await fetch('/api/warmup/questions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+            var d=r.ok?await r.json():null;
+            var qs=(d&&d.ok&&d.questions)||[];
+            list.innerHTML='';
+            if(!qs.length){ list.innerHTML='<div class="vcq-empty">'+(L()?'지금은 만들 수 없어요 — 다시 시도해 주세요':'Failed — please retry')+'</div>'; }
+            qs.forEach(function(q){
+              var b=document.createElement('button'); b.type='button'; b.className='vcq-q'; b.textContent=q;
+              b.onclick=function(){
+                try{ navigator.clipboard && navigator.clipboard.writeText(q); }catch(e){}
+                b.classList.add('copied'); var t=b.textContent; b.textContent='✓ '+(L()?'복사됨! ':'Copied! ')+t;
+                setTimeout(function(){ b.classList.remove('copied'); b.textContent=t; },1400);
+              };
+              list.appendChild(b);
+            });
+          }catch(e){
+            list.innerHTML='<div class="vcq-empty">'+(L()?'네트워크 오류 — 다시 시도해 주세요':'Network error — retry')+'</div>';
+          }finally{
+            loading=false; btn.disabled=false;
+          }
+        }
+
+        function refreshVisibility(){
+          ensureFab();
+          var show=isTeacher() && inCall();
+          fab.style.display=show?'inline-flex':'none';
+          if(!show && panel) panel.classList.remove('show');   // 수업 종료 → 패널도 정리
+          var lbl=fab.querySelector('.vcq-label'); if(lbl) lbl.textContent=(L()?'AI 질문':'AI questions');
+        }
+        function start(){ refreshVisibility(); setInterval(refreshVisibility,4000); }
+        if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+      })();
+      </script>
       <style>
       /* 모바일(≤480px)에서는 '화상수업 로비로 입장 | 마이크/카메라 사용' 안내문구 숨김 */
       @media (max-width:480px){ #lesson-enter-hint{display:none!important;} }
@@ -7906,6 +8033,9 @@
                 <!-- 복습퀴즈 옆: 교재도구 / 필기도구 토글 칩 (클릭 시 아래로 세로 드롭다운, 배경 투명) -->
                 <button class="mango-tool-chip" data-tool="materials" type="button" onclick="mangoToggleToolDock('materials', this)" title="교재도구 펼치기/접기" data-ko-title="교재도구 펼치기/접기" data-en-title="Show/hide textbook tools">📚 교재도구 ▾</button>
                 <button class="mango-tool-chip" data-tool="write" type="button" onclick="mangoToggleToolDock('write', this)" title="필기도구 펼치기/접기" data-ko-title="필기도구 펼치기/접기" data-en-title="Show/hide writing tools">✍️ 필기도구 ▾</button>
+                <!-- 🔒 강사 전용 수업 통제 칩: 전체 음소거 / 집중 모드 (vcClassLockChipsRender 가 노출·라벨·색 관리) -->
+                <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
+                <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
             </div>
 
             <!-- 탭 콘텐츠 -->
@@ -8536,7 +8666,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
     //   예전엔 연결 끊김 상태에서 send() 하면 그냥 버림 → 교사가 튼 동영상/교재 신호가
     //   사라져 학생이 폴링/재입장 때까지 못 봤음. 시그널링(offer/ice 등)은 재연결 시
     //   어차피 새로 시작하므로 큐잉하지 않고, '내용 공유' 타입만 큐에 담아 재연결 즉시 재전송.
-    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1, 'bg-lock':1 };
+    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1, 'bg-lock':1, 'mic-lock':1, 'focus-lock':1 };
     let sendQueue = [];   // [{type,...}] 최대 20개 — 같은 type 은 마지막 것만 유지
     function flushQueue() {
         if (!ws || ws.readyState !== WebSocket.OPEN || !sendQueue.length) return;
@@ -9033,7 +9163,8 @@ async function vcHealLocalMic() {
         }
         const newTrack = stream.getAudioTracks()[0];
         if (!newTrack) return;
-        newTrack.enabled = (typeof vcMicOn === 'undefined' || vcMicOn === null) ? true : !!vcMicOn;   // 음소거 상태 존중
+        newTrack.enabled = ((typeof vcMicOn === 'undefined' || vcMicOn === null) ? true : !!vcMicOn)
+            && !(window.__vcMicLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin');   // 음소거·전체음소거 잠금 존중
         // 죽은 트랙 정리 후 교체
         tracks.forEach(old => { try { old.stop(); } catch(_){} try { vcLocalStream.removeTrack(old); } catch(_){} });
         vcLocalStream.addTrack(newTrack);
@@ -10379,6 +10510,11 @@ async function vcJoinRoom(skipUI) {
       if (btn) try { btn.click(); } catch(e){}
     };
     window.vcMobileTabSwitch = function(name){
+      // 🎯 집중 모드 — 학생 탭 이탈 차단 (모바일 경로)
+      if (window.__vcFocusLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+        try { if (typeof showToast === 'function') showToast(localStorage.getItem('mango_lang') === 'en' ? '🎯 Focus mode — follow your teacher' : '🎯 집중 모드예요 — 선생님 화면을 따라가요'); } catch(e){}
+        return;
+      }
       if (typeof vcSwitchTab === 'function') try { vcSwitchTab(name); } catch(e){}
     };
     window.vcMobilePdfPrev = function(){
@@ -11353,6 +11489,31 @@ function vcHandleMessage(msg) {
                     if (typeof vcBgLockBtnRender === 'function') vcBgLockBtnRender();
                 } else if (typeof vcBgLockApply === 'function') {
                     vcBgLockApply(_bgLk);
+                }
+            } catch(_){}
+            break;
+        }
+        // 🎤/🎯 (2026-07-21) 전체 음소거·집중 모드 수신 — bg-lock 과 동일 구조(서버가 강사 role 검증 후 릴레이)
+        case 'mic-lock': {
+            try {
+                var _micLk = !!(msg.data && msg.data.locked);
+                if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') {
+                    window.__vcMicLockOn = _micLk;
+                    if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender();
+                } else if (typeof vcMicLockApply === 'function') {
+                    vcMicLockApply(_micLk);
+                }
+            } catch(_){}
+            break;
+        }
+        case 'focus-lock': {
+            try {
+                var _fcLk = !!(msg.data && msg.data.locked);
+                if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') {
+                    window.__vcFocusLockOn = _fcLk;
+                    if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender();
+                } else if (typeof vcFocusLockApply === 'function') {
+                    vcFocusLockApply(_fcLk);
                 }
             } catch(_){}
             break;
@@ -12987,6 +13148,11 @@ async function vcLeaveRoom() {
 
 /** 마이크 / 카메라 토글 — 진단·복구 강화 */
 async function vcToggleMic() {
+    // 🔇 선생님이 전체 음소거를 켠 동안 학생은 마이크를 다시 켤 수 없음
+    if (window.__vcMicLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+        try { if (typeof showToast === 'function') showToast(localStorage.getItem('mango_lang') === 'en' ? '🔇 Teacher muted everyone' : '🔇 선생님이 전체 음소거를 켰어요'); } catch(_){}
+        return;
+    }
     if (!vcLocalStream) {
         alert('수업 입장 후에 마이크를 사용할 수 있습니다.');
         return;
@@ -13363,6 +13529,12 @@ window.vcReviewQuizBackToClass = function(){
 //   🔧 (2026-07-15) 칠판(whiteboard)은 예외 — 다시 눌러도 접지 않음.
 //     사장님 요청: 칠판을 클릭하면 (전체 얼굴 화면으로 접히지 말고) 항상 '얼굴 + 칠판' 화면이 나오게.
 window.vcToggleContentTab = function(tabName){
+    // 🎯 집중 모드 — 선생님이 잠근 동안 학생은 탭 변경/접기 불가.
+    //   (교사 tab-sync 수신·pdf/video 공유 적용은 vcSwitchTab 직행이라 막히지 않음)
+    if (window.__vcFocusLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+        try { if (typeof showToast === 'function') showToast(localStorage.getItem('mango_lang') === 'en' ? '🎯 Focus mode — follow your teacher' : '🎯 집중 모드예요 — 선생님 화면을 따라가요'); } catch(_){}
+        return;
+    }
     // 🔧 (2026-07-16) 복습퀴즈로 들어갈 때, 지금 보고 있던 콘텐츠 탭(교재/칠판 등)을 기억한다.
     //   '← 수업으로' 복귀 시 그 콘텐츠를 얼굴과 함께 되살리기 위함. (콘텐츠가 접혀 있었으면 기억 안 함)
     if (tabName === 'review-quiz') {
@@ -25372,7 +25544,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260720225501 -->
+<!-- BUILD:20260720230041 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -29023,7 +29195,8 @@ window.vcAutoLoadStudentTextbook = async function(){
   window.vcResumeClassSession = function(){
     console.log('[back-guard] 수업 복귀 — 오디오 스트림 재점검');
     try {
-      if (window.vcLocalStream && (typeof vcMicOn === 'undefined' || vcMicOn === null || vcMicOn)) {
+      var _micLockHeld = window.__vcMicLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin';
+      if (window.vcLocalStream && !_micLockHeld && (typeof vcMicOn === 'undefined' || vcMicOn === null || vcMicOn)) {
         vcLocalStream.getAudioTracks().forEach(function(t){ t.enabled = true; });
       }
       Object.values(window.vcPeerConnections || {}).forEach(function(pc){
