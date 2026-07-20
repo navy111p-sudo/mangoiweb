@@ -3,6 +3,9 @@
 // 이유: MediaRecorder는 청크(Blob)를 계속 뱉어내는데, 한 번에 모아 올리면 브라우저 메모리 폭주 + 중간 끊김 시 전체 손실.
 //       R2 multipart upload로 청크를 그대로 흘려보내면 긴 수업(1~2시간)도 안전하게 이어붙일 수 있음.
 
+import { checkAdminSession } from './auth-admin';
+import { authUidFromRequest } from './auth-token';
+
 export interface Env {
   DB: D1Database;
   RECORDINGS: R2Bucket;          // wrangler.toml에 새 R2 바인딩 추가 필요
@@ -148,6 +151,71 @@ export async function handleRecordingUpload(
     }
     headers.set("Content-Length", String(obj.size));
     return new Response(obj.body, { status: 200, headers });
+  }
+
+  // 6) 🔐 통합 재생 — GET /api/recording/play?id={녹화 DB id}[&token=mango_token]
+  //    관리자 세션(쿠키) 또는 본인 참여 녹화(mango_token uid ∈ participant_ids)만 재생.
+  //    파일명·경로를 클라이언트가 지정하는 방식은 경로조작/IDOR 통로라 금지 — DB id 로만 조회.
+  if (path === "/api/recording/play" && method === "GET") {
+    const id = parseInt(url.searchParams.get("id") || "", 10);
+    if (!Number.isFinite(id) || id <= 0) return J({ ok: false, error: "id required" }, 400);
+
+    // 인증을 먼저 통과해야 레코드 존재 여부조차 알 수 없게 한다(열거 차단)
+    const sess = await checkAdminSession(request, env as any);
+    let uid: string | null = null;
+    if (!sess.ok) {
+      uid = await authUidFromRequest(request, url, env);
+      if (!uid) return J({ ok: false, error: "unauthorized" }, 401);
+    }
+
+    const row = await env.DB.prepare(
+      `SELECT file_url, status, storage, filename, participant_ids, expires_at
+         FROM recordings WHERE id = ?`
+    ).bind(id).first<{
+      file_url: string | null; status: string | null; storage: string | null;
+      filename: string | null; participant_ids: string | null; expires_at: number | null;
+    }>();
+    if (!row || row.status === "deleted" || !row.file_url) return new Response("Not found", { status: 404 });
+    if (row.expires_at && row.expires_at < Date.now()) return new Response("Not found", { status: 404 });
+
+    // 학생은 본인이 참여한 녹화만 — 불일치도 404(존재 여부 오라클 방지)
+    if (!sess.ok) {
+      let participants: string[] = [];
+      try { participants = JSON.parse(row.participant_ids || "[]"); } catch { participants = []; }
+      if (!participants.map(String).includes(String(uid))) return new Response("Not found", { status: 404 });
+    }
+
+    const obj2 = await env.RECORDINGS.get(row.file_url, (() => {
+      const range = request.headers.get("Range");
+      const opts: R2GetOptions = {};
+      if (range) {
+        const m = /bytes=(\d+)-(\d*)/.exec(range);
+        if (m) {
+          const start = parseInt(m[1], 10);
+          const end = m[2] ? parseInt(m[2], 10) : undefined;
+          opts.range = end !== undefined ? { offset: start, length: end - start + 1 } : { offset: start };
+        }
+      }
+      return opts;
+    })());
+    if (!obj2) return new Response("Not found", { status: 404 });
+
+    const name = String(row.filename || row.file_url);
+    const ctype = /\.mp4(\?|$)/i.test(name) ? "video/mp4" : "video/webm";
+    const headers = new Headers();
+    headers.set("Content-Type", ctype);
+    headers.set("Accept-Ranges", "bytes");
+    headers.set("Cache-Control", "private, max-age=600");
+    if (obj2.range) {
+      headers.set(
+        "Content-Range",
+        `bytes ${(obj2.range as any).offset}-${(obj2.range as any).offset + (obj2.range as any).length - 1}/${obj2.size}`
+      );
+      headers.set("Content-Length", String((obj2.range as any).length));
+      return new Response(obj2.body, { status: 206, headers });
+    }
+    headers.set("Content-Length", String(obj2.size));
+    return new Response(obj2.body, { status: 200, headers });
   }
 
   return null;

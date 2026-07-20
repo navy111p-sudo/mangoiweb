@@ -578,7 +578,8 @@ const worker = {
 
     // ── 자동녹화 R2 multipart upload + stream (auto-recording-patch) ──
     // 기존 /api/recordings/blob 보다 먼저 매칭해야 함
-    if (path.startsWith('/api/recordings/upload') || path.startsWith('/api/recordings/stream')) {
+    if (path.startsWith('/api/recordings/upload') || path.startsWith('/api/recordings/stream')
+        || path === '/api/recording/play') {   // 🔐 통합 재생(관리자 세션 OR 본인 mango_token) — recordings-r2.ts
       const res = await handleR2MultipartUpload(request, url, env as any);
       if (res) return res;
     }
