@@ -456,8 +456,8 @@ var PIZZA_MENU = [
   {img:'super-supreme',  name:'슈퍼 슈프림 피자',         ing:['pepperoni','beef','ham','onion','greenpepper','mushroom','olive']},
   {img:'potato',         name:'포테이토 피자',            ing:['bacon','onion','caramelonion']},
   {img:'sweet-potato',   name:'고구마 피자',              ing:['bacon','onion','corn']},
-  {img:'pepperoni',      name:'페퍼로니 피자',            ing:['pepperoni','mozzarella','cheese']},
-  {img:'margherita',     name:'마르게리타 피자',          ing:['mozzarella','tomato','basil','cherrytomato']},
+  {img:'pepperoni2',     name:'페퍼로니 피자',            ing:['pepperoni','mozzarella','cheese']},
+  {img:'margherita2',    name:'마르게리타 피자',          ing:['mozzarella','tomato','basil','cherrytomato']},
   {img:'hot-chicken',    name:'핫 치킨 피자',             ing:['jalapeno','onion','beef']},
   {img:'shrimp',         name:'쉬림프 피자',              ing:['shrimp','onion','greenpepper']},
   {img:'diablo',         name:'디아블로 피자',            ing:['pepperoni','jalapeno','olive']},
@@ -465,7 +465,11 @@ var PIZZA_MENU = [
   {img:'bacon-potato',   name:'베이컨 포테이토 피자',     ing:['bacon','onion','ham']},
   {img:'mushroom-cream', name:'머쉬룸 크림 피자',         ing:['mushroom','cheese','mozzarella','artichoke']},
   {img:'triple-cheese',  name:'트리플 치즈 피자',         ing:['cheese','mozzarella','prosciutto']},
-  {img:'spicy-italian',  name:'스파이시 이탈리안 피자',   ing:['beef','pepperoni','jalapeno','olive','greenpepper','spinach']}
+  {img:'spicy-italian',  name:'스파이시 이탈리안 피자',   ing:['beef','pepperoni','jalapeno','olive','greenpepper','spinach']},
+  {img:'quattro-formaggi',name:'콰트로 포르마지 피자',    ing:['cheese','mozzarella','ham']},
+  {img:'capricciosa',    name:'카프리초사 피자',          ing:['ham','mushroom','olive','artichoke']},
+  {img:'prosciutto-rucola',name:'프로슈토 에 루꼴라 피자',ing:['prosciutto','cherrytomato','basil','spinach']},
+  {img:'veggie-supreme', name:'베지 수프림 피자',         ing:['greenpepper','onion','olive','spinach','mushroom','tomato']}
 ];
 /* 이번 문장에 쓴 재료들과 겹침이 가장 큰 레시피 선택 */
 function pickMenuPizza(){
@@ -481,7 +485,7 @@ function pickMenuPizza(){
   return best || PIZZA_MENU[0];
 }
 /* 완성 피자 이미지 미리받기 (게임 중 끊김 방지) — 초해상도 webp */
-function menuImgUrl(p){ return '/img/pizza/menu/' + p.img + '.webp?v=2'; }
+function menuImgUrl(p){ return '/img/pizza/menu/' + p.img + '.webp?v=3'; }
 setTimeout(function(){
   PIZZA_MENU.forEach(function(p){ var im = new Image(); im.src = menuImgUrl(p); });
 }, 2500);
@@ -1102,6 +1106,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260721010117 -->
+<!-- BUILD:20260721010248 -->
 </body>
 </html>
