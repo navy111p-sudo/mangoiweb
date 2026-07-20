@@ -2903,6 +2903,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     prompt += `결과는 반드시 JSON 문자열 배열만 반환하세요. 예: ["...", "...", "..."]`;
 
     let questions: string[] = [];
+    let dbgRaw = ''; let dbgErr = '';
     try {
       const result: any = await env.AI.run(WARMUP_MODEL, {
         messages: [
@@ -2912,6 +2913,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
         max_tokens: 300, temperature: 0.9,
       });
       const text = (result && (result.response || result.result || '')).toString();
+      dbgRaw = text.slice(0, 400);
       const m = text.match(/\[[\s\S]*\]/);
       if (m) {
         try {
@@ -2930,7 +2932,8 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
       }
       if (!questions.length) console.error('[warmup-questions] unparsed AI output:', text.slice(0, 300));
     } catch (e: any) {
-      console.error('[warmup-questions] AI error:', String(e?.message || e));
+      dbgErr = String(e?.message || e);
+      console.error('[warmup-questions] AI error:', dbgErr);
     }
 
     // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
@@ -2947,7 +2950,9 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
       try { await env.SESSION_STATE.put(qkey, JSON.stringify(recentQs.concat(questions).slice(-30)), { expirationTtl: 6 * 3600 }); } catch {}
     }
 
-    return new Response(JSON.stringify({ ok: true, questions, textbook: lc.textbook || '', level: lc.level || '', topic }), { status: 200, headers: _MS_JSON });
+    const payload: any = { ok: true, questions, textbook: lc.textbook || '', level: lc.level || '', topic };
+    if (body.debug === true) payload._debug = { raw: dbgRaw, err: dbgErr };   // 진단용 — AI 원문/오류 확인
+    return new Response(JSON.stringify(payload), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, detail: 'warmup_questions_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
