@@ -2930,6 +2930,12 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
         const qs = text.match(/"([^"\n]{5,200}\?)"/g) || [];
         questions = qs.map((s: string) => s.slice(1, -1).trim());
       }
+      // 모델이 괄호·따옴표 없이 "Q1?,Q2?,Q3?" 로 반환하는 변주 → '?' 경계로 문장 분리
+      if (!questions.length) {
+        questions = text.split(/\r?\n|(?<=\?)\s*(?:,\s*)?/)
+          .map((s: string) => s.replace(/^[\s\-\*\d.)"']+|["']+\s*$/g, '').trim())
+          .filter((q: string) => q.length >= 5 && q.length <= 200 && /\?$/.test(q));
+      }
       if (!questions.length) console.error('[warmup-questions] unparsed AI output:', text.slice(0, 300));
     } catch (e: any) {
       dbgErr = String(e?.message || e);
