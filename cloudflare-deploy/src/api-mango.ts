@@ -1392,25 +1392,51 @@ export async function handleMangoApi(
       if (need.length && ai) {
         for (let i = 0; i < need.length; i += 20) {
           const chunk = need.slice(i, i + 20);
-          const prompt = 'Translate each Korean app-UI string into natural, concise English suitable for a button/menu/label. Keep emojis, numbers, punctuation and placeholders such as ${...}, {x}, %s unchanged. Do not add quotes or notes. Return ONLY a JSON array of strings, same length and order as the input.\nInput:\n' + JSON.stringify(chunk);
-          try {
-            const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-              messages: [
-                { role: 'system', content: 'You are a precise Korean-to-English UI translator. Output a raw JSON array of strings only.' },
-                { role: 'user', content: prompt }
-              ],
-              max_tokens: 1800,
-            });
-            let txt = typeof resp === 'string' ? resp : (resp && typeof resp.response === 'string' ? resp.response : '');
-            const mm = String(txt || '').match(/\[[\s\S]*\]/);
-            let arr: any[] = [];
-            if (mm) { try { arr = JSON.parse(mm[0]); } catch {} }
-            for (let j = 0; j < chunk.length; j++) {
-              const en = (Array.isArray(arr) && typeof arr[j] === 'string' && arr[j].trim()) ? String(arr[j]) : chunk[j];
-              map[chunk[j]] = en;
-              if (kv && en && en !== chunk[j]) { try { await kv.put('i18n:en:' + chunk[j], en, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
-            }
-          } catch { for (const c of chunk) map[c] = c; }
+          // ⚠️ llama 는 "JSON 배열로만" 지시를 자주 무시 → 번호 줄 형식이 훨씬 안정적.
+          //    (JSON 파싱 실패 시 원문을 그대로 돌려줘 자동번역이 통째로 무력화되던 버그 수정 2026-07-21)
+          const numbered = chunk.map((s, k) => (k + 1) + '. ' + s).join('\n');
+          const prompt = `Translate each numbered Korean app-UI string into natural, concise English for a button/menu/label.
+Keep emojis, numbers, punctuation and placeholders (\${...}, {x}, %s) unchanged.
+Output EXACTLY one line per item, same order, formatted as:
+1. <english>
+2. <english>
+No quotes, no notes, no blank lines, no Korean.
+
+${numbered}`;
+          let got: string[] = [];
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+                messages: [
+                  { role: 'system', content: 'You are a precise Korean-to-English UI translator. Reply with numbered lines only, never Korean.' },
+                  { role: 'user', content: prompt }
+                ],
+                max_tokens: 1800,
+              });
+              const txt = String(typeof resp === 'string' ? resp : (resp && typeof resp.response === 'string' ? resp.response : '') || '');
+              const clean = txt.replace(/```[a-zA-Z]*|```/g, '');
+              const tmp: string[] = [];
+              for (const ln of clean.split(/\r?\n/)) {
+                const lm = ln.match(/^\s*(\d{1,2})\s*[.)]\s*(.+?)\s*$/);
+                if (!lm) continue;
+                const idx = parseInt(lm[1], 10) - 1;
+                if (idx >= 0 && idx < chunk.length) tmp[idx] = lm[2].replace(/^["']|["']$/g, '');
+              }
+              // 혹시 JSON 배열로 왔으면 그것도 받아줌(이중 파서)
+              if (!tmp.filter(Boolean).length) {
+                const mm = clean.match(/\[[\s\S]*\]/);
+                if (mm) { try { const arr = JSON.parse(mm[0]); if (Array.isArray(arr)) arr.forEach((v: any, k: number) => { if (typeof v === 'string') tmp[k] = v; }); } catch { /* 무시 */ } }
+              }
+              if (tmp.filter(Boolean).length > got.filter(Boolean).length) got = tmp;
+              if (got.filter(Boolean).length >= chunk.length) break;   // 다 받았으면 재시도 불필요
+            } catch { /* 다음 시도 */ }
+          }
+          for (let j = 0; j < chunk.length; j++) {
+            let en = (typeof got[j] === 'string' && got[j].trim()) ? got[j].trim() : '';
+            if (!en || /[가-힣]/.test(en)) en = chunk[j];   // 번역 실패(빈값·한글 잔존) → 원문 유지, 캐시 안 함
+            map[chunk[j]] = en;
+            if (kv && en !== chunk[j]) { try { await kv.put('i18n:en:' + chunk[j], en, { expirationTtl: 60 * 60 * 24 * 180 }); } catch { /* 캐시 실패 무시 */ } }
+          }
         }
       } else if (need.length) { for (const c of need) map[c] = c; }
       return json({ ok: true, map });
