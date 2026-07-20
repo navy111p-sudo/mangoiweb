@@ -779,8 +779,9 @@ $('btn-ready').onclick = function(){
   });
 };
 
-/* 마우스 호버: 재료 이름 말풍선 (호버 중 유지) + 재료 이름 발음(영/중) */
-var hoverTip = null, hoverSpeakTimer = null;
+/* 마우스 호버 전용: 재료 이름 말풍선 + 재료 이름 발음(영/중)
+   ⚠ 클릭과 절대 섞이지 않음 — 클릭 직후 1.5초는 호버 발음 음소거(단어 발음 보호) */
+var hoverTip = null, hoverSpeakTimer = null, hoverMuteUntil = 0;
 function showHoverTip(el, tokenIdx){
   removeHoverTip();
   var r = el.getBoundingClientRect();
@@ -790,8 +791,9 @@ function showHoverTip(el, tokenIdx){
   hoverTip.style.left = (r.left + r.width / 2) + 'px';
   hoverTip.style.top = (r.top - 6) + 'px';
   document.body.appendChild(hoverTip);
-  // 🔊 재료 이름 발음 — 빠르게 스치는 호버는 건너뛰도록 짧은 지연
+  // 🔊 재료 이름 발음 — 빠르게 스치는 호버는 건너뛰고, 클릭 직후엔 단어 발음을 끊지 않도록 음소거
   hoverSpeakTimer = setTimeout(function(){
+    if(Date.now() < hoverMuteUntil) return;
     var t = TOPPINGS[tokenIdx % TOPPINGS.length];
     speak(GLANG === 'zh' ? t.zh : t.en);
   }, 180);
@@ -801,25 +803,26 @@ function removeHoverTip(){
   if(hoverTip){ hoverTip.remove(); hoverTip = null; }
 }
 
-/* 접시 위에 재료 이름 말풍선 (중/영 + 한국어) */
-function showIngTip(el, tokenIdx){
+/* 클릭 전용: 문장 단어 말풍선 (재료 이름 아님!) */
+function showWordTip(el, word){
   var r = el.getBoundingClientRect();
   var tip = document.createElement('div');
   tip.className = 'ing-tip';
-  tip.textContent = '🍕 ' + toppingName(tokenIdx);
+  tip.textContent = '🔊 ' + word;
   tip.style.left = (r.left + r.width / 2) + 'px';
   tip.style.top = (r.top - 6) + 'px';
   document.body.appendChild(tip);
-  setTimeout(function(){ tip.classList.add('out'); }, 1400);
-  setTimeout(function(){ tip.remove(); }, 1750);
+  setTimeout(function(){ tip.classList.add('out'); }, 1200);
+  setTimeout(function(){ tip.remove(); }, 1550);
 }
 
 function onBowlClick(el, tokenIdx){
   if(missionActive || baking || awaitingStart) return;
   var s = cur();
-  removeHoverTip();                          // 호버 말풍선과 중복 방지
-  speakWord(s.tokens[tokenIdx][0]);          // 클릭할 때마다 그 단어 발음 (zh=중국어, en=영어)
-  showIngTip(el, tokenIdx);                  // 재료 이름 (중/영 + 한국어) 말풍선
+  hoverMuteUntil = Date.now() + 1500;        // 클릭 후 잠시 호버 발음 금지 → 단어 발음이 안 끊김
+  removeHoverTip();                          // 재료 이름 말풍선·예약된 재료 발음 즉시 취소
+  speakWord(s.tokens[tokenIdx][0]);          // 클릭 = 반드시 문장 단어 발음 (zh=중국어, en=영어)
+  showWordTip(el, s.tokens[tokenIdx][0]);    // 클릭 = 단어 말풍선 (재료 이름 아님)
   if(tokenIdx === placedCount){
     el.onclick = null;
     el.remove();
@@ -1036,6 +1039,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260720171216 -->
+<!-- BUILD:20260720172320 -->
 </body>
 </html>
