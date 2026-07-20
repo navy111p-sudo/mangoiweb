@@ -565,7 +565,7 @@ function loadSentence(){
   var s=_queue[_qi++];
   G.sent={ w:s.w.slice(), ko:s.ko }; G.next=0;
   renderSentence();
-  speak(G.sent.w.join(MODE==='zh'?'':' '), 0.95, 2);   // 🔊 새 문장 자동 2회 듣기(들어야 맞추니까)
+  speakTimes(G.sent.w.join(MODE==='zh'?'':' '), 0.95, 2);   // 🔊 새 문장 자동 2회 듣기 — seq 토큰 있는 speakTimes(미션 오디오와 안 꼬임)
 }
 /* 📚 진도(레슨) 네비게이터 연결 — 로그인 학생 교재의 레슨별 문장 로드 + ◀복습/▶예습 */
 function mountLessonNav(){
@@ -929,17 +929,19 @@ function speakTimes(text, rate, times, cb){ var seq=++_spkSeq; var called=false;
 function listenOnce(cb){ var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ cb(true,'(음성인식 미지원 · 통과)'); return; } var rec; try{ rec=new SR(); }catch(_){ cb(true,'(통과)'); return; }
   rec.lang=(MODE==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
-  var done=false, best='', matched=false, _sil=null, SILENCE_MS=2400;
+  var done=false, best='', matched=false, _sil=null, _started=false, SILENCE_MS=2400;
   function finish(ok,txt){ if(done)return; done=true; if(_sil)clearTimeout(_sil); try{rec.stop();}catch(_){}; cb(ok,txt); }
   function arm(){ if(_sil)clearTimeout(_sil); _sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, SILENCE_MS); }
-  rec.onstart=function(){ arm(); };
-  rec.onresult=function(e){ if(done)return; var target=spFull();
+  rec.onstart=function(){ _started=true; arm(); };
+  rec.onresult=function(e){ if(done)return; _started=true; var target=spFull();
     for(var s=e.resultIndex;s<e.results.length;s++){ var alts=e.results[s];
       for(var i=0;i<alts.length;i++){ var tx=alts[i].transcript||''; if(tx)best=tx; if(matchSentence(tx,target)){ matched=true; best=tx; finish(true,best); return; } } }
     arm(); };
   rec.onerror=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
   rec.onend=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
-  try{ rec.start(); }catch(_){ finish(false,''); return; } }
+  try{ rec.start(); }catch(_){ finish(false,''); return; }
+  // ⏱ 무이벤트 워치독: 9초간 onstart/onresult가 전혀 없으면(마이크 권한 멈춤 등) 종료 — 말하는 중엔 절대 안 끊음
+  setTimeout(function(){ if(!_started && !done) finish(matched, best); }, 9000); }
 function matchSentence(said, target){ if(!said) return false;
   if(MODE==='zh'){ var s=said.replace(/[\s，。,.!?！？、]/g,''), t=target.replace(/[\s，。,.!?！？、]/g,'');
     if(!t) return false; var hit=0; for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; } return hit/t.length >= 0.7; }
@@ -1269,6 +1271,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260721012128 -->
+<!-- BUILD:20260721025350 -->
 </body>
 </html>

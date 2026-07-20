@@ -739,7 +739,7 @@ function loadSentence(){
   var s=G.queue[G.si++];
   G.sent = { w:s.w.slice(), ko:s.ko }; G.next=0;
   renderSentence();
-  speak(G.sent.w.join(MODE==='zh'?'':' '), 0.95, 2);   // 🔊 새 문장 자동 2회 듣기(들어야 맞추니까)
+  speakTimes(G.sent.w.join(MODE==='zh'?'':' '), 0.95, 2);   // 🔊 새 문장 자동 2회 듣기 — seq 토큰 있는 speakTimes(미션 오디오와 안 꼬임)
 }
 /* 📚 진도(레슨) 네비게이터 — 로그인 학생 교재의 레슨별 문장 로드 + ◀복습/▶예습 */
 function mountLessonNav(){
@@ -1158,11 +1158,11 @@ function listenOnce(cb){
   // 🎤 말 중간에 숨 쉬어도 안 끊기게: continuous=true + 침묵 감시. 정답이 들리면 즉시 통과,
   //    아니면 "말 끝나고 조용해질 때까지" 기다렸다가 마지막 인식으로 판정(8초 강제 종료 제거).
   rec.lang=(MODE==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
-  var done=false, best='', matched=false, _sil=null, SILENCE_MS=2400;
+  var done=false, best='', matched=false, _sil=null, _started=false, SILENCE_MS=2400;
   function finish(ok,txt){ if(done)return; done=true; if(_sil)clearTimeout(_sil); try{rec.stop();}catch(_){}; cb(ok,txt); }
   function arm(){ if(_sil)clearTimeout(_sil); _sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, SILENCE_MS); }
-  rec.onstart=function(){ arm(); };
-  rec.onresult=function(e){ if(done)return; var target=spFull();
+  rec.onstart=function(){ _started=true; arm(); };
+  rec.onresult=function(e){ if(done)return; _started=true; var target=spFull();
     for(var s=e.resultIndex;s<e.results.length;s++){ var alts=e.results[s];
       for(var i=0;i<alts.length;i++){ var tx=alts[i].transcript||''; if(tx)best=tx; if(matchSentence(tx,target)){ matched=true; best=tx; finish(true,best); return; } }
     }
@@ -1170,6 +1170,8 @@ function listenOnce(cb){
   rec.onerror=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
   rec.onend=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
   try{ rec.start(); }catch(_){ finish(false,''); return; }
+  // ⏱ 무이벤트 워치독: 9초간 onstart/onresult가 전혀 없으면(마이크 권한 멈춤 등) 종료 — 말하는 중엔 절대 안 끊음
+  setTimeout(function(){ if(!_started && !done) finish(matched, best); }, 9000);
 }
 /* 발화 vs 정답 문장 매칭(관대) — en=단어 65%↑, zh=글자 70%↑ */
 function matchSentence(said, target){
@@ -1529,6 +1531,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260721012128 -->
+<!-- BUILD:20260721025350 -->
 </body>
 </html>
