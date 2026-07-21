@@ -104,6 +104,23 @@ function applySecurityHeaders(resp: Response): Response {
   }
 }
 
+// 🏷️ HTML 전용 ETag — Cloudflare Assets 는 .js/.css 에는 ETag 를 주지만 HTML 에는 주지 않는다.
+//   그래서 index.html(약 430KB 압축)이 수업 시작마다 통째로 다시 내려가고 있었다.
+//   deploy.ps1 이 배포마다 모든 HTML 에 BUILD 스탬프를 새로 찍으므로, BUILD_STAMP 는
+//   'HTML 이 바뀌었는가'와 정확히 일치하는 검증자다 → 안전하게 304 를 줄 수 있다.
+//   반환값이 있으면 그대로 응답(304), null 이면 호출부가 정상 200 을 이어서 만든다.
+function htmlEtag304(request: Request, path: string, env: Env, headers: Headers): Response | null {
+  if (!path.endsWith('.html')) return null;
+  const stamp = env.BUILD_STAMP;
+  if (!stamp || headers.has('ETag')) return null;
+  const tag = `W/"b-${stamp}"`;
+  headers.set('ETag', tag);
+  // If-None-Match 는 콤마 목록일 수 있고 약한 검증자 접두사(W/)가 붙을 수 있다.
+  const inm = request.headers.get('If-None-Match') || '';
+  const matched = inm.split(',').some((t) => t.trim().replace(/^W\//, '') === `"b-${stamp}"`);
+  return matched ? new Response(null, { status: 304, headers }) : null;
+}
+
 const worker = {
   // 얇은 래퍼: 실제 처리는 handle()이 하고, 여기서 보안 헤더만 씌운다.
   //   this 바인딩에 의존하지 않도록 worker.handle 로 명시 참조(진입점 안정성).
@@ -1597,6 +1614,8 @@ const worker = {
       if (path.match(/\.(html|js|css)$/)) {
         const assetHeaders = new Headers(assetResp.headers);
         assetHeaders.set('Cache-Control', 'no-cache');
+        const notMod = htmlEtag304(request, path, env, assetHeaders);
+        if (notMod) return notMod;
         return new Response(assetResp.body, { status: assetResp.status, headers: assetHeaders });
       }
       return assetResp;
@@ -1622,6 +1641,8 @@ const worker = {
     //   Pragma: no-cache 도 제거 — HTTP/1.0 잔재라 ETag 재검증 경로를 방해할 수 있다.
     const headers = new Headers(resp.headers);
     headers.set('Cache-Control', 'no-cache');
+    const notMod = htmlEtag304(request, '/index.html', env, headers);
+    if (notMod) return notMod;
     return new Response(resp.body, { status: resp.status, headers });
   },
 

@@ -113,7 +113,7 @@ export class VideoCallRoom {
         case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any); break;
         case 'whiteboard-clear':this.handleWhiteboardClear(userId); break;
         case 'pdf-share':       await this.handlePdfShare(userId, msg.data as any); break;
-        case 'pdf-page-change': await this.handlePdfPageChange(userId, msg.data as any); break;
+        case 'pdf-page-change': await this.handlePdfPageChange(userId, att, msg.data as any); break;
         case 'pdf-stop-share':  await this.handlePdfStopShare(userId); break;
         case 'video-share':
         case 'video-sync':      await this.handleVideoShare(userId, msg.data as any); break;
@@ -349,8 +349,12 @@ export class VideoCallRoom {
     console.log(`[VideoChat] PDF shared in room ${this.roomId}: ${url}`);
   }
 
-  private async handlePdfPageChange(userId: string, data: any): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  // 📖 교재 페이지 이동 — 수업 전체에 방송되고 DO 에 저장되므로 '강사/관리자만'.
+  //   클라이언트 가드(화살표 키)는 우회 가능하므로 권한 판정은 소켓 attachment 의 role 로만 한다.
+  //   (handleClassLock 과 동일한 패턴)
+  private async handlePdfPageChange(userId: string, att: VcAttachment, data: any): Promise<void> {
+    const senderRole = (att.role || '').toLowerCase();
+    if (!this.isJoined(userId) || (senderRole !== 'teacher' && senderRole !== 'admin')) return;
     const pageNum = (typeof data === 'number') ? data
       : (typeof data?.pageNum === 'number' ? data.pageNum
         : (typeof data?.currentPage === 'number' ? data.currentPage : NaN));
