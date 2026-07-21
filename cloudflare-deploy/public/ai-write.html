@@ -533,14 +533,32 @@
       if (_recOn) { try { _rec.stop(); } catch(e){} return; }
       _rec = new SR();
       _rec.lang = 'en-US'; _rec.continuous = true; _rec.interimResults = false;
-      _rec.onresult = ev => {
-        let txt = '';
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-          if (ev.results[i].isFinal) txt += ev.results[i][0].transcript;
+      /* 🎤 인식 조각 합치기 — 안드로이드 크롬은 continuous 모드에서 "지금까지 말한 문장 전체"를
+         확정 결과로 여러 번 다시 보낸다(누적형). 그래서 매 결과를 textarea 에 덧붙이면
+         "I like I like to I like to eat…" 처럼 겹겹이 쌓였다.
+         → 이번 녹음의 전체 결과 목록을 겹침 제거하며 처음부터 다시 조립하고,
+           녹음 시작 시점의 textarea 내용(base) 뒤에 통째로 갈아끼운다. */
+      const mergeSpeech = (a, b) => {
+        a = (a || '').replace(/\s+/g, ' ').trim(); b = (b || '').replace(/\s+/g, ' ').trim();
+        if (!a) return b; if (!b) return a;
+        const la = a.toLowerCase().split(' '), lb = b.toLowerCase().split(' '), rb = b.split(' ');
+        let k = 0;
+        for (let n = Math.min(la.length, lb.length); n > 0; n--) {
+          if (la.slice(la.length - n).join(' ') === lb.slice(0, n).join(' ')) { k = n; break; }
         }
-        if (txt) {
+        const rest = rb.slice(k).join(' ');
+        return rest ? a + ' ' + rest : a;
+      };
+      let _base = null;                      // 이번 녹음 시작 시점의 textarea 내용
+      _rec.onresult = ev => {
+        let full = '';
+        for (let i = 0; i < ev.results.length; i++) {
+          if (ev.results[i].isFinal) full = mergeSpeech(full, ev.results[i][0].transcript);
+        }
+        if (full) {
           const ta = document.getElementById('text');
-          ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + ' ' : '') + txt.trim();
+          if (_base === null) _base = ta.value.replace(/\s+$/, '');
+          ta.value = (_base ? _base + ' ' : '') + full;
           updateCharCount();
         }
       };
@@ -1050,7 +1068,7 @@
     loadStats();
     loadLeaderboard();
   </script>
-<!-- BUILD:20260722073754 -->
+<!-- BUILD:20260722073954 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

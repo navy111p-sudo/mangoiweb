@@ -673,18 +673,40 @@ function toggleMic(){
   // 🎤 말 중간에 잠깐 숨을 쉬어도 안 끊기게 continuous=true. 브라우저의 성급한 자동종료(엔드포인팅)를
   //    끄고, 대신 "말이 끝나고 조용해지면" 우리가 직접 종료(침묵 감시 타이머)한다.
   _recog.continuous=true;
-  var finalText='';
   var _silence=null;
   var SILENCE_MS=2600;                 // 마지막 말 이후 이 시간(ms)만큼 조용하면 종료 → 문장 다 말할 시간 확보
   function _armSilence(){ if(_silence) clearTimeout(_silence); _silence=setTimeout(function(){ try{ _recog && _recog.stop(); }catch(e){} }, SILENCE_MS); }
+  /* 🎤 인식 조각 합치기 — 안드로이드 크롬은 continuous 모드에서 "지금까지 말한 문장 전체"를
+     확정 결과로 여러 번 다시 보낸다(누적형). 그래서 finalText+=t 로 이어붙이면
+     "I like I like to I like to eat…" 처럼 겹겹이 쌓였다. 겹치는 단어만큼 지우고 붙인다. */
+  function _mergeSpeech(a,b){
+    a=(a||'').replace(/\s+/g,' ').trim(); b=(b||'').replace(/\s+/g,' ').trim();
+    if(!a) return b; if(!b) return a;
+    var la=a.toLowerCase().split(' '), lb=b.toLowerCase().split(' '), rb=b.split(' '), k=0;
+    for(var n=Math.min(la.length,lb.length); n>0; n--){
+      if(la.slice(la.length-n).join(' ')===lb.slice(0,n).join(' ')){ k=n; break; }
+    }
+    var rest=rb.slice(k).join(' ');
+    return rest ? a+' '+rest : a;
+  }
+  /* 🎤 같은 단어·같은 구절(2~6단어)의 연속 반복을 한 번으로 */
+  function _tidySpeech(s){
+    s=(s||'').replace(/\s+/g,' ').trim();
+    for(var i=0;i<3;i++){
+      var prev=s;
+      s=s.replace(/(^|\s)(\S+)(?:\s+\2)+(?=\s|$)/gi,'$1$2');
+      s=s.replace(/(^|\s)((?:\S+\s+){1,5}\S+)(?:\s+\2)+(?=\s|$)/gi,'$1$2');
+      if(s===prev) break;
+    }
+    return s;
+  }
   _recog.onstart=function(){ setMicState(true); _armSilence(); };
   _recog.onresult=function(e){
-    var interim='';
-    for(var i=e.resultIndex;i<e.results.length;i++){
-      var t=e.results[i][0].transcript;
-      if(e.results[i].isFinal) finalText+=t; else interim+=t;
-    }
-    document.getElementById('inp').value=(finalText+' '+interim).trim();
+    /* 결과가 올 때마다 이번 녹음의 전체 결과 목록(0~끝)을 겹침 제거하며 처음부터 다시 조립
+       → 이어붙일 버퍼가 없어 PC(조각형)·안드로이드(누적형) 모두 반복이 생길 수 없다 */
+    var full='';
+    for(var i=0;i<e.results.length;i++) full=_mergeSpeech(full, e.results[i][0].transcript);
+    document.getElementById('inp').value=_tidySpeech(full);
     _armSilence();                     // 말할 때마다 종료 타이머 리셋 → 계속 말하면 절대 안 끊김
   };
   _recog.onerror=function(e){
@@ -959,7 +981,7 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260722073754 -->
+<!-- BUILD:20260722073954 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>
