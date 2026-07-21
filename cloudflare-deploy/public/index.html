@@ -21153,10 +21153,13 @@ window.addEventListener('DOMContentLoaded', () => {
   window.doPasskeyLogin = async function(){
     var L = (window.getLang?window.getLang():'ko')==='ko';
     var err = document.getElementById('lm-err');
-    var showErr = function(m){ if(err){ err.style.display='block'; err.textContent=m; } };
+    var showErr = function(m){ if(err){ err.style.display='block'; err.style.color='#fca5a5'; err.textContent=m; } };
+    // 진행 상태를 눈에 보이게 — "조용히 아무 일도 안 일어남" 방지 + 어디서 멈추는지 진단 가능
+    var showStep = function(m){ if(err){ err.style.display='block'; err.style.color='#93c5fd'; err.textContent=m; } };
     if (window.__pkBusy) return;  // 더블클릭 가드
     window.__pkBusy = true;
     try {
+      showStep(L?'⏳ 패스키 준비 중…':'⏳ Preparing…');
       var uid = (((document.getElementById('lm-uid')||{}).value)||'').trim();
       // 아이디를 안 쳤으면 이 기기에서 마지막으로 쓴 계정으로 자동 지정
       //   (등록된 패스키가 discoverable 이 아니면 allowCredentials 가 있어야만 브라우저가 찾음)
@@ -21175,8 +21178,10 @@ window.addEventListener('DOMContentLoaded', () => {
       // 지정할 후보도 없고(비discoverable) 아이디도 없으면 → 조용히 실패하므로 미리 안내
       else if (!uid) { showErr(L?'💡 학생 ID를 입력한 뒤 눌러주세요.':'💡 Enter your Student ID first.'); return; }
       // ② 기기 생체인증(얼굴/지문) 세리머니 — 이전 pending 요청은 자동 중단
+      showStep(L?'⏳ 기기 인증창 대기 중… (지문/얼굴/PIN 창이 떠야 해요)':'⏳ Waiting for device prompt…');
       var cred = await navigator.credentials.get({ publicKey: pub, signal: pkNewAbortSignal() });
       if (!cred) { showErr(L?'❌ 인증이 취소됐어요.':'❌ Cancelled.'); return; }
+      showStep(L?'⏳ 서명 확인 중…':'⏳ Verifying…');
       // ③ 서명 검증 → 로그인 토큰
       var payload = { credential: { id: cred.id, response: {
         clientDataJSON: pkB2s(cred.response.clientDataJSON),
@@ -21194,8 +21199,10 @@ window.addEventListener('DOMContentLoaded', () => {
       setTimeout(function(){ location.reload(); }, 800);
     } catch(e) {
       if (e && e.name === 'AbortError') { /* 새 시도가 이전 요청을 중단한 것 — 조용히 무시 */ }
-      else if (e && e.name === 'NotAllowedError') showErr(L?'❌ 인증이 취소됐어요. 다시 시도해주세요.':'❌ Cancelled. Please try again.');
-      else showErr('❌ ' + (e.message || e));
+      else if (e && e.name === 'NotAllowedError') showErr(L?'❌ 인증이 취소됐거나 시간이 초과됐어요. 다시 시도해주세요. (NotAllowed)':'❌ Cancelled or timed out. (NotAllowed)');
+      else if (e && e.name === 'NotSupportedError') showErr(L?'❌ 이 브라우저는 패스키를 지원하지 않아요. 크롬/엣지 최신 버전을 사용해주세요.':'❌ Passkeys not supported in this browser.');
+      else if (e && e.name === 'SecurityError') showErr('❌ 보안 오류(SecurityError) — 주소가 test.mangoi.co.kr 인지 확인해주세요.');
+      else showErr('❌ [' + ((e && e.name) || 'Error') + '] ' + ((e && e.message) || e));
     } finally { window.__pkBusy = false; }
   };
 
@@ -26028,7 +26035,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260721220039 -->
+<!-- BUILD:20260721221024 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
