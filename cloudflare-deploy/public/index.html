@@ -3584,6 +3584,76 @@
 <!-- 가로(landscape) 상단 정리: 수업중·녹화를 EN 옆으로 (추가형 / 빼면 즉시 원복) -->
 <link rel="stylesheet" href="/css/mango-landscape-topbar.css?v=1">
 </head>
+<!-- ⚡ (2026-07-21) 가벼운 모드 — 저사양 PC 대응 (교사 피드백 "PC에 비해 사이트가 무겁다")
+     기능은 하나도 빼지 않고 '장식'만 끈다: 애니메이션·블러·그림자.
+     화상수업 로직(WebRTC·시그널링)은 일절 건드리지 않음 — CSS + 클래스 토글뿐. -->
+<style id="lite-mode-css">
+  html.lite-mode *, html.lite-mode *::before, html.lite-mode *::after{
+    animation: none !important;
+    transition: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  /* 순수 장식 요소(떠다니는 빛덩어리·반짝임·글로우)는 통째로 숨김 — GPU 부담의 주범 */
+  html.lite-mode .blob,
+  html.lite-mode [class*="particle"],
+  html.lite-mode [class*="sparkle"],
+  html.lite-mode [class*="confetti"]{ display: none !important; }
+  /* blur 계열 필터 제거 */
+  html.lite-mode .blob,
+  html.lite-mode [class*="glow"],
+  html.lite-mode [style*="blur("]{ filter: none !important; }
+  /* 무거운 그라디언트 배경 → 단색 (가독성 유지) */
+  html.lite-mode .lite-flat{ background-image: none !important; }
+  #vc-btn-lite.on{ background: rgba(251,191,36,.22) !important; color: #fbbf24 !important; }
+</style>
+<script>
+  /* 첫 페인트 전에 적용해야 깜빡임이 없음 → head 직후에서 실행 */
+  (function(){
+    try{
+      var saved = localStorage.getItem('mangoi_lite_mode');
+      var on;
+      if (saved === '1') on = true;
+      else if (saved === '0') on = false;
+      else {
+        // 저장값이 없으면 기기 성능으로 자동 판단 (CPU 코어 ≤4 또는 RAM ≤4GB → 자동 ON)
+        var cores = navigator.hardwareConcurrency || 8;
+        var mem = navigator.deviceMemory || 8;
+        on = (cores <= 4 || mem <= 4);
+      }
+      if (on) document.documentElement.classList.add('lite-mode');
+      window.__liteAuto = (saved === null);
+    }catch(e){}
+  })();
+
+  /* 토글 — 교사가 직접 켜고 끌 수 있음. 선택은 이 기기에 저장(다음 수업에도 유지). */
+  window.vcToggleLite = function(){
+    var on = !document.documentElement.classList.contains('lite-mode');
+    document.documentElement.classList.toggle('lite-mode', on);
+    try{ localStorage.setItem('mangoi_lite_mode', on ? '1' : '0'); }catch(e){}
+    window.__liteSyncBtn && window.__liteSyncBtn();
+    try{
+      var en = (localStorage.getItem('mangoi_lang') === 'en');
+      var msg = on ? (en ? '⚡ Lite mode ON — effects off for a smoother class'
+                         : '⚡ 가벼운 모드 켜짐 — 화면 효과를 꺼 부드럽게 합니다')
+                   : (en ? '✨ Lite mode OFF — effects restored'
+                         : '✨ 가벼운 모드 꺼짐 — 화면 효과를 다시 켭니다');
+      if (typeof showToast === 'function') showToast(msg);
+    }catch(e){}
+  };
+  window.__liteSyncBtn = function(){
+    try{
+      var b = document.getElementById('vc-btn-lite');
+      if (!b) return;
+      var on = document.documentElement.classList.contains('lite-mode');
+      b.classList.toggle('on', on);
+      b.textContent = on ? '⚡' : '✨';
+    }catch(e){}
+  };
+  document.addEventListener('DOMContentLoaded', function(){ window.__liteSyncBtn(); });
+</script>
 <body>
 <!-- ============================================================
      수업 종료 → 복습퀴즈 안내 모달 (학생 전용)
@@ -7989,6 +8059,11 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span class="lang-label-sync">EN</span>
             </button>
+            <!-- ⚡ 가벼운 모드 — 저사양 PC에서 화면 효과를 꺼 부드럽게 (기능은 그대로) -->
+            <button class="ctrl-btn" id="vc-btn-lite" onclick="vcToggleLite()"
+                    title="가벼운 모드 — 저사양 PC에서 화면 효과를 끄고 부드럽게"
+                    data-ko="가벼운 모드" data-en="Lite mode"
+                    style="background:rgba(148,163,184,0.1);color:#94a3b8;font-size:0.75rem;width:auto;padding:0 10px;">⚡</button>
             <!-- 🥭 (2026-07-14) 상단 ✕ 나가기(#vc-exit-btn-v34) 삭제 — 하단 독(vc-dock)의 '나가기'와 중복이라 제거(사장님 지시). 참조하는 v32~v35 스크립트는 모두 null 가드가 있어 안전. -->
 
         </div>
@@ -25861,7 +25936,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260721200718 -->
+<!-- BUILD:20260721201457 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
