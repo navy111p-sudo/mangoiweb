@@ -350,10 +350,11 @@
   #toast.good{border-color:var(--good);color:#bbf7d0}
 
   /* ===================== 오버레이 / Speaking Mission ===================== */
-  .overlay{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
-    background:rgba(4,9,22,.9);backdrop-filter:blur(5px)}
+  /* 카드가 화면보다 길면 스크롤(짧으면 margin:auto로 중앙) — 잘림 방지 */
+  .overlay{position:absolute;inset:0;z-index:40;display:none;align-items:flex-start;justify-content:center;
+    background:rgba(4,9,22,.9);backdrop-filter:blur(5px);padding:16px;overflow-y:auto}
   .overlay.show{display:flex}
-  .card{width:min(93%,420px);background:linear-gradient(180deg,#16233f,#0d1730);border:1px solid var(--line);
+  .card{width:min(93%,420px);margin:auto 0;background:linear-gradient(180deg,#16233f,#0d1730);border:1px solid var(--line);
     border-radius:18px;padding:22px 20px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.6)}
   .card h2{font-size:21px;font-weight:900;margin-bottom:8px}
   .card h2 .em{color:var(--gold)}
@@ -1990,6 +1991,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260722073410 -->
+<!-- BUILD:20260722073754 -->
 </body>
 </html>

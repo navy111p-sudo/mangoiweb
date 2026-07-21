@@ -134,10 +134,11 @@
   #toast.bad{border-color:var(--bad);color:#fecaca} #toast.good{border-color:var(--good);color:#bbf7d0}
 
   /* ===== 결과 오버레이 ===== */
-  .overlay{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
-    background:rgba(4,9,22,.9);backdrop-filter:blur(5px);padding:16px}
+  /* 카드가 화면보다 길면 스크롤(짧으면 margin:auto로 중앙) — 잘림 방지 */
+  .overlay{position:absolute;inset:0;z-index:40;display:none;align-items:flex-start;justify-content:center;
+    background:rgba(4,9,22,.9);backdrop-filter:blur(5px);padding:16px;overflow-y:auto}
   .overlay.show{display:flex}
-  .card{width:min(93%,430px);background:linear-gradient(180deg,#16233f,#0d1730);border:1px solid var(--line);
+  .card{width:min(93%,430px);margin:auto 0;background:linear-gradient(180deg,#16233f,#0d1730);border:1px solid var(--line);
     border-radius:18px;padding:24px 20px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.6)}
   .card h2{font-size:22px;font-weight:900;margin-bottom:6px}
   .big{font-size:44px;font-weight:900;color:var(--gold);margin:6px 0}
@@ -879,6 +880,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260722073410 -->
+<!-- BUILD:20260722073754 -->
 </body>
 </html>

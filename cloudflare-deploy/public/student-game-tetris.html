@@ -154,10 +154,11 @@
   #wordpop.on{ opacity:1; }
 
   /* 🎤 말하기 연습 팝업 */
-  #speakpop{ position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center; padding:18px;
-    background:rgba(6,10,26,.88); }
+  /* 카드가 화면보다 길면 스크롤(짧으면 margin:auto로 중앙) — 잘림 방지 */
+  #speakpop{ position:fixed; inset:0; z-index:120; display:none; align-items:flex-start; justify-content:center; padding:18px;
+    background:rgba(6,10,26,.88); overflow-y:auto; }
   #speakpop.on{ display:flex; }
-  .sp-card{ width:min(94vw,460px); background:linear-gradient(180deg,#182241,#0e1530); border:1.5px solid rgba(125,211,252,.3);
+  .sp-card{ width:min(94vw,460px); margin:auto 0; background:linear-gradient(180deg,#182241,#0e1530); border:1.5px solid rgba(125,211,252,.3);
     border-radius:22px; padding:22px 20px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.6); }
   .sp-phase{ font-size:15px; color:#7dd3fc; font-weight:800; letter-spacing:1px; }
   .sp-sentence{ font-size:clamp(24px,7vw,36px); font-weight:900; margin:12px 0 6px; color:#fff; }
@@ -1284,6 +1285,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260722073410 -->
+<!-- BUILD:20260722073754 -->
 </body>
 </html>

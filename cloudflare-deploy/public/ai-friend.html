@@ -568,19 +568,36 @@
       b.classList.toggle('recording', _recognizing);
       b.textContent = _recognizing ? '⏹' : '🎤';
     }
-    /* 🎤 인식 조각을 이어 붙일 때 공백을 보장한다.
-       그냥 += 하면 "I" + "I like" 가 "II like" 로 붙어버린다(실제로 화면에 그렇게 나왔다). */
-    function joinSpeech(a, b) {
-      a = (a || '').trim(); b = (b || '').trim();
+    /* 🎤 인식 조각 합치기 — 안드로이드 크롬은 continuous 모드에서 "지금까지 말한 문장 전체"를
+       확정 결과로 여러 번 다시 보낸다(누적형). PC 크롬은 새로 말한 조각만 보낸다(조각형).
+       그래서 그냥 이어붙이면 안드로이드에서 "I like I like to I like to eat…" 처럼 겹겹이 쌓인다.
+       앞 문장의 꼬리와 새 조각의 머리가 겹치면(단어 단위) 겹친 만큼 지우고 붙인다:
+         merge("I like to", "I like to eat") = "I like to eat"   ← 누적형: 통째로 교체됨
+         merge("I like",    "to eat")        = "I like to eat"   ← 조각형: 그대로 연결 */
+    function mergeSpeech(a, b) {
+      a = (a || '').replace(/\s+/g, ' ').trim();
+      b = (b || '').replace(/\s+/g, ' ').trim();
       if (!a) return b;
       if (!b) return a;
-      return a + ' ' + b;
+      const la = a.toLowerCase().split(' '), lb = b.toLowerCase().split(' '), rb = b.split(' ');
+      let k = 0;
+      for (let n = Math.min(la.length, lb.length); n > 0; n--) {
+        if (la.slice(la.length - n).join(' ') === lb.slice(0, n).join(' ')) { k = n; break; }
+      }
+      const rest = rb.slice(k).join(' ');
+      return rest ? a + ' ' + rest : a;
     }
-    /* 🎤 인식 결과 다듬기 — 공백 정리 + 바로 이어진 같은 단어를 한 번으로.
-       interim(중간) 과 final(확정) 결과가 겹치면 "I I like like that" 처럼 나오는 일이 잦다. */
+    /* 🎤 인식 결과 다듬기 — 공백 정리 + 같은 단어("I I like like")뿐 아니라
+       같은 구절("my dog likes my dog likes", 2~6단어)의 연속 반복도 한 번으로. */
     function tidySpeech(s) {
       s = (s || '').replace(/\s+/g, ' ').trim();
-      return s.replace(/\b(\w+)(\s+\1\b)+/gi, '$1');
+      for (let i = 0; i < 3; i++) {
+        const prev = s;
+        s = s.replace(/(^|\s)(\S+)(?:\s+\2)+(?=\s|$)/gi, '$1$2');
+        s = s.replace(/(^|\s)((?:\S+\s+){1,5}\S+)(?:\s+\2)+(?=\s|$)/gi, '$1$2');
+        if (s === prev) break;
+      }
+      return s;
     }
     function initRecog() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -589,26 +606,23 @@
       // 🎤 말 중간에 숨 쉬어도 안 끊기게: continuous=true + interim 결과로 "침묵 감시 타이머" 운용.
       //    브라우저의 성급한 자동종료를 끄고, 말이 끝나고 조용해지면 우리가 직접 종료한다.
       r.lang = 'en-US'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;
-      let _finalTxt = '', _silence = null;
+      let _silence = null;
       const SILENCE_MS = 2600;                 // 마지막 말 이후 이 시간(ms) 조용하면 종료 → 문장 다 말할 시간 확보
       const armSilence = () => { if (_silence) clearTimeout(_silence); _silence = setTimeout(() => { try { r.stop(); } catch(e){} }, SILENCE_MS); };
-      /* 🎤 (2026-07-22) 새 녹음을 시작할 때마다 반드시 비운다 — 인식 오류의 진짜 원인.
-         _finalTxt 는 initRecog 클로저에 한 번만 선언되는데 _recog 객체는 마이크를 누를 때마다
-         재사용된다. 예전엔 여기서 초기화하지 않아 이전에 말한 문장이 계속 앞에 쌓였다:
-           1번째 "I like that" → 2번째 "I like thatI like doll" → 3번째 "...I like though" …
-         그래서 (a) 방금 말한 dog 이 옛 단어에 묻혀 엉뚱하게 보이고,
-              (b) AI 에게는 그 긴 문자열이 전달돼 "문장을 너무 많이 말한다"는 답이 반복됐다. */
-      r.__reset = () => { _finalTxt = ''; };
-      r.onstart = () => { _finalTxt = ''; armSilence(); };
+      /* 🎤 (2026-07-22 2차) 확정 결과를 버퍼(_finalTxt)에 이어붙이는 방식을 폐기.
+         안드로이드 크롬은 continuous 모드에서 "지금까지 말한 문장 전체"를 확정 결과로
+         여러 번 다시 보내서, 이어붙이면 누적본이 겹겹이 쌓였다:
+           "I like" + "I like to" + "I like to eat" → "I like I like to I like to eat…"
+         이제 결과가 올 때마다 브라우저가 들고 있는 이번 녹음의 전체 결과 목록(0~끝)을
+         mergeSpeech(겹침 제거)로 처음부터 다시 조립한다. 이어붙일 버퍼 자체가 없으므로
+         한 녹음 안의 반복도, 이전 녹음이 넘어오는 일도 원천적으로 불가능하다. */
+      r.onstart = () => { armSilence(); };
       r.onresult = (ev) => {
         try {
-          let interim = '';
-          for (let i = ev.resultIndex; i < ev.results.length; i++) {
-            const t = ev.results[i][0].transcript;
-            if (ev.results[i].isFinal) _finalTxt = joinSpeech(_finalTxt, t); else interim = joinSpeech(interim, t);
-          }
+          let full = '';
+          for (let i = 0; i < ev.results.length; i++) full = mergeSpeech(full, ev.results[i][0].transcript);
           const input = document.getElementById('msgInput');
-          if (input) input.value = tidySpeech(joinSpeech(_finalTxt, interim));
+          if (input) input.value = tidySpeech(full);
           armSilence();                        // 말할 때마다 종료 타이머 리셋 → 계속 말하면 안 끊김
         } catch(e){}
       };
@@ -618,12 +632,10 @@
         const input = document.getElementById('msgInput');
         const said = tidySpeech(input ? input.value : '');
         if (input) input.value = said;
-        _finalTxt = '';                        // 다음 녹음에 절대 안 넘어가게 (onstart 와 이중 안전장치)
         if (said) { _pendingVoice = true; sendMsg(); }   // 인식 끝나면 자동 전송
       };
       r.onerror = () => {
         if (_silence) clearTimeout(_silence);
-        _finalTxt = '';                        // 오류로 끊겨도 잔재를 남기지 않음
         _recognizing = false; updateMicUI();
       };
       return r;
@@ -636,11 +648,10 @@
       }
       if (_recognizing) { try { _recog.stop(); } catch(e){} return; }
       try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}   // 내 음성이 TTS를 녹음하지 않게
-      /* 시작 전에 입력창과 누적 버퍼를 모두 비운다 — onstart 가 안 오는 브라우저 대비 */
+      /* 시작 전에 입력창을 비운다 — 이전 내용이 새 녹음에 섞이지 않게 */
       try {
         const input = document.getElementById('msgInput');
         if (input) input.value = '';
-        if (_recog.__reset) _recog.__reset();
       } catch(e){}
       try { _recog.start(); _recognizing = true; updateMicUI(); } catch(e){ _recognizing = false; updateMicUI(); }
     }
@@ -784,7 +795,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260722073410 -->
+<!-- BUILD:20260722073754 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}
