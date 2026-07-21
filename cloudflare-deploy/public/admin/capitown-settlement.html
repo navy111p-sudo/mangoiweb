@@ -406,25 +406,31 @@
 </div>
 
 <script>
-/* ===================== 데이터 (3단계 / 검증된 계산) =====================
-   ⚠️ 내장 샘플 데이터. 추후 실데이터 연동 시 이 배열을 D1/API 응답으로 교체:
-   예) const agencies = await fetch('/api/admin/capitown/agencies',{credentials:'include'}).then(r=>r.json()); */
-const agencies=[
- {id:44,name:'강남캐피타운학원',loginId:'jsatc', manager:'윤은아',branch:'캐피 강남',status:'사용', type:'직영',margin:0.00, base:{students:30,online:12500000,book:526474}},
- {id:43,name:'전주 JNK',       loginId:'kqyt02',manager:'이소현',branch:'캐피 전북',status:'사용', type:'가맹',margin:0.53, base:{students:22,online:8200000, book:552314}},
- {id:42,name:'UBCK어학원',     loginId:'ubckt00',manager:'김수희',branch:'캐피 충북',status:'사용', type:'가맹',margin:0.105,base:{students:20,online:8000000, book:394353}},
- {id:41,name:'랭클어학원',     loginId:'lnct00',manager:'신수연',branch:'캐피 부천',status:'사용', type:'가맹',margin:0.387,base:{students:18,online:7000000, book:474923}},
- {id:40,name:'앤해피잉글리쉬', loginId:'aht00', manager:'부예슬',branch:'캐피 강서',status:'사용', type:'가맹',margin:0.387,base:{students:17,online:6800000, book:354361}},
- {id:39,name:'다온캐피타운',   loginId:'bnmt00',manager:'강순정',branch:'캐피 강서',status:'사용', type:'가맹',margin:0.40, base:{students:14,online:5000000, book:230989}},
- {id:31,name:'예티어학원',     loginId:'yeti00',manager:'한지민',branch:'캐피 충북',status:'사용', type:'가맹',margin:0.40, base:{students:12,online:5300000, book:300000}},
- {id:22,name:'서울 두드림',    loginId:'ddr00', manager:'오세훈',branch:'캐피 강서',status:'사용', type:'가맹',margin:0.35, base:{students:4, online:1200000, book:80000}},
- {id:15,name:'N SYPO어학원',   loginId:'sypo00',manager:'정유진',branch:'캐피 대구',status:'사용', type:'가맹',margin:0.38, base:{students:5, online:1500000, book:100000}},
- {id:9, name:'탑키즈영어학원', loginId:'topk00',manager:'문가영',branch:'캐피 제주',status:'사용', type:'가맹',margin:0.36, base:{students:2, online:700000,  book:50000}},
- {id:7, name:'은여울캐피타운', loginId:'eyu00', manager:'배수지',branch:'캐피 강서',status:'미사용',type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
- {id:5, name:'위즈쿡 캐피타운',loginId:'wzc00', manager:'손나은',branch:'캐피 고양',status:'미사용',type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
- {id:3, name:'큰숲캐츠학원',   loginId:'ksf00', manager:'김태리',branch:'캐피 충북',status:'해지', type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
- {id:2, name:'잉글리쉬고고',   loginId:'eg00',  manager:'박소담',branch:'캐피 대전',status:'해지', type:'가맹',margin:0.40, base:{students:0, online:0,       book:0}},
-];
+/* ===================== 데이터 =====================
+   🔐 (2026-07-22) 내장 표 제거 — 서버 API(/api/admin/capitown/agencies, D1 capitown_agencies)가
+   로그인 계정별로 필터해 내려준다: 경영진·캐피타운 본사=전체, capi_* 지사=자기 지사 소속만.
+   (하드코딩 시절엔 로그인 없이 소스보기로 학원명·담당자·매출이 노출됐음 — 재내장 금지) */
+let agencies=[];
+let __capLoaded=false;
+async function loadAgencies(){
+  if(__capLoaded)return; __capLoaded=true;
+  try{
+    const r=await fetch('/api/admin/capitown/agencies',{credentials:'include'});
+    const j=await r.json().catch(()=>null);
+    if(r.status===403||!(j&&j.ok)){
+      // 서버가 거부(권한 없음) — localStorage 잔재로 클라 게이트를 통과했어도 여기서 최종 차단
+      document.getElementById('appWrap').style.display='none';
+      document.getElementById('denyGate').style.display='grid';
+      applyI18n();
+      return;
+    }
+    agencies=(j.agencies||[]).map(a=>({id:a.id,name:a.name,loginId:a.login_id||'',manager:a.manager||'',branch:a.branch,status:a.status,type:a.type,margin:a.margin,base:{students:a.students,online:a.online,book:a.book}}));
+    const fb=document.getElementById('fBranch');
+    while(fb.options.length>1)fb.remove(1);
+    [...new Set(agencies.map(a=>a.branch))].forEach(b=>fb.add(new Option(b,b)));
+    render();
+  }catch(e){}
+}
 const YEAR=2026, MONTHS=[1,2,3,4,5,6];
 const MONTHS_EN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const PALETTE=['#4f46e5','#f5b528','#0ea5e9','#10b981','#8b5cf6','#ef4444','#f97316','#14b8a6','#ec4899','#64748b'];
@@ -880,6 +886,7 @@ function capDecide(serverOk,serverRole,role,uid,name){
   _role=capKind(serverRole||role,uid);_name=name;
   document.getElementById('appWrap').style.display='flex';
   initSettlement();
+  loadAgencies();  // 🔐 데이터는 서버가 계정별 필터해 내려줌(2026-07-22)
   applyI18n();
 }
 
@@ -905,7 +912,7 @@ function capDecide(serverOk,serverRole,role,uid,name){
   try{ capDecide(serverOk,serverRole,role,uid,name); }
   catch(e){
     // 판정 코드 자체가 예외여도 빈 화면 금지 — 최소한 본문 강제 표시(권한자는 대부분 여기 못 옴)
-    try{ if(capAllowed(role,uid)||capAllowed(serverRole,uid)){document.getElementById('appWrap').style.display='flex';initSettlement();} }catch(_){}
+    try{ if(capAllowed(role,uid)||capAllowed(serverRole,uid)){document.getElementById('appWrap').style.display='flex';initSettlement();loadAgencies();} }catch(_){}
   }
 })();
 

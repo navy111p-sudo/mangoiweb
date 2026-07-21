@@ -24,6 +24,7 @@ import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r
 import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
+import { capitownRouter } from './api-capitown';
 import { realtimeRouter, runFinanceSnapshot } from './accounting-realtime';
 import { modulesRouter } from './modules-ext';
 import { execRouter } from './exec-summary';
@@ -275,6 +276,7 @@ const worker = {
             path.startsWith('/api/admin/exec/') ||
             path.startsWith('/api/admin/realtime/') ||
             path.startsWith('/api/admin/settlement/') ||
+            path.startsWith('/api/admin/capitown/') ||
             path.startsWith('/api/admin/accounting');
           if (_teacherBlocked) {
             const _actor = await getAdminActor(request, env as any);
@@ -1467,6 +1469,11 @@ const worker = {
     //   기존 reports/franchise 의 "균등분배 추정"을 정확 정산으로 대체. scope 격리.
     if (path.startsWith('/api/admin/settlement/') || path === '/api/admin/settlement') {
       return settlementRouter(request, env);
+    }
+
+    // 🏢 캐피타운 프랜차이즈 정산 (2026-07-22) — 경영진·캐피타운 본사=전체, capi_* 지사=자기 지사만
+    if (path.startsWith('/api/admin/capitown/')) {
+      return capitownRouter(request, env);
     }
 
     // 💸 실시간 수입·지출 분석 & 재무 스냅샷 (2026-06-03 추가)
@@ -4023,6 +4030,9 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/admin/students-unified' || path === '/admin/students-unified/' || path === '/admin/students-unified.html') return true;
   // 👤 /admin/mypage — 마이페이지 (Phase 11)
   if (path === '/admin/mypage' || path === '/admin/mypage/' || path === '/admin/mypage.html') return true;
+  // 🏢 캐피타운 정산 화면 (2026-07-22) — 그동안 이 목록에 빠져 있어 로그인 없이도 HTML(내장 정산표)이
+  //   그대로 내려갔다(소스보기 노출). 데이터는 API 로 옮겼고 페이지 자체도 로그인 필수로 게이트.
+  if (path === '/admin/capitown-settlement' || path === '/admin/capitown-settlement/' || path === '/admin/capitown-settlement.html') return true;
   // 💸 실시간 재무 대시보드 + API (2026-06-03) — 관리자 전용
   if (path === '/admin/finance-realtime' || path === '/admin/finance-realtime/' || path === '/admin/finance-realtime.html') return true;
   if (path.startsWith('/api/admin/realtime/')) return true;
@@ -4188,6 +4198,9 @@ function isAgencyAllowedPage(path: string): boolean {
   if (path === '/admin/logout') return true;
   if (path === '/admin/mypage' || path === '/admin/mypage/') return true;
   if (path === '/admin/health' || path === '/admin/health/') return true;
+  // 🏢 캐피타운 정산 화면 — 캐피타운 지사(capi_*, scope=branch)·본사(franchise 스코프)도 진입 허용.
+  //   데이터는 /api/admin/capitown/ 가 계정별로 자기 지사만 내려주므로 화면 진입 자체는 안전(2026-07-22).
+  if (path === '/admin/capitown-settlement' || path === '/admin/capitown-settlement/' || path === '/admin/capitown-settlement.html') return true;
   return false;
 }
 
@@ -4201,6 +4214,8 @@ function isAgencyAllowedApi(path: string): boolean {
     // 🏢 정산 트리(org-settlement)는 자체 scopedRootId()로 agency/branch를 자기 노드로,
     //   franchise는 설계상 HQ 진입 후 합산으로 이미 격리하므로 공통 허용목록에 포함.
     '/api/admin/settlement/',
+    // 🏢 캐피타운 정산 — 핸들러가 계정별(경영진·capitown=전체 / capi_* 지사=자기 지사만) 자체 격리(2026-07-22)
+    '/api/admin/capitown/',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }
