@@ -1,6 +1,6 @@
-# Change-set QA report (2026-07-21T20:36:34.166Z)
+# Change-set QA report (2026-07-21T20:56:03.116Z)
 
-PASS=77 FAIL=1
+PASS=78 FAIL=0
 
 PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=29881 WORK=29881 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
@@ -13,7 +13,7 @@ PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — work
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1913 WORK=1913 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=20446 WORK=20446 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=20449 WORK=20449 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
 PASS  syntax:cloudflare-deploy/public/index.html  — 69 inline scripts, 0 errors
@@ -61,7 +61,7 @@ PASS  promo:hashchange/popstate kill
 PASS  promo:old box-only click handler removed
 PASS  promo:mute button exception kept
 PASS  lp:guide video fixed (not absolute)
-FAIL  lp:desktop right-gap centering
+PASS  lp:desktop guide video left-gutter placement
 PASS  lp:video moved out of screen-main (fixed가 transform에 안 갇힘)
 PASS  lp:video+FAB at body level
 PASS  lp:consult FAB present + kakao link

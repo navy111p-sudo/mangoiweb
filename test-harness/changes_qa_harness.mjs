@@ -158,7 +158,12 @@ ok('promo:old box-only click handler removed', !idx612.includes("box.addEventLis
 ok('promo:mute button exception kept', /e\.target===mb \|\| mb\.contains\(e\.target\)/.test(idx612));
 const lp612 = read(CD + '/public/lesson-postpone-demo.html');
 ok('lp:guide video fixed (not absolute)', /\.guide-video-wrap\{position:fixed/.test(lp612));
-ok('lp:desktop right-gap centering', /min-width:1024px/.test(lp612) && /calc\(75vw \+ 161px\)/.test(lp612) && /translate\(-50%,-50%\)/.test(lp612));
+// 🔄 2026-07-22 디자인 변경 반영: 데스크톱 안내 아바타가 '중앙정렬+우측여백'(calc(75vw+161px)+translate)에서
+//   '왼쪽 하단 여백 고정'(bottom:0;left:0;transform:none)으로 재배치됨([[postpone-guide-avatar-alpha]]).
+//   옛 단언은 영구 red 였으므로 현재 의도(1024px 이상에서 좌측 거터 배치)를 검사하도록 갱신.
+const lpDesktopRule = (lp612.match(/@media\s*\(min-width:\s*1024px\)\s*\{[\s\S]{0,800}?\.guide-video-wrap\{[^}]*\}/) || [''])[0];
+ok('lp:desktop guide video left-gutter placement',
+   /min-width:\s*1024px/.test(lp612) && /left:0/.test(lpDesktopRule) && /bottom:0/.test(lpDesktopRule) && /transform:none/.test(lpDesktopRule));
 const lpMain612 = lp612.split('id="screen-main"')[1].split('</section>')[0];
 ok('lp:video moved out of screen-main (fixed가 transform에 안 갇힘)', !lpMain612.includes('guide-video-wrap'));
 ok('lp:video+FAB at body level', lp612.indexOf('id="guide-video-wrap"') > lp612.indexOf('</section>'));
