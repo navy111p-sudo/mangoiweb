@@ -11,7 +11,7 @@ import { processAiCommand, executeAction, processStudentCommand } from './ai-com
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';  // 🔄 카페24→D1 동기화 모듈
 import { scopeFragments, studentScopeWhere, getScope } from './scope';
-import { checkAdminSession, getAdminActor, sameTeacherName } from './auth-admin';
+import { checkAdminSession, getAdminActor, sameTeacherName, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
@@ -807,10 +807,10 @@ export async function handleMangoApi(
 
     if (path.startsWith('/api/kakao-id/') && method === 'GET') {
       const userId = decodeURIComponent(path.replace('/api/kakao-id/', ''));
-      // 🔐 [PII] 임의 유저 전화번호 조회 차단 — 관리자 또는 본인 토큰만
-      const kAdmin = await checkAdminSession(request, env as any);
-      const kAuth = await authUidGlobal(request, url, env);
-      if (!kAdmin.ok && kAuth !== userId) return json({ ok: false, error: 'auth_required' }, 401);
+      // 🔐 [PII] 임의 유저 전화번호 조회 차단 — 관리자 또는 본인 토큰만. [공용 헬퍼, strict=게스트 미허용]
+      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, userId))) {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       const row = await env.DB.prepare(
         `SELECT user_id, role, username, kakao_id, phone, opted_in_at FROM kakao_ids WHERE user_id = ?`
       ).bind(userId).first();
@@ -2733,10 +2733,10 @@ ${numbered}`;
 
     if (path.startsWith('/api/consents/') && method === 'GET') {
       const userId = decodeURIComponent(path.replace('/api/consents/', ''));
-      // 🔐 [PII] 동의 이력(전화·IP·기기정보) 조회 차단 — 관리자 또는 본인 토큰만
-      const csAdmin = await checkAdminSession(request, env as any);
-      const csAuth = await authUidGlobal(request, url, env);
-      if (!csAdmin.ok && csAuth !== userId) return json({ ok: false, error: 'auth_required' }, 401);
+      // 🔐 [PII] 동의 이력(전화·IP·기기정보) 조회 차단 — 관리자 또는 본인 토큰만. [공용 헬퍼, strict=게스트 미허용]
+      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, userId))) {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       const row = await env.DB.prepare(
         `SELECT * FROM consents WHERE user_id = ? AND withdrawn_at IS NULL
          ORDER BY consented_at DESC LIMIT 1`
