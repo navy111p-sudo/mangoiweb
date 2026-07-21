@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📊 기능 사용률 — 망고아이 관리자</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic','맑은 고딕',sans-serif; margin: 0; background: #faf7f0; color: #1f2430; }
+  @media (min-width: 1024px) { body { zoom: 1.3; } } /* 관리자 서브페이지 공통 PC 확대 */
+  .wrap { max-width: 860px; margin: 0 auto; padding: 18px 14px 40px; }
+  h1 { font-size: 20px; color: #b45309; margin: 6px 0 2px; }
+  .sub { color: #6b7280; font-size: 12.5px; margin-bottom: 14px; }
+  .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  select, button { padding: 7px 12px; border: 1.5px solid #e5d9bd; border-radius: 10px; background: #fff; font-size: 13px; cursor: pointer; }
+  .card { background: #fff; border: 1.5px solid #eadfc6; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border-bottom: 1px solid #f0e8d6; padding: 7px 8px; text-align: left; font-size: 13px; }
+  th { color: #92400e; font-size: 12px; background: #fff7e8; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .k { font-weight: 700; }
+  .hint { font-size: 12px; color: #9ca3af; }
+  .barcell { position: relative; }
+  .barfill { position: absolute; left: 0; top: 15%; height: 70%; background: #fde9c0; border-radius: 4px; z-index: 0; }
+  .barcell span { position: relative; z-index: 1; }
+  #msg { padding: 30px 10px; text-align: center; color: #6b7280; }
+  #msg a { color: #b45309; }
+  .daily { display: flex; gap: 4px; align-items: flex-end; height: 90px; padding: 6px 2px 0; }
+  .daily .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+  .daily .stick { width: 70%; background: linear-gradient(180deg,#fbbf24,#f59e0b); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .daily .lbl { font-size: 9px; color: #9ca3af; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 기능 사용률</h1>
+  <div class="sub">어떤 메뉴·기능이 실제로 쓰이는지 집계합니다 — 홈 개편·기능 정리는 이 데이터를 근거로 결정 (수집 시작: 2026-07-21)</div>
+  <div class="bar">
+    기간:
+    <select id="days">
+      <option value="7">최근 7일</option>
+      <option value="14" selected>최근 14일</option>
+      <option value="30">최근 30일</option>
+      <option value="90">최근 90일</option>
+    </select>
+    <button onclick="load()">새로고침</button>
+    <span class="hint">클릭수 = 총 횟수 · 사용자 = 하루라도 누른 사람 수(중복 제거)</span>
+  </div>
+  <div id="msg" style="display:none"></div>
+  <div class="card" id="dailyCard" style="display:none">
+    <b style="font-size:13px;color:#92400e">일별 전체 활동</b>
+    <div class="daily" id="daily"></div>
+  </div>
+  <div class="card" id="tblCard" style="display:none">
+    <table>
+      <thead><tr><th>#</th><th>기능(키)</th><th class="num">클릭수</th><th class="num">사용자</th><th class="num">활동일</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="hint" style="margin-top:8px">키 규칙: pv:페이지열람 · home:홈버튼 · menu:홈메뉴카드 · nav:학습페이지이동 · onboard:온보딩 · ux:지정포인트</div>
+  </div>
+</div>
+<script>
+async function load() {
+  var days = document.getElementById('days').value;
+  var msg = document.getElementById('msg');
+  msg.style.display = 'block';
+  msg.textContent = '불러오는 중…';
+  document.getElementById('tblCard').style.display = 'none';
+  document.getElementById('dailyCard').style.display = 'none';
+  try {
+    var r = await fetch('/api/admin/ux/stats?days=' + days, { cache: 'no-store' });
+    if (r.status === 401) {
+      msg.innerHTML = '관리자 로그인이 필요합니다. <a href="/admin/login?next=%2Fux-stats.html">로그인 하러 가기</a>';
+      return;
+    }
+    var j = await r.json();
+    if (!j.ok) { msg.textContent = '오류: ' + (j.error || r.status); return; }
+    var rows = j.by_key || [];
+    if (!rows.length) { msg.textContent = '아직 수집된 데이터가 없습니다. 학생들이 사이트를 쓰기 시작하면 여기 쌓입니다.'; return; }
+    msg.style.display = 'none';
+
+    /* 일별 차트 */
+    var byDay = j.by_day || [];
+    if (byDay.length) {
+      var max = Math.max.apply(null, byDay.map(function (d) { return d.hits || 0; })) || 1;
+      document.getElementById('daily').innerHTML = byDay.map(function (d) {
+        var h = Math.max(2, Math.round((d.hits / max) * 70));
+        return '<div class="col" title="' + d.day + ' · 클릭 ' + d.hits + ' · 사용자 ' + d.users + '">' +
+          '<div class="stick" style="height:' + h + 'px"></div>' +
+          '<div class="lbl">' + d.day.slice(5) + '</div></div>';
+      }).join('');
+      document.getElementById('dailyCard').style.display = 'block';
+    }
+
+    /* 키별 표 */
+    var maxHits = rows[0].hits || 1;
+    document.getElementById('rows').innerHTML = rows.map(function (r2, i) {
+      var w = Math.round((r2.hits / maxHits) * 100);
+      return '<tr><td>' + (i + 1) + '</td>' +
+        '<td class="barcell"><div class="barfill" style="width:' + w + '%"></div><span class="k">' + esc(r2.key) + '</span></td>' +
+        '<td class="num">' + r2.hits + '</td><td class="num">' + r2.users + '</td><td class="num">' + r2.active_days + '</td></tr>';
+    }).join('');
+    document.getElementById('tblCard').style.display = 'block';
+  } catch (e) {
+    msg.textContent = '불러오기 실패: ' + e.message;
+  }
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+load();
+</script>
+<!-- BUILD:20260721150211 -->
+</body>
+</html>

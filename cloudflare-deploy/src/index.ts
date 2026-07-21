@@ -295,6 +295,10 @@ const worker = {
     if (path === '/api/games/progress' && request.method === 'POST') {
       return handleGamesProgress(request, env);
     }
+    // 📊 UX 사용률 — POST /api/games/ux-track {user_id?, events:[{k,n?}]} → 메뉴·버튼 클릭 집계(ux_events)
+    if (path === '/api/games/ux-track' && request.method === 'POST') {
+      return handleUxTrack(request, env);
+    }
     // 🧠 약점 단어 — GET /api/games/weak?user_id=&lang=&limit=  → 자주 틀린 단어(교사 대시보드·맞춤 복습용)
     if (path === '/api/games/weak' && request.method === 'GET') {
       return handleGamesWeak(request, env);
@@ -2657,6 +2661,36 @@ async function handleGamesProgress(request: Request, env: Env): Promise<Response
       const correct = e?.correct ? 1 : 0;
       batch.push(stmt.bind(userId, lang, item, ko, correct ? 0 : 1, correct, now, now));
     }
+    if (batch.length) await env.DB.batch(batch);
+    return new Response(JSON.stringify({ ok: true, saved: batch.length }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+// 📊 UX 사용률 집계 — (day, key, uid) 단위 UPSERT. 기능 정리·홈 개편은 감이 아니라 이 데이터로 결정한다.
+//    uid 는 자기신고 값(인증 없음) — 통계 용도로만 쓰고 개인 판단에 사용 금지. 실패해도 학습 흐름에 영향 없어야 한다.
+async function handleUxTrack(request: Request, env: Env): Promise<Response> {
+  try {
+    let body: any = {};
+    try { body = await request.json(); } catch {}
+    const uid = (String(body?.user_id || '').trim().slice(0, 100)) || 'guest';
+    const events: any[] = Array.isArray(body?.events) ? body.events.slice(0, 50) : [];
+    if (!events.length) return new Response(JSON.stringify({ ok: false, error: 'missing' }), { status: 400, headers: _MS_JSON });
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ux_events (day TEXT NOT NULL, key TEXT NOT NULL, uid TEXT NOT NULL, hits INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, key, uid))`);
+    const day = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10); // KST 기준 날짜
+    const stmt = env.DB.prepare(
+      `INSERT INTO ux_events (day, key, uid, hits) VALUES (?, ?, ?, ?)
+       ON CONFLICT(day, key, uid) DO UPDATE SET hits = hits + excluded.hits`
+    );
+    const agg = new Map<string, number>();
+    for (const e of events) {
+      const k = String((e && (e.k ?? e)) || '').trim().slice(0, 80).replace(/[^0-9A-Za-z:._\-\/가-힣]/g, '');
+      if (!k) continue;
+      const n = Math.min(20, Math.max(1, Number(e?.n) || 1));
+      agg.set(k, (agg.get(k) || 0) + n);
+    }
+    const batch: any[] = [];
+    agg.forEach((n, k) => batch.push(stmt.bind(day, k, uid, n)));
     if (batch.length) await env.DB.batch(batch);
     return new Response(JSON.stringify({ ok: true, saved: batch.length }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {

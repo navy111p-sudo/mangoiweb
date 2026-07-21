@@ -818,6 +818,32 @@ export async function handleAdminApi(
       }
     }
 
+    // ===== 📊 UX 사용률 통계 =====
+    //   GET /api/admin/ux/stats?days=14 — 기능(key)별 클릭수·사용자수 + 일별 추이 (뷰어: /ux-stats.html)
+    //   수집원 = POST /api/games/ux-track (ux_events). 테이블 미생성(수집 전)이면 빈 결과.
+    if (method === 'GET' && path === '/api/admin/ux/stats') {
+      try {
+        const days = Math.min(90, Math.max(1, parseInt(url.searchParams.get('days') || '14', 10) || 14));
+        const since = new Date(Date.now() + 9 * 3600 * 1000 - (days - 1) * 86400000).toISOString().slice(0, 10);
+        let byKey: any[] = [], byDay: any[] = [];
+        try {
+          const rs = await env.DB.prepare(
+            `SELECT key, SUM(hits) AS hits, COUNT(DISTINCT uid) AS users, COUNT(DISTINCT day) AS active_days
+             FROM ux_events WHERE day >= ? GROUP BY key ORDER BY hits DESC LIMIT 300`
+          ).bind(since).all();
+          byKey = (rs.results as any[]) || [];
+          const rd = await env.DB.prepare(
+            `SELECT day, SUM(hits) AS hits, COUNT(DISTINCT uid) AS users
+             FROM ux_events WHERE day >= ? GROUP BY day ORDER BY day ASC`
+          ).bind(since).all();
+          byDay = (rd.results as any[]) || [];
+        } catch { /* 수집 전(테이블 없음) → 빈 결과 */ }
+        return json({ ok: true, days, since, by_key: byKey, by_day: byDay });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
     // ===== 💰 저장소·비용 통계 (Phase 7) =====
     //   GET /api/admin/stats/storage
     //   - D1 테이블별 row 수 + 녹화 총 size_bytes
