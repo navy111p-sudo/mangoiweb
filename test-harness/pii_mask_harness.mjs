@@ -153,7 +153,7 @@ check('api: isMaskedValue import', /isMaskedValue/.test(srcApi));
 check('api: /contact 저장 가드(마스킹값 차단)', /PII_GUARD\.has\(k\) && isMaskedValue\(b\[k\]\)/.test(srcApi));
 check('api: /contact masked_values_rejected 처리', /masked_values_rejected/.test(srcApi));
 // admin.html
-check('html: pii-mask.js 스크립트 로드', /<script src="\/js\/pii-mask\.js">/.test(srcHtml));
+check('html: pii-mask.js 스크립트 로드', /<script src="\/js\/pii-mask\.js"[^>]*>/.test(srcHtml));  // defer 등 속성 허용(26-07-22)
 check('html: 헬퍼 _piiPhone 정의', /window\._piiPhone\s*=/.test(srcHtml));
 check('html: 헬퍼 _piiId 정의',    /window\._piiId\s*=/.test(srcHtml));
 check('html: unified fetch setCanView', /PIIMask\.setCanView\(d\.can_view_pii\)/.test(srcHtml));

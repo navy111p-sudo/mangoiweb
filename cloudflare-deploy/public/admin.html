@@ -70,7 +70,7 @@
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
 <script src="/js/adm-scope-guard.js?v=1"></script>
 <!-- ⚡ 관리자 메뉴 로딩 가속 — fetch 타임아웃(무한 스피너 방지)+무거운 분석 GET 클라이언트 캐시. scope-guard 다음에 로드 -->
-<script src="/js/adm-perf.js?v=3"></script>
+<script src="/js/adm-perf.js?v=3" defer></script>
 
 <!-- 🗑️ (2026-07-22) Phase 58 'SW 킬' 스크립트 삭제 — 재추가 금지.
      아래 sw-always-fresh 가 SW 를 다시 등록하기 때문에, 새 탭에서 관리자에 들어올 때마다
@@ -1937,9 +1937,9 @@
     }
   }
 </style>
-<script src="/js/pii-mask.js"></script><!-- 🔒 PII 마스킹 유틸 -->
-<script src="/js/media-guard.js?v=1"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
-<script src="/js/admin-tip-i18n.js?v=1"></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
+<script src="/js/pii-mask.js" defer></script><!-- 🔒 PII 마스킹 유틸 -->
+<script src="/js/media-guard.js?v=1" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
+<script src="/js/admin-tip-i18n.js?v=1" defer></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 <!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
      기존에도 PC(≥1024)·모바일에서 숨기던 레거시 UI인데, 숨김 규칙이 파일 한참 아래에 있어 로드 초반 잠깐 보였음.
@@ -2467,7 +2467,7 @@
 <!-- 기존 카드 영역 — 기본 숨김. "📋 모든 메뉴 보기" 토글로 표시 -->
 <!-- 🤝 대리점(학원) 전용 — 내 학원 현황 (학생·매출·수수료·출석률·결제상태) : 대리점 로그인 시 대시보드 최상단 -->
 <div id="agency-academy-overview" style="display:none"></div>
-<script src="/js/adm-r1.js?v=1"></script><!-- 분할추출:adm-r1 -->
+<script src="/js/adm-r1.js?v=1" defer></script><!-- 분할추출:adm-r1 -->
 <!-- 🏬 지사 전용 — 대리점별 현황 (학생수·매출·지사 수수료) : 지사 로그인 시 대시보드 최상단 -->
 <div id="branch-agency-overview" style="display:none"></div>
 <!-- ⏰ 지사 전용 — 만료 임박 학생을 '대리점별'로 묶어 독려 전화 돌리기 좋게 (2026-07-19, 지사 액션 1순위) -->
@@ -5010,7 +5010,7 @@
         </div>
       </details>
 
-      <script src="/js/adm-r2.js?v=1"></script><!-- 분할추출:adm-r2 -->
+      <script src="/js/adm-r2.js?v=1" defer></script><!-- 분할추출:adm-r2 -->
 
       <!-- ph179 (2026-05-29) — 📊 카톡 평가 설문 → 강사 평가 + 급여 반영 -->
       <details class="sub-item" id="ph179-survey-block">
@@ -5381,7 +5381,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-r3.js?v=1"></script><!-- 분할추출:adm-r3 -->
+<script src="/js/adm-r3.js?v=1" defer></script><!-- 분할추출:adm-r3 -->
 
 <!-- 👁 Phase GM-3 — 관리자 통제: Ghost / Whisper / Alerts -->
 <details class="table-card menu-card" id="card-admin-ghost">
@@ -5454,7 +5454,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-s1.js?v=1"></script><!-- 분할추출:adm-s1 -->
+<script src="/js/adm-s1.js?v=1" defer></script><!-- 분할추출:adm-s1 -->
 
 <!-- 🔐 Phase RT-2 — 화상강의실 초대 관리 (JWT 입장 토큰) -->
 <details class="table-card menu-card" id="card-room-invite">
@@ -5483,7 +5483,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-s2.js?v=1"></script><!-- 분할추출:adm-s2 -->
+<script src="/js/adm-s2.js?v=1" defer></script><!-- 분할추출:adm-s2 -->
 
 <!-- 🎙 Phase ALR — AI 학습 리포트 (수업 녹음 자동 분석) -->
 <details class="table-card menu-card" id="card-ai-lesson-report">
@@ -5540,7 +5540,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-r4.js?v=1"></script><!-- 분할추출:adm-r4 -->
+<script src="/js/adm-r4.js?v=1" defer></script><!-- 분할추출:adm-r4 -->
 
 <!-- Phase 60 admin (2026-05-23) — 상단 ▲ 토글 제거 + 칩 3개씩 정렬 -->
 <style id="ph60-admin">
@@ -5900,7 +5900,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-r5.js?v=1"></script><!-- 분할추출:adm-r5 -->
+<script src="/js/adm-r5.js?v=1" defer></script><!-- 분할추출:adm-r5 -->
 
 <!-- ⚡ Phase ML — 마이크로러닝 카톡 발송 (오늘의 단어 + 미니 퀴즈) -->
 <details class="table-card menu-card" id="card-microlearn">
@@ -6078,7 +6078,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-q1.js?v=1"></script><!-- 분할추출:adm-q1 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q1.js?v=1" defer></script><!-- 분할추출:adm-q1 (원복: 이 위치에 인라인) -->
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 🌅 Daily Morning Briefing — 매일 아침 자동 일일 브리핑              -->
@@ -7034,7 +7034,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-s3.js?v=1"></script><!-- 분할추출:adm-s3 -->
+<script src="/js/adm-s3.js?v=1" defer></script><!-- 분할추출:adm-s3 -->
 
 <!-- ════════════════════════════════════════════════════════════════════
      📔 Phase VD — AI 음성 일기 (관리자 모니터)
@@ -7113,7 +7113,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-s4.js?v=1"></script><!-- 분할추출:adm-s4 -->
+<script src="/js/adm-s4.js?v=1" defer></script><!-- 분할추출:adm-s4 -->
 
 <!-- ════════════════════════════════════════════════════════════════════
      🎯 Phase SUP — 강사 슈퍼바이저 모드
@@ -7257,7 +7257,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-s5.js?v=1"></script><!-- 분할추출:adm-s5 -->
+<script src="/js/adm-s5.js?v=1" defer></script><!-- 분할추출:adm-s5 -->
 
 <!-- 📷 Phase QR — QR 출결 자동 체크 -->
 <details class="table-card menu-card" id="card-auto-attendance">
@@ -7663,7 +7663,7 @@ window.__admSettleRun = function(fn){
     </details>
   </div>
 </details>
-<script src="/js/adm-q2.js?v=1"></script><!-- 분할추출:adm-q2 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q2.js?v=1" defer></script><!-- 분할추출:adm-q2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎮 Phase BTL — 영어 게임 배틀 P2P 관리 -->
 <details class="table-card menu-card" id="card-battle-mgmt">
@@ -7973,7 +7973,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-r6.js?v=1"></script><!-- 분할추출:adm-r6 -->
+<script src="/js/adm-r6.js?v=1" defer></script><!-- 분할추출:adm-r6 -->
 
 <!-- 💌 Phase I1~I2 — 신규상담 관리 (평가서 카드 다음) -->
 <details class="table-card menu-card" id="card-inquiry-mgmt">
@@ -8104,10 +8104,10 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-r7.js?v=1"></script><!-- 분할추출:adm-r7 -->
+<script src="/js/adm-r7.js?v=1" defer></script><!-- 분할추출:adm-r7 -->
 
 <!-- 💰 Phase F2 — 미납 알림 JS 모듈 -->
-<script src="/js/adm-r8.js?v=1"></script><!-- 분할추출:adm-r8 -->
+<script src="/js/adm-r8.js?v=1" defer></script><!-- 분할추출:adm-r8 -->
 
 <!-- 🐞 교사 버그/피드백 접수함 -->
 <details class="table-card menu-card" id="card-bug-reports">
@@ -8133,7 +8133,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-bugreports.js?v=1"></script><!-- 분할추출:adm-bugreports -->
+<script src="/js/adm-bugreports.js?v=1" defer></script><!-- 분할추출:adm-bugreports -->
 
 <!-- 🔔 Phase WP1~WP2 — Web Push 푸시 알림 관리 -->
 <details class="table-card menu-card" id="card-webpush-mgmt">
@@ -8247,7 +8247,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-r9.js?v=1"></script><!-- 분할추출:adm-r9 -->
+<script src="/js/adm-r9.js?v=1" defer></script><!-- 분할추출:adm-r9 -->
 
 <!-- 📲 Phase K2~K4 — 카카오 알림톡 관리 (포인트 카드 다음) -->
 <details class="table-card menu-card" id="card-kakao-mgmt">
@@ -8377,7 +8377,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script src="/js/adm-s6.js?v=1"></script><!-- 분할추출:adm-s6 -->
+<script src="/js/adm-s6.js?v=1" defer></script><!-- 분할추출:adm-s6 -->
 
 <!-- 📢 공지 스튜디오 — 포스터 제작(①) + 팝업 게시(②)를 한 카드·2탭으로 통합. (2026-07-06 병합)
      · 컨테이너 = id card-poster-maker (기존 참조 유지, ①만들기 탭)
@@ -8539,7 +8539,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </div>
 
 <!-- 🎨 포스터 관리 — 목록/저장/불러오기 로직 -->
-<script src="/js/adm-s7.js?v=1"></script><!-- 분할추출:adm-s7 -->
+<script src="/js/adm-s7.js?v=1" defer></script><!-- 분할추출:adm-s7 -->
 
 <!-- 📢 팝업 에디터 모달 -->
 <div id="pop-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:11500;padding:20px;overflow-y:auto" onclick="if(event.target===this)popCloseEditor()">
@@ -8561,7 +8561,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </div>
 
 <!-- 📢 팝업 관리 — 관리자 편집기 로직 (신규 구현) -->
-<script src="/js/adm-r10.js?v=1"></script><!-- 분할추출:adm-r10 -->
+<script src="/js/adm-r10.js?v=1" defer></script><!-- 분할추출:adm-r10 -->
 
 <!-- 💼 Phase G2 — 신규: 강사 급여 자동 정산 (기존 평가 대시보드 위) -->
 <details class="table-card menu-card" id="card-payroll-auto">
@@ -8587,7 +8587,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script src="/js/adm-q3.js?v=2"></script><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q3.js?v=2" defer></script><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
@@ -8610,7 +8610,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="srq-table" style="overflow-x:auto"></div>
   </div>
 </details>
-<script src="/js/adm-r11.js?v=2"></script><!-- 분할추출:adm-r11 -->
+<script src="/js/adm-r11.js?v=2" defer></script><!-- 분할추출:adm-r11 -->
 
 <!-- 📜 수업 변경 이력 (연기·삭제·종료) — 누가·언제 했는지 감사 로그 -->
 <details class="table-card menu-card" id="card-class-audit">
@@ -8637,7 +8637,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="cau-table" style="overflow-x:auto"></div>
   </div>
 </details>
-<script src="/js/adm-classaudit.js?v=1"></script><!-- 📜 수업 변경 이력 -->
+<script src="/js/adm-classaudit.js?v=1" defer></script><!-- 📜 수업 변경 이력 -->
 
 <!-- ⭐ 학생 수업 평가 — 수업 종료 직후 학생이 남긴 별 7개 평가 + 건의사항 -->
 <details class="table-card menu-card" id="card-vc-quality">
@@ -8715,7 +8715,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="cr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script src="/js/adm-r12.js?v=1"></script><!-- 분할추출:adm-r12 -->
+<script src="/js/adm-r12.js?v=1" defer></script><!-- 분할추출:adm-r12 -->
 
 <!-- 🌐 평가 콘텐츠 영↔한 번역 엔진 (관리자 언어 스위치 adminLang 연동)
      · 태그는 고정 어휘 즉시 매핑, 자유 건의사항은 /api/translate(AI+KV) 사용
@@ -8774,13 +8774,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </script>
 
 <!-- 📊 평가 분석 + 그래프 (절사평균: 최고·최저 제외) — 강사/관리자 공용, 언어 스위치 대응 -->
-<script src="/js/adm-r13.js?v=1"></script><!-- 분할추출:adm-r13 -->
+<script src="/js/adm-r13.js?v=1" defer></script><!-- 분할추출:adm-r13 -->
 
 <!-- ⭐ 로그인 시 최상단 역할별 평가 패널
      · 강사  → "내 수업 평가" (자기 이름으로 필터된 평균/최근/건의사항)
      · 관리자 → "강사 평가 알람" (평가 낮은 강사 경고 + 우수 강사) → 클릭 시 상세 카드
      · 로그인 정보(admin_session)·역할로 판정, 최상단 #legacy-cards 앞에 주입 -->
-<script src="/js/adm-r14.js?v=1"></script><!-- 분할추출:adm-r14 -->
+<script src="/js/adm-r14.js?v=1" defer></script><!-- 분할추출:adm-r14 -->
 
 <details class="table-card menu-card" id="card-payroll">
   <summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
@@ -11201,7 +11201,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script src="/js/adm-q4.js?v=1"></script><!-- 분할추출:adm-q4 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q4.js?v=1" defer></script><!-- 분할추출:adm-q4 (원복: 이 위치에 인라인) -->
 
 <!-- 📣 Phase 5: 알림 큐 (운영 이벤트 자동 적재 + 상태 모니터링) -->
 <details class="table-card menu-card" id="card-notifications">
@@ -11496,8 +11496,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=6"></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
-<script src="/js/adm-bulkbook.js?v=1"></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
+<script src="/js/adm-core.js?v=6" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 
 </div>
 </div>
@@ -11505,10 +11505,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- /js/kakao-fab.js 는 사용하지 않음 (글로벌 홈 FAB 로 대체) -->
 
 <!-- ━━━━━━━━━━ 🌱 SEED 글로벌 주입 — 모든 admin 기능에 자동 통합 ━━━━━━━━━━ -->
-<script src="/js/adm-q5.js?v=1"></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q5.js?v=1" defer></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
 
 <!-- ━━━━━━━━━━ 🔄 결석 강사 자동 대체 시스템 ━━━━━━━━━━ -->
-<script src="/js/adm-p7.js?v=1"></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p7.js?v=1" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
 
 <style>
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -11616,15 +11616,15 @@ button.chip:hover,
 
 
 <!-- 🕒 출근현황 (강사관리 하위) — 데이터 + 렌더링 + Excel/Chart -->
-<script src="/js/adm-p6.js?v=1"></script><!-- 분할추출:adm-p6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p6.js?v=1" defer></script><!-- 분할추출:adm-p6 (원복: 이 위치에 인라인) -->
 
 
 <!-- 📚 출석현황 (수업당 출결) — 데이터 + 렌더링 + Excel/Chart -->
-<script src="/js/adm-p5.js?v=1"></script><!-- 분할추출:adm-p5 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p5.js?v=1" defer></script><!-- 분할추출:adm-p5 (원복: 이 위치에 인라인) -->
 
 
 <!-- 🎁 Phase P2 — 포인트 & 기프티콘 관리 모듈 -->
-<script src="/js/adm-p4.js?v=1"></script><!-- 분할추출:adm-p4 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p4.js?v=1" defer></script><!-- 분할추출:adm-p4 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 51 admin (2026-05-22) — mobile: hide hero greeting image -->
 <style id="ph51-admin-overrides">
@@ -11793,7 +11793,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-q6.js?v=2"></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q6.js?v=2" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 81 admin (2026-05-24) — ▲ 강제 제거 + 칩 한 줄 작게 (모든 폭) -->
 <style id="ph81-admin">
@@ -12325,7 +12325,7 @@ button.chip:hover,
   #ph85-voice-toggle:hover{ background:rgba(99,102,241,0.22); }
   #ph85-voice-toggle.off{ color:#94a3b8;background:rgba(148,163,184,0.10);border-color:rgba(148,163,184,0.25); }
 </style>
-<script src="/js/adm-r15.js?v=1"></script><!-- 분할추출:adm-r15 -->
+<script src="/js/adm-r15.js?v=1" defer></script><!-- 분할추출:adm-r15 -->
 
 <!-- ⭐ (2026-06-20) 메뉴 중요도·활용도 별점 — 테두리만 노란 '투명 별' ☆ 자동 부여
      · 자식(사이드바 .ph85-sub) + 손자(카드 안 하위 summary) 모두 적용
@@ -12599,13 +12599,13 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #mi-gc-tip.flip-left::before{ border-left-color:#fffaf0; }
   @media (max-width:1023px){ #mi-gc-tip{ display:none !important; } }
 </style>
-<script src="/js/adm-s9.js?v=1"></script><!-- 분할추출:adm-s9 -->
+<script src="/js/adm-s9.js?v=1" defer></script><!-- 분할추출:adm-s9 -->
 
 <!-- ⭐ (2026-06-20) 손자 메뉴 설명 사전(GC_DESC) + 인라인 손자 메뉴(.ph125-gc) hover 말풍선
      · 별(★) 유무와 무관하게 모든 사이드바 손자 메뉴에 한 줄 설명을 사이드바 바로 옆에 표시
      · GC_DESC 는 miDescribe 가 우선 참조 → 플라이아웃(#mi-menu-fly)·인라인 메뉴 모두 동일 설명 공유
      · 데스크톱 전용(@media hover) — 기존 #ph85tip 말풍선 재사용 -->
-<script src="/js/adm-r16.js?v=1"></script><!-- 분할추출:adm-r16 -->
+<script src="/js/adm-r16.js?v=1" defer></script><!-- 분할추출:adm-r16 -->
 
 <!-- ⭐ (2026-06-20) 모바일 사이드바 간단설명 말풍선 (#sb-mtip)
      · 데스크톱은 hover 말풍선이 있지만 터치 기기엔 hover 가 없어 안 떴음.
@@ -12636,7 +12636,7 @@ button.chip:hover,
   /* 데스크톱(hover 말풍선이 따로 있음)에서는 모바일 말풍선 숨김 */
   @media (min-width:1024px){ #sb-mtip{ display:none !important; } }
 </style>
-<script src="/js/adm-s10.js?v=1"></script><!-- 분할추출:adm-s10 -->
+<script src="/js/adm-s10.js?v=1" defer></script><!-- 분할추출:adm-s10 -->
 
 <!-- Phase 86 admin (2026-05-24) — 사이드바 토글/갯수/펼치기버튼 강화 -->
 <style id="ph86-sidebar-enhance">
@@ -13101,7 +13101,7 @@ button.chip:hover,
 
 
 <!-- Phase 97 admin (2026-05-25) — window capture phase: 어떤 핸들러도 우회 불가 -->
-<script src="/js/adm-s11.js?v=1"></script><!-- 분할추출:adm-s11 -->
+<script src="/js/adm-s11.js?v=1" defer></script><!-- 분할추출:adm-s11 -->
 
 <!-- Phase 100 admin (2026-05-25) — 통합 블루 디자인 시스템 (WCAG AA, ph98/99 통합) -->
 <style id="ph100-blue-theme">
@@ -13893,7 +13893,7 @@ button.chip:hover,
 })();
 </script>
 
-<script src="/js/adm-s12.js?v=1"></script><!-- 분할추출:adm-s12 -->
+<script src="/js/adm-s12.js?v=1" defer></script><!-- 분할추출:adm-s12 -->
 
 
 <!-- Phase 104 admin (2026-05-25) — 권한 관리 표 (card-permissions) 다크 override -->
@@ -14220,7 +14220,7 @@ button.chip:hover,
 </script>
 
 <!-- 🎨 아이보리 테마 전용 — 카드 안 하드코딩 다크 배경을 파스텔로 (ph103/ph105 의 역(逆)) -->
-<script src="/js/adm-s13.js?v=1"></script><!-- 분할추출:adm-s13 -->
+<script src="/js/adm-s13.js?v=1" defer></script><!-- 분할추출:adm-s13 -->
 
 <!-- Phase 106 admin (2026-05-25) — BtoB/BtoC 결제관리 카드 (벤치마킹 6가지 적용) -->
 <style id="ph106-payments">
@@ -14556,7 +14556,7 @@ button.chip:hover,
 </details>
 
 <!-- ph106 JS — Chart.js + 데모 데이터 (실서비스 시 fetch API 로 교체) -->
-<script src="/js/adm-q7.js?v=1"></script><!-- 분할추출:adm-q7 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q7.js?v=1" defer></script><!-- 분할추출:adm-q7 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 107 admin (2026-05-25) — 보고서 양식 관리 카드 (강사+시스템 양쪽 사이드바 노출) -->
@@ -14970,7 +14970,7 @@ button.chip:hover,
   </div>
 </div>
 
-<script src="/js/adm-r17.js?v=1"></script><!-- 분할추출:adm-r17 -->
+<script src="/js/adm-r17.js?v=1" defer></script><!-- 분할추출:adm-r17 -->
 
 
 <!-- Phase 109 admin (2026-05-25) — 양식 모달 인쇄/PDF/Excel/Word 다운로드 -->
@@ -15072,7 +15072,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-q8.js?v=1"></script><!-- 분할추출:adm-q8 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q8.js?v=1" defer></script><!-- 분할추출:adm-q8 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 110 admin (2026-05-25) — 신규 5개 카드 + 사이드바 31개 카드 통합 -->
@@ -15564,7 +15564,7 @@ button.chip:hover,
   </div>
 </div>
 
-<script src="/js/adm-r18.js?v=1"></script><!-- 분할추출:adm-r18 -->
+<script src="/js/adm-r18.js?v=1" defer></script><!-- 분할추출:adm-r18 -->
 
 
 <!-- Phase 111 admin (2026-05-25) — 사용자 드롭다운 강화: 역할 뱃지 + 로그인/로그아웃 + 다크 테마 -->
@@ -15726,7 +15726,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-q9.js?v=1"></script><!-- 분할추출:adm-q9 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q9.js?v=1" defer></script><!-- 분할추출:adm-q9 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 112 admin (2026-05-25) — 강사 정보 최상단 재배치 + 학원별 학생 수업현황 (출결 통합) -->
@@ -16012,7 +16012,7 @@ button.chip:hover,
   #topUserBtn:hover::before { opacity: 1; }
 </style>
 
-<script src="/js/adm-r19.js?v=1"></script><!-- 분할추출:adm-r19 -->
+<script src="/js/adm-r19.js?v=1" defer></script><!-- 분할추출:adm-r19 -->
 
 
 <!-- Phase 114 admin (2026-05-25) — Floating 사용자 메뉴 (기존 #topUserBtn 의존 없음) -->
@@ -16200,7 +16200,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r20.js?v=1"></script><!-- 분할추출:adm-r20 -->
+<script src="/js/adm-r20.js?v=1" defer></script><!-- 분할추출:adm-r20 -->
 
 
 <!-- Phase 115 admin (2026-05-25) — 사용자 버튼 통합: 중복 제거 + EN 옆 inline 배치 -->
@@ -16366,7 +16366,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r21.js?v=1"></script><!-- 분할추출:adm-r21 -->
+<script src="/js/adm-r21.js?v=1" defer></script><!-- 분할추출:adm-r21 -->
 
 
 <!-- Phase 116 admin (2026-05-25) — 역할 무관 ph85 사이드바 항상 visible + 강사/지사/대리점 안내 -->
@@ -16648,7 +16648,7 @@ button.chip:hover,
   </div>
 </div>
 
-<script src="/js/adm-r22.js?v=1"></script><!-- 분할추출:adm-r22 -->
+<script src="/js/adm-r22.js?v=1" defer></script><!-- 분할추출:adm-r22 -->
 
 
 <!-- Phase 118 admin (2026-05-25) — 권한 매트릭스 실제 사이드바 적용 (역할별 V/X 자동 반영) -->
@@ -16708,7 +16708,7 @@ button.chip:hover,
   .ph118-perm-stat .no { color: #FCA5A5; }
 </style>
 
-<script src="/js/adm-q10.js?v=2"></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q10.js?v=2" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 119 admin (2026-05-25) — SLP 수업현황 위치 재조정: 학생/학부모 그룹으로 단일 노출 -->
@@ -16748,7 +16748,7 @@ button.chip:hover,
 
 
 <!-- Phase 120 admin (2026-05-25) — 홈 버튼 관리자 상단 이동 + 학원별 수업현황 검색 실제 작동 -->
-<script src="/js/adm-r23.js?v=1"></script><!-- 분할추출:adm-r23 -->
+<script src="/js/adm-r23.js?v=1" defer></script><!-- 분할추출:adm-r23 -->
 
 
 <!-- Phase 121 admin (2026-05-25) — 검색 결과 통계 박스 가독성 강화 -->
@@ -16856,7 +16856,7 @@ button.chip:hover,
   #ph121-demo-note b { color: #67E8F9 !important; }
 </style>
 
-<script src="/js/adm-s14.js?v=1"></script><!-- 분할추출:adm-s14 -->
+<script src="/js/adm-s14.js?v=1" defer></script><!-- 분할추출:adm-s14 -->
 
 
 <!-- Phase 122 admin (2026-05-25) — 학생 이름 클릭 시 상세보기 페이지로 이동 -->
@@ -17099,11 +17099,11 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r24.js?v=1"></script><!-- 분할추출:adm-r24 -->
+<script src="/js/adm-r24.js?v=1" defer></script><!-- 분할추출:adm-r24 -->
 
 
 <!-- Phase 124 admin (2026-05-25) — 손자 메뉴 셀렉터 광범위화 + 데모 손자 메뉴 매핑 -->
-<script src="/js/adm-q11.js?v=1"></script><!-- 분할추출:adm-q11 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q11.js?v=1" defer></script><!-- 분할추출:adm-q11 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
@@ -17180,7 +17180,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r25.js?v=1"></script><!-- 분할추출:adm-r25 -->
+<script src="/js/adm-r25.js?v=1" defer></script><!-- 분할추출:adm-r25 -->
 
 
 <!-- Phase 126 admin (2026-05-25) — 잔존율/활성 룸 강제 visible + 정확한 스크롤 -->
@@ -17320,7 +17320,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-s15.js?v=1"></script><!-- 분할추출:adm-s15 -->
+<script src="/js/adm-s15.js?v=1" defer></script><!-- 분할추출:adm-s15 -->
 
 
 <!-- Phase 128 admin (2026-05-25) — 결제·결제 표 컬럼별 다중 동시 필터링 -->
@@ -17396,11 +17396,11 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r26.js?v=1"></script><!-- 분할추출:adm-r26 -->
+<script src="/js/adm-r26.js?v=1" defer></script><!-- 분할추출:adm-r26 -->
 
 
 <!-- Phase 129 admin (2026-05-25) — 한↔영 i18n 완전 보강 (사이드바·신규 카드·버튼·알림) -->
-<script src="/js/adm-p3.js?v=1"></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p3.js?v=1" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 130 admin (2026-05-25) — MBTI 강사 사진 업로드 + 다중 필터 자동완성 -->
@@ -17526,11 +17526,11 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r27.js?v=1"></script><!-- 분할추출:adm-r27 -->
+<script src="/js/adm-r27.js?v=1" defer></script><!-- 분할추출:adm-r27 -->
 
 
 <!-- Phase 131 admin (2026-05-25) — 권한 관리 카드 i18n 자동 번역 -->
-<script src="/js/adm-r28.js?v=1"></script><!-- 분할추출:adm-r28 -->
+<script src="/js/adm-r28.js?v=1" defer></script><!-- 분할추출:adm-r28 -->
 
 <!-- ============================================================
      Phase 132 (2026-05-27) — 관리자 로그인 강화
@@ -17605,7 +17605,7 @@ button.chip:hover,
     #ph132-forgot-modal .ph132-method { padding: 12px 14px; }
   }
 </style>
-<script src="/js/adm-q12.js?v=1"></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q12.js?v=1" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
 
 <!-- ============================================================
      Phase 133 (2026-05-27) — 관리자 화면에서도 수업 진단 플로팅 버튼
@@ -17885,7 +17885,7 @@ button.chip:hover,
 <button type="button" id="ph135-pin-btn" onclick="window.ph135TogglePin && window.ph135TogglePin()"
         title="사이드바 고정/미니" aria-label="사이드바 고정/미니">📌</button>
 
-<script src="/js/adm-r29.js?v=1"></script><!-- 분할추출:adm-r29 -->
+<script src="/js/adm-r29.js?v=1" defer></script><!-- 분할추출:adm-r29 -->
 
 
 <!-- ============================================================
@@ -18381,7 +18381,7 @@ button.chip:hover,
 <div id="ph141-edge" aria-hidden="true"></div>
 <div id="ph141-edge-indicator" aria-hidden="true" title="여기 탭하면 메뉴 열림"></div>
 
-<script src="/js/adm-r30.js?v=1"></script><!-- 분할추출:adm-r30 -->
+<script src="/js/adm-r30.js?v=1" defer></script><!-- 분할추출:adm-r30 -->
 
 
 <!-- ============================================================
@@ -18466,7 +18466,7 @@ button.chip:hover,
 <button type="button" id="ph142-toggle" aria-label="메뉴 열기/닫기">☰</button>
 <div id="ph142-overlay" aria-hidden="true"></div>
 
-<script src="/js/adm-s16.js?v=1"></script><!-- 분할추출:adm-s16 -->
+<script src="/js/adm-s16.js?v=1" defer></script><!-- 분할추출:adm-s16 -->
 
 
 <!-- ============================================================
@@ -19248,7 +19248,7 @@ button.chip:hover,
 })();
 </script>
 <!-- 🥭 P3 — AI 운영 비서 대화 패널 (ai-command 연결 · 한/영 이중언어 · 가산적/비파괴 · mi-asst-) -->
-<script src="/js/adm-p2.js?v=1"></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p2.js?v=1" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎥 AI 운영비서 영상 메시지 — 클릭 시 fade-in → 말하기 → fade-out (자동재생, 🔇 무음 / ❌ 닫기) -->
 <style>
@@ -19788,7 +19788,7 @@ button.chip:hover,
     #mi-ops-av{ right:0!important; bottom:0!important; width:100vw!important; height:100vh!important; height:100dvh!important; max-width:none!important; max-height:none!important; border-radius:0!important; }
   }
 </style>
-<script src="/js/adm-s17.js?v=1"></script><!-- 분할추출:adm-s17 -->
+<script src="/js/adm-s17.js?v=1" defer></script><!-- 분할추출:adm-s17 -->
 
 <!-- 🧹 (2026-06-18) 상단 헤더 컨트롤 가지런히 정리 — 기존 충돌 반응형 규칙(720 flex-wrap / 720 nowrap-scroll / 900 grid)을 정리하는 최종 권위 스타일. 모든 칩 높이·정렬 통일, 좁은 화면은 2열 그리드. -->
 <style id="th-tidy-2026-06-18">
@@ -20102,7 +20102,7 @@ button.chip:hover,
   #card-retention-center .rc-rel{display:inline-block;margin:0 6px;padding:1px 8px;border-radius:6px;
     font-size:10.5px;background:rgba(139,92,246,.18);color:#c4b5fd;border:1px solid rgba(139,92,246,.35)}
 </style>
-<script src="/js/adm-p1.js?v=1"></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p1.js?v=1" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 <!-- 📱 (2026-07-09) 모바일 마감 보정 — 좁은 화면에서 차트카드 삐져나감·표 잘림 방지(표는 가로 스크롤로 전환). 빼면 즉시 원복 -->
 <style id="mb-tidy-2026-07-09">
@@ -20199,8 +20199,8 @@ button.chip:hover,
   <div id="ag-hint">← → 넘기기 · 손가락으로 밀기 · 아래 그림을 눌러 바로 이동</div>
   <div id="ag-thumbs"></div>
 </div>
-<script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
-<script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-s18.js?v=2" defer></script><!-- 분할추출:adm-s18 -->
+<script src="/js/adm-welcome.js?v=1" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
      인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.
@@ -20234,6 +20234,6 @@ button.chip:hover,
   #ai-greeting-bubble { padding: 8px 16px !important; font-size: 14px !important; margin-bottom: 10px !important; }
 }
 </style>
-<!-- BUILD:20260722034346 -->
+<!-- BUILD:20260722035242 -->
 </body>
 </html>
