@@ -451,13 +451,13 @@ var PIZZA_MENU = [
   {img:'pep-mush-cheese',name:'페퍼로니 머쉬룸 치즈 피자', ing:['pepperoni','mushroom','cheese','mozzarella']},
   {img:'cheese',         name:'치즈 피자',                ing:['cheese','mozzarella']},
   {img:'meat-lover',     name:'미트 러버 피자',           ing:['pepperoni','ham','bacon','beef']},
-  {img:'hawaiian',       name:'하와이안 피자',            ing:['pineapple','ham','mozzarella','cheese']},
-  {img:'vegetarian',     name:'베지테리언 피자',          ing:['olive','onion','greenpepper','cherrytomato','mushroom','basil']},
+  {img:'hawaiian2',      name:'하와이안 피자',            ing:['pineapple','ham','pepperoni','mozzarella','cheese']},
+  {img:'vegetarian2',    name:'베지테리언 피자',          ing:['olive','onion','greenpepper','cherrytomato','basil','spinach']},
   {img:'bulgogi',        name:'불고기 피자',              ing:['beef','onion','mushroom','greenpepper']},
   {img:'super-supreme',  name:'슈퍼 슈프림 피자',         ing:['pepperoni','beef','ham','onion','greenpepper','mushroom','olive']},
   {img:'potato',         name:'포테이토 피자',            ing:['bacon','onion','caramelonion']},
   {img:'sweet-potato',   name:'고구마 피자',              ing:['bacon','onion','corn']},
-  {img:'pepperoni2',     name:'페퍼로니 피자',            ing:['pepperoni','mozzarella','cheese']},
+  {img:'pepperoni3',     name:'페퍼로니 피자',            ing:['pepperoni','mozzarella','cheese']},
   {img:'margherita2',    name:'마르게리타 피자',          ing:['mozzarella','tomato','basil','cherrytomato']},
   {img:'hot-chicken',    name:'핫 치킨 피자',             ing:['jalapeno','onion','beef']},
   {img:'shrimp',         name:'쉬림프 피자',              ing:['shrimp','onion','greenpepper']},
@@ -470,7 +470,12 @@ var PIZZA_MENU = [
   {img:'quattro-formaggi',name:'콰트로 포르마지 피자',    ing:['cheese','mozzarella','ham']},
   {img:'capricciosa',    name:'카프리초사 피자',          ing:['ham','mushroom','olive','artichoke']},
   {img:'prosciutto-rucola',name:'프로슈토 에 루꼴라 피자',ing:['prosciutto','cherrytomato','basil','spinach']},
-  {img:'veggie-supreme', name:'베지 수프림 피자',         ing:['greenpepper','onion','olive','spinach','mushroom','tomato']}
+  {img:'veggie-supreme', name:'베지 수프림 피자',         ing:['greenpepper','onion','olive','spinach','mushroom','tomato']},
+  {img:'cream-hawaiian', name:'크림 하와이안 피자',       ing:['pineapple','ham','pepperoni','prosciutto','cheese']},
+  {img:'garden-ham',     name:'가든 햄 피자',             ing:['ham','bacon','basil','spinach','greenpepper','onion','cherrytomato','olive','artichoke']},
+  {img:'white-pepperoni',name:'화이트 페퍼로니 피자',     ing:['pepperoni','cheese','mozzarella','basil']},
+  {img:'white-garden',   name:'화이트 가든 피자',         ing:['ham','greenpepper','onion','spinach','basil','artichoke','olive','cherrytomato']},
+  {img:'mushroom-mozza', name:'버섯 모차렐라 피자',       ing:['mushroom','mozzarella','pepperoni','cherrytomato']}
 ];
 /* 이번 문장에 쓴 재료들과 겹침이 가장 큰 레시피 선택 */
 function pickMenuPizza(){
@@ -486,7 +491,7 @@ function pickMenuPizza(){
   return best || PIZZA_MENU[0];
 }
 /* 완성 피자 이미지 미리받기 (게임 중 끊김 방지) — 초해상도 webp */
-function menuImgUrl(p){ return '/img/pizza/menu/' + p.img + '.webp?v=3'; }
+function menuImgUrl(p){ return '/img/pizza/menu/' + p.img + '.webp?v=4'; }
 setTimeout(function(){
   PIZZA_MENU.forEach(function(p){ var im = new Image(); im.src = menuImgUrl(p); });
 }, 2500);
@@ -1107,6 +1112,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260721161746 -->
+<!-- BUILD:20260721162037 -->
 </body>
 </html>
