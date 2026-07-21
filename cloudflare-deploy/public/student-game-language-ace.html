@@ -910,7 +910,17 @@ function update(dt){
   G.spawnT-=dt;
   if(G.spawnT<=0){ spawnEnemy(false); G.spawnT = diffSpawnBase()/SPMUL * (0.8+Math.random()*0.6); }
   // 정답 단어 항상 화면에 존재하도록 워치독
-  G.watchT-=dt; if(G.watchT<=0){ G.watchT=1.0; if(!targetOnScreen() && G.enemies.length<diffMaxEnemies()) spawnEnemy(true); }
+  G.watchT-=dt; if(G.watchT<=0){ G.watchT=1.0;
+    if(!targetOnScreen()){
+      if(G.enemies.length<diffMaxEnemies()) spawnEnemy(true);
+      else {
+        // 🛟 교착 방지: 오답 적기가 상한을 다 채우면(저속에선 수십 초 배회) 정답 단어가 안 나옴
+        // → 살아있는 적기 하나의 단어를 목표 단어로 교체
+        var _cand=G.enemies.filter(function(e){ return e.alive; });
+        if(_cand.length){ _cand[Math.floor(Math.random()*_cand.length)].word=neededWord(); }
+      }
+    }
+  }
   // 연료
   G.fuelT-=dt; if(G.fuelT<=0){ G.fuelT=6+Math.random()*5;
     G.fuels.push({x:40+Math.random()*(W-80),y:-30,vy:(52+Math.random()*20),r:16*SCALE,rot:0}); }
@@ -1532,6 +1542,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260722012016 -->
+<!-- BUILD:20260722013146 -->
 </body>
 </html>
