@@ -16866,10 +16866,43 @@ async function pdfLoadRemote(pdfId, page, kind) {
     pdfRender();
 }
 
+/* ⚡ (2026-07-21) 교재 이전/다음 지연 해소 — 교사 피드백 반영
+   기존 문제: 클릭할 때마다 이전 렌더를 취소하지 않고 새 렌더를 시작 → 렌더가 겹겹이 쌓여
+             연속으로 누를수록 점점 느려짐. 캔버스도 매번 재할당(clear+realloc).
+   해결: ① 진행 중이면 "최신 1회만" 예약하고 즉시 반환(중간 페이지는 건너뜀)
+        ② 진행 중이던 PDF.js RenderTask 를 cancel
+        ③ 세대(seq) 토큰으로 늦게 끝난 렌더 결과는 폐기
+        ④ 캔버스 크기가 같으면 재할당 대신 clear 만 (재할당 비용 제거) */
+let _pdfRenderSeq = 0, _pdfRendering = false, _pdfPendingRender = false;
+let _pdfTask1 = null, _pdfTask2 = null;
+function _pdfFitCanvas(canvas, w, h) {
+    const W = Math.max(1, Math.floor(w)), H = Math.max(1, Math.floor(h));
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    else { try { canvas.getContext('2d').clearRect(0, 0, W, H); } catch (e) {} }
+}
 async function pdfRender() {
+    if (!pdfDoc) return;
+    if (_pdfRendering) { _pdfPendingRender = true; return; }   // 연속 클릭 → 마지막 상태로 1회만
+    _pdfRendering = true;
+    const _seq = ++_pdfRenderSeq;
+    try { if (_pdfTask1) _pdfTask1.cancel(); } catch (e) {}
+    try { if (_pdfTask2) _pdfTask2.cancel(); } catch (e) {}
+    try {
+        await _pdfRenderInner(_seq);
+    } catch (e) {
+        if (!(e && (e.name === 'RenderingCancelledException' || /cancel/i.test(e.message || '')))) {
+            console.warn('[pdfRender]', e && e.message);
+        }
+    } finally {
+        _pdfRendering = false;
+        if (_pdfPendingRender) { _pdfPendingRender = false; setTimeout(pdfRender, 0); }
+    }
+}
+async function _pdfRenderInner(_seq) {
     if (!pdfDoc) return;
     const wrap = document.getElementById('pdf-scroll-wrap');
     const page1 = await pdfDoc.getPage(pdfPageNum);
+    if (_seq !== _pdfRenderSeq) return;   // 더 최신 렌더가 시작됨 → 폐기
     const baseVp = page1.getViewport({ scale: 1 });
     let baseScale;
     if (pdfPagesPerView === 2) {
@@ -16890,9 +16923,11 @@ async function pdfRender() {
     // 1번 페이지
     const canvas1 = document.getElementById('pdf-canvas');
     const vp1 = page1.getViewport({ scale });
-    canvas1.width = vp1.width;
-    canvas1.height = vp1.height;
-    await page1.render({ canvasContext: canvas1.getContext('2d'), viewport: vp1 }).promise;
+    _pdfFitCanvas(canvas1, vp1.width, vp1.height);
+    _pdfTask1 = page1.render({ canvasContext: canvas1.getContext('2d'), viewport: vp1 });
+    await _pdfTask1.promise;
+    _pdfTask1 = null;
+    if (_seq !== _pdfRenderSeq) return;
     pdfSyncAnnoCanvas('pdf-anno', canvas1, pdfPageNum);
 
     // 2번 페이지
@@ -16900,11 +16935,14 @@ async function pdfRender() {
     const wrap2 = document.getElementById('pdf-page-wrap-2');
     if (pdfPagesPerView === 2 && pdfPageNum + 1 <= pdfDoc.numPages) {
         const page2 = await pdfDoc.getPage(pdfPageNum + 1);
+        if (_seq !== _pdfRenderSeq) return;
         const vp2 = page2.getViewport({ scale });
-        canvas2.width = vp2.width;
-        canvas2.height = vp2.height;
+        _pdfFitCanvas(canvas2, vp2.width, vp2.height);
         wrap2.style.display = '';
-        await page2.render({ canvasContext: canvas2.getContext('2d'), viewport: vp2 }).promise;
+        _pdfTask2 = page2.render({ canvasContext: canvas2.getContext('2d'), viewport: vp2 });
+        await _pdfTask2.promise;
+        _pdfTask2 = null;
+        if (_seq !== _pdfRenderSeq) return;
         pdfSyncAnnoCanvas('pdf-anno-2', canvas2, pdfPageNum + 1);
     } else {
         wrap2.style.display = 'none';
@@ -17152,6 +17190,21 @@ function pdfApplyIdentity() {
             e.preventDefault();
             pdfAnnoUndo();
         }
+    });
+
+    /* ⌨️ (2026-07-21) 교재 페이지 넘기기 = 키보드 화살표 — 교사 피드백 반영
+       ← / PageUp = 이전,  → / PageDown = 다음.
+       입력창·채팅에 타이핑 중이거나 조합키(Ctrl/Alt/Meta)면 무시 → 기존 단축키와 충돌 없음. */
+    document.addEventListener('keydown', function(e){
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'PageUp' && e.key !== 'PageDown') return;
+        if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+        if (!pdfDoc) return;                       // 교재가 떠 있을 때만
+        var t = e.target || {};
+        var tag = (t.tagName || '').toUpperCase();
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return;
+        e.preventDefault();
+        if (e.key === 'ArrowLeft' || e.key === 'PageUp') pdfPrevPage();
+        else pdfNextPage();
     });
     _pdfIdentityApplied = true;
 }
@@ -17415,11 +17468,21 @@ function _pdfGoSeqFile(f) {
         _pdfToast('❌ 교재 로드 실패');
     });
 }
+/* 연속으로 넘길 때 상대방에게 매번 쏘면 신호가 폭주 → 마지막 페이지만 150ms 뒤 1회 전송 */
+let _pdfBcTimer = null;
+function _pdfBroadcastPage() {
+    if (!vcConn) return;
+    if (_pdfBcTimer) clearTimeout(_pdfBcTimer);
+    _pdfBcTimer = setTimeout(function () {
+        _pdfBcTimer = null;
+        try { vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } }); } catch (e) {}
+    }, 150);
+}
 async function pdfPrevPage() {
     if (pdfDoc && pdfPageNum > 1) {
         pdfPageNum = Math.max(1, pdfPageNum - pdfPagesPerView);
         pdfRender();
-        if (vcConn) vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } });
+        _pdfBroadcastPage();
         return;
     }
     // 첫 페이지 → 시퀀스의 이전 파일로 (시퀀스가 없으면 서버에서 재구성 — 새 기기/학생도 동작)
@@ -17441,7 +17504,7 @@ async function pdfNextPage() {
     if (pdfDoc && pdfPageNum < pdfDoc.numPages) {
         pdfPageNum = Math.min(pdfDoc.numPages, pdfPageNum + pdfPagesPerView);
         pdfRender();
-        if (vcConn) vcConn.send({ type: 'pdf-page-change', data: { currentPage: pdfPageNum } });
+        _pdfBroadcastPage();
         return;
     }
     // 마지막 페이지 → 시퀀스의 다음 파일로 (시퀀스가 없으면 서버에서 재구성 — 새 기기/학생도 동작)
@@ -25798,7 +25861,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260721195308 -->
+<!-- BUILD:20260721200718 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
