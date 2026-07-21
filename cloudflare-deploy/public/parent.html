@@ -393,6 +393,16 @@ function showKakaoShareDialog(url) {
       </div>
     </div>
 
+    <!-- 😊 패스키(얼굴/지문) 로그인 관리 -->
+    <div class="card" style="margin-top:16px">
+      <h3>😊 <span data-ko="얼굴/지문 로그인 (패스키)" data-en="Face/Fingerprint Login (Passkey)">얼굴/지문 로그인 (패스키)</span></h3>
+      <div style="color:#94a3b8;font-size:12px;margin-bottom:10px" data-ko="얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!" data-en="Biometrics never leave the device. Register once for one-tap login!">얼굴·지문 정보는 기기 밖으로 나가지 않아요. 등록하면 홈 로그인에서 😊 버튼으로 1초 만에 로그인!</div>
+      <div id="pd-passkeys"><div class="empty" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
+      <div style="text-align:center;margin-top:12px">
+        <button id="pd-pk-add" onclick="pdPkAdd()" style="display:none;padding:9px 20px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer" data-ko="😊 이 기기 등록하기" data-en="😊 Register this device">😊 이 기기 등록하기</button>
+      </div>
+    </div>
+
     <div style="text-align:center;margin-top:24px">
       <button onclick="pdRefresh()" style="padding:8px 20px;background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4);border-radius:8px;cursor:pointer;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       <button onclick="pdLogout()" style="padding:8px 20px;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.3);border-radius:8px;cursor:pointer;margin-left:8px" data-ko="다른 자녀 조회" data-en="Other child">다른 자녀 조회</button>
@@ -502,10 +512,88 @@ async function pdLoad(){
       throw new Error(d.error || 'load_fail');
     }
     pdRender(d);
+    pdPkLoad();  // 😊 패스키 목록도 함께 갱신
   } catch(e) {
     alert('❌ ' + e.message);
   }
 }
+
+// ═══ 😊 패스키(얼굴/지문) 관리 — 목록/삭제/이 기기 등록 ═══
+function pkB2b(s){ s=String(s).replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4)s+='='; const bin=atob(s),u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return u.buffer; }
+function pkB2s(buf){ const u=new Uint8Array(buf); let s=''; for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+
+async function pdPkLoad(){
+  const box = document.getElementById('pd-passkeys');
+  const addBtn = document.getElementById('pd-pk-add');
+  if (!box) return;
+  if (addBtn) addBtn.style.display = window.PublicKeyCredential ? '' : 'none';
+  if (!window.PublicKeyCredential) { box.innerHTML = '<div class="empty">이 브라우저는 패스키를 지원하지 않아요.</div>'; return; }
+  try {
+    const r = await fetch('/api/passkey/list', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_token||'')}, body:'{}' });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || d.error);
+    if (!d.items.length) { box.innerHTML = '<div class="empty">등록된 패스키가 없어요. 아래 버튼으로 이 기기를 등록해보세요!</div>'; return; }
+    box.innerHTML = d.items.map(it =>
+      '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.2);border-radius:9px;margin-bottom:7px">'+
+        '<span style="font-size:20px">🔑</span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:12.5px;font-weight:700;color:#d1fae5">'+esc(it.device_label || '내 기기')+'</div>'+
+          '<div style="font-size:11px;color:#94a3b8">등록 '+fmtDate(it.created_at)+(it.last_used_at ? ' · 마지막 사용 '+fmtDate(it.last_used_at) : '')+'</div>'+
+        '</div>'+
+        '<button onclick="pdPkRemove(\''+esc(it.credential_id)+'\')" style="padding:6px 12px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);border-radius:7px;font-size:11.5px;cursor:pointer;font-weight:700">삭제</button>'+
+      '</div>').join('');
+  } catch(e) {
+    box.innerHTML = '<div class="empty">목록을 불러오지 못했어요 ('+esc(e.message||e)+')</div>';
+  }
+}
+
+window.pdPkRemove = async function(cid){
+  if (!confirm('이 패스키를 삭제할까요?\n삭제하면 해당 기기의 얼굴/지문 로그인이 풀려요.')) return;
+  try {
+    const r = await fetch('/api/passkey/remove', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_token||'')}, body: JSON.stringify({ credential_id: cid }) });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || d.error);
+    try { localStorage.removeItem('mangoi_pk_reg_' + _currentUid); } catch(e){}
+    pdPkLoad();
+  } catch(e) { alert('❌ ' + (e.message || e)); }
+};
+
+window.pdPkAdd = async function(){
+  try {
+    const r = await fetch('/api/passkey/register/options', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_token||'')}, body:'{}' });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || d.error || 'options_failed');
+    const o = d.options;
+    const pub = {
+      challenge: pkB2b(o.challenge), rp: o.rp,
+      user: { id: pkB2b(o.user.id), name: o.user.name, displayName: o.user.displayName },
+      pubKeyCredParams: o.pubKeyCredParams, timeout: o.timeout, attestation: o.attestation,
+      authenticatorSelection: o.authenticatorSelection,
+    };
+    if (o.excludeCredentials && o.excludeCredentials.length) pub.excludeCredentials = o.excludeCredentials.map(c => ({ type:'public-key', id: pkB2b(c.id), transports: c.transports }));
+    const cred = await navigator.credentials.create({ publicKey: pub });
+    if (!cred) return;
+    let transports = null;
+    try { transports = cred.response.getTransports ? cred.response.getTransports() : null; } catch(e){}
+    const payload = {
+      credential: { id: cred.id, rawId: pkB2s(cred.rawId), transports: transports, response: {
+        clientDataJSON: pkB2s(cred.response.clientDataJSON),
+        attestationObject: pkB2s(cred.response.attestationObject),
+      } },
+      device_label: (navigator.platform || 'device').slice(0, 40),
+    };
+    const r2 = await fetch('/api/passkey/register/verify', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_token||'')}, body: JSON.stringify(payload) });
+    const d2 = await r2.json();
+    if (!d2.ok) throw new Error(d2.message || d2.error || 'verify_failed');
+    try { localStorage.setItem('mangoi_pk_reg_' + _currentUid, '1'); } catch(e){}
+    alert('✅ 패스키 등록 완료! 다음부터 홈 로그인에서 😊 버튼으로 로그인하세요.');
+    pdPkLoad();
+  } catch(e) {
+    if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError')) return;  // 사용자가 취소
+    if (e && e.name === 'InvalidStateError') { alert('ℹ️ 이 기기는 이미 등록돼 있어요.'); pdPkLoad(); return; }
+    alert('❌ ' + (e.message || e));
+  }
+};
 
 function pdRender(d){
   const c = d.child || {};
@@ -725,7 +813,7 @@ function pdRender(d){
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>
-<!-- BUILD:20260721193432 -->
+<!-- BUILD:20260721194331 -->
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 </body>
