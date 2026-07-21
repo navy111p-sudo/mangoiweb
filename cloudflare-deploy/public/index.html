@@ -21179,7 +21179,15 @@ window.addEventListener('DOMContentLoaded', () => {
       else if (!uid) { showErr(L?'💡 학생 ID를 입력한 뒤 눌러주세요.':'💡 Enter your Student ID first.'); return; }
       // ② 기기 생체인증(얼굴/지문) 세리머니 — 이전 pending 요청은 자동 중단
       showStep(L?'⏳ 기기 인증창 대기 중… (지문/얼굴/PIN 창이 떠야 해요)':'⏳ Waiting for device prompt…');
-      var cred = await navigator.credentials.get({ publicKey: pub, signal: pkNewAbortSignal() });
+      // 8초 지나도 창이 안 뜨는 사용자를 위한 안내 (완료/실패 시 자동 해제)
+      var stuckTimer = setTimeout(function(){
+        if (window.__pkBusy) showStep(L
+          ? '⏳ 인증창이 안 보이면: ① 화면 뒤/작업표시줄에 창이 숨었는지 확인 ② 휴대폰 QR로 등록하셨다면 휴대폰 크롬에서 시도 ③ 60초 후 자동 취소되니 다시 눌러도 됩니다'
+          : '⏳ No prompt? Check hidden windows, or try on the phone you registered with.');
+      }, 8000);
+      var cred;
+      try { cred = await navigator.credentials.get({ publicKey: pub, signal: pkNewAbortSignal() }); }
+      finally { clearTimeout(stuckTimer); }
       if (!cred) { showErr(L?'❌ 인증이 취소됐어요.':'❌ Cancelled.'); return; }
       showStep(L?'⏳ 서명 확인 중…':'⏳ Verifying…');
       // ③ 서명 검증 → 로그인 토큰
@@ -26035,7 +26043,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260721221139 -->
+<!-- BUILD:20260722001434 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
