@@ -1588,10 +1588,15 @@ const worker = {
     // Static assets (실제 파일 확장자가 있는 요청)
     if (path.match(/\.\w+$/)) {
       const assetResp = await env.ASSETS.fetch(request);
-      // HTML/JS/CSS는 캐시 방지 (항상 최신 버전)
+      // HTML/JS/CSS는 '항상 최신'을 보장하되 ETag 재검증만 하게 한다.
+      //   이전: no-store → 브라우저가 저장 자체를 금지당해, 안 바뀐 파일까지
+      //         수업 시작마다 전부 재다운로드(약 1.7MB). 필리핀 저속 회선에서 로딩 지연의 주원인.
+      //   현재: no-cache → 매번 서버에 확인은 하되, 안 바뀌었으면 304(본문 0바이트).
+      //   ※ no-cache 는 '캐시 금지'가 아니라 '쓰기 전에 반드시 재검증'이라는 뜻이다.
+      //     따라서 최신 버전 보장은 이전과 완전히 동일하다.
       if (path.match(/\.(html|js|css)$/)) {
         const assetHeaders = new Headers(assetResp.headers);
-        assetHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        assetHeaders.set('Cache-Control', 'no-cache');
         return new Response(assetResp.body, { status: assetResp.status, headers: assetHeaders });
       }
       return assetResp;
@@ -1612,10 +1617,11 @@ const worker = {
     // ⚠ html_handling = "none" 이라 `/` 가 index.html 로 자동 매핑되지 않음 → 명시적으로 /index.html 요청.
     const indexRequest = new Request(new URL('/index.html', request.url).toString(), request);
     const resp = await env.ASSETS.fetch(indexRequest);
-    // HTML 캐시 방지 — 브라우저가 항상 최신 버전을 받도록
+    // HTML — 항상 최신 버전을 받도록 매번 재검증(no-cache).
+    //   no-store 를 쓰면 안 바뀐 배포에서도 index.html(약 430KB 압축)을 통째로 다시 받는다.
+    //   Pragma: no-cache 도 제거 — HTTP/1.0 잔재라 ETag 재검증 경로를 방해할 수 있다.
     const headers = new Headers(resp.headers);
-    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    headers.set('Pragma', 'no-cache');
+    headers.set('Cache-Control', 'no-cache');
     return new Response(resp.body, { status: resp.status, headers });
   },
 
