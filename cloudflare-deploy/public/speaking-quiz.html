@@ -758,7 +758,12 @@
     var _done=false, _bestHeard='', _bestConf=0, _silence=null;
     var SILENCE_MS=2200;                 // 마지막 말 이후 이 시간(ms) 조용하면 종료
     function armSilence(){ if(_silence) clearTimeout(_silence); _silence=setTimeout(function(){ try{ r.stop(); }catch(e){} }, SILENCE_MS); }
-    r.onstart=function(){ recogActive=true; var m=$('#micBtn'); m.classList.add('listening'); m.innerHTML='🔴 듣는 중… 말하세요'; armSilence(); };
+    /* 🎤 (2026-07-22) 새 시도마다 반드시 초기화 — 안 하면 마이크가 첫 문제 이후 영영 죽는다.
+       recog 객체는 한 번만 만들어 재사용하는데(#micBtn 핸들러의 `if(!recog)`), _done 은 첫
+       onend 에서 true 가 된 뒤 되돌아가지 않았다. 그러면 2번째 시도부터 onresult 가 맨 앞의
+       `if(_done) return;` 로 즉시 빠져나가고, onend 의 `if(!_done)` 도 거짓이라 채점이 안 된다.
+       _bestHeard/_bestConf 도 비워야 '들린 말'에 이전 시도가 남지 않는다. */
+    r.onstart=function(){ _done=false; _bestHeard=''; _bestConf=0; recogActive=true; var m=$('#micBtn'); m.classList.add('listening'); m.innerHTML='🔴 듣는 중… 말하세요'; armSilence(); };
     r.onerror=function(ev){ if(_silence) clearTimeout(_silence); recogActive=false; var m=$('#micBtn'); m.classList.remove('listening'); m.innerHTML='🎤 다시 말하기'; m.disabled=false;
       if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){ _done=true; $('#status').innerHTML='⚠ 마이크 권한이 필요합니다. 브라우저에서 허용하거나 <b>통과(스킵)</b>를 눌러주세요.'; }
       else if(ev.error==='no-speech'){ _done=true; $('#status').innerHTML='소리가 들리지 않았어요. 다시 시도해 주세요 🎤'; } };
@@ -874,6 +879,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260722053612 -->
+<!-- BUILD:20260722054806 -->
 </body>
 </html>

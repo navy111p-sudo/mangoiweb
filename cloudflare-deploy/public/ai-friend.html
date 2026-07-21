@@ -568,6 +568,20 @@
       b.classList.toggle('recording', _recognizing);
       b.textContent = _recognizing ? '⏹' : '🎤';
     }
+    /* 🎤 인식 조각을 이어 붙일 때 공백을 보장한다.
+       그냥 += 하면 "I" + "I like" 가 "II like" 로 붙어버린다(실제로 화면에 그렇게 나왔다). */
+    function joinSpeech(a, b) {
+      a = (a || '').trim(); b = (b || '').trim();
+      if (!a) return b;
+      if (!b) return a;
+      return a + ' ' + b;
+    }
+    /* 🎤 인식 결과 다듬기 — 공백 정리 + 바로 이어진 같은 단어를 한 번으로.
+       interim(중간) 과 final(확정) 결과가 겹치면 "I I like like that" 처럼 나오는 일이 잦다. */
+    function tidySpeech(s) {
+      s = (s || '').replace(/\s+/g, ' ').trim();
+      return s.replace(/\b(\w+)(\s+\1\b)+/gi, '$1');
+    }
     function initRecog() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SR) return null;
@@ -578,16 +592,23 @@
       let _finalTxt = '', _silence = null;
       const SILENCE_MS = 2600;                 // 마지막 말 이후 이 시간(ms) 조용하면 종료 → 문장 다 말할 시간 확보
       const armSilence = () => { if (_silence) clearTimeout(_silence); _silence = setTimeout(() => { try { r.stop(); } catch(e){} }, SILENCE_MS); };
-      r.onstart = () => { armSilence(); };
+      /* 🎤 (2026-07-22) 새 녹음을 시작할 때마다 반드시 비운다 — 인식 오류의 진짜 원인.
+         _finalTxt 는 initRecog 클로저에 한 번만 선언되는데 _recog 객체는 마이크를 누를 때마다
+         재사용된다. 예전엔 여기서 초기화하지 않아 이전에 말한 문장이 계속 앞에 쌓였다:
+           1번째 "I like that" → 2번째 "I like thatI like doll" → 3번째 "...I like though" …
+         그래서 (a) 방금 말한 dog 이 옛 단어에 묻혀 엉뚱하게 보이고,
+              (b) AI 에게는 그 긴 문자열이 전달돼 "문장을 너무 많이 말한다"는 답이 반복됐다. */
+      r.__reset = () => { _finalTxt = ''; };
+      r.onstart = () => { _finalTxt = ''; armSilence(); };
       r.onresult = (ev) => {
         try {
           let interim = '';
           for (let i = ev.resultIndex; i < ev.results.length; i++) {
             const t = ev.results[i][0].transcript;
-            if (ev.results[i].isFinal) _finalTxt += t; else interim += t;
+            if (ev.results[i].isFinal) _finalTxt = joinSpeech(_finalTxt, t); else interim = joinSpeech(interim, t);
           }
           const input = document.getElementById('msgInput');
-          if (input) input.value = (_finalTxt + ' ' + interim).trim();
+          if (input) input.value = tidySpeech(joinSpeech(_finalTxt, interim));
           armSilence();                        // 말할 때마다 종료 타이머 리셋 → 계속 말하면 안 끊김
         } catch(e){}
       };
@@ -595,9 +616,16 @@
         if (_silence) clearTimeout(_silence);
         _recognizing = false; updateMicUI();
         const input = document.getElementById('msgInput');
-        if (input && (input.value || '').trim()) { _pendingVoice = true; sendMsg(); }   // 인식 끝나면 자동 전송
+        const said = tidySpeech(input ? input.value : '');
+        if (input) input.value = said;
+        _finalTxt = '';                        // 다음 녹음에 절대 안 넘어가게 (onstart 와 이중 안전장치)
+        if (said) { _pendingVoice = true; sendMsg(); }   // 인식 끝나면 자동 전송
       };
-      r.onerror = () => { if (_silence) clearTimeout(_silence); _recognizing = false; updateMicUI(); };
+      r.onerror = () => {
+        if (_silence) clearTimeout(_silence);
+        _finalTxt = '';                        // 오류로 끊겨도 잔재를 남기지 않음
+        _recognizing = false; updateMicUI();
+      };
       return r;
     }
     function toggleMic() {
@@ -608,6 +636,12 @@
       }
       if (_recognizing) { try { _recog.stop(); } catch(e){} return; }
       try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}   // 내 음성이 TTS를 녹음하지 않게
+      /* 시작 전에 입력창과 누적 버퍼를 모두 비운다 — onstart 가 안 오는 브라우저 대비 */
+      try {
+        const input = document.getElementById('msgInput');
+        if (input) input.value = '';
+        if (_recog.__reset) _recog.__reset();
+      } catch(e){}
       try { _recog.start(); _recognizing = true; updateMicUI(); } catch(e){ _recognizing = false; updateMicUI(); }
     }
     updateSoundBtn();
@@ -750,7 +784,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260722053612 -->
+<!-- BUILD:20260722054806 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}

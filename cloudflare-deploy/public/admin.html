@@ -3144,9 +3144,9 @@
      페이지에 버튼을 붙이는 시점에 이 카드 블록만 되살리면 즉시 동작함. -->
 
 <details class="table-card menu-card" id="card-retention">
-  <summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+  <summary style="display:flex;align-items:center;gap:8px;">
     <span data-ko="🗑️ 보관기간 자동 파기" data-en="🗑️ Auto Retention Cleanup">🗑️ 보관기간 자동 파기</span>
-    <button id="retention-run" style="padding:4px 10px;font-size:12px;margin-right:32px;" data-ko="지금 실행" data-en="Run Now" onclick="event.stopPropagation()">지금 실행</button>
+    <button id="retention-run" style="padding:4px 10px;font-size:12px;margin-left:auto;margin-right:32px;" data-ko="지금 실행" data-en="Run Now" onclick="event.stopPropagation()">지금 실행</button>
   </summary>
   <div class="menu-body">
     <div id="retention-status" style="font-size:13px;color:#6b7280;" data-ko-loading="로딩 중..." data-en-loading="Loading...">로딩 중...</div>
@@ -3154,9 +3154,9 @@
 </details>
 
 <details class="table-card menu-card" id="card-active-rooms">
-  <summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+  <summary style="display:flex;align-items:center;gap:8px;">
     <span data-ko="🔴 실시간 수업 현황" data-en="🔴 Live Classes">🔴 실시간 수업 현황</span>
-    <button id="rooms-refresh" style="padding:4px 10px;font-size:12px;margin-right:32px;" data-ko="새로고침" data-en="Refresh" onclick="event.stopPropagation()">새로고침</button>
+    <button id="rooms-refresh" style="padding:4px 10px;font-size:12px;margin-left:auto;margin-right:32px;" data-ko="새로고침" data-en="Refresh" onclick="event.stopPropagation()">새로고침</button>
   </summary>
   <div class="menu-body">
     <table>
@@ -8780,9 +8780,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-r14.js?v=1" defer></script><!-- 분할추출:adm-r14 -->
 
 <details class="table-card menu-card" id="card-payroll">
-  <summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+  <!-- ⚠️ justify-content:space-between 금지 — adm-menu-icons.js 가 summary 맨 앞에 아이콘을
+       넣으면 flex 자식이 3개가 되어 space-between 이 제목을 '가운데'로 밀어낸다(다른 카드는 전부 왼쪽).
+       카운터만 margin-left:auto 로 오른쪽에 붙이면 자식이 몇 개로 늘어나도 제목은 왼쪽에 남는다. -->
+  <summary style="display:flex;align-items:center;gap:8px;">
     <span data-ko="💼 Mangoi 강사 급여·평가 대시보드" data-en="💼 Mangoi Teacher Payroll & Evaluation">💼 Mangoi 강사 급여·평가 대시보드</span>
-    <span style="font-size:12px;font-weight:400;color:#6b7280;margin-right:32px;" id="payroll-counts">—</span>
+    <span style="font-size:12px;font-weight:400;color:#6b7280;margin-left:auto;margin-right:32px;" id="payroll-counts">—</span>
   </summary>
   <div class="menu-body">
   <div style="font-size:12px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:10px;line-height:1.6;"
@@ -11202,9 +11205,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <!-- 📣 Phase 5: 알림 큐 (운영 이벤트 자동 적재 + 상태 모니터링) -->
 <details class="table-card menu-card" id="card-notifications">
-  <summary style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+  <summary style="display:flex;align-items:center;gap:8px;">
     <span data-ko="📣 알림 큐 (운영 이벤트)" data-en="📣 Notification Queue">📣 알림 큐 (운영 이벤트)</span>
-    <span style="font-size:12px;font-weight:400;color:#6b7280;margin-right:32px;" id="notif-counts">—</span>
+    <span style="font-size:12px;font-weight:400;color:#6b7280;margin-left:auto;margin-right:32px;" id="notif-counts">—</span>
   </summary>
   <div class="menu-body">
     <div style="font-size:12px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:10px;line-height:1.6;"
@@ -11299,7 +11302,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <!-- 🎥 녹화 관리 — 영상 목록 + 저장소 상태 + 진단 통합 (2026-05-06) -->
 <details class="table-card menu-card" id="card-recording-storage" data-menu-label-ko="🎥 녹화 관리" data-menu-label-en="🎥 Recordings">
-  <summary style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px;">
+  <summary style="display:flex;align-items:center;gap:10px;padding:14px 18px;">
     <span style="display:flex;align-items:center;gap:10px;font-size:15px;font-weight:800;color:#0f172a">
       <span data-ko="🎥 녹화 관리" data-en="🎥 Recordings">🎥 녹화 관리</span>
       <span id="rs-status-badge" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#dcfce7;color:#15803d;border-radius:12px;font-size:10.5px;font-weight:700">
@@ -11307,7 +11310,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <span data-ko="연결 정상" data-en="Online">연결 정상</span>
       </span>
     </span>
-    <span style="display:flex;gap:8px;align-items:center;margin-right:32px">
+    <span style="display:flex;gap:8px;align-items:center;margin-left:auto;margin-right:32px">
       <span id="rec-counts" style="font-size:12px;font-weight:400;color:#6b7280;"></span>
       <button id="rs-refresh-btn" onclick="event.stopPropagation();window.refreshStorageStats&&window.refreshStorageStats()" style="padding:6px 12px;font-size:11.5px;border:1px solid #c7d2fe;background:#e6ecff;border-radius:6px;cursor:pointer;font-weight:600;color:#1e3a8a;display:inline-flex;align-items:center;gap:5px"><span style="font-size:13px">🔄</span><span data-ko="새로고침" data-en="Refresh">새로고침</span></button>
       <button id="rs-diag-btn" onclick="event.stopPropagation();testR2()" style="padding:6px 12px;font-size:11.5px;background:#e6ecff;color:#1e3a8a;border:1px solid #c7d2fe;border-radius:6px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:5px"><span style="font-size:13px">🔧</span><span data-ko="진단" data-en="Diagnose">진단</span></button>
@@ -20441,6 +20444,6 @@ button.chip:hover,
   .hero-character-frame::after { font-size: 14px !important; }  /* 🛸 UFO */
 }
 </style>
-<!-- BUILD:20260722053612 -->
+<!-- BUILD:20260722054806 -->
 </body>
 </html>

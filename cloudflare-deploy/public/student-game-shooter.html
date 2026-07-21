@@ -945,7 +945,10 @@
     var _done=false, _bestHeard='', _bestConf=0, _silence=null;
     var SILENCE_MS=2200;                 // 마지막 말 이후 이 시간(ms) 조용하면 종료 → 문장 다 말할 시간 확보
     function armSilence(){ if(_silence) clearTimeout(_silence); _silence=setTimeout(function(){ try{ r.stop(); }catch(e){} }, SILENCE_MS); }
-    r.onstart=function(){ recogActive=true; micBtn.classList.add('listening'); micBtn.innerHTML='🔴 듣는 중… 말하세요'; armSilence(); };
+    /* 🎤 (2026-07-22) 새 시도마다 초기화 — 안 하면 3회 반복 미션의 1회차만 인정되고 마이크가 죽는다.
+       recog 는 한 번만 만들어 재사용하는데 _done 이 첫 onend 에서 true 로 굳어, 이후 onresult 가
+       맨 앞의 `if(_done) return;` 로 즉시 빠져나갔다. */
+    r.onstart=function(){ _done=false; _bestHeard=''; _bestConf=0; recogActive=true; micBtn.classList.add('listening'); micBtn.innerHTML='🔴 듣는 중… 말하세요'; armSilence(); };
     r.onerror=function(ev){
       if(_silence) clearTimeout(_silence);
       recogActive=false; micBtn.classList.remove('listening'); micBtn.innerHTML='🎤 누르고 말하기'; micBtn.disabled=false;
@@ -1498,6 +1501,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260722053612 -->
+<!-- BUILD:20260722054806 -->
 </body>
 </html>
