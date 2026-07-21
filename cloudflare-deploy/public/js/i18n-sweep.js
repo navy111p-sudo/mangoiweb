@@ -1806,6 +1806,10 @@
 "연료 드럼통": "fuel drum",
 "A6M 제로센 편대": "A6M Zero squadron",
 "▶ 출격!": "▶ Take off!",
+/* P-38 시작화면 컴팩트 설명(2026-07-22) */
+"🖱️ 드래그로 조종 · 🔫 누르고 있으면 연사": "🖱️ Drag to steer · 🔫 Hold to rapid-fire",
+"🎯 문장의 금색 단어를 실은 적기를 순서대로 격추!": "🎯 Shoot down the planes carrying the gold words in order!",
+"🛢️ 드럼통 = 시간·점수 ↑ · 💥 적 탄막을 피하세요!": "🛢️ Fuel drums = time & score ↑ · 💥 Dodge enemy fire!",
 /* 3D 배틀 */
 "망고아이 · 3D 영어 배틀 — 레슨 보스전": "Mangoi · 3D English Battle — Lesson Boss",
 "🛡️ 기사 (우리 학생)": "🛡️ Knight (our student)",

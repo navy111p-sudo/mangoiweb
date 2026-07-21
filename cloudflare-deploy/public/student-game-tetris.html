@@ -511,6 +511,7 @@ function audioUnlock(){
   }
   if(running && MUSIC.on && !MUSIC.timer) musicStart();          // 잠금 때문에 못 시작한 음악 재시작
   try{ if(window.speechSynthesis && speechSynthesis.paused) speechSynthesis.resume(); }catch(_){}
+  try{ ttsUnlock(); }catch(_){}                                  // 서버 TTS <audio> 도 첫 제스처에서 잠금 해제(1회 보장)
 }
 ['pointerdown','touchend','click','keydown'].forEach(function(ev){ document.addEventListener(ev, audioUnlock, true); });
 function sndMove(){ beep(300,320,.03,'square',.05); }
@@ -581,53 +582,107 @@ function toggleMusic(){
 var VOICES=[];
 function loadVoices(){ try{ VOICES=speechSynthesis.getVoices()||[]; }catch(_){} }
 loadVoices(); try{ speechSynthesis.onvoiceschanged=loadVoices; }catch(_){}
-/* 📱 모바일(iOS) TTS 잠금 해제 — 사용자 제스처(게임 시작) 안에서 무음 발화 1회 */
+/* 📱 모바일(iOS) TTS 잠금 해제 — 사용자 제스처 안에서 무음 발화+무음 오디오 1회.
+   ⚠️ 플래그는 맨 앞에서 설정(앱 WebView 는 speechSynthesis 가 없어 예외 → try 안이면 매 터치 재실행되며
+   재생 중인 _ttsAudio.src 를 무음 WAV 로 덮어 발음이 뚝 끊긴다 — B-17 게임 실기기 무음의 근본원인). */
 var _ttsUnlocked=false;
-function ttsUnlock(){ if(_ttsUnlocked)return; try{
-  var u=new SpeechSynthesisUtterance(' '); u.volume=0; u.rate=2;
-  speechSynthesis.speak(u); loadVoices(); _ttsUnlocked=true;
-}catch(_){}}
+function ttsUnlock(){ if(_ttsUnlocked)return; _ttsUnlocked=true;
+  try{
+    var u=new SpeechSynthesisUtterance(' '); u.volume=0; u.rate=2;
+    speechSynthesis.speak(u); loadVoices();
+  }catch(_){}
+  // 서버 TTS용 <audio>도 같은 제스처 안에서 무음 재생 1회 → 자동재생 정책 잠금 해제
+  try{ if(!_ttsAudio) _ttsAudio=new Audio();
+    _ttsAudio.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+    var p=_ttsAudio.play(); if(p&&p.catch)p.catch(function(){});
+  }catch(_){}
+}
 function pickVoice(lang){
   return VOICES.find(function(x){ return x.lang===lang; }) || VOICES.find(function(x){ return x.lang && x.lang.indexOf(lang.slice(0,2))===0; });
 }
-function speak(text, rate){
-  try{ speechSynthesis.cancel();
+
+/* ── 🔊 서버 원어민 TTS 오디오 (B-17 게임과 동일 방식) ──
+   한국 폰·앱 WebView 에는 중국어 음성이 없어 speechSynthesis 만으로는 zh 가 '무음'이 된다.
+   zh = /api/tts-free(Google 만다린 MP3 — Whisper 전사 검증 깨끗) · en = /api/voice/tts(Aura-2 원어민).
+   재생 우선순위: ① 서버 오디오 파일 ② 앱 네이티브(AndroidTTS 브리지, APK v1.8+) ③ 기기 음성 폴백 */
+var _ttsCache={}, _ttsAudio=null;
+function _audRate(r){ r=r||0.95; return r>=1 ? Math.min(1.6,r) : Math.max(0.6, 1-(1-r)*0.6); }   // 저속 왜곡 완화
+function _ttsStop(){ try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(_){}
+  try{ if(window.AndroidTTS && window.AndroidTTS.stop) window.AndroidTTS.stop(); }catch(_){} }
+function _srvPlayUrl(u, rate, onend, onfail, retried){
+  try{
+    if(!_ttsAudio) _ttsAudio=new Audio();
+    var done=false;
+    function fin(ok){ if(done)return; done=true;
+      // 📱 자동재생 정책으로 첫 재생이 막히면 잠깐 뒤 딱 1번 재시도(그 사이 잠금이 풀리는 케이스)
+      if(!ok && !retried){ setTimeout(function(){ _srvPlayUrl(u, rate, onend, onfail, true); }, 320); return; }
+      if(ok){ if(onend) onend(); } else if(onfail){ onfail(); } }
+    _ttsAudio.onended=function(){ fin(true); };
+    _ttsAudio.onerror=function(){ fin(false); };
+    _ttsAudio.src=u; _ttsAudio.playbackRate=_audRate(rate);
+    try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(_){}
+    var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fin(false); });
+  }catch(_){ if(onfail) onfail(); }
+}
+function _srvTts(text, rate, onend, onfail){
+  var lang=VOCAB[MODE].tts.slice(0,2);                       // 'en' | 'zh'
+  var key=lang+'|'+text;
+  if(_ttsCache[key]){ _srvPlayUrl(_ttsCache[key], rate, onend, onfail); return; }
+  // ⚠️ zh 는 /api/voice/tts 가 아니라 /api/tts-free — voice/tts 의 zh 폴백(MeloTTS)은 깨진 오디오
+  var req = (lang==='zh')
+    ? fetch('/api/tts-free?lang=zh&q='+encodeURIComponent(text))
+    : fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text:text, lang:'en' }) });
+  req.then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
+    .then(function(b){ if(b.size<300) throw new Error('empty');
+      var fr=new FileReader();                               // data: URL — 일부 앱 WebView 가 blob: 오디오 미지원
+      fr.onload=function(){ var u=String(fr.result||''); if(!u){ if(onfail)onfail(); return; } _ttsCache[key]=u; _srvPlayUrl(u, rate, onend, onfail); };
+      fr.onerror=function(){ try{ var u2=URL.createObjectURL(b); _ttsCache[key]=u2; _srvPlayUrl(u2, rate, onend, onfail); }catch(_){ if(onfail)onfail(); } };
+      fr.readAsDataURL(b);
+    })
+    .catch(function(){ if(onfail) onfail(); });
+}
+/* 앱(APK v1.8+) 네이티브 TTS 브리지 — WebView 에는 speechSynthesis 가 없어 서버 실패 시 이것이 차선 */
+function _bridgeSpeak(text, rate){
+  try{ if(window.AndroidTTS && window.AndroidTTS.isReady && window.AndroidTTS.isReady()){
+    window.AndroidTTS.speak(text, VOCAB[MODE].tts.slice(0,2), 1.0, rate||0.95); return true; } }catch(_){}
+  return false; }
+/* 기기 음성(speechSynthesis) 1회 + 완료 콜백 — 최후 폴백 */
+function _synthOnce(text, rate, cb){
+  var fired=false; function fin(){ if(fired)return; fired=true; cb&&cb(); }
+  try{
     var u=new SpeechSynthesisUtterance(text), lang=VOCAB[MODE].tts;
     u.lang=lang; u.rate=rate||0.95;
-    var v=pickVoice(lang); if(v) u.voice=v; speechSynthesis.speak(u);
-  }catch(_){}
+    var v=pickVoice(lang); if(v) u.voice=v;
+    u.onend=fin; u.onerror=fin;
+    speechSynthesis.speak(u);
+    setTimeout(fin, 1800 + text.length*(MODE==='zh'?260:110));   // onend 미발화 기기 대비
+  }catch(_){ setTimeout(fin, 600); }
 }
+/* 한 번 낭독 + 완료 콜백(반드시 1회) — 모든 발음의 공통 입구 */
+function speakCore(text, rate, cb){
+  var fired=false; function fin(){ if(fired)return; fired=true; cb&&cb(); }
+  _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
+  _srvTts(text, rate, fin, function(){
+    if(_bridgeSpeak(text, rate)) setTimeout(fin, Math.max(1800, text.length*(MODE==='zh'?260:110)));  // 브리지는 종료 이벤트가 없어 예상 시간
+    else _synthOnce(text, rate, fin);
+  });
+  setTimeout(fin, 5000 + text.length*150);   // 서버 첫 생성(fetch)까지 감안한 안전 타임아웃(듣기 단계 멈춤 방지)
+}
+function speak(text, rate){ speakCore(text, rate); }
 /* 🗣️ 문장을 지정 횟수만큼 이어서 낭독 (문장 완성 시 2번 반복) */
 function speakSentence(text, rate, times){
-  times=Math.max(1, times||1);
-  try{ speechSynthesis.cancel(); }catch(_){}
-  var lang=VOCAB[MODE].tts, v=pickVoice(lang), n=0;
-  function once(){
-    n++;
-    try{
-      var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.95; if(v) u.voice=v;
-      if(n<times){ u.onend=function(){ setTimeout(once, 420); }; }   // 한 번 끝나면 잠깐 쉬고 반복
-      speechSynthesis.speak(u);
-    }catch(_){}
-  }
-  once();
+  times=Math.max(1, times||1); var n=0;
+  (function once(){ n++;
+    speakCore(text, rate, function(){ if(n<times) setTimeout(once, 420); });
+  })();
 }
 
 /* ════════════════════════════════════════════════════════════
    🎤 말하기 연습 — 문장 완성 시: 3번 듣고 → 마이크로 3번 따라 말하기(발음 점수)
    ════════════════════════════════════════════════════════════ */
 var SPK={ sentence:'', ko:'', active:false, attempt:0, best:0 };
-/* 문장 1번 낭독 후 콜백 */
-function speakOnce(text, rate, cb){
-  var done=false; function fire(){ if(done) return; done=true; cb&&cb(); }
-  try{ speechSynthesis.cancel();
-    var u=new SpeechSynthesisUtterance(text); u.lang=VOCAB[MODE].tts; u.rate=rate||0.9;
-    var v=pickVoice(u.lang); if(v) u.voice=v;
-    u.onend=fire; u.onerror=fire;
-    speechSynthesis.speak(u);
-    setTimeout(fire, 1400 + text.length*90);   // TTS onend 미발화 기기 대비 안전 타임아웃(듣기 단계 멈춤 방지)
-  }catch(_){ setTimeout(fire, 800); }
-}
+/* 문장 1번 낭독 후 콜백 — 서버 원어민 오디오 우선 공통 입구(speakCore)로 위임 */
+function speakOnce(text, rate, cb){ speakCore(text, rate, cb); }
 function spkNorm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9一-鿿\s]/g,'').replace(/\s+/g,' ').trim(); }
 /* 학생 발화 vs 정답 문장 채점(0~100) */
 function spkScore(said, target){
@@ -1229,6 +1284,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260722072953 -->
+<!-- BUILD:20260722073336 -->
 </body>
 </html>
