@@ -8055,7 +8055,7 @@
             </button>
         </div>
         <div class="toolbar-right">
-            <button class="ctrl-btn" onclick="toggleLang()" title="Language" style="background:rgba(148,163,184,0.1);color:#94a3b8;font-size:0.75rem;width:auto;padding:0 10px;">
+            <button class="ctrl-btn" onclick="toggleLang()" title="언어 전환 — 한국어 ↔ English" style="background:rgba(148,163,184,0.1);color:#94a3b8;font-size:0.75rem;width:auto;padding:0 10px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span class="lang-label-sync">EN</span>
             </button>
@@ -8098,11 +8098,11 @@
             <!-- 탭 메뉴 -->
             <div class="tab-bar">
                 <!-- ★ (2026-07-20) 기본 탭이 교재(tab-pdf)가 되면서 칠판 버튼의 기본 active 제거 (교재 탭은 버튼 없이 교재도구 칩으로 접근) -->
-                <button class="tab-btn" onclick="vcToggleContentTab('whiteboard')" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('whiteboard')" title="칠판 — 자유롭게 쓰고 그리는 화이트보드" data-ko="🖊 칠판" data-en="🖊 Board">🖊 칠판</button>
                 <!-- 🔧 (2026-06-27) '📄 교재' 탭 버튼 제거 — 중복. PDF는 '📚 교재도구' 칩으로 접근(클릭 시 vcSwitchTab('pdf') 자동 호출). -->
-                <button class="tab-btn" onclick="vcToggleContentTab('video')" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
-                <button class="tab-btn" onclick="vcToggleContentTab('game')" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
-                <button class="tab-btn" onclick="vcToggleContentTab('bg')" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('video')" title="동영상 — 유튜브·영상 파일을 학생과 함께 보기" data-ko="📹 동영상" data-en="📹 Video">📹 동영상</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('game')" title="학생게임 — 수업 중 학습게임 함께 하기" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
+                <button class="tab-btn" onclick="vcToggleContentTab('bg')" title="배경화면 — 수업 화면 배경 테마 바꾸기" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
                 <button class="tab-btn" onclick="vcToggleContentTab('warmup')" data-ko="🗣️ AI 웜업" data-en="🗣️ AI Warm-up" title="수업 전 AI 웜업 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ AI 웜업</button>
                 <button class="tab-btn rqv-tab-btn" onclick="vcToggleContentTab('review-quiz')" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" title="이 수업 교재·레벨·레슨에 맞는 복습퀴즈 (AI 자동 출제)">🧠 복습퀴즈</button>
                 <!-- 복습퀴즈 옆: 교재도구 / 필기도구 토글 칩 (클릭 시 아래로 세로 드롭다운, 배경 투명) -->
@@ -26043,7 +26043,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260722001434 -->
+<!-- BUILD:20260722002822 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -27160,12 +27160,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
-<script src="/js/vc-dock.js?v=5" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
+<script src="/js/vc-dock.js?v=6" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=33" defer></script>
 <script src="/js/mango-rec.js?v=38" defer></script>
-<script src="/js/mango-class-time.js?v=7" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
+<script src="/js/mango-class-time.js?v=8" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
 <script src="/js/mango-topbar-unified.js?v=3" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
+<script src="/js/mango-hover-tip.js?v=1" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
 <script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
 <script src="/js/mango-attendance.js?v=33" defer></script>
 <script src="/js/mango-gaze.js?v=33" defer></script>

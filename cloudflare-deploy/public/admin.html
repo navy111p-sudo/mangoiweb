@@ -72,31 +72,12 @@
 <!-- ⚡ 관리자 메뉴 로딩 가속 — fetch 타임아웃(무한 스피너 방지)+무거운 분석 GET 클라이언트 캐시. scope-guard 다음에 로드 -->
 <script src="/js/adm-perf.js?v=2"></script>
 
+<!-- 🗑️ (2026-07-22) Phase 58 'SW 킬' 스크립트 삭제 — 재추가 금지.
+     아래 sw-always-fresh 가 SW 를 다시 등록하기 때문에, 새 탭에서 관리자에 들어올 때마다
+     [SW 발견 → 캐시 전체 삭제 → 강제 새로고침 → SW 재등록] 을 반복해
+     1.3MB 페이지를 매번 두 번 로드하던 로딩 지연의 주범이었다. -->
 <script id="ph58-sw-kill">
-/* Phase 58 (2026-05-23) — 옛 ServiceWorker 강제 unregister + 캐시 비우기 (한 번만)
-   휴대폰 PWA가 옛 HTML 잡고 있을 때 자동 복구. */
-(function(){
-  try {
-    if ('serviceWorker' in navigator && !sessionStorage.getItem('ph58_done_v2')) {
-      sessionStorage.setItem('ph58_done_v2', '1');
-      navigator.serviceWorker.getRegistrations().then(function(regs){
-        if (!regs.length) return;
-        Promise.all(regs.map(function(r){ return r.unregister(); })).then(function(){
-          if ('caches' in window) {
-            return caches.keys().then(function(keys){
-              return Promise.all(keys.map(function(k){ return caches.delete(k); }));
-            });
-          }
-        }).then(function(){
-          // cache-bust 쿼리로 강제 새로고침 (1회만)
-          var u = new URL(location.href);
-          u.searchParams.set('_swkill', Date.now().toString());
-          location.replace(u.toString());
-        });
-      });
-    }
-  } catch(e){}
-})();
+/* (제거됨) 옛 SW 복구용 1회성 스크립트 — 2026-05-23 용도 종료 */
 </script>
 
 <script id="sw-always-fresh">
@@ -20218,6 +20199,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260722001434 -->
+<!-- BUILD:20260722002822 -->
 </body>
 </html>

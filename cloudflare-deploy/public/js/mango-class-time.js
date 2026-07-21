@@ -102,6 +102,7 @@
     elWrap = document.createElement('div');
     elWrap.id = 'mango-class-time';
     elWrap.className = 'is-loading';
+    elWrap.title = '수업 시간 — 이번 수업의 시작~종료 시각과 경과 시간';
     elWrap.style.display = 'none'; // 기본 숨김 - 수업(body.vc-in-call) 중에만 표시
     elWrap.innerHTML = '<span class="mct-clock">⏰</span><span id="mango-class-time-text">불러오는 중…</span>'
       + '<span id="mango-class-elapsed" class="mct-elapsed"></span>';

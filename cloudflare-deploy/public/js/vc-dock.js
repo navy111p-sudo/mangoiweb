@@ -309,17 +309,18 @@
     if (dock) return;
     var st = document.createElement('style'); st.id = 'vc-dock-style'; st.textContent = STYLE; document.head.appendChild(st);
     dock = document.createElement('div'); dock.id = 'vc-dock';
-    function mk(id, label, icon, cls){
+    function mk(id, label, icon, cls, tip){
       var b = document.createElement('button'); b.id = 'vc-dock-' + id; if (cls) b.className = cls;
+      if (tip) b.title = tip;
       b.innerHTML = svg(P[icon]) + '<span class="lbl">' + label + '</span>'; return b;
     }
-    btnMic = mk('mic','마이크','mic');
-    btnCam = mk('cam','카메라','cam');
-    var bShare = mk('share','화면공유','share');
-    var bChat = mk('chat','채팅','chat');
-    var bConsult = mk('consult','상담','consult');
-    bSet = mk('settings','설정','settings');
-    var bLeave = mk('leave','나가기','leave','leave');
+    btnMic = mk('mic','마이크','mic',null,'마이크 켜기/끄기');
+    btnCam = mk('cam','카메라','cam',null,'카메라 켜기/끄기');
+    var bShare = mk('share','화면공유','share',null,'화면공유 — 내 화면·파일을 학생에게 보여주기');
+    var bChat = mk('chat','채팅','chat',null,'채팅 창 열기/닫기');
+    var bConsult = mk('consult','상담','consult',null,'카카오톡 상담 연결');
+    bSet = mk('settings','설정','settings',null,'설정 — 장치·화질·언어·테마');
+    var bLeave = mk('leave','나가기','leave','leave','수업에서 나가기');
 
     btnMic.onclick = function(){ if(isCL())showHint('마이크'); closeSettings(); call('vcToggleMic'); setTimeout(sync, 60); };
     btnCam.onclick = function(){ if(isCL())showHint('카메라'); closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };
