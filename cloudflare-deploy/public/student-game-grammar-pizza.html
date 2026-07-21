@@ -461,38 +461,23 @@ function toppingName(tokenIdx){
   return (GLANG === 'zh' ? t.zh : t.en) + ' · ' + t.ko;
 }
 
-/* ══════════ 🍕 완성 피자 메뉴 20종 (실사, /img/pizza/menu/) ══════════
-   사용한 재료와 가장 비슷한 레시피의 실사 피자가 완성품으로 나온다 */
+/* ══════════ 🍕 완성 피자 메뉴 (선명한 실사만, /img/pizza/menu/) ══════════
+   사용한 재료와 가장 비슷한 레시피의 실사 피자가 완성품으로 나온다.
+   ⚠️ 저화질 구버전 20종(콤비네이션·스파이시 이탈리안 등)은 사장님 지시로 완전 삭제 — 재추가 금지 */
 var PIZZA_MENU = [
-  {img:'combination',    name:'콤비네이션 피자',          ing:['pepperoni','ham','onion','greenpepper','olive','mushroom','cheese']},
-  {img:'pep-mush-cheese',name:'페퍼로니 머쉬룸 치즈 피자', ing:['pepperoni','mushroom','cheese','mozzarella']},
-  {img:'cheese',         name:'치즈 피자',                ing:['cheese','mozzarella']},
-  {img:'meat-lover',     name:'미트 러버 피자',           ing:['pepperoni','ham','bacon','beef']},
-  {img:'hawaiian2',      name:'하와이안 피자',            ing:['pineapple','ham','pepperoni','mozzarella','cheese']},
-  {img:'vegetarian2',    name:'베지테리언 피자',          ing:['olive','onion','greenpepper','cherrytomato','basil','spinach']},
-  {img:'bulgogi',        name:'불고기 피자',              ing:['beef','onion','mushroom','greenpepper']},
-  {img:'super-supreme',  name:'슈퍼 슈프림 피자',         ing:['pepperoni','beef','ham','onion','greenpepper','mushroom','olive']},
-  {img:'potato',         name:'포테이토 피자',            ing:['bacon','onion','caramelonion']},
-  {img:'sweet-potato',   name:'고구마 피자',              ing:['bacon','onion','corn']},
   {img:'pepperoni3',     name:'페퍼로니 피자',            ing:['pepperoni','mozzarella','cheese']},
+  {img:'hawaiian2',      name:'하와이안 피자',            ing:['pineapple','ham','pepperoni','mozzarella','cheese']},
+  {img:'vegetarian2',    name:'베지테리언 피자',          ing:['olive','onion','greenpepper','cherrytomato','basil','spinach','tomato']},
   {img:'margherita2',    name:'마르게리타 피자',          ing:['mozzarella','tomato','basil','cherrytomato']},
-  {img:'hot-chicken',    name:'핫 치킨 피자',             ing:['jalapeno','onion','beef']},
-  {img:'shrimp',         name:'쉬림프 피자',              ing:['shrimp','onion','greenpepper']},
-  {img:'diablo',         name:'디아블로 피자',            ing:['pepperoni','jalapeno','olive']},
-  {img:'garlic-shrimp',  name:'갈릭 쉬림프 피자',         ing:['shrimp','basil','onion','squid']},
-  {img:'bacon-potato',   name:'베이컨 포테이토 피자',     ing:['bacon','onion','ham']},
-  {img:'mushroom-cream', name:'머쉬룸 크림 피자',         ing:['mushroom','cheese','mozzarella','artichoke']},
-  {img:'triple-cheese',  name:'트리플 치즈 피자',         ing:['cheese','mozzarella','prosciutto']},
-  {img:'spicy-italian',  name:'스파이시 이탈리안 피자',   ing:['beef','pepperoni','jalapeno','olive','greenpepper','spinach']},
   {img:'quattro-formaggi',name:'콰트로 포르마지 피자',    ing:['cheese','mozzarella','ham']},
-  {img:'capricciosa',    name:'카프리초사 피자',          ing:['ham','mushroom','olive','artichoke']},
-  {img:'prosciutto-rucola',name:'프로슈토 에 루꼴라 피자',ing:['prosciutto','cherrytomato','basil','spinach']},
-  {img:'veggie-supreme', name:'베지 수프림 피자',         ing:['greenpepper','onion','olive','spinach','mushroom','tomato']},
-  {img:'cream-hawaiian', name:'크림 하와이안 피자',       ing:['pineapple','ham','pepperoni','prosciutto','cheese']},
+  {img:'capricciosa',    name:'카프리초사 피자',          ing:['ham','mushroom','olive','artichoke','beef']},
+  {img:'prosciutto-rucola',name:'프로슈토 에 루꼴라 피자',ing:['prosciutto','cherrytomato','basil','spinach','shrimp']},
+  {img:'veggie-supreme', name:'베지 수프림 피자',         ing:['greenpepper','onion','olive','spinach','mushroom','tomato','jalapeno','corn']},
+  {img:'cream-hawaiian', name:'크림 하와이안 피자',       ing:['pineapple','ham','pepperoni','prosciutto','cheese','corn']},
   {img:'garden-ham',     name:'가든 햄 피자',             ing:['ham','bacon','basil','spinach','greenpepper','onion','cherrytomato','olive','artichoke']},
-  {img:'white-pepperoni',name:'화이트 페퍼로니 피자',     ing:['pepperoni','cheese','mozzarella','basil']},
-  {img:'white-garden',   name:'화이트 가든 피자',         ing:['ham','greenpepper','onion','spinach','basil','artichoke','olive','cherrytomato']},
-  {img:'mushroom-mozza', name:'버섯 모차렐라 피자',       ing:['mushroom','mozzarella','pepperoni','cherrytomato']}
+  {img:'white-pepperoni',name:'화이트 페퍼로니 피자',     ing:['pepperoni','cheese','mozzarella','basil','jalapeno']},
+  {img:'white-garden',   name:'화이트 가든 피자',         ing:['ham','greenpepper','onion','spinach','basil','artichoke','olive','cherrytomato','squid']},
+  {img:'mushroom-mozza', name:'버섯 모차렐라 피자',       ing:['mushroom','mozzarella','pepperoni','cherrytomato','caramelonion','beef']}
 ];
 /* 이번 문장에 쓴 재료들과 겹침이 가장 큰 레시피 선택 */
 function pickMenuPizza(){
@@ -1130,6 +1115,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260722005915 -->
+<!-- BUILD:20260722011701 -->
 </body>
 </html>

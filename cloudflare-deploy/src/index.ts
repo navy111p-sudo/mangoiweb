@@ -127,8 +127,12 @@ function htmlEtag304(request: Request, path: string, env: Env, headers: Headers)
     const t = Date.UTC(+stamp.slice(0, 4), +stamp.slice(4, 6) - 1, +stamp.slice(6, 8),
                        +stamp.slice(8, 10), +stamp.slice(10, 12), +stamp.slice(12, 14)) - 9 * 3600 * 1000;
     lastMod = new Date(t).toUTCString();
-    headers.set('Last-Modified', lastMod);
+  } else {
+    // 실제 wrangler.toml 의 BUILD_STAMP 는 ISO("2026-07-22T00:59:14Z") — Date.parse 로 처리
+    const t = Date.parse(stamp);
+    if (!isNaN(t)) lastMod = new Date(t).toUTCString();
   }
+  if (lastMod) headers.set('Last-Modified', lastMod);
   // If-None-Match 는 콤마 목록일 수 있고 약한 검증자 접두사(W/)가 붙을 수 있다.
   const inm = request.headers.get('If-None-Match') || '';
   const matched = inm.split(',').some((t) => t.trim().replace(/^W\//, '') === `"b-${stamp}"`);
