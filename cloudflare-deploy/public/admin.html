@@ -12186,7 +12186,11 @@ button.chip:hover,
   <script>(function(){
     function capAllowed(role,uid){var r=String(role||'').toLowerCase(),u=String(uid||'').toLowerCase();
       if(r==='capitown'||r==='franchise'||u==='capitown'||u.indexOf('capi')===0)return true;
-      if(r==='hq_exec'||r==='hq'||r==='exec'||r==='admin'||u==='admin'||u==='hq_exec'||u==='exec')return true;
+      // ⚠️ (2026-07-22) 서버 role 'hq' 는 '본사 소속(매니저·직원 포함)'이라는 스코프 원문이지 경영진 증거가 아니다.
+      //   'hq' 단독 인정 탓에 회계 메뉴가 전부 차단된 관리자에게 캐피타운 정산만 혼자 노출되던 비일관 봉쇄.
+      //   경영진 판정 = 명시적 exec 역할 또는 경영진 uid (대표 'admin'은 uid 로 항상 통과).
+      if(r==='hq_exec'||r==='exec'||r==='admin')return true;
+      if(u==='admin'||u==='hq_exec'||u==='exec')return true;
       return false;}
     function show(){var it=document.getElementById('ph85-capitown');if(it)it.style.display='';}
     try{
@@ -12686,9 +12690,12 @@ button.chip:hover,
     bar.__ph86 = true;
 
     // 1) 각 그룹 헤더에 하위 메뉴 갯수 배지 추가
+    //    (2026-07-22) 전체 개수가 아니라 '실제 보이는 메뉴'만 센다 — 권한(ph118)·역할 게이트로
+    //    숨겨진 항목까지 세면 "8개라는데 펼치면 1개" 혼란 발생. 이후 갱신은 adm-q10.js ph118Apply 가 담당.
     bar.querySelectorAll('.ph85-group').forEach(function(g){
       var subs = g.querySelectorAll('.ph85-sub');
-      var count = subs.length;
+      var count = 0;
+      subs.forEach(function(s){ if (!s.classList.contains('ph118-hidden') && s.style.display !== 'none') count++; });
       var arrow = g.querySelector('.ph85-arrow');
       if (arrow && !arrow.previousElementSibling.classList.contains('ph85-count-badge')) {
         var badge = document.createElement('span');
@@ -16701,7 +16708,7 @@ button.chip:hover,
   .ph118-perm-stat .no { color: #FCA5A5; }
 </style>
 
-<script src="/js/adm-q10.js?v=1"></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q10.js?v=2"></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 119 admin (2026-05-25) — SLP 수업현황 위치 재조정: 학생/학부모 그룹으로 단일 노출 -->
@@ -20194,6 +20201,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260722022056 -->
+<!-- BUILD:20260722022938 -->
 </body>
 </html>

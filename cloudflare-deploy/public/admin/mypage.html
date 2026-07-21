@@ -2282,7 +2282,11 @@
     }
 
     var isTeacher = role === 'teacher';
-    var canSettle = (role === 'franchise' || role === 'branch' || role === 'hq');
+    // ⚠️ (2026-07-22) 서버 role 'hq' 는 '본사 소속(매니저·직원 포함)' 스코프 원문 — 정산 탭은 경영진 uid 만.
+    //   (admin.html 사이드바 캐피타운 게이트와 동일 기준. 관리자에게 회계 차단인데 정산만 보이던 비일관 봉쇄)
+    var _settleUid = ''; try { _settleUid = String((el('profUsername')||{}).value||'').toLowerCase(); } catch(_e){}
+    var _hqExec = (_settleUid === 'admin' || _settleUid === 'hq_exec' || _settleUid === 'exec');
+    var canSettle = (role === 'franchise' || role === 'branch' || (role === 'hq' && _hqExec));
 
     // 📊 [관리자 대시보드] 버튼 목적지 — 역할에 맞는 대시보드로.
     //   대리점·지사·프랜차이즈: 본사 콘솔(/admin.html) 접근 불가라 자기 경영 대시보드(/admin/exec)로.

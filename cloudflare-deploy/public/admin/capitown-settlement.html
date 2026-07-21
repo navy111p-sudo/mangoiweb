@@ -842,11 +842,15 @@ function deriveRole(uid){
 // 🔑 캐피타운 정산 접근권한 판정 — 역할 어휘가 세 곳(login.html · 서버 resolveRole · 이 페이지)에서
 //   달라 생기던 불일치 버그 근본수정(2026-07-09). 서버는 본사=hq / 캐피타운=franchise 로 부르고,
 //   login.html 은 hq_exec / capitown 으로 부른다. 아래는 두 어휘 + 아이디까지 모두 같은 권한으로 인정.
-//   대상: 본사 경영진(hq·hq_exec·exec·admin) + 캐피타운 본사(capitown·franchise).
+//   대상: 본사 경영진(hq_exec·exec·admin) + 캐피타운 본사(capitown·franchise).
+//   ⚠️ (2026-07-22) 서버 role 'hq' 단독 인정 제거 — 'hq' 는 '본사 소속(매니저·직원 포함)' 스코프 원문이라
+//   회계 권한 없는 관리자도 통과되던 구멍. 경영진 = 명시적 exec 역할 또는 경영진 uid 만.
+//   (admin.html 사이드바 게이트 · mypage 정산 탭과 동일 기준)
 function capAllowed(role,uid){
   var r=String(role||'').toLowerCase(), u=String(uid||'').toLowerCase();
   if(r==='capitown'||r==='franchise'||u==='capitown'||u.indexOf('capi')===0) return true;
-  if(r==='hq_exec'||r==='hq'||r==='exec'||r==='admin'||u==='admin'||u==='hq_exec'||u==='exec') return true;
+  if(r==='hq_exec'||r==='exec'||r==='admin') return true;
+  if(u==='admin'||u==='hq_exec'||u==='exec') return true;
   return false;
 }
 // 표시용 역할키(DICT 의 role_capitown / role_hq_exec 재사용): 캐피타운 계열이면 capitown, 그 외 본사면 hq_exec

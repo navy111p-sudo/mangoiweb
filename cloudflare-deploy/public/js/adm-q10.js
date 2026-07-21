@@ -285,14 +285,18 @@
     }
 
     // 3) 빈 그룹 hide (모든 sub 가 hide 되면 그룹 자체 hide)
+    //    (2026-07-22) 인라인 display:none(예: 캐피타운 정산 역할 게이트)도 숨김으로 계산 +
+    //    그룹 헤더 갯수 배지를 '실제 보이는 메뉴 수'로 동기화 ("8개라는데 1개만 보임" 혼란 해소)
     document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(g){
       var subs = g.querySelectorAll('.ph85-sub');
       var visible = 0;
       subs.forEach(function(s){
-        if (!s.classList.contains('ph118-hidden')) visible++;
+        if (!s.classList.contains('ph118-hidden') && s.style.display !== 'none') visible++;
       });
       if (visible === 0) g.classList.add('ph118-empty');
       else g.classList.remove('ph118-empty');
+      var cb = g.querySelector('.ph85-count-badge');
+      if (cb && cb.textContent !== String(visible)) cb.textContent = visible;
     });
 
     // 4) ph116 배너에 권한 통계 추가
