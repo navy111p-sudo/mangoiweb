@@ -15475,6 +15475,27 @@ button.chip:hover,
       }
     });
   }catch(e){}
+  /* 🔓 (2026-07-22 사장님 지시) 로그인 역할 기반 자동 잠금해제 — "관리자는 볼 수 있어야 되잖아".
+     이미 관리자 로그인 뒤 화면이므로 자기 역할 범위의 방은 비번 없이 바로 연다.
+     본사(hq)=전체 / 강사=강사·학생 / 지사=지사·학생 / 대리점=대리점·학생 / 그 외=학생.
+     비밀번호 입력은 역할 밖 방을 열 때의 폴백으로 유지(LIB_PW). */
+  try{
+    var _ses = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null');
+    var _role = String(_ses && (_ses.role || _ses.server_role) || '');
+    /* 실제 세션 role 값(login.html ph239): hq_exec·hq_mgr·hq_teacher·branch·agency·capitown·parent·student */
+    var _open;
+    if (_role === 'hq_exec' || _role === 'hq_mgr') _open = ['admin','teacher','branch','agency','student'];
+    else if (_role === 'hq_teacher' || /teacher/i.test(_role)) _open = ['teacher','student'];
+    else if (_role === 'branch' || _role === 'capitown') _open = ['branch','student'];
+    else if (_role === 'agency') _open = ['agency','student'];
+    else _open = _role ? ['student'] : [];   /* 로그인만 돼 있으면 학생방은 공개 */
+    _open.forEach(function(r){
+      var g = document.getElementById('lib-gate-'+r), f = document.getElementById('lib-files-'+r);
+      if(g) g.style.display='none';
+      if(f) f.style.display='';
+      try{ sessionStorage.setItem('lib_ok_'+r,'1'); }catch(e){}
+    });
+  }catch(e){}
   /* 💬 카톡 링크 복사 — 파일 첨부 대신 링크 공유(카톡 재압축 회피, 원본 화질 유지) */
   window.libKakaoCopy = function(path, btn){
     var url = location.origin + path;
@@ -20322,6 +20343,6 @@ button.chip:hover,
   .hero-character-frame::after { font-size: 14px !important; }  /* 🛸 UFO */
 }
 </style>
-<!-- BUILD:20260722050029 -->
+<!-- BUILD:20260722051227 -->
 </body>
 </html>
