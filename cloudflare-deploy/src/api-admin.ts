@@ -3775,6 +3775,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // 학생 이름
       const studentRow: any = await fetch1(`SELECT name FROM students_erp WHERE user_id = ?`, uid);
       const studentName = body.student_name || studentRow?.name || uid;
+      // 🎯 게임 학습기록 (피드백 루프 연결): 정오답 합계 + 취약 단어 상위 5 + 게임 내 발음 평균
+      const gameAgg: any = await fetch1(
+        `SELECT SUM(correct_count) AS c, SUM(wrong_count) AS w,
+                AVG(CASE WHEN pron_count > 0 THEN pron_last END) AS p
+           FROM game_progress WHERE user_id = ? AND last_seen >= ?`, uid, since);
+      const gameWeak = await fetchAll(
+        `SELECT item, ko, wrong_count FROM game_progress
+          WHERE user_id = ? AND wrong_count > 0 AND wrong_count >= correct_count
+          ORDER BY wrong_count DESC LIMIT 5`, uid);
+      // 🎤 스피치코치 발음/정확도/유창성 평균 (최근 10회)
+      const coachAgg: any = await fetch1(
+        `SELECT COUNT(*) AS n, AVG(pronunciation_score) AS p, AVG(accuracy_score) AS a, AVG(fluency_score) AS f FROM (
+           SELECT pronunciation_score, accuracy_score, fluency_score FROM voice_coaching
+           WHERE student_uid = ? ORDER BY created_at DESC LIMIT 10)`, uid);
 
       // 3) AI 가 분석할 프롬프트 구성
       const evalCommentSummary = evalComments.length > 0
@@ -3806,6 +3820,14 @@ ${evalCommentSummary}
 - 출석 횟수: ${attendanceCount?.n || 0}회
 - 채팅 메시지: ${chatStats?.msg_count || 0}개
 - 포인트 적립: ${pointStats?.earned || 0}P / 사용: ${pointStats?.spent || 0}P
+
+[학습 게임 기록 (최근 60일)]
+- 문제 풀이: 정답 ${gameAgg?.c || 0} / 오답 ${gameAgg?.w || 0}${(Number(gameAgg?.c || 0) + Number(gameAgg?.w || 0)) > 0 ? ` (정답률 ${Math.round(Number(gameAgg.c || 0) / (Number(gameAgg.c || 0) + Number(gameAgg.w || 0)) * 100)}%)` : ''}
+- 게임 내 발음 점수 평균: ${gameAgg?.p != null ? Math.round(Number(gameAgg.p)) + '/100' : '-'}
+- 자주 틀리는 단어: ${gameWeak.length ? gameWeak.map((g: any) => `${g.item}${g.ko ? `(${g.ko})` : ''} ${g.wrong_count}회` ).join(', ') : '(없음)'}
+
+[스피치코치 발음 연습 (최근 10회)]
+${Number(coachAgg?.n || 0) > 0 ? `- 연습 ${coachAgg.n}회 · 발음 ${coachAgg.p != null ? Math.round(Number(coachAgg.p)) : '-'}/100 · 정확도 ${coachAgg.a != null ? Math.round(Number(coachAgg.a)) : '-'}/100 · 유창성 ${coachAgg.f != null ? Math.round(Number(coachAgg.f)) : '-'}/100` : '(연습 기록 없음)'}
 
 [최근 채팅 샘플]
 ${chatSampleText}
@@ -3873,6 +3895,9 @@ ${chatSampleText}
           attendance_count: attendanceCount?.n || 0,
           chat_messages: chatStats?.msg_count || 0,
           point_earned: pointStats?.earned || 0,
+          game_correct: gameAgg?.c || 0,
+          game_wrong: gameAgg?.w || 0,
+          voice_coach_count: coachAgg?.n || 0,
         }
       };
 

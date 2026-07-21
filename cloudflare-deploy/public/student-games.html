@@ -56,6 +56,25 @@
   .hub-head h1 .em{color:#047857}
   .hub-head .sub{font-size:13px;color:#20406e;margin-top:8px;line-height:1.6;font-weight:600}
 
+  /* ===== 🎯 오늘의 추천 카드 (맞춤 피드백 루프) — 로그인 학생 + 데이터 있을 때만 표시 ===== */
+  #rec-card{display:none;width:min(720px,calc(100% - 8px));margin:4px auto 12px;padding:14px 18px;
+    background:rgba(255,255,255,.92);border:1.5px solid rgba(251,191,36,.55);border-radius:18px;
+    box-shadow:0 6px 20px -6px rgba(11,42,94,.18);text-align:left;animation:recPop .4s ease}
+  @keyframes recPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  #rec-card .rec-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  #rec-card .rec-ico{font-size:26px;line-height:1}
+  #rec-card .rec-msg{flex:1;min-width:200px;font-size:14px;font-weight:800;color:#0b2a5e;line-height:1.5}
+  #rec-card .rec-score{font-size:12px;font-weight:700;color:#64748b;margin-top:2px}
+  #rec-card .rec-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  #rec-card .rec-chip{padding:5px 12px;border-radius:999px;background:rgba(251,191,36,.16);
+    border:1px solid rgba(180,83,9,.35);color:#92400e;font-size:13px;font-weight:800}
+  #rec-card .rec-chip b{color:#b45309}
+  #rec-card .rec-cta{display:inline-flex;align-items:center;gap:7px;margin-top:12px;padding:10px 20px;
+    background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:0;border-radius:12px;
+    font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;
+    box-shadow:0 4px 14px -3px rgba(249,115,22,.5);transition:transform .12s}
+  #rec-card .rec-cta:active{transform:scale(.96)}
+
   /* ===== 메뉴(카드 그리드) ===== */
   #hub-menu{flex:1;display:flex;flex-direction:column;align-items:center;padding:14px 16px 40px;position:relative}
   /* ← 뒤로가기 / 🏠 홈 (메뉴 좌측 상단) */
@@ -417,6 +436,20 @@
           font-size:15px;font-weight:800;width:fit-content"></div>
       </div>
     </div>
+
+    <!-- 🎯 오늘의 추천 — /api/games/recommend 진단(정오답·발음) 기반 맞춤 안내. 데이터 없으면 숨김 -->
+    <div id="rec-card">
+      <div class="rec-top">
+        <span class="rec-ico" id="rec-ico">🎯</span>
+        <div style="flex:1;min-width:200px">
+          <div class="rec-msg" id="rec-msg"></div>
+          <div class="rec-score" id="rec-score"></div>
+        </div>
+      </div>
+      <div class="rec-chips" id="rec-chips" style="display:none"></div>
+      <button type="button" class="rec-cta" id="rec-cta" style="display:none"></button>
+    </div>
+
     <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
 
     <!-- 🚀 게임을 안 하고도 바로 다른 곳으로 이동 (수업입장·AI 웜업·복습퀴즈·녹화·나가기) -->
@@ -2301,6 +2334,74 @@ hubRenderMenu();
 renderSpeedPicks();   // ⚡ 속도(난이도) 선택 UI (허브 헤더 + 게임 상단바)
 setGameLang(GAME_LANG);   // 🌐 언어 UI 초기화(저장된 언어로 헤더/버튼/TTS 반영)
 
+/* ══════════════════════════════════════════════════════════════════
+   🎯 오늘의 추천 카드 — /api/games/recommend (룰 기반 피드백 루프)
+   · 로그인 학생만. 실패/데이터 부족(start) 시 카드 숨김 → 흐름 방해 없음.
+   · 취약 단어 칩 + CTA 한 번 탭 → 추천 게임 바로 실행(hubOpenGame).
+     취약 단어는 _seedMissFromServer 가 이미 복습 큐에 실어 둠.
+   · 사이트 언어(한↔영)는 <html lang> 관찰로 즉시 다시 그림(서버 재호출 없음).
+   ══════════════════════════════════════════════════════════════════ */
+(function(){
+  var _recData = null;
+  // focus → 추천 게임 모드 + CTA 문구(한/영)
+  var _REC_CTA = {
+    pronunciation: { mode:'speaking', ko:'🎤 말하기 퀴즈로 발음 연습하기', en:'🎤 Practice pronunciation in Speaking Quiz' },
+    weak_words:    { mode:'match',    ko:'💪 어려웠던 단어 복습 게임 시작', en:'💪 Review tricky words in a game' },
+    advanced:      { mode:'tank',     ko:'🏆 더 어려운 게임에 도전하기',    en:'🏆 Take on a harder challenge' },
+    keep_going:    { mode:'brick',    ko:'✨ 오늘의 게임 시작하기',         en:'✨ Start today\'s game' }
+  };
+  function _recEn(){ try{ return (document.documentElement.getAttribute('lang')||'ko').indexOf('en')===0; }catch(_){ return false; } }
+  function _recRender(){
+    var d = _recData, card = document.getElementById('rec-card');
+    if(!card) return;
+    if(!d || !d.ok || d.focus === 'start'){ card.style.display='none'; return; }
+    var en = _recEn();
+    document.getElementById('rec-ico').textContent = (d.status==='excellent') ? '🏆' : (d.focus==='pronunciation' ? '🎤' : '🎯');
+    document.getElementById('rec-msg').textContent = en ? d.message_en : d.message_ko;
+    // 점수 요약(있는 것만): 정답률·발음
+    var parts = [];
+    if(d.accuracy != null) parts.push((en?'Accuracy ':'정답률 ') + d.accuracy + '%');
+    if(d.pron != null) parts.push((en?'Pronunciation ':'발음 ') + d.pron + (en?'/100':'점'));
+    document.getElementById('rec-score').textContent = parts.join(' · ');
+    // 취약 단어 칩 (최대 5)
+    var chips = document.getElementById('rec-chips');
+    if(d.weak && d.weak.length){
+      chips.innerHTML = d.weak.map(function(w){
+        var t = String(w.item||'').replace(/[<>&]/g,'');
+        var ko = String(w.ko||'').replace(/[<>&]/g,'');
+        return '<span class="rec-chip"><b>'+t+'</b>'+(ko&&!en?' '+ko:'')+'</span>';
+      }).join('');
+      chips.style.display = 'flex';
+    } else { chips.style.display = 'none'; }
+    // CTA — 추천 게임 바로 실행
+    var cta = _REC_CTA[d.focus] || _REC_CTA.keep_going;
+    var btn = document.getElementById('rec-cta');
+    btn.textContent = en ? cta.en : cta.ko;
+    btn.onclick = function(){ try{ hubOpenGame(cta.mode); }catch(_){} };
+    btn.style.display = 'inline-flex';
+    card.style.display = 'block';
+  }
+  function _recLoad(){
+    var uid = _gameUid(); if(!uid) return;
+    fetch('/api/games/recommend?user_id='+encodeURIComponent(uid)+'&lang='+GAME_LANG)
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ if(d && d.ok){ _recData = d; _recRender(); } })
+      .catch(function(){});
+  }
+  // 사이트 언어 전환 시 카드 문구만 다시 그림 (lang 속성 관찰 — 카드 한정, 루프 없음)
+  try{
+    new MutationObserver(function(){ if(_recData) _recRender(); })
+      .observe(document.documentElement, { attributes:true, attributeFilter:['lang'] });
+  }catch(_){}
+  // 게임 언어(영/중) 전환 시 해당 언어 데이터로 갱신
+  var _origSetGameLang = window.setGameLang;
+  if(typeof _origSetGameLang === 'function'){
+    window.setGameLang = function(l){ _origSetGameLang(l); try{ _recLoad(); }catch(_){} };
+  }
+  // 로그인 uid 는 game-vocab.js 초기화 이후 확보되므로 살짝 늦게 1회 로드
+  setTimeout(_recLoad, 1200);
+})();
+
 /* ── 🔥 학습 불꽃 배지 부착(허브 헤더 + 게임 중 컴팩트) ──
    streak.js 가 로드되면 두 곳에 배지를 그리고, complete() 호출 시 자동 갱신된다. */
 function _mountStreakBadges(){
@@ -2317,7 +2418,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260722060358 -->
+<!-- BUILD:20260722064225 -->
 <script defer src="/js/flow.js?v=6"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

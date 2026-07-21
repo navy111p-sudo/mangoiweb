@@ -370,6 +370,10 @@ const worker = {
     if (path === '/api/games/shadow' && request.method === 'POST') {
       return handleGamesShadow(request, env);
     }
+    // 🎯 맞춤 추천 — GET /api/games/recommend?user_id=&lang= → 정오답·발음 진단 + 다음 연습 추천(룰 기반, KV 10분 캐시)
+    if (path === '/api/games/recommend' && request.method === 'GET') {
+      return handleGamesRecommend(request, env);
+    }
     // 🪙 코인 적립 — POST /api/games/coins {user_id,nickname,add} → 주간/누적 코인(game_stats), 주간 리더보드용
     if (path === '/api/games/coins' && request.method === 'POST') {
       return handleGamesCoins(request, env);
@@ -2848,6 +2852,93 @@ async function handleGamesShadow(request: Request, env: Env): Promise<Response> 
          last_seen = excluded.last_seen, updated_at = excluded.updated_at`
     ).bind(userId, lang, item, ko, score, score, now, now).run();
     return new Response(JSON.stringify({ ok: true, score }), { status: 200, headers: _MS_JSON });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  🎯 학생 맞춤 추천(피드백 루프) — GET /api/games/recommend?user_id=&lang=
+ *  · 룰 기반(AI 무호출·무비용): game_progress(정오답+발음) + voice_coaching(스피치코치)
+ *    최근 기록을 집계해 상태 진단 → 다음에 뭘 연습하면 좋을지 추천.
+ *  · 진단 규칙: 정답률/발음 80 미만 = 보완 필요, 90 이상 = 우수 (예: MangoiFeedbackLoop 설계)
+ *  · 응답 focus: pronunciation(발음 연습) | weak_words(취약 단어 복습) | advanced(심화) | keep_going
+ *  · KV(SESSION_STATE) 10분 캐시 — 게임 허브 진입마다 D1 집계 방지. 실패 시 조용히 no_data.
+ * ════════════════════════════════════════════════════════════════════════ */
+async function handleGamesRecommend(request: Request, env: Env): Promise<Response> {
+  try {
+    const u = new URL(request.url);
+    const userId = String(u.searchParams.get('user_id') || '').trim().slice(0, 100);
+    const lang = (String(u.searchParams.get('lang') || 'en').toLowerCase() === 'zh') ? 'zh' : 'en';
+    if (!userId) return new Response(JSON.stringify({ ok: false, error: 'user_id_required' }), { status: 400, headers: _MS_JSON });
+
+    // 10분 KV 캐시 (게임을 하고 오면 다음 캐시 만료 때 자연 갱신)
+    const ckey = 'gamerec:' + userId + ':' + lang;
+    try {
+      const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(ckey) : null;
+      if (raw != null) return new Response(raw, { status: 200, headers: _MS_JSON });
+    } catch {}
+
+    await _ensureGameProgressTable(env);
+    const since = Date.now() - 30 * 24 * 3600 * 1000;   // 최근 30일
+
+    // ① 게임 정오답 합계 + 게임 내 따라말하기 발음 평균
+    const agg: any = await env.DB.prepare(
+      `SELECT SUM(correct_count) AS c, SUM(wrong_count) AS w,
+              AVG(CASE WHEN pron_count > 0 THEN pron_last END) AS p
+         FROM game_progress WHERE user_id = ? AND lang = ? AND last_seen >= ?`
+    ).bind(userId, lang, since).first();
+    const correct = Number(agg?.c || 0), wrong = Number(agg?.w || 0);
+    const attempts = correct + wrong;
+    const accuracy = attempts > 0 ? Math.round((correct / attempts) * 100) : null;
+    const gamePron = (agg?.p != null) ? Math.round(Number(agg.p)) : null;
+
+    // ② 스피치코치 최근 10회 발음/정확도 평균 (테이블 없거나 기록 없으면 조용히 무시)
+    let coachPron: number | null = null;
+    try {
+      const vc: any = await env.DB.prepare(
+        `SELECT AVG(pronunciation_score) AS p, AVG(accuracy_score) AS a FROM (
+           SELECT pronunciation_score, accuracy_score FROM voice_coaching
+           WHERE student_uid = ? ORDER BY created_at DESC LIMIT 10)`
+      ).bind(userId).first();
+      if (vc && vc.p != null) coachPron = Math.round((Number(vc.p) + Number(vc.a || vc.p)) / 2);
+    } catch {}
+    const pronVals = [gamePron, coachPron].filter((v): v is number => v != null);
+    const pron = pronVals.length ? Math.round(pronVals.reduce((s, v) => s + v, 0) / pronVals.length) : null;
+
+    // ③ 취약 단어 상위 5 (handleGamesWeak 과 동일 기준)
+    const wrs = await env.DB.prepare(
+      `SELECT item, ko, wrong_count, correct_count FROM game_progress
+       WHERE user_id = ? AND lang = ? AND wrong_count > 0 AND wrong_count >= correct_count
+       ORDER BY wrong_count DESC, (wrong_count - correct_count) DESC LIMIT 5`
+    ).bind(userId, lang).all();
+    const weak = ((wrs.results as any[]) || []).map((r) => ({ item: r.item, ko: r.ko || '', wrong: r.wrong_count || 0, correct: r.correct_count || 0 }));
+
+    // ④ 진단 → 추천 (룰 기반: <80 보완 필요 · ≥90 우수)
+    let status: string, focus: string;
+    if (attempts < 8 && pron == null) {
+      status = 'no_data'; focus = 'start';
+    } else if ((accuracy != null && accuracy < 80) || (pron != null && pron < 80)) {
+      status = 'needs_improvement';
+      focus = (pron != null && pron < 80 && (accuracy == null || pron <= accuracy)) ? 'pronunciation' : 'weak_words';
+    } else if ((accuracy == null || accuracy >= 90) && (pron == null || pron >= 90)) {
+      status = 'excellent'; focus = 'advanced';
+    } else {
+      status = 'good'; focus = weak.length >= 3 ? 'weak_words' : 'keep_going';
+    }
+
+    // ⑤ 친근한 안내 문구 (한/영 — 프론트가 사이트 언어에 맞춰 선택)
+    const MSG: Record<string, [string, string]> = {
+      start:         ['게임을 몇 판 하면 나에게 딱 맞는 연습을 추천해 드려요! 🌱', 'Play a few games and I\'ll recommend the perfect practice for you! 🌱'],
+      pronunciation: ['발음을 조금만 더 연습하면 훨씬 좋아져요! 말하기 게임 어때요? 🎤', 'A little more pronunciation practice will make a big difference! Try a speaking game? 🎤'],
+      weak_words:    ['어려웠던 단어들을 게임으로 다시 만나 볼까요? 💪', 'Shall we meet those tricky words again in a game? 💪'],
+      keep_going:    ['잘하고 있어요! 지금처럼 꾸준히 연습해요 ✨', 'You\'re doing great! Keep up the steady practice ✨'],
+      advanced:      ['최고예요! 이제 더 어려운 도전을 해 볼까요? 🏆', 'Amazing! Ready for a harder challenge? 🏆'],
+    };
+    const m = MSG[focus] || MSG.keep_going;
+    const out = JSON.stringify({ ok: true, lang, status, focus, accuracy, pron, attempts, weak, message_ko: m[0], message_en: m[1] });
+    try { if (env.SESSION_STATE) await env.SESSION_STATE.put(ckey, out, { expirationTtl: 600 }); } catch {}
+    return new Response(out, { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
