@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)+토큰 발급
-import { checkAdminSession } from './auth-admin';
+import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPlainSms } from './solapi-client';   // 🔑 비밀번호 재설정 SMS 인증 (2026-07-22)
 import type { MangoEnv } from './api-mango';
 
@@ -141,10 +141,10 @@ export async function handleStudentsApi(
       await ensureStudentsErpWithParent();
       const pUid = (url.searchParams.get('uid') || '').trim();
       if (!pUid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 [PII] 본인(학부모 토큰) 또는 관리자만 자녀 목록 조회 — 남의 자녀 열람 차단
-      const mcAdmin = await checkAdminSession(request, env as any);
-      const mcAuth = await authUidGlobal(request, url, env);
-      if (!mcAdmin.ok && mcAuth !== pUid) return json({ ok: false, error: 'auth_required' }, 401);
+      // 🔐 [PII] 본인(학부모 토큰) 또는 관리자만 자녀 목록 조회 — 남의 자녀 열람 차단. [공용 헬퍼, strict=게스트 미허용]
+      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, pUid))) {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       const rs = await env.DB.prepare(`SELECT user_id, student_name, program, status FROM students_erp WHERE parent_user_id = ?`).bind(pUid).all();
       return json({ ok: true, count: rs.results?.length || 0, rows: rs.results || [] });
     }

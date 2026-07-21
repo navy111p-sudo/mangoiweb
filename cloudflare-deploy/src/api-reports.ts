@@ -3,8 +3,7 @@
 //   runMonthlyReports 는 index.ts 크론이 import 해서 매월 자동 실행.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody } from './api-util';
-import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { checkAdminSession } from './auth-admin';
+import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(소유자/관리자 인증 일원화)
 import { sendKakaoAlimtalk, getSolapiMode } from './solapi-client';
 import { computeGrowthForStudent } from './api-judgment';  // 🧠 판단력 성장(월간 리포트 삽입)
 import type { MangoEnv } from './api-mango';
@@ -185,9 +184,8 @@ export async function handleReportsApi(
 
       // 🔐 [PII] 본인(학생/학부모 토큰) 또는 관리자만 — 월간 리포트(결제 총액·평가 포함) IDOR 차단.
       //   공유 링크로 보려면 별도 /api/report/monthly-view?t= (토큰 검증) 경로 사용.
-      const rmAuth = await authUidGlobal(request, url, env);
-      const rmAdmin = await checkAdminSession(request, env as any);
-      if (!rmAdmin.ok && (!rmAuth || rmAuth !== uid)) {
+      // [공용 헬퍼, strict=게스트 미허용]
+      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, uid))) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 리포트만 조회할 수 있습니다.' }, 401);
       }
 

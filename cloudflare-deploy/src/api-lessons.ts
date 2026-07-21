@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { checkAdminSession } from './auth-admin';
+import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { runCypher } from './teacher-match';
 import { studentScopeWhere } from './scope';
 import { sendPushToUser } from './api-notify';
@@ -242,11 +242,9 @@ export async function handleLessonsApi(
       const id = parseInt(path.split('/').pop() || '0', 10);
       const row: any = await env.DB.prepare(`SELECT * FROM student_evaluations WHERE id=?`).bind(id).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
-      // 🔐 [PII] 본인 평가 또는 관리자만 — 평가서(교사코멘트·신원) 정수 id 열거 IDOR 차단
-      const eidAuth = await authUidGlobal(request, url, env);
-      if (eidAuth !== String(row.student_uid || '')) {
-        const eidAdmin = await checkAdminSession(request, env as any);
-        if (!eidAdmin.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      // 🔐 [PII] 본인 평가 또는 관리자만 — 평가서(교사코멘트·신원) 정수 id 열거 IDOR 차단. [공용 헬퍼, strict=게스트 미허용]
+      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, String(row.student_uid || '')))) {
+        return json({ ok: false, error: 'auth_required' }, 401);
       }
       // 학부모가 본 적 없으면 view 기록
       if (!row.viewed_by_parent) {

@@ -2845,7 +2845,8 @@
       .ai-hub-card{display:flex;align-items:center;gap:14px;padding:18px 18px;border-radius:16px;text-decoration:none;color:#fff;
         box-shadow:0 10px 26px -10px rgba(0,0,0,.5);transition:transform .18s,filter .18s;border:1px solid rgba(255,255,255,.12)}
       .ai-hub-card:hover{transform:translateY(-3px);filter:brightness(1.07)}
-      .ai-hub-card .ico{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(255,255,255,.18);flex-shrink:0}
+      .ai-hub-card .ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.16);flex-shrink:0}
+      .ai-hub-card .ico svg{width:22px;height:22px;color:#fff;opacity:.95}
       .ai-hub-card .tt{font-size:15px;font-weight:800;line-height:1.25}
       .ai-hub-card .ds{font-size:11.5px;opacity:.9;margin-top:3px;line-height:1.4}
       .ai-hub-card.fin{background:linear-gradient(135deg,#0ea5e9,#1d4ed8)}
@@ -2854,15 +2855,15 @@
     </style>
     <div class="ai-hub-grid">
       <a class="ai-hub-card fin" href="/admin/finance-realtime">
-        <span class="ico">💸</span><span><span class="tt" data-ko="실시간 재무" data-en="Live Finance">실시간 재무</span>
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 3 3 8-8"/><path d="M15 7h5v5"/></svg></span><span><span class="tt" data-ko="실시간 재무" data-en="Live Finance">실시간 재무</span>
         <span class="ds" data-ko="일·주 수입/지출·순이익·스냅샷" data-en="Daily/weekly income·expense·net">일·주 수입/지출·순이익·스냅샷</span></span>
       </a>
       <a class="ai-hub-card lrn" href="/admin/learning-insights">
-        <span class="ico">🎓</span><span><span class="tt" data-ko="학습 인사이트" data-en="Learning Insights">학습 인사이트</span>
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4.5"/></svg></span><span><span class="tt" data-ko="학습 인사이트" data-en="Learning Insights">학습 인사이트</span>
         <span class="ds" data-ko="위험도 세그먼트·장기 트렌드" data-en="Risk segments·long-term trends">위험도 세그먼트·장기 트렌드</span></span>
       </a>
       <a class="ai-hub-card mkt" href="/admin/marketing-studio">
-        <span class="ico">📣</span><span><span class="tt" data-ko="마케팅 스튜디오" data-en="Marketing Studio">마케팅 스튜디오</span>
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l5 4V6l-5 4H3z"/><path d="M16.5 9a4 4 0 010 6"/><path d="M19 6.5a7.5 7.5 0 010 11"/></svg></span><span><span class="tt" data-ko="마케팅 스튜디오" data-en="Marketing Studio">마케팅 스튜디오</span>
         <span class="ds" data-ko="AI 카피 생성·세그먼트 타겟팅" data-en="AI copy·segment targeting">AI 카피 생성·세그먼트 타겟팅</span></span>
       </a>
     </div>
@@ -2890,7 +2891,11 @@
       .kpi-tile.kpi-points::before{background:linear-gradient(180deg,#fbbf24,#f59e0b)}
       .kpi-tile.kpi-chat::before{background:linear-gradient(180deg,#06b6d4,#0891b2)}
       .kpi-tile.kpi-inquiry::before{background:linear-gradient(180deg,#ec4899,#be185d)}
-      .kpi-icon{font-size:22px;line-height:1;margin-bottom:6px}
+      /* 아이콘(이모지) 제거(26-07-22): 8개 타일의 컬러 이모지가 숫자와 시선을 다퉈 눈이 피로했다.
+         식별은 왼쪽 컬러 바가 이미 하고 있으므로 장식 아이콘은 넣지 않는다. 재추가 금지.
+         ⚠️ 타일별 라벨 색을 따로 주려 해도 전역 규칙
+            `[id^="card-"] [class$="-label"]{color:#67e8f9!important}` 가 이겨서 먹지 않는다.
+            라벨 색은 건드리지 말 것(죽은 CSS 가 된다). */
       .kpi-label{font-size:11.5px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
       .kpi-value{font-size:26px;font-weight:900;color:#1f2937;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
       .kpi-unit{font-size:13px;color:#6b7280;font-weight:600;margin-left:3px}
@@ -2907,7 +2912,7 @@
       @media (max-width:520px){ .kpi-grid{grid-template-columns:1fr 1fr;gap:8px} .kpi-tile{padding:12px 14px} .kpi-value{font-size:22px} }
     </style>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-      <button class="primary" onclick="kpiLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
+      <button class="primary" onclick="kpiLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700">↻ 새로고침</button>
       <span id="kpi-updated" style="font-size:11.5px;color:#6b7280"></span>
       <span style="flex:1"></span>
       <span style="font-size:11px;color:#9ca3af">학생/매출/출석/평가/미납/포인트/채팅/상담 — 8개 핵심 지표</span>
@@ -2915,7 +2920,7 @@
     <div id="kpi-grid-wrap"><div class="kpi-grid" id="kpi-grid"><div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280" data-ko="📥 KPI 로딩 중…" data-en="📥 Loading KPIs…">📥 KPI 로딩 중…</div></div></div>
     <div id="kpi-spark-wrap" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-top:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <h4 style="margin:0;font-size:13px;font-weight:800;color:#374151">📈 최근 7일 매출 추세</h4>
+        <h4 style="margin:0;font-size:13px;font-weight:800;color:#374151">최근 7일 매출 추세</h4>
         <span id="kpi-spark-total" style="font-size:12px;color:#6b7280">합계 -</span>
       </div>
       <div class="kpi-spark" id="kpi-spark"></div>
@@ -2948,18 +2953,17 @@
       if (!d.ok) throw new Error(d.error || (isEn?'Failed to load KPIs':'KPI 로드 실패'));
       const k = d.kpi || {};
       const tiles = [
-        { cls:'kpi-students', icon:'👥', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`+${fmt(k.students.new_this_month)} new this month`:`이번 달 신규 +${fmt(k.students.new_this_month)}명`), trend:fmtTrend(k.students.trend) },
-        { cls:'kpi-revenue', icon:'💰', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments`:`결제 ${fmt(k.revenue.this_month_count)}건`), trend:fmtTrend(k.revenue.trend) },
-        { cls:'kpi-attendance', icon:'📍', label:(isEn?"This Month's Attendance":'이번 달 출석'), value:fmt(k.attendance.this_month), sub:(isEn?`${fmt(k.attendance.last_month)} last month`:`전월 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
-        { cls:'kpi-eval', icon:'📝', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`), trend:'' },
-        { cls:'kpi-overdue', icon:'🔔', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`${fmt(k.overdue.notified_this_month)} reminders sent (this month)`:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`), trend:'' },
-        { cls:'kpi-points', icon:'🎁', label:(isEn?"This Month's Points":'이번 달 포인트'), value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:(isEn?`${fmt(k.points.spent_this_month)}P spent`:`사용 ${fmt(k.points.spent_this_month)}P`), trend:'' },
-        { cls:'kpi-chat', icon:'💬', label:(isEn?'Chat Messages':'채팅 메시지'), value:fmt(k.chat.messages_this_month), sub:(isEn?'Cumulative this month':'이번 달 누적'), trend:'' },
-        { cls:'kpi-inquiry', icon:'💌', label:(isEn?'New Inquiries':'신규 상담'), value:fmt(k.inquiry.last_30_days), sub:(isEn?'Last 30 days':'최근 30일'), trend:'' },
+        { cls:'kpi-students', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`+${fmt(k.students.new_this_month)} new this month`:`이번 달 신규 +${fmt(k.students.new_this_month)}명`), trend:fmtTrend(k.students.trend) },
+        { cls:'kpi-revenue', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments`:`결제 ${fmt(k.revenue.this_month_count)}건`), trend:fmtTrend(k.revenue.trend) },
+        { cls:'kpi-attendance', label:(isEn?"This Month's Attendance":'이번 달 출석'), value:fmt(k.attendance.this_month), sub:(isEn?`${fmt(k.attendance.last_month)} last month`:`전월 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
+        { cls:'kpi-eval', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`), trend:'' },
+        { cls:'kpi-overdue', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`${fmt(k.overdue.notified_this_month)} reminders sent (this month)`:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`), trend:'' },
+        { cls:'kpi-points', label:(isEn?"This Month's Points":'이번 달 포인트'), value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:(isEn?`${fmt(k.points.spent_this_month)}P spent`:`사용 ${fmt(k.points.spent_this_month)}P`), trend:'' },
+        { cls:'kpi-chat', label:(isEn?'Chat Messages':'채팅 메시지'), value:fmt(k.chat.messages_this_month), sub:(isEn?'Cumulative this month':'이번 달 누적'), trend:'' },
+        { cls:'kpi-inquiry', label:(isEn?'New Inquiries':'신규 상담'), value:fmt(k.inquiry.last_30_days), sub:(isEn?'Last 30 days':'최근 30일'), trend:'' },
       ];
       wrap.innerHTML = tiles.map(t => `
         <div class="kpi-tile ${t.cls}">
-          <div class="kpi-icon">${t.icon}</div>
           <div class="kpi-label">${t.label}</div>
           <div class="kpi-value">${t.value}</div>
           <div class="kpi-sub">${t.sub}</div>
@@ -7532,7 +7536,7 @@ window.__admSettleRun = function(fn){
 
 <!-- 📝 Phase MT — Mini TOEIC 자체 영어 능력 시험 -->
 <details class="table-card menu-card" id="card-mini-toeic">
-  <summary><span data-ko="📝 미니토익 시험 만들기 (AI 자동 출제)" data-en="📝 Mini TOEIC Builder (AI Auto-Gen)">📝 미니토익 시험 만들기 (AI 자동 출제)</span> <span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle" data-ko="✨ 버튼만 누르면 완성" data-en="✨ One-click">✨ 버튼만 누르면 완성</span></summary>
+  <summary><span data-ko="📝 미니토익 시험 만들기 (AI 자동 출제)" data-en="📝 Mini TOEIC Builder (AI Auto-Gen)">📝 미니토익 시험 만들기 (AI 자동 출제)</span> <span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle" data-ko="버튼만 누르면 완성" data-en="One-click">버튼만 누르면 완성</span></summary>
   <div class="menu-body">
     <style>
       #mt-top-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:14px;margin-bottom:14px}
@@ -17202,6 +17206,8 @@ button.chip:hover,
 
 <script src="/js/adm-r25.js?v=1" defer></script><!-- 분할추출:adm-r25 -->
 
+<script src="/js/adm-menu-icons.js?v=1" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
+
 
 <!-- Phase 126 admin (2026-05-25) — 잔존율/활성 룸 강제 visible + 정확한 스크롤 -->
 <style id="ph126-force-visible">
@@ -19653,6 +19659,98 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num { background: rgba(217,119,6,0.22) !important; color: #92400e !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #d97706 !important; }
 
+  /* ═══════════════════════════════════════════════════════════════
+     🎨 (2026-07-22) 사이드바 자식·손자 메뉴 아이콘 정돈 — mi-menu-icons
+       문제: 자식은 컬러 이모지, 손자는 파란 원형 번호 배지라 상위 그룹의
+             단색 선 아이콘과 톤이 어긋나 화면이 소란스럽고 유치해 보였다.
+       해결: 자식 = 상위와 같은 계열의 단색 선 아이콘(평소 흐림 → hover 때만 또렷),
+             손자 = 배지 제거하고 번호만 조용히. 별점도 배경으로 물러남.
+       ⚠️ 이 블록은 앞선 #mi-sidebar-ux(padding-left:47px) 와 위 아이보리
+          규칙들을 이겨야 하므로 반드시 그 뒤에 위치해야 한다. 위로 옮기지 말 것.
+     ═══════════════════════════════════════════════════════════════ */
+  /* 기존 '›' 마커 제거 — 아이콘이 그 역할을 대신한다 */
+  #ph85-sidebar .ph85-sub::before{ display:none !important; content:'' !important; }
+  #ph85-sidebar .ph85-sub{ padding-left:18px !important; gap:0 !important; }
+
+  #ph85-sidebar .ph85-sub .mi-ico-wrap{
+    display:inline-flex !important; align-items:center !important; justify-content:center !important;
+    width:18px !important; height:18px !important; flex:none !important; margin-right:10px !important;
+  }
+  #ph85-sidebar .ph85-sub .mi-ico{
+    width:17px !important; height:17px !important;
+    color:#94a3b8 !important; opacity:.6 !important;
+    transition:opacity .15s ease, color .15s ease !important;
+  }
+  #ph85-sidebar .ph85-sub:hover .mi-ico,
+  #ph85-sidebar .ph85-sub.ph125-open .mi-ico,
+  #ph85-sidebar .ph85-sub.ph85-active .mi-ico{ color:#fbbf24 !important; opacity:1 !important; }
+  /* 강조 줄(학원 전체 스케줄)은 파란 계열 유지 */
+  #ph85-sidebar .ph85-sub-schedule .mi-ico{ color:#60a5fa !important; opacity:.92 !important; }
+  #ph85-sidebar .ph85-sub-schedule:hover .mi-ico{ color:#93c5fd !important; opacity:1 !important; }
+
+  /* ⭐신규 → 외곽선만 있는 조용한 NEW 알약 */
+  #ph85-sidebar .ph85-sub .mi-new{
+    margin-left:6px !important; padding:1px 5px !important;
+    font-size:9px !important; font-weight:800 !important; letter-spacing:.4px !important;
+    line-height:1.5 !important; border-radius:4px !important; flex:none !important;
+    color:#7dd3fc !important; border:1px solid rgba(125,211,252,.45) !important;
+    background:transparent !important;
+  }
+
+  /* 별점 — 배경으로 물러나게 */
+  #ph85-sidebar .ph85-sub[data-mi-stars]::after{ opacity:.4 !important; font-size:10.5px !important; }
+  #ph85-sidebar .ph85-sub:hover[data-mi-stars]::after{ opacity:.85 !important; }
+
+  /* ── 카드 헤더 아이콘(26-07-22) — 사이드바와 같은 단색 선 아이콘.
+        컬러 이모지 88개가 한 화면에 쌓이던 것을 대체한다. 이모지 재추가 금지. */
+  .menu-card > summary .mi-hd-ico{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:19px; height:19px; flex:none; margin-right:9px; vertical-align:-4px;
+  }
+  .menu-card > summary .mi-hd-ico svg{
+    width:18px; height:18px; color:currentColor; opacity:.62;
+    transition:opacity .15s ease;
+  }
+  .menu-card[open] > summary .mi-hd-ico svg,
+  .menu-card > summary:hover .mi-hd-ico svg{ opacity:1; }
+
+  /* 손자 — 원형 배지 제거, 얇은 안내선 + 조용한 번호 */
+  #ph85-sidebar .ph125-grandchildren{
+    border-left:1px solid rgba(148,163,184,.3) !important;
+    background:rgba(15,23,42,.55) !important;
+    margin-left:27px !important;
+  }
+  #ph85-sidebar .ph125-gc{
+    color:#cbd5e1 !important; font-weight:500 !important; font-size:13px !important;
+    padding:7px 10px 7px 12px !important; gap:9px !important;
+  }
+  #ph85-sidebar .ph125-gc .ph125-num{
+    background:transparent !important; border-radius:0 !important;
+    color:#64748b !important; font-size:11px !important; font-weight:600 !important;
+    width:12px !important; height:auto !important;
+    justify-content:flex-end !important;
+    font-variant-numeric:tabular-nums !important;
+    transition:color .12s ease !important;
+  }
+  #ph85-sidebar .ph125-gc:hover{
+    background:rgba(148,163,184,.12) !important; color:#f8fafc !important;
+    padding-left:14px !important;
+  }
+  #ph85-sidebar .ph125-gc:hover .ph125-num{ color:#fbbf24 !important; }
+  #ph85-sidebar .ph85-sub .ph125-toggle{ opacity:.45 !important; }
+  #ph85-sidebar .ph85-sub:hover .ph125-toggle{ opacity:.9 !important; }
+
+  /* 아이보리 테마 */
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .mi-ico{ color:#8a7355 !important; opacity:.7 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub:hover .mi-ico,
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub.ph125-open .mi-ico,
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub.ph85-active .mi-ico{ color:#b45309 !important; opacity:1 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .mi-new{ color:#0369a1 !important; border-color:rgba(3,105,161,.45) !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph125-grandchildren{ background:#fffdf8 !important; border-left:1px solid rgba(146,64,14,.28) !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num{ background:transparent !important; color:#a8a29e !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc:hover{ background:rgba(245,158,11,.14) !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc:hover .ph125-num{ color:#b45309 !important; }
+
   /* 10) KPI 타일 — #card-kpi-dashboard ID 스코프로 다크 레이어 확실히 덮음 */
   html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile { background: #fffdf8 !important; }
   html[data-admin-theme="ivory"] #card-kpi-dashboard .kpi-tile,
@@ -20343,6 +20441,6 @@ button.chip:hover,
   .hero-character-frame::after { font-size: 14px !important; }  /* 🛸 UFO */
 }
 </style>
-<!-- BUILD:20260722051227 -->
+<!-- BUILD:20260722053612 -->
 </body>
 </html>
