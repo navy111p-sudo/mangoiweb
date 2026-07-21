@@ -1477,7 +1477,7 @@ const HUB_GAMES = [
   { mode:'wordfighter', kind:'iframe', ico:'🧟', ttl:'워드 파이터', dsc:'좀비 격투! 문장 단어를 순서대로 눌러 좀비를 물리쳐요!', bg:'#84cc16', badge:'문장',
     src:function(){ return '/student-game-wordfighter.html'; } },
   { mode:'tetris', kind:'iframe', ico:'🎮', ttl:'단어 테트리스', dsc:'떨어지는 단어 블록으로 문장 줄 완성! 영어·중국어 서바이벌', bg:'#06b6d4', badge:'문장·NEW', ownSpeed:true,
-    src:function(){ return '/student-game-tetris.html'; } }   // ownSpeed=게임 자체 ☰에 속도 있음 → 상단바 ⋮(속도) 숨김
+    src:function(){ return '/student-game-tetris.html?v=2'; } }   // ownSpeed=게임 자체 ☰에 속도 있음 → 상단바 ⋮(속도) 숨김. v=2 서버TTS
 ];
 
 /* ============================================================
@@ -2418,7 +2418,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260722073336 -->
+<!-- BUILD:20260722073410 -->
 <script defer src="/js/flow.js?v=6"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
