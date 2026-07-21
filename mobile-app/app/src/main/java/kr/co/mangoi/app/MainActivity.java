@@ -36,6 +36,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
+import androidx.webkit.WebSettingsCompat;
+import androidx.webkit.WebViewFeature;
 
 import org.json.JSONObject;
 
@@ -115,6 +117,15 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             s.setSafeBrowsingEnabled(false);
         }
+
+        // 😊 패스키(WebAuthn) 얼굴/지문 로그인 — Android 14+ / 최신 WebView 에서만 동작.
+        //   미지원 기기는 feature 체크로 건너뛰고, 사이트 쪽 버튼도 자동 숨김이라 안전.
+        //   도메인 신뢰는 test.mangoi.co.kr/.well-known/assetlinks.json (kr.co.mangoi.app 지문) 이 담당.
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) {
+                WebSettingsCompat.setWebAuthenticationSupport(s, WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_APP);
+            }
+        } catch (Throwable ignored) {}
 
         // JS 브리지: 페이지에서 window.AndroidTTS.speak('안녕', 'ko', 1.05, 1.0) 로 호출
         webView.addJavascriptInterface(new TtsBridge(), "AndroidTTS");
