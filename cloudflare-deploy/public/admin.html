@@ -2159,28 +2159,11 @@
     <!-- 🥭 히어로 랜딩 (망고 캐릭터 + 거대 검색창) — 2026-06-24 중앙 AI 검색창 복구(다시 표시) -->
     <section class="hero">
       <div class="hero-text">
-        <!-- 🥭 Phase 19f — 배너 이미지 우선, 실패 시 CSS h1 fallback -->
-        <img src="/img/hero-greeting-gold.png" alt="안녕하세요, MANGO-AI" class="hero-banner-img"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';" />
-        <h1 data-ko="안녕하세요💛 망고아이!" data-en="Hello💛 Mangoi!" data-text="안녕하세요💛 망고아이!" style="display:none">안녕하세요💛 망고아이!</h1>
-        <p class="hero-sub" data-ko="무엇이든 검색해보세요 — 학생·교사·가맹점·메뉴·녹화·통계까지 한 번에." data-en="Search anything — students, teachers, franchises, menus, recordings, stats.">무엇이든 검색해보세요 — 학생·교사·가맹점·메뉴·녹화·통계까지 한 번에.</p>
+        <!-- 🗑️ (2026-07-22 사장님 지시) "안녕하세요, MANGO-AI" 배너 이미지·h1·안내문구 마크업 자체를 물리 삭제.
+             CSS 숨김만으로는 사장님 화면에 계속 보인다는 보고가 있어 파일에서 완전히 제거함. 재추가 금지. -->
 
-        <!-- 🥭 Phase 49 — 음성+자막 인사 버블 (페이지 로드 시 자동 표시·재생) -->
-        <div id="ai-greeting-bubble" style="display:none;margin:0 auto 14px;padding:12px 22px;background:linear-gradient(135deg,rgba(251,191,36,0.92),rgba(251,146,60,0.92));color:#1f2937;border-radius:18px;font-size:16px;font-weight:700;box-shadow:0 8px 24px -6px rgba(245,158,11,0.5);max-width:fit-content;position:relative;animation:greetingBubbleIn 0.5s cubic-bezier(0.34,1.56,0.64,1)">
-          <span style="font-size:22px;vertical-align:middle">🤖</span>
-          <span id="ai-greeting-text" style="vertical-align:middle;margin-left:6px">무엇을 도와 드릴까요?</span>
-          <button onclick="document.getElementById('ai-greeting-bubble').style.display='none'" type="button"
-                  style="background:transparent;border:0;color:#92400e;font-size:14px;cursor:pointer;margin-left:10px;padding:0 4px;vertical-align:middle"
-                  title="닫기" aria-label="닫기">✕</button>
-          <!-- 말풍선 꼬리 (아래쪽으로) -->
-          <span style="position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:9px solid rgba(251,158,32,0.92)"></span>
-        </div>
-        <style>
-          @keyframes greetingBubbleIn {
-            from { opacity: 0; transform: translateY(-8px) scale(0.9); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
-          }
-        </style>
+
+        <!-- 🗑️ (2026-07-22) 음성+자막 인사 버블(#ai-greeting-bubble) 마크업도 물리 삭제 — adm-core setupAiGreeting 비활성과 세트. 재추가 금지 -->
 
         <div class="hero-search">
           <button class="hero-search-icon" id="menu-search-go" type="button"
@@ -20314,6 +20297,6 @@ button.chip:hover,
   #ai-greeting-bubble { padding: 8px 16px !important; font-size: 14px !important; margin-bottom: 10px !important; }
 }
 </style>
-<!-- BUILD:20260722042756 -->
+<!-- BUILD:20260722043728 -->
 </body>
 </html>
