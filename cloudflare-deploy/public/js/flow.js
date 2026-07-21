@@ -384,6 +384,74 @@
     }).catch(function () { recShowEmpty(); });
   }
 
+  // 💌 수업 피드백 목록 (2026-07-22, 학부모 컴플레인 #3) — 선생님이 남긴 피드백을
+  //    학생/학부모가 직접 본다. 인증·조회 구조는 녹화 목록과 동일(/api/student/feedbacks).
+  function fbShowList() {
+    var who = _recWho || studentUid();
+    if (!who) { recShowLoginNeeded(); return; }
+    _recWho = who;
+    recShell(recMsgBox(
+      '<div style="font-size:34px;margin-bottom:10px">💌</div>' +
+      '<div style="font-size:15px;font-weight:700;color:#e2e8f0">수업 피드백을 불러오는 중…</div>'
+    ));
+    ensureToken(who).then(function (tok) {
+      var t = tok || '';
+      function q(key) {
+        return fetch('/api/student/feedbacks?limit=30&uid=' + encodeURIComponent(key) + (t ? '&token=' + encodeURIComponent(t) : ''), { credentials: 'include' })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { return (d && d.rows) || []; })
+          .catch(function () { return []; });
+      }
+      var jobs = [q(who.uid)];
+      if (who.name && who.name !== who.uid) jobs.push(q(who.name));
+      return Promise.all(jobs).then(function (parts) {
+        var seen = {}, merged = [];
+        parts.forEach(function (rows) {
+          (rows || []).forEach(function (r) {
+            if (r && r.id != null && !seen[r.id]) { seen[r.id] = 1; merged.push(r); }
+          });
+        });
+        merged.sort(function (a, b) { return (b.class_at || 0) - (a.class_at || 0); });
+        return merged;
+      });
+    }).then(function (rows) {
+      var esc = function (s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]); }); };
+      if (!rows.length) {
+        recShell(recMsgBox(
+          '<div style="font-size:38px;margin-bottom:10px">💌</div>' +
+          '<div style="font-size:15px;font-weight:700;color:#e2e8f0">아직 등록된 피드백이 없어요</div>' +
+          '<div style="font-size:12.5px;color:#94a3b8;margin-top:8px;line-height:1.6">수업이 끝나면 선생님이 당일 피드백을 남겨드려요.<br>등록되면 문자로도 알려드립니다.</div>' +
+          '<button data-rec-close style="margin-top:16px;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;padding:10px 22px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer">닫기</button>'
+        ));
+        bindRecButtons();
+        return;
+      }
+      var items = rows.map(function (r) {
+        var d = r.class_at ? new Date(r.class_at) : null;
+        var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
+        var dateStr = d ? (d.getFullYear() + '.' + pad2(d.getMonth() + 1) + '.' + pad2(d.getDate())) : '';
+        // content 는 "한국어\n\n[EN] English" 형태 — 한국어 본문만 기본 표시
+        var bodyRaw = String(r.content || r.summary || '');
+        var koBody = bodyRaw.split('\n\n[EN]')[0];
+        return '<div style="background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.22);border-radius:12px;padding:14px 16px;margin-bottom:10px">' +
+          '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#94a3b8;margin-bottom:6px">' +
+            '<span>👩‍🏫 ' + esc(r.teacher_name || '담당 선생님') + '</span><span>' + esc(dateStr) + '</span>' +
+          '</div>' +
+          '<div style="font-size:13.5px;color:#e2e8f0;line-height:1.7;white-space:pre-wrap">' + esc(koBody) + '</div>' +
+        '</div>';
+      }).join('');
+      recShell(recListBox(
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex:0 0 auto">' +
+          '<div style="font-weight:800;font-size:17px;color:#f8fafc">💌 수업 피드백 <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + rows.length + '개</span></div>' +
+          '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
+        '</div>' +
+        '<div style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch">' + items + '</div>' +
+        '<div style="flex:0 0 auto;color:#64748b;font-size:11px;margin-top:10px;line-height:1.6">※ 선생님이 수업 당일 남긴 피드백입니다. 새 피드백은 문자로도 안내돼요.</div>'
+      ));
+      bindRecButtons();
+    }).catch(function () { recShowEmpty(); });
+  }
+
   function openLatestRecording() {
     var who = studentUid();
     if (!who) { recShowLoginNeeded(); return; }
@@ -526,5 +594,5 @@
     });
   }
 
-  w.MangoFlow = { open: open, close: close, playRecording: openLatestRecording, showList: recShowList, closeRec: recClose };
+  w.MangoFlow = { open: open, close: close, playRecording: openLatestRecording, showList: recShowList, showFeedbacks: fbShowList, closeRec: recClose };
 })(window, document);

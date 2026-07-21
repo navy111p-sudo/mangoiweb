@@ -2091,6 +2091,12 @@
       +   (en?'Pron.':'발음')+': <b style="color:#c7d2fe">'+(app.pron_score!=null?Math.round(app.pron_score):'—')+'</b><br>'
       +   (en?'The AI estimate is pre-filled as an objective baseline — confirm or adjust from the live conversation.':'AI 추정을 객관 기준선으로 미리 채워놨어요. 실제 대화를 근거로 확정/조정하세요.')
       + '</div>'
+      // 📚 (2026-07-22) 학부모 컴플레인 #6: 추천 교재·다음 수업 안내 — 필수 입력, 결과 문자에 포함됨
+      + '<label style="display:block;font-size:12.5px;font-weight:700;color:#a5b4fc;margin:14px 0 6px">📚 '+(en?'Recommended textbook (required)':'추천 교재 (필수)')+'</label>'
+      + '<input id="lt-eval-book" type="text" value="'+ltEsc(app.recommended_textbook||'')+'" placeholder="'+(en?'e.g. Let\'s Go 3':'예: Let\'s Go 3')+'" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid #6366f1;border-radius:10px;padding:11px;font-size:14.5px;outline:none">'
+      + '<label style="display:block;font-size:12.5px;font-weight:700;color:#a5b4fc;margin:12px 0 6px">▶ '+(en?'Next-class guidance for parents':'다음 수업 안내 (학부모용)')+'</label>'
+      + '<textarea id="lt-eval-guide" rows="2" placeholder="'+(en?'e.g. Weekly 2 regular classes recommended, starting unit 1':'예: 주 2회 정규수업 권장, 1단원부터 시작')+'" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid rgba(99,102,241,.6);border-radius:10px;padding:11px;font-size:14px;outline:none;resize:vertical">'+ltEsc(app.next_class_guide||'')+'</textarea>'
+      + '<div style="font-size:11px;color:#94a3b8;margin-top:6px">'+(en?'Sent to the parent via SMS with the confirmed level.':'확정 레벨과 함께 학부모 문자로 발송됩니다.')+'</div>'
       + '<button onclick="submitLtEval()" style="width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:900;cursor:pointer">✅ '+(en?'Confirm assessment':'평가 확정')+'</button>'
       + '</div>';
     mask.addEventListener('click', function(e){ if (e.target === mask) closeLtEval(); });
@@ -2129,8 +2135,13 @@
     if (scored < LT_DIMS.length) { alert(en ? 'Please score all 5 items.' : '5개 항목을 모두 채점해 주세요.'); return; }
     var tScore = ltCalcScore(ltEvalState.rubric);
     var level = (document.getElementById('lt-eval-level') || {}).value || null;
+    // 📚 추천 교재 필수 — 학부모 컴플레인 #6(교사 누락) 방지
+    var book = ((document.getElementById('lt-eval-book') || {}).value || '').trim();
+    var guide = ((document.getElementById('lt-eval-guide') || {}).value || '').trim();
+    if (!book) { alert(en ? 'Please enter the recommended textbook — it is sent to the parent.' : '추천 교재를 입력해 주세요. 학부모 결과 문자에 함께 나갑니다.'); return; }
     var payload = { id: ltEvalState.id, teacher_score: tScore, teacher_rubric: ltEvalState.rubric,
-      final_level: level, status: 'done', evaluated_by: (window.__myName || '') };
+      final_level: level, status: 'done', evaluated_by: (window.__myName || ''),
+      recommended_textbook: book, next_class_guide: guide };
     fetch('/api/admin/leveltest/applications', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
       .then(function(r){ return r.json(); })
       .then(function(d){

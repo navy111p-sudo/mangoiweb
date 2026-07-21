@@ -253,13 +253,24 @@ export async function handleNotifyApi(
     //   body: { room_id, student_name, student_phone, lesson_title, teacher_name, parent_phone?, student_uid?, parent_uid? }
     if (method === 'POST' && path === '/api/notify/lesson-started') {
       const body: any = await request.json().catch(() => ({}));
-      const phone = body.student_phone || body.parent_phone;
       const studentName = body.student_name || '학생';
       const lessonTitle = body.lesson_title || '영어 수업';
       const teacherName = body.teacher_name || '강사';
+      // 학부모 컴플레인 #1 대응(2026-07-22): 학생 번호 '우선' 1건 발송 → 학부모+학생 모두 발송.
+      //   같은 번호가 두 필드에 들어온 경우 중복 발송 방지.
+      const phones: { role: string; phone: string }[] = [];
+      if (body.parent_phone) phones.push({ role: 'parent', phone: String(body.parent_phone) });
+      if (body.student_phone && String(body.student_phone) !== String(body.parent_phone || '')) {
+        phones.push({ role: 'student', phone: String(body.student_phone) });
+      }
       let kakaoResult: any = { skipped: true };
-      if (phone) {
-        kakaoResult = await sendLessonStartAlert(env, phone, { studentName, lessonTitle, teacherName, roomUrl: body.room_url });
+      if (phones.length) {
+        const sends: any[] = [];
+        for (const t of phones) {
+          const r = await sendLessonStartAlert(env, t.phone, { studentName, lessonTitle, teacherName, roomUrl: body.room_url });
+          sends.push({ role: t.role, ...r });
+        }
+        kakaoResult = { count: sends.length, results: sends };
       }
       // 🆕 Web Push 도 함께 발송
       const pushTitle = `🎓 ${lessonTitle} 시작!`;

@@ -70,7 +70,7 @@
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
 <script src="/js/adm-scope-guard.js?v=1"></script>
 <!-- ⚡ 관리자 메뉴 로딩 가속 — fetch 타임아웃(무한 스피너 방지)+무거운 분석 GET 클라이언트 캐시. scope-guard 다음에 로드 -->
-<script src="/js/adm-perf.js?v=2"></script>
+<script src="/js/adm-perf.js?v=3"></script>
 
 <!-- 🗑️ (2026-07-22) Phase 58 'SW 킬' 스크립트 삭제 — 재추가 금지.
      아래 sw-always-fresh 가 SW 를 다시 등록하기 때문에, 새 탭에서 관리자에 들어올 때마다
@@ -2945,7 +2945,10 @@
     const wrap = document.getElementById('kpi-grid');
     if (!wrap) return;
     const isEn = (window.adminLang === 'en');
-    wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">'+(isEn?'📥 Loading KPIs…':'📥 KPI 로딩 중…')+'</div>';
+    // 🔇 조용한 갱신(26-07-22): 5분 자동갱신·재진입 때마다 그리드를 스피너로 갈아끼우면
+    //   "계속 로딩이 돈다"로 보인다 → 이미 타일이 떠 있으면 스피너 없이 뒤에서 갱신.
+    const hasTiles = !!wrap.querySelector('.kpi-tile');
+    if (!hasTiles) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">'+(isEn?'📥 Loading KPIs…':'📥 KPI 로딩 중…')+'</div>';
     try {
       const r = await fetch('/api/admin/kpi/dashboard');
       const d = await r.json();
@@ -2984,7 +2987,8 @@
       const labels = document.getElementById('kpi-spark-labels');
       labels.innerHTML = dr.map(x => `<div style="flex:1;text-align:center">${x.date}</div>`).join('');
     } catch(e) {
-      wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;color:#ef4444;text-align:center">❌ '+e.message+'</div>';
+      // 백그라운드 갱신 실패면 기존 타일 유지(스피너/에러로 갈아끼우지 않음)
+      if (!wrap.querySelector('.kpi-tile')) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;color:#ef4444;text-align:center">❌ '+e.message+'</div>';
     }
   };
   // 페이지 로드 시 자동 + 5분마다 새로고침
@@ -11492,7 +11496,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=5"></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=6"></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1"></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 
 </div>
@@ -20190,6 +20194,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260722003721 -->
+<!-- BUILD:20260722005915 -->
 </body>
 </html>

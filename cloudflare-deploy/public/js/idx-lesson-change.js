@@ -221,6 +221,21 @@
     var msg = L
       ? '실력 향상을 위해선 꾸준한 수업이 가장 중요합니다!<br><br>그래도 연기하시겠습니까?'
       : 'Consistent practice is the key to improvement!<br><br>Are you sure you want to postpone?';
+    // 🆕 (2026-07-22) 학부모 컴플레인 #2: 연기 확정 전에 30분 무료/유료 규정을 반드시 보여준다.
+    //   원 수업 시작까지 남은 시간으로 무료/유료를 미리 계산해 명시.
+    var feeLine = '';
+    try {
+      var origMs = getClassDateTime(p.cls).getTime();
+      var minsBefore = Math.round((origMs - Date.now())/60000);
+      var isPaid = !(minsBefore > 30);
+      if (window.hasUnlimitedLessonPermission && window.hasUnlimitedLessonPermission('postpone')) isPaid = false;
+      feeLine = '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(251,191,36,.35);font-size:15px">'
+        + (L ? '📋 연기 규정: 수업 시작 30분 전까지 무료 · 이후 유료<br>' : '📋 Policy: free until 30 min before class · fee applies after<br>')
+        + (isPaid
+            ? '<b style="color:#f87171">' + (L ? '⚠️ 지금 연기하면 유료로 처리됩니다.' : '⚠️ This postponement will incur a fee.') + '</b>'
+            : '<b style="color:#34d399">' + (L ? '✅ 지금 연기하면 무료입니다.' : '✅ This postponement is free.') + '</b>')
+        + '</div>';
+    } catch(e){}
     var html = '<div class="encourage-wrap" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;overflow-y:auto" onclick="if(event.target===this)closeEncourage()">'+
       '<div class="encourage-card" style="background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:2px solid #fbbf24;border-radius:24px;max-width:600px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.7);animation:lcSlide .25s;text-align:center" onclick="event.stopPropagation()">'+
         '<div style="padding:44px 32px 8px"><div class="encourage-emoji" style="font-size:96px;line-height:1;margin-bottom:14px;animation:pop .35s ease-out">💪</div></div>'+
@@ -228,6 +243,7 @@
         '<div class="encourage-msg" style="padding:0 36px 22px;font-size:18px;color:#cbd5e1;line-height:1.7">'+msg+'</div>'+
         '<div class="encourage-info" style="margin:0 32px 26px;padding:18px 22px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:14px;font-size:17px;color:#fde68a">'+
           '📅 '+(L?'새 시간: ':'New time: ')+'<b style="color:#fff">'+dateISO+' '+String(hour).padStart(2,"0")+':00</b>'+
+          feeLine+
         '</div>'+
         '<div class="encourage-actions" style="display:flex;gap:14px;padding:22px 32px 28px;border-top:1px solid #232b40">'+
           '<button onclick="closeEncourage()" style="flex:1;padding:18px;border-radius:14px;background:transparent;border:1.5px solid #475569;color:#cbd5e1;font-size:18px;font-weight:800;cursor:pointer">❌ '+(L?'아니요':'No')+'</button>'+

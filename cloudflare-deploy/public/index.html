@@ -6853,6 +6853,12 @@
         <span class="gm-label" data-ko="녹화본 복습" data-en="Recording Replay">녹화본 복습</span>
         <span class="gm-sub" data-ko="지난수업 녹화 보기" data-en="View Past Recordings">지난수업 녹화 보기</span>
       </button>
+      <!-- 💌 수업 피드백 (2026-07-22) — 학부모 컴플레인 #3: 선생님 피드백을 학부모가 직접 확인 -->
+      <button class="gm-card" data-go="feedbacks" data-en-key="class feedback">
+        <span class="gm-icon">💌</span>
+        <span class="gm-label" data-ko="수업 피드백" data-en="Class Feedback">수업 피드백</span>
+        <span class="gm-sub" data-ko="선생님 피드백 보기" data-en="View Teacher Feedback">선생님 피드백 보기</span>
+      </button>
 
       <button class="gm-card" data-go="leveltest" data-en-key="level test">
         <span class="gm-icon">📊</span>
@@ -10425,7 +10431,49 @@ async function vcJoinRoom(skipUI) {
     //   이제 비우면 모두가 같은 방(mangoi-class)으로 모여 서로 보임. (반/수업별로 나누려면 같은 코드를 입력)
     const roomCodeEl = document.getElementById('vc-roomcode-input');
     const VC_DEFAULT_ROOM = 'mangoi-class';
-    vcRoomId = (roomCodeEl ? roomCodeEl.value.trim() : '') || VC_DEFAULT_ROOM;
+    let vcTypedRoom = roomCodeEl ? roomCodeEl.value.trim() : '';
+
+    // 🧭 (2026-07-22) 학부모 컴플레인 #4 — 학생이 방코드 없이 입장하면 공용방(mangoi-class)에서
+    //    혼자 기다리는 문제. 빈칸 + 학생 + 오늘 예약이 있으면 예약 방으로 자동 교정.
+    //    오늘 예약이 없으면 기존 공용방 폴백 유지(데모/체험 흐름 보존).
+    if (!vcTypedRoom) {
+      try {
+        var _ju = (window.getCurrentUser ? window.getCurrentUser() : null);
+        var _jrole = (window.vcMyRole || (_ju && _ju.role) || ((typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) ? 'teacher' : 'student'));
+        if (_jrole === 'student') {
+          var _jq = 'role=student';
+          if (_ju && _ju.uid) _jq += '&user_id=' + encodeURIComponent(_ju.uid);
+          if (vcUsername) _jq += '&student_name=' + encodeURIComponent(vcUsername);
+          var _jd = await fetch('/api/class/sessions/today?' + _jq, { credentials: 'include' }).then(function (x) { return x.json(); }).catch(function () { return null; });
+          var _js = _jd && (_jd.current || ((_jd.sessions || []).filter(function (s) { return s.join_open; })[0]));
+          if (_js && _js.room_id && _js.join_open) {
+            vcTypedRoom = _js.room_id;
+            if (roomCodeEl) roomCodeEl.value = vcTypedRoom;
+            console.log('[vc] 빈 방코드 → 오늘 예약 방으로 자동 교정:', vcTypedRoom);
+          }
+        }
+      } catch (e) { /* 조회 실패 시 기존 폴백 유지 */ }
+    }
+
+    // 🗓️ (2026-07-22) 컴플레인 #4 — 지난 날짜가 박힌 링크(class-…-어제) 재사용 시 빈 방 입장 차단.
+    //    room_id 에 날짜가 포함되므로 어제 링크로 들어오면 아무도 없는 방에서 기다리게 된다.
+    //    오늘 날짜가 아니면 '오늘 내 수업' 자동 해석으로 넘긴다.
+    {
+      var _staleM = /^class-\d+-(\d{8})$/.exec(vcTypedRoom || '');
+      if (_staleM) {
+        var _kk = new Date(Date.now() + 9 * 3600 * 1000);
+        var _p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+        var _tymd = '' + _kk.getUTCFullYear() + _p2(_kk.getUTCMonth() + 1) + _p2(_kk.getUTCDate());
+        if (_staleM[1] !== _tymd) {
+          alert('⚠️ 이 수업 링크는 지난 날짜의 링크예요.\n오늘 예약된 수업으로 다시 연결할게요.');
+          if (roomCodeEl) roomCodeEl.value = '';
+          if (typeof vcJoinMyClass === 'function') { vcJoinMyClass(); return; }
+          return;
+        }
+      }
+    }
+
+    vcRoomId = vcTypedRoom || VC_DEFAULT_ROOM;
 
     // 🔒 Phase RM 3단계 — 예약제 방(class-*)에 '남의 방'으로 잘못 들어가는 것 차단.
     //   정상 예약자·담당 교사·관리자는 통과, 예약 없음/신원 불명이면 통과(fail-open) → 정상수업 방해 금지.
@@ -19752,7 +19800,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=7"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=8"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -20568,7 +20616,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- 📅 수업 연기/변경 모달 -->
 <div class="lc-overlay" id="lc-overlay" onclick="if(event.target===this)closeLessonChangeModal()"></div>
 <div class="lc-toast" id="lc-toast"></div>
-<script defer src="/js/idx-lesson-change.js?v=2"></script><!-- 분할추출:lesson-change (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음, 수업 중 불필요 -->
+<script defer src="/js/idx-lesson-change.js?v=3"></script><!-- 분할추출:lesson-change (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음, 수업 중 불필요 -->
 
 <!-- 🔑 로그인 모달 -->
 <div class="login-overlay" id="login-overlay" onclick="if(event.target===this)closeLoginModal()"></div>
@@ -21048,6 +21096,8 @@ window.addEventListener('DOMContentLoaded', () => {
           '</div>'+
           '<button onclick="doStudentLogin()" style="padding:11px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer">🔑 '+(L?'로그인':'Sign In')+'</button>'+
           '<div id="lm-err" style="display:none;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#fca5a5;font-size:11.5px"></div>'+
+          // 🔑 (2026-07-22) 비밀번호 재설정 — 학부모 컴플레인 #7: 분실 시 학원 문의뿐이던 문제
+          '<button type="button" onclick="lmPwReset()" style="background:none;border:0;color:#94a3b8;font-size:11.5px;cursor:pointer;text-decoration:underline;padding:2px">'+(L?'비밀번호를 잊으셨나요? (문자 인증)':'Forgot password? (SMS verify)')+'</button>'+
         '</div>'+
         // ━━━━ OAuth 소셜 로그인 ━━━━
         '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:10px 0;position:relative">'+
@@ -21098,6 +21148,31 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch(e){}
     closeLoginModal();
     showLcToast2('✅ '+(((window.getLang?window.getLang():'ko')==='ko')?(s.name+'님으로 로그인되었습니다.'):'Signed in as '+s.name+'.'));
+  };
+
+  // 🔑 (2026-07-22) 비밀번호 재설정 — 등록 전화번호 SMS 인증 (컴플레인 #7)
+  window.lmPwReset = async function() {
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var uid = ((document.getElementById('lm-uid')||{}).value || '').trim();
+    if (!uid) { uid = (prompt(L?'아이디를 입력해 주세요':'Enter your ID') || '').trim(); }
+    if (!uid) return;
+    try {
+      var r = await fetch('/api/student/password-reset/request', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid })
+      });
+      var d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.message || d.error || (L?'요청 실패':'Request failed'))); return; }
+      var code = (prompt('📱 ' + (d.message || (L?'문자로 받은 인증번호 6자리를 입력해 주세요':'Enter the 6-digit code'))) || '').trim();
+      if (!code) return;
+      var npw = (prompt(L?'새 비밀번호를 입력해 주세요 (6자 이상)':'New password (6+ chars)') || '').trim();
+      if (!npw) return;
+      var r2 = await fetch('/api/student/password-reset/confirm', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ user_id: uid, code: code, new_password: npw })
+      });
+      var d2 = await r2.json();
+      alert((d2.ok ? '✅ ' : '❌ ') + (d2.message || d2.error || ''));
+    } catch(e) { alert(L?'네트워크 오류가 발생했어요.':'Network error.'); }
   };
 
   // 🔑 학생 ID + 비밀번호 로그인 (실제 API)
@@ -26064,7 +26139,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260722003721 -->
+<!-- BUILD:20260722005915 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -29800,7 +29875,7 @@ window.vcAutoLoadStudentTextbook = async function(){
      · (참고) 영상 드래그·크기조절 실제 동작은 위쪽 .video-size-bar / #vc-video-pane 로직에서 처리됨.
      ============================================================ -->
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
-<script defer src="/js/flow.js?v=6"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
+<script defer src="/js/flow.js?v=7"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=2"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
 <script defer src="/js/vc-judgment-capture.js?v=1"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
 </body>

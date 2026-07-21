@@ -20,6 +20,7 @@ import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
+import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import type { MangoEnv } from './api-mango';
 
@@ -309,6 +310,13 @@ export async function handleAdminApi(
       //  ② 4개 쿼리를 개별 try/catch 로 격리 (하나 실패해도 나머지 살아있음)
       //  ③ 컬럼 누락 등 어떤 에러든 0 으로 graceful degradation, 전체 200 OK 유지
 
+      // ⚡ KV 캐시(60초, 스코프 격리) — 페이지 진입마다 4쿼리+CREATE 3회 재실행 방지
+      const _tf = await scopeFragments(env, request);
+      const _tKey = 'admtoday:' + new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10)
+                  + ':' + (_tf.erpScope || 'all') + '|' + _tf.binds.join(',');
+      const _tHit = await admCacheHit(env, _tKey);
+      if (_tHit) return _tHit;
+
       // 자동 자가치유 — 누락된 테이블 생성 (이미 있으면 NOOP)
       try {
         await env.DB.exec(
@@ -337,7 +345,7 @@ export async function handleAdminApi(
 
       // 🔒 역할별 데이터 범위 — 지사/대리점/교사/학부모/학생은 자기 범위만 집계
       // 🔒 세션 기반 강제 스코프(대리점/지사는 자기 범위만, 본사는 전체/?as= 드릴다운)
-      const _sf = await scopeFragments(env, request);
+      const _sf = _tf;   // 위 캐시 키 계산에서 이미 조회 — 재호출 낭비 방지
       const _uidScope = _sf.uidScope, _erpScope = _sf.erpScope, _sb = _sf.binds;
 
       const [revRow, attRow, activeRow, signupRow] = await Promise.all([
@@ -378,14 +386,14 @@ export async function handleAdminApi(
       const absentCount = Math.max(0, active - attended);
       const absenceRate = active > 0 ? (absentCount * 100 / active) : 0;
 
-      return json({
+      return admCachePut(env, _tKey, {
         ok: true,
         date: todayKst,
         revenue: { amount_krw: revenue, pay_count: payCount },
         students: { attended, active },
         absence: { rate_pct: Math.round(absenceRate * 10) / 10, absent: absentCount, scheduled: active },
         signups: { count: signups }
-      });
+      }, 60);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -394,14 +402,20 @@ export async function handleAdminApi(
 
     // ── GET /api/admin/kpi/dashboard — 학원 핵심 KPI 한 번에 ──
     if (method === 'GET' && path === '/api/admin/kpi/dashboard') {
-      // 안전망 - 필요 테이블 모두 ensure
-      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT, created_at INTEGER);`); } catch {}
-      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, amount_krw INTEGER NOT NULL, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`); } catch {}
-      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, scheduled_date TEXT, status TEXT, created_at INTEGER);`); } catch {}
-
       // 🔒 세션 기반 강제 스코프 — 지사/대리점은 자기 범위만(본사=전체). 누수 차단.
       const _sf = await scopeFragments(env, request);
       const _uidScope = _sf.uidScope, _erpScope = _sf.erpScope, _sb = _sf.binds;
+
+      // ⚡ KV 캐시(180초) — 대시보드 진입마다 20여 개 D1 쿼리를 다시 돌지 않게.
+      //   스코프(cond+binds)를 키에 포함해 지사/대리점 크로스테넌트 격리(retrisk 와 동일 원칙).
+      const _kpiKey = 'admkpi:' + (_erpScope || 'all') + '|' + _sb.join(',');
+      const _kpiHit = await admCacheHit(env, _kpiKey);
+      if (_kpiHit) return _kpiHit;
+
+      // 안전망 - 필요 테이블 모두 ensure (캐시 미스일 때만 → 요청당 왕복 절약)
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT, created_at INTEGER);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, amount_krw INTEGER NOT NULL, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, scheduled_date TEXT, status TEXT, created_at INTEGER);`); } catch {}
 
       const now = Date.now();
       // 이번 달 / 지난 달 기간
@@ -423,93 +437,70 @@ export async function handleAdminApi(
         catch (e) { return []; }
       };
 
-      // 1. 학생 수
-      const studentTotal: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb);
-      const studentNewThisMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?${_erpScope}`, thisMonthStart, ..._sb);
-      const studentNewLastMonth: any = await fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastMonthEnd, ..._sb);
+      // 상담/푸시 테이블 안전망 (아래 병렬 배치가 참조)
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS inquiries (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, message TEXT, created_at INTEGER);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`); } catch {}
 
-      // 2. 매출
-      const revThisMonth: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb);
-      const revLastMonth: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb);
+      // ⚡ 26-07-22 성능: 기존엔 아래 쿼리 20여 개를 전부 직렬 await 로 돌려(7일 매출은
+      //   루프로 7번 더) 대시보드 KPI 스피너가 수 초씩 돌았다.
+      //   → 독립 쿼리는 전부 Promise.all 병렬 + 7일 매출은 GROUP BY 1쿼리로 배칭.
+      //   fetch1/fetchAll 이 내부 try/catch 라 개별 실패는 기존과 동일하게 조용히 0 처리.
+      const cutoff35 = now - 35 * 86400 * 1000;
+      const day0 = new Date(); day0.setHours(0, 0, 0, 0);
+      const revBase = day0.getTime() - 6 * 86400000;   // 6일 전 자정(기존 루프의 첫 버킷)
 
-      // 3. 출석 (point_rule_log attendance)
-      let attendanceThisMonth = 0, attendanceLastMonth = 0;
-      try {
-        const a1: any = await fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, thisMonthStart, thisMonthEnd);
-        attendanceThisMonth = a1?.n || 0;
-        const a2: any = await fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, lastMonthStart, lastMonthEnd);
-        attendanceLastMonth = a2?.n || 0;
-      } catch {}
+      const [
+        studentTotal, studentNewThisMonth, studentNewLastMonth,
+        revThisMonth, revLastMonth,
+        a1, a2, e1, o1, p1, c1, oc, i1, ps, pq, revBuckets
+      ] = await Promise.all([
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?${_erpScope}`, thisMonthStart, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastMonthEnd, ..._sb),
+        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb),
+        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, thisMonthStart, thisMonthEnd),
+        fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, lastMonthStart, lastMonthEnd),
+        fetch1(`SELECT IFNULL(AVG(score_overall),0) AS avg, COUNT(*) AS n, IFNULL(SUM(parent_notified),0) AS notified FROM student_evaluations WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd),
+        fetch1(`SELECT COUNT(*) AS n FROM payment_overdue_log WHERE status='sent' AND sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd),
+        fetch1(`SELECT IFNULL(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) AS earned, IFNULL(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END),0) AS spent FROM point_transactions WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd),
+        fetch1(`SELECT COUNT(*) AS n FROM chat_messages WHERE sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd),
+        fetch1(`SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
+                 WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
+                   AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)${_uidScope}`, cutoff35, ..._sb),
+        fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ?`, last30Start),
+        fetch1(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`),
+        fetch1(`SELECT COUNT(*) AS sent, IFNULL(SUM(CASE WHEN fetched_at IS NOT NULL THEN 1 ELSE 0 END),0) AS fetched FROM push_queue WHERE queued_at >= ? AND queued_at < ?`, thisMonthStart, thisMonthEnd),
+        fetchAll(`SELECT CAST((paid_at - ?) / 86400000 AS INTEGER) AS d, IFNULL(SUM(amount_krw),0) AS sum
+                   FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope} GROUP BY d`,
+                 revBase, revBase, revBase + 7 * 86400000, ..._sb),
+      ]) as any[];
 
-      // 4. 평가서
-      let evalAvgThisMonth = 0, evalCountThisMonth = 0, evalNotifiedThisMonth = 0;
-      try {
-        const e1: any = await fetch1(`SELECT IFNULL(AVG(score_overall),0) AS avg, COUNT(*) AS n, IFNULL(SUM(parent_notified),0) AS notified FROM student_evaluations WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd);
-        evalAvgThisMonth = Math.round((e1?.avg || 0) * 10) / 10;
-        evalCountThisMonth = e1?.n || 0;
-        evalNotifiedThisMonth = e1?.notified || 0;
-      } catch {}
+      const attendanceThisMonth = a1?.n || 0;
+      const attendanceLastMonth = a2?.n || 0;
+      const evalAvgThisMonth = Math.round((e1?.avg || 0) * 10) / 10;
+      const evalCountThisMonth = e1?.n || 0;
+      const evalNotifiedThisMonth = e1?.notified || 0;
+      const overdueNotifyThisMonth = o1?.n || 0;
+      const pointsEarnedThisMonth = p1?.earned || 0;
+      const pointsSpentThisMonth = p1?.spent || 0;
+      const chatMessagesThisMonth = c1?.n || 0;
+      const overdueCount = oc?.n || 0;
+      const inquiryLast30 = i1?.n || 0;
 
-      // 5. 카톡 알림 발송 (미납)
-      let overdueNotifyThisMonth = 0;
-      try {
-        const o1: any = await fetch1(`SELECT COUNT(*) AS n FROM payment_overdue_log WHERE status='sent' AND sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd);
-        overdueNotifyThisMonth = o1?.n || 0;
-      } catch {}
-
-      // 6. 포인트 적립 합계 (이번 달)
-      let pointsEarnedThisMonth = 0, pointsSpentThisMonth = 0;
-      try {
-        const p1: any = await fetch1(`SELECT IFNULL(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) AS earned, IFNULL(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END),0) AS spent FROM point_transactions WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd);
-        pointsEarnedThisMonth = p1?.earned || 0;
-        pointsSpentThisMonth = p1?.spent || 0;
-      } catch {}
-
-      // 7. 채팅 메시지 수 (이번 달)
-      let chatMessagesThisMonth = 0;
-      try {
-        const c1: any = await fetch1(`SELECT COUNT(*) AS n FROM chat_messages WHERE sent_at >= ? AND sent_at < ?`, thisMonthStart, thisMonthEnd);
-        chatMessagesThisMonth = c1?.n || 0;
-      } catch {}
-
-      // 8. 미납 학생 수 (35일 기준)
-      let overdueCount = 0;
-      try {
-        const cutoff = now - 35 * 86400 * 1000;
-        const oc: any = await fetch1(`SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
-                                       WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
-                                         AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)${_uidScope}`, cutoff, ..._sb);
-        overdueCount = oc?.n || 0;
-      } catch {}
-
-      // 9. 신규 상담 (지난 30일)
-      let inquiryLast30 = 0;
-      try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS inquiries (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, message TEXT, created_at INTEGER);`);
-        const i1: any = await fetch1(`SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ?`, last30Start);
-        inquiryLast30 = i1?.n || 0;
-      } catch {}
-
-      // 🆕 Phase 10 — Web Push KPI
       const pushKpi: any = { active_subs: 0, queued_this_month: 0, fetched_this_month: 0, delivery_rate: 0 };
-      try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, endpoint TEXT NOT NULL UNIQUE, enabled INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS push_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT, queued_at INTEGER NOT NULL, fetched_at INTEGER);`);
-        const ps: any = await fetch1(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`);
-        const pq: any = await fetch1(`SELECT COUNT(*) AS sent, IFNULL(SUM(CASE WHEN fetched_at IS NOT NULL THEN 1 ELSE 0 END),0) AS fetched FROM push_queue WHERE queued_at >= ? AND queued_at < ?`, thisMonthStart, thisMonthEnd);
-        pushKpi.active_subs = ps?.n || 0;
-        pushKpi.queued_this_month = pq?.sent || 0;
-        pushKpi.fetched_this_month = pq?.fetched || 0;
-        pushKpi.delivery_rate = pushKpi.queued_this_month > 0 ? Math.round((pushKpi.fetched_this_month / pushKpi.queued_this_month) * 100) : 0;
-      } catch {}
+      pushKpi.active_subs = ps?.n || 0;
+      pushKpi.queued_this_month = pq?.sent || 0;
+      pushKpi.fetched_this_month = pq?.fetched || 0;
+      pushKpi.delivery_rate = pushKpi.queued_this_month > 0 ? Math.round((pushKpi.fetched_this_month / pushKpi.queued_this_month) * 100) : 0;
 
-      // 10. 최근 7일 일별 매출 추세
+      // 최근 7일 일별 매출 — GROUP BY 버킷을 7일 배열로 펼침(빈 날=0, 기존 루프와 동일 결과)
+      const bucketMap: Record<number, number> = {};
+      for (const r of (revBuckets || [])) bucketMap[Number(r.d)] = r.sum || 0;
       const dailyRev: any[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const dayStart = new Date(); dayStart.setDate(dayStart.getDate() - i); dayStart.setHours(0,0,0,0);
-        const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
-        const r: any = await fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, dayStart.getTime(), dayEnd.getTime(), ..._sb);
-        dailyRev.push({ date: dayStart.toISOString().slice(5,10), revenue: r?.sum || 0 });
+      for (let i = 0; i < 7; i++) {
+        dailyRev.push({ date: new Date(revBase + i * 86400000).toISOString().slice(5, 10), revenue: bucketMap[i] || 0 });
       }
 
       // 비율 계산
@@ -518,7 +509,7 @@ export async function handleAdminApi(
         return Math.round(((cur - prev) / prev) * 1000) / 10;  // 소수 1자리
       };
 
-      return json({
+      return admCachePut(env, _kpiKey, {
         ok: true,
         ts: now,
         period: { this_month_start: thisMonthStart, this_month_end: thisMonthEnd, last_month_start: lastMonthStart },
@@ -562,7 +553,7 @@ export async function handleAdminApi(
           push: pushKpi,
         },
         daily_revenue: dailyRev,
-      });
+      }, 180);
     }
     // ═══════════════════════════════════════════════════════════════
     // 📊 Phase D1~D2 끝
@@ -1834,7 +1825,25 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       await env.DB.prepare(
         `UPDATE feedback_drafts SET status = ?, final_ko = ?, final_en = ?, edited = ?, approved_at = ? WHERE id = ?`
       ).bind(action, finalKo, finalEn, edited, now, id).run();
-      return json({ ok: true, id, status: action, edited: !!edited, approved_at: now });
+
+      // 📣 (2026-07-22) 학부모 컴플레인 #3: 피드백이 등록돼도 학부모가 알 길이 없던 문제.
+      //    승인 즉시 학부모(없으면 학생) 번호로 피드백 본문을 문자 발송. 실패해도 승인 자체는 유지.
+      let parentNotify: any = undefined;
+      if (action === 'approved') {
+        try {
+          const stu: any = await env.DB.prepare(
+            `SELECT * FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`
+          ).bind(row.student_uid || '', row.student_uid || '').first();
+          const phone = stu && String(stu.parent_phone || stu.student_phone || stu.phone || '').trim();
+          if (phone) {
+            const stuName = row.student_name || (stu && (stu.korean_name || stu.name)) || '학생';
+            const msg = `[망고아이] ${stuName} 학생의 오늘 수업 피드백이 도착했어요 💌\n👩‍🏫 ${row.teacher_name || '담당 선생님'}:\n"${String(finalKo || '').slice(0, 350)}"`;
+            const r = await sendPlainSms(env, phone, msg);
+            parentNotify = r && r.ok ? 'sent' : (r && (r.error || r.message)) || 'failed';
+          } else parentNotify = 'no_phone';
+        } catch (e: any) { parentNotify = 'error:' + String(e?.message || e).slice(0, 80); }
+      }
+      return json({ ok: true, id, status: action, edited: !!edited, approved_at: now, parent_notify: parentNotify });
     }
 
     // ── POST /api/admin/payroll/deduction-rules — 공제 규칙 저장 ──
@@ -4807,6 +4816,17 @@ LIMIT $limit`;
       }
     }
 
+    // 📣 수업 전 리마인더 수동 실행/진단 — cron(15분)과 동일 로직. ?dry=1 = 감지만.
+    if (method === 'GET' && path === '/api/admin/lesson-reminder/run') {
+      const dry = url.searchParams.get('dry') === '1';
+      try {
+        const out = await runLessonReminderSweep(env as any, { dry });
+        return json(out);
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
     // 📚 학생 교재 일괄 배정 — 학생관리 카드 '일괄 교재 배정' 모달용 (adm-bulkbook.js).
     //   body: { textbook_title, level?, q?, only_empty?(기본 true), dry?, force? }
     //   대상 = 스코프(본사/지사/대리점) 내 학생 ∩ (q=이름·아이디 검색) ∩ (only_empty=교재 미배정만).
@@ -4986,6 +5006,8 @@ LIMIT $limit`;
         ['phone', 'TEXT'], ['student_email', 'TEXT'],
         ['assigned_teacher_id', 'TEXT'], ['assigned_teacher_phone', 'TEXT'], ['assigned_teacher_email', 'TEXT'],
         ['assigned_reason', 'TEXT'], ['teacher_seen_at', 'INTEGER'], ['teacher_confirmed_at', 'INTEGER'],
+        // 📚 (2026-07-22) 학부모 컴플레인 #6: 결과에 '추천 교재/다음 수업 안내'가 없던 문제
+        ['recommended_textbook', 'TEXT'], ['next_class_guide', 'TEXT'], ['result_notified_at', 'INTEGER'],
       ] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE leveltest_applications ADD COLUMN ${col} ${type}`); } catch {}
       }
@@ -5291,11 +5313,42 @@ LIMIT $limit`;
       if (b.teacher_rubric != null)   { fields.push('teacher_rubric = ?');   binds.push(typeof b.teacher_rubric === 'string' ? b.teacher_rubric : JSON.stringify(b.teacher_rubric)); }
       if (b.evaluated_by != null)     { fields.push('evaluated_by = ?');     binds.push(String(b.evaluated_by)); }
       if (b.teacher_score != null || b.teacher_rubric != null) { fields.push('evaluated_at = ?'); binds.push(Date.now()); }
+      // 📚 (2026-07-22) 추천 교재 / 다음 수업 안내 — 학부모 컴플레인 #6
+      if (b.recommended_textbook != null) { fields.push('recommended_textbook = ?'); binds.push(String(b.recommended_textbook)); }
+      if (b.next_class_guide != null)     { fields.push('next_class_guide = ?');     binds.push(String(b.next_class_guide)); }
+      // 결과 확정(final_level)인데 추천 교재가 함께 오지 않으면 누락 경고를 응답에 실어 UI가 재확인하게 함
       if (!fields.length) return invalidBody(['status']);
       fields.push('updated_at = ?'); binds.push(Date.now());
       binds.push(Number(b.id));
       await env.DB.prepare(`UPDATE leveltest_applications SET ${fields.join(', ')} WHERE id = ?`).bind(...binds).run();
-      return json({ ok: true });
+
+      // 📣 결과 확정 통보 — final_level 이 채워지는 순간 학부모/학생 번호로 1회 통보 (result_notified_at 으로 dedup)
+      //    기존엔 접수/교사확정 알림만 있고 '결과' 통보가 없어 학부모가 결과·추천교재를 알 수 없었음.
+      let resultNotify: any = undefined;
+      if (b.final_level != null || b.recommended_textbook != null || b.next_class_guide != null) {
+        try {
+          const app2: any = await env.DB.prepare(`SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`).bind(Number(b.id)).first();
+          // 레벨 + 추천 교재가 모두 채워진 시점에 1회만 발송 — 교재 없는 반쪽 결과 문자는 보내지 않는다
+          if (app2 && app2.phone && !app2.result_notified_at && app2.final_level && String(app2.recommended_textbook || '').trim()) {
+            const book = String(app2.recommended_textbook || '').trim();
+            const guide = String(app2.next_class_guide || '').trim();
+            const lines = [
+              `[망고아이] ${app2.student_name}님 레벨테스트 결과가 나왔어요! 🎉`,
+              `📊 레벨: ${app2.final_level}`,
+            ];
+            if (book) lines.push(`📚 추천 교재: ${book}`);
+            if (guide) lines.push(`▶ 다음 단계: ${guide}`);
+            lines.push(`정규 수업 상담: pf.kakao.com/_xlqnSxd/chat`);
+            const r = await sendPlainSms(env, app2.phone, lines.join('\n'));
+            resultNotify = r && r.ok ? 'sent' : (r && (r.error || r.message)) || 'failed';
+            if (r && r.ok) {
+              await env.DB.prepare(`UPDATE leveltest_applications SET result_notified_at = ? WHERE id = ?`).bind(Date.now(), Number(b.id)).run();
+            }
+          }
+        } catch (e: any) { resultNotify = 'error:' + String(e?.message || e).slice(0, 80); }
+      }
+      const missingBook = (b.final_level != null) && !String(b.recommended_textbook || '').trim();
+      return json({ ok: true, result_notify: resultNotify, warn: missingBook ? 'recommended_textbook_missing' : undefined });
     }
 
     // ─── 🧠 AI 자동 진단 (CEFR 객관식 배치테스트) ─────────────────────────────

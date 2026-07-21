@@ -30,6 +30,7 @@
     '/api/admin/retention/care/logs',
     '/api/admin/churn',
     '/api/admin/dashboard',
+    '/api/admin/kpi/',
     '/api/admin/stats/',
     '/api/admin/teachers/graph-list',
     '/api/admin/settlement/',

@@ -13,6 +13,7 @@ import { handlePayApi, runPaymentAudit } from './api-pay';
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
 import { handleRetentionIngest, getRetention, markRetentionContacted, getRetentionSettings, setRetentionSettings, previewRetentionMessage, sendRetentionMessages, runRetentionAutoSend } from './api-retention';
 import { runAbsentStudentSweep } from './absent-sweep';
+import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
 import { handleTraitsApi } from './api-traits';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
@@ -115,10 +116,30 @@ function htmlEtag304(request: Request, path: string, env: Env, headers: Headers)
   if (!stamp || headers.has('ETag')) return null;
   const tag = `W/"b-${stamp}"`;
   headers.set('ETag', tag);
+  // 🆕 Last-Modified 폴백(26-07-22) — 실측 결과 CF 가 text/html 응답의 ETag 를 떼어
+  //   브라우저에 안 닿는다(= If-None-Match 가 영영 안 옴 = 1.3MB HTML 매번 전체 다운로드).
+  //   같은 검증자(빌드 스탬프 시각)를 Last-Modified 로도 실어 보내고, 브라우저가
+  //   If-Modified-Since 를 보내오면 스탬프와 비교해 304(본문 0바이트)로 응답한다.
+  //   Last-Modified 가 마저 잘려도 동작은 기존과 동일(무해).
+  let lastMod = '';
+  if (/^\d{14}$/.test(stamp)) {
+    // BUILD_STAMP = KST(yyyymmddHHMMSS) → UTC 로 변환해 HTTP 날짜 생성
+    const t = Date.UTC(+stamp.slice(0, 4), +stamp.slice(4, 6) - 1, +stamp.slice(6, 8),
+                       +stamp.slice(8, 10), +stamp.slice(10, 12), +stamp.slice(12, 14)) - 9 * 3600 * 1000;
+    lastMod = new Date(t).toUTCString();
+    headers.set('Last-Modified', lastMod);
+  }
   // If-None-Match 는 콤마 목록일 수 있고 약한 검증자 접두사(W/)가 붙을 수 있다.
   const inm = request.headers.get('If-None-Match') || '';
   const matched = inm.split(',').some((t) => t.trim().replace(/^W\//, '') === `"b-${stamp}"`);
-  return matched ? new Response(null, { status: 304, headers }) : null;
+  if (matched) return new Response(null, { status: 304, headers });
+  // HTTP 스펙: If-None-Match 가 있으면 If-Modified-Since 는 무시해야 한다 → !inm 가드
+  const ims = request.headers.get('If-Modified-Since') || '';
+  if (lastMod && ims && !inm) {
+    const imsT = Date.parse(ims), lmT = Date.parse(lastMod);
+    if (!isNaN(imsT) && !isNaN(lmT) && lmT <= imsT) return new Response(null, { status: 304, headers });
+  }
+  return null;
 }
 
 const worker = {
@@ -893,6 +914,8 @@ const worker = {
         path === '/api/admin/payments/cafe24-diag' ||
         // 🚨 결석 위험 자동 알림 수동 실행/진단 (dry=1 지원)
         path === '/api/admin/absent-sweep/run' ||
+        // 📣 수업 전 리마인더 수동 실행/진단 (dry=1 지원)
+        path === '/api/admin/lesson-reminder/run' ||
         path === '/api/admin/payments/notify-overdue' ||
         path === '/api/admin/payments/notify-all-overdue' ||
         path === '/api/admin/payments/overdue-log' ||
@@ -1046,6 +1069,9 @@ const worker = {
         path === '/api/student/register' ||
         path === '/api/student/lookup' ||
         path === '/api/student/set-password' ||
+        // 🔑 비밀번호 재설정 (SMS 인증) — 2026-07-22
+        path === '/api/student/password-reset/request' ||
+        path === '/api/student/password-reset/confirm' ||
         // 😊 Phase PASSKEY 얼굴/지문 로그인 (WebAuthn)
         /^\/api\/passkey\/(register\/options|register\/verify|login\/options|login\/verify|list|remove)$/.test(path) ||
         // 🌐 Phase OAUTH 소셜 로그인
@@ -1200,7 +1226,9 @@ const worker = {
         // 🌐 양방향 번역 (평가 글·건의사항 영↔한)
         path === '/api/translate' ||
         // Audit-added: student recordings listing
-        path === '/api/student/recordings') {
+        path === '/api/student/recordings' ||
+        // 📝 학생/학부모 수업 피드백 조회 (본인 것만, 토큰 필수) — 2026-07-22 컴플레인 #3
+        path === '/api/student/feedbacks') {
       // fix (2026-06-01) — 미처리 예외가 Cloudflare 503 으로 새지 않도록 방어:
       //   어떤 경우에도 JSON 응답을 보장 (콘솔 503 도배 방지).
       try {
@@ -1666,6 +1694,15 @@ const worker = {
         console.error('[watchdog] error', err);
       }
 
+      // 📣 수업 전 리마인더 — 매 15분: 시작 15~45분 전 수업을 찾아 학부모+학생에게 문자.
+      //   세션당 1회(lesson_reminder_log), 킬스위치 = KV 'lesson_reminder_send'='off'.
+      try {
+        const lr = await runLessonReminderSweep(env as any);
+        if (lr && (lr.reminded > 0 || !lr.ok)) console.log('[lesson-reminder]', JSON.stringify(lr));
+      } catch (err) {
+        console.error('[lesson-reminder] error', err);
+      }
+
       // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지 → 문자.
       //   기본 = 안전 모드(운영자 문자 + 기록만). 학부모 발송은 KV 'absent_alert_parent_send'='on' 일 때만.
       try {
@@ -1930,6 +1967,14 @@ const worker = {
           } catch (err) {
             console.error('[weekly-digest] error', err);
           }
+        }
+
+        // 🧑‍🏫 당일 피드백 미작성 교사 리마인드 (KST 19:00) — 자정 전 작성 유도, 하루 1회 dedup 내장
+        try {
+          const fr = await runFeedbackReminderSweep(env as any);
+          if (fr && (fr.teachers > 0 || !fr.ok)) console.log('[feedback-reminder]', JSON.stringify(fr));
+        } catch (err) {
+          console.error('[feedback-reminder] error', err);
         }
       }
     })());

@@ -166,6 +166,57 @@ export async function handleMangoApi(
       return json(result);
     }
 
+    // ===== 📝 학생/학부모 수업 피드백 조회 (본인 것만) — 2026-07-22 학부모 컴플레인 #3 =====
+    //   teacher_feedbacks 는 그동안 관리자/강사 화면에서만 소비돼 학부모가 볼 수 없었다.
+    //   /api/student/feedbacks?uid=  — 토큰 uid(또는 본인 등록 이름) 일치 필수, IDOR 차단.
+    if (path === '/api/student/feedbacks' && method === 'GET') {
+      const uid = (url.searchParams.get('uid') || '').trim();
+      const limit = Math.min(60, Math.max(1, parseInt(url.searchParams.get('limit') || '30', 10)));
+      if (!uid) return json({ ok: true, rows: [], count: 0 });
+      const fbAuthUid = await authUidGlobal(request, url, env);
+      if (!fbAuthUid) {
+        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 피드백만 조회할 수 있습니다.' }, 401);
+      }
+      // 본인 판정 — recordings 와 동일 규칙(피드백도 student_uid 없으면 '이름'으로 저장됨)
+      let fbNames: string[] = [uid];
+      if (fbAuthUid !== uid) {
+        let own: string[] = [];
+        try {
+          const s: any = await env.DB.prepare(`SELECT student_name, korean_name, english_name, username FROM students_erp WHERE user_id = ?`).bind(fbAuthUid).first();
+          own = [s?.student_name, s?.korean_name, s?.english_name, s?.username]
+            .map((v: any) => String(v || '').trim()).filter((v: string) => !!v);
+        } catch {}
+        const DEMO_FB_NAMES: Record<string, string> = {
+          hong: '홍길동', kim: '김민수', lee: '이지민', park: '박서연', navy111p: '정우영', student: '데모학생',
+        };
+        if (DEMO_FB_NAMES[fbAuthUid]) own.push(DEMO_FB_NAMES[fbAuthUid]);
+        if (!own.includes(uid)) {
+          return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 피드백만 조회할 수 있습니다.' }, 401);
+        }
+      } else {
+        // 토큰 주인 본인 조회 — 이름으로 저장된 과거 피드백도 함께 보이도록 등록 이름 추가
+        try {
+          const s: any = await env.DB.prepare(`SELECT student_name, korean_name, english_name, username FROM students_erp WHERE user_id = ?`).bind(uid).first();
+          [s?.student_name, s?.korean_name, s?.english_name, s?.username]
+            .map((v: any) => String(v || '').trim()).filter((v: string) => !!v)
+            .forEach((n: string) => { if (!fbNames.includes(n)) fbNames.push(n); });
+        } catch {}
+      }
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_feedbacks (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, room_id TEXT, attendance_id INTEGER, teacher_name TEXT, class_at INTEGER NOT NULL, rating INTEGER, summary TEXT, content TEXT, action_items TEXT, created_at INTEGER NOT NULL);`);
+        const ph = fbNames.map(() => '?').join(',');
+        const rs = await env.DB.prepare(
+          `SELECT id, teacher_name, class_at, rating, summary, content, created_at
+             FROM teacher_feedbacks WHERE user_id IN (${ph})
+            ORDER BY class_at DESC LIMIT ?`
+        ).bind(...fbNames, limit).all();
+        const rows = (rs.results || []) as any[];
+        return json({ ok: true, rows, count: rows.length });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
     // ===== 📼 공개 학생 녹화본 조회 (본인이 참여한 수업만) =====
     //   /api/student/recordings?uid=정우영&limit=50
     //   recordings 테이블에서 participant_ids LIKE '%uid%' 또는 teacher_name = uid
@@ -1138,6 +1189,7 @@ export async function handleMangoApi(
         || path === '/api/admin/attendance/import-cafe24' || path === '/api/admin/attendance/today' || path === '/api/admin/payments/import-cafe24'
         || path === '/api/admin/payments/cafe24-diag'
         || path === '/api/admin/absent-sweep/run'
+        || path === '/api/admin/lesson-reminder/run'
         || path.startsWith('/api/admin/referrals') || path.startsWith('/api/admin/counseling/')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'
         || path === '/api/battle/leaderboard' || path === '/api/battle/history'
@@ -2289,7 +2341,22 @@ ${numbered}`;
             b.action_items || null,
             now
           ).run();
-          return json({ ok: true, id: r.meta.last_row_id });
+          // 📣 (2026-07-22) 학부모 컴플레인 #3: 수동 작성 피드백도 학부모에게 즉시 문자.
+          let fbNotify: any = undefined;
+          try {
+            const stu: any = await env.DB.prepare(
+              `SELECT * FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`
+            ).bind(uid, uid).first();
+            const phone = stu && String(stu.parent_phone || stu.student_phone || stu.phone || '').trim();
+            if (phone) {
+              const stuName = (stu && (stu.korean_name || stu.student_name || stu.name)) || uid;
+              const bodyTxt = String(b.content || b.summary || '').slice(0, 350);
+              const msg = `[망고아이] ${stuName} 학생의 수업 피드백이 도착했어요 💌\n👩‍🏫 ${b.teacher_name || '담당 선생님'}:\n"${bodyTxt}"`;
+              const rr = await sendPlainSms(env as any, phone, msg);
+              fbNotify = rr && rr.ok ? 'sent' : (rr && (rr.error || rr.message)) || 'failed';
+            } else fbNotify = 'no_phone';
+          } catch (e: any) { fbNotify = 'error:' + String(e?.message || e).slice(0, 80); }
+          return json({ ok: true, id: r.meta.last_row_id, parent_notify: fbNotify });
         }
       }
     }

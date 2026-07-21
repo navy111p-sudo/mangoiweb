@@ -304,7 +304,7 @@ function fmtKrwShort(n) {
 async function loadTodayKpi() {
   const $ = (id) => document.getElementById(id);
   try {
-    const r = await fetch('/api/admin/stats/today' + (window.mangoiScopeQS?mangoiScopeQS('?'):''), { credentials:'include', cache:'no-store' });
+    const r = await fetch('/api/admin/stats/today' + (window.mangoiScopeQS?mangoiScopeQS('?'):''), { credentials:'include' });
     const j = await r.json();
     if (!j || !j.ok) {
       $('today-revenue').textContent  = '—';
@@ -357,7 +357,7 @@ async function loadRevenueChart() {
   if (fromV) params.set('from', fromV);
   if (toV)   params.set('to', toV);
   try {
-    const r = await fetch('/api/admin/stats/revenue?' + params + (window.mangoiScopeQS?mangoiScopeQS('&'):''), { credentials:'include', cache:'no-store' });
+    const r = await fetch('/api/admin/stats/revenue?' + params + (window.mangoiScopeQS?mangoiScopeQS('&'):''), { credentials:'include' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || r.status);
 
@@ -423,7 +423,7 @@ async function loadStudentFlowChart() {
   if (fromV) params.set('from', fromV);
   if (toV)   params.set('to', toV);
   try {
-    const r = await fetch('/api/admin/stats/student-flow?' + params, { credentials:'include', cache:'no-store' });
+    const r = await fetch('/api/admin/stats/student-flow?' + params, { credentials:'include' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || r.status);
 
@@ -490,7 +490,7 @@ async function loadKpiSparklines() {
   await Promise.allSettled(configs.map(async (c) => {
     try {
       const r = await fetch(`/api/admin/stats/revenue?period=${c.period}&from=${fmt(c.from)}&to=${toStr}` + (window.mangoiScopeQS?mangoiScopeQS('&'):''),
-                            { credentials: 'include', cache: 'no-store' });
+                            { credentials: 'include' });
       const j = await r.json();
       if (!j.ok) return;
       renderSparkline(c.id, j.items || [], c.color);
@@ -597,7 +597,7 @@ async function loadStudentRankings() {
   }
 
   try {
-    const r = await fetch('/api/admin/stats/student-rankings?' + params, { credentials:'include', cache:'no-store' });
+    const r = await fetch('/api/admin/stats/student-rankings?' + params, { credentials:'include' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || r.status);
 

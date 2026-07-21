@@ -537,16 +537,18 @@
     <div class="faq-a">홈 검색창의 "💬 신규상담" 또는 그리드의 "🎁 무료체험"을 클릭하시면 신청 폼이 열립니다. 담당자가 영업일 1일 내로 연락드려 일정을 잡아드려요.</div>
     <div class="faq-q">Q. 어떤 기기로 수업을 들을 수 있나요?</div>
     <div class="faq-a">PC(Chrome/Edge), 노트북, 태블릿(iPad/Android), 스마트폰 모두 가능합니다. 별도 앱 설치 없이 웹브라우저에서 바로 접속하세요. 카메라·마이크가 필수입니다.</div>
-    <div class="faq-q">Q. 수업 시간을 변경하거나 취소할 수 있나요?</div>
-    <div class="faq-a">수업 24시간 전까지는 자유 변경·취소가 가능합니다. 24시간 이내 취소 시 1회 차감되며, 노쇼는 자동 차감됩니다.</div>
+    <div class="faq-q">Q. 수업 시간을 변경하거나 연기·취소할 수 있나요?</div>
+    <div class="faq-a">변경은 수업 24시간 전까지 자유롭게 가능합니다. 연기·취소는 <b>수업 시작 30분 전까지 무료</b>이며, 30분 이내(및 시작 후)에는 유료로 처리됩니다. 노쇼는 자동 차감됩니다.</div>
     <div class="faq-q">Q. 강사를 직접 고를 수 있나요?</div>
     <div class="faq-a">네! 마이페이지의 "강사 찾기"에서 국적·평점·전문 분야로 검색해 즐겨찾기 강사를 등록할 수 있습니다.</div>
     <div class="faq-q">Q. 결제 후 환불이 가능한가요?</div>
     <div class="faq-a">7일 이내 미수강분은 100% 환불 가능합니다. 일부 수강 후에는 사용분 차감 후 환불됩니다. 자세한 사항은 고객센터로 문의 주세요.</div>
     <div class="faq-q">Q. 수업 녹화본을 받아볼 수 있나요?</div>
-    <div class="faq-a">모든 수업은 자동 녹화되며, 마이페이지에서 30일간 다시보기가 가능합니다. 학부모님께도 공유 링크 발송 가능해요.</div>
+    <div class="faq-a">모든 수업은 자동 녹화되며, 홈 메뉴의 "📼 녹화본 복습"에서 <b>30일간 언제든</b> 다시 볼 수 있습니다(학생 계정 로그인 필요 — 학부모님도 자녀 계정으로 시청하세요). 아이들의 개인정보 보호를 위해 파일 다운로드는 제공하지 않고, 기간 내 스트리밍 시청만 지원합니다.</div>
     <div class="faq-q">Q. 카메라가 안 켜져요. 어떻게 해야 하나요?</div>
-    <div class="faq-a">"🩺 자가진단" 도구로 카메라·마이크 권한을 확인해 보세요. 그래도 안 되면 "💻 PC원격지원" 또는 "💬 카톡상담"으로 연락 주세요.</div>`;
+    <div class="faq-a">"🩺 자가진단" 도구로 카메라·마이크 권한을 확인해 보세요. 그래도 안 되면 "💻 PC원격지원" 또는 "💬 카톡상담"으로 연락 주세요.</div>
+    <div class="faq-q">Q. 수업 중 소리가 안 들려요 / 제 목소리가 안 들린대요.</div>
+    <div class="faq-a">① 수업 화면의 "🔊 소리 켜기" 버튼이 보이면 눌러주세요(브라우저 자동재생 차단 해제). ② 마이크 문제는 수업 도구의 "🛠 마이크 진단·복구" 버튼이 자동으로 고쳐드려요. ③ 수업 전 "🎥 수업 진단" 메뉴에서 헤드셋·스피커 테스트를 미리 해두시면 대부분의 문제를 예방할 수 있습니다.</div>`;
 
   const LIBRARY = `
     <h2>📁 자료실</h2>
@@ -1245,6 +1247,8 @@
     // 📼 인증된 본인 녹화 목록(flow.js MangoFlow.showList). 옛 showRecordingsModal 은
     //    /api/recordings/list-recent(2026-07-10 PII 잠금=관리자전용)라 학생은 늘 빈목록 → 폴백.
     recordings:  () => { closeGrid(); (window.MangoFlow && window.MangoFlow.showList) ? window.MangoFlow.showList() : showRecordingsModal(); },
+    // 💌 수업 피드백 (2026-07-22) — 본인 인증 후 선생님 피드백 목록 (flow.js)
+    feedbacks:   () => { closeGrid(); if (window.MangoFlow && window.MangoFlow.showFeedbacks) window.MangoFlow.showFeedbacks(); },
     payment:     () => { closeGrid(); window.openPaymentModal && window.openPaymentModal(); },
     notice:      () => { closeGrid(); showNoticeModal(); },
     report:      () => { closeGrid(); showReportModal(); },

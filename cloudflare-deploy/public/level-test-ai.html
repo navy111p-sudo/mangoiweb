@@ -114,6 +114,16 @@
       <div class="sb"><div class="n" id="ai-correct">0/24</div><div class="t">맞힌 문항</div></div>
     </div>
     <div id="ai-breakdown"></div>
+    <!-- 📚 (2026-07-22) 다음 수업 안내 박스 — 학부모 컴플레인 #6: 결과만 있고 '다음에 뭘 하면 되는지'가 없던 문제 -->
+    <div id="ai-next" style="margin-top:16px;padding:16px 18px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.35);border-radius:14px">
+      <div style="font-size:14.5px;font-weight:800;color:#6ee7b7;margin-bottom:8px">🧭 다음 수업 안내</div>
+      <div style="font-size:13.5px;color:#d1fae5;line-height:1.7">
+        📚 추천 교재: <b id="ai-book" style="color:#fff">—</b><br>
+        선생님 1:1 평가 후 <b>최종 레벨·확정 교재</b>가 학부모님 문자로 안내됩니다.<br>
+        정규 수업 시작을 원하시면 아래 채널로 상담해 주세요.
+      </div>
+      <a href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener" style="display:inline-block;margin-top:10px;padding:9px 16px;border-radius:10px;background:#fee500;color:#191919;font-size:13px;font-weight:800;text-decoration:none">💬 정규 수업 상담하기</a>
+    </div>
     <p style="text-align:center;font-size:13px;color:#cbd5e1;line-height:1.6;margin-top:14px">
       이 결과는 <b style="color:#a5b4fc">참고용 자동 진단</b>이에요.<br>
       <b style="color:#fde68a">선생님 1:1 평가</b>와 <b style="color:#fcd34d">발음 평가</b>까지 합쳐 최종 레벨이 확정됩니다.</p>
@@ -218,6 +228,13 @@
     if (level === 'Starter') { $('ai-lv').textContent = '입문'; }
     $('ai-score').textContent = (d.ai_score != null ? d.ai_score : '—');
     $('ai-correct').textContent = (d.correct != null ? d.correct : '?') + '/' + (d.total != null ? d.total : questions.length);
+    // 📚 레벨별 추천 교재(참고용) — 최종 확정은 선생님 1:1 평가에서
+    var BOOK_BY_LEVEL = {
+      'Starter':'Mango Phonics 1', 'A1':"Let's Go 1·2", 'A2':"Let's Go 3·4",
+      'B1':'Oxford Discover 3·4', 'B2':'Oxford Discover 5·6', 'C1':'Reading Explorer 3', 'C2':'Reading Explorer 4·5'
+    };
+    var bookEl = $('ai-book');
+    if (bookEl) bookEl.textContent = (BOOK_BY_LEVEL[level] || '선생님 평가 후 안내') + ' (참고용)';
     var bk = d.breakdown || [];
     $('ai-breakdown').innerHTML = bk.map(function(r){
       var pct = r.total ? Math.round(r.correct/r.total*100) : 0;
@@ -230,6 +247,6 @@
 })();
 </script>
 <script defer src="/js/mg-sidebar.js"></script>
-<!-- BUILD:20260722003721 -->
+<!-- BUILD:20260722005915 -->
 </body>
 </html>
