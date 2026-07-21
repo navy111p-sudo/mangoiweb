@@ -155,6 +155,22 @@ const worker = {
               'D3:8E:1B:5A:C3:CE:F1:8C:F3:FE:C0:49:F1:AB:D0:14:47:2A:89:AA:91:78:6D:00:C6:74:57:96:0A:9C:77:11'
             ]
           }
+        },
+        // 😊 WebView 앱(kr.co.mangoi.app) 패스키(WebAuthn) — get_login_creds 가 있어야
+        //   Android Credential Manager 가 이 도메인 패스키를 앱에서 쓰도록 허용한다.
+        //   지문 = mobile-app/keystore/mango.jks 서명 인증서 SHA-256.
+        {
+          relation: [
+            'delegate_permission/common.handle_all_urls',
+            'delegate_permission/common.get_login_creds'
+          ],
+          target: {
+            namespace: 'android_app',
+            package_name: 'kr.co.mangoi.app',
+            sha256_cert_fingerprints: [
+              'D5:02:29:A3:5B:E1:1A:65:74:3C:06:B3:3E:1A:C9:0C:18:BF:C0:70:96:2E:46:FD:1F:6B:9A:A1:F1:3E:EC:30'
+            ]
+          }
         }
       ];
       return new Response(JSON.stringify(assetlinks, null, 2), {
