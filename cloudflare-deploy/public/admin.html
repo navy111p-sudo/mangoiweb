@@ -20210,6 +20210,81 @@ button.chip:hover,
 /* 🚫 "안녕하세요, MANGO-AI" 인사 배너 제거 (2026-07-22 사장님 지시: 글자 과다·심플하게)
    이미지 배너와 폴백 h1 모두 숨김 — 재추가 금지 */
 .hero-banner-img, .hero .hero-text h1 { display: none !important; }
+/* 🚫 안내 문구 한 줄("무엇이든 검색해보세요…")도 제거 — 검색창+캐릭터만 남김 (사장님 지시) */
+.hero .hero-sub { display: none !important; }
+
+/* 🎩 상단 툴바 차분한 통일 스타일 (2026-07-22 사장님 지시: 울긋불긋 X, 세련+직관)
+   셀프진단(주황)·EN(흰 박스)·사용자(파랑 그라데이션 #ph115-user) 제각각이던 버튼을
+   동일한 글래스 아웃라인 톤으로 통일. 이모지(🩺·지구본)가 포인트 컬러 역할.
+   ⚠️ 실제 사용자 버튼 = #ph115-user (옛 #topUserBtn 은 ph115 가 숨김) —
+      기존 규칙들이 (0,3,0)+!important 라 특이성을 .th-controls 포함으로 맞춰 이긴다. */
+.top-header .th-controls .th-btn,
+.top-header .th-controls .th-btn-amber,
+.top-header .th-controls .th-btn-ghost,
+.top-header .th-controls #ph115-user,
+.top-header #ph115-user,
+.top-header #th-collapse-btn {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(148, 163, 184, 0.30) !important;
+  color: #dbe4f5 !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+}
+.top-header .th-controls .th-btn:hover,
+.top-header .th-controls .th-btn-amber:hover,
+.top-header .th-controls .th-btn-ghost:hover,
+.top-header .th-controls #ph115-user:hover,
+.top-header #ph115-user:hover,
+.top-header #th-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(203, 213, 225, 0.55) !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.35) !important;
+}
+/* EN 지구본·라벨, ▲ 접기, 사용자 버튼 내부 요소도 같은 톤으로 */
+.top-header .th-controls .th-btn-ghost svg { stroke: #dbe4f5 !important; }
+.top-header #admin-lang-label { color: #dbe4f5 !important; font-weight: 700 !important; }
+#ph115-user .ph115-avatar { background: rgba(255, 255, 255, 0.14) !important; }
+#ph115-user .ph115-name { color: #e8eefb !important; }
+#ph115-user .ph115-role {
+  background: rgba(255, 255, 255, 0.10) !important;
+  color: #b8c4dc !important;
+}
+#ph115-user::after { color: #93a3c0 !important; }
+</style>
+<script>
+/* 🎩 상단 툴바 통일 톤 — CSS 로 안 잡히는 버튼(셀프진단·EN)이 있어(원인 미상 캐스케이드 충돌)
+   인라인 style !important 로 최종 강제. hover 는 인라인이 CSS :hover 를 이기므로 JS 리스너로 처리. */
+(function(){
+  'use strict';
+  var BASE = { background: 'rgba(255,255,255,0.07)', 'border': '1px solid rgba(148,163,184,0.30)',
+               color: '#dbe4f5', 'box-shadow': 'none', 'border-radius': '10px', 'text-shadow': 'none' };
+  var HOVER = { background: 'rgba(255,255,255,0.14)', 'border': '1px solid rgba(203,213,225,0.55)',
+                color: '#ffffff', 'box-shadow': '0 2px 10px -2px rgba(0,0,0,0.35)' };
+  function paint(el, m){ for (var k in m) el.style.setProperty(k, m[k], 'important'); }
+  function tone(el){
+    if (!el || el.__tbTone) return;
+    el.__tbTone = true;
+    paint(el, BASE);
+    el.addEventListener('mouseenter', function(){ paint(el, HOVER); });
+    el.addEventListener('mouseleave', function(){ paint(el, BASE); });
+  }
+  function apply(){
+    tone(document.querySelector('.top-header .th-btn-amber'));
+    tone(document.querySelector('.top-header .th-btn-ghost'));
+    var svg = document.querySelector('.top-header .th-btn-ghost svg');
+    if (svg) svg.style.setProperty('stroke', '#dbe4f5', 'important');
+    var lbl = document.getElementById('admin-lang-label');
+    if (lbl) lbl.style.setProperty('color', '#dbe4f5', 'important');
+  }
+  apply();
+  if (window.__admSettleRun) window.__admSettleRun(apply);   // 동적 재렌더 대비(멱등)
+})();
+</script>
+<style>
 @media (min-width: 901px) {
   .hero {
     grid-template-columns: 1fr 280px !important;
@@ -20237,6 +20312,6 @@ button.chip:hover,
   #ai-greeting-bubble { padding: 8px 16px !important; font-size: 14px !important; margin-bottom: 10px !important; }
 }
 </style>
-<!-- BUILD:20260722040237 -->
+<!-- BUILD:20260722041733 -->
 </body>
 </html>
