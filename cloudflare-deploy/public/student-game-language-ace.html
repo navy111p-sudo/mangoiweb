@@ -61,36 +61,56 @@
   #timeFill.warn{background:linear-gradient(90deg,#f97316,#ef4444)}
   #hHearts{font-size:19px;letter-spacing:1px;filter:drop-shadow(0 1px 2px #000)}
 
-  /* ── 오버레이(시작/종료) ── */
+  /* ── 오버레이(시작/종료) ──
+     내용이 화면보다 길면 스크롤. margin:auto 트릭 = 짧으면 중앙, 길면 위부터(잘림 방지) */
   .overlay{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;text-align:center;padding:22px;
+    justify-content:flex-start;text-align:center;padding:16px 14px;overflow-y:auto;
     background:radial-gradient(120% 90% at 50% 35%,rgba(24,36,50,.86),rgba(6,10,14,.96))}
+  .overlay>:first-child{margin-top:auto}
+  .overlay>:last-child{margin-bottom:auto}
   .overlay.hide{display:none}
-  .oTitle{font-size:34px;font-weight:900;letter-spacing:.5px;
+  .oTitle{font-size:27px;font-weight:900;letter-spacing:.5px;flex-shrink:0;
     background:linear-gradient(180deg,#ffe9a8,#e0b048);-webkit-background-clip:text;background-clip:text;
-    -webkit-text-fill-color:transparent;text-shadow:0 2px 8px rgba(0,0,0,.4);line-height:1.1}
-  .oSub{margin-top:6px;font-size:15px;color:#b8c6d6;font-weight:600}
-  .oRules{margin:16px 0;font-size:14px;color:#c8d4e2;line-height:1.9;max-width:400px}
+    -webkit-text-fill-color:transparent;text-shadow:0 2px 8px rgba(0,0,0,.4);line-height:1.15}
+  .oTitleEn{font-size:15px;font-weight:700;color:#cfe0f0;-webkit-text-fill-color:#cfe0f0}
+  .oSub{margin-top:3px;font-size:13.5px;color:#b8c6d6;font-weight:600}
+  .oRules{margin:10px 0 0;font-size:12.5px;color:#9fb2c6;line-height:1.75;max-width:400px}
   .oRules b{color:#ffd479}
-  .langRow{display:flex;gap:12px;margin:6px 0 4px}
-  .langBtn{padding:10px 22px;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;
+  .langRow{display:flex;gap:9px;margin:7px 0 0}
+  .langBtn{padding:8px 18px;border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;
     border:2px solid rgba(140,165,195,.35);background:rgba(20,32,46,.7);color:#c8d4e2;transition:.15s}
   .langBtn.on{border-color:#ffd479;color:#fff6da;background:linear-gradient(180deg,#3a4a5e,#26323f);
     box-shadow:0 0 16px rgba(255,190,60,.4)}
   /* 🎯 난이도 스테퍼 */
-  .diffRow{display:flex;gap:10px;align-items:center;margin:8px 0 2px}
-  .diffLab{font-size:16px;font-weight:800;color:#c8d4e2}
-  .diffBtn{width:42px;height:42px;border-radius:11px;font-size:24px;font-weight:900;cursor:pointer;line-height:1;
+  .diffRow{display:flex;gap:8px;align-items:center;margin:7px 0 0}
+  .diffLab{font-size:14px;font-weight:800;color:#c8d4e2}
+  .diffBtn{width:36px;height:36px;border-radius:10px;font-size:21px;font-weight:900;cursor:pointer;line-height:1;
     border:2px solid rgba(140,165,195,.4);background:rgba(20,32,46,.85);color:#ffe08a;display:flex;align-items:center;justify-content:center}
   .diffBtn:active{transform:scale(.9)}
-  .diffVal{min-width:46px;text-align:center;font-size:30px;font-weight:900;color:#ffd479;
+  .diffVal{min-width:40px;text-align:center;font-size:24px;font-weight:900;color:#ffd479;
     text-shadow:0 2px 6px #000;font-variant-numeric:tabular-nums}
-  .diffTag{font-size:15px;font-weight:800;color:#a7c4e6;min-width:64px;text-align:left}
-  .diffHint{font-size:12px;color:#8aa0b8;margin:0 0 2px;max-width:400px;text-align:center;line-height:1.4}
-  .bigBtn{margin-top:14px;padding:14px 44px;border-radius:14px;font-size:20px;font-weight:900;cursor:pointer;
+  .diffTag{font-size:14px;font-weight:800;color:#a7c4e6;min-width:52px;text-align:left}
+  .diffHint{font-size:11.5px;color:#8aa0b8;margin:3px 0 0;max-width:400px;text-align:center;line-height:1.4}
+  .bigBtn{margin-top:12px;padding:13px 46px;border-radius:14px;font-size:19px;font-weight:900;cursor:pointer;flex-shrink:0;
     border:none;color:#1a2028;background:linear-gradient(180deg,#ffe08a,#e0a838);
     box-shadow:0 6px 20px rgba(224,168,56,.45),inset 0 1px 0 rgba(255,255,255,.6);letter-spacing:.5px}
   .bigBtn:active{transform:translateY(2px)}
+  /* 📚 시작화면 안 교재 네비 컴팩트(공용 lesson-nav.js 스타일을 페이지에서만 축소) */
+  #start .lnav-wrap{gap:4px;margin:7px 0 0}
+  #start .lnav-sel{padding:5px 9px;font-size:12px;max-width:190px}
+  #start .lnav-btn{padding:6px 12px;font-size:13px}
+  #start .lnav-label{min-width:100px;max-width:150px;font-size:12px}
+  /* 📱 좁거나 낮은 화면 = 한층 더 컴팩트 */
+  @media (max-width:480px),(max-height:700px){
+    .oTitle{font-size:23px}
+    .oTitleEn{font-size:13px}
+    .oSub{font-size:12.5px}
+    .langBtn{padding:7px 14px;font-size:14px}
+    .diffBtn{width:33px;height:33px;font-size:19px}
+    .diffVal{font-size:21px}
+    .oRules{font-size:11.5px;line-height:1.65}
+    .bigBtn{margin-top:10px;padding:12px 40px;font-size:18px}
+  }
   #overStat{font-size:17px;color:#dbe6f2;margin:8px 0 2px;line-height:1.7}
   #overStat b{color:#ffd479;font-size:22px}
 
@@ -182,7 +202,7 @@
 
   <!-- 시작 화면 -->
   <div class="overlay" id="start">
-    <div class="oTitle">✈️ P-38 라이트닝<br><span style="font-size:20px;font-weight:700;color:#cfe0f0;-webkit-text-fill-color:#cfe0f0">(Lightning)</span></div>
+    <div class="oTitle">✈️ P-38 라이트닝 <span class="oTitleEn">(Lightning)</span></div>
     <div class="oSub" id="startSub">문장을 어순대로 격추하라!</div>
     <div class="langRow">
       <button class="langBtn" id="lgEn" data-l="en">🇺🇸 English</button>
@@ -202,14 +222,12 @@
       <span class="diffTag" id="diffTag">보통</span>
     </div>
     <div class="diffHint">난이도↑ = 전투기·총알 빠르고 많이, 발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
-    <div class="oRules">
-      🖱️ <b>마우스로 조종</b> — P-38이 부드럽게 따라와요<br>
-      🔫 <b>누르고 있으면 연사</b> — 기관총 발사<br>
-      🎯 위 문장에서 <b>금색으로 빛나는 단어</b>를 실은 적기를 순서대로 격추!<br>
-      🛢️ <b>연료 드럼통</b>을 쏘면 시간·점수 증가<br>
-      💥 <b>A6M 제로센 편대</b>의 탄막을 피하세요!
-    </div>
     <button class="bigBtn" id="btnStart">▶ 출격!</button>
+    <div class="oRules">
+      🖱️ 드래그로 조종 · 🔫 누르고 있으면 연사<br>
+      🎯 문장의 <b>금색 단어</b>를 실은 적기를 순서대로 격추!<br>
+      🛢️ 드럼통 = 시간·점수 ↑ · 💥 적 탄막을 피하세요!
+    </div>
   </div>
 
   <!-- 종료 화면 -->
@@ -1542,6 +1560,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260722072801 -->
+<!-- BUILD:20260722072953 -->
 </body>
 </html>

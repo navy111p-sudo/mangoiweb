@@ -672,20 +672,72 @@ function voiceFor(lang){
 if('speechSynthesis' in window){
   speechSynthesis.onvoiceschanged = function(){ voiceCache = {}; };
 }
+/* 🔊 모바일·앱에서도 소리 나는 3단 TTS 스택 (P-38·전차전과 동일 전략)
+   ① 앱 네이티브(AndroidTTS) ② 서버 오디오(en=/api/voice/tts 원어민, zh=/api/tts-free 만다린)
+   ③ 기기 speechSynthesis 폴백. done 콜백은 안전 타임아웃으로 반드시 1회 호출. */
+var _pzAudio = null, _pzCache = {}, _pzSeq = 0;
+function _pzStop(){
+  _pzSeq++;
+  try{ if(_pzAudio){ _pzAudio.onended = _pzAudio.onerror = null; _pzAudio.pause(); } }catch(_){}
+  try{ speechSynthesis.cancel(); }catch(_){}
+}
+function _pzFetch(text, lang){                             // 서버 오디오 → objectURL (캐시)
+  var key = lang + '|' + text;
+  if(_pzCache[key]) return Promise.resolve(_pzCache[key]);
+  var req = (lang === 'zh-CN')
+    ? fetch('/api/tts-free?lang=zh&q=' + encodeURIComponent(text))
+    : fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: text, lang: 'en' }) });
+  return req.then(function(r){
+    var ct = r.headers.get('content-type') || '';
+    if(!r.ok || ct.indexOf('audio') < 0) throw new Error('tts');
+    return r.blob();
+  }).then(function(b){ var u = URL.createObjectURL(b); _pzCache[key] = u; return u; });
+}
+function _pzSynth(text, lang, fin){                        // ③ 기기 음성 폴백
+  if(!('speechSynthesis' in window)){ fin(); return; }
+  try{
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = lang; u.rate = RATE_BY_DIFF[DIFF - 1];
+    var v = voiceFor(lang);
+    if(v) u.voice = v;
+    u.onend = u.onerror = function(){ fin(); };
+    speechSynthesis.speak(u);
+  }catch(_){ fin(); }
+}
 function speak(text, done, lang){
-  if(!('speechSynthesis' in window)){ if(done) done(); return; }
   lang = lang || langOf(text);
-  speechSynthesis.cancel();
-  var u = new SpeechSynthesisUtterance(text);
-  u.lang = lang; u.rate = RATE_BY_DIFF[DIFF - 1];
-  var v = voiceFor(lang);
-  if(v) u.voice = v;
-  u.onend = function(){ if(done) done(); };
-  u.onerror = function(){ if(done) done(); };
-  speechSynthesis.speak(u);
+  _pzStop();
+  var seq = _pzSeq;
+  var called = false;
+  function fin(){ if(called || seq !== _pzSeq) return; called = true; if(done) done(); }
+  setTimeout(fin, Math.max(3500, String(text).length * 170) + 4000);   // ⏱ 어떤 경우에도 흐름이 안 멈추게
+  // ① 앱 네이티브 TTS
+  try{
+    if(window.AndroidTTS && window.AndroidTTS.isReady && window.AndroidTTS.isReady()){
+      window.AndroidTTS.speak(text, lang.slice(0, 2), 1.0, RATE_BY_DIFF[DIFF - 1]);
+      setTimeout(fin, Math.max(1500, String(text).length * (lang === 'zh-CN' ? 260 : 110)));
+      return;
+    }
+  }catch(_){}
+  // ② 서버 오디오 (모바일 브라우저·WebView에서도 확실히 재생)
+  _pzFetch(text, lang).then(function(url){
+    if(seq !== _pzSeq) return;
+    try{
+      if(!_pzAudio) _pzAudio = new Audio();
+      _pzAudio.onended = function(){ fin(); };
+      _pzAudio.onerror = function(){ _pzSynth(text, lang, fin); };
+      _pzAudio.src = url;
+      _pzAudio.playbackRate = RATE_BY_DIFF[DIFF - 1] || 1;
+      try{ _pzAudio.preservesPitch = true; _pzAudio.webkitPreservesPitch = true; }catch(_){}
+      var p = _pzAudio.play();
+      if(p && p.catch) p.catch(function(){ if(seq === _pzSeq) _pzSynth(text, lang, fin); });
+    }catch(_){ _pzSynth(text, lang, fin); }
+  }).catch(function(){ if(seq === _pzSeq) _pzSynth(text, lang, fin); });
 }
 /* 재료 클릭 즉시 그 단어 발음 */
 function speakWord(word){ speak(word); }
+/* 서버 오디오 미리받기 — 클릭 즉시 재생되게 */
+function prefetchTts(text){ try{ _pzFetch(text, langOf(text)).catch(function(){}); }catch(_){} }
 
 /* ══════════ 음성 인식 ══════════ */
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -817,6 +869,9 @@ function setupSentence(){
     $('tray').appendChild(el);
   });
   updateHud();
+  // 🔊 서버 오디오 미리받기(문장+단어) — 클릭·듣기 즉시 재생
+  prefetchTts(sentenceText());
+  s.tokens.forEach(function(t){ prefetchTts(t[0]); });
   // ▶ 타이머는 바로 안 돌리고, 먼저 문장 듣기 오버레이부터
   $('timer').textContent = fmtTime(TIME_BY_DIFF[DIFF - 1]);
   showReady();
@@ -1115,6 +1170,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260722072801 -->
+<!-- BUILD:20260722072953 -->
 </body>
 </html>
