@@ -439,8 +439,25 @@ var TOPPINGS = [
   {f:'mozzarella',  en:'Mozzarella',        zh:'马苏里拉奶酪', ko:'모차렐라'}
 ];
 var TOPPING_IMGS = TOPPINGS.map(function(t){ return '/img/pizza/' + t.f + '.png'; });
+
+/* 🎲 문장별 재료 배정 — 문장 텍스트 시드 셔플.
+   (예전엔 단어 순서 고정이라 단어 수가 같으면 늘 같은 재료 → 늘 같은 완성 피자가 나오던 버그) */
+var TOPPING_MAP = [];
+function _hashStr(s){ var h = 2166136261; for(var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function buildToppingMap(){
+  var n = cur().tokens.length;
+  var a = _hashStr(sentenceText());
+  function rng(){ a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+  var idx = TOPPINGS.map(function(_, i){ return i; });
+  for(var i = idx.length - 1; i > 0; i--){ var j = Math.floor(rng() * (i + 1)); var tmp = idx[i]; idx[i] = idx[j]; idx[j] = tmp; }
+  TOPPING_MAP = [];
+  for(var k = 0; k < n; k++) TOPPING_MAP.push(idx[k % idx.length]);
+}
+function toppingOf(tokenIdx){
+  return (TOPPING_MAP[tokenIdx] != null) ? TOPPING_MAP[tokenIdx] : (tokenIdx % TOPPINGS.length);
+}
 function toppingName(tokenIdx){
-  var t = TOPPINGS[tokenIdx % TOPPINGS.length];
+  var t = TOPPINGS[toppingOf(tokenIdx)];
   return (GLANG === 'zh' ? t.zh : t.en) + ' · ' + t.ko;
 }
 
@@ -480,7 +497,7 @@ var PIZZA_MENU = [
 /* 이번 문장에 쓴 재료들과 겹침이 가장 큰 레시피 선택 */
 function pickMenuPizza(){
   var used = {};
-  cur().tokens.forEach(function(_, i){ used[TOPPINGS[i % TOPPINGS.length].f] = 1; });
+  cur().tokens.forEach(function(_, i){ used[TOPPINGS[toppingOf(i)].f] = 1; });
   var best = null, bestScore = -1e9;
   PIZZA_MENU.forEach(function(p, idx){
     var hit = 0;
@@ -742,7 +759,7 @@ function bowlEl(word, role, tokenIdx){
   var div = document.createElement('div');
   div.className = 'bowl';
   div.innerHTML =
-    '<div class="dish"><img src="' + TOPPING_IMGS[tokenIdx % TOPPING_IMGS.length] + '" alt="">' +
+    '<div class="dish"><img src="' + TOPPING_IMGS[toppingOf(tokenIdx)] + '" alt="">' +
     '<span class="w">' + word + '</span></div>' +
     (role === 'word' ? '' : '<span class="role ' + info.cls + '">' + info.ko + '</span>');
   return div;
@@ -751,7 +768,7 @@ function bowlEl(word, role, tokenIdx){
 /* 정답 재료를 피자 위 섹터에 흩뿌리기 + 단어 칩 */
 function placeTopping(word, role, tokenIdx, total){
   var layer = $('toppings-layer');
-  var img = TOPPING_IMGS[tokenIdx % TOPPING_IMGS.length];
+  var img = TOPPING_IMGS[toppingOf(tokenIdx)];
   var angC = (tokenIdx / total) * Math.PI * 2 - Math.PI / 2;
   var spread = Math.PI * 2 / total;
   for(var i = 0; i < 3; i++){
@@ -793,6 +810,7 @@ function setupSentence(){
   if(_nm) _nm.classList.remove('show');
   $('tray').innerHTML = '';
   $('mission').classList.remove('show');
+  buildToppingMap();                                        // 🎲 이 문장 전용 재료 조합
   $('sentence-display').textContent = sentenceText() + (GLANG === 'zh' ? '' : '.');
   $('ko-hint').textContent = s.ko ? ('💬 ' + s.ko) : '';
   $('status').textContent = (LESSON_POOL && LESSON_INFO ? ('📚 ' + (LESSON_INFO.title || 'Lesson ' + LESSON_INFO.seq) + ' — ') : (LEVELS[levelIdx].name + ' — ')) + '문장 순서대로 재료를 올려 보세요!';
@@ -861,7 +879,7 @@ function showHoverTip(el, tokenIdx){
   // 🔊 재료 이름 발음 — 빠르게 스치는 호버는 건너뛰고, 클릭 직후엔 단어 발음을 끊지 않도록 음소거
   hoverSpeakTimer = setTimeout(function(){
     if(Date.now() < hoverMuteUntil) return;
-    var t = TOPPINGS[tokenIdx % TOPPINGS.length];
+    var t = TOPPINGS[toppingOf(tokenIdx)];
     speak(GLANG === 'zh' ? t.zh : t.en);
   }, 180);
 }
@@ -1112,6 +1130,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260721162037 -->
+<!-- BUILD:20260721163305 -->
 </body>
 </html>
