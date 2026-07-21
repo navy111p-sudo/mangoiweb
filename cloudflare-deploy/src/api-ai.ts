@@ -463,8 +463,29 @@ Student text: """${text}"""`;
         serious: 'a calm, kind English study partner named Mango who explains things clearly',
         tutor: 'a supportive English tutor named Mango who gently corrects mistakes and celebrates progress',
       };
+      // 🎓 개인화(26-07-21) — 그 학생의 이름·교재·약점 단어를 아는 친구 (웜업 엔진과 동일 데이터 재사용).
+      //    실패하면 조용히 일반 친구로 동작 — 채팅 흐름에 절대 영향 금지.
+      let stuCtx = '';
+      try {
+        const st: any = await env.DB.prepare(
+          `SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`
+        ).bind(uid).first();
+        const sname = String(st?.english_name || st?.korean_name || '').trim().slice(0, 40);
+        const textbook = String(st?.textbook || '').trim().slice(0, 60);
+        const wk: any = await env.DB.prepare(
+          `SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND wrong_count > 0 AND wrong_count >= correct_count
+           ORDER BY wrong_count DESC LIMIT 5`
+        ).bind(uid).all();
+        const weak = (((wk?.results as any[]) || []).map((r) => (r.ko ? `${r.item} (${r.ko})` : String(r.item))).filter(Boolean)).slice(0, 5);
+        const parts: string[] = [];
+        if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes.`);
+        if (textbook) parts.push(`They study the textbook "${textbook}" — occasionally relate the chat to what they learn there.`);
+        if (weak.length) parts.push(`Words they recently got wrong in games/quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
+        if (parts.length) stuCtx = `\nAbout THIS student (use naturally in conversation — never recite this list):\n- ${parts.join('\n- ')}`;
+      } catch { /* 개인화 실패 무시 */ }
+
       const wodNow = aiFriendWordOfDay();
-      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.
+      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}
 Rules:
 - Reply in English matched to ${level} (A1 = very short simple sentences with easy words; C1 = natural and fluent).
 - Keep replies 1-3 short sentences, then ask exactly ONE fun follow-up question so the student answers again.
