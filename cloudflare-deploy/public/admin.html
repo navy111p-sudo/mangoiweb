@@ -20201,6 +20201,39 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260722024914 -->
+
+<!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
+     인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.
+     ⚠️ 정돈 CSS 는 문서 맨 끝(케스케이드 최후순)에 둬야 테마 블록들을 이긴다.
+     모바일(≤900px)은 기존 레이아웃 유지 — 데스크톱만 적용. -->
+<style id="hero-compact-260722">
+@media (min-width: 901px) {
+  .hero {
+    grid-template-columns: 1fr 280px !important;
+    gap: 36px !important;
+    padding: 34px 48px !important;
+    min-height: 0 !important;
+    border-radius: 28px !important;
+    margin-bottom: 24px !important;
+  }
+  /* "안녕하세요, MANGO-AI" 금색 배너 — 절반 이하로 */
+  .hero-banner-img { max-height: 96px !important; margin: 0 0 10px !important; }
+  /* 이미지 실패 시 CSS h1 폴백도 동일 비율 축소 */
+  .hero h1 { font-size: 44px !important; -webkit-text-stroke-width: 4px !important; margin-bottom: 14px !important; }
+  .hero .hero-sub { font-size: 15px !important; margin-bottom: 16px !important; }
+  /* 검색창 — 크게 유지하되 살짝만 축소 */
+  .hero .hero-search input { padding: 18px 112px 18px 62px !important; font-size: 19px !important; }
+  .hero .hero-search-icon { width: 40px !important; height: 40px !important; left: 12px !important; }
+  .hero .hero-search-mic { width: 46px !important; height: 46px !important; right: 14px !important; }
+  .hero .hero-search-mic .mic-icon { width: 22px !important; height: 22px !important; }
+  /* 망고 캐릭터 프레임 — 빨간 표시 영역 수준으로 축소 */
+  .hero-character-frame { padding: 7px !important; border-radius: 24px !important; }
+  .hero-character-frame img { max-width: 240px !important; min-width: 160px !important; border-radius: 18px !important; }
+  .hero-character-frame::after { font-size: 20px !important; }  /* 🛸 UFO */
+  /* 인사 버블도 비율 맞춤 */
+  #ai-greeting-bubble { padding: 8px 16px !important; font-size: 14px !important; margin-bottom: 10px !important; }
+}
+</style>
+<!-- BUILD:20260722033928 -->
 </body>
 </html>

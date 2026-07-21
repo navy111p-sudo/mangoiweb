@@ -114,7 +114,10 @@ function applySecurityHeaders(resp: Response): Response {
 function htmlEtag304(request: Request, path: string, env: Env, headers: Headers): Response | null {
   if (!path.endsWith('.html')) return null;
   const stamp = env.BUILD_STAMP;
-  if (!stamp || headers.has('ETag')) return null;
+  if (!stamp) return null;
+  // ⚠️ 기존의 `headers.has('ETag')` 조기반환 제거(26-07-22) — Assets 가 워커 안에서는
+  //   HTML 에도 ETag 를 실어 주는데 CF 가 밖으로 나갈 때 떼는 경우, 이 가드에 걸려
+  //   우리 검증자(ETag+Last-Modified)를 한 번도 못 싣고 있었다. 항상 덮어쓴다.
   const tag = `W/"b-${stamp}"`;
   headers.set('ETag', tag);
   // 🆕 Last-Modified 폴백(26-07-22) — 실측 결과 CF 가 text/html 응답의 ETag 를 떼어
