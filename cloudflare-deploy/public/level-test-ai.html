@@ -119,6 +119,7 @@
       <div style="font-size:14.5px;font-weight:800;color:#6ee7b7;margin-bottom:8px">🧭 다음 수업 안내</div>
       <div style="font-size:13.5px;color:#d1fae5;line-height:1.7">
         📚 추천 교재: <b id="ai-book" style="color:#fff">—</b><br>
+        🎯 추천 코스: <b id="ai-track" style="color:#fff">—</b><br>
         선생님 1:1 평가 후 <b>최종 레벨·확정 교재</b>가 학부모님 문자로 안내됩니다.<br>
         정규 수업 시작을 원하시면 아래 채널로 상담해 주세요.
       </div>
@@ -228,19 +229,31 @@
     if (level === 'Starter') { $('ai-lv').textContent = '입문'; }
     $('ai-score').textContent = (d.ai_score != null ? d.ai_score : '—');
     $('ai-correct').textContent = (d.correct != null ? d.correct : '?') + '/' + (d.total != null ? d.total : questions.length);
-    // 📚 레벨별 추천 교재(참고용) — 망고아이 자체 교재 3종(자료실 레벨표 기준: MES Lv1-5 · BTS Lv2-5 · SIU Lv5-8)
-    //    최종 확정은 선생님 1:1 평가에서 (사장님 지정 2026-07-22)
+    // 📚 레벨별 추천 교재(참고용) — 망고아이 자체 커리큘럼(Phonics · MES Lv1-5 · BTS Lv2-5 · SIU Lv5-8)
+    //    최종 확정은 선생님 1:1 평가에서 (사장님 지정 2026-07-22: 자체 교재 + 파닉스 + 목적별 코스)
     var BOOK_BY_LEVEL = {
-      'Starter':'MES (Mango English Study) 기초',
-      'A1':'MES (Mango English Study)',
+      'Starter':'Phonics(파닉스) · MES 기초',
+      'A1':'Phonics(파닉스) · MES (Mango English Study)',
       'A2':'MES · BTS (Bubble Tea Study)',
       'B1':'BTS (Bubble Tea Study)',
       'B2':'SIU (Shake It Up)',
       'C1':'SIU (Shake It Up) 상급',
       'C2':'SIU (Shake It Up) 상급'
     };
+    // 🎯 레벨별 어울리는 목적별 코스 — 교육과정 트랙(키즈·중고등·비즈니스·시험·일상회화·해외거주/여행)
+    var TRACK_BY_LEVEL = {
+      'Starter':'키즈 영어 · 파닉스 발음 훈련',
+      'A1':'키즈 영어 · 일상 회화',
+      'A2':'일상 회화 · 키즈/중·고등 학습',
+      'B1':'일상 회화 · 해외 거주·여행 · 중·고등 내신',
+      'B2':'비즈니스 영어 · 시험 대비(TOEIC·OPIc) · 해외 거주·여행',
+      'C1':'비즈니스 영어 · 시험 대비(IELTS·TOEFL) · 그룹 토론',
+      'C2':'비즈니스 영어 · 시험 대비(IELTS·TOEFL) · 그룹 토론'
+    };
     var bookEl = $('ai-book');
     if (bookEl) bookEl.textContent = (BOOK_BY_LEVEL[level] || '선생님 평가 후 안내') + ' (참고용)';
+    var trackEl = $('ai-track');
+    if (trackEl) trackEl.textContent = TRACK_BY_LEVEL[level] || '상담 시 안내';
     var bk = d.breakdown || [];
     $('ai-breakdown').innerHTML = bk.map(function(r){
       var pct = r.total ? Math.round(r.correct/r.total*100) : 0;
@@ -253,6 +266,6 @@
 })();
 </script>
 <script defer src="/js/mg-sidebar.js"></script>
-<!-- BUILD:20260722011812 -->
+<!-- BUILD:20260722012016 -->
 </body>
 </html>
