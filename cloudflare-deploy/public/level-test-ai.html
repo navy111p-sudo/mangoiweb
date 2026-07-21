@@ -228,10 +228,16 @@
     if (level === 'Starter') { $('ai-lv').textContent = '입문'; }
     $('ai-score').textContent = (d.ai_score != null ? d.ai_score : '—');
     $('ai-correct').textContent = (d.correct != null ? d.correct : '?') + '/' + (d.total != null ? d.total : questions.length);
-    // 📚 레벨별 추천 교재(참고용) — 최종 확정은 선생님 1:1 평가에서
+    // 📚 레벨별 추천 교재(참고용) — 망고아이 자체 교재 3종(자료실 레벨표 기준: MES Lv1-5 · BTS Lv2-5 · SIU Lv5-8)
+    //    최종 확정은 선생님 1:1 평가에서 (사장님 지정 2026-07-22)
     var BOOK_BY_LEVEL = {
-      'Starter':'Mango Phonics 1', 'A1':"Let's Go 1·2", 'A2':"Let's Go 3·4",
-      'B1':'Oxford Discover 3·4', 'B2':'Oxford Discover 5·6', 'C1':'Reading Explorer 3', 'C2':'Reading Explorer 4·5'
+      'Starter':'MES (Mango English Study) 기초',
+      'A1':'MES (Mango English Study)',
+      'A2':'MES · BTS (Bubble Tea Study)',
+      'B1':'BTS (Bubble Tea Study)',
+      'B2':'SIU (Shake It Up)',
+      'C1':'SIU (Shake It Up) 상급',
+      'C2':'SIU (Shake It Up) 상급'
     };
     var bookEl = $('ai-book');
     if (bookEl) bookEl.textContent = (BOOK_BY_LEVEL[level] || '선생님 평가 후 안내') + ' (참고용)';
@@ -247,6 +253,6 @@
 })();
 </script>
 <script defer src="/js/mg-sidebar.js"></script>
-<!-- BUILD:20260722011701 -->
+<!-- BUILD:20260722011812 -->
 </body>
 </html>

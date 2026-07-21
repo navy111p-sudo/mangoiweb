@@ -2093,7 +2093,12 @@
       + '</div>'
       // 📚 (2026-07-22) 학부모 컴플레인 #6: 추천 교재·다음 수업 안내 — 필수 입력, 결과 문자에 포함됨
       + '<label style="display:block;font-size:12.5px;font-weight:700;color:#a5b4fc;margin:14px 0 6px">📚 '+(en?'Recommended textbook (required)':'추천 교재 (필수)')+'</label>'
-      + '<input id="lt-eval-book" type="text" value="'+ltEsc(app.recommended_textbook||'')+'" placeholder="'+(en?'e.g. Let\'s Go 3':'예: Let\'s Go 3')+'" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid #6366f1;border-radius:10px;padding:11px;font-size:14.5px;outline:none">'
+      + '<input id="lt-eval-book" type="text" value="'+ltEsc(app.recommended_textbook||'')+'" placeholder="'+(en?'e.g. MES / BTS / SIU (with level)':'예: MES / BTS / SIU (+레벨)')+'" list="lt-book-options" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid #6366f1;border-radius:10px;padding:11px;font-size:14.5px;outline:none">'
+      + '<datalist id="lt-book-options">'
+      +   '<option value="MES (Mango English Study)"></option>'
+      +   '<option value="BTS (Bubble Tea Study)"></option>'
+      +   '<option value="SIU (Shake It Up)"></option>'
+      + '</datalist>'
       + '<label style="display:block;font-size:12.5px;font-weight:700;color:#a5b4fc;margin:12px 0 6px">▶ '+(en?'Next-class guidance for parents':'다음 수업 안내 (학부모용)')+'</label>'
       + '<textarea id="lt-eval-guide" rows="2" placeholder="'+(en?'e.g. Weekly 2 regular classes recommended, starting unit 1':'예: 주 2회 정규수업 권장, 1단원부터 시작')+'" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid rgba(99,102,241,.6);border-radius:10px;padding:11px;font-size:14px;outline:none;resize:vertical">'+ltEsc(app.next_class_guide||'')+'</textarea>'
       + '<div style="font-size:11px;color:#94a3b8;margin-top:6px">'+(en?'Sent to the parent via SMS with the confirmed level.':'확정 레벨과 함께 학부모 문자로 발송됩니다.')+'</div>'
