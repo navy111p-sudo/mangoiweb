@@ -20808,6 +20808,14 @@ window.addEventListener('DOMContentLoaded', () => {
       '<h2>🔑 '+(L?'학생/학부모 로그인':'Login')+'</h2>'+
       '<div class="lm-sub">'+(L?'학생 ID + 비밀번호 또는 소셜 계정으로 빠르게 로그인하세요.':'Login with student ID or social account.')+'</div>'+
       '<div class="lm-body">'+
+        // ━━━━ 😊 패스키(얼굴/지문) 로그인 — 지원 브라우저에서만 노출 ━━━━
+        (window.PublicKeyCredential ?
+          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
+          '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:0 0 10px;position:relative">'+
+            '<span style="background:#131826;padding:0 12px;position:relative;z-index:1">'+(L?'또는 아이디로':'Or with ID')+'</span>'+
+            '<span style="position:absolute;left:0;right:0;top:50%;height:1px;background:#232b40;z-index:0"></span>'+
+          '</div>'
+        : '')+
         // ━━━━ 학생 ID / 비밀번호 로그인 ━━━━
         '<div class="lm-label">'+(L?'👤 학생 ID / 비밀번호':'Student ID / Password')+'</div>'+
         '<div style="display:grid;gap:8px;margin-bottom:14px">'+
@@ -20904,10 +20912,138 @@ window.addEventListener('DOMContentLoaded', () => {
       } catch(e){}
       closeLoginModal();
       showLcToast2('✅ ' + d.user.user_name + '님 환영합니다!');
-      setTimeout(() => location.reload(), 800);
+      // 😊 패스키 미등록 기기면 "다음부터 얼굴/지문으로?" 1회 제안
+      var canOfferPk = false;
+      try {
+        canOfferPk = !!window.PublicKeyCredential
+          && !localStorage.getItem('mangoi_pk_reg_' + d.user.user_id)
+          && !localStorage.getItem('mangoi_pk_offer_dismissed_' + d.user.user_id);
+      } catch(e){}
+      if (canOfferPk) { setTimeout(function(){ lmOfferPasskey(d); }, 900); }
+      else setTimeout(() => location.reload(), 800);
     } catch(e) {
       if (err) { err.style.display='block'; err.textContent='❌ ' + e.message; }
     }
+  };
+
+  // ═══ 😊 패스키(WebAuthn) — 얼굴/지문 로그인 ═══
+  //   생체정보는 기기 안에만 저장(웹 표준) — 서버엔 공개키만. b64url <-> ArrayBuffer 변환 필수.
+  function pkB2b(s){ s=String(s).replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4)s+='='; var bin=atob(s),u=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return u.buffer; }
+  function pkB2s(buf){ var u=new Uint8Array(buf),s=''; for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+  // 로그인 성공 공통 저장 — doStudentLogin 과 동일 키
+  function pkStoreLogin(d){
+    try {
+      var _lu = { user_id:d.user.user_id, uid:d.user.user_id, name:d.user.user_name, user_name:d.user.user_name, role:d.user.role||'student' };
+      localStorage.setItem('mango_user', JSON.stringify(_lu));
+      localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
+      localStorage.setItem('mangoi_vc_uid', _lu.name || _lu.uid);
+      if (d.token) localStorage.setItem('mango_token', d.token);
+    } catch(e){}
+  }
+
+  window.doPasskeyLogin = async function(){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var err = document.getElementById('lm-err');
+    var showErr = function(m){ if(err){ err.style.display='block'; err.textContent=m; } };
+    try {
+      var uid = (((document.getElementById('lm-uid')||{}).value)||'').trim();
+      // ① 챌린지 발급 — ID 입력 시 그 계정 패스키만, 비우면 기기에 저장된 패스키로
+      var r = await fetch('/api/passkey/login/options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid }) });
+      var d = await r.json();
+      if (!d.ok) { showErr('❌ ' + (d.message || d.error || (L?'패스키 준비 실패':'Passkey unavailable'))); return; }
+      var o = d.options;
+      var pub = { challenge: pkB2b(o.challenge), rpId: o.rpId, timeout: o.timeout, userVerification: o.userVerification };
+      if (o.allowCredentials && o.allowCredentials.length) pub.allowCredentials = o.allowCredentials.map(function(c){ return { type:'public-key', id: pkB2b(c.id), transports: c.transports }; });
+      // ② 기기 생체인증(얼굴/지문) 세리머니
+      var cred = await navigator.credentials.get({ publicKey: pub });
+      if (!cred) { showErr(L?'❌ 인증이 취소됐어요.':'❌ Cancelled.'); return; }
+      // ③ 서명 검증 → 로그인 토큰
+      var payload = { credential: { id: cred.id, response: {
+        clientDataJSON: pkB2s(cred.response.clientDataJSON),
+        authenticatorData: pkB2s(cred.response.authenticatorData),
+        signature: pkB2s(cred.response.signature),
+        userHandle: cred.response.userHandle ? pkB2s(cred.response.userHandle) : null,
+      } } };
+      var r2 = await fetch('/api/passkey/login/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      var d2 = await r2.json();
+      if (!d2.ok) { showErr('❌ ' + (d2.message || d2.error || (L?'로그인 실패':'Login failed'))); return; }
+      pkStoreLogin(d2);
+      try { localStorage.setItem('mangoi_pk_reg_' + d2.user.user_id, '1'); } catch(e){}
+      closeLoginModal();
+      showLcToast2('✅ ' + d2.user.user_name + (L?'님 환영합니다!':' welcome!'));
+      setTimeout(function(){ location.reload(); }, 800);
+    } catch(e) {
+      if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError')) showErr(L?'❌ 인증이 취소됐어요. 다시 시도해주세요.':'❌ Cancelled. Please try again.');
+      else showErr('❌ ' + (e.message || e));
+    }
+  };
+
+  // 패스키 등록 (로그인 직후 token 필요) — parent.html 등에서도 재사용 가능하게 전역 노출
+  window.mangoRegisterPasskey = async function(uid, token){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var r = await fetch('/api/passkey/register/options', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:'{}' });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message || d.error || 'options_failed');
+    var o = d.options;
+    var pub = {
+      challenge: pkB2b(o.challenge), rp: o.rp,
+      user: { id: pkB2b(o.user.id), name: o.user.name, displayName: o.user.displayName },
+      pubKeyCredParams: o.pubKeyCredParams, timeout: o.timeout, attestation: o.attestation,
+      authenticatorSelection: o.authenticatorSelection,
+    };
+    if (o.excludeCredentials && o.excludeCredentials.length) pub.excludeCredentials = o.excludeCredentials.map(function(c){ return { type:'public-key', id: pkB2b(c.id), transports: c.transports }; });
+    var cred = await navigator.credentials.create({ publicKey: pub });
+    if (!cred) throw new Error(L?'등록이 취소됐어요':'Cancelled');
+    var transports = null;
+    try { transports = cred.response.getTransports ? cred.response.getTransports() : null; } catch(e){}
+    var payload = {
+      credential: { id: cred.id, rawId: pkB2s(cred.rawId), transports: transports, response: {
+        clientDataJSON: pkB2s(cred.response.clientDataJSON),
+        attestationObject: pkB2s(cred.response.attestationObject),
+      } },
+      device_label: (navigator.platform || 'device').slice(0, 40),
+    };
+    var r2 = await fetch('/api/passkey/register/verify', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(payload) });
+    var d2 = await r2.json();
+    if (!d2.ok) throw new Error(d2.message || d2.error || 'verify_failed');
+    try { localStorage.setItem('mangoi_pk_reg_' + uid, '1'); } catch(e){}
+    return d2;
+  };
+
+  // 비밀번호 로그인 직후 "다음부터 얼굴/지문으로?" 제안 카드
+  window.lmOfferPasskey = function(d){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var ov = document.getElementById('login-overlay');
+    if (!ov) { location.reload(); return; }
+    ov.innerHTML = '<div class="login-modal" onclick="event.stopPropagation()" style="text-align:center">'+
+      '<div style="font-size:52px;line-height:1;margin:6px 0 10px">😊</div>'+
+      '<h2 style="margin:0 0 8px">'+(L?'다음부터 얼굴/지문으로 로그인할까요?':'Sign in with Face/Fingerprint next time?')+'</h2>'+
+      '<div class="lm-sub" style="margin-bottom:16px">'+(L?'비밀번호 없이 1초 만에 로그인!<br>얼굴·지문 정보는 기기 밖으로 나가지 않아요.':'One-tap login, no password!<br>Biometrics never leave your device.')+'</div>'+
+      '<div id="lm-pk-offer-err" style="display:none;margin-bottom:12px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#fca5a5;font-size:11.5px"></div>'+
+      '<div style="display:grid;gap:10px">'+
+        '<button onclick="lmDoOfferReg()" style="padding:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer">😊 '+(L?'네, 등록할게요':'Yes, register')+'</button>'+
+        '<button onclick="lmSkipOfferReg()" style="padding:11px;background:rgba(148,163,184,0.12);color:#94a3b8;border:1px solid #232b40;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer">'+(L?'나중에 할게요':'Maybe later')+'</button>'+
+      '</div></div>';
+    ov.classList.add('show');
+    window.lmDoOfferReg = async function(){
+      var eBox = document.getElementById('lm-pk-offer-err');
+      try {
+        await mangoRegisterPasskey(d.user.user_id, d.token);
+        showLcToast2('✅ ' + (L?'패스키 등록 완료! 다음부터 얼굴/지문으로 로그인하세요.':'Passkey registered!'));
+        setTimeout(function(){ location.reload(); }, 900);
+      } catch(e) {
+        if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError' || e.name === 'InvalidStateError')) {
+          // 취소 또는 이미 이 기기에 등록됨 → 조용히 넘어감
+          if (e.name === 'InvalidStateError') { try { localStorage.setItem('mangoi_pk_reg_' + d.user.user_id, '1'); } catch(_){} }
+          location.reload(); return;
+        }
+        if (eBox) { eBox.style.display='block'; eBox.textContent='❌ ' + (e.message || e); }
+      }
+    };
+    window.lmSkipOfferReg = function(){
+      try { localStorage.setItem('mangoi_pk_offer_dismissed_' + d.user.user_id, '1'); } catch(e){}
+      location.reload();
+    };
   };
 
   // 🌐 OAuth 로그인 (학생 모달)
@@ -25662,7 +25798,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260721192409 -->
+<!-- BUILD:20260721193432 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

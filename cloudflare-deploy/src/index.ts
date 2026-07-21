@@ -1013,6 +1013,8 @@ const worker = {
         path === '/api/student/register' ||
         path === '/api/student/lookup' ||
         path === '/api/student/set-password' ||
+        // 😊 Phase PASSKEY 얼굴/지문 로그인 (WebAuthn)
+        /^\/api\/passkey\/(register\/options|register\/verify|login\/options|login\/verify|list|remove)$/.test(path) ||
         // 🌐 Phase OAUTH 소셜 로그인
         path === '/api/oauth/status' ||
         /^\/api\/oauth\/(kakao|naver|google)\/(url|callback)$/.test(path) ||
