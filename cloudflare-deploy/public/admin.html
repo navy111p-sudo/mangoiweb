@@ -11496,7 +11496,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=6" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=7" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 
 </div>
@@ -17099,11 +17099,11 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r24.js?v=1" defer></script><!-- 분할추출:adm-r24 -->
+<script src="/js/adm-r24.js?v=2" defer></script><!-- 분할추출:adm-r24 -->
 
 
 <!-- Phase 124 admin (2026-05-25) — 손자 메뉴 셀렉터 광범위화 + 데모 손자 메뉴 매핑 -->
-<script src="/js/adm-q11.js?v=1" defer></script><!-- 분할추출:adm-q11 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q11.js?v=2" defer></script><!-- 분할추출:adm-q11 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
@@ -20212,6 +20212,8 @@ button.chip:hover,
 .hero-banner-img, .hero .hero-text h1 { display: none !important; }
 /* 🚫 안내 문구 한 줄("무엇이든 검색해보세요…")도 제거 — 검색창+캐릭터만 남김 (사장님 지시) */
 .hero .hero-sub { display: none !important; }
+/* 🚫 사이드바 hover 손자메뉴 플라이아웃(중복 UI)·진입 인사 버블 — JS 비활성+CSS 백스톱 (사장님 지시) */
+#ph123-flyout, #ai-greeting-bubble { display: none !important; }
 
 /* 🎩 상단 툴바 차분한 통일 스타일 (2026-07-22 사장님 지시: 울긋불긋 X, 세련+직관)
    셀프진단(주황)·EN(흰 박스)·사용자(파랑 그라데이션 #ph115-user) 제각각이던 버튼을
@@ -20312,6 +20314,6 @@ button.chip:hover,
   #ai-greeting-bubble { padding: 8px 16px !important; font-size: 14px !important; margin-bottom: 10px !important; }
 }
 </style>
-<!-- BUILD:20260722041733 -->
+<!-- BUILD:20260722042756 -->
 </body>
 </html>

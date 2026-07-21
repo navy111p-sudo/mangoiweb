@@ -127,6 +127,9 @@
   }
 
   function showFlyoutV2(subEl){
+    // 🗑️ (2026-07-22 사장님 지시) 사이드바 hover 손자메뉴 플라이아웃 제거 —
+    //    메뉴 클릭 시 이미 손자 메뉴가 나오는데 오른쪽에 중복 표시됨. 재추가 금지.
+    return;
     var cardId = subEl.dataset.card;
     if (!cardId) return;
     var subTitle = subEl.textContent.trim().replace(/⭐신규$/, '').trim();

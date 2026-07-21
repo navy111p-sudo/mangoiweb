@@ -7910,7 +7910,10 @@ document.getElementById('admin-sidebar-list')?.addEventListener('click', (ev) =>
 });
 
 // 🎤 대시보드 진입 시 성우 음성 1 회 자동재생 — TTS·버튼 모두 제거, mp3 만
+// 🗑️ (2026-07-22 사장님 지시 "심플하게") 진입 인사(안녕하세요 음성 mp3+말풍선) 완전 비활성.
+//    금색 배너 제거 후에도 이 코드가 남아 "안녕하세요 망고아이" 가 계속 나왔던 원인. 재추가 금지.
 (function setupAiGreeting() {
+  return;
   const showBubble = () => {
     const lang = (typeof adminLang !== 'undefined' && adminLang === 'en') ? 'en' : 'ko';
     const text = lang === 'en' ? 'How can I help you?' : '무엇을 도와 드릴까요?';

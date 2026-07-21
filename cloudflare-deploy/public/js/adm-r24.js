@@ -28,6 +28,8 @@
 
   // 플라이아웃 생성 & 표시
   function showFlyout(subEl){
+    // 🗑️ (2026-07-22 사장님 지시) hover 손자메뉴 플라이아웃 제거(중복 UI). 재추가 금지.
+    return;
     var cardId = subEl.dataset.card;
     if (!cardId) return;
     var grandchildren = getGrandchildren(cardId);
