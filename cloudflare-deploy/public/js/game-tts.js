@@ -13,6 +13,19 @@
   var cache = {}, audioEl = null, curVoice = null;
   // 현재 발음 언어: 'en'(기본) | 'zh'(중국어). localStorage 로 페이지 간 공유.
   var curLang = (function(){ try{ var l=localStorage.getItem('mangoi_game_lang'); return (l==='zh')?'zh':'en'; }catch(_){ return 'en'; } })();
+  // 🎙 서버 화자(Aura-2 speaker) — setSpeaker('orion'|'asteria'|null). null=서버 기본(여성 asteria).
+  var curSpeaker = null, genderHint = null;
+  var MALE_SPEAKERS = { apollo:1, arcas:1, aries:1, atlas:1, draco:1, hermes:1, hyperion:1, janus:1, jupiter:1, mars:1, neptune:1, odysseus:1, orion:1, orpheus:1, pluto:1, saturn:1, zeus:1 };
+
+  // 🙊 이모지 제거 — TTS 가 이모지를 "orange" "smiling face" 처럼 읽어버리는 문제 방지 (26-07-21)
+  //   일반 문장부호(따옴표·물음표 등)는 건드리지 않도록 픽토그램 영역만 제거한다.
+  var EMOJI_RE = null;
+  try { EMOJI_RE = new RegExp('[\\u{1F000}-\\u{1FFFF}\\u{2600}-\\u{27BF}\\u{2B00}-\\u{2BFF}\\u{2300}-\\u{23FF}\\u{2190}-\\u{21FF}\\u{FE00}-\\u{FE0F}\\u{200D}\\u{20E3}\\u{2139}\\u{3030}\\u{303D}\\u{3297}\\u{3299}]', 'gu'); } catch(_){}
+  function stripEmoji(t){
+    t = String(t || '');
+    if (EMOJI_RE) { try { t = t.replace(EMOJI_RE, ' '); } catch(_){} }
+    return t.replace(/\s{2,}/g, ' ').trim();
+  }
 
   /* ── 폴백용 브라우저 보이스 선택 (자연스러운 음성 우선, 로봇 음성 회피) ── */
   function scoreVoice(v){
@@ -39,6 +52,14 @@
     if(v.localService===false) s+=30;
     if(/zira|david|mark|hazel|george|susan|catherine|linda|richard|sean|heera|ravi/.test(n)) s-=55;
     if(/desktop|compact|espeak|pico|microsoft server/.test(n)) s-=45;
+    // 🎙 성별 힌트(브라우저 폴백에서도 남/여 선택 반영 — 확실할 때만 가감)
+    if(genderHint==='male'){
+      if(/\b(guy|brian|christopher|tom|alex|evan|nathan|ryan|aaron|matthew|davis|tony|eric|male)\b/.test(n)) s+=90;
+      if(/\b(aria|jenny|ava|emma|libby|michelle|jane|nova|sara|samantha|allison|nicky|joelle|female)\b/.test(n)) s-=90;
+    } else if(genderHint==='female'){
+      if(/\b(aria|jenny|ava|emma|libby|michelle|jane|nova|sara|samantha|allison|nicky|joelle|female)\b/.test(n)) s+=90;
+      if(/\b(guy|brian|christopher|tom|evan|nathan|ryan|aaron|matthew|davis|tony|eric|male)\b/.test(n)) s-=90;
+    }
     return s;
   }
   function pickVoice(){
@@ -72,15 +93,17 @@
   }
 
   /* ── 클라우드 원어민 TTS ── */
-  function ckey(text){ return curLang + '|' + text; }   // 언어별 캐시 키(같은 글자라도 언어 분리)
+  function ckey(text){ return curLang + '|' + (curSpeaker||'') + '|' + text; }   // 언어·화자별 캐시 키
   function fetchTTS(text){
     var key = ckey(text);
-    return fetch(TTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text:text, lang:curLang }) })
+    var body = { text:text, lang:curLang };
+    if (curSpeaker) body.speaker = curSpeaker;
+    return fetch(TTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
       .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
       .then(function(b){ var u=URL.createObjectURL(b); cache[key]=u; return u; });
   }
   function prefetch(text){
-    text=String(text||'').trim(); if(!text || cache[ckey(text)]) return;
+    text=stripEmoji(text); if(!text || cache[ckey(text)]) return;
     fetchTTS(text).catch(function(){});
   }
   function playUrl(u, rate, onend){
@@ -96,7 +119,7 @@
   // speak(text, rate?, onend?) — onend 는 재생이 끝나면 1회 호출 (말하기 미션 등 흐름 연결용)
   //   클라우드 우선(en=Deepgram Aura-1, zh=서버가 진짜 만다린 반환) → 실패 시 브라우저 폴백
   function speak(text, rate, onend){
-    text=String(text||'').trim(); if(!text){ if(onend) onend(); return; }
+    text=stripEmoji(text); if(!text){ if(onend) onend(); return; }
     try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
     var key = ckey(text);
     if(cache[key]){ playUrl(cache[key], rate, onend); return; }
@@ -112,5 +135,13 @@
   }
   function getLang(){ return curLang; }
 
-  window.MangoiTTS = { speak: speak, prefetch: prefetch, setLang: setLang, getLang: getLang };
+  // 🎙 화자 전환 — setSpeaker('orion'|'asteria'|…|null). 브라우저 폴백에도 성별 힌트 반영.
+  function setSpeaker(s){
+    curSpeaker = s ? String(s).toLowerCase() : null;
+    genderHint = curSpeaker ? (MALE_SPEAKERS[curSpeaker] ? 'male' : 'female') : null;
+    curVoice = null; pickVoice();
+  }
+  function getSpeaker(){ return curSpeaker; }
+
+  window.MangoiTTS = { speak: speak, prefetch: prefetch, setLang: setLang, getLang: getLang, setSpeaker: setSpeaker, getSpeaker: getSpeaker };
 })();

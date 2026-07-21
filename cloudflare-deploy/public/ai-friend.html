@@ -227,6 +227,10 @@
     <button class="opt" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
     <button class="opt active" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
     <button class="opt" data-rate="1.2" data-ko="🐇 빠르게" data-en="🐇 Fast">🐇 빠르게</button>
+    <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🎙 <span data-ko="목소리:" data-en="Voice:">목소리:</span></span>
+    <button class="opt" data-voice="female" data-ko="👩 여자" data-en="👩 Female">👩 여자</button>
+    <button class="opt" data-voice="male" data-ko="👨 남자" data-en="👨 Male">👨 남자</button>
+    <button class="opt" data-voice="mix" data-ko="🔀 번갈아" data-en="🔀 Mix">🔀 번갈아</button>
   </div>
 
   <!-- 🎮 게임 HUD: 레벨·XP·스트릭·오늘 포인트·오늘의 단어 -->
@@ -316,6 +320,24 @@
     });
     document.querySelectorAll('.opt[data-persona]').forEach(b => {
       b.onclick = () => { document.querySelectorAll('.opt[data-persona]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentPersona = b.dataset.persona; };
+    });
+    /* 🎙 목소리 선택 — 여자(asteria)/남자(orion)/번갈아(메시지마다 교대). localStorage 로 기억. */
+    let currentVoice = (function(){ try { const v = localStorage.getItem('mangoi_aifriend_voice'); return ['female','male','mix'].includes(v) ? v : 'female'; } catch(e){ return 'female'; } })();
+    let _mixTurn = 0;
+    function speakerFor() {
+      if (currentVoice === 'male') return 'orion';
+      if (currentVoice === 'mix') return (_mixTurn++ % 2 === 0) ? 'asteria' : 'orion';
+      return 'asteria';
+    }
+    document.querySelectorAll('.opt[data-voice]').forEach(b => {
+      if (b.dataset.voice === currentVoice) { document.querySelectorAll('.opt[data-voice]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); }
+      b.onclick = () => {
+        document.querySelectorAll('.opt[data-voice]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        currentVoice = b.dataset.voice;
+        try { localStorage.setItem('mangoi_aifriend_voice', currentVoice); } catch(e){}
+        try { if (window.UXT) UXT.hit('ux:aifriend-voice-' + currentVoice); } catch(e){}
+      };
     });
     document.querySelectorAll('.opt[data-rate]').forEach(b => {
       if (parseFloat(b.dataset.rate) === currentRate) { document.querySelectorAll('.opt[data-rate]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); }
@@ -534,6 +556,7 @@
         if (row) row.classList.remove('speaking');
       };
       try {
+        try { if (MangoiTTS.setSpeaker) MangoiTTS.setSpeaker(speakerFor()); } catch(e){}
         MangoiTTS.speak(clean, currentRate, done);
       } catch(e){ done(); }
     }
@@ -727,7 +750,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260721170415 -->
+<!-- BUILD:20260721192409 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}
@@ -816,7 +839,7 @@
   .cele-banner .cb-sub{font-size:16px}
 }
 </style>
-<script defer src="/js/game-tts.js"></script><!-- 🔊 원어민 TTS(서버 Deepgram Aura-1 → MeloTTS → 브라우저 폴백) 공용 모듈 -->
+<script defer src="/js/game-tts.js?v=2"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지) 공용 모듈 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
