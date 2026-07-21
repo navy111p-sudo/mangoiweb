@@ -173,6 +173,31 @@ function testAiFriend() {
   sent.length = 0;
   speakOnce([]);
   check('무음이면 전송 안 함', sent.length === 0, `실제=${sent.length}건`);
+
+  /* 🤖 (2026-07-22 2차 제보) 안드로이드 크롬 누적형: continuous 모드에서
+     "지금까지 말한 문장 전체"를 확정 결과로 여러 번 다시 보낸다.
+     확정 결과를 버퍼에 이어붙이는 방식이 되살아나면
+     "I like I like to I like to eat…" 처럼 겹겹이 쌓여 여기서 실패한다. */
+  sent.length = 0;
+  speakOnce([
+    { t: 'I like', final: true },
+    { t: 'I like to', final: true },
+    { t: 'I like to eat', final: true },
+    { t: 'I like to eat blueberry', final: true },
+    { t: 'I like to eat blueberry with yogurt', final: true },
+  ]);
+  check('안드로이드 누적형 → 한 문장만 전송', sent[0] === 'I like to eat blueberry with yogurt' && sent.length === 1,
+        JSON.stringify(sent));
+
+  sent.length = 0;
+  speakOnce([
+    { t: 'my dog', final: true },
+    { t: 'my dog likes', final: true },
+    { t: 'my dog likes', final: true },
+    { t: 'my dog likes blueberry too', final: true },
+  ]);
+  check('안드로이드 my dog 스트림 → 한 문장만 전송', sent[0] === 'my dog likes blueberry too' && sent.length === 1,
+        JSON.stringify(sent));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -240,6 +265,19 @@ function testResetPresent() {
     const m = html.match(/r\.onstart\s*=\s*function\(\)\{[^}]*\}/);
     check(`${file} — onstart 에서 _done 초기화`,
           !!m && m[0].includes(needle), m ? m[0].slice(0, 110) : 'onstart 를 못 찾음');
+  }
+
+  /* 🤖 문장 조립형 페이지 — 확정 결과 이어붙이기(+=) 대신 겹침 제거 재조립을 쓰는지.
+     (안드로이드 누적형 확정 결과 대응 — ai-friend 는 TEST 1 에서 행위로 검증) */
+  const rebuildTargets = [
+    ['warmup.html', '_mergeSpeech(full, e.results[i][0].transcript)', 'isFinal) finalText+=t'],
+    ['ai-write.html', 'mergeSpeech(full, ev.results[i][0].transcript)', 'txt += ev.results[i][0].transcript'],
+  ];
+  for (const [file, mustHave, mustNot] of rebuildTargets) {
+    const html = readFileSync(join(PUB, file), 'utf8');
+    check(`${file} — 겹침 제거 재조립 사용(이어붙이기 없음)`,
+          html.includes(mustHave) && !html.includes(mustNot),
+          `${mustHave} 포함=${html.includes(mustHave)}, ${mustNot} 잔존=${html.includes(mustNot)}`);
   }
 }
 
