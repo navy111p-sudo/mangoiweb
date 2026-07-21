@@ -21110,6 +21110,8 @@ window.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('mangoi_vc_uid', _lu.name || _lu.uid);
         // 🔐 uid 서명 토큰 — AI 친구 대화 등 uid 기반 개인 데이터 API 인증용
         if (d.token) localStorage.setItem('mango_token', d.token);
+        // 😊 패스키 버튼이 아이디 없이도 이 계정을 찾도록 마지막 아이디 기억
+        localStorage.setItem('mangoi_pk_last_uid', d.user.user_id);
       } catch(e){}
       closeLoginModal();
       showLcToast2('✅ ' + d.user.user_name + '님 환영합니다!');
@@ -21156,13 +21158,22 @@ window.addEventListener('DOMContentLoaded', () => {
     window.__pkBusy = true;
     try {
       var uid = (((document.getElementById('lm-uid')||{}).value)||'').trim();
-      // ① 챌린지 발급 — ID 입력 시 그 계정 패스키만, 비우면 기기에 저장된 패스키로
+      // 아이디를 안 쳤으면 이 기기에서 마지막으로 쓴 계정으로 자동 지정
+      //   (등록된 패스키가 discoverable 이 아니면 allowCredentials 가 있어야만 브라우저가 찾음)
+      if (!uid) { try { uid = localStorage.getItem('mangoi_pk_last_uid') || ''; } catch(e){} }
+      // ① 챌린지 발급 — ID 있으면 그 계정 패스키만, 없으면 기기 저장(discoverable)
       var r = await fetch('/api/passkey/login/options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid }) });
       var d = await r.json();
-      if (!d.ok) { showErr('❌ ' + (d.message || d.error || (L?'패스키 준비 실패':'Passkey unavailable'))); return; }
+      if (!d.ok) {
+        // 그 계정에 패스키가 없거나 준비 실패 → 아이디 입력 유도(조용히 끝나지 않게)
+        showErr('❌ ' + (d.message || d.error || (L?'패스키 준비 실패':'Passkey unavailable')) + (uid ? '' : (L?' 학생 ID를 입력한 뒤 눌러주세요.':' Enter your Student ID first.')));
+        return;
+      }
       var o = d.options;
       var pub = { challenge: pkB2b(o.challenge), rpId: o.rpId, timeout: o.timeout, userVerification: o.userVerification };
       if (o.allowCredentials && o.allowCredentials.length) pub.allowCredentials = o.allowCredentials.map(function(c){ return { type:'public-key', id: pkB2b(c.id), transports: c.transports }; });
+      // 지정할 후보도 없고(비discoverable) 아이디도 없으면 → 조용히 실패하므로 미리 안내
+      else if (!uid) { showErr(L?'💡 학생 ID를 입력한 뒤 눌러주세요.':'💡 Enter your Student ID first.'); return; }
       // ② 기기 생체인증(얼굴/지문) 세리머니 — 이전 pending 요청은 자동 중단
       var cred = await navigator.credentials.get({ publicKey: pub, signal: pkNewAbortSignal() });
       if (!cred) { showErr(L?'❌ 인증이 취소됐어요.':'❌ Cancelled.'); return; }
@@ -21177,7 +21188,7 @@ window.addEventListener('DOMContentLoaded', () => {
       var d2 = await r2.json();
       if (!d2.ok) { showErr('❌ ' + (d2.message || d2.error || (L?'로그인 실패':'Login failed'))); return; }
       pkStoreLogin(d2);
-      try { localStorage.setItem('mangoi_pk_reg_' + d2.user.user_id, '1'); } catch(e){}
+      try { localStorage.setItem('mangoi_pk_reg_' + d2.user.user_id, '1'); localStorage.setItem('mangoi_pk_last_uid', d2.user.user_id); } catch(e){}
       closeLoginModal();
       showLcToast2('✅ ' + d2.user.user_name + (L?'님 환영합니다!':' welcome!'));
       setTimeout(function(){ location.reload(); }, 800);
@@ -21216,7 +21227,7 @@ window.addEventListener('DOMContentLoaded', () => {
     var r2 = await fetch('/api/passkey/register/verify', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify(payload) });
     var d2 = await r2.json();
     if (!d2.ok) throw new Error(d2.message || d2.error || 'verify_failed');
-    try { localStorage.setItem('mangoi_pk_reg_' + uid, '1'); } catch(e){}
+    try { localStorage.setItem('mangoi_pk_reg_' + uid, '1'); localStorage.setItem('mangoi_pk_last_uid', uid); } catch(e){}
     return d2;
   };
 
@@ -26017,7 +26028,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260721214846 -->
+<!-- BUILD:20260721220039 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

@@ -596,7 +596,7 @@ window.pdPkAdd = async function(){
     const r2 = await fetch('/api/passkey/register/verify', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_token||'')}, body: JSON.stringify(payload) });
     const d2 = await r2.json();
     if (!d2.ok) throw new Error(d2.message || d2.error || 'verify_failed');
-    try { localStorage.setItem('mangoi_pk_reg_' + _currentUid, '1'); } catch(e){}
+    try { localStorage.setItem('mangoi_pk_reg_' + _currentUid, '1'); localStorage.setItem('mangoi_pk_last_uid', _currentUid); } catch(e){}
     alert('✅ 패스키 등록 완료! 다음부터 홈 로그인에서 😊 버튼으로 로그인하세요.');
     pdPkLoad();
   } catch(e) {
@@ -827,7 +827,7 @@ function pdRender(d){
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>
-<!-- BUILD:20260721214846 -->
+<!-- BUILD:20260721220039 -->
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 </body>
