@@ -22,6 +22,13 @@ import type { MangoEnv } from './api-mango';
 const CH_TTL_SEC = 300;           // 챌린지 유효 5분
 const MAX_CREDS_PER_USER = 8;     // 계정당 패스키 상한(온가족 기기 고려)
 
+// 안드로이드 "앱"에서 패스키 세리머니를 하면 clientData.origin 이 https 주소가 아니라
+// android:apk-key-hash:<서명인증서 SHA-256 의 base64url> 로 온다 (FIDO2 표준 동작).
+// 우리 앱(kr.co.mangoi.app, mango.jks 서명)의 지문만 허용 — 다른 앱은 거절.
+const ANDROID_APP_ORIGINS = [
+  'android:apk-key-hash:1QIpo1vhGmV0PAazPhrJDBi_wHCWLkb9H2uaofE-7DA',
+];
+
 // ── base64url ──
 function b64uFromBytes(bytes: Uint8Array): string {
   let s = '';
@@ -145,9 +152,12 @@ async function consumeClientData(
   const raw = await env.SESSION_STATE.get(chKey);
   if (!raw) return { ok: false, error: 'challenge_expired' };
   await env.SESSION_STATE.delete(chKey);  // 1회용 — 재사용 공격 차단
-  // origin: API 와 페이지가 동일 오리진 전제. 로컬 개발(localhost)도 허용.
+  // origin: API 와 페이지가 동일 오리진 전제. 로컬 개발(localhost)과
+  // 우리 안드로이드 앱(apk-key-hash — 위 상수)도 허용.
   const org = String(cd.origin || '');
-  if (org !== url.origin && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(org)) {
+  if (org !== url.origin
+      && !ANDROID_APP_ORIGINS.includes(org)
+      && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(org)) {
     return { ok: false, error: 'bad_origin' };
   }
   let chMeta: any = {};
