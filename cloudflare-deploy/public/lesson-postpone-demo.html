@@ -887,9 +887,9 @@ header {
 /* 배경 투명(알파 영상) + 왼쪽 끝 배치 (2026-07-21) */
 .guide-video-wrap{position:fixed;top:58px;left:10px;right:auto;width:35%;max-width:210px;z-index:60;background:transparent}
 .guide-video-wrap.gv-hidden{display:none}
-/* 데스크톱: 화면 왼쪽 끝, 세로 중앙 (2026-07-21) */
+/* 데스크톱: 화면 왼쪽 아래 모서리에 바짝 (2026-07-22 사장님) */
 @media (min-width:1024px){
-  .guide-video-wrap{top:50%;left:10px;right:auto;transform:translateY(-50%);width:min(224px,calc(50vw - 348px));max-width:none}
+  .guide-video-wrap{top:auto;bottom:0;left:0;right:auto;transform:none;width:min(224px,calc(50vw - 348px));max-width:none}
 }
 
 /* 부드러운 스크롤 + 스크롤바 숨김 (가로 날짜·세로 본문) — 모든 화면 공통 */
@@ -1905,7 +1905,7 @@ function attachHandlers(){
   new MutationObserver(syncVis).observe(main,{attributes:true,attributeFilter:['class']});
 })();
 </script>
-<!-- BUILD:20260722003057 -->
+<!-- BUILD:20260722003721 -->
 <script src="/js/i18n-sweep.js?v=2"></script>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
