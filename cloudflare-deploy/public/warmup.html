@@ -755,6 +755,17 @@ function updateTopicChip(){
     var pts = WCTX.weak.slice(0,3).map(function(w){ return '"'+w.text+'"'; }).join(' · ');
     addMsg('🎯 오늘의 연습 포인트: ' + pts + '\n이 표현들이 나오면 자신 있게 말해보세요!', 'sys');
   }
+  // 💪 게임 취약 단어(/api/games/recommend, 룰 기반): 비차단 로드 — 인사를 지연시키지 않고 도착하면 한 줄 안내
+  (function(){
+    var ruid = getLoginId(); if(!ruid) return;
+    fetch((API_BASE||'') + '/api/games/recommend?user_id=' + encodeURIComponent(ruid) + '&lang=en')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(!d || !d.ok || !d.weak || !d.weak.length) return;
+        var ws = d.weak.slice(0,3).map(function(w){ return w.item + (w.ko ? '(' + w.ko + ')' : ''); }).join(' · ');
+        addMsg('💪 게임에서 어려웠던 단어: ' + ws + '\n오늘 대화에서 한 번씩 써보면 금방 익숙해져요!', 'sys');
+      }).catch(function(){});
+  })();
   // 오늘 교재가 확인되면 → AI가 교재 기반 첫 질문으로 시작
   if(WCTX.textbook || WCTX.sentences.length){
     var typing = document.createElement('div');
@@ -948,7 +959,7 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260722064225 -->
+<!-- BUILD:20260722072801 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

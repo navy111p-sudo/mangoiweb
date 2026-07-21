@@ -388,6 +388,8 @@ function showKakaoShareDialog(url) {
     <!-- 🆕 Phase AR — AI 추천 학습 경로 -->
     <div class="card" style="margin-top:16px">
       <h3>🎯 <span data-ko="AI 추천 학습 경로 (이번 주)" data-en="AI Recommended Path (This Week)">AI 추천 학습 경로 (이번 주)</span></h3>
+      <!-- 🎯 주간 학습 진단 요약 — /api/games/recommend (룰 기반·즉시 로드). 데이터 없으면 숨김 -->
+      <div id="pd-weekrec" style="display:none"></div>
       <div id="pd-recommend"><div class="empty">아래 버튼을 눌러 AI 학습 플랜을 받아보세요</div>
         <div style="text-align:center;margin-top:10px"><button onclick="loadRecommendPath()" style="padding:8px 18px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer" data-ko="🤖 AI 추천 받기" data-en="🤖 Get AI Recommendation">🤖 AI 추천 받기</button></div>
       </div>
@@ -512,10 +514,50 @@ async function pdLoad(){
       throw new Error(d.error || 'load_fail');
     }
     pdRender(d);
+    pdWeekRec(); // 🎯 주간 학습 진단 요약(룰 기반·즉시) — AI 버튼과 별개로 자동 로드
     pdPkLoad();  // 😊 패스키 목록도 함께 갱신
   } catch(e) {
     alert('❌ ' + e.message);
   }
+}
+
+/* ═══ 🎯 주간 학습 진단 요약 — /api/games/recommend (룰 기반, AI 무호출)
+   게임·발음 데이터로 즉시 진단: 정답률/발음 + 어려워한 단어 + 가정 학습 제안.
+   데이터가 없으면(status no_data) 조용히 숨김 — AI 추천 버튼 흐름은 그대로. ═══ */
+async function pdWeekRec(){
+  const el = document.getElementById('pd-weekrec');
+  if (!el || !_currentUid) return;
+  try {
+    const r = await fetch('/api/games/recommend?user_id=' + encodeURIComponent(_currentUid) + '&lang=en');
+    const d = await r.json();
+    if (!d.ok || d.status === 'no_data') { el.style.display = 'none'; return; }
+    const isEn = window.getLang && window.getLang() === 'en';
+    const parts = [];
+    if (d.accuracy != null) parts.push((isEn ? 'Game accuracy ' : '게임 정답률 ') + '<b style="color:#fbbf24">' + d.accuracy + '%</b>');
+    if (d.pron != null) parts.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:#fbbf24">' + d.pron + (isEn ? '/100' : '점') + '</b>');
+    const weak = (d.weak || []).slice(0, 5);
+    const chips = weak.map(w => {
+      const t = esc(String(w.item || ''));
+      const ko = esc(String(w.ko || ''));
+      return '<span style="display:inline-block;padding:3px 10px;margin:2px;border-radius:99px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);color:#fde68a;font-size:11.5px;font-weight:700">' + t + (ko && !isEn ? ' ' + ko : '') + '</span>';
+    }).join('');
+    // 가정 안내 문구 — 학부모 눈높이 (자녀에게 시켜볼 수 있는 것)
+    const TIP = {
+      pronunciation: [ '자녀에게 말하기 퀴즈(스피치 코치)로 발음 연습을 권해주세요.', 'Encourage your child to practice pronunciation in the Speaking Quiz.' ],
+      weak_words:    [ '아래 단어들을 게임으로 복습하면 큰 도움이 됩니다.', 'Reviewing the words below in a game will help a lot.' ],
+      advanced:      [ '아주 잘하고 있어요! 더 어려운 게임 도전을 응원해주세요.', 'Doing great! Cheer them on to try harder challenges.' ],
+      keep_going:    [ '꾸준히 잘하고 있어요. 지금 페이스를 응원해주세요!', 'Steady progress! Keep encouraging the current pace.' ]
+    };
+    const tip = TIP[d.focus] || TIP.keep_going;
+    el.innerHTML =
+      '<div style="padding:12px 14px;background:rgba(52,211,153,0.08);border-left:4px solid #34d399;border-radius:8px;margin-bottom:12px">' +
+        '<div style="font-weight:700;color:#6ee7b7;margin-bottom:4px;font-size:12.5px">📊 ' + (isEn ? 'This Week at a Glance (auto)' : '이번 주 학습 한눈에 (자동 진단)') + '</div>' +
+        (parts.length ? '<div style="font-size:12.5px;color:#e6e9f5;line-height:1.7">' + parts.join(' · ') + '</div>' : '') +
+        '<div style="font-size:12px;color:#94e2c5;margin-top:4px">' + (isEn ? tip[1] : tip[0]) + '</div>' +
+        (chips ? '<div style="margin-top:6px">' + chips + '</div>' : '') +
+      '</div>';
+    el.style.display = '';
+  } catch(e) { el.style.display = 'none'; }
 }
 
 // ═══ 😊 패스키(얼굴/지문) 관리 — 목록/삭제/이 기기 등록 ═══
@@ -691,7 +733,8 @@ function pdRender(d){
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       const a = d.analysis || {};
-      const recs = Array.isArray(a.recommendations) ? a.recommendations : [];
+      // 서버는 recommendations 를 ' | ' 연결 문자열로 저장 — 배열/문자열 모두 수용 (기존 버그: 문자열이면 목록이 안 보였음)
+      const recs = Array.isArray(a.recommendations) ? a.recommendations : String(a.recommendations || '').split(' | ').filter(Boolean);
       el.innerHTML = `
         <div style="padding:14px;background:rgba(167,139,250,0.1);border-left:4px solid #a78bfa;border-radius:8px;margin-bottom:10px">
           <div style="font-weight:700;color:#c4b5fd;margin-bottom:4px">📝 AI 진단</div>
@@ -827,7 +870,7 @@ function pdRender(d){
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>
-<!-- BUILD:20260722064225 -->
+<!-- BUILD:20260722072801 -->
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 </body>
