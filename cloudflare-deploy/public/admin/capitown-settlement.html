@@ -855,20 +855,9 @@ function capKind(role,uid){
   if(r==='capitown'||r==='franchise'||u==='capitown'||u.indexOf('capi')===0) return 'capitown';
   return 'hq_exec';
 }
-// 🧹 자가치유(빌드당 1회): 옛 서비스워커·캐시가 옛 코드를 계속 서빙하는 것을 이 페이지가 스스로 제거.
-//   HTML 은 network-first 라 이 새 코드는 도착하므로, 여기서 정리하면 다음 로드부터 항상 최신.
-(function selfHeal(){
-  try{
-    var mark=(document.documentElement.innerHTML.match(/BUILD:(\d+)/)||[])[1]||'0';
-    var key='capitown_selfheal_'+mark;
-    if(localStorage.getItem(key)) return;
-    localStorage.setItem(key,'1');
-    if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations){
-      navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}).catch(function(){});
-    }
-    if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});}).catch(function(){});}
-  }catch(e){}
-})();
+// 🗑️ (2026-07-22) 자가치유(SW unregister + 캐시 전체 삭제) 제거 — 재추가 금지.
+//   sw.js 가 이제 /admin/* 경로를 아예 가로채지 않아(항상 네트워크 최신) 용도가 사라졌고,
+//   실행될 때마다 웹푸시용 SW 등록이 끊기고 학생 측 오프라인 캐시까지 지우는 부작용만 남았었다.
 
 // 인증 판정을 화면에 반영 — authGuard 본문과 워치독이 공유(이중 실행은 __capDecided 로 1회 보장)
 function capDecide(serverOk,serverRole,role,uid,name){

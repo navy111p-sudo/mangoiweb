@@ -73,7 +73,14 @@
     hide();
   }, true);
 
-  ['scroll', 'click', 'touchstart'].forEach(function (ev) {
+  ['click', 'touchstart'].forEach(function (ev) {
     document.addEventListener(ev, hide, true);
   });
+  // 스크롤: 지금 hover 중인 버튼을 실제로 움직이는 스크롤만 숨김
+  // (홈 화면 자동 스크롤 배너 등 무관한 요소의 scroll 이벤트가 계속 튀어 툴팁을 죽이던 문제)
+  document.addEventListener('scroll', function (e) {
+    if (!curEl) return;
+    var s = e.target;
+    if (s === document || s === window || (s && s.contains && s.contains(curEl))) hide();
+  }, true);
 })();

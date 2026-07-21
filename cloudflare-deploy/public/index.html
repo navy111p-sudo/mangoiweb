@@ -13176,21 +13176,42 @@ async function vcLeaveRoom() {
     }
 
     // ⭐ 교사 전용 — 수업 종료 직후 AI 코칭 카드(잘한점/개선점 한·영). 학생에겐 안 뜸.
+    //    (2026-07-22) 관리자/매니저/경영자에겐 억제 — 관리자 임베드(openLiveClass·mypage 수업입장)가
+    //    vc_role=teacher 를 강제하고 이름도 '교사 …'라서 vcIsTeacherRole/이름 휴리스틱으로는 구분 불가.
+    //    쿠키 세션 /api/admin/me 의 role 이 권위: teacher 외(hq·staff·franchise·branch·agency)면 카드 없음.
+    //    세션이 없거나(401)·네트워크 오류면 기존 교사 판정을 그대로 따른다(실교사 카드 보장).
     try {
+        var _fbRole = '';
+        try { _fbRole = (window.vcMyRole || localStorage.getItem('mangoi_user_role') || '') + ''; } catch(_){}
         var _isTeacher = (typeof vcIsTeacherRole === 'function') ? vcIsTeacherRole()
             : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+        if (_fbRole === 'admin') _isTeacher = false;   // 메인사이트 admin 역할도 코칭 대상 아님
         if (_isTeacher && window.MangoTeacherFeedback && vcRoomId) {
             var _recId = (typeof recordingId !== 'undefined' && recordingId) ? recordingId
                 : (vcRecResult && vcRecResult.recording_id) || null;
             var _tUid = '';
             try { var _u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null; if (_u) _tUid = _u.uid || _u.id || ''; } catch(_){}
-            window.MangoTeacherFeedback.show({
+            var _fbOpts = {
                 room_id: vcRoomId,
                 teacher_name: (typeof vcUsername !== 'undefined' ? vcUsername : ''),
                 teacher_uid: _tUid,
                 recording_id: _recId,
                 lang: 'en'
-            });
+            };
+            // 방 정리를 막지 않도록 비동기로 확인 후 표시
+            (async function(){
+                try {
+                    var _mr = await fetch('/api/admin/me', { credentials: 'include' });
+                    if (_mr && _mr.ok) {
+                        var _mj = await _mr.json().catch(function(){ return null; });
+                        if (_mj && _mj.ok && _mj.role && _mj.role !== 'teacher') {
+                            console.log('[teacher-feedback] 관리자 세션(role=' + _mj.role + ') — 코칭 카드 생략');
+                            return;
+                        }
+                    }
+                } catch(_){}
+                window.MangoTeacherFeedback.show(_fbOpts);
+            })();
         }
     } catch (e) { console.warn('[teacher-feedback] hook:', e); }
 
@@ -26043,7 +26064,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260722002822 -->
+<!-- BUILD:20260722003054 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -27166,7 +27187,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-class-time.js?v=8" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
 <script src="/js/mango-topbar-unified.js?v=3" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
-<script src="/js/mango-hover-tip.js?v=1" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
+<script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
 <script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
 <script src="/js/mango-attendance.js?v=33" defer></script>
 <script src="/js/mango-gaze.js?v=33" defer></script>

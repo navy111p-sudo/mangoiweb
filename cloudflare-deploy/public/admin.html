@@ -98,20 +98,11 @@
         });
       })
       .catch(function(){});
-    var _swReloaded = false;
-    navigator.serviceWorker.addEventListener('controllerchange', function(){
-      if (_swReloaded) return;
-      // ⏱️ (2026-07-18) 30초 가드: 배포가 잦을 때 새 SW가 계속 잡혀 controllerchange 로
-      //   2.8MB 페이지를 반복 재로딩(=새로고침이 오래 도는 주원인)하던 것을 방지.
-      //   최근 30초 내 이미 재로딩했으면 이번 전환은 스킵 — 새 SW는 다음 진입/새로고침에 자연 적용됨.
-      try {
-        var _last = +sessionStorage.getItem('__sw_reload_at') || 0;
-        if (Date.now() - _last < 30000) return;
-        sessionStorage.setItem('__sw_reload_at', Date.now().toString());
-      } catch(e){}
-      _swReloaded = true;
-      location.reload();
-    });
+    /* 🗑️ (2026-07-22) controllerchange → location.reload() 제거 — 재추가 금지.
+       관리자 경로는 이제 sw.js fetch 에서 아예 가로채지 않으므로(항상 네트워크 최신),
+       새 SW 로 바뀌어도 화면을 다시 로드할 이유가 없다. 이 reload 가 배포 직후 진입 시
+       페이지 이중 로드(= 로딩 지연 + 옛 화면 잔상 후 깜빡임)의 원인이었다.
+       SW 등록 자체는 관리자 웹푸시(adm-r9) 때문에 유지한다. */
   });
 })();
 </script>
@@ -20199,6 +20190,6 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2"></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1"></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
-<!-- BUILD:20260722002822 -->
+<!-- BUILD:20260722003054 -->
 </body>
 </html>
