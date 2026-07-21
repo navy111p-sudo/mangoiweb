@@ -16909,6 +16909,21 @@ async function pdfLoad(url, kind) {
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
         pdfDoc = await pdfjsLib.getDocument(url).promise;
     }
+    /* 📝 (2026-07-21) 새 교재를 열면 이전 교재의 필기를 비운다 — 교사 피드백
+       원인: pdfAnnotations 는 {페이지번호: 획들} 로만 저장된다. 교재가 '이미지 여러 장'
+             (라이브러리 시퀀스)이면 파일이 바뀌어도 페이지 번호가 똑같이 1 이라
+             이전 장에 그린 필기가 다음 장에 그대로 다시 그려졌다.
+       같은 파일을 다시 여는 경우(재공유·재렌더)는 지우지 않는다. */
+    try {
+        if (window._pdfAnnoDocKey !== url) {
+            window._pdfAnnoDocKey = url;
+            pdfAnnotations = {};
+            ['pdf-anno', 'pdf-anno-2'].forEach(function (id) {
+                var a = document.getElementById(id);
+                if (a) { try { a.getContext('2d').clearRect(0, 0, a.width, a.height); } catch (e) {} }
+            });
+        }
+    } catch (e) {}
     pdfPageNum = 1;
     pdfRender();
 }
@@ -16976,7 +16991,12 @@ async function pdfRender() {
 async function _pdfRenderInner(_seq) {
     if (!pdfDoc) return;
     const wrap = document.getElementById('pdf-scroll-wrap');
-    const page1 = await pdfDoc.getPage(pdfPageNum);
+    /* 📝 (2026-07-21) 렌더 시작 시점의 페이지 번호를 고정한다.
+       연속 클릭 시 pdfRender() 는 코얼레싱으로 즉시 반환(=_pdfRenderSeq 그대로)하지만
+       pdfPageNum 은 이미 바뀌어 있어, 진행 중이던 렌더가 '옛 페이지 그림 + 새 페이지 필기'
+       로 어긋나게 그리던 문제. 아래에서 pdfPageNum 대신 _pg 만 쓴다. */
+    const _pg = pdfPageNum;
+    const page1 = await pdfDoc.getPage(_pg);
     if (_seq !== _pdfRenderSeq) return;   // 더 최신 렌더가 시작됨 → 폐기
     const baseVp = page1.getViewport({ scale: 1 });
     let baseScale;
@@ -17003,13 +17023,13 @@ async function _pdfRenderInner(_seq) {
     await _pdfTask1.promise;
     _pdfTask1 = null;
     if (_seq !== _pdfRenderSeq) return;
-    pdfSyncAnnoCanvas('pdf-anno', canvas1, pdfPageNum);
+    pdfSyncAnnoCanvas('pdf-anno', canvas1, _pg);
 
     // 2번 페이지
     const canvas2 = document.getElementById('pdf-canvas-2');
     const wrap2 = document.getElementById('pdf-page-wrap-2');
-    if (pdfPagesPerView === 2 && pdfPageNum + 1 <= pdfDoc.numPages) {
-        const page2 = await pdfDoc.getPage(pdfPageNum + 1);
+    if (pdfPagesPerView === 2 && _pg + 1 <= pdfDoc.numPages) {
+        const page2 = await pdfDoc.getPage(_pg + 1);
         if (_seq !== _pdfRenderSeq) return;
         const vp2 = page2.getViewport({ scale });
         _pdfFitCanvas(canvas2, vp2.width, vp2.height);
@@ -17018,7 +17038,7 @@ async function _pdfRenderInner(_seq) {
         await _pdfTask2.promise;
         _pdfTask2 = null;
         if (_seq !== _pdfRenderSeq) return;
-        pdfSyncAnnoCanvas('pdf-anno-2', canvas2, pdfPageNum + 1);
+        pdfSyncAnnoCanvas('pdf-anno-2', canvas2, _pg + 1);
     } else {
         wrap2.style.display = 'none';
     }
@@ -25936,7 +25956,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260721201608 -->
+<!-- BUILD:20260721212137 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
