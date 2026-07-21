@@ -369,6 +369,7 @@
     #vocab-src-badge{font-size:13px!important;padding:6px 14px!important;max-width:100%}
   }
 </style>
+<script src="/js/i18n-sweep.js?v=5" defer></script>
 </head>
 <body>
 <div id="app">
@@ -402,6 +403,10 @@
             <button class="lg" data-lang="zh" onclick="setGameLang('zh')">🇨🇳 중국어</button>
           </div>
           <div id="streak-badge-hub"></div>
+          <!-- 🌐 사이트 언어(UI 한국어↔English) — 게임 출제 언어(영어/중국어)와는 별개 -->
+          <button id="site-lang-btn" onclick="toggleSiteLang()" title="사이트 언어 전환 (한국어 ↔ English)"
+            style="background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.14);border-radius:999px;
+            color:#cfe3ff;padding:7px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">🌐 EN</button>
         </div>
         <div class="hub-divider"></div>
         <!-- ③ 게임 속도(난이도) -->
@@ -1311,6 +1316,24 @@ function renderSpeedPicks(){
       + '<span class="seg">' + segs + '</span>';
   });
 }
+/* 🌐 사이트 언어(UI) 한국어↔English 토글 — i18n-sweep.js 가 <html lang> 변화를 감지해 즉시 번역/복원.
+   iframe 게임들은 같은 오리진의 storage 이벤트로 함께 전환된다. (게임 출제 언어 GAME_LANG 과는 별개) */
+function _siteLang(){ try{ return localStorage.getItem('mangoi_lang')==='en' ? 'en' : 'ko'; }catch(_){ return 'ko'; } }
+function _syncSiteLangBtn(){
+  var b = document.getElementById('site-lang-btn'); if(!b) return;
+  b.textContent = _siteLang()==='en' ? '🌐 한국어' : '🌐 EN';
+}
+function toggleSiteLang(){
+  var next = _siteLang()==='en' ? 'ko' : 'en';
+  try{ localStorage.setItem('mangoi_lang', next); }catch(_){}
+  document.documentElement.lang = next;
+  _syncSiteLangBtn();
+}
+document.addEventListener('DOMContentLoaded', function(){
+  document.documentElement.lang = _siteLang();
+  _syncSiteLangBtn();
+});
+
 /* ⋮ 메뉴(속도 드롭다운) 토글 — iframe 게임에서 상단바를 한 줄로 유지하기 위한 것 */
 function hubToggleTopMenu(e){
   if(e) e.stopPropagation();
@@ -2294,7 +2317,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260721150211 -->
+<!-- BUILD:20260721161746 -->
 <script defer src="/js/flow.js?v=6"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
