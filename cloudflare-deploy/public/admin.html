@@ -20207,6 +20207,9 @@ button.chip:hover,
      ⚠️ 정돈 CSS 는 문서 맨 끝(케스케이드 최후순)에 둬야 테마 블록들을 이긴다.
      모바일(≤900px)은 기존 레이아웃 유지 — 데스크톱만 적용. -->
 <style id="hero-compact-260722">
+/* 🚫 "안녕하세요, MANGO-AI" 인사 배너 제거 (2026-07-22 사장님 지시: 글자 과다·심플하게)
+   이미지 배너와 폴백 h1 모두 숨김 — 재추가 금지 */
+.hero-banner-img, .hero .hero-text h1 { display: none !important; }
 @media (min-width: 901px) {
   .hero {
     grid-template-columns: 1fr 280px !important;
@@ -20234,6 +20237,6 @@ button.chip:hover,
   #ai-greeting-bubble { padding: 8px 16px !important; font-size: 14px !important; margin-bottom: 10px !important; }
 }
 </style>
-<!-- BUILD:20260722035242 -->
+<!-- BUILD:20260722040237 -->
 </body>
 </html>
