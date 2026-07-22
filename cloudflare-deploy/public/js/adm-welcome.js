@@ -14,23 +14,36 @@
 
   // ── 슬라이드(핵심 사용법) — 실제 가이드 이미지 + 짧은 설명 ──
   var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  // 🌐 (2026-07-23) 슬라이드 이미지도 언어를 따라간다.
+  //   그동안 겉 문구만 영어로 바뀌고 **그림은 한국어 데크가 그대로** 떴다.
+  //   필리핀 강사·매니저에게는 정작 읽어야 할 안내서 본문이 한국어였다.
+  //   영어 데크(24장)는 이미 만들어져 있다: /guide/admin-easy-en/  (adm-s18.js 상세뷰어가 쓰는 것)
+  //   ko_n / en_n = 같은 내용이 각 데크에서 몇 번째 장인지. 두 데크는 장수·순서가 다르다
+  //   (KO 18장 / EN 24장 — EN 은 목차 2장 + 뒤쪽 A–Z 색인 3장이 더 있다).
+  //   ⚠️ 데크를 다시 만들면 이 번호가 어긋난다. adm-s18.js 의 DECKS.titles 로 대조할 것.
   var SLIDES = [
-    { n: 1,  ko_t: '망고아이 관리자 콘솔',        en_t: 'Mangoi Admin Console',
+    { n: 1,  en_n: 1,  ko_t: '망고아이 관리자 콘솔',        en_t: 'Mangoi Admin Console',
       ko_d: '학원 운영에 필요한 모든 기능이 한 화면에 모여 있어요. 아래 화살표로 넘겨 보세요.',
       en_d: 'Everything you need to run the academy, all in one place. Swipe through with the arrows below.' },
-    { n: 5,  ko_t: '왼쪽 사이드바 = 모든 메뉴',    en_t: 'Left sidebar = every menu',
+    { n: 5,  en_n: 6,  ko_t: '왼쪽 사이드바 = 모든 메뉴',    en_t: 'Left sidebar = every menu',
       ko_d: '왼쪽의 9개 그룹(평가서·알림·강사·통계·회계·학생·교육·자료실·시스템)을 누르면 원하는 기능으로 바로 이동해요.',
       en_d: 'Tap any of the 9 groups on the left (Reports, Alerts, Teachers, Stats, Finance, Students, Content, Library, System) to jump straight to a feature.' },
-    { n: 15, ko_t: '자주 쓰는 기능 3가지',        en_t: 'The 3 you\'ll use most',
+    { n: 15, en_n: 17, ko_t: '자주 쓰는 기능 3가지',        en_t: 'The 3 you\'ll use most',
       ko_d: '① 평가서 작성 · ② 공지/알림 보내기 · ③ 통계·KPI 확인. 이 세 가지만 익혀도 절반은 끝!',
       en_d: '① Write reports · ② Send notices/alerts · ③ Check stats & KPIs. Master these three and you\'re halfway there.' },
-    { n: 16, ko_t: '공지 보내보기',              en_t: 'Send your first notice',
+    { n: 16, en_n: 18, ko_t: '공지 보내보기',              en_t: 'Send your first notice',
       ko_d: '"알림 센터"에서 학부모·강사에게 공지와 카카오 알림톡을 몇 번의 클릭으로 보낼 수 있어요.',
       en_d: 'In "Alert Center" you can send notices and KakaoTalk alerts to parents and teachers in just a few clicks.' },
-    { n: 17, ko_t: '도움이 필요하면 ❓ 버튼',      en_t: 'Need help? The ❓ button',
+    { n: 17, en_n: 20, ko_t: '도움이 필요하면 ❓ 버튼',      en_t: 'Need help? The ❓ button',
       ko_d: '헷갈릴 땐 왼쪽 위 파란 "❓ 사용 방법" 버튼을 누르세요. 그림으로 된 18단계 안내가 언제든 다시 열려요.',
-      en_d: 'Stuck? Tap the blue "❓ How to use" button at the top-left. The 18-step picture guide is always one click away.' }
+      en_d: 'Stuck? Tap the blue "❓ How to use" button at the top-left. The 24-page picture guide is always one click away.' }
   ];
+
+  // 지금 언어에 맞는 슬라이드 이미지 경로. 영어 데크에 해당 장이 없으면 한국어로 폴백(빈 화면 방지).
+  function slideSrc(s) {
+    if (L() === 'en' && s.en_n) return '/guide/admin-easy-en/' + pad(s.en_n) + '.jpg';
+    return '/guide/admin-easy/' + pad(s.n) + '.jpg';
+  }
 
   var idx = 0, root = null, built = false;
 
@@ -131,7 +144,7 @@
     });
 
     // 이미지 미리 로딩
-    SLIDES.forEach(function (s) { var im = new Image(); im.src = '/guide/admin-easy/' + pad(s.n) + '.jpg'; });
+    SLIDES.forEach(function (s) { var im = new Image(); im.src = slideSrc(s); });
 
     root.querySelector('#aw-prev').addEventListener('click', function () { go(-1); });
     root.querySelector('#aw-next').addEventListener('click', function () { go(1); });
@@ -165,7 +178,7 @@
     if (!root) return;
     var s = SLIDES[idx], en = (L() === 'en');
     var img = root.querySelector('#aw-img');
-    var next = '/guide/admin-easy/' + pad(s.n) + '.jpg';
+    var next = slideSrc(s);
     if (img.getAttribute('src') !== next) {
       img.style.opacity = '0';
       var tmp = new Image();

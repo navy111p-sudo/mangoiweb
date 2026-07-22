@@ -1104,8 +1104,8 @@
     pointer-events: none; z-index: 60;
   }
   #menu-mic-tip.show { opacity: 1; transform: translateY(0) scale(1); }
-  #menu-mic-tip .hot { color: #ff6b6b; font-weight: 800; }
-  #menu-mic-tip b { color: #ffd24a; }
+  #menu-mic-tip .hot { color: #b91c1c; font-weight: 800; }
+  #menu-mic-tip b { color: #b45309; }
   #menu-mic-tip::after {
     content: ""; position: absolute; right: 30px; bottom: -9px;
     border: 9px solid transparent; border-top-color: #1e293b; border-bottom: 0;
@@ -2406,8 +2406,8 @@
         box-shadow:0 3px 10px rgba(0,0,0,0.3); opacity:0; pointer-events:none;
         transition:opacity .2s ease, transform .2s ease; }
       #mi-speed-dial.is-open .mi-sd-chip{ opacity:1; transform:translateY(-50%) translateX(0); }
-      .mi-sd-kakao .mi-sd-chip{ color:#FEE500; }
-      .mi-sd-ai .mi-sd-chip{ color:#ffcc00; border:1px solid rgba(255,204,0,0.5); }
+      .mi-sd-kakao .mi-sd-chip{ color:#806400; }
+      .mi-sd-ai .mi-sd-chip{ color:#b45309; border:1px solid rgba(180,83,9,0.45); }
 
       /* 메인 트리거 = 상담원 아바타 */
       #mi-ops-fab{ position:relative; width:64px; height:64px; cursor:pointer; }
@@ -11572,7 +11572,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script src="/js/adm-core.js?v=11" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
-<script src="/js/adm-light-surfaces.js?v=2" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
+<script src="/js/adm-light-surfaces.js?v=3" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
 </div>
@@ -19744,7 +19744,7 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc { color: #44403c !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc:hover { background: rgba(245,158,11,0.18) !important; color: #7c2d12 !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num { background: rgba(217,119,6,0.22) !important; color: #92400e !important; }
-  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #d97706 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #b45309 !important; }
 
   /* ═══════════════════════════════════════════════════════════════
      🎨 (2026-07-22) 사이드바 자식·손자 메뉴 아이콘 정돈 — mi-menu-icons
@@ -20405,7 +20405,7 @@ button.chip:hover,
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=2" defer></script><!-- 분할추출:adm-s18 -->
-<script src="/js/adm-welcome.js?v=1" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-welcome.js?v=2" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
@@ -20643,7 +20643,7 @@ button.chip:hover,
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc:hover { background: rgba(234,88,12,0.12) !important; color: #9a3412 !important; }
   /* 손자 번호 294개 — #98a2b3 은 밝은 패널에서 대비 2.0 이라 안 읽힌다. 조용하되 읽히는 회색으로. */
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc .ph125-num { background: transparent !important; color: #667085 !important; }
-  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #ea580c !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #b45309 !important; }
 
   /* 5) 카드 — 흰 카드 + 좌측 3px 망고 라인 (원색 파랑 바를 대신한다) */
   html[data-admin-theme="ivory"][data-admin-tone="slate"] .card,
@@ -20743,8 +20743,8 @@ button.chip:hover,
         여기서도 ID 를 포함해야 이긴다(클래스만 쓰면 밀린다). */
   html[data-admin-theme="ivory"] #ph115-user { background: rgba(15,23,42,0.05) !important; border-color: rgba(15,23,42,0.12) !important; }
   html[data-admin-theme="ivory"] #ph115-user .ph115-name { color: #101828 !important; }
-  html[data-admin-theme="ivory"] #ph115-user .ph115-role { color: #667085 !important; }
-  html[data-admin-theme="ivory"] #ph115-user .ph115-avatar { background: #ea580c !important; color: #ffffff !important; }
+  html[data-admin-theme="ivory"] #ph115-user .ph115-role { color: #475467 !important; }
+  html[data-admin-theme="ivory"] #ph115-user .ph115-avatar { background: #b45309 !important; color: #ffffff !important; }
   /* 사이드바 상단 유틸 버튼 — 다크용 파스텔 글자(#86efac·#fda4af)는 밝은 면에서 흐리다 */
   html[data-admin-theme="ivory"] #ph86-actions .ph86-action-btn.expand {
     color: #15803d !important; background: rgba(34,197,94,0.12) !important; border-color: rgba(34,197,94,0.35) !important;
