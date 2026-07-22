@@ -125,10 +125,14 @@ function toggleAdminLang() {
   adminLang = (adminLang === 'ko') ? 'en' : 'ko';
   currentLang = adminLang;
   try { window.currentLang = currentLang; } catch{}
-  // 🌐 사용자가 직접 고른 언어는 저장 — 다음 로그인·새로고침에도 유지되고 자동판정보다 우선
+  // 🌐 사용자가 직접 고른 언어는 저장 — 새로고침에도 유지되고 자동판정보다 우선.
+  //   ⚠️ 단 **그 계정에 한해서만**(mangoi_lang_uid). 이게 없으면 예전에 아무 계정으로든 한 번
+  //   누른 값이 해외 스태프 계정까지 영구히 덮어쓴다. (2026-07-23)
   try {
     localStorage.setItem('mangoi_lang', adminLang);
     localStorage.setItem('mangoi_lang_by', 'user');
+    var _s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
+    localStorage.setItem('mangoi_lang_uid', String(_s.uid || ''));
   } catch(e){}
   applyAdminLangDom();
   // Re-render dynamic content

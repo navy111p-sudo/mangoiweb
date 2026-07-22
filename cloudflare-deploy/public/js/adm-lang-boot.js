@@ -45,12 +45,21 @@
   var by = get('mangoi_lang_by');
   var L;
 
-  if (by === 'user' && (saved === 'en' || saved === 'ko')) {
-    L = saved;                                     // ① 사용자가 직접 고른 값
+  // ⚠️ "사용자가 직접 고름"은 **그 계정에 한해서만** 유효하다.
+  //   `mangoi_lang_uid` 는 그 선택을 한 계정. 지금 로그인한 계정이 다르면 남의 선택이므로 무시한다.
+  //   (login.html 은 처음부터 이 규칙이었는데 여기서 빠뜨렸다 → 예전에 아무 계정으로든 EN/KO 를
+  //    한 번 누른 브라우저에서는 그 값이 Maimai 같은 해외 계정까지 영구히 덮어썼다. 2026-07-23)
+  //   uid 기록이 아예 없는 옛 브라우저도 '남의 선택'으로 본다 — 누가 골랐는지 알 수 없기 때문.
+  var byUid = get('mangoi_lang_uid');
+  var userPick = (by === 'user') && (!loggedIn || (byUid && byUid === sess.uid));
+
+  if (userPick && (saved === 'en' || saved === 'ko')) {
+    L = saved;                                     // ① 이 계정에서 사용자가 직접 고른 값
   } else if (sess.pref_lang === 'en' || sess.pref_lang === 'ko') {
     L = sess.pref_lang;                            // ② 서버가 계정에 정해 준 값
     if (saved !== L) set('mangoi_lang', L);
     set('mangoi_lang_by', 'auto');
+    set('mangoi_lang_uid', String(sess.uid || ''));
   } else if (loggedIn) {
     var nm = String(sess.name || '');
     var isTeacher = /teacher/i.test(String(sess.role || ''));
@@ -59,6 +68,7 @@
     else L = 'ko';                                       // ⑤
     if (saved !== L) set('mangoi_lang', L);
     set('mangoi_lang_by', 'auto');
+    set('mangoi_lang_uid', String(sess.uid || ''));
   } else {
     // 로그인 전 — 저장값이 있으면 그대로 쓰되, 아무것도 새로 저장하지 않는다.
     L = (saved === 'en') ? 'en' : 'ko';
@@ -104,6 +114,7 @@
         var next = (document.documentElement.lang === 'en') ? 'ko' : 'en';
         set('mangoi_lang', next);
         set('mangoi_lang_by', 'user');          // 사람이 고른 선택 = 자동판정보다 우선
+        set('mangoi_lang_uid', String(sess.uid || ''));   // 단, 이 계정에 한해서만
         location.reload();                      // 사전 복원까지 확실하게 — 화면이 섞이지 않는다
       };
       document.body.appendChild(b);

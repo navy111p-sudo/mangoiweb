@@ -159,7 +159,14 @@
     if (LANG_CYCLE.indexOf(l) < 0) return;
     currentLang = l;
     try { localStorage.setItem('mangoi_lang', l); } catch(e){}
-    if (by === 'user') { try { localStorage.setItem('mangoi_lang_by', 'user'); } catch(e){} }
+    // ⚠️ '직접 고름'은 그 계정에 한해서만 유효하다 — 같이 계정 uid 를 남긴다(adm-lang-boot 가 대조)
+    if (by === 'user') {
+      try {
+        localStorage.setItem('mangoi_lang_by', 'user');
+        var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
+        localStorage.setItem('mangoi_lang_uid', String(s.uid || ''));
+      } catch(e){}
+    }
     applyI18n();
     window.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail: { lang: l } }));
   };
