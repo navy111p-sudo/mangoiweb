@@ -1733,6 +1733,22 @@ const worker = {
       //     따라서 최신 버전 보장은 이전과 완전히 동일하다.
       if (path.match(/\.(html|js|css)$/)) {
         const assetHeaders = new Headers(assetResp.headers);
+        // 🚀 (2026-07-22) 버전이 박힌 js/css 는 '영구 캐시'로 — 필리핀 저속·고지연 회선 대책.
+        //   문제: admin.html 은 js 파일을 80개 부른다. no-cache 는 '캐시 금지'가 아니라
+        //   '쓰기 전 반드시 재검증'이라, 안 바뀐 파일도 매 접속마다 80번 왕복 확인을 한다.
+        //   본문은 304(0바이트)라 용량은 작지만, 왕복 지연이 큰 회선에서는 이 80번이
+        //   로그인 체감 시간의 대부분을 차지한다(측정: JS 실행은 79개 합쳐 101ms 뿐).
+        //   해결: URL 에 ?v= 가 붙은 요청은 내용이 바뀌면 URL 도 바뀌므로 재검증이 불필요하다.
+        //        → immutable 로 주면 두 번째 로그인부터 js 요청이 0건이 된다.
+        //   ⚠️ 전제: js/css 를 고치면 admin.html 의 ?v= 를 반드시 올려야 한다.
+        //      안 올리면 사용자에게 1년간 옛 파일이 남는다. 이 규칙은
+        //      test-harness/asset_version_harness.mjs 가 배포 게이트에서 강제한다.
+        //   버전이 없는 요청은 종전대로 no-cache(매번 재검증) — 안전한 기본값.
+        const _versioned = /\.(js|css)$/.test(path) && /(^|&)v=/.test(url.search.replace(/^\?/, ''));
+        if (_versioned) {
+          assetHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
+          return new Response(assetResp.body, { status: assetResp.status, headers: assetHeaders });
+        }
         assetHeaders.set('Cache-Control', 'no-cache');
         const notMod = htmlEtag304(request, path, env, assetHeaders);
         if (notMod) return notMod;
