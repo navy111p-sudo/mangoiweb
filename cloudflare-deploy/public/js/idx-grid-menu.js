@@ -50,25 +50,24 @@
     modalBox.scrollTop = 0;
     // 🎥 AI 상담원 원형 영상(#mango-promo-video)은 z-index 100050 이라 모달(9998) 위로 뜬다.
     //    데스크탑은 화면이 넓어 안 겹치지만, 모바일(375px)에서는 모달 우상단(카드 제목)을 가린다.
-    //    index.html 은 공동 금지구역이라 건드리지 않고, 모달이 열려 있는 동안만 여기서 숨긴다.
-    try {
-      var _promo = document.getElementById('mango-promo-video');
-      if (_promo && _promo.style.display !== 'none') {
-        _promo.dataset.mgPrevDisplay = _promo.style.display || '';
-        _promo.style.display = 'none';
-      }
-    } catch(e){}
+    //    ⚠️ 이 영상은 타이머로 "나중에" 등장하므로, 여는 시점에 display 만 꺼두면 뒤늦게 다시 뜬다.
+    //       → body 클래스 + CSS(!important) 로 "모달이 열려 있는 동안" 계속 눌러둔다.
+    //    index.html 은 공동 금지구역이라 건드리지 않고 여기서만 처리한다.
+    try { document.body.classList.add('mg-modal-open'); } catch(e){}
   }
+  // 모달 열림 동안 상담원 영상을 억제하는 CSS (한 번만 주입)
+  try {
+    if (!document.getElementById('mg-modal-open-style')) {
+      var _st = document.createElement('style');
+      _st.id = 'mg-modal-open-style';
+      _st.textContent = 'body.mg-modal-open #mango-promo-video{display:none!important}';
+      document.head.appendChild(_st);
+    }
+  } catch(e){}
   window.closeInfoModal = function(){
     modal.style.display = 'none';
-    // 🎥 모달 때문에 숨겼던 AI 상담원 영상 원상복구 (showModal 참조)
-    try {
-      var _promo = document.getElementById('mango-promo-video');
-      if (_promo && _promo.dataset.mgPrevDisplay !== undefined) {
-        _promo.style.display = _promo.dataset.mgPrevDisplay;
-        delete _promo.dataset.mgPrevDisplay;
-      }
-    } catch(e){}
+    // 🎥 모달 때문에 눌러뒀던 AI 상담원 영상 원상복구 (showModal 참조)
+    try { document.body.classList.remove('mg-modal-open'); } catch(e){}
     // 모달 닫을 때 음성 재생 중이면 중지 (TTS + mp3 둘 다)
     try { if (window.speechSynthesis && window.speechSynthesis.speaking) window.speechSynthesis.cancel(); } catch{}
     try { if (_franchiseAudio && !_franchiseAudio.paused) { _franchiseAudio.pause(); _franchiseAudio.currentTime = 0; } } catch{}
