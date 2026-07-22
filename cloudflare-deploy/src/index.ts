@@ -297,6 +297,47 @@ const worker = {
       return handleHealth();
     }
 
+    // 🎬 인트로 영상 — R2에서 Range(206) 지원 스트리밍 (2026-07-22)
+    //   왜 R2? Workers Assets(env.ASSETS)는 이 mp4에 HTTP Range 요청을 무시하고
+    //   200 + 전체 파일을 내려준다. 모바일(특히 iOS 사파리)은 <video> 재생을 206
+    //   구간 요청으로 시작하려 하는데, 200만 받으면 첫 프레임 전에 큰 덩어리를
+    //   통째로 버퍼링해야 해 '재생 시작 시 렉'이 생긴다. R2 프록시는 206을 지원.
+    //   키: media/intro-v2.mp4 (재인코딩 4.1MB, faststart). 없으면 정적자산 폴백.
+    if (path === '/media/intro.mp4' && request.method === 'GET') {
+      try {
+        const range = request.headers.get('Range');
+        const opts: R2GetOptions = {};
+        let start = 0, end: number | undefined;
+        if (range) {
+          const m = /bytes=(\d+)-(\d*)/.exec(range);
+          if (m) {
+            start = parseInt(m[1], 10);
+            end = m[2] ? parseInt(m[2], 10) : undefined;
+            opts.range = end !== undefined ? { offset: start, length: end - start + 1 } : { offset: start };
+          }
+        }
+        const obj = await env.RECORDINGS.get('media/intro-v2.mp4', opts);
+        if (obj) {
+          const h = new Headers();
+          h.set('Content-Type', 'video/mp4');
+          h.set('Accept-Ranges', 'bytes');
+          h.set('Cache-Control', 'public, max-age=604800, immutable');
+          if ((obj as any).range && (obj as any).range.length !== undefined) {
+            const off = (obj as any).range.offset || 0;
+            const len = (obj as any).range.length;
+            h.set('Content-Range', `bytes ${off}-${off + len - 1}/${obj.size}`);
+            h.set('Content-Length', String(len));
+            return new Response(obj.body, { status: 206, headers: h });
+          }
+          h.set('Content-Length', String(obj.size));
+          return new Response(obj.body, { status: 200, headers: h });
+        }
+      } catch (e) { /* R2 미존재/오류 → 아래 정적자산 폴백 */ }
+      // 폴백: 기존 정적 파일
+      const fb = new Request(new URL('/intro.mp4', request.url).toString(), request);
+      return env.ASSETS.fetch(fb);
+    }
+
     // 🔥 학습 불꽃(스픽식 연속학습) — Cloudflare 네이티브 (KV: SESSION_STATE)
     //   ⚠️ 기존 '출석 스트릭'(/api/streak/status·check-in·leaderboard, api-mango.ts)과는
     //      별개 개념. 여기서는 게임/퀴즈 완료 기반의 '학습 불꽃'만 처리한다.

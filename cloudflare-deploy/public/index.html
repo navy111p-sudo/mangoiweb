@@ -4820,7 +4820,10 @@
       height: 100vh !important;
       height: 100dvh !important;
       transform-origin: center center;
-      animation: introZoomOrbit 18s ease-in-out infinite;
+      /* ⚡ (2026-07-22) 시작 렉 완화: 재생 중인 영상을 매 프레임 확대하는 건 약한 폰에서
+         가장 무거운 작업 중 하나 → 재생·페이지 JS가 바쁜 초반 3초는 확대 없이 scale(1.0)로
+         두고, 그 뒤부터 부드럽게 시작한다(0% 키프레임이 scale 1.0이라 시각적 손해 없음). */
+      animation: introZoomOrbit 18s ease-in-out 3s infinite;
       will-change: transform;
       background: transparent !important;
     }
@@ -4846,7 +4849,7 @@
 <div id="mango-intro-overlay" role="dialog" aria-label="인트로 영상" hidden>
   <!-- muted 속성: 모든 브라우저에서 autoplay 허용. JS 가 직후에 unmute 시도. -->
   <video id="mango-intro-video" muted playsinline preload="auto" autoplay>
-    <source src="/intro.mp4?v=20260705b" type="video/mp4"><!-- ?v 갱신: 인사말 제거·감속 새 영상 강제 로드(캐시 무효화) -->
+    <source src="/media/intro.mp4?v=20260722" type="video/mp4"><!-- R2 Range(206) 스트리밍 라우트 — 모바일 시작 렉 해결. 재인코딩 11MB→4.1MB faststart. 폴백=/intro.mp4 -->
   </video>
   <button id="mango-intro-mute" type="button" aria-label="음소거 켜기/끄기" aria-pressed="true">🔇</button>
   <button id="mango-intro-skip" type="button" aria-label="인트로 건너뛰기">건너뛰기 ›</button>
@@ -26145,7 +26148,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260722143732 -->
+<!-- BUILD:20260722145740 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
