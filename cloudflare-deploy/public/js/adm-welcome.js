@@ -10,7 +10,27 @@
   var HIDE_KEY = 'mangoi_admin_welcome_v1_hide';   // 영구 숨김(다시 보지 않기)
   var SEEN_KEY = 'mangoi_admin_welcome_v1_seen';    // 세션당 1회 (세션스토리지)
 
-  function L() { try { return (window.getLang && window.getLang() === 'en') ? 'en' : 'ko'; } catch (e) { return 'ko'; } }
+  // 🌐 언어 판정 — getLang 하나만 믿지 않는다.
+  //   adm-core.js 가 window.getLang 을 정의하지만 defer 라 순서가 밀릴 수 있고,
+  //   그때 'ko' 로 굳으면 영문 계정 화면에 한국어 모달이 뜬다(실제로 그랬다).
+  //   adm-lang-boot 이 head 에서 미리 넣는 값들까지 순서대로 본다.
+  //   ⚠️ '어느 하나라도 en 이면 en' 으로 짜면 안 된다. 그러면 최신 값이 ko 여도
+  //      뒤쪽의 낡은 값(예: 아직 안 바뀐 <html lang="en">) 때문에 영어로 굳는다.
+  //      우선순위대로 보되, 확정된 답(ko/en)을 주는 첫 소스가 이긴다.
+  function ok(v) { return (v === 'en' || v === 'ko') ? v : null; }
+  function L() {
+    var v;
+    try { if (window.getLang) { v = ok(window.getLang()); if (v) return v; } } catch (e) {}
+    try { v = ok(window.adminLang);                       if (v) return v; } catch (e) {}
+    try { v = ok(document.documentElement.lang);           if (v) return v; } catch (e) {}
+    try { v = ok(localStorage.getItem('mangoi_lang'));     if (v) return v; } catch (e) {}
+    try { v = ok(window.__ADM_BOOT_LANG);                  if (v) return v; } catch (e) {}
+    return 'ko';
+  }
+
+  // 🖼 슬라이드 이미지는 '그림 안에 한국어가 박힌' 캡처다. 코드로 번역할 수 없으므로
+  //    영어일 때는 영어판 덱을 쓴다. (전체 가이드 뷰어 adm-s18.js 도 같은 규칙)
+  function DIR() { return L() === 'en' ? '/guide/admin-easy-en/' : '/guide/admin-easy/'; }
 
   // ── 슬라이드(핵심 사용법) — 실제 가이드 이미지 + 짧은 설명 ──
   var pad = function (n) { return (n < 10 ? '0' : '') + n; };
@@ -91,21 +111,22 @@
     root.id = 'aw-overlay';
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
-    root.setAttribute('aria-label', '관리자 페이지 환영 안내');
+    root.setAttribute('data-ko-aria', '관리자 페이지 환영 안내');
+    root.setAttribute('data-en-aria', 'Admin page welcome guide');
     root.innerHTML = [
       '<div id="aw-card">',
       '  <div id="aw-top">',
       '    <button id="aw-detail" type="button"><span>📖</span><span data-ko="자세히 보기" data-en="See full guide">자세히 보기</span> <span aria-hidden="true">↗</span></button>',
-      '    <button id="aw-x" type="button" aria-label="닫기">✕</button>',
+      '    <button id="aw-x" type="button" data-ko-aria="닫기" data-en-aria="Close">✕</button>',
       '  </div>',
       '  <div id="aw-hero">',
       '    <div id="aw-hello" data-ko="환영합니다! 👋" data-en="Welcome! 👋">환영합니다! 👋</div>',
       '    <div id="aw-sub" data-ko="망고아이 관리자 콘솔 사용법을 30초 만에 알려드릴게요." data-en="Here\'s how the Mangoi Admin Console works — in 30 seconds.">망고아이 관리자 콘솔 사용법을 30초 만에 알려드릴게요.</div>',
       '  </div>',
       '  <div id="aw-stage">',
-      '    <button class="aw-nav" id="aw-prev" type="button" aria-label="이전">‹</button>',
-      '    <img id="aw-img" src="" alt="사용법 미리보기" draggable="false">',
-      '    <button class="aw-nav" id="aw-next" type="button" aria-label="다음">›</button>',
+      '    <button class="aw-nav" id="aw-prev" type="button" data-ko-aria="이전" data-en-aria="Previous">‹</button>',
+      '    <img id="aw-img" src="" data-ko-alt="사용법 미리보기" data-en-alt="Guide preview" draggable="false">',
+      '    <button class="aw-nav" id="aw-next" type="button" data-ko-aria="다음" data-en-aria="Next">›</button>',
       '  </div>',
       '  <div id="aw-caption">',
       '    <div id="aw-ctitle"></div>',
@@ -131,7 +152,7 @@
     });
 
     // 이미지 미리 로딩
-    SLIDES.forEach(function (s) { var im = new Image(); im.src = '/guide/admin-easy/' + pad(s.n) + '.jpg'; });
+    SLIDES.forEach(function (s) { var im = new Image(); im.src = DIR() + pad(s.n) + '.jpg'; });
 
     root.querySelector('#aw-prev').addEventListener('click', function () { go(-1); });
     root.querySelector('#aw-next').addEventListener('click', function () { go(1); });
@@ -157,15 +178,40 @@
     stage.addEventListener('touchmove', function (e) { var t = e.touches[0]; if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) mv = true; }, { passive: true });
     stage.addEventListener('touchend', function (e) { var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; if (mv && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1); }, { passive: true });
 
-    // 언어 변경 시 캡션 다시 그림
-    document.addEventListener('mangoi:lang-changed', function () { paint(); });
+    // 언어 변경 시 — 캡션뿐 아니라 버튼·라벨·슬라이드 이미지(한/영 덱)까지 전부 다시 반영
+    document.addEventListener('mangoi:lang-changed', function () { applyLangTexts(); paint(); });
+  }
+
+  // 🌐 모달 안의 모든 언어 의존 텍스트를 한 번에 반영한다.
+  //   ⚠️ 예전에는 open() 에서 '영어로 바꾸는' 코드만 있고 '한국어로 되돌리는' 코드가 없었다.
+  //      그래서 영어로 한 번 열면 언어를 한국어로 바꿔도 영어 문구가 그대로 남았다.
+  //      여기서 양방향을 모두 처리한다.
+  function applyLangTexts() {
+    if (!root) return;
+    var en = (L() === 'en');
+    var pick = function (el, a) { var v = el.getAttribute(en ? ('data-en' + a) : ('data-ko' + a)); return v; };
+
+    root.querySelectorAll('[data-ko],[data-en]').forEach(function (el) {
+      var t = pick(el, '');
+      if (t != null) el.textContent = t;
+    });
+    root.querySelectorAll('[data-ko-aria],[data-en-aria]').forEach(function (el) {
+      var t = pick(el, '-aria');
+      if (t != null) el.setAttribute('aria-label', t);
+    });
+    root.querySelectorAll('[data-ko-alt],[data-en-alt]').forEach(function (el) {
+      var t = pick(el, '-alt');
+      if (t != null) el.setAttribute('alt', t);
+    });
+    var ra = root.getAttribute(en ? 'data-en-aria' : 'data-ko-aria');
+    if (ra) root.setAttribute('aria-label', ra);
   }
 
   function paint() {
     if (!root) return;
     var s = SLIDES[idx], en = (L() === 'en');
     var img = root.querySelector('#aw-img');
-    var next = '/guide/admin-easy/' + pad(s.n) + '.jpg';
+    var next = DIR() + pad(s.n) + '.jpg';
     if (img.getAttribute('src') !== next) {
       img.style.opacity = '0';
       var tmp = new Image();
@@ -186,11 +232,8 @@
     build();
     root.classList.add('aw-on');
     document.documentElement.style.overflow = 'hidden';
+    applyLangTexts();   // i18n-sweep 실행 여부와 무관하게 직접 반영
     set(0);
-    // 초기 언어에 맞춰 data-ko/en 텍스트 반영 (applyLang 미실행 상태 대비)
-    if (L() === 'en') {
-      root.querySelectorAll('[data-en]').forEach(function (el) { var t = el.getAttribute('data-en'); if (t != null) el.textContent = t; });
-    }
     try { var cb = root.querySelector('#aw-again-cb'); if (cb) cb.checked = false; } catch (e) {}
   }
   function close() {
