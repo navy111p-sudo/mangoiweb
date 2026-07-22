@@ -1006,6 +1006,7 @@
       <button class="tab active" data-tab="profile" data-ko="👤 프로필" data-en="👤 Profile">👤 프로필</button>
       <button class="tab" id="tab-myratings" data-tab="myratings" data-ko="⭐ 내 평가" data-en="⭐ My Ratings" style="display:none">⭐ 내 평가</button>
       <button class="tab" id="tab-leveltest-apps" data-tab="leveltest-apps" data-ko="🎯 레벨테스트 신청" data-en="🎯 Level Test Applicants" style="display:none">🎯 레벨테스트 신청</button>
+      <button class="tab" id="tab-lesson-insight" data-tab="lesson-insight" data-ko="🎥 수업 리포트" data-en="🎥 Lesson Reports" style="display:none">🎥 수업 리포트</button>
       <button class="tab" data-tab="lessons" data-ko="📚 내 수업" data-en="📚 My Classes">📚 내 수업</button>
       <!-- (💰 급여 탭 제거 2026-07-10 — 원화 정규직 '데모' 화면이라 필리핀 강사 수업료 모델과 달라 혼란만 줌.
            실데이터 정산은 아래 🧾 수업료 정산 탭이 담당) -->
@@ -1075,6 +1076,17 @@
         <button onclick="loadLeveltestAppsTeacher()" style="padding:5px 12px;font-size:12.5px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Refresh">↻ 새로고침</button>
       </div>
       <div id="lt-apps-teacher-body"><div style="padding:30px;text-align:center;color:var(--text-muted)" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
+    </section>
+
+    <!-- ───── 🎥 수업 리포트 (수업 종료 후 AI 자동 생성 · 강사 본인 담당분만) ───── -->
+    <section class="panel" data-panel="lesson-insight">
+      <div class="info-box" style="background:linear-gradient(135deg,rgba(167,139,250,0.14),rgba(99,102,241,0.06));border:1px solid rgba(139,92,246,0.4);color:#ddd6fe;font-size:14.5px;line-height:1.6">
+        🎥 <b data-ko="수업이 끝나면 자동으로 만들어지는 리포트" data-en="Reports built automatically after each class">수업이 끝나면 자동으로 만들어지는 리포트</b><span data-ko=" — 학생이 화면을 보고 있었는지(집중), 얼마나 말했는지(발화), 그날 쓴 영어를 모아 보여드려요. 표정이나 기분은 보지 않습니다. 평가서 쓰실 때 참고하세요." data-en=" — Whether the student was looking at the screen (focus), how much they spoke (talk time), and the English they produced. Facial expression is never analyzed. Use it as a reference when writing evaluations."> — 학생이 화면을 보고 있었는지(집중), 얼마나 말했는지(발화), 그날 쓴 영어를 모아 보여드려요. 표정이나 기분은 보지 않습니다. 평가서 쓰실 때 참고하세요.</span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button onclick="loadLessonInsightTeacher()" style="padding:5px 12px;font-size:12.5px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Refresh">↻ 새로고침</button>
+      </div>
+      <div id="li-teacher-body"><div style="padding:30px;text-align:center;color:var(--text-muted)" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
     </section>
 
     <!-- ───── 내 수업 (ph210) ───── -->
@@ -2161,6 +2173,100 @@
       .catch(function(){ alert(en ? 'Network error.' : '네트워크 오류예요.'); });
   };
 
+  // ───── 🎥 수업 리포트 (강사 본인 담당분) ─────────────────────────────
+  //   서버는 teacher_name 으로 필터한다. 그런데 attendance 의 교사 표기와 마이페이지 이름이
+  //   서로 다르게 쌓여 있을 수 있어(과거 class_ratings 에서 실제로 겪음), 이름으로 0건이면
+  //   전체를 받아 이름 부분일치로 한 번 더 걸러본다. 그래도 0건이면 "안내"를 띄운다.
+  window.loadLessonInsightTeacher = function(){
+    var body = document.getElementById('li-teacher-body');
+    if (!body) return;
+    var en = EN();
+    var nm = window.__myName || '';
+    body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'Loading…':'불러오는 중…')+'</div>';
+
+    var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+    var norm = function(s){ return String(s||'').toLowerCase().replace(/\s|teacher|선생님|쌤/g,''); };
+
+    var getJson = function(url){ return fetch(url, { credentials:'include', cache:'no-store' }).then(function(r){ return r.json(); }); };
+
+    // ① 서버에서 내 이름으로 걸러 받는다(정상 경로 — 남의 학생 데이터를 받지 않는다)
+    getJson('/api/admin/lesson-insights?limit=100' + (nm ? ('&teacher_name=' + encodeURIComponent(nm)) : ''))
+      .then(function(d){
+        var mine = (d && d.items) || [];
+        if (mine.length || !nm) { render(mine, 0); return; }
+        // ② 0건이면 "이름 표기 불일치"일 수 있으니 전체를 한 번 받아 느슨하게 매칭해 본다
+        return getJson('/api/admin/lesson-insights?limit=100').then(function(d2){
+          var all = (d2 && d2.items) || [];
+          var m = norm(nm);
+          var fuzzy = all.filter(function(a){ var t = norm(a.teacher_name);
+            return t && m && (t === m || t.indexOf(m) >= 0 || m.indexOf(t) >= 0); });
+          render(fuzzy, all.length);
+        });
+      })
+      .catch(function(){ body.innerHTML = '<div style="padding:26px;text-align:center;color:#fca5a5">'+(en?'Network error.':'네트워크 오류예요.')+'</div>'; });
+
+    function render(items, totalAll){
+      if (!items.length){
+        body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted);line-height:1.7">'
+          + (en ? 'No reports for you yet.<br><span style="font-size:12.5px">A report is created within ~15 minutes after a class ends.</span>'
+                : '아직 선생님 담당 리포트가 없어요.<br><span style="font-size:12.5px">수업이 끝나면 15분 안에 자동으로 만들어집니다.</span>')
+          + (totalAll ? ('<br><span style="font-size:11.5px;color:#94a3b8">'
+              + (en ? ('(' + totalAll + ' reports exist for other teachers — if this looks wrong, your name may be recorded differently in class records.)')
+                    : ('(다른 선생님 리포트는 ' + totalAll + '건 있어요 — 이상하면 수업 기록에 성함이 다르게 적혀 있을 수 있어요.)')) + '</span>') : '')
+          + '</div>';
+        return;
+      }
+      var bar = function(v, color){
+        if (v == null) return '<span style="color:#64748b">—</span>';
+        var w = Math.max(0, Math.min(100, Number(v)));
+        return '<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:44px;height:7px;background:rgba(148,163,184,0.25);border-radius:99px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:'+color+'"></div></div><span style="font-size:11.5px;color:var(--text-muted)">'+w.toFixed(0)+'</span></div>';
+      };
+      body.innerHTML = items.map(function(a, i){
+        var thin = a.status === 'signals_only';
+        var summary = en ? (a.summary_en || a.summary_ko) : (a.summary_ko || a.summary_en);
+        var head = '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px">'
+          + '<b style="font-size:15px;color:#c4b5fd">'+esc(a.student_name || a.student_uid || '—')+'</b>'
+          + '<span style="font-size:12px;color:var(--text-muted)">'+esc(a.lesson_date||'')+'</span>'
+          + (thin ? '<span style="font-size:11px;font-weight:700;color:#fbbf24;background:rgba(251,191,36,0.15);padding:2px 8px;border-radius:99px">'+(en?'Signals only':'지표만')+'</span>' : '')
+          + '</div>';
+        var stats = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:10px">'
+          + '<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">'+(en?'Participation':'참여도')+'</div>'+bar(a.participation_score,'#a78bfa')+'</div>'
+          + '<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">'+(en?'Focus':'집중')+'</div>'
+            + (a.gaze_score==null ? '<span style="font-size:11.5px;color:#64748b">'+(en?'camera off':'카메라 꺼짐')+'</span>' : bar(a.gaze_score,'#38bdf8'))+'</div>'
+          + '<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">'+(en?'Talk':'발화')+'</div><b style="font-size:14px;color:#6ee7b7">'+(a.talk_ratio!=null?Number(a.talk_ratio).toFixed(0)+'%':'—')+'</b></div>'
+          + '<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">'+(en?'Drops':'끊김')+'</div><b style="font-size:14px;color:'+((a.disconnect_count||0)>0?'#fbbf24':'inherit')+'">'+(a.disconnect_count!=null?a.disconnect_count:'—')+'</b></div>'
+          + '</div>';
+        var bodyHtml;
+        if (thin){
+          bodyHtml = '<div style="font-size:12.5px;color:#fbbf24;line-height:1.6;background:rgba(251,191,36,0.08);border-radius:9px;padding:9px 12px">'
+            + (en ? 'The student produced too little English this lesson, so AI analysis was skipped on purpose. The numbers above are real records.'
+                  : '이번 수업에서 학생이 남긴 영어가 너무 적어 AI 분석은 일부러 건너뛰었어요. 위 숫자는 실제 기록입니다.') + '</div>';
+        } else {
+          var lst = function(arr, color){
+            var v = Array.isArray(arr) ? arr : [];
+            if (!v.length) return '';
+            return v.map(function(x){ return '<div style="font-size:12.5px;line-height:1.55;padding-left:12px;position:relative"><span style="position:absolute;left:0;color:'+color+'">•</span>'+esc(x)+'</div>'; }).join('');
+          };
+          var pick = function(ko, enA){ return en ? ((enA&&enA.length)?enA:ko) : ((ko&&ko.length)?ko:enA); };
+          var corr = Array.isArray(a.corrections)?a.corrections:[];
+          bodyHtml = (summary ? '<div style="font-size:13px;line-height:1.65;margin-bottom:10px">'+esc(summary)+'</div>' : '')
+            + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">'
+            + '<div><div style="font-size:11.5px;font-weight:800;color:#6ee7b7;margin-bottom:3px">'+(en?'Strengths':'잘한 점')+'</div>'+(lst(pick(a.strengths_ko,a.strengths_en),'#34d399')||'<span style="color:#64748b;font-size:12px">—</span>')+'</div>'
+            + '<div><div style="font-size:11.5px;font-weight:800;color:#fcd34d;margin-bottom:3px">'+(en?'To improve':'아쉬운 점')+'</div>'+(lst(pick(a.weaknesses_ko,a.weaknesses_en),'#f59e0b')||'<span style="color:#64748b;font-size:12px">—</span>')+'</div>'
+            + '<div><div style="font-size:11.5px;font-weight:800;color:#93c5fd;margin-bottom:3px">'+(en?'Next goals':'다음 목표')+'</div>'+(lst(pick(a.next_goals_ko,a.next_goals_en),'#60a5fa')||'<span style="color:#64748b;font-size:12px">—</span>')+'</div>'
+            + '</div>'
+            + (corr.length ? ('<div style="margin-top:10px"><div style="font-size:11.5px;font-weight:800;color:#c4b5fd;margin-bottom:4px">'+(en?'Corrections':'고칠 문장')+'</div>'
+                + corr.map(function(c){ return '<div style="font-size:12.5px;margin-bottom:5px;padding:8px 10px;background:rgba(139,92,246,0.10);border-radius:8px"><span style="color:#fca5a5;text-decoration:line-through">'+esc(c.original||'')+'</span> → <b style="color:#6ee7b7">'+esc(c.corrected||'')+'</b><div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">'+esc((en?(c.why_en||c.why_ko):(c.why_ko||c.why_en))||'')+'</div></div>'; }).join('')
+                + '</div>') : '');
+        }
+        return '<div style="background:var(--card,rgba(30,41,59,0.6));border:1px solid var(--border,#334155);border-radius:14px;padding:14px 16px;margin-bottom:11px">'
+          + head + stats + bodyHtml + '</div>';
+      }).join('');
+    }
+  };
+  var __liTab = qsTab('lesson-insight');
+  if (__liTab) __liTab.addEventListener('click', function(){ window.loadLessonInsightTeacher(); });
+
   var __ltTab = qsTab('leveltest-apps');
   if (__ltTab) __ltTab.addEventListener('click', function(){
     window.loadLeveltestAppsTeacher();
@@ -2310,6 +2416,7 @@
     var tLessons = qsTab('lessons'); if (tLessons) tLessons.style.display = isTeacher ? '' : 'none';
     var tMyRat   = qsTab('myratings'); if (tMyRat)  tMyRat.style.display   = isTeacher ? '' : 'none';
     var tLtApps  = el('tab-leveltest-apps'); if (tLtApps) tLtApps.style.display = isTeacher ? '' : 'none';
+    var tLiTab   = el('tab-lesson-insight'); if (tLiTab) tLiTab.style.display = isTeacher ? '' : 'none';   // 🎥 수업 리포트 — 교사 전용
     // 🧠 내 MBTI 카드 — 강사 전용(프로필 탭 안). 표시될 때 현재값 1회 로드.
     var mbtiCard = el('mbti-self-card');
     if (mbtiCard) { mbtiCard.style.display = isTeacher ? '' : 'none'; if (isTeacher) { try { loadMyMbti(); } catch(_e){} } }

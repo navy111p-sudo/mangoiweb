@@ -19,20 +19,23 @@
     settings:'<line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.3"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.3"/>',
     leave:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l4-4-4-4"/><line x1="13" y1="12" x2="3" y2="12"/>'
   };
-  function svg(p){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" aria-hidden="true">'+p+'</svg>'; }
+  /* 아이콘 22 → 26 (2026-07-22, 강사 피드백 #7 "설정 옵션이 너무 작다") */
+  function svg(p){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="26" height="26" aria-hidden="true">'+p+'</svg>'; }
   function call(name, arg){ try { if (typeof window[name] === 'function') return window[name](arg); } catch(e){ console.warn('[vc-dock]', name, e); } }
 
   var STYLE = [
     '#vc-dock{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;z-index:99993;',
-    '  align-items:center;gap:6px;padding:8px 10px;border-radius:18px;',
+    '  align-items:center;gap:7px;padding:9px 12px;border-radius:20px;',
     '  background:rgba(18,22,30,0.62);',
     '  -webkit-backdrop-filter:blur(16px) saturate(1.2);backdrop-filter:blur(16px) saturate(1.2);',
     '  border:1px solid rgba(255,255,255,.18);box-shadow:0 18px 48px rgba(0,0,0,.55);max-width:96vw;flex-wrap:nowrap;}',
     'body.vc-in-call #vc-dock{display:inline-flex;}',
     '#vc-dock button{background:rgba(255,255,255,.12);border:none;color:#eef2f8;border-radius:13px;',
-    '  width:58px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;',
-    '  cursor:pointer;font-family:inherit;font-size:9.5px;font-weight:600;transition:background .12s,transform .1s;flex:0 0 auto;}',
-    '#vc-dock button .lbl{color:#aebacc;font-size:9px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.5);}',
+    /* 데스크톱 크기 확대 (2026-07-22, 강사 피드백 #7) — 58×52/9px 은 라벨을 읽기 어렵다는 지적.
+       560px 이하 모바일·가로모드는 아래 미디어쿼리가 따로 잡으므로 영향 없음. */
+    '  width:70px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;',
+    '  cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;transition:background .12s,transform .1s;flex:0 0 auto;}',
+    '#vc-dock button .lbl{color:#c3ccda;font-size:11px;line-height:1.05;text-shadow:0 1px 2px rgba(0,0,0,.5);}',
     '#vc-dock button svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));}', /* 밝은 배경에서도 아이콘 또렷(다크/라이트 공통) */
     '#vc-dock button:hover{background:rgba(255,255,255,.15);}',
     '#vc-dock button:active{transform:scale(.95);}',
@@ -50,27 +53,28 @@
     '#vc-dock-backdrop.open{display:block;}',
     '/* 설정 팝업 — 독 위로 떠서 열림 (장치·영상/녹화·표시 전체 패널) */',
     '#vc-dock-settings{position:fixed;z-index:99994;display:none;flex-direction:column;box-sizing:border-box;',
-    '  width:330px;max-width:92vw;max-height:70vh;overflow-y:auto;padding:14px;border-radius:14px;',
+    /* 설정 팝업도 함께 확대 (2026-07-22, 강사 피드백 #7) — 강사가 항목을 하나하나 확인해야 하는 화면이다. */
+    '  width:390px;max-width:94vw;max-height:76vh;overflow-y:auto;padding:18px;border-radius:16px;',
     '  background:rgba(11,15,20,0.98);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);',
     '  border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 40px rgba(0,0,0,.6);}',
     '#vc-dock-settings.open{display:flex;}',
     '#vc-dock-settings .sg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}',
-    '#vc-dock-settings .sg-head h3{margin:0;font-size:14px;color:#e6ebf2;font-weight:700;}',
-    '#vc-dock-settings .sg-head .sg-x{background:none;border:none;color:#9aa4b2;font-size:16px;cursor:pointer;padding:2px 6px;width:auto;height:auto;}',
-    '#vc-dock-settings .sg-group{margin-bottom:12px;}',
-    '#vc-dock-settings .sg-gtitle{font-size:11px;color:#ffd24d;margin-bottom:6px;letter-spacing:.02em;font-weight:700;}',
-    '#vc-dock-settings .sg-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;font-size:13px;}',
-    '#vc-dock-settings .sg-row > label{color:#9aa4b2;white-space:nowrap;}',
-    '#vc-dock-settings select{background:#1c2530;color:#e6ebf2;border:1px solid #283140;border-radius:7px;font-size:12px;padding:5px 8px;max-width:170px;}',
-    '#vc-dock-settings input[type=range]{width:120px;accent-color:#ffd24d;}',
-    '#vc-dock-settings .sg-seg{display:inline-flex;background:#161d26;border-radius:7px;padding:2px;}',
-    '#vc-dock-settings .sg-seg button{background:transparent;border:none;color:#9aa4b2;font-size:12px;padding:4px 10px;border-radius:5px;cursor:pointer;width:auto;height:auto;font-family:inherit;}',
+    '#vc-dock-settings .sg-head h3{margin:0;font-size:16.5px;color:#e6ebf2;font-weight:700;}',
+    '#vc-dock-settings .sg-head .sg-x{background:none;border:none;color:#9aa4b2;font-size:20px;cursor:pointer;padding:2px 8px;width:auto;height:auto;}',
+    '#vc-dock-settings .sg-group{margin-bottom:14px;}',
+    '#vc-dock-settings .sg-gtitle{font-size:12.5px;color:#ffd24d;margin-bottom:7px;letter-spacing:.02em;font-weight:700;}',
+    '#vc-dock-settings .sg-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;font-size:14.5px;}',
+    '#vc-dock-settings .sg-row > label{color:#b3bdcb;white-space:nowrap;}',
+    '#vc-dock-settings select{background:#1c2530;color:#e6ebf2;border:1px solid #283140;border-radius:8px;font-size:13.5px;padding:7px 10px;max-width:200px;}',
+    '#vc-dock-settings input[type=range]{width:140px;accent-color:#ffd24d;}',
+    '#vc-dock-settings .sg-seg{display:inline-flex;background:#161d26;border-radius:8px;padding:3px;}',
+    '#vc-dock-settings .sg-seg button{background:transparent;border:none;color:#9aa4b2;font-size:13.5px;padding:6px 13px;border-radius:6px;cursor:pointer;width:auto;height:auto;font-family:inherit;}',
     '#vc-dock-settings .sg-seg button.on{background:#ffd24d;color:#1a1300;font-weight:600;}',
-    '#vc-dock-settings .sg-sw{position:relative;width:38px;height:21px;background:#1c2530;border-radius:999px;cursor:pointer;border:1px solid #283140;flex:0 0 auto;}',
-    '#vc-dock-settings .sg-sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#8a94a3;transition:.18s;}',
+    '#vc-dock-settings .sg-sw{position:relative;width:44px;height:25px;background:#1c2530;border-radius:999px;cursor:pointer;border:1px solid #283140;flex:0 0 auto;}',
+    '#vc-dock-settings .sg-sw::after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:#8a94a3;transition:.18s;}',
     '#vc-dock-settings .sg-sw.on{background:#ffd24d;border-color:#ffd24d;}',
-    '#vc-dock-settings .sg-sw.on::after{left:19px;background:#1a1300;}',
-    '#vc-dock-settings .sg-test{background:#1c2530;border:1px solid #283140;color:#e6ebf2;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;width:auto;height:auto;font-family:inherit;}',
+    '#vc-dock-settings .sg-sw.on::after{left:22px;background:#1a1300;}',
+    '#vc-dock-settings .sg-test{background:#1c2530;border:1px solid #283140;color:#e6ebf2;font-size:12.5px;padding:7px 12px;border-radius:7px;cursor:pointer;width:auto;height:auto;font-family:inherit;}',
     '/* 기존 중복 컨트롤 숨김 */',
     'body.vc-in-call.vc-dock-on .toolbar-center{display:none !important;}',
     'body.vc-in-call.vc-dock-on #vc-exit-btn-v34{display:none !important;}',

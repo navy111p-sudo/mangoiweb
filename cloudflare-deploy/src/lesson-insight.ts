@@ -339,7 +339,7 @@ export async function runLessonInsightSweep(env: InsightEnv, opts?: { limit?: nu
 //   index.ts 의 default-deny 미들웨어가 /api/admin/* 인증을 이미 보장한다.
 //   강사 마이페이지도 /admin/mypage 라 같은 관리자 세션을 쓰므로 별도 공개 경로가 필요 없다.
 //
-//   GET  /api/admin/lesson-insights?room_id=|student_uid=|teacher_uid=[&from=&to=&limit=]
+//   GET  /api/admin/lesson-insights?room_id=|student_uid=|teacher_uid=|teacher_name=[&from=&to=&limit=]
 //   POST /api/admin/lesson-insights/generate  {room_id, student_uid, student_name?, transcript?}
 //   POST /api/admin/lesson-insights/sweep     (cron 안 기다리고 즉시 확인용)
 export async function handleLessonInsightApi(
@@ -377,12 +377,15 @@ export async function handleLessonInsightApi(
     const roomId = (url.searchParams.get('room_id') || '').trim();
     const studentUid = (url.searchParams.get('student_uid') || '').trim();
     const teacherUid = (url.searchParams.get('teacher_uid') || '').trim();
+    // 강사 마이페이지는 uid 가 아니라 이름(window.__myName)으로 자기 것을 찾는다.
+    const teacherName = (url.searchParams.get('teacher_name') || '').trim();
     const lim = Math.max(1, Math.min(200, parseInt(url.searchParams.get('limit') || '30', 10)));
     const where: string[] = [];
     const binds: any[] = [];
     if (roomId) { where.push('room_id = ?'); binds.push(roomId); }
     if (studentUid) { where.push('student_uid = ?'); binds.push(studentUid); }
     if (teacherUid) { where.push('teacher_uid = ?'); binds.push(teacherUid); }
+    if (teacherName) { where.push('teacher_name = ?'); binds.push(teacherName); }
     const fromD = (url.searchParams.get('from') || '').trim();
     const toD = (url.searchParams.get('to') || '').trim();
     if (fromD) { where.push('lesson_date >= ?'); binds.push(fromD); }
