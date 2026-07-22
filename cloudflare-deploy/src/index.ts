@@ -274,19 +274,44 @@ const worker = {
         //   ⚠️ 스코프로 거르지 않는다: 일부 강사 계정은 scope_type='hq'로 잘못 세팅돼 있어(auth-admin
         //      resolveRole 주석 참고) 스코프 기준이면 새어나간다. 항상 role 기준(getAdminActor)으로 판정.
         //   (개별 급여·평가 API 의 '본인만' 필터는 각 핸들러에 이중으로 적용됨)
+        //   🔐 (2026-07-22 확장) 기존엔 위 6개 네임스페이스만 막았고 나머지 /api/admin/* 는
+        //      전부 열려 있었다. 관리자 콘솔의 권한 매트릭스(adm-core.js PERM_FEATURES)는
+        //      교사에게 '차단(❌)'으로 표시되는 기능이 30개인데, 그 표는 화면에 표를 그릴 뿐
+        //      아무것도 막지 않아 교사가 URL 로 직접 호출하면 그대로 응답이 나왔다.
+        //      → 그 30개 기능이 쓰는 네임스페이스를 여기서 실제로 차단한다.
+        //      ⚠️ 이건 '차단 목록'이라 새 API 를 추가하면 기본이 '교사 허용'이다.
+        //         교사가 볼 수 없어야 할 API 를 새로 만들면 이 목록에 반드시 추가할 것.
+        //         (근본 해결 = 허용 목록 방식 default-deny. 별도 작업으로 예정)
         {
-          const _teacherBlocked =
-            path.startsWith('/api/admin/reports/') ||
-            path.startsWith('/api/admin/exec/') ||
-            path.startsWith('/api/admin/realtime/') ||
-            path.startsWith('/api/admin/settlement/') ||
-            path.startsWith('/api/admin/capitown/') ||
-            path.startsWith('/api/admin/accounting');
+          const TEACHER_BLOCKED_PREFIXES = [
+            // ── 회사 전체 재무·경영 (2026-07-12 최초) ──
+            '/api/admin/reports/', '/api/admin/exec/', '/api/admin/realtime/',
+            '/api/admin/settlement/', '/api/admin/capitown/', '/api/admin/accounting',
+            // ── 결제·정산·구독 (student_payments · refunds · recurring_billing · auto_dunning) ──
+            '/api/admin/payments', '/api/admin/duplicate-payments',
+            '/api/admin/subscription', '/api/admin/subscriptions', '/api/admin/dunning',
+            // ── 조직·가맹점 관리 (franchise_mgmt) ──
+            '/api/admin/franchises', '/api/admin/org', '/api/admin/centers',
+            // ── 계정·권한·감사 (permissions · audit_log) ──
+            '/api/admin/permissions', '/api/admin/audit-logs', '/api/admin/login-history',
+            '/api/admin/staff', '/api/admin/sessions', '/api/admin/2fa',
+            // ── 마케팅·대량발송 (marketing_studio · kakao_blast · nps_survey · 웹푸시 · 팝업 · 포스터) ──
+            '/api/admin/marketing', '/api/admin/kakao', '/api/admin/nps',
+            '/api/admin/push', '/api/admin/popups', '/api/admin/posters',
+            // ── 운영 감시·데이터 반출 (card-admin-ghost · card-admin-alerts · card-data-export) ──
+            '/api/admin/ghost', '/api/admin/alerts', '/api/admin/export',
+            // ── 가족·리퍼럴 (card-family-mgmt · card-referral) ──
+            '/api/admin/family', '/api/admin/families', '/api/admin/referrals',
+          ];
+          const _teacherBlocked = TEACHER_BLOCKED_PREFIXES.some(p => path.startsWith(p));
           if (_teacherBlocked) {
             const _actor = await getAdminActor(request, env as any);
             if (_actor.isTeacher) {
-              return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 회사 전체 재무·경영 정보를 볼 수 없습니다.' }),
-                { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+              return new Response(JSON.stringify({
+                ok: false, error: 'forbidden_teacher',
+                message: '강사 권한으로는 볼 수 없는 정보입니다.',
+                message_en: 'This information is not available with a teacher account.'
+              }), { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
             }
           }
         }
