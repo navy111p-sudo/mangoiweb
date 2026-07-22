@@ -48,9 +48,27 @@
     modalContent.innerHTML = html;
     modal.style.display = 'flex';
     modalBox.scrollTop = 0;
+    // 🎥 AI 상담원 원형 영상(#mango-promo-video)은 z-index 100050 이라 모달(9998) 위로 뜬다.
+    //    데스크탑은 화면이 넓어 안 겹치지만, 모바일(375px)에서는 모달 우상단(카드 제목)을 가린다.
+    //    index.html 은 공동 금지구역이라 건드리지 않고, 모달이 열려 있는 동안만 여기서 숨긴다.
+    try {
+      var _promo = document.getElementById('mango-promo-video');
+      if (_promo && _promo.style.display !== 'none') {
+        _promo.dataset.mgPrevDisplay = _promo.style.display || '';
+        _promo.style.display = 'none';
+      }
+    } catch(e){}
   }
   window.closeInfoModal = function(){
     modal.style.display = 'none';
+    // 🎥 모달 때문에 숨겼던 AI 상담원 영상 원상복구 (showModal 참조)
+    try {
+      var _promo = document.getElementById('mango-promo-video');
+      if (_promo && _promo.dataset.mgPrevDisplay !== undefined) {
+        _promo.style.display = _promo.dataset.mgPrevDisplay;
+        delete _promo.dataset.mgPrevDisplay;
+      }
+    } catch(e){}
     // 모달 닫을 때 음성 재생 중이면 중지 (TTS + mp3 둘 다)
     try { if (window.speechSynthesis && window.speechSynthesis.speaking) window.speechSynthesis.cancel(); } catch{}
     try { if (_franchiseAudio && !_franchiseAudio.paused) { _franchiseAudio.pause(); _franchiseAudio.currentTime = 0; } } catch{}
