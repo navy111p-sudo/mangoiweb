@@ -31,25 +31,39 @@
   // 🖼 슬라이드 이미지는 '그림 안에 한국어가 박힌' 캡처다. 코드로 번역할 수 없으므로
   //    영어일 때는 영어판 덱을 쓴다. (전체 가이드 뷰어 adm-s18.js 도 같은 규칙)
   function DIR() { return L() === 'en' ? '/guide/admin-easy-en/' : '/guide/admin-easy/'; }
+  // 슬라이드 번호도 언어별로 다르다 (위 SLIDES 주석의 대응표 참고)
+  function SNO(s) { return (L() === 'en' && s.en_n) ? s.en_n : s.n; }
 
   // ── 슬라이드(핵심 사용법) — 실제 가이드 이미지 + 짧은 설명 ──
   var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  // ⚠️ 두 덱은 '번역본'이 아니라 서로 다른 구성이다 — 한국어 18장 / 영어 24장이고 순서도 다르다.
+  //    그래서 슬라이드 번호를 언어별로 따로 들고 있어야 한다.
+  //    (같은 번호를 쓰면 영어 화면에서 캡션과 그림이 어긋난다. 실제로 그랬다:
+  //     캡션 "Left sidebar = every menu" 인데 그림은 5번 "The screen, explained" 였다.)
+  //    대응 근거 — adm-s18.js 의 DECKS.ko.titles / DECKS.en.titles 순서:
+  //      콘솔 소개   ko 01 시작하기            = en 01 Cover
+  //      사이드바    ko 05 사이드바 한눈에      = en 06 The menu at a glance
+  //      자주쓰는3   ko 15 자주 쓰는 기능 3가지 = en 17 The 3 things you'll do most
+  //      공지 보내기 ko 16 공지 보내보기        = en 18 Walkthrough: send a notice
+  //      도움말      ko 17 안전하게 나가기+꿀팁 = en 20 Staying safe + tips
+  //    ⚠️ 덱 이미지를 다시 만들면 이 번호도 같이 고칠 것.
   var SLIDES = [
-    { n: 1,  ko_t: '망고아이 관리자 콘솔',        en_t: 'Mangoi Admin Console',
+    { n: 1,  en_n: 1,  ko_t: '망고아이 관리자 콘솔',        en_t: 'Mangoi Admin Console',
       ko_d: '학원 운영에 필요한 모든 기능이 한 화면에 모여 있어요. 아래 화살표로 넘겨 보세요.',
       en_d: 'Everything you need to run the academy, all in one place. Swipe through with the arrows below.' },
-    { n: 5,  ko_t: '왼쪽 사이드바 = 모든 메뉴',    en_t: 'Left sidebar = every menu',
+    { n: 5,  en_n: 6,  ko_t: '왼쪽 사이드바 = 모든 메뉴',    en_t: 'Left sidebar = every menu',
       ko_d: '왼쪽의 9개 그룹(평가서·알림·강사·통계·회계·학생·교육·자료실·시스템)을 누르면 원하는 기능으로 바로 이동해요.',
       en_d: 'Tap any of the 9 groups on the left (Reports, Alerts, Teachers, Stats, Finance, Students, Content, Library, System) to jump straight to a feature.' },
-    { n: 15, ko_t: '자주 쓰는 기능 3가지',        en_t: 'The 3 you\'ll use most',
+    { n: 15, en_n: 17, ko_t: '자주 쓰는 기능 3가지',        en_t: 'The 3 you\'ll use most',
       ko_d: '① 평가서 작성 · ② 공지/알림 보내기 · ③ 통계·KPI 확인. 이 세 가지만 익혀도 절반은 끝!',
       en_d: '① Write reports · ② Send notices/alerts · ③ Check stats & KPIs. Master these three and you\'re halfway there.' },
-    { n: 16, ko_t: '공지 보내보기',              en_t: 'Send your first notice',
+    { n: 16, en_n: 18, ko_t: '공지 보내보기',              en_t: 'Send your first notice',
       ko_d: '"알림 센터"에서 학부모·강사에게 공지와 카카오 알림톡을 몇 번의 클릭으로 보낼 수 있어요.',
       en_d: 'In "Alert Center" you can send notices and KakaoTalk alerts to parents and teachers in just a few clicks.' },
-    { n: 17, ko_t: '도움이 필요하면 ❓ 버튼',      en_t: 'Need help? The ❓ button',
+    { n: 17, en_n: 20, ko_t: '도움이 필요하면 ❓ 버튼',      en_t: 'Need help? The ❓ button',
       ko_d: '헷갈릴 땐 왼쪽 위 파란 "❓ 사용 방법" 버튼을 누르세요. 그림으로 된 18단계 안내가 언제든 다시 열려요.',
-      en_d: 'Stuck? Tap the blue "❓ How to use" button at the top-left. The 18-step picture guide is always one click away.' }
+      // 장수는 덱마다 다르다 — 한국어 18장 / 영어 24장. 문구도 그에 맞춘다.
+      en_d: 'Stuck? Tap the blue "❓ How to use" button at the top-left. The 24-step picture guide is always one click away.' }
   ];
 
   var idx = 0, root = null, built = false;
@@ -152,7 +166,7 @@
     });
 
     // 이미지 미리 로딩
-    SLIDES.forEach(function (s) { var im = new Image(); im.src = DIR() + pad(s.n) + '.jpg'; });
+    SLIDES.forEach(function (s) { var im = new Image(); im.src = DIR() + pad(SNO(s)) + '.jpg'; });
 
     root.querySelector('#aw-prev').addEventListener('click', function () { go(-1); });
     root.querySelector('#aw-next').addEventListener('click', function () { go(1); });
@@ -211,7 +225,7 @@
     if (!root) return;
     var s = SLIDES[idx], en = (L() === 'en');
     var img = root.querySelector('#aw-img');
-    var next = DIR() + pad(s.n) + '.jpg';
+    var next = DIR() + pad(SNO(s)) + '.jpg';
     if (img.getAttribute('src') !== next) {
       img.style.opacity = '0';
       var tmp = new Image();
