@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>망고아이 개발 공동작업 안내 (직원용)</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1f2328; --sub:#5b6472;
+    --line:#e3e6ea; --mango:#f5a524; --mango-d:#d98a0b;
+    --ok:#1f883d; --ok-bg:#eaf6ec; --ok-line:#b7e0c0;
+    --no:#c8352b; --no-bg:#fdeeed; --no-line:#f3c0bc;
+    --warn:#9a6700; --warn-bg:#fff8e5; --warn-line:#f0d99b;
+    --code:#0f172a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;
+    font-size:17px; line-height:1.75; -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:28px 20px 80px}
+
+  /* 머리말 */
+  header{
+    background:linear-gradient(135deg,#ffb545,#f5a524 55%,#e59214);
+    color:#fff; border-radius:16px; padding:32px 30px; margin-bottom:26px;
+    box-shadow:0 6px 20px rgba(217,138,11,.22);
+  }
+  header h1{margin:0 0 8px; font-size:29px; letter-spacing:-.5px}
+  header p{margin:0; font-size:16px; opacity:.95}
+
+  /* 공통 카드 */
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:26px 28px; margin-bottom:20px;
+  }
+  h2{
+    font-size:22px; margin:0 0 16px; padding-bottom:12px;
+    border-bottom:2px solid var(--line); letter-spacing:-.3px;
+  }
+  h2 .num{
+    display:inline-block; min-width:31px; height:31px; line-height:31px;
+    text-align:center; background:var(--mango); color:#fff;
+    border-radius:9px; font-size:16px; margin-right:10px; vertical-align:2px;
+  }
+  h3{font-size:18px; margin:22px 0 10px}
+  p{margin:10px 0}
+  .sub{color:var(--sub); font-size:15.5px}
+
+  /* 한 줄 요약 */
+  .lead{
+    background:#fffaf0; border:1px solid var(--warn-line);
+    border-left:6px solid var(--mango); border-radius:12px;
+    padding:20px 24px; font-size:18px; margin-bottom:22px;
+  }
+  .lead b{color:var(--mango-d)}
+
+  /* 단계 */
+  .step{display:flex; gap:16px; padding:18px 0; border-top:1px dashed var(--line)}
+  .step:first-of-type{border-top:0}
+  .step .n{
+    flex:0 0 40px; height:40px; border-radius:50%;
+    background:var(--ink); color:#fff; font-size:19px; font-weight:bold;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .step .body{flex:1; min-width:0}
+  .step .body b{font-size:17.5px}
+
+  /* 코드 */
+  .cmd{
+    position:relative; background:var(--code); color:#e6edf3;
+    border-radius:10px; padding:14px 90px 14px 16px; margin:10px 0;
+    font-family:Consolas,"D2Coding",monospace; font-size:15px;
+    overflow-x:auto; white-space:pre;
+  }
+  .cmd button{
+    position:absolute; top:9px; right:9px; border:0; cursor:pointer;
+    background:#334155; color:#fff; border-radius:7px;
+    padding:6px 12px; font-size:13px; font-family:inherit;
+  }
+  .cmd button:hover{background:#475569}
+  .cmd button.done{background:var(--ok)}
+  code{
+    background:#eef1f4; padding:2px 7px; border-radius:5px;
+    font-family:Consolas,monospace; font-size:15px;
+  }
+
+  /* 색 박스 */
+  .box{border-radius:12px; padding:18px 22px; margin:14px 0; border:1px solid}
+  .box h4{margin:0 0 10px; font-size:17.5px}
+  .box.ok{background:var(--ok-bg); border-color:var(--ok-line)}
+  .box.ok h4{color:var(--ok)}
+  .box.no{background:var(--no-bg); border-color:var(--no-line)}
+  .box.no h4{color:var(--no)}
+  .box.warn{background:var(--warn-bg); border-color:var(--warn-line)}
+  .box.warn h4{color:var(--warn)}
+  .box ul{margin:8px 0 0; padding-left:20px}
+  .box li{margin:5px 0}
+  .filelist{
+    font-family:Consolas,monospace; font-size:14.5px; line-height:2;
+    margin:8px 0 0; padding:0; list-style:none;
+  }
+  .filelist li{margin:0}
+  .filelist .desc{font-family:inherit; color:var(--sub); font-size:14px}
+
+  /* 약속 */
+  .promise{
+    display:flex; gap:14px; align-items:flex-start;
+    background:#fff; border:2px solid var(--no-line); border-radius:12px;
+    padding:18px 20px; margin:14px 0;
+  }
+  .promise .mark{flex:0 0 auto; font-size:22px; color:var(--no); font-weight:bold}
+  .promise b{display:block; font-size:18px; margin-bottom:4px}
+
+  /* 표 */
+  table{width:100%; border-collapse:collapse; margin:14px 0; font-size:16px}
+  th,td{border:1px solid var(--line); padding:11px 13px; text-align:left}
+  th{background:#f1f3f5; font-weight:bold; width:38%}
+
+  /* 질문 */
+  details{
+    border:1px solid var(--line); border-radius:10px;
+    padding:14px 18px; margin:10px 0; background:#fbfcfd;
+  }
+  details summary{cursor:pointer; font-weight:bold; font-size:17px}
+  details[open] summary{margin-bottom:8px; color:var(--mango-d)}
+
+  /* 요약 카드 */
+  .cheat{
+    background:var(--code); color:#e6edf3; border-radius:14px;
+    padding:26px 28px; margin-top:6px;
+  }
+  .cheat h3{margin:0 0 16px; color:var(--mango); font-size:19px}
+  .cheat table{margin:0; font-size:15.5px}
+  .cheat th,.cheat td{border-color:#2c3a4d; color:#e6edf3}
+  .cheat th{background:#1b2736; width:34%}
+  .cheat .stop{color:#ff8b80; font-weight:bold}
+
+  footer{text-align:center; color:var(--sub); font-size:14.5px; margin-top:34px}
+
+  @media print{
+    body{background:#fff; font-size:12pt}
+    .wrap{max-width:none; padding:0}
+    section,header,.cheat{break-inside:avoid; box-shadow:none}
+    .step,.box,.promise{break-inside:avoid}
+    .cmd button{display:none}
+    details{page-break-inside:avoid}
+    details:not([open]) > *:not(summary){display:block}
+  }
+  @media (max-width:600px){
+    body{font-size:16px}
+    .wrap{padding:16px 12px 60px}
+    section{padding:20px 18px}
+    header{padding:24px 20px}
+    header h1{font-size:23px}
+    th{width:auto}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>망고아이 개발 공동작업 안내</h1>
+  <p>여러 명이 함께 개발할 때 지켜야 할 방법입니다 &middot; 컴퓨터를 잘 몰라도 따라 할 수 있게 썼습니다</p>
+</header>
+
+<div class="lead">
+  인터넷에 <b>“진짜 원본 폴더”</b>를 하나 두고, 각자 복사본을 받아서 고친 다음,
+  원본에 다시 올리는 방식입니다.<br>
+  <span class="sub">그 방법의 이름이 <b>깃(Git)</b>, 그 인터넷 창고의 이름이 <b>깃허브(GitHub)</b>입니다.</span>
+</div>
+
+<section>
+  <h2><span class="num">1</span>왜 카톡으로 파일을 주고받으면 안 되나요</h2>
+  <table>
+    <tr><th>작업이 사라집니다</th><td>두 사람이 같은 파일을 고치면, 나중에 보낸 사람 것만 남습니다</td></tr>
+    <tr><th>추적이 안 됩니다</th><td>누가 언제 무엇을 고쳤는지 아무도 모릅니다</td></tr>
+    <tr><th>되돌릴 수 없습니다</th><td>잘못 고쳐서 홈페이지가 멈춰도 원래대로 돌릴 방법이 없습니다</td></tr>
+    <tr><th>최신본을 모릅니다</th><td>내 폴더가 최신인지 아닌지 알 수 없습니다</td></tr>
+  </table>
+  <p>깃은 이 네 가지를 전부 해결합니다. 특히 <b>되돌리기</b>가 됩니다.
+     어제 상태로, 3일 전 상태로 언제든 돌아갈 수 있습니다.</p>
+</section>
+
+<section>
+  <h2><span class="num">2</span>처음 한 번만 하면 되는 준비</h2>
+
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <b>깃허브 초대 받기</b>
+      <p class="sub">사장님이 이메일로 초대를 보냅니다. 메일에서 수락 버튼을 누르세요.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">2</div>
+    <div class="body">
+      <b>내 컴퓨터로 프로젝트 받아오기</b>
+      <p class="sub">원하는 폴더에서 아래 명령을 실행합니다.</p>
+      <div class="cmd">git clone --depth 50 https://github.com/navy111p-sudo/mangoiweb.git<button onclick="cp(this)">복사</button></div>
+      <p class="sub"><code>--depth 50</code>은 “최근 기록만 받기”라는 뜻입니다.
+         전체를 받으면 1.3GB라 오래 걸립니다. 이렇게 받으면 훨씬 빠릅니다.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">3</span>매일 하는 일 &mdash; 딱 4단계입니다</h2>
+
+  <div class="step">
+    <div class="n">1</div>
+    <div class="body">
+      <b>아침에 최신본 받기</b>
+      <p class="sub">다른 사람이 어제 고쳐놓은 것을 내 컴퓨터로 가져옵니다.</p>
+      <div class="cmd">git pull<button onclick="cp(this)">복사</button></div>
+      <p class="sub"><b>커피 마시기 전에 이것부터 하세요.</b> 안 받고 작업하면 나중에 충돌이 납니다.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">2</div>
+    <div class="body">
+      <b>내 작업방 만들기</b>
+      <p class="sub">원본을 직접 건드리지 않고 나만의 복사본에서 작업합니다.
+         여기서 무엇을 망가뜨려도 다른 사람에게 전혀 영향이 없습니다.</p>
+      <div class="cmd">git checkout -b 학생목록-정렬<button onclick="cp(this)">복사</button></div>
+      <p class="sub">뒤의 이름은 자유입니다. 무슨 작업인지 알아볼 수 있게 적으세요.
+         예) <code>로그인-오류수정</code>, <code>교재화면-정리</code></p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">3</div>
+    <div class="body">
+      <b>다 고쳤으면 올리기</b>
+      <div class="cmd">git add -A
+git commit -m "학생 목록을 이름순으로 정렬"
+git push<button onclick="cp(this)">복사</button></div>
+      <p class="sub">따옴표 안에는 <b>무엇을 했는지 한글로</b> 적으면 됩니다.
+         나중에 “이거 누가 왜 고쳤지?” 할 때 이 문장을 봅니다.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">4</div>
+    <div class="body">
+      <b>사장님 검사받기</b>
+      <p class="sub">깃허브 사이트에 들어가면 <b>“Compare &amp; pull request”</b> 버튼이 보입니다.
+         누르고 제출하면 사장님 화면에 <b>바뀐 부분만 빨강/초록으로</b> 표시됩니다.</p>
+      <p class="sub">사장님이 승인하면 그때 실제 홈페이지에 반영됩니다.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">4</span>내가 맡는 영역</h2>
+  <p>두 사람이 같은 파일을 동시에 고치면 충돌합니다. 그래서 <b>영역을 나눕니다.</b></p>
+
+  <div class="box ok">
+    <h4>&#9989; 내가 맡는 곳 &mdash; 학생 학습 콘텐츠</h4>
+    <ul class="filelist">
+      <li>cloudflare-deploy/public/student-game-*.html <span class="desc">&mdash; 게임들</span></li>
+      <li>cloudflare-deploy/public/student-games.html <span class="desc">&mdash; 게임 허브</span></li>
+      <li>cloudflare-deploy/public/vocab.html <span class="desc">&mdash; 단어장</span></li>
+      <li>cloudflare-deploy/public/micro-quiz.html <span class="desc">&mdash; 쪽지시험</span></li>
+      <li>cloudflare-deploy/public/review-quiz.html <span class="desc">&mdash; 복습퀴즈</span></li>
+      <li>cloudflare-deploy/public/warmup.html <span class="desc">&mdash; 웜업</span></li>
+      <li>cloudflare-deploy/public/ai-write.html <span class="desc">&mdash; AI 영작</span></li>
+      <li>cloudflare-deploy/public/speech-coach*.html <span class="desc">&mdash; 발음코치</span></li>
+      <li>cloudflare-deploy/public/battle-3d.html <span class="desc">&mdash; 보스전</span></li>
+      <li>cloudflare-deploy/public/suspect-mystery.html <span class="desc">&mdash; 추리게임</span></li>
+      <li>cloudflare-deploy/src/api-games.ts <span class="desc">&mdash; 학습 백엔드</span></li>
+      <li>cloudflare-deploy/src/api-points.ts <span class="desc">&mdash; 포인트</span></li>
+    </ul>
+    <p class="sub" style="margin-top:12px">게임은 파일이 하나씩 따로 있어서 서로 안 겹칩니다.
+       실수해도 그 게임 하나만 영향을 받습니다.</p>
+  </div>
+
+  <div class="box no">
+    <h4>&#128683; 절대 열지 않는 곳</h4>
+    <ul class="filelist">
+      <li>cloudflare-deploy/public/index.html <span class="desc">&mdash; 홈 + 화상수업 (가장 중요)</span></li>
+      <li>cloudflare-deploy/public/admin.html <span class="desc">&mdash; 관리자 화면</span></li>
+      <li>cloudflare-deploy/src/index.ts <span class="desc">&mdash; 전체 라우팅 &middot; 로그인 관문</span></li>
+      <li>cloudflare-deploy/wrangler.toml <span class="desc">&mdash; 서버 설정</span></li>
+      <li>deploy.ps1 <span class="desc">&mdash; 배포 스크립트</span></li>
+    </ul>
+    <p class="sub" style="margin-top:12px">여기는 잘못되면 <b>서비스 전체가 멈춥니다.</b> 사장님만 만집니다.</p>
+  </div>
+
+  <p class="sub">담당 밖의 파일을 고쳐야 하는 일이 생기면, 혼자 고치지 말고
+     <b>먼저 사장님께 말씀하세요.</b></p>
+</section>
+
+<section>
+  <h2><span class="num">5</span>배포하면 파일 53개가 바뀐 것처럼 보입니다</h2>
+  <div class="box warn">
+    <h4>&#9888; 놀라지 마세요 &mdash; 정상입니다</h4>
+    <p>사장님이 배포하시면, 홈페이지 파일 전부에 “언제 배포했는지” 표시가 새로 박힙니다.
+       그래서 <code>git pull</code> 하면 <b>53개 파일이 바뀐 것처럼 나옵니다.</b>
+       실제 내용은 그대로입니다.</p>
+    <p>만약 충돌이 났는데 그 위치가 아래처럼 생긴 줄이면, <b>아무거나 골라도 됩니다.</b></p>
+    <div class="cmd">&lt;!-- BUILD:20260722145740 --&gt;<button onclick="cp(this)">복사</button></div>
+    <p style="margin-bottom:0">그 외의 충돌은 <b>혼자 풀지 말고 물어보세요.</b></p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">6</span>꼭 지켜야 할 3가지 약속</h2>
+
+  <div class="promise">
+    <div class="mark">&#9733;</div>
+    <div>
+      <b>하나. 배포하지 않습니다</b>
+      <span class="sub"><code>deploy.ps1</code> 파일은 <b>실행 금지</b>입니다.
+      이 파일을 실행하면 내 컴퓨터에 있는 <b>미완성 파일까지 그대로 실제 홈페이지에 올라갑니다.</b>
+      학생과 학부모가 바로 보게 됩니다. 배포는 사장님만 합니다.</span>
+    </div>
+  </div>
+
+  <div class="promise">
+    <div class="mark">&#9733;</div>
+    <div>
+      <b>둘. 원본(main)에 직접 올리지 않습니다</b>
+      <span class="sub">반드시 3번의 2단계처럼 <b>내 작업방을 만들어서</b> 작업하세요.</span>
+    </div>
+  </div>
+
+  <div class="promise">
+    <div class="mark">&#9733;</div>
+    <div>
+      <b>셋. 아침에 무조건 <code>git pull</code> 먼저</b>
+      <span class="sub">이것만 지켜도 문제의 절반은 안 생깁니다.</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">7</span>용어 정리 &mdash; 서류함으로 비유하면</h2>
+  <table>
+    <tr><th>git pull</th><td>서류함에서 최신 서류 꺼내오기</td></tr>
+    <tr><th>브랜치 (작업방)</th><td>원본 말고 <b>복사본</b>에 연필로 수정하기</td></tr>
+    <tr><th>git commit</th><td>“여기까지 고쳤음” 하고 도장 찍기</td></tr>
+    <tr><th>git push</th><td>고친 복사본을 서류함에 제출하기</td></tr>
+    <tr><th>Pull Request</th><td>사장님께 “원본에 반영해 주세요” 결재 올리기</td></tr>
+    <tr><th>머지 (merge)</th><td>결재가 나서 원본에 실제로 합쳐지는 것</td></tr>
+    <tr><th>배포 (deploy)</th><td>합쳐진 내용을 진짜 홈페이지에 올리는 것 <b>(사장님만)</b></td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="num">8</span>이럴 땐 어떻게 하나요</h2>
+
+  <details open>
+    <summary>git pull 했더니 에러가 납니다</summary>
+    <p class="sub">혼자 해결하려고 하지 마세요. 화면을 캡처해서 물어보세요.
+       억지로 해결하려다 작업을 날리는 경우가 가장 많습니다.</p>
+  </details>
+
+  <details open>
+    <summary>내가 고친 게 홈페이지에 안 보입니다</summary>
+    <p class="sub">정상입니다. 사장님이 승인(3번의 4단계)해야 반영됩니다.</p>
+  </details>
+
+  <details open>
+    <summary>실수로 파일을 다 지웠습니다</summary>
+    <p class="sub">괜찮습니다. 아직 <code>commit</code> 안 했으면 아래로 되돌아갑니다.</p>
+    <div class="cmd">git checkout .<button onclick="cp(this)">복사</button></div>
+  </details>
+
+  <details open>
+    <summary>다른 사람과 같은 파일을 고쳤다고 나옵니다 (충돌)</summary>
+    <p class="sub">5번에 나온 <code>BUILD</code> 줄이면 아무거나 고르면 됩니다.
+       그 외에는 <b>혼자 풀지 마세요.</b> 잘못 풀면 남의 작업이 사라집니다.</p>
+  </details>
+
+  <details open>
+    <summary>내 담당이 아닌 파일을 고쳐야 합니다</summary>
+    <p class="sub">먼저 사장님께 말씀하세요. 특히 <code>index.html</code>과
+       <code>admin.html</code>은 파일이 매우 커서, 두 사람이 같이 만지면
+       나중에 합칠 수가 없습니다.</p>
+  </details>
+</section>
+
+<section>
+  <h2><span class="num">9</span>요약 카드 &mdash; 인쇄해서 책상에 붙여두세요</h2>
+  <div class="cheat">
+    <h3>매일 이것만 하면 됩니다</h3>
+    <table>
+      <tr><th>아침</th><td>git pull</td></tr>
+      <tr><th>작업 시작</th><td>git checkout -b 작업이름</td></tr>
+      <tr><th>작업 끝</th><td>git add -A<br>git commit -m "무엇을 했는지"<br>git push</td></tr>
+      <tr><th>그다음</th><td>깃허브에서 Pull Request 올리기</td></tr>
+      <tr><th class="stop">절대 금지</th><td class="stop">deploy.ps1 실행<br>index.html &middot; admin.html 수정</td></tr>
+    </table>
+  </div>
+  <p class="sub" style="margin-top:14px">이 페이지는 <b>Ctrl + P</b>를 누르면 그대로 인쇄됩니다.</p>
+</section>
+
+<footer>
+  망고아이 개발 공동작업 안내 &middot; 2026-07-22<br>
+  궁금한 점은 사장님께 문의하세요
+</footer>
+
+</div>
+
+<script>
+function cp(btn){
+  var box = btn.parentNode;
+  var text = "";
+  box.childNodes.forEach(function(n){ if(n.nodeType === 3) text += n.textContent; });
+  text = text.replace(/^\s+|\s+$/g, "");
+  var ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); } catch(e){}
+  document.body.removeChild(ta);
+  var old = btn.textContent;
+  btn.textContent = "복사됨";
+  btn.className = "done";
+  setTimeout(function(){ btn.textContent = old; btn.className = ""; }, 1400);
+}
+</script>
+</body>
+</html>
