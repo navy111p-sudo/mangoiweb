@@ -20404,8 +20404,11 @@ button.chip:hover,
   <div id="ag-hint">← → 넘기기 · 손가락으로 밀기 · 아래 그림을 눌러 바로 이동</div>
   <div id="ag-thumbs"></div>
 </div>
-<script src="/js/adm-s18.js?v=2" defer></script><!-- 분할추출:adm-s18 -->
-<script src="/js/adm-welcome.js?v=3" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<!-- ph166 (2026-07-23) — 가이드 덱 정의 단일 출처. 아래 두 소비자보다 먼저 실려야 한다.
+     (defer 는 문서 순서대로 실행되므로 이 순서가 곧 실행 순서다) -->
+<script src="/js/adm-guide-decks.js?v=1" defer></script><!-- 덱 정의(폴더·PDF·슬라이드 제목) -->
+<script src="/js/adm-s18.js?v=3" defer></script><!-- 분할추출:adm-s18 — 전체 가이드 뷰어 -->
+<script src="/js/adm-welcome.js?v=4" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
