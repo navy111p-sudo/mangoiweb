@@ -20827,9 +20827,10 @@ button.chip:hover,
   @media (min-width: 1024px) {
     #ph160-rail-toggle { display: flex; }
 
-    /* 폭 전환. transition 이 안 돌아도 최종값은 그대로 적용된다(= 안전) */
-    #ph85-sidebar { transition: width .22s ease, padding .22s ease; }
-    body { transition: padding-left .22s ease; }
+    /* ⛔ width / padding-left 에 transition 을 걸지 않는다.
+       두 속성은 애니메이션 매 프레임마다 '전체 레이아웃 재계산'을 일으킨다.
+       admin.html 은 DOM 이 매우 커서 0.22초 = 전체 리플로우 13회 ≒ 필리핀 저사양 PC 에서 끊김.
+       레이아웃 토글은 즉시 전환이 더 빠릿하고 비용이 0 이다. */
 
     /* ── 접힌 상태 ───────────────────────────────────────────── */
     /* body 의 padding-left 는 여러 스크립트가 인라인으로 312px 를 박는다.
