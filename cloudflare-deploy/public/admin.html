@@ -100,6 +100,21 @@
     try { localStorage.setItem('mangoi_lang', L); } catch(e){}
   }
   window.__ADM_BOOT_LANG = (L === 'en') ? 'en' : 'ko';
+  // 🌐 window.adminLang — 화면 곳곳(`window.adminLang === 'en'` 30여 곳)이 이 값을 보는데
+  //    지금까지 **아무 데서도 대입되지 않아 항상 undefined** 였다. 그래서 영문 이름으로
+  //    로그인한 외국 강사에게도 그 분기들이 전부 한국어로 나왔다.
+  //    머리에서(첫 페인트 전에) 한 번 넣어 주면 이후 스크립트가 전부 영어로 그린다.
+  window.adminLang = window.__ADM_BOOT_LANG;
+  // 언어를 바꾸면(토글·다른 탭) 같이 따라간다 — 관찰자 2개뿐이라 비용은 사실상 0
+  try {
+    new MutationObserver(function(){
+      var l = document.documentElement.lang;
+      if (l === 'en' || l === 'ko') window.adminLang = l;
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+    window.addEventListener('storage', function(ev){
+      if (ev.key === 'mangoi_lang' && (ev.newValue === 'en' || ev.newValue === 'ko')) window.adminLang = ev.newValue;
+    });
+  } catch(e){}
   if (window.__ADM_BOOT_LANG !== 'en') return;
   try { document.documentElement.lang = 'en'; } catch(e){}
   try { document.documentElement.classList.add('adm-en-pending'); } catch(e){}
@@ -11544,7 +11559,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=7" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=8" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 
 </div>
@@ -20711,6 +20726,6 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-ai-asst,
   html[data-admin-theme="ivory"] #ph85-ai-asst * { color: #7c2d12 !important; }
 </style>
-<!-- BUILD:20260722172731 -->
+<!-- BUILD:20260722174545 -->
 </body>
 </html>

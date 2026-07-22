@@ -37,7 +37,7 @@
     //    '모자 밑단이 이마보다 살짝 아래' 가 되도록 역산한 값이다. 임의로 키우면 눈을 덮는다.
     { id:'rtophat', ko:'중절모',       en:'Top Hat',        anchor:'hat', scale:1.70, yOff:-0.24, rotate:true, draw:'image', img:'/face-fx/r/tophat.png' },
     { id:'rsteamhat', ko:'스팀펑크 모자', en:'Steampunk Hat', anchor:'hat', scale:1.80, yOff:-0.24, rotate:true, draw:'image', img:'/face-fx/r/steamhat.png' },
-    { id:'rcap',    ko:'야구모자',     en:'Cap',            anchor:'hat', scale:1.72, yOff:-0.17, rotate:true, draw:'image', img:'/face-fx/r/cap.png' },
+    { id:'rcap',    ko:'야구모자',     en:'Cap',            anchor:'hat', scale:1.72, yOff:-0.26, rotate:true, draw:'image', img:'/face-fx/r/cap.png' },
     { id:'rcrowng', ko:'황금 왕관',    en:'Gold Crown',     anchor:'hat', scale:1.38, yOff:-0.25, rotate:true, draw:'image', img:'/face-fx/r/crown-gold.png' },
     { id:'rcrowns', ko:'은빛 왕관',    en:'Silver Crown',   anchor:'hat', scale:1.34, yOff:-0.16, rotate:true, draw:'image', img:'/face-fx/r/crown-silver.png' },
     { id:'rgrad',   ko:'학사모',       en:'Grad Cap',       anchor:'hat', scale:2.00, yOff:0.34, rotate:true, draw:'image', img:'/face-fx/r/gradcap.png' },

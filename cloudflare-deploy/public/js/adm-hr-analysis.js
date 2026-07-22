@@ -12,13 +12,22 @@
 
   var _cache = null;           // { at: ms, byId: {id: item} }
   var _CACHE_MS = 60 * 1000;   // 목록을 다시 그려도 1분 안에는 재요청하지 않음
+  var _pending = false;        // 열이 숨겨져 있어 미뤄 둔 상태 (토글로 켜면 그때 채운다)
 
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
-  function isEn() { return (typeof window.adminLang !== 'undefined' && window.adminLang === 'en'); }
+  // 🌐 언어 판정 — 외국 강사가 로그인하면 **첫 화면부터** 영어여야 한다.
+  //    admin.html 머리의 adm-lang-boot 가 mangoi_lang / window.adminLang 을 먼저 정해 두므로
+  //    같은 출처를 그대로 읽는다. (adminLang 하나만 믿지 않는다 — 과거에 undefined 였던 전력)
+  function isEn() {
+    try { if (typeof window.getLang === 'function') return window.getLang() === 'en'; } catch (e) {}
+    if (window.adminLang === 'en' || window.adminLang === 'ko') return window.adminLang === 'en';
+    try { var l = localStorage.getItem('mangoi_lang'); if (l) return l === 'en'; } catch (e) {}
+    return document.documentElement.lang === 'en';
+  }
   function T(ko, en) { return isEn() ? en : ko; }
   // 🌐 서버가 내려준 두 벌(fact/fact_en 등) 중 현재 언어 선택.
   //    영어판이 비어 있으면 한국어라도 보여준다(빈칸보다 낫다).
@@ -129,6 +138,14 @@
   window.hrFillTeacherScores = async function (force) {
     var cells = document.querySelectorAll('[id^="hrv-"]');
     if (!cells.length) return;
+    // ⚡ 인사평가 열이 숨겨져 있으면(🏆 토글 off) 요청 자체를 하지 않는다.
+    //    관리자 화면은 이미 무겁다 — 안 보이는 열 때문에 집계 API 를 부르지 않는다.
+    var table = document.getElementById('tp-list-table');
+    if (table && table.classList.contains('hr-hidden') && !force) {
+      _pending = true;
+      return;
+    }
+    _pending = false;
     var data;
     try {
       data = await loadAll(force);
@@ -173,6 +190,8 @@
   };
 
   // ── 근거 분석 모달 ────────────────────────────────────────────────
+  //   경량 원칙: 한 항목 = 두 줄. (1줄) 이름·배점·점수·기여, (2줄) 근거 문장.
+  //   출처 표기는 툴팁으로 내렸다 — 화면에서 세 번째 줄을 차지할 만큼 자주 보는 정보가 아니다.
   function catRow(c, wSum) {
     var t = tone(c.score);
     var pct = c.score == null ? 0 : Math.max(0, Math.min(100, c.score));
@@ -181,28 +200,25 @@
     // 미측정 항목이 있으면 남은 항목의 '실제 적용 비중'이 올라간다 — 그 값을 같이 보여준다
     var applied = (c.score != null && wSum && wSum < 0.999) ? Math.round((c.weight / wSum) * 100) : null;
     return ''
-      + '<div style="padding:11px 13px;border:1px solid ' + (c.score == null ? '#e5e7eb' : '#eef2f7') + ';'
-      + 'border-left:4px solid ' + (c.score == null ? '#e5e7eb' : catColor(c.key)) + ';'
-      + 'border-radius:10px;background:' + (c.score == null ? '#fafafa' : '#fff') + ';margin-bottom:8px">'
-      +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
-      +     '<span style="font-weight:800;font-size:13.5px;color:#111827">' + esc(name) + '</span>'
-      +     '<span style="padding:1px 7px;border-radius:8px;background:#eef2ff;color:#4338ca;font-size:10.5px;font-weight:800">'
-      +       T('배점 ', 'weight ') + weight + '%'
-      +       (applied ? ' <span style="color:#7c3aed">→ ' + T('실제 ', 'applied ') + applied + '%</span>' : '')
-      +     '</span>'
-      +     '<span style="margin-left:auto;font-size:15px;font-weight:800;color:' + t.fg + ';font-variant-numeric:tabular-nums">'
-      +       (c.score == null ? T('미측정', 'n/a') : c.score.toFixed(1)) + '</span>'
+      + '<div title="' + esc(F(c, 'source')) + '" style="padding:8px 0 9px;border-top:1px solid #f1f5f9">'
+      +   '<div style="display:flex;align-items:baseline;gap:7px;margin-bottom:5px">'
+      +     '<i style="width:8px;height:8px;border-radius:2px;flex:0 0 auto;align-self:center;background:'
+      +       (c.score == null ? '#e5e7eb' : catColor(c.key)) + '"></i>'
+      +     '<span style="font-weight:750;font-size:13px;color:#111827">' + esc(name) + '</span>'
+      +     '<span style="font-size:10.5px;color:#9ca3af;font-weight:700">' + weight + '%'
+      +       (applied ? '<span style="color:#7c3aed">→' + applied + '%</span>' : '') + '</span>'
+      +     '<span style="margin-left:auto;font-size:14px;font-weight:800;color:' + t.fg + ';font-variant-numeric:tabular-nums">'
+      +       (c.score == null ? '<span style="font-size:11.5px;color:#9ca3af">' + T('미측정', 'n/a') + '</span>' : c.score.toFixed(1)) + '</span>'
+      +     (c.score != null && c.contribution != null
+          ? '<span style="font-size:10.5px;color:#9ca3af;font-variant-numeric:tabular-nums;width:42px;text-align:right">+'
+            + c.contribution.toFixed(1) + '</span>'
+          : '<span style="width:42px"></span>')
       +   '</div>'
-      +   '<div style="height:8px;border-radius:6px;background:#f1f5f9;overflow:hidden;margin-bottom:7px">'
-      +     '<div style="height:100%;width:' + pct + '%;background:' + t.bar + ';border-radius:6px"></div>'
+      +   '<div style="height:5px;border-radius:3px;background:#f1f5f9;overflow:hidden;margin:0 0 5px 15px">'
+      +     (c.score == null ? '' : '<div style="height:100%;width:' + pct + '%;background:' + t.bar + '"></div>')
       +   '</div>'
-      +   '<div style="font-size:12.5px;color:' + (c.score == null ? '#9ca3af' : '#374151') + ';line-height:1.5">'
+      +   '<div style="font-size:12px;color:' + (c.score == null ? '#9ca3af' : '#4b5563') + ';line-height:1.45;margin-left:15px">'
       +     esc(F(c, 'fact')) + '</div>'
-      +   '<div style="font-size:11px;color:#9ca3af;margin-top:3px">' + esc(F(c, 'source')) + '</div>'
-      +   (c.score != null && c.contribution != null
-          ? '<div style="font-size:11px;color:#6b7280;margin-top:4px">'
-            + T('총점 기여 ', 'adds ') + '<b style="color:' + t.fg + '">' + c.contribution.toFixed(1) + T('점', ' pts') + '</b></div>'
-          : '')
       + '</div>';
   }
 
@@ -296,31 +312,23 @@
       +   '<button data-close="1" style="background:none;border:0;color:#9ca3af;font-size:22px;cursor:pointer;line-height:1;padding:0 2px;align-self:flex-start">&times;</button>'
       + '</div>'
 
-      // 한 줄 요약
-      + '<div style="padding:11px 16px;background:#f8fafc;border-bottom:1px solid #eef2f7;font-size:13px;color:#334155;line-height:1.6">'
-      +   esc(summaryLine(it)) + '</div>'
-
-      // 신뢰도
-      + '<div style="padding:9px 16px;font-size:11.5px;color:' + (it.confidence < 60 ? '#b45309' : '#6b7280') + ';'
-      +   'background:' + (it.confidence < 60 ? '#fffbeb' : '#fff') + ';border-bottom:1px solid #eef2f7">'
-      +   T('5개 항목 중 ' + it.measured_count + '개가 실제 기록으로 채워졌습니다 (비중 ' + it.confidence + '%). '
-          + '데이터가 없는 항목은 계산에서 빼고, 나머지 항목의 비중을 다시 100%로 맞춰 평균냅니다.',
-            it.measured_count + ' of 5 criteria have real records (' + it.confidence + '% of weight). '
-          + 'Missing criteria are excluded and the remaining weights are renormalised.')
+      // 요약 한 줄 + 신뢰도 (한 덩어리로 합쳐 화면을 짧게 유지)
+      + '<div style="padding:10px 16px;background:' + (it.confidence < 60 ? '#fffbeb' : '#f8fafc') + ';'
+      +   'border-bottom:1px solid #eef2f7">'
+      +   '<div style="font-size:12.5px;color:#334155;line-height:1.5">' + esc(summaryLine(it)) + '</div>'
+      +   '<div style="font-size:11px;margin-top:3px;color:' + (it.confidence < 60 ? '#b45309' : '#9ca3af') + '">'
+      +     T('5개 중 ' + it.measured_count + '개 항목만 기록이 있어, 그 ' + it.confidence + '%를 100%로 환산했습니다.',
+              'Only ' + it.measured_count + ' of 5 criteria have records; that ' + it.confidence + '% was rescaled to 100%.')
+      +   '</div>'
       + '</div>'
 
-      // 평가 구성(배점) + 항목별 근거
-      + '<div style="padding:13px 16px;max-height:52vh;overflow:auto">'
-      +   '<div style="margin-bottom:13px">'
-      +     '<div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:7px">'
-      +       T('인사평가 배점 구성', 'How the score is weighted')
-      +       ' <span style="font-weight:600;color:#9ca3af;font-size:11.5px">'
-      +       T('(빗금 = 기록이 없어 이번 계산에서 뺀 항목)', '(hatched = excluded, no records)') + '</span></div>'
-      +     weightBar(it.categories)
-      +     weightLegend(it.categories)
-      +     formulaLine(it)
+      // 배점 막대 + 계산식 + 항목별 근거 (범례는 뺐다 — 아래 항목마다 색점·이름·배점이 이미 있다)
+      + '<div style="padding:12px 16px 14px;max-height:56vh;overflow:auto">'
+      +   weightBar(it.categories)
+      +   formulaLine(it)
+      +   '<div style="margin-top:11px">'
+      +     (it.categories || []).map(function (c) { return catRow(c, wSum); }).join('')
       +   '</div>'
-      +   (it.categories || []).map(function (c) { return catRow(c, wSum); }).join('')
       +   feedbackBlock(it.recent_feedback)
       +   manualBlock(it.manual_evaluation)
       + '</div>';
@@ -356,6 +364,18 @@
       });
     } catch (e) { /* 번역 실패 — 원문 그대로 둔다 */ }
   }
+
+  // 🏆 토글로 인사평가 열을 켜면 그때 채운다 + 언어를 바꾸면 캐시로 다시 그린다(네트워크 없음)
+  (function () {
+    var refill = function () { if (typeof window.hrFillTeacherScores === 'function') window.hrFillTeacherScores(); };
+    document.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('#tp-hr-toggle') : null;
+      if (b && _pending) setTimeout(refill, 0);
+    }, true);
+    try {
+      new MutationObserver(refill).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+    } catch (e) { /* 관찰 실패해도 목록은 정상 */ }
+  })();
 
   // ── 모달 껍데기 (분석 모달 / 기준 안내 모달 공용) ─────────────────
   function shell(innerHtml) {

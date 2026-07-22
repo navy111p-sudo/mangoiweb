@@ -83,7 +83,9 @@ check('측정된 항목이 하나도 없으면 총점은 null (0점 아님)',
   total([{ weight: W.cls, score: null }, { weight: W.ret, score: null }]) === null);
 
 console.log('\n[5] 평가 구성(항목·배점) 안내');
-check('모달에 배점 구성 막대가 있다', /function weightBar\(/.test(HR) && /인사평가 배점 구성/.test(HR));
+// 경량화(2026-07-22) 이후: 상세 모달에는 막대만, 설명 제목은 「📋 평가 기준」 모달로 옮겼다
+check('배점 구성 막대가 있다', /function weightBar\(/.test(HR));
+check('배점 설명은 평가 기준 모달이 담당한다', /인사평가 기준/.test(HR));
 check('항목별 색·설명 정의(CATS)가 5개다', (HR.match(/ko_desc:/g) || []).length === 5);
 check('배점이 25/30/20/15/10 으로 서버 가중치와 같다',
   /w: 25,/.test(HR) && /w: 30,/.test(HR) && /w: 20,/.test(HR) && /w: 15,/.test(HR) && /w: 10,/.test(HR));
@@ -112,6 +114,22 @@ check('프런트가 언어별 필드 선택 헬퍼(F)를 쓴다', /function F\(o
 check('근거·출처를 F() 로 뽑는다', /F\(c, 'fact'\)/.test(HR) && /F\(c, 'source'\)/.test(HR));
 check('한국어 학생 의견은 영어 화면에서 자동 번역한다',
   /\/api\/translate/.test(HR) && /function translateComments/.test(HR));
+// 🔴 외국(영문 이름) 강사는 로그인 직후 첫 화면부터 영어여야 한다.
+//    window.adminLang 은 오랫동안 **어디에서도 대입되지 않아 undefined** 였고,
+//    그 값을 보는 영어 분기 30여 곳이 전부 죽어 있었다. 되풀이 방지용 가드.
+const BOOT = (HTML.match(/<script id="adm-lang-boot">([\s\S]*?)<\/script>/) || ['',''])[1];
+check('adm-lang-boot 이 head 에 있다', BOOT.length > 200);
+check('부팅 시 window.adminLang 을 대입한다 (undefined 회귀 방지)', /window\.adminLang\s*=/.test(BOOT));
+check('영문 이름 계정을 영어로 판정한다', /hasKo\(/.test(BOOT) && /mangoi_admin_session/.test(BOOT));
+check('사용자가 고른 언어(mangoi_lang)가 이름 판정보다 우선', /getItem\('mangoi_lang'\)/.test(BOOT));
+check('언어 변경 시 adminLang 도 따라간다', /attributeFilter: \['lang'\]/.test(BOOT) && /mangoi_lang/.test(BOOT));
+
+console.log('\n[6-2] ⚡ 경량화 — 관리자 화면은 이미 무겁다');
+check('인사평가 열이 숨겨져 있으면 집계 API 를 부르지 않는다', /hr-hidden/.test(HR));
+check('항목 출처는 본문이 아니라 툴팁으로', /title="' \+ esc\(F\(c, 'source'\)\)/.test(HR));
+check('상세 모달에서 범례 줄을 빼고 항목 색점으로 대신한다',
+  !/weightLegend\(it\.categories\)/.test(HR) && /weightBar\(it\.categories\)/.test(HR));
+check('요약과 신뢰도를 한 덩어리로 합쳤다', !/신뢰도 미측정/.test(HR) && /100%로 환산했습니다/.test(HR));
 
 console.log('\n[7] 관리자 수동 평가(기존 5점 척도)와의 연결');
 check('상세 응답에 관리자 수동 평가를 붙인다', /manual_evaluation/.test(SRC));
