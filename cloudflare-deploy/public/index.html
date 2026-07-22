@@ -7717,12 +7717,16 @@
         transform: translateY(0) scale(0.99);
       }
       .ai-cta-row .cta-pay { animation-delay: 0.3s; }
-      /* ✨ 홈 진입 시 서서히 나타나기 (fade-in): 검색창 → 결제 → 수업입장 */
+      /* ✨ 홈 진입 시 서서히 나타나기 (fade-in): 검색창 → 결제 → 수업입장
+         ⚠️ 기본 opacity 는 1 이어야 한다(2026-07-22): 예전엔 opacity:0 + forwards 로 애니메이션이
+         돌아야만 보였는데, 애니메이션이 어떤 이유로든 실행되지 않는 기기에서 수업입장·AI 버튼이
+         영영 안 보이는 신고가 있었다. backwards 필이 지연 동안 from(opacity:0)을 적용하므로
+         페이드 연출은 그대로, 애니메이션 실패 시엔 즉시 보인다. 지연도 2~3.45s → 0.2~0.5s 단축. */
       @keyframes mgHomeFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-      .ai-search-wrap{opacity:0;animation:mgHomeFadeIn .9s ease-out 2s forwards}
-      .ai-cta-row > *{opacity:0;animation:mgHomeFadeIn .9s ease-out forwards, lessonPulse 2.6s infinite !important}
-      .ai-cta-row .cta-pay{animation-delay:2.3s, 3.2s !important}
-      .ai-cta-row .cta-enter{animation-delay:2.55s, 3.45s !important}
+      .ai-search-wrap{animation:mgHomeFadeIn .9s ease-out .2s backwards}
+      .ai-cta-row > *{animation:mgHomeFadeIn .9s ease-out backwards, lessonPulse 2.6s infinite !important}
+      .ai-cta-row .cta-pay{animation-delay:.35s, 1.5s !important}
+      .ai-cta-row .cta-enter{animation-delay:.5s, 1.65s !important}
       @media (prefers-reduced-motion: reduce){.ai-search-wrap,.ai-cta-row > *{animation:none !important;opacity:1 !important}}
       /* 모바일에서 더 적절한 사이즈 */
       @media (max-width: 640px) {
@@ -26139,7 +26143,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260722074012 -->
+<!-- BUILD:20260722143232 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
