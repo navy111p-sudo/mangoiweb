@@ -1,0 +1,51 @@
+/* ════════════════════════════════════════════════════════════════════
+   망고아이 — 장식용 폰트 자체 호스팅 (ph161, 2026-07-23)
+   목적: 구글 폰트(fonts.googleapis.com / fonts.gstatic.com) 의존 제거.
+         필리핀 저속 회선에서 도메인 2개 DNS+TLS 왕복 + 렌더링 차단 CSS 를 없앤다.
+
+   ⚠️ 여기 선언된 3벌은 '브랜드 외형'이라 지우지 않고 가져왔다.
+      · Cormorant Garamond — .brand-logo(Mangoi 워드마크), .home-title, .result-mbti
+      · Paytone One        — index.html 장식 타이틀
+      · Fredoka One        — suspect-mystery.html 게임 타이틀
+      본문 한글(Noto Sans KR / Noto Serif KR)은 가져오지 않았다.
+      Win10 기본 탑재 '맑은 고딕' / '바탕' 으로 떨어지므로 다운로드가 0 이다.
+
+   ⚠️ 라틴(ASCII) 만 담았다. 이 폰트로 '한글'을 렌더링하면 글자가 안 나온다.
+      → font-family 스택에서 반드시 한글 폴백을 뒤에 두어야 한다.
+        예) font-family: 'Cormorant Garamond', 'Malgun Gothic', serif;
+
+   @font-face 는 '선언'만으로는 다운로드하지 않는다. 실제로 그 폰트를 쓰는
+   요소가 화면에 있을 때만 받는다. 그래서 3벌을 한 파일에 모아도 낭비가 없다.
+
+   출처: Google Fonts (SIL Open Font License 1.1 — 재배포·자체호스팅 허용)
+   가공: 구글 latin 서브셋 → pyftsubset 으로 ASCII 범위만 남김 (75KB → 47KB)
+   갱신: 폰트를 바꾸면 이 파일을 읽는 HTML 의 ?v= 를 올릴 것
+         (worker 가 ?v= 붙은 css 를 1년 immutable 로 캐시한다)
+   ════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: italic;
+  font-weight: 500 700;              /* 가변 — 500·600·700 을 한 파일이 담당 */
+  font-display: swap;                /* 폰트를 기다리며 글자를 숨기지 않는다 */
+  src: url('/fonts/cormorant-garamond-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+2013-2014, U+2018-201D, U+2026, U+00B7;
+}
+
+@font-face {
+  font-family: 'Paytone One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/paytone-one-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+2013-2014, U+2018-201D, U+2026, U+00B7;
+}
+
+@font-face {
+  font-family: 'Fredoka One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/fredoka-one-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+2013-2014, U+2018-201D, U+2026, U+00B7;
+}

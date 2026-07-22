@@ -7,11 +7,11 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/js/lucide-local.js?v=1"></script><!-- ph161: unpkg lucide@latest(1500종·버전 미고정) → 실제 쓰는 6종 로컬본 -->
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+/* ph161 (2026-07-23): 구글폰트 @import 제거 — Inter→Segoe UI, Noto Sans KR→맑은 고딕 폴백 */
         body {
-            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+            font-family: 'Noto Sans KR','Inter',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;
         }
         @media print {
             .no-print {
