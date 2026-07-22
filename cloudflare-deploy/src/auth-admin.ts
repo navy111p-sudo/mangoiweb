@@ -488,10 +488,15 @@ export async function handleAdminAuthApi(
       //     ④ 그 외 → ko
       //   ⚠️ 화면(adm-lang-boot.js)에도 같은 순서의 폴백이 있다. 한쪽만 고치지 말 것.
       //   ※ 이름 칸에 아이디가 그대로 들어 있는 계정이 있어(예전 시드), 그건 '이름 모름'으로 본다.
-      const namedOk = !!acctName && acctName !== username;
+      //   ⚠️ (2026-07-23) 이름 칸에 **직함이 같이 들어 있다**: 실제 DB 값이
+      //      `Maimai (본사 매니저)` 였다. "이름에 한글이 하나라도 있으면 한국어" 규칙이
+      //      괄호 안 직함 때문에 통째로 한국어로 떨어졌다(= 사장님이 겪은 증상).
+      //      → 괄호/대괄호 이후를 잘라 **사람 이름 부분만** 보고 판정한다.
+      const baseName = acctName.replace(/\s*[(（[【].*$/, '').trim();
+      const namedOk = !!baseName && baseName !== username;
       const prefLang: 'en' | 'ko' =
         (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
-        : (namedOk && !/[가-힣]/.test(acctName)) ? 'en'
+        : (namedOk && !/[가-힣]/.test(baseName)) ? 'en'
         : isTeacher ? 'en'
         : 'ko';
 

@@ -61,7 +61,10 @@
     set('mangoi_lang_by', 'auto');
     set('mangoi_lang_uid', String(sess.uid || ''));
   } else if (loggedIn) {
-    var nm = String(sess.name || '');
+    // ⚠️ (2026-07-23) 이름 칸에 **직함이 같이 들어 있는** 계정이 있다 — 실제 DB 값이
+    //    `Maimai (본사 매니저)` 였다. 괄호 안 한글 직함 때문에 영문 이름 계정이 통째로
+    //    한국어로 떨어졌다. 괄호/대괄호 이후를 잘라 사람 이름 부분만 보고 판정한다.
+    var nm = String(sess.name || '').replace(/\s*[(（[【].*$/, '').trim();
     var isTeacher = /teacher/i.test(String(sess.role || ''));
     if (nm && nm !== sess.uid && !hasKo(nm)) L = 'en';   // ③ 영문 이름
     else if (isTeacher) L = 'en';                        // ④ 강사 = 기본 영어
