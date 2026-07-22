@@ -480,11 +480,13 @@ export async function handleAdminAuthApi(
 
       // 🌐 (2026-07-23 사장님 지시) "필리핀 선생·매니저는 로그인하면 처음부터 영어."
       //   화면이 이름 글자로만 추측하던 걸 서버가 판정해 내려보낸다. 판정 순서:
-      //     ① admin_account.pref_lang 이 있으면 그 값 (운영에서 계정별로 못박는 수단)
-      //     ② 이름에 한글이 없다 → en  (Maimai / Melca / Karl / Teacher Len …)
-      //     ③ 강사인데 이름을 모르겠다(비었거나 아이디와 같음) → en
-      //        └ 강사 대부분이 필리핀. 이름이 '교사'(hq_t_001 시드값)처럼 한글이어도
-      //          강사면 영어로 연다. 한국인 강사는 화면에서 KO 를 한 번 누르면 그 선택이 남는다.
+      //     ① 🇵🇭 **강사는 무조건 영어.** 망고아이 강사는 전원 외국인이다(사장님 지시 2026-07-23).
+      //        이름이 '교사'(hq_t_001 시드값)든 비어 있든 상관없이 영어로 연다.
+      //        └ 유일한 예외: 운영에서 `admin_account.pref_lang='ko'` 를 **명시적으로** 넣은 경우.
+      //          실수로 KO 를 눌러 한국어 화면에 갇히는 사고를 막으려고 이걸 최우선에 둔다
+      //          (읽지도 못하는 언어로 갇히면 스스로 되돌릴 수 없다).
+      //     ② admin_account.pref_lang 이 있으면 그 값 (계정별로 못박는 수단)
+      //     ③ 이름에 한글이 없다 → en  (Maimai / Melca / Karl …)
       //     ④ 그 외 → ko
       //   ⚠️ 화면(adm-lang-boot.js)에도 같은 순서의 폴백이 있다. 한쪽만 고치지 말 것.
       //   ※ 이름 칸에 아이디가 그대로 들어 있는 계정이 있어(예전 시드), 그건 '이름 모름'으로 본다.
@@ -495,9 +497,9 @@ export async function handleAdminAuthApi(
       const baseName = acctName.replace(/\s*[(（[【].*$/, '').trim();
       const namedOk = !!baseName && baseName !== username;
       const prefLang: 'en' | 'ko' =
-        (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
+        isTeacher ? (acctPrefLang === 'ko' ? 'ko' : 'en')
+        : (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
         : (namedOk && !/[가-힣]/.test(baseName)) ? 'en'
-        : isTeacher ? 'en'
         : 'ko';
 
       return json(

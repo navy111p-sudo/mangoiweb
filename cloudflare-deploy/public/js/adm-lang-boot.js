@@ -53,10 +53,23 @@
   var byUid = get('mangoi_lang_uid');
   var userPick = (by === 'user') && (!loggedIn || (byUid && byUid === sess.uid));
 
-  if (userPick && (saved === 'en' || saved === 'ko')) {
-    L = saved;                                     // ① 이 계정에서 사용자가 직접 고른 값
+  // 🇵🇭 강사 판별 — 아이디가 `hq_t_` 로 시작하거나 역할에 teacher 가 들어 있으면 강사.
+  //    (서버 resolveRole 도 `^hq_t` 규칙을 쓴다 — 양쪽이 같아야 한다)
+  var isTeacher = /^hq_t/i.test(String(sess.uid || '')) || /teacher/i.test(String(sess.role || ''));
+
+  if (loggedIn && isTeacher) {
+    // ① 🇵🇭 **강사는 무조건 영어.** 망고아이 강사는 전원 외국인이다(사장님 지시 2026-07-23).
+    //    이름이 '교사' 처럼 한글이든, 예전에 실수로 KO 를 눌렀든 상관없이 영어로 연다.
+    //    ⚠️ 일부러 이걸 최우선에 뒀다 — 읽지도 못하는 한국어 화면에 갇히면 스스로 되돌릴 수 없다.
+    //    유일한 예외: 운영에서 `admin_account.pref_lang='ko'` 를 명시적으로 넣은 계정.
+    L = (sess.pref_lang === 'ko') ? 'ko' : 'en';
+    if (saved !== L) set('mangoi_lang', L);
+    set('mangoi_lang_by', 'auto');
+    set('mangoi_lang_uid', String(sess.uid || ''));
+  } else if (userPick && (saved === 'en' || saved === 'ko')) {
+    L = saved;                                     // ② 이 계정에서 사용자가 직접 고른 값
   } else if (sess.pref_lang === 'en' || sess.pref_lang === 'ko') {
-    L = sess.pref_lang;                            // ② 서버가 계정에 정해 준 값
+    L = sess.pref_lang;                            // ③ 서버가 계정에 정해 준 값
     if (saved !== L) set('mangoi_lang', L);
     set('mangoi_lang_by', 'auto');
     set('mangoi_lang_uid', String(sess.uid || ''));
@@ -65,9 +78,7 @@
     //    `Maimai (본사 매니저)` 였다. 괄호 안 한글 직함 때문에 영문 이름 계정이 통째로
     //    한국어로 떨어졌다. 괄호/대괄호 이후를 잘라 사람 이름 부분만 보고 판정한다.
     var nm = String(sess.name || '').replace(/\s*[(（[【].*$/, '').trim();
-    var isTeacher = /teacher/i.test(String(sess.role || ''));
-    if (nm && nm !== sess.uid && !hasKo(nm)) L = 'en';   // ③ 영문 이름
-    else if (isTeacher) L = 'en';                        // ④ 강사 = 기본 영어
+    if (nm && nm !== sess.uid && !hasKo(nm)) L = 'en';   // ④ 영문 이름
     else L = 'ko';                                       // ⑤
     if (saved !== L) set('mangoi_lang', L);
     set('mangoi_lang_by', 'auto');

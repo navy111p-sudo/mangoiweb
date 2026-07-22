@@ -233,14 +233,22 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           //   사용자가 EN/KO 를 직접 누른 적이 있으면(=by user, 같은 계정) 그 선택을 존중.
           var wantLang = (data.pref_lang === 'en' || data.pref_lang === 'ko') ? data.pref_lang : '';
           try {
+            // 🇵🇭 강사는 무조건 영어 — 강사는 전원 외국인(사장님 지시 2026-07-23).
+            //   서버가 pref_lang 을 못 내려준 경우의 폴백. 이름 형태를 보지 않는다.
+            var isTeacherAcct = /^hq_t/i.test(uid) || String(role).indexOf('teacher') >= 0;
+            if (isTeacherAcct) wantLang = wantLang || 'en';
             if (!wantLang) {
+              //   매니저·직원은 이름으로 판정. 이름 칸에 직함이 붙어 있는 계정이 있어
+              //   (`Maimai (본사 매니저)`) 괄호 이후를 잘라 사람 이름만 본다.
               var acctName = (data.name && data.name !== uid) ? String(data.name) : '';
-              var isTeacherAcct = String(role).indexOf('teacher') >= 0;
-              wantLang = (acctName && !/[가-힣]/.test(acctName)) ? 'en' : (isTeacherAcct ? 'en' : 'ko');
+              acctName = acctName.replace(/\s*[(（[【].*$/, '').trim();
+              wantLang = (acctName && !/[가-힣]/.test(acctName)) ? 'en' : 'ko';
             }
             var by   = localStorage.getItem('mangoi_lang_by');
             var last = localStorage.getItem('mangoi_lang_uid');
-            if (by !== 'user' || last !== uid) {
+            //   강사는 '직접 고름'도 무시하고 덮어쓴다 — 실수로 KO 를 눌러 읽지도 못하는
+            //   한국어 화면에 갇히는 사고를 막는다(스스로 되돌릴 수 없는 상태가 된다).
+            if (isTeacherAcct || by !== 'user' || last !== uid) {
               localStorage.setItem('mangoi_lang', wantLang);
               localStorage.setItem('mangoi_lang_by', 'auto');
             }
