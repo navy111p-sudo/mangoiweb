@@ -8,7 +8,7 @@
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=7"></script>
+<script defer src="/js/i18n-sweep.js?v=9"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -10737,7 +10737,7 @@ async function vcJoinRoom(skipUI) {
     window.vcMobileTabSwitch = function(name){
       // 🎯 집중 모드 — 학생 탭 이탈 차단 (모바일 경로)
       if (window.__vcFocusLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
-        try { if (typeof showToast === 'function') showToast(localStorage.getItem('mango_lang') === 'en' ? '🎯 Focus mode — follow your teacher' : '🎯 집중 모드예요 — 선생님 화면을 따라가요'); } catch(e){}
+        try { if (typeof showToast === 'function') showToast((localStorage.getItem('mangoi_lang') || localStorage.getItem('mango_lang')) === 'en' ? '🎯 Focus mode — follow your teacher' : '🎯 집중 모드예요 — 선생님 화면을 따라가요'); } catch(e){}
         return;
       }
       if (typeof vcSwitchTab === 'function') try { vcSwitchTab(name); } catch(e){}
@@ -13412,7 +13412,7 @@ async function vcLeaveRoom() {
 async function vcToggleMic() {
     // 🔇 선생님이 전체 음소거를 켠 동안 학생은 마이크를 다시 켤 수 없음
     if (window.__vcMicLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
-        try { if (typeof showToast === 'function') showToast(localStorage.getItem('mango_lang') === 'en' ? '🔇 Teacher muted everyone' : '🔇 선생님이 전체 음소거를 켰어요'); } catch(_){}
+        try { if (typeof showToast === 'function') showToast((localStorage.getItem('mangoi_lang') || localStorage.getItem('mango_lang')) === 'en' ? '🔇 Teacher muted everyone' : '🔇 선생님이 전체 음소거를 켰어요'); } catch(_){}
         return;
     }
     if (!vcLocalStream) {
@@ -13794,7 +13794,7 @@ window.vcToggleContentTab = function(tabName){
     // 🎯 집중 모드 — 선생님이 잠근 동안 학생은 탭 변경/접기 불가.
     //   (교사 tab-sync 수신·pdf/video 공유 적용은 vcSwitchTab 직행이라 막히지 않음)
     if (window.__vcFocusLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
-        try { if (typeof showToast === 'function') showToast(localStorage.getItem('mango_lang') === 'en' ? '🎯 Focus mode — follow your teacher' : '🎯 집중 모드예요 — 선생님 화면을 따라가요'); } catch(_){}
+        try { if (typeof showToast === 'function') showToast((localStorage.getItem('mangoi_lang') || localStorage.getItem('mango_lang')) === 'en' ? '🎯 Focus mode — follow your teacher' : '🎯 집중 모드예요 — 선생님 화면을 따라가요'); } catch(_){}
         return;
     }
     // 🔧 (2026-07-16) 복습퀴즈로 들어갈 때, 지금 보고 있던 콘텐츠 탭(교재/칠판 등)을 기억한다.
@@ -14132,7 +14132,7 @@ function vcSwapVideoTrack(newTrack){
 //   방이 비거나 새 수업 첫 입장 시 자동 해제된다.
 window.__vcBgLockOn = false;            // 강사 화면: 내가 켠 잠금 상태
 window.__vcBgLockedByTeacher = false;   // 학생 화면: 선생님이 잠갔는지
-function _vcBgLockEn(){ try { return localStorage.getItem('mango_lang') === 'en'; } catch(_) { return false; } }
+function _vcBgLockEn(){ try { return (localStorage.getItem('mangoi_lang') || localStorage.getItem('mango_lang')) === 'en'; } catch(_) { return false; } }
 function _vcBgLockIsStaff(){ return window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'; }
 function _vcBgLockMsg(locked){
   return locked
@@ -27454,7 +27454,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
 <script src="/js/mango-attendance.js?v=33" defer></script>
 <script src="/js/mango-gaze.js?v=33" defer></script>
-<script src="/js/mango-i18n.js?v=33" defer></script>
+<script src="/js/mango-i18n.js?v=34" defer></script>
 
 <style id="v33-exit-anchor-style">
   /* ✕ anchor 가 button 처럼 보이게 보장 */

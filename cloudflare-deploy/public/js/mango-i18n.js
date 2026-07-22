@@ -150,15 +150,21 @@
   // ━━━━ 외부 노출 ━━━━
   window.applyI18n = applyI18n;
   window.getLang = function(){ return currentLang; };
-  window.setLang = function(l){
+  // 🌐 (2026-07-23) by === 'user' 면 "사람이 직접 고른 선택"으로 기록한다.
+  //   adm-lang-boot.js 가 계정 자동판정(영문 이름·강사 → 영어)보다 이 기록을 **항상 우선**하므로,
+  //   한국인 강사가 KO 를 한 번 누르면 다음 로그인·다른 페이지에서도 한국어로 뜬다.
+  //   이 표시가 없으면 자동판정이 매번 영어로 되돌려 놓아 "아무리 눌러도 영어로 돌아온다"가 된다.
+  //   ⚠️ 코드가 자동으로 부르는 setLang(예: 마이페이지 강사 기본 영어)은 by 를 넘기지 말 것.
+  window.setLang = function(l, by){
     if (LANG_CYCLE.indexOf(l) < 0) return;
     currentLang = l;
     try { localStorage.setItem('mangoi_lang', l); } catch(e){}
+    if (by === 'user') { try { localStorage.setItem('mangoi_lang_by', 'user'); } catch(e){} }
     applyI18n();
     window.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail: { lang: l } }));
   };
   window.toggleLang = function(){
-    window.setLang(nextLangOf(currentLang));
+    window.setLang(nextLangOf(currentLang), 'user');
   };
 
   // ━━━━ 우측 상단 [🏠 Home] + [🌐 EN] 두 버튼 한 쌍 자동 inject ━━━━

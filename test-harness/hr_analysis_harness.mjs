@@ -117,12 +117,38 @@ check('한국어 학생 의견은 영어 화면에서 자동 번역한다',
 // 🔴 외국(영문 이름) 강사는 로그인 직후 첫 화면부터 영어여야 한다.
 //    window.adminLang 은 오랫동안 **어디에서도 대입되지 않아 undefined** 였고,
 //    그 값을 보는 영어 분기 30여 곳이 전부 죽어 있었다. 되풀이 방지용 가드.
-const BOOT = (HTML.match(/<script id="adm-lang-boot">([\s\S]*?)<\/script>/) || ['',''])[1];
-check('adm-lang-boot 이 head 에 있다', BOOT.length > 200);
+//    (2026-07-23) 인라인이던 판정 로직을 /js/adm-lang-boot.js 공용 파일로 옮겼다.
+//    admin.html 한 장에만 있어서 하위 페이지로 넘어가면 전부 한국어로 돌아가던 게 원인이었다.
+const BOOT = read('cloudflare-deploy/public/js/adm-lang-boot.js');
+check('adm-lang-boot 이 공용 파일로 있다', BOOT.length > 200);
+check('admin.html 이 head 에서 그 파일을 defer 없이 읽는다',
+  /<script src="\/js\/adm-lang-boot\.js\?v=\d+"><\/script>/.test(HTML));
 check('부팅 시 window.adminLang 을 대입한다 (undefined 회귀 방지)', /window\.adminLang\s*=/.test(BOOT));
 check('영문 이름 계정을 영어로 판정한다', /hasKo\(/.test(BOOT) && /mangoi_admin_session/.test(BOOT));
-check('사용자가 고른 언어(mangoi_lang)가 이름 판정보다 우선', /getItem\('mangoi_lang'\)/.test(BOOT));
+check('사용자가 고른 언어(mangoi_lang_by=user)가 자동판정보다 우선', /by === 'user'/.test(BOOT));
+check('서버가 정해 준 계정 언어(pref_lang)를 쓴다', /pref_lang/.test(BOOT));
+check('강사 계정은 이름을 몰라도 영어로 연다', /isTeacher/.test(BOOT));
 check('언어 변경 시 adminLang 도 따라간다', /attributeFilter: \['lang'\]/.test(BOOT) && /mangoi_lang/.test(BOOT));
+// 🔴 (2026-07-23) 하위 페이지 누락 회귀 방지 — 여기 빠지면 "메뉴 누르면 한국어로 돌아감" 재발.
+const LANG_PAGES = [
+  'admin.html',
+  'admin/capitown-settlement.html', 'admin/duplicate-payments.html', 'admin/exec.html',
+  'admin/finance-realtime.html', 'admin/ghost-view.html', 'admin/health.html',
+  'admin/learning-insights.html', 'admin/marketing-studio.html', 'admin/mypage.html',
+  'admin/retention.html', 'admin/salary.html', 'admin/send-pay-link.html',
+  'admin/student.html', 'admin/teacher-match.html', 'admin/teacher-payroll.html',
+  'admin/weekly-schedule.html',
+  'teacher-report.html', 'teacher-training.html', 'teacher-praise.html',
+];
+const missingBoot = LANG_PAGES.filter(p => !read('cloudflare-deploy/public/' + p).includes('adm-lang-boot.js'));
+check(`관리자·강사 화면 ${LANG_PAGES.length}장 모두 언어 부팅을 읽는다`
+  + (missingBoot.length ? ' — 누락: ' + missingBoot.join(', ') : ''), missingBoot.length === 0);
+const missingSweep = LANG_PAGES.filter(p => !read('cloudflare-deploy/public/' + p).includes('i18n-sweep.js'));
+check(`같은 ${LANG_PAGES.length}장이 EN 사전(i18n-sweep)도 읽는다`
+  + (missingSweep.length ? ' — 누락: ' + missingSweep.join(', ') : ''), missingSweep.length === 0);
+check('서버 로그인 응답이 pref_lang 을 내려보낸다', /pref_lang: prefLang/.test(SRC));
+check('로그인 화면이 서버 pref_lang 을 세션에 저장한다',
+  /pref_lang/.test(read('cloudflare-deploy/public/admin/login.html')));
 
 console.log('\n[6-2] ⚡ 경량화 — 관리자 화면은 이미 무겁다');
 check('인사평가 열이 숨겨져 있으면 집계 API 를 부르지 않는다', /hr-hidden/.test(HR));

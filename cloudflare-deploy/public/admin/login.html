@@ -226,11 +226,18 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           //   (아래 언어 자동판정도 이 이름을 쓰므로 정확해야 한다)
           if (data.name && data.name !== uid) name = data.name;
 
-          // 🌐 (2026-07-22 사장님 지시) 영문 이름 계정 = 해외 매니저·강사 → 처음부터 영어 화면.
-          //   한글 이름이면 한국어. 사용자가 EN/KO 를 직접 누른 적이 있으면(=by user) 그 선택을 존중.
+          // 🌐 (2026-07-22 사장님 지시) 해외 매니저·강사 = 로그인하면 처음부터 영어 화면.
+          //   (2026-07-23) 판정을 **서버로 옮겼다**(auth-admin.ts `pref_lang`).
+          //   여기서 이름 글자만 보고 추측하던 탓에, 이름 칸이 비었거나 '교사' 처럼 한글로
+          //   심긴 강사 계정(hq_t_001)이 계속 한국어로 떴다. 서버 값이 없을 때만 예전 방식으로 폴백.
+          //   사용자가 EN/KO 를 직접 누른 적이 있으면(=by user, 같은 계정) 그 선택을 존중.
+          var wantLang = (data.pref_lang === 'en' || data.pref_lang === 'ko') ? data.pref_lang : '';
           try {
-            var acctName = (data.name && data.name !== uid) ? String(data.name) : '';
-            var wantLang = (acctName && !/[가-힣]/.test(acctName)) ? 'en' : 'ko';
+            if (!wantLang) {
+              var acctName = (data.name && data.name !== uid) ? String(data.name) : '';
+              var isTeacherAcct = String(role).indexOf('teacher') >= 0;
+              wantLang = (acctName && !/[가-힣]/.test(acctName)) ? 'en' : (isTeacherAcct ? 'en' : 'ko');
+            }
             var by   = localStorage.getItem('mangoi_lang_by');
             var last = localStorage.getItem('mangoi_lang_uid');
             if (by !== 'user' || last !== uid) {
@@ -242,6 +249,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           var session = {
             uid: uid, name: name, role: role,
             branch: branch, branch_id: branch_id, agency_id: agency_id,
+            // 🌐 하위 페이지(adm-lang-boot.js)가 매번 서버에 묻지 않고도 언어를 알도록 세션에 실어둔다.
+            pref_lang: wantLang || 'ko',
             login_at: Date.now()
           };
           localStorage.setItem('mangoi_admin_session', JSON.stringify(session));
@@ -357,7 +366,7 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
   });
 })();
 </script>
-<script src="/js/i18n-sweep.js?v=7"></script>
+<script src="/js/i18n-sweep.js?v=9"></script>
 <script defer src="/js/back-nav.js"></script>
 </body>
 </html>

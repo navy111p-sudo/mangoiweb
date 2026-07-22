@@ -2,6 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
+     판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
+     ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
+<script src="/js/adm-lang-boot.js?v=1"></script>
+<script defer src="/js/i18n-sweep.js?v=9"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>강사 급여 자동 · 망고아이</title>
 <style>
@@ -90,7 +95,7 @@
   <div class="head">
     <img src="/img/mango-char.png" alt="Mangoi">
     <h1 id="t_title">🧾 Teacher Payroll</h1>
-    <button class="langbtn" id="lang">🇰🇷 한국어</button>
+    <button class="langbtn lang-toggle" id="lang">🇰🇷 한국어</button>
   </div>
   <div class="sub" id="t_sub"></div>
 
@@ -186,7 +191,11 @@
       slipTitle:'PAYSLIP', slipPeriod:'Pay period', slipClasses:'Completed classes', slipRate:'Rate per class', slipPayPhp:'Pay (PHP)', slipPayKrw:'Pay (KRW)', slipFoot:'Mangoi Online English · Auto-generated', slipPrint:'🖨️ Print / PDF', slipClose:'Close'
     }
   };
-  var lang = localStorage.getItem('mangoi_payroll_lang') || 'en';
+  /* 🌐 (2026-07-23) 이 화면들은 'mangoi_payroll_lang' 이라는 자기만의 키를 써서,
+   계정 언어(영어)로 로그인해도 서로 따로 놀았다. 공용 키 'mangoi_lang' 으로 통일.
+   (구 키가 남아 있으면 1회 이관 — 쓰던 사람의 선택이 갑자기 바뀌지 않게) */
+  var lang = localStorage.getItem('mangoi_lang') || localStorage.getItem('mangoi_payroll_lang') || 'en';
+  if (lang !== 'ko' && lang !== 'en') lang = 'en';
   function t(){ return I18N[lang]; }
 
   function applyLang(){
@@ -344,7 +353,7 @@
       });
   }
 
-  g('lang').addEventListener('click', function(){ lang=(lang==='ko'?'en':'ko'); localStorage.setItem('mangoi_payroll_lang',lang); applyLang(); });
+  g('lang').addEventListener('click', function(){ lang=(lang==='ko'?'en':'ko'); localStorage.setItem('mangoi_lang', lang); localStorage.setItem('mangoi_lang_by', 'user'); applyLang(); });
   g('load').addEventListener('click', function(){ load(false); });
   g('aiBtn').addEventListener('click', function(){ var b=g('aiBtn'); var dd=t(); b.disabled=true; b.textContent=dd.aiing; g('ai').style.display='block'; g('ai').textContent=dd.aiing2; load(true); setTimeout(function(){ b.disabled=false; b.textContent=dd.ai; },4500); });
   g('search').addEventListener('input', renderTable);

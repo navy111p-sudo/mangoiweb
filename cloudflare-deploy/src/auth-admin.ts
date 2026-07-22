@@ -163,6 +163,11 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
        created_at INTEGER NOT NULL,
        enabled_at INTEGER
      )`,
+    // 🌐 (2026-07-23) 계정별 화면 언어. 'en' | 'ko' | NULL(=미지정 → 이름·역할로 자동판정).
+    //   이름 글자로만 추측하던 방식은 이름 칸이 비었거나 '교사' 처럼 한글로 심긴 계정에서
+    //   계속 틀렸다. 여기에 값이 있으면 그게 최우선이다.
+    //   ⚠️ 이미 있는 컬럼이면 SQLite 가 에러를 내는데, 아래 for 문이 삼키므로 정상 동작.
+    `ALTER TABLE admin_account ADD COLUMN pref_lang TEXT`,
   ];
   for (const sql of stmts) {
     try { await env.DB.prepare(sql).run(); }
@@ -461,21 +466,41 @@ export async function handleAdminAuthApi(
       //   강사 계정(예: 'jeong')이 관리자로 잘못 표시됐다. 여기서 이름+스코프 기반으로 정확히
       //   판정하고, 클라이언트가 쓰기 쉬운 role(hq_teacher 등)로 변환해 내려준다.
       let acctName = '';
+      let acctPrefLang = '';
       let scopeType = 'none';
       try {
-        const acc = await env.DB.prepare(`SELECT name FROM admin_account WHERE username = ? LIMIT 1`).bind(username).first<{ name: string }>();
+        const acc = await env.DB.prepare(`SELECT name, pref_lang FROM admin_account WHERE username = ? LIMIT 1`).bind(username).first<{ name: string; pref_lang: string }>();
         acctName = acc?.name || '';
+        acctPrefLang = String(acc?.pref_lang || '').toLowerCase();
         const sc = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(username).first<{ scope_type: string }>();
         if (sc?.scope_type) scopeType = sc.scope_type;
       } catch (e) { console.warn('[auth-admin] login role resolve:', (e as any)?.message); }
       const rr = resolveRole(scopeType, username, acctName);
       const isTeacher = rr.role === 'teacher';
 
+      // 🌐 (2026-07-23 사장님 지시) "필리핀 선생·매니저는 로그인하면 처음부터 영어."
+      //   화면이 이름 글자로만 추측하던 걸 서버가 판정해 내려보낸다. 판정 순서:
+      //     ① admin_account.pref_lang 이 있으면 그 값 (운영에서 계정별로 못박는 수단)
+      //     ② 이름에 한글이 없다 → en  (Maimai / Melca / Karl / Teacher Len …)
+      //     ③ 강사인데 이름을 모르겠다(비었거나 아이디와 같음) → en
+      //        └ 강사 대부분이 필리핀. 이름이 '교사'(hq_t_001 시드값)처럼 한글이어도
+      //          강사면 영어로 연다. 한국인 강사는 화면에서 KO 를 한 번 누르면 그 선택이 남는다.
+      //     ④ 그 외 → ko
+      //   ⚠️ 화면(adm-lang-boot.js)에도 같은 순서의 폴백이 있다. 한쪽만 고치지 말 것.
+      //   ※ 이름 칸에 아이디가 그대로 들어 있는 계정이 있어(예전 시드), 그건 '이름 모름'으로 본다.
+      const namedOk = !!acctName && acctName !== username;
+      const prefLang: 'en' | 'ko' =
+        (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
+        : (namedOk && !/[가-힣]/.test(acctName)) ? 'en'
+        : isTeacher ? 'en'
+        : 'ko';
+
       return json(
         {
           ok: true, username, expires_at: now + ttl, redirect: '/admin.html',
           name: acctName || username,
           server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
+          pref_lang: prefLang,
         },
         200,
         { 'Set-Cookie': setSessionCookieHeader(token, Math.floor(ttl / 1000)) }

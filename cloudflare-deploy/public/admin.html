@@ -95,58 +95,21 @@
 </style>
 
 <!-- ═══════════════════════════════════════════════════════════════════════
-     🌐 (2026-07-22 사장님 지시) 관리자 언어 부팅 — "영문 이름 계정은 처음부터 영어"
-       · 로그인 시 저장된 계정 이름(mangoi_admin_session.name)에 한글이 없으면 = 해외 스태프
-         (Maimai·Melca·Karl·Anna·Teacher Len …) → 첫 화면부터 영어로 뜬다.
+     🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
+       · "필리핀 선생·매니저는 로그인하면 처음부터 영어" — 관리자·매니저·강사 화면 전부.
+       · 판정은 서버(auth-admin.ts `pref_lang`)가 하고, 화면은 /js/adm-lang-boot.js 가 적용한다.
+         판정 순서·함정은 그 파일 머리 주석 하나에 모아 뒀다. **인라인 복사본을 다시 만들지 말 것.**
        · 사용자가 EN/KO 버튼을 직접 누르면 그 선택(mangoi_lang_by='user')이 항상 우선.
        · 영어일 때는 i18n 스윕이 끝날 때까지 본문을 잠깐 감춰 '한글이 떴다가 영어로 바뀌는' 것을 막는다.
          (스윕이 늦어져도 최대 1.2초 뒤 무조건 표시 — 화면이 안 뜨는 사고 방지)
      ═══════════════════════════════════════════════════════════════════════ -->
 <style id="adm-en-boot-gate">html.adm-en-pending body{visibility:hidden !important}</style>
-<script id="adm-lang-boot">
-(function(){
-  'use strict';
-  function hasKo(s){ return /[가-힣]/.test(String(s||'')); }
-  var L = null;
-  try { L = localStorage.getItem('mangoi_lang'); } catch(e){}
-  if (L !== 'en' && L !== 'ko') {
-    // 저장된 선택이 없으면 로그인 계정 이름으로 자동 판정 (영문 이름 → 영어)
-    var nm = '';
-    try { nm = (JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).name || ''; } catch(e){}
-    L = (nm && !hasKo(nm)) ? 'en' : 'ko';
-    try { localStorage.setItem('mangoi_lang', L); } catch(e){}
-  }
-  window.__ADM_BOOT_LANG = (L === 'en') ? 'en' : 'ko';
-  // 🌐 window.adminLang — 화면 곳곳(`window.adminLang === 'en'` 30여 곳)이 이 값을 보는데
-  //    지금까지 **아무 데서도 대입되지 않아 항상 undefined** 였다. 그래서 영문 이름으로
-  //    로그인한 외국 강사에게도 그 분기들이 전부 한국어로 나왔다.
-  //    머리에서(첫 페인트 전에) 한 번 넣어 주면 이후 스크립트가 전부 영어로 그린다.
-  window.adminLang = window.__ADM_BOOT_LANG;
-  // 언어를 바꾸면(토글·다른 탭) 같이 따라간다 — 관찰자 2개뿐이라 비용은 사실상 0
-  try {
-    new MutationObserver(function(){
-      var l = document.documentElement.lang;
-      if (l === 'en' || l === 'ko') window.adminLang = l;
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
-    window.addEventListener('storage', function(ev){
-      if (ev.key === 'mangoi_lang' && (ev.newValue === 'en' || ev.newValue === 'ko')) window.adminLang = ev.newValue;
-    });
-  } catch(e){}
-  if (window.__ADM_BOOT_LANG !== 'en') return;
-  try { document.documentElement.lang = 'en'; } catch(e){}
-  try { document.documentElement.classList.add('adm-en-pending'); } catch(e){}
-  var done = false;
-  window.__admEnReady = function(){
-    if (done) return; done = true;
-    try { document.documentElement.classList.remove('adm-en-pending'); } catch(e){}
-  };
-  setTimeout(window.__admEnReady, 1200);                      // 안전장치 — 스윕이 늦어도 화면은 뜬다
-  window.addEventListener('load', window.__admEnReady);
-})();
-</script>
+<!-- 🌐 인라인이던 판정 로직을 /js/adm-lang-boot.js 로 옮겼다(2026-07-23).
+     하위 페이지 19장도 같은 파일을 읽는다 — 복사본을 다시 만들지 말 것. -->
+<script src="/js/adm-lang-boot.js?v=1"></script>
 <!-- 🌐 EN 스위퍼 — 머리에서 먼저 받아 두어야(defer 중 첫 실행) 한글이 보이기 전에 영어로 바뀐다.
      ⚠️ 문서 끝(옛 위치)에 두면 외부 스크립트 70여 개 뒤에 실행돼 해외(필리핀) 회선에서 수십 초 걸렸다. -->
-<script defer src="/js/i18n-sweep.js?v=7"></script>
+<script defer src="/js/i18n-sweep.js?v=9"></script>
 
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
 <script src="/js/adm-scope-guard.js?v=1"></script>

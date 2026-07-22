@@ -115,5 +115,9 @@
   "/js/vc-dock.js?v=7": "373fea57414a348e",
   "/js/vc-judgment-capture.js?v=1": "110fc284befb5759",
   "/js/vc-spotlight.js?v=2": "8abf686bef581236",
-  "/js/adm-light-surfaces.js?v=1": "61db063ac9da71fe"
+  "/js/adm-light-surfaces.js?v=1": "61db063ac9da71fe",
+  "/js/adm-lang-boot.js?v=1": "fbc91a50bbb0cae6",
+  "/js/mango-i18n.js?v=34": "a910ab9aedad8bed",
+  "/js/i18n-sweep.js?v=8": "8174963100b8814b",
+  "/js/i18n-sweep.js?v=9": "ea1d1dd317ba8d8b"
 }

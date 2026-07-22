@@ -8,6 +8,11 @@
 
 
 <meta charset="UTF-8">
+<!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
+     판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
+     ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
+<script src="/js/adm-lang-boot.js?v=1"></script>
+<script defer src="/js/i18n-sweep.js?v=9"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>🎓 학생 상세보기 — 망고아이</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -662,7 +667,17 @@ let _state = { full: null, days: 30 };
 let _charts = {};
 
 // ═══════════════════════ 🌐 i18n (한국어 / English) ═══════════════════════
-let _lang = (function(){ try { return localStorage.getItem('mangoi_admin_lang') || 'ko'; } catch { return 'ko'; } })();
+// 🌐 (2026-07-23) 이 화면만 'mangoi_admin_lang' 이라는 **자기만의 키**를 쓰고 있었다.
+//   그래서 계정 언어(영어)로 로그인해도 이 페이지만 한국어로 돌아왔다.
+//   공용 키 'mangoi_lang' 로 통일 — adm-lang-boot.js 가 이미 계정에 맞게 정해 둔 값을 읽는다.
+//   (구 키가 남아 있으면 1회 이관)
+let _lang = (function(){
+  try {
+    var v = localStorage.getItem('mangoi_lang');
+    if (v !== 'ko' && v !== 'en') v = localStorage.getItem('mangoi_admin_lang');
+    return (v === 'en') ? 'en' : 'ko';
+  } catch { return 'ko'; }
+})();
 const T = {
   // 좌측 학생 카드 (quick rows)
   qStudentId:{ko:'🏷️ 학생 ID', en:'🏷️ Student ID'},
@@ -817,7 +832,8 @@ function applyLangAttrs(){
 
 function toggleLang(){
   _lang = (_lang === 'ko' ? 'en' : 'ko');
-  try { localStorage.setItem('mangoi_admin_lang', _lang); } catch {}
+  // 공용 키 + '사람이 직접 고름' 표시 — 이게 없으면 계정 자동판정이 다음 로드에서 되돌려 놓는다
+  try { localStorage.setItem('mangoi_lang', _lang); localStorage.setItem('mangoi_lang_by', 'user'); } catch {}
   applyLangAttrs();
   if (_state.full) renderAll();   // 동적 텍스트 다시 렌더
 }
