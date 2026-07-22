@@ -88,7 +88,7 @@
     'card-centers':                '🏢 본사 직영 센터 관리',
     'card-data-export':            '📤 학생/강사/결제 CSV 다운로드',
     'card-admin-alerts':           '🔔 관리자 알림 (시스템 경고)',
-    'card-admin-ghost':            '👻 실시간 수업 참관 (Ghost View)',
+    'card-admin-ghost':            '👀 실시간 수업 관찰',
     'card-admin-whisper':          '💬 학생/강사에게 귓속말',
     'card-attendance-status':      '📋 학생별 개별 출결 기록',
     'card-auto-attendance':        '📷 QR 코드 자동 출결 체크',

@@ -211,6 +211,7 @@
     '테스트 시드': 'Test Seed',
     '🔔 관리자 알림': '🔔 Admin Alerts',
     '👻 Ghost View': '👻 Ghost View',
+    '👀 수업 관찰': '👀 Ghost View',
     '💬 귓속말': '💬 Whisper',
     '📋 출결 상태': '📋 Attendance Status',
     '📷 QR 출결': '📷 QR Attendance',

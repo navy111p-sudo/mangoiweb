@@ -5445,7 +5445,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
 
 <!-- 👁 Phase GM-3 — 관리자 통제: Ghost / Whisper / Alerts -->
 <details class="table-card menu-card" id="card-admin-ghost">
-  <summary><span data-ko="👁 라이브 참관 (Ghost Monitor)" data-en="👁 Live Observation (Ghost)">👁 라이브 참관 (Ghost Monitor)</span></summary>
+  <summary><span data-ko="👀 수업 관찰 (라이브)" data-en="👀 Ghost View (Live Observation)">👀 수업 관찰 (라이브)</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.06));border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#c4b5fd;line-height:1.65">
       💡 <b>학생·강사 모르게 일방적으로 수업을 참관</b>합니다. WebRTC Join 알림 전혀 보내지 않음.
@@ -7220,7 +7220,7 @@ window.__admSettleRun = function(fn){
     <div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(79,70,229,0.05));border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#a5b4fc;line-height:1.6"
          data-ko="💡 선배 강사가 후배 강사 수업을 라이브 참관하고 노트를 보내 코칭합니다."
          data-en="💡 Senior teachers live-observe juniors and send notes to coach them.">
-      💡 멘토 배정 → 라이브 참관 (Ghost View) → 노트 보내기
+      💡 선배 강사가 후배 강사 수업을 라이브 참관하고 노트를 보내 코칭합니다.
     </div>
 
     <div class="sub-menu">
@@ -7299,7 +7299,7 @@ window.__admSettleRun = function(fn){
 
       <!-- ⑤ Ghost View 링크 -->
       <details class="sub-item">
-        <summary data-ko="👁 Ghost View — 라이브 참관" data-en="👁 Ghost View — Live Observe">👁 Ghost View — 라이브 참관</summary>
+        <summary data-ko="👀 수업 관찰 — 라이브 참관" data-en="👀 Ghost View — Live Observe">👀 수업 관찰 — 라이브 참관</summary>
         <div class="sub-body">
           <div class="sup-light" style="margin-bottom:10px">
             <div style="display:flex;gap:8px;align-items:end">
@@ -12393,7 +12393,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">센터</div>
       <div class="ph85-sub" data-card="card-data-export" onclick="event.stopPropagation();var c=document.getElementById('card-data-export');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-data-export');}">데이터 추출</div>
       <div class="ph85-sub" data-card="card-admin-alerts" onclick="event.stopPropagation();var c=document.getElementById('card-admin-alerts');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-alerts');}">🔔 관리자 알림</div>
-      <div class="ph85-sub" data-card="card-admin-ghost" onclick="event.stopPropagation();var c=document.getElementById('card-admin-ghost');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-ghost');}">👻 Ghost View</div>
+      <div class="ph85-sub" data-card="card-admin-ghost" onclick="event.stopPropagation();var c=document.getElementById('card-admin-ghost');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-ghost');}">👀 수업 관찰</div>
       <div class="ph85-sub" data-card="card-admin-whisper" onclick="event.stopPropagation();var c=document.getElementById('card-admin-whisper');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-whisper');}">💬 귓속말</div>
       <div class="ph85-sub" data-card="card-attendance-status" onclick="event.stopPropagation();var c=document.getElementById('card-attendance-status');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-attendance-status');}">📋 출결 상태</div>
       <div class="ph85-sub" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
@@ -20759,6 +20759,6 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-ai-asst,
   html[data-admin-theme="ivory"] #ph85-ai-asst * { color: #7c2d12 !important; }
 </style>
-<!-- BUILD:20260722221650 -->
+<!-- BUILD:20260722222258 -->
 </body>
 </html>
