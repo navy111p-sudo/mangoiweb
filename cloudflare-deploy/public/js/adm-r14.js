@@ -4,8 +4,13 @@
 // ═══════════════════════════════════════════════════════════════
 (function(){
   const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-  const stars7 = (avg) => { var f=Math.round(avg||0),h=''; for(var i=1;i<=7;i++)h+='<span style="color:'+(i<=f?'#f59e0b':'#4b5563')+'">★</span>'; return h; };
-  const sc = (a) => a>=5.5?'#10b981':(a>=4?'#f59e0b':'#ef4444');
+  // 🌤 2026-07-23 — 관리자 화면이 밝은(ivory) 테마인데 이 패널만 다크 시절 색이 남아 '너무 진하다'는 지적.
+  //    카드는 아이보리, 강조는 앰버 하나로 모으고 상태색(초록·주황·빨강)은 글자에만 쓴다.
+  //    data-ls-text="1" = adm-light-surfaces.js 의 글자색 보정에서 제외(별·훈장을 갈색으로 칠하지 않도록).
+  const stars7 = (avg) => { var f=Math.round(avg||0),h=''; for(var i=1;i<=7;i++)h+='<span data-ls-text="1" style="color:'+(i<=f?'#f59e0b':'#ded5c6')+'">★</span>'; return h; };
+  const sc = (a) => a>=5.5?'#047857':(a>=4?'#b45309':'#b91c1c');
+  const CARD = 'background:linear-gradient(135deg,#fffdf7,#fff4de);border:1px solid #f0d5a3;border-radius:16px;padding:16px 20px;color:#3f3a33;box-shadow:0 1px 3px rgba(120,90,30,0.07)';
+  const MUTED = '#726757';
 
   function roleOf(){
     try{
@@ -36,7 +41,7 @@
     var EN = (window.adminLang === 'en');
     var u = userOf(); var name = (u && u.name) || '';
     var host = anchor();
-    host.innerHTML = '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.35);border-radius:16px;padding:18px 20px;color:#e6ecff"><div style="font-size:13px;color:#a3b3d1">'+(EN?'Loading…':'불러오는 중…')+'</div></div>';
+    host.innerHTML = '<div style="'+CARD+'"><div style="font-size:13px;color:'+MUTED+'">'+(EN?'Loading…':'불러오는 중…')+'</div></div>';
     if (!name){ host.querySelector('div>div').textContent = EN?'Could not load ratings — no login info.':'로그인 정보를 찾을 수 없어 평가를 불러오지 못했습니다.'; return; }
     try{
       var r = await fetch('/api/teacher/my-ratings?days=90&limit=100&teacher_name=' + encodeURIComponent(name));  // 무기명 (학생 이름 미포함)
@@ -48,34 +53,34 @@
       var fmtDt = function(ms){ return new Date(ms).toLocaleDateString(EN?'en-US':'ko-KR',{month:'short',day:'numeric'}); };
       var recent = rows.slice(0,6).map(function(x){
         var tags=[]; try{ tags=JSON.parse(x.tags||'[]'); }catch(e){}
-        return '<div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:9px 12px;margin-top:7px">'
+        return '<div style="background:#fffefb;border:1px solid #f2e6cd;border-radius:10px;padding:9px 12px;margin-top:7px">'
           + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px">'+stars7(x.score)+'</span>'
           + '<b style="color:'+sc(x.score)+';font-size:12.5px">'+x.score+'/7</b>'
-          + '<span style="font-size:10.5px;color:#8ba0c8;background:rgba(255,255,255,0.06);border-radius:99px;padding:1px 7px">'+(EN?'Anonymous':'익명')+'</span>'
-          + '<span style="font-size:11px;color:#8ba0c8;margin-left:auto">'+fmtDt(x.created_at)+'</span></div>'
-          + (tags.length?'<div style="margin-top:4px">'+tags.map(function(t){return '<span data-tr-tag="'+esc(t)+'" style="display:inline-block;background:rgba(251,191,36,0.15);color:#fcd34d;border-radius:99px;padding:1px 8px;font-size:10.5px;margin:1px 2px">'+esc(t)+'</span>';}).join('')+'</div>':'')
-          + (x.feedback?'<div style="margin-top:5px;font-size:12px;color:#cdd8ee;line-height:1.55">💬 <span data-tr="'+esc(x.feedback)+'">'+esc(x.feedback)+'</span></div>':'')
+          + '<span style="font-size:10.5px;color:'+MUTED+';background:#f6efe2;border-radius:99px;padding:1px 7px">'+(EN?'Anonymous':'익명')+'</span>'
+          + '<span style="font-size:11px;color:'+MUTED+';margin-left:auto">'+fmtDt(x.created_at)+'</span></div>'
+          + (tags.length?'<div style="margin-top:4px">'+tags.map(function(t){return '<span data-tr-tag="'+esc(t)+'" style="display:inline-block;background:#fdf3dc;color:#92400e;border-radius:99px;padding:1px 8px;font-size:10.5px;margin:1px 2px">'+esc(t)+'</span>';}).join('')+'</div>':'')
+          + (x.feedback?'<div style="margin-top:5px;font-size:12px;color:#57534e;line-height:1.55">💬 <span data-tr="'+esc(x.feedback)+'">'+esc(x.feedback)+'</span></div>':'')
           + '</div>';
       }).join('');
       host.innerHTML =
-        '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.4);border-radius:16px;padding:18px 20px;color:#e6ecff">'
+        '<div style="'+CARD+'">'
         + '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
-        + '<div style="font-size:15px;font-weight:800;color:#fbbf24">⭐ '+(EN?(esc(name)+'’s class ratings'):(esc(name)+' 선생님의 수업 평가'))+'</div>'
-        + '<span style="font-size:11.5px;color:#8ba0c8">'+(EN?'Last 90 days · from students':'최근 90일 · 학생이 남긴 평가')+'</span></div>'
+        + '<div style="font-size:15px;font-weight:800;color:#b45309">⭐ '+(EN?(esc(name)+'’s class ratings'):(esc(name)+' 선생님의 수업 평가'))+'</div>'
+        + '<span style="font-size:11.5px;color:'+MUTED+'">'+(EN?'Last 90 days · from students':'최근 90일 · 학생이 남긴 평가')+'</span></div>'
         + (cnt
             ? '<div style="display:flex;align-items:baseline;gap:12px;margin-top:12px;flex-wrap:wrap">'
-              + '<div style="font-size:34px;font-weight:900;color:'+sc(avg)+'">'+avg.toFixed(1)+'<span style="font-size:16px;color:#8ba0c8;font-weight:600">/7</span></div>'
+              + '<div style="font-size:34px;font-weight:900;color:'+sc(avg)+'">'+avg.toFixed(1)+'<span style="font-size:16px;color:'+MUTED+';font-weight:600">/7</span></div>'
               + '<div style="font-size:16px">'+stars7(avg)+'</div>'
-              + '<div style="font-size:12.5px;color:#a3b3d1">'+(EN?('<b style="color:#e6ecff">'+cnt+'</b> responses'):('응답 <b style="color:#e6ecff">'+cnt+'</b>개'))+(low?(EN?' · <span style="color:#fca5a5">'+low+' low</span>':' · <span style="color:#fca5a5">낮은 점수 '+low+'개</span>'):'')+'</div></div>'
+              + '<div style="font-size:12.5px;color:#57534e">'+(EN?('<b style="color:#3f3a33">'+cnt+'</b> responses'):('응답 <b style="color:#3f3a33">'+cnt+'</b>개'))+(low?(EN?' · <span style="color:#b91c1c">'+low+' low</span>':' · <span style="color:#b91c1c">낮은 점수 '+low+'개</span>'):'')+'</div></div>'
               + '<div style="margin-top:10px">'+recent+'</div>'
-              + (rows.length>6?'<div style="font-size:11px;color:#8ba0c8;margin-top:8px">'+(EN?('Showing 6 of '+rows.length):('최근 6개만 표시 · 전체 '+rows.length+'개'))+'</div>':'')
-            : '<div style="margin-top:12px;font-size:13px;color:#a3b3d1">'+(EN?'No ratings yet. They’ll appear here after your classes. 😊':'아직 받은 평가가 없어요. 수업이 끝나면 학생들이 남긴 평가가 여기에 쌓입니다. 😊')+'</div>')
+              + (rows.length>6?'<div style="font-size:11px;color:'+MUTED+';margin-top:8px">'+(EN?('Showing 6 of '+rows.length):('최근 6개만 표시 · 전체 '+rows.length+'개'))+'</div>':'')
+            : '<div style="margin-top:12px;font-size:13px;color:#57534e">'+(EN?'No ratings yet. They’ll appear here after your classes. 😊':'아직 받은 평가가 없어요. 수업이 끝나면 학생들이 남긴 평가가 여기에 쌓입니다. 😊')+'</div>')
         + (cnt ? '<div id="rating-analysis-teacher"></div>' : '')
         + '</div>';
       if (typeof window.applyRatingTr === 'function') window.applyRatingTr(host);
       if (cnt && typeof window.renderRatingAnalysis === 'function') window.renderRatingAnalysis(document.getElementById('rating-analysis-teacher'), name, true);
     }catch(e){
-      host.innerHTML = '<div style="background:#13234a;border-radius:16px;padding:16px 20px;color:#fca5a5">'+(EN?'Failed to load ratings: ':'평가를 불러오지 못했습니다: ')+esc(e.message)+'</div>';
+      host.innerHTML = '<div style="background:#fff5f5;border:1px solid #f3c8c8;border-radius:16px;padding:16px 20px;color:#b91c1c">'+(EN?'Failed to load ratings: ':'평가를 불러오지 못했습니다: ')+esc(e.message)+'</div>';
     }
   }
 
@@ -97,40 +102,40 @@
                     .sort(function(a,b){ return b.avg_score - a.avg_score; }).slice(0,3);
 
       var warnHtml = warn.length
-        ? '<div style="margin-top:10px"><div style="font-size:12.5px;font-weight:800;color:#fca5a5;margin-bottom:6px">'+(EN?('⚠️ '+warn.length+' teacher(s) need attention'):('⚠️ 평가 주의 강사 '+warn.length+'명'))+'</div>'
+        ? '<div style="margin-top:10px"><div style="font-size:12.5px;font-weight:800;color:#b91c1c;margin-bottom:6px">'+(EN?('⚠️ '+warn.length+' teacher(s) need attention'):('⚠️ 평가 주의 강사 '+warn.length+'명'))+'</div>'
           + warn.slice(0,5).map(function(x){
-              return '<div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.3);border-radius:9px;padding:7px 11px;margin-top:5px;flex-wrap:wrap">'
-                + '<b style="font-size:13px;color:#fecaca">'+esc(x.teacher_name)+'</b>'
+              return '<div style="display:flex;align-items:center;gap:10px;background:#fff6f5;border:1px solid #f3cbc6;border-radius:9px;padding:7px 11px;margin-top:5px;flex-wrap:wrap">'
+                + '<b style="font-size:13px;color:#9f1239">'+esc(x.teacher_name)+'</b>'
                 + '<span style="font-size:12.5px">'+stars7(x.avg_score)+'</span>'
                 + '<b style="color:'+sc(x.avg_score)+';font-size:13px">'+x.avg_score.toFixed(1)+'</b>'
-                + '<span style="font-size:11px;color:#cbd5e1">'+(EN?(x.count+' resp.'):('응답 '+x.count+'개'))+(x.low_count?(EN?' · '+x.low_count+' low':' · 낮은점수 '+x.low_count):'')+'</span>'
-                + (x.top_tags&&x.top_tags.length?'<span data-tr-tag="'+esc((x.top_tags[0]||{}).tag||'')+'" style="font-size:10.5px;color:#94a3b8;margin-left:auto">'+esc((x.top_tags[0]||{}).tag||'')+'</span>':'')
+                + '<span style="font-size:11px;color:#57534e">'+(EN?(x.count+' resp.'):('응답 '+x.count+'개'))+(x.low_count?(EN?' · '+x.low_count+' low':' · 낮은점수 '+x.low_count):'')+'</span>'
+                + (x.top_tags&&x.top_tags.length?'<span data-tr-tag="'+esc((x.top_tags[0]||{}).tag||'')+'" style="font-size:10.5px;color:'+MUTED+';margin-left:auto">'+esc((x.top_tags[0]||{}).tag||'')+'</span>':'')
                 + '</div>';
             }).join('')
-          + (warn.length>5?'<div style="font-size:11px;color:#94a3b8;margin-top:5px">'+(EN?('+'+(warn.length-5)+' more'):('외 '+(warn.length-5)+'명'))+'</div>':'')
+          + (warn.length>5?'<div style="font-size:11px;color:'+MUTED+';margin-top:5px">'+(EN?('+'+(warn.length-5)+' more'):('외 '+(warn.length-5)+'명'))+'</div>':'')
           + '</div>'
-        : '<div style="margin-top:10px;font-size:12.5px;color:#86efac">'+(EN?'✅ No teachers need attention. All good.':'✅ 평가 주의 강사가 없습니다. 모두 양호해요.')+'</div>';
+        : '<div style="margin-top:10px;font-size:12.5px;color:#15803d">'+(EN?'✅ No teachers need attention. All good.':'✅ 평가 주의 강사가 없습니다. 모두 양호해요.')+'</div>';
 
       var topHtml = top.length
-        ? '<div style="margin-top:12px"><div style="font-size:12.5px;font-weight:800;color:#fcd34d;margin-bottom:6px">'+(EN?'🏆 Top teachers':'🏆 우수 강사')+'</div>'
+        ? '<div style="margin-top:12px"><div style="font-size:12.5px;font-weight:800;color:#a16207;margin-bottom:6px">'+(EN?'🏆 Top teachers':'🏆 우수 강사')+'</div>'
           + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
           + top.map(function(x,i){
-              return '<div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:9px;padding:7px 12px">'
-                + '<b style="font-size:13px;color:#fde68a">'+['🥇','🥈','🥉'][i]+' '+esc(x.teacher_name)+'</b> '
-                + '<b style="color:#10b981;font-size:13px">'+x.avg_score.toFixed(1)+'</b>'
-                + '<span style="font-size:11px;color:#a3b3d1"> ('+x.count+')</span></div>';
+              return '<div style="background:#fffaee;border:1px solid #f0dcae;border-radius:9px;padding:7px 12px">'
+                + '<b style="font-size:13px;color:#92400e">'+['🥇','🥈','🥉'][i]+' '+esc(x.teacher_name)+'</b> '
+                + '<b style="color:#047857;font-size:13px">'+x.avg_score.toFixed(1)+'</b>'
+                + '<span style="font-size:11px;color:'+MUTED+'"> ('+x.count+')</span></div>';
             }).join('')
           + '</div></div>'
         : '';
 
       host.innerHTML =
-        '<div style="background:linear-gradient(135deg,#1a1330,#0f0c22);border:1px solid rgba(251,191,36,0.4);border-radius:16px;padding:16px 20px;color:#e6ecff;position:relative">'
-        + '<button id="rating-alarm-x" title="'+(EN?'Close':'닫기')+'" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.08);border:0;color:#cbd5e1;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px">✕</button>'
+        '<div style="'+CARD+';position:relative">'
+        + '<button id="rating-alarm-x" title="'+(EN?'Close':'닫기')+'" style="position:absolute;top:12px;right:12px;background:#f6efe2;border:1px solid #ecdfc8;color:#6b5f50;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px">✕</button>'
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-        + '<div style="font-size:15px;font-weight:800;color:#fbbf24">'+(EN?'🔔 Teacher rating alerts':'🔔 강사 평가 알람')+'</div>'
-        + '<span style="font-size:11.5px;color:#a3b3d1">'+(EN?'Last 30 days · student class ratings':'최근 30일 학생 수업 평가 요약')+'</span></div>'
+        + '<div style="font-size:15px;font-weight:800;color:#b45309">'+(EN?'🔔 Teacher rating alerts':'🔔 강사 평가 알람')+'</div>'
+        + '<span style="font-size:11.5px;color:'+MUTED+'">'+(EN?'Last 30 days · student class ratings':'최근 30일 학생 수업 평가 요약')+'</span></div>'
         + warnHtml + topHtml
-        + '<div style="margin-top:12px"><button id="rating-alarm-more" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:800;cursor:pointer">'+(EN?'View details →':'자세히 보기 →')+'</button></div>'
+        + '<div style="margin-top:12px"><button id="rating-alarm-more" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#3f2d0b;border:0;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:800;cursor:pointer">'+(EN?'View details →':'자세히 보기 →')+'</button></div>'
         + '</div>';
       if (typeof window.applyRatingTr === 'function') window.applyRatingTr(host);
 

@@ -66,9 +66,18 @@
   function hsl(h, s, l) { return 'hsl(' + Math.round(h) + ',' + Math.round(s * 100) + '%,' + Math.round(l * 100) + '%)'; }
 
   // ── 1) 어두운 배경 → 밝게 ────────────────────────────────
+  // 화면 전체를 덮는 position:fixed 요소 = 모달 뒤 어두운 막(스크림). 일부러 진한 것이므로 건드리지 않는다.
+  //   (모달 '안'의 패널은 전체를 덮지 않으므로 지금까지처럼 계속 보정된다)
+  function isScrim(el, cs) {
+    if (cs.position !== 'fixed') return false;
+    var r = el.getBoundingClientRect();
+    return r.width >= innerWidth * 0.9 && r.height >= innerHeight * 0.9;
+  }
+
   function lightenSurface(el) {
     var cs = getComputedStyle(el);
     var changed = false;
+    if (isScrim(el, cs)) return false;
 
     var bg = parse(cs.backgroundColor);
     if (bg && bg.a > 0.35 && lum(bg) < 0.16) {
@@ -196,9 +205,11 @@
   }
 
   // ── 실행 ────────────────────────────────────────────────
+  //   2026-07-23 — 카드 '밖'(대시보드 최상단 알림 패널 등)에도 다크 시절 색이 남아 있어
+  //   `.admin-layout` 전체로 넓혔다. 예외는 위 SKIP_SEL + 전체화면 스크림(isScrim)이 막는다.
   function scope() {
     var list = [];
-    ['.menu-body', '.table-card', '.admin-layout .card', '#main-content'].forEach(function (s) {
+    ['.admin-layout', '.menu-body', '.table-card', '.admin-layout .card', '#main-content'].forEach(function (s) {
       try { Array.prototype.push.apply(list, document.querySelectorAll(s)); } catch (e) {}
     });
     return list;
