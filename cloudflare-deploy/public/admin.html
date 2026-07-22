@@ -1095,10 +1095,12 @@
   #menu-mic-tip {
     position: absolute; right: 8px; bottom: calc(100% + 14px);
     max-width: 270px; text-align: left;
-    background: #1e293b; color: #e2e8f0;
-    border: 1px solid rgba(148,163,184,0.30); border-radius: 14px;
+    /* 🌤 2026-07-23 — 밝은 테마에 맞춰 흰 말풍선으로. 예전 다크(#1e293b + #e2e8f0)를
+       그대로 두면 자동 완화가 배경만 밝게 만들어 글자가 대비 1.15 로 사라진다. */
+    background: #ffffff; color: #1f2937;
+    border: 1px solid #e4e9f2; border-radius: 14px;
     padding: 12px 15px; font-size: 13.5px; font-weight: 600; line-height: 1.55;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.40);
+    box-shadow: 0 12px 30px -8px rgba(16,24,40,0.22);
     opacity: 0; transform: translateY(8px) scale(0.96); transform-origin: bottom right;
     transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: none; z-index: 60;
@@ -1108,7 +1110,7 @@
   #menu-mic-tip b { color: #b45309; }
   #menu-mic-tip::after {
     content: ""; position: absolute; right: 30px; bottom: -9px;
-    border: 9px solid transparent; border-top-color: #1e293b; border-bottom: 0;
+    border: 9px solid transparent; border-top-color: #ffffff; border-bottom: 0;
   }
   @media (max-width: 640px) {
     #menu-mic-tip { max-width: 220px; font-size: 12.5px; padding: 10px 12px; right: 4px; }
@@ -11572,7 +11574,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script src="/js/adm-core.js?v=11" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
-<script src="/js/adm-light-surfaces.js?v=3" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
+<script src="/js/adm-light-surfaces.js?v=7" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
 </div>

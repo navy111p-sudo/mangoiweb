@@ -255,6 +255,40 @@
     }
   }
 
+  // ── 뒷정리 패스 — 다른 페인터가 '내 뒤에' 칠해서 다시 안 보이게 된 글자만 잡는다 ──
+  //   왜 필요한가: run() 은 한 번 본 요소를 __lsDone 으로 영구히 건너뛴다. 그런데
+  //   adm-s13(ivory 페인터)이 나보다 늦게 돌면서, 파란 그라데이션 버튼(.primary)의
+  //   흰 글자를 #101828 로 칠해 대비 3.4 로 떨어뜨린다. 내가 볼 때는 흰 글자라 정상이었다.
+  //   → __lsDone 을 무시하고 '대비'만 다시 검사하는 패스를 늦게 한 번 더 돌린다.
+  //      (배경은 건드리지 않으므로 이미 밝힌 면을 두 번 밝히는 사고는 없다)
+  function runRepair() {
+    var roots = scope();
+    for (var k = 0; k < roots.length; k++) {
+      var root = roots[k];
+      if (root.closest && root.closest(SKIP_SEL)) continue;
+      var els = root.querySelectorAll('*');
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        if (el.hasAttribute('data-ls-text')) continue;      // 내가 이미 확정한 색은 그대로
+        if (el.closest && el.closest(SKIP_SEL)) continue;
+        var r = el.getBoundingClientRect();
+        if (r.width < 8 || r.height < 6) continue;
+        fixText(el);
+      }
+    }
+  }
+
+  // 다른 페인터(adm-s13)는 로드 직후·1.5초·카드 펼침(+60ms) 세 시점에 칠한다.
+  //   내 뒷정리는 그 '뒤'에 와야 의미가 있으므로 별도 타이머로 넉넉히 잡는다.
+  var rTimer = null;
+  function scheduleRepair(delay) {
+    if (rTimer) clearTimeout(rTimer);
+    rTimer = setTimeout(function () { rTimer = null; try { runRepair(); } catch (e) { console.warn('[light-surfaces:repair]', e); } }, delay || 900);
+  }
+
+  // 🔧 진단용 훅 — 콘솔에서 __lsRepair() 로 대비 점검 패스를 손으로 돌려볼 수 있다
+  try { window.__lsRepair = runRepair; window.__lsRun = run; } catch (e) {}
+
   var timer = null, lastMs = 0;
   function schedule(delay) {
     if (timer) clearTimeout(timer);
@@ -271,16 +305,19 @@
     // 다른 페인터(ph104·ivory)의 settle 패스 뒤에 한 번 더 — 마지막에 칠하는 쪽이 이긴다.
     // (schedule 은 타이머가 하나뿐이라 덮어써지므로 별도 setTimeout 으로 건다)
     setTimeout(function () { try { run(); } catch (e) {} }, 1400);
+    // 모든 페인터가 끝난 뒤 마지막 대비 점검 (위 runRepair 주석 참고)
+    setTimeout(function () { try { runRepair(); } catch (e) {} }, 2600);
+    setTimeout(function () { try { runRepair(); } catch (e) {} }, 5200);   // 늦게 그려지는 카드 대비
     // 카드를 펼치거나(details toggle) JS 가 패널을 새로 그릴 때마다 다시 적용
     document.addEventListener('toggle', function (ev) {
-      if (ev.target && ev.target.tagName === 'DETAILS' && ev.target.open) schedule(120);
+      if (ev.target && ev.target.tagName === 'DETAILS' && ev.target.open) { schedule(120); scheduleRepair(900); }
     }, true);
     // 숨어 있던 영역(탭·아코디언)이 클릭으로 열리면 그때 처음 크기가 생긴다 → 한 번 더 훑기
-    document.addEventListener('click', function () { schedule(320); }, true);
+    document.addEventListener('click', function () { schedule(320); scheduleRepair(1100); }, true);
     try {
       new MutationObserver(function (muts) {
         for (var i = 0; i < muts.length; i++) {
-          if (muts[i].addedNodes && muts[i].addedNodes.length) { schedule(250); return; }
+          if (muts[i].addedNodes && muts[i].addedNodes.length) { schedule(250); scheduleRepair(1200); return; }
         }
       }).observe(document.body, { childList: true, subtree: true });
     } catch (e) {}
