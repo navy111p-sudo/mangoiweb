@@ -69,10 +69,12 @@
 
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
-     visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임(어두운 남색). -->
+     visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
 <style id="anti-fouc-260722">
   .top-header, .admin-layout { visibility: hidden; }
-  body { background: #0d1b3a; }   /* 감춤 동안 흰 화면 대신 테마 남색 — 뒤의 테마 CSS 가 자연히 덮음 */
+  /* 감춤 동안 보이는 색 = 최종 테마의 배경색과 같아야 깜빡임이 없다.
+     (26-07-22 슬레이트 톤 전환에 맞춰 남색 #0d1b3a → 밝은 회청색으로 변경) */
+  body { background: #eaeff6; }
 </style>
 
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
@@ -1992,10 +1994,16 @@
      밝게(ivory)·시간대 자동전환(낮=밝게)·수동토글·1분 점검 인터벌을 전부 제거
      (밝았다 어두웠다 전환하며 로딩 가중되던 것 방지). 학생 페이지 테마와는 무관.
      위 helper(saved/autoTheme/cur 등)는 미사용이나 무해하여 잔존. */
-  document.documentElement.setAttribute('data-admin-theme', 'dark');
-  try { localStorage.setItem(KEY, 'dark'); localStorage.removeItem(OVR); } catch(e){}
-  window.__refreshThemeLabel = function(){ var el = document.getElementById('admin-theme-label'); if (el) el.textContent = '어둡게'; };
-  window.toggleAdminColor   = function(){ document.documentElement.setAttribute('data-admin-theme','dark'); };  /* 단일 테마 — 전환 없음 */
+  /* 🎨 2026-07-22 사장님 요청: "배경이 너무 진하다" → 밝은 '슬레이트' 톤 단일 고정.
+     밝은 테마 CSS(data-admin-theme="ivory") 를 그대로 쓰고, data-admin-tone="slate" 로
+     크림색만 시원한 회청색으로 덮는다(파일 맨 끝 #slate-tone-2026-07-22 블록).
+     시간대 자동전환·수동토글은 2026-07-18 결정대로 계속 없음(로딩 가중 방지).
+     ⏪ 다크로 원복하려면 아래 두 줄의 'ivory'→'dark' 로 바꾸고 tone 줄을 지우면 된다. */
+  document.documentElement.setAttribute('data-admin-theme', 'ivory');
+  document.documentElement.setAttribute('data-admin-tone', 'slate');
+  try { localStorage.setItem(KEY, 'ivory'); localStorage.removeItem(OVR); } catch(e){}
+  window.__refreshThemeLabel = function(){ var el = document.getElementById('admin-theme-label'); if (el) el.textContent = '밝게'; };
+  window.toggleAdminColor   = function(){ document.documentElement.setAttribute('data-admin-theme','ivory'); };  /* 단일 테마 — 전환 없음 */
   window.resetAutoAdminColor= function(){};
   window.__scheduleAutoTheme= function(){};
   document.addEventListener('DOMContentLoaded', function(){ if (window.__refreshThemeLabel) window.__refreshThemeLabel(); });
@@ -14226,7 +14234,7 @@ button.chip:hover,
 </script>
 
 <!-- 🎨 아이보리 테마 전용 — 카드 안 하드코딩 다크 배경을 파스텔로 (ph103/ph105 의 역(逆)) -->
-<script src="/js/adm-s13.js?v=1" defer></script><!-- 분할추출:adm-s13 -->
+<script src="/js/adm-s13.js?v=7" defer></script><!-- 분할추출:adm-s13 — v=7: 슬레이트 톤 페인터 + 색면 글자 대비 구제(양방향·원복 정리 포함) + 지연 1회 패스(26-07-22) -->
 
 <!-- Phase 106 admin (2026-05-25) — BtoB/BtoC 결제관리 카드 (벤치마킹 6가지 적용) -->
 <style id="ph106-payments">
@@ -20443,6 +20451,224 @@ button.chip:hover,
   .hero-character-frame img { max-width: 130px !important; min-width: 100px !important; border-radius: 14px !important; }
   .hero-character-frame::after { font-size: 14px !important; }  /* 🛸 UFO */
 }
+</style>
+<!-- ═══════════════════════════════════════════════════════════════════════
+     🎨 (2026-07-22) 슬레이트 톤 — 관리자 배경 밝게 (사장님 요청: "배경이 너무 진하다")
+       배경이 #0F172A→#020617(거의 검정)이라 화면 전체가 무거웠다. 여기에 더해
+       카드 헤더의 원색 파랑 바(#1E3A8A→#2563EB)가 화면에서 가장 큰 색덩어리라
+       배경보다 이쪽이 더 무겁게 읽혔다.
+
+       방식: 새 테마를 처음부터 만들지 않고, 이미 있는 밝은 테마(data-admin-theme="ivory")의
+             CSS 150여 규칙을 그대로 재활용한다. 그 위에 data-admin-tone="slate" 로
+             '따뜻한 크림색 → 시원한 슬레이트' 만 덮는다. 액센트는 망고 주황 유지.
+       원복: <html> 의 data-admin-tone 을 지우면 기존 아이보리,
+             data-admin-theme 을 'dark' 로 되돌리면 기존 다크로 즉시 복귀.
+       ⚠️ 이 블록은 아이보리 규칙과 mi-menu-icons(무스코프 다크값)를 모두 이겨야 하므로
+          반드시 파일 맨 끝에 둔다. 위로 옮기지 말 것.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<style id="slate-tone-2026-07-22">
+  /* 1) 팔레트 — 아이보리가 쓰는 --da-* 를 시원한 값으로 재정의 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] {
+    --da-bg:            #eaeff6;
+    --da-bg-2:          #e3e9f3;
+    --da-card:          #ffffff;
+    --da-card-2:        #f5f8fc;
+    --da-input:         #ffffff;
+    --da-border:        rgba(15,23,42,0.10);
+    --da-border-strong: rgba(15,23,42,0.18);
+    --da-text:          #101828;
+    --da-text-2:        #475467;
+    --da-text-3:        #98a2b3;
+    --da-accent:        #ea580c;
+  }
+
+  /* 2) 페이지 배경 — 밝은 회청색 + 오른쪽 위에만 은은한 망고빛 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] body {
+    color: #101828 !important;
+    background:
+      radial-gradient(420px 280px at 100% 0%, rgba(251,191,36,0.10) 0%, transparent 62%),
+      linear-gradient(180deg, #f3f6fb 0%, #e6ecf4 100%) !important;
+    background-attachment: fixed !important;
+  }
+
+  /* 3) 상단 헤더 · 히어로 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .top-header {
+    background: rgba(255,255,255,0.90) !important;
+    border: 1px solid rgba(15,23,42,0.08) !important;
+    box-shadow: 0 8px 26px -14px rgba(15,23,42,0.22) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .th-title,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] h1 { color: #101828 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .th-subtitle { color: #475467 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .th-btn {
+    color: #344054 !important; background: rgba(255,255,255,0.8) !important;
+    border: 1px solid rgba(15,23,42,0.12) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .hero {
+    background: linear-gradient(135deg,#ffffff,#f2f6fc) !important;
+    border: 1px solid rgba(15,23,42,0.08) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .hero .hero-sub { color: #667085 !important; }
+
+  /* 4) 좌측 사이드바 — 흰 배경 + 망고 주황 강조 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar {
+    background: linear-gradient(180deg,#ffffff 0%,#f6f9fd 100%) !important;
+    border-right: 1px solid rgba(15,23,42,0.08) !important;
+    color: #344054 !important;
+    box-shadow: 2px 0 16px -8px rgba(15,23,42,0.16) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-brand-text { color: #c2410c !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-brand { border-bottom-color: rgba(15,23,42,0.08) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-search {
+    background: #ffffff !important; border: 1px solid rgba(15,23,42,0.14) !important; color: #101828 !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-search::placeholder { color: #98a2b3 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-group {
+    background: rgba(255,255,255,0.9) !important; border: 1px solid rgba(15,23,42,0.07) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-group:hover { border-color: rgba(234,88,12,0.35) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-group.open {
+    background: rgba(234,88,12,0.08) !important; border-color: rgba(234,88,12,0.35) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-head:hover { background: rgba(234,88,12,0.07) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-title { color: #101828 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-arrow { color: #98a2b3 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-group.open .ph85-arrow { color: #ea580c !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-subs { background: rgba(15,23,42,0.03) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub { color: #344054 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub:hover { background: rgba(234,88,12,0.12) !important; color: #9a3412 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-count-badge { color: #667085 !important; }
+  /* 자식 메뉴 선 아이콘 — 평소 흐림, hover/활성 때 망고 주황 (다크값 #94a3b8/#fbbf24 를 덮음) */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub .mi-ico { color: #98a2b3 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub:hover .mi-ico,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub.ph125-open .mi-ico,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub.ph85-active .mi-ico { color: #ea580c !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub-schedule .mi-ico { color: #2563eb !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub .mi-new {
+    color: #c2410c !important; border-color: rgba(234,88,12,0.45) !important;
+  }
+  /* 손자 메뉴 — mi-menu-icons 가 스코프 없이 박아둔 다크값(rgba(15,23,42,.55)/#cbd5e1)을 덮는다 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-grandchildren {
+    background: #f6f9fd !important;
+    border-left: 1px solid rgba(15,23,42,0.12) !important;
+    box-shadow: inset 0 1px 0 rgba(15,23,42,0.05) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc { color: #475467 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc:hover { background: rgba(234,88,12,0.12) !important; color: #9a3412 !important; }
+  /* 손자 번호 294개 — #98a2b3 은 밝은 패널에서 대비 2.0 이라 안 읽힌다. 조용하되 읽히는 회색으로. */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc .ph125-num { background: transparent !important; color: #667085 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #ea580c !important; }
+
+  /* 5) 카드 — 흰 카드 + 좌측 3px 망고 라인 (원색 파랑 바를 대신한다) */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .card,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .chart-card,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .table-card,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .menu-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(15,23,42,0.08) !important;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.16) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] details.menu-card,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] details.table-card.menu-card {
+    border-left: 3px solid #ea580c !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .menu-card > summary,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] details.menu-card > summary *,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] details.table-card.menu-card > summary * { color: #101828 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .menu-card > summary .mi-hd-ico svg { color: #ea580c !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .card-value { color: #101828 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .card-label,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .chart-title { color: #475467 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .card-sub { color: #98a2b3 !important; }
+  /* 카드 본문 글자 — 아이보리의 따뜻한 갈색(#3a352c) 대신 시원한 먹색 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] :is(p,span,div,li,td,th,dt,dd,small,b,strong,em,h1,h2,h3,h4,h5,label,summary):not(button):not(button *):not(a):not(.badge):not([class*="btn"]):not([class*="chip"]):not([class*="pill"]):not([class*="tag"]):not(.kpi-tile):not(.kpi-tile *) { color: #101828 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .sub-body :is(p,span,div,li,small,b,strong) { color: #101828 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] h2,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] h3,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] h4,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] label,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] small { color: #344054 !important; }
+
+  /* 6) 카드 속 패널 · 폼 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #card-teacher-mgmt details.sub-item > .sub-body,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .menu-card .menu-form,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .sub-item,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .sub-body {
+    background: #f6f9fd !important;
+    border-color: rgba(15,23,42,0.08) !important;
+    color: #101828 !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #card-students-mgmt .menu-body label,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #card-popups-mgmt .menu-body label,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .menu-card .menu-form label { color: #c2410c !important; }
+
+  /* 7) 표 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] table { color: #101828 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] table th {
+    background: #f2f5fa !important; color: #475467 !important;
+    border-bottom: 1px solid rgba(15,23,42,0.10) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] table td {
+    color: #101828 !important; border-bottom: 1px solid rgba(15,23,42,0.07) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] table tbody tr:hover { background: rgba(234,88,12,0.05) !important; }
+
+  /* 8) KPI 타일 — 따뜻한 파스텔을 시원한 파스텔로 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile {
+    border: 1px solid rgba(15,23,42,0.07) !important;
+    box-shadow: 0 6px 18px -12px rgba(15,23,42,0.20) !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile .kpi-value,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile .card-value { color: #9a3412 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile .kpi-label,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile .card-label { color: #667085 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile .kpi-sub,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile .card-sub { color: #98a2b3 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-students   { background: linear-gradient(135deg,#eef4ff,#f8fbff) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-revenue    { background: linear-gradient(135deg,#eafaf1,#f6fdf9) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-attendance { background: linear-gradient(135deg,#fff3e8,#fffaf4) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-eval       { background: linear-gradient(135deg,#f0eeff,#f9f8ff) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-overdue    { background: linear-gradient(135deg,#ffeeec,#fff7f6) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-points     { background: linear-gradient(135deg,#fff6e0,#fffdf4) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-chat       { background: linear-gradient(135deg,#e6f6fb,#f5fdfe) !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-inquiry    { background: linear-gradient(135deg,#ffecf3,#fff7fa) !important; }
+
+  /* 9) 잡다 */
+  /* 링크 — 다크용 하늘색(#60a5fa)은 밝은 배경에서 대비 2.4 로 흐리다 */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a,
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] .sub-body a { color: #1d4ed8 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] code { background: rgba(234,88,12,0.10) !important; color: #9a3412 !important; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] ::-webkit-scrollbar-track { background: #eaeff6; }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] ::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.22); }
+
+  /* 10) 가독성 구멍 메우기 — 다크 전제로 밝은 글씨가 박혀 밝은 배경에서 안 보이던 곳.
+         상단 헤더는 카드 밖이라 JS 페인터가 손대지 않는다. CSS 로만 잡아야 한다.
+         톤과 무관하게 밝은 테마 전체에 적용(아이보리에도 같이 고쳐진다). */
+  html[data-admin-theme="ivory"] .top-header .th-btn,
+  html[data-admin-theme="ivory"] .top-header .th-btn *,
+  html[data-admin-theme="ivory"] #topUserLabel,
+  html[data-admin-theme="ivory"] #topUserLabel *,
+  html[data-admin-theme="ivory"] #topUserPopup a { color: #344054 !important; }
+  html[data-admin-theme="ivory"] .top-header .th-btn {
+    background: rgba(15,23,42,0.05) !important;
+    border: 1px solid rgba(15,23,42,0.12) !important;
+  }
+  /* ⚠️ 상대 규칙이 #ph115-user 로 시작하는 ID 선택자라 특이도가 높다.
+        여기서도 ID 를 포함해야 이긴다(클래스만 쓰면 밀린다). */
+  html[data-admin-theme="ivory"] #ph115-user { background: rgba(15,23,42,0.05) !important; border-color: rgba(15,23,42,0.12) !important; }
+  html[data-admin-theme="ivory"] #ph115-user .ph115-name { color: #101828 !important; }
+  html[data-admin-theme="ivory"] #ph115-user .ph115-role { color: #667085 !important; }
+  html[data-admin-theme="ivory"] #ph115-user .ph115-avatar { background: #ea580c !important; color: #ffffff !important; }
+  /* 사이드바 상단 유틸 버튼 — 다크용 파스텔 글자(#86efac·#fda4af)는 밝은 면에서 흐리다 */
+  html[data-admin-theme="ivory"] #ph86-actions .ph86-action-btn.expand {
+    color: #15803d !important; background: rgba(34,197,94,0.12) !important; border-color: rgba(34,197,94,0.35) !important;
+  }
+  html[data-admin-theme="ivory"] #ph86-actions .ph86-action-btn.collapse {
+    color: #be123c !important; background: rgba(244,63,94,0.12) !important; border-color: rgba(244,63,94,0.35) !important;
+  }
+  /* AI 운영비서 — 노란 그라데이션 위 흰 글자(대비 1.67)를 진한 갈색으로 */
+  html[data-admin-theme="ivory"] #ph85-ai-asst,
+  html[data-admin-theme="ivory"] #ph85-ai-asst * { color: #7c2d12 !important; }
 </style>
 <!-- BUILD:20260722161018 -->
 </body>
