@@ -178,9 +178,25 @@
 <link rel="shortcut icon" href="/img/icon-192.png">
 <link rel="icon" href="data:," /><!-- favicon.ico 404 방지 -->
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Black+Han+Sans&family=Jua&display=swap" rel="stylesheet">
+<!-- ═══════════════════════════════════════════════════════════════════════
+     ph161 (2026-07-23) — 구글 웹폰트 제거 (필리핀 저속 회선 대응)
+     여기에 있던 <link>(Noto Sans KR 4굵기 + Black Han Sans + Jua)를 뺐다.
+
+     왜:
+     · CSS 만 117KB(gzip) — 게다가 <head> 의 stylesheet 라 첫 페인트를 '차단'했다.
+       그 CSS 는 서브셋 299조각을 기술하며, 압축 해제하면 484KB 를 파싱해야 한다.
+     · fonts.googleapis.com + fonts.gstatic.com = 도메인 2개 추가.
+       필리핀 회선에서 DNS+TLS 왕복만 수백 ms 를 첫 글자 뜨기 전에 까먹었다.
+     · Black Han Sans / Jua 는 `.hero h1` 한 곳에만 걸려 있었는데,
+       그 h1 마크업은 2026-07-22 에 물리 삭제됐다(재추가 금지).
+       즉 이 페이지에는 <h1> 이 하나도 없다 → 두 폰트는 '받기만 하고 한 번도 안 쓰였다'.
+     · Noto Sans KR 은 본문용이었지만 바로 뒷줄 폴백이 "맑은 고딕"(Win10 기본 탑재)이다.
+
+     ⚠️ font-family 선언은 일부러 그대로 뒀다.
+        @font-face 가 없으면 'Noto Sans KR' 은 '로컬에 깔려 있으면 쓰고 없으면 다음'
+        이라는 뜻이라 비용이 0 이다. 이름을 지우면 그 폰트가 설치된 PC 에서 오히려 손해다.
+     ⚠️ 다시 넣지 말 것. 넣으려면 자체 호스팅 + 서브셋으로.
+     ═══════════════════════════════════════════════════════════════════════ -->
 
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
