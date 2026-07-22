@@ -7720,18 +7720,19 @@
         transform: translateY(0) scale(0.99);
       }
       .ai-cta-row .cta-pay { animation-delay: 0.3s; }
-      /* ✨ 홈 진입 시 서서히 나타나기 (fade-in): 검색창 → 수업입장 → AI친구
-         ⚠️⚠️ 절대 규칙(2026-07-22): 수업입장·AI 버튼과 검색창은 opacity 를 애니메이션으로 "0→1"
-         만들면 안 된다. 백그라운드 탭·저전력 모드·애니메이션을 스로틀하는 일부 모바일 브라우저에서는
-         CSS 애니메이션 타임라인이 완주하지 못해 opacity 가 0(투명)에 영영 멈춰 버튼이 안 보이는
-         치명적 신고가 있었다("다른 사람 휴대폰·PC에서 수업입장·AI친구 버튼이 안 보인다").
-         → 기본 opacity 는 항상 1. 등장 연출은 opacity 를 건드리지 않는 transform(살짝 아래→제자리)
-         으로만 하고, 그 애니메이션이 안 돌아도 버튼은 처음부터 보인다. 강조용 lessonPulse 는 유지. */
-      @keyframes mgHomeRise{from{transform:translateY(14px)}to{transform:translateY(0)}}
-      .ai-search-wrap{opacity:1;animation:mgHomeRise .6s ease-out both}
-      .ai-cta-row > *{opacity:1 !important;animation:mgHomeRise .6s ease-out both, lessonPulse 2.6s infinite !important}
-      .ai-cta-row .cta-pay{animation-delay:.1s, 1s !important}
-      .ai-cta-row .cta-enter{animation-delay:.2s, 1.1s !important}
+      /* 🔒 붙박이 — 등장 연출 전면 금지 (2026-07-22 사장님 지시)
+         수업입장·AI친구 버튼과 검색창은 페이지가 그려지는 순간 '최종 모습 그대로' 바로 보인다.
+         ⚠️⚠️ 절대 규칙: 이 요소들에 등장 애니메이션(fade/slide)을 다시 넣지 말 것.
+         (1) opacity 를 "0→1" 로 만들면 백그라운드 탭·저전력 모드·애니메이션을 스로틀하는 일부
+             모바일 브라우저에서 타임라인이 완주하지 못해 투명(0)에 영영 멈춰 버튼이 안 보인다.
+             → "다른 사람 휴대폰·PC에서 수업입장·AI친구 버튼이 안 보인다" 치명적 신고의 원인.
+         (2) opacity 를 건드리지 않는 transform 슬라이드(mgHomeRise)로 바꾼 뒤에도
+             "천천히 나와서 잘 안 보인다"는 신고가 이어져 2026-07-22 등장 연출을 완전히 제거했다.
+         강조용 lessonPulse(글로우)는 버튼을 움직이거나 숨기지 않으므로 유지한다. */
+      .ai-search-wrap{opacity:1 !important;animation:none !important}
+      .ai-cta-row > *{opacity:1 !important;animation:lessonPulse 2.6s infinite !important}
+      .ai-cta-row .cta-pay{animation-delay:0s !important}
+      .ai-cta-row .cta-enter{animation-delay:0s !important}
       @media (prefers-reduced-motion: reduce){.ai-search-wrap,.ai-cta-row > *{animation:none !important;opacity:1 !important}}
       /* 모바일에서 더 적절한 사이즈 */
       @media (max-width: 640px) {
@@ -26148,7 +26149,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260722145740 -->
+<!-- BUILD:20260722154406 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
