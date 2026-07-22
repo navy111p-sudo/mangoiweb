@@ -11592,6 +11592,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script src="/js/adm-core.js?v=10" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
+<script src="/js/adm-light-surfaces.js?v=1" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
 </div>
@@ -12402,8 +12403,9 @@ button.chip:hover,
     </div>
   </div>
   <style>
-    #ph85-backtop{ display:flex;align-items:center;justify-content:center;gap:6px;width:calc(100% - 4px);margin:14px 2px 8px;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(148,163,184,0.25);border-radius:10px;color:#94a3b8;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s; }
-    #ph85-backtop:hover{ background:rgba(251,191,36,0.14);border-color:rgba(251,191,36,0.5);color:#fbbf24; }
+    /* 🌤 (2026-07-22) 흰 사이드바 위에서 #94a3b8 글자가 흐릿(2.56) → 진한 슬레이트 */
+    #ph85-backtop{ display:flex;align-items:center;justify-content:center;gap:6px;width:calc(100% - 4px);margin:14px 2px 8px;padding:9px 12px;background:rgba(15,23,42,0.04);border:1px solid rgba(100,116,139,0.30);border-radius:10px;color:#475569;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s; }
+    #ph85-backtop:hover{ background:rgba(245,158,11,0.16);border-color:rgba(217,119,6,0.55);color:#b45309; }
     #ph85-backtop:active{ transform:translateY(1px); }
   </style>
   <button type="button" id="ph85-backtop" title="맨 위로" onclick="(function(){try{var s=document.getElementById('ph85-sidebar');if(s&&s.scrollTo)s.scrollTo({top:0,behavior:'smooth'});window.scrollTo({top:0,behavior:'smooth'});}catch(e){try{window.scrollTo(0,0);}catch(_){}}})()">
@@ -20450,9 +20452,11 @@ button.chip:hover,
 .top-header .th-controls #ph115-user,
 .top-header #ph115-user,
 .top-header #th-collapse-btn {
-  background: rgba(255, 255, 255, 0.07) !important;
-  border: 1px solid rgba(148, 163, 184, 0.30) !important;
-  color: #dbe4f5 !important;
+  /* 🌤 (2026-07-22) 상단바가 흰색으로 바뀌면서 옛 다크바용 밝은 글자(#dbe4f5)가
+     흰 바탕에 묻혀 안 보였다(대비 1.27) → 어두운 슬레이트로 교체 */
+  background: rgba(15, 23, 42, 0.05) !important;
+  border: 1px solid rgba(100, 116, 139, 0.32) !important;
+  color: #334155 !important;
   box-shadow: none !important;
   border-radius: 10px !important;
   font-weight: 600 !important;
@@ -20464,32 +20468,32 @@ button.chip:hover,
 .top-header .th-controls #ph115-user:hover,
 .top-header #ph115-user:hover,
 .top-header #th-collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.14) !important;
-  border-color: rgba(203, 213, 225, 0.55) !important;
-  color: #ffffff !important;
+  background: rgba(15, 23, 42, 0.10) !important;
+  border-color: rgba(71, 85, 105, 0.50) !important;
+  color: #0f172a !important;
   transform: none !important;
-  box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.18) !important;
 }
 /* EN 지구본·라벨, ▲ 접기, 사용자 버튼 내부 요소도 같은 톤으로 */
-.top-header .th-controls .th-btn-ghost svg { stroke: #dbe4f5 !important; }
-.top-header #admin-lang-label { color: #dbe4f5 !important; font-weight: 700 !important; }
-#ph115-user .ph115-avatar { background: rgba(255, 255, 255, 0.14) !important; }
-#ph115-user .ph115-name { color: #e8eefb !important; }
+.top-header .th-controls .th-btn-ghost svg { stroke: #334155 !important; }
+.top-header #admin-lang-label { color: #1e293b !important; font-weight: 700 !important; }
+#ph115-user .ph115-avatar { background: rgba(15, 23, 42, 0.10) !important; }
+#ph115-user .ph115-name { color: #1e293b !important; }
 #ph115-user .ph115-role {
-  background: rgba(255, 255, 255, 0.10) !important;
-  color: #b8c4dc !important;
+  background: rgba(15, 23, 42, 0.08) !important;
+  color: #475569 !important;
 }
-#ph115-user::after { color: #93a3c0 !important; }
+#ph115-user::after { color: #64748b !important; }
 </style>
 <script>
 /* 🎩 상단 툴바 통일 톤 — CSS 로 안 잡히는 버튼(셀프진단·EN)이 있어(원인 미상 캐스케이드 충돌)
    인라인 style !important 로 최종 강제. hover 는 인라인이 CSS :hover 를 이기므로 JS 리스너로 처리. */
 (function(){
   'use strict';
-  var BASE = { background: 'rgba(255,255,255,0.07)', 'border': '1px solid rgba(148,163,184,0.30)',
-               color: '#dbe4f5', 'box-shadow': 'none', 'border-radius': '10px', 'text-shadow': 'none' };
-  var HOVER = { background: 'rgba(255,255,255,0.14)', 'border': '1px solid rgba(203,213,225,0.55)',
-                color: '#ffffff', 'box-shadow': '0 2px 10px -2px rgba(0,0,0,0.35)' };
+  var BASE = { background: 'rgba(15,23,42,0.05)', 'border': '1px solid rgba(100,116,139,0.32)',
+               color: '#334155', 'box-shadow': 'none', 'border-radius': '10px', 'text-shadow': 'none' };
+  var HOVER = { background: 'rgba(15,23,42,0.10)', 'border': '1px solid rgba(71,85,105,0.50)',
+                color: '#0f172a', 'box-shadow': '0 2px 8px -2px rgba(15,23,42,0.18)' };
   function paint(el, m){ for (var k in m) el.style.setProperty(k, m[k], 'important'); }
   function tone(el){
     if (!el || el.__tbTone) return;
@@ -20502,9 +20506,9 @@ button.chip:hover,
     tone(document.querySelector('.top-header .th-btn-amber'));
     tone(document.querySelector('.top-header .th-btn-ghost'));
     var svg = document.querySelector('.top-header .th-btn-ghost svg');
-    if (svg) svg.style.setProperty('stroke', '#dbe4f5', 'important');
+    if (svg) svg.style.setProperty('stroke', '#334155', 'important');
     var lbl = document.getElementById('admin-lang-label');
-    if (lbl) lbl.style.setProperty('color', '#dbe4f5', 'important');
+    if (lbl) lbl.style.setProperty('color', '#1e293b', 'important');
   }
   apply();
   if (window.__admSettleRun) window.__admSettleRun(apply);   // 동적 재렌더 대비(멱등)
@@ -20626,7 +20630,14 @@ button.chip:hover,
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-subs { background: rgba(15,23,42,0.03) !important; }
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub { color: #344054 !important; }
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub:hover { background: rgba(234,88,12,0.12) !important; color: #9a3412 !important; }
-  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-count-badge { color: #667085 !important; }
+  /* 🌤 (2026-07-22) 숫자 배지 — 반투명 인디고 위 회색 글자라 대비 2.9(거의 안 읽힘).
+     연한 인디고 칩 + 진한 인디고 숫자로 (대비 8:1). 열린 그룹은 같은 방식의 주황 칩. */
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-count-badge {
+    background: #e0e7ff !important; color: #3730a3 !important; box-shadow: none !important;
+  }
+  html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-group.open .ph85-count-badge {
+    background: #ffedd5 !important; color: #9a3412 !important;
+  }
   /* 자식 메뉴 선 아이콘 — 평소 흐림, hover/활성 때 망고 주황 (다크값 #94a3b8/#fbbf24 를 덮음) */
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub .mi-ico { color: #98a2b3 !important; }
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-sub:hover .mi-ico,
@@ -20759,6 +20770,6 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-ai-asst,
   html[data-admin-theme="ivory"] #ph85-ai-asst * { color: #7c2d12 !important; }
 </style>
-<!-- BUILD:20260722232751 -->
+<!-- BUILD:20260723021743 -->
 </body>
 </html>
