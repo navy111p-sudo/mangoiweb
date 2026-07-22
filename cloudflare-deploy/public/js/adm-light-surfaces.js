@@ -32,6 +32,7 @@
   ].join(',');
 
   var DONE = 'data-lightened';
+  var AA = 4.5;   // 목표 대비 (WCAG AA 본문 기준). 예전 4.0 은 '읽히긴 하나 흐린' 글자를 그냥 통과시켰다.
 
   // ── 색 유틸 ──────────────────────────────────────────────
   function parse(c) {
@@ -156,13 +157,26 @@
     if (!fg || fg.a < 0.3) return;
     var bg = effectiveBg(el);
     if (fg.a < 1) fg = over(fg, bg);
-    if (contrast(fg, bg) >= 4.0) return;       // 이미 잘 보이면 그대로
+    if (contrast(fg, bg) >= AA) return;       // 이미 잘 보이면 그대로
 
     var bl = lum(bg), fl = lum(fg);
     if (bl >= 0.5) {
-      // 밝은 배경 + 안 보이는 글자 → 글자를 진하게 (색상은 유지: 파랑은 파랑, 빨강은 빨강)
+      // 밝은 배경 + 안 보이는 글자 → 색상(hue)은 유지한 채 대비 4.5 가 될 때까지 한 톤씩 진하게.
+      //   ⚠️ 예전에는 고정 밝기(0.32)를 썼는데, 노랑·금색은 원래 밝은 색이라
+      //      그 값으로도 대비가 4 를 못 넘고 색만 겨자색이 됐다(rgb(147,121,16)).
+      //      그래서 ①금/노랑(38~75°)은 테마 앰버(#b45309≈30°) 쪽으로 당기고
+      //           ②대비가 찰 때까지 반복해서 낮춘다.
       var h = toHsl(fg);
-      el.style.setProperty('color', hsl(h.h, Math.min(Math.max(h.s, 0.15), 0.8), h.s < 0.12 ? 0.26 : 0.32), 'important');
+      var hue = h.h, sat = Math.min(Math.max(h.s, 0.15), 0.85);
+      if (h.s > 0.2 && hue >= 38 && hue <= 75) { hue = 30; sat = Math.max(sat, 0.8); }
+      var L = (h.s < 0.12) ? 0.30 : 0.36, pick = hsl(hue, sat, L);
+      for (var t = 0; t < 12; t++) {
+        pick = hsl(hue, sat, L);
+        if (contrast(hslToRgb(hue, sat, L), bg) >= AA) break;
+        L -= 0.03;
+        if (L < 0.08) { pick = hsl(hue, sat, 0.08); break; }
+      }
+      el.style.setProperty('color', pick, 'important');
       claim(el);
     } else if (bl > 0.14) {
       // 중간 밝기 색버튼(주황·연두 등) → 글자는 흰색으로 통일하고, 대비 4:1 될 때까지 배경을 한 톤씩 진하게.
@@ -172,7 +186,7 @@
       for (var i = 0; i < 10 && l > 0.10; i++) {
         l -= 0.04;
         cand = hsl(hb.h, Math.max(hb.s, 0.45), l);
-        if (contrast(white, hslToRgb(hb.h, Math.max(hb.s, 0.45), l)) >= 4.3) break;
+        if (contrast(white, hslToRgb(hb.h, Math.max(hb.s, 0.45), l)) >= AA) break;
       }
       if (cand) {
         el.style.setProperty('background-color', cand, 'important');
@@ -209,7 +223,8 @@
   //   `.admin-layout` 전체로 넓혔다. 예외는 위 SKIP_SEL + 전체화면 스크림(isScrim)이 막는다.
   function scope() {
     var list = [];
-    ['.admin-layout', '.menu-body', '.table-card', '.admin-layout .card', '#main-content'].forEach(function (s) {
+    //   'body' = /admin/ 하위페이지용(.admin-layout 이 없다). SKIP_SEL + isScrim 이 예외를 막는다.
+    ['.admin-layout', 'body', '.menu-body', '.table-card', '.admin-layout .card', '#main-content'].forEach(function (s) {
       try { Array.prototype.push.apply(list, document.querySelectorAll(s)); } catch (e) {}
     });
     return list;

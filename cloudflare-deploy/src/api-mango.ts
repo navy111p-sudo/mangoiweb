@@ -1216,6 +1216,9 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/posters')
         || path.startsWith('/api/admin/teacher-profiles') || path.startsWith('/api/admin/teachers')
         || path.startsWith('/api/admin/teacher-classes') || path.startsWith('/api/admin/teacher-evaluation')
+        // 📊 인사평가 근거 분석 — index.ts 게이트에만 있고 여기 빠져 있어서 목록 셀이
+        //    전부 '불러오기 실패' 였다. (두 게이트 모두 등록해야 handleAdminApi 까지 간다)
+        || path === '/api/admin/teacher-hr-analysis'
         || path === '/api/teacher/mbti-self' || path === '/api/admin/export/payroll.csv'
         || path.startsWith('/api/admin/stats/') || path.startsWith('/api/admin/kpi/')
         || path.startsWith('/api/admin/payroll/') || path.startsWith('/api/admin/schedule-requests')

@@ -1,0 +1,79 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   adm-light-theme.css — 관리자 하위페이지 밝은 테마 통일 (2026-07-23 사장님 지시)
+
+   배경: 메인 관리자(admin.html)는 아이보리로 바뀌었는데, /admin/ 하위 15장은
+   아직 옛 다크 네이비 그대로였다. 계측하면 본문 배경 휘도가 admin.html 은 ~0.87,
+   하위페이지는 ~0.01 — 메뉴를 누를 때마다 흰 화면 → 새까만 화면으로 튄다.
+
+   각 페이지가 쓰는 변수 이름이 제각각이라(--bg/--panel/--bg-card/--surface/--tx …)
+   한 장에 전부 모아 밝은 값으로 덮는다. 색상값은 admin.html 실측값 그대로:
+     본문 = linear-gradient(#f3f6fb → #e6ecf4) + 우상단 앰버 글로우
+     카드 = #ffffff · 글자 = #101828 · 강조 = 앰버(#b45309)
+
+   ⚠️ 의미색(--accent/--red/--green/--blue …)은 건드리지 않는다. 페이지마다
+      뜻이 달라서 여기서 통일하면 안 된다. 밝은 배경에서 안 읽히는 의미색은
+      adm-light-surfaces.js 가 대비를 보고 개별로 진하게 만든다.
+
+   🚫 제외한 페이지(일부러 어둡게 둔 것 — 되돌리지 말 것)
+      · admin/login.html — 밤하늘 별 배경(#lg-stars)이 디자인
+      · admin/ghost-view.html — 수업 관찰(영상 위주 화면)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 면(배경) ────────────────────────────────────────────── */
+  --bg:            #f3f6fb !important;
+  --bg2:           #e6ecf4 !important;
+  --bg3:           #eef2f8 !important;
+  --bg-base:       #f3f6fb !important;
+  --bg-card:       #ffffff !important;
+  --bg-card-2:     #f7f9fd !important;
+  --bg-card-hover: #eef3fa !important;
+  --bg-input:      #ffffff !important;
+  --panel:         #ffffff !important;
+  --panel2:        #f4f7fc !important;
+  --card:          #ffffff !important;
+  --surface:       #ffffff !important;
+  --surface-2:     #f4f7fc !important;
+
+  /* ── 글자 ────────────────────────────────────────────────── */
+  --fg:             #101828 !important;
+  --text:           #101828 !important;
+  --text-primary:   #101828 !important;
+  --ink:            #101828 !important;
+  --tx:             #101828 !important;
+  --mut:            #475467 !important;
+  --text2:          #475467 !important;
+  --text-secondary: #475467 !important;
+  --ink-2:          #475467 !important;
+  --tx2:            #475467 !important;
+  --dim:            #667085 !important;
+  --muted:          #667085 !important;
+  --text-muted:     #667085 !important;
+  --tx3:            #667085 !important;
+
+  /* ── 선 ──────────────────────────────────────────────────── */
+  --bd:             #e4e9f2 !important;
+  --border:         #e4e9f2 !important;
+  --line:           #e4e9f2 !important;
+  --line-2:         #eef2f8 !important;
+  --border-strong:  #cfd8e6 !important;
+
+  /* ── 그림자 (다크용 진한 그림자는 밝은 면에서 때가 낀 것처럼 보인다) ── */
+  --shadow:        0 1px 3px rgba(16,24,40,.07) !important;
+  --shadow-soft:   0 1px 3px rgba(16,24,40,.06) !important;
+  --shadow-strong: 0 10px 28px -8px rgba(16,24,40,.18) !important;
+  --sh-sm:         0 1px 2px rgba(16,24,40,.06) !important;
+  --sh-md:         0 4px 12px -2px rgba(16,24,40,.10) !important;
+}
+
+/* 본문 — admin.html 과 같은 그라데이션 + 우상단 앰버 글로우 */
+html, body {
+  background:
+    radial-gradient(420px 280px at 100% 0%, rgba(251,191,36,.10) 0%, rgba(0,0,0,0) 62%),
+    linear-gradient(#f3f6fb 0%, #e6ecf4 100%) !important;
+  background-attachment: fixed !important;
+  color: #101828 !important;
+}
+
+/* 스크롤바도 같이 — 다크 페이지의 검은 스크롤바가 그대로 남으면 눈에 띈다 */
+html { color-scheme: light; }

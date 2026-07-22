@@ -86,7 +86,7 @@ input{font-family:inherit}
 .top-bar{background:linear-gradient(135deg,var(--bg2) 0%,var(--bg) 100%);border-bottom:1px solid var(--bd);padding:18px 28px;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
 .top-bar-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .breadcrumb{font-size:12.5px;color:var(--tx2);margin-bottom:4px}
-.breadcrumb a{color:#60a5fa;text-decoration:none;transition:color .15s}
+.breadcrumb a{color:#1d4ed8;text-decoration:none;transition:color .15s}
 .breadcrumb a:hover{color:#93c5fd}
 h1{font-size:22px;margin:0;color:#fff;font-weight:800;letter-spacing:-.5px;display:flex;align-items:center;gap:8px}
 h1 .icon{font-size:26px}
@@ -531,6 +531,7 @@ body.dragging{cursor:crosshair}
   /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
   @media (min-width: 1024px) { body { zoom: 1.3; } }
 </style>
+<link rel="stylesheet" href="/css/adm-light-theme.css?v=1"><!-- ☀️ 관리자 밝은 테마 통일 (2026-07-23) -->
 </head>
 <body>
 <header class="top-bar">
@@ -2927,5 +2928,6 @@ reloadAndRender();
 <!-- 🏠 글로벌 홈페이지 FAB (헤더 EN 옆으로 이동되어 hidden) -->
 <a id="global-home-fab" href="/" style="display:none">홈</a>
 
+<script src="/js/adm-light-surfaces.js?v=3" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
 </body>
 </html>
