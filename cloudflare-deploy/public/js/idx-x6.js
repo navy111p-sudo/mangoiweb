@@ -8,35 +8,69 @@
 
   // anchor: 'hat'(이마 위) | 'eyes'(두 눈) | 'nose'(코끝) | 'stache'(코밑) | 'face'(얼굴 전체 덮기)
   // scale: 얼굴 폭 기준 크기   yOff: 세로 미세조정(얼굴폭 비율, +면 아래로)
+  // (2026-07-22) 이모지·SVG 액세서리 전량 → 실사 사진 액세서리로 교체.
+  //   소스 = 그린스크린 시트 1장을 크로마키·디스필해서 잘라낸 투명 PNG 35개 (/face-fx/r/).
+  //   추출 스크립트는 docs 참조. 남긴 이모지형은 안경 3종(썬글라스·안경·물안경)뿐 — 나머지는
+  //   실사와 겹치고 품질이 떨어져 의도적으로 뺐음. **되살리지 말 것.**
+  //
+  //   scale = 기준 폭 대비 그려질 이미지 '가로' 배율
+  //     anchor 'eyes'  → 기준 = 두 눈 바깥 코너 간격        그 외 → 기준 = 얼굴 폭
+  //   yOff  = 부착 위치 미세조정(얼굴폭 비율, hat 은 클수록 아래로 내려앉음)
+  //   imgYOff = 이미지 자체를 위아래로 밀기(size 비율, +면 아래로) — 여백이 치우친 컷 보정용
   var FX_ITEMS = [
-    { id:'tophat',   ko:'중절모',   en:'Top Hat',     emoji:'🎩', anchor:'hat',  scale:1.35, yOff:-0.40, rotate:true },
-    { id:'cap',      ko:'야구모자', en:'Cap',         emoji:'🧢', anchor:'hat',  scale:1.75, yOff:0.16, rotate:true },
-    { id:'crown',    ko:'왕관',     en:'Crown',       emoji:'👑', anchor:'hat',  scale:1.15, yOff:-0.30, rotate:true },
-    { id:'grad',     ko:'학사모',   en:'Grad Cap',    emoji:'🎓', anchor:'hat',  scale:1.80, yOff:0.10, rotate:true },
-    { id:'helmet',   ko:'안전모',   en:'Helmet',      emoji:'⛑️', anchor:'hat',  scale:1.70, yOff:0.14, rotate:true },
+    // ── 얼굴 전체 마스크 ──
+    { id:'rtiger',  ko:'호랑이',   en:'Tiger',      anchor:'face', scale:1.77, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/tiger.png' },
+    { id:'rfox',    ko:'여우',     en:'Fox',        anchor:'face', scale:1.57, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/fox.png' },
+    { id:'rcat',    ko:'고양이',   en:'Cat',        anchor:'face', scale:1.60, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/cat.png' },
+    { id:'rdog',    ko:'강아지',   en:'Dog',        anchor:'face', scale:2.05, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/dog.png', imgYOff:0.04 },
+    { id:'rrabbit', ko:'토끼',     en:'Rabbit',     anchor:'face', scale:1.25, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/rabbit.png', imgYOff:-0.26 },
+    { id:'rpanda',  ko:'판다',     en:'Panda',      anchor:'face', scale:1.74, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/panda.png' },
+    { id:'rorang',  ko:'오랑우탄', en:'Orangutan',  anchor:'face', scale:1.27, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/orangutan.png', imgYOff:-0.03 },
+    { id:'rclown',  ko:'광대',     en:'Clown',      anchor:'face', scale:1.71, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/clown.png' },
+    { id:'ralien',  ko:'외계인',   en:'Alien',      anchor:'face', scale:1.28, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/alien.png', imgYOff:-0.06 },
+    { id:'rpump',   ko:'호박',     en:'Pumpkin',    anchor:'face', scale:1.73, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/pumpkin.png' },
+    { id:'rvader',  ko:'검은 헬멧', en:'Dark Helmet', anchor:'face', scale:1.75, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/vader.png', imgYOff:-0.08 },
+    { id:'rled',    ko:'LED 가면', en:'LED Mask',   anchor:'face', scale:1.39, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/ledmask.png' },
+
+    // ── 모자·가발 ──
+    // ⚠️ hat 앵커의 yOff 는 '클수록 아래로'. 아래 값들은 이마 랜드마크(10) 기준으로
+    //    '모자 밑단이 이마보다 살짝 아래' 가 되도록 역산한 값이다. 임의로 키우면 눈을 덮는다.
+    { id:'rtophat', ko:'중절모',       en:'Top Hat',        anchor:'hat', scale:1.70, yOff:-0.24, rotate:true, draw:'image', img:'/face-fx/r/tophat.png' },
+    { id:'rsteamhat', ko:'스팀펑크 모자', en:'Steampunk Hat', anchor:'hat', scale:1.80, yOff:-0.24, rotate:true, draw:'image', img:'/face-fx/r/steamhat.png' },
+    { id:'rcap',    ko:'야구모자',     en:'Cap',            anchor:'hat', scale:1.72, yOff:-0.17, rotate:true, draw:'image', img:'/face-fx/r/cap.png' },
+    { id:'rcrowng', ko:'황금 왕관',    en:'Gold Crown',     anchor:'hat', scale:1.38, yOff:-0.25, rotate:true, draw:'image', img:'/face-fx/r/crown-gold.png' },
+    { id:'rcrowns', ko:'은빛 왕관',    en:'Silver Crown',   anchor:'hat', scale:1.34, yOff:-0.16, rotate:true, draw:'image', img:'/face-fx/r/crown-silver.png' },
+    { id:'rgrad',   ko:'학사모',       en:'Grad Cap',       anchor:'hat', scale:2.00, yOff:0.34, rotate:true, draw:'image', img:'/face-fx/r/gradcap.png' },
+    { id:'rhelmet', ko:'안전모',       en:'Hard Hat',       anchor:'hat', scale:1.74, yOff:-0.21, rotate:true, draw:'image', img:'/face-fx/r/helmet.png' },
+    { id:'rviking', ko:'바이킹 투구',  en:'Viking Helmet',  anchor:'hat', scale:2.45, yOff:-0.04, rotate:true, draw:'image', img:'/face-fx/r/viking.png' },
+    // 가발 PNG 는 앞머리가 막혀 있어 그대로 씌우면 얼굴을 가림 → 아래 배치 기준으로 얼굴 자리에
+    //   타원 구멍을 미리 파둔 이미지다(wigcut). scale/yOff 를 바꾸면 구멍 위치도 다시 파야 한다.
+    { id:'rwigbr',  ko:'갈색 가발',    en:'Brown Wig',      anchor:'hat', scale:1.62, yOff:0.96, rotate:true, draw:'image', img:'/face-fx/r/wig-brown.png' },
+    { id:'rwigbl',  ko:'금발 가발',    en:'Blonde Wig',     anchor:'hat', scale:1.56, yOff:0.93, rotate:true, draw:'image', img:'/face-fx/r/wig-blonde.png' },
+
+    // ── 안경류(실사) ──
+    { id:'rgblack', ko:'뿔테 안경',     en:'Black Glasses',     anchor:'eyes', scale:1.60, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/glasses-black.png' },
+    { id:'raviator',ko:'항공 선글라스', en:'Aviator Shades',    anchor:'eyes', scale:1.62, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/aviator.png' },
+    { id:'rgoggle', ko:'보안경',        en:'Safety Goggles',    anchor:'eyes', scale:1.66, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/goggles.png' },
+    { id:'rsteamgg',ko:'스팀펑크 고글', en:'Steampunk Goggles', anchor:'eyes', scale:2.05, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/steamgoggles.png' },
+
+    // ── 수염 ──
+    { id:'rstache1',ko:'카이저 수염',   en:'Curly Mustache', anchor:'stache', scale:0.68, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-curl-brown.png' },
+    { id:'rstache2',ko:'검은 콧수염',   en:'Black Mustache', anchor:'stache', scale:0.66, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-curl-black.png' },
+    { id:'rstache3',ko:'넓은 콧수염',   en:'Wide Mustache',  anchor:'stache', scale:0.62, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-wide.png' },
+    { id:'rstache4',ko:'짧은 콧수염',   en:'Short Mustache', anchor:'stache', scale:0.42, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-short.png' },
+    { id:'rstache5',ko:'덥수룩 수염',   en:'Thick Mustache', anchor:'stache', scale:0.60, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-thick.png', imgYOff:0.10 },
+    { id:'rstache6',ko:'얇은 콧수염',   en:'Slim Mustache',  anchor:'stache', scale:0.50, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/stache-slim.png' },
+    { id:'rbeardbl',ko:'금빛 턱수염',   en:'Blonde Beard',   anchor:'chin',   scale:1.00, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/beard-blonde.png', imgYOff:0.14 },
+    { id:'rgoatee', ko:'염소 수염',     en:'Goatee',         anchor:'chin',   scale:0.62, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/beard-goatee.png', imgYOff:0.18 },
+
+    // ── 코 ──
+    { id:'rnose',   ko:'빨간코',        en:'Red Nose',       anchor:'nose',   scale:0.32, yOff:0.00, rotate:false, draw:'image', img:'/face-fx/r/rednose.png' },
+
+    // ── 남겨둔 그리기형 안경 3종 (가볍고 얼굴을 안 가려서 유지) ──
     { id:'sun',      ko:'썬글라스', en:'Sunglasses',  emoji:'🕶️', anchor:'eyes', scale:1.55, yOff:0.04, rotate:true, draw:'glasses', gl:'sun' },
     { id:'glasses',  ko:'안경',     en:'Glasses',     emoji:'👓', anchor:'eyes', scale:1.55, yOff:0.04, rotate:true, draw:'glasses', gl:'glasses' },
-    { id:'goggles',  ko:'물안경',   en:'Goggles',     emoji:'🥽', anchor:'eyes', scale:1.55, yOff:0.04, rotate:true, draw:'glasses', gl:'goggles' },
-    { id:'mask',     ko:'가면',     en:'Mask',        emoji:'🎭', anchor:'face', scale:1.70, yOff:0.00, rotate:true },
-    { id:'fox',      ko:'여우',     en:'Fox',         emoji:'🦊', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
-    { id:'cat',      ko:'고양이',   en:'Cat',         emoji:'🐱', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
-    { id:'dog',      ko:'강아지',   en:'Dog',         emoji:'🐶', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
-    { id:'rabbit',   ko:'토끼',     en:'Rabbit',      emoji:'🐰', anchor:'face', scale:1.75, yOff:-0.04, rotate:true },
-    { id:'panda',    ko:'판다',     en:'Panda',       emoji:'🐼', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
-    { id:'tiger',    ko:'호랑이',   en:'Tiger',       emoji:'🐯', anchor:'face', scale:1.75, yOff:-0.02, rotate:true },
-    { id:'clown',    ko:'광대',     en:'Clown',       emoji:'🤡', anchor:'face', scale:1.70, yOff:-0.02, rotate:true },
-    { id:'alien',    ko:'외계인',   en:'Alien',       emoji:'👽', anchor:'face', scale:1.62, yOff:-0.02, rotate:true },
-    { id:'robot',    ko:'로봇',     en:'Robot',       emoji:'🤖', anchor:'face', scale:1.62, yOff:-0.02, rotate:true },
-    { id:'pumpkin',  ko:'호박',     en:'Pumpkin',     emoji:'🎃', anchor:'face', scale:1.70, yOff:-0.02, rotate:true },
-    { id:'nose',     ko:'빨간코',   en:'Clown Nose',  emoji:'🔴', anchor:'nose', scale:0.42, yOff:0.00, rotate:false },
-    { id:'mustache', ko:'콧수염',   en:'Mustache',    emoji:'',   anchor:'stache', scale:1.0, yOff:0.0, rotate:true, draw:'mustache' },
-    // === 실사풍 이미지 액세서리 (투명 이미지 오버레이) — img 경로만 진짜 사진 PNG로 바꾸면 즉시 교체됨 ===
-    { id:'rsun',    ko:'실사 선글라스', en:'Sunglasses (Real)', anchor:'eyes', scale:1.66, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/sunglasses.svg' },
-    { id:'rglass',  ko:'실사 안경',     en:'Glasses (Real)',    anchor:'eyes', scale:1.62, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/glasses.svg' },
-    { id:'rfedora', ko:'실사 중절모',   en:'Fedora (Real)',     anchor:'hat',  scale:2.05, yOff:0.30, rotate:true, draw:'image', img:'/face-fx/fedora.svg', imgYOff:-0.10 },
-    { id:'rbeard',  ko:'실사 수염',     en:'Beard (Real)',      anchor:'chin', scale:1.30, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/beard.svg', imgYOff:0.14 },
-    { id:'rmask',   ko:'실사 가면',     en:'Mask (Real)',       anchor:'eyes', scale:2.00, yOff:0.12, rotate:true, draw:'image', img:'/face-fx/mask.svg' },
-    { id:'rwig',    ko:'실사 가발',     en:'Wig (Real)',        anchor:'hat',  scale:1.52, yOff:0.55, rotate:true, draw:'image', img:'/face-fx/wig.svg', imgYOff:0.10 }
+    { id:'goggles',  ko:'물안경',   en:'Goggles',     emoji:'🥽', anchor:'eyes', scale:1.55, yOff:0.04, rotate:true, draw:'glasses', gl:'goggles' }
   ];
 
   var vcFx = window.vcFx = {
@@ -50,6 +84,10 @@
     lastLM:null,       // 보간된 FaceMesh 랜드마크(떨림 완화)
     frameTick:0
   };
+
+  // 진단·튜닝용 내부 핸들 노출 — 정지 사진에 액세서리를 얹어 scale/yOff 를 눈으로 맞출 때 사용.
+  //   (렌더 경로에는 영향 없음. 콘솔에서 vcFx._items 로 값 바꾸고 바로 확인 가능)
+  vcFx._items = FX_ITEMS;
 
   // 이미지 액세서리 프리로드 캐시 (.svg/.png 동일 처리, same-origin 이라 canvas taint 없음)
   vcFx._imgCache = vcFx._imgCache || {};
@@ -113,7 +151,9 @@
     FX_ITEMS.forEach(function(it){
       // 안경류는 옆다리 없는 앞면 전용 SVG 아이콘으로 표시
       var icon = (it.draw==='image')
-        ? '<span style="display:flex;align-items:center;justify-content:center;height:36px"><img src="'+it.img+'" alt="" style="max-height:36px;max-width:46px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))"></span>'
+        // loading=lazy — 이 패널은 처음엔 숨어 있음. 홈 첫 로딩에서 썸네일 35장(약 800KB)을
+        //   미리 받지 않도록 반드시 유지할 것(성능 회귀 방지).
+        ? '<span style="display:flex;align-items:center;justify-content:center;height:38px"><img src="'+it.img+'" alt="" loading="lazy" decoding="async" style="max-height:38px;max-width:52px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))"></span>'
         : (it.draw==='glasses')
         ? '<span style="display:flex;align-items:center;justify-content:center;height:34px">'+fxGlassesSVG(it.gl)+'</span>'
         : '<span style="font-size:30px;line-height:1">'+(it.emoji || (it.draw==='mustache' ? '〰️' : '✨'))+'</span>';
@@ -371,7 +411,8 @@
       var b0 = lipTop || chin || forehead;
       px = a0.x + (b0.x-a0.x)*0.4;
       py = a0.y + (b0.y-a0.y)*0.4;
-      size = faceW;
+      // 실사 콧수염은 얼굴 폭보다 좁아야 자연스러움 → scale 을 반영(그리기형은 내부에서 faceW 를 따로 씀)
+      size = faceW * (it.scale || 1);
     } else if (it.anchor==='chin'){
       // 콧밑~턱끝 사이(턱 쪽으로) — 수염 등 하관 액세서리
       var cn = noseBot || noseTip || forehead;
@@ -423,6 +464,8 @@
     }
     ctx.restore();
   }
+
+  vcFx._drawItem = fxDrawItem;   // 진단·튜닝용(위 vcFx._items 주석 참고)
 
   // 렌더 루프 — 매 프레임 base 영상 그리고, 검출은 N프레임마다, 액세서리는 매 프레임(보간된 얼굴로)
   function fxLoop(){
@@ -590,12 +633,16 @@
 
   // 그리드 빌드 (탭 진입 시 + 초기)
   function fxInit(){
-    fxPreloadImages();
+    // ⚠️ 여기서 fxPreloadImages() 를 부르지 말 것 — 실사 액세서리 PNG 35장(약 800KB)을
+    //    홈 첫 로딩에 통째로 받아버림. 배경화면 탭을 실제로 열 때 1회만 예열한다.
     fxBuildGrid();
     // 배경 탭 버튼 클릭 시에도 빌드 보장
     document.addEventListener('click', function(e){
       var b = e.target.closest && e.target.closest('.tab-btn');
-      if (b) setTimeout(fxBuildGrid, 60);
+      if (b){
+        setTimeout(fxBuildGrid, 60);
+        if (!vcFx._preloaded){ vcFx._preloaded = true; setTimeout(fxPreloadImages, 400); }
+      }
     });
   }
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', fxInit);

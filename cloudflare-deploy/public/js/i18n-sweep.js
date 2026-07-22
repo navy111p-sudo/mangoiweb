@@ -734,6 +734,9 @@
 "📋 출결 상태": "📋 Attendance Status",
 "📷 QR 출결": "📷 QR Attendance",
 "📌 공지사항 ⭐신규": "📌 Notices ⭐NEW",
+"망고아이 관리": "Mangoi Admin",
+"📶 강사 회선품질 ⭐신규": "📶 Teacher Line Quality ⭐NEW",
+"🏢 캐피타운 정산 ⭐신규": "🏢 Capitown Settlement ⭐NEW",
 "📖 마이크로러닝": "📖 Microlearning",
 "📚 숙제 관리 ⭐신규": "📚 Homework ⭐NEW",
 "📜 수업 변경 이력 ⭐신규": "📜 Class Change History ⭐NEW",
@@ -778,6 +781,7 @@
 "수업 연기·변경": "Postpone / Change",
 "학부모 페이지": "Parent Page",
 "시스템 진단": "System Check",
+"수업 관찰": "Ghost View",
 "관리자 로그인": "Admin Login",
 "망고아이란?": "About Mangoi",
 "📊 관리자": "📊 Admin",
@@ -2200,21 +2204,26 @@
     if (!hasKo(k) || k.length > 200) return;
     TRIED[k] = true; MISS[k] = true; scheduleFlush();
   }
-  function scheduleFlush(){ if (flushTimer) return; flushTimer = setTimeout(flushMiss, 900); }
+  function scheduleFlush(){ if (flushTimer) return; flushTimer = setTimeout(flushMiss, 250); }
   function flushMiss(){
     flushTimer = null;
     var items = Object.keys(MISS); MISS = {};
     if (!items.length || !isEn()) return;
+    // ⚡ (2026-07-22) 청크를 순차(await 루프)로 돌리던 것을 병렬로 — 해외(필리핀) 회선에서
+    //   미번역 문장이 수백 개면 왕복이 그만큼 쌓여 "한참 뒤에야 영어로 바뀌는" 원인이었다.
     (async function(){
+      var chunks = [];
+      for (var i = 0; i < items.length; i += 50) chunks.push(items.slice(i, i + 50));
+      var results = await Promise.all(chunks.map(function(chunk){
+        return fetch('/api/i18n/translate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ texts: chunk, target: 'en' }) })
+          .then(function(x){ return x.json(); })
+          .catch(function(){ return null; });
+      }));
       var changed = false;
-      for (var i = 0; i < items.length; i += 50){
-        var chunk = items.slice(i, i + 50);
-        try {
-          var r = await fetch('/api/i18n/translate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ texts: chunk, target: 'en' }) }).then(function(x){ return x.json(); });
-          if (r && r.map){
-            for (var key in r.map){ var en = r.map[key]; if (en && en !== key){ AUTO[key] = en; changed = true; } }
-          }
-        } catch(e) {}
+      for (var c = 0; c < results.length; c++){
+        var r = results[c];
+        if (!r || !r.map) continue;
+        for (var key in r.map){ var en = r.map[key]; if (en && en !== key){ AUTO[key] = en; changed = true; } }
       }
       if (changed){ try { localStorage.setItem('mangoi_i18n_en', JSON.stringify(AUTO)); } catch(e){} }
       if (changed && isEn()){ try { sweep(document.body); } catch(e){} }
@@ -2287,6 +2296,9 @@
 
   function start(){
     if(isEn()) sweep();
+    // 🌐 (2026-07-22) 첫 스윕이 끝났으니 본문 표시 허용 — admin.html 이 영어 부팅 시
+    //   한글이 잠깐 보이지 않도록 body 를 감춰 두고 여기서 푼다(안전장치 타이머도 있음).
+    try { if (window.__admEnReady) window.__admEnReady(); } catch(e){}
     // 동적 노드 감시
     try{
       new MutationObserver(function(muts){

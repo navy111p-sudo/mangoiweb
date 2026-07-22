@@ -69,6 +69,27 @@ function classifyEvalGrade(weighted: number): string {
 
 const VALID_TEACHER_STATUS = ['office', 'home'] as const;
 
+// ═══ 📊 인사평가 근거 분석 공용 헬퍼 (/api/admin/teacher-hr-analysis) ═══
+/** 강사 이름 정규화 — 수업기록 테이블은 teacher_name(자유문자열)만 남기므로 표기 흔들림을 흡수. */
+function hrNormName(s: any): string {
+  return String(s == null ? '' : s)
+    .toLowerCase()
+    .replace(/^teacher\s+/, '')      // "Teacher Ana" == "Ana"
+    .replace(/[\s._\-]+/g, '')
+    .trim();
+}
+/** 0~100 총점 → 목록·모달 공용 등급 라벨 (adm-core.js _hrGrade 와 동일 임계값). */
+function hrGradeLabel(total: number | null): string | null {
+  if (total == null || isNaN(total)) return null;
+  if (total >= 90) return 'A+';
+  if (total >= 85) return 'A';
+  if (total >= 80) return 'B+';
+  if (total >= 75) return 'B';
+  if (total >= 70) return 'C+';
+  if (total >= 65) return 'C';
+  return 'D';
+}
+
 let _payrollSchemaReady = false;
 async function ensurePayrollSchema(env: { DB: D1Database }): Promise<void> {
   if (_payrollSchemaReady) return;
@@ -2208,6 +2229,289 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           return json({ ok: false, error: String(e?.message || e) }, 500);
         }
       }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 📊 강사 인사평가 근거 분석 — 목록의 인사평가 점수를 누르면 "왜 이 점수인가"
+    //   GET /api/admin/teacher-hr-analysis            → 전체 강사 요약(목록 셀 채우기)
+    //   GET /api/admin/teacher-hr-analysis?id=<tp_id> → 단건 상세(근거 + 최근 학생 피드백)
+    //
+    //   ⚠ 원칙: 점수는 **실제 D1 기록에서만** 계산한다. 근거가 없는 항목은 score:null
+    //     ('미측정')로 내려보내고 남은 항목끼리 가중치를 재정규화한다.
+    //     인사·급여에 쓰이는 숫자를 추정치로 지어내지 않기 위함.
+    //   🔐 강사 로그인은 본인 것만 조회 가능(남의 인사평가 열람 차단).
+    // ════════════════════════════════════════════════════════════
+    if (method === 'GET' && path === '/api/admin/teacher-hr-analysis') {
+      try { await ensureTeacherProfilesSchema(); } catch {}
+      const _hrActor = await getAdminActor(request, env as any);
+      const oneId = parseInt(url.searchParams.get('id') || '0', 10);
+
+      // 집계는 강사 전원 공통이라 KV 에 5분 캐시 (목록 열 때마다 6개 집계쿼리 도는 것 방지)
+      const HR_CACHE_KEY = 'adm:hr-analysis:v1';
+      let cachedItems: any[] | null = null;
+      try {
+        const c = await (env as any).SESSION_STATE.get(HR_CACHE_KEY);
+        if (c) cachedItems = JSON.parse(c);
+      } catch { /* 캐시는 최적화일 뿐 */ }
+
+      const profRows: any = cachedItems ? { results: [] } : await env.DB.prepare(
+        `SELECT id, korean_name, english_name, status, join_date FROM teacher_profiles`
+      ).all().catch(() => ({ results: [] }));
+      const profiles: any[] = profRows.results || [];
+      //   ※ 수업기록 테이블들은 teacher_id 가 아니라 teacher_name(자유문자열)으로 남는다.
+      //      그래서 아래 집계는 전부 이름 정규화(hrNormName)로 프로필과 이어붙인다.
+
+      const now = Date.now();
+      const D = 86400000;
+      const since90ms  = now - 90 * D;
+      const since180ms = now - 180 * D;
+      const dstr = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+      const since90d = dstr(since90ms);
+      const cut30d   = dstr(now - 30 * D);
+
+      const q = async (sql: string, ...binds: any[]): Promise<any[]> => {
+        try {
+          const r: any = await env.DB.prepare(sql).bind(...binds).all();
+          return r?.results || [];
+        } catch { return []; }   // 테이블 미생성 등 — 해당 지표만 '미측정'
+      };
+
+      // ── 실제 신호 수집 (전부 teacher_name GROUP BY — 파라미터 1개씩이라 D1 100개 제한 무관) ──
+      const [rateRows, schedRows, lateRows, noshowRows, evalRows, praiseRows] = cachedItems
+        ? [[], [], [], [], [], []] as any[][]
+        : await Promise.all([
+        // ⭐ 학생이 수업 직후 매긴 별점 (1~7)
+        q(`SELECT teacher_name AS tn, AVG(score) AS avg_score, COUNT(*) AS n,
+                  SUM(CASE WHEN score <= 3 THEN 1 ELSE 0 END) AS low_n
+             FROM class_ratings WHERE created_at >= ? AND teacher_name IS NOT NULL
+            GROUP BY teacher_name`, since180ms),
+        // 📅 수업 예약 — 학생별 첫/마지막 수업일 (재등록 유지율 + 수업 건수의 분모)
+        q(`SELECT teacher_name AS tn, user_id AS uid,
+                  MIN(scheduled_date) AS first_d, MAX(scheduled_date) AS last_d, COUNT(*) AS c
+             FROM class_schedules
+            WHERE scheduled_date >= ? AND teacher_name IS NOT NULL
+              AND (status IS NULL OR status NOT IN ('cancelled','canceled','deleted'))
+            GROUP BY teacher_name, user_id`, since90d),
+        // ⏰ 지각 분 (관리자 입력) — schedule_id 로 강사 연결
+        q(`SELECT cs.teacher_name AS tn, COUNT(*) AS n, SUM(lm.minutes) AS mins
+             FROM lesson_late_minutes lm JOIN class_schedules cs ON cs.id = lm.schedule_id
+            WHERE lm.lesson_date >= ? AND lm.minutes > 0 AND cs.teacher_name IS NOT NULL
+            GROUP BY cs.teacher_name`, since90d),
+        // 🚫 강사 노쇼 (수업에 강사가 안 들어옴)
+        q(`SELECT teacher_name AS tn, COUNT(*) AS n FROM class_no_show
+            WHERE created_at >= ? AND missing_role = 'teacher' AND teacher_name IS NOT NULL
+            GROUP BY teacher_name`, since90ms),
+        // 📝 강사가 작성한 학생 평가서 (행정 성실도)
+        q(`SELECT teacher_name AS tn, COUNT(*) AS n FROM student_evaluations
+            WHERE created_at >= ? AND teacher_name IS NOT NULL GROUP BY teacher_name`, since90ms),
+        // 💛 익명 칭찬 (조직 기여)
+        q(`SELECT teacher_name AS tn, AVG(star_rating) AS avg_star, COUNT(*) AS n
+             FROM teacher_praises WHERE created_at >= ? AND teacher_name IS NOT NULL
+            GROUP BY teacher_name`, since180ms),
+      ]);
+
+      // 이름 키로 접기
+      const pick = (rows: any[], f: (acc: any, r: any) => any, init: () => any) => {
+        const m = new Map<string, any>();
+        rows.forEach(r => {
+          const k = hrNormName(r.tn);
+          if (!k) return;
+          m.set(k, f(m.get(k) || init(), r));
+        });
+        return m;
+      };
+      const mRate = pick(rateRows,
+        (a, r) => ({ sum: a.sum + Number(r.avg_score || 0) * Number(r.n || 0), n: a.n + Number(r.n || 0), low: a.low + Number(r.low_n || 0) }),
+        () => ({ sum: 0, n: 0, low: 0 }));
+      const mLate = pick(lateRows, (a, r) => ({ n: a.n + Number(r.n || 0), mins: a.mins + Number(r.mins || 0) }), () => ({ n: 0, mins: 0 }));
+      const mNoShow = pick(noshowRows, (a, r) => ({ n: a.n + Number(r.n || 0) }), () => ({ n: 0 }));
+      const mEval = pick(evalRows, (a, r) => ({ n: a.n + Number(r.n || 0) }), () => ({ n: 0 }));
+      const mPraise = pick(praiseRows,
+        (a, r) => ({ sum: a.sum + Number(r.avg_star || 0) * Number(r.n || 0), n: a.n + Number(r.n || 0) }),
+        () => ({ sum: 0, n: 0 }));
+      // 수업 예약: 학생 단위 → 강사 단위로 접기
+      const mSched = new Map<string, any>();
+      schedRows.forEach(r => {
+        const k = hrNormName(r.tn);
+        if (!k) return;
+        const a = mSched.get(k) || { classes: 0, students: 0, eligible: 0, retained: 0 };
+        a.classes += Number(r.c || 0);
+        a.students += 1;
+        // '유지'의 정의: 30일 이전부터 다니던 학생(eligible)이 최근 30일에도 수업이 있으면 retained
+        if (String(r.first_d || '') <= cut30d) {
+          a.eligible += 1;
+          if (String(r.last_d || '') >= cut30d) a.retained += 1;
+        }
+        mSched.set(k, a);
+      });
+
+      const keyOf = (p: any) => {
+        const a = hrNormName(p.korean_name), b = hrNormName(p.english_name);
+        return { a, b };
+      };
+      const get2 = (m: Map<string, any>, p: any) => {
+        const { a, b } = keyOf(p);
+        return m.get(a) || (b && b !== a ? m.get(b) : null) || null;
+      };
+
+      const items = profiles.map(p => {
+        const rate = get2(mRate, p), sched = get2(mSched, p), late = get2(mLate, p);
+        const noshow = get2(mNoShow, p), evl = get2(mEval, p), praise = get2(mPraise, p);
+        const classes = sched ? sched.classes : 0;
+        const cats: any[] = [];
+
+        // 🌐 강사 다수가 필리핀·외국인 — 라벨뿐 아니라 **근거 문장까지** 한/영 두 벌로 내려보낸다.
+        //    (fact/fact_en, source/source_en. 한쪽만 채우면 영어 화면에 한국어가 남는다)
+
+        // ① 수업 우수성 25% — 학생 별점 (1~7 → 0~100)
+        if (rate && rate.n > 0) {
+          const avg = Math.round((rate.sum / rate.n) * 10) / 10;
+          cats.push({ key: 'cls', label: '수업 우수성', label_en: 'Teaching', weight: 0.25,
+            score: Math.max(0, Math.min(100, Math.round((((rate.sum / rate.n) - 1) / 6) * 1000) / 10)),
+            fact: `학생 별점 ${avg}/7점 · ${rate.n}건` + (rate.low > 0 ? ` (낮은 평가 ${rate.low}건)` : ''),
+            fact_en: `Student rating ${avg}/7 · ${rate.n} reviews` + (rate.low > 0 ? ` (${rate.low} low)` : ''),
+            source: '학생 수업평가(class_ratings) · 최근 180일',
+            source_en: 'Student class ratings · last 180 days' });
+        } else {
+          cats.push({ key: 'cls', label: '수업 우수성', label_en: 'Teaching', weight: 0.25, score: null,
+            fact: '최근 180일 학생 별점 기록 없음', fact_en: 'No student ratings in the last 180 days',
+            source: '학생 수업평가(class_ratings)', source_en: 'Student class ratings' });
+        }
+
+        // ② 재등록·유지 30% — 30일 이전부터 다니던 학생이 지금도 남아있는 비율
+        if (sched && sched.eligible >= 3) {
+          cats.push({ key: 'ret', label: '재등록·유지', label_en: 'Retention', weight: 0.30,
+            score: Math.round((sched.retained / sched.eligible) * 1000) / 10,
+            fact: `기존 학생 ${sched.eligible}명 중 ${sched.retained}명 유지 · 담당 ${sched.students}명`,
+            fact_en: `${sched.retained} of ${sched.eligible} existing students retained · ${sched.students} assigned`,
+            source: '수업 예약(class_schedules) · 최근 90일',
+            source_en: 'Lesson bookings · last 90 days' });
+        } else {
+          cats.push({ key: 'ret', label: '재등록·유지', label_en: 'Retention', weight: 0.30, score: null,
+            fact: sched ? `기존 학생 ${sched.eligible}명 — 표본 3명 미만이라 계산 안 함` : '최근 90일 수업 예약 기록 없음',
+            fact_en: sched ? `Only ${sched.eligible} existing students — fewer than 3, not scored` : 'No lesson bookings in the last 90 days',
+            source: '수업 예약(class_schedules)', source_en: 'Lesson bookings' });
+        }
+
+        // ③ 근태 20% — 지각 비율 + 강사 노쇼
+        if (classes > 0) {
+          const lateN = late ? late.n : 0, lateMin = late ? late.mins : 0, nsN = noshow ? noshow.n : 0;
+          const penalty = Math.min(100, (lateN / classes) * 100 * 1.5 + nsN * 12);
+          cats.push({ key: 'punct', label: '근태·성실', label_en: 'Punctuality', weight: 0.20,
+            score: Math.max(0, Math.round((100 - penalty) * 10) / 10),
+            fact: `수업 ${classes}회 중 지각 ${lateN}회(${lateMin}분) · 강사 노쇼 ${nsN}회`,
+            fact_en: `${lateN} late arrivals (${lateMin} min) in ${classes} lessons · ${nsN} teacher no-shows`,
+            source: '지각기록(lesson_late_minutes) + 노쇼(class_no_show) · 최근 90일',
+            source_en: 'Late-arrival log + no-show log · last 90 days' });
+        } else {
+          cats.push({ key: 'punct', label: '근태·성실', label_en: 'Punctuality', weight: 0.20, score: null,
+            fact: '최근 90일 수업 기록이 없어 계산 안 함', fact_en: 'No lessons in the last 90 days — not scored',
+            source: '지각기록 + 노쇼', source_en: 'Late-arrival + no-show logs' });
+        }
+
+        // ④ 행정 15% — 수업 대비 학생 평가서 작성률
+        if (classes > 0) {
+          const wrote = evl ? evl.n : 0;
+          cats.push({ key: 'admin', label: '행정·서류', label_en: 'Admin', weight: 0.15,
+            score: Math.max(0, Math.min(100, Math.round((wrote / classes) * 1000) / 10)),
+            fact: `수업 ${classes}회 중 평가서 ${wrote}건 작성`,
+            fact_en: `${wrote} student reports written for ${classes} lessons`,
+            source: '학생 평가서(student_evaluations) · 최근 90일',
+            source_en: 'Student reports · last 90 days' });
+        } else {
+          cats.push({ key: 'admin', label: '행정·서류', label_en: 'Admin', weight: 0.15, score: null,
+            fact: '최근 90일 수업 기록이 없어 계산 안 함', fact_en: 'No lessons in the last 90 days — not scored',
+            source: '학생 평가서(student_evaluations)', source_en: 'Student reports' });
+        }
+
+        // ⑤ 조직 기여 10% — 익명 칭찬 (별점 70% + 건수 30%)
+        if (praise && praise.n > 0) {
+          const star = Math.round((praise.sum / praise.n) * 10) / 10;
+          cats.push({ key: 'contr', label: '조직 기여', label_en: 'Contribution', weight: 0.10,
+            score: Math.round((((praise.sum / praise.n) / 5) * 100 * 0.7 + Math.min(praise.n, 10) / 10 * 100 * 0.3) * 10) / 10,
+            fact: `칭찬 ${praise.n}건 · 평균 ${star}/5점`,
+            fact_en: `${praise.n} praises · ${star}/5 average`,
+            source: '익명 칭찬(teacher_praises) · 최근 180일',
+            source_en: 'Anonymous praise · last 180 days' });
+        } else {
+          cats.push({ key: 'contr', label: '조직 기여', label_en: 'Contribution', weight: 0.10, score: null,
+            fact: '최근 180일 칭찬 기록 없음', fact_en: 'No praise records in the last 180 days',
+            source: '익명 칭찬(teacher_praises)', source_en: 'Anonymous praise' });
+        }
+
+        // ── 총점: 측정된 항목만 가중치 재정규화 ──
+        const measured = cats.filter(c => c.score != null);
+        const wSum = measured.reduce((s, c) => s + c.weight, 0);
+        const total = wSum > 0
+          ? Math.round((measured.reduce((s, c) => s + c.score * c.weight, 0) / wSum) * 10) / 10
+          : null;
+        measured.forEach(c => { c.contribution = Math.round((c.score * c.weight / wSum) * 10) / 10; });
+
+        return {
+          id: p.id, korean_name: p.korean_name, english_name: p.english_name,
+          total, grade: hrGradeLabel(total),
+          confidence: Math.round(wSum * 100),          // 몇 %의 가중치가 실제 데이터로 채워졌나
+          measured_count: measured.length, categories: cats,
+          window: { classes, ratings: rate ? rate.n : 0 },
+        };
+      });
+
+      // 순위 — 활동중 + 측정된 강사끼리만 (데이터 없는 강사를 꼴찌로 몰지 않는다)
+      const activeIds = new Set(profiles
+        .filter(p => !p.status || p.status === '활동중')
+        .map(p => p.id));
+      const ranked = items
+        .filter(i => i.total != null && activeIds.has(i.id))
+        .sort((a: any, b: any) => b.total - a.total);
+      const rankMap = new Map<number, number>();
+      ranked.forEach((it: any, i) => rankMap.set(it.id, i + 1));
+      items.forEach((it: any) => { it.rank = rankMap.get(it.id) || null; it.ranked_total = ranked.length; });
+
+      const rows: any[] = cachedItems || items;
+      if (!cachedItems) {
+        try { await (env as any).SESSION_STATE.put(HR_CACHE_KEY, JSON.stringify(items), { expirationTtl: 300 }); }
+        catch { /* 캐시 저장 실패 무시 */ }
+      }
+
+      // ── 단건 상세: 최근 학생 피드백 + 관리자 수동 평가 첨부 ──
+      if (oneId) {
+        const it: any = rows.find((x: any) => x.id === oneId);
+        if (!it) return json({ ok: false, error: 'not_found' }, 404);
+        if (_hrActor.isTeacher &&
+            !sameTeacherName(_hrActor.name, it.korean_name) && !sameTeacherName(_hrActor.name, it.english_name)) {
+          return json({ ok: false, error: 'forbidden_teacher', message: '본인 인사평가만 조회할 수 있습니다.' }, 403);
+        }
+        const kn = it.korean_name || '', en = it.english_name || kn;
+        it.recent_feedback = await q(
+          `SELECT student_name, score, tags, feedback, rated_date FROM class_ratings
+            WHERE created_at >= ? AND (LOWER(TRIM(teacher_name)) = LOWER(TRIM(?)) OR LOWER(TRIM(teacher_name)) = LOWER(TRIM(?)))
+              AND (feedback IS NOT NULL AND feedback != '')
+            ORDER BY created_at DESC LIMIT 5`, since180ms, kn, en);
+        const manual = await q(
+          `SELECT te.year, te.month, te.score_instruction, te.score_retention, te.score_punctuality,
+                  te.score_admin, te.score_contribution, te.weighted_total, te.grade,
+                  te.strengths, te.improvements, te.evaluator
+             FROM teacher_evaluations te JOIN teachers t ON t.id = te.teacher_id
+            WHERE LOWER(TRIM(t.name)) = LOWER(TRIM(?)) OR LOWER(TRIM(t.name)) = LOWER(TRIM(?))
+            ORDER BY te.year DESC, te.month DESC LIMIT 1`, kn, en);
+        it.manual_evaluation = manual[0] || null;   // 급여·평가 카드에서 사람이 입력한 5점 척도 평가
+        if (it.manual_evaluation) {
+          // 등급 라벨도 영어 한 벌 (강사가 영어로 볼 수 있어야 함)
+          const GRADE_EN: Record<string, string> = {
+            '최우수': 'Outstanding', '매우 우수': 'Excellent', '우수': 'Good',
+            '개선 요망': 'Needs improvement', '미평가': 'Not evaluated',
+          };
+          it.manual_evaluation.grade_en = GRADE_EN[String(it.manual_evaluation.grade || '')] || it.manual_evaluation.grade || null;
+        }
+        return json({ ok: true, item: it, generated_at: now });
+      }
+
+      // 목록용 — 강사는 본인 행만
+      let out = rows;
+      if (_hrActor.isTeacher) {
+        out = rows.filter((i: any) => sameTeacherName(_hrActor.name, i.korean_name) || sameTeacherName(_hrActor.name, i.english_name));
+      }
+      return json({ ok: true, items: out, cached: !!cachedItems, generated_at: now });
     }
 
     // ════════════════════════════════════════════════════════════

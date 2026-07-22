@@ -77,6 +77,45 @@
   body { background: #eaeff6; }
 </style>
 
+<!-- ═══════════════════════════════════════════════════════════════════════
+     🌐 (2026-07-22 사장님 지시) 관리자 언어 부팅 — "영문 이름 계정은 처음부터 영어"
+       · 로그인 시 저장된 계정 이름(mangoi_admin_session.name)에 한글이 없으면 = 해외 스태프
+         (Maimai·Melca·Karl·Anna·Teacher Len …) → 첫 화면부터 영어로 뜬다.
+       · 사용자가 EN/KO 버튼을 직접 누르면 그 선택(mangoi_lang_by='user')이 항상 우선.
+       · 영어일 때는 i18n 스윕이 끝날 때까지 본문을 잠깐 감춰 '한글이 떴다가 영어로 바뀌는' 것을 막는다.
+         (스윕이 늦어져도 최대 1.2초 뒤 무조건 표시 — 화면이 안 뜨는 사고 방지)
+     ═══════════════════════════════════════════════════════════════════════ -->
+<style id="adm-en-boot-gate">html.adm-en-pending body{visibility:hidden !important}</style>
+<script id="adm-lang-boot">
+(function(){
+  'use strict';
+  function hasKo(s){ return /[가-힣]/.test(String(s||'')); }
+  var L = null;
+  try { L = localStorage.getItem('mangoi_lang'); } catch(e){}
+  if (L !== 'en' && L !== 'ko') {
+    // 저장된 선택이 없으면 로그인 계정 이름으로 자동 판정 (영문 이름 → 영어)
+    var nm = '';
+    try { nm = (JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).name || ''; } catch(e){}
+    L = (nm && !hasKo(nm)) ? 'en' : 'ko';
+    try { localStorage.setItem('mangoi_lang', L); } catch(e){}
+  }
+  window.__ADM_BOOT_LANG = (L === 'en') ? 'en' : 'ko';
+  if (window.__ADM_BOOT_LANG !== 'en') return;
+  try { document.documentElement.lang = 'en'; } catch(e){}
+  try { document.documentElement.classList.add('adm-en-pending'); } catch(e){}
+  var done = false;
+  window.__admEnReady = function(){
+    if (done) return; done = true;
+    try { document.documentElement.classList.remove('adm-en-pending'); } catch(e){}
+  };
+  setTimeout(window.__admEnReady, 1200);                      // 안전장치 — 스윕이 늦어도 화면은 뜬다
+  window.addEventListener('load', window.__admEnReady);
+})();
+</script>
+<!-- 🌐 EN 스위퍼 — 머리에서 먼저 받아 두어야(defer 중 첫 실행) 한글이 보이기 전에 영어로 바뀐다.
+     ⚠️ 문서 끝(옛 위치)에 두면 외부 스크립트 70여 개 뒤에 실행돼 해외(필리핀) 회선에서 수십 초 걸렸다. -->
+<script defer src="/js/i18n-sweep.js?v=5"></script>
+
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
 <script src="/js/adm-scope-guard.js?v=1"></script>
 <!-- ⚡ 관리자 메뉴 로딩 가속 — fetch 타임아웃(무한 스피너 방지)+무거운 분석 GET 클라이언트 캐시. scope-guard 다음에 로드 -->
@@ -4815,6 +4854,7 @@
             <button id="tp-refresh-btn" type="button" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
             <span id="tp-count" style="font-size:11px;color:#6b7280;align-self:center">—</span>
             <span style="flex:1"></span>
+            <button id="tp-hr-criteria" type="button" onclick="window.openHrCriteria && window.openHrCriteria()" style="padding:6px 12px;font-size:12px;background:#fff;color:#6b21a8;border:1px solid #e9d5ff;border-radius:6px;cursor:pointer;font-weight:700" data-ko="📋 평가 기준" data-en="📋 Criteria" title="인사평가가 어떤 항목·비중으로 계산되는지 보기">📋 평가 기준</button>
             <button id="tp-hr-toggle" type="button" onclick="window.toggleHrEval()" style="padding:6px 14px;font-size:12px;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(168,85,247,0.3);transition:all .15s" data-ko-show="🏆 인사평가·순위 표시" data-ko-hide="🙈 인사평가·순위 숨김" data-en-show="🏆 Show HR Score · Rank" data-en-hide="🙈 Hide HR Score · Rank">🙈 인사평가·순위 숨김</button>
           </div>
 
@@ -4832,7 +4872,7 @@
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="10분 수수료" data-en="Fee/10min">10분 수수료</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="연락처" data-en="Contact">연락처</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="입사일" data-en="Join Date">입사일</th>
-                  <th class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(168,85,247,0.18),rgba(124,58,237,0.18))" data-ko="인사평가" data-en="HR Score" data-ko-title="수업 25% · 재등록 30% · 근태 20% · 행정 15% · 조직 10% 가중평균" data-en-title="Weighted: Class 25% · Retention 30% · Punct 20% · Admin 15% · Contrib 10%">인사평가</th>
+                  <th class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(168,85,247,0.18),rgba(124,58,237,0.18))" data-ko="인사평가" data-en="HR Score" data-ko-title="수업 25% · 재등록 30% · 근태 20% · 행정 15% · 조직 10% 가중평균 — 점수를 누르면 근거를 볼 수 있습니다" data-en-title="Weighted: Class 25% · Retention 30% · Punct 20% · Admin 15% · Contrib 10% — click a score for the breakdown">인사평가</th>
                   <th class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.18))" data-ko="순위" data-en="Rank">순위</th>
                   <th style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(124,58,237,0.18),rgba(139,92,246,0.18))" data-ko="소개영상" data-en="Intro Video">소개영상</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="액션" data-en="Actions">액션</th>
@@ -19904,7 +19944,7 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-kpi-sub { color: #E0F2FE !important; }
 </style>
 
-<script defer src="/js/i18n-sweep.js?v=4"></script>
+<!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 외부 스크립트 70여 개 뒤에 실행돼 번역이 늦었다. -->
 
 <!-- 🤖 AI 운영비서 = 학생용 홈페이지와 '동일한 아바타 시스템'(아바타 Worker iframe). 말·글·얼굴·음성·마이크 모두 그 안에서 동작 → 음성 확실히 작동. 기존 커스텀 슬라이드 패널은 사용 안 함(miAsstOpen 교체). (2026-06-16) -->
 <div id="mi-ops-av-back" style="display:none;position:fixed;inset:0;z-index:2147483000;background:rgba(2,6,23,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)"></div>
@@ -20330,6 +20370,7 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2" defer></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=1" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
      인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.
@@ -20670,6 +20711,6 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-ai-asst,
   html[data-admin-theme="ivory"] #ph85-ai-asst * { color: #7c2d12 !important; }
 </style>
-<!-- BUILD:20260722161018 -->
+<!-- BUILD:20260722172731 -->
 </body>
 </html>

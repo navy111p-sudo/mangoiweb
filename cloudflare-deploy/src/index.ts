@@ -869,6 +869,8 @@ const worker = {
         path === '/api/admin/teacher-hours' ||
         path === '/api/admin/teacher-classes' ||
         path === '/api/admin/teacher-evaluation' ||
+        // 📊 인사평가 근거 분석 (목록 점수 클릭 → "왜 이 점수인가")
+        path === '/api/admin/teacher-hr-analysis' ||
         path.startsWith('/api/admin/payroll/') ||
         // 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 + 관리자 승인/거절)
         path.startsWith('/api/admin/schedule-requests') ||

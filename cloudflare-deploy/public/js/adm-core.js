@@ -4,7 +4,9 @@
 //   외부 classic script 라 admin.html 의 다른 <script> 와 전역 스코프를 공유한다.
 // ═══════════════════════════════════════════════════════════════
 let chartAtt = null, chartRwd = null;
-var adminLang = 'ko';
+// 🌐 (2026-07-22) 부팅 언어 — admin.html <head> 의 adm-lang-boot 이 저장값·계정 이름으로 미리 판정.
+//   영문 이름 계정(해외 매니저·강사)은 로그인 직후부터 영어 화면으로 뜬다.
+var adminLang = (window.__ADM_BOOT_LANG === 'en') ? 'en' : 'ko';
 // i18n-sweep.js 가 현재 언어를 인식하도록 노출
 try { window.getLang = function(){ return adminLang; }; } catch(e){}
 // currentLang — 학생관리 load 함수들이 사용. adminLang 와 동기화.
@@ -85,10 +87,9 @@ try {
   });
 })();
 
-function toggleAdminLang() {
-  adminLang = (adminLang === 'ko') ? 'en' : 'ko';
-  currentLang = adminLang;
-  try { window.currentLang = currentLang; } catch{}
+// 🌐 (2026-07-22) 정적 마크업(data-ko/data-en)만 즉시 바꾸는 부분 — 부팅 시에도 재사용.
+//   toggleAdminLang 은 여기에 더해 동적 카드 재조회(load 등)까지 수행한다.
+function applyAdminLangDom() {
   // i18n-sweep 트리거 (data-en 없는 한국어 텍스트 자동 영어화)
   try { document.documentElement.lang = adminLang; } catch(e){}
   var newLabel = (adminLang === 'ko') ? 'EN' : 'KO';
@@ -118,6 +119,18 @@ function toggleAdminLang() {
     var txt = el.getAttribute('data-' + adminLang + '-html');
     if (txt !== null) el.innerHTML = txt;
   });
+}
+
+function toggleAdminLang() {
+  adminLang = (adminLang === 'ko') ? 'en' : 'ko';
+  currentLang = adminLang;
+  try { window.currentLang = currentLang; } catch{}
+  // 🌐 사용자가 직접 고른 언어는 저장 — 다음 로그인·새로고침에도 유지되고 자동판정보다 우선
+  try {
+    localStorage.setItem('mangoi_lang', adminLang);
+    localStorage.setItem('mangoi_lang_by', 'user');
+  } catch(e){}
+  applyAdminLangDom();
   // Re-render dynamic content
   load();
   // 🔒 녹화 목록은 자동 로드하지 않음 — 사용자가 검색하거나 "그래도 전체 목록 보기" 누를 때만 표시
@@ -141,6 +154,17 @@ function toggleAdminLang() {
   // 🌐 동적 카드들에 언어 변경 신호 발송 — MBTI 리스트, 통계 등 자체 재렌더
   try { document.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail: { lang: adminLang } })); } catch(e){}
 }
+
+// 🌐 (2026-07-22) 부팅 언어가 영어면 EN 버튼을 누르지 않아도 첫 화면부터 영어로 그린다.
+//   (data-ko/data-en 정적 라벨 — 사전 기반 나머지 문장은 i18n-sweep 이 처리)
+(function bootAdminLang(){
+  if (adminLang !== 'en') return;
+  var run = function(){ try { applyAdminLangDom(); } catch(e){} };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+  // 늦게 삽입되는 카드(외부 adm-*.js)까지 한 번 더 훑는다
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 400); });
+})();
 
 function fmtMs(ms) {
   if (!ms) return adminLang === 'ko' ? '0초' : '0s';
@@ -1980,22 +2004,9 @@ function _tpWorkplaceBadge(group) {
   return '<span style="color:#9ca3af;font-size:11px">—</span>';
 }
 // HR 인사평가 헬퍼 (5 카테고리 가중평균)
-function _hrSeed(t) {
-  const key = String(t.id || t.korean_name || t.english_name || '');
-  let h = 5381;
-  for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-function _hrScore(t) {
-  const s = _hrSeed(t);
-  const cls   = 60 + (s % 39);
-  const ret   = 60 + ((s >> 3) % 39);
-  const punct = 60 + ((s >> 6) % 39);
-  const admin = 60 + ((s >> 9) % 39);
-  const contr = 60 + ((s >> 12) % 39);
-  const total = cls*0.25 + ret*0.30 + punct*0.20 + admin*0.15 + contr*0.10;
-  return { total: Math.round(total*10)/10, cls, ret, punct, admin, contr };
-}
+//   ⚠ 점수 계산은 서버(/api/admin/teacher-hr-analysis)가 **실제 수업기록**으로만 한다.
+//     여기 남은 것은 표시용 등급·메달 헬퍼뿐. 점수를 프런트에서 만들어내지 말 것.
+//     (2026-07-22 이전에는 강사 id 해시로 만든 가짜 점수를 표시했다 — 되살리지 말 것)
 function _hrGrade(score) {
   if (score >= 90) return { label:'A+', color:'#15803d', bg:'#dcfce7' };
   if (score >= 85) return { label:'A',  color:'#16a34a', bg:'#dcfce7' };
@@ -2014,6 +2025,9 @@ function _hrRankBadge(rank) {
   if (rank === 3) return '<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:linear-gradient(135deg,#fdba74,#c2410c);border-radius:50%;font-size:13px;box-shadow:0 2px 4px rgba(194,65,12,0.4)">' + B + '</span>';
   return '<span style="display:inline-block;color:#6b7280;font-weight:700;font-size:13px">' + rank + '</span>';
 }
+// 인사평가 분석 모달(adm-hr-analysis.js)이 셀을 채울 때 같은 배지를 쓰도록 노출
+window._hrGrade = _hrGrade;
+window._hrRankBadge = _hrRankBadge;
 
 // 🏆 강사 인사평가·순위 컬럼 토글 (사용자가 버튼 클릭으로 보기/숨김)
 window.toggleHrEval = function() {
@@ -2176,11 +2190,8 @@ async function loadTeacherProfiles() {
   window._tpRowById = {};
   items.forEach(t => { if (t && t.id != null) window._tpRowById[t.id] = t; });
 
-  // 인사평가 점수·순위 미리 계산
-  const _scored = items.map(t => ({ t, score: _hrScore(t) }));
-  _scored.sort((a, b) => b.score.total - a.score.total);
-  const _rankMap = new Map();
-  _scored.forEach((row, idx) => _rankMap.set(row.t.id, idx + 1));
+  // 인사평가 점수·순위는 서버가 실제 수업기록으로 계산 → 표를 먼저 그리고 비동기로 채운다
+  //   (셀 id: hrv-<강사id> = 점수, hrr-<강사id> = 순위 / 채우는 쪽은 adm-hr-analysis.js)
 
   tbody.innerHTML = items.map(t => {
     const imgInner = t.image_url
@@ -2197,10 +2208,6 @@ async function loadTeacherProfiles() {
     const fee = t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') : '—';
     const join = t.join_date || '—';
     const phone = t.phone || t.kakao_id || '—';
-    const score = _hrScore(t);
-    const grade = _hrGrade(score.total);
-    const rank = _rankMap.get(t.id) || '-';
-    const tip = '수업 ' + score.cls + ' · 재등록 ' + score.ret + ' · 근태 ' + score.punct + ' · 행정 ' + score.admin + ' · 조직 ' + score.contr;
     return '<tr>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + img + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' + _tpMbtiBadge(t.mbti) +
@@ -2212,13 +2219,13 @@ async function loadTeacherProfiles() {
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:right">' + fee + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(phone) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + join + '</td>' +
-      '<td class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;text-align:center" title="' + _aiEsc(tip) + '">' +
-        '<div style="display:inline-flex;align-items:center;gap:5px">' +
-          '<span style="font-size:13px;font-weight:800;color:' + grade.color + ';font-variant-numeric:tabular-nums">' + score.total.toFixed(1) + '</span>' +
-          '<span style="display:inline-block;padding:2px 8px;background:' + grade.bg + ';color:' + grade.color + ';border-radius:10px;font-size:10.5px;font-weight:800">' + grade.label + '</span>' +
-        '</div>' +
+      // 📊 인사평가 — 클릭하면 "왜 이 점수인가" 분석 모달 (점수는 서버가 채움)
+      '<td class="hr-eval-col" id="hrv-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center;cursor:pointer" ' +
+        'onclick="window.openHrAnalysis && window.openHrAnalysis(' + t.id + ')" ' +
+        'title="클릭 — 이 점수가 나온 근거 보기">' +
+        '<span style="color:#9ca3af;font-size:12px">…</span>' +
       '</td>' +
-      '<td class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + _hrRankBadge(rank) + '</td>' +
+      '<td class="hr-eval-col" id="hrr-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center"><span style="color:#d1d5db">·</span></td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap">' +
         (t.intro_video_url
           ? '<button onclick="viewTeacherVideo(\'' + encodeURIComponent(t.intro_video_url) + '\',\'' + _aiEsc(t.korean_name||'') + '\')" title="소개 영상 보기" style="padding:3px 11px;font-size:11px;background:#7c3aed;color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">▶ 영상</button>'
@@ -2232,6 +2239,9 @@ async function loadTeacherProfiles() {
       '</td>' +
     '</tr>';
   }).join('');
+
+  // 📊 인사평가 점수·순위 채우기 — 실제 수업기록 기반. 표 렌더를 막지 않도록 비동기.
+  if (typeof window.hrFillTeacherScores === 'function') window.hrFillTeacherScores();
 }
 
 // 🎬 강사 소개 영상 — 목록 ▶ 버튼 클릭 시 모달로 바로 재생 (YouTube 임베드 / mp4)
