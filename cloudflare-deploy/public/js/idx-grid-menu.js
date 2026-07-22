@@ -1788,8 +1788,85 @@
     var minOptions = '';
     ['00','10','20','30','40','50'].forEach(function(m){ minOptions += '<option value="' + m + '">' + m + '분</option>'; });
     showModal(`
+      <style>
+        /* 🎨 레벨테스트 안내 전용 (lti- 접두사, 이 모달 안에서만) */
+        .lti-hero{position:relative;background:linear-gradient(120deg,rgba(59,130,246,.20),rgba(168,85,247,.18) 55%,rgba(236,72,153,.15));border:1px solid rgba(148,163,184,.28);border-radius:16px;padding:18px 14px 15px;text-align:center;overflow:hidden;margin:4px 0 6px}
+        .lti-hero::before{content:"";position:absolute;top:-34px;right:-34px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.28),transparent 70%)}
+        .lti-hero::after{content:"";position:absolute;bottom:-40px;left:-30px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.22),transparent 70%)}
+        .lti-hero-t{position:relative;font-size:17.5px;font-weight:900;color:#f8fafc;line-height:1.4;letter-spacing:-.3px}
+        .lti-hero-t em{font-style:normal;color:#fbbf24}
+        .lti-pills{position:relative;display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;margin:12px 0 9px}
+        .lti-pills span{font-size:12px;font-weight:800;padding:6px 13px;border-radius:999px}
+        .lti-pills .plus{background:none;padding:0;color:#94a3b8;font-size:13px;font-weight:900}
+        .lti-pills .p1{background:rgba(59,130,246,.25);color:#93c5fd;border:1px solid rgba(59,130,246,.5)}
+        .lti-pills .p2{background:rgba(16,185,129,.22);color:#6ee7b7;border:1px solid rgba(16,185,129,.5)}
+        .lti-pills .p3{background:rgba(168,85,247,.22);color:#d8b4fe;border:1px solid rgba(168,85,247,.5)}
+        .lti-hero-s{position:relative;font-size:12px;color:#cbd5e1}
+        .lti-hero-s b{color:#fde68a}
+        .lti-worry{background:rgba(2,6,23,.35);border:1px solid rgba(148,163,184,.18);border-left:4px solid var(--wc);border-radius:12px;padding:10px 13px;margin-bottom:8px}
+        .lti-wq{font-size:12.5px;font-weight:800;color:#f1f5f9;margin-bottom:4px;display:flex;align-items:center;gap:7px}
+        .lti-wq::before{content:"💬";font-size:13px}
+        .lti-wa{font-size:12px;color:#cbd5e1;line-height:1.6;padding-left:23px}
+        .lti-wa b{color:#fde68a}
+        .lti-4grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        @media(max-width:480px){.lti-4grid{grid-template-columns:1fr}}
+        .lti-4c{display:flex;gap:10px;align-items:flex-start;background:rgba(2,6,23,.3);border:1px solid var(--bc);border-radius:12px;padding:10px 12px}
+        .lti-4c .ic{width:34px;height:34px;flex:none;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:17px}
+        .lti-4c .tt{font-size:12.5px;font-weight:800;color:#f1f5f9}
+        .lti-4c .tt em{font-style:normal;font-size:10px;font-weight:700;color:var(--ac);margin-left:5px}
+        .lti-4c .dd{font-size:11px;color:#94a3b8;line-height:1.45;margin-top:2px}
+        .lti-steps{display:flex;align-items:stretch;gap:0;margin:4px 0 2px}
+        .lti-st{flex:1;text-align:center;position:relative;padding:0 2px}
+        .lti-st .no{width:26px;height:26px;margin:0 auto 6px;border-radius:50%;background:var(--sc);color:#fff;font-size:12px;font-weight:900;line-height:26px;position:relative;z-index:1;box-shadow:0 0 0 4px rgba(2,6,23,.6)}
+        .lti-st::before{content:"";position:absolute;top:13px;left:-50%;width:100%;height:2px;background:linear-gradient(90deg,rgba(148,163,184,.15),rgba(148,163,184,.4))}
+        .lti-st:first-child::before{display:none}
+        .lti-st .tt{font-size:11.5px;font-weight:800;color:#e2e8f0}
+        .lti-st .dd{font-size:10px;color:#7d8ba3;margin-top:2px;line-height:1.35}
+        .lti-lv{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin:8px 0 4px}
+        @media(max-width:480px){.lti-lv{grid-template-columns:repeat(4,1fr)}}
+        .lti-lv div{text-align:center;padding:7px 1px 6px;border-radius:9px;background:var(--lc);position:relative}
+        .lti-lv .em{font-size:14px;line-height:1}
+        .lti-lv .lv{font-size:10px;font-weight:900;color:#fff;margin-top:3px}
+        .lti-lv .nm{font-size:8.5px;color:rgba(255,255,255,.85)}
+        .lti-lvcap{display:flex;justify-content:space-between;font-size:10px;color:#7d8ba3;padding:0 2px}
+        .lti-shield{display:flex;gap:11px;align-items:flex-start;background:linear-gradient(120deg,rgba(14,165,233,.14),rgba(16,185,129,.10));border:1px solid rgba(14,165,233,.35);border-radius:12px;padding:11px 13px;margin-top:9px}
+        .lti-shield .ic{font-size:20px;line-height:1.2}
+        .lti-shield .tt{font-size:12px;font-weight:800;color:#7dd3fc;margin-bottom:2px}
+        .lti-shield .dd{font-size:11.5px;color:#cbd5e1;line-height:1.55}
+        .lti-shield .dd b{color:#f1f5f9}
+        .lti-get{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+        @media(max-width:480px){.lti-get{grid-template-columns:1fr}}
+        .lti-get div{display:flex;gap:8px;align-items:flex-start;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.22);border-radius:10px;padding:9px 11px;font-size:11.5px;color:#e2e8f0;line-height:1.45}
+        .lti-get div::before{content:"✔";color:#fbbf24;font-weight:900;flex:none}
+      </style>
+
       <h2>📊 레벨테스트 안내</h2>
-      <p>망고아이의 8단계 심층 레벨 시스템에 맞춰 본인의 영어 실력을 정확히 진단해 드립니다.</p>
+
+      <!-- 🎯 히어로 — 첫 화면에서 철학이 한눈에 -->
+      <div class="lti-hero">
+        <div class="lti-hero-t">시험 점수 하나로<br>아이의 레벨을 <em>정하지 않습니다</em></div>
+        <div class="lti-pills">
+          <span class="p1">📝 문제 풀기</span><span class="plus">+</span>
+          <span class="p2">🎤 발음</span><span class="plus">+</span>
+          <span class="p3">🧑‍🏫 선생님 1:1</span>
+        </div>
+        <div class="lti-hero-s">세 가지를 모아서, <b>이 아이에게 맞는 첫 수업</b>을 찾아 드립니다</div>
+      </div>
+
+      <!-- 💭 학부모 공감 (30~40대 학부모·원장님 눈높이) -->
+      <h3>💭 이런 고민, 있으셨죠?</h3>
+      <div class="lti-worry" style="--wc:#3b82f6">
+        <div class="lti-wq">"학원마다 레벨이 다르게 나와요"</div>
+        <div class="lti-wa">기준이 제각각이라 그렇습니다. 망고아이는 발음·속도·단어·문법·이해 <b>5개 항목 표</b>로, 어느 선생님이 봐도 같은 기준으로 채점합니다.</div>
+      </div>
+      <div class="lti-worry" style="--wc:#10b981">
+        <div class="lti-wq">"우리 아이는 낯을 가려서 실력이 안 나와요"</div>
+        <div class="lti-wa">그래서 시험만으로 정하지 않습니다. 선생님이 1:1로 편하게 대화하며 직접 확인하고, <b>최종 레벨은 사람이 정합니다.</b></div>
+      </div>
+      <div class="lti-worry" style="--wc:#a855f7">
+        <div class="lti-wq">"테스트 한 번 받고 나면 끝이던데요"</div>
+        <div class="lti-wa">망고아이는 수업이 시작된 뒤에도 집중도와 말한 시간을 기록해, <b>레벨이 맞는지 계속 살핍니다.</b></div>
+      </div>
 
       <!-- 🎯 핵심 정보 카드 (3개) -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:14px 0 18px">
@@ -1799,19 +1876,31 @@
       </div>
 
       <h3>📝 테스트 구성 (4영역)</h3>
-      <ul>
-        <li><b>🗣 스피킹 (10분)</b> — 자기소개·일상 회화·즉흥 답변 (강사 1:1 화상)</li>
-        <li><b>👂 리스닝 (5분)</b> — 짧은 대화·강의 듣고 객관식 답변</li>
-        <li><b>📝 문법·어휘 (10분)</b> — 빈칸 채우기·문장 재배열·어휘 매칭</li>
-        <li><b>🎯 발음·집중도 (5분)</b> — AI 자동 평가 (발음 정확도 + 시선 분석)</li>
-      </ul>
+      <div class="lti-4grid">
+        <div class="lti-4c" style="--bc:rgba(59,130,246,.35);--bg:rgba(59,130,246,.22);--ac:#93c5fd">
+          <div class="ic">🗣</div>
+          <div><div class="tt">스피킹 <em>10분 · 강사 1:1</em></div><div class="dd">자기소개·일상 회화·즉흥 답변</div></div>
+        </div>
+        <div class="lti-4c" style="--bc:rgba(16,185,129,.35);--bg:rgba(16,185,129,.2);--ac:#6ee7b7">
+          <div class="ic">👂</div>
+          <div><div class="tt">리스닝 <em>5분</em></div><div class="dd">짧은 대화·강의 듣고 객관식 답변</div></div>
+        </div>
+        <div class="lti-4c" style="--bc:rgba(251,191,36,.35);--bg:rgba(251,191,36,.18);--ac:#fde68a">
+          <div class="ic">📝</div>
+          <div><div class="tt">문법·어휘 <em>10분</em></div><div class="dd">빈칸 채우기·문장 재배열·어휘 매칭</div></div>
+        </div>
+        <div class="lti-4c" style="--bc:rgba(168,85,247,.35);--bg:rgba(168,85,247,.2);--ac:#d8b4fe">
+          <div class="ic">🎯</div>
+          <div><div class="tt">발음·집중도 <em>5분 · AI 자동</em></div><div class="dd">발음 정확도 + 시선 분석</div></div>
+        </div>
+      </div>
 
       <h3>🚀 신청부터 결과까지 4단계</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px">
-        <div class="info-tile" style="flex:1;min-width:140px"><b>1️⃣ 신청</b><span>아래 [신청하기] 또는 카톡 채널</span></div>
-        <div class="info-tile" style="flex:1;min-width:140px"><b>2️⃣ 일정 확정</b><span>영업일 1일 내 카톡 안내</span></div>
-        <div class="info-tile" style="flex:1;min-width:140px"><b>3️⃣ 입장</b><span>발송된 링크로 화상 입장</span></div>
-        <div class="info-tile" style="flex:1;min-width:140px"><b>4️⃣ 결과 수령</b><span>당일 카톡 + 추천 코스</span></div>
+      <div class="lti-steps">
+        <div class="lti-st" style="--sc:#3b82f6"><div class="no">1</div><div class="tt">신청</div><div class="dd">아래 신청하기<br>또는 카톡 채널</div></div>
+        <div class="lti-st" style="--sc:#10b981"><div class="no">2</div><div class="tt">일정 확정</div><div class="dd">영업일 1일 내<br>카톡 안내</div></div>
+        <div class="lti-st" style="--sc:#f59e0b"><div class="no">3</div><div class="tt">입장</div><div class="dd">발송된 링크로<br>화상 입장</div></div>
+        <div class="lti-st" style="--sc:#ec4899"><div class="no">4</div><div class="tt">결과 수령</div><div class="dd">당일 카톡<br>+ 추천 교재</div></div>
       </div>
 
       <h3>🎬 입장 방법 (당일 진행)</h3>
@@ -1829,14 +1918,35 @@
         <li>조용한 환경 추천 (배경 소음이 평가에 영향)</li>
         <li>학부모 함께 청취 가능 (학생 부담 ↓)</li>
       </ul>
+      <div class="lti-shield">
+        <div class="ic">🛡️</div>
+        <div>
+          <div class="tt">카메라, 안심하셔도 됩니다</div>
+          <div class="dd">카메라는 아이가 <b>화면을 보고 있는지만</b> 확인합니다. 표정·기분은 읽지 않고, <b>영상은 밖으로 나가지 않습니다</b> — 계산은 아이 컴퓨터 안에서 끝납니다.</div>
+        </div>
+      </div>
 
       <h3>💡 결과로 받는 것</h3>
-      <ul>
-        <li>📊 8단계 중 본인 레벨 확정 (Lv.1 입문 ~ Lv.8 최상급)</li>
-        <li>📈 4영역별 점수 (스피킹·리스닝·문법·발음)</li>
-        <li>🎯 약점·강점 분석 + 다음 학습 목표</li>
-        <li>📚 추천 코스 + 추천 강사 매칭</li>
-      </ul>
+      <div class="lti-get">
+        <div>8단계 중 본인 레벨 확정<br>(Lv.1 입문 ~ Lv.8 최상급)</div>
+        <div>4영역별 점수<br>(스피킹·리스닝·문법·발음)</div>
+        <div>약점·강점 분석<br>+ 다음 학습 목표</div>
+        <div>추천 교재 + 다음 수업 안내<br>(추천 강사 매칭 포함)</div>
+      </div>
+
+      <!-- 🌱 8단계 성장 지도 — 교육과정 안내(CURRICULUM)와 같은 색 체계 -->
+      <div class="lti-lv">
+        <div style="--lc:#f59e0b"><div class="em">🌰</div><div class="lv">Lv.1</div><div class="nm">입문</div></div>
+        <div style="--lc:#10b981"><div class="em">🌱</div><div class="lv">Lv.2</div><div class="nm">초급</div></div>
+        <div style="--lc:#10b981"><div class="em">🌿</div><div class="lv">Lv.3</div><div class="nm">초급+</div></div>
+        <div style="--lc:#0ea5e9"><div class="em">🍀</div><div class="lv">Lv.4</div><div class="nm">중급-</div></div>
+        <div style="--lc:#0ea5e9"><div class="em">🌳</div><div class="lv">Lv.5</div><div class="nm">중급</div></div>
+        <div style="--lc:#0ea5e9"><div class="em">🌷</div><div class="lv">Lv.6</div><div class="nm">중급+</div></div>
+        <div style="--lc:#7c3aed"><div class="em">🌸</div><div class="lv">Lv.7</div><div class="nm">고급</div></div>
+        <div style="--lc:#7c3aed"><div class="em">🏆</div><div class="lv">Lv.8</div><div class="nm">최상급</div></div>
+      </div>
+      <div class="lti-lvcap"><span>이제 시작</span><span>원어민 수준</span></div>
+      <p style="color:#94a3b8;font-size:11.5px;margin:8px 0 0">※ 레벨과 추천 교재가 <b style="color:#cbd5e1">모두 준비된 뒤 한 번에</b> 안내드립니다 — 숫자만 던지는 반쪽 결과는 보내지 않아요.</p>
 
       <!-- 🆕 회원가입 + 레벨테스트 신청 폼 (간편) -->
       <h3 style="color:#fbbf24;margin-top:18px">🆕 회원가입 + 레벨테스트 신청</h3>
@@ -1925,7 +2035,7 @@
             </div>
           </div>
 
-          <div class="ltf-note"><span style="font-size:15px;line-height:1">🧑‍🏫</span><span>신청하시면 <b>그 시간에 가능한 선생님</b>이 자동으로 배정돼요.<br>선생님은 학원에서 배정하며, 학생이 직접 고르지 않아요.</span></div>
+          <div class="ltf-note"><span style="font-size:15px;line-height:1">🧑‍🏫</span><span>신청하시면 그 시간에 가능한 선생님 중 <b>수업 평가가 좋은 분부터</b> 자동으로 배정돼요.<br>선생님이 수락하면 그때 담당 확정 문자를 보내드립니다 — 과잉 약속은 하지 않아요.</span></div>
 
           <label class="ltf-agree">
             <input id="lt-agree" type="checkbox" />

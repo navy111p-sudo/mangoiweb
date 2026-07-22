@@ -25,6 +25,7 @@ import { handleAiApi } from './api-ai';  // 🤖 AI 영작·친구챗 (분리됨
 import { handleStudentsApi } from './api-students';  // 👨‍👩‍👧 학부모 도메인 (분리됨)
 import { handlePasskeyApi } from './api-passkey';    // 😊 패스키(WebAuthn) 얼굴/지문 로그인
 import { handleAdminApi } from './api-admin';       // 🛡️ 관리자 도메인 (분리 진행중)    // 🎮 게임/단어장·마이크로러닝 라우트 (분리됨)
+import { handleLessonInsightApi } from './lesson-insight';  // 🎥 수업 종료 후 AI 리포트 (집중도·발화·영어사용)
 import { handleExamApi } from './api-exam';         // 📝 Mini TOEIC 시험 라우트 (2026-07-13 신규)
 import { handleUptimeApi } from './api-uptime';     // 📟 UptimeRobot 장애 웹훅 → 관리자 문자
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';  // 🔐 모듈레벨 소유자 검증(IDOR 방지)
@@ -1162,6 +1163,11 @@ export async function handleMangoApi(
         || path === '/api/vc/roster') {
       const rPoints = await handlePointsApi(request, url, env, ctx);
       if (rPoints) return rPoints;
+    }
+    // 🎥 수업 종료 후 AI 리포트 (집중도·발화·영어사용 통합) — 수업 경로와 완전 분리된 배치/조회 전용
+    if (path === '/api/admin/lesson-insights' || path.startsWith('/api/admin/lesson-insights/')) {
+      const rIns = await handleLessonInsightApi(request, url, env as any);
+      if (rIns) return rIns;
     }
     if (path.startsWith('/api/admin/nps/') || path === '/api/nps/respond'
         || path.startsWith('/api/admin/subscription') || path === '/api/subscription/create'

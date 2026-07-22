@@ -13,6 +13,7 @@ import { handlePayApi, runPaymentAudit } from './api-pay';
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
 import { handleRetentionIngest, getRetention, markRetentionContacted, getRetentionSettings, setRetentionSettings, previewRetentionMessage, sendRetentionMessages, runRetentionAutoSend } from './api-retention';
 import { runAbsentStudentSweep } from './absent-sweep';
+import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종료 후 학생별 AI 리포트 배치
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
 import { handleTraitsApi } from './api-traits';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
@@ -1274,6 +1275,11 @@ const worker = {
         // 🤖 교사 수업 AI 피드백 (수업 종료 직후 잘한점/개선점 한·영 생성·조회)
         path === '/api/ai-feedback/generate' ||
         path === '/api/ai-feedback' ||
+        // 🎥 수업 종료 후 학생별 AI 리포트 (집중도·발화·영어사용 통합)
+        //   /api/admin/* 이므로 위 default-deny 미들웨어가 관리자 인증을 이미 보장한다.
+        path === '/api/admin/lesson-insights' ||
+        path === '/api/admin/lesson-insights/generate' ||
+        path === '/api/admin/lesson-insights/sweep' ||
         // 🧠 판단력 엔진(3단계) — 학생/학부모 성장 리포트 + 맞춤 시나리오 + 훈련 답안 채점
         path === '/api/judgment/growth' ||
         path === '/api/judgment/scenario' ||
@@ -1771,6 +1777,16 @@ const worker = {
         if (ab && (ab.alerted > 0 || !ab.ok)) console.log('[absent-sweep]', JSON.stringify(ab));
       } catch (err) {
         console.error('[absent-sweep] error', err);
+      }
+
+      // 🎥 수업 종료 후 AI 리포트 — 매 15분: 끝난 지 3분~6시간 지난 수업을 훑어
+      //   집중도(시선)·발화량·끊김 + 학생이 친 영어 문장을 합쳐 학생별 리포트 생성.
+      //   수업 통신 경로와 완전 분리. 킬스위치 = KV 'insight:off'.
+      try {
+        const li = await runLessonInsightSweep(env as any);
+        if (li && (li.processed > 0 || !li.ok)) console.log('[lesson-insight]', JSON.stringify(li));
+      } catch (err) {
+        console.error('[lesson-insight] error', err);
       }
 
       // 📨 수강권 만료·휴면 자동 연락 (KST 10:00 = UTC 01:00) — 설정에서 켰을 때만 발송(기본 OFF, 하루 상한·재발송갭 안전장치 내장).
