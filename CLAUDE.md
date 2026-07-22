@@ -104,12 +104,37 @@ git pull
 git checkout -b 작업내용-요약
 ```
 
-### 4-2. 2인 분담 원칙
+### 4-2. 2인 담당 분담 — 같은 파일을 동시에 만지지 않는 것이 원칙
 
-같은 파일을 동시에 고치면 충돌합니다. 작업을 시작하기 전에 **어느 파일을 만질지** 상대에게 알리세요.
-특히 `index.html`, `admin.html` 은 파일이 매우 커서 충돌 시 해결이 어렵습니다.
+`index.html`(1.6MB)과 `admin.html`(1.3MB)이 전체 작업의 대부분을 차지합니다.
+이 둘을 두 사람이 같이 만지면 충돌 해결이 사실상 불가능합니다. 그래서 영역을 나눕니다.
 
-### 4-3. 검증 — 코드를 고쳤으면 반드시
+| 영역 | 담당 | 파일 |
+|---|---|---|
+| **관리자·운영·정산** | A (배포 권한자) | `public/admin.html`, `src/api-admin.ts`, `src/accounting-*.ts`, `src/api-payroll-auto.ts`, `src/org-settlement.ts`, `src/api-retention.ts`, `src/churn-*.ts` |
+| **학생 학습 콘텐츠** | B | `public/student-game-*.html`, `public/student-games.html`, `public/vocab.html`, `public/micro-quiz.html`, `public/review-quiz.html`, `public/warmup.html`, `public/ai-write.html`, `public/speech-coach*.html`, `public/suspect-mystery.html`, `public/battle-3d.html`, `src/api-games.ts`, `src/api-points.ts` |
+| **🚫 공동 금지구역** | A만 | `public/index.html`(홈+화상수업), `src/index.ts`(라우팅+인증게이트), `src/video-call-room.ts`, `src/signaling-room.ts`, `wrangler.toml`, `deploy.ps1`, `public/sw.js` |
+
+- 학습 콘텐츠는 게임마다 **파일이 독립**이라 충돌이 거의 없고, 사고가 나도 반경이 게임 하나입니다.
+- 금지구역은 사고 반경이 서비스 전체입니다. 배포 권한자만 만집니다.
+- **담당 밖 파일을 고쳐야 하면 먼저 상대에게 알리세요.** 원격이라 서로 뭘 하는지 안 보입니다.
+
+### 4-3. ⚠️ 배포 커밋은 HTML 53개를 전부 건드립니다
+
+`deploy.ps1` 은 캐시 무효화를 위해 **모든 HTML에 `<!-- BUILD:시각 -->` 주석을 새로 박습니다.**
+그래서 배포 커밋 하나가 파일 59개를 바꾼 것처럼 보이지만, 대부분은 **1줄짜리 스탬프뿐**입니다.
+
+- **배포 직후 `git pull` 하면 HTML 전부가 바뀐 것으로 나옵니다. 정상입니다.**
+- 리뷰할 때는 스탬프를 빼고 보세요. 진짜 변경만 나옵니다.
+
+```bash
+git diff -I'BUILD:' main..작업브랜치
+```
+
+- 작업 중 배포가 일어나 충돌이 나면, 충돌 지점이 `</body>` 바로 위의 `<!-- BUILD: -->` 줄인지 먼저 확인하세요.
+  스탬프 줄이면 **어느 쪽을 택해도 무방**합니다(다음 배포 때 어차피 새로 박힘).
+
+### 4-4. 검증 — 코드를 고쳤으면 반드시
 
 1. `cd cloudflare-deploy && npx tsc --noEmit` — 컴파일 통과
 2. `node test-harness/run.mjs --fast` — 회귀 하니스 (약 25초)
@@ -118,7 +143,7 @@ git checkout -b 작업내용-요약
 **"고쳤습니다"라고만 말하지 말고, 무엇으로 확인했는지 함께 보고하세요.**
 서버 배포 후에는 배포 스탬프(`BUILD_STAMP`)로 실제 반영 여부를 확인합니다.
 
-### 4-4. 보고 방식
+### 4-5. 보고 방식
 
 - 사실만. 테스트가 실패했으면 실패했다고 출력과 함께 말할 것
 - 건너뛴 단계가 있으면 명시할 것
