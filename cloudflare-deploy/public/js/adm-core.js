@@ -2885,6 +2885,116 @@ async function leveltestAppStatus(id, status) {
   if (d) loadLeveltestApps();
 }
 
+// ── 🎥 수업 리포트(AI) ────────────────────────────────────────────────
+//   수업이 끝나면 cron(*/15분)이 집중도(시선)·발화량·끊김 + 그날 학생이 쓴 영어를 모아 자동 생성.
+//   근거가 얇으면 AI를 부르지 않고 지표만 남긴다(status='signals_only') → 화면에서도 그대로 구분해 보여준다.
+let __liItems = [];
+async function loadLessonInsights() {
+  let items = [];
+  try {
+    const r = await fetch('/api/admin/lesson-insights?limit=60', {cache:'no-store', credentials:'include'});
+    const d = await r.json().catch(()=>({}));
+    if (d && d.ok) items = d.items || [];
+  } catch (e) { /* 무시 */ }
+  __liItems = items;
+  const en = (adminLang === 'en');
+  const badge = document.getElementById('li-count-badge');
+  if (badge) {
+    if (items.length) { badge.textContent = en ? (items.length + ' reports') : ('최근 ' + items.length + '건'); badge.style.display = 'inline-block'; }
+    else badge.style.display = 'none';
+  }
+  const tb = document.getElementById('lesson-insight-table');
+  if (!tb) return;
+  if (!items.length) {
+    tb.innerHTML = '<tr><td colspan="8" class="empty">' +
+      (en ? 'No reports yet — created automatically after a class ends (within ~15 min).'
+          : '아직 리포트가 없어요 — 수업이 끝나면 15분 안에 자동으로 만들어집니다.') + '</td></tr>';
+    return;
+  }
+  const pct = v => (v == null ? '—' : Number(v).toFixed(0) + '%');
+  const bar = (v, color) => {
+    if (v == null) return '<span style="color:#94a3b8">—</span>';
+    const w = Math.max(0, Math.min(100, Number(v)));
+    return '<div style="display:flex;align-items:center;gap:5px"><div style="flex:1;min-width:38px;height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden"><div style="width:' + w + '%;height:100%;background:' + color + '"></div></div><span style="font-size:11px;color:#475569">' + w.toFixed(0) + '</span></div>';
+  };
+  tb.innerHTML = items.map((a, i) => {
+    const thin = a.status === 'signals_only';
+    const summary = thin
+      ? '<span style="font-size:11px;color:#b45309">' + (en ? 'Signals only — not enough English to analyze' : '지표만 — 분석할 영어 발화가 부족') + '</span>'
+      : '<span style="font-size:11.5px;color:#334155">' + _esc(String((en ? (a.summary_en || a.summary_ko) : (a.summary_ko || a.summary_en)) || '').slice(0, 70)) + '…</span>';
+    return '<tr>' +
+      '<td style="white-space:nowrap">' + _esc(a.lesson_date || '—') + '</td>' +
+      '<td><b>' + _esc(a.student_name || a.student_uid || '—') + '</b></td>' +
+      '<td>' + _esc(a.teacher_name || '—') + '</td>' +
+      '<td style="min-width:90px">' + bar(a.participation_score, '#8b5cf6') + '</td>' +
+      '<td style="min-width:80px">' + (a.gaze_score == null ? '<span style="font-size:11px;color:#94a3b8">' + (en ? 'cam off' : '카메라 꺼짐') + '</span>' : bar(a.gaze_score, '#0ea5e9')) + '</td>' +
+      '<td style="text-align:center;font-size:11.5px;color:#475569">' + pct(a.talk_ratio) + '</td>' +
+      '<td>' + summary + '</td>' +
+      '<td style="text-align:right;white-space:nowrap"><button onclick="openLessonInsight(' + i + ')" style="padding:3px 9px;font-size:11px;border:1px solid #8b5cf6;border-radius:6px;background:#fff;color:#6d28d9;cursor:pointer">' + (en ? 'Detail' : '자세히') + '</button></td>' +
+      '</tr>';
+  }).join('');
+}
+function openLessonInsight(idx) {
+  const a = __liItems[idx];
+  const box = document.getElementById('li-detail');
+  if (!a || !box) return;
+  const en = (adminLang === 'en');
+  const list = (arr, color) => {
+    const v = Array.isArray(arr) ? arr : [];
+    if (!v.length) return '<div style="font-size:11.5px;color:#94a3b8">—</div>';
+    return v.map(x => '<div style="font-size:12px;color:#334155;padding-left:12px;position:relative"><span style="position:absolute;left:0;color:' + color + '">•</span>' + _esc(String(x)) + '</div>').join('');
+  };
+  const pick = (ko, enArr) => (en ? (enArr && enArr.length ? enArr : ko) : (ko && ko.length ? ko : enArr));
+  const corr = Array.isArray(a.corrections) ? a.corrections : [];
+  const ev = Array.isArray(a.evidence) ? a.evidence : [];
+  // 근거 출처 라벨 — 한/영 두 벌. 영어 모드에서 한국어가 남으면 필리핀 강사가 못 읽는다.
+  const SRC = { chat:['수업 중 채팅','In-class chat'], chat_thin:['수업 중 채팅(부족)','In-class chat (too little)'],
+                stt:['음성 받아쓰기','Speech transcript'], stt_thin:['음성 받아쓰기(부족)','Speech transcript (too little)'],
+                none:['근거 없음','No material'] };
+  const srcPair = SRC[a.material_source];
+  const srcLabel = srcPair ? (en ? srcPair[1] : srcPair[0]) : (a.material_source || '—');
+  box.style.display = 'block';
+  box.innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
+      '<b style="font-size:15px;color:#6d28d9">' + _esc(a.student_name || '—') + '</b>' +
+      '<span style="font-size:12px;color:#64748b">' + _esc(a.lesson_date || '') + ' · ' + _esc(a.teacher_name || '—') + '</span>' +
+      '<span style="flex:1"></span>' +
+      '<span style="font-size:11px;color:#64748b">' + (en ? 'Evidence: ' : '근거: ') + _esc(srcLabel) + '</span>' +
+      '<button onclick="document.getElementById(\'li-detail\').style.display=\'none\'" style="padding:3px 9px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">✕</button>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px">' +
+      '<div style="background:#f5f3ff;border-radius:8px;padding:8px 10px"><div style="font-size:10.5px;color:#6d28d9">' + (en ? 'Participation' : '참여도') + '</div><b style="font-size:17px;color:#5b21b6">' + (a.participation_score != null ? Number(a.participation_score).toFixed(0) : '—') + '</b></div>' +
+      '<div style="background:#f0f9ff;border-radius:8px;padding:8px 10px"><div style="font-size:10.5px;color:#0369a1">' + (en ? 'Focus (looking at screen)' : '집중 (화면 응시)') + '</div><b style="font-size:17px;color:#075985">' + (a.gaze_score != null ? Number(a.gaze_score).toFixed(0) : (en ? 'cam off' : '카메라 꺼짐')) + '</b></div>' +
+      '<div style="background:#ecfdf5;border-radius:8px;padding:8px 10px"><div style="font-size:10.5px;color:#047857">' + (en ? 'Talk ratio' : '발화 비율') + '</div><b style="font-size:17px;color:#065f46">' + (a.talk_ratio != null ? Number(a.talk_ratio).toFixed(0) + '%' : '—') + '</b></div>' +
+      '<div style="background:#fff7ed;border-radius:8px;padding:8px 10px"><div style="font-size:10.5px;color:#b45309">' + (en ? 'Disconnects' : '끊김') + '</div><b style="font-size:17px;color:#92400e">' + (a.disconnect_count != null ? a.disconnect_count : '—') + '</b></div>' +
+    '</div>' +
+    (a.status === 'signals_only'
+      ? '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e">' +
+          (en ? 'The student produced too little English this lesson, so AI analysis was intentionally skipped. Numbers above are still real.'
+              : '이번 수업에서 학생이 남긴 영어가 너무 적어 AI 분석은 일부러 건너뛰었습니다. 위 숫자는 실제 기록입니다.') + '</div>'
+      : '<div style="font-size:12.5px;color:#334155;line-height:1.6;margin-bottom:10px">' + _esc(String(pick(a.summary_ko, a.summary_en && [a.summary_en]) || a.summary_ko || a.summary_en || '')) + '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">' +
+          '<div><div style="font-size:11.5px;font-weight:800;color:#047857;margin-bottom:4px">' + (en ? 'Strengths' : '잘한 점') + '</div>' + list(pick(a.strengths_ko, a.strengths_en), '#10b981') + '</div>' +
+          '<div><div style="font-size:11.5px;font-weight:800;color:#b45309;margin-bottom:4px">' + (en ? 'To improve' : '아쉬운 점') + '</div>' + list(pick(a.weaknesses_ko, a.weaknesses_en), '#f59e0b') + '</div>' +
+          '<div><div style="font-size:11.5px;font-weight:800;color:#1d4ed8;margin-bottom:4px">' + (en ? 'Next goals' : '다음 목표') + '</div>' + list(pick(a.next_goals_ko, a.next_goals_en), '#3b82f6') + '</div>' +
+        '</div>' +
+        (corr.length ? '<div style="margin-top:12px"><div style="font-size:11.5px;font-weight:800;color:#6d28d9;margin-bottom:4px">' + (en ? 'Corrections' : '고칠 문장') + '</div>' +
+          corr.map(c => '<div style="font-size:12px;margin-bottom:5px;padding:7px 9px;background:#faf5ff;border-radius:7px"><span style="color:#b91c1c;text-decoration:line-through">' + _esc(c.original || '') + '</span> → <b style="color:#065f46">' + _esc(c.corrected || '') + '</b><div style="font-size:11px;color:#64748b;margin-top:2px">' + _esc((en ? (c.why_en || c.why_ko) : (c.why_ko || c.why_en)) || '') + '</div></div>').join('') + '</div>' : '') +
+        (ev.length ? '<div style="margin-top:10px"><div style="font-size:11.5px;font-weight:800;color:#475569;margin-bottom:4px">' + (en ? 'Evidence (what the student actually said)' : '판단 근거 (학생이 실제로 쓴 말)') + '</div>' +
+          ev.map(e => '<div style="font-size:11.5px;color:#475569;padding-left:12px;position:relative"><span style="position:absolute;left:0">·</span>' + _esc((en ? (e.fact_en || e.fact_ko) : (e.fact_ko || e.fact_en)) || '') + '</div>').join('') + '</div>' : '')
+    );
+  box.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+async function lessonInsightSweep() {
+  const en = (adminLang === 'en');
+  const d = await _menuPost('/api/admin/lesson-insights/sweep', { limit: 12 });
+  if (d) {
+    alert(en ? ('Done. candidates=' + (d.candidates ?? 0) + ', created=' + (d.processed ?? 0) + ', AI used=' + (d.ai_used ?? 0))
+             : ('생성 완료 — 대상 ' + (d.candidates ?? 0) + '건, 만든 리포트 ' + (d.processed ?? 0) + '건, AI 분석 ' + (d.ai_used ?? 0) + '건'));
+    loadLessonInsights();
+  }
+}
+
 // ── 수강신청 ─────────────────────────────────────────────────────────
 async function loadEnrollments() {
   const status = document.getElementById('en-status-filter').value;
@@ -6509,7 +6619,7 @@ if (_adminRefreshEl) _adminRefreshEl.onclick = async function() {
 // 초기 로드 (각각 독립적으로)
 Promise.allSettled([
   load(), loadRecordings(), loadRetention(), loadActiveRooms(), loadNotifications(), loadStorageStats(), loadPayrollRates(),
-  loadFranchises(), loadCenters(), loadLevelTests(), loadLeveltestApps(), loadEnrollments(), loadCommunity(), loadTextbooks()
+  loadFranchises(), loadCenters(), loadLevelTests(), loadLeveltestApps(), loadLessonInsights(), loadEnrollments(), loadCommunity(), loadTextbooks()
 ]);
 // 활성 방 목록 15초마다 자동 갱신
 setInterval(loadActiveRooms, 15000);

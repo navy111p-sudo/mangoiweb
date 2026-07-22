@@ -10445,6 +10445,37 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </details>
 
+<!-- 🎥 수업 리포트 (AI) — 수업이 끝나면 집중도·발화·영어사용을 모아 학생별로 자동 생성 (cron */15분) -->
+<details class="table-card menu-card" id="card-lesson-insight">
+  <summary><span data-ko="🎥 수업 리포트 (AI)" data-en="🎥 Lesson Reports (AI)">🎥 수업 리포트 (AI)</span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,rgba(167,139,250,0.10),rgba(59,130,246,0.06));border:1px solid rgba(139,92,246,0.30);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-size:14px;font-weight:800;color:#6d28d9" data-ko="🎥 수업 종료 후 자동 리포트" data-en="🎥 Auto Report After Class">🎥 수업 종료 후 자동 리포트</span>
+        <span id="li-count-badge" style="display:none;font-size:11px;font-weight:800;background:#8b5cf6;color:#fff;padding:1px 8px;border-radius:99px"></span>
+        <span style="flex:1"></span>
+        <button onclick="loadLessonInsights()" style="padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Refresh">↻ 새로고침</button>
+        <button onclick="lessonInsightSweep()" style="padding:4px 10px;font-size:12px;border:1px solid #8b5cf6;border-radius:8px;background:#fff;color:#6d28d9;cursor:pointer;font-weight:700" data-ko="▶ 지금 생성" data-en="▶ Run now">▶ 지금 생성</button>
+      </div>
+      <div style="font-size:11px;color:#6d28d9;margin-bottom:8px" data-ko="15분마다 끝난 수업을 찾아 자동으로 만듭니다. 집중도는 카메라(화면 응시)·발화는 마이크 음량 기준이며, 표정은 보지 않습니다." data-en="Built automatically every 15 minutes for finished classes. Focus = looking at screen (camera), Talk = mic volume. Facial expression is never analyzed.">15분마다 끝난 수업을 찾아 자동으로 만듭니다. 집중도는 카메라(화면 응시)·발화는 마이크 음량 기준이며, 표정은 보지 않습니다.</div>
+      <div style="overflow-x:auto">
+        <table style="min-width:760px"><thead><tr>
+          <th data-ko="수업일" data-en="Date">수업일</th>
+          <th data-ko="학생" data-en="Student">학생</th>
+          <th data-ko="선생님" data-en="Teacher">선생님</th>
+          <th data-ko="참여도" data-en="Participation">참여도</th>
+          <th data-ko="집중" data-en="Focus">집중</th>
+          <th data-ko="발화" data-en="Talk">발화</th>
+          <th data-ko="AI 요약" data-en="AI Summary">AI 요약</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="lesson-insight-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
+      </div>
+    </div>
+    <div id="li-detail" style="display:none;border:1px solid #e5e7eb;border-radius:12px;padding:14px;background:#fff"></div>
+  </div>
+</details>
+
 <!-- 🎯 발음교정 (외부 도구) -->
 <details class="table-card menu-card" id="card-pronunciation">
   <summary><span data-ko="🎯 발음교정" data-en="🎯 Pronunciation">🎯 발음교정</span></summary>
@@ -11559,7 +11590,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=8" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=9" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 
 </div>
@@ -12311,7 +12342,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-review-quiz,card-textbooks,card-microlearn,card-mini-toeic,card-pronunciation,card-video-dict,card-voice-diary,card-level-tests,card-battle-mgmt,card-recording-storage,card-homework">
+  <div class="ph85-group" data-cards="card-review-quiz,card-textbooks,card-microlearn,card-mini-toeic,card-pronunciation,card-video-dict,card-voice-diary,card-level-tests,card-lesson-insight,card-battle-mgmt,card-recording-storage,card-homework">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
       <div class="ph85-title">교육 / 콘텐츠</div>
@@ -12326,6 +12357,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-video-dict" onclick="event.stopPropagation();var c=document.getElementById('card-video-dict');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-video-dict');}">🎬 영상 사전</div>
       <div class="ph85-sub" data-card="card-voice-diary" onclick="event.stopPropagation();var c=document.getElementById('card-voice-diary');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-diary');}">🎙 음성 일기</div>
       <div class="ph85-sub" data-card="card-level-tests" onclick="event.stopPropagation();var c=document.getElementById('card-level-tests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-level-tests');}">📊 레벨테스트</div>
+      <div class="ph85-sub" data-card="card-lesson-insight" data-ko="🎥 수업 리포트 (AI)" data-en="🎥 Lesson Reports (AI)" onclick="event.stopPropagation();var c=document.getElementById('card-lesson-insight');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lesson-insight');}">🎥 수업 리포트 (AI)</div>
       <div class="ph85-sub" data-card="card-battle-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-battle-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-battle-mgmt');}">⚔ 영어 배틀</div>
       <div class="ph85-sub" data-card="card-recording-storage" onclick="event.stopPropagation();var c=document.getElementById('card-recording-storage');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-recording-storage');}">💾 녹화 보관</div>
       <div class="ph85-sub" data-card="card-homework" onclick="event.stopPropagation();var c=document.getElementById('card-homework');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-homework');}">📚 숙제 관리 ⭐신규</div>
@@ -20726,6 +20758,6 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-ai-asst,
   html[data-admin-theme="ivory"] #ph85-ai-asst * { color: #7c2d12 !important; }
 </style>
-<!-- BUILD:20260722210426 -->
+<!-- BUILD:20260722212748 -->
 </body>
 </html>

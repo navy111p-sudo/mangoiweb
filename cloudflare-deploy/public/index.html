@@ -5,6 +5,10 @@
 <!-- 카카오톡/인앱 브라우저 대응: 화상 시작 시 카메라가 막히면 외부 브라우저 안내 -->
 <script src="/js/inapp-escape.js"></script>
 <script src="/js/media-guard.js?v=1"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
+<!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
+     끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
+     화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
+<script defer src="/js/i18n-sweep.js?v=3"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -8223,8 +8227,9 @@
             <div class="pdf-container">
                 <div class="pdf-controls">
                     <!-- 업로드 버튼: label 대신 button+명시적 트리거로 교체 (클릭 확실히 등록 + 콘솔 로그) -->
-                    <button type="button" onclick="triggerUpload('pdf')" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer; border:none;" data-ko="📁 교재 업로드 · Upload (PDF/JPG/PNG)" data-en="📁 Upload · 교재 업로드 (PDF/JPG/PNG)">📁 교재 업로드 · Upload (PDF/JPG/PNG)</button>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" id="pdf-upload" style="display:none;" onchange="pdfUpload(this)" />
+                    <button type="button" onclick="triggerUpload('pdf')" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer; border:none;" data-ko="📁 교재 업로드 · Upload (여러 장 선택 가능)" data-en="📁 Upload · 교재 업로드 (select several at once)" title="여러 장을 한 번에 고를 수 있어요 — Ctrl+A(전체) 또는 Ctrl/Shift+클릭 · Select several pages at once">📁 교재 업로드 · Upload (여러 장 선택 가능)</button>
+                    <!-- multiple (2026-07-22, 강사 피드백 #4) — 수업 중 교재를 한 장씩만 올릴 수 있어 불편했다. -->
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" id="pdf-upload" multiple style="display:none;" onchange="pdfUpload(this)" />
                     <button type="button" onclick="triggerUpload('file')" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📎 파일 업로드 · Attach file (모든 파일)" data-en="📎 Attach file · 파일 업로드 (any type)" title="워드·엑셀·PPT·한글·ZIP 등 모든 파일을 학생에게 공유(다운로드)">📎 파일 업로드 · Attach file (모든 파일)</button>
                     <input type="file" id="file-share-upload" style="display:none;" onchange="fileShareUpload(this)" />
                     <button onclick="openTextbookLibrary()" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📚 라이브러리 (Library)" data-en="📚 Library (라이브러리)" title="관리자가 업로드한 교재 라이브러리에서 선택">
@@ -17006,31 +17011,11 @@ window.fileShareShowInViewer = fileShareShowInViewer;
   setTimeout(setup, 1500); setTimeout(setup, 4000);
 })();
 
-async function pdfUpload(input) {
-    try { console.log('[업로드] pdfUpload 실행 (교재 파일 선택됨)'); } catch(_){}
-    const file = input.files[0];
-    if (!file) return;
-    // file:// 프로토콜로 직접 열면 서버 API 호출이 불가능 → 사용자에게 명확히 안내
-    if (location.protocol === 'file:') {
-        alert('교재 업로드는 서버가 필요합니다.\n\nhttps://webrtc-unified-platform.navy111p.workers.dev/ 로 접속하거나\n로컬에서 "npx wrangler dev" 로 실행해 주세요.\n\n(현재 file:// 로 열려 있어 업로드가 동작하지 않습니다.)');
-        input.value = '';
-        return;
-    }
-
-    // 클라이언트측 확장자/MIME 검증
-    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png'];
+// 교재 파일 1개 업로드 → { pdfId, url, kind, name } (실패 시 throw)
+//   FormData는 일부 프리뷰(iframe postMessage 브릿지) 환경에서 DataCloneError를 일으키므로
+//   raw 바이너리(Blob)로 전송하고 메타데이터는 쿼리스트링으로 넘긴다.
+async function pdfUploadOne(file) {
     const lowerName = (file.name || '').toLowerCase();
-    const isAllowedExt = allowedExts.some(e => lowerName.endsWith(e));
-    if (!isAllowedExt) {
-        // 워드·엑셀·PPT 등은 교재 뷰어가 렌더할 수 없음 → '📎 파일 업로드' 버튼(파일 공유)로 자동 넘겨줌
-        var okShare = confirm('이 파일은 교재 화면에 바로 못 열어요 (' + (file.name||'') + ').\n\n대신 학생이 내려받을 수 있게 "파일 공유"로 올릴까요?\n\n(워드·엑셀·PPT·한글·ZIP 등은 이렇게 공유합니다.)');
-        input.value = '';
-        if (okShare) { try { fileShareUpload({ files:[file], value:'' }); } catch(_){} }
-        return;
-    }
-
-    // FormData는 일부 프리뷰(iframe postMessage 브릿지) 환경에서 DataCloneError를 일으키므로
-    // raw 바이너리(Blob)로 전송하고 메타데이터는 쿼리스트링으로 넘긴다.
     const qs = new URLSearchParams({
         roomId: vcRoomId || '',
         filename: file.name || 'upload'
@@ -17045,24 +17030,157 @@ async function pdfUpload(input) {
         else sendType = 'application/octet-stream';
     }
 
-    try {
-        const res = await fetch('/api/video-call/upload-pdf?' + qs, {
-            method: 'POST',
-            headers: { 'Content-Type': sendType },
-            body: file
-        });
-        const result = await res.json();
-        if (result.success && result.url) {
-            pdfCurrentId = result.url.replace('/api/video-call/pdf/', '');
-            const kind = result.kind || (pdfIsImageFile(file) ? 'image' : 'pdf');
-            await pdfLoad(result.url, kind);
-            if (vcConn) vcConn.send({ type: 'pdf-share', data: { pdfId: pdfCurrentId, url: result.url, currentPage: 1, kind } });
-        } else {
-            console.error('업로드 응답 오류:', result);
-            alert('업로드에 실패했습니다: ' + (result.error || '알 수 없는 오류'));
-        }
-    } catch(e) { console.error('업로드 실패:', e); alert('업로드 실패: ' + e.message); }
+    const res = await fetch('/api/video-call/upload-pdf?' + qs, {
+        method: 'POST',
+        headers: { 'Content-Type': sendType },
+        body: file
+    });
+    const result = await res.json();
+    if (!result.success || !result.url) {
+        throw new Error(result.error || '알 수 없는 오류');
+    }
+    return {
+        pdfId: result.url.replace('/api/video-call/pdf/', ''),
+        url: result.url,
+        kind: result.kind || (pdfIsImageFile(file) ? 'image' : 'pdf'),
+        name: file.name || 'upload'
+    };
 }
+
+// 📁 교재 업로드 — (2026-07-22, 강사 피드백 #4) 여러 장 동시 선택 지원.
+//   올린 파일들을 _libSequence(◀▶ 화살표 시퀀스)로 묶어 두면 교사가 화살표만으로 넘기고,
+//   넘길 때마다 기존 _pdfGoSeqFile 이 학생에게 자동 공유한다 — 공유 경로를 새로 만들 필요가 없다.
+async function pdfUpload(input) {
+    const files = Array.prototype.slice.call(input.files || []);
+    try { console.log('[업로드] pdfUpload 실행 — 선택된 파일', files.length + '개'); } catch(_){}
+    if (!files.length) return;
+
+    // file:// 프로토콜로 직접 열면 서버 API 호출이 불가능 → 사용자에게 명확히 안내
+    if (location.protocol === 'file:') {
+        alert('교재 업로드는 서버가 필요합니다.\n\nhttps://webrtc-unified-platform.navy111p.workers.dev/ 로 접속하거나\n로컬에서 "npx wrangler dev" 로 실행해 주세요.\n\n(현재 file:// 로 열려 있어 업로드가 동작하지 않습니다.)');
+        input.value = '';
+        return;
+    }
+
+    // 클라이언트측 확장자 검증 — 교재 뷰어가 렌더할 수 있는 것만 교재로 올린다
+    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const isAllowed = f => allowedExts.some(e => String(f.name || '').toLowerCase().endsWith(e));
+    const okFiles = files.filter(isAllowed);
+    const badFiles = files.filter(f => !isAllowed(f));
+    input.value = '';
+
+    // 워드·엑셀·PPT 등은 교재 화면에 못 여므로 '파일 공유'(다운로드)로 넘겨줌 — 기존 동작 유지
+    if (badFiles.length) {
+        const names = badFiles.map(f => f.name || '').join(', ');
+        const okShare = confirm('교재 화면에 바로 못 여는 파일이 있어요 (' + names + ').\n\n대신 학생이 내려받을 수 있게 "파일 공유"로 올릴까요?\n\n(워드·엑셀·PPT·한글·ZIP 등은 이렇게 공유합니다.)');
+        if (okShare) badFiles.forEach(f => { try { fileShareUpload({ files: [f], value: '' }); } catch(_){} });
+        if (!okFiles.length) return;
+    }
+
+    // 페이지 순서 = 파일명 자연 정렬 ("1-2" 가 "1-10" 보다 앞. 사전순이면 1-10 이 먼저 와 버린다)
+    okFiles.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' }));
+
+    const uploaded = [];
+    const failed = [];
+    for (let i = 0; i < okFiles.length; i++) {
+        const f = okFiles[i];
+        if (okFiles.length > 1) _pdfToast('📤 업로드 중 ' + (i + 1) + '/' + okFiles.length + ' — ' + (f.name || ''));
+        try {
+            uploaded.push(await pdfUploadOne(f));
+        } catch (e) {
+            console.error('업로드 실패:', f.name, e);
+            failed.push((f.name || '') + ' (' + (e && e.message || e) + ')');
+        }
+    }
+
+    if (!uploaded.length) {
+        alert('업로드에 실패했습니다:\n' + failed.join('\n'));
+        return;
+    }
+
+    // ◀▶ 화살표가 이 묶음을 넘기도록 시퀀스 교체.
+    //   (교체하지 않으면 직전에 열어 둔 라이브러리 시퀀스가 남아 화살표가 엉뚱한 교재로 튄다)
+    window._libSequence = uploaded.map(u => ({ id: 'up_' + u.pdfId, url: u.url, kind: u.kind, name: u.name }));
+    window._libSeqIdx = 0;
+
+    const first = uploaded[0];
+    pdfCurrentId = first.pdfId;
+    await pdfLoad(first.url, first.kind);
+    try { window._vcShownPdfName = first.name; } catch(_){}
+    // 학생에게 공유 — vcShareTextbook 은 표시상태(_vcShownPdfKey)까지 맞춰줘서 폴링 중복 로드가 없다
+    if (typeof window.vcShareTextbook === 'function') {
+        window.vcShareTextbook(first.pdfId, first.url, first.kind, first.name, true);
+    } else if (vcConn) {
+        vcConn.send({ type: 'pdf-share', data: { pdfId: first.pdfId, url: first.url, currentPage: 1, kind: first.kind } });
+    }
+
+    if (uploaded.length > 1) _pdfToast('✅ ' + uploaded.length + '장 올렸어요 — ◀ ▶ 로 넘기세요 (' + uploaded.length + ' pages · use ◀ ▶)');
+    if (failed.length) _pdfToast('⚠️ ' + failed.length + '장은 실패했어요');
+}
+
+// 📋 클립보드 이미지 붙여넣기 (2026-07-22, 강사 피드백 #6)
+//   프리토킹 중 구글에서 "이미지 복사"한 그림을 Ctrl+V 로 바로 교재 화면에 띄우고 학생에게 공유.
+//   · 클립보드에 '이미지 파일'이 있을 때만 가로챈다 → 텍스트 붙여넣기는 전혀 방해하지 않는다.
+//   · 채팅 입력창 등에 커서가 있으면 양보한다.
+(function vcEnableImagePaste(){
+    function isTypingTarget(el){
+        if (!el || !el.tagName) return false;
+        var t = el.tagName.toUpperCase();
+        return t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || el.isContentEditable === true;
+    }
+    document.addEventListener('paste', function(ev){
+        var dt = ev.clipboardData;
+        if (!dt) return;
+        // 수업에 들어와 있을 때만 (업로드 API 가 roomId 를 요구한다)
+        if (!vcRoomId) return;
+        if (isTypingTarget(ev.target) || isTypingTarget(document.activeElement)) return;
+
+        var items = dt.items ? Array.prototype.slice.call(dt.items) : [];
+        var imgItem = null;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file' && /^image\//i.test(items[i].type || '')) { imgItem = items[i]; break; }
+        }
+        if (!imgItem) {
+            // 이미지가 아니라 URL/텍스트만 복사한 경우 — 구글에선 '이미지 복사'를 눌러야 그림이 담긴다
+            var txt = '';
+            try { txt = dt.getData('text/plain') || ''; } catch(_){}
+            if (/^https?:\/\/\S+\.(png|jpe?g|gif|webp)(\?|$)/i.test(txt.trim())) {
+                _pdfToast('📋 이미지 주소만 복사됐어요 — 그림에 오른쪽 클릭 → "이미지 복사"로 다시 해주세요 · Use "Copy image", not "Copy image address"');
+            }
+            return;   // 텍스트 붙여넣기는 절대 가로채지 않는다
+        }
+
+        var blob = imgItem.getAsFile();
+        if (!blob) return;
+        ev.preventDefault();
+
+        var ext = /png/i.test(blob.type) ? '.png' : '.jpg';
+        var file = new File([blob], 'paste-' + Date.now() + ext, { type: blob.type || 'image/png' });
+        _pdfToast('📋 붙여넣은 그림 올리는 중… · Pasting image…');
+
+        pdfUploadOne(file).then(function(u){
+            // 지금 보던 교재 바로 뒤에 끼워 넣는다 → ◀ 로 원래 페이지에 그대로 돌아갈 수 있다
+            var seq = (window._libSequence && window._libSequence.length) ? window._libSequence : [];
+            var at = seq.length ? (window._libSeqIdx || 0) + 1 : 0;
+            var entry = { id: 'paste_' + u.pdfId, url: u.url, kind: u.kind, name: u.name };
+            seq.splice(at, 0, entry);
+            window._libSequence = seq;
+            window._libSeqIdx = at;
+
+            pdfCurrentId = u.pdfId;
+            try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
+            return Promise.resolve(pdfLoad(u.url, u.kind)).then(function(){
+                try { window._vcShownPdfName = u.name; } catch(_){}
+                if (typeof window.vcShareTextbook === 'function') window.vcShareTextbook(u.pdfId, u.url, u.kind, u.name, true);
+                else if (vcConn) vcConn.send({ type: 'pdf-share', data: { pdfId: u.pdfId, url: u.url, currentPage: 1, kind: u.kind } });
+                _pdfToast('✅ 붙여넣은 그림을 학생에게 띄웠어요 (◀ 로 교재 복귀) · Image shared — press ◀ to go back');
+            });
+        }).catch(function(e){
+            console.error('[paste] 이미지 업로드 실패', e);
+            _pdfToast('❌ 붙여넣기 실패: ' + (e && e.message || e));
+        });
+    }, true);
+})();
 
 async function pdfLoad(url, kind) {
     // fix (2026-06-01) — 현재 교재 URL 기억 (다운로드 버튼용)
@@ -26209,7 +26327,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=2"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260722210426 -->
+<!-- BUILD:20260722212748 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -29192,7 +29310,8 @@ window.vcAutoLoadStudentTextbook = async function(){
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
 <script src="/js/idx-x8.js?v=1"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
-<script defer src="/js/i18n-sweep.js?v=2"></script><!-- defer(2026-07-21): 내부에서 이미 DOMContentLoaded 를 기다린다(i18n-sweep.js:1909) → 114KB 를 블로킹 경로에 둘 이유가 없음 -->
+<!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 앞의 외부 스크립트 수십 개 뒤에 내려받혀
+     강사(영문 계정)가 들어와도 화면이 한동안 한국어로 남았다. admin.html 과 동일 조치. -->
 <!-- 📊 기능 사용률 측정 + 🧭 첫 로그인 온보딩 (2026-07-21 UX 결정 — 뷰어: /ux-stats.html) -->
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/idx-onboard.js?v=1" defer></script>
