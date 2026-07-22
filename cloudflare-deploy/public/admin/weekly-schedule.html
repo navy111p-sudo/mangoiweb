@@ -29,9 +29,17 @@
 })();
 </script>
 <title>📅 주간 전체 스케줄 — 망고아이</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<!-- ═══════════════════════════════════════════════════════════════════
+     ph161 (2026-07-23) — 구글 웹폰트 제거 (필리핀 저속 회선 대응)
+     여기 있던 preconnect 2줄 + css2 stylesheet 를 뺐다.
+     · <head> 의 stylesheet 라 첫 페인트를 차단했고, 도메인 2개(googleapis/gstatic)
+       DNS+TLS 왕복을 첫 글자 뜨기 전에 지불했다.
+     · 이 페이지는 /css/admin-readability.css 도 함께 링크한다 — 폰트를 두 벌 받고 있었다.
+     ⚠️ font-family 선언은 일부러 그대로 뒀다. @font-face 가 없으면 폰트 이름은
+        "로컬에 깔려 있으면 쓰고 없으면 다음" 이라는 뜻이라 비용이 0 이다.
+        Noto Sans KR → 맑은 고딕(Win10 기본) / Inter → Segoe UI 로 떨어진다.
+     ⚠️ 되살리려면 자체 호스팅 + 서브셋으로.
+     ═══════════════════════════════════════════════════════════════════ -->
 <style>
 :root{--bg:#0a0e1a;--bg2:#131826;--bg3:#1a2032;--bd:#232b40;--bd2:#1e2538;--tx:#e2e8f0;--tx2:#94a3b8;--tx3:#64748b;--ac:#fbbf24;--home:#10b981;--office:#3b82f6;--native:#8b5cf6;--manager:#f97316;--c-blk:#ef4444;--c-1:#8b5cf6;--c-g:#ec4899;--c-t:#3b82f6;--shL:0 12px 32px rgba(0,0,0,.5)}
 

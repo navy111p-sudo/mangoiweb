@@ -4,7 +4,7 @@
 
 <!-- 카카오톡/인앱 브라우저 대응: 화상 시작 시 카메라가 막히면 외부 브라우저 안내 -->
 <script src="/js/inapp-escape.js"></script>
-<script src="/js/media-guard.js?v=1"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
+<script src="/js/media-guard.js?v=2"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
@@ -142,9 +142,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/img/icon-512.png">
     <link rel="shortcut icon" type="image/png" href="/img/icon-192.png">
     <link rel="icon" href="data:," /><!-- favicon.ico 404 방지 -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 
     <!-- ============================================================
          [CSS] 전체 스타일 정의
@@ -2641,7 +2639,7 @@
             color: #fff;
             flex-direction: column; align-items: center; justify-content: center;
             text-align: center; padding: 30px 20px; gap: 18px;
-            font-family: 'Noto Sans KR', sans-serif;
+            font-family: 'Noto Sans KR','Malgun Gothic','맑은 고딕',sans-serif;
         }
         #vc-orientation-overlay .rot-icon {
             font-size: 80px; line-height: 1;
@@ -3606,9 +3604,7 @@
      홈페이지가 자꾸 나온다"로 보였다. head 에서 정의하면 첫 화면부터 최종 모습이다.
      [폰트가 늦게 와도 안 흔들리게] 폴백을 굵은 산세리프(Arial Black)로 둬서 Paytone One
      도착 전에도 이미 '대문자 + 금색 외곽선' 최종 형태로 보인다. -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Paytone+One&display=swap">
+<!-- ph161 (2026-07-23): 구글 웹폰트 제거. 여기서 받던 한글(Noto Sans KR/Serif)은 맑은 고딕·바탕으로 폴백 -->
 <!-- 🖼️ 홈 배경 먼저 받기 — 배경이 늦게 오면 그때까지 '배경 없는 옛 화면'이 보인다.
      두 장 다 걸어두는 이유: 시간대에 따라 밝은/어두운 테마가 자동으로 바뀌기 때문. -->
 <link rel="preload" as="image" href="/img/home-bg-bright.webp">
@@ -3617,7 +3613,7 @@
   .home-title { background: transparent !important; gap: 0 !important; font-size: clamp(40px, 7.6vw, 80px) !important; }
   /* 🌟 속은 투명(우주 배경이 비침) + 빛나는 금색 외곽선, 가로로 살짝 넓게 */
   .ht-glass {
-    font-family: 'Paytone One', 'Arial Black', 'Noto Sans KR', system-ui, sans-serif !important;
+    font-family: 'Paytone One', 'Arial Black', 'Noto Sans KR', system-ui,'Malgun Gothic','맑은 고딕',sans-serif !important;
     font-weight: 400 !important;
     font-style: normal !important;
     text-transform: uppercase !important;      /* 영문 대문자 — 폰트 도착 전에도 최종 형태 */
@@ -3793,7 +3789,7 @@
     var en = (document.documentElement.lang === 'en');
     var ov = document.createElement('div');
     ov.id = 'vc-rq-end-modal';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,sans-serif';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,'Malgun Gothic','맑은 고딕',sans-serif';
     ov.innerHTML =
       '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:30px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.7);color:#e6ecff">'
       + '<div style="font-size:46px;margin-bottom:12px">🧠</div>'
@@ -3949,7 +3945,7 @@
 
     var ov = document.createElement('div');
     ov.id = 'vc-rate-modal';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483602;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:16px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,sans-serif;overflow-y:auto';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483602;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:16px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;overflow-y:auto';
     var starsHtml = '';
     for (var i = 1; i <= 7; i++) {
       starsHtml += '<div class="vc-rate-star" data-v="' + i + '" style="text-align:center;cursor:pointer;padding:2px 0">'
@@ -4615,7 +4611,7 @@
   </button>
 </aside>
 <style>
-  #mg-drawer{position:fixed;top:0;left:0;height:100%;width:325px;max-width:90vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}
+  #mg-drawer{position:fixed;top:0;left:0;height:100%;width:325px;max-width:90vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;border-right:1px solid rgba(251,191,36,.25)}
   #mg-drawer.open{transform:translateX(0)}
   #mg-drawer-overlay{position:fixed;inset:0;background:rgba(2,6,18,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:opacity .3s;z-index:99999}
   #mg-drawer-overlay.open{opacity:1;visibility:visible}
@@ -4731,7 +4727,7 @@
     box-shadow:0 6px 22px rgba(0,0,0,.5),0 0 14px rgba(245,158,11,.3);
     pointer-events:none;opacity:0;transform:translateX(-6px);
     transition:opacity .16s ease,transform .16s ease;white-space:normal;
-    font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif}
+    font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif}
   #mg-menu-tip.show{opacity:1;transform:translateX(0)}
   /* 왼쪽을 가리키는 말풍선 꼬리 */
   #mg-menu-tip::before{content:'';position:absolute;left:-7px;top:var(--tail-y,50%);transform:translateY(-50%) rotate(45deg);
@@ -5038,7 +5034,7 @@
       /* 로그인 모달 */
       .login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);display:none;align-items:flex-start;justify-content:center;z-index:11000;padding:60px 16px;overflow-y:auto;animation:lcFade .2s}
       .login-overlay.show{display:flex}
-      .login-modal{background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:2px solid #fbbf24;border-radius:18px;max-width:480px;width:100%;box-shadow:0 24px 60px rgba(245,158,11,.3);animation:lcSlide .25s;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,sans-serif}
+      .login-modal{background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:2px solid #fbbf24;border-radius:18px;max-width:480px;width:100%;box-shadow:0 24px 60px rgba(245,158,11,.3);animation:lcSlide .25s;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,'Malgun Gothic','맑은 고딕',sans-serif}
       .login-modal h2{margin:0;font-size:22px;font-weight:800;color:#fff;padding:22px 24px 6px;display:flex;align-items:center;gap:10px}
       .login-modal .lm-sub{padding:0 24px 18px;color:#94a3b8;font-size:13px;line-height:1.55}
       .login-modal .lm-body{padding:0 24px 18px}
@@ -5203,7 +5199,7 @@
                     0 0 60px rgba(251,191,36,0.10);
         animation: psSlide .25s cubic-bezier(.34,1.56,.64,1);
         color: #e2e8f0;
-        font-family: 'Noto Sans KR', -apple-system, sans-serif;
+        font-family: 'Noto Sans KR', -apple-system,'Malgun Gothic','맑은 고딕',sans-serif;
         overflow: hidden;
       }
       @keyframes psSlide { from { opacity: 0; transform: translateY(20px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -5902,9 +5898,7 @@
         .mascot-bubble{ width:108px; height:108px; }
       }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600;1,700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
+<!-- ph161 (2026-07-23): 구글 웹폰트 제거. 여기서 받던 한글(Noto Sans KR/Serif)은 맑은 고딕·바탕으로 폴백 -->
     <!-- 🏠 홈페이지 바로 가기 (구 AI 검색창) -->
     <div class="ai-search-wrap" style="position:relative;z-index:1;width:100%;max-width:680px;margin:0 auto">
       <div class="ai-search-box">
@@ -6360,10 +6354,10 @@
         function ensureStyle(){
           if(document.getElementById('brf-style')) return;
           var st=document.createElement('style'); st.id='brf-style';
-          st.textContent='#bug-report-fab{position:fixed;left:14px;bottom:18px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fca5a5;border:1px solid rgba(239,68,68,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
+          st.textContent='#bug-report-fab{position:fixed;left:14px;bottom:18px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fca5a5;border:1px solid rgba(239,68,68,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
             +'#bug-report-fab:hover{background:#ef4444;color:#fff;border-color:#ef4444}'
             +'@media(max-width:480px){#bug-report-fab .brf-label{display:none}#bug-report-fab{padding:11px;left:12px;bottom:14px}}'
-            +'.brf-ov{position:fixed;inset:0;z-index:10600;display:none;align-items:center;justify-content:center;background:rgba(8,12,24,.72);backdrop-filter:blur(4px);font-family:"Noto Sans KR",sans-serif;padding:16px}'
+            +'.brf-ov{position:fixed;inset:0;z-index:10600;display:none;align-items:center;justify-content:center;background:rgba(8,12,24,.72);backdrop-filter:blur(4px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;padding:16px}'
             +'.brf-ov.show{display:flex}'
             +'.brf-card{background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(148,163,184,.25);border-radius:20px;max-width:440px;width:100%;padding:22px;color:#e2e8f0;box-shadow:0 30px 80px -20px rgba(0,0,0,.7)}'
             +'.brf-card h3{margin:0 0 4px;font-size:18px;font-weight:800;color:#fff}'
@@ -6462,10 +6456,10 @@
         function ensureStyle(){
           if(document.getElementById('vcq-style')) return;
           var st=document.createElement('style'); st.id='vcq-style';
-          st.textContent='#vcq-fab{position:fixed;left:14px;bottom:64px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fcd34d;border:1px solid rgba(251,191,36,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
+          st.textContent='#vcq-fab{position:fixed;left:14px;bottom:64px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fcd34d;border:1px solid rgba(251,191,36,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
             +'#vcq-fab:hover{background:#f59e0b;color:#1e293b;border-color:#f59e0b}'
             +'@media(max-width:480px){#vcq-fab .vcq-label{display:none}#vcq-fab{padding:11px;left:12px;bottom:60px}}'
-            +'#vcq-panel{position:fixed;left:14px;bottom:112px;z-index:10500;display:none;width:330px;max-width:calc(100vw - 28px);background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,.35);border-radius:18px;padding:16px;color:#e2e8f0;box-shadow:0 24px 60px -16px rgba(0,0,0,.7);font-family:"Noto Sans KR",sans-serif}'
+            +'#vcq-panel{position:fixed;left:14px;bottom:112px;z-index:10500;display:none;width:330px;max-width:calc(100vw - 28px);background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,.35);border-radius:18px;padding:16px;color:#e2e8f0;box-shadow:0 24px 60px -16px rgba(0,0,0,.7);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif}'
             +'#vcq-panel.show{display:block}'
             +'#vcq-panel h4{margin:0 0 3px;font-size:15px;font-weight:800;color:#fcd34d}'
             +'#vcq-panel .vcq-sub{margin:0 0 10px;font-size:11.5px;color:#94a3b8;line-height:1.45}'
@@ -6584,7 +6578,7 @@
       .lc-overlay.show{display:block}
       @keyframes lcFade{from{opacity:0}to{opacity:1}}
       @keyframes lcSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-      .lc-modal{background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:none;border-radius:0;max-width:none;width:100vw;height:100vh;max-height:100vh;box-shadow:none;animation:lcSlide .25s ease-out;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;margin:0;display:flex;flex-direction:column;overflow:hidden;position:absolute;left:0;top:0;right:0;bottom:0}
+      .lc-modal{background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:none;border-radius:0;max-width:none;width:100vw;height:100vh;max-height:100vh;box-shadow:none;animation:lcSlide .25s ease-out;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;margin:0;display:flex;flex-direction:column;overflow:hidden;position:absolute;left:0;top:0;right:0;bottom:0}
       .lc-head{padding:18px 24px;border-bottom:1px solid #232b40;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:linear-gradient(180deg,#1a2032 0%,rgba(26,32,50,.95) 100%);backdrop-filter:blur(8px);z-index:50}
       .lc-head h2{margin:0;font-size:20px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px}
       .lc-close{background:transparent;border:none;color:#94a3b8;font-size:24px;cursor:pointer;padding:4px 10px;border-radius:8px;line-height:1}
@@ -7245,7 +7239,7 @@
   </div>
 
 <style>
-  .mv-lv-chip { padding:6px 14px; border-radius:99px; border:1px solid rgba(148,163,184,0.3); background:rgba(30,41,59,0.6); color:#cbd5e1; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; font-family:'Noto Sans KR',-apple-system,sans-serif; }
+  .mv-lv-chip { padding:6px 14px; border-radius:99px; border:1px solid rgba(148,163,184,0.3); background:rgba(30,41,59,0.6); color:#cbd5e1; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; font-family:'Noto Sans KR',-apple-system,'Malgun Gothic','맑은 고딕',sans-serif; }
   .mv-lv-chip:hover { border-color:#fbbf24; color:#fde68a; }
   .mv-lv-chip.active { background:linear-gradient(135deg,#fbbf24,#f59e0b); border-color:#fbbf24; color:#1a1a1a; box-shadow:0 4px 12px rgba(245,158,11,0.4); }
   .mv-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:14px; }
@@ -7696,7 +7690,7 @@
         transition: all 0.18s ease;
         min-height: 44px;
         display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-        font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;
         white-space: nowrap;
         word-break: keep-all;
         backdrop-filter: blur(8px);
@@ -7751,7 +7745,7 @@
           inset 0 1px 0 rgba(255,255,255,0.45),
           inset 0 -3px 0 rgba(180,90,10,0.18);
         transition: transform .18s, box-shadow .18s;
-        font-family: 'Noto Sans KR', -apple-system, sans-serif;
+        font-family: 'Noto Sans KR', -apple-system,'Malgun Gothic','맑은 고딕',sans-serif;
         text-decoration: none;
         animation: lessonPulse 2.6s infinite;
         min-height: 60px;
@@ -7831,10 +7825,10 @@
       /* === Mango Bloom: Big yellow CTA pulse refinement === */
       #btn-enter-class {
         letter-spacing: -0.3px;
-        font-family: 'Noto Sans KR', -apple-system, sans-serif;
+        font-family: 'Noto Sans KR', -apple-system,'Malgun Gothic','맑은 고딕',sans-serif;
       }
       /* === Mango Bloom: Search bar polish === */
-      .lobby .lobby-box, .ai-home-bar, #ai-home-bar { font-family: 'Noto Sans KR', -apple-system, sans-serif; }
+      .lobby .lobby-box, .ai-home-bar, #ai-home-bar { font-family: 'Noto Sans KR', -apple-system,'Malgun Gothic','맑은 고딕',sans-serif; }
     </style>
 
 </div>
@@ -10291,7 +10285,7 @@ function vcShowClassGate(session, name, role) {
     if (!ov) {
         ov = document.createElement('div');
         ov.id = 'vc-class-gate';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",sans-serif';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif';
         document.body.appendChild(ov);
     }
     function fmt(ms) { ms = Math.max(0, ms); var s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60); s = s % 60; m = m % 60; return (h > 0 ? h + '시간 ' : '') + m + '분 ' + String(s).padStart(2, '0') + '초'; }
@@ -10317,7 +10311,7 @@ function vcShowClassGate(session, name, role) {
 /** 👩‍🏫 교사용 — 오늘 여러 수업 중 선택 (선택 → 학생과 같은 방으로 연결) */
 function vcShowSessionPicker(sessions, name, role) {
     var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",sans-serif';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif';
     var items = sessions.map(function (s) {
         var t = new Date(s.start_ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
         var badge = s.status === 'live' ? '<span style="color:#34d399">● 진행중</span>' : s.status === 'open' ? '<span style="color:#7dd3fc">입장 가능</span>' : s.status === 'ended' ? '<span style="color:#64748b">종료</span>' : '<span style="color:#fbbf24">' + t + ' 예정</span>';
@@ -10368,7 +10362,7 @@ function vcStartWaitingMonitor(session, myRole) {
     if (!card) {
         card = document.createElement('div');
         card.id = 'vc-wait-card';
-        card.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9800;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.3);border-radius:16px;padding:12px 18px;color:#e2e8f0;font-family:"Noto Sans KR",sans-serif;box-shadow:0 16px 40px -12px rgba(0,0,0,.6);display:flex;align-items:center;gap:12px;max-width:92vw';
+        card.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9800;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.3);border-radius:16px;padding:12px 18px;color:#e2e8f0;font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;box-shadow:0 16px 40px -12px rgba(0,0,0,.6);display:flex;align-items:center;gap:12px;max-width:92vw';
         document.body.appendChild(card);
     }
     function counterpartPresent() {
@@ -11436,7 +11430,7 @@ function vcShowEarnToast(msg) {
     if (!t) {
         t = document.createElement('div');
         t.id = 'vc-earn-toast';
-        t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:10500;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;padding:12px 22px;border-radius:99px;font-size:14px;font-weight:800;box-shadow:0 12px 40px -8px rgba(245,158,11,.6),0 0 0 4px rgba(255,255,255,.1);transition:transform .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;font-family:"Noto Sans KR",sans-serif;letter-spacing:-.3px;display:flex;align-items:center;gap:8px';
+        t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:10500;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;padding:12px 22px;border-radius:99px;font-size:14px;font-weight:800;box-shadow:0 12px 40px -8px rgba(245,158,11,.6),0 0 0 4px rgba(255,255,255,.1);transition:transform .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;letter-spacing:-.3px;display:flex;align-items:center;gap:8px';
         document.body.appendChild(t);
     } else {
         t.style.transitionDuration = '0s';
@@ -13903,16 +13897,30 @@ function vcGetBgImageSync(theme){
 }
 
 // --- 2) MediaPipe 스크립트 lazy 로드 ---
+// ph163 (2026-07-23) — jsdelivr → 자체 서빙(/vendor/mediapipe/).
+//   pdf.js(ph254) 와 같은 '자체 서버 우선, 실패 시에만 CDN 폴백' 방식을 그대로 따른다.
+//   · 필리핀 저속 회선에서 도메인 하나(DNS+TLS)를 통째로 줄인다.
+//   · 배경효과는 wasm 5.7MB + tflite 를 더 받는다. 그 경로가 전부 같은 오리진이 된다.
+//   ⚠️ vcBg.mpBase 는 아래 vcInitBgEngine 의 locateFile 이 그대로 쓴다.
+//      스크립트를 어디서 받았든 '같은 곳'에서 wasm 을 받아야 버전이 어긋나지 않는다.
+const VC_MP_LOCAL = '/vendor/mediapipe/';
+const VC_MP_CDN   = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/';
 function vcLoadMediaPipe(){
   if (vcBg.mpLoaded) return Promise.resolve();
   if (vcBg.mpLoading) return vcBg.mpLoading;
-  vcBg.mpLoading = new Promise((resolve, reject) => {
+  const inject = (base, crossOrigin) => new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/selfie_segmentation.js';
-    s.crossOrigin = 'anonymous';
-    s.onload = () => { vcBg.mpLoaded = true; resolve(); };
-    s.onerror = (e) => reject(new Error('MediaPipe 로드 실패. 네트워크 확인 후 다시 시도해 주세요.'));
+    s.src = base + 'selfie_segmentation.js';
+    if (crossOrigin) s.crossOrigin = 'anonymous';
+    s.onload  = () => { vcBg.mpBase = base; vcBg.mpLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error('MediaPipe 로드 실패: ' + base));
     document.head.appendChild(s);
+  });
+  vcBg.mpLoading = inject(VC_MP_LOCAL, false).catch(() => {
+    console.warn('[ph163] 로컬 MediaPipe 실패 → CDN 폴백');
+    return inject(VC_MP_CDN, true);
+  }).catch(() => {
+    throw new Error('MediaPipe 로드 실패. 네트워크 확인 후 다시 시도해 주세요.');
   });
   return vcBg.mpLoading;
 }
@@ -13922,7 +13930,9 @@ async function vcInitBgEngine(){
   if (vcBg.segmenter) return;
   if (typeof SelfieSegmentation === 'undefined') throw new Error('MediaPipe 로드 안됨');
   vcBg.segmenter = new SelfieSegmentation({
-    locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/' + f
+    // ph163 — 스크립트를 실제로 받아온 곳(vcBg.mpBase)에서 wasm·tflite 도 받는다.
+    //   로컬에서 받았으면 로컬, CDN 폴백이었으면 CDN. 둘을 섞으면 버전이 어긋난다.
+    locateFile: (f) => (vcBg.mpBase || VC_MP_LOCAL) + f
   });
   // Phase 7m: 가장자리 품질 우선 - modelSelection 0 (general, 256x256, 정밀한 edge)
   //   ↳ 멈춤 방지는 vcBgRenderLoop 의 프레임 throttle (skipNext) 로 해결
@@ -21923,7 +21933,7 @@ window.addEventListener('DOMContentLoaded', () => {
       '</div>';
     }).join('');
     window._rsOptions = options;
-    ov.innerHTML = '<div style="max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032,#131826);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:\'Noto Sans KR\',sans-serif">'+
+    ov.innerHTML = '<div style="max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032,#131826);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:\'Noto Sans KR\','Malgun Gothic','맑은 고딕',sans-serif">'+
       '<div style="padding:18px 22px;background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;gap:8px">'+
         '<span style="font-size:24px">💻</span>'+
         '<h2 style="margin:0;flex:1;font-size:18px;font-weight:800;color:#fff">'+(isKo?'PC 원격지원 — 안전한 방법 선택':'Remote Support — Pick safest option')+'</h2>'+
@@ -21962,7 +21972,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <style>
   .feat-overlay{position:fixed;inset:0;background:rgba(5,7,18,.85);backdrop-filter:blur(12px);display:none;z-index:11000;padding:30px 16px;overflow-y:auto;animation:lcFade .2s}
   .feat-overlay.show{display:block}
-  .feat-modal{max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,sans-serif;animation:lcSlide .25s ease-out}
+  .feat-modal{max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032 0%,#131826 100%);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:'Noto Sans KR',-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;animation:lcSlide .25s ease-out}
   .feat-head{padding:20px 24px;background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;gap:14px}
   .feat-head h2{margin:0;flex:1;font-size:20px;font-weight:800;color:#fff}
   .feat-close{background:rgba(255,255,255,.08);border:0;color:#cbd5e1;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer}
@@ -22389,7 +22399,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('mangoi-push-banner')) return;
       const isMobile = window.innerWidth <= 640;
       const html = `
-        <div id="mangoi-push-banner" style="position:fixed;${isMobile?'bottom:16px;left:8px;right:8px':'bottom:20px;right:20px;max-width:380px'};z-index:9998;background:linear-gradient(135deg,#1e293b,#0f172a);color:#f1f5f9;border:1px solid rgba(251,191,36,0.35);border-radius:16px;padding:16px 18px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.6),0 0 0 1px rgba(251,191,36,0.18);font-family:'Noto Sans KR',sans-serif;animation:mpb-slideUp 0.35s ease-out">
+        <div id="mangoi-push-banner" style="position:fixed;${isMobile?'bottom:16px;left:8px;right:8px':'bottom:20px;right:20px;max-width:380px'};z-index:9998;background:linear-gradient(135deg,#1e293b,#0f172a);color:#f1f5f9;border:1px solid rgba(251,191,36,0.35);border-radius:16px;padding:16px 18px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.6),0 0 0 1px rgba(251,191,36,0.18);font-family:'Noto Sans KR','Malgun Gothic','맑은 고딕',sans-serif;animation:mpb-slideUp 0.35s ease-out">
           <div style="display:flex;gap:12px;align-items:flex-start">
             <div style="font-size:28px;flex-shrink:0">🔔</div>
             <div style="flex:1;min-width:0">
@@ -22478,7 +22488,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const bar = document.createElement('div');
     bar.id = 'pwa-install-bar';
     bar.classList.add('pwa-android');
-    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.05);backdrop-filter:blur(14px);font-family:"Noto Sans KR",sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
+    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.05);backdrop-filter:blur(14px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
     bar.innerHTML = `
       <img src="/img/icon-192.png" alt="" style="width:44px;height:44px;border-radius:10px;flex-shrink:0">
       <div style="flex:1;min-width:0">
@@ -22496,7 +22506,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const bar = document.createElement('div');
     bar.id = 'pwa-install-bar';
     bar.classList.add('pwa-ios');
-    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7);backdrop-filter:blur(14px);font-family:"Noto Sans KR",sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
+    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7);backdrop-filter:blur(14px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
     bar.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
         <img src="/img/icon-192.png" alt="" style="width:44px;height:44px;border-radius:10px">
@@ -22954,7 +22964,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- 우측: 선택된 폴더의 교재 카드 그리드 (썸네일+레벨+레슨수+hover 액션) -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <style id="ph245-lib-style">
-  #tbf-lib-modal{ display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.72); align-items:center; justify-content:center; padding:14px; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+  #tbf-lib-modal{ display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.72); align-items:center; justify-content:center; padding:14px; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif; }
   #tbf-lib-modal .tbf-shell{ background:#fff; border-radius:16px; width:min(1200px,98vw); height:min(800px,92vh); display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,0.5); overflow:hidden; color:#0f172a; }
   #tbf-lib-modal .tbf-head{ padding:14px 22px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,#f8fafc,#eff6ff); }
   #tbf-lib-modal .tbf-title{ font-weight:900; font-size:17px; color:#0f172a; }
@@ -26950,7 +26960,7 @@ document.addEventListener('keydown', function(e){
       }).join('');
       var box=document.createElement('div');
       box.id='mangoi-class-notice';
-      box.setAttribute('style','position:fixed;top:72px;right:16px;z-index:2147482000;width:300px;max-width:84vw;background:rgba(15,23,42,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.18);border-radius:16px;box-shadow:0 18px 50px -16px rgba(0,0,0,0.7);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;padding:14px 16px 12px;animation:mgNoticeIn .35s cubic-bezier(.2,.8,.2,1)');
+      box.setAttribute('style','position:fixed;top:72px;right:16px;z-index:2147482000;width:300px;max-width:84vw;background:rgba(15,23,42,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.18);border-radius:16px;box-shadow:0 18px 50px -16px rgba(0,0,0,0.7);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;padding:14px 16px 12px;animation:mgNoticeIn .35s cubic-bezier(.2,.8,.2,1)');
       box.innerHTML='<style>@keyframes mgNoticeIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}</style>'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
         +'<div style="font-size:13.5px;font-weight:800;letter-spacing:.2px">'+(nIsEn()?'📅 Vacation · Holiday Notice':'📅 휴가·공휴일 안내')+'</div>'
@@ -27012,7 +27022,7 @@ document.addEventListener('keydown', function(e){
     var ov = document.createElement('div');
     ov.id = 'mangoi-allmenu';
     // 🌌 우주 배경 (홈 화면과 동일한 space.jpg + 비네팅) + 투명 글래스 모달
-    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.55) 0%,rgba(6,9,20,0.90) 100%),#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;animation:mgAmFade .28s ease;');
+    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.55) 0%,rgba(6,9,20,0.90) 100%),#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;animation:mgAmFade .28s ease;');
 
     // ✨ 반짝이는 별 필드 (디자인 디테일)
     var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}</style>'
@@ -27169,7 +27179,7 @@ document.addEventListener('keydown', function(e){
     box-shadow: 0 4px 10px -4px rgba(59,130,246,0.5), 0 2px 5px -2px rgba(0,0,0,0.22);
     display: inline-flex; align-items: center; gap: 4px;
     transition: transform .15s, box-shadow .15s;
-    font-family: -apple-system,"Segoe UI","Pretendard","Noto Sans KR",sans-serif;
+    font-family: -apple-system,"Segoe UI","Pretendard","Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;
     line-height: 1.1;
   }
   #precheck-fab:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -6px rgba(59,130,246,0.6); }
@@ -27445,7 +27455,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
 <script src="/js/vc-dock.js?v=7" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
-<script src="/js/mango.js?v=33" defer></script>
+<script src="/js/mango.js?v=34" defer></script>
 <script src="/js/mango-rec.js?v=38" defer></script>
 <script src="/js/mango-class-time.js?v=8" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
 <script src="/js/mango-topbar-unified.js?v=3" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
@@ -27453,7 +27463,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
 <script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
 <script src="/js/mango-attendance.js?v=33" defer></script>
-<script src="/js/mango-gaze.js?v=33" defer></script>
+<script src="/js/mango-gaze.js?v=34" defer></script>
 <script src="/js/mango-i18n.js?v=35" defer></script>
 
 <style id="v33-exit-anchor-style">
@@ -29271,7 +29281,7 @@ window.vcAutoLoadStudentTextbook = async function(){
 <style id="mg-faq-style">
   #mg-faq-ov{position:fixed;inset:0;z-index:100002;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,18,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
   #mg-faq-ov.open{display:flex}
-  .mg-faq-panel{width:min(760px,96vw);max-height:88vh;display:flex;flex-direction:column;background:linear-gradient(160deg,rgba(15,23,42,.97),rgba(11,16,32,.97));border:1px solid rgba(251,191,36,.35);border-radius:20px;box-shadow:0 24px 64px rgba(0,0,0,.5);overflow:hidden;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;color:#e5e7eb}
+  .mg-faq-panel{width:min(760px,96vw);max-height:88vh;display:flex;flex-direction:column;background:linear-gradient(160deg,rgba(15,23,42,.97),rgba(11,16,32,.97));border:1px solid rgba(251,191,36,.35);border-radius:20px;box-shadow:0 24px 64px rgba(0,0,0,.5);overflow:hidden;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;color:#e5e7eb}
   .mg-faq-head{display:flex;align-items:center;gap:10px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
   .mg-faq-head h2{margin:0;font-size:19px;font-weight:800;color:#fbbf24;letter-spacing:-.3px}
   .mg-faq-head .mg-faq-sub{font-size:12px;color:#94a3b8;margin-top:2px}
@@ -29950,7 +29960,7 @@ window.vcAutoLoadStudentTextbook = async function(){
     var en = (document.documentElement.lang === 'en');
     var ov = document.createElement('div');
     ov.id = 'vc-back-guard-modal';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,sans-serif';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,'Malgun Gothic','맑은 고딕',sans-serif';
     ov.innerHTML =
       '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:30px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.7);color:#e6ecff">'
       + '<div style="font-size:46px;margin-bottom:12px">🔙</div>'
