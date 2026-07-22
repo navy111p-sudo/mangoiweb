@@ -9372,7 +9372,7 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'franchise_mgmt',   name_ko: '가맹점·지사 관리',              name_en: 'Franchise · Branch Mgmt',   def: { hq_exec:'✅', hq_mgr:'❌', hq_teacher:'❌', franchise:'👁️', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-data-export', name_ko: '데이터 내보내기 (CSV·백업)',     name_en: 'Data Export',               def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-admin-alerts',name_ko: '관리자 경보·이상탐지',           name_en: 'Admin Alerts',              def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
-      { id: 'card-admin-ghost', name_ko: '수업 관찰 (사용자 화면 미러링)',   name_en: 'Ghost View',                def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-admin-ghost', name_ko: '수업 관찰 (사용자 화면 미러링)',   name_en: 'Class Observation',                def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-admin-whisper', name_ko: '수업 위스퍼 (강사 실시간 코칭)', name_en: 'Class Whisper',            def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
     ]},
   ];
