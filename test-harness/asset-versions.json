@@ -115,5 +115,11 @@
   "/js/vc-dock.js?v=7": "373fea57414a348e",
   "/js/vc-judgment-capture.js?v=1": "110fc284befb5759",
   "/js/vc-spotlight.js?v=2": "8abf686bef581236",
-  "/js/adm-light-surfaces.js?v=1": "61db063ac9da71fe"
+  "/js/adm-light-surfaces.js?v=1": "61db063ac9da71fe",
+  "/css/tailwind-build.css?v=1": "5c2adbee2ca39d4f",
+  "/vendor/chartjs/chart.umd.min.js?v=1": "d2af8974e9527163",
+  "/vendor/html2canvas/html2canvas.min.js?v=1": "e87e550794322e57",
+  "/vendor/jszip/jszip.min.js?v=1": "acc7e41455a80765",
+  "/vendor/three/GLTFLoader.js?v=1": "5c15967ba830918a",
+  "/vendor/three/three.min.js?v=1": "9274bbcec8d96168"
 }
