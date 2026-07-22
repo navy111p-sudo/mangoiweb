@@ -13185,12 +13185,13 @@ button.chip:hover,
     border-radius: 14px !important;
     pointer-events: none !important;
     z-index: 60 !important;
-    animation: ph96pulse 3.2s ease-out 1 both !important;
+    /* (2026-07-22, 강사 피드백 #3) 3.2초 동안 카드 전체가 노랗게 번쩍이고 48px 글로우가
+       퍼지던 것을 1.1초짜리 얇은 테두리로 완화. 목적은 '어느 카드로 왔는지' 알려주는 것뿐이다. */
+    animation: ph96pulse 1.1s ease-out 1 both !important;
   }
   @keyframes ph96pulse {
     0%   { box-shadow: 0 0 0 0 rgba(251,191,36,0); background: rgba(251,191,36,0); }
-    8%   { box-shadow: 0 0 0 6px rgba(251,191,36,.95), 0 14px 48px rgba(251,191,36,.5); background: rgba(251,191,36,.22); }
-    60%  { box-shadow: 0 0 0 4px rgba(251,191,36,.55), 0 10px 32px rgba(251,191,36,.3); background: rgba(251,191,36,.12); }
+    18%  { box-shadow: 0 0 0 3px rgba(251,191,36,.85); background: rgba(251,191,36,.10); }
     100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); background: rgba(251,191,36,0); }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -20758,6 +20759,6 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-ai-asst,
   html[data-admin-theme="ivory"] #ph85-ai-asst * { color: #7c2d12 !important; }
 </style>
-<!-- BUILD:20260722215713 -->
+<!-- BUILD:20260722220906 -->
 </body>
 </html>

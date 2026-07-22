@@ -2300,14 +2300,35 @@
     //   한글이 잠깐 보이지 않도록 body 를 감춰 두고 여기서 푼다(안전장치 타이머도 있음).
     try { if (window.__admEnReady) window.__admEnReady(); } catch(e){}
     // 동적 노드 감시
+    //  ⚡ (2026-07-22, 강사 피드백 #2 "왼쪽에서 옵션을 고르면 버벅인다")
+    //     예전엔 옵저버 콜백 '안에서' 추가된 subtree 를 그 자리에서 walk() 했다.
+    //     관리자 화면은 메뉴 하나를 열 때 큰 표·카드를 통째로 주입하므로, 그 번역이
+    //     클릭한 프레임을 그대로 잡아먹었다. 한국어 모드는 isEn()=false 로 즉시 빠져나가서
+    //     멀쩡했고 — 그래서 영어로 쓰는 해외 강사만 버벅임을 겪었다.
+    //     추가된 노드를 모아 다음 유휴 시간에 한 번에 처리한다(화면에는 한 프레임 차이).
+    var pendQ = [], pendTimer = null;
+    var idle = window.requestIdleCallback
+      ? function(fn){ return window.requestIdleCallback(fn, { timeout: 200 }); }
+      : function(fn){ return setTimeout(fn, 16); };
+    function drainPend(){
+      pendTimer = null;
+      var list = pendQ; pendQ = [];
+      for(var i=0;i<list.length;i++){
+        var nd = list[i];
+        // 그 사이 화면에서 사라진 노드는 번역할 필요가 없다 (표를 다시 그리는 화면에서 특히 큼)
+        if(!nd || nd.isConnected === false) continue;
+        try{ walk(nd); }catch(e){}
+      }
+    }
     try{
       new MutationObserver(function(muts){
         if(!isEn()) return;
         for(var i=0;i<muts.length;i++){
           var m=muts[i];
-          if(m.type==='characterData') applyTextNode(m.target);
-          if(m.addedNodes) for(var j=0;j<m.addedNodes.length;j++) walk(m.addedNodes[j]);
+          if(m.type==='characterData') pendQ.push(m.target);
+          if(m.addedNodes) for(var j=0;j<m.addedNodes.length;j++) pendQ.push(m.addedNodes[j]);
         }
+        if(pendQ.length && !pendTimer) pendTimer = idle(drainPend);
       }).observe(document.body,{childList:true,subtree:true,characterData:true});
     }catch(e){}
     // 언어 전환 감지 (<html lang> — applyLang()이 갱신)

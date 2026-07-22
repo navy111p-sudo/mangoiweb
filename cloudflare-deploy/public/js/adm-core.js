@@ -7059,14 +7059,18 @@ function jumpToMenu(id, opts) {
   el.open = true;
   // 📢 공지 스튜디오: 대상이 게시(팝업)/만들기 패널이면 해당 탭으로 전환 후 스크롤
   try{ if((id==='card-popups-mgmt'||id==='card-poster-maker') && typeof window.noticeStudioTab==='function') window.noticeStudioTab(id==='card-popups-mgmt'?'publish':'make'); }catch(e){}
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  // 시각적 강조 — 렌더 안정 후(rAF x2) 배경 틴트+링 글로우 펄스 (2026-06-12)
+  // (2026-07-22, 강사 피드백 #3 "옵션을 고를 때 화면 효과가 어지럽다. 왼쪽 효과는 괜찮다")
+  //   예전엔 smooth 스크롤을 시작해 놓고 rAF 2번(≈32ms) 뒤에 auto 로 한 번 더 불러서,
+  //   부드럽게 흐르던 화면을 도중에 툭 끊어 버렸다 — 이 '흐르다 끊김'이 멀미의 주범이었다.
+  //   카드가 열리며 높이가 변하므로 위치 재보정 자체는 남기되, 둘 다 즉시 이동으로 통일한다.
+  el.scrollIntoView({ behavior: 'auto', block: 'start' });
+  // 시각적 강조 — 렌더 안정 후(rAF x2) 어느 카드로 왔는지만 짧게 표시 (2026-06-12 / 07-22 완화)
   requestAnimationFrame(() => { requestAnimationFrame(() => {
     el.scrollIntoView({ behavior: 'auto', block: 'start' }); /* 렌더 후 위치 재보정 */
     el.classList.remove('ph96-highlight');
     void el.offsetWidth; /* 애니메이션 재시작 */
     el.classList.add('ph96-highlight');
-    setTimeout(() => { el.classList.remove('ph96-highlight'); }, 3600);
+    setTimeout(() => { el.classList.remove('ph96-highlight'); }, 1400);
   }); });
   // 사이드바 active 표시
   document.querySelectorAll('#admin-sidebar-list a').forEach(a => {
