@@ -22,26 +22,43 @@
   //   (KO 18장 / EN 24장 — EN 은 목차 2장 + 뒤쪽 A–Z 색인 3장이 더 있다).
   //   ⚠️ 데크를 다시 만들면 이 번호가 어긋난다. adm-s18.js 의 DECKS.titles 로 대조할 것.
   var SLIDES = [
-    { n: 1,  en_n: 1,  ko_t: '망고아이 관리자 콘솔',        en_t: 'Mangoi Admin Console',
+    { n: 1,  en_n: 1,
+      ko_title: "시작하기", en_title: "Cover",  ko_t: '망고아이 관리자 콘솔',        en_t: 'Mangoi Admin Console',
       ko_d: '학원 운영에 필요한 모든 기능이 한 화면에 모여 있어요. 아래 화살표로 넘겨 보세요.',
       en_d: 'Everything you need to run the academy, all in one place. Swipe through with the arrows below.' },
-    { n: 5,  en_n: 6,  ko_t: '왼쪽 사이드바 = 모든 메뉴',    en_t: 'Left sidebar = every menu',
+    { n: 5,  en_n: 6,
+      ko_title: "사이드바 한눈에 (9개 메뉴)", en_title: "The menu at a glance",  ko_t: '왼쪽 사이드바 = 모든 메뉴',    en_t: 'Left sidebar = every menu',
       ko_d: '왼쪽의 9개 그룹(평가서·알림·강사·통계·회계·학생·교육·자료실·시스템)을 누르면 원하는 기능으로 바로 이동해요.',
       en_d: 'Tap any of the 9 groups on the left (Reports, Alerts, Teachers, Stats, Finance, Students, Content, Library, System) to jump straight to a feature.' },
-    { n: 15, en_n: 17, ko_t: '자주 쓰는 기능 3가지',        en_t: 'The 3 you\'ll use most',
+    { n: 15, en_n: 17,
+      ko_title: "자주 쓰는 기능 3가지", en_title: "The 3 things you’ll do most", ko_t: '자주 쓰는 기능 3가지',        en_t: 'The 3 you\'ll use most',
       ko_d: '① 평가서 작성 · ② 공지/알림 보내기 · ③ 통계·KPI 확인. 이 세 가지만 익혀도 절반은 끝!',
       en_d: '① Write reports · ② Send notices/alerts · ③ Check stats & KPIs. Master these three and you\'re halfway there.' },
-    { n: 16, en_n: 18, ko_t: '공지 보내보기',              en_t: 'Send your first notice',
+    { n: 16, en_n: 18,
+      ko_title: "공지 보내보기 (따라하기)", en_title: "Walkthrough: send a notice", ko_t: '공지 보내보기',              en_t: 'Send your first notice',
       ko_d: '"알림 센터"에서 학부모·강사에게 공지와 카카오 알림톡을 몇 번의 클릭으로 보낼 수 있어요.',
       en_d: 'In "Alert Center" you can send notices and KakaoTalk alerts to parents and teachers in just a few clicks.' },
-    { n: 17, en_n: 20, ko_t: '도움이 필요하면 ❓ 버튼',      en_t: 'Need help? The ❓ button',
+    { n: 17, en_n: 20,
+      ko_title: "안전하게 나가기 + 꿀팁", en_title: "Staying safe + tips", ko_t: '도움이 필요하면 ❓ 버튼',      en_t: 'Need help? The ❓ button',
       ko_d: '헷갈릴 땐 왼쪽 위 파란 "❓ 사용 방법" 버튼을 누르세요. 그림으로 된 18단계 안내가 언제든 다시 열려요.',
       en_d: 'Stuck? Tap the blue "❓ How to use" button at the top-left. The 24-page picture guide is always one click away.' }
   ];
 
   // 지금 언어에 맞는 슬라이드 이미지 경로. 영어 데크에 해당 장이 없으면 한국어로 폴백(빈 화면 방지).
+  // ph167 — 폴더·번호를 /js/adm-guide-decks.js(단일 출처)에서 찾는다.
+  //   두 세션이 각자 손으로 맞추다 어긋났던 지점이라, 사실을 한 곳에만 둔다.
+  //   공용 정의가 없으면 아래 하드코딩 값으로 폴백한다(가이드가 조용히 죽지 않게).
   function slideSrc(s) {
-    if (L() === 'en' && s.en_n) return '/guide/admin-easy-en/' + pad(s.en_n) + '.jpg';
+    var lang = L();
+    try {
+      var d = (window.MANGOI_GUIDE_DECKS || {})[lang];
+      var t = (lang === 'en') ? s.en_title : s.ko_title;
+      if (d && d.dir && t && window.mangoiGuideSlideNo) {
+        var n = window.mangoiGuideSlideNo(lang, t);
+        if (n) return d.dir + pad(n) + '.jpg';
+      }
+    } catch (e) {}
+    if (lang === 'en' && s.en_n) return '/guide/admin-easy-en/' + pad(s.en_n) + '.jpg';
     return '/guide/admin-easy/' + pad(s.n) + '.jpg';
   }
 
@@ -104,21 +121,22 @@
     root.id = 'aw-overlay';
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
-    root.setAttribute('aria-label', '관리자 페이지 환영 안내');
+    root.setAttribute('data-ko-aria', '관리자 페이지 환영 안내');
+    root.setAttribute('data-en-aria', 'Admin page welcome guide');
     root.innerHTML = [
       '<div id="aw-card">',
       '  <div id="aw-top">',
       '    <button id="aw-detail" type="button"><span>📖</span><span data-ko="자세히 보기" data-en="See full guide">자세히 보기</span> <span aria-hidden="true">↗</span></button>',
-      '    <button id="aw-x" type="button" aria-label="닫기">✕</button>',
+      '    <button id="aw-x" type="button" data-ko-aria="닫기" data-en-aria="Close">✕</button>',
       '  </div>',
       '  <div id="aw-hero">',
       '    <div id="aw-hello" data-ko="환영합니다! 👋" data-en="Welcome! 👋">환영합니다! 👋</div>',
       '    <div id="aw-sub" data-ko="망고아이 관리자 콘솔 사용법을 30초 만에 알려드릴게요." data-en="Here\'s how the Mangoi Admin Console works — in 30 seconds.">망고아이 관리자 콘솔 사용법을 30초 만에 알려드릴게요.</div>',
       '  </div>',
       '  <div id="aw-stage">',
-      '    <button class="aw-nav" id="aw-prev" type="button" aria-label="이전">‹</button>',
-      '    <img id="aw-img" src="" alt="사용법 미리보기" draggable="false">',
-      '    <button class="aw-nav" id="aw-next" type="button" aria-label="다음">›</button>',
+      '    <button class="aw-nav" id="aw-prev" type="button" data-ko-aria="이전" data-en-aria="Previous">‹</button>',
+      '    <img id="aw-img" src="" data-ko-alt="사용법 미리보기" data-en-alt="Guide preview" draggable="false">',
+      '    <button class="aw-nav" id="aw-next" type="button" data-ko-aria="다음" data-en-aria="Next">›</button>',
       '  </div>',
       '  <div id="aw-caption">',
       '    <div id="aw-ctitle"></div>',
@@ -171,7 +189,27 @@
     stage.addEventListener('touchend', function (e) { var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; if (mv && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1); }, { passive: true });
 
     // 언어 변경 시 캡션 다시 그림
-    document.addEventListener('mangoi:lang-changed', function () { paint(); });
+    document.addEventListener('mangoi:lang-changed', function () { applyLangTexts(); paint(); });
+  }
+
+  // 🌐 모달 안의 언어 의존 텍스트를 한 번에 반영한다 (ph167).
+  //   ⚠️ 이전에는 '영어로 바꾸는' 코드만 있고 '한국어로 되돌리는' 코드가 없었다.
+  //      그래서 영어로 한 번 열면 언어를 한국어로 바꿔도 영어 문구가 그대로 남았다.
+  function applyLangTexts() {
+    if (!root) return;
+    var en = (L() === 'en');
+    var pick = function (el, a) { return el.getAttribute(en ? ('data-en' + a) : ('data-ko' + a)); };
+    root.querySelectorAll('[data-ko],[data-en]').forEach(function (el) {
+      var t = pick(el, ''); if (t != null) el.textContent = t;
+    });
+    root.querySelectorAll('[data-ko-aria],[data-en-aria]').forEach(function (el) {
+      var t = pick(el, '-aria'); if (t != null) el.setAttribute('aria-label', t);
+    });
+    root.querySelectorAll('[data-ko-alt],[data-en-alt]').forEach(function (el) {
+      var t = pick(el, '-alt'); if (t != null) el.setAttribute('alt', t);
+    });
+    var ra = root.getAttribute(en ? 'data-en-aria' : 'data-ko-aria');
+    if (ra) root.setAttribute('aria-label', ra);
   }
 
   function paint() {
@@ -200,10 +238,7 @@
     root.classList.add('aw-on');
     document.documentElement.style.overflow = 'hidden';
     set(0);
-    // 초기 언어에 맞춰 data-ko/en 텍스트 반영 (applyLang 미실행 상태 대비)
-    if (L() === 'en') {
-      root.querySelectorAll('[data-en]').forEach(function (el) { var t = el.getAttribute('data-en'); if (t != null) el.textContent = t; });
-    }
+    applyLangTexts();   // i18n-sweep 실행 여부와 무관하게 직접 반영
     try { var cb = root.querySelector('#aw-again-cb'); if (cb) cb.checked = false; } catch (e) {}
   }
   function close() {
