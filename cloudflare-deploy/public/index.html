@@ -13897,16 +13897,30 @@ function vcGetBgImageSync(theme){
 }
 
 // --- 2) MediaPipe 스크립트 lazy 로드 ---
+// ph163 (2026-07-23) — jsdelivr → 자체 서빙(/vendor/mediapipe/).
+//   pdf.js(ph254) 와 같은 '자체 서버 우선, 실패 시에만 CDN 폴백' 방식을 그대로 따른다.
+//   · 필리핀 저속 회선에서 도메인 하나(DNS+TLS)를 통째로 줄인다.
+//   · 배경효과는 wasm 5.7MB + tflite 를 더 받는다. 그 경로가 전부 같은 오리진이 된다.
+//   ⚠️ vcBg.mpBase 는 아래 vcInitBgEngine 의 locateFile 이 그대로 쓴다.
+//      스크립트를 어디서 받았든 '같은 곳'에서 wasm 을 받아야 버전이 어긋나지 않는다.
+const VC_MP_LOCAL = '/vendor/mediapipe/';
+const VC_MP_CDN   = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/';
 function vcLoadMediaPipe(){
   if (vcBg.mpLoaded) return Promise.resolve();
   if (vcBg.mpLoading) return vcBg.mpLoading;
-  vcBg.mpLoading = new Promise((resolve, reject) => {
+  const inject = (base, crossOrigin) => new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/selfie_segmentation.js';
-    s.crossOrigin = 'anonymous';
-    s.onload = () => { vcBg.mpLoaded = true; resolve(); };
-    s.onerror = (e) => reject(new Error('MediaPipe 로드 실패. 네트워크 확인 후 다시 시도해 주세요.'));
+    s.src = base + 'selfie_segmentation.js';
+    if (crossOrigin) s.crossOrigin = 'anonymous';
+    s.onload  = () => { vcBg.mpBase = base; vcBg.mpLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error('MediaPipe 로드 실패: ' + base));
     document.head.appendChild(s);
+  });
+  vcBg.mpLoading = inject(VC_MP_LOCAL, false).catch(() => {
+    console.warn('[ph163] 로컬 MediaPipe 실패 → CDN 폴백');
+    return inject(VC_MP_CDN, true);
+  }).catch(() => {
+    throw new Error('MediaPipe 로드 실패. 네트워크 확인 후 다시 시도해 주세요.');
   });
   return vcBg.mpLoading;
 }
@@ -13916,7 +13930,9 @@ async function vcInitBgEngine(){
   if (vcBg.segmenter) return;
   if (typeof SelfieSegmentation === 'undefined') throw new Error('MediaPipe 로드 안됨');
   vcBg.segmenter = new SelfieSegmentation({
-    locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/' + f
+    // ph163 — 스크립트를 실제로 받아온 곳(vcBg.mpBase)에서 wasm·tflite 도 받는다.
+    //   로컬에서 받았으면 로컬, CDN 폴백이었으면 CDN. 둘을 섞으면 버전이 어긋난다.
+    locateFile: (f) => (vcBg.mpBase || VC_MP_LOCAL) + f
   });
   // Phase 7m: 가장자리 품질 우선 - modelSelection 0 (general, 256x256, 정밀한 edge)
   //   ↳ 멈춤 방지는 vcBgRenderLoop 의 프레임 throttle (skipNext) 로 해결

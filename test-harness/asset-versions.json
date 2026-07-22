@@ -131,5 +131,11 @@
   "/js/mango.js?v=34": "3e992aa714043456",
   "/js/media-guard.js?v=2": "3b5f9c38475f58fa",
   "/css/mangoi-fonts.css?v=1": "059a3901777603c0",
-  "/js/lucide-local.js?v=1": "13d97aa4f10fa5c9"
+  "/js/lucide-local.js?v=1": "13d97aa4f10fa5c9",
+  "/css/tailwind-build.css?v=1": "5c2adbee2ca39d4f",
+  "/vendor/chartjs/chart.umd.min.js?v=1": "d2af8974e9527163",
+  "/vendor/html2canvas/html2canvas.min.js?v=1": "e87e550794322e57",
+  "/vendor/jszip/jszip.min.js?v=1": "acc7e41455a80765",
+  "/vendor/three/GLTFLoader.js?v=1": "5c15967ba830918a",
+  "/vendor/three/three.min.js?v=1": "9274bbcec8d96168"
 }
