@@ -177,7 +177,11 @@
             padding: 2rem;
             position: relative;
             overflow: hidden;
-            background: #171247;   /* 🌈 주니어 친화: 칠흑 → 화사한 남보라 우주 */
+            /* 🚀 (2026-07-22) 즉시 표시 배경 — 평평한 남색(#171247) 대신 우주 배경의
+               초소형 축소본을 HTML 안에 직접 심었다(네트워크 요청 0 → 첫 화면에 바로 그려짐).
+               예전엔 이 남색 화면이 먼저 보이고 배경 이미지가 늦게 떠서 '옛날 화면'처럼 보였다.
+               위에 덮이는 ::before 원본도 어차피 블러 처리라 교체 순간이 눈에 안 띈다. */
+            background: #171247 url('data:image/jpeg;base64,/9j//gAQTGF2YzYyLjExLjEwMAD/2wBDAAgQEBMQExYWFhYWFhoYGhsbGxoaGhobGxsdHR0iIiIdHR0bGx0dICAiIiUmJSMjIiMmJigoKDAwLi44ODpFRVP/xABlAAACAgMBAAAAAAAAAAAAAAAEBQYABwECAwEBAQEAAAAAAAAAAAAAAAAAAwECEAABBAIDAQEBAQAAAAAAAAABAAIRAwQSITFRYROxQREAAwEBAQAAAAAAAAAAAAAAAAERITEC/8AAEQgAGwAoAwEiAAIRAAMRAP/aAAwDAQACEQMRAD8AwJK9O0fTjm0+BS6nGY3iByOS4fxNMrNKtkPrx7LOgU0GA+OYCyL+uJj1wIc5Q7IytnS2Asp3iYr8xayPPp0Qmv1ellpcg9imqA0YNv19lbdkk/6UqVR0o2ru3eA52oPZ8+oKww4iZgxI6Qy0pSFVXS4WSn//2Q==') center center / cover no-repeat;
         }
         /* 배경 이미지 레이어: 살짝 블러 + 밝고 선명하게 — 우주 테마는 유지하되 화사하게 */
         #view-home::before {
@@ -203,7 +207,8 @@
         }
         /* ── 🌤️ 밝은 홈 배경 (옵션): body.home-bright 이면 우주 배경을 밝은 판타지 풍경으로 교체 ──
            어두운 배경(기본)은 그대로 두고, 밝게 옵션만 아래에서 덮어씀 */
-        body.home-bright #view-home { background:#cfe8f5; }
+        /* 🚀 밝은 테마도 동일 — 평평한 하늘색 대신 풍경 축소본을 즉시 표시 */
+        body.home-bright #view-home { background:#cfe8f5 url('data:image/jpeg;base64,/9j//gAQTGF2YzYyLjExLjEwMAD/2wBDAAgQEBMQExYWFhYWFhoYGhsbGxoaGhobGxsdHR0iIiIdHR0bGx0dICAiIiUmJSMjIiMmJigoKDAwLi44ODpFRVP/xACCAAEBAQEBAQAAAAAAAAAAAAAGBQQCBwMBAAMBAQAAAAAAAAAAAAAAAAUDBAECEAABAgYBAQQDEQEAAAAAAAABAhEDABIxBCFRQWGBsSLBMxMGIxUUQjSR0cKTkoPxgnJxUkMRAQACAgIDAQEBAAAAAAAAAAECACERAxIxE1Fx0UH/wAARCAAWACgDASIAAhEAAxEA/9oADAMBAAIRAxEAPwALFxPY7INgQWd3Y76T6T7nocBC1hYTWWKSwYpI6av/AEZCnLTHx0A111PEJHlpTYdey0t4WdD0G/4hnS3mIDBPIHMmeUOWPUwIZPv8ovikwWT5Fw7Mfv2p8gY8HNrCUsWqZmq5/Sb8aNjLhqWaVUDQ5LWkrBXDUhCYiUEvSlO6+8jre848qNB9kRChlbHq9OrvLOg9DctxxuwMuQ9miOpu9ZvmpUpcaKoQgnqlhpG5699/0PoTKWNmJShRhAQ1ISF2BBNmLX9El/hjL5hfdj6pr9vTGW5DhZRPFhwslIRStFQPbY8h/A6mpCaIFBL6CWfoSz2kn0EqsT5f5fgJFxaXT/bYGXFx4lALqSlq91c3vPyXkLWipJbbENrY3qz904cj5wr+P2Z5T6n93oliubwGCyouQsso8MnsD2Is3ZOP42rhP4RPEb1aO/xmXMu2tAfN/9k=') center 42% / cover no-repeat; }
         body.home-bright #view-home::before {
             /* 2026-07-22: 2.18MB PNG → 164KB WebP. 어차피 아래 filter 로 블러 처리되는
                배경이라 화질 손해는 눈에 안 보이고, 로딩 초반 '배경 없는 옛 화면'이
@@ -26204,7 +26209,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=1"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260722155555 -->
+<!-- BUILD:20260722161018 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
