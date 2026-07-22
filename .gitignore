@@ -56,3 +56,8 @@ cloudflare-deploy/크로마키_*.mp4
 # 파이썬 캐시
 __pycache__/
 *.pyc
+
+# Claude Code — 개인 PC 전용 설정·작업물 (공유 설정은 .claude/settings.json)
+.claude/settings.local.json
+.claude/worktrees/
+.claude/preview-server.js

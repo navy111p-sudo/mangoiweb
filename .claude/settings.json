@@ -1,0 +1,45 @@
+{
+  "$comment": [
+    "망고아이 공동작업용 Claude Code 공유 설정 — 두 사람이 함께 씁니다.",
+    "개인 PC에만 해당하는 설정(임시폴더 경로 등)은 여기에 넣지 말고",
+    "settings.local.json 에 두세요. 그 파일은 .gitignore 되어 있습니다.",
+    "배포(deploy.ps1)는 의도적으로 허용 목록에 넣지 않았습니다.",
+    "배포 권한이 있는 사람만 자신의 settings.local.json 에 추가해서 쓰세요."
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git fetch*)",
+      "Bash(git pull*)",
+      "Bash(git checkout*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git stash*)",
+      "Bash(git rev-parse*)",
+      "Bash(git ls-files*)",
+      "Bash(gh pr*)",
+      "Bash(gh issue*)",
+      "Bash(npx tsc --noEmit*)",
+      "Bash(node test-harness/run.mjs*)",
+      "Bash(npm run*)",
+      "Bash(ls*)",
+      "WebFetch(domain:test.mangoi.co.kr)",
+      "WebFetch(domain:mango-i.com)",
+      "WebFetch(domain:developers.cloudflare.com)"
+    ],
+    "deny": [
+      "Bash(npx wrangler d1 execute*)",
+      "Bash(npx wrangler deploy*)",
+      "Bash(wrangler d1 execute*)",
+      "Bash(wrangler deploy*)",
+      "Read(./.env)",
+      "Read(./.dev.vars)",
+      "Read(./cloudflare-deploy/.dev.vars)"
+    ]
+  }
+}
