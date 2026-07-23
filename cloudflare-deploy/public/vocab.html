@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <title>나의 단어장 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
+<script src="/js/mangoi-voice-input.js?v=1"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
 <script src="/js/mango-i18n.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
@@ -1055,27 +1056,22 @@ async function trySpeak(w){
   const fb = document.getElementById('speak-fb');
   if (!btn || btn.disabled) return;
   if (S.spoke.has(w.id)) { fb.textContent = '이 단어는 이미 도전했어요!'; return; }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { fb.textContent = '이 기기에서는 마이크를 쓸 수 없어요 😢'; return; }
+  if (!window.MangoiVoice || !MangoiVoice.supported()) { fb.textContent = '이 기기에서는 마이크를 쓸 수 없어요 😢'; return; }
   try {
     btn.disabled = true;
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const rec = new MediaRecorder(stream);
-    const chunks = [];
-    rec.ondataavailable = e => chunks.push(e.data);
-    fb.textContent = '🔴 지금 말해요: "' + w.word + '" (3초)';
-    rec.start();
-    await new Promise(res => setTimeout(res, 3000));
-    rec.stop();
-    await new Promise(res => rec.onstop = res);
-    stream.getTracks().forEach(t=>t.stop());
-    fb.textContent = '🤖 AI 가 듣는 중…';
-    const fd = new FormData();
-    fd.append('audio', new Blob(chunks, { type: rec.mimeType || 'audio/webm' }), 'speak.webm');
-    const r = await fetch('/api/voice/transcribe', { method:'POST', body: fd });
-    const d = await r.json();
-    const heard = String(d.text||'').toLowerCase().replace(/[^a-z\s]/g,' ');
+    fb.textContent = '🔴 지금 말해요: "' + w.word + '"';
+    /* (2026-07-23) 예전에는 **3초 고정 녹음**이라 아이가 조금만 뜸들이면 말이 통째로 잘렸다.
+       → 말을 시작할 때까지 기다렸다가, 말이 끝나고 조용해지면 멈춘다. */
+    const said = await MangoiVoice.record({
+      firstMs: 8000, silenceMs: 1500, maxMs: 12000,
+      onState: (s) => {
+        if (s === 'speaking') fb.textContent = '🎤 듣고 있어요…';
+        else if (s === 'thinking') fb.textContent = '🤖 AI 가 듣는 중…';
+      }
+    });
+    const heard = String(said||'').toLowerCase().replace(/[^a-z\s]/g,' ');
     const target = String(w.word).toLowerCase().trim();
-    if (d.ok && heard.split(/\s+/).some(t => t === target || (target.length>3 && t.includes(target)))) {
+    if (said && heard.split(/\s+/).some(t => t === target || (target.length>3 && t.includes(target)))) {
       S.spoke.add(w.id);
       fb.innerHTML = '🌟 <b style="color:#34d399">발음 성공! +20P</b>';
       floatPt('+20P'); sndFanfare(); confetti();
@@ -1083,7 +1079,7 @@ async function trySpeak(w){
         body: JSON.stringify({ user_id: UID, student_name: getName(), kind: 'speak', session_id: S.id + ':' + w.id }) })
         .then(()=>loadStats()).catch(()=>{});
     } else {
-      fb.textContent = d.ok ? ('아깝다! AI 가 들은 말: "' + (d.text||'…') + '" — 다시 눌러 도전!') : '잘 안 들렸어요. 다시 도전!';
+      fb.textContent = said ? ('아깝다! AI 가 들은 말: "' + said + '" — 다시 눌러 도전!') : '잘 안 들렸어요. 다시 도전!';
       sndWrong();
     }
   } catch(e) {
@@ -1210,7 +1206,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

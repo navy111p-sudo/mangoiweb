@@ -259,6 +259,7 @@
   <div id="toast"></div>
 </div>
 
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script src="/js/game-vocab.js"></script>
 <script src="/js/lesson-nav.js?v=2"></script>
 <script>
@@ -784,6 +785,10 @@
       if(anyMatch){ _done=true; if(_silence) clearTimeout(_silence); handleAttempt(_bestHeard, _bestConf>0?_bestConf:1, true); try{ r.stop(); }catch(e){} return; }
       armSilence();
     };
+    /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
+       그 onend 를 "말을 마쳤다"로 보고 채점하면 "I like" 같은 조각이 오답이 된다.
+       보호막: 우리가 stop() 을 부르지 않은 종료면 지금까지 들은 것을 유지한 채 다시 듣는다. */
+    try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(r, { isDone: function(){ return _done; }, onRestart: armSilence }); }catch(e){}
     return r;
   }
 
@@ -880,6 +885,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 </body>
 </html>

@@ -3251,6 +3251,13 @@
             <button id="sm-load-students" class="primary" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
             <input id="sm-student-search" type="search" placeholder="🔍 학생명·아이디 검색 (Name/ID)" autocomplete="off"
                    style="flex:1;min-width:180px;max-width:320px;padding:6px 12px;font-size:12.5px;border:1px solid rgba(245,158,11,0.4);border-radius:8px;outline:none;background:#fffbeb;color:#1c1917;" />
+            <!-- 🏫 (2026-07-23) 대리점/학원 필터 — 강사·매니저 요청.
+                 목록에 '대리점명' 컬럼은 원래 있었지만 걸러볼 방법이 없어서, 지사 담당자가
+                 자기 학원 학생만 보려면 눈으로 훑어야 했다. 값은 불러온 목록에서 자동 생성한다. -->
+            <select id="sm-agency-filter" title="대리점·학원으로 학생 목록 좁혀보기"
+                    style="padding:6px 10px;font-size:12.5px;border:1px solid rgba(245,158,11,0.4);border-radius:8px;background:#fffbeb;color:#1c1917;font-weight:700;max-width:220px">
+              <option value="" data-ko="🏫 전체 대리점·학원" data-en="🏫 All Agencies/Academies">🏫 전체 대리점·학원</option>
+            </select>
             <button id="sm-export-csv" type="button" title="화면에 보이는 학생 목록을 CSV(엑셀)로 내려받습니다 — 권한 범위 그대로"
                     style="padding:5px 12px;font-size:12px;border:1px solid rgba(16,185,129,0.5);border-radius:8px;background:rgba(16,185,129,0.12);color:#065f46;font-weight:800;cursor:pointer;white-space:nowrap"
                     data-ko="📥 CSV 다운로드" data-en="📥 Download CSV">📥 CSV 다운로드</button>
@@ -3318,6 +3325,28 @@
             </tr></thead>
             <tbody id="sm-expiring-tbody"><tr><td colspan="5" class="empty">—</td></tr></tbody>
           </table>
+        </div>
+      </details>
+
+      <!-- 📅 (2026-07-23) 오늘 수업 (매니저 입장) — 매니저 요청 반영.
+           "오늘의 수업에서 바로 수업에 들어갈 수 있어야 한다. 강사가 못 들어오면 대신 맡는다."
+           출결 통계가 아니라 '지금 들어갈 수 있는 수업'을 시간순으로 보여준다. -->
+      <details class="sub-item" id="sm-today-classes">
+        <summary data-ko="🚪 오늘 수업 (바로 입장)" data-en="🚪 Today's Classes (Join)">🚪 오늘 수업 (바로 입장)</summary>
+        <div class="sub-body">
+          <div style="font-size:11.5px;color:#92400e;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:7px 12px;margin-bottom:8px;line-height:1.6"
+               data-ko="💡 🔴 진행중 = 지금 들어갈 수 있는 수업입니다. [🚪 입장]은 참관이 아니라 실제 참가자로 들어갑니다 — 강사가 못 들어왔을 때 대신 수업을 맡는 용도입니다."
+               data-en="💡 🔴 Live = you can join now. [🚪 Join] enters as a real participant (not observation) — use it to cover a class when the teacher can't get in.">
+            💡 🔴 진행중 = 지금 들어갈 수 있는 수업입니다. [🚪 입장]은 참관이 아니라 실제 참가자로 들어갑니다 — 강사가 못 들어왔을 때 대신 수업을 맡는 용도입니다.
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+            <button id="tc-load" class="primary" style="padding:5px 12px;font-size:12px;" data-ko="🔄 불러오기" data-en="🔄 Load">🔄 불러오기</button>
+            <label style="font-size:12px;color:#6b7280;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+              <input type="checkbox" id="tc-only-live" /> <span data-ko="지금 들어갈 수 있는 것만" data-en="Joinable only">지금 들어갈 수 있는 것만</span>
+            </label>
+            <span style="font-size:11px;color:#6b7280;" id="tc-count"></span>
+          </div>
+          <div id="tc-body"><div class="empty" data-ko="불러오기를 눌러 오늘 수업을 확인하세요." data-en="Click load to see today's classes.">—</div></div>
         </div>
       </details>
 
@@ -5450,6 +5479,20 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       모든 참관 기록은 감사 로그(admin_audit_logs)에 영구 저장됩니다.
       <br>⚠ <b>참관 사유는 필수</b> — 학생 사생활 보호 정책.
     </div>
+    <!-- 🔴 (2026-07-23) 진행 중인 수업 목록 — 매니저 요청.
+         예전엔 강의실 ID 를 직접 알아내 타이핑해야 참관할 수 있었다(급할 때 시간이 오래 걸림).
+         이제 지금 열려 있는 수업이 여기 바로 뜨고, 줄을 누르면 ID 가 자동으로 채워진다. -->
+    <div style="border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:12px 14px;margin-bottom:12px;background:rgba(20,41,80,0.5)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <b style="font-size:13px;color:#c4b5fd" data-ko="🔴 지금 진행 중인 수업" data-en="🔴 Classes in progress now">🔴 지금 진행 중인 수업</b>
+        <span id="gh-live-count" style="font-size:11.5px;color:#94a3b8"></span>
+        <button type="button" onclick="ghLoadLive()" style="margin-left:auto;padding:5px 12px;font-size:12px;background:rgba(99,102,241,0.20);color:#c7d2fe;border:1px solid rgba(99,102,241,0.45);border-radius:7px;font-weight:700;cursor:pointer"
+                data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      </div>
+      <div id="gh-live-list" style="font-size:12.5px;color:#94a3b8"
+           data-ko="🔄 새로고침을 눌러 진행 중인 수업을 불러오세요."
+           data-en="Click refresh to load classes in progress.">🔄 새로고침을 눌러 진행 중인 수업을 불러오세요.</div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:760px;margin-bottom:10px">
       <input id="gh-admin-uid" type="text" placeholder="관리자 UID 입력" style="padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px" />
       <input id="gh-room-id" type="text" placeholder="강의실 ID (예: room-abc123)" style="padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px" />
@@ -5512,7 +5555,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-s1.js?v=1" defer></script><!-- 분할추출:adm-s1 -->
+<script src="/js/adm-s1.js?v=2" defer></script><!-- 분할추출:adm-s1 -->
 
 <!-- 🔐 Phase RT-2 — 화상강의실 초대 관리 (JWT 입장 토큰) -->
 <details class="table-card menu-card" id="card-room-invite">
@@ -11588,8 +11631,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=13" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=14" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
+<script src="/js/adm-today-classes.js?v=1" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
+<script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
 <script src="/js/adm-light-surfaces.js?v=7" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
@@ -12012,6 +12057,9 @@ button.chip:hover,
     background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
     border-right: 1px solid rgba(99,102,241,0.3);
     overflow-y: auto;
+    /* (2026-07-23) 가로 스크롤 차단 — 긴 메뉴명이 312px 를 넘기면 가로 스크롤바가 생겨
+       "오른쪽으로 밀어야 다른 메뉴를 고를 수 있다"는 제보가 나왔다. 넘치면 줄바꿈으로 처리. */
+    overflow-x: hidden;
     z-index: 9999;
     padding: 12px 10px;
     box-shadow: 4px 0 20px rgba(0,0,0,0.4);
@@ -12109,13 +12157,19 @@ button.chip:hover,
     transition: max-height 0.5s cubic-bezier(0.32,0.72,0,1);
     background: rgba(0,0,0,0.2);
   }
-  .ph85-group.open .ph85-subs { max-height: 760px; }
+  /* (2026-07-23) 760px → 2000px.
+     영어 모드는 라벨이 길어 두 줄로 접히는데, 그러면 15개짜리 그룹이 760px 를 넘겨
+     overflow:hidden 에 잘려 아래쪽 메뉴를 아예 고를 수 없었다("가끔 커진다"는 제보의 정체).
+     세로 여유만 늘리는 것이라 접힘 애니메이션·레이아웃엔 영향 없다. */
+  .ph85-group.open .ph85-subs { max-height: 2000px; }
   .ph85-sub {
     padding: 8px 12px 8px 48px;   /* (26-07-22) 컴팩트 */
     cursor: pointer; color: #e2e8f0; font-size: 14px; font-weight: 600;
     letter-spacing: -0.2px;
     border-top: 1px solid rgba(255,255,255,0.04);
     display: flex; align-items: center;
+    /* 긴 라벨은 가로로 삐져나가지 말고 줄바꿈 — 아래 overflow-x:hidden 과 한 쌍 */
+    min-width: 0; overflow-wrap: anywhere;
   }
   .ph85-sub:hover { background: rgba(251,191,36,0.10); color: #fde68a; }
   /* [2026-06-12] 클릭한 자식 메뉴·부모 그룹에 선택 색상 유지 — ph100 테마 !important 대응 */
@@ -12192,6 +12246,16 @@ button.chip:hover,
     <svg viewBox="0 0 24 24" fill="none" stroke="#85b7eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex:none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 2.3-2.6 3.9"/><path d="M12 17.2h.01"/></svg>
     <span style="flex:1;font-weight:700;font-size:12.5px;line-height:1.3;color:#bfdbfe" data-ko="관리자 페이지에서 사용 방법이 궁금하신가요?" data-en="New to the admin page? See how it works">관리자 페이지에서 사용 방법이 궁금하신가요?</span>
   </a>
+
+  <!-- ⚡ (2026-07-23) 매니저 자주 쓰는 기능 — 메뉴 맨 위 고정.
+       매니저 피드백: "급할 때 쓰는 기능이 목록 맨 위에 있어야 한다. 일부는 아래쪽에 있다.
+       매일 하는 일들이라 찾기 쉬워야 한다." → 요청한 5가지를 순서 그대로 고정 배치.
+       기존 메뉴 구조는 건드리지 않았다(다른 담당자 화면이 바뀌지 않게). 여기는 바로가기일 뿐이다. -->
+  <div id="ph161-quick" style="margin:2px 0 12px;border:1px solid rgba(251,191,36,0.45);border-radius:12px;background:rgba(251,191,36,0.08);overflow:hidden">
+    <div style="padding:8px 12px;font-size:11px;font-weight:900;letter-spacing:.3px;color:#fbbf24;border-bottom:1px solid rgba(251,191,36,0.25)"
+         data-ko="⚡ 자주 쓰는 기능" data-en="⚡ Quick access">⚡ 자주 쓰는 기능</div>
+    <div id="ph161-quick-items"></div>
+  </div>
 
   <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report,card-comparison-report">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
@@ -20941,6 +21005,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 </body>
 </html>

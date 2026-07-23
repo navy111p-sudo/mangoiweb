@@ -140,6 +140,7 @@
   #fireBtn.on{display:flex}
   #fireBtn:active{transform:scale(.8)}
 </style>
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script src="/js/i18n-sweep.js?v=9" defer></script>
 </head>
 <body>
@@ -957,6 +958,9 @@ function listenOnce(cb){ var SR=window.SpeechRecognition||window.webkitSpeechRec
     arm(); };
   rec.onerror=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
   rec.onend=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
+  /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
+     그 종료를 "말을 마쳤다"로 보고 채점하면 조각으로 채점된다 → stop() 을 안 불렀으면 다시 듣는다. */
+  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec, { isDone: function(){ return done; }, onRestart: arm }); }catch(_h){}
   try{ rec.start(); }catch(_){ finish(false,''); return; }
   // ⏱ 무이벤트 워치독: 9초간 onstart/onresult가 전혀 없으면(마이크 권한 멈춤 등) 종료 — 말하는 중엔 절대 안 끊음
   setTimeout(function(){ if(!_started && !done) finish(matched, best); }, 9000); }
@@ -1289,6 +1293,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 </body>
 </html>

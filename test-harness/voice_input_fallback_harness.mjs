@@ -139,6 +139,33 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
   check(`${f} — 마이크 권한 꺼짐 안내 존재`, /마이크 권한이 꺼져 있어요/.test(h));
 }
 
+/* ══ 3-B. 고정 시간 녹음 폐기 — 말이 끝날 때까지 듣는가 ══
+   micro-quiz·vocab 은 **3초 고정 녹음**이라 아이가 조금만 뜸들이면 말이 통째로 잘렸다. */
+console.log('\n▶ 고정 시간 녹음 폐기 (micro-quiz · vocab)');
+for (const f of ['micro-quiz.html', 'vocab.html']) {
+  const h = readFileSync(join(PUB, f), 'utf8');
+  check(`${f} — 3초 고정 녹음이 사라짐`,
+        !/setTimeout\(res,\s*3000\)/.test(h), '아직 3초 고정 녹음이 남아 있음');
+  check(`${f} — 공용 녹음 모듈 사용(말 끝나면 종료)`, /MangoiVoice\.record\(/.test(h));
+  check(`${f} — 폴백 모듈을 불러옴`, /mangoi-voice-input\.js/.test(h));
+  check(`${f} — 안내 문구에서 "3초" 제거`, !/말하기 \(3초\)|Tap & speak \(3s\)/.test(h));
+}
+
+/* ══ 3-C. 따라 말하기 — AI 낭독 중에 마이크를 켜지 않는가 ══ */
+console.log('\n▶ 따라 말하기: AI 목소리를 받아 적지 않게');
+for (const f of ['index.html', 'student-games.html']) {
+  const h = readFileSync(join(PUB, f), 'utf8');
+  check(`${f} — gameSpeak 이 낭독 종료(onend)를 넘겨줌`,
+        /window\.gameSpeak = function\(text, onend\)/.test(h));
+  check(`${f} — 850ms 고정으로 마이크를 켜지 않음`,
+        !/gameSpeak\(text\); \}catch\(_\)\{\}\s*\n\s*var SR=/.test(h));
+  check(`${f} — 낭독이 끝난 뒤 시작(_afterSpeak)`, /_afterSpeak/.test(h));
+  /* 음성인식이 없는 환경(앱 WebView·카톡 인앱)에서도 발음 채점을 받아야 한다.
+     예전 index.html 은 "잘 듣고 따라 말해보세요"만 띄우고 넘어가 채점이 아예 없었다. */
+  check(`${f} — 음성인식 없으면 녹음+Whisper 로 채점`, /_shadowViaWhisper\(text, fb\)/.test(h));
+  check(`${f} — 폴백 모듈을 불러옴`, /mangoi-voice-input\.js/.test(h));
+}
+
 /* ══ 4. 에코 차단 — 마이크 켜기 전에 클라우드 낭독을 끄는가 ══ */
 console.log('\n▶ AI 목소리를 마이크가 받아 적지 않게 (에코 차단)');
 {

@@ -249,19 +249,45 @@ export async function enrollCreateSchedules(env: any, order: any, orderId: strin
 
 /* ═══════════════ 2단계: 현재 수강 현황 · 연장 ═══════════════ */
 
+/** 요일 집합이 판매 중인 주 횟수(1/2/3/5회)인지 */
+export function isValidWeekly(n: number): boolean { return ENROLL_WEEKLY.includes(n); }
+
+/**
+ * 수업 요일 패턴 추정 — ⚠️ 연장은 보통 "수업이 1~2회 남았을 때" 한다.
+ *   그때 남은 수업만 보면 주2회(월·수) 학생이 수요일 1건만 남아 주1회로 오판 → 요금·회차가 틀어진다.
+ *   그래서 ①최근 과거 14일 + 미래 전체 로 먼저 추정하고, 그래도 유효하지 않으면 ②미래만으로 재시도한다.
+ *   둘 다 유효하지 않으면(예: 도중에 요일을 바꿔 4일이 섞임) 추정하지 않고 신규 신청으로 안내한다.
+ */
+export function inferWeeklyDays(pastAndFuture: string[], futureOnly: string[]): number[] | null {
+  const dows = (list: string[]) => [...new Set(list.map((d) => new Date(d + 'T00:00:00Z').getUTCDay()))].sort((a, b) => a - b);
+  const wide = dows(pastAndFuture);
+  if (isValidWeekly(wide.length)) return wide;
+  // 넓은 창이 오염된 경우(도중에 요일을 바꿈)에만 미래로 재시도한다.
+  // ⚠️ 단, 미래가 최소 한 주 이상 뻗어 있어야 패턴으로 믿는다 — 1~2건만 남은 시점에
+  //    미래만 보면 주2회 학생을 주1회로 오판하는 같은 함정에 다시 빠진다.
+  if (futureOnly.length >= 2 && daysBetween(futureOnly[0], futureOnly[futureOnly.length - 1]) >= 7) {
+    const narrow = dows(futureOnly);
+    if (isValidWeekly(narrow.length)) return narrow;
+  }
+  return null;
+}
+
 /** 학생의 현재 수강 상태 요약 (남은 회차·마지막 수업일·요일·시간·강사) */
 async function currentEnrollment(env: any, uid: string): Promise<any> {
   const today = kstToday();
+  const since = addDays(today, -14);   // 요일 패턴 추정용 과거 창(연장 시점엔 미래가 거의 없다)
   const rs: any = await env.DB.prepare(
     `SELECT scheduled_date, start_time, COALESCE(duration_min,20) AS dm, teacher_id, source
      FROM class_schedules
      WHERE user_id = ? AND status = 'active' AND scheduled_date IS NOT NULL AND scheduled_date >= ?
      ORDER BY scheduled_date ASC LIMIT 400`
-  ).bind(uid, today).all();
-  const rows = ((rs?.results as any[]) || []);
-  if (!rows.length) return { active: false, remaining: 0 };
-  const last = rows[rows.length - 1];
-  const days = [...new Set(rows.map((r) => new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay()))].sort();
+  ).bind(uid, since).all();
+  const all = ((rs?.results as any[]) || []);
+  const future = all.filter((r) => String(r.scheduled_date) >= today);
+  if (!future.length) return { active: false, remaining: 0 };
+
+  const last = future[future.length - 1];
+  const days = inferWeeklyDays(all.map((r) => String(r.scheduled_date)), future.map((r) => String(r.scheduled_date)));
   let teacherName = '';
   try {
     const t: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`).bind(String(last.teacher_id)).first();
@@ -269,10 +295,11 @@ async function currentEnrollment(env: any, uid: string): Promise<any> {
   } catch (_) {}
   return {
     active: true,
-    remaining: rows.length,
-    next_date: String(rows[0].scheduled_date),
+    remaining: future.length,
+    next_date: String(future[0].scheduled_date),
     last_date: String(last.scheduled_date),
-    days,
+    days: days || [],
+    days_resolved: !!days,               // false 면 화면이 연장 카드를 숨기고 신규 신청으로 안내
     time: String(last.start_time || ''),
     minutes: Number(last.dm) || 20,
     teacher_id: String(last.teacher_id || ''),
@@ -539,7 +566,10 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const months = Number(body.months || 0);
     if (!ENROLL_MONTHS.includes(months)) return json({ ok: false, error: 'bad_months' }, 400);
     const weekly = cur.days.length;
-    if (!ENROLL_WEEKLY.includes(weekly)) return json({ ok: false, error: 'weekly_unresolved', message: '현재 수업 요일을 확인할 수 없습니다. 새로 신청해 주세요.' }, 400);
+    // ⚠️ 요일 패턴을 확신할 수 없으면 절대 추측해서 청구하지 않는다(잘못된 금액·회차 방지).
+    if (!cur.days_resolved || !ENROLL_WEEKLY.includes(weekly)) {
+      return json({ ok: false, error: 'weekly_unresolved', message: '현재 수업 요일을 확인할 수 없습니다. 새로 신청해 주세요.' }, 400);
+    }
 
     const p = {
       weekly, months, minutes: cur.minutes, time: cur.time,

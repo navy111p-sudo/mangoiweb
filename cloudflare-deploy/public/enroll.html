@@ -272,8 +272,9 @@
     .then(function(r){return r.json();}).then(function(d){
       if (!d || !d.ok || !d.current || !d.current.active) return;
       CUR = d.current;
-      var wk = CUR.days.length;
-      if (!(wk===1||wk===2||wk===3||wk===5)) return;   // 규칙 밖이면 신규 신청으로 유도
+      var wk = (CUR.days||[]).length;
+      // 요일 패턴을 서버가 확신하지 못하면(중간에 요일 변경 등) 연장 카드를 숨기고 신규 신청으로 유도
+      if (!CUR.days_resolved || !(wk===1||wk===2||wk===3||wk===5)) return;
       el('renewInfo').innerHTML =
         '👩‍🏫 <b>'+esc(CUR.teacher_name||'담당 선생님')+'</b> · '
         + CUR.days.map(function(i){ return DN2[i]; }).join('·') + ' ' + esc(CUR.time) + ' (' + CUR.minutes + '분)<br>'
@@ -309,6 +310,6 @@
 </script>
 <script src="/js/i18n-sweep.js?v=5" defer></script>
 <script src="/js/ux-track.js?v=1" defer></script>
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 </body>
 </html>

@@ -9,6 +9,76 @@
 
   // 👁 Ghost
   let _curObsId = null;
+
+  /* 🔴 (2026-07-23) 진행 중인 수업 목록 — 매니저가 강의실 ID 를 몰라도 바로 참관/입장.
+     기존 /api/active-rooms 를 그대로 쓴다(신규 API 없음).
+     줄을 누르면 강의실 ID 칸이 채워지고, 버튼으로 참관 또는 직접 입장까지 이어진다. */
+  function _ghIsEn(){ try { return localStorage.getItem('adminLang') === 'en'; } catch(e){ return false; } }
+  window.ghPickRoom = function(roomId){
+    const el = $('gh-room-id');
+    if (!el) return;
+    el.value = roomId;
+    el.focus();
+    try { el.style.outline = '2px solid #8b5cf6'; setTimeout(function(){ el.style.outline = ''; }, 1200); } catch(e){}
+  };
+  /* 🚪 매니저 직접 입장 — 강사가 못 들어왔을 때 대신 수업을 맡기 위한 통로.
+     참관(ghost)과 달리 실제 참가자로 들어간다. 새 창으로 열어 관리자 화면은 그대로 둔다. */
+  window.ghEnterRoom = function(roomId){
+    const en = _ghIsEn();
+    const msg = en ? ('Enter class "' + roomId + '" as a participant?\n(Students and the teacher will see you.)')
+                   : ('수업 "' + roomId + '" 에 직접 입장할까요?\n(참관이 아니라 실제 참가자로 들어갑니다 — 학생·강사에게 보입니다.)');
+    if (!confirm(msg)) return;
+    const url = location.origin + '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
+    window.open(url, '_blank', 'noopener');
+  };
+  window.ghLoadLive = async function(){
+    const box = $('gh-live-list'), cnt = $('gh-live-count');
+    const en = _ghIsEn();
+    if (!box) return;
+    box.textContent = en ? 'Loading…' : '불러오는 중…';
+    try {
+      const r = await fetch('/api/active-rooms', { credentials: 'include' });
+      const rooms = await r.json();
+      if (!Array.isArray(rooms) || !rooms.length) {
+        box.innerHTML = '<div style="padding:10px 0;color:#94a3b8">'
+          + (en ? 'No classes in progress right now.' : '지금 진행 중인 수업이 없습니다.') + '</div>';
+        if (cnt) cnt.textContent = '';
+        return;
+      }
+      if (cnt) cnt.textContent = en ? ('· ' + rooms.length + ' room(s)') : ('· ' + rooms.length + '개 방');
+      box.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+        + '<thead><tr style="color:#94a3b8;text-align:left">'
+        +   '<th style="padding:6px 8px">' + (en ? 'Room' : '강의실') + '</th>'
+        +   '<th style="padding:6px 8px">' + (en ? 'People' : '인원') + '</th>'
+        +   '<th style="padding:6px 8px">' + (en ? 'Participants' : '참가자') + '</th>'
+        +   '<th style="padding:6px 8px">' + (en ? 'Action' : '액션') + '</th>'
+        + '</tr></thead><tbody>'
+        + rooms.map(function(rm){
+            const names = (rm.users || []).map(function(u){ return esc(u.username); }).join(', ') || '-';
+            const rid = esc(rm.roomId);
+            const ridAttr = encodeURIComponent(rm.roomId);
+            /* 👤 한 명뿐이면 상대가 아직 안 들어온 상태 — 매니저가 가장 먼저 봐야 할 줄이라 표시 */
+            const alone = (rm.userCount === 1)
+              ? ' <span style="color:#fbbf24;font-weight:800">' + (en ? '⚠ waiting alone' : '⚠ 혼자 대기중') + '</span>' : '';
+            return '<tr style="border-top:1px solid rgba(255,255,255,0.06)">'
+              + '<td style="padding:6px 8px"><code style="color:#c4b5fd">' + rid + '</code>' + alone + '</td>'
+              + '<td style="padding:6px 8px">' + (rm.userCount || 0) + '</td>'
+              + '<td style="padding:6px 8px;color:#cbd5e1">' + names + '</td>'
+              + '<td style="padding:6px 8px;white-space:nowrap">'
+              +   '<button type="button" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+              +     'style="padding:4px 10px;font-size:11.5px;margin-right:4px;background:rgba(139,92,246,0.22);color:#ddd6fe;border:1px solid rgba(139,92,246,0.5);border-radius:6px;font-weight:700;cursor:pointer">'
+              +     (en ? '👁 Select' : '👁 참관 선택') + '</button>'
+              +   '<button type="button" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+              +     'style="padding:4px 10px;font-size:11.5px;background:rgba(16,185,129,0.22);color:#a7f3d0;border:1px solid rgba(16,185,129,0.5);border-radius:6px;font-weight:700;cursor:pointer">'
+              +     (en ? '🚪 Enter' : '🚪 직접 입장') + '</button>'
+              + '</td></tr>';
+          }).join('')
+        + '</tbody></table>';
+    } catch(e) {
+      box.innerHTML = '<div style="padding:10px 0;color:#fca5a5">⚠ ' + esc(e.message || e) + '</div>';
+    }
+  };
+
   window.ghStart = async function(){
     const admin_uid = v('gh-admin-uid'), room_id = v('gh-room-id'), reason = v('gh-reason');
     if (!admin_uid || !room_id || !reason) { alert('관리자 UID, 강의실 ID, 사유 모두 필수입니다'); return; }

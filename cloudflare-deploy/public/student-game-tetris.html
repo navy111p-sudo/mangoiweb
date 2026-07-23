@@ -284,6 +284,7 @@
     .rbtn small{ font-size:10px; }
   }
 </style>
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script src="/js/i18n-sweep.js?v=9" defer></script>
 </head>
 <body>
@@ -749,6 +750,9 @@ function spkRecord(){
   function spkAfter(){ mic.disabled=false; SPK.attempt++;
     if(SPK.attempt>=3){ setTimeout(spkFinish, 900); }
     else { st.textContent='🎤 좋아요! 한 번 더 따라 말해요'; spkUpdateBtn(); } }
+  /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
+     그 종료를 "말을 마쳤다"로 보고 채점하면 조각으로 채점된다 → stop() 을 안 불렀으면 다시 듣는다. */
+  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(r, { isDone: function(){ return got; }, onRestart: arm }); }catch(_h){}
   try{ r.start(); }catch(_){ mic.disabled=false; sc.textContent='🎤 마이크를 허용해 주세요'; }
 }
 function spkFinish(){
@@ -1285,6 +1289,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 </body>
 </html>

@@ -1630,6 +1630,76 @@ export async function handleAdminApi(
       return json({ ok: true, id, status: action, applied, decided_at: now });
     }
 
+    // ── GET /api/admin/classes/today — 📅 오늘 수업 전체 (매니저용) ──
+    //   (2026-07-23) 매니저 요청: "오늘의 수업에서 바로 수업에 들어갈 수 있어야 한다.
+    //   강사가 못 들어오면 매니저가 최대한 빨리 대신 맡는다."
+    //   기존엔 '오늘 수업' 목록이 학생/강사 본인용(/api/class/today)뿐이라 매니저가 볼 방법이 없었다.
+    //   room_id 규칙은 예약 기반 결정론 `class-{scheduleId}-{YYYYMMDD}` 로 api-mango.ts 와 동일해야 한다
+    //   (다르면 매니저가 학생과 다른 방에 들어가 서로 못 만난다).
+    if (method === 'GET' && path === '/api/admin/classes/today') {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id TEXT, student_name TEXT, schedule_kind TEXT, day_of_week INTEGER, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, status TEXT);`); } catch {}
+
+      const KST = 9 * 60 * 60 * 1000;
+      const nowMs = Date.now();
+      const k = new Date(nowMs + KST);                       // KST 벽시계
+      const kY = k.getUTCFullYear(), kMo = k.getUTCMonth(), kD = k.getUTCDate();
+      const kDow = k.getUTCDay();
+      const p2 = (n: number) => String(n).padStart(2, '0');
+      const todayStr = `${kY}-${p2(kMo + 1)}-${p2(kD)}`;
+      const ymd = `${kY}${p2(kMo + 1)}${p2(kD)}`;
+      const OPEN_BEFORE = 10 * 60 * 1000;                    // 시작 10분 전부터 입장 가능
+      const LATE_AFTER = 15 * 60 * 1000;                     // 종료 15분 후까지 지각 입장 허용
+
+      let rows: any = { results: [] };
+      try {
+        rows = await env.DB.prepare(
+          `SELECT cs.*, t.name AS t_name FROM class_schedules cs
+             LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+            WHERE COALESCE(cs.status,'active') != 'cancelled'`
+        ).all<any>();
+      } catch {
+        rows = await env.DB.prepare(
+          `SELECT * FROM class_schedules WHERE COALESCE(status,'active') != 'cancelled'`
+        ).all<any>().catch(() => ({ results: [] } as any));
+      }
+
+      const sessions: any[] = [];
+      for (const s of (rows.results || [])) {
+        // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
+        let occurs = false;
+        if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === todayStr);
+        else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow);
+        if (!occurs) continue;
+
+        const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+        const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;
+        const dur = Number(s.duration_min || s.duration_minutes) || 30;
+        const end_ts = start_ts + dur * 60000;
+        const open_at_ts = start_ts - OPEN_BEFORE;
+        const close_at_ts = end_ts + LATE_AFTER;
+        let status: string;
+        if (nowMs < open_at_ts) status = 'early';
+        else if (nowMs < start_ts) status = 'open';
+        else if (nowMs <= close_at_ts) status = 'live';
+        else status = 'ended';
+
+        sessions.push({
+          schedule_id: s.id,
+          room_id: `class-${s.id}-${ymd}`,
+          student_uid: s.user_id || null,
+          student_name: s.student_name || null,
+          teacher_id: s.teacher_id || null,
+          teacher_name: s.t_name || s.teacher_name || null,
+          start_time: s.start_time || null,
+          duration_min: dur,
+          start_ts, end_ts, status,
+          join_open: nowMs >= open_at_ts && nowMs <= close_at_ts,
+        });
+      }
+      sessions.sort((a, b) => a.start_ts - b.start_ts);
+      return json({ ok: true, today: todayStr, now: nowMs, count: sessions.length, sessions });
+    }
+
     // ── GET /api/admin/class-audit — 수업 변경 이력(연기/삭제/종료/이동) 조회 ──
     //   query: action(all|postpone|reschedule|remove|end), teacher_name, from(ms), to(ms), limit
     //   강사 로그인은 본인 수업 이력만.

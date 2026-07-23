@@ -388,6 +388,8 @@
     #vocab-src-badge{font-size:13px!important;padding:6px 14px!important;max-width:100%}
   }
 </style>
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<script src="/js/mangoi-voice-input.js?v=1"></script><!-- 🎤 미지원 브라우저용 녹음+Whisper 전사 -->
 <script src="/js/i18n-sweep.js?v=9" defer></script>
 </head>
 <body>
@@ -1638,10 +1640,12 @@ function _gamePickVoice(){
 }
 try{ if(window.speechSynthesis){ _gamePickVoice(); window.speechSynthesis.onvoiceschanged=_gamePickVoice; } }catch(_){}
 // 🔊 원어민 발음: 클라우드 TTS(Deepgram Aura-1, game-tts.js) 우선 → 실패 시 브라우저 보이스 폴백
-window.gameSpeak = function(text){ try{ if(!text) return;
+window.gameSpeak = function(text, onend){ try{ if(!text){ if(onend) onend(); return; }
   var _rate = 1;   // 🔊 발음(말)은 난이도와 무관하게 항상 평상시 속도 — 난이도는 풍선 낙하 속도만 조절
-  if(window.MangoiTTS){ MangoiTTS.speak(text, _rate); return; }
-  if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=Math.max(0.5,Math.min(3,0.95*_rate)); u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){} };
+  // 🔊 (2026-07-23) onend 를 통과시킨다 — 따라 말하기가 "낭독이 끝난 뒤"에 마이크를 켜야
+  //    AI 목소리를 학생 발화로 받아 적지 않는다. 기존 호출부(인자 1개)는 그대로 동작.
+  if(window.MangoiTTS){ MangoiTTS.speak(text, _rate, onend||null); return; }
+  if(!_gameEnVoice) _gamePickVoice(); var u=new SpeechSynthesisUtterance(String(text)); u.lang=(_gameEnVoice&&_gameEnVoice.lang)||'en-US'; u.rate=Math.max(0.5,Math.min(3,0.95*_rate)); u.pitch=1.02; if(_gameEnVoice) u.voice=_gameEnVoice; if(onend){ var _f=false, _fin=function(){ if(!_f){ _f=true; onend(); } }; u.onend=_fin; u.onerror=_fin; setTimeout(_fin, 6000); } window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);}catch(_){ if(onend) onend(); } };
 // 🔊 라운드 시작 자동 2회 듣기 — 문장/단어가 나오면 무조건 먼저 두 번 들려줌 (들어야 맞추니까)
 window.gameSpeakTwice = function(text){ try{ if(!text) return;
   if(window.MangoiTTS){ MangoiTTS.speak(text, null, function(){ setTimeout(function(){ try{ MangoiTTS.speak(text); }catch(_){} }, 380); }); return; }
@@ -1679,56 +1683,48 @@ function _shadowResult(sc, text){
   try{ var s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text, (s&&s.ko)||'', sc); }catch(_){}
   _gameState._advTimer=setTimeout(gameNextRound,1700);
 }
-// MediaRecorder → 서버 Whisper 전사 → 채점 (SpeechRecognition 미지원 브라우저: 사파리/iOS 등)
+/* 🎤 음성인식 미지원 브라우저(앱 WebView·카카오 인앱·구형 iOS) → 녹음 → 서버 Whisper 전사 → 채점.
+   (2026-07-23) 같은 로직이 여러 화면에 흩어져 있어 공용 모듈 js/mangoi-voice-input.js 로 통일.
+   녹음 길이는 우리가 통제한다: 말을 시작할 때까지 기다렸다가, 말이 끝나고 조용해지면 종료. */
 function _shadowViaWhisper(text, fb){
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){
-    if(fb) fb.innerHTML='<span style="color:#38bdf8">🔊 잘 듣고 소리내어 따라 말해보세요!</span>'; _gameState._advTimer=setTimeout(gameNextRound,2400); return;
-  }
-  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-    var mr, chunks=[]; try{ mr=new MediaRecorder(stream); }catch(_){ mr=new MediaRecorder(stream,{mimeType:'audio/webm'}); }
-    if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (녹음 중)</span>';
-    mr.ondataavailable=function(e){ if(e.data && e.data.size) chunks.push(e.data); };
-    mr.onstop=function(){
-      try{ stream.getTracks().forEach(function(t){ t.stop(); }); }catch(_){}
-      var blob=new Blob(chunks, {type:(chunks[0]&&chunks[0].type)||'audio/webm'});
-      if(!blob.size){ _gameState._advTimer=setTimeout(gameNextRound,1500); return; }
-      if(fb) fb.innerHTML='<span style="color:#94a3b8">🎧 발음 확인 중…</span>';
-      var fd=new FormData(); fd.append('audio', blob, 'shadow.webm');
-      fetch('/api/voice/transcribe', { method:'POST', body:fd })
-        .then(function(r){ return r.ok?r.json():null; })
-        .then(function(d){
-          if(!d || !d.ok){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1400); return; }
-          _shadowResult(_shadowScore(d.text||'', text), text);
-        }).catch(function(){ _gameState._advTimer=setTimeout(gameNextRound,1400); });
-    };
-    mr.start();
-    // 🎤 4.2초 고정 종료 대신, 말이 끝나고 잠깐(1.2초) 조용해지면 멈춤 + 최대 9초 안전 상한(긴 문장 지원).
-    (function(){
-      var stopped=false, stopRec=function(){ if(stopped)return; stopped=true; try{ mr.stop(); }catch(_){} };
-      var maxT=setTimeout(stopRec, 9000);
-      try{
-        var AC=window.AudioContext||window.webkitAudioContext, ac=new AC();
-        var srcN=ac.createMediaStreamSource(stream), an=ac.createAnalyser(); an.fftSize=512; srcN.connect(an);
-        var buf=new Uint8Array(an.fftSize), spoke=false, silence=0, t0=Date.now();
-        var iv=setInterval(function(){
-          if(stopped){ clearInterval(iv); clearTimeout(maxT); try{ac.close();}catch(_){}; return; }
-          an.getByteTimeDomainData(buf); var peak=0; for(var i=0;i<buf.length;i++){ var v=Math.abs(buf[i]-128); if(v>peak)peak=v; }
-          if(peak>8){ spoke=true; silence=0; } else if(spoke){ silence+=100; }
-          if(spoke && silence>=1200 && (Date.now()-t0)>1000){ clearInterval(iv); clearTimeout(maxT); try{ac.close();}catch(_){}; stopRec(); }
-        }, 100);
-      }catch(_){ /* WebAudio 불가 → 9초 상한 타이머로 종료 */ }
-    })();
-  }).catch(function(){ if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크 권한이 필요해요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1600); });
+  var giveUp=function(msg){
+    if(fb) fb.innerHTML='<span style="color:#38bdf8">'+(msg||'🔊 잘 듣고 소리내어 따라 말해보세요!')+'</span>';
+    _gameState._advTimer=setTimeout(gameNextRound,2400);
+  };
+  if(!window.MangoiVoice || !MangoiVoice.supported()){ giveUp(); return; }
+  MangoiVoice.record({
+    firstMs:9000, silenceMs:2000, maxMs:15000,
+    onState:function(st){
+      if(!fb) return;
+      if(st==='waiting')       fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (천천히 해도 괜찮아요)</span>';
+      else if(st==='speaking') fb.innerHTML='<span style="color:#fbbf24">🎤 듣고 있어요…</span>';
+      else if(st==='thinking') fb.innerHTML='<span style="color:#94a3b8">🎧 발음 확인 중…</span>';
+      else if(st==='error')    fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>';
+    }
+  }).then(function(said){
+    if(!said){ _gameState._advTimer=setTimeout(gameNextRound,1500); return; }
+    _shadowResult(_shadowScore(said, text), text);
+  })['catch'](function(){ _gameState._advTimer=setTimeout(gameNextRound,1500); });
 }
 function gameShadow(enc){
   var text=decodeURIComponent(enc);
   var fb=document.getElementById('game-feedback');
   if(_gameState._advTimer){ clearTimeout(_gameState._advTimer); _gameState._advTimer=null; }   // 자동 넘어감 취소
-  try{ window.gameSpeak && gameSpeak(text); }catch(_){}
+  /* 🔇 (2026-07-23) 예전에는 낭독 시작 850ms 뒤에 무조건 마이크를 켰다.
+     → AI가 정답 문장을 읽는 도중에 마이크가 열려, 음성인식이 **AI 목소리를 학생 발화로**
+       받아 적었다(말도 안 했는데 통과되거나, 학생 말과 뒤섞임).
+     이제 낭독이 끝나면 시작하고, 낭독 종료 신호가 유실될 때를 대비해 상한도 둔다. */
+  var _shadowGo=null, _shadowFired=false;
+  var _afterSpeak=function(){ if(_shadowFired) return; _shadowFired=true;
+    try{ if(window.MangoiTTS && MangoiTTS.stop) MangoiTTS.stop(); }catch(_){}   // 혹시 남은 낭독 정지
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
+    if(_shadowGo) _shadowGo(); };
+  try{ window.gameSpeak && gameSpeak(text, function(){ setTimeout(_afterSpeak, 250); }); }catch(_){}
+  setTimeout(_afterSpeak, Math.max(3000, String(text).length*120));   // 낭독 종료 신호 유실 대비 상한
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  // 미지원 브라우저(사파리/iOS 등) → MediaRecorder + 서버 Whisper 로 채점
-  if(!SR){ setTimeout(function(){ _shadowViaWhisper(text, fb); }, 850); return; }
-  setTimeout(function(){
+  // 미지원 브라우저(앱 WebView·카톡 인앱·사파리) → 녹음 + 서버 Whisper 로 채점 (낭독이 끝난 뒤에)
+  if(!SR){ _shadowGo=function(){ _shadowViaWhisper(text, fb); }; return; }
+  _shadowGo=function(){
     try{
       // 🎤 말 중간에 숨 쉬어도 안 끊기게: continuous=true + 침묵 감시(4.5초 강제 종료 제거).
       var rec=new SR(); rec.lang=(GAME_LANG==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
@@ -1744,9 +1740,12 @@ function gameShadow(enc){
       };
       rec.onerror=function(){ if(_sil)clearTimeout(_sil); if(!done){ done=true; if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
       rec.onend=function(){ if(_sil)clearTimeout(_sil); if(!done){ if(said.trim()) evaluate(); else if(!_gameState._advTimer) _gameState._advTimer=setTimeout(gameNextRound,1500); } };
+      /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
+         그 종료를 "말을 마쳤다"로 보고 채점하면 조각으로 채점된다 → stop() 을 안 불렀으면 다시 듣는다. */
+      try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec, { isDone: function(){ return done; }, onRestart: arm }); }catch(_h){}
       rec.start();
     }catch(_){ _gameState._advTimer=setTimeout(gameNextRound,1700); }
-  }, 850);
+  };
 }
 
 /* ============================================================
@@ -2418,7 +2417,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 <script defer src="/js/flow.js?v=6"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

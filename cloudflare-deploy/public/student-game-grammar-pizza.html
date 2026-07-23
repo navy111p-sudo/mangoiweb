@@ -313,6 +313,7 @@
   }
   .lv-btn.on{background:linear-gradient(180deg,var(--mango-orange),var(--mango-deep)); color:#fff; border-color:#c05f00;}
 </style>
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script src="/js/i18n-sweep.js?v=9" defer></script>
 </head>
 <body>
@@ -745,7 +746,11 @@ var recognition = null, listening = false;
 if(SR){
   recognition = new SR();
   recognition.lang = TTS_LANG;
-  recognition.interimResults = false;
+  /* 🎤 (2026-07-23) 예전에는 단발 인식(continuous 기본값 false)이라 브라우저가 말 중간 짧은
+     침묵만으로 끝내 버렸다("한두 마디 하면 꺼진다"). continuous=true 로 자동종료를 막고,
+     말이 끝나고 조용해지면 아래 침묵 감시 타이머로 우리가 종료한다. */
+  recognition.interimResults = true;
+  recognition.continuous = true;
   recognition.maxAlternatives = 3;
 }
 function norm(s){
@@ -1049,35 +1054,84 @@ $('btn-speak').onclick = function(){
   listening = true;
   $('btn-speak').textContent = '👂 듣는 중...';
   $('speech-result').textContent = '';
-  recognition.onresult = function(e){
-    var said = e.results[0][0].transcript;
-    if(matchScore(said, sentenceText()) >= 0.7){
-      speakSuccess();
-    } else {
-      // ❌ 틀리면: 정답 문장을 자동으로 다시 들려주고 → 다시 말하기
-      $('speech-result').textContent = '들린 말: "' + said + '" — 정답 문장을 다시 들려줄게요!';
-      toast('🔊 잘 듣고 다시 따라해 보세요!');
-      $('btn-speak').disabled = true;
-      var reEnabled = false;
-      var reEnable = function(){
-        if(reEnabled) return;
-        reEnabled = true;
-        $('btn-speak').disabled = false;
-        $('speech-result').textContent = '👂 들었죠? 이제 🎤 말하기를 눌러 다시 따라해 보세요!';
-      };
-      setTimeout(function(){ speak(sentenceText(), reEnable); }, 600);
-      setTimeout(reEnable, 9000);   // TTS 이벤트 유실 대비 안전 복구
+  /* 🎤 (2026-07-23) 예전에는 단발 인식(continuous 기본값 false)이라 브라우저가 말 중간 짧은
+     침묵만으로 끝내 버렸고, 첫 조각 하나로 바로 채점했다("한두 마디 하면 꺼진다").
+     → continuous=true 로 브라우저 자동종료를 막고, 말이 끝나고 조용해지면 우리가 종료한다. */
+  var _pzSaid = '', _pzBase = '', _pzGot = false, _pzSil = null;
+  function _pzArm(){
+    if(_pzSil) clearTimeout(_pzSil);
+    // 아직 아무 말도 못 들었으면 넉넉히 기다린다(아이들은 오래 뜸들인다)
+    _pzSil = setTimeout(function(){ try{ recognition.stop(); }catch(e){} }, _pzSaid ? 3000 : 9000);
+  }
+  // 안드로이드는 "지금까지 말한 문장 전체"를 확정 결과로 다시 보낸다(누적형) → 겹치는 만큼 지우고 잇는다
+  function _pzMerge(a, b){
+    a = String(a||'').replace(/\s+/g,' ').trim(); b = String(b||'').replace(/\s+/g,' ').trim();
+    if(!a) return b; if(!b) return a;
+    if(GLANG === 'zh'){                       // 중국어는 띄어쓰기가 없어 글자 단위로 겹침 판정
+      for(var n=Math.min(a.length,b.length); n>0; n--){ if(a.slice(a.length-n) === b.slice(0,n)) return a + b.slice(n); }
+      return a + b;
     }
+    var la=a.toLowerCase().split(' '), lb=b.toLowerCase().split(' '), rb=b.split(' '), k=0;
+    for(var m=Math.min(la.length,lb.length); m>0; m--){
+      if(la.slice(la.length-m).join(' ') === lb.slice(0,m).join(' ')){ k=m; break; }
+    }
+    var rest = rb.slice(k).join(' ');
+    return rest ? a + ' ' + rest : a;
+  }
+  function _pzFail(){
+    // ❌ 틀리면: 정답 문장을 자동으로 다시 들려주고 → 다시 말하기
+    $('speech-result').textContent = '들린 말: "' + _pzSaid + '" — 정답 문장을 다시 들려줄게요!';
+    toast('🔊 잘 듣고 다시 따라해 보세요!');
+    $('btn-speak').disabled = true;
+    var reEnabled = false;
+    var reEnable = function(){
+      if(reEnabled) return;
+      reEnabled = true;
+      $('btn-speak').disabled = false;
+      $('speech-result').textContent = '👂 들었죠? 이제 🎤 말하기를 눌러 다시 따라해 보세요!';
+    };
+    setTimeout(function(){ speak(sentenceText(), reEnable); }, 600);
+    setTimeout(reEnable, 9000);   // TTS 이벤트 유실 대비 안전 복구
+  }
+  recognition.onstart = function(){ _pzArm(); };
+  recognition.onresult = function(e){
+    if(_pzGot) return;
+    var full = '';
+    for(var i=0;i<e.results.length;i++) full = _pzMerge(full, (e.results[i][0]||{}).transcript || '');
+    // 브라우저가 세션을 끊고 다시 시작했으면 앞 세션에서 들은 것(_pzBase) 뒤에 잇는다
+    _pzSaid = _pzMerge(_pzBase, full).trim();
+    $('speech-result').textContent = '🎤 …(듣는 중) "' + _pzSaid + '"';
+    if(matchScore(_pzSaid, sentenceText()) >= 0.7){     // 정답이 들리면 즉시 통과
+      _pzGot = true;
+      if(_pzSil) clearTimeout(_pzSil);
+      try{ recognition.stop(); }catch(e){}
+      speakSuccess();
+      return;
+    }
+    _pzArm();                                            // 아직 아님 → 계속 말할 시간 부여
   };
   recognition.onerror = function(ev){
+    if(ev.error === 'no-speech') return;                 // 보호막이 다시 듣는다
     $('speech-result').textContent = ev.error === 'not-allowed'
       ? '🎤 마이크 권한을 허용해 주세요!'
       : '🎤 잘 안 들렸어요. 다시 눌러 주세요!';
   };
   recognition.onend = function(){
+    if(_pzSil) clearTimeout(_pzSil);
     listening = false;
     $('btn-speak').textContent = '🎤 말하기';
+    if(!_pzGot){                                         // 말이 다 끝났는데 정답이 아니면 그때 판정
+      _pzGot = true;
+      if(_pzSaid) _pzFail();
+      else $('speech-result').textContent = '🎤 소리가 잘 안 들렸어요. 다시 눌러서 또박또박 말해 주세요!';
+    }
   };
+  /* 브라우저가 제멋대로 끊으면(안드로이드) 지금까지 들은 것을 유지한 채 다시 듣는다 */
+  try { if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(recognition, {
+    isDone: function(){ return _pzGot; },
+    beforeRestart: function(){ _pzBase = _pzSaid; },   // 세션이 바뀌어도 지금까지 들은 말 유지
+    onRestart: _pzArm
+  }); } catch(_h){}
   try { recognition.start(); } catch(e){ listening = false; }
 };
 
@@ -1170,6 +1224,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 </body>
 </html>

@@ -61,6 +61,7 @@
             [id^="suspectDesc-"]{font-size:1.5rem !important}
         }
     </style>
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script src="/js/i18n-sweep.js?v=9" defer></script>
 </head>
 <body class="min-h-screen text-white overflow-x-hidden flex flex-col justify-between">
@@ -710,6 +711,15 @@
             recognition.onend = () => {
                 stopSpeechRecognition();
             };
+            /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
+               그 종료를 "말을 마쳤다"로 보면 한두 마디 만에 마이크가 꺼진다.
+               → 우리가 stop() 을 안 불렀으면 계속 듣는다(침묵 타이머는 재시작 때 다시 무장). */
+            try {
+                if (typeof MangoiSTT !== 'undefined') MangoiSTT.harden(recognition, {
+                    isDone: () => !isRecording,
+                    onRestart: () => { try { armSmSilence(); } catch(e){} }
+                });
+            } catch(e){}
         }
 
         function stopSpeechRecognition() {
@@ -1154,6 +1164,6 @@ html{overflow-x:hidden}
 }
 </style>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 </body>
 </html>

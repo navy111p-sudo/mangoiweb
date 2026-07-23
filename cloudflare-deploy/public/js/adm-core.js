@@ -5654,7 +5654,24 @@ const SM_SORT_MAX = 3;
 let _smStudents = [];                                       // 원본 데이터 캐시
 let _smSort = [{ key: 'last_seen', dir: 'desc' }];          // 정렬 배열 (우선순위 순)
 let _smSearch = '';                                         // 🔍 검색어 (학생명·아이디)
+let _smAgency = '';                                         // 🏫 대리점·학원 필터 (빈값 = 전체)
 let _smCountBase = '';                                      // 전체 인원수 라벨 (검색 시 "N명 / 전체" 표시용)
+
+/* 🏫 대리점·학원 드롭다운 채우기 (2026-07-23) — 불러온 학생들의 대리점명(shop_name)에서 자동 생성.
+   서버가 이미 권한 범위로 걸러 보낸 _smStudents 만 쓰므로, 지사 계정엔 자기 대리점만 나온다. */
+function smFillAgencyFilter() {
+  const sel = document.getElementById('sm-agency-filter');
+  if (!sel) return;
+  const names = Array.from(new Set(
+    _smStudents.map(s => String(s.shop_name || '').trim()).filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b, 'ko'));
+  const keep = sel.value;                       // 목록 새로고침해도 고른 값 유지
+  const head = sel.options[0] ? sel.options[0].outerHTML : '<option value="">🏫</option>';
+  sel.innerHTML = head + names.map(n =>
+    '<option value="' + _esc(n) + '">🏫 ' + _esc(n) + '</option>'
+  ).join('');
+  if (keep && names.indexOf(keep) >= 0) sel.value = keep; else { sel.value = ''; _smAgency = ''; }
+}
 
 // 🔒 역할별 데이터 범위 판별 — 지사/대리점/교사/학부모/학생은 자기 범위만
 function mangoiGetDataScope(){
@@ -5762,6 +5779,7 @@ async function loadStudentList() {
   _smCountBase = (_L ? _smStudents.length + ' students' : _smStudents.length + '명')
     + (_dataSource === 'Neo4j' ? (_L ? ' · 🕸️ Graph DB' : ' · 🕸️ 그래프DB 실데이터') : (_L ? ' · D1' : ' · D1'));
   if (cnt) cnt.textContent = _smCountBase;
+  try { smFillAgencyFilter(); } catch (_) {}   // 🏫 대리점·학원 드롭다운 채우기 (2026-07-23)
   renderStudentTable();
 }
 
@@ -5874,20 +5892,24 @@ function renderStudentTable() {
 
   // 🔍 검색 필터 — 학생명·아이디 부분일치 (대소문자 무시)
   const _q = String(_smSearch || '').trim().toLowerCase();
-  const _filtered = _q
-    ? _smStudents.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0)
-    : _smStudents;
+  // 🏫 대리점·학원 필터 (2026-07-23) — 검색어와 함께 걸린다(AND)
+  const _ag = String(_smAgency || '').trim();
+  let _filtered = _smStudents;
+  if (_q) _filtered = _filtered.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0);
+  if (_ag) _filtered = _filtered.filter(s => String(s.shop_name || '').trim() === _ag);
 
-  // 인원수 라벨 — 검색 중이면 "검색 N명 / 전체" 로 표시
+  // 인원수 라벨 — 검색·필터 중이면 "N명 / 전체" 로 표시
   const _cntEl = document.getElementById('sm-students-count');
   if (_cntEl && _smCountBase) {
-    _cntEl.textContent = _q
-      ? (_L ? ('🔍 ' + _filtered.length + ' found / ' + _smCountBase) : ('🔍 검색 ' + _filtered.length + '명 / 전체 ' + _smCountBase))
+    _cntEl.textContent = (_q || _ag)
+      ? (_L ? ('🔍 ' + _filtered.length + ' found / ' + _smCountBase) : ('🔍 ' + _filtered.length + '명 / 전체 ' + _smCountBase))
       : _smCountBase;
   }
 
   if (!_filtered.length) {
-    tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”') + '</td></tr>';
+    const _why = _ag && !_q ? (_L ? 'No students in “' + _esc(_ag) + '”' : '“' + _esc(_ag) + '” 소속 학생이 없습니다')
+                            : (_L ? 'No matching students' : '검색 결과가 없습니다 — “' + _esc(_q) + '”');
+    tb.innerHTML = '<tr><td colspan="19" class="empty">' + _why + '</td></tr>';
     return;
   }
 
@@ -5979,9 +6001,11 @@ function smExportStudentsCsv() {
   const _L = adminLang === 'en';
   if (!_smStudents || !_smStudents.length) { alert(_L ? 'Load the student list first.' : '먼저 “불러오기”로 학생 목록을 불러오세요.'); return; }
   const _q = String(_smSearch || '').trim().toLowerCase();
-  const rows = (_q
-    ? _smStudents.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0)
-    : _smStudents).slice().sort((a, b) => {
+  const _ag = String(_smAgency || '').trim();   // 🏫 화면과 같은 대리점 필터 적용 (2026-07-23)
+  let _pre = _smStudents;
+  if (_q) _pre = _pre.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0);
+  if (_ag) _pre = _pre.filter(s => String(s.shop_name || '').trim() === _ag);
+  const rows = _pre.slice().sort((a, b) => {
       for (const so of _smSort) {
         const k = so.key === 'username' ? '_username_lc' : so.key;
         const va = a[k] != null ? a[k] : '', vb = b[k] != null ? b[k] : '';
@@ -6077,6 +6101,9 @@ document.addEventListener('click', (ev) => {
   // 🔍 학생명·아이디 검색 — 입력 즉시 필터링
   const sr = document.getElementById('sm-student-search');
   if (sr) sr.addEventListener('input', () => { _smSearch = sr.value; renderStudentTable(); });
+  // 🏫 대리점·학원 필터 — 선택 즉시 필터링 (2026-07-23)
+  const af = document.getElementById('sm-agency-filter');
+  if (af) af.addEventListener('change', () => { _smAgency = af.value; renderStudentTable(); });
   // 학생 목록 sub-item 이 펼쳐질 때 첫 1회 자동 로드 (lazy)
   let loaded = false;
   document.querySelectorAll('details.sub-item').forEach(d => {

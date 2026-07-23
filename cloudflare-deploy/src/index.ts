@@ -904,6 +904,8 @@ const worker = {
         path.startsWith('/api/admin/schedule-requests') ||
         // 📜 수업 변경 이력(연기/삭제/종료) 조회·기록
         path === '/api/admin/class-audit' ||
+        // 📅 오늘 수업 전체(매니저용) — 강사 미입장 시 매니저가 바로 대신 입장 (2026-07-23)
+        path === '/api/admin/classes/today' ||
         // 📝 Phase FD — AI 학부모 피드백 초안 + 강사 원클릭 승인
         path.startsWith('/api/admin/feedback-drafts') ||
         path === '/api/admin/payroll/all' ||

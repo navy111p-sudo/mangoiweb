@@ -12,10 +12,17 @@ import { dirname, join } from 'path';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const src = readFileSync(join(root, 'cloudflare-deploy', 'src', 'enroll-ops.ts'), 'utf8');
 
-const names = ['enrollQuoteCalc', 'enrollTimeToMin', 'enrollOverlap', 'enrollDates', 'enrollRefundCalc', 'kstToday', 'addDays', 'daysBetween'];
-let code = '';
+const names = ['enrollQuoteCalc', 'enrollTimeToMin', 'enrollOverlap', 'enrollDates', 'enrollRefundCalc', 'kstToday', 'addDays', 'daysBetween', 'isValidWeekly', 'inferWeeklyDays'];
+// 상수도 원문에서 가져온다(값이 바뀌면 테스트도 같이 따라가게)
+const constMatch = src.match(/export const ENROLL_WEEKLY = \[[^\]]*\];/);
+if (!constMatch) { console.error('FAIL extract ENROLL_WEEKLY'); process.exit(1); }
+let code = constMatch[0].replace(/^export /, '') + '\n';
+
 for (const n of names) {
-  const m = src.match(new RegExp(`export function ${n}[\\s\\S]*?\\n}`));
+  // 한 줄 함수 먼저(예: isValidWeekly) → 없으면 여러 줄 함수. 순서를 바꾸면 한 줄 함수가
+  // 다음 함수까지 통째로 삼켜서 'export' 가 남고 문법 오류가 난다.
+  let m = src.match(new RegExp(`export function ${n}\\([^\\n]*\\{[^\\n]*\\}`))
+       || src.match(new RegExp(`export function ${n}[\\s\\S]*?\\n}`));
   if (!m) { console.error(`FAIL extract ${n}`); process.exit(1); }
   code += m[0]
     .replace(/^export /, '')
@@ -98,6 +105,24 @@ r = fns.enrollRefundCalc(120000, 8, 2, 120000);
 eq('부장님 예시(30,000 4회 중 2회 → 절반) 스케일', [r.listPerSession, r.refund], [15000, 90000]);
 r = fns.enrollRefundCalc(171000, 24, 99, 180000);
 eq('사용 회차가 총 회차보다 커도 0 이하로 안 감', [r.used, r.refund], [24, 0]);
+
+console.log('── 2단계: 연장 시 주 횟수 추정 (실사용 최다 시나리오) ──');
+// 주2회(월·수) 학생이 수요일 1건만 남기고 연장하는 상황 = 가장 흔한 연장 시점
+const past2 = ['2026-07-13', '2026-07-15', '2026-07-20', '2026-07-22'];  // 월수 과거
+eq('🔴버그방지: 남은 1건(수)만 보면 주1회로 오판 → 과거 포함해 주2회로 정정',
+   fns.inferWeeklyDays([...past2, '2026-07-29'], ['2026-07-29']), [1, 3]);
+eq('미래가 충분하면 그대로 주2회', fns.inferWeeklyDays(['2026-07-27', '2026-07-29'], ['2026-07-27', '2026-07-29']), [1, 3]);
+eq('진짜 주1회 학생은 주1회 유지', fns.inferWeeklyDays(['2026-07-13', '2026-07-20', '2026-07-27'], ['2026-07-27']), [1]);
+eq('주5회(월~금)', fns.inferWeeklyDays(['2026-07-27','2026-07-28','2026-07-29','2026-07-30','2026-07-31'], ['2026-07-27']), [1,2,3,4,5]);
+eq('🔴요일 변경으로 4일 섞임 + 미래 1건 → 추정 포기(null). 미래로 폴백하면 같은 오판 재발',
+   fns.inferWeeklyDays(['2026-07-13','2026-07-15','2026-07-21','2026-07-23','2026-07-29'], ['2026-07-29']), null);
+eq('요일 변경했어도 미래가 한 주 이상 뻗어 있으면 새 패턴(화목)으로 인정',
+   fns.inferWeeklyDays(['2026-07-13','2026-07-15','2026-07-28','2026-07-30','2026-08-04','2026-08-06'],
+                       ['2026-07-28','2026-07-30','2026-08-04','2026-08-06']), [2, 4]);
+eq('미래 2건이어도 같은 주 안이면(7일 미만) 추정 포기',
+   fns.inferWeeklyDays(['2026-07-13','2026-07-15','2026-07-21','2026-07-23','2026-07-28','2026-07-30'],
+                       ['2026-07-28','2026-07-30']), null);
+eq('판매 주 횟수 판정: 4회는 상품에 없음', [fns.isValidWeekly(1), fns.isValidWeekly(2), fns.isValidWeekly(4), fns.isValidWeekly(5)], [true, true, false, true]);
 
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — pass ${pass} / fail ${fail}`);
 process.exit(fail === 0 ? 0 : 1);

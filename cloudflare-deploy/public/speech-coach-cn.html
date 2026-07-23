@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260723165504 -->
+<!-- BUILD:20260723183930 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -1208,7 +1208,11 @@ function startRecord(){
   if (recording) { recognition && recognition.stop(); return; }
   recognition = new SR();
   recognition.lang = 'zh-CN';
-  recognition.interimResults = false;
+  /* 🎤 (2026-07-23) 예전에는 단발 인식(continuous 기본값 false)이라 브라우저가 말 중간 짧은
+     침묵만으로 끝내 버렸고, 첫 조각 하나로 바로 채점했다("한두 마디 하면 꺼진다").
+     → continuous=true 로 브라우저 자동종료를 막고, 말이 끝나고 조용해지면 우리가 종료한다. */
+  recognition.interimResults = true;
+  recognition.continuous = true;
   recognition.maxAlternatives = 1;
 
   const btn = document.getElementById('btn-rec');
@@ -1216,22 +1220,59 @@ function startRecord(){
   recording = true;
   document.getElementById('progress').textContent = '🎙 듣고 있어요…';
 
-  recognition.onresult = function(e){
-    const said = e.results[0][0].transcript.trim();
-    const target = document.getElementById('cn-text').textContent.replace(/[,.。?!?!]/g, '').trim();
-    const saidClean = said.replace(/[,.。?!?!]/g, '').trim();
-    let match = 0;
-    for (let i = 0; i < target.length; i++) {
-      if (saidClean.includes(target[i])) match++;
+  var _scSaid = '', _scBase = '', _scDone = false, _scSil = null;
+  /* 말이 끝나고 조용해지면 종료. 아직 한 마디도 못 들었으면 넉넉히 기다린다(아이들은 오래 뜸들인다) */
+  function _scArm(){
+    if (_scSil) clearTimeout(_scSil);
+    _scSil = setTimeout(function(){ try { recognition.stop(); } catch(e){} }, _scSaid ? 2800 : 9000);
+  }
+  /* 안드로이드는 "지금까지 말한 문장 전체"를 확정 결과로 다시 보낸다(누적형).
+     중국어는 띄어쓰기가 없으므로 글자 단위로 겹치는 만큼 지우고 잇는다. */
+  function _scMerge(a, b){
+    a = String(a || '').trim(); b = String(b || '').trim();
+    if (!a) return b; if (!b) return a;
+    for (var n = Math.min(a.length, b.length); n > 0; n--) {
+      if (a.slice(a.length - n) === b.slice(0, n)) return a + b.slice(n);
     }
-    const score = Math.min(100, Math.round((match / target.length) * 100));
-    showResult(score, said);
+    return a + b;
+  }
+  recognition.onstart = function(){ _scArm(); };
+  recognition.onresult = function(e){
+    var full = '';
+    for (var i = 0; i < e.results.length; i++) full = _scMerge(full, (e.results[i][0] || {}).transcript || '');
+    // 브라우저가 세션을 끊고 다시 시작했으면 앞 세션에서 들은 것(_scBase) 뒤에 잇는다
+    _scSaid = _scMerge(_scBase, full).trim();
+    document.getElementById('progress').textContent = '🎙 …(듣는 중) ' + _scSaid;
+    _scArm();                       // 말할 때마다 종료 타이머 리셋 → 계속 말하면 안 끊김
   };
   recognition.onerror = function(e){
+    if (e.error === 'no-speech') return;      // 보호막이 다시 듣는다
+    if (_scSil) clearTimeout(_scSil);
     stopRecord();
     document.getElementById('progress').textContent = '⚠️ 인식 실패: ' + (e.error || 'error');
   };
-  recognition.onend = stopRecord;
+  /* 말이 다 끝난 뒤에 채점한다 — 예전처럼 첫 조각으로 바로 채점하지 않는다 */
+  recognition.onend = function(){
+    if (_scSil) clearTimeout(_scSil);
+    stopRecord();
+    if (_scDone) return;
+    _scDone = true;
+    var said = _scSaid;
+    if (!said) {
+      document.getElementById('progress').textContent = '🎤 소리가 잘 안 들렸어요. 다시 눌러서 또박또박 말해 주세요.';
+      return;
+    }
+    var target = document.getElementById('cn-text').textContent.replace(/[,.。?!?!]/g, '').trim();
+    var saidClean = said.replace(/[,.。?!?!]/g, '').trim();
+    var match = 0;
+    for (var i = 0; i < target.length; i++) {
+      if (saidClean.includes(target[i])) match++;
+    }
+    var score = target.length ? Math.min(100, Math.round((match / target.length) * 100)) : 0;
+    showResult(score, said);
+  };
+  /* 브라우저가 제멋대로 끊으면(안드로이드) 지금까지 들은 것을 유지한 채 다시 듣는다 */
+  try { if (typeof MangoiSTT !== 'undefined') MangoiSTT.harden(recognition, { isDone: function(){ return _scDone; }, beforeRestart: function(){ _scBase = _scSaid; }, onRestart: _scArm }); } catch(e){}
   recognition.start();
 }
 function stopRecord(){
@@ -1335,6 +1376,7 @@ if ('speechSynthesis' in window) speechSynthesis.getVoices();
 
 console.log('[speech-coach-cn] 중국어 발음 교정 활성 — 다락원 마스터 + Lv 1~20 · 반복듣기 v2');
 </script>
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
