@@ -199,9 +199,25 @@
   function fullscreenOn(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function toggleFullscreen(){
     try {
-      if (!fullscreenOn()) { var el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen).call(el); }
-      else { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+      if (!fullscreenOn()) {
+        var el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+        setFullPref(true);
+      } else {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        setFullPref(false);   // 사용자가 껐으면 다음 수업에서 자동 전체화면 하지 않는다
+      }
     } catch(e){ console.warn('[vc-dock] fullscreen', e); }
+  }
+  /* 🖥 (2026-07-23) 전체화면은 기본 켜짐 — 수업에 들어가면 자동으로 들어간다(index.html vcGoFullscreen).
+     여기서는 사용자가 직접 켜고 끈 선택만 기억해 둔다. */
+  function setFullPref(on){
+    try { if (window.vcSetFullscreenPref) window.vcSetFullscreenPref(on);
+          else localStorage.setItem('mangoi_vc_fullscreen', on ? '1' : '0'); } catch(e){}
+  }
+  function savedQuality(){
+    try { if (window.vcGetQuality) return window.vcGetQuality();
+          var v = localStorage.getItem('mangoi_vc_quality');
+          return (v==='auto'||v==='high'||v==='low') ? v : 'low'; } catch(e){ return 'low'; }
   }
   function isLight(){ try { return (window.MangoTheme && MangoTheme.get()==='light'); } catch(e){ return false; } }
   function isEn(){ try { return (typeof window.getLang==='function' && window.getLang()==='en'); } catch(e){ return false; } }
@@ -261,7 +277,7 @@
       '</div>' +
       '<div class="sg-group">' +
         '<div class="sg-gtitle" data-ko="영상 · 녹화" data-en="Video · Recording">영상 · 녹화</div>' +
-        '<div class="sg-row"><label data-ko="영상 화질" data-en="Video quality">영상 화질</label><div class="sg-seg" id="sg-quality"><button data-q="auto" class="on" data-ko="자동" data-en="Auto">자동</button><button data-q="high" data-ko="고" data-en="High">고</button><button data-q="low" data-ko="저" data-en="Low">저</button></div></div>' +
+        '<div class="sg-row"><label data-ko="영상 화질" data-en="Video quality">영상 화질</label><div class="sg-seg" id="sg-quality"><button data-q="auto" data-ko="자동" data-en="Auto">자동</button><button data-q="high" data-ko="고" data-en="High">고</button><button data-q="low" data-ko="저" data-en="Low">저</button></div></div>' +
         '<div class="sg-row"><label data-ko="자동 녹화" data-en="Auto record">자동 녹화</label><div class="sg-sw on" data-act="autorec"></div></div>' +
         '<div class="sg-row"><label data-ko="배경 흐림" data-en="Background blur">배경 흐림</label><div class="sg-sw" data-act="blur"></div></div>' +
       '</div>' +
@@ -313,6 +329,7 @@
     if (!setPop) return;
     setSeg('#sg-theme', 'data-t', isLight()?'light':'dark');
     setSeg('#sg-lang', 'data-l', isEn()?'en':'ko');
+    setSeg('#sg-quality', 'data-q', savedQuality());   // 저장된 화질을 그대로 보여준다
     var f = setPop.querySelector('[data-act="full"]'); if (f) f.classList.toggle('on', fullscreenOn());
   }
   // 설정 팝업 위치 — 도크 위, 화면 중앙 정렬 + 양옆 8px 안으로 클램프(모든 폰 폭에서 안 잘림)

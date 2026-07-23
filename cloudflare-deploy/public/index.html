@@ -8707,6 +8707,13 @@ window.mgIsSlowNet = function(){
             <input id="vc-chat-input" type="text" placeholder="메시지 입력... (@학생명 = 카톡 알림)" data-ko-ph="메시지 입력... (@학생명 = 카톡 알림)" data-en-ph="Type a message... (@name = KakaoTalk push)" onkeydown="if(event.key==='Enter') vcSendChat();" />
             <button onclick="vcSendChat()" data-ko="전송" data-en="Send">전송</button>
         </div>
+        <!-- 🧹 (2026-07-24) 채팅 리셋 — 상담 내용이 다음 수업에 남지 않도록 그 자리에서 지운다.
+             입력창 '아래' 에 둔다(사장님 지시). 실수로 누르지 않게 확인창을 한 번 띄운다. -->
+        <div class="chat-reset-area" style="padding:6px 10px 10px;text-align:center;border-top:1px solid rgba(148,163,184,.14)">
+            <button type="button" onclick="vcResetChat()" title="채팅 지우기 / Clear chat"
+                    style="background:rgba(148,163,184,.12);color:#94a3b8;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer"
+                    data-ko="채팅 지우기" data-en="Clear chat">채팅 지우기</button>
+        </div>
     </div>
 </div>
 
@@ -8788,6 +8795,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
     const MAX_RECONNECT = 10;        // 최대 재연결 시도 횟수 (5→10)
     let reconnectTimer = null;       // 재연결 타이머 ID
     let intentionalClose = false;    // 사용자가 의도적으로 닫았는지 여부
+    let terminated = false;          // 서버가 '재접속해도 소용없음' 을 통보(정원초과·강제종료) — 되돌리지 않는다
     let pingInterval = null;         // keepalive ping 타이머
 
     /* 🇵🇭 (2026-07-24) pong 워치독 — "끊겼는데 끊긴 줄 모르는" 반열림(half-open) 소켓 대응.
@@ -8795,36 +8803,48 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
        경로만 끊는데, 그러면 브라우저는 readyState 를 계속 OPEN 으로 유지한다.
        → onclose 가 영영 안 오고, 이 파일에 쌓아 둔 재연결·복구 장치가 단 하나도 발동하지 않는다.
          (강사 화면은 붙어 있는 것처럼 보이는데 신호는 아무것도 오가지 않는 상태)
-       예전엔 pong 을 받아도 그냥 버렸다(`if (data.type === 'pong') return;`). 이제 시각을 기록하고,
-       ping 을 보낸 뒤 PONG_TIMEOUT 안에 답이 없으면 죽은 것으로 보고 강제로 close 한다.
+       예전엔 pong 을 받아도 그냥 버렸다(`if (data.type === 'pong') return;`). 이제 답이 왔는지 확인하고,
+       연속으로 답이 없으면 죽은 것으로 보고 강제로 close 한다.
        ⚠️ 여기서 close 하는 것이 '끊는' 게 아니다. 이미 끊어진 것을 '알아채서' 기존 재연결 경로에
-          태우는 것이다. 값을 줄이면 지연이 큰 회선에서 멀쩡한 연결을 끊게 되므로 넉넉히 잡는다. */
-    let lastPongAt = 0;              // 마지막 pong 수신 시각(ms)
-    let pingSentAt = 0;              // 마지막 ping 발신 시각(ms)
-    const PONG_TIMEOUT = 20000;      // 이 시간 안에 pong 이 없으면 죽은 소켓으로 판정
+          태우는 것이다. 허용치를 줄이면 지연이 큰 회선에서 멀쩡한 연결을 끊게 되므로 넉넉히 잡는다. */
+    let pongMissed = 0;              // 연속으로 답이 없었던 ping 횟수
+    let pingSentAt = 0;              // 답을 기다리는 중인 ping 의 발신 시각(0 = 기다리는 것 없음)
+    /* 🔴 (2026-07-24 재점검) 허용치를 반드시 2회 이상으로 둘 것.
+       처음엔 "20초 안에 답이 없으면 끊기"로 짰는데, **판정 주기가 25초라 20초는 항상 초과**였다.
+       즉 값과 무관하게 'pong 한 번만 늦어도 즉시 절단' 이 되어, 지연이 잦은 필리핀 회선에서는
+       이 워치독이 오히려 멀쩡한 수업을 끊을 수 있었다(고치려던 증상과 사용자 눈에 구분 불가).
+       → 시간이 아니라 **연속 미응답 횟수**로 판정한다. 2회 = 약 50초 무응답. */
+    const PONG_MAX_MISS = 2;
     function startPing() {
         stopPing();
-        lastPongAt = Date.now(); pingSentAt = 0;
         pingInterval = setInterval(() => {
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            // 직전 ping 에 대한 답이 아직 없고 제한시간을 넘겼다 → 반열림으로 판정
-            if (pingSentAt && (Date.now() - pingSentAt) > PONG_TIMEOUT && lastPongAt < pingSentAt) {
-                console.warn('[WebSocket] pong 무응답 ' + Math.round((Date.now() - pingSentAt)/1000) + '초 → 죽은 연결로 보고 재연결');
-                pingSentAt = 0;
-                try { ws.close(4002, 'pong-timeout'); } catch(_) {}
-                return;   // onclose 가 기존 재연결 로직을 태운다
+            if (pingSentAt) {                 // 직전 ping 의 답이 아직 안 옴
+                pongMissed++;
+                if (pongMissed >= PONG_MAX_MISS) {
+                    console.warn('[WebSocket] pong 연속 무응답 ' + pongMissed + '회 → 죽은 연결로 보고 재연결');
+                    resetPongState();
+                    try { ws.close(4002, 'pong-timeout'); } catch(_) {}
+                    return;   // onclose 가 기존 재연결 로직을 태운다
+                }
             }
             try { ws.send(JSON.stringify({ type: 'ping' })); pingSentAt = Date.now(); } catch(_) {}
         }, 25000); // 25초마다 ping (Cloudflare 유휴 타임아웃 방지)
     }
     function stopPing() {
         if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
-        pingSentAt = 0;
+        resetPongState();
     }
-    // 연결 건강도 판정(connHealthy 등)에서 참고할 수 있도록 최근 pong 시각을 밖으로 노출
-    window.vcLastPongAt = function(){ return lastPongAt; };
+    /* 🔴 백그라운드 복귀·즉시재연결 직후에는 반드시 이걸 부를 것.
+       탭이 얼어 있는 동안 '답을 기다리는 중' 상태가 그대로 남아 있으면,
+       복귀 첫 틱에 멀쩡한 소켓을 죽은 것으로 오판한다. */
+    function resetPongState() { pingSentAt = 0; pongMissed = 0; }
 
     function connect() {
+        // 🔴 (2026-07-24 재점검) 새 소켓을 만들기 전에 pong 대기상태를 반드시 비운다.
+        //   낡은 소켓의 onclose 는 'sock !== ws' 가드에 걸려 stopPing() 을 못 부르는 경우가 있는데,
+        //   그러면 살아남은 인터벌이 옛 pingSentAt 을 든 채 '갓 붙은 새 소켓' 을 죽인다.
+        resetPongState();
         // wss:// (암호화된 WebSocket) 프로토콜 사용
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const url = `${protocol}//${location.host}${path}`;
@@ -8867,11 +8887,15 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             if (sock !== ws) return;   // 낡은 소켓의 이벤트 → 무시
             try {
                 const data = JSON.parse(event.data);
-                if (data.type === 'pong') { lastPongAt = Date.now(); pingSentAt = 0; return; }   // 🇵🇭 살아있음 확인(위 pong 워치독)
+                if (data.type === 'pong') { resetPongState(); return; }   // 🇵🇭 살아있음 확인(위 pong 워치독)
                 // 🚫 (2026-07-24) 정원초과·강제종료는 재접속해도 똑같이 거절당한다.
                 //   예전엔 이 두 메시지를 아무도 처리하지 않아, 서버가 close(1000) 해도
                 //   intentionalClose 가 false 라 곧바로 재연결 → join → 거절 → 재연결 무한루프가 돌았다.
+                //   ⚠️ (재점검) intentionalClose 만으로는 부족하다 — reconnectNow() 가 그 값을 false 로
+                //      되돌리므로, 관리자가 강제종료한 뒤 학생이 탭을 한 번 전환하면 조용히 재입장한다.
+                //      되돌릴 수 없는 종료는 별도 플래그(terminated)로 못박는다.
                 if (data.type === 'room-full' || data.type === 'force_end' || data.type === 'force-end') {
+                    terminated = true;
                     intentionalClose = true;
                     try { stopPing(); } catch(_) {}
                     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
@@ -8963,8 +8987,17 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             }
         },
 
+        /** 🔴 앱 복귀 시 반드시 호출 — 탭이 얼어 있는 동안 '답 기다리는 중' 상태가 그대로
+         *  남아 있으면, 복귀 첫 틱에 멀쩡한 소켓을 죽은 것으로 오판한다. */
+        notePongResume() { resetPongState(); },
+
         /** 앱 복귀 등 즉시 재연결이 필요할 때 호출 */
         reconnectNow() {
+            // 🚫 (2026-07-24 재점검) 관리자 강제종료·정원초과로 끝난 세션은 되살리지 않는다.
+            //   이 가드가 없으면 학생이 탭을 한 번 전환하는 것만으로 조용히 재입장해,
+            //   "관리자가 수업을 종료했습니다" 안내가 떠 있는데 방에는 들어가 있는 모순이 된다.
+            if (terminated) { console.log('[WebSocket] 종료된 세션 — 재연결하지 않음'); return; }
+            resetPongState();   // 복귀 직후 첫 틱이 멀쩡한 소켓을 죽이지 않게
             if (ws && (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING)) {
                 console.log('[WebSocket] reconnectNow: 즉시 재연결 시도');
                 clearTimeout(reconnectTimer);
@@ -9519,6 +9552,10 @@ async function vcHealLocalVideo() {
 /** 앱 복귀 시: 트랙 enable + 비디오 재생 + ICE/WebSocket 복구 */
 async function vcOnAppResume(reason) {
     console.log('[app-resume] 복귀 감지:', reason);
+    // 🔴 (2026-07-24 재점검) 가장 먼저 pong 대기상태를 비운다.
+    //   화면이 꺼져 있는 동안 setInterval 이 얼어 'ping 보내고 답 기다리는 중' 으로 남아 있으면,
+    //   복귀 직후 첫 틱이 살아있는 연결을 끊어버린다(=내가 만든 워치독이 스스로 사고를 냄).
+    try { if (vcConn && typeof vcConn.notePongResume === 'function') vcConn.notePongResume(); } catch(_) {}
     try { await requestWakeLock(); } catch(_) {}
 
     // 1) 로컬 트랙 다시 enable + 상태 확인 (죽은 마이크는 자가치유)
@@ -9738,6 +9775,36 @@ function vcReconnectPeer(userId) {
      (2) 최대 3회 재협상(vcReconnectPeer)으로 상대가 트랙을 다시 세우도록 유도한다.
    상대가 애초에 영상 트랙을 안 보냄(오디오전용/관찰자)이면 개입 금지. 프레임이 도착하면
    (videoWidth>0) 안내를 즉시 제거. 무한 재협상 방지 = 피어당 3회 상한 후엔 안내만 유지. */
+/* 📷 (2026-07-24) 상대 타일에 '카메라 꺼짐' 안내를 붙이거나 뗀다.
+   ⚠️ 이 안내가 필요한 이유: attachStreamMonitor 의 .cam-off 덮개는 **내 타일 전용**이라
+      상대가 카메라를 꺼도 수신측에는 아무 설명 없이 검은 화면만 남는다(=고장으로 인식).
+   상태 근거는 상대가 보내 준 cam-state 신호(window.vcRemoteCamOff)뿐 — 추측하지 않는다. */
+function vcApplyRemoteCamHint(userId) {
+    try {
+        var box = document.getElementById('vc-video-' + userId);
+        if (!box) return;
+        var why = (window.vcRemoteCamOff || {})[userId];
+        var el = box.querySelector('.vc-camoff-hint');
+        if (!why) { if (el) el.remove(); return; }
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'vc-camoff-hint';
+            el.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;'
+                + 'background:rgba(15,23,42,.82);color:#cbd5e1;font-size:13px;font-weight:700;text-align:center;line-height:1.35;padding:8px;z-index:4;pointer-events:none;';
+            if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
+            box.appendChild(el);
+        }
+        var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+        el.innerHTML = (why === 'aao')
+            ? '📶<span>' + (en ? 'Weak connection — audio only for now.<br>The class continues.'
+                               : '연결이 약해 지금은 <b>음성만</b> 전송 중이에요.<br>수업은 계속됩니다.') + '</span>'
+            : '📷<span>' + (en ? 'Camera is off' : '상대가 카메라를 껐어요') + '</span>';
+        // 예전 '영상 준비 중' 안내가 남아 있으면 중복이므로 제거
+        var old = box.querySelector('.vc-black-hint'); if (old) old.remove();
+    } catch (_) {}
+}
+window.vcApplyRemoteCamHint = vcApplyRemoteCamHint;
+
 (function vcRemoteBlackWatch(){
   if (window.__vcBlackWatch) return; window.__vcBlackWatch = true;
   var blackSince = {}, tries = {};
@@ -9759,17 +9826,21 @@ function vcReconnectPeer(userId) {
         var v = box.querySelector('video');
         var hasFrames = v && v.videoWidth > 0 && !rv.track.muted;
         if (hasFrames) { delete blackSince[id]; tries[id] = 0; if (hint) hint.remove(); return; }  // 정상 도착
-        // 🎥 (2026-07-24) '상대가 카메라를 일부러 끈 것'을 장애로 오인하지 않는다.
-        //   상대가 enabled=false 로 끄면 수신 트랙이 muted 가 되는데, 예전엔 이걸 검은화면 장애로 보고
-        //   6초마다 vcReconnectPeer()(=PC 통째로 close 후 재협상)를 5번까지 돌렸다.
-        //   → 카메라를 끈 동안 양쪽 화면이 계속 검게 됐다 돌아오고 "재연결 중" 배너가 깜빡였다.
-        //   판별법: 소리는 정상적으로 오고 있는데 영상만 muted → 회선이 아니라 상대가 끈 것.
-        var ra = pc.getReceivers().find(function(r){ return r.track && r.track.kind === 'audio'; });
-        var audioAlive = !!(ra && ra.track && ra.track.readyState === 'live' && !ra.track.muted);
-        if (rv.track.muted && audioAlive) {
+        /* 🎥 (2026-07-24, 재점검으로 판정 방식 교체) '상대가 카메라를 일부러 끈 것' 을 장애로 오인하지 않는다.
+           예전엔 6초마다 vcReconnectPeer()(=PC 통째로 close 후 재협상)를 5번까지 돌려, 카메라를 끈
+           동안 양쪽 화면이 계속 검게 됐다 돌아오고 "재연결 중" 배너가 깜빡였다.
+           🔴 처음엔 "소리는 오는데 영상만 muted 면 상대가 끈 것" 이라는 휴리스틱을 썼는데 틀렸다:
+              ① 회선이 나빠 '비디오만 굶어 죽은' 진짜 장애도 수신측에서는 똑같이 보인다
+                 → 그 경우 자가복구가 통째로 막혀 수업 끝까지 검은 화면으로 방치됐다.
+              ② 마이크가 없는 참가자(권한 거부·관찰자)는 audioAlive 가 false 라 정작 가드가 안 걸렸다.
+           → 추측을 버리고 상대가 보내 준 cam-state 신호로 확정 판정한다. 신호가 없으면
+              예전 동작(자가복구 시도)을 그대로 유지한다 — 안전한 쪽으로 기운다. */
+        var camOff = (window.vcRemoteCamOff || {})[id];
+        if (camOff) {
           delete blackSince[id]; tries[id] = 0;
-          if (hint) hint.remove();
-          return;   // 재협상 금지. 카메라 꺼짐 표시는 attachStreamMonitor 의 .cam-off 덮개가 담당.
+          // 재협상은 금지하되 '왜 검은지' 는 반드시 알려 준다(안내까지 지우면 사용자는 고장으로 인식).
+          vcApplyRemoteCamHint(id);
+          return;
         }
         seen[id] = true;
         if (!blackSince[id]) { blackSince[id] = now; return; }        // 이번에 처음 관측 — 다음 틱부터 카운트
@@ -10763,6 +10834,9 @@ async function vcJoinRoom(skipUI) {
     showView('view-videocall-call');
     document.body.classList.add('vc-in-call');
     document.getElementById('vc-room-name').textContent = vcRoomId;
+    // 🖥 (2026-07-23) 수업에 들어오면 전체화면 — 설정에서 껐으면 건너뛴다.
+    //    브라우저가 사용자 조작 없는 요청을 막으면, 다음 터치 때 한 번 더 시도한다.
+    try { window.vcGoFullscreen && window.vcGoFullscreen(); } catch(e){}
     try { if (window.mangoiClassEntryNotice) setTimeout(window.mangoiClassEntryNotice, 600); } catch(e){}
     requestWakeLock(); // 화면 꺼짐 방지 활성화
 
@@ -11454,8 +11528,15 @@ async function vcJoinRoom(skipUI) {
     //   ▶ attendance: 무조건 호출 (쿨다운 6h + 일일 1회는 서버에서 자동 차단)
     //   ▶ on_time: 가장 가까운 예정 수업과 현재시각 비교 → 5분 이내면 추가 적립
     setTimeout(() => { try { vcAutoEarnAttendance(); } catch(e) { console.warn('[vc-p5] attendance earn skip:', e); } }, 2500);
-    // 💬 Phase K1 — 채팅 영속화: 입장 직후 이전 채팅 로드
-    setTimeout(() => { try { vcLoadChatHistory(); } catch(e) { console.warn('[vc-k1] chat load:', e); } }, 1500);
+    // 💬 (2026-07-24) 채팅 이력 자동 로드 중단 — 기본값 = '기록 없는 빈 채팅'
+    //   사장님 지시: 로그아웃→로그인→수업 입장 후 채팅창을 열면 아무것도 안 보여야 한다.
+    //   이전엔 입장 1.5초 뒤 vcLoadChatHistory() 가 지난 대화 200개를 끌어와 붙였다
+    //   ('─ 이전 채팅 N개 불러옴 ─' 구분선). 상담 내용이 다음 수업에 그대로 남는 문제.
+    //   서버 기록 자체는 지우지 않는다(감사/분쟁 대비). 화면에 안 불러올 뿐이다.
+    //   되살리려면 콘솔에서 vcLoadChatHistory() 를 직접 호출하면 된다.
+    if (window.__vcChatAutoLoadHistory === true) {
+        setTimeout(() => { try { vcLoadChatHistory(); } catch(e) { console.warn('[vc-k1] chat load:', e); } }, 1500);
+    }
     // 📲 Phase K2 — 수업 시작 알림톡 (학생 본인 + 학부모 + 강사에게)
     setTimeout(() => { try { vcNotifyLessonStarted(); } catch(e) { console.warn('[vc-k2] start notify:', e); } }, 3000);
 }
@@ -11729,8 +11810,28 @@ function vcHandleMessage(msg) {
             }
             break;
 
+        // 📷 (2026-07-24) 상대의 카메라 on/off 통보 — 검은 화면의 '이유' 를 확정해 준다.
+        case 'cam-state': {
+            const _csId = msg.data && msg.data.userId;
+            if (_csId) {
+                window.vcRemoteCamOff = window.vcRemoteCamOff || {};
+                if (msg.data.camOn) delete window.vcRemoteCamOff[_csId];
+                else window.vcRemoteCamOff[_csId] = (msg.data.reason === 'aao') ? 'aao' : 'user';
+                try { vcApplyRemoteCamHint(_csId); } catch(_) {}
+            }
+            break;
+        }
+
         case 'user-joined':
             console.log('[vc] user-joined:', msg.data.userId, msg.data.username);
+            // 🇵🇭 (2026-07-24 재점검) 새 참가자가 들어왔다 = 끊겼던 사람이 새 id 로 돌아온 것일 수 있다.
+            //   여기서 유령 타일을 먼저 치우지 않으면 아래 vcEnsureParticipantBox 가 박스를 하나 더
+            //   만들어, 1:1 수업인데 타일이 3개가 되고(그리드가 세로 3분할로 축소) PIP 주화면이
+            //   '정지된 유령' 으로 선택되는 사고가 난다. 영상 도착(vcAddRemoteVideo)까지 기다리면 늦다.
+            try { vcSweepGhostTiles(); } catch(e){}
+            // 📷 내 카메라가 꺼져 있다면 새로 들어온 사람에게도 알려 준다.
+            //   안 알리면 그 사람 화면에서는 '이유 없는 검은 화면' 이 되고 워치독이 재협상을 시도한다.
+            try { if (window.vcCamOn === false) vcBroadcastCamState(false, 'user'); } catch(e){}
             try { (window.vcPeerRoles = window.vcPeerRoles || {})[msg.data.userId] = msg.data.role || 'student'; window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
             try { vcEnsureParticipantBox(msg.data.userId, msg.data.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
             updateUserCount(msg.data.userCount);
@@ -12108,6 +12209,65 @@ function vcTuneAudioSdp(sdp) {
    · 나쁘면(손실 >6% 또는 RTT >450ms) 비트레이트·fps 한 단계 하향 → 깨짐 대신 부드러운 저화질
    · 좋은 상태가 3틱(12초) 연속이면 한 단계 상향 복구 (진동 방지)
    단계: 100% → 60% → 35% → 20% (바닥 150kbps/10fps 보장) */
+/* 🎛 (2026-07-23) 수업 화면 기본값 — 사장님 지시
+   ① 영상 화질 기본 = '저'.  ⚠️ 그동안 설정의 화질 버튼(자동/고/저)은 **아무 동작도 하지 않았다**
+      — vc-dock 이 window.vcSetQuality() 를 부르는데 그 함수가 아예 없어서 버튼 색만 바뀌었다.
+   ② 전체화면 = 수업에 들어가면 자동. 설정에서 끄면 그 선택을 기억한다.
+   화질은 '상한'만 정한다. 회선이 나빠지면 아래의 적응 로직이 더 낮출 수 있어야 하므로
+   (수업이 끊기지 않는 것이 최우선) 위로만 막고 아래로는 열어 둔다. */
+const VC_Q_KEY = 'mangoi_vc_quality', VC_FS_KEY = 'mangoi_vc_fullscreen';
+function vcQualityMode() {
+    try { const v = localStorage.getItem(VC_Q_KEY); if (v === 'auto' || v === 'high' || v === 'low') return v; } catch (_) {}
+    return 'low';                       // 기본값 = 저화질 (데이터·CPU 절약, 필리핀 회선 고려)
+}
+/** 이 모드에서 허용하는 '가장 좋은' 단계 — 숫자가 클수록 낮은 화질 */
+function vcQualityMinStep() { return vcQualityMode() === 'low' ? 2 : 0; }
+window.vcQualityMinStep = vcQualityMinStep;
+/** 설정 팝업이 부르는 함수 (자동/고/저) */
+window.vcSetQuality = function (mode) {
+    if (mode !== 'auto' && mode !== 'high' && mode !== 'low') mode = 'auto';
+    try { localStorage.setItem(VC_Q_KEY, mode); } catch (_) {}
+    const minStep = vcQualityMinStep();
+    try {
+        Object.keys(vcPeerConnections || {}).forEach(function (id) {
+            const pc = vcPeerConnections[id];
+            if (!pc) return;
+            const step = Math.max(pc.__qStep || 0, minStep);
+            pc.__qStep = step;
+            if (window.__vcApplyStep) window.__vcApplyStep(pc, step);
+        });
+    } catch (_) {}
+    console.log('[vc-quality] 화질 모드 →', mode, '(최소 단계', minStep + ')');
+};
+window.vcGetQuality = vcQualityMode;
+
+/* 🖥 전체화면 — 기본 켜짐. 설정에서 끄면 기억한다. */
+window.vcWantFullscreen = function () {
+    try { return localStorage.getItem(VC_FS_KEY) !== '0'; } catch (_) { return true; }
+};
+window.vcSetFullscreenPref = function (on) { try { localStorage.setItem(VC_FS_KEY, on ? '1' : '0'); } catch (_) {} };
+window.vcGoFullscreen = function () {
+    if (!window.vcWantFullscreen()) return;
+    if (document.fullscreenElement || document.webkitFullscreenElement) return;
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;                   // iOS 사파리는 문서 전체화면을 지원하지 않는다 — 조용히 넘어감
+    try {
+        const p = req.call(el);
+        if (p && p.catch) p.catch(vcArmFullscreenRetry);
+    } catch (_) { vcArmFullscreenRetry(); }
+};
+/* 사용자 조작 없이 요청하면 브라우저가 막는다 → 다음 터치/클릭 때 한 번만 다시 시도 */
+function vcArmFullscreenRetry() {
+    if (window.__vcFsArmed) return; window.__vcFsArmed = true;
+    const h = function () {
+        document.removeEventListener('pointerdown', h, true);
+        window.__vcFsArmed = false;
+        setTimeout(function () { try { window.vcGoFullscreen(); } catch (_) {} }, 0);
+    };
+    document.addEventListener('pointerdown', h, true);
+}
+
 (function vcAdaptiveQuality() {
     if (window.__vcAdaptive) return; window.__vcAdaptive = true;
     const STEPS = [1.0, 0.6, 0.35, 0.2];
@@ -12142,11 +12302,18 @@ function vcTuneAudioSdp(sdp) {
             console.log('[vc-adapt] 화질 단계', step, '→', Math.round(caps.br * mult / 1000) + 'kbps, 해상도 1/' + (SCALE[step] || 1));
         } catch (_) {}
     }
+    window.__vcApplyStep = applyStep;   // 설정의 화질 버튼(vcSetQuality)이 즉시 반영할 때 씀
     setInterval(function() {
         if (!document.body.classList.contains('vc-in-call')) return;
         Object.keys(vcPeerConnections).forEach(function(id) {
             const pc = vcPeerConnections[id];
             if (!pc || (pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed')) return;
+            /* 🎛 설정에서 고른 화질 상한을 먼저 적용 — 새로 연결된 상대에게도 자동으로 걸린다.
+               (자동/고 = 0단계부터, 저 = 2단계부터 시작. 회선이 더 나쁘면 아래에서 더 낮춘다) */
+            try {
+                const minStep = window.vcQualityMinStep ? window.vcQualityMinStep() : 0;
+                if ((pc.__qStep || 0) < minStep) { pc.__qStep = minStep; applyStep(pc, minStep); }
+            } catch (_) {}
             const sender = pc.getSenders && pc.getSenders().find(s => s.track && s.track.kind === 'video');
             if (!sender || !sender.getStats) return;
             sender.getStats().then(function(stats) {
@@ -12174,6 +12341,8 @@ function vcTuneAudioSdp(sdp) {
                 } else {
                     pc.__qGood = 0;
                 }
+                // 설정에서 고른 상한보다 좋아지지는 않게 (저화질을 골랐으면 계속 저화질)
+                try { step = Math.max(step, window.vcQualityMinStep ? window.vcQualityMinStep() : 0); } catch (_) {}
                 if (step !== (pc.__qStep || 0)) {
                     console.warn('[vc-adapt] 손실률', lossPct.toFixed(1) + '%, RTT', Math.round(rtt) + 'ms → 단계', pc.__qStep || 0, '→', step);
                     pc.__qStep = step;
@@ -12217,12 +12386,16 @@ function vcAAOApply() {
         try { if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_) {}
         try { if (window.vcBg && vcBg.isProcessing) { vcBg._aaoWas = true; vcBg.isProcessing = false; } } catch (_) {}
         vcAAONotify('📶 인터넷이 약해 잠시 <b>음성만</b> 전송합니다 — 수업은 계속됩니다');
+        // 상대에게도 알린다. 안 알리면 상대 화면에서 '검은 영상 = 장애' 로 오인해 재협상이 돈다
+        // (대역폭 위기 중에 연결을 다시 맺는 것은 최악의 선택이다).
+        vcBroadcastCamState(false, 'aao');
         console.warn('[vc-aao] 음성전용 진입 (오디오 손실 지속)');
     } else if (A.active && A.good >= 2) {
         A.active = false; A.sev = 0;
         try { if (vcCamOn !== false && window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_) {}
         try { if (window.vcBg && vcBg._aaoWas) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._aaoWas = false; } } catch (_) {}
         vcAAONotify('📶 연결이 회복되어 <b>영상을 다시 켭니다</b>');
+        vcBroadcastCamState(vcCamOn !== false, 'aao');   // 사용자가 따로 꺼 둔 상태면 그건 존중
         console.warn('[vc-aao] 영상 복구');
     }
 }
@@ -13371,14 +13544,21 @@ function attachStreamMonitor(box, stream) {
        여러 루프가 같은 DOM(.vol-meter, .cam-off)에 동시에 써대며 토글을 반복할수록 깜빡임이 심해졌다.
        (Chrome 은 AudioContext 개수 상한이 있어 몇 번 반복하면 음량 막대가 아예 죽기도 했다.)
        → 박스당 루프는 항상 한 세트만. 스트림이 바뀌면 옛 세트를 정리하고 새로 건다. */
+    /* 🔴 (2026-07-24 재점검) 중복 판정 키에 '오디오 트랙 id' 까지 넣을 것.
+       처음엔 MediaStream 객체 동일성만 봤는데, 이 코드베이스는 스트림을 제자리에서 변형한다
+       (마이크를 나중에 얻으면 같은 스트림에 트랙만 추가됨).
+       그래서 '마이크 없이 입장 → 음량분석 실패 → 나중에 마이크 복구' 경로에서
+       같은 스트림이라는 이유로 재등록이 막혀 **그 학생 음량 막대가 수업 끝까지 죽어 있었다.** */
+    const _at0 = (stream.getAudioTracks && stream.getAudioTracks()[0]) || null;
+    const monKey = (stream.id || '') + '|' + (_at0 ? _at0.id : 'noaudio');
     if (box.__vsMon) {
-        if (box.__vsMon.stream === stream) return;              // 같은 스트림 = 재등록 불필요
+        if (box.__vsMon.key === monKey) return;                 // 스트림+오디오트랙 동일 = 재등록 불필요
         try { clearInterval(box.__vsMon.iconInt); } catch(e){}
         box.__vsMon.stop = true;
         try { box.__vsMon.ctx && box.__vsMon.ctx.close(); } catch(e){}
         box.__vsMon = null;
     }
-    const mon = { stream: stream, stop: false, iconInt: null, ctx: null };
+    const mon = { key: monKey, stream: stream, stop: false, iconInt: null, ctx: null };
     box.__vsMon = mon;
 
     mon.iconInt = setInterval(() => {
@@ -13414,7 +13594,12 @@ function attachStreamMonitor(box, stream) {
             requestAnimationFrame(loop);
         }
         loop();
-    } catch(e) { console.warn('음량 분석 실패:', e); }
+    } catch(e) {
+        // 오디오 트랙이 없으면 createMediaStreamSource 가 던진다. 이때 만들어 둔 AudioContext 를
+        // 닫지 않으면 브라우저의 AudioContext 개수 상한을 갉아먹는다(누수). (2026-07-24 재점검)
+        try { if (mon.ctx) { mon.ctx.close(); mon.ctx = null; } } catch(_) {}
+        console.warn('음량 분석 실패:', e);
+    }
 }
 
 /** 참가자 퇴장 시 비디오 및 연결 제거 */
@@ -13459,10 +13644,15 @@ function vcRemovePeer(userId, reason) {
     if (pc) { pc.close(); delete vcPeerConnections[userId]; }
     try { delete vcPendingCandidates[userId]; } catch(_){}  // fix (2026-07-05) 버퍼된 ICE 후보 정리
     try { delete vcRemoteStreams[userId]; } catch(_){}   // fix (2026-06-01) 원격 스트림도 정리
+    try { if (window.vcRemoteCamOff) delete window.vcRemoteCamOff[userId]; } catch(_){}  // 📷 카메라 상태 기록도 정리
     const box = document.getElementById(`vc-video-${userId}`);
     // 🇵🇭 스스로 나간 게 아니라 '끊긴' 것이면 타일을 바로 지우지 않는다 (위 주석 참고)
     if (box && reason && reason !== 'left') {
-        box.id = 'vc-video-ghost-' + userId;   // 같은 사람이 새 id 로 돌아와도 id 충돌이 없게
+        // 🔴 (2026-07-24 재점검) 접두사를 'vc-video-' 와 겹치지 않게 할 것.
+        //   처음엔 'vc-video-ghost-' 로 지었는데, 저장소 곳곳이 id.replace('vc-video-','') 나
+        //   [id^="vc-video-"] 로 참가자를 찾는다. 그래서 유령이 '진짜 참가자'로 잡혀
+        //   개별채팅 대상칩·칭찬 버튼·고착 워치독·녹화 합성까지 오염됐다.
+        box.id = 'vcghost-' + userId;
         vcMarkPeerReconnecting(box);
         try { const aux1 = document.getElementById('vc-aud-' + userId); if (aux1) { aux1.srcObject = null; aux1.remove(); } } catch(_){}
         vcUpdateGridCount();
@@ -13546,6 +13736,10 @@ function vcWatchVideoAspect(v){
 
 /** 다자간 통화 방 나가기 */
 async function vcLeaveRoom() {
+    // 🧹 (2026-07-24 재점검) 남아 있는 '재연결 중' 유령 타일 + 종료 안내 배너 정리.
+    //   안 지우면 SPA 로 홈에 갔다가 곧바로 재입장했을 때 지난 수업의 잔재가 새 화면에 남는다.
+    try { vcSweepGhostTiles(); } catch(_) {}
+    try { const _n = document.getElementById('vc-conn-notice'); if (_n) _n.remove(); } catch(_) {}
     // ── 자동 녹화 중이면 먼저 중지하고 R2 업로드 완료까지 대기 ──
     let vcRecResult = null;
     try {
@@ -13707,7 +13901,7 @@ async function vcToggleMic() {
                     });
                 }
                 console.log('[mic] ✅ 마이크 재획득 완료');
-                vcMicOn = true; // 처음 켜진 상태로
+                vcMicOn = true; window.vcMicOn = true; // 처음 켜진 상태로 (독 표시도 함께 맞춤)
             }
         } catch (e) {
             const reason = (e && e.name === 'NotAllowedError') ? '브라우저에서 마이크 권한이 차단되었습니다. 주소창 좌측 자물쇠 아이콘 → 마이크 → 허용으로 변경 후 재시도해 주세요.' :
@@ -13912,6 +14106,8 @@ window.vcDiagnoseMic = async function() {
                 });
             }
             vcMicOn = true;
+            window.vcMicOn = true;   // 🔴 (2026-07-24 재점검) 이걸 빼먹으면 상단 툴바는 초록인데
+                                     //   하단 독은 빨간 채로 굳는다(독의 아이콘 캐시가 그 상태를 고착시킴).
             const btn = document.getElementById('vc-btn-mic');
             if (btn) { btn.className = 'ctrl-btn on'; btn.textContent = '🎤'; }
             startMicLevelMeter();
@@ -13932,6 +14128,20 @@ window.vcDiagnoseMic = async function() {
     }
     alert(report);
 };
+/** 📷 (2026-07-24) 내 카메라 상태를 상대에게 알린다.
+ *  수신측은 이 신호가 있어야 '상대가 껐다'(정상)와 '회선이 나빠 영상만 죽었다'(장애)를
+ *  구분할 수 있다. 신호가 없으면 자가복구 워치독이 정상 상태를 장애로 오인해 재협상을 반복한다.
+ *  reason: 'user'=사용자가 버튼으로 끔 / 'aao'=회선이 약해 시스템이 음성전용으로 내림 */
+function vcBroadcastCamState(camOn, reason) {
+    try {
+        if (window.vcConn && typeof vcConn.send === 'function') {
+            // ⚠️ 서버(video-call-room.ts)는 data 를 손대지 않고 그대로 중계한다.
+            //   보내는 쪽이 자기 userId 를 실어 주지 않으면 받는 쪽이 '누가 껐는지' 를 알 수 없다.
+            vcConn.send({ type: 'cam-state', data: { userId: vcUserId, camOn: !!camOn, reason: reason || 'user' } });
+        }
+    } catch (_) {}
+}
+
 function vcToggleCam() {
     if (!vcLocalStream) return;
     vcCamOn = !vcCamOn;
@@ -13940,6 +14150,7 @@ function vcToggleCam() {
     const btn = document.getElementById('vc-btn-cam');
     btn.className = `ctrl-btn ${vcCamOn ? 'on' : 'off'}`;
     btn.textContent = vcCamOn ? '📷' : '🚫';
+    vcBroadcastCamState(vcCamOn, 'user');
 }
 
 /** 탭 전환 (event 인자가 없어도 안전하게 동작) */
@@ -19131,6 +19342,25 @@ async function vcLoadChatHistory() {
 function vcAddChatSystem(message) {
     vcReceiveChat({ type: 'system', message, userId: '_system', username: '시스템' });
 }
+
+/* 🧹 (2026-07-24) 채팅 리셋 — 채팅 패널 입력창 아래 '채팅 지우기' 버튼에서 호출.
+   화면에 보이는 대화를 그 자리에서 전부 지운다. 상담 내용이 다음 수업까지 남지 않게 하는 것이 목적.
+   서버(D1)의 기록 자체는 지우지 않는다 — 실제 학생 데이터라 감사·분쟁 대비로 남겨야 하고,
+   어차피 이력 자동 로드를 껐기 때문에 재입장해도 화면에는 다시 나타나지 않는다. */
+function vcResetChat() {
+    var en = (document.documentElement.lang === 'en');
+    if (!confirm(en ? 'Clear the chat shown here?' : '지금 보이는 채팅을 모두 지울까요?')) return;
+    try {
+        var box = document.getElementById('vc-chat-messages');
+        if (box) box.innerHTML = '';
+    } catch(e) { console.warn('[vc-chat] reset:', e); }
+    // 미읽음 배지도 함께 정리 — 지웠는데 숫자만 남아 있으면 안 지워진 것처럼 보인다
+    try {
+        var badge = document.getElementById('vc-chat-badge');
+        if (badge) { badge.textContent = '0'; badge.classList.add('hidden'); }
+    } catch(e) {}
+}
+window.vcResetChat = vcResetChat;
 
 /* ════════════════════════════════════════════════════════════════
    🔒 개별(1:1) 채팅 — 대상 지정 시스템 (2026-07-14)
@@ -26729,7 +26959,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=2"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260724010336 -->
+<!-- BUILD:20260724015010 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -27846,7 +28076,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
-<script src="/js/vc-dock.js?v=9" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
+<script src="/js/vc-dock.js?v=10" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=34" defer></script>
 <script src="/js/mango-rec.js?v=38" defer></script>
 <script src="/js/mango-class-time.js?v=9" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->

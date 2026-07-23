@@ -132,6 +132,10 @@ export class VideoCallRoom {
         case 'point-award-ack':      //    학생→강사 결과 확인 응답
         case 'tab-sync':             // 📡 교사 탭 전환 동기화 (칠판/동영상/교재 따라가기)
         case 'file-share':           // 📎 파일 공유 다운로드 카드 (워드/엑셀/PPT 등)
+        case 'cam-state':            // 📷 (2026-07-24) 카메라 on/off 를 상대에게 알림.
+                                     //   이게 없으면 수신측은 '상대가 껐다' 와 '회선이 나빠 영상만 죽었다' 를
+                                     //   구분할 수 없어, 자가복구 워치독이 정상 상태를 장애로 오인해
+                                     //   6초마다 연결을 다시 맺으며 화면을 깜빡이게 만든다.
           if (this.isJoined(userId)) this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         case 'bg-lock':              // 🔒 강사 → 학생 수업 통제 잠금 3종 (공통 처리)
@@ -158,8 +162,11 @@ export class VideoCallRoom {
     // 🇵🇭 (2026-07-24) close code 를 반드시 남긴다. 예전엔 이걸 안 찍어서
     //   "필리핀 강사가 왜 튕겼는가"를 사후에 구분할 방법이 전혀 없었다.
     //   1006=비정상 종료(회선), 1001=탭/앱 종료, 4001=재접속 교체, 4002=클라이언트 pong 무응답 판정.
+    //   🔒 username 은 '로그인 아이디' 라서 로그에 남기지 않는다. observability 를 켠 순간부터
+    //      이 로그는 Cloudflare 에 며칠간 보관되므로, 예전처럼 tail 로 스쳐 지나가는 것과 다르다.
+    //      원인 분석에는 익명 userId(랜덤) + role + code 면 충분하다.
     try {
-      console.log(`[VideoChat][close] room=${this.roomId || '-'} user=${att?.username || '-'} role=${att?.role || '-'} code=${code} reason=${reason || '-'}`);
+      console.log(`[VideoChat][close] room=${this.roomId || '-'} uid=${att?.userId || '-'} role=${att?.role || '-'} code=${code} reason=${reason || '-'}`);
     } catch {}
     if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username, code === 1000 ? 'left' : 'dropped');
     try { ws.close(code, reason); } catch {}
@@ -167,7 +174,7 @@ export class VideoCallRoom {
 
   async webSocketError(ws: WebSocket): Promise<void> {
     const att = this.attOf(ws);
-    try { console.log(`[VideoChat][error] room=${this.roomId || '-'} user=${att?.username || '-'} role=${att?.role || '-'}`); } catch {}
+    try { console.log(`[VideoChat][error] room=${this.roomId || '-'} uid=${att?.userId || '-'} role=${att?.role || '-'}`); } catch {}
     if (att && att.joined) this.handleLeaveRoom(att.userId, ws, att.username, 'dropped');
   }
 
