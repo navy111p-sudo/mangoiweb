@@ -48,7 +48,11 @@ ok('적응 화질 조절기 존재(vcAdaptiveQuality)', has('vcAdaptiveQuality')
 ok('  · 하향 조건: 손실 >6% 또는 RTT >450ms', has(/lossPct > 6 \|\| rtt > 450/));
 ok('  · 상향 조건: 3틱 연속 양호(진동 방지)', has(/__qGood.*>=\s*3/) || has('pc.__qGood >= 3'));
 ok('  · 바닥 보장: 150kbps / 10fps', has(/Math\.max\(150 \* 1000/) && has(/Math\.max\(10,/));
-ok('  · 해상도 축소(scaleResolutionDownBy) 단계 적용', has('scaleResolutionDownBy = SCALE[step]'));
+/* (2026-07-23) 설정의 화질(자동/고/저)이 기준 해상도를 정하게 되면서 식이
+   `SCALE[step]` → `(caps.scale||1) * (SCALE[step]||1)` 로 바뀌었다.
+   '단계별로 해상도를 줄인다'는 안전장치 자체는 그대로이므로, 글자 그대로가 아니라 의미로 검사한다. */
+ok('  · 해상도 축소(scaleResolutionDownBy) 단계 적용',
+   has(/scaleResolutionDownBy\s*=[^;\n]*SCALE\[step\]/));
 ok('  · 구형 브라우저 scale 거부 시 비트레이트만 폴백', has('delete p2.encodings[0].scaleResolutionDownBy'));
 ok('송신 상한: 모바일 500kbps / PC 1200kbps', has(/isMobile \? 500 : 1200/));
 ok('degradationPreference balanced(부하 시 균형 저하)', has("degradationPreference = 'balanced'"));

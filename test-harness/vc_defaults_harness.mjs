@@ -53,6 +53,9 @@ function load(saved, fsBehavior) {
     },
     setTimeout: (cb) => { cb(); return 1; },
     vcPeerConnections: {},
+    // 화질 상한이 기기별로 갈리므로(모바일/PC) 시험은 PC 기준으로 고정한다
+    navigator: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126' },
+    matchMedia: () => ({ matches: false }),
     store, log,
   };
   sandbox.window = sandbox;
@@ -80,14 +83,20 @@ console.log('\n▶ 영상 화질 기본값');
 {
   const sb = load({});
   check('아무것도 안 골랐으면 저화질', sb.vcGetQuality() === 'low', sb.vcGetQuality());
-  check('저화질은 2단계부터 시작', sb.vcQualityMinStep() === 2, String(sb.vcQualityMinStep()));
+  const low = sb.vcQualityCaps();
+  check('저화질 = 해상도 절반(360p급)', low.scale === 2, 'scale=' + low.scale);
+  check('저화질 = 15fps (10fps 는 뚝뚝 끊겨 보임)', low.fps === 15, 'fps=' + low.fps);
+  check('저화질 = 400kbps 이하', low.br <= 400000, Math.round(low.br/1000) + 'kbps');
 
   const sbAuto = load({ mangoi_vc_quality: 'auto' });
   check('자동을 고르면 자동', sbAuto.vcGetQuality() === 'auto');
-  check('자동은 0단계부터', sbAuto.vcQualityMinStep() === 0);
+  const auto = sbAuto.vcQualityCaps();
+  check('자동은 해상도 그대로', auto.scale === 1, 'scale=' + auto.scale);
+  check('저화질이 자동보다 실제로 가볍다', low.br < auto.br,
+        Math.round(low.br/1000) + 'kbps < ' + Math.round(auto.br/1000) + 'kbps');
 
   const sbHigh = load({ mangoi_vc_quality: 'high' });
-  check('고화질을 고르면 0단계부터', sbHigh.vcQualityMinStep() === 0);
+  check('고화질도 해상도 그대로', sbHigh.vcQualityCaps().scale === 1);
 
   const sbBad = load({ mangoi_vc_quality: 'garbage' });
   check('이상한 값이 저장돼 있어도 저화질로', sbBad.vcGetQuality() === 'low');
@@ -103,13 +112,13 @@ console.log('\n▶ 화질 버튼 동작');
   sb.vcSetQuality('low');
   check('저화질 선택이 저장됨', sb.store.mangoi_vc_quality === 'low', sb.store.mangoi_vc_quality);
   check('연결된 상대 모두에게 즉시 적용', sb.log.applied.length === 2, JSON.stringify(sb.log.applied));
-  check('저화질은 2단계로 내림', sb.log.applied.every(x => x.step === 2), JSON.stringify(sb.log.applied));
+  check('상한만 바꾸고 적응 단계는 건드리지 않음', sb.vcPeerConnections['a'].__qStep === 0,
+        '단계=' + sb.vcPeerConnections['a'].__qStep);
 
   sb.log.applied.length = 0;
   sb.vcSetQuality('high');
   check('고화질로 바꾸면 저장됨', sb.store.mangoi_vc_quality === 'high');
-  check('이미 나쁜 회선이면 억지로 올리지 않음(안전)',
-        sb.vcPeerConnections['a'].__qStep === 2, '단계=' + sb.vcPeerConnections['a'].__qStep);
+  check('바꾸는 즉시 다시 적용됨', sb.log.applied.length === 2, JSON.stringify(sb.log.applied));
 }
 
 /* ══ 3. 전체화면 기본 켜짐 ══ */
@@ -157,10 +166,34 @@ console.log('\n▶ 화면 배선');
 {
   check('수업 입장에서 전체화면을 부른다',
         /document\.body\.classList\.add\('vc-in-call'\);[\s\S]{0,400}window\.vcGoFullscreen && window\.vcGoFullscreen\(\)/.test(html));
-  check('적응 화질이 설정 상한을 넘지 않는다',
-        /step = Math\.max\(step, window\.vcQualityMinStep/.test(html));
-  check('새로 연결된 상대에게도 상한 적용',
-        /if \(\(pc\.__qStep \|\| 0\) < minStep\)/.test(html));
+  check('적응 로직이 설정 상한을 기준값으로 쓴다',
+        /if \(window\.vcQualityCaps\) return window\.vcQualityCaps\(\)/.test(html));
+  check('해상도 축소 = 설정 기준 × 적응 단계',
+        /scaleResolutionDownBy = \(caps\.scale \|\| 1\) \* \(SCALE\[step\] \|\| 1\)/.test(html));
+  check('새로 연결된 상대에게도 상한 적용', /if \(!pc\.__qInit\)/.test(html));
+
+  /* 🍕 학생게임 첫 화면 = 문법 피자 (사장님 지시 2026-07-23) */
+  check('학생게임 기본 모드 = 문법 피자', /_gameState = \{ mode: 'pizza'/.test(html));
+  check('⋮ 메뉴 라벨도 문법 피자', /id="game-menu-cur">🍕/.test(html));
+  check('문법 피자가 선택 표시(초록)', /game-mode-pizza"[\s\S]{0,140}background:#10b981/.test(html));
+  check('문장 벽돌은 선택 해제', /game-mode-brick"[\s\S]{0,140}background:transparent/.test(html));
+
+  /* 🔄 영상 재연결 버튼 (사장님 지시 2026-07-23) — 새로고침이 아니라 '연결만' 다시 맺어야 한다 */
+  check('상단에 영상 재연결 버튼이 있다', /id="vc-btn-resync"[\s\S]{0,200}vcManualReconnect\(\)/.test(html));
+  check('재연결 함수 존재', /async function vcManualReconnect/.test(html));
+  check('내 카메라·마이크를 먼저 되살린다',
+        /vcManualReconnect[\s\S]{0,600}vcHealLocalVideo\(\)[\s\S]{0,200}vcHealLocalMic\(\)/.test(html));
+  check('붙어 있는 상대 전원에게 재연결', /ids\.forEach\(function \(id\) \{ try \{ vcReconnectPeer\(id\)/.test(html));
+  check('수동 요청은 8초 쿨다운을 면제', /delete __vcReconnectAt\[id\]/.test(html));
+  check('새로고침(location.reload)이 아니다',
+        !/vcManualReconnect[\s\S]{0,700}location\.reload/.test(html), '새로고침이면 수업에서 나가진다');
+  check('버튼 설명이 한/영 둘 다', /data-ko-title="영상 재연결[\s\S]{0,200}data-en-title="Reconnect video/.test(html));
+
+  /* 🕶 얼굴 꾸미기 — 뿔테 안경·보안경 삭제 */
+  const deco = readFileSync(join(PUB, 'js', 'idx-x6.js'), 'utf8');
+  check('뿔테 안경 삭제됨', !/rgblack|뿔테 안경/.test(deco));
+  check('보안경 삭제됨', !/rgoggle|보안경/.test(deco));
+  check('항공 선글라스는 남아 있음', /raviator/.test(deco));
   check('독이 vcSetQuality 를 부른다', /call\('vcSetQuality'/.test(dock));
   check('독이 전체화면 선택을 기억한다', /setFullPref\(false\)/.test(dock) && /setFullPref\(true\)/.test(dock));
   check('설정 팝업이 저장된 화질을 보여준다', /setSeg\('#sg-quality', 'data-q', savedQuality\(\)\)/.test(dock));

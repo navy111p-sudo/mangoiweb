@@ -49,9 +49,7 @@
     { id:'rwigbl',  ko:'금발 가발',    en:'Blonde Wig',     anchor:'hat', scale:1.56, yOff:0.93, rotate:true, draw:'image', img:'/face-fx/r/wig-blonde.png' },
 
     // ── 안경류(실사) ──
-    { id:'rgblack', ko:'뿔테 안경',     en:'Black Glasses',     anchor:'eyes', scale:1.60, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/glasses-black.png' },
     { id:'raviator',ko:'항공 선글라스', en:'Aviator Shades',    anchor:'eyes', scale:1.62, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/aviator.png' },
-    { id:'rgoggle', ko:'보안경',        en:'Safety Goggles',    anchor:'eyes', scale:1.66, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/goggles.png' },
     { id:'rsteamgg',ko:'스팀펑크 고글', en:'Steampunk Goggles', anchor:'eyes', scale:2.05, yOff:0.05, rotate:true, draw:'image', img:'/face-fx/r/steamgoggles.png' },
 
     // ── 수염 ──

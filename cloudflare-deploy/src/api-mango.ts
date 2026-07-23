@@ -666,12 +666,12 @@ export async function handleMangoApi(
     }
 
     if (path === '/api/attendance/heartbeat' && method === 'POST') {
-      const b = await parseJsonBody(request);
-      if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
-      // KV에 마지막 heartbeat 저장 (60초 TTL)
-      const key = `hb:${b.room_id}:${b.user_id}`;
-      await env.SESSION_STATE.put(key, String(Date.now()), { expirationTtl: 60 });
-      return json({ ok: true });
+      // 🟢 (2026-07-24 비용절감) 이 엔드포인트는 예전에 `hb:room:user` 키를 KV 에 60초 TTL 로 썼는데,
+      //   그 키를 **읽는 코드가 저장소 어디에도 없었다**(온라인 표시용으로 만들었으나 미사용).
+      //   그런데 참가자당 10초마다 호출돼 KV 쓰기 비용의 최대 원인이었다(40명 동시 = 240 write/분).
+      //   → KV 쓰기를 없앤다. 온라인 여부는 이미 DO 가 WebSocket 으로 알고 있어 KV 가 불필요하다.
+      //   응답 형태는 그대로 유지(클라이언트 호환). 클라이언트도 곧 호출 자체를 멈춘다.
+      return json({ ok: true, noop: true });
     }
 
     // ===== 발화시간 =====

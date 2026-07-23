@@ -25,7 +25,11 @@
   if (window.MangoAttendance) return;
 
   // --- 설정값 --------------------------------------------------------------
-  const HEARTBEAT_INTERVAL_MS = 10_000;   // 10초마다 서버에 누적 ms 전송
+  // 🟢 (2026-07-24 비용절감) 10초 → 30초. 발화량은 클라이언트가 로컬에 계속 누적하고
+  //   수업 종료 시 leave 로 최종값을 확정하므로, 중간 보고 주기를 늘려도 데이터 손실이 없다.
+  //   (관리자 대시보드의 '실시간' 표시가 10초→30초 지연될 뿐. 20분 수업에 무의미한 차이.)
+  //   이 한 줄로 /api/speaking-time D1 쓰기가 3배 줄어든다.
+  const HEARTBEAT_INTERVAL_MS = 30_000;   // 30초마다 서버에 누적 ms 전송(발화시간)
   const TICK_INTERVAL_MS      = 200;      // 200ms 주기 오디오 샘플링
   // 평균 주파수 크기(0~255)가 이 이상이면 발화 중.
   // 과거 20 → 실제 수업에서 말하는데도 0.0% 로 나오는 케이스가 관측돼 10 으로 완화.
@@ -195,11 +199,9 @@
     };
     // 발화 시간 업데이트 — attendance.total_active_ms / total_session_ms 반영
     apiPost('/api/speaking-time', payload, { silent: true });
-    // heartbeat KV ping (60초 TTL) — 온라인 상태 표시용
-    apiPost('/api/attendance/heartbeat', {
-      room_id: state.roomId,
-      user_id: state.userId
-    }, { silent: true });
+    // 🟢 (2026-07-24 비용절감) /api/attendance/heartbeat 호출 제거.
+    //   그 KV 키(hb:*)를 읽는 코드가 저장소에 하나도 없었다(온라인 표시용으로 만들었으나 미사용).
+    //   서버 엔드포인트는 당분간 no-op 으로 남겨 두므로, 캐시로 옛 스크립트가 남은 사용자도 안전.
   }
 
   function sendLeave(useBeacon) {
