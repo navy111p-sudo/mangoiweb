@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>💳 대리점 단가 관리 — 망고아이 관리자</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family:'Malgun Gothic','맑은 고딕',sans-serif; margin:0; background:#faf7f0; color:#1f2430; }
+  @media (min-width:1024px) { body { zoom:1.3; } } /* 관리자 서브페이지 공통 PC 확대 */
+  .wrap { max-width:820px; margin:0 auto; padding:18px 14px 40px; }
+  h1 { font-size:20px; color:#b45309; margin:6px 0 2px; }
+  .sub { color:#6b7280; font-size:12.5px; margin-bottom:14px; line-height:1.6; }
+  .card { background:#fff; border:1.5px solid #eadfc6; border-radius:14px; padding:14px 16px; }
+  table { border-collapse:collapse; width:100%; }
+  th, td { border-bottom:1px solid #f0e8d6; padding:7px 8px; text-align:left; font-size:13px; }
+  th { color:#92400e; font-size:12px; background:#fff7e8; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  input[type=number] { width:110px; padding:6px 8px; border:1.5px solid #e5d9bd; border-radius:8px; font-size:13px; text-align:right; }
+  button { padding:6px 12px; border:1.5px solid #e5d9bd; border-radius:8px; background:#fff; font-size:12.5px; cursor:pointer; }
+  button.save { background:#f59e0b; border-color:#f59e0b; color:#fff; font-weight:700; }
+  #msg { padding:26px 10px; text-align:center; color:#6b7280; }
+  #msg a { color:#b45309; }
+  .saved { color:#16a34a; font-size:12px; font-weight:700; }
+  .hint { font-size:11.5px; color:#9ca3af; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💳 대리점 단가 관리</h1>
+  <div class="sub">수강신청(enroll) 가격의 기준이 되는 <b>대리점별 주1회(월 4회) 단가</b>를 본사가 입력합니다.<br>
+  미입력 대리점은 기본 <b>60,000원</b>이 적용됩니다. 총액 = 단가 × 주횟수 × 개월 × 기간할인(6개월 95% / 12개월 90%) × 수업길이(40분=2배)</div>
+  <div id="msg" style="display:none"></div>
+  <div class="card" id="tblCard" style="display:none">
+    <table>
+      <thead><tr><th>대리점(학원)</th><th class="num">학생 수</th><th class="num">주1회 단가(원)</th><th></th><th>수정 정보</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="hint" style="margin-top:8px">저장 즉시 새 결제부터 적용됩니다 (이미 결제된 건에는 영향 없음)</div>
+  </div>
+</div>
+<script>
+var DEF = 60000;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+async function load(){
+  var msg = document.getElementById('msg');
+  msg.style.display='block'; msg.textContent='불러오는 중…';
+  try {
+    var r = await fetch('/api/pay/enroll/admin/prices', { cache:'no-store' });
+    if (r.status === 401) { msg.innerHTML = '관리자 로그인이 필요합니다. <a href="/admin/login?next=%2Fenroll-pricing.html">로그인 하러 가기</a>'; return; }
+    var j = await r.json();
+    if (!j.ok) { msg.textContent = '오류: ' + (j.error||r.status); return; }
+    DEF = j.default_price || 60000;
+    var shops = j.shops || [];
+    if (!shops.length) { msg.textContent = '대리점 데이터가 없습니다.'; return; }
+    msg.style.display='none';
+    document.getElementById('rows').innerHTML = shops.map(function(s,i){
+      var cur = s.weekly1_price ? Number(s.weekly1_price) : '';
+      var when = s.updated_at ? new Date(s.updated_at).toLocaleDateString('ko-KR') : '';
+      return '<tr data-shop="'+esc(s.shop_name)+'">'
+        + '<td><b>'+esc(s.shop_name)+'</b></td>'
+        + '<td class="num">'+(s.students||0)+'</td>'
+        + '<td class="num"><input type="number" step="1000" min="1000" max="1000000" value="'+cur+'" placeholder="'+DEF+' (기본)"></td>'
+        + '<td><button class="save">저장</button> <span class="st"></span></td>'
+        + '<td class="hint">'+(when ? when+' 저장됨' : '미입력(기본가)')+'</td></tr>';
+    }).join('');
+    document.getElementById('tblCard').style.display='block';
+    document.getElementById('rows').addEventListener('click', async function(ev){
+      var b = ev.target.closest('button.save'); if (!b) return;
+      var tr = b.closest('tr'), shop = tr.getAttribute('data-shop');
+      var val = Number(tr.querySelector('input').value || 0);
+      if (!(val >= 1000 && val <= 1000000)) { alert('1,000 ~ 1,000,000원 사이로 입력해 주세요.'); return; }
+      b.disabled = true;
+      try {
+        var rr = await fetch('/api/pay/enroll/admin/prices', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ shop_name: shop, weekly1_price: val }) });
+        var jj = await rr.json();
+        tr.querySelector('.st').innerHTML = (jj && jj.ok) ? '<span class="saved">✅ 저장됨</span>' : '<span style="color:#dc2626">실패</span>';
+      } catch(e){ tr.querySelector('.st').innerHTML = '<span style="color:#dc2626">오류</span>'; }
+      b.disabled = false;
+    });
+  } catch(e){ msg.textContent = '불러오기 실패: ' + e.message; }
+}
+load();
+</script>
+<!-- BUILD:20260723162850 -->
+</body>
+</html>

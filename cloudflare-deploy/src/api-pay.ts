@@ -15,6 +15,7 @@
 import { json, parseJsonBody } from './api-util';
 import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
+import { authUidFromRequest as authUidGlobal } from './auth-token';
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 // 토스 클라이언트 키(공개). 실전 전환 시 env.TOSS_CLIENT_KEY 를 live_ck_* 로 설정하면 코드수정 없이 교체됨.
@@ -65,6 +66,149 @@ async function ensurePayTable(env: any): Promise<void> {
   } catch (e) { console.warn('[pay] ensure table:', (e as any)?.message); }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+ * 📚 수강신청(enroll) 엔진 — "결제하면 수업이 자동으로 잡힌다" (2026-07-23, 1단계)
+ *   규칙 원천 = 결제규칙_정리본_2026-07-22 (장지웅 부장 28문항 + 확인질문 5답):
+ *   · 상품: 주1/2/3/5회 × 1/3/6/12개월, 월 기준가 = 대리점 주1회 단가 × 주횟수
+ *   · 대리점 단가: 본사가 입력(agency_pricing), 미설정 시 기본 60,000원
+ *   · 할인: 6개월 5% / 12개월 10% (일괄결제만) · 40분 수업 = 2배
+ *   · 학생이 요일(자유 조합)·시작시각(10분 단위)·강사 직접 선택 → 결제 확정 시 회차 전량 생성
+ *   · 이중 예약은 서버가 원천 차단(주문 시 + 활성화 시 이중 검사)
+ *   · 강사 등급 가산: 정책 미정 → 자리만(teacherRate, 기본 1.0)
+ * ═══════════════════════════════════════════════════════════════════ */
+
+const ENROLL_WEEKLY = [1, 2, 3, 5];
+const ENROLL_MONTHS = [1, 3, 6, 12];
+const ENROLL_BASE_WEEKLY1 = 60000;   // 대리점 단가 미설정 시 기본(월 4회 기준)
+const ENROLL_TIME_MIN = 6 * 60;      // 예약 가능 시작시각 06:00 ~
+const ENROLL_TIME_MAX = 23 * 60 + 40; // ~ 23:40
+
+/** 가격 계산 — 대리점 주1회 단가 × 주횟수 × 개월 × 기간할인 × 수업길이 배수 (10원 단위 절사) */
+export function enrollQuoteCalc(weekly1Price: number, weekly: number, months: number, minutes: number, teacherRate = 1.0) {
+  const sessions = weekly * 4 * months;                       // 주1회=월4회 기준 총 회차
+  const discountRate = months >= 12 ? 0.90 : months >= 6 ? 0.95 : 1;
+  const lenMul = minutes === 40 ? 2 : 1;
+  const base = weekly1Price * weekly * months * lenMul;
+  const amount = Math.floor((base * discountRate * teacherRate) / 10) * 10;
+  const perSession = Math.round(amount / sessions);
+  return { sessions, base, discountRate, amount, perSession };
+}
+
+/** 'HH:MM' → 분. 형식 오류면 -1 */
+export function enrollTimeToMin(t: string): number {
+  const m = /^([0-2]\d):([0-5]\d)$/.exec(String(t || '').trim());
+  if (!m) return -1;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** 두 수업 시간대가 겹치는가 (시작분·길이분) */
+export function enrollOverlap(aStart: number, aMin: number, bStart: number, bMin: number): boolean {
+  return aStart < bStart + bMin && bStart < aStart + aMin;
+}
+
+/** 시작일부터 선택 요일(0=일~6=토)로 sessions 회차의 날짜 생성. blocked(YYYY-MM-DD)는 건너뛰고 뒤로 밀림(공휴일 규칙 ①). */
+export function enrollDates(startDate: string, days: number[], sessions: number, blocked?: Set<string>): string[] {
+  const out: string[] = [];
+  const d = new Date(startDate + 'T00:00:00Z');
+  if (isNaN(d.getTime())) return out;
+  const want = new Set(days);
+  for (let i = 0; i < 800 && out.length < sessions; i++) {
+    const iso = d.toISOString().slice(0, 10);
+    if (want.has(d.getUTCDay()) && !(blocked && blocked.has(iso))) out.push(iso);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+/** enroll 관련 테이블 보증 */
+async function ensureEnrollTables(env: any): Promise<void> {
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS agency_pricing (shop_name TEXT PRIMARY KEY, weekly1_price INTEGER NOT NULL, updated_by TEXT, updated_at INTEGER)`);
+    try { await env.DB.prepare(`ALTER TABLE payment_orders ADD COLUMN enroll_json TEXT`).run(); } catch (_) {}
+    // 이중 예약 원천 차단(같은 강사·같은 날짜·같은 시작시각 active 중복 금지). 기존 데이터가 걸리면 조용히 포기(조회 검사로 보완).
+    try { await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_teacher_slot ON class_schedules(teacher_id, scheduled_date, start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL`).run(); } catch (_) {}
+  } catch (e) { console.warn('[enroll] ensure tables:', (e as any)?.message); }
+}
+
+/** 학생 uid → 대리점(shop_name)과 주1회 단가 */
+async function enrollPriceForUid(env: any, uid: string): Promise<{ shopName: string; weekly1Price: number }> {
+  let shopName = '';
+  try {
+    const st: any = await env.DB.prepare(`SELECT shop_name FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first();
+    shopName = String(st?.shop_name || '').trim();
+  } catch (_) {}
+  let weekly1Price = ENROLL_BASE_WEEKLY1;
+  if (shopName) {
+    try {
+      const p: any = await env.DB.prepare(`SELECT weekly1_price FROM agency_pricing WHERE shop_name = ? LIMIT 1`).bind(shopName).first();
+      if (p && Number(p.weekly1_price) > 0) weekly1Price = Number(p.weekly1_price);
+    } catch (_) {}
+  }
+  return { shopName, weekly1Price };
+}
+
+/** 강사의 기존 수업과 충돌하는 날짜 목록 (dated 행 + recurring 행 모두 검사) */
+async function enrollConflicts(env: any, teacherId: string, dates: string[], startMin: number, minutes: number, days: number[]): Promise<Set<string>> {
+  const conflicts = new Set<string>();
+  try {
+    // 1) 날짜 지정 수업: 해당 날짜들에서 시간 겹침 (D1 파라미터 100개 한도 → 90개 청크)
+    for (let i = 0; i < dates.length; i += 90) {
+      const chunk = dates.slice(i, i + 90);
+      const ph = chunk.map(() => '?').join(',');
+      const rs: any = await env.DB.prepare(
+        `SELECT scheduled_date, start_time, COALESCE(duration_min, 30) AS dm FROM class_schedules
+         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`
+      ).bind(teacherId, ...chunk).all();
+      for (const r of ((rs?.results as any[]) || [])) {
+        const s = enrollTimeToMin(String(r.start_time || ''));
+        if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || 30)) conflicts.add(String(r.scheduled_date));
+      }
+    }
+    // 2) 요일 반복 수업: 선택 요일과 같은 요일 + 시간 겹침이면 해당 요일 전체 충돌
+    const rs2: any = await env.DB.prepare(
+      `SELECT day_of_week, start_time, COALESCE(duration_min, 30) AS dm FROM class_schedules
+       WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
+    ).bind(teacherId).all();
+    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
+    const badDows = new Set<number>();
+    for (const r of ((rs2?.results as any[]) || [])) {
+      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
+      if (dw === undefined || !days.includes(dw)) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || 30)) badDows.add(dw);
+    }
+    if (badDows.size) {
+      for (const iso of dates) {
+        const dw = new Date(iso + 'T00:00:00Z').getUTCDay();
+        if (badDows.has(dw)) conflicts.add(iso);
+      }
+    }
+  } catch (e) { console.warn('[enroll] conflicts:', (e as any)?.message); }
+  return conflicts;
+}
+
+/** enroll 요청 본문 공통 검증 → 정규화. 오류면 {error} */
+function enrollParse(body: any): any {
+  const weekly = Number(body?.weekly || 0);
+  const months = Number(body?.months || 0);
+  const minutes = Number(body?.minutes || 20);
+  const time = String(body?.time || '').trim();
+  const startDate = String(body?.start_date || '').trim();
+  const teacherId = String(body?.teacher_id || '').trim().slice(0, 40);
+  const days: number[] = Array.isArray(body?.days) ? [...new Set(body.days.map((x: any) => Number(x)))].filter((n: number) => n >= 0 && n <= 6).sort() as number[] : [];
+  if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'bad_weekly' };
+  if (!ENROLL_MONTHS.includes(months)) return { error: 'bad_months' };
+  if (minutes !== 20 && minutes !== 40) return { error: 'bad_minutes' };
+  const startMin = enrollTimeToMin(time);
+  if (startMin < ENROLL_TIME_MIN || startMin > ENROLL_TIME_MAX || startMin % 10 !== 0) return { error: 'bad_time' };
+  if (days.length !== weekly) return { error: 'days_count_mismatch' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return { error: 'bad_start_date' };
+  const todayKst = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  if (startDate < todayKst) return { error: 'start_date_past' };
+  if (!teacherId) return { error: 'teacher_required' };
+  return { weekly, months, minutes, time, startMin, startDate, teacherId, days };
+}
+
 function tossMode(env: any): 'test' | 'live' | 'disabled' {
   const k = String(env.TOSS_SECRET_KEY || '');
   if (!k) return 'disabled';
@@ -80,6 +224,134 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
   if (!path.startsWith('/api/pay/')) return null;
 
   await ensurePayTable(env);
+
+  // ═══ 📚 수강신청(enroll) — 강사·요일·시간 선택 → 가격 → 주문 → (확정 시) 수업 전량 자동 생성 ═══
+  if (path.startsWith('/api/pay/enroll/')) {
+    await ensureEnrollTables(env);
+
+    // (a) 강사 목록 (공개 — 이름·사진만)
+    if (path === '/api/pay/enroll/teachers' && method === 'GET') {
+      let rows: any[] = [];
+      try {
+        const rs: any = await env.DB.prepare(`SELECT id, name, photo_url FROM teachers WHERE active = 1 ORDER BY name ASC LIMIT 200`).all();
+        rows = (rs?.results as any[]) || [];
+      } catch (_) {
+        try {
+          const rs: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name ASC LIMIT 200`).all();
+          rows = (rs?.results as any[]) || [];
+        } catch (_) {}
+      }
+      return json({ ok: true, teachers: rows.map((t) => ({ id: String(t.id), name: String(t.name || ''), photo: String(t.photo_url || '') })) });
+    }
+
+    // (b) 가격 견적 (공개 — uid 의 대리점 단가 기준. 금액 확정은 어차피 서버 주문에서 재계산)
+    if (path === '/api/pay/enroll/quote' && method === 'POST') {
+      const body = await parseJsonBody(request) || {};
+      const uid = String(body.uid || '').trim();
+      const weekly = Number(body.weekly || 0), months = Number(body.months || 0), minutes = Number(body.minutes || 20);
+      if (!ENROLL_WEEKLY.includes(weekly) || !ENROLL_MONTHS.includes(months) || (minutes !== 20 && minutes !== 40)) {
+        return json({ ok: false, error: 'bad_options' }, 400);
+      }
+      const { shopName, weekly1Price } = await enrollPriceForUid(env, uid);
+      const q = enrollQuoteCalc(weekly1Price, weekly, months, minutes);
+      return json({ ok: true, shop_name: shopName || null, weekly1_price: weekly1Price, ...q,
+        name: `주${weekly}회 × ${months}개월 (${q.sessions}회${minutes === 40 ? '·40분' : ''})` });
+    }
+
+    // (c) 슬롯 가능 여부 — 충돌 날짜 수만 알려줌 (강사 시간표 노출 없음)
+    if (path === '/api/pay/enroll/check' && method === 'POST') {
+      const body = await parseJsonBody(request) || {};
+      const p = enrollParse(body);
+      if (p.error) return json({ ok: false, error: p.error }, 400);
+      const sessions = p.weekly * 4 * p.months;
+      const dates = enrollDates(p.startDate, p.days, sessions);
+      if (dates.length < sessions) return json({ ok: false, error: 'date_gen_failed' }, 400);
+      const conflicts = await enrollConflicts(env, p.teacherId, dates, p.startMin, p.minutes, p.days);
+      return json({ ok: true, sessions, conflict_count: conflicts.size, ok_to_book: conflicts.size === 0,
+        first_date: dates[0], last_date: dates[dates.length - 1] });
+    }
+
+    // (d) 주문 생성 — 본인 인증 필수(서명 토큰), 서버가 가격·충돌 재검증
+    if (path === '/api/pay/enroll/create-order' && method === 'POST') {
+      const body = await parseJsonBody(request) || {};
+      const uid = String(body.uid || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const authUid = await authUidGlobal(request, url, env, body);
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const p = enrollParse(body);
+      if (p.error) return json({ ok: false, error: p.error }, 400);
+
+      const sessions = p.weekly * 4 * p.months;
+      const dates = enrollDates(p.startDate, p.days, sessions);
+      if (dates.length < sessions) return json({ ok: false, error: 'date_gen_failed' }, 400);
+      const conflicts = await enrollConflicts(env, p.teacherId, dates, p.startMin, p.minutes, p.days);
+      if (conflicts.size > 0) {
+        return json({ ok: false, error: 'slot_conflict', conflict_count: conflicts.size,
+          message: '선택한 시간에 이미 다른 수업이 있습니다. 다른 시간을 골라주세요.' }, 409);
+      }
+
+      const { shopName, weekly1Price } = await enrollPriceForUid(env, uid);
+      const q = enrollQuoteCalc(weekly1Price, p.weekly, p.months, p.minutes);
+      let tName = '';
+      try { const t: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`).bind(p.teacherId).first(); tName = String(t?.name || ''); } catch (_) {}
+      let sName = '';
+      try { const s: any = await env.DB.prepare(`SELECT COALESCE(korean_name, english_name, username) AS n FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first(); sName = String(s?.n || ''); } catch (_) {}
+
+      const orderName = `주${p.weekly}회 × ${p.months}개월 수강권 (${q.sessions}회${p.minutes === 40 ? '·40분' : ''})`;
+      const enrollJson = JSON.stringify({
+        v: 1, uid, teacher_id: p.teacherId, teacher_name: tName, days: p.days, time: p.time,
+        minutes: p.minutes, weekly: p.weekly, months: p.months, start_date: p.startDate,
+        sessions: q.sessions, per_session: q.perSession, weekly1_price: weekly1Price, shop_name: shopName || null,
+      });
+      const rnd = bytesHex(crypto.getRandomValues(new Uint8Array(6)));
+      const orderId = `MGE-${Date.now().toString(36).toUpperCase()}-${rnd}`;
+      try {
+        await env.DB.prepare(
+          `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, phone, enroll_json, created_at)
+           VALUES (?, ?, 'enroll', ?, 'pending', 'card', ?, ?, NULL, ?, ?)`
+        ).bind(orderId, uid, q.amount, sName || null, sName || null, enrollJson, Date.now()).run();
+      } catch (e) {
+        return json({ ok: false, error: 'order_create_failed', message: String((e as any)?.message || e) }, 500);
+      }
+      return json({ ok: true, orderId, amount: q.amount, orderName,
+        clientKey: env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT,
+        summary: { teacher: tName, days: p.days, time: p.time, minutes: p.minutes, sessions: q.sessions,
+          first_date: dates[0], last_date: dates[dates.length - 1], discount: q.discountRate } });
+    }
+
+    // (e) 대리점 단가 관리 (본사 관리자 전용 — 확인답변 ①: 본사에서 입력)
+    if (path === '/api/pay/enroll/admin/prices' && method === 'GET') {
+      const sess = await checkAdminSession(request, env);
+      if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      let shops: any[] = [];
+      try {
+        const rs: any = await env.DB.prepare(
+          `SELECT s.shop_name, COUNT(*) AS students, MAX(p.weekly1_price) AS weekly1_price, MAX(p.updated_at) AS updated_at
+           FROM students_erp s LEFT JOIN agency_pricing p ON p.shop_name = s.shop_name
+           WHERE s.shop_name IS NOT NULL AND s.shop_name != ''
+           GROUP BY s.shop_name ORDER BY students DESC LIMIT 300`
+        ).all();
+        shops = (rs?.results as any[]) || [];
+      } catch (e) { return json({ ok: false, error: String((e as any)?.message || e) }, 500); }
+      return json({ ok: true, default_price: ENROLL_BASE_WEEKLY1, shops });
+    }
+    if (path === '/api/pay/enroll/admin/prices' && method === 'POST') {
+      const sess = await checkAdminSession(request, env);
+      if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      const body = await parseJsonBody(request) || {};
+      const shopName = String(body.shop_name || '').trim().slice(0, 100);
+      const price = Number(body.weekly1_price || 0);
+      if (!shopName || !(price >= 1000 && price <= 1000000)) return json({ ok: false, error: 'bad_params' }, 400);
+      await env.DB.prepare(
+        `INSERT INTO agency_pricing (shop_name, weekly1_price, updated_by, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(shop_name) DO UPDATE SET weekly1_price = excluded.weekly1_price, updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+      ).bind(shopName, Math.round(price), String((sess as any).username || 'admin'), Date.now()).run();
+      return json({ ok: true, shop_name: shopName, weekly1_price: Math.round(price) });
+    }
+
+    return json({ ok: false, error: 'not_found' }, 404);
+  }
 
   // ── 1) 주문 생성: 서버가 금액을 결정(위변조 방지)하고 pending 주문을 만든다 ──
   if (path === '/api/pay/create-order' && method === 'POST') {
@@ -130,7 +402,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     }
 
     const order: any = await env.DB.prepare(
-      `SELECT order_id, amount, status, program, uid, student_name, payer_name, phone FROM payment_orders WHERE order_id = ? LIMIT 1`
+      `SELECT order_id, amount, status, program, uid, student_name, payer_name, phone, enroll_json FROM payment_orders WHERE order_id = ? LIMIT 1`
     ).bind(orderId).first();
     if (!order) {
       return json({ ok: false, error: 'order_not_found', message: '주문을 찾을 수 없습니다.' }, 404);
@@ -267,7 +539,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     if (!orderId) return json({ ok: true, skipped: 'no_order_id' });
 
     const order: any = await env.DB.prepare(
-      `SELECT order_id, amount, status, program, uid, student_name, payer_name, phone FROM payment_orders WHERE order_id = ? LIMIT 1`
+      `SELECT order_id, amount, status, program, uid, student_name, payer_name, phone, enroll_json FROM payment_orders WHERE order_id = ? LIMIT 1`
     ).bind(orderId).first();
     if (!order) return json({ ok: true, skipped: 'order_not_found' });
 
@@ -346,6 +618,51 @@ async function activateEnrollment(env: any, order: any, amount: number, when: nu
        VALUES (?, ?, ?, ?, NULL, ?, 'active', ?, ?, ?)`
     ).bind(order.uid || null, sName, pkg, when, amount, `토스 결제 자동활성화 · ${orderId}`, when, when).run();
   } catch (e) { console.warn('[pay] enrollment activate:', (e as any)?.message); }
+  // 📚 수강신청 주문이면 회차 전량을 실제 수업으로 생성 (멱등·충돌 회피)
+  await enrollCreateSchedules(env, order, orderId).catch((e: any) => console.warn('[enroll] schedules:', e?.message));
+}
+
+/** 📚 결제 확정 → class_schedules 회차 전량 생성.
+ *   멱등: source='enroll:주문번호' 가 이미 있으면 재실행 안 함 (confirm·webhook 경합 안전).
+ *   충돌: 주문~결제 사이에 슬롯이 찼으면 그 날짜만 건너뛰고 뒤로 밀어 회차 수 보존(공휴일 규칙 ①과 동일).
+ */
+async function enrollCreateSchedules(env: any, order: any, orderId: string): Promise<void> {
+  if (!order || !order.enroll_json) return;
+  let ej: any = null;
+  try { ej = JSON.parse(String(order.enroll_json)); } catch (_) { return; }
+  if (!ej || !ej.uid || !ej.teacher_id || !Array.isArray(ej.days)) return;
+  await ensureEnrollTables(env);
+  try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`); } catch (_) {}
+
+  const src = `enroll:${orderId}`;
+  const dup: any = await env.DB.prepare(`SELECT id FROM class_schedules WHERE source = ? LIMIT 1`).bind(src).first();
+  if (dup) return; // 이미 생성됨(멱등)
+
+  const sessions = Number(ej.sessions || 0);
+  const startMin = enrollTimeToMin(String(ej.time || ''));
+  if (!sessions || startMin < 0) return;
+
+  // 결제 시점 기준으로 충돌 재검사 → 충돌 날짜는 blocked 로 넘겨 뒤로 밀어 생성
+  const probe = enrollDates(String(ej.start_date), ej.days, sessions * 2); // 여유분 포함 후보
+  const conflicts = await enrollConflicts(env, String(ej.teacher_id), probe, startMin, Number(ej.minutes) || 20, ej.days);
+  const dates = enrollDates(String(ej.start_date), ej.days, sessions, conflicts);
+  if (dates.length < sessions) { console.warn('[enroll] not enough dates', orderId); }
+
+  const now = Date.now();
+  const sName = String(order.student_name || order.payer_name || '');
+  const stmt = env.DB.prepare(
+    `INSERT OR IGNORE INTO class_schedules (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
+     VALUES (?, ?, 'dated', 'regular', ?, ?, ?, ?, 'active', ?, 'enroll-auto', ?, ?)`
+  );
+  const note = `수강신청 자동생성 · ${ej.teacher_name || ''} · 주${ej.weekly}회×${ej.months}개월`;
+  const batch: any[] = [];
+  for (const d of dates) {
+    batch.push(stmt.bind(String(ej.uid), sName || null, d, String(ej.time), Number(ej.minutes) || 20, String(ej.teacher_id), src, now, note));
+  }
+  // D1 batch 는 개수 제한이 없지만 안전하게 80개씩 나눠 실행
+  for (let i = 0; i < batch.length; i += 80) {
+    await env.DB.batch(batch.slice(i, i + 80));
+  }
 }
 
 /** 📱 학부모 결제완료 확인문자 — "됐나 안 됐나" 불안 재시도(이중결제 1위 원인)를 원천 차단 */

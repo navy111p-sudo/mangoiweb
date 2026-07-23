@@ -315,15 +315,34 @@
     requestAnimationFrame(step);
   }
 
+  // ⚡ 다음 문제 선(先)생성 — 문제는 AI가 만들어 몇 초 걸립니다. 학생이 지금 문제를 푸는 동안
+  //    다음 문제를 미리 받아두면 "다음 문제 →"가 즉시 뜹니다. (요청은 항상 1문제 앞서기만 함)
+  var prefetch = null, prefetchDone = false;
+  function requestScenario(){
+    return fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+      body:JSON.stringify({uid:UID, lang:'en', textbook:TEXTBOOK})})
+      .then(function(r){ return r.json(); })
+      .catch(function(){ return null; });
+  }
+  function prefetchNext(){
+    if(prefetch) return;
+    prefetchDone = false;
+    prefetch = requestScenario().then(function(d){ prefetchDone = true; return d; });
+  }
+  function validScenario(d){ return !!(d && d.ok!==false && Array.isArray(d.options) && d.options.length>=2); }
+
   async function loadScenario(){
     view='q'; chosen = -1;
-    loading(T('맞춤 문제를 만들고 있어요…','Creating your question…','正在为你出题…'));
+    var p = prefetch, ready = prefetchDone;
+    prefetch = null; prefetchDone = false;
+    if(!p){ p = requestScenario(); ready = false; }
+    if(!ready) loading(T('맞춤 문제를 만들고 있어요…','Creating your question…','正在为你出题…'));
     try{
-      var r = await fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({uid:UID, lang:'en', textbook:TEXTBOOK})});
-      var d = await r.json();
-      if(!d || d.ok===false || !Array.isArray(d.options) || d.options.length<2) throw new Error('no scenario');
+      var d = await p;
+      if(!validScenario(d)) throw new Error('no scenario');
       scenario = d;
       renderQuestion(); reEnter();
+      prefetchNext();                      // 학생이 이 문제를 푸는 동안 다음 문제를 준비
     }catch(e){
       stage.innerHTML = '<div class="center">'+T('문제를 불러오지 못했어요.','Could not load a question.','题目加载失败。')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" onclick="location.reload()">'+T('다시 시도','Try again','再试一次')+'</button></div>';
     }
@@ -335,9 +354,13 @@
     var opts = scenario.options.map(function(o,i){
       return '<button class="opt" data-i="'+i+'"'+(i===chosen?' data-sel="1"':'')+'><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span></button>';
     }).join('');
-    var tbChip = scenario.textbook ? '<div><span class="tb-chip">📖 '+esc(scenario.textbook)+' '+T('연계','linked','关联')+'</span></div>' : '';
+    var tbChip = scenario.textbook ? '<span class="tb-chip">📖 '+esc(scenario.textbook)+' '+T('연계','linked','关联')+'</span>' : '';
+    // 난이도 — 어려운 문제를 맞히면 판단력 지수에 더 크게 반영되므로 미리 알려줍니다
+    var dv = Math.max(1, Math.min(5, Math.round(Number(scenario.difficulty)||3)));
+    var dChip = '<span class="tb-chip" title="'+T('어려운 문제일수록 지수에 더 크게 반영돼요','Harder questions count more toward your index','越难的题对指数影响越大')+'">'
+      + T('난이도','Level','难度')+' '+'★'.repeat(dv)+'<span style="opacity:.4">'+'☆'.repeat(5-dv)+'</span></span>';
     stage.innerHTML =
-      tbChip+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+tbChip+dChip+'</div>'+
       '<div class="sit-label">🗣️ '+T('이런 상황이에요','Here is the situation','情境是这样的')+'</div>'+
       '<div class="sit">'+esc(scenario.situation)+'</div>'+
       '<div class="opts">'+opts+'</div>'+
@@ -364,7 +387,8 @@
     try{
       var r = await fetch('/api/judgment/answer', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
         body:JSON.stringify({ uid:UID, student_name:NAME, situation:scenario.situation, skill_tag:scenario.skill_tag,
-          options:scenario.options, chosen_index:chosen, correct_index:scenario.correct_index, reasoning:reasoning, lang:LANG })});
+          options:scenario.options, chosen_index:chosen, correct_index:scenario.correct_index, reasoning:reasoning, lang:LANG,
+          option_scores:scenario.option_scores, difficulty:scenario.difficulty })});
       var d = await r.json();
       if(!d || d.ok===false) throw new Error('score fail');
       solved++;
@@ -376,6 +400,14 @@
     }
   }
 
+  // 오답도 등급이 갈립니다 — "아깝게 틀림"과 "완전히 다른 표현"에 같은 말을 하지 않기 위해
+  function bannerText(ok, cs){
+    if(ok) return '🎉 '+T('잘 골랐어요!','Great choice!','选得好！');
+    var s = Number(cs);
+    if(isFinite(s) && s>=60) return '😮 '+T('아주 아까워요! 뜻은 통해요','So close — it does get the meaning across','太可惜了！意思是通的');
+    if(isFinite(s) && s<35)  return '🧐 '+T('이 표현은 상황과 많이 달라요','That one is quite far from the situation','这个表达和情境差得比较远');
+    return '🤔 '+T('거의 다 왔어요!','So close!','就差一点！');
+  }
   function renderResult(d){
     view='result';
     var ok = !!d.correct;
@@ -390,7 +422,7 @@
     var best = (!ok && d.best_option) ? '<div class="best">💡 '+T('가장 자연스러운 표현','Most natural expression','最自然的表达')+': <b>'+esc(d.best_option)+'</b></div>' : '';
     stage.innerHTML =
       '<div class="res">'+
-        '<div class="banner '+(ok?'ok':'no')+'">'+(ok?('🎉 '+T('잘 골랐어요!','Great choice!','选得好！')):('🤔 '+T('거의 다 왔어요!','So close!','就差一点！')))+'</div>'+
+        '<div class="banner '+(ok?'ok':'no')+'">'+bannerText(ok, d.choice_score)+'</div>'+
         best+
         '<div class="fb">'+esc(fb)+'</div>'+
         scores+
@@ -498,7 +530,7 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260723161427 -->
+<!-- BUILD:20260723162850 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

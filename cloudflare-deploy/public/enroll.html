@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수강신청 · 망고아이</title>
+<link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml">
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e2e8f0; min-height:100vh; padding:16px 12px 120px; }
+  .wrap { max-width:560px; margin:0 auto; }
+  h1 { font-size:20px; color:#fbbf24; text-align:center; margin:8px 0 2px; }
+  .sub { text-align:center; color:#94a3b8; font-size:12.5px; margin-bottom:16px; }
+  .step { background:rgba(30,41,59,0.92); border:1px solid rgba(148,163,184,0.2); border-radius:16px; padding:16px 14px; margin-bottom:12px; }
+  .step h2 { font-size:14px; margin:0 0 10px; color:#fcd34d; }
+  .grid { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:9px 14px; border-radius:999px; border:1.5px solid rgba(148,163,184,0.35); background:rgba(0,0,0,0.25); color:#e2e8f0; font-size:13.5px; font-weight:700; cursor:pointer; user-select:none; }
+  .chip.on { background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1a1a; border-color:#fbbf24; }
+  .chip.dis { opacity:0.35; pointer-events:none; }
+  .tgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; max-height:250px; overflow-y:auto; }
+  .tcard { border:1.5px solid rgba(148,163,184,0.3); border-radius:12px; padding:10px 6px; text-align:center; cursor:pointer; background:rgba(0,0,0,0.22); }
+  .tcard.on { border-color:#fbbf24; background:rgba(251,191,36,0.15); }
+  .tcard img { width:52px; height:52px; border-radius:50%; object-fit:cover; background:#334155; }
+  .tcard .nm { font-size:12px; font-weight:700; margin-top:6px; word-break:break-all; }
+  select, input[type=date] { padding:10px 12px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.35); background:#0f172a; color:#e2e8f0; font-size:14px; font-family:inherit; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+  .lbl { font-size:12.5px; color:#94a3b8; min-width:58px; }
+  .price { position:fixed; left:0; right:0; bottom:0; background:rgba(15,23,42,0.97); border-top:1px solid rgba(251,191,36,0.35); padding:12px 16px; backdrop-filter:blur(10px); }
+  .price .in { max-width:560px; margin:0 auto; display:flex; align-items:center; gap:12px; }
+  .amt { font-size:22px; font-weight:900; color:#fbbf24; }
+  .amt small { font-size:11px; color:#94a3b8; font-weight:400; display:block; }
+  .btn { flex:1; padding:14px; border-radius:12px; border:0; font-size:15px; font-weight:800; cursor:pointer; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; }
+  .btn:disabled { opacity:0.5; cursor:default; }
+  .ok { color:#6ee7b7; font-size:12.5px; }
+  .bad { color:#fca5a5; font-size:12.5px; }
+  .note { font-size:11.5px; color:#64748b; margin-top:8px; line-height:1.6; }
+  .login-need { text-align:center; padding:40px 16px; }
+  .login-need a { color:#fbbf24; font-weight:800; }
+  .dc { color:#6ee7b7; font-size:11px; margin-left:4px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <h1>🥭 <span data-ko="수강신청" data-en="Enroll">수강신청</span></h1>
+  <div class="sub" data-ko="강사·요일·시간을 고르고 결제하면 수업이 자동으로 잡혀요" data-en="Pick a teacher, days and time — classes are scheduled automatically after payment">강사·요일·시간을 고르고 결제하면 수업이 자동으로 잡혀요</div>
+
+  <div class="step" id="stTeacher">
+    <h2>1️⃣ <span data-ko="강사 선택" data-en="Choose a teacher">강사 선택</span></h2>
+    <div class="tgrid" id="tList"><div style="color:#94a3b8;font-size:13px">불러오는 중…</div></div>
+  </div>
+
+  <div class="step">
+    <h2>2️⃣ <span data-ko="수업 옵션" data-en="Class options">수업 옵션</span></h2>
+    <div class="row"><span class="lbl" data-ko="주 횟수" data-en="Per week">주 횟수</span><div class="grid" id="gWeekly"></div></div>
+    <div class="row"><span class="lbl" data-ko="기간" data-en="Months">기간</span><div class="grid" id="gMonths"></div></div>
+    <div class="row"><span class="lbl" data-ko="수업 길이" data-en="Length">수업 길이</span><div class="grid" id="gMinutes"></div></div>
+  </div>
+
+  <div class="step">
+    <h2>3️⃣ <span data-ko="요일·시간" data-en="Days & time">요일·시간</span></h2>
+    <div class="row"><span class="lbl" data-ko="요일" data-en="Days">요일</span><div class="grid" id="gDays"></div></div>
+    <div class="row">
+      <span class="lbl" data-ko="시작 시각" data-en="Start time">시작 시각</span>
+      <select id="selTime"></select>
+      <span class="lbl" data-ko="시작일" data-en="Start date">시작일</span>
+      <input type="date" id="selDate">
+    </div>
+    <div id="slotMsg" class="note"></div>
+  </div>
+
+  <div class="note" style="text-align:center" data-ko="연기는 수업 30분 전까지 무료 · 재결제 시 같은 요일·시간·강사로 자동 연장됩니다" data-en="Free reschedule until 30 min before class · Renewal keeps the same days, time and teacher">연기는 수업 30분 전까지 무료 · 재결제 시 같은 요일·시간·강사로 자동 연장됩니다</div>
+</div>
+
+<div class="price"><div class="in">
+  <div class="amt"><span id="amt">-</span><small id="amtSub"></small></div>
+  <button class="btn" id="btnPay" disabled data-ko="결제하기" data-en="Pay now">결제하기</button>
+</div></div>
+
+<script src="https://js.tosspayments.com/v1/payment"></script>
+<script>
+(function(){
+  'use strict';
+  var UID = null, TOKEN = null;
+  try {
+    UID = localStorage.getItem('mangoi_uid') || (JSON.parse(localStorage.getItem('mangoi_logged_user')||'null')||{}).uid || null;
+    TOKEN = localStorage.getItem('mango_token') || null;
+  } catch(e){}
+
+  var st = { teacher:null, teacherName:'', weekly:2, months:1, minutes:20, days:[], time:'16:00', date:'' };
+  var QUOTE = null, CHECK_OK = false, checkTimer = null;
+
+  var app = document.getElementById('app');
+  if (!UID) {
+    app.innerHTML = '<h1>🥭 수강신청</h1><div class="login-need">'
+      + '<div style="font-size:40px">🔒</div>'
+      + '<div style="margin:10px 0;font-weight:800" data-ko="로그인 후 이용할 수 있어요" data-en="Please log in first">로그인 후 이용할 수 있어요</div>'
+      + '<a href="/" data-ko="홈에서 로그인하기 →" data-en="Log in on Home →">홈에서 로그인하기 →</a></div>';
+    document.querySelector('.price').style.display = 'none';
+    return;
+  }
+
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function won(n){ return Number(n||0).toLocaleString('ko-KR') + '원'; }
+
+  /* 강사 목록 */
+  fetch('/api/pay/enroll/teachers').then(function(r){return r.json();}).then(function(d){
+    var box = el('tList');
+    if (!d || !d.ok || !d.teachers || !d.teachers.length) { box.innerHTML = '<div class="bad">강사 목록을 불러오지 못했어요</div>'; return; }
+    box.innerHTML = d.teachers.map(function(t){
+      return '<div class="tcard" data-id="'+esc(t.id)+'" data-name="'+esc(t.name)+'">'
+        + (t.photo ? '<img src="'+esc(t.photo)+'" alt="">' : '<div style="font-size:34px">🧑‍🏫</div>')
+        + '<div class="nm">'+esc(t.name)+'</div></div>';
+    }).join('');
+    box.addEventListener('click', function(ev){
+      var c = ev.target.closest('.tcard'); if (!c) return;
+      box.querySelectorAll('.tcard').forEach(function(x){ x.classList.remove('on'); });
+      c.classList.add('on');
+      st.teacher = c.getAttribute('data-id'); st.teacherName = c.getAttribute('data-name');
+      refresh();
+    });
+  }).catch(function(){ el('tList').innerHTML = '<div class="bad">네트워크 오류</div>'; });
+
+  /* 옵션 칩 렌더 */
+  function chips(id, items, cur, onPick){
+    var box = el(id);
+    box.innerHTML = items.map(function(it){
+      return '<div class="chip'+(it.v===cur?' on':'')+'" data-v="'+it.v+'">'+it.t+(it.dc?'<span class="dc">'+it.dc+'</span>':'')+'</div>';
+    }).join('');
+    box.onclick = function(ev){
+      var c = ev.target.closest('.chip'); if (!c) return;
+      onPick(Number(c.getAttribute('data-v')));
+    };
+  }
+  function renderOpts(){
+    chips('gWeekly', [{v:1,t:'주1회'},{v:2,t:'주2회'},{v:3,t:'주3회'},{v:5,t:'주5회'}], st.weekly, function(v){ st.weekly=v; st.days=st.days.slice(0,v); renderOpts(); refresh(); });
+    chips('gMonths', [{v:1,t:'1개월'},{v:3,t:'3개월'},{v:6,t:'6개월',dc:'-5%'},{v:12,t:'12개월',dc:'-10%'}], st.months, function(v){ st.months=v; renderOpts(); refresh(); });
+    chips('gMinutes', [{v:20,t:'20분'},{v:40,t:'40분 (×2)'}], st.minutes, function(v){ st.minutes=v; renderOpts(); refresh(); });
+    var DN = ['일','월','화','수','목','금','토'];
+    var box = el('gDays');
+    box.innerHTML = DN.map(function(n,i){
+      var on = st.days.indexOf(i) >= 0;
+      return '<div class="chip'+(on?' on':'')+'" data-v="'+i+'">'+n+'</div>';
+    }).join('');
+    box.onclick = function(ev){
+      var c = ev.target.closest('.chip'); if (!c) return;
+      var v = Number(c.getAttribute('data-v'));
+      var ix = st.days.indexOf(v);
+      if (ix >= 0) st.days.splice(ix,1);
+      else { if (st.days.length >= st.weekly) st.days.shift(); st.days.push(v); }
+      st.days.sort();
+      renderOpts(); refresh();
+    };
+  }
+
+  /* 시간·날짜 */
+  (function(){
+    var sel = el('selTime'), opts = [];
+    for (var m = 6*60; m <= 23*60+40; m += 10) {
+      var hh = String(Math.floor(m/60)).padStart(2,'0'), mm = String(m%60).padStart(2,'0');
+      opts.push('<option value="'+hh+':'+mm+'"'+((hh+':'+mm)===st.time?' selected':'')+'>'+hh+':'+mm+'</option>');
+    }
+    sel.innerHTML = opts.join('');
+    sel.onchange = function(){ st.time = sel.value; refresh(); };
+    var d = new Date(Date.now() + 86400000 + 9*3600*1000); // 기본 = 내일(KST)
+    st.date = d.toISOString().slice(0,10);
+    var inp = el('selDate');
+    inp.value = st.date;
+    inp.min = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+    inp.onchange = function(){ st.date = inp.value; refresh(); };
+  })();
+
+  /* 가격 + 슬롯 확인 (디바운스) */
+  function refresh(){
+    CHECK_OK = false; updatePayBtn();
+    fetch('/api/pay/enroll/quote', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ uid:UID, weekly:st.weekly, months:st.months, minutes:st.minutes }) })
+      .then(function(r){return r.json();}).then(function(d){
+        if (!d || !d.ok) return;
+        QUOTE = d;
+        el('amt').textContent = won(d.amount);
+        el('amtSub').textContent = d.name + (d.discountRate < 1 ? ' · 할인 적용' : '');
+      }).catch(function(){});
+    var msg = el('slotMsg');
+    if (!st.teacher) { msg.innerHTML = '<span class="bad">👆 강사를 먼저 선택해 주세요</span>'; return; }
+    if (st.days.length !== st.weekly) { msg.innerHTML = '<span class="bad">요일을 '+st.weekly+'개 선택해 주세요 (지금 '+st.days.length+'개)</span>'; return; }
+    msg.textContent = '⏳ 시간 확인 중…';
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(function(){
+      fetch('/api/pay/enroll/check', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ teacher_id:st.teacher, weekly:st.weekly, months:st.months, minutes:st.minutes, days:st.days, time:st.time, start_date:st.date }) })
+        .then(function(r){return r.json();}).then(function(d){
+          if (!d || !d.ok) { msg.innerHTML = '<span class="bad">확인 실패: '+esc((d&&d.error)||'오류')+'</span>'; return; }
+          if (d.ok_to_book) {
+            CHECK_OK = true;
+            msg.innerHTML = '<span class="ok">✅ 예약 가능! '+esc(d.first_date)+' ~ '+esc(d.last_date)+' · 총 '+d.sessions+'회</span>';
+          } else {
+            msg.innerHTML = '<span class="bad">❌ 이 시간에 이미 다른 수업이 '+d.conflict_count+'건 있어요. 다른 시간·요일을 골라주세요</span>';
+          }
+          updatePayBtn();
+        }).catch(function(){ msg.innerHTML = '<span class="bad">네트워크 오류</span>'; });
+    }, 450);
+  }
+  function updatePayBtn(){ el('btnPay').disabled = !(CHECK_OK && QUOTE && st.teacher); }
+
+  /* 결제 */
+  el('btnPay').addEventListener('click', function(){
+    var btn = el('btnPay');
+    btn.disabled = true; btn.textContent = '🔄 결제창 여는 중…';
+    fetch('/api/pay/enroll/create-order', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ uid:UID, token:TOKEN, teacher_id:st.teacher, weekly:st.weekly, months:st.months, minutes:st.minutes, days:st.days, time:st.time, start_date:st.date }) })
+      .then(function(r){return r.json();}).then(function(o){
+        if (!o || !o.ok) {
+          btn.disabled = false; btn.textContent = '결제하기';
+          alert((o && o.message) || '주문 생성에 실패했어요: ' + ((o&&o.error)||''));
+          if (o && o.error === 'slot_conflict') refresh();
+          return;
+        }
+        try {
+          var tp = window.TossPayments(o.clientKey);
+          tp.requestPayment('카드', {
+            amount: o.amount, orderId: o.orderId, orderName: o.orderName,
+            customerName: (o.summary && o.summary.teacher) ? '수강생' : '수강생',
+            successUrl: location.origin + '/payment-success.html',
+            failUrl: location.origin + '/payment-fail.html'
+          }).catch(function(e){
+            btn.disabled = false; btn.textContent = '결제하기';
+            if (e && e.code !== 'USER_CANCEL') alert('결제창 오류: ' + (e.message||''));
+          });
+        } catch(e){ btn.disabled = false; btn.textContent = '결제하기'; alert('결제 모듈 오류'); }
+      }).catch(function(){ btn.disabled = false; btn.textContent = '결제하기'; alert('네트워크 오류'); });
+  });
+
+  renderOpts(); refresh();
+})();
+</script>
+<script src="/js/i18n-sweep.js?v=5" defer></script>
+<script src="/js/ux-track.js?v=1" defer></script>
+<!-- BUILD:20260723162850 -->
+</body>
+</html>

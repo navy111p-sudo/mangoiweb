@@ -684,7 +684,8 @@ Return STRICT JSON only, in BOTH Korean and English:
     }
 
     // ── POST /api/judgment/answer — 판단력 훈련 답안(선택+이유) 채점 + 기록 (학습 액션) ──
-    //   body: { uid, student_name?, situation, skill_tag?, options[], chosen_index, correct_index?, reasoning, lang? }
+    //   body: { uid, student_name?, situation, skill_tag?, options[], chosen_index, correct_index?, reasoning, lang?,
+    //           option_scores?, difficulty? }  ← 문제 생성 때 함께 받은 선택지별 점수·난이도를 그대로 되돌려 보냄
     if (method === 'POST' && path === '/api/judgment/answer') {
       const body: any = await request.json().catch(() => ({}));
       const uid = (body.uid || '').trim();
@@ -698,6 +699,7 @@ Return STRICT JSON only, in BOTH Korean and English:
           options: body.options, chosenIndex: body.chosen_index,
           correctIndex: (body.correct_index == null ? null : Number(body.correct_index)),
           reasoning: String(body.reasoning || ''), lang: body.lang || 'en',
+          optionScores: body.option_scores, difficulty: body.difficulty,
         });
         return json(r);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }

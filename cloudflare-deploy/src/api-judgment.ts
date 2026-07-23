@@ -433,14 +433,22 @@ function stddev(arr: number[]): number {
 const RECENCY_HALF_LIFE = 6;   // 6회 전 판단의 가중치 = 최신의 1/2
 const RECENT_WINDOW = 12;      // 자기교정력·일관성을 보는 최근 창
 
-/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. */
-function recencyAvg(arr: Array<number | null>): number | null {
+// 난이도(1~5) 가중치 — 어려운 문항을 맞힌 것이 쉬운 문항 100점보다 더 인정받도록.
+//   쉬운 문항만 반복해서 지수를 올리는 것을 막아 변별력을 만듭니다.
+const DIFFICULTY_WEIGHT = [0.7, 0.85, 1.0, 1.2, 1.4];
+const difficultyWeight = (d: any): number => {
+  const i = Math.round(+d);
+  return Number.isFinite(i) && i >= 1 && i <= 5 ? DIFFICULTY_WEIGHT[i - 1] : 1.0;   // 난이도 미기록 옛 기록 = 보통
+};
+
+/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. mult 로 회차별 추가 가중(난이도) 적용. */
+function recencyAvg(arr: Array<number | null>, mult?: number[]): number | null {
   let ws = 0, vs = 0;
   const n = arr.length;
   for (let i = 0; i < n; i++) {
     const v = arr[i];
     if (v == null) continue;                                     // 값 없는 회차는 가중치 자리도 차지하지 않음
-    const w = Math.pow(0.5, (n - 1 - i) / RECENCY_HALF_LIFE);
+    const w = Math.pow(0.5, (n - 1 - i) / RECENCY_HALF_LIFE) * (mult ? mult[i] : 1);
     ws += w; vs += w * v;
   }
   return ws > 0 ? vs / ws : null;
@@ -460,12 +468,13 @@ export interface GrowthAxes {
 /** 판단 기록(시간 오름차순) → 5축 + 지수. 순수 함수라 "직전까지" 재계산에도 그대로 씁니다. */
 function axesFromRows(rows: any[]): GrowthAxes {
   const choiceSeq: Array<number | null> = [], reasoningSeq: Array<number | null> = [], registerSeq: Array<number | null> = [];
-  const choiceArr: number[] = [];
+  const choiceArr: number[] = []; const diffMult: number[] = [];
   const miscSeq: Array<string | null> = []; const miscCount = new Map<string, number>();
   for (const r of rows) {
     const cs = r.choice_score != null ? Number(r.choice_score) : null;
     choiceSeq.push(cs); if (cs != null) choiceArr.push(cs);
     let feat: any = {}; try { feat = r.reasoning_features_json ? JSON.parse(r.reasoning_features_json) : {}; } catch { feat = {}; }
+    diffMult.push(difficultyWeight(feat.difficulty));
     reasoningSeq.push((feat.has_reasoning && r.reasoning_score != null) ? Number(r.reasoning_score) : null);
     registerSeq.push(feat.register_awareness != null ? Number(feat.register_awareness) : null);
     const mc = r.misconception_tag ? String(r.misconception_tag) : null;
@@ -496,7 +505,7 @@ function axesFromRows(rows: any[]): GrowthAxes {
   const round = (v: number | null) => v == null ? null : Math.round(v);
   const a: GrowthAxes = {
     events_count: rows.length,
-    axis_choice: round(recencyAvg(choiceSeq)),
+    axis_choice: round(recencyAvg(choiceSeq, diffMult)),
     axis_reasoning: round(recencyAvg(reasoningSeq)),
     axis_selfcorrection: axisSelf,
     axis_register: round(recencyAvg(registerSeq)),
@@ -673,6 +682,33 @@ const SCENARIO_RECENT_MAX = 15;          // 학생당 반복금지 목록 최대
 function normSituation(s: any): string { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 
 /**
+ * 선택지별 적절성 점수 정규화 — 공정성·변별력의 핵심.
+ *   기존에는 정답 100 / 오답 일괄 45 라, "거의 맞은 답"과 "완전히 엉뚱한 답"이 같은 점수였습니다.
+ *   LLM 이 매긴 선택지별 점수를 쓰되 (a) 값이 없거나 길이가 안 맞으면 null(→ 기존 방식 폴백),
+ *   (b) 정답이 항상 최고점이 되도록 강제합니다. 클라이언트가 되돌려 보낸 값 검증에도 같은 함수를 씁니다.
+ */
+export function normalizeOptionScores(raw: any, n: number, correctIdx: number): number[] | null {
+  if (!Array.isArray(raw) || raw.length !== n || n < 2) return null;
+  const out: number[] = [];
+  for (const v of raw) {
+    const x = Math.round(+v);
+    if (!Number.isFinite(x)) return null;
+    out.push(Math.max(0, Math.min(100, x)));
+  }
+  if (correctIdx >= 0 && correctIdx < n) {
+    const otherMax = Math.max(...out.filter((_, i) => i !== correctIdx));
+    out[correctIdx] = Math.max(out[correctIdx], otherMax + 5, 95);   // 정답이 최고점임을 보장
+    out[correctIdx] = Math.min(100, out[correctIdx]);
+  }
+  return out;
+}
+/** 난이도 1~5 정규화. 값이 없으면 보통(3). */
+export function normalizeDifficulty(raw: any): number {
+  const d = Math.round(+raw);
+  return Number.isFinite(d) ? Math.max(1, Math.min(5, d)) : 3;
+}
+
+/**
  * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
  *   반환: { situation, options[], correct_index, why, skill_tag, target_misconception, textbook, based_on }
  */
@@ -738,6 +774,8 @@ Return STRICT JSON only:
   "skill_tag": "<short kebab tag>",
   "options": ["<expression A>", "<expression B>", "<expression C>"],
   "correct_index": <0-based index of the best option>,
+  "option_scores": [<one 0-100 score per option, SAME ORDER as options. The best option: 95-100. An option that is understandable and polite enough but slightly less natural: 60-80. An option that a child could reasonably think is fine but is clearly off in tone or meaning: 35-55. A clearly rude or wrong option: 5-25. Spread the scores out — do NOT give every wrong option the same number>],
+  "difficulty": <1-5 how hard this judgment is for this child: 1=obvious, 3=needs thought, 5=subtle tone difference only a careful learner catches>,
   "why": "<1-2 sentences: WHY the best option is best and why the others are less appropriate — this trains judgment>",
   "why_ko": "<same explanation in NATURAL, CORRECT KOREAN ONLY — use only Hangul, numbers, and basic punctuation; never insert Chinese, Hindi, or other scripts>"
 }`;
@@ -757,11 +795,14 @@ Return STRICT JSON only:
             continue;
           }
           const ci = Number.isInteger(+j.correct_index) ? Math.max(0, Math.min(j.options.length - 1, +j.correct_index)) : 0;
+          const opts4 = j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4);
           scenario = {
             situation,
             skill_tag: String(j.skill_tag || target?.skill || '').slice(0, 60) || null,
-            options: j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4),
+            options: opts4,
             correct_index: ci,
+            option_scores: normalizeOptionScores(j.option_scores, opts4.length, ci),
+            difficulty: normalizeDifficulty(j.difficulty),
             why: String(j.why || '').slice(0, 600),
             why_ko: cleanKo(String(j.why_ko || '')).slice(0, 600),
           };
@@ -798,6 +839,8 @@ export interface RecordJudgmentInput {
     is_optimal?: boolean | number; choice_score?: number | null; reasoning?: string;
     reasoning_score?: number | null; register_awareness?: number | null;
     misconception?: string | null; feedback_ko?: string; feedback_en?: string;
+    /** 문항 난이도 1~5 — 성장 지수에서 어려운 문항에 더 큰 가중치를 주기 위해 함께 보관. */
+    difficulty?: number | null;
   }>;
 }
 
@@ -834,7 +877,8 @@ export async function recordJudgmentEvents(env: MangoEnv, input: RecordJudgmentI
       const isOptimal = (ev.is_optimal === true || ev.is_optimal === 1) ? 1 : 0;
       let misc = (ev.misconception && ev.misconception !== 'null') ? String(ev.misconception).toUpperCase().trim() : null;
       if (misc && !validCodes.has(misc)) misc = null;
-      const features = { register_awareness: registerAwareness, has_reasoning: reasoning.length > 0, source_llm: false };
+      const features: any = { register_awareness: registerAwareness, has_reasoning: reasoning.length > 0, source_llm: false };
+      if (ev.difficulty != null) features.difficulty = normalizeDifficulty(ev.difficulty);
       const featuresJson = JSON.stringify(features);
       try {
         await env.DB.prepare(`INSERT INTO judgment_events (event_uid, student_uid, student_name, room_id, schedule_id, lesson_date, source, situation_id, situation_text, skill_tag, options_json, chosen_option, chosen_index, reasoning_text, lang, analyzed, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?) ON CONFLICT(event_uid) DO UPDATE SET situation_text=excluded.situation_text, skill_tag=excluded.skill_tag, options_json=excluded.options_json, chosen_option=excluded.chosen_option, reasoning_text=excluded.reasoning_text, analyzed=1`)
@@ -871,6 +915,7 @@ export async function recordJudgmentEvents(env: MangoEnv, input: RecordJudgmentI
 export async function evaluateJudgmentAnswer(env: MangoEnv, input: {
   studentUid: string; studentName?: string | null; situation: string; skillTag?: string;
   options: string[]; chosenIndex: number; correctIndex?: number | null; reasoning: string; lang?: string;
+  optionScores?: any; difficulty?: any;
 }): Promise<any> {
   const t0 = Date.now();
   await ensureJudgmentTables(env);
@@ -880,7 +925,15 @@ export async function evaluateJudgmentAnswer(env: MangoEnv, input: {
   const correctIdx = (input.correctIndex == null) ? null : Number(input.correctIndex);
   const correct = (correctIdx != null && correctIdx >= 0 && correctIdx < opts.length) ? opts[correctIdx] : '';
   const isOptimal = (correctIdx != null && ci === correctIdx) ? 1 : 0;
-  const choiceScore = isOptimal ? 100 : (correctIdx != null ? 45 : 70);
+  const difficulty = normalizeDifficulty(input.difficulty);
+  // 선택 적절성 — 문제 생성 때 함께 받아둔 선택지별 점수를 사용(추가 LLM 호출 0).
+  //   "아깝게 틀림"과 "완전히 엉뚱함"이 갈리므로 공정성·변별력이 함께 올라갑니다.
+  //   점수가 없는 옛 문항/구버전 클라이언트는 기존 100·45 방식으로 폴백합니다.
+  const optScores = normalizeOptionScores(input.optionScores, opts.length, correctIdx ?? -1);
+  const graded = (optScores && ci >= 0 && ci < optScores.length) ? optScores[ci] : null;
+  const choiceScore = isOptimal
+    ? (graded != null ? Math.max(95, graded) : 100)
+    : (graded != null ? graded : (correctIdx != null ? 45 : 70));
   const reasoning = String(input.reasoning || '').slice(0, 800).trim();
   const lang = input.lang || 'en';
   const taxonomy = await getMisconceptionTaxonomy(env);
@@ -895,8 +948,8 @@ export async function evaluateJudgmentAnswer(env: MangoEnv, input: {
 
 Judge the child's REASONING (not just the choice). Return STRICT JSON only:
 {
-  "reasoning_score": <0-100 logic/depth of the child's reason; if no reason given, 0-20>,
-  "register_awareness": <0-100 how well the child considered formality/context>,
+  "reasoning_score": <0-100 logic/depth of the child's reason; if no reason given, 0-20. A short reason written in Korean is FINE — judge the thinking, not the English>,
+  "register_awareness": <0-100 how well the child matched formality/tone to the listener and situation. Judge the CHOICE FIRST — a child who picked the right register deserves a high score even if their written reason is short. Use the reason only to adjust up or down>,
   "misconception": "<if the choice was wrong, ONE of: ${taxonomyList}; else null>",
   "feedback_ko": "<1-2 warm, simple sentences in NATURAL KOREAN ONLY (Hangul + basic punctuation; no Chinese/other scripts): praise + one tip>",
   "feedback_en": "<same in simple English>"${wantZh ? `,
@@ -928,6 +981,9 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
   if (!feedbackEn) feedbackEn = isOptimal ? 'Great choice! Thinking about why builds your judgment.' : 'Close! There is a more natural option — let’s see why.';
   if (wantZh && !feedbackZh) feedbackZh = isOptimal ? '选得好！一起思考理由，判断力会不断成长。' : '很接近了！还有更自然的表达，我们一起看看为什么。';
   if (reasoningScore == null) reasoningScore = reasoning.length >= 5 ? 55 : 10;
+  // 어투 민감도 폴백 — LLM 이 값을 못 주면 '고른 표현이 얼마나 적절했나'로 대신합니다.
+  //   (이유를 짧게 쓴 아이가 표현은 정확히 골랐는데도 이 축이 계속 비어 낮게 굳던 문제)
+  if (registerAwareness == null) registerAwareness = choiceScore;
 
   // 판단 이벤트 기록(이유 포함 → axis_reasoning·register 채워짐)
   await recordJudgmentEvents(env, {
@@ -936,12 +992,13 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
       situation: input.situation, skill_tag: input.skillTag || 'practice', chosen, better: correct,
       is_optimal: isOptimal, choice_score: choiceScore, reasoning, reasoning_score: reasoningScore,
       register_awareness: registerAwareness, misconception, feedback_ko: feedbackKo, feedback_en: feedbackEn,
+      difficulty,
     }],
   });
-  await logPerf(env, 'judgment_answer', input.studentUid, Date.now() - t0, 0, 'ok', { optimal: isOptimal });
+  await logPerf(env, 'judgment_answer', input.studentUid, Date.now() - t0, 0, 'ok', { optimal: isOptimal, difficulty, choice: choiceScore });
   return {
     ok: true, correct: !!isOptimal, choice_score: choiceScore, reasoning_score: reasoningScore,
-    register_awareness: registerAwareness, misconception, best_option: correct || null,
+    register_awareness: registerAwareness, misconception, best_option: correct || null, difficulty,
     feedback_ko: feedbackKo, feedback_en: feedbackEn, ...(wantZh ? { feedback_zh: feedbackZh } : {}),
   };
 }
