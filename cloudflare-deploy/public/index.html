@@ -10131,7 +10131,7 @@ function vcCleanupAllPeers() {
     vcPeerConnections = {};
     vcRemoteStreams = {};
     // 🇵🇭 (2026-07-24) 순단으로 남겨 둔 '재연결 중' 유령 타일도 함께 정리
-    //   (id 를 vc-video-ghost-* 로 바꿔 두었기 때문에 위 루프에 안 걸린다)
+    //   (유령은 id 가 vcghost-* 로 바뀌어 있어 위의 vc-video-* 루프에 안 걸린다)
     try { vcSweepGhostTiles(); } catch(_) {}
 }
 let vcMicOn = true;
