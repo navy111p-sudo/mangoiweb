@@ -54,6 +54,23 @@ jobs:
         run: npx tsc --noEmit
         continue-on-error: true
 
+      # ─── 인라인 JS 문법 게이트 (차단) ───
+      # 이 경로는 deploy.ps1 을 타지 않는다. 로컬 배포에만 게이트를 걸면
+      # main 에 push 되는 순간 여기로 그대로 빠져나간다.
+      #
+      # 2026-07-23 장애: 폰트 일괄치환이 JS 문자열 안 CSS 를 건드려 문자열이 끊겼고
+      #   index.html 인라인 script 10블록이 통째로 SyntaxError → 수업 입장 함수가
+      #   아예 정의되지 않아 전 사용자가 수업에 못 들어갔다. 그런데
+      #     · 위 tsc 는 src/*.ts 만 본다 (게다가 continue-on-error 라 실패해도 통과)
+      #     · 아래 헬스체크는 HTTP 200 여부만 본다 (내용이 깨져도 200 이다)
+      #   이 두 개로는 절대 못 잡는다.
+      #
+      # continue-on-error 를 붙이지 않는다 — 실패하면 배포하지 않는다.
+      # 검사 대상: cloudflare-deploy/public 이하 .html 인라인 <script> + .js 전수
+      - name: Inline JS syntax gate (HTML <script> + .js)
+        working-directory: .
+        run: node test-harness/inline_js_syntax_harness.mjs
+
       # 시크릿 존재 여부 확인 — 없으면 워크플로우는 성공 처리하고 배포만 건너뜀
       - name: Check required secrets
         id: check_secrets

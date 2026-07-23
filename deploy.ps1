@@ -150,11 +150,31 @@ foreach ($f in $htmlFiles) {
     }
 }
 
+# [4b] 주입 후 재검사 — [0a] 는 '주입 전' 상태를 봤다.
+#   [3b] sw.js 캐시버전 치환과 [4] HTML 53개 BUILD 스탬프 주입은 [0a] 검사 '뒤에' 파일을 고친다.
+#   즉 주입 자체가 JS 를 깨뜨리면 [0a] 로는 절대 못 잡고 그대로 배포된다.
+#   실제 전력: 2026-07-14 BUILD 마커 주입이 '</body>' 를 무조건 치환해 JS 문자열 안까지
+#   건드려 관리자 3개 화면이 죽었다. 그래서 '배포 직전 상태'를 한 번 더 검사한다.
+#   git commit 前에 둔다 — 깨진 파일은 커밋도 하지 않는다.
+Write-Step "4b/7" "주입 후 인라인 JS 문법 재검사 (BUILD 스탬프/sw.js 가 파일을 고친 뒤 상태)"
+& node (Join-Path $scriptDir "test-harness\inline_js_syntax_harness.mjs")
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "  [X] BUILD 스탬프 / sw.js 주입이 JS 를 깨뜨렸습니다 — 배포 중단." -ForegroundColor Red
+    Write-Host "      [0a] 는 통과했는데 여기서 걸렸다면 원인은 주입 로직입니다." -ForegroundColor Yellow
+    Write-Host "      deploy.ps1 의 [3b] sw.js 치환 / [4] BUILD 마커 삽입을 확인하세요." -ForegroundColor Yellow
+    Write-Host "      (커밋 전이라 git 은 깨끗합니다. 파일 원복: git checkout -- cloudflare-deploy/public)" -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "  주입 후 재검사 통과" -ForegroundColor Green
+
 # [5] git
 Write-Step "5/7" "git commit + push"
 git config user.email "navy111p@gmail.com" 2>&1 | Out-Null
 git config user.name  "navy111p-sudo" 2>&1 | Out-Null
-git add cloudflare-deploy/public/ cloudflare-deploy/src/ cloudflare-deploy/scripts/ cloudflare-deploy/wrangler.toml cloudflare-deploy/schema.sql cloudflare-deploy/migration-attendance-checkin.sql cloudflare-deploy/tsconfig.testbuild.json test-harness/ .gitignore deploy.ps1 2>&1 | Out-Null
+# .github/workflows/ 포함 — GitHub Actions 자동배포 경로에도 게이트가 걸려 있어서,
+# 워크플로 변경이 커밋에서 빠지면 그 경로만 무방비로 남는다.
+git add cloudflare-deploy/public/ cloudflare-deploy/src/ cloudflare-deploy/scripts/ cloudflare-deploy/wrangler.toml cloudflare-deploy/schema.sql cloudflare-deploy/migration-attendance-checkin.sql cloudflare-deploy/tsconfig.testbuild.json test-harness/ .github/workflows/ .gitignore deploy.ps1 2>&1 | Out-Null
 git commit -m "deploy: $(Get-Date -Format 'yyyy-MM-dd HH:mm') (build $buildTs)" 2>&1 | Out-Null
 git push origin main
 if ($LASTEXITCODE -ne 0) {
