@@ -7,11 +7,10 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <script src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
 <script src="/js/mango-i18n.js" defer></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(96,140,255,0.32),transparent 52%),radial-gradient(ellipse at bottom left,rgba(129,132,255,0.26),transparent 48%),linear-gradient(180deg,#1a2f6b,#17306a,#122a58);background-attachment:fixed;color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(96,140,255,0.32),transparent 52%),radial-gradient(ellipse at bottom left,rgba(129,132,255,0.26),transparent 48%),linear-gradient(180deg,#1a2f6b,#17306a,#122a58);background-attachment:fixed;color:#e6ecff;font-family:'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
   .wrap{max-width:1020px;margin:0 auto;padding:30px 18px}
   .brand{text-align:center;margin-bottom:16px}
   .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:clamp(34px,5vw,48px);letter-spacing:1px;display:block}

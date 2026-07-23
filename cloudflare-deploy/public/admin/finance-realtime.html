@@ -9,7 +9,7 @@
 <script defer src="/js/i18n-sweep.js?v=10"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>💸 실시간 재무 — 망고아이</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/vendor/chartjs/chart.umd.min.js?v=1"></script>
 <style>
   :root{
     --bg:#0f172a; --panel:#1e293b; --panel2:#263449;
@@ -428,6 +428,6 @@ function loadAll(){ loadSummary(); loadDaily(curDays); loadWeekly(curWeeks); loa
 (function initDate(){ const d=new Date(); const z=n=>String(n).padStart(2,'0'); $('#fDate').value = `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; })();
 loadAll();
 </script>
-<script src="/js/adm-light-surfaces.js?v=7" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
+<script src="/js/adm-light-surfaces.js?v=8" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
 </body>
 </html>

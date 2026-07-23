@@ -13,11 +13,10 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(79,124,255,0.22),transparent 50%),radial-gradient(ellipse at bottom left,rgba(167,139,250,0.16),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',sans-serif;padding-bottom:80px}
+  body{min-height:100vh;background:radial-gradient(ellipse at top right,rgba(79,124,255,0.22),transparent 50%),radial-gradient(ellipse at bottom left,rgba(167,139,250,0.16),transparent 45%),linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;padding-bottom:80px}
   .wrap{max-width:720px;margin:0 auto;padding:28px 18px}
   .brand{text-align:center;margin-bottom:24px}
   .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:32px;letter-spacing:1px;display:block}
@@ -61,7 +60,7 @@
 <a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
 
 <!-- 🔊 좌상단 — 음성 끄기/켜기 토글 -->
-<button id="mbti-audio-toggle" onclick="toggleMbtiAudio()" style="position:fixed;top:14px;left:14px;z-index:999;padding:9px 14px;background:rgba(20,41,80,0.85);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:99px;cursor:pointer;font-size:12px;font-weight:700;backdrop-filter:blur(8px);font-family:'Noto Sans KR',sans-serif">
+<button id="mbti-audio-toggle" onclick="toggleMbtiAudio()" style="position:fixed;top:14px;left:14px;z-index:999;padding:9px 14px;background:rgba(20,41,80,0.85);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);border-radius:99px;cursor:pointer;font-size:12px;font-weight:700;backdrop-filter:blur(8px);font-family:'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif">
   <span id="mbti-audio-icon">🔊</span> <span id="mbti-audio-label" data-ko="음성 끄기" data-en="Mute">음성 끄기</span>
 </button>
 

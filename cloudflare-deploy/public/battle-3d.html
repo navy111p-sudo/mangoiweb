@@ -182,9 +182,9 @@
     <div id="loadErr">⚠ Three.js 로드 실패 — 인터넷/CDN 확인</div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/vendor/three/three.min.js?v=1"></script>
   <!-- glTF 로더 (실사 .glb 캐릭터용) -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="/vendor/three/GLTFLoader.js?v=1"></script>
   <!-- 📚 로그인 학생 교재/레벨 맞춤 출제 로더 -->
   <script src="/js/game-vocab.js"></script>
   <script>
@@ -612,8 +612,8 @@
        idle/attack 에는 그 모델에 들어있는 애니메이션 클립 이름을 적으세요.
        레슨별로 다른 보스 모델을 쓰려면 LESSONS[i].model={url,scale,idle,attack} 추가. */
     // 무료 실사형 스탠드인(텍스처 입은 군인) — 여러분의 실사 .glb 로 url 만 바꾸면 교체됨
-    var SOLDIER='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Soldier.glb';
-    var ROBOT='https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+    var SOLDIER='/models/Soldier.glb?v=1';
+    var ROBOT='/models/RobotExpressive.glb?v=1';
     var MODELS = {
       hero: { url:SOLDIER, sprite:'astro-atlas.png?v=4', video:'robert-knight.mp4', scale:'auto', idle:'Idle', attack:'Run', brighten:true },   // 망고아이 우주인 파이터(카툰 그린스크린 5시트: 주먹·옆차기·날아차기·피격·소멸·승리). ?v = 캐시 강제 갱신
       boss: { url:'',      scale:'auto', idle:'Idle', attack:'Punch', tint:0x7a1414, sprite:'boss-atlas.png?v=2' }   // 🐙 문어 보스=클레이 스프라이트(그린스크린 21프레임 전부). 빈문자 url이라 절차적 폴백은 숨겨짐
