@@ -45,9 +45,52 @@
     }, 120);
     return true;
   }
+  // ══════════════ 🎓 AI 운영비서 자동 수강등록 (2026-07-23) ══════════════
+  //  비서 iframe 은 관리자 세션이 없어 DB 를 못 만진다. 그래서 확인까지만 iframe 이 하고,
+  //  실제 등록은 이 부모 창이 관리자 세션(credentials:'include')으로 /api/admin/ai-action 을 호출한다.
+  //  ⚠️ 반드시 아바타 워커 출처에서 온 메시지만 처리한다(임의 사이트가 iframe 을 심어도 등록 못 하게).
+  function miOpsEnroll(frameWin, payload){
+    var reply=function(res){
+      var m={type:'mangoi-enroll-result'};
+      for(var k in (res||{})){ if(Object.prototype.hasOwnProperty.call(res,k)) m[k]=res[k]; }
+      try{ frameWin.postMessage(m, SRC); }catch(e){}
+    };
+    var p=payload||{};
+    var args={
+      student:{
+        login_id: String((p.student&&p.student.login_id)||''),
+        password: String((p.student&&p.student.password)||''),
+        name:     String((p.student&&p.student.name)||'')
+      },
+      teacher_name: String(p.teacher_name||''),
+      days: Array.isArray(p.days)?p.days:[],
+      time: String(p.time||''),
+      duration_min: Number(p.duration_min)||20,
+      class_type: String(p.class_type||'regular')
+    };
+    fetch('/api/admin/ai-action', {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name:'enroll_student', args:args })
+    })
+    .then(function(r){ return r.json().catch(function(){ return {ok:false, error:'bad_response_'+r.status}; }); })
+    .then(function(j){
+      reply(j||{ok:false,error:'empty_response'});
+      // 성공 시 화면 갱신 — POST 가 나갔으므로 adm-perf 클라이언트 캐시는 이미 비워졌다.
+      if(j && j.ok){ try{ if(window.MangoClassTime && window.MangoClassTime.reload) window.MangoClassTime.reload(); }catch(e){} }
+    })
+    .catch(function(e){ reply({ok:false, error:'network_error', message:'네트워크 오류로 등록하지 못했습니다: '+e, message_en:'Network error — the enrollment was not saved: '+e}); });
+  }
+
   // 아바타(iframe) → 부모: 닫기 신호 처리(학생용과 동일)
   window.addEventListener('message', function(ev){
     var d=ev&&ev.data;
+    if(d && d.type==='mangoi-enroll'){
+      if(ev.origin!==SRC) return;                                      // 아바타 워커 출처만 허용
+      if(!frame || ev.source!==frame.contentWindow) return;            // 우리 iframe 이 보낸 것만
+      miOpsEnroll(ev.source, d.payload);
+      return;
+    }
     if(d==='mangoi-avatar-close'){ closeAv(); return; }
     if(!(d && d.type==='mangoi-open' && d.go)) return;
     // '포인트' 질문 → 「🎁 포인트 & 기프티콘 → 💰 학생 포인트 잔액」 열고, 언급된 학생을 검색

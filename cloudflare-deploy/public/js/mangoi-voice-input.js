@@ -52,7 +52,13 @@
     if (cur) { try { cur.cancel(); } catch (e) {} }
 
     return new Promise(function (resolve) {
-      var session = { canceled: false };
+      /* ⏹ 는 **언제 눌러도** 들어야 한다.
+         (2026-07-23) 예전에는 stop/cancel 을 getUserMedia 가 끝난 뒤에야 붙여서,
+         마이크 권한 대기 중에 ⏹ 를 누르면 아무 반응이 없고 버튼이 '듣는 중'에 굳었다.
+         → 지금 바로 정의해 두고, 녹음기가 준비되면 밀린 요청을 반영한다. */
+      var session = { canceled: false, wantStop: false, _stopRec: null };
+      session.stop = function () { session.wantStop = true; if (session._stopRec) session._stopRec(); };
+      session.cancel = function () { session.canceled = true; session.wantStop = true; if (session._stopRec) session._stopRec(); };
       cur = session;
       var finished = false;
       function finish(text) {
@@ -67,9 +73,20 @@
       }).then(function (stream) {
         if (session.canceled) { stopTracks(stream); return finish(''); }
 
-        var chunks = [], mr;
-        try { mr = new MediaRecorder(stream); }
-        catch (e) { try { mr = new MediaRecorder(stream, { mimeType: 'audio/webm' }); } catch (e2) { stopTracks(stream); onState('error', { reason: 'unsupported' }); return finish(''); } }
+        /* 🍎 iOS 사파리는 webm 을 못 만들고 audio/mp4 로 녹음한다.
+           형식을 확인하지 않고 무조건 'speech.webm' 으로 보내면 서버가 형식을 오인할 수 있다.
+           → 이 브라우저가 실제로 지원하는 형식을 골라 쓰고, 파일 이름도 그 형식에 맞춘다. */
+        var chunks = [], mr, pickedMime = '';
+        try {
+          var CAND = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/ogg'];
+          if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
+            for (var ci = 0; ci < CAND.length; ci++) {
+              if (MediaRecorder.isTypeSupported(CAND[ci])) { pickedMime = CAND[ci]; break; }
+            }
+          }
+        } catch (e) { pickedMime = ''; }
+        try { mr = pickedMime ? new MediaRecorder(stream, { mimeType: pickedMime }) : new MediaRecorder(stream); }
+        catch (e) { try { mr = new MediaRecorder(stream); } catch (e2) { stopTracks(stream); onState('error', { reason: 'unsupported' }); return finish(''); } }
 
         var stopped = false, heardSpeech = false, silenceTimer = null, maxTimer = null, firstTimer = null;
         var ac = null, raf = null;
@@ -87,8 +104,7 @@
           try { mr.stop(); } catch (e) {}
           try { if (ac) ac.close(); } catch (e) {}
         }
-        session.stop = stopRec;
-        session.cancel = function () { session.canceled = true; stopRec(); };
+        session._stopRec = stopRec;
 
         mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
         mr.onstop = function () {
@@ -97,8 +113,11 @@
           var blob = new Blob(chunks, { type: (chunks[0] && chunks[0].type) || 'audio/webm' });
           if (!blob.size || blob.size < 1200) { onState('error', { reason: 'no_audio' }); return finish(''); }
           onState('thinking', {});
+          // 실제 녹음 형식에 맞는 파일 이름으로 보낸다 (iOS = mp4/m4a, 그 외 = webm)
+          var bt = String(blob.type || pickedMime || '');
+          var ext = /mp4|aac|m4a/i.test(bt) ? 'm4a' : (/ogg/i.test(bt) ? 'ogg' : 'webm');
           var fd = new FormData();
-          fd.append('audio', blob, 'speech.webm');
+          fd.append('audio', blob, 'speech.' + ext);
           fetch('/api/voice/transcribe', { method: 'POST', body: fd })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
@@ -110,6 +129,8 @@
         };
 
         try { mr.start(); } catch (e) { stopTracks(stream); onState('error', { reason: 'unsupported' }); return finish(''); }
+        // 준비되는 동안 ⏹(또는 취소)를 눌렀으면 지금 반영한다
+        if (session.wantStop) { stopRec(); return; }
         onState('waiting', {});
         maxTimer = setTimeout(stopRec, MAX_MS);
         firstTimer = setTimeout(function () { if (!heardSpeech) stopRec(); }, FIRST_MS);

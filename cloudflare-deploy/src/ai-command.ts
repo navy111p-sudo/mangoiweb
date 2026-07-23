@@ -894,7 +894,7 @@ export async function executeAction(
   args: any,
   adminUserId: string | null
 ): Promise<any> {
-  const allowed = new Set(['send_kakao_self', 'issue_sticker', 'mark_intervention', 'schedule_batch', 'bulk_apply']);
+  const allowed = new Set(['send_kakao_self', 'issue_sticker', 'mark_intervention', 'schedule_batch', 'bulk_apply', 'enroll_student']);
   if (!allowed.has(name)) {
     return { ok: false, error: 'action_not_allowed', name };
   }
@@ -1153,6 +1153,274 @@ export async function executeAction(
         not_found_count: notFoundCount,
         total_count: results.length,
         items: results
+      };
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // 🎓 enroll_student — AI 운영비서 자동 수강등록 (2026-07-23)
+    //   "아이디/비번 + 강사 + 요일 + 시간" 을 받아 한 번에:
+    //     ① 학생 계정 확인(없으면 생성) ② 비밀번호 설정 ③ 강사 매칭 ④ 요일별 반복수업 등록
+    //   ⚠️ 비밀번호는 절대 로그·KV 감사기록에 남기지 않는다(설정 여부만 기록).
+    //   ⚠️ 실행은 관리자 세션이 있는 /api/admin/ai-action 로만 들어온다(비서 iframe 은 직접 호출 못 함).
+    // ──────────────────────────────────────────────────────────
+    if (name === 'enroll_student') {
+      const now = Date.now();
+      const st = args?.student || {};
+      const loginId = String(st.login_id || st.user_id || '').trim().slice(0, 40);
+      const rawPwd = String(st.password || '');
+      const studentName = String(st.name || '').trim().slice(0, 50);
+
+      if (!loginId) return { ok: false, error: 'login_id_required', message: '학생 아이디가 필요합니다.', message_en: 'Student ID is required.' };
+      if (!/^[A-Za-z0-9._@-]{3,40}$/.test(loginId)) {
+        return { ok: false, error: 'bad_login_id', message: '아이디는 영문·숫자·.-_@ 3~40자만 됩니다.', message_en: 'ID must be 3-40 chars of letters, digits, . - _ @' };
+      }
+      if (rawPwd && rawPwd.length < 4) {
+        return { ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.', message_en: 'Password must be at least 4 characters.' };
+      }
+
+      // 요일 정규화 — 한글/영문/숫자 무엇이 와도 'mon'..'sun' 으로
+      const DOW_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
+      const dowNorm = (v: any): string => {
+        const k = String(v ?? '').trim().toLowerCase();
+        const m: Record<string,string> = {
+          'mon':'mon','monday':'mon','월':'mon','월요일':'mon','1':'mon',
+          'tue':'tue','tuesday':'tue','화':'tue','화요일':'tue','2':'tue',
+          'wed':'wed','wednesday':'wed','수':'wed','수요일':'wed','3':'wed',
+          'thu':'thu','thursday':'thu','목':'thu','목요일':'thu','4':'thu',
+          'fri':'fri','friday':'fri','금':'fri','금요일':'fri','5':'fri',
+          'sat':'sat','saturday':'sat','토':'sat','토요일':'sat','6':'sat',
+          'sun':'sun','sunday':'sun','일':'sun','일요일':'sun','0':'sun','7':'sun',
+        };
+        return m[k] || '';
+      };
+      const days = [...new Set((Array.isArray(args?.days) ? args.days : []).map(dowNorm).filter(Boolean))]
+        .sort((a, b) => DOW_ORDER.indexOf(a as string) - DOW_ORDER.indexOf(b as string)) as string[];
+      if (!days.length) return { ok: false, error: 'days_required', message: '요일이 필요합니다.', message_en: 'Day(s) of week required.' };
+
+      const tm = String(args?.time || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+      if (!tm) return { ok: false, error: 'time_required', message: '시간(HH:MM)이 필요합니다.', message_en: 'Start time (HH:MM) required.' };
+      const hh = Number(tm[1]), mi = Number(tm[2]);
+      if (hh > 23 || mi > 59) return { ok: false, error: 'bad_time', message: '시간 형식이 올바르지 않습니다.', message_en: 'Invalid time.' };
+      const startTime = String(hh).padStart(2, '0') + ':' + String(mi).padStart(2, '0');
+      const startMin = hh * 60 + mi;
+
+      const durationMin = [20, 30, 40].includes(Number(args?.duration_min)) ? Number(args.duration_min) : 20;
+      const classType = ['regular','trial','level_test'].includes(String(args?.class_type)) ? String(args.class_type) : 'regular';
+      const teacherNameIn = String(args?.teacher_name || '').trim().slice(0, 50);
+
+      const warnings: string[] = [];
+      const warningsEn: string[] = [];
+
+      // ── 스키마 보강 (schedule_batch 와 동일 규칙) ──
+      await env.DB.exec(
+        `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+      );
+      for (const [c, t] of [['student_name','TEXT'],['schedule_kind','TEXT'],['class_type','TEXT'],['day_of_week','TEXT'],['scheduled_date','TEXT'],['duration_min','INTEGER'],['teacher_id','TEXT'],['status','TEXT'],['source','TEXT'],['created_by','TEXT'],['updated_at','INTEGER'],['notes','TEXT']] as Array<[string,string]>) {
+        try { await env.DB.exec('ALTER TABLE class_schedules ADD COLUMN ' + c + ' ' + t); } catch {}
+      }
+      for (const [c, t] of [['username','TEXT'],['login_id','TEXT'],['korean_name','TEXT'],['student_name','TEXT'],['english_name','TEXT'],['user_id','TEXT'],['password_hash','TEXT'],['status','TEXT'],['source','TEXT'],['signup_date','TEXT'],['created_at','INTEGER']] as Array<[string,string]>) {
+        try { await env.DB.exec('ALTER TABLE students_erp ADD COLUMN ' + c + ' ' + t); } catch {}
+      }
+
+      // ── 1) 학생 계정 확인 → 없으면 생성 ──
+      let userId: string | null = null;
+      let existingName = '';
+      for (const q of [
+        `SELECT user_id AS uid, COALESCE(korean_name, student_name, username) AS nm FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 1`,
+        `SELECT COALESCE(user_id, login_id) AS uid, COALESCE(korean_name, student_name, username) AS nm FROM students_erp WHERE login_id = ? COLLATE NOCASE LIMIT 1`,
+        `SELECT COALESCE(user_id, username) AS uid, COALESCE(korean_name, student_name, username) AS nm FROM students_erp WHERE username = ? COLLATE NOCASE LIMIT 1`,
+      ]) {
+        try {
+          const r = await env.DB.prepare(q).bind(loginId).first<any>();
+          if (r?.uid) { userId = String(r.uid); existingName = String(r.nm || ''); break; }
+        } catch {}
+      }
+
+      let studentCreated = false;
+      const nowKst = new Date(now + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      if (!userId) {
+        const nm = studentName || loginId;
+        try {
+          await env.DB.prepare(
+            `INSERT INTO students_erp (user_id, login_id, username, korean_name, student_name, english_name, status, source, signup_date, created_at) VALUES (?, ?, ?, ?, ?, ?, '정상', 'ai_enroll', ?, ?)`
+          ).bind(loginId, loginId, loginId, nm, nm, String(st.english_name || ''), nowKst, now).run();
+          userId = loginId; studentCreated = true;
+        } catch (e: any) {
+          try {
+            await env.DB.prepare(
+              `INSERT INTO students_erp (user_id, korean_name, status, signup_date) VALUES (?, ?, '정상', ?)`
+            ).bind(loginId, nm, nowKst).run();
+            userId = loginId; studentCreated = true;
+          } catch (e2: any) {
+            return { ok: false, error: 'student_create_failed', detail: String(e2?.message || e2).slice(0, 200) };
+          }
+        }
+      } else if (studentName && !existingName) {
+        try { await env.DB.prepare(`UPDATE students_erp SET korean_name = ? WHERE user_id = ? COLLATE NOCASE`).bind(studentName, userId).run(); } catch {}
+      }
+      const finalName = studentName || existingName || loginId;
+
+      // ── 2) 비밀번호 설정 (api-students.ts hashPwd 와 동일 해시) ──
+      let passwordSet = false;
+      if (rawPwd) {
+        try {
+          const enc = new TextEncoder().encode(rawPwd + '|mangoi-salt-2026');
+          const buf = await crypto.subtle.digest('SHA-256', enc);
+          const ph = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+          await env.DB.prepare(`UPDATE students_erp SET password_hash = ? WHERE user_id = ? COLLATE NOCASE`).bind(ph, userId).run();
+          passwordSet = true;
+        } catch (e: any) {
+          warnings.push('비밀번호 설정에 실패했습니다: ' + String(e?.message || e).slice(0, 80));
+          warningsEn.push('Failed to set the password: ' + String(e?.message || e).slice(0, 80));
+        }
+      }
+
+      // ── 3) 강사 매칭 (teachers → teacher_profiles) ──
+      let teacherId: string | null = args?.teacher_id ? String(args.teacher_id).slice(0, 40) : null;
+      let teacherName: string | null = null;
+      let teacherCreated = false;
+      if (!teacherId && teacherNameIn) {
+        const tName = teacherNameIn.replace(/(선생님?|쌤|teacher)$/i, '').trim() || teacherNameIn;
+        try {
+          const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? OR name = ? OR name LIKE ? LIMIT 1`)
+            .bind(teacherNameIn, tName, '%' + tName + '%').first<any>();
+          if (t?.id) { teacherId = String(t.id); teacherName = String(t.name || teacherNameIn); }
+        } catch {}
+        // teachers 에 없고 teacher_profiles 에만 있는 강사 → 검증된 이름이므로 teachers 에 등재 후 연결
+        if (!teacherId) {
+          let prof: any = null;
+          try {
+            prof = await env.DB.prepare(
+              `SELECT id, korean_name, english_name FROM teacher_profiles WHERE korean_name = ? OR korean_name = ? OR english_name = ? COLLATE NOCASE OR korean_name LIKE ? LIMIT 1`
+            ).bind(teacherNameIn, tName, teacherNameIn, '%' + tName + '%').first<any>();
+          } catch {}
+          if (prof?.id) {
+            const pn = String(prof.korean_name || prof.english_name || teacherNameIn);
+            try {
+              const ins = await env.DB.prepare(
+                `INSERT INTO teachers (name, status, active, created_at, updated_at) VALUES (?, '활동중', 1, ?, ?)`
+              ).bind(pn, now, now).run();
+              const tid = (ins?.meta?.last_row_id as number) || null;
+              if (tid) {
+                teacherId = String(tid); teacherName = pn; teacherCreated = true;
+                warnings.push(`강사 ‘${pn}’ 은 강사프로필에만 있어 강사목록에 새로 등재했습니다.`);
+                warningsEn.push(`Teacher “${pn}” existed only in teacher profiles, so a teacher record was created.`);
+              }
+            } catch {}
+          }
+        }
+        if (!teacherId) {
+          warnings.push(`강사 ‘${teacherNameIn}’ 을 찾지 못해 강사 없이 등록했습니다. 강사관리에서 지정해 주세요.`);
+          warningsEn.push(`Teacher “${teacherNameIn}” was not found, so the classes were created without a teacher. Please assign one in Teacher Management.`);
+        }
+      }
+
+      // ── 4) 요일별 반복수업 등록 (멱등: 같은 학생·요일·시간 활성 스케줄이 있으면 건너뜀) ──
+      const notes = `AI 운영비서 자동 수강등록${teacherName ? ' · ' + teacherName : ''} · 주${days.length}회 ${durationMin}분`;
+      const items: any[] = [];
+      for (const d of days) {
+        try {
+          const dup = await env.DB.prepare(
+            `SELECT id FROM class_schedules WHERE user_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week = ? AND start_time = ? LIMIT 1`
+          ).bind(userId, d, startTime).first<any>();
+          if (dup?.id) { items.push({ day: d, status: 'already_exists', schedule_id: dup.id }); continue; }
+        } catch {}
+
+        // 강사 슬롯 겹침 검사 (같은 요일·시간대에 다른 학생 수업이 있으면 알림 — 등록은 진행)
+        let teacherBusy: any = null;
+        if (teacherId) {
+          try {
+            const rs: any = await env.DB.prepare(
+              `SELECT id, user_id, student_name, start_time, COALESCE(duration_min, 30) AS dm FROM class_schedules
+               WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week = ? AND user_id <> ? LIMIT 30`
+            ).bind(teacherId, d, userId).all();
+            for (const r of ((rs?.results as any[]) || [])) {
+              const p = String(r.start_time || '00:00').split(':');
+              const oMin = (Number(p[0]) || 0) * 60 + (Number(p[1]) || 0);
+              if (startMin < oMin + (Number(r.dm) || 30) && oMin < startMin + durationMin) { teacherBusy = r; break; }
+            }
+          } catch {}
+        }
+
+        let insertedId: number | null = null;
+        let err: string | null = null;
+        try {
+          const ins = await env.DB.prepare(
+            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
+             VALUES (?, ?, 'recurring', ?, ?, ?, ?, ?, 'active', 'ai_enroll', ?, ?, ?)`
+          ).bind(userId, finalName, classType, d, startTime, durationMin, teacherId, adminUserId || 'ai', now, notes).run();
+          insertedId = (ins?.meta?.last_row_id as number) || null;
+        } catch (e: any) {
+          err = String(e?.message || e).slice(0, 160);
+        }
+        items.push({
+          day: d,
+          status: insertedId ? 'inserted' : 'insert_failed',
+          schedule_id: insertedId,
+          teacher_conflict: teacherBusy ? { id: teacherBusy.id, student: teacherBusy.student_name, time: teacherBusy.start_time } : null,
+          error: err,
+        });
+        if (teacherBusy) {
+          warnings.push(`${d} ${startTime} 은 강사에게 이미 ‘${teacherBusy.student_name || teacherBusy.user_id}’ 수업이 있습니다. 확인해 주세요.`);
+          warningsEn.push(`On ${d} ${startTime} the teacher already has a class with “${teacherBusy.student_name || teacherBusy.user_id}”. Please check.`);
+        }
+      }
+
+      const insertedCount = items.filter(i => i.status === 'inserted').length;
+      const skipped = items.filter(i => i.status === 'already_exists').length;
+      const failed = items.filter(i => i.status === 'insert_failed').length;
+
+      // 감사기록 (비밀번호는 저장하지 않음 — 설정 여부만)
+      try {
+        await env.SESSION_STATE.put(
+          `enroll_ai:${auditId}`,
+          JSON.stringify({ audit_id: auditId, at: now, by: adminUserId || 'unknown', user_id: userId, student_name: finalName,
+                           student_created: studentCreated, password_set: passwordSet, teacher_id: teacherId, teacher_name: teacherName,
+                           days, time: startTime, duration_min: durationMin, class_type: classType, items }),
+          { expirationTtl: 86400 * 30 }
+        );
+      } catch {}
+
+      const dowKo: Record<string,string> = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+      const daysKo = days.map(d => dowKo[d]).join('·');
+      const daysEn = days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ');
+      const summary = `${finalName}(${loginId}) 학생 ${daysKo}요일 ${startTime} ${durationMin}분 수업 ${insertedCount}건 등록`
+        + (skipped ? `, ${skipped}건은 이미 있어 건너뜀` : '')
+        + (failed ? `, ${failed}건 실패` : '')
+        + (teacherName ? ` · 담당 ${teacherName}` : '')
+        + (studentCreated ? ' · 학생 계정 신규 생성' : '')
+        + (passwordSet ? ' · 비밀번호 설정 완료' : '');
+      const summaryEn = `Registered ${insertedCount} class(es) for ${finalName} (${loginId}) on ${daysEn} at ${startTime} (${durationMin} min)`
+        + (skipped ? `, ${skipped} already existed` : '')
+        + (failed ? `, ${failed} failed` : '')
+        + (teacherName ? ` · teacher ${teacherName}` : '')
+        + (studentCreated ? ' · new student account created' : '')
+        + (passwordSet ? ' · password set' : '');
+
+      return {
+        ok: true,
+        action: name,
+        audit_id: auditId,
+        user_id: userId,
+        login_id: loginId,
+        student_name: finalName,
+        student_created: studentCreated,
+        password_set: passwordSet,
+        teacher_id: teacherId,
+        teacher_name: teacherName,
+        teacher_created: teacherCreated,
+        days,
+        time: startTime,
+        duration_min: durationMin,
+        class_type: classType,
+        inserted_count: insertedCount,
+        skipped_count: skipped,
+        failed_count: failed,
+        items,
+        warnings,
+        warnings_en: warningsEn,
+        summary,
+        summary_en: summaryEn,
       };
     }
 
