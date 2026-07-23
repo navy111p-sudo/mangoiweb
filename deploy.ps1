@@ -23,6 +23,26 @@ Set-Location $scriptDir
 
 Write-Header "Mangoi 강제 재배포 v3 — $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 
+# [0a] 인라인 JS 문법 게이트 — 이것만은 -SkipSmoke 로도 못 건너뛴다.
+#   2026-07-23 22:10 배포: 폰트 일괄치환이 JS 문자열 안 CSS 를 건드려 문자열이 끊겼고
+#   index.html 인라인 script 10블록이 통째로 SyntaxError → 수업 입장 함수가 아예 정의되지
+#   않아 전 사용자가 수업에 못 들어갔다. 그런데 tsc(.ts만) · 스모크(HTTP 200만) ·
+#   하니스를 전부 통과했다. 검사 자체는 changes_qa_harness 안에 있었지만 그 하니스가
+#   git 상태에 의존한다는 이유로 run.mjs 의 GATE_EXCLUDE 에 올라가 게이트에서 빠져 있었다.
+#   => '러너에서 제외되면 조용히 뚫린다'가 이번 사고의 진짜 원인이므로, 러너와 무관하게
+#      여기서 한 번 더 못을 박는다. 네트워크·git·DB 무관한 결정론적 검사라 몇 초면 끝난다.
+Write-Step "0a/7" "인라인 JS 문법 게이트 (HTML <script> + .js 전수) — 건너뛸 수 없음"
+& node (Join-Path $scriptDir "test-harness\inline_js_syntax_harness.mjs")
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "  [X] 인라인 JS 문법 오류 — 배포 중단." -ForegroundColor Red
+    Write-Host "      이대로 올리면 해당 script 블록이 브라우저에서 통째로 실행되지 않습니다." -ForegroundColor Red
+    Write-Host "      블록 안 함수가 전부 정의되지 않아 화면 기능이 통째로 죽습니다." -ForegroundColor Red
+    Write-Host "      HTML 을 일괄치환(폰트/색/클래스명/i18n)했다면 그 치환이 원인일 가능성이 높습니다." -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "  인라인 JS 문법 통과" -ForegroundColor Green
+
 # [0] 배포 전 안전 게이트 — 실패하면 파일 하나 안 건드리고 여기서 중단 (REFACTOR_PLAN 5단계)
 #   ① tsc 컴파일: 새 코드가 깨졌으면 배포 금지
 #   ② 라이브 스모크 15종: 현재 운영이 이미 비정상이면(깨진 위에 덮어쓰기 방지) 배포 금지
