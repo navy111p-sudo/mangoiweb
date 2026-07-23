@@ -42,6 +42,17 @@
     '#vc-dock button.active{background:#3b82f6;color:#fff;}#vc-dock button.active .lbl{color:#dbe7ff;}',
     '#vc-dock button.off{background:#ef4444;color:#fff;}#vc-dock button.off .lbl{color:#ffe0e0;}',
     '#vc-dock button.leave{background:rgba(239,68,68,.18);color:#ff9a9a;}#vc-dock button.leave .lbl{color:#ffb4b4;}',
+    /* 🔔 (2026-07-24) 채팅 안읽음 배지 — 상단 툴바 배지는 모바일(≤640px)에서 숨겨져 있어
+       학생이 채팅 온 것을 알 방법이 없었다. 독 버튼 위에 빨간 배지를 띄운다.
+       ⚠️ 깜빡임(pulse)은 '자동으로 열지 못한 상황'에서만 켠다 — 늘 깜빡이면 금방 무시하게 된다. */
+    '#vc-dock button{position:relative;}',
+    '#vc-dock .dock-badge{position:absolute;top:4px;right:8px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;',
+    '  background:#ef4444;color:#fff;font-size:10.5px;font-weight:800;line-height:17px;text-align:center;',
+    '  box-shadow:0 0 0 2px rgba(11,15,20,.85);display:none;pointer-events:none;}',
+    '#vc-dock .dock-badge.on{display:block;}',
+    '#vc-dock .dock-badge.pulse{animation:vcDockBadgePulse 1.1s ease-in-out infinite;}',
+    '@keyframes vcDockBadgePulse{0%,100%{transform:scale(1);}50%{transform:scale(1.28);}}',
+    /* 백그라운드 탭·저전력에서 애니메이션이 멈춰도 배지 자체는 보이도록 opacity 는 건드리지 않는다 */
     '#vc-dock button.leave:hover{background:#ef4444;color:#fff;}',
     '/* 화면공유 아이콘 강조 — 라인 아이콘이라 stroke를 굵게+밝게 */',
     '#vc-dock-share svg{stroke-width:2.5;color:#fff;}',
@@ -359,6 +370,12 @@
     btnCam = mk('cam','카메라','cam',null,'카메라 켜기/끄기');
     var bShare = mk('share','화면공유','share',null,'화면공유 — 내 화면·파일을 학생에게 보여주기');
     var bChat = mk('chat','채팅','chat',null,'채팅 창 열기/닫기');
+    // 🔔 (2026-07-24) 안읽음 배지 부착 — 값 갱신은 window.vcDockChatBadge(n, pulse)
+    try {
+      var chatBadge = document.createElement('span');
+      chatBadge.className = 'dock-badge'; chatBadge.id = 'vc-dock-chat-badge';
+      bChat.appendChild(chatBadge);
+    } catch(_){}
     var bConsult = mk('consult','상담','consult',null,'카카오톡 상담 연결');
     bSet = mk('settings','설정','settings',null,'설정 — 장치·화질·언어·테마');
     var bLeave = mk('leave','나가기','leave','leave','수업에서 나가기');
@@ -366,7 +383,7 @@
     btnMic.onclick = function(){ if(isCL())showHint('마이크'); closeSettings(); call('vcToggleMic'); setTimeout(sync, 60); };
     btnCam.onclick = function(){ if(isCL())showHint('카메라'); closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };
     bShare.onclick = function(){ if(isCL())showHint('화면공유'); closeSettings(); call('vcFolderOpen','screen'); };
-    bChat.onclick = function(){ if(isCL())showHint('채팅'); closeSettings(); openDelayed(function(){ call('vcToggleChat'); }); };
+    bChat.onclick = function(){ if(isCL())showHint('채팅'); closeSettings(); window.vcDockChatBadge(0); openDelayed(function(){ call('vcToggleChat'); }); };
     bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings(); window.open('https://pf.kakao.com/_xlqnSxd/chat','_blank','noopener'); }; // 외부 링크: 지연 없이 즉시(팝업차단 방지)
     bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
     bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
@@ -394,14 +411,35 @@
     document.body.appendChild(more);
   }
 
+  /* 🔔 (2026-07-24) 채팅 안읽음 배지 제어 — index.html 의 vcReceiveChat / vcOpenChat 이 호출.
+     독이 아직 만들어지기 전에 불릴 수 있으므로 값을 보관했다가 build() 이후 sync 에서 반영한다. */
+  var _chatUnread = 0, _chatPulse = false;
+  window.vcDockChatBadge = function(n, pulse){
+    _chatUnread = Math.max(0, parseInt(n, 10) || 0);
+    _chatPulse = !!pulse && _chatUnread > 0;
+    syncChatBadge();
+  };
+  function syncChatBadge(){
+    var el = document.getElementById('vc-dock-chat-badge');
+    if (!el) return;
+    el.textContent = _chatUnread > 99 ? '99+' : String(_chatUnread);
+    el.classList.toggle('on', _chatUnread > 0);
+    el.classList.toggle('pulse', _chatPulse);
+  }
+
   function sync(){
     if (!btnMic) return;
     var micOn = (window.vcMicOn !== false);
     var camOn = (window.vcCamOn !== false);
     btnMic.classList.toggle('off', !micOn);
-    btnMic.querySelector('svg').outerHTML = svg(micOn ? P.mic : P.micoff);
     btnCam.classList.toggle('off', !camOn);
-    btnCam.querySelector('svg').outerHTML = svg(camOn ? P.cam : P.camoff);
+    /* ⚠️ (2026-07-24) 예전엔 여기서 매번 svg.outerHTML 을 갈아끼웠다. sync() 는 1.5초마다 도는데
+       outerHTML 대입은 SVG 노드를 파괴하고 다시 만드는 동작이라, 상태가 그대로여도 아이콘이
+       계속 리페인트되며 깜빡였다(drop-shadow 필터까지 걸려 있어 더 눈에 띔).
+       → 상태가 '실제로 바뀐 순간에만' 교체한다. */
+    if (btnMic.__iconOn !== micOn) { btnMic.__iconOn = micOn; btnMic.querySelector('svg').outerHTML = svg(micOn ? P.mic : P.micoff); }
+    if (btnCam.__iconOn !== camOn) { btnCam.__iconOn = camOn; btnCam.querySelector('svg').outerHTML = svg(camOn ? P.cam : P.camoff); }
+    syncChatBadge();
   }
 
   var wasInCall = false;

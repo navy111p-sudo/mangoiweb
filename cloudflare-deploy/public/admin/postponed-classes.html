@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
+     ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
+<script src="/js/adm-lang-boot.js?v=6"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Postponed Classes · 연기 수업 현황 · 망고아이</title>
+<!--
+  ⏸ 연기 수업 현황 (2026-07-23)
+  매니저 요청: "연기된 수업이 보이고, 유료인지 무료인지, 정확히 언제 연기했는지 알고 싶다."
+  데이터는 이미 있었으나 admin.html 안 접힌 카드 2개(연기요청 / 변경이력)에 흩어져 있었다.
+  이 페이지는 서버가 둘을 합쳐 주는 /api/admin/postponed-classes 하나만 본다.
+  ⚠️ 이 화면은 필리핀 매니저가 매일 본다 → 영어 우선, 큰 글씨, 배지 중심.
+  ⚠️ 모든 시각은 한국시간(KST)이 기준. 필리핀 시간(PHT=KST-1h)은 참고용 회색 보조표기.
+  ⚠️ i18n-sweep 은 넣지 않는다(이 화면은 자체 I18N 사전으로 전부 직접 그림).
+-->
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e6edf6; min-height:100vh; padding:22px; font-size:17px; }
+  .wrap { max-width:1240px; margin:0 auto; }
+  .head { display:flex; align-items:center; gap:14px; margin-bottom:6px; flex-wrap:wrap; }
+  .head img { height:54px; }
+  h1 { font-size:30px; margin:0; font-weight:900; }
+  .sub { color:#a9b7ca; font-size:16.5px; margin:4px 0 18px; line-height:1.6; }
+  .langbtn { margin-left:auto; cursor:pointer; font-weight:800; font-size:15px; border-radius:999px; padding:10px 18px; border:1px solid rgba(148,163,184,0.45); background:transparent; color:#e6edf6; }
+  .backbtn { cursor:pointer; font-weight:800; font-size:15px; border-radius:999px; padding:10px 18px; border:1px solid rgba(148,163,184,0.45); background:transparent; color:#e6edf6; text-decoration:none; }
+  .card { background:rgba(30,41,59,0.92); border:1px solid rgba(148,163,184,0.22); border-radius:20px; padding:22px; margin-bottom:18px; }
+
+  /* 📖 정책 안내 — 매니저가 "왜 유료냐"는 질문을 받았을 때 그대로 읽어주면 되는 문장 */
+  .rule { background:rgba(59,130,246,0.10); border:1px solid rgba(96,165,250,0.38); border-radius:16px; padding:16px 18px; line-height:1.75; font-size:16px; color:#dbeafe; }
+  .rule b { color:#fff; }
+
+  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  select, button, input { font-size:16.5px; border-radius:12px; padding:12px 15px; border:1px solid rgba(148,163,184,0.4); font-family:inherit; }
+  select, input { background:#0f172a; color:#e6edf6; }
+  .btn { cursor:pointer; font-weight:800; border:0; }
+  .btn-primary { background:linear-gradient(135deg,#22c55e,#16a34a); color:#052e16; }
+  .btn-ghost { background:transparent; color:#e6edf6; border:1px solid rgba(148,163,184,0.45); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .chip { cursor:pointer; border-radius:999px; padding:10px 16px; font-size:15.5px; font-weight:800; border:1px solid rgba(148,163,184,0.4); background:transparent; color:#cbd5e1; }
+  .chip.on { background:#38bdf8; color:#04222f; border-color:#38bdf8; }
+  .chip.on.paid { background:#fbbf24; color:#3b2503; border-color:#fbbf24; }
+  .chip.on.free { background:#4ade80; color:#04250f; border-color:#4ade80; }
+  .filter { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:12px; }
+  .filter input { flex:1; min-width:180px; }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:13px; margin-top:16px; }
+  .stat { background:rgba(15,23,42,0.65); border:1px solid rgba(148,163,184,0.22); border-radius:16px; padding:18px; text-align:center; }
+  .stat .n { font-size:30px; font-weight:900; }
+  .stat .l { font-size:14.5px; color:#a9b7ca; margin-top:6px; line-height:1.4; }
+  .c-all { color:#e2e8f0; } .c-paid { color:#fbbf24; } .c-free { color:#4ade80; } .c-wait { color:#f87171; }
+
+  table { width:100%; border-collapse:collapse; margin-top:4px; font-size:16.5px; }
+  th, td { padding:14px 11px; text-align:left; border-bottom:1px solid rgba(148,163,184,0.16); vertical-align:top; }
+  th { color:#a9b7ca; font-size:14.5px; font-weight:700; white-space:nowrap; }
+  tbody tr:nth-child(even) { background:rgba(148,163,184,0.06); }
+  tbody tr:hover { background:rgba(59,130,246,0.10); }
+  .when { font-weight:800; white-space:nowrap; }
+  .when small { display:block; font-weight:600; color:#7c8ba1; font-size:13px; margin-top:3px; }
+  .lead { font-size:13.5px; font-weight:800; margin-top:4px; }
+  .lead-ok { color:#86efac; } .lead-warn { color:#fbbf24; } .lead-bad { color:#f87171; }
+  .who { font-weight:800; }
+  .who small { display:block; font-weight:600; color:#7c8ba1; font-size:13px; margin-top:2px; }
+  .badge { display:inline-block; padding:5px 12px; border-radius:999px; font-size:14px; font-weight:900; white-space:nowrap; }
+  .b-paid { background:rgba(251,191,36,0.18); color:#fcd34d; border:1px solid rgba(251,191,36,0.5); }
+  .b-free { background:rgba(74,222,128,0.16); color:#86efac; border:1px solid rgba(74,222,128,0.45); }
+  .b-none { background:rgba(148,163,184,0.14); color:#cbd5e1; border:1px solid rgba(148,163,184,0.35); }
+  .b-pending { background:rgba(248,113,113,0.16); color:#fca5a5; border:1px solid rgba(248,113,113,0.45); }
+  .b-approved { background:rgba(74,222,128,0.14); color:#86efac; border:1px solid rgba(74,222,128,0.4); }
+  .b-rejected { background:rgba(148,163,184,0.14); color:#cbd5e1; border:1px solid rgba(148,163,184,0.35); }
+  .b-applied { background:rgba(56,189,248,0.14); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); }
+  .est { display:block; font-size:12px; color:#94a3b8; margin-top:4px; font-weight:700; }
+  .reason { color:#cbd5e1; max-width:260px; font-size:15px; line-height:1.5; }
+  .empty { text-align:center; color:#a9b7ca; padding:36px 12px; line-height:1.8; font-size:17px; }
+  .muted { color:#7c8ba1; font-size:14.5px; }
+
+  /* 📱 모바일 = 표 대신 카드 (매니저가 폰으로 확인하는 경우) */
+  .m-card { display:none; }
+  @media (max-width:860px){
+    body { padding:14px; font-size:16px; }
+    .stats { grid-template-columns:1fr 1fr; }
+    h1 { font-size:24px; }
+    table { display:none; }
+    .m-card { display:block; background:rgba(15,23,42,0.7); border:1px solid rgba(148,163,184,0.22); border-radius:16px; padding:15px; margin-bottom:11px; }
+    .m-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+    .m-row { margin-top:9px; font-size:15.5px; line-height:1.5; }
+    .m-row span { color:#8fa0b5; }
+  }
+</style>
+<style id="pc-scale">
+  /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
+  @media (min-width: 1024px) { body { zoom: 1.3; } }
+</style>
+<link rel="stylesheet" href="/css/adm-light-theme.css?v=2"><!-- ☀️ 관리자 밝은 테마 통일 -->
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/img/mango-char.png" alt="Mangoi">
+    <h1 id="t_title">Postponed Classes</h1>
+    <a class="backbtn" href="/admin.html" id="t_back">← Back</a>
+    <button class="langbtn" id="lang">한국어</button>
+  </div>
+  <div class="sub" id="t_sub"></div>
+
+  <div class="card">
+    <div class="rule" id="t_rule"></div>
+  </div>
+
+  <div class="card">
+    <div class="controls">
+      <select id="range"></select>
+      <select id="kind"></select>
+      <button class="btn btn-primary" id="reload"></button>
+      <button class="btn btn-ghost" id="csv"></button>
+      <span class="muted" id="updated"></span>
+    </div>
+    <div class="chips" id="feeChips">
+      <button class="chip on" data-fee="all" id="t_fee_all"></button>
+      <button class="chip paid" data-fee="paid" id="t_fee_paid"></button>
+      <button class="chip free" data-fee="free" id="t_fee_free"></button>
+      <button class="chip" data-fee="unknown" id="t_fee_unknown"></button>
+    </div>
+    <div class="filter">
+      <input id="search" type="text">
+      <select id="status"></select>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n c-all" id="s_total">–</div><div class="l" id="t_l_total"></div></div>
+      <div class="stat"><div class="n c-paid" id="s_paid">–</div><div class="l" id="t_l_paid"></div></div>
+      <div class="stat"><div class="n c-free" id="s_free">–</div><div class="l" id="t_l_free"></div></div>
+      <div class="stat"><div class="n c-wait" id="s_pending">–</div><div class="l" id="t_l_pending"></div></div>
+    </div>
+  </div>
+
+  <div class="card"><div id="body"></div></div>
+</div>
+
+<script>
+(function(){
+  var g = function(id){ return document.getElementById(id); };
+  var cur = { rows: [], summary: {}, policy: { free_if_minutes_before_gt: 30 }, loadedAt: 0 };
+  var fee = 'all';
+
+  var I18N = {
+    en: {
+      htmlLang:'en', langLabel:'한국어', back:'← Back',
+      title:'Postponed Classes',
+      sub:'Every postponed class in one place — <b>who postponed it</b>, <b>the exact time it was postponed</b>, and whether it is <b>charged or free</b>.',
+      rule:'<b>How the charge is decided.</b> If the class was postponed <b>more than 30 minutes before</b> the class start time, it is <b>FREE</b>. If it was postponed <b>within 30 minutes of the start</b> (or after it already started), it is <b>CHARGED</b> — the lesson is counted as used.<br><span style="color:#93c5fd">All times below are <b>Korea time (KST)</b>. Philippine time (PHT) is shown underneath in grey — PHT is 1 hour behind KST.</span>',
+      r_today:'Today', r_7:'Last 7 days', r_30:'Last 30 days', r_90:'Last 90 days', r_365:'Last 12 months',
+      k_postpone:'Postponed only', k_cancel:'Cancelled only', k_change:'Moved to another time', k_all:'All changes',
+      reload:'Refresh', csv:'Download CSV', updated:'Updated ',
+      fee_all:'All', fee_paid:'Charged', fee_free:'Free', fee_unknown:'Not applicable',
+      searchPh:'Search teacher or student…',
+      st_all:'All statuses', st_pending:'Waiting for approval', st_approved:'Approved', st_rejected:'Rejected', st_applied:'Done by admin',
+      l_total:'Postponed classes', l_paid:'Charged', l_free:'Free', l_pending:'Waiting for approval',
+      th_when:'Postponed at (KST)', th_lesson:'Class', th_student:'Student', th_teacher:'Teacher', th_fee:'Charge', th_by:'Postponed by', th_status:'Status', th_reason:'Reason',
+      lead:function(m){
+        if (m === null) return '';
+        if (m < 0) return 'after the class had already started (' + fmtDur(-m) + ' late)';
+        return fmtDur(m) + ' before class';
+      },
+      estimate:'auto-calculated', movedTo:'moved to',
+      role_student:'student', role_teacher:'teacher', role_admin:'admin', role_system:'system',
+      loading:'Loading…', fail:'Could not load the list.', neterr:'Network error — please try again.',
+      needLogin:'Admin login required.', loginLink:'Go to login',
+      empty:'No postponed classes in this period. 🎉', emptyHint:'Try a longer period, or clear the filters above.',
+      csvHead:'PostponedAt(KST),PostponedAt(PHT),MinutesBeforeClass,Type,ClassDate,ClassTime,Student,Teacher,Charge,Estimated,PostponedBy,Role,Status,Reason',
+      csvName:'PostponedClasses', csvNeed:'Nothing to download yet.',
+      t_postpone:'Postponed', t_cancel:'Cancelled', t_change:'Moved'
+    },
+    ko: {
+      htmlLang:'ko', langLabel:'English', back:'← 뒤로',
+      title:'⏸ 연기 수업 현황',
+      sub:'연기된 수업을 한 화면에서 봅니다 — <b>누가 연기했는지</b>, <b>정확히 언제 연기했는지</b>, <b>유료인지 무료인지</b>.',
+      rule:'<b>요금 판정 기준.</b> 수업 시작 <b>30분 전보다 일찍</b> 연기하면 <b>무료</b>입니다. 시작 <b>30분 이내</b>(또는 시작한 뒤)에 연기하면 <b>유료</b> — 수업 1회를 사용한 것으로 칩니다.<br><span style="color:#93c5fd">아래 시각은 모두 <b>한국시간(KST)</b> 기준입니다. 회색 작은 글씨는 필리핀 시간(PHT, 한국보다 1시간 느림)입니다.</span>',
+      r_today:'오늘', r_7:'최근 7일', r_30:'최근 30일', r_90:'최근 90일', r_365:'최근 12개월',
+      k_postpone:'연기만', k_cancel:'취소만', k_change:'다른 시간으로 이동', k_all:'전체 변경',
+      reload:'새로고침', csv:'CSV 저장', updated:'갱신 ',
+      fee_all:'전체', fee_paid:'유료', fee_free:'무료', fee_unknown:'해당 없음',
+      searchPh:'강사 또는 학생 이름 검색…',
+      st_all:'전체 상태', st_pending:'승인 대기', st_approved:'승인됨', st_rejected:'거절됨', st_applied:'관리자 처리 완료',
+      l_total:'연기된 수업', l_paid:'유료', l_free:'무료', l_pending:'승인 대기',
+      th_when:'연기한 시각 (KST)', th_lesson:'원래 수업', th_student:'학생', th_teacher:'강사', th_fee:'요금', th_by:'연기한 사람', th_status:'상태', th_reason:'사유',
+      lead:function(m){
+        if (m === null) return '';
+        if (m < 0) return '수업 시작 후 ' + fmtDur(-m) + ' 지나서 연기';
+        return '수업 시작 ' + fmtDur(m) + ' 전';
+      },
+      estimate:'자동 계산', movedTo:'→ 이동',
+      role_student:'학생', role_teacher:'강사', role_admin:'관리자', role_system:'시스템',
+      loading:'불러오는 중…', fail:'목록을 불러오지 못했습니다.', neterr:'네트워크 오류 — 다시 시도해 주세요.',
+      needLogin:'관리자 로그인이 필요합니다.', loginLink:'로그인하기',
+      empty:'이 기간에는 연기된 수업이 없습니다. 🎉', emptyHint:'기간을 늘리거나 위 필터를 해제해 보세요.',
+      csvHead:'연기시각(KST),연기시각(PHT),수업시작까지분,유형,수업날짜,수업시간,학생,강사,요금,추정여부,연기한사람,역할,상태,사유',
+      csvName:'연기수업', csvNeed:'저장할 내용이 없습니다.',
+      t_postpone:'연기', t_cancel:'취소', t_change:'이동'
+    }
+  };
+
+  var lang = localStorage.getItem('mangoi_lang') || 'en';
+  if (lang !== 'ko' && lang !== 'en') lang = 'en';
+  function t(){ return I18N[lang]; }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function p2(n){ return (n<10?'0':'')+n; }
+
+  // 시각은 KST(한국) 기준으로 그린다. 브라우저 로컬시간을 쓰면 필리핀 매니저 화면에서만
+  // 1시간 어긋나 "수업시간과 안 맞는다"는 오해가 생긴다. PHT 는 보조표기로만.
+  function fmtAt(ms, offsetHours){
+    if (!ms) return '-';
+    var d = new Date(Number(ms) + offsetHours*3600000);
+    return d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate())+' '+p2(d.getUTCHours())+':'+p2(d.getUTCMinutes());
+  }
+  function kst(ms){ return fmtAt(ms, 9); }
+  function pht(ms){ return fmtAt(ms, 8); }
+
+  function fmtDur(mins){
+    mins = Math.abs(Math.round(mins));
+    if (mins < 60) return mins + (lang==='ko' ? '분' : 'm');
+    var h = Math.floor(mins/60), m = mins%60;
+    if (h < 24) return h + (lang==='ko'?'시간':'h') + (m ? ' '+m+(lang==='ko'?'분':'m') : '');
+    var d = Math.floor(h/24), hh = h%24;
+    return d + (lang==='ko'?'일':'d') + (hh ? ' '+hh+(lang==='ko'?'시간':'h') : '');
+  }
+  window.fmtDur = fmtDur;   // I18N.lead 안에서 씀
+
+  function applyLang(){
+    var d = t();
+    document.documentElement.lang = d.htmlLang;
+    g('t_title').textContent = d.title;
+    g('lang').textContent = d.langLabel;
+    g('t_back').textContent = d.back;
+    g('t_sub').innerHTML = d.sub;
+    g('t_rule').innerHTML = d.rule;
+    g('reload').textContent = d.reload;
+    g('csv').textContent = d.csv;
+    g('search').placeholder = d.searchPh;
+    g('t_fee_all').textContent = d.fee_all;
+    g('t_fee_paid').textContent = d.fee_paid;
+    g('t_fee_free').textContent = d.fee_free;
+    g('t_fee_unknown').textContent = d.fee_unknown;
+    g('t_l_total').textContent = d.l_total;
+    g('t_l_paid').textContent = d.l_paid;
+    g('t_l_free').textContent = d.l_free;
+    g('t_l_pending').textContent = d.l_pending;
+
+    var keepR = g('range').value;
+    g('range').innerHTML = '<option value="1">'+d.r_today+'</option><option value="7">'+d.r_7+'</option><option value="30">'+d.r_30+'</option><option value="90">'+d.r_90+'</option><option value="365">'+d.r_365+'</option>';
+    g('range').value = keepR || '30';
+    var keepK = g('kind').value;
+    g('kind').innerHTML = '<option value="postpone">'+d.k_postpone+'</option><option value="cancel">'+d.k_cancel+'</option><option value="change">'+d.k_change+'</option><option value="all">'+d.k_all+'</option>';
+    g('kind').value = keepK || 'postpone';
+    var keepS = g('status').value;
+    g('status').innerHTML = '<option value="all">'+d.st_all+'</option><option value="pending">'+d.st_pending+'</option><option value="approved">'+d.st_approved+'</option><option value="rejected">'+d.st_rejected+'</option><option value="applied">'+d.st_applied+'</option>';
+    g('status').value = keepS || 'all';
+    // 언어를 바꿔도 '갱신 시각' 라벨이 옛 언어로 남아 있지 않게 다시 그린다
+    if (cur.loadedAt) g('updated').textContent = d.updated + kst(cur.loadedAt) + ' KST';
+
+    render();
+  }
+
+  function kindLabel(k){ var d=t(); return k==='cancel'?d.t_cancel:k==='change'?d.t_change:d.t_postpone; }
+  function roleLabel(r){ var d=t(); return r==='student'?d.role_student:r==='teacher'?d.role_teacher:r==='system'?d.role_system:d.role_admin; }
+  function statusBadge(s){
+    var d=t();
+    if (s==='pending')  return '<span class="badge b-pending">'+d.st_pending+'</span>';
+    if (s==='approved') return '<span class="badge b-approved">'+d.st_approved+'</span>';
+    if (s==='rejected') return '<span class="badge b-rejected">'+d.st_rejected+'</span>';
+    return '<span class="badge b-applied">'+d.st_applied+'</span>';
+  }
+  function feeBadge(r){
+    var d=t();
+    if (r.fee_type==='paid') return '<span class="badge b-paid">'+d.fee_paid+'</span>'+(r.fee_estimated?'<span class="est">'+d.estimate+'</span>':'');
+    if (r.fee_type==='free') return '<span class="badge b-free">'+d.fee_free+'</span>'+(r.fee_estimated?'<span class="est">'+d.estimate+'</span>':'');
+    return '<span class="badge b-none">'+d.fee_unknown+'</span>';
+  }
+  function leadClass(m){ return m===null ? '' : (m < 0 ? 'lead-bad' : (m <= 30 ? 'lead-warn' : 'lead-ok')); }
+
+  function visibleRows(){
+    var q = (g('search').value||'').trim().toLowerCase();
+    if (!q) return cur.rows;
+    return cur.rows.filter(function(r){
+      return String(r.teacher_name||'').toLowerCase().indexOf(q) >= 0
+          || String(r.student_name||'').toLowerCase().indexOf(q) >= 0;
+    });
+  }
+
+  function renderStats(){
+    var rows = visibleRows();
+    g('s_total').textContent = rows.length;
+    g('s_paid').textContent = rows.filter(function(r){return r.fee_type==='paid';}).length;
+    g('s_free').textContent = rows.filter(function(r){return r.fee_type==='free';}).length;
+    g('s_pending').textContent = rows.filter(function(r){return r.status==='pending';}).length;
+  }
+
+  function render(){
+    var d = t();
+    renderStats();
+    var rows = visibleRows();
+    if (!rows.length){
+      g('body').innerHTML = '<div class="empty">'+d.empty+'<br><span class="muted">'+d.emptyHint+'</span></div>';
+      return;
+    }
+    var h = '<table><thead><tr>'
+      + '<th>'+d.th_when+'</th><th>'+d.th_lesson+'</th><th>'+d.th_student+'</th><th>'+d.th_teacher+'</th>'
+      + '<th>'+d.th_fee+'</th><th>'+d.th_by+'</th><th>'+d.th_status+'</th><th>'+d.th_reason+'</th>'
+      + '</tr></thead><tbody>';
+    var cards = '';
+    rows.forEach(function(r){
+      var mb = (typeof r.minutes_before === 'number') ? r.minutes_before : null;
+      var leadTxt = d.lead(mb);
+      var lesson = (r.lesson_date ? esc(r.lesson_date) : '-') + (r.lesson_time ? ' ' + esc(r.lesson_time) : '');
+      var moved  = r.new_date ? '<small style="color:#7dd3fc">'+d.movedTo+' '+esc(r.new_date)+' '+esc(r.new_time||'')+'</small>' : '';
+      var whoSub = kindLabel(r.kind) + ' · ' + roleLabel(r.requester_role);
+
+      h += '<tr>'
+        + '<td class="when">'+kst(r.postponed_at)+'<small>PHT '+pht(r.postponed_at)+'</small>'
+          + (leadTxt ? '<div class="lead '+leadClass(mb)+'">'+leadTxt+'</div>' : '') + '</td>'
+        + '<td class="when">'+lesson+moved+'</td>'
+        + '<td>'+esc(r.student_name||'-')+'</td>'
+        + '<td>'+esc(r.teacher_name||'-')+'</td>'
+        + '<td>'+feeBadge(r)+'</td>'
+        + '<td class="who">'+esc(r.requested_by||'-')+'<small>'+esc(whoSub)+'</small></td>'
+        + '<td>'+statusBadge(r.status)+'</td>'
+        + '<td class="reason">'+esc(r.reason||'-')+'</td>'
+        + '</tr>';
+
+      cards += '<div class="m-card">'
+        + '<div class="m-top"><div class="when">'+kst(r.postponed_at)+'<small>PHT '+pht(r.postponed_at)+'</small></div><div>'+feeBadge(r)+'</div></div>'
+        + (leadTxt ? '<div class="lead '+leadClass(mb)+'">'+leadTxt+'</div>' : '')
+        + '<div class="m-row"><span>'+d.th_lesson+':</span> <b>'+lesson+'</b>'+moved+'</div>'
+        + '<div class="m-row"><span>'+d.th_student+':</span> <b>'+esc(r.student_name||'-')+'</b> &nbsp; <span>'+d.th_teacher+':</span> <b>'+esc(r.teacher_name||'-')+'</b></div>'
+        + '<div class="m-row"><span>'+d.th_by+':</span> <b>'+esc(r.requested_by||'-')+'</b> ('+esc(whoSub)+')</div>'
+        + '<div class="m-row">'+statusBadge(r.status)+'</div>'
+        + (r.reason ? '<div class="m-row"><span>'+d.th_reason+':</span> '+esc(r.reason)+'</div>' : '')
+        + '</div>';
+    });
+    h += '</tbody></table>' + cards;
+    g('body').innerHTML = h;
+  }
+
+  function load(){
+    var d = t();
+    var days = g('range').value || '30';
+    var url = '/api/admin/postponed-classes?days='+encodeURIComponent(days)
+            + '&kind='+encodeURIComponent(g('kind').value||'postpone')
+            + '&fee='+encodeURIComponent(fee)
+            + '&status='+encodeURIComponent(g('status').value||'all')
+            + '&limit=500';
+    g('body').innerHTML = '<div class="empty">'+d.loading+'</div>';
+    fetch(url, { credentials:'same-origin' })
+      .then(function(r){ if (r.status===401 || r.status===403) throw new Error('auth'); return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok){ g('body').innerHTML = '<div class="empty">'+d.fail+'</div>'; return; }
+        cur.rows = j.rows || [];
+        cur.summary = j.summary || {};
+        cur.policy = j.policy || cur.policy;
+        cur.loadedAt = Date.now();
+        g('updated').textContent = d.updated + kst(cur.loadedAt) + ' KST';
+        render();
+      })
+      .catch(function(e){
+        if (e && e.message === 'auth'){
+          g('body').innerHTML = '<div class="empty">'+d.needLogin+'<br><a href="/admin/login.html?next=/admin/postponed-classes" style="color:#7dd3fc">'+d.loginLink+'</a></div>';
+        } else {
+          g('body').innerHTML = '<div class="empty">'+d.neterr+'</div>';
+        }
+      });
+  }
+
+  // ── 이벤트 ──
+  g('lang').addEventListener('click', function(){
+    lang = (lang === 'ko' ? 'en' : 'ko');
+    localStorage.setItem('mangoi_lang', lang);
+    localStorage.setItem('mangoi_lang_by', 'user');
+    applyLang();
+  });
+  g('reload').addEventListener('click', load);
+  g('range').addEventListener('change', load);
+  g('kind').addEventListener('change', load);
+  g('status').addEventListener('change', load);
+  g('search').addEventListener('input', render);
+  Array.prototype.forEach.call(document.querySelectorAll('#feeChips .chip'), function(c){
+    c.addEventListener('click', function(){
+      fee = c.getAttribute('data-fee');
+      Array.prototype.forEach.call(document.querySelectorAll('#feeChips .chip'), function(x){ x.classList.remove('on'); });
+      c.classList.add('on');
+      load();
+    });
+  });
+  g('csv').addEventListener('click', function(){
+    var d = t(); var rows = visibleRows();
+    if (!rows.length){ alert(d.csvNeed); return; }
+    var q = function(s){ return '"' + String(s==null?'':s).replace(/"/g,'""') + '"'; };
+    var lines = [d.csvHead];
+    rows.forEach(function(r){
+      lines.push([
+        q(kst(r.postponed_at)), q(pht(r.postponed_at)),
+        (typeof r.minutes_before==='number' ? r.minutes_before : ''),
+        q(kindLabel(r.kind)), q(r.lesson_date||''), q(r.lesson_time||''),
+        q(r.student_name||''), q(r.teacher_name||''),
+        q(r.fee_type==='paid'?d.fee_paid:r.fee_type==='free'?d.fee_free:d.fee_unknown),
+        (r.fee_estimated?1:0),
+        q(r.requested_by||''), q(roleLabel(r.requester_role)),
+        q(r.status||''), q(r.reason||'')
+      ].join(','));
+    });
+    var blob = new Blob(['﻿'+lines.join('\r\n')], { type:'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = d.csvName + '_' + kst(Date.now()).replace(/[: ]/g,'-') + '.csv';
+    a.click();
+  });
+
+  applyLang();
+  load();
+})();
+</script>
+<script src="/js/adm-light-surfaces.js?v=8" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
+</body>
+</html>

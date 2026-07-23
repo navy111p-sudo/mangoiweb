@@ -207,7 +207,7 @@
 <script src="/js/adm-lang-boot.js?v=6"></script>
 <!-- 🌐 EN 스위퍼 — 머리에서 먼저 받아 두어야(defer 중 첫 실행) 한글이 보이기 전에 영어로 바뀐다.
      ⚠️ 문서 끝(옛 위치)에 두면 외부 스크립트 70여 개 뒤에 실행돼 해외(필리핀) 회선에서 수십 초 걸렸다. -->
-<script defer src="/js/i18n-sweep.js?v=10"></script>
+<script defer src="/js/i18n-sweep.js?v=11"></script>
 
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
 <script src="/js/adm-scope-guard.js?v=1"></script>
@@ -2215,6 +2215,7 @@
         <a href="/admin/learning-insights" data-ko="🎓 학습 인사이트" data-en="🎓 Learning Insights">🎓 학습 인사이트</a>
         <a href="/admin/marketing-studio" data-ko="📣 마케팅 스튜디오" data-en="📣 Marketing Studio">📣 마케팅 스튜디오</a>
         <a href="/admin/teacher-match" data-ko="🤝 강사 매칭" data-en="🤝 Teacher Match">🤝 강사 매칭</a>
+        <a href="/admin/postponed-classes" data-ko="⏸ 연기 수업 현황" data-en="⏸ Postponed Classes">⏸ 연기 수업 현황</a>
         <div class="th-user-popup-divider"></div>
         <a href="/admin/teacher-payroll" data-ko="🧾 강사 급여(자동)" data-en="🧾 Teacher Payroll">🧾 강사 급여(자동)</a>
         <a href="/admin/retention" data-ko="🔁 수강권 만료·재활성" data-en="🔁 Retention">🔁 수강권 만료·재활성</a>
@@ -8844,6 +8845,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <option value="all" data-ko="전체 (처리 완료 포함)" data-en="All (incl. decided)">전체 (처리 완료 포함)</option>
       </select>
       <button class="primary" onclick="srqLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <!-- ⏸ (2026-07-23) 매니저용 통합 화면 바로가기 — 연기건만 유료/무료·연기시각까지 한 표로 -->
+      <a href="/admin/postponed-classes" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:#0f172a;color:#fff;border-radius:6px;text-decoration:none"
+         data-ko="⏸ 연기 수업 현황 (유료/무료·시각) →" data-en="⏸ Postponed Classes (charge &amp; exact time) →">⏸ 연기 수업 현황 (유료/무료·시각) →</a>
       <span id="srq-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
     <div id="srq-table" style="overflow-x:auto"></div>
@@ -8871,6 +8875,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       </select>
       <input id="cau-teacher" type="text" oninput="caudDebounced()" placeholder="강사명 (선택)" data-ph-ko="강사명 (선택)" data-ph-en="Teacher name (optional)" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:150px">
       <button class="primary" onclick="caudLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <a href="/admin/postponed-classes" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:#0f172a;color:#fff;border-radius:6px;text-decoration:none"
+         data-ko="⏸ 연기 수업 현황 (유료/무료·시각) →" data-en="⏸ Postponed Classes (charge &amp; exact time) →">⏸ 연기 수업 현황 (유료/무료·시각) →</a>
       <span id="cau-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
     <div id="cau-table" style="overflow-x:auto"></div>
@@ -12437,6 +12443,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-teacher-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-teacher-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-teacher-mgmt');}">강사 관리</div>
       <div class="ph85-sub" data-card="card-payroll-auto" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll-auto');}">자동 급여</div>
       <div class="ph85-sub" data-card="card-schedule-requests" onclick="event.stopPropagation();var c=document.getElementById('card-schedule-requests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-schedule-requests');}">📅 연기·변경 요청 ⭐신규</div>
+      <div class="ph85-sub" data-ko="⏸ 연기 수업 현황 ⭐신규" data-en="⏸ Postponed Classes ⭐New" onclick="event.stopPropagation();location.href='/admin/postponed-classes';">⏸ 연기 수업 현황 ⭐신규</div>
       <div class="ph85-sub" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-audit" onclick="event.stopPropagation();var c=document.getElementById('card-class-audit');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});if(typeof caudLoad==='function')caudLoad();var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-audit');}">📜 수업 변경 이력 ⭐신규</div>
       <div class="ph85-sub" data-card="card-vc-quality" onclick="event.stopPropagation();var c=document.getElementById('card-vc-quality');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});if(typeof vcqLoad==='function')vcqLoad();var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-vc-quality');}">📶 강사 회선품질 ⭐신규</div>
@@ -21143,6 +21150,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260723231247 -->
+<!-- BUILD:20260724010336 -->
 </body>
 </html>

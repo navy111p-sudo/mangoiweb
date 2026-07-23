@@ -64,6 +64,15 @@
   console.log('[mango-intro] overlay shown (first visit)');
 
   var video = document.getElementById('mango-intro-video');
+  // 🐢 (2026-07-23) 인트로 영상 지연 로드 — 여기까지 왔다는 건 '표시가 확정됐다'는 뜻이다.
+  //   위의 skip 경로(이미 봤음/결제 딥링크)는 return 하므로 재방문자는 4.1MB 를 아예 안 받는다.
+  //   예전엔 HTML 에 src 가 박혀 있어 표시 여부와 무관하게 브라우저가 무조건 받았다.
+  try {
+    if (video && !video.getAttribute('src')) {
+      var _isrc = video.getAttribute('data-src');
+      if (_isrc) { video.setAttribute('src', _isrc); video.load(); }
+    }
+  } catch(e){ console.warn('[mango-intro] lazy src fail', e); }
   var skip  = document.getElementById('mango-intro-skip');
   var mute  = document.getElementById('mango-intro-mute');
   var hint  = document.getElementById('mango-intro-hint');

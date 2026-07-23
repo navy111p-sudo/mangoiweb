@@ -803,6 +803,11 @@
 "20년 전통 · 국내 최초의 화상영어 기업": "20 Years of Tradition · Korea's First Video English Company",
 "원어민 1:1 화상수업과 A.I 학습관리로, 합리적인 비용에 최고의 영어 말하기 효과를 드립니다.": "Native 1:1 video lessons plus A.I learning management — the best English speaking results at a reasonable cost.",
 "카드를 누르면 자세히 볼 수 있어요 👆": "Tap a card to see details 👆",
+// ⬇ (2026-07-23) '망고아이란?' 모달의 상세화면 2줄이 사전에 빠져 있어 영어 모드에서도 한글로 남았다.
+//    (AI 자동번역 폴백으로 넘어가긴 하나 네트워크 실패 시 한글 고정 + 문구가 매번 달라짐 → 사전에 못박음)
+//    대응 위치: index.html 의 abm-dpts-h(강점 소제목) · abm-back(뒤로가기 버튼)
+"✨ 망고아이만의 강점": "✨ What Makes Mangoi Different",
+"← 목록으로": "← Back to list",
 "무료 상담 신청하기": "Request a Free Consultation",
 "교사와 A.I가 함께 학생 실력 향상": "Teachers and A.I Improve Skills Together",
 "원어민 선생님의 1:1 화상수업과 A.I 학습관리가 하나의 시스템 안에서 맞물려 돌아갑니다. 수업은 사람이 이끌고, 예습·복습·평가·발음 교정은 A.I가 24시간 도와 학습의 빈틈을 메웁니다.": "Native-teacher 1:1 video lessons and A.I learning management run as one system. Teachers lead the class, while A.I supports preview, review, evaluation and pronunciation correction 24/7 to fill every gap in learning.",
