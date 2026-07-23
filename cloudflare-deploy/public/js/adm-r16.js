@@ -52,15 +52,22 @@
         if(!document.getElementById('sb-tip-css')){
           var st=document.createElement('style'); st.id='sb-tip-css';
           st.textContent='#sb-tip{position:fixed;z-index:2147483601;max-width:262px;padding:8px 11px;border-radius:10px;'
-            +'background:rgba(82,86,94,0.58);'                              /* 반투명 회색 */
-            +'-webkit-backdrop-filter:blur(9px) saturate(1.15);backdrop-filter:blur(9px) saturate(1.15);'
+            /* 🎨 (2026-07-24) 반투명 회색(58%) → 불투명 진회색.
+               [왜] 사장님 제보 "설명박스에 글자가 보이지 않는다".
+                    58% 투명 회색은 **밝은 아이보리 배경 위에서 거의 흰색이 된다** → 흰 글자가 묻힘.
+                    관리자 화면이 밝은 테마로 바뀐 뒤 생긴 문제(예전 어두운 화면에선 잘 보였음).
+               ⚠️ 뜬 뒤 0.3초쯤 지나면 밝은테마 스크립트가 인라인 !important 로 (밝은배경+진한글자)
+                  로 덮어써서 그때부턴 읽힌다. 즉 **처음 뜨는 순간에만 안 보였다** — 그 구간을 없앤다.
+               [덤] backdrop-filter 제거: 뒤 배경을 매 프레임 블러 처리하느라 스크롤이 무거웠다
+                    (실측 p95 33.2ms → 17.0ms). 불투명 배경이라 블러가 필요 없다. */
+            +'background:rgba(33,37,45,0.97);'
             +'color:#fff;font-size:12.5px;line-height:1.5;font-weight:600;letter-spacing:-.1px;'
             +'box-shadow:0 8px 26px rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.24);'
             +'pointer-events:none;opacity:0;transition:opacity .12s ease;}'
             +'#sb-tip.on{opacity:1;}'
             +'#sb-tip::after{content:"";position:absolute;top:var(--ty,13px);left:-6px;width:0;height:0;'
-            +'border:6px solid transparent;border-right-color:rgba(82,86,94,0.58);border-left:0;}'
-            +'#sb-tip.left::after{left:auto;right:-6px;border-right:0;border-left-color:rgba(82,86,94,0.58);}'
+            +'border:6px solid transparent;border-right-color:rgba(33,37,45,0.97);border-left:0;}'
+            +'#sb-tip.left::after{left:auto;right:-6px;border-right:0;border-left-color:rgba(33,37,45,0.97);}'
             +'@media (hover:none){#sb-tip{display:none!important;}}';
           document.documentElement.appendChild(st);
         }

@@ -5846,9 +5846,24 @@ window.__admSettleRun = function(fn){
   var S = window.__admSettle;
   if (!S) {
     S = window.__admSettle = { fns: [], t: null, runs: 0, winStart: Date.now() };
+    // 🐢 (2026-07-24) 스크롤 중에는 이 묶음을 실행하지 않는다.
+    //   [왜] 여기 등록된 '재적용' 함수가 20개가 넘고, 한 번에 다 도느라 **50~80ms 동안
+    //        메인스레드가 멈춘다**(실측: 가만히 둬도 1초에 한 번 60ms 급 long task 6건/6초.
+    //        setInterval 을 전부 지우면 0건 → 이 묶음이 원인).
+    //        그 멈춤이 스크롤 도중에 끼면 메뉴가 손가락을 못 따라와 '뻑뻑'하게 느껴진다.
+    //   [어떻게] 스크롤이 멈춘 뒤에 돌린다. 화면 보정 자체는 그대로 다 실행되므로 기능 변화 없음.
+    //   ⚠️ 무한 연기 방지: 계속 스크롤해도 1.5초 넘게 밀리면 그냥 실행한다.
+    S.lastScroll = 0;
+    S.deferFrom = 0;
+    try { document.addEventListener('scroll', function(){ S.lastScroll = Date.now(); }, { capture:true, passive:true }); } catch(e){}
     S.runAll = function(){
       S.t = null;
       var now = Date.now();
+      if (now - S.lastScroll < 180) {                 // 스크롤 중 → 잠시 뒤 다시 시도
+        if (!S.deferFrom) S.deferFrom = now;
+        if (now - S.deferFrom < 1500) { S.t = setTimeout(S.runAll, 180); return; }
+      }
+      S.deferFrom = 0;
       if (now - S.winStart > 10000) { S.winStart = now; S.runs = 0; }
       if (++S.runs > 40) {
         try { S.obs && S.obs.disconnect(); } catch(e){}
@@ -12984,7 +12999,7 @@ button.chip:hover,
      · 별(★) 유무와 무관하게 모든 사이드바 손자 메뉴에 한 줄 설명을 사이드바 바로 옆에 표시
      · GC_DESC 는 miDescribe 가 우선 참조 → 플라이아웃(#mi-menu-fly)·인라인 메뉴 모두 동일 설명 공유
      · 데스크톱 전용(@media hover) — 기존 #ph85tip 말풍선 재사용 -->
-<script src="/js/adm-r16.js?v=1" defer></script><!-- 분할추출:adm-r16 -->
+<script src="/js/adm-r16.js?v=2" defer></script><!-- 분할추출:adm-r16 -->
 
 <!-- ⭐ (2026-06-20) 모바일 사이드바 간단설명 말풍선 (#sb-mtip)
      · 데스크톱은 hover 말풍선이 있지만 터치 기기엔 hover 가 없어 안 떴음.
@@ -21240,6 +21255,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260724080537 -->
+<!-- BUILD:20260724083023 -->
 </body>
 </html>
