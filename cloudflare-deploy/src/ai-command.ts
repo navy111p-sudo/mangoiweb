@@ -1222,7 +1222,81 @@ export async function executeAction(
         try { await env.DB.exec('ALTER TABLE students_erp ADD COLUMN ' + c + ' ' + t); } catch {}
       }
 
-      // ── 1) 학생 계정 확인 → 없으면 생성 ──
+      // ── 1) 강사 매칭 (teachers → teacher_profiles) ──
+      let teacherId: string | null = args?.teacher_id ? String(args.teacher_id).slice(0, 40) : null;
+      let teacherName: string | null = null;
+      let teacherCreated = false;
+      if (!teacherId && teacherNameIn) {
+        const tName = teacherNameIn.replace(/(선생님?|쌤|teacher)$/i, '').trim() || teacherNameIn;
+        // ⚠️ 부분일치(LIKE)로 강사를 '아무거나 하나' 고르면 엉뚱한 강사에게 실제 수업이 배정된다.
+        //    정확히 일치 → 없으면 부분일치 후보를 세어 1명일 때만 확정, 2명 이상이면 되묻는다.
+        try {
+          const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? COLLATE NOCASE OR name = ? COLLATE NOCASE LIMIT 1`)
+            .bind(teacherNameIn, tName).first<any>();
+          if (t?.id) { teacherId = String(t.id); teacherName = String(t.name || teacherNameIn); }
+        } catch {}
+        if (!teacherId) {
+          try {
+            const rs: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name LIKE ? LIMIT 10`).bind('%' + tName + '%').all();
+            const cands = ((rs?.results as any[]) || []);
+            if (cands.length === 1) { teacherId = String(cands[0].id); teacherName = String(cands[0].name || teacherNameIn); }
+            else if (cands.length > 1) {
+              const names = cands.map((c: any) => String(c.name)).slice(0, 8);
+              return {
+                ok: false, error: 'teacher_ambiguous', candidates: names,
+                message: `‘${teacherNameIn}’ 으로 찾으니 강사가 ${cands.length}명이에요: ${names.join(' / ')} — 어느 분인지 이름을 정확히 말씀해 주세요. (수업은 아직 등록하지 않았습니다)`,
+                message_en: `“${teacherNameIn}” matches ${cands.length} teachers: ${names.join(' / ')} — please give the exact name. (No classes were created.)`,
+              };
+            }
+          } catch {}
+        }
+        // teachers 에 없고 teacher_profiles 에만 있는 강사 → 검증된 이름이므로 teachers 에 등재 후 연결
+        if (!teacherId) {
+          let prof: any = null;
+          try {
+            prof = await env.DB.prepare(
+              `SELECT id, korean_name, english_name FROM teacher_profiles WHERE korean_name = ? COLLATE NOCASE OR korean_name = ? COLLATE NOCASE OR english_name = ? COLLATE NOCASE LIMIT 1`
+            ).bind(teacherNameIn, tName, teacherNameIn).first<any>();
+          } catch {}
+          if (!prof?.id) {
+            try {
+              const rs: any = await env.DB.prepare(
+                `SELECT id, korean_name, english_name FROM teacher_profiles WHERE korean_name LIKE ? OR english_name LIKE ? LIMIT 10`
+              ).bind('%' + tName + '%', '%' + tName + '%').all();
+              const cands = ((rs?.results as any[]) || []);
+              if (cands.length === 1) prof = cands[0];
+              else if (cands.length > 1) {
+                const names = cands.map((c: any) => String(c.korean_name || c.english_name)).slice(0, 8);
+                return {
+                  ok: false, error: 'teacher_ambiguous', candidates: names,
+                  message: `‘${teacherNameIn}’ 으로 찾으니 강사가 ${cands.length}명이에요: ${names.join(' / ')} — 어느 분인지 이름을 정확히 말씀해 주세요. (수업은 아직 등록하지 않았습니다)`,
+                  message_en: `“${teacherNameIn}” matches ${cands.length} teachers: ${names.join(' / ')} — please give the exact name. (No classes were created.)`,
+                };
+              }
+            } catch {}
+          }
+          if (prof?.id) {
+            const pn = String(prof.korean_name || prof.english_name || teacherNameIn);
+            try {
+              const ins = await env.DB.prepare(
+                `INSERT INTO teachers (name, status, active, created_at, updated_at) VALUES (?, '활동중', 1, ?, ?)`
+              ).bind(pn, now, now).run();
+              const tid = (ins?.meta?.last_row_id as number) || null;
+              if (tid) {
+                teacherId = String(tid); teacherName = pn; teacherCreated = true;
+                warnings.push(`강사 ‘${pn}’ 은 강사프로필에만 있어 강사목록에 새로 등재했습니다.`);
+                warningsEn.push(`Teacher “${pn}” existed only in teacher profiles, so a teacher record was created.`);
+              }
+            } catch {}
+          }
+        }
+        if (!teacherId) {
+          warnings.push(`강사 ‘${teacherNameIn}’ 을 찾지 못해 강사 없이 등록했습니다. 강사관리에서 지정해 주세요.`);
+          warningsEn.push(`Teacher “${teacherNameIn}” was not found, so the classes were created without a teacher. Please assign one in Teacher Management.`);
+        }
+      }
+
+      // ── 2) 학생 계정 확인 → 없으면 생성 ──
       let userId: string | null = null;
       let existingName = '';
       for (const q of [
@@ -1260,7 +1334,7 @@ export async function executeAction(
       }
       const finalName = studentName || existingName || loginId;
 
-      // ── 2) 비밀번호 설정 (api-students.ts hashPwd 와 동일 해시) ──
+      // ── 3) 비밀번호 설정 (api-students.ts hashPwd 와 동일 해시) ──
       let passwordSet = false;
       if (rawPwd) {
         try {
@@ -1272,46 +1346,6 @@ export async function executeAction(
         } catch (e: any) {
           warnings.push('비밀번호 설정에 실패했습니다: ' + String(e?.message || e).slice(0, 80));
           warningsEn.push('Failed to set the password: ' + String(e?.message || e).slice(0, 80));
-        }
-      }
-
-      // ── 3) 강사 매칭 (teachers → teacher_profiles) ──
-      let teacherId: string | null = args?.teacher_id ? String(args.teacher_id).slice(0, 40) : null;
-      let teacherName: string | null = null;
-      let teacherCreated = false;
-      if (!teacherId && teacherNameIn) {
-        const tName = teacherNameIn.replace(/(선생님?|쌤|teacher)$/i, '').trim() || teacherNameIn;
-        try {
-          const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? OR name = ? OR name LIKE ? LIMIT 1`)
-            .bind(teacherNameIn, tName, '%' + tName + '%').first<any>();
-          if (t?.id) { teacherId = String(t.id); teacherName = String(t.name || teacherNameIn); }
-        } catch {}
-        // teachers 에 없고 teacher_profiles 에만 있는 강사 → 검증된 이름이므로 teachers 에 등재 후 연결
-        if (!teacherId) {
-          let prof: any = null;
-          try {
-            prof = await env.DB.prepare(
-              `SELECT id, korean_name, english_name FROM teacher_profiles WHERE korean_name = ? OR korean_name = ? OR english_name = ? COLLATE NOCASE OR korean_name LIKE ? LIMIT 1`
-            ).bind(teacherNameIn, tName, teacherNameIn, '%' + tName + '%').first<any>();
-          } catch {}
-          if (prof?.id) {
-            const pn = String(prof.korean_name || prof.english_name || teacherNameIn);
-            try {
-              const ins = await env.DB.prepare(
-                `INSERT INTO teachers (name, status, active, created_at, updated_at) VALUES (?, '활동중', 1, ?, ?)`
-              ).bind(pn, now, now).run();
-              const tid = (ins?.meta?.last_row_id as number) || null;
-              if (tid) {
-                teacherId = String(tid); teacherName = pn; teacherCreated = true;
-                warnings.push(`강사 ‘${pn}’ 은 강사프로필에만 있어 강사목록에 새로 등재했습니다.`);
-                warningsEn.push(`Teacher “${pn}” existed only in teacher profiles, so a teacher record was created.`);
-              }
-            } catch {}
-          }
-        }
-        if (!teacherId) {
-          warnings.push(`강사 ‘${teacherNameIn}’ 을 찾지 못해 강사 없이 등록했습니다. 강사관리에서 지정해 주세요.`);
-          warningsEn.push(`Teacher “${teacherNameIn}” was not found, so the classes were created without a teacher. Please assign one in Teacher Management.`);
         }
       }
 

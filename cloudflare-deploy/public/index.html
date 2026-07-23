@@ -7,6 +7,7 @@
 <script src="/js/media-guard.js?v=1"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막(따라 말하기) -->
 <script src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 환경용 녹음+Whisper 전사 -->
+<script src="/js/mangoi-speak-score.js?v=1"></script><!-- 🗣 따라 말하기 채점(기준 문장 단어 정렬) -->
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
@@ -14751,6 +14752,20 @@ function _gameOver(){
     +'<div style="margin-top:18px"><button onclick="gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer">🔄 다시 도전</button></div></div>';
 }
 // ── 🎤 따라 말하기(섀도잉) ──
+/* 🗣 (2026-07-23) 따라 말하기 채점 — 업계 표준(Azure·Speechace)처럼 기준 문장과 **단어 단위로 정렬**해
+   누락·치환을 구분하는 js/mangoi-speak-score.js 를 쓴다. 예전 방식(아래 _shadowScore)은 "목표 단어가
+   몇 개 들렸나"라서 "I have a dog" 에 "I have a cat" 이라고 해도 통과했다.
+   모듈이 아직 안 실려 있으면 예전 방식으로 조용히 되돌아간다. */
+function _shadowGrade(said, target){
+  try{
+    if(window.MangoiScore){
+      var g = MangoiScore.grade(said, target);
+      return { sc: g.accuracy, pass: g.pass, tip: g.tip || '' };
+    }
+  }catch(_){}
+  var s = _shadowScore(said, target);
+  return { sc: s, pass: s >= 0.6, tip: '' };
+}
 function _shadowScore(said, target){
   try{ var norm=function(s){ return String(s).toLowerCase().replace(/[.,!?]/g,'').trim(); };
     var tw=norm(target).split(/\s+/).filter(Boolean), sw=norm(said).split(/\s+/); if(!tw.length) return 0;
@@ -14776,8 +14791,10 @@ function _shadowViaWhisper(text, fb){
     }
   }).then(function(said){
     if(!said){ giveUp('🎤 소리가 잘 안 들렸어요 — 다음 문제로…'); return; }
-    var sc=_shadowScore(said,text);
-    if(fb) fb.innerHTML=sc>=0.6?'<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>':'<span style="color:#f59e0b">🔁 거의 됐어요! 🔊 다시 듣고 도전</span>';
+    var g=_shadowGrade(said,text), sc=g.sc;
+    if(fb) fb.innerHTML=g.pass
+      ? '<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>'
+      : '<span style="color:#f59e0b">🔁 거의 됐어요!'+(g.tip?' <b>'+g.tip+'</b>':'')+' 🔊 다시 듣고 도전</span>';
     try{ var _s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text,(_s&&_s.ko)||'',sc); }catch(_){}   // 🎤 발음점수 서버 저장
     _gameState._advTimer=setTimeout(gameNextRound,1700);
   }).catch(function(){ giveUp(); });
@@ -14810,8 +14827,10 @@ function gameShadow(enc){
       function arm(){ if(_sil) clearTimeout(_sil); _sil=setTimeout(function(){ try{ rec.stop(); }catch(_){} }, SILENCE_MS); }
       function evaluate(){
         if(done) return; done=true; if(_sil) clearTimeout(_sil);
-        var sc=_shadowScore(said,text);
-        if(fb) fb.innerHTML=sc>=0.6?'<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>':'<span style="color:#f59e0b">🔁 거의 됐어요! 🔊 다시 듣고 도전</span>';
+        var g=_shadowGrade(said,text), sc=g.sc;
+        if(fb) fb.innerHTML=g.pass
+          ? '<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>'
+          : '<span style="color:#f59e0b">🔁 거의 됐어요!'+(g.tip?' <b>'+g.tip+'</b>':'')+' 🔊 다시 듣고 도전</span>';
         try{ var _s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text,(_s&&_s.ko)||'',sc); }catch(_){}   // 🎤 발음점수 서버 저장
         _gameState._advTimer=setTimeout(gameNextRound,1700);
       }
@@ -14821,7 +14840,7 @@ function gameShadow(enc){
         var _s=''; for(var i=0;i<e.results.length;i++) _s+=(e.results[i][0].transcript||'')+' ';
         // 브라우저가 세션을 끊고 다시 시작했으면 앞 세션에서 들은 것(_base) 뒤에 잇는다
         said=(_base? _base+' ' : '')+_s;
-        if(_shadowScore(said,text)>=0.6){ evaluate(); try{ rec.stop(); }catch(_){} return; }   // 충분히 맞음 → 즉시 통과
+        if(_shadowGrade(said,text).pass){ evaluate(); try{ rec.stop(); }catch(_){} return; }   // 충분히 맞음 → 즉시 통과
         if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 …(듣는 중) "'+said.trim()+'"</span>';
         arm();                             // 말할 때마다 종료 타이머 리셋
       };
@@ -26384,7 +26403,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=2"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260723205220 -->
+<!-- BUILD:20260723211800 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

@@ -678,7 +678,10 @@ Return STRICT JSON only, in BOTH Korean and English:
       const uid = (body.uid || url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       try {
-        const sc = await generatePersonalizedScenario(env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined);
+        // focus_misconception — 학생이 "이 유형 더 연습하기"를 누른 경우. 사전에 없는 코드는 생성기가 무시합니다.
+        const sc = await generatePersonalizedScenario(
+          env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined,
+          (body.focus_misconception || '').toString().trim().slice(0, 40) || null);
         return json(sc, 200);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }

@@ -142,7 +142,22 @@ const A = (args) => executeAction(env, 'enroll_student', args, 'tester');
   ok('검증 실패는 아무것도 안 씀', n === 6, n);
 }
 
-// ── 8) 요일 표기가 한글/숫자로 와도 정규화 ──
+// ── 8) 동명이인 강사 → 임의로 고르지 않고 되묻는다 (실제 수업 오배정 방지) ──
+{
+  db.prepare(`INSERT INTO teachers (name, status, active) VALUES ('박민 선생님', '활동중', 1)`).run();
+  db.prepare(`INSERT INTO teachers (name, status, active) VALUES ('박희 선생님', '활동중', 1)`).run();
+  const before = db.prepare(`SELECT COUNT(*) AS c FROM class_schedules`).get().c;
+  const r = await A({ student: { login_id: 'choi05' }, teacher_name: '박선생님', days: ['tue'], time: '15:00' });
+  ok('동명이인이면 등록 중단', r.ok === false && r.error === 'teacher_ambiguous', r);
+  ok('후보를 알려줌(한/영)', (r.candidates || []).length >= 2 && !!r.message && !!r.message_en, r.candidates);
+  ok('되물을 땐 아무것도 안 씀', db.prepare(`SELECT COUNT(*) AS c FROM class_schedules`).get().c === before);
+  ok('학생 계정도 안 만듦', !db.prepare(`SELECT user_id FROM students_erp WHERE user_id='choi05'`).get());
+  // 정확한 이름을 주면 그 강사로 확정
+  const r2 = await A({ student: { login_id: 'choi05' }, teacher_name: '박민 선생님', days: ['tue'], time: '15:00' });
+  ok('정확한 이름이면 확정', r2.ok === true && r2.teacher_name === '박민 선생님', r2.teacher_name);
+}
+
+// ── 9) 요일 표기가 한글/숫자로 와도 정규화 ──
 {
   const r = await A({ student: { login_id: 'park04' }, teacher_name: 'Melca', days: ['월', '3', 'Fri'], time: '08:30' });
   ok('한글·숫자·영문 요일 정규화', JSON.stringify(r.days) === '["mon","wed","fri"]', r.days);

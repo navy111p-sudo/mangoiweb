@@ -117,6 +117,35 @@
     border-radius:16px;padding:18px 20px;margin-bottom:16px;color:#efe9ff}
   .best{font-size:clamp(15px,1.8vw,18px);color:var(--mut);margin-bottom:16px}
   .best b{color:var(--gold)}
+
+  /* 🗣️ 내가 고른 표현 + 그게 어떻게 들리는지 */
+  .mypick{background:rgba(251,191,36,.10);border:1px solid rgba(251,191,36,.32);
+    border-radius:16px;padding:16px 20px;margin-bottom:16px}
+  .mypick .mp-h{font-size:clamp(12px,1.5vw,14px);font-weight:800;color:var(--gold);letter-spacing:.4px;margin-bottom:6px}
+  .mypick .mp-q{font-size:clamp(17px,2.2vw,22px);font-weight:800;color:#fdf6e3;line-height:1.45}
+  .mypick .mp-w{font-size:clamp(14px,1.8vw,18px);color:#e9e2ff;line-height:1.6;margin-top:8px}
+
+  /* 📊 선택지 채점표 — 네 표현을 점수와 함께 나란히 비교 */
+  .ot{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:18px;
+    padding:16px 18px;margin-bottom:16px}
+  .ot-h{font-size:clamp(13px,1.6vw,16px);font-weight:800;color:var(--pp);margin-bottom:12px}
+  .ot-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px 12px;align-items:center;
+    padding:9px 10px;border-radius:12px;margin-bottom:4px}
+  .ot-row.mine{background:rgba(251,191,36,.12);box-shadow:inset 0 0 0 1px rgba(251,191,36,.3)}
+  .ot-k{width:26px;height:26px;border-radius:8px;background:rgba(167,139,250,.18);color:#e6ddff;
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}
+  .ot-t{font-size:clamp(14px,1.8vw,18px);font-weight:700;color:#efe9ff;line-height:1.45}
+  .ot-b,.ot-m{display:inline-block;font-size:clamp(10px,1.2vw,12px);font-weight:800;
+    border-radius:999px;padding:2px 8px;margin-left:8px;vertical-align:middle;white-space:nowrap}
+  .ot-b{background:rgba(52,211,153,.18);color:#6ee7b7}
+  .ot-m{background:rgba(251,191,36,.2);color:var(--gold)}
+  .ot-s{font-size:clamp(15px,1.9vw,19px);font-weight:900;min-width:2.4em;text-align:right}
+  .ot-s.g{color:#34d399} .ot-s.y{color:var(--gold)} .ot-s.r{color:#f87171}
+  .ot-bar{grid-column:2/4;height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+  .ot-bar i{display:block;height:100%;border-radius:999px;transition:width .5s ease}
+  .ot-bar i.g{background:linear-gradient(90deg,#10b981,#34d399)}
+  .ot-bar i.y{background:linear-gradient(90deg,#d97706,#fbbf24)}
+  .ot-bar i.r{background:linear-gradient(90deg,#b91c1c,#f87171)}
   .scores{display:flex;gap:14px;margin-bottom:10px}
   .sc{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:18px;
     padding:clamp(14px,2vw,20px);text-align:center}
@@ -136,8 +165,15 @@
   .ring .cap{font-size:clamp(12px,1.6vw,15px);color:var(--mut);font-weight:700;margin-top:6px}
   .ring-side{flex:1;min-width:230px}
   .bar-row{margin-bottom:14px}
-  .bar-head{display:flex;justify-content:space-between;font-size:clamp(14px,1.8vw,18px);font-weight:800;margin-bottom:6px}
-  .bar-head .bv{color:var(--gold)}
+  .bar-head{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    font-size:clamp(14px,1.8vw,18px);font-weight:800;margin-bottom:6px}
+  .bar-head .bv{color:var(--gold);margin-left:auto}
+  .bar-head .bnd{font-size:clamp(10px,1.3vw,13px);font-weight:800;border-radius:999px;padding:2px 9px;white-space:nowrap}
+  .bar-head .bnd.g{background:rgba(52,211,153,.16);color:#6ee7b7}
+  .bar-head .bnd.y{background:rgba(251,191,36,.16);color:var(--gold)}
+  .bar-head .bnd.r{background:rgba(248,113,113,.16);color:#fca5a5}
+  .trendline{font-size:clamp(13px,1.6vw,16px);color:var(--mut);font-weight:700;margin:2px 0 14px}
+  .trendline b.up{color:#34d399} .trendline b.dn{color:#f87171}
   .bar-track{height:clamp(14px,1.9vw,20px);background:rgba(167,139,250,.14);border-radius:999px;overflow:hidden}
   .bar-fill{height:100%;width:0;border-radius:999px;position:relative;
     background:linear-gradient(90deg,#7c3aed,#a855f7 60%,#fbbf24);
@@ -305,22 +341,27 @@
   // 🔢 숫자 카운트업
   function countUp(el, target, ms){
     if(target==null || isNaN(target)){ el.textContent='—'; return; }
-    var t0=null;
+    var t0=null, done=false;
     function step(ts){
       if(!t0) t0=ts;
       var k=Math.min(1,(ts-t0)/ms); k=1-Math.pow(1-k,3);
       el.textContent=Math.round(target*k);
-      if(k<1) requestAnimationFrame(step);
+      if(k<1) requestAnimationFrame(step); else done=true;
     }
     requestAnimationFrame(step);
+    // ⚠️ rAF 는 백그라운드 탭·저전력 모드에서 아예 안 돕니다. 그러면 점수가 '—' 인 채로 굳습니다.
+    //    애니메이션은 곁들이는 것일 뿐, 숫자는 반드시 나와야 하므로 타이머로 최종값을 보장합니다.
+    setTimeout(function(){ if(!done) el.textContent=Math.round(target); }, ms+400);
   }
 
   // ⚡ 다음 문제 선(先)생성 — 문제는 AI가 만들어 몇 초 걸립니다. 학생이 지금 문제를 푸는 동안
   //    다음 문제를 미리 받아두면 "다음 문제 →"가 즉시 뜹니다. (요청은 항상 1문제 앞서기만 함)
   var prefetch = null, prefetchDone = false;
-  function requestScenario(){
+  function requestScenario(focusMisc){
+    var body = {uid:UID, lang:'en', textbook:TEXTBOOK};
+    if(focusMisc) body.focus_misconception = focusMisc;
     return fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-      body:JSON.stringify({uid:UID, lang:'en', textbook:TEXTBOOK})})
+      body:JSON.stringify(body)})
       .then(function(r){ return r.json(); })
       .catch(function(){ return null; });
   }
@@ -331,12 +372,22 @@
   }
   function validScenario(d){ return !!(d && d.ok!==false && Array.isArray(d.options) && d.options.length>=2); }
 
-  async function loadScenario(){
+  // focusMisc 를 주면 그 오답 유형에 맞춘 문제를 새로 받습니다.
+  //   미리 받아둔 문제는 '일반' 문제라 이 경우엔 쓰지 않고 버립니다.
+  async function loadScenario(focusMisc){
     view='q'; chosen = -1;
-    var p = prefetch, ready = prefetchDone;
-    prefetch = null; prefetchDone = false;
-    if(!p){ p = requestScenario(); ready = false; }
-    if(!ready) loading(T('맞춤 문제를 만들고 있어요…','Creating your question…','正在为你出题…'));
+    var p = null, ready = false;
+    if(focusMisc){
+      prefetch = null; prefetchDone = false;
+      p = requestScenario(focusMisc);
+    } else {
+      p = prefetch; ready = prefetchDone;
+      prefetch = null; prefetchDone = false;
+      if(!p){ p = requestScenario(); ready = false; }
+    }
+    if(!ready) loading(focusMisc
+      ? T('이 유형에 맞춘 문제를 만들고 있어요…','Making a question on this type…','正在出这类题…')
+      : T('맞춤 문제를 만들고 있어요…','Creating your question…','正在为你出题…'));
     try{
       var d = await p;
       if(!validScenario(d)) throw new Error('no scenario');
@@ -408,6 +459,26 @@
     if(isFinite(s) && s<35)  return '🧐 '+T('이 표현은 상황과 많이 달라요','That one is quite far from the situation','这个表达和情境差得比较远');
     return '🤔 '+T('거의 다 왔어요!','So close!','就差一点！');
   }
+  // 📊 선택지 채점표 — 네 개를 점수와 함께 나란히 놓고 비교하게 합니다.
+  //    "정답은 B였어요" 한 줄보다, 내가 고른 것이 몇 점이고 왜 낮은지 보이는 편이 훨씬 남습니다.
+  function optionTable(d){
+    if(!d.options || !d.option_scores || d.option_scores.length!==d.options.length) return '';
+    var letters=['A','B','C','D'];
+    var rows = d.options.map(function(o,i){
+      var s = Number(d.option_scores[i]);
+      var isBest = (i===d.correct_index), isMine = (i===d.chosen_index);
+      var tone = s>=90 ? 'g' : s>=55 ? 'y' : 'r';
+      var tags = (isBest? '<span class="ot-b">'+T('가장 자연스러움','Most natural','最自然')+'</span>':'')
+               + (isMine? '<span class="ot-m">'+T('내 선택','Your pick','我的选择')+'</span>':'');
+      return '<div class="ot-row'+(isMine?' mine':'')+'">'
+        + '<span class="ot-k">'+letters[i]+'</span>'
+        + '<span class="ot-t">'+esc(o)+tags+'</span>'
+        + '<span class="ot-s '+tone+'">'+s+'</span>'
+        + '<span class="ot-bar"><i class="'+tone+'" style="width:'+Math.max(3,s)+'%"></i></span>'
+        + '</div>';
+    }).join('');
+    return '<div class="ot"><div class="ot-h">'+T('표현마다 몇 점일까요?','How each option scores','每个表达得几分？')+'</div>'+rows+'</div>';
+  }
   function renderResult(d){
     view='result';
     var ok = !!d.correct;
@@ -420,11 +491,22 @@
         '<div class="sc"><div class="v" data-cnt="'+(d.reasoning_score!=null?d.reasoning_score:'')+'">—</div><div class="l">'+T('이유 논리','Reasoning','理由逻辑')+'</div></div>'+
       '</div>';
     var best = (!ok && d.best_option) ? '<div class="best">💡 '+T('가장 자연스러운 표현','Most natural expression','最自然的表达')+': <b>'+esc(d.best_option)+'</b></div>' : '';
+    // 🗣️ 내가 고른 그 표현이 왜 그렇게 들리는지 (Duolingo Max 의 Explain My Answer 에 해당)
+    var wc = LANG==='en' ? (d.why_chosen_en||d.why_chosen_ko||'')
+           : LANG==='zh' ? (d.why_chosen_zh||d.why_chosen_en||d.why_chosen_ko||'')
+           : (d.why_chosen_ko||d.why_chosen_en||'');
+    var myPick = (wc && d.options && d.chosen_index!=null)
+      ? '<div class="mypick"><div class="mp-h">'+T('내가 고른 표현','Your answer','你选的表达')+'</div>'
+        + '<div class="mp-q">“'+esc(d.options[d.chosen_index])+'”</div>'
+        + '<div class="mp-w">'+esc(wc)+'</div></div>'
+      : '';
     stage.innerHTML =
       '<div class="res">'+
         '<div class="banner '+(ok?'ok':'no')+'">'+bannerText(ok, d.choice_score)+'</div>'+
+        myPick+
         best+
         '<div class="fb">'+esc(fb)+'</div>'+
+        optionTable(d)+
         scores+
         '<button class="btn" id="next">'+T('다음 문제 →','Next question →','下一题 →')+'</button>'+
         '<button class="btn ghost" id="mygrowth" style="margin-top:10px">🌱 '+T('내 성장 보기','See my growth','查看我的成长')+'</button>'+
@@ -438,10 +520,22 @@
     streakEl.innerHTML = streakText();
   }
 
+  // 숫자만 보여주면 "그래서 뭘 해야 하지?"가 남습니다. 축마다 해석 한 마디를 붙입니다.
+  function band(v){
+    if(v==null) return ['', ''];
+    if(v>=90) return [T('아주 좋아요','Excellent','非常好'), 'g'];
+    if(v>=75) return [T('잘하고 있어요','Good','做得不错'), 'g'];
+    if(v>=60) return [T('무난해요','Okay','还可以'), 'y'];
+    if(v>=40) return [T('조금 더 연습','Needs practice','再练一练'), 'y'];
+    return [T('집중 연습이 필요해요','Focus here','需要重点练习'), 'r'];
+  }
   function bar(label, v){
     var val = (v==null? 0 : v);
+    var b = band(v);
     return '<div class="bar-row">'
-      + '<div class="bar-head"><span>'+label+'</span><span class="bv">'+(v==null?'—':v)+'</span></div>'
+      + '<div class="bar-head"><span>'+label+'</span>'
+      +   (b[0]? '<span class="bnd '+b[1]+'">'+b[0]+'</span>' : '')
+      +   '<span class="bv">'+(v==null?'—':v)+'</span></div>'
       + '<div class="bar-track"><div class="bar-fill" data-w="'+val+'"></div></div>'
       + '</div>';
   }
@@ -458,6 +552,20 @@
       stage.innerHTML = '<div class="center">'+T('성장 기록을 불러오지 못했어요.','Could not load your growth.','成长记录加载失败。')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" id="g-back">← '+T('문제 풀기','Practice','去做题')+'</button></div>';
       var b=document.getElementById('g-back'); if(b) b.addEventListener('click', loadScenario);
     }
+  }
+  // 📈 지난달 대비 — 한 시점 점수만으론 성장을 못 봅니다. 추세가 있으면 한 줄로 보여줍니다.
+  function monthTrend(d){
+    var t = Array.isArray(d.trend) ? d.trend.filter(function(x){ return x && x.judgment_index!=null; }) : [];
+    if(t.length < 2) return '';
+    var cur = t[t.length-1], prev = t[t.length-2];
+    var diff = Math.round(cur.judgment_index - prev.judgment_index);
+    if(diff === 0) return '<div class="trendline">'+T('지난달과 같은 수준을 지키고 있어요.','Holding steady since last month.','和上个月保持同一水平。')+'</div>';
+    var up = diff > 0, n = Math.abs(diff);
+    var mark = '<b class="'+(up?'up':'dn')+'">'+(up?'▲':'▼')+' '+n+'</b>';
+    return '<div class="trendline">'+T(
+      '지난달보다 '+mark+'점 '+(up?'올랐어요':'내려갔어요'),
+      mark+' points '+(up?'up':'down')+' from last month',
+      '比上个月'+(up?'上升':'下降')+' '+mark+' 分')+'</div>';
   }
   function renderGrowth(d){
     view='growth';
@@ -495,6 +603,7 @@
         +   '<div style="font-size:clamp(14px,1.8vw,18px);color:var(--mut);font-weight:700;margin-bottom:12px">🏅 '
         +     T('지금까지 <b style="color:#fbbf24">'+(d.events_count||0)+'</b>번 판단했어요','<b style="color:#fbbf24">'+(d.events_count||0)+'</b> decisions so far','到目前为止做了 <b style="color:#fbbf24">'+(d.events_count||0)+'</b> 次判断')+'</div>'
         +   lastBox
+        +   monthTrend(d)
         +   bar(T('선택 적절성','Choice','选择恰当度'), rad['선택적절성'])
         +   bar(T('이유 논리','Reasoning','理由逻辑'), rad['이유논리'])
         +   bar(T('자기 교정력','Self-correction','自我纠正力'), rad['자기교정력'])
@@ -513,15 +622,18 @@
       + '<button class="btn gold" id="g-train" style="margin-top:22px">'+T('문제 풀러 가기 →','Go practice →','去做题 →')+'</button>'
       + '</div>';
     // 애니메이션: 링 채우기 + 지수 카운트업 + 막대 채우기
-    requestAnimationFrame(function(){
+    // ⚠️ 예전에는 이 블록 전체가 requestAnimationFrame 안에 있었습니다. rAF 는 백그라운드 탭·
+    //    저전력 모드에서 아예 실행되지 않아, 그런 상태로 열면 지수가 '0', 막대가 전부 빈 채로 굳었습니다.
+    //    성장 화면은 숫자를 보러 오는 화면이므로 타이머로 바꿔 반드시 그려지게 합니다.
+    setTimeout(function(){
       var rp=document.getElementById('ringProg');
       if(rp && idx!=null){ rp.style.strokeDashoffset = String(C*(1-Math.max(0,Math.min(100,idx))/100)); }
       var rn=document.getElementById('ringNum');
       if(rn){ if(idx==null){ rn.textContent='—'; } else countUp(rn, idx, 1100); }
       Array.prototype.forEach.call(stage.querySelectorAll('.bar-fill'), function(el){
-        setTimeout(function(){ el.style.width = el.getAttribute('data-w')+'%'; }, 80);
+        el.style.width = el.getAttribute('data-w')+'%';
       });
-    });
+    }, 30);
     var t=document.getElementById('g-train'); if(t) t.addEventListener('click', loadScenario);
   }
   var gb = document.getElementById('growthBtn'); if(gb) gb.addEventListener('click', showGrowth);
@@ -530,7 +642,7 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260723205220 -->
+<!-- BUILD:20260723211800 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>
