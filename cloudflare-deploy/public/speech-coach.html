@@ -13,9 +13,7 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
   *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -25,7 +23,7 @@
       radial-gradient(ellipse at center, rgba(30,22,80,0.2), rgba(23,18,71,0.55)),
       url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg') center/cover no-repeat fixed,
       #171247;
-    color: #f1f5f9; font-family: 'Noto Sans KR', sans-serif; padding-bottom: 80px;
+    color: #f1f5f9; font-family: 'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif; padding-bottom: 80px;
   }
   .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px; }
   .brand { text-align: center; margin-bottom: 24px; }

@@ -158,9 +158,25 @@
 <link rel="shortcut icon" href="/img/icon-192.png">
 <link rel="icon" href="data:," /><!-- favicon.ico 404 방지 -->
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800;900&family=Black+Han+Sans&family=Jua&display=swap" rel="stylesheet">
+<!-- ═══════════════════════════════════════════════════════════════════════
+     ph161 (2026-07-23) — 구글 웹폰트 제거 (필리핀 저속 회선 대응)
+     여기에 있던 <link>(Noto Sans KR 4굵기 + Black Han Sans + Jua)를 뺐다.
+
+     왜:
+     · CSS 만 117KB(gzip) — 게다가 <head> 의 stylesheet 라 첫 페인트를 '차단'했다.
+       그 CSS 는 서브셋 299조각을 기술하며, 압축 해제하면 484KB 를 파싱해야 한다.
+     · fonts.googleapis.com + fonts.gstatic.com = 도메인 2개 추가.
+       필리핀 회선에서 DNS+TLS 왕복만 수백 ms 를 첫 글자 뜨기 전에 까먹었다.
+     · Black Han Sans / Jua 는 `.hero h1` 한 곳에만 걸려 있었는데,
+       그 h1 마크업은 2026-07-22 에 물리 삭제됐다(재추가 금지).
+       즉 이 페이지에는 <h1> 이 하나도 없다 → 두 폰트는 '받기만 하고 한 번도 안 쓰였다'.
+     · Noto Sans KR 은 본문용이었지만 바로 뒷줄 폴백이 "맑은 고딕"(Win10 기본 탑재)이다.
+
+     ⚠️ font-family 선언은 일부러 그대로 뒀다.
+        @font-face 가 없으면 'Noto Sans KR' 은 '로컬에 깔려 있으면 쓰고 없으면 다음'
+        이라는 뜻이라 비용이 0 이다. 이름을 지우면 그 폰트가 설치된 PC 에서 오히려 손해다.
+     ⚠️ 다시 넣지 말 것. 넣으려면 자체 호스팅 + 서브셋으로.
+     ═══════════════════════════════════════════════════════════════════════ -->
 
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1986,7 +2002,7 @@
   }
 </style>
 <script src="/js/pii-mask.js" defer></script><!-- 🔒 PII 마스킹 유틸 -->
-<script src="/js/media-guard.js?v=1" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
+<script src="/js/media-guard.js?v=2" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/admin-tip-i18n.js?v=1" defer></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 <!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
@@ -14065,7 +14081,7 @@ button.chip:hover,
 })();
 </script>
 
-<script src="/js/adm-s12.js?v=1" defer></script><!-- 분할추출:adm-s12 -->
+<script src="/js/adm-s12.js?v=2" defer></script><!-- 분할추출:adm-s12 -->
 
 
 <!-- Phase 104 admin (2026-05-25) — 권한 관리 표 (card-permissions) 다크 override -->
@@ -15244,7 +15260,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-q8.js?v=1" defer></script><!-- 분할추출:adm-q8 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q8.js?v=2" defer></script><!-- 분할추출:adm-q8 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 110 admin (2026-05-25) — 신규 5개 카드 + 사이드바 31개 카드 통합 -->
@@ -16205,7 +16221,7 @@ button.chip:hover,
   #topUserBtn:hover::before { opacity: 1; }
 </style>
 
-<script src="/js/adm-r19.js?v=1" defer></script><!-- 분할추출:adm-r19 -->
+<script src="/js/adm-r19.js?v=2" defer></script><!-- 분할추출:adm-r19 -->
 
 
 <!-- Phase 114 admin (2026-05-25) — Floating 사용자 메뉴 (기존 #topUserBtn 의존 없음) -->
@@ -16559,7 +16575,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r21.js?v=1" defer></script><!-- 분할추출:adm-r21 -->
+<script src="/js/adm-r21.js?v=2" defer></script><!-- 분할추출:adm-r21 -->
 
 
 <!-- Phase 116 admin (2026-05-25) — 역할 무관 ph85 사이드바 항상 visible + 강사/지사/대리점 안내 -->
@@ -16901,7 +16917,7 @@ button.chip:hover,
   .ph118-perm-stat .no { color: #FCA5A5; }
 </style>
 
-<script src="/js/adm-q10.js?v=2" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q10.js?v=3" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 119 admin (2026-05-25) — SLP 수업현황 위치 재조정: 학생/학부모 그룹으로 단일 노출 -->
@@ -17049,7 +17065,7 @@ button.chip:hover,
   #ph121-demo-note b { color: #67E8F9 !important; }
 </style>
 
-<script src="/js/adm-s14.js?v=1" defer></script><!-- 분할추출:adm-s14 -->
+<script src="/js/adm-s14.js?v=2" defer></script><!-- 분할추출:adm-s14 -->
 
 
 <!-- Phase 122 admin (2026-05-25) — 학생 이름 클릭 시 상세보기 페이지로 이동 -->
@@ -17292,7 +17308,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r24.js?v=2" defer></script><!-- 분할추출:adm-r24 -->
+<script src="/js/adm-r24.js?v=3" defer></script><!-- 분할추출:adm-r24 -->
 
 
 <!-- Phase 124 admin (2026-05-25) — 손자 메뉴 셀렉터 광범위화 + 데모 손자 메뉴 매핑 -->
@@ -17373,9 +17389,9 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r25.js?v=1" defer></script><!-- 분할추출:adm-r25 -->
+<script src="/js/adm-r25.js?v=2" defer></script><!-- 분할추출:adm-r25 -->
 
-<script src="/js/adm-menu-icons.js?v=1" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
+<script src="/js/adm-menu-icons.js?v=2" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
 
 <!-- Phase 126 admin (2026-05-25) — 잔존율/활성 룸 강제 visible + 정확한 스크롤 -->
