@@ -16,6 +16,12 @@
 // ═══════════════════════════════════════════════════════════════════════
 import type { MangoEnv } from './api-mango';
 import { getWeakDecisionSkills } from './decision-graph';  // 3단계: 취약 스킬(Neo4j) — 시나리오 입력
+// 🧮 지수·채점 계산은 순수 모듈로 분리(테스트 하니스가 직접 불러 검증) — judgment-scoring.ts
+import {
+  axesFromRows, normalizeOptionScores, normalizeDifficulty, scoreChoice, type GrowthAxes,
+} from './judgment-scoring';
+export type { GrowthAxes };
+export { normalizeOptionScores, normalizeDifficulty } from './judgment-scoring';
 
 const JUDGE_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 // 🔀 정본 페이로드 버전 — Mode A(엣지) / Mode B(Celery/Redis) 가 동일하게 읽고 쓰는 계약.
@@ -405,8 +411,7 @@ export async function markJudgmentMigrated(env: MangoEnv, ids: number[]): Promis
 //   판단력 지수 5축(설계서 §2.2): 선택/이유/자기교정/어투/일관성 → 가중합 index.
 //   순수 D1 집계(무 LLM 비용). 기간=KST 월(YYYY-MM).
 // ═══════════════════════════════════════════════════════════════════════
-const AXIS_WEIGHTS: Record<string, number> = { choice: 0.30, reasoning: 0.30, selfcorrection: 0.15, register: 0.15, consistency: 0.10 };
-
+// 지수 5축 계산은 judgment-scoring.ts(순수·무의존 모듈)로 분리 — 하니스가 직접 불러 검증합니다.
 function kstPeriod(ts = Date.now()): string {
   const d = new Date(ts + 9 * 3600 * 1000);
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -421,110 +426,6 @@ function prevPeriod(period: string): string {
   const [y, m] = period.split('-').map(Number);
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
 }
-const avg = (arr: number[]): number | null => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
-function stddev(arr: number[]): number {
-  if (arr.length < 2) return 0;
-  const m = arr.reduce((a, b) => a + b, 0) / arr.length;
-  return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length);
-}
-
-// 최근 성과 반영 — 단순 누적 평균이면 27번 푼 학생이 100점을 받아도 지수가 0.3점밖에 안 움직여
-// "몇 점을 받든 65" 로 보입니다. 반감기 HALF_LIFE 회의 지수가중 평균으로 최근 판단에 더 무게를 줍니다.
-const RECENCY_HALF_LIFE = 6;   // 6회 전 판단의 가중치 = 최신의 1/2
-const RECENT_WINDOW = 12;      // 자기교정력·일관성을 보는 최근 창
-
-// 난이도(1~5) 가중치 — 어려운 문항을 맞힌 것이 쉬운 문항 100점보다 더 인정받도록.
-//   쉬운 문항만 반복해서 지수를 올리는 것을 막아 변별력을 만듭니다.
-const DIFFICULTY_WEIGHT = [0.7, 0.85, 1.0, 1.2, 1.4];
-const difficultyWeight = (d: any): number => {
-  const i = Math.round(+d);
-  return Number.isFinite(i) && i >= 1 && i <= 5 ? DIFFICULTY_WEIGHT[i - 1] : 1.0;   // 난이도 미기록 옛 기록 = 보통
-};
-
-/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. mult 로 회차별 추가 가중(난이도) 적용. */
-function recencyAvg(arr: Array<number | null>, mult?: number[]): number | null {
-  let ws = 0, vs = 0;
-  const n = arr.length;
-  for (let i = 0; i < n; i++) {
-    const v = arr[i];
-    if (v == null) continue;                                     // 값 없는 회차는 가중치 자리도 차지하지 않음
-    const w = Math.pow(0.5, (n - 1 - i) / RECENCY_HALF_LIFE) * (mult ? mult[i] : 1);
-    ws += w; vs += w * v;
-  }
-  return ws > 0 ? vs / ws : null;
-}
-
-export interface GrowthAxes {
-  events_count: number;
-  axis_choice: number | null; axis_reasoning: number | null; axis_selfcorrection: number | null;
-  axis_register: number | null; axis_consistency: number | null;
-  judgment_index: number | null; top_misconceptions: Array<{ code: string; count: number }>;
-  /** 직전 판단까지로 계산한 지수 — 이번 판단으로 몇 점 오르내렸는지 학생에게 보여주기 위함. */
-  prev_index?: number | null;
-  /** 가장 최근 판단 1건 요약 — 성장 화면의 "이번 판단" 칩. */
-  last?: { choice_score: number | null; reasoning_score: number | null; is_optimal: number; created_at: number } | null;
-}
-
-/** 판단 기록(시간 오름차순) → 5축 + 지수. 순수 함수라 "직전까지" 재계산에도 그대로 씁니다. */
-function axesFromRows(rows: any[]): GrowthAxes {
-  const choiceSeq: Array<number | null> = [], reasoningSeq: Array<number | null> = [], registerSeq: Array<number | null> = [];
-  const choiceArr: number[] = []; const diffMult: number[] = [];
-  const miscSeq: Array<string | null> = []; const miscCount = new Map<string, number>();
-  for (const r of rows) {
-    const cs = r.choice_score != null ? Number(r.choice_score) : null;
-    choiceSeq.push(cs); if (cs != null) choiceArr.push(cs);
-    let feat: any = {}; try { feat = r.reasoning_features_json ? JSON.parse(r.reasoning_features_json) : {}; } catch { feat = {}; }
-    diffMult.push(difficultyWeight(feat.difficulty));
-    reasoningSeq.push((feat.has_reasoning && r.reasoning_score != null) ? Number(r.reasoning_score) : null);
-    registerSeq.push(feat.register_awareness != null ? Number(feat.register_awareness) : null);
-    const mc = r.misconception_tag ? String(r.misconception_tag) : null;
-    miscSeq.push(mc);
-    if (mc) miscCount.set(mc, (miscCount.get(mc) || 0) + 1);
-  }
-
-  // 자기교정력 — "최근 창에서 이미 겪은 오답유형을 또 틀린 비율"의 역수.
-  //   ⚠️ 과거 버그: 오답이 담긴 배열만 분모로 써서, 정답을 아무리 맞혀도 점수가 회복되지 않았습니다
-  //   (한번 낮아지면 영구 고정). 이제 분모가 최근 판단 '전체'라 정답이 쌓이면 다시 올라갑니다.
-  let axisSelf: number | null = null;
-  if (rows.length) {
-    const cut = Math.max(0, miscSeq.length - RECENT_WINDOW);
-    const seen = new Set<string>();
-    for (let i = 0; i < cut; i++) { const c = miscSeq[i]; if (c) seen.add(c); }   // 창 이전에 이미 겪은 유형
-    let repeated = 0, total = 0;
-    for (let i = cut; i < miscSeq.length; i++) {
-      total++;
-      const c = miscSeq[i];
-      if (c) { if (seen.has(c)) repeated++; seen.add(c); }
-    }
-    axisSelf = total ? Math.round(100 * (1 - repeated / total)) : null;
-  }
-  // 일관성 — 최근 창 선택점수 표준편차의 역(안정적일수록 높음)
-  const recentChoice = choiceArr.slice(-RECENT_WINDOW);
-  const axisConsistency = recentChoice.length >= 2 ? Math.max(0, Math.min(100, Math.round(100 - stddev(recentChoice)))) : null;
-
-  const round = (v: number | null) => v == null ? null : Math.round(v);
-  const a: GrowthAxes = {
-    events_count: rows.length,
-    axis_choice: round(recencyAvg(choiceSeq, diffMult)),
-    axis_reasoning: round(recencyAvg(reasoningSeq)),
-    axis_selfcorrection: axisSelf,
-    axis_register: round(recencyAvg(registerSeq)),
-    axis_consistency: axisConsistency,
-    judgment_index: null,
-    top_misconceptions: [...miscCount.entries()].map(([code, count]) => ({ code, count })).sort((x, y) => y.count - x.count).slice(0, 5),
-  };
-  // 지수 — 존재하는 축만으로 가중치 재정규화
-  const parts: Array<[number, number]> = [];
-  if (a.axis_choice != null) parts.push([AXIS_WEIGHTS.choice, a.axis_choice]);
-  if (a.axis_reasoning != null) parts.push([AXIS_WEIGHTS.reasoning, a.axis_reasoning]);
-  if (a.axis_selfcorrection != null) parts.push([AXIS_WEIGHTS.selfcorrection, a.axis_selfcorrection]);
-  if (a.axis_register != null) parts.push([AXIS_WEIGHTS.register, a.axis_register]);
-  if (a.axis_consistency != null) parts.push([AXIS_WEIGHTS.consistency, a.axis_consistency]);
-  const wSum = parts.reduce((s, [w]) => s + w, 0);
-  a.judgment_index = wSum > 0 ? Math.round(parts.reduce((s, [w, v]) => s + w * v, 0) / wSum) : null;
-  return a;
-}
-
 /** 한 학생·한 기간의 판단력 5축 + 지수 계산 (순수 D1). */
 export async function computeGrowthForStudent(env: MangoEnv, studentUid: string, period: string): Promise<GrowthAxes> {
   const [start, end] = kstPeriodBounds(period);
@@ -681,32 +582,9 @@ const SCENARIO_RECENT_MAX = 15;          // 학생당 반복금지 목록 최대
 /** 상황문 정규화(중복 판정용) — 소문자 + 영숫자 외 제거 */
 function normSituation(s: any): string { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 
-/**
- * 선택지별 적절성 점수 정규화 — 공정성·변별력의 핵심.
- *   기존에는 정답 100 / 오답 일괄 45 라, "거의 맞은 답"과 "완전히 엉뚱한 답"이 같은 점수였습니다.
- *   LLM 이 매긴 선택지별 점수를 쓰되 (a) 값이 없거나 길이가 안 맞으면 null(→ 기존 방식 폴백),
- *   (b) 정답이 항상 최고점이 되도록 강제합니다. 클라이언트가 되돌려 보낸 값 검증에도 같은 함수를 씁니다.
- */
-export function normalizeOptionScores(raw: any, n: number, correctIdx: number): number[] | null {
-  if (!Array.isArray(raw) || raw.length !== n || n < 2) return null;
-  const out: number[] = [];
-  for (const v of raw) {
-    const x = Math.round(+v);
-    if (!Number.isFinite(x)) return null;
-    out.push(Math.max(0, Math.min(100, x)));
-  }
-  if (correctIdx >= 0 && correctIdx < n) {
-    const otherMax = Math.max(...out.filter((_, i) => i !== correctIdx));
-    out[correctIdx] = Math.max(out[correctIdx], otherMax + 5, 95);   // 정답이 최고점임을 보장
-    out[correctIdx] = Math.min(100, out[correctIdx]);
-  }
-  return out;
-}
-/** 난이도 1~5 정규화. 값이 없으면 보통(3). */
-export function normalizeDifficulty(raw: any): number {
-  const d = Math.round(+raw);
-  return Number.isFinite(d) ? Math.max(1, Math.min(5, d)) : 3;
-}
+/** 출제한 문항의 '정답지'를 서버에 보관하는 KV 키 — 채점 때 클라이언트 값 대신 이걸 씁니다. */
+const scenKey = (uid: string, sid: string) => `judgsc:${uid}:${sid}`;
+const SCENARIO_KEY_TTL = 3600;   // 1시간이면 한 문항을 푸는 데 충분
 
 /**
  * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
@@ -794,14 +672,23 @@ Return STRICT JSON only:
             console.warn('[judgment] scenario duplicate of recent, retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }
-          const ci = Number.isInteger(+j.correct_index) ? Math.max(0, Math.min(j.options.length - 1, +j.correct_index)) : 0;
           const opts4 = j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4);
+          // ⚠️ 정답 인덱스는 '자르고 난 뒤'의 길이로 제한해야 합니다.
+          //    전에는 자르기 전 길이로 제한해서, LLM 이 5지선다에 correct_index=4 를 주면
+          //    정답 선택지가 잘려나가고 인덱스만 남아 학생이 절대 정답을 맞힐 수 없었습니다.
+          const ci = Number.isInteger(+j.correct_index) ? Math.max(0, Math.min(opts4.length - 1, +j.correct_index)) : 0;
+          const scores = normalizeOptionScores(j.option_scores, opts4.length, ci);
+          // 선택지별 점수가 없으면 채점이 옛 100·45 이분법으로 떨어집니다 → 앞 시도에서는 다시 뽑습니다.
+          if (!scores && attempt < 2) {
+            console.warn('[judgment] scenario missing option_scores, retrying (attempt ' + (attempt + 1) + ')');
+            continue;
+          }
           scenario = {
             situation,
             skill_tag: String(j.skill_tag || target?.skill || '').slice(0, 60) || null,
             options: opts4,
             correct_index: ci,
-            option_scores: normalizeOptionScores(j.option_scores, opts4.length, ci),
+            option_scores: scores,
             difficulty: normalizeDifficulty(j.difficulty),
             why: String(j.why || '').slice(0, 600),
             why_ko: cleanKo(String(j.why_ko || '')).slice(0, 600),
@@ -822,7 +709,21 @@ Return STRICT JSON only:
   }
   await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null, textbook: tb.textbook });
   if (!scenario) return { ok: false, error: 'scenario_unavailable', based_on: { source, weak, textbook: tb.textbook } };
-  return { ok: true, ...scenario, target_misconception: targetMisc, textbook: tb.textbook, based_on: { source, weak_skills: weak.map((w) => w.skill), textbook: tb.textbook } };
+
+  // 🔒 정답지를 서버에 보관 — 채점 때 클라이언트가 되돌려 보낸 점수 대신 이 값을 씁니다.
+  //    학생 화면을 고쳐 option_scores 를 100 으로 보내도 기록되는 점수는 흔들리지 않습니다.
+  //    (KV 미설정·만료 시에는 클라이언트 값으로 안전 폴백 — 문제 풀이 자체는 절대 막지 않음)
+  let sid: string | null = null;
+  if (kv) {
+    try {
+      sid = crypto.randomUUID();
+      await kv.put(scenKey(studentUid, sid), JSON.stringify({
+        option_scores: scenario.option_scores, difficulty: scenario.difficulty,
+        correct_index: scenario.correct_index, n: scenario.options.length,
+      }), { expirationTtl: SCENARIO_KEY_TTL });
+    } catch { sid = null; }
+  }
+  return { ok: true, ...scenario, sid, target_misconception: targetMisc, textbook: tb.textbook, based_on: { source, weak_skills: weak.map((w) => w.skill), textbook: tb.textbook } };
 }
 
 // ═══════════════════════════════════════════════════════════════════════

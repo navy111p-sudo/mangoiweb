@@ -72,13 +72,16 @@ function makeFakeDoc(ids) {
       addEventListener() {},
     };
   }
+  const mk = () => ({ style:{}, classList:{add(){},remove(){},toggle(){}}, appendChild(){}, remove(){},
+                      innerHTML:'', textContent:'', dataset:{} });
   return {
     els,
+    body: mk(),
     getElementById: (id) => els[id] || null,
     querySelector: () => null,
     querySelectorAll: () => [],
     addEventListener: () => {},
-    createElement: () => ({ style:{}, classList:{add(){},remove(){}}, appendChild(){}, innerHTML:'' }),
+    createElement: () => mk(),
   };
 }
 

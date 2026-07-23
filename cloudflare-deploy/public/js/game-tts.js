@@ -143,5 +143,14 @@
   }
   function getSpeaker(){ return curSpeaker; }
 
-  window.MangoiTTS = { speak: speak, prefetch: prefetch, setLang: setLang, getLang: getLang, setSpeaker: setSpeaker, getSpeaker: getSpeaker };
+  /* 🔇 낭독 즉시 중단 — 마이크를 켜기 전에 반드시 호출할 것.
+     (2026-07-23) 그동안 화면들은 speechSynthesis.cancel() 만 불렀는데, 영어는 **클라우드 TTS라
+     <audio> 로 재생**된다. 그래서 AI 목소리가 스피커로 계속 나오는 채로 마이크가 열렸고,
+     음성인식이 AI 목소리를 학생 말로 받아 적어 엉뚱한 문장이 전송됐다. */
+  function stop(){
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
+    try{ if(audioEl){ audioEl.onended=null; audioEl.onerror=null; audioEl.pause(); try{ audioEl.currentTime=0; }catch(_2){} } }catch(_){}
+  }
+
+  window.MangoiTTS = { speak: speak, prefetch: prefetch, setLang: setLang, getLang: getLang, setSpeaker: setSpeaker, getSpeaker: getSpeaker, stop: stop };
 })();
