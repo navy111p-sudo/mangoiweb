@@ -904,6 +904,8 @@ const worker = {
         path.startsWith('/api/admin/schedule-requests') ||
         // 📜 수업 변경 이력(연기/삭제/종료) 조회·기록
         path === '/api/admin/class-audit' ||
+        // ⏸ 연기 수업 통합 조회(매니저 화면) — 요청+감사로그를 합쳐 유료/무료·연기시각까지 (2026-07-23)
+        path === '/api/admin/postponed-classes' ||
         // 📅 오늘 수업 전체(매니저용) — 강사 미입장 시 매니저가 바로 대신 입장 (2026-07-23)
         path === '/api/admin/classes/today' ||
         // 📝 Phase FD — AI 학부모 피드백 초안 + 강사 원클릭 승인
@@ -1537,6 +1539,12 @@ const worker = {
     // 🧾 /admin/teacher-payroll — 강사 급여 자동 대시보드 페이지 (관리자 전용)
     if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/') {
       const r = new Request(new URL('/admin/teacher-payroll.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // ⏸ /admin/postponed-classes — 연기 수업 현황 페이지 (매니저 전용, 2026-07-23)
+    if (path === '/admin/postponed-classes' || path === '/admin/postponed-classes/') {
+      const r = new Request(new URL('/admin/postponed-classes.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -4264,6 +4272,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/payroll/auto') return true;
   if (path === '/api/admin/payroll/rate') return true;
   if (path === '/api/admin/payroll/mark-paid') return true;
+  // ⏸ 연기 수업 현황 페이지 (2026-07-23) — 관리자·매니저 전용 (API 는 /api/admin/ 기본 게이트)
+  if (path === '/admin/postponed-classes' || path === '/admin/postponed-classes/' || path === '/admin/postponed-classes.html') return true;
   // 🔁 수강권 만료·재활성 대시보드 + API (2026-07-11) — 관리자 전용
   if (path === '/admin/retention' || path === '/admin/retention/' || path === '/admin/retention.html') return true;
   if (path === '/api/admin/retention' || path === '/api/admin/retention/contacted') return true;

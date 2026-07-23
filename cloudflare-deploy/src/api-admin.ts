@@ -1747,6 +1747,140 @@ export async function handleAdminApi(
       return json({ ok: true });
     }
 
+    // ── GET /api/admin/postponed-classes — ⏸ 연기 수업 통합 조회 (매니저 전용 화면) ──
+    //   (2026-07-23 매니저 요청) "연기된 수업 목록 / 유료·무료 / 연기한 정확한 시각을 보고 싶다."
+    //   데이터는 이미 두 곳에 나뉘어 있었다:
+    //     ① schedule_change_requests — 학생·강사가 올린 연기/취소 요청. fee_type·minutes_before 있음.
+    //     ② class_audit_log        — 관리자가 직접(화면·AI명령) 연기한 이력. 요금 정보가 없음.
+    //   매니저는 둘을 따로 열어 대조해야 했다 → 여기서 하나로 합쳐 준다.
+    //   ⚠️ ②는 요금이 저장돼 있지 않으므로 '수업 시작 30분 전' 규칙으로 서버가 되계산하고
+    //      fee_estimated=1 로 표시한다(추정치임을 화면에서 숨기지 않기 위함).
+    //   ⚠️ ①이 승인되면 ②에 source='schedule-request' 로 한 줄 더 쌓인다 → 중복이므로 제외.
+    if (method === 'GET' && path === '/api/admin/postponed-classes') {
+      const _pcActor = await getAdminActor(request, env as any);
+      await ensureScheduleRequestTable();
+
+      const FREE_IF_MINUTES_BEFORE_GT = 30;   // 정책: 시작 30분 전보다 일찍 = 무료
+      const nowMs = Date.now();
+      const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10) || 30));
+      const to = parseInt(url.searchParams.get('to') || '', 10) || nowMs + 60000;
+      const from = parseInt(url.searchParams.get('from') || '', 10) || (to - days * 86400000);
+      const feeQ = (url.searchParams.get('fee') || 'all').trim();          // all|paid|free|unknown
+      const kindQ = (url.searchParams.get('kind') || 'postpone').trim();   // postpone|cancel|change|all
+      const statusQ = (url.searchParams.get('status') || 'all').trim();    // all|pending|approved|rejected|applied
+      const limit = Math.min(1000, Math.max(1, parseInt(url.searchParams.get('limit') || '300', 10) || 300));
+      let teacherQ = (url.searchParams.get('teacher_name') || '').trim();
+      // 🔐 강사 로그인은 본인 수업만(타 강사·타 학생 노출 방지)
+      if (_pcActor.isTeacher) {
+        if (!_pcActor.name) return json({ ok: true, rows: [], summary: { total: 0 } });
+        teacherQ = _pcActor.name;
+      }
+
+      // 원 수업 시작(KST) 기준으로 "몇 분 전에 연기했나" 계산
+      const minsBefore = (d?: string | null, t?: string | null, at?: number | null): number | null => {
+        if (!d || !t || !at) return null;
+        const ms = Date.parse(`${String(d).slice(0, 10)}T${String(t).slice(0, 5)}:00+09:00`);
+        if (isNaN(ms)) return null;
+        return Math.round((ms - at) / 60000);
+      };
+      const feeOf = (m: number | null): string | null => (m === null ? null : (m > FREE_IF_MINUTES_BEFORE_GT ? 'free' : 'paid'));
+
+      const out: any[] = [];
+
+      // ① 연기·취소·변경 요청
+      const reqRs: any = await env.DB.prepare(
+        `SELECT * FROM schedule_change_requests WHERE created_at >= ? AND created_at < ? ORDER BY created_at DESC LIMIT 1000`
+      ).bind(from, to).all().catch(() => ({ results: [] }));
+      for (const r of (reqRs.results || [])) {
+        const kind = r.request_type === 'cancel' ? 'cancel' : r.request_type === 'change' ? 'change' : 'postpone';
+        let mb: number | null = (typeof r.minutes_before === 'number') ? r.minutes_before : null;
+        if (mb === null) mb = minsBefore(r.orig_date, r.orig_time, r.created_at);
+        const fee = (r.fee_type === 'paid' || r.fee_type === 'free') ? r.fee_type : (kind === 'change' ? null : feeOf(mb));
+        out.push({
+          key: 'req-' + r.id,
+          origin: 'request',
+          kind,
+          postponed_at: r.created_at,                 // ⏱ 연기(요청)한 정확한 시각
+          decided_at: r.decided_at || null,
+          decided_by: r.decided_by || null,
+          lesson_date: r.orig_date || null,
+          lesson_time: r.orig_time ? String(r.orig_time).slice(0, 5) : null,
+          new_date: r.new_date || null,
+          new_time: r.new_time ? String(r.new_time).slice(0, 5) : null,
+          teacher_name: r.teacher_name || null,
+          student_name: r.student_name || null,
+          requested_by: r.requester_name || null,
+          requester_role: r.requester_role || null,
+          fee_type: fee,
+          fee_estimated: (r.fee_type === 'paid' || r.fee_type === 'free') ? 0 : (fee ? 1 : 0),
+          minutes_before: mb,
+          status: r.status || 'pending',
+          reason: r.reason || null,
+          note: r.decide_memo || null,
+          schedule_id: r.schedule_id || null,
+        });
+      }
+
+      // ② 관리자가 직접 연기·이동한 이력 (요청 승인분은 중복이라 제외)
+      const auditRows = await listClassAudit(env, { from, to, limit: 1000 }).catch(() => [] as any[]);
+      for (const a of auditRows) {
+        if (a.action !== 'postpone' && a.action !== 'reschedule') continue;
+        if (a.source === 'schedule-request') continue;                 // ①과 중복
+        const mb = minsBefore(a.lesson_date, a.lesson_time, a.created_at);
+        out.push({
+          key: 'aud-' + a.id,
+          origin: 'audit',
+          kind: a.action === 'reschedule' ? 'change' : 'postpone',
+          postponed_at: a.created_at,
+          decided_at: null,
+          decided_by: null,
+          lesson_date: a.lesson_date || null,
+          lesson_time: a.lesson_time ? String(a.lesson_time).slice(0, 5) : null,
+          new_date: null,
+          new_time: null,
+          teacher_name: a.teacher_name || null,
+          student_name: a.student_name || null,
+          requested_by: a.actor || null,
+          requester_role: a.actor_role || 'admin',
+          fee_type: a.action === 'reschedule' ? null : feeOf(mb),
+          fee_estimated: 1,                                            // 저장값이 아니라 규칙 되계산
+          minutes_before: mb,
+          status: 'applied',
+          reason: a.reason || null,
+          note: a.detail || null,
+          schedule_id: a.schedule_id || null,
+        });
+      }
+
+      // 필터 → 정렬 → 자르기
+      let rows = out;
+      if (kindQ !== 'all') rows = rows.filter(r => r.kind === kindQ);
+      if (feeQ !== 'all') rows = rows.filter(r => (feeQ === 'unknown' ? !r.fee_type : r.fee_type === feeQ));
+      if (statusQ !== 'all') rows = rows.filter(r => r.status === statusQ);
+      if (teacherQ) {
+        const tq = teacherQ.toLowerCase();
+        rows = rows.filter(r => String(r.teacher_name || '').toLowerCase().includes(tq));
+      }
+      rows.sort((a, b) => (b.postponed_at || 0) - (a.postponed_at || 0));
+      const matched = rows.length;
+      rows = rows.slice(0, limit);
+
+      const summary = {
+        total: matched,
+        paid: rows.filter(r => r.fee_type === 'paid').length,
+        free: rows.filter(r => r.fee_type === 'free').length,
+        unknown: rows.filter(r => !r.fee_type).length,
+        pending: rows.filter(r => r.status === 'pending').length,
+        teachers: new Set(rows.map(r => r.teacher_name).filter(Boolean)).size,
+        students: new Set(rows.map(r => r.student_name).filter(Boolean)).size,
+      };
+      return json({
+        ok: true, now: nowMs, from, to, matched, returned: rows.length,
+        policy: { free_if_minutes_before_gt: FREE_IF_MINUTES_BEFORE_GT },
+        summary, rows,
+      });
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // 📝 Phase FD — AI 학부모 피드백 초안 + 강사 원클릭 승인
     //   수업이 끝나면 AI가 실제 수업 신호(출석·발화비율·칭찬·학생평가)만 근거로
