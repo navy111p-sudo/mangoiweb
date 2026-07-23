@@ -23,9 +23,11 @@ ok('DO 가 env 를 받고 VC_STICKY_UID 로 stickyUid 를 정한다',
    /constructor\(state: DurableObjectState, env\?: any\)/.test(DO) && /this\.stickyUid = !!\(env && env\.VC_STICKY_UID === 'on'\)/.test(DO));
 ok('stickyUid 기본값은 false(꺼짐)', /private stickyUid: boolean = false;/.test(DO));
 {
+  // 스위치는 두 벌(기본+운영)이 있어야 하고, 값이 on/off 로 유효하며, 두 벌이 서로 일치해야 한다.
+  //   (한쪽만 on 이면 운영/기본이 엇갈려 재현 불가한 버그가 난다 — 이 저장소 상습 함정)
   const vars = [...WT.matchAll(/VC_STICKY_UID = "(\w+)"/g)].map(m => m[1]);
-  ok(`wrangler 에 VC_STICKY_UID 가 두 벌(기본+운영), 현재 전부 off (${vars.join(',') || '없음'})`,
-     vars.length >= 2 && vars.every(v => v === 'off'));
+  ok(`wrangler 에 VC_STICKY_UID 두 벌·유효·일치 (현재 ${vars.join(',') || '없음'})`,
+     vars.length >= 2 && vars.every(v => v === 'on' || v === 'off') && vars.every(v => v === vars[0]));
 }
 
 console.log('\n[ ② 서버 — 정체성 인계 (스위치 on 일 때만) ]');
