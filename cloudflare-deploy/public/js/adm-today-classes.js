@@ -57,7 +57,9 @@
     );
     if (!confirm(msg)) return;
     var url = location.origin + '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
-    window.open(url, '_blank', 'noopener');
+    /* 팝업이 막히면 안내 링크를 띄운다 — 그냥 window.open 만 하면 조용히 실패한다 (adm-core.js 공통) */
+    if (window.mangoiOpenTab) window.mangoiOpenTab(url, T('수업 입장', 'Enter class'));
+    else window.open(url, '_blank', 'noopener');
   };
 
   /* 👁 참관 — 기존 '수업 관찰' 카드로 보내고 강의실 ID 를 채워준다(중복 구현 안 함) */

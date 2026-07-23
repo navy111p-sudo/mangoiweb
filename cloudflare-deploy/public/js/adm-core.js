@@ -1226,11 +1226,78 @@ function interveneRoom(roomId){
   }catch(_){ }
 }
 
-function observeRoom(roomId) {
-  // 메인 화상통화 페이지를 관찰자 모드로 열기
-  const url = window.location.origin + '/?observe=' + encodeURIComponent(roomId);
-  window.open(url, '_blank', 'width=1200,height=800');
+/* 🪟 (2026-07-23) 새 창 열기 공통 — 팝업 차단을 감지해 사용자에게 알린다.
+   예전엔 window.open(url,'_blank','width=1200,height=800') 처럼 '크기'를 지정했는데,
+   크기를 주면 크롬이 이걸 팝업으로 분류해 조용히 막아버린다. 차단돼도 아무 표시가 없어
+   매니저 쪽에서는 "눌러도 아무 일도 안 일어난다"로 보였다(실제 제보).
+   → 크기 지정을 빼서 '일반 새 탭'으로 열고, 그래도 막히면 눌러서 들어갈 링크를 띄운다. */
+function mangoiOpenTab(url, title) {
+  let w = null;
+  try { w = window.open(url, '_blank', 'noopener'); } catch (e) { w = null; }
+  if (w) { try { w.opener = null; } catch (e) {} return true; }
+
+  // 차단됨 → 조용히 실패하지 말고 클릭 가능한 링크를 보여준다
+  const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  try {
+    const old = document.getElementById('mangoi-popup-blocked');
+    if (old) old.remove();
+    const box = document.createElement('div');
+    box.id = 'mangoi-popup-blocked';
+    box.style.cssText = 'position:fixed;left:50%;top:24px;transform:translateX(-50%);z-index:2147483000;'
+      + 'max-width:min(560px,92vw);padding:14px 18px;border-radius:12px;background:#fff7ed;'
+      + 'border:1px solid #fdba74;box-shadow:0 12px 32px -8px rgba(0,0,0,.35);color:#7c2d12;'
+      + 'font-size:13.5px;line-height:1.6';
+    box.innerHTML =
+      '<div style="font-weight:900;margin-bottom:6px">⚠ '
+      + (_L ? 'Your browser blocked the new window' : '브라우저가 새 창을 막았습니다') + '</div>'
+      + '<div style="margin-bottom:10px">'
+      + (_L ? 'Click the link below to open it, or allow pop-ups for this site.'
+            : '아래 링크를 누르면 열립니다. (또는 이 사이트의 팝업 허용을 켜주세요.)')
+      + '</div>'
+      + '<a href="' + url + '" target="_blank" rel="noopener" '
+      + 'style="display:inline-block;padding:9px 16px;border-radius:8px;background:#ea580c;color:#fff;'
+      + 'text-decoration:none;font-weight:800">' + (title || (_L ? 'Open' : '열기')) + ' →</a>'
+      + '<button onclick="this.parentElement.remove()" '
+      + 'style="margin-left:8px;padding:9px 14px;border-radius:8px;border:1px solid #fdba74;'
+      + 'background:#fff;color:#7c2d12;font-weight:700;cursor:pointer">'
+      + (_L ? 'Close' : '닫기') + '</button>';
+    document.body.appendChild(box);
+    setTimeout(function () { const b = document.getElementById('mangoi-popup-blocked'); if (b) b.remove(); }, 20000);
+  } catch (e) {
+    alert(_L ? ('Pop-up blocked. Open this address:\n' + url) : ('팝업이 차단되었습니다. 이 주소를 열어주세요:\n' + url));
+  }
+  return false;
 }
+window.mangoiOpenTab = mangoiOpenTab;
+
+function observeRoom(roomId) {
+  const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const url = window.location.origin + '/?observe=' + encodeURIComponent(roomId);
+
+  /* 📜 참관 기록 — '수업 관찰' 카드는 사유를 받아 감사 로그에 남기는데, 실시간 수업 현황의
+     GHOST 버튼은 기록 없이 바로 들어가고 있었다. 학생 사생활 보호 정책상 참관은 모두 남아야 하므로
+     여기서도 자동으로 기록한다. 급한 상황용 버튼이라 사유는 묻지 않고 자동 문구를 넣는다.
+     기록이 실패해도 참관 자체는 막지 않는다(수업 대응이 우선). */
+  try {
+    const s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
+    const uid = String(s.uid || '').trim();
+    if (uid) {
+      fetch('/api/admin/ghost/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          admin_uid: uid,
+          room_id: roomId,
+          reason: '실시간 수업 현황에서 즉시 참관 (Live Classes → Ghost)'
+        })
+      }).catch(function () {});
+    }
+  } catch (e) {}
+
+  mangoiOpenTab(url, _L ? 'Observe class' : '수업 관찰 열기');
+}
+window.observeRoom = observeRoom;
 
 // 🛑 관리자 강제 종료 (Phase 4)
 //   - 2단계 확인: confirm → 사유 입력(선택) → API 호출

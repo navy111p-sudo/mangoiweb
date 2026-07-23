@@ -138,6 +138,34 @@ console.log('\n▶ 5. 오늘 수업 — 매니저 바로 입장');
         '다르면 매니저가 다른 방에 들어가 학생을 못 만난다');
 }
 
+/* ── 4c. GHOST 버튼이 "눌러도 아무 일 없음" 이 되지 않게 ──────────── */
+//  제보(2026-07-23): 실시간 수업 현황의 GHOST 를 눌러도 아무 반응이 없다.
+//  원인 = window.open 에 창 크기를 주면 크롬이 '팝업'으로 보고 조용히 차단한다.
+console.log('\n▶ 4c. GHOST 참관 버튼 — 팝업 차단 대응');
+{
+  check('관찰 URL 은 그대로 사용', admCore.includes("'/?observe='"));
+  // ⚠️ 파일 전체로 검사하면 '주석에 적어둔 나쁜 예시'까지 걸린다(과거에 밟은 오탐).
+  //    observeRoom 함수 본문만 떼어내 검사한다.
+  const _obsFn = (admCore.match(/function observeRoom\(roomId\)\s*\{[\s\S]*?\n\}/) || [''])[0];
+  check('observeRoom 본문을 찾음', !!_obsFn);
+  check('창 크기 지정(width=…) 을 쓰지 않음',
+        !!_obsFn && !/window\.open\([^)]*width=\d+/.test(_obsFn),
+        '크기를 주면 크롬이 팝업으로 분류해 조용히 차단한다');
+  check('공통 열기 헬퍼 존재', admCore.includes('function mangoiOpenTab'));
+  check('차단 시 사용자에게 알림', /mangoiOpenTab[\s\S]{0,1800}popup-blocked/.test(admCore));
+  check('observeRoom 이 헬퍼를 사용', /function observeRoom[\s\S]{0,1400}mangoiOpenTab\(/.test(admCore));
+  check('observeRoom 이 전역에 노출(onclick 에서 호출)', admCore.includes('window.observeRoom = observeRoom'));
+  // 학생 사생활 보호 정책: 참관은 전부 감사 로그에 남아야 한다
+  check('GHOST 참관도 감사 로그에 기록',
+        /function observeRoom[\s\S]{0,1400}\/api\/admin\/ghost\/start/.test(admCore),
+        '관찰 카드는 기록하는데 이 버튼만 안 하면 정책 구멍');
+  check('기록 실패해도 참관은 진행(수업 대응 우선)',
+        /ghost\/start[\s\S]{0,400}catch\(/.test(admCore));
+  // 내가 만든 입장 버튼들도 같은 함정을 밟지 않게
+  check('진행중 수업 [직접 입장]도 헬퍼 사용', admS1.includes('mangoiOpenTab'));
+  check('오늘 수업 [입장]도 헬퍼 사용', admToday.includes('mangoiOpenTab'));
+}
+
 /* ── 6. MES/BTS — 코드가 아니라 데이터 ────────────────────────────── */
 console.log('\n▶ 6. 교재 샘플(MES/BTS) — 배정 데이터 사안');
 {

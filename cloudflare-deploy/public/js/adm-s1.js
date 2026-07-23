@@ -29,7 +29,9 @@
                    : ('수업 "' + roomId + '" 에 직접 입장할까요?\n(참관이 아니라 실제 참가자로 들어갑니다 — 학생·강사에게 보입니다.)');
     if (!confirm(msg)) return;
     const url = location.origin + '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
-    window.open(url, '_blank', 'noopener');
+    /* 팝업이 막히면 조용히 실패하지 않도록 공통 헬퍼 사용 (adm-core.js) */
+    if (window.mangoiOpenTab) window.mangoiOpenTab(url, en ? 'Enter class' : '수업 입장');
+    else window.open(url, '_blank', 'noopener');
   };
   window.ghLoadLive = async function(){
     const box = $('gh-live-list'), cnt = $('gh-live-count');
