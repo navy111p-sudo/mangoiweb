@@ -341,13 +341,30 @@
     });
     document.querySelectorAll('.opt[data-rate]').forEach(b => {
       if (parseFloat(b.dataset.rate) === currentRate) { document.querySelectorAll('.opt[data-rate]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); }
-      b.onclick = () => {
-        document.querySelectorAll('.opt[data-rate]').forEach(x=>x.classList.remove('active'));
-        b.classList.add('active');
-        currentRate = parseFloat(b.dataset.rate) || 1;
-        try { localStorage.setItem('mangoi_aifriend_tts_rate', String(currentRate)); } catch(e){}
-      };
+      b.onclick = () => { applyRate(parseFloat(b.dataset.rate) || 1); };
     });
+    /* 🐢 (2026-07-23) "천천히 말해줘" 를 말이나 글로 부탁하면 실제로 음성 속도를 한 단계 낮춘다.
+       그동안은 속도가 화면 버튼으로만 바뀌어서, 부탁해도 똑같은 속도로 계속 말했다.
+       (AI 답변 자체가 요청에 응하는 것은 서버 프롬프트에서 처리) */
+    const RATE_STEPS_AF = [0.6, 0.8, 1, 1.2];
+    function applyRate(v) {
+      currentRate = v;
+      try { localStorage.setItem('mangoi_aifriend_tts_rate', String(currentRate)); } catch(e){}
+      document.querySelectorAll('.opt[data-rate]').forEach(x => {
+        x.classList.toggle('active', parseFloat(x.dataset.rate) === currentRate);
+      });
+    }
+    function maybeAdjustRate(text) {
+      const t = String(text || '');
+      const slower = /(천천히|느리게|너무\s*빠르|못\s*알아|알아듣기)/.test(t)
+                  || /\b(slow(ly| down)?|too fast|more slowly|speak slower)\b/i.test(t);
+      const faster = /(빠르게|더\s*빨리)/.test(t) || /\b(faster|speed up)\b/i.test(t);
+      if (!slower && !faster) return;
+      const i = RATE_STEPS_AF.indexOf(currentRate);
+      const cur = i < 0 ? RATE_STEPS_AF.indexOf(1) : i;
+      const next = slower ? Math.max(0, cur - 1) : Math.min(RATE_STEPS_AF.length - 1, cur + 1);
+      if (RATE_STEPS_AF[next] !== currentRate) applyRate(RATE_STEPS_AF[next]);
+    }
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
@@ -563,6 +580,12 @@
 
     /* ══ 🎤 말하기 (브라우저 음성인식 → 영어 받아쓰기 → 자동 전송 + 🎤보너스) ══ */
     let _recog = null, _recognizing = false, _pendingVoice = false;
+    /* 🎤 (2026-07-23) "한두 마디만 하면 마이크가 꺼지고 AI가 엉뚱한 답을 한다" 대응 상태.
+       _micBase = 브라우저가 세션을 제멋대로 끊어서 다시 시작한 경우, 앞 세션까지 들은 말
+       _micSess = 지금 세션에서 들은 말 (매 onresult 마다 0부터 재조립)
+       _micBySilence = 우리 침묵 감시 타이머가 부른 종료인가(=진짜 말이 끝남)
+       _micStopWanted = 사용자가 ⏹ 를 눌렀거나 재시작하면 안 되는 오류인가 */
+    let _micBase = '', _micSess = '', _micBySilence = false, _micStopWanted = false, _micRestarts = 0, _micT0 = 0;
     function updateMicUI() {
       const b = document.getElementById('micBtn'); if (!b) return;
       b.classList.toggle('recording', _recognizing);
@@ -599,6 +622,15 @@
       }
       return s;
     }
+    /* 🎤 아직 말이 안 끝난 것처럼 보이는가 — 단어 2개 이하이거나, 뒤에 말이 더 붙어야
+       자연스러운 단어("I", "and", "to", "my", "want" …)로 끝났으면 아직 말하는 중으로 본다.
+       (아이들은 "I ... 음 ... like ... 음 ... dogs" 처럼 중간에 오래 쉰다) */
+    const MIC_DANGLING = /^(i|a|an|and|or|but|to|the|my|your|his|her|our|their|is|are|am|was|were|be|been|do|does|did|can|could|will|would|should|want|wants|like|likes|love|loves|have|has|had|in|on|at|of|for|with|about|that|this|these|those|it|he|she|they|we|you|because|so|very|really|going|gonna|there|when|what|where|who|how|why|im|its|dont|doesnt|lets|wanna)$/i;
+    function micUnfinished(s) {
+      const w = String(s || '').trim().split(/\s+/).filter(Boolean);
+      if (w.length < 3) return true;
+      return MIC_DANGLING.test(w[w.length - 1].replace(/[^a-z']/gi, ''));
+    }
     function initRecog() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SR) return null;
@@ -607,8 +639,28 @@
       //    브라우저의 성급한 자동종료를 끄고, 말이 끝나고 조용해지면 우리가 직접 종료한다.
       r.lang = 'en-US'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;
       let _silence = null;
-      const SILENCE_MS = 2600;                 // 마지막 말 이후 이 시간(ms) 조용하면 종료 → 문장 다 말할 시간 확보
-      const armSilence = () => { if (_silence) clearTimeout(_silence); _silence = setTimeout(() => { try { r.stop(); } catch(e){} }, SILENCE_MS); };
+      /* 🎤 (2026-07-23) 침묵 대기 시간을 상황에 맞게 — 2.6초 고정이라 "한두 마디 하면 꺼졌다".
+         아직 아무 말도 못 들었으면 오래 기다리고(생각할 시간), 조각만 들렸으면 넉넉히,
+         문장이 다 완성돼 보이면 예전처럼 빠르게 마무리한다. */
+      const SIL_FIRST = 9000;                  // 첫 마디를 기다리는 시간
+      const SIL_SHORT = 5000;                  // 1~2단어 / 미완성 꼬리 — 아직 말하는 중일 가능성
+      const SIL_DONE  = 2600;                  // 문장이 완성돼 보이면 기존과 동일하게 빠르게
+      const micHeard = () => tidySpeech(mergeSpeech(_micBase, _micSess));
+      const armSilence = () => {
+        if (_silence) clearTimeout(_silence);
+        const t = micHeard();
+        const ms = !t ? SIL_FIRST : (micUnfinished(t) ? SIL_SHORT : SIL_DONE);
+        _silence = setTimeout(() => { _micBySilence = true; try { r.stop(); } catch(e){} }, ms);
+      };
+      /* 🎤 진짜로 말이 끝났을 때만 여기로 온다 → 들은 말을 합쳐서 전송 */
+      const finishMic = () => {
+        _recognizing = false; updateMicUI();
+        const input = document.getElementById('msgInput');
+        const said = tidySpeech(mergeSpeech(_micBase, _micSess));
+        _micBase = ''; _micSess = '';
+        if (input) input.value = said;
+        if (said) { _pendingVoice = true; sendMsg(); }   // 인식 끝나면 자동 전송
+      };
       /* 🎤 (2026-07-22 2차) 확정 결과를 버퍼(_finalTxt)에 이어붙이는 방식을 폐기.
          안드로이드 크롬은 continuous 모드에서 "지금까지 말한 문장 전체"를 확정 결과로
          여러 번 다시 보내서, 이어붙이면 누적본이 겹겹이 쌓였다:
@@ -616,27 +668,46 @@
          이제 결과가 올 때마다 브라우저가 들고 있는 이번 녹음의 전체 결과 목록(0~끝)을
          mergeSpeech(겹침 제거)로 처음부터 다시 조립한다. 이어붙일 버퍼 자체가 없으므로
          한 녹음 안의 반복도, 이전 녹음이 넘어오는 일도 원천적으로 불가능하다. */
-      r.onstart = () => { armSilence(); };
+      r.onstart = () => { _micBySilence = false; _micSess = ''; armSilence(); };
       r.onresult = (ev) => {
         try {
           let full = '';
           for (let i = 0; i < ev.results.length; i++) full = mergeSpeech(full, ev.results[i][0].transcript);
+          _micSess = full;
           const input = document.getElementById('msgInput');
-          if (input) input.value = tidySpeech(full);
+          if (input) input.value = tidySpeech(mergeSpeech(_micBase, _micSess));
           armSilence();                        // 말할 때마다 종료 타이머 리셋 → 계속 말하면 안 끊김
         } catch(e){}
       };
+      /* 🎤 (2026-07-23) 브라우저가 제멋대로 끊은 경우 다시 듣기.
+         안드로이드 크롬은 continuous=true 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
+         지금까지는 그 onend 를 "학생이 말을 마쳤다"로 착각해 조각("I")을 그대로 AI 에 보냈다.
+         → 우리 침묵 타이머가 부른 종료가 아니면 아직 말하는 중으로 보고, 들은 말을 유지한 채
+           즉시 다시 듣는다. 끝내는 권한은 오직 침묵 타이머와 사용자의 ⏹ 뿐. */
       r.onend = () => {
         if (_silence) clearTimeout(_silence);
-        _recognizing = false; updateMicUI();
-        const input = document.getElementById('msgInput');
-        const said = tidySpeech(input ? input.value : '');
-        if (input) input.value = said;
-        if (said) { _pendingVoice = true; sendMsg(); }   // 인식 끝나면 자동 전송
+        const wantMore = !_micBySilence && !_micStopWanted
+                       && _micRestarts < 8 && (Date.now() - _micT0) < 60000;
+        _micBase = mergeSpeech(_micBase, _micSess); _micSess = '';
+        if (wantMore) {
+          _micRestarts++;
+          try { r.start(); return; }                       // UI 는 계속 '듣는 중' 유지
+          catch(e){
+            setTimeout(() => { try { r.start(); } catch(e2){ finishMic(); } }, 250);
+            return;
+          }
+        }
+        finishMic();
       };
-      r.onerror = () => {
+      /* 오류 — no-speech(아직 말을 못 꺼냄)만 재시작 허용, 나머지는 그대로 종료 */
+      r.onerror = (ev) => {
         if (_silence) clearTimeout(_silence);
-        _recognizing = false; updateMicUI();
+        const err = ev && ev.error;
+        if (err !== 'no-speech') {
+          _micStopWanted = true;
+          _recognizing = false; updateMicUI();
+          _micBase = ''; _micSess = '';
+        }
       };
       return r;
     }
@@ -646,9 +717,11 @@
         alert(isEn() ? 'Voice input is not supported on this browser. Please use Chrome.' : '이 브라우저는 음성 입력을 지원하지 않아요. Chrome(크롬)에서 사용해주세요.');
         return;
       }
-      if (_recognizing) { try { _recog.stop(); } catch(e){} return; }
+      if (_recognizing) { _micStopWanted = true; try { _recog.stop(); } catch(e){} return; }
       try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}   // 내 음성이 TTS를 녹음하지 않게
-      /* 시작 전에 입력창을 비운다 — 이전 내용이 새 녹음에 섞이지 않게 */
+      /* 시작 전에 입력창과 인식 버퍼를 비운다 — 이전 내용이 새 녹음에 섞이지 않게 */
+      _micBase = ''; _micSess = ''; _micBySilence = false; _micStopWanted = false;
+      _micRestarts = 0; _micT0 = Date.now();
       try {
         const input = document.getElementById('msgInput');
         if (input) input.value = '';
@@ -707,6 +780,7 @@
       const input = document.getElementById('msgInput');
       const msg = (input.value || '').trim();
       if (!msg) return;
+      maybeAdjustRate(msg);                 // 🐢 "천천히 말해줘" → 실제로 음성 속도를 낮춤
       const wasVoice = _pendingVoice; _pendingVoice = false;
       const auth = await getAuth();
       if (!auth) { appendMsg('ai', '⚠️ 인증에 실패했어요. 새로고침 후 다시 시도해주세요.'); return; }
@@ -795,7 +869,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260723070742 -->
+<!-- BUILD:20260723161427 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}

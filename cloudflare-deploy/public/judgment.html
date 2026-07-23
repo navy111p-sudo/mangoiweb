@@ -434,6 +434,22 @@
     var idx = (d.judgment_index!=null? d.judgment_index : null);
     var miscs = Array.isArray(d.top_misconceptions)? d.top_misconceptions.slice(0,3) : [];
     var R=86, C=2*Math.PI*R;
+    // 🆕 이번 판단 결과 + 지수 변화 — "100점을 받아도 지수가 그대로"로 보이던 문제 해소
+    var lastBox = '';
+    if(d.last && d.last.choice_score!=null){
+      var ls = d.last.choice_score;
+      var dl = (d.delta_index==null? null : Math.round(d.delta_index));
+      var dTxt = (dl==null||dl===0)
+        ? '<span style="color:var(--mut)">'+T('지수 변화 없음','no change','指数无变化')+'</span>'
+        : (dl>0 ? '<span style="color:#34d399">▲ '+dl+'</span>' : '<span style="color:#f87171">▼ '+Math.abs(dl)+'</span>');
+      lastBox = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;'
+        + 'margin:0 0 14px;padding:10px 14px;border-radius:14px;'
+        + 'background:rgba(124,58,237,.14);border:1px solid rgba(168,85,247,.35);font-weight:800">'
+        + '<span>'+T('이번 판단','This attempt','本次判断')+'</span>'
+        + '<span style="color:'+(d.last.is_optimal?'#fbbf24':'#f0abfc')+';font-size:1.15em">'+ls+T('점','','分')+'</span>'
+        + '<span style="color:var(--mut);font-weight:700">'+T('지수','index','指数')+'</span>'+dTxt
+        + '</div>';
+    }
     var practice = has
       ? '<div class="ring-box">'
         + '<div class="ring">'
@@ -446,6 +462,7 @@
         + '<div class="ring-side">'
         +   '<div style="font-size:clamp(14px,1.8vw,18px);color:var(--mut);font-weight:700;margin-bottom:12px">🏅 '
         +     T('지금까지 <b style="color:#fbbf24">'+(d.events_count||0)+'</b>번 판단했어요','<b style="color:#fbbf24">'+(d.events_count||0)+'</b> decisions so far','到目前为止做了 <b style="color:#fbbf24">'+(d.events_count||0)+'</b> 次判断')+'</div>'
+        +   lastBox
         +   bar(T('선택 적절성','Choice','选择恰当度'), rad['선택적절성'])
         +   bar(T('이유 논리','Reasoning','理由逻辑'), rad['이유논리'])
         +   bar(T('자기 교정력','Self-correction','自我纠正力'), rad['자기교정력'])
@@ -481,7 +498,7 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260723070742 -->
+<!-- BUILD:20260723161427 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

@@ -462,6 +462,16 @@ function setRate(lv){
   var v=document.getElementById('rateVal'); if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv];
 }
 setRate(_rateLevel);   // 저장된 속도로 슬라이더/표시 초기화
+/* 🐢 (2026-07-23) "천천히 말해줘" 라고 말하거나 쓰면 듣기 속도를 실제로 한 칸 낮춘다.
+   그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다. */
+function maybeAdjustRate(text){
+  var t = String(text||'');
+  var slower = /(천천히|느리게|너무\s*빠르|못\s*알아|알아듣기)/.test(t)
+            || /\b(slow(ly| down)?|too fast|more slowly|speak slower)\b/i.test(t);
+  var faster = /(빠르게|더\s*빨리)/.test(t) || /\b(faster|speed up)\b/i.test(t);
+  if(slower) setRate(Math.max(1, _rateLevel - 1));
+  else if(faster) setRate(Math.min(5, _rateLevel + 1));
+}
 
 /* 📊 대화 난이도: 1(기초) ~ 8(최고) → 서버로 difficulty 전달, AI가 눈높이 맞춤 */
 var LEVEL_NAMES = {1:'기초',2:'초급',3:'초급+',4:'초중급',5:'중급',6:'중상급',7:'상급',8:'최고'};
@@ -649,6 +659,21 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeMenu
    🎤 말하기(STT) — webkitSpeechRecognition 으로 영어 발화 인식 → 자동 전송
    ══════════════════════════════════════════════════════════════════ */
 var _recog=null, _recognizing=false;
+/* 🎤 (2026-07-23) "한두 마디만 하면 마이크가 꺼진다" 대응 상태.
+   _micBase = 브라우저가 세션을 제멋대로 끊어 다시 시작한 경우, 앞 세션까지 들은 말
+   _micSess = 지금 세션에서 들은 말(매 onresult 마다 0부터 재조립)
+   _micBySilence = 우리 침묵 감시 타이머가 부른 종료인가(=진짜 말이 끝남)
+   _micStopWanted = 사용자가 ⏹ 를 눌렀거나 재시작하면 안 되는 오류인가 */
+var _micBase='', _micSess='', _micBySilence=false, _micStopWanted=false, _micRestarts=0, _micT0=0;
+/* 🎤 아직 말이 안 끝난 것처럼 보이는가 — 단어 2개 이하이거나, 뒤에 말이 더 붙어야 자연스러운
+   단어("I","and","to","my","want"…)로 끝났으면 아직 말하는 중으로 본다.
+   (아이들은 "I ... 음 ... like ... 음 ... dogs" 처럼 중간에 오래 쉰다) */
+var MIC_DANGLING=/^(i|a|an|and|or|but|to|the|my|your|his|her|our|their|is|are|am|was|were|be|been|do|does|did|can|could|will|would|should|want|wants|like|likes|love|loves|have|has|had|in|on|at|of|for|with|about|that|this|these|those|it|he|she|they|we|you|because|so|very|really|going|gonna|there|when|what|where|who|how|why|im|its|dont|doesnt|lets|wanna)$/i;
+function micUnfinished(s){
+  var w=String(s||'').trim().split(/\s+/).filter(Boolean);
+  if(w.length<3) return true;
+  return MIC_DANGLING.test(w[w.length-1].replace(/[^a-z']/gi,''));
+}
 function sttSupported(){ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
 function setMicState(on){
   _recognizing=on;
@@ -660,11 +685,17 @@ function setMicState(on){
 function toggleMic(){
   unlockAudio();                       // 마이크 탭 = 사용자 제스처 → 이후 음성 재생 허용
   _stopSpeak();                        // AI 낭독(서버 TTS/브라우저 음성) 중이면 멈추고 듣기
-  if(_recognizing){ try{ _recog && _recog.stop(); }catch(e){} return; }
+  if(_recognizing){ _micStopWanted=true; try{ _recog && _recog.stop(); }catch(e){} return; }
   if(!sttSupported()){
     addMsg('이 브라우저는 음성 인식을 지원하지 않아요 😢 크롬(안드로이드/PC)이나 Safari(iOS)에서 사용하거나, 아래에 텍스트로 입력해 주세요.', 'sys');
     return;
   }
+  _micBase=''; _micSess=''; _micBySilence=false; _micStopWanted=false;
+  _micRestarts=0; _micT0=Date.now();
+  try{ document.getElementById('inp').value=''; }catch(e){}
+  _startSttSession();
+}
+function _startSttSession(){
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   _recog=new SR();
   _recog.lang='en-US';                 // 기본은 영어 연습 (한국어 질문도 대부분 인식됨)
@@ -674,8 +705,25 @@ function toggleMic(){
   //    끄고, 대신 "말이 끝나고 조용해지면" 우리가 직접 종료(침묵 감시 타이머)한다.
   _recog.continuous=true;
   var _silence=null;
-  var SILENCE_MS=2600;                 // 마지막 말 이후 이 시간(ms)만큼 조용하면 종료 → 문장 다 말할 시간 확보
-  function _armSilence(){ if(_silence) clearTimeout(_silence); _silence=setTimeout(function(){ try{ _recog && _recog.stop(); }catch(e){} }, SILENCE_MS); }
+  /* 🎤 (2026-07-23) 침묵 대기 시간을 상황에 맞게 — 2.6초 고정이라 "한두 마디 하면 꺼졌다".
+     아직 아무 말도 못 들었으면 오래 기다리고(생각할 시간), 조각만 들렸으면 넉넉히,
+     문장이 완성돼 보이면 예전처럼 빠르게 마무리한다. */
+  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_DONE=2600;
+  function _micHeard(){ return _tidySpeech(_mergeSpeech(_micBase, _micSess)); }
+  function _armSilence(){
+    if(_silence) clearTimeout(_silence);
+    var t=_micHeard();
+    var ms = !t ? SIL_FIRST : (micUnfinished(t) ? SIL_SHORT : SIL_DONE);
+    _silence=setTimeout(function(){ _micBySilence=true; try{ _recog && _recog.stop(); }catch(e){} }, ms);
+  }
+  /* 🎤 진짜로 말이 끝났을 때만 여기로 온다 → 들은 말을 합쳐서 전송 */
+  function _finishMic(){
+    setMicState(false);
+    var said=_tidySpeech(_mergeSpeech(_micBase, _micSess));
+    _micBase=''; _micSess='';
+    document.getElementById('inp').value=said;
+    if(said){ sendMsg(); }             // 인식이 끝나면 자동 전송 → AI가 텍스트+음성으로 답
+  }
   /* 🎤 인식 조각 합치기 — 안드로이드 크롬은 continuous 모드에서 "지금까지 말한 문장 전체"를
      확정 결과로 여러 번 다시 보낸다(누적형). 그래서 finalText+=t 로 이어붙이면
      "I like I like to I like to eat…" 처럼 겹겹이 쌓였다. 겹치는 단어만큼 지우고 붙인다. */
@@ -700,29 +748,46 @@ function toggleMic(){
     }
     return s;
   }
-  _recog.onstart=function(){ setMicState(true); _armSilence(); };
+  _recog.onstart=function(){ _micBySilence=false; _micSess=''; setMicState(true); _armSilence(); };
   _recog.onresult=function(e){
     /* 결과가 올 때마다 이번 녹음의 전체 결과 목록(0~끝)을 겹침 제거하며 처음부터 다시 조립
        → 이어붙일 버퍼가 없어 PC(조각형)·안드로이드(누적형) 모두 반복이 생길 수 없다 */
     var full='';
     for(var i=0;i<e.results.length;i++) full=_mergeSpeech(full, e.results[i][0].transcript);
-    document.getElementById('inp').value=_tidySpeech(full);
+    _micSess=full;
+    document.getElementById('inp').value=_tidySpeech(_mergeSpeech(_micBase, _micSess));
     _armSilence();                     // 말할 때마다 종료 타이머 리셋 → 계속 말하면 절대 안 끊김
   };
+  /* 오류 — no-speech(아직 말을 못 꺼냄)만 다시 듣기 허용, 나머지는 그대로 종료 */
   _recog.onerror=function(e){
     if(_silence) clearTimeout(_silence);
+    if(e.error==='no-speech') return;  // onend 에서 다시 듣는다 (안내문으로 말을 끊지 않음)
+    _micStopWanted=true;
     setMicState(false);
+    _micBase=''; _micSess='';
     if(e.error==='not-allowed'||e.error==='service-not-allowed'){
       addMsg('🎤 마이크 권한이 꺼져 있어요. 주소창의 자물쇠(🔒) → 마이크 "허용" 후 다시 🎤 를 눌러 주세요. (텍스트 입력은 계속 가능)', 'sys');
-    } else if(e.error==='no-speech'){
-      addMsg('🎤 소리가 잘 안 들렸어요. 다시 🎤 를 누르고 또박또박 말해 주세요.', 'sys');
     }
   };
+  /* 🎤 (2026-07-23) 브라우저가 제멋대로 끊은 경우 다시 듣기.
+     안드로이드 크롬은 continuous=true 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
+     지금까지는 그 onend 를 "학생이 말을 마쳤다"로 착각해 조각("I")을 그대로 AI 에 보냈다.
+     → 우리 침묵 타이머가 부른 종료가 아니면 아직 말하는 중으로 보고, 들은 말을 유지한 채
+       즉시 다시 듣는다. 끝내는 권한은 오직 침묵 타이머와 사용자의 ⏹ 뿐. */
   _recog.onend=function(){
     if(_silence) clearTimeout(_silence);
-    setMicState(false);
-    var v=(document.getElementById('inp').value||'').trim();
-    if(v){ sendMsg(); }                // 인식이 끝나면 자동 전송 → AI가 텍스트+음성으로 답
+    var wantMore = !_micBySilence && !_micStopWanted
+                && _micRestarts < 8 && (Date.now()-_micT0) < 60000;
+    _micBase=_mergeSpeech(_micBase, _micSess); _micSess='';
+    if(wantMore){
+      _micRestarts++;
+      try{ _recog.start(); return; }   // UI 는 계속 '듣는 중' 유지
+      catch(err){
+        setTimeout(function(){ try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
+        return;
+      }
+    }
+    _finishMic();
   };
   try{ _recog.start(); }catch(e){ setMicState(false); }
 }
@@ -935,6 +1000,7 @@ async function sendMsg(){
   var inp = document.getElementById('inp');
   var text = (inp.value||'').trim();
   if(!text || sending) return;
+  maybeAdjustRate(text);                    // 🐢 "천천히 말해줘" → 듣기 속도 슬라이더를 실제로 한 칸 낮춤
 
   addMsg(text, 'me'); inp.value = '';
   bumpCombo();                              // 🔥 한 마디마다 콤보 적립 + 고비마다 축하
@@ -981,7 +1047,7 @@ async function sendMsg(){
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260723070742 -->
+<!-- BUILD:20260723161427 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

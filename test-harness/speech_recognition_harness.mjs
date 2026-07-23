@@ -41,6 +41,8 @@ function makeFakeSR() {
       if (this.onstart) this.onstart();
     }
     stop() { if (!this.running) return; this.running = false; if (this.onend) this.onend(); }
+    /** 🤖 브라우저(안드로이드 크롬 등)가 우리 뜻과 무관하게 세션을 스스로 닫는 상황 */
+    browserEnd() { this.running = false; if (this.onend) this.onend(); }
     /** 인식 결과 1건 전달. alts = [{transcript, confidence}] */
     emit(alts, isFinal) {
       const idx = this._results.length;
@@ -63,7 +65,7 @@ function makeFakeDoc(ids) {
   const els = {};
   for (const id of ids) {
     els[id] = {
-      value: '', textContent: '', innerHTML: '', disabled: false,
+      value: '', textContent: '', innerHTML: '', disabled: false, title: '', style: {},
       classList: { _s: new Set(), add(c){this._s.add(c);}, remove(c){this._s.delete(c);},
                    toggle(c,on){ on ? this._s.add(c) : this._s.delete(c); },
                    contains(c){return this._s.has(c);} },
@@ -84,10 +86,12 @@ function makeFakeDoc(ids) {
 function makeTimers() {
   let seq = 1; const pending = new Map();
   return {
-    setTimeout: (cb) => { const id = seq++; pending.set(id, cb); return id; },
+    setTimeout: (cb, ms) => { const id = seq++; pending.set(id, { cb, ms }); return id; },
     clearTimeout: (id) => { pending.delete(id); },
     /** 대기 중인 타이머를 모두 실행 (침묵 → 자동 종료 재현) */
-    fire() { const cbs = [...pending.values()]; pending.clear(); cbs.forEach(cb => cb()); },
+    fire() { const cbs = [...pending.values()]; pending.clear(); cbs.forEach(t => t.cb()); },
+    /** 지금 걸려 있는 침묵 감시 타이머의 대기 시간(ms) — 상황별로 달라야 한다 */
+    lastDelay() { const v = [...pending.values()]; return v.length ? v[v.length - 1].ms : null; },
     get size() { return pending.size; },
   };
 }
@@ -198,6 +202,114 @@ function testAiFriend() {
   ]);
   check('안드로이드 my dog 스트림 → 한 문장만 전송', sent[0] === 'my dog likes blueberry too' && sent.length === 1,
         JSON.stringify(sent));
+
+  /* 🎤 (2026-07-23 제보) "한두 마디 했을 때 마이크가 꺼지고 AI가 엉뚱한 답만 한다"
+     안드로이드 크롬은 continuous=true 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
+     그 종료를 '학생이 말을 마쳤다'로 착각해 조각을 전송하면 안 된다 — 계속 들어야 한다. */
+  sent.length = 0;
+  toggleMic();
+  sr = FakeSR.instances[FakeSR.instances.length - 1];
+  sr.emit([{ transcript: 'I', confidence: 0.9 }], true);
+  sr.browserEnd();                                   // ← 우리가 부른 종료가 아님
+  check('조각만 들린 채 브라우저가 끊으면 전송 안 함', sent.length === 0, JSON.stringify(sent));
+  check('끊긴 뒤 자동으로 다시 듣는 중', sr.running === true, 'running=' + sr.running);
+  sr.emit([{ transcript: 'like blue cars', confidence: 0.9 }], true);
+  timers.fire();
+  check('이어 말한 내용이 합쳐져 한 번만 전송',
+        sent.length === 1 && sent[0] === 'I like blue cars', JSON.stringify(sent));
+
+  // 사용자가 ⏹ 를 누르면 다시 듣지 않고 즉시 전송 (한 단어 대답도 정상 전송)
+  sent.length = 0;
+  toggleMic();
+  sr = FakeSR.instances[FakeSR.instances.length - 1];
+  sr.emit([{ transcript: 'yes', confidence: 0.9 }], true);
+  toggleMic();
+  check('⏹ 누르면 재시작 없이 즉시 전송', sent.length === 1 && sent[0] === 'yes', JSON.stringify(sent));
+
+  // 침묵 대기 시간이 상황에 따라 달라야 한다 (2.6초 고정이 조기 종료의 원인이었다)
+  sent.length = 0;
+  toggleMic();
+  sr = FakeSR.instances[FakeSR.instances.length - 1];
+  check('첫 마디를 넉넉히 기다림(≥8초)', timers.lastDelay() >= 8000, timers.lastDelay() + 'ms');
+  sr.emit([{ transcript: 'I', confidence: 0.9 }], false);
+  check('조각만 들렸으면 더 기다림(≥4.5초)', timers.lastDelay() >= 4500, timers.lastDelay() + 'ms');
+  sr.emit([{ transcript: 'I like blue cars', confidence: 0.9 }], true);
+  check('문장이 완성되면 예전처럼 빠르게(≤3초)', timers.lastDelay() <= 3000, timers.lastDelay() + 'ms');
+  timers.fire();
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TEST 1-B — warmup.html : 같은 조기 종료 문제 (AI 웜업도 같이 제보됨)
+   ══════════════════════════════════════════════════════════════════════ */
+function testWarmupMic() {
+  console.log('\n▶ warmup.html — 조기 종료로 말이 잘리지 않는가');
+  const html = readFileSync(join(PUB, 'warmup.html'), 'utf8');
+  const code = extract(html, 'var _recog=null, _recognizing=false;', '\n/* ── 4. 첫 안내 메시지', 'warmup');
+
+  const FakeSR = makeFakeSR();
+  const doc = makeFakeDoc(['inp', 'micBtn', 'listening']);
+  const timers = makeTimers();
+  const sent = [];
+
+  const sandbox = {
+    document: doc,
+    window: { SpeechRecognition: FakeSR },
+    setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
+    unlockAudio: () => {}, _stopSpeak: () => {}, addMsg: () => {},
+    sendMsg: () => { const v = (doc.els.inp.value || '').trim(); if (v) sent.push(v); doc.els.inp.value = ''; },
+    console,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(code + '\n;globalThis.__toggleMic = toggleMic;', sandbox);
+  const toggleMic = sandbox.__toggleMic;
+  const last = () => FakeSR.instances[FakeSR.instances.length - 1];
+
+  // 평소대로 한 문장 말하고 조용해지면 전송
+  toggleMic();
+  last().emit([{ transcript: 'I like dogs', confidence: 0.9 }], true);
+  timers.fire();
+  check('정상 한 문장 전송', sent.length === 1 && sent[0] === 'I like dogs', JSON.stringify(sent));
+
+  // 브라우저가 첫 확정 결과 뒤 세션을 닫아도 말이 잘리면 안 된다
+  sent.length = 0;
+  toggleMic();
+  let sr = last();
+  sr.emit([{ transcript: 'I', confidence: 0.9 }], true);
+  sr.browserEnd();
+  check('조각만 들린 채 브라우저가 끊으면 전송 안 함', sent.length === 0, JSON.stringify(sent));
+  check('끊긴 뒤 자동으로 다시 듣는 중', sr.running === true, 'running=' + sr.running);
+  sr.emit([{ transcript: 'want a big pizza', confidence: 0.9 }], true);
+  timers.fire();
+  check('이어 말한 내용이 합쳐져 한 번만 전송',
+        sent.length === 1 && sent[0] === 'I want a big pizza', JSON.stringify(sent));
+
+  // 안드로이드 누적형 확정 결과 (기존 회귀)
+  sent.length = 0;
+  toggleMic();
+  sr = last();
+  ['my dog', 'my dog likes', 'my dog likes blueberry too'].forEach(t =>
+    sr.emit([{ transcript: t, confidence: 0.9 }], true));
+  timers.fire();
+  check('안드로이드 누적형 → 한 문장만 전송',
+        sent.length === 1 && sent[0] === 'my dog likes blueberry too', JSON.stringify(sent));
+
+  // 침묵 대기 시간이 상황에 따라 달라야 한다
+  sent.length = 0;
+  toggleMic();
+  sr = last();
+  check('첫 마디를 넉넉히 기다림(≥8초)', timers.lastDelay() >= 8000, timers.lastDelay() + 'ms');
+  sr.emit([{ transcript: 'I', confidence: 0.9 }], false);
+  check('조각만 들렸으면 더 기다림(≥4.5초)', timers.lastDelay() >= 4500, timers.lastDelay() + 'ms');
+  sr.emit([{ transcript: 'I like blue cars', confidence: 0.9 }], true);
+  check('문장이 완성되면 예전처럼 빠르게(≤3초)', timers.lastDelay() <= 3000, timers.lastDelay() + 'ms');
+  timers.fire();
+
+  // ⏹ 로 직접 멈추면 재시작 없이 즉시 전송
+  sent.length = 0;
+  toggleMic();
+  last().emit([{ transcript: 'yes', confidence: 0.9 }], true);
+  toggleMic();
+  check('⏹ 누르면 재시작 없이 즉시 전송', sent.length === 1 && sent[0] === 'yes', JSON.stringify(sent));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -287,6 +399,7 @@ console.log(' 🎤 음성 인식 회귀 하니스');
 console.log('═'.repeat(64));
 try {
   testAiFriend();
+  testWarmupMic();
   testSpeakingQuiz();
   testResetPresent();
 } catch (e) {

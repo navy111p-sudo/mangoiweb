@@ -428,46 +428,78 @@ function stddev(arr: number[]): number {
   return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length);
 }
 
+// 최근 성과 반영 — 단순 누적 평균이면 27번 푼 학생이 100점을 받아도 지수가 0.3점밖에 안 움직여
+// "몇 점을 받든 65" 로 보입니다. 반감기 HALF_LIFE 회의 지수가중 평균으로 최근 판단에 더 무게를 줍니다.
+const RECENCY_HALF_LIFE = 6;   // 6회 전 판단의 가중치 = 최신의 1/2
+const RECENT_WINDOW = 12;      // 자기교정력·일관성을 보는 최근 창
+
+/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. */
+function recencyAvg(arr: Array<number | null>): number | null {
+  let ws = 0, vs = 0;
+  const n = arr.length;
+  for (let i = 0; i < n; i++) {
+    const v = arr[i];
+    if (v == null) continue;                                     // 값 없는 회차는 가중치 자리도 차지하지 않음
+    const w = Math.pow(0.5, (n - 1 - i) / RECENCY_HALF_LIFE);
+    ws += w; vs += w * v;
+  }
+  return ws > 0 ? vs / ws : null;
+}
+
 export interface GrowthAxes {
   events_count: number;
   axis_choice: number | null; axis_reasoning: number | null; axis_selfcorrection: number | null;
   axis_register: number | null; axis_consistency: number | null;
   judgment_index: number | null; top_misconceptions: Array<{ code: string; count: number }>;
+  /** 직전 판단까지로 계산한 지수 — 이번 판단으로 몇 점 오르내렸는지 학생에게 보여주기 위함. */
+  prev_index?: number | null;
+  /** 가장 최근 판단 1건 요약 — 성장 화면의 "이번 판단" 칩. */
+  last?: { choice_score: number | null; reasoning_score: number | null; is_optimal: number; created_at: number } | null;
 }
 
-/** 한 학생·한 기간의 판단력 5축 + 지수 계산 (순수 D1). */
-export async function computeGrowthForStudent(env: MangoEnv, studentUid: string, period: string): Promise<GrowthAxes> {
-  const [start, end] = kstPeriodBounds(period);
-  const rs = await env.DB.prepare(`SELECT choice_score, reasoning_score, reasoning_features_json, misconception_tag, created_at FROM judgment_analysis WHERE student_uid=? AND created_at>=? AND created_at<? ORDER BY created_at ASC`)
-    .bind(studentUid, start, end).all<any>();
-  const rows = rs.results || [];
-
-  const choiceArr: number[] = [], reasoningArr: number[] = [], registerArr: number[] = [];
-  const miscSeq: string[] = []; const miscCount = new Map<string, number>();
+/** 판단 기록(시간 오름차순) → 5축 + 지수. 순수 함수라 "직전까지" 재계산에도 그대로 씁니다. */
+function axesFromRows(rows: any[]): GrowthAxes {
+  const choiceSeq: Array<number | null> = [], reasoningSeq: Array<number | null> = [], registerSeq: Array<number | null> = [];
+  const choiceArr: number[] = [];
+  const miscSeq: Array<string | null> = []; const miscCount = new Map<string, number>();
   for (const r of rows) {
-    if (r.choice_score != null) choiceArr.push(Number(r.choice_score));
+    const cs = r.choice_score != null ? Number(r.choice_score) : null;
+    choiceSeq.push(cs); if (cs != null) choiceArr.push(cs);
     let feat: any = {}; try { feat = r.reasoning_features_json ? JSON.parse(r.reasoning_features_json) : {}; } catch { feat = {}; }
-    if (feat.has_reasoning && r.reasoning_score != null) reasoningArr.push(Number(r.reasoning_score));
-    if (feat.register_awareness != null) registerArr.push(Number(feat.register_awareness));
-    if (r.misconception_tag) { miscSeq.push(String(r.misconception_tag)); miscCount.set(r.misconception_tag, (miscCount.get(r.misconception_tag) || 0) + 1); }
+    reasoningSeq.push((feat.has_reasoning && r.reasoning_score != null) ? Number(r.reasoning_score) : null);
+    registerSeq.push(feat.register_awareness != null ? Number(feat.register_awareness) : null);
+    const mc = r.misconception_tag ? String(r.misconception_tag) : null;
+    miscSeq.push(mc);
+    if (mc) miscCount.set(mc, (miscCount.get(mc) || 0) + 1);
   }
 
-  // 자기교정력 — 오답유형 재발률의 역수. 재발이 적을수록 높음. 오답 없으면 100(고칠 게 없음).
+  // 자기교정력 — "최근 창에서 이미 겪은 오답유형을 또 틀린 비율"의 역수.
+  //   ⚠️ 과거 버그: 오답이 담긴 배열만 분모로 써서, 정답을 아무리 맞혀도 점수가 회복되지 않았습니다
+  //   (한번 낮아지면 영구 고정). 이제 분모가 최근 판단 '전체'라 정답이 쌓이면 다시 올라갑니다.
   let axisSelf: number | null = null;
-  if (miscSeq.length) {
-    const seen = new Set<string>(); let repeated = 0;
-    for (const c of miscSeq) { if (seen.has(c)) repeated++; else seen.add(c); }
-    axisSelf = Math.round(100 * (1 - repeated / miscSeq.length));
+  if (rows.length) {
+    const cut = Math.max(0, miscSeq.length - RECENT_WINDOW);
+    const seen = new Set<string>();
+    for (let i = 0; i < cut; i++) { const c = miscSeq[i]; if (c) seen.add(c); }   // 창 이전에 이미 겪은 유형
+    let repeated = 0, total = 0;
+    for (let i = cut; i < miscSeq.length; i++) {
+      total++;
+      const c = miscSeq[i];
+      if (c) { if (seen.has(c)) repeated++; seen.add(c); }
+    }
+    axisSelf = total ? Math.round(100 * (1 - repeated / total)) : null;
   }
-  // 일관성 — 선택점수 표준편차의 역(안정적일수록 높음)
-  const axisConsistency = choiceArr.length >= 2 ? Math.max(0, Math.min(100, Math.round(100 - stddev(choiceArr)))) : null;
+  // 일관성 — 최근 창 선택점수 표준편차의 역(안정적일수록 높음)
+  const recentChoice = choiceArr.slice(-RECENT_WINDOW);
+  const axisConsistency = recentChoice.length >= 2 ? Math.max(0, Math.min(100, Math.round(100 - stddev(recentChoice)))) : null;
 
+  const round = (v: number | null) => v == null ? null : Math.round(v);
   const a: GrowthAxes = {
     events_count: rows.length,
-    axis_choice: choiceArr.length ? Math.round(avg(choiceArr)!) : null,
-    axis_reasoning: reasoningArr.length ? Math.round(avg(reasoningArr)!) : null,
+    axis_choice: round(recencyAvg(choiceSeq)),
+    axis_reasoning: round(recencyAvg(reasoningSeq)),
     axis_selfcorrection: axisSelf,
-    axis_register: registerArr.length ? Math.round(avg(registerArr)!) : null,
+    axis_register: round(recencyAvg(registerSeq)),
     axis_consistency: axisConsistency,
     judgment_index: null,
     top_misconceptions: [...miscCount.entries()].map(([code, count]) => ({ code, count })).sort((x, y) => y.count - x.count).slice(0, 5),
@@ -481,6 +513,26 @@ export async function computeGrowthForStudent(env: MangoEnv, studentUid: string,
   if (a.axis_consistency != null) parts.push([AXIS_WEIGHTS.consistency, a.axis_consistency]);
   const wSum = parts.reduce((s, [w]) => s + w, 0);
   a.judgment_index = wSum > 0 ? Math.round(parts.reduce((s, [w, v]) => s + w * v, 0) / wSum) : null;
+  return a;
+}
+
+/** 한 학생·한 기간의 판단력 5축 + 지수 계산 (순수 D1). */
+export async function computeGrowthForStudent(env: MangoEnv, studentUid: string, period: string): Promise<GrowthAxes> {
+  const [start, end] = kstPeriodBounds(period);
+  const rs = await env.DB.prepare(`SELECT choice_score, reasoning_score, reasoning_features_json, misconception_tag, is_optimal, created_at FROM judgment_analysis WHERE student_uid=? AND created_at>=? AND created_at<? ORDER BY created_at ASC`)
+    .bind(studentUid, start, end).all<any>();
+  const rows = rs.results || [];
+
+  const a = axesFromRows(rows);
+  // 이번 판단으로 지수가 얼마나 움직였는지 — 직전 판단까지만으로 한 번 더 계산
+  a.prev_index = rows.length >= 2 ? axesFromRows(rows.slice(0, -1)).judgment_index : null;
+  const lastRow: any = rows.length ? rows[rows.length - 1] : null;
+  a.last = lastRow ? {
+    choice_score: lastRow.choice_score != null ? Number(lastRow.choice_score) : null,
+    reasoning_score: lastRow.reasoning_score != null ? Number(lastRow.reasoning_score) : null,
+    is_optimal: lastRow.is_optimal ? 1 : 0,
+    created_at: Number(lastRow.created_at) || 0,
+  } : null;
   return a;
 }
 
@@ -539,6 +591,9 @@ export async function getGrowthReport(env: MangoEnv, studentUid: string): Promis
       어투민감도: current.axis_register, 일관성: current.axis_consistency,
     },
     judgment_index: current.judgment_index,
+    prev_index: current.prev_index ?? null,
+    delta_index: (current.judgment_index != null && current.prev_index != null) ? (current.judgment_index - current.prev_index) : null,
+    last: current.last ?? null,
     events_count: current.events_count,
     top_misconceptions: current.top_misconceptions,
     trend,

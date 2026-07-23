@@ -427,6 +427,40 @@ Student text: """${text}"""`;
       return { today: tc?.c || 0, lifetime: lc?.c || 0, streak, word: aiFriendWordOfDay() };
     };
 
+    /* 🔁 (2026-07-23 제보) "I 한 마디만 했는데 지난번 답을 그대로 길게 다시 한다".
+       웜업(handleWarmupChat)에는 반복 감지 후 재생성이 있었지만 AI 친구에는 없었다.
+       모델은 입력이 짧거나 애매하면 직전 답변을 거의 그대로 복사한다 → 직전 AI 발화와
+       (거의) 같으면 한 번 다시 생성한다. 판정은 웜업과 동일한 방식. */
+    const aiFriendNorm = (s: string) =>
+      String(s || '').toLowerCase().replace(/[^a-z0-9가-힣' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const aiFriendIsRepeat = (text: string, hist: any[]) => {
+      const t = aiFriendNorm(text);
+      if (t.length < 12) return false;                 // 짧은 리액션("Nice try!")은 반복 허용
+      for (const m of hist.filter((h) => h && h.role === 'assistant').slice(-3)) {
+        const p = aiFriendNorm(String(m.content || ''));
+        if (!p) continue;
+        if (p === t) return true;
+        const shorter = p.length < t.length ? p : t;
+        const longer = p.length < t.length ? t : p;
+        // 앞부분이 통째로 같으면(길이의 80% 이상) 사실상 같은 답으로 본다
+        if (shorter.length >= 24 && longer.startsWith(shorter.slice(0, Math.floor(shorter.length * 0.8)))) return true;
+      }
+      return false;
+    };
+    /* 🎤 음성 인식이 잘라먹은 조각인가 — "I", "and", "my dog" 처럼 두 단어 이하이거나
+       뒤에 말이 더 붙어야 자연스러운 단어로 끝나면 되물어야 한다(넘겨짚고 길게 답하면 안 됨). */
+    const aiFriendLooksCut = (s: string) => {
+      const w = String(s || '').trim().split(/\s+/).filter(Boolean);
+      if (!w.length) return false;
+      if (w.length <= 2) return true;
+      return /^(i|a|an|and|or|but|to|the|my|your|is|are|am|was|were|do|does|did|can|will|would|want|like|have|has|in|on|at|of|for|with|that|this|it|he|she|they|we|you|because|so|very|really|going|there)$/i
+        .test(w[w.length - 1].replace(/[^a-z']/gi, ''));
+    };
+    /* 🐢 "천천히 말해줘 / 다시 말해줘" 같은 부탁인가 — 무시하고 제 얘기만 하면 안 된다 */
+    const aiFriendIsMetaAsk = (s: string) =>
+      /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게)/.test(String(s || '')) ||
+      /\b(slow(ly| down)?|too fast|say (it|that) again|again please|repeat|i don'?t (know|understand)|simpler|easier|shorter)\b/i.test(String(s || ''));
+
     // ── POST /api/ai/chat-guest-token — 비로그인 게스트용 세션 스코프 uid + 서명 토큰 발급 ──
     //   클라이언트가 임의 uid 를 만들어 보내는 것을 금지 (IDOR 방지). 게스트 uid 는
     //   서버가 발급한 추측 불가 랜덤값 + 단기 토큰만 허용, sessionStorage 에만 보관.
@@ -495,13 +529,22 @@ Rules:
 - If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
 - Sprinkle in tiny fun facts kids enjoy (animals, space, food, games) when it fits.
 - Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
+- NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
+- If the student's message is very short, unclear, or looks cut off (1-2 words, or it stops mid-sentence), do NOT guess what they meant and do NOT continue your previous answer. Say something short and warm, then ask them to say the whole sentence again. Example: 'Ooh, I only caught "I" 😊 Can you say the whole sentence again?'
+- If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
 - Never break character. Never say you are an AI. Never use words far above the student's level.`;
 
       const messages: any[] = [{ role: 'system', content: system }];
       for (const h of history) {
         messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content });
       }
-      messages.push({ role: 'user', content: msg });
+      /* 🎤/🐢 이번 발화가 '잘린 조각' 이거나 '천천히 해달라'는 부탁이면, 그 사실을 모델에게
+         명시적으로 알려준다. 규칙만으로는 모델이 직전 답변을 그대로 복사해 버린다. */
+      const cutHint = aiFriendLooksCut(msg)
+        ? ` [The student's message is very short or cut off — do NOT guess and do NOT repeat your last reply. Reply in ONE short line and ask them to say the whole sentence again.]` : '';
+      const metaHint = aiFriendIsMetaAsk(msg)
+        ? ` [The student is asking you to slow down / repeat / speak more simply. Say yes to that first, then answer again in much shorter and easier words.]` : '';
+      messages.push({ role: 'user', content: msg + cutHint + metaHint });
 
       // env.AI 가 binding 안되어 있을 가능성 방어
       if (!env.AI) {
@@ -531,6 +574,23 @@ Rules:
         } catch (e: any) {
           lastErr = e;
           console.error(`[chat-friend] model ${m} failed:`, e?.message || e);
+        }
+      }
+      /* 🔁 직전 답변과 (거의) 같은 말이 또 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시.
+         (웜업 handleWarmupChat 과 동일한 방식. "I" 한 마디에 지난 답이 그대로 나오던 문제) */
+      if (reply && usedModel && aiFriendIsRepeat(reply, history)) {
+        try {
+          const retry: any = await env.AI.run(usedModel, {
+            messages: messages.concat([
+              { role: 'assistant', content: reply },
+              { role: 'user', content: '(You already said that. Say something completely different in new words, and ask a different question. Keep it to 1-2 short sentences.)' },
+            ]),
+            max_tokens: 220, temperature: 0.95,
+          });
+          const rt = String((retry && (retry.response || retry.result)) || '').trim();
+          if (rt && !aiFriendIsRepeat(rt, history)) reply = rt;
+        } catch (e: any) {
+          console.error('[chat-friend] repeat retry failed:', e?.message || e);
         }
       }
       if (!reply) {
