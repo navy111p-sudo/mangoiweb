@@ -143,10 +143,47 @@
     '     독 폭이 96vw 라 양끝 버튼(right:10/left:16, bottom 58~92px)이 열린 독(50~120px 대역)과 정확히 겹치던 문제 */',
     '  body.vc-in-call.vc-dock-open .vc-phero-ctrl{bottom:calc(env(safe-area-inset-bottom,0px) + 132px) !important;}',
     '  body.vc-in-call.vc-dock-open #ph52-cache-fab, body.vc-in-call.vc-dock-open .ph52-cache-fab{bottom:calc(env(safe-area-inset-bottom,0px) + 132px) !important;}',
+    '}',
+    '/* ★ (2026-07-23 사장님) PC: 하단 독이 내 얼굴(PIP)을 가린다 → 문고리로 접었다 폈다.',
+    '   모바일(<=1024px)은 위의 ⋯ 버튼이 담당하므로 이 블록은 PC(>=1025px)에만 적용한다.',
+    '   트랜지션은 두지 않음 — 가로모드와 같은 이유(혼합 단위 보간 버그). */',
+    '@media (min-width:1025px){',
+    '  body.vc-in-call.vc-dock-on #vc-dock-handle{display:inline-flex;bottom:102px;width:78px;height:26px;',
+    '    background:rgba(18,22,30,.62);border:1px solid rgba(255,255,255,.18);',
+    '    -webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);',
+    '    box-shadow:0 8px 20px rgba(0,0,0,.45);}',
+    '  body.vc-in-call.vc-dock-on #vc-dock-handle:hover{background:rgba(32,40,54,.86);}',
+    '  body.vc-in-call.vc-dock-collapsed #vc-dock{transform:translateX(-50%) translateY(190%) !important;opacity:0;pointer-events:none;}',
+    '  body.vc-in-call.vc-dock-collapsed #vc-dock-handle{bottom:14px;}',
+    '  body.vc-in-call.vc-dock-collapsed #vc-dock-handle svg{transform:rotate(180deg);}',
     '}'
   ].join('\n');
 
   var dock, btnMic, btnCam, bSet, setPop, backdrop, hint, hintT;
+
+  /* ★ (2026-07-23 사장님) 독 접기 상태 — PC에서만 기억한다.
+     모바일(<=1024px)은 문고리가 display:none !important 라, 접힘이 남아 있으면
+     ⋯ 로 열어도 독이 화면 밖에 머물러 되돌릴 방법이 없다. 그래서 PC 한정. */
+  var COLLAPSE_KEY = 'mangoi_vc_dock_collapsed';
+  function isPC(){ try { return window.innerWidth >= 1025; } catch(e){ return false; } }
+  function syncHandleLabel(){
+    var h = document.getElementById('vc-dock-handle'); if (!h) return;
+    var col = document.body.classList.contains('vc-dock-collapsed');
+    var t = col ? '수업 메뉴 펴기 (Show class menu)'
+                : '수업 메뉴 접기 — 내 얼굴 가림 해소 (Hide class menu)';
+    h.title = t; h.setAttribute('aria-label', t);
+  }
+  function setCollapsed(v){
+    document.body.classList.toggle('vc-dock-collapsed', !!v);
+    if (isPC()) { try { localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'); } catch(_){ } }
+    syncHandleLabel();
+  }
+  function restoreCollapsed(){
+    if (!isPC()) return;                       // 모바일은 항상 펴진 상태로 시작
+    var v = false; try { v = (localStorage.getItem(COLLAPSE_KEY) === '1'); } catch(_){ }
+    document.body.classList.toggle('vc-dock-collapsed', v);
+    syncHandleLabel();
+  }
 
   function fullscreenOn(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function toggleFullscreen(){
@@ -343,8 +380,9 @@
     handle.setAttribute('aria-label', '수업 메뉴 접기/펴기');
     handle.innerHTML = '<span class="vdh-grip"></span>' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-    handle.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); document.body.classList.toggle('vc-dock-collapsed'); };
+    handle.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); setCollapsed(!document.body.classList.contains('vc-dock-collapsed')); };
     document.body.appendChild(handle);
+    restoreCollapsed();   // PC: 지난번에 접어뒀으면 접힌 채로 시작
 
     // ★ (2026-07-14 사장님) 모바일 ⋯(가로 점3개) 토글 — 독 기본 숨김, 누르면 열림/다시 누르면 닫힘
     var more = document.createElement('button');
