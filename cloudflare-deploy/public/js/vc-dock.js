@@ -389,7 +389,8 @@
     more.id = 'vc-dock-more'; more.type = 'button';
     more.setAttribute('aria-label', '수업 버튼 열기/닫기');
     more.textContent = '•••';
-    more.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); document.body.classList.toggle('vc-dock-open'); };
+    /* 모바일에서 ⋯ 로 열 때는 접힘을 반드시 풀어준다 — 접힌 채로 열리면 화면 밖에 머문다 */
+    more.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); document.body.classList.remove('vc-dock-collapsed'); document.body.classList.toggle('vc-dock-open'); };
     document.body.appendChild(more);
   }
 
@@ -403,10 +404,12 @@
     btnCam.querySelector('svg').outerHTML = svg(camOn ? P.cam : P.camoff);
   }
 
+  var wasInCall = false;
   function tick(){
     var inCall = !!(document.body && document.body.classList.contains('vc-in-call'));
-    if (inCall) { build(); document.body.classList.add('vc-dock-on'); sync(); }
+    if (inCall) { build(); if (!wasInCall) restoreCollapsed(); document.body.classList.add('vc-dock-on'); sync(); }
     else if (document.body) { document.body.classList.remove('vc-dock-on'); document.body.classList.remove('vc-dock-collapsed'); document.body.classList.remove('vc-dock-open'); closeSettings(); }
+    wasInCall = inCall;
   }
   if (document.readyState !== 'loading') { tick(); } else { document.addEventListener('DOMContentLoaded', tick); }
   setInterval(tick, 1500);
