@@ -494,10 +494,16 @@ export async function handleAdminAuthApi(
       //      `Maimai (본사 매니저)` 였다. "이름에 한글이 하나라도 있으면 한국어" 규칙이
       //      괄호 안 직함 때문에 통째로 한국어로 떨어졌다(= 사장님이 겪은 증상).
       //      → 괄호/대괄호 이후를 잘라 **사람 이름 부분만** 보고 판정한다.
+      //   🇵🇭 (2026-07-23) 실계정 아이디 컨벤션 확인 결과 **강사·해외 스태프는 `mangoi_NNN`** 이다.
+      //      (hq_t_* 는 시연용. 실제 강사 22명 + Manager Maimai/Melca + IT Karl 전원 mangoi_*)
+      //      이름 칸이 비어 있어도 아이디만으로 영어로 열리게 한다.
+      //      사장님 확인: "한국인 교사들은 없다고 보면 된다"(2026-07-23).
+      //      ⚠️ 한국인 스태프는 다른 컨벤션(admin · mgr_jjw · mgr_lby)이라 여기 걸리지 않는다.
+      const isForeignStaffId = /^(hq_t|mangoi_)/i.test(username);
       const baseName = acctName.replace(/\s*[(（[【].*$/, '').trim();
       const namedOk = !!baseName && baseName !== username;
       const prefLang: 'en' | 'ko' =
-        isTeacher ? (acctPrefLang === 'ko' ? 'ko' : 'en')
+        (isTeacher || isForeignStaffId) ? (acctPrefLang === 'ko' ? 'ko' : 'en')
         : (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
         : (namedOk && !/[가-힣]/.test(baseName)) ? 'en'
         : 'ko';

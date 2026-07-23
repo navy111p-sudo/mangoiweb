@@ -53,9 +53,13 @@
   var byUid = get('mangoi_lang_uid');
   var userPick = (by === 'user') && (!loggedIn || (byUid && byUid === sess.uid));
 
-  // 🇵🇭 강사 판별 — 아이디가 `hq_t_` 로 시작하거나 역할에 teacher 가 들어 있으면 강사.
-  //    (서버 resolveRole 도 `^hq_t` 규칙을 쓴다 — 양쪽이 같아야 한다)
-  var isTeacher = /^hq_t/i.test(String(sess.uid || '')) || /teacher/i.test(String(sess.role || ''));
+  // 🇵🇭 해외 스태프 판별 — 아이디 컨벤션이 정답이다(이름 칸은 비어 있거나 직함이 섞여 있다).
+  //    · `mangoi_NNN` = 실제 강사 22명 + Manager Maimai/Melca + IT Karl. **전원 외국인.**
+  //      (사장님 확인 2026-07-23: "한국인 교사들은 없다고 보면 된다")
+  //    · `hq_t_*`     = 시연·본사 강사 계정
+  //    한국인 스태프는 다른 컨벤션(admin · mgr_jjw · mgr_lby)이라 여기 걸리지 않는다.
+  //    ⚠️ 서버 auth-admin.ts 에 같은 정규식이 있다. 한쪽만 고치지 말 것.
+  var isTeacher = /^(hq_t|mangoi_)/i.test(String(sess.uid || '')) || /teacher/i.test(String(sess.role || ''));
 
   if (loggedIn && isTeacher) {
     // ① 🇵🇭 **강사는 무조건 영어.** 망고아이 강사는 전원 외국인이다(사장님 지시 2026-07-23).
