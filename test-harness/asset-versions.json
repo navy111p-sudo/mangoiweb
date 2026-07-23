@@ -169,5 +169,6 @@
   "/vendor/html2canvas/html2canvas.min.js?v=1": "e87e550794322e57",
   "/vendor/jszip/jszip.min.js?v=1": "acc7e41455a80765",
   "/vendor/three/GLTFLoader.js?v=1": "5c15967ba830918a",
-  "/vendor/three/three.min.js?v=1": "9274bbcec8d96168"
+  "/vendor/three/three.min.js?v=1": "9274bbcec8d96168",
+  "/js/adm-light-surfaces.js?v=8": "d9dd822696dcfbb4"
 }
