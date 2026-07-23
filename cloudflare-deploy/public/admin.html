@@ -12781,6 +12781,69 @@ button.chip:hover,
 })();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════════════
+     🖥️ (2026-07-24) PC 전용 — 화면 폭 자동 맞춤 (사장님 요청)
+     · 목표 배율(1.3, 읽기 편함)을 유지하되, 콘텐츠가 가로로 넘치면
+       넘치지 않을 때까지 body zoom 을 자동으로 낮춰 좌우가 항상 한 화면에.
+     · 정적 CSS body{zoom:1.3} 은 JS 실행 前 초기 배율(깜빡임 방지)로 유지하고,
+       이 스크립트가 실제 콘텐츠 폭을 측정해 인라인 zoom 으로 미세 조정한다.
+     · 창 크기 변경·메뉴(<details>) 펼침/접힘·사이드바 접힘 때마다 재계산.
+   ═══════════════════════════════════════════════════════════════════ -->
+<script id="ph-adaptive-fit">
+(function(){
+  'use strict';
+  var TARGET = 1.3;    // 읽기 편한 기본 확대율 (여유 있으면 여기까지 키움)
+  var FLOOR  = 0.85;   // 아주 넓은 표까지 억지로 맞추다 글자가 너무 작아지는 것 방지
+  var MIN_VW = 1024;   // 이 미만은 모바일 드로어 — zoom 손대지 않음
+  var raf = 0, settleTimer = 0;
+
+  function applyFit(){
+    if (window.innerWidth < MIN_VW){
+      // 모바일/태블릿: 인라인 zoom 제거 → CSS 미디어쿼리(zoom 없음)로 복귀
+      if (document.body.style.zoom) document.body.style.zoom = '';
+      return;
+    }
+    var doc = document.documentElement;
+    var z = TARGET;
+    document.body.style.zoom = String(z);
+    // 고정폭 요소는 배율에 비례해 줄어든다는 가정으로 몇 번 수렴시킨다.
+    for (var i = 0; i < 4; i++){
+      var need = doc.scrollWidth;   // 읽는 순간 강제 리플로우 → 매 반복 재측정
+      var avail = doc.clientWidth;
+      if (need <= avail + 1) break; // 넘치지 않으면 종료(=목표 배율 유지)
+      var next = z * (avail / need) * 0.997; // 살짝 여유로 경계 떨림 방지
+      if (next < FLOOR) next = FLOOR;
+      var done = Math.abs(next - z) < 0.004;
+      z = next;
+      document.body.style.zoom = String(z);
+      if (done) break;
+    }
+  }
+
+  function schedule(){
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(function(){ raf = 0; applyFit(); });
+  }
+  function scheduleSettle(){
+    // 비동기로 콘텐츠가 채워진 뒤 한 번 더 맞추기
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(schedule, 220);
+  }
+
+  window.addEventListener('resize', schedule, { passive:true });
+  // 메뉴(<details>) 펼침/접힘 시 콘텐츠 폭이 바뀌므로 재계산 (toggle 은 캡처로 수신)
+  document.addEventListener('toggle', function(e){
+    if (e.target && e.target.tagName === 'DETAILS') scheduleSettle();
+  }, true);
+  // 사이드바 접힘 등 클릭으로 레이아웃이 바뀌는 경우도 포괄
+  document.addEventListener('click', scheduleSettle, true);
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
+  else schedule();
+  window.addEventListener('load', function(){ schedule(); scheduleSettle(); });
+})();
+</script>
+
 <button id="ph85-toggle" type="button">☰</button>
 
 <script>
@@ -21150,6 +21213,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260724042612 -->
+<!-- BUILD:20260724063600 -->
 </body>
 </html>
