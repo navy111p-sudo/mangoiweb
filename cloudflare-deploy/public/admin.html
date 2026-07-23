@@ -12293,12 +12293,12 @@ button.chip:hover,
   .ph85-ico svg { display: block; }
   .ph85-group.open .ph85-ico { color: #dbe6fa; border-color: rgba(203,213,225,0.40); }
   .ph85-title { flex: 1; font-size: 15px; font-weight: 700; }
-  .ph85-arrow { color: #94a3b8; font-size: 16px; transition: transform 0.4s; }
+  .ph85-arrow { color: #94a3b8; font-size: 16px; transition: transform 0.18s; }
   .ph85-group.open .ph85-arrow { transform: rotate(90deg); color: #fbbf24; }
   .ph85-subs {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.5s cubic-bezier(0.32,0.72,0,1);
+    transition: max-height 0.18s cubic-bezier(0.32,0.72,0,1);  /* (2026-07-24) 0.5s→0.18s */
     background: rgba(0,0,0,0.2);
   }
   /* (2026-07-23) 760px → 2000px.
@@ -13234,7 +13234,8 @@ button.chip:hover,
     max-height: 0;
     overflow: hidden;
     opacity: 0;
-    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, padding 0.35s ease;
+    /* (2026-07-24) 0.5s→0.18s, opacity/padding 0.35s→0.15s — 여닫힘 체감 단축 */
+    transition: max-height 0.18s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease, padding 0.15s ease;
     padding-top: 0;
     padding-bottom: 0;
   }
@@ -13344,13 +13345,18 @@ button.chip:hover,
   #ph85-sidebar .ph85-subs {
     max-height: 0 !important;
     overflow: hidden !important;
-    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* ⏱️ (2026-07-24) 0.5s → 0.18s, 600px → 900px 로 아래 블록들과 통일.
+       이 규칙은 뒤에 나오는 mi-sidebar-ux 블록에 져서 실제로는 안 쓰이지만, 값이 제각각이면
+       (여기 600 / 아래 900 / 또 아래 900) 다음 사람이 어느 게 진짜인지 못 찾는다.
+       특히 600px 는 영어 Teachers 그룹(실측 720px)보다 작아서, 뒤 규칙이 사라지는 순간
+       메뉴가 잘리는 함정이 된다. */
+    transition: max-height 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
   }
   #ph85-sidebar .ph85-group.open .ph85-subs {
-    max-height: 600px !important;
+    max-height: 900px !important;
   }
   #ph85-sidebar .ph85-arrow {
-    transition: transform 0.4s ease !important;
+    transition: transform 0.18s ease !important;
   }
   #ph85-sidebar .ph85-group.open .ph85-arrow {
     transform: rotate(90deg) !important;
@@ -13410,10 +13416,14 @@ button.chip:hover,
   #ph85-sidebar .ph85-subs {
     max-height: 0 !important;
     overflow: hidden !important;
-    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* ⏱️ (2026-07-24) 0.5s → 0.18s. 아래 mi-sidebar-ux 블록(19780줄 부근)이 같은 특이도·!important 로
+       나중에 나와서 실제로 이기지만, 여기 옛 값이 남아 있으면 다음 사람이 반대로 읽는다. 같이 맞춤. */
+    transition: max-height 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
   }
-  #ph85-sidebar .ph85-group.open .ph85-subs { max-height: 800px !important; }
-  #ph85-sidebar .ph85-arrow { transition: transform 0.4s ease !important; }
+  /* 아래 mi-sidebar-ux 블록이 이기지만, 옛 값(800px)이 남아 있으면 다음 사람이 반대로 읽는다 */
+  #ph85-sidebar .ph85-group.open .ph85-subs { max-height: 900px !important; }
+  /* 화살표도 같이 — 0.4s 로 두면 메뉴가 다 열린 뒤에 화살표만 뒤늦게 돈다 */
+  #ph85-sidebar .ph85-arrow { transition: transform 0.18s ease !important; }
   #ph85-sidebar .ph85-group.open .ph85-arrow {
     transform: rotate(90deg) !important;
     color: #fbbf24 !important;
@@ -17532,7 +17542,8 @@ button.chip:hover,
   #ph85-sidebar .ph125-grandchildren {
     max-height: 0 !important;
     overflow: hidden !important;
-    transition: max-height 0.5s cubic-bezier(0.4,0,0.2,1) !important;
+    /* (2026-07-24) 0.5s→0.18s — 3단계(손자) 메뉴도 같은 체감이라 함께 줄임 */
+    transition: max-height 0.18s cubic-bezier(0.4,0,0.2,1) !important;
     margin-left: 18px !important;
     border-left: 2px solid rgba(96,165,250,0.55) !important;
     padding-left: 0 !important;
@@ -19763,12 +19774,14 @@ button.chip:hover,
 </style>
 <!-- 🖱️ 사이드바 hover·아코디언 부드럽게 + 클릭 쉽게 (가산적·비파괴) -->
 <style id="mi-sidebar-ux">
-  /* hover가 즉각 깜빡이지 않게 부드러운 전환 추가 */
+  /* hover가 즉각 깜빡이지 않게 부드러운 전환 추가
+     ⏱️ (2026-07-24) .2s → .1s — 사장님 제보 "마우스를 올려도 늦게 바뀐다".
+        깜빡임 방지가 목적이라 0.1초면 충분하고, 그 이상은 그냥 기다리는 시간이다. */
   #ph85-sidebar .ph85-group,
   #ph85-sidebar .ph85-head,
   #ph85-sidebar .ph85-sub,
   #ph85-sidebar .ph85-arrow{
-    transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .2s ease !important;
+    transition: background-color .1s ease, color .1s ease, border-color .1s ease, transform .1s ease !important;
   }
   /* 클릭 영역 확대 — 손가락/마우스로 누르기 쉽게 */
   #ph85-sidebar .ph85-head{ padding:13px 12px !important; }
@@ -19776,9 +19789,23 @@ button.chip:hover,
     padding-top:11px !important; padding-bottom:11px !important;
     padding-left:47px !important; font-size:12.5px !important; line-height:1.35 !important;
   }
-  /* 아코디언: 살짝 느리고 부드럽게 + 항목 많은 그룹 잘림 방지 */
-  #ph85-sidebar .ph85-subs{ transition: max-height .55s cubic-bezier(.25,.8,.3,1) !important; }
-  #ph85-sidebar .ph85-group.open .ph85-subs{ max-height:760px !important; }
+  /* 아코디언 + 항목 많은 그룹 잘림 방지
+     ⏱️ (2026-07-24) .55s → .18s. 원래 "살짝 느리고 부드럽게"가 의도였는데, 실제로는
+        그룹을 여닫을 때 아래 메뉴 전체가 0.55초 동안 위아래로 밀려서 "스크롤보다 느리다"는
+        제보가 됐다(사장님).
+     🔴 닫힐 때 특히 굼떴던 이유: max-height 는 760px→0 으로 줄지만 실제 내용은 400px 남짓이라,
+        760→400 구간은 화면에 아무 변화가 없다. 그 죽은 시간이 그대로 '반응 없음'으로 느껴진다.
+        시간을 줄이면 죽은 시간도 같은 비율로 줄어든다(약 0.3초 → 0.06초).
+     ⚠️ 760px 상한은 그대로 둔다 — 실제 높이를 JS로 재서 넣으면 죽은 시간이 0이 되지만,
+        측정이 틀리면 메뉴가 잘려 아예 못 누르는 기능 사고가 된다. 0.06초 벌자고 걸 위험이 아니다. */
+  #ph85-sidebar .ph85-subs{ transition: max-height .18s cubic-bezier(.25,.8,.3,1) !important; }
+  /* (2026-07-24) 760px → 900px — 잘림 사고 예방용 여유. **지금 잘리고 있던 건 아니다.**
+     실측(1400px·EN·zoom1.3): 가장 큰 Teachers 그룹이 720px 라 760px 안에 겨우 들어왔다.
+     남는 여유가 40px(항목 한 개도 안 됨)이라, 메뉴 하나만 늘거나 번역이 길어지면 바로 잘린다.
+     ⚠️ 무작정 크게(1200px 등) 잡으면 안 된다 — 닫을 때 max-height 가 900→720 구간을 지나는
+        동안은 화면에 아무 변화가 없어서, 상한이 클수록 '반응 없는 시간'이 다시 길어진다.
+        720px 내용 기준 여유 25% 가 잘림 안전과 체감 사이의 절충점. */
+  #ph85-sidebar .ph85-group.open .ph85-subs{ max-height:900px !important; }
   /* 모션 최소화 사용자는 전환 끔(접근성) */
   @media (prefers-reduced-motion: reduce){
     #ph85-sidebar .ph85-group,#ph85-sidebar .ph85-head,#ph85-sidebar .ph85-sub,
@@ -21213,6 +21240,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260724072526 -->
+<!-- BUILD:20260724080537 -->
 </body>
 </html>

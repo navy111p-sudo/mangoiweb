@@ -224,9 +224,19 @@ try {
   const a = allAdm();
   check('사이드바: hover 부드러운 전환 추가', a.includes('mi-sidebar-ux') && /\.ph85-head[\s\S]{0,80}transition/.test(a));
   check('사이드바: 클릭 영역 확대(padding 키움)', a.includes('padding:13px 12px !important') && a.includes('padding-top:11px !important'));
-  check('사이드바: 아코디언 부드럽게(0.55s)', a.includes('transition: max-height .55s'));
-  check('사이드바: 항목 많은 그룹 잘림 방지(max-height 키움)', a.includes('max-height:760px !important'));
-  check('사이드바: 모션 최소화 대응', /mi-sidebar-ux[\s\S]{0,900}prefers-reduced-motion/.test(a));
+  // ⏱️ (2026-07-24) 기대값 변경: 0.55s → 0.18s, 760px → 900px.
+  //   사장님 제보 "메뉴가 스크롤보다 천천히 위아래로 움직인다" → 원래 의도(부드럽게)가
+  //   실제로는 여닫을 때마다 0.55초 동안 아래 메뉴 전체가 밀리는 체감이었다.
+  //   상한 760px 는 영어 Teachers 그룹 실측 720px 와 40px 차이라 한 항목만 늘어도 잘린다 → 900px.
+  //   ⚠️ 아래 두 검사는 '느리게 되돌아가는 것'을 막는 가드다. 다시 0.5s 대로 올리지 말 것.
+  check('사이드바: 아코디언 빠르게(0.18s)', a.includes('transition: max-height .18s'));
+  // 사이드바 아코디언 관련 max-height 전환이 다시 느려지는 것을 막는다.
+  //   ⚠️ admin.html 전체를 훑으므로, 사이드바와 무관한 컴포넌트가 max-height 0.5s 를 쓰면
+  //      여기서 같이 걸린다. 그때는 이 검사를 그 선택자만 빼도록 좁힐 것(무작정 지우지 말 것).
+  check('사이드바: 아코디언 0.3s 이상 회귀 금지', !/transition:\s*max-height\s+0?\.[3-9]\d*s/.test(a));
+  check('사이드바: 항목 많은 그룹 잘림 방지(상한 900px)', a.includes('max-height:900px !important'));
+  // 주석이 길어져도 깨지지 않게 창을 넉넉히 — 이 검사의 목적은 '블록 안에 있는가'다
+  check('사이드바: 모션 최소화 대응', /mi-sidebar-ux[\s\S]{0,2500}prefers-reduced-motion/.test(a));
   check('사이드바: 아코디언 단일 컨트롤러(ph97, 한 번에 하나만 열림)', a.includes('[ph97] accordion group') && a.includes("forEach(function(x){ x.classList.remove('open'); });"));
   check('사이드바: 옛 독립토글 제거 확인(중복 핸들러 청소)', !a.includes("this.parentElement.classList.toggle('open')"));
 } catch (e) { check('사이드바 UX 읽기', false); console.log('    →', e.message); }
