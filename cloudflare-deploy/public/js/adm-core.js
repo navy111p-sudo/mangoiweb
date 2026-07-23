@@ -2067,7 +2067,9 @@ const _TP_IC = {
   // 스케줄 (달력)
   calendar: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   // 삭제 무장(2차 확인 대기) — 경고 삼각형
-  confirmDel: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+  confirmDel: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  // 비밀번호 재설정 — 열쇠
+  key: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2"/><path d="M17 6l3 3"/></svg>'
 };
 window._TP_ACT_BTN = _TP_ACT_BTN;
 window._TP_IC = _TP_IC;
@@ -2239,6 +2241,11 @@ async function loadTeacherProfiles() {
         '<button class="tp-act-btn tp-act--video" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="' + _TP_ACT_BTN + '" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
         '<button class="tp-act-btn tp-act--view" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + '" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
         '<button class="tp-act-btn tp-act--edit" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + '" aria-label="수정">' + _TP_IC.edit + '</button>' +
+        // 🔑 비밀번호 재설정 — 강사가 비번을 잊으면 아무도 풀어줄 수 없던 문제(2026-07-23).
+        //   경영진·본사 관리자에게만 보인다. 서버(staff-password-reset)에서 한 번 더 막는다.
+        (_tpCanResetPw()
+          ? '<button class="tp-act-btn tp-act--pw" onclick="openTeacherPwReset(\'' + _aiEsc(t.korean_name || t.english_name || '') + '\')" title="비밀번호 재설정" data-en-title="Reset password" style="' + _TP_ACT_BTN + '" aria-label="비밀번호 재설정">' + _TP_IC.key + '</button>'
+          : '') +
         '<button class="tp-act-btn tp-act--del" onclick="removeTeacherProfile(' + t.id + ',\'' + _aiEsc(t.korean_name||'') + '\', this)" title="제거" style="' + _TP_ACT_BTN + '" aria-label="제거">' + _TP_IC.trash + '</button>' +
       '</td>' +
     '</tr>';
@@ -2247,6 +2254,87 @@ async function loadTeacherProfiles() {
   // 📊 인사평가 점수·순위 채우기 — 실제 수업기록 기반. 표 렌더를 막지 않도록 비동기.
   if (typeof window.hrFillTeacherScores === 'function') window.hrFillTeacherScores();
 }
+
+// ═══ 🔑 강사 비밀번호 재설정 (2026-07-23) ═══════════════════════════════
+//   왜: 강사가 비번을 잊으면 풀어줄 방법이 없었다. `change-password` 는 본인이 현재
+//       비번을 알아야만 쓸 수 있어서, 잊은 순간 아무도 못 도와준다(hq_t_001 사례).
+//   ⚠️ 계정 아이디를 사람이 직접 입력하게 둔 이유: teacher_profiles(강사 인사정보)와
+//      admin_account(로그인 계정)를 잇는 컬럼이 아직 없다. 이름으로 자동 추측하면
+//      **엉뚱한 사람 비번을 바꿀 수 있어서**, 위험한 작업일수록 사람이 명시하게 한다.
+//      (연결 컬럼이 생기면 이 입력칸을 자동완성으로 바꿀 것)
+function _tpCanResetPw() {
+  try {
+    var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
+    var r = String(s.role || '');
+    // 강사·지사·대리점은 제외. 본사 경영진/관리자만. (서버가 최종 게이트)
+    if (/teacher|branch|agency|franchise|parent|student/i.test(r)) return false;
+    return /exec|hq|mgr|staff|admin/i.test(r);
+  } catch (e) { return false; }
+}
+
+window.openTeacherPwReset = function (teacherName) {
+  var EN = (window.adminLang === 'en');
+  var T = function (ko, en) { return EN ? en : ko; };
+  var old = document.getElementById('tp-pw-modal'); if (old) old.remove();
+  var wrap = document.createElement('div');
+  wrap.id = 'tp-pw-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,14,25,.66)';
+  wrap.innerHTML =
+    '<div style="width:100%;max-width:420px;background:#fff;color:#0f172a;border-radius:16px;padding:22px 24px;box-shadow:0 24px 60px -12px rgba(0,0,0,.5)">' +
+      '<div style="font-size:17px;font-weight:900;margin-bottom:4px">🔑 ' + T('비밀번호 재설정', 'Reset password') + '</div>' +
+      '<div style="font-size:12.5px;color:#64748b;line-height:1.6;margin-bottom:14px">' +
+        (teacherName ? '<b>' + _aiEsc(teacherName) + '</b> — ' : '') +
+        T('이 강사의 <b>로그인 계정 아이디</b>를 정확히 입력해 주세요. 재설정하면 그 계정의 기존 로그인은 모두 해제됩니다.',
+          'Enter this teacher\'s <b>login ID</b> exactly. Resetting will sign them out of every device.') +
+      '</div>' +
+      '<label style="font-size:11.5px;font-weight:700;color:#374151">' + T('계정 아이디', 'Login ID') + '</label>' +
+      '<input id="tp-pw-user" type="text" autocomplete="off" placeholder="mangoi_018" style="width:100%;padding:9px 11px;margin:4px 0 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px">' +
+      '<label style="font-size:11.5px;font-weight:700;color:#374151">' + T('새 비밀번호 (6자 이상)', 'New password (6+ characters)') + '</label>' +
+      '<input id="tp-pw-new" type="text" autocomplete="off" style="width:100%;padding:9px 11px;margin:4px 0 6px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px">' +
+      '<div style="font-size:11.5px;color:#94a3b8;margin-bottom:14px">' +
+        T('강사에게 알려줘야 하므로 가려두지 않습니다. 알려준 뒤에는 본인이 바꾸게 하세요.',
+          'Shown in plain text because you must pass it on. Ask them to change it afterwards.') + '</div>' +
+      '<div id="tp-pw-msg" style="font-size:12.5px;font-weight:700;min-height:18px;margin-bottom:10px"></div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button id="tp-pw-cancel" style="flex:1;padding:10px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:9px;font-weight:800;cursor:pointer">' + T('취소', 'Cancel') + '</button>' +
+        '<button id="tp-pw-go" style="flex:1;padding:10px;border:0;background:#2563eb;color:#fff;border-radius:9px;font-weight:800;cursor:pointer">' + T('재설정', 'Reset') + '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(wrap);
+  var msg = wrap.querySelector('#tp-pw-msg');
+  var close = function () { wrap.remove(); };
+  wrap.querySelector('#tp-pw-cancel').onclick = close;
+  wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
+  wrap.querySelector('#tp-pw-go').onclick = async function () {
+    var u = (wrap.querySelector('#tp-pw-user').value || '').trim();
+    var p = (wrap.querySelector('#tp-pw-new').value || '');
+    if (!u || !p) { msg.style.color = '#dc2626'; msg.textContent = T('두 칸 모두 채워 주세요.', 'Please fill in both fields.'); return; }
+    if (p.length < 6) { msg.style.color = '#dc2626'; msg.textContent = T('비밀번호는 6자 이상이어야 합니다.', 'Password must be at least 6 characters.'); return; }
+    this.disabled = true;
+    msg.style.color = '#64748b'; msg.textContent = T('처리 중…', 'Working…');
+    try {
+      var r = await fetch('/api/admin/staff-password-reset', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, new_password: p })
+      });
+      var j = await r.json();
+      if (j && j.ok) {
+        msg.style.color = '#16a34a';
+        msg.textContent = '✅ ' + (EN ? (j.message_en || 'Done.') : (j.message || '완료.'));
+        setTimeout(close, 2200);
+      } else {
+        msg.style.color = '#dc2626';
+        msg.textContent = '❌ ' + (EN ? (j && (j.message_en || j.error)) : (j && (j.message || j.error))) || 'failed';
+        this.disabled = false;
+      }
+    } catch (e) {
+      msg.style.color = '#dc2626';
+      msg.textContent = T('네트워크 오류', 'Network error');
+      this.disabled = false;
+    }
+  };
+};
 
 // 🎬 강사 소개 영상 — 목록 ▶ 버튼 클릭 시 모달로 바로 재생 (YouTube 임베드 / mp4)
 window.viewTeacherVideo = function(encUrl, name){

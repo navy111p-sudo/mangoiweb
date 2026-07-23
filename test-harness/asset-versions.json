@@ -139,5 +139,7 @@
   "/js/game-tts.js?v=3": "5926774a574a838a",
   "/js/mangoi-voice-input.js?v=1": "844115c3cf60733b",
   "/js/adm-core.js?v=12": "421faaac6a21ab27",
-  "/js/adm-lang-boot.js?v=6": "625d8e37039cfec9"
+  "/js/adm-lang-boot.js?v=6": "625d8e37039cfec9",
+  "/js/adm-core.js?v=13": "fa0bb8d0d08500fe",
+  "/js/mangoi-stt.js?v=1": "b0f0fbbbeb8148c4"
 }

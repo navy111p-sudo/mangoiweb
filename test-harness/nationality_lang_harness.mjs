@@ -122,6 +122,15 @@ const AGENCY_FN = (IDX.match(/function isAgencyAllowedApi[\s\S]*?\n}/) || [''])[
 check('🔴 대리점 허용목록(isAgencyAllowedApi)에는 들어 있지 않다',
   AGENCY_FN.length > 100 && !AGENCY_FN.includes('staff-password-reset'));
 
+console.log('\n[8] 🖱 강사 목록의 비번 재설정 버튼');
+check('강사 행에 재설정 버튼이 있다', /openTeacherPwReset\(/.test(CORE));
+check('🔴 강사·지사·대리점에게는 버튼이 안 보인다',
+  /teacher\|branch\|agency\|franchise\|parent\|student/.test(CORE));
+check('모달이 새 API 를 호출한다', /\/api\/admin\/staff-password-reset/.test(CORE));
+check('계정 아이디를 사람이 직접 입력하게 한다 (엉뚱한 사람 비번 변경 방지)',
+  /id="tp-pw-user"/.test(CORE));
+check('🌐 모달이 한/영 두 언어로 뜬다', /message_en/.test(CORE) && /adminLang === 'en'/.test(CORE));
+
 console.log(`\n════ 국적 언어 + 비번 재설정 하니스: PASS ${PASS} / FAIL ${FAIL} ════`);
 if (FAILS.length) { console.log('실패 항목:'); FAILS.forEach(f => console.log('  - ' + f)); }
 process.exit(FAIL > 0 ? 1 : 0);
