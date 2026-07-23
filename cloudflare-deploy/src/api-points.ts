@@ -699,7 +699,7 @@ Return STRICT JSON only, in BOTH Korean and English:
           options: body.options, chosenIndex: body.chosen_index,
           correctIndex: (body.correct_index == null ? null : Number(body.correct_index)),
           reasoning: String(body.reasoning || ''), lang: body.lang || 'en',
-          optionScores: body.option_scores, difficulty: body.difficulty,
+          optionScores: body.option_scores, difficulty: body.difficulty, sid: body.sid || null,
         });
         return json(r);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }

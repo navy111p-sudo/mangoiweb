@@ -44,6 +44,21 @@
   <h1>🥭 <span data-ko="수강신청" data-en="Enroll">수강신청</span></h1>
   <div class="sub" data-ko="강사·요일·시간을 고르고 결제하면 수업이 자동으로 잡혀요" data-en="Pick a teacher, days and time — classes are scheduled automatically after payment">강사·요일·시간을 고르고 결제하면 수업이 자동으로 잡혀요</div>
 
+  <!-- 🔁 연장(재결제) — 현재 수강 중일 때만 표시. 요일·시간·강사 그대로 승계 -->
+  <div class="step" id="stRenew" style="display:none;border-color:rgba(110,231,183,0.45);background:rgba(6,78,59,0.35)">
+    <h2 style="color:#6ee7b7">🔁 <span data-ko="수업 연장하기" data-en="Extend my classes">수업 연장하기</span></h2>
+    <div id="renewInfo" style="font-size:13px;line-height:1.7"></div>
+    <div class="row" style="margin-top:10px">
+      <span class="lbl" data-ko="연장 기간" data-en="Extend by">연장 기간</span>
+      <div class="grid" id="gRenewMonths"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div style="flex:1;font-size:13px" id="renewPrice">-</div>
+      <button class="btn" id="btnRenew" style="flex:0 0 auto;padding:12px 22px" data-ko="연장 결제" data-en="Extend & pay">연장 결제</button>
+    </div>
+    <div class="note" data-ko="현재 요일·시간·선생님이 그대로 이어집니다. 마지막 수업 다음 회차부터 시작해요." data-en="Same days, time and teacher continue — starting right after your last class.">현재 요일·시간·선생님이 그대로 이어집니다. 마지막 수업 다음 회차부터 시작해요.</div>
+  </div>
+
   <div class="step" id="stTeacher">
     <h2>1️⃣ <span data-ko="강사 선택" data-en="Choose a teacher">강사 선택</span></h2>
     <div class="tgrid" id="tList"><div style="color:#94a3b8;font-size:13px">불러오는 중…</div></div>
@@ -231,11 +246,69 @@
       }).catch(function(){ btn.disabled = false; btn.textContent = '결제하기'; alert('네트워크 오류'); });
   });
 
+  /* ══ 🔁 연장(재결제) — 요일·시간·강사 승계, 마지막 수업 다음 회차부터 ══ */
+  var CUR = null, renewMonths = 1;
+  var DN2 = ['일','월','화','수','목','금','토'];
+  function renderRenewMonths(){
+    var box = el('gRenewMonths');
+    box.innerHTML = [{v:1,t:'1개월'},{v:3,t:'3개월'},{v:6,t:'6개월',dc:'-5%'},{v:12,t:'12개월',dc:'-10%'}].map(function(it){
+      return '<div class="chip'+(it.v===renewMonths?' on':'')+'" data-v="'+it.v+'">'+it.t+(it.dc?'<span class="dc">'+it.dc+'</span>':'')+'</div>';
+    }).join('');
+    box.onclick = function(ev){
+      var c = ev.target.closest('.chip'); if (!c) return;
+      renewMonths = Number(c.getAttribute('data-v'));
+      renderRenewMonths(); renewQuote();
+    };
+  }
+  function renewQuote(){
+    if (!CUR || !CUR.active) return;
+    fetch('/api/pay/enroll/quote', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ uid:UID, weekly:CUR.days.length, months:renewMonths, minutes:CUR.minutes, teacher_id:CUR.teacher_id }) })
+      .then(function(r){return r.json();}).then(function(d){
+        if (d && d.ok) el('renewPrice').innerHTML = '<b style="color:#fbbf24;font-size:17px">'+won(d.amount)+'</b> <span style="color:#94a3b8">· '+d.sessions+'회</span>';
+      }).catch(function(){});
+  }
+  fetch('/api/pay/enroll/my-current?uid='+encodeURIComponent(UID)+(TOKEN?('&token='+encodeURIComponent(TOKEN)):''))
+    .then(function(r){return r.json();}).then(function(d){
+      if (!d || !d.ok || !d.current || !d.current.active) return;
+      CUR = d.current;
+      var wk = CUR.days.length;
+      if (!(wk===1||wk===2||wk===3||wk===5)) return;   // 규칙 밖이면 신규 신청으로 유도
+      el('renewInfo').innerHTML =
+        '👩‍🏫 <b>'+esc(CUR.teacher_name||'담당 선생님')+'</b> · '
+        + CUR.days.map(function(i){ return DN2[i]; }).join('·') + ' ' + esc(CUR.time) + ' (' + CUR.minutes + '분)<br>'
+        + '📅 남은 수업 <b>'+CUR.remaining+'회</b> · 종료 예정 <b>'+esc(CUR.last_date)+'</b>'
+        + (CUR.days_left <= 7 ? ' <span style="color:#fca5a5">('+CUR.days_left+'일 남음)</span>' : '');
+      el('stRenew').style.display = 'block';
+      renderRenewMonths(); renewQuote();
+    }).catch(function(){});
+
+  el('btnRenew').addEventListener('click', function(){
+    var b = el('btnRenew');
+    b.disabled = true; b.textContent = '🔄 처리 중…';
+    fetch('/api/pay/enroll/renew-order', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ uid:UID, token:TOKEN, months:renewMonths }) })
+      .then(function(r){return r.json();}).then(function(o){
+        if (!o || !o.ok) { b.disabled=false; b.textContent='연장 결제'; alert((o&&o.message)||'연장 주문 실패: '+((o&&o.error)||'')); return; }
+        try {
+          var tp = window.TossPayments(o.clientKey);
+          tp.requestPayment('카드', {
+            amount:o.amount, orderId:o.orderId, orderName:o.orderName, customerName:'수강생',
+            successUrl: location.origin + '/payment-success.html',
+            failUrl: location.origin + '/payment-fail.html'
+          }).catch(function(e){
+            b.disabled=false; b.textContent='연장 결제';
+            if (e && e.code !== 'USER_CANCEL') alert('결제창 오류: '+(e.message||''));
+          });
+        } catch(e){ b.disabled=false; b.textContent='연장 결제'; alert('결제 모듈 오류'); }
+      }).catch(function(){ b.disabled=false; b.textContent='연장 결제'; alert('네트워크 오류'); });
+  });
+
   renderOpts(); refresh();
 })();
 </script>
 <script src="/js/i18n-sweep.js?v=5" defer></script>
 <script src="/js/ux-track.js?v=1" defer></script>
-<!-- BUILD:20260723164418 -->
+<!-- BUILD:20260723165504 -->
 </body>
 </html>

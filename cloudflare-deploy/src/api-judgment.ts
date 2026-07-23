@@ -816,25 +816,33 @@ export async function recordJudgmentEvents(env: MangoEnv, input: RecordJudgmentI
 export async function evaluateJudgmentAnswer(env: MangoEnv, input: {
   studentUid: string; studentName?: string | null; situation: string; skillTag?: string;
   options: string[]; chosenIndex: number; correctIndex?: number | null; reasoning: string; lang?: string;
-  optionScores?: any; difficulty?: any;
+  optionScores?: any; difficulty?: any; sid?: string | null;
 }): Promise<any> {
   const t0 = Date.now();
   await ensureJudgmentTables(env);
   const opts = (input.options || []).map((o) => String(o)).slice(0, 6);
   const ci = Number(input.chosenIndex);
   const chosen = (ci >= 0 && ci < opts.length) ? opts[ci] : '';
-  const correctIdx = (input.correctIndex == null) ? null : Number(input.correctIndex);
+
+  // 🔒 정답지는 서버 KV 가 원본 — 클라이언트가 보낸 correct_index·option_scores·difficulty 는
+  //    sid 로 찾은 서버 값이 있으면 전부 무시합니다(학생 화면 조작으로 통계가 왜곡되지 않도록).
+  //    sid 가 없거나 만료됐으면 클라이언트 값으로 폴백 — 문제 풀이 자체는 막지 않습니다.
+  let keyed: any = null;
+  const kv = (env as any).SESSION_STATE;
+  if (kv && input.sid) {
+    try { const raw = await kv.get(scenKey(input.studentUid, String(input.sid))); if (raw) keyed = JSON.parse(raw); } catch { keyed = null; }
+  }
+  const trusted = !!(keyed && Number(keyed.n) === opts.length);      // 선택지 수가 다르면 다른 문항 → 신뢰 안 함
+  const rawCorrect = trusted ? keyed.correct_index : input.correctIndex;
+  const correctIdx = (rawCorrect == null) ? null : Number(rawCorrect);
   const correct = (correctIdx != null && correctIdx >= 0 && correctIdx < opts.length) ? opts[correctIdx] : '';
   const isOptimal = (correctIdx != null && ci === correctIdx) ? 1 : 0;
-  const difficulty = normalizeDifficulty(input.difficulty);
+  const difficulty = normalizeDifficulty(trusted ? keyed.difficulty : input.difficulty);
   // 선택 적절성 — 문제 생성 때 함께 받아둔 선택지별 점수를 사용(추가 LLM 호출 0).
   //   "아깝게 틀림"과 "완전히 엉뚱함"이 갈리므로 공정성·변별력이 함께 올라갑니다.
   //   점수가 없는 옛 문항/구버전 클라이언트는 기존 100·45 방식으로 폴백합니다.
-  const optScores = normalizeOptionScores(input.optionScores, opts.length, correctIdx ?? -1);
-  const graded = (optScores && ci >= 0 && ci < optScores.length) ? optScores[ci] : null;
-  const choiceScore = isOptimal
-    ? (graded != null ? Math.max(95, graded) : 100)
-    : (graded != null ? graded : (correctIdx != null ? 45 : 70));
+  const optScores = normalizeOptionScores(trusted ? keyed.option_scores : input.optionScores, opts.length, correctIdx ?? -1);
+  const choiceScore = scoreChoice(optScores, ci, correctIdx, !!isOptimal);
   const reasoning = String(input.reasoning || '').slice(0, 800).trim();
   const lang = input.lang || 'en';
   const taxonomy = await getMisconceptionTaxonomy(env);

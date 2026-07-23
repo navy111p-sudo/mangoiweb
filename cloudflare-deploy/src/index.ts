@@ -10,6 +10,7 @@ import { handleMangoApi } from './api-mango';
 import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
 import { handlePayApi, runPaymentAudit } from './api-pay';
+import { runEnrollExpirySweep, runHolidayShiftSweep } from './enroll-ops';   // 📚 수강 만료 안내 · 공휴일 자동 연기
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
 import { handleRetentionIngest, getRetention, markRetentionContacted, getRetentionSettings, setRetentionSettings, previewRetentionMessage, sendRetentionMessages, runRetentionAutoSend } from './api-retention';
 import { runAbsentStudentSweep } from './absent-sweep';
@@ -1838,6 +1839,26 @@ const worker = {
           console.log('[retention-autosend] cron ran', JSON.stringify(rs));
         } catch (err) {
           console.error('[retention-autosend] error', err);
+        }
+
+        // 📚 수강 만료 임박 재결제 안내 (KST 10:00) — 마지막 수업 7일·3일 전 1회씩.
+        //   부장님 답변 17번(만료 7일전·3일전 자동 문자) 그대로. 멱등=enroll_notify_log.
+        try {
+          const ex = await runEnrollExpirySweep(env as any);
+          if (ex && (ex.sent > 0 || !ex.ok)) console.log('[enroll-expiry]', JSON.stringify({ ok: ex.ok, checked: ex.checked, sent: ex.sent, skipped: ex.skipped }));
+        } catch (err) {
+          console.error('[enroll-expiry] error', err);
+        }
+      }
+
+      // 🎌 공휴일 자동 연기 (KST 06:00 = UTC 21:00) — 부장님 답변 23번: 새벽 6시에 그날 수업을 자동 연기.
+      //   확인답변 ⑤: 그 회차를 맨 뒤로 밀어 종료일이 늦어짐(회차 수 보존). 공휴일이 없으면 아무 일도 안 함.
+      if (hour === 21) {
+        try {
+          const hs = await runHolidayShiftSweep(env as any);
+          if (hs && (hs.moved > 0 || !hs.ok)) console.log('[holiday-shift]', JSON.stringify({ ok: hs.ok, holidays: hs.holidays, moved: hs.moved, failed: hs.failed }));
+        } catch (err) {
+          console.error('[holiday-shift] error', err);
         }
       }
 

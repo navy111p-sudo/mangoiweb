@@ -388,7 +388,7 @@
       var r = await fetch('/api/judgment/answer', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
         body:JSON.stringify({ uid:UID, student_name:NAME, situation:scenario.situation, skill_tag:scenario.skill_tag,
           options:scenario.options, chosen_index:chosen, correct_index:scenario.correct_index, reasoning:reasoning, lang:LANG,
-          option_scores:scenario.option_scores, difficulty:scenario.difficulty })});
+          option_scores:scenario.option_scores, difficulty:scenario.difficulty, sid:scenario.sid })});
       var d = await r.json();
       if(!d || d.ok===false) throw new Error('score fail');
       solved++;
@@ -530,7 +530,7 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260723164418 -->
+<!-- BUILD:20260723165504 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>
