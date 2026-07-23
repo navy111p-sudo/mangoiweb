@@ -2037,6 +2037,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, korean_name TEXT NOT NULL, english_name TEXT, email TEXT, phone TEXT, kakao_id TEXT, dob TEXT, gender TEXT, image_url TEXT, intro_video_url TEXT, active_region TEXT, origin_region TEXT, fee_per_10min INTEGER, group_name TEXT, status TEXT DEFAULT '활동중', join_date TEXT, leave_date TEXT, education TEXT, career TEXT, certifications TEXT, available_days TEXT, available_hours TEXT, bank_name TEXT, bank_account TEXT, mbti TEXT, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER);`);
       // 기존 DB 에 mbti 컬럼 없으면 보강(이미 있으면 SQLite throw → 흡수)
       try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN mbti TEXT`); } catch {}
+      // 🌏 (2026-07-23 사장님 지시) 국적 — 이 값이 로그인 계정으로 흘러가 화면 언어를 정한다.
+      //   ISO 3166-1 alpha-2 대문자 2글자('KR' | 'PH' | 'US' …). 'KR' 만 한국어, 나머지는 영어.
+      try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN nationality TEXT`); } catch {}
     };
 
     if (method === 'GET' && path === '/api/admin/teacher-profiles') {
@@ -2078,9 +2081,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
            (korean_name, english_name, email, phone, kakao_id, dob, gender,
             image_url, intro_video_url, active_region, origin_region, fee_per_10min,
             group_name, status, join_date, leave_date, education, career, certifications,
-            available_days, available_hours, bank_name, bank_account, mbti, notes,
+            available_days, available_hours, bank_name, bank_account, mbti, nationality, notes,
             created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           b.korean_name, b.english_name || null, b.email || null, b.phone || null, b.kakao_id || null,
           b.dob || null, b.gender || null,
@@ -2088,7 +2091,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           b.fee_per_10min || null, b.group_name || null, b.status || '활동중',
           b.join_date || null, b.leave_date || null, b.education || null, b.career || null, b.certifications || null,
           b.available_days || null, b.available_hours || null, b.bank_name || null, b.bank_account || null,
-          (b.mbti ? String(b.mbti).toUpperCase().slice(0, 4) : null), b.notes || null, now, now
+          (b.mbti ? String(b.mbti).toUpperCase().slice(0, 4) : null),
+          (b.nationality ? String(b.nationality).toUpperCase().trim().slice(0, 2) : null),
+          b.notes || null, now, now
         ).run();
         return json({ ok: true, id: r.meta?.last_row_id });
       } catch (e: any) {
@@ -2200,12 +2205,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const allowed = ['korean_name','english_name','email','phone','kakao_id','dob','gender',
           'image_url','intro_video_url','active_region','origin_region','fee_per_10min',
           'group_name','status','join_date','leave_date','education','career','certifications',
-          'available_days','available_hours','bank_name','bank_account','mbti','notes'];
+          'available_days','available_hours','bank_name','bank_account','mbti','nationality','notes'];
         const sets: string[] = []; const binds: any[] = [];
         allowed.forEach(k => {
           if (b.hasOwnProperty(k)) {
             let v = b[k] === '' ? null : b[k];
             if (k === 'mbti' && v) v = String(v).toUpperCase().slice(0, 4);   // 표준화 (예: intj → INTJ)
+            // 🌏 국적 — ISO 2글자 대문자로 표준화(예: ph → PH). 이 값이 화면 언어를 정한다.
+            if (k === 'nationality' && v) v = String(v).toUpperCase().trim().slice(0, 2);
             sets.push(k + ' = ?'); binds.push(v);
           }
         });

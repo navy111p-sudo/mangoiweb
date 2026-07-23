@@ -163,11 +163,15 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
        created_at INTEGER NOT NULL,
        enabled_at INTEGER
      )`,
-    // 🌐 (2026-07-23) 계정별 화면 언어. 'en' | 'ko' | NULL(=미지정 → 이름·역할로 자동판정).
-    //   이름 글자로만 추측하던 방식은 이름 칸이 비었거나 '교사' 처럼 한글로 심긴 계정에서
-    //   계속 틀렸다. 여기에 값이 있으면 그게 최우선이다.
+    // 🌐 (2026-07-23) 계정별 화면 언어. 'en' | 'ko' | NULL(=미지정 → 국적·아이디로 자동판정).
+    //   운영에서 개인별로 못박고 싶을 때만 쓰는 최우선 override.
     //   ⚠️ 이미 있는 컬럼이면 SQLite 가 에러를 내는데, 아래 for 문이 삼키므로 정상 동작.
     `ALTER TABLE admin_account ADD COLUMN pref_lang TEXT`,
+    // 🌏 (2026-07-23 사장님 지시) **국적으로 언어를 정한다.** 한국인 → 한국어, 그 외 → 영어.
+    //   ISO 3166-1 alpha-2 대문자 2글자를 넣는다: 'KR' | 'PH' | 'US' | ...
+    //   그동안은 이름 글자·아이디 접두사로 추측했는데, 이름 칸이 비거나 직함이 섞이면
+    //   계속 틀렸다(`Maimai (본사 매니저)` 사고). 국적은 사람이 바뀌지 않는 사실이라 안 흔들린다.
+    `ALTER TABLE admin_account ADD COLUMN nationality TEXT`,
   ];
   for (const sql of stmts) {
     try { await env.DB.prepare(sql).run(); }
@@ -244,6 +248,34 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
     }
   } catch (e) {
     console.warn('[auth-admin] demo seed failed:', (e as any)?.message);
+  }
+
+  // 🌏 (2026-07-23 사장님 지시) 기존 계정 국적 1회 채우기 — "이번에는 다 넣어주고".
+  //   앞으로는 강사 등록 폼의 '국적' 칸이 채우지만, 이미 만들어진 계정은 값이 없다.
+  //   ⚠️ **nationality 가 비어 있는 행만** 건드린다. 한 번 값이 들어가면(사람이 고쳤든
+  //      등록 폼이 넣었든) 다시는 덮어쓰지 않는다 → 몇 번 실행돼도 안전(멱등).
+  //   기준: 사장님 확인(2026-07-23) — 강사·해외 스태프 계정 컨벤션은 `mangoi_NNN`,
+  //         한국인 스태프는 admin / mgr_* / cfo / ops_lead. "한국인 교사들은 없다."
+  //   ⚠️ 지사·대리점·프랜차이즈(branch_* / agency_* / capi*)는 국내 조직이지만 여기서
+  //      건드리지 않는다 — 판정을 바꾸는 건 사장님이 명시한 범위(교직원)까지만.
+  try {
+    const nowN = Date.now();
+    const KR_ACCOUNTS = ['admin', 'cfo', 'ops_lead'];
+    for (const u of KR_ACCOUNTS) {
+      await env.DB.prepare(
+        `UPDATE admin_account SET nationality = 'KR', updated_at = ? WHERE username = ? AND (nationality IS NULL OR nationality = '')`
+      ).bind(nowN, u).run();
+    }
+    // 한국인 매니저 컨벤션 mgr_*  (장지웅·이병엽 등)
+    await env.DB.prepare(
+      `UPDATE admin_account SET nationality = 'KR', updated_at = ? WHERE username LIKE 'mgr\\_%' ESCAPE '\\' AND (nationality IS NULL OR nationality = '')`
+    ).bind(nowN).run();
+    // 해외 강사·스태프 컨벤션 mangoi_NNN + 시연용 hq_t_*  → 필리핀
+    await env.DB.prepare(
+      `UPDATE admin_account SET nationality = 'PH', updated_at = ? WHERE (username LIKE 'mangoi\\_%' ESCAPE '\\' OR username LIKE 'hq\\_t%' ESCAPE '\\') AND (nationality IS NULL OR nationality = '')`
+    ).bind(nowN).run();
+  } catch (e) {
+    console.warn('[auth-admin] nationality backfill:', (e as any)?.message);
   }
 
   _schemaReady = true;
@@ -467,44 +499,58 @@ export async function handleAdminAuthApi(
       //   판정하고, 클라이언트가 쓰기 쉬운 role(hq_teacher 등)로 변환해 내려준다.
       let acctName = '';
       let acctPrefLang = '';
+      let acctNationality = '';
       let scopeType = 'none';
       try {
-        const acc = await env.DB.prepare(`SELECT name, pref_lang FROM admin_account WHERE username = ? LIMIT 1`).bind(username).first<{ name: string; pref_lang: string }>();
+        const acc = await env.DB.prepare(`SELECT name, pref_lang, nationality FROM admin_account WHERE username = ? LIMIT 1`).bind(username).first<{ name: string; pref_lang: string; nationality: string }>();
         acctName = acc?.name || '';
         acctPrefLang = String(acc?.pref_lang || '').toLowerCase();
+        acctNationality = String(acc?.nationality || '').trim().toUpperCase();
         const sc = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(username).first<{ scope_type: string }>();
         if (sc?.scope_type) scopeType = sc.scope_type;
       } catch (e) { console.warn('[auth-admin] login role resolve:', (e as any)?.message); }
+
+      // 🌏 계정에 국적이 없으면 **강사 등록부(teacher_profiles)에서 이름으로 찾아** 한 번 채운다.
+      //   등록 폼에서 국적을 받으므로, 그 값이 로그인 계정으로 자동으로 흘러오게 하는 다리다.
+      //   한 번 채워지면 다음 로그인부터는 위 SELECT 에서 바로 읽어 이 조회를 건너뛴다.
+      if (!acctNationality && acctName) {
+        try {
+          const tp = await env.DB.prepare(
+            `SELECT nationality FROM teacher_profiles
+              WHERE nationality IS NOT NULL AND nationality <> ''
+                AND (LOWER(TRIM(korean_name)) = LOWER(TRIM(?)) OR LOWER(TRIM(english_name)) = LOWER(TRIM(?)))
+              LIMIT 1`
+          ).bind(acctName, acctName).first<{ nationality: string }>();
+          const nat = String(tp?.nationality || '').trim().toUpperCase();
+          if (nat) {
+            acctNationality = nat;
+            await env.DB.prepare(`UPDATE admin_account SET nationality = ?, updated_at = ? WHERE username = ?`)
+              .bind(nat, now, username).run();
+          }
+        } catch (e) { console.warn('[auth-admin] nationality from teacher_profiles:', (e as any)?.message); }
+      }
       const rr = resolveRole(scopeType, username, acctName);
       const isTeacher = rr.role === 'teacher';
 
-      // 🌐 (2026-07-23 사장님 지시) "필리핀 선생·매니저는 로그인하면 처음부터 영어."
-      //   화면이 이름 글자로만 추측하던 걸 서버가 판정해 내려보낸다. 판정 순서:
-      //     ① 🇵🇭 **강사는 무조건 영어.** 망고아이 강사는 전원 외국인이다(사장님 지시 2026-07-23).
-      //        이름이 '교사'(hq_t_001 시드값)든 비어 있든 상관없이 영어로 연다.
-      //        └ 유일한 예외: 운영에서 `admin_account.pref_lang='ko'` 를 **명시적으로** 넣은 경우.
-      //          실수로 KO 를 눌러 한국어 화면에 갇히는 사고를 막으려고 이걸 최우선에 둔다
-      //          (읽지도 못하는 언어로 갇히면 스스로 되돌릴 수 없다).
-      //     ② admin_account.pref_lang 이 있으면 그 값 (계정별로 못박는 수단)
-      //     ③ 이름에 한글이 없다 → en  (Maimai / Melca / Karl …)
-      //     ④ 그 외 → ko
+      // 🌏 (2026-07-23 사장님 지시) **국적으로 언어를 정한다** — 한국인은 한국어, 외국인은 모두 영어.
+      //   판정 순서 (위에서 걸리면 아래는 안 본다):
+      //     ① pref_lang — 개인별로 못박은 값. 국적과 무관하게 이게 이긴다(예: 한국인 강사 예외).
+      //     ② nationality — 'KR' 이면 ko, 다른 나라면 en. 이게 정식 기준이다.
+      //     ③ 아이디 컨벤션 — 국적이 아직 안 들어간 계정용 안전망.
+      //        `mangoi_NNN`(실제 강사·해외 스태프) / `hq_t_*`(시연) → en
+      //     ④ 이름에 한글이 없으면 en
+      //     ⑤ 그 외 → ko
+      //   ③④는 국적이 다 채워지면 사실상 안 쓰이지만, 새 계정이 국적 없이 만들어져도
+      //   한국어 화면에 갇히지 않도록 남겨 둔다(읽지 못하는 언어로 갇히면 스스로 못 되돌린다).
       //   ⚠️ 화면(adm-lang-boot.js)에도 같은 순서의 폴백이 있다. 한쪽만 고치지 말 것.
-      //   ※ 이름 칸에 아이디가 그대로 들어 있는 계정이 있어(예전 시드), 그건 '이름 모름'으로 본다.
-      //   ⚠️ (2026-07-23) 이름 칸에 **직함이 같이 들어 있다**: 실제 DB 값이
-      //      `Maimai (본사 매니저)` 였다. "이름에 한글이 하나라도 있으면 한국어" 규칙이
-      //      괄호 안 직함 때문에 통째로 한국어로 떨어졌다(= 사장님이 겪은 증상).
-      //      → 괄호/대괄호 이후를 잘라 **사람 이름 부분만** 보고 판정한다.
-      //   🇵🇭 (2026-07-23) 실계정 아이디 컨벤션 확인 결과 **강사·해외 스태프는 `mangoi_NNN`** 이다.
-      //      (hq_t_* 는 시연용. 실제 강사 22명 + Manager Maimai/Melca + IT Karl 전원 mangoi_*)
-      //      이름 칸이 비어 있어도 아이디만으로 영어로 열리게 한다.
-      //      사장님 확인: "한국인 교사들은 없다고 보면 된다"(2026-07-23).
-      //      ⚠️ 한국인 스태프는 다른 컨벤션(admin · mgr_jjw · mgr_lby)이라 여기 걸리지 않는다.
+      //   ※ 이름 칸에 **직함이 섞여 있다**(`Maimai (본사 매니저)`). 괄호 이후를 잘라 사람 이름만 본다.
       const isForeignStaffId = /^(hq_t|mangoi_)/i.test(username);
       const baseName = acctName.replace(/\s*[(（[【].*$/, '').trim();
       const namedOk = !!baseName && baseName !== username;
       const prefLang: 'en' | 'ko' =
-        (isTeacher || isForeignStaffId) ? (acctPrefLang === 'ko' ? 'ko' : 'en')
-        : (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
+        (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
+        : acctNationality ? (acctNationality === 'KR' ? 'ko' : 'en')
+        : (isTeacher || isForeignStaffId) ? 'en'
         : (namedOk && !/[가-힣]/.test(baseName)) ? 'en'
         : 'ko';
 
@@ -513,7 +559,7 @@ export async function handleAdminAuthApi(
           ok: true, username, expires_at: now + ttl, redirect: '/admin.html',
           name: acctName || username,
           server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
-          pref_lang: prefLang,
+          pref_lang: prefLang, nationality: acctNationality || null,
         },
         200,
         { 'Set-Cookie': setSessionCookieHeader(token, Math.floor(ttl / 1000)) }
@@ -568,6 +614,59 @@ export async function handleAdminAuthApi(
         `UPDATE admin_account SET name = ?, email = ?, phone = ?, updated_at = ? WHERE username = ?`
       ).bind(name, email, phone, Date.now(), me).run();
       return json({ ok: true });
+    }
+
+    // ── 🔑 강사·직원 비밀번호 재설정 (관리자가 남의 계정을 바꿔 준다) ──
+    //   왜 필요한가: 지금까지는 `change-password`(본인이 현재 비번을 알아야 함) 뿐이라,
+    //   강사가 비번을 잊으면 아무도 풀어줄 수 없었다. 실제로 hq_t_001 이 그렇게 막혔다.
+    //   ⚠️ 보안 설계 — 남의 비번을 바꾸는 API 라 게이트를 좁게 잡는다:
+    //     · 경영진(hq)·본사 관리자(staff) 만. **강사·지사·대리점·프랜차이즈는 금지.**
+    //       (강사가 다른 강사 비번을 바꾸면 그 사람 급여·평가 화면을 열 수 있다)
+    //     · 대상도 강사/해외 스태프 계정(`mangoi_*` · `hq_t*`)으로 한정 —
+    //       admin·cfo·ops_lead 같은 전체권한 계정은 이 경로로 못 바꾼다(권한 상승 차단).
+    //     · 누가 언제 누구 것을 바꿨는지 admin_login_history 에 남긴다.
+    if (path === '/api/admin/staff-password-reset' && method === 'POST') {
+      const actor = await getAdminActor(request, env);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      if (actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+        return json({ ok: false, error: 'forbidden',
+          message: '경영진·본사 관리자만 사용할 수 있습니다.',
+          message_en: 'Only executives and head-office admins can do this.' }, 403);
+      }
+      let body: any;
+      try { body = await request.json(); } catch { body = null; }
+      const target = String(body?.username || '').trim();
+      const next   = String(body?.new_password || '');
+      if (!target || !next) return json({ ok: false, error: 'missing_fields' }, 400);
+      if (next.length < 6) {
+        return json({ ok: false, error: 'too_short',
+          message: '비밀번호는 6자 이상이어야 합니다.',
+          message_en: 'Password must be at least 6 characters.' }, 400);
+      }
+      if (!/^(mangoi_|hq_t)/i.test(target)) {
+        return json({ ok: false, error: 'target_not_allowed',
+          message: '강사·해외 스태프 계정(mangoi_*, hq_t*)만 재설정할 수 있습니다.',
+          message_en: 'Only teacher / overseas staff accounts (mangoi_*, hq_t*) can be reset here.' }, 403);
+      }
+      const trow = await env.DB.prepare(
+        `SELECT username FROM admin_account WHERE username = ? LIMIT 1`
+      ).bind(target).first<{ username: string }>();
+      if (!trow) {
+        return json({ ok: false, error: 'unknown_user',
+          message: '그런 계정이 없습니다.', message_en: 'No such account.' }, 404);
+      }
+      await env.DB.prepare(
+        `UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`
+      ).bind(await hashPassword(next), Date.now(), target).run();
+      // 재설정 후에는 그 계정의 기존 로그인 세션을 모두 끊는다(분실·유출 대응의 핵심).
+      await env.DB.prepare(`DELETE FROM admin_sessions WHERE username = ?`).bind(target).run().catch(() => {});
+      // 감사 기록 — 대상 계정 이력에 "누가 재설정했는지" 를 남긴다.
+      const rIp = request.headers.get('cf-connecting-ip') || '';
+      const rUa = request.headers.get('user-agent') || '';
+      await recordLogin(env, target, rIp, rUa, true, 'password_reset_by:' + actor.username).catch(() => {});
+      return json({ ok: true, username: target,
+        message: '비밀번호를 재설정했습니다. 기존 로그인은 모두 해제됐습니다.',
+        message_en: 'Password reset. All existing sessions for this account were signed out.' });
     }
 
     // ── 비밀번호 변경 ──

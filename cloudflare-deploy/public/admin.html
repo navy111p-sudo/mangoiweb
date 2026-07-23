@@ -106,7 +106,7 @@
 <style id="adm-en-boot-gate">html.adm-en-pending body{visibility:hidden !important}</style>
 <!-- 🌐 인라인이던 판정 로직을 /js/adm-lang-boot.js 로 옮겼다(2026-07-23).
      하위 페이지 19장도 같은 파일을 읽는다 — 복사본을 다시 만들지 말 것. -->
-<script src="/js/adm-lang-boot.js?v=5"></script>
+<script src="/js/adm-lang-boot.js?v=6"></script>
 <!-- 🌐 EN 스위퍼 — 머리에서 먼저 받아 두어야(defer 중 첫 실행) 한글이 보이기 전에 영어로 바뀐다.
      ⚠️ 문서 끝(옛 위치)에 두면 외부 스크립트 70여 개 뒤에 실행돼 해외(필리핀) 회선에서 수십 초 걸렸다. -->
 <script defer src="/js/i18n-sweep.js?v=9"></script>
@@ -4679,6 +4679,22 @@
                     <option value="INFJ">INFJ</option><option value="INFP">INFP</option><option value="ENFJ">ENFJ</option><option value="ENFP">ENFP</option>
                     <option value="ISTJ">ISTJ</option><option value="ISFJ">ISFJ</option><option value="ESTJ">ESTJ</option><option value="ESFJ">ESFJ</option>
                     <option value="ISTP">ISTP</option><option value="ISFP">ISFP</option><option value="ESTP">ESTP</option><option value="ESFP">ESFP</option>
+                  </select></div>
+                <!-- 🌏 (2026-07-23 사장님 지시) 국적 — 이 값이 그 사람의 화면 언어를 정한다.
+                     한국 → 한국어, 그 외 나라 → 영어. 비워 두면 아이디·이름으로 자동 추측하는데
+                     그게 계속 틀렸던 원인이라(`Maimai (본사 매니저)`) 되도록 골라 주세요. -->
+                <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="국적 (화면 언어가 정해져요)" data-en="Nationality (sets their screen language)">국적 (화면 언어가 정해져요)</label>
+                  <select id="tp-nationality" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+                    <option value="" data-ko="— 선택 —" data-en="— Select —">— 선택 —</option>
+                    <option value="PH" data-ko="필리핀 (영어 화면)" data-en="Philippines (English UI)">필리핀 (영어 화면)</option>
+                    <option value="KR" data-ko="대한민국 (한국어 화면)" data-en="Korea (Korean UI)">대한민국 (한국어 화면)</option>
+                    <option value="US" data-ko="미국 (영어 화면)" data-en="United States (English UI)">미국 (영어 화면)</option>
+                    <option value="GB" data-ko="영국 (영어 화면)" data-en="United Kingdom (English UI)">영국 (영어 화면)</option>
+                    <option value="CA" data-ko="캐나다 (영어 화면)" data-en="Canada (English UI)">캐나다 (영어 화면)</option>
+                    <option value="AU" data-ko="호주 (영어 화면)" data-en="Australia (English UI)">호주 (영어 화면)</option>
+                    <option value="CN" data-ko="중국 (영어 화면)" data-en="China (English UI)">중국 (영어 화면)</option>
+                    <option value="VN" data-ko="베트남 (영어 화면)" data-en="Vietnam (English UI)">베트남 (영어 화면)</option>
+                    <option value="ZZ" data-ko="기타 국가 (영어 화면)" data-en="Other country (English UI)">기타 국가 (영어 화면)</option>
                   </select></div>
                 <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(16,185,129,0.12);border-left:3px solid #10b981;border-radius:6px;font-size:12.5px;font-weight:800;color:#6ee7b7" data-ko="💼 근무 정보" data-en="💼 Work Info">💼 근무 정보</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="활동 지역" data-en="Active Region">활동 지역</label>
@@ -11572,7 +11588,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=11" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=12" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-light-surfaces.js?v=7" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 

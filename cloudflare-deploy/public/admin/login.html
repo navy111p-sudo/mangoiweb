@@ -260,6 +260,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
             branch: branch, branch_id: branch_id, agency_id: agency_id,
             // 🌐 하위 페이지(adm-lang-boot.js)가 매번 서버에 묻지 않고도 언어를 알도록 세션에 실어둔다.
             pref_lang: wantLang || 'ko',
+            // 🌏 국적(ISO 2글자) — 하위 페이지가 이걸 보고 언어를 정한다(KR 만 한국어)
+            nationality: (data.nationality ? String(data.nationality).toUpperCase() : ''),
             login_at: Date.now()
           };
           localStorage.setItem('mangoi_admin_session', JSON.stringify(session));

@@ -2446,6 +2446,8 @@ async function addTeacherProfile() {
     dob: e('tp-dob')?.value || null,
     gender: e('tp-gender')?.value || null,
     mbti: e('tp-mbti')?.value || null,
+    // 🌏 국적 — 이 값이 그 사람의 로그인 화면 언어를 정한다('KR' 만 한국어, 나머지는 영어)
+    nationality: e('tp-nationality')?.value || null,
     active_region: e('tp-active-region')?.value.trim() || null,
     origin_region: e('tp-origin-region')?.value.trim() || null,
     fee_per_10min: e('tp-fee-10min')?.value ? parseInt(e('tp-fee-10min').value, 10) : null,

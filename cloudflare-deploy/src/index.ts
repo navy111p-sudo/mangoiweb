@@ -850,6 +850,7 @@ const worker = {
         path === '/api/admin/me' ||
         path === '/api/admin/profile' ||
         path === '/api/admin/change-password' ||
+        path === '/api/admin/staff-password-reset' ||
         path === '/api/admin/login-history' ||
         path === '/api/admin/sessions' ||
         path === '/api/admin/sessions/revoke' ||
@@ -4265,6 +4266,9 @@ function isAdminPath(path: string, method: string): boolean {
   // 🔐 Phase 11 — 인증·세션 API (login·logout 만 isAuthPublicPath 로 예외)
   if (path === '/api/admin/me' || path === '/api/admin/profile') return true;
   if (path === '/api/admin/change-password') return true;
+  // 🔑 강사·직원 비번 재설정 — 인증 필수. 역할 게이트(경영진·본사만)는 핸들러 안에서 한 번 더 건다.
+  //   ⚠️ isAgencyAllowedApi 에는 **일부러 넣지 않았다** — 대리점이 남의 비번을 바꾸면 안 된다.
+  if (path === '/api/admin/staff-password-reset') return true;
   if (path === '/api/admin/login-history') return true;
   if (path === '/api/admin/sessions' || path === '/api/admin/sessions/revoke') return true;
   // 🛑 관리자 개입 액션 (Phase 4) — 강제 종료 등 쓰기 작업

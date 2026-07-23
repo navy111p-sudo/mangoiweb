@@ -135,5 +135,9 @@
   "/css/adm-light-theme.css?v=2": "6456594b2fbeb49d",
   "/js/adm-light-surfaces.js?v=7": "4eaf2e59ba2ce1bc",
   "/js/adm-lang-boot.js?v=5": "687cb8f5733e94db",
-  "/js/i18n-sweep.js?v=5": "ea1d1dd317ba8d8b"
+  "/js/i18n-sweep.js?v=5": "ea1d1dd317ba8d8b",
+  "/js/game-tts.js?v=3": "5926774a574a838a",
+  "/js/mangoi-voice-input.js?v=1": "844115c3cf60733b",
+  "/js/adm-core.js?v=12": "421faaac6a21ab27",
+  "/js/adm-lang-boot.js?v=6": "625d8e37039cfec9"
 }

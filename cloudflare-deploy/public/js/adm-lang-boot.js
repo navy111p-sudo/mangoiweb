@@ -61,7 +61,20 @@
   //    ⚠️ 서버 auth-admin.ts 에 같은 정규식이 있다. 한쪽만 고치지 말 것.
   var isTeacher = /^(hq_t|mangoi_)/i.test(String(sess.uid || '')) || /teacher/i.test(String(sess.role || ''));
 
-  if (loggedIn && isTeacher) {
+  // 🌏 국적 — 사장님 지시(2026-07-23): 한국인은 한국어, 외국인은 모두 영어.
+  //    ISO 2글자('KR' | 'PH' | 'US' …). 서버가 로그인 응답으로 내려주고 세션에 실려 온다.
+  //    이름 글자·아이디 접두사보다 이게 정확하다 — 사람의 국적은 바뀌지 않는다.
+  var nat = String(sess.nationality || '').trim().toUpperCase();
+
+  if (loggedIn && nat) {
+    // ② 국적이 있으면 그게 기준. 'KR' 만 한국어, 나머지 나라는 전부 영어.
+    //    pref_lang(개인별 못박기)이 있으면 그게 이긴다 — 한국인 강사 같은 예외를 위해.
+    L = (sess.pref_lang === 'en' || sess.pref_lang === 'ko') ? sess.pref_lang
+      : (nat === 'KR' ? 'ko' : 'en');
+    if (saved !== L) set('mangoi_lang', L);
+    set('mangoi_lang_by', 'auto');
+    set('mangoi_lang_uid', String(sess.uid || ''));
+  } else if (loggedIn && isTeacher) {
     // ① 🇵🇭 **강사는 무조건 영어.** 망고아이 강사는 전원 외국인이다(사장님 지시 2026-07-23).
     //    이름이 '교사' 처럼 한글이든, 예전에 실수로 KO 를 눌렀든 상관없이 영어로 연다.
     //    ⚠️ 일부러 이걸 최우선에 뒀다 — 읽지도 못하는 한국어 화면에 갇히면 스스로 되돌릴 수 없다.
