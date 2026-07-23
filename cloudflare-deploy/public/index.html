@@ -3796,7 +3796,7 @@
     var en = (document.documentElement.lang === 'en');
     var ov = document.createElement('div');
     ov.id = 'vc-rq-end-modal';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,'Malgun Gothic','맑은 고딕',sans-serif';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,Malgun Gothic,맑은 고딕,sans-serif';
     ov.innerHTML =
       '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:30px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.7);color:#e6ecff">'
       + '<div style="font-size:46px;margin-bottom:12px">🧠</div>'
@@ -3952,7 +3952,7 @@
 
     var ov = document.createElement('div');
     ov.id = 'vc-rate-modal';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483602;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:16px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,'Malgun Gothic','맑은 고딕',sans-serif;overflow-y:auto';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483602;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:16px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,Malgun Gothic,맑은 고딕,sans-serif;overflow-y:auto';
     var starsHtml = '';
     for (var i = 1; i <= 7; i++) {
       starsHtml += '<div class="vc-rate-star" data-v="' + i + '" style="text-align:center;cursor:pointer;padding:2px 0">'
@@ -6361,10 +6361,10 @@
         function ensureStyle(){
           if(document.getElementById('brf-style')) return;
           var st=document.createElement('style'); st.id='brf-style';
-          st.textContent='#bug-report-fab{position:fixed;left:14px;bottom:18px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fca5a5;border:1px solid rgba(239,68,68,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
+          st.textContent='#bug-report-fab{position:fixed;left:14px;bottom:18px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fca5a5;border:1px solid rgba(239,68,68,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
             +'#bug-report-fab:hover{background:#ef4444;color:#fff;border-color:#ef4444}'
             +'@media(max-width:480px){#bug-report-fab .brf-label{display:none}#bug-report-fab{padding:11px;left:12px;bottom:14px}}'
-            +'.brf-ov{position:fixed;inset:0;z-index:10600;display:none;align-items:center;justify-content:center;background:rgba(8,12,24,.72);backdrop-filter:blur(4px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;padding:16px}'
+            +'.brf-ov{position:fixed;inset:0;z-index:10600;display:none;align-items:center;justify-content:center;background:rgba(8,12,24,.72);backdrop-filter:blur(4px);font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;padding:16px}'
             +'.brf-ov.show{display:flex}'
             +'.brf-card{background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(148,163,184,.25);border-radius:20px;max-width:440px;width:100%;padding:22px;color:#e2e8f0;box-shadow:0 30px 80px -20px rgba(0,0,0,.7)}'
             +'.brf-card h3{margin:0 0 4px;font-size:18px;font-weight:800;color:#fff}'
@@ -6463,10 +6463,10 @@
         function ensureStyle(){
           if(document.getElementById('vcq-style')) return;
           var st=document.createElement('style'); st.id='vcq-style';
-          st.textContent='#vcq-fab{position:fixed;left:14px;bottom:64px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fcd34d;border:1px solid rgba(251,191,36,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
+          st.textContent='#vcq-fab{position:fixed;left:14px;bottom:64px;z-index:9500;display:none;align-items:center;gap:6px;background:rgba(15,23,42,.92);color:#fcd34d;border:1px solid rgba(251,191,36,.5);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.4);font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}'
             +'#vcq-fab:hover{background:#f59e0b;color:#1e293b;border-color:#f59e0b}'
             +'@media(max-width:480px){#vcq-fab .vcq-label{display:none}#vcq-fab{padding:11px;left:12px;bottom:60px}}'
-            +'#vcq-panel{position:fixed;left:14px;bottom:112px;z-index:10500;display:none;width:330px;max-width:calc(100vw - 28px);background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,.35);border-radius:18px;padding:16px;color:#e2e8f0;box-shadow:0 24px 60px -16px rgba(0,0,0,.7);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif}'
+            +'#vcq-panel{position:fixed;left:14px;bottom:112px;z-index:10500;display:none;width:330px;max-width:calc(100vw - 28px);background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,.35);border-radius:18px;padding:16px;color:#e2e8f0;box-shadow:0 24px 60px -16px rgba(0,0,0,.7);font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif}'
             +'#vcq-panel.show{display:block}'
             +'#vcq-panel h4{margin:0 0 3px;font-size:15px;font-weight:800;color:#fcd34d}'
             +'#vcq-panel .vcq-sub{margin:0 0 10px;font-size:11.5px;color:#94a3b8;line-height:1.45}'
@@ -10296,7 +10296,7 @@ function vcShowClassGate(session, name, role) {
     if (!ov) {
         ov = document.createElement('div');
         ov.id = 'vc-class-gate';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif';
         document.body.appendChild(ov);
     }
     function fmt(ms) { ms = Math.max(0, ms); var s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60); s = s % 60; m = m % 60; return (h > 0 ? h + '시간 ' : '') + m + '분 ' + String(s).padStart(2, '0') + '초'; }
@@ -10322,7 +10322,7 @@ function vcShowClassGate(session, name, role) {
 /** 👩‍🏫 교사용 — 오늘 여러 수업 중 선택 (선택 → 학생과 같은 방으로 연결) */
 function vcShowSessionPicker(sessions, name, role) {
     var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:11000;display:flex;align-items:center;justify-content:center;background:rgba(8,12,24,.86);backdrop-filter:blur(6px);font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif';
     var items = sessions.map(function (s) {
         var t = new Date(s.start_ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
         var badge = s.status === 'live' ? '<span style="color:#34d399">● 진행중</span>' : s.status === 'open' ? '<span style="color:#7dd3fc">입장 가능</span>' : s.status === 'ended' ? '<span style="color:#64748b">종료</span>' : '<span style="color:#fbbf24">' + t + ' 예정</span>';
@@ -10373,7 +10373,7 @@ function vcStartWaitingMonitor(session, myRole) {
     if (!card) {
         card = document.createElement('div');
         card.id = 'vc-wait-card';
-        card.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9800;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.3);border-radius:16px;padding:12px 18px;color:#e2e8f0;font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;box-shadow:0 16px 40px -12px rgba(0,0,0,.6);display:flex;align-items:center;gap:12px;max-width:92vw';
+        card.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9800;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.3);border-radius:16px;padding:12px 18px;color:#e2e8f0;font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;box-shadow:0 16px 40px -12px rgba(0,0,0,.6);display:flex;align-items:center;gap:12px;max-width:92vw';
         document.body.appendChild(card);
     }
     function counterpartPresent() {
@@ -11498,7 +11498,7 @@ function vcShowEarnToast(msg) {
     if (!t) {
         t = document.createElement('div');
         t.id = 'vc-earn-toast';
-        t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:10500;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;padding:12px 22px;border-radius:99px;font-size:14px;font-weight:800;box-shadow:0 12px 40px -8px rgba(245,158,11,.6),0 0 0 4px rgba(255,255,255,.1);transition:transform .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;letter-spacing:-.3px;display:flex;align-items:center;gap:8px';
+        t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:10500;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;padding:12px 22px;border-radius:99px;font-size:14px;font-weight:800;box-shadow:0 12px 40px -8px rgba(245,158,11,.6),0 0 0 4px rgba(255,255,255,.1);transition:transform .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;letter-spacing:-.3px;display:flex;align-items:center;gap:8px';
         document.body.appendChild(t);
     } else {
         t.style.transitionDuration = '0s';
@@ -22076,7 +22076,7 @@ window.addEventListener('DOMContentLoaded', () => {
       '</div>';
     }).join('');
     window._rsOptions = options;
-    ov.innerHTML = '<div style="max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032,#131826);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:\'Noto Sans KR\','Malgun Gothic','맑은 고딕',sans-serif">'+
+    ov.innerHTML = '<div style="max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1a2032,#131826);border:1px solid rgba(251,191,36,.32);border-radius:22px;box-shadow:0 30px 80px -10px rgba(0,0,0,.7);overflow:hidden;color:#e2e8f0;font-family:\'Noto Sans KR\',Malgun Gothic,맑은 고딕,sans-serif">'+
       '<div style="padding:18px 22px;background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-bottom:1px solid rgba(251,191,36,.3);display:flex;align-items:center;gap:8px">'+
         '<span style="font-size:24px">💻</span>'+
         '<h2 style="margin:0;flex:1;font-size:18px;font-weight:800;color:#fff">'+(isKo?'PC 원격지원 — 안전한 방법 선택':'Remote Support — Pick safest option')+'</h2>'+
@@ -22542,7 +22542,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('mangoi-push-banner')) return;
       const isMobile = window.innerWidth <= 640;
       const html = `
-        <div id="mangoi-push-banner" style="position:fixed;${isMobile?'bottom:16px;left:8px;right:8px':'bottom:20px;right:20px;max-width:380px'};z-index:9998;background:linear-gradient(135deg,#1e293b,#0f172a);color:#f1f5f9;border:1px solid rgba(251,191,36,0.35);border-radius:16px;padding:16px 18px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.6),0 0 0 1px rgba(251,191,36,0.18);font-family:'Noto Sans KR','Malgun Gothic','맑은 고딕',sans-serif;animation:mpb-slideUp 0.35s ease-out">
+        <div id="mangoi-push-banner" style="position:fixed;${isMobile?'bottom:16px;left:8px;right:8px':'bottom:20px;right:20px;max-width:380px'};z-index:9998;background:linear-gradient(135deg,#1e293b,#0f172a);color:#f1f5f9;border:1px solid rgba(251,191,36,0.35);border-radius:16px;padding:16px 18px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.6),0 0 0 1px rgba(251,191,36,0.18);font-family:'Noto Sans KR',Malgun Gothic,맑은 고딕,sans-serif;animation:mpb-slideUp 0.35s ease-out">
           <div style="display:flex;gap:12px;align-items:flex-start">
             <div style="font-size:28px;flex-shrink:0">🔔</div>
             <div style="flex:1;min-width:0">
@@ -22631,7 +22631,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const bar = document.createElement('div');
     bar.id = 'pwa-install-bar';
     bar.classList.add('pwa-android');
-    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.05);backdrop-filter:blur(14px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
+    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.05);backdrop-filter:blur(14px);font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
     bar.innerHTML = `
       <img src="/img/icon-192.png" alt="" style="width:44px;height:44px;border-radius:10px;flex-shrink:0">
       <div style="flex:1;min-width:0">
@@ -22649,7 +22649,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const bar = document.createElement('div');
     bar.id = 'pwa-install-bar';
     bar.classList.add('pwa-ios');
-    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7);backdrop-filter:blur(14px);font-family:"Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
+    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9800;background:linear-gradient(135deg,rgba(20,28,48,0.95),rgba(15,21,37,0.95));border:1px solid rgba(251,191,36,0.45);border-radius:14px;padding:14px 16px;color:#f1f5f9;box-shadow:0 12px 36px -8px rgba(0,0,0,0.7);backdrop-filter:blur(14px);font-family:"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;animation:pwaSlide .3s cubic-bezier(.34,1.56,.64,1)';
     bar.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
         <img src="/img/icon-192.png" alt="" style="width:44px;height:44px;border-radius:10px">
@@ -27103,7 +27103,7 @@ document.addEventListener('keydown', function(e){
       }).join('');
       var box=document.createElement('div');
       box.id='mangoi-class-notice';
-      box.setAttribute('style','position:fixed;top:72px;right:16px;z-index:2147482000;width:300px;max-width:84vw;background:rgba(15,23,42,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.18);border-radius:16px;box-shadow:0 18px 50px -16px rgba(0,0,0,0.7);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;padding:14px 16px 12px;animation:mgNoticeIn .35s cubic-bezier(.2,.8,.2,1)');
+      box.setAttribute('style','position:fixed;top:72px;right:16px;z-index:2147482000;width:300px;max-width:84vw;background:rgba(15,23,42,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.18);border-radius:16px;box-shadow:0 18px 50px -16px rgba(0,0,0,0.7);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;padding:14px 16px 12px;animation:mgNoticeIn .35s cubic-bezier(.2,.8,.2,1)');
       box.innerHTML='<style>@keyframes mgNoticeIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}</style>'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
         +'<div style="font-size:13.5px;font-weight:800;letter-spacing:.2px">'+(nIsEn()?'📅 Vacation · Holiday Notice':'📅 휴가·공휴일 안내')+'</div>'
@@ -27165,7 +27165,7 @@ document.addEventListener('keydown', function(e){
     var ov = document.createElement('div');
     ov.id = 'mangoi-allmenu';
     // 🌌 우주 배경 (홈 화면과 동일한 space.jpg + 비네팅) + 투명 글래스 모달
-    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.55) 0%,rgba(6,9,20,0.90) 100%),#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",'Malgun Gothic','맑은 고딕',sans-serif;animation:mgAmFade .28s ease;');
+    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.55) 0%,rgba(6,9,20,0.90) 100%),#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;animation:mgAmFade .28s ease;');
 
     // ✨ 반짝이는 별 필드 (디자인 디테일)
     var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}</style>'
@@ -30115,7 +30115,7 @@ window.vcAutoLoadStudentTextbook = async function(){
     var en = (document.documentElement.lang === 'en');
     var ov = document.createElement('div');
     ov.id = 'vc-back-guard-modal';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,'Malgun Gothic','맑은 고딕',sans-serif';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:"Noto Sans KR",-apple-system,Malgun Gothic,맑은 고딕,sans-serif';
     ov.innerHTML =
       '<div style="background:linear-gradient(135deg,#13234a,#0c1733);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:30px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 24px 60px -10px rgba(0,0,0,0.7);color:#e6ecff">'
       + '<div style="font-size:46px;margin-bottom:12px">🔙</div>'
