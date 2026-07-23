@@ -35,19 +35,20 @@ function loadVoiceModule(opts) {
   const timers = [];
   const fireAll = () => { const t = timers.splice(0); t.forEach(x => x.cb()); };
 
+  const recType = opts.iosLike ? 'audio/mp4' : 'audio/webm';
   class FakeMediaRecorder {
-    constructor(stream) { this.stream = stream; state.mr = this; }
+    constructor(stream, o) { this.stream = stream; this.mimeType = (o && o.mimeType) || ''; state.mr = this; state.usedMime = this.mimeType; }
     start() { this.started = true; }
     stop() {
       this.stopped = true;
-      if (this.ondataavailable) this.ondataavailable({ data: { size: opts.chunkSize == null ? 5000 : opts.chunkSize, type: 'audio/webm' } });
+      if (this.ondataavailable) this.ondataavailable({ data: { size: opts.chunkSize == null ? 5000 : opts.chunkSize, type: recType } });
       if (this.onstop) this.onstop();
     }
   }
   class FakeBlob {
-    constructor(parts) { this.size = (parts || []).reduce((a, p) => a + (p.size || 0), 0); this.type = 'audio/webm'; }
+    constructor(parts) { this.size = (parts || []).reduce((a, p) => a + (p.size || 0), 0); this.type = recType; }
   }
-  class FakeFormData { constructor(){ this.f = {}; } append(k, v){ this.f[k] = v; } }
+  class FakeFormData { constructor(){ this.f = {}; } append(k, v, name){ this.f[k] = v; this.names = this.names || {}; this.names[k] = name; } }
 
   const sandbox = {
     console,
@@ -58,7 +59,10 @@ function loadVoiceModule(opts) {
           : Promise.resolve({ getTracks: () => [{ stop(){ state.tracksStopped++; } }] }),
       },
     },
-    MediaRecorder: opts.noRecorder ? undefined : FakeMediaRecorder,
+    MediaRecorder: opts.noRecorder ? undefined : Object.assign(FakeMediaRecorder, {
+      // 지원 형식을 브라우저별로 흉내 (iOS 사파리는 webm 을 못 만들고 mp4 만 된다)
+      isTypeSupported: (t) => (opts.iosLike ? /mp4|aac/i.test(t) : /webm/i.test(t)),
+    }),
     Blob: FakeBlob, FormData: FakeFormData,
     setTimeout: (cb, ms) => { const id = timers.length + 1; timers.push({ id, cb, ms }); return id; },
     clearTimeout: (id) => { const i = timers.findIndex(t => t.id === id); if (i >= 0) timers.splice(i, 1); },
@@ -90,6 +94,58 @@ console.log('\n▶ mangoi-voice-input.js — 녹음 후 서버 전사');
         JSON.stringify(state.posted && state.posted.url));
   check('전사 중 상태를 알려줌', state.states.includes('thinking'), JSON.stringify(state.states));
   check('마이크 트랙을 반드시 반납', state.tracksStopped === 1, '반납=' + state.tracksStopped);
+}
+
+/* ══ 1-B. 🍎 iOS 사파리 — webm 을 못 만든다. 형식과 파일 이름이 맞아야 서버가 오인하지 않는다 ══ */
+console.log('\n▶ iOS 사파리(webm 불가) 대응');
+{
+  const { V, state, fireAll } = loadVoiceModule({ iosLike: true });
+  const p = V.record({ onState: () => {} });
+  await new Promise(r => setImmediate(r));
+  fireAll();
+  const text = await p;
+  check('지원되는 형식(mp4)으로 녹음', /mp4|aac/i.test(state.usedMime || ''), 'mime=' + state.usedMime);
+  check('전사 성공', text === 'I like blue cars', `실제="${text}"`);
+  const name = state.posted && state.posted.init && state.posted.init.body
+             && state.posted.init.body.names && state.posted.init.body.names.audio;
+  check('파일 이름을 실제 형식에 맞춤(.webm 로 오인 전송 안 함)', /\.m4a$/.test(name || ''), '이름=' + name);
+}
+{
+  const { V, state, fireAll } = loadVoiceModule({});      // 일반(크롬/안드로이드)
+  const p = V.record({ onState: () => {} });
+  await new Promise(r => setImmediate(r));
+  fireAll();
+  await p;
+  const name = state.posted && state.posted.init && state.posted.init.body
+             && state.posted.init.body.names && state.posted.init.body.names.audio;
+  check('크롬은 그대로 webm 으로 전송', /\.webm$/.test(name || ''), '이름=' + name);
+  check('크롬은 webm 형식 선택', /webm/i.test(state.usedMime || ''), 'mime=' + state.usedMime);
+}
+
+/* ══ 1-C. ⏹ 는 언제 눌러도 들어야 한다 ══
+   stop/cancel 을 getUserMedia 이후에 붙이면, **마이크 권한 대기 중에 누른 ⏹ 가 무시**되고
+   버튼이 '듣는 중'에 굳는다(2026-07-23 재점검에서 발견). */
+console.log('\n▶ ⏹ 반응성 (권한 대기 중 포함)');
+{
+  const { V, state } = loadVoiceModule({});
+  const p = V.record({ onState: () => {} });
+  V.stop();                                     // 아직 스트림도 못 받은 시점에 ⏹
+  await new Promise(r => setImmediate(r));
+  await new Promise(r => setImmediate(r));
+  const t = await p;
+  check('권한 대기 중 ⏹ → 녹음기가 실제로 멈춤', !!(state.mr && state.mr.stopped), '녹음기가 계속 돌고 있음');
+  check('멈춘 뒤에도 지금까지 녹음분으로 전사', t === 'I like blue cars', `실제="${t}"`);
+  check('마이크 트랙 반납', state.tracksStopped === 1, '반납=' + state.tracksStopped);
+}
+{
+  const { V, state } = loadVoiceModule({});
+  const p = V.record({ onState: () => {} });
+  V.cancel();                                   // 취소는 전사도 하지 않는다
+  await new Promise(r => setImmediate(r));
+  await new Promise(r => setImmediate(r));
+  const t = await p;
+  check('취소 → 빈 결과', t === '');
+  check('취소 시 서버를 부르지 않음', state.posted === null);
 }
 
 /* ══ 2. 실패 상황을 조용히 넘기지 않는가 ══ */

@@ -84,6 +84,104 @@
 })();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════════════════
+     🔒 (2026-07-23) 관리자 세션 만료 공통 안내 — "버튼이 그냥 안 눌려요"의 진범
+       · 서버는 /api/admin/* 요청에 세션 쿠키(mango_admin_session)가 없거나 만료면
+         index.ts 전역 게이트에서 401 {"ok":false,"error":"auth_required"} 를 돌려준다.
+         (해당 API 핸들러에 닿기도 전이라, 카드 코드가 아무리 멀쩡해도 실패한다)
+       · 그런데 화면(admin.html)은 이미 받아 둔 상태라 그대로 보인다 → 사용자 눈에는
+         "카드마다 알 수 없는 영어 에러코드가 뜨고 아무 것도 안 되는" 상태로만 보였다.
+         세션 수명은 7일(로그인 유지 30일)이라 탭을 오래 띄워 두면 반드시 겪는다.
+       · 그래서 여기서 401 을 한 곳에서 잡아 한/영 안내 배너 + 재로그인 버튼을 띄운다.
+       ⚠️ fetch 래퍼는 '관찰만' 한다 — 원본 Promise 를 그대로 돌려주고 응답을 건드리지
+          않는다(본문을 읽거나 clone 하지 않음). 카드 수백 개가 이 위를 지나가므로
+          여기서 응답을 소비하면 관리자 화면 전체가 죽는다. 절대 바꾸지 말 것.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<script id="adm-session-expired-guard-260723">
+(function(){
+  "use strict";
+  if (window.__admSessionGuard) return;
+  window.__admSessionGuard = true;
+
+  function isEn(){
+    try {
+      if (window.adminLang) return window.adminLang === 'en';
+      return (localStorage.getItem('mangoi_lang') || '') === 'en';
+    } catch(e){ return false; }
+  }
+
+  var shown = false;
+  // 세션 만료 안내 — 어디서 호출해도 배너는 한 번만 뜬다.
+  window.admSessionExpired = function(){
+    if (shown) return;
+    shown = true;
+    var en = isEn();
+    try {
+      var bar = document.createElement('div');
+      bar.id = 'adm-session-expired-bar';
+      bar.setAttribute('role', 'alert');
+      bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483000;'
+        + 'background:#b91c1c;color:#fff;padding:12px 16px;font-size:14px;font-weight:700;'
+        + 'display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;'
+        + 'box-shadow:0 2px 12px rgba(0,0,0,.35);font-family:inherit';
+      var msg = document.createElement('span');
+      msg.textContent = en
+        ? '🔒 Your admin session has expired. Please log in again.'
+        : '🔒 로그인이 만료되었습니다. 다시 로그인해 주세요.';
+      var sub = document.createElement('span');
+      sub.style.cssText = 'font-weight:400;opacity:.9;font-size:12.5px';
+      sub.textContent = en
+        ? '(Buttons will keep failing until you log in.)'
+        : '(다시 로그인하기 전까지는 버튼이 계속 실패합니다.)';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = en ? 'Log in again' : '다시 로그인';
+      btn.style.cssText = 'background:#fff;color:#b91c1c;border:0;border-radius:8px;'
+        + 'padding:7px 16px;font-weight:800;cursor:pointer;font-size:13px';
+      btn.onclick = window.admGoLogin;
+      bar.appendChild(msg); bar.appendChild(sub); bar.appendChild(btn);
+      (document.body || document.documentElement).appendChild(bar);
+    } catch(e){}
+  };
+
+  // 로그인 화면으로 — 죽은 클라이언트 세션을 먼저 지운다.
+  //   ph239 진입가드는 localStorage 세션만 보므로, 이걸 남겨 두면 로그인 페이지에서
+  //   되돌아왔을 때 만료된 상태 그대로 또 들어와 같은 증상을 반복한다.
+  window.admGoLogin = function(){
+    try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    try { localStorage.removeItem('admin_session'); } catch(e){}
+    try { sessionStorage.removeItem('_admin_login_redirected'); } catch(e){}
+    var next = '';
+    try { next = encodeURIComponent(location.pathname + location.search); } catch(e){}
+    location.href = '/admin/login.html' + (next ? ('?next=' + next) : '');
+  };
+
+  // 카드 안에서 쓰는 판정 헬퍼 — 서버가 준 에러코드가 '세션 문제'인지.
+  window.admIsAuthError = function(code){
+    var c = String(code || '');
+    return c === 'auth_required' || c === 'unauthorized' || c === 'session_expired';
+  };
+
+  // ── fetch 관찰 래퍼 (응답은 절대 건드리지 않음) ─────────────────────────
+  var _fetch = window.fetch;
+  if (typeof _fetch === 'function') {
+    window.fetch = function(input, init){
+      var p = _fetch.apply(this, arguments);
+      try {
+        var u = (typeof input === 'string') ? input
+              : (input && typeof input.url === 'string') ? input.url : '';
+        if (u.indexOf('/api/admin/') >= 0 && u.indexOf('/api/admin/login') < 0) {
+          p.then(function(r){
+            if (r && r.status === 401) window.admSessionExpired();
+          }, function(){});
+        }
+      } catch(e){}
+      return p;   // ← 원본 그대로 반환
+    };
+  }
+})();
+</script>
+
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
@@ -6547,11 +6645,26 @@ window.__admSettleRun = function(fn){
   const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
   function isEn(){ return window.adminLang === 'en'; }
   let _rows = [];
+  // 🔒 로그인 만료 안내(카드 안) + 상단 공통 배너 — 문서 상단 adm-session-expired-guard 와 한 쌍.
+  function schShowExpired(box){
+    const en = isEn();
+    box.innerHTML = `<div style="color:#7f1d1d;background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:14px 16px;line-height:1.7">
+      <b>🔒 ${en?'Your admin session has expired.':'로그인이 만료되었습니다.'}</b><br>
+      ${en?'Log in again and press the button once more. Nothing was changed.':'다시 로그인한 뒤 버튼을 한 번 더 눌러 주세요. 저장된 내용은 없습니다.'}
+      <div style="margin-top:10px"><button type="button" onclick="admGoLogin()" style="background:#b91c1c;color:#fff;border:0;border-radius:8px;padding:8px 16px;font-weight:800;cursor:pointer">${en?'Log in again':'다시 로그인'}</button></div>
+    </div>`;
+    try { window.admSessionExpired(); } catch(e){}
+  }
   window.schAuto = async function(){
     const box = document.getElementById('sch-result');
     box.innerHTML = `<div style="color:#bbf7d0;padding:14px">⏳ ${isEn()?'Generating schedule (AI matching teachers ↔ students)...':'시간표 생성 중 (AI 강사 ↔ 학생 매칭)...'}</div>`;
     try {
-      const r = await fetch('/api/admin/schedule/auto', { method:'POST' }).then(x=>x.json());
+      // ⚠️ credentials:'include' — 세션 쿠키(mango_admin_session)를 반드시 실어 보낸다.
+      //    빠져 있어도 same-origin 기본값 덕에 대개 붙지만, 명시해 두는 편이 안전하다.
+      const resp = await fetch('/api/admin/schedule/auto', { method:'POST', credentials:'include' });
+      const r = await resp.json().catch(()=>({ ok:false, error:'bad_response' }));
+      // 401 = 로그인 만료. 서버 에러코드를 날것으로 보여주면 아무도 못 알아본다.
+      if (resp.status === 401 || window.admIsAuthError(r.error)) { schShowExpired(box); return; }
       if (!r.ok) throw new Error(r.error||'fail');
       _rows = r.rows || [];
       const en = isEn();
@@ -6588,7 +6701,9 @@ window.__admSettleRun = function(fn){
     if (!selected.length) return alert(isEn()?'Select rows to approve':'승인할 행을 선택하세요');
     if (!confirm((isEn()?'Approve ':'승인할까요? ')+selected.length+(isEn()?' classes?':'건'))) return;
     try {
-      const r = await fetch('/api/admin/schedule/approve', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rows: selected }) }).then(x=>x.json());
+      const resp = await fetch('/api/admin/schedule/approve', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rows: selected }) });
+      const r = await resp.json().catch(()=>({ ok:false, error:'bad_response' }));
+      if (resp.status === 401 || window.admIsAuthError(r.error)) { schShowExpired(document.getElementById('sch-result')); return; }
       if (!r.ok) throw new Error(r.error||'fail');
       alert((isEn()?'✅ Inserted ':'✅ 저장 완료: ')+r.inserted+(isEn()?' rows':'건'));
     } catch(e){
@@ -20091,7 +20206,7 @@ button.chip:hover,
     #mi-ops-av{ right:0!important; bottom:0!important; width:100vw!important; height:100vh!important; height:100dvh!important; max-width:none!important; max-height:none!important; border-radius:0!important; }
   }
 </style>
-<script src="/js/adm-s17.js?v=1" defer></script><!-- 분할추출:adm-s17 -->
+<script src="/js/adm-s17.js?v=2" defer></script><!-- 분할추출:adm-s17 -->
 
 <!-- 🧹 (2026-06-18) 상단 헤더 컨트롤 가지런히 정리 — 기존 충돌 반응형 규칙(720 flex-wrap / 720 nowrap-scroll / 900 grid)을 정리하는 최종 권위 스타일. 모든 칩 높이·정렬 통일, 좁은 화면은 2열 그리드. -->
 <style id="th-tidy-2026-06-18">
@@ -21021,6 +21136,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260723191308 -->
+<!-- BUILD:20260723211800 -->
 </body>
 </html>

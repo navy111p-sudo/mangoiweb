@@ -389,7 +389,8 @@
   }
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
-<script src="/js/mangoi-voice-input.js?v=1"></script><!-- 🎤 미지원 브라우저용 녹음+Whisper 전사 -->
+<script src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 미지원 브라우저용 녹음+Whisper 전사 -->
+<script src="/js/mangoi-speak-score.js?v=1"></script><!-- 🗣 따라 말하기 채점(기준 문장 단어 정렬) -->
 <script src="/js/i18n-sweep.js?v=9" defer></script>
 </head>
 <body>
@@ -1675,12 +1676,27 @@ function _saveShadowScore(item, ko, score){
       body: JSON.stringify({ user_id:uid, lang:GAME_LANG, item:item, ko:ko||'', score:Math.round(score*100) }), keepalive:true }).catch(function(){});
   }catch(_){}
 }
-function _shadowResult(sc, text){
+/* 🗣 (2026-07-23) 따라 말하기 채점 — 업계 표준(Azure·Speechace)처럼 기준 문장과 **단어 단위로 정렬**해
+   누락·치환을 구분하는 js/mangoi-speak-score.js 를 쓴다. 예전 방식(_shadowScore)은 "목표 단어가 몇 개
+   들렸나"라서 "I have a dog" 에 "I have a cat" 이라고 해도 통과했다.
+   모듈이 아직 안 실려 있으면 예전 방식으로 조용히 되돌아간다. */
+function _shadowGrade(said, target){
+  try{
+    if(window.MangoiScore){
+      var g = MangoiScore.grade(said, target);
+      return { sc: g.accuracy, pass: g.pass, tip: g.tip || '' };
+    }
+  }catch(_){}
+  var v = _shadowScore(said, target);
+  return { sc: v, pass: v >= 0.6, tip: '' };
+}
+function _shadowResult(g, text){
+  if(typeof g === 'number') g = { sc: g, pass: g >= 0.6, tip: '' };   // 옛 호출부 호환
   var fb=document.getElementById('game-feedback');
-  if(fb) fb.innerHTML = sc>=0.6
-    ? '<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(sc*100)+'점)</span>'
-    : '<span style="color:#f59e0b">🔁 거의 됐어요! ('+Math.round(sc*100)+'점) 🔊 다시 도전</span>';
-  try{ var s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text, (s&&s.ko)||'', sc); }catch(_){}
+  if(fb) fb.innerHTML = g.pass
+    ? '<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(g.sc*100)+'점)</span>'
+    : '<span style="color:#f59e0b">🔁 거의 됐어요! ('+Math.round(g.sc*100)+'점)'+(g.tip?' <b>'+g.tip+'</b>':'')+' 🔊 다시 도전</span>';
+  try{ var s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text, (s&&s.ko)||'', g.sc); }catch(_){}
   _gameState._advTimer=setTimeout(gameNextRound,1700);
 }
 /* 🎤 음성인식 미지원 브라우저(앱 WebView·카카오 인앱·구형 iOS) → 녹음 → 서버 Whisper 전사 → 채점.
@@ -1703,7 +1719,7 @@ function _shadowViaWhisper(text, fb){
     }
   }).then(function(said){
     if(!said){ _gameState._advTimer=setTimeout(gameNextRound,1500); return; }
-    _shadowResult(_shadowScore(said, text), text);
+    _shadowResult(_shadowGrade(said, text), text);
   })['catch'](function(){ _gameState._advTimer=setTimeout(gameNextRound,1500); });
 }
 function gameShadow(enc){
@@ -1731,11 +1747,11 @@ function gameShadow(enc){
       if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 따라 말해보세요… (듣는 중)</span>';
       var done=false, said='', _sil=null, SILENCE_MS=2500;
       function arm(){ if(_sil)clearTimeout(_sil); _sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, SILENCE_MS); }
-      function evaluate(){ if(done)return; done=true; if(_sil)clearTimeout(_sil); _shadowResult(_shadowScore(said, text), text); }
+      function evaluate(){ if(done)return; done=true; if(_sil)clearTimeout(_sil); _shadowResult(_shadowGrade(said, text), text); }
       rec.onstart=function(){ arm(); };
       rec.onresult=function(e){ if(done)return;
         said=''; for(var i=0;i<e.results.length;i++) said+=(e.results[i][0].transcript||'')+' ';
-        if(_shadowScore(said, text)>=0.6){ evaluate(); try{rec.stop();}catch(_){} return; }   // 충분히 맞음 → 즉시 통과
+        if(_shadowGrade(said, text).pass){ evaluate(); try{rec.stop();}catch(_){} return; }   // 충분히 맞음 → 즉시 통과
         if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 …(듣는 중) "'+said.trim()+'"</span>'; arm();
       };
       rec.onerror=function(){ if(_sil)clearTimeout(_sil); if(!done){ done=true; if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
@@ -2417,7 +2433,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260723191308 -->
+<!-- BUILD:20260723211800 -->
 <script defer src="/js/flow.js?v=6"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

@@ -785,6 +785,9 @@
     }
 
     function toggleMic() {
+      /* ⏹ — 녹음 모드로 넘어간 상태(network 오류 폴백 등)면 녹음을 멈춰야 한다.
+         이 검사가 없으면 아래 _recog.stop() 만 부르고 녹음은 계속돼 버튼이 안 먹었다. */
+      if (_whisperOn) { MangoiVoice.stop(); return; }
       if (!_recog) _recog = initRecog();
       if (!_recog) { micViaWhisper(); return; }           // 음성인식 미지원 → 녹음+Whisper 로
       if (_recognizing) { _micStopWanted = true; try { _recog.stop(); } catch(e){} return; }
@@ -948,7 +951,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260723191308 -->
+<!-- BUILD:20260723211800 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}
@@ -1038,7 +1041,7 @@
 }
 </style>
 <script defer src="/js/game-tts.js?v=3"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈 -->
-<script defer src="/js/mangoi-voice-input.js?v=1"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/ux-track.js?v=1" defer></script>

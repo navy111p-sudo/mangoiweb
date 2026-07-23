@@ -170,5 +170,9 @@
   "/vendor/jszip/jszip.min.js?v=1": "acc7e41455a80765",
   "/vendor/three/GLTFLoader.js?v=1": "5c15967ba830918a",
   "/vendor/three/three.min.js?v=1": "9274bbcec8d96168",
-  "/js/adm-light-surfaces.js?v=8": "d9dd822696dcfbb4"
+  "/js/adm-light-surfaces.js?v=8": "d9dd822696dcfbb4",
+  "/js/adm-s17.js?v=2": "03f15c07240bd076",
+  "/js/mangoi-voice-input.js?v=2": "241f73599c3557da",
+  "/js/mangoi-voice-input.js?v=3": "7c84a64147eb30bf",
+  "/js/mangoi-speak-score.js?v=1": "d94efd78a35b948e"
 }

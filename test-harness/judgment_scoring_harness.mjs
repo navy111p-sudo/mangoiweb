@@ -163,6 +163,18 @@ console.log('\n[ I. 배선 — 정답지가 서버에서 오는가 (클라이언
   check('오답 등급별 배너가 있다', /function bannerText\(/.test(html));
   check('성장 화면에 이번 판단·지수 변화를 보여준다', /delta_index/.test(html) && /이번 판단/.test(html));
   check('옛 이분법 채점(100:45)이 채점 경로에서 사라졌다', !/isOptimal \? 100 : \(correctIdx/.test(src));
+
+  // 경쟁 서비스 벤치마크 반영분 (Duolingo Max=Explain My Answer / ELSA=대조 피드백 / 산타=해석·추세)
+  check('채점 응답이 선택지 채점표를 함께 준다', /options: opts, option_scores: optScores/.test(src));
+  check('내가 고른 답에 대한 해설을 LLM 에 요구한다', /why_chosen_ko/.test(src) && /why_chosen_en/.test(src));
+  check('해설이 응답에 실린다', /why_chosen_ko: whyChosenKo/.test(src));
+  check('중국어 화면에도 해설이 간다', /why_chosen_zh/.test(src));
+  check('화면에 선택지 채점표가 있다', /function optionTable\(/.test(html));
+  check('채점표가 내 선택·정답을 구분 표시한다', /ot-m|내 선택/.test(html) && /ot-b|가장 자연스러움/.test(html));
+  check('화면에 내가 고른 표현 해설 블록이 있다', /class="mypick"/.test(html));
+  check('축마다 해석 문구(밴드)를 붙인다', /function band\(/.test(html) && /집중 연습이 필요해요/.test(html));
+  check('지난달 대비 추세를 보여준다', /function monthTrend\(/.test(html));
+  check('추세 문구가 3개 언어 모두 있다', /지난달보다[\s\S]{0,120}from last month[\s\S]{0,120}比上个月/.test(html));
 }
 
 console.log('\n════════════════════════════════════════');
