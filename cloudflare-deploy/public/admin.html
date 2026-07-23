@@ -107,6 +107,42 @@
 <!-- 🌐 인라인이던 판정 로직을 /js/adm-lang-boot.js 로 옮겼다(2026-07-23).
      하위 페이지 19장도 같은 파일을 읽는다 — 복사본을 다시 만들지 말 것. -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     🔍 ph168 (2026-07-23) — 화면 배율 사용자 선택 (보기 설정)
+     필리핀 강사 피드백: "페이지를 위아래로 움직이려면 스크롤을 훨씬 더 많이 해야 돼요."
+     실측 결과 렉이 아니라 zoom:1.3 때문에 문서가 38% 길어진 것이었다
+     (20,204px / 22.4화면 → zoom 1 이면 14,652px / 16.3화면. fps 는 53 vs 52 로 차이 없음).
+     ⚠️ 기본값은 130% 로 기존과 동일하다. "글자 크게" 지시를 임의로 되돌리지 않았다.
+     ⚠️ 반드시 <head> 에서 먼저 실행 — 늦으면 130% 로 그렸다가 100% 로 줄어드는 게 보인다.
+     ═══════════════════════════════════════════════════════════════ -->
+<script id="ph168-zoom-boot">
+(function(){
+  "use strict";
+  var v = '130';
+  try { var s = localStorage.getItem('mangoi_admin_zoom'); if (s === '100' || s === '115' || s === '130') v = s; } catch(e){}
+  document.documentElement.setAttribute('data-adm-zoom', v);
+})();
+</script>
+<style id="ph168-zoom-css">
+  /* 배율 '선언' 자체는 각 페이지(ph-pc-scale-handle)에 그대로 두고, 여기서 선택분만 덮어쓴다.
+     원본이 @media(min-width:1024px) 안에 있으므로 같은 조건에서만 이긴다. */
+  @media (min-width: 1024px) {
+    html[data-adm-zoom="100"] body { zoom: 1    !important; }
+    html[data-adm-zoom="115"] body { zoom: 1.15 !important; }
+    html[data-adm-zoom="130"] body { zoom: 1.3  !important; }
+  }
+  /* 상단바 배율 선택 버튼 */
+  #vp-zoom { display:inline-flex; align-items:center; gap:4px; margin-right:6px; }
+  #vp-zoom .vp-lbl { font-size:11px; opacity:.75; margin-right:2px; white-space:nowrap; }
+  #vp-zoom .vp-btn {
+    font-size:11px; font-weight:700; line-height:1; padding:5px 7px; cursor:pointer;
+    border:1px solid rgba(148,163,184,.35); background:rgba(148,163,184,.12);
+    color:inherit; border-radius:6px;
+  }
+  #vp-zoom .vp-btn:hover { background:rgba(148,163,184,.28); }
+  #vp-zoom .vp-btn.on { background:#f59e0b; border-color:#f59e0b; color:#fff; }
+</style>
 <!-- 🌐 EN 스위퍼 — 머리에서 먼저 받아 두어야(defer 중 첫 실행) 한글이 보이기 전에 영어로 바뀐다.
      ⚠️ 문서 끝(옛 위치)에 두면 외부 스크립트 70여 개 뒤에 실행돼 해외(필리핀) 회선에서 수십 초 걸렸다. -->
 <script defer src="/js/i18n-sweep.js?v=9"></script>
@@ -20488,6 +20524,7 @@ button.chip:hover,
 </div>
 <script src="/js/adm-s18.js?v=2" defer></script><!-- 분할추출:adm-s18 -->
 <script src="/js/adm-welcome.js?v=2" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-viewpref.js?v=1" defer></script><!-- ph168 보기설정: 배율 선택 + 카드 접기 기억 -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
