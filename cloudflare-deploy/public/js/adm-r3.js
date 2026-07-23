@@ -7,27 +7,42 @@
   const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
 
   // ━━━━ 🎮 BG: 배지 통계 ━━━━
+  //  🌐 (2026-07-24) 이 카드는 서버 JSON 을 그대로 찍는 자리라 data-ko/data-en 이 없다.
+  //     그래서 EN 토글에도 배지 이름·설명이 한국어로 남아 있었다(매니저 제보).
+  //     서버 BADGE_CATALOG 는 name_en/desc_en 을 이미 내려주므로 여기서 골라 쓰면 된다.
+  //     i18n-sweep 의 AI 자동번역에 맡기면 한 박자 늦고 정식 명칭과도 어긋난다
+  //     ('발음 마스터' → "Master of pronunciation" ≠ 카탈로그의 "Pronunciation Master").
+  let _bgLoaded = false;
   window.bgLoadStats = async function(){
     const el = document.getElementById('bg-stats-grid');
     if (!el) return;
-    el.innerHTML = '<div style="padding:14px;color:#6b7280">불러오는 중…</div>';
+    const isEn = (typeof adminLang !== 'undefined' && adminLang === 'en');
+    el.innerHTML = '<div style="padding:14px;color:#6b7280">'+(isEn ? 'Loading…' : '불러오는 중…')+'</div>';
     try {
       const r = await fetch('/api/admin/badges/stats');
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       el.innerHTML = `
-        <div style="margin-bottom:10px;font-size:12px;color:#6b7280">전체 부여 횟수: <b style="color:#1f2937">${d.total_awards.toLocaleString('ko-KR')}</b></div>
+        <div style="margin-bottom:10px;font-size:12px;color:#6b7280">${isEn ? 'Total awards' : '전체 부여 횟수'}: <b style="color:#1f2937">${d.total_awards.toLocaleString(isEn ? 'en-US' : 'ko-KR')}</b></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
           ${d.badges.map(b => `
             <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;text-align:center">
               <div style="font-size:32px;line-height:1">${b.icon}</div>
-              <div style="font-weight:800;font-size:13px;color:#1f2937;margin-top:6px">${esc(b.name)}</div>
-              <div style="font-size:10px;color:#9ca3af;margin-top:2px">${esc(b.desc)}</div>
-              <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280">획득 <b style="color:#fbbf24;font-size:14px">${b.earned_by}</b> 명</div>
+              <div style="font-weight:800;font-size:13px;color:#1f2937;margin-top:6px">${esc((isEn && b.name_en) || b.name)}</div>
+              <div style="font-size:10px;color:#9ca3af;margin-top:2px">${esc((isEn && b.desc_en) || b.desc)}</div>
+              <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280">${isEn
+                ? `Earned by <b style="color:#fbbf24;font-size:14px">${b.earned_by}</b>`
+                : `획득 <b style="color:#fbbf24;font-size:14px">${b.earned_by}</b> 명`}</div>
             </div>`).join('')}
         </div>`;
-    } catch(e) { el.innerHTML = '<div style="color:#ef4444">로드 실패: '+esc(e.message)+'</div>'; }
+    } catch(e) { el.innerHTML = '<div style="color:#ef4444">'+(isEn ? 'Failed to load: ' : '로드 실패: ')+esc(e.message)+'</div>'; }
+    _bgLoaded = true;
   };
+  // 🌐 이미 그려 둔 배지 카드는 언어 토글에 맞춰 다시 그린다(안 부르면 EN 을 눌러도 그대로 한국어).
+  //    아직 안 연 카드까지 불러오면 쓸데없는 API 왕복이라 로드된 적 있을 때만.
+  document.addEventListener('mangoi:lang-changed', function(){
+    if (_bgLoaded && document.getElementById('bg-stats-grid')) { try { window.bgLoadStats(); } catch(e){} }
+  });
   window.bgCheckUser = async function(){
     const uid = document.getElementById('bg-check-uid').value.trim();
     if (!uid) return alert('학생 user_id 입력');
@@ -161,9 +176,10 @@
       </div>`).join('');
   }
   // 언어 토글 시 학생 행도 다시 그리기
-  if (typeof window !== 'undefined') {
-    window.addEventListener('mangoi:lang-changed', () => { if (_beStudents.length) beRender(); });
-  }
+  //  🐛 (2026-07-24) 원래 window 에서 듣고 있었는데, adm-core.js 의 toggleAdminLang 은
+  //     document 에 bubbles:false 로 쏜다 → window 까지 올라오지 않아 이 리스너는 죽어 있었다.
+  //     (adm-p2.js 만 document/window 둘 다 걸어 두어 멀쩡했다.) document 로 교체.
+  document.addEventListener('mangoi:lang-changed', () => { if (_beStudents.length) beRender(); });
   window._beUpd = (i, k, v) => { _beStudents[i][k] = v; };
   window._beUpdScore = (i, k, v) => { _beStudents[i].scores[k] = v?Number(v):null; };
   window._beDel = (i) => { _beStudents.splice(i,1); beRender(); };
