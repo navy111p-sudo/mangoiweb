@@ -35,9 +35,15 @@ export class VideoCallRoom {
   private static readonly LOCK_KEYS: Record<string, 'bgLock' | 'micLock' | 'focusLock'> =
     { 'bg-lock': 'bgLock', 'mic-lock': 'micLock', 'focus-lock': 'focusLock' };
 
-  constructor(state: DurableObjectState) {
+  // 🔁 (2026-07-24) 무중단 재연결 스위치. wrangler.toml 의 VC_STICKY_UID='on' 일 때만 켜진다.
+  //   기본값은 꺼짐 → 아래 인계 로직을 전부 건너뛰고 예전과 100% 동일하게 동작한다.
+  //   서버 변수 하나로 클라 재배포 없이 즉시 원복 가능(문제 시 'off' 로 바꾸고 재배포).
+  private stickyUid: boolean = false;
+
+  constructor(state: DurableObjectState, env?: any) {
     this.state = state;
     this.roomId = '';
+    try { this.stickyUid = !!(env && env.VC_STICKY_UID === 'on'); } catch { this.stickyUid = false; }
     // 재기동 시 교재 공유 상태 복원
     this.state.blockConcurrencyWhile(async () => {
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
@@ -191,11 +197,24 @@ export class VideoCallRoom {
     //   → 같은 clientId 의 이전 소켓을 먼저 닫아준다. close() 는 webSocketClose 를 확실히 발화시켜
     //     handleLeaveRoom 이 user-left 를 브로드캐스트 → 모든 클라이언트에서 옛 타일 제거.
     //   (clientId 가 있을 때만 동작 = 진짜 다른 참가자/다른 기기/다른 탭은 절대 닫지 않음, fail-safe)
+    // 🔁 (2026-07-24) 무중단 재연결: 스위치가 켜져 있고 같은 clientId 의 옛 소켓이 '입장 상태'면,
+    //   새 랜덤 userId 를 발급하는 대신 옛 userId 를 물려받는다 → 상대 화면에서 타일·연결이 유지된다.
+    //   스위치 OFF(기본)면 inherited 는 계속 false 라 아래 흐름이 예전과 100% 동일하다.
+    let effectiveUserId = userId;
+    let inherited = false;
     if (clientId) {
       for (const other of this.state.getWebSockets()) {
         if (other === ws) continue;
         const oa = this.attOf(other);
         if (oa && oa.clientId && oa.clientId === clientId) {
+          if (this.stickyUid && !inherited && oa.joined && oa.userId) {
+            effectiveUserId = oa.userId;
+            inherited = true;
+            // 🔴 순서 중요: 옛 소켓을 닫기 '전에' joined:false + stale- 로 갱신한다.
+            //   ① joined:false → webSocketClose 가 handleLeaveRoom(user-left 방송)을 건너뛴다(상대 타일 유지)
+            //   ② userId 를 stale- 로 바꿔 wsOf(userId) 가 '새 소켓'을 가리키게 한다(메시지 오배송 방지)
+            try { other.serializeAttachment({ ...oa, userId: 'stale-' + oa.userId, joined: false } as VcAttachment); } catch {}
+          }
           // ⚠️ 1000(정상 종료)이 아닌 4001 로 닫는다 — 같은 사람이 '재접속으로 교체'되는 중이므로
           //   학생 화면이 이를 '강사 퇴장(left)'으로 오인해 수업을 즉시 종료하면 안 된다('dropped' 유예 대상).
           try { other.close(4001, 'superseded-by-reconnect'); } catch {}
@@ -209,9 +228,9 @@ export class VideoCallRoom {
       return;
     }
 
-    // attachment 에 사용자명/joined 기록 (재기동에도 유지)
-    const att = this.attOf(ws) || { userId, roomId: this.roomId };
-    ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId } as VcAttachment);
+    // attachment 에 사용자명/joined 기록 (재기동에도 유지) — 인계 시엔 물려받은 userId 사용
+    const att = this.attOf(ws) || { userId: effectiveUserId, roomId: this.roomId };
+    ws.serializeAttachment({ ...att, userId: effectiveUserId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId } as VcAttachment);
 
     const userCount = this.joinedUsers().length;
 
@@ -230,30 +249,38 @@ export class VideoCallRoom {
     // 🔒 지난 수업의 통제 잠금(배경/음소거/집중)도 새 수업 첫 입장 시엔 해제 상태로 시작
     if (userCount <= 1) this.clearAllLocks();
 
-    this.send(userId, {
+    // room-joined 는 반드시 물려받은 userId 로 회신한다 — 클라이언트가 이 값이 '직전 vcUserId 와 같은가'
+    //   로 "정체성 유지됨 → 살아있는 연결 보존"을 판단한다.
+    this.send(effectiveUserId, {
       type: 'room-joined',
-      data: { roomId: this.roomId, userId, userCount, pdfState: this.pdfState }
+      data: { roomId: this.roomId, userId: effectiveUserId, userCount, pdfState: this.pdfState }
     });
 
-    const existingUsers = this.joinedUsers().filter(u => u.userId !== userId);
-    this.send(userId, { type: 'existing-users', data: { users: existingUsers, pdfState: this.pdfState } });
+    const existingUsers = this.joinedUsers().filter(u => u.userId !== effectiveUserId);
+    this.send(effectiveUserId, { type: 'existing-users', data: { users: existingUsers, pdfState: this.pdfState } });
 
-    this.broadcast(userId, { type: 'user-joined', data: { userId, username, role: role || 'student', userCount } });
-
-    if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
-    // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
-    if (this.videoState) this.send(userId, { type: 'video-share', data: this.videoState });
-    // 🔒 통제 잠금(배경/음소거/집중) 중이면 늦게 입장한 학생에게도 즉시 적용
-    for (const [msgType, key] of Object.entries(VideoCallRoom.LOCK_KEYS)) {
-      if (this.lockState[key]) this.send(userId, { type: msgType, data: { locked: true } });
+    // 🔁 인계(재연결)면 상대 입장에서 '새 사람'이 아니다 → user-joined 방송과 '입장했습니다' 안내를 생략한다.
+    //   (안 그러면 재연결마다 상대 화면에 새 타일이 생기고 "님이 입장했습니다"가 도배된다.)
+    if (!inherited) {
+      this.broadcast(effectiveUserId, { type: 'user-joined', data: { userId: effectiveUserId, username, role: role || 'student', userCount } });
     }
 
-    this.broadcastAll({
-      type: 'chat-message',
-      data: { username: '시스템', message: `${username}님이 입장했습니다.`, timestamp: Date.now(), isSystem: true }
-    });
+    if (this.pdfState) this.send(effectiveUserId, { type: 'pdf-sync', data: this.pdfState });
+    // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
+    if (this.videoState) this.send(effectiveUserId, { type: 'video-share', data: this.videoState });
+    // 🔒 통제 잠금(배경/음소거/집중) 중이면 늦게 입장한 학생에게도 즉시 적용
+    for (const [msgType, key] of Object.entries(VideoCallRoom.LOCK_KEYS)) {
+      if (this.lockState[key]) this.send(effectiveUserId, { type: msgType, data: { locked: true } });
+    }
 
-    console.log(`[VideoChat] User ${username} (${userId}) joined room ${this.roomId}`);
+    if (!inherited) {
+      this.broadcastAll({
+        type: 'chat-message',
+        data: { username: '시스템', message: `${username}님이 입장했습니다.`, timestamp: Date.now(), isSystem: true }
+      });
+    }
+
+    console.log(`[VideoChat] User ${username} (${effectiveUserId}) joined room ${this.roomId}${inherited ? ' (sticky-reconnect)' : ''}`);
   }
 
   private handleLeaveRoom(userId: string, exclude?: WebSocket, knownUsername?: string, reason: 'left' | 'dropped' = 'left'): void {

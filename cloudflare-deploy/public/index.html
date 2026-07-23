@@ -8879,10 +8879,21 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             reconnectAttempts = 0;  // 재연결 카운터 초기화
             startPing(); // keepalive 시작
 
-            // ★ 재연결 시 기존 PeerConnection 모두 정리 (새로 생성되도록)
-            if (isReconnect && typeof vcCleanupAllPeers === 'function') {
-                console.log('[WebSocket] 재연결 감지 → 기존 PeerConnection 모두 정리');
-                vcCleanupAllPeers();
+            // 🔁 (2026-07-24) ★ 재연결 시 기존 PeerConnection 정리를 '여기서 즉시' 하지 않고 보류한다.
+            //   room-joined 응답의 userId 가 직전과 같으면(=서버가 정체성을 물려줌) 살아있는 연결을 보존하고,
+            //   다르면(스위치 off 또는 첫 입장) 그때 정리한다. 판단은 vcHandleMessage 의 room-joined 에서.
+            //   ⚠️ 스위치 off 서버는 항상 '새 userId' 를 주므로 room-joined 에서 반드시 정리된다 = 예전과 동일.
+            window.__vcWasReconnect = isReconnect;
+            // 🛟 안전망: room-joined 가 오지 않는 경로(관찰자 등)에서도 예전처럼 정리되도록 4초 후 폴백.
+            //   (정상 경로는 room-joined 가 즉시 도착해 이 폴백 전에 __vcWasReconnect 를 false 로 만든다.)
+            if (isReconnect) {
+                setTimeout(function(){
+                    if (window.__vcWasReconnect && typeof vcCleanupAllPeers === 'function') {
+                        window.__vcWasReconnect = false;
+                        console.log('[vc] 재연결 폴백 정리(room-joined 미수신)');
+                        vcCleanupAllPeers();
+                    }
+                }, 4000);
             }
 
             if (onOpen) onOpen(ws);
@@ -11796,13 +11807,28 @@ async function vcJoinAsObserver(roomId) {
 /** 다자간 통화 메시지 처리 */
 function vcHandleMessage(msg) {
     switch (msg.type) {
-        case 'room-joined':
+        case 'room-joined': {
+            // 🔁 (2026-07-24) 무중단 재연결 판단 — onopen 에서 보류한 '기존 연결 정리'를 여기서 결정한다.
+            //   재연결인데 서버가 '같은 userId' 를 돌려줬다 = 정체성 유지 = 살아있는 PeerConnection 을 그대로 둔다.
+            //   userId 가 바뀌었다(스위치 off/첫 입장) = 예전처럼 전부 정리한다(안전한 쪽, 기존 동작 그대로).
+            const _prevUserId = vcUserId;
+            const _wasReconnect = !!window.__vcWasReconnect;
+            window.__vcWasReconnect = false;
+            if (_wasReconnect && typeof vcCleanupAllPeers === 'function') {
+                if (msg.data.userId !== _prevUserId) {
+                    console.log('[vc] 재연결 — 정체성 바뀜 → 기존 PeerConnection 정리(기존 동작)');
+                    vcCleanupAllPeers();
+                } else {
+                    console.log('[vc] 재연결 — 정체성 유지 → 살아있는 연결 보존(무중단)');
+                }
+            }
             vcUserId = msg.data.userId;
             window._vcJoinedRoomId = msg.data.roomId || vcRoomId;   // ★ 이때부터 room-media 폴링 적용 허용
             updateUserCount(msg.data.userCount);
             // 🌟 학생이면 (방·피어ID → 내 계정 uid) 를 서버에 등록 → 선생님이 별 누르면 서버가 내 계정에 확실히 적립.
             try { vcRegisterRosterIdentity(); setTimeout(vcRegisterRosterIdentity, 3000); } catch(e){}
             break;
+        }
 
         case 'existing-users':
             // 기존 사용자 각각에 대해 P2P 연결 시작 (내가 Offer를 보냄)
@@ -11810,6 +11836,12 @@ function vcHandleMessage(msg) {
             msg.data.users.forEach((user, idx) => {
                 try { (window.vcPeerRoles = window.vcPeerRoles || {})[user.userId] = user.role || 'student'; } catch(e){}
                 try { vcEnsureParticipantBox(user.userId, user.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
+                // 🔁 (2026-07-24) 이미 연결된 상대에게는 offer 를 다시 쏘지 않는다 — 무중단 재연결로 살려 둔
+                //   PeerConnection 을 스스로 부수면 이 작업의 목적이 무너진다. (정리된 경우엔 pc 가 없어 정상 offer)
+                var _epc = vcPeerConnections[user.userId];
+                if (_epc && (_epc.connectionState === 'connected' || _epc.iceConnectionState === 'connected' || _epc.iceConnectionState === 'completed')) {
+                    return;
+                }
                 // 각 사용자에 대해 약간의 지연을 주어 동시 offer 폭주 방지
                 setTimeout(() => vcCreatePeerAndOffer(user.userId, user.username), idx * 300);
             });
@@ -26994,7 +27026,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260724025330 -->
+<!-- BUILD:20260724033950 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
