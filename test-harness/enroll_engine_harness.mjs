@@ -12,11 +12,16 @@ import { dirname, join } from 'path';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const src = readFileSync(join(root, 'cloudflare-deploy', 'src', 'enroll-ops.ts'), 'utf8');
 
-const names = ['enrollQuoteCalc', 'enrollTimeToMin', 'enrollOverlap', 'enrollDates', 'enrollRefundCalc', 'kstToday', 'addDays', 'daysBetween', 'isValidWeekly', 'inferWeeklyDays'];
-// 상수도 원문에서 가져온다(값이 바뀌면 테스트도 같이 따라가게)
-const constMatch = src.match(/export const ENROLL_WEEKLY = \[[^\]]*\];/);
-if (!constMatch) { console.error('FAIL extract ENROLL_WEEKLY'); process.exit(1); }
-let code = constMatch[0].replace(/^export /, '') + '\n';
+const names = ['enrollQuoteCalc', 'enrollTimeToMin', 'enrollOverlap', 'enrollDates', 'enrollRefundCalc', 'kstToday', 'addDays', 'daysBetween', 'isValidWeekly', 'inferWeeklyDays', 'enrollParse'];
+// 상수도 원문에서 가져온다(값이 바뀌면 테스트도 같이 따라가게).
+//   enrollParse 가 ENROLL_MONTHS·ENROLL_TIME_MIN/MAX 를 참조하므로 함께 끌어온다.
+let code = '';
+// ENROLL_TIME_MIN/MAX 는 export 가 아닌 모듈 로컬 상수라 'export ' 를 선택적으로 매칭한다.
+for (const cn of ['ENROLL_WEEKLY', 'ENROLL_MONTHS', 'ENROLL_TIME_MIN', 'ENROLL_TIME_MAX']) {
+  const cm = src.match(new RegExp(`(?:export )?const ${cn} =[^;]*;`));
+  if (!cm) { console.error(`FAIL extract ${cn}`); process.exit(1); }
+  code += cm[0].replace(/^export /, '') + '\n';
+}
 
 for (const n of names) {
   // 한 줄 함수 먼저(예: isValidWeekly) → 없으면 여러 줄 함수. 순서를 바꾸면 한 줄 함수가
@@ -27,6 +32,9 @@ for (const n of names) {
   code += m[0]
     .replace(/^export /, '')
     .replace(/\(([^)]*)\)(: [A-Za-z[\]{};: |<>]+)? \{/, (s, args) => `(${args.replace(/\?/g, '').replace(/: [A-Za-z[\]<>| .']+(?=[,)=])/g, '').replace(/: [A-Za-z[\]<>| .']+$/g, '')}) {`)
+    // 본문 안의 인라인 타입도 제거: 화살표 단일 인자 타입(x: any) + as 캐스트(as number[]) — enrollParse 대응
+    .replace(/\(([a-zA-Z_$][\w$]*): [A-Za-z][\w<>[\]| .]*\)/g, '($1)')
+    .replace(/ as [A-Za-z][\w<>[\]| ]*/g, '')
     .replace(/: (number|string|boolean)\[\]/g, '')
     .replace(/: (number|string|boolean)\b/g, '')
     .replace(/\??: Set<string>/g, '')
@@ -123,6 +131,24 @@ eq('미래 2건이어도 같은 주 안이면(7일 미만) 추정 포기',
    fns.inferWeeklyDays(['2026-07-13','2026-07-15','2026-07-21','2026-07-23','2026-07-28','2026-07-30'],
                        ['2026-07-28','2026-07-30']), null);
 eq('판매 주 횟수 판정: 4회는 상품에 없음', [fns.isValidWeekly(1), fns.isValidWeekly(2), fns.isValidWeekly(4), fns.isValidWeekly(5)], [true, true, false, true]);
+
+console.log('── 1단계: 결제 전 입력 검증(enrollParse — 이상 주문/변조 차단) ──');
+// kstToday() 에 의존하므로 시작일은 항상 미래(2099년)로 고정 → 오늘 날짜와 무관하게 안정적.
+const good = { weekly: 2, months: 3, minutes: 20, time: '16:00', days: [1, 3], start_date: '2099-01-05', teacher_id: 'T29' };
+const parse = (over) => fns.enrollParse({ ...good, ...over });
+eq('정상 주문 통과(에러 없음)', parse({}).error, undefined);
+eq('정상 주문 필드 정규화', [parse({}).weekly, parse({}).startMin, parse({}).days], [2, 960, [1, 3]]);
+eq('상품에 없는 주횟수(4) 거부', parse({ weekly: 4, days: [1, 2, 3, 4] }).error, 'bad_weekly');
+eq('상품에 없는 개월(5) 거부', parse({ months: 5 }).error, 'bad_months');
+eq('허용 안 된 수업길이(30분) 거부', parse({ minutes: 30 }).error, 'bad_minutes');
+eq('10분 단위 아닌 시각 거부', parse({ time: '16:05' }).error, 'bad_time');
+eq('형식 틀린 시각 거부', parse({ time: '9:00' }).error, 'bad_time');
+eq('요일 수 ≠ 주횟수 거부(변조 방지)', parse({ weekly: 2, days: [1] }).error, 'days_count_mismatch');
+eq('요일 중복은 dedup 되어 개수 불일치로 거부', parse({ weekly: 2, days: [1, 1] }).error, 'days_count_mismatch');
+eq('시작일 형식 오류 거부', parse({ start_date: '2099-1-5' }).error, 'bad_start_date');
+eq('과거 시작일 거부(소급 결제 방지)', parse({ start_date: '2000-01-01' }).error, 'start_date_past');
+eq('강사 미지정 거부', parse({ teacher_id: '' }).error, 'teacher_required');
+eq('요일 범위(0~6) 밖 값은 걸러져 개수 불일치로 거부', parse({ weekly: 2, days: [1, 9] }).error, 'days_count_mismatch');
 
 console.log(`\n${fail === 0 ? '✅ ALL PASS' : '❌ FAILURES'} — pass ${pass} / fail ${fail}`);
 process.exit(fail === 0 ? 0 : 1);
