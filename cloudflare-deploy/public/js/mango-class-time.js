@@ -242,7 +242,7 @@
       if (!sched || !sched.start_time) { renderFail('시간 정보 없음'); return; }
 
       var start = sched.start_time;                              // "22:00"
-      var end = addMinutes(start, sched.duration_min || 30);     // 시작 + 수업시간(기본 30분)
+      var end = addMinutes(start, sched.duration_min || 20);     // 시작 + 수업시간(기본 20분 — 영어·중국어 공통, 2026-07-23)
       render(start, end);
     } catch (err) {
       console.warn('[mango-class-time] 수업 시간 로드 실패:', err);

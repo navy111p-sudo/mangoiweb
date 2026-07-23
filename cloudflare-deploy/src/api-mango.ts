@@ -1287,7 +1287,7 @@ export async function handleMangoApi(
     //   query: ?user_id=X | ?student_name=Y (학생) · ?role=teacher&user_id=teacherUid | &student_name=강사명 (교사)
     if (method === 'GET' && path === '/api/class/sessions/today') {
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
       } catch {}
       const url = new URL(request.url);
       const userId = (url.searchParams.get('user_id') || '').trim();
@@ -1328,6 +1328,27 @@ export async function handleMangoApi(
       const ymd = `${kY}${pad(kMo + 1)}${pad(kD)}`;
       const todayStr = `${kY}-${pad(kMo + 1)}-${pad(kD)}`;
 
+      // 🗓️ (2026-07-24) 요일 표기 관용 파서 — 저장 형식이 한 가지가 아니다.
+      //   숫자 '5' / 콤마목록 '1,3' / 영문 'Mon'(캘린더 드래그 PATCH 가 이 형식으로 저장)
+      //   / 한글 '월'. 기존엔 Number(x)===kDow 단일 비교라 뒤 두 형식은 NaN 이 되어
+      //   예약이 있는데도 "오늘 예약된 수업이 없어요" 가 떴다. (매칭을 넓히기만 함)
+      const DOW_MAP: Record<string, number> = {
+        sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+        tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+        thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+        sat: 6, saturday: 6, '토': 6, '토요일': 6,
+      };
+      const dowMatches = (raw: any, target: number): boolean => {
+        for (const p of String(raw ?? '').split(/[,\s/·]+/)) {
+          const q = p.trim();
+          if (!q) continue;
+          if (/^\d+$/.test(q)) { if (Number(q) === target) return true; continue; }
+          const v = DOW_MAP[q.toLowerCase()];
+          if (v != null && v === target) return true;
+        }
+        return false;
+      };
+
       const OPEN_BEFORE = 10 * 60 * 1000; // 시작 10분 전부터 입장 허용
       const LATE_AFTER = 15 * 60 * 1000;  // 종료 15분 후까지 지각 입장 허용
 
@@ -1345,7 +1366,7 @@ export async function handleMangoApi(
         // 오늘 발생하는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
         let occurs = false;
         if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-        else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow);
+        else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
         if (!occurs) continue;
         seen.add(s.id);
         const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));

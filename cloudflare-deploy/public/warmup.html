@@ -238,10 +238,10 @@
 
         <!-- 🐢🐇 선생님(AI) 음성 듣기 속도: 1(천천히) ~ 5(빠르게) -->
         <div class="menu-group">
-          <div class="menu-label"><span>🗣️ 듣기 속도</span><span class="rate-val" id="rateVal">3 · 보통</span></div>
+          <div class="menu-label"><span>🗣️ 듣기 속도</span><span class="rate-val" id="rateVal">2 · 천천히</span></div>
           <div class="rate-row">
             <span class="rate-side">🐢</span>
-            <input id="rateSlider" type="range" min="1" max="5" step="1" value="3"
+            <input id="rateSlider" type="range" min="1" max="5" step="1" value="2"
               oninput="setRate(this.value)" title="선생님 음성 속도 (1 천천히 ~ 5 빠르게)" />
             <span class="rate-side">🐇</span>
           </div>
@@ -445,23 +445,23 @@ function setVoiceMode(m, announce){
 /* 🐢🐇 듣기 속도: 1(천천히)~5(빠르게) → speechSynthesis rate 값 매핑 */
 var RATE_STEPS = { 1:0.6, 2:0.8, 3:0.95, 4:1.15, 5:1.4 };
 /* 서버 TTS(오디오 파일) 전용 배속 — playbackRate 시간늘리기는 배속이 1에서 멀수록
-   "뚜벅뚜벅" 왜곡(특히 저음 남자 목소리)이 커진다. 기본(3)은 정확히 1.0(무가공 원음),
+   "뚜벅뚜벅" 왜곡(특히 저음 남자 목소리)이 커진다. 3단계는 정확히 1.0(무가공 원음),
    천천히 쪽도 왜곡이 덜한 완만한 값으로. */
 var AUDIO_RATE = { 1:0.72, 2:0.85, 3:1.0, 4:1.15, 5:1.35 };
 var RATE_NAMES = { 1:'아주 천천히', 2:'천천히', 3:'보통', 4:'빠르게', 5:'아주 빠르게' };
-var _rateLevel = 3;
-try{
-  var savedRate = parseInt(localStorage.getItem('mangoi_warmup_rate')||'3',10);
-  if(savedRate>=1 && savedRate<=5) _rateLevel = savedRate;
-}catch(e){}
+/* 🐢 (2026-07-23) 들어올 때는 항상 2단계(천천히)에서 시작한다.
+   처음 듣는 학생이 못 알아듣는 일이 없게, 지난번에 올려둔 속도를 이어받지 않는다.
+   (수업 중 슬라이더로 올리는 건 그대로 되고, 다음에 다시 들어오면 또 2부터.) */
+var WARMUP_START_RATE = 2;
+var _rateLevel = WARMUP_START_RATE;
 function setRate(lv){
-  lv = parseInt(lv,10); if(!(lv>=1 && lv<=5)) lv = 3;
+  lv = parseInt(lv,10); if(!(lv>=1 && lv<=5)) lv = WARMUP_START_RATE;
   _rateLevel = lv;
-  try{ localStorage.setItem('mangoi_warmup_rate', String(lv)); }catch(e){}
+  /* 이 화면은 매번 2단계로 시작하므로 속도는 저장하지 않는다(저장해도 읽지 않음). */
   var s=document.getElementById('rateSlider'); if(s && String(s.value)!==String(lv)) s.value=lv;
   var v=document.getElementById('rateVal'); if(v) v.textContent = lv + ' · ' + RATE_NAMES[lv];
 }
-setRate(_rateLevel);   // 저장된 속도로 슬라이더/표시 초기화
+setRate(_rateLevel);   // 시작 속도(2단계 · 천천히)로 슬라이더/표시 초기화
 /* 🐢 (2026-07-23) "천천히 말해줘" 라고 말하거나 쓰면 듣기 속도를 실제로 한 칸 낮춘다.
    그동안은 슬라이더로만 바뀌어서, 부탁해도 같은 속도로 계속 읽어줬다. */
 function maybeAdjustRate(text){
@@ -1090,7 +1090,7 @@ async function sendMsg(){
 <script defer src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260723211800 -->
+<!-- BUILD:20260723220634 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

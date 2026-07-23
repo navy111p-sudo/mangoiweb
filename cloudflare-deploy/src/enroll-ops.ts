@@ -14,6 +14,7 @@
  *  ⚠️ 돈·수업 데이터를 다루므로: 모든 생성은 멱등, 이중 예약은 3중 차단, 실패는 격리.
  */
 import { json, parseJsonBody } from './api-util';
+import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
 import { checkAdminSession } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { sendPlainSms } from './solapi-client';
@@ -97,7 +98,7 @@ export async function ensureEnrollTables(env: any): Promise<void> {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_pricing (teacher_id TEXT PRIMARY KEY, rate_pct INTEGER NOT NULL DEFAULT 100, note TEXT, updated_by TEXT, updated_at INTEGER)`);
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enroll_holidays (day TEXT PRIMARY KEY, name TEXT, created_by TEXT, created_at INTEGER)`);
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enroll_notify_log (uid TEXT NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, sent_at INTEGER, PRIMARY KEY (uid, kind, day))`);
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
     try { await env.DB.prepare(`ALTER TABLE payment_orders ADD COLUMN enroll_json TEXT`).run(); } catch (_) {}
     try { await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_teacher_slot ON class_schedules(teacher_id, scheduled_date, start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL`).run(); } catch (_) {}
     try { await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_sched_user_date ON class_schedules(user_id, scheduled_date)`).run(); } catch (_) {}
@@ -152,16 +153,16 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
       const chunk = dates.slice(i, i + 90);
       const ph = chunk.map(() => '?').join(',');
       const rs: any = await env.DB.prepare(
-        `SELECT scheduled_date, start_time, COALESCE(duration_min, 30) AS dm FROM class_schedules
+        `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
          WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`
       ).bind(teacherId, ...chunk).all();
       for (const r of ((rs?.results as any[]) || [])) {
         const s = enrollTimeToMin(String(r.start_time || ''));
-        if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || 30)) conflicts.add(String(r.scheduled_date));
+        if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) conflicts.add(String(r.scheduled_date));
       }
     }
     const rs2: any = await env.DB.prepare(
-      `SELECT day_of_week, start_time, COALESCE(duration_min, 30) AS dm FROM class_schedules
+      `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
        WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
     ).bind(teacherId).all();
     const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
@@ -170,7 +171,7 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
       const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
       if (dw === undefined || !days.includes(dw)) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
-      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || 30)) badDows.add(dw);
+      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) badDows.add(dw);
     }
     if (badDows.size) {
       for (const iso of dates) {

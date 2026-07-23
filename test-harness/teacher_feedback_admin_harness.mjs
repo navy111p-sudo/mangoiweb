@@ -189,6 +189,34 @@ console.log('\n▶ 7. 화상수업 독 — 설정 버튼 크기');
         !!pop && Number(pop[1]) >= 390, pop ? `현재 ${pop[1]}px` : '팝업 폭을 못 찾음');
 }
 
+/* ── 8. 영어 모드에서 입력칸 안내문(placeholder)이 한국어로 남지 않게 ──── */
+//  제보(2026-07-23): EN 모드인데 '참관 사유 (필수, …)' 칸만 한국어.
+//  진범 = i18n-sweep 의 SKIP 목록에 TEXTAREA 가 있어 **placeholder 속성까지** 통째로 걸러졌다.
+//  (텍스트 내용은 사용자 입력이라 건드리면 안 되는 게 맞다 — 속성만 살려야 한다.)
+console.log('\n▶ 8. 영어 모드 — 입력칸 안내문 번역');
+{
+  const sweep = read(join(PUB, 'js', 'i18n-sweep.js'));
+  check('TEXTAREA 는 여전히 내용 번역 제외', /SKIP\s*=\s*\/\^\([^)]*TEXTAREA/.test(sweep),
+        '사용자가 입력한 글까지 번역하면 안 된다');
+  check('그래도 textarea placeholder 는 번역',
+        /querySelectorAll\('textarea'\)[\s\S]{0,200}applyEl/.test(sweep),
+        'SKIP 때문에 속성까지 빠지면 영어 모드에서 한국어가 남는다');
+  check('placeholder 가 번역 대상 속성에 포함', /ATTRS\s*=\s*\[[^\]]*'placeholder'/.test(sweep));
+
+  // 관리자 화면은 mango-i18n.js 를 안 쓰므로 짧은 표기(data-ko-ph)도 직접 처리해야 한다
+  check('admin.html 은 mango-i18n.js 를 쓰지 않음', !adminHtml.includes('mango-i18n.js'));
+  check('adm-core 가 data-ko-placeholder 처리', admCore.includes("querySelectorAll('[data-ko-placeholder]')"));
+  check('adm-core 가 data-ko-ph 도 처리', admCore.includes("querySelectorAll('[data-ko-ph]')"),
+        '이게 없으면 영어 문구를 적어둔 입력칸 50여 곳이 관리자 화면에서만 한국어로 남는다');
+
+  // 제보된 카드 3칸은 AI 번역에 기대지 않고 확정
+  for (const id of ['gh-admin-uid', 'gh-room-id', 'gh-reason']) {
+    const tag = (adminHtml.match(new RegExp('<(?:input|textarea)[^>]*id="' + id + '"[^>]*>', 's')) || [''])[0];
+    check(`${id} 에 영어 안내문 명시`, /data-en-placeholder="/.test(tag),
+          tag ? '' : '태그를 못 찾음');
+  }
+}
+
 console.log('\n' + '═'.repeat(64));
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);
 if (failures.length) { console.log('\n  실패 목록:'); failures.forEach(f => console.log('   - ' + f)); }

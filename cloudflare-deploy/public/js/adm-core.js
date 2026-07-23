@@ -109,6 +109,14 @@ function applyAdminLangDom() {
     var txt = el.getAttribute('data-' + adminLang + '-placeholder');
     if (txt !== null) el.placeholder = txt;
   });
+  /* 🌐 (2026-07-23) 짧은 표기(data-ko-ph / data-en-ph)도 함께 처리.
+     이 표기는 mango-i18n.js 가 담당하는데 admin.html 은 그 파일을 안 불러온다.
+     그래서 영어 문구를 이미 적어 둔 입력칸 52곳이 관리자 화면에서만 한국어로 남아 있었다.
+     두 표기를 모두 받아주면 기존 마크업을 안 고치고도 전부 살아난다. */
+  document.querySelectorAll('[data-ko-ph]').forEach(function(el){
+    var txt = el.getAttribute('data-' + adminLang + '-ph');
+    if (txt !== null) el.placeholder = txt;
+  });
   // title (tooltip)
   document.querySelectorAll('[data-ko-title]').forEach(function(el){
     var txt = el.getAttribute('data-' + adminLang + '-title');

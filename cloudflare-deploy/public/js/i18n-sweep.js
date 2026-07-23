@@ -3219,6 +3219,18 @@
     if(root.nodeType===3){ applyTextNode(root); return; }
     if(root.nodeType!==1 && root.nodeType!==11) return;
     if(root.nodeType===1){ if(SKIP.test(root.tagName)) return; applyEl(root); }
+    /* 📝 (2026-07-23) TEXTAREA 의 placeholder 만 따로 번역한다.
+       SKIP 에 TEXTAREA 가 들어 있어 워커가 통째로 걸러내는데, 그건 '사용자가 입력한 내용'을
+       건드리지 않으려는 것이라 맞다. 문제는 그 바람에 placeholder 속성까지 같이 빠져서,
+       영어 모드인데 이 칸만 한국어로 남았다(강사 제보: '참관 사유 (필수, …)').
+       applyEl 은 속성만 만지므로 입력 내용에는 영향이 없다. */
+    try {
+      if (root.tagName === 'TEXTAREA') applyEl(root);
+      else if (root.querySelectorAll) {
+        var _tas = root.querySelectorAll('textarea');
+        for (var _i = 0; _i < _tas.length; _i++) applyEl(_tas[_i]);
+      }
+    } catch(e){}
     var w=document.createTreeWalker(root, NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT, {
       acceptNode:function(nd){
         if(nd.nodeType===1) return SKIP.test(nd.tagName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT;

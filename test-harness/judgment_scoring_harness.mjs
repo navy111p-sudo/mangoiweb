@@ -175,6 +175,17 @@ console.log('\n[ I. 배선 — 정답지가 서버에서 오는가 (클라이언
   check('축마다 해석 문구(밴드)를 붙인다', /function band\(/.test(html) && /집중 연습이 필요해요/.test(html));
   check('지난달 대비 추세를 보여준다', /function monthTrend\(/.test(html));
   check('추세 문구가 3개 언어 모두 있다', /지난달보다[\s\S]{0,120}from last month[\s\S]{0,120}比上个月/.test(html));
+
+  // 취약 유형 → 즉시 그 유형 연습 (산타의 "취약 개념에서 바로 학습으로 이동")
+  check('생성기가 지정 오답유형을 받는다', /focusMisconception\?: string \| null/.test(src));
+  check('사전에 없는 코드는 무시한다(프롬프트 주입 차단)', /taxonomy\.some\(\(t\) => t\.code === wanted\)/.test(src));
+  check('지정 유형이 자동 추정보다 우선한다', /const focus = pickedMisc[\s\S]{0,400}\? `The student CHOSE to practice/.test(src));
+  check('라우트가 focus_misconception 을 넘긴다', /body\.focus_misconception/.test(pts));
+  check('화면이 취약 유형을 버튼으로 만든다', /class="mi-go" data-misc=/.test(html));
+  check('결과 화면에 이 유형 재연습 버튼이 있다', /id="again" data-misc=/.test(html));
+  check('지정 연습은 미리 받아둔 일반 문제를 쓰지 않는다', /if\(focusMisc\)\{[\s\S]{0,120}prefetch = null/.test(html));
+  check('클릭 핸들러가 이벤트 객체를 인자로 넘기지 않는다',
+    !/addEventListener\('click', loadScenario\)/.test(html));
 }
 
 console.log('\n════════════════════════════════════════');

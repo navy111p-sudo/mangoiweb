@@ -12,7 +12,7 @@
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
-<script defer src="/js/i18n-sweep.js?v=9"></script>
+<script defer src="/js/i18n-sweep.js?v=10"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>🎓 학생 상세보기 — 망고아이</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -325,6 +325,40 @@
           </div>
           <div id="aiSchedulesList" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#cbd5e1">
             <div style="text-align:center;padding:14px;color:#94a3b8;font-size:12px">로딩 중…</div>
+          </div>
+
+          <!-- 🥭 (2026-07-24) 수업 예약 직접 등록 — 지금까지 예약을 '만드는' 경로가 AI 명령 하나뿐이라
+               담당자가 화면에서 수업을 잡을 수 없었다. 예약이 있어야 교사·학생이 같은 방으로 자동 입장한다. -->
+          <div style="margin-top:12px;border-top:1px dashed rgba(251,191,36,0.35);padding-top:12px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:700;color:#fbbf24">➕ 수업 예약 등록 / Add class</span>
+              <span style="font-size:11px;color:#94a3b8">예약을 만들면 교사·학생이 방 코드 없이 같은 방으로 입장합니다 / Both join the same room automatically</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+              <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">종류 / Type
+                <select id="ns-kind" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px">
+                  <option value="recurring">매주 반복 / Weekly</option>
+                  <option value="one_off">특정 날짜 / One-off</option>
+                </select>
+              </label>
+              <div id="ns-days-wrap" style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">요일 / Days
+                <div style="display:flex;gap:4px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="0" style="margin:0">일 Sun</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="1" style="margin:0">월 Mon</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="2" style="margin:0">화 Tue</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="3" style="margin:0">수 Wed</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="4" style="margin:0">목 Thu</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="5" style="margin:0">금 Fri</label><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:#cbd5e1;background:rgba(15,23,42,0.7);border:1px solid #475569;border-radius:6px;padding:4px 7px;cursor:pointer"><input type="checkbox" class="ns-day" value="6" style="margin:0">토 Sat</label></div>
+              </div>
+              <label id="ns-date-wrap" style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8;display:none">날짜 / Date
+                <input type="date" id="ns-date" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">시작 / Start
+                <input type="time" id="ns-time" value="19:30" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">분 / Min
+                <input type="number" id="ns-dur" value="30" min="10" max="180" step="5" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px;width:66px">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8">담당 강사 / Teacher
+                <input type="text" id="ns-teacher" placeholder="예: 강선생님" style="padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px;width:130px">
+              </label>
+              <button type="button" id="ns-add" style="padding:7px 16px;border:0;border-radius:7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#1f2937;font-weight:800;font-size:12px;cursor:pointer">등록 / Add</button>
+            </div>
+            <div id="ns-msg" style="margin-top:8px;font-size:12px;line-height:1.6"></div>
           </div>
         </div>
         <!-- 컨트롤 -->
@@ -2700,7 +2734,9 @@ async function loadAiSchedules() {
       listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#64748b;font-size:12px">아직 AI로 등록된 스케줄이 없습니다.<br>관리자 검색창에서 자연어로 등록해 보세요.</div>';
       return;
     }
-    const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
+    // (2026-07-24) 저장 형식이 섞여 있다 — 'mon'(AI 명령) / 숫자 0~6(등록 폼·sessions/today 기준)
+    const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일',
+                       '0':'일', '1':'월', '2':'화', '3':'수', '4':'목', '5':'금', '6':'토' };
     const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
     const typeName = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
     const statusName = { active:'활성', postponed:'연기', cancelled:'취소' };
@@ -2730,6 +2766,82 @@ async function cancelAiSchedule(id) {
     else alert('취소 실패: ' + (j.error || '알 수 없음'));
   } catch (e) { alert('취소 오류: ' + (e.message || e)); }
 }
+/* 🥭 (2026-07-24) 예약 등록 — POST /api/admin/class-schedules
+   ⚠️ 요일은 숫자(0=일~6=토)로 보낸다. /api/class/sessions/today 가 그 형식으로 오늘 수업을
+      계산하기 때문. 서버가 요일당 1행으로 나눠 저장한다. */
+(function initNewSchedule(){
+  var kindEl = document.getElementById('ns-kind');
+  var daysWrap = document.getElementById('ns-days-wrap');
+  var dateWrap = document.getElementById('ns-date-wrap');
+  var addBtn = document.getElementById('ns-add');
+  var msgEl = document.getElementById('ns-msg');
+  if (!kindEl || !addBtn) return;
+
+  function syncKind(){
+    var one = kindEl.value === 'one_off';
+    if (daysWrap) daysWrap.style.display = one ? 'none' : 'flex';
+    if (dateWrap) dateWrap.style.display = one ? 'flex' : 'none';
+  }
+  kindEl.addEventListener('change', syncKind);
+  syncKind();
+
+  function say(html, color){ if (msgEl) msgEl.innerHTML = '<span style="color:' + (color || '#94a3b8') + '">' + html + '</span>'; }
+
+  async function submit(force){
+    var uid = (typeof STUDENT_UID !== 'undefined' ? STUDENT_UID : null)
+           || new URLSearchParams(location.search).get('uid');
+    var name = (typeof STUDENT_NAME !== 'undefined' ? STUDENT_NAME : '');
+    if (!uid && !name) { say('학생 정보를 찾을 수 없습니다. / Student not identified.', '#ef4444'); return; }
+
+    var days = Array.prototype.slice.call(document.querySelectorAll('.ns-day:checked')).map(function(c){ return c.value; });
+    var payload = {
+      user_id: uid || undefined,
+      student_name: name || undefined,
+      schedule_kind: kindEl.value,
+      days: days,
+      scheduled_date: (document.getElementById('ns-date') || {}).value || undefined,
+      start_time: (document.getElementById('ns-time') || {}).value || '',
+      duration_min: Number((document.getElementById('ns-dur') || {}).value || 30),
+      teacher_name: ((document.getElementById('ns-teacher') || {}).value || '').trim() || undefined,
+      force: !!force
+    };
+
+    addBtn.disabled = true; addBtn.style.opacity = '0.6';
+    say('등록 중… / Saving…');
+    try {
+      var r = await fetch('/api/admin/class-schedules', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var j = await r.json();
+
+      if (r.status === 409 && j && j.error === 'conflict') {
+        addBtn.disabled = false; addBtn.style.opacity = '1';
+        say('⚠️ ' + (j.message || '같은 시간에 이미 예약이 있습니다.') + '<br><span style="color:#94a3b8">' + (j.message_en || '') + '</span>', '#fbbf24');
+        if (confirm((j.message || '같은 시간에 이미 예약이 있습니다.') + '\n\n그래도 등록할까요? / Register anyway?')) return submit(true);
+        return;
+      }
+      if (!j || !j.ok) {
+        say('❌ ' + ((j && (j.message || j.error)) || '등록 실패') + '<br><span style="color:#94a3b8">' + ((j && j.message_en) || '') + '</span>', '#ef4444');
+        return;
+      }
+
+      var n = (j.created || []).length;
+      var out = '✅ 예약 ' + n + '건이 등록됐습니다. / ' + n + ' class(es) created.';
+      if (j.warning) out += '<br><span style="color:#fbbf24">⚠️ ' + j.warning + '</span><br><span style="color:#94a3b8">' + (j.warning_en || '') + '</span>';
+      say(out, '#4ade80');
+      try { loadAiSchedules(); } catch(_) {}
+    } catch (e) {
+      say('❌ 통신 오류 / Network error: ' + (e.message || e), '#ef4444');
+    } finally {
+      addBtn.disabled = false; addBtn.style.opacity = '1';
+    }
+  }
+
+  addBtn.addEventListener('click', function(){ submit(false); });
+})();
+
 document.getElementById('aiSchedulesRefresh')?.addEventListener('click', loadAiSchedules);
 // 페이지 진입 + 스케줄 탭 클릭 시 자동 로드
 window.addEventListener('DOMContentLoaded', () => setTimeout(loadAiSchedules, 500));

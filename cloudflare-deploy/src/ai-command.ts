@@ -13,6 +13,7 @@
  *   - 추후 Anthropic Claude 등으로 교체 시 callLLM() 함수 한 곳만 수정
  */
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(AI 명령 취소/연기/이동)
+import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
@@ -958,7 +959,7 @@ export async function executeAction(
 
       // 스키마 자동 생성 (없으면)
       await env.DB.exec(
-        `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
       );
       // 누락 컬럼 보강 (옛 버전에서 만들어진 테이블 대비)
       const csCols: Array<[string,string]> = [
@@ -1099,8 +1100,8 @@ export async function executeAction(
             // INSERT (충돌 있어도 일단 등록 - 사용자가 결정)
             try {
               const ins = await env.DB.prepare(
-                `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, teacher_id, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ai_command', ?, ?)`
-              ).bind(userId, studentName, scheduleKind, classType, dayOfWeek, scheduledDate, startTime, teacherId, status, adminUserId || 'ai', now).run();
+                `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ai_command', ?, ?)`
+              ).bind(userId, studentName, scheduleKind, classType, dayOfWeek, scheduledDate, startTime, DEFAULT_CLASS_MINUTES, teacherId, status, adminUserId || 'ai', now).run();
               insertedId = (ins?.meta?.last_row_id as number) || null;
               console.log('[schedule_batch] INSERT OK id=' + insertedId + ' user=' + userId + ' type=' + classType + ' day=' + dayOfWeek + ' time=' + startTime);
             } catch (e: any) {
@@ -1204,7 +1205,7 @@ export async function executeAction(
       const startTime = String(hh).padStart(2, '0') + ':' + String(mi).padStart(2, '0');
       const startMin = hh * 60 + mi;
 
-      const durationMin = [20, 30, 40].includes(Number(args?.duration_min)) ? Number(args.duration_min) : 20;
+      const durationMin = [20, 30, 40].includes(Number(args?.duration_min)) ? Number(args.duration_min) : DEFAULT_CLASS_MINUTES;
       const classType = ['regular','trial','level_test'].includes(String(args?.class_type)) ? String(args.class_type) : 'regular';
       const teacherNameIn = String(args?.teacher_name || '').trim().slice(0, 50);
 
@@ -1213,7 +1214,7 @@ export async function executeAction(
 
       // ── 스키마 보강 (schedule_batch 와 동일 규칙) ──
       await env.DB.exec(
-        `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
       );
       for (const [c, t] of [['student_name','TEXT'],['schedule_kind','TEXT'],['class_type','TEXT'],['day_of_week','TEXT'],['scheduled_date','TEXT'],['duration_min','INTEGER'],['teacher_id','TEXT'],['status','TEXT'],['source','TEXT'],['created_by','TEXT'],['updated_at','INTEGER'],['notes','TEXT']] as Array<[string,string]>) {
         try { await env.DB.exec('ALTER TABLE class_schedules ADD COLUMN ' + c + ' ' + t); } catch {}
@@ -1365,13 +1366,13 @@ export async function executeAction(
         if (teacherId) {
           try {
             const rs: any = await env.DB.prepare(
-              `SELECT id, user_id, student_name, start_time, COALESCE(duration_min, 30) AS dm FROM class_schedules
+              `SELECT id, user_id, student_name, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
                WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week = ? AND user_id <> ? LIMIT 30`
             ).bind(teacherId, d, userId).all();
             for (const r of ((rs?.results as any[]) || [])) {
               const p = String(r.start_time || '00:00').split(':');
               const oMin = (Number(p[0]) || 0) * 60 + (Number(p[1]) || 0);
-              if (startMin < oMin + (Number(r.dm) || 30) && oMin < startMin + durationMin) { teacherBusy = r; break; }
+              if (startMin < oMin + (Number(r.dm) || DEFAULT_CLASS_MINUTES) && oMin < startMin + durationMin) { teacherBusy = r; break; }
             }
           } catch {}
         }

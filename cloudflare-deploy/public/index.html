@@ -11,7 +11,7 @@
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=9"></script>
+<script defer src="/js/i18n-sweep.js?v=10"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -9355,6 +9355,9 @@ async function vcHealLocalMic() {
                 else pc.addTrack(newTrack, vcLocalStream);
             } catch (e) { console.warn('[mic-heal] sender 교체 실패:', e); }
         });
+        // 🔁 (2026-07-24) audio sender 가 아예 없던 피어(권한 없이 입장)는 위 addTrack 만으론
+        //   재협상이 일어나지 않아 소리가 계속 안 간다 → 그 피어만 재협상.
+        try { window.vcRenegotiateMissing && window.vcRenegotiateMissing('audio'); } catch (_) {}
         console.warn('[mic-heal] ✅ 마이크 자동 복구 완료');
         try { vcAddChatSystem('🎤 마이크가 자동으로 다시 연결됐어요.'); } catch(_) {}
     } catch (e) {
@@ -9599,7 +9602,8 @@ function vcReconnectPeer(userId) {
   var firstSeen = {};   // userId → '고착' 최초 관측 시각
   var tries = {};       // userId → 복구 시도 횟수
   var STUCK_MS = 9000;  // 이 시간 넘게 '연결 중'이면 고착으로 판단(초기 협상 여유 확보)
-  var MAX_TRIES = 2;
+  var MAX_TRIES = 4;    // (2026-07-24) 2→4. 상대가 뒤늦게 권한을 허용하는 경우가 실제로 있어
+                        //   2회로는 그 전에 소진돼 영영 안 붙었다. 피어당 8초 쿨다운이 있어 안전.
   setInterval(function(){
     try {
       if (!document.body || !document.body.classList.contains('vc-in-call')) { firstSeen = {}; tries = {}; return; }
@@ -9647,7 +9651,7 @@ function vcReconnectPeer(userId) {
 (function vcRemoteBlackWatch(){
   if (window.__vcBlackWatch) return; window.__vcBlackWatch = true;
   var blackSince = {}, tries = {};
-  var GRACE_MS = 7000, MAX_TRIES = 3;
+  var GRACE_MS = 7000, MAX_TRIES = 5;   // (2026-07-24) 3→5 — 늦은 권한 허용 회복 여유
   setInterval(function(){
     try {
       if (!document.body || !document.body.classList.contains('vc-in-call')) { blackSince = {}; tries = {}; return; }
@@ -10497,12 +10501,69 @@ function vcRemoveDemoTeacher(){
     if (b) { b.remove(); try { vcUpdateGridCount(); } catch (e) {} }
 }
 
+/* ──────────────────────────────────────────────────────────────
+   🎥 (2026-07-24) 입장 전 카메라·마이크 권한 선확보 — "선생님이 안 보여요" 근본 대책.
+   ───────────────────────────────────────────────────────────────
+   근본원인: 이 앱은 최초 offer/answer 이후 재협상을 하지 않는다(vcStuckPeerWatch 주석 참고).
+     그런데 자동입장 링크(?vc_autojoin=1)·저장된 로그인 자동입장은 권한 팝업이 아직 떠 있는
+     상태에서 그대로 vcJoinRoom() 을 호출한다 → 카메라·마이크 없이 SDP 가 확정되고
+     m-line 0 으로 협상이 끝나 상대에게 영상·소리가 영영 가지 않는다.
+     (2026-07-23 실수업에서 12분간 재현 — 양쪽 원격 타일 모두 '상대 영상 준비 중')
+   해결: 입장 직전에 getUserMedia 를 한 번 호출해 권한 팝업을 '먼저' 끝낸다.
+     거부·미지원이어도 절대 입장을 막지 않는다(fail-open — 수업이 최우선). */
+window.__vcPermReady = false;
+window.vcEnsureMediaPermission = async function () {
+    if (window.__vcPermReady) return true;
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+        var s = null;
+        try { s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); }
+        catch (e) {
+            if (e && e.name === 'NotAllowedError') throw e;      // 사용자가 거부 → 재요청 안 함
+            s = await navigator.mediaDevices.getUserMedia({ audio: true });  // 카메라만 막힌 경우 소리라도 확보
+        }
+        try { s.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {}
+        window.__vcPermReady = true;
+        return true;
+    } catch (e) {
+        console.warn('[vc-perm] 권한 선확보 실패(입장은 계속 진행):', e && e.name);
+        return false;
+    }
+};
+
+/* 🔁 (2026-07-24) 늦게 허용된 미디어 자동 재협상.
+   replaceTrack 은 '이미 만들어진 sender' 가 있을 때만 통한다. 권한 없이 입장했던 피어에는
+   해당 kind 의 sender 자체가 없어(m-line 0) 기존 자가치유가 조용히 무력화된다.
+   → sender 가 없는 피어만 골라 vcReconnectPeer 로 '지금의 트랙'으로 다시 세운다.
+   (vcReconnectPeer 자체가 8초 쿨다운 + glare 회피를 갖고 있어 폭주하지 않음) */
+window.vcRenegotiateMissing = function (kind) {
+    try {
+        if (!document.body.classList.contains('vc-in-call')) return 0;
+        var n = 0;
+        Object.keys(vcPeerConnections || {}).forEach(function (id) {
+            var pc = vcPeerConnections[id];
+            if (!pc) return;
+            var has = false;
+            try { has = pc.getSenders().some(function (x) { return x.track && x.track.kind === kind; }); } catch (_) {}
+            if (!has) {
+                n++;
+                console.warn('[vc-reneg] ' + kind + ' sender 없음 → 재협상:', id);
+                try { vcReconnectPeer(id); } catch (_) {}
+            }
+        });
+        return n;
+    } catch (_) { return 0; }
+};
+
 /** 다자간 통화 방 입장 */
 async function vcJoinRoom(skipUI) {
     vcIsObserver = false; // 일반 입장 모드 확인
     window._vcObserverMode = false;   // ★ (2026-07-20) 별도 스크립트(입장 자동 교재 로드)에서 참조용 미러
     vcUsername = document.getElementById('vc-name-input').value.trim();
     if (!vcUsername) { alert('아이디를 입력하세요.'); return; }
+    // 🎥 (2026-07-24) 권한 팝업을 입장보다 '먼저' 끝낸다 — 미디어 없는 SDP 고착 방지.
+    //   모든 입장 경로(수동 입력·?room=·vc_autojoin·오늘 내 수업)가 이 한 곳을 지난다.
+    try { await window.vcEnsureMediaPermission(); } catch (_) {}
     // 📶 TURN 자격증명 확보 후 입장 (자동입장이 ICE fetch를 앞지르는 레이스 방지)
     try { await vcEnsureIceServers(); } catch(_) {}
     // 비밀번호 (vc-room-input)는 인증용으로 저장만 함 (실 운영 시 백엔드 검증)
@@ -13032,6 +13093,12 @@ window.vcRetryCamera = async function() {
         }
         if (newStream.getVideoTracks().length > 0) {
             vcHideLocalPlaceholder();
+            // 🔁 (2026-07-24) 권한 없이 입장했던 피어는 video sender 자체가 없어 위 replaceTrack 이
+            //   아무 일도 하지 않는다 → 그런 피어만 재협상해 지금 확보한 카메라를 실제로 흘려보낸다.
+            try {
+                var _rn = window.vcRenegotiateMissing && window.vcRenegotiateMissing('video');
+                if (_rn) console.warn('[vc] 카메라 재시도 → ' + _rn + '개 피어 재협상');
+            } catch (_) {}
             console.log('[vc] 카메라 재시도 성공');
         } else {
             vcShowLocalPlaceholder('camera-off', '카메라 트랙이 여전히 없음');
@@ -26403,7 +26470,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=2"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260723211800 -->
+<!-- BUILD:20260723220634 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -27523,7 +27590,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/vc-dock.js?v=7" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=33" defer></script>
 <script src="/js/mango-rec.js?v=38" defer></script>
-<script src="/js/mango-class-time.js?v=8" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
+<script src="/js/mango-class-time.js?v=9" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
 <script src="/js/mango-topbar-unified.js?v=3" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
 <script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
@@ -29276,19 +29343,31 @@ window.vcAutoLoadStudentTextbook = async function(){
   'use strict';
   window.mangoiJoinClass = function(code){
     try {
+      /* 🩹 (2026-07-24) 방코드 유실 수정 — 이 링크는 지금까지 사실상 죽어 있었다.
+         showView('view-videocall-lobby') 는 +50ms 뒤 vcRestoreCredentials 를 돌리고,
+         거기서 방코드 입력칸을 강제로 비운다(옛 코드 복원 차단 목적). 그래서 여기서
+         코드를 '먼저' 채워도 곧 지워지고, +220ms 로비 자동입장이 빈 코드로 들어가
+         공용방(mangoi-class)에 떨어졌다 → 교사·학생이 서로 못 만남.
+         해결: ① 로비 자동입장을 먼저 막고 ② 초기화가 끝난 뒤(+350ms) 코드를 채운다.
+         (vc_autojoin 경로가 이미 쓰던 것과 동일한 패턴) */
+      window.__vcLobbyAutoJoined = true;
       if (typeof showView === 'function') showView('view-videocall-lobby');
-      var rc = document.getElementById('vc-roomcode-input');
-      if (rc) rc.value = code || '';   // 코드 없으면 비움 → 공용 수업방(mangoi-class)에서 만남
-      // 저장된 아이디/비밀번호 있으면 자동 채움 → 바로 입장
-      var uid = localStorage.getItem('mangoi_vc_uid') || '';
-      var pw  = localStorage.getItem('mangoi_vc_pw') || '';
-      var ni = document.getElementById('vc-name-input');
-      var pi = document.getElementById('vc-room-input');
-      if (uid && ni && !ni.value) ni.value = uid;
-      if (pw  && pi && !pi.value) pi.value = pw;
-      if (ni && ni.value && pi && pi.value && typeof vcJoinRoom === 'function') {
-        setTimeout(function(){ try { vcJoinRoom(); } catch(e){} }, 300);  // 🚀 원클릭 입장
-      }
+      setTimeout(function(){
+        var rc = document.getElementById('vc-roomcode-input');
+        if (rc) rc.value = code || '';   // 코드 없으면 비움 → 공용 수업방(mangoi-class)에서 만남
+        // 저장된 아이디/비밀번호 있으면 자동 채움 → 바로 입장
+        var uid = localStorage.getItem('mangoi_vc_uid') || '';
+        var pw  = localStorage.getItem('mangoi_vc_pw') || '';
+        var ni = document.getElementById('vc-name-input');
+        var pi = document.getElementById('vc-room-input');
+        if (uid && ni && !ni.value) ni.value = uid;
+        if (pw  && pi && !pi.value) pi.value = pw;
+        if (ni && ni.value && pi && pi.value && typeof vcJoinRoom === 'function') {
+          try { vcJoinRoom(); } catch(e){}   // 🚀 원클릭 입장 (권한 선확보는 vcJoinRoom 내부)
+        } else {
+          window.__vcLobbyAutoJoined = false;  // 자동입장 못 함 → 이후 로비 자동입장 경로 복구
+        }
+      }, 350);
       // 로그인 정보 없으면 로비가 열린 채 방코드만 채워짐 → 한 번만 입력하면 다음부턴 자동
     } catch(e){ console.warn('[joinClass]', e); }
   };

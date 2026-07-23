@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -3332,7 +3333,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     if (method === 'GET' && path === '/api/admin/schedules') {
       try {
         await env.DB.exec(
-          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
         );
       } catch {}
 
@@ -3404,7 +3405,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           start_time: r.start_time,
           type: mapType(r.class_type),
           students,
-          duration_min: r.duration_min || 30,
+          duration_min: r.duration_min || DEFAULT_CLASS_MINUTES,
           note: r.notes || '',
         };
         const kind = String(r.schedule_kind || 'recurring');
@@ -3436,7 +3437,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // class_schedules 테이블이 없으면 모든 학생이 미배정이므로, 안전하게 생성만 보장
       try {
         await env.DB.exec(
-          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
         );
       } catch {}
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10), 500);
@@ -3508,7 +3509,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // 테이블 없으면 자동 생성 (첫 GET 호출 대응)
       try {
         await env.DB.exec(
-          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
         );
       } catch {}
       const url = new URL(request.url);
@@ -3743,7 +3744,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (s?.name) studentName = s.name;
       } catch {}
       // 테이블 보강
-      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`); } catch {}
       const csCols: Array<[string,string]> = [['student_name','TEXT'],['schedule_kind','TEXT'],['class_type','TEXT'],['day_of_week','TEXT'],['scheduled_date','TEXT'],['duration_min','INTEGER'],['teacher_id','TEXT'],['status','TEXT'],['source','TEXT'],['created_by','TEXT'],['updated_at','INTEGER'],['notes','TEXT']];
       for (const [c,t] of csCols) { try { await env.DB.exec('ALTER TABLE class_schedules ADD COLUMN ' + c + ' ' + t); } catch {} }
       const now = Date.now();
@@ -3761,14 +3762,167 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       for (const s of seeds) {
         try {
           const ins = await env.DB.prepare(
-            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'demo_seed', ?, ?)`
-          ).bind(userId, studentName, s.kind, s.type, s.day, s.date, s.time, 'admin', now).run();
+            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 'demo_seed', ?, ?)`
+          ).bind(userId, studentName, s.kind, s.type, s.day, s.date, s.time, DEFAULT_CLASS_MINUTES, 'admin', now).run();
           inserted.push({ id: ins?.meta?.last_row_id, ...s });
         } catch (e: any) {
           inserted.push({ error: String(e?.message||e), ...s });
         }
       }
       return json({ ok: true, user_id: userId, student_name: studentName, count: inserted.length, items: inserted });
+    }
+
+
+    // 🥭 (2026-07-24) POST /api/admin/class-schedules — 수업 예약 신규 등록
+    //   ▸ 왜 지금 만드나: 지금까지 예약을 '만드는' 경로가 관리자 AI 명령(ai-command.ts) 하나뿐이었다.
+    //     화면에 등록 폼이 없어 담당자가 예약을 직접 잡을 수 없었고, 그래서 교사·학생이 방 코드를
+    //     손으로 주고받다 서로 다른 방에 들어가는 사고가 반복됐다(2026-07-23 실수업 12분 손실).
+    //     예약이 있으면 room_id 가 class-{id}-{YYYYMMDD} 로 결정돼 엇갈림이 원천 차단된다.
+    //   body: { student_name(필수), user_id?, teacher_name?|teacher_id?,
+    //           schedule_kind:'recurring'|'one_off', days:[0-6]|day_of_week, scheduled_date:'YYYY-MM-DD',
+    //           start_time:'HH:MM'(필수), duration_min?, class_type?, notes?, force? }
+    //   ⚠️ day_of_week 는 반드시 '숫자 0=일~6=토' 로 저장한다 — /api/class/sessions/today 가
+    //      그 형식을 기준으로 오늘 수업을 계산한다. 반복 수업이 여러 요일이면 요일당 1행.
+    if (method === 'POST' && path === '/api/admin/class-schedules') {
+      try {
+        await env.DB.exec(
+          `CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`
+        );
+      } catch {}
+      const body: any = await request.json().catch(() => ({}));
+      const bad = (error: string, ko: string, en: string, extra: any = {}, code = 400) =>
+        json({ ok: false, error, message: ko, message_en: en, ...extra }, code);
+
+      // ── 학생 신원 (uid 우선, 없으면 이름으로 조회) ──
+      const studentName = String(body.student_name || '').trim();
+      let userId = String(body.user_id || '').trim();
+      if (!userId && studentName) {
+        try {
+          const r = await env.DB.prepare(
+            `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ? LIMIT 1`
+          ).bind(studentName, studentName).first<any>();
+          if (r?.uid) userId = String(r.uid);
+        } catch {}
+      }
+      if (!userId) return bad('student_not_found', '학생을 찾지 못했습니다. 이름을 확인하거나 user_id 를 함께 보내주세요.', 'Student not found. Check the name or send user_id as well.');
+
+      // ── 강사 매칭 (teachers 테이블 기준. '선생님/쌤' 접미사 제거 후 부분일치) ──
+      //   ⚠️ teacher_profiles 에만 있고 teachers 에 없는 강사는 여기서 안 잡힌다 →
+      //      teacher_matched:false 로 돌려줘 화면이 경고할 수 있게 한다(등록 자체는 진행).
+      let teacherId = String(body.teacher_id || '').trim();
+      let teacherName: string | null = null;
+      let teacherMatched = !!teacherId;
+      const tRaw = String(body.teacher_name || '').trim();
+      if (!teacherId && tRaw) {
+        const tName = tRaw.replace(/(선생님?|쌤)$/, '').trim() || tRaw;
+        try {
+          const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? OR name LIKE ? LIMIT 1`)
+            .bind(tRaw, '%' + tName + '%').first<any>();
+          if (t?.id) { teacherId = String(t.id); teacherName = String(t.name); teacherMatched = true; }
+        } catch {}
+      }
+
+      // ── 시간 ──
+      const rawTime = String(body.start_time || '').trim();
+      if (!/^\d{1,2}:\d{2}$/.test(rawTime)) return bad('invalid_time', '시작 시간을 HH:MM 형식으로 입력해 주세요.', 'Enter start time as HH:MM.');
+      const [rh, rm] = rawTime.split(':');
+      if (Number(rh) > 23 || Number(rm) > 59) return bad('invalid_time', '시작 시간이 올바르지 않습니다.', 'Start time is out of range.');
+      const startTime = String(Number(rh)).padStart(2, '0') + ':' + rm;
+      const durationMin = Number.isFinite(Number(body.duration_min)) && Number(body.duration_min) > 0 ? Math.min(Number(body.duration_min), 240) : 30;
+      const classType = ['regular', 'trial', 'level_test', 'makeup'].includes(String(body.class_type || '')) ? String(body.class_type) : 'regular';
+      const notes = body.notes ? String(body.notes).slice(0, 500) : null;
+
+      // ── 반복(요일) / 일회성(날짜) ──
+      const DOW_IN: Record<string, number> = {
+        sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+        tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+        thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+        sat: 6, saturday: 6, '토': 6, '토요일': 6,
+      };
+      const toDow = (v: any): number | null => {
+        const q = String(v ?? '').trim();
+        if (!q) return null;
+        if (/^\d$/.test(q)) { const n = Number(q); return (n >= 0 && n <= 6) ? n : null; }
+        const x = DOW_IN[q.toLowerCase()];
+        return x == null ? null : x;
+      };
+      const kind = String(body.schedule_kind || '').toLowerCase() === 'one_off' ? 'one_off' : 'recurring';
+      const rawDays: any[] = Array.isArray(body.days) ? body.days
+        : (body.day_of_week != null ? String(body.day_of_week).split(/[,\s]+/) : []);
+      const days: number[] = [];
+      for (const d of rawDays) { const n = toDow(d); if (n != null && !days.includes(n)) days.push(n); }
+      const schedDate = String(body.scheduled_date || '').trim();
+
+      if (kind === 'recurring' && !days.length) return bad('day_required', '반복 수업은 요일을 하나 이상 선택해 주세요.', 'Pick at least one weekday for a recurring class.');
+      if (kind === 'one_off' && !/^\d{4}-\d{2}-\d{2}$/.test(schedDate)) return bad('date_required', '일회성 수업은 날짜(YYYY-MM-DD)를 입력해 주세요.', 'Enter a date (YYYY-MM-DD) for a one-off class.');
+
+      // ── 중복 예약 검사 (같은 학생·같은 시간·같은 요일/날짜의 활성 예약) ──
+      //   force:true 가 아니면 409 로 되돌려 화면이 확인을 받게 한다.
+      const conflicts: any[] = [];
+      try {
+        if (kind === 'recurring') {
+          const rs = await env.DB.prepare(
+            `SELECT id, day_of_week, start_time FROM class_schedules WHERE user_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND start_time = ?`
+          ).bind(userId, startTime).all<any>();
+          for (const row of (rs.results || [])) {
+            for (const p of String(row.day_of_week ?? '').split(/[,\s]+/)) {
+              const n = toDow(p);
+              if (n != null && days.includes(n)) conflicts.push({ id: row.id, day_of_week: n, start_time: row.start_time });
+            }
+          }
+        } else {
+          const row = await env.DB.prepare(
+            `SELECT id, scheduled_date, start_time FROM class_schedules WHERE user_id = ? AND status = 'active' AND scheduled_date = ? AND start_time = ? LIMIT 1`
+          ).bind(userId, schedDate, startTime).first<any>();
+          if (row?.id) conflicts.push({ id: row.id, scheduled_date: row.scheduled_date, start_time: row.start_time });
+        }
+      } catch {}
+      if (conflicts.length && !body.force) {
+        return bad('conflict', '같은 시간에 이미 예약이 있습니다. 그래도 등록하려면 다시 확인해 주세요.', 'A class already exists at this time. Confirm again to register anyway.', { conflicts }, 409);
+      }
+
+      // ── 등록 (반복 수업은 요일당 1행 — sessions/today 가 요일 1개를 전제로 계산) ──
+      const now = Date.now();
+      let actorName = 'admin';
+      try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; } catch {}
+      const created: any[] = [];
+      const failed: any[] = [];
+      const targets = kind === 'recurring'
+        ? days.map(d => ({ dow: String(d), date: null as string | null }))
+        : [{ dow: null as string | null, date: schedDate }];
+      for (const t of targets) {
+        try {
+          const ins = await env.DB.prepare(
+            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'admin_ui', ?, ?, ?)`
+          ).bind(userId, studentName || null, kind, classType, t.dow, t.date, startTime, durationMin, teacherId || null, actorName, now, notes).run();
+          created.push({ id: (ins?.meta?.last_row_id as number) ?? null, day_of_week: t.dow, scheduled_date: t.date, start_time: startTime });
+        } catch (e: any) {
+          failed.push({ day_of_week: t.dow, scheduled_date: t.date, detail: String(e?.message || e).slice(0, 200) });
+        }
+      }
+      if (!created.length) return bad('insert_failed', '예약 등록에 실패했습니다.', 'Failed to create the schedule.', { failed }, 500);
+
+      // 📜 수업 변경 이력 — best-effort
+      for (const c of created) {
+        try {
+          await writeClassAudit(env, {
+            action: 'add', schedule_id: c.id,
+            teacher_name: teacherName, student_name: studentName || null,
+            lesson_date: c.scheduled_date || null, lesson_time: startTime,
+            actor: actorName, actor_role: 'admin', source: 'ui', reason: null,
+          });
+        } catch {}
+      }
+
+      return json({
+        ok: true, created, failed, conflicts,
+        user_id: userId, student_name: studentName || null,
+        teacher_id: teacherId || null, teacher_name: teacherName, teacher_matched: teacherMatched,
+        schedule_kind: kind, start_time: startTime, duration_min: durationMin,
+        // 강사가 teachers 에 없으면 교사 쪽 '오늘 내 수업' 조회가 비게 된다 → 화면이 경고하도록
+        warning: (!teacherMatched && tRaw) ? '강사 "' + tRaw + '" 를 강사 명단(teachers)에서 찾지 못해 담당 강사 없이 등록했습니다. 강사 명단에 등록한 뒤 다시 지정해 주세요.' : null,
+        warning_en: (!teacherMatched && tRaw) ? 'Teacher "' + tRaw + '" was not found in the teacher list, so the class was created without an assigned teacher. Add the teacher first, then reassign.' : null,
+      });
     }
 
     // 🥭 Phase 22 — DELETE /api/admin/class-schedules/:id (스케줄 삭제 또는 취소)

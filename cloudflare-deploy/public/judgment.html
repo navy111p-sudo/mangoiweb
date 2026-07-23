@@ -40,6 +40,17 @@
     transition:transform .15s,background .15s,box-shadow .15s;font-family:inherit}
   .pill:hover{transform:translateY(-2px);background:rgba(167,139,250,.26);box-shadow:0 8px 20px -8px rgba(124,58,237,.55)}
 
+  /* ← 뒤로 / 🏠 홈 — 헤더 맨 왼쪽. 다른 학습 페이지(micro-quiz 등)와 같은 크기·순서 */
+  .top-nav-btn{display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+    width:46px;height:46px;border-radius:14px;font-size:22px;line-height:1;cursor:pointer;
+    background:rgba(167,139,250,.14);border:1px solid var(--line);color:#e6ddff;
+    text-decoration:none;font-family:inherit;
+    transition:transform .15s,background .15s,box-shadow .15s}
+  .top-nav-btn:hover{transform:translateY(-2px);background:rgba(251,191,36,.18);
+    box-shadow:0 8px 20px -8px rgba(124,58,237,.55)}
+  .top-nav-btn:active{transform:scale(.94)}
+  @media(max-width:640px){ .top-nav-btn{width:38px;height:38px;font-size:18px;border-radius:12px} }
+
   /* ── 💡 왜 하나요? 설명 카드 ── */
   .explain{background:linear-gradient(150deg,rgba(251,191,36,.10),rgba(124,58,237,.12));
     border:1px solid rgba(251,191,36,.30);border-radius:22px;margin-bottom:20px;overflow:hidden}
@@ -185,6 +196,13 @@
   .misc-box{margin-top:18px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);border-radius:18px;padding:16px 20px}
   .misc-box .mt{font-size:clamp(14px,1.8vw,18px);font-weight:900;color:#fde68a;margin-bottom:8px}
   .misc-box div.mi{font-size:clamp(14px,1.8vw,17px);margin:5px 0;color:#efe9ff}
+  /* 취약 유형은 '읽는 목록'이 아니라 '누르면 그 유형으로 바로 가는 버튼' */
+  .misc-box .mi-go{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+    font-family:inherit;font-size:clamp(14px,1.8vw,17px);font-weight:700;color:#efe9ff;text-align:left;
+    background:rgba(255,255,255,.05);border:1px solid rgba(251,191,36,.22);border-radius:12px;
+    padding:11px 14px;margin:6px 0;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}
+  .misc-box .mi-go:hover{background:rgba(251,191,36,.14);border-color:rgba(251,191,36,.5);transform:translateX(2px)}
+  .misc-box .mi-go .go{flex:0 0 auto;font-size:clamp(12px,1.4vw,14px);font-weight:800;color:var(--gold);white-space:nowrap}
 
   .center{text-align:center;color:var(--mut);font-size:clamp(16px,2vw,20px);padding:56px 16px;line-height:1.7}
   .spin{display:inline-block;width:44px;height:44px;border:4px solid rgba(167,139,250,.2);border-top-color:var(--pp);
@@ -206,6 +224,11 @@
 <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
 <div class="wrap">
   <div class="top">
+    <!-- ← 뒤로 / 🏠 홈 — micro-quiz.html 등 다른 학습 페이지와 같은 순서·동작으로 맞춤.
+         뒤로가기는 방문 이력이 없을 때(앱에서 바로 열린 경우) 홈으로 떨어진다. -->
+    <button type="button" class="top-nav-btn" id="backBtn"
+            onclick="if(history.length>1){history.back()}else{location.href='/'}">←</button>
+    <a href="/" class="top-nav-btn" id="homeBtn">🏠</a>
     <img src="/img/mango-char.png" alt="Mangoi" onerror="this.style.display='none'">
     <div style="flex:1;min-width:200px">
       <h1 id="hTitle">판단력 훈련</h1>
@@ -278,6 +301,11 @@
     document.getElementById('hTitle').textContent = T('판단력 훈련','Decision Training','判断力训练');
     document.getElementById('hSub').innerHTML = T('상황에 가장 잘 맞는 표현을 고르고, <b>왜 그런지</b> 말해봐요!','Pick the best expression, and say <b>why</b>!','选出最适合情境的表达，并说说<b>为什么</b>！');
     document.getElementById('hGrowth').textContent = T('내 성장','My growth','我的成长');
+    // ← / 🏠 버튼은 글자가 없으므로 툴팁·스크린리더 라벨로 뜻을 전달한다
+    var _back = T('뒤로 가기','Back','返回'), _home = T('홈으로','Home','回首页');
+    var bB = document.getElementById('backBtn'), hB = document.getElementById('homeBtn');
+    if(bB){ bB.title = _back; bB.setAttribute('aria-label', _back); }
+    if(hB){ hB.title = _home; hB.setAttribute('aria-label', _home); }
     document.getElementById('langBtn').textContent = LANG==='ko' ? 'EN' : LANG==='en' ? '中文' : '한국어';
     document.getElementById('expTitle').textContent = T('왜 판단력 훈련을 하나요?','Why train your judgment?','为什么要练习判断力？');
     document.getElementById('expDesc').innerHTML = T(
@@ -509,13 +537,20 @@
         optionTable(d)+
         scores+
         '<button class="btn" id="next">'+T('다음 문제 →','Next question →','下一题 →')+'</button>'+
+        // 방금 틀린 유형을 바로 한 번 더 — 틀린 채로 넘어가지 않게 하는 것이 핵심입니다.
+        (d.misconception
+          ? '<button class="btn ghost" id="again" data-misc="'+esc(d.misconception)+'" style="margin-top:10px">🔁 '
+            + T('이 유형 한 번 더','Try this type again','再练一次这类')+' — '+esc(miscLabel(d.misconception))+'</button>'
+          : '')+
         '<button class="btn ghost" id="mygrowth" style="margin-top:10px">🌱 '+T('내 성장 보기','See my growth','查看我的成长')+'</button>'+
       '</div>';
     Array.prototype.forEach.call(stage.querySelectorAll('.sc .v'), function(el){
       var v=el.getAttribute('data-cnt');
       if(v==='') el.textContent='—'; else countUp(el, Number(v), 900);
     });
-    document.getElementById('next').addEventListener('click', loadScenario);
+    document.getElementById('next').addEventListener('click', function(){ loadScenario(); });
+    var ag=document.getElementById('again');
+    if(ag) ag.addEventListener('click', function(){ loadScenario(ag.getAttribute('data-misc')); });
     var mg=document.getElementById('mygrowth'); if(mg) mg.addEventListener('click', showGrowth);
     streakEl.innerHTML = streakText();
   }
@@ -550,7 +585,7 @@
       renderGrowth(d); reEnter();
     }catch(e){
       stage.innerHTML = '<div class="center">'+T('성장 기록을 불러오지 못했어요.','Could not load your growth.','成长记录加载失败。')+'<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" id="g-back">← '+T('문제 풀기','Practice','去做题')+'</button></div>';
-      var b=document.getElementById('g-back'); if(b) b.addEventListener('click', loadScenario);
+      var b=document.getElementById('g-back'); if(b) b.addEventListener('click', function(){ loadScenario(); });
     }
   }
   // 📈 지난달 대비 — 한 시점 점수만으론 성장을 못 봅니다. 추세가 있으면 한 줄로 보여줍니다.
@@ -613,7 +648,12 @@
         + '</div>'
         + (miscs.length ? '<div class="misc-box">'
             + '<div class="mt">💪 '+T('이런 걸 더 연습하면 좋아요','Practice these a bit more','这些再多练练会更好')+'</div>'
-            + miscs.map(function(m){ return '<div class="mi">· '+esc(miscLabel(m.code))+'</div>'; }).join('')
+            // 보여주기만 하고 끝나면 학생이 할 게 없습니다. 누르면 그 유형으로 바로 문제를 받게 합니다.
+            + miscs.map(function(m){
+                return '<button class="mi-go" data-misc="'+esc(m.code)+'">'
+                  + '<span>'+esc(miscLabel(m.code))+'</span>'
+                  + '<span class="go">'+T('이 유형 연습 →','Practice this →','练这类 →')+'</span></button>';
+              }).join('')
             + '</div>' : '')
       : '<div class="center">'+T('아직 판단 기록이 없어요.<br>문제를 풀면 나의 성장이 여기 나타나요! 🌱','No records yet.<br>Solve questions and your growth appears here! 🌱','还没有判断记录。<br>做题之后你的成长会显示在这里！🌱')+'</div>';
     stage.innerHTML = '<div class="res">'
@@ -634,7 +674,10 @@
         el.style.width = el.getAttribute('data-w')+'%';
       });
     }, 30);
-    var t=document.getElementById('g-train'); if(t) t.addEventListener('click', loadScenario);
+    var t=document.getElementById('g-train'); if(t) t.addEventListener('click', function(){ loadScenario(); });
+    Array.prototype.forEach.call(stage.querySelectorAll('.mi-go'), function(el){
+      el.addEventListener('click', function(){ loadScenario(el.getAttribute('data-misc')); });
+    });
   }
   var gb = document.getElementById('growthBtn'); if(gb) gb.addEventListener('click', showGrowth);
 
@@ -642,7 +685,7 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260723211800 -->
+<!-- BUILD:20260723220634 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

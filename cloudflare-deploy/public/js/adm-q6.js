@@ -120,7 +120,7 @@
   function ph54EventCard(idx, s){
     var c        = PH54_TYPE_COLOR[s.type] || '#7c3aed';
     var startMin = ph54MinOf(s);
-    var dur      = s.duration_min || 30;
+    var dur      = s.duration_min || 20;   // 기본 수업 20분(영어·중국어 공통, 2026-07-23)
     var top      = Math.max(0, (startMin - PH54_START_H*60) / 60 * PH54_HOUR_PX);   // 절대 y
     var height   = Math.max(dur / 60 * PH54_HOUR_PX, 22);                            // 지속시간 높이
     var timeTxt  = ph54FmtMin(startMin) + ' · ' + dur + '분';
@@ -267,7 +267,7 @@
         // 드롭 Y → 30분 칸 인덱스 → 분
         var rect = col.getBoundingClientRect();
         var rowIdx = Math.round((ev.clientY - rect.top) / (PH54_HOUR_PX * PH54_SNAP / 60));
-        var dur = rec.duration_min || 30;
+        var dur = rec.duration_min || 20;   // 기본 수업 20분(영어·중국어 공통, 2026-07-23)
         var newMin = PH54_START_H*60 + rowIdx*PH54_SNAP;
         newMin = Math.max(PH54_START_H*60, Math.min(newMin, PH54_END_H*60 - dur));  // 06:00~24:00 범위 클램프
         // 레코드 갱신(요일/날짜/시간/시)
