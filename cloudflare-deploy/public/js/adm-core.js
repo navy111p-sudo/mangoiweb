@@ -2808,8 +2808,19 @@ async function viewTeacherProfile(id) {
       '<div style="margin-top:16px"><button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');editTeacherProfile(' + t.id + ');if(m)m.remove();" style="padding:8px 16px;background:#10b981;color:#fff;border:0;border-radius:7px;font-weight:700;cursor:pointer">✎ 프로필 수정</button></div>';
   // 탭 정의 — 프로필=즉시, 나머지 4탭은 다음 단계에서 실데이터 연결(준비 중)
   const tabs = [['prof','프로필'],['classes','수업 배정'],['pay','급여'],['eval','평가·평점'],['memo','메모·MBTI']];
-  const ph = function(name){ return '<div style="padding:28px 14px;text-align:center;color:#9ca3af;font-size:13px;line-height:1.7">📊 <b>' + name + '</b><br>준비 중 — 다음 업데이트에서 이 강사의 실데이터가 연결됩니다.</div>'; };
-  const paneBody = { prof: profilePane, classes: ph('수업 배정'), pay: ph('급여'), eval: ph('평가·평점'), memo: ph('메모·MBTI') };
+  // 각 탭 = 캐시(_tpRowById)의 이 강사 데이터 요약 + 전체 도구(기존 카드)로 바로가기. 새 API 없이 안전.
+  const _jump = function(card, label){ return '<div style="margin-top:16px"><button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');if(m)m.remove();if(typeof jumpToMenu===\'function\')jumpToMenu(\'' + card + '\');" style="padding:9px 16px;background:#6366f1;color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer">' + label + '</button></div>'; };
+  const _note = function(txt){ return '<div style="color:#9ca3af;font-size:12px;padding:4px 0 2px">' + txt + '</div>'; };
+  const classesPane = _tpField('가능 요일', t.available_days) + _tpField('가능 시간', t.available_hours) + _tpField('활동 지역', t.active_region) +
+      _note('이 강사의 주간 수업 배정·시간표는 아래에서 관리합니다.') + _jump('card-timetable', '🗓 시간표 · 수업 배정 열기');
+  const payPane = _tpField('10분당 수수료', t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
+      _tpField('구분/그룹', t.group_name) + _tpField('은행', t.bank_name) + _tpField('계좌', t.bank_account) +
+      _note('월별 급여 계산·정산은 아래 급여 관리에서.') + _jump('card-payroll', '💰 급여 · 정산 열기');
+  const evalPane = _note('이 강사가 받은 학생 수업 평가·평점은 아래에서 확인합니다.') + _jump('card-class-ratings', '⭐ 학생 수업 평가 열기');
+  const memoPane = _tpField('MBTI', t.mbti) +
+      (t.notes ? '<div style="margin-top:8px;padding:10px;background:#f9fafb;border-radius:6px;font-size:13px"><b>내부 메모</b><br>' + _aiEsc(t.notes).replace(/\n/g,'<br>') + '</div>' : _note('등록된 내부 메모 없음 — 프로필 수정에서 추가')) +
+      _jump('card-praise-stats', '😊 칭찬 통계 열기');
+  const paneBody = { prof: profilePane, classes: classesPane, pay: payPane, eval: evalPane, memo: memoPane };
   const tabBar = '<div style="display:flex;gap:2px;border-bottom:1px solid #e5e7eb;margin-bottom:14px;flex-wrap:wrap">' +
     tabs.map(function(tb,i){ var on=i===0; return '<button type="button" class="tp-dtab" data-tab="' + tb[0] + '" onclick="_tpDetailTab(this,\'' + tb[0] + '\')" style="padding:8px 13px;border:0;background:none;cursor:pointer;font-weight:700;font-size:13px;color:' + (on?'#1f2937':'#9ca3af') + ';border-bottom:2.5px solid ' + (on?'#f59e0b':'transparent') + '">' + tb[1] + '</button>'; }).join('') +
     '</div>';

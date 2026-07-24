@@ -9,7 +9,7 @@
      망고 구조선의 대항해 — Mango Rescue Voyage (3D 로우폴리)
      · 파도를 타고 달리는 구조선이 바다에 빠진 '단어 친구'를 건짐
      · 영어/중국어 레벨 선택제 → 건지는 순간 원어민 발음 + 뜻 공개
-     · 암초·소용돌이를 피함(맞으면 구조율 감소)
+     · 암초·통나무를 피함(맞으면 구조율 감소)
      · 낚시·슈팅·비행기·탱크 게임의 재미 요소(타이머·콤보·페널티·
        골든타깃·무적프레임·긴장이벤트·SFX)를 구조 테마로 이식
      ============================================================ */
@@ -59,9 +59,11 @@
 
   /* ── 중앙 토스트(구조 성공 시 뜻 공개) ── */
   #toast{ position:fixed; top:38%; left:50%; transform:translate(-50%,-50%) scale(.7); z-index:20;
-    background:#fffef8; color:#123; border-radius:20px; padding:16px 22px; text-align:center;
-    box-shadow:0 14px 40px #0007; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s;
-    border:3px solid var(--mango); min-width:220px; }
+    background:rgba(255,254,248,0.32); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+    color:#123; border-radius:20px; padding:16px 22px; text-align:center;
+    box-shadow:0 10px 30px #0004; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s;
+    border:3px solid var(--mango); min-width:220px;
+    text-shadow:0 1px 4px rgba(255,255,255,0.95), 0 1px 2px rgba(255,255,255,0.9); }   /* 반투명 배경 위 글자 가독성 */
   #toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
   #toast.gold{ border-color:var(--gold); }
   #toast .big{ font-size:30px; font-weight:900; margin-bottom:2px; }
@@ -196,7 +198,7 @@
     <div class="mango-badge"><img src="/img/mango-char.png" alt="" onerror="this.style.display='none'">MANGO RESCUE</div>
     <h1>망고 구조선의 대항해<span class="sub">Mango Rescue Voyage · 파도를 타고 단어 친구를 구하자!</span></h1>
     <p>폭풍에 휩쓸려 바다에 빠진 <b>단어 친구들</b>을 배로 건져 올려요.<br>
-       친구를 구하면 <b>원어민 발음</b>과 뜻이 공개돼요. 암초와 소용돌이는 피하고, 시간 안에 최대한 구조하세요!<br>
+       친구를 구하면 <b>원어민 발음</b>과 뜻이 공개돼요. 암초와 통나무는 피하고, 시간 안에 최대한 구조하세요!<br>
        바다를 클리어하면 배운 단어로 만든 <b>문장을 듣고 따라 말하기</b> 미션에 도전해요! 🎤</p>
     <div id="modeSel">
       <div class="mode sel" data-mode="en"><div class="flag">🇬🇧</div><div class="nm">English</div><div class="d">영어로 구조</div></div>
@@ -609,15 +611,20 @@
       attachGLB(g, rv.url, rvScale, rv.yOff, true, Math.random()*Math.PI*2, 0, 0, true, {top:0.45, bot:-0.7});   // 물 아래 자연 페이드
       return g;
     }
-    /* ── 소용돌이(회전하는 링) ── */
-    function buildWhirl(){
+    /* ── 통나무(떠다니는 장애물) ── */
+    function buildLog(){
       var g=new THREE.Group();
-      for(var i=0;i<3;i++){ var t=new THREE.Mesh(new THREE.TorusGeometry(1.1-i*0.32,0.14,6,18),
-          new THREE.MeshStandardMaterial({color:i%2?0x123846:0x0a2531,flatShading:true,roughness:1}));
-        t.rotation.x=Math.PI/2; t.position.y=0.05-i*0.03; g.add(t); }
-      var cone=new THREE.Mesh(new THREE.ConeGeometry(0.5,0.9,10),
-        new THREE.MeshStandardMaterial({color:0x06202b,flatShading:true})); cone.position.y=-0.35; g.add(cone);
-      g.userData={ type:'whirl', spin:0 };
+      var proc=new THREE.Group(); g.add(proc); g.userData.proc=proc;
+      // 절차적 폴백: 눕힌 원통(껍질) + 밝은 단면 2개
+      var barkMat=new THREE.MeshStandardMaterial({color:0x8a5a2b,flatShading:true,roughness:1});
+      var endMat=new THREE.MeshStandardMaterial({color:0xbfa06a,flatShading:true,roughness:1});
+      var trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,2.4,12), barkMat);
+      trunk.rotation.z=Math.PI/2; trunk.position.y=0.25; proc.add(trunk);
+      for(var s=-1;s<=1;s+=2){ var cap=new THREE.Mesh(new THREE.CircleGeometry(0.5,12), endMat);
+        cap.rotation.y=s*Math.PI/2; cap.position.set(s*1.2,0.25,0); proc.add(cap); }
+      g.userData={ type:'log', roll:Math.random()*6.28, proc:proc };
+      // 실사 통나무 GLB — 랜덤 Y회전으로 방향 변주, 물 아래 자연 페이드
+      attachGLB(g, '/models/rescue-log.glb?v=1', 2.8, -0.1, true, Math.random()*Math.PI*2, 0, 0, true, {top:0.4, bot:-0.6});
       return g;
     }
 
@@ -651,7 +658,7 @@
 
     var $=function(id){ return document.getElementById(id); };
     function comboBanner(n){ var el=$('comboBanner'); el.textContent='🔥 '+n+' 콤보!'; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
-    function stormBanner(){ var el=$('stormBanner'); el.textContent='⚠ 소용돌이 파도가 몰려와요!'; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
+    function stormBanner(){ var el=$('stormBanner'); el.textContent='⚠ 거센 물결이 몰려와요!'; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
 
     /* ============================================================
        4. 게임 상태
@@ -694,7 +701,7 @@
       var isHazard = forceHazard ? true : (Math.random() < st.hazard);
       var obj;
       if(isHazard){
-        obj = (Math.random()<0.5) ? buildRock() : buildWhirl();
+        obj = (Math.random()<0.5) ? buildRock() : buildLog();
       } else {
         var golden = Math.random()<0.16;
         obj = buildFriend(nextWord(), friendLang(), golden);
@@ -900,13 +907,13 @@
       floatText(obj.position.clone(),'놓쳤어요!','bad'); sfxBuzz(); setHUD();
     }
 
-    /* ── 피해(암초/소용돌이) ── */
+    /* ── 피해(암초/통나무) ── */
     function damage(kind,obj){
       G.combo=0;
       if(G.rescued>0){ G.rescued--; }   // 구조한 친구를 놓침 → 구조율 감소
       flashRed(); shakeT=Math.min(0.6, shakeT+(kind==='rock'?0.4:0.25));
       if(kind==='rock'){ G.lives--; sfxBoom(); spawnBurst(obj.position.clone(),0x8a8f96,10); floatText(obj.position.clone(),'쾅!','bad'); G.invuln=1.2; }
-      else { G.controlLock=1.3; sfxWhoosh(); floatText(obj.position.clone(),'소용돌이!','bad'); G.invuln=0.8; }
+      else { G.controlLock=1.3; sfxWhoosh(); spawnBurst(obj.position.clone(),0x8a5a2b,8); floatText(obj.position.clone(),'통나무!','bad'); G.invuln=0.8; }
       setHUD();
       if(G.lives<=0){ G.running=false; setTimeout(gameOver,500); }
     }
@@ -965,7 +972,7 @@
       updateTimerUI();
       bgm.urgency(G.stageTimeLeft<15 ? 1 : 0);
 
-      // 🌪 소용돌이 파도 이벤트 — 주기적으로 경고 후 장애물 몰아치기(비행기/탱크 보스 난입과 같은 긴장 스파이크)
+      // 🌊 거센 물결 이벤트 — 주기적으로 경고 후 장애물 몰아치기(비행기/탱크 보스 난입과 같은 긴장 스파이크)
       G.stormCd-=dt;
       if(G.stormCd<=0){ G.stormCd=Math.max(8,16-G.stageIdx*2)+Math.random()*7; triggerStorm(); }
 
@@ -991,7 +998,7 @@
       G.dist+=spd*dt; G.sinceSpawn+=spd*dt;
       if(G.sinceSpawn>=G.spawnGap){ G.sinceSpawn=0; spawnRow(); }
 
-      // 조타 — 소용돌이 스핀 > 키보드 > 마우스/터치 위치추종(예민) 순
+      // 조타 — 통나무 충돌 락 > 키보드 > 마우스/터치 위치추종(예민) 순
       if(G.controlLock>0){ G.controlLock-=dt; boat.rotation.y += dt*7; G.boatX += Math.sin(G.t*10)*0.04; G.aimSteer=0; }
       else if(G.steer!==0){ G.aimSteer=G.steer; boat.rotation.y=-G.steer*0.28; G.boatX += G.steer*9*dt; }
       else if(G.pointerOn && G.pointerX!=null){
@@ -1014,12 +1021,12 @@
         if(!G.running) break;   // 이 프레임 도중 목표 달성/게임오버로 정지되면 나머지 오브젝트는 다음 판정을 건너뜀(오버슛 방지)
         var obj=objects[o]; var prevZ=obj.position.z;
         obj.position.z += spd*dt;
-        obj.position.y = waveH(obj.userData.x, obj.position.z, G.t) + (obj.userData.type==='whirl'?-0.1:0.05);
+        obj.position.y = waveH(obj.userData.x, obj.position.z, G.t) + (obj.userData.type==='log'?-0.05:0.05);
         if(obj.userData.type==='friend'){
           obj.position.y += Math.sin(G.t*3+obj.userData.bob)*0.12;
           if(obj.userData.spark) obj.userData.spark.rotation.y+=dt*6;
         }
-        if(obj.userData.type==='whirl'){ obj.userData.spin+=dt*4; obj.rotation.y=obj.userData.spin; }
+        if(obj.userData.type==='log'){ obj.rotation.z=Math.sin(G.t*1.5+obj.userData.roll)*0.08; }   // 파도에 살짝 흔들림
         // 배 평면(z=0) 통과 시 판정
         if(!obj.userData.hit && prevZ<0 && obj.position.z>=0){
           var dx=Math.abs(obj.userData.x - G.boatX);
@@ -1029,8 +1036,8 @@
             else { missFriend(obj); }
           } else if(obj.userData.type==='rock'){
             if(dx<1.5 && G.invuln<=0){ obj.userData.hit=true; damage('rock',obj); popRemove(obj,o); continue; }
-          } else if(obj.userData.type==='whirl'){
-            if(dx<2.2 && G.invuln<=0){ obj.userData.hit=true; damage('whirl',obj); }
+          } else if(obj.userData.type==='log'){
+            if(dx<2.0 && G.invuln<=0){ obj.userData.hit=true; damage('log',obj); }
           }
         }
         if(obj.position.z>14){ scene.remove(obj); objects.splice(o,1); }
@@ -1079,6 +1086,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725053507 -->
+<!-- BUILD:20260725055342 -->
 </body>
 </html>
