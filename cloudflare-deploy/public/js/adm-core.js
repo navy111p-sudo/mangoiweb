@@ -2816,10 +2816,10 @@ async function viewTeacherProfile(id) {
   const _note = function(txt){ return '<div style="color:#9ca3af;font-size:12px;padding:4px 0 2px">' + txt + '</div>'; };
   const classesPane = _tpField(T('가능 요일','Available Days'), t.available_days) + _tpField(T('가능 시간','Available Hours'), t.available_hours) + _tpField(T('활동 지역','Active Region'), t.active_region) +
       _note(T('이 강사의 주간 수업 배정·시간표는 아래에서 관리합니다.','Manage weekly schedule and timetable below.')) + _jump('card-timetable', T('🗓 시간표 · 수업 배정 열기','🗓 Open Timetable · Schedule'));
-  const payPane = _tpField(T('10분당 수수료','Fee / 10 min'), t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
+  const payPane = '<div data-sum="pay"></div>' + _tpField(T('10분당 수수료','Fee / 10 min'), t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
       _tpField(T('구분/그룹','Group'), t.group_name) + _tpField(T('은행','Bank'), t.bank_name) + _tpField(T('계좌','Account'), t.bank_account) +
       _note(T('월별 급여 계산·정산은 아래 급여 관리에서.','Monthly payroll and settlement below.')) + _jump('card-payroll', T('💰 급여 · 정산 열기','💰 Open Payroll · Settlement'));
-  const evalPane = _note(T('이 강사가 받은 학생 수업 평가·평점은 아래에서 확인합니다.','View student ratings below.')) + _jump('card-class-ratings', T('⭐ 학생 수업 평가 열기','⭐ Open Student Ratings'));
+  const evalPane = '<div data-sum="eval"></div>' + _note(T('이 강사가 받은 학생 수업 평가·평점은 아래에서 확인합니다.','View student ratings below.')) + _jump('card-class-ratings', T('⭐ 학생 수업 평가 열기','⭐ Open Student Ratings'));
   const memoPane = _tpField('MBTI', t.mbti) +
       (t.notes ? '<div style="margin-top:8px;padding:10px;background:#f9fafb;border-radius:6px;font-size:13px"><b>' + T('내부 메모','Internal Notes') + '</b><br>' + _aiEsc(t.notes).replace(/\n/g,'<br>') + '</div>' : _note(T('등록된 내부 메모 없음 — 프로필 수정에서 추가','No internal notes yet — add via Edit Profile'))) +
       _jump('card-praise-stats', T('😊 칭찬 통계 열기','😊 Open Praise Stats'));
@@ -2828,7 +2828,7 @@ async function viewTeacherProfile(id) {
     tabs.map(function(tb,i){ var on=i===0; return '<button type="button" class="tp-dtab" data-tab="' + tb[0] + '" onclick="_tpDetailTab(this,\'' + tb[0] + '\')" style="padding:8px 13px;border:0;background:none;cursor:pointer;font-weight:700;font-size:13px;color:' + (on?'#1f2937':'#9ca3af') + ';border-bottom:2.5px solid ' + (on?'#f59e0b':'transparent') + '">' + tb[1] + '</button>'; }).join('') +
     '</div>';
   const panes = tabs.map(function(tb,i){ return '<div class="tp-dpane" data-pane="' + tb[0] + '" style="display:' + (i===0?'block':'none') + '">' + paneBody[tb[0]] + '</div>'; }).join('');
-  const html = '<div class="tp-detail-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">' +
+  const html = '<div class="tp-detail-modal" data-tid="' + t.id + '" data-tname="' + _aiEsc(t.korean_name||'') + '" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">' +
     '<div style="background:#fff;border-radius:14px;padding:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px -10px rgba(0,0,0,0.3)">' +
       '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;border-bottom:2px solid #f3f4f6;padding-bottom:14px">' +
         (t.image_url ? '<img src="' + _aiEsc(t.image_url) + '" style="width:72px;height:72px;border-radius:50%;object-fit:cover">' : '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:bold">'+(t.korean_name||'?').charAt(0)+'</div>') +
@@ -2855,6 +2855,46 @@ window._tpDetailTab = function(btn, key){
   modal.querySelectorAll('.tp-dpane').forEach(function(p){
     p.style.display = (p.getAttribute('data-pane') === key) ? 'block' : 'none';
   });
+  if (key === 'pay' || key === 'eval') { try { _tpLoadTabData(modal, key); } catch(e){} }
+};
+// A2-2 요약 통계 타일
+function _tpSumStat(value, label){
+  return '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:10px 14px;min-width:120px"><div style="font-size:20px;font-weight:800;color:#f59e0b">' + value + '</div><div style="font-size:11px;color:#6b7280;margin-top:1px">' + label + '</div></div>';
+}
+// A2-2 급여·평가 탭 요약 지연로드 — 기존 API(payroll/lessons·ratings/analytics) 재사용, 실패시 조용히 무시(바로가기만 남음)
+window._tpLoadTabData = function(modal, key){
+  try {
+    if (!modal) return;
+    var box = modal.querySelector('[data-sum="' + key + '"]');
+    if (!box || box.getAttribute('data-loaded')) return;
+    box.setAttribute('data-loaded', '1');
+    var en = (window.adminLang && window.adminLang !== 'ko');
+    var wrap = function(inner){ return '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">' + inner + '</div>'; };
+    box.innerHTML = '<div style="color:#9ca3af;font-size:12px;padding:2px 0 8px">' + (en ? 'Loading…' : '불러오는 중…') + '</div>';
+    if (key === 'eval') {
+      var tname = modal.getAttribute('data-tname') || '';
+      fetch('/api/admin/ratings/analytics?days=90&teacher_name=' + encodeURIComponent(tname), { credentials: 'include' })
+        .then(function(r){ return r.json(); }).then(function(a){
+          if (!a || !a.ok || !a.count) { box.innerHTML = ''; return; }
+          var avg = (a.trimmed_avg != null) ? Number(a.trimmed_avg).toFixed(1) : '—';
+          box.innerHTML = wrap(
+            _tpSumStat(avg + '<span style="font-size:12px;color:#9ca3af;font-weight:600">/7</span>', en ? 'Avg rating · 90d' : '평점 · 최근 90일') +
+            _tpSumStat(a.count, en ? 'Ratings' : '평가 건수')
+          );
+        }).catch(function(){ box.innerHTML = ''; });
+    } else if (key === 'pay') {
+      var tid = modal.getAttribute('data-tid');
+      var now = new Date(); var y = now.getFullYear(); var mo = now.getMonth() + 1;
+      fetch('/api/admin/payroll/lessons?year=' + y + '&month=' + mo + '&teacher_id=' + encodeURIComponent(tid), { credentials: 'include' })
+        .then(function(r){ return r.json(); }).then(function(d){
+          if (!d || !d.ok) { box.innerHTML = ''; return; }
+          var done = (d.lessons || []).filter(function(l){ return l && l.status !== 'upcoming'; }).length;
+          box.innerHTML = wrap(
+            _tpSumStat(done + (en ? '' : '회'), en ? ('Lessons done · ' + y + '.' + mo) : '이달 완료 수업')
+          );
+        }).catch(function(){ box.innerHTML = ''; });
+    }
+  } catch(e){ /* graceful */ }
 };
 function _tpField(label, val) {
   if (!val) return '';
