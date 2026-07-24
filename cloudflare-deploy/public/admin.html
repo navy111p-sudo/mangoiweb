@@ -4647,17 +4647,18 @@
           </div>
           <!-- 🔎 강사 필터바(구분·상태·그룹) — adm-p7.js renderTrFilterBar 가 채움 -->
           <div id="tr-filters"></div>
+          <style>#tr-rows .tr-row:hover{background:#f8faff}</style>
           <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:600px">
             <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
               <thead style="background:#f9fafb;position:sticky;top:0;z-index:1"><tr>
                 <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="강사" data-en="Teacher">강사</th>
                 <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="그룹" data-en="Group">그룹</th>
-                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" data-ko="담당 수업" data-en="Classes">담당 수업</th>
-                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" data-ko="담당 학생" data-en="Students">담당 학생</th>
-                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" data-ko="근무일수" data-en="Work days">근무일수</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" title="가입 후 총계 · 2026-07-04 집계" data-ko="누적 수업" data-en="Total classes">누적 수업</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" title="가입 후 총계 · 2026-07-04 집계" data-ko="누적 학생" data-en="Total students">누적 학생</th>
+                <th style="padding:9px 10px;text-align:right;border-bottom:2px solid #e5e7eb" title="가입 후 총계 · 2026-07-04 집계" data-ko="누적 근무일" data-en="Total work days">누적 근무일</th>
                 <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="근무시간" data-en="Hours">근무시간</th>
                 <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="학력·경력" data-en="Edu/Career">학력·경력</th>
-                <th style="padding:9px 10px;text-align:center;border-bottom:2px solid #e5e7eb" data-ko="상태" data-en="Status">상태</th>
+                <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="상태" data-en="Status">상태</th>
               </tr></thead>
               <tbody id="tr-rows"><tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">불러오는 중…</td></tr></tbody>
             </table>
@@ -11877,7 +11878,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-q5.js?v=1" defer></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
 
 <!-- ━━━━━━━━━━ 🔄 결석 강사 자동 대체 시스템 ━━━━━━━━━━ -->
-<script src="/js/adm-p7.js?v=5" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p7.js?v=6" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
 
 <style>
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

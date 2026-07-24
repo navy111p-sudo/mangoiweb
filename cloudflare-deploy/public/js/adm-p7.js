@@ -422,15 +422,22 @@
       const edu = [t.edu, t.spec].filter(Boolean).map(esc).join(' · ') || '—';
       const stKey = _trStatKey(t.status);
       const stStyle = stKey==='active' ? '#dcfce7;color:#15803d' : (stKey==='inactive' ? '#f1f5f9;color:#94a3b8' : '#fef3c7;color:#b45309');
-      return '<tr style="border-bottom:1px solid #f1f5f9">'
-        + '<td style="padding:8px 10px"><b>'+esc(t.name)+'</b>'+(t.nickname && t.nickname!==t.name ?' <span style="color:#94a3b8">('+esc(t.nickname)+')</span>':'')+mgr+'</td>'
-        + '<td style="padding:8px 10px;color:#475569">'+esc(t.group_name||'—')+'</td>'
-        + '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1e3a8a">'+num(t.class_count)+'</td>'
-        + '<td style="padding:8px 10px;text-align:right">'+num(t.student_count)+'</td>'
-        + '<td style="padding:8px 10px;text-align:right">'+num(t.work_days)+'</td>'
+      // 이름: 없으면 닉네임→"(이름 미등록·#id)" 폴백 + 아바타(이니셜) + 닉네임 2단
+      const _rawName = (t.name && String(t.name).trim()) || (t.nickname && String(t.nickname).trim()) || '';
+      const _dispName = _rawName ? esc(_rawName) : ((_en?'(No name · #':'(이름 미등록 · #')+esc(t.teacher_id!=null?t.teacher_id:'?')+')');
+      const _initial = esc((_rawName||'?').charAt(0));
+      const _sub = (_rawName && t.name && t.nickname && t.nickname!==t.name) ? '<div style="font-size:11px;color:#94a3b8;margin-top:1px">'+esc(t.nickname)+'</div>' : '';
+      const _av = '<span style="width:28px;height:28px;border-radius:50%;background:'+(_rawName?'#e0e7ff;color:#4338ca':'#f1f5f9;color:#9ca3af')+';display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">'+_initial+'</span>';
+      const _grp = t.group_name ? esc(t.group_name) : '<span style="color:#c4b5cd">'+(_en?'Ungrouped':'미분류')+'</span>';
+      return '<tr class="tr-row" style="border-bottom:1px solid #f1f5f9">'
+        + '<td style="padding:8px 10px"><div style="display:flex;align-items:center;gap:9px">'+_av+'<div style="min-width:0"><div style="font-weight:700;color:#1f2937">'+_dispName+mgr+'</div>'+_sub+'</div></div></td>'
+        + '<td style="padding:8px 10px;color:#475569">'+_grp+'</td>'
+        + '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1e3a8a;font-variant-numeric:tabular-nums">'+num(t.class_count)+'</td>'
+        + '<td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">'+num(t.student_count)+'</td>'
+        + '<td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">'+num(t.work_days)+'</td>'
         + '<td style="padding:8px 10px;color:#475569">'+hours+'</td>'
         + '<td style="padding:8px 10px;color:#64748b;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+edu+'">'+edu+'</td>'
-        + '<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+stStyle+'">'+_trStatLabel(stKey,_en)+'</span></td>'
+        + '<td style="padding:8px 10px;text-align:left"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+stStyle+'">'+_trStatLabel(stKey,_en)+'</span></td>'
         + '</tr>';
     }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'No teachers match the filter':'해당 필터에 맞는 강사 없음')+'</td></tr>';
   }
