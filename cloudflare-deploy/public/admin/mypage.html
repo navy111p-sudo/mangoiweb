@@ -821,8 +821,9 @@
       </div>
     </div>
 
-    <!-- 🎯 수업 전 지도법 체크리스트 — 교사 전용(지사·대리점은 숨김). 기본 숨김 → applyRole()이 교사에게만 표시 -->
-    <div id="class-checklist" style="display:none;background:linear-gradient(135deg,var(--bg-card) 0%, var(--bg-card-2) 100%);border:1px solid var(--border);border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow-soft);transition:box-shadow .3s">
+    <!-- 🎯 수업 전 지도법 체크리스트 — 교사 전용(지사·대리점은 숨김). 기본 숨김 → applyRole()이 교사에게만 표시
+         (2026-07-24 강사 피드백: "체크하는 게 잘 안 보인다" → 미완료 상태일 때 확실히 눈에 띄도록 강조 테두리/글로우 추가) -->
+    <div id="class-checklist" style="display:none;position:relative;background:linear-gradient(135deg,var(--bg-card) 0%, var(--bg-card-2) 100%);border:1.5px solid rgba(245,158,11,0.55);border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:0 0 0 4px rgba(245,158,11,0.10), var(--shadow-soft);transition:box-shadow .3s,border-color .3s">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-size:15.5px;font-weight:800;color:var(--text-primary)" data-ko="🎯 수업 전 지도법 체크리스트" data-en="🎯 Pre-class teaching checklist">🎯 수업 전 지도법 체크리스트</div>
@@ -885,9 +886,22 @@
         if (box){
           box.scrollIntoView({ behavior:'smooth', block:'center' });
           box.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.65), var(--shadow-soft)';
-          setTimeout(function(){ box.style.boxShadow = 'var(--shadow-soft)'; }, 1500);
+          setTimeout(function(){ applyChecklistBoxStyle(); }, 1500);
         }
         showToast(en() ? 'Please check all items before entering class.' : '수업 입장 전에 체크리스트를 모두 확인해주세요.', true);
+      }
+
+      // 🎯 (2026-07-24 강사 피드백) 미완료면 계속 눈에 띄게, 다 체크하면 차분한 완료 색으로 전환
+      function applyChecklistBoxStyle(){
+        var box = document.getElementById('class-checklist');
+        if (!box) return;
+        if (isAllChecked()){
+          box.style.borderColor = 'rgba(16,185,129,0.45)';
+          box.style.boxShadow = '0 0 0 4px rgba(16,185,129,0.08), var(--shadow-soft)';
+        } else {
+          box.style.borderColor = 'rgba(245,158,11,0.55)';
+          box.style.boxShadow = '0 0 0 4px rgba(245,158,11,0.10), var(--shadow-soft)';
+        }
       }
 
       function updateGates(){
@@ -965,6 +979,7 @@
           progress.style.background = allDone ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.15)';
           progress.style.color = allDone ? '#6ee7b7' : '#fca5a5';
         }
+        applyChecklistBoxStyle();
         updateGates();
       }
 
@@ -1133,8 +1148,32 @@
           <button id="tw-enter-room" style="display:none;padding:9px 16px;background:#22c55e;color:#052e16;border:0;border-radius:99px;font-weight:800;font-size:12.5px;cursor:pointer">🚪</button>
           <button class="js-enter-class-btn" onclick="window.mangoiGoEnterClass('/?menu=videocall-lobby')" style="padding:9px 16px;background:#fbbf24;color:#1a1a1a;border:0;border-radius:99px;font-weight:800;font-size:12.5px;cursor:pointer" data-ko="🎬 수업 입장" data-en="🎬 Enter class">🎬 수업 입장</button>
           <button onclick="var b=document.getElementById('sr-lesson');if(b){b.scrollIntoView({behavior:'smooth',block:'center'});b.focus();}" style="padding:9px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:99px;font-weight:700;font-size:12px;cursor:pointer" data-ko="📅 연기/변경 요청" data-en="📅 Request postpone">📅 연기/변경 요청</button>
+          <!-- 🧪 (2026-07-24 강사 피드백) "오늘 수업이 없어 교재/영상/퀴즈 화면을 못 본다" — 예정 수업이 없을 때만 노출 -->
+          <button id="tw-seed-demo" onclick="tw_seedDemo(this)" style="display:none;padding:9px 14px;background:rgba(139,92,246,0.22);color:#e9d5ff;border:1px solid rgba(139,92,246,0.5);border-radius:99px;font-weight:700;font-size:12px;cursor:pointer" data-ko="🧪 샘플 수업 만들어 미리보기" data-en="🧪 Create a sample class to preview">🧪 샘플 수업 만들어 미리보기</button>
         </div>
       </div>
+      <script>
+      window.tw_seedDemo = async function(btn){
+        if (btn){ btn.disabled = true; btn.textContent = (window.getLang && window.getLang()==='en') ? '⏳ Creating…' : '⏳ 만드는 중…'; }
+        try {
+          var qs = 'teacher_name=' + encodeURIComponent(window.__myName || '');
+          var r = await fetch('/api/admin/class-schedules/seed-demo?' + qs, { method:'POST', credentials:'include' });
+          var j = await r.json().catch(function(){ return null; });
+          if (j && j.ok) {
+            alert((window.getLang && window.getLang()==='en')
+              ? '✅ Sample classes created (one joinable in ~5 min). Reloading…'
+              : '✅ 샘플 수업이 만들어졌어요(약 5분 뒤 입장 가능한 것 포함). 새로고침합니다…');
+            location.reload();
+          } else {
+            alert('⚠️ ' + ((j && (j.message || j.error)) || 'failed'));
+            if (btn){ btn.disabled = false; btn.textContent = (window.getLang && window.getLang()==='en') ? '🧪 Create a sample class to preview' : '🧪 샘플 수업 만들어 미리보기'; }
+          }
+        } catch (e) {
+          alert('⚠️ ' + (e && e.message || e));
+          if (btn){ btn.disabled = false; }
+        }
+      };
+      </script>
 
       <!-- ⚠️ 오늘 당일 피드백 미작성 경고 — 공제(−₱) 예방용 실데이터 배너 -->
       <div id="tw-fb-warning" style="display:none;background:linear-gradient(135deg,rgba(239,68,68,0.16),rgba(220,38,38,0.06));border:1.5px solid rgba(239,68,68,0.55);border-radius:12px;padding:12px 16px;margin-bottom:14px;color:#fecaca;font-size:13px;line-height:1.7"></div>
@@ -1555,8 +1594,11 @@
           if (!nextTarget){
             el.textContent = EN() ? 'None scheduled' : '예정 없음';
             info.textContent = EN() ? 'No upcoming classes on your schedule.' : '배정된 예정 수업이 없어요.';
+            var seedBtn = document.getElementById('tw-seed-demo');
+            if (seedBtn && window.__myRole === 'teacher') seedBtn.style.display = '';
             return;
           }
+          { var seedBtn2 = document.getElementById('tw-seed-demo'); if (seedBtn2) seedBtn2.style.display = 'none'; }
           var diff = nextTarget.ts - Date.now();
           if (diff <= 0){ el.textContent = EN() ? 'Starting now!' : '지금 시작!'; info.textContent = nextTarget.label; return; }
           var h = Math.floor(diff / 3600000);

@@ -12,6 +12,7 @@ import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
 import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(게스트 예외+관리자/토큰)
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
+import { scoreVoiceCoach, scoreTier } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
 import type { MangoEnv } from './api-mango';
 
 
@@ -1923,17 +1924,24 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     }
 
     // ── POST /api/voice/transcribe — 오디오 → 텍스트 (Whisper) ──
+    //   ⚠️ (2026-07-24 직원 피드백 사고) 언어 힌트를 안 주면 Whisper 가 짧은 영어 발화를
+    //      한국어로 오인식한다("Hello nice to meet you" → "안녕하세요 잘생겼어요"). 그러면
+    //      /api/voice/coach 가 "한국어로 말했다"며 항상 0점을 준다. → 기대 언어를 반드시 전달.
+    //      language 힌트를 받는 whisper-large-v3-turbo 를 우선 사용하고, 실패 시 구 whisper 로 폴백.
     if (method === 'POST' && path === '/api/voice/transcribe') {
       try {
         const ct = request.headers.get('content-type') || '';
         let audio: ArrayBuffer | null = null;
+        let hintLang = '';
         if (ct.includes('multipart/form-data')) {
           const fd = await request.formData();
           const file = fd.get('audio') as File | null;
           if (!file) return json({ ok: false, error: 'no_audio_file' }, 400);
           audio = await file.arrayBuffer();
+          hintLang = String(fd.get('lang') || '').trim().toLowerCase();
         } else {
           audio = await request.arrayBuffer();
+          hintLang = String(url.searchParams.get('lang') || '').trim().toLowerCase();
         }
         if (!audio || audio.byteLength < 100) return json({ ok: false, error: 'audio_too_small' }, 400);
         if (audio.byteLength > 25 * 1024 * 1024) return json({ ok: false, error: 'audio_too_large', max: '25MB' }, 400);
@@ -1941,9 +1949,32 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const ai = (env as any).AI;
         if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
 
+        // 기대 언어 정규화(ISO-639-1). 지원 밖이면 힌트 없이 자동감지로 둔다.
+        const langMap: Record<string, string> = { en: 'en', ko: 'ko', zh: 'zh', 'zh-cn': 'zh' };
+        const lang = langMap[hintLang] || '';
+
+        // whisper-large-v3-turbo 는 audio 를 base64 문자열로 받고 language 힌트를 지원한다.
+        if (lang) {
+          try {
+            const bytes = new Uint8Array(audio);
+            let binary = '';
+            const CHUNK = 0x8000;
+            for (let i = 0; i < bytes.length; i += CHUNK) {
+              binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)) as any);
+            }
+            const b64 = btoa(binary);
+            const turbo: any = await ai.run('@cf/openai/whisper-large-v3-turbo', { audio: b64, language: lang, task: 'transcribe' });
+            const tt = String(turbo?.text || '').trim();
+            if (tt) return json({ ok: true, text: tt, vtt: turbo?.vtt || null, word_count: turbo?.word_count || 0, lang });
+          } catch (turboErr: any) {
+            console.warn('[voice/transcribe] turbo failed, fallback base whisper:', turboErr?.message);
+          }
+        }
+
+        // 폴백: 구 whisper (언어 힌트 미지원, 자동감지)
         const arr = [...new Uint8Array(audio)];
         const result = await ai.run('@cf/openai/whisper', { audio: arr });
-        return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0 });
+        return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null });
       } catch (e: any) {
         console.warn('[voice/transcribe] error:', e?.message);
         return json({ ok: false, error: e?.message || 'transcribe_failed' }, 500);
@@ -1967,32 +1998,33 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         return json({ ok: false, error: 'auth_required' }, 401);
       }
 
-      // 단순 유사도 (단어 일치율)
-      const normalize = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
-      const tWords = normalize(target).split(' ');
-      const sWords = normalize(spoken).split(' ');
-      const matched = sWords.filter(w => tWords.includes(w)).length;
-      const accuracy = tWords.length ? Math.round((matched / tWords.length) * 100) : 0;
+      // 🗣 (2026-07-24) 채점은 결정론적 정렬 채점기(voice-score.ts)로 — 변별력 확보(하니스로 검증).
+      //   기존 '단어 집합 겹침'은 순서·중복·딴소리를 못 걸러 잘하든 못하든 점수가 비슷했다.
+      const sc = scoreVoiceCoach(target, spoken);
+      const accuracy = sc.accuracy;
+      const pronunciation = sc.pronunciation;
+      const fluency = sc.fluency;
+      const overall = sc.overall;
+      const tier = scoreTier(overall);
 
-      // 길이 비율 → 유창성 추정 (너무 짧거나 길면 점수 낮음)
-      const lengthRatio = sWords.length / (tWords.length || 1);
-      const fluency = Math.round(100 * Math.max(0, 1 - Math.abs(1 - lengthRatio) * 0.6));
-
-      // Workers AI LLM 으로 발음/문법 피드백
+      // Workers AI LLM 은 '피드백 문구'만 담당(점수는 위 결정론 채점기가 권위).
       let aiFeedback = '';
       let suggestion = '';
-      let pronunciation = accuracy;
       const ai = (env as any).AI;
-      if (ai) {
+      // 언어 불일치(영어 목표에 다른 언어)는 LLM 없이 즉시 안내 — 헛도는 피드백 방지
+      if (sc.langMismatch) {
+        aiFeedback = '목표 문장은 이 언어가 아니에요. 모범 음성을 듣고 같은 언어로 말해보세요.';
+        suggestion = '🔊 모범 음성을 먼저 듣고, 같은 언어로 또박또박 따라 말해보세요.';
+      } else if (ai) {
         try {
           const prompt = `You are an English pronunciation coach for Korean students. Analyze this:
 
 TARGET: "${target}"
 STUDENT SAID: "${spoken}"
+SCORE: accuracy ${accuracy}, pronunciation ${pronunciation}, fluency ${fluency} (already computed — do NOT change scores).
 
 Respond in JSON ONLY:
 {
-  "pronunciation_score": <0-100>,
   "feedback": "<one short Korean sentence about what was good and what to improve>",
   "suggestion": "<one Korean tip to practice next time>"
 }`;
@@ -2003,7 +2035,6 @@ Respond in JSON ONLY:
             ],
             max_tokens: 300,
           });
-          // 응답을 안전하게 문자열로 정규화
           let text = '';
           if (typeof resp === 'string') text = resp;
           else if (resp && typeof resp.response === 'string') text = resp.response;
@@ -2013,7 +2044,6 @@ Respond in JSON ONLY:
           if (m) {
             try {
               const j = JSON.parse(m[0]);
-              if (typeof j.pronunciation_score === 'number') pronunciation = Math.max(0, Math.min(100, Math.round(j.pronunciation_score)));
               if (j.feedback) aiFeedback = String(j.feedback).slice(0, 300);
               if (j.suggestion) suggestion = String(j.suggestion).slice(0, 300);
             } catch (e) { /* fall back */ }
@@ -2023,16 +2053,15 @@ Respond in JSON ONLY:
         }
       }
 
-      // 기본값 채우기
+      // 기본값 채우기 — 점수 구간별 동기부여 문구(긴장감·성취감)
       if (!aiFeedback) {
-        aiFeedback = accuracy >= 90 ? '완벽해요! 발음이 아주 정확합니다.' :
-                     accuracy >= 70 ? '좋아요! 대부분의 단어를 잘 발음했어요.' :
-                     accuracy >= 50 ? '한 번 더 천천히 따라해볼까요? 일부 단어를 확인해봐요.' :
-                                     '괜찮아요, 모범 음성을 들어보고 다시 시도해봐요!';
+        aiFeedback = overall >= 95 ? '🏆 완벽해요! 발음이 아주 정확합니다.' :
+                     overall >= 85 ? '🌟 훌륭해요! 거의 원어민 같아요.' :
+                     overall >= 70 ? '👍 좋아요! 대부분의 단어를 잘 발음했어요.' :
+                     overall >= 50 ? '💪 조금만 더! 몇 단어만 다듬으면 돼요.' :
+                                     '🌱 괜찮아요, 모범 음성을 듣고 다시 도전해요!';
       }
       if (!suggestion) suggestion = '모범 문장을 3번 듣고 큰 소리로 따라 말해보세요.';
-
-      const overall = Math.round((accuracy * 0.5) + (pronunciation * 0.3) + (fluency * 0.2));
 
       // 저장
       const now = Date.now();
@@ -2043,9 +2072,11 @@ Respond in JSON ONLY:
       return json({
         ok: true,
         scores: { accuracy, pronunciation, fluency, overall },
+        tier,
+        lang_mismatch: sc.langMismatch,
         feedback: aiFeedback,
         suggestion,
-        word_stats: { target: tWords.length, spoken: sWords.length, matched },
+        word_stats: { completeness: sc.completeness, matched: sc.counts.ok, wrong: sc.counts.wrong, missing: sc.counts.missing, extra: sc.counts.extra },
       });
     }
 

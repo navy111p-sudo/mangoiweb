@@ -130,11 +130,33 @@
   .mango-badge{ display:inline-flex; align-items:center; gap:6px; font-weight:800; }
   .mango-badge img{ width:26px; height:26px; border-radius:6px; }
   #flash{ position:fixed; inset:0; z-index:15; background:#ef4444; opacity:0; pointer-events:none; transition:opacity .12s; }
+
+  /* ── 생명 위험(1개 남음) 경고 비네트 ── */
+  #dangerVignette{ position:fixed; inset:0; z-index:14; pointer-events:none; opacity:0;
+    background:radial-gradient(ellipse at center, transparent 52%, rgba(239,68,68,0.6) 100%); }
+  #dangerVignette.show{ animation:dangerPulse 1.05s ease-in-out infinite; }
+  @keyframes dangerPulse{ 0%,100%{ opacity:.32 } 50%{ opacity:.85 } }
+
+  /* ── 문장 듣기+말하기 미션(스테이지 클리어 화면) ── */
+  #speakBox{ margin:12px 0 2px; background:#ffffff10; border:1.5px solid #ffffff30; border-radius:16px;
+    padding:14px 18px; max-width:420px; display:none; }
+  #speakSentTxt{ font-size:19px; font-weight:800; margin-bottom:2px; }
+  #speakSubTxt{ font-size:12.5px; opacity:.75; min-height:16px; margin-bottom:8px; }
+  .speakBtnRow{ display:flex; gap:10px; justify-content:center; margin-bottom:8px; }
+  .speakBtn{ padding:10px 16px; border-radius:12px; border:0; font-weight:800; cursor:pointer; font-size:14px; }
+  #speakListenBtn{ background:#38bdf8; color:#04202b; }
+  #speakMicBtn{ background:linear-gradient(160deg,var(--mango2),var(--mango)); color:#3a1a00; }
+  #speakMicBtn:disabled{ opacity:.55; cursor:default; }
+  #speakMicBtn.listening{ animation:micPulse .9s infinite; }
+  @keyframes micPulse{ 0%,100%{ box-shadow:0 0 0 0 #ff8a1e88 } 50%{ box-shadow:0 0 0 10px #ff8a1e00 } }
+  #speakDots{ font-size:22px; letter-spacing:8px; }
+  #speakFeedback{ font-size:12.5px; margin-top:6px; min-height:16px; opacity:.9; }
 </style>
 </head>
 <body>
   <div id="stage"><canvas id="cv"></canvas></div>
   <div id="flash"></div>
+  <div id="dangerVignette"></div>
   <div id="floatLayer"></div>
   <div id="comboBanner"></div>
   <div id="stormBanner"></div>
@@ -174,7 +196,8 @@
     <div class="mango-badge"><img src="/img/mango-char.png" alt="" onerror="this.style.display='none'">MANGO RESCUE</div>
     <h1>망고 구조선의 대항해<span class="sub">Mango Rescue Voyage · 파도를 타고 단어 친구를 구하자!</span></h1>
     <p>폭풍에 휩쓸려 바다에 빠진 <b>단어 친구들</b>을 배로 건져 올려요.<br>
-       친구를 구하면 <b>원어민 발음</b>과 뜻이 공개돼요. 암초와 소용돌이는 피하고, 시간 안에 최대한 구조하세요!</p>
+       친구를 구하면 <b>원어민 발음</b>과 뜻이 공개돼요. 암초와 소용돌이는 피하고, 시간 안에 최대한 구조하세요!<br>
+       바다를 클리어하면 배운 단어로 만든 <b>문장을 듣고 따라 말하기</b> 미션에 도전해요! 🎤</p>
     <div id="modeSel">
       <div class="mode sel" data-mode="en"><div class="flag">🇬🇧</div><div class="nm">English</div><div class="d">영어로 구조</div></div>
       <div class="mode" data-mode="zh"><div class="flag">🇨🇳</div><div class="nm">中文</div><div class="d">중국어로 구조</div></div>
@@ -187,6 +210,17 @@
     <h1 id="clearTtl">Sunny Bay 구조 완료!</h1>
     <p id="clearMsg"></p>
     <div id="recapList"></div>
+    <!-- 문장 듣기+말하기 미션(다른 게임들과 동일한 발음 3회 훈련) -->
+    <div id="speakBox">
+      <div id="speakSentTxt"></div>
+      <div id="speakSubTxt"></div>
+      <div class="speakBtnRow">
+        <button class="speakBtn" id="speakListenBtn">🔊 듣기</button>
+        <button class="speakBtn" id="speakMicBtn">🎤 따라 말하기</button>
+      </div>
+      <div id="speakDots">○ ○ ○</div>
+      <div id="speakFeedback"></div>
+    </div>
     <button class="btn" id="nextBtn">다음 바다로 ▶</button>
   </div>
 
@@ -207,6 +241,7 @@
   <div id="loadErr">⚠ 3D 엔진(Three.js) 로드 실패 — 인터넷 연결을 확인하고 새로고침 하세요</div>
 
   <script src="/vendor/three/three.min.js?v=1"></script>
+  <script src="/vendor/three/GLTFLoader.js?v=1"></script>
   <script>
   (function(){
     'use strict';
@@ -219,6 +254,7 @@
        ============================================================ */
     var STAGES = [
       { key:'sunny',  name:'Sunny Bay',   ko:'과일 친구 구조', water:0x3fb6c9, sky:0x9fe3f0, goal:6, hazard:0.30,
+        sent:{ en:'I like apples and bananas.', ko:'나는 사과와 바나나를 좋아해요.', zh:'我喜欢苹果和香蕉。', py:'wǒ xǐhuān píngguǒ hé xiāngjiāo' },
         words:[
           {en:'apple',en2:'애플',       zh:'苹果', py:'píngguǒ',  ko:'사과',   em:'🍎'},
           {en:'banana',en2:'버내너',    zh:'香蕉', py:'xiāngjiāo', ko:'바나나', em:'🍌'},
@@ -228,6 +264,7 @@
           {en:'peach', en2:'피치',      zh:'桃子', py:'táozi',     ko:'복숭아', em:'🍑'}
         ]},
       { key:'reef',   name:'Coral Reef',  ko:'동물 친구 구조', water:0x2f9fb0, sky:0x8fd8c8, goal:6, hazard:0.40,
+        sent:{ en:'The cat and the dog are friends.', ko:'고양이와 강아지는 친구예요.', zh:'猫和狗是朋友。', py:'māo hé gǒu shì péngyǒu' },
         words:[
           {en:'cat',   zh:'猫',   py:'māo',   ko:'고양이', em:'🐱'},
           {en:'dog',   zh:'狗',   py:'gǒu',   ko:'강아지', em:'🐶'},
@@ -237,6 +274,7 @@
           {en:'turtle',zh:'乌龟', py:'wūguī', ko:'거북이', em:'🐢'}
         ]},
       { key:'storm',  name:'Storm Sea',   ko:'인사말 친구 구조', water:0x2b6f8f, sky:0x6f9bb5, goal:6, hazard:0.52,
+        sent:{ en:'Hello, thank you very much.', ko:'안녕하세요, 정말 고마워요.', zh:'你好，非常谢谢你。', py:'nǐ hǎo, fēicháng xièxie nǐ' },
         words:[
           {en:'hello',      zh:'你好',   py:'nǐ hǎo',    ko:'안녕',   em:'👋'},
           {en:'thank you',  zh:'谢谢',   py:'xièxie',    ko:'고마워', em:'🙏'},
@@ -246,6 +284,7 @@
           {en:'please',     zh:'请',     py:'qǐng',      ko:'부탁해', em:'🤲'}
         ]},
       { key:'island', name:'Mango Island',ko:'숫자 친구 구조', water:0x35b98e, sky:0xa8ecc4, goal:6, hazard:0.44,
+        sent:{ en:'One, two, three, four, five, six.', ko:'하나, 둘, 셋, 넷, 다섯, 여섯.', zh:'一，二，三，四，五，六。', py:'yī èr sān sì wǔ liù' },
         words:[
           {en:'one',  zh:'一', py:'yī',  ko:'하나', em:'1️⃣'},
           {en:'two',  zh:'二', py:'èr',  ko:'둘',   em:'2️⃣'},
@@ -374,10 +413,57 @@
     function resize(){ var w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
     window.addEventListener('resize',resize); resize();
 
+    /* ============================================================
+       3a. 힉스필드 생성 3D 모델(GLB) 연결 — 절차적 로우폴리 모델을 대체
+          로드 실패 시(저대역폭/오프라인) 절차적 모델을 그대로 유지(폴백).
+          battle-3d.html 의 attachModel() 패턴과 동일.
+       ============================================================ */
+    var GLB_MODELS = { boat:'/models/rescue-boat.glb?v=1', friend:'/models/rescue-friend.glb?v=1', rock:'/models/rescue-rock.glb?v=1', captain:'/models/rescue-captain.glb?v=1' };
+    /* URL당 1회만 fetch+파싱하고, 이후 스폰마다는 캐시된 씬을 clone() 만 함
+       — 친구/암초는 매 스폰(초당 최대 1~2회)마다 buildFriend/buildRock 이 새로 호출되므로,
+         캐시가 없으면 같은 GLB를 게임 내내 수십 번 재요청하게 됨(저대역폭 환경에 치명적). */
+    var _glbCache = {};
+    function attachGLB(group, url, targetSize, yOffset, useMaxDim, yaw, extraX, extraZ, hideProc){
+      if(!THREE.GLTFLoader) return;
+      function applyScene(sourceScene){
+        var root=sourceScene.clone(true);
+        var box=new THREE.Box3().setFromObject(root);
+        var size=box.getSize(new THREE.Vector3());
+        var ref = useMaxDim ? Math.max(size.x,size.y,size.z) : size.y;
+        var s = targetSize/(ref||1);
+        root.scale.setScalar(s);
+        if(yaw) root.rotation.y = yaw;   // 컨셉 이미지의 원본 방향 ≠ 게임 전진(-Z) 방향 → 보정 회전
+        box.setFromObject(root);
+        root.position.y += (yOffset||0) - box.min.y;
+        root.position.x += extraX||0; root.position.z += extraZ||0;   // 조타대 등 그룹 내 위치 미세조정
+        root.traverse(function(o){ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
+        if(hideProc!==false && group.userData.proc) group.userData.proc.visible=false;   // 절차적 로우폴리 숨김(말풍선 스프라이트 등은 별도 자식이라 안 건드림)
+        group.add(root);
+        if(!group.userData.glb) group.userData.glb=root;
+      }
+      var entry=_glbCache[url];
+      if(entry){
+        if(entry.scene) applyScene(entry.scene);
+        else if(entry.loading) entry.waiters.push(applyScene);
+        // entry.failed → 절차적 모델 유지, 재요청 안 함
+        return;
+      }
+      entry=_glbCache[url]={ loading:true, scene:null, failed:false, waiters:[] };
+      try{
+        new THREE.GLTFLoader().load(url, function(gltf){
+          entry.loading=false; entry.scene=gltf.scene;
+          applyScene(gltf.scene);
+          entry.waiters.forEach(function(fn){ fn(gltf.scene); }); entry.waiters=[];
+        }, undefined, function(){ entry.loading=false; entry.failed=true; entry.waiters=[]; /* 절차적 모델 유지 */ });
+      }catch(e){ entry.loading=false; entry.failed=true; }
+    }
+
     /* ── 바다(로우폴리 파도) ── */
     var SEG=48, SEA=220;
     var seaGeo=new THREE.PlaneGeometry(SEA,SEA,SEG,SEG); seaGeo.rotateX(-Math.PI/2);
-    var seaMat=new THREE.MeshStandardMaterial({color:0x3fb6c9,flatShading:true,roughness:0.85,metalness:0.05});
+    var seaTex=new THREE.TextureLoader().load('/img/rescue-water.jpg?v=1');
+    seaTex.wrapS=seaTex.wrapT=THREE.RepeatWrapping; seaTex.repeat.set(30,30); seaTex.anisotropy=4;
+    var seaMat=new THREE.MeshStandardMaterial({map:seaTex,color:0x3fb6c9,flatShading:false,roughness:0.75,metalness:0.05});
     var sea=new THREE.Mesh(seaGeo,seaMat); sea.position.z=-40; scene.add(sea);
     var seaPos=seaGeo.attributes.position;
     var baseX=[], baseZ=[];
@@ -387,19 +473,22 @@
     /* ── 구조선(로우폴리) ── */
     function buildBoat(){
       var g=new THREE.Group();
+      var proc=new THREE.Group(); g.add(proc); g.userData.proc=proc;
       var hullMat=new THREE.MeshStandardMaterial({color:0xff7a1a,flatShading:true,roughness:0.6});
       var deckMat=new THREE.MeshStandardMaterial({color:0xfff3e0,flatShading:true,roughness:0.7});
       var hull=new THREE.Mesh(new THREE.CylinderGeometry(0.9,1.3,3.4,7,1,false), hullMat);
-      hull.rotation.z=Math.PI/2; hull.rotation.y=Math.PI/2; hull.scale.set(1,0.55,1); hull.position.y=0.15; g.add(hull);
+      hull.rotation.z=Math.PI/2; hull.rotation.y=Math.PI/2; hull.scale.set(1,0.55,1); hull.position.y=0.15; proc.add(hull);
       var bow=new THREE.Mesh(new THREE.ConeGeometry(0.9,1.5,7), hullMat);
-      bow.rotation.x=-Math.PI/2; bow.scale.set(1,0.55,1); bow.position.set(0,0.15,-2.0); g.add(bow);
-      var deck=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.28,2.6), deckMat); deck.position.y=0.55; g.add(deck);
+      bow.rotation.x=-Math.PI/2; bow.scale.set(1,0.55,1); bow.position.set(0,0.15,-2.0); proc.add(bow);
+      var deck=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.28,2.6), deckMat); deck.position.y=0.55; proc.add(deck);
       var cabin=new THREE.Mesh(new THREE.BoxGeometry(1.05,0.7,1.0), new THREE.MeshStandardMaterial({color:0xffd08a,flatShading:true}));
-      cabin.position.set(0,0.95,0.35); g.add(cabin);
-      var mast=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.7,6), deckMat); mast.position.set(0,1.6,-0.4); g.add(mast);
+      cabin.position.set(0,0.95,0.35); proc.add(cabin);
+      var mast=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.7,6), deckMat); mast.position.set(0,1.6,-0.4); proc.add(mast);
       var flag=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,0.02), new THREE.MeshStandardMaterial({color:0xff5e3a,flatShading:true}));
-      flag.position.set(0.32,2.15,-0.4); g.add(flag);
+      flag.position.set(0.32,2.15,-0.4); proc.add(flag);
       g.userData.flag=flag;
+      attachGLB(g, GLB_MODELS.boat, 4.3, 0.1, true, -Math.PI/2);
+      attachGLB(g, GLB_MODELS.captain, 2.0, 0.05, false, 0, 0, 0.95);   // 선장 — 조타대 뒤(선체 중앙~후미)에 세움, 정면(진행방향) 응시. 실브라우저에서 위치·크기 실측 후 확정한 값
       return g;
     }
     var boat=buildBoat(); scene.add(boat);
@@ -427,40 +516,44 @@
 
     function buildFriend(word, lang, golden){
       var g=new THREE.Group();
+      var proc=new THREE.Group(); g.add(proc);
       // 구명튜브(도넛) — 골든이면 금빛 발광
       var ring=new THREE.Mesh(new THREE.TorusGeometry(0.75,0.28,8,14),
         new THREE.MeshStandardMaterial({color:golden?0xffd23f:0xff5252,flatShading:true,roughness:0.5,
           emissive:golden?0x553d00:0x000000, emissiveIntensity:golden?0.6:0}));
-      ring.rotation.x=Math.PI/2; ring.position.y=0.15; g.add(ring);
+      ring.rotation.x=Math.PI/2; ring.position.y=0.15; proc.add(ring);
       // 흰 줄무늬 튜브 위 (단순 박스 4개)
       for(var k=0;k<4;k++){ var s=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.1,0.6),
           new THREE.MeshStandardMaterial({color:0xffffff,flatShading:true}));
-        var an=k*Math.PI/2; s.position.set(Math.cos(an)*0.75,0.28,Math.sin(an)*0.75); g.add(s); }
+        var an=k*Math.PI/2; s.position.set(Math.cos(an)*0.75,0.28,Math.sin(an)*0.75); proc.add(s); }
       // 물에 빠진 친구(머리)
       var head=new THREE.Mesh(new THREE.SphereGeometry(0.42,10,8),
         new THREE.MeshStandardMaterial({color:0xffcf9e,flatShading:true}));
-      head.position.y=0.55; g.add(head);
+      head.position.y=0.55; proc.add(head);
       var lang2=(lang==='zh')?'zh':'en';
       var main = (lang2==='zh') ? word.zh : word.en;
       var sub  = (lang2==='zh') ? word.py : (word.en2||'');
-      var bub=makeBubble(main, sub, !!golden); g.add(bub);
+      var bub=makeBubble(main, sub, !!golden); g.add(bub);   // 말풍선은 proc 밖 — GLB 로드돼도 항상 표시
       if(golden){
         var spark=new THREE.Mesh(new THREE.OctahedronGeometry(0.15,0), new THREE.MeshBasicMaterial({color:0xfff3c0}));
-        spark.position.set(0.95,1.15,0); g.add(spark); g.userData.spark=spark;
+        spark.position.set(0.95,1.15,0); g.add(spark); g.userData.spark=spark;   // 골든 반짝임도 proc 밖 — 항상 표시
       }
-      g.userData={ type:'friend', word:word, lang:lang2, bob:Math.random()*6.28, golden:!!golden };
+      g.userData={ type:'friend', word:word, lang:lang2, bob:Math.random()*6.28, golden:!!golden, proc:proc };
+      attachGLB(g, GLB_MODELS.friend, 1.3, -0.1, false);
       return g;
     }
 
     /* ── 암초(로우폴리 바위) ── */
     function buildRock(){
       var g=new THREE.Group();
+      var proc=new THREE.Group(); g.add(proc);
       var m=new THREE.MeshStandardMaterial({color:0x7d8794,flatShading:true,roughness:1});
       var r=new THREE.Mesh(new THREE.IcosahedronGeometry(1.0,0), m);
       r.scale.set(1.1,0.9+Math.random()*0.5,1.0); r.rotation.set(Math.random(),Math.random(),Math.random());
-      r.position.y=0.3; g.add(r);
-      var r2=new THREE.Mesh(new THREE.IcosahedronGeometry(0.6,0), m); r2.position.set(0.7,0.15,-0.4); g.add(r2);
-      g.userData={ type:'rock' };
+      r.position.y=0.3; proc.add(r);
+      var r2=new THREE.Mesh(new THREE.IcosahedronGeometry(0.6,0), m); r2.position.set(0.7,0.15,-0.4); proc.add(r2);
+      g.userData={ type:'rock', proc:proc };
+      attachGLB(g, GLB_MODELS.rock, 1.8, -0.4, true);
       return g;
     }
     /* ── 소용돌이(회전하는 링) ── */
@@ -525,6 +618,8 @@
       $('barTxt').textContent = G.rescued+' / '+st.goal;
       var cmul=1+Math.min(1.5,(G.combo-1)*0.25);
       $('score').innerHTML = '점수 <b>'+G.score+'</b> · 콤보 '+G.combo+(G.combo>1?(' (x'+cmul.toFixed(1)+')'):'');
+      // 생명 1개 남으면 화면 가장자리 빨간 경고 펄스(비행기/탱크 게임의 위기 연출)
+      $('dangerVignette').classList.toggle('show', G.running && G.lives<=1);
     }
     function updateTimerUI(){
       var pct=Math.max(0,(G.stageTimeLeft/G.stageTimeMax)*100);
@@ -579,7 +674,7 @@
       G.speed=13 + G.stageIdx*2.2;   // 스테이지마다 빨라짐
       G.lastRescueAt=-99; G.invuln=0;
       G.stageTimeMax=50+G.stageIdx*4; G.stageTimeLeft=G.stageTimeMax;
-      G.stormCd=14+Math.random()*6; G.rescuedWords=[];
+      G.stormCd=Math.max(7,14-G.stageIdx*2)+Math.random()*5; G.rescuedWords=[];   // 뒷 스테이지일수록 폭풍이 더 자주
       clearObjects(); clearParticles(); refillPool();
       // 바다/하늘 색 전환
       seaMat.color.setHex(st.water); scene.background=new THREE.Color(st.sky); scene.fog.color.setHex(st.sky);
@@ -588,7 +683,7 @@
       G.running=true; setHUD(); updateTimerUI();
     }
     function stageClear(){
-      G.running=false; bgm.urgency(0);
+      G.running=false; bgm.urgency(0); $('dangerVignette').classList.remove('show');
       var st=STAGES[G.stageIdx];
       speakFriendlyCheer(); sfxFanfare();
       var recap = G.rescuedWords.map(function(rw){ var w=rw.word;
@@ -597,6 +692,7 @@
       $('recapList').innerHTML = recap;
       $('clearTtl').textContent=st.name+' 구조 완료! 🎉';
       $('clearMsg').innerHTML='단어 친구 '+G.rescuedWords.length+'명을 구했어요! 점수 '+G.score+'점<br>바다가 맑아지고 구조선이 더 빨라집니다.';
+      startSpeakMission(st);   // 문장 듣기+말하기 미션 노출
       $('clear').classList.add('on');
     }
     function nextStage(){
@@ -607,23 +703,99 @@
       requestAnimationFrame(loop);   // ts 없이 loop()를 직접 부르면 stale last로 dt가 거대한 음수가 됨(타이머가 거꾸로 더해짐) — 반드시 rAF로 넘겨서 새 타임스탬프를 받아야 함
     }
     function winGame(){
-      G.running=false; bgm.stop();
+      G.running=false; bgm.stop(); $('dangerVignette').classList.remove('show');
       $('winMsg').innerHTML='점수 <b>'+G.score+'</b>점! 바다에 빠졌던 모든 단어 친구가<br>망고 섬으로 무사히 돌아왔어요. 최고의 선장님! 🥭';
       $('win').classList.add('on');
     }
     function gameOver(){
-      G.running=false; bgm.stop();
+      G.running=false; bgm.stop(); $('dangerVignette').classList.remove('show');
       $('overTtl').textContent='배가 가라앉았어요 😢';
       $('overMsg').innerHTML='점수 <b>'+G.score+'</b>점 · '+STAGES[G.stageIdx].name+'에서 구조 '+G.rescued+'명.<br>다시 도전해서 더 많은 친구를 구해요!';
       $('over').classList.add('on');
     }
     function timeUp(){
-      G.running=false; bgm.stop();
+      G.running=false; bgm.stop(); $('dangerVignette').classList.remove('show');
       $('overTtl').textContent='⏱ 시간이 다 됐어요!';
       $('overMsg').innerHTML='점수 <b>'+G.score+'</b>점 · '+STAGES[G.stageIdx].name+'에서 구조 '+G.rescued+'명.<br>다시 도전해서 시간 안에 더 많은 친구를 구해요!';
       $('over').classList.add('on');
     }
     function speakFriendlyCheer(){ if(G.mode==='zh') speak('好棒','zh'); else speak('Great job','en'); }
+
+    /* ============================================================
+       5b. 문장 듣기 + 따라 말하기 미션 — 다른 게임들과 동일한 '발음 3회' 훈련
+          스테이지 클리어 화면에서: 이번 테마 단어로 만든 문장을 듣고 3번 따라 말하기.
+          음성인식(SpeechRecognition)으로 채점, 3회 성공 시 보너스 +150.
+          미지원 환경(WebView/카톡 등)에서는 '듣기'만 노출하고 말하기는 건너뜀.
+       ============================================================ */
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    var speakMission = { active:false, sent:null, lang:'en', done:0, need:3, rec:null, listening:false };
+    function _norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9一-鿿\s]/g,'').replace(/\s+/g,' ').trim(); }
+    function _matchSpoken(said, target, lang){
+      said=_norm(said); target=_norm(target);
+      if(!said) return false;
+      if(lang==='zh'){ // 중국어: 한자 문자 단위 겹침 비율
+        var t=target.replace(/\s/g,'').split(''), hit=0, sset={};
+        said.replace(/\s/g,'').split('').forEach(function(c){ sset[c]=1; });
+        t.forEach(function(c){ if(sset[c]) hit++; });
+        return t.length? (hit/t.length)>=0.6 : false;
+      }
+      var tw=target.split(' ').filter(Boolean), sw={}; said.split(' ').forEach(function(w){ sw[w]=1; });
+      var hit=0; tw.forEach(function(w){ if(sw[w]) hit++; });
+      return tw.length? (hit/tw.length)>=0.6 : false;   // 60% 단어 일치면 통과(관대하게 — 어린이 발음 고려)
+    }
+    function _updateSpeakDots(){
+      var dots=''; for(var i=0;i<speakMission.need;i++){ dots += (i<speakMission.done?'● ':'○ '); }
+      $('speakDots').innerHTML = dots.trim();
+    }
+    function startSpeakMission(st){
+      var s = st.sent; if(!s){ $('speakBox').style.display='none'; return; }
+      speakMission.active=true; speakMission.sent=s; speakMission.lang=G.mode; speakMission.done=0;
+      var main = (G.mode==='zh') ? s.zh : s.en;
+      var sub  = (G.mode==='zh') ? (s.py+' · '+s.ko) : s.ko;
+      $('speakSentTxt').textContent = main;
+      $('speakSubTxt').textContent = sub;
+      $('speakFeedback').textContent = SR ? '듣기 버튼으로 원어민 발음을 듣고, 마이크로 3번 따라 말해요!' : '이 기기는 음성인식을 지원하지 않아요. 듣기만 연습할 수 있어요.';
+      $('speakMicBtn').style.display = SR ? '' : 'none';
+      $('speakMicBtn').disabled=false; $('speakMicBtn').classList.remove('listening');
+      _updateSpeakDots();
+      $('speakBox').style.display='block';
+    }
+    function speakMissionListen(){
+      var s=speakMission.sent; if(!s) return;
+      speak(G.mode==='zh'? s.zh : s.en, G.mode);
+    }
+    function speakMissionMic(){
+      if(!SR || speakMission.listening || speakMission.done>=speakMission.need) return;
+      var rec; try{ rec=new SR(); }catch(e){ return; }
+      rec.lang = (G.mode==='zh') ? 'zh-CN' : 'en-US';
+      rec.interimResults=false; rec.maxAlternatives=3;
+      speakMission.listening=true;
+      var btn=$('speakMicBtn'); btn.classList.add('listening'); btn.textContent='🎤 듣는 중…';
+      $('speakFeedback').textContent='지금 말해보세요!';
+      rec.onresult=function(ev){
+        var ok=false, heard='';
+        for(var i=0;i<ev.results.length;i++){ for(var j=0;j<ev.results[i].length;j++){
+          var alt=ev.results[i][j].transcript; if(!heard) heard=alt;
+          if(_matchSpoken(alt, G.mode==='zh'?speakMission.sent.zh:speakMission.sent.en, G.mode)){ ok=true; }
+        } }
+        if(ok){
+          speakMission.done++; sfxDing(speakMission.done+3); _updateSpeakDots();
+          if(speakMission.done>=speakMission.need){
+            G.score += 150; sfxFanfare();
+            $('speakFeedback').innerHTML='🎉 완벽해요! 발음 보너스 +150점';
+            btn.style.display='none';
+          } else {
+            $('speakFeedback').textContent='좋아요! ('+speakMission.done+'/'+speakMission.need+') 한 번 더!';
+          }
+        } else {
+          $('speakFeedback').textContent='"'+ (heard||'…') +'" — 다시 또박또박 말해볼까요?';
+        }
+      };
+      rec.onerror=function(){ $('speakFeedback').textContent='마이크를 사용할 수 없어요. 권한을 확인해주세요.'; };
+      rec.onend=function(){ speakMission.listening=false; btn.classList.remove('listening');
+        if(speakMission.done<speakMission.need){ btn.textContent='🎤 따라 말하기'; } };
+      try{ rec.start(); }catch(e){ speakMission.listening=false; btn.classList.remove('listening'); btn.textContent='🎤 따라 말하기'; }
+    }
 
     /* ── 구조 성공 ── */
     function rescue(obj){
@@ -716,7 +888,7 @@
 
       // 🌪 소용돌이 파도 이벤트 — 주기적으로 경고 후 장애물 몰아치기(비행기/탱크 보스 난입과 같은 긴장 스파이크)
       G.stormCd-=dt;
-      if(G.stormCd<=0){ G.stormCd=16+Math.random()*8; triggerStorm(); }
+      if(G.stormCd<=0){ G.stormCd=Math.max(8,16-G.stageIdx*2)+Math.random()*7; triggerStorm(); }
 
       // 무적시간(피격 직후 연속 피격 방지)
       if(G.invuln>0) G.invuln-=dt;
@@ -734,8 +906,9 @@
       seaPos.needsUpdate=true;
       if((normalCd-=dt)<=0){ seaGeo.computeVertexNormals(); normalCd=0.1; }
 
-      // 속도/전진 거리
-      var spd=G.speed*(G.boost?1.8:1);
+      // 속도/전진 거리 — 스테이지 시간이 줄수록 배가 점점 빨라짐(막판 긴장 고조). 최대 +35%.
+      var urgencyRamp = 1 + (1 - G.stageTimeLeft/G.stageTimeMax)*0.35;
+      var spd=G.speed*urgencyRamp*(G.boost?1.8:1);
       G.dist+=spd*dt; G.sinceSpawn+=spd*dt;
       if(G.sinceSpawn>=G.spawnGap){ G.sinceSpawn=0; spawnRow(); }
 
@@ -803,7 +976,9 @@
     (function(){ var pre=document.querySelector('.mode[data-mode="'+MODE+'"]'); if(pre){ document.querySelectorAll('.mode').forEach(function(m){m.classList.remove('sel');}); pre.classList.add('sel'); } G.mode=MODE; })();
 
     $('startBtn').addEventListener('click',function(){ unlock(); startGame(); requestAnimationFrame(loop); });
-    $('nextBtn').addEventListener('click', nextStage);
+    $('speakListenBtn').addEventListener('click', speakMissionListen);
+    $('speakMicBtn').addEventListener('click', speakMissionMic);
+    $('nextBtn').addEventListener('click', function(){ speakMission.active=false; $('speakBox').style.display='none'; nextStage(); });
     $('retryBtn').addEventListener('click',function(){ startGame(); requestAnimationFrame(loop); });
     $('winBtn').addEventListener('click',function(){ startGame(); requestAnimationFrame(loop); });
 
@@ -819,6 +994,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260724201538 -->
+<!-- BUILD:20260724223601 -->
 </body>
 </html>

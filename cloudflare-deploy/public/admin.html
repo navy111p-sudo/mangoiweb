@@ -2657,7 +2657,8 @@
       // 🖱️ (2026-07-19) 카드 클릭 → 그 대리점 상세 대시보드(/admin/exec?as=agency:<shop_name 원본>)로 드릴다운.
       //    서버 getScope 가 '이 지사 산하 대리점인지' 검증하므로 재로그인 없이 안전하게 열람.
       var clickable = !!a.raw;
-      return '<div '+(clickable?('data-agency-shop="'+escA(a.raw)+'" role="link" tabindex="0" title="'+escA(a.name)+' 상세 대시보드 열기" '):'')
+      // 🔎 (2026-07-24 강사 피드백) "학원이 수백 개로 늘면 찾기 힘들다" → 검색으로 필터링할 수 있게 이름을 data 속성에 실어둔다.
+      return '<div class="bao-card" data-name="'+escA(String(a.name||'').toLowerCase())+'" '+(clickable?('data-agency-shop="'+escA(a.raw)+'" role="link" tabindex="0" title="'+escA(a.name)+' 상세 대시보드 열기" '):'')
         +'style="background:rgba(255,255,255,.05);border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:14px 16px'+(clickable?';cursor:pointer;transition:transform .12s,border-color .12s':'')+'"'
         +(clickable?' onmouseover="this.style.borderColor=\'rgba(251,191,36,.55)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'rgba(148,163,184,.22)\';this.style.transform=\'none\'"':'')+'>'
         +'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:10px">'
@@ -2684,7 +2685,14 @@
       +summ('💰 이번 달 매출 합계', won(totR), '#34d399')
       +summ('🏦 지사 수수료 합계', won(totF), '#fbbf24')
       +'</div>'
-      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">'+cards+'</div>'
+      // 🔎 (2026-07-24 강사 피드백) "학원 수백 개면 찾기 힘들다" — 대리점이 늘어나도 이름으로 바로 필터링.
+      +(list.length>6 ? ('<div style="position:relative;margin-bottom:12px">'
+        +'<input id="bao-search" type="text" placeholder="🔎 대리점 이름으로 검색…" '
+        +'style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:10px;border:1px solid rgba(148,163,184,.3);background:rgba(15,23,42,.35);color:#f1f5f9;font-size:13.5px">'
+        +'<span id="bao-search-count" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11.5px;color:#94a3b8"></span>'
+        +'</div>') : '')
+      +'<div id="bao-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">'+cards+'</div>'
+      +'<div id="bao-empty" style="display:none;padding:20px;text-align:center;color:#94a3b8;font-size:13px">🔍 검색 결과가 없습니다</div>'
       +'</div>';
     // 🖱️ 카드 클릭/엔터 → 대리점 상세 대시보드 (서버가 산하 여부 검증)
     host.querySelectorAll('[data-agency-shop]').forEach(function(el){
@@ -2692,6 +2700,23 @@
       el.addEventListener('click', go);
       el.addEventListener('keydown', function(ev){ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); go(); } });
     });
+    var searchBox = host.querySelector('#bao-search');
+    if (searchBox){
+      searchBox.addEventListener('input', function(){
+        var q = searchBox.value.trim().toLowerCase();
+        var cardEls = host.querySelectorAll('.bao-card');
+        var shown = 0;
+        cardEls.forEach(function(el){
+          var match = !q || (el.getAttribute('data-name')||'').indexOf(q) >= 0;
+          el.style.display = match ? '' : 'none';
+          if (match) shown++;
+        });
+        var countEl = host.querySelector('#bao-search-count');
+        if (countEl) countEl.textContent = q ? (shown+' / '+cardEls.length+'곳') : '';
+        var emptyEl = host.querySelector('#bao-empty');
+        if (emptyEl) emptyEl.style.display = (q && shown===0) ? '' : 'none';
+      });
+    }
     host.style.display='block';
   }
   // 실데이터 없거나 오류 시 — 가짜 대리점 대신 정직한 안내만 표시(오해 방지)
@@ -11244,7 +11269,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       #card-calendar .cal-chip.bg-kr-holiday{background:rgba(239,68,68,0.18);color:#fca5a5;border-left-color:#ef4444}
       #card-calendar .cal-chip.bg-ph-holiday{background:rgba(59,130,246,0.18);color:#93c5fd;border-left-color:#3b82f6}
       #card-calendar .cal-chip.bg-teacher-vacation{background:rgba(245,158,11,0.18);color:#fcd34d;border-left-color:#f59e0b}
-      #card-calendar .cal-forms{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+      #card-calendar .cal-forms{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
+      #card-calendar .tu-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto}
+      #card-calendar .tu-row{display:flex;align-items:center;gap:8px;font-size:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:6px 9px}
+      #card-calendar .tu-row .tu-del{margin-left:auto;background:none;border:0;color:#f87171;cursor:pointer;font-size:13px;padding:2px 6px}
       #card-calendar .cal-form{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px}
       #card-calendar .cal-form h5{margin:0 0 8px;font-size:13px;font-weight:800;color:#f8fafc}
       #card-calendar .cal-form .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:7px}
@@ -11295,6 +11323,21 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <div class="row"><span class="lbl" data-ko="날짜" data-en="Date">날짜</span><input id="cal-h-date" type="date" /></div>
         <div style="font-size:11px;color:#9ca3af;margin:4px 0 8px">2026 정규 공휴일은 위 [자동 채우기] 버튼이 더 편합니다.</div>
         <button class="cal-btn hol" onclick="calAddHoliday()" data-ko="공휴일 등록" data-en="Add Holiday">공휴일 등록</button>
+      </div>
+      <div class="cal-form">
+        <h5 data-ko="🌙 강사 반복 휴식시간" data-en="🌙 Teacher Recurring Break Time">🌙 강사 반복 휴식시간</h5>
+        <div style="font-size:11px;color:#9ca3af;margin-bottom:6px" data-ko="위 '교사 휴가'는 며칠 종일 차단, 이건 매주 특정 요일·시간대만 차단(예: 매주 화요일 12~13시)." data-en="Vacation above blocks whole days; this blocks a specific weekday + time range every week (e.g. every Tuesday 12:00-13:00).">위 '교사 휴가'는 며칠 종일 차단, 이건 매주 특정 요일·시간대만 차단(예: 매주 화요일 12~13시).</div>
+        <div class="row"><span class="lbl" data-ko="교사" data-en="Teacher">교사</span><input id="tu-teacher" type="text" placeholder="교사 이름" style="flex:1" /></div>
+        <div class="row"><span class="lbl" data-ko="요일" data-en="Weekday">요일</span>
+          <select id="tu-dow">
+            <option value="0">일요일</option><option value="1">월요일</option><option value="2">화요일</option>
+            <option value="3">수요일</option><option value="4">목요일</option><option value="5">금요일</option><option value="6">토요일</option>
+          </select>
+        </div>
+        <div class="row"><span class="lbl" data-ko="시간" data-en="Time">시간</span><input id="tu-from" type="time" /> ~ <input id="tu-to" type="time" /></div>
+        <div class="row"><span class="lbl" data-ko="사유" data-en="Reason">사유</span><input id="tu-reason" type="text" placeholder="예: 점심시간" style="flex:1" /></div>
+        <button class="cal-btn vac" onclick="tuAdd()" data-ko="휴식시간 등록" data-en="Add Break Time">휴식시간 등록</button>
+        <div id="tu-list" class="tu-list"></div>
       </div>
     </div>
   </div>
@@ -11361,8 +11404,48 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     if(!confirm('삭제할까요?\n'+title))return;
     try{await fetch('/api/admin/calendar/events/'+id,{method:'DELETE',credentials:'include'});calLoad();}catch(e){alert('오류: '+e.message);}
   };
+
+  // 🌙 강사 반복 휴식시간 — 강사 피드백(2026-07-24) "강사 근무/휴식시간 관리를 찾을 수 없다"
+  var DOW_KO=['일','월','화','수','목','금','토'];
+  window.tuAdd=async function(){
+    var name=(document.getElementById('tu-teacher').value||'').trim();
+    var dow=document.getElementById('tu-dow').value;
+    var from=document.getElementById('tu-from').value;
+    var to=document.getElementById('tu-to').value;
+    var reason=(document.getElementById('tu-reason').value||'').trim();
+    if(!name){alert('교사 이름을 입력하세요');return;}
+    if(!from||!to){alert('시작·종료 시간을 모두 입력하세요');return;}
+    try{
+      var res=await fetch('/api/admin/teacher-unavailability',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({teacher_name:name,kind:'weekly',day_of_week:Number(dow),start_time:from,end_time:to,reason:reason||null})});
+      var j=await res.json();
+      if(j&&j.ok){document.getElementById('tu-reason').value='';alert('✅ 휴식시간 등록됨');tuLoad();}
+      else alert('실패: '+(j&&(j.message||j.error)||'unknown'));
+    }catch(e){alert('오류: '+e.message);}
+  };
+  window.tuDelete=async function(id){
+    if(!confirm('이 휴식시간을 삭제할까요?'))return;
+    try{await fetch('/api/admin/teacher-unavailability/'+id,{method:'DELETE',credentials:'include'});tuLoad();}catch(e){alert('오류: '+e.message);}
+  };
+  async function tuLoad(){
+    var host=document.getElementById('tu-list'); if(!host) return;
+    try{
+      var res=await fetch('/api/admin/teacher-unavailability',{credentials:'include',cache:'no-store'});
+      var j=await res.json();
+      var items=(j&&j.items)||[];
+      if(!items.length){host.innerHTML='<div style="font-size:11.5px;color:#6b7280">등록된 휴식시간이 없습니다.</div>';return;}
+      host.innerHTML=items.map(function(it){
+        var when=(it.kind==='weekly')
+          ? ('매주 '+(DOW_KO[it.day_of_week]||'?')+'요일 '+(it.start_time||'')+'~'+(it.end_time||'')+(it.start_time?'':'(종일)'))
+          : (it.start_date+(it.end_date&&it.end_date!==it.start_date?' ~ '+it.end_date:'')+(it.start_time?' '+it.start_time+'~'+it.end_time:'(종일)'));
+        return '<div class="tu-row"><b>'+calEsc(it.teacher_name||it.teacher_id)+'</b><span>'+calEsc(when)+'</span>'
+          +(it.reason?('<span style="color:#9ca3af">· '+calEsc(it.reason)+'</span>'):'')
+          +'<button class="tu-del" onclick="tuDelete('+it.id+')" title="삭제">✕</button></div>';
+      }).join('');
+    }catch(e){host.innerHTML='<div style="font-size:11.5px;color:#f87171">불러오기 실패</div>';}
+  }
   var card=document.getElementById('card-calendar');
-  if(card){card.addEventListener('toggle',function(){if(card.open&&!card._calInit){card._calInit=true;calLoad();}});}
+  if(card){card.addEventListener('toggle',function(){if(card.open&&!card._calInit){card._calInit=true;calLoad();tuLoad();}});}
 })();
 </script>
 
@@ -11792,7 +11875,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script src="/js/adm-core.js?v=17" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
-<script src="/js/adm-today-classes.js?v=2" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
+<script src="/js/adm-today-classes.js?v=3" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
 <script src="/js/adm-light-surfaces.js?v=8" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
@@ -21261,6 +21344,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260724201538 -->
+<!-- BUILD:20260724223601 -->
 </body>
 </html>

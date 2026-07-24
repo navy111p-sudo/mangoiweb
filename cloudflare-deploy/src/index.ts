@@ -884,6 +884,9 @@ const worker = {
         path === '/api/admin/ai-action' ||
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
+        // 🚫 강사 근무불가(휴가·휴식시간) — 강사 피드백(2026-07-24), /api/admin/class-schedules 등록 시 자동 차단에 사용
+        path === '/api/admin/teacher-unavailability' ||
+        /^\/api\/admin\/teacher-unavailability\/\d+$/.test(path) ||
         path === '/api/admin/schedules' ||
         path === '/api/admin/unassigned-students' ||
         path === '/api/admin/notify-queue' ||
@@ -4321,6 +4324,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/ai-command' || path === '/api/admin/ai-action') return true;
   if (path === '/api/admin/omnisearch') return true;
   if (path === '/api/admin/class-schedules' || path === '/api/admin/class-schedules/seed-demo' || /^\/api\/admin\/class-schedules\/\d+$/.test(path)) return true;
+  // 🚫 강사 근무불가(휴가·휴식시간) — 강사 피드백(2026-07-24)
+  if (path === '/api/admin/teacher-unavailability' || /^\/api\/admin\/teacher-unavailability\/\d+$/.test(path)) return true;
   if (path === '/api/admin/class-audit') return true;   // 📜 수업 변경 이력(연기/삭제/종료)
   if (path === '/api/admin/schedules') return true;
   if (path === '/api/admin/unassigned-students') return true;

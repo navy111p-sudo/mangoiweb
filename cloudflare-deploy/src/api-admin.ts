@@ -3860,9 +3860,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
 
     // 🥭 Phase 6d — POST /api/admin/class-schedules/seed-demo
     //   클릭 한 번에 정규+체험+레벨 3개 데모 스케줄 생성 (시스템 동작 즉시 확인용)
+    //   (2026-07-24 강사 피드백) "오늘 수업이 없어서 교재/영상/퀴즈·레벨테스트·피드백 화면을 못 본다" →
+    //   ?teacher_id= 를 함께 주면 그 강사 담당으로, 오늘 바로 입장 가능한 수업도 하나 추가로 만든다.
     if (method === 'POST' && path === '/api/admin/class-schedules/seed-demo') {
       const url = new URL(request.url);
       let userId = url.searchParams.get('user_id') || '';
+      let seedTeacherId = (url.searchParams.get('teacher_id') || '').trim() || null;
+      const seedTeacherNameQ = (url.searchParams.get('teacher_name') || '').trim();
+      if (!seedTeacherId && seedTeacherNameQ) {
+        try {
+          const tName = seedTeacherNameQ.replace(/(선생님?|쌤)$/, '').trim() || seedTeacherNameQ;
+          const t = await env.DB.prepare(`SELECT id FROM teachers WHERE name = ? OR name LIKE ? LIMIT 1`).bind(seedTeacherNameQ, '%' + tName + '%').first<any>();
+          if (t?.id) seedTeacherId = String(t.id);
+        } catch {}
+      }
       // user_id 안 주면 students_erp 첫 학생 사용
       if (!userId) {
         try {
@@ -3892,12 +3903,17 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         { kind:'one_off',   type:'trial',      day:null,      date:tomorrow, time:'16:00', label:'데모 - 체험수업 (1회)' },
         { kind:'one_off',   type:'level_test', day:null,      date:nextWeek, time:'17:00', label:'데모 - 레벨테스트 (1회)' }
       ];
+      // 🎯 오늘 바로 입장해볼 수 있는 데모 수업 — KST 기준 지금부터 5분 뒤 (join_open 창 30분전~40분후에 걸리도록)
+      const kstNow = new Date(now + 9*3600000);
+      const soon = new Date(kstNow.getTime() + 5*60000);
+      const soonTime = String(soon.getUTCHours()).padStart(2,'0') + ':' + String(soon.getUTCMinutes()).padStart(2,'0');
+      seeds.push({ kind:'one_off', type:'regular', day:null, date:todayKst, time:soonTime, label:'데모 - 오늘 바로 입장 테스트용' });
       const inserted: any[] = [];
       for (const s of seeds) {
         try {
           const ins = await env.DB.prepare(
-            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 'demo_seed', ?, ?)`
-          ).bind(userId, studentName, s.kind, s.type, s.day, s.date, s.time, DEFAULT_CLASS_MINUTES, 'admin', now).run();
+            `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'demo_seed', ?, ?)`
+          ).bind(userId, studentName, s.kind, s.type, s.day, s.date, s.time, DEFAULT_CLASS_MINUTES, seedTeacherId, 'admin', now).run();
           inserted.push({ id: ins?.meta?.last_row_id, ...s });
         } catch (e: any) {
           inserted.push({ error: String(e?.message||e), ...s });
@@ -4015,6 +4031,52 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return bad('conflict', '같은 시간에 이미 예약이 있습니다. 그래도 등록하려면 다시 확인해 주세요.', 'A class already exists at this time. Confirm again to register anyway.', { conflicts }, 409);
       }
 
+      // ── 🚫 강사 근무불가(휴가·휴식시간) 검사 — 강사 피드백(2026-07-24):
+      //   "강사가 휴가일 때 그 시간에 학생이 예약 못 하게 막아야 한다." force:true 로도 우회 못 하게
+      //   (강사가 실제로 없는 시간에 등록되면 수업 진행 자체가 불가능해 conflict 와는 성격이 다르다)
+      const teacherBlocks: any[] = [];
+      if (teacherId) {
+        try {
+          await env.DB.exec(
+            `CREATE TABLE IF NOT EXISTS teacher_unavailability (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id TEXT NOT NULL, teacher_name TEXT, kind TEXT NOT NULL DEFAULT 'date_range', start_date TEXT, end_date TEXT, day_of_week INTEGER, start_time TEXT, end_time TEXT, reason TEXT, created_by TEXT, created_at INTEGER NOT NULL)`
+          );
+          const toMin = (hhmm: string) => { const [h, m] = String(hhmm || '00:00').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+          const classStartMin = toMin(startTime);
+          const classEndMin = classStartMin + durationMin;
+          const rs = await env.DB.prepare(`SELECT * FROM teacher_unavailability WHERE teacher_id = ?`).bind(teacherId).all<any>();
+          const overlaps = (b: any) => {
+            const bStart = b.start_time ? toMin(b.start_time) : 0;
+            const bEnd = b.end_time ? toMin(b.end_time) : 24 * 60;
+            return classStartMin < bEnd && bStart < classEndMin;
+          };
+          for (const b of (rs.results || [])) {
+            if (kind === 'one_off') {
+              if (b.kind === 'date_range' && b.start_date && b.end_date && schedDate >= b.start_date && schedDate <= b.end_date && overlaps(b)) teacherBlocks.push(b);
+              else if (b.kind === 'weekly' && b.day_of_week != null) {
+                const dow = new Date(schedDate + 'T00:00:00').getDay();
+                if (Number(b.day_of_week) === dow && overlaps(b)) teacherBlocks.push(b);
+              }
+            } else {
+              if (b.kind === 'weekly' && b.day_of_week != null && days.includes(Number(b.day_of_week)) && overlaps(b)) teacherBlocks.push(b);
+            }
+          }
+        } catch {}
+      }
+      // ── 🏖 기존 "캘린더 관리(휴가·공휴일)" 카드에 등록된 종일 휴가와도 충돌 검사 ──
+      //   calendar_events 는 teacher_id 를 저장하지 않아(항상 NULL) teacher_name 문자열로만 대조 가능.
+      //   (일회성 예약만 검사 — 반복 예약은 특정 날짜가 없어 종일 휴가와 대조할 기준일이 없음)
+      if (kind === 'one_off' && teacherName) {
+        try {
+          const vac = await env.DB.prepare(
+            `SELECT id, title, date, end_date FROM calendar_events WHERE event_type = 'vacation' AND teacher_name = ? AND date <= ? AND COALESCE(end_date, date) >= ? LIMIT 1`
+          ).bind(teacherName, schedDate, schedDate).first<any>();
+          if (vac) teacherBlocks.push({ kind: 'calendar_vacation', ...vac });
+        } catch {}
+      }
+      if (teacherBlocks.length) {
+        return bad('teacher_unavailable', '이 시간은 강사가 근무 불가(휴가/휴식시간)로 등록되어 있어 예약할 수 없습니다.', 'The teacher is marked unavailable (time off / break) during this time — booking is blocked.', { teacher_blocks: teacherBlocks }, 409);
+      }
+
       // ── 등록 (반복 수업은 요일당 1행 — sessions/today 가 요일 1개를 전제로 계산) ──
       const now = Date.now();
       let actorName = 'admin';
@@ -4084,6 +4146,85 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           source: 'ui', reason: _delReason,
         });
         return json({ ok: true, id, status: 'cancelled' });
+      } catch (e: any) {
+        return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    // 🚫 강사 근무불가(휴가·휴식시간) 관리 — 강사 피드백(2026-07-24):
+    //   "강사 스케줄/휴식시간 관리를 찾을 수 없다. 휴가일 때 학생이 예약 못 하게 막아야 한다."
+    //   등록해두면 위 /api/admin/class-schedules 등록 시 자동으로 막힌다(teacher_unavailable 409).
+    const TU_TABLE_SQL = `CREATE TABLE IF NOT EXISTS teacher_unavailability (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id TEXT NOT NULL, teacher_name TEXT, kind TEXT NOT NULL DEFAULT 'date_range', start_date TEXT, end_date TEXT, day_of_week INTEGER, start_time TEXT, end_time TEXT, reason TEXT, created_by TEXT, created_at INTEGER NOT NULL)`;
+
+    if (method === 'GET' && path === '/api/admin/teacher-unavailability') {
+      try { await env.DB.exec(TU_TABLE_SQL); } catch {}
+      const teacherIdQ = (url.searchParams.get('teacher_id') || '').trim();
+      try {
+        const rs = teacherIdQ
+          ? await env.DB.prepare(`SELECT * FROM teacher_unavailability WHERE teacher_id = ? ORDER BY created_at DESC`).bind(teacherIdQ).all<any>()
+          : await env.DB.prepare(`SELECT * FROM teacher_unavailability ORDER BY created_at DESC LIMIT 500`).all<any>();
+        return json({ ok: true, items: rs.results || [] });
+      } catch (e: any) {
+        return json({ ok: false, error: 'list_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    if (method === 'POST' && path === '/api/admin/teacher-unavailability') {
+      try { await env.DB.exec(TU_TABLE_SQL); } catch {}
+      const body: any = await request.json().catch(() => ({}));
+      const bad = (error: string, ko: string, en: string, code = 400) => json({ ok: false, error, message: ko, message_en: en }, code);
+
+      // 강사 지정 — id 를 직접 주거나(선택), 기존 캘린더 휴가 폼과 같은 UX 로 이름만 입력해도 teachers 테이블에서 매칭.
+      let teacherId = String(body.teacher_id || '').trim();
+      let teacherName: string | null = body.teacher_name ? String(body.teacher_name).slice(0, 100) : null;
+      if (!teacherId && teacherName) {
+        try {
+          const tName = teacherName.replace(/(선생님?|쌤)$/, '').trim() || teacherName;
+          const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE name = ? OR name LIKE ? LIMIT 1`).bind(teacherName, '%' + tName + '%').first<any>();
+          if (t?.id) { teacherId = String(t.id); teacherName = String(t.name); }
+        } catch {}
+      }
+      if (!teacherId) return bad('teacher_required', '강사 명단(teachers)에서 이름을 찾지 못했습니다. 강사 명단에 먼저 등록해 주세요.', 'Could not find this teacher in the teacher list. Add them there first.');
+      const kind = body.kind === 'weekly' ? 'weekly' : 'date_range';
+      const timeRe = /^\d{1,2}:\d{2}$/;
+      const startTime = body.start_time && timeRe.test(String(body.start_time)) ? String(body.start_time) : null;
+      const endTime = body.end_time && timeRe.test(String(body.end_time)) ? String(body.end_time) : null;
+      if ((startTime && !endTime) || (!startTime && endTime)) return bad('time_range_incomplete', '시작/종료 시간은 둘 다 입력하거나 둘 다 비워주세요(비우면 하루 종일 차단).', 'Enter both start and end time, or leave both empty to block the whole day.');
+
+      if (!teacherName) {
+        try { const t = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`).bind(teacherId).first<any>(); if (t?.name) teacherName = String(t.name); } catch {}
+      }
+
+      let startDate: string | null = null, endDate: string | null = null, dayOfWeek: number | null = null;
+      if (kind === 'date_range') {
+        startDate = /^\d{4}-\d{2}-\d{2}$/.test(String(body.start_date || '')) ? String(body.start_date) : null;
+        endDate = /^\d{4}-\d{2}-\d{2}$/.test(String(body.end_date || '')) ? String(body.end_date) : startDate;
+        if (!startDate) return bad('date_required', '휴가 시작 날짜(YYYY-MM-DD)를 입력해 주세요.', 'Enter a start date (YYYY-MM-DD).');
+        if (endDate! < startDate) return bad('date_range_invalid', '종료 날짜가 시작 날짜보다 빠릅니다.', 'End date is before start date.');
+      } else {
+        const n = Number(body.day_of_week);
+        if (!Number.isFinite(n) || n < 0 || n > 6) return bad('day_required', '반복 휴식시간은 요일(0~6)을 지정해 주세요.', 'Pick a weekday (0-6) for the recurring block.');
+        dayOfWeek = n;
+      }
+
+      const actor = await getAdminActor(request, env as any);
+      const now = Date.now();
+      try {
+        const ins = await env.DB.prepare(
+          `INSERT INTO teacher_unavailability (teacher_id, teacher_name, kind, start_date, end_date, day_of_week, start_time, end_time, reason, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(teacherId, teacherName, kind, startDate, endDate, dayOfWeek, startTime, endTime, body.reason ? String(body.reason).slice(0, 300) : null, actor.name || 'admin', now).run();
+        return json({ ok: true, id: (ins?.meta?.last_row_id as number) ?? null });
+      } catch (e: any) {
+        return json({ ok: false, error: 'insert_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    if (method === 'DELETE' && /^\/api\/admin\/teacher-unavailability\/\d+$/.test(path)) {
+      const id = parseInt(path.split('/').pop() || '0', 10);
+      if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
+      try {
+        await env.DB.prepare(`DELETE FROM teacher_unavailability WHERE id = ?`).bind(id).run();
+        return json({ ok: true, id });
       } catch (e: any) {
         return json({ ok: false, error: 'delete_failed', detail: String(e?.message || e) }, 500);
       }

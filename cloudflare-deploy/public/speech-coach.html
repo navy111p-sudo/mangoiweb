@@ -167,6 +167,8 @@
 
   <!-- 결과 -->
   <div id="result" class="result">
+    <!-- 🎖 등급 배너 — 긴장감·성취감(2026-07-24) -->
+    <div id="sc-tier" style="display:none;text-align:center;margin-bottom:14px;padding:14px;border-radius:14px;font-weight:900;letter-spacing:0.5px"></div>
     <div class="scores">
       <div class="score-box"><div class="score-num" id="sc-overall">0</div><div class="score-label" data-ko="종합" data-en="OVERALL">종합</div></div>
       <div class="score-box"><div class="score-num" id="sc-accuracy">0</div><div class="score-label" data-ko="정확도" data-en="ACCURACY">정확도</div></div>
@@ -305,8 +307,10 @@ function loadStep(i, speak){
   saveStep();
   if (speak) speakTarget();
 }
-function goStep(delta){ loadStep(currentStep + delta, false); }
-function selectStep(v){ loadStep(parseInt(v, 10), false); }
+// 🔊 (2026-07-24 직원 피드백) 다음 단계·문장 선택은 사용자 클릭(제스처)이므로 그때 원어민 음성을 바로 들려준다.
+//   (이전엔 speak=false 라 발음 연습앱인데 모범 음성이 자동으로 안 나왔다 → "기다려도 원어민 음성이 안 나온다")
+function goStep(delta){ loadStep(currentStep + delta, true); }
+function selectStep(v){ loadStep(parseInt(v, 10), true); }
 /* 초기화: 저장된 단계로 이어서 시작 */
 try {
   renderStepSelect();
@@ -314,6 +318,16 @@ try {
   if (!isNaN(_saved) && _saved >= 0 && _saved < STEPS.length) { loadStep(_saved, false); }
   else { updateStepUI(); }
 } catch(e){ updateStepUI(); }
+
+// 🔊 첫 진입: 안내 멘트가 "원어민 음성을 들어보세요"라고 하므로, 안내가 끝나면 모범 음성을 한 번 자동 재생.
+//   overlap 방지를 위해 아래 안내음성(speech-voice)의 'ended' 에 연결한다. 안내가 음소거/차단이면
+//   첫 사용자 제스처 때 대신 재생. (window 로 노출해 하단 IIFE 가 호출)
+window.__scAutoNativePlayed = false;
+window.scPlayNativeOnce = function(){
+  if (window.__scAutoNativePlayed) return;
+  window.__scAutoNativePlayed = true;
+  try { speakTarget(); } catch(e){}
+};
 
 let ttsAudio = null;
 const ttsCache = {};
@@ -398,8 +412,12 @@ function stopRec() {
 async function processAudio(blob) {
   try {
     // 1) Whisper 로 전사
+    //   🌐 (2026-07-24) 기대 언어를 함께 보낸다 — 안 보내면 짧은 영어 발화를 한국어로 오인식해
+    //      "한국어로 말했다"며 항상 0점이 나오던 버그가 있었다. 모범문장(target)의 문자로 판정.
+    const _target0 = document.getElementById('target-display').textContent || '';
     const fd = new FormData();
     fd.append('audio', blob, 'rec.webm');
+    fd.append('lang', detectTtsLang(_target0));
     const trResp = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
     const trD = await trResp.json();
     if (!trD.ok) throw new Error('전사 실패: ' + (trD.error || ''));
@@ -432,6 +450,25 @@ async function processAudio(blob) {
     document.getElementById('sc-flue').textContent = cD.scores.fluency;
     document.getElementById('feedback-text').textContent = '💡 ' + cD.feedback;
     document.getElementById('suggestion-text').textContent = '🎯 ' + cD.suggestion;
+    // 🎖 등급 배너 — 점수 구간에 따라 색/문구 (긴장감·성취감). tier 는 서버가 내려줌.
+    (function(){
+      var tierEl = document.getElementById('sc-tier');
+      var t = cD.tier;
+      if (tierEl && t) {
+        var isEn = (window.getLang && window.getLang() === 'en');
+        var palette = {
+          S: ['#fbbf24','#78350f'], A: ['#a78bfa','#312e81'], B: ['#34d399','#064e3b'],
+          C: ['#60a5fa','#1e3a8a'], D: ['#94a3b8','#1e293b']
+        };
+        var col = palette[t.tier] || palette.D;
+        tierEl.style.display = 'block';
+        tierEl.style.background = 'linear-gradient(135deg,' + col[0] + ',' + col[1] + ')';
+        tierEl.style.color = '#fff';
+        tierEl.innerHTML = '<span style="font-size:30px">' + t.emoji + '</span> ' +
+          '<span style="font-size:22px">' + t.tier + '</span> · ' +
+          (isEn ? t.label_en : t.label_ko);
+      } else if (tierEl) { tierEl.style.display = 'none'; }
+    })();
     document.getElementById('result').style.display = 'block';
     try { markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
     document.getElementById('rec-status').textContent = '✅ 완료! 다시 녹음하려면 마이크 누르세요';
@@ -449,7 +486,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260724201538 -->
+<!-- BUILD:20260724223601 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
@@ -459,9 +496,16 @@ if (typeof window.speechSynthesis !== 'undefined') {
   var MUTE_KEY = 'mangoi_voice_muted';
   function isMuted(){ try { return localStorage.getItem(MUTE_KEY) === '1'; } catch(e){ return false; } }
   var played = false;
+  // 🔊 (2026-07-24) 안내 멘트가 끝나면 원어민 모범 음성을 이어서 자동 재생 (겹치지 않게 순차 재생)
+  a.addEventListener('ended', function(){ if (window.scPlayNativeOnce) window.scPlayNativeOnce(); });
   function play(){ if(played || isMuted()) return; played = true; var p = a.play(); if(p && p.catch) p.catch(function(){ played = false; arm(); }); }
   function arm(){
-    var once = function(){ document.removeEventListener('pointerdown', once); document.removeEventListener('keydown', once); play(); };
+    var once = function(){
+      document.removeEventListener('pointerdown', once); document.removeEventListener('keydown', once);
+      // 안내가 음소거면 안내는 건너뛰고 원어민 음성만 이 제스처로 재생
+      if (isMuted()) { if (window.scPlayNativeOnce) window.scPlayNativeOnce(); }
+      else play();
+    };
     document.addEventListener('pointerdown', once);
     document.addEventListener('keydown', once);
   }

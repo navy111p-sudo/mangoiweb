@@ -98,14 +98,16 @@
       );
     }
 
+    /* 🚪 (2026-07-24 강사 피드백) "입장 버튼이 학생 이름과 멀리 떨어져 있어 다른 방에 잘못 들어간다"
+       → 액션 버튼을 별도 맨 끝 열이 아니라 학생 이름 칸 바로 옆에 붙여, 줄을 눈으로 훑지 않고
+       같은 칸만 보고 누를 수 있게 한다. */
     box.innerHTML = '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
       +   '<th>' + T('시간', 'Time') + '</th>'
       +   '<th>' + T('상태', 'Status') + '</th>'
-      +   '<th>' + T('학생', 'Student') + '</th>'
+      +   '<th>' + T('학생 / 액션', 'Student / Action') + '</th>'
       +   '<th>' + T('강사', 'Teacher') + '</th>'
       +   '<th>' + T('강의실', 'Room') + '</th>'
-      +   '<th>' + T('액션', 'Action') + '</th>'
       + '</tr></thead><tbody>'
       + rows.map(function (s) {
           var rid = encodeURIComponent(s.room_id);
@@ -125,10 +127,9 @@
           return '<tr>'
             + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
-            + '<td>' + esc(s.student_name || s.student_uid || '-') + '</td>'
+            + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + act + '</div></td>'
             + '<td>' + teacher + '</td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code></td>'
-            + '<td style="white-space:nowrap">' + act + '</td>'
             + '</tr>';
         }).join('')
       + '</tbody></table></div>';
