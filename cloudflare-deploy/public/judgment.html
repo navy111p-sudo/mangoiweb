@@ -330,6 +330,7 @@
     if(view==='q' && scenario) renderQuestion();
     else if(view==='result' && window._lastResult) renderResult(window._lastResult);
     else if(view==='growth' && window._lastGrowth) renderGrowth(window._lastGrowth);
+    else if(view==='nologin') renderNoLogin();   // 로그인 안내도 언어 따라 다시 그린다(안 하면 첫 언어로 굳음)
     if(solved>0) streakEl.innerHTML = streakText();
   }
   document.getElementById('langBtn').addEventListener('click', function(){
@@ -340,9 +341,13 @@
     if(ev.key==='mangoi_lang' && ev.newValue && normLang(ev.newValue)!==LANG) setLangAndRefresh(ev.newValue, false);
   });
 
+  function renderNoLogin(){
+    view='nologin';
+    stage.innerHTML = '<div class="center">'+T('앱에서 로그인 후 이용해 주세요.','Please log in through the app to start.','请先在应用中登录后使用。')+'<br><span style="font-size:.8em">'+T('(학생 계정으로 접속하면 자동으로 시작됩니다)','(It starts automatically when you sign in as a student)','（以学生账号登录后会自动开始）')+'</span></div>';
+  }
   if(!UID){
     applyStatic();
-    stage.innerHTML = '<div class="center">'+T('앱에서 로그인 후 이용해 주세요.','Please log in through the app to start.','请先在应用中登录后使用。')+'<br><span style="font-size:.8em">'+T('(학생 계정으로 접속하면 자동으로 시작됩니다)','(It starts automatically when you sign in as a student)','（以学生账号登录后会自动开始）')+'</span></div>';
+    renderNoLogin();
     return;
   }
 
@@ -685,7 +690,7 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260725004033 -->
+<!-- BUILD:20260725042312 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>
