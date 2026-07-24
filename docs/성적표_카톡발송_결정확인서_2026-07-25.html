@@ -1,0 +1,114 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<title>학부모 성적표 카톡 발송 — 결정 확인서 (2026-07-25)</title>
+<style>
+@page { size: A4; margin: 14mm 13mm; }
+* { box-sizing: border-box; }
+body { font-family: "Malgun Gothic","맑은 고딕",sans-serif; font-size: 10.8pt; line-height: 1.62; color:#1f2430; margin:0; }
+h1 { font-size: 17pt; color:#b45309; border-bottom: 3px solid #f59e0b; padding-bottom: 6px; margin: 0 0 4px; }
+.sub { color:#6b7280; font-size: 9.5pt; margin-bottom: 14px; }
+h2 { font-size: 13.2pt; color:#92400e; margin: 18px 0 7px; page-break-after: avoid; }
+p { margin: 5px 0; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 3px 0; }
+table { border-collapse: collapse; width: 100%; margin: 7px 0 11px; }
+tr { page-break-inside: avoid; }
+th, td { border: 0.8px solid #d7c9a8; padding: 5px 8px; vertical-align: top; text-align: left; font-size: 9.8pt; }
+th { background: #ffe9c2; font-weight: 700; }
+.box { border-radius: 8px; padding: 9px 12px; margin: 8px 0; page-break-inside: avoid; }
+.box.summary { background: #fff7e8; border: 1.5px solid #f59e0b; }
+.box.fix { background: #f0f5fd; border: 1.5px solid #4285f4; }
+.easy { background:#fffbe8; border-left: 4px solid #fbbf24; padding: 5px 10px; margin: 6px 0; font-size: 9.9pt; color:#4b5563; }
+.small { font-size: 9pt; color:#6b7280; }
+
+.decision { border: 1.5px solid #e5ddc8; border-radius: 10px; padding: 10px 14px; margin: 9px 0; page-break-inside: avoid; }
+.decision .q { font-weight: 800; font-size: 11pt; color:#1f2430; margin-bottom: 3px; }
+.decision .why { font-size: 9.5pt; color:#6b7280; margin-bottom: 8px; }
+.opts { display: flex; gap: 8px; flex-wrap: wrap; }
+.opt { flex: 1; min-width: 200px; border: 1px solid #d7c9a8; border-radius: 8px; padding: 7px 10px; font-size: 9.8pt; background:#fff; }
+.opt b { display:block; font-size: 10.2pt; margin-bottom: 2px; color:#92400e; }
+.mark { display:inline-block; width:12px; height:12px; border:1.6px solid #b45309; border-radius:3px; margin-right:6px; vertical-align:middle; }
+.locked { background:#f0faf1; border: 1.5px solid #34a853; border-radius:8px; padding:8px 12px; font-size:9.8pt; margin:8px 0; }
+a { color:#2a5f9e; }
+.opt.reco { border-color:#34a853; background:#f3fdf5; }
+.reco-tag { display:inline-block; background:#34a853; color:#fff; font-size:8.3pt; font-weight:800; padding:1px 7px; border-radius:99px; margin-left:6px; vertical-align:middle; }
+.opt.chosen { border-color:#34a853; background:#f3fdf5; }
+.opt.dropped { opacity:.55; background:#f8f8f6; }
+.chosen-tag { display:inline-block; background:#34a853; color:#fff; font-size:8.3pt; font-weight:800; padding:1px 7px; border-radius:99px; margin-left:6px; vertical-align:middle; }
+.check { display:inline-block; width:12px; height:12px; border:1.6px solid #34a853; border-radius:3px; margin-right:6px; vertical-align:middle; background:#34a853; position:relative; }
+.check::after { content:"✓"; position:absolute; left:1px; top:-3px; color:#fff; font-size:9pt; font-weight:900; }
+</style></head><body>
+
+<h1>🥭 학부모 성적표 카톡 발송 — 결정 확인서</h1>
+<div class="sub">2026년 7월 25일 · 원장님 확인용 1페이지 요약 · 전체 기획안·화면 샘플은 맨 아래 링크 참조</div>
+
+<div class="box summary">
+<b>📌 세 줄 요약</b><br>
+① 미팅에서 말씀하신 성적표(카톡 발송 + 인쇄 + 오각형 그래프)는 <b>대부분 이미 있는 기능을 다듬는 일</b>이라 새로 만드는 부분이 많지 않습니다.<br>
+② 준비하면서 확인해보니, <b>지금 나가는 AI 문구가 강사 확인 없이 학부모께 자동 발송되고 있었습니다.</b> 이번에 같이 고칩니다.<br>
+③ <b>✅ 아래 5가지 결정이 2026년 7월 25일 모두 확정됐습니다</b> — 전부 비용·경량·속도 원칙에 맞는 쪽으로 결정. 이제 개발을 시작할 수 있습니다.
+</div>
+
+<h2>1. 무엇이 바뀌나</h2>
+<table>
+<tr><th>지금</th><th>바뀌는 것</th></tr>
+<tr><td>오각형 그래프 없음, 인쇄 버튼 없음</td><td>발음·어휘·문장·태도·참여도 5가지를 오각형 그래프로 + 인쇄 버튼 추가</td></tr>
+<tr><td>AI 문구가 강사 확인 없이 바로 학부모께 발송됨</td><td>AI가 초안을 쓰고, <b>강사가 확인 버튼을 눌러야만</b> 발송됩니다</td></tr>
+<tr><td>문구가 딱딱한 보고서 톤</td><td>낮은 점수도 "부족함"이 아니라 "성장 중"으로, 항상 희망적인 문장으로</td></tr>
+<tr><td>학부모만 봄</td><td>학생 본인도 같은 리포트를 볼 수 있음(카톡 발송은 이미 됨)</td></tr>
+</table>
+
+<div class="locked">✅ <b>이건 결정 사항이 아니라 그냥 넣습니다</b> — "AI가 쓰고 강사가 확인 후 발송"은 예전에 비슷한 기능에서 AI 오탈자로 학부모 컴플레인을 걱정해 공개를 미룬 적이 있어서, 안전을 위해 무조건 넣는 걸로 진행합니다.</div>
+
+<div class="box fix">🎯 <b>사장님 지시(비용·경량·속도 원칙)</b> — "비용은 적게, 사이트는 가볍게, 속도는 빠르게"에 맞춰 추천드렸고, <b>원장님이 5가지 전부 추천안대로 확정</b>하셨습니다.</div>
+
+<h2>2. 확정된 결정 5가지 (2026-07-25)</h2>
+
+<div class="decision">
+<div class="q">① 발송 주기</div>
+<div class="opts">
+<div class="opt chosen"><span class="check"></span><b>2개월 1회<span class="chosen-tag">확정</span></b>강사 부담·카카오 발송비용이 절반</div>
+<div class="opt dropped">(미채택) 월 1회 — 더 자주 소식이 가지만 강사 부담 큼</div>
+</div>
+</div>
+
+<div class="decision">
+<div class="q">② 반 평균 비교 표시</div>
+<div class="opts">
+<div class="opt chosen"><span class="check"></span><b>안 보여준다<span class="chosen-tag">확정</span></b>우리 아이의 성장(저번 대비)만 표시 — 더 심플하고 경쟁 느낌 없음</div>
+<div class="opt dropped">(미채택) 반 평균을 점선으로 참고 표시</div>
+</div>
+</div>
+
+<div class="decision">
+<div class="q">③ 어휘·문장 점수 기준</div>
+<div class="opts">
+<div class="opt chosen"><span class="check"></span><b>일단 시작<span class="chosen-tag">확정</span></b>반 평균 대비 상대평가로 우선 출시, 절대 기준표는 추후 커리큘럼팀과 별도 확정</div>
+<div class="opt dropped">(미채택) 기준표부터 만들고 시작 — 정확하지만 시작이 늦어짐</div>
+</div>
+</div>
+
+<div class="decision">
+<div class="q">④ 인쇄물 형태</div>
+<div class="opts">
+<div class="opt chosen"><span class="check"></span><b>지금처럼 인쇄창에서 PDF 저장<span class="chosen-tag">확정</span></b>추가 비용·개발 없음, 사이트도 안 무거워짐</div>
+<div class="opt dropped">(미채택) 버튼 한 번에 PDF 다운로드 — 신규 외부 코드 필요</div>
+</div>
+</div>
+
+<div class="decision">
+<div class="q">⑤ 엑셀 파일 형태</div>
+<div class="opts">
+<div class="opt chosen"><span class="check"></span><b>CSV (꾸밈 없음)<span class="chosen-tag">확정</span></b>엑셀에서 바로 열림, 추가 비용·개발 없음</div>
+<div class="opt dropped">(미채택) 색·서식 있는 진짜 엑셀 파일 — 새 라이브러리 필요</div>
+</div>
+</div>
+
+<div class="easy">💡 <b>다음 단계</b>: 이 5가지가 확정됐으니 이제 실제 개발(승인 게이트 추가 → 오각형 카드·인쇄버튼 화면 반영 → 카카오 신규 템플릿 신청)에 들어갈 수 있습니다. 실제 코드는 학생 29,000명이 쓰는 라이브 서비스에 영향을 주므로, 착수 전 마지막으로 한 번 더 확인 후 진행합니다.</div>
+
+<h2>3. 참고 자료</h2>
+<ul>
+<li>전체 기획안(개발 담당자용, 상세): <code>docs/기획안_학부모_성적표_리포트_2026-07-24.md</code></li>
+<li>화면 샘플(실제로 눌러볼 수 있음, 한/영 전환·인쇄·엑셀 화면 포함): <a href="https://claude.ai/code/artifact/53a3cb49-029c-4ee4-9711-b115f53a56f6">샘플 화면 보기</a></li>
+</ul>
+
+</body></html>
