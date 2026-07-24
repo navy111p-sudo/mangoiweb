@@ -60,12 +60,36 @@
   .empty .ico{font-size:46px;opacity:.5;margin-bottom:10px}
   .muted-note{font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.6}
   .spin{text-align:center;padding:60px 0;color:var(--muted);font-weight:700}
+  /* 🌟 2026-07-25 — 오각형 요약 카드 + 인쇄 버튼 (기획안 Phase 2, 기존 카드는 그대로 둔 "증축") */
+  .print-btn{background:#fff;border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;color:var(--mango-d);border-color:#f3d27a;margin-right:6px}
+  .radar-card{border:1.5px solid #ffe28a;background:linear-gradient(180deg,#fffef8,#fff)}
+  .growth-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#92600e;background:#fff3cf;padding:5px 11px;border-radius:99px;margin-bottom:10px}
+  .radar-row{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .radar-row svg{width:170px;height:170px;flex:none;overflow:visible}
+  .radar-list{list-style:none;flex:1;min-width:160px}
+  .radar-list li{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:6px}
+  .radar-list .rlab{color:var(--slate);font-weight:700}
+  .radar-list .rval{font-weight:900;color:var(--blue)}
+  .chip-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .chip{display:flex;gap:9px;align-items:flex-start;padding:11px 12px;border-radius:12px;background:#f8fafc;border:1px solid var(--line)}
+  .chip .stripe{width:4px;align-self:stretch;border-radius:3px;flex:none;background:var(--good)}
+  .chip .ttl{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:2px}
+  .chip .cval{font-size:13.5px;font-weight:900;color:var(--good)}
+  @media print{
+    body{background:#fff;padding:0}
+    .topbar{display:none !important}
+    .dash{box-shadow:none;border:none;border-radius:0}
+    .cta{display:none !important}
+    .detail-section{display:none !important}
+    @page{size:A4;margin:14mm}
+  }
 </style>
 </head>
 <body>
   <div class="topbar">
     <span class="logo"><img src="/img/mango-char.png" alt="" style="height:1.4em;width:auto;vertical-align:-0.35em;margin-right:.15em"><span data-ko="망고아이 학습 레포트" data-en="Mangoi Learning Report">망고아이 학습 레포트</span></span>
     <span class="sp"></span>
+    <button class="print-btn" onclick="window.print()" data-ko="🖨 인쇄 / PDF" data-en="🖨 Print / PDF">🖨 인쇄 / PDF</button>
     <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
   </div>
   <div class="wrap" id="root"><div class="spin">로딩 중…</div></div>
@@ -132,6 +156,36 @@
       '<polyline fill="none" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="'+poly+'"/>'+dots+labs+'</svg>';
   }
 
+  // 🌟 오각형(레이더) 5축 — d.radar = {pronunciation,vocab,sentence,attitude,participation} (0~100 또는 null)
+  function svgRadar(radar){
+    var axes = [
+      {k:'pronunciation', ko:'발음·유창성', en:'Pronunciation & Fluency'},
+      {k:'vocab', ko:'어휘 수준', en:'Vocabulary Level'},
+      {k:'sentence', ko:'문장 구성력', en:'Sentence Building'},
+      {k:'attitude', ko:'수업 태도', en:'Class Attitude'},
+      {k:'participation', ko:'학습 참여도', en:'Participation'}
+    ];
+    var haveAny = radar && axes.some(function(a){ return radar[a.k]!=null; });
+    if(!haveAny) return '';
+    var n=axes.length, cx=100, cy=100, R=72;
+    function pt(i,val){ var a=-Math.PI/2+i*(2*Math.PI/n); var r=R*(Math.max(0,Math.min(100,Number(val)||0))/100); return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; }
+    function ringPt(i,frac){ var a=-Math.PI/2+i*(2*Math.PI/n); return [cx+R*frac*Math.cos(a), cy+R*frac*Math.sin(a)]; }
+    var rings=[0.25,0.5,0.75,1].map(function(frac){
+      var pts=[]; for(var i=0;i<n;i++) pts.push(ringPt(i,frac).join(','));
+      return '<polygon points="'+pts.join(' ')+'" fill="none" stroke="#e2e8f0" stroke-width="1"/>';
+    }).join('');
+    var spokes=''; for(var i=0;i<n;i++){ var o=ringPt(i,1); spokes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+o[0]+'" y2="'+o[1]+'" stroke="#e2e8f0" stroke-width="1"/>'; }
+    var poly = axes.map(function(a,i){ return pt(i,radar[a.k]).join(','); }).join(' ');
+    var dots = axes.map(function(a,i){ var p=pt(i,radar[a.k]); return '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3.2" fill="#3b82f6"/>'; }).join('');
+    var svg = '<svg viewBox="0 0 200 200" role="img">'+rings+spokes+
+      '<polygon points="'+poly+'" fill="#3b82f6" fill-opacity="0.18" stroke="#3b82f6" stroke-width="2.2" stroke-linejoin="round"/>'+dots+'</svg>';
+    var list = '<ul class="radar-list">'+axes.map(function(a){
+      var v = radar[a.k];
+      return '<li><span class="rlab">'+t(a.ko,a.en)+'</span><span class="rval">'+(v!=null?v:'—')+'</span></li>';
+    }).join('')+'</ul>';
+    return '<div class="radar-row">'+svg+list+'</div>';
+  }
+
   function renderDash(d){
     window._lastData = d;
     var s = d.student||{};
@@ -140,7 +194,6 @@
     var vo = d.voice||{};
     var att = (d.attendance||{}).days||0;
     var items = ev.items||[];
-    var lastEval = items.length?items[items.length-1]:null;
     var hasData = (ev.count>0)||(att>0)||((vo.sessions||0)>0)||!!d.judgment;
 
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
@@ -157,23 +210,36 @@
         t('이번 달 학습 기록이 아직 없습니다','No records for this month yet')+'</div>'+
         '<div style="font-size:12.5px;margin-top:6px">'+t('수업·평가·발음 연습 기록이 쌓이면 자동으로 채워집니다.','It fills automatically as lessons and evaluations accumulate.')+'</div></div></div>';
     } else {
-      // AI 인사말
+      var jd = d.judgment;
+      // 🌟 오각형 요약 카드 (기획안 4-1) — 화면에서도, 인쇄에서도 가장 먼저 보이는 자리
+      var radarHtml = svgRadar(d.radar);
+      if(radarHtml){
+        var gh = d.growth_highlight;
+        html += '<div class="card radar-card"><h3>🌟 '+t('이번 기간 한눈에 보기','This Period at a Glance')+'</h3>'+
+          (gh ? '<span class="growth-badge">✨ '+esc(t(gh.text_ko, gh.text_en))+'</span>' : '')+
+          radarHtml+'</div>';
+      }
+      // 📋 현황 상태칩 — 실제로 값이 있는 것만(출결은 항상, 판단력은 있을 때만. 지어낸 값은 넣지 않음)
+      var chips = '<div class="chip"><span class="stripe"></span><div><div class="ttl">'+t('출결 상황','Attendance')+'</div><div class="cval">'+att+t('일 출석','d attended')+'</div></div></div>';
+      if(jd && jd.index!=null){
+        chips += '<div class="chip"><span class="stripe"></span><div><div class="ttl">'+t('판단력 지수','Judgment Index')+'</div><div class="cval">'+jd.index+' / 100</div></div></div>';
+      }
+      html += '<div class="card"><h3>📋 '+t('이번 기간 현황','This Period\'s Status')+'</h3><div class="chip-row">'+chips+'</div></div>';
+      // 💬 담임의 한마디 — AI 초안 + 강사 확인(2026-07-25: 예전엔 이 카드와 "강사 코멘트" 카드가 같은 내용을 두 번 보여줬음 — 하나로 통합)
       if(aiText) html += '<div class="card"><h3>💬 '+t('담임의 한마디','Teacher\'s Note')+' <span class="ai-tag">AI</span></h3><div class="ai-greet">'+esc(aiText)+'</div></div>';
-      // KPI
+
+      // ── 화면 전용 상세(인쇄 시 숨김) — 기존 카드는 하나도 안 지우고 그대로 둔다 ──
+      html += '<div class="detail-section">';
       html += '<div class="kpis">'+
         '<div class="kpi"><div class="v mg">'+att+t('일','d')+'</div><div class="l">'+t('출석','Attend')+'</div></div>'+
         '<div class="kpi"><div class="v blue">'+(ev.avg_score||0)+'</div><div class="l">'+t('평가(5점)','Eval/5')+'</div></div>'+
         '<div class="kpi"><div class="v up">'+(vo.avg_pronunciation||0)+'</div><div class="l">'+t('발음','Pron')+'</div></div>'+
         '<div class="kpi"><div class="v pink">'+(vo.best||0)+'</div><div class="l">'+t('최고','Best')+'</div></div></div>';
-      // 점수 추이
       html += '<div class="card"><h3>📈 '+t('평가 점수 추이','Score Trend')+'</h3>'+svgTrend(items)+'</div>';
-      // 발음
       if((vo.sessions||0)>0){
         html += '<div class="card"><h3>🎤 '+t('발음 영역별','Pronunciation')+'</h3>'+
           pronRow(t('정확도','Accuracy'),vo.avg_accuracy)+pronRow(t('발음','Pron.'),vo.avg_pronunciation)+pronRow(t('유창성','Fluency'),vo.avg_fluency)+'</div>';
       }
-      // 🧠 판단력 성장 (스스로 고르고 이유 말하기)
-      var jd = d.judgment;
       if(jd){
         html += '<div class="card"><h3>🧠 '+t('판단력 성장','Decision-making')+' <span class="ai-tag">AI</span></h3>'+
           '<div style="text-align:center;margin:2px 0 10px"><span style="font-size:32px;font-weight:900;color:#7c3aed">'+(jd.index!=null?jd.index:'—')+'</span>'+
@@ -185,15 +251,17 @@
           ((jd.top_gaps&&jd.top_gaps.length)? '<div style="font-size:12.5px;color:#7c3aed;margin-top:8px">💪 '+t('더 연습할 점','Practice more')+': '+jd.top_gaps.map(esc).join(', ')+'</div>':'')+
           '</div>';
       }
-      // 강사 코멘트
-      if(lastEval && lastEval.teacher_comment){
-        html += '<div class="card"><h3>⭐ '+t('강사 코멘트','Teacher Comment')+'</h3><div class="comment">'+esc(lastEval.teacher_comment)+
-          '<div class="by">— '+t('망고아이 담임강사','Mangoi Teacher')+'</div></div></div>';
-      }
+      html += '</div>'; // .detail-section
+
       // 다음 목표
       if(goals.length){
         var gi=''; goals.forEach(function(g,i){ gi+='<div class="goal"><span class="n">'+(i+1)+'</span><span>'+esc(g)+'</span></div>'; });
-        html += '<div class="card"><h3>🎯 '+t('다음 달 목표','Next Goals')+'</h3>'+gi+'</div>';
+        html += '<div class="card"><h3>🎯 '+t('다음 목표','Next Goal')+'</h3>'+gi+'</div>';
+      }
+      // 🏠 가정 실천 팁 (기획안 4-3 신규 — AI 초안, 강사 승인 대상)
+      if(d.ai_draft_tip_ko || d.ai_draft_tip_en){
+        html += '<div class="card"><h3>🏠 '+t('가정에서 도와주실 수 있어요','How You Can Help at Home')+'</h3><div class="comment">'+
+          esc(t(d.ai_draft_tip_ko||'', d.ai_draft_tip_en||''))+'</div></div>';
       }
     }
     // CTA (항상)
