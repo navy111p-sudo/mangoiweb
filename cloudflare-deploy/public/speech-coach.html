@@ -26,27 +26,37 @@
     color: #f1f5f9; font-family: 'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif; padding-bottom: 80px;
   }
   .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px; }
-  .brand { text-align: center; margin-bottom: 24px; }
-  .brand-logo { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 700; background: linear-gradient(180deg,#fff4cc,#fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 32px; letter-spacing: 1px; display: block; }
-  .brand-sub { color: #94a3b8; font-size: 12px; margin-top: 4px; }
+  .brand { text-align: center; margin-bottom: 26px; }
+  .brand-eyebrow { display:inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: 3px; color: #c4b5fd; text-transform: uppercase; padding: 4px 12px; border: 1px solid rgba(167,139,250,0.35); border-radius: 99px; background: rgba(167,139,250,0.08); margin-bottom: 12px; }
+  .brand-logo { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 700; background: linear-gradient(180deg,#fff8e1,#fbbf24 70%,#f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 38px; letter-spacing: 0.5px; display: block; line-height: 1.1; text-shadow: 0 0 40px rgba(251,191,36,0.15); }
+  .brand-sub { color: #cbd5e1; font-size: 13.5px; margin-top: 8px; line-height: 1.55; font-weight: 500; }
+  .brand-rule { width: 54px; height: 2px; margin: 16px auto 0; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(251,191,36,0.7), transparent); }
+  .brand-hint { margin-top: 12px; font-size: 11.5px; color: #94a3b8; }
 
-  .target-box { background: linear-gradient(135deg, rgba(139,92,246,0.18), rgba(99,102,241,0.08)); border: 1px solid rgba(167,139,250,0.4); border-radius: 14px; padding: 24px; text-align: center; margin-bottom: 16px; }
-  .target-label { font-size: 11px; color: #c4b5fd; font-weight: 700; letter-spacing: 2px; }
-  .target-text { font-size: 22px; font-weight: 700; color: #fff; margin-top: 12px; line-height: 1.4; }
-  .target-input { width: 100%; padding: 10px 14px; font-size: 14px; background: rgba(20,26,43,0.8); color: #fff; border: 1px solid rgba(139,92,246,0.3); border-radius: 8px; margin-top: 12px; }
+  .target-box { position: relative; background: linear-gradient(135deg, rgba(139,92,246,0.22), rgba(99,102,241,0.06)); border: 1px solid rgba(167,139,250,0.4); border-radius: 20px; padding: 28px 24px; text-align: center; margin-bottom: 16px; box-shadow: 0 20px 50px -24px rgba(124,58,237,0.55), inset 0 1px 0 rgba(255,255,255,0.06); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .target-label { display:inline-block; font-size: 10.5px; color: #ddd6fe; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; padding: 4px 12px; border-radius: 99px; background: rgba(167,139,250,0.16); }
+  .target-text { font-size: 27px; font-weight: 800; color: #fff; margin-top: 16px; line-height: 1.35; letter-spacing: -0.2px; text-shadow: 0 2px 12px rgba(0,0,0,0.25); }
+  .target-input { width: 100%; padding: 11px 15px; font-size: 14px; background: rgba(15,20,38,0.85); color: #fff; border: 1px solid rgba(139,92,246,0.3); border-radius: 10px; margin-top: 16px; transition: border-color .15s; }
+  .target-input:focus { outline: none; border-color: rgba(167,139,250,0.7); }
+  .target-tip { margin-top: 12px; font-size: 11.5px; color: #a5b4cf; }
+  .play-btn-hero { background: linear-gradient(135deg, rgba(167,139,250,0.28), rgba(139,92,246,0.16)); border-color: rgba(167,139,250,0.55); color: #ede9fe; box-shadow: 0 8px 20px -8px rgba(139,92,246,0.5); }
 
-  .recorder { background: rgba(20,26,43,0.7); border: 1px solid rgba(139,92,246,0.2); border-radius: 14px; padding: 22px; margin-bottom: 16px; text-align: center; }
-  .rec-btn { width: 100px; height: 100px; border-radius: 50%; border: 0; background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; font-size: 32px; cursor: pointer; box-shadow: 0 10px 30px -4px rgba(239,68,68,0.5); transition: transform 0.15s; }
+  .recorder { background: rgba(18,24,42,0.6); border: 1px solid rgba(139,92,246,0.18); border-radius: 18px; padding: 26px 22px; margin-bottom: 16px; text-align: center; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  .rec-ring { display: inline-flex; align-items: center; justify-content: center; padding: 10px; border-radius: 50%; background: radial-gradient(circle, rgba(239,68,68,0.18), transparent 70%); }
+  .rec-btn { width: 100px; height: 100px; border-radius: 50%; border: 0; background: linear-gradient(135deg, #f87171, #dc2626); color: #fff; font-size: 34px; cursor: pointer; box-shadow: 0 14px 34px -6px rgba(239,68,68,0.55), inset 0 2px 4px rgba(255,255,255,0.25); transition: transform 0.15s; }
   .rec-btn:hover { transform: scale(1.05); }
   .rec-btn.recording { background: linear-gradient(135deg, #fbbf24, #f59e0b); animation: pulse 1s infinite; }
-  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-  .rec-status { font-size: 12px; color: #94a3b8; margin-top: 12px; }
+  @keyframes pulse { 0%,100% { transform: scale(1); box-shadow: 0 14px 34px -6px rgba(245,158,11,0.55); } 50% { transform: scale(1.06); box-shadow: 0 14px 44px -4px rgba(245,158,11,0.8); } }
+  .rec-status { font-size: 12.5px; color: #a5b4cf; margin-top: 14px; font-weight: 600; }
 
   .result { display: none; background: rgba(20,26,43,0.7); border: 1px solid rgba(139,92,246,0.2); border-radius: 14px; padding: 22px; }
-  .scores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
-  .score-box { text-align: center; padding: 12px 6px; background: rgba(139,92,246,0.1); border-radius: 10px; }
-  .score-num { font-size: 24px; font-weight: 800; color: #fbbf24; }
-  .score-label { font-size: 10px; color: #94a3b8; margin-top: 2px; letter-spacing: 0.5px; }
+  .scores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 10px; }
+  .score-box { text-align: center; padding: 15px 6px; background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.16); border-radius: 13px; }
+  .score-box-hero { background: linear-gradient(135deg, rgba(251,191,36,0.18), rgba(245,158,11,0.06)); border-color: rgba(251,191,36,0.4); }
+  .score-num { font-size: 27px; font-weight: 900; color: #fbbf24; line-height: 1; }
+  .score-box-hero .score-num { font-size: 30px; }
+  .score-label { font-size: 9.5px; color: #94a3b8; margin-top: 5px; letter-spacing: 0.8px; font-weight: 700; }
+  .score-note { font-size: 11.5px; color: #94a3b8; text-align: center; margin-bottom: 14px; line-height: 1.5; }
   .feedback { padding: 14px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08)); border-left: 4px solid #34d399; border-radius: 8px; margin-bottom: 10px; font-size: 13.5px; line-height: 1.6; }
   .suggestion { padding: 14px; background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06)); border-left: 4px solid #fbbf24; border-radius: 8px; font-size: 13.5px; line-height: 1.6; }
   .transcript { padding: 12px; background: rgba(255,255,255,0.04); border-radius: 8px; font-size: 13px; color: #cbd5e1; margin-bottom: 10px; }
@@ -78,10 +88,12 @@
 
 <div class="wrap">
   <div class="brand">
+    <span class="brand-eyebrow" data-ko="AI 스피킹 코치" data-en="AI SPEAKING COACH">AI 스피킹 코치</span>
     <span class="brand-logo">Mangoi · AI Voice Coach</span>
-    <div class="brand-sub" data-ko="자유 문장으로 즉석 AI 발음 평가 — 4점수 + 한국어 피드백" data-en="Custom sentence · Instant AI scoring — 4 metrics + KR feedback">자유 문장으로 즉석 AI 발음 평가 — 4점수 + 한국어 피드백</div>
-    <div style="margin-top:10px;font-size:11.5px;color:#94a3b8">
-      <span data-ko="단계별 학습은 아래에서 선택하세요" data-en="Choose your curriculum below">단계별 학습은 아래에서 선택하세요</span>
+    <div class="brand-sub" data-ko="따라 말하면, AI가 또렷하게 말했는지 바로 확인해 드려요" data-en="Say it aloud — AI checks how clearly you spoke, instantly">따라 말하면, AI가 또렷하게 말했는지 바로 확인해 드려요</div>
+    <div class="brand-rule" aria-hidden="true"></div>
+    <div class="brand-hint">
+      <span data-ko="레벨을 고르거나, 아래 문장을 바로 따라 말해보세요" data-en="Pick a level, or just repeat the sentence below">레벨을 고르거나, 아래 문장을 바로 따라 말해보세요</span>
     </div>
   </div>
 
@@ -130,10 +142,11 @@
 
   <!-- 모범 문장 -->
   <div class="target-box">
-    <div class="target-label">📖 <span data-ko="이 문장을 따라 말해보세요" data-en="REPEAT THIS SENTENCE">이 문장을 따라 말해보세요</span></div>
+    <div class="target-label"><span data-ko="따라 말할 문장" data-en="YOUR LINE">따라 말할 문장</span></div>
     <div class="target-text" id="target-display">Hello! Nice to meet you.</div>
     <input id="target-input" class="target-input" type="text" value="Hello! Nice to meet you." placeholder="직접 입력하기 (영어 또는 한국어)" data-ko-placeholder="직접 입력하기 (영어 또는 한국어)" data-en-placeholder="Or type your own (English or Korean)" oninput="document.getElementById('target-display').textContent = this.value || '...'" />
-    <button onclick="speakTarget()" class="play-btn" style="margin-top:10px">🔊 <span data-ko="모범 음성 듣기" data-en="Listen to Sample">모범 음성 듣기</span></button>
+    <button onclick="speakTarget()" class="play-btn play-btn-hero" style="margin-top:14px">🔊 <span data-ko="원어민 발음 듣기" data-en="Hear it first">원어민 발음 듣기</span></button>
+    <div class="target-tip" data-ko="먼저 듣고, 똑같이 따라 말해보세요" data-en="Listen first, then repeat it the same way">먼저 듣고, 똑같이 따라 말해보세요</div>
   </div>
 
   <!-- 단계 진행: 이전 / 단계 선택 / 다음 -->
@@ -155,8 +168,8 @@
 
   <!-- 녹음 -->
   <div class="recorder">
-    <button id="rec-btn" class="rec-btn" onclick="toggleRec()">🎙</button>
-    <div class="rec-status" id="rec-status" data-ko="마이크 버튼을 눌러 녹음 시작" data-en="Tap mic to start recording">마이크 버튼을 눌러 녹음 시작</div>
+    <div class="rec-ring"><button id="rec-btn" class="rec-btn" onclick="toggleRec()">🎙</button></div>
+    <div class="rec-status" id="rec-status" data-ko="마이크를 누르고 또박또박 말해보세요" data-en="Tap the mic and speak clearly">마이크를 누르고 또박또박 말해보세요</div>
   </div>
 
   <!-- 다음으로 이동 (항상 표시) -->
@@ -170,11 +183,12 @@
     <!-- 🎖 등급 배너 — 긴장감·성취감(2026-07-24) -->
     <div id="sc-tier" style="display:none;text-align:center;margin-bottom:14px;padding:14px;border-radius:14px;font-weight:900;letter-spacing:0.5px"></div>
     <div class="scores">
-      <div class="score-box"><div class="score-num" id="sc-overall">0</div><div class="score-label" data-ko="종합" data-en="OVERALL">종합</div></div>
+      <div class="score-box score-box-hero"><div class="score-num" id="sc-overall">0</div><div class="score-label" data-ko="종합" data-en="OVERALL">종합</div></div>
       <div class="score-box"><div class="score-num" id="sc-accuracy">0</div><div class="score-label" data-ko="정확도" data-en="ACCURACY">정확도</div></div>
-      <div class="score-box"><div class="score-num" id="sc-pron">0</div><div class="score-label" data-ko="발음" data-en="PRONUNCIATION">발음</div></div>
-      <div class="score-box"><div class="score-num" id="sc-flue">0</div><div class="score-label" data-ko="유창성" data-en="FLUENCY">유창성</div></div>
+      <div class="score-box"><div class="score-num" id="sc-pron">0</div><div class="score-label" data-ko="또렷함" data-en="CLARITY">또렷함</div></div>
+      <div class="score-box"><div class="score-num" id="sc-flue">0</div><div class="score-label" data-ko="흐름" data-en="FLOW">흐름</div></div>
     </div>
+    <div class="score-note" data-ko="AI가 네 목소리를 알아듣고, 문장을 얼마나 정확히 말했는지 채점했어요" data-en="The AI understood your voice and scored how accurately you said the sentence">AI가 네 목소리를 알아듣고, 문장을 얼마나 정확히 말했는지 채점했어요</div>
     <div class="transcript"><b data-ko="너의 발화:" data-en="You said:">너의 발화:</b> <span id="transcript-text">-</span></div>
     <div class="feedback" id="feedback-text">-</div>
     <div class="suggestion" id="suggestion-text">-</div>
@@ -486,7 +500,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260724223601 -->
+<!-- BUILD:20260724225454 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
