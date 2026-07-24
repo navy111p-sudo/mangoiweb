@@ -746,8 +746,8 @@
       G.running=false; bgm.urgency(0); $('dangerVignette').classList.remove('show');
       var st=STAGES[G.stageIdx];
       speakFriendlyCheer(); sfxFanfare();
-      var recap = G.rescuedWords.map(function(rw){ var w=rw.word;
-        return '<div class="recapChip'+(rw.golden?' gold':'')+'">'+(w.em||'')+' <b>'+w.en+'</b><br><span class="zh">'+w.zh+'</span> <span class="ko">('+w.ko+')</span></div>';
+      var recap = G.rescuedWords.map(function(rw){ var w=rw.word; var isZh=(rw.lang==='zh');   // 영어 모드 요약엔 중국어 제외
+        return '<div class="recapChip'+(rw.golden?' gold':'')+'">'+(w.em||'')+' <b>'+(isZh?w.zh:w.en)+'</b><br>'+(isZh?'<span class="zh">'+w.py+'</span> ':'')+'<span class="ko">('+w.ko+')</span></div>';
       }).join('');
       $('recapList').innerHTML = recap;
       $('clearTtl').textContent=st.name+' 구조 완료! 🎉';
@@ -892,10 +892,11 @@
     }
     function showToast(w,lang,golden){
       var t=$('toast'); t.classList.toggle('gold',!!golden);
+      var isZh=(lang==='zh');   // 영어 모드에선 중국어를 표시하지 않음(중국어는 중국어 모드 전용)
       t.innerHTML =
         '<div class="em">'+(golden?'⭐':(w.em||'💧'))+'</div>'+
-        '<div class="big">'+w.en+'</div>'+
-        '<div class="zh">'+w.zh+' <span class="py">'+w.py+'</span></div>'+
+        '<div class="big">'+(isZh?w.zh:w.en)+'</div>'+
+        (isZh ? '<div class="py">'+w.py+'</div>' : '')+
         '<div class="ko">'+w.ko+(golden?' · 골든 보너스!':'')+'</div>';
       t.classList.add('show');
       clearTimeout(showToast._h); showToast._h=setTimeout(function(){ t.classList.remove('show'); },1500);
@@ -1086,6 +1087,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725055342 -->
+<!-- BUILD:20260725060634 -->
 </body>
 </html>
