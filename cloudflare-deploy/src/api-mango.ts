@@ -1302,7 +1302,13 @@ export async function handleMangoApi(
         if (userId) { conds.push('cs.teacher_id = ?'); binds.push(userId); }
         if (nameParam) {
           try {
-            const rs = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS tid FROM teachers WHERE name = ?`).bind(nameParam).all<any>();
+            // 🔧 (2026-07-24 실사고) 로그인 계정명(admin_account.name, 예:'강선생님')과
+            //   teachers.name(예:'중국어 강선생님') 표기가 다를 수 있어 완전일치면 매칭 실패 →
+            //   교사가 "오늘 예약된 수업 없음"으로 오판, 학생과 다른 방(mangoi-class)에 들어가 못 만났다.
+            //   부분일치(양방향)로 완화.
+            const rs = await env.DB.prepare(
+              `SELECT CAST(id AS TEXT) AS tid FROM teachers WHERE name = ? OR name LIKE ('%' || ? || '%') OR (length(name) > 0 AND ? LIKE ('%' || name || '%'))`
+            ).bind(nameParam, nameParam, nameParam).all<any>();
             for (const x of (rs.results || [])) { if (x.tid) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); } }
           } catch {}
         }
@@ -1441,7 +1447,8 @@ export async function handleMangoApi(
       }
       if (!ok && nameParam) {
         if (row.student_name && row.student_name === nameParam) ok = true;          // 학생 이름 일치
-        if (!ok && row.teacher_name && row.teacher_name === nameParam) ok = true;   // 교사 이름 일치
+        // 🔧 (2026-07-24) 교사 이름은 완전일치 대신 부분일치(양방향) — sessions/today 매칭 완화와 동일 사유.
+        if (!ok && row.teacher_name && (row.teacher_name === nameParam || row.teacher_name.includes(nameParam) || nameParam.includes(row.teacher_name))) ok = true;
       }
       return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch' });
     }

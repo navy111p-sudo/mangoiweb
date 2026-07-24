@@ -4964,16 +4964,27 @@ window.openLiveClass = async function(){
   var frame = document.getElementById('live-class-frame');
   var nameEl = document.getElementById('live-class-teacher-name');
   var ph = document.getElementById('live-class-placeholder');
-  var tname = '교사';
+  var tname = '교사', tuid = '';
   try {
     var r = await fetch('/api/admin/me', { credentials:'include' });
     var j = await r.json().catch(function(){ return null; });
-    if (j && j.ok && j.user) tname = j.user.name || j.user.username || '교사';
+    if (j && j.ok && j.user) { tname = j.user.name || j.user.username || '교사'; tuid = j.user.username || ''; }
   } catch(_){}
   if (nameEl) nameEl.textContent = tname;
   var displayName = '교사 ' + tname;
+  // 🔧 (2026-07-24 실사고) 항상 공용방(mangoi-class) 고정 → 오늘 실제 예약 방으로 우선 매칭, 없으면 폴백.
+  var room = 'mangoi-class';
+  try {
+    var qs = 'role=teacher';
+    if (tuid) qs += '&user_id=' + encodeURIComponent(tuid);
+    if (tname) qs += '&student_name=' + encodeURIComponent(tname);
+    var sr = await fetch('/api/class/sessions/today?' + qs, { credentials:'include' });
+    var sd = await sr.json().catch(function(){ return null; });
+    var cur = sd && (sd.current || ((sd.sessions || []).filter(function(s){ return s.join_open; })[0]));
+    if (cur && cur.room_id) room = cur.room_id;
+  } catch(_){}
   // 🌟 (2026-07-05) vc_role=teacher 명시 — 실시간 칭찬 포인트에서 강사로 확정 인식(별 버튼 노출).
-  var src = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent('mangoi-class') + '&vc_name=' + encodeURIComponent(displayName);
+  var src = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(room) + '&vc_name=' + encodeURIComponent(displayName);
   sec.style.display = 'block';
   if (ph) ph.style.display = 'flex';
   if (frame) {

@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>망고 구조선의 대항해 · Mango Rescue Voyage</title>
+<style>
+  /* ============================================================
+     망고 구조선의 대항해 — Mango Rescue Voyage (3D 로우폴리)
+     · 파도를 타고 달리는 구조선이 바다에 빠진 '단어 친구'를 건짐
+     · 영어/중국어 레벨 선택제 → 건지는 순간 원어민 발음 + 뜻 공개
+     · 암초·소용돌이를 피함(맞으면 구조율 감소)
+     · 낚시·슈팅·비행기·탱크 게임의 재미 요소(타이머·콤보·페널티·
+       골든타깃·무적프레임·긴장이벤트·SFX)를 구조 테마로 이식
+     ============================================================ */
+  :root{ --mango:#ff8a1e; --mango2:#ffb347; --ink:#0b2b3a; --ok:#22c55e; --bad:#ef4444; --gold:#ffd23f; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:#0a2432;
+    font-family:'Segoe UI',system-ui,'Malgun Gothic','Microsoft YaHei',sans-serif; color:#eaf6ff; user-select:none; }
+  #stage{ position:fixed; inset:0; }
+  canvas{ display:block; width:100%; height:100%; }
+
+  /* ── 상단 HUD ── */
+  #hud{ position:fixed; top:0; left:0; right:0; z-index:10; padding:10px 12px;
+    display:flex; flex-direction:column; gap:7px; pointer-events:none;
+    background:linear-gradient(#000a,transparent); }
+  .row{ display:flex; align-items:center; gap:10px; }
+  #stageName{ font-weight:800; font-size:16px; text-shadow:0 2px 6px #0008; }
+  #stageName small{ font-weight:600; opacity:.8; font-size:12px; margin-left:6px; }
+  #lives{ margin-left:auto; font-size:18px; letter-spacing:2px; }
+  #score{ font-weight:700; font-size:13px; opacity:.95; }
+  #score b{ color:var(--gold); }
+  /* 구조율 바 */
+  #barWrap{ flex:1; height:14px; border-radius:9px; background:#ffffff22; overflow:hidden; box-shadow:inset 0 1px 3px #0006; }
+  #bar{ height:100%; width:0%; border-radius:9px;
+    background:linear-gradient(90deg,var(--mango),var(--mango2)); transition:width .35s ease; }
+  #barTxt{ font-weight:800; font-size:12px; min-width:60px; text-align:right; }
+  /* 타이머 바 */
+  #timerWrap{ flex:1; height:10px; border-radius:7px; background:#ffffff22; overflow:hidden; }
+  #timerBar{ height:100%; width:100%; border-radius:7px; background:linear-gradient(90deg,#38bdf8,#0ea5e9); transition:width .3s linear, background .3s; }
+  #timerBar.warn{ background:linear-gradient(90deg,#ef4444,#f87171); animation:timerBlink .5s infinite; }
+  @keyframes timerBlink{ 0%,100%{opacity:1} 50%{opacity:.55} }
+  #timerTxt{ font-weight:800; font-size:11px; min-width:32px; text-align:right; opacity:.9; }
+
+  /* ── 하단 컨트롤 ── */
+  #ctrl{ position:fixed; left:0; right:0; bottom:0; z-index:10; padding:0 14px 16px;
+    display:flex; align-items:flex-end; justify-content:space-between; pointer-events:none; }
+  .pad{ pointer-events:auto; width:74px; height:74px; border-radius:50%;
+    background:#ffffff1f; border:2px solid #ffffff40; backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center; font-size:30px; color:#fff;
+    box-shadow:0 4px 14px #0005; touch-action:none; transition:transform .07s, background .1s; }
+  .pad:active{ transform:scale(.9); background:#ffffff38; }
+  .steerGroup{ display:flex; gap:14px; }
+  #boost{ width:90px; height:90px; font-size:16px; font-weight:800; flex-direction:column; line-height:1.15;
+    background:linear-gradient(160deg,#ff8a1e,#ff5e3a); border-color:#ffd9b0; }
+  #hint{ position:fixed; bottom:112px; left:0; right:0; text-align:center; z-index:9;
+    font-size:12px; opacity:.7; pointer-events:none; }
+  @media(min-width:900px){ .pad,#boost{ opacity:.55; } }
+
+  /* ── 중앙 토스트(구조 성공 시 뜻 공개) ── */
+  #toast{ position:fixed; top:38%; left:50%; transform:translate(-50%,-50%) scale(.7); z-index:20;
+    background:#fffef8; color:#123; border-radius:20px; padding:16px 22px; text-align:center;
+    box-shadow:0 14px 40px #0007; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s;
+    border:3px solid var(--mango); min-width:220px; }
+  #toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #toast.gold{ border-color:var(--gold); }
+  #toast .big{ font-size:30px; font-weight:900; margin-bottom:2px; }
+  #toast .zh{ font-size:22px; font-weight:800; color:#c2410c; }
+  #toast .py{ font-size:14px; color:#6b7280; margin:1px 0 4px; }
+  #toast .ko{ font-size:15px; color:#374151; }
+  #toast .em{ font-size:34px; }
+
+  /* ── 플로팅 텍스트(점수/놓침/피격) ── */
+  #floatLayer{ position:fixed; inset:0; z-index:16; pointer-events:none; }
+  .floatText{ position:absolute; transform:translate(-50%,0); opacity:1; will-change:transform,opacity;
+    transition:transform .75s cubic-bezier(.2,.8,.3,1), opacity .75s ease-out;
+    font-weight:900; font-size:19px; text-shadow:0 2px 6px #0008; white-space:nowrap; }
+  .floatText.good{ color:var(--gold); }
+  .floatText.gold{ color:#fff3c0; font-size:23px; }
+  .floatText.bad{ color:#ff6b6b; }
+
+  /* ── 콤보 배너 ── */
+  #comboBanner{ position:fixed; top:30%; left:50%; transform:translate(-50%,-50%) scale(.5); z-index:22;
+    font-size:28px; font-weight:900; color:var(--gold); text-shadow:0 3px 10px #0008; opacity:0; pointer-events:none; }
+  #comboBanner.show{ animation:comboPop .9s ease forwards; }
+  @keyframes comboPop{ 0%{opacity:0;transform:translate(-50%,-50%) scale(.4);} 22%{opacity:1;transform:translate(-50%,-50%) scale(1.15);} 65%{opacity:1;transform:translate(-50%,-50%) scale(1);} 100%{opacity:0;transform:translate(-50%,-62%) scale(.92);} }
+
+  /* ── 폭풍 경고 배너 ── */
+  #stormBanner{ position:fixed; top:20%; left:8%; right:8%; z-index:22; text-align:center;
+    background:linear-gradient(160deg,#ff5d5d,#c81e1e); border-radius:12px; padding:10px 12px;
+    font-weight:800; font-size:14px; box-shadow:0 8px 20px #0007; opacity:0; transform:translateY(-10px) scale(.9); pointer-events:none; }
+  #stormBanner.show{ animation:stormIn 1.6s ease forwards; }
+  @keyframes stormIn{ 0%{opacity:0;transform:translateY(-10px) scale(.9);} 15%{opacity:1;transform:translateY(0) scale(1);} 80%{opacity:1;transform:translateY(0) scale(1);} 100%{opacity:0;transform:translateY(-6px) scale(.96);} }
+
+  /* ── 오버레이 공통 ── */
+  .ov{ position:fixed; inset:0; z-index:30; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:24px;
+    background:radial-gradient(circle at 50% 30%,#0b3b52ee,#031521f2); overflow-y:auto; }
+  .ov.on{ display:flex; animation:fade .25s ease; }
+  @keyframes fade{ from{ opacity:0 } to{ opacity:1 } }
+  .ov h1{ font-size:30px; margin:2px 0 4px; text-shadow:0 3px 10px #0008; }
+  .ov h1 .sub{ display:block; font-size:15px; font-weight:600; opacity:.85; margin-top:4px; }
+  .ov p{ max-width:440px; line-height:1.6; opacity:.92; font-size:14px; }
+  .btn{ margin-top:8px; padding:14px 26px; border-radius:16px; border:0; cursor:pointer;
+    font-size:17px; font-weight:800; color:#3a1a00;
+    background:linear-gradient(160deg,var(--mango2),var(--mango)); box-shadow:0 8px 22px #ff8a1e55; }
+  .btn:active{ transform:translateY(2px); }
+  .btn.ghost{ background:#ffffff18; color:#eaf6ff; box-shadow:none; border:1.5px solid #ffffff45; }
+
+  /* 언어 선택 카드 */
+  #modeSel{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:14px 0 4px; }
+  .mode{ pointer-events:auto; width:130px; padding:16px 10px; border-radius:18px; cursor:pointer;
+    background:#ffffff12; border:2px solid #ffffff30; transition:transform .1s, border-color .1s, background .1s; }
+  .mode:hover{ transform:translateY(-3px); }
+  .mode.sel{ border-color:var(--mango); background:#ff8a1e22; box-shadow:0 6px 20px #ff8a1e44; }
+  .mode .flag{ font-size:34px; }
+  .mode .nm{ font-weight:800; margin-top:6px; font-size:15px; }
+  .mode .d{ font-size:11px; opacity:.75; margin-top:2px; }
+
+  /* 스테이지 클리어 리캡 카드 */
+  #recapList{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:460px; margin:12px 0 2px; }
+  .recapChip{ background:#ffffff14; border:1.5px solid #ffffff30; border-radius:12px; padding:8px 10px; font-size:12px; text-align:center; min-width:62px; }
+  .recapChip.gold{ border-color:var(--gold); background:#ffd23f22; }
+  .recapChip b{ display:block; font-size:13px; }
+  .recapChip .zh{ color:#ffb066; }
+  .recapChip .ko{ color:#bcd8e6; }
+
+  #loadErr{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    text-align:center; padding:24px; color:#fca5a5; font-weight:700; background:#031521; }
+  .mango-badge{ display:inline-flex; align-items:center; gap:6px; font-weight:800; }
+  .mango-badge img{ width:26px; height:26px; border-radius:6px; }
+  #flash{ position:fixed; inset:0; z-index:15; background:#ef4444; opacity:0; pointer-events:none; transition:opacity .12s; }
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="flash"></div>
+  <div id="floatLayer"></div>
+  <div id="comboBanner"></div>
+  <div id="stormBanner"></div>
+
+  <!-- 상단 HUD -->
+  <div id="hud" style="display:none">
+    <div class="row">
+      <div id="stageName">Sunny Bay <small>과일 친구 구조</small></div>
+      <div id="lives">❤❤❤</div>
+    </div>
+    <div class="row">
+      <div id="barWrap"><div id="bar"></div></div>
+      <div id="barTxt">0 / 6</div>
+    </div>
+    <div class="row">
+      <div id="timerWrap"><div id="timerBar"></div></div>
+      <div id="timerTxt">50s</div>
+    </div>
+    <div class="row"><div id="score">점수 0 · 콤보 0</div></div>
+  </div>
+
+  <!-- 하단 컨트롤 -->
+  <div id="ctrl" style="display:none">
+    <div class="steerGroup">
+      <div class="pad" id="left">◀</div>
+      <div class="pad" id="right">▶</div>
+    </div>
+    <div class="pad" id="boost">🌊<span>부스트</span></div>
+  </div>
+  <div id="hint" style="display:none">← → / A D 로 조타 · Space 부스트 · 친구를 향해 배를 몰아 구하세요</div>
+
+  <!-- 구조 성공 토스트 -->
+  <div id="toast"></div>
+
+  <!-- 시작(언어 선택) 오버레이 -->
+  <div id="start" class="ov on">
+    <div class="mango-badge"><img src="/img/mango-char.png" alt="" onerror="this.style.display='none'">MANGO RESCUE</div>
+    <h1>망고 구조선의 대항해<span class="sub">Mango Rescue Voyage · 파도를 타고 단어 친구를 구하자!</span></h1>
+    <p>폭풍에 휩쓸려 바다에 빠진 <b>단어 친구들</b>을 배로 건져 올려요.<br>
+       친구를 구하면 <b>원어민 발음</b>과 뜻이 공개돼요. 암초와 소용돌이는 피하고, 시간 안에 최대한 구조하세요!</p>
+    <div id="modeSel">
+      <div class="mode sel" data-mode="en"><div class="flag">🇬🇧</div><div class="nm">English</div><div class="d">영어로 구조</div></div>
+      <div class="mode" data-mode="zh"><div class="flag">🇨🇳</div><div class="nm">中文</div><div class="d">중국어로 구조</div></div>
+    </div>
+    <button class="btn" id="startBtn">🚤 출항! Start</button>
+  </div>
+
+  <!-- 스테이지 클리어 -->
+  <div id="clear" class="ov">
+    <h1 id="clearTtl">Sunny Bay 구조 완료!</h1>
+    <p id="clearMsg"></p>
+    <div id="recapList"></div>
+    <button class="btn" id="nextBtn">다음 바다로 ▶</button>
+  </div>
+
+  <!-- 게임오버 -->
+  <div id="over" class="ov">
+    <h1 id="overTtl">배가 가라앉았어요 😢</h1>
+    <p id="overMsg"></p>
+    <button class="btn" id="retryBtn">다시 도전 🔁</button>
+  </div>
+
+  <!-- 최종 승리 -->
+  <div id="win" class="ov">
+    <h1>🎉 Mango Island 귀환!<span class="sub">모든 단어 친구를 구했어요</span></h1>
+    <p id="winMsg"></p>
+    <button class="btn" id="winBtn">처음부터 다시 🥭</button>
+  </div>
+
+  <div id="loadErr">⚠ 3D 엔진(Three.js) 로드 실패 — 인터넷 연결을 확인하고 새로고침 하세요</div>
+
+  <script src="/vendor/three/three.min.js?v=1"></script>
+  <script>
+  (function(){
+    'use strict';
+    if(!window.THREE){ document.getElementById('loadErr').style.display='flex'; return; }
+    var THREE = window.THREE;
+
+    /* ============================================================
+       0. 단어 데이터 — 스테이지별 테마(과일/동물/인사말/숫자)
+          en=영어, zh=한자, py=병음(성조), ko=한국어, em=이모지(Win10 안전한 것만)
+       ============================================================ */
+    var STAGES = [
+      { key:'sunny',  name:'Sunny Bay',   ko:'과일 친구 구조', water:0x3fb6c9, sky:0x9fe3f0, goal:6, hazard:0.30,
+        words:[
+          {en:'apple',en2:'애플',       zh:'苹果', py:'píngguǒ',  ko:'사과',   em:'🍎'},
+          {en:'banana',en2:'버내너',    zh:'香蕉', py:'xiāngjiāo', ko:'바나나', em:'🍌'},
+          {en:'orange',en2:'오렌지',    zh:'橙子', py:'chéngzi',   ko:'오렌지', em:'🍊'},
+          {en:'grape', en2:'그레이프',  zh:'葡萄', py:'pútáo',     ko:'포도',   em:'🍇'},
+          {en:'melon', en2:'멜론',      zh:'西瓜', py:'xīguā',     ko:'수박',   em:'🍉'},
+          {en:'peach', en2:'피치',      zh:'桃子', py:'táozi',     ko:'복숭아', em:'🍑'}
+        ]},
+      { key:'reef',   name:'Coral Reef',  ko:'동물 친구 구조', water:0x2f9fb0, sky:0x8fd8c8, goal:6, hazard:0.40,
+        words:[
+          {en:'cat',   zh:'猫',   py:'māo',   ko:'고양이', em:'🐱'},
+          {en:'dog',   zh:'狗',   py:'gǒu',   ko:'강아지', em:'🐶'},
+          {en:'fish',  zh:'鱼',   py:'yú',    ko:'물고기', em:'🐟'},
+          {en:'bird',  zh:'鸟',   py:'niǎo',  ko:'새',     em:'🐦'},
+          {en:'rabbit',zh:'兔子', py:'tùzi',  ko:'토끼',   em:'🐰'},
+          {en:'turtle',zh:'乌龟', py:'wūguī', ko:'거북이', em:'🐢'}
+        ]},
+      { key:'storm',  name:'Storm Sea',   ko:'인사말 친구 구조', water:0x2b6f8f, sky:0x6f9bb5, goal:6, hazard:0.52,
+        words:[
+          {en:'hello',      zh:'你好',   py:'nǐ hǎo',    ko:'안녕',   em:'👋'},
+          {en:'thank you',  zh:'谢谢',   py:'xièxie',    ko:'고마워', em:'🙏'},
+          {en:'sorry',      zh:'对不起', py:'duìbùqǐ',   ko:'미안해', em:'😅'},
+          {en:'goodbye',    zh:'再见',   py:'zàijiàn',   ko:'잘 가',  em:'👋'},
+          {en:'yes',        zh:'是',     py:'shì',       ko:'응/네', em:'✅'},
+          {en:'please',     zh:'请',     py:'qǐng',      ko:'부탁해', em:'🤲'}
+        ]},
+      { key:'island', name:'Mango Island',ko:'숫자 친구 구조', water:0x35b98e, sky:0xa8ecc4, goal:6, hazard:0.44,
+        words:[
+          {en:'one',  zh:'一', py:'yī',  ko:'하나', em:'1️⃣'},
+          {en:'two',  zh:'二', py:'èr',  ko:'둘',   em:'2️⃣'},
+          {en:'three',zh:'三', py:'sān', ko:'셋',   em:'3️⃣'},
+          {en:'four', zh:'四', py:'sì',  ko:'넷',   em:'4️⃣'},
+          {en:'five', zh:'五', py:'wǔ',  ko:'다섯', em:'5️⃣'},
+          {en:'six',  zh:'六', py:'liù', ko:'여섯', em:'6️⃣'}
+        ]}
+    ];
+
+    /* ============================================================
+       1. 언어 모드 — ?glang / localStorage 를 기본값으로, 시작화면에서 최종 선택
+          영어 또는 중국어 중 하나만 선택(레벨 선택제)
+       ============================================================ */
+    var MODE = (function(){ try{
+      var q=new URLSearchParams(location.search).get('glang')||localStorage.getItem('mangoi_game_lang');
+      return (q==='zh') ? 'zh' : 'en';
+    }catch(_){ return 'en'; } })();
+
+    /* ============================================================
+       2. TTS — 영어는 서버(원어민)+브라우저 폴백, 중국어는 브라우저 zh-CN 직접
+          (서버 구글 TTS 의 중국어는 음질 문제로 사용하지 않음)
+       ============================================================ */
+    var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null;
+    var enVoice=null, zhVoice=null;
+    function pickVoices(){ if(!synth) return; var vs=synth.getVoices(); if(!vs.length) return;
+      var en=vs.filter(function(v){return /^en/i.test(v.lang||'');});
+      en.sort(function(a,b){ function s(v){var n=v.name||'',x=0; if(/en[-_]US/i.test(v.lang))x+=3; if(/Google|Natural|Online|Aria|Jenny|Samantha/i.test(n))x+=6; if(/Zira|eSpeak|compact/i.test(n))x-=5; return x;} return s(b)-s(a); });
+      enVoice=en[0]||null;
+      var zh=vs.filter(function(v){return /^zh/i.test(v.lang||'')||/Chinese|中文|Mandarin/i.test(v.name||'');});
+      zh.sort(function(a,b){ function s(v){var n=v.name||'',x=0; if(/zh[-_]CN/i.test(v.lang))x+=4; if(/Google|Natural|Xiaoxiao|Yunyang|Huihui/i.test(n))x+=6; return x;} return s(b)-s(a); });
+      zhVoice=zh[0]||null;
+    }
+    if(synth){ pickVoices(); synth.onvoiceschanged=pickVoices; }
+    function browserSpeak(text,lang){ if(!synth) return; try{ synth.cancel(); var u=new SpeechSynthesisUtterance(text);
+      u.lang=lang; u.rate=(lang==='zh-CN')?0.85:0.92; u.voice=(lang==='zh-CN')?zhVoice:enVoice; synth.speak(u); }catch(e){} }
+    var ttsCache={};
+    function speak(text,lang){ text=(text||'').trim(); if(!text) return;
+      if(lang==='en'){
+        var u=ttsCache[text];
+        if(u){ playUrl(u); return; }
+        fetch('/api/voice/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:'en'})})
+          .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0) throw 0; return r.blob(); })
+          .then(function(b){ var url=URL.createObjectURL(b); ttsCache[text]=url; playUrl(url); })
+          .catch(function(){ browserSpeak(text,'en-US'); });
+      } else { browserSpeak(text,'zh-CN'); }
+    }
+    var ttsAudio=null;
+    function playUrl(u){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.play().catch(function(){}); }catch(e){} }
+
+    /* ============================================================
+       2b. WebAudio SFX + 앰비언트 BGM — 구조 성공/피격/콤보/클리어에 사운드 부여
+       ============================================================ */
+    var AC=null;
+    function audioInit(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+      if(AC && AC.state==='suspended'){ try{ AC.resume(); }catch(e){} } }
+
+    function sfxSplash(){ if(!AC) return; var t=AC.currentTime, n=Math.floor(AC.sampleRate*0.22);
+      var buf=AC.createBuffer(1,n,AC.sampleRate), d=buf.getChannelData(0);
+      for(var i=0;i<n;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2); }
+      var src=AC.createBufferSource(); src.buffer=buf;
+      var bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1200; bp.Q.value=0.8;
+      var g=AC.createGain(); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.22);
+      src.connect(bp); bp.connect(g); g.connect(AC.destination); src.start(t); src.stop(t+0.23); }
+
+    function sfxBoom(){ if(!AC) return; var t=AC.currentTime;
+      var o=AC.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(40,t+0.32);
+      var g=AC.createGain(); g.gain.setValueAtTime(0.55,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.36);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+0.36);
+      var n=Math.floor(AC.sampleRate*0.16), buf=AC.createBuffer(1,n,AC.sampleRate), d=buf.getChannelData(0);
+      for(var i=0;i<n;i++){ d[i]=(Math.random()*2-1); }
+      var src=AC.createBufferSource(); src.buffer=buf;
+      var g2=AC.createGain(); g2.gain.setValueAtTime(0.32,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+      src.connect(g2); g2.connect(AC.destination); src.start(t); }
+
+    function sfxWhoosh(){ if(!AC) return; var t=AC.currentTime;
+      var o=AC.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(520,t); o.frequency.exponentialRampToValueAtTime(90,t+0.5);
+      var g=AC.createGain(); g.gain.setValueAtTime(0.38,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.5);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+0.5); }
+
+    function sfxDing(level){ if(!AC) return; var t=AC.currentTime; var freq=660+Math.min(level,8)*55;
+      var o=AC.createOscillator(); o.type='triangle'; o.frequency.setValueAtTime(freq,t);
+      var g=AC.createGain(); g.gain.setValueAtTime(0.26,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+0.2); }
+
+    function sfxBuzz(){ if(!AC) return; var t=AC.currentTime;
+      var o=AC.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(180,t);
+      var g=AC.createGain(); g.gain.setValueAtTime(0.22,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+0.15); }
+
+    function sfxFanfare(){ if(!AC) return; var t=AC.currentTime;
+      [523,659,784,1046].forEach(function(f,i){ var o=AC.createOscillator(); o.type='triangle'; o.frequency.value=f;
+        var g=AC.createGain(); var st=t+i*0.09;
+        g.gain.setValueAtTime(0.001,st); g.gain.exponentialRampToValueAtTime(0.28,st+0.02); g.gain.exponentialRampToValueAtTime(0.001,st+0.28);
+        o.connect(g); g.connect(AC.destination); o.start(st); o.stop(st+0.3); }); }
+
+    var bgm={ osc1:null, osc2:null, gain:null, running:false,
+      start:function(){ if(!AC || this.running) return; this.running=true;
+        this.gain=AC.createGain(); this.gain.gain.value=0.045; this.gain.connect(AC.destination);
+        this.osc1=AC.createOscillator(); this.osc1.type='sine'; this.osc1.frequency.value=196;
+        this.osc2=AC.createOscillator(); this.osc2.type='sine'; this.osc2.frequency.value=246.94;
+        this.osc1.connect(this.gain); this.osc2.connect(this.gain);
+        try{ this.osc1.start(); this.osc2.start(); }catch(e){} },
+      urgency:function(lvl){ if(!this.gain||!AC) return; try{ this.gain.gain.setTargetAtTime(0.045+lvl*0.05, AC.currentTime, 0.3); }catch(e){} },
+      stop:function(){ if(!this.running) return; try{ this.osc1.stop(); this.osc2.stop(); }catch(e){} this.running=false; } };
+
+    // 오디오 언락(모바일/iframe) — 첫 제스처에 AudioContext resume + speechSynthesis 프라임
+    var _primed=false;
+    function unlock(){ audioInit(); if(!_primed&&synth){ try{ var u=new SpeechSynthesisUtterance(' '); u.volume=0; synth.speak(u); _primed=true; }catch(e){} } }
+    ['pointerdown','touchstart','keydown','click'].forEach(function(ev){ window.addEventListener(ev,unlock,true); });
+
+    /* ============================================================
+       3. Three.js 씬 셋업
+       ============================================================ */
+    var canvas=document.getElementById('cv');
+    var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    var scene=new THREE.Scene();
+    scene.fog=new THREE.Fog(0x9fe3f0, 40, 95);
+    var camera=new THREE.PerspectiveCamera(60,1,0.1,300);
+    camera.position.set(0,6,10);
+
+    var hemi=new THREE.HemisphereLight(0xffffff,0x2a5a6a,1.05); scene.add(hemi);
+    var sun=new THREE.DirectionalLight(0xfff2d8,0.9); sun.position.set(-8,16,6); scene.add(sun);
+
+    function resize(){ var w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+    window.addEventListener('resize',resize); resize();
+
+    /* ── 바다(로우폴리 파도) ── */
+    var SEG=48, SEA=220;
+    var seaGeo=new THREE.PlaneGeometry(SEA,SEA,SEG,SEG); seaGeo.rotateX(-Math.PI/2);
+    var seaMat=new THREE.MeshStandardMaterial({color:0x3fb6c9,flatShading:true,roughness:0.85,metalness:0.05});
+    var sea=new THREE.Mesh(seaGeo,seaMat); sea.position.z=-40; scene.add(sea);
+    var seaPos=seaGeo.attributes.position;
+    var baseX=[], baseZ=[];
+    for(var i=0;i<seaPos.count;i++){ baseX.push(seaPos.getX(i)); baseZ.push(seaPos.getZ(i)); }
+    function waveH(x,z,t){ return Math.sin(x*0.18+t*1.1)*0.42 + Math.sin(z*0.22 - t*0.9)*0.5 + Math.sin((x+z)*0.12 + t*0.6)*0.28; }
+
+    /* ── 구조선(로우폴리) ── */
+    function buildBoat(){
+      var g=new THREE.Group();
+      var hullMat=new THREE.MeshStandardMaterial({color:0xff7a1a,flatShading:true,roughness:0.6});
+      var deckMat=new THREE.MeshStandardMaterial({color:0xfff3e0,flatShading:true,roughness:0.7});
+      var hull=new THREE.Mesh(new THREE.CylinderGeometry(0.9,1.3,3.4,7,1,false), hullMat);
+      hull.rotation.z=Math.PI/2; hull.rotation.y=Math.PI/2; hull.scale.set(1,0.55,1); hull.position.y=0.15; g.add(hull);
+      var bow=new THREE.Mesh(new THREE.ConeGeometry(0.9,1.5,7), hullMat);
+      bow.rotation.x=-Math.PI/2; bow.scale.set(1,0.55,1); bow.position.set(0,0.15,-2.0); g.add(bow);
+      var deck=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.28,2.6), deckMat); deck.position.y=0.55; g.add(deck);
+      var cabin=new THREE.Mesh(new THREE.BoxGeometry(1.05,0.7,1.0), new THREE.MeshStandardMaterial({color:0xffd08a,flatShading:true}));
+      cabin.position.set(0,0.95,0.35); g.add(cabin);
+      var mast=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.7,6), deckMat); mast.position.set(0,1.6,-0.4); g.add(mast);
+      var flag=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,0.02), new THREE.MeshStandardMaterial({color:0xff5e3a,flatShading:true}));
+      flag.position.set(0.32,2.15,-0.4); g.add(flag);
+      g.userData.flag=flag;
+      return g;
+    }
+    var boat=buildBoat(); scene.add(boat);
+
+    /* ── 단어 친구(구명튜브 위 캐릭터 + 말풍선 스프라이트) ── */
+    function roundRect(x,a,b,w,h,r){ x.beginPath(); x.moveTo(a+r,b); x.arcTo(a+w,b,a+w,b+h,r); x.arcTo(a+w,b+h,a,b+h,r); x.arcTo(a,b+h,a,b,r); x.arcTo(a,b,a+w,b,r); x.closePath(); }
+    function makeBubble(main, sub, golden){
+      var c=document.createElement('canvas'); c.width=320; c.height=200; var x=c.getContext('2d');
+      // 말풍선
+      x.fillStyle='rgba(255,255,250,0.97)'; x.strokeStyle=golden?'#ffd23f':'#ff8a1e'; x.lineWidth=golden?10:8;
+      roundRect(x,10,10,300,140,26); x.fill(); x.stroke();
+      // 꼬리
+      x.beginPath(); x.moveTo(140,148); x.lineTo(160,190); x.lineTo(180,148); x.closePath();
+      x.fillStyle='rgba(255,255,250,0.97)'; x.fill();
+      // 텍스트
+      x.textAlign='center'; x.textBaseline='middle';
+      x.fillStyle='#12324a'; x.font='800 '+(golden?56:62)+'px "Segoe UI","Microsoft YaHei",sans-serif';
+      x.fillText((golden?'⭐ ':'')+main,160, sub?66:82);
+      if(sub){ x.fillStyle='#6b7280'; x.font='600 28px "Segoe UI",sans-serif'; x.fillText(sub,160,116); }
+      var tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
+      var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+      sp.scale.set(4.6,2.9,1); sp.position.y=2.6; sp.renderOrder=5;
+      return sp;
+    }
+
+    function buildFriend(word, lang, golden){
+      var g=new THREE.Group();
+      // 구명튜브(도넛) — 골든이면 금빛 발광
+      var ring=new THREE.Mesh(new THREE.TorusGeometry(0.75,0.28,8,14),
+        new THREE.MeshStandardMaterial({color:golden?0xffd23f:0xff5252,flatShading:true,roughness:0.5,
+          emissive:golden?0x553d00:0x000000, emissiveIntensity:golden?0.6:0}));
+      ring.rotation.x=Math.PI/2; ring.position.y=0.15; g.add(ring);
+      // 흰 줄무늬 튜브 위 (단순 박스 4개)
+      for(var k=0;k<4;k++){ var s=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.1,0.6),
+          new THREE.MeshStandardMaterial({color:0xffffff,flatShading:true}));
+        var an=k*Math.PI/2; s.position.set(Math.cos(an)*0.75,0.28,Math.sin(an)*0.75); g.add(s); }
+      // 물에 빠진 친구(머리)
+      var head=new THREE.Mesh(new THREE.SphereGeometry(0.42,10,8),
+        new THREE.MeshStandardMaterial({color:0xffcf9e,flatShading:true}));
+      head.position.y=0.55; g.add(head);
+      var lang2=(lang==='zh')?'zh':'en';
+      var main = (lang2==='zh') ? word.zh : word.en;
+      var sub  = (lang2==='zh') ? word.py : (word.en2||'');
+      var bub=makeBubble(main, sub, !!golden); g.add(bub);
+      if(golden){
+        var spark=new THREE.Mesh(new THREE.OctahedronGeometry(0.15,0), new THREE.MeshBasicMaterial({color:0xfff3c0}));
+        spark.position.set(0.95,1.15,0); g.add(spark); g.userData.spark=spark;
+      }
+      g.userData={ type:'friend', word:word, lang:lang2, bob:Math.random()*6.28, golden:!!golden };
+      return g;
+    }
+
+    /* ── 암초(로우폴리 바위) ── */
+    function buildRock(){
+      var g=new THREE.Group();
+      var m=new THREE.MeshStandardMaterial({color:0x7d8794,flatShading:true,roughness:1});
+      var r=new THREE.Mesh(new THREE.IcosahedronGeometry(1.0,0), m);
+      r.scale.set(1.1,0.9+Math.random()*0.5,1.0); r.rotation.set(Math.random(),Math.random(),Math.random());
+      r.position.y=0.3; g.add(r);
+      var r2=new THREE.Mesh(new THREE.IcosahedronGeometry(0.6,0), m); r2.position.set(0.7,0.15,-0.4); g.add(r2);
+      g.userData={ type:'rock' };
+      return g;
+    }
+    /* ── 소용돌이(회전하는 링) ── */
+    function buildWhirl(){
+      var g=new THREE.Group();
+      for(var i=0;i<3;i++){ var t=new THREE.Mesh(new THREE.TorusGeometry(1.1-i*0.32,0.14,6,18),
+          new THREE.MeshStandardMaterial({color:i%2?0x123846:0x0a2531,flatShading:true,roughness:1}));
+        t.rotation.x=Math.PI/2; t.position.y=0.05-i*0.03; g.add(t); }
+      var cone=new THREE.Mesh(new THREE.ConeGeometry(0.5,0.9,10),
+        new THREE.MeshStandardMaterial({color:0x06202b,flatShading:true})); cone.position.y=-0.35; g.add(cone);
+      g.userData={ type:'whirl', spin:0 };
+      return g;
+    }
+
+    /* ============================================================
+       3b. 파티클 버스트 + 화면 플로팅 텍스트 (구조/피격 시 "손맛" 피드백)
+       ============================================================ */
+    var particles=[];
+    function spawnBurst(pos,color,count){
+      count=count||8;
+      for(var i=0;i<count;i++){
+        var m=new THREE.Mesh(new THREE.SphereGeometry(0.07,4,4), new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:1}));
+        m.position.copy(pos);
+        var ang=Math.random()*Math.PI*2, spd=1.5+Math.random()*2.2;
+        m.userData={ vx:Math.cos(ang)*spd, vy:2+Math.random()*2, vz:Math.sin(ang)*spd, life:0, max:0.55 };
+        scene.add(m); particles.push(m);
+      }
+    }
+    function clearParticles(){ particles.forEach(function(p){ scene.remove(p); }); particles.length=0; }
+
+    var floatLayer=document.getElementById('floatLayer');
+    function screenPos(v){ var p=v.clone().project(camera);
+      return { x:(p.x*0.5+0.5)*window.innerWidth, y:(1-(p.y*0.5+0.5))*window.innerHeight }; }
+    function floatText(worldPos,text,cls){
+      var s=screenPos(worldPos);
+      var el=document.createElement('div'); el.className='floatText '+(cls||''); el.textContent=text;
+      el.style.left=s.x+'px'; el.style.top=s.y+'px';
+      floatLayer.appendChild(el);
+      requestAnimationFrame(function(){ el.style.transform='translate(-50%,-80px)'; el.style.opacity='0'; });
+      setTimeout(function(){ el.remove(); },780);
+    }
+
+    var $=function(id){ return document.getElementById(id); };
+    function comboBanner(n){ var el=$('comboBanner'); el.textContent='🔥 '+n+' 콤보!'; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
+    function stormBanner(){ var el=$('stormBanner'); el.textContent='⚠ 소용돌이 파도가 몰려와요!'; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
+
+    /* ============================================================
+       4. 게임 상태
+       ============================================================ */
+    var G = { mode:MODE, stageIdx:0, rescued:0, lives:3, score:0, combo:0,
+      boatX:0, steer:0, boost:false, speed:0, running:false, dist:0, spawnGap:12, sinceSpawn:0,
+      controlLock:0, t:0, wordPool:[],
+      lastRescueAt:-99, invuln:0, stageTimeMax:50, stageTimeLeft:50, stormCd:16, rescuedWords:[] };
+    var lane={ min:-6.4, max:6.4 };
+    var objects=[];   // 활성 스폰 오브젝트
+
+    function setHUD(){
+      var st=STAGES[G.stageIdx];
+      $('stageName').innerHTML=st.name+' <small>'+st.ko+'</small>';
+      $('lives').textContent = Array(G.lives+1).join('❤') + Array(Math.max(0,3-G.lives)+1).join('🖤');
+      $('bar').style.width = Math.min(100,(G.rescued/st.goal)*100)+'%';
+      $('barTxt').textContent = G.rescued+' / '+st.goal;
+      var cmul=1+Math.min(1.5,(G.combo-1)*0.25);
+      $('score').innerHTML = '점수 <b>'+G.score+'</b> · 콤보 '+G.combo+(G.combo>1?(' (x'+cmul.toFixed(1)+')'):'');
+    }
+    function updateTimerUI(){
+      var pct=Math.max(0,(G.stageTimeLeft/G.stageTimeMax)*100);
+      var bar=$('timerBar'); bar.style.width=pct+'%'; bar.classList.toggle('warn', G.stageTimeLeft<15);
+      $('timerTxt').textContent=Math.ceil(G.stageTimeLeft)+'s';
+    }
+
+    function refillPool(){
+      var st=STAGES[G.stageIdx];
+      G.wordPool = st.words.slice();
+      for(var i=G.wordPool.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=G.wordPool[i]; G.wordPool[i]=G.wordPool[j]; G.wordPool[j]=tmp; }
+    }
+    function nextWord(){ if(!G.wordPool.length) refillPool(); return G.wordPool.pop(); }
+    function friendLang(){ return G.mode==='zh' ? 'zh' : 'en'; }
+
+    function spawnRow(forceHazard){
+      var st=STAGES[G.stageIdx];
+      var x=(Math.random()*2-1)*lane.max;
+      var isHazard = forceHazard ? true : (Math.random() < st.hazard);
+      var obj;
+      if(isHazard){
+        obj = (Math.random()<0.5) ? buildRock() : buildWhirl();
+      } else {
+        var golden = Math.random()<0.16;
+        obj = buildFriend(nextWord(), friendLang(), golden);
+      }
+      obj.position.set(x, 0, -78);
+      obj.userData.x=x; obj.userData.hit=false;
+      scene.add(obj); objects.push(obj);
+    }
+    function triggerStorm(){
+      if(!G.running) return;
+      stormBanner();
+      setTimeout(function(){ if(G.running){ spawnRow(true); spawnRow(true); } },900);
+    }
+
+    function clearObjects(){ objects.forEach(function(o){ scene.remove(o); }); objects.length=0; }
+
+    /* ============================================================
+       5. 게임 진행
+       ============================================================ */
+    function startGame(){
+      G.stageIdx=0; G.lives=3; G.score=0; G.combo=0;
+      $('start').classList.remove('on'); $('over').classList.remove('on'); $('win').classList.remove('on');
+      $('hud').style.display='flex'; $('ctrl').style.display='flex'; $('hint').style.display='block';
+      audioInit(); bgm.start();
+      loadStage();
+    }
+    function loadStage(){
+      var st=STAGES[G.stageIdx];
+      G.rescued=0; G.boatX=0; G.boost=false; G.dist=0; G.sinceSpawn=0; G.controlLock=0; G.combo=0;
+      G.speed=13 + G.stageIdx*2.2;   // 스테이지마다 빨라짐
+      G.lastRescueAt=-99; G.invuln=0;
+      G.stageTimeMax=50+G.stageIdx*4; G.stageTimeLeft=G.stageTimeMax;
+      G.stormCd=14+Math.random()*6; G.rescuedWords=[];
+      clearObjects(); clearParticles(); refillPool();
+      // 바다/하늘 색 전환
+      seaMat.color.setHex(st.water); scene.background=new THREE.Color(st.sky); scene.fog.color.setHex(st.sky);
+      // 배 업그레이드 느낌(스테이지 오를수록 살짝 커짐)
+      var up=1+G.stageIdx*0.05; boat.scale.set(up,up,up);
+      G.running=true; setHUD(); updateTimerUI();
+    }
+    function stageClear(){
+      G.running=false; bgm.urgency(0);
+      var st=STAGES[G.stageIdx];
+      speakFriendlyCheer(); sfxFanfare();
+      var recap = G.rescuedWords.map(function(rw){ var w=rw.word;
+        return '<div class="recapChip'+(rw.golden?' gold':'')+'">'+(w.em||'')+' <b>'+w.en+'</b><br><span class="zh">'+w.zh+'</span> <span class="ko">('+w.ko+')</span></div>';
+      }).join('');
+      $('recapList').innerHTML = recap;
+      $('clearTtl').textContent=st.name+' 구조 완료! 🎉';
+      $('clearMsg').innerHTML='단어 친구 '+G.rescuedWords.length+'명을 구했어요! 점수 '+G.score+'점<br>바다가 맑아지고 구조선이 더 빨라집니다.';
+      $('clear').classList.add('on');
+    }
+    function nextStage(){
+      $('clear').classList.remove('on');
+      G.stageIdx++;
+      if(G.stageIdx>=STAGES.length){ winGame(); return; }
+      loadStage();
+      requestAnimationFrame(loop);   // ts 없이 loop()를 직접 부르면 stale last로 dt가 거대한 음수가 됨(타이머가 거꾸로 더해짐) — 반드시 rAF로 넘겨서 새 타임스탬프를 받아야 함
+    }
+    function winGame(){
+      G.running=false; bgm.stop();
+      $('winMsg').innerHTML='점수 <b>'+G.score+'</b>점! 바다에 빠졌던 모든 단어 친구가<br>망고 섬으로 무사히 돌아왔어요. 최고의 선장님! 🥭';
+      $('win').classList.add('on');
+    }
+    function gameOver(){
+      G.running=false; bgm.stop();
+      $('overTtl').textContent='배가 가라앉았어요 😢';
+      $('overMsg').innerHTML='점수 <b>'+G.score+'</b>점 · '+STAGES[G.stageIdx].name+'에서 구조 '+G.rescued+'명.<br>다시 도전해서 더 많은 친구를 구해요!';
+      $('over').classList.add('on');
+    }
+    function timeUp(){
+      G.running=false; bgm.stop();
+      $('overTtl').textContent='⏱ 시간이 다 됐어요!';
+      $('overMsg').innerHTML='점수 <b>'+G.score+'</b>점 · '+STAGES[G.stageIdx].name+'에서 구조 '+G.rescued+'명.<br>다시 도전해서 시간 안에 더 많은 친구를 구해요!';
+      $('over').classList.add('on');
+    }
+    function speakFriendlyCheer(){ if(G.mode==='zh') speak('好棒','zh'); else speak('Great job','en'); }
+
+    /* ── 구조 성공 ── */
+    function rescue(obj){
+      var word=obj.userData.word, lang=obj.userData.lang, golden=!!obj.userData.golden;
+      if(G.t - G.lastRescueAt > 2.5) G.combo=0;   // 2.5초 넘게 못 구하면 콤보 초기화(슈팅/탱크 게임과 동일 규칙)
+      G.combo++; G.lastRescueAt=G.t;
+      var cmul=1+Math.min(1.5,(G.combo-1)*0.25);
+      var gain=Math.round(100*cmul*(golden?2:1));
+      G.score+=gain; G.rescued++;
+      G.rescuedWords.push({word:word,lang:lang,golden:golden});
+      showToast(word,lang,golden);
+      speak(lang==='zh'?word.zh:word.en, lang);
+      sfxSplash(); sfxDing(Math.min(G.combo,8));
+      spawnBurst(obj.position.clone(), golden?0xffe066:0x8fe3ff, golden?14:8);
+      floatText(obj.position.clone(), '+'+gain, golden?'gold':'good');
+      if(G.combo>1 && G.combo%3===0) comboBanner(G.combo);
+      setHUD();
+      if(G.rescued>=STAGES[G.stageIdx].goal){ G.running=false; setTimeout(stageClear,650); }
+    }
+    function showToast(w,lang,golden){
+      var t=$('toast'); t.classList.toggle('gold',!!golden);
+      t.innerHTML =
+        '<div class="em">'+(golden?'⭐':(w.em||'💧'))+'</div>'+
+        '<div class="big">'+w.en+'</div>'+
+        '<div class="zh">'+w.zh+' <span class="py">'+w.py+'</span></div>'+
+        '<div class="ko">'+w.ko+(golden?' · 골든 보너스!':'')+'</div>';
+      t.classList.add('show');
+      clearTimeout(showToast._h); showToast._h=setTimeout(function(){ t.classList.remove('show'); },1500);
+    }
+
+    /* ── 친구를 놓침(추격하지 않으면 손해 — 낚시 게임의 '놓친 물고기' 개념) ── */
+    function missFriend(obj){
+      G.combo=0; G.score=Math.max(0,G.score-20);
+      floatText(obj.position.clone(),'놓쳤어요!','bad'); sfxBuzz(); setHUD();
+    }
+
+    /* ── 피해(암초/소용돌이) ── */
+    function damage(kind,obj){
+      G.combo=0;
+      if(G.rescued>0){ G.rescued--; }   // 구조한 친구를 놓침 → 구조율 감소
+      flashRed(); shakeT=Math.min(0.6, shakeT+(kind==='rock'?0.4:0.25));
+      if(kind==='rock'){ G.lives--; sfxBoom(); spawnBurst(obj.position.clone(),0x8a8f96,10); floatText(obj.position.clone(),'쾅!','bad'); G.invuln=1.2; }
+      else { G.controlLock=1.3; sfxWhoosh(); floatText(obj.position.clone(),'소용돌이!','bad'); G.invuln=0.8; }
+      setHUD();
+      if(G.lives<=0){ G.running=false; setTimeout(gameOver,500); }
+    }
+    function flashRed(){ var f=$('flash'); f.style.opacity='0.45'; setTimeout(function(){ f.style.opacity='0'; },130); }
+    var shakeT=0;
+
+    /* ============================================================
+       6. 입력
+       ============================================================ */
+    function setSteer(v){ G.steer=v; }
+    window.addEventListener('keydown',function(e){
+      if(e.repeat) return;
+      if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') setSteer(-1);
+      else if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') setSteer(1);
+      else if(e.key===' '||e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ G.boost=true; }
+    });
+    window.addEventListener('keyup',function(e){
+      if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A'){ if(G.steer<0) setSteer(0); }
+      else if(e.key==='ArrowRight'||e.key==='d'||e.key==='D'){ if(G.steer>0) setSteer(0); }
+      else if(e.key===' '||e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ G.boost=false; }
+    });
+    function hold(el,down,up){ el.addEventListener('pointerdown',function(e){e.preventDefault();down();});
+      ['pointerup','pointerleave','pointercancel'].forEach(function(ev){ el.addEventListener(ev,function(e){e.preventDefault();up();}); }); }
+    hold($('left'), function(){setSteer(-1);}, function(){ if(G.steer<0)setSteer(0); });
+    hold($('right'),function(){setSteer(1);},  function(){ if(G.steer>0)setSteer(0); });
+    hold($('boost'),function(){G.boost=true;}, function(){G.boost=false;});
+    // 화면 좌/우 절반 탭으로도 조타(모바일 편의)
+    canvas.addEventListener('pointerdown',function(e){ if(!G.running)return; setSteer(e.clientX < window.innerWidth/2 ? -1 : 1); });
+    canvas.addEventListener('pointerup',function(){ setSteer(0); });
+
+    /* ============================================================
+       7. 메인 루프
+       ============================================================ */
+    var last=0, normalCd=0;
+    function loop(ts){
+      if(!G.running) return;
+      requestAnimationFrame(loop);
+      ts=ts||0; var dt=Math.max(0,Math.min(0.05,(ts-last)/1000))||0.016; last=ts; G.t+=dt;   // 음수 dt 방어(stale last로 loop()가 잘못 호출돼도 타이머가 거꾸로 가지 않도록)
+
+      // ⏱ 스테이지 타이머 — 다 되면 즉시 게임오버(낚시 게임의 제한시간 압박과 동일)
+      if(G.stageTimeLeft>0){
+        G.stageTimeLeft-=dt;
+        if(G.stageTimeLeft<=0){ G.stageTimeLeft=0; updateTimerUI(); timeUp(); return; }
+      }
+      updateTimerUI();
+      bgm.urgency(G.stageTimeLeft<15 ? 1 : 0);
+
+      // 🌪 소용돌이 파도 이벤트 — 주기적으로 경고 후 장애물 몰아치기(비행기/탱크 보스 난입과 같은 긴장 스파이크)
+      G.stormCd-=dt;
+      if(G.stormCd<=0){ G.stormCd=16+Math.random()*8; triggerStorm(); }
+
+      // 무적시간(피격 직후 연속 피격 방지)
+      if(G.invuln>0) G.invuln-=dt;
+
+      // 파티클
+      for(var p=particles.length-1;p>=0;p--){
+        var pt=particles[p], ud=pt.userData; ud.life+=dt; ud.vy-=9*dt;
+        pt.position.x+=ud.vx*dt; pt.position.y+=ud.vy*dt; pt.position.z+=ud.vz*dt;
+        pt.material.opacity=Math.max(0,1-ud.life/ud.max);
+        if(ud.life>=ud.max){ scene.remove(pt); particles.splice(p,1); }
+      }
+
+      // 바다 파도
+      for(var i=0;i<seaPos.count;i++){ seaPos.setY(i, waveH(baseX[i]+0, baseZ[i]+sea.position.z*0, G.t)); }
+      seaPos.needsUpdate=true;
+      if((normalCd-=dt)<=0){ seaGeo.computeVertexNormals(); normalCd=0.1; }
+
+      // 속도/전진 거리
+      var spd=G.speed*(G.boost?1.8:1);
+      G.dist+=spd*dt; G.sinceSpawn+=spd*dt;
+      if(G.sinceSpawn>=G.spawnGap){ G.sinceSpawn=0; spawnRow(); }
+
+      // 조타
+      if(G.controlLock>0){ G.controlLock-=dt; boat.rotation.y += dt*7; G.boatX += Math.sin(G.t*10)*0.04; }
+      else { boat.rotation.y = -G.steer*0.28; G.boatX += G.steer*9*dt; }
+      G.boatX=Math.max(lane.min,Math.min(lane.max,G.boatX));
+
+      // 배가 파도를 탐
+      var by=waveH(G.boatX,0,G.t);
+      boat.position.set(G.boatX, by+0.2, 0);
+      boat.rotation.z = (waveH(G.boatX-1,0,G.t)-waveH(G.boatX+1,0,G.t))*0.35 - G.steer*0.12;
+      boat.rotation.x = (waveH(G.boatX,-1.5,G.t)-waveH(G.boatX,1.5,G.t))*0.25;
+      if(boat.userData.flag) boat.userData.flag.rotation.y=Math.sin(G.t*8)*0.4;
+
+      // 오브젝트 이동/판정
+      for(var o=objects.length-1;o>=0;o--){
+        if(!G.running) break;   // 이 프레임 도중 목표 달성/게임오버로 정지되면 나머지 오브젝트는 다음 판정을 건너뜀(오버슛 방지)
+        var obj=objects[o]; var prevZ=obj.position.z;
+        obj.position.z += spd*dt;
+        obj.position.y = waveH(obj.userData.x, obj.position.z, G.t) + (obj.userData.type==='whirl'?-0.1:0.05);
+        if(obj.userData.type==='friend'){
+          obj.position.y += Math.sin(G.t*3+obj.userData.bob)*0.12;
+          if(obj.userData.spark) obj.userData.spark.rotation.y+=dt*6;
+        }
+        if(obj.userData.type==='whirl'){ obj.userData.spin+=dt*4; obj.rotation.y=obj.userData.spin; }
+        // 배 평면(z=0) 통과 시 판정
+        if(!obj.userData.hit && prevZ<0 && obj.position.z>=0){
+          var dx=Math.abs(obj.userData.x - G.boatX);
+          if(obj.userData.type==='friend'){
+            obj.userData.hit=true;
+            if(dx<1.7){ rescue(obj); popRemove(obj,o); continue; }
+            else { missFriend(obj); }
+          } else if(obj.userData.type==='rock'){
+            if(dx<1.5 && G.invuln<=0){ obj.userData.hit=true; damage('rock',obj); popRemove(obj,o); continue; }
+          } else if(obj.userData.type==='whirl'){
+            if(dx<2.2 && G.invuln<=0){ obj.userData.hit=true; damage('whirl',obj); }
+          }
+        }
+        if(obj.position.z>14){ scene.remove(obj); objects.splice(o,1); }
+      }
+
+      // 카메라(약간 배를 따라감 + 흔들림)
+      var camX=G.boatX*0.35 + (shakeT>0?(Math.random()-0.5)*shakeT*2:0);
+      camera.position.set(camX, 6+(shakeT>0?(Math.random()-0.5)*shakeT:0), 10);
+      camera.lookAt(G.boatX*0.4, 0.6, -10);
+      if(shakeT>0) shakeT-=dt;
+
+      renderer.render(scene,camera);
+    }
+    function popRemove(obj,idx){ scene.remove(obj); objects.splice(idx,1); }
+
+    /* ============================================================
+       8. 시작 화면 · 버튼
+       ============================================================ */
+    // 언어 모드 선택 카드
+    Array.prototype.forEach.call(document.querySelectorAll('.mode'),function(el){
+      el.addEventListener('click',function(){
+        document.querySelectorAll('.mode').forEach(function(m){ m.classList.remove('sel'); });
+        el.classList.add('sel'); G.mode=el.getAttribute('data-mode');
+        try{ localStorage.setItem('mangoi_game_lang', G.mode); }catch(_){}
+      });
+    });
+    // 기본 선택 반영
+    (function(){ var pre=document.querySelector('.mode[data-mode="'+MODE+'"]'); if(pre){ document.querySelectorAll('.mode').forEach(function(m){m.classList.remove('sel');}); pre.classList.add('sel'); } G.mode=MODE; })();
+
+    $('startBtn').addEventListener('click',function(){ unlock(); startGame(); requestAnimationFrame(loop); });
+    $('nextBtn').addEventListener('click', nextStage);
+    $('retryBtn').addEventListener('click',function(){ startGame(); requestAnimationFrame(loop); });
+    $('winBtn').addEventListener('click',function(){ startGame(); requestAnimationFrame(loop); });
+
+    // 시작 전 정지 렌더(배경 미리보기)
+    (function idle(){ if(G.running) return; scene.background=new THREE.Color(STAGES[0].sky); scene.fog.color.setHex(STAGES[0].sky);
+      G.t+=0.016; for(var i=0;i<seaPos.count;i++){ seaPos.setY(i, waveH(baseX[i],baseZ[i],G.t)); } seaPos.needsUpdate=true;
+      seaGeo.computeVertexNormals();
+      boat.position.set(Math.sin(G.t*0.6)*0.6, waveH(0,0,G.t)+0.2, 0); boat.rotation.z=Math.sin(G.t)*0.06;
+      camera.position.set(0,6,10); camera.lookAt(0,0.6,-10);
+      renderer.render(scene,camera); requestAnimationFrame(idle); })();
+
+    setHUD(); updateTimerUI();
+  })();
+  </script>
+<!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
+<!-- BUILD:20260724201538 -->
+</body>
+</html>
