@@ -581,7 +581,10 @@
     .profile-info h1 { font-size: 22px; }
     .panel { padding: 20px; border-radius: 14px; }
     .form-grid { grid-template-columns: 1fr; gap: 14px; }
-    .tabs { width: 100%; padding: 4px; overflow-x: auto; flex-wrap: nowrap; }
+    /* 🔧 (2026-07-25 강사 피드백) 예전엔 overflow-x:auto+nowrap 이라 탭이 가로로 밀려
+       오른쪽 탭(로그인 이력·세션 관리)을 누르려면 스크롤해야 했다. → 줄바꿈으로 바꿔
+       좁은 화면에서도 모든 탭이 한눈에 보이고 왼쪽(프로필)이 항상 보이게 한다. */
+    .tabs { width: 100%; padding: 4px; flex-wrap: wrap; justify-content: center; }
     .tab { white-space: nowrap; padding: 9px 14px; font-size: 12.5px; }
     table.list { font-size: 12px; }
     table.list thead th, table.list tbody td { padding: 10px 8px; }
