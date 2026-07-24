@@ -400,7 +400,7 @@
        3. Three.js 씬 셋업
        ============================================================ */
     var canvas=document.getElementById('cv');
-    var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+    var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,preserveDrawingBuffer:true});
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     var scene=new THREE.Scene();
     scene.fog=new THREE.Fog(0x9fe3f0, 40, 95);
@@ -419,11 +419,42 @@
           battle-3d.html 의 attachModel() 패턴과 동일.
        ============================================================ */
     var GLB_MODELS = { boat:'/models/rescue-boat.glb?v=1', friend:'/models/rescue-friend.glb?v=1', rock:'/models/rescue-rock.glb?v=1', captain:'/models/rescue-captain.glb?v=1' };
+    // 암초/장애물 변형 — 스폰마다 랜덤으로 골라 모양이 다양하게(같은 모델도 랜덤 회전/스케일로 변주)
+    var ROCK_VARIANTS = [
+      { url:'/models/rescue-rock.glb?v=1',    size:1.8, yOff:-0.4 },   // 기존 회색 암초 무리
+      { url:'/models/rescue-coral.glb?v=1',   size:2.0, yOff:-0.35 },  // 컬러풀 산호초
+      { url:'/models/rescue-boulder.glb?v=1', size:1.9, yOff:-0.45 },  // 이끼 낀 둥근 바위
+      { url:'/models/rescue-spire.glb?v=1',   size:2.1, yOff:-0.5 }    // 뾰족 암초 무리
+    ];
     /* URL당 1회만 fetch+파싱하고, 이후 스폰마다는 캐시된 씬을 clone() 만 함
        — 친구/암초는 매 스폰(초당 최대 1~2회)마다 buildFriend/buildRock 이 새로 호출되므로,
          캐시가 없으면 같은 GLB를 게임 내내 수십 번 재요청하게 됨(저대역폭 환경에 치명적). */
     var _glbCache = {};
-    function attachGLB(group, url, targetSize, yOffset, useMaxDim, yaw, extraX, extraZ, hideProc){
+    /* 물 아래로 내려간 몸통을 부드럽게 페이드아웃 — 거친 파도 지형에 몸이 '싹둑' 잘려 보이는 걸 자연스럽게.
+       월드 Y 기준 고정 밴드(topY 위=불투명, botY 아래=거의 투명)라 파도에 출렁여도 수면이 늘 같은 높이에 걸림.
+       재질은 스폰마다 공유되므로 최초 로드 시 1회만 셰이더 주입(needsUpdate). */
+    function applyUnderwaterFade(root, topY, botY){
+      root.traverse(function(o){
+        if(!o.isMesh || !o.material) return;
+        var mats = Array.isArray(o.material)?o.material:[o.material];
+        mats.forEach(function(m){
+          if(m.userData && m.userData._uwFade) return;
+          m.userData = m.userData || {}; m.userData._uwFade=true;
+          m.transparent=true;
+          m.onBeforeCompile=function(sh){
+            sh.uniforms.uFadeTop={value:topY}; sh.uniforms.uFadeBot={value:botY};
+            sh.vertexShader = 'varying float vWY;\n' + sh.vertexShader.replace(
+              '#include <begin_vertex>',
+              '#include <begin_vertex>\n vWY=(modelMatrix*vec4(transformed,1.0)).y;');
+            sh.fragmentShader = 'uniform float uFadeTop;\nuniform float uFadeBot;\nvarying float vWY;\n' + sh.fragmentShader.replace(
+              '#include <dithering_fragment>',
+              '#include <dithering_fragment>\n gl_FragColor.a *= clamp((vWY-uFadeBot)/(uFadeTop-uFadeBot),0.12,1.0);');
+          };
+          m.needsUpdate=true;
+        });
+      });
+    }
+    function attachGLB(group, url, targetSize, yOffset, useMaxDim, yaw, extraX, extraZ, hideProc, fadeUW){
       if(!THREE.GLTFLoader) return;
       function applyScene(sourceScene){
         var root=sourceScene.clone(true);
@@ -452,6 +483,7 @@
       try{
         new THREE.GLTFLoader().load(url, function(gltf){
           entry.loading=false; entry.scene=gltf.scene;
+          if(fadeUW) applyUnderwaterFade(gltf.scene, fadeUW.top, fadeUW.bot);   // 재질 공유 → 최초 1회 주입으로 모든 클론에 적용
           applyScene(gltf.scene);
           entry.waiters.forEach(function(fn){ fn(gltf.scene); }); entry.waiters=[];
         }, undefined, function(){ entry.loading=false; entry.failed=true; entry.waiters=[]; /* 절차적 모델 유지 */ });
@@ -487,8 +519,8 @@
       var flag=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,0.02), new THREE.MeshStandardMaterial({color:0xff5e3a,flatShading:true}));
       flag.position.set(0.32,2.15,-0.4); proc.add(flag);
       g.userData.flag=flag;
-      attachGLB(g, GLB_MODELS.boat, 4.3, 0.1, true, -Math.PI/2);
-      attachGLB(g, GLB_MODELS.captain, 2.0, 0.05, false, 0, 0, 0.95);   // 선장 — 조타대 뒤(선체 중앙~후미)에 세움, 정면(진행방향) 응시. 실브라우저에서 위치·크기 실측 후 확정한 값
+      attachGLB(g, GLB_MODELS.boat, 4.3, 0.1, true, -Math.PI/2, 0, 0, true, {top:0.55, bot:-0.5});   // 선체 물 아래 부분 자연 페이드
+      attachGLB(g, GLB_MODELS.captain, 2.0, 0.05, false, Math.PI, 0, 0.95, true);   // 선장 — 진행방향(앞)을 보고 운전대를 잡게 180° 회전. extraZ=0.95(조타대 뒤), hideProc=true
       return g;
     }
     var boat=buildBoat(); scene.add(boat);
@@ -539,7 +571,7 @@
         spark.position.set(0.95,1.15,0); g.add(spark); g.userData.spark=spark;   // 골든 반짝임도 proc 밖 — 항상 표시
       }
       g.userData={ type:'friend', word:word, lang:lang2, bob:Math.random()*6.28, golden:!!golden, proc:proc };
-      attachGLB(g, GLB_MODELS.friend, 1.3, -0.1, false);
+      attachGLB(g, GLB_MODELS.friend, 1.45, -0.05, false, 0, 0, 0, true, {top:0.35, bot:-0.6});   // 물 아래 몸통 자연 페이드(싹둑 잘린 느낌 제거)
       return g;
     }
 
@@ -553,7 +585,10 @@
       r.position.y=0.3; proc.add(r);
       var r2=new THREE.Mesh(new THREE.IcosahedronGeometry(0.6,0), m); r2.position.set(0.7,0.15,-0.4); proc.add(r2);
       g.userData={ type:'rock', proc:proc };
-      attachGLB(g, GLB_MODELS.rock, 1.8, -0.4, true);
+      // 변형 랜덤 선택 + 랜덤 Y회전·스케일로 매번 다른 모양
+      var rv = ROCK_VARIANTS[Math.floor(Math.random()*ROCK_VARIANTS.length)];
+      var rvScale = rv.size * (0.85 + Math.random()*0.4);   // 같은 모델도 크기 변주
+      attachGLB(g, rv.url, rvScale, rv.yOff, true, Math.random()*Math.PI*2, 0, 0, true, {top:0.45, bot:-0.7});   // 물 아래 자연 페이드
       return g;
     }
     /* ── 소용돌이(회전하는 링) ── */
@@ -747,6 +782,16 @@
       var dots=''; for(var i=0;i<speakMission.need;i++){ dots += (i<speakMission.done?'● ':'○ '); }
       $('speakDots').innerHTML = dots.trim();
     }
+    // 문장을 원어민 음성으로 n번 연속 낭독(문장 길이에 맞춘 간격). token 으로 '다음 바다로' 시 중단.
+    var _speakToken=0;
+    function speakSentenceNTimes(text, lang, n, onDone){
+      _speakToken++; var my=_speakToken;
+      var dur = Math.max(1900, text.length*95 + 900);   // 대략적인 낭독 소요시간
+      for(var i=0;i<n;i++){ (function(k){
+        setTimeout(function(){ if(speakMission.active && my===_speakToken){ speak(text, lang);
+          if(k===n-1 && onDone) setTimeout(function(){ if(speakMission.active && my===_speakToken) onDone(); }, dur); } }, k*dur);
+      })(i); }
+    }
     function startSpeakMission(st){
       var s = st.sent; if(!s){ $('speakBox').style.display='none'; return; }
       speakMission.active=true; speakMission.sent=s; speakMission.lang=G.mode; speakMission.done=0;
@@ -754,11 +799,16 @@
       var sub  = (G.mode==='zh') ? (s.py+' · '+s.ko) : s.ko;
       $('speakSentTxt').textContent = main;
       $('speakSubTxt').textContent = sub;
-      $('speakFeedback').textContent = SR ? '듣기 버튼으로 원어민 발음을 듣고, 마이크로 3번 따라 말해요!' : '이 기기는 음성인식을 지원하지 않아요. 듣기만 연습할 수 있어요.';
       $('speakMicBtn').style.display = SR ? '' : 'none';
-      $('speakMicBtn').disabled=false; $('speakMicBtn').classList.remove('listening');
+      $('speakMicBtn').disabled = !!SR; $('speakMicBtn').classList.remove('listening');   // 원어민 낭독 중엔 마이크 잠금
       _updateSpeakDots();
       $('speakBox').style.display='block';
+      // 문장이 완성되면 → 원어민이 자동으로 3번 낭독 → 끝나면 학생이 따라 읽기
+      $('speakFeedback').textContent='🔊 원어민이 3번 읽어줍니다. 잘 들어보세요!';
+      speakSentenceNTimes(main, G.mode, 3, function(){
+        if(SR){ $('speakMicBtn').disabled=false; $('speakFeedback').textContent='🎤 이제 마이크를 누르고 따라 읽어보세요! (3번)'; }
+        else { $('speakFeedback').textContent='잘 들었나요? 큰 소리로 3번 따라 읽어보세요!'; }
+      });
     }
     function speakMissionListen(){
       var s=speakMission.sent; if(!s) return;
@@ -994,6 +1044,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260724225454 -->
+<!-- BUILD:20260724232233 -->
 </body>
 </html>

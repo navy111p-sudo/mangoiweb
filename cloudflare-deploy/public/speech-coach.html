@@ -59,6 +59,11 @@
   .score-note { font-size: 11.5px; color: #94a3b8; text-align: center; margin-bottom: 14px; line-height: 1.5; }
   .feedback { padding: 14px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08)); border-left: 4px solid #34d399; border-radius: 8px; margin-bottom: 10px; font-size: 13.5px; line-height: 1.6; }
   .suggestion { padding: 14px; background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06)); border-left: 4px solid #fbbf24; border-radius: 8px; font-size: 13.5px; line-height: 1.6; }
+  .grammar { margin-top: 10px; padding: 14px; background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.06)); border-left: 4px solid #60a5fa; border-radius: 8px; font-size: 13px; line-height: 1.65; }
+  .grammar b { color: #93c5fd; }
+  .grammar .g-fix { display:inline-block; margin-top:4px; padding:2px 8px; background:rgba(96,165,250,0.16); border-radius:6px; }
+  .grammar .g-fix s { color:#fca5a5; text-decoration-color:#fca5a5; }
+  .grammar .g-fix b { color:#6ee7b7; }
   .transcript { padding: 12px; background: rgba(255,255,255,0.04); border-radius: 8px; font-size: 13px; color: #cbd5e1; margin-bottom: 10px; }
   .transcript b { color: #c4b5fd; }
 
@@ -144,7 +149,7 @@
   <div class="target-box">
     <div class="target-label"><span data-ko="따라 말할 문장" data-en="YOUR LINE">따라 말할 문장</span></div>
     <div class="target-text" id="target-display">Hello! Nice to meet you.</div>
-    <input id="target-input" class="target-input" type="text" value="Hello! Nice to meet you." placeholder="직접 입력하기 (영어 또는 한국어)" data-ko-placeholder="직접 입력하기 (영어 또는 한국어)" data-en-placeholder="Or type your own (English or Korean)" oninput="document.getElementById('target-display').textContent = this.value || '...'" />
+    <input id="target-input" class="target-input" type="text" value="Hello! Nice to meet you." placeholder="직접 입력하기 (영어 또는 한국어)" data-ko-placeholder="직접 입력하기 (영어 또는 한국어)" data-en-placeholder="Or type your own (English or Korean)" oninput="document.getElementById('target-display').textContent = this.value || '...'; window.isCustomTarget = true;" />
     <button onclick="speakTarget()" class="play-btn play-btn-hero" style="margin-top:14px">🔊 <span data-ko="원어민 발음 듣기" data-en="Hear it first">원어민 발음 듣기</span></button>
     <div class="target-tip" data-ko="먼저 듣고, 똑같이 따라 말해보세요" data-en="Listen first, then repeat it the same way">먼저 듣고, 똑같이 따라 말해보세요</div>
   </div>
@@ -192,6 +197,8 @@
     <div class="transcript"><b data-ko="너의 발화:" data-en="You said:">너의 발화:</b> <span id="transcript-text">-</span></div>
     <div class="feedback" id="feedback-text">-</div>
     <div class="suggestion" id="suggestion-text">-</div>
+    <!-- 📝 문법 검사 — 직접 쓴 자유 문장일 때만 표시 (무료 LanguageTool). 2026-07-24 -->
+    <div class="grammar" id="grammar-box" style="display:none"></div>
     <div style="text-align:center;margin-top:14px">
       <button onclick="resetUI()" class="play-btn" data-ko="🔄 다시 녹음" data-en="🔄 Try Again">🔄 다시 녹음</button>
       <button onclick="speakTarget()" class="play-btn" style="margin-left:8px" data-ko="🔊 모범 다시 듣기" data-en="🔊 Listen Again">🔊 모범 다시 듣기</button>
@@ -211,6 +218,7 @@ let isRecording = false;
 function setTarget(t) {
   document.getElementById('target-display').textContent = t;
   document.getElementById('target-input').value = t;
+  window.isCustomTarget = false;         // 프리셋/커리큘럼 문장 = 문법이 이미 정답 → 문법검사 생략
   var idx = STEPS.indexOf(t);            // 프리셋/직접선택도 단계와 동기화
   if (idx >= 0) { currentStep = idx; updateStepUI(); }
   resetUI();
@@ -487,10 +495,63 @@ async function processAudio(blob) {
     try { markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
     document.getElementById('rec-status').textContent = '✅ 완료! 다시 녹음하려면 마이크 누르세요';
 
+    // 📝 문법 검사 — 직접 쓴 자유 문장(영어)일 때만. 커리큘럼/프리셋 문장은 이미 정답이라 생략.
+    //   무료 LanguageTool API 를 브라우저에서 직접 호출(학생별 IP 로 분산 → 레이트리밋 회피).
+    checkGrammar(target);
+
     // 결과 영역으로 스크롤
     setTimeout(() => document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
   } catch (e) {
     document.getElementById('rec-status').textContent = '❌ ' + e.message;
+  }
+}
+
+// 📝 문법 검사 (2026-07-24) — 학생이 '직접 입력'한 영어 문장에만. 무료 LanguageTool.
+//   왜 자유 문장에만? 정해진 모범 문장은 문법이 이미 정답이라 검사가 무의미하기 때문.
+async function checkGrammar(text) {
+  var box = document.getElementById('grammar-box');
+  if (!box) return;
+  var en = (window.getLang && window.getLang() === 'en');
+  var isEnglish = /[a-zA-Z]/.test(text) && !/[가-힣一-鿿]/.test(text);
+  // 커리큘럼/프리셋 문장이거나 영어가 아니면 표시하지 않음
+  if (!window.isCustomTarget || !isEnglish || text.trim().split(/\s+/).length < 2) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = 'block';
+  box.innerHTML = en ? '📝 Checking grammar…' : '📝 문법을 확인하는 중…';
+  try {
+    var body = 'language=en-US&text=' + encodeURIComponent(text);
+    var r = await fetch('https://api.languagetool.org/v2/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body
+    });
+    var d = await r.json();
+    // 진짜 문법/철자 오류만 센다(문체 제안은 제외)
+    var errs = (d.matches || []).filter(function(m){
+      var t = (m.rule && m.rule.issueType) || '';
+      return t === 'grammar' || t === 'misspelling' || t === 'typographical';
+    });
+    if (!errs.length) {
+      box.innerHTML = en
+        ? '📝 <b>Grammar</b> — ✅ Looks grammatically correct!'
+        : '📝 <b>문법</b> — ✅ 문법이 정확해요!';
+      return;
+    }
+    // 상위 2개 교정만 보여준다(너무 많으면 부담)
+    var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+    var lines = errs.slice(0, 2).map(function(m){
+      var wrong = text.substr(m.offset, m.length);
+      var fix = (m.replacements && m.replacements[0]) ? m.replacements[0].value : '';
+      var fixHtml = fix
+        ? ('<span class="g-fix"><s>' + esc(wrong) + '</s> → <b>' + esc(fix) + '</b></span>')
+        : ('<span class="g-fix">' + esc(m.message) + '</span>');
+      return fixHtml;
+    }).join('<br>');
+    box.innerHTML = (en ? '📝 <b>Grammar tips</b><br>' : '📝 <b>문법 다듬기</b><br>') + lines;
+  } catch (e) {
+    box.style.display = 'none';   // 문법 API 실패는 조용히 숨김(핵심 채점엔 영향 없음)
   }
 }
 
@@ -500,7 +561,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260724225454 -->
+<!-- BUILD:20260724232233 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

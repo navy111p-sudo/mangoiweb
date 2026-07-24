@@ -306,21 +306,39 @@
       if (!d.ok) throw new Error(d.error || 'API error');
       const rows = d.teachers || [];
       _trLoaded = true;
-      if (cnt) cnt.textContent = (_en? rows.length+' teachers' : '총 '+rows.length+'명');
+      // 🧑‍💼 매니저 판정: 카페24 is_manager 코드(1/2/null)는 실제와 안 맞음(값 2 = Karl·Neha 인데 실매니저는 Maimai·Melca·Karl,
+      //    Neha는 매니저 아님). → 회사가 이름으로 관리하는 매니저 명단으로 판정.(adm-lang-boot.js "Manager Maimai/Melca + IT Karl")
+      const MGR_NAMES = new Set(['maimai','maymai','melca','karl']);
+      const isMgr = t => ((t.name||'')+' '+(t.nickname||'')).toLowerCase().replace(/[()]/g,' ').split(/[^a-z]+/).filter(Boolean).some(w => MGR_NAMES.has(w));
+      // 상태 3분류: active=재직 / inactive=퇴사 / 그 외(null=아직 미동기화된 신규강사)=미확인.
+      //   (null 을 무조건 '퇴사'로 찍던 버그 수정 — 신규 34명이 퇴사로 오표시되던 문제)
+      const stRank = s => s==='active' ? 0 : (s==='inactive' ? 2 : 1); // 재직 → 미확인 → 퇴사
+      rows.sort((a,b)=>{
+        const ra=stRank(a.status), rb=stRank(b.status);
+        if (ra!==rb) return ra-rb;                                    // 재직자 우선
+        return (Number(b.class_count)||0)-(Number(a.class_count)||0); // 그다음 담당수업 많은 순
+      });
+      // ⚠️ 담당수업·담당학생 수는 노드 사전계산값(2026-07-04 최초 적재)이라 현재값과 다를 수 있음 — 정직하게 기준일 표기.
+      if (cnt) cnt.innerHTML = (_en ? rows.length+' teachers' : '총 '+rows.length+'명')
+        + ' <span style="color:#b45309">· '
+        + (_en ? 'Classes/Students as of 2026-07-04 (may differ from now)' : '담당수업·담당학생 수는 2026-07-04 집계(현재값과 다를 수 있음)')
+        + '</span>';
       tb.innerHTML = rows.length ? rows.map(t => {
-        const mgr = Number(t.is_manager) ? '<span style="padding:1px 6px;background:#ede9fe;color:#6d28d9;font-size:10px;border-radius:99px;margin-left:4px;font-weight:700">매니저</span>' : '';
+        const mgr = isMgr(t) ? '<span style="padding:1px 6px;background:#ede9fe;color:#6d28d9;font-size:10px;border-radius:99px;margin-left:4px;font-weight:700">'+(_en?'Manager':'매니저')+'</span>' : '';
         const hours = (t.start_hour && t.end_hour) ? (esc(t.start_hour)+'~'+esc(t.end_hour)) : '—';
         const edu = [t.edu, t.spec].filter(Boolean).map(esc).join(' · ') || '—';
-        const active = t.status==='active';
+        const st = t.status;
+        const stStyle = st==='active' ? '#dcfce7;color:#15803d' : (st==='inactive' ? '#f1f5f9;color:#94a3b8' : '#fef3c7;color:#b45309');
+        const stLabel = st==='active' ? (_en?'Active':'재직') : (st==='inactive' ? (_en?'Inactive':'퇴사') : (_en?'Unknown':'미확인'));
         return '<tr style="border-bottom:1px solid #f1f5f9">'
-          + '<td style="padding:8px 10px"><b>'+esc(t.name)+'</b>'+(t.nickname?' <span style="color:#94a3b8">('+esc(t.nickname)+')</span>':'')+mgr+'</td>'
+          + '<td style="padding:8px 10px"><b>'+esc(t.name)+'</b>'+(t.nickname && t.nickname!==t.name ?' <span style="color:#94a3b8">('+esc(t.nickname)+')</span>':'')+mgr+'</td>'
           + '<td style="padding:8px 10px;color:#475569">'+esc(t.group_name||'—')+'</td>'
           + '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1e3a8a">'+num(t.class_count)+'</td>'
           + '<td style="padding:8px 10px;text-align:right">'+num(t.student_count)+'</td>'
           + '<td style="padding:8px 10px;text-align:right">'+num(t.work_days)+'</td>'
           + '<td style="padding:8px 10px;color:#475569">'+hours+'</td>'
           + '<td style="padding:8px 10px;color:#64748b;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+edu+'">'+edu+'</td>'
-          + '<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+(active?'#dcfce7;color:#15803d':'#f1f5f9;color:#94a3b8')+'">'+(active?(_en?'Active':'재직'):(_en?'Inactive':'퇴사'))+'</span></td>'
+          + '<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+stStyle+'">'+stLabel+'</span></td>'
           + '</tr>';
       }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'No teachers':'강사 없음')+'</td></tr>';
     } catch(e) {
