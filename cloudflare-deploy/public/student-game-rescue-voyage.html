@@ -422,9 +422,14 @@
     // 장애물(피해야 하는 바다생물) 변형 — 스폰마다 랜덤으로 골라 다양하게(같은 모델도 랜덤 회전/스케일로 변주)
     // 힉스필드 생성 실사 GLB(상어·바다거북·돌고래). 로드 실패 시 절차적 회색 바위(buildRock proc)로 폴백.
     var ROCK_VARIANTS = [
+      // 피해야 하는 바다생물 (힉스필드 실사 GLB)
       { url:'/models/rescue-shark.glb?v=1',   size:3.0, yOff:-0.35 },  // 백상아리
       { url:'/models/rescue-turtle.glb?v=1',  size:2.5, yOff:-0.3 },   // 바다거북
-      { url:'/models/rescue-dolphin.glb?v=1', size:2.8, yOff:-0.35 }   // 돌고래
+      { url:'/models/rescue-dolphin.glb?v=1', size:2.8, yOff:-0.35 },  // 돌고래
+      // 암초·산호도 함께 (생물만이 아니라 자연 장애물도 섞이게)
+      { url:'/models/rescue-coral.glb?v=1',   size:2.0, yOff:-0.35 },  // 컬러풀 산호초
+      { url:'/models/rescue-boulder.glb?v=1', size:1.9, yOff:-0.45 },  // 이끼 낀 둥근 바위
+      { url:'/models/rescue-rock.glb?v=1',    size:1.8, yOff:-0.4 }    // 회색 암초 무리
     ];
     // 단어 친구가 탄 부유물 변형 — 구명튜브뿐 아니라 드럼통·나무통 등으로 다양하게
     var FRIEND_VARIANTS = [
@@ -536,7 +541,7 @@
     function makeBubble(main, sub, golden){
       var c=document.createElement('canvas'); c.width=320; c.height=200; var x=c.getContext('2d');
       // 말풍선 — 반투명 배경(뒤의 배·친구가 비쳐 보이게). 텍스트에 그림자를 줘 투명해도 가독성 유지
-      var bg = golden ? 'rgba(255,251,235,0.5)' : 'rgba(255,255,250,0.46)';
+      var bg = golden ? 'rgba(255,251,235,0.36)' : 'rgba(255,255,250,0.3)';
       x.fillStyle=bg; x.strokeStyle=golden?'rgba(255,210,63,0.85)':'rgba(255,138,30,0.8)'; x.lineWidth=golden?7:6;
       roundRect(x,10,10,300,140,26); x.fill(); x.stroke();
       // 꼬리
@@ -1074,6 +1079,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725051204 -->
+<!-- BUILD:20260725052338 -->
 </body>
 </html>

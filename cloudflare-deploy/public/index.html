@@ -7917,6 +7917,16 @@ window.mgIsSlowNet = function(){
       </button>
     </div>
     <div class="lobby-box">
+        <!-- 🥭 (2026-07-25 강사 피드백) 수업 입장 화면에 정본 캐릭터 Mr.Mango + 3개 언어 인사말 -->
+        <div style="text-align:center;margin-bottom:14px">
+            <img src="/img/mango-char.png" alt="Mr.Mango" onerror="this.onerror=null;this.src='/img/Mangoi_Character.png'"
+                 style="width:74px;height:74px;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(124,58,237,0.45))" />
+            <div style="margin-top:8px;font-size:0.82rem;font-weight:700;line-height:1.65;color:#ddd6fe">
+                <div>👋 안녕하세요! 저는 Mr.Mango예요. 오늘도 반가워요!</div>
+                <div>👋 Hi! I'm Mr.Mango. Great to see you today!</div>
+                <div>👋 你好！我是 Mr.Mango，很高兴见到你！</div>
+            </div>
+        </div>
         <!-- 로고 / 타이틀 -->
         <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:0.25rem">
             <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#60a5fa,#a78bfa,#f0abfc);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px -8px rgba(124,58,237,0.55);font-size:24px">🎓</div>
@@ -27026,7 +27036,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260725051204 -->
+<!-- BUILD:20260725052338 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
