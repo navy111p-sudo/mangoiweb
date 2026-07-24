@@ -2877,7 +2877,7 @@
     </button>
 
     <!-- 👨‍🏫 강사 통합 -->
-    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats','card-bug-reports'])" data-hub="teacher">
+    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
       <div class="hub-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div>
         <div class="hub-title" data-ko="강사 통합" data-en="Teacher Hub">강사 통합</div>
@@ -2922,7 +2922,7 @@
     </button>
 
     <!-- ⚙ 시스템 -->
-    <button class="hub-btn" onclick="hubJump('system', ['card-calendar','card-permissions','card-franchises','card-centers','card-data-export'])" data-hub="system">
+    <button class="hub-btn" onclick="hubJump('system', ['card-calendar','card-permissions','card-franchises','card-centers','card-data-export','card-bug-reports'])" data-hub="system">
       <div class="hub-icon" style="background:linear-gradient(135deg,#64748b,#334155)">⚙</div>
       <div>
         <div class="hub-title" data-ko="시스템" data-en="System">시스템</div>
@@ -4779,19 +4779,6 @@
             ※ 매칭 점수: <b>요일·시간 일치(40%) + 레벨 적합도(30%) + 평점(20%) + 가용성(10%)</b><br/>
             ※ 적용 시 학생·강사 양쪽에 카카오톡 자동 알림 + 시간표 자동 갱신
           </p>
-        </div>
-      </details>
-
-      <!-- 하위 ① — Mangoi 강사 급여·평가 (기존 카드로 점프) -->
-      <details class="sub-item">
-        <summary data-ko="💼 Mangoi 강사 급여·평가 대시보드" data-en="💼 Mangoi Teacher Payroll &amp; Evaluation">💼 Mangoi 강사 급여·평가 대시보드</summary>
-        <div class="sub-body">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button onclick="jumpToMenu('card-payroll')" class="primary"
-                    style="padding:8px 18px;font-size:13px;font-weight:700"
-                    data-ko="💼 강사 급여·평가 카드 열기" data-en="💼 Open Payroll &amp; Evaluation Card">💼 강사 급여·평가 카드 열기</button>
-            <span style="font-size:12px;color:#6b7280" data-ko="(클릭하면 아래 강사 급여 카드로 자동 이동)" data-en="(Click to scroll to payroll card below)">(클릭하면 아래 강사 급여 카드로 자동 이동)</span>
-          </div>
         </div>
       </details>
 
@@ -12533,7 +12520,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-schedule-requests,card-class-audit,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms,card-bug-reports">
+  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-schedule-requests,card-class-audit,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <div class="ph85-title">강사 통합</div>
@@ -12544,7 +12531,6 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-payroll-auto" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll-auto');}">자동 급여</div>
       <div class="ph85-sub" data-card="card-schedule-requests" onclick="event.stopPropagation();var c=document.getElementById('card-schedule-requests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-schedule-requests');}">📅 연기·변경 요청 ⭐신규</div>
       <div class="ph85-sub" data-ko="⏸ 연기 수업 현황 ⭐신규" data-en="⏸ Postponed Classes ⭐New" onclick="event.stopPropagation();location.href='/admin/postponed-classes';">⏸ 연기 수업 현황 ⭐신규</div>
-      <div class="ph85-sub" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-audit" onclick="event.stopPropagation();var c=document.getElementById('card-class-audit');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});if(typeof caudLoad==='function')caudLoad();var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-audit');}">📜 수업 변경 이력 ⭐신규</div>
       <div class="ph85-sub" data-card="card-vc-quality" onclick="event.stopPropagation();var c=document.getElementById('card-vc-quality');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});if(typeof vcqLoad==='function')vcqLoad();var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-vc-quality');}">📶 강사 회선품질 ⭐신규</div>
       <div class="ph85-sub" data-card="card-class-ratings" onclick="event.stopPropagation();var c=document.getElementById('card-class-ratings');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-ratings');}">⭐ 학생 수업 평가</div>
@@ -12694,7 +12680,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-calendar,card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms">
+  <div class="ph85-group" data-cards="card-calendar,card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms,card-bug-reports">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
       <div class="ph85-title">시스템</div>
@@ -12712,6 +12698,7 @@ button.chip:hover,
       <div class="ph85-sub" data-card="card-attendance-status" onclick="event.stopPropagation();var c=document.getElementById('card-attendance-status');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-attendance-status');}">📋 출결 상태</div>
       <div class="ph85-sub" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
       <div class="ph85-sub" data-card="card-class-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-class-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-attendance');}">📝 수업 출결</div>
+      <div class="ph85-sub" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
       <div class="ph85-sub" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
