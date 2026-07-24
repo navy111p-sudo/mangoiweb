@@ -2793,15 +2793,8 @@ async function viewTeacherProfile(id) {
     if (!r.ok || !d.ok) { alert('조회 실패'); return; }
     t = d.item;
   }
-  const html = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">' +
-    '<div style="background:#fff;border-radius:14px;padding:24px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px -10px rgba(0,0,0,0.3)">' +
-      '<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;border-bottom:2px solid #f3f4f6;padding-bottom:14px">' +
-        (t.image_url ? '<img src="' + _aiEsc(t.image_url) + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover">' : '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold">'+(t.korean_name||'?').charAt(0)+'</div>') +
-        '<div><div style="font-size:20px;font-weight:bold;color:#1f2937">' + _aiEsc(t.korean_name||'') + '</div>' +
-        (t.english_name ? '<div style="color:#6b7280">' + _aiEsc(t.english_name) + '</div>' : '') +
-        '<div style="margin-top:4px">' + (_TP_STATUS_BADGE[t.status]||'') + ' ' + (_TP_GROUP_BADGE[t.group_name]||'') + '</div></div>' +
-        '<button onclick="this.closest(\'[onclick]\').remove()" style="margin-left:auto;background:transparent;border:0;font-size:20px;cursor:pointer">✕</button>' +
-      '</div>' +
+  // 프로필 탭 내용(기존 필드 그대로) + 수정 버튼
+  const profilePane =
       _tpField('이메일', t.email) + _tpField('휴대폰', t.phone) + _tpField('카톡 ID', t.kakao_id) +
       _tpField('MBTI', t.mbti) +
       _tpField('생년월일', t.dob) + _tpField('활동 지역', t.active_region) + _tpField('출신 지역', t.origin_region) +
@@ -2812,11 +2805,43 @@ async function viewTeacherProfile(id) {
       _tpField('은행', t.bank_name) + _tpField('계좌', t.bank_account) +
       (t.intro_video_url ? '<div style="margin-top:10px"><b>소개 비디오:</b> <a href="' + _aiEsc(t.intro_video_url) + '" target="_blank" style="color:#3b82f6">' + _aiEsc(t.intro_video_url) + '</a></div>' : '') +
       (t.notes ? '<div style="margin-top:10px;padding:10px;background:#f9fafb;border-radius:6px;font-size:13px"><b>메모:</b><br>' + _aiEsc(t.notes).replace(/\n/g,'<br>') + '</div>' : '') +
+      '<div style="margin-top:16px"><button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');editTeacherProfile(' + t.id + ');if(m)m.remove();" style="padding:8px 16px;background:#10b981;color:#fff;border:0;border-radius:7px;font-weight:700;cursor:pointer">✎ 프로필 수정</button></div>';
+  // 탭 정의 — 프로필=즉시, 나머지 4탭은 다음 단계에서 실데이터 연결(준비 중)
+  const tabs = [['prof','프로필'],['classes','수업 배정'],['pay','급여'],['eval','평가·평점'],['memo','메모·MBTI']];
+  const ph = function(name){ return '<div style="padding:28px 14px;text-align:center;color:#9ca3af;font-size:13px;line-height:1.7">📊 <b>' + name + '</b><br>준비 중 — 다음 업데이트에서 이 강사의 실데이터가 연결됩니다.</div>'; };
+  const paneBody = { prof: profilePane, classes: ph('수업 배정'), pay: ph('급여'), eval: ph('평가·평점'), memo: ph('메모·MBTI') };
+  const tabBar = '<div style="display:flex;gap:2px;border-bottom:1px solid #e5e7eb;margin-bottom:14px;flex-wrap:wrap">' +
+    tabs.map(function(tb,i){ var on=i===0; return '<button type="button" class="tp-dtab" data-tab="' + tb[0] + '" onclick="_tpDetailTab(this,\'' + tb[0] + '\')" style="padding:8px 13px;border:0;background:none;cursor:pointer;font-weight:700;font-size:13px;color:' + (on?'#1f2937':'#9ca3af') + ';border-bottom:2.5px solid ' + (on?'#f59e0b':'transparent') + '">' + tb[1] + '</button>'; }).join('') +
+    '</div>';
+  const panes = tabs.map(function(tb,i){ return '<div class="tp-dpane" data-pane="' + tb[0] + '" style="display:' + (i===0?'block':'none') + '">' + paneBody[tb[0]] + '</div>'; }).join('');
+  const html = '<div class="tp-detail-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">' +
+    '<div style="background:#fff;border-radius:14px;padding:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px -10px rgba(0,0,0,0.3)">' +
+      '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;border-bottom:2px solid #f3f4f6;padding-bottom:14px">' +
+        (t.image_url ? '<img src="' + _aiEsc(t.image_url) + '" style="width:72px;height:72px;border-radius:50%;object-fit:cover">' : '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:bold">'+(t.korean_name||'?').charAt(0)+'</div>') +
+        '<div><div style="font-size:20px;font-weight:bold;color:#1f2937">' + _aiEsc(t.korean_name||'') + '</div>' +
+        (t.english_name ? '<div style="color:#6b7280">' + _aiEsc(t.english_name) + '</div>' : '') +
+        '<div style="margin-top:4px">' + (_TP_STATUS_BADGE[t.status]||'') + ' ' + (_TP_GROUP_BADGE[t.group_name]||'') + '</div></div>' +
+        '<button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');if(m)m.remove()" style="margin-left:auto;background:transparent;border:0;font-size:20px;cursor:pointer">✕</button>' +
+      '</div>' +
+      tabBar + panes +
     '</div></div>';
   const div = document.createElement('div');
   div.innerHTML = html;
   document.body.appendChild(div.firstChild);
 }
+// 강사 상세 모달 탭 전환 (A2-2)
+window._tpDetailTab = function(btn, key){
+  var modal = btn.closest('.tp-detail-modal');
+  if (!modal) return;
+  modal.querySelectorAll('.tp-dtab').forEach(function(b){
+    var on = b.getAttribute('data-tab') === key;
+    b.style.color = on ? '#1f2937' : '#9ca3af';
+    b.style.borderBottomColor = on ? '#f59e0b' : 'transparent';
+  });
+  modal.querySelectorAll('.tp-dpane').forEach(function(p){
+    p.style.display = (p.getAttribute('data-pane') === key) ? 'block' : 'none';
+  });
+};
 function _tpField(label, val) {
   if (!val) return '';
   return '<div style="display:flex;font-size:13px;padding:4px 0"><div style="min-width:90px;color:#6b7280;font-weight:600">' + label + '</div><div>' + _aiEsc(String(val)) + '</div></div>';
