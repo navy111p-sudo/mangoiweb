@@ -2793,33 +2793,36 @@ async function viewTeacherProfile(id) {
     if (!r.ok || !d.ok) { alert('조회 실패'); return; }
     t = d.item;
   }
-  // 프로필 탭 내용(기존 필드 그대로) + 수정 버튼
+  // 🌐 한/영 병기 (adminLang) — 영어 모드(필리핀 강사·직원)에서도 정상 표시
+  var _en = (window.adminLang && window.adminLang !== 'ko');
+  var T = function(ko, en){ return _en ? en : ko; };
+  // 프로필 탭 내용(기존 필드) + 수정 버튼
   const profilePane =
-      _tpField('이메일', t.email) + _tpField('휴대폰', t.phone) + _tpField('카톡 ID', t.kakao_id) +
+      _tpField(T('이메일','Email'), t.email) + _tpField(T('휴대폰','Mobile'), t.phone) + _tpField(T('카톡 ID','KakaoTalk ID'), t.kakao_id) +
       _tpField('MBTI', t.mbti) +
-      _tpField('생년월일', t.dob) + _tpField('활동 지역', t.active_region) + _tpField('출신 지역', t.origin_region) +
-      _tpField('10분당 수수료', t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
-      _tpField('입사일', t.join_date) + _tpField('퇴사일', t.leave_date) +
-      _tpField('학력', t.education) + _tpField('경력', t.career) + _tpField('자격증', t.certifications) +
-      _tpField('가능 요일', t.available_days) + _tpField('가능 시간', t.available_hours) +
-      _tpField('은행', t.bank_name) + _tpField('계좌', t.bank_account) +
-      (t.intro_video_url ? '<div style="margin-top:10px"><b>소개 비디오:</b> <a href="' + _aiEsc(t.intro_video_url) + '" target="_blank" style="color:#3b82f6">' + _aiEsc(t.intro_video_url) + '</a></div>' : '') +
-      (t.notes ? '<div style="margin-top:10px;padding:10px;background:#f9fafb;border-radius:6px;font-size:13px"><b>메모:</b><br>' + _aiEsc(t.notes).replace(/\n/g,'<br>') + '</div>' : '') +
-      '<div style="margin-top:16px"><button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');editTeacherProfile(' + t.id + ');if(m)m.remove();" style="padding:8px 16px;background:#10b981;color:#fff;border:0;border-radius:7px;font-weight:700;cursor:pointer">✎ 프로필 수정</button></div>';
-  // 탭 정의 — 프로필=즉시, 나머지 4탭은 다음 단계에서 실데이터 연결(준비 중)
-  const tabs = [['prof','프로필'],['classes','수업 배정'],['pay','급여'],['eval','평가·평점'],['memo','메모·MBTI']];
-  // 각 탭 = 캐시(_tpRowById)의 이 강사 데이터 요약 + 전체 도구(기존 카드)로 바로가기. 새 API 없이 안전.
+      _tpField(T('생년월일','Date of Birth'), t.dob) + _tpField(T('활동 지역','Active Region'), t.active_region) + _tpField(T('출신 지역','Origin Region'), t.origin_region) +
+      _tpField(T('10분당 수수료','Fee / 10 min'), t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
+      _tpField(T('입사일','Join Date'), t.join_date) + _tpField(T('퇴사일','Leave Date'), t.leave_date) +
+      _tpField(T('학력','Education'), t.education) + _tpField(T('경력','Career'), t.career) + _tpField(T('자격증','Certifications'), t.certifications) +
+      _tpField(T('가능 요일','Available Days'), t.available_days) + _tpField(T('가능 시간','Available Hours'), t.available_hours) +
+      _tpField(T('은행','Bank'), t.bank_name) + _tpField(T('계좌','Account'), t.bank_account) +
+      (t.intro_video_url ? '<div style="margin-top:10px"><b>' + T('소개 비디오','Intro Video') + ':</b> <a href="' + _aiEsc(t.intro_video_url) + '" target="_blank" style="color:#3b82f6">' + _aiEsc(t.intro_video_url) + '</a></div>' : '') +
+      (t.notes ? '<div style="margin-top:10px;padding:10px;background:#f9fafb;border-radius:6px;font-size:13px"><b>' + T('메모','Notes') + ':</b><br>' + _aiEsc(t.notes).replace(/\n/g,'<br>') + '</div>' : '') +
+      '<div style="margin-top:16px"><button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');editTeacherProfile(' + t.id + ');if(m)m.remove();" style="padding:8px 16px;background:#10b981;color:#fff;border:0;border-radius:7px;font-weight:700;cursor:pointer">✎ ' + T('프로필 수정','Edit Profile') + '</button></div>';
+  // 탭 정의 — 한/영 병기
+  const tabs = [['prof',T('프로필','Profile')],['classes',T('수업 배정','Schedule')],['pay',T('급여','Pay')],['eval',T('평가·평점','Rating')],['memo',T('메모·MBTI','Notes·MBTI')]];
+  // 각 탭 = 캐시(_tpRowById) 데이터 요약 + 전체 도구(기존 카드) 바로가기. 새 API 없이 안전.
   const _jump = function(card, label){ return '<div style="margin-top:16px"><button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');if(m)m.remove();if(typeof jumpToMenu===\'function\')jumpToMenu(\'' + card + '\');" style="padding:9px 16px;background:#6366f1;color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer">' + label + '</button></div>'; };
   const _note = function(txt){ return '<div style="color:#9ca3af;font-size:12px;padding:4px 0 2px">' + txt + '</div>'; };
-  const classesPane = _tpField('가능 요일', t.available_days) + _tpField('가능 시간', t.available_hours) + _tpField('활동 지역', t.active_region) +
-      _note('이 강사의 주간 수업 배정·시간표는 아래에서 관리합니다.') + _jump('card-timetable', '🗓 시간표 · 수업 배정 열기');
-  const payPane = _tpField('10분당 수수료', t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
-      _tpField('구분/그룹', t.group_name) + _tpField('은행', t.bank_name) + _tpField('계좌', t.bank_account) +
-      _note('월별 급여 계산·정산은 아래 급여 관리에서.') + _jump('card-payroll', '💰 급여 · 정산 열기');
-  const evalPane = _note('이 강사가 받은 학생 수업 평가·평점은 아래에서 확인합니다.') + _jump('card-class-ratings', '⭐ 학생 수업 평가 열기');
+  const classesPane = _tpField(T('가능 요일','Available Days'), t.available_days) + _tpField(T('가능 시간','Available Hours'), t.available_hours) + _tpField(T('활동 지역','Active Region'), t.active_region) +
+      _note(T('이 강사의 주간 수업 배정·시간표는 아래에서 관리합니다.','Manage weekly schedule and timetable below.')) + _jump('card-timetable', T('🗓 시간표 · 수업 배정 열기','🗓 Open Timetable · Schedule'));
+  const payPane = _tpField(T('10분당 수수료','Fee / 10 min'), t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
+      _tpField(T('구분/그룹','Group'), t.group_name) + _tpField(T('은행','Bank'), t.bank_name) + _tpField(T('계좌','Account'), t.bank_account) +
+      _note(T('월별 급여 계산·정산은 아래 급여 관리에서.','Monthly payroll and settlement below.')) + _jump('card-payroll', T('💰 급여 · 정산 열기','💰 Open Payroll · Settlement'));
+  const evalPane = _note(T('이 강사가 받은 학생 수업 평가·평점은 아래에서 확인합니다.','View student ratings below.')) + _jump('card-class-ratings', T('⭐ 학생 수업 평가 열기','⭐ Open Student Ratings'));
   const memoPane = _tpField('MBTI', t.mbti) +
-      (t.notes ? '<div style="margin-top:8px;padding:10px;background:#f9fafb;border-radius:6px;font-size:13px"><b>내부 메모</b><br>' + _aiEsc(t.notes).replace(/\n/g,'<br>') + '</div>' : _note('등록된 내부 메모 없음 — 프로필 수정에서 추가')) +
-      _jump('card-praise-stats', '😊 칭찬 통계 열기');
+      (t.notes ? '<div style="margin-top:8px;padding:10px;background:#f9fafb;border-radius:6px;font-size:13px"><b>' + T('내부 메모','Internal Notes') + '</b><br>' + _aiEsc(t.notes).replace(/\n/g,'<br>') + '</div>' : _note(T('등록된 내부 메모 없음 — 프로필 수정에서 추가','No internal notes yet — add via Edit Profile'))) +
+      _jump('card-praise-stats', T('😊 칭찬 통계 열기','😊 Open Praise Stats'));
   const paneBody = { prof: profilePane, classes: classesPane, pay: payPane, eval: evalPane, memo: memoPane };
   const tabBar = '<div style="display:flex;gap:2px;border-bottom:1px solid #e5e7eb;margin-bottom:14px;flex-wrap:wrap">' +
     tabs.map(function(tb,i){ var on=i===0; return '<button type="button" class="tp-dtab" data-tab="' + tb[0] + '" onclick="_tpDetailTab(this,\'' + tb[0] + '\')" style="padding:8px 13px;border:0;background:none;cursor:pointer;font-weight:700;font-size:13px;color:' + (on?'#1f2937':'#9ca3af') + ';border-bottom:2.5px solid ' + (on?'#f59e0b':'transparent') + '">' + tb[1] + '</button>'; }).join('') +
