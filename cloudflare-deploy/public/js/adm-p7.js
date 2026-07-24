@@ -3,6 +3,13 @@
 //   외부 classic script — admin.html 다른 <script> 와 전역 스코프 공유. 원복=이 위치에 인라인.
 // ═══════════════════════════════════════════════════════════════
 (function(){
+  // 🧑‍💼 매니저 판정(강사·직원 명부 공용) — 카페24 is_manager 코드(1/2/null)는 실제와 안 맞음
+  //   (값2=Karl·Neha 인데 실매니저=Maimai·Melca·Karl). 회사가 이름으로 관리(adm-lang-boot.js "Manager Maimai/Melca + IT Karl").
+  //   Karla·Melcah 같은 유사이름 오탐 방지 위해 토큰 단위 정확일치. 명단 변경 시 여기 한 곳만 고치면 됨.
+  const MGR_NAMES = new Set(['maimai','maymai','melca','karl']);
+  function isManagerName(name, nickname){
+    return ((name||'')+' '+(nickname||'')).toLowerCase().replace(/[()]/g,' ').split(/[^a-z]+/).filter(Boolean).some(function(w){ return MGR_NAMES.has(w); });
+  }
   // 강사 풀 (실 운영 시 /api/admin/teachers/list)
   const TEACHER_POOL = [
     { id:1, name:'Maria Santos',   levels:['A1','A2','B1'],     dow:[1,2,3,4,5], slots:['09','10','14','15','19','20'], rating:4.9, avail:true },
@@ -261,13 +268,20 @@
       const d = await (await fetch('/api/admin/staff/graph-list?q='+encodeURIComponent(q), { credentials:'include' })).json();
       if (!d.ok) throw new Error(d.error||d.code||'error');
       const rows = d.staff||[];
-      if (cnt) cnt.textContent = '총 '+rows.length+'명';
-      tb.innerHTML = rows.length ? rows.map(function(s){ var a=s.status==='active';
-        return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 10px"><b>'+esc(s.name)+'</b>'+(s.nickname?' <span style="color:#94a3b8">('+esc(s.nickname)+')</span>':'')+'</td>'
+      const _en = (window.adminLang==='en');  // 매니저(Maimai·Melca 등)는 필리핀 직원이라 영어 뷰가 많음 → 배지·상태 이중언어
+      if (cnt) cnt.textContent = (_en ? rows.length+' staff' : '총 '+rows.length+'명');
+      tb.innerHTML = rows.length ? rows.map(function(s){
+        // 상태 3분류: active=재직 / inactive=퇴사 / 그 외(null)=미확인. (강사 명부와 동일 — null 을 퇴사로 찍던 버그 수정)
+        var st = s.status;
+        var stStyle = st==='active' ? '#dcfce7;color:#15803d' : (st==='inactive' ? '#f1f5f9;color:#94a3b8' : '#fef3c7;color:#b45309');
+        var stLabel = st==='active' ? (_en?'Active':'재직') : (st==='inactive' ? (_en?'Inactive':'퇴사') : (_en?'Unknown':'미확인'));
+        // 매니저 배지: is_manager 코드 대신 공용 이름 명단으로 판정(Maimai·Melca 는 직원으로 등록돼 이 표에 있음)
+        var mgr = isManagerName(s.name, s.nickname) ? '<span style="padding:1px 6px;background:#ede9fe;color:#6d28d9;font-size:10px;border-radius:99px;margin-left:4px;font-weight:700">'+(_en?'Manager':'매니저')+'</span>' : '';
+        return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 10px"><b>'+esc(s.name)+'</b>'+(s.nickname && s.nickname!==s.name ?' <span style="color:#94a3b8">('+esc(s.nickname)+')</span>':'')+mgr+'</td>'
           +'<td style="padding:8px 10px;color:#475569">'+esc(s.email||'—')+'</td>'
           +'<td style="padding:8px 10px;color:#64748b;max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(s.intro)+'">'+esc(s.intro||'—')+'</td>'
-          +'<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+(a?'#dcfce7;color:#15803d':'#f1f5f9;color:#94a3b8')+'">'+(a?'재직':'퇴사')+'</span></td></tr>';
-      }).join('') : '<tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af">직원 없음</td></tr>';
+          +'<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+stStyle+'">'+stLabel+'</span></td></tr>';
+      }).join('') : '<tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'No staff':'직원 없음')+'</td></tr>';
     } catch(e){ tb.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:#dc2626">불러오기 실패: '+esc(String(e&&e.message||e))+'</td></tr>'; }
   };
   // 📚 교재 명부 (카페24 실데이터)
@@ -306,10 +320,7 @@
       if (!d.ok) throw new Error(d.error || 'API error');
       const rows = d.teachers || [];
       _trLoaded = true;
-      // 🧑‍💼 매니저 판정: 카페24 is_manager 코드(1/2/null)는 실제와 안 맞음(값 2 = Karl·Neha 인데 실매니저는 Maimai·Melca·Karl,
-      //    Neha는 매니저 아님). → 회사가 이름으로 관리하는 매니저 명단으로 판정.(adm-lang-boot.js "Manager Maimai/Melca + IT Karl")
-      const MGR_NAMES = new Set(['maimai','maymai','melca','karl']);
-      const isMgr = t => ((t.name||'')+' '+(t.nickname||'')).toLowerCase().replace(/[()]/g,' ').split(/[^a-z]+/).filter(Boolean).some(w => MGR_NAMES.has(w));
+      const isMgr = t => isManagerName(t.name, t.nickname);  // 매니저 판정=파일 상단 공용 헬퍼(강사·직원 명부 동일 명단)
       // 상태 3분류: active=재직 / inactive=퇴사 / 그 외(null=아직 미동기화된 신규강사)=미확인.
       //   (null 을 무조건 '퇴사'로 찍던 버그 수정 — 신규 34명이 퇴사로 오표시되던 문제)
       const stRank = s => s==='active' ? 0 : (s==='inactive' ? 2 : 1); // 재직 → 미확인 → 퇴사
