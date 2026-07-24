@@ -176,7 +176,7 @@
   // 👩‍🏫 강사 명부 (카페24 실데이터) — Neo4j graph-list
   let _trLoaded = false;
   let _trAllRows = [];                                   // 로드된 전체 강사(필터는 서버 재조회 없이 이걸로)
-  let _trFilter = { role:'all', status:'all', group:'all' }; // 구분/상태/그룹 3축 필터(AND)
+  let _trFilter = { role:'all', status:'active', group:'all' }; // 구분/상태/그룹 3축 필터(AND) · 기본=재직(퇴사 다수 가림)
   // 🧑‍💼 직원 명부 (카페24 실데이터)
   // 🏅 레벨테스트 배치 현황 (카페24 레벨테스트 집계)
   window.loadLeveltestOverview = async function(){
@@ -322,7 +322,7 @@
       if (!d.ok) throw new Error(d.error || 'API error');
       _trAllRows = d.teachers || [];
       _trLoaded = true;
-      _trFilter = { role:'all', status:'all', group:'all' }; // 새로 불러오면 필터 초기화
+      _trFilter = { role:'all', status:'active', group:'all' }; // 새로 불러오면 필터 초기화(기본=재직)
       renderTeacherRoster();
     } catch(e) {
       const esc = s => String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
@@ -349,36 +349,50 @@
     return true;
   }
 
-  // 필터바(칩) 렌더 — 각 칩에 전체 데이터 기준 인원수 표시
+  // 필터바 렌더 — 한 줄 드롭다운(구분·상태·그룹) + 적용된 필터 칩. (2026-07-25 3줄 칩→드롭다운 개선, 한/영)
   function renderTrFilterBar() {
     const bar = document.getElementById('tr-filters');
     if (!bar) return;
     const _en = (window.adminLang==='en');
     const all = _trAllRows;
+    const f = _trFilter;
     const esc = s => String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-    const chip = (kind, val, label, count) => {
-      const active = _trFilter[kind]===val;
-      return '<button type="button" onclick="trSetFilter(\''+kind+'\',\''+encodeURIComponent(val)+'\')" '
-        + 'style="padding:4px 10px;font-size:11.5px;border-radius:99px;cursor:pointer;font-weight:'+(active?'700':'500')
-        + ';border:1px solid '+(active?'#6d28d9':'#d1d5db')+';background:'+(active?'#ede9fe':'#fff')+';color:'+(active?'#6d28d9':'#475569')+'">'
-        + esc(label) + (count==null?'':' <span style="opacity:.65">'+count+'</span>') + '</button>';
-    };
-    const cLabel = t => '<span style="font-size:11px;color:#9ca3af;font-weight:700;margin-right:2px">'+t+'</span>';
     const mgrN = all.filter(t=>isManagerName(t.name,t.nickname)).length;
     const stN = k => all.filter(t=>_trStatKey(t.status)===k).length;
-    // 그룹 목록(데이터에서 동적 추출, 인원 많은 순)
     const gMap = {}; all.forEach(t=>{ const g=t.group_name||'—'; gMap[g]=(gMap[g]||0)+1; });
     const groups = Object.keys(gMap).sort((a,b)=>gMap[b]-gMap[a]);
-    const wrap = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';
-    let html = '';
-    html += '<div style="'+wrap+'">'+cLabel(_en?'Role':'구분')+chip('role','all',_en?'All':'전체',all.length)+chip('role','manager',_en?'Manager':'매니저',mgrN)+chip('role','teacher',_en?'Teacher':'일반강사',all.length-mgrN)+'</div>';
-    html += '<div style="'+wrap+'">'+cLabel(_en?'Status':'상태')+chip('status','all',_en?'All':'전체',all.length)+chip('status','active',_en?'Active':'재직',stN('active'))+chip('status','inactive',_en?'Inactive':'퇴사',stN('inactive'))+chip('status','unknown',_en?'Unknown':'미확인',stN('unknown'))+'</div>';
-    if (groups.length) {
-      html += '<div style="'+wrap+'">'+cLabel(_en?'Group':'그룹')+chip('group','all',_en?'All':'전체',all.length)+groups.map(g=>chip('group',g,g,gMap[g])).join('')+'</div>';
+    const gLabel = g => (g==='—' ? (_en?'Ungrouped':'미분류') : g);
+    // 드롭다운 헬퍼: opts = [[val,label,count],...]
+    const sel = (kind, opts) => {
+      const on = f[kind] !== 'all';
+      return '<select onchange="trSetFilter(\''+kind+'\',encodeURIComponent(this.value))" '
+        + 'style="padding:7px 11px;font-size:12.5px;font-weight:600;border-radius:8px;cursor:pointer;border:1px solid '
+        + (on?'#8b5cf6':'#d1d5db')+';background:'+(on?'#f5f3ff':'#fff')+';color:'+(on?'#6d28d9':'#334155')+'">'
+        + opts.map(o=>'<option value="'+esc(o[0])+'"'+(o[0]===f[kind]?' selected':'')+'>'+esc(o[1])+(o[2]==null?'':' ('+o[2]+')')+'</option>').join('')
+        + '</select>';
+    };
+    const roleSel = sel('role', [['all',(_en?'Type: All':'구분: 전체'),all.length],['manager',(_en?'Manager':'매니저'),mgrN],['teacher',(_en?'Teacher':'일반강사'),all.length-mgrN]]);
+    const statusSel = sel('status', [['all',(_en?'Status: All':'상태: 전체'),all.length],['active',(_en?'Active':'재직'),stN('active')],['inactive',(_en?'Inactive':'퇴사'),stN('inactive')],['unknown',(_en?'Unknown':'미확인'),stN('unknown')]]);
+    const groupSel = groups.length ? sel('group', [['all',(_en?'Group: All':'그룹: 전체'),all.length]].concat(groups.map(g=>[g, gLabel(g), gMap[g]]))) : '';
+    // 적용된 필터 칩(활성 시만)
+    const pills = [];
+    if (f.role!=='all') pills.push(['role',(_en?'Type':'구분'), f.role==='manager'?(_en?'Manager':'매니저'):(_en?'Teacher':'일반강사')]);
+    if (f.status!=='all') pills.push(['status',(_en?'Status':'상태'), _trStatLabel(f.status,_en)]);
+    if (f.group!=='all') pills.push(['group',(_en?'Group':'그룹'), gLabel(f.group)]);
+    let pillHtml = '';
+    if (pills.length) {
+      pillHtml = '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">'
+        + '<span style="font-size:11px;color:#9ca3af;font-weight:600">'+(_en?'Applied':'적용된 필터')+'</span>'
+        + pills.map(p=>'<span style="display:inline-flex;align-items:center;gap:6px;background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;border-radius:99px;padding:3px 7px 3px 10px;font-size:11.5px;font-weight:600">'
+            + esc(p[1])+': <b>'+esc(p[2])+'</b>'
+            + '<span onclick="trSetFilter(\''+p[0]+'\',\'all\')" style="cursor:pointer;width:15px;height:15px;border-radius:50%;background:#ddd6fe;color:#6d28d9;display:inline-flex;align-items:center;justify-content:center;font-size:10px">✕</span></span>').join('')
+        + '<span onclick="trClearFilters()" style="font-size:11.5px;color:#6b7280;cursor:pointer;text-decoration:underline">'+(_en?'Clear all':'모두 해제')+'</span>'
+        + '</div>';
     }
-    bar.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:12px';
-    bar.innerHTML = html;
+    bar.style.cssText = 'margin-bottom:12px';
+    bar.innerHTML = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+roleSel+statusSel+groupSel+'</div>'+pillHtml;
   }
+  window.trClearFilters = function(){ _trFilter = { role:'all', status:'all', group:'all' }; renderTeacherRoster(); };
 
   // 강사 명부 렌더(필터+정렬+표) — loadTeacherRoster 와 trSetFilter 가 공용 호출
   function renderTeacherRoster() {
@@ -398,10 +412,9 @@
     // 표시 N / 전체 N + 기준일 주의(담당수업·학생 수는 2026-07-04 사전계산값)
     if (cnt) {
       const filtered = (_trFilter.role!=='all'||_trFilter.status!=='all'||_trFilter.group!=='all');
+      const tip = _en ? 'Classes/Students as of 2026-07-04 (may differ from now)' : '담당수업·담당학생 수는 2026-07-04 집계값 (현재값과 다를 수 있음)';
       cnt.innerHTML = (_en ? ((filtered? rows.length+' / ':'')+_trAllRows.length+' teachers') : ((filtered? '표시 '+rows.length+'명 · ':'')+'총 '+_trAllRows.length+'명'))
-        + ' <span style="color:#b45309">· '
-        + (_en ? 'Classes/Students as of 2026-07-04 (may differ from now)' : '담당수업·담당학생 수는 2026-07-04 집계(현재값과 다를 수 있음)')
-        + '</span>';
+        + ' <span title="'+tip+'" style="cursor:help;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#e5e7eb;color:#6b7280;font-size:10px;font-weight:700;vertical-align:middle">i</span>';
     }
     tb.innerHTML = rows.length ? rows.map(t => {
       const mgr = isManagerName(t.name, t.nickname) ? '<span style="padding:1px 6px;background:#ede9fe;color:#6d28d9;font-size:10px;border-radius:99px;margin-left:4px;font-weight:700">'+(_en?'Manager':'매니저')+'</span>' : '';
