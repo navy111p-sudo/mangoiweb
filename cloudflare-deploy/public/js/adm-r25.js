@@ -189,13 +189,13 @@
     var card = document.getElementById(cardId);
     if (!card) { alert('카드 미구현: ' + cardId); return; }
     if (card.tagName === 'DETAILS') card.open = true;
-    card.scrollIntoView({ behavior:'smooth', block:'start' });
+    card.scrollIntoView({ behavior:'auto', block:'start' });
     var items = card.querySelectorAll('details.sub-item, .sub-menu > details');
     var target = items[idx];
     if (target) {
       target.open = true;
       setTimeout(function(){
-        target.scrollIntoView({ behavior:'smooth', block:'center' });
+        target.scrollIntoView({ behavior:'auto', block:'center' });
         target.style.boxShadow = '0 0 0 3px rgba(251,191,36,0.6), 0 12px 40px rgba(251,191,36,0.3)';
         setTimeout(function(){ target.style.boxShadow = ''; }, 2500);
       }, 300);

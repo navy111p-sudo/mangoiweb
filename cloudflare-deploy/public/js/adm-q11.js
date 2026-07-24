@@ -194,7 +194,7 @@
     var card = document.getElementById(cardId);
     if (!card) { alert('카드 미구현: ' + cardId); return; }
     if (card.tagName === 'DETAILS') card.open = true;
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.scrollIntoView({ behavior: 'auto', block: 'start' });
     card.style.boxShadow = '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)';
     setTimeout(function(){ card.style.boxShadow = ''; }, 2500);
     hideFlyoutV2(0);
@@ -204,14 +204,14 @@
     var card = document.getElementById(cardId);
     if (!card) { alert('카드 미구현: ' + cardId); return; }
     if (card.tagName === 'DETAILS') card.open = true;
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.scrollIntoView({ behavior: 'auto', block: 'start' });
     // DOM 에서 같은 idx 의 sub-item 찾아서 열기
     var items = card.querySelectorAll('details.sub-item, .sub-menu > details, .menu-body > details');
     var target = items[idx];
     if (target) {
       target.open = true;
       setTimeout(function(){
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.scrollIntoView({ behavior: 'auto', block: 'center' });
         target.style.boxShadow = '0 0 0 3px rgba(251,191,36,0.6), 0 12px 40px rgba(251,191,36,0.3)';
         setTimeout(function(){ target.style.boxShadow = ''; }, 2500);
       }, 300);
