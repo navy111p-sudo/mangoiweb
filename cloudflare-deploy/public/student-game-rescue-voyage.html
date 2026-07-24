@@ -186,7 +186,7 @@
     </div>
     <div class="pad" id="boost">🌊<span>부스트</span></div>
   </div>
-  <div id="hint" style="display:none">← → / A D 로 조타 · Space 부스트 · 친구를 향해 배를 몰아 구하세요</div>
+  <div id="hint" style="display:none">🖱 마우스로 배를 조종 (누르면 부스트) · 또는 ← → · 친구를 향해 배를 몰아 구하세요</div>
 
   <!-- 구조 성공 토스트 -->
   <div id="toast"></div>
@@ -400,7 +400,7 @@
        3. Three.js 씬 셋업
        ============================================================ */
     var canvas=document.getElementById('cv');
-    var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,preserveDrawingBuffer:true});
+    var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     var scene=new THREE.Scene();
     scene.fog=new THREE.Fog(0x9fe3f0, 40, 95);
@@ -425,6 +425,12 @@
       { url:'/models/rescue-coral.glb?v=1',   size:2.0, yOff:-0.35 },  // 컬러풀 산호초
       { url:'/models/rescue-boulder.glb?v=1', size:1.9, yOff:-0.45 },  // 이끼 낀 둥근 바위
       { url:'/models/rescue-spire.glb?v=1',   size:2.1, yOff:-0.5 }    // 뾰족 암초 무리
+    ];
+    // 단어 친구가 탄 부유물 변형 — 구명튜브뿐 아니라 드럼통·나무통 등으로 다양하게
+    var FRIEND_VARIANTS = [
+      { url:'/models/rescue-friend.glb?v=1',  size:1.45, yOff:-0.05 },  // 빨간 구명튜브
+      { url:'/models/rescue-drum.glb?v=1',    size:1.7,  yOff:-0.15 },  // 오렌지 드럼통
+      { url:'/models/rescue-barrel.glb?v=1',  size:1.65, yOff:-0.15 }   // 나무통
     ];
     /* URL당 1회만 fetch+파싱하고, 이후 스폰마다는 캐시된 씬을 clone() 만 함
        — 친구/암초는 매 스폰(초당 최대 1~2회)마다 buildFriend/buildRock 이 새로 호출되므로,
@@ -529,20 +535,25 @@
     function roundRect(x,a,b,w,h,r){ x.beginPath(); x.moveTo(a+r,b); x.arcTo(a+w,b,a+w,b+h,r); x.arcTo(a+w,b+h,a,b+h,r); x.arcTo(a,b+h,a,b,r); x.arcTo(a,b,a+w,b,r); x.closePath(); }
     function makeBubble(main, sub, golden){
       var c=document.createElement('canvas'); c.width=320; c.height=200; var x=c.getContext('2d');
-      // 말풍선
-      x.fillStyle='rgba(255,255,250,0.97)'; x.strokeStyle=golden?'#ffd23f':'#ff8a1e'; x.lineWidth=golden?10:8;
+      // 말풍선 — 반투명 배경(뒤의 배·친구가 비쳐 보이게). 텍스트에 그림자를 줘 투명해도 가독성 유지
+      var bg = golden ? 'rgba(255,251,235,0.5)' : 'rgba(255,255,250,0.46)';
+      x.fillStyle=bg; x.strokeStyle=golden?'rgba(255,210,63,0.85)':'rgba(255,138,30,0.8)'; x.lineWidth=golden?7:6;
       roundRect(x,10,10,300,140,26); x.fill(); x.stroke();
       // 꼬리
-      x.beginPath(); x.moveTo(140,148); x.lineTo(160,190); x.lineTo(180,148); x.closePath();
-      x.fillStyle='rgba(255,255,250,0.97)'; x.fill();
-      // 텍스트
+      x.beginPath(); x.moveTo(140,148); x.lineTo(160,188); x.lineTo(180,148); x.closePath();
+      x.fillStyle=bg; x.fill();
+      // 텍스트 — 반투명 배경 위에서도 또렷하게(흰 외곽선 + 진한 글자)
       x.textAlign='center'; x.textBaseline='middle';
-      x.fillStyle='#12324a'; x.font='800 '+(golden?56:62)+'px "Segoe UI","Microsoft YaHei",sans-serif';
-      x.fillText((golden?'⭐ ':'')+main,160, sub?66:82);
-      if(sub){ x.fillStyle='#6b7280'; x.font='600 28px "Segoe UI",sans-serif'; x.fillText(sub,160,116); }
+      x.lineJoin='round';
+      x.font='800 '+(golden?54:60)+'px "Segoe UI","Microsoft YaHei",sans-serif';
+      x.strokeStyle='rgba(255,255,255,0.95)'; x.lineWidth=6; x.strokeText((golden?'⭐ ':'')+main,160, sub?66:82);
+      x.fillStyle='#12324a'; x.fillText((golden?'⭐ ':'')+main,160, sub?66:82);
+      if(sub){ x.font='600 28px "Segoe UI",sans-serif';
+        x.strokeStyle='rgba(255,255,255,0.9)'; x.lineWidth=5; x.strokeText(sub,160,116);
+        x.fillStyle='#5a6b70'; x.fillText(sub,160,116); }
       var tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
       var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
-      sp.scale.set(4.6,2.9,1); sp.position.y=2.6; sp.renderOrder=5;
+      sp.scale.set(3.6,2.25,1); sp.position.y=2.4; sp.renderOrder=5;   // 기존보다 ~22% 작게
       return sp;
     }
 
@@ -571,7 +582,9 @@
         spark.position.set(0.95,1.15,0); g.add(spark); g.userData.spark=spark;   // 골든 반짝임도 proc 밖 — 항상 표시
       }
       g.userData={ type:'friend', word:word, lang:lang2, bob:Math.random()*6.28, golden:!!golden, proc:proc };
-      attachGLB(g, GLB_MODELS.friend, 1.45, -0.05, false, 0, 0, 0, true, {top:0.35, bot:-0.6});   // 물 아래 몸통 자연 페이드(싹둑 잘린 느낌 제거)
+      // 부유물 변형 랜덤 선택(구명튜브/드럼통/나무통) + 랜덤 Y회전으로 방향 변주. 물 아래 몸통 자연 페이드.
+      var fv = FRIEND_VARIANTS[Math.floor(Math.random()*FRIEND_VARIANTS.length)];
+      attachGLB(g, fv.url, fv.size, fv.yOff, false, (Math.random()-0.5)*0.8, 0, 0, true, {top:0.35, bot:-0.6});
       return g;
     }
 
@@ -915,9 +928,20 @@
     hold($('left'), function(){setSteer(-1);}, function(){ if(G.steer<0)setSteer(0); });
     hold($('right'),function(){setSteer(1);},  function(){ if(G.steer>0)setSteer(0); });
     hold($('boost'),function(){G.boost=true;}, function(){G.boost=false;});
-    // 화면 좌/우 절반 탭으로도 조타(모바일 편의)
-    canvas.addEventListener('pointerdown',function(e){ if(!G.running)return; setSteer(e.clientX < window.innerWidth/2 ? -1 : 1); });
-    canvas.addEventListener('pointerup',function(){ setSteer(0); });
+
+    // ── 🖱 마우스/터치 위치 조종 — 포인터의 좌우 위치를 배가 즉각 따라옴(예민한 반응) ──
+    G.pointerX=null; G.pointerOn=false; G.aimSteer=0;   // pointerX=목표 레인 X, pointerOn=포인터 사용중, aimSteer=시각적 기울임
+    function pointerToLaneX(clientX){
+      var r=canvas.getBoundingClientRect();
+      var f=(clientX-r.left)/(r.width||1); f=Math.max(0,Math.min(1,f));   // 0..1
+      return lane.min + f*(lane.max-lane.min);
+    }
+    window.addEventListener('pointermove',function(e){ if(!G.running) return; G.pointerX=pointerToLaneX(e.clientX); G.pointerOn=true; });
+    // 화면(캔버스)을 누르면: 그 위치로 조준 + 부스트(마우스는 클릭-홀드, 터치는 손가락 누른 채 드래그)
+    canvas.addEventListener('pointerdown',function(e){ if(!G.running) return; e.preventDefault(); G.pointerX=pointerToLaneX(e.clientX); G.pointerOn=true; G.boost=true; });
+    window.addEventListener('pointerup',function(){ G.boost=false; });
+    // 마우스가 게임 밖으로 나가면 포인터 조종 해제(배는 그 자리 유지)
+    canvas.addEventListener('pointerleave',function(){ /* 위치는 유지, 계속 추종하도록 pointerOn 유지 */ });
 
     /* ============================================================
        7. 메인 루프
@@ -962,15 +986,21 @@
       G.dist+=spd*dt; G.sinceSpawn+=spd*dt;
       if(G.sinceSpawn>=G.spawnGap){ G.sinceSpawn=0; spawnRow(); }
 
-      // 조타
-      if(G.controlLock>0){ G.controlLock-=dt; boat.rotation.y += dt*7; G.boatX += Math.sin(G.t*10)*0.04; }
-      else { boat.rotation.y = -G.steer*0.28; G.boatX += G.steer*9*dt; }
+      // 조타 — 소용돌이 스핀 > 키보드 > 마우스/터치 위치추종(예민) 순
+      if(G.controlLock>0){ G.controlLock-=dt; boat.rotation.y += dt*7; G.boatX += Math.sin(G.t*10)*0.04; G.aimSteer=0; }
+      else if(G.steer!==0){ G.aimSteer=G.steer; boat.rotation.y=-G.steer*0.28; G.boatX += G.steer*9*dt; }
+      else if(G.pointerOn && G.pointerX!=null){
+        var diff=G.pointerX - G.boatX;
+        G.boatX += diff*Math.min(1, dt*22);                       // 빠른 지수 추종 = 마우스에 예민하게 반응
+        G.aimSteer=Math.max(-1,Math.min(1, diff*0.9));            // 이동 방향으로 배를 기울임(뱅킹)
+        boat.rotation.y=-G.aimSteer*0.28;
+      } else { boat.rotation.y += (0-boat.rotation.y)*Math.min(1,dt*6); G.aimSteer=0; }   // 입력 없으면 정면 복귀
       G.boatX=Math.max(lane.min,Math.min(lane.max,G.boatX));
 
       // 배가 파도를 탐
       var by=waveH(G.boatX,0,G.t);
       boat.position.set(G.boatX, by+0.2, 0);
-      boat.rotation.z = (waveH(G.boatX-1,0,G.t)-waveH(G.boatX+1,0,G.t))*0.35 - G.steer*0.12;
+      boat.rotation.z = (waveH(G.boatX-1,0,G.t)-waveH(G.boatX+1,0,G.t))*0.35 - (G.aimSteer||0)*0.12;
       boat.rotation.x = (waveH(G.boatX,-1.5,G.t)-waveH(G.boatX,1.5,G.t))*0.25;
       if(boat.userData.flag) boat.userData.flag.rotation.y=Math.sin(G.t*8)*0.4;
 
@@ -1044,6 +1074,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260724232233 -->
+<!-- BUILD:20260725004033 -->
 </body>
 </html>
