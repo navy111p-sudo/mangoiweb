@@ -4645,6 +4645,8 @@
             <button onclick="loadTeacherRoster()" class="primary" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔍 조회" data-en="🔍 Search">🔍 조회</button>
             <span id="tr-count" style="font-size:12px;color:#6b7280"></span>
           </div>
+          <!-- 🔎 강사 필터바(구분·상태·그룹) — adm-p7.js renderTrFilterBar 가 채움 -->
+          <div id="tr-filters"></div>
           <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:600px">
             <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
               <thead style="background:#f9fafb;position:sticky;top:0;z-index:1"><tr>
@@ -11888,7 +11890,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-q5.js?v=1" defer></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
 
 <!-- ━━━━━━━━━━ 🔄 결석 강사 자동 대체 시스템 ━━━━━━━━━━ -->
-<script src="/js/adm-p7.js?v=3" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p7.js?v=4" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
 
 <style>
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

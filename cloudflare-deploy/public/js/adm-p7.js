@@ -175,6 +175,8 @@
 
   // 👩‍🏫 강사 명부 (카페24 실데이터) — Neo4j graph-list
   let _trLoaded = false;
+  let _trAllRows = [];                                   // 로드된 전체 강사(필터는 서버 재조회 없이 이걸로)
+  let _trFilter = { role:'all', status:'all', group:'all' }; // 구분/상태/그룹 3축 필터(AND)
   // 🧑‍💼 직원 명부 (카페24 실데이터)
   // 🏅 레벨테스트 배치 현황 (카페24 레벨테스트 집계)
   window.loadLeveltestOverview = async function(){
@@ -304,58 +306,121 @@
     } catch(e){ tb.innerHTML = '<tr><td colspan="3" style="padding:20px;text-align:center;color:#dc2626">불러오기 실패: '+esc(String(e&&e.message||e))+'</td></tr>'; }
   };
 
+  // 상태 정규화: active=재직 / inactive=퇴사 / 그 외(null=미동기화 신규강사)=미확인. (강사·직원 공용 개념)
+  const _trStatKey = s => s==='active' ? 'active' : (s==='inactive' ? 'inactive' : 'unknown');
+  const _trStatLabel = (key, en) => key==='active' ? (en?'Active':'재직') : (key==='inactive' ? (en?'Inactive':'퇴사') : (en?'Unknown':'미확인'));
+
   window.loadTeacherRoster = async function(force) {
-    if (_trLoaded && !force && !(document.getElementById('tr-q')||{}).value) { /* 이미 로드됨 */ }
     const tb = document.getElementById('tr-rows');
-    const cnt = document.getElementById('tr-count');
     if (!tb) return;
     const _en = (window.adminLang==='en');
     const q = (document.getElementById('tr-q')||{}).value || '';
-    const esc = s => String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-    const num = n => (Number(n)||0).toLocaleString();
     tb.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'Loading…':'불러오는 중…')+'</td></tr>';
     try {
       const r = await fetch('/api/admin/teachers/graph-list?q=' + encodeURIComponent(q), { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || 'API error');
-      const rows = d.teachers || [];
+      _trAllRows = d.teachers || [];
       _trLoaded = true;
-      const isMgr = t => isManagerName(t.name, t.nickname);  // 매니저 판정=파일 상단 공용 헬퍼(강사·직원 명부 동일 명단)
-      // 상태 3분류: active=재직 / inactive=퇴사 / 그 외(null=아직 미동기화된 신규강사)=미확인.
-      //   (null 을 무조건 '퇴사'로 찍던 버그 수정 — 신규 34명이 퇴사로 오표시되던 문제)
-      const stRank = s => s==='active' ? 0 : (s==='inactive' ? 2 : 1); // 재직 → 미확인 → 퇴사
-      rows.sort((a,b)=>{
-        const ra=stRank(a.status), rb=stRank(b.status);
-        if (ra!==rb) return ra-rb;                                    // 재직자 우선
-        return (Number(b.class_count)||0)-(Number(a.class_count)||0); // 그다음 담당수업 많은 순
-      });
-      // ⚠️ 담당수업·담당학생 수는 노드 사전계산값(2026-07-04 최초 적재)이라 현재값과 다를 수 있음 — 정직하게 기준일 표기.
-      if (cnt) cnt.innerHTML = (_en ? rows.length+' teachers' : '총 '+rows.length+'명')
+      _trFilter = { role:'all', status:'all', group:'all' }; // 새로 불러오면 필터 초기화
+      renderTeacherRoster();
+    } catch(e) {
+      const esc = s => String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+      tb.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:#dc2626">'+(_en?'Load failed: ':'불러오기 실패: ')+esc(String(e&&e.message||e))+'</td></tr>';
+      const fb = document.getElementById('tr-filters'); if (fb) fb.innerHTML = '';
+    }
+  };
+
+  // 🔎 필터 설정(구분/상태/그룹) — 서버 재조회 없이 로드된 _trAllRows 를 다시 렌더
+  window.trSetFilter = function(kind, val) {
+    if (!(kind in _trFilter)) return;
+    _trFilter[kind] = decodeURIComponent(val);
+    renderTeacherRoster();
+  };
+
+  // 필터 통과 여부
+  function _trPass(t) {
+    const f = _trFilter;
+    const mgr = isManagerName(t.name, t.nickname);
+    if (f.role==='manager' && !mgr) return false;
+    if (f.role==='teacher' && mgr) return false;
+    if (f.status!=='all' && _trStatKey(t.status)!==f.status) return false;
+    if (f.group!=='all' && (t.group_name||'—')!==f.group) return false;
+    return true;
+  }
+
+  // 필터바(칩) 렌더 — 각 칩에 전체 데이터 기준 인원수 표시
+  function renderTrFilterBar() {
+    const bar = document.getElementById('tr-filters');
+    if (!bar) return;
+    const _en = (window.adminLang==='en');
+    const all = _trAllRows;
+    const esc = s => String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    const chip = (kind, val, label, count) => {
+      const active = _trFilter[kind]===val;
+      return '<button type="button" onclick="trSetFilter(\''+kind+'\',\''+encodeURIComponent(val)+'\')" '
+        + 'style="padding:4px 10px;font-size:11.5px;border-radius:99px;cursor:pointer;font-weight:'+(active?'700':'500')
+        + ';border:1px solid '+(active?'#6d28d9':'#d1d5db')+';background:'+(active?'#ede9fe':'#fff')+';color:'+(active?'#6d28d9':'#475569')+'">'
+        + esc(label) + (count==null?'':' <span style="opacity:.65">'+count+'</span>') + '</button>';
+    };
+    const cLabel = t => '<span style="font-size:11px;color:#9ca3af;font-weight:700;margin-right:2px">'+t+'</span>';
+    const mgrN = all.filter(t=>isManagerName(t.name,t.nickname)).length;
+    const stN = k => all.filter(t=>_trStatKey(t.status)===k).length;
+    // 그룹 목록(데이터에서 동적 추출, 인원 많은 순)
+    const gMap = {}; all.forEach(t=>{ const g=t.group_name||'—'; gMap[g]=(gMap[g]||0)+1; });
+    const groups = Object.keys(gMap).sort((a,b)=>gMap[b]-gMap[a]);
+    const wrap = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+    let html = '';
+    html += '<div style="'+wrap+'">'+cLabel(_en?'Role':'구분')+chip('role','all',_en?'All':'전체',all.length)+chip('role','manager',_en?'Manager':'매니저',mgrN)+chip('role','teacher',_en?'Teacher':'일반강사',all.length-mgrN)+'</div>';
+    html += '<div style="'+wrap+'">'+cLabel(_en?'Status':'상태')+chip('status','all',_en?'All':'전체',all.length)+chip('status','active',_en?'Active':'재직',stN('active'))+chip('status','inactive',_en?'Inactive':'퇴사',stN('inactive'))+chip('status','unknown',_en?'Unknown':'미확인',stN('unknown'))+'</div>';
+    if (groups.length) {
+      html += '<div style="'+wrap+'">'+cLabel(_en?'Group':'그룹')+chip('group','all',_en?'All':'전체',all.length)+groups.map(g=>chip('group',g,g,gMap[g])).join('')+'</div>';
+    }
+    bar.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:12px';
+    bar.innerHTML = html;
+  }
+
+  // 강사 명부 렌더(필터+정렬+표) — loadTeacherRoster 와 trSetFilter 가 공용 호출
+  function renderTeacherRoster() {
+    const tb = document.getElementById('tr-rows');
+    const cnt = document.getElementById('tr-count');
+    if (!tb) return;
+    const _en = (window.adminLang==='en');
+    const esc = s => String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    const num = n => (Number(n)||0).toLocaleString();
+    renderTrFilterBar();
+    const stRank = s => s==='active' ? 0 : (s==='inactive' ? 2 : 1); // 재직 → 미확인 → 퇴사
+    const rows = _trAllRows.filter(_trPass).slice().sort((a,b)=>{
+      const ra=stRank(a.status), rb=stRank(b.status);
+      if (ra!==rb) return ra-rb;                                    // 재직자 우선
+      return (Number(b.class_count)||0)-(Number(a.class_count)||0); // 그다음 담당수업 많은 순
+    });
+    // 표시 N / 전체 N + 기준일 주의(담당수업·학생 수는 2026-07-04 사전계산값)
+    if (cnt) {
+      const filtered = (_trFilter.role!=='all'||_trFilter.status!=='all'||_trFilter.group!=='all');
+      cnt.innerHTML = (_en ? ((filtered? rows.length+' / ':'')+_trAllRows.length+' teachers') : ((filtered? '표시 '+rows.length+'명 · ':'')+'총 '+_trAllRows.length+'명'))
         + ' <span style="color:#b45309">· '
         + (_en ? 'Classes/Students as of 2026-07-04 (may differ from now)' : '담당수업·담당학생 수는 2026-07-04 집계(현재값과 다를 수 있음)')
         + '</span>';
-      tb.innerHTML = rows.length ? rows.map(t => {
-        const mgr = isMgr(t) ? '<span style="padding:1px 6px;background:#ede9fe;color:#6d28d9;font-size:10px;border-radius:99px;margin-left:4px;font-weight:700">'+(_en?'Manager':'매니저')+'</span>' : '';
-        const hours = (t.start_hour && t.end_hour) ? (esc(t.start_hour)+'~'+esc(t.end_hour)) : '—';
-        const edu = [t.edu, t.spec].filter(Boolean).map(esc).join(' · ') || '—';
-        const st = t.status;
-        const stStyle = st==='active' ? '#dcfce7;color:#15803d' : (st==='inactive' ? '#f1f5f9;color:#94a3b8' : '#fef3c7;color:#b45309');
-        const stLabel = st==='active' ? (_en?'Active':'재직') : (st==='inactive' ? (_en?'Inactive':'퇴사') : (_en?'Unknown':'미확인'));
-        return '<tr style="border-bottom:1px solid #f1f5f9">'
-          + '<td style="padding:8px 10px"><b>'+esc(t.name)+'</b>'+(t.nickname && t.nickname!==t.name ?' <span style="color:#94a3b8">('+esc(t.nickname)+')</span>':'')+mgr+'</td>'
-          + '<td style="padding:8px 10px;color:#475569">'+esc(t.group_name||'—')+'</td>'
-          + '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1e3a8a">'+num(t.class_count)+'</td>'
-          + '<td style="padding:8px 10px;text-align:right">'+num(t.student_count)+'</td>'
-          + '<td style="padding:8px 10px;text-align:right">'+num(t.work_days)+'</td>'
-          + '<td style="padding:8px 10px;color:#475569">'+hours+'</td>'
-          + '<td style="padding:8px 10px;color:#64748b;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+edu+'">'+edu+'</td>'
-          + '<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+stStyle+'">'+stLabel+'</span></td>'
-          + '</tr>';
-      }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'No teachers':'강사 없음')+'</td></tr>';
-    } catch(e) {
-      tb.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:#dc2626">'+(_en?'Load failed: ':'불러오기 실패: ')+esc(String(e&&e.message||e))+'</td></tr>';
     }
-  };
+    tb.innerHTML = rows.length ? rows.map(t => {
+      const mgr = isManagerName(t.name, t.nickname) ? '<span style="padding:1px 6px;background:#ede9fe;color:#6d28d9;font-size:10px;border-radius:99px;margin-left:4px;font-weight:700">'+(_en?'Manager':'매니저')+'</span>' : '';
+      const hours = (t.start_hour && t.end_hour) ? (esc(t.start_hour)+'~'+esc(t.end_hour)) : '—';
+      const edu = [t.edu, t.spec].filter(Boolean).map(esc).join(' · ') || '—';
+      const stKey = _trStatKey(t.status);
+      const stStyle = stKey==='active' ? '#dcfce7;color:#15803d' : (stKey==='inactive' ? '#f1f5f9;color:#94a3b8' : '#fef3c7;color:#b45309');
+      return '<tr style="border-bottom:1px solid #f1f5f9">'
+        + '<td style="padding:8px 10px"><b>'+esc(t.name)+'</b>'+(t.nickname && t.nickname!==t.name ?' <span style="color:#94a3b8">('+esc(t.nickname)+')</span>':'')+mgr+'</td>'
+        + '<td style="padding:8px 10px;color:#475569">'+esc(t.group_name||'—')+'</td>'
+        + '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1e3a8a">'+num(t.class_count)+'</td>'
+        + '<td style="padding:8px 10px;text-align:right">'+num(t.student_count)+'</td>'
+        + '<td style="padding:8px 10px;text-align:right">'+num(t.work_days)+'</td>'
+        + '<td style="padding:8px 10px;color:#475569">'+hours+'</td>'
+        + '<td style="padding:8px 10px;color:#64748b;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+edu+'">'+edu+'</td>'
+        + '<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:'+stStyle+'">'+_trStatLabel(stKey,_en)+'</span></td>'
+        + '</tr>';
+    }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#9ca3af">'+(_en?'No teachers match the filter':'해당 필터에 맞는 강사 없음')+'</td></tr>';
+  }
 
   window.loadAbsentTeachers = function() {
     const date = document.getElementById('sub-date').value || new Date().toISOString().slice(0,10);
