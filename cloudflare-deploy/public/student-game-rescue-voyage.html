@@ -615,6 +615,7 @@
       return g;
     }
     var boat=buildBoat(); scene.add(boat);
+    window.__RVDBG__={ G:function(){return G;}, p2l:function(x,y){return pointerToLaneX(x,y);}, startGame:function(){return startGame();}, canvas:function(){return canvas;} };   // TEMP 진단용
 
     /* ── 단어 친구(구명튜브 위 캐릭터 + 말풍선 스프라이트) ── */
     function roundRect(x,a,b,w,h,r){ x.beginPath(); x.moveTo(a+r,b); x.arcTo(a+w,b,a+w,b+h,r); x.arcTo(a+w,b+h,a,b+h,r); x.arcTo(a,b+h,a,b,r); x.arcTo(a,b,a+w,b,r); x.closePath(); }
@@ -1071,14 +1072,22 @@
 
     // ── 🖱 마우스/터치 위치 조종 — 포인터의 좌우 위치를 배가 즉각 따라옴(예민한 반응) ──
     G.pointerX=null; G.pointerOn=false; G.aimSteer=0;   // pointerX=목표 레인 X, pointerOn=포인터 사용중, aimSteer=시각적 기울임
-    function pointerToLaneX(clientX){
+    // 레이캐스트로 커서 바로 아래 물(배 평면 z=0)의 실제 월드 X를 정확히 구함 → 원근까지 반영해 정밀 조종
+    var _ray=new THREE.Raycaster(), _boatPlane=new THREE.Plane(new THREE.Vector3(0,0,1),0), _hit=new THREE.Vector3(), _ndc=new THREE.Vector2();
+    function pointerToLaneX(clientX, clientY){
       var r=canvas.getBoundingClientRect();
-      var f=(clientX-r.left)/(r.width||1); f=Math.max(0,Math.min(1,f));   // 0..1
+      _ndc.x=((clientX-r.left)/(r.width||1))*2-1;
+      _ndc.y=-(((clientY!=null?clientY:(r.top+r.height*0.72))-r.top)/(r.height||1))*2+1;
+      _ray.setFromCamera(_ndc, camera);
+      if(_ray.ray.intersectPlane(_boatPlane, _hit) && isFinite(_hit.x)){
+        return Math.max(lane.min, Math.min(lane.max, _hit.x));
+      }
+      var f=Math.max(0,Math.min(1,(clientX-r.left)/(r.width||1)));   // 폴백: 선형
       return lane.min + f*(lane.max-lane.min);
     }
-    window.addEventListener('pointermove',function(e){ if(!G.running) return; G.pointerX=pointerToLaneX(e.clientX); G.pointerOn=true; });
+    window.addEventListener('pointermove',function(e){ if(!G.running) return; G.pointerX=pointerToLaneX(e.clientX, e.clientY); G.pointerOn=true; });
     // 화면(캔버스)을 누르면: 그 위치로 조준 + 부스트(마우스는 클릭-홀드, 터치는 손가락 누른 채 드래그)
-    canvas.addEventListener('pointerdown',function(e){ if(!G.running) return; e.preventDefault(); G.pointerX=pointerToLaneX(e.clientX); G.pointerOn=true; G.boost=true; });
+    canvas.addEventListener('pointerdown',function(e){ if(!G.running) return; e.preventDefault(); G.pointerX=pointerToLaneX(e.clientX, e.clientY); G.pointerOn=true; G.boost=true; });
     window.addEventListener('pointerup',function(){ G.boost=false; });
     // 마우스가 게임 밖으로 나가면 포인터 조종 해제(배는 그 자리 유지)
     canvas.addEventListener('pointerleave',function(){ /* 위치는 유지, 계속 추종하도록 pointerOn 유지 */ });
@@ -1138,7 +1147,9 @@
       else if(G.steer!==0){ G.aimSteer=G.steer; boat.rotation.y=-G.steer*0.28; G.boatX += G.steer*9*dt; }
       else if(G.pointerOn && G.pointerX!=null){
         var diff=G.pointerX - G.boatX;
-        G.boatX += diff*Math.min(1, dt*22);                       // 빠른 지수 추종 = 마우스에 예민하게 반응
+        // 프레임률 독립 강추종 — 커서 위치로 거의 즉각 붙되 파도 지터는 부드럽게
+        G.boatX += diff*(1-Math.pow(0.0009, dt));
+        if(Math.abs(diff)<0.04) G.boatX=G.pointerX;               // 미세 오차 스냅(정밀)
         G.aimSteer=Math.max(-1,Math.min(1, diff*0.9));            // 이동 방향으로 배를 기울임(뱅킹)
         boat.rotation.y=-G.aimSteer*0.28;
       } else { boat.rotation.y += (0-boat.rotation.y)*Math.min(1,dt*6); G.aimSteer=0; }   // 입력 없으면 정면 복귀
@@ -1178,10 +1189,10 @@
         if(obj.position.z>14){ scene.remove(obj); objects.splice(o,1); }
       }
 
-      // 카메라(약간 배를 따라감 + 흔들림)
-      var camX=G.boatX*0.35 + (shakeT>0?(Math.random()-0.5)*shakeT*2:0);
+      // 카메라 — 좌우 추종을 크게 줄여(0.35→0.12) 마우스 화면위치↔배 매핑을 안정화(정밀 조종 핵심)
+      var camX=G.boatX*0.12 + (shakeT>0?(Math.random()-0.5)*shakeT*2:0);
       camera.position.set(camX, 6+(shakeT>0?(Math.random()-0.5)*shakeT:0), 10);
-      camera.lookAt(G.boatX*0.4, 0.6, -10);
+      camera.lookAt(G.boatX*0.15, 0.6, -10);
       if(shakeT>0) shakeT-=dt;
 
       renderer.render(scene,camera);
@@ -1230,6 +1241,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725113241 -->
+<!-- BUILD:20260725113728 -->
 </body>
 </html>

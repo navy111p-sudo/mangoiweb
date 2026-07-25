@@ -1052,6 +1052,7 @@
       <button class="tab" id="tab-myratings" data-tab="myratings" data-ko="⭐ 내 평가" data-en="⭐ My Ratings" style="display:none">⭐ 내 평가</button>
       <button class="tab" id="tab-leveltest-apps" data-tab="leveltest-apps" data-ko="🎯 레벨테스트 신청" data-en="🎯 Level Test Applicants" style="display:none">🎯 레벨테스트 신청</button>
       <button class="tab" id="tab-lesson-insight" data-tab="lesson-insight" data-ko="🎥 수업 리포트" data-en="🎥 Lesson Reports" style="display:none">🎥 수업 리포트</button>
+      <button class="tab" id="tab-report-approval" data-tab="report-approval" data-ko="🌟 성적표 승인" data-en="🌟 Report Approval" style="display:none">🌟 성적표 승인</button>
       <button class="tab" data-tab="lessons" data-ko="📚 내 수업" data-en="📚 My Classes">📚 내 수업</button>
       <!-- (💰 급여 탭 제거 2026-07-10 — 원화 정규직 '데모' 화면이라 필리핀 강사 수업료 모델과 달라 혼란만 줌.
            실데이터 정산은 아래 🧾 수업료 정산 탭이 담당) -->
@@ -1132,6 +1133,17 @@
         <button onclick="loadLessonInsightTeacher()" style="padding:5px 12px;font-size:12.5px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Refresh">↻ 새로고침</button>
       </div>
       <div id="li-teacher-body"><div style="padding:30px;text-align:center;color:var(--text-muted)" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
+    </section>
+
+    <!-- ───── 🌟 성적표 승인 (2개월마다 AI가 쓴 학부모 발송용 코멘트 검수 · 기획안 Phase 3) ───── -->
+    <section class="panel" data-panel="report-approval">
+      <div class="info-box" style="background:linear-gradient(135deg,rgba(251,191,36,0.14),rgba(245,158,11,0.06));border:1px solid rgba(251,191,36,0.4);color:#fde68a;font-size:14.5px;line-height:1.6">
+        🌟 <b data-ko="AI가 쓴 학부모 성적표 코멘트를 확인해주세요" data-en="Please review the AI-written parent report comments">AI가 쓴 학부모 성적표 코멘트를 확인해주세요</b><span data-ko=" — 2개월마다 자동으로 만들어져요. 확인(필요하면 수정)하고 [승인]을 눌러야 학부모께 카카오톡으로 나갑니다. 승인 전까지는 절대 발송되지 않아요." data-en=" — Created automatically every two months. Review it (edit if needed) and tap Approve — nothing is sent to parents until you do."> — 2개월마다 자동으로 만들어져요. 확인(필요하면 수정)하고 [승인]을 눌러야 학부모께 카카오톡으로 나갑니다. 승인 전까지는 절대 발송되지 않아요.</span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button onclick="loadReportApprovalTeacher()" style="padding:5px 12px;font-size:12.5px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;cursor:pointer" data-ko="↻ 새로고침" data-en="↻ Refresh">↻ 새로고침</button>
+      </div>
+      <div id="ra-teacher-body"><div style="padding:30px;text-align:center;color:var(--text-muted)" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div>
     </section>
 
     <!-- ───── 내 수업 (ph210) ───── -->
@@ -2339,6 +2351,107 @@
   var __liTab = qsTab('lesson-insight');
   if (__liTab) __liTab.addEventListener('click', function(){ window.loadLessonInsightTeacher(); });
 
+  // ───── 🌟 성적표 승인 (AI 초안 검수 → 승인해야만 카카오 발송, 기획안 Phase 3) ─────
+  //   monthly_reports 에는 강사가 여럿일 수 있어 "담당 강사"가 명확하지 않다 — 서버가
+  //   기간 중 마지막 평가서 작성 강사 이름으로 근사해 teacher_name 에 저장해 둔 걸 그대로 씀.
+  //   lesson-insight 와 같은 이유로 이름 표기 불일치 대비 2단 조회를 그대로 재사용한다.
+  window.loadReportApprovalTeacher = function(){
+    var body = document.getElementById('ra-teacher-body');
+    if (!body) return;
+    var en = EN();
+    var nm = window.__myName || '';
+    body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'Loading…':'불러오는 중…')+'</div>';
+
+    var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+    var norm = function(s){ return String(s||'').toLowerCase().replace(/\s|teacher|선생님|쌤/g,''); };
+    var getJson = function(url){ return fetch(url, { credentials:'include', cache:'no-store' }).then(function(r){ return r.json(); }); };
+
+    getJson('/api/admin/monthly-report/list?approval_status=pending' + (nm ? ('&teacher_name=' + encodeURIComponent(nm)) : ''))
+      .then(function(d){
+        var mine = (d && d.items) || [];
+        if (mine.length || !nm) { render(mine, 0); return; }
+        return getJson('/api/admin/monthly-report/list?approval_status=pending').then(function(d2){
+          var all = (d2 && d2.items) || [];
+          var m = norm(nm);
+          var fuzzy = all.filter(function(a){ var t = norm(a.teacher_name);
+            return t && m && (t === m || t.indexOf(m) >= 0 || m.indexOf(t) >= 0); });
+          render(fuzzy, all.length);
+        });
+      })
+      .catch(function(){ body.innerHTML = '<div style="padding:26px;text-align:center;color:#fca5a5">'+(en?'Network error.':'네트워크 오류예요.')+'</div>'; });
+
+    function render(items, totalAll){
+      if (!items.length){
+        body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted);line-height:1.7">'
+          + (en ? 'Nothing waiting for your approval right now.'
+                : '지금 승인을 기다리는 성적표가 없어요.')
+          + (totalAll ? ('<br><span style="font-size:11.5px;color:#94a3b8">'
+              + (en ? ('(' + totalAll + ' pending for other teachers — if this looks wrong, your name may be recorded differently in class records.)')
+                    : ('(다른 선생님 앞으로 대기 중인 게 ' + totalAll + '건 있어요 — 이상하면 수업 기록에 성함이 다르게 적혀 있을 수 있어요.)')) + '</span>') : '')
+          + '</div>';
+        return;
+      }
+      body.innerHTML = items.map(function(a, i){
+        var uid = a.student_uid, period = a.period;
+        var idBase = 'ra' + i;
+        return '<div id="'+idBase+'-card" style="background:var(--card,rgba(30,41,59,0.6));border:1px solid var(--border,#334155);border-radius:14px;padding:14px 16px;margin-bottom:11px">'
+          + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px">'
+          + '<b style="font-size:15px;color:#fde68a">'+esc(a.student_name || uid || '—')+'</b>'
+          + '<span style="font-size:12px;color:var(--text-muted)">'+esc(period||'')+'</span>'
+          + '</div>'
+          + '<div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:3px">'+(en?'Comment (KO)':'코멘트 (한국어)')+'</div>'
+          + '<textarea id="'+idBase+'-ko" rows="2" style="width:100%;padding:8px 10px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;font-family:inherit;font-size:13px;margin-bottom:8px">'+esc(a.ai_draft_comment_ko||'')+'</textarea>'
+          + '<div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:3px">'+(en?'Comment (EN)':'코멘트 (영어)')+'</div>'
+          + '<textarea id="'+idBase+'-en" rows="2" style="width:100%;padding:8px 10px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;font-family:inherit;font-size:13px;margin-bottom:8px">'+esc(a.ai_draft_comment_en||'')+'</textarea>'
+          + '<div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:3px">'+(en?'Home tip (KO/EN)':'가정 팁 (한/영)')+'</div>'
+          + '<textarea id="'+idBase+'-tipko" rows="1" style="width:100%;padding:8px 10px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;font-family:inherit;font-size:12.5px;margin-bottom:4px">'+esc(a.ai_draft_tip_ko||'')+'</textarea>'
+          + '<textarea id="'+idBase+'-tipen" rows="1" style="width:100%;padding:8px 10px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;font-family:inherit;font-size:12.5px;margin-bottom:10px">'+esc(a.ai_draft_tip_en||'')+'</textarea>'
+          + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+          + '<button onclick="raApprove(\''+esc(uid)+'\',\''+esc(period)+'\',\''+idBase+'\')" class="btn-primary" style="padding:8px 16px;font-size:13px" data-ko="✅ 승인" data-en="✅ Approve">'+(en?'✅ Approve':'✅ 승인')+'</button>'
+          + '<span id="'+idBase+'-msg" style="font-size:12px;color:var(--text-muted)"></span>'
+          + '</div></div>';
+      }).join('');
+    }
+  };
+
+  window.raApprove = function(uid, period, idBase){
+    var en = EN();
+    var msg = document.getElementById(idBase+'-msg');
+    var get = function(suf){ var el = document.getElementById(idBase+suf); return el ? el.value : ''; };
+    if (msg) msg.textContent = en ? 'Approving…' : '승인 중…';
+    fetch('/api/admin/monthly-report/approve', {
+      method: 'POST', credentials: 'include', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: uid, period: period, approved_by: window.__myName || '',
+        comment_ko: get('-ko'), comment_en: get('-en'), tip_ko: get('-tipko'), tip_en: get('-tipen')
+      })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (!d || !d.ok) { if (msg) msg.textContent = en ? 'Failed — try again.' : '실패했어요 — 다시 시도해주세요.'; return; }
+      var card = document.getElementById(idBase+'-card');
+      if (card) card.style.opacity = '0.55';
+      if (msg) msg.innerHTML = (en ? '✅ Approved. ' : '✅ 승인 완료. ')
+        + '<button onclick="raSendNow(\''+uid+'\',\''+period+'\',\''+idBase+'\')" style="padding:5px 12px;font-size:12px;border:1px solid var(--border,#334155);border-radius:8px;background:transparent;color:inherit;cursor:pointer">'+(en?'📨 Send now':'📨 지금 발송')+'</button>';
+    }).catch(function(){ if (msg) msg.textContent = en ? 'Network error.' : '네트워크 오류예요.'; });
+  };
+
+  window.raSendNow = function(uid, period, idBase){
+    var en = EN();
+    var msg = document.getElementById(idBase+'-msg');
+    if (msg) msg.textContent = en ? 'Sending…' : '발송 중…';
+    fetch('/api/admin/monthly-report/send', {
+      method: 'POST', credentials: 'include', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: uid, period: period })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (!d || !d.ok) { if (msg) msg.textContent = (en?'Send failed: ':'발송 실패: ')+((d&&d.message)||(d&&d.error)||''); return; }
+      if (msg) msg.textContent = en ? '📨 Sent!' : '📨 발송 완료!';
+    }).catch(function(){ if (msg) msg.textContent = en ? 'Network error.' : '네트워크 오류예요.'; });
+  };
+
+  var __raTab = qsTab('report-approval');
+  if (__raTab) __raTab.addEventListener('click', function(){ window.loadReportApprovalTeacher(); });
+
   var __ltTab = qsTab('leveltest-apps');
   if (__ltTab) __ltTab.addEventListener('click', function(){
     window.loadLeveltestAppsTeacher();
@@ -2489,6 +2602,7 @@
     var tMyRat   = qsTab('myratings'); if (tMyRat)  tMyRat.style.display   = isTeacher ? '' : 'none';
     var tLtApps  = el('tab-leveltest-apps'); if (tLtApps) tLtApps.style.display = isTeacher ? '' : 'none';
     var tLiTab   = el('tab-lesson-insight'); if (tLiTab) tLiTab.style.display = isTeacher ? '' : 'none';   // 🎥 수업 리포트 — 교사 전용
+    var tRaTab   = el('tab-report-approval'); if (tRaTab) tRaTab.style.display = isTeacher ? '' : 'none';   // 🌟 성적표 승인 — 교사 전용
     // 🧠 내 MBTI 카드 — 강사 전용(프로필 탭 안). 표시될 때 현재값 1회 로드.
     var mbtiCard = el('mbti-self-card');
     if (mbtiCard) { mbtiCard.style.display = isTeacher ? '' : 'none'; if (isTeacher) { try { loadMyMbti(); } catch(_e){} } }

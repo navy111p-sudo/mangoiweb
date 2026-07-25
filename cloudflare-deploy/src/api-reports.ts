@@ -105,6 +105,7 @@ async function ensureMonthlyReportsTable(env: MangoEnv): Promise<void> {
       ['ai_draft_comment_en', 'TEXT'],
       ['ai_draft_tip_ko', 'TEXT'],
       ['ai_draft_tip_en', 'TEXT'],
+      ['teacher_name', 'TEXT'],  // 검수 화면에서 "내 담당분만" 필터링용 — 마지막 평가서 작성 강사 이름(기획안 Phase 3)
     ];
     for (const [col, typ] of want) {
       if (!have.has(col)) { try { await env.DB.exec(`ALTER TABLE monthly_reports ADD COLUMN ${col} ${typ}`); } catch {} }
@@ -125,7 +126,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
   try { student = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, phone, birth_date FROM students_erp WHERE user_id = ?`).bind(uid).first(); } catch {}
   try { att = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(uid, start, end).first(); } catch {}
   try {
-    const evals = await env.DB.prepare(`SELECT id, lesson_date, score_overall, score_vocab, score_grammar, score_attitude, score_participation, strengths, improvements, next_goals, teacher_comment, created_at FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ? ORDER BY created_at ASC`).bind(uid, start, end).all();
+    const evals = await env.DB.prepare(`SELECT id, lesson_date, score_overall, score_vocab, score_grammar, score_attitude, score_participation, strengths, improvements, next_goals, teacher_comment, teacher_name, created_at FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ? ORDER BY created_at ASC`).bind(uid, start, end).all();
     evalRows = (evals.results || []) as any[];
   } catch {}
   try { voiceStats = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc, AVG(pronunciation_score) AS pron, AVG(fluency_score) AS flu, MAX(accuracy_score) AS best FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first(); } catch {}
@@ -158,6 +159,9 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
   const growthHighlight = computeGrowthHighlight(radar, prevRadar);
 
   const nm = (student && student.student_name) || uid;
+  // 검수(승인) 화면에서 "내 담당분만" 걸러 보려면 담당 강사가 필요한데, 이 리포트는 여러 강사의
+  // 평가서를 묶은 것일 수 있어 하나로 못 정한다 — 기간 중 가장 최근 평가서를 쓴 강사로 근사한다.
+  const teacherName = evalRows.length ? (evalRows[evalRows.length - 1].teacher_name || '') : '';
   const ageBand = computeAgeBand(student && student.birth_date);
   const hasSignal = evalRows.length > 0 || (att?.d || 0) > 0 || !!judgment;
 
@@ -217,6 +221,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     judgment,
     radar,
     growth_highlight: growthHighlight,
+    teacher_name: teacherName,
     ai_text: aiDraftCommentKo,  // 기존 monthly-report.html "담임의 한마디" 카드 하위호환(Phase 2 전까지)
     ai_draft_comment_ko: aiDraftCommentKo,
     ai_draft_comment_en: aiDraftCommentEn,
@@ -232,8 +237,8 @@ async function saveMonthlyReportRow(env: MangoEnv, uid: string, nm: string, peri
   await env.DB.prepare(
     `INSERT INTO monthly_reports
        (student_uid, student_name, period, ai_text, metrics_json, access_token, status, approval_status,
-        ai_draft_comment_ko, ai_draft_comment_en, ai_draft_tip_ko, ai_draft_tip_en, created_at)
-     VALUES (?,?,?,?,?,?, 'draft', 'pending', ?,?,?,?, ?)
+        ai_draft_comment_ko, ai_draft_comment_en, ai_draft_tip_ko, ai_draft_tip_en, teacher_name, created_at)
+     VALUES (?,?,?,?,?,?, 'draft', 'pending', ?,?,?,?,?, ?)
      ON CONFLICT(student_uid, period) DO UPDATE SET
        student_name=excluded.student_name,
        ai_text=excluded.ai_text,
@@ -241,10 +246,12 @@ async function saveMonthlyReportRow(env: MangoEnv, uid: string, nm: string, peri
        ai_draft_comment_ko=excluded.ai_draft_comment_ko,
        ai_draft_comment_en=excluded.ai_draft_comment_en,
        ai_draft_tip_ko=excluded.ai_draft_tip_ko,
-       ai_draft_tip_en=excluded.ai_draft_tip_en`
+       ai_draft_tip_en=excluded.ai_draft_tip_en,
+       teacher_name=excluded.teacher_name`
   ).bind(
     uid, nm, period, data.ai_text || '', JSON.stringify(data), token,
     data.ai_draft_comment_ko || '', data.ai_draft_comment_en || '', data.ai_draft_tip_ko || '', data.ai_draft_tip_en || '',
+    data.teacher_name || '',
     Date.now()
   ).run();
 }
@@ -438,16 +445,26 @@ export async function handleReportsApi(
       return json({ ok: true, report: data, token, url: viewUrl });
     }
 
-    // GET /api/admin/monthly-report/list?period=YYYY-MM
+    // GET /api/admin/monthly-report/list?period=YYYY-MM&teacher_name=&approval_status=
+    //   teacher_name/approval_status는 강사 마이페이지 "성적표 승인" 탭이 검수 대기만 걸러볼 때 씀(기획안 Phase 3).
     if (method === 'GET' && path === '/api/admin/monthly-report/list') {
       await ensureMonthlyReportsTable(env);
       const period = url.searchParams.get('period') || '';
+      const teacherName = url.searchParams.get('teacher_name') || '';
+      const approvalStatus = url.searchParams.get('approval_status') || '';
+      const cols = `id, student_uid, student_name, period, access_token, status, approval_status, teacher_name,
+        ai_draft_comment_ko, ai_draft_comment_en, ai_draft_tip_ko, ai_draft_tip_en,
+        sent_to_student, sent_to_parent, created_at, sent_at`;
+      const where: string[] = [];
+      const binds: any[] = [];
+      if (period) { where.push('period=?'); binds.push(period); }
+      if (teacherName) { where.push('teacher_name=?'); binds.push(teacherName); }
+      if (approvalStatus) { where.push('approval_status=?'); binds.push(approvalStatus); }
+      const whereSql = where.length ? ('WHERE ' + where.join(' AND ')) : '';
+      const limit = where.length ? 500 : 200;
       let rows: any[] = [];
       try {
-        const stmt = period
-          ? env.DB.prepare(`SELECT id, student_uid, student_name, period, access_token, status, approval_status, sent_to_student, sent_to_parent, created_at, sent_at FROM monthly_reports WHERE period=? ORDER BY created_at DESC LIMIT 500`).bind(period)
-          : env.DB.prepare(`SELECT id, student_uid, student_name, period, access_token, status, approval_status, sent_to_student, sent_to_parent, created_at, sent_at FROM monthly_reports ORDER BY created_at DESC LIMIT 200`);
-        const rs = await stmt.all();
+        const rs = await env.DB.prepare(`SELECT ${cols} FROM monthly_reports ${whereSql} ORDER BY created_at DESC LIMIT ${limit}`).bind(...binds).all();
         rows = (rs.results || []) as any[];
       } catch {}
       return json({ ok: true, items: rows });
