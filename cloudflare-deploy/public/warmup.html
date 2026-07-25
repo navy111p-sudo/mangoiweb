@@ -221,6 +221,8 @@
     .hint{font-size:12px;padding:0 12px 8px}
   }
 </style>
+<link rel="stylesheet" href="/css/mango-avatar.css?v=1"><!-- 👩‍🏫 강사 아바타 -->
+<script src="/js/mango-avatar.js?v=1" defer></script>
 </head>
 <body>
   <div class="top">
@@ -268,6 +270,21 @@
   </div>
 
   <div class="wrap">
+    <!-- 👩‍🏫 강사 아바타 — 얼굴 보며 웜업 (2026-07-25). 초록 영상을 캔버스에서 실시간 크로마키 → 투명 -->
+    <div id="tavatar-wrap">
+      <div id="tavatar-ring">
+        <canvas id="tavatar-canvas" width="320" height="320" aria-label="강사"></canvas>
+        <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
+          <source src="/img/teacher-avatar.webm" type="video/webm">
+          <source src="/img/teacher-avatar.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div id="tavatar-status">
+        <span class="ts-idle">함께 웜업해요</span>
+        <span class="ts-talk">말하는 중…</span>
+      </div>
+    </div>
+
     <div class="meta">
       <span class="chip topic"><b id="m-topic">자유 대화</b></span>
       <span class="chip combo" id="comboChip" style="display:none">🔥 <b id="comboN">0</b>콤보</span>
@@ -550,19 +567,21 @@ var _ttsCache={}, _ttsAudio=null;
 function _stopSpeak(){
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
   try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(e){}
+  try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}   // 👩‍🏫 아바타 입 멈춤
 }
-function _synthSpeak(text, btn){
+function _synthSpeak(text, btn, onDone){
   try{
-    if(!window.speechSynthesis || !_speechOn || !text) return;
+    if(!window.speechSynthesis || !_speechOn || !text) { if(onDone) onDone(); return; }
     if(!_enVoice) pickVoice();
     var u=new SpeechSynthesisUtterance(String(text));
     u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02;
     if(_enVoice) u.voice=_enVoice;
     u.onstart=function(){ _speechEverStarted=true; };
-    if(btn){ u.onend=function(){ btn.classList.remove('playing'); }; u.onerror=function(){ btn.classList.remove('playing'); }; }
+    u.onend=function(){ if(btn) btn.classList.remove('playing'); if(onDone) onDone(); };
+    u.onerror=function(){ if(btn) btn.classList.remove('playing'); if(onDone) onDone(); };
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
-  }catch(e){}
+  }catch(e){ if(onDone) onDone(); }
 }
 /* 🔇 낭독용 텍스트 정리 — 화면 말풍선엔 이모지를 그대로 두되, TTS로 넘길 때는
    이모지·그림문자를 제거한다. (안 그러면 "smiling face" "tree" 처럼 이름이 읽힘)
@@ -584,7 +603,8 @@ function speak(text, btn){
   _lastAiSpeak=text;
   _stopSpeak();
   if(btn) btn.classList.add('playing');
-  var done=function(){ if(btn) btn.classList.remove('playing'); };
+  try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 아바타 말하기 시작
+  var done=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} };
   var play=function(u){
     try{
       if(!_ttsAudio) _ttsAudio=new Audio();
@@ -594,7 +614,7 @@ function speak(text, btn){
       try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(e2){}
       _ttsAudio.play().then(function(){ _speechEverStarted=true; })
         .catch(function(){ done(); });   // 자동재생 차단 — 첫 터치(unlockAudio)에서 재시도됨
-    }catch(e){ done(); _synthSpeak(text, btn); }
+    }catch(e){ done(); _synthSpeak(text, btn, done); }
   };
   var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 남녀 교대)
   var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
@@ -604,7 +624,7 @@ function speak(text, btn){
     .then(function(r){ var ct=r.headers.get('content-type')||'';
       if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
     .then(function(b){ var u=URL.createObjectURL(b); _ttsCache[key]=u; play(u); })
-    .catch(function(){ _synthSpeak(text, btn); });   // 서버 TTS 실패 → 브라우저 음성 폴백
+    .catch(function(){ _synthSpeak(text, btn, done); });   // 서버 TTS 실패 → 브라우저 음성 폴백
 }
 // 모바일 자동재생 정책: 첫 사용자 제스처에서 speechSynthesis 를 깨워둔다(무음 발화)
 function unlockAudio(){
@@ -1090,7 +1110,7 @@ async function sendMsg(){
 <script defer src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260725121659 -->
+<!-- BUILD:20260725122721 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

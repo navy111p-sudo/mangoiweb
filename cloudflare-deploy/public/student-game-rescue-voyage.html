@@ -153,8 +153,14 @@
   #speakSubTxt{ font-size:12.5px; opacity:.75; min-height:16px; margin-bottom:8px; }
   .speakBtnRow{ display:flex; gap:10px; justify-content:center; margin-bottom:8px; }
   .speakBtn{ padding:10px 16px; border-radius:12px; border:0; font-weight:800; cursor:pointer; font-size:14px; }
-  #speakSpeedRow{ display:flex; align-items:center; justify-content:center; gap:6px; margin:6px 0 2px; flex-wrap:wrap; }
-  #speakSpeedRow .spdLbl{ font-size:12px; color:#bcd8e6; margin-right:2px; }
+  #speakSpeedRow, #gameSpeedRow{ display:flex; align-items:center; justify-content:center; gap:6px; margin:6px 0 2px; flex-wrap:wrap; }
+  #speakSpeedRow .spdLbl, #gameSpeedRow .spdLbl{ font-size:12px; color:#bcd8e6; margin-right:2px; }
+  #gameSpeedRow{ margin:12px 0 2px; }
+  /* 게임 중 속도 조절 버튼(HUD 아래) */
+  #gspeedHud{ position:fixed; left:8px; bottom:8px; z-index:18; display:none; gap:6px; }
+  #gspeedHud button{ padding:6px 10px; border-radius:12px; cursor:pointer; font-size:13px; font-weight:800;
+    background:rgba(20,40,60,0.6); color:#ffe9c7; border:1.5px solid #ffb86644; -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
+  #gspeedHud button.sel{ background:#ff8a1e33; border-color:var(--mango); }
   .spdBtn{ padding:6px 12px; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700;
     background:#ffffff14; color:#eaf6ff; border:1.5px solid #ffffff30; }
   .spdBtn.sel{ background:#ff8a1e22; border-color:var(--mango); color:#ffe9c7; }
@@ -175,6 +181,11 @@
   <div id="comboBanner"></div>
   <div id="stormBanner"></div>
   <div id="trialBadge" style="display:none"></div>
+  <div id="gspeedHud">
+    <button data-gs="0.55">🐢</button>
+    <button data-gs="0.75">🚶</button>
+    <button data-gs="1.0">🐇</button>
+  </div>
 
   <!-- 상단 HUD -->
   <div id="hud" style="display:none">
@@ -219,6 +230,12 @@
       <div class="mode" data-mode="zh"><div class="flag">🇨🇳</div><div class="nm">中文</div><div class="d">중국어로 구조</div></div>
     </div>
     <div id="modeNote" style="margin:10px 0 2px;font-weight:800;color:#ffe9c7"></div>
+    <div id="gameSpeedRow">
+      <span class="spdLbl">🚤 게임 속도</span>
+      <button class="spdBtn" data-gs="0.55">🐢 느리게</button>
+      <button class="spdBtn sel" data-gs="0.75">🚶 보통</button>
+      <button class="spdBtn" data-gs="1.0">🐇 빠르게</button>
+    </div>
     <button class="btn" id="startBtn">🚤 출항! Start</button>
   </div>
 
@@ -406,6 +423,14 @@
       return (q==='zh') ? 'zh' : 'en';
     }catch(_){ return 'en'; } })();
     if(MODE==='zh') _loadZh();   // 중국어 모드면 zh_vocab 선반입
+
+    /* ── 게임 속도 조절(느리게/보통/빠르게) — 시작화면·게임중 모두, localStorage 저장 ── */
+    var _gameSpeedMul = (function(){ try{ var v=parseFloat(localStorage.getItem('rv_gspeed')); return (v>=0.4&&v<=1.2)?v:0.75; }catch(_){ return 0.75; } })();
+    function setGameSpeed(v){ _gameSpeedMul=v; try{ localStorage.setItem('rv_gspeed', String(v)); }catch(_){}
+      ['#gameSpeedRow .spdBtn','#gspeedHud button'].forEach(function(sel){
+        Array.prototype.forEach.call(document.querySelectorAll(sel), function(b){ b.classList.toggle('sel', Math.abs(parseFloat(b.getAttribute('data-gs'))-v)<0.001); });
+      });
+    }
 
     /* ============================================================
        2. TTS — 영어는 서버(원어민)+브라우저 폴백, 중국어는 브라우저 zh-CN 직접
@@ -1174,7 +1199,7 @@
 
       // 속도/전진 거리 — 스테이지 시간이 줄수록 배가 점점 빨라짐(막판 긴장 고조). 최대 +35%.
       var urgencyRamp = 1 + (1 - G.stageTimeLeft/G.stageTimeMax)*0.35;
-      var spd=G.speed*urgencyRamp*(G.boost?1.8:1);
+      var spd=G.speed*urgencyRamp*(G.boost?1.8:1)*_gameSpeedMul;   // 게임 속도 조절 반영
       G.dist+=spd*dt; G.sinceSpawn+=spd*dt;
       if(G.sinceSpawn>=G.spawnGap){ G.sinceSpawn=0; spawnRow(); }
 
@@ -1285,6 +1310,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725121659 -->
+<!-- BUILD:20260725122721 -->
 </body>
 </html>
