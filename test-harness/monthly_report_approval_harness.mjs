@@ -138,5 +138,12 @@ ok('mr:parent.html에 성적표 바로가기 카드', /pd-monthly-report-card/.t
 ok('mr:바로가기는 있을 때만 노출(기본 display:none, 응답 성공시에만 표시)', /id="pd-monthly-report-card" style="margin-top:16px;display:none"/.test(pt));
 ok('mr:바로가기가 /latest 호출 후 실제 token으로 링크 구성', /api\/report\/monthly\/latest\?uid=/.test(pt) && /period=' \+ encodeURIComponent\(rd\.period\) \+ '&t=' \+ encodeURIComponent\(rd\.token\)/.test(pt));
 
+console.log('\n=== 9) index.ts 라우팅 게이트 등록 (CLAUDE.md 필수 규칙 — /api/admin/ 밖은 개별 등록 필요) ===');
+const idx = read(path.join(CD, 'src/index.ts'));
+// 🔴 2026-07-25 실제로 이 항목을 빠뜨려서 /api/report/monthly/latest 가 라이브에서 404 났었다(admin 접두가
+//   아니라서 자동 게이트를 안 탐 — /approve 는 /api/admin/ 이라 통과했는데 이건 안 됨). 재발 방지로 하니스에 고정.
+ok('mr:/api/report/monthly/latest 가 index.ts 게이트에 등록됨(admin 접두 아니라 자동통과 안 됨)',
+  idx.includes(`path === '/api/report/monthly/latest'`));
+
 console.log(`\n=== SUMMARY: ${pass} passed, ${fail} failed ===`);
 process.exit(fail > 0 ? 1 : 0);

@@ -1091,6 +1091,7 @@ const worker = {
         /^\/api\/vocab\/\d+$/.test(path) ||
         // 📄 Phase MR 월별 보고서 (HTML/PDF 페이지)
         /^\/api\/report\/monthly\/[^\/]+\/\d{4}-\d{2}$/.test(path) ||
+        path === '/api/report/monthly/latest' ||  // 🌟 2026-07-25 — 학생/학부모 "성적표 바로가기"(parent.html)용, admin 접두 아니라 여기 등록 필요
         // 📊 Phase MAR 월간 AI 레포트 (관리자 생성/발송 + 공개 토큰 열람)
         path === '/api/admin/monthly-report/generate' ||
         path === '/api/admin/monthly-report/list' ||
