@@ -6429,6 +6429,7 @@ window.__admSettleRun = function(fn){
       <button onclick="mrSend()" style="background:#10b981;color:#fff;border:0;border-radius:9px;padding:9px 15px;font-weight:700;cursor:pointer">💬 <span data-ko="카톡 발송" data-en="Send Kakao">카톡 발송</span></button>
       <button onclick="mrRunAll()" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:9px;padding:9px 15px;font-weight:600;cursor:pointer">📤 <span data-ko="전체 일괄" data-en="Run All">전체 일괄</span></button>
       <button onclick="mrList()" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:9px;padding:9px 15px;font-weight:600;cursor:pointer">📋 <span data-ko="목록" data-en="List">목록</span></button>
+      <button onclick="mrExportCsv()" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:9px;padding:9px 15px;font-weight:600;cursor:pointer">📥 <span data-ko="엑셀로 내보내기" data-en="Export to Excel">엑셀로 내보내기</span></button>
     </div>
     <div id="mr-result" style="margin-top:6px"></div>
   </div>
@@ -6497,10 +6498,32 @@ window.__admSettleRun = function(fn){
     try{
       const r=await call('GET','/api/admin/monthly-report/list'+(period?('?period='+encodeURIComponent(period)):''));
       if(!r.ok) throw new Error(r.error||'조회 실패');
+      window.__mrLastItems = r.items||[];  // 📥 엑셀 내보내기가 재사용(같은 데이터, 새 서버 호출 없음)
       if(!r.items||!r.items.length){ box().innerHTML='<div style="color:#94a3b8;padding:12px">생성된 레포트가 없습니다.</div>'; return; }
-      box().innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="color:#94a3b8;text-align:left"><th style="padding:6px">학생</th><th>월</th><th>상태</th><th>학생</th><th>학부모</th></tr>'+
-        r.items.map(it=>'<tr style="border-top:1px solid #334155;color:#e2e8f0"><td style="padding:6px">'+esc(it.student_name||it.student_uid)+'</td><td>'+esc(it.period)+'</td><td>'+esc(it.status||'')+'</td><td>'+(it.sent_to_student?'✅':'➖')+'</td><td>'+(it.sent_to_parent?'✅':'➖')+'</td></tr>').join('')+'</table></div>';
+      const apLabel = s => s==='approved' ? '✅ 승인' : (s==='pending' ? '⏳ 대기' : esc(s||''));
+      box().innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="color:#94a3b8;text-align:left"><th style="padding:6px">학생</th><th>월</th><th>담당강사</th><th>승인</th><th>발송상태</th><th>학생</th><th>학부모</th></tr>'+
+        r.items.map(it=>'<tr style="border-top:1px solid #334155;color:#e2e8f0"><td style="padding:6px">'+esc(it.student_name||it.student_uid)+'</td><td>'+esc(it.period)+'</td><td>'+esc(it.teacher_name||'')+'</td><td>'+apLabel(it.approval_status)+'</td><td>'+esc(it.status||'')+'</td><td>'+(it.sent_to_student?'✅':'➖')+'</td><td>'+(it.sent_to_parent?'✅':'➖')+'</td></tr>').join('')+'</table></div>';
     }catch(e){ err(e.message); }
+  };
+
+  // 📥 엑셀로 내보내기 — 서식 있는 .xlsx가 아니라 CSV(엑셀에서 바로 열림, 신규 라이브러리 불필요).
+  //   결정확인서(2026-07-25) 확정안 그대로 — [목록]으로 이미 불러온 데이터를 그대로 파일로 떨어뜨린다.
+  window.mrExportCsv = function(){
+    const items = window.__mrLastItems || [];
+    if (!items.length) { alert('먼저 [목록]을 눌러 데이터를 불러오세요.'); return; }
+    const headers = ['학생명','학생ID','기간','담당강사','승인상태','발송상태','학생발송','학부모발송'];
+    const csvEsc = v => { const s = String(v==null?'':v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+    const rows = items.map(it => [
+      it.student_name||'', it.student_uid||'', it.period||'', it.teacher_name||'',
+      it.approval_status||'', it.status||'', it.sent_to_student?'Y':'N', it.sent_to_parent?'Y':'N'
+    ]);
+    const csv = '﻿' + [headers].concat(rows).map(r => r.map(csvEsc).join(',')).join('\r\n');  // BOM — 엑셀이 UTF-8 한글을 바로 알아보게
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'monthly-reports-'+(document.getElementById('mr-period').value||'all')+'.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
   document.getElementById('card-monthly-report')?.addEventListener('toggle', function(){
     if(this.open){ const p=document.getElementById('mr-period'); if(p&&!p.value) p.value=prevMonth(); }
@@ -21338,6 +21361,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260725114507 -->
+<!-- BUILD:20260725115727 -->
 </body>
 </html>

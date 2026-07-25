@@ -132,6 +132,16 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
   try { voiceStats = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc, AVG(pronunciation_score) AS pron, AVG(fluency_score) AS flu, MAX(accuracy_score) AS best FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first(); } catch {}
   const evalAvg = evalRows.length ? Math.round((evalRows.reduce((s, r) => s + (r.score_overall || 0), 0) / evalRows.length) * 10) / 10 : 0;
 
+  // 📋 AI 학습 활동 — 단어장(vocab_review_log) + 복습퀴즈(review_quiz_results) 실사용 횟수만 합산.
+  //   ⚠️ 2026-07-25 확인: `microlearn_logs`는 이름과 달리 학습기록이 아니라 알림 발송 로그라 제외했고,
+  //   "예습·복습"(homework_submissions)은 테이블 자체가 없어 지어내지 않고 아예 안 넣는다(기획안 안전원칙).
+  let aiActivityCount = 0;
+  try {
+    const vc: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM vocab_review_log WHERE user_id = ? AND reviewed_at >= ? AND reviewed_at < ?`).bind(uid, start, end).first();
+    const qc: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM review_quiz_results WHERE user_id = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first();
+    aiActivityCount = (vc?.n || 0) + (qc?.n || 0);
+  } catch { /* 테이블이 없거나 조회 실패해도 리포트 전체는 계속 진행 */ }
+
   // 🧠 판단력 성장(해당 기간) — 이벤트가 있을 때만
   let judgment: any = null;
   try {
@@ -221,6 +231,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     judgment,
     radar,
     growth_highlight: growthHighlight,
+    ai_activity_count: aiActivityCount,
     teacher_name: teacherName,
     ai_text: aiDraftCommentKo,  // 기존 monthly-report.html "담임의 한마디" 카드 하위호환(Phase 2 전까지)
     ai_draft_comment_ko: aiDraftCommentKo,
@@ -346,10 +357,7 @@ export async function handleReportsApi(
     const monthlyMatch = path.match(/^\/api\/report\/monthly\/([^\/]+)\/(\d{4})-(\d{2})$/);
     if (method === 'GET' && monthlyMatch) {
       const uid = decodeURIComponent(monthlyMatch[1]);
-      const year = parseInt(monthlyMatch[2], 10);
-      const month = parseInt(monthlyMatch[3], 10) - 1;
-      const start = new Date(year, month, 1).getTime();
-      const end = new Date(year, month + 1, 1).getTime();
+      const period = `${monthlyMatch[2]}-${monthlyMatch[3]}`;
 
       // 🔐 [PII] 본인(학생/학부모 토큰) 또는 관리자만 — 월간 리포트(결제 총액·평가 포함) IDOR 차단.
       //   공유 링크로 보려면 별도 /api/report/monthly-view?t= (토큰 검증) 경로 사용.
@@ -359,65 +367,42 @@ export async function handleReportsApi(
       }
 
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, joined_at INTEGER, date TEXT);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, lesson_date TEXT, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, created_at INTEGER NOT NULL);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, created_at INTEGER NOT NULL);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, paid_at INTEGER, amount_krw INTEGER);`);
+        // 🔧 2026-07-25 — 이 라우트가 buildMonthlyReportData() 와 별개로 같은 걸 다시 짜고 있어서
+        //   오각형·판단력·AI초안·AI활동 등 신규 필드가 여기(관리자/학생 무토큰 미리보기)엔 하나도
+        //   안 나오고 있었다(기획안 Phase 2 갭). 공용 함수로 합쳐 두 경로가 항상 같은 걸 보여주게 한다.
+        const data = await buildMonthlyReportData(env, uid, period, url.searchParams.get('ai') === '1', 2);
+        if (!data) return json({ ok: false, error: 'bad_period' }, 400);
 
-        const student: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name FROM students_erp WHERE user_id = ?`).bind(uid).first();
-        const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(uid, start, end).first();
-        const evals = await env.DB.prepare(`SELECT id, lesson_date, score_overall, strengths, improvements, next_goals, teacher_comment, created_at FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ? ORDER BY created_at ASC`).bind(uid, start, end).all();
-        const voiceStats: any = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc, AVG(pronunciation_score) AS pron, AVG(fluency_score) AS flu, MAX(accuracy_score) AS best FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, start, end).first();
-        const pays: any = await env.DB.prepare(`SELECT IFNULL(SUM(amount_krw),0) AS total FROM student_payments WHERE user_id = ? AND paid_at >= ? AND paid_at < ?`).bind(uid, start, end).first();
+        // 결제 총액 — buildMonthlyReportData 는 계산하지 않는 필드(report.html 전용 소비처)라 여기서만 덧붙인다.
+        let payTotal = 0;
+        try {
+          const m = period.match(/^(\d{4})-(\d{2})$/)!;
+          const y = parseInt(m[1], 10), mo = parseInt(m[2], 10) - 1;
+          const start = new Date(y, mo, 1).getTime(), end = new Date(y, mo + 1, 1).getTime();
+          const pays: any = await env.DB.prepare(`SELECT IFNULL(SUM(amount_krw),0) AS total FROM student_payments WHERE user_id = ? AND paid_at >= ? AND paid_at < ?`).bind(uid, start, end).first();
+          payTotal = pays?.total || 0;
+        } catch { /* student_payments 없거나 실패해도 리포트 자체는 정상 반환 */ }
 
-        const evalRows = (evals.results || []) as any[];
-        const evalAvg = evalRows.length ? Math.round((evalRows.reduce((s, r) => s + (r.score_overall || 0), 0) / evalRows.length) * 10) / 10 : 0;
-
-        // fix (2026-06-02) — ?ai=1 이면 학부모용 한국어 레포트 텍스트를 AI(Llama)로 생성.
-        //   데이터가 없으면 안전한 안내문으로 대체. 실패해도 보고서는 정상 반환(빈 ai_text).
-        let aiText = '';
-        if (url.searchParams.get('ai') === '1') {
-          try {
-            const nm = (student?.student_name) || uid;
-            const recentComment = evalRows.length ? (evalRows[evalRows.length - 1].teacher_comment || '') : '';
-            const strengths = evalRows.map((r: any) => r.strengths).filter(Boolean).slice(-3).join('; ');
-            const improvements = evalRows.map((r: any) => r.improvements).filter(Boolean).slice(-3).join('; ');
-            const nextGoals = evalRows.map((r: any) => r.next_goals).filter(Boolean).slice(-2).join('; ');
-            if (evalRows.length === 0 && (att?.d || 0) === 0) {
-              aiText = `${nm} 학부모님, 이번 달은 수업 기록이 많지 않아 상세 요약을 생략합니다. 다음 달 꾸준한 참여를 함께 응원하겠습니다. 감사합니다.`;
-            } else {
-              const sys = '당신은 영어학원 담임 강사입니다. 학부모님께 보내는 따뜻하고 구체적인 한국어 월간 학습 레포트를 4~6문장으로 작성하세요. 반드시 칭찬 1가지, 성장 영역 1가지, 다음 달 목표 1가지를 포함하세요. 과장하지 말고, 주어진 숫자/사실만 사용하며 없는 내용은 지어내지 마세요. 존댓말로 작성하세요.';
-              const usr = `학생: ${nm}\n기간: ${year}-${String(month + 1).padStart(2, '0')}\n출석일수: ${att?.d || 0}\n평가 횟수: ${evalRows.length}, 종합 평균(5점 만점): ${evalAvg}\n발음 평균: 정확도 ${Math.round(voiceStats?.acc || 0)}, 발음 ${Math.round(voiceStats?.pron || 0)}, 유창성 ${Math.round(voiceStats?.flu || 0)}\n강점: ${strengths || '기록 적음'}\n개선점: ${improvements || '기록 적음'}\n다음 목표(강사 기록): ${nextGoals || '없음'}\n최근 강사 코멘트: ${recentComment || '없음'}`;
-              const aiRes: any = await (env as any).AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-                messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
-                max_tokens: 420,
-              });
-              aiText = String((aiRes && (aiRes.response || aiRes.result)) || '').trim();
-            }
-          } catch (e) { aiText = ''; }
-        }
-
-        return json({
-          ok: true,
-          student: student || { user_id: uid, student_name: uid },
-          year_month: `${year}-${String(month + 1).padStart(2, '0')}`,
-          attendance: { days: att?.d || 0 },
-          evaluations: { count: evalRows.length, avg_score: evalAvg, items: evalRows },
-          voice: {
-            sessions: voiceStats?.n || 0,
-            avg_accuracy: Math.round(voiceStats?.acc || 0),
-            avg_pronunciation: Math.round(voiceStats?.pron || 0),
-            avg_fluency: Math.round(voiceStats?.flu || 0),
-            best: voiceStats?.best || 0,
-          },
-          payments: { total_krw: pays?.total || 0 },
-          ai_text: aiText,
-          generated_at: Date.now(),
-        });
+        return json({ ...data, payments: { total_krw: payTotal } });
       } catch (e: any) {
         return json({ ok: false, error: e?.message }, 500);
       }
+    }
+
+    // GET /api/report/monthly/latest?uid=  (본인/관리자 전용 — 최신 리포트의 period+token만 조회)
+    //   학생·학부모 화면에 "내 성적표 보기" 바로가기를 달 때, period/token을 미리 몰라도
+    //   이 엔드포인트로 알아낸 뒤 /monthly-report.html?uid=&period=&t= 로 이동하면 된다(기획안 Phase 4).
+    if (method === 'GET' && path === '/api/report/monthly/latest') {
+      const uid = url.searchParams.get('uid') || '';
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, uid))) {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
+      await ensureMonthlyReportsTable(env);
+      let row: any = null;
+      try { row = await env.DB.prepare(`SELECT period, access_token FROM monthly_reports WHERE student_uid=? ORDER BY period DESC LIMIT 1`).bind(uid).first(); } catch {}
+      if (!row) return json({ ok: false, error: 'no_report' });
+      return json({ ok: true, period: row.period, token: row.access_token });
     }
     // ═══════════════════════════════════════════════════════════════
     // 📄 Phase MR 끝

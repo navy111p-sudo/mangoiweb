@@ -221,6 +221,9 @@
       }
       // 📋 현황 상태칩 — 실제로 값이 있는 것만(출결은 항상, 판단력은 있을 때만. 지어낸 값은 넣지 않음)
       var chips = '<div class="chip"><span class="stripe"></span><div><div class="ttl">'+t('출결 상황','Attendance')+'</div><div class="cval">'+att+t('일 출석','d attended')+'</div></div></div>';
+      if(d.ai_activity_count){
+        chips += '<div class="chip"><span class="stripe"></span><div><div class="ttl">'+t('AI 학습 활동','AI Learning Activity')+'</div><div class="cval">'+d.ai_activity_count+t('회 이용','times')+'</div></div></div>';
+      }
       if(jd && jd.index!=null){
         chips += '<div class="chip"><span class="stripe"></span><div><div class="ttl">'+t('판단력 지수','Judgment Index')+'</div><div class="cval">'+jd.index+' / 100</div></div></div>';
       }
@@ -292,7 +295,7 @@
   if(uid && period){ loadReport(); } else { renderForm(); }
 })();
 </script>
-<!-- BUILD:20260725114507 -->
+<!-- BUILD:20260725115727 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

@@ -218,6 +218,7 @@
       <div class="mode sel" data-mode="en"><div class="flag">🇬🇧</div><div class="nm">English</div><div class="d">영어로 구조</div></div>
       <div class="mode" data-mode="zh"><div class="flag">🇨🇳</div><div class="nm">中文</div><div class="d">중국어로 구조</div></div>
     </div>
+    <div id="modeNote" style="margin:10px 0 2px;font-weight:800;color:#ffe9c7"></div>
     <button class="btn" id="startBtn">🚤 출항! Start</button>
   </div>
 
@@ -340,39 +341,61 @@
     function _tokEn(en){ return (window.MangoiGameVocab && MangoiGameVocab.tokenize) ? MangoiGameVocab.tokenize(en)
       : String(en||'').replace(/[^A-Za-z' ]/g,' ').split(/\s+/).filter(Boolean); }
     var CONTENT = { source:'builtin', textbook:'', level:'', wordsMap:{} };
-    function wordMetaFor(token){
+    function wordMetaFor(token, mode){
+      if(mode==='zh') return { en:token, en2:'', zh:token, py:'', ko:'', em:'💬' };   // 중국어 토큰=한자 그대로 카드에
       var low=String(token||'').toLowerCase();
-      var ko = CONTENT.wordsMap[low] || '';
-      var em = EMOJI_MAP[low] || '💬';
-      return { en:token, en2:'', zh:'', py:'', ko:ko, em:em };
+      return { en:token, en2:'', zh:'', py:'', ko:(CONTENT.wordsMap[low]||''), em:(EMOJI_MAP[low]||'💬') };
     }
-    // vocabData(로그인 교재) → 라운드(문장) 배열. 없으면 내장 STAGES 문장.
-    function buildRounds(vocabData){
+    // 🇨🇳 중국어 내장 폴백(다락원 수준) — en=한자, pinyin 병음, ko 뜻, words[]=한자 단어 분절
+    var _ZH_FALLBACK = [
+      { en:'我爱你。', pinyin:'Wǒ ài nǐ.', ko:'나는 너를 사랑해.', words:['我','爱','你'] },
+      { en:'你好吗？', pinyin:'Nǐ hǎo ma?', ko:'잘 지내니?', words:['你','好','吗'] },
+      { en:'我是学生。', pinyin:'Wǒ shì xuésheng.', ko:'나는 학생이에요.', words:['我','是','学生'] },
+      { en:'今天天气很好。', pinyin:'Jīntiān tiānqì hěn hǎo.', ko:'오늘 날씨가 좋아요.', words:['今天','天气','很','好'] },
+      { en:'我喜欢吃苹果。', pinyin:'Wǒ xǐhuan chī píngguǒ.', ko:'나는 사과 먹는 걸 좋아해요.', words:['我','喜欢','吃','苹果'] },
+      { en:'他每天去学校。', pinyin:'Tā měitiān qù xuéxiào.', ko:'그는 매일 학교에 가요.', words:['他','每天','去','学校'] },
+      { en:'这是我的朋友。', pinyin:'Zhè shì wǒ de péngyou.', ko:'이 사람은 내 친구예요.', words:['这','是','我的','朋友'] },
+      { en:'我想喝水。', pinyin:'Wǒ xiǎng hē shuǐ.', ko:'나는 물을 마시고 싶어요.', words:['我','想','喝','水'] },
+      { en:'她将来想当医生。', pinyin:'Tā jiānglái xiǎng dāng yīshēng.', ko:'그녀는 장래에 의사가 되고 싶어해요.', words:['她','将来','想','当','医生'] },
+      { en:'学生们正在一起学习汉语。', pinyin:'Xuéshengmen zhèngzài yìqǐ xuéxí Hànyǔ.', ko:'학생들은 지금 함께 중국어를 공부하고 있어요.', words:['学生们','正在','一起','学习','汉语'] }
+    ];
+    // mode('en'|'zh') → 라운드(문장) 배열. 교재 데이터 우선, 없으면 내장 폴백.
+    function buildRounds(mode){
       var rounds=[]; CONTENT.wordsMap={};
-      if(vocabData){
-        (vocabData.words||[]).forEach(function(w){ if(w.en&&w.ko) CONTENT.wordsMap[w.en.toLowerCase()]=w.ko; });
-      }
       function push(en, ko, zh, py, toks){
         toks = (toks&&toks.length)? toks.slice() : _tokEn(en);
         toks = toks.filter(Boolean);
         if(toks.length>=2 && toks.length<=9) rounds.push({ en:String(en||'').trim(), ko:String(ko||'').trim(), zh:zh||'', py:py||'', words:toks });
       }
-      if(vocabData && vocabData.sentences && vocabData.sentences.length){
-        vocabData.sentences.forEach(function(s){ push(s.en, s.ko, '', '', s.words); });
-        CONTENT.source='textbook'; CONTENT.textbook=vocabData.textbook||''; CONTENT.level=vocabData.level||'';
+      if(mode==='zh'){
+        var zsrc = (_zhData && _zhData.length) ? _zhData : _ZH_FALLBACK;
+        zsrc.forEach(function(s){ push(s.en, s.ko, s.en, s.pinyin||s.py||'', s.words); });   // en=zh=한자
+        CONTENT.source = (_zhData && _zhData.length) ? 'zh-textbook' : 'zh-builtin';
+      } else {
+        if(_vocabData){ (_vocabData.words||[]).forEach(function(w){ if(w.en&&w.ko) CONTENT.wordsMap[w.en.toLowerCase()]=w.ko; }); }
+        if(_vocabData && _vocabData.sentences && _vocabData.sentences.length){
+          _vocabData.sentences.forEach(function(s){ push(s.en, s.ko, '', '', s.words); });
+          CONTENT.source='textbook'; CONTENT.textbook=_vocabData.textbook||''; CONTENT.level=_vocabData.level||'';
+        }
       }
-      if(!rounds.length){   // 폴백: 내장 스테이지 문장
-        STAGES.forEach(function(st){ if(st.sent) push(st.sent.en, st.sent.ko, st.sent.zh, st.sent.py); });
-        CONTENT.source='builtin'; CONTENT.textbook=''; CONTENT.level='';
+      if(!rounds.length){   // 최후 폴백: 내장 스테이지 문장
+        STAGES.forEach(function(st){ if(st.sent){ if(mode==='zh') push(st.sent.zh, st.sent.ko, st.sent.zh, st.sent.py, null);
+          else push(st.sent.en, st.sent.ko, st.sent.zh, st.sent.py); } });
+        if(CONTENT.source.indexOf('textbook')<0) CONTENT.source=(mode==='zh')?'zh-builtin':'builtin';
       }
-      // 셔플(최대 다양성) 후 상한
       for(var i=rounds.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=rounds[i]; rounds[i]=rounds[j]; rounds[j]=t; }
       return rounds.slice(0, MAX_ROUNDS);
     }
     var ROUNDS = [];
-    // 페이지 로드 시 교재 데이터 선반입(로그인 학생만; 실패/비로그인 → null → 폴백)
-    var _vocabData = null;
+    // 페이지 로드 시 콘텐츠 선반입 — 영어=교재(MangoiGameVocab), 중국어=zh_vocab. 실패/비로그인 → 내장 폴백.
+    var _vocabData = null, _zhData = null;
     try{ if(window.MangoiGameVocab) MangoiGameVocab.load().then(function(d){ _vocabData=d; }); }catch(_){}
+    function _loadZh(){ try{
+      fetch('/api/games/zh-vocab').then(function(r){ return r.ok?r.json():null; })
+        .then(function(d){ if(d && d.ok && d.sentences && d.sentences.length){
+          _zhData = d.sentences.filter(function(s){ return s.words && s.words.length>=2 && s.words.length<=9; }); } })
+        .catch(function(){});
+    }catch(_){} }
 
     /* ============================================================
        1. 언어 모드 — ?glang / localStorage 를 기본값으로, 시작화면에서 최종 선택
@@ -382,6 +405,7 @@
       var q=new URLSearchParams(location.search).get('glang')||localStorage.getItem('mangoi_game_lang');
       return (q==='zh') ? 'zh' : 'en';
     }catch(_){ return 'en'; } })();
+    if(MODE==='zh') _loadZh();   // 중국어 모드면 zh_vocab 선반입
 
     /* ============================================================
        2. TTS — 영어는 서버(원어민)+브라우저 폴백, 중국어는 브라우저 zh-CN 직접
@@ -779,7 +803,8 @@
       if(G.sentNext>=G.sentWords.length) return;
       var already = objects.some(function(o){ return o.userData.type==='friend' && !o.userData.hit && o.userData.order===G.sentNext; });
       if(already) return;
-      var f=buildFriend(wordMetaFor(G.sentWords[G.sentNext]), 'en', false);   // 문장 토큰=영어
+      var lg=friendLang();
+      var f=buildFriend(wordMetaFor(G.sentWords[G.sentNext], lg), lg, false);   // 문장 토큰(영어/중국어)
       f.userData.order=G.sentNext;
       var fx=(Math.random()*2-1)*lane.max;
       f.position.set(fx,0,-78); f.userData.x=fx; f.userData.hit=false; scene.add(f); objects.push(f);
@@ -848,7 +873,7 @@
         if(ts.blocked){ showTrialGate(ts); return; }   // 체험 소진 → 게이트, 시작 안 함
         trialMarkDay(); G.trialActive=true; G.trialLeft=ts.remaining; G._trialSaveT=0;
       } else { G.trialActive=false; }
-      ROUNDS = buildRounds(_vocabData);   // 교재 문장(로그인) 또는 내장 문장(폴백) — 매판 셔플
+      ROUNDS = buildRounds(G.mode);   // 모드별 교재/내장 문장 — 매판 셔플
       G.stageIdx=0; G.lives=3; G.score=0; G.combo=0;
       $('start').classList.remove('on'); $('over').classList.remove('on'); $('win').classList.remove('on'); $('trialGate').classList.remove('on');
       $('hud').style.display='flex'; $('ctrl').style.display='flex'; $('hint').style.display='block';
@@ -1208,8 +1233,15 @@
         try{ localStorage.setItem('mangoi_game_lang', G.mode); }catch(_){}
       });
     });
-    // 기본 선택 반영
-    (function(){ var pre=document.querySelector('.mode[data-mode="'+MODE+'"]'); if(pre){ document.querySelectorAll('.mode').forEach(function(m){m.classList.remove('sel');}); pre.classList.add('sel'); } G.mode=MODE; })();
+    // 기본 선택 반영 + 허브에서 이미 언어를 골랐으면(=mangoi_game_lang 저장됨) 게임 인트로의 언어 선택은 숨김(중복 제거)
+    (function(){
+      var pre=document.querySelector('.mode[data-mode="'+MODE+'"]'); if(pre){ document.querySelectorAll('.mode').forEach(function(m){m.classList.remove('sel');}); pre.classList.add('sel'); } G.mode=MODE;
+      var fromHub=false; try{ fromHub = !!localStorage.getItem('mangoi_game_lang') || !!new URLSearchParams(location.search).get('glang'); }catch(_){}
+      if(fromHub){
+        var sel=document.getElementById('modeSel'); if(sel) sel.style.display='none';
+        var note=document.getElementById('modeNote'); if(note) note.textContent=(MODE==='zh')?'🇨🇳 중국어로 구조 (게임 목록에서 변경)':'🇬🇧 영어로 구조 (게임 목록에서 변경)';
+      }
+    })();
 
     $('startBtn').addEventListener('click',function(){ unlock(); startGame(); requestAnimationFrame(loop); });
     $('speakListenBtn').addEventListener('click', speakMissionListen);
@@ -1239,6 +1271,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725114507 -->
+<!-- BUILD:20260725115727 -->
 </body>
 </html>

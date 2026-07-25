@@ -111,5 +111,32 @@ ok('mr:승인 API 호출 시 approved_by 포함', /approved_by: window\.__myName
 ok('mr:승인 후에만 "지금 발송" 버튼 노출(승인 응답 이후 렌더)',
   /window\.raApprove = function[\s\S]{0,1600}window\.raSendNow = function/.test(mp));
 
+console.log('\n=== 8) Phase 4 — CSV 내보내기 · 실데이터 AI활동 · 구라우트 통합 · 학생 바로가기 ===');
+const adm = read(path.join(CD, 'public/admin.html'));
+const pt = read(path.join(CD, 'public/parent.html'));
+
+ok('mr:AI 활동 = vocab_review_log + review_quiz_results (검증된 실제 활동 로그만)',
+  /FROM vocab_review_log WHERE user_id/.test(src) && /FROM review_quiz_results WHERE user_id/.test(src));
+ok('mr:microlearn_logs는 안 씀(2026-07-25 확인 — 이름과 달리 알림로그라 활동집계에서 제외)',
+  !/FROM microlearn_logs/.test(src));
+ok('mr:homework_submissions(예습복습)는 실제로 쿼리하지 않음(테이블 없음 — 설명 주석은 있어도 FROM 사용은 없어야 함)', !/FROM homework_submissions/.test(src));
+ok('mr:AI활동 실패해도 리포트 자체는 계속 진행(try/catch)', /aiActivityCount = 0;\s*\n\s*try \{/.test(src));
+
+ok('mr:구 미리보기 라우트가 buildMonthlyReportData 재사용(중복 로직 제거)',
+  /buildMonthlyReportData\(env, uid, period, url\.searchParams\.get\('ai'\) === '1', 2\)/.test(src));
+ok('mr:구 라우트에 더 이상 자체 CREATE TABLE 중복 없음', !/CREATE TABLE IF NOT EXISTS students_erp \(user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT\);/.test(src));
+ok('mr:결제 총액(report.html 전용 필드)은 그대로 보존', /payments: \{ total_krw: payTotal \}/.test(src));
+
+ok('mr:/api/report/monthly/latest 엔드포인트 존재(학생 바로가기용)', /path === '\/api\/report\/monthly\/latest'/.test(src));
+ok('mr:/latest도 본인/관리자 인증 게이트 통과', /path === '\/api\/report\/monthly\/latest'[\s\S]{0,400}resolveOwnerScope/.test(src));
+
+ok('mr:admin.html에 엑셀 내보내기 버튼', /mrExportCsv\(\)/.test(adm));
+ok('mr:CSV는 BOM 포함(엑셀 한글 깨짐 방지)', /'﻿' \+ \[headers\]/.test(adm));
+ok('mr:CSV는 window.__mrLastItems 재사용(신규 서버호출 없음 — 경량 원칙)', /window\.__mrLastItems = r\.items/.test(adm) && /const items = window\.__mrLastItems/.test(adm));
+
+ok('mr:parent.html에 성적표 바로가기 카드', /pd-monthly-report-card/.test(pt));
+ok('mr:바로가기는 있을 때만 노출(기본 display:none, 응답 성공시에만 표시)', /id="pd-monthly-report-card" style="margin-top:16px;display:none"/.test(pt));
+ok('mr:바로가기가 /latest 호출 후 실제 token으로 링크 구성', /api\/report\/monthly\/latest\?uid=/.test(pt) && /period=' \+ encodeURIComponent\(rd\.period\) \+ '&t=' \+ encodeURIComponent\(rd\.token\)/.test(pt));
+
 console.log(`\n=== SUMMARY: ${pass} passed, ${fail} failed ===`);
 process.exit(fail > 0 ? 1 : 0);
