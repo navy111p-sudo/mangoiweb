@@ -68,6 +68,11 @@
     '  width:390px;max-width:94vw;max-height:76vh;overflow-y:auto;padding:18px;border-radius:16px;',
     '  background:rgba(11,15,20,0.98);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);',
     '  border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 40px rgba(0,0,0,.6);}',
+    /* 🌐 (2026-07-25) 설정 팝업이 길 때 뜨던 기본(흰색) 스크롤바를 다크로 — 어두운 팝업과 이질감 제거 */
+    '#vc-dock-settings{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.28) transparent;}',
+    '#vc-dock-settings::-webkit-scrollbar{width:9px;}',
+    '#vc-dock-settings::-webkit-scrollbar-track{background:transparent;}',
+    '#vc-dock-settings::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:9px;border:2px solid transparent;background-clip:padding-box;}',
     '#vc-dock-settings.open{display:flex;}',
     '#vc-dock-settings .sg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}',
     '#vc-dock-settings .sg-head h3{margin:0;font-size:16.5px;color:#e6ebf2;font-weight:700;}',
@@ -378,10 +383,15 @@
     if (dock) return;
     var st = document.createElement('style'); st.id = 'vc-dock-style'; st.textContent = STYLE; document.head.appendChild(st);
     dock = document.createElement('div'); dock.id = 'vc-dock';
+    // 🌐 (2026-07-25) 독 라벨을 data-ko/data-en 으로 고정 — '설정'·'화면공유'는 i18n 사전에 없어
+    //   sweep 타이밍에 따라 라벨이 오락가락하던 문제를 없앤다(항상 현재 언어를 따름).
+    var LBL_EN = {'마이크':'Microphone','카메라':'Camera','화면공유':'Screen sharing','채팅':'Chat','상담':'Consult','설정':'Settings','나가기':'Exit'};
     function mk(id, label, icon, cls, tip){
       var b = document.createElement('button'); b.id = 'vc-dock-' + id; if (cls) b.className = cls;
       if (tip) b.title = tip;
-      b.innerHTML = svg(P[icon]) + '<span class="lbl">' + label + '</span>'; return b;
+      var en = LBL_EN[label] || label;
+      var cur = (typeof isEn==='function' && isEn()) ? en : label;
+      b.innerHTML = svg(P[icon]) + '<span class="lbl" data-ko="' + label + '" data-en="' + en + '">' + cur + '</span>'; return b;
     }
     btnMic = mk('mic','마이크','mic',null,'마이크 켜기/끄기');
     btnCam = mk('cam','카메라','cam',null,'카메라 켜기/끄기');
