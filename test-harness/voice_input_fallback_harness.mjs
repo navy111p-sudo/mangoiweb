@@ -254,7 +254,7 @@ console.log('\n▶ AI 목소리를 마이크가 받아 적지 않게 (에코 차
 
   const af = readFileSync(join(PUB, 'ai-friend.html'), 'utf8');
   check('ai-friend — 마이크 켜기 전 MangoiTTS.stop() 호출', /MangoiTTS\.stop\(\)/.test(af));
-  check('ai-friend — game-tts 캐시버스터 인상(?v=3)', /game-tts\.js\?v=3/.test(af));
+  check('ai-friend — game-tts 캐시버스터 인상(?v=4)', /game-tts\.js\?v=4/.test(af));
   const wu = readFileSync(join(PUB, 'warmup.html'), 'utf8');
   check('warmup — 마이크 켤 때 낭독 정지(_stopSpeak)', /function toggleMic\(\)\{[\s\S]{0,200}_stopSpeak\(\)/.test(wu));
 }

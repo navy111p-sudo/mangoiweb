@@ -199,7 +199,7 @@
     @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
   </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=1"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=1" defer></script>
+<script src="/js/mango-avatar.js?v=2" defer></script>
 </head>
 <body>
   <div class="top">
@@ -586,7 +586,9 @@
       document.querySelectorAll('.ai-row.speaking').forEach(x => x.classList.remove('speaking'));
       if (btn) btn.classList.add('playing');
       if (row) row.classList.add('speaking');
-      try { window.MangoAvatar && MangoAvatar.plainStart(); } catch(e){}   // 👩‍🏫 아바타 말하기 시작
+      // 👩‍🏫 실제 TTS 음성을 아바타에 물려 음량 립싱크(요소당 1회 바인딩) + 말하기 시작
+      try { if (window.MangoAvatar && MangoAvatar.attach && MangoiTTS.getAudioEl) MangoAvatar.attach(MangoiTTS.getAudioEl()); } catch(e){}
+      try { window.MangoAvatar && MangoAvatar.plainStart(); } catch(e){}
       const done = function(){
         if (btn) btn.classList.remove('playing');
         if (row) row.classList.remove('speaking');
@@ -973,7 +975,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260725123808 -->
+<!-- BUILD:20260725125345 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}
@@ -1062,7 +1064,7 @@
   .cele-banner .cb-sub{font-size:16px}
 }
 </style>
-<script defer src="/js/game-tts.js?v=3"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈 -->
+<script defer src="/js/game-tts.js?v=4"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크) -->
 <script defer src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>

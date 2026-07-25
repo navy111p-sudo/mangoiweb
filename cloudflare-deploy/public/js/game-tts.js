@@ -152,5 +152,7 @@
     try{ if(audioEl){ audioEl.onended=null; audioEl.onerror=null; audioEl.pause(); try{ audioEl.currentTime=0; }catch(_2){} } }catch(_){}
   }
 
-  window.MangoiTTS = { speak: speak, prefetch: prefetch, setLang: setLang, getLang: getLang, setSpeaker: setSpeaker, getSpeaker: getSpeaker, stop: stop };
+  // 👩‍🏫 아바타 음량 립싱크용 — 재생에 쓰는 <audio> 를 노출(없으면 생성). 다른 페이지엔 영향 없음.
+  function getAudioEl(){ if(!audioEl){ try{ audioEl = new Audio(); }catch(_){} } return audioEl; }
+  window.MangoiTTS = { speak: speak, prefetch: prefetch, setLang: setLang, getLang: getLang, setSpeaker: setSpeaker, getSpeaker: getSpeaker, stop: stop, getAudioEl: getAudioEl };
 })();

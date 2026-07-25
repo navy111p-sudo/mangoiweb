@@ -222,7 +222,7 @@
   }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=1"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=1" defer></script>
+<script src="/js/mango-avatar.js?v=2" defer></script>
 </head>
 <body>
   <div class="top">
@@ -607,7 +607,7 @@ function speak(text, btn){
   var done=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} };
   var play=function(u){
     try{
-      if(!_ttsAudio) _ttsAudio=new Audio();
+      if(!_ttsAudio){ _ttsAudio=new Audio(); try{ window.MangoAvatar && MangoAvatar.attach && MangoAvatar.attach(_ttsAudio); }catch(e){} }  // 👩‍🏫 음량 립싱크 바인딩
       _ttsAudio.onended=done; _ttsAudio.onerror=done;
       _ttsAudio.src=u; _ttsAudio.playbackRate=AUDIO_RATE[_rateLevel]||1;
       // 배속 시 음높이 유지(브라우저 기본이지만 명시) — 남자 목소리가 늘어지거나 깔리는 것 방지
@@ -1110,7 +1110,7 @@ async function sendMsg(){
 <script defer src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260725123808 -->
+<!-- BUILD:20260725125345 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

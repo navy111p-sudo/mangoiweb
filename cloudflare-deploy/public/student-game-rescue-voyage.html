@@ -109,8 +109,20 @@
   .btn:active{ transform:translateY(2px); }
   .btn.ghost{ background:#ffffff18; color:#eaf6ff; box-shadow:none; border:1.5px solid #ffffff45; }
 
+  /* 상단 문장바 — 단어를 순서대로 구조할 때마다 형광 하이라이트 */
+  #sentBar{ position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:19; max-width:94vw;
+    display:flex; flex-wrap:wrap; gap:6px 10px; justify-content:center; align-items:center; padding:8px 16px;
+    border-radius:16px; background:rgba(8,26,40,0.36); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+    border:1.5px solid #ffffff22; pointer-events:none; }
+  #sentBar .sw{ font-size:23px; font-weight:900; color:#c2d4de; opacity:.55; letter-spacing:.2px;
+    text-shadow:0 1px 3px rgba(0,0,0,0.45); transition:color .18s, opacity .18s, text-shadow .18s, transform .18s; }
+  #sentBar .sw.lit{ color:#fff7a8; opacity:1;
+    text-shadow:0 0 8px #ffe95e, 0 0 18px #ffd21e, 0 2px 4px rgba(0,0,0,0.5); transform:translateY(-2px) scale(1.05); }
+  @keyframes swPop{ 0%{ transform:scale(1.6); } 55%{ transform:scale(.9) translateY(-3px); } 100%{ transform:translateY(-2px) scale(1.05); } }
+  #sentBar .sw.pop{ animation:swPop .42s ease; }
+
   /* 체험 남은시간 배지 */
-  #trialBadge{ position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:18;
+  #trialBadge{ position:fixed; top:56px; left:50%; transform:translateX(-50%); z-index:18;
     padding:5px 14px; border-radius:999px; font-weight:800; font-size:13px; white-space:nowrap;
     background:rgba(20,40,60,0.55); color:#ffe9c7; border:1.5px solid #ffb86633;
     -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); pointer-events:none; }
@@ -180,6 +192,7 @@
   <div id="floatLayer"></div>
   <div id="comboBanner"></div>
   <div id="stormBanner"></div>
+  <div id="sentBar" style="display:none"></div>
   <div id="trialBadge" style="display:none"></div>
   <div id="gspeedHud">
     <button data-gs="0.55">🐢</button>
@@ -677,6 +690,7 @@
       return g;
     }
     var boat=buildBoat(); scene.add(boat);
+    window.__RVDBG__={ G:function(){return G;}, objects:function(){return objects;}, canvas:function(){return canvas;} };   // TEMP
 
     /* ── 단어 친구(구명튜브 위 캐릭터 + 말풍선 스프라이트) ── */
     function roundRect(x,a,b,w,h,r){ x.beginPath(); x.moveTo(a+r,b); x.arcTo(a+w,b,a+w,b+h,r); x.arcTo(a+w,b+h,a,b+h,r); x.arcTo(a,b+h,a,b,r); x.arcTo(a,b,a+w,b,r); x.closePath(); }
@@ -809,15 +823,25 @@
       lastRescueAt:-99, invuln:0, stageTimeMax:50, stageTimeLeft:50, stormCd:16, rescuedWords:[] };
     var objects=[];   // 활성 스폰 오브젝트
 
+    // 상단 문장바 — 단어를 순서대로 구조할 때마다 그 단어에 형광 하이라이트(방금 맞춘 단어는 pop)
+    function updateSentBar(){
+      var el=$('sentBar'), words=G.sentWords||[];
+      if(!G.running || !words.length){ el.style.display='none'; el.removeAttribute('data-key'); return; }
+      var key=G.stageIdx+':'+G.sentNext+'/'+words.length;
+      if(el.getAttribute('data-key')===key){ el.style.display='flex'; return; }
+      el.innerHTML = words.map(function(w,i){ return '<span class="sw'+(i<G.sentNext?' lit':'')+'" data-i="'+i+'">'+w+'</span>'; }).join('');
+      el.setAttribute('data-key', key); el.style.display='flex';
+      var justLit=el.querySelector('.sw[data-i="'+(G.sentNext-1)+'"]'); if(justLit) justLit.classList.add('pop');   // 방금 맞춘 단어 강조
+    }
     function setHUD(){
       var total=ROUNDS.length||1;
       $('stageName').innerHTML='문장 '+(G.stageIdx+1)+'/'+total+' <small>단어를 순서대로 구조!</small>';
       $('lives').textContent = Array(G.lives+1).join('❤') + Array(Math.max(0,3-G.lives)+1).join('🖤');
-      // 진행바 = 이 문장 완성도. barTxt = 지금까지 만든 문장(빈칸 포함)
+      // 진행바 = 이 문장 완성도. 문장 자체는 상단 sentBar에 형광 하이라이트로 표시
       var len=(G.sentWords&&G.sentWords.length)||1;
       $('bar').style.width = Math.min(100,(G.sentNext/len)*100)+'%';
-      var parts=(G.sentWords||[]).map(function(w,i){ return i<G.sentNext ? w : '▢'; });
-      $('barTxt').innerHTML = parts.join(' ');
+      $('barTxt').textContent = G.sentNext+' / '+len+' 단어';
+      updateSentBar();
       var cmul=1+Math.min(1.5,(G.combo-1)*0.25);
       $('score').innerHTML = '점수 <b>'+G.score+'</b> · 콤보 '+G.combo+(G.combo>1?(' (x'+cmul.toFixed(1)+')'):'');
       // 생명 1개 남으면 화면 가장자리 빨간 경고 펄스(비행기/탱크 게임의 위기 연출)
@@ -888,7 +912,7 @@
       b.classList.toggle('warn', sec<=30); b.style.display='block';
     }
     function showTrialGate(ts){
-      G.running=false; G.trialActive=false; $('trialBadge').style.display='none'; $('gspeedHud').style.display='none';
+      G.running=false; G.trialActive=false; $('trialBadge').style.display='none'; $('gspeedHud').style.display='none'; $('sentBar').style.display='none';
       ['start','over','clear','win'].forEach(function(id){ $(id).classList.remove('on'); });
       $('hud').style.display='none'; $('ctrl').style.display='none'; $('hint').style.display='none';
       var exhausted=(ts.reason==='exhausted');
@@ -1004,9 +1028,14 @@
       var dur=Math.max(1400, main.length*95/Math.max(0.5,_speakRate) + 650);
       setTimeout(function(){ if(speakMission.active && my===_speakToken && cb) cb(); }, dur);
     }
-    // 한 라운드 = 듣기 1회 → 학생 말하기(번갈아)
-    function _speakRound(){
+    // 한 라운드 = 듣기 1회 → 학생 말하기(번갈아). noListen=true면 듣기 생략(완성 직후 이미 3번 들음)
+    function _speakRound(noListen){
       $('speakMicBtn').disabled=true; $('speakMicBtn').classList.remove('listening');
+      if(noListen){
+        if(SR){ $('speakMicBtn').disabled=false; $('speakFeedback').textContent='🎤 방금 들은 문장을 따라 말해보세요!'; }
+        else { $('speakFeedback').textContent='방금 들은 문장을 큰 소리로 따라 말해보세요!'; }
+        return;
+      }
       $('speakFeedback').textContent='🔊 듣기 ('+(speakMission.done+1)+'/'+speakMission.need+') — 잘 들어보세요!';
       _playOnce(function(){
         if(SR){ $('speakMicBtn').disabled=false; $('speakFeedback').textContent='🎤 이제 따라 말해보세요!'; }
@@ -1020,7 +1049,7 @@
       $('speakSentTxt').textContent=main; $('speakSubTxt').textContent=sub;
       $('speakMicBtn').style.display=SR?'':'none'; $('speakMicBtn').classList.remove('listening');
       _updateSpeakDots(); $('speakBox').style.display='block';
-      _speakRound();   // 듣기1→말하기1 부터 시작
+      _speakRound(true);   // 완성 시 이미 3번 들었으므로 첫 라운드는 바로 말하기부터
     }
     function speakMissionListen(){ var m=_speakMain(); if(m) speak(m, G.mode); }   // 지금 속도로 한 번 더 듣기
     function speakMissionMic(){
@@ -1064,8 +1093,9 @@
       var gain=Math.round(100*cmul*(golden?2:1));
       G.score+=gain; G.rescued++;
       G.rescuedWords.push({word:word,lang:lang,golden:golden});
+      var willComplete = (obj.userData.order===G.sentNext) && (G.sentNext+1>=G.sentWords.length);
       showToast(word,lang,golden);
-      speak(lang==='zh'?word.zh:word.en, lang);
+      if(!willComplete) speak(lang==='zh'?word.zh:word.en, lang);   // 완성 순간엔 단어 대신 문장 전체를 3회 재생
       sfxSplash(); sfxDing(Math.min(G.combo,8));
       spawnBurst(obj.position.clone(), golden?0xffe066:0x8fe3ff, golden?14:8);
       floatText(obj.position.clone(), '+'+gain, golden?'gold':'good');
@@ -1073,10 +1103,17 @@
       // 문장 순서 진행 — 이 친구가 다음 목표 단어였으면 한 칸 전진
       if(obj.userData.order===G.sentNext) G.sentNext++;
       setHUD();
-      if(G.sentNext>=G.sentWords.length){   // 문장 완성!
+      if(G.sentNext>=G.sentWords.length){   // 문장 완성! → 문장 전체를 무조건 3번 들려준 뒤 클리어
         G.score+=300; floatText(obj.position.clone(),'문장 완성! +300 🎉','gold'); setHUD();
-        G.running=false; setTimeout(stageClear,750);
+        G.running=false; sfxFanfare(); playSentenceNTimes(3, function(){ stageClear(); });
       }
+    }
+    // 이번 라운드 문장을 원어민 음성으로 n번 재생 후 콜백(완성 시 '무조건 3번')
+    function playSentenceNTimes(n, onDone){
+      var s=G.round; var main=s?((G.mode==='zh')?s.zh:s.en):'';
+      if(!main){ if(onDone) onDone(); return; }
+      var gap=Math.max(1500, main.length*90 + 800);
+      var i=0; (function tick(){ if(i>=n){ if(onDone) setTimeout(onDone,450); return; } i++; try{ speak(main, G.mode); }catch(_){}; setTimeout(tick, gap); })();
     }
     function showToast(w,lang,golden){
       var t=$('toast'); t.classList.toggle('gold',!!golden);
@@ -1315,6 +1352,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725123808 -->
+<!-- BUILD:20260725125345 -->
 </body>
 </html>
