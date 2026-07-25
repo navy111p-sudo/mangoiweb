@@ -199,7 +199,7 @@ console.log('\n▶ 화면 배선');
   check('설정 팝업이 저장된 화질을 보여준다', /setSeg\('#sg-quality', 'data-q', savedQuality\(\)\)/.test(dock));
   check("'자동'이 하드코딩으로 켜져 있지 않다",
         !/data-q="auto" class="on"/.test(dock), '자동이 항상 선택된 것처럼 보임');
-  check('독 캐시버스터 인상(vc-dock ?v=11)', /vc-dock\.js\?v=11/.test(html));
+  check('독 캐시버스터 인상(vc-dock ?v=12)', /vc-dock\.js\?v=12/.test(html));
 }
 
 console.log('\n' + '═'.repeat(64));
