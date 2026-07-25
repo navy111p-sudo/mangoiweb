@@ -1297,6 +1297,11 @@
     $('retryBtn').addEventListener('click',function(){ startGame(); requestAnimationFrame(loop); });
     $('winBtn').addEventListener('click',function(){ startGame(); requestAnimationFrame(loop); });
     $('trialLoginBtn').addEventListener('click',function(){ location.href='/'; });   // 홈(로그인 카드)으로
+    // 게임 속도 조절 버튼(시작화면 + 게임중 HUD) — 클릭 시 즉시 반영·저장
+    Array.prototype.forEach.call(document.querySelectorAll('#gameSpeedRow .spdBtn, #gspeedHud button'), function(b){
+      b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setGameSpeed(parseFloat(b.getAttribute('data-gs'))||0.75); });
+    });
+    setGameSpeed(_gameSpeedMul);   // 저장값을 버튼에 반영
 
     // 시작 전 정지 렌더(배경 미리보기)
     (function idle(){ if(G.running) return; scene.background=new THREE.Color(STAGES[0].sky); scene.fog.color.setHex(STAGES[0].sky);
@@ -1310,6 +1315,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725122721 -->
+<!-- BUILD:20260725122813 -->
 </body>
 </html>
