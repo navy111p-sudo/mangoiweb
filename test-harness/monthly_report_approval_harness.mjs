@@ -96,5 +96,20 @@ for (const f of koEnPairs) {
 ok('mr:AI 이중호출(ko/en) 이 Promise.all 로 병렬(불필요한 지연 방지)',
   /Promise\.all\(\[[\s\S]{0,200}sysBase\('ko'\)[\s\S]{0,300}sysBase\('en'\)/.test(src));
 
+console.log('\n=== 7) Phase 3 — 강사 마이페이지 승인 UI (teacher_name 귀속 + 검수 화면) ===');
+const mp = read(path.join(CD, 'public/admin/mypage.html'));
+ok('mr:마이그레이션에 teacher_name 컬럼', /\['teacher_name', 'TEXT'\]/.test(src));
+ok('mr:teacher_name=마지막 평가서 작성 강사로 근사(여러 강사 섞일 수 있다는 한계 명시)', /기간 중 가장 최근 평가서를 쓴 강사로 근사/.test(src));
+ok('mr:/list 라우트가 teacher_name/approval_status 필터 지원', /teacherName = url\.searchParams\.get\('teacher_name'\)/.test(src) && /approvalStatus = url\.searchParams\.get\('approval_status'\)/.test(src));
+ok('mr:/list SQL이 bind 파라미터화(문자열 직접 삽입 아님)', /\.bind\(\.\.\.binds\)/.test(src));
+ok('mr:mypage.html에 성적표 승인 탭 존재', /id="tab-report-approval"/.test(mp));
+ok('mr:탭이 교사 전용(isTeacher 게이트)', /tRaTab.*isTeacher \? '' : 'none'/.test(mp));
+ok('mr:승인 화면이 이름표기 불일치 2단조회 재사용(lesson-insight와 동일 패턴)',
+  /window\.loadReportApprovalTeacher = function[\s\S]{0,1600}norm\(a\.teacher_name\)/.test(mp));
+ok('mr:승인 전 코멘트 편집 가능(textarea, 강사가 고칠 수 있음)', /id="'\+idBase\+'-ko"/.test(mp));
+ok('mr:승인 API 호출 시 approved_by 포함', /approved_by: window\.__myName/.test(mp));
+ok('mr:승인 후에만 "지금 발송" 버튼 노출(승인 응답 이후 렌더)',
+  /window\.raApprove = function[\s\S]{0,1600}window\.raSendNow = function/.test(mp));
+
 console.log(`\n=== SUMMARY: ${pass} passed, ${fail} failed ===`);
 process.exit(fail > 0 ? 1 : 0);
