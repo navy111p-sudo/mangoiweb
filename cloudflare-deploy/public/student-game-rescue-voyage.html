@@ -615,7 +615,6 @@
       return g;
     }
     var boat=buildBoat(); scene.add(boat);
-    window.__RVDBG__={ G:function(){return G;}, p2l:function(x,y){return pointerToLaneX(x,y);}, startGame:function(){return startGame();}, canvas:function(){return canvas;} };   // TEMP 진단용
 
     /* ── 단어 친구(구명튜브 위 캐릭터 + 말풍선 스프라이트) ── */
     function roundRect(x,a,b,w,h,r){ x.beginPath(); x.moveTo(a+r,b); x.arcTo(a+w,b,a+w,b+h,r); x.arcTo(a+w,b+h,a,b+h,r); x.arcTo(a,b+h,a,b,r); x.arcTo(a,b,a+w,b,r); x.closePath(); }
@@ -1147,9 +1146,8 @@
       else if(G.steer!==0){ G.aimSteer=G.steer; boat.rotation.y=-G.steer*0.28; G.boatX += G.steer*9*dt; }
       else if(G.pointerOn && G.pointerX!=null){
         var diff=G.pointerX - G.boatX;
-        // 프레임률 독립 강추종 — 커서 위치로 거의 즉각 붙되 파도 지터는 부드럽게
-        G.boatX += diff*(1-Math.pow(0.0009, dt));
-        if(Math.abs(diff)<0.04) G.boatX=G.pointerX;               // 미세 오차 스냅(정밀)
+        G.boatX += diff*Math.min(1, dt*28);                       // 커서로 빠르고 정밀하게 추종(기존보다 반응 상향)
+        if(Math.abs(diff)<0.06) G.boatX=G.pointerX;               // 미세 오차 스냅(정밀)
         G.aimSteer=Math.max(-1,Math.min(1, diff*0.9));            // 이동 방향으로 배를 기울임(뱅킹)
         boat.rotation.y=-G.aimSteer*0.28;
       } else { boat.rotation.y += (0-boat.rotation.y)*Math.min(1,dt*6); G.aimSteer=0; }   // 입력 없으면 정면 복귀
@@ -1241,6 +1239,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725113728 -->
+<!-- BUILD:20260725114507 -->
 </body>
 </html>
