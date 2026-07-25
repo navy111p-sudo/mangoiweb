@@ -65,7 +65,7 @@
     '/* 설정 팝업 — 독 위로 떠서 열림 (장치·영상/녹화·표시 전체 패널) */',
     '#vc-dock-settings{position:fixed;z-index:99994;display:none;flex-direction:column;box-sizing:border-box;',
     /* 설정 팝업도 함께 확대 (2026-07-22, 강사 피드백 #7) — 강사가 항목을 하나하나 확인해야 하는 화면이다. */
-    '  width:390px;max-width:94vw;max-height:76vh;overflow-y:auto;padding:18px;border-radius:16px;',
+    '  width:390px;max-width:94vw;max-height:76vh;overflow-y:auto;overflow-x:hidden;padding:18px;border-radius:16px;',
     '  background:rgba(11,15,20,0.98);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);',
     '  border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 40px rgba(0,0,0,.6);}',
     /* 🌐 (2026-07-25) 설정 팝업이 길 때 뜨던 기본(흰색) 스크롤바를 다크로 — 어두운 팝업과 이질감 제거 */
@@ -80,7 +80,7 @@
     '#vc-dock-settings .sg-group{margin-bottom:14px;}',
     '#vc-dock-settings .sg-gtitle{font-size:12.5px;color:#ffd24d;margin-bottom:7px;letter-spacing:.02em;font-weight:700;}',
     '#vc-dock-settings .sg-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;font-size:14.5px;}',
-    '#vc-dock-settings .sg-row > label{color:#b3bdcb;white-space:nowrap;}',
+    '#vc-dock-settings .sg-row > label{color:#b3bdcb;min-width:0;}',
     '#vc-dock-settings select{background:#1c2530;color:#e6ebf2;border:1px solid #283140;border-radius:8px;font-size:13.5px;padding:7px 10px;max-width:200px;}',
     '#vc-dock-settings input[type=range]{width:140px;accent-color:#ffd24d;}',
     '#vc-dock-settings .sg-seg{display:inline-flex;background:#161d26;border-radius:8px;padding:3px;}',
