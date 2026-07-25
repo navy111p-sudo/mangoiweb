@@ -30,6 +30,11 @@ ok('열기 전용 멱등 함수 vcOpenChat 존재 (토글로 열면 열려있을
    /function vcOpenChat\(\)/.test(IDX) && /if \(!panel \|\| panel\.classList\.contains\('open'\)\) return;/.test(IDX));
 ok('vcToggleChat 이 vcOpenChat 을 재사용', /function vcToggleChat\(\)[\s\S]{0,220}vcOpenChat\(\);/.test(IDX));
 ok('수신 지점에서 자동열기 호출', /vcChatAutoOpen\(\);/.test(IDX));
+// (2026-07-25 사장님 지시) 자동 열림이 교재 위 필기도구 버튼을 가려서 기본 OFF로 전환.
+//   기계장치(아래 가드 6개)는 그대로 두고 플래그로만 껐다 — 배지 알림은 유지, 창은 눌러야 열림.
+//   이 항목이 깨지면(=자동열기가 다시 무조건 실행되면) 필기도구 버튼 가림 사고가 재발한다.
+ok('자동 열림 기본 OFF — 플래그 VC_CHAT_AUTO_OPEN=true 일 때만 열림',
+   /vcChatAutoOpen\(\)\s*\{[\s\S]{0,320}window\.VC_CHAT_AUTO_OPEN !== true\) return;/.test(IDX));
 
 // 가드 — 하나라도 빠지면 실제 사고가 났던 항목들
 ok('가드: 내가 보낸 메시지 제외(서버가 보낸사람에게도 에코)', /if \(!isMine && !isSystem && !data\._loadedAt/.test(IDX));
