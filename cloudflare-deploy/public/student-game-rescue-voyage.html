@@ -888,7 +888,7 @@
       b.classList.toggle('warn', sec<=30); b.style.display='block';
     }
     function showTrialGate(ts){
-      G.running=false; G.trialActive=false; $('trialBadge').style.display='none';
+      G.running=false; G.trialActive=false; $('trialBadge').style.display='none'; $('gspeedHud').style.display='none';
       ['start','over','clear','win'].forEach(function(id){ $(id).classList.remove('on'); });
       $('hud').style.display='none'; $('ctrl').style.display='none'; $('hint').style.display='none';
       var exhausted=(ts.reason==='exhausted');
@@ -913,7 +913,7 @@
       ROUNDS = buildRounds(G.mode);   // 모드별 교재/내장 문장 — 매판 셔플
       G.stageIdx=0; G.lives=3; G.score=0; G.combo=0;
       $('start').classList.remove('on'); $('over').classList.remove('on'); $('win').classList.remove('on'); $('trialGate').classList.remove('on');
-      $('hud').style.display='flex'; $('ctrl').style.display='flex'; $('hint').style.display='block';
+      $('hud').style.display='flex'; $('ctrl').style.display='flex'; $('hint').style.display='block'; $('gspeedHud').style.display='flex';
       audioInit(); bgm.start();
       loadStage();
     }
@@ -1315,6 +1315,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725122813 -->
+<!-- BUILD:20260725123808 -->
 </body>
 </html>
