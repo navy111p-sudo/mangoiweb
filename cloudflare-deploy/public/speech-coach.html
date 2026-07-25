@@ -85,6 +85,25 @@
 
   .preset { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; justify-content: center; }
   .preset button { padding: 6px 12px; background: rgba(139,92,246,0.1); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.3); border-radius: 99px; font-size: 12px; cursor: pointer; }
+
+  /* 강사 아바타 — 얼굴 보며 연습 (2026-07-25, Phase 1) */
+  #tavatar-wrap { display:flex; flex-direction:column; align-items:center; gap:9px; margin: 4px 0 20px; }
+  #tavatar-ring { position:relative; width:150px; height:150px; border-radius:50%; padding:4px;
+    background: conic-gradient(from 180deg, rgba(167,139,250,0.9), rgba(56,189,248,0.7), rgba(251,191,36,0.85), rgba(167,139,250,0.9));
+    box-shadow: 0 12px 34px -10px rgba(124,58,237,0.6); transition: box-shadow .3s, transform .3s; }
+  #tavatar-ring::after { content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid rgba(167,139,250,0.4); opacity:0; transition:opacity .3s; pointer-events:none; }
+  /* 표시면=캔버스(런타임 크로마키로 초록 제거 → 진짜 투명). 영상은 숨은 소스(디코드용 opacity:0) */
+  #tavatar-canvas { position:relative; z-index:2; width:100%; height:100%; border-radius:50%; display:block; }
+  #tavatar-video { position:absolute; inset:4px; width:calc(100% - 8px); height:calc(100% - 8px); border-radius:50%; opacity:0; z-index:1; pointer-events:none; object-fit:cover; }
+  #tavatar-wrap.speaking #tavatar-ring { animation: tavatarPulse 1.1s ease-in-out infinite; }
+  #tavatar-wrap.speaking #tavatar-ring::after { opacity:1; animation: tavatarHalo 1.1s ease-out infinite; }
+  @keyframes tavatarPulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.035); box-shadow:0 16px 40px -8px rgba(139,92,246,0.85); } }
+  @keyframes tavatarHalo { 0%{ transform:scale(1); opacity:0.55; } 100%{ transform:scale(1.18); opacity:0; } }
+  #tavatar-status { font-size:12px; font-weight:800; letter-spacing:0.3px; color:#c4b5fd; padding:4px 13px; border-radius:99px; background:rgba(167,139,250,0.12); border:1px solid rgba(167,139,250,0.25); }
+  #tavatar-status .ts-talk { display:none; }
+  #tavatar-wrap.speaking #tavatar-status { color:#fff; background:rgba(139,92,246,0.35); border-color:rgba(167,139,250,0.6); }
+  #tavatar-wrap.speaking #tavatar-status .ts-idle { display:none; }
+  #tavatar-wrap.speaking #tavatar-status .ts-talk { display:inline; }
 </style>
 </head>
 <body>
@@ -142,6 +161,22 @@
         <div style="font-size:13.5px;">🇨🇳 <span data-ko="중국어" data-en="Chinese">중국어</span></div>
         <div style="font-size:11px;color:#fecaca;margin-top:3px;font-weight:600;" data-ko="중국어 마스터 · Lv 1~20" data-en="CN Master · Lv 1~20">중국어 마스터 · Lv 1~20</div>
       </a>
+    </div>
+  </div>
+
+  <!-- 강사 아바타 — 얼굴 보며 연습 (Phase 1, 2026-07-25).
+       초록 배경 영상을 캔버스에서 실시간 크로마키 → 진짜 투명(모든 기기 동작, 알파 코덱 불필요) -->
+  <div id="tavatar-wrap">
+    <div id="tavatar-ring">
+      <canvas id="tavatar-canvas" width="320" height="320" aria-label="강사"></canvas>
+      <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
+        <source src="/img/teacher-avatar.webm" type="video/webm">
+        <source src="/img/teacher-avatar.mp4" type="video/mp4">
+      </video>
+    </div>
+    <div id="tavatar-status">
+      <span class="ts-idle" data-ko="함께 연습해요" data-en="Let's practice together">함께 연습해요</span>
+      <span class="ts-talk" data-ko="말하는 중…" data-en="Speaking…">말하는 중…</span>
     </div>
   </div>
 
@@ -232,6 +267,15 @@ var STEPS = [
   'Can you say that again, please?',
   'Thank you very much for your help.'
 ];
+// 👩‍🏫 문장별 미리 만든 립싱크 클립(Wav2Lip). 커리큘럼 문장은 진짜 입모양+음성 클립을 재생.
+//   키=문장(STEPS/프리셋과 동일), 값=클립 id → /img/teacher-say-<id>.webm(.mp4 폴백)
+var SAY_CLIPS = {
+  'Hello! Nice to meet you.': 0,
+  'What is your name?': 1,
+  'I love studying English with Mangoi.': 2,
+  'Can you say that again, please?': 3,
+  'Thank you very much for your help.': 4
+};
 var currentStep = 0;
 /* 진행 저장(이어서 하기) + 완료 체크 — localStorage */
 var LS_STEP = 'mangoi_speech_en_step', LS_DONE = 'mangoi_speech_en_done';
@@ -367,6 +411,10 @@ function speakFallback(t, lang) {
     if (v) u.voice = v;
     u.lang = pref === 'ko' ? 'ko-KR' : pref === 'zh' ? 'zh-CN' : 'en-US';
     u.rate = 0.9;
+    // 👩‍🏫 아바타: 브라우저 음성은 분석 불가 → 단순 입 움직임(재생/정지)
+    u.onstart = function(){ if (window.MangoAvatar) MangoAvatar.plainStart(); };
+    u.onend   = function(){ if (window.MangoAvatar) MangoAvatar.plainStop(); };
+    u.onerror = function(){ if (window.MangoAvatar) MangoAvatar.plainStop(); };
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch(e) { alert('음성 합성 실패: ' + e.message); }
@@ -375,6 +423,11 @@ async function speakTarget() {
   const t = document.getElementById('target-input').value || document.getElementById('target-display').textContent;
   if (!t) return;
   const lang = detectTtsLang(t);
+  // 👩‍🏫 커리큘럼 문장이면 미리 만든 립싱크 클립을 재생(정확한 입모양+음성). 실패 시 아래 TTS 로 폴백.
+  if (lang === 'en' && window.MangoAvatar && MangoAvatar.playClip && SAY_CLIPS.hasOwnProperty(t)) {
+    try { await MangoAvatar.playClip(SAY_CLIPS[t]); return; }
+    catch (e) { /* 클립 미배포/로드실패 → 기존 TTS 경로로 진행 */ }
+  }
   if (lang === 'ko') { speakFallback(t, lang); return; } // 한국어는 브라우저 TTS
   if (ttsAudio) { try { ttsAudio.pause(); } catch(_){} }
   try { window.speechSynthesis.cancel(); } catch(_){}
@@ -391,7 +444,9 @@ async function speakTarget() {
       url = URL.createObjectURL(blob);
       ttsCache[lang + '|' + t] = url;
     }
-    ttsAudio = new Audio(url);
+    // 👩‍🏫 아바타 립싱크: 매번 새 Audio 대신 영속 요소 재사용(MediaElementSource는 요소당 1회)
+    if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
+    ttsAudio.src = url;
     await ttsAudio.play();
   } catch (e) { speakFallback(t, lang); } // 서버 TTS 실패 시 브라우저 TTS 폴백
 }
@@ -555,13 +610,106 @@ async function checkGrammar(text) {
   }
 }
 
+/* 👩‍🏫 강사 아바타 (Phase 1, 2026-07-25) — 캔버스 실시간 크로마키
+   초록 배경 영상(커리큘럼 문장별 Wav2Lip 립싱크 클립 + idle 루프)을 <canvas>에 그리며
+   초록을 픽셀 단위로 제거 → '진짜 투명'. 알파 코덱(webm alpha)이 이 환경 ffmpeg에서
+   안 만들어져, 런타임 키잉으로 모든 기기에서 투명 배경을 보장한다.
+   키잉은 말하는 몇 초 동안만 rAF로 돌아 저사양에도 부담이 적다(정지 시 1프레임만). */
+window.MangoAvatar = (function(){
+  var video  = document.getElementById('tavatar-video');
+  var canvas = document.getElementById('tavatar-canvas');
+  var wrap   = document.getElementById('tavatar-wrap');
+  if (!video || !canvas) return { attach:function(){}, plainStart:function(){}, plainStop:function(){}, playClip:function(){ return Promise.reject(new Error('no_avatar')); } };
+  var ctx = canvas.getContext('2d', { willReadFrequently:true });
+  var W = canvas.width, H = canvas.height;
+  var raf = 0, drawing = false, IDLE = null;
+  function setSpeaking(on){ if (wrap) wrap.classList.toggle('speaking', !!on); }
+  function ensureIdle(){ if(!IDLE) IDLE = video.currentSrc || '/img/teacher-avatar.webm'; }
+  // 초록 제거 크로마키: 초록 우세도(g - max(r,b))로 판정 + 가장자리 페더 + 스필 억제
+  function keyFrame(){
+    if (video.readyState < 2) return;
+    try { ctx.drawImage(video, 0, 0, W, H); } catch(e){ return; }
+    var im; try { im = ctx.getImageData(0,0,W,H); } catch(e){ return; }
+    var d = im.data;
+    for (var i=0;i<d.length;i+=4){
+      var r=d[i], g=d[i+1], b=d[i+2];
+      var mx = r>b?r:b;
+      var diff = g - mx;                       // 초록 우세도
+      if (diff > 38){ d[i+3]=0; }               // 확실한 초록 → 완전 투명
+      else if (diff > 10){                      // 가장자리 → 부분 투명(페더) + 스필 억제
+        d[i+3] = ((38-diff)*255/28)|0;
+        d[i+1] = mx + 8;
+      }
+    }
+    ctx.putImageData(im,0,0);
+  }
+  function loop(){ if(!drawing){ raf=0; return; } keyFrame(); raf=requestAnimationFrame(loop); }
+  function startDraw(){ drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
+  function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
+  function drawStill(){ keyFrame(); }         // 정지 얼굴 1프레임만 키잉
+  // 로드/시크 시 정지 얼굴 갱신
+  video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });
+  video.addEventListener('seeked',     function(){ if(!drawing) drawStill(); });
+  // 초기 정지 얼굴(투명 포스터) — 영상 디코드 전 잠깐 표시
+  (function(){ try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,W,H); ctx.drawImage(im,0,0,W,H); }catch(e){} } }; im.src='/img/teacher-avatar.png'; }catch(e){} })();
+  return {
+    // 커리큘럼 문장 클립 재생(정확한 립싱크 + 음성) → 캔버스 키잉. 끝나면 idle 복귀.
+    playClip: function(id){
+      return new Promise(function(resolve, reject){
+        ensureIdle();
+        var useWebm = (video.currentSrc||'').indexOf('.webm')>=0 ||
+                      (video.canPlayType && video.canPlayType('video/webm')!=='');
+        var url = '/img/teacher-say-' + id + (useWebm ? '.webm' : '.mp4');
+        var done=false;
+        function end(ok, err){
+          if(done) return; done=true;
+          video.removeEventListener('ended', onEnd);
+          video.removeEventListener('error', onErr);
+          stopDraw(); setSpeaking(false);
+          try{ video.muted=true; video.loop=true; video.src=IDLE; video.load(); }catch(e){}
+          ok ? resolve() : reject(err||new Error('clip_failed'));
+        }
+        var onEnd=function(){ end(true); };
+        var onErr=function(){ end(false, new Error('clip_load_error')); };
+        video.addEventListener('ended', onEnd);
+        video.addEventListener('error', onErr);
+        try{
+          setSpeaking(true);
+          video.loop=false; video.muted=false; video.src=url; video.currentTime=0;
+          var p=video.play(); startDraw();
+          if(p&&p.catch) p.catch(function(e){ end(false, e); });
+        }catch(e){ end(false, e); }
+      });
+    },
+    // 자유 입력 문장(서버 TTS): idle 영상을 재생하며 키잉(일반 말하기 모션). 음성분석 불필요.
+    attach: function(audioEl){
+      if (!audioEl) return;
+      audioEl.addEventListener('playing', function(){ ensureIdle(); setSpeaking(true); try{ video.muted=true; video.loop=true; video.play(); }catch(e){} startDraw(); });
+      var stop=function(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); };
+      audioEl.addEventListener('ended', stop);
+      audioEl.addEventListener('pause', stop);
+      audioEl.addEventListener('error', stop);
+    },
+    // SpeechSynthesis(한국어/폴백): idle 영상 재생 + 키잉
+    plainStart: function(){ ensureIdle(); setSpeaking(true); try{ video.muted=true; video.play(); }catch(e){} startDraw(); },
+    plainStop:  function(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); }
+  };
+})();
+// 모바일 자동재생 정책: 첫 사용자 제스처에서 영상 잠금 해제(무음이라 소리 안 남)
+(function(){
+  var v=document.getElementById('tavatar-video'); if(!v) return;
+  var done=false; function unlock(){ if(done) return; done=true;
+    try{ var p=v.play(); if(p&&p.then) p.then(function(){ v.pause(); v.currentTime=0; }).catch(function(){}); }catch(e){} }
+  ['pointerdown','touchstart','keydown','click'].forEach(function(ev){ document.addEventListener(ev, unlock, {passive:true, once:true}); });
+})();
+
 // 음성 합성 voice 로드
 if (typeof window.speechSynthesis !== 'undefined') {
   window.speechSynthesis.onvoiceschanged = () => {};
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260725071639 -->
+<!-- BUILD:20260725100457 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

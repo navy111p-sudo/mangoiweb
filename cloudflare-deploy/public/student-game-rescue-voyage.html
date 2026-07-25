@@ -59,11 +59,11 @@
 
   /* ── 중앙 토스트(구조 성공 시 뜻 공개) ── */
   #toast{ position:fixed; top:38%; left:50%; transform:translate(-50%,-50%) scale(.7); z-index:20;
-    background:rgba(255,254,248,0.32); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+    background:transparent;   /* 완전 투명 — 뒤가 그대로 보이게(블러도 제거) */
     color:#123; border-radius:20px; padding:16px 22px; text-align:center;
-    box-shadow:0 10px 30px #0004; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s;
+    opacity:0; pointer-events:none; transition:opacity .18s, transform .18s;
     border:3px solid var(--mango); min-width:220px;
-    text-shadow:0 1px 4px rgba(255,255,255,0.95), 0 1px 2px rgba(255,255,255,0.9); }   /* 반투명 배경 위 글자 가독성 */
+    text-shadow:0 2px 5px rgba(255,255,255,0.98), 0 0 3px rgba(255,255,255,0.95), 0 1px 2px rgba(0,0,0,0.25); }   /* 투명 위 글자 가독성(흰 글로우+옅은 검정) */
   #toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
   #toast.gold{ border-color:var(--gold); }
   #toast .big{ font-size:30px; font-weight:900; margin-bottom:2px; }
@@ -109,6 +109,13 @@
   .btn:active{ transform:translateY(2px); }
   .btn.ghost{ background:#ffffff18; color:#eaf6ff; box-shadow:none; border:1.5px solid #ffffff45; }
 
+  /* 체험 남은시간 배지 */
+  #trialBadge{ position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:18;
+    padding:5px 14px; border-radius:999px; font-weight:800; font-size:13px; white-space:nowrap;
+    background:rgba(20,40,60,0.55); color:#ffe9c7; border:1.5px solid #ffb86633;
+    -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); pointer-events:none; }
+  #trialBadge.warn{ color:#ffd0d0; border-color:#ff5a5a88; background:rgba(80,20,20,0.55); }
+
   /* 언어 선택 카드 */
   #modeSel{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:14px 0 4px; }
   .mode{ pointer-events:auto; width:130px; padding:16px 10px; border-radius:18px; cursor:pointer;
@@ -146,6 +153,11 @@
   #speakSubTxt{ font-size:12.5px; opacity:.75; min-height:16px; margin-bottom:8px; }
   .speakBtnRow{ display:flex; gap:10px; justify-content:center; margin-bottom:8px; }
   .speakBtn{ padding:10px 16px; border-radius:12px; border:0; font-weight:800; cursor:pointer; font-size:14px; }
+  #speakSpeedRow{ display:flex; align-items:center; justify-content:center; gap:6px; margin:6px 0 2px; flex-wrap:wrap; }
+  #speakSpeedRow .spdLbl{ font-size:12px; color:#bcd8e6; margin-right:2px; }
+  .spdBtn{ padding:6px 12px; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700;
+    background:#ffffff14; color:#eaf6ff; border:1.5px solid #ffffff30; }
+  .spdBtn.sel{ background:#ff8a1e22; border-color:var(--mango); color:#ffe9c7; }
   #speakListenBtn{ background:#38bdf8; color:#04202b; }
   #speakMicBtn{ background:linear-gradient(160deg,var(--mango2),var(--mango)); color:#3a1a00; }
   #speakMicBtn:disabled{ opacity:.55; cursor:default; }
@@ -162,6 +174,7 @@
   <div id="floatLayer"></div>
   <div id="comboBanner"></div>
   <div id="stormBanner"></div>
+  <div id="trialBadge" style="display:none"></div>
 
   <!-- 상단 HUD -->
   <div id="hud" style="display:none">
@@ -197,9 +210,10 @@
   <div id="start" class="ov on">
     <div class="mango-badge"><img src="/img/mango-char.png" alt="" onerror="this.style.display='none'">MANGO RESCUE</div>
     <h1>망고 구조선의 대항해<span class="sub">Mango Rescue Voyage · 파도를 타고 단어 친구를 구하자!</span></h1>
-    <p>폭풍에 휩쓸려 바다에 빠진 <b>단어 친구들</b>을 배로 건져 올려요.<br>
-       친구를 구하면 <b>원어민 발음</b>과 뜻이 공개돼요. 암초와 통나무는 피하고, 시간 안에 최대한 구조하세요!<br>
-       바다를 클리어하면 배운 단어로 만든 <b>문장을 듣고 따라 말하기</b> 미션에 도전해요! 🎤</p>
+    <p>바다에 빠진 <b>단어 친구들</b>을 <b>문장 순서대로</b> 구조해 문장을 완성해요!<br>
+       (예: <b>I → love → apples</b> 순서로 구하면 "I love apples" 완성 → 보너스 🎁)<br>
+       암초와 통나무는 피하고, 문장을 완성하면 <b>듣고 따라 말하기</b> 미션에 도전! 🎤<br>
+       <small style="opacity:.85">로그인하면 내 교재 문장으로 무제한 · 체험은 하루 5분</small></p>
     <div id="modeSel">
       <div class="mode sel" data-mode="en"><div class="flag">🇬🇧</div><div class="nm">English</div><div class="d">영어로 구조</div></div>
       <div class="mode" data-mode="zh"><div class="flag">🇨🇳</div><div class="nm">中文</div><div class="d">중국어로 구조</div></div>
@@ -216,6 +230,12 @@
     <div id="speakBox">
       <div id="speakSentTxt"></div>
       <div id="speakSubTxt"></div>
+      <div id="speakSpeedRow">
+        <span class="spdLbl">속도</span>
+        <button class="spdBtn" data-rate="0.7">🐢 느리게</button>
+        <button class="spdBtn sel" data-rate="0.9">🚶 보통</button>
+        <button class="spdBtn" data-rate="1.1">🐇 빠르게</button>
+      </div>
       <div class="speakBtnRow">
         <button class="speakBtn" id="speakListenBtn">🔊 듣기</button>
         <button class="speakBtn" id="speakMicBtn">🎤 따라 말하기</button>
@@ -240,10 +260,20 @@
     <button class="btn" id="winBtn">처음부터 다시 🥭</button>
   </div>
 
+  <!-- 체험 게이트(비로그인: 하루 1회 5분, 최대 3일) -->
+  <div id="trialGate" class="ov">
+    <div class="mango-badge"><img src="/img/mango-char.png" alt="" onerror="this.style.display='none'">체험 · TRIAL</div>
+    <h1 id="trialTtl">체험 5분이 끝났어요! 🔑<span class="sub" id="trialSub"></span></h1>
+    <p id="trialMsg"></p>
+    <button class="btn" id="trialLoginBtn">로그인하고 계속하기 🔑 / Log in</button>
+    <button class="btn ghost" id="trialAgainBtn" style="display:none">내일 또 체험하기</button>
+  </div>
+
   <div id="loadErr">⚠ 3D 엔진(Three.js) 로드 실패 — 인터넷 연결을 확인하고 새로고침 하세요</div>
 
   <script src="/vendor/three/three.min.js?v=1"></script>
   <script src="/vendor/three/GLTFLoader.js?v=1"></script>
+  <script src="/js/game-vocab.js?v=1"></script>
   <script>
   (function(){
     'use strict';
@@ -298,6 +328,53 @@
     ];
 
     /* ============================================================
+       2b. 문장 라운드 콘텐츠 — 로그인 학생의 교재(MangoiGameVocab)에서 문장을
+           최대한 다양하게 뽑아 쓰고, 없으면 내장 STAGES 문장으로 폴백.
+           한 판 = 여러 문장(라운드). 각 라운드의 단어를 순서대로 구조해 문장 완성.
+       ============================================================ */
+    var MAX_ROUNDS = 6;   // 한 판에 도전하는 문장 수(셔플이라 재도전마다 다른 문장)
+    // Win10 안전 이모지만(13+ 금지). 없으면 말풍선 기본값.
+    var EMOJI_MAP = { i:'🙋', you:'👉', love:'❤', like:'👍', we:'🙌', they:'👫', is:'➡', are:'➡', and:'➕', the:'🔹',
+      cat:'🐱', dog:'🐶', fish:'🐟', bird:'🐦', apple:'🍎', banana:'🍌', orange:'🍊', grape:'🍇', hello:'👋', friend:'🤝',
+      one:'1️⃣', two:'2️⃣', three:'3️⃣', four:'4️⃣', five:'5️⃣', six:'6️⃣', book:'📖', water:'💧', happy:'😊', good:'👍', big:'🔵', small:'🔸' };
+    function _tokEn(en){ return (window.MangoiGameVocab && MangoiGameVocab.tokenize) ? MangoiGameVocab.tokenize(en)
+      : String(en||'').replace(/[^A-Za-z' ]/g,' ').split(/\s+/).filter(Boolean); }
+    var CONTENT = { source:'builtin', textbook:'', level:'', wordsMap:{} };
+    function wordMetaFor(token){
+      var low=String(token||'').toLowerCase();
+      var ko = CONTENT.wordsMap[low] || '';
+      var em = EMOJI_MAP[low] || '💬';
+      return { en:token, en2:'', zh:'', py:'', ko:ko, em:em };
+    }
+    // vocabData(로그인 교재) → 라운드(문장) 배열. 없으면 내장 STAGES 문장.
+    function buildRounds(vocabData){
+      var rounds=[]; CONTENT.wordsMap={};
+      if(vocabData){
+        (vocabData.words||[]).forEach(function(w){ if(w.en&&w.ko) CONTENT.wordsMap[w.en.toLowerCase()]=w.ko; });
+      }
+      function push(en, ko, zh, py, toks){
+        toks = (toks&&toks.length)? toks.slice() : _tokEn(en);
+        toks = toks.filter(Boolean);
+        if(toks.length>=2 && toks.length<=9) rounds.push({ en:String(en||'').trim(), ko:String(ko||'').trim(), zh:zh||'', py:py||'', words:toks });
+      }
+      if(vocabData && vocabData.sentences && vocabData.sentences.length){
+        vocabData.sentences.forEach(function(s){ push(s.en, s.ko, '', '', s.words); });
+        CONTENT.source='textbook'; CONTENT.textbook=vocabData.textbook||''; CONTENT.level=vocabData.level||'';
+      }
+      if(!rounds.length){   // 폴백: 내장 스테이지 문장
+        STAGES.forEach(function(st){ if(st.sent) push(st.sent.en, st.sent.ko, st.sent.zh, st.sent.py); });
+        CONTENT.source='builtin'; CONTENT.textbook=''; CONTENT.level='';
+      }
+      // 셔플(최대 다양성) 후 상한
+      for(var i=rounds.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=rounds[i]; rounds[i]=rounds[j]; rounds[j]=t; }
+      return rounds.slice(0, MAX_ROUNDS);
+    }
+    var ROUNDS = [];
+    // 페이지 로드 시 교재 데이터 선반입(로그인 학생만; 실패/비로그인 → null → 폴백)
+    var _vocabData = null;
+    try{ if(window.MangoiGameVocab) MangoiGameVocab.load().then(function(d){ _vocabData=d; }); }catch(_){}
+
+    /* ============================================================
        1. 언어 모드 — ?glang / localStorage 를 기본값으로, 시작화면에서 최종 선택
           영어 또는 중국어 중 하나만 선택(레벨 선택제)
        ============================================================ */
@@ -321,8 +398,9 @@
       zhVoice=zh[0]||null;
     }
     if(synth){ pickVoices(); synth.onvoiceschanged=pickVoices; }
+    var _speakRate=0.9;   // 말하기 미션 속도(0.7 느리게 / 0.9 보통 / 1.1 빠르게)
     function browserSpeak(text,lang){ if(!synth) return; try{ synth.cancel(); var u=new SpeechSynthesisUtterance(text);
-      u.lang=lang; u.rate=(lang==='zh-CN')?0.85:0.92; u.voice=(lang==='zh-CN')?zhVoice:enVoice; synth.speak(u); }catch(e){} }
+      u.lang=lang; u.rate=_speakRate; u.voice=(lang==='zh-CN')?zhVoice:enVoice; synth.speak(u); }catch(e){} }
     var ttsCache={};
     function speak(text,lang){ text=(text||'').trim(); if(!text) return;
       if(lang==='en'){
@@ -335,7 +413,7 @@
       } else { browserSpeak(text,'zh-CN'); }
     }
     var ttsAudio=null;
-    function playUrl(u){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.play().catch(function(){}); }catch(e){} }
+    function playUrl(u){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.playbackRate=_speakRate; ttsAudio.play().catch(function(){}); }catch(e){} }
 
     /* ============================================================
        2b. WebAudio SFX + 앰비언트 BGM — 구조 성공/피격/콤보/클리어에 사운드 부여
@@ -665,17 +743,20 @@
        ============================================================ */
     var G = { mode:MODE, stageIdx:0, rescued:0, lives:3, score:0, combo:0,
       boatX:0, steer:0, boost:false, speed:0, running:false, dist:0, spawnGap:12, sinceSpawn:0,
-      controlLock:0, t:0, wordPool:[],
+      controlLock:0, t:0, wordPool:[], round:null, sentWords:[], sentNext:0, trialActive:false, trialLeft:0,
       lastRescueAt:-99, invuln:0, stageTimeMax:50, stageTimeLeft:50, stormCd:16, rescuedWords:[] };
     var lane={ min:-6.4, max:6.4 };
     var objects=[];   // 활성 스폰 오브젝트
 
     function setHUD(){
-      var st=STAGES[G.stageIdx];
-      $('stageName').innerHTML=st.name+' <small>'+st.ko+'</small>';
+      var total=ROUNDS.length||1;
+      $('stageName').innerHTML='문장 '+(G.stageIdx+1)+'/'+total+' <small>단어를 순서대로 구조!</small>';
       $('lives').textContent = Array(G.lives+1).join('❤') + Array(Math.max(0,3-G.lives)+1).join('🖤');
-      $('bar').style.width = Math.min(100,(G.rescued/st.goal)*100)+'%';
-      $('barTxt').textContent = G.rescued+' / '+st.goal;
+      // 진행바 = 이 문장 완성도. barTxt = 지금까지 만든 문장(빈칸 포함)
+      var len=(G.sentWords&&G.sentWords.length)||1;
+      $('bar').style.width = Math.min(100,(G.sentNext/len)*100)+'%';
+      var parts=(G.sentWords||[]).map(function(w,i){ return i<G.sentNext ? w : '▢'; });
+      $('barTxt').innerHTML = parts.join(' ');
       var cmul=1+Math.min(1.5,(G.combo-1)*0.25);
       $('score').innerHTML = '점수 <b>'+G.score+'</b> · 콤보 '+G.combo+(G.combo>1?(' (x'+cmul.toFixed(1)+')'):'');
       // 생명 1개 남으면 화면 가장자리 빨간 경고 펄스(비행기/탱크 게임의 위기 연출)
@@ -687,28 +768,27 @@
       $('timerTxt').textContent=Math.ceil(G.stageTimeLeft)+'s';
     }
 
-    function refillPool(){
-      var st=STAGES[G.stageIdx];
-      G.wordPool = st.words.slice();
-      for(var i=G.wordPool.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=G.wordPool[i]; G.wordPool[i]=G.wordPool[j]; G.wordPool[j]=tmp; }
-    }
-    function nextWord(){ if(!G.wordPool.length) refillPool(); return G.wordPool.pop(); }
     function friendLang(){ return G.mode==='zh' ? 'zh' : 'en'; }
-
+    function _spawnObstacle(){
+      var hx=(Math.random()*2-1)*lane.max;
+      var o=(Math.random()<0.5)?buildRock():buildLog();
+      o.position.set(hx,0,-78); o.userData.x=hx; o.userData.hit=false; scene.add(o); objects.push(o);
+    }
+    // 현재 목표(문장 순서상 다음) 단어 친구가 화면에 없으면 하나 스폰 — 순서대로 등장, 놓치면 다음 틱에 재등장(관대)
+    function ensureTargetFriend(){
+      if(G.sentNext>=G.sentWords.length) return;
+      var already = objects.some(function(o){ return o.userData.type==='friend' && !o.userData.hit && o.userData.order===G.sentNext; });
+      if(already) return;
+      var f=buildFriend(wordMetaFor(G.sentWords[G.sentNext]), 'en', false);   // 문장 토큰=영어
+      f.userData.order=G.sentNext;
+      var fx=(Math.random()*2-1)*lane.max;
+      f.position.set(fx,0,-78); f.userData.x=fx; f.userData.hit=false; scene.add(f); objects.push(f);
+    }
+    // 매 스폰: 장애물 다수 + 목표 단어 친구(순서대로) 유지
     function spawnRow(forceHazard){
-      var st=STAGES[G.stageIdx];
-      var x=(Math.random()*2-1)*lane.max;
-      var isHazard = forceHazard ? true : (Math.random() < st.hazard);
-      var obj;
-      if(isHazard){
-        obj = (Math.random()<0.5) ? buildRock() : buildLog();
-      } else {
-        var golden = Math.random()<0.16;
-        obj = buildFriend(nextWord(), friendLang(), golden);
-      }
-      obj.position.set(x, 0, -78);
-      obj.userData.x=x; obj.userData.hit=false;
-      scene.add(obj); objects.push(obj);
+      var n = forceHazard ? 2 : (1 + (Math.random()<0.6?1:0));   // 장애물 1~2개(폭풍 땐 2개)
+      for(var i=0;i<n;i++) _spawnObstacle();
+      if(!forceHazard) ensureTargetFriend();
     }
     function triggerStorm(){
       if(!G.running) return;
@@ -721,44 +801,89 @@
     /* ============================================================
        5. 게임 진행
        ============================================================ */
+    /* ── 체험 게이트: 비로그인 = 하루 1회 5분, 최대 3일(매일 리셋). 로그인=무제한 ── */
+    var TRIAL_MAX_DAYS=3, TRIAL_SECONDS=300;
+    function _rvLoggedIn(){ try{ return !!(window.MangoiGameVocab && MangoiGameVocab.getUserId()); }catch(_){ return false; } }
+    function _rvToday(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+    function _rvTrialGet(){ try{ var s=JSON.parse(localStorage.getItem('rv_trial')||'null'); if(s&&s.usedDays) return s; }catch(_){} return {usedDays:[], today:'', todaySec:0}; }
+    function _rvTrialSet(s){ try{ localStorage.setItem('rv_trial', JSON.stringify(s)); }catch(_){} }
+    function trialStatus(){
+      var s=_rvTrialGet(), t=_rvToday();
+      if(s.today!==t){ s.today=t; s.todaySec=0; _rvTrialSet(s); }   // 날짜 바뀌면 오늘 사용시간 리셋
+      var newDay=(s.usedDays.indexOf(t)<0);
+      if(newDay && s.usedDays.length>=TRIAL_MAX_DAYS) return {remaining:0, blocked:true, reason:'exhausted', daysUsed:s.usedDays.length};
+      var remaining=Math.max(0, TRIAL_SECONDS-(s.todaySec||0));
+      if(remaining<=0) return {remaining:0, blocked:true, reason:(s.usedDays.length>=TRIAL_MAX_DAYS?'exhausted':'usedToday'), daysUsed:s.usedDays.length};
+      return {remaining:remaining, blocked:false, reason:'ok', daysUsed:s.usedDays.length};
+    }
+    function trialMarkDay(){ var s=_rvTrialGet(), t=_rvToday(); if(s.usedDays.indexOf(t)<0) s.usedDays.push(t); s.today=t; _rvTrialSet(s); }
+    function trialPersist(){ var s=_rvTrialGet(); s.today=_rvToday(); s.todaySec=Math.min(TRIAL_SECONDS, TRIAL_SECONDS-Math.max(0,G.trialLeft||0)); _rvTrialSet(s); }
+    function updateTrialHUD(){
+      var b=$('trialBadge');
+      if(!G.trialActive){ b.style.display='none'; return; }
+      var sec=Math.max(0,Math.ceil(G.trialLeft)), m=Math.floor(sec/60), ss=('0'+(sec%60)).slice(-2);
+      b.textContent='🎟 체험 '+m+':'+ss+' 남음 · 로그인하면 무제한';
+      b.classList.toggle('warn', sec<=30); b.style.display='block';
+    }
+    function showTrialGate(ts){
+      G.running=false; G.trialActive=false; $('trialBadge').style.display='none';
+      ['start','over','clear','win'].forEach(function(id){ $(id).classList.remove('on'); });
+      $('hud').style.display='none'; $('ctrl').style.display='none'; $('hint').style.display='none';
+      var exhausted=(ts.reason==='exhausted');
+      $('trialTtl').innerHTML=(exhausted?'3일 체험이 끝났어요! 🔑':'오늘 체험(5분) 끝! ⏱')
+        +'<span class="sub">'+(exhausted?'Log in to keep playing':'Log in for unlimited · or come back tomorrow')+'</span>';
+      $('trialMsg').innerHTML=exhausted
+        ? '3일 무료 체험을 모두 사용했어요.<br><b>로그인</b>하면 내 교재 문장으로 무제한 플레이! 🥭'
+        : '오늘의 5분 체험이 끝났어요. (체험 <b>'+ts.daysUsed+'/'+TRIAL_MAX_DAYS+'일</b> 사용)<br><b>로그인</b>하면 무제한, 아니면 <b>내일</b> 또 5분 체험할 수 있어요!';
+      $('trialGate').classList.add('on');
+    }
+    function endTrial(){ G.trialLeft=0; trialPersist(); showTrialGate(trialStatus()); }
+    // 페이지 이탈 시 체험 사용시간 저장(중간에 닫아도 소진분 반영)
+    window.addEventListener('pagehide', function(){ if(G.trialActive) trialPersist(); });
+    document.addEventListener('visibilitychange', function(){ if(document.hidden && G.trialActive) trialPersist(); });
+
     function startGame(){
+      if(!_rvLoggedIn()){
+        var ts=trialStatus();
+        if(ts.blocked){ showTrialGate(ts); return; }   // 체험 소진 → 게이트, 시작 안 함
+        trialMarkDay(); G.trialActive=true; G.trialLeft=ts.remaining; G._trialSaveT=0;
+      } else { G.trialActive=false; }
+      ROUNDS = buildRounds(_vocabData);   // 교재 문장(로그인) 또는 내장 문장(폴백) — 매판 셔플
       G.stageIdx=0; G.lives=3; G.score=0; G.combo=0;
-      $('start').classList.remove('on'); $('over').classList.remove('on'); $('win').classList.remove('on');
+      $('start').classList.remove('on'); $('over').classList.remove('on'); $('win').classList.remove('on'); $('trialGate').classList.remove('on');
       $('hud').style.display='flex'; $('ctrl').style.display='flex'; $('hint').style.display='block';
       audioInit(); bgm.start();
       loadStage();
     }
     function loadStage(){
-      var st=STAGES[G.stageIdx];
+      var vis=STAGES[G.stageIdx % STAGES.length];   // 시각 테마는 순환
+      var round=ROUNDS[G.stageIdx] || { en:'', ko:'', words:[] };
+      G.round=round; G.sentWords=(round.words||[]).slice(); G.sentNext=0;
       G.rescued=0; G.boatX=0; G.boost=false; G.dist=0; G.sinceSpawn=0; G.controlLock=0; G.combo=0;
-      G.speed=13 + G.stageIdx*2.2;   // 스테이지마다 빨라짐
+      G.speed=13 + (G.stageIdx%STAGES.length)*2.2;
       G.lastRescueAt=-99; G.invuln=0;
-      G.stageTimeMax=50+G.stageIdx*4; G.stageTimeLeft=G.stageTimeMax;
-      G.stormCd=Math.max(7,14-G.stageIdx*2)+Math.random()*5; G.rescuedWords=[];   // 뒷 스테이지일수록 폭풍이 더 자주
-      clearObjects(); clearParticles(); refillPool();
-      // 바다/하늘 색 전환
-      seaMat.color.setHex(st.water); scene.background=new THREE.Color(st.sky); scene.fog.color.setHex(st.sky);
-      // 배 업그레이드 느낌(스테이지 오를수록 살짝 커짐)
-      var up=1+G.stageIdx*0.05; boat.scale.set(up,up,up);
+      G.stageTimeMax=45 + G.sentWords.length*7; G.stageTimeLeft=G.stageTimeMax;   // 문장 길수록 시간 넉넉
+      G.stormCd=Math.max(7,14-(G.stageIdx%STAGES.length)*2)+Math.random()*5; G.rescuedWords=[];
+      clearObjects(); clearParticles();
+      seaMat.color.setHex(vis.water); scene.background=new THREE.Color(vis.sky); scene.fog.color.setHex(vis.sky);
+      var up=1+(G.stageIdx%STAGES.length)*0.05; boat.scale.set(up,up,up);
       G.running=true; setHUD(); updateTimerUI();
     }
     function stageClear(){
       G.running=false; bgm.urgency(0); $('dangerVignette').classList.remove('show');
-      var st=STAGES[G.stageIdx];
+      var round=G.round||{en:'',ko:'',words:[]};
       speakFriendlyCheer(); sfxFanfare();
-      var recap = G.rescuedWords.map(function(rw){ var w=rw.word; var isZh=(rw.lang==='zh');   // 영어 모드 요약엔 중국어 제외
-        return '<div class="recapChip'+(rw.golden?' gold':'')+'">'+(w.em||'')+' <b>'+(isZh?w.zh:w.en)+'</b><br>'+(isZh?'<span class="zh">'+w.py+'</span> ':'')+'<span class="ko">('+w.ko+')</span></div>';
-      }).join('');
-      $('recapList').innerHTML = recap;
-      $('clearTtl').textContent=st.name+' 구조 완료! 🎉';
-      $('clearMsg').innerHTML='단어 친구 '+G.rescuedWords.length+'명을 구했어요! 점수 '+G.score+'점<br>바다가 맑아지고 구조선이 더 빨라집니다.';
-      startSpeakMission(st);   // 문장 듣기+말하기 미션 노출
+      // 완성한 문장 크게 표시
+      $('recapList').innerHTML='<div class="recapChip gold" style="min-width:auto;max-width:92%"><b style="font-size:17px;line-height:1.4">'+round.en+'</b>'+(round.ko?'<br><span class="ko" style="font-size:13px">'+round.ko+'</span>':'')+'</div>';
+      $('clearTtl').textContent='문장 완성! 🎉';
+      $('clearMsg').innerHTML='단어 '+(round.words||[]).length+'개를 순서대로 구조했어요! 점수 <b>'+G.score+'</b>점<br>이제 이 문장을 듣고 따라 말해봐요! 🎤';
+      startSpeakMission({ sent:{ en:round.en, ko:round.ko, zh:round.zh||round.en, py:round.py||'' } });
       $('clear').classList.add('on');
     }
     function nextStage(){
       $('clear').classList.remove('on');
       G.stageIdx++;
-      if(G.stageIdx>=STAGES.length){ winGame(); return; }
+      if(G.stageIdx>=ROUNDS.length){ winGame(); return; }
       loadStage();
       requestAnimationFrame(loop);   // ts 없이 loop()를 직접 부르면 stale last로 dt가 거대한 음수가 됨(타이머가 거꾸로 더해짐) — 반드시 rAF로 넘겨서 새 타임스탬프를 받아야 함
     }
@@ -770,13 +895,13 @@
     function gameOver(){
       G.running=false; bgm.stop(); $('dangerVignette').classList.remove('show');
       $('overTtl').textContent='배가 가라앉았어요 😢';
-      $('overMsg').innerHTML='점수 <b>'+G.score+'</b>점 · '+STAGES[G.stageIdx].name+'에서 구조 '+G.rescued+'명.<br>다시 도전해서 더 많은 친구를 구해요!';
+      $('overMsg').innerHTML='점수 <b>'+G.score+'</b>점 · 문장 '+(G.stageIdx+1)+'에서 단어 '+G.sentNext+'개 구조.<br>다시 도전해서 문장을 완성해요!';
       $('over').classList.add('on');
     }
     function timeUp(){
       G.running=false; bgm.stop(); $('dangerVignette').classList.remove('show');
       $('overTtl').textContent='⏱ 시간이 다 됐어요!';
-      $('overMsg').innerHTML='점수 <b>'+G.score+'</b>점 · '+STAGES[G.stageIdx].name+'에서 구조 '+G.rescued+'명.<br>다시 도전해서 시간 안에 더 많은 친구를 구해요!';
+      $('overMsg').innerHTML='점수 <b>'+G.score+'</b>점 · 문장 '+(G.stageIdx+1)+'에서 단어 '+G.sentNext+'개 구조.<br>시간 안에 문장을 완성해봐요!';
       $('over').classList.add('on');
     }
     function speakFriendlyCheer(){ if(G.mode==='zh') speak('好棒','zh'); else speak('Great job','en'); }
@@ -807,43 +932,39 @@
       var dots=''; for(var i=0;i<speakMission.need;i++){ dots += (i<speakMission.done?'● ':'○ '); }
       $('speakDots').innerHTML = dots.trim();
     }
-    // 문장을 원어민 음성으로 n번 연속 낭독(문장 길이에 맞춘 간격). token 으로 '다음 바다로' 시 중단.
+    // 문장 1회 낭독(현재 속도) 후 콜백. token 으로 '다음 바다로' 시 중단.
     var _speakToken=0;
-    function speakSentenceNTimes(text, lang, n, onDone){
+    function _speakMain(){ var s=speakMission.sent; return s? ((G.mode==='zh')?s.zh:s.en) : ''; }
+    function _playOnce(cb){
+      var main=_speakMain(); if(!main) return;
       _speakToken++; var my=_speakToken;
-      var dur = Math.max(1900, text.length*95 + 900);   // 대략적인 낭독 소요시간
-      for(var i=0;i<n;i++){ (function(k){
-        setTimeout(function(){ if(speakMission.active && my===_speakToken){ speak(text, lang);
-          if(k===n-1 && onDone) setTimeout(function(){ if(speakMission.active && my===_speakToken) onDone(); }, dur); } }, k*dur);
-      })(i); }
+      speak(main, G.mode);
+      var dur=Math.max(1400, main.length*95/Math.max(0.5,_speakRate) + 650);
+      setTimeout(function(){ if(speakMission.active && my===_speakToken && cb) cb(); }, dur);
+    }
+    // 한 라운드 = 듣기 1회 → 학생 말하기(번갈아)
+    function _speakRound(){
+      $('speakMicBtn').disabled=true; $('speakMicBtn').classList.remove('listening');
+      $('speakFeedback').textContent='🔊 듣기 ('+(speakMission.done+1)+'/'+speakMission.need+') — 잘 들어보세요!';
+      _playOnce(function(){
+        if(SR){ $('speakMicBtn').disabled=false; $('speakFeedback').textContent='🎤 이제 따라 말해보세요!'; }
+        else { $('speakFeedback').textContent='잘 들었나요? 큰 소리로 따라 말해보세요!'; }
+      });
     }
     function startSpeakMission(st){
       var s = st.sent; if(!s){ $('speakBox').style.display='none'; return; }
       speakMission.active=true; speakMission.sent=s; speakMission.lang=G.mode; speakMission.done=0;
-      var main = (G.mode==='zh') ? s.zh : s.en;
-      var sub  = (G.mode==='zh') ? (s.py+' · '+s.ko) : s.ko;
-      $('speakSentTxt').textContent = main;
-      $('speakSubTxt').textContent = sub;
-      $('speakMicBtn').style.display = SR ? '' : 'none';
-      $('speakMicBtn').disabled = !!SR; $('speakMicBtn').classList.remove('listening');   // 원어민 낭독 중엔 마이크 잠금
-      _updateSpeakDots();
-      $('speakBox').style.display='block';
-      // 문장이 완성되면 → 원어민이 자동으로 3번 낭독 → 끝나면 학생이 따라 읽기
-      $('speakFeedback').textContent='🔊 원어민이 3번 읽어줍니다. 잘 들어보세요!';
-      speakSentenceNTimes(main, G.mode, 3, function(){
-        if(SR){ $('speakMicBtn').disabled=false; $('speakFeedback').textContent='🎤 이제 마이크를 누르고 따라 읽어보세요! (3번)'; }
-        else { $('speakFeedback').textContent='잘 들었나요? 큰 소리로 3번 따라 읽어보세요!'; }
-      });
+      var main=(G.mode==='zh')?s.zh:s.en, sub=(G.mode==='zh')?((s.py?s.py+' · ':'')+s.ko):(s.ko||'');
+      $('speakSentTxt').textContent=main; $('speakSubTxt').textContent=sub;
+      $('speakMicBtn').style.display=SR?'':'none'; $('speakMicBtn').classList.remove('listening');
+      _updateSpeakDots(); $('speakBox').style.display='block';
+      _speakRound();   // 듣기1→말하기1 부터 시작
     }
-    function speakMissionListen(){
-      var s=speakMission.sent; if(!s) return;
-      speak(G.mode==='zh'? s.zh : s.en, G.mode);
-    }
+    function speakMissionListen(){ var m=_speakMain(); if(m) speak(m, G.mode); }   // 지금 속도로 한 번 더 듣기
     function speakMissionMic(){
       if(!SR || speakMission.listening || speakMission.done>=speakMission.need) return;
       var rec; try{ rec=new SR(); }catch(e){ return; }
-      rec.lang = (G.mode==='zh') ? 'zh-CN' : 'en-US';
-      rec.interimResults=false; rec.maxAlternatives=3;
+      rec.lang=(G.mode==='zh')?'zh-CN':'en-US'; rec.interimResults=false; rec.maxAlternatives=3;
       speakMission.listening=true;
       var btn=$('speakMicBtn'); btn.classList.add('listening'); btn.textContent='🎤 듣는 중…';
       $('speakFeedback').textContent='지금 말해보세요!';
@@ -857,10 +978,10 @@
           speakMission.done++; sfxDing(speakMission.done+3); _updateSpeakDots();
           if(speakMission.done>=speakMission.need){
             G.score += 150; sfxFanfare();
-            $('speakFeedback').innerHTML='🎉 완벽해요! 발음 보너스 +150점';
-            btn.style.display='none';
+            $('speakFeedback').innerHTML='🎉 완벽해요! 발음 보너스 +150점'; btn.style.display='none';
           } else {
-            $('speakFeedback').textContent='좋아요! ('+speakMission.done+'/'+speakMission.need+') 한 번 더!';
+            $('speakFeedback').textContent='좋아요! ('+speakMission.done+'/'+speakMission.need+') 다시 듣고 따라 말해요';
+            btn.disabled=true; setTimeout(_speakRound, 800);   // 번갈아: 다음 라운드는 다시 듣기부터
           }
         } else {
           $('speakFeedback').textContent='"'+ (heard||'…') +'" — 다시 또박또박 말해볼까요?';
@@ -868,7 +989,7 @@
       };
       rec.onerror=function(){ $('speakFeedback').textContent='마이크를 사용할 수 없어요. 권한을 확인해주세요.'; };
       rec.onend=function(){ speakMission.listening=false; btn.classList.remove('listening');
-        if(speakMission.done<speakMission.need){ btn.textContent='🎤 따라 말하기'; } };
+        if(speakMission.done<speakMission.need && !btn.disabled){ btn.textContent='🎤 따라 말하기'; } };
       try{ rec.start(); }catch(e){ speakMission.listening=false; btn.classList.remove('listening'); btn.textContent='🎤 따라 말하기'; }
     }
 
@@ -887,8 +1008,13 @@
       spawnBurst(obj.position.clone(), golden?0xffe066:0x8fe3ff, golden?14:8);
       floatText(obj.position.clone(), '+'+gain, golden?'gold':'good');
       if(G.combo>1 && G.combo%3===0) comboBanner(G.combo);
+      // 문장 순서 진행 — 이 친구가 다음 목표 단어였으면 한 칸 전진
+      if(obj.userData.order===G.sentNext) G.sentNext++;
       setHUD();
-      if(G.rescued>=STAGES[G.stageIdx].goal){ G.running=false; setTimeout(stageClear,650); }
+      if(G.sentNext>=G.sentWords.length){   // 문장 완성!
+        G.score+=300; floatText(obj.position.clone(),'문장 완성! +300 🎉','gold'); setHUD();
+        G.running=false; setTimeout(stageClear,750);
+      }
     }
     function showToast(w,lang,golden){
       var t=$('toast'); t.classList.toggle('gold',!!golden);
@@ -904,8 +1030,9 @@
 
     /* ── 친구를 놓침(추격하지 않으면 손해 — 낚시 게임의 '놓친 물고기' 개념) ── */
     function missFriend(obj){
-      G.combo=0; G.score=Math.max(0,G.score-20);
-      floatText(obj.position.clone(),'놓쳤어요!','bad'); sfxBuzz(); setHUD();
+      // 목표 단어를 놓쳐도 다음 틱에 다시 등장(관대) — 콤보만 끊고 점수 감점은 없음
+      G.combo=0;
+      floatText(obj.position.clone(),'놓쳤어요! 다시 와요','bad'); sfxBuzz(); setHUD();
     }
 
     /* ── 피해(암초/통나무) ── */
@@ -964,6 +1091,13 @@
       if(!G.running) return;
       requestAnimationFrame(loop);
       ts=ts||0; var dt=Math.max(0,Math.min(0.05,(ts-last)/1000))||0.016; last=ts; G.t+=dt;   // 음수 dt 방어(stale last로 loop()가 잘못 호출돼도 타이머가 거꾸로 가지 않도록)
+
+      // 🎟 체험(비로그인) 시간 카운트다운 — 다 되면 정지 후 로그인 게이트
+      if(G.trialActive){
+        G.trialLeft-=dt; updateTrialHUD();
+        if(G.t-(G._trialSaveT||0)>3){ trialPersist(); G._trialSaveT=G.t; }
+        if(G.trialLeft<=0){ endTrial(); return; }
+      }
 
       // ⏱ 스테이지 타이머 — 다 되면 즉시 게임오버(낚시 게임의 제한시간 압박과 동일)
       if(G.stageTimeLeft>0){
@@ -1071,9 +1205,18 @@
     $('startBtn').addEventListener('click',function(){ unlock(); startGame(); requestAnimationFrame(loop); });
     $('speakListenBtn').addEventListener('click', speakMissionListen);
     $('speakMicBtn').addEventListener('click', speakMissionMic);
+    // 말하기 속도 조절 버튼
+    Array.prototype.forEach.call(document.querySelectorAll('#speakSpeedRow .spdBtn'), function(b){
+      b.addEventListener('click', function(){
+        _speakRate = parseFloat(b.getAttribute('data-rate'))||0.9;
+        Array.prototype.forEach.call(document.querySelectorAll('#speakSpeedRow .spdBtn'), function(x){ x.classList.remove('sel'); });
+        b.classList.add('sel');
+      });
+    });
     $('nextBtn').addEventListener('click', function(){ speakMission.active=false; $('speakBox').style.display='none'; nextStage(); });
     $('retryBtn').addEventListener('click',function(){ startGame(); requestAnimationFrame(loop); });
     $('winBtn').addEventListener('click',function(){ startGame(); requestAnimationFrame(loop); });
+    $('trialLoginBtn').addEventListener('click',function(){ location.href='/'; });   // 홈(로그인 카드)으로
 
     // 시작 전 정지 렌더(배경 미리보기)
     (function idle(){ if(G.running) return; scene.background=new THREE.Color(STAGES[0].sky); scene.fog.color.setHex(STAGES[0].sky);
@@ -1087,6 +1230,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725071639 -->
+<!-- BUILD:20260725100457 -->
 </body>
 </html>
