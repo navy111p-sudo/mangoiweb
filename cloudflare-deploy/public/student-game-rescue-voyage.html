@@ -509,12 +509,25 @@
     var scene=new THREE.Scene();
     scene.fog=new THREE.Fog(0x9fe3f0, 40, 95);
     var camera=new THREE.PerspectiveCamera(60,1,0.1,300);
-    camera.position.set(0,6,10);
+    camera.position.set(0,6,10); camera.lookAt(0,0.6,-10);   // 좌우 고정 카메라(정밀 조종)
 
     var hemi=new THREE.HemisphereLight(0xffffff,0x2a5a6a,1.05); scene.add(hemi);
     var sun=new THREE.DirectionalLight(0xfff2d8,0.9); sun.position.set(-8,16,6); scene.add(sun);
 
-    function resize(){ var w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+    // 레인 경계를 실제 보이는 화면 폭(배 평면 z=0)에 맞춤 → 마우스 끝=배 끝(좌우 끝까지 도달)
+    var lane={ min:-6.4, max:6.4 };   // computeLaneBounds가 화면 폭에 맞게 갱신
+    var _lray=new THREE.Raycaster(), _lplane=new THREE.Plane(new THREE.Vector3(0,0,1),0), _lhit=new THREE.Vector3(), _lndc=new THREE.Vector2();
+    function computeLaneBounds(){
+      try{
+        var el=renderer.domElement; if(!el.width||!el.height) return;
+        camera.position.set(0,6,10); camera.lookAt(0,0.6,-10);   // 측정용 기준자세
+        function edgeX(fx){ _lndc.set(fx*2-1, -(0.82*2-1)); _lray.setFromCamera(_lndc,camera);
+          return _lray.ray.intersectPlane(_lplane,_lhit) ? _lhit.x : null; }
+        var xl=edgeX(0.02), xr=edgeX(0.98);
+        if(xl!=null && xr!=null && xr>xl && isFinite(xl) && isFinite(xr)){ lane.min=xl; lane.max=xr; }
+      }catch(_){}
+    }
+    function resize(){ var w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); computeLaneBounds(); }
     window.addEventListener('resize',resize); resize();
 
     /* ============================================================
@@ -769,7 +782,6 @@
       boatX:0, steer:0, boost:false, speed:0, running:false, dist:0, spawnGap:12, sinceSpawn:0,
       controlLock:0, t:0, wordPool:[], round:null, sentWords:[], sentNext:0, trialActive:false, trialLeft:0,
       lastRescueAt:-99, invuln:0, stageTimeMax:50, stageTimeLeft:50, stormCd:16, rescuedWords:[] };
-    var lane={ min:-6.4, max:6.4 };
     var objects=[];   // 활성 스폰 오브젝트
 
     function setHUD(){
@@ -794,7 +806,7 @@
 
     function friendLang(){ return G.mode==='zh' ? 'zh' : 'en'; }
     function _spawnObstacle(){
-      var hx=(Math.random()*2-1)*lane.max;
+      var hx=(Math.random()*2-1)*lane.max*0.86;   // 화면 안쪽에만(끝은 배 여유공간)
       var o=(Math.random()<0.5)?buildRock():buildLog();
       o.position.set(hx,0,-78); o.userData.x=hx; o.userData.hit=false; scene.add(o); objects.push(o);
     }
@@ -806,7 +818,7 @@
       var lg=friendLang();
       var f=buildFriend(wordMetaFor(G.sentWords[G.sentNext], lg), lg, false);   // 문장 토큰(영어/중국어)
       f.userData.order=G.sentNext;
-      var fx=(Math.random()*2-1)*lane.max;
+      var fx=(Math.random()*2-1)*lane.max*0.86;   // 화면 안쪽에만
       f.position.set(fx,0,-78); f.userData.x=fx; f.userData.hit=false; scene.add(f); objects.push(f);
     }
     // 매 스폰: 장애물 다수 + 목표 단어 친구(순서대로) 유지
@@ -1066,7 +1078,7 @@
       if(G.rescued>0){ G.rescued--; }   // 구조한 친구를 놓침 → 구조율 감소
       flashRed(); shakeT=Math.min(0.6, shakeT+(kind==='rock'?0.4:0.25));
       if(kind==='rock'){ G.lives--; sfxBoom(); spawnBurst(obj.position.clone(),0x8a8f96,10); floatText(obj.position.clone(),'쾅!','bad'); G.invuln=1.2; }
-      else { G.controlLock=1.3; sfxWhoosh(); spawnBurst(obj.position.clone(),0x8a5a2b,8); floatText(obj.position.clone(),'통나무!','bad'); G.invuln=0.8; }
+      else { G.controlLock=0.7; sfxWhoosh(); spawnBurst(obj.position.clone(),0x8a5a2b,8); floatText(obj.position.clone(),'통나무!','bad'); G.invuln=0.8; }   // 진동 0.7초(회전 없음)
       setHUD();
       if(G.lives<=0){ G.running=false; setTimeout(gameOver,500); }
     }
@@ -1111,7 +1123,7 @@
     }
     window.addEventListener('pointermove',function(e){ if(!G.running) return; G.pointerX=pointerToLaneX(e.clientX, e.clientY); G.pointerOn=true; });
     // 화면(캔버스)을 누르면: 그 위치로 조준 + 부스트(마우스는 클릭-홀드, 터치는 손가락 누른 채 드래그)
-    canvas.addEventListener('pointerdown',function(e){ if(!G.running) return; e.preventDefault(); G.pointerX=pointerToLaneX(e.clientX, e.clientY); G.pointerOn=true; G.boost=true; });
+    canvas.addEventListener('pointerdown',function(e){ if(!G.running) return; e.preventDefault(); G.pointerX=pointerToLaneX(e.clientX, e.clientY); G.pointerOn=true; G.boost=true; G.controlLock=0; boat.rotation.y=0; });   // 클릭하면 진동 즉시 해제·정상 조종 복귀
     window.addEventListener('pointerup',function(){ G.boost=false; });
     // 마우스가 게임 밖으로 나가면 포인터 조종 해제(배는 그 자리 유지)
     canvas.addEventListener('pointerleave',function(){ /* 위치는 유지, 계속 추종하도록 pointerOn 유지 */ });
@@ -1167,21 +1179,23 @@
       if(G.sinceSpawn>=G.spawnGap){ G.sinceSpawn=0; spawnRow(); }
 
       // 조타 — 통나무 충돌 락 > 키보드 > 마우스/터치 위치추종(예민) 순
-      if(G.controlLock>0){ G.controlLock-=dt; boat.rotation.y += dt*7; G.boatX += Math.sin(G.t*10)*0.04; G.aimSteer=0; }
-      else if(G.steer!==0){ G.aimSteer=G.steer; boat.rotation.y=-G.steer*0.28; G.boatX += G.steer*9*dt; }
+      // 충돌 시 배는 절대 돌지 않음 — 조종(마우스/키)은 항상 가능하고, controlLock 은 '진동'만 담당(클릭하면 즉시 0)
+      if(G.controlLock>0) G.controlLock-=dt;
+      if(G.steer!==0){ G.aimSteer=G.steer; boat.rotation.y=-G.steer*0.28; G.boatX += G.steer*9*dt; }
       else if(G.pointerOn && G.pointerX!=null){
         var diff=G.pointerX - G.boatX;
-        G.boatX += diff*Math.min(1, dt*28);                       // 커서로 빠르고 정밀하게 추종(기존보다 반응 상향)
+        G.boatX += diff*Math.min(1, dt*28);                       // 커서로 빠르고 정밀하게 추종
         if(Math.abs(diff)<0.06) G.boatX=G.pointerX;               // 미세 오차 스냅(정밀)
         G.aimSteer=Math.max(-1,Math.min(1, diff*0.9));            // 이동 방향으로 배를 기울임(뱅킹)
         boat.rotation.y=-G.aimSteer*0.28;
       } else { boat.rotation.y += (0-boat.rotation.y)*Math.min(1,dt*6); G.aimSteer=0; }   // 입력 없으면 정면 복귀
       G.boatX=Math.max(lane.min,Math.min(lane.max,G.boatX));
 
-      // 배가 파도를 탐
+      // 배가 파도를 탐 + 충돌 시 좌우 진동(회전 아님)
       var by=waveH(G.boatX,0,G.t);
-      boat.position.set(G.boatX, by+0.2, 0);
-      boat.rotation.z = (waveH(G.boatX-1,0,G.t)-waveH(G.boatX+1,0,G.t))*0.35 - (G.aimSteer||0)*0.12;
+      var vib=(G.controlLock>0)? Math.sin(G.t*48)*0.16 : 0;   // 부딪히면 부르르 진동
+      boat.position.set(G.boatX + (G.controlLock>0?Math.sin(G.t*55)*0.05:0), by+0.2, 0);
+      boat.rotation.z = (waveH(G.boatX-1,0,G.t)-waveH(G.boatX+1,0,G.t))*0.35 - (G.aimSteer||0)*0.12 + vib;
       boat.rotation.x = (waveH(G.boatX,-1.5,G.t)-waveH(G.boatX,1.5,G.t))*0.25;
       if(boat.userData.flag) boat.userData.flag.rotation.y=Math.sin(G.t*8)*0.4;
 
@@ -1212,10 +1226,10 @@
         if(obj.position.z>14){ scene.remove(obj); objects.splice(o,1); }
       }
 
-      // 카메라 — 좌우 추종을 크게 줄여(0.35→0.12) 마우스 화면위치↔배 매핑을 안정화(정밀 조종 핵심)
-      var camX=G.boatX*0.12 + (shakeT>0?(Math.random()-0.5)*shakeT*2:0);
+      // 카메라 — 좌우 추종 없음(고정 프레임). 마우스=배 1:1 정밀 매핑 + 좌우 끝까지 도달. 흔들림만 유지.
+      var camX=(shakeT>0?(Math.random()-0.5)*shakeT*2:0);
       camera.position.set(camX, 6+(shakeT>0?(Math.random()-0.5)*shakeT:0), 10);
-      camera.lookAt(G.boatX*0.15, 0.6, -10);
+      camera.lookAt(0, 0.6, -10);
       if(shakeT>0) shakeT-=dt;
 
       renderer.render(scene,camera);
@@ -1271,6 +1285,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725120151 -->
+<!-- BUILD:20260725121659 -->
 </body>
 </html>
