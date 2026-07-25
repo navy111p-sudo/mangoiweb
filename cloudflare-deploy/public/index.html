@@ -17523,6 +17523,14 @@ async function fileShareUpload(input) {
     try { console.log('[업로드] fileShareUpload 실행 (파일 선택됨)'); } catch(_){}
     const file = input.files && input.files[0];
     if (!file) return;
+    // 📄 PDF·JPG·PNG 는 교재 뷰어(pdf.js)가 화면에 바로 그릴 수 있다 → 다운로드 카드 대신 교재로 렌더.
+    //    드래그앤드롭 dropzone(위 initPdfDropzone)과 동일한 라우팅. 📎 파일 버튼으로 올려도 교재 스크린에 즉시 표시된다.
+    //    (워드·엑셀·PPT·한글·ZIP 등 렌더 불가 파일만 아래 다운로드 공유 경로로 내려간다)
+    if (/\.(pdf|jpe?g|png)$/.test((file.name || '').toLowerCase())) {
+        try { pdfUpload({ files: [file], value: '' }); } catch(e) { console.error('교재 뷰어 로드 실패:', e); }
+        input.value = '';
+        return;
+    }
     if (location.protocol === 'file:') {
         alert('파일 공유는 서버가 필요합니다. https://webrtc-unified-platform.navy111p.workers.dev/ 로 접속해 주세요.');
         input.value = ''; return;
@@ -19249,6 +19257,10 @@ function vcToggleChat() {
  *  수업 흐름을 깨면 안 되는 상황에서는 '열지 않고' 하단 독 채팅 버튼에 빨간 배지+깜빡임만 띄운다.
  *  ⚠️ 여기서 입력칸에 focus() 를 하면 모바일 소프트키보드가 올라와 수업 화면을 한 번 더 덮는다. 절대 금지. */
 function vcChatAutoOpen() {
+    // 🔕 (2026-07-25 사장님 지시) 자동 열림이 교재 위 필기도구 버튼을 가려서 기본 OFF.
+    //    채팅은 접힌 채 두고 배지(상단+하단 독)로만 알린다 — 채팅 버튼을 누르면 그때 열린다.
+    //    (배지는 이 함수 호출 전에 이미 켜진다.) 다시 자동으로 열려면 window.VC_CHAT_AUTO_OPEN = true.
+    if (window.VC_CHAT_AUTO_OPEN !== true) return;
     const body = document.body;
     if (!body || !body.classList.contains('vc-in-call')) return;   // 수업 중이 아니면 무시
     const panel = document.getElementById('vc-chat-panel');
