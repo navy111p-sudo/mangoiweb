@@ -100,7 +100,8 @@ try {
   check('admin: 캘린더 관리 라벨', admin.includes('캘린더 관리'));
   // (b) ph85 실제 사이드바 시스템 그룹에 등록 (화면에 보이는 사이드바)
   check('admin: ph85 시스템 그룹 data-cards 에 card-calendar', /data-cards="card-calendar,card-permissions/.test(admin));
-  check('admin: ph85-sub data-card="card-calendar" 항목', /class="ph85-sub" data-card="card-calendar"/.test(admin));
+  // (2026-07-25) ph85-sub 에 data-ko/data-en 이 추가되면서 data-card 가 class 바로 뒤가 아닐 수 있음 → 순서 무관 매칭
+  check('admin: ph85-sub data-card="card-calendar" 항목', /class="ph85-sub"[^>]*\bdata-card="card-calendar"/.test(admin));
   // (c) RBAC 정책 — 모든 관리자 표시 (미등록이면 본사전용으로 숨겨짐)
   check('admin: CARD_POLICY 에 card-calendar 등록', /'card-calendar':\s*'agency'/.test(admin));
   // (d) 자동 사이드바 분류 매핑

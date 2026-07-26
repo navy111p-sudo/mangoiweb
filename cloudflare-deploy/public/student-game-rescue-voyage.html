@@ -121,6 +121,14 @@
   @keyframes swPop{ 0%{ transform:scale(1.6); } 55%{ transform:scale(.9) translateY(-3px); } 100%{ transform:translateY(-2px) scale(1.05); } }
   #sentBar .sw.pop{ animation:swPop .42s ease; }
 
+  /* 🥭 포인트 적립 팝업 */
+  #pointPop{ position:fixed; top:96px; left:50%; transform:translate(-50%,-6px); z-index:21;
+    padding:9px 18px; border-radius:999px; font-weight:900; font-size:16px; white-space:nowrap;
+    color:#3a1a00; background:linear-gradient(160deg,#ffe08a,#ffb347); box-shadow:0 8px 22px #ff8a1e66;
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .25s; }
+  #pointPop.show{ opacity:1; transform:translate(-50%,0); animation:ptPulse .5s ease; }
+  @keyframes ptPulse{ 0%{ transform:translate(-50%,10px) scale(.7); } 60%{ transform:translate(-50%,-2px) scale(1.08); } 100%{ transform:translate(-50%,0) scale(1); } }
+
   /* 체험 남은시간 배지 */
   #trialBadge{ position:fixed; top:56px; left:50%; transform:translateX(-50%); z-index:18;
     padding:5px 14px; border-radius:999px; font-weight:800; font-size:13px; white-space:nowrap;
@@ -193,6 +201,7 @@
   <div id="comboBanner"></div>
   <div id="stormBanner"></div>
   <div id="sentBar" style="display:none"></div>
+  <div id="pointPop"></div>
   <div id="trialBadge" style="display:none"></div>
   <div id="gspeedHud">
     <button data-gs="0.55">🐢</button>
@@ -237,6 +246,7 @@
     <p>바다에 빠진 <b>단어 친구들</b>을 <b>문장 순서대로</b> 구조해 문장을 완성해요!<br>
        (예: <b>I → love → apples</b> 순서로 구하면 "I love apples" 완성 → 보너스 🎁)<br>
        암초와 통나무는 피하고, 문장을 완성하면 <b>듣고 따라 말하기</b> 미션에 도전! 🎤<br>
+       <b style="color:#ffd23f">🥭 문장을 완성할 때마다 망고 포인트를 받아요!</b> (로그인 필요 · 하루 최대 30점)<br>
        <small style="opacity:.85">로그인하면 내 교재 문장으로 무제한 · 체험은 하루 5분</small></p>
     <div id="modeSel">
       <div class="mode sel" data-mode="en"><div class="flag">🇬🇧</div><div class="nm">English</div><div class="d">영어로 구조</div></div>
@@ -461,21 +471,36 @@
     }
     if(synth){ pickVoices(); synth.onvoiceschanged=pickVoices; }
     var _speakRate=0.9;   // 말하기 미션 속도(0.7 느리게 / 0.9 보통 / 1.1 빠르게)
-    function browserSpeak(text,lang){ if(!synth) return; try{ synth.cancel(); var u=new SpeechSynthesisUtterance(text);
-      u.lang=lang; u.rate=_speakRate; u.voice=(lang==='zh-CN')?zhVoice:enVoice; synth.speak(u); }catch(e){} }
+    // onEnd(선택) — 실제 발화가 끝나면 호출. 문장 3회 반복 등에서 '끊김' 없이 이어붙이는 데 사용.
+    function browserSpeak(text,lang,onEnd){
+      if(!synth){ if(onEnd) onEnd(); return; }
+      try{ synth.cancel(); var u=new SpeechSynthesisUtterance(text);
+        u.lang=lang; u.rate=_speakRate; u.voice=(lang==='zh-CN')?zhVoice:enVoice;
+        var done=false; function fin(){ if(done) return; done=true; if(onEnd) onEnd(); }
+        u.onend=fin; u.onerror=fin;
+        synth.speak(u);
+        // 안전망: 일부 모바일 브라우저가 onend 를 안 쏘는 경우 대비(실제 길이보다 충분히 길게 잡아 '조기 종료로 인한 끊김'을 방지)
+        if(onEnd) setTimeout(fin, Math.max(2200, text.length*420/Math.max(0.5,_speakRate) + 1400));
+      }catch(e){ if(onEnd) onEnd(); } }
     var ttsCache={};
-    function speak(text,lang){ text=(text||'').trim(); if(!text) return;
+    function speak(text,lang,onEnd){ text=(text||'').trim(); if(!text){ if(onEnd) onEnd(); return; }
       if(lang==='en'){
         var u=ttsCache[text];
-        if(u){ playUrl(u); return; }
+        if(u){ playUrl(u,onEnd); return; }
         fetch('/api/voice/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:'en'})})
           .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0) throw 0; return r.blob(); })
-          .then(function(b){ var url=URL.createObjectURL(b); ttsCache[text]=url; playUrl(url); })
-          .catch(function(){ browserSpeak(text,'en-US'); });
-      } else { browserSpeak(text,'zh-CN'); }
+          .then(function(b){ var url=URL.createObjectURL(b); ttsCache[text]=url; playUrl(url,onEnd); })
+          .catch(function(){ browserSpeak(text,'en-US',onEnd); });
+      } else { browserSpeak(text,'zh-CN',onEnd); }
     }
     var ttsAudio=null;
-    function playUrl(u){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.src=u; ttsAudio.playbackRate=_speakRate; ttsAudio.play().catch(function(){}); }catch(e){} }
+    function playUrl(u,onEnd){ try{ if(!ttsAudio) ttsAudio=new Audio();
+        var done=false; function fin(){ if(done) return; done=true; if(onEnd) onEnd(); }
+        ttsAudio.onended = onEnd? fin : null; ttsAudio.onerror = onEnd? fin : null;
+        ttsAudio.src=u; ttsAudio.playbackRate=_speakRate;
+        ttsAudio.play().catch(function(){ fin(); });
+        if(onEnd) setTimeout(fin, 15000);   // 하드 안전망(오디오 이벤트 누락 대비)
+      }catch(e){ if(onEnd) onEnd(); } }
 
     /* ============================================================
        2b. WebAudio SFX + 앰비언트 BGM — 구조 성공/피격/콤보/클리어에 사운드 부여
@@ -547,25 +572,35 @@
     var scene=new THREE.Scene();
     scene.fog=new THREE.Fog(0x9fe3f0, 40, 95);
     var camera=new THREE.PerspectiveCamera(60,1,0.1,300);
-    camera.position.set(0,6,10); camera.lookAt(0,0.6,-10);   // 좌우 고정 카메라(정밀 조종)
+    // 화면 비율에 맞춘 카메라 거리 — 세로(좁음)일수록 카메라를 뒤로 빼서 배·물체가 작게 보이게(휴대폰 세로 대응)
+    var CAM_Y=6, CAM_Z=10, LANE_CAP=6.2;   // LANE_CAP: 가로에서 배가 양끝까지 가지 않고 중앙 위주로(상한)
+    function _updateCamFrame(){
+      var w=window.innerWidth||1, h=window.innerHeight||1, asp=w/h;
+      if(asp<1){ var k=Math.min(2.3, 1/Math.max(0.4,asp)); CAM_Z=10+(k-1)*6.5; CAM_Y=6+(k-1)*2.2; }   // 세로: 멀리
+      else { CAM_Z=10; CAM_Y=6; }   // 가로: 기본
+    }
+    _updateCamFrame(); camera.position.set(0,CAM_Y,CAM_Z); camera.lookAt(0,0.6,-10);   // 좌우 고정 카메라(정밀 조종)
 
     var hemi=new THREE.HemisphereLight(0xffffff,0x2a5a6a,1.05); scene.add(hemi);
     var sun=new THREE.DirectionalLight(0xfff2d8,0.9); sun.position.set(-8,16,6); scene.add(sun);
 
-    // 레인 경계를 실제 보이는 화면 폭(배 평면 z=0)에 맞춤 → 마우스 끝=배 끝(좌우 끝까지 도달)
-    var lane={ min:-6.4, max:6.4 };   // computeLaneBounds가 화면 폭에 맞게 갱신
+    // 레인 경계 = 실제 보이는 폭과 LANE_CAP 중 작은 값(대칭). 마우스=배 1:1, 가로에선 중앙 위주.
+    var lane={ min:-6.2, max:6.2 };
     var _lray=new THREE.Raycaster(), _lplane=new THREE.Plane(new THREE.Vector3(0,0,1),0), _lhit=new THREE.Vector3(), _lndc=new THREE.Vector2();
     function computeLaneBounds(){
       try{
         var el=renderer.domElement; if(!el.width||!el.height) return;
-        camera.position.set(0,6,10); camera.lookAt(0,0.6,-10);   // 측정용 기준자세
+        camera.position.set(0,CAM_Y,CAM_Z); camera.lookAt(0,0.6,-10);   // 측정용 기준자세(현재 프레임)
         function edgeX(fx){ _lndc.set(fx*2-1, -(0.82*2-1)); _lray.setFromCamera(_lndc,camera);
           return _lray.ray.intersectPlane(_lplane,_lhit) ? _lhit.x : null; }
         var xl=edgeX(0.02), xr=edgeX(0.98);
-        if(xl!=null && xr!=null && xr>xl && isFinite(xl) && isFinite(xr)){ lane.min=xl; lane.max=xr; }
+        if(xl!=null && xr!=null && xr>xl && isFinite(xl) && isFinite(xr)){
+          var half=Math.min(Math.min(-xl, xr), LANE_CAP);   // 보이는 폭과 상한 중 작은 쪽(대칭)
+          lane.min=-half; lane.max=half;
+        }
       }catch(_){}
     }
-    function resize(){ var w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); computeLaneBounds(); }
+    function resize(){ var w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); _updateCamFrame(); computeLaneBounds(); }
     window.addEventListener('resize',resize); resize();
 
     /* ============================================================
@@ -1021,11 +1056,9 @@
     var _speakToken=0;
     function _speakMain(){ var s=speakMission.sent; return s? ((G.mode==='zh')?s.zh:s.en) : ''; }
     function _playOnce(cb){
-      var main=_speakMain(); if(!main) return;
+      var main=_speakMain(); if(!main){ if(cb) cb(); return; }
       _speakToken++; var my=_speakToken;
-      speak(main, G.mode);
-      var dur=Math.max(1400, main.length*95/Math.max(0.5,_speakRate) + 650);
-      setTimeout(function(){ if(speakMission.active && my===_speakToken && cb) cb(); }, dur);
+      speak(main, G.mode, function(){ if(speakMission.active && my===_speakToken && cb) setTimeout(cb, 250); });   // 실제 발화 종료 후
     }
     // 한 라운드 = 듣기 1회 → 학생 말하기(번갈아). noListen=true면 듣기 생략(완성 직후 이미 3번 들음)
     function _speakRound(noListen){
@@ -1104,15 +1137,39 @@
       setHUD();
       if(G.sentNext>=G.sentWords.length){   // 문장 완성! → 문장 전체를 무조건 3번 들려준 뒤 클리어
         G.score+=300; floatText(obj.position.clone(),'문장 완성! +300 🎉','gold'); setHUD();
+        awardRescuePoints();   // 🥭 로그인 학생 계정에 망고 포인트 적립
         G.running=false; sfxFanfare(); playSentenceNTimes(3, function(){ stageClear(); });
       }
     }
-    // 이번 라운드 문장을 원어민 음성으로 n번 재생 후 콜백(완성 시 '무조건 3번')
+    /* ── 🥭 게임↔망고 포인트 연결: 문장을 완성하면 로그인 학생 계정에 실제 포인트 적립(하루 30점까지) ── */
+    var _rescuePointsSession=0;
+    function awardRescuePoints(){
+      var uid=''; try{ uid=(window.MangoiGameVocab&&MangoiGameVocab.getUserId())||localStorage.getItem('mango_user_id')||''; }catch(_){}
+      var token=''; try{ token=localStorage.getItem('mango_token')||''; }catch(_){}
+      if(!uid || String(uid).indexOf('guest')===0 || !token) return;   // 로그인 학생만(게스트/비로그인은 게임 점수만)
+      fetch('/api/points/earn-by-rule',{ method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ user_id:uid, token:token, rule_code:'rescue_sentence', meta:{ game:'rescue-voyage' } }) })
+        .then(function(r){ return r.json(); }).then(function(d){
+          if(d && d.ok){ var amt=(d.rule&&d.rule.amount)||5; _rescuePointsSession+=amt; showPointToast('🥭 +'+amt+' 포인트 적립!'); }
+          else if(d && d.error==='daily_cap'){ showPointToast('🥭 오늘 포인트 다 받았어요! 내일 또 받아요'); }
+        }).catch(function(){});
+    }
+    function showPointToast(msg){
+      var p=$('pointPop'); if(!p) return; p.textContent=msg;
+      p.classList.remove('show'); void p.offsetWidth; p.classList.add('show');
+      clearTimeout(showPointToast._h); showPointToast._h=setTimeout(function(){ p.classList.remove('show'); }, 2600);
+    }
+    // 이번 라운드 문장을 원어민 음성으로 n번 재생 후 콜백. 각 재생이 '실제로 끝난 뒤' 다음을 시작 → 중국어도 마지막까지 안 잘림.
     function playSentenceNTimes(n, onDone){
       var s=G.round; var main=s?((G.mode==='zh')?s.zh:s.en):'';
       if(!main){ if(onDone) onDone(); return; }
-      var gap=Math.max(1500, main.length*90 + 800);
-      var i=0; (function tick(){ if(i>=n){ if(onDone) setTimeout(onDone,450); return; } i++; try{ speak(main, G.mode); }catch(_){}; setTimeout(tick, gap); })();
+      var i=0;
+      (function next(){
+        if(i>=n){ if(onDone) setTimeout(onDone, 500); return; }
+        i++;
+        try{ speak(main, G.mode, function(){ setTimeout(next, 550); }); }   // 발화 종료 후 0.55초 쉬고 다음 반복
+        catch(_){ setTimeout(next, 1200); }
+      })();
     }
     function showToast(w,lang,golden){
       var t=$('toast'); t.classList.toggle('gold',!!golden);
@@ -1287,9 +1344,9 @@
         if(obj.position.z>14){ scene.remove(obj); objects.splice(o,1); }
       }
 
-      // 카메라 — 좌우 추종 없음(고정 프레임). 마우스=배 1:1 정밀 매핑 + 좌우 끝까지 도달. 흔들림만 유지.
+      // 카메라 — 좌우 추종 없음(고정 프레임). 화면비율에 맞춘 거리(CAM_Y/CAM_Z). 흔들림만 유지.
       var camX=(shakeT>0?(Math.random()-0.5)*shakeT*2:0);
-      camera.position.set(camX, 6+(shakeT>0?(Math.random()-0.5)*shakeT:0), 10);
+      camera.position.set(camX, CAM_Y+(shakeT>0?(Math.random()-0.5)*shakeT:0), CAM_Z);
       camera.lookAt(0, 0.6, -10);
       if(shakeT>0) shakeT-=dt;
 
@@ -1344,13 +1401,13 @@
       G.t+=0.016; for(var i=0;i<seaPos.count;i++){ seaPos.setY(i, waveH(baseX[i],baseZ[i],G.t)); } seaPos.needsUpdate=true;
       seaGeo.computeVertexNormals();
       boat.position.set(Math.sin(G.t*0.6)*0.6, waveH(0,0,G.t)+0.2, 0); boat.rotation.z=Math.sin(G.t)*0.06;
-      camera.position.set(0,6,10); camera.lookAt(0,0.6,-10);
+      camera.position.set(0,CAM_Y,CAM_Z); camera.lookAt(0,0.6,-10);
       renderer.render(scene,camera); requestAnimationFrame(idle); })();
 
     setHUD(); updateTimerUI();
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260725133225 -->
+<!-- BUILD:20260726220520 -->
 </body>
 </html>

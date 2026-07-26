@@ -13,7 +13,9 @@
  *
  * 사용:
  *   MangoiVoice.supported()                     // 이 브라우저에서 녹음이 가능한가
- *   MangoiVoice.record({ onState, maxMs, silenceMs }) -> Promise<string>   // 전사 텍스트
+ *   MangoiVoice.record({ onState, maxMs, silenceMs, lang }) -> Promise<string>   // 전사 텍스트
+ *     lang: 서버 Whisper 언어 힌트 ('en'|'ko'|'zh' 등). 안 주면 옛 자동감지 모델로 떨어져
+ *           "I like dog" 같은 짧은 영어를 한국어로 오인식할 수 있다(2026-07-24 사고 재발 방지).
  *   MangoiVoice.stop()                          // 사용자가 ⏹ 를 누른 경우 (지금까지 녹음분으로 전사)
  *   MangoiVoice.cancel()                        // 취소 (전사하지 않음)
  *
@@ -118,6 +120,7 @@
           var ext = /mp4|aac|m4a/i.test(bt) ? 'm4a' : (/ogg/i.test(bt) ? 'ogg' : 'webm');
           var fd = new FormData();
           fd.append('audio', blob, 'speech.' + ext);
+          if (opts.lang) fd.append('lang', opts.lang);
           fetch('/api/voice/transcribe', { method: 'POST', body: fd })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {

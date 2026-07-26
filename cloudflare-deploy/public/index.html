@@ -6,12 +6,12 @@
 <script src="/js/inapp-escape.js"></script>
 <script src="/js/media-guard.js?v=2"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막(따라 말하기) -->
-<script src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 환경용 녹음+Whisper 전사 -->
+<script src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 환경용 녹음+Whisper 전사 -->
 <script src="/js/mangoi-speak-score.js?v=1"></script><!-- 🗣 따라 말하기 채점(기준 문장 단어 정렬) -->
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=11"></script>
+<script defer src="/js/i18n-sweep.js?v=12"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -22085,19 +22085,76 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch(e) { alert(L?'네트워크 오류가 발생했어요.':'Network error.'); }
   };
 
+  // 🧑‍🏫 (2026-07-26) 교사/관리자/지사/대리점 로그인 폴백 — admin/login.html(ph239)과
+  //   동일한 역할 판정 로직. 학생 홈페이지 로그인칸 하나로 모든 역할이 로그인해 자기
+  //   마이페이지로 바로 이동(클릭수 최소화). 두 곳이 어긋나면 안 되니 한쪽만 고치지 말 것.
+  async function tryAdminLoginFallback(uid, pw) {
+    try {
+      var r2 = await fetch('/api/admin/login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ username: uid, password: pw, remember: true }),
+        credentials:'include'
+      });
+      var data = await r2.json().catch(function(){ return {}; });
+      if (data && data.need_2fa) {
+        // 2단계 인증 계정은 이 간이 로그인칸에서 처리 불가 — 관리자 로그인 화면으로.
+        location.href = '/admin/login.html';
+        return true;
+      }
+      if (!(r2.ok && data && data.ok)) return false;
+      var role = 'hq_mgr', branch = '', branch_id = null, agency_id = null, name = uid;
+      if (uid === 'capitown' || uid.indexOf('capi') === 0) { role = 'capitown'; name = data.name || '캐피타운 본사'; }
+      else if (uid === 'admin' || uid === 'hq_exec' || uid === 'exec') { role = 'hq_exec'; name = '본사 경영진'; }
+      else if (uid.indexOf('hq_t') === 0) { role = 'hq_teacher'; name = '본사 교사'; }
+      else if (uid.indexOf('hq_') === 0) { role = 'hq_mgr'; name = '본사 관리자'; }
+      else if (uid.indexOf('branch_') === 0) { role = 'branch'; branch_id = uid.replace(/^branch_/, ''); branch = branch_id; name = '지사 (' + branch_id + ')'; }
+      else if (uid.indexOf('agency_') === 0) { role = 'agency'; agency_id = uid.replace(/^agency_/, ''); name = '대리점 (' + agency_id + ')'; }
+      if (data.is_teacher) { role = 'hq_teacher'; }
+      if (data.name && data.name !== uid) name = data.name;
+      var wantLang = (data.pref_lang === 'en' || data.pref_lang === 'ko') ? data.pref_lang : 'ko';
+      try {
+        localStorage.setItem('mangoi_lang', wantLang);
+        localStorage.setItem('mangoi_lang_by', 'auto');
+        localStorage.setItem('mangoi_lang_uid', uid);
+        localStorage.setItem('mangoi_admin_session', JSON.stringify({
+          uid: uid, name: name, role: role,
+          branch: branch, branch_id: branch_id, agency_id: agency_id,
+          pref_lang: wantLang,
+          nationality: (data.nationality ? String(data.nationality).toUpperCase() : ''),
+          login_at: Date.now()
+        }));
+      } catch(e){}
+      var dest = '/admin.html';
+      if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
+      else if (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency') dest = '/admin/mypage';
+      closeLoginModal();
+      showLcToast2('✅ ' + name + '님 환영합니다!');
+      setTimeout(function(){ location.href = dest; }, 500);
+      return true;
+    } catch(e) { return false; }
+  }
+
   // 🔑 학생 ID + 비밀번호 로그인 (실제 API)
   window.doStudentLogin = async function() {
     var uid = (document.getElementById('lm-uid')||{}).value;
     var pw = (document.getElementById('lm-pw')||{}).value;
     var err = document.getElementById('lm-err');
     if (!uid || !uid.trim()) { if (err){err.style.display='block';err.textContent='학생 ID를 입력하세요';} return; }
+    var uidTrim = uid.trim(), pwTrim = (pw||'').trim();
     try {
       var r = await fetch('/api/student/login', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: uid.trim(), password: (pw||'').trim() })
+        body: JSON.stringify({ user_id: uidTrim, password: pwTrim })
       });
       var d = await r.json();
       if (!d.ok) {
+        // 🧑‍🏫 학생 ID 자체가 없으면(user_not_found) 교사/관리자 계정일 수 있음 — 관리자
+        //   로그인으로 폴백 시도. 학생인데 비번만 틀린 경우(invalid_password)는 시도 안 함
+        //   (불필요한 관리자 로그인 부하·브루트포스 카운터 오염 방지).
+        if (d.error === 'user_not_found') {
+          var adminOk = await tryAdminLoginFallback(uidTrim, pwTrim);
+          if (adminOk) return;
+        }
         if (err) { err.style.display='block'; err.textContent='❌ ' + (d.message || d.error || '로그인 실패'); }
         return;
       }
@@ -27049,7 +27106,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260725133225 -->
+<!-- BUILD:20260726220520 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

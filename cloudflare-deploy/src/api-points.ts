@@ -245,6 +245,10 @@ export async function handlePointsApi(
       if (ruleCode === 'ai_writing_rewrite') {
         await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('ai_writing_rewrite','영작 고쳐쓰기 완료',5,0,5,1,'첨삭받은 문장을 직접 따라 써서 익히면 지급',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
       }
+      // 🛶 구조선 문장 완성 — 단어를 순서대로 구조해 문장을 완성하면 지급. 5점 · 하루 30점(약 한 판)까지
+      if (ruleCode === 'rescue_sentence') {
+        await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES ('rescue_sentence','구조선 문장 완성',5,0,30,1,'망고 구조선 게임에서 단어를 순서대로 구조해 문장을 완성하면 지급(하루 30점까지)',?) ON CONFLICT(code) DO NOTHING`).bind(Date.now()).run();
+      }
       const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(ruleCode).first();
       if (!rule) return json({ ok: false, error: 'rule_not_found_or_disabled', code: ruleCode }, 404);
       // 쿨다운 검사

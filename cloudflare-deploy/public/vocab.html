@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <title>나의 단어장 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
-<script src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
+<script src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
 <script src="/js/mango-i18n.js" defer></script>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
@@ -71,7 +71,7 @@
   @keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
   .hero-cta.addm{background:linear-gradient(135deg,#4f7cff,#3b82f6)}
 
-  .tab{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px;background:rgba(12,26,58,0.55);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:6px;position:sticky;top:8px;z-index:50;backdrop-filter:blur(8px)}
+  .tab{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px;background:rgba(12,26,58,0.55);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:6px;position:sticky;top:8px;z-index:50;backdrop-filter:blur(8px)}
   .tab button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:11px 4px;background:transparent;color:#a3b3d1;border:0;border-radius:11px;cursor:pointer;font-weight:800;font-size:13px;font-family:inherit;position:relative;transition:background .2s,color .2s,transform .12s}
   .tab button .tab-ic{font-size:20px;line-height:1}
   .tab button:active{transform:scale(0.94)}
@@ -243,12 +243,42 @@
   }
   @media (max-width:380px){
     .dash-stats{grid-template-columns:1fr}
+    .tab button{font-size:10px;padding:9px 2px}
+    .tab button .tab-ic{font-size:17px}
   }
+
+  /* ── 첫 방문 온보딩 (그래픽 튜토리얼) ── */
+  .onb-overlay{position:fixed;inset:0;background:rgba(8,14,32,0.72);backdrop-filter:blur(3px);z-index:5000;display:none;align-items:center;justify-content:center;padding:20px}
+  .onb-card{background:linear-gradient(160deg,#1a3266,#142950);border:1px solid rgba(79,124,255,0.3);border-radius:22px;max-width:400px;width:100%;padding:32px 26px 22px;text-align:center;position:relative;box-shadow:0 24px 60px -20px rgba(0,0,0,0.6);animation:onbIn .35s ease}
+  @keyframes onbIn{from{opacity:0;transform:scale(0.92) translateY(10px)}to{opacity:1;transform:none}}
+  .onb-close{position:absolute;top:12px;right:14px;background:rgba(255,255,255,0.08);border:0;color:#a3b3d1;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1}
+  .onb-ic{font-size:60px;margin-bottom:14px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.4))}
+  .onb-t{font-size:20px;font-weight:900;margin-bottom:8px}
+  .onb-d{font-size:14.5px;color:#a3b3d1;line-height:1.6;min-height:66px}
+  .onb-dots{display:flex;gap:6px;justify-content:center;margin:16px 0}
+  .onb-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.18);transition:width .2s,background .2s}
+  .onb-dot.on{background:#fbbf24;width:20px;border-radius:99px}
+  .onb-next{width:100%;padding:15px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;border:0;border-radius:12px;font-weight:900;font-size:16px;cursor:pointer;font-family:inherit}
+  .onb-next:active{transform:scale(0.98)}
+  .onb-skip-row{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:14px;font-size:12.5px;color:#8b9bbd}
+  .onb-skip-row input{accent-color:#4f7cff;cursor:pointer;width:15px;height:15px}
 </style>
 </head>
 <body>
 <a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+<button type="button" class="home-btn" id="help-btn" style="right:96px;padding:9px 14px;border:0;cursor:pointer;font-family:inherit" onclick="openOnboarding()" title="사용법 다시 보기" aria-label="사용법 다시 보기">❓</button>
 <canvas id="confetti-canvas"></canvas>
+
+<!-- 첫 방문 온보딩 (그래픽 튜토리얼) -->
+<div class="onb-overlay" id="onb-modal">
+  <div class="onb-card">
+    <button type="button" class="onb-close" onclick="closeOnboarding()" aria-label="닫기">✕</button>
+    <div id="onb-body"></div>
+    <div class="onb-dots" id="onb-dots"></div>
+    <button type="button" class="onb-next" id="onb-next-btn" onclick="onbNext()"></button>
+    <label class="onb-skip-row"><input type="checkbox" id="onb-dontshow"> <span data-ko="다시 보지 않기" data-en="Don't show this again">다시 보지 않기</span></label>
+  </div>
+</div>
 
 <div class="wrap">
   <div class="brand">
@@ -326,6 +356,7 @@
   <div class="tab">
     <button id="tab-add" class="active" onclick="switchTab('add')"><span class="tab-ic">＋</span><span data-ko="단어 추가" data-en="Add Word">단어 추가</span></button>
     <button id="tab-flash" onclick="switchTab('flash')"><span class="tab-ic">🎮</span><span data-ko="복습 게임" data-en="Review Game">복습 게임</span><span id="due-badge" style="padding:1px 7px;background:#ef4444;color:#fff;border-radius:99px;font-size:11px;font-weight:900;display:none"></span></button>
+    <button id="tab-quiz" onclick="goQuiz()"><span class="tab-ic">🧠</span><span data-ko="AI 퀴즈" data-en="AI Quiz">AI 퀴즈</span></button>
     <button id="tab-rank" onclick="switchTab('rank')"><span class="tab-ic">🏆</span><span data-ko="주간 랭킹" data-en="Weekly Ranking">주간 랭킹</span></button>
     <button id="tab-list" onclick="switchTab('list')"><span class="tab-ic">📖</span><span data-ko="단어 도감" data-en="Collection">단어 도감</span></button>
   </div>
@@ -590,6 +621,51 @@ function toast(msg){
   document.body.appendChild(el);
   setTimeout(()=>el.remove(), 2600);
 }
+
+/* ═══════════ 온보딩 (첫 방문 그래픽 튜토리얼) ═══════════ */
+const ONB_STEPS = [
+  { ic:'✏️', tKo:'단어를 담아요', tEn:'Add a word', dKo:'영어 단어만 넣으면 AI가 뜻과 예문을 자동으로 만들어 줘요.', dEn:'Just type an English word — AI fills in the meaning and an example.' },
+  { ic:'🎮', tKo:'복습 게임으로 외워요', tEn:'Review with games', dKo:'잊을 때쯤 딱 맞춰 다시 나와요. 맞히면 포인트가 쌓여요!', dEn:'Words come back right before you forget them — earn points for every correct answer!' },
+  { ic:'🧠', tKo:'AI 퀴즈로 실력 확인', tEn:'Test with AI Quiz', dKo:'1분이면 끝나는 퀴즈로 실력을 가볍게 확인해요.', dEn:'A 1-minute quiz to check how you\'re doing.' },
+  { ic:'📖', tKo:'도감 채우고 망고 키우기', tEn:'Fill your collection', dKo:'자주 맞힌 단어는 카드로 자라고, 아기 망고도 함께 커져요.', dEn:'Words you nail often grow into rare cards — and your baby mango grows too!' },
+];
+let _obStep = 0;
+function _isEn(){ return (document.documentElement.lang==='en') || (localStorage.getItem('mango_lang')==='en'); }
+function renderObStep(){
+  const s = ONB_STEPS[_obStep];
+  const en = _isEn();
+  document.getElementById('onb-body').innerHTML =
+    '<div class="onb-ic">'+s.ic+'</div><div class="onb-t">'+(en?s.tEn:s.tKo)+'</div><div class="onb-d">'+(en?s.dEn:s.dKo)+'</div>';
+  document.getElementById('onb-dots').innerHTML = ONB_STEPS.map((_,i)=>'<span class="onb-dot'+(i===_obStep?' on':'')+'"></span>').join('');
+  const last = _obStep === ONB_STEPS.length-1;
+  document.getElementById('onb-next-btn').textContent = last ? (en?'Start!':'시작하기!') : (en?'Next':'다음');
+}
+function onbNext(){
+  if (_obStep < ONB_STEPS.length-1) { _obStep++; renderObStep(); sndFlip(); }
+  else closeOnboarding();
+}
+const ONB_KEY = 'mango_vocab_onboard_dismissed';
+function shouldShowOnboarding(){
+  try { if (localStorage.getItem(ONB_KEY)) return false; } catch(e){}
+  try { if (sessionStorage.getItem(ONB_KEY+'_seen')) return false; } catch(e){}
+  return true;
+}
+function openOnboarding(){
+  _obStep = 0; renderObStep();
+  const m = document.getElementById('onb-modal'); if (m) m.style.display = 'flex';
+}
+function closeOnboarding(){
+  try {
+    const cb = document.getElementById('onb-dontshow');
+    if (cb && cb.checked) localStorage.setItem(ONB_KEY, '1');
+    else sessionStorage.setItem(ONB_KEY+'_seen', '1');
+  } catch(e){}
+  const m = document.getElementById('onb-modal'); if (m) m.style.display = 'none';
+}
+if (shouldShowOnboarding()) document.addEventListener('DOMContentLoaded', openOnboarding);
+
+/* 상단 탭에서 AI 퀴즈로 이동 (micro-quiz.html — 같은 단어장 데이터를 공유하는 별도 화면) */
+function goQuiz(){ location.href = '/micro-quiz.html'; }
 
 /* ═══════════ 탭 ═══════════ */
 function switchTab(t){
@@ -1205,7 +1281,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260725133225 -->
+<!-- BUILD:20260726220520 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

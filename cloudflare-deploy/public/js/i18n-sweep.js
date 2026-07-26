@@ -3219,11 +3219,22 @@
       if(v){ var out=trText(v); if(out!==null && out!==v){ records.push({n:el,a:a,o:v}); el.setAttribute(a,out); } }
     }
   }
+  // 🌐 (2026-07-25) data-ko/data-en 이 붙은 요소는 applyLang(mango-i18n)이 '권위'를 가진다.
+  //   sweep 이 이런 요소까지 EN 으로 치환하면, 사이드바가 다시 그려질 때 원문 복원이
+  //   어긋나 한국어 모드인데 영어로 굳는 사고가 났다(강사 제보: 사이드바 자식 메뉴 영어 혼용).
+  //   → i18n 관리 요소는 sweep 이 손대지 않고 applyLang 에 맡긴다.
+  function _i18nManaged(el){
+    return !!(el && el.hasAttribute && (el.hasAttribute('data-ko') || el.hasAttribute('data-en')));
+  }
   function walk(root){
     if(!root) return;
-    if(root.nodeType===3){ applyTextNode(root); return; }
+    if(root.nodeType===3){
+      var _p=root.parentElement;
+      if(_p && _i18nManaged(_p)) return;   // applyLang 관리 텍스트는 건너뜀
+      applyTextNode(root); return;
+    }
     if(root.nodeType!==1 && root.nodeType!==11) return;
-    if(root.nodeType===1){ if(SKIP.test(root.tagName)) return; applyEl(root); }
+    if(root.nodeType===1){ if(SKIP.test(root.tagName)) return; if(_i18nManaged(root)) return; applyEl(root); }
     /* 📝 (2026-07-23) TEXTAREA 의 placeholder 만 따로 번역한다.
        SKIP 에 TEXTAREA 가 들어 있어 워커가 통째로 걸러내는데, 그건 '사용자가 입력한 내용'을
        건드리지 않으려는 것이라 맞다. 문제는 그 바람에 placeholder 속성까지 같이 빠져서,
@@ -3238,7 +3249,13 @@
     } catch(e){}
     var w=document.createTreeWalker(root, NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT, {
       acceptNode:function(nd){
-        if(nd.nodeType===1) return SKIP.test(nd.tagName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT;
+        if(nd.nodeType===1){
+          if(SKIP.test(nd.tagName)) return NodeFilter.FILTER_REJECT;
+          if(_i18nManaged(nd)) return NodeFilter.FILTER_REJECT;   // data-ko/en = applyLang 관리, 서브트리째 제외
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        var _pp=nd.parentElement;
+        if(_pp && _i18nManaged(_pp)) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
     });

@@ -79,6 +79,11 @@
     height:calc(100vh - 62px);height:calc(100svh - 62px)}
   /* 채팅 셸(.wrap) 아래, 일반 문서 흐름에 놓여 페이지 스크롤로 닿는 영역 (다음 이동 버튼·서버 설정) */
   .after{max-width:860px;margin:0 auto;padding:12px 16px 28px}
+  /* 👩‍🏫 (2026-07-26) 아바타가 답변 후 안 보이던 문제 — 이 페이지는 body 자체가 스크롤되는
+     구조(.after 도달용)라, 답변마다 #inp.focus() 가 걸리면(모바일 키보드) body가 스크롤되며
+     .wrap 안의 아바타가 함께 밀려 올라가 사라졌다. .top 처럼 sticky 로 고정해 상단바 바로
+     아래 계속 보이게 한다(.top 높이와 동일한 top 오프셋). */
+  #tavatar-wrap{position:sticky;top:62px;z-index:49}
   .meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:10px 16px 4px;font-size:13px;color:var(--text2)}
   .meta .chip{border-radius:999px;padding:4px 11px;border:1px solid var(--border)}
   .meta .chip.topic{background:linear-gradient(135deg,rgba(56,189,248,.22),rgba(14,165,233,.14));
@@ -204,6 +209,7 @@
     .icon-btn{width:36px;height:36px;font-size:18px}
     .icon-btn.kebab{font-size:22px}
     .wrap{height:calc(100vh - 56px);height:calc(100svh - 56px)}
+    #tavatar-wrap{top:56px}
     .meta{font-size:12px;padding:8px 12px 2px;gap:6px}
     .meta .chip{padding:3px 9px}
     .meta .chip.topic{font-size:13px}
@@ -221,8 +227,8 @@
     .hint{font-size:12px;padding:0 12px 8px}
   }
 </style>
-<link rel="stylesheet" href="/css/mango-avatar.css?v=1"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=2" defer></script>
+<link rel="stylesheet" href="/css/mango-avatar.css?v=2"><!-- 👩‍🏫 강사 아바타 -->
+<script src="/js/mango-avatar.js?v=5" defer></script>
 </head>
 <body>
   <div class="top">
@@ -273,7 +279,7 @@
     <!-- 👩‍🏫 강사 아바타 — 얼굴 보며 웜업 (2026-07-25). 초록 영상을 캔버스에서 실시간 크로마키 → 투명 -->
     <div id="tavatar-wrap">
       <div id="tavatar-ring">
-        <canvas id="tavatar-canvas" width="320" height="320" aria-label="강사"></canvas>
+        <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
         <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
           <source src="/img/teacher-avatar.webm" type="video/webm">
           <source src="/img/teacher-avatar.mp4" type="video/mp4">
@@ -438,6 +444,7 @@ function _voiceGender(){ return _voiceMode==='mix' ? _mixNext : _voiceMode; }
 function nextSpeaker(){
   var g = _voiceGender();
   if(_voiceMode==='mix') _mixNext = (_mixNext==='female') ? 'male' : 'female';
+  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(g); }catch(e){}  // 👨‍🦸 번갈아 모드는 턴마다 성별에 맞춰 얼굴도 교체
   return VOICE_MODES[g].speaker;
 }
 function setVoiceMode(m, announce){
@@ -450,6 +457,7 @@ function setVoiceMode(m, announce){
     for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-v')===m);
       bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
   var v = document.getElementById('voiceVal'); if(v) v.textContent = VOICE_MODES[m].label;
+  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(m==='mix' ? _mixNext : m); }catch(e){}  // 👨‍🦸 남자=히어로 아바타로 즉시 교체
   _enVoice = null; pickVoice();          // 브라우저 폴백 보이스도 성별에 맞춰 재선택
   // 바꾸자마자 새 목소리가 직접 인사 → 어떤 목소리인지 바로 들어볼 수 있게
   if(announce && changed){
@@ -721,6 +729,7 @@ async function micViaWhisper(){
   if(_whisperOn){ MangoiVoice.stop(); return; }      // ⏹ — 지금까지 녹음분으로 전사
   _whisperOn=true; setMicState(true);
   var said = await MangoiVoice.record({
+    lang: 'en',
     onState: function(s, info){
       if(s==='ready')         _setListenLabel('🎙️ 마이크 준비 중…');
       else if(s==='waiting')  _setListenLabel('🎙️ 지금 말해보세요! 천천히 해도 괜찮아요');
@@ -1107,10 +1116,10 @@ async function sendMsg(){
   .inbar .mic-btn{padding:0 12px}
 }
 </style>
-<script defer src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260725133225 -->
+<!-- BUILD:20260726220520 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

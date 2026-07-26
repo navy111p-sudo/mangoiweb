@@ -5867,7 +5867,13 @@ function mangoiGetDataScope(){
 window.mangoiGetDataScope = mangoiGetDataScope;
 window.mangoiScopeQS = function(sep){ try{ var sc=mangoiGetDataScope(); if(!sc) return ''; return (sep||'&')+'scope_field='+encodeURIComponent(sc.field)+'&scope_value='+encodeURIComponent(sc.value); }catch(e){ return ''; } };
 
-async function loadStudentList() {
+async function loadStudentList(q) {
+  // 🔍 (2026-07-25 강사 피드백) 이름으로 검색해도 안 나오던 버그:
+  //   예전엔 서버에서 limit=1000 만 받아와 '클라이언트에서만' 필터했다. 학생이 29,000명이라
+  //   1000명 밖의 학생(예: 이시우·정우영·어재선)은 목록에 없어 검색해도 안 나왔다.
+  //   → 검색어(q)가 있으면 서버로 넘겨 전체 학생에서 korean_name·english_name·user_id 로 찾는다.
+  const _qSrv = String(q || '').trim();
+  const _qs = _qSrv ? ('&q=' + encodeURIComponent(_qSrv)) : '';
   const _L = adminLang === 'en';
   const tb = document.getElementById('sm-students-tbody');
   const cnt = document.getElementById('sm-students-count');
@@ -5880,7 +5886,7 @@ async function loadStudentList() {
   // 1차: Neo4j 그래프 DB 실데이터 (/api/admin/students/graph-list)
   //   미설정(503)·연결 실패(502)·빈 결과·비본사 403 이면 조용히 D1(unified)로 폴백
   try {
-    const rg = await fetch('/api/admin/students/graph-list?limit=1000', { cache: 'no-store', credentials: 'include' });
+    const rg = await fetch('/api/admin/students/graph-list?limit=1000' + _qs, { cache: 'no-store', credentials: 'include' });
     const dg = await rg.json();
     if (rg.ok && dg && dg.ok && Array.isArray(dg.students) && dg.students.length) {
       d = dg; _dataSource = 'Neo4j';
@@ -5891,7 +5897,7 @@ async function loadStudentList() {
   try {
     if (!d) {
       const _scope = (typeof mangoiGetDataScope==='function') ? mangoiGetDataScope() : null;
-      const _su = '/api/admin/students/unified' + (_scope ? ('?scope_field='+encodeURIComponent(_scope.field)+'&scope_value='+encodeURIComponent(_scope.value)) : '');
+      const _su = '/api/admin/students/unified' + (_scope ? ('?scope_field='+encodeURIComponent(_scope.field)+'&scope_value='+encodeURIComponent(_scope.value)+_qs) : (_qSrv ? ('?q='+encodeURIComponent(_qSrv)) : ''));
       const r = await fetch(_su, { cache: 'no-store', credentials: 'include' });
       d = await r.json();
     }
@@ -6265,7 +6271,15 @@ document.addEventListener('click', (ev) => {
   if (xb) xb.addEventListener('click', smExportStudentsCsv);
   // 🔍 학생명·아이디 검색 — 입력 즉시 필터링
   const sr = document.getElementById('sm-student-search');
-  if (sr) sr.addEventListener('input', () => { _smSearch = sr.value; renderStudentTable(); });
+  let _smSearchTimer = null;
+  if (sr) sr.addEventListener('input', () => {
+    _smSearch = sr.value;
+    renderStudentTable();                       // 즉시: 이미 불러온 목록에서 필터(빠른 반응)
+    // 🔍 2글자 이상이면 서버로도 질의 — 로드 안 된 학생(1000명 밖)까지 전체에서 찾는다.
+    clearTimeout(_smSearchTimer);
+    const q = String(sr.value || '').trim();
+    _smSearchTimer = setTimeout(() => { loadStudentList(q.length >= 2 ? q : ''); }, 350);
+  });
   // 🏫 대리점·학원 필터 — 선택 즉시 필터링 (2026-07-23)
   const af = document.getElementById('sm-agency-filter');
   if (af) af.addEventListener('change', () => { _smAgency = af.value; renderStudentTable(); });

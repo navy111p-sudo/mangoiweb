@@ -198,8 +198,8 @@
       border-color: #ef4444; animation: micPulse 1.1s ease-in-out infinite; }
     @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
   </style>
-<link rel="stylesheet" href="/css/mango-avatar.css?v=1"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=2" defer></script>
+<link rel="stylesheet" href="/css/mango-avatar.css?v=2"><!-- 👩‍🏫 강사 아바타 -->
+<script src="/js/mango-avatar.js?v=5" defer></script>
 </head>
 <body>
   <div class="top">
@@ -257,7 +257,7 @@
   <!-- 👩‍🏫 강사 아바타 — 얼굴 보며 대화 (2026-07-25). 초록 영상을 캔버스에서 실시간 크로마키 → 투명 -->
   <div id="tavatar-wrap">
     <div id="tavatar-ring">
-      <canvas id="tavatar-canvas" width="320" height="320" aria-label="강사"></canvas>
+      <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
       <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
         <source src="/img/teacher-avatar.webm" type="video/webm">
         <source src="/img/teacher-avatar.mp4" type="video/mp4">
@@ -608,6 +608,11 @@
        _micBySilence = 우리 침묵 감시 타이머가 부른 종료인가(=진짜 말이 끝남)
        _micStopWanted = 사용자가 ⏹ 를 눌렀거나 재시작하면 안 되는 오류인가 */
     let _micBase = '', _micSess = '', _micBySilence = false, _micStopWanted = false, _micRestarts = 0, _micT0 = 0;
+    /* 🎤 (2026-07-26) 브라우저 내장 인식기가 "한 마디도 못 들었다"며 조용히 끝났을 때(오류 없이 빈 결과)
+       한 번은 서버 Whisper(mangoi-voice-input.js)로 재시도한다 — 억양 섞인 아이 발음에 브라우저
+       인식기보다 강하다고 이미 확인된 경로다. 사용자가 ⏹ 로 직접 멈춘 경우는 재시도하지 않는다
+       (놀라게 하지 않도록). 세션당 한 번만. */
+    let _micWhisperRetried = false;
     function updateMicUI() {
       const b = document.getElementById('micBtn'); if (!b) return;
       b.classList.toggle('recording', _recognizing);
@@ -676,13 +681,23 @@
       };
       /* 🎤 진짜로 말이 끝났을 때만 여기로 온다 → 들은 말을 합쳐서 전송 */
       const finishMic = () => {
+        const said = tidySpeech(mergeSpeech(_micBase, _micSess));
+        /* 🎤 브라우저 인식기가 오류 없이 "빈 결과"로 끝났고(=우리 침묵 타이머가 종료),
+           사용자가 직접 멈춘 게 아니면 → Whisper 로 한 번 더 시도(세션당 1회) */
+        const wantWhisperRetry = !said && _micBySilence && !_micStopWanted
+                                && !_micWhisperRetried && window.MangoiVoice && MangoiVoice.supported();
         _recognizing = false; updateMicUI();
         const input = document.getElementById('msgInput');
-        const said = tidySpeech(mergeSpeech(_micBase, _micSess));
         _micBase = ''; _micSess = '';
         if (input) input.value = said;
-        if (said) { micHint(null); _pendingVoice = true; sendMsg(); }   // 인식 끝나면 자동 전송
-        else micHint(isEn() ? "I couldn't hear anything. Tap 🎤 and try again."
+        if (said) { micHint(null); _pendingVoice = true; sendMsg(); return; }   // 인식 끝나면 자동 전송
+        if (wantWhisperRetry) {
+          _micWhisperRetried = true;
+          micHint(isEn() ? 'Trying another way to listen…' : '🎤 다른 방식으로 다시 들어볼게요…', 2000);
+          setTimeout(() => { micViaWhisper(); }, 300);
+          return;
+        }
+        micHint(isEn() ? "I couldn't hear anything. Tap 🎤 and try again."
                             : '🎤 소리가 잘 안 들렸어요. 🎤 를 다시 누르고 또박또박 말해주세요.', 5000);
       };
       /* 🎤 (2026-07-22 2차) 확정 결과를 버퍼(_finalTxt)에 이어붙이는 방식을 폐기.
@@ -782,6 +797,7 @@
       try { if (window.MangoiTTS && MangoiTTS.stop) MangoiTTS.stop(); } catch(e){}
       try { window.MangoAvatar && MangoAvatar.plainStop(); } catch(e){}   // 👩‍🏫 아바타 입 멈춤
       const said = await MangoiVoice.record({
+        lang: 'en',
         onState: (s, info) => {
           if (s === 'ready')         micHint(isEn() ? 'Getting the mic ready…' : '마이크를 준비하고 있어요…', 0);
           else if (s === 'waiting')  micHint(isEn() ? '🎤 Speak now! Take your time.' : '🎤 지금 말해보세요! 천천히 해도 괜찮아요.', 0);
@@ -821,7 +837,7 @@
       try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e){}
       /* 시작 전에 입력창과 인식 버퍼를 비운다 — 이전 내용이 새 녹음에 섞이지 않게 */
       _micBase = ''; _micSess = ''; _micBySilence = false; _micStopWanted = false;
-      _micRestarts = 0; _micT0 = Date.now();
+      _micRestarts = 0; _micT0 = Date.now(); _micWhisperRetried = false;
       try {
         const input = document.getElementById('msgInput');
         if (input) input.value = '';
@@ -975,7 +991,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260725133225 -->
+<!-- BUILD:20260726220520 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}
@@ -1065,7 +1081,7 @@
 }
 </style>
 <script defer src="/js/game-tts.js?v=4"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크) -->
-<script defer src="/js/mangoi-voice-input.js?v=3"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
