@@ -596,9 +596,10 @@ function _synthSpeak(text, btn, onDone){
     u.lang=(_enVoice&&_enVoice.lang)||'en-US'; u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=1.02;
     if(_enVoice) u.voice=_enVoice;
     u.onstart=function(){ _speechEverStarted=true; };
-    u.onend=function(){ if(btn) btn.classList.remove('playing'); if(onDone) onDone(); };
-    u.onerror=function(){ if(btn) btn.classList.remove('playing'); if(onDone) onDone(); };
+    u.onend=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
+    u.onerror=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
     window.speechSynthesis.cancel();
+    try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 실제 발화 시작 직전에 아바타 입 움직임 개시
     window.speechSynthesis.speak(u);
   }catch(e){ if(onDone) onDone(); }
 }
@@ -622,7 +623,14 @@ function speak(text, btn){
   _lastAiSpeak=text;
   _stopSpeak();
   if(btn) btn.classList.add('playing');
-  try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 아바타 말하기 시작
+  /* 🐛→✅ (2026-07-27) 예전엔 여기서 바로 plainStart() 를 불러 그리기 루프를 켰다.
+     그런데 실제 오디오 재생은 아래 fetch(서버 TTS)가 끝난 뒤에야 시작되고, 그 사이
+     네트워크 대기 시간도 그리기 루프의 "5초 무음 워치독"(mango-avatar.js loop())이
+     무음으로 세고 있었다. TTS 응답이 5초를 넘기면(서버 부하·긴 문장 등) 오디오가
+     재생을 시작하기도 전에 워치독이 그리기 자체를 꺼버리고, 그 뒤 오디오가 실제로
+     흘러나와도 아무도 그리기를 다시 켜지 않아 "소리는 나는데 입은 안 움직임"으로 보였다.
+     이제 plainStart() 는 실제 재생이 막 시작되는 시점(아래 play() 안, _synthSpeak 안)
+     에서만 부른다 — 워치독이 재는 무음 시간이 실제 재생 이후로만 좁혀진다. */
   var done=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} };
   var play=function(u){
     try{
@@ -631,6 +639,7 @@ function speak(text, btn){
       _ttsAudio.src=u; _ttsAudio.playbackRate=AUDIO_RATE[_rateLevel]||1;
       // 배속 시 음높이 유지(브라우저 기본이지만 명시) — 남자 목소리가 늘어지거나 깔리는 것 방지
       try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(e2){}
+      try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 재생 시작 직전에 아바타 입 움직임 개시
       _ttsAudio.play().then(function(){ _speechEverStarted=true; })
         .catch(function(){ done(); });   // 자동재생 차단 — 첫 터치(unlockAudio)에서 재시도됨
     }catch(e){ done(); _synthSpeak(text, btn, done); }
@@ -1130,7 +1139,7 @@ async function sendMsg(){
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260727003208 -->
+<!-- BUILD:20260727005247 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>
