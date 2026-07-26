@@ -1565,13 +1565,17 @@ function syncWrecks3D(){ var pool=T3.wreckPool; for(var pi=0;pi<pool.length;pi++
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.wreckRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } } }
 var FUEL_TEX3=null;
 function syncFuels3D(){ var pool=T3.fuelPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
-  if(FUELRDY && !FUEL_TEX3){ FUEL_TEX3=new THREE.Texture(FUELIMG); FUEL_TEX3.encoding=THREE.sRGBEncoding; FUEL_TEX3.needsUpdate=true; }   // 🖼️ 2D와 같은 제리캔 실사 이미지 재사용(초록 큐브 탈피)
+  if(FUELRDY && !FUEL_TEX3){   // 🖼️ 제리캔 실사 이미지 — 밝기 보정(톤매핑으로 어두워 보임) 후 텍스처화
+    var fc=document.createElement('canvas'); fc.width=FUELIMG.width; fc.height=FUELIMG.height;
+    var fg=fc.getContext('2d'); try{ fg.filter='brightness(1.35) saturate(1.15)'; }catch(_){}
+    fg.drawImage(FUELIMG,0,0);
+    FUEL_TEX3=new THREE.CanvasTexture(fc); FUEL_TEX3.encoding=THREE.sRGBEncoding; }
   G.fuels.forEach(function(fu){ var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===fu){ entry=pool[i]; break; } }
     if(!entry){ var obj;
-      if(FUEL_TEX3){ obj=new THREE.Sprite(new THREE.SpriteMaterial({map:FUEL_TEX3,transparent:true})); obj.scale.set(0.5,0.72,1); }
+      if(FUEL_TEX3){ obj=new THREE.Sprite(new THREE.SpriteMaterial({map:FUEL_TEX3,transparent:true,fog:false})); obj.scale.set(0.95,1.37,1); }   // 크게+안개 감쇠 제외(멀리서도 또렷)
       else { obj=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.6,0.3), new THREE.MeshStandardMaterial({color:0x4d8a44,roughness:0.7})); }
       T3.fuelRoot.add(obj); entry={ref:fu,obj:obj,sprite:!!FUEL_TEX3}; pool.push(entry); }
-    entry._seen=true; var wp=simToWorld(fu.x,fu.y); entry.obj.position.set(wp.x,(entry.sprite?0.36:0.32)+Math.sin(fu.bob)*0.08,wp.z);
+    entry._seen=true; var wp=simToWorld(fu.x,fu.y); entry.obj.position.set(wp.x,(entry.sprite?0.7:0.32)+Math.sin(fu.bob)*0.08,wp.z);
     if(!entry.sprite) entry.obj.rotation.y=performance.now()*0.0006; });
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.fuelRoot.remove(pool[i].obj);
     if(pool[i].sprite) pool[i].obj.material.dispose(); else disposeObj3(pool[i].obj);
