@@ -278,6 +278,48 @@ export async function handleGamesApi(
     // KST 기준 일수 (스트릭/일일미션 경계)
     const vocabKstDay = (t: number) => Math.floor((t + 32400000) / 86400000);
 
+    // 🎁 게스트 체험: 복습게임·단어도감을 비로그인으로도 맛보게 하되, 하루 10분·총 3일까지만.
+    //   (2026-07-26) IDOR 강화 이후 게스트가 아예 못 쓰게 막혀있던 것을 시간제한 체험으로 완화.
+    const GUEST_TRIAL_MS = 10 * 60 * 1000;
+    const GUEST_TRIAL_DAYS = 3;
+    const ensureGuestTrial = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocab_guest_trial (uid TEXT NOT NULL, trial_day INTEGER NOT NULL, started_at INTEGER NOT NULL, PRIMARY KEY (uid, trial_day));`);
+    };
+    const checkGuestTrial = async (uid: string) => {
+      await ensureGuestTrial();
+      const now = Date.now();
+      const today = vocabKstDay(now);
+      const rows = ((await env.DB.prepare(`SELECT trial_day, started_at FROM vocab_guest_trial WHERE uid = ? ORDER BY trial_day ASC`).bind(uid).all()).results || []) as any[];
+      const todayRow = rows.find(r => r.trial_day === today);
+      if (todayRow) {
+        const elapsed = now - todayRow.started_at;
+        if (elapsed > GUEST_TRIAL_MS) {
+          return { ok: false, error: 'guest_trial_expired', message: '오늘 체험 시간(10분)이 끝났어요! 로그인하면 계속 복습할 수 있어요.' };
+        }
+        return { ok: true, remaining_ms: GUEST_TRIAL_MS - elapsed, day_index: rows.findIndex(r => r.trial_day === today) + 1, days_total: GUEST_TRIAL_DAYS };
+      }
+      if (rows.length >= GUEST_TRIAL_DAYS) {
+        return { ok: false, error: 'guest_trial_used_up', message: `체험 ${GUEST_TRIAL_DAYS}일을 모두 사용했어요! 로그인하면 계속 복습할 수 있어요.` };
+      }
+      // due·list 가 Promise.all 로 동시에 들어오면 오늘 첫 방문 시 둘 다 이 지점에 동시 도달 →
+      // 같은 (uid, trial_day) 를 동시에 INSERT 하려다 PK 충돌. OR IGNORE + 재조회로 경쟁을 흡수.
+      await env.DB.prepare(`INSERT OR IGNORE INTO vocab_guest_trial (uid, trial_day, started_at) VALUES (?, ?, ?)`).bind(uid, today, now).run();
+      const fresh: any = await env.DB.prepare(`SELECT started_at FROM vocab_guest_trial WHERE uid = ? AND trial_day = ?`).bind(uid, today).first();
+      const startedAt = (fresh && fresh.started_at) || now;
+      return { ok: true, remaining_ms: Math.max(0, GUEST_TRIAL_MS - (now - startedAt)), day_index: rows.length + 1, days_total: GUEST_TRIAL_DAYS };
+    };
+    // /api/vocab/due·list 공용 게이트: admin/self=무제한, guest=체험 게이트, 그 외=차단
+    const gateVocabOwner = async (uid: string) => {
+      const scope = await resolveOwnerScope(request, url, env as any, uid);
+      if (['admin', 'self'].includes(scope)) return { allow: true as const };
+      if (scope === 'guest') {
+        const trial = await checkGuestTrial(uid);
+        if (!trial.ok) return { allow: false as const, error: trial.error!, message: trial.message! };
+        return { allow: true as const, trial };
+      }
+      return { allow: false as const, error: 'auth_required', message: '로그인 후 본인 단어장만 조회할 수 있습니다.' };
+    };
+
     // ── POST /api/vocab/add — 단어 추가 (AI 가 자동으로 한국어/예문 생성) ──
     if (method === 'POST' && path === '/api/vocab/add') {
       await ensureVocab();
@@ -447,31 +489,27 @@ export async function handleGamesApi(
       return json({ ok: true, added: fresh.length, skipped_dup: skipped.length, skipped, items: fresh });
     }
 
-    // ── GET /api/vocab/list?uid=X — 학생 단어장 목록 ──
+    // ── GET /api/vocab/list?uid=X — 학생 단어장 목록 (게스트=하루10분·총3일 체험) ──
     if (method === 'GET' && path === '/api/vocab/list') {
       await ensureVocab();
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 [IDOR] 본인(토큰) 또는 관리자만 — 남의 단어장 조회 차단. [공용 헬퍼, strict=게스트 미허용]
-      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, uid))) {
-        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 단어장만 조회할 수 있습니다.' }, 401);
-      }
+      const gate = await gateVocabOwner(uid);
+      if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level, next_review_at, correct_count, wrong_count, created_at FROM vocabulary WHERE user_id = ? ORDER BY created_at DESC LIMIT 500`).bind(uid).all();
-      return json({ ok: true, count: rs.results?.length || 0, words: rs.results || [] });
+      return json({ ok: true, count: rs.results?.length || 0, words: rs.results || [], trial: gate.trial });
     }
 
-    // ── GET /api/vocab/due?uid=X — 오늘 복습할 단어 ──
+    // ── GET /api/vocab/due?uid=X — 오늘 복습할 단어 (게스트=하루10분·총3일 체험) ──
     if (method === 'GET' && path === '/api/vocab/due') {
       await ensureVocab();
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 [IDOR] 본인(토큰) 또는 관리자만 — 남의 단어장 조회 차단. [공용 헬퍼, strict=게스트 미허용]
-      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, uid))) {
-        return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 단어장만 조회할 수 있습니다.' }, 401);
-      }
+      const gate = await gateVocabOwner(uid);
+      if (!gate.allow) return json({ ok: false, error: gate.error, message: gate.message }, 401);
       const now = Date.now();
       const rs = await env.DB.prepare(`SELECT id, word, korean, example, level FROM vocabulary WHERE user_id = ? AND next_review_at <= ? ORDER BY next_review_at ASC LIMIT 20`).bind(uid, now).all();
-      return json({ ok: true, due_count: rs.results?.length || 0, words: rs.results || [] });
+      return json({ ok: true, due_count: rs.results?.length || 0, words: rs.results || [], trial: gate.trial });
     }
 
     // ── POST /api/vocab/review — 단어 복습 결과 (correct/wrong → 다음 복습 일정 자동 조정) ──

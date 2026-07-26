@@ -331,7 +331,7 @@
           </div>
         </div>
       </div>
-      <div class="howto-tip">🔑 <span data-ko="로그인하면 포인트·연속 복습·랭킹·도감이 내 계정에 저장돼요. 로그인 없이도 지금 바로 게임은 즐길 수 있어요!" data-en="Log in to save points, streaks, ranking and your collection to your account. You can still play right now without logging in!">로그인하면 포인트·연속 복습·랭킹·도감이 내 계정에 저장돼요. 로그인 없이도 지금 바로 게임은 즐길 수 있어요!</span></div>
+      <div class="howto-tip">🔑 <span data-ko="로그인하면 포인트·연속 복습·랭킹·도감이 내 계정에 저장돼요. 로그인 없이도 하루 10분, 3일간 체험해볼 수 있어요!" data-en="Log in to save points, streaks, ranking and your collection to your account. You can still try it free for 10 minutes a day, for 3 days, without logging in!">로그인하면 포인트·연속 복습·랭킹·도감이 내 계정에 저장돼요. 로그인 없이도 하루 10분, 3일간 체험해볼 수 있어요!</span></div>
     </div>
   </details>
 
@@ -612,7 +612,7 @@ function showGuestHint(){
   const el = document.createElement('div');
   el.id = 'guest-hint';
   el.style.cssText = 'max-width:1020px;margin:0 auto 16px;padding:12px 16px;border-radius:12px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);color:#fde68a;font-size:14px;text-align:center;font-weight:700';
-  el.innerHTML = '🔑 <a href="/login" style="color:#fbbf24;text-decoration:underline">로그인</a>하면 포인트·연속 복습·랭킹이 내 계정에 저장돼요! (지금도 게임은 즐길 수 있어요)';
+  el.innerHTML = '🔑 <a href="/login" style="color:#fbbf24;text-decoration:underline">로그인</a>하면 포인트·연속 복습·랭킹이 내 계정에 저장돼요! (지금은 하루 10분, 3일 체험 중이에요)';
   const wrap = document.querySelector('.wrap');
   const dash = document.getElementById('dash');
   if (wrap && dash) wrap.insertBefore(el, dash.nextSibling);
@@ -964,6 +964,17 @@ function renderPlayHome(){
     fetch('/api/vocab/due?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authToken())).then(r=>r.json()),
     fetch('/api/vocab/list?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authToken())).then(r=>r.json())
   ]).then(([due, list]) => {
+    // 게스트 체험(하루10분·총3일) 소진 → 안내 + 로그인 유도 (일반 로그인만료와 다른 문구)
+    const trialErr = (due && due.error && due.error.indexOf('guest_trial') === 0) ? due
+                    : (list && list.error && list.error.indexOf('guest_trial') === 0) ? list : null;
+    if (trialErr) {
+      el.innerHTML = `<div class="play-hero">
+        <h2>🎁 ${trialErr.error === 'guest_trial_used_up' ? '체험 기간이 끝났어요' : '오늘 체험 시간이 끝났어요'}</h2>
+        <p>${esc(trialErr.message || '')}</p>
+        <a class="big-btn" href="/login">로그인하러 가기</a>
+      </div>`;
+      return;
+    }
     // 토큰 만료/인증 실패 → 오해되는 "복습 끝" 대신 다시 로그인 안내
     if ((due && due.error === 'auth_required') || (list && list.error === 'auth_required')) {
       el.innerHTML = `<div class="play-hero">
@@ -975,6 +986,7 @@ function renderPlayHome(){
     }
     BANK = (list && list.words) || [];
     const words = (due && due.words) || [];
+    window._reviewTrial = (due && due.trial) || (list && list.trial) || null;
     if (!words.length) {
       el.innerHTML = `<div class="play-hero">
         <h2>🎉 오늘 복습 끝!</h2>
@@ -985,6 +997,32 @@ function renderPlayHome(){
     }
     renderReviewScopePicker(words);
   }).catch(()=>{ el.innerHTML = '<div class="empty">로드 실패</div>'; });
+}
+/* 게스트 체험 배너: 남은 시간을 실시간으로 보여줌(진짜 강제는 서버가 함, 이건 안내용) */
+let _trialTimerId = null;
+function trialBannerHtml(trial){
+  if (!trial) return '';
+  return `<div id="trial-banner" style="max-width:420px;margin:0 auto 14px;padding:10px 16px;border-radius:12px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);color:#fde68a;font-size:13.5px;font-weight:700">
+    🎁 체험 ${trial.day_index}/${trial.days_total}일째 · <span id="trial-remain"></span> 남음 — <a href="/login" style="color:#fbbf24;text-decoration:underline">로그인하면 계속 이용 가능</a>
+  </div>`;
+}
+function startTrialCountdown(trial){
+  if (_trialTimerId) { clearInterval(_trialTimerId); _trialTimerId = null; }
+  if (!trial) return;
+  let remain = trial.remaining_ms;
+  const el = document.getElementById('trial-remain');
+  const paint = () => {
+    const m = Math.max(0, Math.floor(remain/60000));
+    const s = Math.max(0, Math.floor((remain%60000)/1000));
+    const t = document.getElementById('trial-remain');
+    if (t) t.textContent = m+'분 '+String(s).padStart(2,'0')+'초';
+  };
+  paint();
+  _trialTimerId = setInterval(() => {
+    remain -= 1000;
+    if (remain <= 0) { clearInterval(_trialTimerId); _trialTimerId = null; remain = 0; }
+    paint();
+  }, 1000);
 }
 
 /* 복습 범위 선택: 전체 / 틀렸던 것만 / 오래된 것만 (서버 재요청 없이 due+list를 조인해서 계산) */
@@ -997,7 +1035,8 @@ function renderReviewScopePicker(dueWords){
   const staleOnes = withMeta.slice(0, Math.max(1, Math.ceil(withMeta.length/2)));
   window._reviewScopes = { all: withMeta, wrong: wrongOnes, stale: staleOnes };
   window._reviewScopePick = 'all';
-  el.innerHTML = `<div class="play-hero">
+  const trial = window._reviewTrial;
+  el.innerHTML = `${trialBannerHtml(trial)}<div class="play-hero">
     <h2>🎮 오늘의 복습 게임</h2>
     <p>복습할 단어 <b style="color:#fbbf24;font-size:19px">${withMeta.length}개</b> — 정답마다 <b style="color:#fbbf24">+10P</b>, 3콤보부터 보너스! 🔥</p>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px">
@@ -1007,6 +1046,7 @@ function renderReviewScopePicker(dueWords){
     </div>
     <button class="big-btn" id="start-btn">▶ 게임 시작!</button>
   </div>`;
+  if (trial) startTrialCountdown(trial);
   document.getElementById('start-btn').onclick = () => { ac(); startSession(window._reviewScopes[window._reviewScopePick]); };
 }
 function pickReviewScope(k){
@@ -1357,6 +1397,9 @@ async function loadCollection(){
   try {
     const r = await fetch('/api/vocab/list?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authToken()));
     const d = await r.json();
+    if (d && d.error && d.error.indexOf('guest_trial') === 0) {
+      el.innerHTML = '<div class="empty">🎁 '+esc(d.message||'체험 시간이 끝났어요.')+'<br><a href="/login" style="color:#fbbf24;text-decoration:underline">로그인하러 가기</a></div>'; return;
+    }
     if (d && d.error === 'auth_required') {
       el.innerHTML = '<div class="empty">🔑 로그인 정보가 만료됐어요.<br><a href="/login" style="color:#fbbf24;text-decoration:underline">다시 로그인</a>하면 카드가 보여요.</div>'; return;
     }
