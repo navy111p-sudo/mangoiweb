@@ -1815,7 +1815,8 @@ var last=0, raf=null;
 function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts-last)/1000; last=ts;
   if(dt>0.05)dt=0.05;
   if(G&&G.running&&!G.paused){ update(dt); if(G.running) updateHUD(); }
-  else if(G&&!G.running&&G.dead){ stepParticles(dt); }   // 격파 연출 중에도 폭발 파티클이 얼지 않고 사그라들게
+  else if(G&&!G.running&&G.dead){ stepParticles(dt);   // 격파 연출 중에도 폭발 파티클·플래시·셰이크가 얼지 않고 사그라들게
+    if(G.flash>0)G.flash=Math.max(0,G.flash-dt*1.6); if(G.shake>0)G.shake=Math.max(0,G.shake-dt*60); }
   if(VIEW==='quarter') render3D();
   // ⏳ 전차 GLB 아직 로딩 중이면 안내(흰 도형이 보이는 이유를 알림) — 완료 시 1회 알림
   if(VIEW==='quarter' && G && G.running && !G.speaking){
