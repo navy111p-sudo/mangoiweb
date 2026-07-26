@@ -5894,7 +5894,9 @@ window.__admSettleRun = function(fn){
       var list = S.fns.slice(), i = 0;
       var raf = window.requestAnimationFrame || function(f){ return setTimeout(f, 16); };
       (function chunk(){
-        var end = Math.min(i + 4, list.length);
+        // 🐢 스크롤 중이면 이번 프레임은 쉰다 — 재적용이 스크롤을 방해하지 않게(부드러운 스크롤).
+        if (Date.now() - S.lastScroll < 140) { setTimeout(chunk, 140); return; }
+        var end = Math.min(i + 3, list.length);
         for (; i < end; i++) { try { list[i](); } catch(e){} }
         if (i < list.length) raf(chunk);
       })();
@@ -16974,13 +16976,16 @@ button.chip:hover,
   function ph116EnforceSidebar(){
     var bar = document.getElementById('ph85-sidebar');
     if (!bar) return;
-    // 강제 visible
-    bar.style.display = 'block';
-    bar.style.visibility = 'visible';
-    bar.style.opacity = '1';
+    // 강제 visible — ⚡ (2026-07-26 강사 피드백 "스크롤이 부드럽지 않다")
+    //   예전엔 1.5초마다 사이드바 87개 요소 전부에 인라인 스타일을 '무조건' 다시 써서
+    //   매번 스타일 무효화(리플로우)가 일어났고, 그게 스크롤 중에 끼면 뚝뚝 끊겼다.
+    //   → 이미 보이는 요소는 건드리지 않는다(쓰기 0 = 리플로우 0). 값 읽기는 리플로우 없음.
+    if (bar.style.display !== 'block')      bar.style.display = 'block';
+    if (bar.style.visibility !== 'visible') bar.style.visibility = 'visible';
+    if (bar.style.opacity !== '1')          bar.style.opacity = '1';
     bar.querySelectorAll('.ph85-group, .ph85-sub').forEach(function(el){
-      el.style.display = '';
-      el.style.visibility = 'visible';
+      if (el.style.display === 'none')     el.style.display = '';        // 숨겨졌을 때만
+      if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
     });
 
     // 역할별 안내 배너
@@ -19631,9 +19636,11 @@ button.chip:hover,
   var IDS = ['card-ai-insights','card-kpi-dashboard','kpi','kpi-today'];
   function apply(){
     var allow = (role()==='exec' || role()==='mgr');
+    var want = allow ? '' : 'none';
     for (var i=0;i<IDS.length;i++){
       var el = document.getElementById(IDS[i]);
-      if (el) el.style.setProperty('display', allow ? '' : 'none', 'important');
+      // (2026-07-26) 값이 바뀔 때만 쓴다 — 0.6초마다 무조건 재기록하던 스타일 무효화(스크롤 끊김) 제거
+      if (el && el.style.getPropertyValue('display') !== want) el.style.setProperty('display', want, 'important');
     }
   }
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply); else apply();
@@ -21373,6 +21380,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260726234212 -->
+<!-- BUILD:20260727000228 -->
 </body>
 </html>
