@@ -105,6 +105,17 @@
   #tavatar-wrap.speaking #tavatar-status .ts-idle { display:none; }
   #tavatar-wrap.speaking #tavatar-status .ts-talk { display:inline; }
 
+  /* 🖥 PC·태블릿(≥768px) — 아바타를 왼쪽 컬럼에 크게 (2026-07-27 사장님 지시).
+     제목·레벨카드는 전체 폭, 그 아래부터 [아바타(왼쪽·sticky) | 문장·녹음·결과(오른쪽)] 2단.
+     sticky 라 오른쪽을 스크롤해도 강사 얼굴이 계속 보인다. */
+  @media (min-width: 768px) {
+    .wrap { max-width: 1020px; display: grid; grid-template-columns: 300px minmax(0, 1fr); column-gap: 30px; align-items: start; }
+    .wrap > * { grid-column: 2; min-width: 0; }
+    .brand, #lang-curriculum-picker { grid-column: 1 / -1; }
+    #tavatar-wrap { grid-column: 1; grid-row: 3 / span 7; position: sticky; top: 84px; margin: 6px 0 0; }
+    #tavatar-ring { width: 260px; height: 325px; }
+  }
+
   /* 📱 모바일 한 화면 개편 (2026-07-27) — 아바타·문장·녹음이 스크롤 없이 한 화면에 보이도록.
      데스크톱(>640px)은 이 블록의 영향을 받지 않음(기존 그대로). 기존 요소는 이동시키지
      않고 그대로 두되(레벨카드/단계이동/프리셋/다음이동), 모바일에서만 숨기고 그 내용을
@@ -123,7 +134,7 @@
     .brand-eyebrow { margin-bottom: 4px; }
     .brand-logo { font-size: 20px; }
 
-    #lang-curriculum-picker, .step-nav, .step-count, .step-progress, .preset, .next-cta { display: none !important; }
+    #lang-curriculum-picker, .step-nav, .step-count, .step-progress, .preset { display: none !important; }
 
     #tavatar-wrap { margin: 2px 0 10px; }
     #tavatar-ring { width: 118px; height: 147px; }
@@ -214,9 +225,6 @@
     <span class="brand-logo">Mangoi · AI Voice Coach</span>
     <div class="brand-sub" data-ko="따라 말하면, AI가 또렷하게 말했는지 바로 확인해 드려요" data-en="Say it aloud — AI checks how clearly you spoke, instantly">따라 말하면, AI가 또렷하게 말했는지 바로 확인해 드려요</div>
     <div class="brand-rule" aria-hidden="true"></div>
-    <div class="brand-hint">
-      <span data-ko="레벨을 고르거나, 아래 문장을 바로 따라 말해보세요" data-en="Pick a level, or just repeat the sentence below">레벨을 고르거나, 아래 문장을 바로 따라 말해보세요</span>
-    </div>
   </div>
 
   <!-- 📱 (2026-07-27) 모바일 전용: 레벨·단계·다음이동을 압축 트리거+바텀시트로.
@@ -339,11 +347,8 @@
     <div class="rec-status" id="rec-status" data-ko="마이크를 누르고 또박또박 말해보세요" data-en="Tap the mic and speak clearly">마이크를 누르고 또박또박 말해보세요</div>
   </div>
 
-  <!-- 다음으로 이동 (데스크톱 항상 표시 · 모바일은 바텀시트의 같은 버튼으로 대체) -->
-  <div class="next-cta" style="text-align:center;margin-top:16px">
-    <div style="color:#94a3b8;font-size:13px;margin-bottom:8px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
-    <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:16px;font-weight:800;cursor:pointer" data-ko="🚀 다음으로 이동 (수업·웜업·복습·나가기)" data-en="🚀 Move to next (Class · Warmup · Review · Exit)">🚀 다음으로 이동 (수업·웜업·복습·나가기)</button>
-  </div>
+  <!-- ("다음으로 이동" 상시 버튼은 2026-07-27 사장님 지시로 삭제 — 결과 카드의 '다음 활동 고르기'
+       와 중복이었다. 모바일은 바텀시트 안 버튼, 채점 후엔 결과 카드 버튼으로 이동한다.) -->
 
   <!-- 결과 -->
   <div id="result" class="result">
@@ -876,7 +881,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260727045833 -->
+<!-- BUILD:20260727051723 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

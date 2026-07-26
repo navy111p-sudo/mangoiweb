@@ -130,8 +130,12 @@ function scoreCJK(target: string, spoken: string): VoiceScore {
   const pronunciation = accuracy;   // 글자 인식 기반 — 발음 세부는 알 수 없어 정확도와 동일
   const lengthRatio = m ? n / m : 0;
   const lenScore = Math.max(0, 1 - Math.abs(1 - lengthRatio) * 0.6);
-  const fluency = Math.round(Math.min(lenScore * 100, accuracy + 20));
-  const overall = Math.round(accuracy * 0.5 + pronunciation * 0.3 + fluency * 0.2);
+  const fluency = Math.round(Math.min(lenScore * 100, accuracy + 15));
+  // 종합 — 영어와 동일한 재배분(0.6/0.25/0.15) + accuracy+12 상한 (2026-07-27 변별력 강화)
+  const overall = Math.min(
+    Math.round(accuracy * 0.6 + pronunciation * 0.25 + fluency * 0.15),
+    accuracy + 12
+  );
   return {
     accuracy, pronunciation, fluency, completeness, overall, langMismatch,
     counts: { ok: lcs, close: 0, wrong: Math.max(0, m - lcs), wrongContent: Math.max(0, m - lcs), missing: Math.max(0, m - lcs), extra: Math.max(0, n - lcs) },
@@ -183,16 +187,25 @@ export function scoreVoiceCoach(target: string, spoken: string): VoiceScore {
   const accuracy = Math.round(accuracyF * 100);
   const completeness = Math.round((tw.length ? spokenOk / tw.length : 0) * 100);
 
-  // 발음 점수 — 맞힌 단어 중 '정확히'(철자까지) 발음한 비율. 억양 흔들림(close)이 많으면 낮아진다.
+  // 발음 점수 — '정확히'(철자까지) 발음한 비율. 분모에 치환(sub)도 포함한다.
+  //   (2026-07-27 변별력 강화: 이전엔 분모가 "맞힌 단어"뿐이라, 단어를 아예 다른 말로
+  //    발음(Mangoi→MongoEye)해도 발음 점수가 100이 나왔다 — 억양 흔들림(close, 83)보다
+  //    완전 오발음이 더 높게 나오는 역전이었다. 틀리게 말한 단어도 발음 실패로 센다.)
   const okTotal = okExact + okClose;
-  const pronunciation = okTotal ? Math.round((okExact / okTotal) * 100) : 0;
+  const pronDen = okTotal + wrong;
+  const pronunciation = pronDen ? Math.round((okExact / pronDen) * 100) : 0;
 
   // 유창성 — 길이 적정성. 단, 딴소리(정확도 낮음)는 유창성 상한을 눌러 "틀렸는데 유창"을 막는다.
   const lengthRatio = sw.length / (tw.length || 1);
   const lenScore = Math.max(0, 1 - Math.abs(1 - lengthRatio) * 0.6);
-  const fluency = Math.round(Math.min(lenScore * 100, accuracy + 20));
+  const fluency = Math.round(Math.min(lenScore * 100, accuracy + 15));
 
-  const overall = Math.round(accuracy * 0.5 + pronunciation * 0.3 + fluency * 0.2);
+  // 종합 — 내용 정확도 중심으로 재배분(0.6/0.25/0.15) + 정확도보다 12점 이상 높아질 수 없게 상한.
+  //   (한 문장 6단어 중 핵심 단어 1개를 틀려도 89점 A등급이 나오던 희석을 막는다 → 82점 B)
+  const overall = Math.min(
+    Math.round(accuracy * 0.6 + pronunciation * 0.25 + fluency * 0.15),
+    accuracy + 12
+  );
   return {
     accuracy, pronunciation, fluency, completeness, overall, langMismatch,
     counts: { ok: spokenOk, close: okClose, wrong, wrongContent, missing, extra },

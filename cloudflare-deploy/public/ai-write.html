@@ -809,15 +809,28 @@
     let _allHistory = [];
     let _viewMode = 'date'; // 'date' or 'list'
 
+    // 🔐 로그인 여부 — 게스트는 히스토리를 조회할 서명 토큰이 없어 API가 401을 돌려줌.
+    //   그걸 그냥 무시하면 "기록이 없어요"로 보여 저장 기능이 아예 없는 것처럼 오해를 산다 → 먼저 걸러서 안내.
+    function isLoggedIn() {
+      try {
+        const u = JSON.parse(localStorage.getItem('mango_user') || 'null');
+        return !!(u && u.user_id) && !!getToken();
+      } catch(e){ return false; }
+    }
+
     async function loadHistory() {
+      const wrap = document.getElementById('histList');
+      if (!isLoggedIn()) {
+        wrap.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:16px 12px;text-align:center;line-height:1.6">🔐 <span data-ko="로그인하면 그동안 쓴 글을 다시 볼 수 있어요!" data-en="Log in to see your past writing here!">로그인하면 그동안 쓴 글을 다시 볼 수 있어요!</span></div>';
+        return;
+      }
       const uid = getUid();
-      if (!uid) return;
       try {
         const _tok = getToken();
         const r = await fetch('/api/ai/write-history?uid=' + encodeURIComponent(uid) + (_tok ? '&token=' + encodeURIComponent(_tok) : ''));
         const d = await r.json();
-        if (d.ok && d.items && d.items.length) {
-          _allHistory = d.items;
+        if (d.ok) {
+          _allHistory = d.items || [];
           renderHistory();
         }
       } catch(e){}
@@ -964,6 +977,7 @@
 
         <div style="display:flex;gap:8px;margin-top:18px">
           <button onclick="practiceAgain('${encodeURIComponent(item.original_text||'')}')" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px">📝 같은 주제로 다시 써보기</button>
+          <button onclick="downloadEntry(${item.id})" style="padding:11px 16px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px">💾 <span data-ko="내 폰/PC에 저장" data-en="Save to device">내 폰/PC에 저장</span></button>
           <button onclick="closeReview()" style="padding:11px 18px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px">닫기</button>
         </div>`;
       document.getElementById('reviewModal').style.display = 'block';
@@ -973,6 +987,30 @@
     window.closeReview = function() {
       document.getElementById('reviewModal').style.display = 'none';
       document.body.style.overflow = '';
+    };
+
+    // 💾 내 폰/PC에 txt 파일로 저장 — 서버 보관기간(30일)과 별개로 개인 보관하고 싶을 때
+    window.downloadEntry = function(id) {
+      const item = _allHistory.find(x => x.id === id);
+      if (!item) return;
+      let feedback = {};
+      try { feedback = JSON.parse(item.feedback || '{}'); } catch(e){}
+      const dt = new Date(item.created_at).toLocaleString('ko-KR');
+      const lines = [
+        'Mangoi AI Writing — ' + dt + ' (' + (item.level||'') + ', ' + (item.score||0) + '점)',
+        '',
+        '[원문 / Original]', item.original_text || '',
+        '', '[수정본 / Corrected]', item.corrected_text || '',
+      ];
+      if (feedback.tip) lines.push('', '[Tip]', feedback.tip);
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'mangoi-writing-' + new Date(item.created_at).toISOString().slice(0, 10) + '-' + id + '.txt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
     };
 
     window.practiceAgain = function(encodedOrig) {
@@ -1078,7 +1116,7 @@
     loadStats();
     loadLeaderboard();
   </script>
-<!-- BUILD:20260727045833 -->
+<!-- BUILD:20260727051723 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

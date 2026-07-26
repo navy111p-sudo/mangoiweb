@@ -8,6 +8,7 @@
  *  - 음성 분석: 원음 즉시 폐기 (녹화는 별도), 분석 결과는 출결과 함께 보관
  *  - 비상 이벤트: 1년
  *  - 동의 기록: 영구 (감사 추적, 단 철회 시 PII는 마스킹)
+ *  - AI 영작 첨삭 원문/기록: 30일 (아동 개인정보 최소보관 원칙)
  */
 
 export interface PurgeEnv {
@@ -24,6 +25,7 @@ export interface PurgeResult {
   kakao_ids: number;
   emergency_events: number;
   consents_masked: number;
+  ai_writing: number;
   errors: string[];
 }
 
@@ -39,6 +41,7 @@ export async function purgeExpired(env: PurgeEnv): Promise<PurgeResult> {
     kakao_ids: 0,
     emergency_events: 0,
     consents_masked: 0,
+    ai_writing: 0,
     errors: []
   };
 
@@ -95,6 +98,16 @@ export async function purgeExpired(env: PurgeEnv): Promise<PurgeResult> {
     ).bind(oneYearAgo).run();
     result.emergency_events = r.meta.changes || 0;
   } catch (e: any) { result.errors.push('emergency_events: ' + e.message); }
+
+  // 5b) AI 영작 첨삭 원문/기록: 30일 지난 것 (테이블은 첫 사용 시 생성되므로 없으면 조용히 건너뜀)
+  const thirtyDaysAgo = now - 30 * DAY;
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_writing_corrections (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, original_text TEXT NOT NULL, corrected_text TEXT, feedback TEXT, level TEXT, score INTEGER, created_at INTEGER NOT NULL);`);
+    const r = await env.DB.prepare(
+      `DELETE FROM ai_writing_corrections WHERE created_at < ?`
+    ).bind(thirtyDaysAgo).run();
+    result.ai_writing = r.meta.changes || 0;
+  } catch (e: any) { result.errors.push('ai_writing: ' + e.message); }
 
   // 6) 동의 철회 레코드의 PII 마스킹 (username, raw_payload에 담긴 개인정보)
   //    → 완전 삭제하지 않고 감사 추적을 위해 마스킹만
