@@ -223,7 +223,7 @@ export async function handleStudentsApi(
         const limit = Math.min(5000, Math.max(1, Number(b.limit) || 5000));
         const rs = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND parent_phone != '' LIMIT ?`).bind(limit).all();
         const list = (rs.results || []) as any[];
-        let eligible = 0, sent = 0, failed = 0, noPhone = 0;
+        let eligible = 0, sent = 0, failed = 0, noPhone = 0, skipped = 0;
         const now = Date.now();
         for (const r of list) {
           try {
@@ -231,12 +231,14 @@ export async function handleStudentsApi(
             if (!d.parent_phone) { noPhone++; continue; }
             eligible++;
             if (!doSend) continue;   // dry: 대상 집계만
+            // 🛡 멱등: 이번 주 이미 발송했으면 skip(크론과 겹쳐도 중복문자 방지)
+            if (await digestSentRecently(env, r.user_id)) { skipped++; continue; }
             const status = await deliverDigest(d);
             await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`).bind(r.user_id, d.parent_phone, d.message, now, status).run();
             if (status === 'sent') sent++; else failed++;
           } catch { failed++; }
         }
-        return json({ ok: true, live: doSend, kv_switch: liveOn, total: list.length, eligible, sent, failed, no_phone: noPhone,
+        return json({ ok: true, live: doSend, kv_switch: liveOn, total: list.length, eligible, sent, failed, no_phone: noPhone, skipped_dup: skipped,
           note: doSend ? '실발송 완료' : '미리보기(집계만) — 실발송하려면 요청 live:true + KV digest:send_all_live=1 둘 다 필요' });
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 500);
@@ -775,6 +777,24 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 7시, 카카오톡 �
  *   AI 친구 대화량 · 판단력 성장 · 정복한 단어 · 연속출석. 재등록의 핵심 무기.
  *   학생향 문구는 항상 희망·동기부여 톤(사장님 상시 지시).
  * ═══════════════════════════════════════════════════════════════════ */
+
+/**
+ * 🛡 중복 발송 방지(멱등) — 최근 windowDays(기본 6일) 내 이 학생에게 'sent' 로그가 있으면 true.
+ *   왜: Cloudflare 크론은 at-least-once(금요일 스윕이 드물게 2회 실행 가능)이고, 같은 날
+ *       관리자가 send-all 을 수동으로도 누르면 크론분+수동분이 겹친다 → 학부모 문자 2통.
+ *   6일 창: 주1회 발송이므로 지난주분(7일 전)은 안 걸리고, 같은 주 재실행만 막는다.
+ *   실패 시 false 반환(발송을 막지 않음 — 안전보다 '한 번은 간다'를 우선, 로그 조회 실패로 전면 중단 방지).
+ */
+export async function digestSentRecently(env: any, uid: string, windowDays = 6): Promise<boolean> {
+  try {
+    const since = Date.now() - windowDays * 86400 * 1000;
+    const row: any = await env.DB.prepare(
+      `SELECT 1 FROM digest_logs WHERE student_uid = ? AND status = 'sent' AND sent_at >= ? LIMIT 1`
+    ).bind(uid, since).first();
+    return !!row;
+  } catch { return false; }
+}
+
 export async function buildWeeklyParentDigest(env: any, uid: string): Promise<any> {
   const endTs = Date.now();
   const startTs = endTs - 7 * 86400 * 1000;
@@ -864,6 +884,8 @@ export async function runWeeklyParentDigestSweep(env: any): Promise<any> {
         if (phone.length < 10) continue;
         out.eligible++;
         if (!liveOn) continue;   // dry: 집계만
+        // 🛡 멱등: 이번 주 이미 발송했으면 skip(크론 2회 실행·수동 send-all 겹침 → 중복문자 방지)
+        if (await digestSentRecently(env, r.user_id)) { out.skipped = (out.skipped || 0) + 1; continue; }
         let status = 'fail';
         try { const sr = await sendPlainSms(env, phone, d.message); status = sr?.ok ? 'sent' : ('fail:' + (sr?.error || 'sms')); }
         catch (e: any) { status = 'fail:' + String(e?.message || e).slice(0, 30); }

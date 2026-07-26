@@ -30,6 +30,16 @@ ok('A3: 기본은 dry(미리보기·집계만)', /doSend \? '실발송 완료' :
 ok('A4: send-all 대상 수 상한(폭주 방지)', /Math\.min\(5000/.test(src));
 ok('A5: 발송 전 전화번호 10자리 미만은 no_phone 스킵', /phone\.length < 10\) return 'no_phone'/.test(src));
 
+console.log('\n── A′) 중복 발송 방지(멱등) — 2026-07-27 발견·수정 ──');
+//   Cloudflare 크론 at-least-once + 수동 send-all 겹침 → 학부모 문자 2통 방지.
+//   옆 기능(runFeedbackReminderSweep)엔 dedup 있는데 이건 빠져 있었음.
+ok('A′1: digestSentRecently 멱등 헬퍼 존재', /export async function digestSentRecently/.test(src));
+ok('A′2: 최근 발송 로그(status=sent) 조회로 판정', /digest_logs WHERE student_uid = \? AND status = 'sent' AND sent_at >=/.test(src));
+ok('A′3: 크론 스윕이 발송 전 멱등 체크', /if \(!liveOn\) continue;[\s\S]{0,120}digestSentRecently\(env, r\.user_id\)/.test(src));
+ok('A′4: HTTP send-all 이 발송 전 멱등 체크', /if \(!doSend\) continue;[\s\S]{0,120}digestSentRecently\(env, r\.user_id\)/.test(src));
+ok('A′5: 6일 창(주1회라 지난주분은 안 걸림)', /windowDays = 6/.test(src));
+ok('A′6: 로그 조회 실패해도 발송 안 막음(catch→false)', /catch \{ return false; \}/.test(src));
+
 console.log('\n── B) 모든 발송 라우트 관리자 인증 필수 ──');
 for (const ep of ['preview', 'send-one', 'send-all', 'logs']) {
   // 각 라우트 핸들러 블록에 checkAdminSession 이 있는지(핸들러 순서대로 검사)
