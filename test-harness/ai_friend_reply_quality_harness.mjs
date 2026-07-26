@@ -42,8 +42,8 @@ const code = ts.slice(s, e)
 
 const sandbox = { console };
 vm.createContext(sandbox);
-vm.runInContext(code + '\n;globalThis.__f = { aiFriendIsRepeat, aiFriendLooksCut, aiFriendIsMetaAsk };', sandbox);
-const { aiFriendIsRepeat, aiFriendLooksCut, aiFriendIsMetaAsk } = sandbox.__f;
+vm.runInContext(code + '\n;globalThis.__f = { aiFriendIsRepeat, aiFriendLooksCut, aiFriendIsMetaAsk, aiFriendStripHanzi };', sandbox);
+const { aiFriendIsRepeat, aiFriendLooksCut, aiFriendIsMetaAsk, aiFriendStripHanzi } = sandbox.__f;
 
 /* ══ 1. 지난 답을 그대로 다시 하는가 판정 ══ */
 console.log('\n▶ 직전 답변 반복 감지 (제보 ①)');
@@ -93,6 +93,20 @@ check('DB 에는 원문 msg 만 저장(힌트 섞이지 않음)',
 check('프롬프트에 반복 금지 규칙', /NEVER repeat a reply you already gave/.test(ts));
 check('프롬프트에 잘린 발화 되묻기 규칙', /looks cut off/.test(ts));
 check('프롬프트에 속도 요청 응대 규칙', /asks you to slow down/.test(ts));
+
+/* ══ 5. 한자 섞임 정리 (2026-07-27 사장님 신고 "한국말 팁에 중국어") ══ */
+console.log('\n▶ 한자(중국어) 섞임 정리');
+const hanTip = 'Nice sentence! 🐒 Monkeys love bananas! (💡猴子들은 바나나와 많은 과일들을 좋아해요)';
+const cleanTip = 'Great try! 😊 (💡 원숭이들은 바나나를 좋아해요~가 더 자연스러워요)';
+check('한자 섞인 💡팁은 통째로 제거', !/[一-鿿]/.test(aiFriendStripHanzi(hanTip)) && !/💡/.test(aiFriendStripHanzi(hanTip)),
+      JSON.stringify(aiFriendStripHanzi(hanTip)));
+check('영어 본문은 그대로 유지', /Monkeys love bananas!/.test(aiFriendStripHanzi(hanTip)));
+check('한글 팁은 건드리지 않음', aiFriendStripHanzi(cleanTip) === cleanTip, JSON.stringify(aiFriendStripHanzi(cleanTip)));
+check('본문에 흘러든 한자 낱글자 제거', aiFriendStripHanzi('I like 猴子 monkeys!') === 'I like monkeys!',
+      JSON.stringify(aiFriendStripHanzi('I like 猴子 monkeys!')));
+check('괄호 없는 💡팁도 처리', !/[一-鿿]/.test(aiFriendStripHanzi('Good job! 💡猴子는 원숭이라는 뜻이에요')),
+      JSON.stringify(aiFriendStripHanzi('Good job! 💡猴子는 원숭이라는 뜻이에요')));
+check('프롬프트에 한자 금지 규칙 추가됨', /NEVER use Chinese characters/.test(ts));
 
 console.log('\n' + '═'.repeat(64));
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);

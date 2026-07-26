@@ -34,11 +34,18 @@
   // 캐릭터별 영상/스틸 소스 + crop 사각형(0~1 비율, 원본 프레임 기준).
   //   female: teacher-avatar.png 의 alpha 채널을 실측해 계산(머리 위 여백만 트림 + 어깨/옷깃까지 포함).
   //   male(히어로): 기존 동작 그대로 보존(원본 상단 ~3% 검정 띠만 제거, 좌우/아래는 풀프레임).
+  // 🗣 (2026-07-27) 입모양 3단계(poses) — 소리 크기에 매번 새로 만든 영상이 아니라, 같은
+  //   루프 영상 안에서 이미 자연스럽게 나오는 "다문/중간/크게 벌린" 순간을 골라 그 프레임에
+  //   멈춰 보여준다(초 단위 타임스탬프). 같은 인물이라 어색한 합성 없이 정체성이 그대로 유지되고,
+  //   소리 크기가 바뀔 때만 그 타임스탬프로 seek 하므로 추가 지연이 없다. 발음(비셈) 자체를
+  //   맞추는 건 아니고 "조용함/보통/큼"에 맞는 입모양을 고르는 근사치다.
   var CHARACTERS = {
     female: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
-              still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 } },
+              still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
+              poses:{ closed:3.3, medium:0.2, wide:4.0 } },
     male:   { sources:[['/img/hero-avatar.mp4','video/mp4']],
-              still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 } }
+              still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
+              poses:{ closed:3.2, medium:7.1, wide:3.5 } }
   };
   var BASE_W = 320;   // 캔버스 내부 해상도 기준 폭(캐릭터별 비율에 맞춰 높이만 재계산)
 
@@ -51,12 +58,14 @@
     var ctx = canvas.getContext('2d', { willReadFrequently:true });
     var raf = 0, drawing = false, IDLE = null, clipActive = false;
     var curChar = 'female', cropRect = CHARACTERS.female.rect;
+    var curPoses = CHARACTERS.female.poses, curTier = null;   // 🗣 현재 캐릭터의 입모양 타임스탬프 + 지금 보여주는 단계
     // 캐릭터의 crop 사각형에 맞춰 캔버스 해상도 + 카드 화면비를 함께 갱신(왜곡 방지).
     //   같은 <canvas> 를 여러 캐릭터가 공유하므로, 비율이 다른 캐릭터로 바뀌어도
     //   "캔버스 내부 해상도"와 "화면에 보이는 CSS 박스"가 항상 같은 비율을 유지해야 늘어나 보이지 않는다.
     function applyFrame(name){
       var c = CHARACTERS[name]; if(!c) return;
       cropRect = c.rect;
+      curPoses = c.poses; curTier = null;   // 🗣 캐릭터가 바뀌면 타임스탬프도 바뀌므로 다음 프레임에 새로 seek
       var aspect = (cropRect.r - cropRect.l) / (cropRect.b - cropRect.t);
       canvas.width = BASE_W; canvas.height = Math.round(BASE_W / aspect);
       // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
@@ -122,27 +131,40 @@
     // (오디오가 멈춰/끝나 있으면) **바로** 입을 다물고, 안전망은 그리기를 끝내 rAF 자원만
     // 정리하는 역할로 좁힌다.
     var idleTicks = 0;
+    // 🗣 (2026-07-27) 소리 크기 → 입모양 3단계. 임계값은 실제 목소리로 다시 들어보며 조정 가능.
+    function tierFor(level){
+      if(level <= 0.04) return 'closed';
+      if(level <= 0.09) return 'medium';
+      return 'wide';
+    }
+    function showTier(tier){
+      if(tier === curTier || !curPoses) return;
+      curTier = tier;
+      var t = curPoses[tier];
+      if(typeof t !== 'number') return;
+      try{ if(!video.paused) video.pause(); video.currentTime = t; }catch(e){}
+    }
     function loop(){
       if(!drawing){ raf=0; return; }
       if(boundEl && analyser && !clipActive){
         if(boundEl.paused || boundEl.ended){
-          if(!video.paused){ try{ video.pause(); video.currentTime = 0; }catch(e){} }   // 말 안 하는 중 → 입 바로 정지
+          showTier('closed');                              // 말 안 하는 중 → 다문 입 프레임에 고정
           idleTicks++;
           if(idleTicks > 300){ doStop(); return; }         // 5초 넘게 안 멈춰지면 plainStop() 유실로 보고 안전 종료
         } else {
           idleTicks = 0;
-          var level=rmsLevel();
-          if(level>0.04){ if(video.paused){ try{ video.play(); }catch(e){} } try{ video.playbackRate=0.75+level*1.2; }catch(e){} }
-          else { if(!video.paused){ try{ video.pause(); }catch(e){} } }
+          showTier(tierFor(rmsLevel()));
         }
       } else {
-        idleTicks = 0;
+        // 🔇 분석 불가능한 음성(브라우저 speechSynthesis) — 실제 음량을 모르니 poses 대신
+        //    기존처럼 루프를 계속 재생해 "말하는 느낌"만 흉내낸다.
+        idleTicks = 0; curTier = null;
         if(video.paused){ try{ video.playbackRate=1; video.play(); }catch(e){} }
       }
       keyFrame();
       raf=requestAnimationFrame(loop);
     }
-    function startDraw(){ idleTicks=0; drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
+    function startDraw(){ idleTicks=0; curTier=null; drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
     function drawStill(){ keyFrame(); }
     function doStop(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); }

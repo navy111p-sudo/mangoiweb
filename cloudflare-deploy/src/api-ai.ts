@@ -463,6 +463,16 @@ Student text: """${text}"""`;
     const aiFriendIsMetaAsk = (s: string) =>
       /(천천히|느리게|빠르|다시\s*(말|얘기|해)|못\s*알아|모르겠|쉽게|짧게)/.test(String(s || '')) ||
       /\b(slow(ly| down)?|too fast|say (it|that) again|again please|repeat|i don'?t (know|understand)|simpler|easier|shorter)\b/i.test(String(s || ''));
+    /* 🈚 (2026-07-27 사장님 신고) Llama 가 한국어 팁을 쓰다 중국어 단어를 섞는다
+       ("💡猴子들은 바나나와 많은 과일들을 좋아해요"). 영어친구챗 답변에 한자가 정당하게
+       나올 일은 없다 — 한자가 섞인 💡팁은 통째로 떼고(팁은 선택 요소·반쪽 문장을 남기지
+       않기 위해), 본문에 흘러든 한자 낱글자는 지운다. 한글(가-힣)은 건드리지 않는다. */
+    const aiFriendStripHanzi = (s: string) => {
+      let r = String(s || '');
+      const HAN = /[㐀-䶿一-鿿]/;
+      r = r.replace(/\(?\s*💡[^\n)]*\)?/g, (m) => (HAN.test(m) ? '' : m));
+      return r.replace(/[㐀-䶿一-鿿]+/g, '').replace(/[ \t]{2,}/g, ' ').trim();
+    };
 
     // ── POST /api/ai/chat-guest-token — 비로그인 게스트용 세션 스코프 uid + 서명 토큰 발급 ──
     //   클라이언트가 임의 uid 를 만들어 보내는 것을 금지 (IDOR 방지). 게스트 uid 는
@@ -527,6 +537,7 @@ Rules:
 - Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
+- The Korean tip must be written ONLY in Hangul. NEVER use Chinese characters (한자) or Japanese anywhere in your reply.
 - Sprinkle in tiny fun facts kids enjoy (animals, space, food, games) when it fits.
 - Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
@@ -603,6 +614,8 @@ Rules:
         reply = fallbacks[Math.floor(Math.random() * fallbacks.length)];
         console.error('[chat-friend] all models failed, using fallback. last error:', lastErr?.message || lastErr);
       }
+      // 🈚 한자 섞임 정리 — 프롬프트 지시만으로는 모델이 가끔 어겨서, 저장·응답 전에 결정론적으로 거른다.
+      reply = aiFriendStripHanzi(reply) || reply;
 
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
