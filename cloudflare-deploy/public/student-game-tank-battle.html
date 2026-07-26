@@ -631,6 +631,7 @@ function spawnEnemy(forceTarget){
   else { x=-m; y=Math.random()*H; }
   var type = Math.random()<0.62 ? 'tiger' : 'stug';   // 타이거(포탑 회전) vs 자주포(고정 포)
   G.enemies.push({ x:x, y:y, word:word, alive:true, type:type,
+    variant: type==='tiger' ? (Math.random()<0.5?'kingtiger':'panther') : null,  // 🎬 3D 전용 외형(킹타이거/펜더) — 2D 로직엔 영향 없음
     hullAng:Math.atan2(H*0.5-y, W*0.5-x), turAng:0,
     wpx:W*(0.2+Math.random()*0.6), wpy:H*(0.2+Math.random()*0.6), rewp:0,
     fireT: 1.4 + Math.random()*2.0, r:24*SCALE,
@@ -642,7 +643,7 @@ function spawnBoss(){
   var edge=Math.floor(Math.random()*4), m=90, x,y;
   if(edge===0){ x=Math.random()*W; y=-m; } else if(edge===1){ x=W+m; y=Math.random()*H; }
   else if(edge===2){ x=Math.random()*W; y=H+m; } else { x=-m; y=Math.random()*H; }
-  G.enemies.push({ x:x, y:y, word:neededWord(), alive:true, type:'tiger', isBoss:true,
+  G.enemies.push({ x:x, y:y, word:neededWord(), alive:true, type:'tiger', isBoss:true, variant:'kingtiger',
     hullAng:Math.atan2(H*0.5-y,W*0.5-x), turAng:0, wpx:W*0.5, wpy:H*0.42, rewp:0,
     fireT:1.6, r:40*SCALE, hp:6, hpMax:6, hitFlash:0, track:0, _vx:0, _vy:0 });
   banner('👑 보스 전차 등장! 집중 사격!', '#ff6b6b'); sndBigBoom(); G.shake=Math.min(30,G.shake+14);
@@ -705,7 +706,9 @@ var _drag={on:false,sx:0,sy:0,t:0,moved:false};
 var _aim={x:0,y:0};                              // PC 호버 조준(우클릭·스페이스 발사용)
 function _onPtrMove(ev){ if(!G||!G.running||G.speaking)return;
   var p=ptr(ev); _aim.x=p.x; _aim.y=p.y;
-  if(!_drag.on) return;                          // 버튼을 누른 동안만 이동 목표 갱신
+  // 🎬 3D 쿼터뷰: 마우스는 버튼을 누르지 않아도 커서를 계속 따라감(호버 추적) — 클릭은 발사 전용
+  if(VIEW==='quarter' && ev.pointerType==='mouse' && !_drag.on){ G.dragging=true; G.tx=p.x; G.ty=p.y; return; }
+  if(!_drag.on) return;                          // 버튼을 누른 동안만 이동 목표 갱신(터치·2D 클래식)
   G.tx=p.x; G.ty=p.y;
   if(!_drag.moved && Math.hypot(p.x-_drag.sx,p.y-_drag.sy)>12) _drag.moved=true;
 }
@@ -1137,7 +1140,9 @@ function drawTankImg(x,y,ang,key,flash){ var o=TANKIMG[key];
 /* ── 전차 그리기(실사 우선 → 벡터 폴백: 차체 회전 + 포탑 독립 회전) ── */
 var TANK_COL={ sherman:{h:'#5a6a3a',t:'#65753f',trk:'#2c3120',hi:'#7d8c52'},
   tiger:{h:'#7a6f4a',t:'#867a52',trk:'#3a3526',hi:'#9c9066'},
-  stug:{h:'#5f6a52',t:'#69745b',trk:'#33392b',hi:'#7d8a6c'} };
+  stug:{h:'#5b6672',t:'#626d79',trk:'#333b42',hi:'#7c8894'},
+  kingtiger:{h:'#5b6672',t:'#626d79',trk:'#333b42',hi:'#7c8894'},   // 🇩🇪 펠트그라우(청회녹) — 3D 전용
+  panther:{h:'#5e6975',t:'#66717d',trk:'#363e45',hi:'#7e8a96'} };   // 🇩🇪 펠트그라우(청회녹) — 3D 전용
 function drawTank(x,y,hullAng,turAng,type,sc,flash){
   var key=(type==='sherman')?'sherman':(type==='tiger'?'tiger':'stug');
   if(TANKIMG[key] && TANKIMG[key].ready){ drawTankImg(x,y,turAng,key,flash); return; }   // 🖼️ 실사 있으면 우선(포신=조준방향)
@@ -1295,11 +1300,13 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
   return g; }
 /* ── 🖼️ 힉스필드 생성 GLB(차체/포탑 분리) — 로드 전엔 위 절차적 도형 폴백 그대로 유지 ── */
 var TANK_GLB = {
-  sherman: { hull:'/models/tank-sherman-hull.glb?v=2', hullSize:2.3, hullYaw:Math.PI/2,
-             turret:'/models/tank-sherman-turret.glb?v=2', turSize:1.7, turYaw:Math.PI/2 },
-  tiger:   { hull:'/models/tank-tiger-hull.glb?v=2', hullSize:2.5, hullYaw:Math.PI/2,
-             turret:'/models/tank-tiger-turret.glb?v=2', turSize:1.9, turYaw:Math.PI/2 },
-  stug:    { full:'/models/tank-stug.glb?v=2', fullSize:2.6, fullYaw:Math.PI/2 }
+  sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:2.3, hullYaw:Math.PI/2,
+               turret:'/models/tank-sherman-turret.glb?v=3', turSize:1.7, turYaw:Math.PI/2 },
+  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:2.6, hullYaw:Math.PI/2,
+               turret:'/models/tank-kingtiger-turret.glb?v=1', turSize:2.0, turYaw:Math.PI/2 },
+  panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:2.5, hullYaw:Math.PI/2,
+               turret:'/models/tank-panther-turret.glb?v=1', turSize:1.8, turYaw:Math.PI/2 },
+  stug:      { full:'/models/tank-stug.glb?v=3', fullSize:2.6, fullYaw:Math.PI/2 }
 };
 var _glb3Cache={};
 function attachGLB3(group, url, targetSize, yaw){
@@ -1376,7 +1383,7 @@ function buildGroundTexture3D(field){
 }
 /* 🖼️ 힉스필드 생성 실사 바닥 텍스처(diffuse) + Sobel 노멀맵. 로드 전엔 위 절차적 캔버스 텍스처로 즉시 표시(폴백) */
 var GROUND_TEX_URLS = {
-  grass:  { map:'/img/ground-grass.jpg?v=1',  normal:'/img/ground-grass-normal.jpg?v=1' },
+  grass:  { map:'/img/ground-grass.jpg?v=2',  normal:'/img/ground-grass-normal.jpg?v=2' },
   desert: { map:'/img/ground-desert.jpg?v=1', normal:'/img/ground-desert-normal.jpg?v=1' },
   snow:   { map:'/img/ground-snow.jpg?v=1',   normal:'/img/ground-snow-normal.jpg?v=1' }
 };
@@ -1428,7 +1435,7 @@ function syncTanks3D(){
   for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
   G.enemies.forEach(function(en){
     var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===en){ entry=pool[i]; break; } }
-    if(!entry){ var type=(en.type==='tiger')?'tiger':'stug'; var obj=buildTank3(type); T3.tankRoot.add(obj);
+    if(!entry){ var type=(en.type==='tiger')?(en.variant||'kingtiger'):'stug'; var obj=buildTank3(type); T3.tankRoot.add(obj);
       var label=makeWordSprite(); T3.scene.add(label);
       var hpBar=en.isBoss ? makeHpSprite3() : null; if(hpBar) T3.scene.add(hpBar);
       var aimGeo=new THREE.CylinderGeometry(0.028,0.028,38,5); aimGeo.rotateZ(Math.PI/2); aimGeo.translate(19,0,0);
