@@ -109,7 +109,10 @@
      데스크톱(>640px)은 이 블록의 영향을 받지 않음(기존 그대로). 기존 요소는 이동시키지
      않고 그대로 두되(레벨카드/단계이동/프리셋/다음이동), 모바일에서만 숨기고 그 내용을
      압축한 새 트리거+바텀시트를 추가로 붙인다. */
-  .m-level-trigger { display:none; }
+  /* 🔴 기본(데스크톱)에서는 모바일 전용 위젯 3종을 반드시 숨긴다.
+     (2026-07-27 사고: 시트 스타일을 미디어쿼리 안에만 둬서, 데스크톱에서 시트 내용물이
+      스타일 없이 본문에 그대로 펼쳐져 레벨카드·단계이동이 두 벌로 보였다) */
+  .m-level-trigger, #mobile-sheet, #mobile-sheet-backdrop { display:none; }
   .m-sheet-card { display:block; padding:11px 8px; border-radius:11px; text-decoration:none; text-align:center; color:#fff; font-weight:800; font-size:11.5px; border:1.4px solid; }
   .m-sheet-card small { display:block; font-size:9px; margin-top:2px; font-weight:600; opacity:.85; }
   @media (max-width: 640px) {
@@ -120,7 +123,7 @@
     .brand-eyebrow { margin-bottom: 4px; }
     .brand-logo { font-size: 20px; }
 
-    #lang-curriculum-picker, .step-nav, .step-count, .step-progress, .preset { display: none !important; }
+    #lang-curriculum-picker, .step-nav, .step-count, .step-progress, .preset, .next-cta { display: none !important; }
 
     #tavatar-wrap { margin: 2px 0 10px; }
     #tavatar-ring { width: 118px; height: 147px; }
@@ -166,6 +169,7 @@
     #mobile-sheet-backdrop { display: none; position: fixed; inset: 0; background: rgba(4,6,20,0.55); z-index: 9997; }
     #mobile-sheet-backdrop.m-open { display: block; }
     #mobile-sheet {
+      display: block;   /* 기본(데스크톱) 숨김을 모바일에서 되살림 — 화면 밖(translateY)으로 대기 */
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 9998;
       background: linear-gradient(180deg,#1c1650,#130f3d);
       border-top: 1px solid rgba(167,139,250,0.35); border-radius: 20px 20px 0 0;
@@ -335,8 +339,8 @@
     <div class="rec-status" id="rec-status" data-ko="마이크를 누르고 또박또박 말해보세요" data-en="Tap the mic and speak clearly">마이크를 누르고 또박또박 말해보세요</div>
   </div>
 
-  <!-- 다음으로 이동 (항상 표시) -->
-  <div style="text-align:center;margin-top:16px">
+  <!-- 다음으로 이동 (데스크톱 항상 표시 · 모바일은 바텀시트의 같은 버튼으로 대체) -->
+  <div class="next-cta" style="text-align:center;margin-top:16px">
     <div style="color:#94a3b8;font-size:13px;margin-bottom:8px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
     <button onclick="window.MangoFlow&&MangoFlow.open('speech')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:16px;font-weight:800;cursor:pointer" data-ko="🚀 다음으로 이동 (수업·웜업·복습·나가기)" data-en="🚀 Move to next (Class · Warmup · Review · Exit)">🚀 다음으로 이동 (수업·웜업·복습·나가기)</button>
   </div>
@@ -872,7 +876,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260727044305 -->
+<!-- BUILD:20260727045231 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
