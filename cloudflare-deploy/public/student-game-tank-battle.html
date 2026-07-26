@@ -876,7 +876,8 @@ function playerHit(){
   G.lives--; G.flash=0.35; G.shake=Math.min(30,G.shake+18); G.invuln=1.2;
   sndBoom(); bigExplode(G.px,G.py); banner('피격! -1', '#ff6b6b'); updateHUD();
   if(G.lives<=0){ G.dead=true; G.running=false; G.wrecks.push({x:G.px,y:G.py,age:0,ang:G.hullAng,mine:true}); sndBigBoom(); bigExplode(G.px,G.py);
-    setTimeout(function(){ endGame(false); }, 1400); }
+    // 🎬 3D=조종사 탈출·도망 연출이 끝까지 보이게 게임오버를 늦춤 / 2D=기존 타이밍
+    setTimeout(function(){ endGame(false); }, VIEW==='quarter'?5600:1400); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1814,6 +1815,7 @@ var last=0, raf=null;
 function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts-last)/1000; last=ts;
   if(dt>0.05)dt=0.05;
   if(G&&G.running&&!G.paused){ update(dt); if(G.running) updateHUD(); }
+  else if(G&&!G.running&&G.dead){ stepParticles(dt); }   // 격파 연출 중에도 폭발 파티클이 얼지 않고 사그라들게
   if(VIEW==='quarter') render3D();
   // ⏳ 전차 GLB 아직 로딩 중이면 안내(흰 도형이 보이는 이유를 알림) — 완료 시 1회 알림
   if(VIEW==='quarter' && G && G.running && !G.speaking){
