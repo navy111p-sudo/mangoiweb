@@ -128,29 +128,10 @@
         sub.parentNode.insertBefore(gcContainer, sub.nextSibling);
       }
 
-      // === 호버 — 자동 펼침 ===
-      sub.addEventListener('mouseenter', function(){
-        if (hoverTimer) clearTimeout(hoverTimer);
-        // 다른 sub 닫기 (단일 펼침)
-        bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
-          if (s !== sub) s.classList.remove('ph125-open');
-        });
-        sub.classList.add('ph125-open');
-        lastOpened = sub;
-      });
-
-      sub.addEventListener('mouseleave', function(){
-        // 손자 메뉴 위로 마우스 갈 시간 확보
-        hoverTimer = setTimeout(function(){
-          if (sub.classList.contains('ph125-open')) {
-            // 마우스가 손자 컨테이너 위가 아니면 닫기
-            var gc = sub.nextElementSibling;
-            if (gc && !gc.matches(':hover')) {
-              sub.classList.remove('ph125-open');
-            }
-          }
-        }, 300);
-      });
+      // 🗑️ (2026-07-27 사장님 지시 "메뉴가 자기 멋대로 나왔다 들어갔다") 호버 자동 펼침 제거.
+      //   마우스를 올리기만 해도 손자 메뉴가 열리고(mouseenter) 벗어나면 타이머로 닫혀서(mouseleave)
+      //   사이드바 위에서 마우스를 움직일 때마다 메뉴가 저절로 열렸다 닫혔다 했다.
+      //   → 아래 ▸ 토글 '클릭'으로만 열고 닫는다. 재추가 금지.
 
       // === 토글 화살표 클릭 → 명시적 토글 (호버 없이도 작동) ===
       var toggleBtn = sub.querySelector('.ph125-toggle');
@@ -167,22 +148,8 @@
       }
     });
 
-    // 손자 메뉴 컨테이너 mouseenter/leave — 유지/닫기
-    bar.querySelectorAll('.ph125-grandchildren').forEach(function(gc){
-      if (gc.__ph125) return;
-      gc.__ph125 = true;
-      gc.addEventListener('mouseenter', function(){
-        if (hoverTimer) clearTimeout(hoverTimer);
-      });
-      gc.addEventListener('mouseleave', function(){
-        hoverTimer = setTimeout(function(){
-          var prev = gc.previousElementSibling;
-          if (prev && !prev.matches(':hover')) {
-            prev.classList.remove('ph125-open');
-          }
-        }, 200);
-      });
-    });
+    // (2026-07-27) 손자 컨테이너 호버 유지/닫기 리스너도 제거 — 호버 자동 펼침 폐지에 맞춤.
+    //   열림/닫힘은 ▸ 클릭 토글만 담당하므로 마우스 위치로 상태가 바뀔 일이 없다.
   }
 
   window.ph125Jump = function(cardId, idx, title){

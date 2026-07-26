@@ -224,33 +224,10 @@
     hideFlyoutV2(0);
   };
 
-  // ph123 의 호버 핸들러 모두 제거 + 새로 부착
-  function ph124RebindHover(){
-    var bar = document.getElementById('ph85-sidebar');
-    if (!bar) return;
-    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
-      if (sub.__ph124) return;
-      // 기존 ph123 핸들러 무력화 — cloneNode 로 핸들러 모두 제거
-      var fresh = sub.cloneNode(true);
-      sub.parentNode.replaceChild(fresh, sub);
-      fresh.__ph124 = true;
-      fresh.__ph123 = true; // ph123 의 setInterval 도 skip
-      fresh.__ph92 = true;  // ph92 capture-phase 도 skip
-      fresh.addEventListener('mouseenter', function(){
-        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-        // 약 0.35초 머문 뒤에만 손자 메뉴 표시 (빠른 전환 방지)
-        if (showTimer) clearTimeout(showTimer);
-        showTimer = setTimeout(function(){ showFlyoutV2(fresh); }, 350);
-      });
-      fresh.addEventListener('mouseleave', function(){
-        if (showTimer) { clearTimeout(showTimer); showTimer = null; }
-        hideFlyoutV2(300);
-      });
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph124RebindHover);
-  else ph124RebindHover();
-  (window.__admSettleRun ? window.__admSettleRun(ph124RebindHover) : setInterval(ph124RebindHover, 1500));
-
-  console.log('[ph124] 손자 메뉴 데모 매핑 73개 카드 활성 — 호버 시 의미 있는 손자 메뉴 표시');
+  // 🗑️ (2026-07-27 사장님 지시 "메뉴가 자기 멋대로 나왔다 들어갔다" + 렉 최소화) 호버 리바인드 폐지.
+  //   showFlyoutV2 는 이미 2026-07-22 지시로 표시가 꺼져 있는데(위 early return),
+  //   이 함수는 사이드바 항목 87개를 cloneNode 로 '통째로 교체'하고 호버 타이머까지 계속 붙였다
+  //   — 아무것도 안 보여주면서 DOM 교체·리스너·타이머 부하만 만드는 죽은 무게였다. 재추가 금지.
+  //   (ph124JumpCard / ph124JumpGrandchild 점프 함수는 다른 곳에서 쓸 수 있어 유지)
+  console.log('[ph124] 호버 플라이아웃 비활성(2026-07-22 지시) — 점프 함수만 유지');
 })();

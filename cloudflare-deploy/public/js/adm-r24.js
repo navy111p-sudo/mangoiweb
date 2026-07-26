@@ -129,25 +129,10 @@
     hideFlyout(0);
   };
 
-  // 사이드바 sub 에 호버 이벤트 바인딩
-  function ph123BindHover(){
-    var bar = document.getElementById('ph85-sidebar');
-    if (!bar) return;
-    bar.querySelectorAll('.ph85-sub').forEach(function(sub){
-      if (sub.__ph123) return;
-      sub.__ph123 = true;
-      sub.addEventListener('mouseenter', function(){
-        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-        showFlyout(sub);
-      });
-      sub.addEventListener('mouseleave', function(){
-        hideFlyout(200);
-      });
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph123BindHover);
-  else ph123BindHover();
-  (window.__admSettleRun ? window.__admSettleRun(ph123BindHover) : setInterval(ph123BindHover, 1500));
+  // 🗑️ (2026-07-27 사장님 지시 "메뉴가 자기 멋대로 나왔다 들어갔다" + 렉 최소화) 호버 바인딩 폐지.
+  //   플라이아웃 표시는 이미 2026-07-22 지시로 꺼져 있었는데, 호버 리스너·타이머·재바인드 루프는
+  //   계속 돌며 부하만 만들었다. 마우스 올림으로 열리는 UI는 전면 금지 — 클릭으로만. 재추가 금지.
+  //   (ph123JumpGrandchild / ph123JumpCard 점프 함수는 유지)
 
   // ESC 키로 플라이아웃 닫기
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') hideFlyout(0); });

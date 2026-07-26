@@ -12996,17 +12996,24 @@ button.chip:hover,
       }
       return null; // window 스크롤
     }
+    /* (2026-07-27 v2 — 사장님 "아직도 약간 늦게 따라와") '부족분 추가' 방식은 브라우저의
+       스무스 스크롤 애니메이션(~0.2초에 걸쳐 서서히 이동)이 그대로 남아 여전히 늦게 느껴졌다.
+       → 휠 처리를 완전히 인계(preventDefault)해 **즉시** 이동시킨다. 지연 0, zoom 보정 포함. */
     window.addEventListener('wheel', function(e){
-      if (e.ctrlKey || e.defaultPrevented) return;              // 브라우저 확대 제스처 등 제외
+      if (e.ctrlKey || e.defaultPrevented) return;               // 브라우저 확대 제스처 등 제외
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;       // 좌우 제스처는 건드리지 않음
+      if (window.innerWidth < 1024) return;                      // 모바일/태블릿 제외
+      var dy = e.deltaY;
+      if (!dy) return;
+      if (e.deltaMode === 1) dy *= 16;                           // 줄 단위 델타(파이어폭스) → px 근사
       var z = parseFloat(document.body.style.zoom || '') || 1;
-      if (z <= 1.01) return;
-      var extra = e.deltaY * (z - 1);
-      if (!extra) return;
-      if (e.deltaMode === 1) extra *= 16;                        // 줄 단위 델타(파이어폭스) → px 근사
+      if (z < 1) z = 1;                                          // 축소 상태여도 최소 1:1 속도 보장
+      e.preventDefault();
+      var amount = dy * z;
       var sc = scrollerOf(e.target);
-      if (sc) sc.scrollTop += extra;
-      else window.scrollBy(0, extra);
-    }, { passive: true });
+      if (sc) sc.scrollTop += amount;
+      else window.scrollBy(0, amount);
+    }, { passive: false });
   })();
 })();
 </script>
@@ -17686,11 +17693,11 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r24.js?v=3" defer></script><!-- 분할추출:adm-r24 -->
+<script src="/js/adm-r24.js?v=4" defer></script><!-- 분할추출:adm-r24 -->
 
 
 <!-- Phase 124 admin (2026-05-25) — 손자 메뉴 셀렉터 광범위화 + 데모 손자 메뉴 매핑 -->
-<script src="/js/adm-q11.js?v=4" defer></script><!-- 분할추출:adm-q11 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q11.js?v=5" defer></script><!-- 분할추출:adm-q11 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
@@ -17768,7 +17775,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r25.js?v=3" defer></script><!-- 분할추출:adm-r25 -->
+<script src="/js/adm-r25.js?v=4" defer></script><!-- 분할추출:adm-r25 -->
 
 <script src="/js/adm-menu-icons.js?v=2" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
@@ -21418,6 +21425,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260727020013 -->
+<!-- BUILD:20260727022019 -->
 </body>
 </html>
