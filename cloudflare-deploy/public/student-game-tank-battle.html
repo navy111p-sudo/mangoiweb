@@ -1603,6 +1603,7 @@ function syncParticles3D(){ var pool=T3.partPool; for(var pi=0;pi<pool.length;pi
     if(!entry){ var obj;
       if(p.kind==='debris'){ obj=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.2), new THREE.MeshBasicMaterial({color:0x3a3020})); }
       else if(p.ring){ obj=new THREE.Mesh(new THREE.RingGeometry(0.85,1.0,20), new THREE.MeshBasicMaterial({color:0xffdc96,transparent:true,side:THREE.DoubleSide})); obj.rotation.x=-Math.PI/2; }
+      else if(p.kind==='smoke'){ obj=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW_TEX,transparent:true,depthWrite:false,blending:THREE.NormalBlending,color:0x3c3c3c})); }   // 연기=일반 블렌딩(가산이면 겹칠 때 흰 돔이 됨)
       else { obj=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW_TEX,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); }
       T3.partRoot.add(obj); entry={ref:p,obj:obj}; pool.push(entry); }
     entry._seen=true;
@@ -1611,11 +1612,11 @@ function syncParticles3D(){ var pool=T3.partPool; for(var pi=0;pi<pool.length;pi
     var k=Math.max(0,1-p.age/p.life);
     if(p.ring){ var r=(p.r0+(p.r1-p.r0)*(p.age/p.life))/14; entry.obj.scale.set(r,r,r); entry.obj.material.opacity=k*0.8; }
     else if(p.kind==='debris'){ entry.obj.material.opacity=1; entry.obj.rotation.set(p.rot||0,(p.rot||0)*0.7,0); }
-    else { var sc = p.fire ? (p.rad*(0.5+0.5*(p.age/p.life)))/9 : p.flash ? (p.rad*(0.6+0.4*(p.age/p.life)))/9
-        : p.kind==='smoke' ? p.size*(1+(p.age/p.life)*2.4)/6 : (p.size||3)/3;
+    else { var sc = p.fire ? Math.min(7,(p.rad*(0.5+0.5*(p.age/p.life)))/9) : p.flash ? Math.min(5,(p.rad*(0.6+0.4*(p.age/p.life)))/9)
+        : p.kind==='smoke' ? Math.min(6,p.size*(1+(p.age/p.life)*2.4)/6) : (p.size||3)/3;   // 상한 — 격파 대폭발이 화면을 다 덮지 않게
       entry.obj.scale.set(sc,sc,1);
-      entry.obj.material.opacity = (p.fire||p.flash) ? k : p.kind==='smoke' ? k*0.45 : k;
-      entry.obj.material.color.setHex((p.fire||p.flash) ? 0xffcc55 : p.kind==='smoke' ? 0x555555 : p.kind==='spark' ? (p.fuel?0x78ffaa:0xffb050) : 0xffffff); }
+      entry.obj.material.opacity = (p.fire||p.flash) ? k : p.kind==='smoke' ? k*0.4 : k;
+      if(p.kind!=='smoke') entry.obj.material.color.setHex((p.fire||p.flash) ? 0xffcc55 : p.kind==='spark' ? (p.fuel?0x78ffaa:0xffb050) : 0xffffff); }
   });
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.partRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } }
   // 💡 포구 섬광·폭발 라이트 — 가장 강한 flash/fire 파티클 위치에 배치(풀 라이트 2개 재사용)
