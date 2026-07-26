@@ -363,7 +363,7 @@
     <button id="tab-preview" onclick="switchTab('preview')"><span class="tab-ic">🔮</span><span data-ko="예습" data-en="Preview">예습</span></button>
     <button id="tab-add" class="active" onclick="switchTab('add')"><span class="tab-ic">＋</span><span data-ko="단어 추가" data-en="Add Word">단어 추가</span></button>
     <button id="tab-flash" onclick="switchTab('flash')"><span class="tab-ic">🎮</span><span data-ko="복습 게임" data-en="Review Game">복습 게임</span><span id="due-badge" style="padding:1px 7px;background:#ef4444;color:#fff;border-radius:99px;font-size:11px;font-weight:900;display:none"></span></button>
-    <button id="tab-quiz" onclick="goQuiz()"><span class="tab-ic">🧠</span><span data-ko="AI 퀴즈" data-en="AI Quiz">AI 퀴즈</span></button>
+    <button id="tab-quiz" onclick="switchTab('quiz')"><span class="tab-ic">🧠</span><span data-ko="AI 퀴즈" data-en="AI Quiz">AI 퀴즈</span></button>
     <button id="tab-rank" onclick="switchTab('rank')"><span class="tab-ic">🏆</span><span data-ko="주간 랭킹" data-en="Weekly Ranking">주간 랭킹</span></button>
     <button id="tab-list" onclick="switchTab('list')"><span class="tab-ic">📖</span><span data-ko="단어 도감" data-en="Collection">단어 도감</span></button>
   </div>
@@ -407,6 +407,14 @@
   <!-- Play Tab -->
   <div id="pane-flash" class="card" style="display:none">
     <div id="flash-content"></div>
+  </div>
+
+  <!-- Quiz Tab (AI 단어 퀴즈 — micro-quiz.html 임베드) -->
+  <div id="pane-quiz" class="card" style="display:none;padding:0;overflow:hidden">
+    <div style="display:flex;justify-content:flex-end;padding:8px 10px 0">
+      <button class="tool-btn" style="padding:6px 12px;font-size:12.5px" onclick="goQuiz()">↗ <span data-ko="새 창에서 열기" data-en="Open full screen">새 창에서 열기</span></button>
+    </div>
+    <iframe id="quiz-iframe" title="AI 단어 퀴즈" allow="microphone; autoplay" style="width:100%;min-height:70vh;border:0;display:block;background:transparent"></iframe>
   </div>
 
   <!-- Rank Tab -->
@@ -724,13 +732,19 @@ async function addPreviewWord(btn){
 function switchTab(t){
   document.querySelectorAll('.tab button').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
-  ['preview','add','flash','rank','list'].forEach(p => {
+  ['preview','add','flash','quiz','rank','list'].forEach(p => {
     document.getElementById('pane-'+p).style.display = (t===p) ? 'block' : 'none';
   });
   if (t==='preview') renderPreview();
   if (t==='flash') renderPlayHome();
+  if (t==='quiz') renderQuizTab();
   if (t==='list') loadCollection();
   if (t==='rank') loadRank();
+}
+/* AI 퀴즈 탭: iframe은 처음 열 때만 로드(불필요한 백그라운드 로드 방지) */
+function renderQuizTab(){
+  const f = document.getElementById('quiz-iframe');
+  if (f && !f.src) f.src = '/micro-quiz.html?embed=1';
 }
 
 /* ═══════════ 단어 추가 ═══════════ */
@@ -1197,6 +1211,11 @@ function startTimer(sec, onTimeout){
 }
 function stopTimer(){ if (_timerRaf) cancelAnimationFrame(_timerRaf); _timerRaf = null; }
 
+/* 희망톤 오답 리액션 — 매번 "아쉬워요!" 하나만 뜨면 지치니까, 항상 다음을 기대하게 하는 짧은 말들로 순환.
+   [[student-facing-ai-text-hopeful-tone]]: 과장 없이, 실패해도 다음 기회를 향하는 어조 유지. */
+const MISS_REACTIONS = ['아쉬워요!','괜찮아요!','조금만 더!','다시 도전!'];
+function pickMissReaction(){ return MISS_REACTIONS[Math.floor(Math.random()*MISS_REACTIONS.length)]; }
+
 /* 정답/오답 공통 처리: 포인트/콤보/사운드 + 서버 SRS 기록 */
 function applyAnswer(id, correct){
   fetch('/api/vocab/review', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, correct }) }).catch(()=>{});
@@ -1211,7 +1230,7 @@ function applyAnswer(id, correct){
     if (S.combo >= 3) sndCombo(); else sndCorrect();
   } else {
     S.combo = 0;
-    floatPt('아쉬워요!', true);
+    floatPt(pickMissReaction(), true);
     sndWrong();
   }
   S.idx++;
@@ -1373,7 +1392,7 @@ async function delWord(id){
   loadCollection(); loadDueCount(); loadStats();
 }
 </script>
-<!-- BUILD:20260726224505 -->
+<!-- BUILD:20260726225356 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

@@ -277,7 +277,7 @@
             <div style="font-size:16px;color:var(--text2);margin-top:3px" data-ko="내가 원하는 단어를 단어장에서 직접 추가해요" data-en="Add your own words to the vocab list">내가 원하는 단어를 단어장에서 직접 추가해요</div>
           </div>
         </div>
-        <button onclick="location.href='/vocab.html'" style="display:block;width:100%;padding:18px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:12px;font-size:19px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4)" data-ko="📚 단어장 가서 직접 추가하기" data-en="📚 Go to vocab list & add words">📚 단어장 가서 직접 추가하기</button>
+        <button onclick="goVocabTab('add')" style="display:block;width:100%;padding:18px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:12px;font-size:19px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4)" data-ko="📚 단어장 가서 직접 추가하기" data-en="📚 Go to vocab list & add words">📚 단어장 가서 직접 추가하기</button>
       </div>
     </div>
     <div id="quizArea" style="display:none"></div>
@@ -299,6 +299,19 @@
       return '';
     }
     function escHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    /* 🖼️ vocab.html의 "AI 퀴즈" 탭 안에 iframe으로 임베드될 때 — 같은 창 안 내비게이션은
+       중첩 iframe으로 이어지므로, 부모 탭으로 직접 전환한다(동일 출처라 안전). */
+    const EMBEDDED = new URLSearchParams(location.search).get('embed') === '1';
+    function goVocabTab(tab){
+      try { if (EMBEDDED && window.parent && window.parent !== window && typeof window.parent.switchTab === 'function') { window.parent.switchTab(tab || 'add'); return; } } catch(e){}
+      location.href = '/vocab.html';
+    }
+    if (EMBEDDED) {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.top-nav-btn').forEach(b => b.style.display = 'none');
+        const back = document.querySelector('a[href="/vocab.html"]'); if (back) back.style.display = 'none';
+      });
+    }
     let quizzes = [], curIdx = 0, answers = [];
     let combo = 0, bestCombo = 0, xp = 0, stars = 0;
     let timerId = null, timeLeft = 0;
@@ -816,7 +829,7 @@
           ${retryBtn}
           <div class="nav-btns" style="margin-top:${wrong.length?'10':'18'}px">
             <button class="nav-btn" onclick="location.reload()">🔁 ${isKids?'다시 풀기':'Retry'}</button>
-            <button class="nav-btn" onclick="location.href='/vocab.html'">📚 ${isKids?'단어장':'Vocab'}</button>
+            <button class="nav-btn" onclick="goVocabTab('add')">📚 ${isKids?'단어장':'Vocab'}</button>
           </div>
           <button class="nav-btn primary" style="width:100%;margin-top:10px" onclick="window.MangoFlow&&MangoFlow.open('quiz')">🚀 ${isKids?'다음 활동':'Next activity'}</button>
         </div>
@@ -893,7 +906,7 @@
       }
     });
   </script>
-<!-- BUILD:20260726224505 -->
+<!-- BUILD:20260726225356 -->
 <style id="mb-tidy-2026-07-11">
 /* ≤480px(폰): 우상단 고정 홈/EN 바가 연령모드(🧒/🧑‍🎓) 버튼을 덮지 않게 헤더를 그 아래로 */
 @media (max-width:480px){
