@@ -1086,7 +1086,7 @@ function positionFireBtn(){ var fb=document.getElementById('fireBtn'); if(!fb)re
   fb.classList.add('on');
   var bw=fb.offsetWidth||40, bh=fb.offsetHeight||36;
   if(VIEW==='quarter'){                        // 🎬 3D: 셔먼 머리 위 월드좌표를 화면에 투영
-    var sp=simToScreen(G.px,G.py,1.55);
+    var sp=simToScreen(G.px,G.py,2.2);
     fb.style.left = Math.round(sp.x - bw/2) + 'px';
     fb.style.top  = Math.round(sp.y - bh/2) + 'px';
     return;
@@ -1247,7 +1247,7 @@ function drawPart(p){ var k=1-p.age/p.life;
    ════════════════════════════════════════════════════════════ */
 var T3=null;                                    // init3D() 후 {renderer,scene,camera,...}
 var XSPAN=34, ZFAR_VAL=-40, ZNEAR_VAL=9;         // 시뮬(px,py 0..W,0..H) ↔ 월드(x,z) 변환 상수
-var CAM_POS={x:0,y:21,z:15}, CAM_LOOK={x:0,y:0,z:-15};
+var CAM_POS={x:0,y:18,z:13}, CAM_LOOK={x:0,y:0,z:-15};   // 카메라를 살짝 당겨 탱크가 크게 보이게
 function simToWorld(px,py,y){ return { x:(px/Math.max(1,W)-0.5)*XSPAN, y:y||0, z:ZFAR_VAL+(py/Math.max(1,H))*(ZNEAR_VAL-ZFAR_VAL) }; }
 function worldToSim(x,z){ return { x:(x/XSPAN+0.5)*W, y:(z-ZFAR_VAL)/(ZNEAR_VAL-ZFAR_VAL)*H }; }
 function simAngToWorldYaw(ang){ return -ang; }   // 2D 화면각(0=+X,+PI/2=+Y아래) → THREE Y축 회전
@@ -1262,15 +1262,23 @@ function makeGlowTexture(){ var c=document.createElement('canvas'); c.width=c.he
   g.fillStyle=gr; g.fillRect(0,0,64,64); return new THREE.CanvasTexture(c); }
 function roundRect3(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
   g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
-function makeWordSprite(){ var c=document.createElement('canvas'); c.width=256; c.height=96;
-  var tex=new THREE.CanvasTexture(c); var mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false});
-  var sp=new THREE.Sprite(mat); sp.scale.set(1.9,0.72,1); sp.renderOrder=10; sp.userData.cnv=c; sp.userData.ctx=c.getContext('2d'); return sp; }
+/* 단어 라벨 — 구조선 스타일: 배경 박스 없이(투명) 크고 굵은 글자 + 진한 외곽선 */
+function makeWordSprite(){ var c=document.createElement('canvas'); c.width=512; c.height=160;
+  var tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
+  var mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false});
+  var sp=new THREE.Sprite(mat); sp.scale.set(3.6,1.125,1); sp.renderOrder=10; sp.userData.cnv=c; sp.userData.ctx=c.getContext('2d'); return sp; }
 function updateWordSprite(sp,word,hi){ var c=sp.userData.cnv,g=sp.userData.ctx; g.clearRect(0,0,c.width,c.height);
-  g.font='900 40px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
-  var tw=g.measureText(word).width, pad=20, bw=Math.min(c.width-8,tw+pad*2), bx=(c.width-bw)/2;
-  g.fillStyle = hi ? 'rgba(60,44,10,.92)' : 'rgba(10,16,22,.82)'; roundRect3(g,bx,10,bw,c.height-20,14); g.fill();
-  if(hi){ g.strokeStyle='#ffd479'; g.lineWidth=4; roundRect3(g,bx,10,bw,c.height-20,14); g.stroke(); }
-  g.fillStyle = hi ? '#ffe9a8' : '#dbe6f2'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(word, c.width/2, c.height/2);
+  var fs=86;
+  g.font='900 '+fs+'px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
+  var tw=g.measureText(word).width;
+  if(tw>c.width-24){ fs=Math.max(40, Math.floor(fs*(c.width-24)/tw)); g.font='900 '+fs+'px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif'; }
+  g.textAlign='center'; g.textBaseline='middle';
+  g.lineJoin='round'; g.strokeStyle='rgba(8,12,16,0.95)'; g.lineWidth=Math.max(8,fs*0.16);
+  g.strokeText(word, c.width/2, c.height/2);
+  if(hi){ g.shadowColor='rgba(255,205,60,0.95)'; g.shadowBlur=18; g.fillStyle='#ffd84a'; }
+  else  { g.shadowColor='rgba(0,0,0,0.6)'; g.shadowBlur=6; g.fillStyle='#f2f7ff'; }
+  g.fillText(word, c.width/2, c.height/2);
+  g.shadowBlur=0;
   sp.material.map.needsUpdate=true; }
 function makeHpSprite3(){ var c=document.createElement('canvas'); c.width=256; c.height=48;
   var tex=new THREE.CanvasTexture(c); var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
@@ -1300,16 +1308,26 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
   return g; }
 /* ── 🖼️ 힉스필드 생성 GLB(차체/포탑 분리) — 로드 전엔 위 절차적 도형 폴백 그대로 유지 ── */
 var TANK_GLB = {
-  sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:2.3, hullYaw:Math.PI/2,
-               turret:'/models/tank-sherman-turret.glb?v=3', turSize:1.7, turYaw:Math.PI/2 },
-  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:2.6, hullYaw:Math.PI/2 },
-               // ⚠️ 포탑 GLB(v1)는 힉스필드 재구성이 평평하게 나와 제외 — 절차적 포탑(펠트그라우 색)으로 폴백. 크레딧 확보 후 재생성 필요
-  panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:2.5, hullYaw:Math.PI/2,
-               turret:'/models/tank-panther-turret.glb?v=1', turSize:1.8, turYaw:Math.PI/2 },
-  stug:      { full:'/models/tank-stug.glb?v=3', fullSize:2.6, fullYaw:Math.PI/2 }
+  // 전체 크기 상향(화면에서 잘 보이게) + 셔먼은 포탑 대비 차체를 크게(머리만 커 보이던 비율 교정)
+  sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:3.6, hullYaw:Math.PI/2,
+               turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.0, turYaw:Math.PI/2 },
+  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI/2,
+               // 킹타이거 전용 포탑 GLB는 힉스필드 재구성이 평평하게 나와 폐기 — 타이거I 포탑 GLB를 펠트그라우 틴트로 재사용
+               turret:'/models/tank-tiger-turret.glb?v=2', turSize:2.5, turYaw:Math.PI/2, turTint:0x7f93b8 },
+  panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI/2,
+               turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI/2 },
+  stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2 }
 };
 var _glb3Cache={};
-function attachGLB3(group, url, targetSize, yaw){
+/* tint: GLB 재질 색에 곱할 색(예: 황갈 타이거 포탑 → 펠트그라우). 같은 URL은 재질이 공유되므로 최초 1회만 적용 */
+function applyTint3(sourceScene, tint){
+  var tc=new THREE.Color(tint);
+  sourceScene.traverse(function(o){ if(!o.isMesh || !o.material) return;
+    var mats=Array.isArray(o.material)?o.material:[o.material];
+    mats.forEach(function(m){ if(m.userData && m.userData._tinted) return;
+      m.userData=m.userData||{}; m.userData._tinted=true; m.color.multiply(tc); }); });
+}
+function attachGLB3(group, url, targetSize, yaw, tint){
   if(!window.THREE || !THREE.GLTFLoader) return;
   function applyScene(sourceScene){
     var root=sourceScene.clone(true);
@@ -1328,15 +1346,17 @@ function attachGLB3(group, url, targetSize, yaw){
   if(entry){ if(entry.scene) applyScene(entry.scene); else if(entry.loading) entry.waiters.push(applyScene); return; }
   entry=_glb3Cache[url]={loading:true,scene:null,waiters:[]};
   try{
-    new THREE.GLTFLoader().load(url, function(gltf){ entry.loading=false; entry.scene=gltf.scene; applyScene(gltf.scene);
+    new THREE.GLTFLoader().load(url, function(gltf){ entry.loading=false; entry.scene=gltf.scene;
+      if(tint) applyTint3(gltf.scene, tint);
+      applyScene(gltf.scene);
       entry.waiters.forEach(function(fn){ fn(gltf.scene); }); entry.waiters=[]; }, undefined, function(){ entry.loading=false; });
   }catch(e){ entry.loading=false; }
 }
 function attachTankGLB(type, hullGroup, turGroup){
   var cfg=TANK_GLB[type]; if(!cfg) return;
-  if(cfg.full){ attachGLB3(hullGroup, cfg.full, cfg.fullSize, cfg.fullYaw); turGroup.visible=false; return; }
-  if(cfg.hull) attachGLB3(hullGroup, cfg.hull, cfg.hullSize, cfg.hullYaw);
-  if(cfg.turret) attachGLB3(turGroup, cfg.turret, cfg.turSize, cfg.turYaw);
+  if(cfg.full){ attachGLB3(hullGroup, cfg.full, cfg.fullSize, cfg.fullYaw, cfg.fullTint); turGroup.visible=false; return; }
+  if(cfg.hull) attachGLB3(hullGroup, cfg.hull, cfg.hullSize, cfg.hullYaw, cfg.hullTint);
+  if(cfg.turret) attachGLB3(turGroup, cfg.turret, cfg.turSize, cfg.turYaw, cfg.turTint);
 }
 function init3D(){
   if(T3 || !window.THREE) return;
@@ -1357,12 +1377,17 @@ function init3D(){
   var groundMat=new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.92, metalness:0.04});
   var ground=new THREE.Mesh(groundGeo, groundMat); ground.position.z=(ZFAR_VAL+ZNEAR_VAL)/2; ground.receiveShadow=true; scene.add(ground);
   GLOW_TEX=makeGlowTexture();
-  SHELL_GEO=new THREE.CylinderGeometry(0.045,0.06,0.9,6); SHELL_GEO.rotateZ(Math.PI/2);
+  SHELL_GEO=new THREE.CylinderGeometry(0.09,0.12,1.4,6); SHELL_GEO.rotateZ(Math.PI/2);   // 💥 화살같이 작던 포탄 → 굵고 길게
   SHELL_MAT_P=new THREE.MeshBasicMaterial({color:0xffe66a}); SHELL_MAT_E=new THREE.MeshBasicMaterial({color:0xff7b3c});
+  // 💡 포구 섬광·폭발광 전용 풀 라이트 2개(모바일 부담 최소) — syncParticles3D가 위치·세기 갱신
+  var flashLight=new THREE.PointLight(0xffd890, 0, 10); scene.add(flashLight);
+  var boomLight=new THREE.PointLight(0xff8a3c, 0, 16); scene.add(boomLight);
   T3={ renderer:renderer, scene:scene, camera:camera, ray:ray, plane:plane, hit:hit, ndc:ndc, ground:ground, groundMat:groundMat,
     tankRoot:new THREE.Group(), partRoot:new THREE.Group(), wreckRoot:new THREE.Group(), fuelRoot:new THREE.Group(), shellRoot:new THREE.Group(),
+    sceneryRoot:new THREE.Group(), flashLight:flashLight, boomLight:boomLight, pilot:null,
     player:null, enemyPool:[], partPool:[], wreckPool:[], fuelPool:[], shellPool:[], lastField:null };
   scene.add(T3.tankRoot); scene.add(T3.partRoot); scene.add(T3.wreckRoot); scene.add(T3.fuelRoot); scene.add(T3.shellRoot);
+  scene.add(T3.sceneryRoot);
   applyFieldTheme3D(); window.resize3D();
 }
 /* 🎨 3D 바닥 텍스처 — 2D buildBackdrop()과 같은 팔레트로 타일링 가능한 질감 생성(평면 단색 탈피) */
@@ -1388,19 +1413,22 @@ var GROUND_TEX_URLS = {
   snow:   { map:'/img/ground-snow.jpg?v=1',   normal:'/img/ground-snow-normal.jpg?v=1' }
 };
 var _groundTexCache={};
+/* 필드별 텍스처 반복 횟수 — 잔디는 촘촘히(풀잎이 탱크보다 커 보이던 문제), 사막·설원은 무늬가 커도 자연스러움 */
+function groundRepeat3D(field){ return field==='grass' ? 13 : 7; }
 function loadGroundTextures3D(field, onReady){
   var urls=GROUND_TEX_URLS[field]; if(!urls) return;
   if(_groundTexCache[field]){ if(!_groundTexCache[field].loading) onReady(_groundTexCache[field]); return; }
   var entry=_groundTexCache[field]={ map:null, normal:null, loading:true };
+  var rep=groundRepeat3D(field);
   var loader=new THREE.TextureLoader(); var done=0;
   function tick(){ done++; if(done>=2){ entry.loading=false; onReady(entry); } }
-  loader.load(urls.map, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(5,5); tex.anisotropy=4; entry.map=tex; tick(); }, undefined, tick);
-  loader.load(urls.normal, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(5,5); entry.normal=tex; tick(); }, undefined, tick);
+  loader.load(urls.map, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(rep,rep); tex.anisotropy=4; entry.map=tex; tick(); }, undefined, tick);
+  loader.load(urls.normal, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(rep,rep); entry.normal=tex; tick(); }, undefined, tick);
 }
 function applyFieldTheme3D(){ if(!T3 || T3.lastField===FIELD) return; T3.lastField=FIELD;
-  var theme = FIELD==='desert' ? {fog:0xe9d2a0, near:24,far:74}
-    : FIELD==='snow' ? {fog:0xdfe8f2, near:23,far:72}
-    : {fog:0xbfe8c9, near:26,far:78};
+  var theme = FIELD==='desert' ? {fog:0xe9d2a0, near:38,far:74}
+    : FIELD==='snow' ? {fog:0xdfe8f2, near:37,far:72}
+    : {fog:0xbfe8c9, near:40,far:78};   // 안개 시작을 뒤로 물려 근·중거리 선명하게(원거리 실루엣 효과는 유지)
   if(T3.groundMat.map) T3.groundMat.map.dispose();
   T3.groundMat.normalMap=null;
   T3.groundMat.map=buildGroundTexture3D(FIELD); T3.groundMat.needsUpdate=true;
@@ -1408,9 +1436,10 @@ function applyFieldTheme3D(){ if(!T3 || T3.lastField===FIELD) return; T3.lastFie
   loadGroundTextures3D(wantField, function(entry){
     if(!T3 || wantField!==FIELD) return;   // 로드되는 사이 필드가 바뀌었으면 버림
     if(entry.map){ if(T3.groundMat.map) T3.groundMat.map.dispose(); T3.groundMat.map=entry.map; }
-    if(entry.normal){ T3.groundMat.normalMap=entry.normal; T3.groundMat.normalScale=new THREE.Vector2(0.7,0.7); }
+    if(entry.normal){ T3.groundMat.normalMap=entry.normal; T3.groundMat.normalScale=new THREE.Vector2(0.5,0.5); }
     T3.groundMat.needsUpdate=true;
   });
+  if(T3.sceneryRoot) buildScenery3D();   // 🌲 필드 바뀌면 배경(나무·건물·적기지)도 재구성
   T3.scene.fog=new THREE.Fog(theme.fog, theme.near, theme.far);
   T3.scene.background=new THREE.Color(theme.fog); }
 window.resize3D=function(){ if(!T3) return; var w=wrap.clientWidth, h=wrap.clientHeight; if(!w||!h) return;
@@ -1425,9 +1454,14 @@ function simToScreen(px,py,yy){ if(!T3) return {x:px,y:py}; var w=wrap.clientWid
   _s2sVec.set(wp.x,wp.y,wp.z).project(T3.camera);
   return { x:(_s2sVec.x*0.5+0.5)*w, y:(-_s2sVec.y*0.5+0.5)*h }; }
 function syncTanks3D(){
-  if(!T3.player){ T3.player=buildTank3('sherman'); T3.tankRoot.add(T3.player); }
+  if(!T3.player){ T3.player=buildTank3('sherman'); T3.tankRoot.add(T3.player);
+    // 🔵 아군 식별 링(내 탱크 아래 은은한 파란 링)
+    var ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.05,28),
+      new THREE.MeshBasicMaterial({color:0x4db8ff, transparent:true, opacity:0.4, side:THREE.DoubleSide, depthWrite:false}));
+    ring.rotation.x=-Math.PI/2; ring.position.y=0.06; T3.player.add(ring); T3.player.userData.allyRing=ring; }
   var blink=(G.invuln>0 && Math.floor(performance.now()/90)%2===0);
   T3.player.visible = !G.dead && !blink;
+  if(T3.player.userData.allyRing) T3.player.userData.allyRing.material.opacity=0.28+0.14*Math.sin(performance.now()/300);
   var pw=simToWorld(G.px,G.py); T3.player.position.set(pw.x,0,pw.z);
   T3.player.rotation.y=simAngToWorldYaw(G.hullAng);
   T3.player.userData.turret.rotation.y=simAngToWorldYaw(G.turAng-G.hullAng);
@@ -1449,9 +1483,9 @@ function syncTanks3D(){
     entry.obj.scale.setScalar(en.isBoss?1.55:1);
     var hi=sameWord(en.word, neededWord());
     if(entry.lastWord!==en.word || entry.lastHi!==hi){ updateWordSprite(entry.label, en.word, hi); entry.lastWord=en.word; entry.lastHi=hi; }
-    entry.label.position.set(w.x, en.isBoss?2.6:1.7, w.z);
-    if(entry.hpBar){ if(entry.lastHp!==en.hp){ updateHpSprite3(entry.hpBar, en.hp, en.hpMax); entry.lastHp=en.hp; } entry.hpBar.position.set(w.x,3.2,w.z); }
-    if(en.aiming){ entry.aimLine.position.set(w.x,0.4,w.z); entry.aimLine.rotation.y=simAngToWorldYaw(en.aimAng||0);
+    entry.label.position.set(w.x, en.isBoss?3.6:2.6, w.z);
+    if(entry.hpBar){ if(entry.lastHp!==en.hp){ updateHpSprite3(entry.hpBar, en.hp, en.hpMax); entry.lastHp=en.hp; } entry.hpBar.position.set(w.x,4.4,w.z); }
+    if(en.aiming){ entry.aimLine.position.set(w.x,0.5,w.z); entry.aimLine.rotation.y=simAngToWorldYaw(en.aimAng||0);
       entry.aimLine.material.opacity=0.35+0.35*Math.sin(performance.now()/60); }
     else entry.aimLine.material.opacity=0;
   });
@@ -1464,17 +1498,27 @@ function syncTanks3D(){
 }
 function syncShells3D(){ var pool=T3.shellPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
   function upsert(b,mat){ var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===b){ entry=pool[i]; break; } }
-    if(!entry){ var mesh=new THREE.Mesh(SHELL_GEO, mat); T3.shellRoot.add(mesh); entry={ref:b,obj:mesh}; pool.push(entry); }
-    entry._seen=true; var w=simToWorld(b.x,b.y,0.55); entry.obj.position.set(w.x,w.y,w.z);
+    if(!entry){ var mesh=new THREE.Mesh(SHELL_GEO, mat);
+      var glow=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW_TEX,color:(mat===SHELL_MAT_P?0xffe090:0xff9050),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+      glow.scale.set(1.5,1.5,1); mesh.add(glow);   // ✨ 예광 글로우 — 포탄이 확실히 보이게
+      T3.shellRoot.add(mesh); entry={ref:b,obj:mesh}; pool.push(entry); }
+    entry._seen=true; var w=simToWorld(b.x,b.y,0.8); entry.obj.position.set(w.x,w.y,w.z);
     entry.obj.rotation.y=simAngToWorldYaw(Math.atan2(b.vy,b.vx)); }
   G.pbul.forEach(function(b){ upsert(b,SHELL_MAT_P); }); G.ebul.forEach(function(b){ upsert(b,SHELL_MAT_E); });
-  for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.shellRoot.remove(pool[i].obj); pool.splice(i,1); } } }
+  for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.shellRoot.remove(pool[i].obj);
+    var gl=pool[i].obj.children[0]; if(gl&&gl.material) gl.material.dispose();
+    pool.splice(i,1); } } }
 function syncWrecks3D(){ var pool=T3.wreckPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
   G.wrecks.forEach(function(w){ var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===w){ entry=pool[i]; break; } }
-    if(!entry){ var mesh=new THREE.Mesh(new THREE.BoxGeometry(2.1,0.32,1.3), new THREE.MeshStandardMaterial({color:0x20211a, transparent:true, roughness:1}));
-      T3.wreckRoot.add(mesh); entry={ref:w,obj:mesh}; pool.push(entry); }
-    entry._seen=true; var wp=simToWorld(w.x,w.y); entry.obj.position.set(wp.x,0.16,wp.z);
-    entry.obj.rotation.y=simAngToWorldYaw(w.ang||0); entry.obj.material.opacity=Math.max(0.12,1-w.age/7)*0.9+0.1; });
+    if(!entry){ var mesh=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.42,1.9), new THREE.MeshStandardMaterial({color:0x20211a, transparent:true, roughness:1}));
+      // 🔥 그을음 자국 — 잔해 아래 어두운 원(격파 흔적)
+      var scorch=new THREE.Mesh(new THREE.CircleGeometry(2.4,20),
+        new THREE.MeshBasicMaterial({color:0x1a140e, transparent:true, opacity:0.5, depthWrite:false}));
+      scorch.rotation.x=-Math.PI/2; scorch.position.y=-0.38; mesh.add(scorch);
+      T3.wreckRoot.add(mesh); entry={ref:w,obj:mesh,scorch:scorch}; pool.push(entry); }
+    entry._seen=true; var wp=simToWorld(w.x,w.y); entry.obj.position.set(wp.x,0.21,wp.z);
+    entry.obj.rotation.y=simAngToWorldYaw(w.ang||0); var op=Math.max(0.12,1-w.age/7);
+    entry.obj.material.opacity=op*0.9+0.1; entry.scorch.material.opacity=op*0.5; });
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.wreckRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } } }
 var FUEL_TEX3=null;
 function syncFuels3D(){ var pool=T3.fuelPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
@@ -1493,27 +1537,131 @@ function syncParticles3D(){ var pool=T3.partPool; for(var pi=0;pi<pool.length;pi
   G.parts.forEach(function(p){
     var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===p){ entry=pool[i]; break; } }
     if(!entry){ var obj;
-      if(p.kind==='debris'){ obj=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.12), new THREE.MeshBasicMaterial({color:0x3a3020})); }
+      if(p.kind==='debris'){ obj=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.2), new THREE.MeshBasicMaterial({color:0x3a3020})); }
       else if(p.ring){ obj=new THREE.Mesh(new THREE.RingGeometry(0.85,1.0,20), new THREE.MeshBasicMaterial({color:0xffdc96,transparent:true,side:THREE.DoubleSide})); obj.rotation.x=-Math.PI/2; }
       else { obj=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW_TEX,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); }
       T3.partRoot.add(obj); entry={ref:p,obj:obj}; pool.push(entry); }
     entry._seen=true;
-    var w=simToWorld(p.x,p.y, p.kind==='smoke'?1.6:0.5);
+    var w=simToWorld(p.x,p.y, p.kind==='smoke'?1.9:0.6);
     entry.obj.position.set(w.x,w.y,w.z);
     var k=Math.max(0,1-p.age/p.life);
-    if(p.ring){ var r=(p.r0+(p.r1-p.r0)*(p.age/p.life))/20; entry.obj.scale.set(r,r,r); entry.obj.material.opacity=k*0.8; }
+    if(p.ring){ var r=(p.r0+(p.r1-p.r0)*(p.age/p.life))/14; entry.obj.scale.set(r,r,r); entry.obj.material.opacity=k*0.8; }
     else if(p.kind==='debris'){ entry.obj.material.opacity=1; entry.obj.rotation.set(p.rot||0,(p.rot||0)*0.7,0); }
-    else { var sc = p.fire ? (p.rad*(0.5+0.5*(p.age/p.life)))/16 : p.flash ? (p.rad*(0.6+0.4*(p.age/p.life)))/14
-        : p.kind==='smoke' ? p.size*(1+(p.age/p.life)*2.4)/9 : (p.size||3)/5;
+    else { var sc = p.fire ? (p.rad*(0.5+0.5*(p.age/p.life)))/9 : p.flash ? (p.rad*(0.6+0.4*(p.age/p.life)))/9
+        : p.kind==='smoke' ? p.size*(1+(p.age/p.life)*2.4)/6 : (p.size||3)/3;
       entry.obj.scale.set(sc,sc,1);
       entry.obj.material.opacity = (p.fire||p.flash) ? k : p.kind==='smoke' ? k*0.45 : k;
       entry.obj.material.color.setHex((p.fire||p.flash) ? 0xffcc55 : p.kind==='smoke' ? 0x555555 : p.kind==='spark' ? (p.fuel?0x78ffaa:0xffb050) : 0xffffff); }
   });
-  for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.partRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } } }
+  for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.partRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } }
+  // 💡 포구 섬광·폭발 라이트 — 가장 강한 flash/fire 파티클 위치에 배치(풀 라이트 2개 재사용)
+  var bestFlash=null, bestFire=null;
+  G.parts.forEach(function(p){ var k=Math.max(0,1-p.age/p.life);
+    if(p.flash && (!bestFlash || k>bestFlash.k)) bestFlash={p:p,k:k};
+    if(p.fire && (!bestFire || k*p.rad>bestFire.k*bestFire.p.rad)) bestFire={p:p,k:k}; });
+  if(bestFlash){ var wf=simToWorld(bestFlash.p.x,bestFlash.p.y,0.9); T3.flashLight.position.set(wf.x,wf.y,wf.z); T3.flashLight.intensity=2.2*bestFlash.k; }
+  else T3.flashLight.intensity=0;
+  if(bestFire){ var wb=simToWorld(bestFire.p.x,bestFire.p.y,1.2); T3.boomLight.position.set(wb.x,wb.y,wb.z); T3.boomLight.intensity=3.2*bestFire.k; }
+  else T3.boomLight.intensity=0; }
+/* ════════ 🌲 배경 조경: 나무·파괴 건물·원거리 적 기지 (정적 메시, 씬당 1회 빌드) ════════ */
+function buildScenery3D(){
+  if(!T3) return;
+  // 기존 조경 제거
+  for(var i=T3.sceneryRoot.children.length-1;i>=0;i--){ var ch=T3.sceneryRoot.children[i]; T3.sceneryRoot.remove(ch); disposeObj3(ch); }
+  var snow=(FIELD==='snow'), desert=(FIELD==='desert');
+  var trunkMat=new THREE.MeshStandardMaterial({color:0x6b4a2a, roughness:1});
+  var leafMat=new THREE.MeshStandardMaterial({color: snow?0xd8e4ec:(desert?0x8a9a4a:0x2e7d3a), roughness:0.95});
+  var ruinMat=new THREE.MeshStandardMaterial({color: desert?0xb09a74:0x8a8a86, roughness:1});
+  var darkMat=new THREE.MeshStandardMaterial({color:0x3c4048, roughness:1});
+  function tree(x,z,s){ var g=new THREE.Group();
+    var tr=new THREE.Mesh(new THREE.CylinderGeometry(0.14*s,0.2*s,1.1*s,6), trunkMat); tr.position.y=0.55*s; g.add(tr);
+    if(desert){ // 사막=마른 가지 나무
+      for(var b=0;b<3;b++){ var br=new THREE.Mesh(new THREE.CylinderGeometry(0.045*s,0.07*s,0.8*s,5), trunkMat);
+        br.position.y=1.1*s; br.rotation.z=(b-1)*0.7; br.position.x=(b-1)*0.18*s; g.add(br); }
+    } else { // 초원·설원=침엽수 2단
+      var c1=new THREE.Mesh(new THREE.ConeGeometry(0.75*s,1.3*s,7), leafMat); c1.position.y=1.5*s; g.add(c1);
+      var c2=new THREE.Mesh(new THREE.ConeGeometry(0.55*s,1.0*s,7), leafMat); c2.position.y=2.25*s; g.add(c2);
+    }
+    g.position.set(x,0,z); g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
+    T3.sceneryRoot.add(g); }
+  function ruin(x,z,rot){ var g=new THREE.Group();  // 파괴된 건물 — 들쭉날쭉 무너진 벽 2면 + 잔해
+    for(var wA=0;wA<5;wA++){ var h=0.7+frnd(x+wA)*1.5;
+      var wall=new THREE.Mesh(new THREE.BoxGeometry(0.9,h,0.25), ruinMat); wall.position.set(-1.8+wA*0.9,h/2,0); g.add(wall); }
+    for(var wB=0;wB<4;wB++){ var h2=0.5+frnd(z+wB)*1.3;
+      var wall2=new THREE.Mesh(new THREE.BoxGeometry(0.25,h2,0.9), ruinMat); wall2.position.set(-2.2,h2/2,0.55+wB*0.9); g.add(wall2); }
+    for(var rb=0;rb<6;rb++){ var s2=0.2+frnd(x+z+rb)*0.3;
+      var rub=new THREE.Mesh(new THREE.BoxGeometry(s2,s2,s2), ruinMat);
+      rub.position.set(-1.5+frnd(rb+1)*3, s2/2, 0.5+frnd(rb+2)*1.5); rub.rotation.y=frnd(rb)*3; g.add(rub); }
+    g.position.set(x,0,z); g.rotation.y=rot; g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
+    T3.sceneryRoot.add(g); }
+  // 🏰 원거리 적 기지(안개 실루엣 존 z=-56~-64) — 벙커·감시탑·안테나·붉은 깃발
+  function enemyBase(){ var g=new THREE.Group();
+    for(var b=0;b<5;b++){ var bw=3+frnd(b+30)*3;
+      var bunker=new THREE.Mesh(new THREE.BoxGeometry(bw,1.4+frnd(b)*0.8,2.4), darkMat);
+      bunker.position.set(-16+b*8+frnd(b+9)*3, 0.8, -58-frnd(b+4)*5); g.add(bunker); }
+    var towLeg=new THREE.Mesh(new THREE.BoxGeometry(0.5,5,0.5), darkMat); towLeg.position.set(6,2.5,-57); g.add(towLeg);
+    var towTop=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.2,2.2), darkMat); towTop.position.set(6,5.6,-57); g.add(towTop);
+    var ant=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,3.4,4), darkMat); ant.position.set(-9,3.6,-60); g.add(ant);
+    var flag=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.9),
+      new THREE.MeshBasicMaterial({color:0xb02020, side:THREE.DoubleSide})); flag.position.set(6.9,6.6,-57); g.add(flag);
+    var pole=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,2.2,4), darkMat); pole.position.set(6.15,6.2,-57); g.add(pole);
+    T3.sceneryRoot.add(g); }
+  // 배치 — 플레이 영역(x±17, z-40..9) 바깥 가장자리 밴드에만(이동·조준 안 가림)
+  for(var t1=0;t1<7;t1++){ tree(-26+frnd(t1+11)*6,  -38+frnd(t1+21)*44, 1.1+frnd(t1)*0.7); }   // 왼쪽 밴드
+  for(var t2=0;t2<7;t2++){ tree( 20+frnd(t2+41)*6,  -38+frnd(t2+51)*44, 1.1+frnd(t2+3)*0.7); } // 오른쪽 밴드
+  for(var t3=0;t3<5;t3++){ tree(-24+frnd(t3+71)*48, -47+frnd(t3+81)*4,  1.3+frnd(t3+5)*0.8); } // 뒤쪽 밴드(안개 근처)
+  ruin(-21.5, -14, 0.5); ruin(21.5, -28, -1.2); if(!desert) ruin(-22.5, 2, 2.1);
+  enemyBase();
+}
+/* ════════ 🪖 격파 시 조종사 탈출 연출 + "Oh my God!" 말풍선 ════════ */
+function makePilot3(){ var g=new THREE.Group();
+  var uniMat=new THREE.MeshStandardMaterial({color:0x4a5a38, roughness:0.9});
+  var skinMat=new THREE.MeshStandardMaterial({color:0xe8b98c, roughness:0.8});
+  var body=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.5,8), uniMat); body.position.y=0.25; g.add(body);
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.15,10,8), skinMat); head.position.y=0.62; g.add(head);
+  var helmet=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,6,0,Math.PI*2,0,Math.PI/2), uniMat); helmet.position.y=0.64; g.add(helmet);
+  var armGeo=new THREE.CylinderGeometry(0.05,0.05,0.4,6);
+  var armL=new THREE.Mesh(armGeo,uniMat); armL.position.set(0.22,0.42,0); armL.rotation.z=-0.9; g.add(armL);   // 만세 팔
+  var armR=new THREE.Mesh(armGeo,uniMat); armR.position.set(-0.22,0.42,0); armR.rotation.z=0.9; g.add(armR);
+  g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
+  // 말풍선 "Oh my God!"
+  var c=document.createElement('canvas'); c.width=512; c.height=192; var gx=c.getContext('2d');
+  gx.fillStyle='rgba(255,255,255,0.96)'; roundRect3(gx,10,10,492,140,28); gx.fill();
+  gx.strokeStyle='rgba(30,30,30,0.9)'; gx.lineWidth=5; roundRect3(gx,10,10,492,140,28); gx.stroke();
+  gx.beginPath(); gx.moveTo(230,148); gx.lineTo(256,190); gx.lineTo(288,148); gx.closePath();   // 꼬리
+  gx.fillStyle='rgba(255,255,255,0.96)'; gx.fill(); gx.strokeStyle='rgba(30,30,30,0.9)'; gx.stroke();
+  gx.font='900 64px "Segoe UI",sans-serif'; gx.fillStyle='#c22'; gx.textAlign='center'; gx.textBaseline='middle';
+  gx.fillText('Oh my God!', 256, 82);
+  var bub=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));
+  bub.scale.set(2.6,0.975,1); bub.position.y=1.5; bub.renderOrder=11; g.add(bub); g.userData.bubble=bub;
+  return g; }
+function updatePilot3(){
+  if(!G) return;
+  if(G.dead && !T3.pilot && !G._pilotDone){
+    var p=makePilot3(); var w=simToWorld(G.px,G.py);
+    p.position.set(w.x,0.9,w.z); T3.scene.add(p);
+    T3.pilot={obj:p, t0:performance.now(), baseX:w.x, baseZ:w.z};
+    G._pilotDone=true;   // 한 판에 1회
+    try{ if(!muted) srvTts('Oh my God!', 1.0, null, function(){ _synthSpeak('Oh my God!',1.0,1); }, 'en'); }catch(_){}
+  }
+  if(T3.pilot){
+    var t=(performance.now()-T3.pilot.t0)/1000, o=T3.pilot.obj;
+    if(t<0.5){ o.position.y=0.9+t/0.5*0.9; }                                    // 해치에서 솟아오름
+    else if(t<1.1){ var k=(t-0.5)/0.6;                                          // 옆으로 점프 착지(포물선)
+      o.position.x=T3.pilot.baseX+k*1.6; o.position.y=1.8*(1-k)*(1-k)+0.0; o.position.z=T3.pilot.baseZ+k*0.6; }
+    else if(t<4.2){ var r=(t-1.1);                                              // 카메라 쪽으로 달려 도망
+      o.position.x=T3.pilot.baseX+1.6+Math.sin(r*9)*0.12; o.position.y=Math.abs(Math.sin(r*9))*0.12;
+      o.position.z=T3.pilot.baseZ+0.6+r*2.6; o.rotation.y=Math.sin(r*9)*0.2; }
+    else if(t<5.0){ var f=1-(t-4.2)/0.8; o.traverse(function(m){ if(m.material){ m.material.transparent=true; m.material.opacity=f; } }); }
+    else { T3.scene.remove(o); disposeObj3(o); if(o.userData.bubble) disposeSprite(o.userData.bubble); T3.pilot=null; }
+  }
+  if(!G.dead && T3.pilot){ var o2=T3.pilot.obj; T3.scene.remove(o2); disposeObj3(o2); T3.pilot=null; }  // 새 판 시작 시 정리
+}
 function render3D(){
   if(!T3 || !G) return;
   applyFieldTheme3D();
   syncTanks3D(); syncShells3D(); syncWrecks3D(); syncFuels3D(); syncParticles3D();
+  updatePilot3();
   var bx=CAM_POS.x, by=CAM_POS.y, bz=CAM_POS.z;
   if(G.shake>0){ var s=G.shake*0.018; bx+=(Math.random()-0.5)*s; by+=(Math.random()-0.5)*s*0.5; }
   T3.camera.position.set(bx,by,bz); T3.camera.lookAt(CAM_LOOK.x,CAM_LOOK.y,CAM_LOOK.z);
