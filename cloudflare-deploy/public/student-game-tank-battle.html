@@ -1724,7 +1724,7 @@ function makePilot3(){ var g=new THREE.Group();
   loadKeyedTexture('/img/soldier-us.png?v=1', function(tex){
     proc.visible=false;
     var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true}));
-    sp.scale.set(0.95,1.27,1); sp.position.y=0.63; g.add(sp);
+    sp.scale.set(1.7,2.27,1); sp.position.y=1.13; g.add(sp); g.userData.soldier=sp;   // 크게(기존의 약 1.8배)
   });
   // 말풍선 "Oh my God!"
   var c=document.createElement('canvas'); c.width=512; c.height=192; var gx=c.getContext('2d');
@@ -1735,7 +1735,7 @@ function makePilot3(){ var g=new THREE.Group();
   gx.font='900 64px "Segoe UI",sans-serif'; gx.fillStyle='#c22'; gx.textAlign='center'; gx.textBaseline='middle';
   gx.fillText('Oh my God!', 256, 82);
   var bub=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));
-  bub.scale.set(2.6,0.975,1); bub.position.y=1.5; bub.renderOrder=11; g.add(bub); g.userData.bubble=bub;
+  bub.scale.set(3.1,1.16,1); bub.position.y=2.75; bub.renderOrder=11; g.add(bub); g.userData.bubble=bub;   // 커진 군인 머리 위
   return g; }
 function updatePilot3(){
   if(!G) return;
@@ -1751,10 +1751,17 @@ function updatePilot3(){
     if(t<0.5){ o.position.y=0.9+t/0.5*0.9; }                                    // 해치에서 솟아오름
     else if(t<1.1){ var k=(t-0.5)/0.6;                                          // 옆으로 점프 착지(포물선)
       o.position.x=T3.pilot.baseX+k*1.6; o.position.y=1.8*(1-k)*(1-k)+0.0; o.position.z=T3.pilot.baseZ+k*0.6; }
-    else if(t<4.2){ var r=(t-1.1);                                              // 카메라 쪽으로 달려 도망
-      o.position.x=T3.pilot.baseX+1.6+Math.sin(r*9)*0.12; o.position.y=Math.abs(Math.sin(r*9))*0.12;
-      o.position.z=T3.pilot.baseZ+0.6+r*2.6; o.rotation.y=Math.sin(r*9)*0.2; }
-    else if(t<5.0){ var f=1-(t-4.2)/0.8; o.traverse(function(m){ if(m.material){ m.material.transparent=true; m.material.opacity=f; } }); }
+    else if(t<6.0){ var r=(t-1.1);                                              // 🏃 전력질주로 도망(카메라 쪽) — 바운스+몸 기울임+발구름 먼지
+      o.position.x=T3.pilot.baseX+1.6+Math.sin(r*13)*0.2;
+      o.position.y=Math.abs(Math.sin(r*13))*0.3;                                // 크게 튀는 달리기 바운스
+      o.position.z=T3.pilot.baseZ+0.6+r*3.6;                                    // 빠른 질주
+      o.scale.setScalar(1+Math.min(0.6, r*0.16));                               // 달릴수록 점점 크게(요청 반영)
+      var sd=o.userData.soldier; if(sd) sd.material.rotation=Math.sin(r*13)*0.14;   // 좌우로 몸을 흔들며 달림
+      if(G.parts && Math.sin(r*13)>0.94){                                        // 발이 땅을 찰 때 흙먼지
+        var ws=worldToSim(o.position.x, o.position.z);
+        G.parts.push({x:ws.x, y:ws.y, vx:(Math.random()-0.5)*30, vy:-10-Math.random()*15, life:0.5, age:0, size:4, kind:'smoke'});
+      } }
+    else if(t<6.8){ var f=1-(t-6.0)/0.8; o.traverse(function(m){ if(m.material){ m.material.transparent=true; m.material.opacity=f; } }); }
     else { T3.scene.remove(o); disposeObj3(o); if(o.userData.bubble) disposeSprite(o.userData.bubble); T3.pilot=null; }
   }
   if(!G.dead && T3.pilot){ var o2=T3.pilot.obj; T3.scene.remove(o2); disposeObj3(o2); T3.pilot=null; }  // 새 판 시작 시 정리
