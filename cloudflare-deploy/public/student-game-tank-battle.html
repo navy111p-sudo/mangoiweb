@@ -1335,16 +1335,20 @@ function init3D(){
   if(T3 || !window.THREE) return;
   var renderer=new THREE.WebGLRenderer({canvas:cv3d, antialias:true});
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;   // 🌥️ 실그림자(모바일 고려 1024 그림자맵)
   var scene=new THREE.Scene();
   var camera=new THREE.PerspectiveCamera(50, 1, 0.1, 200);
   camera.position.set(CAM_POS.x,CAM_POS.y,CAM_POS.z); camera.lookAt(CAM_LOOK.x,CAM_LOOK.y,CAM_LOOK.z);
   var hemi=new THREE.HemisphereLight(0xfff4e0,0x3a4a38,0.72); scene.add(hemi);
   var sun=new THREE.DirectionalLight(0xffcf8e, 0.85); sun.position.set(-11,20,7); scene.add(sun);
+  sun.castShadow=true; sun.shadow.mapSize.set(1024,1024); sun.shadow.bias=-0.0025;
+  sun.shadow.camera.left=-26; sun.shadow.camera.right=26; sun.shadow.camera.top=26; sun.shadow.camera.bottom=-26;
+  sun.shadow.camera.near=1; sun.shadow.camera.far=55;
   var fill=new THREE.DirectionalLight(0x8fb4ff, 0.18); fill.position.set(9,10,-14); scene.add(fill);
   var ray=new THREE.Raycaster(), plane=new THREE.Plane(new THREE.Vector3(0,1,0),0), hit=new THREE.Vector3(), ndc=new THREE.Vector2();
   var groundGeo=new THREE.PlaneGeometry(XSPAN*2.4, (ZNEAR_VAL-ZFAR_VAL)*1.7, 1,1); groundGeo.rotateX(-Math.PI/2);
   var groundMat=new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.92, metalness:0.04});
-  var ground=new THREE.Mesh(groundGeo, groundMat); ground.position.z=(ZFAR_VAL+ZNEAR_VAL)/2; scene.add(ground);
+  var ground=new THREE.Mesh(groundGeo, groundMat); ground.position.z=(ZFAR_VAL+ZNEAR_VAL)/2; ground.receiveShadow=true; scene.add(ground);
   GLOW_TEX=makeGlowTexture();
   SHELL_GEO=new THREE.CylinderGeometry(0.045,0.06,0.9,6); SHELL_GEO.rotateZ(Math.PI/2);
   SHELL_MAT_P=new THREE.MeshBasicMaterial({color:0xffe66a}); SHELL_MAT_E=new THREE.MeshBasicMaterial({color:0xff7b3c});
@@ -1370,12 +1374,36 @@ function buildGroundTexture3D(field){
   var tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(9,9); tex.anisotropy=4;
   return tex;
 }
+/* 🖼️ 힉스필드 생성 실사 바닥 텍스처(diffuse) + Sobel 노멀맵. 로드 전엔 위 절차적 캔버스 텍스처로 즉시 표시(폴백) */
+var GROUND_TEX_URLS = {
+  grass:  { map:'/img/ground-grass.jpg?v=1',  normal:'/img/ground-grass-normal.jpg?v=1' },
+  desert: { map:'/img/ground-desert.jpg?v=1', normal:'/img/ground-desert-normal.jpg?v=1' },
+  snow:   { map:'/img/ground-snow.jpg?v=1',   normal:'/img/ground-snow-normal.jpg?v=1' }
+};
+var _groundTexCache={};
+function loadGroundTextures3D(field, onReady){
+  var urls=GROUND_TEX_URLS[field]; if(!urls) return;
+  if(_groundTexCache[field]){ if(!_groundTexCache[field].loading) onReady(_groundTexCache[field]); return; }
+  var entry=_groundTexCache[field]={ map:null, normal:null, loading:true };
+  var loader=new THREE.TextureLoader(); var done=0;
+  function tick(){ done++; if(done>=2){ entry.loading=false; onReady(entry); } }
+  loader.load(urls.map, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(5,5); tex.anisotropy=4; entry.map=tex; tick(); }, undefined, tick);
+  loader.load(urls.normal, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(5,5); entry.normal=tex; tick(); }, undefined, tick);
+}
 function applyFieldTheme3D(){ if(!T3 || T3.lastField===FIELD) return; T3.lastField=FIELD;
   var theme = FIELD==='desert' ? {fog:0xe9d2a0, near:24,far:74}
     : FIELD==='snow' ? {fog:0xdfe8f2, near:23,far:72}
     : {fog:0xbfe8c9, near:26,far:78};
   if(T3.groundMat.map) T3.groundMat.map.dispose();
+  T3.groundMat.normalMap=null;
   T3.groundMat.map=buildGroundTexture3D(FIELD); T3.groundMat.needsUpdate=true;
+  var wantField=FIELD;
+  loadGroundTextures3D(wantField, function(entry){
+    if(!T3 || wantField!==FIELD) return;   // 로드되는 사이 필드가 바뀌었으면 버림
+    if(entry.map){ if(T3.groundMat.map) T3.groundMat.map.dispose(); T3.groundMat.map=entry.map; }
+    if(entry.normal){ T3.groundMat.normalMap=entry.normal; T3.groundMat.normalScale=new THREE.Vector2(0.7,0.7); }
+    T3.groundMat.needsUpdate=true;
+  });
   T3.scene.fog=new THREE.Fog(theme.fog, theme.near, theme.far);
   T3.scene.background=new THREE.Color(theme.fog); }
 window.resize3D=function(){ if(!T3) return; var w=wrap.clientWidth, h=wrap.clientHeight; if(!w||!h) return;
