@@ -226,9 +226,20 @@
     .inbar .mic-btn{font-size:17px;padding:0 13px}
     .hint{font-size:12px;padding:0 12px 8px}
   }
+  /* 🖥️ PC 와이드 화면(≥1600px): 채팅창 양옆에 남는 공간에 아바타를 왼쪽으로 빼서 2배 크게.
+     .wrap 은 max-width:860px 로 가운데 정렬이라, 그보다 훨씬 넓은 화면에서만 안 겹치는 여백이 나옴.
+     너비만 지정 — 높이는 mango-avatar.js 의 applyFrame() 이 캐릭터 화면비에 맞춰 인라인으로
+     계산해 덮어쓴다(왜곡 방지, 상반신 카드는 캐릭터마다 비율이 조금씩 다름).
+     #tavatar-wrap #tavatar-ring 로 셀렉터를 하나 더 얹은 이유: mango-avatar.css 의
+     #tavatar-ring 기본값(136px)과 명시도가 같으면 "이 파일이 먼저 오고 그 css가 나중에 로드"되어
+     기본값이 이겨버린다(직접 확인함) — 명시도를 올려 로드 순서와 무관하게 이기도록. */
+  @media (min-width:1600px){
+    #tavatar-wrap{position:fixed;left:32px;top:50%;transform:translateY(-50%);margin:0;z-index:49}
+    #tavatar-wrap #tavatar-ring{width:272px}
+  }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=6" defer></script>
+<script src="/js/mango-avatar.js?v=8" defer></script>
 </head>
 <body>
   <div class="top">
@@ -1119,7 +1130,7 @@ async function sendMsg(){
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=6"></script>
-<!-- BUILD:20260726225356 -->
+<!-- BUILD:20260726234212 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

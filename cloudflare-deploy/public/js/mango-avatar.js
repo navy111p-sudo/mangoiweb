@@ -49,7 +49,7 @@
     var ring   = document.getElementById('tavatar-ring');
     if(!video || !canvas) return;
     var ctx = canvas.getContext('2d', { willReadFrequently:true });
-    var raf = 0, drawing = false, IDLE = null;
+    var raf = 0, drawing = false, IDLE = null, clipActive = false;
     var curChar = 'female', cropRect = CHARACTERS.female.rect;
     // 캐릭터의 crop 사각형에 맞춰 캔버스 해상도 + 카드 화면비를 함께 갱신(왜곡 방지).
     //   같은 <canvas> 를 여러 캐릭터가 공유하므로, 비율이 다른 캐릭터로 바뀌어도
@@ -115,22 +115,37 @@
       }
       ctx.putImageData(im,0,0);
     }
+    // 발화가 끝났는데도(onended 유실 등) 그리기가 안 멈춰 계속 움직이는 사고를 막는 안전망 —
+    // "물린 오디오가 멈춰/끝나 있다"가 이 프레임 수만큼 연속되면 그리기 자체를 종료(자원 정리용).
+    // (2026-07-26 2차) 예전엔 이 대기 구간(서버 TTS 네트워크 응답을 기다리는 동안 등)에도 입을
+    // 계속 움직여서 "말은 안 하는데 입만 움직인다"로 보였다 — 실제로 소리가 안 나오는 동안은
+    // (오디오가 멈춰/끝나 있으면) **바로** 입을 다물고, 안전망은 그리기를 끝내 rAF 자원만
+    // 정리하는 역할로 좁힌다.
+    var idleTicks = 0;
     function loop(){
       if(!drawing){ raf=0; return; }
-      // 물린 오디오가 실제 재생 중이면 음량으로 입 여닫기, 아니면 연속 재생
-      if(boundEl && analyser && !boundEl.paused && !boundEl.ended){
-        var level=rmsLevel();
-        if(level>0.04){ if(video.paused){ try{ video.play(); }catch(e){} } try{ video.playbackRate=0.75+level*1.2; }catch(e){} }
-        else { if(!video.paused){ try{ video.pause(); }catch(e){} } }
+      if(boundEl && analyser && !clipActive){
+        if(boundEl.paused || boundEl.ended){
+          if(!video.paused){ try{ video.pause(); video.currentTime = 0; }catch(e){} }   // 말 안 하는 중 → 입 바로 정지
+          idleTicks++;
+          if(idleTicks > 300){ doStop(); return; }         // 5초 넘게 안 멈춰지면 plainStop() 유실로 보고 안전 종료
+        } else {
+          idleTicks = 0;
+          var level=rmsLevel();
+          if(level>0.04){ if(video.paused){ try{ video.play(); }catch(e){} } try{ video.playbackRate=0.75+level*1.2; }catch(e){} }
+          else { if(!video.paused){ try{ video.pause(); }catch(e){} } }
+        }
       } else {
+        idleTicks = 0;
         if(video.paused){ try{ video.playbackRate=1; video.play(); }catch(e){} }
       }
       keyFrame();
       raf=requestAnimationFrame(loop);
     }
-    function startDraw(){ drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
+    function startDraw(){ idleTicks=0; drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
     function drawStill(){ keyFrame(); }
+    function doStop(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); }
     video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });
     video.addEventListener('seeked',     function(){ if(!drawing) drawStill(); });
     preloadStill(CHARACTERS[curChar].still);
@@ -166,7 +181,7 @@
       },
       // 말하기 시작: 그리기 루프 시작(오디오가 물려 재생 중이면 자동으로 음량 립싱크)
       plainStart: function(){ ensureIdle(); setSpeaking(true); try{ if(actx&&actx.state==='suspended') actx.resume(); }catch(e){} startDraw(); },
-      plainStop:  function(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); },
+      plainStop:  function(){ doStop(); },
       // 미리 만든 립싱크 클립 재생(음성코치 전용) → 캔버스 키잉. 끝나면 idle 복귀.
       playClip: function(id){
         return new Promise(function(resolve, reject){
@@ -177,6 +192,7 @@
           var done=false;
           function end(ok, err){
             if(done) return; done=true;
+            clipActive=false;
             video.removeEventListener('ended', onEnd);
             video.removeEventListener('error', onErr);
             stopDraw(); setSpeaking(false);
@@ -188,6 +204,7 @@
           video.addEventListener('ended', onEnd);
           video.addEventListener('error', onErr);
           try{
+            clipActive=true;                    // 클립 재생 중엔 TTS 무음 감시 타이머(idleTicks)가 끼어들지 않게
             setSpeaking(true);
             video.loop=false; video.muted=false; video.src=url; video.currentTime=0;
             var p=video.play(); startDraw();
