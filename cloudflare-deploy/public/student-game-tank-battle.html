@@ -1333,15 +1333,16 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
 /* ── 🖼️ 힉스필드 생성 GLB(차체/포탑 분리) — 로드 전엔 위 절차적 도형 폴백 그대로 유지 ── */
 var TANK_GLB = {
   // 전체 크기 상향(화면에서 잘 보이게) + 셔먼은 포탑 대비 차체를 크게(머리만 커 보이던 비율 교정)
-  sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:3.6, hullYaw:Math.PI/2,
-               turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.3, turYaw:Math.PI/2, turFwd:0.14, turPivotX:0.1 },   // 차체 대비 비율 재조정(2.7은 머리가 과대)
+  sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:4.5, hullYaw:Math.PI/2,
+               turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.3, turYaw:Math.PI/2, turFwd:0.14, turPivotX:0.12 },   // 차체 +25%(실제 셔먼 비례: 포탑≈차체길이 1/3)
   // 🇩🇪 독일군: 차체가 너무 밝은 청록으로 재구성돼 포탑과 색이 어긋남 → 차체·포탑 모두 펠트그라우(군복 청회녹)로 틴트 수렴
   // ⚠️ 킹타이거도 소스 방향 90° 상이(마커 실측: rot0에서 코=+Z) → yaw=π, 링=차체 중심(pivot 0). 포탑 0°/180° 회전 검증 완료
   kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI, hullTint:0x9aabb4,
                turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.0, turYaw:Math.PI, turTint:0x7fa6c0, turFwd:0.2, turPivotX:0 },
   // ⚠️ 펜더 GLB는 소스 방향이 다른 모델과 90° 다름(마커 실측으로 확정) → yaw=π, 링은 중심보다 뒤(-0.55)
+  // 펜더 포탑: 0°/90°/180° 3각도 탑다운 검증으로 확정 — 축=링 중심(0.02), 몸통중심 보정 turFwd 0.28
   panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI, hullTint:0x9aabb4,
-               turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI, turTint:0xaec6d6, turFwd:0.16, turPivotX:-0.55 },
+               turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI, turTint:0xaec6d6, turFwd:0.28, turPivotX:0.02 },
   stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2, fullTint:0x9aabb4 }
 };
 var _glb3Cache={};
@@ -1665,7 +1666,7 @@ function buildScenery3D(){
   var texLoader=new THREE.TextureLoader();
   // 🧱 실사 벽돌/콘크리트 텍스처(일반 타일 텍스처라 키잉 불필요)
   var brickMat=new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.95});
-  texLoader.load('/img/wall-brick.jpg?v=1', function(t){ t.encoding=THREE.sRGBEncoding; t.wrapS=t.wrapT=THREE.RepeatWrapping; brickMat.map=t; brickMat.needsUpdate=true; });
+  texLoader.load('/img/wall-brick.jpg?v=2', function(t){ t.encoding=THREE.sRGBEncoding; t.wrapS=t.wrapT=THREE.RepeatWrapping; brickMat.map=t; brickMat.needsUpdate=true; });
   var concMat=new THREE.MeshStandardMaterial({color:0x9aa0a6, roughness:1});
   texLoader.load('/img/wall-concrete.jpg?v=1', function(t){ t.encoding=THREE.sRGBEncoding; t.wrapS=t.wrapT=THREE.RepeatWrapping; concMat.map=t; concMat.color.setHex(0xffffff); concMat.needsUpdate=true; });
   var darkMat=new THREE.MeshStandardMaterial({color:0x3c4048, roughness:1});
@@ -1680,21 +1681,24 @@ function buildScenery3D(){
     var blob=new THREE.Mesh(new THREE.CircleGeometry(1.1*s,16), blobMat); blob.rotation.x=-Math.PI/2; blob.position.y=0.03; g.add(blob);
     g.position.set(x,0,z); g.rotation.y=frnd(x*3+z)*3.1;
     T3.sceneryRoot.add(g); }
+  // 상자 UV를 월드 크기에 맞게 스케일 — 상자마다 벽돌 크기가 제각각 늘어나는 패치워크 방지(텍스처 1리핏≈1.4유닛)
+  function scaleBoxUV(geo,w,h){ var uv=geo.attributes.uv, k=1/1.4;
+    for(var i=0;i<uv.count;i++){ uv.setXY(i, uv.getX(i)*w*k, uv.getY(i)*h*k); } return geo; }
   // 🧱 파괴된 벽돌 건물 — 실사 벽돌 텍스처 벽(들쭉날쭉 무너진 상단) + 잔해
   function ruin(x,z,rot){ var g=new THREE.Group();
     for(var wA=0;wA<5;wA++){ var h=0.9+frnd(x+wA)*1.6;
-      var wall=new THREE.Mesh(new THREE.BoxGeometry(1.1,h,0.3), brickMat); wall.position.set(-2.2+wA*1.1,h/2,0); g.add(wall); }
+      var wall=new THREE.Mesh(scaleBoxUV(new THREE.BoxGeometry(1.1,h,0.3),1.1,h), brickMat); wall.position.set(-2.2+wA*1.1,h/2,0); g.add(wall); }
     for(var wB=0;wB<4;wB++){ var h2=0.6+frnd(z+wB)*1.4;
-      var wall2=new THREE.Mesh(new THREE.BoxGeometry(0.3,h2,1.1), brickMat); wall2.position.set(-2.7,h2/2,0.65+wB*1.1); g.add(wall2); }
+      var wall2=new THREE.Mesh(scaleBoxUV(new THREE.BoxGeometry(0.3,h2,1.1),1.1,h2), brickMat); wall2.position.set(-2.7,h2/2,0.65+wB*1.1); g.add(wall2); }
     for(var rb=0;rb<7;rb++){ var s2=0.25+frnd(x+z+rb)*0.35;
-      var rub=new THREE.Mesh(new THREE.BoxGeometry(s2,s2,s2), brickMat);
+      var rub=new THREE.Mesh(scaleBoxUV(new THREE.BoxGeometry(s2,s2,s2),s2,s2), brickMat);
       rub.position.set(-1.8+frnd(rb+1)*3.6, s2/2, 0.6+frnd(rb+2)*1.8); rub.rotation.y=frnd(rb)*3; g.add(rub); }
     g.position.set(x,0,z); g.rotation.y=rot; g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
     T3.sceneryRoot.add(g); }
   // 🏰 원거리 적 기지 — 콘크리트 벙커·감시탑·안테나·붉은 깃발(안개 실루엣 존)
   function enemyBase(){ var g=new THREE.Group();
-    for(var b=0;b<5;b++){ var bw=3+frnd(b+30)*3;
-      var bunker=new THREE.Mesh(new THREE.BoxGeometry(bw,1.4+frnd(b)*0.8,2.4), concMat);
+    for(var b=0;b<5;b++){ var bw=3+frnd(b+30)*3, bh=1.4+frnd(b)*0.8;
+      var bunker=new THREE.Mesh(scaleBoxUV(new THREE.BoxGeometry(bw,bh,2.4),bw,bh), concMat);
       bunker.position.set(-16+b*8+frnd(b+9)*3, 0.8, -58-frnd(b+4)*5); g.add(bunker); }
     var towLeg=new THREE.Mesh(new THREE.BoxGeometry(0.5,5,0.5), concMat); towLeg.position.set(6,2.5,-57); g.add(towLeg);
     var towTop=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.2,2.2), concMat); towTop.position.set(6,5.6,-57); g.add(towTop);
