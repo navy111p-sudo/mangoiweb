@@ -1264,7 +1264,7 @@ function roundRect3(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,
   g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
 /* 단어 라벨 — 구조선 스타일: 배경 박스 없이(투명) 크고 굵은 글자 + 진한 외곽선 */
 function makeWordSprite(){ var c=document.createElement('canvas'); c.width=512; c.height=160;
-  var tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
+  var tex=new THREE.CanvasTexture(c); tex.anisotropy=4; tex.encoding=THREE.sRGBEncoding;
   var mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false});
   var sp=new THREE.Sprite(mat); sp.scale.set(4.6,1.44,1); sp.renderOrder=10; sp.userData.cnv=c; sp.userData.ctx=c.getContext('2d'); return sp; }
 function updateWordSprite(sp,word,hi){ var c=sp.userData.cnv,g=sp.userData.ctx; g.clearRect(0,0,c.width,c.height);
@@ -1364,11 +1364,14 @@ function init3D(){
   var renderer=new THREE.WebGLRenderer({canvas:cv3d, antialias:true});
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
   renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;   // 🌥️ 실그림자(모바일 고려 1024 그림자맵)
+  // 🎞️ 실사감의 핵심: sRGB 출력 + ACES 필름 톤매핑 — 이것 없이는 실사 텍스처가 물빠진 장난감처럼 보임
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12;
   var scene=new THREE.Scene();
   var camera=new THREE.PerspectiveCamera(50, 1, 0.1, 200);
   camera.position.set(CAM_POS.x,CAM_POS.y,CAM_POS.z); camera.lookAt(CAM_LOOK.x,CAM_LOOK.y,CAM_LOOK.z);
-  var hemi=new THREE.HemisphereLight(0xfff4e0,0x3a4a38,0.72); scene.add(hemi);
-  var sun=new THREE.DirectionalLight(0xffcf8e, 0.85); sun.position.set(-11,20,7); scene.add(sun);
+  var hemi=new THREE.HemisphereLight(0xfff4e0,0x3a4a38,0.95); scene.add(hemi);   // ACES 톤매핑이 어둡게 만들어 광량 보상
+  var sun=new THREE.DirectionalLight(0xffcf8e, 1.15); sun.position.set(-11,20,7); scene.add(sun);
   sun.castShadow=true; sun.shadow.mapSize.set(1024,1024); sun.shadow.bias=-0.0025;
   sun.shadow.camera.left=-26; sun.shadow.camera.right=26; sun.shadow.camera.top=26; sun.shadow.camera.bottom=-26;
   sun.shadow.camera.near=1; sun.shadow.camera.far=55;
@@ -1404,7 +1407,7 @@ function buildGroundTexture3D(field){
     for(var xx=0;xx<=256;xx+=18){ g.lineTo(xx, yy+Math.sin((xx/28)+i)*5); } g.stroke(); }
   for(var r=0;r<16;r++){ var rx=frnd(r+50)*256, ry=frnd(r+61)*256, rr=3+frnd(r+2)*5;
     g.fillStyle=pal.rock; g.beginPath(); g.ellipse(rx,ry,rr,rr*0.68,frnd(r)*3,0,7); g.fill(); }
-  var tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(9,9); tex.anisotropy=4;
+  var tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(9,9); tex.anisotropy=4; tex.encoding=THREE.sRGBEncoding;
   return tex;
 }
 /* 🖼️ 힉스필드 생성 실사 바닥 텍스처(diffuse) + Sobel 노멀맵. 로드 전엔 위 절차적 캔버스 텍스처로 즉시 표시(폴백) */
@@ -1423,7 +1426,7 @@ function loadGroundTextures3D(field, onReady){
   var rep=groundRepeat3D(field);
   var loader=new THREE.TextureLoader(); var done=0;
   function tick(){ done++; if(done>=2){ entry.loading=false; onReady(entry); } }
-  loader.load(urls.map, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(rep,rep); tex.anisotropy=4; entry.map=tex; tick(); }, undefined, tick);
+  loader.load(urls.map, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(rep,rep); tex.anisotropy=4; tex.encoding=THREE.sRGBEncoding; entry.map=tex; tick(); }, undefined, tick);
   loader.load(urls.normal, function(tex){ tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(rep,rep); entry.normal=tex; tick(); }, undefined, tick);
 }
 function applyFieldTheme3D(){ if(!T3 || T3.lastField===FIELD) return; T3.lastField=FIELD;
@@ -1523,7 +1526,7 @@ function syncWrecks3D(){ var pool=T3.wreckPool; for(var pi=0;pi<pool.length;pi++
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.wreckRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } } }
 var FUEL_TEX3=null;
 function syncFuels3D(){ var pool=T3.fuelPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
-  if(FUELRDY && !FUEL_TEX3){ FUEL_TEX3=new THREE.Texture(FUELIMG); FUEL_TEX3.needsUpdate=true; }   // 🖼️ 2D와 같은 제리캔 실사 이미지 재사용(초록 큐브 탈피)
+  if(FUELRDY && !FUEL_TEX3){ FUEL_TEX3=new THREE.Texture(FUELIMG); FUEL_TEX3.encoding=THREE.sRGBEncoding; FUEL_TEX3.needsUpdate=true; }   // 🖼️ 2D와 같은 제리캔 실사 이미지 재사용(초록 큐브 탈피)
   G.fuels.forEach(function(fu){ var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===fu){ entry=pool[i]; break; } }
     if(!entry){ var obj;
       if(FUEL_TEX3){ obj=new THREE.Sprite(new THREE.SpriteMaterial({map:FUEL_TEX3,transparent:true})); obj.scale.set(0.5,0.72,1); }
@@ -1564,67 +1567,105 @@ function syncParticles3D(){ var pool=T3.partPool; for(var pi=0;pi<pool.length;pi
   else T3.flashLight.intensity=0;
   if(bestFire){ var wb=simToWorld(bestFire.p.x,bestFire.p.y,1.2); T3.boomLight.position.set(wb.x,wb.y,wb.z); T3.boomLight.intensity=3.2*bestFire.k; }
   else T3.boomLight.intensity=0; }
-/* ════════ 🌲 배경 조경: 나무·파괴 건물·원거리 적 기지 (정적 메시, 씬당 1회 빌드) ════════ */
+/* ════════ 🖼️ 실사 사진 에셋(마젠타 배경 → 런타임 크로마키) — 나무·군인 빌보드용 ════════ */
+var _keyedTexCache={};
+function loadKeyedTexture(url, cb){
+  var entry=_keyedTexCache[url];
+  if(entry){ if(entry.tex) cb(entry.tex); else entry.waiters.push(cb); return; }
+  entry=_keyedTexCache[url]={tex:null, waiters:[cb]};
+  var img=new Image();
+  img.onload=function(){ try{
+    var c=document.createElement('canvas'); c.width=img.width; c.height=img.height;
+    var g=c.getContext('2d'); g.drawImage(img,0,0);
+    var id=g.getImageData(0,0,c.width,c.height), d=id.data;
+    for(var i=0;i<d.length;i+=4){ var r=d[i],gg=d[i+1],b=d[i+2];
+      if(r>120 && b>120 && gg<130 && (r-gg)>40 && (b-gg)>40){ d[i+3]=0; }          // 마젠타 제거
+      else if(r>gg && b>gg && (r-gg)>18 && (b-gg)>18){                              // 가장자리 마젠타 번짐(스필) 억제
+        var m=(r+b)/2; d[i]=Math.round(gg+(r-gg)*0.35); d[i+2]=Math.round(gg+(b-gg)*0.35); }
+    }
+    g.putImageData(id,0,0);
+    var tex=new THREE.CanvasTexture(c); tex.encoding=THREE.sRGBEncoding; tex.anisotropy=4;
+    entry.tex=tex; entry.waiters.forEach(function(fn){ fn(tex); }); entry.waiters=[];
+  }catch(_){ } };
+  img.onerror=function(){ entry.waiters=[]; };
+  img.src=url;
+}
+var SCENERY_IMG = {
+  grass:  { tree:'/img/tree-oak.png?v=1' },
+  desert: { tree:'/img/tree-dead.png?v=1' },
+  snow:   { tree:'/img/tree-snowpine.png?v=1' }
+};
+/* ════════ 🌲 배경 조경: 실사 빌보드 나무·벽돌 폐건물·원거리 적 기지 ════════ */
 function buildScenery3D(){
   if(!T3) return;
-  // 기존 조경 제거
   for(var i=T3.sceneryRoot.children.length-1;i>=0;i--){ var ch=T3.sceneryRoot.children[i]; T3.sceneryRoot.remove(ch); disposeObj3(ch); }
-  var snow=(FIELD==='snow'), desert=(FIELD==='desert');
-  var trunkMat=new THREE.MeshStandardMaterial({color:0x6b4a2a, roughness:1});
-  var leafMat=new THREE.MeshStandardMaterial({color: snow?0xd8e4ec:(desert?0x8a9a4a:0x2e7d3a), roughness:0.95});
-  var ruinMat=new THREE.MeshStandardMaterial({color: desert?0xb09a74:0x8a8a86, roughness:1});
+  var desert=(FIELD==='desert');
+  var texLoader=new THREE.TextureLoader();
+  // 🧱 실사 벽돌/콘크리트 텍스처(일반 타일 텍스처라 키잉 불필요)
+  var brickMat=new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.95});
+  texLoader.load('/img/wall-brick.jpg?v=1', function(t){ t.encoding=THREE.sRGBEncoding; t.wrapS=t.wrapT=THREE.RepeatWrapping; brickMat.map=t; brickMat.needsUpdate=true; });
+  var concMat=new THREE.MeshStandardMaterial({color:0x9aa0a6, roughness:1});
+  texLoader.load('/img/wall-concrete.jpg?v=1', function(t){ t.encoding=THREE.sRGBEncoding; t.wrapS=t.wrapT=THREE.RepeatWrapping; concMat.map=t; concMat.color.setHex(0xffffff); concMat.needsUpdate=true; });
   var darkMat=new THREE.MeshStandardMaterial({color:0x3c4048, roughness:1});
+  // 🌳 실사 빌보드 나무 — 사진 2장을 십자로 교차(마젠타 키잉), 밑에 블롭 그림자
+  var treeMat=new THREE.MeshStandardMaterial({transparent:true, alphaTest:0.45, side:THREE.DoubleSide, roughness:0.9, visible:false});
+  loadKeyedTexture((SCENERY_IMG[FIELD]||SCENERY_IMG.grass).tree, function(tex){ treeMat.map=tex; treeMat.visible=true; treeMat.needsUpdate=true; });
+  var blobMat=new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.3, depthWrite:false});
   function tree(x,z,s){ var g=new THREE.Group();
-    var tr=new THREE.Mesh(new THREE.CylinderGeometry(0.14*s,0.2*s,1.1*s,6), trunkMat); tr.position.y=0.55*s; g.add(tr);
-    if(desert){ // 사막=마른 가지 나무
-      for(var b=0;b<3;b++){ var br=new THREE.Mesh(new THREE.CylinderGeometry(0.045*s,0.07*s,0.8*s,5), trunkMat);
-        br.position.y=1.1*s; br.rotation.z=(b-1)*0.7; br.position.x=(b-1)*0.18*s; g.add(br); }
-    } else { // 초원·설원=침엽수 2단
-      var c1=new THREE.Mesh(new THREE.ConeGeometry(0.75*s,1.3*s,7), leafMat); c1.position.y=1.5*s; g.add(c1);
-      var c2=new THREE.Mesh(new THREE.ConeGeometry(0.55*s,1.0*s,7), leafMat); c2.position.y=2.25*s; g.add(c2);
-    }
-    g.position.set(x,0,z); g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
+    var geo=new THREE.PlaneGeometry(3.4*s,4.2*s);
+    var p1=new THREE.Mesh(geo, treeMat); p1.position.y=2.1*s; g.add(p1);
+    var p2=new THREE.Mesh(geo, treeMat); p2.position.y=2.1*s; p2.rotation.y=Math.PI/2; g.add(p2);
+    var blob=new THREE.Mesh(new THREE.CircleGeometry(1.1*s,16), blobMat); blob.rotation.x=-Math.PI/2; blob.position.y=0.03; g.add(blob);
+    g.position.set(x,0,z); g.rotation.y=frnd(x*3+z)*3.1;
     T3.sceneryRoot.add(g); }
-  function ruin(x,z,rot){ var g=new THREE.Group();  // 파괴된 건물 — 들쭉날쭉 무너진 벽 2면 + 잔해
-    for(var wA=0;wA<5;wA++){ var h=0.7+frnd(x+wA)*1.5;
-      var wall=new THREE.Mesh(new THREE.BoxGeometry(0.9,h,0.25), ruinMat); wall.position.set(-1.8+wA*0.9,h/2,0); g.add(wall); }
-    for(var wB=0;wB<4;wB++){ var h2=0.5+frnd(z+wB)*1.3;
-      var wall2=new THREE.Mesh(new THREE.BoxGeometry(0.25,h2,0.9), ruinMat); wall2.position.set(-2.2,h2/2,0.55+wB*0.9); g.add(wall2); }
-    for(var rb=0;rb<6;rb++){ var s2=0.2+frnd(x+z+rb)*0.3;
-      var rub=new THREE.Mesh(new THREE.BoxGeometry(s2,s2,s2), ruinMat);
-      rub.position.set(-1.5+frnd(rb+1)*3, s2/2, 0.5+frnd(rb+2)*1.5); rub.rotation.y=frnd(rb)*3; g.add(rub); }
+  // 🧱 파괴된 벽돌 건물 — 실사 벽돌 텍스처 벽(들쭉날쭉 무너진 상단) + 잔해
+  function ruin(x,z,rot){ var g=new THREE.Group();
+    for(var wA=0;wA<5;wA++){ var h=0.9+frnd(x+wA)*1.6;
+      var wall=new THREE.Mesh(new THREE.BoxGeometry(1.1,h,0.3), brickMat); wall.position.set(-2.2+wA*1.1,h/2,0); g.add(wall); }
+    for(var wB=0;wB<4;wB++){ var h2=0.6+frnd(z+wB)*1.4;
+      var wall2=new THREE.Mesh(new THREE.BoxGeometry(0.3,h2,1.1), brickMat); wall2.position.set(-2.7,h2/2,0.65+wB*1.1); g.add(wall2); }
+    for(var rb=0;rb<7;rb++){ var s2=0.25+frnd(x+z+rb)*0.35;
+      var rub=new THREE.Mesh(new THREE.BoxGeometry(s2,s2,s2), brickMat);
+      rub.position.set(-1.8+frnd(rb+1)*3.6, s2/2, 0.6+frnd(rb+2)*1.8); rub.rotation.y=frnd(rb)*3; g.add(rub); }
     g.position.set(x,0,z); g.rotation.y=rot; g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
     T3.sceneryRoot.add(g); }
-  // 🏰 원거리 적 기지(안개 실루엣 존 z=-56~-64) — 벙커·감시탑·안테나·붉은 깃발
+  // 🏰 원거리 적 기지 — 콘크리트 벙커·감시탑·안테나·붉은 깃발(안개 실루엣 존)
   function enemyBase(){ var g=new THREE.Group();
     for(var b=0;b<5;b++){ var bw=3+frnd(b+30)*3;
-      var bunker=new THREE.Mesh(new THREE.BoxGeometry(bw,1.4+frnd(b)*0.8,2.4), darkMat);
+      var bunker=new THREE.Mesh(new THREE.BoxGeometry(bw,1.4+frnd(b)*0.8,2.4), concMat);
       bunker.position.set(-16+b*8+frnd(b+9)*3, 0.8, -58-frnd(b+4)*5); g.add(bunker); }
-    var towLeg=new THREE.Mesh(new THREE.BoxGeometry(0.5,5,0.5), darkMat); towLeg.position.set(6,2.5,-57); g.add(towLeg);
-    var towTop=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.2,2.2), darkMat); towTop.position.set(6,5.6,-57); g.add(towTop);
+    var towLeg=new THREE.Mesh(new THREE.BoxGeometry(0.5,5,0.5), concMat); towLeg.position.set(6,2.5,-57); g.add(towLeg);
+    var towTop=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.2,2.2), concMat); towTop.position.set(6,5.6,-57); g.add(towTop);
     var ant=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,3.4,4), darkMat); ant.position.set(-9,3.6,-60); g.add(ant);
     var flag=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.9),
       new THREE.MeshBasicMaterial({color:0xb02020, side:THREE.DoubleSide})); flag.position.set(6.9,6.6,-57); g.add(flag);
     var pole=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,2.2,4), darkMat); pole.position.set(6.15,6.2,-57); g.add(pole);
     T3.sceneryRoot.add(g); }
   // 배치 — 플레이 영역(x±17, z-40..9) 바깥 가장자리 밴드에만(이동·조준 안 가림)
-  for(var t1=0;t1<7;t1++){ tree(-26+frnd(t1+11)*6,  -38+frnd(t1+21)*44, 1.1+frnd(t1)*0.7); }   // 왼쪽 밴드
-  for(var t2=0;t2<7;t2++){ tree( 20+frnd(t2+41)*6,  -38+frnd(t2+51)*44, 1.1+frnd(t2+3)*0.7); } // 오른쪽 밴드
-  for(var t3=0;t3<5;t3++){ tree(-24+frnd(t3+71)*48, -47+frnd(t3+81)*4,  1.3+frnd(t3+5)*0.8); } // 뒤쪽 밴드(안개 근처)
+  for(var t1=0;t1<6;t1++){ tree(-26+frnd(t1+11)*6,  -38+frnd(t1+21)*44, 0.9+frnd(t1)*0.5); }   // 왼쪽 밴드
+  for(var t2=0;t2<6;t2++){ tree( 20+frnd(t2+41)*6,  -38+frnd(t2+51)*44, 0.9+frnd(t2+3)*0.5); } // 오른쪽 밴드
+  for(var t3=0;t3<4;t3++){ tree(-24+frnd(t3+71)*48, -47+frnd(t3+81)*4,  1.1+frnd(t3+5)*0.6); } // 뒤쪽 밴드(안개 근처)
   ruin(-21.5, -14, 0.5); ruin(21.5, -28, -1.2); if(!desert) ruin(-22.5, 2, 2.1);
   enemyBase();
 }
 /* ════════ 🪖 격파 시 조종사 탈출 연출 + "Oh my God!" 말풍선 ════════ */
 function makePilot3(){ var g=new THREE.Group();
+  // 🪖 실사 미군 전차병 사진 빌보드(마젠타 키잉) — 로드 전엔 절차적 인형 폴백
   var uniMat=new THREE.MeshStandardMaterial({color:0x4a5a38, roughness:0.9});
   var skinMat=new THREE.MeshStandardMaterial({color:0xe8b98c, roughness:0.8});
-  var body=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.5,8), uniMat); body.position.y=0.25; g.add(body);
-  var head=new THREE.Mesh(new THREE.SphereGeometry(0.15,10,8), skinMat); head.position.y=0.62; g.add(head);
-  var helmet=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,6,0,Math.PI*2,0,Math.PI/2), uniMat); helmet.position.y=0.64; g.add(helmet);
+  var proc=new THREE.Group(); g.add(proc);
+  var body=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.5,8), uniMat); body.position.y=0.25; proc.add(body);
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.15,10,8), skinMat); head.position.y=0.62; proc.add(head);
+  var helmet=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,6,0,Math.PI*2,0,Math.PI/2), uniMat); helmet.position.y=0.64; proc.add(helmet);
   var armGeo=new THREE.CylinderGeometry(0.05,0.05,0.4,6);
-  var armL=new THREE.Mesh(armGeo,uniMat); armL.position.set(0.22,0.42,0); armL.rotation.z=-0.9; g.add(armL);   // 만세 팔
-  var armR=new THREE.Mesh(armGeo,uniMat); armR.position.set(-0.22,0.42,0); armR.rotation.z=0.9; g.add(armR);
+  var armL=new THREE.Mesh(armGeo,uniMat); armL.position.set(0.22,0.42,0); armL.rotation.z=-0.9; proc.add(armL);   // 만세 팔
+  var armR=new THREE.Mesh(armGeo,uniMat); armR.position.set(-0.22,0.42,0); armR.rotation.z=0.9; proc.add(armR);
   g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
+  loadKeyedTexture('/img/soldier-us.png?v=1', function(tex){
+    proc.visible=false;
+    var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true}));
+    sp.scale.set(0.95,1.27,1); sp.position.y=0.63; g.add(sp);
+  });
   // 말풍선 "Oh my God!"
   var c=document.createElement('canvas'); c.width=512; c.height=192; var gx=c.getContext('2d');
   gx.fillStyle='rgba(255,255,255,0.96)'; roundRect3(gx,10,10,492,140,28); gx.fill();
