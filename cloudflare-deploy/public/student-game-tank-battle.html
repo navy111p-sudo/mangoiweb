@@ -1326,6 +1326,12 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
   var gunMat=new THREE.MeshStandardMaterial({color:c.trk, roughness:0.6, metalness:0.3});
   var gunGeo=new THREE.CylinderGeometry(0.08,0.09,1.7,8); gunGeo.rotateZ(Math.PI/2); gunGeo.translate(0.85,0,0);
   var gun=new THREE.Mesh(gunGeo, gunMat); gun.position.set(0.15,0.02,0); gun.userData._proc=true; turGroup.add(gun);
+  // 🔘 포탑 링 커버 — 차체 모델의 포탑 구멍이 포탑 몸통보다 커서 틈이 보이는 것을 원판 받침으로 완전 차폐
+  //    (_proc 아님 → GLB 부착 후에도 유지. 포탑과 함께 회전해 어느 각도에서도 구멍 노출 없음)
+  var cfg0=TANK_GLB[type]||{};
+  if(cfg0.ringCap){ var cap=new THREE.Mesh(new THREE.CylinderGeometry(cfg0.ringCap,cfg0.ringCap,0.18,22),
+    new THREE.MeshStandardMaterial({color:c.t, roughness:0.85}));
+    cap.position.y=0.02; cap.castShadow=true; turGroup.add(cap); }
   g.userData.turret=turGroup;
   g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
   attachTankGLB(type, g, turGroup);
@@ -1333,15 +1339,15 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
 /* ── 🖼️ 힉스필드 생성 GLB(차체/포탑 분리) — 로드 전엔 위 절차적 도형 폴백 그대로 유지 ── */
 var TANK_GLB = {
   // 전체 크기 상향(화면에서 잘 보이게) + 셔먼은 포탑 대비 차체를 크게(머리만 커 보이던 비율 교정)
-  sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:4.5, hullYaw:Math.PI/2,
+  sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:4.5, hullYaw:Math.PI/2, ringCap:0.9,
                turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.3, turYaw:Math.PI/2, turFwd:0.14, turPivotX:0.12 },   // 차체 +25%(실제 셔먼 비례: 포탑≈차체길이 1/3)
   // 🇩🇪 독일군: 차체가 너무 밝은 청록으로 재구성돼 포탑과 색이 어긋남 → 차체·포탑 모두 펠트그라우(군복 청회녹)로 틴트 수렴
   // ⚠️ 킹타이거도 소스 방향 90° 상이(마커 실측: rot0에서 코=+Z) → yaw=π, 링=차체 중심(pivot 0). 포탑 0°/180° 회전 검증 완료
-  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI, hullTint:0x9aabb4,
+  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI, hullTint:0x9aabb4, ringCap:1.05,
                turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.0, turYaw:Math.PI, turTint:0x7fa6c0, turFwd:0.2, turPivotX:0 },
   // ⚠️ 펜더 GLB는 소스 방향이 다른 모델과 90° 다름(마커 실측으로 확정) → yaw=π, 링은 중심보다 뒤(-0.55)
   // 펜더 포탑: 0°/90°/180° 3각도 탑다운 검증으로 확정 — 축=링 중심(0.02), 몸통중심 보정 turFwd 0.28
-  panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI, hullTint:0x9aabb4,
+  panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI, hullTint:0x9aabb4, ringCap:0.95,
                turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI, turTint:0xaec6d6, turFwd:0.28, turPivotX:0.02 },
   stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2, fullTint:0x9aabb4 }
 };
