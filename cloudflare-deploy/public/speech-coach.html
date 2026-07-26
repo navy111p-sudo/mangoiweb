@@ -104,6 +104,100 @@
   #tavatar-wrap.speaking #tavatar-status { color:#fff; background:rgba(139,92,246,0.35); border-color:rgba(167,139,250,0.6); }
   #tavatar-wrap.speaking #tavatar-status .ts-idle { display:none; }
   #tavatar-wrap.speaking #tavatar-status .ts-talk { display:inline; }
+
+  /* 📱 모바일 한 화면 개편 (2026-07-27) — 아바타·문장·녹음이 스크롤 없이 한 화면에 보이도록.
+     데스크톱(>640px)은 이 블록의 영향을 받지 않음(기존 그대로). 기존 요소는 이동시키지
+     않고 그대로 두되(레벨카드/단계이동/프리셋/다음이동), 모바일에서만 숨기고 그 내용을
+     압축한 새 트리거+바텀시트를 추가로 붙인다. */
+  .m-level-trigger { display:none; }
+  .m-sheet-card { display:block; padding:11px 8px; border-radius:11px; text-decoration:none; text-align:center; color:#fff; font-weight:800; font-size:11.5px; border:1.4px solid; }
+  .m-sheet-card small { display:block; font-size:9px; margin-top:2px; font-weight:600; opacity:.85; }
+  @media (max-width: 640px) {
+    body { padding-bottom: 16px; }   /* 데스크톱용 80px 여백은 모바일에선 과함 — 한 화면 확보 */
+    .wrap { padding: 12px 14px 16px; }
+    .brand { margin-bottom: 6px; }
+    .brand-sub, .brand-rule, .brand-hint { display: none; }
+    .brand-eyebrow { margin-bottom: 4px; }
+    .brand-logo { font-size: 20px; }
+
+    #lang-curriculum-picker, .step-nav, .step-count, .step-progress, .preset { display: none !important; }
+
+    #tavatar-wrap { margin: 2px 0 10px; }
+    #tavatar-ring { width: 118px; height: 147px; }
+    #tavatar-status { font-size: 10.5px; padding: 3px 10px; }
+
+    .target-box { padding: 14px 16px; margin-bottom: 8px; }
+    .target-text { font-size: 19px; }
+    .target-input { font-size: 13px; padding: 8px 12px; margin-top: 8px; }
+    .play-btn-hero { padding: 7px 14px; font-size: 12px; }
+    .target-tip { font-size: 9.5px; margin-top: 6px; }
+
+    .recorder { padding: 16px; margin-bottom: 8px; }
+    .rec-btn { width: 78px; height: 78px; font-size: 26px; }
+    /* 녹음↔채점결과: 같은 자리에서 교체(둘 다 동시에 안 보이게) — 아래로 안 밀림.
+       결과 카드 자체가 내용이 많아(등급·점수4개·발화·피드백·제안) 아바타까지 같이 있으면
+       화면을 넘기므로, 결과를 보는 동안은 아바타를 잠시 숨기고 문장도 한 줄로 압축해
+       그 공간을 결과 카드에 내준다(다시 녹음/다음 단계를 누르면 원래대로 복귀). */
+    body.m-showing-result .recorder { display: none; }
+    body.m-showing-result #tavatar-wrap { display: none; }
+    body.m-showing-result .brand,
+    body.m-showing-result .m-level-trigger { display: none; }   /* 결과 보는 동안은 로고·레벨줄도 접어 작은 폰(SE)에서도 결과가 다 보이게 */
+    body.m-showing-result .wrap { padding-top: 10px; }
+    body.m-showing-result .target-box { padding: 8px 14px; margin-bottom: 6px; }
+    body.m-showing-result .target-box .target-label,
+    body.m-showing-result .target-box .target-input,
+    body.m-showing-result .target-box .play-btn-hero,
+    body.m-showing-result .target-box .target-tip { display: none; }
+    body.m-showing-result .target-text { font-size: 13.5px; margin-top: 0; color: #cbd5e1; }
+    body.m-showing-result .result { padding: 16px; }
+    body.m-showing-result .scores { gap: 6px; }
+    body.m-showing-result .score-box { padding: 10px 4px; }
+
+    .m-level-trigger {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      background: rgba(139,92,246,0.18); border: 1px solid rgba(167,139,250,0.4);
+      border-radius: 12px; padding: 9px 12px; margin-bottom: 10px; color: #fff;
+      font-weight: 800; font-size: 12.5px; cursor: pointer;
+    }
+    .m-level-trigger .m-lv-name { flex: 1; text-align: left; }
+    .m-level-trigger .m-lv-step { color: #ddd6fe; font-weight: 700; font-size: 11.5px; }
+    .m-level-trigger .m-lv-car { color: #c4b5fd; }
+
+    #mobile-sheet-backdrop { display: none; position: fixed; inset: 0; background: rgba(4,6,20,0.55); z-index: 9997; }
+    #mobile-sheet-backdrop.m-open { display: block; }
+    #mobile-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 9998;
+      background: linear-gradient(180deg,#1c1650,#130f3d);
+      border-top: 1px solid rgba(167,139,250,0.35); border-radius: 20px 20px 0 0;
+      padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+      max-height: 80vh; overflow-y: auto;
+      transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.9,.3,1);
+      box-shadow: 0 -14px 40px -10px rgba(0,0,0,0.55);
+    }
+    #mobile-sheet.m-open { transform: translateY(0); }
+    .m-sheet-handle { width: 36px; height: 4px; border-radius: 99px; background: rgba(167,139,250,0.4); margin: 0 auto 14px; }
+    .m-sheet-close { position: absolute; top: 10px; right: 12px; width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.08); color: #fff; border: 0; font-size: 15px; line-height: 1; }
+    .m-sheet-title { font-size: 12px; font-weight: 800; color: #fbbf24; margin-bottom: 10px; letter-spacing: .3px; }
+    .m-sheet-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+    #mobile-sheet .step-nav { display: flex !important; margin: 0 0 4px; }
+    #mobile-sheet .step-progress { margin: 6px 0 18px; }
+    #mobile-sheet .m-next-btn { width: 100%; background: linear-gradient(135deg,#38bdf8,#2563eb); color: #fff; border: 0; border-radius: 12px; padding: 13px; font-weight: 800; font-size: 14px; }
+  }
+  /* 📱 화면이 더 낮은 소형 폰(iPhone SE 등 ≤700px 높이): 아바타·여백을 한 단계 더 압축해
+     녹음 전 화면도 스크롤 없이 들어가게 */
+  @media (max-width: 640px) and (max-height: 700px) {
+    .brand-eyebrow { display: none; }
+    .brand-logo { font-size: 17px; }
+    #tavatar-ring { width: 92px; height: 115px; }
+    #tavatar-wrap { margin: 0 0 6px; gap: 5px; }
+    #tavatar-status { font-size: 9.5px; padding: 2px 9px; }
+    .target-box { padding: 10px 14px; margin-bottom: 6px; }
+    .target-text { font-size: 17px; }
+    .target-input { display: none; }   /* 소형 폰은 직접입력 칸 접음(핵심 흐름은 듣기→녹음) */
+    .recorder { padding: 10px; }
+    .rec-btn { width: 64px; height: 64px; font-size: 22px; }
+    .rec-status { font-size: 10.5px; margin-top: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -119,6 +213,35 @@
     <div class="brand-hint">
       <span data-ko="레벨을 고르거나, 아래 문장을 바로 따라 말해보세요" data-en="Pick a level, or just repeat the sentence below">레벨을 고르거나, 아래 문장을 바로 따라 말해보세요</span>
     </div>
+  </div>
+
+  <!-- 📱 (2026-07-27) 모바일 전용: 레벨·단계·다음이동을 압축 트리거+바텀시트로.
+       데스크톱에서는 .m-level-trigger 가 display:none 이라 전혀 안 보이고,
+       아래 레벨카드/단계이동/프리셋/다음이동은 데스크톱에서 지금과 완전히 동일하게 보인다. -->
+  <button type="button" class="m-level-trigger" onclick="openMobileSheet()">
+    <span class="m-lv-name">🎯 <span data-ko="레벨·단계" data-en="Level · Step">레벨·단계</span></span>
+    <span class="m-lv-step" id="m-lv-step">1 / 5</span>
+    <span class="m-lv-car">▾</span>
+  </button>
+  <div id="mobile-sheet-backdrop" onclick="closeMobileSheet()"></div>
+  <div id="mobile-sheet">
+    <button type="button" class="m-sheet-close" onclick="closeMobileSheet()" aria-label="닫기">✕</button>
+    <div class="m-sheet-handle"></div>
+    <div class="m-sheet-title">🎯 <span data-ko="레벨 선택" data-en="Choose Level">레벨 선택</span></div>
+    <div class="m-sheet-cards">
+      <a class="m-sheet-card" href="https://mangoi-speech.pages.dev/practice?course=phonics" target="_blank" style="background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(5,150,105,.08));border-color:rgba(16,185,129,.45);">🇺🇸 Phonics<small data-ko="영어 · Lv 0" data-en="English · Lv 0">영어 · Lv 0</small></a>
+      <a class="m-sheet-card" href="https://mangoi-speech.pages.dev/practice?course=bts" target="_blank" style="background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-color:rgba(251,191,36,.45);">🇺🇸 BTS<small data-ko="영어 · Lv 1~8" data-en="English · Lv 1~8">영어 · Lv 1~8</small></a>
+      <a class="m-sheet-card" href="https://mangoi-speech.pages.dev/practice?course=siu" target="_blank" style="background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(99,102,241,.08));border-color:rgba(139,92,246,.45);">🇺🇸 SIU<small data-ko="영어 · 고급" data-en="English · Advanced">영어 · 고급</small></a>
+      <a class="m-sheet-card" href="/speech-coach-cn.html" style="background:linear-gradient(135deg,rgba(220,38,38,.22),rgba(245,158,11,.12));border-color:rgba(220,38,38,.55);">🇨🇳 <span data-ko="중국어" data-en="Chinese">중국어</span><small data-ko="마스터 · Lv 1~20" data-en="Master · Lv 1~20">마스터 · Lv 1~20</small></a>
+    </div>
+    <div class="m-sheet-title">📖 <span data-ko="단계" data-en="Step">단계</span></div>
+    <div class="step-nav">
+      <button class="step-btn" onclick="goStep(-1)">◀</button>
+      <select id="m-step-select" class="step-select" onchange="selectStep(this.value)" aria-label="단계 선택"></select>
+      <button class="step-btn primary" onclick="goStep(1)">▶</button>
+    </div>
+    <div class="step-progress"><div class="step-progress-fill" id="m-step-bar"></div></div>
+    <button type="button" class="m-next-btn" onclick="window.MangoFlow&&MangoFlow.open('speech')" data-ko="🚀 다음으로 이동 (수업·웜업·복습·나가기)" data-en="🚀 Move to next (Class · Warmup · Review · Exit)">🚀 다음으로 이동 (수업·웜업·복습·나가기)</button>
   </div>
 
   <!-- ph157+ : 언어별 단계 학습 선택 카드 (영어 + 중국어) -->
@@ -312,22 +435,45 @@ function awardSpeechPoints(setId, badgeLabel){
 }
 function shortLabel(s){ return s.length > 30 ? s.slice(0, 30) + '…' : s; }
 function renderStepSelect(){
-  var sel = document.getElementById('step-select');
-  if (!sel) return;
-  sel.innerHTML = STEPS.map(function(s, i){
+  var opts = STEPS.map(function(s, i){
     var mark = doneSet.has(s) ? '✓ ' : '';           // 완료한 단계는 체크 표시
     return '<option value="' + i + '">' + mark + (i + 1) + '. ' + shortLabel(s) + '</option>';
   }).join('');
-  sel.value = String(currentStep);
+  // 📱 #m-step-select 는 모바일 바텀시트 안의 미러본(같은 STEPS, 같은 동작) — 항상 함께 채운다.
+  ['step-select', 'm-step-select'].forEach(function(id){
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = opts;
+    sel.value = String(currentStep);
+  });
 }
 function updateStepUI(){
-  var sel = document.getElementById('step-select');
-  if (sel) sel.value = String(currentStep);
+  ['step-select', 'm-step-select'].forEach(function(id){
+    var sel = document.getElementById(id);
+    if (sel) sel.value = String(currentStep);
+  });
   var done = STEPS.filter(function(s){ return doneSet.has(s); }).length;
   var cnt = document.getElementById('step-count-txt');
   if (cnt) cnt.textContent = (currentStep + 1) + ' / ' + STEPS.length + (done ? ' · ✓ ' + done : '');
-  var bar = document.getElementById('step-bar');
-  if (bar) bar.style.width = Math.round(done / STEPS.length * 100) + '%';   // 완료율 진행바
+  // 📱 모바일 압축 트리거의 "1 / 5" 표시도 같이 갱신
+  var mLv = document.getElementById('m-lv-step');
+  if (mLv) mLv.textContent = (currentStep + 1) + ' / ' + STEPS.length;
+  var pct = Math.round(done / STEPS.length * 100) + '%';
+  ['step-bar', 'm-step-bar'].forEach(function(id){
+    var bar = document.getElementById(id);
+    if (bar) bar.style.width = pct;   // 완료율 진행바
+  });
+}
+// 📱 모바일 바텀시트 열기/닫기 — 레벨선택·단계이동·다음이동을 한 곳에 압축
+function openMobileSheet(){
+  var sheet = document.getElementById('mobile-sheet'), bd = document.getElementById('mobile-sheet-backdrop');
+  if (sheet) sheet.classList.add('m-open');
+  if (bd) bd.classList.add('m-open');
+}
+function closeMobileSheet(){
+  var sheet = document.getElementById('mobile-sheet'), bd = document.getElementById('mobile-sheet-backdrop');
+  if (sheet) sheet.classList.remove('m-open');
+  if (bd) bd.classList.remove('m-open');
 }
 /* 완주 사운드 — Web Audio 상승 아르페지오 (외부 파일 없음) */
 function playChime(){
@@ -453,6 +599,7 @@ async function speakTarget() {
 
 function resetUI() {
   document.getElementById('result').style.display = 'none';
+  document.body.classList.remove('m-showing-result');   // 📱 결과→녹음 버튼 자리로 복귀(모바일)
   document.getElementById('rec-status').textContent = (window.getLang && window.getLang() === 'en' ? 'Tap mic to start recording' : '마이크 버튼을 눌러 녹음 시작');
 }
 
@@ -547,6 +694,7 @@ async function processAudio(blob) {
       } else if (tierEl) { tierEl.style.display = 'none'; }
     })();
     document.getElementById('result').style.display = 'block';
+    document.body.classList.add('m-showing-result');   // 📱 녹음 버튼 자리에서 결과로 교체(모바일, 스크롤 없이)
     try { markStepDone(currentStep); } catch(e){}   // 채점 완료 → 이 단계 완료 체크
     document.getElementById('rec-status').textContent = '✅ 완료! 다시 녹음하려면 마이크 누르세요';
 
@@ -724,7 +872,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260727011148 -->
+<!-- BUILD:20260727013337 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
