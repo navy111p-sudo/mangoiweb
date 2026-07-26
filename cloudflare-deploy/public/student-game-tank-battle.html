@@ -656,7 +656,7 @@ function muzzle(x,y,ang,len){ return { x:x+Math.cos(ang)*len, y:y+Math.sin(ang)*
 function playerFire(ang){ if(!G||!G.running||G.speaking||G.dead)return;
   var t=performance.now(); if(t-G.fireT < 380) return; G.fireT=t;   // 주포 재장전
   var a = (ang!=null) ? ang : G.turAng;
-  G.turAng=a; G.hullAng=a;                         // 🎯 클릭 방향으로 포신·차체 즉시 정렬(그쪽으로 발사)
+  G.turAng=a; if(VIEW!=='quarter') G.hullAng=a;    // 🎯 2D=포신·차체 동시 정렬 / 3D=포탑만 조준(차체는 이동 방향 유지)
   var m=muzzle(G.px,G.py,a,34*SCALE);
   var sp=460*(0.9+SPMUL*0.15);
   G.pbul.push({ x:m.x, y:m.y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0, mine:true });
@@ -704,10 +704,13 @@ function ptr(ev){ var r=wrap.getBoundingClientRect(); var t=ev.touches&&ev.touch
 //          짧게 탭(클릭)=그 방향으로 즉시 발사. (우클릭·스페이스 발사도 유지)
 var _drag={on:false,sx:0,sy:0,t:0,moved:false};
 var _aim={x:0,y:0};                              // PC 호버 조준(우클릭·스페이스 발사용)
+var _hoverHold=false;                            // 🎬 3D 마우스: 빈 곳 클릭=정지/재개 토글 상태
 function _onPtrMove(ev){ if(!G||!G.running||G.speaking)return;
   var p=ptr(ev); _aim.x=p.x; _aim.y=p.y;
-  // 🎬 3D 쿼터뷰: 마우스는 버튼을 누르지 않아도 커서를 계속 따라감(호버 추적) — 클릭은 발사 전용
-  if(VIEW==='quarter' && ev.pointerType==='mouse' && !_drag.on){ G.dragging=true; G.tx=p.x; G.ty=p.y; return; }
+  // 🎬 3D 쿼터뷰: 마우스는 버튼을 누르지 않아도 커서를 계속 따라감(호버 추적) — 정지 토글 중엔 제자리
+  if(VIEW==='quarter' && ev.pointerType==='mouse' && !_drag.on){
+    if(_hoverHold){ G.dragging=false; return; }
+    G.dragging=true; G.tx=p.x; G.ty=p.y; return; }
   if(!_drag.on) return;                          // 버튼을 누른 동안만 이동 목표 갱신(터치·2D 클래식)
   G.tx=p.x; G.ty=p.y;
   if(!_drag.moved && Math.hypot(p.x-_drag.sx,p.y-_drag.sy)>12) _drag.moved=true;
@@ -723,8 +726,18 @@ function _dragEnd(ev){
   var was=_drag.on; _drag.on=false; if(G) G.dragging=false;
   if(!was || !G || !G.running || G.speaking) return;
   var p=ptr(ev);
-  if(!_drag.moved && performance.now()-_drag.t<350){          // 짧은 탭 = 그 지점의 적 자동조준 발사
-    fireAt(p.x, p.y); }
+  if(!_drag.moved && performance.now()-_drag.t<350){
+    // 🎬 3D 마우스: 적 클릭=그쪽으로 발사 / 빈 곳 클릭=정지↔이동 토글
+    if(VIEW==='quarter' && ev.pointerType==='mouse'){
+      var tgt=_pickTargetNear(p.x,p.y);
+      if(tgt){ G.lock=tgt; G.lockUntil=performance.now()+2200; playerFire(_leadAngle(tgt)); }
+      else { _hoverHold=!_hoverHold;
+        if(_hoverHold){ G.tx=G.px; G.ty=G.py; banner('⏸ 정지 — 빈 곳을 다시 클릭하면 이동','#7fd1ff'); }
+        else banner('▶ 이동 재개','#7fd1ff'); }
+      return;
+    }
+    fireAt(p.x, p.y);                                        // 터치·2D=기존 그대로(탭=자동조준 발사)
+  }
 }
 function _onCtxMenu(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p=ptr(e); fireAt(p.x, p.y); } }  // 우클릭=자동조준 발사
 [cv,cv3d].forEach(function(elx){
@@ -759,15 +772,22 @@ function update(dt){
   G.px+=G.vx*dt; G.py+=G.vy*dt;
   G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
   var sp=Math.hypot(G.vx,G.vy);
-  // 통짜 스프라이트 → 이동 중엔 진행 방향으로 정렬(발사 시엔 playerFire가 즉시 조준)
-  if(G.dragging && sp>12){ G.turAng=angLerp(G.turAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*12)); G.hullAng=G.turAng; }
+  if(VIEW==='quarter'){
+    // 🎬 3D: 차체=진행 방향, 포탑=독립적으로 마우스 커서를 추적(실제 전차처럼 머리가 몸통 위에서 회전)
+    if(G.dragging && sp>12){ G.hullAng=angLerp(G.hullAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*10)); }
+    if(!G.lock){ var aa=Math.atan2(_aim.y-G.py, _aim.x-G.px);
+      if(isFinite(aa)) G.turAng=angLerp(G.turAng, aa, Math.min(1,dt*9)); }
+  } else {
+    // 2D 통짜 스프라이트 → 이동 중엔 진행 방향으로 정렬(발사 시엔 playerFire가 즉시 조준)
+    if(G.dragging && sp>12){ G.turAng=angLerp(G.turAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*12)); G.hullAng=G.turAng; }
+  }
   if(sp>4){ G.track+=sp*dt*0.05; }
   if(G.invuln>0)G.invuln-=dt;
 
   // 🔒 타깃 락 — 탭한 적을 포탑이 자동 추적하며 재장전마다 자동 연사(맞을 때까지)
   if(G.lock && G.lock.alive && performance.now()<G.lockUntil){
     var la=_leadAngle(G.lock);
-    G.turAng=angLerp(G.turAng, la, Math.min(1,dt*14)); G.hullAng=G.turAng;
+    G.turAng=angLerp(G.turAng, la, Math.min(1,dt*14)); if(VIEW!=='quarter') G.hullAng=G.turAng;
     if(performance.now()-G.fireT >= 380) playerFire(la);
   } else { G.lock=null; }
   // 🔥 콤보 감쇠(2.6초 안에 다음 정답 없으면 리셋)
@@ -1310,13 +1330,12 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
 var TANK_GLB = {
   // 전체 크기 상향(화면에서 잘 보이게) + 셔먼은 포탑 대비 차체를 크게(머리만 커 보이던 비율 교정)
   sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:3.6, hullYaw:Math.PI/2,
-               turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.0, turYaw:Math.PI/2 },
+               turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.7, turYaw:Math.PI/2, turFwd:0.14 },   // 포신이 보이도록 재상향
   kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI/2,
-               // 킹타이거 전용 포탑 GLB는 힉스필드 재구성이 평평하게 나와 폐기 — 타이거I 포탑 GLB를 펠트그라우 틴트로 재사용
-               // 타이거 포탑 GLB는 긴 포신이 max치수라 몸통이 작아짐 → 크게 잡고 진한 청회 틴트
-               turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.6, turYaw:Math.PI/2, turTint:0x6b84c4 },
+               // 타이거I 포탑 GLB 재사용(펠트그라우 틴트) — 포신이 max치수에 포함되므로 크기·전방보정 함께
+               turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.0, turYaw:Math.PI/2, turTint:0x6b84c4, turFwd:0.18 },
   panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI/2,
-               turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI/2 },
+               turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI/2, turFwd:0.16 },
   stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2 }
 };
 var _glb3Cache={};
@@ -1328,7 +1347,9 @@ function applyTint3(sourceScene, tint){
     mats.forEach(function(m){ if(m.userData && m.userData._tinted) return;
       m.userData=m.userData||{}; m.userData._tinted=true; m.color.multiply(tc); }); });
 }
-function attachGLB3(group, url, targetSize, yaw, tint){
+/* fwdFrac: 바운딩박스 중심 정렬 후 X축(전방)으로 길이의 몇 %를 더 밀지 — 포신 긴 포탑은 몸통이 뒤로 쏠리므로 보정.
+   onAttach(topY): 부착 완료 시 최종 높이(size.y) 전달 — 포탑을 차체 '실제' 상단에 얹는 데 사용 */
+function attachGLB3(group, url, targetSize, yaw, tint, fwdFrac, onAttach){
   if(!window.THREE || !THREE.GLTFLoader) return;
   function applyScene(sourceScene){
     var root=sourceScene.clone(true);
@@ -1338,10 +1359,14 @@ function attachGLB3(group, url, targetSize, yaw, tint){
     var s=targetSize/(ref||1); root.scale.setScalar(s);
     if(yaw) root.rotation.y=yaw;
     box.setFromObject(root);
+    var ctr=box.getCenter(new THREE.Vector3());
+    root.position.x += -ctr.x; root.position.z += -ctr.z;   // 🔧 메시 원점 어긋남 보정 — 차체·포탑 분리 문제의 진범
     root.position.y += -box.min.y;
+    if(fwdFrac) root.position.x += fwdFrac*(box.max.x-box.min.x);
     root.traverse(function(o){ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
     group.children.forEach(function(ch){ if(ch.userData && ch.userData._proc) ch.visible=false; });
     group.add(root); group.userData.glb=root;
+    if(onAttach) onAttach(box.max.y-box.min.y);
   }
   var entry=_glb3Cache[url];
   if(entry){ if(entry.scene) applyScene(entry.scene); else if(entry.loading) entry.waiters.push(applyScene); return; }
@@ -1355,9 +1380,11 @@ function attachGLB3(group, url, targetSize, yaw, tint){
 }
 function attachTankGLB(type, hullGroup, turGroup){
   var cfg=TANK_GLB[type]; if(!cfg) return;
-  if(cfg.full){ attachGLB3(hullGroup, cfg.full, cfg.fullSize, cfg.fullYaw, cfg.fullTint); turGroup.visible=false; return; }
-  if(cfg.hull) attachGLB3(hullGroup, cfg.hull, cfg.hullSize, cfg.hullYaw, cfg.hullTint);
-  if(cfg.turret) attachGLB3(turGroup, cfg.turret, cfg.turSize, cfg.turYaw, cfg.turTint);
+  if(cfg.full){ attachGLB3(hullGroup, cfg.full, cfg.fullSize, cfg.fullYaw, cfg.fullTint, 0); turGroup.visible=false; return; }
+  if(cfg.hull) attachGLB3(hullGroup, cfg.hull, cfg.hullSize, cfg.hullYaw, cfg.hullTint, 0, function(topY){
+    turGroup.position.y=Math.max(0.55, topY-0.18);   // 포탑을 차체 실제 상단에 살짝 겹치게 얹음(들뜸/파묻힘 방지)
+  });
+  if(cfg.turret) attachGLB3(turGroup, cfg.turret, cfg.turSize, cfg.turYaw, cfg.turTint, (cfg.turFwd!=null?cfg.turFwd:0.16));
 }
 function init3D(){
   if(T3 || !window.THREE) return;
@@ -1366,7 +1393,7 @@ function init3D(){
   renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;   // 🌥️ 실그림자(모바일 고려 1024 그림자맵)
   // 🎞️ 실사감의 핵심: sRGB 출력 + ACES 필름 톤매핑 — 이것 없이는 실사 텍스처가 물빠진 장난감처럼 보임
   renderer.outputEncoding=THREE.sRGBEncoding;
-  renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;   // 1.12는 탱크 상판이 하얗게 날아감
   var scene=new THREE.Scene();
   var camera=new THREE.PerspectiveCamera(50, 1, 0.1, 200);
   camera.position.set(CAM_POS.x,CAM_POS.y,CAM_POS.z); camera.lookAt(CAM_LOOK.x,CAM_LOOK.y,CAM_LOOK.z);
@@ -1750,6 +1777,7 @@ function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts
   render(); }
 function startGame(){
   document.getElementById('start').classList.add('hide'); document.getElementById('over').classList.add('hide');
+  _hoverHold=false;
   newGame(); G.running=true; updateHUD();
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock(); bgmStart();
   banner('🛡️ 전투 시작!', '#ffd479');
