@@ -1266,7 +1266,7 @@ function roundRect3(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,
 function makeWordSprite(){ var c=document.createElement('canvas'); c.width=512; c.height=160;
   var tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
   var mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false});
-  var sp=new THREE.Sprite(mat); sp.scale.set(3.6,1.125,1); sp.renderOrder=10; sp.userData.cnv=c; sp.userData.ctx=c.getContext('2d'); return sp; }
+  var sp=new THREE.Sprite(mat); sp.scale.set(4.6,1.44,1); sp.renderOrder=10; sp.userData.cnv=c; sp.userData.ctx=c.getContext('2d'); return sp; }
 function updateWordSprite(sp,word,hi){ var c=sp.userData.cnv,g=sp.userData.ctx; g.clearRect(0,0,c.width,c.height);
   var fs=86;
   g.font='900 '+fs+'px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
@@ -1313,7 +1313,8 @@ var TANK_GLB = {
                turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.0, turYaw:Math.PI/2 },
   kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI/2,
                // 킹타이거 전용 포탑 GLB는 힉스필드 재구성이 평평하게 나와 폐기 — 타이거I 포탑 GLB를 펠트그라우 틴트로 재사용
-               turret:'/models/tank-tiger-turret.glb?v=2', turSize:2.5, turYaw:Math.PI/2, turTint:0x7f93b8 },
+               // 타이거 포탑 GLB는 긴 포신이 max치수라 몸통이 작아짐 → 크게 잡고 진한 청회 틴트
+               turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.6, turYaw:Math.PI/2, turTint:0x6b84c4 },
   panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI/2,
                turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI/2 },
   stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2 }
@@ -1770,6 +1771,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727014426 -->
+<!-- BUILD:20260727020013 -->
 </body>
 </html>
