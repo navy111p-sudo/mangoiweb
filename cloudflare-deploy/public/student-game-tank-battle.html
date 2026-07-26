@@ -1335,8 +1335,9 @@ var TANK_GLB = {
   sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:3.6, hullYaw:Math.PI/2,
                turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.3, turYaw:Math.PI/2, turFwd:0.14, turPivotX:0.1 },   // 차체 대비 비율 재조정(2.7은 머리가 과대)
   // 🇩🇪 독일군: 차체가 너무 밝은 청록으로 재구성돼 포탑과 색이 어긋남 → 차체·포탑 모두 펠트그라우(군복 청회녹)로 틴트 수렴
-  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI/2, hullTint:0x9aabb4,
-               turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.0, turYaw:Math.PI/2, turTint:0x7fa6c0, turFwd:0.2, turPivotX:0.55 },
+  // ⚠️ 킹타이거도 소스 방향 90° 상이(마커 실측: rot0에서 코=+Z) → yaw=π, 링=차체 중심(pivot 0). 포탑 0°/180° 회전 검증 완료
+  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI, hullTint:0x9aabb4,
+               turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.0, turYaw:Math.PI, turTint:0x7fa6c0, turFwd:0.2, turPivotX:0 },
   // ⚠️ 펜더 GLB는 소스 방향이 다른 모델과 90° 다름(마커 실측으로 확정) → yaw=π, 링은 중심보다 뒤(-0.55)
   panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI, hullTint:0x9aabb4,
                turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI, turTint:0xaec6d6, turFwd:0.16, turPivotX:-0.55 },
