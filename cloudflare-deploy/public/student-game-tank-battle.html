@@ -1334,12 +1334,12 @@ var TANK_GLB = {
   // 전체 크기 상향(화면에서 잘 보이게) + 셔먼은 포탑 대비 차체를 크게(머리만 커 보이던 비율 교정)
   sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:3.6, hullYaw:Math.PI/2,
                turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.3, turYaw:Math.PI/2, turFwd:0.14, turPivotX:0.1 },   // 차체 대비 비율 재조정(2.7은 머리가 과대)
-  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI/2,
-               // 타이거I 포탑 GLB 재사용(펠트그라우 틴트) — 포신이 max치수에 포함되므로 크기·전방보정 함께
-               turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.0, turYaw:Math.PI/2, turTint:0x5e97b8, turFwd:0.2, turPivotX:0.55 },
-  panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI/2,
-               turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI/2, turFwd:0.16, turPivotX:0.3 },
-  stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2 }
+  // 🇩🇪 독일군: 차체가 너무 밝은 청록으로 재구성돼 포탑과 색이 어긋남 → 차체·포탑 모두 펠트그라우(군복 청회녹)로 틴트 수렴
+  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI/2, hullTint:0x9aabb4,
+               turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.0, turYaw:Math.PI/2, turTint:0x7fa6c0, turFwd:0.2, turPivotX:0.55 },
+  panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI/2, hullTint:0x9aabb4,
+               turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI/2, turTint:0xaec6d6, turFwd:0.16, turPivotX:0.55 },
+  stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2, fullTint:0x9aabb4 }
 };
 var _glb3Cache={};
 /* tint: GLB 재질 색에 곱할 색(예: 황갈 타이거 포탑 → 펠트그라우). 같은 URL은 재질이 공유되므로 최초 1회만 적용 */
@@ -1545,15 +1545,23 @@ function syncShells3D(){ var pool=T3.shellPool; for(var pi=0;pi<pool.length;pi++
     pool.splice(i,1); } } }
 function syncWrecks3D(){ var pool=T3.wreckPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
   G.wrecks.forEach(function(w){ var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===w){ entry=pool[i]; break; } }
-    if(!entry){ var mesh=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.42,1.9), new THREE.MeshStandardMaterial({color:0x20211a, transparent:true, roughness:1}));
-      // 🔥 그을음 자국 — 잔해 아래 어두운 원(격파 흔적)
-      var scorch=new THREE.Mesh(new THREE.CircleGeometry(2.4,20),
+    if(!entry){ var g=new THREE.Group();   // 💥 통짜 박스 대신 산산조각 파편 무더기(격파 잔해)
+      var fragMat=new THREE.MeshStandardMaterial({color:0x2a2620, transparent:true, roughness:1});
+      var seed=(w.x||1)+(w.y||1);
+      for(var fi=0;fi<9;fi++){ var fs=0.16+frnd(seed+fi)*0.4;
+        var frag=new THREE.Mesh(fi%3===0 ? new THREE.TetrahedronGeometry(fs) : new THREE.BoxGeometry(fs,fs*0.7,fs), fragMat);
+        var fa=frnd(seed+fi+20)*6.28, fr=frnd(seed+fi+40)*1.4;
+        frag.position.set(Math.cos(fa)*fr, fs*0.32, Math.sin(fa)*fr);
+        frag.rotation.set(frnd(seed+fi+60)*3, frnd(seed+fi+80)*3, frnd(seed+fi+99)*3);
+        frag.castShadow=true; g.add(frag); }
+      // 🔥 그을음 자국 — 파편 아래 어두운 원(격파 흔적)
+      var scorch=new THREE.Mesh(new THREE.CircleGeometry(2.2,20),
         new THREE.MeshBasicMaterial({color:0x1a140e, transparent:true, opacity:0.5, depthWrite:false}));
-      scorch.rotation.x=-Math.PI/2; scorch.position.y=-0.38; mesh.add(scorch);
-      T3.wreckRoot.add(mesh); entry={ref:w,obj:mesh,scorch:scorch}; pool.push(entry); }
-    entry._seen=true; var wp=simToWorld(w.x,w.y); entry.obj.position.set(wp.x,0.21,wp.z);
+      scorch.rotation.x=-Math.PI/2; scorch.position.y=0.02; g.add(scorch);
+      T3.wreckRoot.add(g); entry={ref:w,obj:g,fragMat:fragMat,scorch:scorch}; pool.push(entry); }
+    entry._seen=true; var wp=simToWorld(w.x,w.y); entry.obj.position.set(wp.x,0,wp.z);
     entry.obj.rotation.y=simAngToWorldYaw(w.ang||0); var op=Math.max(0.12,1-w.age/7);
-    entry.obj.material.opacity=op*0.9+0.1; entry.scorch.material.opacity=op*0.5; });
+    entry.fragMat.opacity=op*0.9+0.1; entry.scorch.material.opacity=op*0.5; });
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.wreckRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } } }
 var FUEL_TEX3=null;
 function syncFuels3D(){ var pool=T3.fuelPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
