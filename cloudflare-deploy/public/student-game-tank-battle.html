@@ -1042,6 +1042,11 @@ function render(){
       if(!blink) drawTank(G.px,G.py,G.hullAng,G.turAng,'sherman',SCALE/1.0,false); }
     G.parts.forEach(drawPart);
     }
+    if(overlayOnly){   // 🎬 3D 쿼터뷰 시네마틱 비네트(화면 외곽 어둡게 → 중앙의 탱크·단어에 시선 집중)
+      var vg3=ctx.createRadialGradient(W/2,H*0.46,Math.min(W,H)*0.32,W/2,H*0.46,Math.max(W,H)*0.72);
+      vg3.addColorStop(0,'rgba(10,14,10,0)'); vg3.addColorStop(1,'rgba(6,10,8,0.38)');
+      ctx.fillStyle=vg3; ctx.fillRect(0,0,W,H);
+    }
     if(G.flash>0){ ctx.fillStyle='rgba(255,60,40,'+(G.flash*0.5)+')'; ctx.fillRect(0,0,W,H); }
     // ⛽ 연료 부족 = 화면 가장자리 빨간 맥동
     if(G.time<12){ var fp=0.12+0.12*Math.sin(performance.now()/180); var vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.62);
@@ -1333,11 +1338,12 @@ function init3D(){
   var scene=new THREE.Scene();
   var camera=new THREE.PerspectiveCamera(50, 1, 0.1, 200);
   camera.position.set(CAM_POS.x,CAM_POS.y,CAM_POS.z); camera.lookAt(CAM_LOOK.x,CAM_LOOK.y,CAM_LOOK.z);
-  var hemi=new THREE.HemisphereLight(0xffffff,0x445544,0.8); scene.add(hemi);
-  var sun=new THREE.DirectionalLight(0xfff2d8, 0.55); sun.position.set(-10,22,8); scene.add(sun);
+  var hemi=new THREE.HemisphereLight(0xfff4e0,0x3a4a38,0.72); scene.add(hemi);
+  var sun=new THREE.DirectionalLight(0xffcf8e, 0.85); sun.position.set(-11,20,7); scene.add(sun);
+  var fill=new THREE.DirectionalLight(0x8fb4ff, 0.18); fill.position.set(9,10,-14); scene.add(fill);
   var ray=new THREE.Raycaster(), plane=new THREE.Plane(new THREE.Vector3(0,1,0),0), hit=new THREE.Vector3(), ndc=new THREE.Vector2();
   var groundGeo=new THREE.PlaneGeometry(XSPAN*2.4, (ZNEAR_VAL-ZFAR_VAL)*1.7, 1,1); groundGeo.rotateX(-Math.PI/2);
-  var groundMat=new THREE.MeshStandardMaterial({color:0x8bee8b, roughness:0.95});
+  var groundMat=new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.92, metalness:0.04});
   var ground=new THREE.Mesh(groundGeo, groundMat); ground.position.z=(ZFAR_VAL+ZNEAR_VAL)/2; scene.add(ground);
   GLOW_TEX=makeGlowTexture();
   SHELL_GEO=new THREE.CylinderGeometry(0.045,0.06,0.9,6); SHELL_GEO.rotateZ(Math.PI/2);
@@ -1348,11 +1354,28 @@ function init3D(){
   scene.add(T3.tankRoot); scene.add(T3.partRoot); scene.add(T3.wreckRoot); scene.add(T3.fuelRoot); scene.add(T3.shellRoot);
   applyFieldTheme3D(); window.resize3D();
 }
+/* 🎨 3D 바닥 텍스처 — 2D buildBackdrop()과 같은 팔레트로 타일링 가능한 질감 생성(평면 단색 탈피) */
+function buildGroundTexture3D(field){
+  var pal = field==='desert' ? {base:['#e0c284','#caa564'], streak:'rgba(120,85,35,0.10)', rock:'#a88c5e'}
+    : field==='snow' ? {base:['#eef3f8','#d7e0ea'], streak:'rgba(140,160,182,0.12)', rock:'#a3aebb'}
+    : {base:['#8fe89a','#7fd987'], streak:'rgba(45,110,55,0.12)', rock:'#7f7c66'};
+  var c=document.createElement('canvas'); c.width=c.height=256; var g=c.getContext('2d');
+  var lg=g.createLinearGradient(0,0,0,256); lg.addColorStop(0,pal.base[0]); lg.addColorStop(1,pal.base[1]);
+  g.fillStyle=lg; g.fillRect(0,0,256,256);
+  g.strokeStyle=pal.streak; g.lineWidth=3;
+  for(var i=0;i<9;i++){ var yy=frnd(i+field.length+4)*256; g.beginPath(); g.moveTo(0,yy);
+    for(var xx=0;xx<=256;xx+=18){ g.lineTo(xx, yy+Math.sin((xx/28)+i)*5); } g.stroke(); }
+  for(var r=0;r<16;r++){ var rx=frnd(r+50)*256, ry=frnd(r+61)*256, rr=3+frnd(r+2)*5;
+    g.fillStyle=pal.rock; g.beginPath(); g.ellipse(rx,ry,rr,rr*0.68,frnd(r)*3,0,7); g.fill(); }
+  var tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(9,9); tex.anisotropy=4;
+  return tex;
+}
 function applyFieldTheme3D(){ if(!T3 || T3.lastField===FIELD) return; T3.lastField=FIELD;
-  var theme = FIELD==='desert' ? {ground:0xd9bd7e, fog:0xe9d2a0, near:26,far:80}
-    : FIELD==='snow' ? {ground:0xe7edf5, fog:0xdfe8f2, near:24,far:78}
-    : {ground:0x8bee8b, fog:0xbfe8c9, near:28,far:85};
-  T3.groundMat.color.setHex(theme.ground);
+  var theme = FIELD==='desert' ? {fog:0xe9d2a0, near:24,far:74}
+    : FIELD==='snow' ? {fog:0xdfe8f2, near:23,far:72}
+    : {fog:0xbfe8c9, near:26,far:78};
+  if(T3.groundMat.map) T3.groundMat.map.dispose();
+  T3.groundMat.map=buildGroundTexture3D(FIELD); T3.groundMat.needsUpdate=true;
   T3.scene.fog=new THREE.Fog(theme.fog, theme.near, theme.far);
   T3.scene.background=new THREE.Color(theme.fog); }
 window.resize3D=function(){ if(!T3) return; var w=wrap.clientWidth, h=wrap.clientHeight; if(!w||!h) return;
@@ -1418,13 +1441,19 @@ function syncWrecks3D(){ var pool=T3.wreckPool; for(var pi=0;pi<pool.length;pi++
     entry._seen=true; var wp=simToWorld(w.x,w.y); entry.obj.position.set(wp.x,0.16,wp.z);
     entry.obj.rotation.y=simAngToWorldYaw(w.ang||0); entry.obj.material.opacity=Math.max(0.12,1-w.age/7)*0.9+0.1; });
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.wreckRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } } }
+var FUEL_TEX3=null;
 function syncFuels3D(){ var pool=T3.fuelPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
+  if(FUELRDY && !FUEL_TEX3){ FUEL_TEX3=new THREE.Texture(FUELIMG); FUEL_TEX3.needsUpdate=true; }   // 🖼️ 2D와 같은 제리캔 실사 이미지 재사용(초록 큐브 탈피)
   G.fuels.forEach(function(fu){ var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===fu){ entry=pool[i]; break; } }
-    if(!entry){ var mesh=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.6,0.3), new THREE.MeshStandardMaterial({color:0x4d8a44,roughness:0.7}));
-      T3.fuelRoot.add(mesh); entry={ref:fu,obj:mesh}; pool.push(entry); }
-    entry._seen=true; var wp=simToWorld(fu.x,fu.y); entry.obj.position.set(wp.x,0.32+Math.sin(fu.bob)*0.08,wp.z);
-    entry.obj.rotation.y=performance.now()*0.0006; });
-  for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.fuelRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } } }
+    if(!entry){ var obj;
+      if(FUEL_TEX3){ obj=new THREE.Sprite(new THREE.SpriteMaterial({map:FUEL_TEX3,transparent:true})); obj.scale.set(0.5,0.72,1); }
+      else { obj=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.6,0.3), new THREE.MeshStandardMaterial({color:0x4d8a44,roughness:0.7})); }
+      T3.fuelRoot.add(obj); entry={ref:fu,obj:obj,sprite:!!FUEL_TEX3}; pool.push(entry); }
+    entry._seen=true; var wp=simToWorld(fu.x,fu.y); entry.obj.position.set(wp.x,(entry.sprite?0.36:0.32)+Math.sin(fu.bob)*0.08,wp.z);
+    if(!entry.sprite) entry.obj.rotation.y=performance.now()*0.0006; });
+  for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.fuelRoot.remove(pool[i].obj);
+    if(pool[i].sprite) pool[i].obj.material.dispose(); else disposeObj3(pool[i].obj);
+    pool.splice(i,1); } } }
 function syncParticles3D(){ var pool=T3.partPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
   G.parts.forEach(function(p){
     var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===p){ entry=pool[i]; break; } }
