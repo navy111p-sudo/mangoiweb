@@ -22128,7 +22128,8 @@ window.addEventListener('DOMContentLoaded', () => {
       if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
       else if (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency') dest = '/admin/mypage';
       closeLoginModal();
-      showLcToast2('✅ ' + name + '님 환영합니다!');
+      var fbL = (window.getLang?window.getLang():'ko')==='ko';
+      showLcToast2(fbL ? ('✅ ' + name + '님 환영합니다!') : ('✅ Welcome, ' + name + '!'));
       setTimeout(function(){ location.href = dest; }, 500);
       return true;
     } catch(e) { return false; }
@@ -22177,7 +22178,8 @@ window.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('mangoi_pk_last_uid', d.user.user_id);
       } catch(e){}
       closeLoginModal();
-      showLcToast2('✅ ' + d.user.user_name + '님 환영합니다!');
+      var stL = (window.getLang?window.getLang():'ko')==='ko';
+      showLcToast2(stL ? ('✅ ' + d.user.user_name + '님 환영합니다!') : ('✅ Welcome, ' + d.user.user_name + '!'));
       // 😊 패스키 미등록 기기면 "다음부터 얼굴/지문으로?" 1회 제안
       var canOfferPk = false;
       try {
