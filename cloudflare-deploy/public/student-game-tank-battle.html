@@ -1295,11 +1295,11 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
   return g; }
 /* ── 🖼️ 힉스필드 생성 GLB(차체/포탑 분리) — 로드 전엔 위 절차적 도형 폴백 그대로 유지 ── */
 var TANK_GLB = {
-  sherman: { hull:'/models/tank-sherman-hull.glb?v=1', hullSize:2.3, hullYaw:Math.PI/2,
-             turret:'/models/tank-sherman-turret.glb?v=1', turSize:1.7, turYaw:Math.PI/2 },
-  tiger:   { hull:'/models/tank-tiger-hull.glb?v=1', hullSize:2.5, hullYaw:Math.PI/2,
-             turret:'/models/tank-tiger-turret.glb?v=1', turSize:1.9, turYaw:Math.PI/2 },
-  stug:    { full:'/models/tank-stug.glb?v=1', fullSize:2.6, fullYaw:Math.PI/2 }
+  sherman: { hull:'/models/tank-sherman-hull.glb?v=2', hullSize:2.3, hullYaw:Math.PI/2,
+             turret:'/models/tank-sherman-turret.glb?v=2', turSize:1.7, turYaw:Math.PI/2 },
+  tiger:   { hull:'/models/tank-tiger-hull.glb?v=2', hullSize:2.5, hullYaw:Math.PI/2,
+             turret:'/models/tank-tiger-turret.glb?v=2', turSize:1.9, turYaw:Math.PI/2 },
+  stug:    { full:'/models/tank-stug.glb?v=2', fullSize:2.6, fullYaw:Math.PI/2 }
 };
 var _glb3Cache={};
 function attachGLB3(group, url, targetSize, yaw){
