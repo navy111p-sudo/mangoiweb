@@ -59,7 +59,12 @@
       cropRect = c.rect;
       var aspect = (cropRect.r - cropRect.l) / (cropRect.b - cropRect.t);
       canvas.width = BASE_W; canvas.height = Math.round(BASE_W / aspect);
-      if (ring) ring.style.aspectRatio = String(aspect);
+      // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
+      // 레이아웃에 반영 안 되는 문제가 있어 폭(고정 CSS 값)을 읽어 높이를 직접 px 로 계산해 덮어쓴다.
+      if (ring){
+        var ringW = ring.getBoundingClientRect().width || parseFloat(getComputedStyle(ring).width) || BASE_W;
+        ring.style.height = Math.round(ringW / aspect) + 'px';
+      }
     }
     applyFrame(curChar);
 

@@ -5,9 +5,12 @@
    기본값만 여기 두고, mango-avatar.js 의 setCharacter() 가 실제 캐릭터에 맞게 덮어쓴다
    (예: 강사=4:5 상반신, 히어로=기존 비율 유지 — 캐릭터마다 원본 프레임 구도가 다름). */
 #tavatar-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; margin: 6px auto 14px; }
-#tavatar-ring { position:relative; width:136px; aspect-ratio:0.8; border-radius:24px; padding:4px;
+#tavatar-ring { position:relative; width:136px; height:170px; border-radius:24px; padding:4px;
   background: conic-gradient(from 180deg, rgba(167,139,250,0.9), rgba(56,189,248,0.7), rgba(251,191,36,0.85), rgba(167,139,250,0.9));
-  box-shadow: 0 12px 34px -10px rgba(124,58,237,0.6); transition: box-shadow .3s, transform .3s, aspect-ratio .25s; }
+  box-shadow: 0 12px 34px -10px rgba(124,58,237,0.6); transition: box-shadow .3s, transform .3s, height .25s; }
+  /* 높이는 캐릭터별 화면비에 맞춰 mango-avatar.js 가 인라인으로 덮어씀(위 170px=강사 기본 4:5).
+     aspect-ratio 로 자동 계산하지 않는 이유: 이 CSS 속성의 전환(transition)이 실제 레이아웃에
+     반영 안 되는 브라우저 버그를 겪어, px 높이를 JS 에서 직접 계산해 확실하게 고정한다. */
 #tavatar-ring::after { content:""; position:absolute; inset:-6px; border-radius:28px;
   border:2px solid rgba(167,139,250,0.4); opacity:0; transition:opacity .3s; pointer-events:none; }
 #tavatar-canvas { position:relative; z-index:2; width:100%; height:100%; border-radius:20px; display:block; }

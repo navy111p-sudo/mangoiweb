@@ -11,6 +11,7 @@ import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
 import { handlePayApi, runPaymentAudit } from './api-pay';
 import { runEnrollExpirySweep, runHolidayShiftSweep } from './enroll-ops';   // 📚 수강 만료 안내 · 공휴일 자동 연기
+import { runWeeklyParentDigestSweep } from './api-students';   // 📅 학부모 주간 리포트(금요일 크론)
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
 import { handleRetentionIngest, getRetention, markRetentionContacted, getRetentionSettings, setRetentionSettings, previewRetentionMessage, sendRetentionMessages, runRetentionAutoSend } from './api-retention';
 import { runAbsentStudentSweep } from './absent-sweep';
@@ -2114,10 +2115,11 @@ const worker = {
           console.error('[daily-streak] error', err);
         }
 
-        // ── 금요일이면 학부모 위클리 다이제스트 일괄 발송 (Phase WD)
+        // ── 금요일이면 학부모 위클리 다이제스트 (Phase WD) — 실발송은 KV digest:send_all_live=1 일 때만(기본 dry)
         if (kstDay === 5) {
           try {
-            await sendWeeklyParentDigest(env);
+            const wd = await runWeeklyParentDigestSweep(env as any);
+            console.log('[weekly-digest]', JSON.stringify({ live: wd.live, eligible: wd.eligible, sent: wd.sent, failed: wd.failed }));
           } catch (err) {
             console.error('[weekly-digest] error', err);
           }
@@ -2137,30 +2139,7 @@ const worker = {
 
 export default worker;
 
-// 📅 Phase WD — 매주 금요일 KST 19:00 학부모 위클리 다이제스트 일괄 발송
-async function sendWeeklyParentDigest(env: any): Promise<void> {
-  try {
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT);`);
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
-    const rs = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND parent_phone != ''`).all();
-    const list = (rs.results || []) as any[];
-    console.log('[weekly-digest] candidates:', list.length);
-    const now = Date.now();
-    // ⚡ (2026-07-12) 한 행씩 INSERT(최대 ~29k 서브리퀘스트 → Workers 한도 초과로 cron 중도실패) 을
-    //   D1 batch(청크) 로 교체. 동일 행·값을 넣되 서브리퀘스트를 수백 배 줄인다.
-    const stmt = env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`);
-    const CHUNK = 100;
-    let queued = 0;
-    for (let i = 0; i < list.length; i += CHUNK) {
-      const batch = list.slice(i, i + CHUNK).map(r =>
-        stmt.bind(r.user_id, '', '(cron 큐 등록 — preview API로 확인)', now, 'queued_cron'));
-      try { await env.DB.batch(batch); queued += batch.length; } catch (e) { console.warn('[weekly-digest] batch failed', (e as any)?.message); }
-    }
-    console.log('[weekly-digest] queued for', queued, 'students');
-  } catch (err) {
-    console.error('[weekly-digest] failed', err);
-  }
-}
+// 📅 Phase WD — 학부모 주간 리포트는 api-students.ts 의 runWeeklyParentDigestSweep 로 이관(실제 내용 생성+KV 게이트 발송)
 
 // 🔔 매일 KST 19:00 — 학생들에게 일일 참여 푸시
 //   조건: 활성 푸시 구독자 중 오늘 출석 안 한 사용자

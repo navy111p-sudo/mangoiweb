@@ -109,136 +109,77 @@ function extract(html, startMarker, endMarker, label) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   TEST 1 — ai-friend.html : 마이크를 여러 번 눌러도 이전 말이 쌓이지 않아야 함
+   TEST 1 — ai-friend.html : (2026-07-26) 브라우저 SpeechRecognition 오인식
+   ("I like dog"을 "talk"로 듣는 등) 직원 피드백으로 서버 Whisper 전용으로 교체.
+   옛 브라우저 인식기 코드(_recog/mergeSpeech 등)가 되살아나지 않는지 + 새 배선
+   (toggleMic → MangoiVoice.record({lang:'en'}) → 결과로 sendMsg)이 맞는지 검증.
    ══════════════════════════════════════════════════════════════════════ */
-function testAiFriend() {
-  console.log('\n▶ ai-friend.html — 연속 녹음 시 텍스트 누적');
+async function testAiFriend() {
+  // vm 샌드박스는 별도 realm 이라 Promise.resolve().then() 마이크로태스크가 호스트 쪽과
+  // 엇갈릴 수 있다 — setTimeout(매크로태스크 경계)로 넘기면 realm 과 무관하게 그 시점까지
+  // 쌓인 모든 마이크로태스크가 확실히 다 처리된 뒤 이어진다.
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  console.log('\n▶ ai-friend.html — Whisper 전용 마이크 배선');
   const html = readFileSync(join(PUB, 'ai-friend.html'), 'utf8');
-  const code = extract(html, 'let _recog = null', '\n    updateSoundBtn();', 'ai-friend');
 
-  const FakeSR = makeFakeSR();
+  // 회귀 가드: 오인식 문제의 원인이던 옛 브라우저 SpeechRecognition 경로가 되살아나지 않았는가
+  check('옛 _recog(브라우저 인식기) 제거됨', !/\b_recog\b/.test(html), '재출현하면 오인식 버그 회귀');
+  check('옛 initRecog() 제거됨', !html.includes('function initRecog'));
+  check('옛 mergeSpeech/tidySpeech 제거됨', !html.includes('function mergeSpeech') && !html.includes('function tidySpeech'));
+  check('webkitSpeechRecognition 미사용', !html.includes('webkitSpeechRecognition'));
+  check('MangoiVoice(Whisper) 배선 존재', html.includes('MangoiVoice.record'));
+  check('영어 언어힌트 전달(lang: \'en\')', /MangoiVoice\.record\(\{[^}]*lang:\s*'en'/.test(html),
+        '힌트 없으면 짧은 영어를 한국어로 오인식하는 사고 재발(2026-07-24)');
+
+  const html2 = readFileSync(join(PUB, 'ai-friend.html'), 'utf8');
+  const code = extract(html2, 'let _recognizing = false, _pendingVoice = false;', '\n    updateSoundBtn();', 'ai-friend');
+
+  // 실제 네트워크 녹음 없이 배선만 검증: MangoiVoice 를 가짜로 물려 toggleMic 이
+  // record({lang, onState}) 를 정확히 부르고, 결과 텍스트로 sendMsg 가 호출되는지 확인.
   const doc = makeFakeDoc(['msgInput', 'micBtn']);
-  const timers = makeTimers();
   const sent = [];
-
+  let lastRecordOpts = null, resolveRecord = null;
+  const FakeMangoiVoice = {
+    supported: () => true,
+    record: (opts) => { lastRecordOpts = opts; return new Promise(res => { resolveRecord = res; }); },
+    stop: () => { if (resolveRecord) { const r = resolveRecord; resolveRecord = null; r('__STOPPED__'); } },
+  };
   const sandbox = {
     document: doc,
-    window: { SpeechRecognition: FakeSR, speechSynthesis: { cancel(){} } },
-    setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
-    alert: () => {},
+    window: { MangoiVoice: FakeMangoiVoice, MangoiTTS: { stop(){} }, MangoAvatar: { plainStop(){} }, speechSynthesis: { cancel(){} } },
+    MangoiVoice: FakeMangoiVoice,
+    setTimeout: (cb) => cb(),   // 이 배선 검증엔 실제 지연이 필요 없음
+    clearTimeout: () => {},
     isEn: () => false,
-    // 실제 sendMsg 와 동일한 핵심 동작: 값을 읽어 보내고 입력창을 비운다
     sendMsg: () => { const v = (doc.els.msgInput.value || '').trim(); if (v) sent.push(v); doc.els.msgInput.value = ''; },
     console,
   };
-  sandbox.window.SpeechRecognition = FakeSR;
   vm.createContext(sandbox);
   vm.runInContext(code + '\n;globalThis.__toggleMic = toggleMic;', sandbox);
   const toggleMic = sandbox.__toggleMic;
 
-  /** 한 번의 음성 세션: 마이크 켜기 → 조각들 인식 → 침묵으로 자동 종료 */
-  function speakOnce(chunks) {
-    toggleMic();
-    const sr = FakeSR.instances[FakeSR.instances.length - 1];
-    for (const c of chunks) sr.emit([{ transcript: c.t, confidence: 0.9 }], c.final);
-    timers.fire();                                   // 침묵 감시 발화 → r.stop() → onend → 자동 전송
-  }
+  // 1회차
+  toggleMic();
+  check('toggleMic → MangoiVoice.record 호출', !!lastRecordOpts, '녹음이 시작되지 않음');
+  check('영어 힌트로 호출됨', lastRecordOpts && lastRecordOpts.lang === 'en', JSON.stringify(lastRecordOpts));
+  resolveRecord('I like dogs');
+  await flush();
+  check('1회차 전송 = "I like dogs"', sent[0] === 'I like dogs', `실제="${sent[0]}"`);
 
-  // 제보된 실제 시나리오 그대로: 세 번 연속으로 말한다
-  speakOnce([{ t: 'I like', final: false }, { t: 'I like that', final: true }]);
-  speakOnce([{ t: 'I like', final: false }, { t: 'I like doll', final: true }]);
-  speakOnce([{ t: 'I like dog', final: true }]);
+  // 2회차 — 1회차 잔재가 안 섞이는지(누적 버퍼 자체가 없으므로 구조적으로 불가능해야 함)
+  lastRecordOpts = null;
+  toggleMic();
+  resolveRecord('my dog likes blueberry');
+  await flush();
+  check('2회차에 1회차 내용이 안 섞임', sent[1] === 'my dog likes blueberry', `실제="${sent[1]}"`);
+  check('총 2건 전송(누적 없음)', sent.length === 2, `실제=${sent.length}건`);
 
-  check('1회차 = "I like that"', sent[0] === 'I like that', `실제="${sent[0]}"`);
-  check('2회차에 1회차가 안 붙음', sent[1] === 'I like doll', `실제="${sent[1]}"`);
-  check('3회차에 앞 회차가 안 붙음', sent[2] === 'I like dog', `실제="${sent[2]}"`);
-  check('총 3건 전송', sent.length === 3, `실제=${sent.length}건`);
-  check('제보 증상("II likeI like that") 재현 안 됨',
-        !sent.some(s => /II\s*like|thatI|dollI/.test(s)), JSON.stringify(sent));
-
-  // 조각 사이 공백 보장: "I" + "like dogs" 가 "Ilike dogs" 가 되면 안 된다
-  sent.length = 0;
-  speakOnce([{ t: 'I', final: true }, { t: 'like dogs', final: true }]);
-  check('조각 사이 공백 유지', sent[0] === 'I like dogs', `실제="${sent[0]}"`);
-
-  // interim 과 final 이 겹쳐 같은 단어가 두 번 들어오는 경우
-  sent.length = 0;
-  speakOnce([{ t: 'I I like like cats', final: true }]);
-  check('연이은 중복 단어 정리', sent[0] === 'I like cats', `실제="${sent[0]}"`);
-
-  // 오류로 끊긴 뒤 다음 세션에 잔재가 없어야 함
+  // 무음(빈 전사)이면 전송하지 않는다
   sent.length = 0;
   toggleMic();
-  let sr = FakeSR.instances[FakeSR.instances.length - 1];
-  sr.emit([{ transcript: 'broken words', confidence: 0.5 }], true);
-  sr.error('network');
-  sr.running = false;
-  speakOnce([{ t: 'hello', final: true }]);
-  check('오류 세션 잔재 없음', sent[sent.length - 1] === 'hello', `실제="${sent[sent.length - 1]}"`);
-
-  // 아무 말도 안 하고 끝나면 전송하지 않는다
-  sent.length = 0;
-  speakOnce([]);
+  resolveRecord('');
+  await flush();
   check('무음이면 전송 안 함', sent.length === 0, `실제=${sent.length}건`);
-
-  /* 🤖 (2026-07-22 2차 제보) 안드로이드 크롬 누적형: continuous 모드에서
-     "지금까지 말한 문장 전체"를 확정 결과로 여러 번 다시 보낸다.
-     확정 결과를 버퍼에 이어붙이는 방식이 되살아나면
-     "I like I like to I like to eat…" 처럼 겹겹이 쌓여 여기서 실패한다. */
-  sent.length = 0;
-  speakOnce([
-    { t: 'I like', final: true },
-    { t: 'I like to', final: true },
-    { t: 'I like to eat', final: true },
-    { t: 'I like to eat blueberry', final: true },
-    { t: 'I like to eat blueberry with yogurt', final: true },
-  ]);
-  check('안드로이드 누적형 → 한 문장만 전송', sent[0] === 'I like to eat blueberry with yogurt' && sent.length === 1,
-        JSON.stringify(sent));
-
-  sent.length = 0;
-  speakOnce([
-    { t: 'my dog', final: true },
-    { t: 'my dog likes', final: true },
-    { t: 'my dog likes', final: true },
-    { t: 'my dog likes blueberry too', final: true },
-  ]);
-  check('안드로이드 my dog 스트림 → 한 문장만 전송', sent[0] === 'my dog likes blueberry too' && sent.length === 1,
-        JSON.stringify(sent));
-
-  /* 🎤 (2026-07-23 제보) "한두 마디 했을 때 마이크가 꺼지고 AI가 엉뚱한 답만 한다"
-     안드로이드 크롬은 continuous=true 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
-     그 종료를 '학생이 말을 마쳤다'로 착각해 조각을 전송하면 안 된다 — 계속 들어야 한다. */
-  sent.length = 0;
-  toggleMic();
-  sr = FakeSR.instances[FakeSR.instances.length - 1];
-  sr.emit([{ transcript: 'I', confidence: 0.9 }], true);
-  sr.browserEnd();                                   // ← 우리가 부른 종료가 아님
-  check('조각만 들린 채 브라우저가 끊으면 전송 안 함', sent.length === 0, JSON.stringify(sent));
-  check('끊긴 뒤 자동으로 다시 듣는 중', sr.running === true, 'running=' + sr.running);
-  sr.emit([{ transcript: 'like blue cars', confidence: 0.9 }], true);
-  timers.fire();
-  check('이어 말한 내용이 합쳐져 한 번만 전송',
-        sent.length === 1 && sent[0] === 'I like blue cars', JSON.stringify(sent));
-
-  // 사용자가 ⏹ 를 누르면 다시 듣지 않고 즉시 전송 (한 단어 대답도 정상 전송)
-  sent.length = 0;
-  toggleMic();
-  sr = FakeSR.instances[FakeSR.instances.length - 1];
-  sr.emit([{ transcript: 'yes', confidence: 0.9 }], true);
-  toggleMic();
-  check('⏹ 누르면 재시작 없이 즉시 전송', sent.length === 1 && sent[0] === 'yes', JSON.stringify(sent));
-
-  // 침묵 대기 시간이 상황에 따라 달라야 한다 (2.6초 고정이 조기 종료의 원인이었다)
-  sent.length = 0;
-  toggleMic();
-  sr = FakeSR.instances[FakeSR.instances.length - 1];
-  check('첫 마디를 넉넉히 기다림(≥8초)', timers.lastDelay() >= 8000, timers.lastDelay() + 'ms');
-  sr.emit([{ transcript: 'I', confidence: 0.9 }], false);
-  check('조각만 들렸으면 더 기다림(≥4.5초)', timers.lastDelay() >= 4500, timers.lastDelay() + 'ms');
-  sr.emit([{ transcript: 'I like blue cars', confidence: 0.9 }], true);
-  check('문장이 완성되면 예전처럼 빠르게(≤3초)', timers.lastDelay() <= 3000, timers.lastDelay() + 'ms');
-  timers.fire();
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -400,17 +341,19 @@ function testResetPresent() {
 console.log('═'.repeat(64));
 console.log(' 🎤 음성 인식 회귀 하니스');
 console.log('═'.repeat(64));
-try {
-  testAiFriend();
-  testWarmupMic();
-  testSpeakingQuiz();
-  testResetPresent();
-} catch (e) {
-  fail++; failures.push('하니스 실행 오류: ' + e.message);
-  console.log('\n❌ 하니스 실행 오류:', e.message, '\n', e.stack);
-}
-console.log('\n' + '═'.repeat(64));
-console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);
-if (failures.length) { console.log('\n  실패 목록:'); failures.forEach(f => console.log('   - ' + f)); }
-console.log('═'.repeat(64));
-process.exit(fail ? 1 : 0);
+(async () => {
+  try {
+    await testAiFriend();   // (2026-07-26) Whisper 배선이 async 이므로 반드시 기다림
+    testWarmupMic();
+    testSpeakingQuiz();
+    testResetPresent();
+  } catch (e) {
+    fail++; failures.push('하니스 실행 오류: ' + e.message);
+    console.log('\n❌ 하니스 실행 오류:', e.message, '\n', e.stack);
+  }
+  console.log('\n' + '═'.repeat(64));
+  console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);
+  if (failures.length) { console.log('\n  실패 목록:'); failures.forEach(f => console.log('   - ' + f)); }
+  console.log('═'.repeat(64));
+  process.exit(fail ? 1 : 0);
+})();

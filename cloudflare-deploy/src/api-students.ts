@@ -163,52 +163,11 @@ export async function handleStudentsApi(
     // ═══════════════════════════════════════════════════════════════
     // 📅 Phase WD — 부모 위클리 카톡 다이제스트
     // ═══════════════════════════════════════════════════════════════
-    const buildWeeklyDigest = async (uid: string): Promise<any> => {
-      // 최근 7일 통계
-      const endTs = Date.now();
-      const startTs = endTs - 7 * 86400 * 1000;
-      try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, joined_at INTEGER, date TEXT);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, lesson_date TEXT, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, created_at INTEGER NOT NULL);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, created_at INTEGER NOT NULL);`);
-      } catch {}
-
-      const student: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone FROM students_erp WHERE user_id = ?`).bind(uid).first();
-      const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(uid, startTs, endTs).first();
-      const evals: any = await env.DB.prepare(`SELECT AVG(score_overall) AS avg, COUNT(*) AS n, GROUP_CONCAT(next_goals,'|') AS goals FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, startTs, endTs).first();
-      const voice: any = await env.DB.prepare(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`).bind(uid, startTs, endTs).first();
-
-      const days = att?.d || 0;
-      const avgScore = evals?.avg ? Math.round(evals.avg * 10) / 10 : 0;
-      const evalCount = evals?.n || 0;
-      const voiceCount = voice?.n || 0;
-      const voiceAcc = voice?.acc ? Math.round(voice.acc) : 0;
-      const nextGoals = (evals?.goals || '').split('|').filter((g: string) => g && g.trim()).slice(0, 2).join(' · ') || '꾸준한 학습 이어가기';
-
-      const studentName = student?.student_name || uid;
-      const parentName = student?.parent_name || '학부모님';
-      const parentPhone = student?.parent_phone || '';
-
-      const msg = `🥭 ${studentName} 학생 주간 학습 리포트
-━━━━━━━━━━━━━━
-📅 출석: ${days}일/7일
-⭐ 평균 평점: ${avgScore || '평가 대기'} ${evalCount ? `(${evalCount}회 평가)` : ''}
-🎤 음성 코칭: ${voiceCount}회 ${voiceAcc ? `(평균 정확도 ${voiceAcc}%)` : ''}
-🎯 다음 목표: ${nextGoals}
-━━━━━━━━━━━━━━
-망고아이 와 함께 꾸준히 성장 중입니다 🌱
-앱에서 자세한 학습 기록을 확인하실 수 있어요.`;
-
-      return {
-        uid, student_name: studentName, parent_name: parentName, parent_phone: parentPhone,
-        days, avg_score: avgScore, eval_count: evalCount,
-        voice_count: voiceCount, voice_acc: voiceAcc,
-        next_goals: nextGoals, message: msg,
-      };
-    };
+    const buildWeeklyDigest = (uid: string) => buildWeeklyParentDigest(env, uid);
 
     if (method === 'GET' && path === '/api/parent/digest/preview') {
+      const sess = await checkAdminSession(request, env);   // 학부모 전화번호 노출 → 관리자 전용
+      if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       try {
@@ -219,48 +178,74 @@ export async function handleStudentsApi(
       }
     }
 
+    // 실제 발송 공용 — SMS(SOLAPI)로 즉시 전송하고 결과를 digest_logs 에 기록. (알림톡 템플릿 승인 후 그 경로로 승격 예정)
+    //   ⚠️ 돈이 나가는 대외 발송이라, 대량 경로는 반드시 KV 스위치로 잠근다.
+    const ensureDigestLog = async () => {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`); } catch {}
+    };
+    const deliverDigest = async (d: any): Promise<string> => {
+      const phone = String(d.parent_phone || '').replace(/[^0-9]/g, '');
+      if (phone.length < 10) return 'no_phone';
+      try { const r = await sendPlainSms(env, phone, d.message); return r?.ok ? 'sent' : ('fail:' + (r?.error || 'sms')); }
+      catch (e: any) { return 'fail:' + String(e?.message || e).slice(0, 40); }
+    };
+
     if (method === 'POST' && path === '/api/parent/digest/send-one') {
+      const sess = await checkAdminSession(request, env);
+      if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       try {
         const d = await buildWeeklyDigest(uid);
         if (!d.parent_phone) return json({ ok: false, error: 'no_parent_phone', digest: d });
-        // 카톡 알림톡 (기존 인프라 재활용) — 실패시 SMS fallback 또는 로그만
-        try {
-          await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
-          await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`).bind(uid, d.parent_phone, d.message, Date.now(), 'queued').run();
-        } catch {}
-        return json({ ok: true, sent: 1, digest: d });
+        await ensureDigestLog();
+        // 단건은 관리자가 명시적으로 누르는 것이므로 실제 발송. dry=true 면 미리보기(발송 안 함).
+        const status = b.dry ? 'preview' : await deliverDigest(d);
+        if (!b.dry) await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`).bind(uid, d.parent_phone, d.message, Date.now(), status).run();
+        return json({ ok: status === 'sent' || b.dry === true, sent: status === 'sent' ? 1 : 0, status, digest: d });
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 500);
       }
     }
 
     if (method === 'POST' && path === '/api/parent/digest/send-all') {
+      const sess = await checkAdminSession(request, env);
+      if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
       try {
+        const b: any = await request.json().catch(() => ({}));
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT);`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
-        const rs = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND parent_phone != ''`).all();
+        await ensureDigestLog();
+        // 🔒 대량 실발송은 KV 스위치가 명시적으로 켜져 있을 때만. 기본은 dry(미리보기·집계만) — 실수로 29,000명에게 나가는 것 방지.
+        let liveOn = false;
+        try { liveOn = (await env.SESSION_STATE.get('digest:send_all_live')) === '1'; } catch {}
+        const doSend = b.live === true && liveOn;   // 요청도 live=true 이고 KV 스위치도 ON 이어야 실발송
+        const limit = Math.min(5000, Math.max(1, Number(b.limit) || 5000));
+        const rs = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND parent_phone != '' LIMIT ?`).bind(limit).all();
         const list = (rs.results || []) as any[];
-        let sent = 0, failed = 0;
+        let eligible = 0, sent = 0, failed = 0, noPhone = 0;
         const now = Date.now();
         for (const r of list) {
           try {
             const d = await buildWeeklyDigest(r.user_id);
-            if (d.parent_phone) {
-              await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`).bind(r.user_id, d.parent_phone, d.message, now, 'queued').run();
-              sent++;
-            } else failed++;
+            if (!d.parent_phone) { noPhone++; continue; }
+            eligible++;
+            if (!doSend) continue;   // dry: 대상 집계만
+            const status = await deliverDigest(d);
+            await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`).bind(r.user_id, d.parent_phone, d.message, now, status).run();
+            if (status === 'sent') sent++; else failed++;
           } catch { failed++; }
         }
-        return json({ ok: true, total: list.length, sent, failed });
+        return json({ ok: true, live: doSend, kv_switch: liveOn, total: list.length, eligible, sent, failed, no_phone: noPhone,
+          note: doSend ? '실발송 완료' : '미리보기(집계만) — 실발송하려면 요청 live:true + KV digest:send_all_live=1 둘 다 필요' });
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 500);
       }
     }
 
     if (method === 'GET' && path === '/api/parent/digest/logs') {
+      const sess = await checkAdminSession(request, env);   // 발송 로그(전화번호·메시지) → 관리자 전용
+      if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
         const rs = await env.DB.prepare(`SELECT id, student_uid, parent_phone, message, sent_at, status FROM digest_logs ORDER BY sent_at DESC LIMIT 100`).all();
@@ -782,4 +767,110 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 7시, 카카오톡 �
     // ═══════════════════════════════════════════════════════════════
 
   return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 📅 학부모 주간 리포트 — 모듈 함수 (핸들러·크론 공용)
+ *   경쟁사(스픽·캠블리 등)가 학부모에게 못 보여주는 것을 담는다:
+ *   AI 친구 대화량 · 판단력 성장 · 정복한 단어 · 연속출석. 재등록의 핵심 무기.
+ *   학생향 문구는 항상 희망·동기부여 톤(사장님 상시 지시).
+ * ═══════════════════════════════════════════════════════════════════ */
+export async function buildWeeklyParentDigest(env: any, uid: string): Promise<any> {
+  const endTs = Date.now();
+  const startTs = endTs - 7 * 86400 * 1000;
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT);`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, joined_at INTEGER, date TEXT);`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, lesson_date TEXT, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, created_at INTEGER NOT NULL);`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, created_at INTEGER NOT NULL);`);
+  } catch {}
+
+  const q1 = async (sql: string, ...binds: any[]) => { try { return await env.DB.prepare(sql).bind(...binds).first(); } catch { return null; } };
+
+  const student: any = await q1(`SELECT user_id, student_name, parent_name, parent_phone FROM students_erp WHERE user_id = ?`, uid);
+  const att: any = await q1(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`, uid, startTs, endTs);
+  const evals: any = await q1(`SELECT AVG(score_overall) AS avg, COUNT(*) AS n, GROUP_CONCAT(next_goals,'|') AS goals FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ?`, uid, startTs, endTs);
+  const voice: any = await q1(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`, uid, startTs, endTs);
+  // 🥭 차별 지표 (테이블 미존재 방어 = 조용히 0)
+  const aiChat: any = await q1(`SELECT COUNT(*) AS n FROM ai_friend_chats WHERE student_uid = ? AND role = 'user' AND created_at >= ? AND created_at < ?`, uid, startTs, endTs);
+  const judg: any = await q1(`SELECT COUNT(*) AS n, AVG((COALESCE(choice_score,0)+COALESCE(reasoning_score,0))/2.0) AS avg FROM judgment_analysis WHERE student_uid = ? AND created_at >= ? AND created_at < ?`, uid, startTs, endTs);
+  const conquered: any = await q1(`SELECT COUNT(*) AS n FROM game_progress WHERE user_id = ? AND correct_count > wrong_count AND updated_at >= ? AND updated_at < ?`, uid, startTs, endTs);
+  const streak: any = await q1(`SELECT current_streak FROM student_streaks WHERE student_uid = ?`, uid);
+
+  const days = att?.d || 0;
+  const streakN = streak?.current_streak || 0;
+  const avgScore = evals?.avg ? Math.round(evals.avg * 10) / 10 : 0;
+  const evalCount = evals?.n || 0;
+  const aiChatN = aiChat?.n || 0;
+  const judgN = judg?.n || 0;
+  const judgAvg = judg?.avg ? Math.round(judg.avg) : 0;
+  const conqueredN = conquered?.n || 0;
+  const voiceCount = voice?.n || 0;
+  const voiceAcc = voice?.acc ? Math.round(voice.acc) : 0;
+  const nextGoals = (evals?.goals || '').split('|').filter((g: string) => g && g.trim()).slice(0, 2).join(' · ') || '꾸준한 학습 이어가기';
+
+  const studentName = student?.student_name || uid;
+  const parentName = student?.parent_name || '학부모님';
+  const parentPhone = student?.parent_phone || '';
+
+  let highlight = '이번 주도 꾸준히 함께했어요';
+  if (aiChatN >= 20) highlight = `AI 친구와 영어로 ${aiChatN}번이나 대화했어요! 입이 트이는 중이에요`;
+  else if (conqueredN >= 5) highlight = `이번 주에 새 단어 ${conqueredN}개를 완전히 내 것으로 만들었어요`;
+  else if (streakN >= 5) highlight = `${streakN}일 연속 출석 중! 습관이 잡혀가고 있어요`;
+  else if (judgN >= 3) highlight = `AI 판단력 훈련으로 스스로 생각하는 힘을 키우고 있어요`;
+  else if (days >= 3) highlight = `이번 주 ${days}번 수업, 성실하게 참여했어요`;
+
+  const lines = [`🥭 ${studentName} 학생 주간 학습 리포트`, '━━━━━━━━━━━━━━'];
+  lines.push(`📅 출석 ${days}일/7일${streakN >= 2 ? ` · 🔥${streakN}일 연속` : ''}`);
+  if (evalCount) lines.push(`⭐ 수업 평점 ${avgScore} (${evalCount}회)`);
+  if (aiChatN) lines.push(`🤖 AI 친구와 영어 대화 ${aiChatN}회`);
+  if (conqueredN) lines.push(`📚 정복한 단어 ${conqueredN}개`);
+  if (judgN) lines.push(`🧠 판단력 훈련 ${judgN}회${judgAvg ? ` (평균 ${judgAvg}점)` : ''}`);
+  if (voiceCount) lines.push(`🎤 발음 코칭 ${voiceCount}회${voiceAcc ? ` (정확도 ${voiceAcc}%)` : ''}`);
+  lines.push('━━━━━━━━━━━━━━');
+  lines.push(`🌟 ${highlight}`);
+  lines.push(`🎯 다음 목표: ${nextGoals}`);
+  lines.push('망고아이와 함께 성장 중입니다 🌱');
+
+  return {
+    uid, student_name: studentName, parent_name: parentName, parent_phone: parentPhone,
+    days, streak: streakN, avg_score: avgScore, eval_count: evalCount,
+    ai_chat: aiChatN, conquered: conqueredN, judgment_count: judgN, judgment_avg: judgAvg,
+    voice_count: voiceCount, voice_acc: voiceAcc,
+    highlight, next_goals: nextGoals, message: lines.join('\n'),
+  };
+}
+
+/**
+ * 주간 다이제스트 일괄 처리 (금요일 KST 19:00 크론).
+ *   ⚠️ 대량 대외 발송 → KV `digest:send_all_live` 가 '1' 일 때만 실제 SMS 발송.
+ *   기본은 dry(대상 집계만) — 알림톡 템플릿 승인·사장님 결정 전까지 안전.
+ */
+export async function runWeeklyParentDigestSweep(env: any): Promise<any> {
+  const out: any = { ok: true, live: false, eligible: 0, sent: 0, failed: 0, at: Date.now() };
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT);`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS digest_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, parent_phone TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
+    let liveOn = false;
+    try { liveOn = (await env.SESSION_STATE.get('digest:send_all_live')) === '1'; } catch {}
+    out.live = liveOn;
+    const rs = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE parent_phone IS NOT NULL AND parent_phone != '' LIMIT 5000`).all();
+    const list = (rs.results || []) as any[];
+    const now = Date.now();
+    for (const r of list) {
+      try {
+        const d = await buildWeeklyParentDigest(env, r.user_id);
+        const phone = String(d.parent_phone || '').replace(/[^0-9]/g, '');
+        if (phone.length < 10) continue;
+        out.eligible++;
+        if (!liveOn) continue;   // dry: 집계만
+        let status = 'fail';
+        try { const sr = await sendPlainSms(env, phone, d.message); status = sr?.ok ? 'sent' : ('fail:' + (sr?.error || 'sms')); }
+        catch (e: any) { status = 'fail:' + String(e?.message || e).slice(0, 30); }
+        await env.DB.prepare(`INSERT INTO digest_logs (student_uid, parent_phone, message, sent_at, status) VALUES (?,?,?,?,?)`).bind(r.user_id, phone, d.message, now, status).run();
+        if (status === 'sent') out.sent++; else out.failed++;
+      } catch { out.failed++; }
+    }
+  } catch (e: any) { out.ok = false; out.error = String((e as any)?.message || e); }
+  return out;
 }

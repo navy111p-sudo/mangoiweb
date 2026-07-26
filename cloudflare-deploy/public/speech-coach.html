@@ -86,15 +86,15 @@
   .preset { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; justify-content: center; }
   .preset button { padding: 6px 12px; background: rgba(139,92,246,0.1); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.3); border-radius: 99px; font-size: 12px; cursor: pointer; }
 
-  /* 강사 아바타 — 얼굴 보며 연습 (2026-07-25, Phase 1) */
+  /* 강사 아바타 — 얼굴 보며 연습 (2026-07-25, Phase 1 / 2026-07-26 상반신 카드로 개선) */
   #tavatar-wrap { display:flex; flex-direction:column; align-items:center; gap:9px; margin: 4px 0 20px; }
-  #tavatar-ring { position:relative; width:150px; height:150px; border-radius:50%; padding:4px;
+  #tavatar-ring { position:relative; width:150px; height:187px; border-radius:26px; padding:4px;
     background: conic-gradient(from 180deg, rgba(167,139,250,0.9), rgba(56,189,248,0.7), rgba(251,191,36,0.85), rgba(167,139,250,0.9));
     box-shadow: 0 12px 34px -10px rgba(124,58,237,0.6); transition: box-shadow .3s, transform .3s; }
-  #tavatar-ring::after { content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid rgba(167,139,250,0.4); opacity:0; transition:opacity .3s; pointer-events:none; }
+  #tavatar-ring::after { content:""; position:absolute; inset:-6px; border-radius:30px; border:2px solid rgba(167,139,250,0.4); opacity:0; transition:opacity .3s; pointer-events:none; }
   /* 표시면=캔버스(런타임 크로마키로 초록 제거 → 진짜 투명). 영상은 숨은 소스(디코드용 opacity:0) */
-  #tavatar-canvas { position:relative; z-index:2; width:100%; height:100%; border-radius:50%; display:block; }
-  #tavatar-video { position:absolute; inset:4px; width:calc(100% - 8px); height:calc(100% - 8px); border-radius:50%; opacity:0; z-index:1; pointer-events:none; object-fit:cover; }
+  #tavatar-canvas { position:relative; z-index:2; width:100%; height:100%; border-radius:22px; display:block; }
+  #tavatar-video { position:absolute; inset:4px; width:calc(100% - 8px); height:calc(100% - 8px); border-radius:22px; opacity:0; z-index:1; pointer-events:none; object-fit:cover; }
   #tavatar-wrap.speaking #tavatar-ring { animation: tavatarPulse 1.1s ease-in-out infinite; }
   #tavatar-wrap.speaking #tavatar-ring::after { opacity:1; animation: tavatarHalo 1.1s ease-out infinite; }
   @keyframes tavatarPulse { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.035); box-shadow:0 16px 40px -8px rgba(139,92,246,0.85); } }
@@ -168,7 +168,7 @@
        초록 배경 영상을 캔버스에서 실시간 크로마키 → 진짜 투명(모든 기기 동작, 알파 코덱 불필요) -->
   <div id="tavatar-wrap">
     <div id="tavatar-ring">
-      <canvas id="tavatar-canvas" width="320" height="320" aria-label="강사"></canvas>
+      <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
       <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
         <source src="/img/teacher-avatar.webm" type="video/webm">
         <source src="/img/teacher-avatar.mp4" type="video/mp4">
@@ -623,14 +623,24 @@ window.MangoAvatar = (function(){
   var ctx = canvas.getContext('2d', { willReadFrequently:true });
   var W = canvas.width, H = canvas.height;
   var raf = 0, drawing = false, IDLE = null;
+  // 👩‍🏫 (2026-07-26) 얼굴만이 아니라 어깨·옷깃까지 보이는 "상반신" 프레임.
+  //   teacher-avatar.png 의 alpha 채널을 실측해 계산한 crop(머리 위 여백만 트림, 어깨까지 포함).
+  //   캔버스가 이미 이 비율(4:5, width=320 height=400)로 만들어져 있어 왜곡 없이 그려진다.
+  var CROP = { l:67/512, t:40/512, r:445/512, b:1 };
   function setSpeaking(on){ if (wrap) wrap.classList.toggle('speaking', !!on); }
   function ensureIdle(){ if(!IDLE) IDLE = video.currentSrc || '/img/teacher-avatar.webm'; }
   // 초록 제거 크로마키: 초록 우세도(g - max(r,b))로 판정 + 가장자리 페더 + 스필 억제
   function keyFrame(){
     if (video.readyState < 2) return;
-    try { ctx.drawImage(video, 0, 0, W, H); } catch(e){ return; }
+    var vw = video.videoWidth||W, vh = video.videoHeight||H;
+    var sx = Math.round(vw*CROP.l), sy = Math.round(vh*CROP.t);
+    var sw = Math.round(vw*(CROP.r-CROP.l)), sh = Math.round(vh*(CROP.b-CROP.t));
+    try { ctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H); } catch(e){ return; }
     var im; try { im = ctx.getImageData(0,0,W,H); } catch(e){ return; }
     var d = im.data;
+    // 상반신 크롭이 프레임 가장자리에 가까워지며 머리카락 올올이 초록 배경빛을 살짝
+    // 반사한 픽셀(잔광)이 드러난다 — diff>0 인 모든 픽셀은 알파는 그대로 두고 초록만
+    // mx 로 눌러 색만 지운다(디테일 보존 + 잔광 제거).
     for (var i=0;i<d.length;i+=4){
       var r=d[i], g=d[i+1], b=d[i+2];
       var mx = r>b?r:b;
@@ -638,8 +648,9 @@ window.MangoAvatar = (function(){
       if (diff > 38){ d[i+3]=0; }               // 확실한 초록 → 완전 투명
       else if (diff > 10){                      // 가장자리 → 부분 투명(페더) + 스필 억제
         d[i+3] = ((38-diff)*255/28)|0;
-        d[i+1] = mx + 8;
+        d[i+1] = mx;
       }
+      else if (diff > 0){ d[i+1] = mx; }        // 불투명 잔광 — 색만 제거
     }
     ctx.putImageData(im,0,0);
   }
@@ -651,7 +662,11 @@ window.MangoAvatar = (function(){
   video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });
   video.addEventListener('seeked',     function(){ if(!drawing) drawStill(); });
   // 초기 정지 얼굴(투명 포스터) — 영상 디코드 전 잠깐 표시
-  (function(){ try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,W,H); ctx.drawImage(im,0,0,W,H); }catch(e){} } }; im.src='/img/teacher-avatar.png'; }catch(e){} })();
+  (function(){ try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{
+    var iw=im.naturalWidth||512, ih=im.naturalHeight||512;
+    var sx=Math.round(iw*CROP.l), sy=Math.round(ih*CROP.t), sw=Math.round(iw*(CROP.r-CROP.l)), sh=Math.round(ih*(CROP.b-CROP.t));
+    ctx.clearRect(0,0,W,H); ctx.drawImage(im,sx,sy,sw,sh,0,0,W,H);
+  }catch(e){} } }; im.src='/img/teacher-avatar.png'; }catch(e){} })();
   return {
     // 커리큘럼 문장 클립 재생(정확한 립싱크 + 음성) → 캔버스 키잉. 끝나면 idle 복귀.
     playClip: function(id){
@@ -709,7 +724,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260726220520 -->
+<!-- BUILD:20260726224222 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

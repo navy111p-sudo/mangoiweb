@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📅 학부모 주간 리포트 — 망고아이 관리자</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family:'Malgun Gothic','맑은 고딕',sans-serif; margin:0; background:#faf7f0; color:#1f2430; }
+  @media (min-width:1024px) { body { zoom:1.3; } }
+  .wrap { max-width:760px; margin:0 auto; padding:16px 14px 50px; }
+  h1 { font-size:20px; color:#b45309; margin:6px 0 2px; }
+  .sub { color:#6b7280; font-size:12.5px; margin-bottom:14px; line-height:1.6; }
+  .card { background:#fff; border:1.5px solid #eadfc6; border-radius:14px; padding:14px 16px; margin-bottom:14px; }
+  .card h2 { font-size:14px; color:#92400e; margin:0 0 10px; }
+  input, button { padding:8px 12px; border:1.5px solid #e5d9bd; border-radius:9px; font-size:13px; font-family:inherit; }
+  button { background:#fff; cursor:pointer; }
+  button.go { background:#f59e0b; border-color:#f59e0b; color:#fff; font-weight:700; }
+  button.send { background:#16a34a; border-color:#16a34a; color:#fff; font-weight:700; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .msg { padding:18px 8px; text-align:center; color:#6b7280; font-size:13px; }
+  .msg a { color:#b45309; }
+  .preview { white-space:pre-wrap; background:#0f172a; color:#e2e8f0; border-radius:12px; padding:16px; font-size:13.5px; line-height:1.7; }
+  .ok { color:#16a34a; font-weight:700; }
+  .no { color:#dc2626; font-weight:700; }
+  .hint { font-size:11.5px; color:#9ca3af; line-height:1.6; }
+  .stat { display:inline-block; background:#fff7e8; border:1px solid #f3e2b8; border-radius:8px; padding:3px 9px; margin:2px; font-size:12px; }
+  .warn { background:#fff1f2; border:1.5px solid #fecdd3; color:#9f1239; border-radius:10px; padding:10px 12px; font-size:12px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📅 학부모 주간 리포트</h1>
+  <div class="sub">아이의 한 주 활동(출석·AI 친구 대화·판단력·정복한 단어·발음)을 담아 학부모에게 보내는 리포트입니다.<br>경쟁사가 못 보여주는 <b>성장의 증거</b>를 매주 전달해 재등록으로 잇는 것이 목적입니다.</div>
+
+  <div class="card">
+    <h2>👀 미리보기 · 테스트 발송</h2>
+    <div class="row">
+      <input id="uid" placeholder="학생 ID (예: student)" style="width:220px">
+      <button class="go" id="btnPrev">미리보기</button>
+      <button class="send" id="btnSend" disabled>이 학부모에게 실제 발송</button>
+    </div>
+    <div id="prevBox"></div>
+    <div id="sendMsg" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 전체 발송 대상 (안전 점검)</h2>
+    <div class="hint" style="margin-bottom:8px">지금 리포트를 받을 수 있는(학부모 전화번호가 등록된) 학생 수를 집계합니다. <b>여기서는 발송하지 않습니다.</b></div>
+    <div class="row"><button class="go" id="btnCount">발송 대상 집계</button><span id="countOut" class="hint"></span></div>
+    <div class="warn" style="margin-top:10px">🔒 <b>전체 자동 발송은 기본 꺼져 있습니다.</b> 매주 금요일 저녁 크론이 준비돼 있지만, 실제 문자 발송은 관리자가 KV 스위치 <code>digest:send_all_live=1</code> 를 켠 뒤에만 나갑니다(실수로 29,000명에게 나가는 것 방지). 알림톡 템플릿 승인·사장님 결정 후 켜세요.</div>
+  </div>
+
+  <div class="card">
+    <h2>🧾 최근 발송 로그</h2>
+    <div class="row"><button id="btnLogs">로그 불러오기</button></div>
+    <div id="logsOut"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+var CUR_UID = null;
+async function api(path, opts){
+  var r = await fetch(path, Object.assign({ cache:'no-store' }, opts||{}));
+  if (r.status === 401) { document.querySelector('.wrap').insertAdjacentHTML('afterbegin','<div class="msg">관리자 로그인이 필요합니다. <a href="/admin/login?next=%2Fparent-report.html">로그인 하러 가기</a></div>'); throw new Error('auth'); }
+  return await r.json();
+}
+
+$('btnPrev').onclick = async function(){
+  var uid = $('uid').value.trim(); if (!uid) { alert('학생 ID를 입력해 주세요.'); return; }
+  $('prevBox').innerHTML = '<div class="hint">불러오는 중…</div>'; $('btnSend').disabled = true; $('sendMsg').innerHTML = '';
+  try {
+    var j = await api('/api/parent/digest/preview?uid=' + encodeURIComponent(uid));
+    if (!j.ok) { $('prevBox').innerHTML = '<div class="no">'+esc(j.error||'실패')+'</div>'; return; }
+    var d = j.digest;
+    CUR_UID = uid;
+    $('prevBox').innerHTML =
+      '<div style="margin-bottom:8px">'
+      + '<span class="stat">📅 출석 '+d.days+'일</span>'
+      + (d.streak>=2?'<span class="stat">🔥 '+d.streak+'일 연속</span>':'')
+      + (d.ai_chat?'<span class="stat">🤖 AI대화 '+d.ai_chat+'</span>':'')
+      + (d.conquered?'<span class="stat">📚 정복단어 '+d.conquered+'</span>':'')
+      + (d.judgment_count?'<span class="stat">🧠 판단력 '+d.judgment_count+'</span>':'')
+      + (d.voice_count?'<span class="stat">🎤 발음 '+d.voice_count+'</span>':'')
+      + '</div>'
+      + '<div class="preview">'+esc(d.message)+'</div>'
+      + '<div class="hint" style="margin-top:6px">학부모 연락처: '+(d.parent_phone? esc(d.parent_phone) : '<span class="no">미등록 — 발송 불가</span>')+'</div>';
+    $('btnSend').disabled = !d.parent_phone;
+  } catch(e){ if(e.message!=='auth') $('prevBox').innerHTML = '<div class="no">오류</div>'; }
+};
+
+$('btnSend').onclick = async function(){
+  if (!CUR_UID) return;
+  if (!confirm(CUR_UID + ' 학생의 학부모에게 실제로 문자를 보낼까요?')) return;
+  $('btnSend').disabled = true; $('sendMsg').innerHTML = '<span class="hint">발송 중…</span>';
+  try {
+    var j = await api('/api/parent/digest/send-one', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid: CUR_UID }) });
+    $('sendMsg').innerHTML = (j.ok && j.status==='sent') ? '<span class="ok">✅ 발송 완료</span>' : '<span class="no">발송 실패: '+esc(j.status||j.error||'')+'</span>';
+  } catch(e){ $('sendMsg').innerHTML = '<span class="no">오류</span>'; }
+  $('btnSend').disabled = false;
+};
+
+$('btnCount').onclick = async function(){
+  $('countOut').textContent = '집계 중…';
+  try {
+    var j = await api('/api/parent/digest/send-all', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ live:false }) });
+    if (!j.ok) { $('countOut').innerHTML = '<span class="no">'+esc(j.error)+'</span>'; return; }
+    $('countOut').innerHTML = '발송 가능 <b>'+j.eligible+'명</b> · 전화번호 없음 '+j.no_phone+'명 (실발송 스위치: '+(j.kv_switch?'<span class="ok">ON</span>':'OFF')+')';
+  } catch(e){ if(e.message!=='auth') $('countOut').innerHTML = '<span class="no">오류</span>'; }
+};
+
+$('btnLogs').onclick = async function(){
+  $('logsOut').innerHTML = '<div class="hint">불러오는 중…</div>';
+  try {
+    var j = await api('/api/parent/digest/logs');
+    var items = (j.items||[]).slice(0,30);
+    if (!items.length) { $('logsOut').innerHTML = '<div class="hint">발송 기록이 없습니다.</div>'; return; }
+    $('logsOut').innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<tr style="background:#fff7e8"><th style="text-align:left;padding:5px">학생</th><th style="text-align:left;padding:5px">연락처</th><th style="text-align:left;padding:5px">상태</th><th style="text-align:left;padding:5px">시각</th></tr>'
+      + items.map(function(it){
+          var d = it.sent_at ? new Date(it.sent_at).toLocaleString('ko-KR') : '';
+          var stColor = it.status==='sent'?'#16a34a':(String(it.status||'').indexOf('fail')===0?'#dc2626':'#6b7280');
+          return '<tr style="border-bottom:1px solid #f0e8d6"><td style="padding:5px">'+esc(it.student_uid)+'</td><td style="padding:5px">'+esc(it.parent_phone||'')+'</td><td style="padding:5px;color:'+stColor+'">'+esc(it.status||'')+'</td><td style="padding:5px">'+esc(d)+'</td></tr>';
+        }).join('')
+      + '</table>';
+  } catch(e){ if(e.message!=='auth') $('logsOut').innerHTML = '<div class="no">오류</div>'; }
+};
+</script>
+<!-- BUILD:20260726224222 -->
+</body>
+</html>

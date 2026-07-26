@@ -183,7 +183,11 @@ console.log('\n▶ 실패 상황 안내');
   check('녹음 불가여도 예외 없이 빈 문자열', t === '');
 }
 
-/* ══ 3. 화면 배선 — 음성인식이 없으면 폴백을 타는가 ══ */
+/* ══ 3. 화면 배선 — 음성인식이 없으면 폴백을 타는가 ══
+   (2026-07-26) ai-friend.html 은 브라우저 오인식("I like dog"→"talk") 직원 피드백으로
+   SpeechRecognition 을 통째로 걷어내고 Whisper(mangoi-voice-input.js) 만 쓴다 — 그래서
+   "브라우저 인식기의 network 오류 시 Whisper 로 전환" 이라는 개념 자체가 없다(전환할
+   대상이 없음, 처음부터 Whisper). warmup.html 은 아직 SpeechRecognition 이 1차라 그대로 둔다. */
 console.log('\n▶ 화면 배선 (warmup · ai-friend)');
 for (const f of ['warmup.html', 'ai-friend.html']) {
   const h = readFileSync(join(PUB, f), 'utf8');
@@ -191,7 +195,11 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
   check(`${f} — 음성인식 미지원이면 micViaWhisper 로`, /micViaWhisper\(\)/.test(h));
   check(`${f} — 더 이상 "지원하지 않아요"로 끝내지 않음`,
         !/지원하지 않아요 😢 크롬/.test(h) && !/is not supported on this browser\. Please use Chrome/.test(h));
-  check(`${f} — network 오류 시 녹음 방식으로 전환`, /micViaWhisper\(\); \}, 300\)/.test(h));
+  if (f === 'ai-friend.html') {
+    check(`${f} — SpeechRecognition 완전 제거(Whisper 전용)`, !/webkitSpeechRecognition/.test(h) && !/\b_recog\b/.test(h));
+  } else {
+    check(`${f} — network 오류 시 녹음 방식으로 전환`, /micViaWhisper\(\); \}, 300\)/.test(h));
+  }
   check(`${f} — 마이크 권한 꺼짐 안내 존재`, /마이크 권한이 꺼져 있어요/.test(h));
 }
 
