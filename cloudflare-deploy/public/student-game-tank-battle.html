@@ -1343,6 +1343,21 @@ var TANK_GLB = {
   stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2, fullTint:0x9aabb4 }
 };
 var _glb3Cache={};
+/* ⏬ 프리페치 — 시작 화면에 있는 동안 전차 GLB(총 ~14MB)를 미리 내려받아,
+   전투 시작 시 흰 폴백 도형이 보이는 시간을 없앰(느린 회선에서 특히 중요) */
+function prefetchTankGLBs(){
+  if(!window.THREE || !THREE.GLTFLoader) return;
+  Object.keys(TANK_GLB).forEach(function(k){ var cfg=TANK_GLB[k];
+    [ [cfg.full,cfg.fullTint], [cfg.hull,cfg.hullTint], [cfg.turret,cfg.turTint] ].forEach(function(pair){
+      var url=pair[0]; if(!url || _glb3Cache[url]) return;
+      var entry=_glb3Cache[url]={loading:true,scene:null,waiters:[]};
+      try{ new THREE.GLTFLoader().load(url, function(gltf){ entry.loading=false; entry.scene=gltf.scene;
+        if(pair[1]) applyTint3(gltf.scene, pair[1]);
+        entry.waiters.forEach(function(fn){ fn(gltf.scene); }); entry.waiters=[];
+      }, undefined, function(){ entry.loading=false; }); }catch(e){ entry.loading=false; }
+    });
+  });
+}
 /* tint: GLB 재질 색에 곱할 색(예: 황갈 타이거 포탑 → 펠트그라우). 같은 URL은 재질이 공유되므로 최초 1회만 적용 */
 function applyTint3(sourceScene, tint){
   var tc=new THREE.Color(tint);
@@ -1756,7 +1771,7 @@ function render3D(){
 function setView(v){ VIEW=(v==='quarter')?'quarter':'2d';
   var b=document.querySelectorAll('#viewRow .viewBtn'); for(var i=0;i<b.length;i++){ b[i].classList.toggle('on', b[i].getAttribute('data-v')===VIEW); }
   try{ localStorage.setItem('mangoi_tank_view',VIEW); }catch(_){}
-  if(VIEW==='quarter'){ init3D(); cv3d.style.display='block'; window.resize3D(); } else { cv3d.style.display='none'; } }
+  if(VIEW==='quarter'){ init3D(); prefetchTankGLBs(); cv3d.style.display='block'; window.resize3D(); } else { cv3d.style.display='none'; } }
 (function(){ var b=document.querySelectorAll('#viewRow .viewBtn'); for(var i=0;i<b.length;i++){ (function(el){ el.addEventListener('click', function(){ setView(el.getAttribute('data-v')); }); })(b[i]); } })();
 
 /* ════════════════════════════════════════════════════════════
@@ -1791,6 +1806,12 @@ function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts
   if(dt>0.05)dt=0.05;
   if(G&&G.running&&!G.paused){ update(dt); if(G.running) updateHUD(); }
   if(VIEW==='quarter') render3D();
+  // ⏳ 전차 GLB 아직 로딩 중이면 안내(흰 도형이 보이는 이유를 알림) — 완료 시 1회 알림
+  if(VIEW==='quarter' && G && G.running && !G.speaking){
+    var he=_glb3Cache[TANK_GLB.sherman.hull];
+    if(he && he.loading){ if(!G._ldT || performance.now()-G._ldT>3000){ G._ldT=performance.now(); banner('⏳ 실사 전차 모델 로딩 중...','#7fd1ff'); } G._ldWas=true; }
+    else if(G._ldWas){ G._ldWas=false; banner('✅ 전차 모델 준비 완료!','#a3e635'); }
+  }
   render(); }
 function startGame(){
   document.getElementById('start').classList.add('hide'); document.getElementById('over').classList.add('hide');
