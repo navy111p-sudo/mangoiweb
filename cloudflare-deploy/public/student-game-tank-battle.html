@@ -1302,8 +1302,8 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
 var TANK_GLB = {
   sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:2.3, hullYaw:Math.PI/2,
                turret:'/models/tank-sherman-turret.glb?v=3', turSize:1.7, turYaw:Math.PI/2 },
-  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:2.6, hullYaw:Math.PI/2,
-               turret:'/models/tank-kingtiger-turret.glb?v=1', turSize:2.0, turYaw:Math.PI/2 },
+  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:2.6, hullYaw:Math.PI/2 },
+               // ⚠️ 포탑 GLB(v1)는 힉스필드 재구성이 평평하게 나와 제외 — 절차적 포탑(펠트그라우 색)으로 폴백. 크레딧 확보 후 재생성 필요
   panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:2.5, hullYaw:Math.PI/2,
                turret:'/models/tank-panther-turret.glb?v=1', turSize:1.8, turYaw:Math.PI/2 },
   stug:      { full:'/models/tank-stug.glb?v=3', fullSize:2.6, fullYaw:Math.PI/2 }
