@@ -1274,19 +1274,58 @@ function updateHpSprite3(sp,hp,hpMax){ var c=sp.userData.cnv,g=sp.userData.ctx; 
 function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THREE.Group();
   var hullMat=new THREE.MeshStandardMaterial({color:c.h, roughness:0.85});
   var trkMat=new THREE.MeshStandardMaterial({color:c.trk, roughness:0.9});
-  var hull=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.55,1.35), hullMat); hull.position.y=0.45; g.add(hull);
+  var hull=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.55,1.35), hullMat); hull.position.y=0.45; hull.userData._proc=true; g.add(hull);
   var trkGeo=new THREE.BoxGeometry(2.3,0.35,0.28);
-  var trkL=new THREE.Mesh(trkGeo,trkMat); trkL.position.set(0,0.2,0.62); g.add(trkL);
-  var trkR=new THREE.Mesh(trkGeo,trkMat); trkR.position.set(0,0.2,-0.62); g.add(trkR);
+  var trkL=new THREE.Mesh(trkGeo,trkMat); trkL.position.set(0,0.2,0.62); trkL.userData._proc=true; g.add(trkL);
+  var trkR=new THREE.Mesh(trkGeo,trkMat); trkR.position.set(0,0.2,-0.62); trkR.userData._proc=true; g.add(trkR);
   var turGroup=new THREE.Group(); turGroup.position.y=0.75; g.add(turGroup);
   var turMat=new THREE.MeshStandardMaterial({color:c.t, roughness:0.8});
-  var turret=new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.68,0.48,10), turMat); turGroup.add(turret);
+  var turret=new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.68,0.48,10), turMat); turret.userData._proc=true; turGroup.add(turret);
   var gunMat=new THREE.MeshStandardMaterial({color:c.trk, roughness:0.6, metalness:0.3});
   var gunGeo=new THREE.CylinderGeometry(0.08,0.09,1.7,8); gunGeo.rotateZ(Math.PI/2); gunGeo.translate(0.85,0,0);
-  var gun=new THREE.Mesh(gunGeo, gunMat); gun.position.set(0.15,0.02,0); turGroup.add(gun);
+  var gun=new THREE.Mesh(gunGeo, gunMat); gun.position.set(0.15,0.02,0); gun.userData._proc=true; turGroup.add(gun);
   g.userData.turret=turGroup;
   g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
+  attachTankGLB(type, g, turGroup);
   return g; }
+/* ── 🖼️ 힉스필드 생성 GLB(차체/포탑 분리) — 로드 전엔 위 절차적 도형 폴백 그대로 유지 ── */
+var TANK_GLB = {
+  sherman: { hull:'/models/tank-sherman-hull.glb?v=1', hullSize:2.3, hullYaw:Math.PI/2,
+             turret:'/models/tank-sherman-turret.glb?v=1', turSize:1.7, turYaw:Math.PI/2 },
+  tiger:   { hull:'/models/tank-tiger-hull.glb?v=1', hullSize:2.5, hullYaw:Math.PI/2,
+             turret:'/models/tank-tiger-turret.glb?v=1', turSize:1.9, turYaw:Math.PI/2 },
+  stug:    { full:'/models/tank-stug.glb?v=1', fullSize:2.6, fullYaw:Math.PI/2 }
+};
+var _glb3Cache={};
+function attachGLB3(group, url, targetSize, yaw){
+  if(!window.THREE || !THREE.GLTFLoader) return;
+  function applyScene(sourceScene){
+    var root=sourceScene.clone(true);
+    var box=new THREE.Box3().setFromObject(root);
+    var size=box.getSize(new THREE.Vector3());
+    var ref=Math.max(size.x,size.y,size.z);
+    var s=targetSize/(ref||1); root.scale.setScalar(s);
+    if(yaw) root.rotation.y=yaw;
+    box.setFromObject(root);
+    root.position.y += -box.min.y;
+    root.traverse(function(o){ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; } });
+    group.children.forEach(function(ch){ if(ch.userData && ch.userData._proc) ch.visible=false; });
+    group.add(root); group.userData.glb=root;
+  }
+  var entry=_glb3Cache[url];
+  if(entry){ if(entry.scene) applyScene(entry.scene); else if(entry.loading) entry.waiters.push(applyScene); return; }
+  entry=_glb3Cache[url]={loading:true,scene:null,waiters:[]};
+  try{
+    new THREE.GLTFLoader().load(url, function(gltf){ entry.loading=false; entry.scene=gltf.scene; applyScene(gltf.scene);
+      entry.waiters.forEach(function(fn){ fn(gltf.scene); }); entry.waiters=[]; }, undefined, function(){ entry.loading=false; });
+  }catch(e){ entry.loading=false; }
+}
+function attachTankGLB(type, hullGroup, turGroup){
+  var cfg=TANK_GLB[type]; if(!cfg) return;
+  if(cfg.full){ attachGLB3(hullGroup, cfg.full, cfg.fullSize, cfg.fullYaw); turGroup.visible=false; return; }
+  if(cfg.hull) attachGLB3(hullGroup, cfg.hull, cfg.hullSize, cfg.hullYaw);
+  if(cfg.turret) attachGLB3(turGroup, cfg.turret, cfg.turSize, cfg.turYaw);
+}
 function init3D(){
   if(T3 || !window.THREE) return;
   var renderer=new THREE.WebGLRenderer({canvas:cv3d, antialias:true});
