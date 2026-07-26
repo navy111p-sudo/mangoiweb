@@ -415,9 +415,12 @@ Student text: """${text}"""`;
     const aiFriendGamSnapshot = async (uid: string) => {
       const KST_OFF = 9 * 3600 * 1000;
       const todayMs = Math.floor((Date.now() + KST_OFF) / 86400000) * 86400000 - KST_OFF;
-      const tc: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM ai_friend_chats WHERE student_uid=? AND role='user' AND created_at>=?`).bind(uid, todayMs).first();
-      const lc: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM ai_friend_chats WHERE student_uid=? AND role='user'`).bind(uid).first();
-      const dr: any = await env.DB.prepare(`SELECT DISTINCT CAST((created_at + 32400000) / 86400000 AS INTEGER) AS d FROM ai_friend_chats WHERE student_uid=? AND role='user' AND created_at>=? ORDER BY d DESC LIMIT 40`).bind(uid, Date.now() - 40 * 86400000).all();
+      // 🐢 세 조회는 서로 무관(같은 uid, 다른 집계) — 순서대로 기다리지 않고 한꺼번에 보낸다.
+      const [tc, lc, dr]: any[] = await Promise.all([
+        env.DB.prepare(`SELECT COUNT(*) AS c FROM ai_friend_chats WHERE student_uid=? AND role='user' AND created_at>=?`).bind(uid, todayMs).first(),
+        env.DB.prepare(`SELECT COUNT(*) AS c FROM ai_friend_chats WHERE student_uid=? AND role='user'`).bind(uid).first(),
+        env.DB.prepare(`SELECT DISTINCT CAST((created_at + 32400000) / 86400000 AS INTEGER) AS d FROM ai_friend_chats WHERE student_uid=? AND role='user' AND created_at>=? ORDER BY d DESC LIMIT 40`).bind(uid, Date.now() - 40 * 86400000).all(),
+      ]);
       const days = new Set(((dr.results || []) as any[]).map(r => Number(r.d)));
       const todayIdx = Math.floor((Date.now() + KST_OFF) / 86400000);
       let streak = 0;
@@ -485,10 +488,14 @@ Student text: """${text}"""`;
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
 
-      // 최근 10개 메시지 컨텍스트
-      const recent: any = await env.DB.prepare(
-        `SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 10`
-      ).bind(uid).all();
+      // 🐢 (2026-07-27) 응답 지연 최소화 — 서로 무관한 조회들을 순서대로 기다리지 않고 한꺼번에 보낸다.
+      //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
+      //   여기서 같이 시작하지 않는다 — 채팅 로그 저장 이후에 계산한다.)
+      const [recent, st, wk]: any[] = await Promise.all([
+        env.DB.prepare(`SELECT role, content FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 10`).bind(uid).all(),
+        env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
+        env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND wrong_count > 0 AND wrong_count >= correct_count ORDER BY wrong_count DESC LIMIT 5`).bind(uid).all().catch(() => null),
+      ]);
       const history = (recent.results || []).reverse();
 
       const personaMap: any = {
@@ -501,16 +508,9 @@ Student text: """${text}"""`;
       //    실패하면 조용히 일반 친구로 동작 — 채팅 흐름에 절대 영향 금지.
       let stuCtx = '';
       try {
-        const st: any = await env.DB.prepare(
-          `SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`
-        ).bind(uid).first();
         const sname = String(st?.english_name || st?.korean_name || '').trim().slice(0, 40);
         const textbook = String(st?.textbook || '').trim().slice(0, 60);
-        const wk: any = await env.DB.prepare(
-          `SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND wrong_count > 0 AND wrong_count >= correct_count
-           ORDER BY wrong_count DESC LIMIT 5`
-        ).bind(uid).all();
-        const weak = (((wk?.results as any[]) || []).map((r) => (r.ko ? `${r.item} (${r.ko})` : String(r.item))).filter(Boolean)).slice(0, 5);
+        const weak = (((wk?.results as any[]) || []).map((r: any) => (r.ko ? `${r.item} (${r.ko})` : String(r.item))).filter(Boolean)).slice(0, 5);
         const parts: string[] = [];
         if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes.`);
         if (textbook) parts.push(`They study the textbook "${textbook}" — occasionally relate the chat to what they learn there.`);
@@ -604,6 +604,9 @@ Rules:
         console.error('[chat-friend] all models failed, using fallback. last error:', lastErr?.message || lastErr);
       }
 
+      // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
+      //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
+      //   이번 메시지를 못 세거나(레이스) 다음 새로고침에야 반영돼 부정확해진다.
       try {
         const now = Date.now();
         await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'user', msg, level, now).run();
@@ -628,18 +631,24 @@ Rules:
             const c: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(uid, code, todayMs).first();
             return c?.c || 0;
           };
+          // ⚠️ 적립 자체(logAward)는 잔액을 읽고-쓰는 순서라 같은 유저에 대해 동시 실행하면
+          //   레이스로 한쪽 적립이 유실될 수 있다 — 반드시 순서대로. "오늘 이미 썼나" 조회만
+          //   서로 무관한 읽기라 한꺼번에 보낸다.
           const logAward = async (code: string, amount: number, label: string) => {
             const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount, reason: label, ruleCode: code });
             await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,NULL)`).bind(uid, code, amount, Date.now(), r.txnId).run();
           };
-          if ((await usedToday('ai_friend_chat')) < 10) { await logAward('ai_friend_chat', 2, '망고와 영어 수다'); gam.awarded = 2; }
           const wod = gam.word;
-          if (wod && new RegExp(`\\b${wod.w}\\b`, 'i').test(msg) && (await usedToday('ai_friend_word')) < 1) {
-            await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`); gam.word_bonus = 5;
-          }
-          if (String(b.via || '') === 'voice' && (await usedToday('ai_friend_voice')) < 5) {
-            await logAward('ai_friend_voice', 1, '영어로 말하기'); gam.voice_bonus = 1;
-          }
+          const wantWord = !!(wod && new RegExp(`\\b${wod.w}\\b`, 'i').test(msg));
+          const wantVoice = String(b.via || '') === 'voice';
+          const [chatUsed, wordUsed, voiceUsed] = await Promise.all([
+            usedToday('ai_friend_chat'),
+            wantWord ? usedToday('ai_friend_word') : Promise.resolve(Infinity),
+            wantVoice ? usedToday('ai_friend_voice') : Promise.resolve(Infinity),
+          ]);
+          if (chatUsed < 10) { await logAward('ai_friend_chat', 2, '망고와 영어 수다'); gam.awarded = 2; }
+          if (wantWord && wordUsed < 1) { await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`); gam.word_bonus = 5; }
+          if (wantVoice && voiceUsed < 5) { await logAward('ai_friend_voice', 1, '영어로 말하기'); gam.voice_bonus = 1; }
         }
       } catch (e: any) {
         console.error('[chat-friend] gamification failed:', e?.message || e);

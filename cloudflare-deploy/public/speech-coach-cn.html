@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260727061956 -->
+<!-- BUILD:20260727062627 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -1191,7 +1191,10 @@ async function speak(){
     u.pitch = 1;
     const voices = speechSynthesis.getVoices();
     const cn = voices.find(v => /zh|chinese|mandarin/i.test(v.lang + ' ' + v.name));
-    if (cn) u.voice = cn;
+    // 🔇 (2026-07-27) 중국어 보이스가 없으면 말하지 않는다 — 없는 채로 speak() 하면 윈도우
+    //    기본(한국어) 보이스가 중국어 문장을 엉터리로 읽는다(영어판 '이상한 한국말' 사고와 동일).
+    if (!cn) { stopSpeak(); return; }
+    u.voice = cn;
     u.onend = function(){ if (speaking) setTimeout(playOnce, 280); };
     u.onerror = function(){ stopSpeak(); };
     try { speechSynthesis.cancel(); } catch(_){}

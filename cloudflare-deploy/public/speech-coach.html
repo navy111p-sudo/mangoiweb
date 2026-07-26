@@ -557,13 +557,22 @@ function detectTtsLang(t) {
   if (/[\uac00-\ud7a3]/.test(t)) return 'ko';
   return 'en';
 }
-function speakFallback(t, lang) {
+function speakFallback(t, lang, _retried) {
   try {
     const u = new SpeechSynthesisUtterance(t);
     const voices = window.speechSynthesis.getVoices();
     const pref = lang === 'ko' ? 'ko' : lang === 'zh' ? 'zh' : 'en';
     const v = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(pref));
-    if (v) u.voice = v;
+    // 🔇 (2026-07-27 사장님 신고 "안내 후 이상한 한국말") 목표 언어 보이스가 없으면 말하지 않는다.
+    //    없는 채로 speak() 하면 윈도우가 기본(한국어) 보이스로 영어 문장을 "아이 러브…" 식으로
+    //    읽어버려, 한국어 안내 직후 이상한 한국말처럼 들리는 사고가 났다(한국어 Win10 은 첫
+    //    로드 시 보이스 목록에 한국어만 있는 경우가 흔함). 목록은 비동기 로드라 한 번만
+    //    기다렸다 재시도하고, 그래도 없으면 조용히 넘어간다 — 침묵이 오독보다 낫다.
+    if (!v) {
+      if (!_retried) setTimeout(function(){ speakFallback(t, lang, true); }, 700);
+      return;
+    }
+    u.voice = v;
     u.lang = pref === 'ko' ? 'ko-KR' : pref === 'zh' ? 'zh-CN' : 'en-US';
     u.rate = 0.9;
     // 👩‍🏫 아바타: 브라우저 음성은 분석 불가 → 단순 입 움직임(재생/정지)
@@ -881,7 +890,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260727061956 -->
+<!-- BUILD:20260727062627 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
