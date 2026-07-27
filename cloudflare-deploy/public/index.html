@@ -6284,8 +6284,11 @@ window.mgIsSlowNet = function(){
           <span class="hf-n">2</span><span class="hf-t" data-ko="레벨 테스트" data-en="Level test">레벨 테스트</span>
         </button>
         <span class="hf-ar" aria-hidden="true">›</span>
-        <button type="button" role="listitem" class="hf-step" onclick="showView('view-videocall-lobby')">
-          <span class="hf-n">3</span><span class="hf-t" data-ko="1:1 화상수업" data-en="1:1 class">1:1 화상수업</span>
+        <!-- ⚠️ 3번은 '수업 입장'이 아니다. 바로 위 큰 CTA 가 이미 수업 입장이라 같은 곳이 두 번 나왔었다.
+             절차상 실제로 비어 있던 칸은 '강사·시간을 정해 등록하는' 단계다(사장님 지적, 2026-07-28).
+             홈 히어로에서 수업 신청으로 가는 길은 여기가 유일하다(나머지는 사이드바 안). -->
+        <button type="button" role="listitem" class="hf-step" onclick="location.href='/lesson-booking-demo.html'">
+          <span class="hf-n">3</span><span class="hf-t" data-ko="수업 신청" data-en="Book a class">수업 신청</span>
         </button>
         <span class="hf-ar" aria-hidden="true">›</span>
         <button type="button" role="listitem" class="hf-step" onclick="if(window.gridActions&&window.gridActions.report)window.gridActions.report()">
