@@ -890,7 +890,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260728064321 -->
+<!-- BUILD:20260728070427 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
@@ -929,9 +929,17 @@ if (typeof window.speechSynthesis !== 'undefined') {
   };
   updateMute();
   (function placeBtn(){
-    /* 우상단은 mango-i18n 공용 홈/EN 바 자리 → 🔊는 모든 화면에서 그 아랫줄 고정 (겹침 방지) */
-    btn.style.position='fixed'; btn.style.top='52px'; btn.style.right='10px'; btn.style.zIndex='100000'; btn.style.marginRight='0';
-    document.body.appendChild(btn);
+    /* 🔊 아바타 오른쪽 하단 모서리에 얹음 (2026-07-28 사장님 지시 — 우상단 고정에서 이동) */
+    var ring = document.getElementById('tavatar-ring');
+    if (ring) {
+      btn.style.position='absolute'; btn.style.right='-8px'; btn.style.bottom='-8px'; btn.style.zIndex='5'; btn.style.marginRight='0';
+      btn.style.boxShadow='0 4px 12px rgba(0,0,0,0.45)';
+      ring.appendChild(btn);
+    } else {
+      /* 아바타가 없는 예외 화면 폴백: 기존 우상단 자리 */
+      btn.style.position='fixed'; btn.style.top='52px'; btn.style.right='10px'; btn.style.zIndex='100000'; btn.style.marginRight='0';
+      document.body.appendChild(btn);
+    }
   })();
 })();
 </script>
