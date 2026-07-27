@@ -81,8 +81,9 @@
   /* 휴대폰=설정→시작버튼→도움말 (버튼이 항상 화면 안) / PC=설정|도움말 위 2열, 버튼은 아래 전체폭 */
   .sBody{display:grid;grid-template-columns:1fr;grid-template-areas:"set" "btn" "help";
     gap:11px;width:100%;max-width:420px;text-align:left;justify-items:stretch}
-  @media(min-width:860px){ .sBody{grid-template-columns:1fr 1fr;grid-template-areas:"set help" "btn btn";
-    max-width:860px;align-items:start} }
+  /* 폭 700px↑(태블릿 세로·휴대폰 가로 포함)이면 2열 — 세로 길이를 절반으로 */
+  @media(min-width:700px){ .sBody{grid-template-columns:1fr 1fr;grid-template-areas:"set help" "btn btn";
+    max-width:840px;align-items:start} }
   .sCard{background:rgba(14,24,36,.72);border:1px solid rgba(140,165,195,.22);border-radius:14px;
     padding:13px 14px;backdrop-filter:blur(4px)}
   .sCardT{font-size:12px;font-weight:800;color:#ffd479;letter-spacing:1.2px;text-transform:uppercase;
@@ -139,11 +140,21 @@
     .ctlList .ck{flex-basis:46px}
     .sHead{margin-bottom:12px}
   }
-  /* 가로로 눕힌 휴대폰 — 제목 축소해 스크롤 최소화 */
+  /* 가로로 눕힌 휴대폰 — 제목·여백 축소해 스크롤 없이 담기 */
   @media(max-height:520px){
-    .sHead{margin-bottom:8px}
-    .oTitle{font-size:22px} .oTitleEn{display:none} .oSub{font-size:12px;margin-top:4px}
-    .bigBtn{margin-top:12px;padding:11px 38px}
+    .overlay{padding:12px 16px}
+    .sHead{margin-bottom:7px}
+    .oTitle{font-size:21px} .oTitleEn{display:none} .oSub{font-size:11.5px;margin-top:3px}
+    .sBody{gap:8px}
+    .sCard{padding:9px 11px}
+    .sCardT{margin-bottom:6px;padding-bottom:5px}
+    .sField{margin-bottom:6px}
+    .langBtn{padding:6px 5px}
+    .diffBtn{width:28px;height:28px;flex-basis:28px;font-size:17px} .diffVal{font-size:19px}
+    .ctlList li{padding:4px 0} .ctlList em{display:none}   /* 보조설명은 좁은 세로에선 생략 */
+    .tipList li{padding:3px 0}
+    .diffHint{display:none}
+    .bigBtn{padding:10px 34px}
   }
   #overStat{font-size:17px;color:#dbe6f2;margin:8px 0 2px;line-height:1.7}
   #overStat b{color:#ffd479;font-size:22px}
