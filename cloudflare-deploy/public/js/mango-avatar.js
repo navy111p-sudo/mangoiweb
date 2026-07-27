@@ -139,9 +139,16 @@
     }
     function showTier(tier){
       if(tier === curTier || !curPoses) return;
-      curTier = tier;
+      // 🔴 (2026-07-27 3차) setCharacter() 직후(video.load() 로 리로드 중) 는 readyState 가
+      //   낮아 seek 이 조용히 씹힌다. 그런데도 curTier 를 먼저 확정해버려서, 나중에 영상이
+      //   다 준비돼도 "이미 그 단계다"라고 믿고 다시는 seek 을 시도하지 않았다 — 남자(히어로)
+      //   아바타로 바꾼 뒤 첫 발화의 입이 영원히 멈춰 있던 원인. 여자는 페이지 로드시 이미
+      //   기본 캐릭터라 이 리로드 경합이 없어서 안 걸렸다. → 준비 전이면 curTier 를 그대로 두고
+      //   다음 프레임에 다시 시도한다(성공했을 때만 확정).
+      if(video.readyState < 2) return;
       var t = curPoses[tier];
       if(typeof t !== 'number') return;
+      curTier = tier;
       try{ if(!video.paused) video.pause(); video.currentTime = t; }catch(e){}
     }
     function loop(){

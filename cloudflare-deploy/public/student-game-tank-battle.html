@@ -554,6 +554,8 @@ function buildBackdrop(){
    ════════════════════════════════════════════════════════════ */
 var G=null;
 function newGame(){
+  _clickPhase=0;   // 🖱️ 클릭 사이클(이동→정지→발사) 초기화 — 새 게임은 항상 '이동'부터
+
   G={ px:W/2, py:H*0.62, hullAng:-Math.PI/2, turAng:-Math.PI/2,
       vx:0, vy:0, wpx:W/2, wpy:H*0.5, track:0,
       tx:W/2, ty:H*0.2, firing:false, dragging:false, fireT:0,
@@ -700,16 +702,17 @@ function ptr(ev){ var r=wrap.getBoundingClientRect(); var t=ev.touches&&ev.touch
   var sx=t.clientX-r.left, sy=t.clientY-r.top;
   if(VIEW==='quarter'){ var wp=screenToSim(sx,sy); if(wp) return wp; }
   return {x:sx, y:sy}; }
-// 🖱️ 조작: 왼쪽 버튼(손가락)을 '누른 채' 끌면 셔먼이 커서를 그대로 따라옴. 떼면 정지.
-//          짧게 탭(클릭)=그 방향으로 즉시 발사. (우클릭·스페이스 발사도 유지)
+// 🖱️ 조작(2026-07-27 사장님 지시 — 클릭 3단계 사이클):
+//    마우스만 움직이면 탱크가 커서를 따라 이동 → ①클릭=정지 → ②클릭=발사(정지 유지) → ③클릭=다시 이동
+//    (우클릭·스페이스 발사 보조는 유지. 터치·2D 클래식은 기존 그대로)
 var _drag={on:false,sx:0,sy:0,t:0,moved:false};
 var _aim={x:0,y:0};                              // PC 호버 조준(우클릭·스페이스 발사용)
-var _hoverHold=false;                            // 🎬 3D 마우스: 빈 곳 클릭=정지/재개 토글 상태
+var _clickPhase=0;                               // 🎬 3D 마우스 클릭 사이클: 0=이동(커서 추적) 1=정지 2=발사됨(정지 유지)
 function _onPtrMove(ev){ if(!G||!G.running||G.speaking)return;
   var p=ptr(ev); _aim.x=p.x; _aim.y=p.y;
-  // 🎬 3D 쿼터뷰: 마우스는 버튼을 누르지 않아도 커서를 계속 따라감(호버 추적) — 정지 토글 중엔 제자리
+  // 🎬 3D 쿼터뷰: 마우스는 버튼을 누르지 않아도 커서를 계속 따라감(호버 추적) — 정지 단계(클릭 사이클 1·2)엔 제자리
   if(VIEW==='quarter' && ev.pointerType==='mouse' && !_drag.on){
-    if(_hoverHold){ G.dragging=false; return; }
+    if(_clickPhase!==0){ G.dragging=false; return; }
     G.dragging=true; G.tx=p.x; G.ty=p.y; return; }
   if(!_drag.on) return;                          // 버튼을 누른 동안만 이동 목표 갱신(터치·2D 클래식)
   G.tx=p.x; G.ty=p.y;
@@ -727,13 +730,21 @@ function _dragEnd(ev){
   if(!was || !G || !G.running || G.speaking) return;
   var p=ptr(ev);
   if(!_drag.moved && performance.now()-_drag.t<350){
-    // 🎬 3D 마우스: 적 클릭=그쪽으로 발사 / 빈 곳 클릭=정지↔이동 토글
+    // 🎬 3D 마우스(2026-07-27 사장님 지시): 클릭 3단계 사이클 — ①정지 ②발사(정지 유지) ③다시 이동
     if(VIEW==='quarter' && ev.pointerType==='mouse'){
-      var tgt=_pickTargetNear(p.x,p.y);
-      if(tgt){ G.lock=tgt; G.lockUntil=performance.now()+2200; playerFire(_leadAngle(tgt)); }
-      else { _hoverHold=!_hoverHold;
-        if(_hoverHold){ G.tx=G.px; G.ty=G.py; banner('⏸ 정지 — 빈 곳을 다시 클릭하면 이동','#7fd1ff'); }
-        else banner('▶ 이동 재개','#7fd1ff'); }
+      if(_clickPhase===0){                                   // ① 이동 중 → 정지
+        _clickPhase=1; G.dragging=false; G.tx=G.px; G.ty=G.py;
+        banner('⏸ 정지 — 클릭하면 발사','#7fd1ff');
+      } else if(_clickPhase===1){                            // ② 정지 → 발사(적이 근처면 자동조준, 아니면 클릭 지점으로)
+        _clickPhase=2;
+        var tgt=_pickTargetNear(p.x,p.y);
+        if(tgt){ G.lock=tgt; G.lockUntil=performance.now()+2200; playerFire(_leadAngle(tgt)); }
+        else fireAt(p.x, p.y);
+        banner('💥 발사! — 클릭하면 다시 이동','#ffd27f');
+      } else {                                               // ③ 발사됨 → 다시 이동(커서 추적 재개)
+        _clickPhase=0; G.dragging=true; G.tx=p.x; G.ty=p.y;
+        banner('▶ 이동 — 클릭하면 정지','#7fd1ff');
+      }
       return;
     }
     fireAt(p.x, p.y);                                        // 터치·2D=기존 그대로(탭=자동조준 발사)
@@ -1841,7 +1852,7 @@ function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts
   render(); }
 function startGame(){
   document.getElementById('start').classList.add('hide'); document.getElementById('over').classList.add('hide');
-  _hoverHold=false;
+  _clickPhase=0;   // 🖱️ 클릭 사이클 초기화(이동부터)
   newGame(); G.running=true; updateHUD();
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock(); bgmStart();
   banner('🛡️ 전투 시작!', '#ffd479');
@@ -1904,6 +1915,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727122305 -->
+<!-- BUILD:20260727124728 -->
 </body>
 </html>
