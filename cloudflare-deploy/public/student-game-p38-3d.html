@@ -31,25 +31,26 @@
   #wrap{position:fixed;inset:0;overflow:hidden}
   #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
 
-  /* ───────── 캐노피(조종석 창) — 정면 전체가 통유리. 키 높이(천장~계기판)까지 열어 하늘이 확 튀게 ─────────
-     실제 P-38 캐노피는 정면 방탄유리 + 얇은 프레임뿐이라 시야가 넓다. 창틀은 화면 가장자리만 얇게 잡는다. */
+  /* ───────── 조종석 — 실물 P-38 조종석 사진(그린스크린 크로마키) ─────────
+     원본: cloudflare-deploy/game_image/P_38.PNG (실제 P-38 조종석 그린스크린 촬영본)
+     처리: 크로마키 → 알파 WebP 110KB (/img/p38-cockpit.webp). 초록이 빠진 자리로 3D 하늘이 그대로 비친다.
+     ⚠️ 배치값(--cpZoom/--cpY)이 이 화면의 전부다. 사진을 키우고 아래로 밀어
+        '조종사 눈높이'를 만든다 — 원본은 좌석 뒤에서 찍혀 계기판이 화면 한복판을 덮는다. */
   .cp{position:absolute;pointer-events:none;z-index:5}
-  #cpRoof{top:0;left:0;right:0;height:4.6%;
-    background:linear-gradient(#0d120a 0%,#1b2416 70%,#2f3b23 100%);
-    box-shadow:0 4px 14px rgba(0,0,0,.5);
-    clip-path:polygon(0 0,100% 0,100% 46%,88% 100%,12% 100%,0 46%)}
-  #cpL,#cpR{top:3.4%;bottom:12%;width:5.2%;background:linear-gradient(90deg,#0f140c,#243019 72%,#33402a)}
-  #cpL{left:0;clip-path:polygon(0 0,100% 14%,100% 86%,0 100%)}
-  #cpR{right:0;clip-path:polygon(100% 0,0 14%,0 86%,100% 100%)}
+  #cpPhoto{inset:0;
+    background-image:url('/img/p38-cockpit.webp?v=1');
+    background-repeat:no-repeat;
+    background-size:var(--cpZoom,152%) auto;
+    background-position:50% var(--cpY,86%);
+    filter:drop-shadow(0 -6px 22px rgba(0,0,0,.45))}
+  /* 세로 화면(모바일)은 조종석을 하단에만 얹고 위는 전부 하늘로 둔다 */
+  @media (max-aspect-ratio: 1/1){
+    #cpPhoto{--cpZoom:190%;--cpY:100%}
+  }
   /* 유리 반사·비네팅 — 아주 옅게만(하늘을 가리지 않게) */
   #cpGlass{inset:0;background:
-      radial-gradient(130% 100% at 50% 44%,rgba(255,255,255,0) 68%,rgba(10,20,10,.20) 100%),
+      radial-gradient(130% 100% at 50% 40%,rgba(255,255,255,0) 66%,rgba(10,20,10,.22) 100%),
       linear-gradient(112deg,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 22%,rgba(255,255,255,.04) 34%,rgba(255,255,255,0) 48%)}
-  /* 계기판 — 낮게 깔아 창을 최대한 키운다 */
-  #cpPanel{left:0;right:0;bottom:0;height:12%;
-    background:linear-gradient(#2b351f 0%,#1a2113 30%,#0d1109 100%);
-    border-top:2px solid rgba(0,0,0,.6);box-shadow:0 -6px 18px rgba(0,0,0,.5);
-    border-radius:46% 46% 0 0/34% 34% 0 0}
 
   /* ───────── 조준기(N-3B 반사식 조준기 모사) ───────── */
   #sight{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
@@ -192,12 +193,9 @@
 <div id="wrap">
   <canvas id="cv"></canvas>
 
-  <!-- 캐노피 -->
+  <!-- 조종석 — 실물 P-38 조종석 사진(크로마키) + 옅은 유리 반사 -->
   <div class="cp" id="cpGlass"></div>
-  <div class="cp" id="cpRoof"></div>
-  <div class="cp" id="cpL"></div>
-  <div class="cp" id="cpR"></div>
-  <div class="cp" id="cpPanel"></div>
+  <div class="cp" id="cpPhoto"></div>
 
   <!-- 조준기 -->
   <svg id="sight" width="150" height="150" viewBox="0 0 150 150">
@@ -1523,6 +1521,6 @@ function mountLessonNav(){
   })();
 })();
 </script>
-<!-- BUILD:20260728074809 -->
+<!-- BUILD:20260728075143 -->
 </body>
 </html>
