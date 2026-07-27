@@ -1424,6 +1424,7 @@
         ※ ID·비밀번호를 모르시면 카카오 채널 (@망고아이) 또는 우측 하단 노란 카톡 버튼으로 문의해 주세요.<br/>
         ※ 평가표는 매 수업 종료 후 강사가 작성하며, AI 분석(발화·시선·집중도)이 자동 포함됩니다.
       </p>
+      <button onclick="window.lmPwReset&&window.lmPwReset((document.getElementById('rpt-uid')||{}).value)" style="width:100%;margin-top:10px;padding:11px;background:rgba(255,255,255,0.06);border:1px solid rgba(148,163,184,0.35);border-radius:10px;color:#e2e8f0;font-size:13px;font-weight:700;cursor:pointer" data-ko="🔑 비밀번호를 잊으셨나요? — 문자로 재설정" data-en="🔑 Forgot your password? — Reset by SMS">🔑 비밀번호를 잊으셨나요? — 문자로 재설정</button>
       <button onclick="window.__showSampleReport&&window.__showSampleReport()" style="width:100%;margin-top:10px;padding:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(148,163,184,0.35);border-radius:10px;color:#e2e8f0;font-size:13.5px;font-weight:700;cursor:pointer">👀 계정이 없어요 — 샘플 평가표 먼저 보기</button>
       <button onclick="window.openKakao&&window.openKakao()" style="width:100%;margin-top:8px;padding:11px;background:linear-gradient(135deg,#FEE500,#FFCD00);border:0;border-radius:10px;color:#3C1E1E;font-size:13px;font-weight:800;cursor:pointer">💬 비밀번호 모르겠어요 — 카톡 도움받기</button>
     `);

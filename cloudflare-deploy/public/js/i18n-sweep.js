@@ -886,6 +886,7 @@
 "평가표 — 샘플 예시": "Report Card — Sample",
 "👀 계정이 없어요 — 샘플 평가표 먼저 보기": "👀 No account yet — see a sample report",
 "누가 배우시나요?": "Who is learning?",
+"🔑 비밀번호를 잊으셨나요? — 문자로 재설정": "🔑 Forgot your password? — Reset by SMS",
 "👩‍🏫 강사 소개 보기": "👩‍🏫 Meet Our Teachers",
 "🎬 예습·복습 영상 보기": "🎬 Watch Preview & Review Videos",
 "📊 월간 AI 리포트 보기": "📊 View Monthly AI Report",

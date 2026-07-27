@@ -11,7 +11,7 @@
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=15"></script>
+<script defer src="/js/i18n-sweep.js?v=16"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -20810,7 +20810,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=15"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=16"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -22169,9 +22169,11 @@ window.addEventListener('DOMContentLoaded', () => {
   };
 
   // 🔑 (2026-07-22) 비밀번호 재설정 — 등록 전화번호 SMS 인증 (컴플레인 #7)
-  window.lmPwReset = async function() {
+  //   uidOverride: 로그인 모달 밖(예: 평가표 로그인 게이트)에서도 부를 수 있게 아이디를 직접 받는다.
+  //   (2026-07-27) 평가표 화면에는 '카톡 문의'만 있고 이 흐름으로 오는 길이 없었다 — 직원 피드백 #10.
+  window.lmPwReset = async function(uidOverride) {
     var L = (window.getLang?window.getLang():'ko')==='ko';
-    var uid = ((document.getElementById('lm-uid')||{}).value || '').trim();
+    var uid = String(uidOverride || ((document.getElementById('lm-uid')||{}).value) || '').trim();
     if (!uid) { uid = (prompt(L?'아이디를 입력해 주세요':'Enter your ID') || '').trim(); }
     if (!uid) return;
     try {
