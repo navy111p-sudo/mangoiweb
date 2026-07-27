@@ -761,19 +761,23 @@ function update(dt){
   G.time-=dt; if(G.time<=0){ G.time=0; return endGame(false); }
 
   // 🚗 셔먼 = 왼쪽 버튼(손가락)을 누른 동안 커서에 딱 붙어 따라감. 떼면 그 자리에 정지.
+  if(VIEW==='quarter' && G.dragging){
+    // 🎯 3D: 탱크 위치 = 마우스 위치 그대로(스냅). 속도기반 추종은 구조적으로 항상 뒤처지므로 직결
+    var _ox=G.px, _oy=G.py;
+    G.px=clamp(G.tx,40,W-40); G.py=clamp(G.ty,70,H-90);
+    G.vx=dt>0?(G.px-_ox)/dt:0; G.vy=dt>0?(G.py-_oy)/dt:0;   // 차체 방향·궤도 애니메이션용 실측 속도
+  } else {
   if(!G.dragging){ var damp=Math.pow(0.0008,dt); G.vx*=damp; G.vy*=damp; }
   else {
     var dxw=G.tx-G.px, dyw=G.ty-G.py, dw=Math.hypot(dxw,dyw);
-    // 🎬 3D=마우스에 즉각 밀착(지연 최소) / 2D=기존 감각 유지
-    var q3=(VIEW==='quarter');
-    var maxv=280*SCALE*(0.85+SPMUL*0.15)*(q3?1.3:1);
-    var drv = dw>4 ? maxv*Math.min(1, dw/(q3?28:70)) : 0;   // 거리 비례 가감속 → 커서에 밀착
+    var maxv=280*SCALE*(0.85+SPMUL*0.15);
+    var drv = dw>6 ? maxv*Math.min(1, dw/70) : 0;           // 거리 비례 가감속 → 커서에 밀착
     var tvx = dw>0? dxw/dw*drv : 0, tvy = dw>0? dyw/dw*drv : 0;
-    var acc=Math.min(1,dt*(q3?26:16));
-    G.vx += (tvx-G.vx)*acc; G.vy += (tvy-G.vy)*acc;
+    G.vx += (tvx-G.vx)*Math.min(1,dt*16); G.vy += (tvy-G.vy)*Math.min(1,dt*16);
   }
   G.px+=G.vx*dt; G.py+=G.vy*dt;
   G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
+  }
   var sp=Math.hypot(G.vx,G.vy);
   if(VIEW==='quarter'){
     // 🎬 3D: 차체=진행 방향, 포탑=독립적으로 마우스 커서를 추적(실제 전차처럼 머리가 몸통 위에서 회전)
@@ -1330,8 +1334,8 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
   //    (_proc 아님 → GLB 부착 후에도 유지. 포탑과 함께 회전해 어느 각도에서도 구멍 노출 없음)
   var cfg0=TANK_GLB[type]||{};
   if(cfg0.ringCap){ var cap=new THREE.Mesh(new THREE.CylinderGeometry(cfg0.ringCap,cfg0.ringCap,0.18,22),
-    new THREE.MeshStandardMaterial({color:c.t, roughness:0.85}));
-    cap.position.y=0.02; cap.castShadow=true; turGroup.add(cap); }
+    new THREE.MeshStandardMaterial({color:c.trk, roughness:1}));   // 어두운 궤도색 — 밝으면 흰 링으로 떠 보임
+    cap.position.y=-0.02; cap.castShadow=true; turGroup.add(cap); }
   g.userData.turret=turGroup;
   g.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
   attachTankGLB(type, g, turGroup);
