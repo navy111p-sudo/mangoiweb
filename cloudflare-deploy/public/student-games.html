@@ -1466,6 +1466,9 @@ const HUB_GAMES = [
     src:function(){ return '/student-game-tank-battle.html?v=3'; } },
   { mode:'langace', kind:'iframe', ico:'✈️', ttl:'P-38 라이트닝 (Lightning)', dsc:'P-38로 출격! 적 제로센에 실린 단어를 어순대로 폭격! 영어·중국어', bg:'#4d6b3f', badge:'문장·NEW',
     src:function(){ return '/student-game-language-ace.html?v=5'; } },
+  // 🛩️ 위 2D 탑뷰의 3D 조종석 판. 저사양·저학년은 2D가 더 낫다 → 대체가 아니라 병행 노출한다.
+  { mode:'p383d',   kind:'iframe', ico:'🛩️', ttl:'P-38 3D 조종석 (Cockpit)', dsc:'실물 조종석에 앉아 출격! 무전으로 들은 단어를 하늘에서 찾아 격추하고 문장까지 말해요', bg:'#3d5a4a', badge:'3D·듣기말하기', ownSpeed:true,
+    src:function(){ return '/student-game-p38-3d.html?v=1'; } },   // ownSpeed=난이도를 게임 시작화면(훈련/실전/에이스)에서 고른다 → 상단바 ⋮(속도) 숨김
   { mode:'battle3d',kind:'iframe', ico:'⚔️', ttl:'3D 배틀',      dsc:'레슨 보스와 퀴즈 대결! 3D 캐릭터 공격+배지', bg:'#f43f5e', badge:'3D',
     src:function(){ return '/battle-3d.html'; } },
   { mode:'fish',    kind:'iframe', ico:'🎣', ttl:'낚시+말하기',   dsc:'문장 단어를 순서대로 낚아 발음까지!', bg:'#0ea5e9', badge:'말하기',

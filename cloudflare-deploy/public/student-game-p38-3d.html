@@ -191,6 +191,11 @@
     opacity:0;transition:opacity .12s;pointer-events:none}
   #warn.on{opacity:1}
   .lnav-wrap{margin-top:8px !important}
+
+  /* 게임 허브(student-games.html) iframe 안에서는 허브가 이미 상단바에 '← 게임 선택'을 갖고 있다.
+     자체 나가기 버튼을 그대로 두면 두 개가 겹쳐 보이므로 숨기고, 나머지 UI만 살짝 내린다. */
+  body.embed #backBtn{display:none}
+  body.embed #topR{top:6px}
 </style>
 </head>
 <body>
@@ -1539,6 +1544,7 @@ function mountLessonNav(){
    13. 부팅
    ════════════════════════════════════════════════════════════════════ */
 (function boot(){
+  try{ if(window.parent && window.parent!==window) document.body.classList.add('embed'); }catch(_){}
   if(typeof THREE==='undefined' || !init3D()){
     document.getElementById('ovStart').innerHTML =
       '<div class="card"><h1>3D를 표시할 수 없습니다</h1>'+
