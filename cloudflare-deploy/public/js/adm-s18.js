@@ -6,17 +6,18 @@
   // 두 언어 데크: 한국어 18장 / 영어 24장. 여는 시점의 언어로 자동 선택.
   var DECKS={
     ko:{ dir:'/guide/admin-easy/', pdf:'/guide/admin-easy/admin-easy.pdf', pdfName:'망고아이_관리자페이지_쉬운사용법.pdf',
-      titles:['시작하기','관리자 페이지란?','화면은 이렇게 생겼어요','① 로그인 (입장)','사이드바 한눈에 (9개 메뉴)',
-        '메뉴1 · 평가서 통합','메뉴2 · 알림 센터','메뉴3 · 강사 통합','메뉴4 · 통계·KPI','메뉴5 · 회계·포인트',
-        '메뉴6 · 학생·학부모','메뉴7 · 교육·콘텐츠','메뉴8 · 자료실','메뉴9 · 시스템',
-        '자주 쓰는 기능 3가지','공지 보내보기 (따라하기)','안전하게 나가기 + 꿀팁','이제 준비 끝!'] },
+      titles:["관리자 페이지 쉬운 사용법","소개","차례","🔐 ① 들어가기 (로그인)","🖥 ② 화면이 어떻게 생겼나요?","🔎 ③ 찾고 싶은 걸 바로 찾기",
+        "📋 ④ 평가서 보기","📢 ⑤ 공지 보내보기","👪 ⑥ 학생·학부모 찾기","📅 ⑦ 학부모에게 리포트 보내기","🧑‍🏫 ⑧ 강사 보기",
+        "💳 ⑨ 결제·환불 보기","📚 ⑩ 자료실에서 설명서 받기","🏠 ⑪ 우리 홈페이지가 어떻게 보이나","🚪 ⑫ 안전하게 마치기","기능 요약 · 데이터",
+        "한눈에 보는 데이터","자주 묻는 질문 (FAQ)","첫날 체크리스트","마무리","이제 준비 끝!"] },
     en:{ dir:'/guide/admin-easy-en/', pdf:'/guide/admin-easy-en/admin-easy-en.pdf', pdfName:'Mangoi_Admin_Page_Guide_EN.pdf',
-      titles:['Cover','Contents','What is the Admin Page?','Signing in','The screen, explained',
-        'The menu at a glance','How to find anything','Menu 1 · Evaluations','Menu 2 · Notification Center',
-        'Menu 3 · Teachers','Menu 4 · Stats / KPI','Menu 5 · Accounting / Points','Menu 6 · Students / Parents',
-        'Menu 7 · Education / Content','Menu 8 · Library','Menu 9 · System','The 3 things you’ll do most',
-        'Walkthrough: send a notice','Who sees what','Staying safe + tips','A–Z index (1/3)',
-        'A–Z index (2/3)','A–Z index (3/3)','You’re ready'] }
+      titles:["Easy Admin Page Guide","Introduction","Contents","🔐 ① Getting in (signing in)",
+        "🖥 ② What the screen looks like","🔎 ③ Finding what you need, fast",
+        "📋 ④ Viewing evaluations","📢 ⑤ Sending a notice","👪 ⑥ Finding students and parents",
+        "📅 ⑦ Sending the parent report","🧑‍🏫 ⑧ Viewing teachers","💳 ⑨ Payments and refunds",
+        "📚 ⑩ Getting manuals from the Library","🏠 ⑪ How our home page looks to visitors",
+        "🚪 ⑫ Finishing safely","Summary · Data","Data at a Glance","Frequently Asked Questions",
+        "First-Day Checklist","Conclusion","You're all set!"] }
   };
   function curLang(){ try{ return (window.adminLang==='en'||window.getLang&&window.getLang()==='en')?'en':'ko'; }catch(e){ return 'ko'; } }
   var deck=DECKS.ko, TITLES=deck.titles, N=TITLES.length, builtLang=null;
