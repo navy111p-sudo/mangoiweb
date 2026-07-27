@@ -66,6 +66,7 @@
       var c = CHARACTERS[name]; if(!c) return;
       cropRect = c.rect;
       curPoses = c.poses; curTier = null;   // 🗣 캐릭터가 바뀌면 타임스탬프도 바뀌므로 다음 프레임에 새로 seek
+      fadeData = null;                      // 🎞 캔버스 크기가 바뀌므로 이전 스냅샷은 버린다
       var aspect = (cropRect.r - cropRect.l) / (cropRect.b - cropRect.t);
       canvas.width = BASE_W; canvas.height = Math.round(BASE_W / aspect);
       // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
@@ -102,6 +103,11 @@
     // 초록 제거 크로마키: 초록 우세도(g - max(r,b)) 판정 + 가장자리 페더 + 스필 억제.
     // cropRect(l,t,r,b, 0~1 비율)만큼만 원본에서 잘라 캔버스 전체 크기로 확대해 그린다
     // (캔버스 해상도가 applyFrame() 에서 이미 이 crop 과 같은 비율로 맞춰져 있어 왜곡 없음).
+    // 🎞 (2026-07-27 4차) 입모양 단계가 바뀔 때 프레임이 뚝 끊겨 보이던 것을 완화 —
+    //   전환 직전 화면을 스냅샷(fadeData)해두고, 짧은 시간(FADE_MS) 동안 새 프레임과 섞어
+    //   부드럽게 넘어가게 한다(showTier 에서 스냅샷을 남김).
+    var fadeData = null, fadeT0 = 0;
+    var FADE_MS = 130;
     function keyFrame(){
       if (video.readyState < 2) return;
       var vw = video.videoWidth||canvas.width, vh = video.videoHeight||canvas.height;
@@ -122,6 +128,19 @@
         else if (diff > 10){ d[i+3] = ((38-diff)*255/28)|0; d[i+1] = mx; }
         else if (diff > 0){ d[i+1] = mx; }
       }
+      if (fadeData && fadeData.data.length === d.length){
+        var a = (Date.now() - fadeT0) / FADE_MS;
+        if (a >= 1) { fadeData = null; }
+        else {
+          var fd = fadeData.data;
+          for (var j=0;j<d.length;j+=4){
+            d[j]   = fd[j]   + (d[j]   - fd[j])   * a;
+            d[j+1] = fd[j+1] + (d[j+1] - fd[j+1]) * a;
+            d[j+2] = fd[j+2] + (d[j+2] - fd[j+2]) * a;
+            d[j+3] = fd[j+3] + (d[j+3] - fd[j+3]) * a;
+          }
+        }
+      } else if (fadeData) { fadeData = null; }   // 캔버스 크기가 바뀌었으면(캐릭터 전환) 안전하게 버림
       ctx.putImageData(im,0,0);
     }
     // 발화가 끝났는데도(onended 유실 등) 그리기가 안 멈춰 계속 움직이는 사고를 막는 안전망 —
@@ -137,6 +156,8 @@
       if(level <= 0.09) return 'medium';
       return 'wide';
     }
+    var lastSwitchAt = 0;
+    var MIN_SWITCH_MS = 90;   // 🎞 잡음성 순간 변동으로 너무 자주(덜덜) 바뀌는 것 방지 — 한 음절 정도의 최소 유지시간
     function showTier(tier){
       if(tier === curTier || !curPoses) return;
       // 🔴 (2026-07-27 3차) setCharacter() 직후(video.load() 로 리로드 중) 는 readyState 가
@@ -146,9 +167,13 @@
       //   기본 캐릭터라 이 리로드 경합이 없어서 안 걸렸다. → 준비 전이면 curTier 를 그대로 두고
       //   다음 프레임에 다시 시도한다(성공했을 때만 확정).
       if(video.readyState < 2) return;
+      var now = Date.now();
+      if(now - lastSwitchAt < MIN_SWITCH_MS) return;
       var t = curPoses[tier];
       if(typeof t !== 'number') return;
-      curTier = tier;
+      // 🎞 전환 직전 화면을 스냅샷해서 keyFrame() 이 새 프레임과 부드럽게 섞도록 넘겨준다.
+      try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
+      curTier = tier; lastSwitchAt = now;
       try{ if(!video.paused) video.pause(); video.currentTime = t; }catch(e){}
     }
     function loop(){
@@ -171,7 +196,7 @@
       keyFrame();
       raf=requestAnimationFrame(loop);
     }
-    function startDraw(){ idleTicks=0; curTier=null; drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
+    function startDraw(){ idleTicks=0; curTier=null; lastSwitchAt=0; fadeData=null; drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
     function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
     function drawStill(){ keyFrame(); }
     function doStop(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); }

@@ -758,7 +758,13 @@ window.addEventListener('keydown',function(e){
   _fireKey=true;
   fireAt(_aim.x, _aim.y);           // 누른 즉시 1발 — 반응이 늦게 느껴지지 않게
 });
-window.addEventListener('keyup',function(e){ if(FIRE_KEYS[e.code]) _fireKey=false; });
+window.addEventListener('keyup',function(e){ if(!FIRE_KEYS[e.code]) return;
+  _fireKey=false;
+  // 🎯 키를 떼면 '적 자동추적 연사(타깃 락)'도 즉시 끊는다 — 안 그러면 손을 뗀 뒤에도
+  //   2.2초간 저절로 쏴서 "내가 안 쐈는데 나간다"는 느낌이 든다(정밀 조작 우선).
+  //   모바일 탭 조작은 keyup 이 없으므로 기존 자동조준 도움 그대로 유지된다.
+  if(G) G.lock=null;
+});
 window.addEventListener('blur',function(){ _fireKey=false; });   // 창을 벗어나면 키가 눌린 채로 남지 않게
 
 /* ════════════════════════════════════════════════════════════
@@ -1918,6 +1924,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727165847 -->
+<!-- BUILD:20260727170804 -->
 </body>
 </html>

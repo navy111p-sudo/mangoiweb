@@ -1240,6 +1240,8 @@
     hold($('left'), function(){setSteer(-1);}, function(){ if(G.steer<0)setSteer(0); });
     hold($('right'),function(){setSteer(1);},  function(){ if(G.steer>0)setSteer(0); });
     hold($('boost'),function(){G.boost=true;}, function(){G.boost=false;});
+    // 📱 터치 기기에서는 안내문도 손가락 조작 기준으로 (PC는 기존 마우스 안내 유지)
+    if(IS_TOUCH && $('hint')) $('hint').textContent='👆 화살표를 꾹 누르면 배가 계속 돌아갑니다 · Hold the arrows to keep turning';
 
     // ── 🖱 마우스/터치 위치 조종 — 포인터의 좌우 위치를 배가 즉각 따라옴(예민한 반응) ──
     G.pointerX=null; G.pointerOn=false; G.aimSteer=0;   // pointerX=목표 레인 X, pointerOn=포인터 사용중, aimSteer=시각적 기울임
@@ -1434,6 +1436,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260727165847 -->
+<!-- BUILD:20260727170804 -->
 </body>
 </html>
