@@ -37,15 +37,15 @@
      ⚠️ 배치값(--cpZoom/--cpY)이 이 화면의 전부다. 사진을 키우고 아래로 밀어
         '조종사 눈높이'를 만든다 — 원본은 좌석 뒤에서 찍혀 계기판이 화면 한복판을 덮는다. */
   .cp{position:absolute;pointer-events:none;z-index:5}
-  #cpPhoto{inset:0;
-    background-image:url('/img/p38-cockpit.webp?v=1');
-    background-repeat:no-repeat;
-    background-size:var(--cpZoom,152%) auto;
-    background-position:50% var(--cpY,86%);
-    filter:drop-shadow(0 -6px 22px rgba(0,0,0,.45))}
-  /* 세로 화면(모바일)은 조종석을 하단에만 얹고 위는 전부 하늘로 둔다 */
+  /* background-position 의 % 는 (컨테이너−이미지) 기준이라 '얼마나 내릴지'를 직관적으로 못 준다.
+     그래서 <img> 를 직접 놓고 width/bottom 을 % 로 잡는다 — 화면 크기가 변해도 비율이 유지된다. */
+  #cpPhoto{inset:0;overflow:hidden}
+  #cpPhoto img{position:absolute;left:50%;transform:translateX(-50%);
+    width:var(--cpW,140%);bottom:var(--cpB,-93%);
+    filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5))}
+  /* 세로 화면(모바일) — 조종석을 하단에만 얹고 위는 전부 하늘로 둔다 */
   @media (max-aspect-ratio: 1/1){
-    #cpPhoto{--cpZoom:190%;--cpY:100%}
+    #cpPhoto img{--cpW:175%;--cpB:-40%}
   }
   /* 유리 반사·비네팅 — 아주 옅게만(하늘을 가리지 않게) */
   #cpGlass{inset:0;background:
@@ -53,7 +53,8 @@
       linear-gradient(112deg,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 22%,rgba(255,255,255,.04) 34%,rgba(255,255,255,0) 48%)}
 
   /* ───────── 조준기(N-3B 반사식 조준기 모사) ───────── */
-  #sight{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
+  /* top 값은 스크립트의 AIM_Y(0.30)와 반드시 같아야 한다 — 어긋나면 '조준기에 넣었는데 안 맞는' 버그가 된다 */
+  #sight{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
     filter:drop-shadow(0 0 6px rgba(255,190,60,.75))}
   #sight.lock circle.ring{stroke:#ff6a4d}
   #sight.lock line{stroke:#ff6a4d}
@@ -91,9 +92,12 @@
   #gauges{position:absolute;left:0;right:0;bottom:0;height:12%;z-index:9;
     display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 3.5%;pointer-events:none}
   .gz{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px}
-  .gzL{font-size:9px;font-weight:800;color:#8fa37a;letter-spacing:.5px}
+  /* 게이지는 실물 계기판 사진 위에 얹힌다 — 사진 무늬에 묻히지 않게 어두운 알약 배경을 깐다 */
+  .gz{background:rgba(4,10,16,.62);border:1px solid rgba(255,212,121,.22);border-radius:10px;
+    padding:3px 9px;backdrop-filter:blur(2px)}
+  .gzL{font-size:9px;font-weight:800;color:#b9cba2;letter-spacing:.5px;text-shadow:0 1px 3px #000}
   .gzV{font-size:clamp(15px,2.6vw,22px);font-weight:900;color:#ffd479;
-    font-family:'Consolas',monospace;text-shadow:0 0 8px rgba(255,190,60,.5)}
+    font-family:'Consolas',monospace;text-shadow:0 1px 4px #000,0 0 9px rgba(255,190,60,.55)}
   .gzV.small{font-size:clamp(12px,2vw,16px)}
   #fuelBar{width:min(190px,24vw);height:9px;border-radius:5px;background:rgba(0,0,0,.55);
     border:1px solid rgba(180,200,160,.3);overflow:hidden}
@@ -195,7 +199,7 @@
 
   <!-- 조종석 — 실물 P-38 조종석 사진(크로마키) + 옅은 유리 반사 -->
   <div class="cp" id="cpGlass"></div>
-  <div class="cp" id="cpPhoto"></div>
+  <div class="cp" id="cpPhoto"><img src="/img/p38-cockpit.webp?v=1" alt=""></div>
 
   <!-- 조준기 -->
   <svg id="sight" width="150" height="150" viewBox="0 0 150 150">
@@ -631,6 +635,22 @@ function resize(){
 }
 function forwardVec(){ return new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion); }
 
+/* ⚠️ 조준점은 화면 정중앙이 아니다.
+   실물 조종석 사진에서 계기판이 화면 아래 절반을 차지하므로, 하늘이 보이는 창 중앙
+   (화면 위에서 AIM_Y 지점)을 조준점으로 쓴다. 사격 판정·예광탄·적기 정면유지가
+   모두 이 벡터를 기준으로 돌아야 조준기와 실제 명중이 어긋나지 않는다. */
+var AIM_Y = 0.30;
+/* 화면 가로 반화각(rad) — 세로 화면(모바일)은 이게 확 좁아진다.
+   적기 배치 폭과 라벨 크기를 여기에 맞추지 않으면 폰에서 라벨이 통째로 창밖으로 나간다. */
+function hHalfFov(){ return Math.atan(Math.tan(camera.fov*Math.PI/360) * camera.aspect); }
+function labelScaleK(){ return Math.max(0.5, Math.min(1, camera.aspect/1.5)); }
+var _aimTmp=new THREE.Vector3(), _aimCam=new THREE.Vector3();
+function aimVec(){
+  _aimTmp.set(0, 1 - 2*AIM_Y, 0.5).unproject(camera);
+  camera.getWorldPosition(_aimCam);
+  return _aimTmp.sub(_aimCam).normalize().clone();
+}
+
 /* ════════════════════════════════════════════════════════════════════
    적기 — 제로센 하나가 아니라 전투기 2종 + 폭격기 2종.
    전부 절차생성(procedural)이라 다운로드 0바이트 · 저사양 기기에서도 돈다.
@@ -656,11 +676,11 @@ var ZMAT={
 };
 /* 기체 제원 — hp/속도/크기/점수. 밸런스는 전부 여기 한 곳에서만 만진다. */
 var PLANE={
-  zero : { name:'A6M 제로센',  en:'A6M Zero',      mat:'navy', hp:1, spd:1.00, scale:1.6, hold:160, chunk:false, score:120, url:null },
-  oscar: { name:'Ki-43 하야부사', en:'Ki-43 Oscar',  mat:'army', hp:1, spd:1.12, scale:1.5, hold:180, chunk:false, score:140, url:null },
-  val  : { name:'D3A 급강하폭격기', en:'D3A Val',    mat:'bomb', hp:2, spd:0.72, scale:1.8, hold:205, chunk:true,  score:220, url:null },
-  betty: { name:'G4M 1식 육공',  en:'G4M Betty',    mat:'bomb', hp:3, spd:0.58, scale:2.2, hold:240, chunk:true,  score:320, url:null },
-  ace  : { name:'적 에이스기',   en:'Enemy Ace',     mat:'ace',  hp:3, spd:1.30, scale:1.7, hold:145, chunk:false, score:500, url:null }
+  zero : { name:'A6M 제로센',  en:'A6M Zero',      mat:'navy', hp:1, spd:1.00, scale:2.0, hold:160, chunk:false, score:120, url:null },
+  oscar: { name:'Ki-43 하야부사', en:'Ki-43 Oscar',  mat:'army', hp:1, spd:1.12, scale:1.9, hold:180, chunk:false, score:140, url:null },
+  val  : { name:'D3A 급강하폭격기', en:'D3A Val',    mat:'bomb', hp:2, spd:0.72, scale:2.2, hold:205, chunk:true,  score:220, url:null },
+  betty: { name:'G4M 1식 육공',  en:'G4M Betty',    mat:'bomb', hp:3, spd:0.58, scale:2.6, hold:240, chunk:true,  score:320, url:null },
+  ace  : { name:'적 에이스기',   en:'Enemy Ace',     mat:'ace',  hp:3, spd:1.30, scale:2.1, hold:145, chunk:false, score:500, url:null }
 };
 var FIGHTERS=['zero','oscar'], BOMBERS=['val','betty'];
 var ZGEO=null;
@@ -776,7 +796,7 @@ function roundRect(x,l,t,w,h,r){ x.beginPath();
   x.lineTo(l+r,t+h); x.quadraticCurveTo(l,t+h,l,t+h-r);
   x.lineTo(l,t+r); x.quadraticCurveTo(l,t,l+r,t); x.closePath(); }
 
-function spawnEnemy(word, isCorrect, kind, words){
+function spawnEnemy(word, isCorrect, kind, words, slotIdx, slotTotal){
   kind = kind || 'zero';
   var spec=PLANE[kind]||PLANE.zero;
   var e={ word:word, words:words||[word], correct:!!isCorrect, kind:kind, ace:(kind==='ace'),
@@ -785,11 +805,24 @@ function spawnEnemy(word, isCorrect, kind, words){
           hold:spec.hold + Math.random()*70,          // 유지하려는 상대거리(m)
           fireT:1.5+Math.random()*2, dead:false, alpha:0 };
   e.mesh.scale.setScalar(spec.scale);
-  // 정면 ±30° 안쪽에 배치 — 정면 창과 옆 창 양쪽에 고루 걸리도록
-  var ang=(Math.random()-0.5)*1.05, rise=(Math.random()-0.42)*0.40, dist=e.hold;
-  var dir=forwardVec().applyAxisAngle(new THREE.Vector3(0,1,0), ang);
+  /* 조준선 기준 슬롯 — 좌우 ±26°, 상하는 아래쪽으로 치우치게(+아래 / −위).
+     조준점이 화면 30% 지점이라 슬롯을 중립으로 두면 적기가 화면 위로 몰려 라벨이 잘린다. */
+  /* 좌우는 무작위가 아니라 균등 분배한다 — 무작위로 두면 두세 기가 같은 자리에 겹쳐 라벨이 포개진다. */
+  var n=Math.max(1, slotTotal||1), k=(slotIdx==null) ? Math.random()*n : slotIdx;
+  // 배치 폭 = 실제 가로 화각의 75% — 가로 1.25rad(±36°), 세로 화면은 자동으로 좁아진다
+  var span=Math.min(1.25, hHalfFov()*1.5);
+  e.slotYaw = (-0.5 + (k+0.5)/n) * span + (Math.random()-0.5)*span*0.06;
+  /* ⚠️ rightAx 축 기준 회전은 +가 '위'다(오른손 법칙). 처음에 부호를 반대로 놔서 적기가 전부 화면 위로 몰렸다.
+     조준점(화면 30%) 기준 +0.12 rad(위, 화면 ≈20%) ~ −0.32 rad(아래, 화면 ≈55%) 범위에 흩뿌린다.
+     인덱스 홀짝으로 위/아래를 번갈아 배치해 라벨이 같은 높이에 몰리지 않게 한다. */
+  // 위쪽 밴드는 +0.04 까지만 — 더 올리면 세로 화면에서 라벨이 상단 문장 바에 물린다
+  var band = ((slotIdx||0) % 2 === 0) ? (0.04 - Math.random()*0.16) : (-0.10 - Math.random()*0.22);
+  e.slotPitch = band;
+  var UPv=new THREE.Vector3(0,1,0), aim=aimVec();
+  var rightAx=new THREE.Vector3().crossVectors(aim, UPv).normalize();
+  var dir=aim.applyAxisAngle(UPv, e.slotYaw).applyAxisAngle(rightAx, e.slotPitch);
+  var dist=e.hold;
   e.mesh.position.copy(player.position).addScaledVector(dir, dist);
-  e.mesh.position.y += rise*dist*0.5;
   // 라벨
   var lk = e.ace ? 'ace' : (spec.chunk ? 'chunk' : 'std');
   var lab=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTexture(word, lk),
@@ -963,7 +996,7 @@ function refreshTargets(){
     slots.push({ w:dw, ok:false, kind:k, words:[dw] });
   }
   shuffle(slots);
-  slots.forEach(function(s){ spawnEnemy(s.w, s.ok, s.kind, s.words); });
+  slots.forEach(function(s,i){ spawnEnemy(s.w, s.ok, s.kind, s.words, i, slots.length); });
 }
 /* 정답 격추 */
 function hitCorrect(e){
@@ -1235,7 +1268,8 @@ function update(dt){
    → 적기는 '플레이어 속도벡터를 기본으로 따라가며 그 위에 회피기동을 얹는' 상대운동으로 푼다.
      결과: 개싸움(dogfight) 처럼 서로 붙어 날면서 캐노피 정면·측면에 계속 머문다. */
 function updateEnemies(dt){
-  var pp=player.position, pf=forwardVec(), pv=pf.clone().multiplyScalar(G.speed);
+  // pv = 실제 비행 방향(기수), pf = 조준 방향. 적기는 '조준기 주변'에 모여야 아이가 찾는다.
+  var pp=player.position, pv=forwardVec().multiplyScalar(G.speed), pf=aimVec();
   var UP=new THREE.Vector3(0,1,0);
   for(var i=enemies.length-1;i>=0;i--){
     var e=enemies[i], m=e.mesh;
@@ -1246,18 +1280,21 @@ function updateEnemies(dt){
     if(prs) for(var pi=0;pi<prs.length;pi++) prs[pi].rotation.z += dt*38;
 
     var rel=new THREE.Vector3().subVectors(m.position, pp), d=Math.max(1, rel.length());
-    var radial=rel.clone().divideScalar(d);
-    var tangent=new THREE.Vector3().crossVectors(radial, UP).normalize();
     var sp=38*e.spd*P().espd;
 
-    // 기동 = 좌우 위빙 + 상하 흔들림 + 목표거리 유지
-    var mv=tangent.multiplyScalar(Math.sin(e.t*(e.ace?1.15:0.8)+e.ph)*sp)
-      .addScaledVector(UP, Math.sin(e.t*0.55+e.ph)*sp*0.4)
-      .addScaledVector(radial, (e.hold-d)*0.55);
-    /* 정면 유지 — 시야 밖으로 새 나가면 앞으로 당긴다(아이가 목표를 못 찾는 일 방지).
-       0.78 ≈ 정면 39°. 화면 가로 화각이 ±47° 라 이보다 느슨하면 라벨이 창틀에 잘린다. */
-    var cosang=radial.dot(pf);
-    if(cosang<0.78) mv.addScaledVector(pf, (0.78-cosang)*420);
+    /* ⚠️ '조준 방향으로 밀어 넣는' 방식은 쓰지 않는다.
+       조준 방향이 위(화면 30%)를 향하므로 그쪽으로 밀면 적기가 계속 떠올라 화면 밖으로 나간다 — 실제로 그랬다.
+       대신 적기마다 조준선 기준 고정 슬롯(좌우각·상하각)을 주고 그 지점을 목표로 삼는다.
+       위빙은 슬롯 각도에 sin 흔들림으로 얹는다. 결과: 적기가 항상 창 안 예측 가능한 자리에 머문다. */
+    var rightAx=new THREE.Vector3().crossVectors(pf, UP).normalize();
+    var want=pf.clone()
+      .applyAxisAngle(UP,      e.slotYaw   + Math.sin(e.t*(e.ace?1.15:0.8)+e.ph)*0.13)
+      .applyAxisAngle(rightAx, e.slotPitch + Math.sin(e.t*0.55+e.ph)*0.06);
+    var target=pp.clone().addScaledVector(want, e.hold);
+
+    var mv=target.sub(m.position);
+    var mvLen=mv.length(), cap=sp*3.2;
+    if(mvLen>cap) mv.multiplyScalar(cap/mvLen);      // 순간이동처럼 안 보이게 속도 상한
     // 고도 하한(바다) 보호
     if(m.position.y < -760) mv.y += 60;
 
@@ -1271,7 +1308,7 @@ function updateEnemies(dt){
     // 라벨 — 거리와 무관하게 화면상 크기 일정
     if(e.label){
       var dd=Math.max(30, m.position.distanceTo(camera.getWorldPosition(new THREE.Vector3())));
-      var s=dd*0.052; e.label.scale.set(s*3.1, s, 1);
+      var s=dd*0.052*labelScaleK(); e.label.scale.set(s*3.1, s, 1);
       e.label.position.y = 4.2 + (e.layer||0)*2.4 + s*0.35;
     }
     // 적 사격 — 정면 각도 안에 들어왔을 때만, 아주 가끔
@@ -1296,7 +1333,7 @@ function fire(){
   if(!G||!G.running||G.speaking) return;
   G.shots++; sndGun(); G.shake=Math.max(G.shake,0.5);
   var camPos=camera.getWorldPosition(new THREE.Vector3());
-  var fwd=forwardVec();
+  var fwd=aimVec();          // ← 화면 정중앙이 아니라 '조준기가 그려진 곳' 기준
   // 좌우 기관총구(P-38 은 기수 집중배치지만 연출상 살짝 벌림)
   var right=new THREE.Vector3(1,0,0).applyQuaternion(player.quaternion);
   var down =new THREE.Vector3(0,-1,0).applyQuaternion(player.quaternion);
@@ -1409,7 +1446,8 @@ function startGame(){
   newGame(); G.running=true; paused=false;
   updateHUD(); updateHUDFast();
   engineStart();
-  var touch = ('ontouchstart' in window);
+  // 폰·태블릿은 터치 감지가 실패하는 경우가 있어 좁은 화면도 발사 버튼을 띄운다
+  var touch = ('ontouchstart' in window) || window.innerWidth < 860;
   document.getElementById('fireBtn').style.display = touch ? 'block' : 'none';
   document.getElementById('stickHint').style.display = touch ? 'block' : 'none';
   if(!raf) raf=requestAnimationFrame(loop);

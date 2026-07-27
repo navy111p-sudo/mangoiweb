@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P-38 라이트닝 3D 조종석 영어 게임 — 기획 제안서 (2026-07-28)</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a1018;color:#e6eef7;
+    font-family:'Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
+    line-height:1.72;font-size:15.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px 90px}
+
+  /* 표지 */
+  .hero{position:relative;margin:0 -22px 34px;padding:56px 22px 44px;
+    background:linear-gradient(150deg,#0d2137 0%,#12304c 42%,#0b1a2b 100%);
+    border-bottom:3px solid #ffd479;overflow:hidden}
+  .hero::after{content:'';position:absolute;right:-60px;top:-40px;width:340px;height:340px;
+    background:radial-gradient(circle,rgba(255,212,121,.16),transparent 66%);border-radius:50%}
+  .hero .tag{display:inline-block;font-size:12px;font-weight:900;letter-spacing:2px;
+    color:#0a1018;background:#ffd479;border-radius:20px;padding:4px 14px;margin-bottom:14px}
+  .hero h1{margin:0 0 6px;font-size:clamp(26px,4.4vw,40px);line-height:1.22;letter-spacing:-1px}
+  .hero h1 span{color:#ffd479}
+  .hero .sub{font-size:15px;color:#9fc0dc;font-weight:700}
+  .hero .meta{margin-top:18px;font-size:12.5px;color:#7d9ab5}
+
+  h2{margin:52px 0 14px;font-size:23px;letter-spacing:-.6px;padding-bottom:9px;
+    border-bottom:2px solid rgba(255,212,121,.28)}
+  h2 .n{display:inline-block;width:31px;height:31px;line-height:31px;text-align:center;
+    background:#ffd479;color:#0a1018;border-radius:9px;font-size:15px;font-weight:900;margin-right:9px}
+  h2 small{display:block;font-size:12.5px;color:#7d9ab5;font-weight:700;margin-top:4px;
+    padding-left:40px;letter-spacing:0}
+  h3{margin:28px 0 8px;font-size:17.5px;color:#ffd479}
+  p{margin:10px 0}
+  a{color:#7fd1ff}
+
+  .lead{font-size:17px;background:rgba(255,212,121,.07);border-left:4px solid #ffd479;
+    border-radius:0 12px 12px 0;padding:16px 20px;margin:22px 0}
+  .lead b{color:#ffd479}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{border:1px solid rgba(140,175,210,.24);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:rgba(127,209,255,.10);color:#bfe2ff;font-weight:900;font-size:13px}
+  td b{color:#ffd479}
+  tr:nth-child(even) td{background:rgba(255,255,255,.022)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:13px;margin:18px 0}
+  .card{background:linear-gradient(#12202e,#0d1822);border:1px solid rgba(140,175,210,.22);
+    border-radius:13px;padding:15px 16px}
+  .card h4{margin:0 0 6px;font-size:15px;color:#7fd1ff}
+  .card p{margin:0;font-size:13.5px;color:#b8cde0}
+  .card .big{font-size:26px;font-weight:900;color:#ffd479;line-height:1.2}
+
+  figure{margin:20px 0}
+  figure img{width:100%;border-radius:13px;border:1px solid rgba(140,175,210,.3);display:block}
+  figcaption{font-size:12.5px;color:#8fa9c2;margin-top:7px;text-align:center}
+
+  .warn{background:rgba(248,113,113,.09);border-left:4px solid #f87171;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14px}
+  .warn b{color:#ffb3b3}
+  .ok{background:rgba(74,222,128,.09);border-left:4px solid #4ade80;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14px}
+  .ok b{color:#a7f3c0}
+  .note{background:rgba(127,209,255,.08);border-left:4px solid #7fd1ff;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14px}
+
+  ul,ol{padding-left:22px;margin:10px 0}
+  li{margin:5px 0}
+  code{background:rgba(255,255,255,.08);border-radius:5px;padding:1px 6px;font-size:13px;
+    font-family:Consolas,monospace;color:#ffe08a}
+  .en{color:#8fa9c2;font-weight:700;font-size:.86em}
+  .kbd{display:inline-block;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
+    border-radius:6px;padding:1px 8px;font-size:12.5px;font-weight:800;color:#cfe0f0}
+  .foot{margin-top:60px;padding-top:18px;border-top:1px solid rgba(140,175,210,.22);
+    font-size:12.5px;color:#7d9ab5}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="tag">기획 제안서 · PROPOSAL v1.0</div>
+  <h1>P-38 라이트닝 <span>3D 조종석</span> 영어 공중전<br>P-38 Lightning — 3D Cockpit English Combat</h1>
+  <div class="sub">조종석에 앉아, 귀로 듣고, 입으로 말해서 문장을 세우는 게임<br>
+    <span class="en">Sit in the cockpit. Hear it, say it, build the sentence.</span></div>
+  <div class="meta">2026-07-28 · 망고아이 학습콘텐츠 · 동작하는 샘플 포함(플레이 가능)</div>
+</div>
+
+<div class="lead">
+  지금 운영 중인 <b>2D 탑뷰 P-38</b>(<code>student-game-language-ace.html</code>)은 학습 루프가 이미 검증됐습니다.
+  이 제안은 그 루프를 그대로 두고 <b>시점만 조종석 1인칭으로 바꿉니다.</b><br>
+  시점을 바꾸면 게임이 재미있어지는 데서 끝나지 않습니다.
+  <b>정면 창밖을 눈으로 훑어야 하고</b>, <b>무전으로 들은 낱말을 하늘에서 찾아야 하고</b>,
+  <b>말을 해야 조준이 걸립니다.</b> 즉 시점 변경이 곧 <b>듣기·말하기 훈련량 증가</b>로 이어집니다.
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">1</span>무엇을 만드나<small>WHAT WE BUILD — 한 화면 요약</small></h2>
+
+<figure>
+  <img src="img/p38-3d-02-combat.jpg" alt="조종석에서 본 공중전 화면">
+  <figcaption>실제 동작 화면 — <b>실물 P-38 조종석 사진</b>(그린스크린 크로마키) 너머로 적기 5기.
+    상단 문장 바는 뜻(한국어)만 보이고 영어 단어는 ▨▨▨로 가려져 있다.
+    무전으로 들은 낱말을 하늘에서 찾아 격추한다.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card"><h4>시점</h4><p><b>실물 P-38 조종석 사진</b> 1인칭.<br>캐노피 아치가 화면을 감싸고 그 너머가 전부 하늘.</p></div>
+  <div class="card"><h4>적</h4><p>제로센 하나가 아니라 <b>전투기 2종 + 폭격기 2종 + 에이스기</b>.</p></div>
+  <div class="card"><h4>학습 동작</h4><p>듣고 → 찾고 → 쏘고 → <b>말한다</b>.<br>말해야 다음으로 넘어간다.</p></div>
+  <div class="card"><h4>내려받는 용량</h4><p><span class="big">214KB</span>실사 하늘 104KB + 실물 조종석 110KB. 기체는 코드로 그려 <b>0바이트</b>.</p></div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">2</span>게임업체 벤치마킹<small>BENCHMARK — 무엇을 가져오고, 무엇은 일부러 버리는가</small></h2>
+
+<p>비행 게임 장르는 30년 넘게 <b>"어떻게 하면 비행이 어렵지 않게 느껴지는가"</b>를 갈아온 분야입니다.
+아이용 학습 게임이 가장 크게 실패하는 지점이 <b>조작이 어려워서 학습에 도달하지 못하는 것</b>이라,
+이 축적을 그대로 빌려옵니다. 아래는 각 게임에서 <b>무엇을 배우고, 우리 게임에서 어떻게 쓰는지</b>입니다.</p>
+
+<table>
+  <tr><th style="width:23%">참고 작품</th><th style="width:30%">그 게임이 푼 문제</th><th>망고아이에 어떻게 적용하나</th></tr>
+  <tr>
+    <td><b>Ace Combat</b><br><span class="en">반다이남코</span></td>
+    <td>실제 비행역학을 버리고 <b>"조준선에 넣으면 맞는다"</b>는 단순 규칙으로 대체. 초보도 5분이면 격추한다.</td>
+    <td><b>채택.</b> 발사 판정을 물리 탄도가 아닌 <b>조준각 히트스캔</b>으로 처리. 가까울수록 판정을 넓혀
+        저학년도 맞힌다. 저사양 기기에서도 정확도가 흔들리지 않는 부수 효과까지 얻는다.</td>
+  </tr>
+  <tr>
+    <td><b>War Thunder</b><br><span class="en">가이진</span></td>
+    <td>기체마다 <b>실루엣과 성능이 확실히 다르게</b> 보여, 멀리 있어도 "무엇이 오는가"를 눈으로 판단하게 한다.</td>
+    <td><b>채택.</b> 전투기(날렵)·급강하폭격기(고정 착륙장치)·쌍발 폭격기(굵은 동체)를
+        <b>실루엣만으로 구분</b>되게 만들었다. 이 구분이 곧 학습 난이도 신호가 된다(아래 4장).</td>
+  </tr>
+  <tr>
+    <td><b>IL-2 Sturmovik</b><br><span class="en">1C</span></td>
+    <td>계기판·캐노피 프레임을 <b>실물 배치</b>로 두어 "조종석에 앉았다"는 몰입을 만든다.</td>
+    <td><b>일부만 채택.</b> 몰입은 가져오되 <b>계기 읽기는 학습이 아니다.</b>
+        계기판은 화면 아래 12%로 낮추고, 남는 면적을 전부 하늘에 준다. 창을 키우는 것이 학습 면적을 키우는 것.</td>
+  </tr>
+  <tr>
+    <td><b>Star Fox</b><br><span class="en">닌텐도</span></td>
+    <td>레일 위를 달리듯 <b>진로는 게임이 잡아주고</b> 플레이어는 조준·회피만 한다. 길을 잃지 않는다.</td>
+    <td><b>채택.</b> 적기가 플레이어 <b>정면 39° 안</b>에 항상 머물도록 상대운동으로 묶었다.
+        "적을 못 찾아서 못 배우는" 사고를 구조적으로 없앤다.</td>
+  </tr>
+  <tr>
+    <td><b>1942 / 스트라이커즈</b><br><span class="en">캡콤·라이징</span></td>
+    <td>한 판이 <b>짧고, 실패해도 즉시 재시작.</b> 실패의 비용이 작아 계속 시도한다.</td>
+    <td><b>채택.</b> 오답을 쏴도 <b>목숨은 깎지 않고 시간만</b> 줄인다.
+        "틀려도 계속 난다"가 학습 지속의 핵심이다.</td>
+  </tr>
+  <tr>
+    <td><b>Sky Gamblers</b><br><span class="en">Atypical</span></td>
+    <td>모바일에서 <b>한 손 드래그 조종</b>을 정착시킴. 가상 스틱 없이도 비행이 된다.</td>
+    <td><b>채택.</b> 화면 어디나 드래그 = 조종, 우측 큰 버튼 = 발사.
+        PC는 마우스 위치가 곧 조종. 학습 전 조작 설명이 한 줄이면 끝난다.</td>
+  </tr>
+  <tr>
+    <td><b>ELSA Speak</b><br><span class="en">발음 교정 앱</span></td>
+    <td>발음을 <b>점수로 즉시</b> 돌려준다. 잘/못을 감이 아니라 수치로 안다.</td>
+    <td><b>채택 + 게임화.</b> 발음 성공을 점수판이 아니라 <b>게임 진행 조건</b>으로 만든다 —
+        말해야 에이스기 조준이 풀린다(5장 '음성 조준').</td>
+  </tr>
+  <tr>
+    <td><b>Duolingo</b></td>
+    <td>틀린 항목을 <b>다시 출제 대기열</b>에 넣는 간격반복.</td>
+    <td><b>이미 보유.</b> 오답 낱말을 <code>/api/games/progress</code>로 보내
+        약점 단어(<code>/api/games/weak</code>)에 누적 → 웜업·복습퀴즈가 재출제. 새 서버 작업 없음.</td>
+  </tr>
+  <tr>
+    <td><b>Kahoot</b></td>
+    <td>정답 선택지를 <b>색·모양</b>으로 구분해 읽기 부담을 줄인다.</td>
+    <td><b>채택.</b> 문장 성분(주어·동사·목적어·수식어)을 낱말 칸 밑줄 <b>색</b>으로 표시.
+        어순을 문법 용어가 아니라 <b>색의 순서</b>로 체득시킨다.</td>
+  </tr>
+</table>
+
+<h3>일부러 <u>가져오지 않는</u> 것</h3>
+<div class="warn">
+  <b>① 실제 비행 시뮬레이션</b> — 실속·트림·연료혼합 같은 요소는 몰입을 주지만 <b>학습 시간을 잡아먹습니다.</b>
+  이 게임의 목표 시간은 한 판 90초이고, 그 90초는 영어에 써야 합니다.<br>
+  <b>② 전쟁의 잔혹 묘사</b> — 피격당한 적기는 <b>연기를 뿜으며 추락</b>할 뿐 사람·유혈 묘사는 넣지 않습니다.
+  초등 저학년까지 쓰는 서비스입니다.<br>
+  <b>③ 확률형 보상·과금 루프</b> — 유지비만 늘고 학습에 기여하지 않습니다.
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">3</span>교육 설계<small>LEARNING DESIGN — 게임의 '하는 짓'이 곧 학습 행위여야 한다</small></h2>
+
+<p>학습 게임이 실패하는 가장 흔한 형태는 <b>"게임 따로, 문제 따로"</b>입니다.
+비행기 좀 쏘다가 갑자기 사지선다 창이 뜨는 방식이 그렇습니다. 아이는 게임만 하고 문제는 찍습니다.<br>
+이 기획의 원칙은 하나입니다 — <b>게임에서 하는 동작 자체가 학습 행위여야 한다.</b></p>
+
+<table>
+  <tr><th style="width:26%">게임에서 하는 짓</th><th style="width:26%">사실은 무슨 훈련인가</th><th>왜 그게 훈련이 되는가</th></tr>
+  <tr><td><b>창밖을 훑어 적기를 찾는다</b></td><td>낱말 재인 <span class="en">word recognition</span></td>
+      <td>5기에 흩어진 낱말 중 목표를 골라야 한다. 보기가 화면에 나열된 객관식과 달리
+          <b>스스로 시선을 옮겨</b> 찾아야 해서 기억 인출이 강하게 걸린다.</td></tr>
+  <tr><td><b>무전을 듣고 목표를 정한다</b></td><td>청해 변별 <span class="en">listening</span></td>
+      <td>실전·에이스 난이도는 다음 낱말을 <b>화면에 띄우지 않는다.</b> 관제 무전(원어민 음성)이 유일한 단서다.
+          오답기 라벨에 <code>go/goes</code>, <code>school/schools</code> 같은 <b>혼동쌍</b>을 섞어
+          귀로 구분하게 만든다.</td></tr>
+  <tr><td><b>어순대로만 격추된다</b></td><td>문장 구조 <span class="en">syntax</span></td>
+      <td>순서가 틀리면 진행되지 않는다. 어순을 '규칙 설명'이 아니라 <b>손으로 반복</b>해서 익힌다.</td></tr>
+  <tr><td><b>폭격기는 덩어리를 싣는다</b></td><td>청크 단위 처리 <span class="en">chunking</span></td>
+      <td><code>to school</code>, <code>a book</code>처럼 <b>같은 성분의 이웃 두 낱말</b>을 폭격기가 함께 싣는다.
+          낱말을 하나씩 끊어 듣던 아이가 <b>덩어리로 듣기</b> 시작하는 지점을 만든다.</td></tr>
+  <tr><td><b>문장 완성 후 무전 교신</b></td><td>발화 <span class="en">speaking</span></td>
+      <td>듣기 3회 → 따라 말하기 3회. 음성인식으로 채점하되 <b>관대하게</b>(단어 65% 일치) —
+          발음 완벽주의는 아이를 침묵시킨다.</td></tr>
+  <tr><td><b>에이스기는 말해야 조준된다</b></td><td>발화 강제 <span class="en">forced output</span></td>
+      <td>발음이 <b>점수가 아니라 진행 조건</b>이다. 말하기를 건너뛸 수 없게 만드는 유일하게 확실한 장치.</td></tr>
+  <tr><td><b>틀린 낱말을 기록한다</b></td><td>간격반복 <span class="en">spaced repetition</span></td>
+      <td>오답이 서버에 쌓여 <b>웜업·복습퀴즈에서 다시 나온다.</b> 이 게임 안에서 끝나지 않는다.</td></tr>
+</table>
+
+<h3>인지부하 관리 — 아이가 감당할 수 있게</h3>
+<ul>
+  <li><b>동시에 뜨는 목표는 최대 6기.</b> 그 이상은 '찾기'가 아니라 '눈이 아픔'이 된다.</li>
+  <li><b>낱말 라벨은 어느 난이도에서도 항상 보인다.</b> 라벨까지 숨기면 듣기 문제가 아니라 <b>찍기</b>가 된다.
+      숨기는 것은 화면 위 문장 바(다음에 올 단어)뿐이다.</li>
+  <li><b>한국어 뜻은 실전까지 유지.</b> 뜻까지 빼는 것은 최상위(에이스) 한 단계뿐.</li>
+  <li><b>오답에 목숨을 깎지 않는다.</b> 시간만 줄고 정답을 다시 들려준다.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">4</span>등장 기체<small>AIRCRAFT — 기체 종류가 곧 학습 난이도 신호</small></h2>
+
+<p>기체를 여러 종류로 두는 이유는 구색이 아닙니다. <b>실루엣이 곧 문제 유형 표시</b>가 되게 하려는 것입니다.
+아이는 두 판만 하면 "큰 쌍발기가 뜨면 덩어리 표현이구나"를 몸으로 압니다.</p>
+
+<table>
+  <tr><th>기체</th><th style="width:15%">역할</th><th style="width:14%">싣는 것</th><th style="width:10%">내구</th><th>학습 의도</th></tr>
+  <tr><td><b>A6M 제로센</b><br><span class="en">A6M Zero</span></td><td>해군 전투기</td><td>낱말 1개</td><td>1발</td>
+      <td>기본 단위. 빠르게 여러 번 맞히며 리듬을 만든다.</td></tr>
+  <tr><td><b>Ki-43 하야부사</b><br><span class="en">Ki-43 Oscar</span></td><td>육군 전투기</td><td>낱말 1개</td><td>1발</td>
+      <td>제로센과 도색·속도가 달라 <b>화면이 단조로워지지 않게</b> 한다. 조금 더 빠르다.</td></tr>
+  <tr><td><b>D3A 급강하폭격기</b><br><span class="en">D3A Val</span></td><td>폭격기(소)</td><td><b>덩어리 표현</b></td><td>2발</td>
+      <td>고정 착륙장치라 실루엣이 확 다르다. 두 낱말을 한 호흡에 듣게 만든다.</td></tr>
+  <tr><td><b>G4M 1식 육상공격기</b><br><span class="en">G4M Betty</span></td><td>폭격기(대)</td><td><b>덩어리 표현</b></td><td>3발</td>
+      <td>가장 크고 느리다. 여러 발 필요 = <b>표현을 반복해 듣는 시간</b>을 자연스럽게 번다.</td></tr>
+  <tr><td><b>적 에이스기</b><br><span class="en">Enemy Ace</span></td><td>보스</td><td><b>문장 전체</b></td><td>3발</td>
+      <td>노란 띠·붉은 스피너. <b>문장을 소리내어 말해야</b> 조준이 걸린다.</td></tr>
+</table>
+
+<div class="note">
+  <b>편법 차단.</b> 오답기도 22% 확률로 폭격기로 섞습니다.
+  안 그러면 아이가 낱말을 안 듣고 <b>"큰 비행기가 정답"</b>이라는 편법을 배웁니다.
+  학습 게임에서 가장 조용히 망하는 방식이 이것입니다.
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">5</span>난이도 3단계<small>DIFFICULTY — 같은 콘텐츠, 다른 감각 채널</small></h2>
+
+<p>난이도를 '적이 빨라짐'으로만 만들지 않았습니다. 단계마다 <b>어느 감각으로 푸는지</b>가 바뀝니다.</p>
+
+<table>
+  <tr><th style="width:14%">단계</th><th style="width:17%">다음 낱말</th><th style="width:14%">한국어 뜻</th>
+      <th style="width:16%">말하기</th><th>실제로 훈련되는 것</th></tr>
+  <tr><td><b>훈련</b><br><span class="en">Training</span></td><td>화면에 보임</td><td>보임</td><td>문장 완성 후 3회</td>
+      <td><b>읽기 + 어순.</b> 처음 오는 아이가 규칙을 익히는 단계.</td></tr>
+  <tr><td><b>실전</b><br><span class="en">Combat</span></td><td><b>가림 ▨▨▨</b></td><td>보임</td><td>문장 완성 후 3회</td>
+      <td><b>듣기.</b> 한국어 뜻만 보고, 영어는 귀로 받아 문장을 세운다.</td></tr>
+  <tr><td><b>에이스</b><br><span class="en">Ace</span></td><td><b>가림 ▨▨▨</b></td><td><b>가림</b></td><td><b>말해야 조준됨</b></td>
+      <td><b>듣기 + 말하기.</b> 문자 단서 없이 소리만으로 문장을 세우고, 입으로 마무리한다.</td></tr>
+</table>
+
+<figure>
+  <img src="img/p38-3d-04-speak.jpg" alt="무전 교신 말하기 미션 화면">
+  <figcaption>문장을 완성하면 무전 교신 — 듣기 3회 → 따라 말하기 3회(음성인식).
+    속도 3단(느리게/보통/빠르게)은 아이가 직접 고른다.</figcaption>
+</figure>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">6</span>동작하는 샘플<small>WORKING SAMPLE — 그림이 아니라 플레이 가능한 실물</small></h2>
+
+<div class="ok">
+  <b>파일:</b> <code>cloudflare-deploy/public/student-game-p38-3d.html</code> (단일 HTML, 빌드 불필요)<br>
+  <b>지금 확인 가능한 것:</b> 조종석 비행 · 5기 교전 · 어순 격추 · 덩어리(폭격기) 목표 ·
+  무전 듣기 · 격추 후 연기 추락 · 무전 교신(말하기) · 결과 리포트(오답 낱말 목록)<br>
+  <b>아직 안 붙인 것:</b> 게임 허브(<code>student-games.html</code>) 연결 — 시안 단계라 학생에게 노출하지 않았습니다.
+</div>
+
+<figure>
+  <img src="img/p38-3d-03-kill.jpg" alt="격추 후 연기를 뿜으며 추락하는 적기">
+  <figcaption>격추된 적기는 즉시 사라지지 않고 <b>검은 연기 꼬리를 그리며 회전 추락</b>한다.
+    공중전다운 맛의 상당 부분이 여기서 나온다.</figcaption>
+</figure>
+
+<figure>
+  <img src="img/p38-3d-01-start.jpg" alt="시작 화면">
+  <figcaption>시작 화면 — 학습 언어(영/중), 난이도 3단계, 교재 진도 연동(기존 <code>lesson-nav.js</code> 공용 모듈 재사용).</figcaption>
+</figure>
+
+<h3>모바일(세로 화면)</h3>
+<figure>
+  <img src="img/p38-3d-05-mobile.jpg" alt="세로 화면 모바일 플레이" style="max-width:420px;margin:0 auto">
+  <figcaption>세로 화면에서는 조종석을 하단에만 얹고 위는 전부 하늘로 둔다.
+    적기 배치 폭과 낱말 라벨 크기가 <b>화면 가로 화각에 맞춰 자동으로 좁아진다</b> —
+    고정값으로 두면 폰에서 라벨이 통째로 창밖으로 나간다.</figcaption>
+</figure>
+
+<h3>검증 결과</h3>
+<table>
+  <tr><th style="width:34%">항목</th><th>결과</th></tr>
+  <tr><td>TypeScript 컴파일 <code>npx tsc --noEmit</code></td><td><b>오류 0</b></td></tr>
+  <tr><td>회귀 하니스 <code>node test-harness/run.mjs --fast</code></td><td><b>47 PASS · 0 FAIL</b> (E2E 19건은 라이브 필요로 정상 제외)</td></tr>
+  <tr><td>실브라우저 플레이 검증</td><td>명중 판정 · 격추 · 문장 진행 · 점수 · 추락 잔해 <b>전부 동작 확인</b>(위 스크린샷은 실제 실행 화면)</td></tr>
+  <tr><td>내려받는 용량</td><td>실사 하늘 <b>104KB</b> + 실물 조종석 <b>110KB</b> + HTML 1개.
+      기체·구름·폭발은 코드 생성이라 <b>추가 0바이트</b></td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">7</span>만들면서 실제로 밟은 함정<small>PITFALLS ACTUALLY HIT — 다음 사람이 같은 데 빠지지 않게</small></h2>
+
+<p>아래는 이론이 아니라 <b>이번 샘플을 만들며 실제로 터뜨리고 고친 것들</b>입니다.</p>
+
+<table>
+  <tr><th style="width:30%">증상</th><th style="width:34%">진짜 원인</th><th>해결</th></tr>
+  <tr><td><b>하늘이 텅 비고 적기가 안 보였다</b></td>
+      <td>플레이어가 초당 150m로 전진하는데 적기를 월드 좌표에서 독립적으로 움직였다.
+          1~2초 만에 전부 뒤로 흘러갔다.</td>
+      <td>적기를 <b>플레이어 속도벡터에 얹고</b> 그 위에 회피기동만 더하는 <b>상대운동</b>으로 교체.
+          붙어 날면서 계속 창에 머문다.</td></tr>
+  <tr><td><b>가려놓은 단어가 비쳐 보였다</b></td>
+      <td><code>color:transparent</code>만 걸었더니 <b>text-shadow가 그대로 남아</b> 글자 윤곽이 읽혔다.
+          듣기 문제가 통째로 새 나갔다.</td>
+      <td>가림 상태에서 <code>text-shadow:none</code> 동시 적용.</td></tr>
+  <tr><td><b>하늘이 위아래 뒤집혔다</b></td>
+      <td>텍스처 <code>flipY</code> 때문에 캔버스 위쪽이 구의 <b>천정</b>에 온다. 그라디언트를 반대로 넣었다.</td>
+      <td>그라디언트 순서 반전. 실사 사진으로 교체하며 자연 해결.</td></tr>
+  <tr><td><b>하늘 아래로 흰 띠가 칼같이 생겼다</b></td>
+      <td>바다 평면을 깔았더니 사진 하늘과 만나는 자리에 경계선이 생겨 <b>사진이 통째로 싸구려로</b> 보였다.</td>
+      <td>바다 평면 제거. 파노라마 아래쪽이 이미 '발밑 구름바다'다. 고도는 PULL UP 경고로 지킨다.</td></tr>
+  <tr><td><b>듣기 모드가 사실은 찍기였다</b></td>
+      <td>난이도 설정 하나로 <b>문장 바와 적기 라벨을 같이</b> 숨겼다.
+          라벨이 없으면 들어도 어느 기체인지 알 수 없어 찍을 수밖에 없다.</td>
+      <td>적기 라벨은 <b>항상 표시</b>. 숨기는 것은 문장 바뿐. <b>설계 오류였고, 샘플로 잡았다.</b></td></tr>
+  <tr><td><b>적기가 창틀에 잘렸다</b></td>
+      <td>정면 유지 각을 51°로 잡았는데 화면 가로 화각이 ±47°였다.</td>
+      <td>39°로 조임. 라벨까지 화면 안에 들어온다.</td></tr>
+  <tr><td><b>실물 조종석을 붙이자 계기판이 화면을 다 덮었다</b></td>
+      <td>원본 사진이 <b>좌석 뒤에서</b> 찍혀 계기판이 한복판에 크게 나온다. 조종사 눈높이가 아니다.</td>
+      <td>사진을 140%로 키우고 아래로 −93% 밀어 <b>캐노피 아치가 화면을 감싸고 계기판은 하단</b>에 오게 배치.</td></tr>
+  <tr><td><b>조준기에 넣었는데 안 맞았다</b></td>
+      <td>계기판을 피해 조준기를 화면 30% 지점으로 올렸는데, 사격 판정은 여전히 <b>화면 정중앙</b>(카메라 정면)을 썼다.</td>
+      <td><code>aimVec()</code> 하나로 통일 — 사격·예광탄·적기 배치가 모두 조준기 위치를 기준으로 돈다.</td></tr>
+  <tr><td><b>적기가 전부 화면 위로 날아가 버렸다</b></td>
+      <td>조준 방향(위쪽)으로 적기를 밀어 넣는 로직이라, 밀수록 계속 떠올랐다.
+          게다가 상하 각도 부호를 반대로 줘서 아래로 흩뿌리려던 것이 위로 몰렸다.</td>
+      <td>적기마다 <b>조준선 기준 고정 슬롯</b>(좌우 균등 분배 + 상하 교차)을 주고 그 지점을 목표로 삼게 교체.
+          라벨이 겹치지도, 잘리지도 않는다.</td></tr>
+</table>
+
+<div class="note">
+  이 표가 이 문서에서 가장 값이 나가는 부분입니다.
+  <b>"3D 조종석 게임을 만들자"는 결정은 쉽지만, 위 6개는 실제로 만들어보기 전에는 알 수 없습니다.</b>
+  샘플을 먼저 만든 이유가 이것입니다.
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">8</span>기술 구성<small>TECH — 비용 최소·경량·저사양 우선</small></h2>
+
+<table>
+  <tr><th style="width:26%">항목</th><th>내용</th></tr>
+  <tr><td>렌더</td><td>로컬 <code>/vendor/three/three.min.js</code> (r128, 이미 저장소에 있음). <b>외부 CDN 의존 0</b></td></tr>
+  <tr><td>기체·구름·폭발</td><td>전부 절차생성(코드). 다운로드 0바이트, 저사양 안드로이드 대응</td></tr>
+  <tr><td>하늘</td><td>실사 파노라마 1장(104KB). 로드 실패 시 코드 그라디언트로 자동 폴백 — <b>하늘이 비는 일은 없다</b></td></tr>
+  <tr><td>조종석</td><td>실물 조종석 사진을 크로마키한 알파 WebP(110KB). 초록이 빠진 자리로 3D 하늘이 그대로 비친다.
+      배치는 CSS 변수 <code>--cpW/--cpB</code> 두 개로만 조절 — 세로 화면(모바일)은 미디어쿼리로 따로 잡는다</td></tr>
+  <tr><td>음성(듣기)</td><td>기존 계단 그대로: <code>/api/voice/tts</code>(영어 원어민) → <code>/api/tts-free</code>(중국어) → 앱 네이티브 → 기기 음성</td></tr>
+  <tr><td>음성인식(말하기)</td><td><code>mangoi-stt.js</code> 공용 모듈 재사용(안드로이드 세션 조기종료 대응 포함)</td></tr>
+  <tr><td>교재 연동</td><td><code>lesson-nav.js</code> 공용 모듈 재사용 — 학생 배정 교재의 레슨 문장이 그대로 들어온다</td></tr>
+  <tr><td>학습기록</td><td><code>/api/games/progress</code> — <b>서버 신규 개발 없음</b></td></tr>
+  <tr><td>WebGL 불가 기기</td><td>2D 버전(<code>student-game-language-ace.html</code>)으로 자동 안내</td></tr>
+</table>
+
+<div class="ok">
+  <b>서버 작업이 필요 없습니다.</b> 신규 API 0개, DB 변경 0건, <code>src/index.ts</code> 수정 0줄.
+  프론트 파일 하나만 추가하면 되는 구조로 설계했습니다(공동 금지구역을 건드리지 않습니다).
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">9</span>실사화 — 현재 상태와 남은 것<small>PHOTOREALISM — what's done, what's blocked</small></h2>
+
+<p>사장님 지시대로 힉스필드로 실사 에셋을 만들었습니다. <b>결과와 한계를 그대로 보고드립니다.</b></p>
+
+<table>
+  <tr><th style="width:22%">에셋</th><th style="width:16%">상태</th><th>비고</th></tr>
+  <tr><td>실사 하늘 파노라마</td><td><b style="color:#4ade80">완료·적용됨</b></td>
+      <td>힉스필드 생성 → 104KB로 압축해 스카이돔에 적용. 위 스크린샷의 하늘이 이것입니다.</td></tr>
+  <tr><td>A6M 제로센 실사 렌더</td><td><b style="color:#4ade80">생성 완료</b></td>
+      <td>고품질 이미지 확보. <b>3D 변환은 크레딧 부족으로 미실행.</b></td></tr>
+  <tr><td>G4M 폭격기 · Ki-43 실사</td><td><b style="color:#f87171">생성 실패</b></td>
+      <td>힉스필드 <b>크레딧 소진</b>(잔액 1.5). 요청이 거부됐습니다.</td></tr>
+  <tr><td>기체 3D 모델(GLB)</td><td><b style="color:#f87171">미실행</b></td>
+      <td>이미지 → GLB 변환에 크레딧 필요. 현재는 <b>코드로 그린 기체</b>가 그 자리를 대신합니다.</td></tr>
+  <tr><td>P-38 조종석 실사 내부</td><td><b style="color:#4ade80">완료·적용됨</b></td>
+      <td>사장님이 주신 <b>실물 P-38 조종석 그린스크린 사진</b>(<code>game_image/P_38.PNG</code>)을
+          크로마키 처리 → 알파 WebP <b>110KB</b>. 힉스필드 생성이 필요 없었습니다.</td></tr>
+</table>
+
+<div class="warn">
+  <b>결정이 필요합니다 — 힉스필드 크레딧 충전 여부.</b><br>
+  충전해 주시면 ① 기체 4종 실사 이미지 → ② GLB 3D 모델 변환까지 이어서 붙이겠습니다.
+  코드는 <b>이미 교체 가능하게</b> 설계해 뒀습니다(<code>PLANE[기체].url</code> 에 GLB 경로만 넣으면 자동 교체).<br>
+  <b>충전하지 않아도 게임은 지금 상태로 완결됩니다.</b>
+  하늘과 조종석이 둘 다 실사라 체감 품질의 대부분은 이미 확보했습니다 — 남은 건 적기뿐입니다.
+</div>
+
+<div class="note">
+  <b>실사 GLB의 알려진 함정</b>(탱크대전에서 이미 겪은 것) — 힉스필드 GLB는 <b>모델마다 축이 90°씩 제각각</b>입니다.
+  기체를 붙일 때 마커로 축을 실측하고, 14MB급 파일은 <b>미리 받아두지 않으면 흰 폴백</b>이 뜹니다.
+  실사화를 진행한다면 이 두 가지를 일정에 반드시 포함해야 합니다.
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="n">10</span>다음 단계<small>ROADMAP</small></h2>
+
+<table>
+  <tr><th style="width:9%">단계</th><th style="width:30%">할 일</th><th style="width:15%">예상</th><th>선행 조건</th></tr>
+  <tr><td><b>0</b></td><td>지금 이 샘플 검토 · 방향 확정</td><td>—</td><td><b>사장님 확인</b></td></tr>
+  <tr><td><b>1</b></td><td>모바일 실기기 조작 튜닝(드래그 감도·발사 버튼 위치)</td><td>0.5일</td><td>없음</td></tr>
+  <tr><td><b>2</b></td><td>중국어 모드 문장·혼동쌍 보강, 교재 진도 연동 실검증</td><td>0.5일</td><td>없음</td></tr>
+  <tr><td><b>3</b></td><td>게임 허브 연결 + 코인·랭킹 연동</td><td>0.5일</td><td>1·2 완료</td></tr>
+  <tr><td><b>4</b></td><td>실사 GLB 기체 4종 교체</td><td>1~2일</td><td><b>힉스필드 크레딧</b></td></tr>
+  <tr><td><b>5</b></td><td><s>P-38 조종석 실사 내부 적용</s> — <b style="color:#4ade80">완료</b></td><td>—</td><td>사장님 제공 사진으로 해결</td></tr>
+  <tr><td><b>6</b></td><td>학생 소수 대상 시범 → 체류시간·정답률 비교(2D 버전 대비)</td><td>1주</td><td>3 완료</td></tr>
+</table>
+
+<h3>확인 부탁드릴 3가지</h3>
+<ol>
+  <li><b>방향이 맞습니까?</b> — 조종석 1인칭 + 듣기/말하기 강제 구조.</li>
+  <li><b>힉스필드 크레딧을 충전할까요?</b> — 실사 기체·실사 조종석은 여기에 달려 있습니다.</li>
+  <li><b>2D 버전과의 관계</b> — 3D를 별도 게임으로 둘까요, 2D를 대체할까요?
+      (권장: <b>당분간 병행.</b> 저사양·저학년은 2D가 더 낫습니다)</li>
+</ol>
+
+<div class="foot">
+  망고아이 학습콘텐츠 · P-38 3D 조종석 영어 공중전 기획 제안서 v1.0 · 2026-07-28<br>
+  샘플: <code>cloudflare-deploy/public/student-game-p38-3d.html</code> ·
+  검증: tsc 오류 0 / 회귀 하니스 47 PASS 0 FAIL / 실브라우저 플레이 확인
+</div>
+
+</div>
+</body>
+</html>
