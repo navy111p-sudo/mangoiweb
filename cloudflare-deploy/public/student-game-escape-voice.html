@@ -335,12 +335,20 @@ function advance(){
   // 결과 장면으로 전환
   setScene(s.scene);
   logProg(s.id, true);
-  speak(s.say, function(){
+  // 🔒 안전장치 — TTS 콜백이 오지 않아도(음성 미지원·재생 차단 등) 게임이 잠기지 않게
+  //    콜백과 타임아웃 중 먼저 오는 쪽으로 1회만 진행한다.
+  var moved=false;
+  function go(){
+    if(moved) return; moved=true;
+    clearTimeout(G._advT);
     G.busy=false;
     G.i++;
     if(G.i>=STEPS.length){ win(); return; }
     showStep();
-  });
+  }
+  G._advT=setTimeout(go, 6000);
+  G._skip=go;                        // 화면을 탭하면 내레이션 건너뛰기
+  speak(s.say, go);
   hintTxt('<span style="color:#a3e635">'+s.sayKo+'</span>');
   if(s.id==='code') sndUnlock();
 }
@@ -484,6 +492,8 @@ function startGame(){
   speak('You are locked in. Look around the room.');
   if(!SR) enableTyping('이 브라우저는 음성인식이 없어요 — 타이핑으로 진행하세요');
 }
+/* 내레이션 중 화면 탭 = 건너뛰기 (기다리기 싫은 학생 배려) */
+$('scene').addEventListener('click', function(){ if(G && G.busy && G._skip){ _ttsStop(); G._skip(); } });
 $('btnStart').addEventListener('click', startGame);
 $('btnAgain').addEventListener('click', startGame);
 $('micBtn').addEventListener('click', listen);
