@@ -78,8 +78,11 @@
     text-transform:uppercase;margin-top:3px}
   .oSub{margin-top:8px;font-size:clamp(13px,3vw,15px);color:#b8c6d6;font-weight:600}
   /* 본문: PC·큰태블릿=2열 / 그 이하=1열 */
-  .sBody{display:grid;grid-template-columns:1fr;gap:12px;width:100%;max-width:420px;text-align:left}
-  @media(min-width:860px){ .sBody{grid-template-columns:1fr 1fr;max-width:860px;align-items:start} }
+  /* 휴대폰=설정→시작버튼→도움말 (버튼이 항상 화면 안) / PC=설정|도움말 위 2열, 버튼은 아래 전체폭 */
+  .sBody{display:grid;grid-template-columns:1fr;grid-template-areas:"set" "btn" "help";
+    gap:11px;width:100%;max-width:420px;text-align:left;justify-items:stretch}
+  @media(min-width:860px){ .sBody{grid-template-columns:1fr 1fr;grid-template-areas:"set help" "btn btn";
+    max-width:860px;align-items:start} }
   .sCard{background:rgba(14,24,36,.72);border:1px solid rgba(140,165,195,.22);border-radius:14px;
     padding:13px 14px;backdrop-filter:blur(4px)}
   .sCardT{font-size:12px;font-weight:800;color:#ffd479;letter-spacing:1.2px;text-transform:uppercase;
@@ -122,10 +125,12 @@
   .tipList li{padding:5px 0;line-height:1.55}
   .ctlList b,.tipList b{color:#ffd479}
   /* 시작 버튼 */
-  .bigBtn{margin-top:18px;padding:14px 46px;border-radius:14px;font-size:clamp(17px,4vw,20px);font-weight:900;cursor:pointer;
+  .bigBtn{padding:14px 46px;border-radius:14px;font-size:clamp(17px,4vw,20px);font-weight:900;cursor:pointer;
     border:none;color:#1a2028;background:linear-gradient(180deg,#ffe08a,#e0a838);
-    box-shadow:0 6px 20px rgba(224,168,56,.45),inset 0 1px 0 rgba(255,255,255,.6);letter-spacing:.5px}
+    box-shadow:0 6px 20px rgba(224,168,56,.45),inset 0 1px 0 rgba(255,255,255,.6);letter-spacing:.5px;
+    justify-self:center;min-width:230px}
   .bigBtn:active{transform:translateY(2px)}
+  #over .bigBtn{margin-top:16px}   /* 종료화면은 그리드 밖이라 여백 필요 */
   /* 작은 휴대폰 — 여백·폰트 한 단계 더 축소 */
   @media(max-width:400px){
     .sCard{padding:11px 12px}
@@ -234,7 +239,7 @@
 
     <div class="sBody">
       <!-- ── 설정 카드 ── -->
-      <section class="sCard">
+      <section class="sCard" style="grid-area:set">
         <div class="sCardT">게임 설정</div>
 
         <div class="sField">
@@ -280,8 +285,11 @@
         <div class="diffHint">높일수록 적 전차가 빠르고 많아져요 (1 쉬움 ~ 7 어려움)</div>
       </section>
 
+      <!-- ▶ 시작 버튼 — 휴대폰에선 설정 바로 아래(항상 화면 안), PC에선 두 카드 아래 -->
+      <button class="bigBtn" id="btnStart" style="grid-area:btn">▶ 전투 시작!</button>
+
       <!-- ── 조작법 카드 ── -->
-      <section class="sCard">
+      <section class="sCard" style="grid-area:help">
         <div class="sCardT">조작법</div>
         <ul class="ctlList">
           <li><span class="ck">🕹 이동</span><span class="cv"><b>마우스</b>를 움직이면 탱크가 따라와요<em>휴대폰·태블릿은 손가락으로 끌어요</em></span></li>
@@ -297,8 +305,6 @@
         </ul>
       </section>
     </div>
-
-    <button class="bigBtn" id="btnStart">▶ 전투 시작!</button>
   </div>
 
   <!-- 종료 화면 -->
