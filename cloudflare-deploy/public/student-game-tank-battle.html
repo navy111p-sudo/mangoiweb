@@ -69,40 +69,71 @@
   .overlay>:first-child{margin-top:auto}
   .overlay>:last-child{margin-bottom:auto}
   .overlay.hide{display:none}
-  .oTitle{font-size:34px;font-weight:900;letter-spacing:.5px;
+  /* ══ 시작화면 레이아웃 (2026-07-27 재정돈: 휴대폰·태블릿·PC 반응형) ══ */
+  .sHead{text-align:center;margin-bottom:16px}
+  .oTitle{font-size:clamp(26px,6vw,38px);font-weight:900;letter-spacing:.5px;margin:0;
     background:linear-gradient(180deg,#ffe9a8,#e0b048);-webkit-background-clip:text;background-clip:text;
-    -webkit-text-fill-color:transparent;text-shadow:0 2px 8px rgba(0,0,0,.4);line-height:1.1}
-  .oSub{margin-top:6px;font-size:15px;color:#b8c6d6;font-weight:600}
-  .oRules{margin:14px 0;font-size:14px;color:#c8d4e2;line-height:1.85;max-width:410px}
-  .oRules b{color:#ffd479}
-  /* 🎮 사용방법 표 (2026-07-27 사장님 지시) — 조작을 한눈에 */
-  .howto{width:100%;max-width:430px;margin:12px 0 6px;border-collapse:separate;border-spacing:0;
-    background:rgba(15,26,38,.62);border:1px solid rgba(140,165,195,.28);border-radius:12px;overflow:hidden;
-    font-size:13.5px;color:#d4dfec}
-  .howto caption{caption-side:top;text-align:left;font-size:14px;font-weight:800;color:#ffd479;padding:0 0 7px 2px}
-  .howto th{background:rgba(255,212,121,.10);color:#ffd479;font-weight:800;font-size:12.5px;
-    text-align:left;padding:8px 12px;border-bottom:1px solid rgba(140,165,195,.24)}
-  .howto td{padding:9px 12px;border-bottom:1px solid rgba(140,165,195,.14);line-height:1.55;vertical-align:top}
-  .howto tr:last-child td{border-bottom:0}
-  .howto .hk{white-space:nowrap;font-weight:800;color:#eaf2ff;width:88px}
-  .howto b{color:#ffd479}
-  @media(max-width:420px){ .howto{font-size:12.5px} .howto .hk{width:74px} .howto td,.howto th{padding:7px 9px} }
-  .langRow{display:flex;gap:10px;margin:6px 0 4px;flex-wrap:wrap;justify-content:center}
-  .langBtn{padding:10px 20px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;
-    border:2px solid rgba(140,165,195,.35);background:rgba(20,32,46,.7);color:#c8d4e2;transition:.15s}
-  .langBtn.on{border-color:#ffd479;color:#fff6da;background:linear-gradient(180deg,#3a4a5e,#26323f);box-shadow:0 0 16px rgba(255,190,60,.4)}
-  .diffRow{display:flex;gap:10px;align-items:center;margin:8px 0 2px}
-  .diffLab{font-size:16px;font-weight:800;color:#c8d4e2}
-  .diffBtn{width:42px;height:42px;border-radius:11px;font-size:24px;font-weight:900;cursor:pointer;line-height:1;
-    border:2px solid rgba(140,165,195,.4);background:rgba(20,32,46,.85);color:#ffe08a;display:flex;align-items:center;justify-content:center}
+    -webkit-text-fill-color:transparent;text-shadow:0 2px 8px rgba(0,0,0,.4);line-height:1.15}
+  .oTitleEn{font-size:clamp(12px,2.6vw,15px);font-weight:700;color:#8fa6bd;letter-spacing:2.5px;
+    text-transform:uppercase;margin-top:3px}
+  .oSub{margin-top:8px;font-size:clamp(13px,3vw,15px);color:#b8c6d6;font-weight:600}
+  /* 본문: PC·큰태블릿=2열 / 그 이하=1열 */
+  .sBody{display:grid;grid-template-columns:1fr;gap:12px;width:100%;max-width:420px;text-align:left}
+  @media(min-width:860px){ .sBody{grid-template-columns:1fr 1fr;max-width:860px;align-items:start} }
+  .sCard{background:rgba(14,24,36,.72);border:1px solid rgba(140,165,195,.22);border-radius:14px;
+    padding:13px 14px;backdrop-filter:blur(4px)}
+  .sCardT{font-size:12px;font-weight:800;color:#ffd479;letter-spacing:1.2px;text-transform:uppercase;
+    margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid rgba(140,165,195,.18)}
+  /* 라벨 + 컨트롤 한 줄 */
+  .sField{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .sField:last-of-type{margin-bottom:0}
+  .sLab{flex:0 0 46px;font-size:12.5px;font-weight:800;color:#93a7bd}
+  .segRow{display:flex;gap:5px;flex:1;min-width:0}
+  /* 세그먼트 버튼 — 균등 분할, 컴팩트 */
+  .langBtn{flex:1;min-width:0;padding:8px 6px;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;
+    border:1.5px solid rgba(140,165,195,.28);background:rgba(22,34,48,.75);color:#b9c8d8;transition:.15s;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+  .langBtn:hover{border-color:rgba(255,212,121,.5);color:#e2ecf7}
+  .langBtn.on{border-color:#ffd479;color:#fff6da;background:linear-gradient(180deg,#3d4f64,#25313e);
+    box-shadow:0 0 12px rgba(255,190,60,.35)}
+  /* 난이도 */
+  .diffRow{display:flex;gap:7px;align-items:center;flex:1}
+  .diffBtn{width:32px;height:32px;flex:0 0 32px;border-radius:8px;font-size:19px;font-weight:900;cursor:pointer;line-height:1;
+    border:1.5px solid rgba(140,165,195,.34);background:rgba(22,34,48,.85);color:#ffe08a;
+    display:flex;align-items:center;justify-content:center;padding:0}
   .diffBtn:active{transform:scale(.9)}
-  .diffVal{min-width:46px;text-align:center;font-size:30px;font-weight:900;color:#ffd479;text-shadow:0 2px 6px #000;font-variant-numeric:tabular-nums}
-  .diffTag{font-size:15px;font-weight:800;color:#a7c4e6;min-width:64px;text-align:left}
-  .diffHint{font-size:12px;color:#8aa0b8;margin:0 0 2px;max-width:410px;text-align:center;line-height:1.4}
-  .bigBtn{margin-top:14px;padding:14px 44px;border-radius:14px;font-size:20px;font-weight:900;cursor:pointer;
+  .diffVal{min-width:28px;text-align:center;font-size:22px;font-weight:900;color:#ffd479;
+    text-shadow:0 2px 6px #000;font-variant-numeric:tabular-nums}
+  .diffTag{font-size:12.5px;font-weight:800;color:#a7c4e6}
+  .diffHint{font-size:11px;color:#7e93a8;margin-top:8px;line-height:1.45}
+  /* 조작법 · 목표 리스트 */
+  .ctlList,.tipList{list-style:none;margin:0;padding:0;font-size:12.5px;color:#cfdbe8}
+  .ctlList li{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid rgba(140,165,195,.12)}
+  .ctlList li:last-child{border-bottom:0}
+  .ctlList .ck{flex:0 0 52px;font-weight:800;color:#eaf2ff;white-space:nowrap}
+  .ctlList .cv{flex:1;line-height:1.5}
+  .ctlList em{display:block;font-style:normal;font-size:11px;color:#7e93a8;margin-top:2px}
+  .tipList li{padding:5px 0;line-height:1.55}
+  .ctlList b,.tipList b{color:#ffd479}
+  /* 시작 버튼 */
+  .bigBtn{margin-top:18px;padding:14px 46px;border-radius:14px;font-size:clamp(17px,4vw,20px);font-weight:900;cursor:pointer;
     border:none;color:#1a2028;background:linear-gradient(180deg,#ffe08a,#e0a838);
     box-shadow:0 6px 20px rgba(224,168,56,.45),inset 0 1px 0 rgba(255,255,255,.6);letter-spacing:.5px}
   .bigBtn:active{transform:translateY(2px)}
+  /* 작은 휴대폰 — 여백·폰트 한 단계 더 축소 */
+  @media(max-width:400px){
+    .sCard{padding:11px 12px}
+    .sLab{flex-basis:40px;font-size:11.5px}
+    .langBtn{font-size:11.5px;padding:7px 4px}
+    .ctlList .ck{flex-basis:46px}
+    .sHead{margin-bottom:12px}
+  }
+  /* 가로로 눕힌 휴대폰 — 제목 축소해 스크롤 최소화 */
+  @media(max-height:520px){
+    .sHead{margin-bottom:8px}
+    .oTitle{font-size:22px} .oTitleEn{display:none} .oSub{font-size:12px;margin-top:4px}
+    .bigBtn{margin-top:12px;padding:11px 38px}
+  }
   #overStat{font-size:17px;color:#dbe6f2;margin:8px 0 2px;line-height:1.7}
   #overStat b{color:#ffd479;font-size:22px}
 
@@ -189,47 +220,78 @@
 
   <!-- 시작 화면 -->
   <div class="overlay" id="start">
-    <div class="oTitle">🛡️ 셔먼 탱크대전<br><span style="font-size:20px;font-weight:700;color:#cfe0f0;-webkit-text-fill-color:#cfe0f0">(Tank Battle)</span></div>
-    <div class="oSub" id="startSub">문장을 어순대로 격파하라!</div>
-    <div class="langRow">
-      <button class="langBtn" id="lgEn" data-l="en">🇺🇸 English</button>
-      <button class="langBtn" id="lgZh" data-l="zh">🇨🇳 中文</button>
+    <div class="sHead">
+      <h1 class="oTitle">🛡️ 셔먼 탱크대전</h1>
+      <div class="oTitleEn">Tank Battle</div>
+      <div class="oSub" id="startSub">문장을 어순대로 격파하라!</div>
     </div>
-    <div class="langRow" id="fieldRow">
-      <button class="langBtn fieldBtn" data-f="grass">🌿 초원(발지)</button>
-      <button class="langBtn fieldBtn" data-f="desert">🏜️ 사막(이집트)</button>
-      <button class="langBtn fieldBtn" data-f="snow">❄️ 설원(러시아)</button>
+
+    <div class="sBody">
+      <!-- ── 설정 카드 ── -->
+      <section class="sCard">
+        <div class="sCardT">게임 설정</div>
+
+        <div class="sField">
+          <span class="sLab">언어</span>
+          <div class="segRow">
+            <button class="langBtn" id="lgEn" data-l="en">🇺🇸 English</button>
+            <button class="langBtn" id="lgZh" data-l="zh">🇨🇳 中文</button>
+          </div>
+        </div>
+
+        <div class="sField">
+          <span class="sLab">전장</span>
+          <div class="segRow" id="fieldRow">
+            <button class="langBtn fieldBtn" data-f="grass">🌿 초원</button>
+            <button class="langBtn fieldBtn" data-f="desert">🏜️ 사막</button>
+            <button class="langBtn fieldBtn" data-f="snow">❄️ 설원</button>
+          </div>
+        </div>
+
+        <div class="sField">
+          <span class="sLab">화면</span>
+          <div class="segRow" id="viewRow">
+            <button class="langBtn viewBtn" data-v="2d">🖥️ 2D 클래식</button>
+            <button class="langBtn viewBtn" data-v="quarter">🎬 3D 입체</button>
+          </div>
+        </div>
+
+        <!-- 📚 진도(레슨) 네비게이션: ◀복습 / ▶예습 -->
+        <div class="sField">
+          <span class="sLab">진도</span>
+          <div id="lessonNav"></div>
+        </div>
+
+        <div class="sField">
+          <span class="sLab">난이도</span>
+          <div class="diffRow" id="diffRow">
+            <button class="diffBtn" id="diffMinus" aria-label="난이도 낮추기">−</button>
+            <span class="diffVal" id="diffVal">4</span>
+            <button class="diffBtn" id="diffPlus" aria-label="난이도 높이기">＋</button>
+            <span class="diffTag" id="diffTag">보통</span>
+          </div>
+        </div>
+        <div class="diffHint">높일수록 적 전차가 빠르고 많아져요 (1 쉬움 ~ 7 어려움)</div>
+      </section>
+
+      <!-- ── 조작법 카드 ── -->
+      <section class="sCard">
+        <div class="sCardT">조작법</div>
+        <ul class="ctlList">
+          <li><span class="ck">🕹 이동</span><span class="cv"><b>마우스</b>를 움직이면 탱크가 따라와요<em>휴대폰·태블릿은 손가락으로 끌어요</em></span></li>
+          <li><span class="ck">🎯 조준</span><span class="cv">포탑이 <b>적을 자동으로 겨눠요</b><em>따로 조준할 필요 없어요</em></span></li>
+          <li><span class="ck">💥 발사</span><span class="cv"><b>클릭</b> 또는 <b>스페이스</b><em>휴대폰은 화면을 탭하세요</em></span></li>
+        </ul>
+
+        <div class="sCardT" style="margin-top:14px">게임 목표</div>
+        <ul class="tipList">
+          <li>🔤 문장의 <b>금색 단어</b>를 실은 전차를 <b>순서대로</b> 격파!</li>
+          <li>⛽ <b>연료통</b>을 쏘거나 밟으면 시간이 충전돼요</li>
+          <li>💣 적 전차가 쏘는 <b>포탄은 피하세요</b></li>
+        </ul>
+      </section>
     </div>
-    <div class="langRow" id="viewRow">
-      <button class="langBtn viewBtn" data-v="2d">🖥️ 2D 클래식</button>
-      <button class="langBtn viewBtn" data-v="quarter">🎬 3D 쿼터뷰</button>
-    </div>
-    <!-- 📚 진도(레슨) 네비게이션: ◀복습 / ▶예습 -->
-    <div id="lessonNav" style="margin-top:4px"></div>
-    <div class="diffRow" id="diffRow">
-      <span class="diffLab">🎯 난이도</span>
-      <button class="diffBtn" id="diffMinus" aria-label="난이도 낮추기">−</button>
-      <span class="diffVal" id="diffVal">4</span>
-      <button class="diffBtn" id="diffPlus" aria-label="난이도 높이기">＋</button>
-      <span class="diffTag" id="diffTag">보통</span>
-    </div>
-    <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
-    <!-- 🎮 사용방법 — 조작 3가지를 표로 한눈에 -->
-    <table class="howto">
-      <caption>🎮 사용방법</caption>
-      <thead><tr><th colspan="2">조작</th></tr></thead>
-      <tbody>
-        <tr><td class="hk">🕹 이동</td><td><b>마우스</b>를 움직이면 탱크가 따라와요 (<b>W A S D</b>·화살표도 가능)</td></tr>
-        <tr><td class="hk">🎯 조준</td><td>포탑이 <b>적을 자동으로 겨눔</b> (정답 단어 전차 우선) — 조준 조작 불필요</td></tr>
-        <tr><td class="hk">💥 발사</td><td><b>스페이스</b> 또는 <b>클릭</b> (길게 누르면 연사)</td></tr>
-      </tbody>
-    </table>
-    <div class="oRules">
-      <span style="opacity:.85">📱 휴대폰·태블릿은 손가락으로 끌어 이동, 탭하면 발사예요</span><br>
-      🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
-      ⛽ <b>젤리 연료통</b>을 쏘거나 밟으면 연료(시간) 충전<br>
-      💣 적 <b>타이거·자주포</b>의 포탄을 피하세요!
-    </div>
+
     <button class="bigBtn" id="btnStart">▶ 전투 시작!</button>
   </div>
 
@@ -2004,6 +2066,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727220501 -->
+<!-- BUILD:20260727224203 -->
 </body>
 </html>
