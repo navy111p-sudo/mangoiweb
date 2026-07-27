@@ -34,6 +34,23 @@
     'review-quiz':'/review-quiz.html'
   };
 
+  // 🗂 [2026-07-27] 대분류 묶음 (직원 피드백 #5)
+  //   그동안 아래 ITEMS 18개를 **그룹 없이 평면 나열**해서, 학부모가 "관리자"와 "학생게임"을
+  //   같은 층에서 훑어야 했다. 한 번에 훑을 수 있는 한계를 넘는 개수다.
+  //   ⚠️ 접기(accordion)로 만들지 않았다 — 접으면 모든 항목이 클릭 1회씩 더 든다.
+  //      대분류 제목만 얹어 '어디를 보면 되는지'를 주고, 항목은 그대로 1클릭으로 둔다.
+  //   ⚠️ 제목은 i18n 사전이 아니라 data-ko/data-en 으로 직접 준다(사전은 전체문자열 일치라
+  //      새 문구를 넣으면 번역이 비는데, 여기서 명시하면 그 위험이 없다).
+  var GROUPS = [
+    { ko:'우리 아이 학습', en:'My Child',      go:['mypage','report','lesson-change'] },
+    { ko:'수업',          en:'Classes',        go:['booking','precheck','warmup','leveltest'] },
+    { ko:'학습 도구',     en:'Learning Tools', go:['student-game','review-quiz','speech','points-shop'] },
+    { ko:'결제 · 문의',   en:'Billing & Help', go:['payment','refund','inquiry','faq'] }
+  ];
+  // 그룹에 넣지 않고 맨 위/맨 아래에 그대로 두는 것 (성격이 달라 분류가 어색한 항목)
+  var PINNED_TOP    = ['about'];
+  var PINNED_BOTTOM = ['all-menu','admin'];
+
   // 메뉴 항목 정의 (라벨/별점/아이콘)
   var ITEMS = [
     { go:'about',       cls:'mg-hl mg-s3', ko:'망고아이란?',        en:'About Mangoi',  img:'/img/Mangoi_Character.png' },
@@ -68,6 +85,8 @@
     + '.mg-drawer-x:hover{background:rgba(251,191,36,.18);color:#fbbf24;border-color:rgba(251,191,36,.55);transform:rotate(90deg)}'
     + '.mg-drawer-nav{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px 12px;padding-bottom:24px;display:flex;flex-direction:column;gap:6px}'
     + '.mg-drawer-nav>*{flex:0 0 auto}'
+    + '.mg-grp-h{margin:12px 2px 2px;padding:0 2px 5px;font-size:11px;font-weight:800;letter-spacing:.6px;color:rgba(253,230,138,.82);text-transform:none;border-bottom:1px solid rgba(251,191,36,.18)}'
+    + '.mg-drawer-nav>.mg-grp-h:first-child{margin-top:2px}'
     + '.mg-drawer-nav button{text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);color:#e2e8f0;padding:12px 14px;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;transform-origin:left center;transition:background .18s ease,transform .18s ease,box-shadow .18s ease,border-color .18s ease}'
     + '.mg-drawer-nav button:hover{background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.45);transform:scale(1.045);box-shadow:0 4px 14px rgba(251,191,36,.18)}'
     + '.mg-drawer-nav button:active{background:rgba(251,191,36,.22);transform:scale(.98)}'
@@ -93,17 +112,37 @@
     + '@media (prefers-reduced-motion: reduce){#mg-drawer-tab{animation:none !important;opacity:1 !important;box-shadow:0 0 16px rgba(251,191,36,.85),0 0 30px rgba(251,191,36,.5) !important;border-color:rgba(251,191,36,.95) !important}}';
 
   // ---- 마크업 ----
+  function btnHtml(it){
+    if (!it) return '';
+    var clsAttr = it.cls ? ' class="'+it.cls+'"' : '';
+    if (it.img){
+      var inner = '<img src="'+it.img+'" alt="" style="height:20px;width:20px;object-fit:contain;vertical-align:middle;margin-right:6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"><span data-ko="'+it.ko+'" data-en="'+it.en+'">'+it.ko+'</span>';
+      return '<button'+clsAttr+' onclick="mgGo(\''+it.go+'\')">'+inner+'</button>';
+    }
+    return '<button'+clsAttr+' onclick="mgGo(\''+it.go+'\')" data-ko="'+it.ko+'" data-en="'+it.en+'">'+it.ko+'</button>';
+  }
+  function byGo(code){
+    for (var i=0;i<ITEMS.length;i++){ if (ITEMS[i].go === code) return ITEMS[i]; }
+    return null;
+  }
   function buildNav(){
-    return ITEMS.map(function(it){
-      var inner = it.img
-        ? '<img src="'+it.img+'" alt="" style="height:20px;width:20px;object-fit:contain;vertical-align:middle;margin-right:6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"><span data-ko="'+it.ko+'" data-en="'+it.en+'">'+it.ko+'</span>'
-        : '';
-      var clsAttr = it.cls ? ' class="'+it.cls+'"' : '';
-      if (it.img){
-        return '<button'+clsAttr+' onclick="mgGo(\''+it.go+'\')">'+inner+'</button>';
-      }
-      return '<button'+clsAttr+' onclick="mgGo(\''+it.go+'\')" data-ko="'+it.ko+'" data-en="'+it.en+'">'+it.ko+'</button>';
+    var used = {};
+    var html = PINNED_TOP.map(function(c){ used[c]=1; return btnHtml(byGo(c)); }).join('');
+
+    html += GROUPS.map(function(g){
+      var items = g.go.map(function(c){ used[c]=1; return btnHtml(byGo(c)); }).join('');
+      if (!items) return '';
+      return '<div class="mg-grp-h" data-ko="'+g.ko+'" data-en="'+g.en+'">'+g.ko+'</div>' + items;
     }).join('');
+
+    // 🛟 그룹에도 PINNED 에도 없는 항목이 생기면 조용히 사라지지 않게 맨 아래로 모은다.
+    //   (나중에 ITEMS 에 메뉴를 추가하고 GROUPS 등록을 잊어도 메뉴가 없어지지 않는다)
+    var rest = ITEMS.filter(function(it){ return !used[it.go] && PINNED_BOTTOM.indexOf(it.go) < 0; });
+    var bottom = PINNED_BOTTOM.map(function(c){ return btnHtml(byGo(c)); }).join('');
+    if (rest.length || bottom){
+      html += '<div class="mg-grp-h" data-ko="기타" data-en="More">기타</div>' + rest.map(btnHtml).join('') + bottom;
+    }
+    return html;
   }
 
   function inject(){

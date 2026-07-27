@@ -11,7 +11,7 @@
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=14"></script>
+<script defer src="/js/i18n-sweep.js?v=15"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -6269,6 +6269,44 @@ window.mgIsSlowNet = function(){
           <span data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</span>
         </button>
       </div>
+      <!-- 🧭 [2026-07-27] 수업 진행 4단계 (직원 피드백 #6 — 원안은 '첫 진입 튜토리얼')
+           원안(자동 재생 오버레이)은 채택하지 않았다. 홈에는 이미 설치 배너·팝업·AI 상담사가
+           떠 있어 가림 요소가 하나 더 느는 데다, 필리핀 회선 대응으로 첫 진입 용량을 줄이는
+           작업과 정반대다. 재방문자(대부분)에게는 매번 방해가 된다.
+           대신 '무엇을 궁금해하는가(=절차)'만 상시 노출로 답한다.
+           ⚠️ 자동 재생·오버레이·강제 진행 금지. 누르면 그 단계로 가는 것까지가 전부. -->
+      <div class="home-flow" role="list">
+        <button type="button" role="listitem" class="hf-step" onclick="window.openInquiryModal&&window.openInquiryModal()">
+          <span class="hf-n">1</span><span class="hf-t" data-ko="무료 상담" data-en="Free consult">무료 상담</span>
+        </button>
+        <span class="hf-ar" aria-hidden="true">›</span>
+        <button type="button" role="listitem" class="hf-step" onclick="location.href='/level-test.html'">
+          <span class="hf-n">2</span><span class="hf-t" data-ko="레벨 테스트" data-en="Level test">레벨 테스트</span>
+        </button>
+        <span class="hf-ar" aria-hidden="true">›</span>
+        <button type="button" role="listitem" class="hf-step" onclick="showView('view-videocall-lobby')">
+          <span class="hf-n">3</span><span class="hf-t" data-ko="1:1 화상수업" data-en="1:1 class">1:1 화상수업</span>
+        </button>
+        <span class="hf-ar" aria-hidden="true">›</span>
+        <button type="button" role="listitem" class="hf-step" onclick="if(window.gridActions&&window.gridActions.report)window.gridActions.report()">
+          <span class="hf-n">4</span><span class="hf-t" data-ko="평가표 · 복습" data-en="Report & review">평가표 · 복습</span>
+        </button>
+      </div>
+      <style>
+        .home-flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;margin:14px auto 0;max-width:640px}
+        .home-flow .hf-step{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:99px;
+          border:1px solid rgba(251,191,36,.30);background:rgba(11,16,32,.42);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+          color:#f1f5f9;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .18s ease,border-color .18s ease}
+        .home-flow .hf-step:hover{background:rgba(251,191,36,.16);border-color:rgba(251,191,36,.6)}
+        .home-flow .hf-n{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;flex:none;
+          border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f08;font-size:11px;font-weight:900}
+        .home-flow .hf-ar{color:rgba(251,191,36,.7);font-size:15px;font-weight:800;line-height:1}
+        @media(max-width:560px){
+          .home-flow{gap:3px;max-width:96vw}
+          .home-flow .hf-step{padding:7px 10px;font-size:12px}
+          .home-flow .hf-ar{font-size:13px}
+        }
+      </style>
       <!-- 🌤️/🌙 홈 배경 밝게·어둡게 전환 — 우측 상단 로그인 옆 칩으로 이동(중앙 X) -->
       <!-- (position:absolute .hero-chip 라서 DOM 위치와 무관하게 우상단에 붙음) -->
       <script>
@@ -20772,7 +20810,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=14"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=15"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -20909,7 +20947,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
       <!-- ━━━━━━━━━━ STEP 1: 상품 선택 (신규 전용) ━━━━━━━━━━ -->
       <div id="pay-step1" class="pay-step-pane" style="display:none">
-        <h3 style="color:#fff;font-size:16px;margin:0 0 14px;font-weight:700">원하시는 과정을 선택하세요</h3>
+        <h3 style="color:#fff;font-size:16px;margin:0 0 4px;font-weight:700" data-ko="누가 배우시나요?" data-en="Who is learning?">누가 배우시나요?</h3>
+        <!-- 🧭 [2026-07-27] 대상 먼저 고르기 (직원 피드백 #13)
+             첫 화면에 상품 12개가 한꺼번에 나와서 고르기 전에 지치던 문제.
+             선택지가 많을수록 결정이 늦어지고 '나중에'가 '안 함'이 된다(힉의 법칙).
+             ⚠️ 전체 요금표를 없애지는 않았다 — 비교표를 통째로 보고 싶어 하는 학부모가 많고,
+                가격을 숨긴다는 인상을 주면 역효과다. '전체 보기'로 언제든 되돌아갈 수 있다.
+             ⚠️ 상품 카드 자체는 건드리지 않았다(선택·결제 로직이 그대로 붙어 있다).
+                data-program 으로 분류만 해서 보이기/숨기기만 한다. -->
+        <div id="pay-cat-bar" style="display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 14px"></div>
         <div class="product-grid">
           <button class="product-card" data-program="trial" data-price="0">
             <div class="badge-trial">FREE</div>
@@ -21568,7 +21614,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=1"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=2"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){

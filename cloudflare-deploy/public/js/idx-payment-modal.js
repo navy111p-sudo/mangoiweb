@@ -1164,3 +1164,89 @@ window.closeRulesModal = function() {
   const bg = document.getElementById('rules-modal-bg');
   if (bg) bg.style.display = 'none';
 };
+/* ══════════════════════════════════════════════════════════════════
+   🧭 신규결제 STEP1 — 대상 먼저 고르기 (2026-07-27, 직원 피드백 #13)
+
+   왜: 첫 화면에 상품 카드가 12개 한꺼번에 나와서, 고르기도 전에 지친다는 지적.
+       선택지가 늘수록 결정이 느려지고 '나중에 결정'이 '결정 안 함'이 된다.
+
+   어떻게: 상품 카드와 결제 로직은 **하나도 건드리지 않는다**. data-program 으로
+       분류만 해서 보이기/숨기기만 한다. 그래서 이 블록을 통째로 지워도 원래대로 돌아간다.
+
+   ⚠️ '전체 요금표 보기'를 반드시 남겨 둘 것 — 비교표를 통째로 보려는 학부모가 많고,
+      가격을 숨긴다는 인상을 주면 오히려 역효과다.
+   ══════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+  var CATS = [
+    { id:'kids',     ko:'키즈 (4~12세)', en:'Kids (4–12)' },
+    { id:'general',  ko:'일반 1:1',      en:'General 1:1' },
+    { id:'group',    ko:'그룹',          en:'Group' },
+    { id:'business', ko:'비즈니스',      en:'Business' },
+    { id:'exam',     ko:'시험 대비',     en:'Test Prep' },
+    { id:'b2b',      ko:'기업 · 학원',   en:'Company / Academy' },
+    { id:'all',      ko:'전체 요금표 보기', en:'See all plans' }
+  ];
+  var MAP = {
+    'kids':'kids', 'business':'business', 'exam':'exam', 'b2b':'b2b', 'group-12':'group',
+    '1on1-4':'general', '1on1-8':'general', '1on1-12':'general', '1on1-24':'general'
+  };
+  // 어떤 대상을 골라도 늘 보이는 카드(무료체험·맞춤상담·규정 안내)
+  var ALWAYS = { 'trial':1, 'other':1 };
+
+  function cardsIn(bar){
+    var pane = bar.closest('#pay-step1') || document;
+    return [].slice.call(pane.querySelectorAll('.product-card'));
+  }
+  function apply(bar, cat){
+    cardsIn(bar).forEach(function(c){
+      var p = c.getAttribute('data-program') || '';
+      var show = !p || ALWAYS[p] || cat === 'all' || MAP[p] === cat;
+      c.style.display = show ? '' : 'none';
+    });
+    [].slice.call(bar.querySelectorAll('button')).forEach(function(b){
+      var on = b.getAttribute('data-cat') === cat;
+      b.style.background = on ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'rgba(255,255,255,.06)';
+      b.style.color      = on ? '#1a0f08' : '#e2e8f0';
+      b.style.borderColor= on ? 'transparent' : 'rgba(148,163,184,.35)';
+      b.style.fontWeight = on ? '800' : '700';
+    });
+    var hint = document.getElementById('pay-cat-hint');
+    if (hint) hint.style.display = cat ? 'none' : '';
+  }
+  function build(){
+    var bar = document.getElementById('pay-cat-bar');
+    if (!bar || bar.dataset.ready) return;
+    bar.dataset.ready = '1';
+    bar.innerHTML = CATS.map(function(c){
+      return '<button type="button" data-cat="'+c.id+'" data-ko="'+c.ko+'" data-en="'+c.en+'"'
+        + ' style="padding:8px 13px;border-radius:99px;border:1px solid rgba(148,163,184,.35);'
+        + 'background:rgba(255,255,255,.06);color:#e2e8f0;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">'
+        + c.ko + '</button>';
+    }).join('');
+    var hint = document.createElement('div');
+    hint.id = 'pay-cat-hint';
+    hint.setAttribute('data-ko','↑ 먼저 대상을 골라 주세요. 그 대상에 맞는 과정만 보여드릴게요.');
+    hint.setAttribute('data-en','↑ Pick who is learning first — we will show only the plans that fit.');
+    hint.style.cssText = 'font-size:12.5px;color:#94a3b8;margin:2px 0 10px';
+    hint.textContent = '↑ 먼저 대상을 골라 주세요. 그 대상에 맞는 과정만 보여드릴게요.';
+    bar.parentNode.insertBefore(hint, bar.nextSibling);
+
+    bar.addEventListener('click', function(e){
+      var b = e.target.closest('button[data-cat]');
+      if (!b) return;
+      apply(bar, b.getAttribute('data-cat'));
+    });
+    apply(bar, '');   // 처음엔 아무 것도 안 고른 상태
+    if (window.applyLang) { try { window.applyLang(); } catch(_){} }
+  }
+
+  // STEP1 이 열릴 때마다 준비 (모달이 나중에 만들어질 수도 있어 payGoStep 을 감싼다)
+  var _prev = window.payGoStep;
+  window.payGoStep = function(step){
+    if (typeof _prev === 'function') _prev.apply(this, arguments);
+    if (step === 1) setTimeout(build, 0);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
+  else setTimeout(build, 0);
+})();

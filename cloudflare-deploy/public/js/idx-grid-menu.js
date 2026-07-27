@@ -1424,10 +1424,57 @@
         ※ ID·비밀번호를 모르시면 카카오 채널 (@망고아이) 또는 우측 하단 노란 카톡 버튼으로 문의해 주세요.<br/>
         ※ 평가표는 매 수업 종료 후 강사가 작성하며, AI 분석(발화·시선·집중도)이 자동 포함됩니다.
       </p>
+      <button onclick="window.__showSampleReport&&window.__showSampleReport()" style="width:100%;margin-top:10px;padding:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(148,163,184,0.35);border-radius:10px;color:#e2e8f0;font-size:13.5px;font-weight:700;cursor:pointer">👀 계정이 없어요 — 샘플 평가표 먼저 보기</button>
       <button onclick="window.openKakao&&window.openKakao()" style="width:100%;margin-top:8px;padding:11px;background:linear-gradient(135deg,#FEE500,#FFCD00);border:0;border-radius:10px;color:#3C1E1E;font-size:13px;font-weight:800;cursor:pointer">💬 비밀번호 모르겠어요 — 카톡 도움받기</button>
     `);
     setTimeout(() => { document.getElementById('rpt-uid')?.focus(); }, 100);
   }
+
+  // 👀 [2026-07-27] 샘플 평가표 (직원 피드백 #10)
+  //   로그인 벽 앞에서 아무것도 못 보여주던 문제 — 계정 없는 가망 학부모에게 '무엇을 받게 되는지'를
+  //   먼저 보여준다. 경쟁사(링글)도 리포트 구성을 공개해 설득 자산으로 쓴다.
+  //   ⚠️ 실제 학생 데이터를 쓰면 안 된다. 아래 값은 전부 가공이며,
+  //      실제 기록으로 오해되지 않도록 화면 상단·제목에 '샘플'을 명시한다. 이 표시를 빼지 말 것.
+  window.__showSampleReport = function(){
+    var AXES = [
+      { ko:'말하기', en:'Speaking',      v:82 },
+      { ko:'듣기',   en:'Listening',     v:88 },
+      { ko:'발음',   en:'Pronunciation', v:74 },
+      { ko:'어휘',   en:'Vocabulary',    v:79 },
+      { ko:'참여도', en:'Participation', v:93 }
+    ];
+    var bars = AXES.map(function(a){
+      return '<div style="display:flex;align-items:center;gap:10px;margin:7px 0">'
+        + '<span style="width:52px;flex:none;font-size:12px;color:#cbd5e1" data-ko="'+a.ko+'" data-en="'+a.en+'">'+a.ko+'</span>'
+        + '<span style="flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;display:block">'
+        +   '<span style="display:block;height:100%;width:'+a.v+'%;background:linear-gradient(90deg,#fbbf24,#f59e0b);border-radius:99px"></span>'
+        + '</span>'
+        + '<span style="width:30px;flex:none;text-align:right;font-size:12px;font-weight:800;color:#fbbf24">'+a.v+'</span>'
+        + '</div>';
+    }).join('');
+    showModal(`
+      <h2>📋 <span data-ko="평가표 — 샘플 예시" data-en="Report Card — Sample">평가표 — 샘플 예시</span></h2>
+      <div style="background:rgba(59,130,246,0.12);border:1px solid rgba(96,165,250,0.45);border-radius:10px;padding:10px 12px;margin:10px 0 14px;font-size:12.5px;color:#bfdbfe" data-ko="ℹ️ 이 화면은 실제 기록이 아니라 예시입니다. 수업을 시작하시면 이런 평가표를 매 수업마다 받아보실 수 있어요." data-en="ℹ️ This is a sample, not a real record. Once classes begin you will receive a report like this after every lesson.">ℹ️ 이 화면은 실제 기록이 아니라 예시입니다. 수업을 시작하시면 이런 평가표를 매 수업마다 받아보실 수 있어요.</div>
+      <div style="background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px;padding:16px">
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12.5px;color:#cbd5e1;margin-bottom:12px">
+          <span data-ko="학생: 홍길동 (샘플)" data-en="Student: Sample Student">학생: 홍길동 (샘플)</span>
+          <span data-ko="강사: Teacher Jenny" data-en="Teacher: Teacher Jenny">강사: Teacher Jenny</span>
+        </div>
+        ${bars}
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)">
+          <div style="font-size:12px;font-weight:800;color:#fde68a;margin-bottom:5px" data-ko="👩‍🏫 강사 코멘트" data-en="👩‍🏫 Teacher's comment">👩‍🏫 강사 코멘트</div>
+          <p style="margin:0;font-size:12.5px;color:#cbd5e1;line-height:1.65" data-ko="오늘은 자기소개 표현을 아주 자신 있게 말했어요. 문장을 끝까지 말하려는 태도가 특히 좋았습니다. 다음 시간에는 과거형 문장을 함께 연습해 볼게요." data-en="Today she spoke the self-introduction phrases with real confidence, and kept going to the end of each sentence. Next time we will practice the past tense together.">오늘은 자기소개 표현을 아주 자신 있게 말했어요. 문장을 끝까지 말하려는 태도가 특히 좋았습니다. 다음 시간에는 과거형 문장을 함께 연습해 볼게요.</p>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)">
+          <div style="font-size:12px;font-weight:800;color:#fde68a;margin-bottom:5px" data-ko="🤖 AI 분석" data-en="🤖 AI analysis">🤖 AI 분석</div>
+          <p style="margin:0;font-size:12.5px;color:#cbd5e1;line-height:1.65" data-ko="발화량이 지난 수업보다 늘었고, 문장을 시작하기까지 걸리는 시간이 짧아졌어요. 발음은 th 소리를 조금 더 연습하면 훨씬 또렷해집니다." data-en="Speaking volume increased from the previous lesson and the pause before starting a sentence got shorter. A little more practice on the th sound will make pronunciation noticeably clearer.">발화량이 지난 수업보다 늘었고, 문장을 시작하기까지 걸리는 시간이 짧아졌어요. 발음은 th 소리를 조금 더 연습하면 훨씬 또렷해집니다.</p>
+        </div>
+      </div>
+      <button onclick="window.__reportLoginGate&&window.__reportLoginGate()" style="width:100%;margin-top:12px;padding:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:0;border-radius:10px;color:#1a0f08;font-size:14px;font-weight:800;cursor:pointer" data-ko="🔓 내 평가표 보러 가기 (로그인)" data-en="🔓 View my report card (log in)">🔓 내 평가표 보러 가기 (로그인)</button>
+      <button onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" style="width:100%;margin-top:8px;padding:11px;background:rgba(255,255,255,0.06);border:1px solid rgba(148,163,184,0.35);border-radius:10px;color:#e2e8f0;font-size:13px;font-weight:700;cursor:pointer" data-ko="💬 수업 상담 신청하기" data-en="💬 Request a consultation">💬 수업 상담 신청하기</button>
+    `);
+  };
+  window.__reportLoginGate = showLoginGate;
 
   // 로그인 시도 — /api/login (POST) 사용. 실패 시 fallback 로 /api/admin/students 검색
   window.doReportLogin = async function() {
