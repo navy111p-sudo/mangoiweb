@@ -5830,13 +5830,35 @@ function smFillAgencyFilter() {
   const names = Array.from(new Set(
     _smStudents.map(s => String(s.shop_name || '').trim()).filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'ko'));
+  window._smAgencyNames = names;                // 🔍 검색이 다시 그릴 수 있게 전체 목록 보관
   const keep = sel.value;                       // 목록 새로고침해도 고른 값 유지
   const head = sel.options[0] ? sel.options[0].outerHTML : '<option value="">🏫</option>';
   sel.innerHTML = head + names.map(n =>
     '<option value="' + _esc(n) + '">🏫 ' + _esc(n) + '</option>'
   ).join('');
   if (keep && names.indexOf(keep) >= 0) sel.value = keep; else { sel.value = ''; _smAgency = ''; }
+  const q = document.getElementById('sm-agency-search');
+  if (q && q.value.trim()) window.smAgencySearch();   // 검색어가 있으면 다시 좁혀 둔다
 }
+/* 🔍 (2026-07-27 강사 피드백 3차 #3) "학원이 수백 개가 되면 드롭다운을 눈으로 훑어야 한다 — 검색칸이 없다"
+   → 입력한 글자로 드롭다운 목록을 좁힌다(서버 변경 없음, 이미 받아온 목록만 사용).
+   후보가 1개면 자동 선택해 바로 필터가 걸리게 한다. */
+window.smAgencySearch = function(){
+  const sel = document.getElementById('sm-agency-filter');
+  const box = document.getElementById('sm-agency-search');
+  if (!sel || !box) return;
+  const en = (window.adminLang && window.adminLang !== 'ko');
+  const all = window._smAgencyNames || [];
+  const q = box.value.trim().toLowerCase();
+  const hit = q ? all.filter(n => n.toLowerCase().indexOf(q) >= 0) : all;
+  const keep = sel.value;
+  const head = '<option value="">' + (en ? '🏫 All Agencies/Academies' : '🏫 전체 대리점·학원') + '</option>';
+  sel.innerHTML = head + hit.map(n => '<option value="' + _esc(n) + '">🏫 ' + _esc(n) + '</option>').join('');
+  if (keep && hit.indexOf(keep) >= 0) sel.value = keep;
+  else if (q && hit.length === 1) { sel.value = hit[0]; if (typeof sel.onchange === 'function') sel.onchange(); else sel.dispatchEvent(new Event('change')); }
+  const cnt = document.getElementById('sm-agency-count');
+  if (cnt) cnt.textContent = q ? (hit.length + (en ? ' found' : '개')) : '';
+};
 
 // 🔒 역할별 데이터 범위 판별 — 지사/대리점/교사/학부모/학생은 자기 범위만
 function mangoiGetDataScope(){

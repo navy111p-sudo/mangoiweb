@@ -2877,7 +2877,7 @@
     </button>
 
     <!-- 👨‍🏫 강사 통합 -->
-    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats'])" data-hub="teacher">
+    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats','card-calendar'])" data-hub="teacher">
       <div class="hub-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div>
         <div class="hub-title" data-ko="강사 통합" data-en="Teacher Hub">강사 통합</div>
@@ -3398,6 +3398,13 @@
                     style="padding:6px 10px;font-size:12.5px;border:1px solid rgba(245,158,11,0.4);border-radius:8px;background:#fffbeb;color:#1c1917;font-weight:700;max-width:220px">
               <option value="" data-ko="🏫 전체 대리점·학원" data-en="🏫 All Agencies/Academies">🏫 전체 대리점·학원</option>
             </select>
+            <!-- 🔍 (2026-07-27 강사 피드백 3차 #3) 학원이 수백 개가 되면 드롭다운을 훑어야 해서 검색칸 추가.
+                 서버 변경 없이 이미 받아온 목록만 좁힌다(adm-core.js smAgencySearch). -->
+            <input id="sm-agency-search" type="search" oninput="if(window.smAgencySearch)smAgencySearch()"
+                   placeholder="🔍 학원 검색" data-ko-placeholder="🔍 학원 검색" data-en-placeholder="🔍 Search academy"
+                   title="학원·대리점 이름을 입력하면 위 목록이 좁혀집니다"
+                   style="padding:6px 10px;font-size:12.5px;border:1px solid rgba(245,158,11,0.4);border-radius:8px;background:#fff;color:#1c1917;max-width:150px" />
+            <span id="sm-agency-count" style="font-size:11.5px;color:#92400e;font-weight:700"></span>
             <button id="sm-export-csv" type="button" title="화면에 보이는 학생 목록을 CSV(엑셀)로 내려받습니다 — 권한 범위 그대로"
                     style="padding:5px 12px;font-size:12px;border:1px solid rgba(16,185,129,0.5);border-radius:8px;background:rgba(16,185,129,0.12);color:#065f46;font-weight:800;cursor:pointer;white-space:nowrap"
                     data-ko="📥 CSV 다운로드" data-en="📥 Download CSV">📥 CSV 다운로드</button>
@@ -11900,7 +11907,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=22" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=23" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=3" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -12572,6 +12579,9 @@ button.chip:hover,
       <div class="ph85-sub" data-ko="자동 급여" data-en="Auto Payroll" data-card="card-payroll-auto" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll-auto');}">자동 급여</div>
       <div class="ph85-sub" data-ko="급여 관리" data-en="Payroll" data-card="card-payroll" onclick="event.stopPropagation();if(typeof jumpToMenu==='function'){jumpToMenu('card-payroll');}">급여 관리</div>
       <div class="ph85-subhead" style="padding:9px 12px 3px;font-size:10px;font-weight:800;color:#fbbf24;letter-spacing:.5px;opacity:.72;pointer-events:none">📅 수업 · 요청</div>
+      <!-- 🌙 (2026-07-27 강사 피드백 3차 #2·#7) "강사 근무/휴식시간 관리를 찾을 수 없다" — 기능은 card-calendar 안에
+           이미 있으나 시스템▸캘린더 관리에 숨어 강사·매니저 동선에 없었다. 강사 통합에서 바로 갈 수 있게 항목 추가. -->
+      <div class="ph85-sub" data-ko="🌙 근무·휴식·휴가 관리" data-en="🌙 Working · Break · Holiday" data-card="card-calendar" onclick="event.stopPropagation();var c=document.getElementById('card-calendar');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-calendar');}">🌙 근무·휴식·휴가 관리</div>
       <div class="ph85-sub" data-ko="🗓 시간표 ⭐신규" data-en="🗓 Timetable ⭐NEW" data-card="card-timetable" onclick="event.stopPropagation();var c=document.getElementById('card-timetable');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-timetable');}">🗓 시간표 ⭐신규</div>
       <div class="ph85-sub" data-ko="📝 수업 일지 ⭐신규" data-en="📝 Lesson Log ⭐NEW" data-card="card-lesson-log" onclick="event.stopPropagation();var c=document.getElementById('card-lesson-log');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lesson-log');}">📝 수업 일지 ⭐신규</div>
       <div class="ph85-sub" data-ko="📅 연기·변경 요청 ⭐신규" data-en="📅 Reschedule Requests ⭐NEW" data-card="card-schedule-requests" onclick="event.stopPropagation();var c=document.getElementById('card-schedule-requests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-schedule-requests');}">📅 연기·변경 요청 ⭐신규</div>
