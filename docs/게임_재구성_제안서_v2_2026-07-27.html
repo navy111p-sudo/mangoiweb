@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>망고아이 학습게임 재구성 제안서 v2 — 말하기·듣기·생각하기</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
+    background:#f4f6f9;color:#1f2937;line-height:1.7}
+  .wrap{max-width:1000px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(0,0,0,.07)}
+  .cover{background:linear-gradient(135deg,#12263f,#22527f 60%,#2f6ea8);color:#fff;padding:54px 48px 46px}
+  .cover .kicker{font-size:13px;letter-spacing:3px;opacity:.75;font-weight:700}
+  .cover h1{font-size:35px;font-weight:800;margin:12px 0 8px;line-height:1.28;letter-spacing:-.6px}
+  .cover .sub{font-size:16.5px;opacity:.92;font-weight:500}
+  .cover .pills{margin-top:20px;display:flex;gap:8px;flex-wrap:wrap}
+  .cover .pills span{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);
+    padding:5px 13px;border-radius:20px;font-size:12.5px;font-weight:700}
+  .cover .meta{margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,.2);
+    font-size:12.5px;opacity:.8;display:flex;gap:24px;flex-wrap:wrap}
+  .sec{padding:38px 48px;border-bottom:1px solid #e5e9f0}
+  .sec:last-child{border-bottom:0}
+  .secNo{display:inline-block;background:#22527f;color:#fff;font-size:12px;font-weight:800;
+    padding:3px 11px;border-radius:20px;letter-spacing:1px}
+  h2{font-size:24px;font-weight:800;margin:12px 0 6px;color:#12263f;letter-spacing:-.4px}
+  .lead{font-size:15px;color:#5a6b7f;margin-bottom:20px}
+  h3{font-size:17.5px;font-weight:800;margin:26px 0 10px;color:#1b3b60;
+    padding-left:11px;border-left:4px solid #4a90d9}
+  h4{font-size:15px;font-weight:800;margin:16px 0 6px;color:#1b3b60}
+  p{margin-bottom:12px;font-size:14.5px}
+  ul,ol{margin:0 0 14px 20px;font-size:14.5px}
+  li{margin-bottom:5px}
+  b{color:#12263f}
+  code{background:#eef3f9;padding:1px 6px;border-radius:4px;font-size:12.5px;color:#22527f}
+  .hl{background:linear-gradient(transparent 58%,#ffe4a0 58%);font-weight:700}
+  table{width:100%;border-collapse:collapse;margin:14px 0 18px;font-size:13.5px}
+  th{background:#eef3f9;color:#12263f;font-weight:800;text-align:left;padding:10px 12px;
+    border-bottom:2px solid #cfdcea;font-size:12.5px}
+  td{padding:10px 12px;border-bottom:1px solid #e8edf4;vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .tc{text-align:center}
+  .box{background:#f7fafc;border:1px solid #dde6f0;border-left:4px solid #4a90d9;
+    border-radius:0 8px 8px 0;padding:15px 18px;margin:16px 0;font-size:14px}
+  .box.warn{border-left-color:#e0913a;background:#fdf8f0}
+  .box.good{border-left-color:#3d9970;background:#f2faf6}
+  .box.idea{border-left-color:#8e5bc7;background:#f8f4fd}
+  .box .bt{font-weight:800;color:#12263f;margin-bottom:6px;font-size:14.5px}
+  /* 연령 티어 */
+  .tier{border:1px solid #dde6f0;border-radius:12px;margin:18px 0;overflow:hidden}
+  .tierH{padding:15px 20px;color:#fff;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .t1 .tierH{background:linear-gradient(135deg,#e08a3c,#f0a860)}
+  .t2 .tierH{background:linear-gradient(135deg,#2f7ec4,#4a9ad9)}
+  .t3 .tierH{background:linear-gradient(135deg,#2d6b52,#3d9970)}
+  .t4 .tierH{background:linear-gradient(135deg,#6b5b8e,#8e7bb0)}
+  .tierH .tage{font-size:20px;font-weight:800}
+  .tierH .tname{font-size:14px;opacity:.92;font-weight:600}
+  .tierH .tsess{margin-left:auto;font-size:12px;background:rgba(255,255,255,.2);
+    padding:4px 12px;border-radius:20px;font-weight:700}
+  .tierB{padding:18px 20px}
+  /* 게임 카드 */
+  .gcard{border:1px solid #e0e8f2;border-radius:9px;padding:14px 16px;margin:11px 0;background:#fdfefe}
+  .gcard .gh{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:5px}
+  .gcard .gname{font-size:16px;font-weight:800;color:#12263f}
+  .gcard .gen{font-size:12px;color:#7b8ca0;font-weight:600}
+  .axis{font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;margin-left:auto}
+  .ax-s{background:#fde8e8;color:#b03535}
+  .ax-l{background:#e6f2fb;color:#2166a8}
+  .ax-t{background:#eae4f7;color:#6b3fa0}
+  .gspec{display:grid;grid-template-columns:70px 1fr;gap:4px 11px;margin-top:9px;font-size:13.5px}
+  .gspec dt{font-weight:800;color:#5a6b7f;font-size:12.5px}
+  .gspec dd{color:#28374a}
+  /* 축 배지 */
+  .axisRow{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap}
+  .axisCard{flex:1;min-width:200px;border-radius:10px;padding:14px 16px;border:1px solid #e0e8f2}
+  .axisCard.s{background:#fef6f6;border-color:#f3d5d5}
+  .axisCard.l{background:#f4f9fd;border-color:#d3e4f2}
+  .axisCard.t{background:#f8f5fd;border-color:#e0d5f0}
+  .axisCard .an{font-size:16px;font-weight:800;margin-bottom:4px}
+  .axisCard.s .an{color:#b03535} .axisCard.l .an{color:#2166a8} .axisCard.t .an{color:#6b3fa0}
+  .axisCard .ad{font-size:13px;color:#4a5a6b}
+  .foot{padding:26px 48px;background:#f7fafc;font-size:12.5px;color:#7b8ca0}
+  .foot a{color:#2166a8;text-decoration:none}
+  .src{font-size:12px;color:#7b8ca0;margin-top:8px}
+  .src a{color:#2166a8}
+  @media print{ body{background:#fff} .wrap{box-shadow:none} .sec,.tier,.gcard{page-break-inside:avoid} }
+  @media(max-width:700px){
+    .cover,.sec,.foot{padding-left:20px;padding-right:20px}
+    .cover h1{font-size:25px} h2{font-size:20px}
+    .gspec{grid-template-columns:1fr;gap:2px} .gspec dt{margin-top:7px}
+    table{font-size:12.5px} th,td{padding:8px 9px}
+    .tierH .tsess{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="cover">
+    <div class="kicker">MANGOi · LEARNING GAMES · REDESIGN v2</div>
+    <h1>학습게임 재구성 제안서</h1>
+    <div class="sub">주입식에서 벗어나 — 말하기 · 듣기 · 생각하기 중심으로</div>
+    <div class="pills">
+      <span>3축 재설계</span><span>연령 4계층</span><span>긴장감·집중력 설계</span>
+      <span>국내외 경쟁사 벤치마킹</span><span>사장님 아이디어 반영</span>
+    </div>
+    <div class="meta">
+      <span>작성일 · 2026-07-27</span>
+      <span>v1 대비 · 방향 전환 및 전면 재구성</span>
+    </div>
+  </div>
+
+  <!-- ═══ 01 방향 전환 ═══ -->
+  <div class="sec">
+    <span class="secNo">01</span>
+    <h2>방향 전환 — v1에서 무엇이 바뀌었나</h2>
+    <div class="lead">"주입식 지양, 말하기·듣기·생각하기 강조"라는 방향에 맞춰 이전 제안을 재검토했습니다.</div>
+
+    <div class="box warn">
+      <div class="bt">v1 제안 중 2개는 이 방향과 맞지 않아 제외했습니다</div>
+      <b>단어 반사신경</b>(빠르게 O/X 판단)과 <b>단어 금고 털기</b>(외워서 재현)는
+      효율적인 훈련이지만 본질적으로 <b>암기·반복 드릴</b>입니다.
+      "주입식보다 말하기·듣기·생각하기"라는 방향과 정면으로 어긋나므로 이번 안에서 뺐습니다.
+      <br><br>
+      다만 완전히 버리기는 아까우므로, <b>독립 게임이 아니라 다른 게임의 준비운동 단계</b>(30초 워밍업)로만
+      남기는 것을 대안으로 제시합니다.
+    </div>
+
+    <h3>새로운 3축 구조</h3>
+    <p>기존 15개 게임은 대부분 <b>"보고 → 고르기"</b>였습니다. 이는 인지적으로 가장 얕은 활동입니다.
+    아래 3축은 학생이 <b>스스로 만들어내야</b> 하는 활동으로 구성했습니다.</p>
+    <div class="axisRow">
+      <div class="axisCard s">
+        <div class="an">말하기</div>
+        <div class="ad">입을 열지 않으면 게임이 <b>진행되지 않는</b> 구조.
+        고르는 게 아니라 소리 내어 만들어야 함.</div>
+      </div>
+      <div class="axisCard l">
+        <div class="an">듣기</div>
+        <div class="ad">화면이 아니라 <b>소리에 정보가 있는</b> 구조.
+        눈으로 때울 수 없어 귀에 집중하게 됨.</div>
+      </div>
+      <div class="axisCard t">
+        <div class="an">생각하기</div>
+        <div class="ad">정답이 화면에 없음. <b>단서를 모아 추론</b>하고
+        판단해야 답이 나오는 구조.</div>
+      </div>
+    </div>
+
+    <div class="box idea">
+      <div class="bt">사장님 아이디어 반영 — 이번 작업에서 검증된 것들</div>
+      탱크대전 3D 개편 과정에서 실제로 효과가 확인된 요소를 신규 게임 설계에 공통 적용합니다.
+      <ul style="margin:8px 0 0 18px">
+        <li><b>시점 선택권</b>(2D·3D·1인칭) — 같은 게임도 보는 방식이 달라지면 새 게임처럼 느껴짐</li>
+        <li><b>실사 그래픽</b>(AI 생성 에셋) — 몰입도를 결정적으로 좌우</li>
+        <li><b>캐릭터 연출·대사</b>(탈출 조종사 "Oh my God!") — 감정이 붙으면 기억에 남음</li>
+        <li><b>긴장감 연출</b>(폭발·화면 흔들림·음향) — 집중을 강제하는 장치</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══ 02 경쟁사 벤치마킹 ═══ -->
+  <div class="sec">
+    <span class="secNo">02</span>
+    <h2>국내외 경쟁사 벤치마킹</h2>
+    <div class="lead">실제 조사 결과입니다. 각 사가 <b>무엇을 잘하는지</b>와 <b>우리가 가져올 것</b>을 정리했습니다.</div>
+
+    <h3>한국</h3>
+    <table>
+      <tr><th style="width:130px">업체</th><th>핵심 방식</th><th style="width:220px">배울 점</th></tr>
+      <tr>
+        <td><b>호두잉글리시</b><br><span style="font-size:12px;color:#7b8ca0">청담러닝·엔씨소프트</span></td>
+        <td>3D 몰입형 게임. <b>아이가 영어로 말해야 게임이 진행</b>되고, 말에 따라 캐릭터 표정·행동이 반응.
+        300여 캐릭터의 모험 세계. ETRI 음성인식 사용. 제작비 300억·기간 6년.
+        학습원리를 <b>노출·사용·동기</b> 3가지로 정의.</td>
+        <td>우리 3축 중 <b>말하기 축의 교과서</b>.
+        "말해야 진행된다"는 구조 자체를 벤치마킹.
+        다만 제작 규모가 우리와 다르므로 <b>소규모 밀실 단위</b>로 압축 적용.</td>
+      </tr>
+    </table>
+
+    <h3>미국 · 유럽</h3>
+    <table>
+      <tr><th style="width:130px">업체</th><th>핵심 방식</th><th style="width:220px">배울 점</th></tr>
+      <tr>
+        <td><b>Duolingo</b><br><span style="font-size:12px;color:#7b8ca0">미국</span></td>
+        <td><b>Video Call</b> — AI 캐릭터 Lily와 즉흥 대화, <b>지난 대화를 기억</b>하고 통화 후 리뷰 제공.
+        <b>Adventures</b> — 여권 심사·커피 주문 등 실제 상황 시나리오.
+        <b>DuoRadio</b> — 듣기 전용 콘텐츠. 안 하면 Lily가 <b>음성메시지를 남기는</b> 방식의 복귀 유도.</td>
+        <td>① AI가 <b>지난 대화를 기억</b>하는 것 — 관계가 생기면 계속 옴<br>
+        ② 캐릭터가 먼저 말 거는 <b>복귀 유도</b><br>
+        ③ 듣기를 <b>별도 콘텐츠</b>로 분리</td>
+      </tr>
+      <tr>
+        <td><b>ELSA Speak</b><br><span style="font-size:12px;color:#7b8ca0">미국</span></td>
+        <td><b>음소 단위 발음 채점</b>. 어떤 모음이 틀렸는지, 어떤 자음이 뭉개졌는지, 강세가 어디로 잘못 갔는지를
+        개별적으로 짚어줌. 단순 합격/불합격 점수가 아님.</td>
+        <td>우리의 가장 큰 기술 격차<br>(아래 별도 항목에서 상술)</td>
+      </tr>
+      <tr>
+        <td><b>Speak</b><br><span style="font-size:12px;color:#7b8ca0">미국</span></td>
+        <td>AI 롤플레이 회화 전문. 실제 상황 시나리오로 대화 연습.</td>
+        <td>성인층 <b>비즈니스 롤플레이</b> 설계 참고</td>
+      </tr>
+      <tr>
+        <td><b>Lingokids</b><br><span style="font-size:12px;color:#7b8ca0">스페인·유럽</span></td>
+        <td>2~8세 대상 "Playlearning". 3,000개 이상 활동, 노래·영상·게임 결합.
+        <b>고유 캐릭터 + 디즈니·마블 제휴 IP</b>로 몰입 유지.</td>
+        <td>저연령층은 <b>캐릭터 애착</b>이 학습 동기.
+        우리도 망고 캐릭터를 게임 전반에 일관 등장시킬 필요</td>
+      </tr>
+      <tr>
+        <td><b>Prodigy</b><br><span style="font-size:12px;color:#7b8ca0">캐나다·미국</span></td>
+        <td>문제를 풀면 <b>에너지를 얻어 자기 세계를 건설</b>. 적응형 난이도.
+        광고·과금 유도 없음을 강점으로 내세움.</td>
+        <td>학습 결과가 <b>내 것으로 축적</b>되는 구조.
+        점수가 아니라 <b>내가 만든 무언가</b>가 남게</td>
+      </tr>
+    </table>
+
+    <h3>호주 · 뉴질랜드</h3>
+    <table>
+      <tr><th style="width:130px">업체</th><th>핵심 방식</th><th style="width:220px">배울 점</th></tr>
+      <tr>
+        <td><b>Reading Eggs</b><br><span style="font-size:12px;color:#7b8ca0">호주</span></td>
+        <td>3~7세 읽기 전문. <b>학습 → 연습 → 보상</b> 사이클을 엄격히 반복.
+        파닉스(소리-글자 대응)와 고빈도 단어 중심.</td>
+        <td>저연령은 <b>사이클의 예측 가능성</b>이 안정감을 줌.
+        매번 새로울 필요 없음</td>
+      </tr>
+    </table>
+
+    <h3>중국 · 일본 · 동아시아</h3>
+    <table>
+      <tr><th style="width:130px">업체</th><th>핵심 방식</th><th style="width:220px">배울 점</th></tr>
+      <tr>
+        <td><b>叽里呱啦</b><br><span style="font-size:12px;color:#7b8ca0">중국 · 6,000만 가정</span></td>
+        <td>0~8세. AI 애니메이션과 실사 영상으로 듣기 축적,
+        <b>하루 10회 이상 발화 기회</b>를 의도적으로 설계.
+        <b>모의 영상통화</b> 형식으로 말하기 연습, 녹음 실시간 AI 채점.</td>
+        <td><b>"하루 발화 횟수"를 지표로 관리</b>하는 발상.
+        우리도 게임당 발화 횟수를 설계 기준으로 삼을 것</td>
+      </tr>
+      <tr>
+        <td><b>流利说</b><br><span style="font-size:12px;color:#7b8ca0">중국</span></td>
+        <td>문장 단위 스캔 분석. <b>어휘·발음·문법·유창성 4개 차원</b>으로 종합 평가.</td>
+        <td>단일 점수가 아닌 <b>다차원 진단</b>.
+        성인층 리포트 설계에 적용</td>
+      </tr>
+      <tr>
+        <td><b>51Talk</b><br><span style="font-size:12px;color:#7b8ca0">중국 · 일본 진출</span></td>
+        <td>3~15세. 앱 + <b>외국인 강사 1:1 + 자국어 코치</b> 결합.</td>
+        <td>게임만으로 완결하지 않고 <b>실제 수업과 연결</b>.
+        우리는 이미 화상수업이 있어 유리</td>
+      </tr>
+      <tr>
+        <td><b>スタディサプリ</b><br><span style="font-size:12px;color:#7b8ca0">일본</span></td>
+        <td>학교 <b>교과서·수업 진도와 연동</b>된 레슨 제공.</td>
+        <td>우리의 교재 레슨 연동은 이미 구현되어 있음 —
+        <b>이 강점을 더 전면에 내세울 것</b></td>
+      </tr>
+    </table>
+
+    <div class="box warn">
+      <div class="bt">냉정한 격차 진단 — 발음 채점</div>
+      우리 게임의 말하기 채점은 현재 <b>단어 겹침 비율 방식</b>입니다.
+      영어는 목표 문장 단어의 <code>65%</code>, 중국어는 글자의 <code>70%</code>가 인식되면 통과입니다.
+      <br><br>
+      즉 <b>발음이 정확한지는 사실상 보지 않고</b>, 비슷한 단어가 들렸는지만 봅니다.
+      ELSA(음소 단위)나 流利说(4차원 평가)와 비교하면 명확한 열세입니다.
+      <br><br>
+      <b>다만 이것이 곧바로 치명적이지는 않습니다.</b> 우리 강점은 <b>교재 연동 + 실제 강사 수업</b>이고,
+      발음 정밀 교정은 강사가 담당하는 구조이기 때문입니다.
+      대신 <b>"발화 횟수를 늘리는 것"</b>에 집중하는 편이 현실적이며, 이는 叽里呱啦의 접근과 같습니다.
+    </div>
+  </div>
+
+  <!-- ═══ 03 긴장감·집중력 설계 ═══ -->
+  <div class="sec">
+    <span class="secNo">03</span>
+    <h2>긴장감과 집중력은 어떻게 만드는가</h2>
+    <div class="lead">막연히 "재밌게"가 아니라, 검증된 장치를 의도적으로 배치합니다.</div>
+
+    <h3>긴장감 장치 6가지</h3>
+    <table>
+      <tr><th style="width:150px">장치</th><th>원리</th><th style="width:230px">우리 게임 적용</th></tr>
+      <tr><td><b>1. 자원 고갈</b></td><td>줄어드는 것이 눈에 보이면 조급해짐</td><td>산소·배터리·연료 게이지 (탱크대전 연료통이 이미 이 원리)</td></tr>
+      <tr><td><b>2. 점증 위험</b></td><td>위협이 <b>가까워지는</b> 것이 보임</td><td>추격자가 한 걸음씩 접근 · 물이 차오름</td></tr>
+      <tr><td><b>3. 되돌릴 수 없음</b></td><td>한 번의 선택이 결과를 확정</td><td>범인 지목은 1회만 · 잘못 지목하면 도주</td></tr>
+      <tr><td><b>4. 정적과 폭발</b></td><td>조용하다가 갑자기 — 대비가 긴장을 만듦</td><td>무전 해독 중 갑작스러운 경보음</td></tr>
+      <tr><td><b>5. 위태로운 연속기록</b></td><td>쌓인 것을 잃을까 봐 조심함</td><td>연속 정답 콤보 · 한 번 틀리면 초기화</td></tr>
+      <tr><td><b>6. 사회적 시선</b></td><td>누가 보고 있다는 인식</td><td>반 대항전 · 내 점수가 반 순위에 반영</td></tr>
+    </table>
+
+    <h3>집중력 장치 4가지</h3>
+    <table>
+      <tr><th style="width:150px">장치</th><th>원리</th><th style="width:230px">우리 게임 적용</th></tr>
+      <tr><td><b>1. 감각 제한</b></td><td>한 감각을 막으면 다른 감각에 집중</td><td><b>화면을 어둡게 하고 소리만</b> 제공 — 듣기 게임의 핵심</td></tr>
+      <tr><td><b>2. 화면 정리</b></td><td>정보가 적을수록 남은 것에 집중</td><td>게임 중 UI 최소화 (탱크대전에서 이미 적용)</td></tr>
+      <tr><td><b>3. 짧은 세션</b></td><td>집중은 오래 못 감. 짧게 끝내고 또 하게</td><td>연령별 3~15분 (아래 계층별 설계)</td></tr>
+      <tr><td><b>4. 즉각 피드백</b></td><td>결과를 바로 알아야 다음 시도에 몰입</td><td>틀린 부분만 즉시 표시·재생</td></tr>
+    </table>
+
+    <div class="box warn">
+      <div class="bt">중요 — 긴장감은 모든 연령에 좋은 것이 아닙니다</div>
+      10세 이하와 60세 이상에게 시간 압박·실패 연출은 <b>역효과</b>입니다.
+      저연령은 좌절해서 그만두고, 실버층은 "내가 못 따라간다"는 위축감으로 이탈합니다.
+      <br><br>
+      따라서 긴장감 장치는 <b>10~17세 계층에 집중 배치</b>하고,
+      나머지 계층은 <b>기대감·성취감</b>으로 대체합니다. 아래 계층별 설계에 반영했습니다.
+    </div>
+  </div>
+
+  <!-- ═══ 04 연령 계층별 ═══ -->
+  <div class="sec">
+    <span class="secNo">04</span>
+    <h2>연령 계층별 구성과 추천</h2>
+    <div class="lead">같은 게임을 모든 연령에 주는 것은 아무에게도 맞지 않는 것과 같습니다.</div>
+
+    <!-- Tier 1 -->
+    <div class="tier t1">
+      <div class="tierH">
+        <div><div class="tage">10세 이하</div><div class="tname">유아 · 초등 저학년</div></div>
+        <span class="tsess">세션 3~5분 · 긴장감 없음</span>
+      </div>
+      <div class="tierB">
+        <h4>이 연령의 특성</h4>
+        <ul>
+          <li>글자보다 <b>소리와 그림</b>으로 이해합니다. 읽기를 전제하면 안 됩니다.</li>
+          <li>집중 지속이 짧고, <b>같은 것의 반복을 지루해하지 않습니다</b>(오히려 안정감).</li>
+          <li>실패에 크게 좌절합니다. <b>"틀렸다"는 표시 자체를 없애야</b> 합니다.</li>
+          <li>캐릭터에 애착을 갖습니다 — Lingokids가 IP에 투자하는 이유입니다.</li>
+        </ul>
+        <h4>설계 원칙</h4>
+        <p style="margin-bottom:8px">긴장감 대신 <b>기대감</b>. 위협 대신 <b>도움 요청</b>.
+        "적이 쫓아온다"가 아니라 "친구가 기다린다"로 프레임을 바꿉니다.
+        Reading Eggs처럼 <b>학습→연습→보상 사이클을 매번 똑같이</b> 반복해 예측 가능하게 만듭니다.</p>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">동물 친구 깨우기</span><span class="gen">Wake the Animals</span><span class="axis ax-s">말하기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">잠든 동물에게 영어로 말을 걸면 깨어나 반응합니다.
+          목소리가 크면 크게 반응하고, 작으면 살짝 뒤척입니다. <b>말하면 반드시 반응이 온다</b>는 것만 가르칩니다.</p>
+          <dl class="gspec">
+            <dt>발화 횟수</dt><dd>3분당 <b>10회 이상</b> (叽里呱啦 기준 차용)</dd>
+            <dt>실패 처리</dt><dd>틀림 없음. 어떤 소리를 내도 동물이 반응 — 입을 여는 것 자체가 목표</dd>
+            <dt>재미</dt><dd>동물 도감 수집 · 내 목소리에 반응하는 신기함</dd>
+          </dl>
+        </div>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">소리 따라 그리기</span><span class="gen">Draw What You Hear</span><span class="axis ax-l">듣기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">"Draw a big red apple"을 들으면 그대로 그려집니다.
+          아이는 듣고 <b>색·크기·사물</b> 버튼만 누르면 됩니다. 다 맞히면 그림이 살아 움직입니다.</p>
+          <dl class="gspec">
+            <dt>학습</dt><dd>형용사·명사 청취 구분 (읽기 불필요)</dd>
+            <dt>실패 처리</dt><dd>틀리면 그냥 다시 들려줌. 감점·경고음 없음</dd>
+            <dt>재미</dt><dd>완성작이 움직임 · 내 갤러리에 저장</dd>
+          </dl>
+        </div>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">마법 그림책 주니어</span><span class="gen">Story Painter Jr.</span><span class="axis ax-t">생각하기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">단어 카드 2~3개를 골라 문장을 만들면 그림이 바뀝니다.
+          <code>cat + on + box</code>를 고르면 고양이가 상자 위로 올라갑니다. 순서를 바꾸면 결과가 달라집니다.</p>
+          <dl class="gspec">
+            <dt>학습</dt><dd><b>인과 이해</b> — 내 선택이 결과를 바꾼다는 것을 그림으로 체득</dd>
+            <dt>재미</dt><dd>엉뚱한 조합의 유머 (고양이가 상자 <i>아래</i> 깔림)</dd>
+          </dl>
+        </div>
+        <div class="box good" style="margin-top:14px">
+          <div class="bt">이 계층 최우선 추천 · 동물 친구 깨우기</div>
+          이 나이대의 유일한 목표는 <b>"영어로 입을 여는 것에 거부감을 없애는 것"</b>입니다.
+          정확도는 나중 문제입니다. 개발 난이도도 가장 낮습니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- Tier 2 -->
+    <div class="tier t2">
+      <div class="tierH">
+        <div><div class="tage">10~17세</div><div class="tname">초등 고학년 · 중고등</div></div>
+        <span class="tsess">세션 8~15분 · 긴장감 최대</span>
+      </div>
+      <div class="tierB">
+        <h4>이 연령의 특성</h4>
+        <ul>
+          <li><b>경쟁과 성취 동기가 가장 강합니다.</b> 순위·기록·랭킹이 실제로 작동합니다.</li>
+          <li>또래의 시선을 의식합니다 — 반 대항전이 강력한 동기가 됩니다.</li>
+          <li><b>긴장감을 즐깁니다.</b> 유일하게 시간 압박·위험 연출이 플러스인 계층입니다.</li>
+          <li>유치한 것을 거부합니다. 그래픽 수준이 이탈에 직결됩니다.</li>
+        </ul>
+        <h4>설계 원칙</h4>
+        <p style="margin-bottom:8px">긴장감 장치 6가지를 <b>전부</b> 사용합니다.
+        호두잉글리시의 "말해야 진행된다"를 핵심 구조로 삼되, 대규모 오픈월드 대신
+        <b>짧고 밀도 높은 밀실 단위</b>로 압축해 우리 규모에 맞춥니다.</p>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">탈출: 말해야 열린다</span><span class="gen">Escape by Voice</span><span class="axis ax-s">말하기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">방에 갇혔습니다. <b>버튼이 없습니다.</b> 오직 영어로 말해야 물건이 움직입니다.
+          "Open the drawer"라고 말하면 서랍이 열리고, 안에서 다음 단서가 나옵니다.
+          제한 시간이 있고, 시간이 줄면 조명이 어두워집니다.</p>
+          <dl class="gspec">
+            <dt>긴장 장치</dt><dd>자원 고갈(시간) · 점증 위험(어두워짐) · 정적과 경보음</dd>
+            <dt>학습</dt><dd>명령문·전치사·사물 어휘를 <b>스스로 조합해 발화</b></dd>
+            <dt>생각하기</dt><dd>무엇을 말해야 할지 <b>단서로 추론</b> — 정답이 화면에 없음</dd>
+            <dt>사장님 아이디어</dt><dd><b>시점 선택</b>(1인칭/3인칭) 적용 — 1인칭이 긴장감 극대화</dd>
+          </dl>
+        </div>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">비밀 무전 해독</span><span class="gen">Radio Intercept</span><span class="axis ax-l">듣기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">적의 무전을 감청해 받아씁니다. <b>화면은 거의 검고 소리만</b> 있습니다.
+          잡음이 섞여 있고, 해독하면 지도에 적 기지가 드러납니다. 시간이 지나면 주파수가 바뀝니다.</p>
+          <dl class="gspec">
+            <dt>집중 장치</dt><dd><b>감각 제한</b> — 볼 것이 없어 귀에 집중할 수밖에 없음</dd>
+            <dt>학습</dt><dd>순수 청취 → 철자. 현재 게임에 없는 영역</dd>
+            <dt>실패=학습</dt><dd>틀린 글자만 빨갛게 표시 후 <b>그 부분만</b> 다시 재생</dd>
+          </dl>
+        </div>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">탐정 사무소: 엇갈린 진술</span><span class="gen">Detective</span><span class="axis ax-t">생각하기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">목격자 3명(AI)을 <b>영어로 직접 심문</b>합니다. 질문은 학생이 만들어야 합니다.
+          진술이 서로 어긋나는데, <b>모순을 찾아내야</b> 범인이 드러납니다. 지목 기회는 <b>단 한 번</b>입니다.</p>
+          <dl class="gspec">
+            <dt>3축 동시</dt><dd>질문을 <b>말하고</b>(말하기) · 답을 <b>듣고</b>(듣기) · 모순을 <b>찾는다</b>(생각하기)</dd>
+            <dt>긴장 장치</dt><dd>되돌릴 수 없는 선택 · 오답 시 범인 도주 연출</dd>
+            <dt>기술</dt><dd>AI 대화 API(기존) + 음성인식(기존). 진술 모순은 사전 설계된 시나리오</dd>
+          </dl>
+        </div>
+        <div class="box good" style="margin-top:14px">
+          <div class="bt">이 계층 최우선 추천 · 탈출: 말해야 열린다</div>
+          호두잉글리시의 핵심 구조를 가장 직접적으로 가져오면서도,
+          밀실 단위라 <b>우리 규모로 만들 수 있습니다.</b>
+          "말 안 하면 아무것도 안 된다"는 제약이 발화량을 강제로 끌어올립니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- Tier 3 -->
+    <div class="tier t3">
+      <div class="tierH">
+        <div><div class="tage">18세 이상</div><div class="tname">성인 · 직장인</div></div>
+        <span class="tsess">세션 10분 · 실용성 우선</span>
+      </div>
+      <div class="tierB">
+        <h4>이 연령의 특성</h4>
+        <ul>
+          <li><b>목적이 분명합니다</b> — 업무·여행·시험·이직. 재미만으로는 안 옵니다.</li>
+          <li>시간이 없습니다. 출퇴근 중 <b>10분 단위</b>로 쪼개 쓸 수 있어야 합니다.</li>
+          <li><b>유치한 연출을 거부합니다.</b> 캐릭터·효과음 과하면 오히려 이탈합니다.</li>
+          <li>자기 수준을 <b>정확히 알고 싶어 합니다</b> — 流利说의 4차원 진단이 먹히는 이유입니다.</li>
+        </ul>
+        <h4>설계 원칙</h4>
+        <p style="margin-bottom:8px">게임적 장치를 <b>절제</b>합니다. 긴장감은 "시간 압박"이 아니라
+        <b>"실전 상황의 압박"</b>으로 줍니다(면접관이 되묻는다, 손님이 재촉한다).
+        점수 대신 <b>진단 리포트</b>를 보상으로 씁니다.</p>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">실전 롤플레이: 면접·회의·협상</span><span class="gen">Real Situations</span><span class="axis ax-s">말하기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">AI 면접관과 영어 면접을 봅니다. 대답이 모호하면 <b>되묻습니다.</b>
+          회의에서는 반대 의견에 반박해야 하고, 협상에서는 설득해야 합니다.
+          끝나면 <b>어휘·발음·문법·유창성 4개 축</b>으로 리포트가 나옵니다.</p>
+          <dl class="gspec">
+            <dt>벤치마크</dt><dd>Speak(롤플레이) + 流利说(4차원 진단) + Duolingo Video Call(대화 후 리뷰)</dd>
+            <dt>긴장 장치</dt><dd>AI가 <b>되묻는다</b> — 얼버무릴 수 없음</dd>
+            <dt>기술</dt><dd>AI 대화 API(기존) + 음성인식(기존)</dd>
+          </dl>
+        </div>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">현장 청취: 공항·병원·회의실</span><span class="gen">Field Listening</span><span class="axis ax-l">듣기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">실제 환경 소음이 섞인 안내방송·진료 설명·회의 발언을 듣고 핵심을 파악합니다.
+          교과서 발음이 아니라 <b>빠르고 뭉개진 실제 말</b>을 씁니다.</p>
+          <dl class="gspec">
+            <dt>차별점</dt><dd>깨끗한 음성만 듣던 학습자가 실전에서 무너지는 지점을 정면으로 다룸</dd>
+            <dt>재미</dt><dd>"공항편 클리어" 같은 실용 목표 · 여행 전 준비 코스</dd>
+          </dl>
+        </div>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">협상 게임</span><span class="gen">The Negotiation</span><span class="axis ax-t">생각하기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">상대와 조건을 두고 협상합니다. <b>더 설득력 있게 말할수록 유리한 결과</b>가 나옵니다.
+          AI가 논리성·정중함·구체성을 평가해 상대의 양보 폭이 달라집니다.</p>
+          <dl class="gspec">
+            <dt>학습</dt><dd>단순 정답이 아니라 <b>표현의 질</b>이 결과를 바꾸는 유일한 게임</dd>
+            <dt>생각하기</dt><dd>무엇을 양보하고 무엇을 지킬지 <b>전략 수립</b></dd>
+          </dl>
+        </div>
+        <div class="box good" style="margin-top:14px">
+          <div class="bt">이 계층 최우선 추천 · 실전 롤플레이</div>
+          성인은 <b>"이게 내 일에 쓸모 있나"</b>가 유일한 기준입니다.
+          면접·회의는 그 답이 명확하고, 기존 AI 대화 API로 만들 수 있습니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- Tier 4 -->
+    <div class="tier t4">
+      <div class="tierH">
+        <div><div class="tage">60세 이상</div><div class="tname">실버 세대</div></div>
+        <span class="tsess">세션 5~10분 · 시간 압박 없음</span>
+      </div>
+      <div class="tierB">
+        <h4>이 연령의 특성 — 연구 근거</h4>
+        <ul>
+          <li>어학 학습이 <b>실제로 인지 기능을 개선</b>합니다. 무작위 대조 연구에서
+          16주 학습이 상용 두뇌훈련 프로그램과 <b>동등한 실행기능 향상</b>을 보였고, 대기군보다 우수했습니다.</li>
+          <li>효과적 요소는 <b>명확한 화면·조절 가능한 글씨 크기·짧은 과제·사회적 요소</b>입니다.</li>
+          <li>장벽은 <b>인지 과부하와 디지털 사용 미숙</b>입니다. 화면이 복잡하면 바로 포기합니다.</li>
+          <li>연구에서 지적된 업계 공통 결함 — 인지훈련 앱 대부분이 <b>청각 지원을 제공하지 않습니다.</b>
+          우리는 음성합성 자산이 이미 있어 <b>이 빈틈을 채울 수 있습니다.</b></li>
+        </ul>
+        <h4>설계 원칙</h4>
+        <div class="box warn" style="margin:8px 0 14px">
+          <div class="bt">이 계층에는 긴장감을 넣지 않습니다</div>
+          시간 압박·실패 표시·순위는 <b>위축</b>을 유발해 이탈로 직결됩니다.
+          대신 <b>성취감(오늘도 해냈다)</b>과 <b>사회적 연결(손주·동년배)</b>로 동기를 만듭니다.
+          긴장감 6장치 중 <b>사회적 시선만</b>, 그것도 경쟁이 아닌 <b>격려 형태</b>로 씁니다.
+        </div>
+        <p style="margin-bottom:8px">화면은 <b>큰 글씨·큰 버튼·한 화면에 한 가지</b>. 모든 음성은
+        <b>반복 재생·속도 조절</b>이 항상 가능해야 합니다.</p>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">손주에게 영어 한마디</span><span class="gen">A Word for My Grandchild</span><span class="axis ax-s">말하기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">손주에게 보낼 짧은 영어 인사를 만들어 녹음합니다.
+          "Happy birthday, I love you" 같은 한 문장. 완성하면 <b>카드로 만들어 실제로 전송</b>할 수 있습니다.</p>
+          <dl class="gspec">
+            <dt>동기</dt><dd>학습이 목적이 아니라 <b>손주에게 전할 것</b>이 목적 — 가장 강한 동기</dd>
+            <dt>실패 처리</dt><dd>몇 번을 다시 녹음해도 됨. 점수 표시 없음</dd>
+            <dt>사회적 연결</dt><dd>연구가 지목한 핵심 지속 요인을 정면으로 활용</dd>
+          </dl>
+        </div>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">추억의 팝송 받아쓰기</span><span class="gen">Songs We Remember</span><span class="axis ax-l">듣기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">익숙한 옛 팝송의 한 구절을 듣고 빈칸을 채웁니다.
+          <b>속도를 마음대로 늦출 수 있고</b>, 몇 번이든 다시 들을 수 있습니다.</p>
+          <dl class="gspec">
+            <dt>동기</dt><dd>이미 아는 멜로디 — <b>"저 가사가 저런 뜻이었구나"</b>의 발견</dd>
+            <dt>접근성</dt><dd>속도 0.5배까지 · 글씨 최대 2배 · 자동 진행 없음</dd>
+            <dt>주의</dt><dd>저작권 확인 필요 — 자체 제작 음원 또는 라이선스 확보 전제</dd>
+          </dl>
+        </div>
+
+        <div class="gcard">
+          <div class="gh"><span class="gname">해외여행 준비반</span><span class="gen">Travel Ready</span><span class="axis ax-t">생각하기</span></div>
+          <p style="margin:6px 0 0;font-size:14px">입국심사·호텔 체크인·식당 주문 상황에서
+          <b>"이럴 땐 뭐라고 하지?"</b>를 미리 연습합니다. 실수해도 AI가 다시 천천히 안내합니다.</p>
+          <dl class="gspec">
+            <dt>동기</dt><dd>실제 여행 계획과 직결 — 목적이 분명</dd>
+            <dt>생각하기</dt><dd>상황을 읽고 <b>적절한 표현을 선택</b>하는 판단</dd>
+          </dl>
+        </div>
+        <div class="box good" style="margin-top:14px">
+          <div class="bt">이 계층 최우선 추천 · 손주에게 영어 한마디</div>
+          실버층 학습의 최대 난제는 <b>"왜 이 나이에 영어를?"</b>입니다.
+          손주라는 목적은 그 질문에 답이 되고, 완성물이 실제로 전달되므로 성취가 눈에 보입니다.
+          <b>신규 사업 영역</b>으로서의 가능성도 있습니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 05 기존 게임 ═══ -->
+  <div class="sec">
+    <span class="secNo">05</span>
+    <h2>기존 15개 게임의 처리</h2>
+    <div class="lead">새 방향에 맞춰 v1의 "출제 규칙 차별화"를 한 단계 더 진행합니다.</div>
+
+    <p>v1에서는 게임마다 문법 영역을 나누자고 제안했습니다(P-38=시제, 테트리스=품사 등).
+    이는 여전히 유효하지만, <b>그것만으로는 "고르기" 게임에서 벗어나지 못합니다.</b>
+    새 방향에 맞추려면 <b>말하기·듣기·생각하기 요소를 하나씩 얹어야</b> 합니다.</p>
+
+    <table>
+      <tr><th style="width:130px">게임</th><th style="width:120px">문법 영역(v1)</th><th>3축 요소 추가(v2)</th></tr>
+      <tr><td><b>셔먼 탱크대전</b></td><td>어순</td><td><b>무전 명령</b> — 지원 사격을 부르려면 영어로 좌표를 <b>말해야</b> 함</td></tr>
+      <tr><td><b>P-38 라이트닝</b></td><td>시제</td><td><b>관제탑 지시 청취</b> — 어느 방향 적기를 칠지 <b>듣고</b> 판단</td></tr>
+      <tr><td><b>단어 테트리스</b></td><td>품사</td><td><b>다음 블록 예측</b> — 미리보기를 보고 배치를 <b>계획</b></td></tr>
+      <tr><td><b>워드 파이터</b></td><td>전치사</td><td><b>기합 발화</b> — 필살기는 소리 내어 <b>외쳐야</b> 발동</td></tr>
+      <tr><td><b>망고 구조선</b></td><td>단수·복수</td><td><b>구조 요청 청취</b> — 어느 방향에서 부르는지 <b>소리로</b> 판단</td></tr>
+      <tr><td><b>문법 피자</b></td><td>문장 성분</td><td><b>주문 받기</b> — 손님 주문을 <b>듣고</b> 피자를 만듦</td></tr>
+      <tr><td><b>용의자 추리</b></td><td>—</td><td>이미 생각하기 축 — <b>탐정 사무소로 확대 발전</b></td></tr>
+      <tr><td><b>문장 벽돌</b></td><td>—</td><td>테트리스와 중복 — <b>정리 대상</b></td></tr>
+      <tr><td><b>단어 매칭 · 풍선</b></td><td>—</td><td>저연령 워밍업으로 <b>10세 이하 계층에 배치</b></td></tr>
+    </table>
+
+    <div class="box">
+      <div class="bt">공통 엔진 분리는 여전히 선행 과제입니다</div>
+      위 변경은 9개 게임에 걸쳐 일어납니다. 공통 기능이 9벌로 복사된 현재 구조에서는
+      <b>같은 작업을 9번</b> 해야 합니다. 엔진을 먼저 분리하면 1번으로 끝납니다.
+      (v1 제안 유지)
+    </div>
+  </div>
+
+  <!-- ═══ 06 로드맵 ═══ -->
+  <div class="sec">
+    <span class="secNo">06</span>
+    <h2>실행 순서</h2>
+    <div class="lead">4개 계층을 동시에 하지 않습니다. 효과 검증이 가장 빠른 곳부터 시작합니다.</div>
+
+    <table>
+      <tr><th style="width:60px">단계</th><th style="width:190px">내용</th><th>이유</th></tr>
+      <tr>
+        <td class="tc"><b>1</b></td>
+        <td><b>탈출: 말해야 열린다</b><br><span style="font-size:12px;color:#7b8ca0">10~17세 · 말하기</span></td>
+        <td>현재 주력 고객층이며 <b>효과가 가장 극적</b>으로 드러납니다.
+        "말 안 하면 진행 안 됨"이라는 구조가 실제로 발화량을 늘리는지 데이터로 확인합니다.
+        기존 음성인식·AI API로 만들 수 있습니다.</td>
+      </tr>
+      <tr>
+        <td class="tc"><b>2</b></td>
+        <td><b>비밀 무전 해독</b><br><span style="font-size:12px;color:#7b8ca0">10~17세 · 듣기</span></td>
+        <td>개발 난이도가 낮고, <b>듣기 전용 게임이 0개</b>인 빈자리를 채웁니다.
+        1단계와 같은 계층이라 비교 검증이 쉽습니다.</td>
+      </tr>
+      <tr>
+        <td class="tc"><b>3</b></td>
+        <td><b>공통 엔진 분리</b><br><span style="font-size:12px;color:#7b8ca0">내부 작업</span></td>
+        <td>1·2단계가 성공하면 본격 확장 전에 구조를 정리합니다.
+        이후 모든 작업 속도를 좌우합니다.</td>
+      </tr>
+      <tr>
+        <td class="tc"><b>4</b></td>
+        <td><b>동물 친구 깨우기</b><br><span style="font-size:12px;color:#7b8ca0">10세 이하 · 말하기</span></td>
+        <td>저연령 유입 확대. 개발 난이도 최저.
+        <b>학부모 상담에서 보여주기 좋은</b> 콘텐츠입니다.</td>
+      </tr>
+      <tr>
+        <td class="tc"><b>5</b></td>
+        <td><b>탐정 사무소</b><br><span style="font-size:12px;color:#7b8ca0">10~17세 · 생각하기</span></td>
+        <td>3축을 동시에 쓰는 <b>간판 게임</b>. 난이도가 높아 엔진 정리 후가 안전합니다.</td>
+      </tr>
+      <tr>
+        <td class="tc"><b>6</b></td>
+        <td><b>실전 롤플레이</b><br><span style="font-size:12px;color:#7b8ca0">성인</span></td>
+        <td><b>신규 시장 진입</b> 성격. 기존 고객 대상 검증이 끝난 뒤 확장하는 것이 안전합니다.</td>
+      </tr>
+      <tr>
+        <td class="tc"><b>7</b></td>
+        <td><b>손주에게 영어 한마디</b><br><span style="font-size:12px;color:#7b8ca0">실버</span></td>
+        <td>가장 새로운 영역. 별도 시장 검증이 필요하므로 마지막에 배치합니다.</td>
+      </tr>
+    </table>
+
+    <div class="box warn">
+      <div class="bt">솔직한 판단 — 성인·실버는 별개 사업입니다</div>
+      성인층과 실버층은 <b>기존 학원 고객이 아니라 신규 시장</b>입니다.
+      게임만 만든다고 고객이 오지 않으며, 유입 경로·가격·마케팅이 별도로 필요합니다.
+      <b>기술적으로는 지금 자산으로 만들 수 있지만, 사업적으로는 별도 검토가 선행되어야 합니다.</b>
+      이 제안서는 기획까지만 담았습니다.
+    </div>
+  </div>
+
+  <!-- ═══ 07 측정 ═══ -->
+  <div class="sec">
+    <span class="secNo">07</span>
+    <h2>성공을 어떻게 판정할 것인가</h2>
+    <div class="lead">이번 방향 전환이 옳았는지는 느낌이 아니라 지표로 확인합니다.</div>
+
+    <table>
+      <tr><th style="width:170px">지표</th><th>측정 방법</th><th style="width:150px">목표</th></tr>
+      <tr><td><b>세션당 발화 횟수</b></td><td>음성인식 시도 횟수 기록 (신규 계측 필요)</td><td>叽里呱啦 기준 <b>10분당 10회 이상</b></td></tr>
+      <tr><td><b>1인당 플레이 시간</b></td><td>기존 학습기록 API</td><td>기존 어순 게임 평균 <b>초과</b></td></tr>
+      <tr><td><b>7일 재방문율</b></td><td>기존 학습기록 API</td><td>기존 게임 대비 <b>개선</b></td></tr>
+      <tr><td><b>약점 단어 감소</b></td><td><code>/api/games/weak</code> 추이</td><td>같은 학생 기준 <b>감소 속도 향상</b></td></tr>
+      <tr><td><b>중도 이탈률</b></td><td>게임 시작 후 1분 내 종료 비율</td><td>연령별 <b>기준선 대비 감소</b></td></tr>
+    </table>
+
+    <div class="box">
+      <div class="bt">1단계 종료 시 판단 기준</div>
+      <b>발화 횟수</b>와 <b>재방문율</b> 둘 다 개선되지 않으면,
+      "말하기 강제 구조"라는 전제 자체를 재검토해야 합니다.
+      이 경우 3단계(엔진 분리) 이후를 보류하고 방향을 다시 정하는 것이 합리적입니다.
+    </div>
+  </div>
+
+  <!-- ═══ 08 요약 ═══ -->
+  <div class="sec">
+    <span class="secNo">08</span>
+    <h2>요약</h2>
+    <ol style="font-size:15px">
+      <li style="margin-bottom:10px"><b>주입식 2종(반사신경·금고털기)은 제외했습니다.</b>
+      방향과 어긋나므로 독립 게임이 아닌 워밍업으로만 남깁니다.</li>
+      <li style="margin-bottom:10px"><b>말하기·듣기·생각하기 3축으로 재편했습니다.</b>
+      공통 원칙은 "고르기가 아니라 만들어내기"입니다.</li>
+      <li style="margin-bottom:10px"><b>긴장감은 계층별로 다르게 씁니다.</b>
+      10~17세는 6가지 장치를 모두 쓰고, 10세 이하와 실버층은 오히려 <b>빼야</b> 합니다.</li>
+      <li style="margin-bottom:10px"><b>경쟁사에서 3가지를 가져왔습니다.</b>
+      호두잉글리시의 "말해야 진행", 叽里呱啦의 "발화 횟수 관리", 流利说의 "다차원 진단".</li>
+      <li style="margin-bottom:10px"><b>발음 채점 격차는 인정하되 우회합니다.</b>
+      ELSA 수준의 음소 채점은 불가하나, 우리는 <b>교재 연동 + 실제 강사</b>가 있으므로
+      정확도는 강사가, 게임은 <b>발화량</b>을 담당하는 분업이 현실적입니다.</li>
+      <li style="margin-bottom:0"><b>10~17세부터 시작합니다.</b>
+      주력 고객이고 효과가 가장 빨리 보입니다. 성인·실버는 기술이 아니라 <b>사업 판단</b>이 먼저입니다.</li>
+    </ol>
+  </div>
+
+  <div class="foot">
+    <b>근거 표시</b> — 현황 진단(게임별 메커니즘 분류, 함수 중복률, 발음 채점 방식)은 소스코드 직접 분석 결과입니다.
+    경쟁사 정보는 아래 출처의 공개 자료이며, 실버층 설계 근거는 학술 연구 결과입니다.
+    기대 효과의 수치는 목표치이며 실측값이 아닙니다.
+    <div class="src" style="margin-top:10px">
+      출처 ·
+      <a href="https://www.hodooenglish.com/about/info">호두잉글리시</a> ·
+      <a href="https://www.hankyung.com/article/2019050799221">한국경제(호두잉글리시)</a> ·
+      <a href="https://gamesbeat.com/duolingo-launches-ai-powered-adventures-mini-games-and-video-call-feature/">GamesBeat(Duolingo)</a> ·
+      <a href="https://duoplanet.com/duolingo-video-call/">Duoplanet(Video Call)</a> ·
+      <a href="https://engvarta.com/speak-vs-elsa-speak-english-fluency-comparison/">Speak vs ELSA 비교</a> ·
+      <a href="https://sj.qq.com/appdetail/com.jiliguala.niuwa">叽里呱啦</a> ·
+      <a href="https://m.liulishuo.com/ielts.html">流利说</a> ·
+      <a href="https://lingokids.com/research">Lingokids Research</a> ·
+      <a href="https://www.prodigygame.com/main-en/prodigy-english">Prodigy English</a> ·
+      <a href="https://pastory.app/articles/reading-eggs-vs-lingokids/">Reading Eggs 비교</a> ·
+      <a href="https://app-liv.jp/education/languages/0036/">일본 어학앱 리뷰</a> ·
+      <a href="https://www.tandfonline.com/doi/full/10.1080/13825585.2021.1991262">시니어 실행기능 무작위 대조연구</a> ·
+      <a href="https://link.springer.com/article/10.1007/s40520-025-03157-7">고령자 앱 설계 체계적 문헌고찰</a> ·
+      <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12026782/">고령자 인지건강 게임 앱 리뷰</a>
+    </div>
+    <div style="margin-top:12px">작성 · 2026-07-27 · 망고아이 개발</div>
+  </div>
+
+</div>
+</body>
+</html>
