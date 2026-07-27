@@ -89,6 +89,12 @@
   .sField:last-of-type{margin-bottom:0}
   .sLab{flex:0 0 46px;font-size:12.5px;font-weight:800;color:#93a7bd}
   .segRow{display:flex;gap:5px;flex:1;min-width:0}
+  /* 진도(레슨 네비) — 자체 2줄 블록이라 라벨을 위로 올리고 좌측정렬 */
+  .sField.stack{flex-direction:column;align-items:stretch;gap:5px}
+  .sField.stack .sLab{flex:none}
+  #lessonNav .lnav-wrap{align-items:stretch;margin:0}
+  #lessonNav .lnav-book,#lessonNav .lnav{justify-content:flex-start}
+  #lessonNav .lnav-label{text-align:left;min-width:0}
   /* 세그먼트 버튼 — 균등 분할, 컴팩트 */
   .langBtn{flex:1;min-width:0;padding:8px 6px;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;
     border:1.5px solid rgba(140,165,195,.28);background:rgba(22,34,48,.75);color:#b9c8d8;transition:.15s;
@@ -257,7 +263,7 @@
         </div>
 
         <!-- 📚 진도(레슨) 네비게이션: ◀복습 / ▶예습 -->
-        <div class="sField">
+        <div class="sField stack">
           <span class="sLab">진도</span>
           <div id="lessonNav"></div>
         </div>
