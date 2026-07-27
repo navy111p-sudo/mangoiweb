@@ -340,8 +340,10 @@ var muted = false, paused = false;
 
 /* 난이도 프리셋 — 교육 강도(듣기 의존도 / 발화 요구)를 여기서 한 곳에 모아 조절 */
 var PRESET = {
+  /* showWord = 문장 바에 '다음에 쏠 단어'를 미리 보여줄지. false 면 무전(듣기)이 유일한 단서가 된다.
+     showKo   = 한국어 뜻을 띄울지. 실전까지는 뜻을 주고, 에이스는 뜻 없이 소리만으로 문장을 세운다. */
   train : { label:'훈련', enemies:4, espd:0.55, showWord:true,  blindRadio:false, voiceLock:false, showKo:true,  time:100, aggro:0.25, rate:0.85 },
-  combat: { label:'실전', enemies:5, espd:0.85, showWord:false, blindRadio:true,  voiceLock:false, showKo:false, time:85,  aggro:0.55, rate:0.95 },
+  combat: { label:'실전', enemies:5, espd:0.85, showWord:false, blindRadio:true,  voiceLock:false, showKo:true,  time:85,  aggro:0.55, rate:0.95 },
   ace   : { label:'에이스', enemies:6, espd:1.15, showWord:false, blindRadio:true,  voiceLock:true,  showKo:false, time:75,  aggro:0.8,  rate:1.05 }
 };
 function P(){ return PRESET[DIFF]; }
@@ -785,8 +787,8 @@ function spawnEnemy(word, isCorrect, kind, words){
           hold:spec.hold + Math.random()*70,          // 유지하려는 상대거리(m)
           fireT:1.5+Math.random()*2, dead:false, alpha:0 };
   e.mesh.scale.setScalar(spec.scale);
-  // 정면 ±45° 안쪽에 배치 — 정면 창과 옆 창 양쪽에서 보이도록
-  var ang=(Math.random()-0.5)*1.6, rise=(Math.random()-0.4)*0.45, dist=e.hold;
+  // 정면 ±30° 안쪽에 배치 — 정면 창과 옆 창 양쪽에 고루 걸리도록
+  var ang=(Math.random()-0.5)*1.05, rise=(Math.random()-0.42)*0.40, dist=e.hold;
   var dir=forwardVec().applyAxisAngle(new THREE.Vector3(0,1,0), ang);
   e.mesh.position.copy(player.position).addScaledVector(dir, dist);
   e.mesh.position.y += rise*dist*0.5;
@@ -794,8 +796,14 @@ function spawnEnemy(word, isCorrect, kind, words){
   var lk = e.ace ? 'ace' : (spec.chunk ? 'chunk' : 'std');
   var lab=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTexture(word, lk),
     transparent:true, depthTest:true, depthWrite:false}));
-  lab.position.set(0, 4.2, 0); e.mesh.add(lab); e.label=lab;
-  e.label.visible = P().showWord || e.ace;
+  // 라벨 높이를 3층으로 어긋내 서로 겹쳐 읽히지 않게 한다(같은 높이면 단어가 포개진다)
+  e.layer = enemies.length % 3;
+  lab.position.set(0, 4.2 + e.layer*2.4, 0); e.mesh.add(lab); e.label=lab;
+  /* ⚠️ 적기 라벨은 어느 난이도에서도 항상 보인다.
+     라벨까지 숨기면 '듣고 고르기'가 아니라 '찍기'가 된다 — 처음에 그렇게 만들었다가 잡았다.
+     듣기 훈련의 정체는 "무전으로 들은 낱말을, 하늘에 흩어진 낱말들 중에서 골라내는 것"이다.
+     숨기는 것은 화면 위쪽 문장 바(다음에 올 단어)뿐이다. */
+  e.label.visible = true;
   scene.add(e.mesh); enemies.push(e); return e;
 }
 /* 격추 — 즉시 사라지지 않고 '연기 뿜으며 회전 추락'한다. 공중전다운 맛의 8할이 여기서 나온다. */
@@ -1248,9 +1256,10 @@ function updateEnemies(dt){
     var mv=tangent.multiplyScalar(Math.sin(e.t*(e.ace?1.15:0.8)+e.ph)*sp)
       .addScaledVector(UP, Math.sin(e.t*0.55+e.ph)*sp*0.4)
       .addScaledVector(radial, (e.hold-d)*0.55);
-    // 정면 유지 — 시야 밖으로 새 나가면 앞으로 당긴다(아이가 목표를 못 찾는 일 방지)
+    /* 정면 유지 — 시야 밖으로 새 나가면 앞으로 당긴다(아이가 목표를 못 찾는 일 방지).
+       0.78 ≈ 정면 39°. 화면 가로 화각이 ±47° 라 이보다 느슨하면 라벨이 창틀에 잘린다. */
     var cosang=radial.dot(pf);
-    if(cosang<0.62) mv.addScaledVector(pf, (0.62-cosang)*300);
+    if(cosang<0.78) mv.addScaledVector(pf, (0.78-cosang)*420);
     // 고도 하한(바다) 보호
     if(m.position.y < -760) mv.y += 60;
 
@@ -1265,7 +1274,7 @@ function updateEnemies(dt){
     if(e.label){
       var dd=Math.max(30, m.position.distanceTo(camera.getWorldPosition(new THREE.Vector3())));
       var s=dd*0.052; e.label.scale.set(s*3.1, s, 1);
-      e.label.position.y = 4.2 + s*0.35;
+      e.label.position.y = 4.2 + (e.layer||0)*2.4 + s*0.35;
     }
     // 적 사격 — 정면 각도 안에 들어왔을 때만, 아주 가끔
     e.fireT-=dt;
@@ -1514,6 +1523,6 @@ function mountLessonNav(){
   })();
 })();
 </script>
-<!-- BUILD:20260728072153 -->
+<!-- BUILD:20260728074809 -->
 </body>
 </html>
