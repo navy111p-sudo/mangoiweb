@@ -4654,9 +4654,24 @@
           </div>
           <!-- 🔎 강사 필터바(구분·상태·그룹) — adm-p7.js renderTrFilterBar 가 채움 -->
           <div id="tr-filters"></div>
-          <style>#tr-rows .tr-row:hover{background:#f8faff}</style>
+          <style>
+            #tr-rows .tr-row:hover{background:#f8faff}
+            /* 📌 (2026-07-27 강사 피드백 3차 #4) "오른쪽으로 스크롤하면 왼쪽 제목(누구 행인지)이 사라진다"
+               → 첫 열(강사 이름)을 가로 스크롤에도 고정. 헤더는 세로 sticky(z-index:1)와 겹치므로 z-index 3. */
+            /* 배경은 !important — 투명하면 스크롤 시 뒤 칸이 첫 열 밑으로 지나가 글자가 겹친다.
+               (관리자 밝은테마 CSS/보정 스크립트가 셀 배경을 덮어쓰기 때문) */
+            #tr-table th:first-child, #tr-table td:first-child{
+              position:sticky; left:0; background:#fff !important; z-index:2;
+              box-shadow:1px 0 0 #e5e7eb;
+            }
+            #tr-table thead th:first-child{ background:#f9fafb !important; z-index:3; }
+            #tr-rows .tr-row:hover td:first-child{ background:#f8faff !important; }
+            /* sticky 를 쓰려면 border-collapse:separate 가 필요한데, 그러면 <tr> 의 border 가 안 그려진다.
+               행 구분선을 셀(td)로 옮겨 원래 모습(1px #f1f5f9)을 그대로 유지한다. */
+            #tr-rows td{ border-bottom:1px solid #f1f5f9; }
+          </style>
           <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:600px">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
+            <table id="tr-table" style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;min-width:900px">
               <thead style="background:#f9fafb;position:sticky;top:0;z-index:1"><tr>
                 <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="강사" data-en="Teacher">강사</th>
                 <th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb" data-ko="그룹" data-en="Group">그룹</th>
@@ -15694,6 +15709,57 @@ button.chip:hover,
   <summary><span>🗓 통합 시간표 ⭐신규</span></summary>
   <div class="menu-body">
     <div class="pl-info">💡 <b>강사·학생·강의실 통합 시간표</b> — 충돌 감지 + 드래그&드롭 배정.</div>
+    <!-- 🧪 (2026-07-27 강사 피드백 3차 #6) "오늘 수업이 없어 교재·영상·퀴즈·리포트가 어떻게 보이는지 확인할 수 없다"
+         → 서버에 seed-demo 엔드포인트는 이미 있었으나 화면에 실행 버튼이 없었다(연결 누락).
+         🔴 실제 운영 DB에 수업이 생기므로: 확인창 + 데모 학생 계정(user_id=student) 고정으로 실학생 오염 방지. -->
+    <div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:10px;padding:11px 14px;margin:10px 0">
+      <div style="font-size:12.5px;font-weight:800;color:#92400e;margin-bottom:6px"
+           data-ko="🧪 샘플 수업 만들기 (강사 확인용)" data-en="🧪 Create sample classes (for teacher review)">🧪 샘플 수업 만들기 (강사 확인용)</div>
+      <div style="font-size:11.5px;color:#78350f;line-height:1.6;margin-bottom:8px"
+           data-ko="오늘 바로 입장 가능한 수업을 데모 학생 계정으로 만듭니다. 강사가 교재·영상·퀴즈·리포트 화면을 확인할 수 있습니다. 실제 학생에게는 배정되지 않습니다."
+           data-en="Creates classes (including one you can enter today) on the demo student account, so teachers can check the book, video, quiz and report screens. No real student is affected.">오늘 바로 입장 가능한 수업을 데모 학생 계정으로 만듭니다. 강사가 교재·영상·퀴즈·리포트 화면을 확인할 수 있습니다. 실제 학생에게는 배정되지 않습니다.</div>
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+        <input id="seed-demo-teacher" type="text" placeholder="강사 이름 (선택)" data-ko-placeholder="강사 이름 (선택)" data-en-placeholder="Teacher name (optional)"
+               style="padding:6px 10px;font-size:12px;border:1px solid #fcd34d;border-radius:7px;max-width:150px" />
+        <button type="button" onclick="seedDemoClasses()" id="seed-demo-btn"
+                style="padding:7px 15px;font-size:12.5px;font-weight:800;border:0;border-radius:8px;background:#f59e0b;color:#fff;cursor:pointer"
+                data-ko="샘플 수업 생성" data-en="Create sample classes">샘플 수업 생성</button>
+        <span id="seed-demo-result" style="font-size:11.5px;font-weight:700"></span>
+      </div>
+    </div>
+    <script>
+      window.seedDemoClasses = function(){
+        var en = (window.adminLang && window.adminLang !== 'ko');
+        var msg = en
+          ? 'This writes sample classes into the LIVE database (demo student account only).\n\nContinue?'
+          : '실제 운영 DB에 샘플 수업이 생성됩니다 (데모 학생 계정 전용).\n\n계속하시겠습니까?';
+        if (!confirm(msg)) return;
+        var btn = document.getElementById('seed-demo-btn');
+        var out = document.getElementById('seed-demo-result');
+        var tn  = (document.getElementById('seed-demo-teacher') || {}).value || '';
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+        if (out) { out.style.color = '#78350f'; out.textContent = en ? 'Creating…' : '생성 중…'; }
+        var qs = '?user_id=student' + (tn.trim() ? '&teacher_name=' + encodeURIComponent(tn.trim()) : '');
+        fetch('/api/admin/class-schedules/seed-demo' + qs, { method:'POST', credentials:'include' })
+          .then(function(r){ return r.json().catch(function(){ return { ok:false, error:'HTTP ' + r.status }; }); })
+          .then(function(d){
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+            if (!out) return;
+            if (d && d.ok) {
+              var n = (d.inserted && d.inserted.length) || d.count || 0;
+              out.style.color = '#047857';
+              out.textContent = (en ? '✔ Created ' + n + ' class(es). Check Today’s Classes.' : '✔ ' + n + '건 생성됐습니다. 오늘 수업에서 확인하세요.');
+            } else {
+              out.style.color = '#b91c1c';
+              out.textContent = (en ? '✕ Failed: ' : '✕ 실패: ') + ((d && (d.error || d.code)) || 'unknown');
+            }
+          })
+          .catch(function(e){
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+            if (out) { out.style.color = '#b91c1c'; out.textContent = (en ? '✕ Failed: ' : '✕ 실패: ') + String(e && e.message || e); }
+          });
+      };
+    </script>
     <div class="pl-feature-list">
       <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>📆 주간/월간 뷰</b><span>구글 캘린더 스타일 그리드</span></div>
       <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>👨‍🏫 강사별 필터</b><span>강사 선택 → 모든 수업</span></div>
@@ -21435,6 +21501,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260727212913 -->
+<!-- BUILD:20260727220501 -->
 </body>
 </html>
