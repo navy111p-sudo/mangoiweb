@@ -7,7 +7,8 @@
 <!--
   🛡️ 탱크 대전(Tank Battle): 단어 전차전 — 영어/중국어 학습 슈팅
   · 단일 HTML SPA. 허브 파라미터: ?uid= &speed=1..5 &stage=1..3 &goal=N &glang=en|zh
-  · 플레이어 = 미국 M4 셔먼(왼쪽 버튼/손가락을 누른 채 드래그=커서 추종 이동, 짧은 탭=발사, 우클릭·스페이스 발사)
+  · 플레이어 = 미국 M4 셔먼 — 양손 조작: 마우스=이동·조준(커서 추종), 왼손 키보드(스페이스·F·A·Ctrl)=발사(길게 누르면 연사)
+    (모바일·2D 클래식은 드래그=이동, 탭=발사 그대로)
   · 적 = 독일 타이거 전차 + 자주포(StuG). 사방 가장자리서 흩어져 등장, 이동하며 포 사격.
   · 각 적 전차가 단어를 싣고 있음 → 문장 어순대로 격파 → 완성 시 듣기 3번·말하기 3번(발음 학습)
   · 특수효과: 명중 = 큰 폭발음 + 불꽃 + 파편 + 연기 + 잔해(부서진 전차). 오답 격파 = 감점.
@@ -202,8 +203,9 @@
     </div>
     <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
     <div class="oRules">
-      🎯 <b>왼쪽 버튼(손가락)을 누른 채 끌면</b> 셔먼이 그대로 따라와요! 떼면 정지.<br>
-      💥 <b>짧게 클릭(탭)</b>하면 그쪽으로 포탄 발사·명중! (우클릭·스페이스도 발사)<br>
+      🖱️ <b>오른손 마우스</b>를 움직이면 셔먼이 그대로 따라와요 — 이동·조준을 한 손으로!<br>
+      ⌨️ <b>왼손으로 스페이스</b>(또는 F·A·Ctrl)를 누르면 발사! <b>누르고 있으면 연사</b> 💥<br>
+      <span style="opacity:.8">📱 휴대폰·태블릿은 손가락으로 끌어 이동, 탭하면 발사예요</span><br>
       🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
       ⛽ <b>젤리 연료통</b>을 쏘거나 밟으면 연료(시간) 충전<br>
       💣 적 <b>타이거·자주포</b>의 포탄을 피하세요!
@@ -554,7 +556,7 @@ function buildBackdrop(){
    ════════════════════════════════════════════════════════════ */
 var G=null;
 function newGame(){
-  _clickPhase=0;   // 🖱️ 클릭 사이클(이동→정지→발사) 초기화 — 새 게임은 항상 '이동'부터
+  _fireKey=false;   // ⌨️ 발사키 상태 초기화(이전 판의 눌림이 남지 않게)
 
   G={ px:W/2, py:H*0.62, hullAng:-Math.PI/2, turAng:-Math.PI/2,
       vx:0, vy:0, wpx:W/2, wpy:H*0.5, track:0,
@@ -712,12 +714,10 @@ var _aim={x:0,y:0};                              // 커서 조준점(키보드·
 var _fireKey=false;                              // ⌨️ 발사키를 누르고 있는 중인가(연사)
 function _onPtrMove(ev){ if(!G||!G.running||G.speaking)return;
   var p=ptr(ev); _aim.x=p.x; _aim.y=p.y;
-  // 🎬 3D 쿼터뷰: 마우스는 버튼을 누르지 않아도 커서를 계속 따라감(호버 추적) — 정지 단계(클릭 사이클 1·2)엔 제자리
+  // 🎬 3D 쿼터뷰: 오른손 마우스는 버튼과 무관하게 커서를 계속 따라감(이동+조준 일체)
   if(VIEW==='quarter' && ev.pointerType==='mouse' && !_drag.on){
-    if(_clickPhase!==0){ G.dragging=false; return; }
     G.dragging=true; G.tx=p.x; G.ty=p.y; return; }
   if(!_drag.on) return;                          // 버튼을 누른 동안만 이동 목표 갱신(터치·2D 클래식)
-  if(VIEW==='quarter' && ev.pointerType==='mouse' && _clickPhase!==0) return;   // 🛑 정지 단계: 끌어도 안 움직임
   G.tx=p.x; G.ty=p.y;
   if(!_drag.moved && Math.hypot(p.x-_drag.sx,p.y-_drag.sy)>12) _drag.moved=true;
 }
@@ -727,10 +727,6 @@ function _onPtrDown(ev){ if(!G||!G.running||G.speaking)return;
   try{ ev.target.setPointerCapture(ev.pointerId); }catch(_){}
   var p=ptr(ev); _drag.on=true; _drag.sx=p.x; _drag.sy=p.y; _drag.t=performance.now(); _drag.moved=false;
   _aim.x=p.x; _aim.y=p.y;
-  // 🛑 (2026-07-27 사장님 제보 "발사 클릭에 탱크가 그 좌표로 갑자기 이동")
-  //   정지 단계(클릭 사이클 1·2)의 마우스 클릭은 이동 목표를 건드리면 안 된다 —
-  //   버튼을 누르는 순간 tx/ty=클릭 지점+dragging 이 켜져, 탱크가 발사 좌표로 스냅 이동했다.
-  if(VIEW==='quarter' && ev.pointerType==='mouse' && _clickPhase!==0) return;
   G.dragging=true; G.tx=p.x; G.ty=p.y;
 }
 function _dragEnd(ev){
@@ -738,24 +734,9 @@ function _dragEnd(ev){
   if(!was || !G || !G.running || G.speaking) return;
   var p=ptr(ev);
   if(!_drag.moved && performance.now()-_drag.t<350){
-    // 🎬 3D 마우스(2026-07-27 사장님 지시): 클릭 3단계 사이클 — ①정지 ②발사(정지 유지) ③다시 이동
-    if(VIEW==='quarter' && ev.pointerType==='mouse'){
-      if(_clickPhase===0){                                   // ① 이동 중 → 정지
-        _clickPhase=1; G.dragging=false; G.tx=G.px; G.ty=G.py;
-        banner('⏸ 정지 — 클릭하면 발사','#7fd1ff');
-      } else if(_clickPhase===1){                            // ② 정지 → 발사(적이 근처면 자동조준, 아니면 클릭 지점으로)
-        _clickPhase=2;
-        var tgt=_pickTargetNear(p.x,p.y);
-        if(tgt){ G.lock=tgt; G.lockUntil=performance.now()+2200; playerFire(_leadAngle(tgt)); }
-        else fireAt(p.x, p.y);
-        banner('💥 발사! — 클릭하면 다시 이동','#ffd27f');
-      } else {                                               // ③ 발사됨 → 다시 이동(커서 추적 재개)
-        _clickPhase=0; G.dragging=true; G.tx=p.x; G.ty=p.y;
-        banner('▶ 이동 — 클릭하면 정지','#7fd1ff');
-      }
-      return;
-    }
-    fireAt(p.x, p.y);                                        // 터치·2D=기존 그대로(탭=자동조준 발사)
+    // 클릭(탭)=그 지점 자동조준 발사. 마우스는 계속 커서를 따라 이동하므로 멈추지 않는다.
+    //   (주 조작은 왼손 키보드 발사 — 클릭 발사는 초보자 안전망)
+    fireAt(p.x, p.y);
   }
 }
 function _onCtxMenu(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p=ptr(e); fireAt(p.x, p.y); } }  // 우클릭=자동조준 발사
@@ -766,8 +747,19 @@ function _onCtxMenu(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p
   elx.addEventListener('pointercancel',function(){ _drag.on=false; if(G)G.dragging=false; });
   elx.addEventListener('contextmenu',_onCtxMenu);
 });
-// ⌨️ (PC 보조) 스페이스 = 커서 위치 적 자동조준 발사
-window.addEventListener('keydown',function(e){ if(e.code==='Space' && G && G.running && !G.speaking){ e.preventDefault(); fireAt(_aim.x, _aim.y); } });
+/* ⌨️ 왼손 발사키 — 오른손은 마우스로 이동·조준, 왼손은 발사에만 집중(양손 조작).
+   여러 키를 허용해 손 모양이 달라도 편한 키를 쓰게 한다: 스페이스(엄지) · F · A · Ctrl.
+   누르고 있으면 update() 가 재장전(0.38초)마다 자동 연사한다 — 급할 때 연타하지 않아도 된다. */
+var FIRE_KEYS={ Space:1, KeyF:1, KeyA:1, ControlLeft:1, ControlRight:1 };
+window.addEventListener('keydown',function(e){
+  if(!FIRE_KEYS[e.code] || !G || !G.running || G.speaking) return;
+  e.preventDefault();
+  if(e.repeat) return;              // 길게 누름은 아래 연사 루프가 담당(OS 반복 속도에 의존하지 않음)
+  _fireKey=true;
+  fireAt(_aim.x, _aim.y);           // 누른 즉시 1발 — 반응이 늦게 느껴지지 않게
+});
+window.addEventListener('keyup',function(e){ if(FIRE_KEYS[e.code]) _fireKey=false; });
+window.addEventListener('blur',function(){ _fireKey=false; });   // 창을 벗어나면 키가 눌린 채로 남지 않게
 
 /* ════════════════════════════════════════════════════════════
    11. 업데이트
@@ -809,6 +801,9 @@ function update(dt){
   }
   if(sp>4){ G.track+=sp*dt*0.05; }
   if(G.invuln>0)G.invuln-=dt;
+
+  // ⌨️ 발사키를 누르고 있으면 재장전마다 자동 연사(커서 조준점 기준) — 타깃 락 중엔 락이 우선
+  if(_fireKey && !G.lock && performance.now()-G.fireT >= 380) fireAt(_aim.x, _aim.y);
 
   // 🔒 타깃 락 — 탭한 적을 포탑이 자동 추적하며 재장전마다 자동 연사(맞을 때까지)
   if(G.lock && G.lock.alive && performance.now()<G.lockUntil){
@@ -1860,14 +1855,14 @@ function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts
   render(); }
 function startGame(){
   document.getElementById('start').classList.add('hide'); document.getElementById('over').classList.add('hide');
-  _clickPhase=0;   // 🖱️ 클릭 사이클 초기화(이동부터)
+  _fireKey=false;   // ⌨️ 발사키 상태 초기화
   newGame(); G.running=true; updateHUD();
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock(); bgmStart();
   banner('🛡️ 전투 시작!', '#ffd479');
   // 👋 첫 판 온보딩 힌트
   var onb=false; try{ onb=!!localStorage.getItem('mangoi_tank_onboarded'); }catch(_){}
   if(!onb){ try{ localStorage.setItem('mangoi_tank_onboarded','1'); }catch(_){}
-    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('🎯 빛나는 ▼ 적 탱크를 탭(클릭)하면 자동 조준!','#7fd1ff'); }, 1400); }
+    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('🖱️ 마우스로 이동 · ⌨️ 스페이스로 발사(길게=연사)','#7fd1ff'); }, 1400); }
 }
 function endGame(win){ if(!G||G.over)return; G.over=true; G.running=false; flushProg();
   bgmStop(); _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
@@ -1923,6 +1918,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727165502 -->
+<!-- BUILD:20260727165847 -->
 </body>
 </html>

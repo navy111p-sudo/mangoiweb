@@ -48,7 +48,8 @@
   .pad{ pointer-events:auto; width:74px; height:74px; border-radius:50%;
     background:#ffffff1f; border:2px solid #ffffff40; backdrop-filter:blur(4px);
     display:flex; align-items:center; justify-content:center; font-size:30px; color:#fff;
-    box-shadow:0 4px 14px #0005; touch-action:none; transition:transform .07s, background .1s; }
+    box-shadow:0 4px 14px #0005; touch-action:none; transition:transform .07s, background .1s;
+    -webkit-touch-callout:none; }   /* 📱 길게 누를 때 iOS 콜아웃/안드로이드 컨텍스트메뉴가 떠서 누름이 취소되지 않게 */
   .pad:active{ transform:scale(.9); background:#ffffff38; }
   .steerGroup{ display:flex; gap:14px; }
   #boost{ width:90px; height:90px; font-size:16px; font-weight:800; flex-direction:column; line-height:1.15;
@@ -852,7 +853,7 @@
        4. 게임 상태
        ============================================================ */
     var G = { mode:MODE, stageIdx:0, rescued:0, lives:3, score:0, combo:0,
-      boatX:0, steer:0, boost:false, speed:0, running:false, dist:0, spawnGap:12, sinceSpawn:0,
+      boatX:0, steer:0, steerHold:0, boost:false, speed:0, running:false, dist:0, spawnGap:12, sinceSpawn:0,
       controlLock:0, t:0, wordPool:[], round:null, sentWords:[], sentNext:0, trialActive:false, trialLeft:0,
       lastRescueAt:-99, invuln:0, stageTimeMax:50, stageTimeLeft:50, stormCd:16, rescuedWords:[] };
     var objects=[];   // 활성 스폰 오브젝트
@@ -979,7 +980,7 @@
       var vis=STAGES[G.stageIdx % STAGES.length];   // 시각 테마는 순환
       var round=ROUNDS[G.stageIdx] || { en:'', ko:'', words:[] };
       G.round=round; G.sentWords=(round.words||[]).slice(); G.sentNext=0;
-      G.rescued=0; G.boatX=0; G.boost=false; G.dist=0; G.sinceSpawn=0; G.controlLock=0; G.combo=0;
+      G.rescued=0; G.boatX=0; G.boost=false; G.dist=0; G.sinceSpawn=0; G.controlLock=0; G.combo=0; G.steer=0; G.steerHold=0;
       G.speed=13 + (G.stageIdx%STAGES.length)*2.2;
       G.lastRescueAt=-99; G.invuln=0;
       G.stageTimeMax=45 + G.sentWords.length*7; G.stageTimeLeft=G.stageTimeMax;   // 문장 길수록 시간 넉넉
@@ -1206,7 +1207,9 @@
     /* ============================================================
        6. 입력
        ============================================================ */
-    function setSteer(v){ G.steer=v; }
+    // 📱 모바일/태블릿(터치) 여부 — 길게 누르기 조타는 터치 기기에서만 적용(PC 마우스·키보드 조작은 기존 그대로)
+    var IS_TOUCH = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches) || ('ontouchstart' in window) || (navigator.maxTouchPoints||0) > 0;
+    function setSteer(v){ G.steer=v; if(v!==0) G.steerHold=0; }   // 누르기 시작 = 회전 가속 타이머 리셋
     window.addEventListener('keydown',function(e){
       if(e.repeat) return;
       if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') setSteer(-1);
@@ -1218,8 +1221,22 @@
       else if(e.key==='ArrowRight'||e.key==='d'||e.key==='D'){ if(G.steer>0) setSteer(0); }
       else if(e.key===' '||e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ G.boost=false; }
     });
-    function hold(el,down,up){ el.addEventListener('pointerdown',function(e){e.preventDefault();down();});
-      ['pointerup','pointerleave','pointercancel'].forEach(function(ev){ el.addEventListener(ev,function(e){e.preventDefault();up();}); }); }
+    // 🖐 누르고 있는 동안 유지되는 버튼 — 태블릿/휴대폰에서 '길게 누르기'가 중간에 끊기지 않게 포인터를 캡처함
+    //    (버튼이 :active 로 10% 작아지거나 손가락이 살짝 흔들려 버튼 밖으로 나가도 누름 유지 → 배가 계속 회전)
+    function hold(el,down,up){
+      var pid=null;
+      function rel(e){ if(e && pid!==null && e.pointerId!=null && e.pointerId!==pid) return; if(pid===null) return; pid=null; up(); }
+      el.addEventListener('pointerdown',function(e){
+        e.preventDefault(); pid=e.pointerId;
+        try{ el.setPointerCapture(e.pointerId); }catch(_){}
+        down();
+      });
+      ['pointerup','pointercancel'].forEach(function(ev){ el.addEventListener(ev,function(e){ e.preventDefault(); rel(e); }); });
+      el.addEventListener('pointerleave',function(e){ if(IS_TOUCH) return; rel(e); });   // 마우스만 '벗어나면 해제'. 터치는 캡처로 유지
+      window.addEventListener('pointerup',rel);                                          // 캡처 이벤트를 놓친 경우 안전망
+      window.addEventListener('blur',function(){ rel(null); });                          // 앱 전환·알림창으로 손을 뗀 것과 같아지면 해제
+      el.addEventListener('contextmenu',function(e){ e.preventDefault(); });              // 길게 누를 때 뜨는 메뉴가 누름을 취소하지 않게
+    }
     hold($('left'), function(){setSteer(-1);}, function(){ if(G.steer<0)setSteer(0); });
     hold($('right'),function(){setSteer(1);},  function(){ if(G.steer>0)setSteer(0); });
     hold($('boost'),function(){G.boost=true;}, function(){G.boost=false;});
@@ -1299,7 +1316,16 @@
       // 조타 — 통나무 충돌 락 > 키보드 > 마우스/터치 위치추종(예민) 순
       // 충돌 시 배는 절대 돌지 않음 — 조종(마우스/키)은 항상 가능하고, controlLock 은 '진동'만 담당(클릭하면 즉시 0)
       if(G.controlLock>0) G.controlLock-=dt;
-      if(G.steer!==0){ G.aimSteer=G.steer; boat.rotation.y=-G.steer*0.28; G.boatX += G.steer*9*dt; }
+      if(G.steer!==0){
+        // 📱 태블릿/휴대폰: 화살표를 길게 누르는 동안 회전이 부드럽게 이어지고 점점 빨라짐(툭 누르면 살짝, 꾹 누르면 크게)
+        var sMag=1;
+        if(IS_TOUCH){
+          G.steerHold=(G.steerHold||0)+dt;
+          sMag=Math.min(1.35, 0.55 + G.steerHold*1.8);                 // 0.55 → 1.35 까지 약 0.45초에 걸쳐 가속
+          if(G.pointerOn){ G.pointerOn=false; G.pointerX=null; }        // 버튼 조종 중엔 위치추종 해제(손을 뗄 때 배가 튀지 않게)
+        }
+        G.aimSteer=G.steer*Math.min(1,sMag); boat.rotation.y=-G.aimSteer*0.28; G.boatX += G.steer*9*sMag*dt;
+      }
       else if(G.pointerOn && G.pointerX!=null){
         var diff=G.pointerX - G.boatX;
         G.boatX += diff*Math.min(1, dt*28);                       // 커서로 빠르고 정밀하게 추종
@@ -1408,6 +1434,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260727165502 -->
+<!-- BUILD:20260727165847 -->
 </body>
 </html>
