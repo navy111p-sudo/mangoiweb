@@ -1445,7 +1445,8 @@ document.addEventListener('mousemove', function(e){
     dnd.ghost.innerHTML='<div class="gh-ico">'+icon+'</div><div class="gh-info"><div class="gh-title">'+title+'</div><div class="gh-sub">'+escapeHtml(sub)+' • '+(L?'끌어서 놓기':'Drop to move')+'</div></div>';
     document.body.appendChild(dnd.ghost);
     // [기능2] 비어있는 '수업 가능' 셀들을 녹색 점선으로 강조
-    document.querySelectorAll('.mini-cal td.slot-empty, .mini-cal td.slot-weekend').forEach(function(c){c.classList.add('drop-ready');});
+    // ⚠️ 선택자를 .mini-cal 에 묶지 말 것 — 레이아웃이 바뀌면 표시가 조용히 사라진다
+    document.querySelectorAll('td.slot.slot-empty, td.slot.slot-weekend').forEach(function(c){c.classList.add('drop-ready');});
   }
   if(!dnd.active)return;
   // Ghost 위치 업데이트
