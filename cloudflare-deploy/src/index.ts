@@ -4229,10 +4229,16 @@ async function handleRecordingDelete(path: string, env: Env): Promise<Response> 
  * 학생 보상(POST /api/reward) 도 클라이언트 자동 호출이라 제외.
  */
 function isAdminPath(path: string, method: string): boolean {
-  // admin.html 페이지 자체 + /admin, /admin/ 리다이렉트
+  // 🔒🔒 [보안 근본수정 2026-07-27] 관리자 **화면**도 DEFAULT-DENY 로 전환.
+  //   과거엔 /admin/xxx.html 을 한 줄씩 이 목록에 등록하는 allowlist 였다. 그래서 새 화면을
+  //   만들면서 등록을 빠뜨리면 그 페이지가 로그인 없이 그대로 내려갔다 —
+  //   캐피타운 정산(2026-07-22)에 이어 /admin/ghost-view.html(수업 관찰) 이 같은 이유로 뚫렸다.
+  //   이제 /admin 으로 시작하면 무조건 인증을 요구한다. 등록을 잊어도 안전한 쪽으로 실패한다.
+  //   · 로그인 화면(/admin/login*)은 isAuthPublicPath() 가 미들웨어에서 먼저 빼준다.
+  //   · public/admin/ 아래는 .html 21개뿐이고 js·css 정적자산이 없다(자산은 /js, /css 루트).
+  //     따라서 이 규칙이 로그인 페이지의 리소스 로딩을 막지 않는다. 새로 자산을 넣지 말 것.
   if (path === '/admin' || path === '/admin/' || path === '/admin.html') return true;
-  // 🩺 /admin/health 셀프 진단 페이지 + 그 전용 API (관리자만 접근)
-  if (path === '/admin/health' || path === '/admin/health/' || path === '/admin/health.html') return true;
+  if (path.startsWith('/admin/')) return true;
 
   // 🔒🔒 [보안 근본수정 2026-07-09] /api/admin/* 는 기본 전부 인증 필요 (DEFAULT-DENY).
   //   과거엔 아래처럼 경로를 하나씩 allowlist 로 나열했는데, 새 admin API 를 추가하면서

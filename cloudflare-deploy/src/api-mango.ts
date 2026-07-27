@@ -2853,9 +2853,23 @@ ${numbered}`;
       } catch { return null; }
     };
 
+    // 🔐 [보안 2026-07-27] 방 관리 액션(invite·kick·members) 공용 게이트.
+    //   그동안 이 셋은 **인증이 한 줄도 없었다** — room_id 만 알면 누구나 진행 중인 수업에서
+    //   참가자를 강제 퇴장시키거나(kick) 참가자 이름·아이디를 조회할 수 있었다(members).
+    //   호출처를 전수 확인한 결과 셋 다 관리자 콘솔뿐이라(adm-s2.js · admin/ghost-view.html)
+    //   관리자 세션을 요구해도 회귀가 없다.
+    //   ⚠️ 강사가 자기 수업에서 직접 kick 하는 동선을 나중에 만들면, 여기서 관리자 세션 대신
+    //      '이 방의 role=teacher 짜리 room JWT' 도 허용하도록 확장할 것(지금은 그 호출처가 없다).
+    const _requireAdminForRoom = async (): Promise<Response | null> => {
+      const _s = await checkAdminSession(request, env as any);
+      if (_s.ok) return null;
+      return json({ ok: false, error: 'auth_required' }, 401);
+    };
+
     // ── POST /api/rooms/:room_id/invite — 강사가 학생 초대 (사전 권한 등록) ──
     const inviteMatch = path.match(/^\/api\/rooms\/([^\/]+)\/invite$/);
     if (method === 'POST' && inviteMatch) {
+      const _deny = await _requireAdminForRoom(); if (_deny) return _deny;
       await ensureRoomTokenSchema();
       const roomId = decodeURIComponent(inviteMatch[1]);
       const b: any = await request.json().catch(() => ({}));
@@ -2894,7 +2908,13 @@ ${numbered}`;
       let role = member?.role;
       if (!role) {
         if (b.allow_open === true) {
-          role = String(b.role || 'student').trim();   // 기존 화상수업과 호환 (가드 없이 발급)
+          // 🔐 [보안 2026-07-27] 폴백 경로에서는 **role 을 클라이언트가 못 정한다**.
+          //   과거엔 body.role 을 그대로 믿어서, 아무나 {allow_open:true, role:'teacher'} 로
+          //   교사 권한 방 토큰을 발급받을 수 있었다(권한 상승). 폴백은 항상 student 로 고정.
+          //   호출처 확인: index.html:11463 · adm-s2.js:53 둘 다 student → 회귀 0.
+          //   ⚠️ 폴백 자체(초대 없이 발급)를 없애면 수업 입장이 막힐 수 있어 지금은 유지한다.
+          //      제거하려면 예약 테이블 대조로 서버가 판단하도록 먼저 바꿀 것.
+          role = 'student';
         } else {
           return json({ ok: false, error: 'not_invited', message: '이 강의실에 사전 등록되지 않았습니다. 강사에게 초대를 요청하세요.' }, 403);
         }
@@ -2966,6 +2986,7 @@ ${numbered}`;
     // ── POST /api/rooms/:room_id/kick — 강제 퇴장 (토큰 회수) ──
     const kickMatch = path.match(/^\/api\/rooms\/([^\/]+)\/kick$/);
     if (method === 'POST' && kickMatch) {
+      const _deny = await _requireAdminForRoom(); if (_deny) return _deny;
       await ensureRoomTokenSchema();
       const roomId = decodeURIComponent(kickMatch[1]);
       const b: any = await request.json().catch(() => ({}));
@@ -2980,6 +3001,7 @@ ${numbered}`;
     // ── GET /api/rooms/:room_id/members — 초대된 학생/강사 목록 ──
     const membersMatch = path.match(/^\/api\/rooms\/([^\/]+)\/members$/);
     if (method === 'GET' && membersMatch) {
+      const _deny = await _requireAdminForRoom(); if (_deny) return _deny;
       await ensureRoomTokenSchema();
       const roomId = decodeURIComponent(membersMatch[1]);
       const rs: any = await env.DB.prepare(

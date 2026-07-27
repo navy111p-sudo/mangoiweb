@@ -393,7 +393,7 @@
     <h2>🌟 망고아이의 특장점</h2>
     <p>화상영어 업계 1위를 향해 달려가는 망고아이만의 차별점입니다.</p>
     <div class="info-grid">
-      <div class="info-tile"><b>👨‍🏫 검증된 강사</b><span>1,000명+ 원어민·전문 강사 풀</span></div>
+      <div class="info-tile"><b>👨‍🏫 검증된 강사</b><span>원어민·전문 강사진</span></div>
       <div class="info-tile"><b>🎯 1:1 맞춤 학습</b><span>레벨테스트 후 개인별 커리큘럼</span></div>
       <div class="info-tile"><b>🤖 AI 발음 분석</b><span>실시간 발음 평가 + 피드백</span></div>
       <div class="info-tile"><b>📹 수업 녹화</b><span>복습용 다시보기 무제한 제공</span></div>
@@ -806,9 +806,16 @@
 
     <a class="info-cta" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()">📨 온라인 문의 →</a>`;
 
+  // ⚠️ [2026-07-27] 아래 소개 문구에서 강사 수·수업 건수를 뺐다(직원 피드백 #9).
+  //   바로 아래 목록이 "전체 강사진 (30명)" 인데 문구는 훨씬 큰 수를 말해 같은 화면에서 어긋났고,
+  //   두 수치 모두 근거를 확인할 수 없었다(D1 의 강사 테이블은 30행, 수업량 집계 없음).
+  //   공정위는 사교육 업체의 강사 규모 과장을 표시광고법 위반으로 제재한 사례가 있다.
+  //   → 정확한 수치가 확정되면 그때 다시 넣을 것. 확인 없이 숫자를 넣지 말 것.
+  //   ⚠️ 이 설명을 HTML 주석(<!-- -->)으로 쓰지 말 것 — 템플릿 문자열 안에 넣으면 그대로
+  //      브라우저까지 실려 나가서, 지우려던 문구가 소스보기에 남는다(실제로 한 번 그랬다).
   const TEACHERS = `
     <h2>👨‍🏫 강사 소개</h2>
-    <p>1,000명+ 검증된 강사들이 매일 7,000건+의 수업을 진행합니다.</p>
+    <p>엄격하게 검증된 정규 강사진이 매일 수업을 진행합니다.</p>
     <h3>🌍 강사 구성</h3>
     <div class="info-grid">
       <div class="info-tile" data-cat="all" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('all')"><b>🌏 전체</b><span>모든 강사</span></div>
@@ -995,7 +1002,7 @@
     <h3>📞 가맹 상담</h3>
     <ul>
       <li>이메일: <b>partner@mangoi.kr</b></li>
-      <li>전화: <b>1588-0000 (내선 3)</b></li>
+      <li>전화: <b>1644-0561 (내선 3)</b></li>
     </ul>
 
     <!-- 💛 감성 호소문 + 음성 듣기 -->
@@ -1061,7 +1068,7 @@
     <p>국가별 망고아이 콜센터 연락처입니다. 시차에 맞춰 24/7 응대 가능합니다.</p>
     <h3>🇰🇷 한국 본사</h3>
     <ul>
-      <li>대표 전화: <b>1588-0000</b></li>
+      <li>대표 전화: <b>1644-0561</b></li>
       <li>팩스: 02-1234-5678</li>
       <li>운영: 평일 09:00-22:00 / 주말 10:00-18:00 (KST)</li>
       <li>이메일: <b>help@mangoi.kr</b></li>

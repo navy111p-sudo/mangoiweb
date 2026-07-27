@@ -11,7 +11,7 @@
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=12"></script>
+<script defer src="/js/i18n-sweep.js?v=13"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -19810,6 +19810,31 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape' && modal.style.display !== 'none') closeModal();
   });
 
+  // 🧠 [2026-07-27] MBTI 강사매칭에서 넘어온 ?go= 수신부.
+  //   mbti.html / mbti-test.html 은 강사를 고르면 `/?go=inquiry&teacher=…` 로 홈에 보낸다.
+  //   그런데 **받는 쪽이 없어서** 홈에 도착만 하고 상담창이 안 열렸다(직원 피드백 #3).
+  //   강사 정보를 채워 넣는 로직은 openInquiryModal() 안에 이미 있었다 — 여는 것만 빠져 있었음.
+  //   ⚠️ 여기서는 **상담 모달만** 연다. 수업 입장류를 URL 로 자동 실행하면 안 된다
+  //      (과거 ?vc_autojoin=1 이 권한 팝업 전에 입장해 고착된 사고 전례).
+  (function _goParamReceiver(){
+    function run(){
+      var go = '';
+      try { go = new URLSearchParams(location.search).get('go') || ''; } catch(e){ return; }
+      if (!go) return;
+      // URL 은 먼저 정리 — 새로고침 때 또 열리지 않게.
+      try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
+      if (go === 'inquiry' || go === 'trial') {
+        window.openInquiryModal && window.openInquiryModal();
+      } else if (go === 'enroll') {
+        if (window.gridActions && window.gridActions.payment) window.gridActions.payment();
+        else window.openInquiryModal && window.openInquiryModal();
+      }
+    }
+    // 홈 화면·그리드가 준비된 뒤에 열어야 모달이 뒤에 깔리지 않는다.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 300); });
+    else setTimeout(run, 300);
+  })();
+
   document.getElementById('inquiry-submit').addEventListener('click', async (e) => {
     e.preventDefault();
     const name    = document.getElementById('inq-name').value.trim();
@@ -20722,7 +20747,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=11"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=13"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -30114,7 +30139,7 @@ window.vcAutoLoadStudentTextbook = async function(){
     .mg-faq-a{padding-left:14px}
   }
 </style>
-<script src="/js/idx-x7.js?v=1"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x7.js?v=2"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
 <script src="/js/idx-x8.js?v=1"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
