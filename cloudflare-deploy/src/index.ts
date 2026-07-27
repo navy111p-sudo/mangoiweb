@@ -3140,6 +3140,16 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     try {
       const result: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.7 });
       aiText = (result && (result.response || result.result || '')).toString().trim();
+      // 🔁 (2026-07-27) Workers AI 가 드물게 빈 응답을 준다 — 이걸 그대로 두면 아래
+      //    "Let's try again" 문구가 나가서, 학생은 자기가 잘 말했는데도 AI가 못 알아들은
+      //    것으로 오해한다(직원 확인 사례: 정상적인 영어 문장에도 발생). 진짜 이해 실패가
+      //    아니라 API 호출 자체의 실패이므로, 한 번 더 시도해 본다.
+      if (!aiText) {
+        try {
+          const retryEmpty: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
+          aiText = (retryEmpty && (retryEmpty.response || retryEmpty.result || '')).toString().trim();
+        } catch {}
+      }
       // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
       if (aiText && warmupIsRepeat(aiText, history)) {
         const retry: any = await env.AI.run(WARMUP_MODEL, {
@@ -3155,7 +3165,10 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     } catch (e: any) {
       return new Response(JSON.stringify({ detail: 'AI 응답 생성 실패: ' + String(e?.message || e) }), { status: 502, headers: _MS_JSON });
     }
-    if (!aiText) aiText = "Let's try again! Tell me about your day. 😊";
+    // (2026-07-27) 문구 변경: "Let's try again"은 "네가 잘못 말했다"로 읽혀서 학생이
+    // 자기 탓으로 오해하기 쉽다 — 위 재시도로도 안 되는 진짜 드문 경우이므로, AI 쪽 잠깐의
+    // 딸꾹질임을 알리는 톤으로 바꾼다(학생향 문구는 항상 희망적/격려 톤 유지).
+    if (!aiText) aiText = "Oops, I got a little confused there! Can you tell me one more time? 😊";
 
     // ── 히스토리 갱신(최근 N턴만) + 6시간 TTL 저장 ──
     try {

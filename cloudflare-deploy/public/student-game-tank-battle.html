@@ -702,12 +702,14 @@ function ptr(ev){ var r=wrap.getBoundingClientRect(); var t=ev.touches&&ev.touch
   var sx=t.clientX-r.left, sy=t.clientY-r.top;
   if(VIEW==='quarter'){ var wp=screenToSim(sx,sy); if(wp) return wp; }
   return {x:sx, y:sy}; }
-// 🖱️ 조작(2026-07-27 사장님 지시 — 클릭 3단계 사이클):
-//    마우스만 움직이면 탱크가 커서를 따라 이동 → ①클릭=정지 → ②클릭=발사(정지 유지) → ③클릭=다시 이동
-//    (우클릭·스페이스 발사 보조는 유지. 터치·2D 클래식은 기존 그대로)
+// 🖱️⌨️ 조작(2026-07-27 사장님 확정 — 양손 조작):
+//    오른손 마우스 = 이동 + 조준(커서를 계속 따라감), 왼손 키보드 = 발사.
+//    포신을 겨누며 동시에 쏘는 '탱크 손맛'을 위해 이동과 발사를 분리했다.
+//    발사키: 스페이스 · F · A · Ctrl (누르고 있으면 재장전(0.38초)마다 자동 연사)
+//    보조: 좌클릭·우클릭도 발사(초보자 안전망). 터치·2D 클래식은 기존 그대로(탭=발사).
 var _drag={on:false,sx:0,sy:0,t:0,moved:false};
-var _aim={x:0,y:0};                              // PC 호버 조준(우클릭·스페이스 발사용)
-var _clickPhase=0;                               // 🎬 3D 마우스 클릭 사이클: 0=이동(커서 추적) 1=정지 2=발사됨(정지 유지)
+var _aim={x:0,y:0};                              // 커서 조준점(키보드·우클릭 발사용)
+var _fireKey=false;                              // ⌨️ 발사키를 누르고 있는 중인가(연사)
 function _onPtrMove(ev){ if(!G||!G.running||G.speaking)return;
   var p=ptr(ev); _aim.x=p.x; _aim.y=p.y;
   // 🎬 3D 쿼터뷰: 마우스는 버튼을 누르지 않아도 커서를 계속 따라감(호버 추적) — 정지 단계(클릭 사이클 1·2)엔 제자리
@@ -1921,6 +1923,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727125850 -->
+<!-- BUILD:20260727165502 -->
 </body>
 </html>
