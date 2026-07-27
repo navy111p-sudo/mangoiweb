@@ -20,10 +20,14 @@ import { getScope } from './scope';
 import { generateSecret, otpauthURI, verifyTOTP } from './totp';
 import { sendPlainSms } from './solapi-client';
 import { authUidFromRequest } from './auth-token';   // 🔐 소유자 검증(단방향 의존: auth-admin → auth-token)
+import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provisionTeacherAccount } from './legacy-teacher-auth';
 
 export interface AuthEnv {
   DB: D1Database;
   ADMIN_PASSWORD?: string;
+  // 🧑‍🏫 강사 옛 LMS 통과 인증 (legacy-teacher-auth.ts) — 'off' 로 즉시 차단 가능
+  LEGACY_TEACHER_LOGIN?: string;
+  LEGACY_LMS_BASE?: string;
 }
 
 // 로그인 계정의 scope(쿠키세션 기준)를 마이페이지용 역할/표시라벨로 환산.
@@ -37,6 +41,11 @@ function resolveRole(scopeType: string, username: string, name: string): { role:
   //   강사 계정이 있으면 강사 판정이 아예 실행되지 않아 마이페이지 "내 평가" 탭이 영원히
   //   숨겨지는 버그가 있었다 (2026-07-04 발견). 아이디 컨벤션은 스코프보다 먼저 확인.
   if (/^hq_t/i.test(u)) return { role: 'teacher', roleLabel: '교사' };
+  // 🧑‍🏫 (2026-07-27) 옛 LMS 통과 인증으로 자동 생성된 강사 계정은 아이디가 제각각이라
+  //   접두사·이름으로는 판정할 수 없다. 그래서 계정 생성 시 scope_type='teacher' 를 못박고
+  //   여기서 그 값을 최우선으로 읽는다. (legacy-teacher-auth.ts provisionTeacherAccount)
+  //   ⚠️ 이 값이 강사 권한 제한(index.ts TEACHER_BLOCKED_PREFIXES)의 근거다. 지우지 말 것.
+  if (scopeType === 'teacher') return { role: 'teacher', roleLabel: '교사' };
   // ⚠️ 이름 기반 강사 판정을 스코프 체크보다 먼저 한다(2026-07-05 추가).
   //   버그: 강사 계정 'jeong'(이름 '정우영(교사)')이 admin_scope.scope_type='hq'로 세팅돼 있어,
   //   아래 scopeType==='hq' 분기에서 '본사·경영진'으로 잘못 판정 → 마이페이지가 교사가 아닌
@@ -432,14 +441,39 @@ export async function handleAdminAuthApi(
         `SELECT username, password_hash FROM admin_account WHERE username = ? LIMIT 1`
       ).bind(username).first<{ username: string; password_hash: string }>();
 
+      // 🧑‍🏫 (2026-07-27 사장님 지시) 강사 "기존 아이디·비밀번호" 통과 인증 + 최초 로그인 자동 이관.
+      //   새 시스템에 계정이 **없을 때만** 옛 카페24 LMS 로 대신 로그인해 보고, 통과하면
+      //   그 자리에서 강사 계정을 만든다. 강사는 아무것도 바꾸지 않고 쓰던 아이디/비번 그대로.
+      //   두 번째 로그인부터는 이 블록을 타지 않는다(계정이 생겼으므로) = 옛 서버 의존 1회뿐.
+      //   ⚠️ 이미 계정이 있는데 비번이 틀린 경우는 폴백하지 않는다 — 새 시스템에서 비번을
+      //      바꾼 사람이 옛 비번으로 다시 들어가지는 못해야 하기 때문(비번 변경이 무의미해짐).
       if (!row) {
-        await recordLogin(env, username, ip, ua, false, 'unknown_user');
-        return json({ ok: false, error: 'invalid_credentials' }, 401);
-      }
-      const passOk = await verifyPassword(password, row.password_hash);
-      if (!passOk) {
-        await recordLogin(env, username, ip, ua, false, 'wrong_password');
-        return json({ ok: false, error: 'invalid_credentials' }, 401);
+        if (!legacyLoginEnabled(env as any)) {
+          await recordLogin(env, username, ip, ua, false, 'unknown_user');
+          return json({ ok: false, error: 'invalid_credentials' }, 401);
+        }
+        const legacy = await verifyLegacyLmsLogin(env as any, username, password);
+        if (!legacy.ok) {
+          await recordLogin(env, username, ip, ua, false, 'unknown_user:' + legacy.reason);
+          return json({ ok: false, error: 'invalid_credentials' }, 401);
+        }
+        // 카페24 강사 명부에서 실제 이름을 찾아 계정에 심는다(마이페이지 급여·평가가 이름 매칭).
+        const info = await lookupTeacherByLoginId(env as any, username);
+        const newHash = await hashPassword(password);
+        try {
+          await provisionTeacherAccount(env as any, username, newHash, info);
+        } catch (e: any) {
+          console.warn('[auth-admin] 강사 계정 자동 생성 실패:', e?.message || e);
+          await recordLogin(env, username, ip, ua, false, 'legacy_provision_failed');
+          return json({ ok: false, error: 'provision_failed', message: '계정 생성 중 오류가 발생했습니다. 관리자에게 문의해 주세요.', message_en: 'Could not create your account. Please contact the office.' }, 500);
+        }
+        console.log(`[auth-admin] 옛 LMS 통과 인증 → 강사 계정 자동 생성: ${username} (명부매칭=${info.matched})`);
+      } else {
+        const passOk = await verifyPassword(password, row.password_hash);
+        if (!passOk) {
+          await recordLogin(env, username, ip, ua, false, 'wrong_password');
+          return json({ ok: false, error: 'invalid_credentials' }, 401);
+        }
       }
 
       // 🔐 2단계 인증(2FA): 이 계정이 2FA 를 켰다면 비번 통과만으로는 로그인 불가.

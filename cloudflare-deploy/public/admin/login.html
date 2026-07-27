@@ -268,7 +268,9 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         } catch(e) { console.warn('[ph239] session inject failed', e); }
         var clean = nextUrl.replace(/[?&]login=1/g,'').replace(/\?$/,'');
         // 캐피타운 본사 계정은 전용 정산 화면을 기본 홈으로 (next 미지정 시)
-        if ((uid === 'capitown' || uid.indexOf('capi') === 0) && (!clean || clean === '/admin.html')) {
+        //   ⚠️ (2026-07-27) 단, 서버가 '교사'로 판정한 계정은 제외. 옛 LMS 에서 넘어온 강사
+        //      아이디는 형태가 제각각이라 접두사 규칙(capi…)에 우연히 걸릴 수 있다.
+        if (!data.is_teacher && (uid === 'capitown' || uid.indexOf('capi') === 0) && (!clean || clean === '/admin.html')) {
           clean = '/admin/capitown-settlement.html';
         }
         // 🪪 (2026-07-05) 교사·지사·대리점은 로그인하면 '마이페이지'가 가장 먼저 뜨게 한다.

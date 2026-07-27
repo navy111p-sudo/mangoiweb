@@ -25,6 +25,9 @@ export function scopeLabel(type: string, value: string | null): string {
   if (type === 'franchise') { const n = franchiseList(value).length; return n ? `지사본사 (${n}개 지사)` : '지사본사'; }
   if (type === 'branch') return `${value} 지사`;
   if (type === 'agency') return String(value || '대리점');
+  // 🧑‍🏫 (2026-07-27) 옛 LMS 에서 넘어온 강사 계정 — 학생 데이터 범위는 'none'(내부직원)과
+  //   같지만, 역할이 '강사'로 못박히도록 별도 타입을 쓴다(auth-admin resolveRole 참조).
+  if (type === 'teacher') return '강사';
   return '권한 없음';
 }
 

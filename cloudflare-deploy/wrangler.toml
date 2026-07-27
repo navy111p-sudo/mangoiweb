@@ -74,6 +74,12 @@ PAYROLL_INGEST_KEY = "9c4f7a2e15b83d6079e1c4a8f2b5d3e6"
 #   RESEND_API_KEY 미설정 시 이메일은 조용히 skip(신청/문자/대시보드는 정상 동작).
 RESEND_FROM = "망고아이 MANGOi <noreply@mangoi.co.kr>"
 LEVELTEST_ADMIN_EMAIL = ""   # ← 필리핀 관리자 이메일 입력(비우면 관리자 이메일 알림만 skip)
+# 🧑‍🏫 (2026-07-27) 강사 "기존 아이디·비번" 통과 인증 — 새 시스템에 계정이 없을 때만
+#   옛 카페24 LMS 로 대신 로그인해 보고, 통과하면 강사 계정을 자동 생성한다(1인당 1회).
+#   "off" 로 바꾸고 재배포하면 즉시 차단(그때까지 넘어온 계정은 그대로 남아 정상 로그인).
+#   ⚠️ [env.production.vars] 에도 같은 값이 있어야 운영에 적용됨.
+LEGACY_TEACHER_LOGIN = "on"
+LEGACY_LMS_BASE = "https://www.mangoi.co.kr/lms"
 
 [assets]
 directory = "./public"
@@ -154,6 +160,9 @@ PAYROLL_INGEST_KEY = "9c4f7a2e15b83d6079e1c4a8f2b5d3e6"
 # 📧 이메일(Resend) — 레벨테스트 관리자/교사 알림 (RESEND_API_KEY 는 secret)
 RESEND_FROM = "망고아이 MANGOi <noreply@mangoi.co.kr>"
 LEVELTEST_ADMIN_EMAIL = ""   # ← 필리핀 관리자 이메일 입력
+# 🧑‍🏫 강사 옛 LMS 통과 인증(운영). "off" + 재배포 = 즉시 차단
+LEGACY_TEACHER_LOGIN = "on"
+LEGACY_LMS_BASE = "https://www.mangoi.co.kr/lms"
 
 [env.production.assets]
 directory = "./public"
