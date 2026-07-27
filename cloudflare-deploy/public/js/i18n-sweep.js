@@ -883,6 +883,8 @@
 "📚 교육과정 보기": "📚 View Curriculum",
 "🏠 전체 메뉴 열기": "🏠 Open All Menu",
 "🎯 복습 퀴즈 체험": "🎯 Try a Review Quiz",
+"👩‍🏫 강사 소개 보기": "👩‍🏫 Meet Our Teachers",
+"🎬 예습·복습 영상 보기": "🎬 Watch Preview & Review Videos",
 "📊 월간 AI 리포트 보기": "📊 View Monthly AI Report",
 "🌟 망고아이 특장점": "🌟 Why Mangoi",
 "⭐ 수강 후기 보기": "⭐ Read Reviews",
@@ -1972,7 +1974,7 @@
 "❓ 자주 묻는 질문": "❓ Frequently Asked Questions",
 "망고아이 화상영어 FAQ — 궁금한 점을 빠르게 확인하세요": "Mangoi FAQ — find answers fast",
 "카카오상담": "Kakao chat",
-"운영 10:00~20:00 (주말·공휴일 휴무)": "Office 10:00–20:00 (closed weekends & holidays)",
+"상담 운영 10:00~23:00 (주말·공휴일 휴무)": "Support 10:00–23:00 (closed weekends & holidays)",
 "수업 14:00~23:00": "Classes 14:00–23:00",
 /* 환불 */
 "💰 환불규정 — Mangoi": "💰 Refund Policy — Mangoi",

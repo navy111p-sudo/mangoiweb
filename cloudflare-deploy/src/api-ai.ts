@@ -97,7 +97,34 @@ Student text: """${text}"""`;
         if (!/[.!?]$/.test(corrected.trim())) corrected = corrected.trim() + '.';
       }
       const score = Math.max(0, Math.min(100, Number(parsed.score || 75)));
-      const issues = Array.isArray(parsed.issues) ? parsed.issues.slice(0, 8) : [];
+      // ✍️ [2026-07-27] 첨삭에 '왜 고쳤는지'가 안 보이던 문제(직원 피드백 #14).
+      //   프롬프트는 이유(reason)를 한국어로 요구하고 화면도 이유를 렌더링한다 — 그런데
+      //   모델이 reason 을 비워 보내도 서버가 그대로 통과시켜, 학생 화면에 "with → to" 만 떴다.
+      //   (폴백 소형 모델로 내려갈수록 잘 비운다.) 여기서 두 가지를 보장한다:
+      //     ① 이유가 비면 원본/교정 형태를 보고 규칙 기반으로 최소한의 설명을 채운다
+      //     ② 그래도 못 채우면 그 항목은 아예 내보내지 않는다(빈 "💡" 만 뜨는 것보다 낫다)
+      //   문구는 학생 대상이므로 '틀렸다'가 아니라 '이렇게 하면 더 자연스럽다' 톤을 지킨다.
+      const _guessReason = (orig: string, sug: string): string => {
+        const o = orig.trim().toLowerCase(), s = sug.trim().toLowerCase();
+        if (!o || !s) return '';
+        const PREP = ['in','on','at','to','for','with','about','of','from','by','into','over'];
+        if (PREP.includes(o) && PREP.includes(s)) return `이 표현에는 '${sug.trim()}'가 함께 쓰이는 게 더 자연스러워요. 짝지어 외워 두면 좋아요.`;
+        if (o.replace(/[^a-z]/g, '') === s.replace(/[^a-z]/g, '')) return '철자·대소문자만 다듬었어요. 뜻은 그대로예요.';
+        if (/^(a|an|the)$/.test(o) || /^(a|an|the)$/.test(s)) return '관사를 다듬었어요. 셀 수 있는 명사인지, 이미 아는 대상인지에 따라 달라져요.';
+        if (/(ed|ing|s)$/.test(o) && o.replace(/(ed|ing|s)$/, '') === s.replace(/(ed|ing|s)$/, '')) return '시제·수 형태를 문장에 맞게 맞췄어요.';
+        if (s.split(/\s+/).length > o.split(/\s+/).length) return '조금 더 자연스럽게 읽히도록 표현을 보탰어요.';
+        return '더 자연스러운 표현으로 바꿨어요.';
+      };
+      const issues = (Array.isArray(parsed.issues) ? parsed.issues : [])
+        .slice(0, 8)
+        .map((it: any) => {
+          const original = String(it?.original || '').trim();
+          const suggested = String(it?.suggested || '').trim();
+          let reason = String(it?.reason || '').trim();
+          if (!reason) reason = _guessReason(original, suggested);
+          return { original, suggested, reason };
+        })
+        .filter((it: any) => it.original && it.suggested && it.reason);
       const tip = String(parsed.tip || '꾸준히 영작 연습을 이어가세요! 매일 한 문장씩만 써도 한 달이면 30문장입니다.');
       // 💬 망고 선생님의 답장 — 첨삭을 '검사'가 아니라 '대화'로 만드는 펜팔 답장
       const reply = String(parsed.reply || '').trim().slice(0, 400);

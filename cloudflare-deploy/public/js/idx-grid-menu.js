@@ -105,8 +105,10 @@
     const EMOJIS = ['👩🏻‍🏫','👨🏻‍🏫','👩🏻‍🎓','🧑🏻‍🏫','👩🏻‍💼','👨🏻‍🎓'];
 
     function teacherCat(t){ var o=((t.origin_region||t.active_region||'')+''); if(/미국|캐나다|usa|canada/i.test(o))return 'us'; if(/영국|호주|영연방|uk|britain|australia/i.test(o))return 'gb'; if(/중국|중화|china|chin/i.test(o))return 'cn'; return 'ph'; }
-    var FLAG={ph:'🇵🇭',us:'🇺🇸',gb:'🇬🇧',cn:'🇨🇳'};
-    var CATLABEL={all:'🌏 전체 강사진',ph:'🇵🇭 필리핀 강사진',us:'🇺🇸 미국·캐나다 강사진',gb:'🇬🇧 영국·호주 강사진',cn:'🇨🇳 중국어 강사진'};
+    // 🏳 국기는 이모지가 아니라 SVG (Windows 에서 이모지는 'PH'·'US' 문자로 표시됨)
+    var FLAG={ph:'/img/flag-ph.svg?v=1',us:'/img/flag-us.svg?v=1',gb:'/img/flag-gb.svg?v=1',cn:'/img/flag-cn.svg?v=1'};
+    function flagImg(cat,alt){ return '<img src="'+(FLAG[cat]||FLAG.ph)+'" alt="'+(alt||'')+'">'; }
+    var CATLABEL={all:'🌏 전체 강사진',ph:'필리핀 강사진',us:'미국·캐나다 강사진',gb:'영국·호주 강사진',cn:'중국어 강사진'};
     window.__teacherCat = teacherCat;
     window.__renderTeacherGallery = function(cat){
     cat = cat || 'all';
@@ -140,7 +142,7 @@
       }
       const flag = document.createElement('span');
       flag.className = 'ph-flag';
-      flag.textContent = FLAG[teacherCat(t)] || '🇵🇭';
+      flag.innerHTML = flagImg(teacherCat(t));
       photo.appendChild(flag);
 
       if (t.intro_video_url) {
@@ -218,7 +220,7 @@
     headInfo.appendChild(nameDiv);
     const specDiv = document.createElement('div');
     specDiv.style.cssText = 'font-size:13px;color:#94a3b8;margin-top:4px';
-    (function(){ var _f={ph:'🇵🇭',us:'🇺🇸',gb:'🇬🇧',cn:'🇨🇳'}; var _c=(window.__teacherCat?window.__teacherCat(t):'ph'); specDiv.textContent = (_f[_c]||'🇵🇭') + ' ' + (t.group_name || '영어 회화'); })();
+    (function(){ var _f={ph:'/img/flag-ph.svg?v=1',us:'/img/flag-us.svg?v=1',gb:'/img/flag-gb.svg?v=1',cn:'/img/flag-cn.svg?v=1'}; var _c=(window.__teacherCat?window.__teacherCat(t):'ph'); var _n=document.createTextNode(' ' + (t.group_name || '영어 회화')); var _i=document.createElement('img'); _i.src=_f[_c]||_f.ph; _i.alt=''; _i.className='spec-flag'; specDiv.appendChild(_i); specDiv.appendChild(_n); })();
     headInfo.appendChild(specDiv);
     const statDiv = document.createElement('div');
     statDiv.style.cssText = 'font-size:12px;color:#10b981;margin-top:2px';
@@ -609,7 +611,7 @@
             <span class="book-tag">🎬 비디오 학습</span>
             <span class="book-tag">📝 테스트 포함</span>
             <span class="book-tag">💬 대화형</span>
-            <span class="book-tag">🇺🇸 미국 교사 개발</span>
+            <span class="book-tag"><img class="tag-flag" src="/img/flag-us.svg?v=1" alt="">미국 교사 개발</span>
           </div>
         </div>
       </details>
@@ -751,7 +753,7 @@
         <a href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener" class="cs-hero-phone" style="font-size:clamp(20px,4vw,30px);text-decoration:none">카카오상담 바로하기</a>
         <div class="cs-hero-hours">
           <span class="cs-dot"></span>
-          운영시간 <b>10:00 ~ 20:00</b>
+          운영시간 <b>10:00 ~ 23:00</b>
           <span class="cs-hours-sub">(주말 및 공휴일 휴무)</span>
         </div>
       </div>
@@ -819,10 +821,10 @@
     <h3>🌍 강사 구성</h3>
     <div class="info-grid">
       <div class="info-tile" data-cat="all" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('all')"><b>🌏 전체</b><span>모든 강사</span></div>
-      <div class="info-tile" data-cat="ph" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('ph')"><b>🇵🇭 필리핀</b><span>현지 원어민 강사</span></div>
-      <div class="info-tile" data-cat="us" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('us')"><b>🇺🇸 미국·캐나다</b><span>원어민</span></div>
-      <div class="info-tile" data-cat="gb" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('gb')"><b>🇬🇧 영국·호주</b><span>원어민 <em style="display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:800;font-style:normal;vertical-align:middle;border:1px solid #fcd34d;white-space:nowrap">준비중</em></span></div>
-      <div class="info-tile" data-cat="cn" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('cn')"><b>🇨🇳 중국어</b><span>이중언어</span></div>
+      <div class="info-tile" data-cat="ph" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('ph')"><img class="tt-flag" src="/img/flag-ph.svg?v=1" alt=""><b>필리핀</b><span>현지 원어민 강사</span></div>
+      <div class="info-tile" data-cat="us" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('us')"><img class="tt-flag" src="/img/flag-us.svg?v=1" alt=""><b>미국·캐나다</b><span>원어민</span></div>
+      <div class="info-tile" data-cat="gb" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('gb')"><img class="tt-flag" src="/img/flag-gb.svg?v=1" alt=""><b>영국·호주</b><span>원어민 <em style="display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#b45309;font-size:10px;font-weight:800;font-style:normal;vertical-align:middle;border:1px solid #fcd34d;white-space:nowrap">준비중</em></span></div>
+      <div class="info-tile" data-cat="cn" onclick="window.__filterTeacherCat&&window.__filterTeacherCat('cn')"><img class="tt-flag" src="/img/flag-cn.svg?v=1" alt=""><b>중국어</b><span>이중언어</span></div>
     </div>
 
     <h3 id="ph-gallery-heading" style="margin-top:14px">🌏 전체 강사진</h3>
@@ -830,7 +832,7 @@
       <div class="ph-card">
         <div class="ph-photo" style="background:linear-gradient(135deg,#fcd34d,#f59e0b)">
           <span class="ph-emoji">👩🏻‍🏫</span>
-          <span class="ph-flag">🇵🇭</span>
+          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
         </div>
         <div class="ph-name">Maria Santos</div>
         <div class="ph-spec">Daily Conversation</div>
@@ -839,7 +841,7 @@
       <div class="ph-card">
         <div class="ph-photo" style="background:linear-gradient(135deg,#86efac,#10b981)">
           <span class="ph-emoji">👨🏻‍🏫</span>
-          <span class="ph-flag">🇵🇭</span>
+          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
         </div>
         <div class="ph-name">James Cruz</div>
         <div class="ph-spec">Business English</div>
@@ -848,7 +850,7 @@
       <div class="ph-card">
         <div class="ph-photo" style="background:linear-gradient(135deg,#f9a8d4,#ec4899)">
           <span class="ph-emoji">👩🏻‍🎓</span>
-          <span class="ph-flag">🇵🇭</span>
+          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
         </div>
         <div class="ph-name">Anna Reyes</div>
         <div class="ph-spec">Kids English</div>
@@ -857,7 +859,7 @@
       <div class="ph-card">
         <div class="ph-photo" style="background:linear-gradient(135deg,#93c5fd,#3b82f6)">
           <span class="ph-emoji">🧑🏻‍🏫</span>
-          <span class="ph-flag">🇵🇭</span>
+          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
         </div>
         <div class="ph-name">Carlos Lim</div>
         <div class="ph-spec">Pronunciation</div>
@@ -866,7 +868,7 @@
       <div class="ph-card">
         <div class="ph-photo" style="background:linear-gradient(135deg,#c4b5fd,#8b5cf6)">
           <span class="ph-emoji">👩🏻‍💼</span>
-          <span class="ph-flag">🇵🇭</span>
+          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
         </div>
         <div class="ph-name">Sofia Garcia</div>
         <div class="ph-spec">TOEIC·OPIc</div>
@@ -875,7 +877,7 @@
       <div class="ph-card">
         <div class="ph-photo" style="background:linear-gradient(135deg,#fda4af,#f43f5e)">
           <span class="ph-emoji">👨🏻‍🎓</span>
-          <span class="ph-flag">🇵🇭</span>
+          <span class="ph-flag"><img src="/img/flag-ph.svg?v=1" alt="필리핀"></span>
         </div>
         <div class="ph-name">Daniel Tan</div>
         <div class="ph-spec">Travel English</div>
@@ -883,7 +885,7 @@
       </div>
     </div>
     <p style="color:#94a3b8;font-size:11px;margin:6px 0 14px;text-align:center">
-      🇵🇭 망고아이 필리핀 본사 검증 강사 · TESOL/CELTA 자격 + 평균 5년+ 경력
+      <img class="tag-flag" src="/img/flag-ph.svg?v=1" alt="">망고아이 필리핀 본사 검증 강사 · TESOL/CELTA 자격 + 평균 5년+ 경력
     </p>
     <h3>✅ 채용 기준</h3>
     <ul>
@@ -1068,16 +1070,14 @@
     <p>국가별 망고아이 콜센터 연락처입니다. 시차에 맞춰 24/7 응대 가능합니다.</p>
     <h3>🇰🇷 한국 본사</h3>
     <ul>
-      <li>대표 전화: <b>1644-0561</b></li>
-      <li>팩스: 02-1234-5678</li>
-      <li>운영: 평일 09:00-22:00 / 주말 10:00-18:00 (KST)</li>
+      <li>카카오 채널: <b>@망고아이</b> — 가장 빠른 상담 창구</li>
+      <li>상담 전화: <b>1644-0561</b></li>
+      <li>운영: 10:00-23:00 (KST) · 주말·공휴일 휴무</li>
       <li>이메일: <b>help@mangoi.kr</b></li>
     </ul>
-    <h3>🇵🇭 필리핀 콜센터 (마닐라·세부)</h3>
+    <h3><img class="tag-flag" src="/img/flag-ph.svg?v=1" alt="">필리핀 콜센터 (마닐라·세부)</h3>
     <ul>
-      <li>현지 전화: <b>+63-2-8888-1234</b></li>
-      <li>WhatsApp: <b>+63-917-123-4567</b></li>
-      <li>운영: Mon-Fri 06:00-23:00 / Sat-Sun 08:00-20:00 (PHT)</li>
+      <li>문의: 카카오 채널 <b>@망고아이</b> 또는 상담 전화 <b>1644-0561</b></li>
       <li>강사 인사 문의: <b>teacher-ph@mangoi.kr</b></li>
     </ul>
     <h3>💬 24시간 글로벌 채널</h3>

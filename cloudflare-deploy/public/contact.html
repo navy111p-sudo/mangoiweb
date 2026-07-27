@@ -85,14 +85,10 @@
   </div>
   <p class="page-lead" data-ko="궁금하신 점이 있으시면 언제든지 편하게 연락주세요. 빠르고 친절하게 도와드리겠습니다." data-en="Please reach out anytime — we're here to help you quickly and kindly.">궁금하신 점이 있으시면 언제든지 편하게 연락주세요. 빠르고 친절하게 도와드리겠습니다.</p>
 
-  <!-- 연락 채널 -->
+  <!-- 연락 채널
+       ⚠️ [2026-07-27] 카카오 채널이 **1순위**다(사장님 확정). 전화보다 카카오가 응대가 빠르므로
+          카카오 카드를 맨 위에 두고, 전화 카드에는 그 안내를 함께 적는다. 순서를 되돌리지 말 것. -->
   <div class="contact-grid">
-    <a class="contact-card" href="tel:1644-0561">
-      <span class="ico">📞</span>
-      <h3 data-ko="대표 전화" data-en="Main Phone">대표 전화</h3>
-      <div class="v">1644-0561</div>
-      <div class="d" data-ko="평일 09:00 - 22:00" data-en="Weekdays 09:00 - 22:00">평일 09:00 - 22:00</div>
-    </a>
     <a class="contact-card kakao" id="kakao-card" href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener">
       <div class="kakao-bubble" aria-hidden="true">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C6.5 3 2 6.6 2 10.4c0 2.5 1.7 4.7 4.3 6-.2.6-.7 2.5-.8 2.9-.1.5.2.5.4.4.3-.2 3-2 4-2.7.7.1 1.4.1 2.1.1 5.5 0 10-3.6 10-7.7C22 6.6 17.5 3 12 3z"/></svg>
@@ -101,6 +97,12 @@
       <div class="v">@망고아이</div>
       <div class="d" data-ko="실시간 채팅 상담 · 보통 몇 분 내 답변" data-en="Real-time chat · usually replies in minutes">실시간 채팅 상담 · 보통 몇 분 내 답변</div>
       <span class="kakao-cta" data-ko="💬 1:1 상담 시작하기 →" data-en="💬 Start 1:1 Chat →">💬 1:1 상담 시작하기 →</span>
+    </a>
+    <a class="contact-card" href="tel:1644-0561">
+      <span class="ico">📞</span>
+      <h3 data-ko="상담 전화" data-en="Phone">상담 전화</h3>
+      <div class="v">1644-0561</div>
+      <div class="d" data-ko="10:00 - 23:00 (주말·공휴일 휴무) · 카카오가 더 빠릅니다" data-en="10:00 - 23:00 (closed weekends & holidays) · KakaoTalk is faster">10:00 - 23:00 (주말·공휴일 휴무) · 카카오가 더 빠릅니다</div>
     </a>
     <a class="contact-card" href="#" onclick="alert('원격지원 안내는 카카오로 연락 주세요.'); return false;">
       <span class="ico">💻</span>
@@ -116,15 +118,15 @@
     <h2 data-ko="🕘 운영시간 안내" data-en="🕘 Hours of Operation">🕘 운영시간 안내</h2>
     <div class="hours-grid">
       <div class="hours-item">
-        <div class="hours-day" data-ko="평일 (월–금)" data-en="Weekdays (Mon–Fri)">평일 (월–금)</div>
-        <div class="hours-time">09:00 - 22:00</div>
+        <div class="hours-day" data-ko="상담 (월–금)" data-en="Support (Mon–Fri)">상담 (월–금)</div>
+        <div class="hours-time">10:00 - 23:00</div>
       </div>
       <div class="hours-item">
-        <div class="hours-day" data-ko="토요일" data-en="Saturday">토요일</div>
-        <div class="hours-time">10:00 - 18:00</div>
+        <div class="hours-day" data-ko="수업 (월–금)" data-en="Classes (Mon–Fri)">수업 (월–금)</div>
+        <div class="hours-time">14:00 - 23:00</div>
       </div>
       <div class="hours-item">
-        <div class="hours-day" data-ko="일요일 / 공휴일" data-en="Sunday / Holidays">일요일 / 공휴일</div>
+        <div class="hours-day" data-ko="주말 / 공휴일" data-en="Weekends / Holidays">주말 / 공휴일</div>
         <div class="hours-time" data-ko="휴무" data-en="Closed">휴무</div>
       </div>
       <div class="hours-item">

@@ -136,7 +136,7 @@
     ko:{ title:'❓ 자주 묻는 질문', sub:'망고아이 화상영어 FAQ — 궁금한 점을 빠르게 확인하세요',
          ph:'🔍 궁금한 내용을 검색해 보세요 (예: 환불, 연기, 레벨테스트)', all:'전체',
          empty:'검색 결과가 없습니다. 다른 키워드로 검색해 보세요.',
-         foot1:'💬 <b>카카오상담</b> — 화면 오른쪽 아래 상담 버튼', foot2:'운영 10:00~20:00 (주말·공휴일 휴무)', foot3:'수업 14:00~23:00',
+         foot1:'💬 <b>카카오상담</b> — 화면 오른쪽 아래 상담 버튼', foot2:'상담 운영 10:00~23:00 (주말·공휴일 휴무)', foot3:'수업 14:00~23:00',
          close:'닫기', dialog:'자주 묻는 질문', search:'FAQ 검색' },
     en:{ title:'❓ FAQ', sub:'Mangoi Video English FAQ — find answers fast',
          ph:'🔍 Search the FAQ (e.g., refund, postpone, level test)', all:'All',
