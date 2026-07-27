@@ -75,6 +75,18 @@
   .oSub{margin-top:6px;font-size:15px;color:#b8c6d6;font-weight:600}
   .oRules{margin:14px 0;font-size:14px;color:#c8d4e2;line-height:1.85;max-width:410px}
   .oRules b{color:#ffd479}
+  /* 🎮 사용방법 표 (2026-07-27 사장님 지시) — 조작을 한눈에 */
+  .howto{width:100%;max-width:430px;margin:12px 0 6px;border-collapse:separate;border-spacing:0;
+    background:rgba(15,26,38,.62);border:1px solid rgba(140,165,195,.28);border-radius:12px;overflow:hidden;
+    font-size:13.5px;color:#d4dfec}
+  .howto caption{caption-side:top;text-align:left;font-size:14px;font-weight:800;color:#ffd479;padding:0 0 7px 2px}
+  .howto th{background:rgba(255,212,121,.10);color:#ffd479;font-weight:800;font-size:12.5px;
+    text-align:left;padding:8px 12px;border-bottom:1px solid rgba(140,165,195,.24)}
+  .howto td{padding:9px 12px;border-bottom:1px solid rgba(140,165,195,.14);line-height:1.55;vertical-align:top}
+  .howto tr:last-child td{border-bottom:0}
+  .howto .hk{white-space:nowrap;font-weight:800;color:#eaf2ff;width:88px}
+  .howto b{color:#ffd479}
+  @media(max-width:420px){ .howto{font-size:12.5px} .howto .hk{width:74px} .howto td,.howto th{padding:7px 9px} }
   .langRow{display:flex;gap:10px;margin:6px 0 4px;flex-wrap:wrap;justify-content:center}
   .langBtn{padding:10px 20px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;
     border:2px solid rgba(140,165,195,.35);background:rgba(20,32,46,.7);color:#c8d4e2;transition:.15s}
@@ -202,10 +214,18 @@
       <span class="diffTag" id="diffTag">보통</span>
     </div>
     <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
+    <!-- 🎮 사용방법 — 조작 3가지를 표로 한눈에 -->
+    <table class="howto">
+      <caption>🎮 사용방법</caption>
+      <thead><tr><th colspan="2">조작</th></tr></thead>
+      <tbody>
+        <tr><td class="hk">🕹 이동</td><td><b>마우스</b>를 움직이면 탱크가 따라와요 (<b>W A S D</b>·화살표도 가능)</td></tr>
+        <tr><td class="hk">🎯 조준</td><td>포탑이 <b>적을 자동으로 겨눔</b> (정답 단어 전차 우선) — 조준 조작 불필요</td></tr>
+        <tr><td class="hk">💥 발사</td><td><b>스페이스</b> 또는 <b>클릭</b> (길게 누르면 연사)</td></tr>
+      </tbody>
+    </table>
     <div class="oRules">
-      🖱️ <b>마우스를 움직이면</b> 셔먼이 따라와요 (<b>W A S D</b>·화살표로도 이동 가능)<br>
-      🎯 <b>포탑이 적을 자동으로 조준</b>해요(정답 단어 전차 우선) — <b>스페이스</b>나 클릭으로 발사! <b>누르고 있으면 연사</b> 💥<br>
-      <span style="opacity:.8">📱 휴대폰·태블릿은 손가락으로 끌어 이동, 탭하면 발사예요</span><br>
+      <span style="opacity:.85">📱 휴대폰·태블릿은 손가락으로 끌어 이동, 탭하면 발사예요</span><br>
       🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
       ⛽ <b>젤리 연료통</b>을 쏘거나 밟으면 연료(시간) 충전<br>
       💣 적 <b>타이거·자주포</b>의 포탄을 피하세요!
@@ -1984,6 +2004,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727212913 -->
+<!-- BUILD:20260727220501 -->
 </body>
 </html>

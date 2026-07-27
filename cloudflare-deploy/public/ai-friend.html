@@ -179,6 +179,12 @@
       display: flex; align-items: center; justify-content: center; line-height: 1; }
     .snd-toggle.off { background: rgba(148,163,184,0.12); color: #94a3b8; border-color: rgba(148,163,184,0.3); }
 
+    /* 🚀 다음 활동으로 이동 (MangoFlow) — 채팅 화면을 계속 차지하지 않게 헤더의 작은 아이콘 버튼으로 */
+    .next-flow-btn { background: rgba(56,189,248,0.15); color: #38bdf8;
+      border: 1px solid rgba(56,189,248,0.35); width: 34px; height: 34px;
+      border-radius: 9px; font-size: 15px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; line-height: 1; }
+
     /* 🔊 각 AI 답변 "다시 듣기" 스피커 버튼 */
     .replay-btn { align-self: flex-end; margin-bottom: 2px; width: 30px; height: 30px;
       border-radius: 50%; border: 1px solid rgba(251,191,36,0.35);
@@ -210,6 +216,7 @@
       <div class="status">● <span data-ko="온라인 (24시간)" data-en="online (24/7)">온라인 (24시간)</span></div>
     </div>
     <button class="snd-toggle" id="sndToggle" onclick="toggleSound()" aria-label="소리 켜기/끄기" data-ko-aria="소리 켜기/끄기" data-en-aria="Sound on/off" title="소리 듣기 켜기/끄기">🔊</button>
+    <button class="next-flow-btn" onclick="window.MangoFlow&&MangoFlow.open('aifriend')" aria-label="다음으로 이동" data-ko-aria="다음으로 이동" data-en-aria="Go to next activity" title="다음으로 이동 (수업·웜업·게임·나가기)" data-ko-title="다음으로 이동 (수업·웜업·게임·나가기)" data-en-title="Go next (Class·Warm-up·Games·Exit)">🚀</button>
     <button class="clear-btn" onclick="clearChat()">🗑 <span data-ko="대화 초기화" data-en="Clear">대화 초기화</span></button>
   </div>
   <div class="opts">
@@ -852,7 +859,7 @@
     });
     loadHistory();
   </script>
-<!-- BUILD:20260727212913 -->
+<!-- BUILD:20260727220501 -->
 <style id="mb-tidy-2026-07-11">
 /* 폴드 커버 등 초좁은 화면 보정: 입력줄이 전송 버튼을 밀어내던 문제 */
 .input-bar input{min-width:0}
@@ -946,5 +953,6 @@
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
+<script defer src="/js/flow.js?v=8"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 </body>
 </html>

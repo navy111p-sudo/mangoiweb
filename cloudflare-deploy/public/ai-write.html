@@ -329,6 +329,12 @@
       </div>
       <div id="histList"><div style="color:var(--text2);font-size:13px;padding:12px;text-align:center">아직 첨삭 기록이 없어요. 위에서 첫 영작을 시작해보세요!</div></div>
     </div>
+
+    <!-- 🚀 다른 활동으로 바로 이동 (수업입장·AI 웜업·학생게임·녹화·나가기) -->
+    <div style="text-align:center;margin-top:22px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
+      <button onclick="window.MangoFlow&&MangoFlow.open('aiwrite')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(56,189,248,.5);font-family:inherit" data-ko="🚀 다음으로 이동 (수업·웜업·게임·나가기)" data-en="🚀 Go next (Class·Warm-up·Games·Exit)">🚀 다음으로 이동 (수업·웜업·게임·나가기)</button>
+    </div>
   </div>
 
   <!-- 📕 동화책 오버레이 -->
@@ -1116,8 +1122,9 @@
     loadStats();
     loadLeaderboard();
   </script>
-<!-- BUILD:20260727212913 -->
+<!-- BUILD:20260727220501 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
+<script defer src="/js/flow.js?v=8"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 </body>
 </html>

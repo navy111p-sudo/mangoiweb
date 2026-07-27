@@ -30,12 +30,13 @@
 
   // 방금 끝낸 기능 → 추천 항목
   //   웜업→게임→수업→복습→발음→게임 …  (복습 뒤 발음, 발음 뒤 게임 = 이해→발화→강화 흐름)
-  var REC = { warmup: 'game', game: 'class', class: 'quiz', quiz: 'speech', speech: 'game' };
+  //   AI 친구·AI 글쓰기는 자유대화/작문형이라 뒤에 게임으로 강화 추천
+  var REC = { warmup: 'game', game: 'class', class: 'quiz', quiz: 'speech', speech: 'game', aifriend: 'game', aiwrite: 'game' };
 
   // 방금 끝낸 기능 → 메뉴에서 '나 자신'에 해당하는 항목(있으면 "다시"로 표기)
-  var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz', speech: 'speech' };
+  var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz', speech: 'speech', aifriend: 'aifriend', aiwrite: 'aiwrite' };
 
-  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: '단계별 발음' };
+  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: '단계별 발음', aifriend: 'AI 친구', aiwrite: 'AI 글쓰기' };
 
   // 최상위 창(아이프레임 안에서 실행 시 상위창을 대상으로 이동) — 교차출처면 자기 자신
   function topWin() {
