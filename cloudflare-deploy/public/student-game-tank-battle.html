@@ -204,7 +204,7 @@
     <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
     <div class="oRules">
       ⌨️ <b>왼손 W A S D</b>(또는 화살표)로 셔먼을 몰아요 — 대각선도 OK!<br>
-      🖱️ <b>오른손 마우스</b>로 포탑을 겨누고, <b>스페이스</b>(또는 클릭·F·Ctrl)로 발사! <b>누르고 있으면 연사</b> 💥<br>
+      🎯 <b>포탑이 적을 자동으로 조준</b>해요(정답 단어 전차 우선) — <b>스페이스</b>나 클릭으로 발사! <b>누르고 있으면 연사</b> 💥<br>
       <span style="opacity:.8">📱 휴대폰·태블릿은 손가락으로 끌어 이동, 탭하면 발사예요</span><br>
       🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
       ⛽ <b>젤리 연료통</b>을 쏘거나 밟으면 연료(시간) 충전<br>
@@ -679,6 +679,28 @@ function _pickTargetNear(x,y){
     if(d < bd+e.r && (!best || pri<best.pri)) best={e:e, pri:pri}; }
   return best ? best.e : null;
 }
+/* 🎯 (2026-07-27 사장님 지시) 포탑 자동 조준 대상 —
+   "머리와 포가 적 전차에 방향을 잡고 몸체가 따라오게".
+   지금 맞춰야 할 **정답 단어 전차를 크게 우선**하고, 없으면 가장 가까운 적.
+   화면 밖 적은 제외(포탑이 엉뚱한 곳을 향하지 않게). */
+function _autoTarget(){
+  if(!G || !G.enemies) return null;
+  var best=null, bp=Infinity;
+  for(var i=0;i<G.enemies.length;i++){ var e=G.enemies[i];
+    if(!e.alive) continue;
+    if(e.x<-30||e.x>W+30||e.y<-30||e.y>H+30) continue;
+    var d=Math.hypot(e.x-G.px, e.y-G.py);
+    var pri = sameWord(e.word, neededWord()) ? d - 600*SCALE : d;   // 정답 전차 최우선
+    if(pri<bp){ bp=pri; best=e; }
+  }
+  return best;
+}
+/* 발사 — 자동 조준 대상이 있으면 그 적을 향해(예측 사격), 없으면 포탑이 보는 방향으로 */
+function fireAuto(){
+  var t = _autoTarget() || _pickTargetNear(_aim.x,_aim.y);
+  if(t){ G.lock=t; G.lockUntil=performance.now()+2200; playerFire(_leadAngle(t)); }
+  else playerFire(G.turAng);
+}
 function _leadAngle(e){
   var sp=_shellSp(), t=Math.hypot(e.x-G.px,e.y-G.py)/sp, tx=e.x, ty=e.y;
   for(var i=0;i<4;i++){ tx=e.x+(e._vx||0)*t; ty=e.y+(e._vy||0)*t; t=Math.hypot(tx-G.px,ty-G.py)/sp; }
@@ -767,7 +789,8 @@ window.addEventListener('keydown',function(e){
   e.preventDefault();
   if(e.repeat) return;              // 길게 누름은 아래 연사 루프가 담당(OS 반복 속도에 의존하지 않음)
   _fireKey=true;
-  fireAt(_aim.x, _aim.y);           // 누른 즉시 1발 — 반응이 늦게 느껴지지 않게
+  if(VIEW==='quarter') fireAuto();   // 🎯 자동 조준 대상에게 발사(포탑이 겨눈 적)
+  else fireAt(_aim.x, _aim.y);       // 누른 즉시 1발 — 반응이 늦게 느껴지지 않게
 });
 window.addEventListener('keyup',function(e){
   if(MOVE_KEYS[e.code]){ delete _moveKeys[e.code]; return; }
@@ -822,17 +845,22 @@ function update(dt){
   }
   var sp=Math.hypot(G.vx,G.vy);
   if(VIEW==='quarter'){
-    // 🎬 3D: 차체=진행 방향(키보드 기동 포함), 포탑=마우스 커서를 독립 추적 — 실제 전차처럼 머리가 몸통 위에서 회전
-    if(sp>12){ G.hullAng=angLerp(G.hullAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*10)); }
-    if(!G.lock){
+    /* 🎯 (2026-07-27 사장님 지시) 포탑 자동 조준 — 머리(포탑)와 포가 적 전차를 스스로 겨누고,
+       차체(몸통)가 그 방향을 천천히 따라 돈다. 손으로 포신을 돌리는 어려움을 없애고
+       "겨누고 쏘는" 재미만 남긴다. 정답 단어 전차를 우선 겨눈다. */
+    var _at=_autoTarget();
+    if(_at && !G.lock){
+      G.turAng=angLerp(G.turAng, _leadAngle(_at), Math.min(1,dt*9));   // 머리·포 = 적 조준
+    } else if(!G.lock){
+      // 적이 없을 때만 마우스 커서 쪽을 본다(겹치면 마지막 각도 유지 — 0벡터 방지)
       var adx=_aim.x-G.px, ady=_aim.y-G.py;
-      // 🎯 커서가 탱크 위에 겹치면 방향이 정의되지 않는다(0벡터) → 마지막 조준각을 그대로 유지.
-      //    (예전 '탱크=커서 스냅' 조작에서 포탑이 제멋대로 돌던 원인)
       if(Math.hypot(adx,ady) > 14*SCALE){
         var aa=Math.atan2(ady,adx);
-        if(isFinite(aa)) G.turAng=angLerp(G.turAng, aa, Math.min(1,dt*20));   // 커서 추적 지연 최소화
+        if(isFinite(aa)) G.turAng=angLerp(G.turAng, aa, Math.min(1,dt*20));
       }
     }
+    // 🚜 몸통은 포탑을 따라 회전(적을 향해 정면으로) — 이동 중에도 포탑이 기준이라 조준이 흔들리지 않는다
+    G.hullAng=angLerp(G.hullAng, G.turAng, Math.min(1,dt*3.2));
   } else {
     // 2D 통짜 스프라이트 → 이동 중엔 진행 방향으로 정렬(발사 시엔 playerFire가 즉시 조준)
     if(G.dragging && sp>12){ G.turAng=angLerp(G.turAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*12)); G.hullAng=G.turAng; }
@@ -841,7 +869,9 @@ function update(dt){
   if(G.invuln>0)G.invuln-=dt;
 
   // ⌨️ 발사키를 누르고 있으면 재장전마다 자동 연사(커서 조준점 기준) — 타깃 락 중엔 락이 우선
-  if(_fireKey && !G.lock && performance.now()-G.fireT >= 380) fireAt(_aim.x, _aim.y);
+  if(_fireKey && !G.lock && performance.now()-G.fireT >= 380){
+    if(VIEW==='quarter') fireAuto(); else fireAt(_aim.x, _aim.y);
+  }
 
   // 🔒 타깃 락 — 탭한 적을 포탑이 자동 추적하며 재장전마다 자동 연사(맞을 때까지)
   if(G.lock && G.lock.alive && performance.now()<G.lockUntil){
@@ -1900,7 +1930,7 @@ function startGame(){
   // 👋 첫 판 온보딩 힌트
   var onb=false; try{ onb=!!localStorage.getItem('mangoi_tank_onboarded'); }catch(_){}
   if(!onb){ try{ localStorage.setItem('mangoi_tank_onboarded','1'); }catch(_){}
-    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('⌨️ WASD로 이동 · 🖱️ 마우스로 조준 · 스페이스 발사','#7fd1ff'); }, 1400); }
+    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('⌨️ WASD로 이동 · 🎯 포탑 자동조준 · 스페이스 발사','#7fd1ff'); }, 1400); }
 }
 function endGame(win){ if(!G||G.over)return; G.over=true; G.running=false; flushProg();
   bgmStop(); _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
@@ -1956,6 +1986,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727173016 -->
+<!-- BUILD:20260727183214 -->
 </body>
 </html>
