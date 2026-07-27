@@ -7,7 +7,7 @@
 <!--
   🛡️ 탱크 대전(Tank Battle): 단어 전차전 — 영어/중국어 학습 슈팅
   · 단일 HTML SPA. 허브 파라미터: ?uid= &speed=1..5 &stage=1..3 &goal=N &glang=en|zh
-  · 플레이어 = 미국 M4 셔먼 — 양손 조작: 마우스=이동·조준(커서 추종), 왼손 키보드(스페이스·F·A·Ctrl)=발사(길게 누르면 연사)
+  · 플레이어 = 미국 M4 셔먼 — 양손 조작: 왼손 키보드(WASD·화살표)=기동, 오른손 마우스=포탑 조준, 스페이스·클릭=발사(길게 누르면 연사)
     (모바일·2D 클래식은 드래그=이동, 탭=발사 그대로)
   · 적 = 독일 타이거 전차 + 자주포(StuG). 사방 가장자리서 흩어져 등장, 이동하며 포 사격.
   · 각 적 전차가 단어를 싣고 있음 → 문장 어순대로 격파 → 완성 시 듣기 3번·말하기 3번(발음 학습)
@@ -203,8 +203,8 @@
     </div>
     <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
     <div class="oRules">
-      🖱️ <b>오른손 마우스</b>를 움직이면 셔먼이 그대로 따라와요 — 이동·조준을 한 손으로!<br>
-      ⌨️ <b>왼손으로 스페이스</b>(또는 F·A·Ctrl)를 누르면 발사! <b>누르고 있으면 연사</b> 💥<br>
+      ⌨️ <b>왼손 W A S D</b>(또는 화살표)로 셔먼을 몰아요 — 대각선도 OK!<br>
+      🖱️ <b>오른손 마우스</b>로 포탑을 겨누고, <b>스페이스</b>(또는 클릭·F·Ctrl)로 발사! <b>누르고 있으면 연사</b> 💥<br>
       <span style="opacity:.8">📱 휴대폰·태블릿은 손가락으로 끌어 이동, 탭하면 발사예요</span><br>
       🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
       ⛽ <b>젤리 연료통</b>을 쏘거나 밟으면 연료(시간) 충전<br>
@@ -556,7 +556,7 @@ function buildBackdrop(){
    ════════════════════════════════════════════════════════════ */
 var G=null;
 function newGame(){
-  _fireKey=false;   // ⌨️ 발사키 상태 초기화(이전 판의 눌림이 남지 않게)
+  _fireKey=false; _moveKeys={};   // ⌨️ 발사·이동키 상태 초기화(이전 판의 눌림이 남지 않게)
 
   G={ px:W/2, py:H*0.62, hullAng:-Math.PI/2, turAng:-Math.PI/2,
       vx:0, vy:0, wpx:W/2, wpy:H*0.5, track:0,
@@ -714,9 +714,11 @@ var _aim={x:0,y:0};                              // 커서 조준점(키보드·
 var _fireKey=false;                              // ⌨️ 발사키를 누르고 있는 중인가(연사)
 function _onPtrMove(ev){ if(!G||!G.running||G.speaking)return;
   var p=ptr(ev); _aim.x=p.x; _aim.y=p.y;
-  // 🎬 3D 쿼터뷰: 오른손 마우스는 버튼과 무관하게 커서를 계속 따라감(이동+조준 일체)
-  if(VIEW==='quarter' && ev.pointerType==='mouse' && !_drag.on){
-    G.dragging=true; G.tx=p.x; G.ty=p.y; return; }
+  // 🎯 (2026-07-27) 3D 쿼터뷰 마우스 = '조준 전용'.
+  //   [왜] 예전엔 탱크를 커서 위치에 그대로 붙였는데(스냅), 그러면 커서와 탱크가 같은 점이라
+  //        조준 벡터가 0 이 되어 **포탑 방향을 계산할 수 없었다**(사장님 제보: 포/머리 조작 불가).
+  //   → 이동은 왼손 키보드(WASD·화살표)가 맡고, 마우스는 포탑이 향할 곳만 정한다.
+  if(VIEW==='quarter' && ev.pointerType==='mouse') return;
   if(!_drag.on) return;                          // 버튼을 누른 동안만 이동 목표 갱신(터치·2D 클래식)
   G.tx=p.x; G.ty=p.y;
   if(!_drag.moved && Math.hypot(p.x-_drag.sx,p.y-_drag.sy)>12) _drag.moved=true;
@@ -727,6 +729,9 @@ function _onPtrDown(ev){ if(!G||!G.running||G.speaking)return;
   try{ ev.target.setPointerCapture(ev.pointerId); }catch(_){}
   var p=ptr(ev); _drag.on=true; _drag.sx=p.x; _drag.sy=p.y; _drag.t=performance.now(); _drag.moved=false;
   _aim.x=p.x; _aim.y=p.y;
+  // 🎯 3D 마우스는 조준 전용 — 클릭해도 탱크를 그 자리로 옮기지 않는다(이동=키보드).
+  //   터치(모바일)·2D 클래식은 기존처럼 끌어서 이동.
+  if(VIEW==='quarter' && ev.pointerType==='mouse') return;
   G.dragging=true; G.tx=p.x; G.ty=p.y;
 }
 function _dragEnd(ev){
@@ -750,22 +755,30 @@ function _onCtxMenu(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p
 /* ⌨️ 왼손 발사키 — 오른손은 마우스로 이동·조준, 왼손은 발사에만 집중(양손 조작).
    여러 키를 허용해 손 모양이 달라도 편한 키를 쓰게 한다: 스페이스(엄지) · F · A · Ctrl.
    누르고 있으면 update() 가 재장전(0.38초)마다 자동 연사한다 — 급할 때 연타하지 않아도 된다. */
-var FIRE_KEYS={ Space:1, KeyF:1, KeyA:1, ControlLeft:1, ControlRight:1 };
+var FIRE_KEYS={ Space:1, KeyF:1, ControlLeft:1, ControlRight:1 };
+/* 🎮 왼손 이동키 — WASD + 화살표. 오른손 마우스로 포탑을 겨누면서 동시에 기동할 수 있다. */
+var MOVE_KEYS={ KeyW:[0,-1], KeyS:[0,1], KeyA:[-1,0], KeyD:[1,0],
+                ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0] };
+var _moveKeys={};                  // 지금 눌려 있는 이동키
 window.addEventListener('keydown',function(e){
-  if(!FIRE_KEYS[e.code] || !G || !G.running || G.speaking) return;
+  if(!G || !G.running || G.speaking) return;
+  if(MOVE_KEYS[e.code]){ e.preventDefault(); _moveKeys[e.code]=true; return; }   // 화면 스크롤 방지 겸용
+  if(!FIRE_KEYS[e.code]) return;
   e.preventDefault();
   if(e.repeat) return;              // 길게 누름은 아래 연사 루프가 담당(OS 반복 속도에 의존하지 않음)
   _fireKey=true;
   fireAt(_aim.x, _aim.y);           // 누른 즉시 1발 — 반응이 늦게 느껴지지 않게
 });
-window.addEventListener('keyup',function(e){ if(!FIRE_KEYS[e.code]) return;
+window.addEventListener('keyup',function(e){
+  if(MOVE_KEYS[e.code]){ delete _moveKeys[e.code]; return; }
+  if(!FIRE_KEYS[e.code]) return;
   _fireKey=false;
   // 🎯 키를 떼면 '적 자동추적 연사(타깃 락)'도 즉시 끊는다 — 안 그러면 손을 뗀 뒤에도
   //   2.2초간 저절로 쏴서 "내가 안 쐈는데 나간다"는 느낌이 든다(정밀 조작 우선).
   //   모바일 탭 조작은 keyup 이 없으므로 기존 자동조준 도움 그대로 유지된다.
   if(G) G.lock=null;
 });
-window.addEventListener('blur',function(){ _fireKey=false; });   // 창을 벗어나면 키가 눌린 채로 남지 않게
+window.addEventListener('blur',function(){ _fireKey=false; _moveKeys={}; });   // 창을 벗어나면 키가 눌린 채로 남지 않게
 
 /* ════════════════════════════════════════════════════════════
    11. 업데이트
@@ -777,8 +790,20 @@ function update(dt){
   // 시간(연료)
   G.time-=dt; if(G.time<=0){ G.time=0; return endGame(false); }
 
-  // 🚗 셔먼 = 왼쪽 버튼(손가락)을 누른 동안 커서에 딱 붙어 따라감. 떼면 그 자리에 정지.
-  if(VIEW==='quarter' && G.dragging){
+  // 🎮 (2026-07-27) 3D 양손 조작 — 왼손 키보드(WASD·화살표)로 기동, 오른손 마우스로 포탑 조준.
+  //   눌린 방향키를 합쳐 이동하므로 대각선(W+D 등)도 자연스럽게 나간다.
+  var _mvx=0,_mvy=0;
+  if(VIEW==='quarter'){ for(var _k in _moveKeys){ var _d=MOVE_KEYS[_k]; if(_d){ _mvx+=_d[0]; _mvy+=_d[1]; } } }
+  if(VIEW==='quarter' && (_mvx||_mvy)){
+    var _ml=Math.hypot(_mvx,_mvy); _mvx/=_ml; _mvy/=_ml;
+    var _mspd=300*SCALE*(0.85+SPMUL*0.15);
+    G.vx += (_mvx*_mspd - G.vx)*Math.min(1,dt*14);            // 부드럽게 가속(급출발 방지)
+    G.vy += (_mvy*_mspd - G.vy)*Math.min(1,dt*14);
+    G.px+=G.vx*dt; G.py+=G.vy*dt;
+    G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
+  }
+  // 🚗 셔먼 = 왼쪽 버튼(손가락)을 누른 동안 커서에 딱 붙어 따라감. 떼면 그 자리에 정지.(터치·2D)
+  else if(VIEW==='quarter' && G.dragging){
     // 🎯 3D: 탱크 위치 = 마우스 위치 그대로(스냅). 속도기반 추종은 구조적으로 항상 뒤처지므로 직결
     var _ox=G.px, _oy=G.py;
     G.px=clamp(G.tx,40,W-40); G.py=clamp(G.ty,70,H-90);
@@ -797,10 +822,17 @@ function update(dt){
   }
   var sp=Math.hypot(G.vx,G.vy);
   if(VIEW==='quarter'){
-    // 🎬 3D: 차체=진행 방향, 포탑=독립적으로 마우스 커서를 추적(실제 전차처럼 머리가 몸통 위에서 회전)
-    if(G.dragging && sp>12){ G.hullAng=angLerp(G.hullAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*10)); }
-    if(!G.lock){ var aa=Math.atan2(_aim.y-G.py, _aim.x-G.px);
-      if(isFinite(aa)) G.turAng=angLerp(G.turAng, aa, Math.min(1,dt*20)); }   // 커서 추적 지연 최소화
+    // 🎬 3D: 차체=진행 방향(키보드 기동 포함), 포탑=마우스 커서를 독립 추적 — 실제 전차처럼 머리가 몸통 위에서 회전
+    if(sp>12){ G.hullAng=angLerp(G.hullAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*10)); }
+    if(!G.lock){
+      var adx=_aim.x-G.px, ady=_aim.y-G.py;
+      // 🎯 커서가 탱크 위에 겹치면 방향이 정의되지 않는다(0벡터) → 마지막 조준각을 그대로 유지.
+      //    (예전 '탱크=커서 스냅' 조작에서 포탑이 제멋대로 돌던 원인)
+      if(Math.hypot(adx,ady) > 14*SCALE){
+        var aa=Math.atan2(ady,adx);
+        if(isFinite(aa)) G.turAng=angLerp(G.turAng, aa, Math.min(1,dt*20));   // 커서 추적 지연 최소화
+      }
+    }
   } else {
     // 2D 통짜 스프라이트 → 이동 중엔 진행 방향으로 정렬(발사 시엔 playerFire가 즉시 조준)
     if(G.dragging && sp>12){ G.turAng=angLerp(G.turAng, Math.atan2(G.vy,G.vx), Math.min(1,dt*12)); G.hullAng=G.turAng; }
@@ -1861,14 +1893,14 @@ function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts
   render(); }
 function startGame(){
   document.getElementById('start').classList.add('hide'); document.getElementById('over').classList.add('hide');
-  _fireKey=false;   // ⌨️ 발사키 상태 초기화
+  _fireKey=false; _moveKeys={};   // ⌨️ 발사·이동키 상태 초기화
   newGame(); G.running=true; updateHUD();
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock(); bgmStart();
   banner('🛡️ 전투 시작!', '#ffd479');
   // 👋 첫 판 온보딩 힌트
   var onb=false; try{ onb=!!localStorage.getItem('mangoi_tank_onboarded'); }catch(_){}
   if(!onb){ try{ localStorage.setItem('mangoi_tank_onboarded','1'); }catch(_){}
-    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('🖱️ 마우스로 이동 · ⌨️ 스페이스로 발사(길게=연사)','#7fd1ff'); }, 1400); }
+    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('⌨️ WASD로 이동 · 🖱️ 마우스로 조준 · 스페이스 발사','#7fd1ff'); }, 1400); }
 }
 function endGame(win){ if(!G||G.over)return; G.over=true; G.running=false; flushProg();
   bgmStop(); _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
@@ -1924,6 +1956,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727170804 -->
+<!-- BUILD:20260727173016 -->
 </body>
 </html>
