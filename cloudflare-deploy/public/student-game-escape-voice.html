@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>탈출: 말해야 열린다 (Escape by Voice)</title>
+<!--
+  🚪 탈출: 말해야 열린다 — 말하기 강제형 방탈출
+  · 핵심 규칙: 버튼으로 진행 불가. 반드시 영어로 소리 내어 말해야 방이 반응한다.
+  · 퍼즐 사슬: 책상 보기 → 서랍 열기 → 단서 → 그림 옮기기 → 금고 → 숫자 말하기 → 열쇠 → 문 열기
+  · 긴장 장치: 제한시간(조명이 점점 어두워짐) · 경보음 · 되돌릴 수 없는 시간
+  · 발화 계측: 시도 횟수·성공률을 /api/games/progress 로 전송 (제안서의 "세션당 발화 횟수" 지표)
+  · 접근성: 마이크 불가 환경에서는 타이핑 폴백 (게임이 막히지 않게)
+  · 배경: 힉스필드 생성 실사 이미지 4종 (escape-room1~4.jpg)
+-->
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#07090c;
+    font-family:'Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8eef5;user-select:none}
+  #wrap{position:fixed;inset:0;overflow:hidden}
+  /* ── 장면 ── */
+  #scene{position:absolute;inset:0;background-size:cover;background-position:center;
+    transition:background-image .35s,filter 1.2s linear}
+  #vig{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(115% 85% at 50% 45%,rgba(0,0,0,0) 40%,rgba(0,0,0,.72) 100%)}
+  #flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;transition:opacity .25s}
+
+  /* ── 상단 목표 ── */
+  #goalBar{position:absolute;top:0;left:0;right:0;z-index:6;padding:10px 14px 12px;
+    background:linear-gradient(180deg,rgba(6,10,14,.92),rgba(6,10,14,0));pointer-events:none}
+  #goalTxt{font-size:15px;font-weight:800;color:#ffe07a;text-align:center;letter-spacing:.2px;
+    text-shadow:0 2px 6px #000}
+  #goalKo{font-size:12.5px;color:#b9c8d8;text-align:center;margin-top:2px;text-shadow:0 1px 4px #000}
+  /* 시간 */
+  #timeWrap{position:absolute;top:9px;right:12px;z-index:7;text-align:right}
+  #timeVal{font-size:20px;font-weight:900;color:#7fd1ff;font-variant-numeric:tabular-nums;
+    text-shadow:0 2px 6px #000}
+  #timeVal.warn{color:#ff6b6b;animation:tpulse .8s ease-in-out infinite}
+  @keyframes tpulse{0%,100%{opacity:1}50%{opacity:.45}}
+  #utterWrap{position:absolute;top:9px;left:12px;z-index:7;font-size:11.5px;color:#8fa6bd;
+    text-shadow:0 1px 4px #000;line-height:1.35}
+  #utterWrap b{color:#a3e635;font-size:14px}
+
+  /* ── 하단 대화 패널 ── */
+  #panel{position:absolute;left:0;right:0;bottom:0;z-index:8;padding:12px 14px 16px;
+    background:linear-gradient(0deg,rgba(6,10,14,.96) 62%,rgba(6,10,14,0))}
+  #heard{min-height:26px;text-align:center;font-size:14.5px;color:#cdd9e6;margin-bottom:8px}
+  #heard b{color:#7fd1ff}
+  #heard .ok{color:#a3e635;font-weight:800}
+  #heard .no{color:#ff8a8a;font-weight:800}
+  #micRow{display:flex;gap:9px;align-items:center;justify-content:center;flex-wrap:wrap}
+  #micBtn{padding:14px 34px;border-radius:40px;font-size:17px;font-weight:900;cursor:pointer;
+    border:none;color:#0d1218;background:linear-gradient(180deg,#ffe08a,#e0a838);
+    box-shadow:0 6px 20px rgba(224,168,56,.45);letter-spacing:.3px;min-width:210px}
+  #micBtn:active{transform:translateY(2px)}
+  #micBtn.rec{background:linear-gradient(180deg,#ff8080,#e03131);color:#fff;
+    animation:recp .9s ease-in-out infinite}
+  @keyframes recp{0%,100%{box-shadow:0 0 0 3px rgba(255,90,90,.35),0 6px 20px rgba(224,49,49,.5)}
+    50%{box-shadow:0 0 0 12px rgba(255,90,90,.06),0 6px 24px rgba(224,49,49,.7)}}
+  .sBtn{padding:11px 15px;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;
+    border:1px solid rgba(140,165,195,.35);background:rgba(18,28,40,.85);color:#c8d4e2}
+  .sBtn:active{transform:scale(.95)}
+  /* 타이핑 폴백 */
+  #typeRow{display:none;gap:8px;justify-content:center;margin-top:9px}
+  #typeRow.on{display:flex}
+  #typeIn{flex:1;max-width:340px;padding:11px 13px;border-radius:10px;font-size:15px;
+    border:1px solid rgba(140,165,195,.4);background:rgba(12,20,28,.9);color:#eef5ff}
+  /* 힌트 */
+  #hint{margin-top:9px;text-align:center;font-size:13px;color:#ffd479;min-height:19px;
+    text-shadow:0 1px 4px #000}
+  #hint .ex{color:#fff;background:rgba(255,212,121,.16);border:1px solid rgba(255,212,121,.4);
+    padding:2px 9px;border-radius:7px;font-weight:800;display:inline-block;margin-top:3px}
+
+  /* ── 오버레이 ── */
+  .ov{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:24px;overflow-y:auto;
+    background:radial-gradient(120% 90% at 50% 40%,rgba(20,30,44,.9),rgba(4,7,10,.97))}
+  .ov.hide{display:none}
+  .oT{font-size:clamp(26px,7vw,38px);font-weight:900;line-height:1.2;
+    background:linear-gradient(180deg,#ffe9a8,#e0b048);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent}
+  .oEn{font-size:13px;font-weight:700;color:#8fa6bd;letter-spacing:2.5px;margin-top:4px;text-transform:uppercase}
+  .oS{margin-top:12px;font-size:14.5px;color:#b8c6d6;max-width:460px;line-height:1.75}
+  .rule{margin:18px 0 4px;background:rgba(14,24,36,.8);border:1px solid rgba(140,165,195,.24);
+    border-radius:12px;padding:15px 18px;max-width:440px;text-align:left;font-size:13.5px;line-height:1.8}
+  .rule b{color:#ffd479}
+  .rule .k{display:inline-block;background:rgba(255,212,121,.15);border:1px solid rgba(255,212,121,.35);
+    border-radius:6px;padding:1px 8px;font-weight:800;color:#ffe9a8;font-size:12.5px}
+  .bigBtn{margin-top:18px;padding:15px 46px;border-radius:14px;font-size:19px;font-weight:900;cursor:pointer;
+    border:none;color:#141a20;background:linear-gradient(180deg,#ffe08a,#e0a838);
+    box-shadow:0 6px 20px rgba(224,168,56,.45)}
+  .bigBtn:active{transform:translateY(2px)}
+  #resStat{margin:14px 0 2px;font-size:15px;color:#dbe6f2;line-height:1.9}
+  #resStat b{color:#ffd479;font-size:21px}
+  @media(max-height:520px){ .rule{font-size:12.5px;padding:11px 14px} .oS{font-size:13px} }
+</style>
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+</head>
+<body>
+<div id="wrap">
+  <div id="scene"></div>
+  <div id="vig"></div>
+  <div id="flash"></div>
+
+  <div id="utterWrap">발화 <b id="utterN">0</b>회<br><span id="utterOk">성공 0</span></div>
+  <div id="timeWrap"><div id="timeVal">5:00</div></div>
+
+  <div id="goalBar">
+    <div id="goalTxt">Find a way out.</div>
+    <div id="goalKo">방을 살펴보세요</div>
+  </div>
+
+  <div id="panel">
+    <div id="heard"></div>
+    <div id="micRow">
+      <button id="micBtn">🎤 눌러서 영어로 말하기</button>
+      <button class="sBtn" id="hintBtn">💡 힌트</button>
+      <button class="sBtn" id="typeBtn">⌨️</button>
+    </div>
+    <div id="typeRow">
+      <input id="typeIn" type="text" placeholder="영어로 입력 후 Enter" autocomplete="off">
+      <button class="sBtn" id="typeGo">확인</button>
+    </div>
+    <div id="hint"></div>
+  </div>
+
+  <!-- 시작 -->
+  <div class="ov" id="startOv">
+    <div class="oT">🚪 탈출: 말해야 열린다</div>
+    <div class="oEn">Escape by Voice</div>
+    <div class="oS">이 방에는 <b>버튼이 없습니다.</b><br>영어로 <b>소리 내어 말해야</b> 방이 움직입니다.</div>
+    <div class="rule">
+      🎤 마이크를 누르고 <span class="k">Look at the desk</span> 처럼 말하세요<br>
+      🔍 살펴보면 단서가 나오고, 단서가 다음 할 말을 알려줍니다<br>
+      ⏳ <b>5분</b> 안에 나가야 합니다 — 시간이 줄면 방이 어두워집니다<br>
+      💡 막히면 힌트 버튼을 누르세요 (감점 없음)
+    </div>
+    <button class="bigBtn" id="btnStart">▶ 방에 들어가기</button>
+  </div>
+
+  <!-- 결과 -->
+  <div class="ov hide" id="endOv">
+    <div class="oT" id="endT">탈출 성공!</div>
+    <div class="oEn" id="endEn">Escaped</div>
+    <div id="resStat"></div>
+    <button class="bigBtn" id="btnAgain">🔄 다시 도전</button>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   0. 파라미터 · 상태
+   ════════════════════════════════════════════════════════════ */
+var QS=new URLSearchParams(location.search);
+var UID=QS.get('uid')||'';
+var TIME_LIMIT=parseInt(QS.get('time'),10)||300;   // 초
+
+var SCENES={ room:'/img/escape-room1.jpg?v=1', safe:'/img/escape-room2.jpg?v=1',
+             open:'/img/escape-room3.jpg?v=1', escape:'/img/escape-room4.jpg?v=1' };
+// 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
+Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
+
+/* ════════════════════════════════════════════════════════════
+   1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
+      accept: 인정할 표현들(부분일치·유연 매칭) / goal: 화면 목표 / hint 3단계
+   ════════════════════════════════════════════════════════════ */
+var STEPS=[
+  { id:'desk',
+    goal:'Find a way out.', goalKo:'방을 둘러보세요 — 무엇을 볼까요?',
+    accept:[['look','desk'],['see','desk'],['check','desk'],['examine','desk'],['look','table']],
+    scene:'room',
+    say:'You see an old desk. There is one drawer, and it is closed.',
+    sayKo:'낡은 책상이 보입니다. 서랍이 하나 있고, 닫혀 있습니다.',
+    hints:['책상을 살펴보세요','"보다"는 영어로 look','Look at the desk'] },
+
+  { id:'drawer',
+    goal:'The drawer is closed.', goalKo:'서랍을 열어보세요',
+    accept:[['open','drawer']],
+    scene:'room',
+    say:'Inside the drawer you find a note. It says: The key is behind the painting.',
+    sayKo:'서랍 안에 쪽지가 있습니다. "열쇠는 그림 뒤에 있다"',
+    hints:['서랍을 여세요','"열다"는 영어로 open','Open the drawer'] },
+
+  { id:'painting',
+    goal:'The key is behind the painting.', goalKo:'그림을 옮겨보세요',
+    accept:[['move','painting'],['look','painting'],['open','painting'],['push','painting'],
+            ['pull','painting'],['move','picture'],['look','picture']],
+    scene:'safe',
+    say:'Behind the painting there is a safe. It needs a three digit code.',
+    sayKo:'그림 뒤에 금고가 있습니다. 세 자리 숫자가 필요합니다.',
+    hints:['그림을 옮기세요','"옮기다"는 영어로 move','Move the painting'] },
+
+  { id:'books',
+    goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 어디를 볼까요?',
+    accept:[['look','book'],['check','book'],['see','book'],['examine','book'],['look','shelf'],['read','book']],
+    scene:'safe',
+    say:'On the bookshelf, three books are pulled out. Their numbers are four, seven, two.',
+    sayKo:'책장에 책 세 권이 튀어나와 있습니다. 숫자는 4, 7, 2 입니다.',
+    hints:['책장을 살펴보세요','책(books)을 보세요','Look at the books'] },
+
+  { id:'code',
+    goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 (4 7 2)',
+    accept:[['four','seven','two'],['4','7','2']],
+    scene:'safe', numMode:true,
+    say:'The safe clicks open. An old brass key is inside.',
+    sayKo:'금고가 열립니다. 낡은 황동 열쇠가 들어 있습니다.',
+    hints:['숫자 4 7 2 를 영어로','four, seven, two','Four seven two'] },
+
+  { id:'key',
+    goal:'A key is in the safe.', goalKo:'열쇠를 가져가세요',
+    accept:[['take','key'],['get','key'],['grab','key'],['pick','key']],
+    scene:'open',
+    say:'You have the key. Now the door.',
+    sayKo:'열쇠를 얻었습니다. 이제 문입니다.',
+    hints:['열쇠를 가져가세요','"가져가다"는 take','Take the key'] },
+
+  { id:'door',
+    goal:'Unlock the door and escape!', goalKo:'문을 열고 탈출하세요',
+    accept:[['open','door'],['unlock','door'],['use','key','door']],
+    scene:'escape',
+    say:'The lock turns. The door opens. You are free!',
+    sayKo:'자물쇠가 돌아갑니다. 문이 열립니다. 탈출!',
+    hints:['문을 여세요','"열다"는 open','Open the door'] }
+];
+
+var G=null;
+function newGame(){
+  G={ i:0, t:TIME_LIMIT, running:false, over:false,
+      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false };
+}
+
+/* ════════════════════════════════════════════════════════════
+   2. 음성 (TTS) — 서버 원어민 우선, 실패 시 기기 음성
+   ════════════════════════════════════════════════════════════ */
+var _ttsAudio=null, _ttsCache={};
+function _ttsStop(){ try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.pause(); } }catch(_){}
+  try{ speechSynthesis.cancel(); }catch(_){} }
+function speak(text, cb){
+  _ttsStop();
+  function fallback(){ try{ var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=.92;
+    u.onend=function(){ if(cb)cb(); }; u.onerror=function(){ if(cb)cb(); };
+    speechSynthesis.speak(u); }catch(_){ if(cb)cb(); } }
+  function play(url){ try{ if(!_ttsAudio) _ttsAudio=new Audio(); _ttsAudio.src=url;
+      _ttsAudio.onended=function(){ if(cb)cb(); };
+      _ttsAudio.onerror=function(){ fallback(); };
+      var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fallback(); });
+    }catch(_){ fallback(); } }
+  if(_ttsCache[text]){ play(_ttsCache[text]); return; }
+  fetch('/api/voice/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:text,lang:'en',speaker:'asteria'})})
+    .then(function(r){ var ct=r.headers.get('content-type')||'';
+      if(!r.ok||ct.indexOf('audio')<0) throw 0; return r.blob(); })
+    .then(function(b){ if(b.size<200) throw 0;
+      var fr=new FileReader(); fr.onload=function(){ _ttsCache[text]=String(fr.result); play(_ttsCache[text]); };
+      fr.onerror=function(){ fallback(); }; fr.readAsDataURL(b); })
+    .catch(function(){ fallback(); });
+}
+/* 효과음 — Web Audio 합성(외부 파일 없음) */
+var AC=null;
+function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} } return AC; }
+function beep(freq,dur,type,vol){ var a=ac(); if(!a)return; var t=a.currentTime;
+  var o=a.createOscillator(), g=a.createGain(); o.type=type||'sine'; o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.18,t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t+dur+0.02); }
+function sndOk(){ beep(660,.12,'triangle',.2); setTimeout(function(){beep(990,.18,'triangle',.2);},110); }
+function sndNo(){ beep(200,.18,'sawtooth',.14); }
+function sndUnlock(){ beep(320,.1,'square',.16); setTimeout(function(){beep(480,.1,'square',.16);},110);
+  setTimeout(function(){beep(760,.3,'triangle',.2);},230); }
+function sndAlarm(){ beep(880,.12,'square',.1); setTimeout(function(){beep(660,.12,'square',.1);},150); }
+
+/* ════════════════════════════════════════════════════════════
+   3. 화면
+   ════════════════════════════════════════════════════════════ */
+var $=function(id){ return document.getElementById(id); };
+function setScene(k){ $('scene').style.backgroundImage='url('+SCENES[k]+')'; }
+function setGoal(en,ko){ $('goalTxt').textContent=en; $('goalKo').textContent=ko; }
+function heard(html){ $('heard').innerHTML=html||''; }
+function hintTxt(html){ $('hint').innerHTML=html||''; }
+function flash(){ var f=$('flash'); f.style.opacity='.55'; setTimeout(function(){ f.style.opacity='0'; },160); }
+/* 시간이 줄수록 방이 어두워짐 — 긴장 장치 */
+function applyDim(){ if(!G)return;
+  var r=Math.max(0,Math.min(1,G.t/TIME_LIMIT));
+  var b=0.35+0.65*r;                       // 밝기 1.0 → 0.35
+  $('scene').style.filter='brightness('+b.toFixed(3)+') saturate('+(0.7+0.3*r).toFixed(2)+')'; }
+
+/* ════════════════════════════════════════════════════════════
+   4. 발화 판정 — 유연 매칭(부분 어절 포함, 대소문자·문장부호 무시)
+   ════════════════════════════════════════════════════════════ */
+var NUMWORD={zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9',
+  ten:'10',for:'4',to:'2',too:'2',tree:'3',won:'1',ate:'8'};
+function normalize(s){
+  return String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(Boolean);
+}
+/* 숫자 단계: 말한 것에서 숫자만 뽑아 순서 비교 */
+function digitsOf(words){
+  var out=[];
+  words.forEach(function(w){
+    if(/^\d+$/.test(w)){ w.split('').forEach(function(d){ out.push(d); }); }
+    else if(NUMWORD[w]!==undefined){ out.push(NUMWORD[w]); }
+  });
+  return out;
+}
+function matchStep(said, step){
+  var w=normalize(said);
+  if(!w.length) return false;
+  if(step.numMode){
+    var d=digitsOf(w).join('');
+    return d.indexOf('472')>=0;
+  }
+  // accept 후보 중 하나라도 모든 키워드가 들어있으면 통과
+  return step.accept.some(function(keys){
+    return keys.every(function(k){
+      return w.some(function(x){ return x===k || x.indexOf(k)===0 || k.indexOf(x)===0; });
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   5. 진행
+   ════════════════════════════════════════════════════════════ */
+function curStep(){ return STEPS[G.i]; }
+function showStep(){
+  var s=curStep(); if(!s) return;
+  setScene(s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
+  // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
+  setGoal(s.goal, s.goalKo);
+  G.hintLv=0; hintTxt('');
+}
+function advance(){
+  var s=curStep();
+  G.busy=true;
+  sndOk(); flash();
+  heard('<span class="ok">정확해요!</span>');
+  // 결과 장면으로 전환
+  setScene(s.scene);
+  logProg(s.id, true);
+  speak(s.say, function(){
+    G.busy=false;
+    G.i++;
+    if(G.i>=STEPS.length){ win(); return; }
+    showStep();
+  });
+  hintTxt('<span style="color:#a3e635">'+s.sayKo+'</span>');
+  if(s.id==='code') sndUnlock();
+}
+function wrongTry(said){
+  G.wrong++;
+  sndNo();
+  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 방이 반응하지 않아요</span>');
+  // 3회 틀리면 힌트 자동 노출
+  if(G.wrong%3===0){ showHint(true); }
+}
+function submitSaid(said){
+  if(!G||!G.running||G.over||G.busy) return;
+  G.utter++; $('utterN').textContent=G.utter;
+  var s=curStep();
+  if(matchStep(said,s)){ G.utterOk++; $('utterOk').textContent='성공 '+G.utterOk; advance(); }
+  else wrongTry(said);
+}
+function showHint(auto){
+  var s=curStep(); if(!s)return;
+  if(!auto) G.hintUsed++;
+  var lv=Math.min(2,G.hintLv);
+  var h=s.hints[lv];
+  hintTxt(lv>=2 ? ('이렇게 말해보세요 → <span class="ex">'+esc(h)+'</span>')
+                : ('💡 '+esc(h)));
+  if(lv>=2) speak(h);
+  G.hintLv=Math.min(2,G.hintLv+1);
+}
+
+/* ════════════════════════════════════════════════════════════
+   6. 음성인식
+   ════════════════════════════════════════════════════════════ */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+var recActive=false;
+function listen(){
+  if(!G||!G.running||G.over||G.busy) return;
+  if(!SR){ enableTyping('이 브라우저는 음성인식을 지원하지 않아요 — 타이핑으로 진행하세요'); return; }
+  if(recActive) return;
+  var rec; try{ rec=new SR(); }catch(_){ enableTyping('마이크를 열 수 없어요 — 타이핑으로 진행하세요'); return; }
+  rec.lang='en-US'; rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
+  var done=false, best='', matched=false, sil=null, started=false;
+  var btn=$('micBtn'); btn.classList.add('rec'); btn.textContent='🔴 듣는 중… 말하세요';
+  recActive=true;
+  function finish(){ if(done)return; done=true; recActive=false;
+    if(sil)clearTimeout(sil); try{rec.stop();}catch(_){}
+    btn.classList.remove('rec'); btn.textContent='🎤 눌러서 영어로 말하기';
+    if(best) submitSaid(best);
+    else { heard('<span class="no">소리가 잘 안 들렸어요 — 다시 말해보세요</span>'); }
+  }
+  function arm(){ if(sil)clearTimeout(sil); sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, 2200); }
+  rec.onstart=function(){ started=true; arm(); };
+  rec.onresult=function(e){ if(done)return; started=true;
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      var alts=e.results[i];
+      for(var j=0;j<alts.length;j++){
+        var tx=alts[j].transcript||''; if(tx) best=tx;
+        // 정답이 들리면 즉시 종료(반응 빠르게)
+        if(matchStep(tx,curStep())){ matched=true; best=tx; finish(); return; }
+      }
+    }
+    heard('듣는 중… <b>'+esc(best)+'</b>');
+    arm(); };
+  rec.onerror=function(){ finish(); };
+  rec.onend=function(){ finish(); };
+  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec,{isDone:function(){return done;},onRestart:arm}); }catch(_){}
+  try{ rec.start(); }catch(_){ recActive=false; btn.classList.remove('rec');
+    btn.textContent='🎤 눌러서 영어로 말하기'; enableTyping('마이크 권한이 필요해요 — 타이핑으로도 가능해요'); return; }
+  setTimeout(function(){ if(!started && !done) finish(); }, 9000);
+}
+/* 타이핑 폴백 — 마이크가 안 되는 환경에서 게임이 막히지 않게 */
+function enableTyping(msg){
+  $('typeRow').classList.add('on');
+  if(msg) heard('<span class="no">'+esc(msg)+'</span>');
+  setTimeout(function(){ try{ $('typeIn').focus(); }catch(_){} },50);
+}
+
+/* ════════════════════════════════════════════════════════════
+   7. 타이머 · 종료 · 기록
+   ════════════════════════════════════════════════════════════ */
+var tick=null;
+function startTimer(){
+  clearInterval(tick);
+  tick=setInterval(function(){
+    if(!G||!G.running||G.over) return;
+    G.t--;
+    var m=Math.floor(G.t/60), s=G.t%60;
+    var el=$('timeVal'); el.textContent=m+':'+(s<10?'0':'')+s;
+    el.classList.toggle('warn', G.t<=60);
+    if(G.t===60||G.t===30||G.t===10) sndAlarm();
+    applyDim();
+    if(G.t<=0) lose();
+  },1000);
+}
+function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); _ttsStop();
+  setScene('escape');
+  $('scene').style.filter='brightness(1) saturate(1)';
+  $('endT').textContent='🎉 탈출 성공!'; $('endEn').textContent='Escaped';
+  var used=TIME_LIMIT-G.t, m=Math.floor(used/60), s=used%60;
+  $('resStat').innerHTML='탈출 시간 <b>'+m+'분 '+(s<10?'0':'')+s+'초</b><br>'+
+    '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회<br>'+
+    '<span style="font-size:13px;color:#8fa6bd">힌트 '+G.hintUsed+'회 사용</span>';
+  $('endOv').classList.remove('hide');
+  flushProg(true);
+  setTimeout(function(){ speak('Well done! You escaped!'); },400);
+}
+function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); _ttsStop();
+  $('endT').textContent='⏳ 시간 초과'; $('endEn').textContent='Time Up';
+  $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+STEPS.length+'</b> 단계까지 갔어요<br>'+
+    '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회';
+  $('endOv').classList.remove('hide');
+  flushProg(false);
+}
+/* 학습기록 — 제안서의 "세션당 발화 횟수" 지표를 실제로 수집 */
+function logProg(item, ok){ G.prog.push({item:item, ko:'', correct:!!ok}); }
+function flushProg(cleared){
+  try{
+    var body=JSON.stringify({ user_id:UID, lang:'en', game:'escape-voice',
+      events:G.prog.slice(0,60),
+      meta:{ utter:G.utter, utterOk:G.utterOk, hints:G.hintUsed, cleared:!!cleared,
+             steps:G.i, timeUsed:TIME_LIMIT-G.t } });
+    if(navigator.sendBeacon) navigator.sendBeacon('/api/games/progress', new Blob([body],{type:'application/json'}));
+    else fetch('/api/games/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true}).catch(function(){});
+  }catch(_){}
+}
+
+/* ════════════════════════════════════════════════════════════
+   8. 시작 · 바인딩
+   ════════════════════════════════════════════════════════════ */
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+function startGame(){
+  $('startOv').classList.add('hide'); $('endOv').classList.add('hide');
+  $('typeRow').classList.remove('on');
+  newGame(); G.running=true;
+  $('utterN').textContent='0'; $('utterOk').textContent='성공 0';
+  $('timeVal').textContent='5:00'; $('timeVal').classList.remove('warn');
+  heard(''); hintTxt('');
+  setScene('room'); applyDim(); showStep();
+  try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); }catch(_){}
+  startTimer();
+  speak('You are locked in. Look around the room.');
+  if(!SR) enableTyping('이 브라우저는 음성인식이 없어요 — 타이핑으로 진행하세요');
+}
+$('btnStart').addEventListener('click', startGame);
+$('btnAgain').addEventListener('click', startGame);
+$('micBtn').addEventListener('click', listen);
+$('hintBtn').addEventListener('click', function(){ showHint(false); });
+$('typeBtn').addEventListener('click', function(){ $('typeRow').classList.toggle('on'); });
+$('typeGo').addEventListener('click', function(){ var v=$('typeIn').value.trim();
+  if(v){ $('typeIn').value=''; submitSaid(v); } });
+$('typeIn').addEventListener('keydown', function(e){ if(e.key==='Enter'){ var v=this.value.trim();
+  if(v){ this.value=''; submitSaid(v); } } });
+window.addEventListener('keydown', function(e){
+  if(e.code==='Space' && G && G.running && !G.over && document.activeElement!==$('typeIn')){
+    e.preventDefault(); listen(); } });
+
+setScene('room');
+</script>
+<!-- BUILD:dev -->
+</body>
+</html>
