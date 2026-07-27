@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>주간 전체 스케줄 — 개편 시안 (2026-07-28)</title>
+<style>
+:root{
+  --bg:#FFFFFF; --bg2:#F8F9FA; --bg3:#F1F3F5;
+  --line:#E9ECEF; --line2:#DEE2E6; --line3:#CED4DA;
+  --ink:#212529; --ink2:#6C757D; --ink3:#ADB5BD;
+  --ac:#F59E0B; --acD:#B45309;
+  --c1:#7C3AED; --c1b:#E7E0FB;   /* 1:1 */
+  --cg:#DB2777; --cgb:#FBDCEA;   /* 그룹 */
+  --ct:#2563EB; --ctb:#D8ECFB;   /* 임시/대체 */
+  --ok:#059669; --okb:#D1FAE5;
+  --warn:#DC2626;
+  --sh:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.10);
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg2);color:var(--ink);
+  font-family:'Pretendard','Noto Sans KR',-apple-system,'Segoe UI',sans-serif;
+  font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1560px;margin:0 auto;padding:0 24px 90px}
+h2{font-size:20px;font-weight:800;letter-spacing:-.4px;margin:44px 0 6px}
+h2 .num{display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:8px;
+  background:var(--ink);color:#fff;font-size:13px;margin-right:9px;vertical-align:2px}
+h2 + .lead{color:var(--ink2);margin:0 0 18px;font-size:13.5px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh)}
+
+/* ── 문서 헤더 ── */
+.doc-head{background:linear-gradient(135deg,#111827,#1f2937);color:#fff;padding:34px 0 30px;margin-bottom:4px}
+.doc-head .wrap{padding-bottom:0}
+.doc-head h1{font-size:27px;font-weight:800;margin:0 0 8px;letter-spacing:-.7px}
+.doc-head p{margin:0;color:#cbd5e1;font-size:14.5px;max-width:860px}
+.tagrow{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}
+.tag{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);color:#e5e7eb;
+  border-radius:999px;padding:5px 13px;font-size:12px;font-weight:600}
+.tag.hi{background:var(--ac);border-color:var(--ac);color:#1a1a1a;font-weight:800}
+
+/* ── 진단 카드 ── */
+.diag{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.diag .card{padding:15px 17px}
+.diag .n{font-size:11px;font-weight:800;color:var(--warn);letter-spacing:.5px}
+.diag .t{font-weight:800;font-size:14.5px;margin:3px 0 5px}
+.diag .d{font-size:12.8px;color:var(--ink2);line-height:1.6}
+.diag .d b{color:var(--ink)}
+
+/* ── 표 ── */
+table.tbl{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);
+  border-radius:14px;overflow:hidden;box-shadow:var(--sh);font-size:13.2px}
+table.tbl th{background:var(--bg3);text-align:left;padding:11px 14px;font-weight:800;font-size:12.5px;
+  color:var(--ink2);border-bottom:1px solid var(--line2);white-space:nowrap}
+table.tbl td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+table.tbl tr:last-child td{border-bottom:none}
+table.tbl td b{color:var(--ink)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:800}
+.pill.same{background:var(--okb);color:#065F46}
+.pill.diff{background:#FEF3C7;color:#92400E}
+
+/* ═══════════════════════════════════════════
+   프로토타입
+   ═══════════════════════════════════════════ */
+.proto{background:#fff;border:2px solid var(--ink);border-radius:16px;overflow:hidden;
+  box-shadow:0 10px 34px rgba(16,24,40,.13)}
+.proto-bar{background:var(--ink);color:#fff;padding:7px 15px;font-size:12px;font-weight:700;
+  display:flex;align-items:center;gap:9px}
+.proto-bar .dot{width:9px;height:9px;border-radius:50%;background:#4b5563}
+.proto-bar .dot:first-child{background:#f87171}
+.proto-bar em{font-style:normal;color:#9ca3af;font-weight:500;margin-left:auto;font-size:11.5px}
+
+/* 앱 헤더: 한 줄 */
+.ap-head{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line2);
+  background:#fff;flex-wrap:wrap}
+.ap-title{font-size:16px;font-weight:800;letter-spacing:-.3px;white-space:nowrap}
+.ap-title span{font-size:12px;color:var(--ink3);font-weight:600;margin-left:7px}
+.ap-head .sp{margin-left:auto}
+.btn{background:#fff;border:1px solid var(--line3);border-radius:8px;padding:6px 11px;font:inherit;
+  font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer;transition:.12s;white-space:nowrap}
+.btn:hover{background:var(--bg3);border-color:var(--ink3)}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.acc{background:var(--ac);border-color:var(--ac);color:#1a1a1a}
+.seg{display:inline-flex;border:1px solid var(--line3);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{border:none;background:#fff;padding:6px 13px;font:inherit;font-size:12.5px;font-weight:700;
+  color:var(--ink2);cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--ink);color:#fff}
+.fld{border:1px solid var(--line3);border-radius:8px;padding:6px 10px;font:inherit;font-size:12.5px;
+  color:var(--ink);background:#fff;height:32px}
+input.fld{width:180px}
+.wklabel{font-weight:800;font-size:14px;padding:0 4px;white-space:nowrap}
+
+/* 요약 스트립 */
+.ap-sum{display:flex;align-items:center;gap:0;padding:0 16px;border-bottom:1px solid var(--line2);
+  background:var(--bg2);flex-wrap:wrap}
+.sum{padding:9px 18px 9px 0;margin-right:18px;border-right:1px solid var(--line2);font-size:12.5px;color:var(--ink2);
+  display:flex;align-items:baseline;gap:7px;white-space:nowrap}
+.sum:last-of-type{border-right:none}
+.sum b{font-size:17px;font-weight:800;color:var(--ink);letter-spacing:-.4px}
+.sum .up{font-size:11.5px;color:var(--ink3)}
+.sum-legend{margin-left:auto;display:flex;align-items:center;gap:13px;font-size:11.5px;color:var(--ink2);padding:9px 0}
+.lg{display:inline-flex;align-items:center;gap:5px}
+.lg i{width:13px;height:11px;border-radius:3px;display:inline-block}
+
+/* ── 주간 타임라인 ── */
+.tl{overflow:auto;max-height:720px;position:relative}
+.tl table{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed}
+.tl th,.tl td{padding:0}
+.th-name{position:sticky;left:0;top:0;z-index:6;background:var(--bg3);width:214px;min-width:214px;
+  border-right:2px solid var(--line2);border-bottom:1px solid var(--line2);text-align:left;
+  padding:0 12px!important;height:46px;font-size:12px;font-weight:800;color:var(--ink2)}
+.th-day{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--line2);
+  border-right:1px solid var(--line2);height:46px;padding:4px 6px 3px!important;cursor:pointer}
+.th-day:hover{background:#E9EDF1}
+.th-day .dw{font-size:12.5px;font-weight:800;color:var(--ink)}
+.th-day .dw .dt{color:var(--ink3);font-weight:600;margin-left:5px;font-size:11px}
+.th-day.today .dw{color:var(--acD)}
+.th-day.today{background:#FEF7E6}
+.th-day.sat .dw{color:#1D4ED8}.th-day.sun .dw{color:#B91C1C}
+.ruler{display:flex;justify-content:space-between;font-size:8.5px;color:var(--ink3);
+  border-top:1px solid var(--line2);margin-top:2px;padding-top:1px;font-variant-numeric:tabular-nums}
+.td-name{position:sticky;left:0;z-index:3;background:#fff;border-right:2px solid var(--line2);
+  border-bottom:1px solid var(--line);padding:0 12px!important}
+tr:hover .td-name{background:#FFFBEB}
+.tname{display:flex;align-items:center;gap:9px}
+.ava{width:23px;height:23px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:10.5px;font-weight:800;color:#fff;background:#64748B}
+.ava.office{background:#3B82F6}.ava.native{background:#8B5CF6}.ava.home{background:#10B981}
+.tn{flex:1;min-width:0;font-weight:700;font-size:12.8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tcnt{font-size:11px;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tcnt b{color:var(--ink);font-size:12px}
+.ubar{width:38px;height:5px;border-radius:3px;background:var(--line2);overflow:hidden;flex-shrink:0}
+.ubar i{display:block;height:100%;background:var(--ok)}
+.ubar i.mid{background:var(--ac)}.ubar i.low{background:var(--line3)}
+.td-day{border-right:1px solid var(--line2);border-bottom:1px solid var(--line);position:relative;
+  background:#fff;vertical-align:middle}
+.td-day.today{background:#FFFDF5}
+.td-day.wknd{background:var(--bg2)}
+tr:hover .td-day{background:#FFFDF3}
+tr:hover .td-day.wknd{background:#FDF9EE}
+/* ⚠️ 테이블 셀 안에서는 height:100% 가 해석되지 않는다 → absolute inset 으로 고정 */
+.strip{position:absolute;left:5px;right:5px;top:4px;bottom:4px;border-radius:4px;background:rgba(0,0,0,.045)}
+.seg-b{position:absolute;top:0;bottom:0;border-radius:3px;cursor:pointer;transition:filter .1s}
+.seg-b:hover{filter:brightness(.92);outline:2px solid var(--ink);outline-offset:0;z-index:4}
+.s-1on1{background:var(--c1b);border-left:2.5px solid var(--c1)}
+.s-group{background:var(--cgb);border-left:2.5px solid var(--cg)}
+.s-temp{background:var(--ctb);border-left:2.5px solid var(--ct)}
+.s-off{background:repeating-linear-gradient(45deg,#E5E7EB,#E5E7EB 3px,#D1D5DB 3px,#D1D5DB 6px);border-left:none}
+.nowline{position:absolute;top:0;bottom:0;width:1.5px;background:var(--warn);z-index:2;opacity:.65}
+.grp-row td{background:var(--bg3);border-bottom:1px solid var(--line2);padding:5px 12px!important;
+  font-size:11.5px;font-weight:800;color:var(--ink2);letter-spacing:.3px;position:sticky;left:0}
+
+/* 밀도 */
+.dens-cozy .row-h{height:34px}.dens-mid .row-h{height:27px}.dens-tight .row-h{height:21px}
+.dens-tight .tcnt,.dens-tight .ubar{display:none}
+.dens-tight .ava{width:18px;height:18px;font-size:9px}
+
+/* ── 일간 뷰 ── */
+.dayv{overflow:auto;max-height:720px}
+.dayv table{border-collapse:separate;border-spacing:0;table-layout:fixed}
+.dayv th.th-name{width:196px;min-width:196px}
+.dayv th.th-t{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--line2);
+  border-right:1px solid var(--line);width:62px;min-width:62px;height:46px;font-size:11px;font-weight:700;
+  color:var(--ink2);font-variant-numeric:tabular-nums}
+.dayv th.th-t.peak{background:#FEF3C7;color:#92400E}
+.dayv td.cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);height:29px;
+  font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;white-space:nowrap;cursor:pointer;
+  color:#1f2937;padding:0 3px!important}
+.dayv td.cell.free{background:#fff}
+.dayv td.cell.free:hover{background:var(--okb);outline:2px solid var(--ok);outline-offset:-2px}
+.dayv td.c-1on1{background:var(--c1b);box-shadow:inset 3px 0 0 var(--c1)}
+.dayv td.c-group{background:var(--cgb);box-shadow:inset 3px 0 0 var(--cg)}
+.dayv td.c-temp{background:var(--ctb);box-shadow:inset 3px 0 0 var(--ct)}
+.dayv td.c-off{background:repeating-linear-gradient(45deg,#EDF0F3,#EDF0F3 3px,#DDE1E6 3px,#DDE1E6 6px);cursor:not-allowed}
+.dayv td.cell.dim{opacity:.24}
+.dayv td.cell.hit{outline:2px solid var(--ok);outline-offset:-2px;background:var(--okb)}
+.histo{display:flex;align-items:flex-end;height:14px;gap:1px;margin-top:2px}
+.histo i{flex:1;background:var(--line3);border-radius:1px 1px 0 0;min-height:1px}
+
+/* 툴팁 */
+#tip{position:fixed;z-index:99;background:#111827;color:#fff;border-radius:9px;padding:9px 12px;font-size:12px;
+  line-height:1.55;pointer-events:none;opacity:0;transition:opacity .12s;box-shadow:0 8px 22px rgba(0,0,0,.3);max-width:250px}
+#tip.on{opacity:1}
+#tip b{color:#FCD34D}
+.hint{padding:9px 16px;background:var(--bg2);border-top:1px solid var(--line2);font-size:12px;color:var(--ink2)}
+.hint b{color:var(--ink)}
+
+/* 비교 */
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cmp .card{padding:16px 18px}
+.cmp h4{margin:0 0 10px;font-size:14px;font-weight:800}
+.cmp.before h4{color:var(--warn)}
+.cmp ul{margin:0;padding-left:17px;font-size:13px;color:var(--ink2)}
+.cmp li{margin:5px 0}
+.cmp li b{color:var(--ink)}
+.note{background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:14px 17px;font-size:13.2px;color:#78350F}
+.note b{color:#451A03}
+@media(max-width:900px){.cmp{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <div class="wrap">
+    <h1>주간 전체 스케줄 — 화면 개편 제안</h1>
+    <p>지금 화면은 <b>교사 29명 = 미니 달력 29장</b>입니다. 같은 시간축이 29번 반복되면서, 정작 관리자가 매일 묻는
+       질문(“화요일 저녁 7시에 <u>누가</u> 비었나?”)에는 답을 못 합니다. 업계 표준인 <b>리소스 타임라인</b>(교사=행, 시간=열)으로 바꾸는 시안입니다.</p>
+    <div class="tagrow">
+      <span class="tag hi">제안 단계 — 아직 실서비스 미반영</span>
+      <span class="tag">2026-07-28</span>
+      <span class="tag">대상: /admin/weekly-schedule.html</span>
+      <span class="tag">기존 기능 100% 유지 전제</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- 1. 진단 -->
+<h2><span class="num">1</span>지금 화면이 산만한 이유 — 6가지</h2>
+<p class="lead">감이 아니라 현재 코드(<code>weekly-schedule.html</code>)와 보내주신 화면을 근거로 정리했습니다.</p>
+<div class="diag">
+  <div class="card"><div class="n">원인 1 — 가장 큼</div><div class="t">시간축이 29번 반복됩니다</div>
+    <div class="d">교사 1명당 미니 달력 1개(<b>7열 × 시간행</b>)를 그립니다. 화면 픽셀의 상당 부분이 <b>29번 되풀이되는 요일·시간 라벨</b>입니다. 정보는 한 번만 있으면 됩니다.</div></div>
+  <div class="card"><div class="n">원인 2</div><div class="t">세로 비교가 불가능합니다</div>
+    <div class="d">“화요일 19시에 빈 교사”를 찾으려면 카드 29장을 <b>하나씩 눈으로 훑어야</b> 합니다. 관리자 업무 1순위(신규 학생 배정)가 가장 불편한 동작이 돼 있습니다.</div></div>
+  <div class="card"><div class="n">원인 3</div><div class="t">본문 전에 컨트롤이 4겹</div>
+    <div class="d">KPI 4장 → 주 이동·검색·필터·뷰토글 → 색상 범례 → 교사 칩바. 보내주신 화면에서 <b>실제 스케줄은 한 칸도 안 보입니다.</b></div></div>
+  <div class="card"><div class="n">원인 4</div><div class="t">필터 5개 중 4개가 항상 0</div>
+    <div class="d">홈 0 · 원어민 0 · 매니저 0 — <b>전체 29명이 전부 ‘오피스’</b>입니다. 늘 0인 버튼 3개가 자리만 차지하고 눈을 끕니다.</div></div>
+  <div class="card"><div class="n">원인 5</div><div class="t">색이 의미를 잃었습니다</div>
+    <div class="d">노랑(오늘·AI매칭·홈버튼·세로탭) + 보라·핑크·파랑·빨강(수업) + 초록·파랑·보라·주황(분류). <b>강조가 8곳이면 강조가 없는 것</b>과 같습니다.</div></div>
+  <div class="card"><div class="n">원인 6</div><div class="t">이모지가 라벨마다 붙습니다</div>
+    <div class="d">한 화면에 아이콘성 이모지 15개 이상. 각각이 시선을 잡아당겨 <b>정작 봐야 할 수업 색 블록과 경쟁</b>합니다.</div></div>
+</div>
+
+<!-- 2. 경쟁사 -->
+<h2><span class="num">2</span>경쟁사·업계 표준은 어떻게 하나</h2>
+<p class="lead">“여러 사람 × 시간” 화면은 이미 정답이 굳어진 영역입니다. 조사한 곳 전부 같은 뼈대를 씁니다.</p>
+<table class="tbl">
+  <thead><tr><th style="width:150px">서비스</th><th style="width:120px">분야</th><th>레이아웃</th><th style="width:110px">우리와</th></tr></thead>
+  <tbody>
+    <tr><td><b>Teachworks</b></td><td>과외·교습소 관리</td>
+      <td><b>Teacher 뷰 = 교사가 행, 시간이 열.</b> 수업은 이름 옆 블록, <b>휴무는 회색</b>으로 깔아 “빈자리 찾기가 훨씬 쉽다”고 명시. 색상 기준을 학생/교사/장소 중 선택.</td>
+      <td><span class="pill diff">우리만 다름</span></td></tr>
+    <tr><td><b>TutorCruncher</b></td><td>튜터링 관리</td>
+      <td>모든 튜터 일정을 <b>하나의 캘린더</b>에서 색상 코드로 관리. 화면을 사람 수만큼 쪼개지 않음.</td>
+      <td><span class="pill diff">우리만 다름</span></td></tr>
+    <tr><td><b>Sling / Deputy</b></td><td>교대근무 편성</td>
+      <td>직원 행 × 요일 열 그리드 + <b>상단에 주간 지표 한 줄</b>(인건비·초과·결근). 드래그로 이동.</td>
+      <td><span class="pill same">지표는 유사</span></td></tr>
+    <tr><td><b>Resource Guru</b></td><td>인력 배정</td>
+      <td>사람 행 × 날짜 열 + <b>가동률 히트맵</b>(1인당 % 표시, 과부하 경고). 충돌을 즉시 발견하는 게 목표.</td>
+      <td><span class="pill diff">가동률 없음</span></td></tr>
+    <tr><td><b>FullCalendar / DHTMLX<br>Mobiscroll / Syncfusion</b></td><td>스케줄러 부품<br>(업계 표준 라이브러리)</td>
+      <td>이 화면 형태의 공식 이름이 <b>Resource Timeline</b>입니다. 규칙이 셋: ① 시간축은 <b>화면에 하나</b> ② 리소스(사람) 열은 <b>좌측 고정</b> ③ 행이 많으면 <b>그룹·접기·가상화</b>.</td>
+      <td><span class="pill diff">셋 다 없음</span></td></tr>
+  </tbody>
+</table>
+<p class="lead" style="margin-top:12px">국내 학원관리 제품(에듀클릭·클래스업 등)도 “요일별 시간표 한 장에서 누가 오는지 확인”이 기본 화면입니다.
+  <b>사람 수만큼 달력을 복제하는 방식은 조사한 곳 어디에도 없었습니다.</b></p>
+
+<!-- 3. 시안 -->
+<h2><span class="num">3</span>시안 — 직접 만져 보세요</h2>
+<p class="lead">아래는 그림이 아니라 <b>동작하는 시안</b>입니다. 데이터는 실제 규모(교사 29명·주 560수업)에 맞춘 예시입니다.
+  요일 머리를 누르면 그 날 상세로, <b>‘빈자리 찾기’</b>를 켜면 배정 가능한 칸만 남습니다.</p>
+
+<div class="proto">
+  <div class="proto-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    mango-i.com / admin / weekly-schedule <em>시안 v1 — 실서비스 아님</em></div>
+
+  <!-- 헤더 한 줄 -->
+  <div class="ap-head">
+    <div class="ap-title">주간 전체 스케줄<span>모든 교사 한눈에</span></div>
+    <div class="seg" id="nav-seg">
+      <button onclick="shiftWeek(-1)">◀</button>
+      <button class="on" onclick="goToday()">오늘</button>
+      <button onclick="shiftWeek(1)">▶</button>
+    </div>
+    <div class="wklabel" id="wk-label">2026.07.27 (월) ~ 08.02 (일)</div>
+    <input class="fld" id="q" placeholder="교사 · 학생 · 아이디 검색" oninput="render()">
+    <select class="fld" id="f-cat" onchange="render()"></select>
+    <select class="fld" id="f-sort" onchange="render()">
+      <option value="name">이름순</option>
+      <option value="most">수업 많은 순</option>
+      <option value="free">여유 많은 순</option>
+    </select>
+    <div class="sp"></div>
+    <div class="seg">
+      <button class="on" id="vw-week" onclick="setView('week')">주간</button>
+      <button id="vw-day" onclick="setView('day')">일간</button>
+    </div>
+    <div class="seg">
+      <button id="d-cozy" onclick="setDens('cozy')">넉넉</button>
+      <button class="on" id="d-mid" onclick="setDens('mid')">보통</button>
+      <button id="d-tight" onclick="setDens('tight')">촘촘</button>
+    </div>
+    <button class="btn" id="btn-free" onclick="toggleFree()">빈자리 찾기</button>
+    <button class="btn acc" onclick="alert('시안입니다 — 실제 화면에서는 신규 학생 등록 마법사가 열립니다.')">신규 배정</button>
+  </div>
+
+  <!-- 요약 한 줄 -->
+  <div class="ap-sum">
+    <div class="sum"><span>총 수업</span><b id="k-total">560</b><span class="up">건</span></div>
+    <div class="sum"><span>1대1</span><b id="k-1">520</b><span class="up" id="k-1p">93%</span></div>
+    <div class="sum"><span>그룹</span><b id="k-g">20</b><span class="up" id="k-gp">4%</span></div>
+    <div class="sum"><span>활동 교사</span><b id="k-t">23</b><span class="up">/ 29</span></div>
+    <div class="sum"><span>남은 빈 슬롯</span><b id="k-free">—</b><span class="up">배정 가능</span></div>
+    <div class="sum-legend">
+      <span class="lg"><i style="background:var(--c1b);border-left:3px solid var(--c1)"></i>1대1</span>
+      <span class="lg"><i style="background:var(--cgb);border-left:3px solid var(--cg)"></i>그룹</span>
+      <span class="lg"><i style="background:var(--ctb);border-left:3px solid var(--ct)"></i>임시</span>
+      <span class="lg"><i style="background:repeating-linear-gradient(45deg,#E5E7EB,#E5E7EB 3px,#D1D5DB 3px,#D1D5DB 6px)"></i>휴무</span>
+    </div>
+  </div>
+
+  <!-- 주간 뷰 -->
+  <div class="tl dens-mid" id="tl-wrap">
+    <table id="tl-tbl"></table>
+  </div>
+
+  <!-- 일간 뷰 -->
+  <div class="dayv dens-mid" id="day-wrap" style="display:none">
+    <table id="day-tbl"></table>
+  </div>
+
+  <div class="hint" style="border-top:none;background:#fff;color:var(--ink3);font-size:11.5px;padding-bottom:0">
+    시안 데이터 주의 — 분류 자동숨김이 보이도록 원어민 2명·홈 1명을 섞어 넣었습니다.
+    <b style="color:var(--ink2)">실제 데이터는 29명 전부 ‘오피스’</b>라, 실서비스에서는 드롭다운에 ‘오피스’ 하나만 남습니다.</div>
+  <div class="hint" id="hint"><b>보는 법</b> — 가로 한 줄이 교사 1명의 일주일입니다. 세로로 내려보면 같은 요일·같은 시간대에 누가 비었는지 바로 보입니다.
+    요일 머리를 누르면 그 날 상세(분 단위)로 들어갑니다.</div>
+</div>
+
+<div id="tip"></div>
+
+<!-- 4. 무엇이 달라지나 -->
+<h2><span class="num">4</span>무엇이 달라지나</h2>
+<div class="cmp">
+  <div class="card before">
+    <h4>지금</h4>
+    <ul>
+      <li>교사 29명 = <b>미니 달력 29장</b>, 시간축 29벌</li>
+      <li>세로 스크롤 <b>약 3,000~4,000px</b> (3열 배치 기준 카드 10줄)</li>
+      <li>“화요일 19시 빈 교사” → 카드 29장 육안 대조</li>
+      <li>첫 화면에 스케줄 <b>0칸</b> (컨트롤이 4겹)</li>
+      <li>가동률·과부하 표시 없음</li>
+      <li>항상 0인 필터 3개가 상시 노출</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4 style="color:var(--ok)">시안</h4>
+    <ul>
+      <li>교사 29명 = <b>표 한 장 29행</b>, 시간축 1벌</li>
+      <li>세로 스크롤 <b>830px</b>(보통) / <b>688px</b>(촘촘) — 촘촘 모드는 <b>한 화면</b>에 29명 전부 <span style="color:var(--ink3);font-size:11.5px">※ 이 시안에서 실측</span></li>
+      <li>세로로 훑기만 하면 끝. <b>‘빈자리 찾기’</b>는 가능한 칸만 남김</li>
+      <li>첫 화면에 <b>교사 12~20명분 스케줄</b>이 바로 보임</li>
+      <li>이름 옆 <b>가동률 막대</b> — 놀고 있는 교사가 즉시 눈에 띔</li>
+      <li>빈 분류는 자동으로 숨김 (드롭다운 1개로 통합)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note" style="margin-top:14px">
+  <b>기존 기능은 하나도 빼지 않습니다.</b> 셀 클릭 상세 모달, 빈칸 드래그로 슬롯 추가, 학생 드래그 배정,
+  AI 매칭, 시간대 변환, 휴일 차단, 수업 이동·보강, KO/EN 전환 — 전부 그대로 옮깁니다.
+  바뀌는 것은 <b>‘어떻게 배치해서 보여주느냐’</b>뿐입니다.
+</div>
+
+<!-- 5. 만든다면 -->
+<h2><span class="num">5</span>만든다면 — 범위·순서·위험</h2>
+<table class="tbl">
+  <thead><tr><th style="width:60px">단계</th><th style="width:230px">내용</th><th>설명</th><th style="width:110px">예상</th></tr></thead>
+  <tbody>
+    <tr><td><b>1</b></td><td>정돈만 (레이아웃 유지)</td>
+      <td>컨트롤 4겹 → 1겹, 이모지 정리, 색 3색 체계, 빈 필터 숨김. <b>미니 달력 구조는 그대로.</b> 위험이 거의 없습니다.</td><td>반나절</td></tr>
+    <tr><td><b>2</b></td><td>주간 리소스 타임라인 (핵심)</td>
+      <td>미니 달력 29장 → 표 1장. 좌측 교사 열 고정, 가동률 막대, 밀도 3단.</td><td>1~2일</td></tr>
+    <tr><td><b>3</b></td><td>일간 상세 + 빈자리 찾기</td>
+      <td>요일 클릭 → 분 단위 상세. 기존 드래그 배정·상세 모달을 여기에 연결.</td><td>1일</td></tr>
+    <tr><td><b>4</b></td><td>구 화면 병행 + 전환</td>
+      <td>기존 화면을 지우지 않고 <b>“보기: 신규 / 기존”</b> 토글로 병행. 직원이 익숙해지면 기본값 교체.</td><td>0.5일</td></tr>
+  </tbody>
+</table>
+
+<div class="note" style="margin-top:14px">
+  <b>솔직하게 말씀드릴 위험 3가지.</b><br>
+  ① 이 파일은 관리자 영역이라 <b>배포 권한자(A) 담당</b>입니다. 병행 세션이 같은 파일을 만지면 충돌합니다.<br>
+  ② 직원분들이 <b>지금 화면에 이미 익숙</b>합니다. 그래서 4단계(병행 토글)를 넣었습니다. 바로 갈아끼우지 않는 편이 안전합니다.<br>
+  ③ 드래그로 새 슬롯 만드는 기능은 좌표 계산 방식이 레이아웃에 묶여 있어, 타임라인으로 바꾸면 <b>그 부분은 다시 짜야</b> 합니다(2~3단계에 포함).
+</div>
+
+<h2><span class="num">6</span>결정해 주실 것</h2>
+<table class="tbl">
+  <thead><tr><th style="width:90px">선택</th><th style="width:200px">무엇을</th><th>이럴 때 고르세요</th></tr></thead>
+  <tbody>
+    <tr><td><b>A</b></td><td>1단계만 (정돈)</td><td>“구조는 익숙한데 어수선한 게 문제다” — 가장 빠르고 안전합니다.</td></tr>
+    <tr><td><b>B</b></td><td>1~3단계 전부</td><td>“빈자리 찾기가 진짜 불편했다” — 시안대로 갑니다. 권장.</td></tr>
+    <tr><td><b>C</b></td><td>1~4단계 (병행 토글까지)</td><td>“직원 반발이 걱정된다” — 구 화면을 남겨두고 천천히 넘어갑니다.</td></tr>
+    <tr><td><b>D</b></td><td>보류</td><td>시안이 방향이 아니다 — 어디가 아닌지 알려주시면 다시 잡겠습니다.</td></tr>
+  </tbody>
+</table>
+
+</div><!-- /wrap -->
+
+<script>
+/* ══════════════════════════════════════════════════════
+   시안용 데모 데이터 — 실제 규모(교사 29 / 주 560수업)에 맞춤
+   ══════════════════════════════════════════════════════ */
+var NAMES=['ANA','BELLE','CHAINE','CINDY','FAR','FAYE','HANNAH','HT FARRAH','HT NESS','JANE',
+'JANICE','JED','JENNY','JOY','KAT','KRIS','LARA','LEA','MAE','MICA','NIKKI','OLIVE','PAU','RHEA',
+'RIA','SAM','TESS','VINA','ZAI'];
+var STUD=['김서준','이하윤','박도윤','최시우','정하람','강예린','윤지호','임채원','한서연','오지훈',
+'서민준','신아윤','권태오','황유나','안건우','송지아','전수호','홍다인','문예준','배소율'];
+
+var H0=9,H1=23,STEP=40;                       /* 09:00~23:00, 40분 슬롯 */
+var NSLOT=Math.round((H1-H0)*60/STEP);        /* 21 */
+function slotLabel(i){var m=H0*60+i*STEP;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
+
+/* 시드 난수 — 새로고침해도 같은 화면 */
+var _s=20260728;
+function rnd(){_s=(_s*1103515245+12345)&0x7fffffff;return _s/0x7fffffff;}
+
+var TEACHERS=[],DATA={};
+(function build(){
+  for(var i=0;i<NAMES.length;i++){
+    var cat = i<26?'office':(i<28?'native':'home');
+    TEACHERS.push({id:'t'+i,name:NAMES[i],cat:cat});
+  }
+  var total=0,c1=0,cg=0;
+  TEACHERS.forEach(function(t,ti){
+    DATA[t.id]={};
+    /* 교사마다 근무 성향: 시작시각 / 밀도 */
+    var base = 5 + Math.floor(rnd()*7);          /* 근무 시작 슬롯 */
+    var span = 9 + Math.floor(rnd()*7);          /* 근무 길이 */
+    var busy = .26 + rnd()*.30;                  /* 채움 정도 */
+    var idle = ti%5===3;                         /* 이번 주 쉬는 교사 (활동 23/29 재현) */
+    for(var d=0;d<7;d++){
+      var arr=new Array(NSLOT).fill(null);
+      var dayOff = (d>=5 && rnd()<.65) || rnd()<.10;
+      if(!idle && !dayOff){
+        for(var s=0;s<NSLOT;s++){
+          if(s<base||s>=base+span){arr[s]={t:'off'};continue;}
+          if(rnd()<busy){
+            var r=rnd();
+            var type = r<.93?'1on1':(r<.965?'group':'temp');
+            arr[s]={t:type,st:STUD[Math.floor(rnd()*STUD.length)],n:type==='group'?(2+Math.floor(rnd()*4)):1};
+            total++; if(type==='1on1')c1++; else if(type==='group')cg++;
+          }
+        }
+      }else{
+        for(var s2=0;s2<NSLOT;s2++) arr[s2]={t:'off'};
+      }
+      DATA[t.id][d]=arr;
+    }
+  });
+  window._KPI={total:total,c1:c1,cg:cg};
+})();
+
+/* ── 상태 ── */
+var view='week', dens='mid', freeMode=false, curDay=1, weekOff=0;
+var DOW=['월','화','수','목','금','토','일'];
+var TODAY_D=0; /* 2026-07-28 = 화 → 인덱스 1 */
+TODAY_D=1;
+
+function catLabel(c){return c==='office'?'오피스':c==='native'?'원어민':c==='home'?'홈':'매니저';}
+
+/* 분류 드롭다운: 0건은 아예 넣지 않는다 */
+(function fillCat(){
+  var cnt={};TEACHERS.forEach(function(t){cnt[t.cat]=(cnt[t.cat]||0)+1});
+  var sel=document.getElementById('f-cat');
+  sel.innerHTML='<option value="all">전체 분류 ('+TEACHERS.length+')</option>'+
+    Object.keys(cnt).map(function(k){return '<option value="'+k+'">'+catLabel(k)+' ('+cnt[k]+')</option>'}).join('');
+})();
+
+function stats(t){
+  var n=0,off=0,free=0;
+  for(var d=0;d<7;d++){var a=DATA[t.id][d];for(var s=0;s<NSLOT;s++){
+    var c=a[s]; if(!c) free++; else if(c.t==='off') off++; else n++;}}
+  return {n:n,free:free,util:n+free>0?Math.round(n/(n+free)*100):0};
+}
+
+function visible(){
+  var q=document.getElementById('q').value.trim().toLowerCase();
+  var cat=document.getElementById('f-cat').value;
+  var sort=document.getElementById('f-sort').value;
+  var list=TEACHERS.filter(function(t){
+    if(cat!=='all'&&t.cat!==cat) return false;
+    if(q&&t.name.toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+  list.forEach(function(t){t._s=stats(t)});
+  if(sort==='most') list.sort(function(a,b){return b._s.n-a._s.n});
+  else if(sort==='free') list.sort(function(a,b){return b._s.free-a._s.free});
+  else list.sort(function(a,b){return a.name<b.name?-1:1});
+  return list;
+}
+
+/* ── 주간 타임라인 ── */
+function renderWeek(list){
+  var h='<colgroup><col style="width:214px">'+DOW.map(function(){return '<col>'}).join('')+'</colgroup>';
+  h+='<thead><tr><th class="th-name">교사 '+list.length+'명 &nbsp;·&nbsp; 주간 수업 / 가동률</th>';
+  var mon=new Date(2026,6,27); mon.setDate(mon.getDate()+weekOff*7);
+  for(var d=0;d<7;d++){
+    var cls='th-day'+(d===TODAY_D?' today':'')+(d===5?' sat':'')+(d===6?' sun':'');
+    var dd=new Date(mon); dd.setDate(dd.getDate()+d);
+    h+='<th class="'+cls+'" onclick="openDay('+d+')"><div class="dw">'+DOW[d]+
+       '<span class="dt">'+dd.getDate()+'</span></div>'+
+       '<div class="ruler"><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>23</span></div></th>';
+  }
+  h+='</tr></thead><tbody>';
+  list.forEach(function(t){
+    var s=t._s;
+    var ucls = s.util>=55?'':(s.util>=30?'mid':'low');
+    h+='<tr class="row-h"><td class="td-name"><div class="tname">'+
+      '<span class="ava '+t.cat+'">'+t.name.charAt(0)+'</span>'+
+      '<span class="tn" title="'+t.name+'">'+t.name+'</span>'+
+      '<span class="tcnt"><b>'+s.n+'</b>건</span>'+
+      '<span class="ubar" title="가동률 '+s.util+'%"><i class="'+ucls+'" style="width:'+s.util+'%"></i></span>'+
+      '</div></td>';
+    for(var d=0;d<7;d++){
+      var cls='td-day'+(d===TODAY_D?' today':'')+(d>=5?' wknd':'');
+      h+='<td class="'+cls+'" onclick="openDay('+d+')"><div class="strip">'+segs(t,d)+
+         (d===TODAY_D?'<span class="nowline" style="left:63%"></span>':'')+'</div></td>';
+    }
+    h+='</tr>';
+  });
+  h+='</tbody>';
+  document.getElementById('tl-tbl').innerHTML=h;
+}
+
+/* 연속된 같은 종류를 하나의 막대로 합침 */
+function segs(t,d){
+  var a=DATA[t.id][d],out='',i=0;
+  while(i<NSLOT){
+    var c=a[i];
+    if(!c){i++;continue;}
+    var j=i; while(j+1<NSLOT&&a[j+1]&&a[j+1].t===c.t&&(c.t==='off'||a[j+1].st===c.st))j++;
+    var L=(i/NSLOT*100), W=((j-i+1)/NSLOT*100);
+    if(freeMode&&c.t!=='off'){ i=j+1; continue; }
+    var tip = c.t==='off' ? '휴무' :
+      (c.t==='group'?'그룹 '+c.n+'명':(c.t==='temp'?'임시':'1대1'))+' · '+(c.st||'')+' · '+slotLabel(i)+'~'+slotLabel(j+1);
+    out+='<span class="seg-b s-'+c.t+'" style="left:'+L.toFixed(2)+'%;width:'+(W-0.35).toFixed(2)+
+      '%" data-tip="'+t.name+' &middot; '+DOW[d]+'요일<br><b>'+tip+'</b>"></span>';
+    i=j+1;
+  }
+  if(freeMode){
+    /* 빈자리를 초록으로 강조 */
+    var i2=0;
+    while(i2<NSLOT){
+      if(a[i2]!==null){i2++;continue;}
+      var j2=i2; while(j2+1<NSLOT&&a[j2+1]===null)j2++;
+      out+='<span class="seg-b" style="left:'+(i2/NSLOT*100).toFixed(2)+'%;width:'+
+        (((j2-i2+1)/NSLOT*100)-0.35).toFixed(2)+'%;background:#D1FAE5;border-left:2.5px solid #059669" '+
+        'data-tip="'+t.name+' &middot; '+DOW[d]+'요일<br><b>배정 가능 '+slotLabel(i2)+'~'+slotLabel(j2+1)+'</b>"></span>';
+      i2=j2+1;
+    }
+  }
+  return out;
+}
+
+/* ── 일간 뷰 ── */
+function renderDay(list){
+  var d=curDay;
+  /* 시간대별 총 수업 수 → 피크 표시 */
+  var hist=new Array(NSLOT).fill(0),mx=1;
+  list.forEach(function(t){for(var s=0;s<NSLOT;s++){var c=DATA[t.id][d][s];if(c&&c.t!=='off'){hist[s]++;if(hist[s]>mx)mx=hist[s];}}});
+  var h='<colgroup><col style="width:196px">'+new Array(NSLOT).fill('<col style="width:62px">').join('')+'</colgroup>';
+  h+='<thead><tr><th class="th-name">'+DOW[d]+'요일 &nbsp;·&nbsp; 교사 '+list.length+'명</th>';
+  for(var s=0;s<NSLOT;s++){
+    h+='<th class="th-t'+(hist[s]>=mx*0.8?' peak':'')+'">'+slotLabel(s)+
+       '<div class="histo"><i style="height:'+Math.max(1,Math.round(hist[s]/mx*14))+'px;'+
+       (hist[s]>=mx*0.8?'background:#F59E0B':'')+'"></i></div></th>';
+  }
+  h+='</tr></thead><tbody>';
+  list.forEach(function(t){
+    h+='<tr><td class="td-name"><div class="tname"><span class="ava '+t.cat+'">'+t.name.charAt(0)+
+      '</span><span class="tn">'+t.name+'</span><span class="tcnt"><b>'+
+      DATA[t.id][d].filter(function(c){return c&&c.t!=='off'}).length+'</b>건</span></div></td>';
+    for(var s2=0;s2<NSLOT;s2++){
+      var c=DATA[t.id][d][s2];
+      if(!c) h+='<td class="cell free'+(freeMode?' hit':'')+'" data-tip="'+t.name+' &middot; '+slotLabel(s2)+
+        '<br><b>배정 가능 — 클릭하면 학생 배정</b>"></td>';
+      else if(c.t==='off') h+='<td class="cell c-off'+(freeMode?' dim':'')+'" data-tip="휴무"></td>';
+      else h+='<td class="cell c-'+c.t+(freeMode?' dim':'')+'" data-tip="'+t.name+' &middot; '+slotLabel(s2)+
+        '<br><b>'+(c.t==='group'?'그룹 '+c.n+'명':(c.t==='temp'?'임시':'1대1'))+' · '+c.st+'</b>">'+
+        (c.t==='group'?'그룹 '+c.n:c.st)+'</td>';
+    }
+    h+='</tr>';
+  });
+  h+='</tbody>';
+  document.getElementById('day-tbl').innerHTML=h;
+}
+
+/* ── 공통 ── */
+function render(){
+  var list=visible();
+  var K=window._KPI;
+  document.getElementById('k-total').textContent=K.total;
+  document.getElementById('k-1').textContent=K.c1;
+  document.getElementById('k-1p').textContent=Math.round(K.c1/K.total*100)+'%';
+  document.getElementById('k-g').textContent=K.cg;
+  document.getElementById('k-gp').textContent=Math.round(K.cg/K.total*100)+'%';
+  document.getElementById('k-t').textContent=TEACHERS.filter(function(t){return stats(t).n>0}).length;
+  var fr=0;TEACHERS.forEach(function(t){fr+=stats(t).free});
+  document.getElementById('k-free').textContent=fr.toLocaleString();
+  if(view==='week') renderWeek(list); else renderDay(list);
+}
+function setView(v){
+  view=v;
+  document.getElementById('vw-week').classList.toggle('on',v==='week');
+  document.getElementById('vw-day').classList.toggle('on',v==='day');
+  document.getElementById('tl-wrap').style.display=v==='week'?'':'none';
+  document.getElementById('day-wrap').style.display=v==='day'?'':'none';
+  document.getElementById('hint').innerHTML = v==='week'
+    ? '<b>보는 법</b> — 가로 한 줄이 교사 1명의 일주일입니다. 세로로 내려보면 같은 요일·같은 시간대에 누가 비었는지 바로 보입니다. 요일 머리를 누르면 그 날 상세(분 단위)로 들어갑니다.'
+    : '<b>보는 법</b> — 세로 한 줄이 같은 시각입니다. 위 막대는 그 시간대 총 수업 수(주황 = 피크). 흰 칸이 배정 가능한 자리입니다.';
+  render();
+}
+function setDens(d){
+  dens=d;
+  ['cozy','mid','tight'].forEach(function(k){document.getElementById('d-'+k).classList.toggle('on',k===d)});
+  ['tl-wrap','day-wrap'].forEach(function(id){
+    var e=document.getElementById(id);
+    e.className=(id==='tl-wrap'?'tl ':'dayv ')+'dens-'+d;
+  });
+}
+function toggleFree(){
+  freeMode=!freeMode;
+  document.getElementById('btn-free').classList.toggle('pri',freeMode);
+  document.getElementById('btn-free').textContent=freeMode?'빈자리만 보는 중':'빈자리 찾기';
+  render();
+}
+function openDay(d){curDay=d;setView('day');}
+function fmtD(d){return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');}
+function paintWeek(){
+  var mon=new Date(2026,6,27); mon.setDate(mon.getDate()+weekOff*7);
+  var sun=new Date(mon); sun.setDate(sun.getDate()+6);
+  document.getElementById('wk-label').textContent=fmtD(mon)+' (월) ~ '+fmtD(sun).slice(5)+' (일)';
+  TODAY_D = (weekOff===0)? 1 : -1;   /* 이번 주에만 오늘 표시 */
+}
+function shiftWeek(n){weekOff+=n;paintWeek();render();}
+function goToday(){weekOff=0;paintWeek();render();}
+
+/* 툴팁 */
+var tip=document.getElementById('tip');
+document.addEventListener('mouseover',function(e){
+  var el=e.target.closest('[data-tip]');
+  if(!el){tip.classList.remove('on');return;}
+  tip.innerHTML=el.getAttribute('data-tip');tip.classList.add('on');
+});
+document.addEventListener('mousemove',function(e){
+  if(!tip.classList.contains('on'))return;
+  var x=e.clientX+14,y=e.clientY+16;
+  if(x+260>innerWidth)x=e.clientX-256;
+  if(y+90>innerHeight)y=e.clientY-90;
+  tip.style.left=x+'px';tip.style.top=y+'px';
+});
+setDens('mid');paintWeek();render();
+</script>
+</body>
+</html>

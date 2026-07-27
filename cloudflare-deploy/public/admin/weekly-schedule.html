@@ -322,6 +322,13 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
   background:rgba(16,185,129,.12)!important}
 .tl-scroll td.slot.freehit{background:rgba(16,185,129,.16)!important;outline:1.5px solid rgba(5,150,105,.55);outline-offset:-2px}
 .tl-scroll td.slot.dimmed{opacity:.22}
+/* ⚠️ 드래그 상태 표시는 원래 .mini-cal 에 묶여 있었다. 새 그리드용으로 다시 선언 */
+.tl-scroll td.slot.selecting{outline:2.5px dashed var(--ac);outline-offset:-2px;
+  background:rgba(251,191,36,.20)!important;z-index:6}
+.tl-scroll td.slot.drop-target-ok{outline:3px solid #10b981;outline-offset:-3px;
+  background:rgba(16,185,129,.35)!important;box-shadow:inset 0 0 12px rgba(16,185,129,.5)}
+.tl-scroll td.slot.drop-target-bad{outline:3px solid #ef4444;outline-offset:-3px;
+  background:rgba(239,68,68,.35)!important;cursor:not-allowed!important}
 
 /* 요약 줄 */
 .sumbar{display:flex;align-items:center;gap:0;padding:0 28px;background:var(--bg2);
@@ -347,6 +354,17 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
 .btn-free:hover{border-color:var(--ac)}
 .btn-free.on{background:#059669;border-color:#059669;color:#fff}
 @media(max-width:900px){.controls.one-line{padding-left:14px;padding-right:14px}}
+/* 모바일: 교사 열을 좁히고, 헤더 폭이 화면을 밀지 않게 */
+@media(max-width:768px){
+  :root{--nameW:132px}
+  .tl-scroll{max-height:calc(100vh - 230px);border-radius:10px}
+  .tl-cnt,.tl-ubar{display:none}
+  .tl-nm{font-size:11.5px}
+  .sumbar{padding:0 14px}
+  .sumbar .sm{padding-right:12px;margin-right:12px;font-size:11px}
+  .sumbar .sm b{font-size:14px}
+  .sumbar .lgs{margin-left:0;width:100%;border-top:1px solid var(--bd);padding:7px 0}
+}
 
 /* ═══ 10분 단위 그리드 ═══ */
 .mini-cal td.slot.row10{height:6px;border-top:none;border-bottom:1px solid rgba(255,255,255,.02)}
@@ -732,13 +750,15 @@ body.dragging{cursor:crosshair}
     <div style="font-weight:800;color:#fbbf24;font-size:14px">💡 <span data-ko="사용 가이드" data-en="How to use">사용 가이드</span></div>
     <button onclick="document.getElementById('guide-toast').remove()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:0 4px">✕</button>
   </div>
-  <div style="color:#cbd5e1;line-height:1.65;font-size:12px" data-ko-html="<b style='color:#fff'>📌 셀 클릭</b> → 풀 상세 모달 (학생 카드, 시작/종료일, 편집/삭제)<br><b style='color:#fff'>📌 빈 칸 드래그</b> → 사각형 영역 선택 → 새 슬롯 추가 모달<br><b style='color:#fff'>📌 우측 노란 띠 버튼</b> → 교사 빠른 탐색 사이드 패널<br><b style='color:#fff'>📌 ✨ AI 매칭</b> → 빈 슬롯 자동 추천<br><br><span style='color:#fde68a'>🎯 URL에 <code>?demo=1</code> 추가하면 항상 테스트 데이터로 보입니다.</span>"
-       data-en-html="<b style='color:#fff'>📌 Click cell</b> → Full detail modal (students, dates, edit/delete)<br><b style='color:#fff'>📌 Drag empty cells</b> → Select rectangle → New slot modal<br><b style='color:#fff'>📌 Yellow side button</b> → Quick teacher finder panel<br><b style='color:#fff'>📌 ✨ AI Match</b> → Auto-suggest empty slots<br><br><span style='color:#fde68a'>🎯 Add <code>?demo=1</code> to URL for test data.</span>">
-    <b style="color:#fff">📌 셀 클릭</b> → 풀 상세 모달 (학생 카드, 시작/종료일, 편집/삭제)<br>
-    <b style="color:#fff">📌 빈 칸 드래그</b> → 사각형 영역 선택 → 새 슬롯 추가 모달<br>
-    <b style="color:#fff">📌 우측 노란 띠 버튼</b> → 교사 빠른 탐색 사이드 패널<br>
-    <b style="color:#fff">📌 ✨ AI 매칭</b> → 빈 슬롯 자동 추천<br><br>
-    <span style="color:#fde68a">🎯 URL에 <code>?demo=1</code> 추가하면 항상 테스트 데이터로 보입니다.</span>
+  <div style="color:#cbd5e1;line-height:1.65;font-size:12px" data-ko-html="<b style='color:#fff'>가로 한 줄 = 교사 1명의 일주일.</b> 세로로 훑으면 같은 시간대에 누가 비었는지 바로 보입니다.<br><br><b style='color:#fff'>· 요일 머리 클릭</b> → 그 날 상세(일간)로 이동<br><b style='color:#fff'>· 일간에서 셀 클릭</b> → 상세 모달 (학생·시작/종료일·편집/삭제)<br><b style='color:#fff'>· 일간에서 빈 칸 드래그</b> → 새 슬롯 추가<br><b style='color:#fff'>· 수업 칸을 끌어다 놓기</b> → 시간·교사 변경<br><b style='color:#fff'>· 빈자리 찾기</b> → 배정 가능한 칸만 남김<br><br><span style='color:#fde68a'>URL에 <code>?demo=1</code> 을 붙이면 테스트 데이터로 보입니다.</span>"
+       data-en-html="<b style='color:#fff'>One row = one teacher's week.</b> Scan down a column to see who is free at the same time.<br><br><b style='color:#fff'>· Click a day header</b> → open that day in detail<br><b style='color:#fff'>· Click a cell (day view)</b> → detail modal (students, dates, edit/delete)<br><b style='color:#fff'>· Drag empty cells (day view)</b> → add new slots<br><b style='color:#fff'>· Drag a class cell</b> → change time or teacher<br><b style='color:#fff'>· Find open slots</b> → show only assignable cells<br><br><span style='color:#fde68a'>Add <code>?demo=1</code> to the URL for test data.</span>">
+    <b style="color:#fff">가로 한 줄 = 교사 1명의 일주일.</b> 세로로 훑으면 같은 시간대에 누가 비었는지 바로 보입니다.<br><br>
+    <b style="color:#fff">· 요일 머리 클릭</b> → 그 날 상세(일간)로 이동<br>
+    <b style="color:#fff">· 일간에서 셀 클릭</b> → 상세 모달 (학생·시작/종료일·편집/삭제)<br>
+    <b style="color:#fff">· 일간에서 빈 칸 드래그</b> → 새 슬롯 추가<br>
+    <b style="color:#fff">· 수업 칸을 끌어다 놓기</b> → 시간·교사 변경<br>
+    <b style="color:#fff">· 빈자리 찾기</b> → 배정 가능한 칸만 남김<br><br>
+    <span style="color:#fde68a">URL에 <code>?demo=1</code> 을 붙이면 테스트 데이터로 보입니다.</span>
   </div>
 </div>
 
@@ -1250,7 +1270,15 @@ document.addEventListener('mousemove',function(e){
 document.addEventListener('scroll',function(){tooltip.classList.remove('show');},true);
 document.addEventListener('mouseleave',function(){tooltip.classList.remove('show');});
 
-document.getElementById('prev-week').onclick=function(){currentWeekStart.setDate(currentWeekStart.getDate()-7);reloadAndRender();
+// 🐛 옛 버전에서는 DEMO 배지 표시와 가이드 자동숨김이 이 핸들러 '안에' 갇혀 있었다.
+//    ('이전 주'를 눌러야만 실행됨 = 가이드가 영영 안 사라짐) — 2026-07-28 바깥으로 꺼냄.
+document.getElementById('prev-week').onclick=function(){currentWeekStart.setDate(currentWeekStart.getDate()-7);reloadAndRender();};
+document.getElementById('next-week').onclick=function(){currentWeekStart.setDate(currentWeekStart.getDate()+7);reloadAndRender();};
+document.getElementById('today-btn').onclick=function(){
+  currentWeekStart=startOfWeek(new Date());
+  var g=new Date().getDay();curDow=(g===0)?6:g-1;
+  reloadAndRender();
+};
 
 // DEMO 배지 표시
 (function(){
@@ -1267,18 +1295,54 @@ setTimeout(function(){
   if(t)t.style.opacity='0';
   setTimeout(function(){ if(t&&t.parentNode)t.remove(); },550);
 },9000);
-};
-document.getElementById('next-week').onclick=function(){currentWeekStart.setDate(currentWeekStart.getDate()+7);reloadAndRender();};
-document.getElementById('today-btn').onclick=function(){currentWeekStart=startOfWeek(new Date());reloadAndRender();};
-document.getElementById('cat-filter').addEventListener('click',function(e){
-  var btn=e.target.closest('.cat-btn');if(!btn)return;
-  document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.remove('active');});
-  btn.classList.add('active');activeCategory=btn.dataset.cat;render();
-});
+
 var searchTimer=null;
 document.getElementById('search-input').addEventListener('input',function(e){
   clearTimeout(searchTimer);
   searchTimer=setTimeout(function(){searchQuery=e.target.value;render();},180);
+});
+
+// ══ 새 컨트롤 배선 (2026-07-28) ══
+document.body.classList.add('dens-mid');
+document.getElementById('cat-select').addEventListener('change',function(e){activeCategory=e.target.value;render();});
+document.getElementById('sort-select').addEventListener('change',function(e){sortMode=e.target.value;render();});
+document.querySelectorAll('.view-toggle button[data-view]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.view-toggle button[data-view]').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+    viewMode=btn.dataset.view;
+    render();
+  });
+});
+document.querySelectorAll('.view-toggle button[data-dens]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.view-toggle button[data-dens]').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+    document.body.classList.remove('dens-cozy','dens-mid','dens-tight');
+    document.body.classList.add('dens-'+btn.dataset.dens);
+  });
+});
+// 요일 버튼은 매번 다시 그려지므로 컨테이너에 위임
+document.getElementById('day-picker').addEventListener('click',function(e){
+  var b=e.target.closest('button[data-dow]');if(!b)return;
+  curDow=parseInt(b.dataset.dow,10);render();
+});
+document.getElementById('btn-free').addEventListener('click',function(){
+  freeMode=!freeMode;
+  this.classList.toggle('on',freeMode);
+  render();
+});
+// 주간 뷰에서 요일 머리/칸을 누르면 그 날 상세로 내려간다
+document.getElementById('main').addEventListener('click',function(e){
+  if(viewMode!=='week')return;
+  var cell=e.target.closest('.tl-th-day,.tl-td-day');
+  if(!cell||cell.dataset.dow===undefined)return;
+  curDow=parseInt(cell.dataset.dow,10);
+  viewMode='day';
+  document.querySelectorAll('.view-toggle button[data-view]').forEach(function(b){
+    b.classList.toggle('active',b.dataset.view==='day');
+  });
+  render();
 });
 
 
@@ -2390,19 +2454,14 @@ function renderSidePanel(){
   list.querySelectorAll('.side-item').forEach(function(el){
     el.addEventListener('click',function(){
       var tid=el.dataset.tid;
-      var cards=document.querySelectorAll('.teacher-card');
-      // 카드 위치 찾기
-      var idx=TEACHERS.findIndex(function(t){return t.id===tid;});
-      var t=TEACHERS[idx];if(!t)return;
-      var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;
-      Array.prototype.forEach.call(cards,function(c){
-        var nameEl=c.querySelector('.teacher-name');
-        if(nameEl&&nameEl.textContent===nm){
-          c.scrollIntoView({behavior:'smooth',block:'center'});
-          c.style.outline='3px solid #fbbf24';
-          setTimeout(function(){c.style.outline='';},1800);
-        }
-      });
+      // 새 구조: 교사 = 표의 한 행. 그 행으로 스크롤 + 잠깐 강조
+      var cell=document.querySelector('.tl-td-name[data-tid="'+String(tid).replace(/"/g,'\\"')+'"]');
+      var row=cell?cell.parentElement:null;
+      if(!row)return;
+      row.scrollIntoView({behavior:'smooth',block:'center'});
+      row.style.outline='3px solid #fbbf24';
+      row.style.outlineOffset='-3px';
+      setTimeout(function(){row.style.outline='';},1800);
     });
   });
 }
@@ -2575,25 +2634,21 @@ document.addEventListener('mousemove',function(e){
   var td=e.target.closest('.slot');
   if(!td)return;
   var info=getCellInfo(td);
-  if(!info||info.card!==dragStart.card)return; // 같은 카드 내에서만
-  // 시작 셀부터 현재 셀까지의 사각형 영역 선택
-  var sCard=dragStart.card;
-  var rows=Array.prototype.slice.call(sCard.querySelectorAll('tbody tr'));
-  var sRowIdx=rows.indexOf(dragStart.td.parentElement);
-  var eRowIdx=rows.indexOf(td.parentElement);
-  var sCol=dragStart.colIdx, eCol=info.colIdx;
-  var rMin=Math.min(sRowIdx,eRowIdx),rMax=Math.max(sRowIdx,eRowIdx);
-  var cMin=Math.min(sCol,eCol),cMax=Math.max(sCol,eCol);
+  if(!info)return;
+  // 같은 교사 안에서만 (새 구조에서는 한 행 = 교사 한 명)
+  if(info.card!==dragStart.card)return;
+  // 시작 시각 ~ 현재 시각 사이를 선택
+  var hMin=Math.min(dragStart.hour,info.hour),hMax=Math.max(dragStart.hour,info.hour);
   dragSelected.forEach(function(c){c.classList.remove('selecting');});
   dragSelected=[];
-  for(var r=rMin;r<=rMax;r++){
-    for(var c=cMin;c<=cMax;c++){
-      var cell=rows[r].children[c];
-      if(cell&&cell.classList.contains('slot')&&!cell.dataset.slot){
-        cell.classList.add('selecting');dragSelected.push(cell);
-      }
-    }
-  }
+  var scope=dragStart.card&&dragStart.card.querySelectorAll?dragStart.card:document;
+  Array.prototype.forEach.call(scope.querySelectorAll('td.slot'),function(cell){
+    if(cell.dataset.slot)return;                       // 이미 수업이 있는 칸은 제외
+    if(cell.dataset.tid!==dragStart.td.dataset.tid)return;
+    var hh=parseInt(cell.dataset.hour,10);
+    if(isNaN(hh)||hh<hMin||hh>hMax)return;
+    cell.classList.add('selecting');dragSelected.push(cell);
+  });
 });
 document.addEventListener('mouseup',function(e){
   if(!isDragging)return;
@@ -2780,7 +2835,7 @@ window.editSlotPrompt=editSlotPrompt;
           box.style.boxShadow='0 0 0 3px rgba(251,191,36,.55)';
           setTimeout(function(){ box.style.boxShadow=''; }, 2400);
         }
-        var firstCard = document.querySelector('.teacher-card');
+        var firstCard = document.querySelector('.tl-scroll');
         if (firstCard) firstCard.scrollIntoView({behavior:'smooth',block:'start'});
       } catch(_){}
     }, 700);
@@ -3107,7 +3162,7 @@ reloadAndRender();
         '<div class="gh-sub">'+(L?'빈 셀에 놓아 배정':'Drop on empty slot')+'</div></div>';
       document.body.appendChild(pdnd.ghost);
       // [기능2] 비어있는 '수업 가능' 셀들을 녹색 점선으로 강조
-      document.querySelectorAll('.mini-cal td.slot-empty, .mini-cal td.slot-weekend').forEach(function(c){c.classList.add('drop-ready');});
+      document.querySelectorAll('td.slot.slot-empty, td.slot.slot-weekend').forEach(function(c){c.classList.add('drop-ready');});
     }
     if(!pdnd.active) return;
     if(pdnd.ghost){ pdnd.ghost.style.left = e.clientX+'px'; pdnd.ghost.style.top = (e.clientY-10)+'px'; }
