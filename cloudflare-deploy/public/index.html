@@ -6258,8 +6258,35 @@ window.mgIsSlowNet = function(){
         ov.style.display='flex';
       };
       </script>
-      <!-- 수업입장 + AI와 친구하기 한 줄 (같은 골드 스타일) — 결제하기는 사이드바/마이페이지로 이동 -->
-      <div class="ai-cta-row">
+      <!-- 🔑 [2026-07-28] 히어로를 로그인 여부로 나눈다.
+           왜: 지금은 29,000명 회원과 처음 온 학부모가 같은 화면을 본다. 그런데 1순위 버튼이
+               '수업 입장'이라, 처음 온 사람에게는 쓸 수 없는 버튼이 가장 크게 있었다.
+               경쟁사(캠블리키즈·민병철유폰·엔구·링글)는 전부 히어로 1순위가 신규 획득 CTA다.
+           방식: 새 페이지를 만들지 않는다. 같은 페이지가 localStorage 의 mango_token 을 보고
+               둘 중 하나만 표시한다(카운트다운 카드가 이미 쓰는 방식과 동일).
+           ⚠️ 기본값은 '비회원 히어로'다 — 스크립트가 실패해도 화면이 비지 않게.
+           ⚠️ 비회원 히어로에도 '수업 입장'을 작게라도 반드시 남길 것.
+              토큰 만료(30일)·기기 변경·브라우저 데이터 삭제 시 기존 회원도 이 화면을 보는데,
+              빼버리면 그 학생이 수업에 못 들어간다. -->
+
+      <!-- ① 처음 온 방문자 -->
+      <div id="hero-guest">
+        <div class="ai-cta-row">
+          <button class="cta-enter" onclick="window.openInquiryModal&&window.openInquiryModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18"/><path d="M12 8S9.5 3.5 7 5.2 8.8 8 12 8Zm0 0s2.5-4.5 5-2.8S15.2 8 12 8Z"/></svg>
+            <span data-ko="무료 체험 신청" data-en="Get a free trial">무료 체험 신청</span>
+          </button>
+          <button class="cta-pay" onclick="if(window.gridActions&&window.gridActions.teachers)window.gridActions.teachers()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2"/><path d="M17 11.5a2.6 2.6 0 1 0 0-5.2"/><path d="M18.5 20c0-2.4-.9-4.1-2.4-5.1"/></svg>
+            <span data-ko="강사 둘러보기" data-en="Meet the teachers">강사 둘러보기</span>
+          </button>
+        </div>
+        <button type="button" id="hero-guest-quiet" onclick="showView('view-videocall-lobby')"
+                data-ko="이미 수강 중이신가요? 수업 입장 →" data-en="Already enrolled? Enter class →">이미 수강 중이신가요? 수업 입장 →</button>
+      </div>
+
+      <!-- ② 로그인한 회원 — 수업입장 + AI와 친구하기 한 줄 (같은 골드 스타일) -->
+      <div class="ai-cta-row" id="hero-member" style="display:none">
         <button class="cta-enter" onclick="showView('view-videocall-lobby')">
           <svg class="btn-enter-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><circle cx="12" cy="9" r="2.5" fill="#1a1a1a"/><path d="M7 14c.5-2 2.5-3 5-3s4.5 1 5 3"/></svg>
           <span data-ko="수업 입장" data-en="Enter Class">수업 입장</span>
@@ -6269,6 +6296,43 @@ window.mgIsSlowNet = function(){
           <span data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</span>
         </button>
       </div>
+      <style>
+        #hero-guest-quiet{display:block;margin:9px auto 0;background:none;border:0;padding:4px 8px;
+          color:rgba(226,232,240,.72);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;
+          text-decoration:underline;text-underline-offset:3px}
+        #hero-guest-quiet:hover{color:#fde68a}
+      </style>
+      <script>
+      /* 🔑 히어로 전환 — 로그인했으면 회원용, 아니면 신규 방문자용.
+         · 파싱 도중(첫 페인트 전)에 실행되므로 깜빡임이 없다. rAF·transition 을 쓰지 않는 이유이기도 하다
+           (백그라운드 탭·저전력 모드에서 멈춰 영영 안 보이는 사고를 피한다).
+         · 서버에 묻지 않는다. mango_token 은 서버가 HMAC 서명해 발급하고 30일 만료라,
+           여기서는 '있는지 + 안 지났는지'만 본다. 값을 위조해도 실제 데이터는 서버가 서명을 검증해 거부한다.
+         · 판정 실패·예외는 전부 '비회원'으로 떨어뜨린다(비회원 화면에도 수업 입장이 있으므로 안전). */
+      (function(){
+        function loggedIn(){
+          try{
+            var t = localStorage.getItem('mango_token');
+            if (!t) return false;
+            var p = JSON.parse(atob(String(t).split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));
+            return !!p.uid && (!p.exp || p.exp > Date.now());
+          }catch(e){ return false; }
+        }
+        try{
+          if (loggedIn()){
+            var g = document.getElementById('hero-guest');
+            var m = document.getElementById('hero-member');
+            if (g) g.style.display = 'none';
+            if (m) m.style.display = '';
+            /* 이미 등록한 회원에게 '무료 상담 → 레벨 테스트' 안내는 의미가 없다 */
+            document.addEventListener('DOMContentLoaded', function(){
+              var f = document.querySelector('.home-flow');
+              if (f) f.style.display = 'none';
+            });
+          }
+        }catch(e){}
+      })();
+      </script>
       <!-- 🧭 [2026-07-27] 수업 진행 4단계 (직원 피드백 #6 — 원안은 '첫 진입 튜토리얼')
            원안(자동 재생 오버레이)은 채택하지 않았다. 홈에는 이미 설치 배너·팝업·AI 상담사가
            떠 있어 가림 요소가 하나 더 느는 데다, 필리핀 회선 대응으로 첫 진입 용량을 줄이는
@@ -6276,7 +6340,9 @@ window.mgIsSlowNet = function(){
            대신 '무엇을 궁금해하는가(=절차)'만 상시 노출로 답한다.
            ⚠️ 자동 재생·오버레이·강제 진행 금지. 누르면 그 단계로 가는 것까지가 전부. -->
       <div class="home-flow" role="list">
-        <button type="button" role="listitem" class="hf-step" onclick="window.openInquiryModal&&window.openInquiryModal()">
+        <!-- 1번만 채워서 시선을 모은다 — 4칸이 동등한 무게면 '지금 할 행동'이 안 생긴다.
+             경쟁사 히어로가 전부 단일 CTA 인 이유이기도 하다. -->
+        <button type="button" role="listitem" class="hf-step hf-lead" onclick="window.openInquiryModal&&window.openInquiryModal()">
           <span class="hf-n">1</span><span class="hf-t" data-ko="무료 상담" data-en="Free consult">무료 상담</span>
         </button>
         <span class="hf-ar" aria-hidden="true">›</span>
@@ -6301,6 +6367,8 @@ window.mgIsSlowNet = function(){
           border:1px solid rgba(251,191,36,.30);background:rgba(11,16,32,.42);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
           color:#f1f5f9;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .18s ease,border-color .18s ease}
         .home-flow .hf-step:hover{background:rgba(251,191,36,.16);border-color:rgba(251,191,36,.6)}
+        .home-flow .hf-lead{background:rgba(251,191,36,.20);border-color:rgba(251,191,36,.62);color:#fff8e6}
+        .home-flow .hf-lead:hover{background:rgba(251,191,36,.30)}
         .home-flow .hf-n{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;flex:none;
           border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f08;font-size:11px;font-weight:900}
         .home-flow .hf-ar{color:rgba(251,191,36,.7);font-size:15px;font-weight:800;line-height:1}
