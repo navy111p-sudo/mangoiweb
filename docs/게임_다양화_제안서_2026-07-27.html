@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>망고아이 학습게임 다양화 제안서</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
+    background:#f4f6f9;color:#1f2937;line-height:1.7;padding:0 0 60px}
+  .wrap{max-width:980px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(0,0,0,.07)}
+  /* ── 표지 ── */
+  .cover{background:linear-gradient(135deg,#1e3a5f,#2d5a8a);color:#fff;padding:52px 48px 44px}
+  .cover .kicker{font-size:13px;letter-spacing:3px;opacity:.75;font-weight:700}
+  .cover h1{font-size:34px;font-weight:800;margin:12px 0 10px;line-height:1.3;letter-spacing:-.5px}
+  .cover .sub{font-size:16px;opacity:.9;font-weight:500}
+  .cover .meta{margin-top:26px;padding-top:18px;border-top:1px solid rgba(255,255,255,.22);
+    font-size:13px;opacity:.8;display:flex;gap:26px;flex-wrap:wrap}
+  /* ── 본문 ── */
+  .sec{padding:38px 48px;border-bottom:1px solid #e5e9f0}
+  .sec:last-child{border-bottom:0}
+  .secNo{display:inline-block;background:#2d5a8a;color:#fff;font-size:12px;font-weight:800;
+    padding:3px 11px;border-radius:20px;letter-spacing:1px}
+  h2{font-size:24px;font-weight:800;margin:12px 0 6px;color:#16324f;letter-spacing:-.4px}
+  .lead{font-size:15px;color:#5a6b7f;margin-bottom:20px}
+  h3{font-size:17px;font-weight:800;margin:26px 0 10px;color:#1e3a5f;
+    padding-left:11px;border-left:4px solid #4a90d9}
+  p{margin-bottom:12px;font-size:14.5px}
+  ul,ol{margin:0 0 14px 20px;font-size:14.5px}
+  li{margin-bottom:6px}
+  b{color:#16324f}
+  .hl{background:linear-gradient(transparent 58%,#ffe9a8 58%);font-weight:700}
+  /* 표 */
+  table{width:100%;border-collapse:collapse;margin:14px 0 18px;font-size:13.5px}
+  th{background:#eef3f9;color:#16324f;font-weight:800;text-align:left;padding:10px 12px;
+    border-bottom:2px solid #cfdcea;font-size:12.5px}
+  td{padding:10px 12px;border-bottom:1px solid #e8edf4;vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .tc{text-align:center}
+  /* 박스 */
+  .box{background:#f7fafc;border:1px solid #dde6f0;border-left:4px solid #4a90d9;
+    border-radius:0 8px 8px 0;padding:15px 18px;margin:16px 0;font-size:14px}
+  .box.warn{border-left-color:#e0913a;background:#fdf8f0}
+  .box.good{border-left-color:#3d9970;background:#f2faf6}
+  .box .bt{font-weight:800;color:#16324f;margin-bottom:6px;font-size:14.5px}
+  /* 게임 카드 */
+  .gcard{border:1px solid #dde6f0;border-radius:10px;padding:18px 20px;margin:16px 0;background:#fdfefe}
+  .gcard .gh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .gcard .gnum{background:#1e3a5f;color:#fff;font-size:12px;font-weight:800;
+    width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;
+    justify-content:center;flex:0 0 26px}
+  .gcard .gname{font-size:18px;font-weight:800;color:#16324f}
+  .gcard .gen{font-size:12.5px;color:#7b8ca0;font-weight:600}
+  .gcard .gtag{margin-left:auto;font-size:11.5px;font-weight:800;padding:3px 10px;
+    border-radius:20px;background:#e8f1fb;color:#2d5a8a}
+  .gspec{display:grid;grid-template-columns:76px 1fr;gap:5px 12px;margin-top:12px;font-size:13.5px}
+  .gspec dt{font-weight:800;color:#5a6b7f;font-size:12.5px}
+  .gspec dd{color:#28374a}
+  .rate{display:flex;gap:16px;margin-top:12px;padding-top:12px;border-top:1px dashed #dde6f0;
+    font-size:12.5px;flex-wrap:wrap}
+  .rate span{color:#5a6b7f}
+  .rate b{color:#1e3a5f}
+  .stars{color:#e0913a;letter-spacing:1px}
+  /* 로드맵 */
+  .phase{border-left:3px solid #cfdcea;padding:0 0 4px 20px;margin-left:8px;position:relative}
+  .phase::before{content:'';position:absolute;left:-8px;top:4px;width:13px;height:13px;
+    border-radius:50%;background:#4a90d9;border:3px solid #fff;box-shadow:0 0 0 1px #cfdcea}
+  .phase h4{font-size:15.5px;font-weight:800;color:#16324f;margin-bottom:3px}
+  .phase .pmeta{font-size:12.5px;color:#7b8ca0;margin-bottom:7px}
+  .phase{margin-bottom:20px}
+  .foot{padding:26px 48px;background:#f7fafc;font-size:12.5px;color:#7b8ca0}
+  @media print{ body{background:#fff} .wrap{box-shadow:none} .sec{page-break-inside:avoid} }
+  @media(max-width:700px){
+    .cover,.sec,.foot{padding-left:22px;padding-right:22px}
+    .cover h1{font-size:26px} h2{font-size:20px}
+    .gspec{grid-template-columns:1fr;gap:2px}
+    .gspec dt{margin-top:8px}
+    table{font-size:12.5px} th,td{padding:8px 9px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ═══ 표지 ═══ -->
+  <div class="cover">
+    <div class="kicker">MANGOi · LEARNING GAMES</div>
+    <h1>학습게임 다양화 제안서</h1>
+    <div class="sub">재미와 학습효과, 두 마리 토끼를 잡는 게임 라인업 재설계</div>
+    <div class="meta">
+      <span>작성일 · 2026-07-27</span>
+      <span>대상 · 학생 학습게임 15종</span>
+      <span>범위 · 신규 6종 기획 · 기존 9종 정리 · 공통엔진</span>
+    </div>
+  </div>
+
+  <!-- ═══ 1. 현황 진단 ═══ -->
+  <div class="sec">
+    <span class="secNo">01</span>
+    <h2>현황 진단 — 왜 15개인데 6~7개처럼 느껴지나</h2>
+    <div class="lead">코드를 직접 분석한 결과입니다. 인상이 아니라 측정값입니다.</div>
+
+    <h3>발견 1 — 15개 중 9개가 같은 메커니즘</h3>
+    <p>허브에 등록된 15개 게임 중 <b>9개</b>가 <span class="hl">"단어를 문장 어순대로 모으기"</span>라는
+    동일한 핵심 규칙을 씁니다. 겉모습(전차·전투기·낚시·테트리스·좀비)만 다를 뿐 학생이 하는 인지 활동은 같습니다.</p>
+    <table>
+      <tr><th style="width:150px">핵심 메커니즘</th><th>해당 게임</th><th class="tc" style="width:60px">개수</th></tr>
+      <tr><td><b>어순 조립</b></td><td>문법피자 · 탱크대전 · P-38 · 낚시 · 중국어슈팅 · 문장벽돌 · 워드파이터 · 단어테트리스 · 구조선</td><td class="tc"><b>9</b></td></tr>
+      <tr><td>뜻 매칭</td><td>단어매칭 · 풍선터뜨리기</td><td class="tc">2</td></tr>
+      <tr><td>빈칸 선택</td><td>빈칸채우기</td><td class="tc">1</td></tr>
+      <tr><td>듣기 추론</td><td>용의자추리</td><td class="tc">1</td></tr>
+      <tr><td>따라 말하기</td><td>말하기퀴즈</td><td class="tc">1</td></tr>
+      <tr><td>퀴즈 대결</td><td>중국어배틀</td><td class="tc">1</td></tr>
+    </table>
+
+    <h3>발견 2 — 게임끼리 복사본 관계</h3>
+    <div class="box warn">
+      <div class="bt">P-38 라이트닝의 함수 113개 중 89개(79%)가 셔먼 탱크대전과 이름까지 동일합니다.</div>
+      오디오·음성합성·난이도·폭발효과·배경·말하기연습·HUD가 통째로 같습니다.
+      사실상 <b>같은 게임에 그림만 바꾼 것</b>입니다. 학생이 "탈것만 다르고 똑같네"라고 느끼는 것은 정확한 관찰입니다.
+    </div>
+    <p>이는 학습 설계의 결과가 아니라 <b>개발 편의(기존 게임 복사 → 그래픽 교체)</b>의 결과입니다.
+    부작용도 있습니다. 공통 기능을 하나 고치려면 <b>9개 파일을 각각 수정</b>해야 하고, 실제로 그렇게 해왔습니다.</p>
+
+    <h3>발견 3 — 학습 영역이 한쪽으로 쏠려 있음</h3>
+    <table>
+      <tr><th>언어 능력</th><th class="tc" style="width:90px">현재 게임 수</th><th>평가</th></tr>
+      <tr><td>어순 · 문장 조립</td><td class="tc"><b>9</b></td><td>과잉 — 한 학생이 같은 훈련을 9번 반복</td></tr>
+      <tr><td>어휘 뜻</td><td class="tc">3</td><td>적정</td></tr>
+      <tr><td>듣기</td><td class="tc">1.5</td><td>부족</td></tr>
+      <tr><td>말하기(따라하기)</td><td class="tc">3</td><td>있으나 대부분 게임 끝 부록 형태</td></tr>
+      <tr><td><b>쓰기 · 작문</b></td><td class="tc"><b>0</b></td><td>게임 없음 (AI영작은 게임 아닌 도구)</td></tr>
+      <tr><td><b>실전 대화</b></td><td class="tc"><b>0</b></td><td>게임 없음 (AI친구는 게임 아닌 도구)</td></tr>
+      <tr><td><b>순간 반응 · 유창성</b></td><td class="tc"><b>0</b></td><td>게임 없음</td></tr>
+    </table>
+  </div>
+
+  <!-- ═══ 2. 설계 원칙 ═══ -->
+  <div class="sec">
+    <span class="secNo">02</span>
+    <h2>설계 원칙 — 두 마리 토끼는 어떻게 잡는가</h2>
+    <div class="lead">재미와 학습을 각각 늘리는 게 아니라, 하나로 합치는 것이 핵심입니다.</div>
+
+    <h3>지금 구조의 한계 — "재미 껍데기 + 퀴즈 알맹이"</h3>
+    <p>현재 게임 대부분은 이런 구조입니다.</p>
+    <div class="box warn">
+      <div class="bt">단어를 맞히면 → 적이 폭발한다</div>
+      여기서 <b>언어는 관문이고, 재미는 보상</b>입니다. 둘이 분리되어 있습니다.<br>
+      그래서 껍데기(전차·비행기·좀비)를 아무리 바꿔도 알맹이(단어 맞히기)가 같으면 금방 질립니다.
+      학생 입장에선 "폭발 보려고 단어 맞히는 것"이 되고, 학습은 재미의 <b>비용</b>으로 인식됩니다.
+    </div>
+
+    <h3>제안하는 구조 — "언어 자체가 게임 조작 수단"</h3>
+    <div class="box good">
+      <div class="bt">내가 만든 문장대로 게임 세계가 실제로 바뀐다</div>
+      언어가 관문이 아니라 <b>조종간</b>이 됩니다. 더 좋은 문장을 쓰면 더 좋은 결과가 나옵니다.<br>
+      이때 학생은 이기려고 언어를 <b>더 정교하게</b> 쓰게 되고, 학습은 재미의 비용이 아니라 <b>수단</b>이 됩니다.
+    </div>
+    <p>이 원칙에 따라 신규 게임을 설계했습니다. 아래 4가지 기준으로 각 게임을 검증했습니다.</p>
+    <ol>
+      <li><b>승리 조건이 언어 능력인가</b> — 반사신경이나 운이 아니라 언어가 실력을 가르는가</li>
+      <li><b>기존 9종과 인지 방식이 다른가</b> — 또 다른 어순 조립이면 탈락</li>
+      <li><b>실패가 학습이 되는가</b> — 틀렸을 때 왜 틀렸는지 즉시 알 수 있는가</li>
+      <li><b>기존 자산으로 만들 수 있는가</b> — 이미 있는 API·엔진 재사용 가능한가</li>
+    </ol>
+
+    <div class="box">
+      <div class="bt">활용 가능한 기존 자산 (이미 작동 중)</div>
+      약점 단어 추적 <code>/api/games/weak</code> · 발음 점수 <code>/api/games/shadow</code> ·
+      맞춤 추천 <code>/api/games/recommend</code> · AI 영작 첨삭 <code>/api/ai/write-correct</code> ·
+      AI 대화 <code>/api/ai/chat-friend</code> · 원어민 음성합성 · 음성인식(7개 게임에서 이미 사용) ·
+      3D 엔진(탱크대전·구조선에서 검증) · 교재 레슨 연동 · 포인트·배지·연속출석
+      <br><br>
+      <b>즉, 신규 게임 대부분은 백엔드를 새로 만들 필요가 없습니다.</b>
+    </div>
+  </div>
+
+  <!-- ═══ 3. 신규 게임 ═══ -->
+  <div class="sec">
+    <span class="secNo">03</span>
+    <h2>신규 게임 6종 기획</h2>
+    <div class="lead">현재 비어 있는 학습 영역(쓰기·대화·듣기받아쓰기·순간반응·기억)을 채웁니다.</div>
+
+    <!-- 게임 1 -->
+    <div class="gcard">
+      <div class="gh">
+        <span class="gnum">1</span>
+        <span class="gname">마법 그림책</span>
+        <span class="gen">Story Painter</span>
+        <span class="gtag">쓰기 · 작문</span>
+      </div>
+      <p style="margin:8px 0 0">그림이 한 장 주어집니다. 학생이 그 장면을 영어 문장으로 씁니다.
+      <b>쓴 문장대로 그림이 실제로 바뀝니다.</b> "The cat is on the box"라고 쓰면 고양이가 상자 위로 올라갑니다.
+      틀린 문장을 쓰면 엉뚱한 그림이 나오고(고양이가 상자 <i>아래</i> 있음), 학생은 웃으면서 자기 실수를 봅니다.</p>
+      <dl class="gspec">
+        <dt>승리 조건</dt><dd>목표 그림과 똑같이 만들기 — 정확한 문장을 써야만 가능</dd>
+        <dt>재미 요소</dt><dd>내 문장이 세계를 바꾸는 창작 쾌감 · 엉뚱한 결과의 유머 · 완성작 갤러리 저장·자랑</dd>
+        <dt>학습 효과</dt><dd><b>조립이 아닌 생성</b> — 현재 0개인 영역. 전치사·어순·시제를 스스로 선택해야 함</dd>
+        <dt>실패=학습</dt><dd>틀린 문장의 결과를 <b>그림으로 즉시</b> 봄. 설명 없이도 이해됨</dd>
+        <dt>기술</dt><dd>AI 영작 첨삭 API(기존) + 요소별 사전 생성 이미지 조합(고양이·상자·나무 × 위치)</dd>
+      </dl>
+      <div class="rate"><span>흥미도 <b class="stars">★★★★★</b></span><span>학습효과 <b class="stars">★★★★★</b></span><span>개발난이도 <b>중</b></span><span>추천순위 <b>1순위</b></span></div>
+    </div>
+
+    <!-- 게임 2 -->
+    <div class="gcard">
+      <div class="gh">
+        <span class="gnum">2</span>
+        <span class="gname">망고 카페 알바</span>
+        <span class="gen">Mango Cafe</span>
+        <span class="gtag">실전 대화</span>
+      </div>
+      <p style="margin:8px 0 0">학생이 카페 직원이 됩니다. 손님(AI)이 말로 주문하고, 학생이 말로 응대합니다.
+      제대로 알아듣고 응대하면 손님이 만족하고 팁을 줍니다. 못 알아들으면 손님이 다시 말해주거나, 화를 냅니다.</p>
+      <dl class="gspec">
+        <dt>승리 조건</dt><dd>하루 영업 마감까지 손님 만족도 유지 — 듣고 즉시 응대해야만 가능</dd>
+        <dt>재미 요소</dt><dd>진상 손님·단골·바쁜 러시아워 등 상황 변화 · 팁으로 카페 꾸미기 · 손님 캐릭터 수집</dd>
+        <dt>학습 효과</dt><dd><b>듣기와 말하기를 동시에</b> — 실제 대화에 가장 가까움. 현재 0개 영역</dd>
+        <dt>실패=학습</dt><dd>못 알아들으면 손님이 천천히 다시 말함 = 자연스러운 반복 노출</dd>
+        <dt>기술</dt><dd>AI 대화 API(기존) + 음성인식(기존) + 음성합성(기존). <b>백엔드 신규 개발 거의 없음</b></dd>
+      </dl>
+      <div class="rate"><span>흥미도 <b class="stars">★★★★★</b></span><span>학습효과 <b class="stars">★★★★★</b></span><span>개발난이도 <b>중</b></span><span>추천순위 <b>2순위</b></span></div>
+    </div>
+
+    <!-- 게임 3 -->
+    <div class="gcard">
+      <div class="gh">
+        <span class="gnum">3</span>
+        <span class="gname">비밀 무전 해독</span>
+        <span class="gen">Radio Intercept</span>
+        <span class="gtag">듣기 · 받아쓰기</span>
+      </div>
+      <p style="margin:8px 0 0">적의 무전을 감청합니다. 잡음 섞인 음성을 듣고 받아쓰면 암호가 풀리고
+      적 기지 위치가 지도에 드러납니다. 난이도가 오르면 잡음이 커지고 말이 빨라집니다.</p>
+      <dl class="gspec">
+        <dt>승리 조건</dt><dd>제한 시간 안에 메시지 해독 — 정확히 들어야만 가능</dd>
+        <dt>재미 요소</dt><dd>스파이 미션의 긴장감 · 해독할수록 드러나는 지도 · 부분 정답도 힌트가 됨</dd>
+        <dt>학습 효과</dt><dd><b>순수 듣기 → 철자</b>. 현재 게임 중 받아쓰기는 0개. 듣기 정확도 훈련의 핵심</dd>
+        <dt>실패=학습</dt><dd>틀린 글자만 빨갛게 표시 후 그 부분만 다시 재생 = 집중 교정</dd>
+        <dt>기술</dt><dd>음성합성(기존) + 잡음 합성(Web Audio, 기존 코드 재사용) + 단어 은행 선택식(저학년) / 타이핑(고학년)</dd>
+      </dl>
+      <div class="rate"><span>흥미도 <b class="stars">★★★★</b></span><span>학습효과 <b class="stars">★★★★★</b></span><span>개발난이도 <b>하</b></span><span>추천순위 <b>3순위</b></span></div>
+      <div class="box warn" style="margin:12px 0 0;font-size:13px">
+        <b>주의</b> — 중국어는 서버 음성합성 품질 문제가 확인되어 있어, 중국어판은 병음 입력 방식으로 별도 설계가 필요합니다.
+      </div>
+    </div>
+
+    <!-- 게임 4 -->
+    <div class="gcard">
+      <div class="gh">
+        <span class="gnum">4</span>
+        <span class="gname">단어 반사신경</span>
+        <span class="gen">Word Reflex</span>
+        <span class="gtag">순간 판단 · 유창성</span>
+      </div>
+      <p style="margin:8px 0 0">단어나 짧은 문장이 빠르게 지나갑니다. 맞으면 O, 틀리면 X를 즉시 누릅니다.
+      "He go to school" → X. 생각할 시간이 없습니다. 연속으로 맞히면 속도가 빨라지고 배점이 올라갑니다.</p>
+      <dl class="gspec">
+        <dt>승리 조건</dt><dd>연속 판단 기록 — 문법 감각이 자동화돼야만 가능</dd>
+        <dt>재미 요소</dt><dd>리듬게임 같은 몰입 · 개인 최고기록 갱신 · 짧아서 부담 없음(1회 60초)</dd>
+        <dt>학습 효과</dt><dd><b>자동화</b> — 아는 것과 즉시 쓰는 것은 다름. 유창성의 핵심이며 현재 0개 영역</dd>
+        <dt>실패=학습</dt><dd>틀린 문항만 모아 라운드 끝에 느린 속도로 재출제</dd>
+        <dt>기술</dt><dd><b>약점 단어 API(기존)로 개인별 출제</b> — 자주 틀리는 것 위주로 자동 구성</dd>
+      </dl>
+      <div class="rate"><span>흥미도 <b class="stars">★★★★</b></span><span>학습효과 <b class="stars">★★★★</b></span><span>개발난이도 <b>하 (가장 저렴)</b></span><span>추천순위 <b>4순위</b></span></div>
+    </div>
+
+    <!-- 게임 5 -->
+    <div class="gcard">
+      <div class="gh">
+        <span class="gnum">5</span>
+        <span class="gname">단어 금고 털기</span>
+        <span class="gen">Vault Heist</span>
+        <span class="gtag">기억 · 회상</span>
+      </div>
+      <p style="margin:8px 0 0">금고 화면에 단어가 잠깐 나타났다 사라집니다. 기억해서 순서대로 입력해야 금고가 열립니다.
+      단계가 오를수록 단어가 늘고 노출 시간이 짧아집니다. 경보가 울리기 전에 털어야 합니다.</p>
+      <dl class="gspec">
+        <dt>승리 조건</dt><dd>기억한 단어를 정확히 재현 — 눈으로만 봐서는 안 되고 <b>머리에 남겨야</b> 함</dd>
+        <dt>재미 요소</dt><dd>하이스트 긴장감 · 경보 카운트다운 · 단계별 금고 등급(구리→금고왕)</dd>
+        <dt>학습 효과</dt><dd><b>인출 연습</b> — 보고 고르는 것보다 기억해서 꺼내는 쪽이 장기기억에 훨씬 효과적</dd>
+        <dt>실패=학습</dt><dd>실패한 단어는 다음 판 첫 순서로 재등장(간격 반복)</dd>
+        <dt>기술</dt><dd>약점 단어 API(기존) + 간격 반복 로직. 그래픽 부담 적음</dd>
+      </dl>
+      <div class="rate"><span>흥미도 <b class="stars">★★★</b></span><span>학습효과 <b class="stars">★★★★★</b></span><span>개발난이도 <b>하</b></span><span>추천순위 <b>5순위</b></span></div>
+    </div>
+
+    <!-- 게임 6 -->
+    <div class="gcard">
+      <div class="gh">
+        <span class="gnum">6</span>
+        <span class="gname">반 대항 단어 리그</span>
+        <span class="gen">Class League</span>
+        <span class="gtag">협동 · 경쟁</span>
+      </div>
+      <p style="margin:8px 0 0">게임이 아니라 <b>기존 게임들을 묶는 시즌 시스템</b>입니다.
+      주간 리그가 열리고, 어떤 게임을 하든 점수가 우리 반 총점에 합산됩니다. 주말에 순위가 발표됩니다.</p>
+      <dl class="gspec">
+        <dt>승리 조건</dt><dd>반 전체 합산 점수 — 잘하는 학생 혼자로는 부족, <b>참여율</b>이 중요</dd>
+        <dt>재미 요소</dt><dd>또래 압력이 아니라 소속감 · 우리 반 기여도 표시 · 시즌마다 초기화되어 재도전 기회</dd>
+        <dt>학습 효과</dt><dd>직접 학습보다 <b>학습 지속률</b>을 올림. 혼자 하면 그만두지만 팀이 있으면 계속함</dd>
+        <dt>실패=학습</dt><dd>하위권 반에는 "우리 반 약점 단어 TOP5"를 제공해 만회 경로 제시</dd>
+        <dt>기술</dt><dd>랭킹 API(기존) 확장 + 반 정보(기존 학생 데이터). <b>신규 게임 제작 불필요</b></dd>
+      </dl>
+      <div class="rate"><span>흥미도 <b class="stars">★★★★</b></span><span>학습효과 <b class="stars">★★★</b></span><span>개발난이도 <b>하</b></span><span>추천순위 <b>재등록 효과 1순위</b></span></div>
+    </div>
+  </div>
+
+  <!-- ═══ 4. 기존 정리 ═══ -->
+  <div class="sec">
+    <span class="secNo">04</span>
+    <h2>기존 9종 정리 — 없애지 않고 각자 다르게</h2>
+    <div class="lead">이미 만든 게임을 버리는 것은 낭비입니다. 대신 <b>각 게임에 고유한 문법 역할</b>을 부여합니다.</div>
+
+    <p>겉모습은 그대로 두고 <b>출제 규칙만 바꿉니다.</b> 학생은 "탱크는 어순, 전투기는 시제"처럼
+    게임마다 다른 훈련을 하게 되고, 개발 비용은 출제 로직 교체 수준으로 작습니다.</p>
+    <table>
+      <tr><th style="width:130px">게임</th><th style="width:150px">새 전담 영역</th><th>구체적 변경</th></tr>
+      <tr><td><b>셔먼 탱크대전</b></td><td>어순 (대표작 유지)</td><td>현행 유지 — 어순 훈련의 간판</td></tr>
+      <tr><td><b>P-38 라이트닝</b></td><td>시제 변형</td><td>적기에 <code>go / went / will go</code> 표시. 상황에 맞는 시제만 격추</td></tr>
+      <tr><td><b>단어 테트리스</b></td><td>품사 분류</td><td>블록 색 = 품사. 명사줄·동사줄을 맞춰 쌓아야 지워짐</td></tr>
+      <tr><td><b>워드 파이터</b></td><td>전치사 · 관사</td><td>좀비가 <code>in / on / at</code>을 들고 등장. 맞는 것만 유효타</td></tr>
+      <tr><td><b>망고 구조선</b></td><td>단수 · 복수</td><td>구조 대상이 1명이면 <code>a friend</code>, 여럿이면 <code>friends</code></td></tr>
+      <tr><td><b>문법 피자</b></td><td>문장 성분</td><td>현행 유지 — 이미 주어·동사·목적어 구분 중</td></tr>
+      <tr><td><b>낚시 + 말하기</b></td><td>뜻 매칭</td><td>현행 유지 — 이미 다름</td></tr>
+      <tr><td><b>중국어 슈팅</b></td><td>성조 · 병음</td><td>중국어 고유 영역으로 특화</td></tr>
+      <tr><td><b>문장 벽돌</b></td><td>통합 검토</td><td>테트리스와 기능 중복 — <b>통합 또는 정리 대상</b></td></tr>
+    </table>
+    <div class="box good">
+      <div class="bt">기대 효과</div>
+      게임 수는 그대로인데 <b>체감 다양성이 6~7종 → 14~15종</b>으로 올라갑니다.
+      "다 해봤다"는 학생에게 "탱크는 했는데 시제 훈련은 안 해봤네"라는 새로운 목표가 생깁니다.
+    </div>
+  </div>
+
+  <!-- ═══ 5. 공통 엔진 ═══ -->
+  <div class="sec">
+    <span class="secNo">05</span>
+    <h2>공통 엔진 분리 — 앞으로의 개발 속도</h2>
+    <div class="lead">눈에 보이지 않지만, 위 두 가지를 실행하려면 먼저 해결해야 하는 문제입니다.</div>
+
+    <p>현재는 공통 기능(음성합성·말하기연습·난이도·학습기록·교재연동)이
+    <b>9개 파일에 각각 복사</b>되어 있습니다. 그래서:</p>
+    <ul>
+      <li>발음 기능 하나 고치려면 <b>9곳을 똑같이 수정</b>해야 합니다</li>
+      <li>한 곳을 빠뜨리면 그 게임만 다르게 동작합니다 (실제로 발생해 온 문제)</li>
+      <li>신규 게임을 만들 때마다 이 덩어리를 또 복사하게 됩니다</li>
+    </ul>
+    <p>공통 부분을 <b>엔진 파일 1벌</b>로 분리하고 각 게임은 자기 규칙만 갖게 하면,
+    앞으로 <span class="hl">9번 할 일이 1번</span>이 됩니다. 위의 "기존 9종 정리"도 이 작업 후에 하면 훨씬 빠르고 안전합니다.</p>
+    <div class="box warn">
+      <div class="bt">순서가 중요합니다</div>
+      엔진 분리를 먼저 하지 않고 게임 9개의 출제 규칙을 각각 바꾸면, 그 작업을 9번 반복하게 됩니다.
+      <b>엔진 분리 → 규칙 차별화</b> 순서를 권합니다.
+    </div>
+  </div>
+
+  <!-- ═══ 6. 로드맵 ═══ -->
+  <div class="sec">
+    <span class="secNo">06</span>
+    <h2>단계별 실행안</h2>
+    <div class="lead">한 번에 다 하지 않습니다. 효과가 빨리 보이는 것부터 배치했습니다.</div>
+
+    <div class="phase">
+      <h4>1단계 · 빠른 효과 확인</h4>
+      <div class="pmeta">신규 게임 2종 · 백엔드 신규 개발 없음</div>
+      <p style="margin-bottom:6px"><b>단어 반사신경</b>과 <b>비밀 무전 해독</b>을 먼저 만듭니다.
+      둘 다 개발 난이도가 낮고 기존 API만으로 동작합니다. 여기서
+      "인지 방식이 다른 게임이 실제로 더 오래 플레이되는가"를 데이터로 확인합니다.</p>
+      <p style="margin-bottom:0;font-size:13.5px;color:#5a6b7f">확인 지표 · 1인당 평균 플레이 시간 · 재방문율 · 기존 게임 대비 이탈률</p>
+    </div>
+
+    <div class="phase">
+      <h4>2단계 · 구조 정리</h4>
+      <div class="pmeta">공통 엔진 분리 · 사용자에게 보이는 변화 없음</div>
+      <p style="margin-bottom:0">1단계 결과가 긍정적이면, 본격 확장 전에 엔진을 분리합니다.
+      이 단계는 학생 화면에 변화가 없지만, 이후 모든 작업 속도를 좌우합니다.
+      기존 게임이 그대로 동작하는지 회귀 검증이 핵심입니다.</p>
+    </div>
+
+    <div class="phase">
+      <h4>3단계 · 간판 게임</h4>
+      <div class="pmeta">마법 그림책 · 망고 카페 알바</div>
+      <p style="margin-bottom:0">가장 차별화되고 학부모에게 보여주기 좋은 두 게임입니다.
+      "우리 아이가 영어로 문장을 만들면 그림이 바뀐다", "AI 손님과 영어로 대화한다"는
+      <b>상담·홍보에서 바로 쓸 수 있는 이야기</b>가 됩니다.</p>
+    </div>
+
+    <div class="phase">
+      <h4>4단계 · 기존 9종 차별화</h4>
+      <div class="pmeta">엔진 위에서 출제 규칙만 교체</div>
+      <p style="margin-bottom:0">P-38=시제, 테트리스=품사, 워드파이터=전치사 등으로 각 게임에 고유 역할을 부여합니다.
+      엔진이 분리된 상태이므로 게임당 작업량이 작습니다.</p>
+    </div>
+
+    <div class="phase">
+      <h4>5단계 · 지속 장치</h4>
+      <div class="pmeta">반 대항 리그 · 단어 금고 털기</div>
+      <p style="margin-bottom:0">라인업이 충분히 다양해진 뒤에 리그를 엽니다.
+      게임이 적을 때 리그를 열면 같은 게임만 반복하게 되므로, 순서상 마지막입니다.</p>
+    </div>
+  </div>
+
+  <!-- ═══ 7. 기대효과 ═══ -->
+  <div class="sec">
+    <span class="secNo">07</span>
+    <h2>기대 효과와 측정 방법</h2>
+
+    <table>
+      <tr><th style="width:190px">항목</th><th>현재</th><th>목표</th></tr>
+      <tr><td><b>체감 게임 다양성</b></td><td>6~7종</td><td>신규 6종 + 차별화 9종 = <b>15종이 실제로 15종</b></td></tr>
+      <tr><td><b>학습 영역 커버리지</b></td><td>쓰기·대화·받아쓰기·순간반응 = 0</td><td>7개 영역 전부 커버</td></tr>
+      <tr><td><b>공통 기능 수정 비용</b></td><td>9개 파일 각각</td><td>1개 파일</td></tr>
+      <tr><td><b>재등록 관점</b></td><td>"다 해봤어요"에 대응 수단 없음</td><td>학기마다 새 목표 제시 가능</td></tr>
+    </table>
+
+    <div class="box">
+      <div class="bt">측정 가능한 성공 기준 (1단계 후 판단)</div>
+      제안이 옳았는지는 느낌이 아니라 데이터로 확인합니다. 이미 학습기록 API가 있으므로 추가 개발 없이 측정됩니다.
+      <ul style="margin:8px 0 0 18px">
+        <li>신규 게임의 <b>1인당 평균 플레이 시간</b>이 기존 어순 게임 평균보다 높은가</li>
+        <li>신규 게임 플레이 후 <b>7일 내 재방문율</b>이 더 높은가</li>
+        <li>같은 학생의 <b>약점 단어 감소 속도</b>가 빨라지는가</li>
+      </ul>
+      세 지표 중 둘 이상이 개선되지 않으면 2단계 이후를 재검토하는 것이 합리적입니다.
+    </div>
+
+    <div class="box good">
+      <div class="bt">비용 측면</div>
+      신규 6종 중 <b>5종은 기존 API·엔진 재사용</b>으로 백엔드 신규 개발이 거의 없습니다.
+      그래픽 자산도 AI 생성으로 조달 가능합니다(현재 크레딧 잔량은 별도 확인 필요).
+      가장 큰 비용은 개발 시간이며, 엔진 분리(2단계)가 이후 모든 단계의 시간을 줄입니다.
+    </div>
+  </div>
+
+  <!-- ═══ 8. 결론 ═══ -->
+  <div class="sec">
+    <span class="secNo">08</span>
+    <h2>요약</h2>
+    <ol style="font-size:15px">
+      <li style="margin-bottom:10px"><b>문제는 게임 수가 아니라 인지 방식의 중복입니다.</b>
+      15개 중 9개가 같은 훈련이고, 코드상으로도 서로의 복사본입니다.</li>
+      <li style="margin-bottom:10px"><b>재미와 학습을 합치는 방향으로 설계합니다.</b>
+      언어를 관문이 아니라 조종간으로 — 내 문장이 게임 세계를 바꾸게 만듭니다.</li>
+      <li style="margin-bottom:10px"><b>비어 있는 영역부터 채웁니다.</b>
+      쓰기·대화·받아쓰기·순간반응·기억은 현재 게임이 하나도 없는 영역입니다.</li>
+      <li style="margin-bottom:10px"><b>기존 게임은 버리지 않고 역할을 나눕니다.</b>
+      출제 규칙만 바꿔 체감 다양성을 두 배로 만듭니다.</li>
+      <li style="margin-bottom:0"><b>작게 시작해 데이터로 검증합니다.</b>
+      1단계 2종을 먼저 만들고 지표를 확인한 뒤 확장 여부를 결정합니다.</li>
+    </ol>
+  </div>
+
+  <div class="foot">
+    본 제안서의 현황 진단(게임별 메커니즘 분류, 함수 중복률, 학습 영역 커버리지)은
+    실제 소스코드 분석에 근거합니다. 기대 효과의 수치 목표는 목표치이며 실측값이 아닙니다.<br>
+    작성 · 2026-07-27 · 망고아이 개발
+  </div>
+
+</div>
+</body>
+</html>
