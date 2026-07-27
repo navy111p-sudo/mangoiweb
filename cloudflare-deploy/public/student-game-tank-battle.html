@@ -7,7 +7,7 @@
 <!--
   🛡️ 탱크 대전(Tank Battle): 단어 전차전 — 영어/중국어 학습 슈팅
   · 단일 HTML SPA. 허브 파라미터: ?uid= &speed=1..5 &stage=1..3 &goal=N &glang=en|zh
-  · 플레이어 = 미국 M4 셔먼 — 양손 조작: 왼손 키보드(WASD·화살표)=기동, 오른손 마우스=포탑 조준, 스페이스·클릭=발사(길게 누르면 연사)
+  · 플레이어 = 미국 M4 셔먼 — 이동=마우스 추종 또는 WASD·화살표, 포탑=적 자동조준(정답 단어 전차 우선), 발사=스페이스·클릭(길게 누르면 연사)
     (모바일·2D 클래식은 드래그=이동, 탭=발사 그대로)
   · 적 = 독일 타이거 전차 + 자주포(StuG). 사방 가장자리서 흩어져 등장, 이동하며 포 사격.
   · 각 적 전차가 단어를 싣고 있음 → 문장 어순대로 격파 → 완성 시 듣기 3번·말하기 3번(발음 학습)
@@ -203,7 +203,7 @@
     </div>
     <div class="diffHint">난이도↑ = 적 전차 빠르고 많이·포 자주·발음 빠르게 (1 쉬움 ~ 7 어려움)</div>
     <div class="oRules">
-      ⌨️ <b>왼손 W A S D</b>(또는 화살표)로 셔먼을 몰아요 — 대각선도 OK!<br>
+      🖱️ <b>마우스를 움직이면</b> 셔먼이 따라와요 (<b>W A S D</b>·화살표로도 이동 가능)<br>
       🎯 <b>포탑이 적을 자동으로 조준</b>해요(정답 단어 전차 우선) — <b>스페이스</b>나 클릭으로 발사! <b>누르고 있으면 연사</b> 💥<br>
       <span style="opacity:.8">📱 휴대폰·태블릿은 손가락으로 끌어 이동, 탭하면 발사예요</span><br>
       🔤 위 문장의 <b>금색 단어</b>를 실은 독일 전차를 순서대로 격파!<br>
@@ -736,11 +736,12 @@ var _aim={x:0,y:0};                              // 커서 조준점(키보드·
 var _fireKey=false;                              // ⌨️ 발사키를 누르고 있는 중인가(연사)
 function _onPtrMove(ev){ if(!G||!G.running||G.speaking)return;
   var p=ptr(ev); _aim.x=p.x; _aim.y=p.y;
-  // 🎯 (2026-07-27) 3D 쿼터뷰 마우스 = '조준 전용'.
-  //   [왜] 예전엔 탱크를 커서 위치에 그대로 붙였는데(스냅), 그러면 커서와 탱크가 같은 점이라
-  //        조준 벡터가 0 이 되어 **포탑 방향을 계산할 수 없었다**(사장님 제보: 포/머리 조작 불가).
-  //   → 이동은 왼손 키보드(WASD·화살표)가 맡고, 마우스는 포탑이 향할 곳만 정한다.
-  if(VIEW==='quarter' && ev.pointerType==='mouse') return;
+  // 🖱️ (2026-07-27 최종) 3D 쿼터뷰 마우스 = 이동. 버튼을 누르지 않아도 커서를 따라간다.
+  //   [경위] 한때 마우스를 '조준 전용'으로 뒀지만, 포탑이 적을 **자동 조준**하게 된 뒤로는
+   //         마우스를 조준에 쓸 이유가 없다 → 가장 쉬운 이동 수단으로 되돌린다.
+  //         (WASD·화살표 이동도 함께 쓸 수 있고, 키를 누르면 키보드가 우선한다)
+  if(VIEW==='quarter' && ev.pointerType==='mouse' && !_drag.on){
+    G.dragging=true; G.tx=p.x; G.ty=p.y; return; }
   if(!_drag.on) return;                          // 버튼을 누른 동안만 이동 목표 갱신(터치·2D 클래식)
   G.tx=p.x; G.ty=p.y;
   if(!_drag.moved && Math.hypot(p.x-_drag.sx,p.y-_drag.sy)>12) _drag.moved=true;
@@ -751,10 +752,7 @@ function _onPtrDown(ev){ if(!G||!G.running||G.speaking)return;
   try{ ev.target.setPointerCapture(ev.pointerId); }catch(_){}
   var p=ptr(ev); _drag.on=true; _drag.sx=p.x; _drag.sy=p.y; _drag.t=performance.now(); _drag.moved=false;
   _aim.x=p.x; _aim.y=p.y;
-  // 🎯 3D 마우스는 조준 전용 — 클릭해도 탱크를 그 자리로 옮기지 않는다(이동=키보드).
-  //   터치(모바일)·2D 클래식은 기존처럼 끌어서 이동.
-  if(VIEW==='quarter' && ev.pointerType==='mouse') return;
-  G.dragging=true; G.tx=p.x; G.ty=p.y;
+  G.dragging=true; G.tx=p.x; G.ty=p.y;   // 클릭한 곳으로도 이동(마우스=이동 수단)
 }
 function _dragEnd(ev){
   var was=_drag.on; _drag.on=false; if(G) G.dragging=false;
@@ -1930,7 +1928,7 @@ function startGame(){
   // 👋 첫 판 온보딩 힌트
   var onb=false; try{ onb=!!localStorage.getItem('mangoi_tank_onboarded'); }catch(_){}
   if(!onb){ try{ localStorage.setItem('mangoi_tank_onboarded','1'); }catch(_){}
-    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('⌨️ WASD로 이동 · 🎯 포탑 자동조준 · 스페이스 발사','#7fd1ff'); }, 1400); }
+    setTimeout(function(){ if(G&&G.running&&!G.speaking) banner('🖱️ 마우스(또는 WASD)로 이동 · 🎯 포탑 자동조준 · 스페이스·클릭 발사','#7fd1ff'); }, 1400); }
 }
 function endGame(win){ if(!G||G.over)return; G.over=true; G.running=false; flushProg();
   bgmStop(); _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
@@ -1986,6 +1984,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260727183214 -->
+<!-- BUILD:20260727212913 -->
 </body>
 </html>
