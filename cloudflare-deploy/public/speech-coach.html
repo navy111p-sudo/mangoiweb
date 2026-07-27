@@ -943,6 +943,46 @@ if (typeof window.speechSynthesis !== 'undefined') {
   })();
 })();
 </script>
+<!-- 🔗 발음 연습 앱(mangoi-speech.pages.dev)에 학생 신원 전달 (2026-07-28)
+     연습 결과가 학부모·강사 화면과 통계에 잡히려면 연습 앱이 "누구인지"를 알아야 한다.
+     · uid·이름 : 기존 관리자 연동 규약대로 URL 파라미터 (자격증명 아님)
+     · 인증 토큰: 주소창·브라우저 기록에 남지 않도록 postMessage 로만 전달하고,
+                  요청이 연습 앱 출처에서 온 경우에만 응답한다. -->
+<script>
+(function(){
+  var PRACTICE_ORIGIN = 'https://mangoi-speech.pages.dev';
+  function me(){
+    var u = null; try { u = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
+    return u || null;
+  }
+  /* 연습 앱 링크에 uid·이름·회신 출처를 붙인다 (게스트면 그대로 둔다) */
+  document.addEventListener('click', function(ev){
+    var a = ev.target && ev.target.closest ? ev.target.closest('a[href^="' + PRACTICE_ORIGIN + '"]') : null;
+    if (!a) return;
+    var u = me();
+    if (!u || !u.user_id) return;
+    try {
+      var url = new URL(a.href);
+      url.searchParams.set('uid', u.user_id);
+      if (u.user_name) url.searchParams.set('name', u.user_name);
+      url.searchParams.set('callback_origin', location.origin);
+      a.href = url.toString();
+    } catch(e){}
+  }, true);
+
+  /* 연습 앱이 토큰을 요청하면 — 그 출처가 연습 앱일 때만 — 건네준다 */
+  window.addEventListener('message', function(ev){
+    if (ev.origin !== PRACTICE_ORIGIN) return;
+    if (!ev.data || ev.data.type !== 'mangoi_speech_auth_request') return;
+    var u = me(); if (!u || !u.user_id) return;
+    var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch(e){}
+    if (!tok) return;
+    try {
+      ev.source.postMessage({ type: 'mangoi_speech_auth', uid: u.user_id, name: u.user_name || '', token: tok }, ev.origin);
+    } catch(e){}
+  });
+})();
+</script>
 <style id="mb-tidy2-2026-07-11">
 /* 자체 홈 버튼은 공용 홈/EN 바(mango-i18n 주입)와 같은 자리에 포개지므로 숨김 — 홈 기능은 공용 바가 제공 */
 .home-btn{display:none}
