@@ -231,6 +231,123 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 
 
 
+/* ══════════════════════════════════════════════════════════════════════
+   📊 리소스 타임라인 (2026-07-28 개편)
+   · 교사 = 행, 시간 = 열. 시간축을 화면에 딱 한 벌만 그린다.
+   · 주간 뷰(.tlv) = 개요 / 일간 뷰(.dgv) = 실제 작업면(드래그·배정 전부 여기)
+   · ⚠️ 일간 뷰 셀은 반드시 data-tid/data-date/data-hour 를 달아야 한다.
+     상세모달·드래그이동·학생배정이 전부 그 세 값으로 셀을 해석한다.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{ --rowh:27px; --nameW:236px; }
+body.dens-cozy{ --rowh:34px } body.dens-mid{ --rowh:27px } body.dens-tight{ --rowh:21px }
+
+.tl-scroll{overflow:auto;max-height:calc(100vh - 190px);background:var(--bg2);
+  border:1px solid var(--bd);border-radius:14px;position:relative}
+.tl-scroll table{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed}
+.tl-scroll th,.tl-scroll td{padding:0;margin:0}
+
+/* 좌측 고정 교사 열 */
+.tl-th-name{position:sticky;left:0;top:0;z-index:6;background:var(--bg3);width:var(--nameW);
+  min-width:var(--nameW);border-right:2px solid var(--bd2);border-bottom:1px solid var(--bd2);
+  text-align:left;padding:0 12px!important;height:46px;font-size:11.5px;font-weight:800;color:var(--tx2)}
+.tl-td-name{position:sticky;left:0;z-index:3;background:var(--bg2);border-right:2px solid var(--bd2);
+  border-bottom:1px solid var(--bd);padding:0 12px!important;height:var(--rowh)}
+tr:hover .tl-td-name{background:var(--bg3)}
+.tl-tname{display:flex;align-items:center;gap:8px;min-width:0}
+.tl-ava{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-size:10px;font-weight:800;color:#fff;background:#64748b}
+.tl-ava.home{background:#10b981}.tl-ava.office{background:#3b82f6}
+.tl-ava.native{background:#8b5cf6}.tl-ava.manager{background:#f97316}
+.tl-nm{flex:1;min-width:0;font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;color:var(--tx)}
+.tl-cnt{font-size:11px;color:var(--tx2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tl-cnt b{color:var(--tx);font-size:12px}
+.tl-ubar{width:34px;height:5px;border-radius:3px;background:var(--bd2);overflow:hidden;flex-shrink:0}
+.tl-ubar i{display:block;height:100%;background:#10b981}
+.tl-ubar i.mid{background:var(--ac)} .tl-ubar i.low{background:var(--bd2)}
+body.dens-tight .tl-cnt,body.dens-tight .tl-ubar{display:none}
+body.dens-tight .tl-ava{width:17px;height:17px;font-size:9px}
+
+/* 요일 헤더 */
+.tl-th-day{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd2);
+  border-right:1px solid var(--bd2);height:46px;padding:4px 6px 2px!important;cursor:pointer}
+.tl-th-day:hover{background:var(--bd2)}
+.tl-dw{font-size:12.5px;font-weight:800;color:var(--tx)}
+.tl-dw .dt{color:var(--tx3);font-weight:600;margin-left:5px;font-size:11px}
+.tl-th-day.today{background:rgba(251,191,36,.16)}
+.tl-th-day.today .tl-dw{color:var(--ac)}
+.tl-th-day.sat .tl-dw{color:#3b82f6}.tl-th-day.sun .tl-dw{color:#ef4444}
+.tl-ruler{display:flex;justify-content:space-between;font-size:8px;color:var(--tx3);
+  border-top:1px solid var(--bd2);margin-top:2px;padding-top:1px;font-variant-numeric:tabular-nums}
+.tl-hol{font-size:8.5px;font-weight:800;color:#fff;border-radius:3px;padding:0 3px;line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+
+/* 하루 스트립 */
+.tl-td-day{border-right:1px solid var(--bd2);border-bottom:1px solid var(--bd);position:relative;
+  height:var(--rowh);cursor:pointer}
+.tl-td-day.today{background:rgba(251,191,36,.055)}
+.tl-td-day.wknd{background:rgba(0,0,0,.02)}
+tr:hover .tl-td-day{background:rgba(251,191,36,.07)}
+.tl-strip{position:absolute;left:4px;right:4px;top:3px;bottom:3px;border-radius:4px;
+  background:rgba(120,130,150,.10)}
+.tl-seg{position:absolute;top:0;bottom:0;border-radius:3px;overflow:hidden}
+.tl-seg.s-1on1{background:#bcaef0;border-left:2.5px solid #7c3aed}
+.tl-seg.s-group{background:#f4abce;border-left:2.5px solid #db2777}
+.tl-seg.s-temp{background:#8cc3f0;border-left:2.5px solid #2563eb}
+.tl-seg.s-blocked{background:repeating-linear-gradient(45deg,rgba(148,163,184,.45),rgba(148,163,184,.45) 3px,rgba(100,116,139,.6) 3px,rgba(100,116,139,.6) 6px)}
+.tl-seg.s-free{background:rgba(16,185,129,.30);border-left:2.5px solid #059669}
+html[data-admin-theme="ivory"] .tl-seg.s-1on1{background:var(--cell-1on1)}
+html[data-admin-theme="ivory"] .tl-seg.s-group{background:var(--cell-group)}
+html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
+.tl-nowline{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:2;opacity:.8}
+.tl-blockday{position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(239,68,68,.10),rgba(239,68,68,.10) 5px,rgba(239,68,68,.20) 5px,rgba(239,68,68,.20) 10px);pointer-events:none}
+
+/* ── 일간 뷰(작업면) ── */
+.dg-th-t{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd2);
+  border-right:1px solid var(--bd);width:76px;min-width:76px;height:46px;font-size:11px;font-weight:700;
+  color:var(--tx2);font-variant-numeric:tabular-nums;padding:3px 0 2px!important}
+.dg-th-t.peak{background:rgba(251,191,36,.18);color:var(--ac)}
+.dg-th-t.now{box-shadow:inset 0 -3px 0 #ef4444}
+.dg-histo{height:12px;display:flex;align-items:flex-end;justify-content:center;margin-top:2px}
+.dg-histo i{width:70%;background:var(--bd2);border-radius:1px 1px 0 0;min-height:1px}
+.dg-th-t.peak .dg-histo i{background:var(--ac)}
+.tl-scroll td.slot{border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);
+  height:var(--rowh);font-size:10.5px;font-weight:800;text-align:center;overflow:hidden;
+  white-space:nowrap;cursor:pointer;padding:0 3px!important;position:relative;color:#1e293b}
+.tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{color:var(--tx3)}
+.tl-scroll td.slot:hover{outline:2px solid var(--ac);outline-offset:-2px;z-index:4}
+.tl-scroll td.slot.col-today{background:rgba(251,191,36,.07)}
+.tl-scroll td.slot .dg-dur{opacity:.65;font-size:8px;margin-left:2px;font-weight:700}
+.tl-scroll td.slot.drop-ready{outline:2px dashed #10b981;outline-offset:-2px;
+  background:rgba(16,185,129,.12)!important}
+.tl-scroll td.slot.freehit{background:rgba(16,185,129,.16)!important;outline:1.5px solid rgba(5,150,105,.55);outline-offset:-2px}
+.tl-scroll td.slot.dimmed{opacity:.22}
+
+/* 요약 줄 */
+.sumbar{display:flex;align-items:center;gap:0;padding:0 28px;background:var(--bg2);
+  border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.sumbar .sm{padding:9px 16px 9px 0;margin-right:16px;border-right:1px solid var(--bd);
+  font-size:12px;color:var(--tx2);display:flex;align-items:baseline;gap:6px;white-space:nowrap}
+.sumbar .sm:last-of-type{border-right:none}
+.sumbar .sm b{font-size:16.5px;font-weight:800;color:var(--tx);letter-spacing:-.3px}
+.sumbar .sm .u{font-size:11px;color:var(--tx3)}
+.sumbar .lgs{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:11px;
+  color:var(--tx2);padding:9px 0;flex-wrap:wrap}
+.sumbar .lgs span{display:inline-flex;align-items:center;gap:5px}
+.sumbar .lgs i{width:13px;height:10px;border-radius:3px;display:inline-block}
+@media(max-width:900px){.sumbar{padding-left:14px;padding-right:14px}}
+
+/* 컨트롤 한 줄 */
+.controls.one-line{margin-top:0;padding:11px 28px;gap:10px}
+.ctl-sel{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;
+  color:var(--tx);font-size:12.5px;font-family:inherit;height:33px}
+.ctl-sel:focus{outline:none;border-color:var(--ac)}
+.btn-free{background:var(--bg2);border:1.5px solid var(--bd);border-radius:8px;padding:6px 13px;
+  color:var(--tx);font-size:12.5px;font-weight:700;transition:.15s}
+.btn-free:hover{border-color:var(--ac)}
+.btn-free.on{background:#059669;border-color:#059669;color:#fff}
+@media(max-width:900px){.controls.one-line{padding-left:14px;padding-right:14px}}
+
 /* ═══ 10분 단위 그리드 ═══ */
 .mini-cal td.slot.row10{height:6px;border-top:none;border-bottom:1px solid rgba(255,255,255,.02)}
 .mini-cal td.slot.row10.boundary{border-top:1px solid var(--bd2)}
@@ -551,13 +668,21 @@ body.dragging{cursor:crosshair}
     <div class="timezone-bar"><span data-ko="시간대:" data-en="Time zone:">시간대:</span><select id="tz-select"><option value="Asia/Seoul">🇰🇷 KST (한국)</option><option value="America/New_York">🇺🇸 EST (뉴욕)</option><option value="America/Los_Angeles">🇺🇸 PST (LA)</option><option value="America/Chicago">🇺🇸 CST (시카고)</option><option value="Asia/Manila">🇵🇭 PHT (마닐라)</option></select><span class="tz-chip" id="tz-now">--:--</span></div><button class="ai-suggest-btn" onclick="aiSuggestSlot()">✨ <span data-ko="AI 매칭" data-en="AI Match">AI 매칭</span></button><span id="lang-home-group" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0"><button class="icon-btn lang-toggle" id="lang-toggle" onclick="toggleLang()">🌐 <span id="lang-label">EN</span></button><a href="/" id="header-home-btn" title="학생 홈페이지로 돌아가기" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;text-decoration:none;font-size:12.5px;border-radius:99px;box-shadow:0 4px 14px -3px rgba(245,158,11,.55);transition:transform .15s,box-shadow .15s;white-space:nowrap" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px -3px rgba(245,158,11,.7)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px -3px rgba(245,158,11,.55)'">🏠 <span data-ko="홈페이지" data-en="Homepage">홈페이지</span></a></span>
   </div>
 </header>
-<section class="stats">
-  <div class="stat-card"><div class="stat-icon s1">📊</div><div class="stat-body"><div class="stat-label" data-ko="총 수업" data-en="Total Classes">총 수업</div><div class="stat-value" id="st-total">—</div><div class="stat-meta" data-ko="이번 주" data-en="This week">이번 주</div></div></div>
-  <div class="stat-card"><div class="stat-icon s2">🟣</div><div class="stat-body"><div class="stat-label" data-ko="1대1 수업" data-en="1-on-1">1대1 수업</div><div class="stat-value" id="st-1on1">—</div><div class="stat-meta" id="st-1on1-pct">—</div></div></div>
-  <div class="stat-card"><div class="stat-icon s3">💗</div><div class="stat-body"><div class="stat-label" data-ko="그룹 수업" data-en="Group">그룹 수업</div><div class="stat-value" id="st-group">—</div><div class="stat-meta" id="st-group-pct">—</div></div></div>
-  <div class="stat-card"><div class="stat-icon s4">👥</div><div class="stat-body"><div class="stat-label" data-ko="활동 교사" data-en="Active Teachers">활동 교사</div><div class="stat-value" id="st-teachers">—</div><div class="stat-meta" data-ko="이번 주 수업" data-en="With classes this week">이번 주 수업</div></div></div>
+<!-- 📊 요약 — KPI 카드 4장을 한 줄로 압축(2026-07-28). id 는 그대로 두어 render() 를 건드리지 않음 -->
+<section class="sumbar">
+  <div class="sm"><span data-ko="총 수업" data-en="Total">총 수업</span><b id="st-total">—</b></div>
+  <div class="sm"><span data-ko="1대1" data-en="1-on-1">1대1</span><b id="st-1on1">—</b><span class="u" id="st-1on1-pct">—</span></div>
+  <div class="sm"><span data-ko="그룹" data-en="Group">그룹</span><b id="st-group">—</b><span class="u" id="st-group-pct">—</span></div>
+  <div class="sm"><span data-ko="활동 교사" data-en="Active">활동 교사</span><b id="st-teachers">—</b></div>
+  <div class="sm"><span data-ko="빈 슬롯" data-en="Open slots">빈 슬롯</span><b id="st-free">—</b><span class="u" data-ko="배정 가능" data-en="assignable">배정 가능</span></div>
+  <div class="lgs">
+    <span><i style="background:#bcaef0;border-left:3px solid #7c3aed"></i><span data-ko="1대1" data-en="1-on-1">1대1</span></span>
+    <span><i style="background:#f4abce;border-left:3px solid #db2777"></i><span data-ko="그룹" data-en="Group">그룹</span></span>
+    <span><i style="background:#8cc3f0;border-left:3px solid #2563eb"></i><span data-ko="임시" data-en="Temp">임시</span></span>
+    <span><i style="background:repeating-linear-gradient(45deg,#94a3b8,#94a3b8 3px,#64748b 3px,#64748b 6px)"></i><span data-ko="휴무" data-en="Off">휴무</span></span>
+  </div>
 </section>
-<section class="controls">
+<section class="controls one-line">
   <div class="week-nav">
     <button class="nav-btn" id="prev-week" data-ko="◀ 이전" data-en="◀ Prev">◀ 이전</button>
     <button class="nav-btn today" id="today-btn" data-ko="오늘" data-en="Today">오늘</button>
@@ -565,15 +690,21 @@ body.dragging{cursor:crosshair}
   </div>
   <div class="week-label" id="week-label">—</div>
   <div class="search-wrap"><input type="search" id="search-input" placeholder="교사·학생·아이디 검색…" data-ko-placeholder="교사·학생·아이디 검색…" data-en-placeholder="Search teacher / student / ID…"></div>
-  <div class="category-filter" id="cat-filter">
-    <button class="cat-btn active" data-cat="all"><span data-ko="전체" data-en="All">전체</span><span class="count" id="cnt-all"></span></button>
-    <button class="cat-btn" data-cat="home"><span data-ko="🏠 홈" data-en="🏠 Home">🏠 홈</span><span class="count" id="cnt-home"></span></button>
-    <button class="cat-btn" data-cat="office"><span data-ko="🏢 오피스" data-en="🏢 Office">🏢 오피스</span><span class="count" id="cnt-office"></span></button>
-    <button class="cat-btn" data-cat="native"><span data-ko="🌍 원어민" data-en="🌍 Native">🌍 원어민</span><span class="count" id="cnt-native"></span></button>
-    <button class="cat-btn" data-cat="manager"><span data-ko="👔 매니저" data-en="👔 Manager">👔 매니저</span><span class="count" id="cnt-manager"></span></button>
-  </div><div class="view-toggle"><button class="active" data-mode="normal" data-ko="기본" data-en="Normal">기본</button><button data-mode="compact" data-ko="컴팩트" data-en="Compact">컴팩트</button></div><div class="view-toggle"><button class="active" data-dur="60" data-ko="60분" data-en="60m">60분</button><button data-dur="40" data-ko="40분" data-en="40m">40분</button><button data-dur="20" data-ko="20분" data-en="20m">20분</button></div>
+  <!-- 분류: 0명인 분류는 JS 가 아예 넣지 않는다 (홈·원어민·매니저가 늘 0이라 버튼만 차지하던 문제) -->
+  <select class="ctl-sel" id="cat-select"></select>
+  <select class="ctl-sel" id="sort-select">
+    <option value="name" data-ko="이름순" data-en="By name">이름순</option>
+    <option value="most" data-ko="수업 많은 순" data-en="Most classes">수업 많은 순</option>
+    <option value="free" data-ko="여유 많은 순" data-en="Most free">여유 많은 순</option>
+  </select>
+  <div class="view-toggle"><button class="active" data-view="week" data-ko="주간" data-en="Week">주간</button><button data-view="day" data-ko="일간" data-en="Day">일간</button></div>
+  <div class="view-toggle" id="day-picker" style="display:none"></div>
+  <div class="view-toggle"><button data-dens="cozy" data-ko="넉넉" data-en="Cozy">넉넉</button><button class="active" data-dens="mid" data-ko="보통" data-en="Normal">보통</button><button data-dens="tight" data-ko="촘촘" data-en="Tight">촘촘</button></div>
+  <button class="btn-free" id="btn-free" data-ko="빈자리 찾기" data-en="Find open slots">빈자리 찾기</button>
+  <span style="font-size:11.5px;color:var(--tx3);margin-left:auto" data-ko="새 수업 기본 길이" data-en="New class length">새 수업 기본 길이</span>
+  <div class="view-toggle"><button class="active" data-dur="60" data-ko="60분" data-en="60m">60분</button><button data-dur="40" data-ko="40분" data-en="40m">40분</button><button data-dur="20" data-ko="20분" data-en="20m">20분</button></div>
 </section>
-<div class="legend-bar">
+<div class="legend-bar" style="display:none">
   <span class="legend-label" data-ko="셀 색상:" data-en="Cell color:">셀 색상:</span>
   <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(45deg,#ef4444,#ef4444 3px,#dc2626 3px,#dc2626 6px)"></span><span data-ko="수업불가 (휴무)" data-en="Blocked (Off)">수업불가 (휴무)</span></span>
   <span class="legend-item"><span class="legend-chip" style="background:#8b5cf6"></span><span data-ko="🟣 1대1 수업" data-en="🟣 1-on-1 Class">🟣 1대1 수업</span></span>
@@ -581,8 +712,9 @@ body.dragging{cursor:crosshair}
   <span class="legend-item"><span class="legend-chip" style="background:repeating-linear-gradient(135deg,#3b82f6,#3b82f6 3px,#2563eb 3px,#2563eb 6px)"></span><span data-ko="🔵 임시 수업" data-en="🔵 Temporary">🔵 임시 수업</span></span>
   <span style="margin-left:auto;color:var(--tx3);font-size:11px" data-ko="💡 셀에 마우스를 올리면 자세히 보입니다" data-en="💡 Hover a cell for details">💡 셀에 마우스를 올리면 자세히 보입니다</span>
 </div>
-<nav class="teacher-nav" id="teacher-nav" style="display:none"><span class="tnav-label" data-ko="교사 이동:" data-en="Jump to:">교사 이동:</span></nav>
-<main class="main" id="main"><div class="teacher-grid"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main>
+<!-- 교사 칩 내비는 좌측 고정 교사 열이 그 역할을 대신하므로 제거(2026-07-28). 참조하는 JS 가 있어 껍데기는 남긴다 -->
+<nav class="teacher-nav" id="teacher-nav" style="display:none!important"><span class="tnav-label" data-ko="교사 이동:" data-en="Jump to:">교사 이동:</span></nav>
+<main class="main" id="main" style="padding-top:14px"><div class="skeleton"></div></main>
 <!-- ═══ FAB + 컨텍스트 메뉴 ═══ -->
 <button class="fab" id="fab-enroll" onclick="openEnrollWizard()" title="신규 학생 등록">
   ➕
@@ -590,7 +722,8 @@ body.dragging{cursor:crosshair}
 </button>
 <div class="ctx-menu" id="ctx-menu"></div>
 
-<button class="side-toggle-btn" onclick="toggleSidePanel()" data-ko="교사 빠른 탐색" data-en="Quick Find">교사 빠른 탐색</button><aside class="side-panel" id="side-panel"><div class="side-head"><h3 data-ko="🔎 교사 빠른 탐색" data-en="🔎 Quick Find">🔎 교사 빠른 탐색</h3><button class="modal-close" onclick="toggleSidePanel()">✕</button></div><div class="side-search"><input type="search" id="side-search" placeholder="이름 검색…" data-ko-placeholder="이름 검색…" data-en-placeholder="Search name…"></div><div class="side-list" id="side-list"></div></aside>
+<!-- 세로 사이드탭 제거(2026-07-28) — 좌측 고정 교사 열 + 검색창이 같은 일을 한다. 패널 자체는 남겨 toggleSidePanel() 참조를 깨지 않는다 -->
+<button class="side-toggle-btn" onclick="toggleSidePanel()" style="display:none" data-ko="교사 빠른 탐색" data-en="Quick Find">교사 빠른 탐색</button><aside class="side-panel" id="side-panel"><div class="side-head"><h3 data-ko="🔎 교사 빠른 탐색" data-en="🔎 Quick Find">🔎 교사 빠른 탐색</h3><button class="modal-close" onclick="toggleSidePanel()">✕</button></div><div class="side-search"><input type="search" id="side-search" placeholder="이름 검색…" data-ko-placeholder="이름 검색…" data-en-placeholder="Search name…"></div><div class="side-list" id="side-list"></div></aside>
 <div class="tooltip" id="tooltip"></div>
 
 <!-- ═══ 사용 가이드 토스트 ═══ -->
@@ -672,6 +805,10 @@ async function loadHolidays(){
   }catch(e){}
 }
 var TEACHERS=[],SLOTS={},activeCategory='all',searchQuery='';
+// 📊 타임라인 뷰 상태 (2026-07-28)
+var viewMode='week';                    // 'week' = 개요 / 'day' = 작업면
+var curDow=(function(){var g=new Date().getDay();return g===0?6:g-1;})();  // 월=0
+var sortMode='name', freeMode=false;
 var demoNames=['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린','한지유','조서진','백채원','권유나','황도윤'];
 function addSlot(tid,d,h,s){SLOTS[tid+'__'+d+'__'+h]=s;}
 function getSlot(tid,d,h){return SLOTS[tid+'__'+d+'__'+h];}
@@ -818,11 +955,7 @@ function render(){
   document.getElementById('st-group').textContent=s.grp+(currentLang==='ko'?'건':'');
   document.getElementById('st-group-pct').textContent=s.total?Math.round(s.grp/s.total*100)+'%':'0%';
   document.getElementById('st-teachers').textContent=s.active+'/'+TEACHERS.length;
-  document.getElementById('cnt-all').textContent='('+TEACHERS.length+')';
-  document.getElementById('cnt-home').textContent='('+(s.byCat.home||0)+')';
-  document.getElementById('cnt-office').textContent='('+(s.byCat.office||0)+')';
-  document.getElementById('cnt-native').textContent='('+(s.byCat.native||0)+')';
-  document.getElementById('cnt-manager').textContent='('+(s.byCat.manager||0)+')';
+  syncCatSelect(s.byCat);
   var q=searchQuery.toLowerCase().trim();
   function tMatch(t){
     if(!q)return true;
@@ -839,124 +972,236 @@ function render(){
     }
     return false;
   }
-  var cats=activeCategory==='all'?['home','office','native','manager']:[activeCategory];
-  var main=document.getElementById('main'),html='',any=false;
-  cats.forEach(function(cat){
-    var ts=TEACHERS.filter(function(t){return t.category===cat&&tMatch(t);});
-    if(ts.length===0)return;any=true;
-    var catL={home:currentLang==='ko'?'홈 교사':'Home Teachers',office:currentLang==='ko'?'오피스 교사':'Office Teachers',native:currentLang==='ko'?'원어민 교사':'Native Teachers',manager:currentLang==='ko'?'매니저':'Managers'}[cat];
-    var catE={home:'🏠',office:'🏢',native:'🌍',manager:'👔'}[cat];
-    html+='<section class="category-section"><h2><span class="cat-badge '+cat+'">'+cat+'</span> '+catE+' '+catL+' <span class="cat-count">'+ts.length+(currentLang==='ko'?'명':'')+'</span></h2><div class="teacher-grid">';
-    ts.forEach(function(t){html+=renderTeacher(t);});
-    html+='</div></section>';
+  var list=TEACHERS.filter(function(t){
+    if(activeCategory!=='all'&&t.category!==activeCategory)return false;
+    return tMatch(t);
   });
-  if(!any){html='<div class="empty-msg">'+(currentLang==='ko'?'조건에 맞는 교사가 없습니다. 필터를 조정하거나 다른 키워드로 검색해보세요.':'No teachers match. Adjust the filter or try another keyword.')+'</div>';}
-  main.innerHTML=html;
-  buildTeacherNav();
-}
-
-// [기능1] 교사 칩 내비게이션 바 구성 (현재 보이는 교사 기준, 클릭 시 smooth scroll)
-function buildTeacherNav(){
-  var nav=document.getElementById('teacher-nav');if(!nav)return;
-  nav.querySelectorAll('.tnav-chip').forEach(function(c){c.remove();});
-  var cards=document.querySelectorAll('.teacher-card');
-  if(cards.length===0){nav.style.display='none';return;}
-  nav.style.display='flex';
-  var catColor={home:'#10b981',office:'#3b82f6',native:'#8b5cf6',manager:'#f97316'};
-  cards.forEach(function(card){
-    var nameEl=card.querySelector('.teacher-name');
-    var avaEl=card.querySelector('.avatar');
-    var name=nameEl?nameEl.textContent:card.id;
-    var ini=avaEl?avaEl.textContent:'?';
-    var cat=(avaEl&&(avaEl.className.match(/avatar\s+(\w+)/)||[])[1])||'';
-    var chip=document.createElement('button');
-    chip.className='tnav-chip';chip.dataset.target=card.id;
-    chip.innerHTML='<span class="tnav-ava" style="background:'+(catColor[cat]||'#64748b')+'">'+escapeHtml(ini)+'</span>'+escapeHtml(name);
-    chip.onclick=function(){
-      nav.querySelectorAll('.tnav-chip').forEach(function(c){c.classList.remove('active');});
-      chip.classList.add('active');
-      var tgt=document.getElementById(card.id);
-      if(tgt)tgt.scrollIntoView({behavior:'smooth',block:'start'});
-    };
-    nav.appendChild(chip);
+  list.forEach(function(t){t.__st=teacherLoad(t.id);});
+  if(sortMode==='most')      list.sort(function(a,b){return b.__st.classes-a.__st.classes;});
+  else if(sortMode==='free') list.sort(function(a,b){return b.__st.free-a.__st.free;});
+  else list.sort(function(a,b){
+    var an=(currentLang==='en'&&a.name_en)?a.name_en:a.name, bn=(currentLang==='en'&&b.name_en)?b.name_en:b.name;
+    return String(an).localeCompare(String(bn));
   });
-}
 
-function renderTeacher(t){
-  var name=(currentLang==='en'&&t.name_en)?t.name_en:t.name;
-  var initial=(name.match(/[A-Za-z가-힣]/)||['?'])[0];
-  var st=teacherWeekStats(t.id);var today=new Date();
-  var html='<div class="teacher-card" id="tcard-'+t.id+'"><div class="teacher-head">';
-  html+='<div class="avatar '+t.category+'">'+escapeHtml(initial)+'</div>';
-  html+='<div class="teacher-info"><div class="teacher-name">'+escapeHtml(name)+'</div><div class="teacher-meta">';
-  html+='<span class="cat-badge '+t.category+'" style="font-size:9.5px;padding:1px 7px">'+t.category+'</span>';
-  html+='<span class="teacher-stats"><span>📚 <b>'+st.classes+'</b> '+(currentLang==='ko'?'수업':'cls')+'</span><span>👤 <b>'+st.students+'</b> '+(currentLang==='ko'?'명':'stu')+'</span></span>';
-  html+='</div></div></div>';
-  html+='<div class="cal-wrap"><table class="mini-cal"><thead><tr><th class="col-time"></th>';
-  var dn=dayNames();
-  for(var i=0;i<7;i++){
-    var d=new Date(currentWeekStart);d.setDate(d.getDate()+i);
-    var isToday=isSameDate(d,today);
-    var _hev=(HOLIDAY_MAP&&HOLIDAY_MAP[fmtISO(d)])||[];
-    var _hbg=_hev.length?(' style="background:'+(_hev[0].color||'#ef4444')+'14"'):'';
-    html+='<th class="day-th'+(isToday?' today':'')+'"'+_hbg+'><div class="dn">'+dn[i]+'</div><div class="dd">'+d.getDate()+'</div>';
-    if(_hev.length){html+='<div title="'+escapeHtml(_hev.map(function(e){return e.title;}).join(', '))+'" style="margin-top:2px;font-size:9px;font-weight:800;color:#fff;background:'+(_hev[0].color||'#ef4444')+';border-radius:4px;padding:1px 3px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">'+(_hev[0].event_type==='vacation'?'🏖':'')+escapeHtml(_hev[0].title)+(_hev.length>1?' +'+(_hev.length-1):'')+'</div>';}
-    html+='</th>';
+  var totalFree=0;list.forEach(function(t){totalFree+=t.__st.free;});
+  var freeEl=document.getElementById('st-free');
+  if(freeEl)freeEl.textContent=totalFree.toLocaleString();
+
+  var main=document.getElementById('main');
+  if(list.length===0){
+    main.innerHTML='<div class="empty-msg">'+(currentLang==='ko'?'조건에 맞는 교사가 없습니다. 필터를 조정하거나 다른 키워드로 검색해보세요.':'No teachers match. Adjust the filter or try another keyword.')+'</div>';
+    return;
   }
-  html+='</tr></thead><tbody>';
-  var nowH=today.getHours();var nowM=today.getMinutes();
-  // 9시 ~ 23시, 10분 단위
-  var START_H=9,END_H=23;
-  // 각 (날짜, 시작분) 셀에 해당하는 슬롯 찾기. 슬롯 시작 셀과 연속 셀 구분.
-  // 슬롯 데이터 모델: getSlot(t.id, dateISO, hour) - 시작 시간은 hour 단위(:00)로 가정.
-  // duration_min: 슬롯 길이 (60/40/20)
-  for(var hour=START_H;hour<=END_H;hour++){
-    for(var m=0;m<60;m+=10){
-      if(hour===END_H && m>0)continue; // 23:00 까지만
-      var isHourMark=(m===0);
-      var rowHM=String(hour).padStart(2,'0')+(m===0?':00':(':'+String(m).padStart(2,'0')));
-      var timeLabel=(m===0)?String(hour).padStart(2,'0'):(':'+String(m).padStart(2,'0'));
-      html+='<tr>';
-      html+='<td class="col-time row10'+(isHourMark?' hour-mark':'')+'">'+timeLabel+'</td>';
-      for(var di=0;di<7;di++){
-        var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
-        var dateISO=fmtISO(d);
-        var isWk=(di>=5),isTd=isSameDate(d,today);
-        var nowCls=(isTd&&hour===nowH&&m<=nowM&&nowM<m+10)?' now':'';
-        var _blk=!!BLOCKED_DATES[dateISO];   // 공휴일/휴가 종일 차단 날짜
-        // 이 셀이 어떤 슬롯에 속하는지 찾기
-        var slotInfo=findSlotForCell(t.id,dateISO,hour,m);
-        var tdToday=(isTd?' col-today':'');
-        if(!slotInfo){
-          html+='<td class="slot row10'+(isHourMark?' hour-mark':' boundary')+' '+(isWk?'slot-weekend':'slot-empty')+(_blk?' slot-blocked-day':'')+nowCls+tdToday+'" data-hour="'+hour+'" data-min="'+m+'"'+(_blk?' data-blockdate="'+dateISO+'" title="공휴일·휴가 — 배정 불가"':'')+'></td>';
-        } else {
-          var slot=slotInfo.slot, isStart=slotInfo.isStart;
-          var cls='slot row10 slot-'+slot.type+(isHourMark?' hour-mark':'')+(isStart?' slot-start':' slot-cont')+nowCls+tdToday;
-          var attrs='';
-          if(isStart){
-            var payload=encodeURIComponent(JSON.stringify({teacher:name,date:dateISO,hour:hour,slot:slot,minute:m}));
-            attrs=' data-slot="'+payload+'" data-hour="'+hour+'" data-min="'+m+'"';
-          } else {
-            attrs=' data-hour="'+hour+'" data-min="'+m+'" data-cont="1"';
-          }
-          html+='<td class="'+cls+'"'+attrs+'>';
-          if(isStart){
-            var txt='';
-            if(slot.students&&slot.students.length>0){
-              if(slot.students.length===1)txt=slot.students[0].name.substring(0,currentLang==='ko'?2:6);
-              else txt=(currentLang==='ko'?'그룹':'G')+'·'+slot.students.length;
-            } else if(slot.type==='blocked'){ txt=''; }
-            var durBadge=slot.duration_min?'<span style="opacity:.7;font-size:7px;margin-left:2px">'+slot.duration_min+'m</span>':'';
-            if(txt)html+='<div class="slot-text10">'+escapeHtml(txt)+durBadge+'</div>';
-          }
-          html+='</td>';
-        }
-      }
-      html+='</tr>';
+  main.innerHTML=(viewMode==='day')?renderDayGrid(list):renderWeekTimeline(list);
+  buildDayPicker();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 📊 리소스 타임라인 (2026-07-28) — 교사 = 행, 시간 = 열
+//  · 주간 뷰는 '개요'. 클릭하면 일간 뷰로 내려간다.
+//  · 일간 뷰가 '작업면'이다. 셀에 data-tid/data-date/data-hour 를 달아야
+//    상세모달·드래그이동·학생배정이 그 셀을 해석할 수 있다.
+// ══════════════════════════════════════════════════════════════════
+var GRID_H0=9, GRID_H1=23;              // 09:00 ~ 23:00
+var GRID_SPAN=GRID_H1-GRID_H0;          // 14시간
+
+// 교사 1명의 주간 부하: 수업 수 / 빈칸 수 / 가동률
+function teacherLoad(tid){
+  var classes=0,free=0;
+  for(var di=0;di<7;di++){
+    var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
+    var iso=fmtISO(d);
+    var blockedDay=!!BLOCKED_DATES[iso];
+    for(var h=GRID_H0;h<GRID_H1;h++){
+      var sl=getSlot(tid,iso,h);
+      if(sl){ if(sl.type!=='blocked')classes++; }
+      else if(!blockedDay) free++;
     }
   }
-  html+='</tbody></table></div></div>';
-  return html;
+  return{classes:classes,free:free,util:(classes+free)?Math.round(classes/(classes+free)*100):0};
+}
+
+// 분류 드롭다운 — 0명인 분류는 아예 넣지 않는다
+function syncCatSelect(byCat){
+  var sel=document.getElementById('cat-select');if(!sel)return;
+  var L=currentLang==='ko';
+  var label={home:L?'홈':'Home',office:L?'오피스':'Office',native:L?'원어민':'Native',manager:L?'매니저':'Manager'};
+  var opts='<option value="all">'+(L?'전체 분류':'All')+' ('+TEACHERS.length+')</option>';
+  ['home','office','native','manager'].forEach(function(c){
+    if(!byCat[c])return;
+    opts+='<option value="'+c+'">'+label[c]+' ('+byCat[c]+')</option>';
+  });
+  if(sel.__sig===opts)return;            // 매 렌더마다 다시 그리면 선택이 튄다
+  sel.__sig=opts;
+  var keep=activeCategory;
+  sel.innerHTML=opts;
+  sel.value=keep;
+  if(sel.value!==keep){ activeCategory='all'; sel.value='all'; }
+}
+
+// 좌측 고정 교사 칸 (주간·일간 공용)
+function teacherCellHTML(t){
+  var name=(currentLang==='en'&&t.name_en)?t.name_en:t.name;
+  var ini=(String(name).match(/[A-Za-z가-힣]/)||['?'])[0];
+  var st=t.__st||teacherLoad(t.id);
+  var ucls=st.util>=55?'':(st.util>=30?'mid':'low');
+  var L=currentLang==='ko';
+  return '<td class="tl-td-name" data-tid="'+escapeHtml(t.id)+'"><div class="tl-tname">'+
+    '<span class="tl-ava '+t.category+'">'+escapeHtml(ini)+'</span>'+
+    '<span class="tl-nm" title="'+escapeHtml(name)+'">'+escapeHtml(name)+'</span>'+
+    '<span class="tl-cnt"><b>'+st.classes+'</b>'+(L?'건':'')+'</span>'+
+    '<span class="tl-ubar" title="'+(L?'가동률 ':'Utilization ')+st.util+'%"><i class="'+ucls+'" style="width:'+st.util+'%"></i></span>'+
+    '</div></td>';
+}
+
+// ── 주간 뷰: 하루를 가로 스트립 하나로 압축 ──
+function renderWeekTimeline(list){
+  var dn=dayNames(),today=new Date();
+  var L=currentLang==='ko';
+  var h='<div class="tl-scroll"><table><colgroup><col style="width:var(--nameW)">';
+  for(var c=0;c<7;c++)h+='<col>';
+  h+='</colgroup><thead><tr>';
+  h+='<th class="tl-th-name">'+(L?'교사 ':'')+list.length+(L?'명 · 주간 수업 / 가동률':' teachers · classes / utilization')+'</th>';
+  for(var i=0;i<7;i++){
+    var d=new Date(currentWeekStart);d.setDate(d.getDate()+i);
+    var isT=isSameDate(d,today);
+    var hev=(HOLIDAY_MAP&&HOLIDAY_MAP[fmtISO(d)])||[];
+    h+='<th class="tl-th-day'+(isT?' today':'')+(i===5?' sat':'')+(i===6?' sun':'')+'" data-dow="'+i+'">'+
+       '<div class="tl-dw">'+dn[i]+'<span class="dt">'+d.getDate()+'</span></div>';
+    if(hev.length){
+      h+='<div class="tl-hol" style="background:'+(hev[0].color||'#ef4444')+'" title="'+escapeHtml(hev.map(function(e){return e.title;}).join(', '))+'">'+escapeHtml(hev[0].title)+(hev.length>1?' +'+(hev.length-1):'')+'</div>';
+    }else{
+      h+='<div class="tl-ruler"><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>23</span></div>';
+    }
+    h+='</th>';
+  }
+  h+='</tr></thead><tbody>';
+  list.forEach(function(t){
+    h+='<tr>'+teacherCellHTML(t);
+    for(var i2=0;i2<7;i2++){
+      var d2=new Date(currentWeekStart);d2.setDate(d2.getDate()+i2);
+      var iso=fmtISO(d2),isT2=isSameDate(d2,today);
+      h+='<td class="tl-td-day'+(isT2?' today':'')+(i2>=5?' wknd':'')+'" data-dow="'+i2+'" data-tid="'+escapeHtml(t.id)+'" data-date="'+iso+'">'+
+         '<div class="tl-strip">'+weekStripHTML(t,iso)+
+         (BLOCKED_DATES[iso]?'<span class="tl-blockday"></span>':'')+
+         (isT2?'<span class="tl-nowline" style="left:'+nowPct()+'%"></span>':'')+
+         '</div></td>';
+    }
+    h+='</tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+
+function nowPct(){
+  var n=new Date();var v=(n.getHours()+n.getMinutes()/60-GRID_H0)/GRID_SPAN*100;
+  return Math.max(0,Math.min(100,v)).toFixed(2);
+}
+
+// 하루치 막대들. freeMode 면 수업 대신 '빈 시간'을 초록으로 보여준다
+function weekStripHTML(t,iso){
+  var out='',L=currentLang==='ko';
+  var blockedDay=!!BLOCKED_DATES[iso];
+  if(freeMode){
+    if(blockedDay)return '';
+    var runS=null;
+    for(var h=GRID_H0;h<=GRID_H1;h++){
+      var occupied=(h<GRID_H1)&&!!getSlot(t.id,iso,h);
+      if(!occupied&&h<GRID_H1){ if(runS===null)runS=h; continue; }
+      if(runS!==null){
+        out+='<span class="tl-seg s-free" style="left:'+((runS-GRID_H0)/GRID_SPAN*100).toFixed(2)+
+          '%;width:'+(((h-runS)/GRID_SPAN*100)-0.3).toFixed(2)+'%" title="'+escapeHtml(tName(t))+' · '+iso+' '+
+          pad2(runS)+':00~'+pad2(h)+':00 '+(L?'배정 가능':'open')+'"></span>';
+        runS=null;
+      }
+    }
+    return out;
+  }
+  for(var h2=GRID_H0;h2<GRID_H1;h2++){
+    var s=getSlot(t.id,iso,h2);
+    if(!s)continue;
+    var dur=s.duration_min||60;
+    var left=(h2-GRID_H0)/GRID_SPAN*100;
+    var w=(dur/60)/GRID_SPAN*100;
+    var who=(s.students&&s.students.length)
+      ? (s.students.length===1?s.students[0].name:(L?'그룹 '+s.students.length+'명':'Group '+s.students.length))
+      : (s.type==='blocked'?(L?'휴무':'Off'):'');
+    var title=escapeHtml(tName(t))+' · '+iso+' '+pad2(h2)+':00 ('+dur+(L?'분':'m')+')'+(who?' · '+who:'');
+    out+='<span class="tl-seg s-'+s.type+'" style="left:'+left.toFixed(2)+'%;width:'+Math.max(1.2,w-0.3).toFixed(2)+
+      '%" title="'+escapeHtml(title)+'"></span>';
+  }
+  return out;
+}
+function tName(t){return (currentLang==='en'&&t.name_en)?t.name_en:t.name;}
+function pad2(n){return String(n).padStart(2,'0');}
+
+// ── 일간 뷰: 여기가 실제 작업면. 셀 계약(data-tid/date/hour)을 반드시 지킬 것 ──
+function renderDayGrid(list){
+  var L=currentLang==='ko',dn=dayNames(),today=new Date();
+  var d=new Date(currentWeekStart);d.setDate(d.getDate()+curDow);
+  var iso=fmtISO(d),isToday=isSameDate(d,today),nowH=today.getHours();
+  var blockedDay=!!BLOCKED_DATES[iso];
+  var hev=(HOLIDAY_MAP&&HOLIDAY_MAP[iso])||[];
+
+  // 시간대별 수업 수 → 피크 표시
+  var hist={},mx=1;
+  for(var h=GRID_H0;h<GRID_H1;h++){
+    var n=0;
+    list.forEach(function(t){var s=getSlot(t.id,iso,h);if(s&&s.type!=='blocked')n++;});
+    hist[h]=n;if(n>mx)mx=n;
+  }
+  var head='<div class="tl-scroll"><table><colgroup><col style="width:var(--nameW)">';
+  for(var c=GRID_H0;c<GRID_H1;c++)head+='<col style="width:76px">';
+  head+='</colgroup><thead><tr><th class="tl-th-name">'+
+    dn[curDow]+' '+d.getDate()+(L?'일 · 교사 ':' · ')+list.length+(L?'명':' teachers')+
+    (hev.length?' <span style="color:#ef4444">· '+escapeHtml(hev[0].title)+'</span>':'')+'</th>';
+  for(var h2=GRID_H0;h2<GRID_H1;h2++){
+    var peak=hist[h2]>0&&hist[h2]>=mx*0.8;
+    head+='<th class="dg-th-t'+(peak?' peak':'')+((isToday&&h2===nowH)?' now':'')+'">'+pad2(h2)+':00'+
+      '<div class="dg-histo"><i style="height:'+Math.max(1,Math.round(hist[h2]/mx*12))+'px"></i></div></th>';
+  }
+  head+='</tr></thead><tbody>';
+
+  var body='';
+  list.forEach(function(t){
+    var nm=tName(t);
+    body+='<tr>'+teacherCellHTML(t);
+    for(var h3=GRID_H0;h3<GRID_H1;h3++){
+      var s=getSlot(t.id,iso,h3);
+      var base=' data-tid="'+escapeHtml(t.id)+'" data-date="'+iso+'" data-hour="'+h3+'" data-min="0"';
+      var todayCls=isToday?' col-today':'';
+      if(!s){
+        var dim=(freeMode&&blockedDay)?' dimmed':'';
+        var hit=(freeMode&&!blockedDay)?' freehit':'';
+        body+='<td class="slot '+(curDow>=5?'slot-weekend':'slot-empty')+(blockedDay?' slot-blocked-day':'')+todayCls+hit+dim+'"'+base+
+          (blockedDay?' data-blockdate="'+iso+'" title="'+(L?'공휴일·휴가 — 배정 불가':'Holiday — cannot assign')+'"':'')+'></td>';
+      }else{
+        var payload=encodeURIComponent(JSON.stringify({teacher:nm,date:iso,hour:h3,slot:s,minute:0}));
+        var txt='';
+        if(s.students&&s.students.length){
+          txt=(s.students.length===1)?s.students[0].name:((L?'그룹·':'G·')+s.students.length);
+        }else if(s.type==='blocked'){ txt=L?'휴무':'Off'; }
+        var dur=s.duration_min?'<span class="dg-dur">'+s.duration_min+'m</span>':'';
+        body+='<td class="slot slot-'+s.type+todayCls+(freeMode?' dimmed':'')+'"'+base+
+          ' data-slot="'+payload+'">'+escapeHtml(txt)+dur+'</td>';
+      }
+    }
+    body+='</tr>';
+  });
+  return head+body+'</tbody></table></div>';
+}
+
+// 일간 뷰의 요일 선택 버튼
+function buildDayPicker(){
+  var box=document.getElementById('day-picker');if(!box)return;
+  box.style.display=(viewMode==='day')?'inline-flex':'none';
+  if(viewMode!=='day'){box.innerHTML='';return;}
+  var dn=dayNames(),h='';
+  for(var i=0;i<7;i++){
+    var d=new Date(currentWeekStart);d.setDate(d.getDate()+i);
+    h+='<button class="'+(i===curDow?'active':'')+'" data-dow="'+i+'">'+dn[i]+' '+d.getDate()+'</button>';
+  }
+  box.innerHTML=h;
 }
 
 // 셀(hour,minute)이 어떤 슬롯에 속하는지 + 그 슬롯의 시작 셀인지 반환
@@ -1056,14 +1301,29 @@ var dnd = {
   lastTarget: null
 };
 
+// ⚠️ 셀 해석기 (2026-07-28 개편)
+//  옛 구조에서는 '.teacher-card 를 거슬러 올라가 이름을 읽고, 열 번호로 요일을 계산'했다.
+//  레이아웃이 바뀌면 그대로 깨지므로, 이제 셀이 스스로 밝힌다: data-tid / data-date / data-hour.
+//  새 셀을 만드는 코드는 반드시 이 세 값을 붙일 것.
 function getCellTeacher(td){
-  var card=td.closest('.teacher-card');if(!card)return null;
+  if(!td)return null;
+  var tid=td.dataset?td.dataset.tid:null;
+  if(tid){ return TEACHERS.find(function(t){return String(t.id)===String(tid);}) || null; }
+  var card=td.closest('.teacher-card');if(!card)return null;   // 옛 구조 폴백
   var nameEl=card.querySelector('.teacher-name');
   if(!nameEl)return null;
   var name=nameEl.textContent;
   return TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===name;}) || null;
 }
 function getCellCoords(td){
+  if(td&&td.dataset&&td.dataset.date&&td.dataset.hour!==undefined){
+    var hh=parseInt(td.dataset.hour,10);
+    if(!isNaN(hh)){
+      var dd=new Date(td.dataset.date+'T00:00:00');
+      var dow=(dd.getDay()===0)?6:dd.getDay()-1;
+      return {dateISO:td.dataset.date,hour:hh,dow:dow};
+    }
+  }
   var tr=td.parentElement;
   var cells=Array.prototype.slice.call(tr.children);
   var colIdx=cells.indexOf(td);
@@ -2272,25 +2532,30 @@ document.addEventListener('click',function(e){
 
 // ─── 드래그 선택 ───
 var isDragging=false,dragStart=null,dragSelected=[];
+// 셀 → {교사, 날짜, 시각}. dataset 우선, 없으면 옛 구조 폴백.
+// card 는 '같은 교사 안에서만 드래그' 판정에 쓰인다 → 새 구조에서는 그 행(tr)이 곧 교사다.
 function getCellInfo(td){
+  if(td&&td.dataset&&td.dataset.tid&&td.dataset.date&&td.dataset.hour!==undefined){
+    var teacher=getCellTeacher(td);
+    var hour=parseInt(td.dataset.hour,10);
+    if(!teacher||isNaN(hour))return null;
+    var nm=(currentLang==='en'&&teacher.name_en)?teacher.name_en:teacher.name;
+    return{teacher:teacher,teacherName:nm,dateISO:td.dataset.date,hour:hour,
+           colIdx:hour,td:td,card:td.parentElement};
+  }
   var card=td.closest('.teacher-card');if(!card)return null;
-  // teacher id를 찾기: 카드 안에서 어떤 교사 인지 식별 (rendered 시 data-teacher 추가 필요)
-  var teacherIdx=Array.prototype.indexOf.call(document.querySelectorAll('.teacher-card'),card);
-  // 더 정확하게: 카드 헤더의 이름으로 찾기
   var nameEl=card.querySelector('.teacher-name');
   var name=nameEl?nameEl.textContent:'';
-  // 행/열 인덱스
   var tr=td.parentElement;
   var rowCells=Array.prototype.slice.call(tr.children);
   var colIdx=rowCells.indexOf(td); // 0=time, 1-7=days
   if(colIdx<1)return null;
-  var hour=parseInt(tr.children[0].textContent,10);
-  if(isNaN(hour))return null;
+  var hour2=parseInt(tr.children[0].textContent,10);
+  if(isNaN(hour2))return null;
   var d=new Date(currentWeekStart);d.setDate(d.getDate()+(colIdx-1));
   var dateISO=fmtISO(d);
-  // teacher id 찾기 (이름으로 매칭)
-  var teacher=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===name;});
-  return{teacher:teacher,teacherName:name,dateISO:dateISO,hour:hour,colIdx:colIdx,td:td,card:card};
+  var teacher2=TEACHERS.find(function(t){var nm2=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm2===name;});
+  return{teacher:teacher2,teacherName:name,dateISO:dateISO,hour:hour2,colIdx:colIdx,td:td,card:card};
 }
 
 document.addEventListener('mousedown',function(e){
@@ -2785,14 +3050,20 @@ reloadAndRender();
   // 빈 셀은 data-hour/col 위치로 (교사, 날짜, 시각) 해석. 시각은 정시(:00)로 스냅.
   function resolveCell(td){
     if(!td || !td.classList.contains('slot')) return null;
-    var tr = td.parentElement; if(!tr) return null;
-    var cells = Array.prototype.slice.call(tr.children);
-    var colIdx = cells.indexOf(td);
-    if(colIdx < 1) return null;                       // 시간 라벨 열 제외
     var hour = parseInt(td.dataset.hour, 10);
     if(isNaN(hour)) return null;
     var teacher = (typeof getCellTeacher === 'function') ? getCellTeacher(td) : null;
     if(!teacher) return null;
+    // 새 구조: 셀이 날짜를 직접 들고 있다
+    if(td.dataset.date){
+      var dd = new Date(td.dataset.date+'T00:00:00');
+      return { teacher:teacher, dateISO:td.dataset.date, hour:hour,
+               dow:(dd.getDay()===0?6:dd.getDay()-1) };
+    }
+    var tr = td.parentElement; if(!tr) return null;   // 옛 구조 폴백
+    var cells = Array.prototype.slice.call(tr.children);
+    var colIdx = cells.indexOf(td);
+    if(colIdx < 1) return null;
     var d = new Date(currentWeekStart); d.setDate(d.getDate() + (colIdx - 1));
     return { teacher:teacher, dateISO:fmtISO(d), hour:hour, dow:(colIdx-1) };
   }
