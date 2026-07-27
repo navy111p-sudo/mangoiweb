@@ -227,7 +227,46 @@
     ['.admin-layout', 'body', '.menu-body', '.table-card', '.admin-layout .card', '#main-content'].forEach(function (s) {
       try { Array.prototype.push.apply(list, document.querySelectorAll(s)); } catch (e) {}
     });
-    return list;
+    // ⚡ (2026-07-27) 위 6개 선택자는 서로 포개진다 — body 가 이미 전부를 담는데 .menu-body(89개)·
+    //   .table-card(90개)가 같은 요소를 또 훑었다. [실측] 요소 8,883개인데 한 패스에 26,625번 방문(중복 3.0배).
+    //   다른 루트 안에 들어 있는 루트는 버린다. 남은 루트만으로 커버 범위는 그대로다.
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i], covered = false;
+      for (var j = 0; j < list.length; j++) {
+        if (i === j) continue;
+        if (list[j] !== el && list[j].contains(el)) { covered = true; break; }
+      }
+      if (!covered && out.indexOf(el) < 0) out.push(el);
+    }
+    return out;
+  }
+
+  // ⚡ 접힌 <details> 안은 화면에 없다 — 요소의 약 70%가 여기 들어 있다.
+  //   펼쳐질 때 아래 'toggle' 리스너가 다시 훑으므로 지금 건너뛰어도 보정이 빠지지 않는다.
+  //   (summary 는 접혀 있어도 보이므로 검사 대상에 남긴다)
+  function visibleEls(root) {
+    var out = [];
+    try {
+      var w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+        acceptNode: function (el) {
+          var p = el.parentElement;
+          if (p && p.tagName === 'DETAILS' && !p.open && el.tagName !== 'SUMMARY') return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var el; while ((el = w.nextNode())) out.push(el);
+      return out;
+    } catch (e) {
+      return root.querySelectorAll('*');   // 폴백: 예전 방식
+    }
+  }
+
+  // 글자색 보정 대상인지 '싸게' 미리 거른다 — 자기 텍스트 노드가 없으면 fixText 가 어차피 즉시 빠져나온다.
+  //   ⚠️ 이 검사를 getBoundingClientRect() 앞에 두는 것이 핵심. rect 는 강제 레이아웃이라 비싸다.
+  function ownText(el) {
+    for (var n = el.firstChild; n; n = n.nextSibling) { if (n.nodeType === 3 && n.nodeValue.trim()) return true; }
+    return false;
   }
 
   //   ⚡ 성능: 1.3MB 화면이라 요소가 9,000개가 넘는다. 한 번 본 요소는 __lsDone 으로 건너뛰고,
@@ -239,7 +278,7 @@
     for (var k = 0; k < roots.length; k++) {
       var root = roots[k];
       if (root.closest && root.closest(SKIP_SEL)) continue;
-      var els = root.querySelectorAll('*');
+      var els = visibleEls(root);
       for (var i = 0; i < els.length; i++) {
         var el = els[i];
         if (el.__lsDone) continue;
@@ -266,10 +305,13 @@
     for (var k = 0; k < roots.length; k++) {
       var root = roots[k];
       if (root.closest && root.closest(SKIP_SEL)) continue;
-      var els = root.querySelectorAll('*');
+      var els = visibleEls(root);
       for (var i = 0; i < els.length; i++) {
         var el = els[i];
         if (el.hasAttribute('data-ls-text')) continue;      // 내가 이미 확정한 색은 그대로
+        // ⚡ 싼 검사부터 — 자기 텍스트가 없으면 fixText 는 어차피 아무 것도 안 한다.
+        //   이 줄이 없으면 요소 전부에 getBoundingClientRect(강제 레이아웃)를 걸게 된다.
+        if (!ownText(el)) continue;
         if (el.closest && el.closest(SKIP_SEL)) continue;
         var r = el.getBoundingClientRect();
         if (r.width < 8 || r.height < 6) continue;
