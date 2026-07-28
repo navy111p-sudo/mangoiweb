@@ -44,7 +44,7 @@
   #cpPhoto{inset:0;overflow:hidden}
   #cpPhoto img{position:absolute;left:0;top:0;width:100%;
     filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5))}
-  /* 조종간(요크) — 마우스를 따라 실제로 움직인다. 사진 속 요크 위에 겹쳐 놓는다.
+  /* 조종간(요크) — 화살표 입력을 따라 실제로 움직인다. 사진 속 요크 위에 겹쳐 놓는다.
      왼쪽으로 밀면 왼쪽으로 기울고, 위로 올리면 위로 밀린다. 조작이 손에 잡히는 느낌을 준다. */
   /* 조종간은 계기판(z 7)보다 앞에 있어야 한다 — 실제로도 조종간이 계기판 앞에 있다 */
   /* 조종간 — 실사 사진(그린스크린 크로마키). 허브를 축으로 통째로 회전한다.
@@ -297,7 +297,7 @@
   <div class="cp" id="cpGlass"></div>
   <div class="cp" id="cpPhoto"><img src="/img/p38-cockpit2.webp?v=1" alt=""></div>
 
-  <!-- 조종간(요크) — 마우스 입력에 따라 기울고 밀린다 -->
+  <!-- 조종간(요크) — 화살표 입력에 따라 기울고 밀린다 -->
   <!-- 조종간 — 힉스필드로 뽑은 실사 조종간(그린스크린 크로마키). 핸들 전체가 회전한다. -->
   <div id="yoke"><img id="ykImg" src="/img/p38-yoke.webp?v=1" alt=""></div>
 
@@ -477,10 +477,9 @@
 
       <button class="go" id="btnStart">출격 START</button>
       <div class="keys">
-        <span class="kk">🖱️ 마우스 좌우 = 좌우 선회</span>
-        <span class="kk">🖲️ 마우스 휠 = 기수 올림/내림</span>
-        <span class="kk">🖱️ 왼쪽 버튼 = 가속 · 오른쪽 버튼 = 후진</span>
+        <span class="kk">← → ↑ ↓ 화살표 = 상하좌우 조종</span>
         <span class="kk">스페이스 · Ctrl · Shift = 발사</span>
+        <span class="kk">🖱️ 왼쪽 버튼 = 가속 · 오른쪽 버튼 = 후진</span>
         <span class="kk">N = 낮/밤 전환</span>
         <span class="kk">R = 무전 반복</span>
         <span class="kk">P = 일시정지</span>
@@ -1143,68 +1142,109 @@ function zgeo(){
    실사 GLB 기체 — 축 자동 보정 로더
    ⚠️ 힉스필드/Tripo 가 뽑는 GLB 는 **모델마다 축이 제각각**이다(탱크대전에서 이미 겪음).
       기체별로 회전값을 손으로 박아 넣으면 모델을 바꿀 때마다 또 틀어진다.
-      → 하드코딩 대신 '기하로 실측'해서 정규화한다:
-         ① 가장 긴 축 = 주익(날개)  ② 두 번째 = 동체  ③ 나머지 = 상하
-         ④ 동체 축의 양끝 중 **수직 방향으로 더 높이 솟은 쪽이 꼬리**(수직미익) → 반대쪽이 기수
+      → 하드코딩 대신 '기하로 실측'해서 정규화한다(solveAxes 참고).
       결과: 기수 +Z · 날개 X · 위 +Y 로 정규화되어 lookAt() 이 그대로 동작한다.
    ════════════════════════════════════════════════════════════════════ */
 var GLB_CACHE={};          // url -> 정규화가 끝난 원본 그룹(clone 해서 씀)
 function _sampleVerts(root){
-  // 정점을 훑어 (동체축 양끝의 수직 두께)를 재기 위한 표본. 2만 폴리라 7개마다 뽑아도 충분하다.
+  // 정점을 훑어 축을 실측하기 위한 표본. 3개마다 뽑아도 2만 폴리면 충분하다.
   var pts=[], mtx=new THREE.Matrix4(), v=new THREE.Vector3();
   root.updateMatrixWorld(true);
   root.traverse(function(o){
     if(!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position) return;
     var pos=o.geometry.attributes.position;
     mtx.copy(o.matrixWorld);
-    for(var i=0;i<pos.count;i+=7){
+    for(var i=0;i<pos.count;i+=3){
       v.fromBufferAttribute(pos,i).applyMatrix4(mtx);
       pts.push(v.x,v.y,v.z);
     }
   });
   return pts;
 }
-function normalizePlaneModel(root){
+/* ⚠️ bbox 축으로 날개/동체를 가르면 안 된다 —— 실측해서 확인한 사실:
+      plane-zero 는 동체가 Y축으로 128°, val 은 138°, betty 는 128° 돌아간 채 저장돼 있다.
+      그래서 bbox 의 X 와 Z 가 거의 같아지고(zero: 1.223 vs 1.177 = 4% 차이)
+      "가장 긴 축 = 날개" 판정이 동전던지기가 됐다. 앞/뒤·위/아래 판정도 마찬가지로
+      2% 차이로 갈려서 4기 중 3기가 뒤집힌 채(X축 180°) 날아다녔다.
+   → 회전에 흔들리지 않는 값만 쓴다. */
+function solveAxes(root){
   var box=new THREE.Box3().setFromObject(root);
   var size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
-  var ax=[{i:0,n:size.x},{i:1,n:size.y},{i:2,n:size.z}].sort(function(a,b){ return b.n-a.n; });
-  var wingI=ax[0].i, fuseI=ax[1].i, upI=ax[2].i;
+  var s=[size.x,size.y,size.z];
 
-  var pts=_sampleVerts(root), c=[center.x,center.y,center.z];
-  // 동체축 기준 앞/뒤 절반에서 '수직 방향 최대 편차'를 잰다 — 큰 쪽이 수직미익(꼬리)
-  var devPos=0, devNeg=0;
-  for(var i=0;i<pts.length;i+=3){
-    var p=[pts[i],pts[i+1],pts[i+2]];
-    var d=Math.abs(p[upI]-c[upI]);
-    if(p[fuseI] > c[fuseI]){ if(d>devPos) devPos=d; } else { if(d>devNeg) devNeg=d; }
+  // ① 위 축 = bbox 가 가장 얇은 축. 항공기는 납작하다(두께 0.23 대 날개폭 1.2 — 5배 차이라 안전)
+  var upI=0; for(var i=1;i<3;i++){ if(s[i]<s[upI]) upI=i; }
+  var hA=(upI+1)%3, hB=(upI+2)%3;
+
+  var pts=_sampleVerts(root), n=pts.length/3;
+  if(n<32) return null;
+  var mA=0,mB=0,mU=0;
+  for(var k=0;k<pts.length;k+=3){ mA+=pts[k+hA]; mB+=pts[k+hB]; mU+=pts[k+upI]; }
+  mA/=n; mB/=n; mU/=n;
+
+  // ② 날개 축 = 수평면에서 1°씩 돌려보며 투영 폭이 최대가 되는 방향(회전무관)
+  var best=-1, bestT=0;
+  for(var t=0;t<180;t++){
+    var th=t*Math.PI/180, ca=Math.cos(th), sa=Math.sin(th), lo=1e9, hi=-1e9;
+    for(var j=0;j<pts.length;j+=3){
+      var p=(pts[j+hA]-mA)*ca + (pts[j+hB]-mB)*sa;
+      if(p<lo) lo=p; if(p>hi) hi=p;
+    }
+    if(hi-lo>best){ best=hi-lo; bestT=th; }
   }
-  var noseSign = (devPos > devNeg) ? -1 : 1;      // 꼬리 반대쪽이 기수
+  var wA=Math.cos(bestT), wB=Math.sin(bestT), fA=-wB, fB=wA;   // 동체는 날개와 직교
 
-  // 위쪽 부호 — 조종석·수직미익이 있는 쪽이 위
-  var upPos=0, upNeg=0;
-  for(var j=0;j<pts.length;j+=3){
-    var q=pts[j+upI]-c[upI];
-    if(q>upPos) upPos=q; if(q<upNeg) upNeg=q;
+  var F=new Float64Array(n), W=new Float64Array(n), U=new Float64Array(n);
+  var fLo=1e9, fHi=-1e9;
+  for(var q=0,idx=0;q<pts.length;q+=3,idx++){
+    var da=pts[q+hA]-mA, db=pts[q+hB]-mB;
+    F[idx]=da*fA+db*fB; W[idx]=da*wA+db*wB; U[idx]=pts[q+upI]-mU;
+    if(F[idx]<fLo) fLo=F[idx]; if(F[idx]>fHi) fHi=F[idx];
   }
-  var upSign = (upPos >= -upNeg) ? 1 : -1;
 
-  function unit(idx,sgn){ var v=new THREE.Vector3(); v.setComponent(idx,sgn); return v; }
-  var ez=unit(fuseI, noseSign);                    // 기수
-  var ey=unit(upI,   upSign);                      // 위
+  // ③ 기수/꼬리 = 양 끝 12% 구간의 좌우 폭. 꼬리엔 수평미익이 있어 넓고, 기수는 스피너라 좁다
+  var cut=(fHi-fLo)*0.12;
+  function lateral(lo,hi){
+    var a=1e9,b=-1e9,c=0;
+    for(var z=0;z<n;z++){ if(F[z]>=lo && F[z]<=hi){ c++; if(W[z]<a)a=W[z]; if(W[z]>b)b=W[z]; } }
+    return c ? b-a : 0;
+  }
+  var noseSign = (lateral(fHi-cut,fHi) < lateral(fLo,fLo+cut)) ? 1 : -1;   // 좁은 쪽이 기수
+
+  // ④ 위/아래 = 꼬리쪽 35% 구간의 상/하 편차. 수직미익은 위로만 솟는다
+  var tailDir=-noseSign, tLo, tHi;
+  if(tailDir>0){ tLo=fHi-(fHi-fLo)*0.35; tHi=fHi; } else { tLo=fLo; tHi=fLo+(fHi-fLo)*0.35; }
+  var uP=0, uN=0;
+  for(var y=0;y<n;y++){ if(F[y]>=tLo && F[y]<=tHi){ if(U[y]>uP)uP=U[y]; if(U[y]<uN)uN=U[y]; } }
+  var upSign = (uP >= -uN) ? 1 : -1;
+
+  return { upI:upI, hA:hA, hB:hB, center:center, span:best,
+           fA:fA*noseSign, fB:fB*noseSign, upSign:upSign };
+}
+function normalizePlaneModel(root){
+  var ax=solveAxes(root);
+  if(!ax){ var w0=new THREE.Group(); w0.add(root); w0.userData.glb=true; return w0; }
+
+  function vec(a,b,u){
+    var v=new THREE.Vector3();
+    v.setComponent(ax.hA,a); v.setComponent(ax.hB,b); v.setComponent(ax.upI,u);
+    return v;
+  }
+  var ez=vec(ax.fA, ax.fB, 0).normalize();         // 기수
+  var ey=vec(0, 0, ax.upSign);                     // 위
   var ex=new THREE.Vector3().crossVectors(ey,ez).normalize();   // 오른손 좌표계로 재구성
   ey.crossVectors(ez,ex).normalize();
 
   var basis=new THREE.Matrix4().makeBasis(ex,ey,ez).invert();
   var inner=new THREE.Group();
   inner.add(root);
-  root.position.sub(center);                       // 먼저 원점으로
+  root.position.sub(ax.center);                    // 먼저 원점으로
   var wrap=new THREE.Group();
   wrap.add(inner);
   inner.quaternion.setFromRotationMatrix(basis);
 
   // 날개폭 1 로 정규화 → PLANE.scale 이 곧 '미터 단위 날개폭'이 된다
-  var span=Math.max(0.001, ax[0].n);
-  wrap.scale.setScalar(1/span);
+  wrap.scale.setScalar(1/Math.max(0.001, ax.span));
   wrap.userData.glb=true;
   return wrap;
 }
@@ -1741,38 +1781,16 @@ function matchSentence(said, target){
 /* ════════════════════════════════════════════════════════════════════
    7. 조종 · 입력
    ════════════════════════════════════════════════════════════════════ */
-var input={ mx:0, my:0, active:false, keys:{} };
+// ax/ay = 부드럽게 다듬은 조종 입력(-1~1). 기수도 조종간 그림도 이 한 값만 본다
+var input={ mx:0, my:0, ax:0, ay:0, active:false, keys:{} };
 (function bindInput(){
   var cv=document.getElementById('wrap');
-  /* 마우스(PC) = 화면 중앙 대비 '절대 위치' 조종. 커서가 곧 조종간이라 직관적이다. */
-  /* 커서 → [-1,1]. 조종간이 이 값을 그대로 쓰므로 '화면 정중앙 = 조종간 중립'이어야 한다.
-     세로 기준을 44%로 두면 커서가 화면 한가운데 있어도 조종간이 살짝 당겨진 채로 보인다. */
-  function setFromClient(cx,cy){
-    input.mx = Math.max(-1, Math.min(1, (cx - W*0.5)/(W*0.46)));
-    input.my = Math.max(-1, Math.min(1, (cy - H*0.5)/(H*0.42)));
-  }
-  /* ⚠️ 마우스는 '조종 전용'이다(클릭 발사 없음). 발사는 왼손 키(스페이스·Ctrl·Shift).
-
-     === 마우스 1:1 조종 ===
-     예전엔 '커서가 화면 중앙에서 얼마나 벗어났는가'로 **회전 속도**를 정했다(조이스틱 방식).
-     그러면 손을 멈춰도 기체가 계속 돌아서 마우스와 화면이 따로 논다.
-     → 커서가 움직인 **픽셀 수만큼** 시야를 정확히 그 각도로 돌린다.
-       화면 1픽셀이 몇 라디안인지( 2·tan(fov/2)/H )로 환산하므로,
-       커서 아래에 있던 하늘의 한 점이 계속 커서 아래에 머문다 = 완전한 1:1.
-     · 커서가 창 가장자리에 닿으면 더 못 도는 문제 → 가장자리에서만 추가 선회를 얹는다. */
-  /* 좌우 = 마우스 이동(1:1) · 위아래 = 마우스 휠 — 사장님 지시.
-     세로까지 마우스 이동에 걸어 두면 조준하려고 좌우로만 움직여도 기수가 같이 들리고 눌린다.
-     휠로 분리하면 '좌우는 손, 위아래는 손가락'으로 축이 갈려 훨씬 정확해진다. */
-  var _lastMX=null;
-  cv.addEventListener('mousemove', function(e){
-    setFromClient(e.clientX, e.clientY); input.active=true;
-    if(G && G.running && !paused && !G.speaking && _lastMX!==null){
-      var k = 2*Math.tan(camera.fov*Math.PI/360)/H;    // 픽셀당 라디안
-      G.yaw -= (e.clientX-_lastMX)*k;                  // 좌우만 담당
-    }
-    _lastMX=e.clientX;
-  });
-  cv.addEventListener('mouseleave', function(){ _lastMX=null; if(G){ G.boost=false; G.reverse=false; } });
+  /* === 조종은 오른손 화살표 · 발사는 왼손 키 — 사장님 지시 ===
+     마우스로 조종하던 것을 걷어냈다. 마우스는 이제 가속/후진 버튼만 담당한다.
+     ⚠️ 마우스 이동으로 시야를 돌리는 코드를 남겨 두면 화살표로 맞춰 놓은 조준이
+        커서가 스칠 때마다 흔들린다 — 두 조종계가 같은 yaw 를 동시에 만지기 때문. */
+  cv.addEventListener('mousemove', function(){ input.active=true; });
+  cv.addEventListener('mouseleave', function(){ if(G){ G.boost=false; G.reverse=false; } });
 
   /* 좌클릭 = 가속 · 우클릭 = 후진 — 사장님 지시.
      ⚠️ 우클릭은 contextmenu 를 막아야 오른쪽 버튼을 누르는 순간 메뉴가 떠서 조종이 끊긴다.
@@ -1793,17 +1811,9 @@ var input={ mx:0, my:0, active:false, keys:{} };
   // 창 밖으로 나갔다 돌아오면 버튼 상태가 남아 계속 가속되는 것을 막는다
   window.addEventListener('blur', function(){ if(G){ G.boost=false; G.reverse=false; } });
 
-  /* 휠 = 기수 올림/내림. 위로 굴리면 상승, 아래로 굴리면 하강.
-     ⚠️ passive:false 로 등록하고 preventDefault 해야 페이지가 같이 스크롤되지 않는다. */
+  /* 게임 중에는 휠로 페이지가 스크롤되지 않게만 막는다(조종은 화살표가 담당). */
   cv.addEventListener('wheel', function(e){
-    if(!G || !G.running || paused || G.speaking) return;
-    e.preventDefault();
-    var d = e.deltaY;
-    if(e.deltaMode === 1) d *= 16;                     // 줄 단위 휠
-    else if(e.deltaMode === 2) d *= H;                 // 페이지 단위 휠
-    var k = 2*Math.tan(camera.fov*Math.PI/360)/H;
-    G.pitch = Math.max(-0.95, Math.min(0.95, G.pitch - d*k*0.55));
-    input.wheelT = 0.35;                               // 조종간을 잠깐 더 크게 움직여 반응을 보여 준다
+    if(G && G.running && !paused) e.preventDefault();
   }, {passive:false});
 
   /* ⚠️ 터치(모바일)는 절대 위치를 쓰면 안 된다.
@@ -1822,7 +1832,7 @@ var input={ mx:0, my:0, active:false, keys:{} };
     if(steerId!==null) return;                      // 이미 조종 중인 손가락이 있다
     var t=e.changedTouches[0];
     steerId=t.identifier; sx0=t.clientX; sy0=t.clientY; mx0=input.mx; my0=input.my;
-    input.active=true; input.touching=true; ac();   // 폰은 휠이 없어 세로 드래그로 기수 조종
+    input.active=true; input.touching=true; ac();   // 폰은 화살표가 없어 드래그로 조종
   }, {passive:true});
   cv.addEventListener('touchmove', function(e){
     if(steerId===null) return;
@@ -1843,8 +1853,11 @@ var input={ mx:0, my:0, active:false, keys:{} };
 
   // 왼손 사격키 — 스페이스 / Ctrl / Shift 아무거나
   var FIRE_KEYS={ Space:1, ControlLeft:1, ControlRight:1, ShiftLeft:1, ShiftRight:1 };
+  // 오른손 조종키 — 화살표. ⚠️ preventDefault 안 하면 화살표가 페이지를 스크롤해 조종석이 밀려 올라간다
+  var STEER_KEYS={ ArrowLeft:1, ArrowRight:1, ArrowUp:1, ArrowDown:1 };
   window.addEventListener('keydown', function(e){
     input.keys[e.code]=true;
+    if(STEER_KEYS[e.code]) e.preventDefault();
     if(FIRE_KEYS[e.code]){ e.preventDefault(); if(G)G.fireHeld=true; ac(); }
     if(e.code==='KeyP'){ togglePause(); }
     if(e.code==='KeyR'){ callTarget(); }
@@ -1871,33 +1884,28 @@ var FIRE_CONE = Math.cos(4.6*Math.PI/180);   // 조준 허용각(반각 약 4.6�
 function update(dt){
   if(!G || !G.running) return;
   var k=input.keys;
-  // 키보드 보조 조종
-  var kx=(k.ArrowRight||k.KeyD?1:0)-(k.ArrowLeft||k.KeyA?1:0);
-  var ky=(k.ArrowDown||k.KeyS?1:0)-(k.ArrowUp||k.KeyW?1:0);
-  var mx = kx!==0 ? kx : input.mx;
-  var my = ky!==0 ? ky : input.my;
+  /* ── 조종 입력 ─────────────────────────────────────────────
+     PC = 오른손 화살표(WASD 도 같이 받는다) · 폰 = 화면 드래그.
+     둘 다 [-1,1] 의 '조종간을 얼마나 꺾었나' 한 값으로 모아서 쓴다.
+     이 값(input.ax/ay)은 조종간 그림도 그대로 받아 쓴다 — 한 곳에서만 만들어야
+     화면의 조종간과 실제 기수 방향이 어긋나지 않는다. */
+  var cx=(k.ArrowRight||k.KeyD?1:0)-(k.ArrowLeft||k.KeyA?1:0);
+  var cy=(k.ArrowDown||k.KeyS?1:0)-(k.ArrowUp||k.KeyW?1:0);
+  if(cx===0 && input.touching) cx=input.mx;
+  if(cy===0 && input.touching) cy=input.my;
+  // 조종간이 꺾이고 돌아오는 데 걸리는 시간(약 0.08초) — 즉각적이면서도 홱 튀지 않는다
+  var g=Math.min(1, dt*12);
+  input.ax += (cx-input.ax)*g;
+  input.ay += (cy-input.ay)*g;
 
   // 조종 — yaw/pitch 를 명시적으로 누적(YXZ). 아이 친화적: 수평선이 뒤집히지 않는다.
-  /* 마우스는 mousemove 에서 이미 1:1 로 yaw/pitch 를 직접 돌려 놨다.
-     여기서는 ① 키보드 조종 ② 커서가 창 가장자리에 닿았을 때의 추가 선회 만 처리한다.
-     ⚠️ 마우스 입력까지 여기서 또 '속도 제어'로 더하면 손을 멈춰도 기체가 계속 도는
-        예전 방식으로 되돌아간다(그래서 마우스와 화면이 따로 놀았다). */
-  var RATE=1.35;
-  if(kx!==0 || ky!==0){                       // ── 키보드 조종(기존 속도 제어)
-    G.yawV   += ((-kx*RATE) - G.yawV) * Math.min(1, dt*9);
-    G.pitchV += ((-ky*RATE) - G.pitchV) * Math.min(1, dt*9);
-  } else {
-    /* 마우스: 가장자리에서만 계속 선회(좌우). 세로는 휠이 담당하므로 여기서 건드리지 않는다.
-       ⚠️ 터치(폰)는 휠이 없으므로 세로 드래그로 기수를 조종하게 남겨 둔다. */
-    var ex = (Math.abs(mx)>0.80) ? (mx-Math.sign(mx)*0.80)/0.20 : 0;
-    var ey = input.touching ? my : 0;
-    G.yawV   += ((-ex*RATE) - G.yawV) * Math.min(1, dt*9);
-    G.pitchV += ((-ey*RATE) - G.pitchV) * Math.min(1, dt*9);
-  }
+  var RATE=1.5;                                // 최대 선회 약 86°/초
+  G.yawV   = -input.ax*RATE;
+  G.pitchV = -input.ay*RATE;
   G.yaw   += G.yawV*dt;
   G.pitch = Math.max(-0.95, Math.min(0.95, G.pitch + G.pitchV*dt));
 
-  // 뱅킹 — 실제 선회량(마우스+키보드 합계)에서 뽑아야 마우스로 돌릴 때도 기체가 기운다
+  // 뱅킹 — 실제 선회량에서 뽑는다(입력값이 아니라 결과를 봐야 폰 드래그에서도 똑같이 기운다)
   if(G.prevYaw===undefined){ G.prevYaw=G.yaw; G.prevPitch=G.pitch; }
   var yawRate=(G.yaw-G.prevYaw)/Math.max(0.001,dt); G.prevYaw=G.yaw;
   var pitRate=(G.pitch-G.prevPitch)/Math.max(0.001,dt); G.prevPitch=G.pitch;
@@ -2214,18 +2222,15 @@ function loop(ts){
   if(G && G.running && !paused && !G.speaking) update(dt);
   if(G){
     _hudT+=dt; if(_hudT>0.12){ _hudT=0; updateHUDFast(); }
-    /* 조종간 = 내 손. **커서 위치를 그대로** 따라간다 — 사장님 지시.
-       선회량(yawRate)으로 그리면 손을 멈추는 순간 조종간이 제자리로 튕겨 돌아와
-       "내가 잡고 있다"는 느낌이 끊긴다. 커서가 왼쪽이면 핸들도 왼쪽으로 돌아간 채 머문다.
-       ⚠️ 보간(lerp)을 넣지 않는다. 한 프레임이라도 늦으면 손과 따로 노는 게 바로 보인다. */
+    /* 조종간 = 내 손. **누르고 있는 방향 그대로** 꺾인 채 머문다 — 사장님 지시.
+       선회량(yawRate)으로 그리면 최고 선회에 도달한 뒤 조종간이 제자리로 돌아와
+       "내가 잡고 있다"는 느낌이 끊긴다. ←를 누르고 있으면 핸들도 왼쪽에 머물러야 한다. */
     if(_yokeEl && G.running){
-      var kx=(input.keys.ArrowRight||input.keys.KeyD?1:0)-(input.keys.ArrowLeft||input.keys.KeyA?1:0);
-      var ux=(kx!==0?kx:input.mx);
-      /* 상하는 커서가 아니라 **기수각**을 따라간다.
-         위아래 조종을 휠로 옮겼으므로, 커서 세로 위치로 그리면 조종간이 엉뚱하게 움직인다.
-         기수를 들면 조종간이 당겨지고(위로), 내리면 밀린다(아래로) — 실제 조종간과 같다. */
-      var uy=-(G.pitch/0.95);
-      if(input.wheelT>0){ input.wheelT-=dt; uy*=1.18; }   // 휠을 굴린 직후엔 반응을 조금 크게
+      /* 화살표를 누르고 있는 동안 조종간도 그 방향으로 꺾인 채 머문다.
+         update() 가 기수를 돌릴 때 쓴 것과 **똑같은 값**(input.ax/ay)을 그대로 받는다.
+         여기서 따로 계산하면 화면의 조종간과 실제 기수 방향이 조금씩 어긋난다. */
+      // ↑(ay<0)를 누르면 기수가 올라가고 조종간은 '당겨져' 위로 온다. 부호를 뒤집으면 밀린 것처럼 보인다
+      var ux=input.ax, uy=input.ay;
       ux=Math.max(-1,Math.min(1,ux)); uy=Math.max(-1,Math.min(1,uy));
       _yokeEl.style.setProperty('--ykR', (ux*64).toFixed(2)+'deg');   // 좌우 = 회전
       _yokeEl.style.setProperty('--ykY', (uy*30).toFixed(2)+'px');    // 상하 = 밀고 당김
