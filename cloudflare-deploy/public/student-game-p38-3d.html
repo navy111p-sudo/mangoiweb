@@ -47,14 +47,14 @@
   /* 조종간(요크) — 마우스를 따라 실제로 움직인다. 사진 속 요크 위에 겹쳐 놓는다.
      왼쪽으로 밀면 왼쪽으로 기울고, 위로 올리면 위로 밀린다. 조작이 손에 잡히는 느낌을 준다. */
   /* 조종간은 계기판(z 7)보다 앞에 있어야 한다 — 실제로도 조종간이 계기판 앞에 있다 */
-  /* 조종간 — 대시보드 앞에 크게 세운다. 컬럼(기둥)은 고정이고 핸들만 실제로 회전한다. */
+  /* 조종간 — 실사 사진(그린스크린 크로마키). 허브를 축으로 통째로 회전한다.
+     회전축은 사진의 붉은 발사버튼 자리(가로 50% · 세로 47%)에 맞춰야 자연스럽다. */
   #yoke{position:absolute;left:50%;z-index:8;pointer-events:none;
     transform:translateX(-50%) translateY(var(--ykY,0px));
-    transition:transform .07s linear;filter:drop-shadow(0 8px 16px rgba(0,0,0,.65))}
-  #yoke svg{width:100%;height:auto;display:block}
-  /* 핸들만 회전 — 컬럼까지 같이 기울면 조종간이 아니라 판 전체가 흔들리는 것처럼 보인다 */
-  #ykWheel{transform-box:fill-box;transform-origin:50% 62%;
-    transform:rotate(var(--ykR,0deg));transition:transform .07s linear}
+    transition:transform .07s linear;filter:drop-shadow(0 10px 18px rgba(0,0,0,.7))}
+  #ykImg{display:block;width:100%;height:auto;
+    transform-origin:50% 47%;transform:rotate(var(--ykR,0deg));
+    transition:transform .07s linear}
   body.night #yoke{filter:drop-shadow(0 6px 14px rgba(0,0,0,.8)) brightness(.72)}
   body.night #cpPhoto img{filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5)) brightness(.55) saturate(.8)}
 
@@ -148,27 +148,32 @@
   /* 대시보드 판 — 사진 조종석의 코밍(계기판 윗변) 선에 맞춰 아래를 통째로 덮는다.
      사진의 계기판은 화면 아래로 잘려 일부만 보이는데, 그 잘린 조각과 우리 계기가 따로 놀아
      "붙여 넣은 것"처럼 보였다. 같은 색·같은 곡률의 판을 이어 붙여 하나의 계기판으로 만든다. */
+  /* 대시보드 = 실사 계기판 사진(/img/p38-dash.webp, 143KB).
+     그 위 '진짜 계기 자리'에 살아 움직이는 바늘 계기를 정확히 겹쳐 놓는다.
+     사진이 주변(리벳·황동 명판·토글 스위치·가죽 코밍)을 맡고, 우리 계기가 값을 맡는다. */
   #dash{position:absolute;left:0;right:0;bottom:0;z-index:6;pointer-events:none;overflow:hidden;
-    background:
-      radial-gradient(140% 90% at 50% 0%, rgba(70,78,60,.55) 0%, rgba(24,28,22,0) 60%),
-      linear-gradient(180deg,#3b4234 0%,#20251c 16%,#12160f 46%,#0a0d08 100%)}
-  /* 코밍(가죽 덧댄 윗변) — 사진의 곡선과 이어지게 위로 볼록한 곡률을 준다 */
-  #dash::before{content:'';position:absolute;left:-6%;right:-6%;top:0;height:34px;
-    border-radius:50% / 100% 100% 0 0;
-    background:linear-gradient(180deg,#4c5442 0%,#2c3327 55%,#1a1e15 100%);
-    box-shadow:0 3px 10px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.10)}
-  /* 판 아래쪽 볼트 줄 — 금속판 느낌 */
-  #dash::after{content:'';position:absolute;left:0;right:0;bottom:8px;height:4px;
-    background-image:radial-gradient(circle,#6e7663 0 1.4px,transparent 1.7px);
-    background-size:26px 4px;opacity:.5}
-  body.night #dash{filter:brightness(.62)}
+    box-shadow:0 -10px 26px rgba(0,0,0,.45)}
+  /* 뒤판 — 같은 사진을 꽉 채워 깔고 흐리게·어둡게. 평평한 단색으로 메우면 '띠를 붙인 것'처럼 보인다. */
+  #dashBg{position:absolute;inset:-14px;background:#232820 url('/img/p38-dash.webp?v=1') center/cover no-repeat;
+    filter:blur(13px) brightness(.5) saturate(.85)}
+  /* 앞판 — 실제 계기가 있는 선명한 사진.
+     ⚠️ 원본 사진에는 조종간이 '고정된 채' 찍혀 있다. 그대로 쓰면 우리가 얹은 회전 조종간과
+        두 개가 겹쳐 보인다 → 조종간 위(세로 66%)까지만 잘라낸 판을 쓴다.
+        좌표계는 원본과 동일(같은 폭·같은 원점)이라 계기 위치 계산은 그대로 유효하다. */
+  #dashFg{position:absolute;inset:0;background-repeat:no-repeat;
+    background-image:url('/img/p38-dash-panel.webp?v=1')}
+  /* 좌우 경계를 어둡게 눌러 뒤판과 이어지게 */
+  #dash .dvig{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(8,10,7,.9) 0%,rgba(8,10,7,0) 17%,
+               rgba(8,10,7,0) 83%,rgba(8,10,7,.9) 100%)}
+  body.night #dash{filter:brightness(.5) saturate(.85)}
 
-  #panel{position:absolute;z-index:7;pointer-events:none;display:flex;align-items:center;
-    justify-content:center;gap:0}
-  #panel .pgrp{display:flex;align-items:center;gap:var(--dgap,10px)}
-  #panel .pgap{width:var(--ygap,150px);flex:0 0 auto}
-  .dial{width:var(--dsz,86px);height:var(--dsz,86px);flex:0 0 auto;
-    filter:drop-shadow(0 3px 7px rgba(0,0,0,.75))}
+  /* 계기는 사진 속 '진짜 계기 자리'에 하나씩 절대좌표로 얹는다(flex 배열이 아니다).
+     좌표는 대시보드 사진에서 실측한 값 — DIAL_POS 참조. */
+  #panel{position:absolute;inset:0;z-index:7;pointer-events:none}
+  #panel .pgrp,#panel .pgap{display:contents}
+  .dial{position:absolute;width:86px;height:86px;
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,.8))}
   .dial svg{width:100%;height:100%;display:block}
   .dial .bez{fill:#171b1f;stroke:#000;stroke-width:3}
   .dial .face{fill:#0a0d10;stroke:#2e363d;stroke-width:1.4}
@@ -291,40 +296,8 @@
   <div class="cp" id="cpPhoto"><img src="/img/p38-cockpit2.webp?v=1" alt=""></div>
 
   <!-- 조종간(요크) — 마우스 입력에 따라 기울고 밀린다 -->
-  <div id="yoke">
-    <svg viewBox="0 0 300 190" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="ykG" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#565c60"/><stop offset="42%" stop-color="#272c30"/>
-          <stop offset="100%" stop-color="#0f1214"/>
-        </linearGradient>
-        <linearGradient id="ykC" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#14171a"/><stop offset="42%" stop-color="#3d444a"/>
-          <stop offset="100%" stop-color="#101315"/>
-        </linearGradient>
-      </defs>
-      <!-- 컬럼(조종간 기둥) — 고정 -->
-      <rect x="136" y="96" width="28" height="94" rx="9" fill="url(#ykC)"/>
-      <rect x="130" y="150" width="40" height="12" rx="5" fill="#1b1f22"/>
-
-      <!-- 핸들(이 그룹만 회전) -->
-      <g id="ykWheel">
-        <!-- 반원 림 -->
-        <path d="M34 122 A116 116 0 0 1 266 122" fill="none" stroke="url(#ykG)" stroke-width="23" stroke-linecap="round"/>
-        <path d="M34 122 A116 116 0 0 1 266 122" fill="none" stroke="rgba(255,255,255,.13)" stroke-width="5" stroke-linecap="round"/>
-        <!-- 림과 허브를 잇는 스포크 -->
-        <rect x="60" y="112" width="82" height="11" rx="5" fill="url(#ykG)"/>
-        <rect x="158" y="112" width="82" height="11" rx="5" fill="url(#ykG)"/>
-        <!-- 좌우 그립 -->
-        <rect x="18" y="104" width="36" height="44" rx="15" fill="url(#ykG)"/>
-        <rect x="246" y="104" width="36" height="44" rx="15" fill="url(#ykG)"/>
-        <!-- 허브 + 발사 버튼 -->
-        <circle cx="150" cy="118" r="24" fill="#2b3033" stroke="#0b0d0e" stroke-width="3"/>
-        <circle cx="150" cy="118" r="15" fill="#1a1d20" stroke="#454d53" stroke-width="1.6"/>
-        <circle cx="150" cy="118" r="8" fill="#8e1f14" stroke="#40100b" stroke-width="1.6"/>
-      </g>
-    </svg>
-  </div>
+  <!-- 조종간 — 힉스필드로 뽑은 실사 조종간(그린스크린 크로마키). 핸들 전체가 회전한다. -->
+  <div id="yoke"><img id="ykImg" src="/img/p38-yoke.webp?v=1" alt=""></div>
 
   <!-- 조준기 -->
   <svg id="sight" width="150" height="150" viewBox="0 0 150 150">
@@ -347,7 +320,7 @@
   <div id="radio"></div>
 
   <!-- 대시보드 — 사진 코밍 선에서 아래를 이어받는 계기판 판 -->
-  <div id="dash"></div>
+  <div id="dash"><div id="dashBg"></div><div id="dashFg"></div><div class="dvig"></div></div>
 
   <!-- ═══ 계기판 — 조종석 사진의 실제 계기판 자리에 아날로그 원형 계기를 얹는다 ═══
        위치·크기는 layoutCockpit() 이 조종석 이미지 기준으로 계산한다(화면이 커져도 계기판에 붙어 있게).
@@ -946,6 +919,18 @@ function placeIsland(g, initial){
       조준점이 캐노피 금속 부품 위에 얹힌다. 실제로 그 사고가 났다.
    ════════════════════════════════════════════════════════════════════ */
 var CP_AR=1.7926, CP_FX=0.4982, CP_FY=0.3636;
+/* 대시보드 사진(/img/p38-dash.webp, 1600x658)에서 실측한 '진짜 계기 자리'.
+   좌표는 이미지 가로/세로 비율. 사진을 확대·축소해도 이 비율로 따라간다. */
+var DASH_W=1600, DASH_H=658;
+var YOKE_W=1000, YOKE_H=579;        // 잘라낸 실사 조종간 크기
+var DIAL_POS=[
+  { id:'dSpd',  x:0.385,  y:0.272 },   // 좌상 — 속도계
+  { id:'dAtt',  x:0.4975, y:0.272 },   // 중상 — 자세계
+  { id:'dAlt',  x:0.6135, y:0.272 },   // 우상 — 고도계
+  { id:'dFuel', x:0.385,  y:0.545 },   // 좌하 — 연료계
+  { id:'dHdg',  x:0.4975, y:0.545 },   // 중하 — 방위계
+  { id:'dVsi',  x:0.6135, y:0.545 }    // 우하 — 승강계
+];
 function layoutCockpit(){
   var img=document.querySelector('#cpPhoto img'); if(!img || !W || !H) return;
   var a=W/H;
@@ -963,35 +948,55 @@ function layoutCockpit(){
 
   /* 계기판을 조종석 사진의 '실제 계기판' 위에 얹는다.
      PN_FY 는 이미지에서 계기가 늘어선 띠의 세로 위치(실측). 화면 밖으로 내려가면 하단에 붙인다. */
-  /* 대시보드 — 사진 조종석의 코밍(계기판 윗변, 이미지의 58.5%) 선에서 시작해 화면 아래를 덮는다.
-     사진의 잘린 계기 조각을 가리고 우리 계기판으로 자연스럽게 이어 준다. */
+  /* ── 대시보드(실사 사진) 배치 ──
+     사진 조종석의 코밍 선(이미지의 58.5%)에서 시작해 화면 아래를 덮는다.
+     사진을 '계기 두 줄이 다 보이도록' 키워서, 그 위에 살아 움직이는 바늘 계기를 정확히 겹친다. */
   var dash=document.getElementById('dash');
   var dashTop = itop + 0.585*ih;
-  if(dashTop > H-150) dashTop = H-150;      // 너무 얇아지지 않게
-  if(dashTop < H*0.55) dashTop = H*0.55;    // 창을 너무 먹지 않게
-  if(dash) dash.style.top = dashTop.toFixed(1)+'px';
-
-  var pn=document.getElementById('panel'); if(!pn) return;
+  if(dashTop > H-170) dashTop = H-170;
+  if(dashTop < H*0.52) dashTop = H*0.52;
   var dashH = H - dashTop;
-  var pw = Math.min(W*0.94, iw*0.78);
-  var dsz = Math.max(48, Math.min(104, Math.min(pw*0.122, dashH*0.62)));   // 다이얼 지름
-  var py = dashTop + dashH*0.46;            // 판 안에서 계기가 앉는 높이
-  pn.style.left  = (0.5*W - pw/2).toFixed(1)+'px';
-  pn.style.top   = (py - dsz/2).toFixed(1)+'px';
-  pn.style.width = pw.toFixed(1)+'px';
-  pn.style.setProperty('--dsz', dsz.toFixed(1)+'px');
-  pn.style.setProperty('--dgap', (dsz*0.14).toFixed(1)+'px');
-  pn.style.setProperty('--ygap', (dsz*2.25).toFixed(1)+'px');  // 가운데는 조종간 자리
+  if(dash){
+    dash.style.top = dashTop.toFixed(1)+'px';
+    /* 계기 두 줄이 판 안에 들어오도록 사진 크기를 정한다.
+       ⚠️ 화면 폭에 맞춰 키우면(=max(W,…)) 사진이 세로로 커져서 아래 줄이 화면 밖으로 나간다.
+          폭보다 '두 줄이 보이는 것'이 우선이다. 남는 좌우는 판과 같은 올리브색으로 메운다. */
+    var dw = Math.max(560, Math.min(W*1.1, dashH/0.56 * (DASH_W/DASH_H)));
+    var dh = dw*DASH_H/DASH_W;
+    var offY = -0.10*dh;                                  // 코밍 위쪽을 조금 잘라 계기를 위로
+    var dfg=document.getElementById('dashFg');
+    if(dfg){
+      dfg.style.backgroundSize = dw.toFixed(1)+'px auto';
+      dfg.style.backgroundPosition = 'center '+offY.toFixed(1)+'px';
+    }
 
-  /* 조종간 — 대시보드 가운데 빈 자리에 세운다. 핸들 윗부분이 계기 높이쯤 오도록 놓아야
-     '계기판 앞에 조종간이 서 있는' 실제 배치가 된다. */
-  var yk=document.getElementById('yoke');
-  if(yk){
-    var yw=Math.max(150, Math.min(300, dsz*2.9));
-    yk.style.width = yw.toFixed(1)+'px';
-    yk.style.top   = (py - dsz*0.62).toFixed(1)+'px';
-    yk.style.bottom= 'auto';
+    // ── 사진 속 진짜 계기 자리에 우리 계기를 하나씩 얹는다
+    var dLeft = (W-dw)/2, dTop = dashTop + offY;
+    var dsz = 0.086*dw;
+    for(var i=0;i<DIAL_POS.length;i++){
+      var it=DIAL_POS[i], el=document.getElementById(it.id); if(!el) continue;
+      el.style.width = el.style.height = dsz.toFixed(1)+'px';
+      el.style.left = (dLeft + it.x*dw - dsz/2).toFixed(1)+'px';
+      el.style.top  = (dTop  + it.y*dh - dsz/2).toFixed(1)+'px';
+      // 화면 아래로 완전히 벗어난 계기는 숨긴다(작은 화면 보호)
+      el.style.display = ((dTop + it.y*dh - dsz/2) > H-16) ? 'none' : '';
+    }
+
+    /* 조종간 — 사진 속 조종간 자리에 정확히 겹쳐 놓는다.
+       사진의 조종간은 고정이라 돌지 않으므로, 같은 자리에 우리 핸들을 덮어 회전시킨다. */
+    var yk=document.getElementById('yoke');
+    if(yk){
+      var yw = 0.50*dw;                                   // 사진 조종간 폭
+      var yh = yw*YOKE_H/YOKE_W;
+      // 허브(붉은 버튼)가 화면 안에 보이도록 사진 원위치(0.70)보다 살짝 위에 놓는다
+      var hubY = Math.min(dTop + 0.655*dh, H - yh*0.30);
+      yk.style.width = yw.toFixed(1)+'px';
+      yk.style.left  = '50%';
+      yk.style.top   = (hubY - 0.47*yh).toFixed(1)+'px';  // 잘라낸 사진의 허브는 높이의 47% 지점
+      yk.style.bottom= 'auto';
+    }
   }
+  var pn=document.getElementById('panel'); if(!pn) return;
 
   /* 임무 지시판 — 캐노피 '정면 창 윗변'(이미지의 16.9%) 바로 위에 붙인다.
      화면 위로 넘칠 땐 최소 여백만 두고 고정한다. */
