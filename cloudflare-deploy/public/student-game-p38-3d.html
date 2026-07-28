@@ -47,13 +47,18 @@
   @media (max-aspect-ratio: 1/1){
     #cpPhoto img{--cpW:175%;--cpB:-40%}
   }
+  /* 아주 넓은 화면(21:9급) — 기본값 140% 를 그대로 두면 조종석이 화면을 삼켜 하늘이 안 보인다 */
+  @media (min-aspect-ratio: 19/10){
+    #cpPhoto img{--cpW:102%;--cpB:-62%}
+  }
   /* 유리 반사·비네팅 — 아주 옅게만(하늘을 가리지 않게) */
   #cpGlass{inset:0;background:
       radial-gradient(130% 100% at 50% 40%,rgba(255,255,255,0) 66%,rgba(10,20,10,.22) 100%),
       linear-gradient(112deg,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 22%,rgba(255,255,255,.04) 34%,rgba(255,255,255,0) 48%)}
 
   /* ───────── 조준기(N-3B 반사식 조준기 모사) ───────── */
-  /* top 값은 스크립트의 AIM_Y(0.30)와 반드시 같아야 한다 — 어긋나면 '조준기에 넣었는데 안 맞는' 버그가 된다 */
+  /* top 은 스크립트가 화면 비율에 맞춰 다시 넣는다(aimY). CSS 값은 첫 페인트용 기본치일 뿐이다.
+     ⚠️ 조준기 위치와 사격 판정 방향이 어긋나면 '조준기에 넣었는데 안 맞는' 버그가 된다 — 항상 aimY 하나로 맞춘다 */
   #sight{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
     filter:drop-shadow(0 0 6px rgba(255,190,60,.75))}
   #sight.lock circle.ring{stroke:#ff6a4d}
@@ -373,21 +378,34 @@ var SETS = {
     { w:['The','bird','flies','in','the','sky'], r:['S','S','V','M','M','M'], ko:'그 새는 하늘을 날아요' }
   ],
   zh: [
-    { w:['我','去','学校'],       r:['S','V','M'],     ko:'나는 학교에 가요' },
-    { w:['我','喜欢','苹果汁'],   r:['S','V','O'],     ko:'나는 사과 주스를 좋아해요' },
-    { w:['她','看','书'],         r:['S','V','O'],     ko:'그녀는 책을 봐요' },
-    { w:['他','今天','踢','足球'], r:['S','M','V','O'], ko:'그는 오늘 축구를 해요' },
-    { w:['我们','每天','学','英语'], r:['S','M','V','O'], ko:'우리는 매일 영어를 공부해요' },
-    { w:['鸟','在','天上','飞'],  r:['S','M','M','V'], ko:'새가 하늘에서 날아요' }
+    { w:['我','去','学校'],          r:['S','V','M'],     ko:'나는 학교에 가요' },
+    { w:['我','喜欢','苹果汁'],      r:['S','V','O'],     ko:'나는 사과 주스를 좋아해요' },
+    { w:['她','看','书'],            r:['S','V','O'],     ko:'그녀는 책을 봐요' },
+    { w:['他','今天','踢','足球'],    r:['S','M','V','O'], ko:'그는 오늘 축구를 해요' },
+    { w:['我们','每天','学','英语'],  r:['S','M','V','O'], ko:'우리는 매일 영어를 공부해요' },
+    { w:['鸟','在','天上','飞'],      r:['S','M','M','V'], ko:'새가 하늘에서 날아요' },
+    { w:['我','爸爸','开','车'],      r:['S','S','V','O'], ko:'우리 아빠는 차를 운전해요' },
+    { w:['猫','在','睡觉'],           r:['S','M','V'],     ko:'고양이가 자고 있어요' },
+    { w:['他们','中午','吃','午饭'],  r:['S','M','V','O'], ko:'그들은 점심때 밥을 먹어요' },
+    { w:['我','会','游泳'],           r:['S','V','V'],     ko:'나는 수영할 줄 알아요' }
   ]
 };
-/* 듣기 변별용 혼동쌍(minimal pairs) — 오답기 라벨로 섞어 '귀로 구분'을 훈련시킨다 */
+/* 듣기 변별용 혼동쌍(minimal pairs) — 오답기 라벨로 섞어 '귀로 구분'을 훈련시킨다.
+   중국어는 자모가 아니라 성조가 갈림길이다: 买(mǎi)/卖(mài), 书(shū)/树(shù) 처럼
+   '같은 소리 다른 성조'를 일부러 나란히 띄워 성조를 듣게 만든다. */
 var CONFUSE = {
   en:{ go:['goes','no','so'], we:['me','be','wee'], school:['schools','cool','pool'], I:['eye','my'],
        like:['likes','lake','bike'], book:['books','look','cook'], cat:['cap','hat','cut'],
        is:['it','his'], plays:['play','place'], eat:['it','eight'], sky:['ski','skies'],
        read:['red','reads'], reads:['read','red'], swim:['slim','swing'], study:['steady','studies'] },
-  zh:{ '我':['你','他'], '去':['去过','出'], '学校':['学生','学习'], '看':['开','慢'], '书':['树','输'] }
+  zh:{ '我':['你','他'], '我们':['你们','他们'], '她':['他','它'], '他们':['我们','你们'],
+       '去':['出','住'], '看':['开','干'], '书':['树','输'], '学校':['学生','学习'],
+       '喜欢':['希望','欢迎'], '苹果汁':['苹果','果汁'], '今天':['明天','昨天'],
+       '每天':['明天','白天'], '踢':['提','题'], '足球':['篮球','足够'],
+       '学':['雪','血'], '英语':['汉语','用语'], '鸟':['尿','了'], '天上':['天下','明天'],
+       '飞':['非','肥'], '爸爸':['妈妈','哥哥'], '开':['看','来'], '车':['扯','这'],
+       '猫':['毛','忙'], '睡觉':['水饺','税收'], '中午':['中文','钟'], '吃':['七','迟'],
+       '午饭':['五分','舞蹈'], '会':['回','灰'], '游泳':['有用','游戏'] }
 };
 function distractorsFor(word){
   var pool = (CONFUSE[MODE] && CONFUSE[MODE][word]) ? CONFUSE[MODE][word].slice() : [];
@@ -637,6 +655,8 @@ function resize(){
   if(!renderer) return;
   renderer.setSize(W,H,false);
   camera.aspect=W/H; camera.updateProjectionMatrix();
+  // 조준기 그림 위치를 사격 판정 방향(aimY)과 항상 같이 움직인다
+  try{ document.getElementById('sight').style.top = (aimY()*100)+'%'; }catch(_){}
 }
 function forwardVec(){ return new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion); }
 
@@ -644,16 +664,28 @@ function forwardVec(){ return new THREE.Vector3(0,0,-1).applyQuaternion(player.q
    실물 조종석 사진에서 계기판이 화면 아래 절반을 차지하므로, 하늘이 보이는 창 중앙
    (화면 위에서 AIM_Y 지점)을 조준점으로 쓴다. 사격 판정·예광탄·적기 정면유지가
    모두 이 벡터를 기준으로 돌아야 조준기와 실제 명중이 어긋나지 않는다. */
-var AIM_Y = 0.30;
+/* 조준점의 화면 세로 위치 — 조종석 사진이 화면을 차지하는 비율이 화면 형태마다 달라서 고정할 수 없다.
+   넓은 화면일수록 조종석이 위로 올라오므로 조준점도 함께 올린다. CSS #sight{top} 은 resize() 가 맞춘다. */
+function aimY(){
+  var a = (H>0) ? W/H : 1.6;
+  if(a >= 1.9) return 0.24;      // 21:9 급 — 조종석이 화면 위쪽까지 올라온다
+  if(a <  1.0) return 0.34;      // 세로 폰 — 조종석은 하단에만 있어 여유가 있다
+  return 0.30;
+}
 /* 화면 가로 반화각(rad) — 세로 화면(모바일)은 이게 확 좁아진다.
    적기 배치 폭과 라벨 크기를 여기에 맞추지 않으면 폰에서 라벨이 통째로 창밖으로 나간다. */
 function hHalfFov(){ return Math.atan(Math.tan(camera.fov*Math.PI/360) * camera.aspect); }
 function labelScaleK(){ return Math.max(0.5, Math.min(1, camera.aspect/1.5)); }
-var _aimTmp=new THREE.Vector3(), _aimCam=new THREE.Vector3();
+/* ⚠️⚠️ 여기를 unproject 로 구현하면 안 된다 — 이 게임에서 가장 오래 잡은 버그다.
+   `new Vector3(0, ndcY, 0.5).unproject(camera)` 가 만드는 점은 near=0.5 기준으로
+   카메라 앞 **겨우 2m** 지점이다. 그런데 플레이어는 프레임당 2.5m 를 전진하고,
+   camera.matrixWorld 는 직전 렌더 시점 값이라 그 2m 를 그대로 넘어선다.
+   결과: 조준 벡터가 통째로 뒤집혀(뒤·위쪽) 적기가 등 뒤에 배치됐다.
+   → 행렬에 의존하지 않는 해석적 계산으로 푼다. 화면 중앙 세로 AIM 지점의 시선 방향이다. */
 function aimVec(){
-  _aimTmp.set(0, 1 - 2*AIM_Y, 0.5).unproject(camera);
-  camera.getWorldPosition(_aimCam);
-  return _aimTmp.sub(_aimCam).normalize().clone();
+  var vf = Math.tan(camera.fov * Math.PI / 360);      // 세로 반화각의 tan
+  var ndcY = 1 - 2*aimY();
+  return new THREE.Vector3(0, ndcY*vf, -1).normalize().applyQuaternion(player.quaternion);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -820,8 +852,10 @@ function spawnEnemy(word, isCorrect, kind, words, slotIdx, slotTotal){
   /* ⚠️ rightAx 축 기준 회전은 +가 '위'다(오른손 법칙). 처음에 부호를 반대로 놔서 적기가 전부 화면 위로 몰렸다.
      조준점(화면 30%) 기준 +0.12 rad(위, 화면 ≈20%) ~ −0.32 rad(아래, 화면 ≈55%) 범위에 흩뿌린다.
      인덱스 홀짝으로 위/아래를 번갈아 배치해 라벨이 같은 높이에 몰리지 않게 한다. */
-  // 위쪽 밴드는 +0.04 까지만 — 더 올리면 세로 화면에서 라벨이 상단 문장 바에 물린다
-  var band = ((slotIdx||0) % 2 === 0) ? (0.04 - Math.random()*0.16) : (-0.10 - Math.random()*0.22);
+  /* 밴드는 전부 조준선보다 '아래'다. 라벨이 기체 위에 뜨기 때문에, 기체를 조준선 높이에 두면
+     라벨이 화면 상단 문장 바(z-index 8)에 가려 아예 안 보인다 — 실제로 그렇게 사라졌다. */
+  // 아래로 너무 내리면 이번엔 조종석 캐노피 아치에 가린다. −0.06 ~ −0.27 이 위아래 모두 안전한 창이다.
+  var band = ((slotIdx||0) % 2 === 0) ? (-0.06 - Math.random()*0.10) : (-0.13 - Math.random()*0.08);
   e.slotPitch = band;
   var UPv=new THREE.Vector3(0,1,0), aim=aimVec();
   var rightAx=new THREE.Vector3().crossVectors(aim, UPv).normalize();
@@ -931,6 +965,11 @@ function newGame(){
     wrongWords:{}, prog:[]
   };
   player.position.set(0,0,0); player.quaternion.identity();
+  /* ⚠️ 반드시 여기서 행렬을 갱신한다.
+     aimVec() 은 camera.matrixWorld 의 역행렬로 조준 방향을 푸는데, 시작 화면의 데모 비행이
+     player 를 수백 m 이동·회전시켜 놓은 상태다. 갱신 없이 적기를 생성하면 데모 시점의
+     엉뚱한 방향에 뿌려지고, 그 뒤로는 영영 따라오지 못한다(실제로 그렇게 터졌다). */
+  player.updateMatrixWorld(true);
   clearEnemies(); loadSentence(true);
 }
 function bank(){ return (LESSON_SETS && LESSON_SETS.length) ? LESSON_SETS : SETS[MODE]; }
@@ -1035,6 +1074,7 @@ function hitWrong(e){
 function sentenceComplete(){
   G.sentences++; G.score+=300; G.time=Math.min(G.timeMax, G.time+8);
   banner('✦ 문장 완성! +300 ✦', '#ffd479');
+  hubComplete(300);              // 허브 점수·오늘 학습(스트릭)에 문장 1개 완성 반영
   updateHUD();
   if(P().voiceLock){ startAceDuel(); }        // 에이스: 음성 조준 결투 먼저
   else { startSpeaking(); }                   // 그 외: 바로 무전 교신(말하기)
@@ -1114,7 +1154,7 @@ function spSpeakStep(){
 function spFinish(success){
   document.getElementById('ovSpeak').classList.add('hide');
   SP=null; G.speaking=false;
-  if(success){ G.score+=250; banner('🎖️ 무전 교신 성공! +250', '#4ade80'); }
+  if(success){ G.score+=250; banner('🎖️ 무전 교신 성공! +250', '#4ade80'); hubComplete(250); }
   updateHUD();
   if(G.sentences>=Math.ceil(GOAL/3) && G.kills>=GOAL){ endGame(true); return; }
   if(G.kills>=GOAL){ endGame(true); return; }
@@ -1164,6 +1204,7 @@ function matchSentence(said, target){
 var input={ mx:0, my:0, active:false, keys:{} };
 (function bindInput(){
   var cv=document.getElementById('wrap');
+  /* 마우스(PC) = 화면 중앙 대비 '절대 위치' 조종. 커서가 곧 조종간이라 직관적이다. */
   function setFromClient(cx,cy){
     input.mx = Math.max(-1, Math.min(1, (cx - W/2)/(W*0.42)));
     input.my = Math.max(-1, Math.min(1, (cy - H*0.44)/(H*0.36)));
@@ -1172,14 +1213,41 @@ var input={ mx:0, my:0, active:false, keys:{} };
   cv.addEventListener('mousedown', function(e){
     if(e.target.closest('button')) return; ac(); G&&(G.fireHeld=true); });
   window.addEventListener('mouseup', function(){ if(G)G.fireHeld=false; });
+
+  /* ⚠️ 터치(모바일)는 절대 위치를 쓰면 안 된다.
+     손가락이 닿는 순간 그 좌표가 그대로 조종 입력이 되어 기체가 홱 튄다.
+     → 닿은 지점을 원점으로 잡는 '상대 드래그'. 화면 어디를 잡아도 그 자리가 중립이 된다.
+     ⚠️ 그리고 손가락 하나만 추적한다(touches[0] 을 쓰면 발사 버튼을 누른 손가락이
+        조종 입력으로 끼어들어 조준이 흔들린다 — 실제로 그렇게 만들었다가 잡았다). */
+  var steerId=null, sx0=0, sy0=0, mx0=0, my0=0;
+  var DRAG = 0.28;                      // 화면 짧은 변의 28% 를 끌면 최대 입력
+  function touchById(list, id){
+    for(var i=0;i<list.length;i++) if(list[i].identifier===id) return list[i];
+    return null;
+  }
   cv.addEventListener('touchstart', function(e){
-    if(e.target.closest('button')) return;
-    var t=e.touches[0]; setFromClient(t.clientX,t.clientY); input.active=true; ac();
+    if(e.target.closest('button')) return;          // 발사·상단 버튼은 조종에서 제외
+    if(steerId!==null) return;                      // 이미 조종 중인 손가락이 있다
+    var t=e.changedTouches[0];
+    steerId=t.identifier; sx0=t.clientX; sy0=t.clientY; mx0=input.mx; my0=input.my;
+    input.active=true; ac();
   }, {passive:true});
   cv.addEventListener('touchmove', function(e){
-    var t=e.touches[0]; setFromClient(t.clientX,t.clientY);
+    if(steerId===null) return;
+    var t=touchById(e.touches, steerId); if(!t) return;
+    var span=Math.min(W,H)*DRAG;
+    input.mx = Math.max(-1, Math.min(1, mx0 + (t.clientX-sx0)/span));
+    input.my = Math.max(-1, Math.min(1, my0 + (t.clientY-sy0)/span));
   }, {passive:true});
-  cv.addEventListener('touchend', function(){ input.mx*=0.3; input.my*=0.3; }, {passive:true});
+  function endTouch(e){
+    if(steerId===null) return;
+    if(touchById(e.changedTouches, steerId)){
+      steerId=null;
+      input.mx*=0.25; input.my*=0.25;               // 손 떼면 수평으로 되돌아온다
+    }
+  }
+  cv.addEventListener('touchend', endTouch, {passive:true});
+  cv.addEventListener('touchcancel', endTouch, {passive:true});
 
   window.addEventListener('keydown', function(e){
     input.keys[e.code]=true;
@@ -1292,13 +1360,17 @@ function updateEnemies(dt){
        대신 적기마다 조준선 기준 고정 슬롯(좌우각·상하각)을 주고 그 지점을 목표로 삼는다.
        위빙은 슬롯 각도에 sin 흔들림으로 얹는다. 결과: 적기가 항상 창 안 예측 가능한 자리에 머문다. */
     var rightAx=new THREE.Vector3().crossVectors(pf, UP).normalize();
+    /* 위빙 진폭은 슬롯 간격(5기 기준 약 0.25rad)의 1/5 이하로 묶는다.
+       크게 주면 옆 슬롯 영역까지 흔들려 들어가 라벨끼리 포개진다. */
     var want=pf.clone()
-      .applyAxisAngle(UP,      e.slotYaw   + Math.sin(e.t*(e.ace?1.15:0.8)+e.ph)*0.13)
-      .applyAxisAngle(rightAx, e.slotPitch + Math.sin(e.t*0.55+e.ph)*0.06);
+      .applyAxisAngle(UP,      e.slotYaw   + Math.sin(e.t*(e.ace?1.15:0.8)+e.ph)*0.05)
+      .applyAxisAngle(rightAx, e.slotPitch + Math.sin(e.t*0.55+e.ph)*0.03);
     var target=pp.clone().addScaledVector(want, e.hold);
 
     var mv=target.sub(m.position);
-    var mvLen=mv.length(), cap=sp*3.2;
+    /* 보정 상한은 플레이어 속도보다 반드시 커야 한다.
+       작으면 한 번 뒤처진 적기가 영영 따라오지 못하고 하늘이 비어버린다. */
+    var mvLen=mv.length(), cap=Math.max(sp*3.2, G.speed*1.4);
     if(mvLen>cap) mv.multiplyScalar(cap/mvLen);      // 순간이동처럼 안 보이게 속도 상한
     // 고도 하한(바다) 보호
     if(m.position.y < -760) mv.y += 60;
@@ -1313,8 +1385,10 @@ function updateEnemies(dt){
     // 라벨 — 거리와 무관하게 화면상 크기 일정
     if(e.label){
       var dd=Math.max(30, m.position.distanceTo(camera.getWorldPosition(new THREE.Vector3())));
-      var s=dd*0.052*labelScaleK(); e.label.scale.set(s*3.1, s, 1);
-      e.label.position.y = 4.2 + (e.layer||0)*2.4 + s*0.35;
+      var s=dd*0.044*labelScaleK(); e.label.scale.set(s*3.1, s, 1);
+      /* 라벨 층 간격은 '라벨 높이(s)'에 비례해야 한다. 고정값(2.4)으로 두면 라벨 높이의 1/4밖에 안 벌어져
+         좌우로 가까운 두 기체의 라벨이 그대로 포개진다. 층 0/1/2 를 아래·가운데·위로 나눈다. */
+      e.label.position.y = 4.2 + s*0.35 + (((e.layer||0)-1) * s*1.15);
     }
     // 적 사격 — 정면 각도 안에 들어왔을 때만, 아주 가끔
     e.fireT-=dt;
@@ -1525,9 +1599,24 @@ function togglePause(){
     });
   });
 })();
+/* ⚠️ 허브(student-games.html)가 듣는 메시지 타입은 정확히 두 개다 —
+   'mangoi-game-back'(메뉴로 복귀) / 'mangoi-game-complete'(점수·스트릭 반영).
+   처음에 'mangoi-game-exit' 를 보내 허브가 아무 반응도 안 했다. 이름이 틀리면 조용히 죽는다. */
+function hubMsg(type, payload){
+  try{
+    if(window.parent && window.parent!==window){
+      var m = { type:type }; if(payload) for(var k in payload) m[k]=payload[k];
+      window.parent.postMessage(m, '*');
+      return true;
+    }
+  }catch(_){}
+  return false;
+}
+/* 라운드 성과를 허브에 넘긴다 → 허브가 점수 누적 + 오늘 학습(스트릭) 처리 */
+function hubComplete(score){ hubMsg('mangoi-game-complete', { score: Math.max(0, Math.round(score||0)) }); }
 function goBack(){
-  stopSpeak(); engineStop();
-  try{ if(window.parent && window.parent!==window){ window.parent.postMessage({type:'mangoi-game-exit'},'*'); } }catch(_){}
+  stopSpeak(); engineStop(); flushProg();
+  if(hubMsg('mangoi-game-back')) return;                 // 허브 안이면 허브가 메뉴로 되돌린다
   if(history.length>1) history.back(); else location.href='/student-games.html';
 }
 function mountLessonNav(){
