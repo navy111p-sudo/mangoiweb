@@ -290,8 +290,15 @@
   <h3>경영진 결정 요청 12건 / Twelve decisions requested</h3>
   <ol>
     <li><b>결정 1 <span class="status urgent">최우선</span> — 결석 시 지급률 0 → 100.</b>
-        관리자 「공제 규칙」 설정 하나. 코드·배포 불필요. 방침("학생 안 와도 전액")과 코드를 일치시킴.
-        <span class="en"><b>D1 — Set the no-show pay rate to 100%.</b> One admin setting; no code, no deploy.</span></li>
+        관리자 「공제 규칙」 설정 하나. 코드·배포 불필요.<br>
+        <b class="ok">비용 증가가 아닙니다</b> — 노쇼 수업도 <b>수업료를 그대로 받으므로</b>,
+        교사에게 전액을 줘야 <b>정상 수업과 마진이 같아집니다.</b>
+        현재는 <b class="no">수업료는 받고 교사에겐 0원</b>이라 정상보다 마진이 큰 상태이며,
+        그 차액은 <b>잘못 없는 교사가 부담</b>하고 있습니다.
+        <span class="en"><b>D1 — Set the no-show pay rate to 100%.</b> One admin setting; no code, no deploy.
+        <b>This is not a cost increase</b> — the fee for a no-show lesson is retained, so paying the teacher in full
+        simply restores <b>the margin of a normal lesson</b>. Today we keep the fee and pay nothing,
+        and <b>the teacher covers the difference</b>.</span></li>
 
     <li><b>결정 2 — 지금까지 결석 수업의 실제 지급 이력 확인.</b> 소급 정산 여부가 여기서 갈립니다.
         <span class="en"><b>D2 — Establish what was actually paid</b> for past no-shows; determines back-pay.</span></li>
@@ -642,6 +649,38 @@
   표대로 지급했다면 <b>소급 정산 필요</b>). <b>조회 1회면 둘 다 확정됩니다.</b>
 </div>
 
+<div class="warn" style="border-left-color:#f87171;background:rgba(248,113,113,.13)">
+  <b>그리고 이 문제는 단순한 설정 오류가 아닙니다 — 손익 구조를 보면 가장 나쁜 형태입니다.</b><br><br>
+  학생이 통보 없이 오지 않으면 그 수업은 <b>사용한 것으로 처리되어 회사는 수업료를 그대로 받습니다.</b>
+  그런데 교사에게는 <b>0원</b>을 지급합니다. 이때 세 주체의 장부는 이렇게 됩니다:
+  <table class="tbl-sm" style="margin:11px 0">
+  <tr><th style="width:16%">주체</th><th style="width:26%">현행 코드(0원 지급)</th><th>방침대로(전액 지급)</th></tr>
+  <tr><td><b>회사</b></td>
+      <td class="no"><b>▲▲ 수업료는 받고 원가는 0</b><br>
+      <span style="font-size:12px">정상 수업보다 마진이 더 큼</span></td>
+      <td class="ok"><b>― 정상 수업과 동일</b><br><span style="font-size:12px">추가 부담 없음</span></td></tr>
+  <tr><td><b>교사</b></td>
+      <td class="no"><b>▼ 대기했는데 0원</b></td>
+      <td class="ok"><b>― 정상 지급</b></td></tr>
+  <tr><td><b>학생</b></td>
+      <td class="mid">▼ 수업 1회 소진</td>
+      <td class="mid">▼ 수업 1회 소진<br><span style="font-size:12px">(본인 사정 — 통제 가능했음)</span></td></tr>
+  </table>
+  <b>현행은 「잘못하지 않은 교사만 손해를 보고, 회사가 그 몫을 가져가는」 구조입니다.</b>
+  이것은 07-28 회사 귀책 사고(④)와 <b>정확히 같은 형태</b>입니다.<br><br>
+  <b class="ok">따라서 결정 1(0→100)은 「비용 증가」가 아닙니다.</b>
+  회사가 정상 수업과 똑같은 원가를 부담하게 되는 것뿐이며,
+  <b>받지 말았어야 할 이득을 원래 자리로 되돌리는 조치</b>입니다.
+  <div class="en-block r" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>This is not a mere misconfiguration — structurally it is the worst shape a rule can take.</b>
+    When a student fails to appear, the lesson is <b>counted as used and the company keeps the fee</b> —
+    yet the teacher is paid <b>zero</b>. The company ends up with <b>a larger margin than on a normal lesson</b>,
+    and the only party carrying a loss is <b>the teacher, who did nothing wrong</b>.
+    That is the same shape as the company-fault incident in ④.<br>
+    <b>Decision 1 is therefore not a cost increase.</b> It simply restores the normal cost of a lesson —
+    <b>returning a gain we should never have been taking.</b></div>
+</div>
+
 <h3>② 연장·성사에 대한 보상이 없습니다 <span class="enh">2. No reward for making a lesson happen</span></h3>
 <p>수업료는 <b>예약된 시간</b>만 봅니다(<code>api-admin.ts:1169, 1073</code>).
 실제 수업 길이나 성사 여부가 금액에 반영되는 지점은 <b class="no">없습니다.</b>
@@ -802,8 +841,13 @@
     <td>―</td><td>―</td><td class="ok">▲</td>
     <td>수업이 사라지지 않고 이동. <b>월 2회 상한</b>으로 교사 손해를 막음(3-1 B안)</td></tr>
 <tr style="background:rgba(110,231,168,.07)"><td>임박 취소 · 무통보 노쇼</td>
-    <td class="mid">▼<br><span style="font-size:11px">₱50</span></td><td>―</td><td>―</td>
-    <td>회사 지출은 <b>손해가 아니라 「교사가 끝까지 기다리게 하는 값」</b></td></tr>
+    <td>―</td><td>―</td><td class="mid">▼</td>
+    <td><b>회사는 손해가 아닙니다.</b> 그 수업은 <b>사용한 것으로 처리되어 수업료를 그대로 받습니다.</b>
+    교사에게 전액을 줘도 <b>정상 수업과 원가 구조가 똑같습니다.</b>
+    손해는 <b>본인 사정으로 수업 1회를 소진한 학생</b>에게만 남습니다 — 기준 ③에 정확히 맞습니다
+    <span class="en"><b>The company loses nothing</b> — the lesson is counted as used and the fee is retained,
+    so paying the teacher in full leaves the same margin as any normal lesson.
+    The only loss sits with <b>the student who consumed a lesson through their own circumstances</b></span></td></tr>
 <tr style="background:rgba(110,231,168,.07)"><td>학생 지각 → 5분이라도 수업</td>
     <td class="ok">▲</td><td class="ok">▲<br><span style="font-size:11px">인센티브</span></td><td class="ok">▲</td>
     <td class="ok"><b>셋 다 이득.</b> 비용 ₱15로 세 주체가 같은 방향을 봄</td></tr>
@@ -837,7 +881,13 @@
 <tr><th style="width:30%">항목</th><th class="num">월</th><th class="num">연</th><th>비고</th></tr>
 <tr style="background:rgba(248,113,113,.08)"><td><b>결석 지급률 0→100 수정</b></td>
     <td class="num">₱0 <b>또는</b> ₱7,050</td><td class="num">₱0 <b>또는</b> 약 203만원</td>
-    <td class="no"><b>결정 2에서 확정</b> — 수기로 전액 지급 중이었다면 ₱0(표만 수정)</td></tr>
+    <td class="no"><b>결정 2에서 확정</b> — 수기로 전액 지급 중이었다면 ₱0(표만 수정).<br>
+    <b>단, 이는 「비용 증가」가 아니라 마진 정상화입니다</b> —
+    노쇼 수업도 <b>수업료를 그대로 받으므로</b>, 교사에게 전액을 줘도
+    <b>정상 수업과 마진이 같습니다.</b> 지금은 그보다 마진이 큰 상태입니다
+    <span class="en"><b>Not a cost increase but a margin correction</b> — the fee for a no-show lesson
+    is retained, so paying the teacher in full yields <b>the same margin as any normal lesson</b>.
+    Today's margin is higher than it should be</span></td></tr>
 <tr style="background:rgba(110,231,168,.08)"><td><b>성사 인센티브</b>(₱15)</td>
     <td class="num">₱2,123~4,245</td><td class="num">약 61만~122만원</td>
     <td class="ok">노쇼·지각 건에서만 발생 · 건당 정액이라 상한이 명확</td></tr>
