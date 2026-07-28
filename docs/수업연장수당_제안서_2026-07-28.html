@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>수업 연장 수당 제도 — 제안서 (2026-07-28) | Lesson Extension Pay Policy Proposal</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a1018;color:#e6eef7;
+    font-family:'Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
+    line-height:1.72;font-size:15.5px}
+  .wrap{max-width:1020px;margin:0 auto;padding:0 22px 90px}
+
+  .hero{position:relative;margin:0 -22px 34px;padding:56px 22px 44px;
+    background:linear-gradient(150deg,#0d2137 0%,#12304c 42%,#0b1a2b 100%);
+    border-bottom:3px solid #ffd479;overflow:hidden}
+  .hero::after{content:'';position:absolute;right:-60px;top:-40px;width:340px;height:340px;
+    background:radial-gradient(circle,rgba(255,212,121,.16),transparent 66%);border-radius:50%}
+  .hero .tag{display:inline-block;font-size:12px;font-weight:900;letter-spacing:2px;
+    color:#0a1018;background:#ffd479;border-radius:20px;padding:4px 14px;margin-bottom:14px}
+  .hero h1{margin:0 0 6px;font-size:clamp(25px,4.2vw,38px);line-height:1.22;letter-spacing:-1px}
+  .hero h1 span{color:#ffd479}
+  .hero .sub{font-size:15px;color:#9fc0dc;font-weight:700}
+  .hero .en{font-size:13.5px;color:#7d9ab5;font-weight:600;margin-top:3px}
+  .hero .meta{margin-top:18px;font-size:12.5px;color:#7d9ab5}
+
+  h2{margin:54px 0 14px;font-size:23px;letter-spacing:-.6px;padding-bottom:9px;
+    border-bottom:2px solid rgba(255,212,121,.28)}
+  h2 .n{display:inline-block;width:31px;height:31px;line-height:31px;text-align:center;
+    background:#ffd479;color:#0a1018;border-radius:9px;font-size:15px;font-weight:900;margin-right:9px}
+  h2 small{display:block;font-size:12.5px;color:#7d9ab5;font-weight:700;margin-top:4px;
+    padding-left:40px;letter-spacing:0}
+  h3{margin:30px 0 8px;font-size:17.5px;color:#ffd479}
+  h3 .en{display:block;font-size:12.5px;color:#7d9ab5;font-weight:600;letter-spacing:0}
+  h4{margin:18px 0 6px;font-size:15.5px;color:#7fd1ff}
+  p{margin:10px 0}
+  a{color:#7fd1ff}
+  code{background:rgba(127,209,255,.10);border:1px solid rgba(127,209,255,.2);
+    border-radius:5px;padding:1px 6px;font-size:13px;color:#bfe2ff;
+    font-family:Consolas,'Courier New',monospace}
+
+  .lead{font-size:17px;background:rgba(255,212,121,.07);border-left:4px solid #ffd479;
+    border-radius:0 12px 12px 0;padding:16px 20px;margin:22px 0}
+  .lead b{color:#ffd479}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{border:1px solid rgba(140,175,210,.24);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:rgba(127,209,255,.10);color:#bfe2ff;font-weight:900;font-size:13px}
+  td b{color:#ffd479}
+  tr:nth-child(even) td{background:rgba(255,255,255,.022)}
+  .tbl-sm{font-size:13px}
+  .ok{color:#6ee7a8;font-weight:800}
+  .no{color:#f87171;font-weight:800}
+  .mid{color:#ffd479;font-weight:800}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:13px;margin:18px 0}
+  .card{background:linear-gradient(#12202e,#0d1822);border:1px solid rgba(140,175,210,.22);
+    border-radius:13px;padding:15px 16px}
+  .card h4{margin:0 0 6px;font-size:15px;color:#7fd1ff}
+  .card p{margin:0;font-size:13.5px;color:#b8cde0}
+  .card .big{font-size:26px;font-weight:900;color:#ffd479;line-height:1.2}
+
+  .warn{background:rgba(248,113,113,.09);border-left:4px solid #f87171;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .warn b{color:#fca5a5}
+  .good{background:rgba(110,231,168,.08);border-left:4px solid #6ee7a8;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .good b{color:#6ee7a8}
+  .note{background:rgba(127,209,255,.07);border-left:4px solid #7fd1ff;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .note b{color:#bfe2ff}
+
+  .en-block{background:rgba(255,255,255,.028);border:1px dashed rgba(140,175,210,.3);
+    border-radius:11px;padding:13px 16px;margin:12px 0;font-size:13.8px;color:#b8cde0;line-height:1.68}
+  .en-block b{color:#dbe9f7}
+  .en-block .lbl{display:inline-block;font-size:11px;font-weight:900;letter-spacing:1.4px;
+    color:#0a1018;background:#7fd1ff;border-radius:4px;padding:1px 8px;margin-bottom:7px}
+
+  .rule{background:linear-gradient(#101d2a,#0c1621);border:1px solid rgba(255,212,121,.26);
+    border-radius:13px;padding:16px 18px;margin:14px 0}
+  .rule .no-{display:inline-block;font-size:12px;font-weight:900;letter-spacing:1px;
+    color:#0a1018;background:#ffd479;border-radius:5px;padding:2px 9px;margin-bottom:8px}
+  .rule h4{margin:0 0 8px;font-size:16.5px;color:#ffd479}
+  .rule p{margin:6px 0;font-size:14.3px}
+  .rule .en{margin-top:9px;padding-top:9px;border-top:1px solid rgba(140,175,210,.2);
+    font-size:13.3px;color:#9fc0dc}
+
+  .flow{display:flex;flex-wrap:wrap;gap:9px;align-items:stretch;margin:18px 0}
+  .flow .step{flex:1 1 165px;background:#101d2a;border:1px solid rgba(140,175,210,.24);
+    border-radius:11px;padding:12px 13px;font-size:13.3px;position:relative}
+  .flow .step b{display:block;color:#7fd1ff;font-size:13px;margin-bottom:4px}
+
+  ul{margin:10px 0;padding-left:22px}
+  li{margin:6px 0}
+  .chk li{list-style:none;position:relative;padding-left:24px}
+  .chk li::before{content:'\2713';position:absolute;left:0;color:#6ee7a8;font-weight:900}
+  .x li{list-style:none;position:relative;padding-left:24px}
+  .x li::before{content:'\2715';position:absolute;left:0;color:#f87171;font-weight:900}
+
+  .toc{background:#101d2a;border:1px solid rgba(140,175,210,.22);border-radius:13px;
+    padding:16px 20px;margin:24px 0;font-size:14px}
+  .toc b{color:#ffd479;display:block;margin-bottom:8px}
+  .toc a{display:inline-block;margin:3px 14px 3px 0;color:#bfe2ff;text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+
+  .qa{border-left:3px solid rgba(140,175,210,.3);padding-left:16px;margin:16px 0}
+  .qa .q{color:#7fd1ff;font-weight:800;font-size:14.8px;margin:14px 0 4px}
+  .qa .a{font-size:14.2px;color:#cfe0ee;margin:0 0 4px}
+  .qa .ae{font-size:13px;color:#8fadc7;margin:0}
+
+  .src{font-size:12.5px;color:#7d9ab5;margin-top:40px;border-top:1px solid rgba(140,175,210,.2);
+    padding-top:16px;line-height:1.9}
+  .src a{color:#9fc0dc}
+  hr.sp{border:0;border-top:1px solid rgba(140,175,210,.16);margin:34px 0}
+  .big-quote{font-size:19px;font-weight:900;color:#ffd479;line-height:1.5;
+    background:rgba(255,212,121,.06);border-radius:13px;padding:20px 24px;margin:24px 0;
+    border:1px solid rgba(255,212,121,.24)}
+  .big-quote .en{display:block;font-size:14px;color:#9fc0dc;font-weight:600;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="tag">PROPOSAL · 2026-07-28</div>
+  <h1>수업 <span>연장 수당</span> 제도 제안서</h1>
+  <div class="sub">학생 지각 · 기술 문제로 수업을 연장한 강사에게, 정당한 보상을</div>
+  <div class="en">Lesson Extension Pay Policy — Fair compensation for teachers who extend lessons due to student lateness or technical issues</div>
+  <div class="meta">
+    출처: 강사 피드백 #17 &nbsp;|&nbsp; 조사: 경쟁사 6개사 + 현행 코드 분석 + 필리핀 노동법 검토<br>
+    Source: Teacher feedback #17 &nbsp;|&nbsp; Research: 6 competitor platforms + current system audit + PH labor law review
+  </div>
+</div>
+
+<div class="toc">
+  <b>목차 / Contents</b>
+  <a href="#s0">한 장 요약</a>
+  <a href="#s1">1. 현재 문제점</a>
+  <a href="#s2">2. 장점과 단점</a>
+  <a href="#s3">3. 보완점</a>
+  <a href="#s4">4. 추가할 교칙</a>
+  <a href="#s5">5. 기타 아이디어</a>
+  <a href="#s6">Q&amp;A</a>
+  <a href="#s7">실행 로드맵</a>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<h2 id="s0"><span class="n">0</span>한 장 요약<small>One-page summary — 이것만 읽어도 됩니다 / Read this if nothing else</small></h2>
+
+<div class="big-quote">
+  선생님이 학생을 위해 10분을 더 가르쳤다면, 그 10분은 일한 시간입니다.<br>
+  지금 우리 시스템은 그 10분을 <u>세지 않습니다</u>. 그런데 연장하지 <u>않으면</u> 깎습니다.<br>
+  <span class="en">If a teacher taught 10 extra minutes for a student, those 10 minutes are work.
+  Today our system does <u>not count</u> them — yet it <u>deducts pay</u> when a teacher does not extend.
+  We are asking for one thing to be paid, and punishing its absence. That is not a rule; that is a gap.</span>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="big">0원</div><p><b>연장 수당</b><br>현재 연장 시간에 지급되는 금액<br><span style="color:#8fadc7">Current pay for extended minutes</span></p></div>
+  <div class="card"><div class="big">₱10<span style="font-size:15px">/분</span></div><p><b>미연장 차감</b><br>연장하지 않았을 때 깎이는 금액<br><span style="color:#8fadc7">Deduction per late minute not extended</span></p></div>
+  <div class="card"><div class="big">6곳</div><p><b>조사한 경쟁사</b><br>Cambly · italki · Preply · 51Talk · Engoo · Native Camp</p></div>
+  <div class="card"><div class="big">0곳</div><p><b>우리와 같은 곳</b><br>「연장 의무 + 무급 + 미이행 벌금」을 쓰는 회사<br><span style="color:#8fadc7">Platforms using our current rule</span></p></div>
+</div>
+
+<div class="lead">
+  <b>결론 한 줄:</b> 연장은 <b>최대 10분까지 유급</b>으로 인정하고, 자동으로 기록하고, 매니저가 확인해 지급합니다.
+  그리고 <b>「연장 안 하면 깎는」 규칙은 폐지</b>합니다. 벌이 아니라 보상으로 바꿉니다.
+  <div class="en-block" style="margin-top:12px">
+    <span class="lbl">IN ONE LINE</span><br>
+    We will <b>pay for extension time (up to 10 minutes)</b>, record it <b>automatically</b>, and release it after manager confirmation.
+    The existing <b>"deduction for not extending" rule will be removed</b>. We are replacing a penalty with a reward.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<h2 id="s1"><span class="n">1</span>현재 문제점<small>Current problems — 코드를 직접 확인한 사실만 적었습니다 / Verified against the actual source code</small></h2>
+
+<h3>문제 ①  연장 시간은 급여에 1분도 반영되지 않습니다
+  <span class="en">Problem 1 — Not a single extended minute reaches the payslip</span></h3>
+
+<p>수업료 계산식은 <b>예약표에 적힌 시간</b>만 봅니다. 실제로 몇 분을 가르쳤는지는 계산에 들어가지 않습니다.</p>
+
+<table class="tbl-sm">
+<tr><th style="width:34%">위치 / Location</th><th>내용 / What it does</th></tr>
+<tr><td><code>api-admin.ts:1169</code></td><td><code>base = (mins / 10) × fee</code> — 금액의 유일한 재료가 <code>mins</code></td></tr>
+<tr><td><code>api-admin.ts:1073</code></td><td><code>mins = duration_min</code> — 이것은 <b>예약된 수업 시간</b>입니다 (실제 시간 아님)</td></tr>
+<tr><td>—</td><td>실제 수업 길이가 금액 계산에 사용되는 곳: <b class="no">없음 (0곳)</b></td></tr>
+</table>
+
+<p><b>실제 결과:</b> 20분 수업을 30분 가르쳐도 <b>20분치</b>가 지급됩니다. 그 10분은 어디에도 기록되지 않습니다.</p>
+
+<div class="en-block">
+  <span class="lbl">EN</span><br>
+  The fee formula uses <b>only the scheduled duration</b> (<code>duration_min</code>). Actual teaching length never enters the calculation.
+  If you teach 30 minutes for a 20-minute booking, you are paid for 20. Those 10 minutes are not recorded anywhere in the system.
+</div>
+
+<h3>문제 ②  그런데 「연장하지 않으면」 깎는 규칙은 이미 켜져 있습니다
+  <span class="en">Problem 2 — But the deduction for NOT extending is already live</span></h3>
+
+<table class="tbl-sm">
+<tr><th style="width:34%">위치</th><th>내용</th></tr>
+<tr><td><code>api-admin.ts:966</code></td><td><code>late_no_extend</code> · "지각 수업 연장 실패" · <b>1분당 ₱10 차감</b> · <b class="no">enabled = 1 (켜짐)</b></td></tr>
+<tr><td><code>api-admin.ts:1442</code></td><td>차감 근거가 되는 지각 분수는 <b>관리자가 손으로 입력</b> (<code>lesson_late_minutes</code>)</td></tr>
+</table>
+
+<div class="warn">
+  <b>이것이 핵심 문제입니다.</b> 규칙이 한쪽 방향으로만 작동합니다.<br><br>
+  <table class="tbl-sm" style="margin:0">
+  <tr><th>상황</th><th>시스템 처리</th></tr>
+  <tr><td>학생이 늦음 → 강사가 <b>연장해줌</b></td><td class="no">추가 지급 없음. 기록조차 남지 않음</td></tr>
+  <tr><td>학생이 늦음 → 강사가 <b>연장 안 함</b></td><td class="no">1분당 ₱10 차감</td></tr>
+  </table>
+  <br>
+  강사 입장에서 이 규칙은 <b>"해도 이득 없고, 안 하면 손해"</b>입니다.
+  이것은 강사가 불평하는 문제가 아니라 <b>제도 설계의 결함</b>입니다.
+  <div class="en-block" style="margin-top:12px;border-color:rgba(248,113,113,.35)">
+    <span class="lbl" style="background:#f87171">EN</span><br>
+    The rule only works in one direction. Extend and you gain nothing — not even a record.
+    Fail to extend and you lose ₱10 per minute. From the teacher's side this reads as
+    <b>"no reward for doing it, a fine for not doing it."</b> This is a design flaw on our side, not a complaint on theirs.
+  </div>
+</div>
+
+<h3>문제 ③  차감의 근거가 사람의 손입력입니다
+  <span class="en">Problem 3 — The deduction is based on manual entry, not objective logs</span></h3>
+<p>지각 분수를 매니저가 표에 직접 타이핑합니다. 코드 주석에도 <i>"근태 자동로그 도입 전까지 사용"</i>이라고 적혀 있습니다(<code>api-admin.ts:1441</code>).
+돈이 걸린 판정을 사람의 기억과 입력에 의존하면, <b>강사가 결과를 납득하기 어렵고</b> 매니저도 방어하기 어렵습니다.
+"왜 저만 깎였나요?"라는 질문에 시스템이 답을 못 합니다.</p>
+<div class="en-block">
+  <span class="lbl">EN</span><br>
+  Late minutes are typed in by a manager. When money depends on a human's memory,
+  the teacher cannot verify it and the manager cannot defend it. The system has no answer to "why was I the one deducted?"
+</div>
+
+<h3>문제 ④  강사에게 공지된 성문 규정이 없습니다
+  <span class="en">Problem 4 — There is no written, published rule</span></h3>
+<p>차감 규칙은 <b>DB 안에만</b> 있고, 강사가 볼 수 있는 문서로 공지된 적이 없습니다.
+강사가 이번에 질문한 것 자체가 증거입니다 — <b>규칙이 있는지도 모르고 일하고 있었습니다.</b>
+사전 공지 없는 급여 차감은 신뢰의 문제이자, 아래 ⑤의 법적 문제이기도 합니다.</p>
+
+<h3 style="color:#f87171">문제 ⑤  필리핀 노동법 리스크 (반드시 확인 필요)
+  <span class="en" style="color:#fca5a5">Problem 5 — Philippine labor law risk (must be verified with local counsel)</span></h3>
+<div class="warn">
+  필리핀 노동법 <b>Article 113</b>은 <b>임금 공제를 원칙적으로 금지</b>합니다.
+  허용되는 것은 SSS·PhilHealth·Pag-IBIG·세금 등 <b>법이 정한 항목</b>과 근로자 동의가 있는 보험료·조합비 정도이며,
+  <b>회사가 만든 벌칙성 공제는 근로자가 동의했더라도 위법</b>으로 볼 수 있다는 것이 현지 해설의 일관된 설명입니다.
+  위반 시 전액 반환 + 이자, DOLE 행정 제재가 따를 수 있습니다.<br><br>
+  <b>즉, "차감(deduction)" 이라는 형식 자체가 위험합니다.</b> 같은 목적이라면
+  <b>기본급을 낮추고 성과 인센티브를 얹는 구조</b>가 훨씬 안전합니다.
+  <br><br>
+  <span style="color:#fca5a5">※ 이것은 법률 자문이 아닙니다. 실행 전 필리핀 현지 노무사 확인을 권합니다.</span>
+  <div class="en-block" style="margin-top:12px;border-color:rgba(248,113,113,.35)">
+    <span class="lbl" style="background:#f87171">EN</span><br>
+    PH Labor Code <b>Art. 113</b> generally <b>prohibits wage deductions</b> outside statutory items (SSS, PhilHealth, Pag-IBIG, tax)
+    and a few consented cases. Company-created penalty deductions may be unlawful <b>even with employee consent</b>,
+    with exposure to full refund plus interest and DOLE sanctions.
+    The safer structure for the same goal is <b>a base rate plus a performance incentive</b>, never a deduction.
+    <br><i>This is not legal advice — please confirm with PH counsel before rollout.</i>
+  </div>
+</div>
+
+<h3>문제 ⑥  학생·학부모 쪽 규칙도 없습니다
+  <span class="en">Problem 6 — There is no rule on the student side either</span></h3>
+<p>학생이 10분 늦으면 수업이 10분 줄어드는지, 연장되는지 <b>아무 데도 안내되어 있지 않습니다.</b>
+그래서 학부모는 "왜 20분 안 했냐"고 하고, 강사는 그 사이에서 혼자 감당합니다.
+<b>강사에게만 규칙을 만들고 학생에게는 안 만들면, 그 부담은 100% 강사가 집니다.</b></p>
+
+<!-- ══════════════════════════════════════════════════ -->
+<h2 id="s2"><span class="n">2</span>장점과 단점<small>Options compared — 경쟁사는 어떻게 하고 있는가 / What competitors actually do</small></h2>
+
+<h3>경쟁사 조사 결과 <span class="en">Competitor research</span></h3>
+
+<table class="tbl-sm">
+<tr>
+  <th style="width:15%">플랫폼</th>
+  <th style="width:24%">학생이 늦었을 때 / Student late</th>
+  <th style="width:20%">연장 의무 / Must extend?</th>
+  <th>강사 보수 방식 / How teachers are paid</th>
+</tr>
+<tr>
+  <td><b>Cambly</b><br><span style="font-size:12px;color:#8fadc7">미국</span></td>
+  <td>강사는 10분 대기. <b class="ok">그 대기 시간도 지급</b></td>
+  <td>해당 없음<br><span style="font-size:12px">(시간으로 지급하므로)</span></td>
+  <td><b>분 단위 지급</b> ($0.17/분, Kids $0.20/분).
+      학생이 먼저 끊어도 <b class="ok">5분까지 추가 지급</b></td>
+</tr>
+<tr>
+  <td><b>italki</b><br><span style="font-size:12px;color:#8fadc7">글로벌</span></td>
+  <td>예정 시간 끝까지 교실에서 대기</td>
+  <td><b class="ok">없음 — 지각으로 잃은 시간을<br>보충할 의무 없음(명문)</b></td>
+  <td>노쇼 시 <b class="ok">전액 지급 권리</b></td>
+</tr>
+<tr>
+  <td><b>Preply</b><br><span style="font-size:12px;color:#8fadc7">글로벌</span></td>
+  <td>취소 정책에 따름</td>
+  <td>없음</td>
+  <td>학생이 안 와도 대개 <b class="ok">수업 완료 처리 → 지급</b></td>
+</tr>
+<tr>
+  <td><b>51Talk</b><br><span style="font-size:12px;color:#8fadc7">필리핀 강사</span></td>
+  <td>—</td>
+  <td>—</td>
+  <td><b class="no">벌칙 중심</b>. 지각·조기퇴장에 수업료의 몇 배 페널티.
+      학생 결석 시 절반만 지급. <b class="no">강사 리뷰에서 최다 불만 항목</b></td>
+</tr>
+<tr>
+  <td><b>Engoo</b> / <b>Native Camp</b><br><span style="font-size:12px;color:#8fadc7">필리핀 강사</span></td>
+  <td>—</td>
+  <td>없음</td>
+  <td>수업 건당 고정 (Native Camp 약 ₱60 / 25분).
+      연장이라는 개념 자체가 없음</td>
+</tr>
+<tr style="background:rgba(248,113,113,.1)">
+  <td><b>망고아이 (현행)</b></td>
+  <td>규정 없음</td>
+  <td><b class="no">사실상 의무<br>(안 하면 차감)</b></td>
+  <td><b class="no">연장 무급 + 미연장 ₱10/분 차감</b></td>
+</tr>
+</table>
+
+<div class="lead">
+  <b>조사에서 나온 가장 중요한 사실:</b> 업계는 딱 두 갈래입니다.<br>
+  ① <b>시간으로 지급한다</b> (Cambly — 가르친 만큼, 기다린 시간까지)<br>
+  ② <b>연장 의무가 아예 없다</b> (italki — 지각은 학생 책임, 보충 의무 없음)<br><br>
+  <b>「연장은 의무인데 무급이고, 안 하면 벌금」을 쓰는 곳은 조사한 6곳 중 0곳입니다.</b>
+  가장 가까운 것이 51Talk의 벌칙 체계인데, 그것이 바로 강사 평판이 무너진 대표 사례입니다.
+  <div class="en-block" style="margin-top:12px">
+    <span class="lbl">KEY FINDING</span><br>
+    The industry splits two ways: <b>pay by time</b> (Cambly — including waiting time), or
+    <b>no obligation to extend at all</b> (italki — lost time is the student's responsibility).
+    <b>None of the six platforms we studied uses "mandatory unpaid extension with a fine for non-compliance."</b>
+    The closest is 51Talk's penalty system — the very system that damaged its teacher reputation.
+  </div>
+</div>
+
+<h3>선택지 3안 비교 <span class="en">Three options</span></h3>
+
+<table>
+<tr><th style="width:14%">안</th><th style="width:26%">내용</th><th style="width:30%">장점</th><th>단점</th></tr>
+<tr>
+  <td><b>A안</b><br>현행 유지</td>
+  <td>연장 무급 + 미연장 차감 유지</td>
+  <td>추가 비용 0<br>개발 불필요</td>
+  <td class="no">강사 불신 누적 · 새 시스템이 "깎는 시스템"으로 인식 · 이탈 위험 ·
+      <b>필리핀 노동법 리스크 그대로</b> · 경쟁사 대비 최하위 조건</td>
+</tr>
+<tr>
+  <td><b>B안</b><br>italki형</td>
+  <td>연장 <b>무급</b>, 대신 <b>차감도 폐지</b>. "지각한 만큼 수업이 줄어드는 것이 원칙"</td>
+  <td>추가 비용 0<br>법적 리스크 해소<br>논리가 깔끔함<br>개발 1일</td>
+  <td class="mid">학생·학부모 불만이 늘 수 있음 (수업이 짧아짐) ·
+      강사가 호의로 연장해도 여전히 무보상 · 서비스 품질이 강사 개인 선의에 의존</td>
+</tr>
+<tr style="background:rgba(110,231,168,.08)">
+  <td><b class="ok">C안 (권장)</b><br>Cambly 혼합형</td>
+  <td>연장 <b>최대 10분 유급</b> + 자동 기록 + 매니저 확인 + <b>차감 폐지</b></td>
+  <td class="ok">강사 신뢰 회복 · 학생 만족 유지 · 기록이 남아 분쟁 소멸 ·
+      법적으로 안전(지급이지 공제가 아님) · <b>학부모에게 "선생님이 더 가르쳤다"를 보여줄 수 있음(재등록 자산)</b></td>
+  <td class="mid">추가 비용 발생(아래 추정) · 개발 3~5일 · 오남용 방지 설계 필요</td>
+</tr>
+</table>
+
+<h3>C안 비용 추정 <span class="en">Cost estimate for Option C</span></h3>
+<p>단가: Teacher 1 등급 ₱50 / 20분 = <b>₱2.5 / 분</b> (<code>api-admin.ts:999</code>). 상한 10분이면 수업 1건당 최대 <b>₱25</b>.</p>
+<table class="tbl-sm">
+<tr><th>월 수업 건수</th><th>연장 발생률</th><th>평균 연장</th><th>월 추가 비용</th><th>원화 환산(₱1≈24원)</th></tr>
+<tr><td>2,000건</td><td>5%</td><td>6분</td><td>₱1,500</td><td>약 3.6만원</td></tr>
+<tr><td>4,000건</td><td>5%</td><td>6분</td><td>₱3,000</td><td>약 7.2만원</td></tr>
+<tr><td>4,000건</td><td>10%</td><td>8분</td><td>₱8,000</td><td>약 19만원</td></tr>
+<tr><td>8,000건</td><td>10%</td><td>10분(상한)</td><td>₱20,000</td><td>약 48만원</td></tr>
+</table>
+<div class="note">
+  <b>비용 통제 장치:</b> 상한 10분 · 매니저 확인 필수 · 강사 귀책은 지급 없음 · 월별 상한 알림.
+  최악의 경우(모든 수업 10분 연장)에도 <b>인건비의 50% 이상 증가는 구조적으로 불가능</b>합니다.
+  실제로는 위 표의 첫 두 줄 범위일 가능성이 높습니다.
+  <div class="en-block" style="margin-top:10px">
+    <span class="lbl">EN</span><br>
+    Cost controls: 10-minute cap, mandatory manager confirmation, no payment when the delay is the teacher's fault,
+    and a monthly threshold alert. The realistic range is the first two rows above.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<h2 id="s3"><span class="n">3</span>보완점<small>Implementation safeguards — 어떻게 정확하고 공정하게 만들 것인가 / How to make it accurate and fair</small></h2>
+
+<div class="good">
+  <b>좋은 소식: 새로 만들 필요가 거의 없습니다.</b><br>
+  이미 <code>attendance</code> 테이블에 수업방별 <b>입장 시각 · 퇴장 시각 · 총 접속 시간</b>이 쌓이고 있습니다(<code>api-mango.ts:513</code>).
+  수업방 ID가 <code>class-{수업번호}-{날짜}</code> 규칙이라, <b>예정 종료 시각과 실제 종료 시각을 지금 데이터로 바로 비교할 수 있습니다.</b>
+  학생이 늦게 들어왔는지도 학생 입장 시각으로 자동 판정됩니다.
+  <div class="en-block" style="margin-top:10px;border-color:rgba(110,231,168,.35)">
+    <span class="lbl" style="background:#6ee7a8">EN</span><br>
+    Almost nothing new is needed. The <code>attendance</code> table already logs join time, leave time and total session time per room,
+    and room IDs are deterministic — so scheduled vs. actual end time can be compared with existing data today.
+  </div>
+</div>
+
+<h3>보완 ①  "실제 접속 시간 그대로 지급"은 하면 안 됩니다
+  <span class="en">Safeguard 1 — Do not pay raw session time</span></h3>
+<ul class="x">
+  <li>강사가 수업 후 방을 나가지 않으면 시간이 계속 늘어납니다 → 과지급</li>
+  <li>네트워크 끊김·재접속이 섞이면 시간이 부풀려집니다</li>
+  <li>학생 퇴장 후 남은 시간이 "수업"으로 잡힙니다</li>
+</ul>
+<p><b>따라서 기준은 「학생 퇴장 시각」입니다.</b> 학생이 나간 시점까지만 수업으로 인정하고,
+그 이후 강사가 남아 있던 시간은 계산에서 제외합니다.</p>
+
+<h3>보완 ②  자동 계산 + 매니저 확정 (2단계)
+  <span class="en">Safeguard 2 — Auto-detect, then manager confirms</span></h3>
+<div class="flow">
+  <div class="step"><b>1. 자동 감지</b>시스템이 예정 종료와 실제 종료를 비교해 연장 분수를 계산</div>
+  <div class="step"><b>2. 사유 자동 판정</b>학생 입장이 늦었으면 <code>student_late</code>, 연결 품질 로그가 나쁘면 <code>tech_issue</code></div>
+  <div class="step"><b>3. 강사에게 즉시 표시</b>수업 직후 마이페이지에 "연장 +7분 기록됨 · 승인 대기"</div>
+  <div class="step"><b>4. 매니저 확정</b>승인 큐에서 확인 후 확정 (일괄 승인 가능)</div>
+  <div class="step"><b>5. 정산 반영</b>월 정산표에 별도 항목으로 표시</div>
+</div>
+<p>차감(수동 입력)과 <b>대칭</b>이 되도록 설계합니다. 한쪽만 자동이면 또 불공평해집니다.</p>
+
+<h3>보완 ③  강사가 아무것도 안 해도 되게
+  <span class="en">Safeguard 3 — Zero extra work for teachers</span></h3>
+<p>강사가 별도로 신청서를 쓰거나 버튼을 누를 필요가 <b>없습니다.</b> 시스템이 알아서 기록합니다.
+신청을 요구하면 성실한 강사일수록 손해 봅니다 — 수업 끝나고 바로 다음 수업에 들어가야 하니까요.</p>
+<div class="en-block">
+  <span class="lbl">EN</span><br>
+  No claim form, no button. The system records it for you. If we required a claim,
+  the busiest and most dedicated teachers would lose the most — they go straight into the next class.
+</div>
+
+<h3>보완 ④  이의제기 창구 (7일)
+  <span class="en">Safeguard 4 — Dispute window (7 days)</span></h3>
+<p>기록이 틀렸다고 생각하면 마이페이지에서 7일 안에 이의를 제기할 수 있게 합니다.
+<b>이것이 있어야 자동 판정을 강사가 신뢰합니다.</b> 자동화의 신뢰는 정확도가 아니라 "틀렸을 때 고칠 수 있는가"에서 나옵니다.</p>
+
+<h3>보완 ⑤  먼저 확인해야 할 것 (미확인 항목)
+  <span class="en">Safeguard 5 — What must be verified first</span></h3>
+<div class="warn">
+  <b>아직 확인하지 못했습니다:</b> 운영 DB의 <code>attendance</code> 테이블에
+  <code>class-{수업번호}-{날짜}</code> 형식의 수업방 기록이 실제로 얼마나 쌓여 있는지 조회하지 못했습니다(DB 조회 권한 대기).<br>
+  <b>이 데이터가 충분히 쌓여 있지 않으면 자동 계산이 성립하지 않습니다.</b> 개발 착수 전 첫 번째로 확인할 항목입니다.
+  (데이터가 부족하면 1단계는 매니저 수동 입력으로 시작하고, 자동화는 2단계로 미룹니다.)
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<h2 id="s4"><span class="n">4</span>추가해야 할 교칙<small>Proposed written rules — 강사에게 그대로 공지할 수 있는 조문 초안 / Draft ready to publish to teachers</small></h2>
+
+<p>아래는 <b>강사에게 그대로 배포할 수 있는 형태</b>로 작성했습니다. 어려운 말을 쓰지 않았습니다.</p>
+
+<div class="rule">
+  <span class="no-">제 1 조</span>
+  <h4>기다리는 시간도 근무 시간입니다</h4>
+  <p>학생이 오지 않아도 <b>수업 시작 후 10분까지는 교실에 계셔야 합니다.</b>
+  그 10분은 <b>근무로 인정되어 지급</b>됩니다. 10분이 지나도 학생이 오지 않으면 나가셔도 됩니다.</p>
+  <div class="en"><b>Article 1 — Waiting is paid work.</b> Please stay in the classroom for up to 10 minutes after the scheduled start.
+  <b>Those 10 minutes are paid.</b> After 10 minutes with no student, you may leave.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 2 조</span>
+  <h4>학생 때문에 늦게 시작했다면, 연장한 시간을 드립니다</h4>
+  <p>학생이 늦게 들어왔거나 <b>학생 쪽 인터넷·기기 문제</b>로 수업이 늦게 시작된 경우,
+  선생님이 뒤로 연장해 주신 시간은 <b>최대 10분까지 수업료로 지급</b>됩니다.</p>
+  <p>계산: 연장 1분당 = 선생님의 수업 단가 ÷ 20분 (예: ₱50/20분 등급 → <b>1분당 ₱2.5</b>)</p>
+  <div class="en"><b>Article 2 — If the student caused the delay, your extra minutes are paid.</b>
+  When a lesson starts late because the student joined late or had an internet/device problem,
+  the time you add at the end is <b>paid, up to 10 minutes</b>.
+  Rate: your lesson rate ÷ 20 per minute (e.g. ₱50 per 20 min → <b>₱2.5 per minute</b>).</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 3 조</span>
+  <h4>선생님 쪽 사정으로 늦은 경우는 보충이며, 별도 지급은 없습니다</h4>
+  <p>선생님이 늦게 입장하셨다면, 그만큼 뒤로 채워 주시는 것은 <b>원래 수업 시간을 지키는 것</b>이므로
+  추가 지급 대상이 아닙니다. <b>다만 벌금이나 차감도 없습니다.</b> 채워 주시면 그것으로 끝입니다.</p>
+  <div class="en"><b>Article 3 — If the delay was on your side, making up the time is not extra pay.</b>
+  It restores the lesson to its full length. <b>There is no fine and no deduction either</b> — simply make up the time.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 4 조</span>
+  <h4>한도는 10분입니다</h4>
+  <p>한 수업에서 인정되는 연장은 <b>최대 10분</b>입니다. 그 이상 가르치셔도 괜찮지만,
+  지급은 10분까지입니다. 무리한 연장은 <b>다음 수업에 지장</b>을 주므로 권하지 않습니다.</p>
+  <div class="en"><b>Article 4 — The cap is 10 minutes.</b> You may teach longer, but payment stops at 10 minutes.
+  We do not encourage longer extensions — they push your next class late.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 5 조</span>
+  <h4>기록은 시스템이 알아서 합니다 — 신청하지 않으셔도 됩니다</h4>
+  <p>연장 시간은 <b>시스템이 자동으로 기록</b>합니다. 따로 신청서를 내거나 매니저에게 말씀하지 않으셔도 됩니다.
+  수업이 끝나면 <b>마이페이지에서 바로 확인</b>하실 수 있습니다.</p>
+  <div class="en"><b>Article 5 — The system records it automatically.</b> No claim form, no message to your manager.
+  You can see it in My Page right after class.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 6 조</span>
+  <h4>기록이 다르면 7일 안에 말씀해 주세요</h4>
+  <p>기록이 실제와 다르면 마이페이지에서 <b>7일 이내에 이의를 제기</b>하실 수 있습니다.
+  매니저가 확인 후 수정합니다. <b>이의를 제기했다고 불이익은 없습니다.</b></p>
+  <div class="en"><b>Article 6 — If the record is wrong, tell us within 7 days.</b> Raise it from My Page; your manager will review and correct it.
+  <b>Raising a dispute never counts against you.</b></div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 7 조</span>
+  <h4>상습적으로 늦는 학생은 회사가 처리합니다</h4>
+  <p>같은 학생이 <b>한 달에 3회 이상</b> 지각하면 시스템이 자동으로 표시하고,
+  <b>회사가 학부모에게 안내</b>합니다. 선생님이 학부모에게 직접 말씀하실 필요 없습니다.</p>
+  <div class="en"><b>Article 7 — Repeatedly late students are handled by the company.</b>
+  Three or more late arrivals in a month are flagged automatically and <b>we contact the parent</b>. You do not have to.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 8 조</span>
+  <h4>「연장하지 않으면 차감」 규칙은 폐지합니다</h4>
+  <p>기존의 <b>지각 1분당 ₱10 차감</b> 규칙은 <b>없앱니다.</b>
+  연장은 이제 <b>벌이 아니라 보상</b>으로 다룹니다.</p>
+  <div class="en"><b>Article 8 — The "deduction for not extending" rule is removed.</b>
+  The previous ₱10-per-late-minute deduction is abolished. Extension is now handled as a <b>reward, not a penalty</b>.</div>
+</div>
+
+<div class="rule" style="border-color:rgba(127,209,255,.35)">
+  <span class="no-" style="background:#7fd1ff">제 9 조</span>
+  <h4 style="color:#7fd1ff">학생·학부모에게도 규칙을 안내합니다</h4>
+  <p>수업 예약 화면과 학부모 안내문에 다음을 명시합니다:<br>
+  <b>"수업 시작 시각에 맞춰 입장해 주세요. 학생이 늦게 입장한 경우 수업 시간이 그만큼 짧아질 수 있습니다.
+  선생님이 최대 10분까지 연장해 드립니다."</b><br>
+  <b>강사에게만 규칙을 만들지 않습니다.</b> 양쪽에 같은 규칙을 둡니다.</p>
+  <div class="en"><b>Article 9 — The same rule is published to students and parents.</b>
+  Booking screens and parent notices will state: "Please join on time. If the student joins late, the lesson may be shorter.
+  Teachers will extend by up to 10 minutes." <b>We do not write rules for teachers only.</b></div>
+</div>
+
+<h3>정리: 이 교칙이 강사에게 주는 메시지
+  <span class="en">What these rules say to our teachers</span></h3>
+<div class="lead">
+  <b>"선생님이 학생을 위해 쓴 시간은, 회사가 세고 있습니다."</b><br>
+  <span style="color:#9fc0dc;font-size:14.5px">"The time you give to a student is time this company counts."</span><br><br>
+  이 제도의 진짜 목적은 ₱2.5가 아닙니다. <b>강사가 회사를 믿을 수 있는 근거를 하나 만드는 것</b>입니다.
+  기록되지 않는 노동은 오래 지속되지 않습니다.
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<h2 id="s5"><span class="n">5</span>기타 아이디어<small>Additional ideas — 같은 데이터로 더 얻을 수 있는 것 / More value from the same data</small></h2>
+
+<h3>아이디어 ①  학부모 리포트에 "선생님이 더 가르쳤습니다"를 표시
+  <span class="en">Idea 1 — Show extension time in the parent report</span></h3>
+<p>이미 만들어 둔 <b>학부모 주간 리포트</b>에 한 줄 추가합니다:
+<b>"이번 주 선생님이 학생을 위해 12분을 추가로 수업했습니다."</b></p>
+<ul>
+  <li><b>학부모</b>: 서비스 가치를 체감 → <b>재등록 근거</b></li>
+  <li><b>강사</b>: 자기 노력이 학부모에게 보인다 → 강력한 동기부여</li>
+  <li><b>회사</b>: 지출한 ₱가 마케팅 자산으로 돌아옴 (비용이 아니라 투자가 됨)</li>
+</ul>
+<div class="en-block">
+  <span class="lbl">EN</span><br>
+  One line in the existing parent weekly report: <b>"Your teacher taught 12 extra minutes for your child this week."</b>
+  Parents feel the value (re-enrollment), teachers see their effort recognized, and the cost turns into a marketing asset.
+</div>
+
+<h3>아이디어 ②  차감을 인센티브로 뒤집기
+  <span class="en">Idea 2 — Flip deductions into incentives</span></h3>
+<p>같은 목적(정시 시작·피드백 작성)을 <b>벌이 아니라 상</b>으로 달성합니다. 법적으로도 안전합니다.</p>
+<table class="tbl-sm">
+<tr><th>현행 (벌)</th><th>제안 (상)</th></tr>
+<tr><td class="no">지각 연장 실패 → ₱10/분 차감</td><td class="ok">월 정시 시작률 95% 이상 → <b>월 보너스 ₱300</b></td></tr>
+<tr><td class="no">당일 피드백 미작성 → ₱25 차감</td><td class="ok">월 피드백 100% 작성 → <b>월 보너스 ₱300</b></td></tr>
+</table>
+<p style="font-size:14px;color:#b8cde0">비용은 비슷하지만 <b>강사가 받는 느낌이 정반대</b>입니다. 그리고 필리핀 노동법 리스크가 사라집니다.</p>
+<div class="en-block">
+  <span class="lbl">EN</span><br>
+  Same goal, same cost, opposite feeling — and it removes the PH labor-law exposure entirely.
+  A deduction is a loss you notice every month; a bonus is a goal you aim at.
+</div>
+
+<h3>아이디어 ③  기술 문제는 시스템이 강사를 변호하게
+  <span class="en">Idea 3 — Let the system defend the teacher on technical issues</span></h3>
+<p>화상수업에는 이미 <b>연결 품질 로그</b>가 있습니다. 수업 중 학생 쪽 연결이 나빴다면
+시스템이 자동으로 <code>tech_issue</code>로 표시합니다. <b>강사가 "제 잘못이 아니에요"를 증명할 필요가 없어집니다.</b>
+51Talk 강사들의 최대 불만이 바로 <i>"플랫폼이 문제인데 강사 탓을 한다"</i>였습니다. 우리는 그 반대로 갑니다.</p>
+
+<h3>아이디어 ④  강사 마이페이지에 "이번 달 나의 헌신" 카드
+  <span class="en">Idea 4 — "My dedication this month" card in teacher My Page</span></h3>
+<p>이번 달 연장 총 분수, 대기 시간, 피드백 작성률을 한 카드로 보여줍니다.
+숫자가 보이면 사람은 그 숫자를 지키려고 합니다. <b>관리보다 자기확인이 강합니다.</b></p>
+
+<h3>아이디어 ⑤  학생용 지각 안내 화면
+  <span class="en">Idea 5 — A gentle late notice for students</span></h3>
+<p>학생이 수업 시작 후 입장하면 화면에 부드럽게 표시합니다:
+<b>"조금 늦었어요! 선생님이 기다리고 계세요. 다음에는 1분만 일찍 들어와 볼까요?"</b><br>
+지각 자체를 줄이는 것이 <b>가장 싼 해결책</b>입니다. 연장 수당보다 저렴합니다.</p>
+
+<h3>아이디어 ⑥  분기별 정책 리뷰
+  <span class="en">Idea 6 — Quarterly policy review</span></h3>
+<p>3개월마다 실제 연장 데이터를 보고 상한(10분)과 단가를 조정합니다.
+<b>강사에게 "이 규칙은 고정이 아니라 같이 다듬는 것"이라고 알리는 것 자체가 신뢰 자산</b>입니다.</p>
+
+<!-- ══════════════════════════════════════════════════ -->
+<h2 id="s6"><span class="n">Q</span>강사 예상 질문<small>Teacher Q&amp;A — 공지할 때 함께 배포하세요 / Publish this together with the rules</small></h2>
+
+<div class="qa">
+  <div class="q">Q1. 제가 따로 신청해야 하나요?</div>
+  <p class="a">아니요. 시스템이 자동으로 기록합니다. 수업 끝나고 마이페이지에서 확인만 하시면 됩니다.</p>
+  <p class="ae">No. It is recorded automatically — just check My Page after class.</p>
+
+  <div class="q">Q2. 10분보다 더 가르치면요?</div>
+  <p class="a">가르치셔도 됩니다. 다만 지급은 10분까지입니다. 다음 수업이 늦어지지 않도록 해주세요.</p>
+  <p class="ae">You may, but payment stops at 10 minutes. Please protect your next class.</p>
+
+  <div class="q">Q3. 제 인터넷이 문제였을 때도 받나요?</div>
+  <p class="a">그 경우는 원래 수업 시간을 채워 주시는 것이라 추가 지급은 없습니다. <b>하지만 차감도 없습니다.</b></p>
+  <p class="ae">No extra pay — you are restoring the full lesson. <b>But there is no deduction either.</b></p>
+
+  <div class="q">Q4. 기존에 깎였던 것은 어떻게 되나요?</div>
+  <p class="a">차감 규칙 자체를 폐지합니다. 이미 차감된 건이 있다면 회사가 확인 후 처리 방침을 별도 안내드립니다.</p>
+  <p class="ae">The deduction rule is being removed. If you were already deducted, we will review those records and announce how they are handled.</p>
+
+  <div class="q">Q5. 기록이 실제와 다르면요?</div>
+  <p class="a">7일 안에 마이페이지에서 이의를 제기해 주세요. 매니저가 확인 후 수정합니다. 불이익은 없습니다.</p>
+  <p class="ae">Raise it in My Page within 7 days. Your manager will review and correct it. No penalty for asking.</p>
+
+  <div class="q">Q6. 학생이 아예 안 오면요?</div>
+  <p class="a">10분까지 기다려 주세요. 그 대기 시간은 근무로 인정되어 지급됩니다.</p>
+  <p class="ae">Please wait up to 10 minutes. That waiting time is paid work.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<h2 id="s7"><span class="n">R</span>실행 로드맵<small>Rollout plan</small></h2>
+
+<table class="tbl-sm">
+<tr><th style="width:9%">단계</th><th style="width:26%">내용</th><th style="width:13%">기간</th><th>담당 / 비고</th></tr>
+<tr><td><b>0</b></td><td><b>데이터 확인</b> — 운영 DB <code>attendance</code>에 수업방 기록이 충분한지 SELECT 조회</td><td>1시간</td><td class="mid">개발 · <b>가장 먼저. 이 결과로 자동화 가능 여부 결정</b></td></tr>
+<tr><td><b>0.5</b></td><td><b>필리핀 노무 확인</b> — 현행 차감 규칙의 적법성, 인센티브 전환 방식</td><td>1주</td><td class="mid">경영 · 현지 노무사</td></tr>
+<tr><td><b>1</b></td><td><b>차감 규칙 즉시 중지</b> — <code>late_no_extend</code> enabled=0 (설정 변경만, 배포 불필요)</td><td>즉시</td><td class="ok">관리자 화면에서 바로 가능</td></tr>
+<tr><td><b>2</b></td><td>연장 자동 감지 엔진 + <code>lesson_extend_minutes</code> 테이블</td><td>2일</td><td>개발</td></tr>
+<tr><td><b>3</b></td><td>매니저 승인 화면 (관리자 정산 카드에 추가)</td><td>1일</td><td>개발 · 마이마이 확인</td></tr>
+<tr><td><b>4</b></td><td>강사 마이페이지 표시 + 이의제기</td><td>1일</td><td>개발</td></tr>
+<tr><td><b>5</b></td><td><b>교칙 공지</b> (한/영) + Q&amp;A 배포</td><td>—</td><td class="ok">경영 · <b>제도 시행 전에 반드시 먼저</b></td></tr>
+<tr><td><b>6</b></td><td>학생·학부모 안내 문구 반영</td><td>0.5일</td><td>개발</td></tr>
+<tr><td><b>7</b></td><td>1개월 시범 운영 후 데이터 리뷰</td><td>1개월</td><td>경영 + 개발</td></tr>
+</table>
+
+<div class="good">
+  <b>가장 먼저 할 수 있는 것 (오늘 가능):</b> 1단계 — <b>차감 규칙 끄기.</b>
+  관리자 화면의 「공제 규칙」 편집기에서 <code>late_no_extend</code>를 <b>비활성화</b>하면 됩니다.
+  개발도 배포도 필요 없습니다. <b>이것만으로도 강사들에게 답을 줄 수 있습니다</b> —
+  "연장 수당은 준비 중이고, 그때까지 차감은 하지 않습니다."
+  <div class="en-block" style="margin-top:10px;border-color:rgba(110,231,168,.35)">
+    <span class="lbl" style="background:#6ee7a8">DO THIS FIRST</span><br>
+    Turn <code>late_no_extend</code> off in the admin Deduction Rules editor. No code, no deploy.
+    That alone lets us answer our teachers today: <i>"Extension pay is being prepared, and until then nothing will be deducted."</i>
+  </div>
+</div>
+
+<hr class="sp">
+
+<div class="lead">
+  <b>마지막으로.</b> 강사들이 이 질문을 했다는 것은 <b>아직 우리를 믿고 물어본다</b>는 뜻입니다.
+  묻지 않고 조용히 그만두는 것이 훨씬 나쁜 신호입니다. 지금이 답할 수 있는 가장 좋은 시점입니다.
+  <div class="en-block" style="margin-top:12px">
+    <span class="lbl">CLOSING</span><br>
+    The fact that our teachers asked this means they still trust us enough to ask.
+    Teachers who stop asking and quietly leave are the worse signal. This is the best moment we will get to answer.
+  </div>
+</div>
+
+<div class="src">
+  <b>조사 출처 / Sources</b><br>
+  · <a href="https://studentsupport.cambly.com/hc/en-us/articles/360051355511-Late-or-missed-your-lesson">Cambly — Late or missed your lesson</a><br>
+  · <a href="https://sidehustles.com/cambly-tutor-review/">Cambly tutor pay structure (per-minute rate, waiting pay)</a><br>
+  · <a href="https://support.italki.com/hc/en-us/articles/360020529954-Lesson-Policy">italki — Lesson Policy (student lateness, no obligation to make up lost time)</a><br>
+  · <a href="https://www.italki.com/en/instructorterms">italki — Teacher Policy</a><br>
+  · <a href="https://help.preply.com/en/articles/4178953-student-was-absent-guidelines-and-best-practices">Preply — Student was absent: guidelines</a><br>
+  · <a href="https://www.glassdoor.com/Reviews/51Talk-salary-deduction-Reviews-EI_IE633598.0,6_KH7,23.htm">51Talk — teacher reviews on salary deductions and penalties</a><br>
+  · <a href="https://www.indeed.com/cmp/51talk/reviews?fcountry=ALL&amp;fjobtitle=Teacher&amp;ftopic=paybenefits">51Talk — teacher pay &amp; benefits reviews</a><br>
+  · <a href="https://onlineteachingreview.com/engoo-review/">Engoo review (Filipino tutor rates, incentives)</a><br>
+  · <a href="https://onlineteachingreview.com/native-camp-review/">Native Camp review (per-lesson rates for Filipino tutors)</a><br>
+  · <a href="https://www.respicio.ph/commentaries/prohibited-salary-deductions-under-the-philippine-labor-code">Prohibited Salary Deductions Under the Philippine Labor Code (Art. 113)</a><br>
+  · <a href="https://www.alburolaw.com/permissible-deductions-from-wages/">Permissible Deductions from Wages (PH)</a><br>
+  <br>
+  <b>코드 근거 / Code references</b> — <code>cloudflare-deploy/src/api-admin.ts</code> L966, L999, L1073, L1169, L1441~1442 ·
+  <code>cloudflare-deploy/src/api-mango.ts</code> L513<br>
+  <b>미확인 항목 / Not yet verified</b> — 운영 D1 <code>attendance</code> 적재 현황 (조회 권한 대기 중)
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>수업 연장 수당 &amp; 회선 끊김 측정 제안서 v3 (한/영) | Lesson Extension Pay &amp; Connection Measurement Proposal v3</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a1018;color:#e6eef7;
+    font-family:'Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
+    line-height:1.72;font-size:15.5px}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 22px 90px}
+
+  .hero{position:relative;margin:0 -22px 34px;padding:54px 22px 42px;
+    background:linear-gradient(150deg,#0d2137 0%,#12304c 42%,#0b1a2b 100%);
+    border-bottom:3px solid #ffd479;overflow:hidden}
+  .hero::after{content:'';position:absolute;right:-60px;top:-40px;width:340px;height:340px;
+    background:radial-gradient(circle,rgba(255,212,121,.16),transparent 66%);border-radius:50%}
+  .hero .tag{display:inline-block;font-size:12px;font-weight:900;letter-spacing:2px;
+    color:#0a1018;background:#ffd479;border-radius:20px;padding:4px 14px;margin-bottom:14px}
+  .hero h1{margin:0 0 4px;font-size:clamp(23px,3.8vw,34px);line-height:1.26;letter-spacing:-1px}
+  .hero h1 span{color:#ffd479}
+  .hero h2.enh{margin:0 0 10px;font-size:clamp(15px,2.2vw,19px);color:#9fc0dc;font-weight:700;
+    border:0;padding:0;letter-spacing:-.3px}
+  .hero .sub{font-size:14.5px;color:#9fc0dc;font-weight:700}
+  .hero .sub em{display:block;font-style:normal;color:#7d9ab5;font-size:13px;font-weight:600;margin-top:2px}
+  .hero .meta{margin-top:18px;font-size:12.5px;color:#7d9ab5;line-height:1.85}
+
+  h2{margin:58px 0 14px;font-size:23px;letter-spacing:-.6px;padding-bottom:9px;
+    border-bottom:2px solid rgba(255,212,121,.28)}
+  h2 .n{display:inline-block;min-width:31px;height:31px;line-height:31px;text-align:center;
+    background:#ffd479;color:#0a1018;border-radius:9px;font-size:15px;font-weight:900;margin-right:9px;padding:0 7px}
+  h2 small{display:block;font-size:13px;color:#9fc0dc;font-weight:700;margin-top:5px;
+    padding-left:44px;letter-spacing:0}
+  h2.hot{border-bottom-color:rgba(248,113,113,.45)}
+  h2.hot .n{background:#f87171;color:#0a1018}
+  h3{margin:32px 0 8px;font-size:17.5px;color:#ffd479}
+  h3 .enh{display:block;font-size:13.5px;color:#8fadc7;font-weight:700;letter-spacing:0;margin-top:2px}
+  h4{margin:18px 0 6px;font-size:15.5px;color:#7fd1ff}
+  h4 .enh{display:block;font-size:12.8px;color:#8fadc7;font-weight:600}
+  p{margin:10px 0}
+  a{color:#7fd1ff}
+  code{background:rgba(127,209,255,.10);border:1px solid rgba(127,209,255,.2);
+    border-radius:5px;padding:1px 6px;font-size:12.8px;color:#bfe2ff;
+    font-family:Consolas,'Courier New',monospace}
+
+  .decision{background:linear-gradient(150deg,#1a2a1e,#101c14);border:2px solid #6ee7a8;
+    border-radius:16px;padding:22px 26px;margin:26px 0}
+  .decision h3{margin:0 0 12px;color:#6ee7a8;font-size:19px}
+  .decision ol{margin:0;padding-left:22px}
+  .decision li{margin:12px 0;font-size:14.8px}
+  .decision li b{color:#ffd479}
+  .decision li .en{display:block;font-size:13px;color:#9fc0dc;margin-top:3px}
+
+  .lead{font-size:16.5px;background:rgba(255,212,121,.07);border-left:4px solid #ffd479;
+    border-radius:0 12px 12px 0;padding:16px 20px;margin:22px 0}
+  .lead b{color:#ffd479}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{border:1px solid rgba(140,175,210,.24);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:rgba(127,209,255,.10);color:#bfe2ff;font-weight:900;font-size:13px}
+  th .en{display:block;font-size:11.5px;color:#8fadc7;font-weight:700}
+  td b{color:#ffd479}
+  td .en{display:block;font-size:12.2px;color:#8fadc7;margin-top:3px}
+  tr:nth-child(even) td{background:rgba(255,255,255,.022)}
+  .tbl-sm{font-size:13px}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .ok{color:#6ee7a8;font-weight:800}
+  .no{color:#f87171;font-weight:800}
+  .mid{color:#ffd479;font-weight:800}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:13px;margin:18px 0}
+  .card{background:linear-gradient(#12202e,#0d1822);border:1px solid rgba(140,175,210,.22);
+    border-radius:13px;padding:15px 16px}
+  .card h4{margin:0 0 6px;font-size:14px;color:#7fd1ff}
+  .card p{margin:0;font-size:12.8px;color:#b8cde0}
+  .card p .en{display:block;color:#8fadc7;font-size:12px;margin-top:2px}
+  .card .big{font-size:24px;font-weight:900;color:#ffd479;line-height:1.2}
+  .card .big.g{color:#6ee7a8}
+  .card .big.r{color:#f87171}
+
+  .warn{background:rgba(248,113,113,.09);border-left:4px solid #f87171;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .warn b{color:#fca5a5}
+  .good{background:rgba(110,231,168,.08);border-left:4px solid #6ee7a8;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .good b{color:#6ee7a8}
+  .note{background:rgba(127,209,255,.07);border-left:4px solid #7fd1ff;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .note b{color:#bfe2ff}
+
+  .en-block{background:rgba(255,255,255,.03);border:1px dashed rgba(140,175,210,.32);
+    border-radius:11px;padding:13px 16px;margin:12px 0;font-size:13.7px;color:#b8cde0;line-height:1.7}
+  .en-block b{color:#dbe9f7}
+  .en-block .lbl{display:inline-block;font-size:10.5px;font-weight:900;letter-spacing:1.4px;
+    color:#0a1018;background:#7fd1ff;border-radius:4px;padding:1px 8px;margin-bottom:7px}
+  .en-block.r{border-color:rgba(248,113,113,.4)}
+  .en-block.r .lbl{background:#f87171}
+  .en-block.g{border-color:rgba(110,231,168,.4)}
+  .en-block.g .lbl{background:#6ee7a8}
+
+  .rule{background:linear-gradient(#101d2a,#0c1621);border:1px solid rgba(255,212,121,.26);
+    border-radius:13px;padding:15px 18px;margin:13px 0}
+  .rule .no-{display:inline-block;font-size:12px;font-weight:900;letter-spacing:1px;
+    color:#0a1018;background:#ffd479;border-radius:5px;padding:2px 9px;margin-bottom:8px}
+  .rule h4{margin:0 0 8px;font-size:16px;color:#ffd479}
+  .rule p{margin:6px 0;font-size:14.2px}
+  .rule .en{margin-top:10px;padding-top:10px;border-top:1px solid rgba(140,175,210,.2);
+    font-size:13.2px;color:#9fc0dc}
+  .rule .en b{color:#cfe0ee}
+
+  .flow{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0}
+  .flow .step{flex:1 1 160px;background:#101d2a;border:1px solid rgba(140,175,210,.24);
+    border-radius:11px;padding:12px 13px;font-size:13.2px}
+  .flow .step b{display:block;color:#7fd1ff;font-size:13px;margin-bottom:4px}
+  .flow .step .en{display:block;color:#8fadc7;font-size:12px;margin-top:4px}
+
+  ul{margin:10px 0;padding-left:22px}
+  li{margin:6px 0}
+  .chk li{list-style:none;position:relative;padding-left:24px}
+  .chk li::before{content:'\2713';position:absolute;left:0;color:#6ee7a8;font-weight:900}
+  .x li{list-style:none;position:relative;padding-left:24px}
+  .x li::before{content:'\2715';position:absolute;left:0;color:#f87171;font-weight:900}
+  li .en{display:block;font-size:12.5px;color:#8fadc7}
+
+  .toc{background:#101d2a;border:1px solid rgba(140,175,210,.22);border-radius:13px;
+    padding:16px 20px;margin:24px 0;font-size:14px}
+  .toc b{color:#ffd479;display:block;margin-bottom:8px}
+  .toc a{display:inline-block;margin:3px 14px 3px 0;color:#bfe2ff;text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc a.hot{color:#fca5a5;font-weight:900}
+  .toc .en{display:block;font-size:12px;color:#8fadc7;margin-top:6px}
+
+  .qa{border-left:3px solid rgba(140,175,210,.3);padding-left:16px;margin:16px 0}
+  .qa .q{color:#7fd1ff;font-weight:800;font-size:14.6px;margin:16px 0 4px}
+  .qa .qe{color:#8fadc7;font-weight:700;font-size:12.8px;margin:0 0 5px}
+  .qa .a{font-size:14.1px;color:#cfe0ee;margin:0 0 4px}
+  .qa .ae{font-size:12.9px;color:#8fadc7;margin:0}
+
+  .src{font-size:12.5px;color:#7d9ab5;margin-top:44px;border-top:1px solid rgba(140,175,210,.2);
+    padding-top:16px;line-height:1.9}
+  .src a{color:#9fc0dc}
+  hr.sp{border:0;border-top:1px solid rgba(140,175,210,.16);margin:34px 0}
+  .assume{font-size:12.5px;color:#8fadc7;margin-top:8px}
+
+  .tl{background:#0d1822;border:1px solid rgba(140,175,210,.24);border-radius:13px;
+    padding:18px 20px;margin:18px 0;overflow-x:auto}
+  .tl .row{display:flex;align-items:center;gap:8px;margin:9px 0;min-width:620px}
+  .tl .lbl{flex:0 0 132px;font-size:12px;color:#9fc0dc;font-weight:800;text-align:right;line-height:1.4}
+  .tl .lbl em{display:block;font-style:normal;color:#7d9ab5;font-size:10.8px;font-weight:600}
+  .tl .bar{flex:1;height:28px;position:relative;background:rgba(255,255,255,.04);
+    border-radius:6px;overflow:hidden;display:flex}
+  .tl .seg{height:100%;font-size:11px;line-height:28px;text-align:center;color:#0a1018;font-weight:900;
+    white-space:nowrap;overflow:hidden}
+  .tl .s-on{background:#6ee7a8}
+  .tl .s-off{background:#f87171}
+  .tl .s-ext{background:#ffd479}
+  .tl .s-gap{background:rgba(140,175,210,.18);color:#8fadc7}
+  .tl .cap{font-size:12.8px;color:#8fadc7;margin-top:11px;line-height:1.75}
+  .tl .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:11.8px;color:#9fc0dc}
+  .tl .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  .stage{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:13px;margin:18px 0}
+  .stage .s{background:#101d2a;border:1px solid rgba(140,175,210,.24);border-radius:13px;padding:15px 16px}
+  .stage .s .n{display:inline-block;font-size:11.5px;font-weight:900;letter-spacing:1px;
+    color:#0a1018;border-radius:5px;padding:2px 9px;margin-bottom:8px}
+  .stage .s.s1 .n{background:#7fd1ff}
+  .stage .s.s2 .n{background:#ffd479}
+  .stage .s.s3 .n{background:#fca5a5}
+  .stage .s.s4 .n{background:#6ee7a8}
+  .stage .s h4{margin:0 0 6px;font-size:15px;color:#e6eef7}
+  .stage .s p{margin:5px 0;font-size:13.2px;color:#b8cde0}
+  .stage .s .en{font-size:12.3px;color:#8fadc7;margin-top:7px;padding-top:7px;
+    border-top:1px solid rgba(140,175,210,.18)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="tag">경영진 검토 자료 v3 · EXECUTIVE PROPOSAL v3 · 2026-07-28</div>
+  <h1>수업 <span>연장 수당</span> 제도 &amp; <span>교사 회선 끊김</span> 측정 방안</h1>
+  <h2 class="enh">Lesson Extension Pay &amp; Teacher Connection-Loss Measurement</h2>
+  <div class="sub">
+    재택 교사의 인터넷이 끊겼을 때, 실제 수업 시간을 무엇으로 증명할 것인가
+    <em>How do we prove actual teaching time when a home-based teacher's internet drops?</em>
+  </div>
+  <div class="meta">
+    <b>안건 출처 / Origin</b> 강사 피드백 #17 + 경영진 지적(회선 끊김 시 수업 시간 확인 불가)<br>
+    <b>v3 변경 / Changes in v3</b> 전면 한/영 병기 · 노동법 항목 제외 · 페널티 <b>유지</b> 전제 ·
+    상습 끊김 시 <b>콜센터 사무실 근무 전환</b> 방침 반영 ·
+    <b>2026-07-28 수업 입장 사고</b> 반영(회사 귀책 조항 신설)<br>
+    <b>조사 / Research</b> 화상수업·출결 계측 코드 전수 분석 + 경쟁 플랫폼 6개사
+  </div>
+</div>
+
+<div class="toc">
+  <b>목차 / Contents</b>
+  <a href="#s0">0. 의사결정 요청 · Decisions Requested</a>
+  <a href="#s1">1. 현재 문제점 · Current Problems</a>
+  <a href="#s2" class="hot">2. 핵심: 회선 끊김 측정 · Core: Measuring Disconnection</a>
+  <a href="#s3">3. 장점과 단점 · Pros &amp; Cons</a>
+  <a href="#s4">4. 보완점 · Safeguards</a>
+  <a href="#s5">5. 추가할 교칙 · New Rules</a>
+  <a href="#s6">6. 기타 아이디어 · Additional Ideas</a>
+  <a href="#s7">7. 결정 체크리스트 · Decision Checklist</a>
+  <a href="#s8">부록 · Appendix</a>
+</div>
+
+<!-- ══════════════════════════ 0 ══════════════════════════ -->
+<h2 id="s0"><span class="n">0</span>의사결정 요청<small>Decisions Requested — 이 페이지만 읽고 회의를 시작하실 수 있습니다 / You can open the meeting with this page alone</small></h2>
+
+<div class="lead">
+  현재 정산 시스템은 <b>연장 시간에 1원도 지급하지 않으면서, 연장하지 않으면 1분당 ₱10을 차감</b>합니다.
+  본 안건은 <b>페널티는 유지</b>하되 <b>연장 시간을 유급으로 인정</b>하여 제도를 양방향으로 만드는 것입니다.<br><br>
+  <b>그러나 그보다 먼저 해결해야 할 문제가 있습니다.</b>
+  경영진이 지적하신 <b>「교사 회선이 끊겼을 때 실제 수업 시간을 확인할 수 없다」</b>는 문제는
+  <b>사실이며, 코드 분석 결과 예상보다 심각합니다.</b>
+  현재는 연장 수당뿐 아니라 <b>페널티 부과의 근거도 존재하지 않습니다.</b>
+  <b>측정 체계를 먼저 세우지 않으면 어느 쪽 제도도 성립하지 않습니다.</b>
+</div>
+
+<div class="en-block">
+  <span class="lbl">EXECUTIVE SUMMARY</span><br>
+  Our payroll engine pays <b>only the scheduled lesson duration</b> — extended minutes are never counted.
+  At the same time, a <b>₱10-per-minute penalty for "failing to extend a late lesson" is already active</b>.
+  This proposal <b>keeps the penalty</b> but adds <b>paid recognition of extension time</b>, making the rule work in both directions.<br><br>
+  <b>However, a more fundamental issue must be solved first.</b>
+  Management's concern — <b>"we cannot verify actual teaching time when a teacher's connection drops"</b> — is
+  <b>correct, and the code review shows it is worse than expected</b>.
+  Today there is <b>no evidential basis for the penalty either</b>.
+  <b>Without a measurement system, neither policy can stand.</b>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="big r">기록 없음</div><h4>교사 회선 끊김 시 / On teacher disconnect</h4>
+    <p>수업 종료 시각이 <b>영구히 기록되지 않음</b><span class="en">Lesson end time is <b>never recorded</b></span></p></div>
+  <div class="card"><div class="big r">과다 계상</div><h4>재접속한 경우 / After reconnect</h4>
+    <p>끊겨 있던 시간이 <b>수업 시간에 포함</b>됨<span class="en">Offline minutes are <b>counted as teaching</b></span></p></div>
+  <div class="card"><div class="big g">30초</div><h4>확보 가능한 정밀도 / Achievable precision</h4>
+    <p>서버 시각 도입 시 <b>오차 30초 이내</b><span class="en">End time within <b>30 seconds</b></span></p></div>
+  <div class="card"><div class="big g">4일</div><h4>측정 체계 구축 / Build time</h4>
+    <p>대부분 <b>기존 신호 재사용</b><span class="en">Mostly <b>reusing existing signals</b></span></p></div>
+</div>
+
+<div class="decision">
+  <h3>경영진 결정 요청 8건 / Eight decisions requested</h3>
+  <ol>
+    <li><b>결정 1 — 측정 체계 우선 구축.</b> 연장 수당·페널티 판정의 근거가 될 서버 측 수업 시간 계측을 먼저 구축.
+        <span class="ok">→ 권고: 승인. 이것 없이는 두 제도 모두 근거가 없음</span>
+        <span class="en"><b>D1 — Build the measurement system first.</b> Server-side lesson-time measurement as the basis for both pay and penalty.
+        <b>Recommend: approve.</b> Without it neither policy has evidence.</span></li>
+
+    <li><b>결정 2 — 페널티 판정 근거 전환.</b> 관리자 수동 입력 → 자동 측정값 (페널티 자체는 유지).
+        <span class="ok">→ 권고: 승인</span>
+        <span class="en"><b>D2 — Change the basis of the penalty</b> from manual entry to automatic measurement (the penalty itself stays).
+        <b>Recommend: approve.</b></span></li>
+
+    <li><b>결정 3 — 연장 수당 도입.</b> 학생 귀책 지연 시 최대 10분 유급. 연 61만~408만원.
+        <span class="ok">→ 권고: 승인</span>
+        <span class="en"><b>D3 — Introduce extension pay:</b> up to 10 paid minutes when the student caused the delay.
+        KRW 0.6M–4.1M per year. <b>Recommend: approve.</b></span></li>
+
+    <li><b>결정 4 — 교사 회선 끊김 처리 원칙.</b> 보충 시 무급·무벌칙 / 미보충 시 페널티 적용 (본문 2-6).
+        <span class="ok">→ 권고: 원안</span>
+        <span class="en"><b>D4 — Rules for teacher disconnection:</b> if made up, no pay and no penalty; if not, penalty applies (see 2-6).
+        <b>Recommend: as drafted.</b></span></li>
+
+    <li><b>결정 5 — 증거 없는 케이스.</b> 교사·학생 동시 끊김 시 월 한도 내 자기신고 허용.
+        <span class="mid">→ 권고: 월 2회</span>
+        <span class="en"><b>D5 — Cases with no evidence</b> (both sides drop): allow self-reporting within a monthly cap.
+        <b>Recommend: 2 per month.</b></span></li>
+
+    <li><b>결정 6 — 상습 끊김 대응. <span class="ok">[방침 확정: 콜센터 사무실 근무 전환]</span></b>
+        실행을 위해 세부 3건 판단 필요: ① 전환 기준(임계값) ② 통근·근무 지원 범위 ③ 재택 복귀 조건 (본문 6-③).
+        <span class="en"><b>D6 — Repeated disconnection. <span class="ok">[Confirmed policy: transfer to call-center office work]</span></b>
+        Three details still require a decision: (a) transfer threshold, (b) commuting/work support, (c) conditions for returning home-based (see 6-③).</span></li>
+
+    <li><b>결정 7 — 회사·시스템 귀책 시 전액 보장 원칙. <span class="no">[오늘 실제 사고 발생 — 1-⑦]</span></b>
+        플랫폼 장애·계정 문제로 교사가 수업에 못 들어간 경우 <b>예정 수업료 전액 지급 + 페널티 면제</b>.
+        <span class="ok">→ 권고: 승인. 현행 규칙대로면 <b>우리 시스템 버그가 교사 급여를 깎습니다</b></span>
+        <span class="en"><b>D7 — Full protection when the fault is ours. <span class="no">[A real incident occurred today — see 1-7]</span></b>
+        When a platform or account problem prevents a teacher from entering, <b>pay the full scheduled fee and waive any penalty</b>.
+        <b>Recommend: approve.</b> Under today's rules, <b>our own bug would dock a teacher's pay.</b></span></li>
+
+    <li><b>결정 8 — 교칙 12개 조문 공지.</b> 시스템 개발보다 <b>먼저</b> 공지.
+        <span class="ok">→ 권고: 원안 승인</span>
+        <span class="en"><b>D8 — Publish the 12 rule articles</b> — <b>before</b> the system is built. <b>Recommend: approve as drafted.</b></span></li>
+
+    <li><b>결정 9 — 예산.</b> 연 400만원 한도 승인, 초과 시 재보고.
+        <span class="en"><b>D9 — Budget:</b> approve a KRW 4M annual ceiling; report back if exceeded.</span></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════ 1 ══════════════════════════ -->
+<h2 id="s1"><span class="n">1</span>현재 문제점<small>Current Problems — 전부 현행 소스 코드에서 직접 확인한 사실 / All verified directly against the live source code</small></h2>
+
+<h3>① 연장 시간은 급여에 반영되지 않습니다
+  <span class="enh">1. Extended minutes never reach the payslip</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:30%">근거 <span class="en">Reference</span></th><th>확인 내용 <span class="en">Finding</span></th></tr>
+<tr><td><code>api-admin.ts:1169</code></td>
+    <td><code>base = (mins / 10) × fee</code> — 금액을 만드는 유일한 변수가 <code>mins</code>
+    <span class="en">The only variable producing the amount is <code>mins</code></span></td></tr>
+<tr><td><code>api-admin.ts:1073</code></td>
+    <td><code>mins = duration_min</code> = <b>예약된 수업 시간</b> (실제 수업 길이 아님)
+    <span class="en">This is the <b>scheduled</b> duration, not the actual one</span></td></tr>
+<tr><td>—</td><td>실제 수업 길이가 금액 계산에 쓰이는 지점: <b class="no">없음</b>
+    <span class="en">Places where actual length affects pay: <b>none</b></span></td></tr>
+</table>
+<p>20분 수업을 30분 진행해도 <b>20분치</b>가 지급되며, 추가된 10분은 <b>어떤 기록에도 남지 않습니다.</b></p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  Teach 30 minutes on a 20-minute booking and you are paid for 20. Those 10 minutes are recorded nowhere.</div>
+
+<h3>② 페널티는 작동 중이나, 근거가 사람의 손입력입니다
+  <span class="enh">2. The penalty is live, but its basis is manual data entry</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:30%">근거 <span class="en">Reference</span></th><th>확인 내용 <span class="en">Finding</span></th></tr>
+<tr><td><code>api-admin.ts:966</code></td>
+    <td><code>late_no_extend</code> · "지각 수업 연장 실패" · <b>1분당 ₱10</b> · <b class="no">enabled = 1 (활성)</b>
+    <span class="en">₱10 per late minute · <b>currently active</b></span></td></tr>
+<tr><td><code>api-admin.ts:1442</code></td>
+    <td>지각 분수는 <b>관리자가 표에 직접 입력</b> (<code>lesson_late_minutes</code>)
+    <span class="en">Late minutes are <b>typed in by a manager</b></span></td></tr>
+<tr><td><code>api-admin.ts:1441</code></td>
+    <td>코드 주석: <i>"근태 자동로그 도입 전까지 사용"</i> — <b>임시 조치임이 코드에 명시</b>
+    <span class="en">Code comment states this is <b>a stopgap until automatic logging exists</b></span></td></tr>
+</table>
+<div class="warn">
+  <b>페널티를 유지하기로 한 이상, 이 문제가 더 중요해집니다.</b>
+  급여를 깎는 판정이 사람의 기억과 입력에 근거하면, 강사는 검증할 수 없고 매니저는 방어할 수 없습니다.
+  <b>페널티 유지 = 측정 체계 구축이 필수 조건</b>입니다.
+  <div class="en-block r" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>Keeping the penalty makes this more urgent, not less.</b> When a pay deduction rests on a human's memory,
+    the teacher cannot verify it and the manager cannot defend it.
+    <b>Keeping the penalty therefore requires building the measurement system.</b></div>
+</div>
+
+<h3>③ 제도가 한쪽 방향으로만 작동합니다
+  <span class="enh">3. The rule only works in one direction</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:48%">상황 <span class="en">Situation</span></th><th>시스템 처리 <span class="en">System behaviour</span></th></tr>
+<tr><td>학생 지각 → 교사가 <b>연장함</b><span class="en">Student late → teacher <b>extends</b></span></td>
+    <td class="no">추가 지급 없음 · 기록 없음<span class="en">No pay, no record</span></td></tr>
+<tr><td>학생 지각 → 교사가 <b>연장 안 함</b><span class="en">Student late → teacher <b>does not extend</b></span></td>
+    <td class="no">1분당 ₱10 차감<span class="en">₱10 per minute deducted</span></td></tr>
+</table>
+<p>페널티를 유지하더라도 <b>반대편에 보상이 있어야 제도가 설명 가능해집니다.</b>
+"연장하면 받고, 안 하면 깎인다"는 강사가 납득합니다. 현재 구조는 납득시킬 방법이 없습니다.</p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  Even with the penalty retained, <b>the rule needs a reward on the other side to be explainable.</b>
+  "Extend and you are paid; don't and you are docked" is something a teacher accepts.
+  The current structure cannot be justified to anyone.</div>
+
+<h3>④ 강사에게 공지된 성문 규정이 없습니다
+  <span class="enh">4. There is no written, published rule</span></h3>
+<p>페널티 규칙은 <b>DB 설정값으로만</b> 존재하며 강사가 열람할 수 있는 문서로 공지된 적이 없습니다.
+이번 질문 자체가 증거입니다 — <b>강사들은 규칙의 존재를 모르는 상태로 근무하고 있었습니다.</b>
+사전 고지 없는 급여 차감은 분쟁 시 회사가 방어하기 어렵습니다.</p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  The penalty exists only as a database setting; it has never been published in a document teachers can read.
+  Their question is the proof — <b>they have been working without knowing the rule exists.</b>
+  A deduction applied without prior notice is difficult for the company to defend in a dispute.</div>
+
+<h3>⑤ 학생·학부모 측 규칙도 부재합니다
+  <span class="enh">5. No rule exists on the student/parent side either</span></h3>
+<p>학생이 지각하면 수업이 짧아지는지 연장되는지 <b>어디에도 안내되어 있지 않습니다.</b>
+그 결과 학부모 문의는 강사가 개인적으로 감당하게 됩니다.
+<b>강사에게만 규칙을 두고 고객에게 두지 않으면 부담은 전액 강사에게 전가됩니다.</b></p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  Nothing tells students or parents whether a late arrival shortens the lesson or extends it.
+  Parent complaints therefore land on the teacher personally.
+  <b>Writing rules only for teachers transfers the entire burden to them.</b></div>
+
+<h3 style="color:#fca5a5">⑥ 회사·시스템 귀책 케이스가 규칙에 아예 없습니다 — <span class="no">오늘 실제로 발생했습니다</span>
+  <span class="enh">6. There is no rule for company/system fault — and it happened today</span></h3>
+
+<div class="warn">
+  <b>2026-07-28 수업 입장 장애 (중국어 수업 <code>class-848-20260728</code>)</b>
+  <table class="tbl-sm" style="margin:10px 0">
+  <tr><th style="width:26%">항목<span class="en">Item</span></th><th>내용<span class="en">Detail</span></th></tr>
+  <tr><td>상황<span class="en">What happened</span></td>
+      <td>학생·관리자는 방에 입장(참여자 9명), <b>강사만 계속 입장 실패</b>. 위챗으로 화면을 주고받으며 원인을 찾음
+      <span class="en">Students and admin were inside (9 participants); <b>only the teacher could not enter</b></span></td></tr>
+  <tr><td>직접 원인<span class="en">Direct cause</span></td>
+      <td>서버가 "이 사람이 이 예약의 담당 강사인가"를 검사하는데, 강사 계정이 예약 848과 매칭되지 않아 <b>차단</b>
+      <span class="en">The room-entry check found no match between the teacher's account and booking 848, so entry was <b>blocked</b></span></td></tr>
+  <tr><td>근본 원인<span class="en">Root cause</span></td>
+      <td>해당 강사에게 <b>실제 강사 계정이 발급되지 않아</b> 시연용 계정(<code>hq_t_*</code>)으로 접속 중이었음
+      <span class="en">No real teacher account had been issued; the teacher was using a <b>demo account</b></span></td></tr>
+  <tr><td>공식 동선도 동일<span class="en">Official route identical</span></td>
+      <td>강사 마이페이지의 「수업 입장」 버튼이 만드는 주소도 <b>완전히 같은 형식</b> — <b class="no">정상 동선 자체가 막혀 있었음</b>
+      <span class="en">The teacher's own "Enter class" button produces the same URL — <b>the normal route was blocked too</b></span></td></tr>
+  <tr><td>임시 조치<span class="en">Workaround</span></td>
+      <td><code>vc_role=admin</code>으로 검증 우회 — <b>강사에게 관리자 권한까지 부여되는 방식</b>이라 상시 수단 불가
+      <span class="en">Bypassed with admin role — <b>grants class-control privileges</b>, not viable as a standing method</span></td></tr>
+  </table>
+  <span class="assume">출처: 바탕화면 <code>수업입장_사고보고서_2026-07-28.md</code> (병행 세션 작성)</span>
+</div>
+
+<div class="lead" style="border-left-color:#f87171;background:rgba(248,113,113,.08)">
+  <b>이 사고가 본 제안서에서 갖는 의미 — 현행 규칙의 가장 위험한 구멍입니다.</b><br><br>
+  현행 규칙에는 <b>「회사 귀책」이라는 항목이 존재하지 않습니다.</b>
+  오늘 사고를 현행 규칙 그대로 적용하면 이렇게 됩니다:<br><br>
+  ① 강사가 수업 시작 시각에 들어오지 못함 → <b>지각으로 기록</b><br>
+  ② 잃은 시간을 뒤로 연장하지 않음 → <b><code>late_no_extend</code> 발동</b><br>
+  ③ <b>1분당 ₱10 차감</b> — 15분 지연이면 <b class="no">₱150</b><br><br>
+  <b>즉, 우리 시스템이 강사를 막아 놓고, 그 결과로 강사의 급여를 깎게 됩니다.</b>
+  게다가 판정이 <b>매니저 수기 입력</b>이라, 매니저가 사고 경위를 모르면 그대로 부과됩니다.
+</div>
+<div class="en-block r"><span class="lbl">EN — WHY THIS INCIDENT MATTERS</span><br>
+  <b>This is the most dangerous gap in the current rules.</b>
+  There is <b>no "company fault" category at all</b>. Applying today's rules to today's incident:<br>
+  (1) the teacher fails to enter at the scheduled time → <b>recorded as late</b>;
+  (2) the lost time is not extended → <b><code>late_no_extend</code> triggers</b>;
+  (3) <b>₱10 per minute is deducted</b> — a 15-minute delay costs the teacher <b>₱150</b>.<br><br>
+  <b>In other words: our system blocks the teacher, and then docks the teacher's pay for it.</b>
+  And because the judgement is entered by hand, a manager who does not know the backstory will simply apply it.</div>
+
+<div class="good">
+  <b>동시에, 이 사고는 측정 체계가 왜 필요한지도 증명합니다.</b>
+  M1~M4가 있었다면 <b>「강사가 단 한 번도 입장하지 못했고, 학생과 관리자는 방에 있었다」</b>는 사실이
+  기록으로 즉시 확인됩니다. 강사가 위챗으로 화면을 캡처해 결백을 증명할 필요가 없습니다.
+  <b>측정 체계는 회사를 위한 감시 도구가 아니라, 이런 상황에서 교사를 보호하는 증거가 됩니다.</b>
+  <div class="en-block g" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>The same incident also proves why measurement is needed.</b> With M1–M4 in place, the record would have
+    immediately shown <b>"the teacher never joined; the student and admin were in the room"</b> —
+    no need for the teacher to send screenshots over WeChat to prove innocence.
+    <b>The measurement layer is not a surveillance tool for the company; it is the evidence that protects the teacher.</b></div>
+</div>
+
+<div class="note">
+  <b>선행 조치 (본 제안과 별개로 즉시 필요):</b> 해당 강사에게 <b>실제 강사 계정 발급 + 예약에 담당 강사로 연결</b>.
+  이것이 끝나기 전에는 <b>같은 문제가 매 수업 반복</b>됩니다. 또한 시연 계정으로 수업에 들어오는 강사가
+  이 사람 하나인지 <b>전수 점검</b>이 필요합니다.
+  <div class="en-block" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>Immediate action, independent of this proposal:</b> issue a real teacher account and attach it to the booking.
+    Until then <b>the same failure repeats every lesson</b>. A full audit is also needed to find any other teachers
+    still working from demo accounts.</div>
+</div>
+
+<h3>⑦ 대응하지 않을 경우의 비용
+  <span class="enh">7. The cost of doing nothing</span></h3>
+<ul>
+  <li>새 시스템이 <b>"근거 없이 깎는 시스템"</b>으로 각인 — 이후 기능 추가마다 신뢰 회복 비용 발생
+      <span class="en">The new system becomes known as <b>"the thing that docks pay without proof"</b></span></li>
+  <li><b>질문한 강사에게 답을 주지 못하는 상태</b>가 지속
+      <span class="en">Teachers who asked receive no answer</span></li>
+  <li>강사 이탈 1명당 채용·교육 비용 + 담당 학생의 교사 변경 리스크
+      <span class="en">Each departure costs recruitment, training, and student-handover risk</span>
+      <span class="assume">(대체 비용은 인사·재무 입력 필요 / replacement cost needs HR &amp; Finance input)</span></li>
+</ul>
+
+<!-- ══════════════════════════ 2 ══════════════════════════ -->
+<h2 id="s2" class="hot"><span class="n">2</span>핵심 안건 — 교사 회선이 끊겼을 때 수업 시간을 어떻게 증명할 것인가<small>Core Issue — How to prove teaching time when the teacher's connection dies</small></h2>
+
+<div class="lead">
+  <b>지적하신 문제는 사실입니다. 원인은 "기록이 부정확하다"가 아니라 "기록하는 주체가 잘못됐다"입니다.</b><br><br>
+  현재 수업 시간을 서버에 보고하는 주체는 <b>교사 본인의 브라우저</b>입니다.
+  그런데 문제 상황이 바로 <b>교사의 인터넷이 죽는 것</b>입니다.
+  <b>보고자와 사고 당사자가 동일하므로, 사고가 나면 보고가 함께 사라집니다.</b>
+</div>
+<div class="en-block r"><span class="lbl">EN</span><br>
+  <b>The concern is valid, and the root cause is not "inaccurate records" but "the wrong party is doing the recording."</b><br>
+  Today, lesson time is reported to the server by <b>the teacher's own browser</b> —
+  and the failure we care about is <b>the teacher's internet dying</b>.
+  <b>The reporter and the casualty are the same machine, so when the incident happens, the report disappears with it.</b></div>
+
+<h3>2-1. 지금 실제로 무슨 일이 벌어지는가 — 사각지대 4가지
+  <span class="enh">2-1. What actually happens today — four blind spots</span></h3>
+
+<div class="flow">
+  <div class="step"><b>입장 시 / On join</b><code>/api/attendance/checkin</code> → <code>joined_at</code>
+    <span class="en">Start time recorded</span></div>
+  <div class="step"><b>30초마다 / Every 30s</b><code>/api/speaking-time</code> → 누적 시간
+    <span class="en">Cumulative time updated</span></div>
+  <div class="step"><b>퇴장 시 / On leave</b><code>/api/attendance/leave</code> → <code>left_at</code>
+    <span class="en">End time finalised</span></div>
+</div>
+
+<h4 style="color:#fca5a5">사각지대 ① — 종료 시각이 영원히 기록되지 않습니다
+  <span class="enh">Blind spot 1 — The end time is never recorded</span></h4>
+<p><code>left_at</code>은 <b>교사 브라우저가 <code>/api/attendance/leave</code>를 호출해야</b> 기록됩니다
+(<code>mango-attendance.js:207~225</code>). 이 호출은 <code>pagehide</code>·<code>beforeunload</code> 시점에 발생합니다.</p>
+<div class="warn">
+  <b>인터넷이 끊겨도 페이지는 언로드되지 않습니다.</b> 브라우저는 멀쩡히 열려 있고 네트워크만 죽습니다.
+  따라서 <code>leave</code>는 호출되지 않으며, 호출되더라도 보낼 곳이 없습니다.
+  <b>결과: 그 교사의 수업 종료 시각은 DB에 영원히 <code>NULL</code>로 남습니다.</b>
+  <div class="en-block r" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>A dead connection does not unload the page.</b> The browser stays open; only the network dies.
+    So <code>leave</code> is never called — and even if it were, it has nowhere to go.
+    <b>Result: that teacher's lesson end time stays <code>NULL</code> in the database forever.</b>
+    We currently have <b>no data telling us when the lesson ended</b>.</div>
+</div>
+
+<h4 style="color:#fca5a5">사각지대 ② — 재접속하면 끊겨 있던 시간이 수업 시간에 포함됩니다
+  <span class="enh">Blind spot 2 — After reconnecting, offline minutes count as teaching</span></h4>
+<p><code>total_session_ms</code>는 교사 브라우저가 <b>200ms마다 자체 누적</b>하는 값입니다
+(<code>mango-attendance.js:130~153</code>). 네트워크가 끊겨도 <b>브라우저 타이머는 계속 돕니다.</b>
+따라서 끊겨 있는 내내 수업 시간이 쌓입니다.</p>
+<p>코드에는 <code>delta &gt; 5000</code> 구간을 버리는 방어가 있으나, 이는 <b>노트북 절전·탭 정지</b>만 걸러냅니다.
+<b>「PC는 켜져 있고 인터넷만 죽은」 상황은 전혀 걸러내지 못하며, 그것이 바로 우리 문제입니다.</b></p>
+<table class="tbl-sm">
+<tr><th style="width:40%">상황 <span class="en">Case</span></th><th>서버에 남는 값 <span class="en">What the server ends up with</span></th></tr>
+<tr><td>끊긴 뒤 <b>재접속함</b><span class="en">Dropped, then <b>reconnected</b></span></td>
+    <td class="no"><b>과다 계상</b> — 끊겨 있던 시간이 포함되어 보고됨<span class="en"><b>Over-counted</b> — offline time is included</span></td></tr>
+<tr><td>끊긴 뒤 <b>재접속 못 함</b><span class="en">Dropped, <b>never reconnected</b></span></td>
+    <td class="mid">직전 값에서 정지 (안전하나 <b>종료 시각은 여전히 없음</b>)<span class="en">Frozen at the last value — safe, but <b>still no end time</b></span></td></tr>
+</table>
+
+<h4 style="color:#fca5a5">사각지대 ③ — 서버가 "마지막으로 살아있던 시각"을 저장하지 않습니다
+  <span class="enh">Blind spot 3 — The server discards the "last seen" timestamp</span></h4>
+<p>이것이 <b>가장 아까운 부분</b>입니다. 교사 브라우저는 <b>30초마다 서버에 실제로 요청을 보내고 있습니다.</b>
+그런데 서버는 그 요청을 받아 누적 시간만 갱신하고 <b>「몇 시에 받았는지」를 저장하지 않습니다</b>
+(<code>api-mango.ts:678~692</code> — 시각 컬럼 갱신 없음).</p>
+<div class="good">
+  <b>필요한 신호는 이미 30초마다 서버에 도착하고 있는데 버리고 있습니다.</b>
+  <code>last_seen_at</code> 컬럼 하나를 추가하고 서버 시각을 찍기만 하면
+  <b>종료 시각을 오차 30초 이내로 복원</b>할 수 있습니다.
+  새 통신도, 클라이언트 수정도, 추가 비용도 필요 없습니다.
+  <b>본 안건에서 투입 대비 효과가 가장 큰 조치입니다.</b>
+  <div class="en-block g" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>The signal we need already arrives every 30 seconds — we throw it away.</b>
+    Adding a single <code>last_seen_at</code> column and stamping the server clock
+    <b>restores the end time to within 30 seconds</b>.
+    No new traffic, no client change, no additional cost. <b>This is the highest-leverage fix in this proposal.</b></div>
+</div>
+
+<h4 style="color:#fca5a5">사각지대 ④ — 서버는 끊김을 알지만 기록하지 않습니다
+  <span class="enh">Blind spot 4 — The server detects the drop but stores nothing</span></h4>
+<table class="tbl-sm">
+<tr><th style="width:30%">근거 <span class="en">Reference</span></th><th>내용 <span class="en">Finding</span></th></tr>
+<tr><td><code>video-call-room.ts:165~177</code></td>
+    <td>종료 코드 <b>1000 = <code>left</code></b>(의도적 퇴장) / <b>그 외 = <code>dropped</code></b>(회선 끊김)
+    <span class="en">Close code 1000 = intentional leave; anything else = connection drop</span></td></tr>
+<tr><td><code>video-call-room.ts:170</code></td>
+    <td>주석: <i>1006=회선, 1001=탭/앱 종료, 4001=재접속 교체, 4002=pong 무응답</i>
+    <span class="en">The cause codes are already classified in comments</span></td></tr>
+<tr><td><code>video-call-room.ts:286~320</code></td>
+    <td><b class="no">그러나 DB에 저장하지 않습니다</b> — 화면 브로드캐스트 + 콘솔 로그가 전부
+    <span class="en"><b>But none of it is persisted</b> — only broadcast to peers and logged to console</span></td></tr>
+</table>
+<p>콘솔 로그는 며칠간 보관되지만 급여 정산에 쓸 수 있는 형태가 아니며,
+화상수업 서버가 발급하는 사용자 ID는 <b>접속마다 바뀌는 임의값</b>이라 <b>어느 교사인지 특정할 수도 없습니다.</b></p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  Console logs are retained for days but are not queryable for payroll, and the room server issues a
+  <b>random per-connection user ID</b> — so the logs cannot even identify which teacher was involved.</div>
+
+<div class="warn">
+  <b>사각지대 요약 — 왜 "확인이 어렵다"가 맞는가 / Why the concern is correct</b>
+  <ul class="x" style="margin-top:8px">
+    <li>종료 시각: 기록 자체가 없음 <span class="en">End time: no record at all</span></li>
+    <li>수업 길이: 교사 브라우저의 자기 신고이며, 끊긴 시간을 포함해 부풀려짐
+        <span class="en">Duration: self-reported by the teacher's browser, inflated by offline time</span></li>
+    <li>서버 도착 시각: 받고도 버림 <span class="en">Server arrival time: received, then discarded</span></li>
+    <li>끊김 사실: 서버가 알고도 저장하지 않음 <span class="en">The drop itself: detected but never stored</span></li>
+  </ul>
+  <b>현재 상태로는 연장 수당도, 페널티도 근거를 댈 수 없습니다.</b>
+  <span class="en" style="display:block;color:#fca5a5;font-size:13px;margin-top:4px">As things stand, neither extension pay nor the penalty can be evidenced.</span>
+</div>
+
+<h3>2-2. 해법의 핵심 — <span style="color:#6ee7a8">학생 쪽 기록이 교사의 증인이 됩니다</span>
+  <span class="enh">2-2. The key — the student's record is the teacher's witness</span></h3>
+
+<div class="lead" style="border-left-color:#6ee7a8;background:rgba(110,231,168,.08)">
+  <b>교사의 인터넷이 문제라면 교사의 기록은 믿을 수 없습니다. 그러나 학생의 기록은 살아 있습니다.</b><br><br>
+  학생은 <b>다른 회선 · 다른 기기 · 다른 장소</b>에 있습니다.
+  교사의 인터넷이 죽어도 <b>학생의 브라우저는 정상적으로 서버에 보고를 계속합니다.</b>
+  그리고 학생 화면은 <b>교사가 사라진 순간과 돌아온 순간을 정확히 알고 있습니다</b> —
+  화상수업 서버가 <code>user-left(reason: dropped)</code>를 학생에게 <b>이미 보내고 있기 때문</b>입니다
+  (<code>video-call-room.ts:306</code>).<br><br>
+  <b>교사 회선 사고의 목격자는 학생 쪽 시스템입니다. 우리는 그 증언을 저장만 하면 됩니다.</b>
+</div>
+<div class="en-block g"><span class="lbl">EN — THE CORE IDEA</span><br>
+  <b>If the teacher's internet is the problem, the teacher's record cannot be trusted. The student's record can.</b><br>
+  The student sits on a <b>different line, a different device, in a different place</b>.
+  When the teacher's connection dies, <b>the student's browser keeps reporting to the server normally.</b>
+  And the student's screen <b>knows exactly when the teacher vanished and reappeared</b> —
+  because the room server <b>already sends</b> <code>user-left(reason: dropped)</code> to the student.<br><br>
+  <b>The witness to a teacher's connection failure is the student's system. We simply have to store that testimony.</b></div>
+
+<h3>2-3. 측정 모델 — 「양측 동시 접속 시간」
+  <span class="enh">2-3. The measurement model — "both-present time"</span></h3>
+<p>지급과 페널티의 기준을 <b>교사 접속 시간</b>이 아니라 <b>교사와 학생이 동시에 접속해 있던 시간</b>으로 바꿉니다.</p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  We change the basis for both pay and penalty from <b>the teacher's connected time</b> to
+  <b>the time teacher and student were connected simultaneously</b>.</div>
+
+<div class="tl">
+  <div class="row">
+    <div class="lbl">예정 수업<em>Scheduled</em></div>
+    <div class="bar">
+      <div class="seg s-gap" style="flex:0 0 8%"></div>
+      <div class="seg s-ext" style="flex:1">14:00 — 14:20 (20 min)</div>
+      <div class="seg s-gap" style="flex:0 0 22%"></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="lbl">학생 접속<em>Student online</em></div>
+    <div class="bar">
+      <div class="seg s-gap" style="flex:0 0 8%"></div>
+      <div class="seg s-on" style="flex:1">14:00 ─────────────── 14:26 (witness)</div>
+      <div class="seg s-gap" style="flex:0 0 8%"></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="lbl">교사 접속<em>Teacher online</em></div>
+    <div class="bar">
+      <div class="seg s-gap" style="flex:0 0 8%"></div>
+      <div class="seg s-on" style="flex:0 0 30%">14:00–14:08</div>
+      <div class="seg s-off" style="flex:0 0 18%">DROP 5 min</div>
+      <div class="seg s-on" style="flex:0 0 36%">14:13–14:26</div>
+      <div class="seg s-gap" style="flex:0 0 8%"></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="lbl">지급 판정<em>Pay decision</em></div>
+    <div class="bar">
+      <div class="seg s-gap" style="flex:0 0 8%"></div>
+      <div class="seg s-on" style="flex:0 0 30%">유급 8분 / paid 8</div>
+      <div class="seg s-off" style="flex:0 0 18%">미지급 / unpaid</div>
+      <div class="seg s-on" style="flex:0 0 22%">유급 7분 / paid 7</div>
+      <div class="seg s-ext" style="flex:0 0 14%">보충 5분 / make-up</div>
+      <div class="seg s-gap" style="flex:0 0 8%"></div>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i style="background:#6ee7a8"></i>양측 동시 접속 (수업 성립) / Both present — lesson counts</span>
+    <span><i style="background:#f87171"></i>교사 이탈 (미성립) / Teacher absent — does not count</span>
+    <span><i style="background:#ffd479"></i>예정 시간 · 보충 구간 / Scheduled &amp; make-up</span>
+  </div>
+  <div class="cap">
+    <b>판정:</b> 겉보기 접속 26분이지만 실제 수업 성립은 <b>20분</b>(8+7+5).
+    교사 귀책 5분을 뒤로 보충했으므로 <b>원 수업 시간이 복원됨 → 페널티 없음, 추가 지급 없음.</b>
+    <b>14:20에 그냥 종료했다면</b> 성립은 15분뿐 → <b>미보충 5분에 페널티.</b>
+    <b>이 판정 전부가 학생 쪽 기록만으로 가능합니다 — 교사 브라우저의 협조가 필요 없습니다.</b><br><br>
+    <b>EN —</b> 26 minutes of apparent connection, but only <b>20 minutes of actual lesson</b> (8+7+5).
+    The teacher made up the 5 lost minutes, so <b>the full lesson was restored → no penalty, no extra pay.</b>
+    Had the lesson ended at 14:20, only 15 minutes would have counted → <b>penalty on the 5 unrecovered minutes.</b>
+    <b>Every one of these judgements is possible from the student's record alone.</b>
+  </div>
+</div>
+
+<h3>2-4. 증거 등급 — 100% 자동은 불가능하므로 등급을 나눕니다
+  <span class="enh">2-4. Evidence tiers — full automation is impossible, so we grade it</span></h3>
+<table>
+<tr><th style="width:9%">등급<span class="en">Tier</span></th><th style="width:27%">조건<span class="en">Condition</span></th>
+    <th style="width:28%">처리<span class="en">Handling</span></th><th>비중<span class="en">Expected share</span></th></tr>
+<tr><td><b class="ok">A급</b></td>
+    <td>학생 쪽 기록 + 화상수업 서버 기록 <b>일치</b><span class="en">Student record and room-server record <b>agree</b></span></td>
+    <td class="ok">자동 확정 · 매니저 확인 불필요<span class="en">Auto-confirmed, no manager review</span></td>
+    <td>1:1 수업 대부분<span class="en">Most 1:1 lessons</span></td></tr>
+<tr><td><b class="mid">B급</b></td>
+    <td>한쪽 기록만 존재<span class="en">Only one side has a record</span></td>
+    <td class="mid">매니저 승인 큐 · 근거 함께 표시<span class="en">Manager approval queue, with evidence shown</span></td>
+    <td>소수<span class="en">A minority</span></td></tr>
+<tr><td><b class="no">C급</b></td>
+    <td><b>양측 동시 끊김</b> (지역 정전 등)<span class="en"><b>Both sides drop</b> — e.g. area power outage</span></td>
+    <td class="no">교사 자기신고 + 매니저 재량 · <b>월 한도</b><span class="en">Teacher self-report with a <b>monthly cap</b></span></td>
+    <td>드물지만 반드시 발생<span class="en">Rare but inevitable</span></td></tr>
+</table>
+<div class="note">
+  <b>C급을 숨기지 않는 것이 중요합니다.</b> "완전 자동화했습니다"라고 보고하면
+  실제로 C급이 발생했을 때 제도 전체의 신뢰가 무너집니다.
+  <b>C급은 기술로 해결되지 않으며, 월 한도라는 정책으로 관리합니다.</b>
+  <div class="en-block" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>Do not hide Tier C.</b> Claiming "fully automated" and then hitting a Tier C case destroys trust in the whole system.
+    <b>Tier C is not a technical problem — it is managed by policy, through a monthly cap.</b></div>
+</div>
+
+<h3>2-5. 구축 방안 — 4단계
+  <span class="enh">2-5. Build plan — four steps</span></h3>
+<table>
+<tr><th style="width:7%">단계</th><th style="width:26%">내용<span class="en">Work</span></th>
+    <th style="width:29%">확보되는 것<span class="en">What it gives us</span></th><th style="width:10%">기간<span class="en">Effort</span></th><th>비고<span class="en">Note</span></th></tr>
+<tr><td><b>M1</b></td>
+    <td><b>서버 시각 하트비트</b><br><code>attendance.last_seen_at</code> 추가 + 서버 시각 기록
+    <span class="en"><b>Server-clock heartbeat</b> — add column, stamp server time</span></td>
+    <td class="ok"><b>종료 시각 오차 30초 이내</b> · 자기신고 의존 제거 · 과다 계상 해소
+    <span class="en"><b>End time within 30s</b>; removes self-report dependence and over-counting</span></td>
+    <td class="ok">0.5일<span class="en">0.5 day</span></td>
+    <td class="ok"><b>최우선. 신규 통신·추가 비용 없음</b><span class="en">Top priority. No new traffic or cost</span></td></tr>
+<tr><td><b>M2</b></td>
+    <td><b>끊김 이벤트 저장</b><br><code>left</code>/<code>dropped</code> 판정을 D1에 적재
+    <span class="en"><b>Persist drop events</b> to D1</span></td>
+    <td class="ok">끊김 <b>횟수·시각·구간</b> · 원인 코드 구분
+    <span class="en">Count, timing, duration and cause of each drop</span></td>
+    <td>1일<span class="en">1 day</span></td>
+    <td>이미 판정 중인 값을 저장만 함<span class="en">Only storing what is already computed</span></td></tr>
+<tr><td><b>M3</b></td>
+    <td><b>학생 측 목격 보고</b><br>"교사 사라짐/돌아옴"을 서버에 보고
+    <span class="en"><b>Student-side witness report</b> — teacher vanished / returned</span></td>
+    <td class="ok"><b>교사 회선이 죽어도 사실이 남음</b> · M2와 교차검증
+    <span class="en"><b>The truth survives even when the teacher's line dies</b>; cross-checks with M2</span></td>
+    <td>1일<span class="en">1 day</span></td>
+    <td class="ok"><b>사각지대의 정답. 핵심 단계</b><span class="en">The answer to the blind spot</span></td></tr>
+<tr><td><b>M4</b></td>
+    <td><b>양측 동시 접속 시간 산출 + 판정</b><br>정산 화면에 타임라인 표시
+    <span class="en"><b>Compute both-present time</b> and show a timeline</span></td>
+    <td class="ok">수당·페널티 <b>양쪽의 근거</b> · 교사가 직접 확인
+    <span class="en">Evidence for <b>both</b> pay and penalty; teachers can verify</span></td>
+    <td>1.5일<span class="en">1.5 days</span></td>
+    <td>매니저 승인 큐 포함<span class="en">Includes approval queue</span></td></tr>
+</table>
+<div class="good">
+  <b>총 4일. 대부분이 「이미 있는 신호를 저장만 하는」 작업입니다.</b>
+  새로 측정할 것을 만드는 것이 아니라 <b>버리고 있던 것을 줍는 작업</b>입니다.
+  M1만으로도 종료 시각 문제의 대부분이 해결됩니다.
+  <div class="en-block g" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>Four days total, and most of it is simply storing signals we already produce.</b>
+    We are not building new instrumentation — we are <b>picking up what we have been throwing away</b>.
+    M1 alone solves most of the missing-end-time problem.</div>
+</div>
+
+<h3>2-6. 교사 회선 끊김 — 지급·페널티 판정 규칙 (결정 4)
+  <span class="enh">2-6. Teacher disconnection — pay and penalty rules (Decision 4)</span></h3>
+<table>
+<tr><th style="width:28%">상황<span class="en">Situation</span></th><th style="width:20%">지급<span class="en">Pay</span></th>
+    <th style="width:20%">페널티<span class="en">Penalty</span></th><th>근거<span class="en">Rationale</span></th></tr>
+<tr><td>끊김 → <b>같은 수업에서 보충함</b><span class="en">Drop → <b>made up in the same lesson</b></span></td>
+    <td class="mid">추가 지급 없음<span class="en">No extra pay</span></td>
+    <td class="ok">없음<span class="en">None</span></td>
+    <td>원 수업 시간이 복원됨<span class="en">The full lesson was restored</span></td></tr>
+<tr><td>끊김 → <b>보충하지 않음</b><span class="en">Drop → <b>not made up</b></span></td>
+    <td class="mid">미제공 시간만큼 차감<span class="en">Undelivered time deducted</span></td>
+    <td class="no">페널티 적용<span class="en">Penalty applies</span></td>
+    <td><b>학생이 받지 못한 수업 시간</b>이 자동 측정값으로 확인됨
+    <span class="en">Measured from what the student actually received</span></td></tr>
+<tr><td>끊김 → <b>보충 불가</b> (다음 수업이 붙어 있음)<span class="en">Drop → <b>cannot make up</b> (next class starts)</span></td>
+    <td class="mid">미제공분 차감<span class="en">Undelivered time deducted</span></td>
+    <td class="mid">페널티 면제 + 학생 보충수업<span class="en">Penalty waived; make-up lesson for student</span></td>
+    <td>교사가 통제할 수 없는 일정 문제 · <b>학생 보상 우선</b>
+    <span class="en">Outside the teacher's control; student compensation first</span></td></tr>
+<tr><td><b>학생 귀책</b> 지연 → 교사가 연장<span class="en"><b>Student-caused</b> delay → teacher extends</span></td>
+    <td class="ok"><b>최대 10분 유급</b><span class="en"><b>Up to 10 minutes paid</b></span></td>
+    <td class="ok">없음<span class="en">None</span></td>
+    <td>교사의 추가 노동<span class="en">Additional labour by the teacher</span></td></tr>
+<tr><td>C급 (증거 없음)<span class="en">Tier C — no evidence</span></td>
+    <td class="mid">자기신고 기준<span class="en">Per self-report</span></td>
+    <td class="mid">월 한도 내 면제<span class="en">Waived within monthly cap</span></td>
+    <td>측정 불가 구간 · 한도 초과 시 면담<span class="en">Unmeasurable; interview beyond the cap</span></td></tr>
+<tr style="background:rgba(248,113,113,.1)">
+    <td><b>회사·시스템 귀책</b><br><span style="font-size:12px">플랫폼 장애·계정 문제·입장 차단</span>
+    <span class="en"><b>Company/system fault</b> — platform failure, account issue, entry blocked</span></td>
+    <td class="ok"><b>예정 수업료 전액 지급</b><span class="en"><b>Full scheduled fee paid</b></span></td>
+    <td class="ok"><b>면제</b> · 지각 기록도 남기지 않음<span class="en"><b>Waived</b>; not recorded as lateness</span></td>
+    <td>교사에게 책임이 없음. <b>2026-07-28 실제 사고 사례</b>(1-⑥)
+    <span class="en">No fault on the teacher's side. <b>See the real incident of 2026-07-28</b></span></td></tr>
+</table>
+<div class="note">
+  <b>이 표의 의미:</b> 페널티를 유지하면서도 부과 근거가
+  <b>「매니저의 판단」에서 「학생이 실제로 받은 수업 시간」으로 바뀝니다.</b>
+  강사에게는 반박이 아니라 확인의 대상이 되고, 회사에는 방어 가능한 기록이 남습니다.
+  <b>페널티 유지 방침에 오히려 유리한 변화입니다.</b>
+  <div class="en-block" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>What this table means:</b> the penalty stays, but its basis moves from
+    <b>a manager's judgement to the lesson time the student actually received</b>.
+    For the teacher it becomes something to check, not something to argue with; for the company it becomes defensible.
+    <b>This strengthens the decision to keep the penalty.</b></div>
+</div>
+
+<h3>2-7. 부정 사용 및 이상 패턴 탐지
+  <span class="enh">2-7. Abuse and anomaly detection</span></h3>
+<ul class="chk">
+  <li><b>교사별 월간 끊김 시간·횟수 순위</b><span class="en">Monthly ranking of disconnection time and count per teacher</span></li>
+  <li><b>「끊김 직후 연장」 빈도</b>가 특정 교사에게만 몰리는지<span class="en">Whether "extend right after a drop" clusters on specific individuals</span></li>
+  <li><b>동일 시간대 반복 끊김</b> — 태도가 아니라 <b>회선·전력 문제</b>의 신호<span class="en">Repeats at the same hour — a signal of line/power issues, not attitude</span></li>
+  <li>학생 기록과 교사 자기신고의 <b>불일치율</b> — C급 남용 탐지<span class="en">Mismatch rate between student record and self-report — detects Tier C abuse</span></li>
+  <li>학생이 이미 나갔는데 교사만 남아 있는 시간 — <b>과다 계상 자동 차단</b><span class="en">Teacher-only time after the student left — over-counting blocked automatically</span></li>
+</ul>
+
+<h3>2-8. 정직하게 남는 한계
+  <span class="enh">2-8. Limitations we should state honestly</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:34%">한계<span class="en">Limitation</span></th><th>대응<span class="en">Response</span></th></tr>
+<tr><td>양측 동시 끊김 (지역 정전)<span class="en">Both sides drop (area outage)</span></td>
+    <td class="mid">기술적 해결 불가 → C급 자기신고 + 월 한도<span class="en">Not solvable technically → Tier C with a monthly cap</span></td></tr>
+<tr><td>종료 시각 오차 최대 30초<span class="en">End-time error up to 30 seconds</span></td>
+    <td class="ok">₱2.5/분 기준 <b>최대 오차 약 ₱1.25</b> — 무시 가능<span class="en">At ₱2.5/min that is <b>≈₱1.25</b> — negligible</span></td></tr>
+<tr><td>그룹 수업<span class="en">Group lessons</span></td>
+    <td class="ok">오히려 유리 — <b>증인이 여러 명</b><span class="en">Actually better — <b>multiple witnesses</b></span></td></tr>
+<tr><td>학생이 먼저 나간 경우<span class="en">Student leaves first</span></td>
+    <td class="mid">그 시점 이후는 수업 미성립<span class="en">Nothing after that point counts</span></td></tr>
+<tr><td class="no">현재 데이터 적재 상태 미확인<span class="en">Current data volume unverified</span></td>
+    <td class="no"><b>DB 조회 권한 대기 중</b> — 착수 전 확인 필수 (4-⑥)<span class="en"><b>Awaiting DB read access</b> — must confirm before starting</span></td></tr>
+</table>
+
+<!-- ══════════════════════════ 3 ══════════════════════════ -->
+<h2 id="s3"><span class="n">3</span>장점과 단점<small>Pros &amp; Cons — 경쟁사 벤치마크 · 3개 안 · 재무 영향 / Benchmark, three options, financials</small></h2>
+
+<h3>경쟁 플랫폼 6개사 <span class="enh">Six competitor platforms</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:14%">플랫폼<span class="en">Platform</span></th><th style="width:22%">학생 지각 시<span class="en">Student late</span></th>
+    <th style="width:20%">연장 의무<span class="en">Must extend?</span></th><th>보수 방식<span class="en">Pay model</span></th></tr>
+<tr><td><b>Cambly</b></td><td>10분 대기 · <b class="ok">대기 시간도 지급</b><span class="en">Wait 10 min — <b>waiting is paid</b></span></td>
+    <td>해당 없음 (시간 기준 지급)<span class="en">N/A — paid by time</span></td>
+    <td><b>분 단위 지급</b> ($0.17/분). 학생 조기 종료 시에도 <b class="ok">5분까지 추가 지급</b>
+    <span class="en"><b>Per-minute pay</b>; up to 5 min paid after an early end</span></td></tr>
+<tr><td><b>italki</b></td><td>예정 시간 끝까지 대기<span class="en">Wait until scheduled end</span></td>
+    <td><b class="ok">없음 (정책 명문)</b><span class="en"><b>None — stated in policy</b></span></td>
+    <td>학생 노쇼 시 <b class="ok">전액 지급</b><span class="en"><b>Full pay</b> on student no-show</span></td></tr>
+<tr><td><b>Preply</b></td><td>취소 정책에 따름<span class="en">Per cancellation policy</span></td><td>없음<span class="en">None</span></td>
+    <td>미출석도 대개 <b class="ok">완료 처리 → 지급</b><span class="en">Usually marked complete and paid</span></td></tr>
+<tr><td><b>51Talk</b></td><td>—</td><td>—</td>
+    <td><b class="no">벌칙 중심</b> — 수업료 배수 페널티. <b class="no">강사 리뷰 최다 불만</b>
+    <span class="en"><b>Penalty-driven</b>; the top complaint in teacher reviews</span></td></tr>
+<tr><td><b>Engoo / Native Camp</b></td><td>—</td><td>없음<span class="en">None</span></td>
+    <td>건당 고정 (약 ₱60/25분)<span class="en">Flat per lesson (~₱60 / 25 min)</span></td></tr>
+<tr style="background:rgba(248,113,113,.1)"><td><b>망고아이 (현행)</b><span class="en">Mangoi (current)</span></td>
+    <td>규정 없음<span class="en">No rule</span></td><td><b class="no">사실상 의무</b><span class="en"><b>Effectively mandatory</b></span></td>
+    <td><b class="no">연장 무급 + 미연장 ₱10/분 (수동 판정)</b><span class="en"><b>Unpaid extension + ₱10/min penalty, judged manually</b></span></td></tr>
+</table>
+
+<div class="lead">
+  업계 표준은 <b>①시간으로 지급</b>(Cambly) 또는 <b>②연장 의무 없음</b>(italki) 두 가지뿐입니다.
+  <b>「연장 의무 + 무급 + 미이행 벌금」은 조사 6곳 중 0곳</b>이며,
+  가장 유사한 51Talk의 벌칙 체계는 <b>강사 평판 악화의 대표 사례</b>로 인용됩니다.<br><br>
+  <b>페널티를 유지하더라도, 반대편에 지급이 있어야 51Talk 모델과 구분됩니다.</b>
+  차이를 만드는 것은 페널티의 유무가 아니라 <b>근거가 있는가</b>와 <b>양방향인가</b>입니다.
+</div>
+<div class="en-block"><span class="lbl">EN — KEY FINDING</span><br>
+  The industry splits two ways: <b>pay by time</b> (Cambly) or <b>no obligation to extend</b> (italki).
+  <b>None of the six platforms uses "mandatory unpaid extension with a fine for non-compliance."</b>
+  The closest analogue, 51Talk's penalty regime, is widely cited as the reason its teacher reputation collapsed.<br>
+  <b>Keeping the penalty is fine — but it must be paired with payment on the other side to distinguish us from that model.</b>
+  What separates the two is not whether a penalty exists, but <b>whether it is evidenced</b> and <b>whether the rule runs both ways</b>.</div>
+
+<h3>3개 안 비교 (페널티 유지 전제) <span class="enh">Three options, all retaining the penalty</span></h3>
+<table>
+<tr><th style="width:12%">안<span class="en">Option</span></th><th style="width:25%">내용<span class="en">Content</span></th>
+    <th style="width:28%">장점<span class="en">Pros</span></th><th>단점<span class="en">Cons</span></th></tr>
+<tr><td><b>A안</b><span class="en">Status quo</span></td>
+    <td>연장 무급 + 페널티 수동 판정 유지<span class="en">Unpaid extension, manual penalty</span></td>
+    <td>비용 0 · 개발 0<span class="en">No cost, no work</span></td>
+    <td class="no"><b>페널티 근거 없는 상태 지속</b> — 분쟁 시 방어 불가 · 경영진 지적 미해결
+    <span class="en"><b>Penalty remains unevidenced</b>; indefensible in a dispute; the raised concern stays unresolved</span></td></tr>
+<tr><td><b>B안</b><span class="en">Measurement only</span></td>
+    <td>측정 체계(M1~M4)만 구축. 페널티 자동화, 연장 수당 없음
+    <span class="en">Build M1–M4 only; automate the penalty, no extension pay</span></td>
+    <td class="ok">개발 4일 · <b>추가 인건비 0</b> · 페널티 근거 확보 · <b>지적 사항 해결</b>
+    <span class="en">4 days, <b>no added payroll</b>, penalty evidenced, concern resolved</span></td>
+    <td class="mid">강사에게 <b>"감시만 정밀해졌다"</b>로 읽힐 위험 · 질문 #17에 답이 안 됨
+    <span class="en">Risks reading as <b>"surveillance got sharper"</b>; does not answer feedback #17</span></td></tr>
+<tr style="background:rgba(110,231,168,.08)"><td><b class="ok">C안 (권고)</b><span class="en">Recommended</span></td>
+    <td>측정 체계 + <b>연장 10분 유급</b> + <b>페널티 유지(자동 판정)</b>
+    <span class="en">Measurement + <b>10 paid minutes</b> + <b>penalty retained, auto-judged</b></span></td>
+    <td class="ok">제도가 <b>양방향</b>이 되어 설명 가능 · 페널티가 방어 가능 · 질문에 답이 됨 ·
+    <b>학부모에게 "선생님이 더 가르쳤습니다" 제시 가능</b>
+    <span class="en">Rule works both ways; penalty becomes defensible; answers the teachers; gives parents a value story</span></td>
+    <td class="mid">추가 비용 · 개발 4일 · C급 정책 필요
+    <span class="en">Added cost, 4 days, needs a Tier C policy</span></td></tr>
+</table>
+
+<h3>C안 재무 영향 <span class="enh">Financial impact of Option C</span></h3>
+<p>단가: Teacher 1 등급 <b>₱50 / 20분</b>(<code>api-admin.ts:999</code>) → <b>₱2.5 / 분</b>. 상한 10분 시 수업 1건당 최대 <b>₱25</b>.
+<span style="color:#8fadc7;font-size:13.5px">/ Rate: ₱50 per 20 min → <b>₱2.5 per minute</b>; max <b>₱25</b> per lesson at the 10-minute cap.</span></p>
+<table class="tbl-sm">
+<tr><th>시나리오<span class="en">Scenario</span></th><th class="num">월 수업<span class="en">Lessons/mo</span></th>
+    <th class="num">발생률<span class="en">Rate</span></th><th class="num">평균 연장<span class="en">Avg. ext.</span></th>
+    <th class="num">월 비용<span class="en">Monthly</span></th><th class="num">연 비용<span class="en">Annual</span></th><th class="num">원화<span class="en">KRW/yr</span></th></tr>
+<tr><td><b>보수적</b><span class="en">Conservative</span></td><td class="num">2,830</td><td class="num">5%</td><td class="num">6분</td>
+    <td class="num">₱2,123</td><td class="num">₱25,476</td><td class="num"><b>약 61만원</b></td></tr>
+<tr><td><b>중간</b><span class="en">Moderate</span></td><td class="num">2,830</td><td class="num">10%</td><td class="num">8분</td>
+    <td class="num">₱5,660</td><td class="num">₱67,920</td><td class="num"><b>약 163만원</b></td></tr>
+<tr><td><b>높음</b><span class="en">High</span></td><td class="num">2,830</td><td class="num">20%</td><td class="num">10분</td>
+    <td class="num">₱14,150</td><td class="num">₱169,800</td><td class="num"><b>약 408만원</b></td></tr>
+</table>
+<div class="assume">
+  ※ 월 수업 건수는 등록된 반복 스케줄 658건 × 약 4.3주로 산출한 <b>추정치</b>. 환율 ₱1 ≈ 24원.
+  강사 227명 기준 <b>1인당 월 ₱9~62</b>. 페널티 유지에 따른 차감액이 이 비용을 일부 상쇄하나,
+  실제 차감 건수가 미확인이라 상계 금액은 미산정.<br>
+  <b>EN —</b> Lesson volume is an <b>estimate</b> (658 recurring schedules × ~4.3 weeks). ₱1 ≈ KRW 24.
+  Across 227 teachers this is <b>₱9–62 per teacher per month</b>. Penalty revenue partially offsets this,
+  but the actual penalty count is unverified so no offset is booked.
+</div>
+
+<!-- ══════════════════════════ 4 ══════════════════════════ -->
+<h2 id="s4"><span class="n">4</span>보완점<small>Safeguards — 오남용 방지와 운영 안정성 / Preventing abuse, keeping operations stable</small></h2>
+
+<h3>① 실제 접속 시간을 그대로 지급하지 않습니다
+  <span class="enh">1. We never pay raw connected time</span></h3>
+<ul class="x">
+  <li>교사가 교실을 나가지 않으면 시간이 무한 증가<span class="en">Time grows forever if the teacher never leaves the room</span></li>
+  <li>끊김·재접속이 섞이면 시간이 부풀려짐<span class="en">Drops and reconnects inflate the total</span></li>
+  <li>학생 퇴장 이후 시간이 수업으로 집계됨<span class="en">Post-student time would count as teaching</span></li>
+</ul>
+<p><b>지급 기준은 「양측 동시 접속 시간」이며, 상한은 학생 퇴장 시각입니다.</b>
+<span style="color:#8fadc7;font-size:13.5px">/ <b>The basis is both-present time, capped at the moment the student left.</b></span></p>
+
+<h3>② 자동 감지 후 매니저가 확정합니다
+  <span class="enh">2. Auto-detect, then manager confirms</span></h3>
+<div class="flow">
+  <div class="step"><b>1. 자동 산출</b>양측 동시 접속 시간 계산<span class="en">Compute both-present time</span></div>
+  <div class="step"><b>2. 사유 판정</b>학생 지각 / 교사 회선 / 기술 문제<span class="en">Classify the cause</span></div>
+  <div class="step"><b>3. 등급 부여</b>A급 자동, B·C급만 승인 큐<span class="en">Tier A auto; B/C to queue</span></div>
+  <div class="step"><b>4. 매니저 확정</b>타임라인과 함께 표시<span class="en">Approve with timeline shown</span></div>
+  <div class="step"><b>5. 정산 반영</b>수당·페널티 별도 표기<span class="en">Post to payroll separately</span></div>
+</div>
+
+<h3>③ 강사 측 추가 업무가 없습니다
+  <span class="enh">3. Zero extra work for teachers</span></h3>
+<p>신청서·버튼이 없습니다. 신청 방식이면 <b>수업이 연달아 잡힌 성실한 교사일수록 손해</b>를 봅니다.</p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  No claim form, no button. If a claim were required, <b>the busiest and most committed teachers would lose the most</b> —
+  they go straight into the next class.</div>
+
+<h3>④ 이의제기 창구 (7일)
+  <span class="enh">4. A 7-day dispute window</span></h3>
+<p>기록이 실제와 다를 경우 마이페이지에서 7일 내 이의 제기.
+<b>페널티를 유지하는 제도일수록 이 창구가 필수입니다</b> — 반박 수단이 없는 자동 차감은 반드시 분쟁이 됩니다.</p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  <b>A system that keeps penalties needs this more, not less.</b>
+  An automatic deduction with no way to contest it will produce disputes.</div>
+
+<h3>⑤ 비용 통제 장치
+  <span class="enh">5. Cost controls</span></h3>
+<ul class="chk">
+  <li>수업 1건당 상한 10분 (₱25)<span class="en">10-minute cap per lesson (₱25)</span></li>
+  <li><b>학생 귀책일 때만</b> 지급<span class="en">Paid <b>only when the student caused the delay</b></span></li>
+  <li>A급 외에는 매니저 승인 필수<span class="en">Manager approval for everything except Tier A</span></li>
+  <li>C급 자기신고 <b>월 2회 한도</b><span class="en">Tier C self-reports capped at <b>2 per month</b></span></li>
+  <li>월 누적 초과 시 알림 · 분기별 상한·단가 재조정<span class="en">Monthly threshold alerts; quarterly review of cap and rate</span></li>
+</ul>
+
+<h3>⑥ 착수 전 반드시 확인할 항목 <span style="font-size:13px;color:#fca5a5">(미확인)</span>
+  <span class="enh">6. Must be verified before we start (currently unknown)</span></h3>
+<div class="warn">
+  <b>DB 조회 권한 대기 중 — 회의 전 확인 권고. / Awaiting DB read access — recommend confirming before the meeting.</b>
+  <ul style="margin-top:8px">
+    <li><code>attendance</code> 실제 적재량 → 부족하면 M1~M4 효과 제한
+        <span class="en">Actual volume in <code>attendance</code> — if thin, M1–M4 are limited</span></li>
+    <li><code>lesson_late_minutes</code> 실제 페널티 부과 건수 → 현행 페널티가 집행되고 있는지, 상계 금액은 얼마인지
+        <span class="en">Actual penalty count — is the penalty even being enforced, and what is the offset?</span></li>
+    <li>월 실제 수업 건수 → 비용 추정치 확정
+        <span class="en">Real monthly lesson count — fixes the cost estimate</span></li>
+    <li><b>콜센터 좌석 수용력 및 교사 거주지 분포</b> → 결정 6 실행 가능 인원 산정
+        <span class="en"><b>Call-center seat capacity and where teachers live</b> — sizes Decision 6</span></li>
+  </ul>
+</div>
+
+<!-- ══════════════════════════ 5 ══════════════════════════ -->
+<h2 id="s5"><span class="n">5</span>추가할 교칙<small>New Rules — 승인 시 이 문안 그대로 강사에게 공지합니다 / Publish verbatim to teachers upon approval</small></h2>
+
+<div class="rule">
+  <span class="no-">제 1 조 / Article 1</span>
+  <h4>기다리는 시간도 근무 시간입니다</h4>
+  <p>학생이 오지 않아도 <b>수업 시작 후 10분까지는 교실에 계셔야 합니다.</b>
+  그 10분은 <b>근무로 인정되어 지급</b>됩니다. 10분이 지나도 오지 않으면 나가셔도 됩니다.</p>
+  <div class="en"><b>Waiting is paid work.</b> Please stay in the classroom for up to 10 minutes after the scheduled start.
+  <b>Those 10 minutes are paid.</b> After 10 minutes with no student, you may leave.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 2 조 / Article 2</span>
+  <h4>학생 때문에 늦게 시작했다면, 연장한 시간을 지급합니다</h4>
+  <p>학생이 늦게 입장했거나 <b>학생 쪽 인터넷·기기 문제</b>로 늦게 시작된 경우,
+  뒤로 연장해 주신 시간은 <b>최대 10분까지 지급</b>됩니다.
+  (1분당 = 등급 단가 ÷ 20분, 예: ₱50/20분 등급 → <b>₱2.5</b>)</p>
+  <div class="en"><b>If the student caused the delay, your extra minutes are paid.</b>
+  When a lesson starts late because the student joined late or had an internet/device problem,
+  the time you add at the end is <b>paid, up to 10 minutes</b>.
+  Rate: your lesson rate ÷ 20 per minute (e.g. ₱50 per 20 min → <b>₱2.5 per minute</b>).</div>
+</div>
+
+<div class="rule" style="border-color:rgba(248,113,113,.4)">
+  <span class="no-" style="background:#f87171">제 3 조 / Article 3</span>
+  <h4 style="color:#fca5a5">선생님의 인터넷이 끊긴 경우</h4>
+  <p><b>① 끊긴 시간만큼 뒤로 채워 주시면:</b> 추가 지급은 없지만 <b>차감도 없습니다.</b> 원래 수업 시간이 회복되기 때문입니다.</p>
+  <p><b>② 채우지 못하고 종료하면:</b> 학생이 받지 못한 시간만큼 차감되며 <b>페널티가 적용됩니다.</b></p>
+  <p><b>③ 다음 수업이 바로 붙어 있어 채울 수 없으면:</b> 미제공 시간은 차감되지만 <b>페널티는 면제</b>되며,
+  회사가 학생에게 보충수업을 안내합니다. 수업 후 매니저에게 알려 주세요.</p>
+  <p style="color:#9fc0dc;font-size:13.5px"><b>확인 방법:</b> 선생님의 인터넷이 끊겨도
+  <b>학생 쪽 기록에 시각이 남습니다.</b> 선생님이 따로 증명하지 않으셔도 됩니다.</p>
+  <div class="en"><b>If your internet drops.</b>
+  <b>(1) If you make up the lost time in the same lesson:</b> no extra pay, but <b>no deduction either</b> — the full lesson is restored.
+  <b>(2) If you end without making it up:</b> the time the student did not receive is deducted and the penalty applies.
+  <b>(3) If your next class starts immediately and you cannot make it up:</b> the missing time is deducted but
+  <b>the penalty is waived</b>, and the company arranges a make-up lesson for the student. Please notify your manager after class.<br>
+  <b>How it is verified:</b> even when your connection dies, <b>the timing is recorded on the student's side</b>. You do not need to prove anything yourself.</div>
+</div>
+
+<div class="rule" style="border-color:rgba(110,231,168,.45)">
+  <span class="no-" style="background:#6ee7a8">제 3 조의 2 / Article 3-2</span>
+  <h4 style="color:#6ee7a8">회사 시스템 문제로 수업에 못 들어가신 경우 — 선생님 책임이 아닙니다</h4>
+  <p>접속 화면이 열리지 않거나, 계정 문제로 수업방 입장이 <b>차단</b>되거나,
+  플랫폼 장애로 수업을 시작하지 못한 경우 — <b>이것은 회사의 문제입니다.</b></p>
+  <p><b>① 예정된 수업료는 전액 지급</b>됩니다. <b>② 지각으로 기록되지 않으며 차감·페널티도 없습니다.</b>
+  <b>③ 회사가 학생에게 보충수업을 안내</b>합니다.</p>
+  <p style="color:#9fc0dc;font-size:13.5px">입장이 안 되면 <b>기다리지 마시고 즉시 매니저에게 알려 주세요.</b>
+  스크린샷을 보내 결백을 증명하실 필요 없습니다 — 시스템 기록으로 확인됩니다.</p>
+  <div class="en"><b>If a company system problem prevents you from entering — it is not your fault.</b>
+  If the classroom will not open, your account is <b>blocked</b> from the room, or a platform failure stops the lesson:
+  <b>(1) you are paid the full scheduled fee; (2) it is not recorded as lateness and no deduction or penalty applies;
+  (3) the company arranges a make-up lesson for the student.</b><br>
+  If you cannot enter, <b>do not wait — tell your manager immediately.</b>
+  You do not need to send screenshots to prove yourself; the system record confirms it.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 4 조 / Article 4</span>
+  <h4>한도는 10분입니다</h4>
+  <p>한 수업에서 인정되는 연장은 <b>최대 10분</b>입니다. 더 가르치셔도 되지만 지급은 10분까지이며,
+  과도한 연장은 다음 수업에 지장을 주므로 권장하지 않습니다.</p>
+  <div class="en"><b>The cap is 10 minutes.</b> You may teach longer, but payment stops at 10 minutes.
+  We do not encourage longer extensions — they push your next class late.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 5 조 / Article 5</span>
+  <h4>기록은 시스템이 자동으로 합니다</h4>
+  <p>연장 시간과 끊김 시간은 <b>시스템이 자동 기록</b>합니다. 신청서가 필요 없으며,
+  수업 종료 후 <b>마이페이지에서 타임라인으로 확인</b>하실 수 있습니다.</p>
+  <div class="en"><b>The system records everything automatically.</b> No claim form.
+  You can see the full timeline in My Page right after class.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 6 조 / Article 6</span>
+  <h4>기록이 다르면 7일 안에 알려 주세요</h4>
+  <p>기록이 실제와 다르면 마이페이지에서 <b>7일 이내 이의 제기</b>가 가능합니다.
+  매니저 확인 후 수정하며, <b>이의 제기로 인한 불이익은 없습니다.</b></p>
+  <div class="en"><b>If the record is wrong, tell us within 7 days</b> from My Page.
+  Your manager will review and correct it. <b>Raising a dispute never counts against you.</b></div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 7 조 / Article 7</span>
+  <h4>양쪽 다 끊겨 기록이 없는 경우</h4>
+  <p>지역 정전 등으로 <b>선생님과 학생이 동시에 끊겨</b> 기록이 남지 않은 경우,
+  <b>월 2회까지 자기신고</b>로 처리합니다. 그 이상은 매니저 면담 후 결정합니다.</p>
+  <div class="en"><b>When both sides drop and no record exists</b> (e.g. an area power outage),
+  you may self-report <b>up to 2 times per month</b>. Beyond that, your manager will discuss it with you.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 8 조 / Article 8</span>
+  <h4>페널티는 유지되지만, 판단 기준이 바뀝니다</h4>
+  <p>기존 <b>지각 연장 실패 페널티(1분당 ₱10)는 유지</b>됩니다.
+  다만 판정 근거가 <b>매니저의 수기 입력에서 「학생이 실제로 받은 수업 시간」으로 바뀝니다.</b>
+  <b>기록으로 확인되지 않는 페널티는 부과되지 않습니다.</b></p>
+  <div class="en"><b>The penalty remains, but the basis changes.</b>
+  The ₱10-per-minute penalty stays. However, it will be judged on
+  <b>the lesson time the student actually received</b>, not on manual entry.
+  <b>No penalty will be applied without a record.</b></div>
+</div>
+
+<div class="rule" style="border-color:rgba(252,165,165,.45)">
+  <span class="no-" style="background:#fca5a5">제 9 조 / Article 9</span>
+  <h4 style="color:#fca5a5">인터넷이 자주 끊기는 경우 — 사무실 근무로 전환됩니다</h4>
+  <p>선생님의 잘못이 아니어도, <b>인터넷이 반복해서 끊기면 학생의 수업이 손해를 봅니다.</b>
+  회사는 이 경우 <b>콜센터 사무실 근무로 전환</b>해 드립니다. <b>징계가 아닙니다.</b>
+  사무실은 회선이 안정적이라 <b>끊김으로 인한 차감이 사라지고, 수업료를 온전히 받으실 수 있습니다.</b></p>
+  <p><b>절차:</b> ① 자동 안내(끊김 기록 공유) → ② 매니저 면담·회선 점검 → ③ 사무실 근무 전환(4주) → ④ 회선 개선 확인 시 재택 복귀</p>
+  <p style="color:#9fc0dc;font-size:13.5px">복귀 경로가 항상 열려 있습니다. 회선이 개선되면 다시 재택으로 돌아오실 수 있습니다.</p>
+  <div class="en"><b>If your internet drops repeatedly — you will move to office-based work.</b>
+  Even when it is not your fault, <b>repeated disconnection harms your students' lessons.</b>
+  In that case the company will move you to <b>call-center office work</b>. <b>This is not a disciplinary action.</b>
+  The office has a stable line, so <b>deductions caused by dropouts disappear and you receive your full lesson fees.</b><br>
+  <b>Process:</b> (1) automatic notice with your connection record → (2) manager discussion and line check →
+  (3) office-based work for 4 weeks → (4) return to home-based once your connection is verified as stable.<br>
+  <b>The path back is always open.</b></div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 10 조 / Article 10</span>
+  <h4>상습적으로 늦는 학생은 회사가 처리합니다</h4>
+  <p>동일 학생이 <b>월 3회 이상</b> 지각하면 자동 표시되며 <b>회사가 학부모에게 안내</b>합니다.
+  선생님이 직접 말씀하실 필요 없습니다.</p>
+  <div class="en"><b>Repeatedly late students are handled by the company.</b>
+  Three or more late arrivals in a month are flagged automatically and <b>we contact the parent</b>. You do not have to.</div>
+</div>
+
+<div class="rule" style="border-color:rgba(127,209,255,.35)">
+  <span class="no-" style="background:#7fd1ff">제 11 조 / Article 11</span>
+  <h4 style="color:#7fd1ff">학생·학부모에게도 동일 규칙을 안내합니다</h4>
+  <p>수업 예약 화면과 학부모 안내문에 명시합니다:
+  <b>"수업 시작 시각에 맞춰 입장해 주세요. 늦게 입장하면 수업 시간이 짧아질 수 있으며, 선생님이 최대 10분까지 연장해 드립니다."</b></p>
+  <div class="en"><b>The same rule is published to students and parents.</b>
+  Booking screens and parent notices will state: "Please join on time. If the student joins late, the lesson may be shorter.
+  Teachers will extend by up to 10 minutes."</div>
+</div>
+
+<!-- ══════════════════════════ 6 ══════════════════════════ -->
+<h2 id="s6"><span class="n">6</span>기타 아이디어<small>Additional Ideas — 같은 데이터로 추가 확보 가능한 가치 / More value from the same data</small></h2>
+
+<h3>① 학부모 리포트에 연장 시간 노출 — 비용을 매출 자산으로
+  <span class="enh">1. Show extension time in the parent report — turn cost into revenue</span></h3>
+<p>운영 중인 <b>학부모 주간 리포트</b>에 한 줄 추가:
+<b>"이번 주 선생님이 자녀를 위해 12분을 추가로 수업했습니다."</b></p>
+<ul>
+  <li><b>학부모</b> — 서비스 가치를 수치로 체감 → <b>재등록 근거</b><span class="en">Parents feel the value → re-enrollment</span></li>
+  <li><b>교사</b> — 노력이 고객에게 전달됨 → 금전보다 강한 동기<span class="en">Teachers see recognition — stronger than money</span></li>
+  <li><b>회사</b> — 지출이 <b>리텐션 자산으로 회수</b><span class="en">The spend returns as a retention asset</span></li>
+</ul>
+
+<h3>② 회선 품질 상시 모니터링 — 교사별 「안정성 점수」
+  <span class="enh">2. Continuous line monitoring — a stability score per teacher</span></h3>
+<p>M1~M3이 서면 <b>교사별 월간 회선 안정성 점수</b>가 자동으로 나옵니다.
+채용·배정·근무 형태 결정의 객관 지표가 되며, <b>사고가 난 뒤가 아니라 사고 전에</b> 대응할 수 있습니다.</p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  Once M1–M3 exist, a <b>monthly connection-stability score</b> per teacher falls out automatically.
+  It becomes an objective input for hiring, scheduling and work-mode decisions — and lets us act <b>before</b> incidents, not after.</div>
+
+<h3 style="color:#fca5a5">③ 상습 끊김 → 콜센터 사무실 근무 전환 <span class="ok">[방침 확정]</span>
+  <span class="enh">3. Repeated disconnection → transfer to call-center office work [confirmed policy]</span></h3>
+
+<div class="good">
+  <b>이 방침은 교사에게도 유리하게 설계할 수 있습니다.</b>
+  끊김이 잦으면 교사는 <b>매달 페널티로 급여가 깎입니다.</b>
+  사무실 근무로 옮기면 <b>끊김이 사라지고 수업료를 온전히 받습니다.</b>
+  즉 <b>"처벌"이 아니라 "손해를 멈추는 조치"</b>로 설명할 수 있고, 실제로도 그렇습니다.
+  <div class="en-block g" style="margin-top:11px"><span class="lbl">EN — HOW TO FRAME IT</span><br>
+    <b>This policy can be designed to benefit the teacher too.</b>
+    A teacher with an unstable line <b>loses pay to penalties every month</b>.
+    Moving to the office <b>removes the dropouts and restores full lesson pay</b>.
+    It is therefore not a punishment but <b>a way to stop the bleeding</b> — and it should be communicated exactly that way.</div>
+</div>
+
+<h4>전환 절차 4단계 <span class="enh">The four-step transfer process</span></h4>
+<div class="stage">
+  <div class="s s1"><span class="n">1단계 / STEP 1</span>
+    <h4>자동 안내 (경고 아님)</h4>
+    <p>임계값 초과 시 교사에게 <b>본인의 끊김 기록을 그대로 공유</b>합니다. 판단이 아니라 사실만 전달합니다.</p>
+    <div class="en"><b>Automatic notice, not a warning.</b> The teacher receives their own connection record. Facts only, no judgement.</div></div>
+  <div class="s s2"><span class="n">2단계 / STEP 2</span>
+    <h4>매니저 면담 · 회선 점검</h4>
+    <p>원인 확인(회선·전력·기기), <b>모바일 테더링 전환 가이드</b> 제공. 이 단계에서 해결되면 종료합니다.</p>
+    <div class="en">Identify the cause (line, power, device) and provide a <b>mobile tethering fallback guide</b>. If resolved here, it ends here.</div></div>
+  <div class="s s3"><span class="n">3단계 / STEP 3</span>
+    <h4>사무실 근무 전환 (4주)</h4>
+    <p>콜센터 좌석 배정. <b>기간을 명시</b>합니다 — 무기한이 아니라 4주입니다.</p>
+    <div class="en">Assign a call-center seat. <b>State the duration</b> — four weeks, not indefinite.</div></div>
+  <div class="s s4"><span class="n">4단계 / STEP 4</span>
+    <h4>재택 복귀 심사</h4>
+    <p>회선 개선 확인 시 재택 복귀. <b>복귀 경로가 항상 열려 있어야 제도가 작동합니다.</b></p>
+    <div class="en">Return to home-based once the line is verified. <b>The policy only works if the way back stays open.</b></div></div>
+</div>
+
+<h4>전환 기준(임계값) — 경영진 확정 필요 <span class="enh">Transfer threshold — requires management sign-off</span></h4>
+<table class="tbl-sm">
+<tr><th style="width:26%">지표<span class="en">Metric</span></th><th style="width:22%">권고 임계값<span class="en">Proposed threshold</span></th><th>근거<span class="en">Rationale</span></th></tr>
+<tr><td>월 수업 중 교사측 끊김 발생 비율<span class="en">Share of lessons with a teacher-side drop</span></td>
+    <td class="mid"><b>10% 이상</b><span class="en">≥ 10%</span></td>
+    <td>10회 중 1회 이상 학생이 손해를 봄<span class="en">More than one lesson in ten is degraded for the student</span></td></tr>
+<tr><td>월 누적 끊김 시간<span class="en">Cumulative monthly drop time</span></td>
+    <td class="mid"><b>30분 이상</b><span class="en">≥ 30 minutes</span></td>
+    <td>수업 1.5회분이 사라진 셈<span class="en">Equivalent to losing 1.5 lessons</span></td></tr>
+<tr><td>연속 발생<span class="en">Persistence</span></td>
+    <td class="mid"><b>2개월 연속</b><span class="en">2 consecutive months</span></td>
+    <td>일시적 사고와 구조적 문제를 구분<span class="en">Separates a one-off incident from a structural problem</span></td></tr>
+</table>
+<p style="font-size:13.5px;color:#b8cde0"><b>권고:</b> 위 세 조건 중 <b>둘 이상</b>을 충족할 때 3단계로 이동합니다.
+하나만 충족하면 2단계(면담)에서 멈춥니다. <b>임계값은 시행 후 첫 분기 데이터로 재조정합니다.</b>
+<span class="en" style="display:block;color:#8fadc7;margin-top:4px">
+<b>Recommendation:</b> move to Step 3 only when <b>two or more</b> conditions are met; a single trigger stops at Step 2.
+Recalibrate the thresholds after the first quarter of real data.</span></p>
+
+<h4 style="color:#ffd479">함께 결정해야 할 3가지 <span class="enh">Three points that must be decided alongside</span></h4>
+<table class="tbl-sm">
+<tr><th style="width:22%">항목<span class="en">Item</span></th><th style="width:34%">쟁점<span class="en">Issue</span></th><th>실무 권고<span class="en">Recommendation</span></th></tr>
+<tr><td><b>통근 지원</b><span class="en">Commuting support</span></td>
+    <td>필리핀 통근 부담이 큼. 지원이 없으면 <b>전환이 사실상 해고 통보처럼 작동</b>할 수 있음
+    <span class="en">Commuting is a heavy burden; without support the transfer can read as a dismissal</span></td>
+    <td class="ok">교통비 지원 또는 사무실 근무 수당 <b>도입 권고</b>
+    <span class="en"><b>Introduce</b> a commuting allowance or office-work stipend</span></td></tr>
+<tr><td><b>좌석 수용력</b><span class="en">Seat capacity</span></td>
+    <td>대상 인원이 좌석보다 많으면 제도가 멈춤<span class="en">If more teachers qualify than seats exist, the policy stalls</span></td>
+    <td class="mid">현재 좌석 수 확인 후 <b>월 전환 인원 상한 설정</b>
+    <span class="en">Confirm seats, then <b>cap monthly transfers</b></span></td></tr>
+<tr><td><b>거주지 거리</b><span class="en">Distance</span></td>
+    <td>통근 불가 거리의 교사는 전환 자체가 불가능<span class="en">Teachers too far away cannot transfer at all</span></td>
+    <td class="mid">원거리 교사는 <b>회선 보조금 대안</b> 적용
+    <span class="en">Apply a <b>line-subsidy alternative</b> for remote teachers</span></td></tr>
+</table>
+
+<div class="warn">
+  <b>주의 — 이 제도가 실패하는 가장 흔한 방식</b><br>
+  ① 기준을 공개하지 않고 갑자기 통보 → 표적 인사로 인식<br>
+  ② 복귀 경로 없이 무기한 전환 → 사실상 강등으로 인식 → 이탈<br>
+  ③ 통근 지원 없이 전환 → 급여가 실질적으로 감소 → 이탈<br>
+  <b>기준 공개 · 기간 명시 · 복귀 경로 · 통근 지원, 이 네 가지가 갖춰져야 제도가 작동합니다.</b>
+  <div class="en-block r" style="margin-top:11px"><span class="lbl">EN — HOW THIS FAILS</span><br>
+    (1) Undisclosed criteria and a sudden notice → read as targeting.
+    (2) Indefinite transfer with no way back → read as demotion → attrition.
+    (3) Transfer without commuting support → real pay falls → attrition.<br>
+    <b>Published criteria, a stated duration, a return path, and commuting support — all four are required.</b></div>
+</div>
+
+<h3>④ 교사 마이페이지 「이번 달 기여」 카드
+  <span class="enh">4. A "my month" card in the teacher's My Page</span></h3>
+<p>월 연장 분수, 대기 시간, 회선 안정성 점수를 한 카드로 표시. <b>감독보다 자기확인이 효율적입니다.</b></p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  Show monthly extension minutes, waiting time and the connection-stability score in one card.
+  <b>Self-monitoring outperforms supervision.</b></div>
+
+<h3>⑤ 학생용 지각 안내 화면 — 가장 저렴한 해결책
+  <span class="enh">5. A gentle late notice for students — the cheapest fix of all</span></h3>
+<p>학생이 늦게 입장하면 표시: <b>"조금 늦었어요! 선생님이 기다리고 계세요. 다음에는 1분만 일찍 들어와 볼까요?"</b>
+<b>지각 발생 자체를 줄이는 것이 연장 수당보다 저렴합니다.</b></p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  "You're a little late! Your teacher is waiting. Shall we try joining one minute early next time?"
+  <b>Reducing lateness is cheaper than paying for extensions.</b></div>
+
+<h3>⑥ 분기별 정책 리뷰
+  <span class="enh">6. Quarterly policy review</span></h3>
+<p>3개월마다 실제 데이터로 상한·단가·C급 한도·전환 임계값을 재조정합니다.
+비용이 통제 범위를 벗어나지 않게 하는 안전장치이자, <b>"규칙은 함께 다듬는다"는 메시지</b>입니다.</p>
+<div class="en-block"><span class="lbl">EN</span><br>
+  Every quarter, recalibrate the cap, the rate, the Tier C limit and the transfer thresholds against real data.
+  It keeps costs bounded and signals that <b>the rules are refined together, not imposed once</b>.</div>
+
+<!-- ══════════════════════════ 7 ══════════════════════════ -->
+<h2 id="s7"><span class="n">7</span>결정 체크리스트 · 로드맵<small>Decision Checklist &amp; Roadmap — 회의 중 채우시면 그대로 실행 지시가 됩니다</small></h2>
+
+<table>
+<tr><th style="width:6%">No</th><th style="width:28%">결정 사항<span class="en">Decision</span></th>
+    <th style="width:24%">선택지<span class="en">Options</span></th><th>실무 권고<span class="en">Recommendation</span></th></tr>
+<tr><td><b>1</b></td><td>측정 체계(M1~M4) 구축<span class="en">Build measurement system</span></td>
+    <td>승인 / 보류</td><td class="ok">승인 — <b>두 제도의 공통 전제</b><span class="en">Approve — prerequisite for both policies</span></td></tr>
+<tr><td><b>2</b></td><td>페널티 판정 근거 전환<span class="en">Penalty basis</span></td>
+    <td>자동 측정 / 수동 유지</td><td class="ok">자동 측정 (페널티 유지)<span class="en">Automatic (penalty retained)</span></td></tr>
+<tr><td><b>3</b></td><td>연장 수당 도입<span class="en">Extension pay</span></td>
+    <td>A안 / B안 / <b>C안</b></td><td class="ok">C안 — 연 61만~408만원<span class="en">Option C</span></td></tr>
+<tr><td><b>4</b></td><td>회선 끊김 처리 원칙<span class="en">Disconnection rules</span></td>
+    <td>2-6 원안 / 수정</td><td class="ok">원안 승인<span class="en">As drafted</span></td></tr>
+<tr><td><b>5</b></td><td>C급 자기신고 한도<span class="en">Tier C cap</span></td>
+    <td>월 2회 / 다른 값 / 불허</td><td class="mid">월 2회<span class="en">2 per month</span></td></tr>
+<tr style="background:rgba(252,165,165,.08)"><td><b>6</b></td>
+    <td><b>사무실 근무 전환 세부</b><span class="en">Office-transfer details</span></td>
+    <td>임계값 / 통근 지원 / 복귀 조건</td>
+    <td class="mid">6-③ 권고안 — <b>임계값 2개 이상 충족 시 전환, 4주 기한, 통근 지원 도입</b>
+    <span class="en">Two of three thresholds; 4-week term; commuting support</span></td></tr>
+<tr style="background:rgba(248,113,113,.08)"><td><b>7</b></td>
+    <td><b>회사·시스템 귀책 전액 보장</b><span class="en">Full protection on company fault</span></td>
+    <td>승인 / 보류</td>
+    <td class="ok">승인 — <b>현행대로면 우리 버그가 교사 급여를 깎음</b> (1-⑥ 실제 사고)
+    <span class="en">Approve — otherwise our own bug docks teacher pay</span></td></tr>
+<tr><td><b>8</b></td><td>교칙 12개 조문 공지<span class="en">Publish 12 articles</span></td>
+    <td>원안 / 수정 후</td><td class="ok">원안 — <b>시스템보다 먼저</b><span class="en">As drafted — before the system</span></td></tr>
+<tr><td><b>9</b></td><td>예산<span class="en">Budget</span></td>
+    <td>연 400만원 한도 / 조정</td><td class="ok">한도 승인<span class="en">Approve the ceiling</span></td></tr>
+</table>
+
+<div class="warn">
+  <b>본 안건과 별개로 즉시 처리해야 할 항목 (2026-07-28 사고 후속)</b>
+  <ul style="margin-top:8px">
+    <li><b>해당 중국어 강사에게 실제 강사 계정 발급 + 예약에 담당 강사로 연결</b> — 완료 전까지 매 수업 반복
+        <span class="en">Issue a real teacher account and attach it to the booking — otherwise this repeats every lesson</span></li>
+    <li><b>시연 계정으로 근무 중인 강사 전수 점검</b><span class="en">Audit all teachers still on demo accounts</span></li>
+    <li><b>입장 차단 문구 한/영 병기 + 역할별 분기</b> — 현재 한국어 전용이며 강사에게 없는 버튼을 안내
+        <span class="en">Make the block message bilingual and role-aware — it currently points to a button teachers do not have</span></li>
+  </ul>
+</div>
+
+<h3>실행 로드맵 <span class="enh">Rollout plan</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:8%">단계</th><th style="width:32%">내용<span class="en">Work</span></th><th style="width:11%">기간<span class="en">Effort</span></th><th>비고<span class="en">Note</span></th></tr>
+<tr><td><b>0</b></td><td><b>데이터 확인</b> — 적재량 · 페널티 건수 · 수업 건수 · 좌석 수용력
+    <span class="en"><b>Verify data</b> — volume, penalty count, lessons, seat capacity</span></td>
+    <td>1시간<span class="en">1 hour</span></td><td class="mid"><b>최우선. 모든 추정치가 여기서 확정</b><span class="en">First. Fixes every estimate</span></td></tr>
+<tr><td><b>M1</b></td><td>서버 시각 하트비트 (<code>last_seen_at</code>)<span class="en">Server-clock heartbeat</span></td>
+    <td>0.5일</td><td class="ok"><b>단독으로도 종료 시각 문제 대부분 해결</b><span class="en">Alone solves most of the problem</span></td></tr>
+<tr><td><b>M2</b></td><td>끊김 이벤트 저장<span class="en">Persist drop events</span></td><td>1일</td>
+    <td>이미 판정 중인 값 저장<span class="en">Store what is already computed</span></td></tr>
+<tr><td><b>M3</b></td><td><b>학생 측 목격 보고</b><span class="en">Student-side witness report</span></td><td>1일</td>
+    <td class="ok"><b>사각지대의 정답</b><span class="en">The answer to the blind spot</span></td></tr>
+<tr><td><b>M4</b></td><td>양측 동시 접속 시간 산출 + 승인 화면 + 교사 타임라인
+    <span class="en">Both-present computation, approval UI, teacher timeline</span></td><td>1.5일</td>
+    <td>수당·페널티 공통 기반<span class="en">Shared basis for pay and penalty</span></td></tr>
+<tr><td><b>P1</b></td><td><b>교칙 공지</b> (한/영) + Q&amp;A 배포<span class="en">Publish rules (KO/EN) + Q&amp;A</span></td>
+    <td>1일</td><td class="ok">경영 · <b>시스템보다 먼저</b><span class="en">Management — before the system</span></td></tr>
+<tr><td><b>P2</b></td><td>사무실 전환 제도 안내 (제9조) + 대상자 산정
+    <span class="en">Announce the office-transfer policy (Art. 9) and size the cohort</span></td>
+    <td>1일</td><td class="mid">인사 + 시설<span class="en">HR + Facilities</span></td></tr>
+<tr><td><b>P3</b></td><td>학생·학부모 안내 문구 반영 (제11조)<span class="en">Student/parent notice (Art. 11)</span></td>
+    <td>0.5일</td><td>개발<span class="en">Engineering</span></td></tr>
+<tr><td><b>P4</b></td><td>1개월 시범 운영 → 실데이터 재보고<span class="en">One-month pilot, then report back with real data</span></td>
+    <td>1개월</td><td>경영 + 개발<span class="en">Management + Engineering</span></td></tr>
+</table>
+
+<hr class="sp">
+
+<div class="lead">
+  <b>정리.</b> 경영진이 지적하신 <b>「교사 회선 끊김 시 수업 시간 확인 불가」는 사실이며, 본 안건의 핵심 문제입니다.</b>
+  다만 해결 불가능한 문제가 아닙니다.
+  <b>필요한 신호는 이미 30초마다 서버에 도착하고 있고, 화상수업 서버는 끊김을 이미 구분하고 있으며,
+  학생 쪽 기록은 교사 회선이 죽어도 살아 있습니다.</b> 지금까지 그것을 <b>저장하지 않았을 뿐</b>입니다.<br><br>
+  <b>측정 체계를 먼저 세우면 페널티는 방어 가능해지고, 연장 수당은 통제 가능해지며,
+  사무실 근무 전환은 감정이 아니라 데이터로 설명됩니다.</b> 순서를 바꾸면 세 제도 모두 근거 없이 운영됩니다.
+</div>
+<div class="en-block g"><span class="lbl">EN — CLOSING</span><br>
+  <b>The concern raised is correct and it is the central issue in this proposal — but it is solvable.</b>
+  The signal we need <b>already reaches the server every 30 seconds</b>; the room server <b>already distinguishes
+  a drop from a departure</b>; and <b>the student's record survives even when the teacher's line dies</b>.
+  We have simply never stored any of it.<br><br>
+  <b>Build the measurement layer first, and the penalty becomes defensible, the extension pay becomes controllable,
+  and the office transfer becomes a data-based decision rather than a judgement about a person.</b>
+  Reverse the order and all three policies run without evidence.</div>
+
+<!-- ══════════════════════════ 8 ══════════════════════════ -->
+<h2 id="s8"><span class="n">부록</span><small>Appendix — 강사 Q&amp;A · 근거 자료 / Teacher Q&amp;A and references</small></h2>
+
+<h3>부록 A. 강사 예상 질문 <span class="enh">A. Anticipated teacher questions (publish with the rules)</span></h3>
+<div class="qa">
+  <div class="q">Q1. 제 인터넷이 끊겼는데, 제가 수업을 더 했다는 걸 어떻게 증명하나요?</div>
+  <p class="qe">If my internet dropped, how do I prove that I taught longer?</p>
+  <p class="a"><b>증명하지 않으셔도 됩니다.</b> 선생님의 인터넷이 끊겨도 학생 쪽 기록에 시각이 그대로 남습니다.
+  시스템이 양쪽 기록을 대조해 자동으로 판단합니다.</p>
+  <p class="ae"><b>You do not need to.</b> Even when your connection dies, the timing remains on the student's side.
+  The system compares both records automatically.</p>
+
+  <div class="q">Q2. 인터넷이 끊긴 시간도 수업 시간으로 쳐주나요?</div>
+  <p class="qe">Does the time I was disconnected count as teaching time?</p>
+  <p class="a">아니요. 학생과 함께 있던 시간만 인정됩니다. 대신 끊긴 만큼 뒤로 채워 주시면 <b>차감이 없습니다.</b></p>
+  <p class="ae">No — only time together with the student counts. But if you make up the lost minutes, <b>there is no deduction.</b></p>
+
+  <div class="q">Q3. 다음 수업이 바로 있어서 채울 수 없으면요?</div>
+  <p class="qe">What if my next class starts immediately and I cannot make it up?</p>
+  <p class="a">미제공 시간은 차감되지만 <b>페널티는 면제</b>되며, 회사가 학생에게 보충수업을 안내합니다. 매니저에게 알려 주세요.</p>
+  <p class="ae">The missing time is deducted but <b>the penalty is waived</b>, and we arrange a make-up lesson. Please notify your manager.</p>
+
+  <div class="q">Q4. 정전으로 저와 학생이 동시에 끊기면요?</div>
+  <p class="qe">What if a power outage disconnects both me and my student?</p>
+  <p class="a">그 경우는 기록이 남지 않습니다. <b>월 2회까지 자기신고</b>로 처리합니다.</p>
+  <p class="ae">No record exists in that case. You may <b>self-report up to 2 times per month.</b></p>
+
+  <div class="q">Q5. 시스템이 저를 수업방에 못 들어가게 막았습니다. 제 잘못인가요?</div>
+  <p class="qe">The system blocked me from entering the classroom. Is that counted against me?</p>
+  <p class="a"><b>아닙니다. 회사 문제입니다.</b> 예정된 수업료는 <b>전액 지급</b>되고, 지각으로 기록되지 않으며
+  차감도 없습니다. 학생에게는 회사가 보충수업을 안내합니다.
+  <b>입장이 안 되면 기다리지 마시고 즉시 매니저에게 알려 주세요.</b></p>
+  <p class="ae"><b>No — that is a company problem.</b> You receive <b>the full scheduled fee</b>, it is not recorded as lateness,
+  and there is no deduction. We arrange a make-up lesson for the student.
+  <b>If you cannot enter, do not wait — contact your manager immediately.</b></p>
+
+  <div class="q">Q6. 사무실 근무로 옮기라는 건 징계인가요?</div>
+  <p class="qe">Is being moved to office work a disciplinary action?</p>
+  <p class="a"><b>아닙니다.</b> 인터넷이 자주 끊기면 매달 페널티로 급여가 줄어듭니다.
+  사무실은 회선이 안정적이라 <b>차감이 사라지고 수업료를 온전히 받으십니다.</b>
+  기간은 4주이며, 회선이 개선되면 <b>재택으로 복귀</b>하실 수 있습니다.</p>
+  <p class="ae"><b>No.</b> Frequent dropouts cost you pay every month through penalties.
+  The office has a stable line, so <b>the deductions stop and you receive your full lesson fees.</b>
+  The term is four weeks, and <b>you can return to home-based work</b> once your connection is verified.</p>
+
+  <div class="q">Q7. 기록이 실제와 다르면요?</div>
+  <p class="qe">What if the record does not match what actually happened?</p>
+  <p class="a">7일 안에 마이페이지에서 이의를 제기해 주세요. 매니저 확인 후 수정하며 불이익은 없습니다.</p>
+  <p class="ae">Raise it in My Page within 7 days. Your manager will review and correct it. No penalty for asking.</p>
+
+  <div class="q">Q8. 학생이 아예 오지 않으면요?</div>
+  <p class="qe">What if the student never shows up?</p>
+  <p class="a">10분까지 기다려 주세요. 그 대기 시간은 근무로 인정되어 지급됩니다.</p>
+  <p class="ae">Please wait up to 10 minutes. That waiting time is paid work.</p>
+</div>
+
+<h3>부록 B. 코드 근거 · 미확인 항목 <span class="enh">B. Code references and open items</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:36%">항목<span class="en">Item</span></th><th>위치 / 상태<span class="en">Location / status</span></th></tr>
+<tr><td>수업료 계산식<span class="en">Fee formula</span></td><td><code>src/api-admin.ts</code> L1169, L1073</td></tr>
+<tr><td>페널티 규칙 · 수동 입력<span class="en">Penalty rule, manual entry</span></td><td><code>src/api-admin.ts</code> L966, L1441~1442</td></tr>
+<tr><td>등급별 단가<span class="en">Rate by level</span></td><td><code>src/api-admin.ts</code> L999 — T1 ₱50/20min, T2 ₱70/20min</td></tr>
+<tr><td>출결 스키마<span class="en">Attendance schema</span></td><td><code>src/api-mango.ts</code> L513</td></tr>
+<tr><td>30초 보고 · 시각 미기록<span class="en">30s report, timestamp discarded</span></td>
+    <td><code>src/api-mango.ts</code> L678~692 · <code>public/js/mango-attendance.js</code> L32, L186~205</td></tr>
+<tr><td>퇴장 보고 (끊기면 미도달)<span class="en">Leave report (never sent on drop)</span></td>
+    <td><code>public/js/mango-attendance.js</code> L207~225, L361~362</td></tr>
+<tr><td>클라이언트 누적 로직<span class="en">Client-side accumulation</span></td><td><code>public/js/mango-attendance.js</code> L130~153</td></tr>
+<tr><td>left / dropped 구분<span class="en">left vs dropped</span></td><td><code>src/video-call-room.ts</code> L163~185</td></tr>
+<tr><td>끊김 브로드캐스트 (미저장)<span class="en">Drop broadcast, not persisted</span></td><td><code>src/video-call-room.ts</code> L286~320</td></tr>
+<tr><td class="no">미확인 ①<span class="en">Open 1</span></td><td><code>attendance</code> 실제 적재량 — DB 조회 권한 대기<span class="en">Actual volume — awaiting DB access</span></td></tr>
+<tr><td class="no">미확인 ②<span class="en">Open 2</span></td><td><code>lesson_late_minutes</code> 실제 페널티 부과 건수<span class="en">Actual penalty count</span></td></tr>
+<tr><td class="no">미확인 ③<span class="en">Open 3</span></td><td>월 실제 수업 건수<span class="en">Real monthly lesson count</span></td></tr>
+<tr><td class="no">미확인 ④<span class="en">Open 4</span></td><td><b>콜센터 좌석 수용력 · 교사 거주지 분포</b><span class="en"><b>Call-center seat capacity and teacher locations</b></span></td></tr>
+<tr><td class="no">미확인 ⑤<span class="en">Open 5</span></td>
+    <td><b>시연 계정(<code>hq_t_*</code>)으로 근무 중인 강사 수</b> — 2026-07-28 사고 후속
+    <span class="en"><b>How many teachers are still on demo accounts</b> — follow-up to the 2026-07-28 incident</span></td></tr>
+<tr><td>참고 자료<span class="en">Related report</span></td>
+    <td>바탕화면 <code>수업입장_사고보고서_2026-07-28.md</code> ·
+        <code>망고아이_수업사고_개선보고서_2026-07-28_한국어.pdf</code> ·
+        <code>Mangoi_课堂问题与改进报告_2026-07-28_中文.pdf</code>
+    <span class="en">Class-entry incident report (KO / KO-PDF / ZH-PDF), 2026-07-28</span></td></tr>
+</table>
+
+<h3>부록 C. 경쟁사 조사 출처 <span class="enh">C. Competitor research sources</span></h3>
+<div class="src" style="margin-top:10px;border-top:0;padding-top:0">
+  · <a href="https://studentsupport.cambly.com/hc/en-us/articles/360051355511-Late-or-missed-your-lesson">Cambly — Late or missed your lesson</a><br>
+  · <a href="https://sidehustles.com/cambly-tutor-review/">Cambly — tutor pay structure (per-minute rate, waiting pay)</a><br>
+  · <a href="https://support.italki.com/hc/en-us/articles/360020529954-Lesson-Policy">italki — Lesson Policy</a><br>
+  · <a href="https://www.italki.com/en/instructorterms">italki — Teacher Policy</a><br>
+  · <a href="https://help.preply.com/en/articles/4178953-student-was-absent-guidelines-and-best-practices">Preply — Student was absent: guidelines</a><br>
+  · <a href="https://www.glassdoor.com/Reviews/51Talk-salary-deduction-Reviews-EI_IE633598.0,6_KH7,23.htm">51Talk — teacher reviews on salary deductions</a><br>
+  · <a href="https://www.indeed.com/cmp/51talk/reviews?fcountry=ALL&amp;fjobtitle=Teacher&amp;ftopic=paybenefits">51Talk — pay &amp; benefits reviews</a><br>
+  · <a href="https://onlineteachingreview.com/engoo-review/">Engoo review</a> ·
+    <a href="https://onlineteachingreview.com/native-camp-review/">Native Camp review</a>
+</div>
+
+</div>
+</body>
+</html>
