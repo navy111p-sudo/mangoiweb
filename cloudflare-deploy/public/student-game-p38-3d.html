@@ -41,16 +41,26 @@
      그래서 <img> 를 직접 놓고 width/bottom 을 % 로 잡는다 — 화면 크기가 변해도 비율이 유지된다. */
   #cpPhoto{inset:0;overflow:hidden}
   #cpPhoto img{position:absolute;left:50%;transform:translateX(-50%);
-    width:var(--cpW,134%);bottom:var(--cpB,-34%);
+    width:var(--cpW,134%);bottom:var(--cpB,-41%);
     filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5))}
   /* 세로 화면(모바일) — 조종석을 하단에만 얹고 위는 전부 하늘로 둔다 */
   @media (max-aspect-ratio: 1/1){
-    #cpPhoto img{--cpW:150%;--cpB:-6%}
+    #cpPhoto img{--cpW:150%;--cpB:-18%}
   }
   /* 아주 넓은 화면(21:9급) — 세로가 짧으니 조종석을 더 키우고 아래로 내린다 */
   @media (min-aspect-ratio: 19/10){
-    #cpPhoto img{--cpW:112%;--cpB:-40%}
+    #cpPhoto img{--cpW:112%;--cpB:-62%}
   }
+  /* 조종간(요크) — 마우스를 따라 실제로 움직인다. 사진 속 요크 위에 겹쳐 놓는다.
+     왼쪽으로 밀면 왼쪽으로 기울고, 위로 올리면 위로 밀린다. 조작이 손에 잡히는 느낌을 준다. */
+  #yoke{position:absolute;left:50%;bottom:-7%;width:19%;max-width:270px;z-index:6;pointer-events:none;
+    transform-origin:50% 92%;
+    transform:translateX(-50%) rotate(var(--ykR,0deg)) translateY(var(--ykY,0px));
+    transition:transform .06s linear;filter:drop-shadow(0 6px 14px rgba(0,0,0,.6))}
+  #yoke svg{width:100%;height:auto;display:block}
+  body.night #yoke{filter:drop-shadow(0 6px 14px rgba(0,0,0,.8)) brightness(.72)}
+  body.night #cpPhoto img{filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5)) brightness(.55) saturate(.8)}
+
   /* 유리 반사·비네팅 — 아주 옅게만(하늘을 가리지 않게) */
   #cpGlass{inset:0;background:
       radial-gradient(130% 100% at 50% 40%,rgba(255,255,255,0) 66%,rgba(10,20,10,.22) 100%),
@@ -211,6 +221,28 @@
   <div class="cp" id="cpGlass"></div>
   <div class="cp" id="cpPhoto"><img src="/img/p38-cockpit2.webp?v=1" alt=""></div>
 
+  <!-- 조종간(요크) — 마우스 입력에 따라 기울고 밀린다 -->
+  <div id="yoke">
+    <svg viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ykG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4a4f52"/><stop offset="45%" stop-color="#23272a"/>
+          <stop offset="100%" stop-color="#111416"/>
+        </linearGradient>
+      </defs>
+      <!-- 반원형 핸들 -->
+      <path d="M28 118 A122 122 0 0 1 272 118" fill="none" stroke="url(#ykG)" stroke-width="21" stroke-linecap="round"/>
+      <path d="M28 118 A122 122 0 0 1 272 118" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="6" stroke-linecap="round"/>
+      <!-- 좌우 그립 -->
+      <rect x="14" y="104" width="34" height="40" rx="14" fill="url(#ykG)"/>
+      <rect x="252" y="104" width="34" height="40" rx="14" fill="url(#ykG)"/>
+      <!-- 중앙 허브 + 컬럼 -->
+      <rect x="132" y="86" width="36" height="60" rx="10" fill="url(#ykG)"/>
+      <circle cx="150" cy="92" r="19" fill="#2b3033" stroke="#0d0f10" stroke-width="3"/>
+      <circle cx="150" cy="92" r="7" fill="#8e1f14"/>
+    </svg>
+  </div>
+
   <!-- 조준기 -->
   <svg id="sight" width="150" height="150" viewBox="0 0 150 150">
     <circle class="ring" cx="75" cy="75" r="46" fill="none" stroke="#ffbe3c" stroke-width="1.6" opacity=".85"/>
@@ -270,6 +302,11 @@
         <button class="lbtn" data-lang="zh">🇨🇳 중국어</button>
       </div>
 
+      <div class="langRow">
+        <button class="lbtn on" data-tod="day">☀️ 주간 전투</button>
+        <button class="lbtn" data-tod="night">🌙 야간 전투</button>
+      </div>
+
       <div class="modeRow">
         <button class="mbtn on" data-mode="train">훈련<small>단어 보임<br>Training</small></button>
         <button class="mbtn" data-mode="combat">실전<small>듣기로 찾기<br>Combat</small></button>
@@ -280,9 +317,9 @@
 
       <button class="go" id="btnStart">출격 START</button>
       <div class="keys">
-        <span class="kk">마우스/드래그 = 조종</span>
-        <span class="kk">클릭·스페이스 = 발사</span>
-        <span class="kk">Shift = 가속</span>
+        <span class="kk">🖱️ 마우스 = 조종(조종간이 따라 움직입니다)</span>
+        <span class="kk">스페이스 · Ctrl · Shift = 발사</span>
+        <span class="kk">N = 낮/밤 전환</span>
         <span class="kk">R = 무전 반복</span>
         <span class="kk">P = 일시정지</span>
       </div>
@@ -356,9 +393,9 @@ var muted = false, paused = false;
 var PRESET = {
   /* showWord = 문장 바에 '다음에 쏠 단어'를 미리 보여줄지. false 면 무전(듣기)이 유일한 단서가 된다.
      showKo   = 한국어 뜻을 띄울지. 실전까지는 뜻을 주고, 에이스는 뜻 없이 소리만으로 문장을 세운다. */
-  train : { label:'훈련', enemies:4, espd:0.55, showWord:true,  blindRadio:false, voiceLock:false, showKo:true,  time:100, aggro:0.25, rate:0.85 },
-  combat: { label:'실전', enemies:5, espd:0.85, showWord:false, blindRadio:true,  voiceLock:false, showKo:true,  time:85,  aggro:0.55, rate:0.95 },
-  ace   : { label:'에이스', enemies:6, espd:1.15, showWord:false, blindRadio:true,  voiceLock:true,  showKo:false, time:75,  aggro:0.8,  rate:1.05 }
+  train : { label:'훈련', enemies:4, espd:0.85, showWord:true,  blindRadio:false, voiceLock:false, showKo:true,  time:100, aggro:0.25, rate:0.85 },
+  combat: { label:'실전', enemies:5, espd:1.25, showWord:false, blindRadio:true,  voiceLock:false, showKo:true,  time:85,  aggro:0.55, rate:0.95 },
+  ace   : { label:'에이스', enemies:6, espd:1.65, showWord:false, blindRadio:true,  voiceLock:true,  showKo:false, time:75,  aggro:0.8,  rate:1.05 }
 };
 function P(){ return PRESET[DIFF]; }
 
@@ -564,7 +601,9 @@ function engineStop(){ try{ if(engGain) engGain.gain.setTargetAtTime(0, AC.curre
 /* ════════════════════════════════════════════════════════════════════
    4. 3D 월드
    ════════════════════════════════════════════════════════════════════ */
-var renderer, scene, camera, player, clouds=[], enemies=[], wrecks=[], tracers=[], parts=[], sun;
+var renderer, scene, camera, player, clouds=[], enemies=[], wrecks=[], tracers=[], parts=[], sun, hemi;
+var skyMatRef=null, seaMesh=null, landGroup=null, islands=[], starsMesh=null, moonSprite=null;
+var TOD = (function(){ try{ var t=localStorage.getItem('mangoi_p383d_tod'); return (t==='night')?'night':'day'; }catch(_){ return 'day'; } })();
 var W=1, H=1, ok3d=false;
 
 function init3D(){
@@ -577,14 +616,16 @@ function init3D(){
   try{ renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05; }catch(_){}
 
   scene=new THREE.Scene();
-  scene.fog=new THREE.Fog(0xbcd9ee, 1100, 4400);   // 적기(150~300m)가 안개에 먹히지 않게 near 를 멀리
+  /* ⚠️ far 를 짧게 잡으면 바다가 통째로 안개색(거의 흰색)이 되어 화면 아래에 '흰 띠'가 생긴다.
+     예전에 바다를 뺐던 이유가 이것이었다. far 를 크게 잡아야 바다가 파란색을 유지한다. */
+  scene.fog=new THREE.Fog(0xbcd9ee, 1400, 11000);
 
   camera=new THREE.PerspectiveCamera(66, 1, 0.5, 6000);
   player=new THREE.Object3D(); player.position.set(0,0,0);
   player.add(camera); scene.add(player);
 
-  // 조명
-  scene.add(new THREE.HemisphereLight(0xe8f4ff, 0x6b7a5a, 1.15));
+  // 조명 — 주/야간 전환 시 세기·색을 바꾼다(setTimeOfDay)
+  hemi=new THREE.HemisphereLight(0xe8f4ff, 0x6b7a5a, 1.15); scene.add(hemi);
   sun=new THREE.DirectionalLight(0xfff2d8, 1.45); sun.position.set(-140, 430, 360);
   scene.add(sun); scene.add(sun.target);
 
@@ -592,6 +633,7 @@ function init3D(){
   // 로드 실패·저속회선에서도 하늘이 비지 않게 캔버스 그라디언트로 먼저 칠하고 사진이 오면 교체한다.
   var skyMat=new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(makeSkyCanvas()),
     side:THREE.BackSide, fog:false, depthWrite:false });
+  skyMatRef=skyMat;
   var sky=new THREE.Mesh(new THREE.SphereGeometry(4600, 40, 24), skyMat);
   scene.add(sky); scene.userData.sky=sky;
   (function loadRealSky(){
@@ -602,17 +644,73 @@ function init3D(){
         t.wrapS=THREE.RepeatWrapping; t.needsUpdate=true;
         try{ t.encoding=THREE.sRGBEncoding; }catch(_){}
         skyMat.map=t; skyMat.needsUpdate=true;
-        // 사진 하늘의 수평선 색으로 안개색을 맞춰 바다·원거리와 이질감 제거
-        scene.fog.color.setHex(0xc9dced);
+        /* 실사 반사환경(envMap) — 이게 있어야 기체 금속면에 하늘이 비쳐 '사진처럼' 보인다.
+           Lambert 로는 절대 안 나오는 질감이다. */
+        try{
+          var pmrem=new THREE.PMREMGenerator(renderer);
+          pmrem.compileEquirectangularShader();
+          scene.environment = pmrem.fromEquirectangular(t).texture;
+        }catch(_){}
+        setTimeOfDay(TOD);
       }catch(_){}
     };
     img.src='/img/sky-pano.jpg?v=1';
   })();
 
-  /* ⚠️ 바다 평면은 넣지 않는다.
-     실사 파노라마의 아래쪽이 이미 '발밑 구름바다'라 평면을 깔면 하늘과 만나는 자리에
-     흰 띠가 칼같이 생겨 사진이 통째로 싸구려로 보인다(실제로 그렇게 나왔다).
-     고도는 PULL UP 경고로 지키고, 아래는 파노라마에 맡긴다. */
+  /* ── 바다 + 육지 ──
+     ⚠️ 예전에 바다 평면을 깔았다가 하늘과 만나는 자리에 흰 띠가 칼같이 생겨 사진이 싸구려로 보였다.
+        원인은 '평면을 깐 것'이 아니라 **안개색이 파노라마 수평선 색과 달랐던 것**.
+        이번엔 안개색을 파노라마 수평선색으로 맞추고 바다에도 fog 를 먹여 자연스럽게 녹인다. */
+  seaMesh=new THREE.Mesh(new THREE.PlaneGeometry(30000,30000,1,1),
+    new THREE.MeshStandardMaterial({color:0x0d3454, roughness:0.34, metalness:0.22,
+      envMapIntensity:0.55, fog:true}));
+  seaMesh.rotation.x=-Math.PI/2; seaMesh.position.y=-1250; scene.add(seaMesh);
+
+  /* 육지(섬) — ⚠️ 고정 위치에 두면 초당 210m 로 나는 플레이어가 몇 초 만에 다 지나쳐
+     화면에서 영영 사라진다(적기와 똑같은 함정). 구름처럼 뒤로 빠지면 앞쪽에 재배치한다. */
+  landGroup=new THREE.Group(); scene.add(landGroup);
+  (function makeLand(){
+    var landMat=new THREE.MeshLambertMaterial({color:0x33502a, fog:true});
+    var sandMat=new THREE.MeshLambertMaterial({color:0xa89468, fog:true});
+    for(var i=0;i<8;i++){
+      var g=new THREE.Group();
+      var w=900+Math.random()*2000, h=700+Math.random()*1600;
+      var beach=new THREE.Mesh(new THREE.CircleGeometry(1,20), sandMat);
+      beach.rotation.x=-Math.PI/2; beach.scale.set(w*1.18, h*1.18, 1); beach.position.y=-1246;
+      var isle=new THREE.Mesh(new THREE.CircleGeometry(1,18), landMat);
+      isle.rotation.x=-Math.PI/2; isle.scale.set(w, h, 1); isle.position.y=-1242;
+      // 낮은 구릉 — 평평한 원판만 두면 종이처럼 보인다
+      var hill=new THREE.Mesh(new THREE.SphereGeometry(1,12,8), landMat);
+      hill.scale.set(w*0.5, 90+Math.random()*160, h*0.5); hill.position.y=-1240;
+      g.add(beach); g.add(isle); g.add(hill);
+      landGroup.add(g); islands.push(g);
+      placeIsland(g, true);
+    }
+  })();
+
+  // 별 — 야간에만 보인다
+  (function makeStars(){
+    var g=new THREE.BufferGeometry(), n=520, arr=new Float32Array(n*3);
+    for(var i=0;i<n;i++){
+      var th=Math.random()*Math.PI*2, ph=Math.acos(Math.random()*0.9+0.05), R=4200;
+      arr[i*3]=R*Math.sin(ph)*Math.cos(th); arr[i*3+1]=R*Math.cos(ph)*0.9+300; arr[i*3+2]=R*Math.sin(ph)*Math.sin(th);
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(arr,3));
+    starsMesh=new THREE.Points(g, new THREE.PointsMaterial({color:0xffffff, size:11, sizeAttenuation:true,
+      transparent:true, opacity:0.9, fog:false, depthWrite:false}));
+    starsMesh.visible=false; scene.add(starsMesh);
+  })();
+  // 달
+  (function makeMoon(){
+    var c=document.createElement('canvas'); c.width=c.height=128; var x=c.getContext('2d');
+    var g=x.createRadialGradient(64,64,6,64,64,62);
+    g.addColorStop(0,'rgba(255,255,238,1)'); g.addColorStop(0.45,'rgba(240,242,225,0.92)');
+    g.addColorStop(1,'rgba(200,215,235,0)');
+    x.fillStyle=g; x.fillRect(0,0,128,128);
+    moonSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),
+      transparent:true, depthWrite:false, fog:false}));
+    moonSprite.scale.set(430,430,1); moonSprite.visible=false; scene.add(moonSprite);
+  })();
 
   // 구름 — 사진 하늘과 경쟁하지 않게 크고 옅게, 비행고도 아래로 깔아 '스쳐 지나가는 속도감'만 담당
   var cloudTex=new THREE.CanvasTexture(makeCloudCanvas());
@@ -622,8 +720,34 @@ function init3D(){
     var s=420+Math.random()*520; sp.scale.set(s, s*0.42, 1);
     placeCloud(sp, true); scene.add(sp); clouds.push(sp);
   }
+  setTimeOfDay(TOD);
   resize(); window.addEventListener('resize', resize);
   ok3d=true; return true;
+}
+/* ☀️🌙 주간 / 야간 전환 — 야간용 하늘 사진을 따로 받지 않는다.
+   같은 파노라마를 어둡게 물들이고 조명·안개·별·달을 바꾸면 밤이 된다(추가 다운로드 0바이트).
+   ⚠️ 안개색을 같이 안 바꾸면 밤인데 수평선만 하얗게 떠서 전부 어색해진다. */
+function setTimeOfDay(mode){
+  TOD = (mode==='night') ? 'night' : 'day';
+  try{ localStorage.setItem('mangoi_p383d_tod', TOD); }catch(_){}
+  var night = (TOD==='night');
+  if(skyMatRef){ skyMatRef.color.setHex(night ? 0x2b3a5c : 0xffffff); skyMatRef.needsUpdate=true; }
+  if(hemi){ hemi.intensity = night ? 0.34 : 1.15;
+    hemi.color.setHex(night ? 0x9fb6e0 : 0xe8f4ff); hemi.groundColor.setHex(night ? 0x141d2c : 0x6b7a5a); }
+  if(sun){ sun.intensity = night ? 0.42 : 1.45; sun.color.setHex(night ? 0xbcd0ff : 0xfff2d8); }
+  if(scene && scene.fog) scene.fog.color.setHex(night ? 0x14203a : 0xc9dced);
+  if(seaMesh) seaMesh.material.color.setHex(night ? 0x0b2038 : 0x1d4f78);
+  if(landGroup) landGroup.traverse(function(o){
+    if(o.isMesh && o.material && o.material.color){
+      if(!o.userData._c0) o.userData._c0 = o.material.color.getHex();
+      o.material.color.setHex(o.userData._c0);
+      if(night) o.material.color.multiplyScalar(0.42);
+    }
+  });
+  if(starsMesh) starsMesh.visible = night;
+  if(moonSprite) moonSprite.visible = night;
+  if(renderer) renderer.toneMappingExposure = night ? 1.22 : 1.05;
+  try{ document.body.classList.toggle('night', night); }catch(_){}
 }
 function makeSkyCanvas(){
   var c=document.createElement('canvas'); c.width=4; c.height=256; var x=c.getContext('2d');
@@ -653,6 +777,14 @@ function placeCloud(sp, initial){
   sp.position.copy(player.position).addScaledVector(dir, dist);
   sp.position.y = player.position.y - 120 - Math.random()*420;   // 비행고도 아래(발밑)로
 }
+/* 섬 재배치 — 구름과 같은 방식. 앞쪽 넓은 부채꼴에 흩뿌린다(고도는 바다면 고정). */
+function placeIsland(g, initial){
+  var fwd=forwardVec(), a=(Math.random()-0.5)*Math.PI*(initial?2:1.4);
+  var dist=initial ? (1200+Math.random()*6000) : (5000+Math.random()*4000);
+  var dir=fwd.clone().applyAxisAngle(new THREE.Vector3(0,1,0), a);
+  g.position.x = player.position.x + dir.x*dist;
+  g.position.z = player.position.z + dir.z*dist;
+}
 function resize(){
   W=window.innerWidth; H=window.innerHeight;
   if(!renderer) return;
@@ -671,10 +803,10 @@ function forwardVec(){ return new THREE.Vector3(0,0,-1).applyQuaternion(player.q
    넓은 화면일수록 조종석이 위로 올라오므로 조준점도 함께 올린다. CSS #sight{top} 은 resize() 가 맞춘다. */
 function aimY(){
   var a = (H>0) ? W/H : 1.6;
-  /* 실사 조종석의 '열린 창' 한가운데를 찍는다. 너무 위로 잡으면 캐노피 가로 프레임에 적기가 가린다. */
-  if(a >= 1.9) return 0.32;      // 21:9 급 — 세로가 짧아 창도 얕다
-  if(a <  1.0) return 0.40;      // 세로 폰 — 조종석이 하단에만 있어 창이 크다
-  return 0.38;
+  /* 조준점은 화면 정중앙(0.5)이다 — 사장님 지시.
+     조종석 사진을 그만큼 아래로 내려(--cpB) 창 한가운데가 화면 중앙에 오게 맞춰 놨다. */
+  if(a <  1.0) return 0.46;      // 세로 폰만 살짝 위(조종석이 하단을 크게 차지)
+  return 0.50;
 }
 /* 화면 가로 반화각(rad) — 세로 화면(모바일)은 이게 확 좁아진다.
    적기 배치 폭과 라벨 크기를 여기에 맞추지 않으면 폰에서 라벨이 통째로 창밖으로 나간다. */
@@ -829,18 +961,21 @@ function loadPlaneGLB(kind, onDone){
     new THREE.GLTFLoader().load(spec.url, function(gltf){
       try{
         var norm=normalizePlaneModel(gltf.scene);
-        /* ⚠️ Tripo 가 주는 재질을 그대로 쓰면 이 씬에서 거의 검게 나온다(환경맵 전제 재질).
-           텍스처만 살려 Lambert 로 바꾸면 우리 조명(반구광+태양광)에 정상적으로 반응한다. */
+        /* 실사감의 핵심은 조명이 아니라 **반사(envMap)** 다.
+           Lambert 로 바꾸면 밝기는 맞지만 금속면이 종이처럼 죽는다.
+           Standard + scene.environment(하늘 PMREM) 로 두면 동체에 하늘이 비쳐 사진처럼 보인다. */
         norm.traverse(function(o){
           if(!o.isMesh) return;
           o.frustumCulled=false;
           function conv(m){
-            var mm=new THREE.MeshLambertMaterial({
+            var mm=new THREE.MeshStandardMaterial({
               map: m && m.map ? m.map : null,
               color: (m && m.color) ? m.color.clone() : new THREE.Color(0xffffff),
+              metalness: 0.26, roughness: 0.58,
+              envMapIntensity: 0.95,
               side: THREE.DoubleSide
             });
-            if(!mm.map) mm.color.multiplyScalar(1.15);
+            if(!mm.map) mm.color.multiplyScalar(1.1);
             return mm;
           }
           o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material);
@@ -943,13 +1078,19 @@ var LABTEX={};
 function labelTexture(text, kind){
   var key=kind+'|'+text; if(LABTEX[key]) return LABTEX[key];
   var c=document.createElement('canvas'); c.width=512; c.height=160; var x=c.getContext('2d');
-  var bg = kind==='ace' ? 'rgba(120,20,20,0.92)' : (kind==='chunk' ? 'rgba(18,34,52,0.88)' : 'rgba(10,16,24,0.86)');
-  var bd = kind==='ace' ? '#ff8a5c' : (kind==='chunk' ? '#7fd1ff' : '#ffd479');
+  /* 단어 카드는 투명하게 — 사장님 지시. 판을 지우면 하늘이 그대로 비쳐 시야를 안 가린다.
+     ⚠️ 대신 글자가 밝은 하늘에 묻히므로 '검은 외곽선 + 그림자'로 가독성을 따로 확보해야 한다.
+        배경만 지우고 끝내면 낮 하늘에서 흰 글자가 안 보인다. */
+  var bg = kind==='ace' ? 'rgba(120,20,20,0.26)' : (kind==='chunk' ? 'rgba(18,34,52,0.22)' : 'rgba(8,14,22,0.20)');
+  var bd = kind==='ace' ? 'rgba(255,138,92,0.75)' : (kind==='chunk' ? 'rgba(127,209,255,0.7)' : 'rgba(255,212,121,0.62)');
   x.fillStyle=bg; roundRect(x, 8, 26, 496, 108, 26); x.fill();
-  x.lineWidth=6; x.strokeStyle=bd; roundRect(x, 8, 26, 496, 108, 26); x.stroke();
+  x.lineWidth=4; x.strokeStyle=bd; roundRect(x, 8, 26, 496, 108, 26); x.stroke();
   x.font='900 74px "Malgun Gothic", Arial, sans-serif';
   x.textAlign='center'; x.textBaseline='middle';
   var t=String(text); if(t.length>13) x.font='900 52px "Malgun Gothic", Arial, sans-serif';
+  x.shadowColor='rgba(0,0,0,0.95)'; x.shadowBlur=14; x.shadowOffsetY=2;
+  x.lineWidth=9; x.strokeStyle='rgba(0,0,0,0.92)'; x.strokeText(t, 256, 82);   // 검은 외곽선
+  x.shadowBlur=0; x.shadowOffsetY=0;
   x.fillStyle='#ffffff'; x.fillText(t, 256, 82);
   var tex=new THREE.CanvasTexture(c); LABTEX[key]=tex; return tex;
 }
@@ -1339,10 +1480,10 @@ var input={ mx:0, my:0, active:false, keys:{} };
     input.mx = Math.max(-1, Math.min(1, (cx - W/2)/(W*0.42)));
     input.my = Math.max(-1, Math.min(1, (cy - H*0.44)/(H*0.36)));
   }
+  /* ⚠️ 마우스는 '조종 전용'이다. 클릭 발사를 없앴다 — 사장님 지시.
+     발사는 왼손 키(스페이스·Ctrl·Shift)로 한다. 오른손 조종 / 왼손 사격이 실제 조종 자세에 가깝다. */
   cv.addEventListener('mousemove', function(e){ setFromClient(e.clientX, e.clientY); input.active=true; });
-  cv.addEventListener('mousedown', function(e){
-    if(e.target.closest('button')) return; ac(); G&&(G.fireHeld=true); });
-  window.addEventListener('mouseup', function(){ if(G)G.fireHeld=false; });
+  cv.addEventListener('mousedown', function(e){ ac(); });   // 오디오 잠금 해제만
 
   /* ⚠️ 터치(모바일)는 절대 위치를 쓰면 안 된다.
      손가락이 닿는 순간 그 좌표가 그대로 조종 입력이 되어 기체가 홱 튄다.
@@ -1379,17 +1520,22 @@ var input={ mx:0, my:0, active:false, keys:{} };
   cv.addEventListener('touchend', endTouch, {passive:true});
   cv.addEventListener('touchcancel', endTouch, {passive:true});
 
+  // 왼손 사격키 — 스페이스 / Ctrl / Shift 아무거나
+  var FIRE_KEYS={ Space:1, ControlLeft:1, ControlRight:1, ShiftLeft:1, ShiftRight:1 };
   window.addEventListener('keydown', function(e){
     input.keys[e.code]=true;
-    if(e.code==='Space'){ e.preventDefault(); if(G)G.fireHeld=true; ac(); }
+    if(FIRE_KEYS[e.code]){ e.preventDefault(); if(G)G.fireHeld=true; ac(); }
     if(e.code==='KeyP'){ togglePause(); }
     if(e.code==='KeyR'){ callTarget(); }
-    if(e.code==='ShiftLeft'||e.code==='ShiftRight'){ if(G)G.boost=true; }
+    if(e.code==='KeyN'){ setTimeOfDay(TOD==='night'?'day':'night'); }   // 주/야간 즉시 전환
   });
   window.addEventListener('keyup', function(e){
     input.keys[e.code]=false;
-    if(e.code==='Space'){ if(G)G.fireHeld=false; }
-    if(e.code==='ShiftLeft'||e.code==='ShiftRight'){ if(G)G.boost=false; }
+    if(FIRE_KEYS[e.code]){
+      // 사격키가 여러 개라 하나를 떼도 다른 키가 눌려 있으면 계속 쏜다
+      var still=false; for(var k in FIRE_KEYS){ if(input.keys[k]) still=true; }
+      if(G) G.fireHeld=still;
+    }
   });
   var fb=document.getElementById('fireBtn');
   ['touchstart','mousedown'].forEach(function(ev){ fb.addEventListener(ev,function(e){
@@ -1420,7 +1566,7 @@ function update(dt){
   player.quaternion.setFromEuler(new THREE.Euler(G.pitch, G.yaw, G.bank, 'YXZ'));
 
   // 추진
-  var want = G.boost ? 240 : 150;
+  var want = G.boost ? 300 : 210;   // 전체적으로 빠르게 — 사장님 지시
   G.speed += (want-G.speed)*Math.min(1,dt*1.2);
   player.position.addScaledVector(forwardVec(), G.speed*dt);
 
@@ -1456,6 +1602,12 @@ function update(dt){
   // 구름 재배치
   for(var c=0;c<clouds.length;c++){
     if(clouds[c].position.distanceTo(player.position) > 2900) placeCloud(clouds[c], false);
+  }
+  // 섬 재배치 — 수평거리만 본다(고도차 1250m 를 넣으면 늘 '멀다'로 판정돼 매 프레임 재배치된다)
+  for(var il=0;il<islands.length;il++){
+    var g2=islands[il];
+    var dx=g2.position.x-player.position.x, dz=g2.position.z-player.position.z;
+    if(dx*dx+dz*dz > 10000*10000) placeIsland(g2, false);
   }
   // 적기 · 추락 잔해
   updateEnemies(dt);
@@ -1628,7 +1780,8 @@ window.addEventListener('beforeunload', flushProg);
 /* ════════════════════════════════════════════════════════════════════
    11. 루프 · 진행
    ════════════════════════════════════════════════════════════════════ */
-var last=0, raf=null;
+var last=0, raf=null, _yokeEl=null;
+try{ _yokeEl=document.getElementById('yoke'); }catch(_){}
 function loop(ts){
   raf=requestAnimationFrame(loop);
   if(!last) last=ts;
@@ -1637,6 +1790,14 @@ function loop(ts){
   if(G && G.running && !paused && !G.speaking) update(dt);
   if(G){
     _hudT+=dt; if(_hudT>0.12){ _hudT=0; updateHUDFast(); }
+    // 조종간 — 실제 조종 입력을 그대로 반영(왼쪽=왼쪽으로 기울고, 위=위로 밀림)
+    if(_yokeEl){
+      var kx=(input.keys.ArrowRight||input.keys.KeyD?1:0)-(input.keys.ArrowLeft||input.keys.KeyA?1:0);
+      var ky=(input.keys.ArrowDown||input.keys.KeyS?1:0)-(input.keys.ArrowUp||input.keys.KeyW?1:0);
+      var ux=(kx!==0?kx:input.mx), uy=(ky!==0?ky:input.my);
+      _yokeEl.style.setProperty('--ykR', (ux*24).toFixed(1)+'deg');
+      _yokeEl.style.setProperty('--ykY', (uy*16).toFixed(1)+'px');
+    }
     // 사격 반동 흔들림
     if(camera){
       var s=G.shake*0.02;
@@ -1644,8 +1805,11 @@ function loop(ts){
     }
   }
   if(renderer && scene && camera){
+    // 하늘·바다·별·달은 플레이어를 따라다닌다(무한히 넓은 세계처럼 보이게)
     if(scene.userData.sky) scene.userData.sky.position.copy(player.position);
-    if(scene.userData.sea) { scene.userData.sea.position.x=player.position.x; scene.userData.sea.position.z=player.position.z; }
+    if(seaMesh){ seaMesh.position.x=player.position.x; seaMesh.position.z=player.position.z; }
+    if(starsMesh) starsMesh.position.copy(player.position);
+    if(moonSprite) moonSprite.position.set(player.position.x-1500, player.position.y+900, player.position.z-2600);
     /* ⚠️ 태양은 조종사 '등 뒤 위'에 둔다. 앞쪽(−Z)에 두면 적기가 전부 역광이라 검은 실루엣으로 보인다.
        forward 가 −Z 이므로 +Z 쪽이 등 뒤다. */
     if(sun){
@@ -1697,14 +1861,25 @@ function togglePause(){
    12. UI 바인딩
    ════════════════════════════════════════════════════════════════════ */
 (function ui(){
-  // 언어
-  document.querySelectorAll('.lbtn').forEach(function(b){
+  /* ⚠️ 언어 버튼과 낮/밤 버튼이 같은 .lbtn 클래스를 쓴다.
+     선택자를 [data-lang] 으로 좁히지 않으면 언어 버튼 핸들러가 낮/밤 버튼까지 잡아
+     MODE 에 null 을 넣고 'on' 표시를 서로 지운다. */
+  document.querySelectorAll('.lbtn[data-lang]').forEach(function(b){
     if(b.getAttribute('data-lang')===MODE) b.classList.add('on'); else b.classList.remove('on');
     b.addEventListener('click', function(){
       MODE=b.getAttribute('data-lang');
       try{ localStorage.setItem('mangoi_game_lang',MODE); }catch(_){}
-      document.querySelectorAll('.lbtn').forEach(function(x){ x.classList.toggle('on', x===b); });
+      document.querySelectorAll('.lbtn[data-lang]').forEach(function(x){ x.classList.toggle('on', x===b); });
       LESSON_SETS=null; mountLessonNav();
+    });
+  });
+  // 낮 / 야간
+  document.querySelectorAll('.lbtn[data-tod]').forEach(function(b){
+    b.classList.toggle('on', b.getAttribute('data-tod')===TOD);
+    b.addEventListener('click', function(){
+      setTimeOfDay(b.getAttribute('data-tod'));
+      document.querySelectorAll('.lbtn[data-tod]').forEach(function(x){
+        x.classList.toggle('on', x.getAttribute('data-tod')===TOD); });
     });
   });
   // 모드
