@@ -631,55 +631,71 @@ function pickVoice(lang){ return VOICES.find(function(v){return v.lang===lang;})
 function _audRate(r){ r=r||0.95; return r>=1 ? Math.min(1.6,r) : Math.max(0.6, 1-(1-r)*0.6); }
 function _ttsStop(){ try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(_){}
   try{ if(window.AndroidTTS && window.AndroidTTS.stop) window.AndroidTTS.stop(); }catch(_){} }
-function _play(u, rate, onend, onfail, retried){
+/* ⚠️⚠️ 화면 단어와 음성이 어긋나던 진짜 원인 — 오디오 경쟁 조건.
+   서버 TTS 는 fetch 라 응답이 늦게 온다. 그 사이 목표가 다음 단어로 바뀌면
+   먼저 요청한 '옛 단어'의 오디오가 뒤늦게 도착해 새 단어를 덮어썼다.
+   speak() 가 매번 올리는 _spkSeq 토큰을 재생 직전까지 들고 다니며,
+   내 차례가 아니면 조용히 버린다. 재시도(320ms) 경로도 반드시 같이 검사해야 한다. */
+function _stale(seq){ return (seq!=null && seq!==_spkSeq); }
+function _play(u, rate, onend, onfail, retried, seq){
+  if(_stale(seq)) return;
   try{
     if(!_ttsAudio) _ttsAudio=new Audio();
     _ttsStop(); var done=false;
     function fin(ok){ if(done)return; done=true;
-      if(!ok && !retried){ setTimeout(function(){ _play(u,rate,onend,onfail,true); },320); return; }
+      if(_stale(seq)) return;
+      if(!ok && !retried){ setTimeout(function(){ _play(u,rate,onend,onfail,true,seq); },320); return; }
       if(!ok && onfail) onfail(); else if(ok && onend) onend(); }
     _ttsAudio.onended=function(){ fin(true); }; _ttsAudio.onerror=function(){ fin(false); };
     _ttsAudio.src=u; _ttsAudio.playbackRate=_audRate(rate);
     try{ _ttsAudio.preservesPitch=true; _ttsAudio.webkitPreservesPitch=true; }catch(_){}
     var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fin(false); });
-  }catch(_){ if(onfail)onfail(); }
+  }catch(_){ if(!_stale(seq) && onfail)onfail(); }
 }
-function srvTts(text, rate, onend, onfail){
+function srvTts(text, rate, onend, onfail, seq){
   var lang=LANGMETA[MODE].tts.slice(0,2), key=lang+'|'+text;
-  if(_ttsCache[key]){ _play(_ttsCache[key], rate, onend, onfail); return; }
+  if(_ttsCache[key]){ _play(_ttsCache[key], rate, onend, onfail, false, seq); return; }
   fetch('/api/voice/tts',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({text:text,lang:lang,speaker:'asteria'})})
     .then(function(r){ var ct=r.headers.get('content-type')||'';
       if(!r.ok||ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
     .then(function(b){ if(b.size<200) throw new Error('empty');
       var fr=new FileReader();
-      fr.onload=function(){ var u=String(fr.result||''); if(!u){ if(onfail)onfail(); return; }
-        _ttsCache[key]=u; _play(u, rate, onend, onfail); };
-      fr.onerror=function(){ if(onfail)onfail(); };
+      fr.onload=function(){ var u=String(fr.result||'');
+        if(u) _ttsCache[key]=u;                      // 늦게 와도 캐시는 남겨 다음에 즉시 쓰게 한다
+        if(_stale(seq)) return;                      // 내 차례가 지났으면 재생하지 않는다
+        if(!u){ if(onfail)onfail(); return; }
+        _play(u, rate, onend, onfail, false, seq); };
+      fr.onerror=function(){ if(!_stale(seq) && onfail)onfail(); };
       fr.readAsDataURL(b); })
-    .catch(function(){ if(onfail)onfail(); });
+    .catch(function(){ if(!_stale(seq) && onfail)onfail(); });
 }
-function freeTts(text, rate, onend, onfail){
+function freeTts(text, rate, onend, onfail, seq){
   var lang=LANGMETA[MODE].tts.slice(0,2), key=lang+'|'+text;
-  if(_freeCache[key]){ _play(_freeCache[key], rate, onend, onfail); return; }
+  if(_freeCache[key]){ _play(_freeCache[key], rate, onend, onfail, false, seq); return; }
   fetch('/api/tts-free?lang='+lang+'&q='+encodeURIComponent(text))
     .then(function(r){ var ct=r.headers.get('content-type')||'';
       if(!r.ok||ct.indexOf('audio')<0) throw new Error('free'); return r.blob(); })
     .then(function(b){ if(b.size<300) throw new Error('empty');
       var fr=new FileReader();
-      fr.onload=function(){ var u=String(fr.result||''); if(!u){ if(onfail)onfail(); return; }
-        _freeCache[key]=u; _play(u, rate, onend, onfail); };
-      fr.onerror=function(){ if(onfail)onfail(); };
+      fr.onload=function(){ var u=String(fr.result||'');
+        if(u) _freeCache[key]=u;
+        if(_stale(seq)) return;
+        if(!u){ if(onfail)onfail(); return; }
+        _play(u, rate, onend, onfail, false, seq); };
+      fr.onerror=function(){ if(!_stale(seq) && onfail)onfail(); };
       fr.readAsDataURL(b); })
-    .catch(function(){ if(onfail)onfail(); });
+    .catch(function(){ if(!_stale(seq) && onfail)onfail(); });
 }
 function bridgeSpeak(text, rate){
   try{ if(window.AndroidTTS && window.AndroidTTS.isReady && window.AndroidTTS.isReady()){
     window.AndroidTTS.speak(text, LANGMETA[MODE].tts.slice(0,2), 1.0, rate||0.95); return true; } }catch(_){}
   return false; }
-function synthSpeak(text, rate, times){
+function synthSpeak(text, rate, times, seq){
   var lang=LANGMETA[MODE].tts, v=pickVoice(lang), n=0;
-  function once(){ n++; try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.95;
+  function once(){
+    if(_stale(seq)) return;                 // 기기 음성 폴백도 '내 차례'일 때만
+    n++; try{ var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate||0.95;
     if(v)u.voice=v; if(n<times) u.onend=function(){ setTimeout(once,340); }; speechSynthesis.speak(u); }catch(_){} }
   once(); }
 /* 낭독 — times회 반복. seq 토큰으로 이전 낭독과 안 꼬이게 */
@@ -692,9 +708,12 @@ function speak(text, rate, times, onDone){
     if(n>=times){ if(onDone)onDone(); return; }
     n++;
     var engine = (MODE==='zh') ? freeTts : srvTts;
-    engine(text, rate, function(){ setTimeout(next,340); },
-      function(){ if(!bridgeSpeak(text,rate)) synthSpeak(text, rate, times-(n-1));
-        if(onDone) setTimeout(onDone, 700*(times-(n-1))); });
+    // seq(my) 를 재생 직전까지 넘겨, 응답이 늦게 와도 '내 차례'가 아니면 소리내지 않게 한다
+    engine(text, rate, function(){ if(my!==_spkSeq) return; setTimeout(next,340); },
+      function(){ if(my!==_spkSeq) return;
+        if(!bridgeSpeak(text,rate)) synthSpeak(text, rate, times-(n-1), my);
+        if(onDone) setTimeout(function(){ if(my===_spkSeq && onDone) onDone(); }, 700*(times-(n-1))); },
+      my);
   }
   next();
 }
@@ -1560,6 +1579,9 @@ function hitCorrect(e){
   banner('✅ ' + e.word, '#4ade80');
   speak(e.word, P().rate, 1);
   G.next += adv;
+  /* ⚠️ 다음 덩어리를 '지금' 확정한다. refreshTargets() 는 520ms 뒤에 도는데,
+     그 사이 renderSentence() 가 옛 G.chunk 로 몇 칸을 켤지 정하면 화면이 실제 목표와 어긋난다. */
+  G.chunk = nextChunk();
   renderSentence();
   if(G.next>=G.sent.w.length){ sentenceComplete(); }
   else { setTimeout(function(){ if(G&&G.running&&!G.speaking){ refreshTargets(); callTarget(); } }, 520); }
@@ -1573,10 +1595,12 @@ function hitWrong(e){
   G.wrongWords[G.sent.w[G.next]]=(G.wrongWords[G.sent.w[G.next]]||0)+1;
   banner('❌ 다음 단어는 …', '#f87171');
   setTimeout(function(){ if(G&&G.running&&!G.speaking) callTarget(); }, 620);
-  // 오답기를 잡아 정답기가 사라졌을 수 있으니 정답기 보충
+  /* 오답기를 잡아 정답기가 사라졌을 수 있으니 보충.
+     ⚠️ 이때 G.chunk 도 반드시 같이 갱신해야 한다. 안 그러면 기체 라벨은 덩어리("to school")인데
+        무전은 G.chunk 기준으로 낱말 하나("to")만 읽어 **화면과 음성이 어긋난다**. */
   if(!enemies.some(function(x){ return x.correct; })){
     var ch=nextChunk();
-    if(ch) spawnEnemy(ch.text, true, ch.size>1?'val':'zero', ch.words);
+    if(ch){ G.chunk=ch; spawnEnemy(ch.text, true, ch.size>1?'val':'zero', ch.words); }
   }
   updateHUD();
 }
