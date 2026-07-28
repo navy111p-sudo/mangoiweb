@@ -471,7 +471,8 @@
 
       <button class="go" id="btnStart">출격 START</button>
       <div class="keys">
-        <span class="kk">🖱️ 마우스 = 조종(조종간이 따라 움직입니다)</span>
+        <span class="kk">🖱️ 마우스 좌우 = 좌우 선회</span>
+        <span class="kk">🖲️ 마우스 휠 = 기수 올림/내림</span>
         <span class="kk">스페이스 · Ctrl · Shift = 발사</span>
         <span class="kk">N = 낮/밤 전환</span>
         <span class="kk">R = 무전 반복</span>
@@ -1728,18 +1729,33 @@ var input={ mx:0, my:0, active:false, keys:{} };
        화면 1픽셀이 몇 라디안인지( 2·tan(fov/2)/H )로 환산하므로,
        커서 아래에 있던 하늘의 한 점이 계속 커서 아래에 머문다 = 완전한 1:1.
      · 커서가 창 가장자리에 닿으면 더 못 도는 문제 → 가장자리에서만 추가 선회를 얹는다. */
-  var _lastMX=null, _lastMY=null;
+  /* 좌우 = 마우스 이동(1:1) · 위아래 = 마우스 휠 — 사장님 지시.
+     세로까지 마우스 이동에 걸어 두면 조준하려고 좌우로만 움직여도 기수가 같이 들리고 눌린다.
+     휠로 분리하면 '좌우는 손, 위아래는 손가락'으로 축이 갈려 훨씬 정확해진다. */
+  var _lastMX=null;
   cv.addEventListener('mousemove', function(e){
     setFromClient(e.clientX, e.clientY); input.active=true;
     if(G && G.running && !paused && !G.speaking && _lastMX!==null){
-      var k = 2*Math.tan(camera.fov*Math.PI/360)/H;    // 픽셀당 라디안(가로·세로 동일)
-      G.yaw   -= (e.clientX-_lastMX)*k;
-      G.pitch  = Math.max(-0.95, Math.min(0.95, G.pitch - (e.clientY-_lastMY)*k));
+      var k = 2*Math.tan(camera.fov*Math.PI/360)/H;    // 픽셀당 라디안
+      G.yaw -= (e.clientX-_lastMX)*k;                  // 좌우만 담당
     }
-    _lastMX=e.clientX; _lastMY=e.clientY;
+    _lastMX=e.clientX;
   });
-  cv.addEventListener('mouseleave', function(){ _lastMX=null; _lastMY=null; });
+  cv.addEventListener('mouseleave', function(){ _lastMX=null; });
   cv.addEventListener('mousedown', function(e){ ac(); });   // 오디오 잠금 해제만
+
+  /* 휠 = 기수 올림/내림. 위로 굴리면 상승, 아래로 굴리면 하강.
+     ⚠️ passive:false 로 등록하고 preventDefault 해야 페이지가 같이 스크롤되지 않는다. */
+  cv.addEventListener('wheel', function(e){
+    if(!G || !G.running || paused || G.speaking) return;
+    e.preventDefault();
+    var d = e.deltaY;
+    if(e.deltaMode === 1) d *= 16;                     // 줄 단위 휠
+    else if(e.deltaMode === 2) d *= H;                 // 페이지 단위 휠
+    var k = 2*Math.tan(camera.fov*Math.PI/360)/H;
+    G.pitch = Math.max(-0.95, Math.min(0.95, G.pitch - d*k*0.55));
+    input.wheelT = 0.35;                               // 조종간을 잠깐 더 크게 움직여 반응을 보여 준다
+  }, {passive:false});
 
   /* ⚠️ 터치(모바일)는 절대 위치를 쓰면 안 된다.
      손가락이 닿는 순간 그 좌표가 그대로 조종 입력이 되어 기체가 홱 튄다.
@@ -1757,7 +1773,7 @@ var input={ mx:0, my:0, active:false, keys:{} };
     if(steerId!==null) return;                      // 이미 조종 중인 손가락이 있다
     var t=e.changedTouches[0];
     steerId=t.identifier; sx0=t.clientX; sy0=t.clientY; mx0=input.mx; my0=input.my;
-    input.active=true; ac();
+    input.active=true; input.touching=true; ac();   // 폰은 휠이 없어 세로 드래그로 기수 조종
   }, {passive:true});
   cv.addEventListener('touchmove', function(e){
     if(steerId===null) return;
@@ -1769,7 +1785,7 @@ var input={ mx:0, my:0, active:false, keys:{} };
   function endTouch(e){
     if(steerId===null) return;
     if(touchById(e.changedTouches, steerId)){
-      steerId=null;
+      steerId=null; input.touching=false;
       input.mx*=0.25; input.my*=0.25;               // 손 떼면 수평으로 되돌아온다
     }
   }
@@ -1821,9 +1837,11 @@ function update(dt){
   if(kx!==0 || ky!==0){                       // ── 키보드 조종(기존 속도 제어)
     G.yawV   += ((-kx*RATE) - G.yawV) * Math.min(1, dt*9);
     G.pitchV += ((-ky*RATE) - G.pitchV) * Math.min(1, dt*9);
-  } else {                                     // ── 마우스: 가장자리에서만 계속 선회
+  } else {
+    /* 마우스: 가장자리에서만 계속 선회(좌우). 세로는 휠이 담당하므로 여기서 건드리지 않는다.
+       ⚠️ 터치(폰)는 휠이 없으므로 세로 드래그로 기수를 조종하게 남겨 둔다. */
     var ex = (Math.abs(mx)>0.80) ? (mx-Math.sign(mx)*0.80)/0.20 : 0;
-    var ey = (Math.abs(my)>0.80) ? (my-Math.sign(my)*0.80)/0.20 : 0;
+    var ey = input.touching ? my : 0;
     G.yawV   += ((-ex*RATE) - G.yawV) * Math.min(1, dt*9);
     G.pitchV += ((-ey*RATE) - G.pitchV) * Math.min(1, dt*9);
   }
@@ -2151,8 +2169,12 @@ function loop(ts){
        ⚠️ 보간(lerp)을 넣지 않는다. 한 프레임이라도 늦으면 손과 따로 노는 게 바로 보인다. */
     if(_yokeEl && G.running){
       var kx=(input.keys.ArrowRight||input.keys.KeyD?1:0)-(input.keys.ArrowLeft||input.keys.KeyA?1:0);
-      var ky=(input.keys.ArrowDown||input.keys.KeyS?1:0)-(input.keys.ArrowUp||input.keys.KeyW?1:0);
-      var ux=(kx!==0?kx:input.mx), uy=(ky!==0?ky:input.my);
+      var ux=(kx!==0?kx:input.mx);
+      /* 상하는 커서가 아니라 **기수각**을 따라간다.
+         위아래 조종을 휠로 옮겼으므로, 커서 세로 위치로 그리면 조종간이 엉뚱하게 움직인다.
+         기수를 들면 조종간이 당겨지고(위로), 내리면 밀린다(아래로) — 실제 조종간과 같다. */
+      var uy=-(G.pitch/0.95);
+      if(input.wheelT>0){ input.wheelT-=dt; uy*=1.18; }   // 휠을 굴린 직후엔 반응을 조금 크게
       ux=Math.max(-1,Math.min(1,ux)); uy=Math.max(-1,Math.min(1,uy));
       _yokeEl.style.setProperty('--ykR', (ux*64).toFixed(2)+'deg');   // 좌우 = 회전
       _yokeEl.style.setProperty('--ykY', (uy*30).toFixed(2)+'px');    // 상하 = 밀고 당김
