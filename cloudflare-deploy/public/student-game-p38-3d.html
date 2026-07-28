@@ -46,7 +46,8 @@
     filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5))}
   /* 조종간(요크) — 마우스를 따라 실제로 움직인다. 사진 속 요크 위에 겹쳐 놓는다.
      왼쪽으로 밀면 왼쪽으로 기울고, 위로 올리면 위로 밀린다. 조작이 손에 잡히는 느낌을 준다. */
-  #yoke{position:absolute;left:50%;bottom:-7%;width:19%;max-width:270px;z-index:6;pointer-events:none;
+  /* 조종간은 계기판(z 7)보다 앞에 있어야 한다 — 실제로도 조종간이 계기판 앞에 있다 */
+  #yoke{position:absolute;left:50%;bottom:-1.5%;width:17%;max-width:250px;z-index:8;pointer-events:none;
     transform-origin:50% 92%;
     transform:translateX(-50%) rotate(var(--ykR,0deg)) translateY(var(--ykY,0px));
     transition:transform .06s linear;filter:drop-shadow(0 6px 14px rgba(0,0,0,.6))}
@@ -97,8 +98,11 @@
   #radio b{color:#ffe08a;font-size:16px}
 
   /* ───────── 계기판 위 게이지 ───────── */
-  #gauges{position:absolute;left:0;right:0;bottom:0;height:15%;z-index:9;
-    display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 3%;pointer-events:none}
+  /* 게임 정보(점수·목숨·상태)는 화면 '위'로 뺀다.
+     아래쪽은 조종석 계기판과 조종간 자리다 — 여기에 겹치면 조종간이 가려진다. */
+  #gauges{position:absolute;left:0;right:0;top:calc(4.6% + 8px);z-index:9;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:0 3%;pointer-events:none}
+  .gzSide{display:flex;align-items:center;gap:8px}
   .gz{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px}
   /* 게이지는 실물 계기판 사진 위에 얹힌다 — 사진 무늬에 묻히지 않게 어두운 알약 배경을 깐다 */
   .gz{background:rgba(4,10,16,.62);border:1px solid rgba(255,212,121,.22);border-radius:10px;
@@ -107,21 +111,33 @@
   .gzV{font-size:clamp(15px,2.6vw,22px);font-weight:900;color:#ffd479;
     font-family:'Consolas',monospace;text-shadow:0 1px 4px #000,0 0 9px rgba(255,190,60,.55)}
   .gzV.small{font-size:clamp(12px,2vw,16px)}
-  #fuelBar{width:min(190px,24vw);height:9px;border-radius:5px;background:rgba(0,0,0,.55);
-    border:1px solid rgba(180,200,160,.3);overflow:hidden}
-  #fuelFill{height:100%;width:100%;background:linear-gradient(90deg,#4ade80,#a3e635);transition:width .2s}
-  #fuelFill.warn{background:linear-gradient(90deg,#f87171,#fb923c)}
+  /* ═══ 조종석 계기판 — 실물 계기판 자리에 얹는 아날로그 원형 계기 ═══
+     위치·크기는 layoutCockpit() 이 조종석 이미지 기준으로 px 로 넣는다. */
+  #panel{position:absolute;z-index:7;pointer-events:none;display:flex;align-items:center;
+    justify-content:center;gap:0}
+  #panel .pgrp{display:flex;align-items:center;gap:var(--dgap,10px)}
+  #panel .pgap{width:var(--ygap,150px);flex:0 0 auto}
+  .dial{width:var(--dsz,86px);height:var(--dsz,86px);flex:0 0 auto;
+    filter:drop-shadow(0 3px 7px rgba(0,0,0,.75))}
+  .dial svg{width:100%;height:100%;display:block}
+  .dial .bez{fill:#171b1f;stroke:#000;stroke-width:3}
+  .dial .face{fill:#0a0d10;stroke:#2e363d;stroke-width:1.4}
+  .dial .dl{fill:#93a9be;font-size:9.5px;font-weight:800;text-anchor:middle;
+    font-family:'Malgun Gothic',sans-serif}
+  .dial .dv{fill:#ffd479;font-size:14px;font-weight:900;text-anchor:middle;
+    font-family:Consolas,monospace}
+  .dial .de{fill:#8fa9c2;font-size:9px;font-weight:800;text-anchor:middle}
+  .dial .dr{fill:#dbe9f7;font-size:11px;font-weight:900;text-anchor:middle}
+  .dial .ndl{stroke:#ffd479;stroke-width:3.2;stroke-linecap:round}
+  .dial .ndl.fu{stroke:#a3e635}
+  .dial .ndl.vs{stroke:#7fd1ff}
+  .dial .hub{fill:#20262c;stroke:#454f58;stroke-width:1.6}
+  .dial .tk{stroke:#7d8b98;stroke-width:1.6}
+  .dial .tk.maj{stroke:#dbe9f7;stroke-width:2.4}
+  body.night #panel{filter:brightness(.82)}
   #hearts{font-size:clamp(13px,2.2vw,18px);letter-spacing:1px}
   /* 자세·고도 계기 — 실물 계기판 사진 위에 얹는다 */
-  #attSvg{display:block;margin-top:1px}
-  #attText{font-size:11px;font-weight:800;color:#ffd479;text-shadow:0 1px 3px #000;margin-top:2px}
-  #altBar{width:56px;height:7px;border-radius:4px;margin-top:3px;position:relative;
-    background:linear-gradient(90deg,#dc2626 0%,#f59e0b 18%,#22c55e 40%,#22c55e 70%,#f59e0b 88%,#dc2626 100%);
-    border:1px solid rgba(255,255,255,.28)}
-  #altMark{position:absolute;top:-3px;width:3px;height:13px;border-radius:2px;background:#fff;
-    box-shadow:0 0 4px #000;left:50%;transform:translateX(-50%);transition:left .12s linear}
-  #gVsi{color:#bcd7a6}
-  @media (max-width:760px){ #gzAtt{display:none} }   /* 좁은 화면에선 자세계를 숨겨 HUD 가 안 겹치게 */
+  #attText{font-size:11.5px;font-weight:800;color:#ffd479;text-shadow:0 1px 3px #000;margin-top:2px}
 
   /* ───────── 상단 우측 버튼 ───────── */
   #topR{position:absolute;top:8px;right:10px;z-index:12;display:flex;gap:6px}
@@ -266,55 +282,110 @@
   <!-- 무전 -->
   <div id="radio"></div>
 
-  <!-- 게이지 -->
-  <div id="gauges">
-    <div class="gz"><div class="gzL">SCORE</div><div class="gzV" id="gScore">0</div></div>
-    <div class="gz"><div class="gzL">SPEED 속도</div><div class="gzV small" id="gSpd">220</div></div>
-
-    <!-- 자세계(인공수평의) — 기울기·기수각을 한눈에. '똑바로 나는지 기울었는지'를 이걸로 본다 -->
-    <div class="gz" id="gzAtt">
-      <div class="gzL">ATTITUDE 자세</div>
-      <svg id="attSvg" width="60" height="60" viewBox="0 0 100 100">
-        <defs>
-          <clipPath id="attClip"><circle cx="50" cy="50" r="37"/></clipPath>
-        </defs>
-        <g clip-path="url(#attClip)">
-          <g id="attBall">
-            <rect x="-90" y="-140" width="280" height="190" fill="#2f7fc4"/>
-            <rect x="-90" y="50" width="280" height="200" fill="#7a5327"/>
-            <line x1="-90" y1="50" x2="190" y2="50" stroke="#fff" stroke-width="2.4"/>
-            <line x1="30" y1="30" x2="70" y2="30" stroke="rgba(255,255,255,.8)" stroke-width="1.4"/>
-            <line x1="36" y1="40" x2="64" y2="40" stroke="rgba(255,255,255,.6)" stroke-width="1.2"/>
-            <line x1="30" y1="70" x2="70" y2="70" stroke="rgba(255,255,255,.8)" stroke-width="1.4"/>
-            <line x1="36" y1="60" x2="64" y2="60" stroke="rgba(255,255,255,.6)" stroke-width="1.2"/>
+  <!-- ═══ 계기판 — 조종석 사진의 실제 계기판 자리에 아날로그 원형 계기를 얹는다 ═══
+       위치·크기는 layoutCockpit() 이 조종석 이미지 기준으로 계산한다(화면이 커져도 계기판에 붙어 있게).
+       가운데는 조종간이 지나가므로 비워 두고 좌우로 3개씩 나눈다. -->
+  <div id="panel">
+    <div class="pgrp">
+      <div class="dial" id="dSpd">
+        <svg viewBox="0 0 100 100">
+          <circle class="bez" cx="50" cy="50" r="46"/><circle class="face" cx="50" cy="50" r="40"/>
+          <g class="ticks" id="tkSpd"></g>
+          <text class="dl" x="50" y="30">SPEED</text>
+          <line class="ndl" id="nSpd" x1="50" y1="50" x2="50" y2="17"/>
+          <circle class="hub" cx="50" cy="50" r="4"/>
+          <text class="dv" x="50" y="76" id="vSpd">0</text>
+        </svg>
+      </div>
+      <div class="dial" id="dAtt">
+        <svg viewBox="0 0 100 100">
+          <defs><clipPath id="attClip"><circle cx="50" cy="50" r="40"/></clipPath></defs>
+          <circle class="bez" cx="50" cy="50" r="46"/>
+          <g clip-path="url(#attClip)">
+            <g id="attBall">
+              <rect x="-100" y="-160" width="300" height="210" fill="#2f7fc4"/>
+              <rect x="-100" y="50" width="300" height="220" fill="#7a5327"/>
+              <line x1="-100" y1="50" x2="200" y2="50" stroke="#fff" stroke-width="2.6"/>
+              <line x1="32" y1="32" x2="68" y2="32" stroke="rgba(255,255,255,.75)" stroke-width="1.5"/>
+              <line x1="38" y1="41" x2="62" y2="41" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>
+              <line x1="32" y1="68" x2="68" y2="68" stroke="rgba(255,255,255,.75)" stroke-width="1.5"/>
+              <line x1="38" y1="59" x2="62" y2="59" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>
+            </g>
           </g>
-        </g>
-        <circle cx="50" cy="50" r="37" fill="none" stroke="#0c1014" stroke-width="5"/>
-        <circle cx="50" cy="50" r="39.5" fill="none" stroke="#39424a" stroke-width="2"/>
-        <!-- 고정 기체 심볼 -->
-        <path d="M28 50 H43 M57 50 H72 M50 50 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
-              fill="none" stroke="#ffd479" stroke-width="3" stroke-linecap="round"/>
-        <path d="M50 11 l-4 7 h8 z" fill="#ffd479"/>
-      </svg>
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#0b0e11" stroke-width="6"/>
+          <path d="M26 50 H42 M58 50 H74" stroke="#ffd479" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+          <circle cx="50" cy="50" r="3.4" fill="none" stroke="#ffd479" stroke-width="3"/>
+          <path d="M50 8 l-4.5 8 h9 z" fill="#ffd479"/>
+          <text class="dl" x="50" y="95">자세</text>
+        </svg>
+      </div>
+      <div class="dial" id="dAlt">
+        <svg viewBox="0 0 100 100">
+          <circle class="bez" cx="50" cy="50" r="46"/><circle class="face" cx="50" cy="50" r="40"/>
+          <g class="ticks" id="tkAlt"></g>
+          <text class="dl" x="50" y="30">ALT 고도</text>
+          <line class="ndl" id="nAlt" x1="50" y1="50" x2="50" y2="17"/>
+          <circle class="hub" cx="50" cy="50" r="4"/>
+          <text class="dv" x="50" y="76" id="vAlt">0m</text>
+        </svg>
+      </div>
     </div>
 
-    <div class="gz" style="min-width:auto">
-      <div class="gzL">FUEL / TIME</div>
-      <div id="fuelBar"><div id="fuelFill"></div></div>
-      <div id="hearts">❤️❤️❤️</div>
-      <div id="attText">수평 비행</div>
-    </div>
+    <div class="pgap"></div>
 
-    <!-- 고도계 + 승강계 -->
-    <div class="gz" id="gzAlt">
-      <div class="gzL">ALT 고도</div>
-      <div class="gzV small" id="gAlt">2000<span style="font-size:.6em">m</span></div>
-      <div id="altBar"><div id="altMark"></div></div>
-      <div class="gzL" id="gVsi">→ 수평</div>
+    <div class="pgrp">
+      <div class="dial" id="dFuel">
+        <svg viewBox="0 0 100 100">
+          <circle class="bez" cx="50" cy="50" r="46"/><circle class="face" cx="50" cy="50" r="40"/>
+          <!-- 연료 눈금: E(빈쪽) ~ F(찬쪽), 아래쪽 붉은 경고 구간 -->
+          <path d="M22 68 A34 34 0 0 1 22 32" fill="none" stroke="#7f1d1d" stroke-width="5"/>
+          <g class="ticks" id="tkFuel"></g>
+          <text class="dl" x="50" y="30">FUEL 연료</text>
+          <text class="de" x="20" y="54">E</text><text class="de" x="80" y="54">F</text>
+          <line class="ndl fu" id="nFuel" x1="50" y1="50" x2="50" y2="17"/>
+          <circle class="hub" cx="50" cy="50" r="4"/>
+          <text class="dv" x="50" y="76" id="vFuel">100</text>
+        </svg>
+      </div>
+      <div class="dial" id="dHdg">
+        <svg viewBox="0 0 100 100">
+          <circle class="bez" cx="50" cy="50" r="46"/><circle class="face" cx="50" cy="50" r="40"/>
+          <g id="rose">
+            <text class="dr" x="50" y="24">N</text><text class="dr" x="77" y="54">E</text>
+            <text class="dr" x="50" y="83">S</text><text class="dr" x="23" y="54">W</text>
+            <g class="ticks" id="tkHdg"></g>
+          </g>
+          <path d="M50 12 l-4 7 h8 z" fill="#ff6a4d"/>
+          <circle class="hub" cx="50" cy="50" r="3.4"/>
+          <text class="dv" x="50" y="76" id="vHdg">000</text>
+          <text class="dl" x="50" y="95">방위</text>
+        </svg>
+      </div>
+      <div class="dial" id="dVsi">
+        <svg viewBox="0 0 100 100">
+          <circle class="bez" cx="50" cy="50" r="46"/><circle class="face" cx="50" cy="50" r="40"/>
+          <g class="ticks" id="tkVsi"></g>
+          <text class="dl" x="50" y="30">승강</text>
+          <text class="de" x="78" y="36">▲</text><text class="de" x="78" y="72">▼</text>
+          <line class="ndl vs" id="nVsi" x1="50" y1="50" x2="82" y2="50"/>
+          <circle class="hub" cx="50" cy="50" r="4"/>
+          <text class="dv" x="50" y="76" id="vVsi">수평</text>
+        </svg>
+      </div>
     </div>
+  </div>
 
-    <div class="gz"><div class="gzL">HDG 방위</div><div class="gzV small" id="gHdg">000</div></div>
-    <div class="gz"><div class="gzL">격추 KILLS</div><div class="gzV" id="gKill">0/10</div></div>
+  <!-- 상단 정보(게임 진행) — 비행 계기가 아니므로 화면 모서리에 작게 둔다 -->
+  <!-- 게임 정보 — 가운데는 문장 바 자리이므로 좌우로만 배치한다 -->
+  <div id="gauges">
+    <div class="gzSide">
+      <div class="gz"><div class="gzL">SCORE</div><div class="gzV" id="gScore">0</div></div>
+      <div class="gz"><div id="hearts">❤️❤️❤️</div></div>
+    </div>
+    <div class="gzSide">
+      <div class="gz"><div id="attText">✈ 수평 비행</div></div>
+      <div class="gz"><div class="gzL">격추 KILLS</div><div class="gzV" id="gKill">0/10</div></div>
+    </div>
   </div>
 
   <button id="backBtn">← 나가기</button>
@@ -819,8 +890,25 @@ function layoutCockpit(){
   var iw=k*W, ih=iw/CP_AR;
   img.style.width  = iw.toFixed(1)+'px';
   img.style.height = 'auto';
-  img.style.left   = (0.5*W - CP_FX*iw).toFixed(1)+'px';
-  img.style.top    = (0.5*H - CP_FY*ih).toFixed(1)+'px';
+  var ileft = 0.5*W - CP_FX*iw, itop = 0.5*H - CP_FY*ih;
+  img.style.left   = ileft.toFixed(1)+'px';
+  img.style.top    = itop.toFixed(1)+'px';
+
+  /* 계기판을 조종석 사진의 '실제 계기판' 위에 얹는다.
+     PN_FY 는 이미지에서 계기가 늘어선 띠의 세로 위치(실측). 화면 밖으로 내려가면 하단에 붙인다. */
+  var pn=document.getElementById('panel'); if(!pn) return;
+  var PN_FY=0.79, PN_FW=0.66;
+  var pw = PN_FW*iw;
+  var py = itop + PN_FY*ih;
+  var dsz = Math.max(46, Math.min(96, pw*0.115));         // 다이얼 지름
+  var maxY = H - dsz*0.98;                                 // 눈금·글자까지 화면 안에 들어오게
+  if(py > maxY) py = maxY;
+  pn.style.left  = (0.5*W - pw/2).toFixed(1)+'px';
+  pn.style.top   = (py - dsz/2).toFixed(1)+'px';
+  pn.style.width = pw.toFixed(1)+'px';
+  pn.style.setProperty('--dsz', dsz.toFixed(1)+'px');
+  pn.style.setProperty('--dgap', (dsz*0.14).toFixed(1)+'px');
+  pn.style.setProperty('--ygap', (dsz*1.9).toFixed(1)+'px');   // 가운데는 조종간 자리
 }
 function resize(){
   W=window.innerWidth; H=window.innerHeight;
@@ -1526,9 +1614,26 @@ var input={ mx:0, my:0, active:false, keys:{} };
     input.mx = Math.max(-1, Math.min(1, (cx - W/2)/(W*0.42)));
     input.my = Math.max(-1, Math.min(1, (cy - H*0.44)/(H*0.36)));
   }
-  /* ⚠️ 마우스는 '조종 전용'이다. 클릭 발사를 없앴다 — 사장님 지시.
-     발사는 왼손 키(스페이스·Ctrl·Shift)로 한다. 오른손 조종 / 왼손 사격이 실제 조종 자세에 가깝다. */
-  cv.addEventListener('mousemove', function(e){ setFromClient(e.clientX, e.clientY); input.active=true; });
+  /* ⚠️ 마우스는 '조종 전용'이다(클릭 발사 없음). 발사는 왼손 키(스페이스·Ctrl·Shift).
+
+     === 마우스 1:1 조종 ===
+     예전엔 '커서가 화면 중앙에서 얼마나 벗어났는가'로 **회전 속도**를 정했다(조이스틱 방식).
+     그러면 손을 멈춰도 기체가 계속 돌아서 마우스와 화면이 따로 논다.
+     → 커서가 움직인 **픽셀 수만큼** 시야를 정확히 그 각도로 돌린다.
+       화면 1픽셀이 몇 라디안인지( 2·tan(fov/2)/H )로 환산하므로,
+       커서 아래에 있던 하늘의 한 점이 계속 커서 아래에 머문다 = 완전한 1:1.
+     · 커서가 창 가장자리에 닿으면 더 못 도는 문제 → 가장자리에서만 추가 선회를 얹는다. */
+  var _lastMX=null, _lastMY=null;
+  cv.addEventListener('mousemove', function(e){
+    setFromClient(e.clientX, e.clientY); input.active=true;
+    if(G && G.running && !paused && !G.speaking && _lastMX!==null){
+      var k = 2*Math.tan(camera.fov*Math.PI/360)/H;    // 픽셀당 라디안(가로·세로 동일)
+      G.yaw   -= (e.clientX-_lastMX)*k;
+      G.pitch  = Math.max(-0.95, Math.min(0.95, G.pitch - (e.clientY-_lastMY)*k));
+    }
+    _lastMX=e.clientX; _lastMY=e.clientY;
+  });
+  cv.addEventListener('mouseleave', function(){ _lastMX=null; _lastMY=null; });
   cv.addEventListener('mousedown', function(e){ ac(); });   // 오디오 잠금 해제만
 
   /* ⚠️ 터치(모바일)는 절대 위치를 쓰면 안 된다.
@@ -1603,12 +1708,31 @@ function update(dt){
   var my = ky!==0 ? ky : input.my;
 
   // 조종 — yaw/pitch 를 명시적으로 누적(YXZ). 아이 친화적: 수평선이 뒤집히지 않는다.
-  var RATE=0.95;
-  G.yawV   += ((-mx*RATE) - G.yawV) * Math.min(1, dt*4.5);
-  G.pitchV += ((-my*RATE) - G.pitchV) * Math.min(1, dt*4.5);
+  /* 마우스는 mousemove 에서 이미 1:1 로 yaw/pitch 를 직접 돌려 놨다.
+     여기서는 ① 키보드 조종 ② 커서가 창 가장자리에 닿았을 때의 추가 선회 만 처리한다.
+     ⚠️ 마우스 입력까지 여기서 또 '속도 제어'로 더하면 손을 멈춰도 기체가 계속 도는
+        예전 방식으로 되돌아간다(그래서 마우스와 화면이 따로 놀았다). */
+  var RATE=1.35;
+  if(kx!==0 || ky!==0){                       // ── 키보드 조종(기존 속도 제어)
+    G.yawV   += ((-kx*RATE) - G.yawV) * Math.min(1, dt*9);
+    G.pitchV += ((-ky*RATE) - G.pitchV) * Math.min(1, dt*9);
+  } else {                                     // ── 마우스: 가장자리에서만 계속 선회
+    var ex = (Math.abs(mx)>0.80) ? (mx-Math.sign(mx)*0.80)/0.20 : 0;
+    var ey = (Math.abs(my)>0.80) ? (my-Math.sign(my)*0.80)/0.20 : 0;
+    G.yawV   += ((-ex*RATE) - G.yawV) * Math.min(1, dt*9);
+    G.pitchV += ((-ey*RATE) - G.pitchV) * Math.min(1, dt*9);
+  }
   G.yaw   += G.yawV*dt;
-  G.pitch = Math.max(-0.85, Math.min(0.85, G.pitch + G.pitchV*dt));
-  G.bank  += ((G.yawV*1.15) - G.bank) * Math.min(1, dt*3.0);
+  G.pitch = Math.max(-0.95, Math.min(0.95, G.pitch + G.pitchV*dt));
+
+  // 뱅킹 — 실제 선회량(마우스+키보드 합계)에서 뽑아야 마우스로 돌릴 때도 기체가 기운다
+  if(G.prevYaw===undefined){ G.prevYaw=G.yaw; G.prevPitch=G.pitch; }
+  var yawRate=(G.yaw-G.prevYaw)/Math.max(0.001,dt); G.prevYaw=G.yaw;
+  var pitRate=(G.pitch-G.prevPitch)/Math.max(0.001,dt); G.prevPitch=G.pitch;
+  // 조종간 표시용 — 순간값은 튀므로 완만하게 눌러 준다
+  G.yawRate  = (G.yawRate ||0)*0.72 + yawRate*0.28;
+  G.pitchRate= (G.pitchRate||0)*0.72 + pitRate*0.28;
+  G.bank += (Math.max(-1.1, Math.min(1.1, yawRate*0.85)) - G.bank) * Math.min(1, dt*6);
   player.quaternion.setFromEuler(new THREE.Euler(G.pitch, G.yaw, G.bank, 'YXZ'));
 
   // 추진
@@ -1796,43 +1920,72 @@ function updateHUD(){
   document.getElementById('gScore').textContent=G.score;
   document.getElementById('gKill').textContent=G.kills+'/'+GOAL;
   document.getElementById('hearts').textContent='❤️'.repeat(Math.max(0,G.hearts))+'🤍'.repeat(Math.max(0,3-G.hearts));
-  var pct=Math.max(0,Math.min(1,G.time/G.timeMax))*100;
-  var ff=document.getElementById('fuelFill'); ff.style.width=pct+'%';
-  ff.classList.toggle('warn', G.time<20);
+  // 연료는 조종석 계기판의 아날로그 연료계(updateHUDFast)가 표시한다
 }
 /* 계기판 — '지금 어떻게 날고 있는지'를 숫자와 그림으로 동시에 알려준다.
    자세계(인공수평의)는 실제 항공기 계기와 같은 방식이다:
      · 배경(하늘/땅)이 기울기(bank) 반대로 회전하고, 기수각(pitch) 만큼 위아래로 밀린다
      · 가운데 노란 기체 심볼은 고정 — 그래서 '기울었는지 똑바로인지'가 바로 보인다 */
-var _altPrev=null, _vsi=0;
+/* 눈금 생성 — 원형 계기 테두리에 눈금선을 그린다(한 번만) */
+function buildTicks(id, count, majEvery, a0, a1){
+  var g=document.getElementById(id); if(!g || g.childNodes.length) return;
+  var s='';
+  for(var i=0;i<=count;i++){
+    var a=(a0 + (a1-a0)*i/count) * Math.PI/180;
+    var maj=(i%majEvery===0), r1=maj?29:32, r2=36;
+    s += '<line class="tk'+(maj?' maj':'')+'" x1="'+(50+Math.sin(a)*r1).toFixed(1)+'" y1="'+(50-Math.cos(a)*r1).toFixed(1)+
+         '" x2="'+(50+Math.sin(a)*r2).toFixed(1)+'" y2="'+(50-Math.cos(a)*r2).toFixed(1)+'"/>';
+  }
+  g.innerHTML=s;
+}
+function setNeedle(id, deg){
+  var n=document.getElementById(id); if(n) n.setAttribute('transform','rotate('+deg.toFixed(1)+' 50 50)');
+}
+var _altPrev=null, _vsi=0, _ticksBuilt=false;
 function updateHUDFast(){
-  document.getElementById('gSpd').textContent=Math.round(G.speed*1.15);
+  if(!_ticksBuilt){
+    _ticksBuilt=true;
+    buildTicks('tkSpd', 10, 2, -140, 140);
+    buildTicks('tkAlt', 10, 2, -140, 140);
+    buildTicks('tkFuel',8, 2, -120, 120);
+    buildTicks('tkHdg', 12, 3, 0, 360);
+    buildTicks('tkVsi', 8, 2, -110, 110);
+  }
+  var el;
+  // ── 속도계 : 0~340 을 −140°~+140° 로
+  var kt=Math.round(G.speed*1.15);
+  el=document.getElementById('vSpd'); if(el) el.textContent=kt;
+  setNeedle('nSpd', -140 + Math.max(0,Math.min(1, kt/340))*280);
+
+  // ── 고도계 : 게임 y(−800~+900) 를 해발 1200~2900m 로 읽는다
+  var alt=2000+player.position.y;
+  el=document.getElementById('vAlt'); if(el) el.textContent=Math.round(alt)+'m';
+  setNeedle('nAlt', -140 + Math.max(0,Math.min(1,(player.position.y+800)/1700))*280);
+
+  // ── 연료(남은 시간)
+  var fp=Math.max(0,Math.min(1, G.time/G.timeMax));
+  el=document.getElementById('vFuel'); if(el) el.textContent=Math.round(fp*100);
+  setNeedle('nFuel', -120 + fp*240);
+  el=document.getElementById('nFuel'); if(el) el.style.stroke = (fp<0.22 ? '#f87171' : '#a3e635');
+
+  // ── 나침반 : 카드가 도는 방식(실제 항공 나침반과 같다). 위쪽 빨간 지침이 기수 방향.
   var hdg=((-G.yaw*180/Math.PI)%360+360)%360;
-  document.getElementById('gHdg').textContent=('00'+Math.round(hdg)).slice(-3);
+  el=document.getElementById('vHdg'); if(el) el.textContent=('00'+Math.round(hdg)).slice(-3);
+  el=document.getElementById('rose'); if(el) el.setAttribute('transform','rotate('+(-hdg).toFixed(1)+' 50 50)');
 
-  var pitchDeg = -G.pitch*180/Math.PI;      // +면 기수 올림
-  var bankDeg  =  G.bank*180/Math.PI;
+  // ── 자세계 : 배경이 뱅크 반대로 돌고 피치만큼 위아래로 밀린다. 기체 심볼은 고정.
+  var pitchDeg=-G.pitch*180/Math.PI, bankDeg=G.bank*180/Math.PI;
+  el=document.getElementById('attBall');
+  if(el) el.setAttribute('transform','rotate('+(-bankDeg).toFixed(1)+' 50 50) translate(0 '+(pitchDeg*1.15).toFixed(1)+')');
 
-  var ball=document.getElementById('attBall');
-  if(ball) ball.setAttribute('transform',
-    'rotate('+(-bankDeg).toFixed(1)+' 50 50) translate(0 '+(pitchDeg*1.1).toFixed(1)+')');
-
-  // 고도 — 게임 좌표 y 를 '해발 2000m 기준'으로 읽는다
-  var alt = 2000 + player.position.y;
-  document.getElementById('gAlt').innerHTML = Math.round(alt)+'<span style="font-size:.6em">m</span>';
-  var mark=document.getElementById('altMark');
-  if(mark){ var f=Math.max(0,Math.min(1,(player.position.y+800)/1700)); mark.style.left=(f*100)+'%'; }
-
-  // 승강계 — 초당 고도 변화
+  // ── 승강계
   if(_altPrev===null) _altPrev=player.position.y;
   _vsi = _vsi*0.85 + (player.position.y-_altPrev)*0.15*8;
   _altPrev = player.position.y;
-  var vsiEl=document.getElementById('gVsi');
-  if(vsiEl){
-    if(_vsi > 6){ vsiEl.textContent='▲ 상승'; vsiEl.style.color='#86efac'; }
-    else if(_vsi < -6){ vsiEl.textContent='▼ 하강'; vsiEl.style.color='#fca5a5'; }
-    else { vsiEl.textContent='→ 수평'; vsiEl.style.color='#bcd7a6'; }
-  }
+  var vn=Math.max(-1, Math.min(1, _vsi/40));
+  setNeedle('nVsi', vn*-70);
+  el=document.getElementById('vVsi');
+  if(el) el.textContent = (_vsi>6 ? '상승' : (_vsi<-6 ? '하강' : '수평'));
 
   // 한 줄 상태 — 어린 학생도 바로 알 수 있게 한국어로
   var t=document.getElementById('attText');
@@ -1887,13 +2040,14 @@ function loop(ts){
   if(G && G.running && !paused && !G.speaking) update(dt);
   if(G){
     _hudT+=dt; if(_hudT>0.12){ _hudT=0; updateHUDFast(); }
-    // 조종간 — 실제 조종 입력을 그대로 반영(왼쪽=왼쪽으로 기울고, 위=위로 밀림)
-    if(_yokeEl){
-      var kx=(input.keys.ArrowRight||input.keys.KeyD?1:0)-(input.keys.ArrowLeft||input.keys.KeyA?1:0);
-      var ky=(input.keys.ArrowDown||input.keys.KeyS?1:0)-(input.keys.ArrowUp||input.keys.KeyW?1:0);
-      var ux=(kx!==0?kx:input.mx), uy=(ky!==0?ky:input.my);
-      _yokeEl.style.setProperty('--ykR', (ux*24).toFixed(1)+'deg');
-      _yokeEl.style.setProperty('--ykY', (uy*16).toFixed(1)+'px');
+    /* 조종간 — '커서 위치'가 아니라 **실제 선회량**을 반영한다.
+       1:1 조종에서는 커서를 움직이는 순간에만 기체가 돌기 때문에,
+       커서 위치로 그리면 손을 멈춰도 조종간이 꺾인 채로 굳어 있어 어색하다. */
+    if(_yokeEl && G.running){
+      var ux=Math.max(-1, Math.min(1, -(G.yawRate  ||0)/1.3));
+      var uy=Math.max(-1, Math.min(1, -(G.pitchRate||0)/1.3));
+      _yokeEl.style.setProperty('--ykR', (ux*26).toFixed(1)+'deg');
+      _yokeEl.style.setProperty('--ykY', (uy*18).toFixed(1)+'px');
     }
     // 사격 반동 흔들림
     if(camera){
