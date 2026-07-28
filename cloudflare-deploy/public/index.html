@@ -11021,7 +11021,9 @@ async function vcJoinRoom(skipUI) {
                   게다가 한국어 전용이라 외국인 강사는 브라우저 번역을 켜야 읽을 수 있었다(강사 다수가 외국인). */
         var _vEn = false;
         try { _vEn = (localStorage.getItem('mangoi_lang') || localStorage.getItem('mango_lang')) === 'en'; } catch (e) {}
-        var _vIsTeacher = (_vrole === 'teacher' || _vrole === 'admin');
+        /* role 표기가 경로마다 다르다 — 마이페이지 입장 버튼은 'teacher', 홈 통합로그인 폴백은 'hq_teacher'.
+           정확일치로 보면 새 경로에서 강사가 학생용 안내(없는 버튼)를 보게 된다. */
+        var _vIsTeacher = /teacher/.test(String(_vrole)) || _vrole === 'admin';
         /* 🔒 (2026-07-28) 담당 지정이 어긋난 강사는 '막지 않고 알리기만' 한다 — 수업 방해 금지 원칙.
            서버가 authorized:'unknown' + reason:'teacher_not_assigned' 로 돌려준다. */
         if (_vres && _vres.reason === 'teacher_not_assigned') {
@@ -27407,7 +27409,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260728233831 -->
+<!-- BUILD:20260729003823 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
