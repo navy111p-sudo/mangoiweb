@@ -884,6 +884,9 @@
         t._hideTimer = setTimeout(function(){ t.classList.remove('show'); }, 2600);
       }
 
+      /* 🔔 (2026-07-28 실사고) 2.6초 뒤 사라지는 토스트만 띄우던 탓에, 강사 눈에는
+         "버튼을 눌렀는데 아무 일도 안 일어난다" 로 보였다(실제로 그렇게 멈춰 있었다).
+         → 확인 버튼이 있는 창으로 바꿔, 무엇을 해야 하는지 분명히 알린다. 한/영 병기(강사 다수가 외국인). */
       function blockClassEntry(){
         var box = document.getElementById('class-checklist');
         if (box){
@@ -891,7 +894,32 @@
           box.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.65), var(--shadow-soft)';
           setTimeout(function(){ applyChecklistBoxStyle(); }, 1500);
         }
-        showToast(en() ? 'Please check all items before entering class.' : '수업 입장 전에 체크리스트를 모두 확인해주세요.', true);
+        var isEn = en();
+        var ov = document.getElementById('mangoi-checklist-modal');
+        if (ov) ov.remove();
+        ov = document.createElement('div');
+        ov.id = 'mangoi-checklist-modal';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,0.62);display:flex;align-items:center;justify-content:center;padding:20px;';
+        var card = document.createElement('div');
+        card.style.cssText = 'max-width:420px;width:100%;background:#fff;color:#1f2430;border-radius:16px;padding:24px 24px 20px;box-shadow:0 24px 60px rgba(0,0,0,.35);font-family:inherit;text-align:center;';
+        card.innerHTML =
+            '<div style="font-size:36px;line-height:1">📋</div>'
+          + '<div style="font-size:17px;font-weight:800;margin-top:8px">'
+          + (isEn ? 'Please finish the pre-class checklist' : '수업 전 체크리스트를 먼저 완료해 주세요')
+          + '</div>'
+          + '<div style="font-size:13.5px;line-height:1.65;color:#4b5565;margin-top:9px">'
+          + (isEn
+              ? 'You can enter the class once every item — including the final agreement — is checked.<br>The checklist is highlighted right below this dialog.'
+              : '맨 아래 전체 동의까지 모두 체크하면 수업에 입장할 수 있어요.<br>이 창을 닫으면 바로 아래에 체크리스트가 표시돼 있어요.')
+          + '</div>'
+          + '<button type="button" data-act="ok" style="margin-top:18px;padding:11px 30px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:99px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit">'
+          + (isEn ? 'OK' : '확인') + '</button>';
+        ov.appendChild(card);
+        function close(){ try { ov.remove(); } catch(_){} }
+        card.querySelector('[data-act="ok"]').onclick = close;
+        ov.onclick = function(e){ if (e.target === ov) close(); };
+        document.body.appendChild(ov);
+        try { card.querySelector('[data-act="ok"]').focus(); } catch(_){}
       }
 
       // 🎯 (2026-07-24 강사 피드백) 미완료면 계속 눈에 띄게, 다 체크하면 차분한 완료 색으로 전환

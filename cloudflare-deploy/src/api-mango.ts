@@ -1530,9 +1530,34 @@ export async function handleMangoApi(
         }
       }
       if (!ok && nameParam) {
-        if (row.student_name && row.student_name === nameParam) ok = true;          // 학생 이름 일치
+        // 🔧 (2026-07-28 실사고) 역할 접두사('교사 …')를 떼고도 비교한다.
+        //   마이페이지 '수업 입장'은 vc_name 을 '교사 {계정명}' 으로 만들어 보내는데(mypage.html ph…),
+        //   teachers.name 에는 과목 접두사가 붙어 있다(예: '중국어 강선생님').
+        //   → '교사 강선생님' 과 '중국어 강선생님' 은 서로를 포함하지 않아 양방향 부분일치가 둘 다 깨졌다.
+        //   같은 교사가 sessions/today 에서는 매칭되는데(거기엔 접두사 없는 이름을 보냄)
+        //   문 앞에서만 막히던 원인. 두 API 가 같은 사람에 대해 다른 이름을 받는 구조라서 생긴 사고다.
+        const stripRolePrefix = (s: string) =>
+          String(s || '').replace(/^\s*(?:교사|강사|선생님|Teacher|Tutor)\s+/i, '').trim();
+        const npRaw = nameParam;
+        const npBare = stripRolePrefix(nameParam);
+        if (row.student_name && (row.student_name === npRaw || row.student_name === npBare)) ok = true;  // 학생 이름 일치
         // 🔧 (2026-07-24) 교사 이름은 완전일치 대신 부분일치(양방향) — sessions/today 매칭 완화와 동일 사유.
-        if (!ok && row.teacher_name && (row.teacher_name === nameParam || row.teacher_name.includes(nameParam) || nameParam.includes(row.teacher_name))) ok = true;
+        if (!ok && row.teacher_name) {
+          const tnRaw = String(row.teacher_name);
+          const tnBare = stripRolePrefix(tnRaw);
+          const hit = (a: string, b: string) => !!a && !!b && (a === b || a.includes(b) || b.includes(a));
+          for (const t of [tnRaw, tnBare]) {
+            for (const n of [npRaw, npBare]) { if (hit(t, n)) { ok = true; break; } }
+            if (ok) break;
+          }
+        }
+      }
+      // 🔒 (2026-07-28) 교사는 차단하지 않는다 — "수업을 방해하지 않는다"가 이 게이트의 1원칙이다.
+      //   담당 지정이 어긋나 있어도 수업은 열려야 한다(어긋남 자체는 운영에서 흔하다).
+      //   클라이언트는 authorized === false 일 때만 막으므로, 'unknown' 을 주면 경고만 띄우고 통과한다.
+      //   ※ 이 게이트는 보안 경계가 아니다 — role 은 클라이언트가 보내는 값이고 admin/observer 는 이미 무조건 통과다.
+      if (!ok && role === 'teacher') {
+        return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null });
       }
       return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch' });
     }
