@@ -302,14 +302,20 @@
   <div id="yoke"><img id="ykImg" src="/img/p38-yoke.webp?v=1" alt=""></div>
 
   <!-- 조준기 -->
-  <svg id="sight" width="150" height="150" viewBox="0 0 150 150">
-    <circle class="ring" cx="75" cy="75" r="46" fill="none" stroke="#ffbe3c" stroke-width="1.6" opacity=".85"/>
-    <circle class="ring" cx="75" cy="75" r="23" fill="none" stroke="#ffbe3c" stroke-width="1.2" opacity=".7"/>
-    <circle cx="75" cy="75" r="2.6" fill="#ffbe3c"/>
-    <line x1="75" y1="14" x2="75" y2="32" stroke="#ffbe3c" stroke-width="1.6"/>
-    <line x1="75" y1="118" x2="75" y2="136" stroke="#ffbe3c" stroke-width="1.6"/>
-    <line x1="14" y1="75" x2="32" y2="75" stroke="#ffbe3c" stroke-width="1.6"/>
-    <line x1="118" y1="75" x2="136" y2="75" stroke="#ffbe3c" stroke-width="1.6"/>
+  <!-- 조준기 — 크고 또렷하게. 밝은 하늘·구름 위에서도 보이도록 검은 외곽선을 함께 그린다. -->
+  <svg id="sight" width="230" height="230" viewBox="0 0 150 150">
+    <g stroke="#1a1205" stroke-width="4.6" fill="none" opacity=".55">
+      <circle cx="75" cy="75" r="46"/><circle cx="75" cy="75" r="23"/>
+      <line x1="75" y1="10" x2="75" y2="34"/><line x1="75" y1="116" x2="75" y2="140"/>
+      <line x1="10" y1="75" x2="34" y2="75"/><line x1="116" y1="75" x2="140" y2="75"/>
+    </g>
+    <circle class="ring" cx="75" cy="75" r="46" fill="none" stroke="#ffbe3c" stroke-width="2.4" opacity=".95"/>
+    <circle class="ring" cx="75" cy="75" r="23" fill="none" stroke="#ffbe3c" stroke-width="1.9" opacity=".85"/>
+    <circle cx="75" cy="75" r="3.6" fill="#ffbe3c"/>
+    <line x1="75" y1="10" x2="75" y2="34" stroke="#ffbe3c" stroke-width="2.4"/>
+    <line x1="75" y1="116" x2="75" y2="140" stroke="#ffbe3c" stroke-width="2.4"/>
+    <line x1="10" y1="75" x2="34" y2="75" stroke="#ffbe3c" stroke-width="2.4"/>
+    <line x1="116" y1="75" x2="140" y2="75" stroke="#ffbe3c" stroke-width="2.4"/>
   </svg>
 
   <!-- 문장 바 -->
@@ -473,6 +479,7 @@
       <div class="keys">
         <span class="kk">🖱️ 마우스 좌우 = 좌우 선회</span>
         <span class="kk">🖲️ 마우스 휠 = 기수 올림/내림</span>
+        <span class="kk">🖱️ 왼쪽 버튼 = 가속 · 오른쪽 버튼 = 후진</span>
         <span class="kk">스페이스 · Ctrl · Shift = 발사</span>
         <span class="kk">N = 낮/밤 전환</span>
         <span class="kk">R = 무전 반복</span>
@@ -1485,7 +1492,7 @@ function newGame(){
     score:0, kills:0, sentences:0, hearts:3,
     time:P().time, timeMax:P().time,
     shots:0, hits:0, pronOk:0, pronTry:0,
-    yaw:0, pitch:0, bank:0, yawV:0, pitchV:0, speed:190, boost:false,
+    yaw:0, pitch:0, bank:0, yawV:0, pitchV:0, speed:190, boost:false, reverse:false,
     fireHeld:false, fireCd:0, invuln:0, shake:0,
     queue:[], qi:0, sent:null, next:0, chunk:null, aceMode:false,
     wrongWords:{}, prog:[]
@@ -1765,8 +1772,26 @@ var input={ mx:0, my:0, active:false, keys:{} };
     }
     _lastMX=e.clientX;
   });
-  cv.addEventListener('mouseleave', function(){ _lastMX=null; });
-  cv.addEventListener('mousedown', function(e){ ac(); });   // 오디오 잠금 해제만
+  cv.addEventListener('mouseleave', function(){ _lastMX=null; if(G){ G.boost=false; G.reverse=false; } });
+
+  /* 좌클릭 = 가속 · 우클릭 = 후진 — 사장님 지시.
+     ⚠️ 우클릭은 contextmenu 를 막아야 오른쪽 버튼을 누르는 순간 메뉴가 떠서 조종이 끊긴다.
+     ⚠️ 발사·상단 버튼 위에서 누른 것은 조종으로 치지 않는다. */
+  cv.addEventListener('mousedown', function(e){
+    ac();
+    if(e.target.closest('button')) return;
+    if(!G) return;
+    if(e.button===0) G.boost=true;
+    else if(e.button===2){ G.reverse=true; e.preventDefault(); }
+  });
+  window.addEventListener('mouseup', function(e){
+    if(!G) return;
+    if(e.button===0) G.boost=false;
+    else if(e.button===2) G.reverse=false;
+  });
+  cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  // 창 밖으로 나갔다 돌아오면 버튼 상태가 남아 계속 가속되는 것을 막는다
+  window.addEventListener('blur', function(){ if(G){ G.boost=false; G.reverse=false; } });
 
   /* 휠 = 기수 올림/내림. 위로 굴리면 상승, 아래로 굴리면 하강.
      ⚠️ passive:false 로 등록하고 preventDefault 해야 페이지가 같이 스크롤되지 않는다. */
@@ -1883,8 +1908,9 @@ function update(dt){
   player.quaternion.setFromEuler(new THREE.Euler(G.pitch, G.yaw, G.bank, 'YXZ'));
 
   // 추진
-  var want = G.boost ? 300 : 210;   // 전체적으로 빠르게 — 사장님 지시
-  G.speed += (want-G.speed)*Math.min(1,dt*1.2);
+  /* 좌클릭 = 가속 · 우클릭 = 후진(뒤로 물러남) · 평소 = 순항 */
+  var want = G.boost ? 330 : (G.reverse ? -110 : 210);
+  G.speed += (want-G.speed)*Math.min(1, dt*2.2);   // 버튼 반응이 늦으면 '눌러도 안 먹는다'고 느낀다
   player.position.addScaledVector(forwardVec(), G.speed*dt);
 
   // 고도 한계 — 바다에 처박히지 않게 경고 후 자동 회복
@@ -1894,7 +1920,7 @@ function update(dt){
   if(player.position.y >  900){ G.pitch -= dt*0.6; }
 
   // 연료(시간)
-  G.time -= dt * (G.boost?1.5:1);
+  G.time -= dt * (G.boost?1.5:(G.reverse?1.25:1));   // 가속·후진은 연료를 더 먹는다
   if(G.time<=0){ G.time=0; endGame(false); return; }
 
   // 사격
@@ -1978,7 +2004,7 @@ function updateEnemies(dt){
     // 라벨 — 씬에 직접 있으므로 위치를 매 프레임 기체에 맞춘다. 크기는 거리에 비례 = 화면상 일정.
     if(e.label){
       var dd=Math.max(30, m.position.distanceTo(camera.getWorldPosition(new THREE.Vector3())));
-      var s=dd*0.044*labelScaleK(); e.label.scale.set(s*3.1, s, 1);
+      var s=dd*0.058*labelScaleK(); e.label.scale.set(s*3.1, s, 1);   // 단어 라벨도 크게
       /* 라벨 층 간격은 '라벨 높이(s)'에 비례해야 한다. 고정값으로 두면 라벨 높이의 1/4밖에 안 벌어져
          좌우로 가까운 두 기체의 라벨이 그대로 포개진다. 층 0/1/2 를 아래·가운데·위로 나눈다. */
       e.label.position.copy(m.position);
@@ -2101,8 +2127,9 @@ function updateHUDFast(){
   var el;
   // ── 속도계 : 0~340 을 −140°~+140° 로
   var kt=Math.round(G.speed*1.15);
-  el=document.getElementById('vSpd'); if(el) el.textContent=kt;
-  setNeedle('nSpd', -140 + Math.max(0,Math.min(1, kt/340))*280);
+  // 후진 중이면 음수로 표시하고 바늘은 0 에 붙인다(속도계에 음수 눈금은 없다)
+  el=document.getElementById('vSpd'); if(el) el.textContent = (kt<0 ? '◀'+Math.abs(kt) : kt);
+  setNeedle('nSpd', -140 + Math.max(0,Math.min(1, Math.max(0,kt)/340))*280);
 
   // ── 고도계 : 게임 y(−800~+900) 를 해발 1200~2900m 로 읽는다
   var alt=2000+player.position.y;
