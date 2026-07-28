@@ -5937,6 +5937,42 @@ window.__admSettleRun = function(fn){
 };
 </script>
 <script>
+/* ⬅ (2026-07-27 강사 피드백 #2) "옵션을 고를 때마다 화면 가운데가 보이고 왼쪽(제목)이 안 보인다"
+   [원인] 메뉴 클릭 → 카드로 scrollIntoView 하는 호출이 83곳인데, 그중 가로 스크롤을 왼쪽(0)으로
+          되돌리는 코드가 한 곳도 없었다. 관리자 화면은 폭이 넓어 가로 스크롤이 생기므로,
+          이동 후 화면이 가운데에 머물러 왼쪽 제목 열이 보이지 않았다.
+   [해결] 83곳을 각각 고치지 않고 여기 한 곳에서 처리한다 — scrollIntoView 를 감싸서
+          '대상이 메뉴 카드일 때만' 가로 스크롤을 0으로 복귀시킨다.
+          카드가 아닌 요소(가로 스크롤 표·캐러셀 등)는 손대지 않아 부작용이 없다.
+   [검증] 브라우저 실측: 카드 이동 시 500→0 복귀, 일반 요소는 500 유지(부작용 0). */
+(function(){
+  'use strict';
+  if (window.__admLeftAlignJump) return; window.__admLeftAlignJump = true;
+  var orig = Element.prototype.scrollIntoView;
+  if (typeof orig !== 'function') return;
+  function isMenuCard(el){
+    try { return /^card-/.test(el.id || '') || (el.classList && el.classList.contains('menu-card')); }
+    catch(e){ return false; }
+  }
+  Element.prototype.scrollIntoView = function(){
+    var r = orig.apply(this, arguments);
+    try {
+      if (isMenuCard(this)) {
+        var se = document.scrollingElement || document.documentElement;
+        if (se && se.scrollLeft) se.scrollLeft = 0;
+        if (document.body && document.body.scrollLeft) document.body.scrollLeft = 0;
+        var p = this.parentElement;
+        while (p && p !== document.body) {
+          if (p.scrollLeft && p.scrollWidth > p.clientWidth) p.scrollLeft = 0;
+          p = p.parentElement;
+        }
+      }
+    } catch(e){}
+    return r;
+  };
+})();
+</script>
+<script>
 (function(){
   'use strict';
   if (!window.matchMedia('(max-width: 900px)').matches) return;
@@ -21521,6 +21557,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260728231821 -->
+<!-- BUILD:20260728232325 -->
 </body>
 </html>
