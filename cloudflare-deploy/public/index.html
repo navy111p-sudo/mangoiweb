@@ -8558,6 +8558,8 @@ window.mgIsSlowNet = function(){
                         style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🛡️ <span data-ko="셔먼 탱크대전" data-en="Tank Battle">셔먼 탱크대전</span></button>
                 <button id="game-mode-langace" type="button" onclick="gameSwitchMode('langace')"
                         style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">✈️ <span data-ko="P-38 라이트닝" data-en="P-38 Lightning">P-38 라이트닝</span></button>
+                <button id="game-mode-p383d" type="button" onclick="gameSwitchMode('p383d')"
+                        style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🛩️ <span data-ko="P-38 3D 조종석" data-en="P-38 3D Cockpit">P-38 3D 조종석</span></button>
                 <button id="game-mode-fish" type="button" onclick="gameSwitchMode('fish')"
                         style="padding:11px 16px;background:transparent;color:#94a3b8;border:0;border-top:1px solid rgba(71,85,105,.5);cursor:pointer;font-size:13px;font-weight:600;text-align:left;width:100%">🎣 <span data-ko="낚시+말하기" data-en="Fishing">낚시+말하기</span></button>
                 <button id="game-mode-shooter" type="button" onclick="gameSwitchMode('shooter')"
@@ -15764,7 +15766,7 @@ function gameSwitchMode(mode) {
   // 풍선 게임 정지 (전환 시 타이머 클리어)
   if (_gameState.balloonTimer) { clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   // 모드 토글 활성화 표시
-  ['brick','match','fill','balloon','fish','shooter','battle3d','tetris','langace','tank','pizza'].forEach(m => {   // 'shoot'는 'shooter'(슈팅+말하기 통합)로 흡수
+  ['brick','match','fill','balloon','fish','shooter','battle3d','tetris','langace','p383d','tank','pizza'].forEach(m => {   // 'shoot'는 'shooter'(슈팅+말하기 통합)로 흡수
     const btn = document.getElementById('game-mode-' + m);
     if (!btn) return;
     btn.style.background = mode === m ? '#10b981' : 'transparent';
@@ -15826,6 +15828,7 @@ function gameNextRound() {
   else if (_gameState.mode === 'battle3d') _gameRenderBattle3d();
   else if (_gameState.mode === 'tetris') _gameRenderTetris();
   else if (_gameState.mode === 'langace') _gameRenderLangace();
+  else if (_gameState.mode === 'p383d') _gameRenderP383d();
   else if (_gameState.mode === 'tank') _gameRenderTank();
   else if (_gameState.mode === 'pizza') _gameRenderPizza();
 }
@@ -15896,6 +15899,20 @@ function _gameRenderLangace() {
     'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#0a0f14"></iframe>';
   const fb = document.getElementById('game-feedback');
   if (fb) fb.innerHTML = '<span style="color:#94a3b8">✈️ P-38로 출격! 문장 어순대로 단어 실은 제로센을 격추하세요</span>';
+}
+
+// 🛩️ P-38 3D 조종석 — student-game-p38-3d.html 임베드(실물 조종석 1인칭 + 실사 적기 + 무전 듣기/말하기)
+//    위 2D 탑뷰(langace)와 병행 운영한다. 저사양·저학년은 2D 가 낫고, WebGL 불가 기기는 게임이 알아서 2D 로 안내한다.
+function _gameRenderP383d() {
+  const area = document.getElementById('game-area');
+  if (!area) return;
+  area.style.padding = '0';
+  area.innerHTML =
+    '<iframe id="game-suite-frame" src="/student-game-p38-3d.html?v=1&glang=' + _gameEmbedLang() + '&goal=10" ' +
+    'allow="microphone; autoplay; speaker-selection" ' +
+    'style="width:100%;height:100%;min-height:440px;border:0;display:block;background:#0a0f14"></iframe>';
+  const fb = document.getElementById('game-feedback');
+  if (fb) fb.innerHTML = '<span style="color:#94a3b8">🛩️ 실물 조종석에 앉아 출격! 무전으로 들은 단어를 하늘에서 찾아 격추하세요</span>';
 }
 
 // 🍕 문법 피자 마스터 — student-game-grammar-pizza.html 임베드(실사 재료를 문장 어순대로 도우에 올리기 + 문법 성분 배지 + 듣기·말하기)
