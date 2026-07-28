@@ -11410,15 +11410,24 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <button class="cal-btn hol" onclick="calAddHoliday()" data-ko="공휴일 등록" data-en="Add Holiday">공휴일 등록</button>
       </div>
       <div class="cal-form">
-        <h5 data-ko="🌙 강사 반복 휴식시간" data-en="🌙 Teacher Recurring Break Time">🌙 강사 반복 휴식시간</h5>
-        <div style="font-size:11px;color:#9ca3af;margin-bottom:6px" data-ko="위 '교사 휴가'는 며칠 종일 차단, 이건 매주 특정 요일·시간대만 차단(예: 매주 화요일 12~13시)." data-en="Vacation above blocks whole days; this blocks a specific weekday + time range every week (e.g. every Tuesday 12:00-13:00).">위 '교사 휴가'는 며칠 종일 차단, 이건 매주 특정 요일·시간대만 차단(예: 매주 화요일 12~13시).</div>
-        <div class="row"><span class="lbl" data-ko="교사" data-en="Teacher">교사</span><input id="tu-teacher" type="text" placeholder="교사 이름" style="flex:1" /></div>
-        <div class="row"><span class="lbl" data-ko="요일" data-en="Weekday">요일</span>
-          <select id="tu-dow">
-            <option value="0">일요일</option><option value="1">월요일</option><option value="2">화요일</option>
-            <option value="3">수요일</option><option value="4">목요일</option><option value="5">금요일</option><option value="6">토요일</option>
+        <h5 data-ko="🌙 강사 휴식시간 차단" data-en="🌙 Teacher Break Time Block">🌙 강사 휴식시간 차단</h5>
+        <div style="font-size:11px;color:#9ca3af;margin-bottom:6px" data-ko="위 '교사 휴가'는 며칠 종일 차단. 이건 시간대만 차단 — 매주 반복(예: 매주 화 12~13시) 또는 특정 날짜 하루만(예: 8/5 19~21시) 고를 수 있습니다." data-en="Vacation above blocks whole days. This blocks a time range — either every week (e.g. every Tue 12:00-13:00) or one specific date only (e.g. Aug 5, 19:00-21:00).">위 '교사 휴가'는 며칠 종일 차단. 이건 시간대만 차단 — 매주 반복(예: 매주 화 12~13시) 또는 특정 날짜 하루만(예: 8/5 19~21시) 고를 수 있습니다.</div>
+        <div class="row"><span class="lbl" data-ko="교사" data-en="Teacher">교사</span><input id="tu-teacher" type="text" placeholder="교사 이름" data-ko-placeholder="교사 이름" data-en-placeholder="Teacher name" style="flex:1" /></div>
+        <!-- 🗓 (2026-07-27 강사 피드백 #3ⓒ) "지금처럼 직접 골라서 막고 싶다(undertime 인 날만)"
+             → 서버는 date_range+시간을 이미 지원하므로 화면에서 방식만 고르게 한다. -->
+        <div class="row"><span class="lbl" data-ko="방식" data-en="Mode">방식</span>
+          <select id="tu-mode" onchange="tuModeSync()">
+            <option value="weekly" data-ko="매주 반복" data-en="Every week">매주 반복</option>
+            <option value="once" data-ko="특정 날짜만 (하루)" data-en="One date only">특정 날짜만 (하루)</option>
           </select>
         </div>
+        <div class="row" id="tu-row-dow"><span class="lbl" data-ko="요일" data-en="Weekday">요일</span>
+          <select id="tu-dow">
+            <option value="0" data-ko="일요일" data-en="Sunday">일요일</option><option value="1" data-ko="월요일" data-en="Monday">월요일</option><option value="2" data-ko="화요일" data-en="Tuesday">화요일</option>
+            <option value="3" data-ko="수요일" data-en="Wednesday">수요일</option><option value="4" data-ko="목요일" data-en="Thursday">목요일</option><option value="5" data-ko="금요일" data-en="Friday">금요일</option><option value="6" data-ko="토요일" data-en="Saturday">토요일</option>
+          </select>
+        </div>
+        <div class="row" id="tu-row-date" style="display:none"><span class="lbl" data-ko="날짜" data-en="Date">날짜</span><input id="tu-date" type="date" /></div>
         <div class="row"><span class="lbl" data-ko="시간" data-en="Time">시간</span><input id="tu-from" type="time" /> ~ <input id="tu-to" type="time" /></div>
         <div class="row"><span class="lbl" data-ko="사유" data-en="Reason">사유</span><input id="tu-reason" type="text" placeholder="예: 점심시간" style="flex:1" /></div>
         <button class="cal-btn vac" onclick="tuAdd()" data-ko="휴식시간 등록" data-en="Add Break Time">휴식시간 등록</button>
@@ -11492,21 +11501,35 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
   // 🌙 강사 반복 휴식시간 — 강사 피드백(2026-07-24) "강사 근무/휴식시간 관리를 찾을 수 없다"
   var DOW_KO=['일','월','화','수','목','금','토'];
+  /* 🗓 방식 전환 — '매주 반복'이면 요일 칸, '특정 날짜만'이면 날짜 칸만 보인다. */
+  window.tuModeSync=function(){
+    var m=(document.getElementById('tu-mode')||{}).value||'weekly';
+    var rd=document.getElementById('tu-row-dow'), rt=document.getElementById('tu-row-date');
+    if(rd) rd.style.display=(m==='weekly')?'':'none';
+    if(rt) rt.style.display=(m==='weekly')?'none':'';
+  };
   window.tuAdd=async function(){
+    var en=(window.adminLang&&window.adminLang!=='ko');
     var name=(document.getElementById('tu-teacher').value||'').trim();
+    var mode=(document.getElementById('tu-mode')||{}).value||'weekly';
     var dow=document.getElementById('tu-dow').value;
+    var date=(document.getElementById('tu-date')||{}).value||'';
     var from=document.getElementById('tu-from').value;
     var to=document.getElementById('tu-to').value;
     var reason=(document.getElementById('tu-reason').value||'').trim();
-    if(!name){alert('교사 이름을 입력하세요');return;}
-    if(!from||!to){alert('시작·종료 시간을 모두 입력하세요');return;}
+    if(!name){alert(en?'Enter the teacher name':'교사 이름을 입력하세요');return;}
+    if(mode!=='weekly'&&!date){alert(en?'Pick the date to block':'차단할 날짜를 고르세요');return;}
+    if(!from||!to){alert(en?'Enter both start and end time':'시작·종료 시간을 모두 입력하세요');return;}
+    var payload=(mode==='weekly')
+      ? {teacher_name:name,kind:'weekly',day_of_week:Number(dow),start_time:from,end_time:to,reason:reason||null}
+      : {teacher_name:name,kind:'date_range',start_date:date,end_date:date,start_time:from,end_time:to,reason:reason||null};
     try{
       var res=await fetch('/api/admin/teacher-unavailability',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({teacher_name:name,kind:'weekly',day_of_week:Number(dow),start_time:from,end_time:to,reason:reason||null})});
+        body:JSON.stringify(payload)});
       var j=await res.json();
-      if(j&&j.ok){document.getElementById('tu-reason').value='';alert('✅ 휴식시간 등록됨');tuLoad();}
-      else alert('실패: '+(j&&(j.message||j.error)||'unknown'));
-    }catch(e){alert('오류: '+e.message);}
+      if(j&&j.ok){document.getElementById('tu-reason').value='';alert(en?'Break time saved':'✅ 휴식시간 등록됨');tuLoad();}
+      else alert((en?'Failed: ':'실패: ')+(j&&(j.message||j.error)||'unknown'));
+    }catch(e){alert((en?'Error: ':'오류: ')+e.message);}
   };
   window.tuDelete=async function(id){
     if(!confirm('이 휴식시간을 삭제할까요?'))return;
