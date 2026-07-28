@@ -97,8 +97,8 @@
   #radio b{color:#ffe08a;font-size:16px}
 
   /* ───────── 계기판 위 게이지 ───────── */
-  #gauges{position:absolute;left:0;right:0;bottom:0;height:12%;z-index:9;
-    display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 3.5%;pointer-events:none}
+  #gauges{position:absolute;left:0;right:0;bottom:0;height:15%;z-index:9;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 3%;pointer-events:none}
   .gz{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px}
   /* 게이지는 실물 계기판 사진 위에 얹힌다 — 사진 무늬에 묻히지 않게 어두운 알약 배경을 깐다 */
   .gz{background:rgba(4,10,16,.62);border:1px solid rgba(255,212,121,.22);border-radius:10px;
@@ -112,6 +112,16 @@
   #fuelFill{height:100%;width:100%;background:linear-gradient(90deg,#4ade80,#a3e635);transition:width .2s}
   #fuelFill.warn{background:linear-gradient(90deg,#f87171,#fb923c)}
   #hearts{font-size:clamp(13px,2.2vw,18px);letter-spacing:1px}
+  /* 자세·고도 계기 — 실물 계기판 사진 위에 얹는다 */
+  #attSvg{display:block;margin-top:1px}
+  #attText{font-size:11px;font-weight:800;color:#ffd479;text-shadow:0 1px 3px #000;margin-top:2px}
+  #altBar{width:56px;height:7px;border-radius:4px;margin-top:3px;position:relative;
+    background:linear-gradient(90deg,#dc2626 0%,#f59e0b 18%,#22c55e 40%,#22c55e 70%,#f59e0b 88%,#dc2626 100%);
+    border:1px solid rgba(255,255,255,.28)}
+  #altMark{position:absolute;top:-3px;width:3px;height:13px;border-radius:2px;background:#fff;
+    box-shadow:0 0 4px #000;left:50%;transform:translateX(-50%);transition:left .12s linear}
+  #gVsi{color:#bcd7a6}
+  @media (max-width:760px){ #gzAtt{display:none} }   /* 좁은 화면에선 자세계를 숨겨 HUD 가 안 겹치게 */
 
   /* ───────── 상단 우측 버튼 ───────── */
   #topR{position:absolute;top:8px;right:10px;z-index:12;display:flex;gap:6px}
@@ -259,13 +269,51 @@
   <!-- 게이지 -->
   <div id="gauges">
     <div class="gz"><div class="gzL">SCORE</div><div class="gzV" id="gScore">0</div></div>
-    <div class="gz"><div class="gzL">SPEED</div><div class="gzV small" id="gSpd">220</div></div>
+    <div class="gz"><div class="gzL">SPEED 속도</div><div class="gzV small" id="gSpd">220</div></div>
+
+    <!-- 자세계(인공수평의) — 기울기·기수각을 한눈에. '똑바로 나는지 기울었는지'를 이걸로 본다 -->
+    <div class="gz" id="gzAtt">
+      <div class="gzL">ATTITUDE 자세</div>
+      <svg id="attSvg" width="60" height="60" viewBox="0 0 100 100">
+        <defs>
+          <clipPath id="attClip"><circle cx="50" cy="50" r="37"/></clipPath>
+        </defs>
+        <g clip-path="url(#attClip)">
+          <g id="attBall">
+            <rect x="-90" y="-140" width="280" height="190" fill="#2f7fc4"/>
+            <rect x="-90" y="50" width="280" height="200" fill="#7a5327"/>
+            <line x1="-90" y1="50" x2="190" y2="50" stroke="#fff" stroke-width="2.4"/>
+            <line x1="30" y1="30" x2="70" y2="30" stroke="rgba(255,255,255,.8)" stroke-width="1.4"/>
+            <line x1="36" y1="40" x2="64" y2="40" stroke="rgba(255,255,255,.6)" stroke-width="1.2"/>
+            <line x1="30" y1="70" x2="70" y2="70" stroke="rgba(255,255,255,.8)" stroke-width="1.4"/>
+            <line x1="36" y1="60" x2="64" y2="60" stroke="rgba(255,255,255,.6)" stroke-width="1.2"/>
+          </g>
+        </g>
+        <circle cx="50" cy="50" r="37" fill="none" stroke="#0c1014" stroke-width="5"/>
+        <circle cx="50" cy="50" r="39.5" fill="none" stroke="#39424a" stroke-width="2"/>
+        <!-- 고정 기체 심볼 -->
+        <path d="M28 50 H43 M57 50 H72 M50 50 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+              fill="none" stroke="#ffd479" stroke-width="3" stroke-linecap="round"/>
+        <path d="M50 11 l-4 7 h8 z" fill="#ffd479"/>
+      </svg>
+    </div>
+
     <div class="gz" style="min-width:auto">
       <div class="gzL">FUEL / TIME</div>
       <div id="fuelBar"><div id="fuelFill"></div></div>
       <div id="hearts">❤️❤️❤️</div>
+      <div id="attText">수평 비행</div>
     </div>
-    <div class="gz"><div class="gzL">HDG</div><div class="gzV small" id="gHdg">000</div></div>
+
+    <!-- 고도계 + 승강계 -->
+    <div class="gz" id="gzAlt">
+      <div class="gzL">ALT 고도</div>
+      <div class="gzV small" id="gAlt">2000<span style="font-size:.6em">m</span></div>
+      <div id="altBar"><div id="altMark"></div></div>
+      <div class="gzL" id="gVsi">→ 수평</div>
+    </div>
+
+    <div class="gz"><div class="gzL">HDG 방위</div><div class="gzV small" id="gHdg">000</div></div>
     <div class="gz"><div class="gzL">격추 KILLS</div><div class="gzV" id="gKill">0/10</div></div>
   </div>
 
@@ -572,24 +620,12 @@ function sndBoom(){ noiseBurst(0.55,0.30,700); beep(90,0.4,'sawtooth',0.10,35); 
 function sndGood(){ beep(660,0.09,'triangle',0.09); setTimeout(function(){beep(990,0.13,'triangle',0.09);},90); }
 function sndBad(){ beep(200,0.22,'sawtooth',0.10,110); }
 function sndHit(){ noiseBurst(0.3,0.22,900); beep(120,0.25,'square',0.08,60); }
-function engineStart(){
-  var c=ac(); if(!c || engGain) return;
-  try{
-    engGain=c.createGain(); engGain.gain.value=0.0;
-    var f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=420;
-    [58,87,116].forEach(function(fr,i){
-      var o=c.createOscillator(); o.type=(i===0?'sawtooth':'triangle'); o.frequency.value=fr;
-      o.connect(engGain); o.start(); engOsc.push(o); });
-    engGain.connect(f); f.connect(c.destination);
-    engGain.gain.linearRampToValueAtTime(0.055, c.currentTime+1.2);
-  }catch(_){}
-}
-function engineSet(spd){
-  if(!engGain || !AC) return;
-  try{ engOsc.forEach(function(o,i){ o.frequency.setTargetAtTime((58+i*29)*(0.8+spd/260), AC.currentTime, 0.3); });
-    engGain.gain.setTargetAtTime(muted?0:0.055, AC.currentTime, 0.4); }catch(_){}
-}
-function engineStop(){ try{ if(engGain) engGain.gain.setTargetAtTime(0, AC.currentTime, 0.2); }catch(_){} }
+/* 🔇 엔진 드론(배경음) 제거 — 사장님 지시.
+   계속 깔리는 저음이 원어민 발음·무전과 겹쳐 듣기 학습을 방해한다.
+   총성·폭발 같은 '순간음'만 남긴다. 함수는 호출부가 여럿이라 빈 껍데기로 남겨 둔다. */
+function engineStart(){}
+function engineSet(){}
+function engineStop(){}
 
 /* ════════════════════════════════════════════════════════════════════
    4. 3D 월드
@@ -1109,7 +1145,7 @@ function spawnEnemy(word, isCorrect, kind, words, slotIdx, slotTotal){
           hp:spec.hp, spd:spec.spd, score:spec.score,
           mesh:makePlane(kind), t:Math.random()*6, ph:Math.random()*6.28,
           hold:spec.hold + Math.random()*70,          // 유지하려는 상대거리(m)
-          fireT:1.5+Math.random()*2, dead:false, alpha:0 };
+          fireT:1.5+Math.random()*2, burstLeft:0, burstGap:0, dead:false, alpha:0 };
   // GLB 는 날개폭 1 로 정규화돼 있어 '미터 단위 날개폭', 절차생성은 배율을 쓴다
   e.mesh.scale.setScalar(e.mesh.userData.glb ? (spec.spanM||22) : spec.scale);
   /* 조준선 기준 슬롯 — 좌우 ±26°, 상하는 아래쪽으로 치우치게(+아래 / −위).
@@ -1191,6 +1227,14 @@ function smokeTex(){
   g.addColorStop(0,'rgba(50,48,46,0.85)'); g.addColorStop(0.5,'rgba(70,68,66,0.45)');
   g.addColorStop(1,'rgba(90,88,86,0)');
   x.fillStyle=g; x.fillRect(0,0,64,64); STEX=new THREE.CanvasTexture(c); return STEX;
+}
+/* 총구 섬광 — 연사마다 폭발 파티클(14개)을 뿌리면 초당 수백 개가 되어 프레임이 떨어진다. 1개면 충분. */
+function flashAt(pos){
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:partTex(), transparent:true, depthWrite:false,
+    blending:THREE.AdditiveBlending}));
+  sp.position.copy(pos); var s=5+Math.random()*3; sp.scale.set(s,s,1);
+  scene.add(sp);
+  parts.push({ sp:sp, life:0.09, age:0, s0:s, grow:0.6, v:new THREE.Vector3() });
 }
 function smokeAt(pos){
   var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeTex(), transparent:true, depthWrite:false, opacity:0.9}));
@@ -1670,14 +1714,29 @@ function updateEnemies(dt){
       e.label.position.y += s*0.9 + (((e.layer||0)-1) * s*1.15);
     }
     // 적 사격 — 정면 각도 안에 들어왔을 때만, 아주 가끔
+    /* 적기 사격 — ⚠️ 예전엔 '기수가 플레이어를 향해 20° 안'일 때만 쏘게 해서 거의 한 발도 안 쐈다.
+       적기는 나란히 날기 때문에 그 조건이 거의 성립하지 않는다.
+       → 주기적으로 '연사(burst)'를 퍼붓게 바꾼다. 예광탄이 조종석 옆을 스쳐 지나가야 교전처럼 보인다. */
     e.fireT-=dt;
-    if(e.fireT<=0){
-      e.fireT = 1.6 + Math.random()*2.6/Math.max(0.3,P().aggro);
-      var toPn=toP.clone().normalize();
-      var ez=new THREE.Vector3(0,0,1).applyQuaternion(m.quaternion);
-      if(ez.dot(toPn)>0.94 && d<300 && Math.random()<P().aggro){
-        spawnTracer(m.position.clone().addScaledVector(ez,5), toPn, false);
-        if(G.invuln<=0 && Math.random()<0.55) setTimeout(function(){ playerHit(); }, 260);
+    if(e.fireT<=0 && d<520 && !G.speaking){
+      e.fireT = 2.4 + Math.random()*3.2/Math.max(0.3,P().aggro);
+      e.burstLeft = 4 + ((Math.random()*4)|0);
+      e.burstGap = 0;
+    }
+    if(e.burstLeft>0){
+      e.burstGap-=dt;
+      if(e.burstGap<=0){
+        e.burstGap=0.085; e.burstLeft--;
+        var ez2=new THREE.Vector3(0,0,1).applyQuaternion(m.quaternion);
+        var muzzle=m.position.clone().addScaledVector(ez2, 8*(m.scale.x||1)*0.35);
+        // 플레이어 쪽으로 쏘되 살짝 흩뿌린다 — 정확히 맞히면 아이가 너무 자주 맞는다
+        var aim2=new THREE.Vector3().subVectors(player.position, muzzle).normalize();
+        aim2.x+=(Math.random()-0.5)*0.055; aim2.y+=(Math.random()-0.5)*0.055; aim2.z+=(Math.random()-0.5)*0.055;
+        spawnTracer(muzzle, aim2.normalize(), false);
+        flashAt(muzzle);                                    // 총구 섬광(가벼운 스프라이트 1개)
+        if(e.burstLeft===0 && G.invuln<=0 && d<340 && Math.random()<P().aggro*0.5){
+          setTimeout(function(){ playerHit(); }, 240);
+        }
       }
     }
     // 너무 멀어지면 리스폰(정답기는 유지)
@@ -1741,10 +1800,52 @@ function updateHUD(){
   var ff=document.getElementById('fuelFill'); ff.style.width=pct+'%';
   ff.classList.toggle('warn', G.time<20);
 }
+/* 계기판 — '지금 어떻게 날고 있는지'를 숫자와 그림으로 동시에 알려준다.
+   자세계(인공수평의)는 실제 항공기 계기와 같은 방식이다:
+     · 배경(하늘/땅)이 기울기(bank) 반대로 회전하고, 기수각(pitch) 만큼 위아래로 밀린다
+     · 가운데 노란 기체 심볼은 고정 — 그래서 '기울었는지 똑바로인지'가 바로 보인다 */
+var _altPrev=null, _vsi=0;
 function updateHUDFast(){
   document.getElementById('gSpd').textContent=Math.round(G.speed*1.15);
   var hdg=((-G.yaw*180/Math.PI)%360+360)%360;
   document.getElementById('gHdg').textContent=('00'+Math.round(hdg)).slice(-3);
+
+  var pitchDeg = -G.pitch*180/Math.PI;      // +면 기수 올림
+  var bankDeg  =  G.bank*180/Math.PI;
+
+  var ball=document.getElementById('attBall');
+  if(ball) ball.setAttribute('transform',
+    'rotate('+(-bankDeg).toFixed(1)+' 50 50) translate(0 '+(pitchDeg*1.1).toFixed(1)+')');
+
+  // 고도 — 게임 좌표 y 를 '해발 2000m 기준'으로 읽는다
+  var alt = 2000 + player.position.y;
+  document.getElementById('gAlt').innerHTML = Math.round(alt)+'<span style="font-size:.6em">m</span>';
+  var mark=document.getElementById('altMark');
+  if(mark){ var f=Math.max(0,Math.min(1,(player.position.y+800)/1700)); mark.style.left=(f*100)+'%'; }
+
+  // 승강계 — 초당 고도 변화
+  if(_altPrev===null) _altPrev=player.position.y;
+  _vsi = _vsi*0.85 + (player.position.y-_altPrev)*0.15*8;
+  _altPrev = player.position.y;
+  var vsiEl=document.getElementById('gVsi');
+  if(vsiEl){
+    if(_vsi > 6){ vsiEl.textContent='▲ 상승'; vsiEl.style.color='#86efac'; }
+    else if(_vsi < -6){ vsiEl.textContent='▼ 하강'; vsiEl.style.color='#fca5a5'; }
+    else { vsiEl.textContent='→ 수평'; vsiEl.style.color='#bcd7a6'; }
+  }
+
+  // 한 줄 상태 — 어린 학생도 바로 알 수 있게 한국어로
+  var t=document.getElementById('attText');
+  if(t){
+    var s;
+    if(Math.abs(bankDeg) > 12) s = (bankDeg>0 ? '↩ 왼쪽으로 기울어짐' : '↪ 오른쪽으로 기울어짐');
+    else if(pitchDeg > 10)  s = '⬆ 기수 올림 (상승)';
+    else if(pitchDeg < -10) s = '⬇ 기수 내림 (하강)';
+    else s = '✈ 수평 비행';
+    if(player.position.y < -450) s = '⚠ 너무 낮게 날고 있어요';
+    else if(player.position.y > 700) s = '⚠ 너무 높게 날고 있어요';
+    t.textContent=s;
+  }
 }
 var _bT=null;
 function banner(txt,color){
