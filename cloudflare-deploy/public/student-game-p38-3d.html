@@ -69,25 +69,54 @@
   #sight.lock line{stroke:#ff6a4d}
 
   /* ───────── 상단 문장 바 ───────── */
-  #sentWrap{position:absolute;top:calc(4.6% + 10px);left:50%;transform:translateX(-50%);z-index:8;
-    width:min(760px,92%);text-align:center;pointer-events:none}
-  #sentKo{display:inline-block;font-size:14px;font-weight:800;color:#ffd479;margin-bottom:5px;
-    background:rgba(6,12,20,.62);border-radius:8px;padding:2px 12px}
+  /* ───────── 문장 바 = '임무 지시판(mission board)' ─────────
+     예전에는 둥근 웹 UI 칩을 조종석 사진 위에 그대로 얹어 겉돌았다.
+     조종석과 같은 재질(올리브 도색 금속 + 리벳 + 스텐실 글자)로 맞춘다.
+     위치는 layoutCockpit() 이 '캐노피 창 윗변 바로 위'로 계산해 넣는다. */
+  #sentWrap{position:absolute;left:50%;transform:translateX(-50%);z-index:8;
+    width:max-content;max-width:94%;text-align:center;pointer-events:none;
+    padding:5px 12px 7px;border-radius:5px;
+    background:linear-gradient(180deg,#4a5340 0%,#3a4232 42%,#2b3126 100%);
+    border:1px solid #1d2118;
+    box-shadow:0 4px 12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10),
+               inset 0 -2px 5px rgba(0,0,0,.45)}
+  /* 리벳 — 판 네 모서리에 박은 못 */
+  #sentWrap::before,#sentWrap::after{content:'';position:absolute;top:4px;bottom:4px;width:5px;
+    background-image:radial-gradient(circle at 50% 4px,#9aa38c 0 1.6px,transparent 1.9px),
+                     radial-gradient(circle at 50% calc(100% - 4px),#9aa38c 0 1.6px,transparent 1.9px);
+    background-repeat:no-repeat}
+  #sentWrap::before{left:4px} #sentWrap::after{right:4px}
+
+  /* 한국어 뜻 = 판에 붙인 지시 라벨 */
+  #sentKo{display:inline-block;font-size:12.5px;font-weight:800;color:#e8dfbd;margin-bottom:5px;
+    letter-spacing:.2px;text-shadow:0 1px 2px rgba(0,0,0,.8)}
   #sentKo:empty{display:none}
-  #sentEn{display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
-  .wchip{padding:4px 11px;border-radius:9px;font-size:clamp(15px,2.5vw,22px);font-weight:900;
-    background:rgba(6,12,20,.62);border:2px solid rgba(255,255,255,.16);color:#e8f2ff;
-    text-shadow:0 2px 5px #000;transition:.15s}
-  .wchip.done{background:rgba(34,197,94,.30);border-color:#4ade80;color:#eaffef}
-  .wchip.now{background:rgba(255,196,60,.24);border-color:#ffd479;color:#fff6d8;
-    animation:wpulse 1.05s ease-in-out infinite}
-  /* 가려진 단어 — color:transparent 만 쓰면 text-shadow 가 남아 글자가 비쳐 보인다(듣기 문제가 새 나감) */
-  .wchip.hide{color:transparent;text-shadow:none;background:rgba(6,12,20,.62);border-color:rgba(255,255,255,.2)}
-  .wchip.hide::after{content:'▨ ▨ ▨';color:#7d94ab;font-size:.72em;letter-spacing:-2px}
-  @keyframes wpulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-  /* 문법 성분 색 — 어순을 '색의 순서'로 익히게 */
-  .r-S{box-shadow:inset 0 -4px 0 #60a5fa} .r-V{box-shadow:inset 0 -4px 0 #f87171}
-  .r-O{box-shadow:inset 0 -4px 0 #4ade80} .r-M{box-shadow:inset 0 -4px 0 #c084fc}
+  #sentEn{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
+
+  /* 낱말 슬롯 = 판에 파 넣은 홈. 각진 모양이 군용 장비 느낌 */
+  .wchip{position:relative;padding:3px 10px 5px;border-radius:3px;
+    font-size:clamp(14px,2.2vw,20px);font-weight:900;letter-spacing:.6px;
+    font-family:'Consolas','Malgun Gothic',monospace;
+    background:linear-gradient(180deg,#1a1e16,#23281d);
+    border:1px solid #12150f;color:#cfd8c2;
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.06);
+    transition:.14s}
+  /* 맞힌 낱말 = 스텐실로 찍힌 것처럼 */
+  .wchip.done{color:#ffd479;background:linear-gradient(180deg,#2b3320,#384227);
+    text-shadow:0 0 7px rgba(255,196,60,.45)}
+  /* 지금 쏠 낱말 = 노란 테두리 + 위쪽 삼각 표식 */
+  .wchip.now{color:#fff4d0;background:linear-gradient(180deg,#3d3a1c,#4b4622);
+    border-color:#ffd479;box-shadow:inset 0 2px 4px rgba(0,0,0,.5),0 0 8px rgba(255,196,60,.35)}
+  .wchip.now::before{content:'';position:absolute;left:50%;top:-7px;transform:translateX(-50%);
+    border:4px solid transparent;border-top-color:#ffd479;animation:wpulse 1.05s ease-in-out infinite}
+  /* 가려진 낱말 — ⚠️ color:transparent 만 쓰면 text-shadow 가 남아 글자가 비친다(듣기 문제가 새 나감) */
+  .wchip.hide{color:transparent;text-shadow:none}
+  .wchip.hide::after{content:'— — —';color:#5f6b54;font-size:.66em;letter-spacing:-1px;
+    position:absolute;left:0;right:0;top:50%;transform:translateY(-50%)}
+  @keyframes wpulse{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
+  /* 문법 성분 — 슬롯 아래 얇은 색띠(어순을 '색의 순서'로 익히게) */
+  .r-S{border-bottom:3px solid #6ea8e8} .r-V{border-bottom:3px solid #e88a7a}
+  .r-O{border-bottom:3px solid #86c98a} .r-M{border-bottom:3px solid #b79ad8}
 
   /* ───────── 무전 자막 ───────── */
   #radio{position:absolute;left:2.5%;top:30%;z-index:8;width:min(300px,42%);pointer-events:none;
@@ -909,6 +938,17 @@ function layoutCockpit(){
   pn.style.setProperty('--dsz', dsz.toFixed(1)+'px');
   pn.style.setProperty('--dgap', (dsz*0.14).toFixed(1)+'px');
   pn.style.setProperty('--ygap', (dsz*1.9).toFixed(1)+'px');   // 가운데는 조종간 자리
+
+  /* 임무 지시판 — 캐노피 '정면 창 윗변'(이미지의 16.9%) 바로 위에 붙인다.
+     화면 위로 넘칠 땐 최소 여백만 두고 고정한다. */
+  var sw=document.getElementById('sentWrap');
+  if(sw){
+    var winTop = itop + 0.169*ih;
+    var sh = sw.offsetHeight || 64;
+    var sy = winTop - sh - 8;
+    if(sy < 8) sy = 8;
+    sw.style.top = sy.toFixed(1)+'px';
+  }
 }
 function resize(){
   W=window.innerWidth; H=window.innerHeight;
@@ -1418,6 +1458,8 @@ function renderSentence(){
     h+='<span class="'+cls+'">'+esc(G.sent.w[i])+'</span>';
   }
   en.innerHTML=h;
+  // 낱말 수에 따라 판 높이가 바뀌므로 위치를 다시 잡는다(창 윗변에 계속 붙어 있게)
+  layoutCockpit();
 }
 /* 다음 목표 = 낱말 1개, 또는 문법 성분이 같은 이웃 2단어를 묶은 '덩어리(chunk)'.
    덩어리는 폭격기가 싣는다 — 아이가 'to school' 을 한 호흡으로 듣고 말하게 만드는 장치. */
