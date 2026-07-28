@@ -31,25 +31,25 @@
   #wrap{position:fixed;inset:0;overflow:hidden}
   #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
 
-  /* ───────── 조종석 — 실물 P-38 조종석 사진(그린스크린 크로마키) ─────────
-     원본: cloudflare-deploy/game_image/P_38.PNG (실제 P-38 조종석 그린스크린 촬영본)
-     처리: 크로마키 → 알파 WebP 110KB (/img/p38-cockpit.webp). 초록이 빠진 자리로 3D 하늘이 그대로 비친다.
-     ⚠️ 배치값(--cpZoom/--cpY)이 이 화면의 전부다. 사진을 키우고 아래로 밀어
-        '조종사 눈높이'를 만든다 — 원본은 좌석 뒤에서 찍혀 계기판이 화면 한복판을 덮는다. */
+  /* ───────── 조종석 — 실사 조종석(그린스크린 크로마키) ─────────
+     /img/p38-cockpit2.webp (145KB, 알파). 초록이 빠진 자리로 3D 하늘이 그대로 비친다.
+     처음엔 좌석 '뒤'에서 찍힌 사진을 써서 계기판이 화면 한복판을 덮었고, 이를 억지로 키우고 내려
+     맞췄다. 지금 것은 아예 **조종사 눈높이**로 생성한 것이라 캐노피 아치가 화면을 감싸고
+     계기판이 하단에 깔린다 — 억지 배치가 필요 없다. */
   .cp{position:absolute;pointer-events:none;z-index:5}
   /* background-position 의 % 는 (컨테이너−이미지) 기준이라 '얼마나 내릴지'를 직관적으로 못 준다.
      그래서 <img> 를 직접 놓고 width/bottom 을 % 로 잡는다 — 화면 크기가 변해도 비율이 유지된다. */
   #cpPhoto{inset:0;overflow:hidden}
   #cpPhoto img{position:absolute;left:50%;transform:translateX(-50%);
-    width:var(--cpW,140%);bottom:var(--cpB,-93%);
+    width:var(--cpW,134%);bottom:var(--cpB,-34%);
     filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5))}
   /* 세로 화면(모바일) — 조종석을 하단에만 얹고 위는 전부 하늘로 둔다 */
   @media (max-aspect-ratio: 1/1){
-    #cpPhoto img{--cpW:175%;--cpB:-40%}
+    #cpPhoto img{--cpW:150%;--cpB:-6%}
   }
-  /* 아주 넓은 화면(21:9급) — 기본값 140% 를 그대로 두면 조종석이 화면을 삼켜 하늘이 안 보인다 */
+  /* 아주 넓은 화면(21:9급) — 세로가 짧으니 조종석을 더 키우고 아래로 내린다 */
   @media (min-aspect-ratio: 19/10){
-    #cpPhoto img{--cpW:102%;--cpB:-62%}
+    #cpPhoto img{--cpW:112%;--cpB:-40%}
   }
   /* 유리 반사·비네팅 — 아주 옅게만(하늘을 가리지 않게) */
   #cpGlass{inset:0;background:
@@ -209,7 +209,7 @@
 
   <!-- 조종석 — 실물 P-38 조종석 사진(크로마키) + 옅은 유리 반사 -->
   <div class="cp" id="cpGlass"></div>
-  <div class="cp" id="cpPhoto"><img src="/img/p38-cockpit.webp?v=1" alt=""></div>
+  <div class="cp" id="cpPhoto"><img src="/img/p38-cockpit2.webp?v=1" alt=""></div>
 
   <!-- 조준기 -->
   <svg id="sight" width="150" height="150" viewBox="0 0 150 150">
@@ -286,8 +286,9 @@
         <span class="kk">R = 무전 반복</span>
         <span class="kk">P = 일시정지</span>
       </div>
-      <p style="font-size:11px;color:#6f8398;margin-top:10px">
-        프로토타입 v0.1 · 기획 검증용 샘플입니다 (PROTOTYPE — for design review)
+      <p id="glbStat" style="font-size:11.5px;color:#8fa9c2;margin-top:10px">🛩️ 실사 기체 불러오는 중…</p>
+      <p style="font-size:11px;color:#6f8398;margin-top:4px">
+        프로토타입 v0.2 · 기획 검증용 샘플입니다 (PROTOTYPE — for design review)
       </p>
     </div>
   </div>
@@ -328,6 +329,7 @@
 </div>
 
 <script src="/vendor/three/three.min.js?v=1"></script>
+<script src="/vendor/three/GLTFLoader.js?v=1"></script>
 <script src="/js/lesson-nav.js?v=2"></script>
 <script src="/js/mangoi-stt.js?v=2"></script>
 <script>
@@ -582,8 +584,9 @@ function init3D(){
   player.add(camera); scene.add(player);
 
   // 조명
-  scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a5a3a, 0.95));
-  sun=new THREE.DirectionalLight(0xfff2d8, 1.25); sun.position.set(-320, 420, -220); scene.add(sun);
+  scene.add(new THREE.HemisphereLight(0xe8f4ff, 0x6b7a5a, 1.15));
+  sun=new THREE.DirectionalLight(0xfff2d8, 1.45); sun.position.set(-140, 430, 360);
+  scene.add(sun); scene.add(sun.target);
 
   // 하늘 돔 — 실사 파노라마(/img/sky-pano.jpg, 104KB) 등장방형(equirectangular) 매핑.
   // 로드 실패·저속회선에서도 하늘이 비지 않게 캔버스 그라디언트로 먼저 칠하고 사진이 오면 교체한다.
@@ -668,9 +671,10 @@ function forwardVec(){ return new THREE.Vector3(0,0,-1).applyQuaternion(player.q
    넓은 화면일수록 조종석이 위로 올라오므로 조준점도 함께 올린다. CSS #sight{top} 은 resize() 가 맞춘다. */
 function aimY(){
   var a = (H>0) ? W/H : 1.6;
-  if(a >= 1.9) return 0.24;      // 21:9 급 — 조종석이 화면 위쪽까지 올라온다
-  if(a <  1.0) return 0.34;      // 세로 폰 — 조종석은 하단에만 있어 여유가 있다
-  return 0.30;
+  /* 실사 조종석의 '열린 창' 한가운데를 찍는다. 너무 위로 잡으면 캐노피 가로 프레임에 적기가 가린다. */
+  if(a >= 1.9) return 0.32;      // 21:9 급 — 세로가 짧아 창도 얕다
+  if(a <  1.0) return 0.40;      // 세로 폰 — 조종석이 하단에만 있어 창이 크다
+  return 0.38;
 }
 /* 화면 가로 반화각(rad) — 세로 화면(모바일)은 이게 확 좁아진다.
    적기 배치 폭과 라벨 크기를 여기에 맞추지 않으면 폰에서 라벨이 통째로 창밖으로 나간다. */
@@ -713,11 +717,15 @@ var ZMAT={
 };
 /* 기체 제원 — hp/속도/크기/점수. 밸런스는 전부 여기 한 곳에서만 만진다. */
 var PLANE={
-  zero : { name:'A6M 제로센',  en:'A6M Zero',      mat:'navy', hp:1, spd:1.00, scale:2.0, hold:160, chunk:false, score:120, url:null },
-  oscar: { name:'Ki-43 하야부사', en:'Ki-43 Oscar',  mat:'army', hp:1, spd:1.12, scale:1.9, hold:180, chunk:false, score:140, url:null },
-  val  : { name:'D3A 급강하폭격기', en:'D3A Val',    mat:'bomb', hp:2, spd:0.72, scale:2.2, hold:205, chunk:true,  score:220, url:null },
-  betty: { name:'G4M 1식 육공',  en:'G4M Betty',    mat:'bomb', hp:3, spd:0.58, scale:2.6, hold:240, chunk:true,  score:320, url:null },
-  ace  : { name:'적 에이스기',   en:'Enemy Ace',     mat:'ace',  hp:3, spd:1.30, scale:2.1, hold:145, chunk:false, score:500, url:null }
+  /* scale = 절차생성 기체용 배율 · spanM = 실사 GLB 용 '날개폭(m)'.
+     GLB 는 날개폭 1 로 정규화해서 들어오므로 크기 단위가 다르다 — 둘을 섞으면 기체가 점처럼 작아진다. */
+  /* 실제 날개폭(제로센 12m)대로 두면 200m 거리에서 점처럼 보인다.
+     아이가 기체 종류를 눈으로 구분해야 하는 게임이므로 실측치의 약 2.5배로 키운다. */
+  zero : { name:'A6M 제로센',  en:'A6M Zero',      mat:'navy', hp:1, spd:1.00, scale:2.0, spanM:30, hold:150, chunk:false, score:120, url:'/models/plane-zero.glb?v=1' },
+  oscar: { name:'Ki-43 하야부사', en:'Ki-43 Oscar',  mat:'army', hp:1, spd:1.12, scale:1.9, spanM:29, hold:165, chunk:false, score:140, url:'/models/plane-oscar.glb?v=1' },
+  val  : { name:'D3A 급강하폭격기', en:'D3A Val',    mat:'bomb', hp:2, spd:0.72, scale:2.2, spanM:34, hold:190, chunk:true,  score:220, url:'/models/plane-val.glb?v=1' },
+  betty: { name:'G4M 1식 육공',  en:'G4M Betty',    mat:'bomb', hp:3, spd:0.58, scale:2.6, spanM:58, hold:230, chunk:true,  score:320, url:'/models/plane-betty.glb?v=1' },
+  ace  : { name:'적 에이스기',   en:'Enemy Ace',     mat:'ace',  hp:3, spd:1.30, scale:2.1, spanM:32, hold:140, chunk:false, score:500, url:'/models/plane-oscar.glb?v=1' }
 };
 var FIGHTERS=['zero','oscar'], BOMBERS=['val','betty'];
 var ZGEO=null;
@@ -745,8 +753,126 @@ function zgeo(){
   };
   return ZGEO;
 }
+/* ════════════════════════════════════════════════════════════════════
+   실사 GLB 기체 — 축 자동 보정 로더
+   ⚠️ 힉스필드/Tripo 가 뽑는 GLB 는 **모델마다 축이 제각각**이다(탱크대전에서 이미 겪음).
+      기체별로 회전값을 손으로 박아 넣으면 모델을 바꿀 때마다 또 틀어진다.
+      → 하드코딩 대신 '기하로 실측'해서 정규화한다:
+         ① 가장 긴 축 = 주익(날개)  ② 두 번째 = 동체  ③ 나머지 = 상하
+         ④ 동체 축의 양끝 중 **수직 방향으로 더 높이 솟은 쪽이 꼬리**(수직미익) → 반대쪽이 기수
+      결과: 기수 +Z · 날개 X · 위 +Y 로 정규화되어 lookAt() 이 그대로 동작한다.
+   ════════════════════════════════════════════════════════════════════ */
+var GLB_CACHE={};          // url -> 정규화가 끝난 원본 그룹(clone 해서 씀)
+function _sampleVerts(root){
+  // 정점을 훑어 (동체축 양끝의 수직 두께)를 재기 위한 표본. 2만 폴리라 7개마다 뽑아도 충분하다.
+  var pts=[], mtx=new THREE.Matrix4(), v=new THREE.Vector3();
+  root.updateMatrixWorld(true);
+  root.traverse(function(o){
+    if(!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position) return;
+    var pos=o.geometry.attributes.position;
+    mtx.copy(o.matrixWorld);
+    for(var i=0;i<pos.count;i+=7){
+      v.fromBufferAttribute(pos,i).applyMatrix4(mtx);
+      pts.push(v.x,v.y,v.z);
+    }
+  });
+  return pts;
+}
+function normalizePlaneModel(root){
+  var box=new THREE.Box3().setFromObject(root);
+  var size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
+  var ax=[{i:0,n:size.x},{i:1,n:size.y},{i:2,n:size.z}].sort(function(a,b){ return b.n-a.n; });
+  var wingI=ax[0].i, fuseI=ax[1].i, upI=ax[2].i;
+
+  var pts=_sampleVerts(root), c=[center.x,center.y,center.z];
+  // 동체축 기준 앞/뒤 절반에서 '수직 방향 최대 편차'를 잰다 — 큰 쪽이 수직미익(꼬리)
+  var devPos=0, devNeg=0;
+  for(var i=0;i<pts.length;i+=3){
+    var p=[pts[i],pts[i+1],pts[i+2]];
+    var d=Math.abs(p[upI]-c[upI]);
+    if(p[fuseI] > c[fuseI]){ if(d>devPos) devPos=d; } else { if(d>devNeg) devNeg=d; }
+  }
+  var noseSign = (devPos > devNeg) ? -1 : 1;      // 꼬리 반대쪽이 기수
+
+  // 위쪽 부호 — 조종석·수직미익이 있는 쪽이 위
+  var upPos=0, upNeg=0;
+  for(var j=0;j<pts.length;j+=3){
+    var q=pts[j+upI]-c[upI];
+    if(q>upPos) upPos=q; if(q<upNeg) upNeg=q;
+  }
+  var upSign = (upPos >= -upNeg) ? 1 : -1;
+
+  function unit(idx,sgn){ var v=new THREE.Vector3(); v.setComponent(idx,sgn); return v; }
+  var ez=unit(fuseI, noseSign);                    // 기수
+  var ey=unit(upI,   upSign);                      // 위
+  var ex=new THREE.Vector3().crossVectors(ey,ez).normalize();   // 오른손 좌표계로 재구성
+  ey.crossVectors(ez,ex).normalize();
+
+  var basis=new THREE.Matrix4().makeBasis(ex,ey,ez).invert();
+  var inner=new THREE.Group();
+  inner.add(root);
+  root.position.sub(center);                       // 먼저 원점으로
+  var wrap=new THREE.Group();
+  wrap.add(inner);
+  inner.quaternion.setFromRotationMatrix(basis);
+
+  // 날개폭 1 로 정규화 → PLANE.scale 이 곧 '미터 단위 날개폭'이 된다
+  var span=Math.max(0.001, ax[0].n);
+  wrap.scale.setScalar(1/span);
+  wrap.userData.glb=true;
+  return wrap;
+}
+function loadPlaneGLB(kind, onDone){
+  var spec=PLANE[kind]; if(!spec || !spec.url || !THREE.GLTFLoader){ onDone(null); return; }
+  if(GLB_CACHE[spec.url]){ onDone(GLB_CACHE[spec.url]); return; }
+  try{
+    new THREE.GLTFLoader().load(spec.url, function(gltf){
+      try{
+        var norm=normalizePlaneModel(gltf.scene);
+        /* ⚠️ Tripo 가 주는 재질을 그대로 쓰면 이 씬에서 거의 검게 나온다(환경맵 전제 재질).
+           텍스처만 살려 Lambert 로 바꾸면 우리 조명(반구광+태양광)에 정상적으로 반응한다. */
+        norm.traverse(function(o){
+          if(!o.isMesh) return;
+          o.frustumCulled=false;
+          function conv(m){
+            var mm=new THREE.MeshLambertMaterial({
+              map: m && m.map ? m.map : null,
+              color: (m && m.color) ? m.color.clone() : new THREE.Color(0xffffff),
+              side: THREE.DoubleSide
+            });
+            if(!mm.map) mm.color.multiplyScalar(1.15);
+            return mm;
+          }
+          o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material);
+        });
+        GLB_CACHE[spec.url]=norm; onDone(norm);
+      }catch(e){ onDone(null); }
+    }, null, function(){ onDone(null); });
+  }catch(_){ onDone(null); }
+}
 /* 기수는 +Z 방향 — Object3D.lookAt(target) 이 로컬 +Z 를 목표로 향하게 하므로 그대로 쓸 수 있다 */
 function makePlane(kind){
+  // 실사 GLB 가 이미 받아져 있으면 그것을 쓴다(없으면 아래 절차생성으로 폴백)
+  var spec0=PLANE[kind];
+  if(spec0 && spec0.url && GLB_CACHE[spec0.url]){
+    var g=GLB_CACHE[spec0.url].clone(true);
+    g.userData.props=[];          // 프로펠러 회전은 실사 모델엔 적용하지 않는다(형상에 이미 블러가 있음)
+    g.userData.glb=true;
+    if(kind==='ace'){
+      // 에이스기는 같은 기체를 쓰되 붉게 물들여 한눈에 구분되게 한다(재질을 복제해야 다른 기체까지 물들지 않는다)
+      g.traverse(function(o){
+        if(o.isMesh && o.material){
+          o.material = Array.isArray(o.material) ? o.material.map(function(m){ return m.clone(); }) : o.material.clone();
+          var list = Array.isArray(o.material) ? o.material : [o.material];
+          list.forEach(function(m){ if(m.color) m.color.multiplyScalar(0.85).lerp(new THREE.Color(0x8a2b1c), 0.42); });
+        }
+      });
+    }
+    return g;
+  }
+  return makePlaneProc(kind);
+}
+function makePlaneProc(kind){
   var g=zgeo(), spec=PLANE[kind]||PLANE.zero, mat=ZMAT[spec.mat]||ZMAT.navy;
   var G3=new THREE.Group(), props=[];
   var isBomber = (kind==='val' || kind==='betty');
@@ -841,7 +967,8 @@ function spawnEnemy(word, isCorrect, kind, words, slotIdx, slotTotal){
           mesh:makePlane(kind), t:Math.random()*6, ph:Math.random()*6.28,
           hold:spec.hold + Math.random()*70,          // 유지하려는 상대거리(m)
           fireT:1.5+Math.random()*2, dead:false, alpha:0 };
-  e.mesh.scale.setScalar(spec.scale);
+  // GLB 는 날개폭 1 로 정규화돼 있어 '미터 단위 날개폭', 절차생성은 배율을 쓴다
+  e.mesh.scale.setScalar(e.mesh.userData.glb ? (spec.spanM||22) : spec.scale);
   /* 조준선 기준 슬롯 — 좌우 ±26°, 상하는 아래쪽으로 치우치게(+아래 / −위).
      조준점이 화면 30% 지점이라 슬롯을 중립으로 두면 적기가 화면 위로 몰려 라벨이 잘린다. */
   /* 좌우는 무작위가 아니라 균등 분배한다 — 무작위로 두면 두세 기가 같은 자리에 겹쳐 라벨이 포개진다. */
@@ -866,9 +993,12 @@ function spawnEnemy(word, isCorrect, kind, words, slotIdx, slotTotal){
   var lk = e.ace ? 'ace' : (spec.chunk ? 'chunk' : 'std');
   var lab=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTexture(word, lk),
     transparent:true, depthTest:true, depthWrite:false}));
-  // 라벨 높이를 3층으로 어긋내 서로 겹쳐 읽히지 않게 한다(같은 높이면 단어가 포개진다)
+  /* ⚠️ 라벨을 기체의 자식으로 붙이면 안 된다.
+     실사 GLB 기체는 스케일이 22~46(미터 단위 날개폭)이라 그 배율이 라벨에도 그대로 곱해져
+     글자가 화면을 뒤덮는다 — 실제로 그렇게 터졌다. 씬에 직접 붙이고 위치만 매 프레임 따라가게 한다.
+     높이는 3층으로 어긋내 서로 겹쳐 읽히지 않게 한다. */
   e.layer = enemies.length % 3;
-  lab.position.set(0, 4.2 + e.layer*2.4, 0); e.mesh.add(lab); e.label=lab;
+  scene.add(lab); e.label=lab;
   /* ⚠️ 적기 라벨은 어느 난이도에서도 항상 보인다.
      라벨까지 숨기면 '듣고 고르기'가 아니라 '찍기'가 된다 — 처음에 그렇게 만들었다가 잡았다.
      듣기 훈련의 정체는 "무전으로 들은 낱말을, 하늘에 흩어진 낱말들 중에서 골라내는 것"이다.
@@ -880,9 +1010,9 @@ function spawnEnemy(word, isCorrect, kind, words, slotIdx, slotTotal){
 function killEnemy(e, silent){
   if(e.dead) return; e.dead=true;
   var i=enemies.indexOf(e); if(i>=0) enemies.splice(i,1);
+  if(e.label) scene.remove(e.label);      // 라벨은 씬에 직접 붙어 있으므로 따로 지운다
   if(silent){ scene.remove(e.mesh); return; }
   boomAt(e.mesh.position); sndBoom();
-  if(e.label) e.label.visible=false;
   var head=new THREE.Vector3(0,0,1).applyQuaternion(e.mesh.quaternion);
   wrecks.push({ mesh:e.mesh, v:head.multiplyScalar(60).add(new THREE.Vector3(0,-8,0)),
     spin:(Math.random()<0.5?-1:1)*(1.6+Math.random()*1.6), age:0, smokeT:0 });
@@ -1382,13 +1512,14 @@ function updateEnemies(dt){
     m.rotateZ(Math.sin(e.t*1.1+e.ph)*0.35);   // 뱅킹 연출
     var toP=new THREE.Vector3().subVectors(pp, m.position);
 
-    // 라벨 — 거리와 무관하게 화면상 크기 일정
+    // 라벨 — 씬에 직접 있으므로 위치를 매 프레임 기체에 맞춘다. 크기는 거리에 비례 = 화면상 일정.
     if(e.label){
       var dd=Math.max(30, m.position.distanceTo(camera.getWorldPosition(new THREE.Vector3())));
       var s=dd*0.044*labelScaleK(); e.label.scale.set(s*3.1, s, 1);
-      /* 라벨 층 간격은 '라벨 높이(s)'에 비례해야 한다. 고정값(2.4)으로 두면 라벨 높이의 1/4밖에 안 벌어져
+      /* 라벨 층 간격은 '라벨 높이(s)'에 비례해야 한다. 고정값으로 두면 라벨 높이의 1/4밖에 안 벌어져
          좌우로 가까운 두 기체의 라벨이 그대로 포개진다. 층 0/1/2 를 아래·가운데·위로 나눈다. */
-      e.label.position.y = 4.2 + s*0.35 + (((e.layer||0)-1) * s*1.15);
+      e.label.position.copy(m.position);
+      e.label.position.y += s*0.9 + (((e.layer||0)-1) * s*1.15);
     }
     // 적 사격 — 정면 각도 안에 들어왔을 때만, 아주 가끔
     e.fireT-=dt;
@@ -1515,7 +1646,13 @@ function loop(ts){
   if(renderer && scene && camera){
     if(scene.userData.sky) scene.userData.sky.position.copy(player.position);
     if(scene.userData.sea) { scene.userData.sea.position.x=player.position.x; scene.userData.sea.position.z=player.position.z; }
-    if(sun) sun.position.set(player.position.x-320, player.position.y+420, player.position.z-220);
+    /* ⚠️ 태양은 조종사 '등 뒤 위'에 둔다. 앞쪽(−Z)에 두면 적기가 전부 역광이라 검은 실루엣으로 보인다.
+       forward 가 −Z 이므로 +Z 쪽이 등 뒤다. */
+    if(sun){
+      var back=forwardVec().multiplyScalar(-360);
+      sun.position.set(player.position.x+back.x-140, player.position.y+430, player.position.z+back.z);
+      sun.target.position.copy(player.position); sun.target.updateMatrixWorld();
+    }
     renderer.render(scene,camera);
   }
 }
@@ -1632,6 +1769,23 @@ function mountLessonNav(){
 /* ════════════════════════════════════════════════════════════════════
    13. 부팅
    ════════════════════════════════════════════════════════════════════ */
+/* 실사 기체 미리 받기 — ⚠️ 미리 안 받으면 첫 교전에서 기체가 흰 덩어리로 뜬다(탱크대전에서 겪은 그 증상).
+   실패해도 게임은 절차생성 기체로 그대로 돌아간다. 그래서 START 는 처음부터 눌린다. */
+function preloadPlaneGLBs(){
+  var kinds=['zero','oscar','val','betty'], done=0, okCount=0;
+  var el=document.getElementById('glbStat');
+  function tick(){
+    done++;
+    if(el){
+      el.textContent = (done<kinds.length)
+        ? ('🛩️ 실사 기체 불러오는 중 ' + done + '/' + kinds.length)
+        : (okCount ? ('🛩️ 실사 기체 ' + okCount + '종 준비 완료') : '🛩️ 기본 기체로 진행합니다');
+    }
+  }
+  kinds.forEach(function(k){
+    loadPlaneGLB(k, function(m){ if(m) okCount++; tick(); });
+  });
+}
 (function boot(){
   try{ if(window.parent && window.parent!==window) document.body.classList.add('embed'); }catch(_){}
   if(typeof THREE==='undefined' || !init3D()){
@@ -1642,6 +1796,7 @@ function mountLessonNav(){
     return;
   }
   mountLessonNav();
+  preloadPlaneGLBs();
   raf=requestAnimationFrame(loop);   // 시작 화면 뒤에서도 하늘이 보이게 미리 렌더
   // 시작 전에도 천천히 전진하는 데모 비행
   (function demo(){
