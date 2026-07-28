@@ -49,12 +49,14 @@
   /* 조종간은 계기판(z 7)보다 앞에 있어야 한다 — 실제로도 조종간이 계기판 앞에 있다 */
   /* 조종간 — 실사 사진(그린스크린 크로마키). 허브를 축으로 통째로 회전한다.
      회전축은 사진의 붉은 발사버튼 자리(가로 50% · 세로 47%)에 맞춰야 자연스럽다. */
+  /* ⚠️ transition 을 걸지 않는다. 조종간이 손보다 늦게 따라오면 '내가 잡고 있다'는 느낌이 깨진다.
+     값은 매 프레임 갱신하므로 보간 없이도 부드럽다. */
   #yoke{position:absolute;left:50%;z-index:8;pointer-events:none;
-    transform:translateX(-50%) translateY(var(--ykY,0px));
-    transition:transform .07s linear;filter:drop-shadow(0 10px 18px rgba(0,0,0,.7))}
+    transform:translateX(-50%) translateY(var(--ykY,0px)) scale(var(--ykS,1));
+    transform-origin:50% 40%;
+    filter:drop-shadow(0 10px 18px rgba(0,0,0,.7))}
   #ykImg{display:block;width:100%;height:auto;
-    transform-origin:50% 47%;transform:rotate(var(--ykR,0deg));
-    transition:transform .07s linear}
+    transform-origin:50% 47%;transform:rotate(var(--ykR,0deg))}
   body.night #yoke{filter:drop-shadow(0 6px 14px rgba(0,0,0,.8)) brightness(.72)}
   body.night #cpPhoto img{filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5)) brightness(.55) saturate(.8)}
 
@@ -1711,9 +1713,11 @@ var input={ mx:0, my:0, active:false, keys:{} };
 (function bindInput(){
   var cv=document.getElementById('wrap');
   /* 마우스(PC) = 화면 중앙 대비 '절대 위치' 조종. 커서가 곧 조종간이라 직관적이다. */
+  /* 커서 → [-1,1]. 조종간이 이 값을 그대로 쓰므로 '화면 정중앙 = 조종간 중립'이어야 한다.
+     세로 기준을 44%로 두면 커서가 화면 한가운데 있어도 조종간이 살짝 당겨진 채로 보인다. */
   function setFromClient(cx,cy){
-    input.mx = Math.max(-1, Math.min(1, (cx - W/2)/(W*0.42)));
-    input.my = Math.max(-1, Math.min(1, (cy - H*0.44)/(H*0.36)));
+    input.mx = Math.max(-1, Math.min(1, (cx - W*0.5)/(W*0.46)));
+    input.my = Math.max(-1, Math.min(1, (cy - H*0.5)/(H*0.42)));
   }
   /* ⚠️ 마우스는 '조종 전용'이다(클릭 발사 없음). 발사는 왼손 키(스페이스·Ctrl·Shift).
 
@@ -2141,15 +2145,19 @@ function loop(ts){
   if(G && G.running && !paused && !G.speaking) update(dt);
   if(G){
     _hudT+=dt; if(_hudT>0.12){ _hudT=0; updateHUDFast(); }
-    /* 조종간 — '커서 위치'가 아니라 **실제 선회량**을 반영한다.
-       1:1 조종에서는 커서를 움직이는 순간에만 기체가 돌기 때문에,
-       커서 위치로 그리면 손을 멈춰도 조종간이 꺾인 채로 굳어 있어 어색하다. */
+    /* 조종간 = 내 손. **커서 위치를 그대로** 따라간다 — 사장님 지시.
+       선회량(yawRate)으로 그리면 손을 멈추는 순간 조종간이 제자리로 튕겨 돌아와
+       "내가 잡고 있다"는 느낌이 끊긴다. 커서가 왼쪽이면 핸들도 왼쪽으로 돌아간 채 머문다.
+       ⚠️ 보간(lerp)을 넣지 않는다. 한 프레임이라도 늦으면 손과 따로 노는 게 바로 보인다. */
     if(_yokeEl && G.running){
-      // 핸들은 실제 조종간처럼 크게 돌아간다(±110°). 기둥은 안 돌고 핸들만 회전.
-      var ux=Math.max(-1, Math.min(1, -(G.yawRate  ||0)/1.1));
-      var uy=Math.max(-1, Math.min(1, -(G.pitchRate||0)/1.1));
-      _yokeEl.style.setProperty('--ykR', (ux*110).toFixed(1)+'deg');
-      _yokeEl.style.setProperty('--ykY', (uy*20).toFixed(1)+'px');
+      var kx=(input.keys.ArrowRight||input.keys.KeyD?1:0)-(input.keys.ArrowLeft||input.keys.KeyA?1:0);
+      var ky=(input.keys.ArrowDown||input.keys.KeyS?1:0)-(input.keys.ArrowUp||input.keys.KeyW?1:0);
+      var ux=(kx!==0?kx:input.mx), uy=(ky!==0?ky:input.my);
+      ux=Math.max(-1,Math.min(1,ux)); uy=Math.max(-1,Math.min(1,uy));
+      _yokeEl.style.setProperty('--ykR', (ux*64).toFixed(2)+'deg');   // 좌우 = 회전
+      _yokeEl.style.setProperty('--ykY', (uy*30).toFixed(2)+'px');    // 상하 = 밀고 당김
+      // 밀면 멀어지고 당기면 가까워지는 원근감 — 손끝의 깊이감을 만든다
+      _yokeEl.style.setProperty('--ykS', (1 - uy*0.055).toFixed(4));
     }
     // 사격 반동 흔들림
     if(camera){
@@ -2337,6 +2345,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260728224255 -->
+<!-- BUILD:20260728231821 -->
 </body>
 </html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자료실 · Library · 资料室 — 망고아이</title>
+<meta name="description" content="망고아이 사용설명서 자료실 — 학생·학부모용은 바로 받고, 강사용은 비밀번호를 입력해 받으세요.">
+<meta name="theme-color" content="#0b1020">
+<link rel="icon" href="/img/mango-char.png">
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:#0b1020;color:#e2e8f0;
+       font-family:'Malgun Gothic','Microsoft YaHei','Segoe UI',system-ui,sans-serif;
+       line-height:1.6;-webkit-text-size-adjust:100%}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 18px 72px}
+
+  .top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .top img{width:46px;height:46px;object-fit:contain;flex:none}
+  .top h1{margin:0;font-size:26px;font-weight:900;letter-spacing:-.3px}
+  .top h1 span{color:#fbbf24}
+  .sub{color:#94a3b8;font-size:14px;margin:0 0 22px 58px}
+  @media (max-width:560px){ .sub{margin-left:0} }
+
+  .home{display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;padding:7px 14px;
+        border:1px solid rgba(148,163,184,.35);border-radius:999px;font-size:13px;font-weight:700;color:#cbd5e1}
+  .home:hover{border-color:#fbbf24;color:#fbbf24}
+
+  .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+        border-radius:16px;padding:20px 20px 16px;margin-bottom:18px}
+  .card h2{margin:0 0 4px;font-size:19px;font-weight:900}
+  .card .who{color:#94a3b8;font-size:13px;margin:0 0 16px}
+
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:11px 0;
+       border-top:1px dashed rgba(148,163,184,.22)}
+  .row:first-of-type{border-top:none}
+  .row-lb{flex:0 0 132px;font-weight:800;font-size:13.5px;color:#e2e8f0}
+  @media (max-width:560px){ .row-lb{flex:1 0 100%} }
+
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:9px;
+        background:rgba(148,163,184,.14);border:1px solid rgba(148,163,184,.26);
+        font-size:12.5px;font-weight:700;color:#e2e8f0;white-space:nowrap}
+  .chip:hover{background:rgba(251,191,36,.18);border-color:rgba(251,191,36,.5);color:#fde68a}
+  .chip.play{background:rgba(59,130,246,.2);border-color:rgba(59,130,246,.45);color:#bfdbfe}
+
+  .note{margin-top:12px;font-size:12.5px;color:#94a3b8;line-height:1.65;
+        border-left:3px solid rgba(148,163,184,.3);padding-left:11px}
+
+  .gate{text-align:center;padding:6px 0 2px}
+  .gate p{margin:0 0 12px;font-size:14px;color:#cbd5e1}
+  .gate input{width:190px;max-width:70%;padding:10px 14px;border-radius:10px;
+              border:1px solid rgba(148,163,184,.4);background:rgba(0,0,0,.3);color:#fff;
+              font-size:15px;text-align:center;letter-spacing:2px}
+  .gate button{margin-left:8px;padding:10px 18px;border:none;border-radius:10px;cursor:pointer;
+               background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:800;font-size:14px}
+  .gate .err{margin-top:10px;color:#fca5a5;font-size:13px;min-height:18px}
+
+  .foot{margin-top:26px;text-align:center;color:#64748b;font-size:12.5px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="home" href="/">← 홈으로 · Home · 返回首页</a>
+
+  <div class="top">
+    <img src="/img/mango-char.png" alt="Mangoi">
+    <h1>자료실 <span>·</span> Library <span>·</span> 资料室</h1>
+  </div>
+  <p class="sub">망고아이 사용설명서를 내려받는 곳입니다. · Download the Mangoi user guides. · 芒果爱使用说明书下载。</p>
+
+  <!-- ── 공개: 학생·학부모용 ───────────────────────────────── -->
+  <div class="card">
+    <h2>학생 · 학부모용 사용설명서</h2>
+    <p class="who">Student &amp; Parent Guide · 学生·家长用说明书 — 누구나 받을 수 있습니다.</p>
+
+    <div class="row">
+      <span class="row-lb">한국어</span>
+      <a class="chip play" href="/library/student/student-kr.mp4" target="_blank" rel="noopener">▶ 동영상</a>
+      <a class="chip" href="/library/student/student-kr.pdf" download="망고아이_학생용_사용설명서.pdf">PDF</a>
+      <a class="chip" href="/library/student/student-kr.pptx" download="망고아이_학생용_사용설명서.pptx">PPT</a>
+      <a class="chip" href="/library/student/student-kr.xlsx" download="망고아이_학생용_사용설명서.xlsx">Excel</a>
+    </div>
+    <div class="row">
+      <span class="row-lb">English</span>
+      <a class="chip play" href="/library/student/student-en.mp4" target="_blank" rel="noopener">▶ Video</a>
+      <a class="chip" href="/library/student/student-en.pdf" download="Mangoi_Student_User_Guide.pdf">PDF</a>
+      <a class="chip" href="/library/student/student-en.pptx" download="Mangoi_Student_User_Guide.pptx">PPT</a>
+      <a class="chip" href="/library/student/student-en.xlsx" download="Mangoi_Student_User_Guide.xlsx">Excel</a>
+    </div>
+
+    <div class="note">동영상은 눌러서 바로 볼 수 있고, 문서는 눌러서 저장됩니다.<br>
+      Videos play in a new tab; documents download.</div>
+  </div>
+
+  <!-- ── 비밀번호: 강사·교사용 ─────────────────────────────── -->
+  <div class="card">
+    <h2>강사 · 교사용 사용설명서</h2>
+    <p class="who">Teacher Guide · 教师用说明书 — 비밀번호가 필요합니다. 모르시면 운영에 문의하세요.</p>
+
+    <div class="gate" id="gate">
+      <p>비밀번호를 입력하세요 · Enter the password · 请输入密码</p>
+      <input type="password" id="pw" inputmode="numeric" autocomplete="off" placeholder="••••"
+             onkeydown="if(event.key==='Enter')unlock()">
+      <button type="button" onclick="unlock()">열기 · Open · 打开</button>
+      <div class="err" id="err"></div>
+    </div>
+
+    <div id="files" style="display:none">
+      <div class="row">
+        <span class="row-lb">中文（简体）</span>
+        <a class="chip play" href="/library/teacher/teacher-zh.mp4" target="_blank" rel="noopener">▶ 视频</a>
+        <a class="chip" href="/library/teacher/teacher-zh.pdf" download="Mangoi_教师使用说明书_简体中文.pdf">PDF</a>
+        <a class="chip" href="/library/teacher/teacher-zh.docx" download="Mangoi_教师使用说明书_简体中文.docx">Word</a>
+        <a class="chip" href="/library/teacher/teacher-zh.pptx" download="Mangoi_教师使用说明书_简体中文.pptx">PPT</a>
+        <a class="chip" href="/library/teacher/teacher-zh.xlsx" download="Mangoi_教师使用说明书_简体中文.xlsx">Excel</a>
+      </div>
+      <div class="row">
+        <span class="row-lb">한국어</span>
+        <a class="chip play" href="/library/teacher/teacher-kr.mp4" target="_blank" rel="noopener">▶ 동영상</a>
+        <a class="chip" href="/library/teacher/teacher-kr.pdf" download="망고아이_교사용_사용설명서.pdf">PDF</a>
+        <a class="chip" href="/library/teacher/teacher-kr.pptx" download="망고아이_교사용_사용설명서.pptx">PPT</a>
+        <a class="chip" href="/library/teacher/teacher-kr.xlsx" download="망고아이_교사용_사용설명서.xlsx">Excel</a>
+      </div>
+      <div class="row">
+        <span class="row-lb">English</span>
+        <a class="chip play" href="/library/teacher/teacher-en.mp4" target="_blank" rel="noopener">▶ Video</a>
+        <a class="chip" href="/library/teacher/teacher-en.pdf" download="Mangoi_Teacher_User_Guide.pdf">PDF</a>
+        <a class="chip" href="/library/teacher/teacher-en.pptx" download="Mangoi_Teacher_User_Guide.pptx">PPT</a>
+        <a class="chip" href="/library/teacher/teacher-en.xlsx" download="Mangoi_Teacher_User_Guide.xlsx">Excel</a>
+      </div>
+      <div class="row">
+        <span class="row-lb">수업 매뉴얼</span>
+        <a class="chip" href="/library/teacher/train-kr.pdf" download="만고아이_강사교육매뉴얼_KR.pdf">PDF 한국어</a>
+        <a class="chip" href="/library/teacher/train-kr.docx" download="만고아이_강사교육매뉴얼_KR.docx">Word 한국어</a>
+        <a class="chip" href="/library/teacher/train-en.pdf" download="Mangoi_Teacher_Training_Manual_EN.pdf">PDF English</a>
+        <a class="chip" href="/library/teacher/train-en.docx" download="Mangoi_Teacher_Training_Manual_EN.docx">Word English</a>
+      </div>
+
+      <div class="note">
+        中文版说明书的范围是「登录 → 进入课堂 → 课堂功能」。<br>
+        화상수업 화면에는 중국어 UI가 없어, 중문판은 버튼 이름을 「한글(영문)＝중국어 뜻」으로 적었습니다.<br>
+        The Chinese edition covers login → entering the classroom → in-class features.
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    문의 · Support · 咨询 &nbsp;|&nbsp; 1644-0561 &nbsp;|&nbsp; support@mangoi.co.kr<br>
+    &copy; Mangoi
+  </div>
+</div>
+
+<script>
+  /* 강사 자료 비밀번호 — 관리자 페이지 강사 자료실과 같은 값을 씁니다.
+     ⚠️ 이 페이지는 공개 페이지라 이 값은 소스보기로 드러납니다.
+        파일 자체(/library/…)도 원래 URL 을 알면 받을 수 있으므로, 이 게이트는
+        '아무나 눌러서 받지는 않게' 하는 수준입니다. 진짜 차단이 필요하면 서버 검증으로 옮겨야 합니다. */
+  var TEACHER_PW = '1044';
+
+  function unlock() {
+    var v = (document.getElementById('pw').value || '').trim();
+    var err = document.getElementById('err');
+    if (v === TEACHER_PW) {
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('files').style.display = 'block';
+      try { sessionStorage.setItem('mangoi_docs_teacher', '1'); } catch (e) {}
+    } else {
+      err.textContent = '비밀번호가 맞지 않습니다 · Wrong password · 密码不正确';
+      document.getElementById('pw').value = '';
+      document.getElementById('pw').focus();
+    }
+  }
+
+  try {
+    if (sessionStorage.getItem('mangoi_docs_teacher') === '1') {
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('files').style.display = 'block';
+    }
+  } catch (e) {}
+</script>
+</body>
+</html>
