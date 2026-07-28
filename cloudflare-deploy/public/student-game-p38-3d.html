@@ -37,20 +37,13 @@
      맞췄다. 지금 것은 아예 **조종사 눈높이**로 생성한 것이라 캐노피 아치가 화면을 감싸고
      계기판이 하단에 깔린다 — 억지 배치가 필요 없다. */
   .cp{position:absolute;pointer-events:none;z-index:5}
-  /* background-position 의 % 는 (컨테이너−이미지) 기준이라 '얼마나 내릴지'를 직관적으로 못 준다.
-     그래서 <img> 를 직접 놓고 width/bottom 을 % 로 잡는다 — 화면 크기가 변해도 비율이 유지된다. */
+  /* ⚠️ 위치를 CSS 퍼센트로 잡으면 안 된다.
+     화면 비율이 조금만 달라져도 '창 개구부'가 어긋나 조준점이 캐노피 금속 부품에 얹힌다
+     (사장님 화면에서 실제로 그렇게 나왔다).
+     → 위치·크기는 layoutCockpit() 이 계산해서 px 로 직접 넣는다. CSS 는 자리만 잡아 둔다. */
   #cpPhoto{inset:0;overflow:hidden}
-  #cpPhoto img{position:absolute;left:50%;transform:translateX(-50%);
-    width:var(--cpW,134%);bottom:var(--cpB,-41%);
+  #cpPhoto img{position:absolute;left:0;top:0;width:100%;
     filter:drop-shadow(0 -8px 26px rgba(0,0,0,.5))}
-  /* 세로 화면(모바일) — 조종석을 하단에만 얹고 위는 전부 하늘로 둔다 */
-  @media (max-aspect-ratio: 1/1){
-    #cpPhoto img{--cpW:150%;--cpB:-18%}
-  }
-  /* 아주 넓은 화면(21:9급) — 세로가 짧으니 조종석을 더 키우고 아래로 내린다 */
-  @media (min-aspect-ratio: 19/10){
-    #cpPhoto img{--cpW:112%;--cpB:-62%}
-  }
   /* 조종간(요크) — 마우스를 따라 실제로 움직인다. 사진 속 요크 위에 겹쳐 놓는다.
      왼쪽으로 밀면 왼쪽으로 기울고, 위로 올리면 위로 밀린다. 조작이 손에 잡히는 느낌을 준다. */
   #yoke{position:absolute;left:50%;bottom:-7%;width:19%;max-width:270px;z-index:6;pointer-events:none;
@@ -636,59 +629,19 @@ function init3D(){
   skyMatRef=skyMat;
   var sky=new THREE.Mesh(new THREE.SphereGeometry(4600, 40, 24), skyMat);
   scene.add(sky); scene.userData.sky=sky;
-  (function loadRealSky(){
-    var img=new Image();
-    img.onload=function(){
-      try{
-        var t=new THREE.Texture(img);
-        t.wrapS=THREE.RepeatWrapping; t.needsUpdate=true;
-        try{ t.encoding=THREE.sRGBEncoding; }catch(_){}
-        skyMat.map=t; skyMat.needsUpdate=true;
-        /* 실사 반사환경(envMap) — 이게 있어야 기체 금속면에 하늘이 비쳐 '사진처럼' 보인다.
-           Lambert 로는 절대 안 나오는 질감이다. */
-        try{
-          var pmrem=new THREE.PMREMGenerator(renderer);
-          pmrem.compileEquirectangularShader();
-          scene.environment = pmrem.fromEquirectangular(t).texture;
-        }catch(_){}
-        setTimeOfDay(TOD);
-      }catch(_){}
-    };
-    img.src='/img/sky-pano.jpg?v=1';
-  })();
+  /* 실사 항공 파노라마 — 산·바다·해변·숲·구름·하늘이 한 장에 다 들어 있다(주간/야간 2벌).
+     절차생성 바다·섬을 쓰던 것을 이걸로 대체했다. 사진 한 장이 훨씬 사실적이고 가볍다. */
+  loadPano('day');
 
   /* ── 바다 + 육지 ──
      ⚠️ 예전에 바다 평면을 깔았다가 하늘과 만나는 자리에 흰 띠가 칼같이 생겨 사진이 싸구려로 보였다.
         원인은 '평면을 깐 것'이 아니라 **안개색이 파노라마 수평선 색과 달랐던 것**.
         이번엔 안개색을 파노라마 수평선색으로 맞추고 바다에도 fog 를 먹여 자연스럽게 녹인다. */
-  seaMesh=new THREE.Mesh(new THREE.PlaneGeometry(30000,30000,1,1),
-    new THREE.MeshStandardMaterial({color:0x0d3454, roughness:0.34, metalness:0.22,
-      envMapIntensity:0.55, fog:true}));
-  seaMesh.rotation.x=-Math.PI/2; seaMesh.position.y=-1250; scene.add(seaMesh);
+  /* ⚠️ 절차생성 바다·섬은 쓰지 않는다.
+     실사 파노라마에 바다·해안선·숲·산이 이미 다 들어 있어서, 3D 평면을 겹치면
+     수평선이 두 개가 되어 오히려 가짜처럼 보인다. 근경 움직임은 구름 스프라이트가 담당한다. */
 
-  /* 육지(섬) — ⚠️ 고정 위치에 두면 초당 210m 로 나는 플레이어가 몇 초 만에 다 지나쳐
-     화면에서 영영 사라진다(적기와 똑같은 함정). 구름처럼 뒤로 빠지면 앞쪽에 재배치한다. */
-  landGroup=new THREE.Group(); scene.add(landGroup);
-  (function makeLand(){
-    var landMat=new THREE.MeshLambertMaterial({color:0x33502a, fog:true});
-    var sandMat=new THREE.MeshLambertMaterial({color:0xa89468, fog:true});
-    for(var i=0;i<8;i++){
-      var g=new THREE.Group();
-      var w=900+Math.random()*2000, h=700+Math.random()*1600;
-      var beach=new THREE.Mesh(new THREE.CircleGeometry(1,20), sandMat);
-      beach.rotation.x=-Math.PI/2; beach.scale.set(w*1.18, h*1.18, 1); beach.position.y=-1246;
-      var isle=new THREE.Mesh(new THREE.CircleGeometry(1,18), landMat);
-      isle.rotation.x=-Math.PI/2; isle.scale.set(w, h, 1); isle.position.y=-1242;
-      // 낮은 구릉 — 평평한 원판만 두면 종이처럼 보인다
-      var hill=new THREE.Mesh(new THREE.SphereGeometry(1,12,8), landMat);
-      hill.scale.set(w*0.5, 90+Math.random()*160, h*0.5); hill.position.y=-1240;
-      g.add(beach); g.add(isle); g.add(hill);
-      landGroup.add(g); islands.push(g);
-      placeIsland(g, true);
-    }
-  })();
-
-  // 별 — 야간에만 보인다
+  // 별 — 파노라마에 이미 있어 기본은 꺼 둔다(파노라마 미로드 시의 폴백용으로만 남김)
   (function makeStars(){
     var g=new THREE.BufferGeometry(), n=520, arr=new Float32Array(n*3);
     for(var i=0;i<n;i++){
@@ -727,25 +680,50 @@ function init3D(){
 /* ☀️🌙 주간 / 야간 전환 — 야간용 하늘 사진을 따로 받지 않는다.
    같은 파노라마를 어둡게 물들이고 조명·안개·별·달을 바꾸면 밤이 된다(추가 다운로드 0바이트).
    ⚠️ 안개색을 같이 안 바꾸면 밤인데 수평선만 하얗게 떠서 전부 어색해진다. */
+/* 파노라마 로더 — 주간/야간 사진을 각각 받아 캐시하고, 하늘돔 텍스처와 반사환경(envMap)을 교체한다.
+   ⚠️ envMap 이 있어야 기체 금속면에 하늘이 비쳐 '사진처럼' 보인다. Lambert 로는 안 나오는 질감이다. */
+var PANO_CACHE={}, PANO_ENV={};
+function loadPano(mode){
+  var url = (mode==='night') ? '/img/pano-night.jpg?v=1' : '/img/pano-day.jpg?v=1';
+  function apply(t){
+    if(!skyMatRef) return;
+    skyMatRef.map=t; skyMatRef.needsUpdate=true;
+    if(PANO_ENV[url]) scene.environment=PANO_ENV[url];
+    else {
+      try{
+        var pmrem=new THREE.PMREMGenerator(renderer);
+        pmrem.compileEquirectangularShader();
+        PANO_ENV[url]=pmrem.fromEquirectangular(t).texture;
+        scene.environment=PANO_ENV[url];
+      }catch(_){}
+    }
+  }
+  if(PANO_CACHE[url]){ apply(PANO_CACHE[url]); return; }
+  var img=new Image();
+  img.onload=function(){
+    try{
+      var t=new THREE.Texture(img);
+      t.wrapS=THREE.RepeatWrapping; t.needsUpdate=true;
+      try{ t.encoding=THREE.sRGBEncoding; }catch(_){}
+      PANO_CACHE[url]=t; apply(t);
+    }catch(_){}
+  };
+  img.src=url;
+}
 function setTimeOfDay(mode){
   TOD = (mode==='night') ? 'night' : 'day';
   try{ localStorage.setItem('mangoi_p383d_tod', TOD); }catch(_){}
   var night = (TOD==='night');
-  if(skyMatRef){ skyMatRef.color.setHex(night ? 0x2b3a5c : 0xffffff); skyMatRef.needsUpdate=true; }
+  loadPano(TOD);                                   // 주간/야간 각각 실사 파노라마를 쓴다
+  if(skyMatRef){ skyMatRef.color.setHex(0xffffff); skyMatRef.needsUpdate=true; }   // 사진 자체가 밤이라 색을 덧입히지 않는다
   if(hemi){ hemi.intensity = night ? 0.34 : 1.15;
     hemi.color.setHex(night ? 0x9fb6e0 : 0xe8f4ff); hemi.groundColor.setHex(night ? 0x141d2c : 0x6b7a5a); }
   if(sun){ sun.intensity = night ? 0.42 : 1.45; sun.color.setHex(night ? 0xbcd0ff : 0xfff2d8); }
   if(scene && scene.fog) scene.fog.color.setHex(night ? 0x14203a : 0xc9dced);
-  if(seaMesh) seaMesh.material.color.setHex(night ? 0x0b2038 : 0x1d4f78);
-  if(landGroup) landGroup.traverse(function(o){
-    if(o.isMesh && o.material && o.material.color){
-      if(!o.userData._c0) o.userData._c0 = o.material.color.getHex();
-      o.material.color.setHex(o.userData._c0);
-      if(night) o.material.color.multiplyScalar(0.42);
-    }
-  });
-  if(starsMesh) starsMesh.visible = night;
-  if(moonSprite) moonSprite.visible = night;
+  // 별·달은 파노라마 사진에 이미 들어 있으므로 3D 로 또 그리지 않는다(이중으로 보인다)
+  if(starsMesh) starsMesh.visible = false;
+  if(moonSprite) moonSprite.visible = false;
+  if(clouds) clouds.forEach(function(c){ c.material.opacity = night ? 0.18 : 0.5; });
   if(renderer) renderer.toneMappingExposure = night ? 1.22 : 1.05;
   try{ document.body.classList.toggle('night', night); }catch(_){}
 }
@@ -785,6 +763,29 @@ function placeIsland(g, initial){
   g.position.x = player.position.x + dir.x*dist;
   g.position.z = player.position.z + dir.z*dist;
 }
+/* ════════════════════════════════════════════════════════════════════
+   조종석 배치 — 캐노피 '정면 창'의 한가운데가 항상 화면 정중앙에 오도록 계산해서 놓는다.
+   아래 세 숫자는 조종석 이미지에서 알파(투명) 연결성분으로 **실측한 값**이다.
+     · 이미지 가로세로비 1.7926
+     · 정면 창 중심 = 가로 49.8% · 세로 36.4%
+   ⚠️ 이걸 CSS 퍼센트(bottom:-41% 같은 것)로 잡으면 화면 비율이 달라질 때 창이 어긋나
+      조준점이 캐노피 금속 부품 위에 얹힌다. 실제로 그 사고가 났다.
+   ════════════════════════════════════════════════════════════════════ */
+var CP_AR=1.7926, CP_FX=0.4982, CP_FY=0.3636;
+function layoutCockpit(){
+  var img=document.querySelector('#cpPhoto img'); if(!img || !W || !H) return;
+  var a=W/H;
+  var k = (a>=1.9) ? 1.16 : (a<1.0 ? 1.62 : 1.34);      // 화면형태별 확대율
+  // 창 중심을 화면 중앙에 두고도 아래쪽에 빈틈이 생기지 않을 최소 배율
+  var minK = (0.5/(1-CP_FY)) * (H/W) * CP_AR;
+  if(k < minK) k = minK;
+  if(k < 1) k = 1;                                       // 가로는 최소한 화면을 덮는다
+  var iw=k*W, ih=iw/CP_AR;
+  img.style.width  = iw.toFixed(1)+'px';
+  img.style.height = 'auto';
+  img.style.left   = (0.5*W - CP_FX*iw).toFixed(1)+'px';
+  img.style.top    = (0.5*H - CP_FY*ih).toFixed(1)+'px';
+}
 function resize(){
   W=window.innerWidth; H=window.innerHeight;
   if(!renderer) return;
@@ -792,6 +793,7 @@ function resize(){
   camera.aspect=W/H; camera.updateProjectionMatrix();
   // 조준기 그림 위치를 사격 판정 방향(aimY)과 항상 같이 움직인다
   try{ document.getElementById('sight').style.top = (aimY()*100)+'%'; }catch(_){}
+  layoutCockpit();
 }
 function forwardVec(){ return new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion); }
 
@@ -1602,12 +1604,6 @@ function update(dt){
   // 구름 재배치
   for(var c=0;c<clouds.length;c++){
     if(clouds[c].position.distanceTo(player.position) > 2900) placeCloud(clouds[c], false);
-  }
-  // 섬 재배치 — 수평거리만 본다(고도차 1250m 를 넣으면 늘 '멀다'로 판정돼 매 프레임 재배치된다)
-  for(var il=0;il<islands.length;il++){
-    var g2=islands[il];
-    var dx=g2.position.x-player.position.x, dz=g2.position.z-player.position.z;
-    if(dx*dx+dz*dz > 10000*10000) placeIsland(g2, false);
   }
   // 적기 · 추락 잔해
   updateEnemies(dt);
