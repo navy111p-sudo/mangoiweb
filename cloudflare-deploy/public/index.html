@@ -8393,6 +8393,9 @@ window.mgIsSlowNet = function(){
                 <!-- 🔒 강사 전용 수업 통제 칩: 전체 음소거 / 집중 모드 (vcClassLockChipsRender 가 노출·라벨·색 관리) -->
                 <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
                 <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
+                <!-- 🗂 (2026-07-28) 우측 얼굴·도구 사이드바 접기/펼치기 — 교재를 전체 폭으로.
+                     라벨·툴팁은 mg-vc-right-sidebar 블록의 JS가 상태·언어에 맞춰 다시 씀. -->
+                <button id="vc-side-collapse-btn" type="button" onclick="vcToggleVideoSidebar()" title="얼굴·도구 사이드바 접기 (교재를 전체 폭으로)" style="margin-left:auto;border:1px solid rgba(148,163,184,0.35);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#e2e8f0;cursor:pointer;background:rgba(148,163,184,0.18);white-space:nowrap">› 얼굴 접기</button>
             </div>
 
             <!-- 탭 콘텐츠 -->
@@ -27314,7 +27317,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260728161308 -->
+<!-- BUILD:20260728191636 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -30982,6 +30985,205 @@ window.vcAutoLoadStudentTextbook = async function(){
      · 인라인 !important 로 적용 → 어떤 화면크기/레이아웃 CSS 보다 우선 (확실히 동작)
      · (참고) 영상 드래그·크기조절 실제 동작은 위쪽 .video-size-bar / #vc-video-pane 로직에서 처리됨.
      ============================================================ -->
+<style id="mg-vc-right-sidebar">
+  /* 🗂 (2026-07-28) 화상 강의실 레이아웃 개편 — 교재 왼쪽(메인) / 얼굴·도구 오른쪽(사이드바)
+     ─────────────────────────────────────────────────────────────────────────
+     [배경] 얼굴 패널이 왼쪽에 고정돼 교재가 오른쪽으로 밀리면서, 좌→우로 읽는
+            교재 본문의 시작점이 화면 한가운데에 놓여 가독성이 떨어졌다.
+     [방식] DOM 순서(#vc-video-pane → #vc-content-pane)는 그대로 두고 flex `order`
+            로만 시각 순서를 뒤집는다. 영상 패널을 참조하는 JS(PIP·솔로·자유크기·
+            칭찬 로스터·트랙 부착)가 전부 id 기준이라 DOM 을 옮기면 위험이 크고,
+            order 는 되돌리기도 한 줄이다.
+     [예외] 세로폰(≤900 portrait)은 '위=얼굴 / 아래=교재'가 2026-07-14 지시사항이라
+            그대로 유지한다(order 를 되돌려 놓음).
+     [주의] ≤920 가로 블록이 flex-direction:row-reverse 라 order 가 반대로 먹는다.
+            → 아래에서 row 로 정규화한 뒤 order 를 적용한다.
+     [원복] 이 style 블록 + 바로 아래 script 블록 + 탭바의 #vc-side-collapse-btn
+            버튼 한 줄, 이 셋만 지우면 원래 좌측 배치로 즉시 되돌아간다. */
+
+  /* ── A. 좌우 반전 ─────────────────────────────────────────────────── */
+  body.vc-in-call #vc-main-row > #vc-content-pane { order: 1 !important; }
+  body.vc-in-call #vc-main-row > #vc-video-pane   { order: 2 !important; }
+  /* 경계선도 좌↔우 반전 (기존 border-right 규칙들이 !important 라 명시적으로 끔) */
+  body.vc-in-call #vc-main-row > #vc-video-pane {
+    border-right: none !important;
+    border-left: 1px solid rgba(148,163,184,0.25) !important;
+  }
+  /* ≤920 가로: row-reverse → row 로 정규화해야 order 가 의도대로 동작 */
+  @media (max-width: 920px) and (orientation: landscape) {
+    body.vc-in-call #vc-main-row { flex-direction: row !important; }
+  }
+  /* 세로폰: 기존 배치(위=얼굴 / 아래=교재) 유지 */
+  @media (max-width: 900px) and (orientation: portrait) {
+    body.vc-in-call #vc-main-row > #vc-content-pane { order: 2 !important; }
+    body.vc-in-call #vc-main-row > #vc-video-pane {
+      order: 1 !important;
+      border-left: none !important;
+      border-bottom: 1px solid rgba(148,163,184,0.2) !important;
+    }
+  }
+  /* 얼굴 최소화(동그라미) 칩 — 절대배치라 order 가 안 먹으므로 좌→우 직접 이동 */
+  body.vc-in-call #vc-main-row.ph49-face-hidden > #vc-video-pane {
+    left: auto !important; right: 6px !important;
+  }
+  /* '전체 영상' 모드의 도구 오버레이 — 영상이 우측이 됐으니 오버레이는 좌측으로 */
+  body.vc-in-call #vc-main-row.video-full > #vc-content-pane {
+    left: 0 !important; right: auto !important;
+    border-left: none !important;
+    border-right: 1px solid rgba(148,163,184,0.25) !important;
+    box-shadow: 10px 0 30px -6px rgba(0,0,0,0.55) !important;
+  }
+
+  /* ── B. 데스크톱 비율 — 교재 ~73% / 사이드바 ~27% ────────────────────
+     기존 고정폭(1/2=300px)은 1920px 에서 15% 밖에 안 돼 사이드바가 지나치게
+     가늘었다. clamp 로 비율을 쓰되 최소·최대를 걸어, 작은 노트북에서는 얼굴이
+     너무 작아지지 않고 큰 모니터에서는 교재를 과하게 먹지 않게 한다. */
+  @media (min-width: 1025px) {
+    body.vc-in-call #vc-main-row.video-quarter      > #vc-video-pane { width: clamp(180px, 18%, 300px) !important; max-width: none !important; min-width: 0 !important; }
+    body.vc-in-call #vc-main-row.video-half         > #vc-video-pane { width: clamp(260px, 27%, 460px) !important; max-width: none !important; min-width: 0 !important; }
+    body.vc-in-call #vc-main-row.video-threequarter > #vc-video-pane { width: clamp(380px, 45%, 900px) !important; max-width: none !important; min-width: 0 !important; }
+    body.vc-in-call #vc-main-row.video-full         > #vc-video-pane { width: 100% !important; max-width: none !important; }
+    body.vc-in-call #vc-main-row > #vc-content-pane { flex: 1 1 auto !important; min-width: 0 !important; }
+
+    /* 타일은 사이드바 안에서 항상 세로 1열. 인원이 많으면 최소 높이를 지키고 스크롤
+       — 기존 '4명↑ 2열' 규칙은 27% 폭에서 타일이 너무 작아져 대체한다. */
+    body.vc-in-call #vc-main-row:not(.video-full) > #vc-video-pane #vc-video-grid {
+      grid-template-columns: 1fr !important;
+      grid-auto-rows: minmax(108px, 1fr) !important;
+      overflow-y: auto !important;
+    }
+    /* 사이드바가 좁아 크기바 버튼 7개가 한 줄에 안 들어감 → 줄바꿈 허용.
+       22% 기준(한 줄 4개)이라 2줄로 끝난다. 30%(3개/줄)면 3줄이 돼 얼굴 높이를 먹었다. */
+    body.vc-in-call #vc-main-row > #vc-video-pane .video-size-bar {
+      flex-wrap: wrap !important;
+      gap: 3px !important;
+      padding: 5px 6px !important;
+    }
+    body.vc-in-call #vc-main-row > #vc-video-pane .video-size-bar button {
+      flex: 1 1 22% !important;
+      font-size: 0.72rem !important;
+      padding: 4px 2px !important;
+      white-space: nowrap !important;
+    }
+  }
+
+  /* 🔵 홍보 원형영상(#mango-promo-video)은 position:fixed; right:22px; z-index:100050 이라
+     영상 패널이 우측으로 오면서 크기바·얼굴 타일을 정면으로 가린다.
+     원래도 '홈 첫 화면 전용'(아무 곳이나 클릭하면 사라짐)이므로 수업 중에는 숨긴다.
+     — 채팅 패널이 열릴 때 같은 이유로 숨기는 기존 규칙(body:has(#vc-chat-panel.open))과 동일한 처리. */
+  body.vc-in-call #mango-promo-video { display: none !important; }
+  /* 태블릿 가로(921~1024px) — 기존 45% 는 교재에 55% 밖에 안 남아 '교재가 메인' 목표와 어긋남.
+     ⚠ 921px 하한이 중요하다. ≤920(휴대폰 가로)에는 22%/36%/52% + `flex:0 0 N%` 로 이미
+       정교하게 튜닝된 규칙이 있고(29297~29305행), flex-basis 는 width 보다 우선하므로
+       width 만 덮어써도 안 먹는다. 휴대폰 가로 비율은 손대지 않는 것이 맞아 범위를 뺐다.
+     이 구간에서도 혹시 모를 flex-basis 상속을 막으려 flex 를 함께 지정한다. */
+  @media (min-width: 921px) and (max-width: 1024px) and (orientation: landscape) {
+    body.vc-in-call #vc-main-row.video-quarter:not(.video-solo):not(.video-full) > #vc-video-pane { width: 24% !important; flex: 0 0 24% !important; }
+    body.vc-in-call #vc-main-row.video-half:not(.video-solo):not(.video-full)    > #vc-video-pane { width: 32% !important; flex: 0 0 32% !important; }
+  }
+
+  /* ── C. 사이드바 접기 — 교재를 전체 폭으로 ──────────────────────────
+     펼치기 버튼은 content-pane 안(탭바)에 있어 접힌 상태에서도 항상 보인다.
+     → 새 떠있는 요소가 없으므로 z-index 층이 늘지 않는다(독·모달과 무관). */
+  body.vc-in-call #vc-main-row.vc-side-collapsed > #vc-video-pane { display: none !important; }
+  body.vc-in-call #vc-main-row.vc-side-collapsed > #vc-content-pane {
+    display: flex !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    flex: 1 1 100% !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  /* 🧺 미러 바구니(#vc-basket-float)는 '내 얼굴 타일이 안 보일 때' 좌상단(top 56px)에 뜨는
+     기존 폴백이다(PIP·솔로에서도 동일). 사이드바를 접으면 탭바가 전체 폭이 되면서 이 배지가
+     맨 왼쪽 '칠판' 탭 라벨을 덮는다(pointer-events:none 이라 클릭은 되지만 글자가 안 보임).
+     → 접힌 상태에서만 탭바 아래·우측 여백으로 비켜 세운다. 다른 모드의 위치는 그대로. */
+  body.vc-side-collapsed-on #vc-basket-float {
+    top: calc(env(safe-area-inset-top, 0px) + 110px) !important;
+    left: auto !important;
+    right: 12px !important;
+  }
+  #vc-side-collapse-btn { display: none; }
+  body.vc-in-call #vc-side-collapse-btn { display: inline-block; }
+  body.vc-in-call #vc-side-collapse-btn:hover { background: rgba(148,163,184,0.32) !important; }
+  body.vc-in-call #vc-side-collapse-btn[aria-pressed="true"] {
+    background: rgba(245,158,11,0.22) !important;
+    border-color: rgba(245,158,11,0.55) !important;
+    color: #fcd34d !important;
+  }
+  /* 탭바가 좁은 화면에서 가로 스크롤이라 margin-left:auto 가 무의미 → 여백만 확보 */
+  @media (max-width: 1024px) {
+    body.vc-in-call #vc-side-collapse-btn { margin-left: 4px !important; }
+  }
+</style>
+<script>
+/* 🗂 (2026-07-28) 우측 얼굴·도구 사이드바 접기/펼치기 (mg-vc-right-sidebar 짝) */
+(function(){
+  var KEY = 'vc_side_collapsed';
+  function $(id){ return document.getElementById(id); }
+  function isEn(){
+    try { if (typeof currentLang !== 'undefined') return currentLang === 'en'; } catch(_){}
+    try { return localStorage.getItem('mangoi_lang') === 'en'; } catch(_){}
+    return false;
+  }
+  /* 폭이 바뀌면 칠판 캔버스·PDF 를 새 크기로 다시 그려야 한다.
+     (기존 vcSetVideoSize 와 같은 280ms 후 재계산 규약을 그대로 따름) */
+  function reflow(){
+    setTimeout(function(){
+      try { if (typeof wbResize === 'function') wbResize(); } catch(_){}
+      try { if (typeof pdfResize === 'function') pdfResize(); } catch(_){}
+      try { if (typeof pdfRenderCurrent === 'function') pdfRenderCurrent(); } catch(_){}
+      try { if (typeof vcResumeAllVideos === 'function') vcResumeAllVideos(); } catch(_){}
+    }, 300);
+  }
+  function paint(collapsed){
+    var b = $('vc-side-collapse-btn');
+    if (!b) return;
+    var en = isEn();
+    b.textContent = collapsed ? (en ? '‹ Show faces' : '‹ 얼굴 펼치기')
+                              : (en ? '› Hide faces' : '› 얼굴 접기');
+    b.title = collapsed ? (en ? 'Show the video / tools sidebar' : '얼굴·도구 사이드바 펼치기')
+                        : (en ? 'Collapse the sidebar — textbook full width' : '얼굴·도구 사이드바 접기 (교재를 전체 폭으로)');
+    b.setAttribute('aria-label', b.title);
+    b.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+  }
+  window.vcToggleVideoSidebar = function(force){
+    var row = $('vc-main-row');
+    if (!row) return;
+    var next = (typeof force === 'boolean') ? force : !row.classList.contains('vc-side-collapsed');
+    /* '전체 영상' 상태에서 접으면 영상·교재가 둘 다 사라진다 → 1/2 로 되돌린 뒤 접음 */
+    if (next && row.classList.contains('video-full')) {
+      try { vcSetVideoSize('half', document.querySelector('.video-size-bar button[onclick*="half"]')); } catch(_){}
+    }
+    row.classList.toggle('vc-side-collapsed', next);
+    document.body.classList.toggle('vc-side-collapsed-on', next);  /* 바깥 플로팅 요소용 훅 */
+    try { localStorage.setItem(KEY, next ? '1' : '0'); } catch(_){}
+    paint(next);
+    reflow();
+  };
+  function restore(){
+    var row = $('vc-main-row');
+    if (!row) return;
+    var on = false;
+    try { on = localStorage.getItem(KEY) === '1'; } catch(_){}
+    row.classList.toggle('vc-side-collapsed', on);
+    /* 같은 값이면 DOM 변경이 없어 MutationObserver 가 다시 안 돌아 무한루프는 없음 */
+    document.body.classList.toggle('vc-side-collapsed-on', on);
+    paint(on);
+  }
+  /* 수업 입장(body.vc-in-call)·언어 전환 시점에 라벨/상태 복원 */
+  try {
+    new MutationObserver(function(){
+      if (document.body.classList.contains('vc-in-call')) restore();
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  } catch(_){}
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore);
+  else restore();
+  try { window.addEventListener('mangoi:langchange', function(){ restore(); }); } catch(_){}
+})();
+</script>
+
 <script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
 <script defer src="/js/flow.js?v=8"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=2"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
