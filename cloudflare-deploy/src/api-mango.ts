@@ -424,10 +424,20 @@ export async function handleMangoApi(
       const existing = await env.DB.prepare(
         `SELECT 1 FROM attendance WHERE room_id = ? AND date = ? LIMIT 1`
       ).bind(b.room_id, date).first();
-      const res = await env.DB.prepare(
-        `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date)
-         VALUES (?, ?, ?, ?, ?, 'present', ?)`
-      ).bind(b.room_id, b.user_id, b.username || null, b.role || 'student', now, date).run();
+      // 📡 M1 — last_seen_at 은 서버 시각(now = Date.now(), 여기선 클라 값으로 대체되지 않음)
+      let res;
+      try {
+        res = await env.DB.prepare(
+          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date, last_seen_at)
+           VALUES (?, ?, ?, ?, ?, 'present', ?, ?)`
+        ).bind(b.room_id, b.user_id, b.username || null, b.role || 'student', now, date, now).run();
+      } catch {
+        // 아직 checkin 이 한 번도 안 돌아 컬럼이 없는 배포본 대비 폴백(다음 checkin 이 ALTER 로 보강)
+        res = await env.DB.prepare(
+          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date)
+           VALUES (?, ?, ?, ?, ?, 'present', ?)`
+        ).bind(b.room_id, b.user_id, b.username || null, b.role || 'student', now, date).run();
+      }
       if (!existing) {
         await enqueueNotification(env, {
           type: 'class_start',
@@ -499,7 +509,10 @@ export async function handleMangoApi(
 
       // 입장 시각: 클라이언트가 보낸 timestamp(ms 또는 ISO 문자열)를 신뢰하되,
       // 과거 24h ~ 미래 5분 범위만 허용(시계 오차·위변조 방어). 벗어나면 서버 시각 사용.
-      let now = Date.now();
+      // 📡 M1 — last_seen_at 은 반드시 '서버 시각'만 쓴다.
+      //   아래 now 는 클라이언트가 보낸 timestamp 로 대체될 수 있어(정상 동작), 정산 근거로는 쓸 수 없다.
+      const srvNow = Date.now();
+      let now = srvNow;
       if (b.timestamp != null) {
         const parsed = typeof b.timestamp === 'number' ? b.timestamp : Date.parse(String(b.timestamp));
         if (Number.isFinite(parsed) && parsed > Date.now() - 86400000 && parsed < Date.now() + 300000) {
@@ -510,9 +523,19 @@ export async function handleMangoApi(
 
       // ── 2) 자가치유 ── 운영 D1 에 테이블/컬럼이 없을 수 있으므로 보강 (NOOP if exists)
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, user_id TEXT NOT NULL, username TEXT, role TEXT DEFAULT 'student', joined_at INTEGER NOT NULL, left_at INTEGER, status TEXT DEFAULT 'present', date TEXT, attended_at INTEGER, total_session_ms INTEGER DEFAULT 0, total_active_ms INTEGER DEFAULT 0, disconnect_count INTEGER DEFAULT 0);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, user_id TEXT NOT NULL, username TEXT, role TEXT DEFAULT 'student', joined_at INTEGER NOT NULL, left_at INTEGER, status TEXT DEFAULT 'present', date TEXT, attended_at INTEGER, total_session_ms INTEGER DEFAULT 0, total_active_ms INTEGER DEFAULT 0, disconnect_count INTEGER DEFAULT 0, last_seen_at INTEGER);`);
       } catch {}
       try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN attended_at INTEGER`); } catch {} // 이미 있으면 무시
+      // 📡 M1 — 서버 시각 하트비트(last_seen_at)
+      //   왜 필요한가: 종료 시각(left_at)은 클라이언트가 /api/attendance/leave 를 호출해야만 기록된다.
+      //   그런데 회선이 끊기면 페이지는 언로드되지 않으므로 그 호출이 영영 오지 않고, left_at 은 NULL 로 남는다.
+      //   (특히 재택 강사 회선 끊김 — 사후에 "실제로 몇 시까지 수업했는가"를 확인할 방법이 전혀 없었다.)
+      //   클라이언트는 이미 30초마다 /api/speaking-time 을, gaze 모듈은 10초마다 /api/gaze-score 를 보내고 있다.
+      //   그 요청이 '서버에 도착한 시각'을 찍어 두면, 마지막 도착 시각 = 마지막으로 살아 있던 시각이 된다.
+      //   → 끊겨서 leave 가 못 와도 종료 시각을 오차 30초 이내로 복원할 수 있다.
+      //   ⚠️ 클라이언트가 보내는 값(total_session_ms)은 오프라인 동안에도 계속 누적되므로 신뢰할 수 없다.
+      //      그래서 클라이언트 시각이 아니라 반드시 '서버 시각'을 쓴다. D1 쓰기는 늘지 않는다(기존 UPDATE 에 컬럼만 추가).
+      try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN last_seen_at INTEGER`); } catch {} // 이미 있으면 무시
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
 
       // ── 3) 오늘 수업 스케줄 조회(class_schedules) ── 입장이 "수업 시간 내" 인지 판정
@@ -572,22 +595,23 @@ export async function handleMangoApi(
                 SET status = 'attended',
                     attended_at = COALESCE(attended_at, ?),
                     role     = COALESCE(role, ?),
-                    username = COALESCE(username, ?)
+                    username = COALESCE(username, ?),
+                    last_seen_at = ?
               WHERE id = ?`
-          ).bind(now, role, b.username || null, existing.id).run();
+          ).bind(now, role, b.username || null, srvNow, existing.id).run();
           recovered = (existing.status === 'absent');
         } else {
           // 수업 시간 밖 입장 → status 는 건드리지 않고 attended_at 만 보강
           await env.DB.prepare(
-            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?) WHERE id = ?`
-          ).bind(now, existing.id).run();
+            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ? WHERE id = ?`
+          ).bind(now, srvNow, existing.id).run();
         }
         attendanceId = Number(existing.id);
       } else {
         const ins = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date).run();
+          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow).run();
         attendanceId = Number(ins.meta.last_row_id);
       }
 
@@ -641,27 +665,55 @@ export async function handleMangoApi(
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
       const now = Date.now();
       // 가장 최근 미종료 row 업데이트
-      await env.DB.prepare(
-        `UPDATE attendance
-         SET left_at = ?,
-             total_active_ms = COALESCE(?, total_active_ms),
-             total_session_ms = COALESCE(?, total_session_ms),
-             disconnect_count = COALESCE(?, disconnect_count),
-             status = ?
-         WHERE id = (
-           SELECT id FROM attendance
-           WHERE room_id = ? AND user_id = ? AND left_at IS NULL
-           ORDER BY joined_at DESC LIMIT 1
-         )`
-      ).bind(
-        now,
-        b.total_active_ms ?? null,
-        b.total_session_ms ?? null,
-        b.disconnect_count ?? null,
-        b.status || 'left',
-        b.room_id,
-        b.user_id
-      ).run();
+      // 📡 M1 — 정상 퇴장이면 left_at 과 last_seen_at 이 같아진다.
+      //   반대로 last_seen_at 만 있고 left_at 이 NULL 인 행 = "끊겨서 leave 를 못 보낸 세션" 이며,
+      //   그 경우 실제 종료 시각은 last_seen_at 으로 본다(오차 ≤ 30초).
+      try {
+        await env.DB.prepare(
+          `UPDATE attendance
+           SET left_at = ?,
+               last_seen_at = ?,
+               total_active_ms = COALESCE(?, total_active_ms),
+               total_session_ms = COALESCE(?, total_session_ms),
+               disconnect_count = COALESCE(?, disconnect_count),
+               status = ?
+           WHERE id = (
+             SELECT id FROM attendance
+             WHERE room_id = ? AND user_id = ? AND left_at IS NULL
+             ORDER BY joined_at DESC LIMIT 1
+           )`
+        ).bind(
+          now, now,
+          b.total_active_ms ?? null,
+          b.total_session_ms ?? null,
+          b.disconnect_count ?? null,
+          b.status || 'left',
+          b.room_id,
+          b.user_id
+        ).run();
+      } catch {
+        await env.DB.prepare(
+          `UPDATE attendance
+           SET left_at = ?,
+               total_active_ms = COALESCE(?, total_active_ms),
+               total_session_ms = COALESCE(?, total_session_ms),
+               disconnect_count = COALESCE(?, disconnect_count),
+               status = ?
+           WHERE id = (
+             SELECT id FROM attendance
+             WHERE room_id = ? AND user_id = ? AND left_at IS NULL
+             ORDER BY joined_at DESC LIMIT 1
+           )`
+        ).bind(
+          now,
+          b.total_active_ms ?? null,
+          b.total_session_ms ?? null,
+          b.disconnect_count ?? null,
+          b.status || 'left',
+          b.room_id,
+          b.user_id
+        ).run();
+      }
       return json({ ok: true, left_at: now });
     }
 
@@ -679,15 +731,34 @@ export async function handleMangoApi(
       const b = await parseJsonBody(request);
       if (!b || !b.room_id || !b.user_id) return invalidBody(['room_id', 'user_id']);
       const now = Date.now();
-      await env.DB.prepare(
-        `UPDATE attendance
-         SET total_active_ms = ?, total_session_ms = ?
-         WHERE id = (
-           SELECT id FROM attendance
-           WHERE room_id = ? AND user_id = ? AND left_at IS NULL
-           ORDER BY joined_at DESC LIMIT 1
-         )`
-      ).bind(b.total_active_ms || 0, b.total_session_ms || 0, b.room_id, b.user_id).run();
+      // 📡 M1 — 이 엔드포인트가 서버 시각 하트비트의 본체다(클라이언트가 30초마다 호출).
+      //   total_active_ms / total_session_ms 는 클라이언트가 자체 누적한 값이라
+      //   회선이 끊긴 동안에도 계속 늘어난다(브라우저 타이머는 계속 돌기 때문). 즉 지급 근거로 쓸 수 없다.
+      //   반면 last_seen_at = '이 요청이 서버에 실제로 도착한 시각' 이므로 위조도 과다계상도 불가능하다.
+      //   회선이 끊기면 이 갱신이 멈추고, 그 마지막 값이 곧 그 사람이 마지막으로 살아 있던 시각이 된다.
+      //   D1 쓰기는 늘지 않는다 — 기존 UPDATE 문에 컬럼 하나만 더 얹었다.
+      try {
+        await env.DB.prepare(
+          `UPDATE attendance
+           SET total_active_ms = ?, total_session_ms = ?, last_seen_at = ?
+           WHERE id = (
+             SELECT id FROM attendance
+             WHERE room_id = ? AND user_id = ? AND left_at IS NULL
+             ORDER BY joined_at DESC LIMIT 1
+           )`
+        ).bind(b.total_active_ms || 0, b.total_session_ms || 0, now, b.room_id, b.user_id).run();
+      } catch {
+        // 컬럼이 아직 없는 배포본 대비 폴백 — 발화시간 집계는 절대 멈추지 않게(기존 동작 유지)
+        await env.DB.prepare(
+          `UPDATE attendance
+           SET total_active_ms = ?, total_session_ms = ?
+           WHERE id = (
+             SELECT id FROM attendance
+             WHERE room_id = ? AND user_id = ? AND left_at IS NULL
+             ORDER BY joined_at DESC LIMIT 1
+           )`
+        ).bind(b.total_active_ms || 0, b.total_session_ms || 0, b.room_id, b.user_id).run();
+      }
       return json({ ok: true, recorded_at: now });
     }
 
@@ -765,13 +836,26 @@ export async function handleMangoApi(
         });
       }
 
-      await env.DB.prepare(
-        `UPDATE attendance
-         SET gaze_score = ?,
-             gaze_samples = ?,
-             gaze_forward_samples = ?
-         WHERE id = ?`
-      ).bind(score, totalSamples, forwardSamples, targetRow.id).run();
+      // 📡 M1 — gaze 모듈은 10초마다 호출되므로, 켜져 있는 수업에서는 하트비트 해상도가 30초→10초로 올라간다.
+      //   (카메라 OFF·모듈 비활성 시엔 speaking-time 30초 하트비트만 남는다. 어느 쪽이든 동작한다.)
+      try {
+        await env.DB.prepare(
+          `UPDATE attendance
+           SET gaze_score = ?,
+               gaze_samples = ?,
+               gaze_forward_samples = ?,
+               last_seen_at = ?
+           WHERE id = ?`
+        ).bind(score, totalSamples, forwardSamples, now, targetRow.id).run();
+      } catch {
+        await env.DB.prepare(
+          `UPDATE attendance
+           SET gaze_score = ?,
+               gaze_samples = ?,
+               gaze_forward_samples = ?
+           WHERE id = ?`
+        ).bind(score, totalSamples, forwardSamples, targetRow.id).run();
+      }
       return json({
         ok: true, attendance_id: targetRow.id,
         gaze_score: score, camera_off: cameraOff, recorded_at: now
