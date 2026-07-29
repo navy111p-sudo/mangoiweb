@@ -28539,34 +28539,37 @@ document.addEventListener('keydown', function(e){
   // fix (2026-06-01 v3) — 완전 독립형 전체메뉴 오버레이.
   //   레거시 v19-panel 위치/부모 transform 에 의존하지 않고, 클릭 시 body 직속에
   //   새 오버레이를 만들어 띄운다 → 휴대폰에서 100% 표시.
+  // 🖼 아이콘 = 실사 사진(/img/menu/*.webp, Higgsfield 생성 · build-allmenu-icons.py 로 재생성).
+  //    emoji 는 지우지 말 것 — 사진 로드 실패 시 되돌아갈 폴백이다(아래 '아이콘 폴백' 배선 참고).
   var ALLMENU_ITEMS = [
-    {emoji:'🛠', name:'관리자 페이지', url:'/admin.html'},
-    {emoji:'👤', name:'마이페이지', url:'/parent.html'},
-    {emoji:'👨‍🎓', name:'학생 관리', url:'/admin.html#card-students-mgmt'},
-    {emoji:'📅', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
-    {emoji:'📞', name:'고객센터', url:'/contact.html'},
-    {emoji:'📚', name:'커리큘럼', url:'/curriculum.html'},
-    {emoji:'📖', name:'수업 자료', url:'/lessons.html'},
-    {emoji:'📝', name:'평가서', url:'/eval.html'},
-    {emoji:'📊', name:'리포트', url:'/report.html'},
-    {emoji:'🤖', name:'AI 친구', url:'/ai-friend.html'},
-    {emoji:'✍', name:'AI 작문', url:'/ai-write.html'},
-    {emoji:'🗣', name:'영어 발음 코치', url:'/speech-coach.html'},
-    {emoji:'🇨🇳', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
-    {emoji:'📚', name:'교재 업로더', url:'/textbook-uploader.html'},
-    {emoji:'📖', name:'단어장', url:'/vocab.html'},
-    {emoji:'🎯', name:'미니 퀴즈', url:'/micro-quiz.html'},
-    {emoji:'🧠', name:'MBTI 매칭', url:'/mbti.html'},
-    {emoji:'🧪', name:'MBTI 테스트', url:'/mbti-test.html'},
-    {emoji:'🔥', name:'연속 출석', url:'/streak.html'},
-    {emoji:'🌟', name:'칭찬 스티커', url:'/teacher-praise.html'},
-    {emoji:'📝', name:'수업 신청', url:'/lesson-booking-demo.html'},
-    {emoji:'📅', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
-    {emoji:'👨‍👩‍👧', name:'학부모 페이지', url:'/parent.html'},
-    {emoji:'🩺', name:'시스템 진단', url:'/admin/health.html'},
-    {emoji:'👀', name:'수업 관찰', url:'/admin/ghost-view.html'},
-    {emoji:'🔐', name:'관리자 로그인', url:'/admin/login'}
+    {emoji:'🛠', img:'/img/menu/admin.webp', name:'관리자 페이지', url:'/admin.html'},
+    {emoji:'👤', img:'/img/menu/mypage.webp', name:'마이페이지', url:'/parent.html'},
+    {emoji:'👨‍🎓', img:'/img/menu/students.webp', name:'학생 관리', url:'/admin.html#card-students-mgmt'},
+    {emoji:'📅', img:'/img/menu/schedule.webp', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
+    {emoji:'📞', img:'/img/menu/contact.webp', name:'고객센터', url:'/contact.html'},
+    {emoji:'📚', img:'/img/menu/curriculum.webp', name:'커리큘럼', url:'/curriculum.html'},
+    {emoji:'📖', img:'/img/menu/lessons.webp', name:'수업 자료', url:'/lessons.html'},
+    {emoji:'📝', img:'/img/menu/eval.webp', name:'평가서', url:'/eval.html'},
+    {emoji:'📊', img:'/img/menu/report.webp', name:'리포트', url:'/report.html'},
+    {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
+    {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
+    {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},
+    {emoji:'🇨🇳', img:'/img/menu/speech-cn.webp', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
+    {emoji:'📚', img:'/img/menu/uploader.webp', name:'교재 업로더', url:'/textbook-uploader.html'},
+    {emoji:'📖', img:'/img/menu/vocab.webp', name:'단어장', url:'/vocab.html'},
+    {emoji:'🎯', img:'/img/menu/quiz.webp', name:'미니 퀴즈', url:'/micro-quiz.html'},
+    {emoji:'🧠', img:'/img/menu/mbti.webp', name:'MBTI 매칭', url:'/mbti.html'},
+    {emoji:'🧪', img:'/img/menu/mbti-test.webp', name:'MBTI 테스트', url:'/mbti-test.html'},
+    {emoji:'🔥', img:'/img/menu/streak.webp', name:'연속 출석', url:'/streak.html'},
+    {emoji:'🌟', img:'/img/menu/praise.webp', name:'칭찬 스티커', url:'/teacher-praise.html'},
+    {emoji:'📝', img:'/img/menu/booking.webp', name:'수업 신청', url:'/lesson-booking-demo.html'},
+    {emoji:'📅', img:'/img/menu/postpone.webp', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
+    {emoji:'👨‍👩‍👧', img:'/img/menu/parent.webp', name:'학부모 페이지', url:'/parent.html'},
+    {emoji:'🩺', img:'/img/menu/health.webp', name:'시스템 진단', url:'/admin/health.html'},
+    {emoji:'👀', img:'/img/menu/observe.webp', name:'수업 관찰', url:'/admin/ghost-view.html'},
+    {emoji:'🔐', img:'/img/menu/login.webp', name:'관리자 로그인', url:'/admin/login'}
   ];
+  var ALLMENU_EMO_CSS = 'font-size:42px;line-height:1;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45))';
   function _allmenuEsc(ev){ if (ev.key === 'Escape' || ev.keyCode === 27) closeAllMenuOverlay(); }
   function closeAllMenuOverlay(){
     var ov = document.getElementById('mangoi-allmenu');
@@ -28609,8 +28612,15 @@ document.addEventListener('keydown', function(e){
     h += '<div style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px;flex:1 1 auto">';
     h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(157px,1fr));gap:18px">';
     ALLMENU_ITEMS.forEach(function(m){
-      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:25px 11px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.13);border-radius:18px;color:#F1F5F9;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
-        + '<span style="font-size:42px;line-height:1;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45))">' + m.emoji + '</span><span>' + m.name + '</span></a>';
+      // 실사 아이콘 64x64. width/height 속성은 로딩 중 레이아웃 흔들림 방지용이고,
+      // 실제 크기는 CSS 가 확정한다(속성이 CSS 를 이기는 사고를 피하려고 둘 다 명시).
+      var ico = m.img
+        ? '<img class="mgam-ico" src="' + m.img + '" alt="" width="64" height="64" decoding="async" data-emoji="' + m.emoji + '" style="width:64px;height:64px;flex:0 0 auto;object-fit:cover;border-radius:15px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 6px 16px -6px rgba(0,0,0,0.75);background:#0a0d1a">'
+        : '<span style="' + ALLMENU_EMO_CSS + '">' + m.emoji + '</span>';
+      // justify-content 는 center 가 아니라 flex-start — 라벨이 2줄로 접히는 카드('내 주간 스케줄' 등)만
+      // 세로 중앙정렬 때문에 아이콘이 아래로 밀려 한 줄 안에서 아이콘 높이가 들쭉날쭉해진다.
+      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.13);border-radius:18px;color:#F1F5F9;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+        + ico + '<span>' + m.name + '</span></a>';
     });
     h += '</div></div>';
     h += '</div>';
@@ -28659,6 +28669,20 @@ document.addEventListener('keydown', function(e){
       kb.addEventListener('click', function(e){ e.stopPropagation(); });
       ov.appendChild(kb);
     })();
+
+    // 🛡 아이콘 폴백 — 실사 사진이 404·네트워크 실패면 원래 이모지로 되돌린다.
+    //    ⚠ 캐시 히트 시 error 이벤트가 리스너 붙기 전에 지나갔을 수 있어 complete/naturalWidth 로 한 번 더 본다.
+    ov.querySelectorAll('img.mgam-ico').forEach(function(im){
+      function toEmoji(){
+        if (!im.parentNode) return;
+        var sp = document.createElement('span');
+        sp.setAttribute('style', ALLMENU_EMO_CSS);
+        sp.textContent = im.getAttribute('data-emoji') || '';
+        im.parentNode.replaceChild(sp, im);
+      }
+      im.addEventListener('error', toEmoji);
+      if (im.complete && !im.naturalWidth) toEmoji();
+    });
 
     // 호버 효과 (마우스 환경)
     ov.querySelectorAll('.mgam-card').forEach(function(c){
