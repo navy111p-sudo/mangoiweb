@@ -1644,15 +1644,17 @@ ${numbered}`;
     }
 
     // ── POST /api/translate — 양방향 번역 (평가 글·건의사항 등 실제 콘텐츠) ──
-    //   body: { texts: string[], target: 'en'|'ko' } → { map: { 원문: 번역 } }
+    //   body: { texts: string[], target: 'en'|'ko'|'zh' } → { map: { 원문: 번역 } }
     //   이미 목표 언어면 그대로 통과, 아니면 Workers AI 번역 + KV 캐시(방향별)
+    //   🌐 (2026-07-29) 'zh' 추가 — 화상수업 채팅 번역(한↔영·한↔중). 기존 en/ko 동작은 그대로.
     if (method === 'POST' && path === '/api/translate') {
       const b: any = await request.json().catch(() => ({}));
-      const target = (b.target === 'ko') ? 'ko' : 'en';
+      const target = (b.target === 'ko') ? 'ko' : (b.target === 'zh') ? 'zh' : 'en';
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
       const hasHangul = (s: string) => /[가-힣ᄀ-ᇿ㄰-㆏]/.test(s);
+      const hasHan = (s: string) => /[一-鿿]/.test(s);
       const ai = (env as any).AI;
       const kv = (env as any).SESSION_STATE;
       const map: Record<string, string> = {};
@@ -1660,16 +1662,21 @@ ${numbered}`;
       for (const t of texts) {
         const isKo = hasHangul(t);
         // 이미 목표 언어면 번역 불필요
-        if ((target === 'en' && !isKo) || (target === 'ko' && isKo)) { map[t] = t; continue; }
+        //   zh 판정은 '한글이 없고 한자가 있으면 중국어'. 한자를 섞어 쓴 한국어는 한글이 있으니 걸러진다.
+        const already = (target === 'en') ? !isKo && !hasHan(t)
+                      : (target === 'ko') ? isKo
+                      : (!isKo && hasHan(t));
+        if (already) { map[t] = t; continue; }
         let cached: string | null = null;
         if (kv) { try { cached = await kv.get('tr:' + target + ':' + t); } catch {} }
         if (cached != null) map[t] = cached; else need.push(t);
       }
       const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
       // 번역 전용 모델 m2m100 (LLM 프롬프트보다 안정적). 텍스트별 번역.
-      // 원문 언어 감지: 한자(중국어 게임 문장)면 chinese — english 고정이면 중→한 번역이 깨짐
-      const srcOf = (s: string) => /[一-鿿]/.test(s) ? 'chinese' : (target === 'en' ? 'korean' : 'english');
-      const tgtLang = target === 'en' ? 'english' : 'korean';
+      // 원문 언어 감지: 한글이 있으면 korean, 한자면 chinese, 나머지는 english.
+      //   ⚠️ 한글 검사를 한자보다 먼저 해야 한다 — 순서를 바꾸면 한자 섞인 한국어가 중국어로 잡힌다.
+      const srcOf = (s: string) => hasHangul(s) ? 'korean' : (hasHan(s) ? 'chinese' : 'english');
+      const tgtLang = target === 'en' ? 'english' : (target === 'zh' ? 'chinese' : 'korean');
       if (need.length && ai) {
         for (const t of need) {
           try {

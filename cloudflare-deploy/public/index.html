@@ -31675,5 +31675,251 @@ window.vcAutoLoadStudentTextbook = async function(){
   })();
 })();
 </script>
+<!-- ══════════════════════════════════════════════════════════════════════
+     🌐 (2026-07-29 사장님 지시) 수업 채팅 번역 — 한↔영 · 한↔중
+     ─────────────────────────────────────────────────────────────────────
+     쓰임새: 한국인 직원과 필리핀·중국 강사가 같은 채팅창에서 대화한다.
+       · 내가 한국어로 치면  → 고른 언어(영어/중국어)로 번역되어 나간다
+       · 상대가 영어·중국어로 치면 → 내 화면에 한국어가 함께 보인다
+
+     쓰는 법: 채팅 입력칸 옆 「🌐 번역」 → 영어 / 中文 / 끄기
+
+     설계 원칙 — 채팅은 수업의 생명줄이라 절대 못 잃는다:
+       · 번역이 실패하거나 느리면 **원문 그대로 보낸다**. 메시지를 삼키지 않는다.
+       · 번역을 끄면 이 블록은 아무 일도 하지 않는다(기존 동작과 100% 동일).
+       · 기존 vcSendChat / vcReceiveChat 을 감싸기만 한다. 원본은 한 줄도 안 고쳤다.
+
+     ⚠️ @멘션이 있는 줄은 번역하지 않는다. "@홍길동" 이 번역되면 이름이 바뀌어
+        카톡 알림(Phase K4)이 대상을 못 찾는다. 원문 그대로 보낸다.
+     ⚠️ 입장 시 과거 채팅 200개(_loadedAt)는 번역하지 않는다. 안 막으면 입장하자마자
+        번역 API 를 200번 때린다.
+
+     🧹 순수 추가 블록입니다. 이 주석부터 아래 </script> 까지 지우면 완전 원복됩니다.
+        서버는 /api/translate 에 target='zh' 를 더한 것뿐(en/ko 기존 동작 그대로).
+     ══════════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+
+  var KEY      = 'mangoi_vc_chat_tr';     // '' | 'en' | 'zh'
+  var BTN_ID   = 'vc-tr-btn';
+  var MENU_ID  = 'vc-tr-menu';
+  var busy     = false;
+  var seq      = 0;                       // 말풍선 표식 번호 (innerHTML 재생성에도 살아남는 유일한 끈)
+  var lastSent = null;                    // { translated, original } — 내 말풍선에 원문을 붙이려고 기억
+
+  function isKo(){
+    try {
+      if (typeof window.getLang === 'function') return window.getLang() !== 'en';
+      return (localStorage.getItem('mangoi_lang') || 'ko') !== 'en';
+    } catch(e){ return true; }
+  }
+  function hasHangul(s){ return /[가-힣ᄀ-ᇿ]/.test(s || ''); }
+
+  function target(){
+    try { var v = localStorage.getItem(KEY) || ''; return (v === 'en' || v === 'zh') ? v : ''; }
+    catch(e){ return ''; }
+  }
+  function setTarget(v){
+    try { if (v) localStorage.setItem(KEY, v); else localStorage.removeItem(KEY); } catch(e){}
+    paintBtn();
+  }
+  function label(){
+    var t = target();
+    if (t === 'en') return '🌐 ' + (isKo() ? '영어' : 'EN');
+    if (t === 'zh') return '🌐 ' + (isKo() ? '중국어' : 'ZH');
+    return '🌐 ' + (isKo() ? '번역' : 'Off');
+  }
+  function paintBtn(){
+    var b = document.getElementById(BTN_ID);
+    if (!b) return;
+    b.textContent = label();
+    var on = !!target();
+    b.style.background = on ? 'rgba(251,191,36,0.18)' : 'rgba(148,163,184,0.12)';
+    b.style.borderColor = on ? 'rgba(251,191,36,0.55)' : 'rgba(148,163,184,0.28)';
+    b.style.color = on ? '#fbbf24' : '#94a3b8';
+  }
+
+  /** 서버 번역. 실패하면 원문을 그대로 돌려준다(절대 빈 값 아님). */
+  function translate(texts, tgt){
+    return fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: texts, target: tgt })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      return (d && d.ok && d.map) ? d.map : {};
+    }).catch(function(){ return {}; });
+  }
+
+  // ── 언어 고르는 작은 메뉴 ──────────────────────────────────────────
+  function closeMenu(){
+    var m = document.getElementById(MENU_ID);
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+  }
+  function openMenu(anchor){
+    if (document.getElementById(MENU_ID)) { closeMenu(); return; }
+    var ko = isKo();
+    var m = document.createElement('div');
+    m.id = MENU_ID;
+    m.style.cssText = 'position:fixed;z-index:2147483000;background:#131826;border:1px solid #2b3450;' +
+                      'border-radius:10px;padding:5px;box-shadow:0 12px 32px rgba(0,0,0,.5);' +
+                      'display:flex;flex-direction:column;gap:3px;min-width:150px';
+    [['en', ko ? '영어 (English)' : 'English'],
+     ['zh', ko ? '중국어 (中文)'   : 'Chinese 中文'],
+     ['',   ko ? '번역 끄기'       : 'Turn off']
+    ].forEach(function(pair){
+      var v = pair[0], txt = pair[1];
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = (target() === v ? '● ' : '   ') + txt;
+      b.style.cssText = 'text-align:left;padding:9px 11px;border-radius:7px;border:0;cursor:pointer;' +
+                        'font-size:13px;font-weight:700;white-space:nowrap;' +
+                        'background:' + (target() === v ? 'rgba(251,191,36,0.16)' : 'transparent') + ';' +
+                        'color:' + (target() === v ? '#fbbf24' : '#cbd5e1') + ';';
+      b.addEventListener('mouseenter', function(){ if (target() !== v) b.style.background = 'rgba(148,163,184,0.12)'; });
+      b.addEventListener('mouseleave', function(){ if (target() !== v) b.style.background = 'transparent'; });
+      b.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        setTarget(v);
+        closeMenu();
+        try { document.getElementById('vc-chat-input').focus(); } catch(_){}
+      });
+      m.appendChild(b);
+    });
+    document.body.appendChild(m);
+    // 버튼 바로 위에 띄운다. 화면 밖으로 나가지 않게 좌우를 물린다.
+    try {
+      var r = anchor.getBoundingClientRect();
+      var w = m.offsetWidth || 150, h = m.offsetHeight || 120;
+      var left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+      var top  = (r.top - h - 8 > 8) ? (r.top - h - 8) : (r.bottom + 8);
+      m.style.left = left + 'px';
+      m.style.top  = top + 'px';
+    } catch(e){}
+    setTimeout(function(){
+      document.addEventListener('click', function once(ev){
+        if (ev.target && ev.target.closest && ev.target.closest('#' + MENU_ID)) return;
+        closeMenu();
+        document.removeEventListener('click', once);
+      });
+    }, 0);
+  }
+
+  // ── 입력칸 옆에 버튼 심기 ─────────────────────────────────────────
+  function mount(){
+    try {
+      var input = document.getElementById('vc-chat-input');
+      var area = input && input.parentNode;
+      if (!area || document.getElementById(BTN_ID)) return;
+      var b = document.createElement('button');
+      b.id = BTN_ID;
+      b.type = 'button';
+      b.title = isKo() ? '채팅 번역 — 한국어↔영어 / 한국어↔중국어'
+                       : 'Chat translation - Korean <-> English / Chinese';
+      b.style.cssText = 'flex:0 0 auto;margin-right:4px;padding:0 9px;border-radius:8px;cursor:pointer;' +
+                        'border:1px solid rgba(148,163,184,0.28);font-size:12px;font-weight:700;' +
+                        'white-space:nowrap;line-height:1;height:34px';
+      b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); openMenu(b); });
+      area.insertBefore(b, input.nextSibling);   // 입력칸과 [전송] 사이
+      paintBtn();
+    } catch(e){ console.warn('[chat-tr] mount', e); }
+  }
+  try { window.addEventListener('mangoi:langchange', paintBtn); } catch(e){}
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
+  else mount();
+
+  // ── 보낼 때: 한국어 → 고른 언어 ────────────────────────────────────
+  var origSend = window.vcSendChat;
+  if (typeof origSend === 'function') {
+    window.vcSendChat = function(){
+      var tgt = target();
+      var input = document.getElementById('vc-chat-input');
+      var text = (input && input.value || '').trim();
+      // 번역 꺼짐 · 빈 줄 · 한국어 아님 · @멘션 포함 → 손대지 않고 원래대로
+      if (!tgt || !text || !hasHangul(text) || /@[A-Za-z0-9가-힣_]+/.test(text)) {
+        return origSend.apply(this, arguments);
+      }
+      if (busy) return;                       // 엔터 연타 시 이중 전송 방지
+      busy = true;
+      var ph = input.placeholder;
+      input.placeholder = isKo() ? '번역 중…' : 'Translating…';
+      var done = function(){
+        busy = false;
+        try { input.placeholder = ph; input.focus(); } catch(_){}
+      };
+      // 3초 안에 응답이 없으면 원문으로 보낸다 — 채팅이 멈춰 보이면 안 된다
+      var settled = false;
+      var fire = function(out){
+        if (settled) return; settled = true;
+        if (out && out !== text) { input.value = out; lastSent = { translated: out, original: text }; }
+        try { origSend.call(window); } catch(e){ console.warn('[chat-tr] send', e); }
+        done();
+      };
+      setTimeout(function(){ fire(null); }, 3000);
+      translate([text], tgt).then(function(map){ fire(map && map[text]); });
+    };
+  }
+
+  // ── 받을 때: 영어·중국어 → 한국어 (원문 아래 작은 줄로 덧붙임) ──────
+  var origRecv = window.vcReceiveChat;
+  if (typeof origRecv === 'function') {
+    window.vcReceiveChat = function(data){
+      var r = origRecv.apply(this, arguments);
+      try {
+        if (!target()) return r;
+        if (!data || data.type === 'system') return r;
+        if (data._loadedAt) return r;                       // 입장 시 과거 200개 — 번역 안 함
+        var box = document.getElementById('vc-chat-messages');
+        if (!box) return r;
+        var msgs = box.querySelectorAll('.chat-msg');
+        var el = msgs[msgs.length - 1];
+        if (!el || el.getAttribute('data-tr')) return r;
+        if (!el.querySelector('.msg-bubble')) return r;
+        el.setAttribute('data-tr', '1');
+        /* ⚠️ 요소를 변수로 붙잡아 두면 안 된다 — vcReceiveChat 은 `innerHTML +=` 라
+           다음 메시지가 올 때 말풍선을 통째로 새로 만든다. 번역이 돌아왔을 땐 내가 쥔
+           요소가 이미 버려진 것이라 붙여도 화면에 안 보인다.
+           그래서 표식(data-tr-id)만 남기고, 붙일 때 다시 찾는다.
+           (innerHTML 왕복에도 속성은 그대로 보존된다) */
+        var trId = 'tr' + (++seq);
+        el.setAttribute('data-tr-id', trId);
+        var msg = String(data.message || '');
+
+        // 내가 보낸 것 → 방금 번역해 보낸 원문을 붙여준다(내가 뭘 썼는지 보이게)
+        if (data.userId === window.vcUserId && lastSent && lastSent.translated === msg) {
+          addNote(trId, lastSent.original, true);
+          lastSent = null;
+          return r;
+        }
+        // 상대가 보낸 것 → 한국어가 아니면 한국어를 붙인다
+        if (data.userId !== window.vcUserId && msg && !hasHangul(msg)) {
+          translate([msg], 'ko').then(function(map){
+            var ko = map && map[msg];
+            if (ko && ko !== msg) addNote(trId, ko, false);
+          });
+        }
+      } catch(e){ console.warn('[chat-tr] recv', e); }
+      return r;
+    };
+  }
+
+  function addNote(trId, text, mine){
+    try {
+      if (!trId || !text) return;
+      // 붙이는 시점에 다시 찾는다(위 주석 참고 — 그 사이 말풍선이 새로 만들어졌을 수 있다)
+      var bubble = document.querySelector('[data-tr-id="' + trId + '"] .msg-bubble');
+      if (!bubble || bubble.querySelector('.vc-tr-note')) return;
+      var d = document.createElement('div');
+      d.className = 'vc-tr-note';
+      d.style.cssText = 'margin-top:5px;padding-top:5px;font-size:11.5px;line-height:1.5;opacity:.82;' +
+                        'border-top:1px dashed rgba(148,163,184,.42)';
+      d.textContent = (mine ? '✏️ ' : '🌐 ') + text;
+      bubble.appendChild(d);
+      var box = document.getElementById('vc-chat-messages');
+      if (box) box.scrollTop = box.scrollHeight;
+    } catch(e){}
+  }
+})();
+</script>
 </body>
 </html>
