@@ -31806,20 +31806,53 @@ window.vcAutoLoadStudentTextbook = async function(){
     } catch(e){ return true; }
   }
   function hasHangul(s){ return /[가-힣ᄀ-ᇿ]/.test(s || ''); }
+  function hasHan(s){ return /[一-鿿]/.test(s || ''); }
+
+  /** 글의 언어 — 한글이 있으면 ko, 한자만 있으면 zh, 나머지 en.
+      ⚠️ 한글 검사가 먼저다. 순서를 바꾸면 한자 섞인 한국어가 중국어로 잡힌다. */
+  function langOf(s){ return hasHangul(s) ? 'ko' : (hasHan(s) ? 'zh' : 'en'); }
+
+  /** 내 언어 — 처음엔 화면 언어로 잡고, 내가 글을 보낼 때마다 원문 언어로 고친다.
+      쓰임새 둘: ① 메뉴에서 내 언어를 뺀다 ② 받은 글을 이 언어로 바꿔 보여준다.
+      (화상수업 UI 는 한국어·영어 두 벌뿐이라 중국어 강사는 처음엔 영어로 잡히고,
+       한 마디만 중국어로 치면 곧바로 중국어로 바뀐다) */
+  var myLang = (function(){
+    try { return (localStorage.getItem('mangoi_lang') === 'en') ? 'en' : 'ko'; } catch(e){ return 'ko'; }
+  })();
 
   function target(){
-    try { var v = localStorage.getItem(KEY) || ''; return (v === 'en' || v === 'zh') ? v : ''; }
+    try { var v = localStorage.getItem(KEY) || ''; return (v === 'en' || v === 'zh' || v === 'ko') ? v : ''; }
     catch(e){ return ''; }
+  }
+
+  /** 받은 글은 '내 언어'로 바꿔서 보여준다 */
+  function readTarget(){ return target() ? myLang : ''; }
+
+  /** 내 언어가 바뀌면(중국어 강사가 중국어로 치기 시작 등) 메뉴와 선택을 따라 고친다 */
+  function setMyLang(l){
+    if (!l || l === myLang) return;
+    myLang = l;
+    if (target() === myLang) setTarget('');   // 내 언어로 번역할 일은 없다 → 끔
+    else paintBtn();
+  }
+
+  /** 이미 그 언어면 번역하지 않는다(서버도 거르지만 왕복 자체를 아낀다) */
+  function needsTr(text, tgt){
+    if (!text || !tgt) return false;
+    return langOf(text) !== tgt;
   }
   function setTarget(v){
     try { if (v) localStorage.setItem(KEY, v); else localStorage.removeItem(KEY); } catch(e){}
     paintBtn();
   }
+  var NAME_KO = { ko: '한국어', en: '영어', zh: '중국어' };
+  var NAME_EN = { ko: 'Korean 한국어', en: 'English', zh: 'Chinese 中文' };
+  var SHORT   = { ko: 'KO', en: 'EN', zh: 'ZH' };
+
   function label(){
     var t = target();
-    if (t === 'en') return '🌐 ' + (isKo() ? '영어' : 'EN');
-    if (t === 'zh') return '🌐 ' + (isKo() ? '중국어' : 'ZH');
-    return '🌐 ' + (isKo() ? '번역' : 'Off');
+    if (!t) return '🌐 ' + (isKo() ? '번역' : 'Off');
+    return '🌐 ' + (isKo() ? NAME_KO[t] : SHORT[t]);
   }
   function paintBtn(){
     var b = document.getElementById(BTN_ID);
@@ -31857,10 +31890,13 @@ window.vcAutoLoadStudentTextbook = async function(){
     m.style.cssText = 'position:fixed;z-index:2147483000;background:#131826;border:1px solid #2b3450;' +
                       'border-radius:10px;padding:5px;box-shadow:0 12px 32px rgba(0,0,0,.5);' +
                       'display:flex;flex-direction:column;gap:3px;min-width:150px';
-    [['en', ko ? '영어 (English)' : 'English'],
-     ['zh', ko ? '중국어 (中文)'   : 'Chinese 中文'],
-     ['',   ko ? '번역 끄기'       : 'Turn off']
-    ].forEach(function(pair){
+    /* 내 언어를 뺀 나머지 둘만 보여준다 (사장님 지시)
+         한국어 → 영어 / 중국어      영어 → 한국어 / 중국어      중국어 → 한국어 / 영어 */
+    var items = ['ko', 'en', 'zh']
+      .filter(function(l){ return l !== myLang; })
+      .map(function(l){ return [l, ko ? NAME_KO[l] + (l === 'zh' ? ' (中文)' : (l === 'en' ? ' (English)' : '')) : NAME_EN[l]]; });
+    items.push(['', ko ? '번역 끄기' : 'Turn off']);
+    items.forEach(function(pair){
       var v = pair[0], txt = pair[1];
       var b = document.createElement('button');
       b.type = 'button';
@@ -31928,8 +31964,10 @@ window.vcAutoLoadStudentTextbook = async function(){
       var tgt = target();
       var input = document.getElementById('vc-chat-input');
       var text = (input && input.value || '').trim();
-      // 번역 꺼짐 · 빈 줄 · 한국어 아님 · @멘션 포함 → 손대지 않고 원래대로
-      if (!tgt || !text || !hasHangul(text) || /@[A-Za-z0-9가-힣_]+/.test(text)) {
+      // 내가 쓴 언어를 기억해 둔다 — 메뉴에서 내 언어를 빼고, 받은 글을 이 언어로 보여주는 데 쓴다
+      if (text) { try { setMyLang(langOf(text)); } catch(_){} }
+      // 번역 꺼짐 · 빈 줄 · 이미 그 언어 · @멘션 포함 → 손대지 않고 원래대로
+      if (!tgt || !text || !needsTr(text, tgt) || /@[A-Za-z0-9가-힣_]+/.test(text)) {
         return origSend.apply(this, arguments);
       }
       if (busy) return;                       // 엔터 연타 시 이중 전송 방지
@@ -31984,11 +32022,12 @@ window.vcAutoLoadStudentTextbook = async function(){
           lastSent = null;
           return r;
         }
-        // 상대가 보낸 것 → 한국어가 아니면 한국어를 붙인다
-        if (data.userId !== window.vcUserId && msg && !hasHangul(msg)) {
-          translate([msg], 'ko').then(function(map){
-            var ko = map && map[msg];
-            if (ko && ko !== msg) addNote(trId, ko, false);
+        // 상대가 보낸 것 → 내 언어가 아니면 내 언어로 바꿔 붙인다
+        var rt = readTarget();
+        if (data.userId !== window.vcUserId && msg && rt && needsTr(msg, rt)) {
+          translate([msg], rt).then(function(map){
+            var out = map && map[msg];
+            if (out && out !== msg) addNote(trId, out, false);
           });
         }
       } catch(e){ console.warn('[chat-tr] recv', e); }
