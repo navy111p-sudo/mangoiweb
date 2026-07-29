@@ -8513,7 +8513,10 @@ window.mgIsSlowNet = function(){
                     <button onclick="wbSetTool('circle')" data-ko="⭕ 원 (Circle)" data-en="⭕ Circle (원)">⭕ 원 (Circle)</button>
                     <!-- ph268: 키보드 텍스트 도구 -->
                     <button onclick="wbSetTool('text')" data-ko="📝 텍스트 (Text)" data-en="📝 Text (텍스트)" title="키보드 타자">📝 텍스트 (Text)</button>
-                    <input type="color" id="wb-color" value="#000000" title="색상" style="width:32px;height:28px;border:none;cursor:pointer;" />
+                    <!-- 🎨 (2026-07-30 강사 피드백 Jane) "색상 기능이 눈에 안 띈다 — '색상' 같은 글자 라벨을 붙여달라"
+                         아이콘만 있어 무엇인지 몰랐다 → 글자 라벨을 함께 노출(한/영). -->
+                    <span data-ko="🎨 색상" data-en="🎨 Color" style="font-size:11.5px;font-weight:700;opacity:.85;margin-left:4px">🎨 색상</span>
+                    <input type="color" id="wb-color" value="#000000" title="색상 (Color)" style="width:32px;height:28px;border:none;cursor:pointer;" />
                     <input type="range" id="wb-size" min="1" max="30" value="3" title="굵기" style="width:80px;" />
                     <!-- ✨ AI 도형 정리 토글 (켜면 펜 자유선이 자동으로 깔끔한 도형/축으로 정리됨) -->
                     <button id="wb-ai-btn" onclick="wbToggleAi(this)" title="펜으로 그린 선/사각형/원/삼각형/축을 자동으로 정리 (켜기)" data-ko="✨ AI 도형 (AI Shapes)" data-en="✨ AI Shapes (AI 도형)">✨ AI 도형 (AI Shapes)</button>
@@ -8568,7 +8571,9 @@ window.mgIsSlowNet = function(){
                     <!-- ph265: 키보드 텍스트 도구 -->
                     <button id="pdf-tool-text" onclick="pdfSetDrawTool('text', this)" title="텍스트 (키보드 타자)" data-ko="📝 텍스트 (Text)" data-en="📝 Text (텍스트)">📝 텍스트 (Text)</button>
                     <button id="pdf-ai-btn" onclick="wbToggleAi(this)" title="펜 자유선을 직선·사각형·원·삼각형·축으로 자동 정리 (켜기)" data-ko="✨ AI 도형 (AI Shapes)" data-en="✨ AI Shapes (AI 도형)">✨ AI 도형 (AI Shapes)</button>
-                    <input type="color" id="pdf-anno-color" value="#ef4444" title="색상" style="width:32px;height:26px;border:none;cursor:pointer;" />
+                    <!-- 🎨 (2026-07-30 Jane) 교재 필기도 같은 이유로 글자 라벨 노출 -->
+                    <span data-ko="🎨 색상" data-en="🎨 Color" style="font-size:11.5px;font-weight:700;opacity:.85;margin-left:4px">🎨 색상</span>
+                    <input type="color" id="pdf-anno-color" value="#ef4444" title="색상 (Color)" style="width:32px;height:26px;border:none;cursor:pointer;" />
                     <input type="range" id="pdf-anno-size" min="1" max="20" value="3" title="굵기" style="width:80px;" />
                     <button onclick="pdfAnnoUndo()" title="마지막 필기 되돌리기 (Ctrl+Z)" data-ko="↩ 되돌리기 (Undo)" data-en="↩ Undo (되돌리기)">↩ 되돌리기 (Undo)</button>
                     <button onclick="pdfClearAnno()" title="이 페이지 주석 모두 지우기" data-ko="🗑 지우기 (Clear)" data-en="🗑 Clear (지우기)">🗑 지우기 (Clear)</button>
