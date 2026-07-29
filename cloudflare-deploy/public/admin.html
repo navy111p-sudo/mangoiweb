@@ -11985,7 +11985,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=3" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
-<script src="/js/adm-light-surfaces.js?v=9" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
+<script src="/js/adm-light-surfaces.js?v=10" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
 </div>
@@ -12258,6 +12258,11 @@ button.chip:hover,
   .ph54-ev { position:absolute; left:3px; right:3px; border-radius:6px; padding:3px 6px;
      color:#fff; overflow:hidden; cursor:grab; box-sizing:border-box;
      box-shadow:0 1px 5px rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.18); }
+  /* ph169 — '대체'(주황) 카드만 흰 글자 대비가 낮다(2.1:1). 진한 갈색으로 바꿔 읽히게.
+     나머지 3색(보라·파랑·회색)은 흰 글자로 AA 통과라 그대로 둔다.
+     유형 클래스 ph54-t-temp 는 adm-q6.js 가 붙인다(인라인 색 매칭은 브라우저가 rgb 로
+     정규화해 깨지므로 클래스로 타겟). */
+  .ph54-ev.ph54-t-temp, .ph54-slot.ph54-t-temp { color:#3d2600; }
   .ph54-ev:hover { filter:brightness(1.08); z-index:3; }
   .ph54-ev:active { cursor:grabbing; }
   .ph54-ev.dragging { opacity:.4; }
@@ -12281,7 +12286,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-q6.js?v=3" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q6.js?v=4" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 81 admin (2026-05-24) — ▲ 강제 제거 + 칩 한 줄 작게 (모든 폭) -->
 <style id="ph81-admin">
