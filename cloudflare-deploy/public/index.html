@@ -17542,11 +17542,35 @@ function wbInit() {
    인식 실패(곡선/글씨)는 원본 잉크 그대로 유지. AI 끄면 기존 동작과 동일.
    결과는 whiteboard-shape / whiteboard-stroke 로 상대에게 동기화.
 ================================================================ */
+/* ✨ (2026-07-30 강사 피드백 Kaye 11번) "AI 도구의 도형·쓰기가 작동하지 않는다"
+   [원인] 두 기능은 만들어져 있지만 `wbTool === 'pen'` 일 때만 동작한다(17402·17414·17466행).
+          형광펜·지우개·텍스트 등 다른 도구가 선택돼 있으면 버튼을 켜도 아무 일이 없고,
+          버튼에는 그 설명이 없어 "고장"으로 보였다.
+   [해결] 켤 때 펜이 아니면 자동으로 펜으로 바꿔 준다 — 켜면 바로 되게.
+   ⚠️ wbSetTool() 은 내부에서 event.target 을 쓰므로 프로그램에서 부르면 오류가 난다 → 직접 처리. */
+function wbEnsurePenForAi(){
+  try {
+    if (typeof wbTool !== 'undefined' && wbTool === 'pen') return false;
+    wbTool = 'pen';
+    document.querySelectorAll('.wb-toolbar button').forEach(function(b){ b.classList.remove('active'); });
+    var pen = document.querySelector('.wb-toolbar button[onclick*="wbSetTool(\'pen\')"]');
+    if (pen) pen.classList.add('active');
+    return true;
+  } catch(_) { return false; }
+}
 function wbToggleAi(btn){
   wbAiMode = !wbAiMode;
+  var switched = wbAiMode ? wbEnsurePenForAi() : false;
   // 칠판·교재 양쪽 토글 버튼 상태 동기화
   ['wb-ai-btn','pdf-ai-btn'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.toggle('active', wbAiMode); });
-  try { if (typeof showToast === 'function') showToast(wbAiMode ? '✨ AI 도형 정리 켜짐' : 'AI 도형 정리 꺼짐 (자유 필기)'); } catch(_){}
+  var _en = (typeof getLang === 'function' && getLang() === 'en');
+  try {
+    if (typeof showToast === 'function') showToast(
+      wbAiMode
+        ? (switched ? (_en ? 'AI Shapes on - switched to the pen' : '✨ AI 도형 정리 켜짐 — 펜으로 바꿨어요')
+                    : (_en ? 'AI Shapes on - draw with the pen' : '✨ AI 도형 정리 켜짐 (펜으로 그리세요)'))
+        : (_en ? 'AI Shapes off' : 'AI 도형 정리 꺼짐 (자유 필기)'));
+  } catch(_){}
 }
 
 // OCR 대기 중인 획들만 프리뷰 레이어에 표시
@@ -17626,12 +17650,20 @@ function wbFinalizeAiStroke(){
 // ── ✍️ 손글씨 → 글자 (Workers AI OCR) ──
 function wbToggleOcr(btn){
   wbOcrMode = !wbOcrMode;
+  var switched = wbOcrMode ? wbEnsurePenForAi() : false;   // 펜일 때만 동작 → 켜면 펜으로 바꿔 준다
   if (btn) btn.classList.toggle('active', wbOcrMode);
   if (!wbOcrMode){
     if (wbOcrTimer){ clearTimeout(wbOcrTimer); wbOcrTimer = null; }
     if (wbOcrPending.length){ wbCommitPendingAsInk(wbOcrPending); wbOcrPending = []; wbDrawPending(); }
   }
-  try { if (typeof showToast === 'function') showToast(wbOcrMode ? '✍️ 손글씨→글자 인식 켜짐 (멈추면 자동 변환·실험적)' : '손글씨 인식 꺼짐'); } catch(_){}
+  var _en = (typeof getLang === 'function' && getLang() === 'en');
+  try {
+    if (typeof showToast === 'function') showToast(
+      wbOcrMode
+        ? (switched ? (_en ? 'AI Text on - switched to the pen. Write, then pause.' : '✍️ 손글씨 인식 켜짐 — 펜으로 바꿨어요 (쓰고 잠시 멈추면 변환)')
+                    : (_en ? 'AI Text on - write with the pen, then pause' : '✍️ 손글씨 인식 켜짐 (펜으로 쓰고 잠시 멈추면 변환)'))
+        : (_en ? 'AI Text off' : '손글씨 인식 꺼짐'));
+  } catch(_){}
 }
 function wbScheduleOcr(){
   if (wbOcrTimer) clearTimeout(wbOcrTimer);
