@@ -11732,8 +11732,12 @@ async function vcJoinRoom(skipUI) {
       { icon:'👥', label:'참가자 전체 보기 (Gallery)', onclick:`vcScreenSet('full')` },
           { icon:'📌', label:'PIP', onclick:`vcScreenSet('pip')` },
           { icon:'👤', label:'솔로', onclick:`vcScreenSet('solo')` },
-          { icon:'📝', label:'칠판만', onclick:`vcScreenSet('boardonly')` },
-          { icon:'📖', label:'교재만', onclick:`vcScreenSet('bookonly')` },
+          /* 📝📖 (2026-07-30 강사 피드백 Jane) "교재나 칠판만 따로 크게 볼 수 없다 — 같이 커져서 집중이 어렵다"
+             → 이 두 모드가 바로 '하나만 크게'다(다른 쪽을 숨겨 화면을 통째로 씀). 라벨이 '칠판만'·'교재만'
+               뿐이라 '크게 보는 기능'인 줄 몰랐다 → 이름에 '크게'를 넣어 분명히 한다.
+             ※ 교재 내용 자체 확대는 Ctrl(⌘)+휠 로 따로 되고, 그때 다른 화면 요소는 커지지 않는다. */
+          { icon:'📝', label:'칠판만 크게 (Board only)', onclick:`vcScreenSet('boardonly')` },
+          { icon:'📖', label:'교재만 크게 (Book only)', onclick:`vcScreenSet('bookonly')` },
         ],
       },
     };
