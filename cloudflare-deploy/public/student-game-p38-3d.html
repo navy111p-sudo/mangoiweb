@@ -310,6 +310,11 @@
   #spSent{font-size:clamp(19px,3.6vw,28px);font-weight:900;color:#fff;margin:10px 0 4px;line-height:1.35}
   #spKo{font-size:14px;color:#ffd479;font-weight:800}
   #spState{margin:12px 0 6px;font-size:15px;font-weight:900;color:#7fd1ff;min-height:22px}
+  /* 남은 말하기 시간 — "언제까지 말하면 되는지"를 숫자로 보여 준다(사장님 지시) */
+  #spCount{display:none;margin:4px 0 2px;font-size:17px;font-weight:900;color:#7fd1ff;
+    letter-spacing:.4px;font-variant-numeric:tabular-nums}
+  #spCount.on{display:block}
+  #spCount.warn{color:#ff8a5c}
   #spDots{display:flex;gap:9px;justify-content:center;margin:8px 0}
   .dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.16);
     border:2px solid rgba(255,255,255,.28);transition:.2s}
@@ -655,6 +660,7 @@
       <div id="spKo"></div>
       <div id="spState"></div>
       <div id="spDots"></div>
+      <div id="spCount"></div>
       <div id="spHeard"></div>
       <button id="micBtn">🎤 따라 말하기</button>
       <div class="rateRow">
@@ -1967,27 +1973,76 @@ function spFinish(success){
   loadSentence(false);
 }
 /* 음성인식 1회 — 미지원/오류는 통과(soft-lock 방지) */
+/* 말하기 제한시간 — 문장 길이에 맞춰 준다.
+   ⚠️ 예전엔 '침묵 2.4초' 로 끊었다. 아이가 천천히 또박또박 말하면 글자 사이 간격이 2.4초를 쉽게 넘고,
+      게다가 그 타이머가 rec.stop() 을 부르는 순간 MangoiSTT.harden 이 이것을 "페이지가 그만 듣겠다"로
+      해석해 **자동 재시작을 꺼 버려서** 말이 끝나기도 전에 영영 멈췄다 — 이것이 "너무 빨리 끝난다"의 진범.
+   → 침묵으로 끊지 않는다. **제한시간 하나만** 종료 조건으로 두고 남은 초를 화면에 보여 준다. */
+function listenMs(target){
+  var t=String(target||'');
+  var units = (MODE==='zh') ? t.replace(/\s/g,'').length : t.split(/\s+/).filter(Boolean).length;
+  // 기본 7초 + 낱말(한자)당 1.1초, 8~22초로 묶는다
+  return Math.max(8000, Math.min(22000, 7000 + units*1100));
+}
 function listenOnce(cb){
+  var target = SP ? spFull() : (G && G.sent ? G.sent.w.join(LANGMETA[MODE].join) : '');
+  var MS = listenMs(target);
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ cb(true,'(음성인식 미지원 · 통과)'); return; }
   var rec; try{ rec=new SR(); }catch(_){ cb(true,'(통과)'); return; }
   rec.lang=LANGMETA[MODE].stt; rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
-  var done=false, best='', matched=false, _sil=null, _started=false, SILENCE_MS=2400;
-  function finish(ok,txt){ if(done)return; done=true; if(_sil)clearTimeout(_sil);
-    try{rec.stop();}catch(_){}; cb(ok,txt); }
-  function arm(){ if(_sil)clearTimeout(_sil); _sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, SILENCE_MS); }
-  rec.onstart=function(){ _started=true; arm(); };
-  rec.onresult=function(e){ if(done)return; _started=true;
-    var target = SP ? spFull() : (G && G.sent ? G.sent.w.join(LANGMETA[MODE].join) : '');
+
+  var done=false, best='', matched=false, _deadline=null, _tick=null, _restarts=0;
+  var endAt = Date.now()+MS;
+  var elC=document.getElementById('spCount');
+
+  function paint(){
+    if(!elC) return;
+    var left=Math.max(0, Math.ceil((endAt-Date.now())/1000));
+    elC.textContent='⏱ '+left+'초';
+    elC.classList.toggle('warn', left<=3);
+    elC.classList.add('on');
+  }
+  function stopUI(){ if(elC){ elC.classList.remove('on','warn'); } }
+  function finish(ok,txt){
+    if(done)return; done=true;
+    if(_deadline)clearTimeout(_deadline); if(_tick)clearInterval(_tick);
+    stopUI();
+    try{rec.stop();}catch(_){}
+    cb(ok,txt);
+  }
+  rec.onresult=function(e){ if(done)return;
     for(var s=e.resultIndex;s<e.results.length;s++){ var alts=e.results[s];
       for(var i=0;i<alts.length;i++){ var tx=alts[i].transcript||''; if(tx)best=tx;
         if(matchSentence(tx,target)){ matched=true; best=tx; finish(true,best); return; } } }
-    arm(); };
-  rec.onerror=function(){ if(_sil)clearTimeout(_sil); finish(matched,best); };
-  rec.onend=function(){ if(_sil)clearTimeout(_sil); finish(matched,best); };
-  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec,{isDone:function(){return done;},onRestart:arm}); }catch(_h){}
+  };
+  rec.onerror=function(e){
+    // no-speech / aborted 는 흔한 일시 오류다. 시간이 남아 있으면 계속 듣는다
+    if(done) return;
+    var fatal = e && (e.error==='not-allowed' || e.error==='service-not-allowed');
+    if(fatal || Date.now()>=endAt-400) finish(matched,best);
+  };
+  /* 브라우저는 말이 잠깐 끊기면 continuous 여도 세션을 끝낸다 → 제한시간이 남았으면 다시 열어야 한다.
+     ⚠️ 재시작은 **MangoiSTT.harden 한쪽에만 맡긴다.** 여기서도 같이 재시작하면 세션이 두 배로 열려
+        (실측 11회) 안드로이드에서 '삐' 소리가 그만큼 난다. harden 에 제한시간을 넘겨 주면
+        정확히 그 시간까지만 다시 열고, 끝나면 아래 onend 로 넘어온다. */
+  rec.onend=function(){
+    if(done) return;
+    // harden 이 없는 환경(스크립트 미로드)에서는 여기서라도 직접 다시 연다
+    if(!rec.__mangoiHardened && Date.now()<endAt-500 && _restarts<20){
+      _restarts++;
+      setTimeout(function(){ if(!done){ try{ rec.start(); }catch(_){} } }, 160);
+      return;
+    }
+    finish(matched,best);
+  };
+  try{ if(typeof MangoiSTT!=='undefined')
+    MangoiSTT.harden(rec,{isDone:function(){return done;}, maxRestarts:20, maxMs:MS});
+  }catch(_h){}
   try{ rec.start(); }catch(_){ finish(false,''); return; }
-  setTimeout(function(){ if(!_started && !done) finish(matched,best); }, 9000);
+
+  paint(); _tick=setInterval(paint, 200);
+  _deadline=setTimeout(function(){ finish(matched,best); }, MS);
 }
 function matchSentence(said, target){
   if(!said||!target) return false;
@@ -2845,6 +2900,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260729234355 -->
+<!-- BUILD:20260729235158 -->
 </body>
 </html>
