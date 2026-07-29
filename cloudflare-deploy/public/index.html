@@ -31745,7 +31745,9 @@ window.vcAutoLoadStudentTextbook = async function(){
     return fetch('/api/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts: texts, target: tgt })
+      // mode:'chat' — 서버가 번역모델(m2m100) 대신 언어모델을 쓴다.
+      //   m2m100 은 '숙제'를 job·집안일로 옮겨 수업 대화에서 오해가 났다.
+      body: JSON.stringify({ texts: texts, target: tgt, mode: 'chat' })
     }).then(function(r){ return r.json(); }).then(function(d){
       return (d && d.ok && d.map) ? d.map : {};
     }).catch(function(){ return {}; });

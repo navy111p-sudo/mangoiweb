@@ -1650,6 +1650,13 @@ ${numbered}`;
     if (method === 'POST' && path === '/api/translate') {
       const b: any = await request.json().catch(() => ({}));
       const target = (b.target === 'ko') ? 'ko' : (b.target === 'zh') ? 'zh' : 'en';
+      // 💬 (2026-07-29) mode='chat' — 화상수업 채팅 전용. 번역모델(m2m100) 대신 언어모델을 쓴다.
+      //   m2m100 은 짧은 구어체 한국어에 약해 실측에서 '숙제'를 job·집안일로 옮겼다(수업 대화에선 오해가 난다).
+      //   언어모델엔 '온라인 영어수업 채팅'이라는 맥락을 줄 수 있어 훨씬 정확하다.
+      //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
+      //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
+      const chatMode = b.mode === 'chat';
+      const cacheKey = (t: string) => (chatMode ? 'trc:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -1668,7 +1675,7 @@ ${numbered}`;
                       : (!isKo && hasHan(t));
         if (already) { map[t] = t; continue; }
         let cached: string | null = null;
-        if (kv) { try { cached = await kv.get('tr:' + target + ':' + t); } catch {} }
+        if (kv) { try { cached = await kv.get(cacheKey(t)); } catch {} }
         if (cached != null) map[t] = cached; else need.push(t);
       }
       const dbg: any = { ai: !!ai, need: need.length, raw: null, err: null };
@@ -1677,14 +1684,54 @@ ${numbered}`;
       //   ⚠️ 한글 검사를 한자보다 먼저 해야 한다 — 순서를 바꾸면 한자 섞인 한국어가 중국어로 잡힌다.
       const srcOf = (s: string) => hasHangul(s) ? 'korean' : (hasHan(s) ? 'chinese' : 'english');
       const tgtLang = target === 'en' ? 'english' : (target === 'zh' ? 'chinese' : 'korean');
+      // 💬 채팅 모드 — 언어모델로 한 문장씩. 실패하면 아래 m2m100 이 그대로 받아준다.
+      const LANG_NAME: Record<string, string> = { en: 'English', ko: 'Korean', zh: 'Simplified Chinese' };
+      async function chatTranslate(t: string): Promise<string> {
+        const from = srcOf(t) === 'korean' ? 'Korean' : (srcOf(t) === 'chinese' ? 'Simplified Chinese' : 'English');
+        const to = LANG_NAME[target] || 'English';
+        const sys = 'You translate one chat message at a time for a live online English class. '
+          + 'Speakers are Korean office staff and Filipino or Chinese teachers talking about lessons, '
+          + 'homework, schedules and students. Reply with ONLY the translated message. '
+          + 'No quotes, no notes, no romanization, no explanation. '
+          + 'Keep it short and natural, the way a person actually speaks in chat. '
+          + 'Keep names, @mentions, numbers, times and emoji exactly as they are. '
+          + 'In a school context "숙제" is school homework, never housework or a job.';
+        const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+          messages: [
+            { role: 'system', content: sys },
+            { role: 'user', content: `Translate this ${from} chat message into ${to}:\n${t}` },
+          ],
+          max_tokens: 300,
+        });
+        let out = String(typeof resp === 'string' ? resp : (resp && typeof resp.response === 'string' ? resp.response : '') || '').trim();
+        // 모델이 가끔 따옴표로 감싸거나 "Translation:" 을 붙인다 → 벗겨낸다
+        out = out.replace(/^```[a-zA-Z]*\s*|\s*```$/g, '').trim();
+        out = out.replace(/^(translation|번역)\s*[:：]\s*/i, '').trim();
+        if (out.length > 1 && /^["'“”「『]/.test(out) && /["'“”」』]$/.test(out)) out = out.slice(1, -1).trim();
+        out = out.split(/\r?\n/)[0].trim();          // 여러 줄로 떠들면 첫 줄만
+        // 목표 언어가 아니면(그대로 되뇌었거나 엉뚱한 언어) 실패로 본다 → m2m100 으로 넘긴다
+        if (!out || out === t) return '';
+        if (target === 'ko' && !hasHangul(out)) return '';
+        if (target === 'zh' && !hasHan(out)) return '';
+        if (target === 'en' && (hasHangul(out) || hasHan(out))) return '';
+        return out;
+      }
+
       if (need.length && ai) {
         for (const t of need) {
           try {
-            const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: srcOf(t), target_lang: tgtLang });
-            if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
-            const out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : t;
+            let out = '';
+            if (chatMode) {
+              try { out = await chatTranslate(t); }
+              catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
+            }
+            if (!out) {
+              const resp: any = await ai.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: srcOf(t), target_lang: tgtLang });
+              if (dbg.raw == null) dbg.raw = JSON.stringify(resp).slice(0, 300);
+              out = (resp && typeof resp.translated_text === 'string' && resp.translated_text.trim()) ? String(resp.translated_text) : t;
+            }
             map[t] = out;
-            if (kv && out && out !== t) { try { await kv.put('tr:' + target + ':' + t, out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
+            if (kv && out && out !== t) { try { await kv.put(cacheKey(t), out, { expirationTtl: 60 * 60 * 24 * 180 }); } catch {} }
           } catch (e: any) { dbg.err = String(e?.message || e); map[t] = t; }
         }
       } else if (need.length) { for (const c of need) map[c] = c; }
