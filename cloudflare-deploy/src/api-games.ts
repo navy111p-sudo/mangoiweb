@@ -12,7 +12,7 @@ import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
 import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(게스트 예외+관리자/토큰)
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
-import { scoreVoiceCoach, scoreTier } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
+import { scoreVoiceCoach, scoreTier, analyzeAcoustic } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
 import type { MangoEnv } from './api-mango';
 
 
@@ -1813,6 +1813,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     const ensureVoiceTable = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, target_text TEXT, transcribed_text TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, ai_feedback TEXT, suggestion TEXT, audio_url TEXT, created_at INTEGER NOT NULL);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_voice_student ON voice_coaching(student_uid, created_at DESC)`); } catch {}
+      // 🎧 (2026-07-30) 음향 채점 보정용 원자료. 임계값(ACOUSTIC_TUNING)이 아직 잠정치라,
+      //   실사용 분포를 봐야 "웅얼거림"의 실제 경계를 정할 수 있다. 점수가 아니라 원값을 남긴다.
+      //   ADD COLUMN 은 기존 행을 건드리지 않는다(추가만). 이미 있으면 예외 → 무시.
+      for (const col of ['avg_logprob REAL', 'no_speech_prob REAL', 'speech_rate REAL', 'max_gap REAL', 'acoustic_used INTEGER']) {
+        try { await env.DB.exec(`ALTER TABLE voice_coaching ADD COLUMN ${col}`); } catch { /* 이미 존재 */ }
+      }
     };
 
     // ── POST /api/voice/tts — 모범 음성 (원어민 TTS: Deepgram Aura-1 / MeloTTS) ──
@@ -2072,6 +2078,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           ? b.acoustic.transcription_info : undefined,
       } : null;
       const sc = scoreVoiceCoach(target, spoken, acousticIn);
+      const ac = analyzeAcoustic(acousticIn);   // 보정용 원자료(점수가 아니라 raw 값)를 함께 남긴다
       const accuracy = sc.accuracy;
       const pronunciation = sc.pronunciation;
       const fluency = sc.fluency;
@@ -2136,9 +2143,18 @@ Respond in JSON ONLY:
 
       // 저장
       const now = Date.now();
-      await env.DB.prepare(
-        `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now).run();
+      // 🎧 음향 원자료도 같이 저장 — ACOUSTIC_TUNING 임계값을 실사용 분포로 보정하기 위한 것.
+      //   옛 컬럼만 있는 DB 에서도 죽지 않게, 실패하면 원래 컬럼만으로 한 번 더 시도한다.
+      try {
+        await env.DB.prepare(
+          `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at, avg_logprob, no_speech_prob, speech_rate, max_gap, acoustic_used) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now,
+               ac.ok ? ac.lp : null, ac.ok ? ac.noSpeech : null, ac.ok ? ac.rate : null, ac.ok ? ac.maxGap : null, sc.acoustic ? 1 : 0).run();
+      } catch {
+        await env.DB.prepare(
+          `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now).run();
+      }
 
       return json({
         ok: true,
