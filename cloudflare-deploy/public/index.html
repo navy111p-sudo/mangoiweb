@@ -9759,9 +9759,25 @@ async function vcOnAppResume(reason) {
     try { await requestWakeLock(); } catch(_) {}
 
     // 1) 로컬 트랙 다시 enable + 상태 확인 (죽은 마이크는 자가치유)
+    /* 🔒 (2026-07-28 강사 피드백) 여기서 예전에는 t.enabled = true 를 '무조건' 했다.
+       그래서 강사 피드백 두 건이 동시에 생겼다:
+         · Kaye 5번 "카메라를 껐는데 다른 탭 갔다 오면 다시 켜진다(버튼은 꺼진 상태)"
+           → 이 함수가 visibilitychange 에서 불려 꺼둔 카메라를 되살렸다. vcCamOn 은 false 그대로라
+             화면의 버튼만 꺼진 것처럼 보였다.
+         · Kaye 10번 "전체 음소거를 눌러도 학생 소리가 들린다"
+           → 학생이 탭을 옮겼다 돌아오면 이 줄이 학생 마이크를 되살려 음소거가 풀렸다.
+       원래 의도는 '브라우저가 백그라운드에서 죽인 트랙을 되살리기' 이므로,
+       사용자가 스스로 끈 상태와 강사의 전체 음소거는 그대로 존중해야 한다.
+       (아래 판정은 vcResumeClassSession 의 기존 가드와 같은 방식) */
     if (vcLocalStream) {
+        var _micLocked = window.__vcMicLockedByTeacher && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin';
+        var _wantCam = (typeof vcCamOn === 'undefined' || vcCamOn === null) ? true : !!vcCamOn;
+        var _wantMic = (typeof vcMicOn === 'undefined' || vcMicOn === null) ? true : !!vcMicOn;
+        if (_micLocked) _wantMic = false;                       // 강사가 전체 음소거를 걸어 둔 상태
         vcLocalStream.getTracks().forEach(t => {
-            t.enabled = true;
+            if (t.kind === 'video') t.enabled = _wantCam;
+            else if (t.kind === 'audio') t.enabled = _wantMic;
+            else t.enabled = true;
             if (t.readyState === 'ended') {
                 console.warn('[app-resume] 트랙 ended 상태:', t.kind, t.kind === 'audio' ? '→ 마이크 자가치유 시도' : '');
             }
