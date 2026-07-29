@@ -10986,17 +10986,26 @@ async function vcJoinRoom(skipUI) {
       try {
         var _ju = (window.getCurrentUser ? window.getCurrentUser() : null);
         var _jrole = (window.vcMyRole || (_ju && _ju.role) || ((typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) ? 'teacher' : 'student'));
-        if (_jrole === 'student') {
-          var _jq = 'role=student';
-          if (_ju && _ju.uid) _jq += '&user_id=' + encodeURIComponent(_ju.uid);
-          if (vcUsername) _jq += '&student_name=' + encodeURIComponent(vcUsername);
-          var _jd = await fetch('/api/class/sessions/today?' + _jq, { credentials: 'include' }).then(function (x) { return x.json(); }).catch(function () { return null; });
-          var _js = _jd && (_jd.current || ((_jd.sessions || []).filter(function (s) { return s.join_open; })[0]));
-          if (_js && _js.room_id && _js.join_open) {
-            vcTypedRoom = _js.room_id;
-            if (roomCodeEl) roomCodeEl.value = vcTypedRoom;
-            console.log('[vc] 빈 방코드 → 오늘 예약 방으로 자동 교정:', vcTypedRoom);
-          }
+        /* 🔒 (2026-07-28 강사 피드백) "내 방에 다른 선생님이 들어온다" (Shas·Kaye/mangoi_162)
+           [원인] 이 자동 교정이 학생일 때만 돌아서, 교사는 방코드가 빈 채로 아래 공용방(mangoi-class)에
+                  들어갔다. 로비는 순간만 보여 방코드를 넣을 방법도 사실상 없다 → 교사 전원이 같은 방에 모임.
+           [해결] 교사·관리자도 같은 방식으로 '오늘 내 예약 방'으로 교정한다.
+                  API 는 role=teacher 를 이미 지원하고(teacher_id 또는 이름 부분일치), 조건은 OR 이라
+                  uid·이름을 함께 보내도 안전하다. */
+        var _isT = (_jrole === 'teacher' || _jrole === 'admin');
+        var _jq = 'role=' + (_isT ? 'teacher' : 'student');
+        if (_ju && _ju.uid) _jq += '&user_id=' + encodeURIComponent(_ju.uid);
+        if (vcUsername) _jq += '&student_name=' + encodeURIComponent(vcUsername);
+        var _jd = await fetch('/api/class/sessions/today?' + _jq, { credentials: 'include' }).then(function (x) { return x.json(); }).catch(function () { return null; });
+        var _js = _jd && (_jd.current || ((_jd.sessions || []).filter(function (s) { return s.join_open; })[0]));
+        if (_js && _js.room_id && _js.join_open) {
+          vcTypedRoom = _js.room_id;
+          if (roomCodeEl) roomCodeEl.value = vcTypedRoom;
+          console.log('[vc] 빈 방코드 → 오늘 예약 방으로 자동 교정:', vcTypedRoom, '(role=' + _jrole + ')');
+        } else if (_isT) {
+          /* 오늘 예약이 없는 교사(연습·시연)는 공용방으로 간다 — 이때는 다른 사람이 들어올 수 있음을
+             분명히 알려 준다. 예약된 실제 수업은 위에서 각자 방으로 갈리므로 겹치지 않는다. */
+          window.__vcSharedRoomNotice = true;
         }
       } catch (e) { /* 조회 실패 시 기존 폴백 유지 */ }
     }
@@ -11092,6 +11101,28 @@ async function vcJoinRoom(skipUI) {
     // 🖥 (2026-07-23) 수업에 들어오면 전체화면 — 설정에서 껐으면 건너뛴다.
     //    브라우저가 사용자 조작 없는 요청을 막으면, 다음 터치 때 한 번 더 시도한다.
     try { window.vcGoFullscreen && window.vcGoFullscreen(); } catch(e){}
+    /* 🔒 (2026-07-28) 오늘 예약이 없어 '공용 연습방'으로 들어온 교사에게만 알린다 —
+       "내 방에 다른 선생님이 들어왔다"(Shas·Kaye)의 실제 이유가 이것이다.
+       ※ 이 블록은 위 전체화면 호출보다 뒤에 둔다 — 하니스가 'vc-in-call 추가 → 전체화면 호출'
+         인접(400자)을 검사하므로, 사이에 코드를 넣으면 그 보장이 깨진다. */
+    try {
+      if (window.__vcSharedRoomNotice) {
+        window.__vcSharedRoomNotice = false;
+        var _en0 = (typeof getLang === 'function' && getLang() === 'en');
+        var _nm = document.getElementById('vc-room-name');
+        if (_nm && _nm.parentNode) {
+          var _tag = document.createElement('span');
+          _tag.textContent = _en0 ? '  (shared practice room - others may join)' : '  (공용 연습방 · 다른 사람도 들어올 수 있어요)';
+          _tag.style.cssText = 'font-size:11.5px;font-weight:700;color:#fbbf24;margin-left:6px';
+          _nm.parentNode.insertBefore(_tag, _nm.nextSibling);
+        }
+        setTimeout(function(){
+          alert(_en0
+            ? 'You have no class booked for today, so you entered the shared practice room.\n\nOther teachers can also enter this room. For a real class, enter from your booked class - then you get your own room.'
+            : '오늘 예약된 수업이 없어 공용 연습방으로 들어왔어요.\n\n이 방에는 다른 선생님도 들어올 수 있습니다.\n실제 수업은 예약된 수업으로 입장하시면 선생님만의 방으로 들어갑니다.');
+        }, 900);
+      }
+    } catch(e){}
     try { if (window.mangoiClassEntryNotice) setTimeout(window.mangoiClassEntryNotice, 600); } catch(e){}
     requestWakeLock(); // 화면 꺼짐 방지 활성화
 
