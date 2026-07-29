@@ -22335,14 +22335,38 @@ window.addEventListener('DOMContentLoaded', () => {
       btn.style.borderColor = 'rgba(16,185,129,.5)';
       btn.style.color = '#a7f3d0';
     } else {
-      ico.textContent = '🔑';
-      lbl.textContent = L?'로그인':'Login';
-      lbl.setAttribute('data-ko','로그인');
-      lbl.setAttribute('data-en','Login');
-      btn.onclick = openLoginModal;
-      btn.style.background = 'rgba(30,41,59,0.85)';
-      btn.style.borderColor = 'rgba(148,163,184,0.35)';
-      btn.style.color = '#e2e8f0';
+      /* 🧑‍🏫 (2026-07-30 강사 피드백 Kaye 17번) "홈을 눌렀더니 갑자기 로그아웃됐다"
+         [원인] 교사·지사·대리점 로그인은 `mangoi_admin_session` 만 저장하고 학생 키
+                (`mangoi_logged_user`)는 만들지 않는다. 그런데 이 홈 화면은 학생 키만 보고
+                로그인 여부를 판단해서, 수업에서 홈을 누르면 '로그인' 버튼으로 되돌아갔다.
+                (실제로 로그아웃된 것은 아니고, 화면이 못 알아본 것)
+         [해결] 관리자·교사 세션이 있으면 이름을 보여 주고, 누르면 내 페이지로 보낸다.
+                🔒 학생 신분(`mangoi_logged_user`)은 만들지 않는다 — 교사 계정으로 학생 전용
+                   기능이 열리면 안 되므로, 표시와 이동만 바로잡는다. */
+      var _as = null;
+      try { _as = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null'); } catch(_) { _as = null; }
+      if (_as && _as.name) {
+        ico.textContent = '🧑‍🏫';
+        lbl.textContent = _as.name;
+        lbl.setAttribute('data-ko', _as.name);
+        lbl.setAttribute('data-en', _as.name);
+        var _r = String(_as.role || '');
+        var _dest = (_r.indexOf('teacher') >= 0 || _r === 'branch' || _r === 'agency') ? '/admin/mypage' : '/admin.html';
+        btn.title = L ? '내 페이지로 이동' : 'Go to my page';
+        btn.onclick = function(){ location.href = _dest; };
+        btn.style.background = 'linear-gradient(135deg,rgba(59,130,246,.18),rgba(37,99,235,.18))';
+        btn.style.borderColor = 'rgba(59,130,246,.5)';
+        btn.style.color = '#bfdbfe';
+      } else {
+        ico.textContent = '🔑';
+        lbl.textContent = L?'로그인':'Login';
+        lbl.setAttribute('data-ko','로그인');
+        lbl.setAttribute('data-en','Login');
+        btn.onclick = openLoginModal;
+        btn.style.background = 'rgba(30,41,59,0.85)';
+        btn.style.borderColor = 'rgba(148,163,184,0.35)';
+        btn.style.color = '#e2e8f0';
+      }
     }
     // 🎁 Phase P3: 포인트 칩 동기화 (로그인 시 표시 + 잔액 fetch)
     if (typeof refreshPointsChip === 'function') refreshPointsChip();
