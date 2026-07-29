@@ -1658,8 +1658,8 @@ ${numbered}`;
       const chatMode = b.mode === 'chat';
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
-      //      trc2: 존댓말 고정 / trc3: "죄송합니다요" 같은 어미 중첩 수정(2026-07-29).
-      const cacheKey = (t: string) => (chatMode ? 'trc3:' : 'tr:') + target + ':' + t;
+      //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).
+      const cacheKey = (t: string) => (chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -1721,6 +1721,14 @@ ${numbered}`;
         out = out.replace(/^(translation|번역)\s*[:：]\s*/i, '').trim();
         if (out.length > 1 && /^["'“”「『]/.test(out) && /["'“”」』]$/.test(out)) out = out.slice(1, -1).trim();
         out = out.split(/\r?\n/)[0].trim();          // 여러 줄로 떠들면 첫 줄만
+        /* 어미 중첩 교정 — 프롬프트로 금지해도 모델이 "죄송합니다요" 를 계속 만든다.
+           존댓말을 시켰더니 이미 존댓말인 -습니다/-습니까 뒤에 요를 한 번 더 붙인다.
+           확률에 맡기지 말고 여기서 확정적으로 떼어낸다. */
+        if (target === 'ko') {
+          out = out.replace(/(습니다|합니다|입니다|ㅂ니다)요(?=[\s.!?,]|$)/g, '$1')
+                   .replace(/(습니까|합니까|입니까|니까)요(?=[\s.!?,]|$)/g, '$1')
+                   .replace(/(이에요|예요|어요|아요|해요|세요)요(?=[\s.!?,]|$)/g, '$1');
+        }
         // 목표 언어가 아니면(그대로 되뇌었거나 엉뚱한 언어) 실패로 본다 → m2m100 으로 넘긴다
         if (!out || out === t) return '';
         if (target === 'ko' && !hasHangul(out)) return '';
