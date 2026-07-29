@@ -87,21 +87,47 @@
   .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;
     width:min(1100px,100%);margin-top:10px}
   @media(max-width:640px){.game-grid{grid-template-columns:1fr 1fr;gap:14px}}
-  .game-card{position:relative;cursor:pointer;border:1px solid rgba(255,255,255,.85);border-radius:18px;
-    padding:30px 22px;text-align:center;color:#0b2a5e;background:rgba(255,255,255,.62);
+  /* 🖼️ 카드 = 실사 사진(4:3) 위 + 글 아래. 이모지 아이콘을 대체했다(2026-07-29).
+     사진은 /img/games/<mode>.webp 720x540, 장당 10~73KB. 첫 화면 밖은 lazy 로 받는다. */
+  .game-card{position:relative;cursor:pointer;border:1px solid rgba(255,255,255,.85);border-radius:20px;
+    text-align:left;color:#0b2a5e;background:rgba(255,255,255,.72);
     box-shadow:0 6px 18px rgba(20,60,120,.18);
-    transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;overflow:hidden;
-    display:flex;flex-direction:column;align-items:center;gap:12px;min-height:250px;justify-content:center}
-  .game-card::before{content:'';position:absolute;inset:0;background:var(--cardbg);opacity:.14;pointer-events:none}
-  .game-card:hover{transform:translateY(-4px) scale(1.02);border-color:var(--gold);
-    box-shadow:0 12px 30px rgba(20,60,120,.32)}
-  .game-card:active{transform:scale(.98)}
-  .game-card .ico{font-size:66px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,.45));position:relative}
-  .game-card .ttl{font-size:30px;font-weight:800;position:relative}
-  .game-card .dsc{font-size:22px;color:#2c4d7d;line-height:1.45;position:relative;font-weight:600}
-  .game-card .badge{position:absolute;top:12px;right:12px;font-size:15px;font-weight:900;letter-spacing:.2px;
-    padding:5px 13px;border-radius:999px;background:#0e9f6e;color:#fff;border:1px solid rgba(255,255,255,.55);
-    box-shadow:0 2px 7px rgba(6,80,58,.45);text-shadow:0 1px 2px rgba(0,0,0,.4)}
+    transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;overflow:hidden;
+    display:flex;flex-direction:column;min-height:250px}
+  .game-card .phwrap{position:relative;overflow:hidden;background:var(--cardbg);flex-shrink:0}
+  /* ⚠️ height:auto 필수 — <img height="540"> 속성이 aspect-ratio 를 이겨서 사진이 540px 로 늘어난다.
+     width/height 속성 자체는 로딩 중 자리를 잡아 화면이 튀지 않게 하므로 그대로 둔다. */
+  .game-card .ph{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;
+    transition:transform .4s ease}
+  /* 사진 윗단만 살짝 어둡게 — 배지(연두색)가 밝은 하늘·흰 배경 위에서도 뜨게 한다.
+     아래쪽은 덮지 않는다. 흰 그라데이션을 깔면 실사 사진이 뿌예져서 뺐다. */
+  .game-card .phwrap::after{content:'';position:absolute;left:0;right:0;top:0;height:34%;
+    pointer-events:none;background:linear-gradient(to bottom,rgba(8,24,52,.34),rgba(8,24,52,0))}
+  /* 게임별 색(--cardbg)은 사진 밑 가는 띠로만 남긴다 — 사진 위에 덮으면 실사감이 죽는다 */
+  .game-card .accent{height:4px;background:var(--cardbg);flex-shrink:0}
+  /* 사진 로드 실패 시 되돌아가는 옛 이모지 아이콘 */
+  .game-card .icofb{display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;
+    font-size:64px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,.35))}
+  .game-card .body{padding:13px 18px 18px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .game-card:hover{transform:translateY(-5px);border-color:var(--gold);
+    box-shadow:0 14px 34px rgba(20,60,120,.34)}
+  .game-card:hover .ph{transform:scale(1.06)}
+  .game-card:active{transform:scale(.985)}
+  .game-card .ttl{font-size:25px;font-weight:800;line-height:1.25;letter-spacing:-.2px}
+  .game-card .dsc{font-size:17px;color:#2c4d7d;line-height:1.5;font-weight:600}
+  .game-card .badge{position:absolute;top:11px;right:11px;z-index:2;font-size:14px;font-weight:900;letter-spacing:.2px;
+    padding:5px 12px;border-radius:999px;background:rgba(14,159,110,.94);color:#fff;border:1px solid rgba(255,255,255,.6);
+    box-shadow:0 2px 9px rgba(6,80,58,.5);text-shadow:0 1px 2px rgba(0,0,0,.4);backdrop-filter:blur(3px)}
+  @media(max-width:640px){
+    .game-card{min-height:0;border-radius:16px}
+    .game-card .body{padding:10px 12px 14px;gap:4px}
+    .game-card .ttl{font-size:18px}
+    .game-card .dsc{font-size:13.5px;line-height:1.45}
+    .game-card .badge{font-size:11px;padding:3px 9px;top:8px;right:8px}
+  }
+  /* 저전력·애니메이션 최소화 설정에서는 확대 효과를 끈다 */
+  @media(prefers-reduced-motion:reduce){.game-card,.game-card .ph{transition:none}
+    .game-card:hover{transform:none}.game-card:hover .ph{transform:none}}
 
   /* ===== 게임 화면 ===== */
   #hub-game{display:none;flex:1;flex-direction:column;min-height:100dvh}
@@ -1499,12 +1525,24 @@ function _gameTitle(g){ if(g.mode==='shooter') return (GAME_LANG==='zh') ? '중�
 function hubRenderMenu(){
   // 3D 배틀은 영어/중국어 모두 지원(glang 전달) — 전체 노출
   var list = HUB_GAMES.slice();
-  document.getElementById('game-grid').innerHTML = list.map(function(g){
+  document.getElementById('game-grid').innerHTML = list.map(function(g,i){
+    // 🖼️ 카드 사진: 파일명은 mode 와 같다(/img/games/<mode>.webp).
+    //    첫 6장은 바로 보이는 자리라 eager, 나머지는 lazy — 29,000명이 쓰는 화면이라 전송량을 아낀다.
+    var eager = i < 6;
     return '<div class="game-card" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
-      + '<span class="badge">'+g.badge+'</span>'
-      + '<span class="ico">'+g.ico+'</span>'
-      + '<span class="ttl">'+_gameTitle(g)+'</span>'
-      + '<span class="dsc">'+g.dsc+'</span>'
+      + '<div class="phwrap">'
+      +   '<span class="badge">'+g.badge+'</span>'
+      +   '<img class="ph" src="/img/games/'+g.mode+'.webp" alt="" width="720" height="540"'
+      +     ' loading="'+(eager?'eager':'lazy')+'" decoding="async"'
+      +     (eager?' fetchpriority="high"':'')
+      // 사진을 못 받으면 카드가 텅 비지 않게 원래 이모지로 되돌린다
+      +     ' onerror="this.style.display=\'none\';this.parentNode.insertAdjacentHTML(\'beforeend\',\'<span class=\\\'icofb\\\'>'+g.ico+'</span>\')">'
+      + '</div>'
+      + '<div class="accent"></div>'
+      + '<div class="body">'
+      +   '<span class="ttl">'+_gameTitle(g)+'</span>'
+      +   '<span class="dsc">'+g.dsc+'</span>'
+      + '</div>'
       + '</div>';
   }).join('');
 }
@@ -2441,7 +2479,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260729145925 -->
+<!-- BUILD:20260729174744 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
