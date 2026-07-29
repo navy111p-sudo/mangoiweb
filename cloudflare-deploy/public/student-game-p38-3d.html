@@ -99,10 +99,21 @@
     background-repeat:no-repeat}
   #sentWrap::before{left:4px} #sentWrap::after{right:4px}
 
-  /* 한국어 뜻 = 판에 붙인 지시 라벨 */
-  #sentKo{display:inline-block;font-size:12.5px;font-weight:800;color:#e8dfbd;margin-bottom:5px;
+  /* 한국어 뜻 = 판에 붙인 지시 라벨 · 그 옆에 '다른 문장' 스위치 */
+  #sentTop{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:5px}
+  #sentKo{display:inline-block;font-size:12.5px;font-weight:800;color:#e8dfbd;
     letter-spacing:.2px;text-shadow:0 1px 2px rgba(0,0,0,.8)}
   #sentKo:empty{display:none}
+  /* ⚠️ #sentWrap 이 pointer-events:none 이라 버튼에서 되살려야 눌린다 */
+  #btnSkipSent{pointer-events:auto;cursor:pointer;flex:none;
+    font-size:11px;font-weight:800;letter-spacing:.2px;white-space:nowrap;
+    padding:6px 11px 7px;border-radius:4px;   /* 폰에서 손가락으로 눌러야 하므로 너무 얇게 두지 않는다 */
+    background:linear-gradient(180deg,#232a1c,#171c12);
+    border:1px solid #59634a;color:#c8d3ba;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 1px 3px rgba(0,0,0,.5)}
+  #btnSkipSent:hover{background:linear-gradient(180deg,#2e3724,#1e2417);color:#e8f0dc;border-color:#7d8a68}
+  #btnSkipSent:active{transform:translateY(1px)}
+  #btnSkipSent:disabled{opacity:.4;cursor:default}
   #sentEn{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
 
   /* 낱말 슬롯 = 판에 파 넣은 홈. 각진 모양이 군용 장비 느낌 */
@@ -379,7 +390,10 @@
 
   <!-- 문장 바 -->
   <div id="sentWrap">
-    <div id="sentKo"></div>
+    <div id="sentTop">
+      <div id="sentKo"></div>
+      <button id="btnSkipSent" title="이 문장 말고 다른 문장으로 (T)">⟳ 다른 문장</button>
+    </div>
     <div id="sentEn"></div>
   </div>
 
@@ -541,8 +555,8 @@
       <!-- 조종 방법 — 왼손(발사) / 오른손(조종) 을 색으로 갈라 한눈에 보이게 -->
       <div class="howto">
         <h2>🎮 조종 방법 <small>HOW TO FLY</small></h2>
-        <svg viewBox="0 0 500 208" role="img"
-             aria-label="왼손은 스페이스·Ctrl·Shift 로 발사, 오른손은 화살표 키로 조종, 마우스 왼쪽 버튼은 가속, 오른쪽 버튼은 후진">
+        <svg viewBox="0 0 500 236" role="img"
+             aria-label="왼손은 스페이스·Ctrl·Shift 로 발사, 오른손은 화살표 키로 조종, 마우스 왼쪽 버튼은 가속, 오른쪽 버튼은 후진, T 키는 다른 문장으로 바꾸기">
           <defs>
             <linearGradient id="hkKey" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stop-color="#2b3d50"/><stop offset="1" stop-color="#1b2836"/>
@@ -611,6 +625,9 @@
               <text x="164" y="188">낮/밤</text>
               <text x="262" y="188">일시정지</text>
             </g>
+            <rect x="30" y="202" width="30" height="26" rx="6" fill="url(#hkKey)" stroke="#5b7791" stroke-width="2"/>
+            <text x="45" y="220" fill="#cfe0f0" font-size="13" font-weight="800">T</text>
+            <text x="66" y="220" fill="#93a9be" font-size="11.5" font-weight="700" text-anchor="start">문장이 마음에 안 들면 다른 문장으로</text>
           </g>
         </svg>
         <p class="note">
@@ -1744,6 +1761,20 @@ function loadSentence(first){
   radio('새 임무 · NEW MISSION', full, true);
   speak(full, P().rate, first?2:1, function(){ callTarget(); });
 }
+/* 문장 넘기기 — 마음에 안 드는 문장은 다른 문장으로 바꾼다. 사장님 지시.
+   🔑 **벌점을 두지 않는다.** 학습이 목적이라 '내가 해볼 만한 문장'으로 갈아타는 걸 막을 이유가 없다.
+      게다가 넘기는 동안 연료(시간)는 계속 줄기 때문에 남용하면 저절로 손해다 — 인공 페널티가 필요 없다.
+   ⚠️ 무전 교신(발화)·에이스 결투 중에는 막는다. 그 흐름 중간에 문장을 갈면 상태가 꼬인다.
+   ⚠️ 이전 문장 음성을 stopSpeak 로 끊어야 새 문장과 겹쳐 들리지 않는다.
+      (적기 정리는 loadSentence → refreshTargets 가 이미 한다) */
+function skipSentence(){
+  if(!G || !G.running || paused || G.speaking || G.aceMode) return;
+  ac();
+  G.skips=(G.skips||0)+1;
+  stopSpeak();
+  banner('⟳ 다른 문장으로', '#7fd1ff');
+  loadSentence(false);
+}
 /* 관제 무전 — 목표 단어를 불러준다. 실전/에이스는 화면에 안 띄우므로 이게 유일한 단서 = 순수 청해 */
 function callTarget(){
   if(!G || !G.running || G.speaking) return;
@@ -2057,6 +2088,7 @@ var input={ mx:0, my:0, ax:0, ay:0, active:false, keys:{} };
     if(e.code==='KeyP'){ togglePause(); }
     if(e.code==='KeyR'){ callTarget(); }
     if(e.code==='KeyN'){ setTimeOfDay(TOD==='night'?'day':'night'); }   // 주/야간 즉시 전환
+    if(e.code==='KeyT'){ skipSentence(); }        // ⚠️ W/A/S/D 는 조종 대체키, R·N·P 는 이미 사용 중
   });
   window.addEventListener('keyup', function(e){
     input.keys[e.code]=false;
@@ -2379,6 +2411,9 @@ function setNeedle(id, deg){
 }
 var _altPrev=null, _vsi=0, _ticksBuilt=false;
 function updateHUDFast(){
+  // '다른 문장' 은 쓸 수 없는 상황(발화·에이스 결투·일시정지)에선 흐리게 — 눌러도 안 되는 버튼은 고장으로 보인다
+  var _sk=document.getElementById('btnSkipSent');
+  if(_sk) _sk.disabled = !(G && G.running && !paused && !G.speaking && !G.aceMode);
   if(!_ticksBuilt){
     _ticksBuilt=true;
     buildTicks('tkSpd', 10, 2, -140, 140);
@@ -2718,6 +2753,7 @@ function togglePause(){
     document.getElementById('ovHelp').classList.add('hide');
     if(G && G.running && paused && !_helpWasPaused) togglePause();
   }
+  document.getElementById('btnSkipSent').addEventListener('click', function(e){ e.preventDefault(); skipSentence(); });
   document.getElementById('btnHelp').addEventListener('click', openHelp);
   document.getElementById('btnHelpClose').addEventListener('click', closeHelp);
   document.getElementById('btnRepeat').addEventListener('click', function(){
