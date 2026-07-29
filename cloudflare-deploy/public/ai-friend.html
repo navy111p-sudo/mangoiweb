@@ -79,6 +79,21 @@
     .quest .q-prog { color: var(--gold); }
     .quest.done .q-prog { color: #6ee7b7; }
 
+    /* 🗺 지금 이야기 중인 주제 — 고른 주제가 대화 내내 보이고 유지된다 (2026-07-29 학생 제보) */
+    /* 대화창이 좁은 폰에서 한 줄을 더 뺏지 않도록 최대한 얇게 (모바일 실측 26px) */
+    .topicbar { display: flex; gap: 7px; align-items: center; padding: 3px 14px 4px;
+      background: rgba(10,21,48,0.55); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .tb-label { font-size: 10.5px; color: var(--text2); font-weight: 800; white-space: nowrap; flex-shrink: 0; }
+    .tb-name { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px;
+      font-size: 11.5px; font-weight: 900; white-space: nowrap; color: #fde68a;
+      overflow: hidden; text-overflow: ellipsis; min-width: 0;
+      background: linear-gradient(135deg, rgba(251,191,36,0.22), rgba(245,158,11,0.10));
+      border: 1px solid rgba(251,191,36,0.55); }
+    .tb-change { margin-left: auto; padding: 2px 10px; border-radius: 999px; cursor: pointer;
+      font-size: 10.5px; font-weight: 800; white-space: nowrap; flex-shrink: 0; color: var(--text2);
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
+    .tb-change:hover { color: var(--text); border-color: rgba(251,191,36,0.5); }
+
     .chat { flex: 1; overflow-y: auto; padding: 18px 14px;
       display: flex; flex-direction: column; gap: 10px; }
     .msg { max-width: 78%; padding: 10px 14px; border-radius: 16px;
@@ -259,6 +274,13 @@
     <span class="quest" id="qTalk">💬 <span data-ko="영어 수다 5번" data-en="Chat 5 times">영어 수다 5번</span> <span class="q-prog" id="qTalkN">0/5</span></span>
     <span class="quest" id="qWord">✨ <span data-ko="오늘의 단어 쓰기" data-en="Use today's word">오늘의 단어 쓰기</span> <span class="q-prog">+5P</span></span>
     <span class="quest" id="qVoice">🎤 <span data-ko="목소리로 말하기" data-en="Speak out loud">목소리로 말하기</span> <span class="q-prog">+1P</span></span>
+  </div>
+
+  <!-- 🗺 지금 이야기 중인 주제 (주제를 고른 뒤에만 보임) -->
+  <div class="topicbar" id="topicBar" style="display:none">
+    <span class="tb-label">🗺 <span data-ko="지금 주제" data-en="Topic">지금 주제</span>:</span>
+    <span class="tb-name" id="topicName">—</span>
+    <button type="button" class="tb-change" onclick="showTopicPicker()" data-ko="주제 바꾸기" data-en="Change topic">주제 바꾸기</button>
   </div>
 
   <!-- 👩‍🏫 강사 아바타 — 얼굴 보며 대화 (2026-07-25). 초록 영상을 캔버스에서 실시간 크로마키 → 투명 -->
@@ -732,17 +754,63 @@
       if (t) t.remove();
     }
 
-    /* ══ 🗺 주제 모험 카드 — 누르면 영어 스타터 문장을 대신 보내줌 ══ */
+    /* ══ 🗺 주제 모험 카드 — 누르면 영어 스타터 문장을 대신 보내줌 ══
+       ⚠️ (2026-07-29 학생 제보) "영화 주제로 들어왔는데 처음엔 동물 얘기를 물어보더라고요".
+       예전엔 카드가 영어 문장 한 줄을 대신 보내주는 게 전부라, 그 다음 턴부터는 AI 가
+       주제를 붙잡아 둘 근거가 하나도 없었다. 이제 고른 주제를 기억해(id) 매 요청에 함께
+       보내고, 화면 위에도 계속 띄운다. */
     const TOPICS = [
-      { e: '🍕', ko: '음식 이야기', en: 'Food', msg: "Let's talk about food! What's your favorite food, Mango?" },
-      { e: '🐾', ko: '동물 친구들', en: 'Animals', msg: 'I want to talk about animals! Do you have a favorite animal?' },
-      { e: '🚀', ko: '우주 탐험', en: 'Space', msg: "Let's talk about space! Tell me something cool about space." },
-      { e: '🦖', ko: '공룡 시대', en: 'Dinosaurs', msg: 'Dinosaurs are so cool! Which dinosaur do you like?' },
-      { e: '🎮', ko: '게임 이야기', en: 'Games', msg: "Let's talk about games! What games do you know?" },
-      { e: '🏫', ko: '학교 생활', en: 'School', msg: 'Can I tell you about my school day?' },
-      { e: '⚽', ko: '스포츠', en: 'Sports', msg: "Let's talk about sports! Do you like soccer?" },
-      { e: '🎬', ko: '영화·만화', en: 'Movies', msg: "Let's talk about movies and cartoons! What's fun to watch?" },
+      { e: '🍕', ko: '음식 이야기', en: 'Food', id: 'food', msg: "Let's talk about food! What's your favorite food, Mango?" },
+      { e: '🐾', ko: '동물 친구들', en: 'Animals', id: 'animals', msg: 'I want to talk about animals! Do you have a favorite animal?' },
+      { e: '🚀', ko: '우주 탐험', en: 'Space', id: 'space', msg: "Let's talk about space! Tell me something cool about space." },
+      { e: '🦖', ko: '공룡 시대', en: 'Dinosaurs', id: 'dinosaurs', msg: 'Dinosaurs are so cool! Which dinosaur do you like?' },
+      { e: '🎮', ko: '게임 이야기', en: 'Games', id: 'video games', msg: "Let's talk about games! What games do you know?" },
+      { e: '🏫', ko: '학교 생활', en: 'School', id: 'school life', msg: 'Can I tell you about my school day?' },
+      { e: '⚽', ko: '스포츠', en: 'Sports', id: 'sports', msg: "Let's talk about sports! Do you like soccer?" },
+      { e: '🎬', ko: '영화·만화', en: 'Movies', id: 'movies and cartoons', msg: "Let's talk about movies and cartoons! What's fun to watch?" },
     ];
+    /* 🗺 지금 이야기 중인 주제 — 새로고침해도 이어지게 localStorage 에 보관 */
+    let currentTopic = (function () {
+      try {
+        const id = localStorage.getItem('mangoi_aifriend_topic');
+        return TOPICS.find(t => t.id === id) || null;
+      } catch (e) { return null; }
+    })();
+    function renderTopicBar() {
+      const bar = document.getElementById('topicBar');
+      if (!bar) return;
+      if (!currentTopic) { bar.style.display = 'none'; return; }
+      bar.style.display = 'flex';
+      const nm = document.getElementById('topicName');
+      if (nm) nm.textContent = currentTopic.e + ' ' + (isEn() ? currentTopic.en : currentTopic.ko);
+    }
+    function setTopic(t) {
+      currentTopic = t || null;
+      try {
+        if (currentTopic) localStorage.setItem('mangoi_aifriend_topic', currentTopic.id);
+        else localStorage.removeItem('mangoi_aifriend_topic');
+      } catch (e) {}
+      renderTopicBar();
+    }
+    /* 🗺 대화 도중 주제를 바꾸고 싶을 때 — 카드를 대화 맨 아래에 다시 띄운다(기록은 안 지움) */
+    function showTopicPicker() {
+      const chat = document.getElementById('chat');
+      if (!chat) return;
+      const old = document.getElementById('topicPicker');
+      if (old) old.remove();
+      const en = isEn();
+      const box = document.createElement('div');
+      box.id = 'topicPicker';
+      box.style.cssText = 'margin:10px 0 4px';
+      box.innerHTML = '<p style="color:var(--text2);font-size:12px;font-weight:800;margin:0 0 8px;text-align:center">'
+        + (en ? 'Pick a new topic:' : '새 주제를 골라볼까요?') + '</p>'
+        + '<div class="topics">' + TOPICS.map((t, i) =>
+            '<div class="topic-card" onclick="topicSend(' + i + ')"><span class="t-emoji">' + t.e
+            + '</span><span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>').join('')
+        + '</div>';
+      chat.appendChild(box);
+      chat.scrollTop = chat.scrollHeight;
+    }
     function renderEmpty() {
       const chat = document.getElementById('chat');
       const en = isEn();
@@ -763,7 +831,11 @@
     }
     function topicSend(i) {
       const t = TOPICS[i];
-      if (t) quickSend(t.msg);
+      if (!t) return;
+      setTopic(t);                                   // 🗺 고른 주제를 대화 내내 유지
+      const p = document.getElementById('topicPicker');
+      if (p) p.remove();
+      quickSend(t.msg);
     }
     async function sendMsg(e) {
       if (e) e.preventDefault();
@@ -787,7 +859,8 @@
       try {
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
-          body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona, via: wasVoice ? 'voice' : 'text' })
+          body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
+                                 topic: currentTopic ? currentTopic.id : '', via: wasVoice ? 'voice' : 'text' })
         });
         let d;
         try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
@@ -842,6 +915,7 @@
         }
       } catch(e){ renderEmpty(); }
       updateHUD();
+      renderTopicBar();                              // 🗺 새로고침해도 고른 주제가 그대로 보이게
     }
     async function clearChat() {
       if (!confirm(isEn() ? 'Clear all messages?' : '대화 내용을 모두 지울까요?')) return;
@@ -850,11 +924,13 @@
         try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) }); } catch(e){}
       }
       document.getElementById('chat').innerHTML = '';
+      setTopic(null);                                // 🗺 대화를 지우면 주제도 처음부터
       renderEmpty();
     }
     // 언어 전환 시 HUD·빈 상태 다시 그림 (mango-i18n.js 가 mangoi:lang-changed 이벤트 발행)
     window.addEventListener('mangoi:lang-changed', () => {
       updateHUD();
+      renderTopicBar();
       if (document.querySelector('.empty-state')) renderEmpty();
     });
     loadHistory();
@@ -894,6 +970,9 @@
 .hud-wod .wod-ko{font-size:12px}
 .q-label{font-size:12px}
 .quest{font-size:12.5px}
+.tb-label{font-size:12px}
+.tb-name{font-size:13px}
+.tb-change{font-size:12px}
 .top .name{font-size:16px}
 .top .status{font-size:12px}
 .top .clear-btn{font-size:12px}
@@ -923,6 +1002,10 @@
   .quests{padding:8px 18px 10px;gap:8px}
   .q-label{font-size:16px}
   .quest{font-size:16px;padding:7px 15px}
+  .topicbar{padding:6px 18px 7px;gap:10px}
+  .tb-label{font-size:16px}
+  .tb-name{font-size:17px;padding:6px 15px}
+  .tb-change{font-size:15px;padding:6px 14px}
   .chat{padding:24px 20px;gap:15px}
   .msg{font-size:28px;line-height:1.55;max-width:74%;padding:14px 20px;border-radius:22px}
   .tip-chip{font-size:19px;padding:11px 15px}

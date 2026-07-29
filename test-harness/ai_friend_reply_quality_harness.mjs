@@ -38,12 +38,13 @@ if (s < 0 || e < 0) {
 // 타입 표기만 걷어내고(런타임 동작은 그대로) 실행한다
 const code = ts.slice(s, e)
   .replace(/\(s: string\)/g, '(s)')
-  .replace(/\(text: string, hist: any\[\]\)/g, '(text, hist)');
+  .replace(/\(text: string, hist: any\[\]\)/g, '(text, hist)')
+  .replace(/\(hist: any\[\]\)/g, '(hist)');
 
 const sandbox = { console };
 vm.createContext(sandbox);
-vm.runInContext(code + '\n;globalThis.__f = { aiFriendIsRepeat, aiFriendLooksCut, aiFriendIsMetaAsk, aiFriendStripHanzi };', sandbox);
-const { aiFriendIsRepeat, aiFriendLooksCut, aiFriendIsMetaAsk, aiFriendStripHanzi } = sandbox.__f;
+vm.runInContext(code + '\n;globalThis.__f = { aiFriendIsRepeat, aiFriendLooksCut, aiFriendIsMetaAsk, aiFriendStripHanzi, aiFriendJustAskedAgain };', sandbox);
+const { aiFriendIsRepeat, aiFriendLooksCut, aiFriendIsMetaAsk, aiFriendStripHanzi, aiFriendJustAskedAgain } = sandbox.__f;
 
 /* ══ 1. 지난 답을 그대로 다시 하는가 판정 ══ */
 console.log('\n▶ 직전 답변 반복 감지 (제보 ①)');
@@ -72,6 +73,43 @@ check('"I like blue cars" → 정상 문장', aiFriendLooksCut('I like blue cars
 check('"Tell me a fun fact" → 정상 문장', aiFriendLooksCut('Tell me a fun fact') === false);
 check('빈 문자열은 조각 아님(별도 처리)', aiFriendLooksCut('') === false);
 
+/* ⚠️ 2026-07-29 학생 제보 (화면녹화 증거) — "또박또박 말하는데 계속 다시 말하래요".
+   Whisper 는 아래 두 문장을 **완벽하게** 받아적었는데도 옛 판정이 '잘림'으로 찍어
+   네 턴 내리 "Can you say the whole sentence again?" 만 나왔다. 오인식이 아니라
+   판정이 진범이었다. 아래가 다시 true 가 되면 그 사고가 그대로 재현된다. */
+console.log('\n▶ 되묻기 오탐 (2026-07-29 제보 — 영상에 찍힌 실제 발화)');
+check('"…but I don\'t do it." → 정상(꼬리 it)',
+      aiFriendLooksCut("I like watching movies, but I don't do it.") === false);
+check('"What about you?" → 정상(꼬리 you)',
+      aiFriendLooksCut('I like watching movies. What about you?') === false);
+check('문장부호 없어도 정상(꼬리 it)',
+      aiFriendLooksCut("I like watching movies but I don't do it") === false);
+check('"What about you" → 정상(부호 없음)', aiFriendLooksCut('What about you') === false);
+check('"Yes." → 정상(짧아도 완결)', aiFriendLooksCut('Yes.') === false);
+check('"Movies!" → 정상(한 단어 대답)', aiFriendLooksCut('Movies!') === false);
+check('"I like it." → 정상', aiFriendLooksCut('I like it.') === false);
+check('"Yes, I can." → 정상', aiFriendLooksCut('Yes, I can.') === false);
+check('"Me too" → 정상', aiFriendLooksCut('Me too') === false);
+check('"Yes I can" → 정상(부호 없는 짧은 대답)', aiFriendLooksCut('Yes I can') === false);
+check('"I am" → 여전히 조각', aiFriendLooksCut('I am') === true);
+check('"and my" → 여전히 조각', aiFriendLooksCut('and my') === true);
+
+/* 되묻기는 두 번 연속으로 나오면 안 된다 — 영상에서 네 턴 내리 나와 아이가 포기했다 */
+console.log('\n▶ 연속 되묻기 차단');
+check('직전 답이 되묻기였으면 감지',
+      aiFriendJustAskedAgain([{ role: 'assistant', content: 'Ooh, I only caught a little bit 🙂, can you say the whole sentence again?' }]) === true);
+check('한국어 되묻기도 감지',
+      aiFriendJustAskedAgain([{ role: 'assistant', content: '다시 말해줄래요?' }]) === true);
+check('평범한 답변은 오탐 없음',
+      aiFriendJustAskedAgain([{ role: 'assistant', content: 'Nice sentence! Which movie do you like best? 🎬' }]) === false);
+check('히스토리가 비면 false', aiFriendJustAskedAgain([]) === false);
+check('가장 마지막 AI 발화만 본다',
+      aiFriendJustAskedAgain([
+        { role: 'assistant', content: 'Can you say the whole sentence again?' },
+        { role: 'user', content: 'I like movies' },
+        { role: 'assistant', content: 'Cool! Which one? 🎬' },
+      ]) === false);
+
 /* ══ 3. "천천히 말해줘" 같은 부탁인가 판정 ══ */
 console.log('\n▶ 속도·되묻기 요청 감지 (제보 ②)');
 check('"천천히 말해줘"', aiFriendIsMetaAsk('천천히 말해줘') === true);
@@ -91,8 +129,15 @@ check('잘린 발화·속도 요청 힌트를 모델에 전달', /cutHint/.test(
 check('DB 에는 원문 msg 만 저장(힌트 섞이지 않음)',
       /VALUES \(\?,\?,\?,\?,\?\)`\)\.bind\(uid, 'user', msg, level, now\)/.test(ts));
 check('프롬프트에 반복 금지 규칙', /NEVER repeat a reply you already gave/.test(ts));
-check('프롬프트에 잘린 발화 되묻기 규칙', /looks cut off/.test(ts));
+check('프롬프트에 "짧은 답도 좋은 답" 규칙', /A short answer is a GOOD answer/.test(ts));
 check('프롬프트에 속도 요청 응대 규칙', /asks you to slow down/.test(ts));
+// 2026-07-29 제보 — 되묻기가 연달아 나오면 학생이 포기한다
+check('두 번 연속 되묻기 금지 배선', /aiFriendJustAskedAgain\(history\)/.test(ts));
+check('프롬프트에도 연속 되묻기 금지', /NEVER ask twice in a row/.test(ts));
+// 2026-07-29 제보 — "영화 주제로 들어왔는데 동물 얘기를 물어봤어요"
+check('주제(topic)를 요청에서 받는다', /b\.topic/.test(ts));
+check('주제를 시스템 프롬프트에 고정', /Stay on THIS topic for the whole chat/.test(ts));
+check('재미난 사실 예시에서 animals 고정 제거', !/fun facts kids enjoy \(animals/.test(ts));
 
 /* ══ 5. 한자 섞임 정리 (2026-07-27 사장님 신고 "한국말 팁에 중국어") ══ */
 console.log('\n▶ 한자(중국어) 섞임 정리');
