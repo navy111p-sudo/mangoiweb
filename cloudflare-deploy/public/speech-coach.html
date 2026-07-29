@@ -894,7 +894,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260729135601 -->
+<!-- BUILD:20260729145925 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
@@ -973,6 +973,22 @@ if (typeof window.speechSynthesis !== 'undefined') {
       a.href = url.toString();
     } catch(e){}
   }, true);
+
+  /* 연습 앱에서 ← 로 돌아온 경우(#from-practice)에는 이 화면의 ← 가 '홈페이지'로 가게 한다.
+     그러지 않으면 back-nav.js 의 history.back() 이 방금 떠나온 연습 앱으로 되돌아가
+     두 화면을 왔다갔다 한다. 사장님 요구: ← 한 번=발음 연습, 또 누르면=홈페이지. */
+  (function(){
+    if (location.hash !== '#from-practice') return;
+    var tries = 0;
+    var t = setInterval(function(){
+      var b = document.getElementById('mangoi-back-btn');
+      if (b) {
+        clearInterval(t);
+        b.title = '홈페이지로';
+        b.onclick = function(ev){ if (ev) ev.preventDefault(); location.replace('/'); };
+      } else if (++tries > 40) { clearInterval(t); }
+    }, 100);
+  })();
 
   /* 연습 앱이 토큰을 요청하면 — 그 출처가 연습 앱일 때만 — 건네준다 */
   window.addEventListener('message', function(ev){
