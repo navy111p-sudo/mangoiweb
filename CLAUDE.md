@@ -10,7 +10,10 @@
 ## 0. 가장 먼저 알아야 할 것
 
 - **실서비스는 `cloudflare-deploy/` 폴더 하나.** 나머지는 보조·실험·레거시입니다.
-- 운영 주소: **mango-i.com** → Cloudflare Worker `webrtc-unified-platform-prod`
+- 운영 주소: **`https://test.mangoi.co.kr`** → Cloudflare Worker `webrtc-unified-platform-prod`
+  - ⚠️ **`mango-i.com` 은 존재하지 않는 도메인입니다.** 공개 DNS 조회 결과 **NXDOMAIN**(2026-07-29 재확인).
+    이 문서에 오랫동안 운영 주소로 적혀 있었지만, 그 주소로는 배포 검증이 **무조건 실패**합니다.
+  - `mangoi.co.kr` 은 **옛 LMS(PHP)** 로 별개 서버입니다. Cloudflare Worker 가 아닙니다. 혼동하지 마세요.
 - `modules/`, `public/`, `server.js` 는 **레거시**. 운영에 안 씁니다. 수정도 삭제도 하지 마세요.
 - **실제 학생 29,000명이 쓰는 라이브 서비스입니다.** 실험은 실서비스에서 하지 않습니다.
 
@@ -61,7 +64,9 @@
 |---|---|
 | wrangler 명령 | wrangler 4에는 `r2 put`, `kv` 에 **`--remote` 옵션이 없습니다** |
 | `deploy.ps1` 위치 | **리포 루트**입니다. `cloudflare-deploy/` 안이 아닙니다 |
-| 배포 후 curl 검증 | CDN에 구버전이 남아 있을 수 있습니다. `curl --compressed` + 캐시 우회로 확인 |
+| 배포 후 curl 검증 | 주소는 **`https://test.mangoi.co.kr`**. `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
+| 셸에서 배포 검증 | bash `curl` 은 이 환경에서 DNS 를 자주 못 잡습니다. **PowerShell `Invoke-WebRequest`** 로 확인하세요 |
+| 배포 스탬프 읽기 | HTML 안에 `BUILD:` 문자열이 **여러 개** 있는 파일이 있습니다(예: `student-games.html` 은 앞쪽에 `<!-- BUILD:20260702 gamesbig1 ... -->` 고정 주석이 따로 있음). 정규식으로 **첫 매치**를 잡으면 배포됐는데도 "안 됨" 으로 오진합니다. **맨 마지막 매치**가 배포 스탬프입니다 |
 | D1 쿼리 | 파라미터 **100개 제한**. `IN` 절은 90개 이하로 잘라서 실행 |
 | `wrangler.toml` 값 수정 | `[vars]` 와 `[env.production.vars]` 에 **같은 값이 한 벌 더** 있습니다. 둘 다 고쳐야 함 |
 | 언어 설정 키 | 공통 키는 `mangoi_lang` 입니다. `mango_lang` 은 구버전 키 |
