@@ -318,6 +318,64 @@
     tosspayments_client_key: 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq', // 토스페이먼츠 공식 테스트 클라이언트키 (실전 전환 시 live_ck_ 로 교체)
   };
 
+  /* ━━━━━━━━━━ 🔴 (2026-07-29) 송금 목적지 안전장치 ━━━━━━━━━━
+     위 PAY_INFO 의 계좌·송금코드·토스ID 는 전부 '개발용 자리표시자'인 채로 실서비스에 노출되고 있었다.
+     학부모가 이 값으로 송금하면 반송되거나 엉뚱한 사람에게 간다. 그래서 아래처럼 처리한다.
+
+       · 자리표시자 그대로면  → 계좌/링크를 감추고 '카카오 상담' 안내 패널을 대신 보여준다.
+       · 실제 값으로 바꾸면   → 아무 것도 안 해도 자동으로 원래 화면이 돌아온다.
+
+     ▶ 실제 값을 넣는 방법: 위 PAY_INFO 의 해당 값을 바꾸기만 하면 된다. 이 목록은 손댈 필요 없다. */
+  const PAY_PLACEHOLDERS = {
+    account_no:   ['110-555-123456'],
+    kakaopay_url: ['https://qr.kakaopay.com/Ej86dkamx'],
+    toss_id:      ['mangoi'],
+  };
+  function payDestReady(key) {
+    const v = String(PAY_INFO[key] || '').trim();
+    if (!v) return false;
+    return (PAY_PLACEHOLDERS[key] || []).indexOf(v) === -1;
+  }
+  /* 이 결제수단으로 실제 송금이 가능한 상태인가?
+     false 면 '상담 안내' 패널이 뜨므로, 아래 「결제 완료 확인」 버튼도 눌리지 않게 막는다.
+     (보낸 곳이 없는데 "결제 완료"를 접수하면 장부만 더럽혀진다) */
+  function payMethodReady(method) {
+    if (method === 'card') return true;                       // PG 결제창이 처리
+    if (method === 'virtual') return false;                   // 정식 PG 가상계좌 연동 전
+    if (method === 'kakao')  return payDestReady('kakaopay_url');
+    if (method === 'toss')   return payDestReady('toss_id');
+    if (method === 'bank' || method === 'cash' || method === 'naver') return payDestReady('account_no');
+    return true;
+  }
+
+  /* 목적지가 아직 준비 안 된 결제수단에 띄울 안내 패널.
+     "고장났다"가 아니라 "상담으로 도와드린다"로 읽히게 쓴다(학부모가 보는 화면). */
+  /* 은/는 자동 선택 — '카카오페이 송금는' 같은 어색한 문장 방지.
+     한글 마지막 글자에 받침이 있으면 '은', 없으면 '는'. */
+  function josaEunNeun(word) {
+    const ch = String(word || '').trim().slice(-1);
+    const code = ch.charCodeAt(0);
+    if (!(code >= 0xAC00 && code <= 0xD7A3)) return '는';   // 한글이 아니면 기본값
+    return ((code - 0xAC00) % 28) > 0 ? '은' : '는';
+  }
+  function payNotReadyPanel(title) {
+    return `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="font-size:22px">💬</span>
+        <div>
+          <div style="color:#fbbf24;font-size:14px;font-weight:800">${title}${josaEunNeun(title)} 상담으로 도와드려요</div>
+          <div style="color:#94a3b8;font-size:11px">현재 이 결제수단은 준비 중이에요</div>
+        </div>
+      </div>
+      <p style="margin:0 0 12px;color:#cbd5e1;font-size:12.5px;line-height:1.6">
+        아래 <b style="color:#FEE500">카카오 상담</b>을 눌러주시면 담당자가 입금 방법을
+        <b>1:1로 정확히 안내</b>해 드려요. 카드 결제는 지금 바로 가능합니다.
+      </p>
+      <button type="button" onclick="window.openKakao&&window.openKakao()" style="width:100%;padding:13px;background:linear-gradient(135deg,#FEE500,#FFCD00);border:0;border-radius:10px;color:#3C1E1E;font-size:14px;font-weight:800;cursor:pointer">
+        💬 카카오로 상담받기
+      </button>`;
+  }
+
   // 카드 결제 (토스페이먼츠) — 서버 주문 생성 → 결제창 (금액은 서버가 결정 = 위변조 방지)
   async function executeCardPayment(amount, payer, orderId, programLabel) {
     // 1) 서버에 주문 생성 — 서버 가격표로 금액을 확정하고 주문번호를 받는다.
@@ -416,6 +474,12 @@
         const btn = document.getElementById('btn-card-pay');
         if (btn) btn.addEventListener('click', () => executeCardPayment(amount, payer, orderId, programLabel));
       }, 0);
+    } else if (method === 'kakao' && !payDestReady('kakaopay_url')) {
+      c.innerHTML = payNotReadyPanel('카카오페이 송금');
+    } else if (method === 'toss' && !payDestReady('toss_id')) {
+      c.innerHTML = payNotReadyPanel('토스 송금');
+    } else if ((method === 'bank' || method === 'cash' || method === 'naver') && !payDestReady('account_no')) {
+      c.innerHTML = payNotReadyPanel(method === 'naver' ? '네이버페이 송금' : '계좌이체');
     } else if (method === 'kakao') {
       c.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -528,42 +592,14 @@
         </p>
       `;
     } else if (method === 'virtual') {
-      // 가상계좌 — 즉시 발급 시뮬레이션 (실제 PG 연동 시 서버에서 발급)
-      const va = '79' + (Math.floor(Math.random()*1e10).toString().padStart(10,'0'));
-      c.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-          <span style="font-size:22px">📑</span>
-          <div>
-            <div style="color:#86efac;font-size:14px;font-weight:800">가상계좌 즉시 발급 완료</div>
-            <div style="color:#94a3b8;font-size:11px">전용 입금 계좌가 발급되었습니다</div>
-          </div>
-        </div>
-        <div style="background:rgba(0,0,0,0.4);padding:14px;border-radius:10px;margin-bottom:10px;font-family:Consolas,monospace">
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:13px;color:#cbd5e1;margin-bottom:8px">
-            <span style="color:#94a3b8">발급 은행</span>
-            <b style="color:#fff">우리은행 (가상계좌)</b>
-            <span></span>
-          </div>
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:15px;color:#cbd5e1;margin-bottom:8px">
-            <span style="color:#94a3b8;font-size:13px">계좌번호</span>
-            <b style="color:#fbbf24;letter-spacing:1px">${va}</b>
-            <button type="button" onclick="copyText('${va}', this)" style="padding:4px 10px;background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);border-radius:6px;color:#fbbf24;font-size:11px;cursor:pointer">복사</button>
-          </div>
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:13px;color:#cbd5e1;margin-bottom:8px">
-            <span style="color:#94a3b8">예금주</span>
-            <b style="color:#fff">${PAY_INFO.account_holder}</b>
-            <span></span>
-          </div>
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:14px;color:#cbd5e1">
-            <span style="color:#94a3b8;font-size:13px">입금 금액</span>
-            <b style="color:#86efac">${amountStr}</b>
-            <span></span>
-          </div>
-        </div>
-        <div style="padding:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;font-size:11px;color:#86efac">
-          ✅ 위 가상계좌로 입금하시면 자동으로 결제 처리됩니다 (24시간 유효)
-        </div>
-      `;
+      /* 🔴 (2026-07-29) 가짜 가상계좌 발급 제거.
+         이전 코드는 `'79' + Math.random()` 으로 계좌번호를 브라우저가 지어낸 뒤
+         "가상계좌 즉시 발급 완료 · 입금하면 자동으로 결제 처리됩니다" 라고 표시했다.
+         존재하지 않는 번호면 반송, 우연히 실재하면 생면부지 타인에게 송금된다.
+         정식 PG 가상계좌(서버 발급 + /api/pay/webhook 입금통보)를 붙이기 전까지 상담으로 돌린다.
+         ※ 카드를 숨기지 않고 '상담 안내'로 바꾸는 이유: 가상계좌를 찾아온 학부모를 막다른 길에
+            두지 않고 사람에게 연결하기 위함. 다른 송금수단 4개도 같은 방식으로 통일했다. */
+      c.innerHTML = payNotReadyPanel('가상계좌');
     }
 
     document.getElementById('instant-pay-panel').style.display = 'block';
@@ -951,26 +987,99 @@
       card.classList.add('selected');
       selectedMethod = card.dataset.method;
       renderInstantPayPanel(selectedMethod);
-      submitBtn.disabled = false;
+      // 🔴 (2026-07-29) 송금할 곳이 아직 없는 결제수단은 "결제 완료 확인"을 막는다.
+      //   보낸 곳이 없는데 완료로 접수되면 장부가 어긋난다. 대신 문구로 다음 행동을 알려준다.
+      const ready = payMethodReady(selectedMethod);
+      submitBtn.disabled = !ready;
+      submitBtn.textContent = ready ? '✅ 결제 완료 확인' : '💬 카카오 상담으로 진행해 주세요';
     });
   });
 
   // 다음 버튼 (step 2 → 3) 검증
   const stepNextBtn = document.querySelector('#pay-step2 .pay-btn-next');
   if (stepNextBtn) {
-    stepNextBtn.addEventListener('click', () => {
+    stepNextBtn.addEventListener('click', (ev) => {
+      /* 🔴 (2026-07-29) 이 검증은 그동안 '경고창만 뜨고 그냥 넘어가는' 상태였다.
+         버튼에 인라인 onclick="payGoStep(3)" 이 함께 걸려 있는데, 여기서 return false 를 해도
+         인라인 핸들러는 그대로 실행되기 때문. stopImmediatePropagation() 이어야 실제로 막힌다. */
+      const block = () => { ev.preventDefault(); ev.stopImmediatePropagation(); };
+
       const payer = document.getElementById('pay-payer').value.trim();
       const student = document.getElementById('pay-student').value.trim();
       const contact = document.getElementById('pay-contact').value.trim();
       if (!payer || !student || !contact) {
         alert('결제자, 학생, 연락처는 필수입니다.');
-        return false;
+        return block();
       }
       if (selectedProgram === 'other' && (Number(document.getElementById('pay-amount').value) || 0) <= 0) {
         alert('"기타"를 선택하셨으면 금액을 입력해 주세요. (추가 정보 펼쳐서 입력)');
-        return false;
+        return block();
+      }
+
+      /* 🎁 (2026-07-29) 무료 체험은 결제 단계로 보내지 않는다.
+         이전에는 trial(0원)도 결제수단 선택 화면으로 넘어가, 학부모가 "무료라더니 결제하라네" 를 봤다.
+         (카드는 서버 가격표에 trial 이 없어 실제 청구까지 가진 않았지만, 화면은 그대로 결제였다)
+         체험은 '결제'가 아니라 '신청'이므로 상담 접수 경로(/api/student/inquiry)로 보낸다. */
+      if (selectedProgram === 'trial') {
+        block();
+        submitFreeTrial(payer, student, contact);
       }
     }, true);
+  }
+
+  /* 무료 체험 신청 접수 — 결제 모듈(PG)을 전혀 거치지 않는다. */
+  async function submitFreeTrial(payer, student, contact) {
+    const btn = stepNextBtn;
+    const oldLabel = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '접수 중…'; }
+    try {
+      const email = (document.getElementById('pay-email') || {}).value || '';
+      const memo  = (document.getElementById('pay-memo')  || {}).value || '';
+      const r = await fetch('/api/student/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: payer,
+          contact: contact,
+          email: email.trim(),
+          program: '무료 체험 (1회 40분)',
+          message: `[무료 체험 신청] 학생: ${student} / 결제자: ${payer}` + (memo.trim() ? ` / 남긴말: ${memo.trim()}` : ''),
+        })
+      });
+      const d = await r.json().catch(() => null);
+      if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || '접수 실패');
+
+      document.getElementById('pay-step2').style.display = 'none';
+      result.style.display = 'block';
+      result.innerHTML = `
+        <div style="text-align:center;padding:30px 20px">
+          <div style="font-size:64px;margin-bottom:10px;animation:slideDown .5s">🎁</div>
+          <h2 style="color:#4ade80;font-size:23px;margin:0 0 8px;font-weight:900">무료 체험 신청 완료!</h2>
+          <p style="color:#cbd5e1;font-size:13px;line-height:1.7;margin-bottom:18px">
+            <b style="color:#fbbf24">결제 금액 0원</b> · 카드나 계좌에서 <b>아무 것도 빠져나가지 않아요</b>.<br/>
+            담당자가 확인 후 <b>카카오톡으로 체험 수업 일정</b>을 안내해 드릴게요.
+          </p>
+          <div style="background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.35);border-radius:14px;padding:16px;margin-bottom:16px;text-align:left">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#94a3b8;margin-bottom:8px">
+              <span>신청 과정</span><b style="color:#fff">🎁 무료 체험 (1회 40분)</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#94a3b8;margin-bottom:8px">
+              <span>학생</span><b style="color:#fff">${escapeHtml(student)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:14px;color:#94a3b8">
+              <span>결제 금액</span><b style="color:#fbbf24;font-size:17px">₩ 0</b>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:center">
+            <button onclick="window.openKakao&&window.openKakao()" style="padding:11px 22px;background:linear-gradient(135deg,#FEE500,#FFCD00);border:0;border-radius:10px;color:#3C1E1E;font-size:13px;font-weight:800;cursor:pointer">💬 카톡으로 문의</button>
+            <button onclick="document.getElementById('payment-modal').style.display='none'" style="padding:11px 26px;background:linear-gradient(135deg,#4ade80,#16a34a);border:0;border-radius:10px;color:#fff;font-size:13px;font-weight:800;cursor:pointer">확인</button>
+          </div>
+        </div>`;
+    } catch (err) {
+      alert('체험 신청 중 오류가 발생했어요: ' + (err.message || err) + '\n잠시 후 다시 시도해 주세요.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = oldLabel; }
+    }
   }
 
   // 결제 신청 제출
@@ -1055,13 +1164,16 @@
           memo: document.getElementById('pay-memo').value.trim() + ' [즉석결제완료]',
         };
       }
-      const r = await fetch('/api/student/payment', {
+      /* 🔴 (2026-07-29) 여기서 부르던 '/api/student/payment' 는 서버에 아예 없는 주소라
+         항상 404 → 「결제 처리 중 오류: Not Found」 만 뜨고 접수가 하나도 안 됐다.
+         실제로 존재하는 /api/pay/manual-request(신설)로 교체한다. 응답 필드명은 그대로 맞춰 뒀다. */
+      const r = await fetch('/api/pay/manual-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyPayload)
       });
-      const d = await r.json();
-      if (!d.ok) throw new Error(d.error || '결제 처리 실패');
+      const d = await r.json().catch(() => null);
+      if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || '접수 처리 실패');
 
       // 성공 화면 — 즉시 수강 활성화 톤
       document.getElementById('pay-step3').style.display = 'none';
@@ -1070,8 +1182,8 @@
       result.innerHTML = `
         <div style="text-align:center;padding:28px 20px">
           <div style="font-size:64px;margin-bottom:10px;animation:slideDown .5s">🎉</div>
-          <h2 style="color:#4ade80;font-size:23px;margin:0 0 8px;font-weight:900">결제가 완료되었어요!</h2>
-          <p style="color:#cbd5e1;font-size:13px;line-height:1.6;margin-bottom:18px">입금 확인 후 즉시 수강이 활성화됩니다 (1~10분 이내)</p>
+          <h2 style="color:#4ade80;font-size:23px;margin:0 0 8px;font-weight:900">신청이 접수되었어요!</h2>
+          <p style="color:#cbd5e1;font-size:13px;line-height:1.6;margin-bottom:18px">담당자가 <b>입금을 확인하는 대로</b> 수강이 활성화돼요.<br/>확인되면 카카오톡으로 알려드릴게요.</p>
           <div style="background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.35);border-radius:14px;padding:16px;margin-bottom:16px;text-align:left">
             <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:8px">
               <span>접수번호</span>

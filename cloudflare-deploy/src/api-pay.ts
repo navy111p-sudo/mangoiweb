@@ -121,6 +121,76 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     return json({ ok: true, orderId, amount, orderName: priced.name });
   }
 
+  /* ── 1-b) 수기 입금 접수 (2026-07-29 신설) ───────────────────────────────
+     홈 결제창의 「결제 완료 확인」 버튼은 그동안 존재하지 않는 `/api/student/payment` 를 불러
+     항상 404 를 받았다. 그래서 카드를 뺀 결제수단은 **접수 자체가 안 됐다**
+     (실제로 payment_orders 에 card 외 method 행이 한 건도 없었다).
+
+     여기는 "돈을 받는" 곳이 아니라 "학부모가 보냈다고 알려온 것을 장부에 남기는" 곳이다.
+       · 금액은 서버 가격표로 확정한다(클라이언트 금액 무시). 맞춤코스만 입력값을 받는다.
+       · status='await_deposit' 로 남겨 관리자 결제센터에서 '입금 확인 대기'로 보이게 한다.
+       · 확정(paid)은 사람이 통장을 확인한 뒤 관리자가 처리한다. 여기서 자동 활성화하지 않는다.
+     ⚠️ /api/pay/* 는 index.ts 에서 이미 공개 라우팅이라 별도 게이트 등록이 필요 없다. */
+  if (path === '/api/pay/manual-request' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const program = String(body.program || '').trim();
+    const payer   = String(body.payer_name || '').trim().slice(0, 40);
+    const student = String(body.student_name || '').trim().slice(0, 40);
+    const contact = String(body.contact || '').trim().slice(0, 60);
+    const method_ = String(body.method || '').trim().slice(0, 20);
+    const uid     = String(body.uid || '').trim() || null;
+    const phone   = String(body.contact || '').replace(/[^0-9]/g, '').slice(0, 20) || null;
+    const memo    = String(body.memo || '').trim().slice(0, 500);
+
+    if (!payer || !student || !contact) {
+      return json({ ok: false, error: 'missing_fields', message: '결제자·학생·연락처를 입력해 주세요.' }, 400);
+    }
+    if (!method_) {
+      return json({ ok: false, error: 'missing_method', message: '결제수단을 선택해 주세요.' }, 400);
+    }
+
+    // 금액: 서버 가격표가 정본. 가격표에 없는 상담형(other) 만 입력 금액을 받는다.
+    const priced = PRICES[program];
+    let amount: number;
+    let label: string;
+    if (priced) {
+      amount = priced.amount;
+      label = priced.name;
+    } else if (program === 'other') {
+      amount = Math.floor(Number(body.amount) || 0);
+      label = '맞춤 코스 (상담 후 확정)';
+      if (!(amount > 0 && amount <= 10_000_000)) {
+        return json({ ok: false, error: 'invalid_amount', message: '금액을 다시 확인해 주세요.' }, 400);
+      }
+    } else {
+      // trial(무료체험)·b2b 등 결제 대상이 아닌 항목은 여기로 오면 안 된다 → 상담으로 유도.
+      return json({ ok: false, error: 'not_payable', message: '이 상품은 상담으로 진행됩니다. 카카오 상담을 이용해 주세요.' }, 400);
+    }
+
+    const rnd = bytesHex(crypto.getRandomValues(new Uint8Array(6)));
+    const orderId = `MGD-${Date.now().toString(36).toUpperCase()}-${rnd}`;
+    try {
+      await env.DB.prepare(
+        `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, phone, created_at, raw)
+         VALUES (?, ?, ?, ?, 'await_deposit', ?, ?, ?, ?, ?, ?)`
+      ).bind(orderId, uid, program, amount, method_, payer, student, phone, Date.now(),
+             JSON.stringify({ contact, memo, source: 'home_payment_modal' }).slice(0, 2000)).run();
+    } catch (e) {
+      return json({ ok: false, error: 'request_create_failed', message: String((e as any)?.message || e) }, 500);
+    }
+
+    // 🔔 사장님 폰으로 '입금 확인 요청' 알림 (실패해도 접수는 성공 — best-effort)
+    try {
+      const alertTo = (env as any).OWNER_ALERT_PHONE;
+      if (alertTo) {
+        await sendPlainSms(env, alertTo,
+          `[망고아이] 💰 입금 확인 요청\n${student} (결제자 ${payer})\n${label} · ${amount.toLocaleString('ko-KR')}원\n수단: ${method_}\n연락처: ${contact}\n관리자 결제센터에서 통장 대조 후 확정해 주세요.\n접수: ${orderId}`);
+      }
+    } catch (e: any) { console.warn('[pay] manual-request alert skipped:', e?.message || e); }
+
+    return json({ ok: true, request_id: orderId, program_label: label, amount, status: 'await_deposit' });
+  }
+
   // ── 2) 결제 확정: 프론트 성공콜백이 호출. 서버가 토스에 최종 승인 요청 ──
   if (path === '/api/pay/confirm' && method === 'POST') {
     const mode = tossMode(env);

@@ -21797,7 +21797,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=2"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=4"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){
@@ -27018,10 +27018,16 @@ window.addEventListener('DOMContentLoaded', () => {
    기존엔 window.openKakao 가 어디에도 정의되지 않아, 그 함수를 부르는 상담 버튼들(결제·고객센터·FAB 등)이
    눌러도 아무 동작을 안 했음. 이제 누르면 카카오 채널 채팅이 열림.
    ★ 채널 변경 시 아래 KAKAO_CHANNEL_ID 만 본인 채널 '검색용 아이디'로 교체:
-     카카오톡채널 관리자센터 → 채널 → 관리 → 상세설정 → '검색용 아이디' (예: _mangoi) */
+     카카오톡채널 관리자센터 → 채널 → 관리 → 상세설정 → '검색용 아이디'
+
+   🔴 fix (2026-07-29) — 위 설명의 '예시값'이 그대로 실제 값으로 들어가 있었음.
+      '_mangoi' 는 존재하지 않는 채널이라 pf.kakao.com/_mangoi/chat 이 「페이지를 찾을 수 없습니다」로 떴다.
+      실제 망고아이 채널 검색용 아이디는 '_xlqnSxd' (저장소 내 다른 27곳은 전부 이 값을 쓰고 있었음).
+      이 함수를 쓰는 상담 버튼 7곳(AI상담창·우하단 FAB·결제완료·기타상담·비번도움·카톡신청·채널추가)이 함께 고쳐진다.
+      ⚠️ 예시가 필요하면 주석에 실제 값을 적지 말 것. 또 같은 사고가 난다. */
 (function(){
   'use strict';
-  var KAKAO_CHANNEL_ID = '_mangoi';
+  var KAKAO_CHANNEL_ID = '_xlqnSxd';
   window.KAKAO_CHANNEL_ID = KAKAO_CHANNEL_ID;
   window.openKakao = function(){
     var url = 'https://pf.kakao.com/' + KAKAO_CHANNEL_ID + '/chat';   // 채팅 바로 열기
