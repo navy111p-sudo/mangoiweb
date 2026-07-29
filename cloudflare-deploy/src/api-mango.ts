@@ -1658,8 +1658,8 @@ ${numbered}`;
       const chatMode = b.mode === 'chat';
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
-      //      trc2: 존댓말 고정(2026-07-29). 이전 trc: 는 반말이 섞여 있어 버린다.
-      const cacheKey = (t: string) => (chatMode ? 'trc2:' : 'tr:') + target + ':' + t;
+      //      trc2: 존댓말 고정 / trc3: "죄송합니다요" 같은 어미 중첩 수정(2026-07-29).
+      const cacheKey = (t: string) => (chatMode ? 'trc3:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -1703,7 +1703,10 @@ ${numbered}`;
           //   모델이 영어 원문의 캐주얼한 말투를 그대로 옮겨 "숙제는 끝냈어?" 처럼 반말이 나왔다.
           + 'When the target language is Korean, ALWAYS use polite speech (해요체 or 합니다체). '
           + 'Never use 반말 / plain form, even if the source sounds casual. '
-          + 'Sentences must end in 요 or 니다. '
+          // ⚠️ "문장을 요/니다로 끝내라" 고 못박았더니 모델이 곧이곧대로 따라
+          //    "죄송합니다요" 같은 없는 말을 만들었다. 규칙이 아니라 예시로 보여준다.
+          + 'Write natural Korean: 합니다 / 해요 / 하셨어요 / 죄송합니다 / 감사합니다. '
+          + 'Never stack endings — 합니다요, 습니다요, 이에요요 are not Korean. '
           + 'When the target language is Chinese, use polite 您 rather than 你 when addressing a person.';
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
