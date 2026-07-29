@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>망고아이 수업료·근무 정책 종합 제안서 v5 (한/영) | Mangoi Lesson-Pay &amp; Work-Mode Policy v5</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a1018;color:#e6eef7;
+    font-family:'Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
+    line-height:1.72;font-size:15.5px}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 22px 90px}
+
+  .hero{position:relative;margin:0 -22px 34px;padding:54px 22px 42px;
+    background:linear-gradient(150deg,#0d2137 0%,#12304c 42%,#0b1a2b 100%);
+    border-bottom:3px solid #ffd479;overflow:hidden}
+  .hero::after{content:'';position:absolute;right:-60px;top:-40px;width:340px;height:340px;
+    background:radial-gradient(circle,rgba(255,212,121,.16),transparent 66%);border-radius:50%}
+  .hero .tag{display:inline-block;font-size:12px;font-weight:900;letter-spacing:2px;
+    color:#0a1018;background:#ffd479;border-radius:20px;padding:4px 14px;margin-bottom:14px}
+  .hero h1{margin:0 0 4px;font-size:clamp(23px,3.8vw,34px);line-height:1.26;letter-spacing:-1px}
+  .hero h1 span{color:#ffd479}
+  .hero h2.enh{margin:0 0 10px;font-size:clamp(15px,2.2vw,19px);color:#9fc0dc;font-weight:700;
+    border:0;padding:0;letter-spacing:-.3px}
+  .hero .sub{font-size:14.5px;color:#9fc0dc;font-weight:700}
+  .hero .sub em{display:block;font-style:normal;color:#7d9ab5;font-size:13px;font-weight:600;margin-top:2px}
+  .hero .meta{margin-top:18px;font-size:12.5px;color:#7d9ab5;line-height:1.85}
+
+  h2{margin:58px 0 14px;font-size:23px;letter-spacing:-.6px;padding-bottom:9px;
+    border-bottom:2px solid rgba(255,212,121,.28)}
+  h2 .n{display:inline-block;min-width:31px;height:31px;line-height:31px;text-align:center;
+    background:#ffd479;color:#0a1018;border-radius:9px;font-size:15px;font-weight:900;margin-right:9px;padding:0 7px}
+  h2 small{display:block;font-size:13px;color:#9fc0dc;font-weight:700;margin-top:5px;
+    padding-left:44px;letter-spacing:0}
+  h2.hot{border-bottom-color:rgba(248,113,113,.45)}
+  h2.hot .n{background:#f87171;color:#0a1018}
+  h2.phil{border-bottom-color:rgba(110,231,168,.45)}
+  h2.phil .n{background:#6ee7a8;color:#0a1018}
+  h2.blue{border-bottom-color:rgba(127,209,255,.45)}
+  h2.blue .n{background:#7fd1ff;color:#0a1018}
+  h3{margin:32px 0 8px;font-size:17.5px;color:#ffd479}
+  h3 .enh{display:block;font-size:13.5px;color:#8fadc7;font-weight:700;letter-spacing:0;margin-top:2px}
+  h4{margin:20px 0 6px;font-size:15.5px;color:#7fd1ff}
+  h4 .enh{display:block;font-size:12.8px;color:#8fadc7;font-weight:600}
+  p{margin:10px 0}
+  a{color:#7fd1ff}
+  code{background:rgba(127,209,255,.10);border:1px solid rgba(127,209,255,.2);
+    border-radius:5px;padding:1px 6px;font-size:12.8px;color:#bfe2ff;
+    font-family:Consolas,'Courier New',monospace}
+
+  .decision{background:linear-gradient(150deg,#1a2a1e,#101c14);border:2px solid #6ee7a8;
+    border-radius:16px;padding:22px 26px;margin:26px 0}
+  .decision h3{margin:0 0 12px;color:#6ee7a8;font-size:19px}
+  .decision ol{margin:0;padding-left:22px}
+  .decision li{margin:12px 0;font-size:14.8px}
+  .decision li b{color:#ffd479}
+  .decision li .en{display:block;font-size:13px;color:#9fc0dc;margin-top:3px}
+
+  .lead{font-size:16.5px;background:rgba(255,212,121,.07);border-left:4px solid #ffd479;
+    border-radius:0 12px 12px 0;padding:16px 20px;margin:22px 0}
+  .lead b{color:#ffd479}
+
+  .philbox{background:linear-gradient(150deg,#12261b,#0d1a13);border:2px solid #6ee7a8;
+    border-radius:16px;padding:24px 28px;margin:26px 0;text-align:center}
+  .philbox .ko{font-size:20px;font-weight:900;color:#6ee7a8;line-height:1.55}
+  .philbox .en{font-size:14.5px;color:#9fc0dc;font-weight:600;margin-top:10px;line-height:1.6}
+  .philbox .src{font-size:12px;color:#7d9ab5;margin-top:12px}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{border:1px solid rgba(140,175,210,.24);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:rgba(127,209,255,.10);color:#bfe2ff;font-weight:900;font-size:13px}
+  th .en{display:block;font-size:11.5px;color:#8fadc7;font-weight:700}
+  td b{color:#ffd479}
+  td .en{display:block;font-size:12.2px;color:#8fadc7;margin-top:3px}
+  tr:nth-child(even) td{background:rgba(255,255,255,.022)}
+  .tbl-sm{font-size:13px}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .ok{color:#6ee7a8;font-weight:800}
+  .no{color:#f87171;font-weight:800}
+  .mid{color:#ffd479;font-weight:800}
+  .home{color:#ffd479;font-weight:900}
+  .office{color:#7fd1ff;font-weight:900}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:13px;margin:18px 0}
+  .card{background:linear-gradient(#12202e,#0d1822);border:1px solid rgba(140,175,210,.22);
+    border-radius:13px;padding:15px 16px}
+  .card h4{margin:0 0 6px;font-size:14px;color:#7fd1ff}
+  .card p{margin:0;font-size:12.8px;color:#b8cde0}
+  .card p .en{display:block;color:#8fadc7;font-size:12px;margin-top:2px}
+  .card .big{font-size:24px;font-weight:900;color:#ffd479;line-height:1.2}
+  .card .big.g{color:#6ee7a8}
+  .card .big.r{color:#f87171}
+  .card .big.b{color:#7fd1ff}
+
+  .warn{background:rgba(248,113,113,.09);border-left:4px solid #f87171;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .warn b{color:#fca5a5}
+  .good{background:rgba(110,231,168,.08);border-left:4px solid #6ee7a8;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .good b{color:#6ee7a8}
+  .note{background:rgba(127,209,255,.07);border-left:4px solid #7fd1ff;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14.5px}
+  .note b{color:#bfe2ff}
+
+  .en-block{background:rgba(255,255,255,.03);border:1px dashed rgba(140,175,210,.32);
+    border-radius:11px;padding:13px 16px;margin:12px 0;font-size:13.7px;color:#b8cde0;line-height:1.7}
+  .en-block b{color:#dbe9f7}
+  .en-block .lbl{display:inline-block;font-size:10.5px;font-weight:900;letter-spacing:1.4px;
+    color:#0a1018;background:#7fd1ff;border-radius:4px;padding:1px 8px;margin-bottom:7px}
+  .en-block.r{border-color:rgba(248,113,113,.4)}
+  .en-block.r .lbl{background:#f87171}
+  .en-block.g{border-color:rgba(110,231,168,.4)}
+  .en-block.g .lbl{background:#6ee7a8}
+
+  .rule{background:linear-gradient(#101d2a,#0c1621);border:1px solid rgba(255,212,121,.26);
+    border-radius:13px;padding:15px 18px;margin:13px 0}
+  .rule .no-{display:inline-block;font-size:12px;font-weight:900;letter-spacing:1px;
+    color:#0a1018;background:#ffd479;border-radius:5px;padding:2px 9px;margin-bottom:8px}
+  .rule h4{margin:0 0 8px;font-size:16px;color:#ffd479}
+  .rule p{margin:6px 0;font-size:14.2px}
+  .rule .en{margin-top:10px;padding-top:10px;border-top:1px solid rgba(140,175,210,.2);
+    font-size:13.2px;color:#9fc0dc}
+  .rule .en b{color:#cfe0ee}
+  .rule .tagline{display:inline-block;font-size:11px;font-weight:900;border-radius:4px;
+    padding:1px 8px;margin-left:6px;vertical-align:2px}
+  .rule .tagline.h{background:rgba(255,212,121,.22);color:#ffd479;border:1px solid rgba(255,212,121,.45)}
+  .rule .tagline.o{background:rgba(127,209,255,.18);color:#7fd1ff;border:1px solid rgba(127,209,255,.45)}
+  .rule .tagline.all{background:rgba(110,231,168,.18);color:#6ee7a8;border:1px solid rgba(110,231,168,.45)}
+
+  .flow{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0}
+  .flow .step{flex:1 1 160px;background:#101d2a;border:1px solid rgba(140,175,210,.24);
+    border-radius:11px;padding:12px 13px;font-size:13.2px}
+  .flow .step b{display:block;color:#7fd1ff;font-size:13px;margin-bottom:4px}
+  .flow .step .en{display:block;color:#8fadc7;font-size:12px;margin-top:4px}
+
+  ul{margin:10px 0;padding-left:22px}
+  li{margin:6px 0}
+  .chk li{list-style:none;position:relative;padding-left:24px}
+  .chk li::before{content:'\2713';position:absolute;left:0;color:#6ee7a8;font-weight:900}
+  .x li{list-style:none;position:relative;padding-left:24px}
+  .x li::before{content:'\2715';position:absolute;left:0;color:#f87171;font-weight:900}
+  li .en{display:block;font-size:12.5px;color:#8fadc7}
+
+  .toc{background:#101d2a;border:1px solid rgba(140,175,210,.22);border-radius:13px;
+    padding:16px 20px;margin:24px 0;font-size:14px}
+  .toc b{color:#ffd479;display:block;margin-bottom:8px}
+  .toc a{display:inline-block;margin:3px 14px 3px 0;color:#bfe2ff;text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc a.hot{color:#fca5a5;font-weight:900}
+  .toc a.phil{color:#6ee7a8;font-weight:900}
+  .toc a.blue{color:#7fd1ff;font-weight:900}
+
+  .qa{border-left:3px solid rgba(140,175,210,.3);padding-left:16px;margin:16px 0}
+  .qa .q{color:#7fd1ff;font-weight:800;font-size:14.6px;margin:16px 0 4px}
+  .qa .qe{color:#8fadc7;font-weight:700;font-size:12.8px;margin:0 0 5px}
+  .qa .a{font-size:14.1px;color:#cfe0ee;margin:0 0 4px}
+  .qa .ae{font-size:12.9px;color:#8fadc7;margin:0}
+
+  .src{font-size:12.5px;color:#7d9ab5;margin-top:44px;border-top:1px solid rgba(140,175,210,.2);
+    padding-top:16px;line-height:1.9}
+  .src a{color:#9fc0dc}
+  hr.sp{border:0;border-top:1px solid rgba(140,175,210,.16);margin:34px 0}
+  .assume{font-size:12.5px;color:#8fadc7;margin-top:8px}
+
+  .tl{background:#0d1822;border:1px solid rgba(140,175,210,.24);border-radius:13px;
+    padding:18px 20px;margin:18px 0;overflow-x:auto}
+  .tl .row{display:flex;align-items:center;gap:8px;margin:9px 0;min-width:620px}
+  .tl .lbl{flex:0 0 132px;font-size:12px;color:#9fc0dc;font-weight:800;text-align:right;line-height:1.4}
+  .tl .lbl em{display:block;font-style:normal;color:#7d9ab5;font-size:10.8px;font-weight:600}
+  .tl .bar{flex:1;height:28px;background:rgba(255,255,255,.04);border-radius:6px;overflow:hidden;display:flex}
+  .tl .seg{height:100%;font-size:11px;line-height:28px;text-align:center;color:#0a1018;font-weight:900;
+    white-space:nowrap;overflow:hidden}
+  .tl .s-on{background:#6ee7a8}
+  .tl .s-off{background:#f87171}
+  .tl .s-ext{background:#ffd479}
+  .tl .s-gap{background:rgba(140,175,210,.18);color:#8fadc7}
+  .tl .cap{font-size:12.8px;color:#8fadc7;margin-top:11px;line-height:1.75}
+  .tl .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:11.8px;color:#9fc0dc}
+  .tl .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  .stage{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:13px;margin:18px 0}
+  .stage .s{background:#101d2a;border:1px solid rgba(140,175,210,.24);border-radius:13px;padding:15px 16px}
+  .stage .s .n{display:inline-block;font-size:11.5px;font-weight:900;letter-spacing:1px;
+    color:#0a1018;border-radius:5px;padding:2px 9px;margin-bottom:8px}
+  .stage .s.s1 .n{background:#7fd1ff}
+  .stage .s.s2 .n{background:#ffd479}
+  .stage .s.s3 .n{background:#fca5a5}
+  .stage .s.s4 .n{background:#6ee7a8}
+  .stage .s h4{margin:0 0 6px;font-size:15px;color:#e6eef7}
+  .stage .s p{margin:5px 0;font-size:13.2px;color:#b8cde0}
+  .stage .s .en{font-size:12.3px;color:#8fadc7;margin-top:7px;padding-top:7px;
+    border-top:1px solid rgba(140,175,210,.18)}
+
+  .status{display:inline-block;font-size:11px;font-weight:900;letter-spacing:.5px;border-radius:5px;
+    padding:2px 9px;vertical-align:2px;margin-left:8px}
+  .status.done{background:#6ee7a8;color:#0a1018}
+  .status.todo{background:rgba(140,175,210,.25);color:#cfe0ee}
+  .status.urgent{background:#f87171;color:#0a1018}
+  .status.new{background:#7fd1ff;color:#0a1018}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+  @media(max-width:760px){.split{grid-template-columns:1fr}}
+  .split .col{border-radius:13px;padding:16px 18px}
+  .split .col.h{background:linear-gradient(#1f1a0e,#141208);border:1px solid rgba(255,212,121,.4)}
+  .split .col.o{background:linear-gradient(#0e1a24,#0a1219);border:1px solid rgba(127,209,255,.4)}
+  .split .col h4{margin:0 0 8px;font-size:16px}
+  .split .col.h h4{color:#ffd479}
+  .split .col.o h4{color:#7fd1ff}
+  .split .col ul{padding-left:20px;margin:8px 0}
+  .split .col li{font-size:13.5px;margin:5px 0}
+  .split .col .en{font-size:12.3px;color:#8fadc7;margin-top:9px;padding-top:9px;
+    border-top:1px solid rgba(140,175,210,.18);line-height:1.65}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="tag">종합 제안서 v5 · COMPREHENSIVE PROPOSAL v5 · 2026-07-29</div>
+  <h1>망고아이 <span>수업료 · 근무 정책</span> 종합 제안<br>
+    — 연기 · 결석 · 연장 · 회선 · <span>재택/사무실 구분</span></h1>
+  <h2 class="enh">Mangoi Lesson-Pay &amp; Work-Mode Policy — Postponement, Absence, Extension,
+    Connection, and Home vs Office</h2>
+  <div class="sub">
+    회사 · 교사 · 학생, 셋의 이익이 서로 부딪히지 않도록 설계한 최종안
+    <em>Designed so that company, teacher and student are never pulled in opposite directions</em>
+  </div>
+  <div class="meta">
+    <b>v5 신규 / New in v5</b>
+    ① <b>학생 노쇼를 3단계로 구분</b>(사전 연기 / 임박 취소 / 무통보) — 자동연기 기능 반영 ·
+    ② <b>재택(home) · 사무실(office) 근무 형태별 귀책 분리</b> ·
+    ③ <b>회사 PC 사용 규정</b> 신설(office)<br>
+    <b>이어받은 결정 / Carried over</b> 페널티 유지 · 노쇼 전액 지급 · 콜센터 전환 ·
+    <b>추가 보상 전면 제외</b>(분당 연장 수당 + 성사 인센티브) → <b>신규 지출 0원</b><br>
+    <b>제외 / Excluded</b> 법률 관련 항목 (경영진 지시)
+  </div>
+</div>
+
+<div class="toc">
+  <b>목차 / Contents</b>
+  <a href="#s0">0. 의사결정 요청 · Decisions</a>
+  <a href="#s1" class="phil">1. 판단 기준 3가지 · Three Standards</a>
+  <a href="#s2" class="blue">2. 재택 vs 사무실 · Home vs Office</a>
+  <a href="#s3">3. 학생 결석의 3단계 · Three Kinds of Absence</a>
+  <a href="#s4" class="hot">4. 현재 문제점 · Current Problems</a>
+  <a href="#s5" class="hot">5. 회선 끊김 측정 · Measuring Disconnection</a>
+  <a href="#s6">6. 장점과 단점 · Pros &amp; Cons</a>
+  <a href="#s7">7. 보완점 · Safeguards</a>
+  <a href="#s8">8. 교칙 15개 조문 · The Rules</a>
+  <a href="#s9">9. 기타 아이디어 · Ideas</a>
+  <a href="#s10">10. 진행 상황 · 로드맵 · Status</a>
+  <a href="#s11">부록 · Appendix</a>
+</div>
+
+<!-- ══════════════════════════ 0 ══════════════════════════ -->
+<h2 id="s0"><span class="n">0</span>의사결정 요청<small>Decisions Requested — 이 페이지만 읽고 회의를 시작하실 수 있습니다</small></h2>
+
+<div class="lead">
+  <b>이번 개정의 핵심은 「누구의 책임인가」를 정확히 가른 것입니다.</b><br><br>
+  지금까지 규칙은 교사 전체를 하나로 묶어 놓았습니다. 그런데 실제로는
+  <b>재택 교사와 사무실 교사가 전혀 다른 조건</b>에서 일합니다.
+  재택 교사는 <b>자기가 계약한 인터넷</b>을 쓰고, 사무실 교사는 <b>회사가 깔아 준 인터넷</b>을 씁니다.
+  같은 회선 장애라도 <b>책임의 소재가 정반대</b>입니다.<br><br>
+  마찬가지로 <b>학생 결석도 한 덩어리가 아닙니다.</b>
+  30분 전에 알려 온 연기와, 아무 말 없이 안 온 것은 완전히 다른 사건입니다.
+  <b>같지 않은 것을 같게 다루면 반드시 누군가 억울해집니다.</b>
+</div>
+<div class="en-block"><span class="lbl">EXECUTIVE SUMMARY</span><br>
+  <b>This revision is about drawing the line of responsibility correctly.</b>
+  Until now our rules treated all teachers as one group — yet <b>home-based and office-based teachers
+  work under opposite conditions</b>. A home-based teacher uses <b>a line they chose and pay for</b>;
+  an office-based teacher uses <b>a line the company installed</b>.
+  The same outage therefore belongs to opposite parties.<br>
+  Likewise, <b>student absence is not one event</b>. A lesson postponed 30 minutes ahead and a silent no-show
+  are entirely different. <b>Treating unlike things alike always leaves somebody wronged.</b></div>
+
+<div class="cards">
+  <div class="card"><div class="big b">2가지</div><h4>근무 형태 / Work modes</h4>
+    <p>재택(home) · 사무실(office)<br><b>귀책 규칙이 다릅니다</b>
+    <span class="en">Different responsibility rules</span></p></div>
+  <div class="card"><div class="big">3단계</div><h4>학생 결석 / Kinds of absence</h4>
+    <p>사전 연기 · 임박 취소 · 무통보<span class="en">Postponed · late-cancelled · silent</span></p></div>
+  <div class="card"><div class="big g">완료</div><h4>M1 측정 / M1 measurement</h4>
+    <p>구현·검증 <b>48 PASS / 0 FAIL</b><span class="en">Built and verified</span></p></div>
+  <div class="card"><div class="big g">0원</div><h4>신규 지출 / New spend</h4>
+    <p>추가 보상 없음<span class="en">No new payments at all</span></p></div>
+</div>
+
+<div class="decision">
+  <h3>경영진 결정 요청 12건 / Twelve decisions requested</h3>
+  <ol>
+    <li><b>결정 1 <span class="status urgent">최우선</span> — 결석 시 지급률 0 → 100.</b>
+        관리자 「공제 규칙」 설정 하나. 코드·배포 불필요.<br>
+        <b class="ok">비용 증가가 아닙니다</b> — 노쇼 수업도 <b>수업료를 그대로 받으므로</b>,
+        교사에게 전액을 줘야 <b>정상 수업과 마진이 같아집니다.</b>
+        현재는 <b class="no">수업료는 받고 교사에겐 0원</b>이라 정상보다 마진이 큰 상태이며,
+        그 차액은 <b>잘못 없는 교사가 부담</b>하고 있습니다.
+        <span class="en"><b>D1 — Set the no-show pay rate to 100%.</b> One admin setting; no code, no deploy.
+        <b>This is not a cost increase</b> — the fee for a no-show lesson is retained, so paying the teacher in full
+        simply restores <b>the margin of a normal lesson</b>. Today we keep the fee and pay nothing,
+        and <b>the teacher covers the difference</b>.</span></li>
+
+    <li><b>결정 2 — 지금까지 결석 수업의 실제 지급 이력 확인.</b> 소급 정산 여부가 여기서 갈립니다.
+        <span class="en"><b>D2 — Establish what was actually paid</b> for past no-shows; determines back-pay.</span></li>
+
+    <li><b>결정 3 <span class="status new">신규</span> — 근무 형태(재택/사무실)를 제도상 공식 구분으로 채택.</b>
+        회선·PC·전력의 귀책을 <b>「누가 그 자원을 선택하고 관리하는가」</b>로 가름.
+        <span class="ok">→ 권고: 승인. 이것이 없으면 나머지 규칙이 성립하지 않음</span>
+        <span class="en"><b>D3 — Adopt work mode as a formal distinction.</b> Responsibility for line, PC and power
+        follows <b>whoever chooses and maintains that resource</b>.</span></li>
+
+    <li><b>결정 4 <span class="status new">신규</span> — 사무실 PC 사용 규정 도입.</b>
+        업무 외 소프트웨어·파일 설치로 생긴 장애는 <b>사무실 교사 본인 책임</b>.
+        <span class="ok">→ 권고: 승인. 회사가 준 장비라도 「설치하는 사람」은 교사이므로</span>
+        <span class="en"><b>D4 — Introduce a company-PC usage rule.</b> Failures caused by non-work software
+        or files installed by the teacher are <b>the teacher's responsibility</b>, even on company equipment.</span></li>
+
+    <li><b>결정 5 <span class="status new">신규</span> — 학생 결석을 3단계로 구분.</b>
+        사전 연기(자동연기) / 임박 취소 / 무통보 노쇼. <b>지급과 처리가 각각 다름</b>.
+        <span class="ok">→ 권고: 승인</span>
+        <span class="en"><b>D5 — Split student absence into three cases</b> with different handling.</span></li>
+
+    <li><b>결정 6 <span class="status new">신규</span> — 임박 연기 기준 시각 재검토.</b>
+        현행 <b>30분 전</b>은 교사가 그 시간을 다르게 쓰기에 너무 짧습니다(경쟁사 12~24시간).
+        <span class="mid">→ 권고: 30분 유지 + <b>학생당 월 2회 초과 시 노쇼로 처리</b>(교사 전액 지급). 비용 0</span>
+        <span class="en"><b>D6 — Revisit the 30-minute postponement window.</b> It is too short for a teacher to
+        re-use the slot (peers use 12–24 hours). <b>Recommend keeping 30 minutes but capping it at 2 per student per month</b>.</span></li>
+
+    <li><b>결정 7 — 측정 체계(M1~M4).</b> <b class="ok">M1은 구현·검증 완료(미배포).</b> M2~M4 승인 여부.
+        <span class="en"><b>D7 — The measurement layer.</b> M1 is done; approve M2–M4.</span></li>
+
+    <li><b>결정 8 — 페널티 판정 근거 전환.</b> 관리자 수동 입력 → 자동 측정값 (페널티 자체는 유지).
+        <span class="en"><b>D8 — Move the penalty from manual entry to automatic measurement</b> (the penalty stays).</span></li>
+
+    <li><b>결정 9 — 추가 보상은 두지 않습니다(연장 수당·성사 인센티브 모두 제외).</b><br>
+        늦게 온 학생과 남은 시간만큼 수업하는 것은 <b>이미 전액을 받는 업무</b>이며,
+        오히려 <b>실제 수업 노동은 정상 수업보다 적습니다.</b> 별도 보상은
+        <b class="no">적게 일한 쪽이 더 받는 구조</b>가 되고, 상습 지각 학생을 배정받은 교사만
+        이득을 보는 <b>교사 간 불공정</b>을 만듭니다. 대신 <b>기대사항(제3조)으로 명시하고 M4로 확인</b>합니다.
+        <span class="ok">→ 권고: 승인. <b>이로써 신규 지출이 0원이 됩니다</b></span>
+        <span class="en"><b>D9 — No additional payments</b> (neither extension pay nor a session bonus).
+        Teaching the remaining time is work <b>already paid in full</b>, and the actual teaching load is
+        <b>lower</b> than a normal lesson. A bonus would pay <b>more for less work</b> and would reward
+        teachers merely for being assigned chronically late students.
+        Instead we state it as an <b>expectation (Art. 3) and verify it through M4</b>.
+        <b>Recommend: approve — this brings new spend to zero.</b></span></li>
+
+    <li><b>결정 10 — 회사·시스템 귀책 전액 보장.</b> 07-28 입장 사고 같은 경우.
+        <span class="ok">→ 권고: 승인. 현행대로면 <b>우리 버그가 교사 급여를 깎습니다</b></span>
+        <span class="en"><b>D10 — Full protection when the fault is ours.</b></span></li>
+
+    <li><b>결정 11 — 상습 회선 끊김(재택) → 사무실 전환 <span class="ok">[방침 확정]</span></b>
+        세부 3건: ① 전환 임계값 ② 통근 지원 ③ 재택 복귀 조건.
+        <span class="mid">→ 참고: <b>사무실은 출근수당 + 회선 책임 회사 이전</b>으로 교사에게 유리한 조건이므로,
+        좌석을 <b>징계 수단이 아니라 복리후생·리텐션 자원</b>으로 다루실 것을 권고합니다(2-3)</span>
+        <span class="en"><b>D11 — Repeated home-line dropouts → office transfer (confirmed).</b>
+        Note: with the attendance allowance and the line responsibility shifting to us, an office seat is
+        <b>genuinely favourable to the teacher</b> — treat seats as a retention benefit, not a disciplinary tool.</span></li>
+
+    <li><b>결정 11-2 <span class="status new">신규</span> — 사무실 장애 시 「학생 흐름 우선」과 원 교사 보호를 함께.</b><br>
+        경영 방침: <b>사무실 장애로 수업이 불가하면 재택 교사가 대신 수업</b>한다(학생의 학습 흐름을 멈추지 않기 위해).
+        <b class="ok">방향은 옳습니다.</b> 다만 그대로 두면 <b class="no">회사 귀책으로 생긴 손실을
+        잘못 없는 사무실 교사가 전부 부담</b>하게 됩니다(수업이 남에게 넘어가 영구히 사라짐).
+        <span class="ok">→ 권고: <b>①1순위 = 백업 회선으로 원 교사가 계속</b>(학생에게도 최선 —
+        선생님이 바뀌는 것 자체가 흐름의 단절) · <b>②불가 시 대체 교사 투입</b> ·
+        <b>③이때 원 교사에게도 수업료 지급</b>(회사 귀책이므로)</span>
+        <span class="en"><b>D11-2 — Keep "student first" and still protect the original teacher.</b>
+        Policy: when an office outage prevents a lesson, <b>a home-based teacher takes it over</b> so the
+        student's rhythm is not broken. <b>The direction is right</b> — but as written, the loss created by
+        <b>our own outage falls entirely on a blameless office teacher</b>, whose lesson is gone for good.
+        <b>Recommend:</b> (1) first try a <b>backup connection so the original teacher continues</b> —
+        best for the student too, since a change of teacher is itself a break in continuity;
+        (2) substitute only if that fails; (3) <b>in that case, pay the original teacher as well</b>,
+        because the fault was ours.</span></li>
+
+    <li><b>결정 12 — 교칙 15개 조문 공지 + 예산.</b> 시스템보다 <b>먼저</b> 공지.<br>
+        <b class="ok">추가 보상을 모두 제외했으므로 신규 지출은 0원입니다.</b>
+        남은 예산 항목은 <b>① 결석 지급률 정상화</b>(새 비용이 아니라 원래 나갔어야 할 돈, 결정 2에서 확정) ·
+        <b>② 사무실 전환 통근 지원</b>(결정 11에서 산정) 둘뿐입니다.
+        <span class="en"><b>D12 — Publish the 15 rule articles</b> (before the system) and approve the budget.</span></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════ 1 ══════════════════════════ -->
+<h2 id="s1" class="phil"><span class="n">1</span>판단 기준 3가지<small>Three Standards — every rule in this document had to pass all three</small></h2>
+
+<p>이 문서의 모든 규칙은 <b>세 가지 기준</b>을 통과해야 채택했습니다.
+하나라도 못 넘으면 제외했고, 실제로 그렇게 <b>제외한 항목이 있습니다</b>(분당 연장 수당).</p>
+
+<h3>기준 ① 회사 철학과 맞는가 <span class="enh">Standard 1 — Does it match our philosophy?</span></h3>
+<div class="philbox">
+  <div class="ko">"단 5분이라도 학생이 수업을 하는 것이<br>아무것도 안 하는 것보다 낫다.<br>영어 공부는 반복과 횟수, 그리고 노출 빈도다."</div>
+  <div class="en">"Even five minutes of class is better than none.<br>
+    Learning English is about repetition, frequency, and exposure."</div>
+  <div class="src">— 경영진 / Management</div>
+</div>
+
+<h3>기준 ② 회사·교사·학생의 이익이 부딪히지 않는가
+  <span class="enh">Standard 2 — Are company, teacher and student pulled in the same direction?</span></h3>
+<div class="lead" style="border-left-color:#6ee7a8;background:rgba(110,231,168,.07)">
+  <b>규칙이 오래가려면 「누가 옳은가」보다 「누가 손해를 보는가」를 봐야 합니다.</b>
+  어떤 규칙이 <b>한쪽만 일방적으로 손해</b>를 보게 만들면, 그 사람은 규칙을 어기는 게 아니라
+  <b>조용히 그 상황 자체를 피합니다.</b> 교사는 노쇼 학생을 기다리지 않게 되고, 학생은 말없이 그만둡니다.
+  <b>제도가 무너지는 방식은 위반이 아니라 회피입니다.</b>
+</div>
+<div class="cards">
+  <div class="card" style="border-color:rgba(127,209,255,.4)">
+    <h4 style="color:#7fd1ff">학생 · 학부모</h4>
+    <p><b>약속한 수업을 제대로, 꾸준히 받는 것.</b>
+    <span class="en">The promised lesson, delivered regularly</span></p></div>
+  <div class="card" style="border-color:rgba(255,212,121,.4)">
+    <h4 style="color:#ffd479">교사</h4>
+    <p><b>예측 가능한 소득</b>과 <b>내가 어쩔 수 없는 일로 깎이지 않는 것.</b>
+    <span class="en">Predictable income; no loss for things outside their control</span></p></div>
+  <div class="card" style="border-color:rgba(110,231,168,.4)">
+    <h4 style="color:#6ee7a8">회사</h4>
+    <p><b>학생이 계속 다니는 것(재등록).</b>
+    <span class="en">Retention</span></p></div>
+</div>
+<div class="philbox" style="border-color:#7fd1ff;background:linear-gradient(150deg,#0f2333,#0b1a26)">
+  <div class="ko" style="color:#7fd1ff">세 가지 바람은 <u>한 지점</u>에서 만납니다.<br>
+    <span style="font-size:24px">「수업이 실제로 이루어진다」</span></div>
+  <div class="en">All three converge on one point: <b>the lesson actually happens.</b></div>
+  <div class="src">그래서 <b>그 지점에만 돈을 붙이면</b> 세 주체의 이해가 부딪히지 않습니다.</div>
+</div>
+
+<h3>기준 ③ 통제하는 사람에게 책임이 가는가 <span class="status new">v5 신규</span>
+  <span class="enh">Standard 3 — Does responsibility follow control?</span></h3>
+<div class="lead" style="border-left-color:#7fd1ff;background:rgba(127,209,255,.07)">
+  <b>어떤 문제의 책임은 「그 자원을 선택하고 관리하는 사람」에게 있습니다.</b><br><br>
+  재택 교사는 <b>자기가 회선을 고르고 요금을 내고 공유기를 관리</b>합니다 → 그 회선은 교사의 영역입니다.<br>
+  사무실 교사는 <b>회사가 깔아 준 회선</b>을 씁니다 → 그 회선은 회사의 영역입니다.<br>
+  그런데 사무실 PC에 <b>무엇을 설치할지는 교사가 정합니다</b> → 그 부분은 다시 교사의 영역입니다.<br><br>
+  <b>장비의 소유자가 아니라 「그 상태를 만든 사람」을 봅니다.</b> 이것이 v5에서 새로 세운 기준입니다.
+</div>
+<div class="en-block"><span class="lbl">EN</span><br>
+  <b>Responsibility belongs to whoever chooses and maintains the resource.</b>
+  A home-based teacher <b>selects, pays for and maintains their own line</b> — so the line is theirs.
+  An office-based teacher uses <b>a line the company installed</b> — so it is the company's.
+  But <b>what gets installed on the office PC is decided by the teacher</b> — so that part is theirs again.<br>
+  <b>We look not at who owns the equipment, but at who created the condition.</b></div>
+
+<!-- ══════════════════════════ 2 ══════════════════════════ -->
+<h2 id="s2" class="blue"><span class="n">2</span>재택(home) vs 사무실(office) — 근무 형태별 규정<small>Home-based vs Office-based — different conditions, different rules</small></h2>
+
+<div class="lead">
+  <b>같은 「인터넷이 끊겼다」도 근무 형태에 따라 책임이 정반대입니다.</b>
+  이 구분이 없으면, 회사가 깔아 준 회선이 끊겼는데 사무실 교사가 벌을 받거나,
+  본인이 고른 회선이 끊겼는데 회사가 부담하는 <b>불합리가 생깁니다.</b>
+  둘 다 실제로 일어날 수 있고, 둘 다 부당합니다.
+</div>
+
+<h3>2-1. 귀책 구분표 — 이 표 하나가 규정의 핵심입니다
+  <span class="enh">2-1. The responsibility matrix — the core of this chapter</span></h3>
+<table>
+<tr><th style="width:24%">자원 / 상황 <span class="en">Resource / situation</span></th>
+    <th style="width:12%">누가 선택·관리 <span class="en">Who controls it</span></th>
+    <th style="width:14%"><span class="home">재택 home</span></th>
+    <th style="width:14%"><span class="office">사무실 office</span></th>
+    <th>근거 <span class="en">Why</span></th></tr>
+
+<tr><td><b>인터넷 회선</b><span class="en">Internet line</span></td>
+    <td>재택=교사 / 사무실=회사</td>
+    <td class="no">교사 책임<span class="en">Teacher</span></td>
+    <td class="ok">회사 책임<span class="en">Company</span></td>
+    <td>교사가 직접 통신사를 고르고 설치·요금 부담 vs 회사가 설치·관리
+    <span class="en">The teacher contracts their own line; the office line is the company's</span></td></tr>
+
+<tr><td><b>PC · 기기 하드웨어</b><span class="en">PC hardware</span></td>
+    <td>재택=교사 / 사무실=회사</td>
+    <td class="no">교사 책임<span class="en">Teacher</span></td>
+    <td class="ok">회사 책임<span class="en">Company</span></td>
+    <td>고장·노후는 소유·관리 주체가 부담
+    <span class="en">Breakage and ageing follow ownership</span></td></tr>
+
+<tr style="background:rgba(127,209,255,.07)">
+    <td><b>PC에 설치한 소프트웨어·파일</b><span class="en">Software and files installed on the PC</span></td>
+    <td><b>교사</b> (양쪽 모두)<span class="en"><b>Teacher</b> in both modes</span></td>
+    <td class="no">교사 책임<span class="en">Teacher</span></td>
+    <td class="no"><b>교사 책임</b><span class="en"><b>Teacher</b></span></td>
+    <td><b>회사 장비라도 「무엇을 깔지」는 교사가 정합니다.</b>
+    업무 외 동영상·출처 불명 앱·악성코드 유입 행위가 원인이면 교사 귀책 (결정 4)
+    <span class="en"><b>Even on company equipment, the teacher decides what to install.</b></span></td></tr>
+
+<tr><td><b>전력 · 정전</b><span class="en">Power / outage</span></td>
+    <td>재택=불가항력 / 사무실=회사 시설</td>
+    <td class="mid">불가항력(C급)<span class="en">Force majeure</span></td>
+    <td class="ok">회사 책임<span class="en">Company</span></td>
+    <td>사무실은 회사가 전력·UPS를 관리 / 재택 지역 정전은 누구도 통제 불가
+    <span class="en">The company manages office power; a neighbourhood outage is nobody's fault</span></td></tr>
+
+<tr><td><b>망고아이 플랫폼 장애</b><span class="en">Mangoi platform failure</span></td>
+    <td><b>회사</b></td>
+    <td class="ok">회사 책임<span class="en">Company</span></td>
+    <td class="ok">회사 책임<span class="en">Company</span></td>
+    <td>입장 차단·계정 문제 등 (07-28 사고). 근무 형태와 무관
+    <span class="en">Entry blocks, account problems — independent of work mode</span></td></tr>
+
+<tr><td><b>학생 쪽 회선·기기</b><span class="en">Student's line or device</span></td>
+    <td><b>학생</b></td>
+    <td class="ok">교사 무책임<span class="en">Not the teacher's</span></td>
+    <td class="ok">교사 무책임<span class="en">Not the teacher's</span></td>
+    <td>교사가 통제할 수 없음 → 기준 ③
+    <span class="en">Outside the teacher's control</span></td></tr>
+</table>
+
+<div class="good">
+  <b>이 표는 새로운 규칙이 아니라 기준 ③을 그대로 적용한 결과입니다.</b>
+  그래서 <b>외울 필요가 없습니다</b> — "그 상태를 만든 사람이 누구인가"만 물으면 답이 나옵니다.
+  <div class="en-block g" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>This table is not a new set of rules — it is Standard 3 applied.</b>
+    Nothing here needs memorising: just ask <b>who created the condition</b>.</div>
+</div>
+
+<h3>2-2. 두 근무 형태의 규정 요약 <span class="enh">2-2. The two work modes side by side</span></h3>
+<div class="split">
+  <div class="col h">
+    <h4>재택 근무 (home-based)</h4>
+    <ul>
+      <li><b>회선·PC는 교사 본인의 책임</b>입니다. 끊기면 제3조 ②에 따라 <b>보충</b>해 주세요</li>
+      <li>회사는 <b>테더링 전환 가이드·회선 점검</b>을 지원합니다</li>
+      <li>끊김이 반복되면 <b>사무실 근무로 전환</b>됩니다 — 그 순간 <b>회선 책임이 회사로 넘어갑니다</b></li>
+      <li>지역 정전 등 <b>불가항력</b>은 월 2회까지 자기신고로 처리</li>
+    </ul>
+    <div class="en"><b>Home-based:</b> your line and PC are your responsibility; make up lost time under Art. 3(2).
+    The company provides a tethering guide and line checks. Repeated dropouts move you to the office —
+    <b>at which point the line becomes the company's responsibility</b>.
+    Force-majeure outages: self-report up to twice a month.</div>
+  </div>
+  <div class="col o">
+    <h4>사무실 근무 (office-based)</h4>
+    <ul>
+      <li><b>회선·PC·전력은 회사 책임</b>입니다. <b>수업 중</b> 장애로 끊겨도 <b>불이익 없이 전액 지급</b>됩니다</li>
+      <li>장애가 이어져 <b>아예 시작하지 못한 수업</b>은 지급되지 않지만,
+          <b>학생에게 보존되어 다른 날로 옮겨집니다</b> — 잃는 게 아니라 미뤄집니다</li>
+      <li><b>출근수당이 별도로 지급</b>됩니다 (재택에는 없는 항목)</li>
+      <li>대신 <b>회사 PC 사용 규정</b>을 지켜 주세요 (제7조)</li>
+      <li>업무 외 프로그램·파일로 생긴 장애는 <b>교사 책임</b>이 됩니다</li>
+      <li>장애 시 <b>즉시 사무실 담당자에게</b> 알려 주세요 — 기록이 교사를 보호합니다</li>
+    </ul>
+    <div class="en"><b>Office-based:</b> line, PC and power are the company's responsibility —
+    a lesson <b>cut off mid-way is paid in full with no penalty</b>.
+    Lessons that <b>never started</b> because the outage continued are not paid, but they are
+    <b>preserved for the student and moved to another day</b> — deferred, not lost.
+    An <b>attendance allowance</b> applies (home-based has none).
+    In return, please follow the <b>company-PC rules</b> (Art. 7);
+    failures caused by non-work software become <b>your responsibility</b>.
+    Report any incident immediately — the record protects you.</div>
+  </div>
+</div>
+
+<h3>2-3. 이 구분이 콜센터 전환 제도를 완성시킵니다
+  <span class="enh">2-3. This distinction is what makes the office transfer make sense</span></h3>
+<div class="good">
+  이전 안에서는 사무실 전환을 <b>"회선이 안정적이니까"</b>라고만 설명했습니다. 약한 논리였습니다.
+  이제 정확한 근거가 생겼습니다:<br><br>
+  <b>재택에서 회선이 끊기면 그 손해는 교사 몫입니다. 사무실로 옮기면 그 책임이 회사로 넘어갑니다.</b><br><br>
+  즉 사무실 전환은 <b>교사를 벌하는 것이 아니라, 교사가 지고 있던 책임을 회사가 넘겨받는 것</b>입니다.
+  <b>교사에게는 명백한 이득입니다.</b> 이것이 "처벌이 아니라 손해를 멈추는 조치"라는 말의 실제 내용입니다.
+  <b>게다가 사무실 근무에는 출근수당이 별도로 지급</b>되므로, 재택 대비 조건이 나빠지지 않습니다.<br><br>
+  <b class="ok">여기서 관점을 하나 바꾸시길 제안합니다.</b>
+  사무실 자리가 <b>교사에게 실제로 유리한 조건</b>이라면, 이 제도는 <b>징계 수단이 아니라 복리후생</b>입니다.
+  좌석을 <b>「문제 교사를 보내는 곳」이 아니라 「좋은 교사를 붙잡는 자원」</b>으로 다루면
+  전환을 통보할 때의 마찰도 사라집니다.
+  <div class="en-block g" style="margin-top:11px"><span class="lbl">EN</span><br>
+    Earlier drafts justified the transfer with "the office line is more stable" — a weak argument.
+    The real one is this: <b>at home the dropout is the teacher's burden; in the office it becomes the company's.</b>
+    The transfer does not punish the teacher — <b>it moves a burden off the teacher and onto us.</b>
+    That is what "not a punishment, but a way to stop the bleeding" actually means.</div>
+</div>
+
+<!-- ══════════════════════════ 3 ══════════════════════════ -->
+<h2 id="s3"><span class="n">3</span>학생이 오지 않는 경우 — 3단계로 나눕니다<small>Three Kinds of Absence — they are not the same event</small></h2>
+
+<div class="lead">
+  <b>「학생이 안 왔다」는 하나의 사건이 아닙니다.</b>
+  미리 알려 온 것과 아무 말 없이 안 온 것은 <b>교사가 대비할 수 있었는지</b>가 완전히 다릅니다.
+  현행 제도는 이를 뭉뚱그려 「결석」 하나로 처리합니다.
+</div>
+
+<table>
+<tr><th style="width:15%">구분 <span class="en">Type</span></th><th style="width:20%">정의 <span class="en">Definition</span></th>
+    <th style="width:16%">수업은 <span class="en">The lesson</span></th><th style="width:16%">교사 지급 <span class="en">Teacher pay</span></th>
+    <th>이유 <span class="en">Why</span></th></tr>
+
+<tr><td><b class="ok">① 사전 연기</b><span class="en">Postponed</span></td>
+    <td>수업 시작 <b>30분 전보다 앞서</b> 통보<span class="en">Notified more than 30 min ahead</span></td>
+    <td class="ok"><b>자동 연기</b> — 사라지지 않고 뒤로 이동
+    <span class="en"><b>Auto-postponed</b>, not lost</span></td>
+    <td>해당 없음<br><span style="font-size:12px">(연기된 날에 지급)</span>
+    <span class="en">N/A — paid when it happens</span></td>
+    <td>수업이 없어진 게 아니라 <b>미뤄진 것</b>. 교사도 사전에 알아 대비 가능
+    <span class="en">Nothing was lost; the teacher had notice</span></td></tr>
+
+<tr><td><b class="mid">② 임박 취소</b><span class="en">Late cancellation</span></td>
+    <td>시작 <b>30분 이내</b> 통보<span class="en">Notified within 30 min</span></td>
+    <td class="mid">노쇼로 처리<span class="en">Treated as a no-show</span></td>
+    <td class="ok"><b>전액 지급</b><span class="en"><b>Full pay</b></span></td>
+    <td>교사는 이미 준비를 마치고 대기 중. <b>그 시간을 다르게 쓸 수 없음</b>
+    <span class="en">The teacher is already prepared and cannot re-use the slot</span></td></tr>
+
+<tr><td><b class="no">③ 무통보 노쇼</b><span class="en">Silent no-show</span></td>
+    <td>통보 없이 오지 않음<span class="en">No notice at all</span></td>
+    <td class="no">노쇼<span class="en">No-show</span></td>
+    <td class="ok"><b>전액 지급</b><span class="en"><b>Full pay</b></span></td>
+    <td>교사는 예정 시간 끝까지 대기. 학생 출결은 교사가 통제할 수 없음
+    <span class="en">The teacher waits to the end; attendance is outside their control</span></td></tr>
+</table>
+
+<div class="note">
+  <b>②와 ③이 지급 면에서 같은 이유:</b> 교사 입장에서 결과가 동일하기 때문입니다.
+  10분 전에 취소 통보를 받든 아예 안 오든, <b>그 시간은 이미 비어 버렸고 되돌릴 수 없습니다.</b>
+  다만 <b>학생 쪽 관리는 달라야 합니다</b> — ③은 학부모 안내 대상, ②는 아래 남용 방지 대상입니다.
+  <div class="en-block" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>② and ③ pay the same because the outcome for the teacher is the same</b> —
+    the slot is already gone either way. What differs is <b>how we manage the student side</b>.</div>
+</div>
+
+<h3>3-1. 짚어야 할 이해 상충 — 30분은 교사에게 너무 짧습니다
+  <span class="enh">3-1. A conflict worth naming — 30 minutes is too short for the teacher</span></h3>
+
+<div class="warn">
+  <b>기준 ②(세 주체가 부딪히지 않아야 한다)로 검산하면 여기서 걸립니다.</b>
+  <table class="tbl-sm" style="margin:10px 0">
+  <tr><th style="width:16%">주체</th><th style="width:12%">손익</th><th>내용</th></tr>
+  <tr><td>학생</td><td class="ok">▲ 이득</td>
+      <td>30분 전까지 자유롭게 미룰 수 있어 편함. 수업도 잃지 않음
+      <span class="en">Free to postpone up to 30 minutes before, losing nothing</span></td></tr>
+  <tr><td>회사</td><td class="ok">▲ 이득</td>
+      <td>수업이 취소가 아니라 유지되므로 매출·노출 빈도가 지켜짐
+      <span class="en">The lesson survives, so revenue and exposure hold</span></td></tr>
+  <tr><td><b>교사</b></td><td class="no">▼ 손해</td>
+      <td><b>30분 전이면 이미 준비를 마치고 대기 중</b>입니다. 그 시간에 다른 수업을 잡을 수 없고,
+      연기된 수업은 <b>다른 날 자기 시간을 또 써야</b> 합니다.
+      경쟁사 기준은 <b>12~24시간</b>입니다(Preply 12시간, Cambly 8~12시간)
+      <span class="en"><b>Thirty minutes ahead, the teacher is already standing by.</b>
+      The slot cannot be refilled, and the postponed lesson consumes another slot later.
+      Peers use 12–24 hours</span></td></tr>
+  </table>
+  <b>교사만 손해입니다. 방치하면 「학생이 자꾸 미루는데 나만 손해」라는 불만이 쌓입니다.</b>
+</div>
+
+<h4>선택지 <span class="enh">Options</span></h4>
+<table class="tbl-sm">
+<tr><th style="width:24%">안</th><th style="width:30%">내용</th><th>평가 <span class="en">Assessment</span></th></tr>
+<tr><td>A. 통보 기한 연장<span class="en">Extend the window</span></td>
+    <td>30분 → <b>2시간</b> 또는 12시간 전</td>
+    <td class="mid">교사 보호는 확실하나 <b>학생 편의가 크게 줄어듭니다.</b>
+    갑작스러운 사정이 많은 아동·학부모 특성상 반발 가능
+    <span class="en">Protects teachers but sharply reduces student convenience</span></td></tr>
+<tr style="background:rgba(110,231,168,.08)">
+    <td><b class="ok">B. 횟수 제한 (권고)</b><span class="en"><b>Cap the frequency</b></span></td>
+    <td>30분 기준은 <b>유지</b>하되, <b>학생당 월 2회</b>까지만 자동연기.
+    초과분은 <b>노쇼로 처리 → 교사 전액 지급</b></td>
+    <td class="ok"><b>학생 편의를 지키면서 남용만 막습니다.</b> 대부분의 학생은 월 2회를 넘지 않으므로
+    체감 불편이 거의 없고, <b>회사 추가 비용도 사실상 0</b>
+    <span class="en">Keeps the convenience, blocks only abuse; effectively zero added cost</span></td></tr>
+<tr><td>C. 대기 보상<span class="en">Standby payment</span></td>
+    <td>임박 연기 시 교사에게 소액 지급</td>
+    <td class="mid">공정하지만 <b>비용이 발생</b>하고, 학생이 미루는 것을 막지는 못함
+    <span class="en">Fair but costly, and does not deter postponement</span></td></tr>
+</table>
+
+<div class="good">
+  <b>권고: B안.</b> 세 주체를 다시 검산하면 —
+  학생 <b>―</b>(월 2회까지는 지금과 동일) / 교사 <b>▲</b>(상습 연기로부터 보호) / 회사 <b>―</b>(비용 0).
+  <b>아무도 손해 보지 않으면서 교사만 보호됩니다.</b>
+  <div class="en-block g" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>Recommend Option B.</b> Re-checked against the three parties: the student is unaffected up to
+    two postponements a month, the teacher is protected from chronic postponers, and the company pays nothing.</div>
+</div>
+
+<!-- ══════════════════════════ 4 ══════════════════════════ -->
+<h2 id="s4" class="hot"><span class="n">4</span>현재 문제점<small>Current Problems — 전부 현행 소스 코드에서 직접 확인한 사실</small></h2>
+
+<h3 style="color:#fca5a5">① <span class="no">[최우선]</span> 결석 시 지급이 방침과 반대로 설정되어 있습니다
+  <span class="enh">1. [Most urgent] No-show pay is configured against the stated policy</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:28%">근거 <span class="en">Reference</span></th><th>확인 내용 <span class="en">Finding</span></th></tr>
+<tr><td><code>api-admin.ts:968</code></td>
+    <td><code>absent_pay_percent</code> "학생 결석 시 지급률(%)" — <b class="no">시드값 0, enabled=1</b></td></tr>
+<tr><td><code>api-admin.ts:1172</code></td>
+    <td><code>student_absent</code> → <code>amount = base × 0 / 100</code> = <b class="no">0원</b></td></tr>
+<tr><td><code>index.ts:17, 1835</code></td>
+    <td>학생 결석 감지(<code>absent-sweep</code>)가 <b>스케줄러에 등록되어 실제 동작 중</b></td></tr>
+</table>
+<div class="warn">
+  <b>미확인 2가지 — 결론이 갈리는 지점입니다.</b>
+  ① 운영 DB의 실제 값(관리자가 100으로 바꿔 두었을 수 있음 — 확인한 것은 시드 기본값) ·
+  ② 이 정산표를 실제 지급에 쓰는지(수기로 전액 지급해 오셨다면 <b>표만 틀린 것</b>,
+  표대로 지급했다면 <b>소급 정산 필요</b>). <b>조회 1회면 둘 다 확정됩니다.</b>
+</div>
+
+<div class="warn" style="border-left-color:#f87171;background:rgba(248,113,113,.13)">
+  <b>그리고 이 문제는 단순한 설정 오류가 아닙니다 — 손익 구조를 보면 가장 나쁜 형태입니다.</b><br><br>
+  학생이 통보 없이 오지 않으면 그 수업은 <b>사용한 것으로 처리되어 회사는 수업료를 그대로 받습니다.</b>
+  그런데 교사에게는 <b>0원</b>을 지급합니다. 이때 세 주체의 장부는 이렇게 됩니다:
+  <table class="tbl-sm" style="margin:11px 0">
+  <tr><th style="width:16%">주체</th><th style="width:26%">현행 코드(0원 지급)</th><th>방침대로(전액 지급)</th></tr>
+  <tr><td><b>회사</b></td>
+      <td class="no"><b>▲▲ 수업료는 받고 원가는 0</b><br>
+      <span style="font-size:12px">정상 수업보다 마진이 더 큼</span></td>
+      <td class="ok"><b>― 정상 수업과 동일</b><br><span style="font-size:12px">추가 부담 없음</span></td></tr>
+  <tr><td><b>교사</b></td>
+      <td class="no"><b>▼ 대기했는데 0원</b></td>
+      <td class="ok"><b>― 정상 지급</b></td></tr>
+  <tr><td><b>학생</b></td>
+      <td class="mid">▼ 수업 1회 소진</td>
+      <td class="mid">▼ 수업 1회 소진<br><span style="font-size:12px">(본인 사정 — 통제 가능했음)</span></td></tr>
+  </table>
+  <b>현행은 「잘못하지 않은 교사만 손해를 보고, 회사가 그 몫을 가져가는」 구조입니다.</b>
+  이것은 07-28 회사 귀책 사고(④)와 <b>정확히 같은 형태</b>입니다.<br><br>
+  <b class="ok">따라서 결정 1(0→100)은 「비용 증가」가 아닙니다.</b>
+  회사가 정상 수업과 똑같은 원가를 부담하게 되는 것뿐이며,
+  <b>받지 말았어야 할 이득을 원래 자리로 되돌리는 조치</b>입니다.
+  <div class="en-block r" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>This is not a mere misconfiguration — structurally it is the worst shape a rule can take.</b>
+    When a student fails to appear, the lesson is <b>counted as used and the company keeps the fee</b> —
+    yet the teacher is paid <b>zero</b>. The company ends up with <b>a larger margin than on a normal lesson</b>,
+    and the only party carrying a loss is <b>the teacher, who did nothing wrong</b>.
+    That is the same shape as the company-fault incident in ④.<br>
+    <b>Decision 1 is therefore not a cost increase.</b> It simply restores the normal cost of a lesson —
+    <b>returning a gain we should never have been taking.</b></div>
+</div>
+
+<h3>② 수업이 실제로 이루어졌는지를 <b>아무도 볼 수 없습니다</b>
+  <span class="enh">2. Nobody can see whether the lesson actually happened</span></h3>
+<p>수업료는 <b>예약된 시간</b>만 봅니다(<code>api-admin.ts:1169, 1073</code>).
+실제 수업 길이나 성사 여부가 반영되는 지점은 <b class="no">없습니다.</b>
+즉 <b>5분을 해도 0분을 해도 지급이 같습니다.</b></p>
+<div class="note">
+  <b>이 문제의 해법은 「돈」이 아니라 「기록」입니다.</b>
+  지급을 늘려 성사를 유도하려면 <b>이미 전액을 받는 교사에게 더 주는 셈</b>이 되고,
+  실제 수업 노동은 정상 수업보다 적은데 보상만 커지는 역전이 생깁니다(결정 9).<br>
+  <b>필요한 것은 「학생이 들어왔을 때 수업이 시작됐는가」가 보이게 하는 것</b>이며,
+  그것이 <b>M4</b>가 하는 일입니다. 보이면 관리할 수 있고, 관리할 수 있으면 돈이 필요 없습니다.
+  <div class="en-block" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>The fix here is visibility, not money.</b> Paying more would mean paying a teacher who
+    <i>already receives the full fee</i> for <i>less</i> teaching.
+    What we actually need is to <b>see whether the lesson started once the student appeared</b> — that is what <b>M4</b> delivers.
+    What can be seen can be managed, and what can be managed does not need to be bought.</div>
+</div>
+
+<h3>③ 페널티 근거가 사람의 손입력입니다 <span class="enh">3. The penalty rests on manual entry</span></h3>
+<p><code>late_no_extend</code> 1분당 ₱10이 <b>활성</b>이며(<code>api-admin.ts:966</code>),
+지각 분수는 <b>관리자가 직접 입력</b>합니다(<code>L1442</code>).
+코드 주석에도 <i>"근태 자동로그 도입 전까지 사용"</i>이라고 <b>임시 조치임이 명시</b>돼 있습니다.</p>
+
+<h3 style="color:#fca5a5">④ 회사·시스템 귀책 항목이 없습니다 — <span class="no">2026-07-28 실제 발생</span>
+  <span class="enh">4. No "company fault" category — and it happened</span></h3>
+<div class="warn">
+  중국어 수업 <code>class-848-20260728</code>에서 <b>강사만 입장하지 못했습니다</b>(학생·관리자는 방에 있었음).
+  원인은 <b>실제 강사 계정이 발급되지 않아</b> 시연용 계정으로 접속 중이었던 것이고,
+  강사 마이페이지의 공식 「수업 입장」 버튼도 <b>같은 형식이라 똑같이 막혔습니다.</b><br><br>
+  <b>현행 규칙을 그대로 적용하면:</b> 지각 기록 → 미연장 → <b class="no">1분당 ₱10 차감</b>(15분이면 ₱150).
+  <b>우리 시스템이 막아 놓고 교사 급여를 깎습니다.</b>
+</div>
+
+<h3>⑤ 근무 형태 구분이 없습니다 <span class="status new">v5</span>
+  <span class="enh">5. Work mode is not distinguished at all</span></h3>
+<p>현행 규칙에는 <b>재택·사무실 구분이 존재하지 않습니다.</b>
+그래서 회사가 깔아 준 회선이 끊겨도 사무실 교사가 동일한 판정을 받게 됩니다.
+<b>회사 책임인 장애로 교사가 불이익을 받는 구조</b>이며, 이는 ④와 같은 종류의 문제입니다.</p>
+
+<h3>⑥ 강사에게 공지된 성문 규정이 없습니다 <span class="enh">6. No published rules</span></h3>
+<p>페널티도 자동연기 기준도 <b>강사가 볼 수 있는 문서로 공지된 적이 없습니다.</b>
+이번 질문(#17)이 그 증거입니다.</p>
+
+<!-- ══════════════════════════ 5 ══════════════════════════ -->
+<h2 id="s5" class="hot"><span class="n">5</span>교사 회선이 끊겼을 때 수업 시간을 어떻게 증명할 것인가<small>Measuring lesson time when the connection dies</small></h2>
+
+<div class="lead">
+  <b>원인은 "기록이 부정확하다"가 아니라 "기록하는 주체가 잘못됐다"입니다.</b>
+  수업 시간을 서버에 보고하는 주체가 <b>교사 본인의 브라우저</b>인데,
+  문제 상황이 바로 <b>그 브라우저의 회선이 죽는 것</b>입니다.
+  <b>보고자와 사고 당사자가 같으므로, 사고가 나면 보고가 함께 사라집니다.</b>
+</div>
+
+<h3>5-1. 사각지대 4가지 <span class="enh">5-1. Four blind spots</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:6%">#</th><th style="width:30%">사각지대</th><th style="width:32%">왜 생기는가</th><th>근거</th></tr>
+<tr><td><b class="no">①</b></td><td><b>종료 시각이 영원히 안 남는다</b></td>
+    <td><b>회선이 끊겨도 페이지는 언로드되지 않는다</b> → <code>leave</code> 호출 자체가 없음 → <code>left_at</code> 영구 NULL</td>
+    <td><code>mango-attendance.js</code> L207~225</td></tr>
+<tr><td><b class="no">②</b></td><td><b>재접속하면 끊긴 시간이 수업에 포함</b></td>
+    <td>클라이언트가 200ms마다 자체 누적. <b>네트워크가 죽어도 타이머는 돈다</b></td>
+    <td><code>mango-attendance.js</code> L130~153</td></tr>
+<tr><td><b class="no">③</b></td><td><b>서버가 도착 시각을 버린다</b></td>
+    <td>클라이언트가 <b>30초마다 실제로 요청을 보내는데</b> 시각을 저장하지 않음</td>
+    <td><code>api-mango.ts</code> L678~</td></tr>
+<tr><td><b class="no">④</b></td><td><b>서버는 끊김을 알고도 저장 안 함</b></td>
+    <td><code>left</code>/<code>dropped</code>를 <b>이미 구분</b>하지만 브로드캐스트+로그가 전부</td>
+    <td><code>video-call-room.ts</code> L163~185</td></tr>
+</table>
+
+<h3>5-2. 해법 — <span style="color:#6ee7a8">학생 쪽 기록이 교사의 증인</span>
+  <span class="enh">5-2. The student's record is the teacher's witness</span></h3>
+<div class="lead" style="border-left-color:#6ee7a8;background:rgba(110,231,168,.08)">
+  학생은 <b>다른 회선 · 다른 기기 · 다른 장소</b>에 있습니다.
+  교사 회선이 죽어도 <b>학생 브라우저는 정상적으로 보고를 계속</b>하고,
+  화상수업 서버는 <code>user-left(reason: dropped)</code>를 <b>이미 학생에게 보내고 있습니다.</b><br><br>
+  <b>목격자는 학생 쪽 시스템입니다. 우리는 그 증언을 저장만 하면 됩니다.</b>
+</div>
+
+<h3>5-3. 「양측 동시 접속 시간」 <span class="enh">5-3. "Both-present time"</span></h3>
+<div class="tl">
+  <div class="row"><div class="lbl">예정 수업<em>Scheduled</em></div>
+    <div class="bar"><div class="seg s-gap" style="flex:0 0 8%"></div>
+      <div class="seg s-ext" style="flex:1">14:00 — 14:20 (20 min)</div>
+      <div class="seg s-gap" style="flex:0 0 22%"></div></div></div>
+  <div class="row"><div class="lbl">학생 접속<em>Student online</em></div>
+    <div class="bar"><div class="seg s-gap" style="flex:0 0 8%"></div>
+      <div class="seg s-on" style="flex:1">14:00 ─────────────── 14:26 (witness)</div>
+      <div class="seg s-gap" style="flex:0 0 8%"></div></div></div>
+  <div class="row"><div class="lbl">교사 접속<em>Teacher online</em></div>
+    <div class="bar"><div class="seg s-gap" style="flex:0 0 8%"></div>
+      <div class="seg s-on" style="flex:0 0 30%">14:00–14:08</div>
+      <div class="seg s-off" style="flex:0 0 18%">DROP 5 min</div>
+      <div class="seg s-on" style="flex:0 0 36%">14:13–14:26</div>
+      <div class="seg s-gap" style="flex:0 0 8%"></div></div></div>
+  <div class="legend">
+    <span><i style="background:#6ee7a8"></i>양측 동시 접속 (수업 성립)</span>
+    <span><i style="background:#f87171"></i>교사 이탈 (미성립)</span>
+    <span><i style="background:#ffd479"></i>예정 시간</span>
+  </div>
+  <div class="cap">
+    겉보기 접속 26분이지만 실제 수업 성립은 <b>20분</b>(8+7+5). 끊긴 5분을 보충했으므로
+    <b>원 수업 시간 복원 → 불이익 없음.</b> 14:20에 종료했다면 성립은 15분뿐입니다.
+    <b>이 판정 전부가 학생 쪽 기록만으로 가능합니다.</b><br>
+    <b>EN —</b> 26 minutes of apparent connection, 20 minutes of actual lesson.
+    Every judgement is possible from the student's record alone.
+  </div>
+</div>
+
+<h3>5-4. 증거 등급 <span class="enh">5-4. Evidence tiers</span></h3>
+<table>
+<tr><th style="width:9%">등급</th><th style="width:30%">조건</th><th style="width:29%">처리</th><th>비중</th></tr>
+<tr><td><b class="ok">A급</b></td><td>학생 기록 + 서버 기록 <b>일치</b></td>
+    <td class="ok">자동 확정 · 매니저 불필요</td><td>1:1 수업 대부분</td></tr>
+<tr><td><b class="mid">B급</b></td><td>한쪽 기록만 존재</td><td class="mid">매니저 승인 큐</td><td>소수</td></tr>
+<tr><td><b class="no">C급</b></td><td><b>양측 동시 끊김</b>(지역 정전)</td>
+    <td class="no">자기신고 + <b>월 2회 한도</b></td><td>드물지만 반드시 발생</td></tr>
+</table>
+
+<h3>5-5. 구축 4단계 <span class="enh">5-5. Four build steps</span></h3>
+<table>
+<tr><th style="width:7%">단계</th><th style="width:28%">내용</th><th style="width:30%">확보되는 것</th>
+    <th style="width:12%">상태</th><th>기간</th></tr>
+<tr style="background:rgba(110,231,168,.08)"><td><b>M1</b></td>
+    <td><b>서버 시각 하트비트</b> <code>last_seen_at</code></td>
+    <td class="ok"><b>종료 시각 오차 30초 이내 복원</b></td>
+    <td class="ok"><b>구현·검증 완료</b></td><td class="ok">완료</td></tr>
+<tr><td><b>M2</b></td><td>끊김 이벤트 D1 적재</td><td>끊김 횟수·시각·구간·원인 코드</td>
+    <td class="mid">대기</td><td>1일</td></tr>
+<tr><td><b>M3</b></td><td><b>학생 측 목격 보고</b></td><td class="ok"><b>교사 회선이 죽어도 사실이 남음</b></td>
+    <td class="mid">대기</td><td>1일</td></tr>
+<tr><td><b>M4</b></td><td>양측 동시 접속 산출 + 승인 화면 + 교사 타임라인</td>
+    <td class="ok">지급·판정·성사 판정의 공통 근거</td><td class="mid">대기</td><td>1.5일</td></tr>
+</table>
+<div class="good">
+  <b>M1은 이미 끝났습니다.</b> <code>api-mango.ts</code> 한 파일만 수정, 신규 API 없음,
+  <b>D1 쓰기 증가 0</b>(기존 UPDATE에 컬럼 하나 추가).
+  검증: <code>tsc</code> 통과 · 회귀 <b>48 PASS / 0 FAIL</b> · 전용 하니스 <b>32/32</b>
+  (소스에서 SQL을 추출해 <b>실제 SQLite에 실행</b>). <b>⚠️ 아직 배포 안 함.</b>
+</div>
+
+<!-- ══════════════════════════ 6 ══════════════════════════ -->
+<h2 id="s6"><span class="n">6</span>장점과 단점<small>Pros &amp; Cons — 경쟁사 벤치마크 · 손익 장부 · 비용</small></h2>
+
+<h3>경쟁 플랫폼 6개사 <span class="enh">Six competitor platforms</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:14%">플랫폼</th><th style="width:21%">학생 노쇼 시</th><th style="width:19%">연장 의무</th><th>보수 방식</th></tr>
+<tr><td><b>italki</b></td><td class="ok"><b>전액 지급</b></td><td class="ok"><b>없음(정책 명문)</b></td>
+    <td>예정 시간 끝까지 대기</td></tr>
+<tr style="background:rgba(110,231,168,.1)"><td><b>망고아이 (방침)</b></td>
+    <td class="ok"><b>전액 지급</b></td><td class="mid">교사 귀책만 의무</td><td>정액제(20분 단과)</td></tr>
+<tr><td><b>Preply</b></td><td class="ok">대개 완료 처리 → 지급</td><td>없음</td><td>취소 12시간 전 기준</td></tr>
+<tr><td><b>Cambly</b></td><td class="mid">대기 10분만 지급</td><td>해당 없음</td><td><b>분당 지급</b>($0.17/분)</td></tr>
+<tr><td><b>51Talk</b></td><td class="no">절반만 지급</td><td>—</td>
+    <td class="no"><b>벌칙 중심</b> — 강사 리뷰 최다 불만</td></tr>
+<tr><td><b>Engoo / Native Camp</b></td><td>—</td><td>없음</td><td>건당 고정(약 ₱60/25분)</td></tr>
+</table>
+<div class="lead">
+  <b>망고아이의 노쇼 방침은 업계 최상위(italki급)입니다.</b> 채용·유지의 무기입니다.
+  다만 <b>연기 통보 기한 30분은 경쟁사(12~24시간)보다 교사에게 훨씬 불리합니다</b> —
+  가장 관대한 조건과 가장 불리한 조건이 한 제도 안에 같이 있습니다. (3-1 참조)
+</div>
+
+<h3>세 주체 손익 장부 <span class="enh">The three-party ledger</span></h3>
+<p style="font-size:13.5px;color:#9fc0dc">▲ 이득 &nbsp; ▼ 손해 &nbsp; ― 중립</p>
+<table class="tbl-sm">
+<tr><th style="width:24%">상황</th><th style="width:8%">회사</th><th style="width:8%">교사</th><th style="width:8%">학생</th>
+    <th>왜 부딪히지 않는가 <span class="en">Why it holds</span></th></tr>
+
+<tr style="background:rgba(110,231,168,.07)"><td>사전 연기(30분 전)</td>
+    <td>―</td><td>―</td><td class="ok">▲</td>
+    <td>수업이 사라지지 않고 이동. <b>월 2회 상한</b>으로 교사 손해를 막음(3-1 B안)</td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td>임박 취소 · 무통보 노쇼</td>
+    <td>―</td><td>―</td><td class="mid">▼</td>
+    <td><b>회사는 손해가 아닙니다.</b> 그 수업은 <b>사용한 것으로 처리되어 수업료를 그대로 받습니다.</b>
+    교사에게 전액을 줘도 <b>정상 수업과 원가 구조가 똑같습니다.</b>
+    손해는 <b>본인 사정으로 수업 1회를 소진한 학생</b>에게만 남습니다 — 기준 ③에 정확히 맞습니다
+    <span class="en"><b>The company loses nothing</b> — the lesson is counted as used and the fee is retained,
+    so paying the teacher in full leaves the same margin as any normal lesson.
+    The only loss sits with <b>the student who consumed a lesson through their own circumstances</b></span></td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td>학생 지각 → 남은 시간만큼 수업</td>
+    <td>―</td><td>―</td><td class="mid">▼<br><span style="font-size:11px">본인 사정</span></td>
+    <td><b>추가 보상 없이도 이미 정렬되어 있습니다.</b> 교사는 전액을 받고 실제 수업 노동은 오히려 적으며,
+    회사는 정상 마진을 유지합니다. 손해는 <b>스스로 늦은 학생</b>에게만 남습니다.
+    <b class="no">여기에 보상을 얹으면 「적게 일한 쪽이 더 받는」 역전</b>이 생기고
+    회사만 손해를 봅니다 — 그래서 두지 않습니다
+    <span class="en"><b>Already aligned without any bonus.</b> The teacher receives full pay for
+    <i>less</i> teaching, the company keeps its normal margin, and the only loss sits with the student who was late.
+    <b>Adding a bonus would pay more for less work</b> and put the company alone in deficit</span></td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td><span class="home">재택</span> 회선 끊김 → 보충</td>
+    <td>―</td><td>―</td><td>―</td>
+    <td>교사가 선택한 회선이므로 교사 영역. 보충으로 원위치 (기준 ③)</td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td><span class="office">사무실</span> 장애 —
+    <b>수업 중 끊김</b></td>
+    <td>―</td><td>―</td><td class="ok">▲<br><span style="font-size:11px">보충수업</span></td>
+    <td><b>회사가 제공한 자원이므로 회사 부담.</b> 그 수업은 이미 시작됐으므로 전액 지급,
+    교사 불이익 없음. 학생은 보충수업을 받음</td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td><span class="office">사무실</span> 장애 —
+    <b>재택 교사가 대신 수업</b></td>
+    <td class="mid">▼<br><span style="font-size:11px">이중 지급</span></td>
+    <td class="ok">▲<br><span style="font-size:11px">대체 교사</span></td>
+    <td class="ok">▲▲<br><span style="font-size:11px">흐름 유지</span></td>
+    <td><b>학생에게 가장 좋은 결과</b>이고 원 교사도 지급받아 손해가 없습니다.
+    회사가 한 수업에 두 번 지급하지만, <b>이 비용이 곧 「사무실 회선을 고칠 이유」</b>가 됩니다 —
+    <b>고칠 수 있는 쪽에 비용이 놓이는 것이 정상</b>입니다(기준 ③).
+    <span class="en">Best outcome for the student, and the original teacher is made whole.
+    The company pays twice — and that cost is precisely <b>the reason to fix the office line</b>.
+    Placing the cost on the party that can fix it is the point</span></td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td><span class="office">사무실</span> 장애 —
+    <b>대체도 불가, 다른 날로 이동</b></td>
+    <td>―</td><td>―</td><td>―</td>
+    <td><b>수업이 없었으므로 미지급이지만, 수업 자체가 학생에게 보존되어 다른 날로 이동</b>합니다
+    → 교사는 그날 수업하고 받으므로 <b>잃는 것이 아니라 미뤄지는 것</b>.
+    그 시간은 <b>출근수당 + 대체 업무 또는 조기 퇴근</b>으로 처리되어 <b>교사를 대기만 시키지 않습니다</b>
+    <span class="en">Not paid — no lesson took place — but the lesson is preserved and rescheduled,
+    so the income is <b>deferred, not lost</b>. The time is covered by the <b>attendance allowance</b>
+    plus other work or an early finish</span></td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td><span class="office">사무실</span> PC에 업무 외 설치 → 장애</td>
+    <td>―</td><td class="mid">▼</td><td>―</td>
+    <td><b>그 상태를 만든 사람이 교사</b>이므로 교사 부담 (기준 ③)</td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td><b>회사 귀책</b>(플랫폼 장애)</td>
+    <td class="mid">▼</td><td>―</td><td class="ok">▲</td>
+    <td><b>잘못한 쪽이 비용을 짐.</b> 이래야 나머지 규칙이 믿음을 얻음</td></tr>
+<tr style="background:rgba(110,231,168,.07)"><td>상습 재택 끊김 → 사무실 전환</td>
+    <td class="mid">▼<br><span style="font-size:11px">통근지원</span></td>
+    <td class="ok">▲<br><span style="font-size:11px">책임이 회사로 이전</span></td><td class="ok">▲</td>
+    <td><b>문제를 실제로 없앰.</b> 교사는 지고 있던 책임에서 해방됨(2-3)</td></tr>
+</table>
+<div class="good">
+  <b>「한쪽만 손해」인 칸이 없습니다.</b> 회사가 돈을 내는 곳은 손해가 아니라 <b>구매</b>입니다 —
+  교사의 대기, 수업 1회의 성사, 그리고 안정된 근무 환경을 사는 것이고, 모두 재등록으로 돌아옵니다.
+  <div class="en-block g" style="margin-top:11px"><span class="lbl">EN</span><br>
+    <b>No cell leaves one party alone with the loss.</b> Where the company spends, it is buying —
+    the teacher's waiting, a lesson that happens, and a stable place to work.</div>
+</div>
+
+<h3>비용 <span class="enh">Cost</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:30%">항목</th><th class="num">월</th><th class="num">연</th><th>비고</th></tr>
+<tr style="background:rgba(248,113,113,.08)"><td><b>결석 지급률 0→100 수정</b></td>
+    <td class="num">₱0 <b>또는</b> ₱7,050</td><td class="num">₱0 <b>또는</b> 약 203만원</td>
+    <td class="no"><b>결정 2에서 확정</b> — 수기로 전액 지급 중이었다면 ₱0(표만 수정).<br>
+    <b>단, 이는 「비용 증가」가 아니라 마진 정상화입니다</b> —
+    노쇼 수업도 <b>수업료를 그대로 받으므로</b>, 교사에게 전액을 줘도
+    <b>정상 수업과 마진이 같습니다.</b> 지금은 그보다 마진이 큰 상태입니다
+    <span class="en"><b>Not a cost increase but a margin correction</b> — the fee for a no-show lesson
+    is retained, so paying the teacher in full yields <b>the same margin as any normal lesson</b>.
+    Today's margin is higher than it should be</span></td></tr>
+<tr><td>자동연기 월 2회 상한(3-1 B안)</td><td class="num">₱0</td><td class="num">₱0</td>
+    <td class="ok">초과분을 노쇼로 처리 = <b>기존 노쇼 지급과 동일</b>. 추가 비용 없음</td></tr>
+<tr><td>사무실 전환 통근 지원</td><td class="num">미정</td><td class="num">미정</td>
+    <td class="mid">대상 인원·거리 확인 후 산정 (결정 11)</td></tr>
+<tr><td style="opacity:.55"><s>분당 연장 수당</s></td><td class="num"><s>₱2,123~14,150</s></td>
+    <td class="num"><s>61만~408만원</s></td>
+    <td><b>제외됨</b> — 수입 없는 지출 · <b>학생이 제시간에 올 이유를 없앰</b></td></tr>
+<tr><td style="opacity:.55"><s>성사 인센티브(₱15)</s></td><td class="num"><s>₱2,123~4,245</s></td>
+    <td class="num"><s>61만~122만원</s></td>
+    <td><b>제외됨</b> — 노쇼 수업료를 이미 받으므로 <b>수입 없는 마진 감소</b>이고,
+    교사는 전액을 받으면서 <b>실제 수업 노동은 오히려 적습니다.</b>
+    보상을 얹으면 <b>적게 일한 쪽이 더 받고</b>, 상습 지각 학생을 배정받은 교사만 이득을 봅니다
+    <span class="en"><b>Removed</b> — the fee is already collected, so it is a pure margin loss;
+    and the teacher already receives full pay for <i>less</i> teaching</span></td></tr>
+</table>
+<div class="assume">
+  ※ 월 수업 2,830건 추정(반복 스케줄 658건 × 4.3주). 환율 ₱1 ≈ 24원.<br>
+  <b class="ok">■ 이 제안의 신규 지출은 0원입니다.</b>
+  연장 수당과 성사 인센티브를 모두 제외했고, 자동연기 상한도 비용이 없습니다.
+  <b>남은 항목은 「결석 지급률 수정」(마진 정상화)과 「사무실 전환 통근 지원」(결정 11에서 산정) 둘뿐</b>이며,
+  전자는 새 비용이 아니라 원래 나갔어야 할 돈입니다.<br>
+  <b>EN — This proposal adds no new spending.</b> Both the extension pay and the session bonus were removed.
+  What remains is the no-show <b>margin correction</b> (money that should always have been paid) and
+  commuting support, to be sized under Decision 11.
+</div>
+
+<!-- ══════════════════════════ 7 ══════════════════════════ -->
+<h2 id="s7"><span class="n">7</span>보완점<small>Safeguards</small></h2>
+
+<h3>① 실제 접속 시간을 그대로 지급하지 않습니다</h3>
+<ul class="x">
+  <li>교사가 교실을 안 나가면 시간이 무한 증가</li>
+  <li>끊김·재접속이 섞이면 부풀려짐</li>
+  <li>학생 퇴장 이후가 수업으로 집계됨</li>
+</ul>
+<p><b>기준은 「양측 동시 접속 시간」, 상한은 학생 퇴장 시각입니다.</b></p>
+
+<h3>② 자동 산출 후 매니저 확정</h3>
+<div class="flow">
+  <div class="step"><b>1. 자동 산출</b>양측 동시 접속 시간</div>
+  <div class="step"><b>2. 사유 판정</b>학생 / 교사(재택) / 회사(사무실·플랫폼)</div>
+  <div class="step"><b>3. 등급 부여</b>A급 자동, B·C만 큐로</div>
+  <div class="step"><b>4. 매니저 확정</b>타임라인과 함께</div>
+  <div class="step"><b>5. 정산 반영</b>항목별 표기</div>
+</div>
+<p style="font-size:13.5px;color:#b8cde0"><b>근무 형태가 판정에 자동 반영되어야 합니다</b> —
+교사 프로필에 <code>work_mode</code>(home/office)를 두고, 사무실 교사의 회선 장애는 <b>자동으로 회사 귀책</b>으로 분류합니다.</p>
+
+<h3>③ 강사 측 추가 업무 없음</h3>
+<p>신청서·버튼이 없습니다. 신청 방식이면 <b>수업이 연달아 잡힌 성실한 교사일수록 손해</b>를 봅니다.</p>
+
+<h3>④ 이의제기 창구 (7일)</h3>
+<p>기록이 실제와 다르면 마이페이지에서 7일 내 이의 제기.
+<b>페널티를 유지하는 제도일수록 이 창구가 필수입니다.</b></p>
+
+<h3>⑤ 사무실 PC 규정은 「감시」가 아니라 「보호」로 운영합니다</h3>
+<div class="note">
+  회사 PC 규정을 도입하면 교사가 <b>감시받는다고 느낄 수 있습니다.</b> 그래서 운영 원칙을 함께 정합니다:
+  <ul style="margin-top:8px">
+    <li><b>개인 사용 내역을 들여다보지 않습니다.</b> 장애가 실제로 발생했을 때만 원인을 확인합니다</li>
+    <li><b>필요한 프로그램은 회사가 설치해 드립니다</b> — 교사가 직접 깔 이유를 없애는 것이 최선의 예방</li>
+    <li>규정 위반이 확인돼도 <b>1차는 안내, 2차부터 책임</b>을 적용합니다</li>
+  </ul>
+  <div class="en-block" style="margin-top:11px"><span class="lbl">EN</span><br>
+    A company-PC rule can feel like surveillance. So: <b>we do not inspect personal usage</b> —
+    only the cause of an actual incident; <b>we install what teachers need</b>, removing the reason to self-install;
+    and the <b>first occurrence is guidance, not liability</b>.</div>
+</div>
+
+<h3>⑥ 착수 전 확인 항목 <span class="no">(미확인)</span></h3>
+<div class="warn">
+  <ul style="margin-top:4px">
+    <li>운영 DB의 <code>absent_pay_percent</code> 실제 값 · <b>결석 수업 실지급 이력</b> (결정 1·2)</li>
+    <li><code>lesson_late_minutes</code> 실제 페널티 부과 건수</li>
+    <li><code>attendance</code> 적재량 · 월 실제 수업 건수</li>
+    <li><b>재택·사무실 교사 인원 구성</b> · 콜센터 좌석 수용력 · 교사 거주지 분포 (결정 3·11)</li>
+    <li><b>자동연기 실제 발생 빈도</b> — 30분 상한 문제의 실제 규모 (결정 6)</li>
+    <li>시연 계정(<code>hq_t_*</code>)으로 근무 중인 강사 수</li>
+    <li><b>학생 1회 수업 판매 단가</b> — 인센티브가 마진의 몇 %인지 확정용</li>
+  </ul>
+</div>
+
+<!-- ══════════════════════════ 8 ══════════════════════════ -->
+<h2 id="s8"><span class="n">8</span>교칙 15개 조문<small>The Rules — 승인 시 이 문안 그대로 강사에게 공지합니다 (한/영 병기)</small></h2>
+
+<p style="font-size:13.5px;color:#9fc0dc">
+  <span class="rule" style="display:inline-block;padding:2px 0;margin:0;border:0;background:none">
+  <span class="tagline all">전체</span> 모든 교사 &nbsp;
+  <span class="tagline h">재택</span> 재택 교사만 &nbsp;
+  <span class="tagline o">사무실</span> 사무실 교사만</span></p>
+
+<div class="rule" style="border-color:rgba(110,231,168,.45)">
+  <span class="no-" style="background:#6ee7a8">제 1 조</span><span class="tagline all">전체</span>
+  <h4 style="color:#6ee7a8">학생이 오지 않아도 수업료는 전액 드립니다</h4>
+  <p>학생이 결석하거나 끝까지 오지 않아도 <b>예정된 수업료 전액(20분)이 지급</b>됩니다.
+  학생의 출결은 선생님이 통제할 수 있는 일이 아니기 때문입니다.</p>
+  <p><b>대신 예정 시간이 끝날 때까지 교실에 계셔 주세요.</b> 학생이 언제 들어와도 바로 시작할 수 있도록요.
+  <b>단 5분이라도 수업을 하는 것이 아무것도 하지 않는 것보다 낫습니다.</b></p>
+  <div class="en"><b>You are paid in full even if the student does not come.</b>
+  Attendance is not something you can control.
+  <b>In return, please stay in the classroom until the scheduled end time</b> —
+  <b>even five minutes of class is better than none.</b></div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 2 조</span><span class="tagline all">전체</span>
+  <h4>수업이 미리 연기된 경우 <span style="font-size:13px;color:#9fc0dc">(자동연기)</span></h4>
+  <p>학생이 <b>수업 시작 30분보다 앞서</b> 알려 오면 수업은 <b>자동으로 연기</b>됩니다.
+  이 경우 수업은 <b>없어진 것이 아니라 다른 날로 옮겨진 것</b>이므로, 수업료는 <b>실제로 수업하는 날</b>에 지급됩니다.</p>
+  <p><b>30분 이내에 통보가 오거나 아무 말 없이 오지 않으면</b> 연기가 아니라 <b>결석</b>으로 처리되며,
+  제1조에 따라 <b>수업료 전액이 지급</b>됩니다.</p>
+  <p style="color:#9fc0dc;font-size:13.5px">같은 학생의 자동연기가 <b>월 2회를 넘으면</b> 그 이후는 결석으로 처리됩니다
+  — 선생님이 계속 손해 보지 않도록 하기 위한 장치입니다.</p>
+  <div class="en"><b>If the lesson is postponed in advance.</b>
+  When a student gives notice <b>more than 30 minutes before the start</b>, the lesson is <b>automatically postponed</b> —
+  it is not lost, and you are paid <b>on the day it actually takes place</b>.<br>
+  <b>Notice within 30 minutes, or no notice at all, counts as an absence</b>, and
+  <b>you are paid in full</b> under Article 1.<br>
+  If the same student postpones <b>more than twice in a month</b>, further postponements are treated as absences —
+  a safeguard so that repeated postponement does not fall on you.</div>
+</div>
+
+<div class="rule" style="border-color:rgba(110,231,168,.45)">
+  <span class="no-" style="background:#6ee7a8">제 3 조</span><span class="tagline all">전체</span>
+  <h4 style="color:#6ee7a8">학생이 늦게 와도 남은 시간만큼 수업해 주세요</h4>
+  <p>학생이 많이 늦어 <b>5분밖에 남지 않았더라도 수업을 시작해 주세요.</b>
+  회사가 가장 중요하게 보는 것은 <b>수업 시간의 길이가 아니라 수업이 이루어졌는가</b>입니다.
+  선생님의 그 5분이 학생에게는 <b>그 주의 유일한 영어 노출</b>일 수 있습니다.</p>
+  <p><b>이 경우에도 수업료는 전액 지급됩니다</b>(제1조).
+  이미 전액을 받으시는 것이므로 <b>별도의 추가 보상은 없습니다.</b>
+  남은 시간만큼 가르치는 것은 <b>추가 업무가 아니라 우리가 하는 일 그 자체</b>이기 때문입니다.</p>
+  <div class="en"><b>If a student arrives late, please teach whatever time is left.</b>
+  Even with only five minutes remaining, please start the lesson.
+  What matters most to us is <b>not how long the lesson was, but that it happened at all</b> —
+  those five minutes may be that student's only English exposure that week.<br>
+  <b>You are paid in full in this case too</b> (Article 1). Because the full fee is already yours,
+  <b>there is no separate bonus</b> — teaching the remaining time is <b>not extra work; it is the work</b>.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 4 조</span><span class="tagline all">전체</span>
+  <h4>늦어진 수업은 <span style="color:#7fd1ff">「기다리게 한 쪽」</span>이 채웁니다</h4>
+  <p><b style="color:#6ee7a8">① 학생 때문에 늦게 시작한 경우 — 연장은 선택입니다.</b>
+  수업이 짧아진 것은 학생 본인의 사정이므로 <b>연장 의무가 없고, 안 하셔도 불이익이 전혀 없습니다.</b>
+  <b>수업료는 이미 전액 받으시므로</b> 연장에 대한 별도 보상도 없습니다.
+  다만 <b>남은 시간만큼은 제3조에 따라 수업해 주세요.</b></p>
+  <p><b style="color:#fca5a5">② 선생님 때문에 늦게 시작한 경우 — 반드시 채워 주세요.</b>
+  <b>늦어진 만큼 뒤로 채워 주셔야 합니다.</b> 추가 근무가 아니라 <b>원래 약속한 수업 시간을 지키는 것</b>이므로
+  추가 지급은 없지만, 채워 주시면 그것으로 끝이며 <b>어떤 불이익도 없습니다.</b></p>
+  <p style="background:rgba(127,209,255,.08);border-left:3px solid #7fd1ff;border-radius:0 8px 8px 0;
+     padding:11px 14px;margin-top:12px;font-size:13.8px;color:#cfe0ee">
+  <b style="color:#7fd1ff">왜 다르게 정했을까요?</b><br>
+  학생은 <b>아무 잘못 없이</b> 화면 앞에서 선생님을 기다렸습니다.
+  기다린 것만으로도 이미 속상한데 <b>수업까지 짧게 받으면 손해를 두 번</b> 보게 됩니다.
+  <b>그래서 기다리게 만든 쪽이 그 시간을 채웁니다.</b></p>
+  <div class="en"><b>Whoever caused the delay makes up the time.</b><br>
+  <b>(1) Student-caused → extending is your choice.</b> No obligation, <b>no penalty</b> if you cannot,
+  and <b>no separate reward</b> — the full fee is already yours.
+  Please do, however, <b>teach the time that remains, as set out in Article 3</b>.<br>
+  <b>(2) Teacher-caused → please always make it up.</b> It restores the lesson you already agreed to teach,
+  so there is no extra pay — but once made up, <b>nothing further follows</b>.<br>
+  <b>Why the difference?</b> The student <b>did nothing wrong</b> and waited.
+  <b>A shorter lesson on top of that means losing twice.</b></div>
+</div>
+
+<div class="rule" style="border-color:rgba(255,212,121,.5)">
+  <span class="no-">제 5 조</span><span class="tagline h">재택</span>
+  <h4>재택 근무 — 인터넷과 PC는 선생님의 영역입니다</h4>
+  <p>재택 근무는 <b>선생님이 직접 고르고 요금을 내는 인터넷과 개인 PC</b>로 이루어집니다.
+  따라서 <b>회선·기기 문제로 수업이 끊긴 경우는 제4조 ②(교사 귀책)</b>에 해당합니다.
+  끊긴 만큼 <b>뒤로 채워 주세요.</b> 채워 주시면 불이익은 없습니다.</p>
+  <p><b>회사가 돕는 것:</b> 모바일 테더링 전환 가이드, 회선 점검 안내,
+  그리고 반복될 경우 <b>사무실 근무 전환</b>(제9조) — 사무실로 옮기면 <b>회선 책임이 회사로 넘어갑니다.</b></p>
+  <div class="en"><b>Home-based — your line and PC are your domain.</b>
+  You choose and pay for the connection, so an outage falls under Article 4(2): <b>please make up the lost time</b>,
+  and nothing further follows.<br>
+  <b>What the company provides:</b> a tethering guide, line checks, and — if it keeps happening —
+  <b>a move to office-based work (Art. 9), at which point the line becomes our responsibility.</b></div>
+</div>
+
+<div class="rule" style="border-color:rgba(127,209,255,.5)">
+  <span class="no-" style="background:#7fd1ff">제 6 조</span><span class="tagline o">사무실</span>
+  <h4 style="color:#7fd1ff">사무실 근무 — 인터넷·PC·전력은 회사 책임입니다</h4>
+  <p>사무실에서는 <b>회사가 제공한 인터넷과 PC</b>로 수업합니다.
+  따라서 회선 장애·정전·PC 고장은 <b>회사 책임</b>입니다.</p>
+
+  <p><b style="color:#6ee7a8">① 수업 중에 끊긴 경우 — 그 수업은 전액 지급됩니다.</b>
+  <b>불이익이 전혀 없고 보충 의무도 없습니다.</b> 이미 시작된 수업이기 때문입니다.</p>
+
+  <p><b style="color:#ffd479">② 장애가 이어져 다음 수업들을 아예 시작하지 못했고, 수업이 다른 날로 옮겨진 경우
+  — 그 수업들은 그날 지급되지 않습니다.</b> 수업이 이루어지지 않았기 때문입니다.
+  <b>다만 그 수업은 없어지지 않습니다</b> — 학생에게 보존되어 다른 날로 옮겨지고,
+  <b>선생님이 그날 수업하고 받으십니다.</b> (제2조 자동연기와 같은 구조 —
+  <b>잃는 것이 아니라 미뤄지는 것</b>입니다.)</p>
+
+  <p><b style="color:#6ee7a8">③ 장애 때문에 다른 선생님이 그 수업을 대신 진행한 경우
+  — 선생님께도 수업료가 지급됩니다.</b>
+  학생의 학습 흐름을 멈추지 않기 위해 <b>재택 선생님이 대신 수업</b>에 들어갈 수 있습니다.
+  이때 <b>원래 담당 선생님은 수업을 잃게 되지만, 그 원인은 회사의 회선 장애</b>입니다.
+  <b>선생님 잘못이 아니므로 수업료는 그대로 지급</b>됩니다.
+  대신 들어간 선생님께도 물론 별도로 지급됩니다.</p>
+
+  <p style="background:rgba(127,209,255,.08);border-left:3px solid #7fd1ff;border-radius:0 8px 8px 0;
+     padding:11px 14px;margin-top:12px;font-size:13.8px;color:#cfe0ee">
+  <b style="color:#7fd1ff">회사가 하는 일 — 순서가 있습니다</b><br>
+  <b>1순위.</b> <b>백업 회선(모바일 핫스팟 등)으로 즉시 전환</b>해
+  <b>원래 선생님이 그대로 수업을 이어갑니다.</b>
+  학생에게도 이것이 가장 좋습니다 — <b>선생님이 바뀌는 것 자체가 흐름의 단절</b>이기 때문입니다.<br>
+  <b>2순위.</b> 그것이 불가능하면 <b>재택 선생님이 대신 수업</b>에 들어갑니다(위 ③).
+  이때 <b>학생 이름·진도·특이사항이 담긴 인계 메모</b>가 함께 전달됩니다.<br>
+  <b>3순위.</b> 대체도 불가능하면 <b>다른 날로 옮깁니다</b>(위 ②).<br><br>
+  그 밖에 — 복구가 길어지면 <b>대체 업무나 조기 퇴근</b>으로 처리하며 <b>대기만 시키지 않습니다</b> ·
+  <b>출근수당은 그대로 유지</b>됩니다 ·
+  회사 귀책으로 못 한 수업은 <b>학생의 월 2회 연기 횟수에 포함되지 않습니다.</b></p>
+
+  <p style="color:#9fc0dc;font-size:13.5px"><b>장애가 나면 즉시 사무실 담당자에게 알려 주세요.</b>
+  신고 기록이 남아야 <b>선생님이 나중에 증명할 필요가 없어집니다.</b></p>
+
+  <div class="en"><b>Office-based — the line, PC and power are the company's responsibility.</b><br><br>
+  <b>(1) If a lesson is cut off while in progress — that lesson is paid in full</b>,
+  with no penalty and no obligation to make up the time. It had already started.<br>
+  <b>(2) If the outage continues, the lesson never starts and it is moved to another day — it is not paid that day</b>,
+  because no lesson took place. <b>It is not lost, however</b>: it is preserved for the student,
+  moved to another day, and <b>you teach it and are paid then</b> —
+  the same structure as the postponement rule in Article 2. <b>Deferred, not lost.</b><br><br>
+  <b>(3) If another teacher covers the lesson because of the outage — you are still paid.</b>
+  To keep the student's rhythm unbroken, a <b>home-based teacher may step in</b>.
+  You lose that lesson, but <b>the cause was our connection failure, not anything you did</b>,
+  so <b>your fee stands</b>. The covering teacher is of course paid separately.<br><br>
+  <b>What the company does, in order:</b>
+  <b>(1st)</b> switch to a <b>backup connection so you continue your own lesson</b> —
+  best for the student too, since <b>a change of teacher is itself a break in continuity</b>;
+  <b>(2nd)</b> if that fails, a <b>home-based teacher covers it</b>, with a
+  <b>handover note</b> containing the student's name, progress and any special notes;
+  <b>(3rd)</b> if neither is possible, the lesson <b>moves to another day</b>.<br>
+  Beyond that: long outages convert to <b>other work or an early finish</b> — <b>we do not simply keep you waiting</b>;
+  the <b>attendance allowance still applies</b>; and lessons missed through our fault
+  <b>do not count against the student's two monthly postponements</b>.<br><br>
+  <b>Report any incident to the supervisor immediately</b> — the record means you never have to prove it later.</div>
+</div>
+
+<div class="rule" style="border-color:rgba(127,209,255,.5)">
+  <span class="no-" style="background:#7fd1ff">제 7 조</span><span class="tagline o">사무실</span>
+  <h4 style="color:#7fd1ff">회사 PC 사용 규정</h4>
+  <p>회사 PC는 <b>수업을 위한 장비</b>입니다. 아래는 삼가 주세요.</p>
+  <ul style="font-size:14px">
+    <li>업무와 무관한 <b>동영상·대용량 파일 저장</b></li>
+    <li><b>출처가 확인되지 않은 프로그램·앱 설치</b></li>
+    <li>외부 저장장치·다운로드를 통한 <b>악성코드 유입 가능 행위</b></li>
+    <li>회사가 제공하지 않은 소프트웨어의 <b>임의 설치</b></li>
+  </ul>
+  <p>이런 이유로 PC가 느려지거나 고장 나 수업에 지장이 생긴 경우는
+  <b>회사 장비라 하더라도 선생님의 책임</b>이 됩니다. <b>무엇을 설치할지는 선생님이 정하기 때문입니다.</b></p>
+  <p style="color:#9fc0dc;font-size:13.5px"><b>필요한 프로그램이 있으면 회사에 요청해 주세요.</b>
+  회사가 설치해 드립니다. 그리고 <b>처음 확인된 경우는 안내로 끝냅니다</b> — 바로 책임을 묻지 않습니다.</p>
+  <div class="en"><b>Company-PC usage rules.</b> The office PC is <b>equipment for teaching</b>. Please avoid:
+  storing non-work videos or large files; installing programs or apps from unverified sources;
+  actions that could introduce malware via external drives or downloads; and installing software the company did not provide.<br>
+  If a lesson is disrupted because of these, <b>the responsibility is yours even though the equipment is ours</b> —
+  because <b>you decide what gets installed</b>.<br>
+  <b>If you need a program, ask us and we will install it.</b>
+  And <b>the first occurrence is guidance only</b>, not liability.</div>
+</div>
+
+<div class="rule" style="border-color:rgba(110,231,168,.45)">
+  <span class="no-" style="background:#6ee7a8">제 8 조</span><span class="tagline all">전체</span>
+  <h4 style="color:#6ee7a8">회사 시스템 문제로 수업에 못 들어가신 경우 — 선생님 책임이 아닙니다</h4>
+  <p>접속 화면이 열리지 않거나, 계정 문제로 입장이 <b>차단</b>되거나, 플랫폼 장애로 수업을 시작하지 못한 경우
+  — <b>회사의 문제입니다.</b> 재택·사무실 구분 없이 동일합니다.</p>
+  <p><b>① 수업료 전액 지급 ② 지각으로 기록되지 않으며 불이익 없음 ③ 회사가 학생에게 보충수업 안내</b></p>
+  <p style="color:#9fc0dc;font-size:13.5px">입장이 안 되면 <b>기다리지 마시고 즉시 매니저에게 알려 주세요.</b></p>
+  <div class="en"><b>If a company system problem prevents you from entering — it is not your fault</b>
+  (the same for home-based and office-based).
+  <b>(1) Full fee; (2) no lateness record and no penalty; (3) we arrange a make-up lesson.</b></div>
+</div>
+
+<div class="rule" style="border-color:rgba(252,165,165,.45)">
+  <span class="no-" style="background:#fca5a5">제 9 조</span><span class="tagline h">재택</span>
+  <h4 style="color:#fca5a5">인터넷이 자주 끊기는 경우 — 사무실 근무로 전환됩니다</h4>
+  <p>선생님의 잘못이 아니어도 <b>인터넷이 반복해서 끊기면 학생의 수업이 손해를 봅니다.</b>
+  회사는 이 경우 <b>사무실 근무로 전환</b>해 드립니다. <b>징계가 아닙니다.</b></p>
+  <p><b>사무실로 옮기면 회선 책임이 회사로 넘어갑니다(제6조).</b>
+  즉 끊김으로 인한 손해가 <b>선생님 몫에서 회사 몫으로 바뀝니다.</b>
+  <b>그리고 사무실 근무에는 출근수당이 별도로 지급됩니다.</b> 선생님께는 이득입니다.</p>
+  <p><b>절차:</b> ① 자동 안내(끊김 기록 공유) → ② 매니저 면담·회선 점검 → ③ 사무실 근무(4주) → ④ 회선 개선 확인 시 재택 복귀</p>
+  <p style="color:#9fc0dc;font-size:13.5px">복귀 경로는 항상 열려 있습니다.</p>
+  <div class="en"><b>If your internet drops repeatedly — you will move to office-based work.</b>
+  <b>This is not a disciplinary action.</b>
+  <b>In the office, the line becomes the company's responsibility (Art. 6)</b> —
+  the loss moves off you and onto us, and <b>an attendance allowance applies on top</b>.<br>
+  <b>Process:</b> automatic notice → manager discussion and line check → four weeks in the office →
+  return home once your connection is verified. <b>The path back is always open.</b></div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 10 조</span><span class="tagline all">전체</span>
+  <h4>양쪽 다 끊겨 기록이 없는 경우</h4>
+  <p>지역 정전 등으로 <b>선생님과 학생이 동시에 끊겨</b> 기록이 남지 않은 경우,
+  <b>월 2회까지 자기신고</b>로 처리합니다. 그 이상은 매니저 면담 후 결정합니다.</p>
+  <p style="color:#9fc0dc;font-size:13.5px"><span class="tagline o">사무실</span>
+  사무실 정전은 회사 시설 문제이므로 <b>제6조가 적용</b>되며 이 조항 대상이 아닙니다.</p>
+  <div class="en"><b>When both sides drop and no record exists</b> (e.g. an area power outage),
+  you may self-report <b>up to twice a month</b>.<br>
+  An <b>office</b> power cut is a company facility issue and falls under Article 6 instead.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 11 조</span><span class="tagline all">전체</span>
+  <h4>연장은 다음 수업에 지장을 주지 않는 선에서</h4>
+  <p>연장하실 때는 <b>10분 이내</b>를 권합니다.
+  과도한 연장은 <b>다음 수업이 늦어지게 만들어</b> 다음 학생이 똑같은 피해를 봅니다.
+  <b>한 학생을 위해 다음 학생을 기다리게 하지 않는 것</b>도 같은 원칙입니다.</p>
+  <p style="color:#9fc0dc;font-size:13.5px">보충(제4조 ②)이 다음 수업 때문에 불가능하면
+  <b>무리하지 마시고 매니저에게 알려 주세요.</b> 불이익 없이 처리되고, 회사가 학생에게 보충수업을 안내합니다.</p>
+  <div class="en"><b>Keep extensions within about 10 minutes</b> — a long extension pushes your next class late,
+  doing the same harm to the next student.<br>
+  If a make-up under Art. 4(2) is impossible because of your next class,
+  <b>do not force it — tell your manager.</b> It is handled without penalty.</div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 12 조</span><span class="tagline all">전체</span>
+  <h4>기록은 시스템이 자동으로 합니다</h4>
+  <p>연장 시간, 끊김 시간, 성사 여부는 <b>시스템이 자동 기록</b>합니다. 신청서가 필요 없으며,
+  수업 종료 후 <b>마이페이지에서 타임라인으로 확인</b>하실 수 있습니다.</p>
+  <p style="color:#9fc0dc;font-size:13.5px"><b>확인 방법:</b> 선생님의 인터넷이 끊겨도
+  <b>학생 쪽 기록에 시각이 남습니다.</b> 스크린샷으로 증명하지 않으셔도 됩니다.</p>
+  <div class="en"><b>The system records everything automatically</b> — no claim form.
+  Even when your connection dies, <b>the timing is recorded on the student's side.</b></div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 13 조</span><span class="tagline all">전체</span>
+  <h4>기록이 다르면 7일 안에 알려 주세요</h4>
+  <p>기록이 실제와 다르면 마이페이지에서 <b>7일 이내 이의 제기</b>가 가능합니다.
+  매니저 확인 후 수정하며, <b>이의 제기로 인한 불이익은 없습니다.</b></p>
+  <div class="en"><b>If the record is wrong, tell us within 7 days.</b>
+  <b>Raising a dispute never counts against you.</b></div>
+</div>
+
+<div class="rule">
+  <span class="no-">제 14 조</span><span class="tagline all">전체</span>
+  <h4>상습적으로 늦거나 미루는 학생은 회사가 처리합니다</h4>
+  <p>동일 학생이 <b>월 3회 이상 지각</b>하거나 <b>월 2회를 넘겨 연기</b>하면 자동으로 표시되며
+  <b>회사가 학부모에게 안내</b>합니다. 선생님이 직접 말씀하실 필요 없습니다.</p>
+  <div class="en"><b>Students who are repeatedly late or postpone often are handled by the company</b> —
+  flagged automatically, and <b>we contact the parent</b>.</div>
+</div>
+
+<div class="rule" style="border-color:rgba(127,209,255,.35)">
+  <span class="no-" style="background:#7fd1ff">제 15 조</span>
+  <h4 style="color:#7fd1ff">학생·학부모에게도 동일 규칙을 안내합니다</h4>
+  <p>수업 예약 화면과 학부모 안내문에 명시합니다:<br>
+  <b>"수업을 미루시려면 시작 30분 전까지 알려 주세요 — 자동으로 연기됩니다(월 2회).
+  늦게 입장하면 수업 시간이 짧아질 수 있지만, 선생님은 예정 시간이 끝날 때까지 기다립니다.
+  5분이라도 수업하는 것이 훨씬 좋기 때문입니다."</b></p>
+  <div class="en"><b>The same rules are published to students and parents:</b>
+  "To postpone, tell us at least 30 minutes before — it is automatic (up to twice a month).
+  Joining late may shorten your lesson, but your teacher will wait until the scheduled end,
+  because even five minutes of class is far better than none."</div>
+</div>
+
+<!-- ══════════════════════════ 9 ══════════════════════════ -->
+<h2 id="s9"><span class="n">9</span>기타 아이디어<small>Additional Ideas</small></h2>
+
+<h3>① 관리 지표를 「분」에서 「성사율·노출 빈도」로</h3>
+<table class="tbl-sm">
+<tr><th style="width:50%">지금 보는 것</th><th>봐야 할 것</th></tr>
+<tr><td class="no">수업 시간을 다 채웠는가</td><td class="ok"><b>수업이 성사되었는가</b> (단 5분이라도)</td></tr>
+<tr><td class="no">지각 분수</td><td class="ok"><b>학생별 주간 노출 횟수</b></td></tr>
+<tr><td class="no">개별 수업 길이</td><td class="ok"><b>연속 출석(스트릭) 유지율</b> · <b>연기율</b></td></tr>
+</table>
+<p>M1~M4가 서면 이 지표들이 <b>자동으로 산출</b>됩니다.</p>
+
+<h3>② 학부모 리포트에 노출 빈도 표시</h3>
+<p><b>"이번 주 3회 수업 · 선생님이 12분을 추가로 가르쳤습니다."</b>
+학부모는 가치를 체감하고, 교사는 노력이 전달되며, 회사는 지출을 리텐션 자산으로 회수합니다.</p>
+
+<h3>③ 근무 형태별 회선 안정성 점수 <span class="status new">v5</span></h3>
+<p>M1~M3이 서면 교사별 <b>월간 회선 안정성 점수</b>가 자동 산출됩니다.
+<b>재택 교사에게는</b> 사무실 전환 판단 근거로, <b>사무실에는</b> 회사 회선·장비 개선 근거로 씁니다.
+<b>같은 데이터가 한쪽에는 관리 지표, 다른 쪽에는 시설 투자 근거가 됩니다.</b></p>
+
+<h3>④ 사무실 PC 표준 이미지 관리</h3>
+<p>제7조를 <b>규정으로만</b> 두지 말고, <b>표준 설치 이미지 + 주기적 복원</b>으로 예방하는 편이 훨씬 저렴합니다.
+필요한 프로그램을 미리 다 넣어 두면 <b>교사가 직접 설치할 이유 자체가 사라집니다.</b>
+규정 위반을 적발하는 것보다 <b>위반할 필요가 없게 만드는 것</b>이 낫습니다.</p>
+
+<h3>⑤ 학생용 지각·연기 안내 화면</h3>
+<p>연기 시: <b>"미리 알려 주셔서 고마워요! 수업은 다른 날로 옮겨 드릴게요."</b><br>
+지각 시: <b>"조금 늦었어요! 선생님이 기다리고 계세요."</b><br>
+<b>지각·임박 연기 자체를 줄이는 것이 모든 보상 제도보다 저렴합니다.</b></p>
+
+<h3>⑥ 분기별 정책 리뷰</h3>
+<p>3개월마다 실제 데이터로 <b>연기 상한(월 2회)·전환 임계값·인센티브 금액</b>을 재조정합니다.</p>
+
+<!-- ══════════════════════════ 10 ══════════════════════════ -->
+<h2 id="s10"><span class="n">10</span>진행 상황 · 로드맵<small>Status &amp; Roadmap</small></h2>
+
+<table class="tbl-sm">
+<tr><th style="width:8%">단계</th><th style="width:34%">내용</th><th style="width:11%">기간</th><th>비고</th></tr>
+<tr style="background:rgba(248,113,113,.08)"><td><b>0</b></td>
+    <td><b>결석 지급률 0 → 100</b> (관리자 「공제 규칙」)</td><td class="ok">즉시</td>
+    <td class="no"><b>최우선. 코드·배포 불필요</b></td></tr>
+<tr><td><b>0.5</b></td><td><b>데이터 확인</b> — 7-⑥ 항목 전부</td><td>1시간</td>
+    <td class="mid">모든 추정치·소급 여부·근무형태 인원이 여기서 확정</td></tr>
+<tr><td><b>P1</b></td><td><b>교칙 15개 조문 공지</b> (한/영) + Q&amp;A</td><td>1일</td>
+    <td class="ok">경영 · <b>시스템보다 먼저</b></td></tr>
+<tr><td><b>P2</b></td><td><b>교사 프로필에 근무 형태(work_mode) 등록</b></td><td>0.5일</td>
+    <td class="mid">개발 + 인사 · <b>제5·6·7조 자동 판정의 전제</b></td></tr>
+<tr style="background:rgba(110,231,168,.08)"><td><b>M1</b></td><td>서버 시각 하트비트</td>
+    <td class="ok">완료</td><td class="ok"><b>배포만 남음</b></td></tr>
+<tr><td><b>M2</b></td><td>끊김 이벤트 D1 적재</td><td>1일</td><td>이미 판정 중인 값 저장</td></tr>
+<tr><td><b>M3</b></td><td><b>학생 측 목격 보고</b></td><td>1일</td><td class="ok"><b>사각지대의 정답</b></td></tr>
+<tr><td><b>M4</b></td><td>양측 동시 접속 산출 + 승인 화면 + 교사 타임라인</td><td>1.5일</td>
+    <td>근무 형태별 귀책 자동 분류 포함</td></tr>
+<tr><td><b>P3</b></td><td>자동연기 월 2회 상한 적용</td><td>0.5일</td><td>개발</td></tr>
+<tr><td><b>P4</b></td><td><b>지각 도착 수업의 성사율 확인</b>(M4 데이터)</td><td>—</td>
+    <td class="mid">추가 보상 없이 성사가 유지되는지 확인. <b>낮게 나오면 그때 원인 파악부터</b> — 돈은 마지막 수단
+    <span class="en">Check whether late-arrival lessons still get delivered without any bonus;
+    if not, diagnose the cause first — money last</span></td></tr>
+<tr><td><b>P5</b></td><td>사무실 전환 제도 안내 + 대상자 산정 + 통근 지원 확정</td><td>1일</td><td>인사 + 시설</td></tr>
+<tr><td><b>P6</b></td><td>학생·학부모 안내 문구 (제15조)</td><td>0.5일</td><td>개발</td></tr>
+<tr><td><b>P7</b></td><td>1개월 시범 운영 → 실데이터 재보고</td><td>1개월</td><td>경영 + 개발</td></tr>
+</table>
+
+<div class="warn">
+  <b>본 안건과 별개로 즉시 처리 필요 (07-28 사고 후속)</b>
+  <ul style="margin-top:8px">
+    <li><b>해당 중국어 강사에게 실제 강사 계정 발급 + 예약 연결</b> — 완료 전까지 매 수업 반복</li>
+    <li><b>시연 계정으로 근무 중인 강사 전수 점검</b></li>
+    <li><b>입장 차단 문구 한/영 병기 + 역할별 분기</b> — 현재 한국어 전용</li>
+  </ul>
+</div>
+
+<hr class="sp">
+
+<div class="lead">
+  <b>정리.</b> v5의 핵심은 <b>「같지 않은 것을 같게 다루지 않는다」</b>입니다.<br><br>
+  학생 결석을 <b>연기·임박취소·무통보</b>로 나누고,
+  교사를 <b>재택·사무실</b>로 나누고, 지연을 <b>학생 귀책·교사 귀책·회사 귀책</b>으로 나눴습니다.
+  나누고 나니 <b>각 칸에서 누가 책임지고 누가 보상받는지가 저절로 정해졌습니다</b> —
+  세 가지 기준(철학 · 삼자 정렬 · 통제하는 사람이 책임)을 적용했을 뿐입니다.<br><br>
+  <b>그 결과 「한쪽만 손해」인 칸이 하나도 없습니다.</b> 이것이 제도가 오래 가는 유일한 조건입니다.
+</div>
+<div class="en-block g"><span class="lbl">EN — CLOSING</span><br>
+  <b>The heart of v5 is: do not treat unlike things alike.</b>
+  Absence was split into postponed / late-cancelled / silent; teachers into home-based and office-based;
+  delays into student-, teacher- and company-caused.
+  Once separated, <b>who carries the cost and who is rewarded fell out on its own</b> —
+  we only applied the three standards.<br>
+  <b>The result is a table with no cell where one party bears the loss alone</b> —
+  the only condition under which a policy survives.</div>
+
+<!-- ══════════════════════════ 부록 ══════════════════════════ -->
+<h2 id="s11"><span class="n">부록</span><small>Appendix — 강사 Q&amp;A · 근거 자료</small></h2>
+
+<h3>부록 A. 강사 예상 질문 <span class="enh">A. Anticipated teacher questions</span></h3>
+<div class="qa">
+  <div class="q">Q1. 학생이 안 오면 수업료를 못 받나요?</div>
+  <p class="qe">If the student does not come, do I lose the fee?</p>
+  <p class="a"><b>아닙니다. 전액 받으십니다.</b> 학생 출결은 선생님이 통제할 수 있는 일이 아닙니다.
+  대신 예정 시간이 끝날 때까지 교실에 계셔 주세요.</p>
+  <p class="ae"><b>No — you are paid in full.</b> Please stay until the scheduled end time.</p>
+
+  <div class="q">Q2. 학생이 미리 연기하면 저는 그날 수업료를 못 받는 건가요?</div>
+  <p class="qe">If a student postpones in advance, do I lose that day's fee?</p>
+  <p class="a">그 수업은 <b>없어진 것이 아니라 다른 날로 옮겨진 것</b>이라, 수업료는 <b>실제로 수업하는 날</b> 받으십니다.
+  다만 같은 학생이 <b>월 2회를 넘겨 연기하면 그 이후는 결석 처리</b>되어 <b>전액 지급</b>됩니다.
+  선생님이 계속 손해 보지 않게 하려는 장치입니다.</p>
+  <p class="ae">The lesson is <b>moved, not lost</b> — you are paid on the day it takes place.
+  If the same student postpones <b>more than twice a month</b>, further postponements count as absences and
+  <b>you are paid in full</b>.</p>
+
+  <div class="q">Q3. 제 집 인터넷이 끊겼습니다. 제 책임인가요?</div>
+  <p class="qe">My home internet dropped — is that my responsibility?</p>
+  <p class="a"><b>재택 근무는 선생님이 고르신 회선이라 선생님 영역입니다.</b> 끊긴 만큼 <b>뒤로 채워 주세요</b> —
+  채우시면 불이익은 없습니다. 반복되면 <b>사무실 근무로 전환</b>해 드리는데,
+  그러면 <b>회선 책임이 회사로 넘어가서 선생님이 손해 볼 일이 없어집니다.</b></p>
+  <p class="ae"><b>At home, the line is yours</b> — please make up the lost time and nothing further follows.
+  If it keeps happening we move you to the office, <b>where the line becomes our responsibility</b>.</p>
+
+  <div class="q">Q4. 사무실 인터넷이 끊겼습니다. 그것도 제 책임인가요?</div>
+  <p class="qe">The office internet dropped — is that my responsibility too?</p>
+  <p class="a"><b>아닙니다. 회사가 제공한 회선이므로 회사 책임입니다.</b> 다만 <b>수업별로 나뉩니다.</b></p>
+  <p class="a" style="margin-top:8px">
+  <b style="color:#6ee7a8">• 끊긴 그 수업</b> — 이미 시작된 수업이므로 <b>전액 지급</b>됩니다. 불이익도, 보충 의무도 없습니다.<br>
+  <b style="color:#ffd479">• 장애가 이어져 아예 시작하지 못한 다음 수업들</b> — <b>수업을 하지 않았으므로 지급되지 않습니다.</b>
+  대신 그 수업들은 <b>없어지지 않고 학생에게 보존되어 다른 날로 옮겨집니다</b> —
+  <b>선생님이 그날 수업하고 받으십니다. 잃는 것이 아니라 미뤄지는 것입니다.</b></p>
+  <p class="a" style="margin-top:8px;color:#cfe0ee">
+  그리고 그 시간을 그냥 앉아만 계시게 하지 않습니다 —
+  <b>백업 회선으로 즉시 전환</b>해 수업을 살리고, 복구가 길어지면
+  <b>대체 업무로 전환하거나 조기 퇴근</b> 처리합니다.
+  <b>사무실 근무에는 출근수당이 별도로 지급</b>되므로 그 부분은 그대로 유지됩니다.</p>
+  <p class="ae"><b>No — the office line is ours</b>, but it is decided lesson by lesson.
+  <b>• The lesson that was cut off</b> — it had already started, so it is <b>paid in full</b>, with no penalty and no make-up.
+  <b>• Later lessons that never started</b> because the outage continued — <b>not paid, since no lesson took place</b>.
+  But they are <b>not lost</b>: each is preserved for the student, moved to another day, and
+  <b>you teach it and are paid then. Deferred, not lost.</b><br>
+  You will not simply be left sitting: we switch to a <b>backup connection</b> to save the lesson, and if recovery
+  takes long we convert the time to <b>other work or an early finish</b>.
+  <b>The office attendance allowance applies regardless.</b></p>
+
+  <div class="q">Q4-2. 사무실 장애 때문에 제 수업을 다른 선생님이 대신 했습니다. 저는 못 받나요?</div>
+  <p class="qe">Another teacher covered my lesson because of an office outage — do I lose the fee?</p>
+  <p class="a"><b>받으십니다.</b> 수업이 남에게 넘어간 원인은 <b>회사의 회선 장애</b>이지 선생님이 아닙니다.
+  <b>선생님 수업료는 그대로 지급</b>되고, 대신 들어간 선생님께도 별도로 지급됩니다.</p>
+  <p class="a" style="margin-top:8px;color:#cfe0ee">
+  다만 회사는 <b>대체 투입을 마지막 수단으로</b> 씁니다. 먼저 <b>백업 회선으로 선생님이 직접 이어가시도록</b> 합니다 —
+  학생에게도 그게 가장 좋기 때문입니다. <b>선생님이 바뀌는 것 자체가 학생에게는 흐름의 단절</b>입니다.</p>
+  <p class="ae"><b>You are paid.</b> The lesson moved because <b>our connection failed</b>, not because of anything you did.
+  <b>Your fee stands</b>, and the covering teacher is paid separately.<br>
+  We treat substitution as a <b>last resort</b> — first we try a <b>backup connection so you can continue yourself</b>,
+  because <b>a change of teacher is itself a break for the student</b>.</p>
+
+  <div class="q">Q5. 회사 PC인데 왜 제가 책임을 지나요?</div>
+  <p class="qe">It is a company PC — why would it be my responsibility?</p>
+  <p class="a"><b>장비는 회사 것이지만, 거기에 무엇을 설치할지는 선생님이 정하시기 때문입니다.</b>
+  회선이나 하드웨어 고장은 <b>전부 회사 책임</b>입니다.
+  다만 업무 외 프로그램·파일 때문에 생긴 문제는 선생님 책임이 됩니다.
+  <b>필요한 프로그램은 회사에 요청하시면 설치해 드리고, 처음 확인된 경우는 안내로 끝냅니다.</b></p>
+  <p class="ae"><b>The equipment is ours, but what gets installed on it is your decision.</b>
+  Line and hardware faults are entirely ours.
+  <b>Ask us for any program you need — we will install it — and the first occurrence is guidance only.</b></p>
+
+  <div class="q">Q6. 연장은 반드시 해야 하나요?</div>
+  <p class="qe">Am I required to extend?</p>
+  <p class="a"><b>누구 때문에 늦었는지에 따라 다릅니다. 기다리게 한 쪽이 채웁니다.</b><br>
+  <b style="color:#6ee7a8">• 학생 때문이면</b> — 선택입니다. 안 하셔도 불이익이 없습니다.
+  (수업료는 이미 전액 받으시므로 별도 보상은 없지만, <b>남은 시간만큼은 수업해 주세요</b> — 제3조)<br>
+  <b style="color:#fca5a5">• 선생님 때문이면</b> — 반드시 채워 주세요. 추가 지급은 없지만 채우시면 그것으로 끝입니다.<br>
+  <b style="color:#7fd1ff">왜 다른가요?</b> 학생은 아무 잘못 없이 기다렸는데 <b>수업까지 짧으면 손해를 두 번</b> 봅니다.</p>
+  <p class="ae"><b>It depends on who caused the delay.</b>
+  <b>Student-caused → optional</b>, no penalty and no separate reward (the full fee is already yours) —
+  but please teach the time that remains (Art. 3).
+  <b>Teacher-caused → always make it up</b>; no extra pay, but nothing further follows.
+  The student <b>did nothing wrong</b> and waited — a shorter lesson would mean losing twice.</p>
+
+  <div class="q">Q7. 시스템이 저를 수업방에 못 들어가게 막았습니다.</div>
+  <p class="qe">The system blocked me from entering the classroom.</p>
+  <p class="a"><b>회사 문제입니다.</b> 수업료 전액 지급, 지각 미기록, 불이익 없음.
+  <b>기다리지 마시고 즉시 매니저에게 알려 주세요.</b></p>
+  <p class="ae"><b>That is a company problem.</b> Full fee, no lateness record, no penalty.
+  <b>Contact your manager immediately.</b></p>
+
+  <div class="q">Q8. 사무실 근무로 옮기라는 건 징계인가요?</div>
+  <p class="qe">Is being moved to office work a disciplinary action?</p>
+  <p class="a"><b>아닙니다. 오히려 선생님께 유리합니다.</b> 재택에서는 회선이 끊기면 선생님이 채워야 하지만,
+  <b>사무실에서는 회선 책임이 회사로 넘어갑니다.</b> 기간은 4주이고, 회선이 개선되면 <b>재택으로 복귀</b>하실 수 있습니다.</p>
+  <p class="ae"><b>No — it works in your favour.</b> At home you must make up a dropout;
+  <b>in the office the line becomes our responsibility.</b> Four weeks, and <b>you can return home</b> once verified.</p>
+
+  <div class="q">Q9. 정전으로 저와 학생이 동시에 끊기면요?</div>
+  <p class="qe">What if a power outage disconnects both of us?</p>
+  <p class="a">기록이 남지 않습니다. <b>월 2회까지 자기신고</b>로 처리합니다.
+  <b>사무실 정전은 회사 시설 문제</b>라 이 조항이 아니라 제6조가 적용됩니다.</p>
+  <p class="ae">No record exists — <b>self-report up to twice a month</b>.
+  An <b>office</b> power cut falls under Article 6 instead.</p>
+
+  <div class="q">Q10. 기록이 실제와 다르면요?</div>
+  <p class="qe">What if the record does not match reality?</p>
+  <p class="a">7일 안에 마이페이지에서 이의를 제기해 주세요. 불이익은 없습니다.</p>
+  <p class="ae">Raise it in My Page within 7 days. No penalty for asking.</p>
+</div>
+
+<h3>부록 B. 코드 근거 · 미확인 항목 <span class="enh">B. Code references and open items</span></h3>
+<table class="tbl-sm">
+<tr><th style="width:36%">항목</th><th>위치 / 상태</th></tr>
+<tr><td><b>결석 시 지급률</b></td><td><code>src/api-admin.ts</code> L968(시드 0), L1029, L1172 ·
+    <code>src/index.ts</code> L17·L1835(감지 동작 중)</td></tr>
+<tr><td>수업료 계산식</td><td><code>src/api-admin.ts</code> L1169, L1073</td></tr>
+<tr><td>페널티 규칙 · 수동 입력</td><td><code>src/api-admin.ts</code> L966, L1441~1442</td></tr>
+<tr><td>등급별 단가</td><td><code>src/api-admin.ts</code> L999 — T1 ₱50/20분, T2 ₱70/20분</td></tr>
+<tr><td>자동연기 기능</td><td><code>src/api-admin.ts</code> L1750~ <code>/api/admin/postponed-classes</code> ·
+    <code>public/lesson-postpone-demo.html</code> · <code>src/ai-command.ts</code>(postpone/reschedule 명령)</td></tr>
+<tr><td>출결 스키마 · 30초 보고</td><td><code>src/api-mango.ts</code> L513, L678~ ·
+    <code>public/js/mango-attendance.js</code> L32, L130~153, L186~225</td></tr>
+<tr><td>left / dropped 구분</td><td><code>src/video-call-room.ts</code> L163~185, L286~320</td></tr>
+<tr><td class="ok"><b>M1 구현</b></td><td class="ok"><code>src/api-mango.ts</code> ·
+    검증 <code>test-harness/attendance_last_seen_harness.mjs</code> (32/32)</td></tr>
+<tr><td class="no">미확인 ①</td><td>운영 DB <code>absent_pay_percent</code> 실제 값 · <b>결석 수업 실지급 이력</b></td></tr>
+<tr><td class="no">미확인 ②</td><td><code>lesson_late_minutes</code> 실제 페널티 부과 건수</td></tr>
+<tr><td class="no">미확인 ③</td><td><code>attendance</code> 적재량 · 월 실제 수업 건수</td></tr>
+<tr><td class="no">미확인 ④</td><td><b>재택·사무실 교사 인원 구성</b> · 콜센터 좌석 수용력 · 교사 거주지 분포</td></tr>
+<tr><td class="no">미확인 ⑤</td><td><b>자동연기 실제 발생 빈도</b> — 30분 상한 문제의 규모</td></tr>
+<tr><td class="no">미확인 ⑥</td><td>시연 계정 근무 강사 수 · <b>학생 1회 수업 판매 단가</b></td></tr>
+<tr><td>참고 자료</td><td><code>수업입장_사고보고서_2026-07-28.md</code></td></tr>
+</table>
+
+<h3>부록 C. 경쟁사 조사 출처 <span class="enh">C. Competitor sources</span></h3>
+<div class="src" style="margin-top:10px;border-top:0;padding-top:0">
+  · <a href="https://support.italki.com/hc/en-us/articles/360020529954-Lesson-Policy">italki — Lesson Policy</a> ·
+    <a href="https://www.italki.com/en/instructorterms">italki — Teacher Policy</a><br>
+  · <a href="https://studentsupport.cambly.com/hc/en-us/articles/360051355511-Late-or-missed-your-lesson">Cambly — Late or missed your lesson</a> ·
+    <a href="https://sidehustles.com/cambly-tutor-review/">Cambly — 튜터 보수 구조</a><br>
+  · <a href="https://help.preply.com/en/articles/4934005-what-to-do-if-you-missed-your-lesson">Preply — Missed lessons &amp; cancellation window</a> ·
+    <a href="https://help.preply.com/en/articles/4178953-student-was-absent-guidelines-and-best-practices">Preply — Student was absent</a><br>
+  · <a href="https://www.glassdoor.com/Reviews/51Talk-salary-deduction-Reviews-EI_IE633598.0,6_KH7,23.htm">51Talk — 급여 차감 관련 강사 리뷰</a> ·
+    <a href="https://www.indeed.com/cmp/51talk/reviews?fcountry=ALL&amp;fjobtitle=Teacher&amp;ftopic=paybenefits">51Talk — 보수 리뷰</a><br>
+  · <a href="https://onlineteachingreview.com/engoo-review/">Engoo 리뷰</a> ·
+    <a href="https://onlineteachingreview.com/native-camp-review/">Native Camp 리뷰</a>
+</div>
+
+</div>
+</body>
+</html>
