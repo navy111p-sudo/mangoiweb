@@ -1656,7 +1656,10 @@ ${numbered}`;
       //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
       //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
       const chatMode = b.mode === 'chat';
-      const cacheKey = (t: string) => (chatMode ? 'trc:' : 'tr:') + target + ':' + t;
+      //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
+      //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
+      //      trc2: 존댓말 고정(2026-07-29). 이전 trc: 는 반말이 섞여 있어 버린다.
+      const cacheKey = (t: string) => (chatMode ? 'trc2:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -1695,7 +1698,13 @@ ${numbered}`;
           + 'No quotes, no notes, no romanization, no explanation. '
           + 'Keep it short and natural, the way a person actually speaks in chat. '
           + 'Keep names, @mentions, numbers, times and emoji exactly as they are. '
-          + 'In a school context "숙제" is school homework, never housework or a job.';
+          + 'In a school context "숙제" is school homework, never housework or a job. '
+          // 존댓말 고정 — 상대가 강사·학부모·직원이라 반말이 섞이면 무례하게 읽힌다.
+          //   모델이 영어 원문의 캐주얼한 말투를 그대로 옮겨 "숙제는 끝냈어?" 처럼 반말이 나왔다.
+          + 'When the target language is Korean, ALWAYS use polite speech (해요체 or 합니다체). '
+          + 'Never use 반말 / plain form, even if the source sounds casual. '
+          + 'Sentences must end in 요 or 니다. '
+          + 'When the target language is Chinese, use polite 您 rather than 你 when addressing a person.';
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
             { role: 'system', content: sys },
