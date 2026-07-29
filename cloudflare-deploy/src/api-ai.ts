@@ -477,14 +477,43 @@ Student text: """${text}"""`;
       }
       return false;
     };
-    /* 🎤 음성 인식이 잘라먹은 조각인가 — "I", "and", "my dog" 처럼 두 단어 이하이거나
-       뒤에 말이 더 붙어야 자연스러운 단어로 끝나면 되물어야 한다(넘겨짚고 길게 답하면 안 됨). */
+    /* 🎤 음성 인식이 잘라먹은 조각인가.
+       ⚠️ (2026-07-29 학생 제보 · 화면녹화 증거) "또박또박 말하는데 계속 다시 말하래요".
+       진범은 오인식이 아니라 이 판정이었다. 옛 판정은 ①두 단어 이하면 무조건 잘림,
+       ②마지막 단어가 흔한 기능어면 무조건 잘림으로 봤는데, 그 목록에 it/you/me/do/can/is
+       처럼 "문장을 정상적으로 끝내는" 말이 들어 있었다. 그래서 Whisper 가 **완벽하게**
+       받아적은
+         "I like watching movies, but I don't do it."   (→ 끝 단어 it)
+         "I like watching movies. What about you?"      (→ 끝 단어 you)
+       가 연달아 '잘림'으로 찍혀 학생은 네 번 내리 "Can you say the whole sentence again?"
+       만 들었다. 아이는 결국 "Why do you always think again to me?" 라고 물었다.
+       이제는 ①문장부호로 끝나면 완결로 보고, ②영어로 문장을 끝낼 수 없는 말(관사·전치사·
+       접속사·소유격)로 끝날 때만 잘림으로 본다. 놓치는 쪽(되묻지 않고 그냥 답하기)이
+       잘못 되묻는 쪽보다 학생에게 훨씬 낫다. */
+    // 이 말로 끝나면 영어 문장이 성립하지 않는다 — 명백한 조각
+    const AI_FRIEND_DANGLING = /^(a|an|the|and|or|but|to|of|in|on|at|for|with|from|about|my|your|his|her|their|our|because|than|very|really|going)$/i;
+    // 뒤에 말이 와야만 뜻이 되는 be동사류 ("My favorite movie is" → 조각)
+    const AI_FRIEND_DANGLING_BE = /^(i|is|are|am|was|were|want|need|going)$/i;
+    // 짧은 대답은 이 말로 끝나도 정상("Yes, I can.") — 두 단어 이하일 때만 조각으로 본다("I like")
+    const AI_FRIEND_DANGLING_SHORT = /^(do|does|did|can|will|would|have|has|like|that|this|it|there)$/i;
     const aiFriendLooksCut = (s: string) => {
-      const w = String(s || '').trim().split(/\s+/).filter(Boolean);
+      const raw = String(s || '').trim();
+      if (!raw) return false;
+      if (/[.!?…"')\]]$/.test(raw)) return false;      // 문장부호로 끝나면 다 말한 것
+      const w = raw.split(/\s+/).filter(Boolean);
       if (!w.length) return false;
-      if (w.length <= 2) return true;
-      return /^(i|a|an|and|or|but|to|the|my|your|is|are|am|was|were|do|does|did|can|will|would|want|like|have|has|in|on|at|of|for|with|that|this|it|he|she|they|we|you|because|so|very|really|going|there)$/i
-        .test(w[w.length - 1].replace(/[^a-z']/gi, ''));
+      const last = w[w.length - 1].replace(/[^a-z']/gi, '');
+      if (!last) return false;
+      if (AI_FRIEND_DANGLING.test(last) || AI_FRIEND_DANGLING_BE.test(last)) return true;
+      return w.length <= 2 && AI_FRIEND_DANGLING_SHORT.test(last);
+    };
+    /* 🔁 직전 답이 이미 "다시 말해줄래?" 였는가 — 두 번 연속 되묻는 것은 금지.
+       한 번 못 알아들었으면 두 번째는 알아들은 만큼이라도 받아주고 대화를 이어가야 한다. */
+    const aiFriendJustAskedAgain = (hist: any[]) => {
+      const last = [...hist].reverse().find((h) => h && h.role === 'assistant');
+      if (!last) return false;
+      return /(say (it|that|the whole sentence) again|one more time|didn'?t catch|only caught|다시 말)/i
+        .test(String(last.content || ''));
     };
     /* 🐢 "천천히 말해줘 / 다시 말해줘" 같은 부탁인가 — 무시하고 제 얘기만 하면 안 된다 */
     const aiFriendIsMetaAsk = (s: string) =>
@@ -518,6 +547,12 @@ Student text: """${text}"""`;
       const msg = String(b.msg || '').trim();
       const level = String(b.level || 'A2').trim();
       const persona = String(b.persona || 'friendly').trim(); // friendly | playful | serious | tutor
+      /* 🗺 (2026-07-29 학생 제보) "영화 주제로 들어왔는데 처음엔 동물 얘기를 물어봤어요".
+         지금까지 주제 카드는 영어 문장 한 줄을 대신 보내주는 게 전부였고, 그 다음 턴부터는
+         모델이 주제를 붙잡아 둘 근거가 아무것도 없었다(게다가 시스템 프롬프트가 재미난
+         사실 예시로 'animals' 를 맨 앞에 박아둬서 첫 턴부터 동물로 새기 쉬웠다).
+         이제 고른 주제를 매 요청에 실어 보내 대화 내내 유지한다. */
+      const topic = String(b.topic || '').trim().slice(0, 40);
       if (!uid || !msg) return json({ ok: false, error: 'uid_and_msg_required' }, 400);
       if (msg.length > 500) return json({ ok: false, error: 'msg_too_long' }, 400);
       // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수
@@ -556,7 +591,11 @@ Student text: """${text}"""`;
       } catch { /* 개인화 실패 무시 */ }
 
       const wodNow = aiFriendWordOfDay();
-      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}
+      // 🗺 학생이 고른 주제 — 대화 내내 이 주제 안에서 논다. 학생이 스스로 다른 얘기를 꺼내면 따라간다.
+      const topicCtx = topic
+        ? `\nThe student chose the topic "${topic}". Stay on THIS topic for the whole chat — every question you ask must be about "${topic}". Do NOT switch to another subject on your own. (If the student clearly starts a different subject, follow them.)`
+        : '';
+      const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}
 Rules:
 - Reply in English matched to ${level} (A1 = very short simple sentences with easy words; C1 = natural and fluent).
 - Keep replies 1-3 short sentences, then ask exactly ONE fun follow-up question so the student answers again.
@@ -565,10 +604,10 @@ Rules:
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
 - The Korean tip must be written ONLY in Hangul. NEVER use Chinese characters (한자) or Japanese anywhere in your reply.
-- Sprinkle in tiny fun facts kids enjoy (animals, space, food, games) when it fits.
+- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.
 - Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
-- If the student's message is very short, unclear, or looks cut off (1-2 words, or it stops mid-sentence), do NOT guess what they meant and do NOT continue your previous answer. Say something short and warm, then ask them to say the whole sentence again. Example: 'Ooh, I only caught "I" 😊 Can you say the whole sentence again?'
+- A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
 - If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
 - Never break character. Never say you are an AI. Never use words far above the student's level.`;
 
@@ -578,8 +617,12 @@ Rules:
       }
       /* 🎤/🐢 이번 발화가 '잘린 조각' 이거나 '천천히 해달라'는 부탁이면, 그 사실을 모델에게
          명시적으로 알려준다. 규칙만으로는 모델이 직전 답변을 그대로 복사해 버린다. */
-      const cutHint = aiFriendLooksCut(msg)
-        ? ` [The student's message is very short or cut off — do NOT guess and do NOT repeat your last reply. Reply in ONE short line and ask them to say the whole sentence again.]` : '';
+      /* 🔁 두 번 연속 되묻기 금지 — 직전 답이 이미 "다시 말해줄래?" 였으면 이번엔 되묻지 않고
+         알아들은 만큼이라도 받아준다. (제보 영상에서 네 턴 내리 되물어 학생이 포기했다.) */
+      const cutHint = (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history))
+        ? ` [The student's message is very short or cut off — do NOT guess and do NOT repeat your last reply. Reply in ONE short line and ask them to say the whole sentence again.]`
+        : (aiFriendLooksCut(msg)
+          ? ` [You already asked them to repeat last time — do NOT ask again. Warmly answer whatever you did understand and ask ONE easy question.]` : '');
       const metaHint = aiFriendIsMetaAsk(msg)
         ? ` [The student is asking you to slow down / repeat / speak more simply. Say yes to that first, then answer again in much shorter and easier words.]` : '';
       messages.push({ role: 'user', content: msg + cutHint + metaHint });
