@@ -251,6 +251,22 @@
 
   /* ───────── 상단 우측 버튼 ───────── */
   #topR{position:absolute;top:8px;right:10px;z-index:12;display:flex;gap:6px}
+  /* ── 모바일 정리 ── 상단이 캐노피를 가려 적기가 안 보였다 → 점3개 하나만 남긴다 */
+  body.mob #topR .tb{display:none}
+  body.mob #topR #btnMenu{display:flex}
+  body.mob #topR.open .tb{display:flex}
+  /* ⚠️ 폰에서는 상단 좌우에 '나가기'·'점3개' 버튼(z12)이 있어 게이지가 그 아래로 깔린다.
+     같은 줄에 두면 점수와 격추 수가 버튼에 가려 안 읽힌다 → 버튼 줄 밑으로 내린다. */
+  body.mob #gauges{top:46px;padding:0 2%;gap:5px}
+  body.mob .gz{padding:2px 7px;min-width:38px;gap:1px}
+  body.mob .gzL{font-size:8px;letter-spacing:.2px}
+  body.mob .gzV{font-size:15px}
+  body.mob #hearts{font-size:12px;letter-spacing:0}
+  body.mob #hullTrack{height:4px;min-width:56px}
+  body.mob #gzAtt{display:none}          /* 자세는 계기판 자세계가 보여 준다 — 글자로 또 띄우면 산만하다 */
+  body.mob #backBtn{padding:6px 10px;font-size:12px}
+  /* 조종 안내는 핸들 쪽으로 — 무엇을 끌어야 하는지 가리키게 */
+  body.mob #stickHint{left:50%;transform:translateX(-50%);bottom:3%;font-size:11.5px;text-align:center}
   .tb{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.22);
     background:rgba(10,18,26,.72);color:#dbe9f7;font-size:16px;cursor:pointer;
     display:flex;align-items:center;justify-content:center}
@@ -324,6 +340,12 @@
   #micBtn{width:100%;margin-top:12px;padding:15px;border-radius:14px;border:0;cursor:pointer;
     background:linear-gradient(135deg,#22c55e,#0ea5e9);color:#fff;font-size:17px;font-weight:900}
   #micBtn:disabled{opacity:.45}
+  /* 운전대 허브 = 발사 버튼. 사진의 빨간 버튼 위에 투명하게 얹는다(모바일에서만) */
+  #hubFire{position:absolute;z-index:9;display:none;padding:0;border:0;border-radius:50%;
+    background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none}
+  body.mob #hubFire{display:block}
+  #hubFire:active{background:radial-gradient(circle,rgba(255,120,70,.55),rgba(255,120,70,0) 72%)}
+  #hubFire.on{background:radial-gradient(circle,rgba(255,120,70,.55),rgba(255,120,70,0) 72%)}
   /* 듣는 중에는 같은 버튼이 '제출' 이 된다 — 색을 바꿔 지금 무슨 버튼인지 헷갈리지 않게 */
   #micBtn.submit{background:linear-gradient(135deg,#f59e0b,#e2600f)}
   .rateRow{display:flex;gap:6px;justify-content:center;margin-top:9px}
@@ -374,6 +396,9 @@
   <!-- 조종간(요크) — 화살표 입력에 따라 기울고 밀린다 -->
   <!-- 조종간 — 힉스필드로 뽑은 실사 조종간(그린스크린 크로마키). 핸들 전체가 회전한다. -->
   <div id="yoke"><img id="ykImg" src="/img/p38-yoke.webp?v=1" alt=""></div>
+  <!-- 발사 = 운전대 한가운데 빨간 버튼(사장님 지시). 별도 FIRE 버튼은 없앴다.
+       위치·크기는 layoutCockpit() 이 조종간 사진의 허브 자리에 정확히 맞춘다. -->
+  <button id="hubFire" title="발사 FIRE" aria-label="발사"></button>
 
   <!-- 레이더(GPS) — 캐노피 오른쪽 아래, 계기판 바로 위. layoutCockpit() 이 위치를 잡는다 -->
   <canvas id="radar" width="360" height="360"></canvas>
@@ -514,13 +539,15 @@
       </div>
     </div>
     <div class="gzSide">
-      <div class="gz"><div id="attText">✈ 수평 비행</div></div>
+      <div class="gz" id="gzAtt"><div id="attText">✈ 수평 비행</div></div>
       <div class="gz"><div class="gzL">격추 KILLS</div><div class="gzV" id="gKill">0/10</div></div>
     </div>
   </div>
 
   <button id="backBtn">← 나가기</button>
   <div id="topR">
+    <!-- 모바일에서는 이 점3개만 남고 나머지는 접힌다 — 상단이 적기를 가리던 문제 -->
+    <button class="tb" id="btnMenu" title="메뉴">⋯</button>
     <button class="tb" id="btnRepeat" title="무전 다시 듣기">🔊</button>
     <button class="tb" id="btnMute" title="음소거">🔈</button>
     <button class="tb" id="btnHelp" title="조종 방법 보기">?</button>
@@ -1176,8 +1203,24 @@ function layoutCockpit(){
     // ── 사진 속 진짜 계기 자리에 우리 계기를 하나씩 얹는다
     var dLeft = (W-dw)/2, dTop = dashTop + offY;
     var dsz = 0.086*dw;
-    for(var i=0;i<DIAL_POS.length;i++){
-      var it=DIAL_POS[i], el=document.getElementById(it.id); if(!el) continue;
+    /* 모바일 재배치(사장님 지시): **중앙 자세계 자리에 GPS(레이더)**, 자세계는 오른쪽 계기로.
+       가운데 두 칸(자세·방위)을 레이더가 통째로 쓰고, 방위는 레이더의 '전방 FWD' 가 대신한다.
+       승강계는 자세계와 겹치는 정보라 폰에서는 뺀다 — 계기가 적어야 하늘이 보인다. */
+    var PLACE = MOBILE ? [
+      { id:'dSpd',  x:0.385,  y:0.272 },
+      { id:'dAlt',  x:0.6135, y:0.272 },
+      { id:'dFuel', x:0.385,  y:0.545 },
+      { id:'dAtt',  x:0.6135, y:0.545 }
+    ] : DIAL_POS;
+    /* ⚠️ 숨기기만 하면 화면을 넓혀 데스크톱 배치로 돌아왔을 때 계기가 안 살아난다.
+       매번 '이 배치에 없는 계기'를 계산해서 숨기고, 있는 계기는 아래 루프가 되살린다. */
+    var _keep={}; for(var q=0;q<PLACE.length;q++) _keep[PLACE[q].id]=1;
+    for(var q2=0;q2<DIAL_POS.length;q2++){
+      var id2=DIAL_POS[q2].id;
+      if(!_keep[id2]){ var e2=document.getElementById(id2); if(e2) e2.style.display='none'; }
+    }
+    for(var i=0;i<PLACE.length;i++){
+      var it=PLACE[i], el=document.getElementById(it.id); if(!el) continue;
       el.style.width = el.style.height = dsz.toFixed(1)+'px';
       el.style.left = (dLeft + it.x*dw - dsz/2).toFixed(1)+'px';
       el.style.top  = (dTop  + it.y*dh - dsz/2).toFixed(1)+'px';
@@ -1197,13 +1240,46 @@ function layoutCockpit(){
       yk.style.left  = '50%';
       yk.style.top   = (hubY - 0.47*yh).toFixed(1)+'px';  // 잘라낸 사진의 허브는 높이의 47% 지점
       yk.style.bottom= 'auto';
+      /* 발사 버튼 = 사진 속 빨간 허브. 손가락으로 눌러야 하므로 최소 66px 은 준다 */
+      var hb=document.getElementById('hubFire');
+      if(hb){
+        var hs=Math.max(66, Math.round(yw*0.155));
+        hb.style.width = hb.style.height = hs+'px';
+        hb.style.left  = Math.round(W/2 - hs/2)+'px';
+        hb.style.top   = Math.round(hubY - hs/2)+'px';
+      }
     }
   }
   /* 레이더 — 캐노피 오른쪽 아래, 계기판 윗선 바로 위.
      ⚠️ CSS 로 right/bottom 만 고정하면 화면비에 따라 계기판이 올라와 레이더를 덮는다.
         여기서 dashTop 을 기준으로 올려 놓아야 어떤 화면비에서도 판 위에 남는다. */
   var rd=document.getElementById('radar');
-  if(rd){
+  if(rd && MOBILE && dash){
+    /* 폰: 계기판 한가운데(자세·방위 두 칸 자리)에 넣는다. 캐노피에서 치워야 적기가 보인다. */
+    var _dw = Math.max(560, Math.min(W*1.1, (H-dashTop)/0.56 * (DASH_W/DASH_H)));
+    var _dh = _dw*DASH_H/DASH_W, _offY = -0.10*_dh;
+    var _dLeft=(W-_dw)/2, _dTop=dashTop+_offY;
+    /* ⚠️ 좌우 계기(속도·고도) 사이의 빈 폭이 한계다 — 실측 0.1425*dw.
+       더 키우면 사진 속 계기 자리를 덮어 "붙여 넣은 것"처럼 보인다. */
+    var _rs = Math.max(70, Math.round(_dw*0.138));
+    var _rx = Math.round(_dLeft + 0.4975*_dw - _rs/2);
+    var _ry = Math.round(_dTop  + 0.4085*_dh - _rs/2);
+    /* 발사 허브와도 겹치면 안 된다. ⚠️ 가로 폰은 계기판이 납작해서 '위로 밀기'만 하면
+       레이더가 계기판 밖(코밍 위)으로 튀어나온다 — 실제로 그렇게 나왔다.
+       → 계기판 안(dashTop ~ 허브 위) 에 들어가도록 **크기를 줄인다**. */
+    var _hb=document.getElementById('hubFire');
+    var _top = dashTop+4;
+    var _bot = (_hb && _hb.style.top) ? (parseFloat(_hb.style.top)-6) : (H-4);
+    var _room = _bot-_top;
+    if(_rs > _room) _rs = Math.max(62, Math.floor(_room));
+    _rx = Math.round(_dLeft + 0.4975*_dw - _rs/2);
+    _ry = Math.round(_dTop + 0.4085*_dh - _rs/2);
+    if(_ry+_rs > _bot) _ry = Math.round(_bot-_rs);
+    if(_ry < _top) _ry = Math.round(_top);
+    rd.style.width = rd.style.height = _rs+'px';
+    rd.style.left = _rx+'px';
+    rd.style.top  = _ry+'px';
+  } else if(rd){
     // 사장님 지시로 30% 확대(112~190 → 146~247)
     var rs = Math.round(Math.max(146, Math.min(247, Math.min(W*0.1885, H*0.338))));
     var rBottom = dashTop - H*0.035;
@@ -1238,8 +1314,16 @@ function layoutCockpit(){
     sw.style.top = sy.toFixed(1)+'px';
   }
 }
+/* 모바일(터치) 정리 모드 — 세로·가로 모두 적용. 사장님 지시로 화면을 비웠다.
+   폰에서는 상단 HUD·발사버튼이 캐노피를 가려 **적기와 단어가 안 보이는 것**이 가장 큰 문제였다. */
+var MOBILE=false;
+function isMobileLayout(){
+  return ('ontouchstart' in window) || Math.min(W,H)<560 || W<860;
+}
 function resize(){
   W=window.innerWidth; H=window.innerHeight;
+  MOBILE=isMobileLayout();
+  try{ document.body.classList.toggle('mob', MOBILE); }catch(_){}
   if(!renderer) return;
   renderer.setSize(W,H,false);
   camera.aspect=W/H; camera.updateProjectionMatrix();
@@ -1265,7 +1349,12 @@ function aimY(){
 /* 화면 가로 반화각(rad) — 세로 화면(모바일)은 이게 확 좁아진다.
    적기 배치 폭과 라벨 크기를 여기에 맞추지 않으면 폰에서 라벨이 통째로 창밖으로 나간다. */
 function hHalfFov(){ return Math.atan(Math.tan(camera.fov*Math.PI/360) * camera.aspect); }
-function labelScaleK(){ return Math.max(0.5, Math.min(1, camera.aspect/1.5)); }
+/* 라벨 크기 계수 — 세로 폰은 가로 화각이 좁아 0.5까지 떨어져 글자가 깨알같이 작았다.
+   폰에서는 하한을 크게 올린다(사장님: "휴대폰에서 비행기·단어가 잘 안 보인다"). */
+function labelScaleK(){
+  return MOBILE ? Math.max(0.95, Math.min(1.2, camera.aspect/1.5))
+                : Math.max(0.5,  Math.min(1,   camera.aspect/1.5));
+}
 /* ⚠️⚠️ 여기를 unproject 로 구현하면 안 된다 — 이 게임에서 가장 오래 잡은 버그다.
    `new Vector3(0, ndcY, 0.5).unproject(camera)` 가 만드는 점은 near=0.5 기준으로
    카메라 앞 **겨우 2m** 지점이다. 그런데 플레이어는 프레임당 2.5m 를 전진하고,
@@ -1601,7 +1690,8 @@ function spawnEnemy(word, isCorrect, kind, words, slotIdx, slotTotal){
   var e={ word:word, words:words||[word], correct:!!isCorrect, kind:kind, ace:(kind==='ace'),
           hp:spec.hp, spd:spec.spd, score:spec.score,
           mesh:makePlane(kind), t:Math.random()*6, ph:Math.random()*6.28,
-          hold:spec.hold + Math.random()*70,          // 유지하려는 상대거리(m)
+          // 폰은 화면이 작아 적기가 점처럼 보인다 → 더 가까이 붙여 크게 보이게 한다
+          hold:(spec.hold + Math.random()*70) * (MOBILE?0.70:1),
           fireT:1.5+Math.random()*2, burstLeft:0, burstGap:0, dead:false, alpha:0 };
   // GLB 는 날개폭 1 로 정규화돼 있어 '미터 단위 날개폭', 절차생성은 배율을 쓴다
   e.mesh.scale.setScalar(e.mesh.userData.glb ? (spec.spanM||22) : spec.scale);
@@ -2190,10 +2280,15 @@ var input={ mx:0, my:0, ax:0, ay:0, active:false, keys:{} };
       if(G) G.fireHeld=still;
     }
   });
-  var fb=document.getElementById('fireBtn');
-  ['touchstart','mousedown'].forEach(function(ev){ fb.addEventListener(ev,function(e){
-    e.preventDefault(); ac(); if(G)G.fireHeld=true; }); });
-  ['touchend','mouseup','touchcancel'].forEach(function(ev){ fb.addEventListener(ev,function(){ if(G)G.fireHeld=false; }); });
+  /* 발사 = 운전대 한가운데 빨간 버튼. 별도 FIRE 버튼은 없앴다(사장님 지시).
+     ⚠️ 이 버튼 위에서 시작한 터치가 조종 드래그로도 잡히면 누를 때마다 기수가 홱 돈다
+        → stopPropagation 으로 조종 입력에서 빼 준다. */
+  var hb=document.getElementById('hubFire');
+  ['touchstart','mousedown'].forEach(function(ev){ hb.addEventListener(ev,function(e){
+    e.preventDefault(); e.stopPropagation(); ac(); if(G)G.fireHeld=true; hb.classList.add('on'); }); });
+  ['touchend','mouseup','touchcancel','mouseleave'].forEach(function(ev){ hb.addEventListener(ev,function(e){
+    if(e&&e.stopPropagation) e.stopPropagation(); if(G)G.fireHeld=false; hb.classList.remove('on'); }); });
+  window.addEventListener('blur', function(){ if(G)G.fireHeld=false; hb.classList.remove('on'); });
 })();
 
 /* ════════════════════════════════════════════════════════════════════
@@ -2643,9 +2738,14 @@ function drawRadar(ts){
   g.beginPath(); g.moveTo(cx,cy); g.arc(cx,cy,R,sweep-1.6708,sweep-1.5708); g.closePath();
   g.strokeStyle=grd; g.lineWidth=2.2; g.stroke();
 
-  // ── 기수 방향 표식(항상 위)
-  g.fillStyle='rgba(190,235,210,.85)'; g.font='bold 6px system-ui,sans-serif'; g.textAlign='center';
-  g.fillText('전방 FWD', cx, cy-R-2.5);
+  /* ── 기수 방향 표식(항상 위).
+     ⚠️ 폰에서는 레이더가 70~80px 까지 작아져 이 글자가 5px 도 안 된다 → 아예 뺀다.
+        가운데 삼각형이 '내가 위를 향한다'를 이미 말해 주므로 정보 손실이 없다. */
+  var TINY = css < 110;
+  if(!TINY){
+    g.fillStyle='rgba(190,235,210,.85)'; g.font='bold 6px system-ui,sans-serif'; g.textAlign='center';
+    g.fillText('전방 FWD', cx, cy-R-2.5);
+  }
 
   // 내 비행기 — 가운데, 위를 향한 삼각형
   g.beginPath(); g.moveTo(cx,cy-5.4); g.lineTo(cx-3.9,cy+4.2); g.lineTo(cx,cy+2.2); g.lineTo(cx+3.9,cy+4.2);
@@ -2690,8 +2790,8 @@ function drawRadar(ts){
     }
   }
 
-  // ── 목표까지의 거리·방향 안내(맨 아래 한 줄). 폰에서는 레이더가 112px 까지 작아지므로 조금 크게
-  g.textAlign='center'; g.font='bold 7px system-ui,sans-serif';
+  // ── 목표까지의 거리·방향 안내(맨 아래 한 줄). 작을수록 글자를 키워야 읽힌다
+  g.textAlign='center'; g.font='bold '+(TINY?9:7)+'px system-ui,sans-serif';
   if(tgt){
     g.fillStyle='#ffd479';
     g.fillText('목표 '+Math.round(tgt.dist)+'m'+(tgt.out?' ↗':''), cx, cy+R+7.2);
@@ -2756,9 +2856,13 @@ function startGame(){
   updateHUD(); updateHUDFast(); applyDamageSkin();   // 재출격 때 지난 판의 그을음이 남지 않게
   engineStart();
   // 폰·태블릿은 터치 감지가 실패하는 경우가 있어 좁은 화면도 발사 버튼을 띄운다
-  var touch = ('ontouchstart' in window) || window.innerWidth < 860;
-  document.getElementById('fireBtn').style.display = touch ? 'block' : 'none';
-  document.getElementById('stickHint').style.display = touch ? 'block' : 'none';
+  // 별도 FIRE 버튼은 쓰지 않는다 — 발사는 운전대 가운데 빨간 버튼(모바일)·왼손 키(PC)
+  document.getElementById('fireBtn').style.display = 'none';
+  document.getElementById('stickHint').textContent = '핸들 드래그 = 조종 · 빨간 버튼 = 발사';
+  var _sh=document.getElementById('stickHint');
+  _sh.style.display = MOBILE ? 'block' : 'none';
+  // 안내는 8초만 — 계속 떠 있으면 그것도 산만하고 핸들을 가린다
+  clearTimeout(_sh._t); if(MOBILE) _sh._t=setTimeout(function(){ _sh.style.display='none'; }, 8000);
   if(!raf) raf=requestAnimationFrame(loop);
 }
 function endGame(win){
@@ -2826,6 +2930,10 @@ function togglePause(){
   document.getElementById('btnExit').addEventListener('click', goBack);
   document.getElementById('backBtn').addEventListener('click', goBack);
   document.getElementById('btnPause').addEventListener('click', togglePause);
+  // 점3개 — 폰에서 상단 버튼을 접었다 편다
+  document.getElementById('btnMenu').addEventListener('click', function(){
+    document.getElementById('topR').classList.toggle('open');
+  });
 
   /* 도움말 — 게임 중에도 키 위치를 다시 볼 수 있어야 한다("어느 키였더라"가 제일 흔한 이탈 지점).
      ⚠️ 열 때 반드시 멈춘다. 안 멈추면 안내를 읽는 동안 격추당한다.
