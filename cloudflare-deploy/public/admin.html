@@ -2100,7 +2100,7 @@
   }
 </style>
 <script src="/js/pii-mask.js" defer></script><!-- 🔒 PII 마스킹 유틸 -->
-<script src="/js/media-guard.js?v=2" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
+<script src="/js/media-guard.js?v=3" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/admin-tip-i18n.js?v=1" defer></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
 <link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 <!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
@@ -11985,7 +11985,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=3" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
-<script src="/js/adm-light-surfaces.js?v=9" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
+<script src="/js/adm-light-surfaces.js?v=10" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
 </div>
@@ -12258,6 +12258,11 @@ button.chip:hover,
   .ph54-ev { position:absolute; left:3px; right:3px; border-radius:6px; padding:3px 6px;
      color:#fff; overflow:hidden; cursor:grab; box-sizing:border-box;
      box-shadow:0 1px 5px rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.18); }
+  /* ph169 — '대체'(주황) 카드만 흰 글자 대비가 낮다(2.1:1). 진한 갈색으로 바꿔 읽히게.
+     나머지 3색(보라·파랑·회색)은 흰 글자로 AA 통과라 그대로 둔다.
+     유형 클래스 ph54-t-temp 는 adm-q6.js 가 붙인다(인라인 색 매칭은 브라우저가 rgb 로
+     정규화해 깨지므로 클래스로 타겟). */
+  .ph54-ev.ph54-t-temp, .ph54-slot.ph54-t-temp { color:#3d2600; }
   .ph54-ev:hover { filter:brightness(1.08); z-index:3; }
   .ph54-ev:active { cursor:grabbing; }
   .ph54-ev.dragging { opacity:.4; }
@@ -12281,7 +12286,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-q6.js?v=3" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q6.js?v=4" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 81 admin (2026-05-24) — ▲ 강제 제거 + 칩 한 줄 작게 (모든 폭) -->
 <style id="ph81-admin">
@@ -15726,7 +15731,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-q8.js?v=2" defer></script><!-- 분할추출:adm-q8 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q8.js?v=3" defer></script><!-- 분할추출:adm-q8 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 110 admin (2026-05-25) — 신규 5개 카드 + 사이드바 31개 카드 통합 -->
@@ -16758,7 +16763,7 @@ button.chip:hover,
   #topUserBtn:hover::before { opacity: 1; }
 </style>
 
-<script src="/js/adm-r19.js?v=2" defer></script><!-- 분할추출:adm-r19 -->
+<script src="/js/adm-r19.js?v=3" defer></script><!-- 분할추출:adm-r19 -->
 
 
 <!-- Phase 114 admin (2026-05-25) — Floating 사용자 메뉴 (기존 #topUserBtn 의존 없음) -->
@@ -17112,7 +17117,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r21.js?v=2" defer></script><!-- 분할추출:adm-r21 -->
+<script src="/js/adm-r21.js?v=3" defer></script><!-- 분할추출:adm-r21 -->
 
 
 <!-- Phase 116 admin (2026-05-25) — 역할 무관 ph85 사이드바 항상 visible + 강사/지사/대리점 안내 -->
@@ -17457,7 +17462,7 @@ button.chip:hover,
   .ph118-perm-stat .no { color: #FCA5A5; }
 </style>
 
-<script src="/js/adm-q10.js?v=3" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q10.js?v=4" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 119 admin (2026-05-25) — SLP 수업현황 위치 재조정: 학생/학부모 그룹으로 단일 노출 -->
@@ -17605,7 +17610,7 @@ button.chip:hover,
   #ph121-demo-note b { color: #67E8F9 !important; }
 </style>
 
-<script src="/js/adm-s14.js?v=2" defer></script><!-- 분할추출:adm-s14 -->
+<script src="/js/adm-s14.js?v=3" defer></script><!-- 분할추출:adm-s14 -->
 
 
 <!-- Phase 122 admin (2026-05-25) — 학생 이름 클릭 시 상세보기 페이지로 이동 -->
@@ -17848,7 +17853,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r24.js?v=4" defer></script><!-- 분할추출:adm-r24 -->
+<script src="/js/adm-r24.js?v=5" defer></script><!-- 분할추출:adm-r24 -->
 
 
 <!-- Phase 124 admin (2026-05-25) — 손자 메뉴 셀렉터 광범위화 + 데모 손자 메뉴 매핑 -->
@@ -17930,9 +17935,9 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-r25.js?v=4" defer></script><!-- 분할추출:adm-r25 -->
+<script src="/js/adm-r25.js?v=5" defer></script><!-- 분할추출:adm-r25 -->
 
-<script src="/js/adm-menu-icons.js?v=2" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
+<script src="/js/adm-menu-icons.js?v=3" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
 
 <!-- Phase 126 admin (2026-05-25) — 잔존율/활성 룸 강제 visible + 정확한 스크롤 -->
@@ -21061,7 +21066,7 @@ button.chip:hover,
   <div id="ag-hint">← → 넘기기 · 손가락으로 밀기 · 아래 그림을 눌러 바로 이동</div>
   <div id="ag-thumbs"></div>
 </div>
-<script src="/js/adm-s18.js?v=3" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
+<script src="/js/adm-s18.js?v=4" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=2" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 

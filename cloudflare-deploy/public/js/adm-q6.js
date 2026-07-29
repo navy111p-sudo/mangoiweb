@@ -81,7 +81,7 @@
     var lbl = stu || PH54_TYPE_LABEL[s.type] || '수업';
     var time= s.start_time || (s.hour != null ? (ph54Pad(s.hour)+':00') : '');
     var dur = s.duration_min ? (' · ' + s.duration_min + '분') : '';
-    return '<span class="ph54-slot ph54-class" style="background:'+c+'" title="'
+    return '<span class="ph54-slot ph54-class ph54-t-'+(s.type||'')+'" style="background:'+c+'" title="'
         + ph54Esc(time+' '+(PH54_TYPE_LABEL[s.type]||'')+(stu?(' · '+stu):'')) + '">'
       + '<b>'+ph54Esc(time)+'</b><span class="ph54-dur">'+ph54Esc(dur)+'</span>'
       + '<span class="ph54-stu">'+ph54Esc(lbl)+'</span>'
@@ -128,7 +128,7 @@
     var student  = (s.students || []).map(function(x){ return x && x.name; }).filter(Boolean).join(', ');
     var nameTxt  = student || (s.type==='blocked' ? '휴무' : (PH54_TYPE_LABEL[s.type] || '수업'));
     var typeTxt  = PH54_TYPE_LABEL[s.type] || '';
-    return '<div class="ph54-ev" draggable="true" data-idx="'+idx+'" '
+    return '<div class="ph54-ev ph54-t-'+(s.type||'')+'" draggable="true" data-idx="'+idx+'" '
       + 'style="top:'+top+'px;height:'+height+'px;background:'+c+'" '
       + 'title="'+ph54Esc(timeTxt+' · '+typeTxt+(student?(' · '+student):''))+'">'
       +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)+'</div>'

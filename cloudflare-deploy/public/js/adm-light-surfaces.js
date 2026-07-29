@@ -28,6 +28,10 @@
     '.top-header', '.top-header *',                     // 상단바(짙은 남색 그라데이션 = 디자인)
     '#ph85-sidebar', '#ph85-sidebar *',                 // 사이드바(별도 톤)
     '#mgWorldClock', '#mgWorldClock *',
+    // 🗓 화상수업 주간 스케줄 카드 — 유형별 색(1:1 보라·그룹 파랑·대체 주황·휴무 회색)이
+    //   구분 정보다. 밝게 눌러 흰색으로 만들면 무슨 수업인지 못 알아본다(사장님 지적, 2026-07-28).
+    //   색은 유지하고 글자는 카드 자체 CSS(ph54-ev)가 흰색으로 얹으므로 대비도 확보된다.
+    '.ph54-ev', '.ph54-ev *', '.ph54-slot', '.ph54-slot *', '.ph54-class', '.ph54-class *',
     'canvas', 'svg', 'svg *', 'video', 'iframe'
   ].join(',');
 
