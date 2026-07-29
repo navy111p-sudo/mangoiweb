@@ -12,7 +12,7 @@ import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
 import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(게스트 예외+관리자/토큰)
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
-import { scoreVoiceCoach, scoreTier } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
+import { scoreVoiceCoach, scoreTier, analyzeAcoustic } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
 import type { MangoEnv } from './api-mango';
 
 
@@ -1813,6 +1813,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     const ensureVoiceTable = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS voice_coaching (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, target_text TEXT, transcribed_text TEXT, accuracy_score INTEGER, pronunciation_score INTEGER, fluency_score INTEGER, ai_feedback TEXT, suggestion TEXT, audio_url TEXT, created_at INTEGER NOT NULL);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_voice_student ON voice_coaching(student_uid, created_at DESC)`); } catch {}
+      // 🎧 (2026-07-30) 음향 채점 보정용 원자료. 임계값(ACOUSTIC_TUNING)이 아직 잠정치라,
+      //   실사용 분포를 봐야 "웅얼거림"의 실제 경계를 정할 수 있다. 점수가 아니라 원값을 남긴다.
+      //   ADD COLUMN 은 기존 행을 건드리지 않는다(추가만). 이미 있으면 예외 → 무시.
+      for (const col of ['avg_logprob REAL', 'no_speech_prob REAL', 'speech_rate REAL', 'max_gap REAL', 'acoustic_used INTEGER']) {
+        try { await env.DB.exec(`ALTER TABLE voice_coaching ADD COLUMN ${col}`); } catch { /* 이미 존재 */ }
+      }
     };
 
     // ── POST /api/voice/tts — 모범 음성 (원어민 TTS: Deepgram Aura-1 / MeloTTS) ──
@@ -1978,9 +1984,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           if (!file) return json({ ok: false, error: 'no_audio_file' }, 400);
           audio = await file.arrayBuffer();
           hintLang = String(fd.get('lang') || '').trim().toLowerCase();
-          // 🎯 (2026-07-29) 목표 문장을 아는 화면(음성코치 등)은 이걸 함께 보내면 Whisper 가
-          //   그 문맥으로 기울어(initial_prompt) 짧은 발화를 엉뚱한 문장으로 환각(hallucination)
-          //   하는 걸 크게 줄인다. 안 보내면(대부분의 자유발화 화면) 기존과 동일하게 동작.
+          // ⛔ (2026-07-30) 채점 화면에서는 이걸 절대 보내지 말 것.
+          //   initial_prompt 는 디코더를 그 텍스트 쪽으로 기울인다. 발음을 채점하는 화면
+          //   (speech-coach)에서 모범 문장을 넣으면 발음이 엉망이어도 정답 문장이 그대로
+          //   전사돼, 텍스트 비교 채점기(voice-score.ts)가 항상 100점을 준다.
+          //   07-29 에 음성코치가 이걸 보내다가 만점만 나와서 07-30 에 제거했다.
+          //   자유발화 받아쓰기(고유명사 힌트 등) 용도로만 쓸 것.
           hintPrompt = String(fd.get('prompt') || '').trim().slice(0, 300);
         } else {
           audio = await request.arrayBuffer();
@@ -2007,11 +2016,24 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
               binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)) as any);
             }
             const b64 = btoa(binary);
-            const turboParams: any = { audio: b64, language: lang, task: 'transcribe', vad_filter: true };
+            const turboParams: any = {
+              audio: b64, language: lang, task: 'transcribe', vad_filter: true,
+              // 🚫 환각 억제 — 07-29 에 initial_prompt(정답 유출)로 잡으려다 만점 사고가 났다.
+              //   Whisper 가 제공하는 정식 수단은 이쪽이다. 정답을 알려주지 않으므로 채점에 안전하다.
+              condition_on_previous_text: false,   // 앞 문맥에 이끌린 반복·환각 루프 차단
+              hallucination_silence_threshold: 2,  // 2초 이상 침묵 구간은 건너뜀(무음에서 문장 지어내기 방지)
+            };
             if (hintPrompt) turboParams.initial_prompt = hintPrompt;
             const turbo: any = await ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
             const tt = String(turbo?.text || '').trim();
-            if (tt) return json({ ok: true, text: tt, vtt: turbo?.vtt || null, word_count: turbo?.word_count || 0, lang });
+            // 🎧 (2026-07-30) segments/transcription_info 를 함께 돌려준다 — 발음 채점(또렷함·흐름)이
+            //   avg_logprob·no_speech_prob·단어 타이밍을 쓴다. 텍스트만으로는 또렷함을 잴 수 없다.
+            //   구 whisper 폴백 경로에는 이 정보가 없다 → 그때는 채점이 옛 텍스트 방식으로 자동 복귀.
+            if (tt) return json({
+              ok: true, text: tt, vtt: turbo?.vtt || null, word_count: turbo?.word_count || 0, lang,
+              segments: Array.isArray(turbo?.segments) ? turbo.segments.slice(0, 30) : null,
+              transcription_info: turbo?.transcription_info || null,
+            });
           } catch (turboErr: any) {
             console.warn('[voice/transcribe] turbo failed, fallback base whisper:', turboErr?.message);
           }
@@ -2046,7 +2068,17 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
 
       // 🗣 (2026-07-24) 채점은 결정론적 정렬 채점기(voice-score.ts)로 — 변별력 확보(하니스로 검증).
       //   기존 '단어 집합 겹침'은 순서·중복·딴소리를 못 걸러 잘하든 못하든 점수가 비슷했다.
-      const sc = scoreVoiceCoach(target, spoken);
+      // 🎧 (2026-07-30) 전사 때 받은 Whisper 음향정보를 함께 넘긴다 — 또렷함/흐름을 텍스트가 아닌
+      //   음향(avg_logprob·단어 타이밍)으로 잰다. 없으면 채점기가 알아서 옛 텍스트 방식으로 동작.
+      //   ⚠️ 프론트가 보내는 값이라 위조 가능하지만, spoken(전사 텍스트)도 원래 프론트가 보낸다.
+      //      서버가 오디오를 다시 받지 않는 한 신뢰모델은 이전과 동일하다.
+      const acousticIn = (b && typeof b.acoustic === 'object' && b.acoustic) ? {
+        segments: Array.isArray(b.acoustic.segments) ? b.acoustic.segments.slice(0, 30) : undefined,
+        transcription_info: (b.acoustic.transcription_info && typeof b.acoustic.transcription_info === 'object')
+          ? b.acoustic.transcription_info : undefined,
+      } : null;
+      const sc = scoreVoiceCoach(target, spoken, acousticIn);
+      const ac = analyzeAcoustic(acousticIn);   // 보정용 원자료(점수가 아니라 raw 값)를 함께 남긴다
       const accuracy = sc.accuracy;
       const pronunciation = sc.pronunciation;
       const fluency = sc.fluency;
@@ -2111,15 +2143,25 @@ Respond in JSON ONLY:
 
       // 저장
       const now = Date.now();
-      await env.DB.prepare(
-        `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now).run();
+      // 🎧 음향 원자료도 같이 저장 — ACOUSTIC_TUNING 임계값을 실사용 분포로 보정하기 위한 것.
+      //   옛 컬럼만 있는 DB 에서도 죽지 않게, 실패하면 원래 컬럼만으로 한 번 더 시도한다.
+      try {
+        await env.DB.prepare(
+          `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at, avg_logprob, no_speech_prob, speech_rate, max_gap, acoustic_used) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now,
+               ac.ok ? ac.lp : null, ac.ok ? ac.noSpeech : null, ac.ok ? ac.rate : null, ac.ok ? ac.maxGap : null, sc.acoustic ? 1 : 0).run();
+      } catch {
+        await env.DB.prepare(
+          `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now).run();
+      }
 
       return json({
         ok: true,
         scores: { accuracy, pronunciation, fluency, overall },
         tier,
         lang_mismatch: sc.langMismatch,
+        acoustic: sc.acoustic,   // 🎧 true=음향 기반 채점, false=텍스트만(구 whisper 폴백 등). 보정 확인용
         feedback: aiFeedback,
         suggestion,
         word_stats: { completeness: sc.completeness, matched: sc.counts.ok, wrong: sc.counts.wrong, missing: sc.counts.missing, extra: sc.counts.extra },
