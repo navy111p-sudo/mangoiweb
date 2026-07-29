@@ -935,7 +935,7 @@ function init3D(){
   scene=new THREE.Scene();
   /* ⚠️ far 를 짧게 잡으면 바다가 통째로 안개색(거의 흰색)이 되어 화면 아래에 '흰 띠'가 생긴다.
      예전에 바다를 뺐던 이유가 이것이었다. far 를 크게 잡아야 바다가 파란색을 유지한다. */
-  scene.fog=new THREE.Fog(0xbcd9ee, 1400, 11000);
+  scene.fog=new THREE.Fog(0xb4cfe8, 1400, 11000);   // 하늘색 통일에 맞춘 값
 
   camera=new THREE.PerspectiveCamera(66, 1, 0.5, 6000);
   player=new THREE.Object3D(); player.position.set(0,0,0);
@@ -1008,7 +1008,7 @@ function init3D(){
    ⚠️ envMap 이 있어야 기체 금속면에 하늘이 비쳐 '사진처럼' 보인다. Lambert 로는 안 나오는 질감이다. */
 var PANO_CACHE={}, PANO_ENV={};
 function loadPano(mode){
-  var url = (mode==='night') ? '/img/pano-night.jpg?v=1' : '/img/pano-day.jpg?v=1';
+  var url = (mode==='night') ? '/img/pano-night.jpg?v=1' : '/img/pano-day.jpg?v=2';   // v2 = 하늘색 한 가지로 통일
   function apply(t){
     if(!skyMatRef) return;
     skyMatRef.map=t; skyMatRef.needsUpdate=true;
@@ -1043,7 +1043,7 @@ function setTimeOfDay(mode){
   if(hemi){ hemi.intensity = night ? 0.34 : 1.15;
     hemi.color.setHex(night ? 0x9fb6e0 : 0xe8f4ff); hemi.groundColor.setHex(night ? 0x141d2c : 0x6b7a5a); }
   if(sun){ sun.intensity = night ? 0.42 : 1.45; sun.color.setHex(night ? 0xbcd0ff : 0xfff2d8); }
-  if(scene && scene.fog) scene.fog.color.setHex(night ? 0x14203a : 0xc9dced);
+  if(scene && scene.fog) scene.fog.color.setHex(night ? 0x14203a : 0xb4cfe8);
   // 별·달은 파노라마 사진에 이미 들어 있으므로 3D 로 또 그리지 않는다(이중으로 보인다)
   if(starsMesh) starsMesh.visible = false;
   if(moonSprite) moonSprite.visible = false;
@@ -1053,12 +1053,13 @@ function setTimeOfDay(mode){
 }
 function makeSkyCanvas(){
   var c=document.createElement('canvas'); c.width=4; c.height=256; var x=c.getContext('2d');
-  // ⚠️ 텍스처는 flipY 라 캔버스 위쪽(y=0)이 구의 '천정'(v=1)에 온다 — 위=진한 파랑, 아래=옅은 수평선색
+  /* ⚠️ 텍스처는 flipY 라 캔버스 위쪽(y=0)이 구의 '천정'(v=1)에 온다.
+     예전엔 천정을 진한 파랑(#2a68b4)으로 두어 하늘이 '진한 파랑'과 '하늘색' 두 개로 갈려 보였다 — 사장님 지적.
+     파노라마와 똑같이 **하늘색 한 가지**로 통일한다(수평선 부근만 아주 살짝 옅게). */
   var g=x.createLinearGradient(0,0,0,256);
-  g.addColorStop(0.00,'#2a68b4');   // 천정
-  g.addColorStop(0.30,'#4b93d6');
-  g.addColorStop(0.66,'#8ec2e8');
-  g.addColorStop(1.00,'#c3e0f2');   // 수평선
+  g.addColorStop(0.00,'#aac9e6');   // 천정
+  g.addColorStop(0.55,'#aec9e6');
+  g.addColorStop(1.00,'#b8d2ea');   // 수평선
   x.fillStyle=g; x.fillRect(0,0,4,256); return c;
 }
 function makeCloudCanvas(){
