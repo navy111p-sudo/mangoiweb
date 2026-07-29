@@ -8481,6 +8481,8 @@ window.mgIsSlowNet = function(){
                 <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
                 <!-- ✋ (2026-07-28 Kaye 9번) 학생이 교재·칠판에 낙서하는 것을 교사가 막는 버튼 — 교사·관리자에게만 보임 -->
                 <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">학생 필기 허용</button>
+                <!-- 🖥 (2026-07-30 Kaye 4번) 내 컴퓨터 화면을 학생에게 보여주기 — 교사·관리자에게만 보임 -->
+                <button id="vc-screenshare-btn" type="button" class="vc-classlock-chip" onclick="vcShareMyScreen()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#0ea5e9">내 화면 공유</button>
                 <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
                 <!-- 🗂 (2026-07-28) 우측 얼굴·도구 사이드바 접기/펼치기 — 교재를 전체 폭으로.
                      라벨·툴팁은 mg-vc-right-sidebar 블록의 JS가 상태·언어에 맞춰 다시 씀. -->
@@ -9772,6 +9774,9 @@ async function vcHealLocalVideo() {
     try {
         if (!document.body.classList.contains('vc-in-call')) { __vcCamMutedTicks = 0; return; }
         if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return;          // 관찰자는 카메라 없음
+        /* 🖥 (2026-07-30) 화면 공유 중에는 개입 금지 — 지금 보내는 트랙은 '화면'이므로
+           카메라가 죽은 것으로 오인해 갈아끼우면 공유가 카메라로 되돌아가 버린다. */
+        if (window.__vcScreenSharing) { __vcCamMutedTicks = 0; return; }
         if (!window.vcLocalStream) return;
         if (typeof vcCamOn !== 'undefined' && !vcCamOn) { __vcCamMutedTicks = 0; return; }  // 사용자가 카메라 끔 = 정상
         // 가상배경 켜져 있으면 송출은 합성 캔버스(정상) — 원본 카메라로 갈아끼우면 배경이 깨짐
@@ -9816,6 +9821,125 @@ async function vcHealLocalVideo() {
         console.warn('[cam-heal] 재획득 실패(다음 틱 재시도):', e && e.name);
     }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   🖥 내 컴퓨터 화면 공유 (2026-07-30, 강사 피드백 Kaye 4번)
+   지적: "화면 공유가 다른 앱처럼 내 컴퓨터 화면을 보여 주는 게 아니라 화면을 나누는 것뿐이다"
+   확인: 실제로 getDisplayMedia(브라우저 화면 공유) 를 쓰는 코드가 한 곳도 없었다 = 기능 자체가 없었음.
+   방식: 카메라 자가치유(vcHealLocalVideo) 와 똑같이 sender.replaceTrack 으로 갈아끼운다.
+        재협상이 없어 학생 쪽에서 끊김 없이 바로 화면이 바뀐다.
+   안전: ① 공유 중에는 카메라 자가치유가 개입하지 않게 __vcScreenSharing 플래그를 세운다
+             (그대로 두면 '카메라가 죽었다'고 오인해 화면공유를 카메라로 되돌려 버린다)
+         ② 사용자가 브라우저 '공유 중지'를 누르면(track.onended) 카메라로 자동 복귀
+         ③ 교사·관리자만 사용(학생이 자기 화면을 반 전체에 띄우는 사고 방지)
+   ────────────────────────────────────────────────────────────── */
+window.__vcScreenSharing = false;
+window.__vcCamTrackBackup = null;
+window.vcShareMyScreen = async function(){
+    var en = (typeof getLang === 'function' && getLang() === 'en');
+    try {
+        if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+            alert(en ? 'Only teachers can share the screen.' : '화면 공유는 선생님만 사용할 수 있어요.');
+            return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            alert(en ? 'This browser cannot share the screen. Please use Chrome or Edge on a computer.'
+                     : '이 브라우저는 화면 공유를 지원하지 않아요. 컴퓨터의 크롬이나 엣지에서 사용해 주세요.');
+            return;
+        }
+        if (window.__vcScreenSharing) { window.vcStopMyScreen(); return; }   // 다시 누르면 중지
+
+        var ds = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        var st = ds.getVideoTracks()[0];
+        if (!st) return;
+
+        // 지금 보내고 있는 카메라 트랙을 보관(복귀용)
+        try {
+            var cur = (window.vcLocalStream && vcLocalStream.getVideoTracks()[0]) || null;
+            window.__vcCamTrackBackup = cur || null;
+        } catch(_){}
+
+        window.__vcScreenSharing = true;
+        Object.values(window.vcPeerConnections || {}).forEach(function(pc){
+            try {
+                var sender = pc.getSenders().find(function(s){ return s.track && s.track.kind === 'video'; });
+                if (sender) sender.replaceTrack(st).catch(function(){});
+                else pc.addTrack(st, ds);
+            } catch(e){ console.warn('[screen-share] sender 교체 실패:', e); }
+        });
+        // 내 화면 미리보기도 공유 화면으로
+        try {
+            var lv = document.getElementById('vc-local-video');
+            if (lv) { lv.srcObject = ds; var p = lv.play(); if (p && p.catch) p.catch(function(){}); }
+        } catch(_){}
+
+        st.onended = function(){ try { window.vcStopMyScreen(); } catch(_){} };   // 브라우저 '공유 중지'
+        if (typeof vcRenderScreenShareChip === 'function') vcRenderScreenShareChip();
+        try { if (typeof showToast === 'function') showToast(en ? 'Sharing your screen' : '내 화면을 공유하고 있어요'); } catch(_){}
+        try { vcAddChatSystem(en ? 'The teacher started sharing the screen.' : '선생님이 화면 공유를 시작했어요.'); } catch(_){}
+    } catch (e) {
+        window.__vcScreenSharing = false;
+        if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError')) return;   // 사용자가 취소 = 정상
+        console.warn('[screen-share] 실패:', e);
+        alert(en ? 'Could not start screen sharing.' : '화면 공유를 시작할 수 없었어요.');
+    }
+};
+window.vcStopMyScreen = async function(){
+    var en = (typeof getLang === 'function' && getLang() === 'en');
+    try {
+        window.__vcScreenSharing = false;
+        /* 카메라로 되돌릴 트랙을 3단으로 찾는다 —
+           ① 공유 시작 때 보관한 트랙 ② 지금 내 스트림의 카메라 ③ 둘 다 죽었으면 카메라를 새로 획득.
+           [왜] 되돌릴 트랙을 못 찾으면 sender 가 '끝난 화면 트랙'을 계속 붙잡아
+                학생 화면이 멈춘 그림에 머문다. 자가치유(vcHealLocalVideo)는 내 스트림의 카메라가
+                살아 있으면 '정상'으로 보고 넘어가므로 이 경우를 못 고친다. */
+        var cam = window.__vcCamTrackBackup;
+        if (!cam || cam.readyState !== 'live') {
+            try { cam = (window.vcLocalStream && vcLocalStream.getVideoTracks().find(function(t){ return t.readyState === 'live'; })) || null; } catch(_) { cam = null; }
+        }
+        if (!cam || cam.readyState !== 'live') {
+            try {
+                var fresh = await navigator.mediaDevices.getUserMedia({ video: true });
+                cam = fresh.getVideoTracks()[0] || null;
+                if (cam && window.vcLocalStream) {
+                    try { vcLocalStream.getVideoTracks().forEach(function(o){ try{ o.stop(); }catch(_){} try{ vcLocalStream.removeTrack(o); }catch(_){} }); } catch(_){}
+                    try { vcLocalStream.addTrack(cam); } catch(_){}
+                }
+            } catch(_) { /* 권한 거부 등 — 아래 자가치유가 다음 틱에 재시도 */ }
+        }
+        if (cam) { try { cam.enabled = (typeof vcCamOn === 'undefined') ? true : !!vcCamOn; } catch(_){} }
+        Object.values(window.vcPeerConnections || {}).forEach(function(pc){
+            try {
+                var sender = pc.getSenders().find(function(s){ return s.track && s.track.kind === 'video'; });
+                if (sender && cam && cam.readyState === 'live') sender.replaceTrack(cam).catch(function(){});
+            } catch(_){}
+        });
+        try {
+            var lv = document.getElementById('vc-local-video');
+            if (lv && window.vcLocalStream) { lv.srcObject = vcLocalStream; var p = lv.play(); if (p && p.catch) p.catch(function(){}); }
+        } catch(_){}
+        if (typeof vcRenderScreenShareChip === 'function') vcRenderScreenShareChip();
+        try { if (typeof showToast === 'function') showToast(en ? 'Screen sharing stopped' : '화면 공유를 멈췄어요'); } catch(_){}
+        try { vcAddChatSystem(en ? 'The teacher stopped sharing the screen.' : '선생님이 화면 공유를 멈췄어요.'); } catch(_){}
+        if (typeof vcHealLocalVideo === 'function') setTimeout(function(){ try{ vcHealLocalVideo(); }catch(_){} }, 800);
+    } catch(e){ console.warn('[screen-share] 중지 실패:', e); }
+};
+/* 버튼 모양 갱신 — 공유 중이면 빨강 */
+window.vcRenderScreenShareChip = function(){
+    var btn = document.getElementById('vc-screenshare-btn');
+    if (!btn) return;
+    var isT = false;
+    try {
+        isT = (typeof _vcBgLockIsStaff === 'function' && _vcBgLockIsStaff())
+           || (typeof vcIsTeacherRole === 'function' && vcIsTeacherRole())
+           || window.vcMyRole === 'teacher' || window.vcMyRole === 'admin';
+    } catch(_) { isT = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'); }
+    btn.style.display = isT ? 'inline-flex' : 'none';
+    var on = !!window.__vcScreenSharing;
+    var en = (typeof _vcBgLockEn === 'function') ? _vcBgLockEn() : false;
+    btn.style.background = on ? '#dc2626' : '#0ea5e9';
+    btn.textContent = on ? (en ? 'Stop sharing' : '화면 공유 중지') : (en ? 'Share my screen' : '내 화면 공유');
+};
 
 /** 앱 복귀 시: 트랙 enable + 비디오 재생 + ICE/WebSocket 복구 */
 async function vcOnAppResume(reason) {
@@ -15140,6 +15264,8 @@ window.vcClassLockChipsRender = function(){
   }
   /* ✋ (2026-07-28 Kaye 9번) 학생 필기 잠금 버튼도 같은 시점에 함께 갱신 */
   try { if (typeof vcRenderDrawLockChip === 'function') vcRenderDrawLockChip(); } catch(_){}
+  /* 🖥 (2026-07-30 Kaye 4번) 내 화면 공유 버튼도 함께 갱신 */
+  try { if (typeof vcRenderScreenShareChip === 'function') vcRenderScreenShareChip(); } catch(_){}
   var fc = document.getElementById('vc-focuslock-btn');
   if (fc) {
     fc.style.display = staff ? 'inline-flex' : 'none';
