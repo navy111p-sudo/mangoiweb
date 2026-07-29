@@ -1971,15 +1971,21 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const ct = request.headers.get('content-type') || '';
         let audio: ArrayBuffer | null = null;
         let hintLang = '';
+        let hintPrompt = '';
         if (ct.includes('multipart/form-data')) {
           const fd = await request.formData();
           const file = fd.get('audio') as File | null;
           if (!file) return json({ ok: false, error: 'no_audio_file' }, 400);
           audio = await file.arrayBuffer();
           hintLang = String(fd.get('lang') || '').trim().toLowerCase();
+          // 🎯 (2026-07-29) 목표 문장을 아는 화면(음성코치 등)은 이걸 함께 보내면 Whisper 가
+          //   그 문맥으로 기울어(initial_prompt) 짧은 발화를 엉뚱한 문장으로 환각(hallucination)
+          //   하는 걸 크게 줄인다. 안 보내면(대부분의 자유발화 화면) 기존과 동일하게 동작.
+          hintPrompt = String(fd.get('prompt') || '').trim().slice(0, 300);
         } else {
           audio = await request.arrayBuffer();
           hintLang = String(url.searchParams.get('lang') || '').trim().toLowerCase();
+          hintPrompt = String(url.searchParams.get('prompt') || '').trim().slice(0, 300);
         }
         if (!audio || audio.byteLength < 100) return json({ ok: false, error: 'audio_too_small' }, 400);
         if (audio.byteLength > 25 * 1024 * 1024) return json({ ok: false, error: 'audio_too_large', max: '25MB' }, 400);
@@ -2001,7 +2007,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
               binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)) as any);
             }
             const b64 = btoa(binary);
-            const turbo: any = await ai.run('@cf/openai/whisper-large-v3-turbo', { audio: b64, language: lang, task: 'transcribe' });
+            const turboParams: any = { audio: b64, language: lang, task: 'transcribe', vad_filter: true };
+            if (hintPrompt) turboParams.initial_prompt = hintPrompt;
+            const turbo: any = await ai.run('@cf/openai/whisper-large-v3-turbo', turboParams);
             const tt = String(turbo?.text || '').trim();
             if (tt) return json({ ok: true, text: tt, vtt: turbo?.vtt || null, word_count: turbo?.word_count || 0, lang });
           } catch (turboErr: any) {

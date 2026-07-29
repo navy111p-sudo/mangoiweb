@@ -660,6 +660,10 @@ async function processAudio(blob) {
     const fd = new FormData();
     fd.append('audio', blob, 'rec.webm');
     fd.append('lang', detectTtsLang(_target0));
+    // 🎯 (2026-07-29) 목표 문장을 미리 알고 있으니 Whisper 에 문맥으로 같이 넘긴다 —
+    //   같은 발음을 녹음해도 "What is your name?"이 "What's going on here?"처럼 완전히
+    //   엉뚱한 문장으로 잘못 들려서(환각) 점수가 크게 요동치던 문제 완화용.
+    fd.append('prompt', _target0.slice(0, 300));
     const trResp = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
     const trD = await trResp.json();
     if (!trD.ok) throw new Error('전사 실패: ' + (trD.error || ''));
@@ -890,7 +894,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260729111603 -->
+<!-- BUILD:20260729120920 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
