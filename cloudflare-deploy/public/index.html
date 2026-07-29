@@ -8413,6 +8413,8 @@ window.mgIsSlowNet = function(){
                 <button id="vc-lib-open-btn" type="button" onclick="if(typeof openTextbookLibrary==='function')openTextbookLibrary()" title="업로드된 교재 목록에서 고르기" data-ko-title="업로드된 교재 목록에서 고르기" data-en-title="Pick from the uploaded textbook list" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#3b82f6,#6366f1);white-space:nowrap">📖 교재 고르기</button>
                 <!-- 🔒 강사 전용 수업 통제 칩: 전체 음소거 / 집중 모드 (vcClassLockChipsRender 가 노출·라벨·색 관리) -->
                 <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
+                <!-- ✋ (2026-07-28 Kaye 9번) 학생이 교재·칠판에 낙서하는 것을 교사가 막는 버튼 — 교사·관리자에게만 보임 -->
+                <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">학생 필기 허용</button>
                 <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
                 <!-- 🗂 (2026-07-28) 우측 얼굴·도구 사이드바 접기/펼치기 — 교재를 전체 폭으로.
                      라벨·툴팁은 mg-vc-right-sidebar 블록의 JS가 상태·언어에 맞춰 다시 씀. -->
@@ -12250,6 +12252,21 @@ function vcHandleMessage(msg) {
             wbReceiveStroke(msg.data);
             break;
 
+        /* ✋ (2026-07-28 Kaye 9번) 교사의 '학생 필기 잠금' 신호 — 학생 쪽에 잠금 상태를 알린다.
+           교사가 새로 들어온 학생에게도 알릴 수 있게, 잠금은 켤 때마다 방송한다. */
+        case 'pdf-drawlock':
+            try {
+                window.__pdfStudentDrawLock = !!(msg.data && msg.data.on);
+                if (typeof vcRenderDrawLockChip === 'function') vcRenderDrawLockChip();
+                var _dl = (typeof getLang === 'function' && getLang() === 'en');
+                if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin' && typeof mangoToast === 'function') {
+                    mangoToast(window.__pdfStudentDrawLock
+                        ? (_dl ? 'The teacher locked drawing.' : '선생님이 필기를 잠갔어요.')
+                        : (_dl ? 'You can draw again.' : '이제 다시 필기할 수 있어요.'));
+                }
+            } catch(e){}
+            break;
+
         // 교재(PDF) 위 실시간 양방향 판서
         case 'pdf-anno-start':
             pdfReceiveAnnoStart(msg.data);
@@ -15055,6 +15072,8 @@ window.vcClassLockChipsRender = function(){
       lib.textContent = en ? lEn : lKo;
     }
   }
+  /* ✋ (2026-07-28 Kaye 9번) 학생 필기 잠금 버튼도 같은 시점에 함께 갱신 */
+  try { if (typeof vcRenderDrawLockChip === 'function') vcRenderDrawLockChip(); } catch(_){}
   var fc = document.getElementById('vc-focuslock-btn');
   if (fc) {
     fc.style.display = staff ? 'inline-flex' : 'none';
@@ -15078,6 +15097,39 @@ window.vcMicLockToggle = function(){
       ? (_vcBgLockEn() ? '🔇 All students muted' : '🔇 학생 전체 음소거를 켰어요')
       : (_vcBgLockEn() ? '🔊 All students unmuted' : '🔊 전체 음소거를 해제했어요'));
   } catch(_){}
+};
+
+/* ✋ (2026-07-28 강사 피드백 Kaye 9번) "학생이 교재·칠판에 낙서한다 — 교사가 막을 수 있게(Boda 처럼)"
+   전체 음소거(vcMicLockToggle) 와 똑같은 방식: 상태를 켜고 학생들에게 방송한다.
+   학생 쪽은 pointerdown 게이트와 'pdf-drawlock' 수신으로 막힌다(양쪽 이중 방어). */
+window.vcDrawLockToggle = function(){
+  window.__pdfStudentDrawLock = !window.__pdfStudentDrawLock;
+  try { if (typeof vcRenderDrawLockChip === 'function') vcRenderDrawLockChip(); } catch(_){}
+  try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'pdf-drawlock', data: { on: !!window.__pdfStudentDrawLock } }); } catch(_){}
+  try {
+    if (typeof showToast === 'function') showToast(window.__pdfStudentDrawLock
+      ? (_vcBgLockEn() ? 'Student drawing locked' : '학생 필기를 잠갔어요')
+      : (_vcBgLockEn() ? 'Student drawing unlocked' : '학생 필기를 다시 허용했어요'));
+  } catch(_){}
+};
+/* 버튼 모양 갱신 — 잠금이면 빨강, 아니면 초록 */
+window.vcRenderDrawLockChip = function(){
+  var btn = document.getElementById('vc-drawlock-btn');
+  if (!btn) return;
+  /* 교사 판정은 옆 칩(전체 음소거)과 같은 방식을 쓴다 — 한쪽만 다르면 한 버튼만 안 보이는 사고가 난다. */
+  var isT = false;
+  try {
+    isT = (typeof _vcBgLockIsStaff === 'function' && _vcBgLockIsStaff())
+       || (typeof vcIsTeacherRole === 'function' && vcIsTeacherRole())
+       || window.vcMyRole === 'teacher' || window.vcMyRole === 'admin';
+  } catch(_) { isT = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'); }
+  btn.style.display = isT ? 'inline-flex' : 'none';       // 교사·관리자에게만 보인다
+  var on = !!window.__pdfStudentDrawLock;
+  var en = (typeof _vcBgLockEn === 'function') ? _vcBgLockEn() : false;
+  btn.style.background = on ? '#dc2626' : '#16a34a';
+  btn.textContent = on
+    ? (en ? 'Drawing locked' : '학생 필기 잠김')
+    : (en ? 'Lock drawing' : '학생 필기 허용');
 };
 
 window.vcFocusLockToggle = function(){
@@ -18408,6 +18460,19 @@ function pdfBindAnnoEvents(annoId) {
     }
     anno.addEventListener('pointerdown', (e) => {
         if (pdfDrawTool === 'none') return;
+        /* ✋ (2026-07-28 강사 피드백 Kaye 9번) "학생이 칠판·교재에 낙서한다 — 교사가 막을 수 있게"
+           교사가 잠그면 학생 쪽 그리기를 여기서 멈춘다. 교사·관리자 자신은 영향 없음. */
+        if (window.__pdfStudentDrawLock && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+            e.preventDefault();
+            if (!window.__pdfLockToastAt || Date.now() - window.__pdfLockToastAt > 4000) {
+                window.__pdfLockToastAt = Date.now();
+                var _en = (typeof getLang === 'function' && getLang() === 'en');
+                if (typeof mangoToast === 'function') {
+                    mangoToast(_en ? 'The teacher has locked drawing.' : '선생님이 필기를 잠갔어요.');
+                }
+            }
+            return;
+        }
         const color = document.getElementById('pdf-anno-color').value;
         const size  = parseInt(document.getElementById('pdf-anno-size').value) || 3;
         const pageNum = parseInt(anno.dataset.page);
