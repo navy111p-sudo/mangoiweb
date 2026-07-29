@@ -9451,6 +9451,14 @@ window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName){
     if (key === window._vcShownPdfKey) return;  // 이미 같은 교재/페이지 표시 중
     // 같은 교재인데 페이지만 다르면 → 전체 재로드 없이 페이지 이동만(깜빡임 방지)
     if (sUrl === window._vcShownPdfUrl) {
+      /* 🔒 (2026-07-29) 방금 내가 넘긴 직후라면 폴링이 끌어가지 못하게 한다.
+         [문제] 넘긴 내용이 서버에 아직 반영되지 않았거나 전송이 막힌 경우, 3초 폴링이
+                옛 페이지(대개 1페이지)로 되돌려 버렸다. 강사가 "넘겨도 첫 페이지만 보인다"고
+                한 증상. 내가 조작 중일 때는 내 화면이 우선이다(5초). */
+      if (Date.now() - (window._vcPdfLocalNavAt || 0) < 5000) {
+        try { window._pdfSyncShownKey && window._pdfSyncShownKey(); } catch(_){}   // 다른 <script> 블록이라 window 경유
+        return;
+      }
       window._vcShownPdfKey = key;
       try { if (typeof pdfGoToPage === 'function') pdfGoToPage(pg); else { if (typeof pdfPageNum !== 'undefined') pdfPageNum = pg; if (typeof pdfRender === 'function') pdfRender(); } } catch(_){}
       return;
@@ -18623,7 +18631,25 @@ function pdfPan(dx, dy) {
     wrap.scrollBy({ left: dx, top: dy, behavior: 'smooth' });
 }
 
-function pdfGoToPage(num) { pdfPageNum = num; pdfRender(); }
+/* 🔄 (2026-07-29 실사고 — 중국어 강사 "화면이 계속 튀고, 첫 페이지만 보인다")
+   [문제] 3초마다 도는 교재 폴링(vcStartPdfPoll)은 서버의 pdfState.currentPage 와
+          _vcShownPdfKey(=url|page) 를 비교해, 다르면 pdfGoToPage() 로 강제로 맞춘다.
+          그런데 로컬에서 페이지를 넘길 때(pdfNextPage/pdfPrevPage/pdfGoToPage) 이 키를
+          아무도 갱신하지 않았다. 그래서 한 장 넘길 때마다 3초 안에 폴링이 "어긋났다"고
+          판단해 다시 렌더 → 화면이 주기적으로 튄다.
+          브로드캐스트가 안 나가는 상황이면 서버는 계속 1페이지라, 넘겨도 3초 뒤 1페이지로
+          되돌려져 "첫 페이지밖에 안 보인다"가 된다. 두 증상이 같은 원인이다.
+   [해결] 페이지가 바뀌면 표시 중 키도 즉시 같이 갱신해 폴링이 '이미 동기화됨'으로 보게 한다. */
+function _pdfSyncShownKey() {
+    try {
+        var u = String(window._vcShownPdfUrl || '');
+        if (!u) return;   // 공유 중인 교재가 없으면 폴링도 관여하지 않음
+        window._vcShownPdfKey = u + '|' + ((typeof pdfPageNum !== 'undefined' && pdfPageNum) ? pdfPageNum : 1);
+    } catch (e) {}
+}
+window._pdfSyncShownKey = _pdfSyncShownKey;
+
+function pdfGoToPage(num) { pdfPageNum = num; pdfRender(); _pdfSyncShownKey(); }
 // ph250: 시퀀스 자동 이동 — 마지막 페이지에서 [다음] → 다음 파일 자동 로드
 function _pdfToast(msg) {
     if (typeof window.showToast === 'function') { try { window.showToast(msg); } catch(_){} }
@@ -18715,6 +18741,10 @@ function _pdfGoSeqFile(f) {
 /* 연속으로 넘길 때 상대방에게 매번 쏘면 신호가 폭주 → 마지막 페이지만 150ms 뒤 1회 전송 */
 let _pdfBcTimer = null;
 function _pdfBroadcastPage() {
+    // 🔄 (2026-07-29) 넘긴 즉시 표시 키를 맞춘다 — 전송(150ms 디바운스)을 기다리는 사이
+    //   폴링이 끼어들어 이전 페이지로 되돌리는 것을 막는다. vcConn 이 없어도 갱신한다.
+    _pdfSyncShownKey();
+    window._vcPdfLocalNavAt = Date.now();   // 방금 '내가' 넘겼다는 표시 — 폴링이 끌어가지 못하게
     if (!vcConn) return;
     if (_pdfBcTimer) clearTimeout(_pdfBcTimer);
     _pdfBcTimer = setTimeout(function () {
@@ -27415,7 +27445,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260729191125 -->
+<!-- BUILD:20260729195531 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
