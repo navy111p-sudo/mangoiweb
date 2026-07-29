@@ -660,10 +660,12 @@ async function processAudio(blob) {
     const fd = new FormData();
     fd.append('audio', blob, 'rec.webm');
     fd.append('lang', detectTtsLang(_target0));
-    // 🎯 (2026-07-29) 목표 문장을 미리 알고 있으니 Whisper 에 문맥으로 같이 넘긴다 —
-    //   같은 발음을 녹음해도 "What is your name?"이 "What's going on here?"처럼 완전히
-    //   엉뚱한 문장으로 잘못 들려서(환각) 점수가 크게 요동치던 문제 완화용.
-    fd.append('prompt', _target0.slice(0, 300));
+    // 🚫 (2026-07-30) 목표 문장을 Whisper 에 initial_prompt 로 넘기던 코드를 제거했다.
+    //   07-29 에 환각(엉뚱한 문장으로 들림) 완화용으로 넣었으나, 부작용이 훨씬 컸다:
+    //   짧은 문장에 정답을 미리 알려주면 디코더가 그쪽으로 강하게 기울어, 발음을 엉망으로
+    //   해도 정답 문장을 그대로 받아 적는다 → 채점기(voice-score.ts)는 텍스트만 보므로
+    //   accuracy/pronunciation/fluency 가 전부 100 (S등급)이 된다. '답을 적어주고 채점'.
+    //   ⚠️ 여기에 prompt 를 다시 추가하지 말 것. 환각은 다른 방법으로 잡는다.
     const trResp = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
     const trD = await trResp.json();
     if (!trD.ok) throw new Error('전사 실패: ' + (trD.error || ''));
@@ -674,7 +676,14 @@ async function processAudio(blob) {
     let user = null; try { user = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
     // 🔐 실계정은 mango_token 으로 본인 확인(서버 IDOR 가드). 게스트는 토큰 불필요.
     const _scTok = (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })();
-    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok };
+    // 🎧 (2026-07-30) Whisper 가 준 음향정보를 채점에 함께 넘긴다 — 또렷함/흐름을 텍스트가 아닌
+    //   실제 소리(구간 확신도 avg_logprob, 단어별 타이밍)로 재기 위해서다. 텍스트만 보면
+    //   Whisper 가 뭉갠 발음을 정상 문장으로 복원해버려 무조건 100점이 나온다.
+    //   구 whisper 폴백이면 이 필드가 없고, 그때는 서버가 알아서 옛 텍스트 방식으로 채점한다.
+    const _scAcoustic = (trD.segments || trD.transcription_info)
+      ? { segments: trD.segments || undefined, transcription_info: trD.transcription_info || undefined }
+      : null;
+    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic };
     let coachResp = await fetch('/api/voice/coach', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(_scPayload)
@@ -894,7 +903,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260730010440 -->
+<!-- BUILD:20260730013940 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

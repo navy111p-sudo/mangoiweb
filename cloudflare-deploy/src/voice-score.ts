@@ -20,12 +20,132 @@
 
 export interface VoiceScore {
   accuracy: number;        // 0~100 — 내용 정확도(치환·누락 반영, 기능어 가중치 낮음)
-  pronunciation: number;   // 0~100 — 맞힌 단어 중 '정확히' 발음한 비율(억양 흔들림 감지)
-  fluency: number;         // 0~100 — 길이 적정성 × 정확도(딴소리는 유창성도 낮게)
+  pronunciation: number;   // 0~100 — 또렷함. 음향정보가 있으면 음향 기반, 없으면 철자 일치율
+  fluency: number;         // 0~100 — 흐름. 음향정보가 있으면 말속도·머뭇거림, 없으면 길이 적정성
   completeness: number;    // 0~100 — 목표 단어 중 실제로 말한 비율
-  overall: number;         // 0~100 — 종합(accuracy 0.5 + pron 0.3 + fluency 0.2)
+  overall: number;         // 0~100 — 종합(accuracy 0.6 + pron 0.25 + fluency 0.15)
   langMismatch: boolean;   // 목표 언어와 발화 언어가 다른가(영어 목표에 한국어 등)
+  acoustic: boolean;       // 음향 지표를 실제로 반영했는가(false = 텍스트만 본 옛 방식)
   counts: { ok: number; close: number; wrong: number; wrongContent: number; missing: number; extra: number };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 🎧 음향 지표 (2026-07-30 추가)
+//
+// 왜 필요했나 (사고):
+//   채점 입력이 'Whisper 가 받아 적은 텍스트'뿐이었다. Whisper 는 액센트·뭉갠 발음을
+//   문맥으로 복원하도록 훈련된 모델이라, 발음을 엉망으로 해도 정답 문장이 그대로 나온다.
+//   그러면 accuracy·pronunciation·fluency 가 전부 100 → S등급. 4개 점수가 사실상
+//   같은 값 하나였다. 텍스트만으로는 '또렷함'을 잴 수 없다.
+//
+//   여기에 07-29 에 넣은 initial_prompt(목표 문장을 Whisper 에 미리 알려줌)가 겹쳐
+//   만점이 고착됐다. 그건 07-30 에 제거했고, 이 파일은 그 다음 단계다.
+//
+// 무엇을 쓰나 — Whisper(large-v3-turbo)가 텍스트와 함께 돌려주는 것들:
+//   - segments[].avg_logprob      그 구간을 얼마나 확신하고 받아 적었나. 웅얼거리면 내려간다.
+//   - segments[].no_speech_prob   말이 아닐 확률(잡음·침묵)
+//   - segments[].words[].start/end 단어별 타이밍 → 말속도·머뭇거림 = 진짜 유창성
+//
+// ⚠️ 한계 1: words[] 에 '단어별 확률'은 오지 않는다(word/start/end 뿐). 확신도는 구간 단위가 최대.
+//            음성코치는 짧은 문장 하나 = 대개 세그먼트 1개라 실용상 문제는 작다.
+// ⚠️ 한계 2: 아래 임계값은 **잠정치**다. 실제 녹음(잘한 발음/뭉갠 발음/딴소리)으로
+//            보정하기 전까지는 추정이다. 보정은 ACOUSTIC_TUNING 상수만 고치면 된다.
+// ⚠️ 한계 3: 음향정보는 프론트가 전달한다 → 위조 가능. 단 spoken(전사 텍스트)도 원래
+//            프론트가 보내므로 신뢰모델은 이전과 동일하다. 서버가 오디오를 다시 받지 않는 한
+//            더 강하게 만들 수 없다.
+// ═══════════════════════════════════════════════════════════════════════
+
+/** 보정용 상수 — 실제 녹음으로 값을 맞출 때 여기만 고친다. */
+export const ACOUSTIC_TUNING = {
+  LP_GOOD: -0.25,      // avg_logprob 이 이 이상이면 또렷함 100
+  LP_BAD: -1.10,       // 이 이하면 0. Whisper 기본 log_prob_threshold 가 -1.0(저신뢰 경계)
+  NO_SPEECH_MAX: 0.60, // no_speech_prob 이 이 이상이면 말이 아닌 것으로 보고 크게 감점
+  RATE_LO: 1.6,        // 적정 말속도 하한(단어/초) — 이보다 느리면 뚝뚝 끊김
+  RATE_HI: 3.6,        // 적정 말속도 상한 — 이보다 빠르면 뭉개서 읽음
+  GAP_OK: 0.35,        // 단어 사이 공백이 이 이하면 머뭇거림 없음(초)
+  GAP_BAD: 1.20,       // 이 이상이면 크게 머뭇거림
+  MIN_WORDS: 2,        // 단어 타이밍이 이 개수 미만이면 흐름 판정 불가(텍스트 방식 유지)
+};
+
+export interface AcousticSegment {
+  start?: number; end?: number; text?: string;
+  avg_logprob?: number; no_speech_prob?: number;
+  words?: Array<{ word?: string; start?: number; end?: number }>;
+}
+export interface AcousticInfo {
+  segments?: AcousticSegment[];
+  transcription_info?: { duration?: number; duration_after_vad?: number; language_probability?: number };
+}
+
+const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+/** lo~hi 구간을 0~1 로 선형 매핑 */
+const ramp = (v: number, lo: number, hi: number) => clamp01((v - lo) / (hi - lo || 1));
+
+/**
+ * Whisper 음향정보 → 또렷함/흐름 원점수. 데이터가 부족하면 ok:false (호출부가 옛 방식 유지).
+ * 순수 함수 — 하니스로 검증 가능.
+ */
+export function analyzeAcoustic(a: AcousticInfo | null | undefined):
+  { ok: boolean; clarity: number; fluency: number; lp: number | null; noSpeech: number; rate: number | null; maxGap: number | null } {
+  const none = { ok: false, clarity: 0, fluency: 0, lp: null, noSpeech: 0, rate: null, maxGap: null } as const;
+  const segs = (a && Array.isArray(a.segments)) ? a.segments.filter(s => s && typeof s === 'object') : [];
+  if (!segs.length) return { ...none };
+
+  const T = ACOUSTIC_TUNING;
+
+  // ── 또렷함 — 구간 길이로 가중평균한 avg_logprob ──
+  let lpSum = 0, lpW = 0, nsMax = 0;
+  for (const s of segs) {
+    const lp = typeof s.avg_logprob === 'number' ? s.avg_logprob : null;
+    const dur = Math.max(0, (Number(s.end) || 0) - (Number(s.start) || 0));
+    const w = dur > 0 ? dur : 1;
+    if (lp !== null && isFinite(lp)) { lpSum += lp * w; lpW += w; }
+    const ns = typeof s.no_speech_prob === 'number' ? s.no_speech_prob : 0;
+    if (ns > nsMax) nsMax = ns;
+  }
+  if (!lpW) return { ...none };
+  const lp = lpSum / lpW;
+  let clarity = ramp(lp, T.LP_BAD, T.LP_GOOD) * 100;
+  // 말이 아닐 확률이 높으면(잡음만 녹음 등) 또렷함을 강하게 눌러 만점 방지
+  if (nsMax >= T.NO_SPEECH_MAX) clarity *= 0.35;
+
+  // ── 흐름 — 단어 타이밍(말속도 + 머뭇거림) ──
+  const words: Array<{ start: number; end: number }> = [];
+  for (const s of segs) {
+    for (const w of (Array.isArray(s.words) ? s.words : [])) {
+      const st = Number(w?.start), en = Number(w?.end);
+      if (isFinite(st) && isFinite(en) && en >= st) words.push({ start: st, end: en });
+    }
+  }
+  let fluency: number, rate: number | null = null, maxGap: number | null = null;
+  if (words.length >= T.MIN_WORDS) {
+    words.sort((x, y) => x.start - y.start);
+    const span = words[words.length - 1].end - words[0].start;
+    rate = span > 0 ? words.length / span : null;
+    maxGap = 0;
+    for (let i = 1; i < words.length; i++) {
+      const g = words[i].start - words[i - 1].end;
+      if (g > (maxGap as number)) maxGap = g;
+    }
+    // 말속도 — 적정 구간 안이면 100, 밖으로 나갈수록 감점(양쪽 대칭)
+    let rateScore = 100;
+    if (rate === null) rateScore = 60;
+    else if (rate < T.RATE_LO) rateScore = 40 + 60 * ramp(rate, T.RATE_LO * 0.4, T.RATE_LO);
+    else if (rate > T.RATE_HI) rateScore = 40 + 60 * (1 - ramp(rate, T.RATE_HI, T.RATE_HI * 1.8));
+    // 머뭇거림 — 단어 사이 최장 공백
+    const gapScore = 40 + 60 * (1 - ramp(maxGap as number, T.GAP_OK, T.GAP_BAD));
+    fluency = 0.6 * rateScore + 0.4 * gapScore;
+  } else {
+    // 타이밍이 없으면 흐름은 또렷함을 따라간다(추정치임을 감안해 살짝 후하게)
+    fluency = Math.min(100, clarity + 10);
+  }
+
+  return {
+    ok: true,
+    clarity: Math.round(clamp01(clarity / 100) * 100),
+    fluency: Math.round(clamp01(fluency / 100) * 100),
+    lp, noSpeech: nsMax, rate, maxGap,
+  };
 }
 
 const FUNC: Record<string, 1> = {
@@ -137,16 +257,21 @@ function scoreCJK(target: string, spoken: string): VoiceScore {
     accuracy + 12
   );
   return {
-    accuracy, pronunciation, fluency, completeness, overall, langMismatch,
+    accuracy, pronunciation, fluency, completeness, overall, langMismatch, acoustic: false,
     counts: { ok: lcs, close: 0, wrong: Math.max(0, m - lcs), wrongContent: Math.max(0, m - lcs), missing: Math.max(0, m - lcs), extra: Math.max(0, n - lcs) },
   };
 }
 
 /**
  * 음성코치 채점 — 결정론적 순수 함수(하니스로 변별력 검증 가능).
- * target: 모범 문장, spoken: 인식된 발화.
+ * target: 모범 문장, spoken: 인식된 발화, acoustic: Whisper 음향정보(있으면 또렷함·흐름에 반영).
  */
-export function scoreVoiceCoach(target: string, spoken: string): VoiceScore {
+export function scoreVoiceCoach(target: string, spoken: string, acoustic?: AcousticInfo | null): VoiceScore {
+  return applyAcoustic(scoreText(target, spoken), acoustic);
+}
+
+/** 텍스트 정렬 채점(기존 방식). 음향정보 없이도 이 값이 나온다. */
+function scoreText(target: string, spoken: string): VoiceScore {
   const tgt = String(target || '').trim();
   const spk = String(spoken || '').trim();
 
@@ -155,7 +280,7 @@ export function scoreVoiceCoach(target: string, spoken: string): VoiceScore {
   const tw = wordsOf(tgt), sw = wordsOf(spk);
   const empty: VoiceScore = {
     accuracy: 0, pronunciation: 0, fluency: 0, completeness: 0, overall: 0,
-    langMismatch: false, counts: { ok: 0, close: 0, wrong: 0, wrongContent: 0, missing: 0, extra: 0 },
+    langMismatch: false, acoustic: false, counts: { ok: 0, close: 0, wrong: 0, wrongContent: 0, missing: 0, extra: 0 },
   };
   if (!tw.length) return empty;
 
@@ -207,8 +332,37 @@ export function scoreVoiceCoach(target: string, spoken: string): VoiceScore {
     accuracy + 12
   );
   return {
-    accuracy, pronunciation, fluency, completeness, overall, langMismatch,
+    accuracy, pronunciation, fluency, completeness, overall, langMismatch, acoustic: false,
     counts: { ok: spokenOk, close: okClose, wrong, wrongContent, missing, extra },
+  };
+}
+
+/** 종합 = 정확도 0.6 + 또렷함 0.25 + 흐름 0.15, 단 정확도보다 12점 이상 높아질 수 없다. */
+function combine(accuracy: number, pronunciation: number, fluency: number): number {
+  return Math.min(Math.round(accuracy * 0.6 + pronunciation * 0.25 + fluency * 0.15), accuracy + 12);
+}
+
+/**
+ * 텍스트 채점 결과에 Whisper 음향 지표를 덮어씌운다.
+ *   또렷함 = 음향 확신도 0.7 + 철자 일치율 0.3
+ *     (음향만 쓰지 않는 이유: 다른 단어를 또박또박 말해도 logprob 은 높게 나온다.
+ *      "정확히 말했나"는 여전히 텍스트가 알려주므로 둘을 섞는다.)
+ *   흐름   = 말속도·머뭇거림. 단 딴소리는 유창성 상한을 눌러 "틀렸는데 유창"을 막는다(기존 규칙 유지).
+ * 음향정보가 없거나 부실하면 원본을 그대로 돌려준다 → 옛 동작과 100% 동일(하위호환).
+ */
+function applyAcoustic(base: VoiceScore, info?: AcousticInfo | null): VoiceScore {
+  if (!info) return base;
+  const a = analyzeAcoustic(info);
+  if (!a.ok) return base;
+  // 언어가 아예 다르면(0점 처리) 음향으로 되살리지 않는다.
+  if (base.langMismatch) return base;
+
+  const pronunciation = Math.round(a.clarity * 0.7 + base.pronunciation * 0.3);
+  const fluency = Math.min(a.fluency, base.accuracy + 15);
+  return {
+    ...base,
+    pronunciation, fluency, acoustic: true,
+    overall: combine(base.accuracy, pronunciation, fluency),
   };
 }
 
