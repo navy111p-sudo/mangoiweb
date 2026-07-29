@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>망고아이 · 3D 영어 배틀 — 레슨 보스전</title>
+<title>망고아이 · 우주 배틀 — 레슨 보스전</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
@@ -145,8 +145,8 @@
 
     <div class="overlay on" id="startOverlay">
       <div class="card">
-        <div class="tag">⚔️ 3D 영어 배틀 · 레슨 보스전 ⚔️</div>
-        <h1>워드 <span class="em">배틀</span> 마스터</h1>
+        <div class="tag">⚔️ 우주 배틀 · 영어 모드 ⚔️</div>
+        <h1>우주 <span class="em">배틀</span></h1>
         <p>레슨을 골라 <b>보스(왕)</b>와 대결! 단어·문장 퀴즈를 맞히면 기사가 공격하고, 틀리면 보스가 반격합니다. 보스를 쓰러뜨리면 <b>3D 배지</b>를 획득해요. 🔊 소리를 켜고 즐기세요!</p>
         <div id="badgeCollection" style="margin:0 0 12px;font-size:13px;font-weight:800;color:#c7d3ea"></div>
         <div style="font-size:11px;font-weight:800;color:#9fb3d6;text-align:left;margin:0 0 6px">🌐 언어 선택 (어떤 말로 배틀할까?)</div>
@@ -201,8 +201,10 @@
     var PY={};   // 한자→병음 사전 (선택지/문제에 병음 표기용)
     function pyReg(hz,py){ if(hz&&py&&!PY[hz]) PY[hz]=py; }
     if(IS_ZH){ try{
-      var _tag=document.querySelector('#startOverlay .tag'); if(_tag) _tag.textContent='⚔️ 3D 중국어 배틀 · 레슨 보스전 ⚔️';
-      document.title='중국어 배틀';
+      // ⚠ 게임 이름('우주 배틀')은 그대로 두고 '모드'만 바꿔 표시한다 — 언어별로 게임명을 바꾸면
+      //   허브/탭에서 영어판이 따로 있는 것처럼 보인다(사장님 지적).
+      var _tag=document.querySelector('#startOverlay .tag'); if(_tag) _tag.textContent='⚔️ 우주 배틀 · 중국어 모드 ⚔️';
+      document.title='망고아이 · 우주 배틀 — 중국어 모드';
     }catch(e){} }
 
     /* ===== 레슨 데이터 (각 레슨 = 보스전) ===== */
@@ -1658,6 +1660,6 @@
 }
 </style>
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730034835 -->
+<!-- BUILD:20260730035543 -->
 </body>
 </html>
