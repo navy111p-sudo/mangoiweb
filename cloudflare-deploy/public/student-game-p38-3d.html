@@ -241,6 +241,17 @@
   .kk{font-size:11px;font-weight:800;color:#93a9be;background:rgba(255,255,255,.06);
     border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:4px 8px}
 
+  /* ───────── 조종 방법 안내 그림 ─────────
+     글로만 적어 두면 아이가 "어느 키였더라" 하고 다시 화면을 못 찾는다.
+     손 위치가 한눈에 들어와야 해서 키보드 배치를 그림으로 그린다.
+     SVG 라 확대해도 안 깨지고 파일도 안 늘어난다(이미지 파일 추가 없음). */
+  .howto{margin:14px 0 4px;padding:12px 10px 10px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(140,175,210,.22)}
+  .howto h2{margin:0 0 9px;font-size:13px;font-weight:900;color:#cfe0f0;letter-spacing:-.2px}
+  .howto h2 small{font-weight:700;color:#8fa9c2;font-size:11px}
+  .howto svg{display:block;width:100%;height:auto;max-width:500px;margin:0 auto}
+  .howto .note{margin:8px 0 0;font-size:11.5px;color:#8fa9c2;line-height:1.55}
+
   /* ───────── 무전 교신(말하기 미션) ───────── */
   #spCard{width:min(520px,96%)}
   #spSent{font-size:clamp(19px,3.6vw,28px);font-weight:900;color:#fff;margin:10px 0 4px;line-height:1.35}
@@ -440,6 +451,7 @@
   <div id="topR">
     <button class="tb" id="btnRepeat" title="무전 다시 듣기">🔊</button>
     <button class="tb" id="btnMute" title="음소거">🔈</button>
+    <button class="tb" id="btnHelp" title="조종 방법 보기">?</button>
     <button class="tb" id="btnPause" title="일시정지">❚❚</button>
   </div>
 
@@ -475,15 +487,89 @@
 
       <div id="lessonNav"></div>
 
-      <button class="go" id="btnStart">출격 START</button>
-      <div class="keys">
-        <span class="kk">← → ↑ ↓ 화살표 = 상하좌우 조종</span>
-        <span class="kk">스페이스 · Ctrl · Shift = 발사</span>
-        <span class="kk">🖱️ 왼쪽 버튼 = 가속 · 오른쪽 버튼 = 후진</span>
-        <span class="kk">N = 낮/밤 전환</span>
-        <span class="kk">R = 무전 반복</span>
-        <span class="kk">P = 일시정지</span>
+      <!-- 조종 방법 — 왼손(발사) / 오른손(조종) 을 색으로 갈라 한눈에 보이게 -->
+      <div class="howto">
+        <h2>🎮 조종 방법 <small>HOW TO FLY</small></h2>
+        <svg viewBox="0 0 500 208" role="img"
+             aria-label="왼손은 스페이스·Ctrl·Shift 로 발사, 오른손은 화살표 키로 조종, 마우스 왼쪽 버튼은 가속, 오른쪽 버튼은 후진">
+          <defs>
+            <linearGradient id="hkKey" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#2b3d50"/><stop offset="1" stop-color="#1b2836"/>
+            </linearGradient>
+          </defs>
+          <!-- 키보드 몸통 -->
+          <rect x="6" y="30" width="330" height="126" rx="13" fill="#0e1721" stroke="#3c556e" stroke-width="2"/>
+
+          <!-- 왼손 = 발사 (호박색) -->
+          <g fill="url(#hkKey)" stroke="#ffd479" stroke-width="2">
+            <rect x="20"  y="48" width="84" height="30" rx="7"/>
+            <rect x="20"  y="86" width="56" height="30" rx="7"/>
+            <rect x="84"  y="86" width="112" height="30" rx="7"/>
+          </g>
+          <g fill="#ffe8ad" font-family="system-ui,sans-serif" font-weight="800" text-anchor="middle">
+            <text x="62"  y="68"  font-size="13">Shift</text>
+            <text x="48"  y="106" font-size="13">Ctrl</text>
+            <text x="140" y="106" font-size="13">Space</text>
+          </g>
+          <text x="108" y="140" font-size="13" font-weight="900" fill="#ffd479"
+                font-family="system-ui,sans-serif" text-anchor="middle">👈 왼손 = 발사 FIRE</text>
+
+          <!-- 오른손 = 조종 (하늘색) -->
+          <g fill="url(#hkKey)" stroke="#7fd1ff" stroke-width="2">
+            <rect x="252" y="48" width="34" height="30" rx="7"/>
+            <rect x="216" y="86" width="34" height="30" rx="7"/>
+            <rect x="252" y="86" width="34" height="30" rx="7"/>
+            <rect x="288" y="86" width="34" height="30" rx="7"/>
+          </g>
+          <g fill="#dff2ff" font-family="system-ui,sans-serif" font-weight="900" text-anchor="middle">
+            <text x="269" y="69"  font-size="16">&#8593;</text>
+            <text x="233" y="107" font-size="16">&#8592;</text>
+            <text x="269" y="107" font-size="16">&#8595;</text>
+            <text x="305" y="107" font-size="16">&#8594;</text>
+          </g>
+          <text x="269" y="140" font-size="13" font-weight="900" fill="#7fd1ff"
+                font-family="system-ui,sans-serif" text-anchor="middle">오른손 = 조종 FLY 👉</text>
+
+          <!-- 마우스 = 가속 / 후진.
+               몸통은 반지름 43 의 알약 모양이라 윗면 반원(중심 427,77)에 버튼 두 쪽을 정확히 맞춰야
+               가장자리가 어긋나 보이지 않는다. 글자는 몸통 아래로 내려야 겹치지 않는다. -->
+          <text x="427" y="24" font-size="12" font-weight="900" fill="#a9c0d6"
+                font-family="system-ui,sans-serif" text-anchor="middle">마우스 MOUSE</text>
+          <g>
+            <rect x="384" y="34" width="86" height="118" rx="43" fill="#0e1721" stroke="#3c556e" stroke-width="2"/>
+            <path d="M384 90 V77 A43 43 0 0 1 427 34 V90 Z" fill="rgba(134,239,172,.32)" stroke="#86efac" stroke-width="2"/>
+            <path d="M470 90 V77 A43 43 0 0 0 427 34 V90 Z" fill="rgba(252,165,165,.32)" stroke="#fca5a5" stroke-width="2"/>
+            <line x1="427" y1="36" x2="427" y2="90" stroke="#3c556e" stroke-width="2"/>
+            <rect x="422" y="98" width="10" height="20" rx="5" fill="#1b2836" stroke="#3c556e" stroke-width="2"/>
+          </g>
+          <text x="427" y="172" font-size="12" font-weight="800" fill="#86efac"
+                font-family="system-ui,sans-serif" text-anchor="middle">좌클릭 = 가속</text>
+          <text x="427" y="190" font-size="12" font-weight="800" fill="#fca5a5"
+                font-family="system-ui,sans-serif" text-anchor="middle">우클릭 = 후진</text>
+
+          <!-- 보조키 -->
+          <g font-family="system-ui,sans-serif" text-anchor="middle">
+            <rect x="30"  y="170" width="30" height="26" rx="6" fill="url(#hkKey)" stroke="#5b7791" stroke-width="2"/>
+            <rect x="128" y="170" width="30" height="26" rx="6" fill="url(#hkKey)" stroke="#5b7791" stroke-width="2"/>
+            <rect x="226" y="170" width="30" height="26" rx="6" fill="url(#hkKey)" stroke="#5b7791" stroke-width="2"/>
+            <g fill="#cfe0f0" font-size="13" font-weight="800">
+              <text x="45"  y="188">R</text><text x="143" y="188">N</text><text x="241" y="188">P</text>
+            </g>
+            <g fill="#93a9be" font-size="11.5" font-weight="700" text-anchor="start">
+              <text x="66"  y="188">무전 다시</text>
+              <text x="164" y="188">낮/밤</text>
+              <text x="262" y="188">일시정지</text>
+            </g>
+          </g>
+        </svg>
+        <p class="note">
+          적기는 <b style="color:#ffd479">문장 어순대로</b> — 위에 뜬 문장의 다음 낱말을 단 적기를 쏘세요.<br>
+          Shoot the plane carrying the <b style="color:#ffd479">next word</b> of the sentence.<br>
+          📱 휴대폰은 <b>화면을 손가락으로 끌어 조종</b>하고 <b>발사 버튼</b>을 누릅니다.
+        </p>
       </div>
+
+      <button class="go" id="btnStart">출격 START</button>
       <p id="glbStat" style="font-size:11.5px;color:#8fa9c2;margin-top:10px">🛩️ 실사 기체 불러오는 중…</p>
       <p style="font-size:11px;color:#6f8398;margin-top:4px">
         프로토타입 v0.2 · 기획 검증용 샘플입니다 (PROTOTYPE — for design review)
@@ -522,6 +608,16 @@
       <div id="wrongList"></div>
       <button class="go" id="btnAgain">다시 출격 AGAIN</button>
       <button class="rb" id="btnExit" style="margin-top:9px;width:100%;padding:10px">나가기 EXIT</button>
+    </div>
+  </div>
+
+  <!-- 조종 방법 다시 보기 — 시작 화면의 안내 그림을 그대로 복제해 띄운다.
+       ⚠️ 그림을 두 벌 적어 두면 한쪽만 고치는 사고가 난다. 원본 하나를 clone 해서 쓴다. -->
+  <div class="ov hide" id="ovHelp">
+    <div class="card">
+      <h1>🎮 조종 방법<small>HOW TO FLY</small></h1>
+      <div id="helpBody"></div>
+      <button class="go" id="btnHelpClose" style="margin-top:12px">계속하기 RESUME</button>
     </div>
   </div>
 </div>
@@ -2337,6 +2433,27 @@ function togglePause(){
   document.getElementById('btnExit').addEventListener('click', goBack);
   document.getElementById('backBtn').addEventListener('click', goBack);
   document.getElementById('btnPause').addEventListener('click', togglePause);
+
+  /* 도움말 — 게임 중에도 키 위치를 다시 볼 수 있어야 한다("어느 키였더라"가 제일 흔한 이탈 지점).
+     ⚠️ 열 때 반드시 멈춘다. 안 멈추면 안내를 읽는 동안 격추당한다.
+        단 원래 일시정지 상태였다면 닫을 때 그대로 두어야 한다(멋대로 재개시키지 않는다). */
+  var _helpWasPaused=false;
+  function openHelp(){
+    var body=document.getElementById('helpBody');
+    if(!body.firstChild){
+      var src=document.querySelector('#ovStart .howto');
+      if(src){ var c=src.cloneNode(true); var h=c.querySelector('h2'); if(h) h.remove(); body.appendChild(c); }
+    }
+    _helpWasPaused=paused;
+    if(G && G.running && !paused) togglePause();
+    document.getElementById('ovHelp').classList.remove('hide');
+  }
+  function closeHelp(){
+    document.getElementById('ovHelp').classList.add('hide');
+    if(G && G.running && paused && !_helpWasPaused) togglePause();
+  }
+  document.getElementById('btnHelp').addEventListener('click', openHelp);
+  document.getElementById('btnHelpClose').addEventListener('click', closeHelp);
   document.getElementById('btnRepeat').addEventListener('click', function(){
     if(SP) speak(spFull(), spRate, 1); else callTarget(); });
   document.getElementById('btnMute').addEventListener('click', function(){
@@ -2426,6 +2543,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260729105844 -->
+<!-- BUILD:20260729110431 -->
 </body>
 </html>
