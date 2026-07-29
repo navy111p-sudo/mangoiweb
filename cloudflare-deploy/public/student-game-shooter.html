@@ -18,13 +18,13 @@
   /* 패널에 임베드되도록 컨테이너가 100% 채움 */
   #game{position:relative;width:100%;height:100dvh;height:100vh;display:flex;flex-direction:column;overflow:hidden}
   /* 🌌 주니어 친화 우주 배경 — 반짝이는 별 (플레이 필드 뒤 은은하게) */
-  #field::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.7;
+  #field::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.34;   /* 실사 배경에 이미 별이 있어 CSS 별은 '반짝임'만 남기고 낮춤 */
     background:radial-gradient(1.4px 1.4px at 20% 30%,#fff,transparent),radial-gradient(1.2px 1.2px at 70% 50%,#fff,transparent),
       radial-gradient(1px 1px at 40% 80%,#fff,transparent),radial-gradient(1.6px 1.6px at 85% 20%,#fff,transparent),
       radial-gradient(1.2px 1.2px at 55% 15%,#d7e6ff,transparent),radial-gradient(1px 1px at 12% 68%,#d7e6ff,transparent),
       radial-gradient(1.3px 1.3px at 30% 55%,#ffe9a8,transparent),radial-gradient(1.1px 1.1px at 92% 72%,#ffe9a8,transparent)}
   /* 🎨 주니어 컬러풀 오로라 — 은은하게 색이 흐르는 우주 */
-  #field::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:screen;
+  #field::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.26;mix-blend-mode:screen;   /* 사진 성운을 덮지 않게 낮춤 */
     background:radial-gradient(46% 36% at 14% 18%,rgba(56,189,248,.6),transparent 70%),
       radial-gradient(42% 34% at 86% 24%,rgba(236,72,153,.5),transparent 70%),
       radial-gradient(52% 42% at 50% 108%,rgba(52,211,153,.45),transparent 70%);
@@ -72,11 +72,16 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(251,191,36,.55)}100%{box-shadow:0 0 0 12px rgba(251,191,36,0)}}
   .chip.pending{background:rgba(255,255,255,.06);color:var(--sub);border-color:var(--line)}
 
-  #field{position:relative;flex:1 1 auto;min-height:0;overflow:hidden}
+  /* 🌌 실사 우주 배경 사진. 아래 body 그라디언트는 사진이 못 뜰 때의 폴백으로 그대로 남겨둔다.
+     사진 중앙부는 일부러 어둡게 생성했다 — 단어 알약과 문장 칩이 그 위에서 읽혀야 하기 때문. */
+  #field{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;
+    background:url('/img/shooter-space-bg.webp') center/cover no-repeat}
   .monster{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
     cursor:pointer;font-family:inherit;will-change:transform;animation:sway 2s ease-in-out infinite alternate;padding:2px}
   @keyframes sway{from{transform:translateX(-8px) rotate(-5deg)}to{transform:translateX(8px) rotate(5deg)}}
-  .monster .face{font-size:30px;line-height:1;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+  /* 🛸 실사 크리처. 8종 전부 300x300 정사각 캔버스로 구워져 있어(build-shooter-assets.py) width=height 로 끝난다.
+     ⚠ aspect-ratio 나 max-height 를 쓰면 크롬이 높이제한을 폭에 되먹여 그림이 찌그러진다 — 쓰지 말 것. */
+  .monster .face{width:44px;height:44px;object-fit:contain;display:block;filter:drop-shadow(0 3px 7px rgba(0,0,0,.6))}
   .monster .word{font-size:14px;font-weight:800;color:#fff;background:rgba(12,20,40,.85);
     border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 11px;white-space:nowrap;
     box-shadow:0 4px 12px rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
@@ -265,12 +270,12 @@
   .hud{padding:7px 11px;gap:7px}
   .target{padding:7px 11px}
   .target .hint{display:none}          /* 안내문 숨겨 게임영역 확대(판정/조준 로직 그대로) */
-  .monster .face{font-size:clamp(40px,6.2vmin,80px)}   /* 화면 크기에 따라 커짐(가로/태블릿/PC) */
+  .monster .face{width:clamp(52px,8vmin,104px);height:clamp(52px,8vmin,104px)}   /* 화면 크기에 따라 커짐(가로/태블릿/PC) */
   .monster .word{font-size:clamp(15px,2.3vmin,28px);padding:3px 13px}
 
   /* ===== 🖥️ PC(넓은 화면) — 중앙 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
   @media (min-width:820px){
-    .monster .face{font-size:clamp(54px,8.2vmin,110px)}
+    .monster .face{width:clamp(70px,10.6vmin,142px);height:clamp(70px,10.6vmin,142px)}
     .monster .word{font-size:clamp(20px,3.1vmin,38px);padding:4px 17px;border-width:2.5px}
     .chip{font-size:21px;padding:7px 16px;border-radius:11px}
     .listen{font-size:15px;padding:8px 16px}
@@ -337,7 +342,7 @@
     <div class="voicebadge" id="voiceBadge">🔊 음성 준비 중…</div>
     <div class="crosshair" id="crosshair"></div>
     <div id="turret">
-      <img class="turret-soldier" src="/img/shooter-soldier.png" alt="사수">
+      <img class="turret-soldier" id="soldierImg" src="/img/shooter-pose-0.webp" alt="사수" draggable="false">
       <div class="barrel-rot" id="barrelRot"><div class="barrel" id="barrel"><div class="muzzle" id="muzzle"></div></div></div>
     </div>
   </div>
@@ -543,7 +548,12 @@
   var DISTRACTORS = (GLANG==='zh')
     ? ["猫","跑","蓝","苹果","绿","快","做","高兴","跳","红","水","桌子","想","下面","他们","大","牛奶"]
     : ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
-  var FACES = ['👾','👹','👻','🤖','🐲','😈','🦠','👽'];
+  // 🛸 실사 크리처 8종 (이모지 얼굴에서 교체). 파일은 build-shooter-assets.py 가 굽는다.
+  var FACES = ['alien','bug','dragon','parasite','phantom','mech','oni','imp'];
+  var FACE_SRC = function(id){ return '/img/shooter-mon-' + id + '.webp'; };
+  // 첫 스폰에서 깜빡이지 않게 미리 받아둔다. ⚠ 참조를 배열에 붙잡아 둬야 한다 —
+  // 지역변수로만 만들면 GC 후 메모리 캐시에서 빠져 스폰마다 다시 요청이 나간다.
+  var _facePre = FACES.map(function(id){ var im = new Image(); im.src = FACE_SRC(id); return im; });
   var COMBO_WINDOW = 2500;
   var GUNS = [
     {id:'pistol',  name:'권총',   icon:'🔫'},
@@ -1085,13 +1095,15 @@
     n=n||1; i=i||0;
     var el=document.createElement('button');
     el.className='monster'+(isTarget?'':' distractor')+(isGolden?' golden':'');
-    el.innerHTML='<span class="face">'+FACES[Math.floor(Math.random()*FACES.length)]+'</span><span class="word">'+word+'</span>';
+    el.innerHTML='<img class="face" alt="" draggable="false" src="'+FACE_SRC(FACES[Math.floor(Math.random()*FACES.length)])+'"><span class="word">'+word+'</span>';
     var fw=field.clientWidth, fh=field.clientHeight;
     // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영.
     //   세로 낙하 + 좌우 드리프트로 몬스터가 더 활발히 빨리빨리 움직임. 상위 속도일수록 훨씬 빠름.
     // 스폰 위치: 레인(x) + 세로 계단식(간격을 몬스터 높이 이상으로) → 화면 위쪽부터 순서대로 내려옴.
     //   맨 아래 몬스터는 화면 30% 지점(너무 가까이 스폰 안 됨), 나머지는 그 위(음수 y=화면 밖)에서 내려옴 → 몇 마리든 안 겹침
-    var _step=Math.max(fh*0.135, 74), _yBot=fh*0.30, _yTop=_yBot-_step*(n-1);
+    // 세로 간격은 몬스터 한 마리 높이(실사 크리처 ~90px + 단어알약 ~35px ≒ 145px)보다 커야 안 겹친다.
+    // 이모지 시절엔 글리프 주변 여백이 커서 74px 로도 티가 덜 났지만, 사진은 불투명이라 바로 표난다.
+    var _step=Math.max(fh*0.165, 118), _yBot=fh*0.30, _yTop=_yBot-_step*(n-1);
     var m={ el:el, word:word, isTarget:isTarget, golden:!!isGolden,
             x:(laneX!=null?laneX:rand(8,Math.max(40,fw-86))),
             y:_yTop+_step*i+rand(-_step*0.05,_step*0.05),
@@ -1147,12 +1159,47 @@
     return { x:b.left+b.width/2-f.left, y:b.bottom-f.top }; }
   var _aimBack=null;
   var soldierEl=document.querySelector('.turret-soldier');
+
+  /* ═══ 🪖 사수 포즈 시스템 (실사 9포즈) ═══
+     9장 전부 같은 캔버스에 '머리'를 같은 좌표로 정렬해 구웠다(build-shooter-assets.py) →
+     src 만 갈아끼우면 레이아웃도 머리 위치도 안 튄다. 기존 몸통 rotate/lean 은 그 위에 그대로 얹힌다.
+     ⚠ 사진 교체는 프리로드 없이는 첫 전환에서 한 프레임 비어 보인다 → 아래에서 9장 다 받아둔다. */
+  var POSE = { idle:[0,3,5,6], left:[1,4], right:[2], fire:7, reload:8 };
+  function poseSrc(n){ return '/img/shooter-pose-' + n + '.webp'; }
+  // 배열에 붙잡아 둔다 — 대기 포즈가 2.1초마다 돌기 때문에 참조를 놓치면 그때마다 네트워크 요청이 나간다
+  var _posePre = []; for (var _pp = 0; _pp < 9; _pp++) { var _pi = new Image(); _pi.src = poseSrc(_pp); _posePre.push(_pi); }
+  var _poseNow = 0, _poseHold = 0, _idleAt = 0, _lastDeg = 0, _lastAim = -1e9;
+  function setPose(n, holdMs){
+    if(!soldierEl) return;
+    var now = performance.now();
+    if(holdMs) _poseHold = now + holdMs;          // 발사 반동처럼 '이 포즈를 잠깐 붙잡는' 경우
+    else if(now < _poseHold) return;              // 붙잡힌 동안은 숨쉬기/조준이 덮어쓰지 않게
+    if(n === _poseNow) return;
+    _poseNow = n; soldierEl.src = poseSrc(n);
+  }
+  function idlePose(){                            // 숨쉬기·체중이동 — 정지 사진 한 장이 아니라 천천히 자세가 바뀐다
+    _idleAt = (_idleAt + 1) % POSE.idle.length; setPose(POSE.idle[_idleAt]);
+  }
+  // 대기 타이머는 '조준 중'에는 쉬어야 한다 — 안 그러면 표적을 겨눈 순간 혼자 힘을 빼고 대기 자세로 돌아간다
+  setInterval(function(){ var t = performance.now(); if(t >= _poseHold && t - _lastAim > 1400) idlePose(); }, 2100);
+  function aimPose(deg){
+    _lastAim = performance.now();
+    var s = deg < -12 ? POSE.left : (deg > 12 ? POSE.right : POSE.idle);
+    setPose(s[Math.floor(Math.random() * s.length)]);
+  }
+  function firePose(){                            // 발사 순간 = 어깨를 웅크린 반동 포즈로 고정했다가 조준 자세 복귀
+    setPose(POSE.fire, 210);
+    setTimeout(function(){ _poseHold = 0; aimPose(_lastDeg); }, 220);
+  }
+  function reloadPose(){ setPose(POSE.reload, 900); setTimeout(function(){ _poseHold = 0; idlePose(); }, 910); }
+
   function aimAt(tx,ty){
     var p=pivot(), deg=Math.atan2(tx-p.x, -(ty-p.y))*180/Math.PI;
     // 총이 표적을 실제로 따라간다 — 좌우 합쳐 180°(±90°)까지 꺾임.
     // 총은 사수 몸 뒤(z 8 < 몸 9)에 그려지므로 옆으로 꺾여도 항상 '팔 밑'으로 나가고 절대 팔·머리 위를 덮지 않는다.
     deg=Math.max(-90,Math.min(90,deg));
     barrelRot.style.transform='translateX(-50%) rotate('+deg+'deg)';
+    _lastDeg=deg; aimPose(deg);                  // 🪖 조준 방향에 맞는 실사 포즈로 교체(좌/우/정면)
     // 🪖 실제 사수처럼: 몸은 살짝만 비틀고(최대 ±16°) 총 쏘는 쪽으로 체중을 옮기는 느낌(좌우 이동 몇 px)
     //    총은 몸 뒤(z 8 < 몸 9)라 크게 꺾여도 항상 팔 밑으로 나간다.
     if(soldierEl){ var bodyDeg=Math.max(-16,Math.min(16,deg*0.22)), lean=(deg*0.10).toFixed(1);
@@ -1163,7 +1210,8 @@
     _aimBack=setTimeout(function(){ barrelRot.style.transition='transform .35s ease-out'; barrelRot.style.transform='translateX(-50%) rotate(4deg)';
       if(soldierEl){ soldierEl.style.transition='transform .35s ease-out'; soldierEl.style.transform='translateX(-50%)'; }
       setTimeout(function(){ barrelRot.style.transition='';
-        if(soldierEl){ soldierEl.style.transition=''; soldierEl.style.transform=''; soldierEl.style.animation=''; } },380); },650);
+        if(soldierEl){ soldierEl.style.transition=''; soldierEl.style.transform=''; soldierEl.style.animation=''; }
+        _lastDeg=0; idlePose(); },380); },650);   // 🪖 자세 복귀 = 실사 포즈도 대기 자세로
   }
   // 🔥 화염방사기: 총구(sx,sy)→표적(ex,ey) 로 불줄기가 쭉 이어져 나가게 다수 파티클을 시차 분사
   function flameStream(sx,sy,ex,ey){
@@ -1250,6 +1298,7 @@
       }
       var _sold=document.querySelector('.turret-soldier');                                        // 🪖 사수도 반동에 움찔
       if(_sold){ _sold.classList.remove('flinch'); void _sold.offsetWidth; _sold.classList.add('flinch'); }
+      firePose();                                 // 🪖 + 실사 반동 포즈(어깨 웅크림) 210ms
       fireSound();                                  // ★ 총마다 다른 발사음
       if(curGun==='handnade'){                      // 🤾 수류탄 = 포물선 투척 → '꽝' + 대형 화염
         throwNade(sx,sy,ex,ey,function(){
@@ -1294,6 +1343,7 @@
   function roundComplete(){
     var bonus=50+combo*10; score+=bonus; updateHUD();
     showCombo('문장 완성! +'+bonus);
+    reloadPose();                                 // 🪖 한 문장 끝 = 사수가 탄창을 갈아끼우는 실사 포즈
     try{ if(window.parent && window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete', score:100+bonus}, '*'); }catch(e){} // 학생게임 탭 점수 반영
     // 🎤 말하기 미션(슈팅+말하기 융합): 게임·제한시간 일시정지 → 원어민 1회 듣기 → 3회 말하기(+100/회)
     running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters();
@@ -1505,6 +1555,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730022212 -->
+<!-- BUILD:20260730034026 -->
 </body>
 </html>

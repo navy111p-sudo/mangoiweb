@@ -64,7 +64,15 @@ for (const hf of htmlFiles) {
 }
 
 const manifest = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
-const sha = (buf) => createHash('sha256').update(buf).digest('hex').slice(0, 16);
+/* 🛡️ (2026-07-30) 해시 전에 줄바꿈을 LF 로 정규화한다.
+   raw 바이트로 해싱했더니 **작업트리의 checkout 방식(CRLF/LF)만 달라도 전부 불일치**했다.
+   실제로 한 사람이 새 트리(LF)에서 ?v= 를 올려 manifest 를 기록하자, CRLF 로 받아둔
+   다른 트리에서 14건이 전부 ❌ 로 떠서 배포 게이트가 막혔다. git blob 은 동일한데도 그렇다.
+   이 가드가 막아야 하는 건 '내용이 바뀌었는데 ?v= 를 안 올린 것'이지 줄바꿈 표기가 아니다.
+   ?v= 를 억지로 올려 넘기면 반대쪽 트리가 깨져 핑퐁이 되므로, 여기서 정규화한다. */
+const sha = (buf) => createHash('sha256')
+  .update(Buffer.from(buf).toString('binary').replace(/\r\n/g, '\n'), 'binary')
+  .digest('hex').slice(0, 16);
 
 let pass = 0, fail = 0, added = 0, missing = 0;
 const out = [];
