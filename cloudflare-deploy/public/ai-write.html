@@ -140,18 +140,47 @@
       background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%);
       animation: shine 2.2s infinite; }
     @keyframes shine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
-    /* 📸 그림 보고 쓰기 씬 카드 */
-    .pic-card { border-radius: 18px; overflow: hidden; margin-bottom: 16px;
-      border: 1.5px solid rgba(125,211,252,0.45); box-shadow: 0 8px 24px -10px rgba(0,0,0,0.4); }
-    .pic-scene { position: relative; height: 190px; overflow: hidden; user-select: none; }
-    .pic-scene .pe { position: absolute; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25)); line-height: 1; }
-    .pic-cap { display: flex; align-items: center; gap: 12px; padding: 13px 18px;
-      background: rgba(12,74,110,0.55); backdrop-filter: blur(4px); flex-wrap: wrap; }
-    .pic-cap-txt { flex: 1; min-width: 200px; font-size: 16.5px; font-weight: 800; color: #e0f2fe; }
+    /* 📸 그림 보고 쓰기 씬 카드 — 실사 사진(Higgsfield 생성) */
+    .pic-card { position: relative; border-radius: 20px; overflow: hidden; margin-bottom: 18px;
+      border: 1px solid rgba(125,211,252,0.32);
+      box-shadow: 0 18px 40px -18px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.05) inset; }
+    /* 사진 자체 — 21:9 원본을 잘라 쓰므로 object-fit: cover 필수.
+       ⚠️ aspect-ratio + max-height 조합 금지: 크롬이 높이 제한을 폭에 되먹여서
+          사진이 카드 폭보다 좁아진다. 높이를 clamp 로 직접 준다. */
+    .pic-scene { position: relative; height: clamp(200px, 23vw, 300px);
+      overflow: hidden; user-select: none; background: #0b1a2b; }
+    .pic-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+      opacity: 0; transform: scale(1.06); transition: opacity .55s ease, transform 6s ease-out; }
+    .pic-photo.on { opacity: 1; transform: scale(1); }
+    /* 사진 위 글씨가 항상 읽히도록 아래쪽에 어두운 그라데이션 스크림 */
+    .pic-scene::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, rgba(2,6,23,0.42) 0%, rgba(2,6,23,0) 32%,
+                  rgba(2,6,23,0.15) 55%, rgba(2,6,23,0.82) 100%); }
+    .pic-badge { position: absolute; top: 12px; left: 14px; z-index: 2;
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px; border-radius: 99px;
+      background: rgba(2,6,23,0.5); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.22); color: #e0f2fe;
+      font-size: 12.5px; font-weight: 800; letter-spacing: .2px; }
+    /* 캡션+버튼은 사진 위에 겹쳐 올린다 (세로 공간 절약) */
+    .pic-cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px; flex-wrap: wrap; }
+    .pic-cap-txt { flex: 1; min-width: 190px; font-size: 17px; font-weight: 900; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.85), 0 1px 2px rgba(0,0,0,0.9); line-height: 1.35; }
     .pic-btn { padding: 10px 18px; border-radius: 11px; border: 0; cursor: pointer; font-weight: 800;
-      font-size: 14.5px; font-family: inherit; }
-    .pic-btn.go { background: linear-gradient(135deg, #38bdf8, #2563eb); color: #fff; }
-    .pic-btn.shuffle { background: rgba(255,255,255,0.14); color: #e0f2fe; border: 1px solid rgba(255,255,255,0.25); }
+      font-size: 14.5px; font-family: inherit; transition: transform .15s ease, filter .15s ease; }
+    .pic-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+    .pic-btn:active { transform: translateY(0); }
+    .pic-btn.go { background: linear-gradient(135deg, #38bdf8, #2563eb); color: #fff;
+      box-shadow: 0 6px 18px -6px rgba(37,99,235,0.9); }
+    .pic-btn.shuffle { background: rgba(15,23,42,0.55); color: #e0f2fe; backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.3); }
+    @media (max-width: 560px) {
+      /* 모바일은 캡션+버튼 2줄이 사진 아래를 덮으므로 높이를 조금 더 준다 */
+      .pic-scene { height: clamp(215px, 62vw, 280px); }
+      .pic-cap { padding: 12px 14px; gap: 8px; }
+      .pic-cap-txt { font-size: 15px; min-width: 100%; }
+      .pic-btn { flex: 1; padding: 10px 12px; font-size: 13.5px; }
+    }
     @keyframes bob { 0%,100% { transform: translateY(0) rotate(var(--rr,0deg)); } 50% { transform: translateY(-10px) rotate(var(--rr,0deg)); } }
     /* 🎤 말로 쓰기 */
     .mic-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
@@ -276,11 +305,14 @@
 
     <!-- 📸 오늘의 그림 글감 — 그림(이모지 씬)을 보고 영어로 묘사하기 -->
     <div class="pic-card" id="picCard">
-      <div class="pic-scene" id="picScene"></div>
-      <div class="pic-cap">
-        <span class="pic-cap-txt" id="picCapTxt">—</span>
-        <button class="pic-btn go" onclick="usePicPrompt()">🖼 <span data-ko="이 장면으로 쓰기" data-en="Write this scene">이 장면으로 쓰기</span></button>
-        <button class="pic-btn shuffle" onclick="shufflePic()">🔀 <span data-ko="다른 그림" data-en="Another picture">다른 그림</span></button>
+      <div class="pic-scene" id="picScene">
+        <img class="pic-photo" id="picPhoto" alt="" decoding="async">
+        <span class="pic-badge">📸 <span data-ko="오늘의 그림" data-en="Today's picture">오늘의 그림</span></span>
+        <div class="pic-cap">
+          <span class="pic-cap-txt" id="picCapTxt">—</span>
+          <button class="pic-btn go" onclick="usePicPrompt()">🖼 <span data-ko="이 장면으로 쓰기" data-en="Write this scene">이 장면으로 쓰기</span></button>
+          <button class="pic-btn shuffle" onclick="shufflePic()">🔀 <span data-ko="다른 그림" data-en="Another picture">다른 그림</span></button>
+        </div>
       </div>
     </div>
 
@@ -492,30 +524,45 @@
       } catch(e){}
     };
 
-    // ═══ 📸 오늘의 그림 글감 — 이모지 씬을 보고 영어로 묘사하기 ═══
+    /* ═══ 📸 오늘의 그림 글감 — 실사 사진을 보고 영어로 묘사하기 ═══
+       사진은 /img/write-scenes/*.webp (Higgsfield 생성, 21:9 · 1440px · webp).
+       예전엔 이모지 조합이었는데 "그림"으로 안 보여서 실사 사진으로 교체했다.
+       tone: 아이가 보는 화면이라 무섭지 않고 밝은 장면만 쓴다. */
     const PIC_SCENES = [
-      { bg:'linear-gradient(180deg,#60a5fa,#bfdbfe)', items:[['🦖',6,32,80],['🏫',60,20,74],['🎒',46,64,40],['☁️',30,4,36],['🌳',85,54,48]], ko:'공룡이 학교에 왔어요! 무슨 일이 벌어질까?', starter:'One day, a dinosaur came to my school. ' },
-      { bg:'linear-gradient(180deg,#1e3a8a,#312e81)', items:[['🚀',40,18,72],['🌕',75,8,58],['⭐',15,15,30],['🪐',85,50,48],['👩‍🚀',18,55,56],['⭐',60,65,24]], ko:'우주로 떠나는 여행! 무엇이 보일까?', starter:'I am flying to space in my rocket. ' },
-      { bg:'linear-gradient(180deg,#38bdf8,#a5f3fc)', items:[['🏖️',10,58,64],['🦀',55,70,44],['⛱️',70,40,60],['🌊',30,75,50],['☀️',82,6,50]], ko:'신나는 바닷가! 오늘 뭐 하고 놀까?', starter:'I went to the beach with my family. ' },
-      { bg:'linear-gradient(180deg,#166534,#4ade80)', items:[['🦁',12,50,68],['🐘',60,45,72],['🦒',80,25,64],['🌴',35,15,52],['🦜',48,60,38]], ko:'정글 탐험! 어떤 동물을 만났을까?', starter:'In the jungle, I saw many animals. ' },
-      { bg:'linear-gradient(180deg,#7c3aed,#c4b5fd)', items:[['🏰',40,18,80],['🐉',10,45,64],['🧙',70,58,52],['✨',60,10,30],['🗡️',25,70,36]], ko:'마법의 성! 용과 마법사가 있어요.', starter:'Once upon a time, there was a magic castle. ' },
-      { bg:'linear-gradient(180deg,#f97316,#fed7aa)', items:[['🍕',15,30,64],['👨‍🍳',55,42,66],['🍰',78,25,48],['🥤',35,65,40],['🍔',70,68,44]], ko:'맛있는 레스토랑! 무엇을 주문할까?', starter:'I am at my favorite restaurant. ' },
-      { bg:'linear-gradient(180deg,#0c4a6e,#38bdf8)', items:[['🐠',20,30,50],['🐙',60,50,64],['🦈',80,20,58],['🐢',35,65,48],['💧',50,10,32]], ko:'바닷속 세상! 물고기 친구들을 만나요.', starter:'Under the sea, I can see many fish. ' },
-      { bg:'linear-gradient(180deg,#374151,#9ca3af)', items:[['🤖',30,40,72],['⚙️',60,20,40],['💡',75,45,42],['🔧',15,68,36],['🖥️',68,65,46]], ko:'로봇 공장! 나만의 로봇을 만들어요.', starter:'I am building my own robot. ' },
-      { bg:'linear-gradient(180deg,#facc15,#fef9c3)', items:[['🎪',38,20,78],['🤡',15,55,56],['🎠',68,50,58],['🎈',85,15,40],['🍿',55,70,38]], ko:'서커스에 왔어요! 제일 재미있는 건 뭘까?', starter:'The circus came to town today. ' },
-      { bg:'linear-gradient(180deg,#0f766e,#5eead4)', items:[['⚽',20,55,54],['🥅',70,35,66],['🏆',85,10,44],['👟',40,72,36],['📣',10,20,40]], ko:'축구 경기! 우리 팀이 이길 수 있을까?', starter:'Today is the big soccer game. ' },
-      { bg:'linear-gradient(180deg,#be185d,#fbcfe8)', items:[['🎂',40,35,70],['🎁',15,60,54],['🎈',70,15,46],['🎉',80,55,44],['🕯️',55,60,32]], ko:'생일 파티! 소원을 빌어볼까?', starter:'It is my birthday party today. ' },
-      { bg:'linear-gradient(180deg,#4c1d95,#a78bfa)', items:[['🧟',15,45,58],['🏚️',55,25,72],['🌙',80,8,44],['🦇',35,12,34],['🕸️',75,55,40]], ko:'으스스한 유령의 집! 용감하게 들어가 볼까?', starter:'I walked into the spooky haunted house. ' },
+      { img:'dino-school', bg:'#2f6fb0', ko:'공룡이 학교에 왔어요! 무슨 일이 벌어질까?', en:'A dinosaur came to school! What happens next?', starter:'One day, a dinosaur came to my school. ' },
+      { img:'space',       bg:'#151a3a', ko:'우주로 떠나는 여행! 무엇이 보일까?', en:'A trip into space! What can you see?', starter:'I am flying to space in my rocket. ' },
+      { img:'beach',       bg:'#2fa6c8', ko:'신나는 바닷가! 오늘 뭐 하고 놀까?', en:'A sunny beach! What will you do today?', starter:'I went to the beach with my family. ' },
+      { img:'jungle',      bg:'#22491f', ko:'정글 탐험! 어떤 동물을 만났을까?', en:'Jungle adventure! Which animals did you meet?', starter:'In the jungle, I saw many animals. ' },
+      { img:'castle',      bg:'#5b3f8f', ko:'마법의 성! 용과 마법사가 있어요.', en:'A magic castle! There is a dragon and a wizard.', starter:'Once upon a time, there was a magic castle. ' },
+      { img:'restaurant',  bg:'#6b3f1e', ko:'맛있는 레스토랑! 무엇을 주문할까?', en:'A tasty restaurant! What will you order?', starter:'I am at my favorite restaurant. ' },
+      { img:'ocean',       bg:'#12628f', ko:'바닷속 세상! 물고기 친구들을 만나요.', en:'Under the sea! Meet your fish friends.', starter:'Under the sea, I can see many fish. ' },
+      { img:'robot',       bg:'#3b4a5a', ko:'로봇 공장! 나만의 로봇을 만들어요.', en:'A robot workshop! Build your own robot.', starter:'I am building my own robot. ' },
+      { img:'circus',      bg:'#a2591f', ko:'서커스에 왔어요! 제일 재미있는 건 뭘까?', en:'The circus is here! What is the most fun part?', starter:'The circus came to town today. ' },
+      { img:'soccer',      bg:'#1f6b34', ko:'축구 경기! 우리 팀이 이길 수 있을까?', en:'The big game! Can your team win?', starter:'Today is the big soccer game. ' },
+      { img:'birthday',    bg:'#a03a6b', ko:'생일 파티! 소원을 빌어볼까?', en:'A birthday party! What will you wish for?', starter:'It is my birthday party today. ' },
+      { img:'haunted',     bg:'#3b2a5c', ko:'유령의 집! 용감하게 들어가 볼까?', en:'A haunted house! Are you brave enough to go in?', starter:'I walked into the spooky haunted house. ' },
     ];
     let _picIdx = -1;
     function renderPic(idx) {
       const sc = PIC_SCENES[idx];
       _picIdx = idx;
       const scene = document.getElementById('picScene');
+      const img = document.getElementById('picPhoto');
+      /* 로딩 중엔 씬 대표색을 깔아 흰 화면이 번쩍이지 않게 한다 */
       scene.style.background = sc.bg;
-      scene.innerHTML = sc.items.map((it, i) =>
-        `<span class="pe" style="left:${it[1]}%;top:${it[2]}%;font-size:${it[3]}px;--rr:${(i%2? -6:6)}deg;animation-delay:${i*0.35}s">${it[0]}</span>`).join('');
-      document.getElementById('picCapTxt').textContent = '🖼 ' + sc.ko;
+      img.classList.remove('on');
+      img.onload = () => img.classList.add('on');
+      img.alt = sc.ko;
+      img.src = '/img/write-scenes/' + sc.img + '.webp';
+      /* 캐시에 이미 있으면 onload 가 안 오는 브라우저가 있어 보정 */
+      if (img.complete && img.naturalWidth) img.classList.add('on');
+      const cap = document.getElementById('picCapTxt');
+      cap.setAttribute('data-ko', '🖼 ' + sc.ko);
+      cap.setAttribute('data-en', '🖼 ' + sc.en);
+      cap.textContent = '🖼 ' + sc.ko;
+      try { window.applyI18n && window.applyI18n(document.getElementById('picCard')); } catch(e){}
+      /* 다음 장면 미리 받아두기 — '다른 그림' 눌렀을 때 바로 뜨게 */
+      const nx = new Image(); nx.src = '/img/write-scenes/' + PIC_SCENES[(idx + 1) % PIC_SCENES.length].img + '.webp';
     }
     window.shufflePic = function(){
       let n; do { n = Math.floor(Math.random() * PIC_SCENES.length); } while (n === _picIdx && PIC_SCENES.length > 1);
