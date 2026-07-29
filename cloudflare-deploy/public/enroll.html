@@ -102,6 +102,17 @@
   } catch(e){}
 
   var st = { teacher:null, teacherName:'', weekly:2, months:1, minutes:20, days:[], time:'16:00', date:'' };
+
+  /* 🔗 (2026-07-29) 홈 결제창에서 1:1 수강권을 고르면 여기로 넘어온다(?program=1on1-8).
+     거기서 고른 '회차'를 버리지 않고 주 횟수·기간으로 이어받는다. 총 회차 = 주횟수 × 4 × 개월. */
+  (function applyProgramFromQuery(){
+    var MAP = { '1on1-4': {weekly:1, months:1}, '1on1-8': {weekly:2, months:1},
+                '1on1-12':{weekly:3, months:1}, '1on1-24':{weekly:2, months:3} };
+    try {
+      var p = new URLSearchParams(location.search).get('program');
+      if (p && MAP[p]) { st.weekly = MAP[p].weekly; st.months = MAP[p].months; }
+    } catch(e){}
+  })();
   var QUOTE = null, CHECK_OK = false, checkTimer = null;
 
   var app = document.getElementById('app');

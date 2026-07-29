@@ -288,6 +288,16 @@
     console.log('[openNewPaymentDirect] 신규결제 상품선택 진입 완료');
   };
 
+  /* 1:1 수강권 — 강사·요일·시간이 반드시 필요한 상품군. enroll.html 이 담당한다.
+     그룹(group-12)·비즈니스·키즈·시험은 enroll.html 에 대응 상품이 없어 제외. */
+  const ONE_ON_ONE_PROGRAMS = new Set(['1on1-4', '1on1-8', '1on1-12', '1on1-24']);
+  function payIsLoggedIn() {
+    try {
+      const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      return !!(u && u.uid);
+    } catch (e) { return false; }
+  }
+
   // 상품 카드 클릭 → 선택 + step 2 자동 전환
   document.querySelectorAll('.product-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -297,6 +307,21 @@
       card.classList.add('selected');
       selectedProgram = card.dataset.program;
       selectedPrice = Number(card.dataset.price) || 0;
+
+      /* 📝 (2026-07-29) 1:1 수강권은 '수강신청 페이지'로 보낸다 — 제보 #2 대응.
+         이 결제창은 횟수(상품)만 받고 강사·요일·시간·개월·시작일을 아예 묻지 않는다.
+         그래서 아무 것도 안 고르고 결제까지 가고, 결제해도 수업이 잡히지 않았다.
+         enroll.html 은 6개 항목을 다 받고 강사 시간표 충돌까지 확인한 뒤에야 결제 버튼이 열린다.
+
+         ⚠️ 1:1 계열만 보낸다. enroll.html 은 '주N회 × N개월' 1:1 모델만 지원하고
+            그룹·비즈니스·키즈·시험 코스에 대응 상품이 없다. 그 4개는 기존 흐름 유지.
+         ⚠️ enroll.html 은 로그인이 필수다. 비로그인 방문자는 여기서 보내면 막다른 길이므로
+            기존 결제창을 그대로 쓰게 둔다(신규 고객 이탈 방지). */
+      if (ONE_ON_ONE_PROGRAMS.has(selectedProgram) && payIsLoggedIn()) {
+        location.href = '/enroll.html?program=' + encodeURIComponent(selectedProgram);
+        return;
+      }
+
       // 🆕 로그인 + 유료 상품이면 정보 입력 단계(step2)를 건너뛰고 바로 결제수단(step3)으로.
       //    무료체험(trial)·상담형(other/b2b)은 연락 정보가 필요하므로 기존대로 step2 유지.
       var _logged   = window.payAutofillNewIfLoggedIn && window.payAutofillNewIfLoggedIn();
