@@ -113,8 +113,13 @@
   /* 8프레임으로 올린 캐릭터. background-size 와 steps 와 끝 위치가 프레임 수와 반드시 같이 가야 하므로
      CSS 변수 대신 규칙을 두 벌 둔다(keyframes 안의 var 는 브라우저마다 불안정하다). */
   .monster .face.f8{background-size:800% 100%;animation:foeWalk8 .72s steps(8) infinite}
-  @keyframes foeWalk4{to{background-position:-400% 0}}
-  @keyframes foeWalk8{to{background-position:-800% 0}}
+  /* ⚠ 끝 위치가 -400% / -800% 가 아니다. background-position 의 % 는 '이미지 폭'이 아니라
+     (칸 폭 − 이미지 폭) 에 곱해진다. 이미지가 칸보다 크면 이 값이 음수라서 -400% 는 스트립을
+     오른쪽 저 멀리로 밀어버린다 → 4프레임 중 3프레임이 빈칸(캐릭터가 안 보임)이었다.
+     프레임 k 를 정확히 맞추려면 끝값 = n/(n-1)*100%.  4프레임→133.3333%, 8프레임→114.2857%.
+     (steps(n) 은 진행도를 k/n 으로 끊으므로 k/n * n/(n-1) = k/(n-1) → 오프셋 정확히 -k칸) */
+  @keyframes foeWalk4{to{background-position:133.3333% 0}}
+  @keyframes foeWalk8{to{background-position:114.2857% 0}}
   /* 걸음 속도를 개체마다 살짝 다르게 — 다 같은 박자로 걸으면 기계처럼 보인다 */
   .monster:nth-child(3n) .face{animation-duration:.62s}
   .monster:nth-child(3n+1) .face{animation-duration:.84s}
@@ -652,7 +657,9 @@
   /* 걷기 프레임 수. 기본 4, 8프레임으로 올린 캐릭터만 여기 적는다.
      ⚠ build-shooter-frames.py 의 SHEETS 와 반드시 같이 고칠 것 — 어긋나면 스프라이트가
        엉뚱한 칸에서 잘려 캐릭터가 반쪽만 보인다. */
-  var ANIM8 = { office:1, sprinter:1 };
+  /* 적 16종은 전부 8프레임. 민간인 4종만 4프레임이라 여기 없다. */
+  var ANIM8 = { office:1, sprinter:1, tank:1, soldier:1, trooper:1, worker:1, doc:1, medic:1,
+                alien:1, bug:1, dragon:1, parasite:1, phantom:1, mech:1, oni:1, imp:1 };
   var _civPre = CIVS.map(function(id){ var im=new Image(); im.src=FACE_SRC(id); return im; });
   // 첫 스폰에서 깜빡이지 않게 미리 받아둔다. ⚠ 참조를 배열에 붙잡아 둬야 한다 —
   // 지역변수로만 만들면 GC 후 메모리 캐시에서 빠져 스폰마다 다시 요청이 나간다.
