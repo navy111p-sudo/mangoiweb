@@ -96,8 +96,11 @@
   #game.theme-zombie .bgfx{display:none}
   #field{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;
     background-position:center;background-size:cover;background-repeat:no-repeat}
+  /* ⚠ 예전엔 여기에 sway(좌우 ±8px + ±5도 회전) 애니메이션이 걸려 있었다. 8프레임 걷기가
+     들어온 뒤로는 몸통이 통째로 기울어 발이 도로에서 떠 보이는 원인이 됐다 → 제거.
+     좌우 흔들림은 루프의 Math.sin(m.wob) 이 이미 담당한다. */
   .monster{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
-    cursor:pointer;font-family:inherit;will-change:transform;animation:sway 2s ease-in-out infinite alternate;padding:2px}
+    cursor:pointer;font-family:inherit;will-change:transform;padding:2px}
   @keyframes sway{from{transform:translateX(-8px) rotate(-5deg)}to{transform:translateX(8px) rotate(5deg)}}
   /* 🛸 실사 크리처. 8종 전부 300x300 정사각 캔버스로 구워져 있어(build-shooter-assets.py) width=height 로 끝난다.
      ⚠ aspect-ratio 나 max-height 를 쓰면 크롬이 높이제한을 폭에 되먹여 그림이 찌그러진다 — 쓰지 말 것. */
@@ -123,12 +126,23 @@
   /* 걸음 속도를 개체마다 살짝 다르게 — 다 같은 박자로 걸으면 기계처럼 보인다 */
   .monster:nth-child(3n) .face{animation-duration:.62s}
   .monster:nth-child(3n+1) .face{animation-duration:.84s}
-  .monster .word{font-size:14px;font-weight:800;color:#fff;background:rgba(12,20,40,.85);
-    border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 11px;white-space:nowrap;
-    box-shadow:0 4px 12px rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
-  .monster.distractor .word{border-color:rgba(255,120,120,.35)}
+  /* 🏷 단어 라벨 (사장님 지시 2026-07-31: "투명으로, 뒤가 안 가려지게, 좀비보다 작게").
+     예전엔 불투명 알약(배경 .85 + 굵은 테두리 + 그림자)이라 애써 키운 좀비 몸을 라벨이
+     통째로 덮었다. 배경을 거의 투명하게 낮추고, 대신 글자에 검은 외곽선을 둘러
+     '배경 없이도 어떤 사진 위에서든 읽히게' 한다 — 학습 게임이라 가독성은 못 버린다.
+     ⚠ 외곽선은 -webkit-text-stroke 가 아니라 text-shadow 4방향으로 — stroke 는 글자 안쪽을
+       파먹어 한자 획이 뭉갠다. */
+  .monster .word{font-size:12px;font-weight:800;color:#fff;background:rgba(10,16,34,.26);
+    border:1px solid rgba(255,255,255,.20);border-radius:999px;padding:1px 8px;white-space:nowrap;
+    text-shadow:-1.5px -1.5px 0 rgba(0,0,0,.9), 1.5px -1.5px 0 rgba(0,0,0,.9),
+                -1.5px  1.5px 0 rgba(0,0,0,.9), 1.5px  1.5px 0 rgba(0,0,0,.9),
+                 0 0 7px rgba(0,0,0,.95)}
+  .monster.distractor .word{border-color:rgba(255,120,120,.30)}
   /* 🙋 민간인 — 단어를 안 들고 있고 라벨이 파랗다. 좀비와 헷갈리면 안 되므로 확실히 구분한다. */
-  .monster.civ .word{background:rgba(56,189,248,.9);color:#04283a;border-color:#bae6fd}
+  /* ⚠ 배경을 투명하게 낮췄으므로 글자색을 뒤집어야 한다 — 예전의 어두운 남색 글자(#04283a)는
+       밝은 파란 알약 위라서 읽혔던 것이라, 배경을 빼면 어두운 도로 위에서 안 보인다.
+       민간인은 '쏘면 감점'이라 다른 라벨보다 확실히 보여야 한다 → 투명하게 하되 대비는 더 준다. */
+  .monster.civ .word{background:rgba(14,116,190,.42);color:#e6f8ff;border-color:rgba(186,230,253,.75)}
   .monster.civ.hurt{animation:civFall .7s forwards}      /* 잘못 쏘면 "oh no!" 하며 쓰러진다 */
   @keyframes civFall{0%{transform:none;opacity:1}
     35%{transform:translateY(6px) rotate(-14deg)}
@@ -166,8 +180,12 @@
      캔버스를 중앙정렬하면 '사람'이 왼쪽으로 치우쳐 보인다. 몸통 중심(캔버스 36.6% 지점 —
      build-shooter-armed.py 가 출력한다)을 화면 중앙에 맞춘다. 캔버스 크기가 바뀌면 이 값도 바꿀 것.
      캔버스 아래끝 = 허리 잘린 선이라 bottom:0 이면 잘린 선이 화면 밖으로 딱 떨어진다. */
+  /* ⚠ z-index 는 반드시 몬스터(5 ~ 45 = 5+depth*40)보다 위여야 한다.
+     예전엔 10 이라 depth 0.13 만 넘으면 좀비가 사수보다 '앞'에 그려졌다 —
+     좀비가 사수 몸을 뚫고 지나가는 것처럼 보인 진짜 원인이 이것이었다(사장님 제보).
+     사수는 언제나 카메라에서 가장 가까우므로 전원보다 위. */
   #turret{position:absolute;left:50%;bottom:0;transform:translateX(-36.6%) scale(.72);transform-origin:36.6% 100%;
-    z-index:10;width:278px;height:200px;pointer-events:none}
+    z-index:60;width:278px;height:200px;pointer-events:none}
   /* 조준 시 상체+총이 통째로 기운다. 총만 따로 돌리면 손에서 떨어지므로 함께 움직여야 한다. */
   /* 회전축 = 사수의 허리(몸통과 같은 가로 위치). 캔버스 중앙(50%)으로 두면
      무기 쪽이 축이 돼 몸이 붕 뜬 채 돌아간다. */
@@ -181,7 +199,7 @@
   .turret-soldier.swap{animation:gunSwap .34s cubic-bezier(.3,1.4,.5,1)}   /* 무기 교체 '뿅' */
   @keyframes gunSwap{0%{transform:scale(.86);opacity:.25}60%{transform:scale(1.04);opacity:1}100%{transform:scale(1)}}
   /* 총구 = 총알 출발점. setGun 이 무기별 좌표(MUZZLE)로 옮긴다. 사진과 함께 기울고 반전된다. */
-  .barrel-rot{position:absolute;left:50%;top:25%;width:0;height:0;z-index:11}
+  .barrel-rot{position:absolute;left:50%;top:25%;width:0;height:0;z-index:61}   /* #turret(60) 과 함께 올림 */
   @media (min-width:820px){ #turret{width:371px;height:266px;transform:translateX(-36.6%) scale(1)} }
   /* 🔥 화염방사기 불줄기 파티클 (총구→표적 연속 분사) */
   .flamep{position:absolute;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;z-index:9;mix-blend-mode:screen;filter:blur(1px);will-change:transform,opacity}
@@ -337,12 +355,12 @@
   .target{padding:7px 11px}
   .target .hint{display:none}          /* 안내문 숨겨 게임영역 확대(판정/조준 로직 그대로) */
   .monster .face{width:clamp(52px,8vmin,104px);height:clamp(52px,8vmin,104px)}   /* 화면 크기에 따라 커짐(가로/태블릿/PC) */
-  .monster .word{font-size:clamp(15px,2.3vmin,28px);padding:3px 13px}
+  .monster .word{font-size:clamp(13px,1.8vmin,21px);padding:2px 9px}   /* 좀비보다 작게(사장님 지시) */
 
   /* ===== 🖥️ PC(넓은 화면) — 중앙 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
   @media (min-width:820px){
     .monster .face{width:clamp(70px,10.6vmin,142px);height:clamp(70px,10.6vmin,142px)}
-    .monster .word{font-size:clamp(20px,3.1vmin,38px);padding:4px 17px;border-width:2.5px}
+    .monster .word{font-size:clamp(16px,2.2vmin,26px);padding:2px 11px;border-width:1px}   /* 좀비보다 작게(사장님 지시) */
     .chip{font-size:21px;padding:7px 16px;border-radius:11px}
     .listen{font-size:15px;padding:8px 16px}
     .stat .val{font-size:23px}
@@ -1396,7 +1414,7 @@
   }
   // 🧟 접근형 원근 스케일 — 위협선(field 높이의 BREACH_FRAC 지점)에 가까울수록 표적이 커 보이게.
   //    .monster 자체는 sway 애니메이션이 transform 을 쓰고 있어, 원근 확대는 반드시 .face 에만 걸어 충돌을 피한다.
-  var BREACH_FRAC=0.80, WARN_FRAC=0.62;   // WARN_FRAC 이후부터 화면이 붉게 경고(위협선 도달 전)
+  var BREACH_FRAC=0.98, WARN_DEPTH=0.78;  // WARN_DEPTH 이후부터 화면이 붉게 경고(위협선 도달 전)
   /* 🧟 (2026-07-30) "하늘에서 내려오는 게 아니라 뒤에서 걸어오게" — 사장님 지시.
      예전에는 화면 위 가장자리에서 x 를 아무 데나 잡고 아래로 떨어뜨렸다(= 하늘에서 낙하).
      이제는 배경 도로의 소실점(HORIZON_FRAC)에서 아주 작게 나타나 카메라 쪽으로 걸어온다.
@@ -1404,19 +1422,36 @@
      · y  는 지평선~위협선 사이를 depth 로 보간 (원근이라 뒤쪽이 촘촘하게 = pow 곡선)
      · x  는 소실점 중앙에서 depth 에 비례해 좌우로 벌어진다(가까울수록 넓게 퍼짐)
      · 크기도 depth 로 보간 → 멀리선 작고 다가올수록 커진다 */
-  var HORIZON_FRAC=0.46;                 // 폐허도시·우주 배경 모두 이쯤이 소실점
+  /* 🛣 소실점 — 배경 사진에서 '실측'한 값이다. 눈대중 0.46 을 쓰다가 좀비가 도로 끝보다
+     93px 위, 즉 하늘에 떠서 걸어오는 것처럼 보였다(사장님 제보 + 스크린샷).
+     측정법: 배경 webp 의 가운데 세로 띠 밝기 프로파일에서 하늘→지면 급락 지점.
+       shooter-city-bg  1600x893 → y=515 (0.577)
+       shooter-space-bg 1600x893 → y=623 (0.698, 행성 지평선)
+     ⚠ background-size:cover 라 화면 비율에 따라 세로가 잘릴 수 있다 → 고정 상수로 두지 말고
+       매번 cover 매핑을 풀어 '지금 화면에서의' 소실점 비율을 구한다(폰 세로에서도 맞게). */
+  var BG_W=1600, BG_H=893;
+  var HORIZON_IMG={ zombie:0.577, space:0.698 };
+  function horizonFrac(fw, fh){
+    var s=Math.max(fw/BG_W, fh/BG_H);              // cover = 더 큰 배율로 맞추고 넘치는 쪽을 자른다
+    var drawH=BG_H*s, top=(fh-drawH)/2;            // background-position:center
+    var f=(top + drawH*(HORIZON_IMG[THEME]||0.577)) / fh;
+    return Math.min(0.72, Math.max(0.30, f));      // 극단 화면비 안전장치
+  }
   /* 🧟 크기 (사장님 지시 2026-07-31: "마지막엔 사격수 몸 크기만큼 크게").
      실측 기준 — field 1280x791 에서 사수(#soldierWrap)=371x266px, 좀비 face 기본=95px.
      예전 SCALE_NEAR=1.55 는 최대 148px 라 사수의 절반, 화면에 실제로 보이는 건 21~32px 뿐이었다.
        · SCALE_NEAR 2.2 → 95*2.2 ≈ 210px = 사수 몸통 높이와 거의 같다.
        · 지수 1.5 → 1.15 로 낮춰 '중간 거리에서 이미 쏠 만한 크기'가 되게 한다.
          (1.5 는 d=0.5 에서도 66px 라 끝까지 작았다. 1.15 면 같은 지점에서 116px) */
-  var SCALE_FAR=0.20, SCALE_NEAR=2.20, SCALE_POW=1.15;
+  var SCALE_FAR=0.20, SCALE_NEAR=2.75, SCALE_POW=1.15;   // 2.20→2.75: "좀 더 키워줘"(2026-07-31)
   /* 🌫 멀리서 희미하게 떠오르게 — FADE_IN 구간(전체 거리의 앞 20%) 동안 0 → 1.
      예전엔 0.35 에서 시작해 '뿅' 하고 나타났다. */
   var FADE_IN=0.20;
-  function depthY(d, h){                 // 원근 보간: 뒤쪽은 조금만 움직여도 멀리 보이게 pow
-    var hy=h*HORIZON_FRAC, by=h*BREACH_FRAC;
+  /* 반환값 = '발이 닿는 지면선'의 y. 예전엔 이 값을 요소의 top 에 그대로 넣어서
+     캐릭터 전체가 지면선보다 face 높이만큼 아래에 그려졌다(= 도로에서 떠 보임).
+     호출부에서 top = depthY(...) - face레이아웃높이 로 써야 발이 지면에 붙는다. */
+  function depthY(d, h, fw){             // 원근 보간: 뒤쪽은 조금만 움직여도 멀리 보이게 pow
+    var hy=h*horizonFrac(fw||h, h), by=h*BREACH_FRAC;
     return hy + (by-hy) * Math.pow(Math.min(1,Math.max(0,d)), 1.7);
   }
   function depthScale(d){ return SCALE_FAR + (SCALE_NEAR-SCALE_FAR) * Math.pow(Math.min(1,Math.max(0,d)), SCALE_POW); }
@@ -1703,7 +1738,10 @@
     if(!running) return;
     if(!lastTs) lastTs=ts; var dt=Math.min(0.05,(ts-lastTs)/1000); lastTs=ts;
     var h=field.clientHeight, w=field.clientWidth, sm=spdMult();   // ⚡ 매 프레임 현재 속도 반영(변경 즉시)
-    var breachY=h*BREACH_FRAC, warnY=h*WARN_FRAC, danger=false;
+    var danger=false;
+    // 사수(#soldierWrap)의 실제 반폭 — 좀비가 사수를 비켜 가는 데 쓴다(없으면 넉넉한 기본값)
+    var _sw=document.getElementById('soldierWrap');
+    var SHOOTER_HALF=(_sw ? _sw.getBoundingClientRect().width : 320)/2;
     for(var i=0;i<monsters.length;i++){ var m=monsters[i];
       m.depth += m.vDepth*sm*dt;                                   // 🧟 카메라 쪽으로 전진
       m.lane  += m.vLane*sm*dt;                                    // 걸으며 좌우로도 조금
@@ -1714,16 +1752,24 @@
       /* 🛣 좌우로 벌어지는 폭 — '도로 위'를 걷게 한다(사장님 지시: "도로에 바짝").
          예전 값(폭 0.46·지수 0.7)은 너무 일찍 넓게 퍼져서 좀비가 인도·자동차·버스 지붕
          위를 걸어왔다(스크린샷으로 확인).
-         배경 실측: 좀비의 y 는 소실점(0.46h)~위협선(0.80h) 사이만 쓰는데, 그 구간에서
-         도로의 반폭은 화면폭의 0(소실점) ~ 0.13(위협선) 정도밖에 안 된다.
+         배경 실측: 소실점~위협선 구간에서 도로의 반폭은 화면폭의 0 ~ 0.13 정도밖에 안 된다.
          그래서 폭 0.17·지수 1.25 — 멀리서는 도로 가운데로 바짝 모였다가 가까워질수록
          도로가 벌어지는 만큼만 퍼진다. 더 키우면 다시 인도·차 위로 올라간다. */
       var spread=(w*0.17)*Math.pow(d,1.25);
-      m.y=depthY(d,h);
-      m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
-      // 커진 만큼 화면 밖으로 잘리지 않게 자기 폭을 기준으로 가둔다(예전엔 40px 고정이었다)
       var halfW=(m.faceEl ? m.faceEl.offsetWidth : 40)*sc/2;
+      /* 🚶 발이 지면선에 붙게 — depthY 는 '지면선'을 주므로 요소 top 은 거기서 face 높이만큼
+         빼야 한다. 이걸 안 해서 캐릭터가 도로 위에 떠 있었다(사장님: "하늘에서 날아오는 것 같아"). */
+      var faceH=(m.faceEl ? m.faceEl.offsetHeight : 0);
+      m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
+      /* 🎯 사수를 비켜 지나가게(사장님 지시) — 코앞에 왔을 때 화면 가운데 아래는 사수 자리다.
+         그대로 두면 좀비가 사수 몸을 뚫고 지나간다. 가까워질수록(=d 의 세제곱) 최소 간격을
+         벌려 좌우로 흘려보낸다. 멀리서는 0 이라 도로 가운데 대열은 그대로 유지된다. */
+      var need=(SHOOTER_HALF + halfW) * Math.pow(d, 3);
+      var dx=m.x - w/2;
+      if(Math.abs(dx) < need) m.x = w/2 + (dx<0 || (dx===0 && m.lane<0) ? -need : need);
+      // 커진 만큼 화면 밖으로 잘리지 않게 자기 폭을 기준으로 가둔다(예전엔 40px 고정이었다)
       m.x=Math.max(halfW+2, Math.min(w-halfW-2, m.x));
+      m.y=depthY(d,h,w) - faceH;
       if(m.faceEl) m.faceEl.style.transform='scale('+sc.toFixed(3)+')';
       /* 🌫 공기원근 — 안개 속에서 서서히 떠오르게. 앞 FADE_IN 구간 동안 0 → 1 로 올리고,
          그 구간에선 살짝 흐리게(blur) 해 '멀리 희미하게' 가 눈에 보이도록 한다. */
@@ -1744,7 +1790,8 @@
         m.wordEl.style.transform='translateX('+lx.toFixed(0)+'px)';
       }
       m.el.style.zIndex = String(5 + Math.round(d*40));
-      if(m.isTarget && m.y>=warnY) danger=true;                    // 표적이 위협선에 가까우면 화면 경고
+      // 표적이 코앞에 가까우면 화면 경고. y 임계값은 소실점이 화면비마다 달라 못 쓴다 → depth 기준.
+      if(m.isTarget && d>=WARN_DEPTH) danger=true;
       if(m.depth>=1 && !m.breached){
         /* 🩸 코앞까지 옴. ⚠ 생명력은 '지금 쏴야 할 그 단어'가 통과했을 때만 깎는다.
            이 게임은 문장 순서대로만 쏠 수 있어서, 아직 차례가 아닌 단어는 플레이어가
