@@ -16,15 +16,23 @@
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
   *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  /* 🌌 배경 (2026-07-30 사장님 지시: "배경이랑 글자가 섞여 안 보인다")
+     옛 배경은 밝은 은하 사진(space.jpg 393KB)이라 글자가 그 위에 묻혔다. 힉스필드로
+     '가운데는 비어 있고 성운은 네 귀퉁이에만' 있는 딥필드를 새로 만들어 교체한다.
+     → 본문이 놓이는 중앙대 밝기 L≈11(95퍼센타일 21)로 흰 글자 대비 16:1 확보(AAA 7:1).
+     사진 자체가 이미 어두워 대비를 CSS 에 기대지 않는다(필터가 꺼져도 항상 읽힌다).
+     393KB → 15KB. */
   body {
     min-height: 100vh;
     background:
-      radial-gradient(ellipse at center top, rgba(167,139,250,0.22), transparent 60%),
-      radial-gradient(ellipse at center, rgba(30,22,80,0.2), rgba(23,18,71,0.55)),
-      url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg') center/cover no-repeat fixed,
-      #171247;
+      radial-gradient(ellipse 70% 45% at 50% 0%, rgba(167,139,250,0.16), transparent 70%),
+      linear-gradient(180deg, rgba(10,8,26,0.35) 0%, rgba(10,8,26,0.62) 55%, rgba(10,8,26,0.82) 100%),
+      url('/img/speech-coach-bg.webp') center/cover no-repeat fixed,
+      #0a081a;
     color: #f1f5f9; font-family: 'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif; padding-bottom: 80px;
   }
+  /* 배경을 고정하면 일부 모바일에서 스크롤이 뚝뚝 끊긴다 — 폰에서는 같이 흐르게 */
+  @media (max-width: 768px) { body { background-attachment: scroll, scroll, scroll; } }
   .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px; }
   .brand { text-align: center; margin-bottom: 26px; }
   .brand-eyebrow { display:inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: 3px; color: #c4b5fd; text-transform: uppercase; padding: 4px 12px; border: 1px solid rgba(167,139,250,0.35); border-radius: 99px; background: rgba(167,139,250,0.08); margin-bottom: 12px; }
