@@ -1431,6 +1431,12 @@
        매번 cover 매핑을 풀어 '지금 화면에서의' 소실점 비율을 구한다(폰 세로에서도 맞게). */
   var BG_W=1600, BG_H=893;
   var HORIZON_IMG={ zombie:0.577, space:0.698 };
+  /* 🌫 소실점 '바로 그 지점'은 안개에 완전히 잠겨 도로가 안 보인다. 거기서 등장시키면
+     발밑에 지면 기준이 없어 사람 눈에는 공중에 뜬 것으로 보인다(사장님: "하늘에서 걷기
+     시작하지 말아줘"). 그래서 소실점보다 화면높이의 6% 만큼 아래 — 도로 노면이 실제로
+     보이기 시작하는 지점 — 에서 걸어 나오게 한다. 원근 곡선(pow 1.7)이 뒤쪽을 촘촘하게
+     만들어서 등장 직후에는 거의 수평으로 걸어 나온다. */
+  var HORIZON_DROP=0.06;
   function horizonFrac(fw, fh){
     var s=Math.max(fw/BG_W, fh/BG_H);              // cover = 더 큰 배율로 맞추고 넘치는 쪽을 자른다
     var drawH=BG_H*s, top=(fh-drawH)/2;            // background-position:center
@@ -1451,7 +1457,7 @@
      캐릭터 전체가 지면선보다 face 높이만큼 아래에 그려졌다(= 도로에서 떠 보임).
      호출부에서 top = depthY(...) - face레이아웃높이 로 써야 발이 지면에 붙는다. */
   function depthY(d, h, fw){             // 원근 보간: 뒤쪽은 조금만 움직여도 멀리 보이게 pow
-    var hy=h*horizonFrac(fw||h, h), by=h*BREACH_FRAC;
+    var hy=h*(horizonFrac(fw||h, h) + HORIZON_DROP), by=h*BREACH_FRAC;
     return hy + (by-hy) * Math.pow(Math.min(1,Math.max(0,d)), 1.7);
   }
   function depthScale(d){ return SCALE_FAR + (SCALE_NEAR-SCALE_FAR) * Math.pow(Math.min(1,Math.max(0,d)), SCALE_POW); }
