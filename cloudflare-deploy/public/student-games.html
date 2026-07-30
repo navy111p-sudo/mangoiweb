@@ -84,6 +84,12 @@
     border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;line-height:1;text-decoration:none;
     box-shadow:0 2px 8px rgba(11,42,94,.12);transition:background .15s;-webkit-tap-highlight-color:transparent;font-family:inherit}
   .hub-topnav .tn-btn:hover{background:#fff}
+  /* 🔊 게임 메뉴 진입 안내음성 음소거 버튼 (화면 우하단 고정) */
+  #hub-audio-mute-btn{position:fixed;right:14px;bottom:14px;z-index:50;display:flex;align-items:center;justify-content:center;
+    width:44px;height:44px;background:rgba(255,255,255,.85);color:#0b2a5e;border:1px solid rgba(11,42,94,.18);
+    border-radius:50%;font-size:20px;cursor:pointer;line-height:1;box-shadow:0 2px 10px rgba(11,42,94,.2);
+    transition:background .15s;-webkit-tap-highlight-color:transparent}
+  #hub-audio-mute-btn:hover{background:#fff}
   .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;
     width:min(1100px,100%);margin-top:10px}
   @media(max-width:640px){.game-grid{grid-template-columns:1fr 1fr;gap:14px}}
@@ -423,6 +429,10 @@
 <body>
 <div id="app">
 
+  <!-- 🔊 게임 메뉴 진입 안내음성 (자동재생) + 음소거 버튼 -->
+  <audio id="hub-intro-audio" src="/audio/games-hub-intro.mp3" preload="auto"></audio>
+  <button type="button" id="hub-audio-mute-btn" onclick="toggleHubAudioMute()" title="안내 음성 음소거" aria-label="안내 음성 음소거">🔊</button>
+
   <!-- ===== 메뉴 ===== -->
   <div id="hub-menu">
     <div class="hub-topnav">
@@ -628,9 +638,7 @@ function loadDarakwonZh(){
     var wds = (d.words||[]).filter(function(w){ return w && w.en && w.ko; });
     if(sents.length >= 3){ _ZH_VOCAB.length=0; sents.forEach(function(s){ _ZH_VOCAB.push(s); }); }
     if(wds.length >= 6){ _ZH_WORDS.length=0; wds.forEach(function(w){ _ZH_WORDS.push(w); }); }
-    if(GAME_LANG==='zh'){ _applyLangVocab();   // 중국어 모드면 활성 어휘 즉시 교체
-      var el=document.getElementById('vocab-src-badge');
-      if(el){ el.textContent='📚 중국어 마스터 3 교재 어휘'; el.style.display='block'; } }
+    if(GAME_LANG==='zh') _applyLangVocab();   // 중국어 모드면 활성 어휘 즉시 교체
   }
   try{ var c=JSON.parse(sessionStorage.getItem(CK)||'null'); if(c && (Date.now()-c.at)<600000){ apply(c.d); return; } }catch(_){}
   fetch('/api/games/zh-vocab?textbook=' + encodeURIComponent('다락원') + '&level=' + encodeURIComponent('Lv 3'))
@@ -1391,6 +1399,25 @@ function toggleSiteLang(){
   try{ localStorage.setItem('mangoi_lang', next); }catch(_){}
   document.documentElement.lang = next;
   _syncSiteLangBtn();
+}
+
+/* 🔊 게임 메뉴 진입 안내음성 — mangoi_voice_muted 는 레벨테스트 등과 공유하는 전역 음소거 상태 */
+function _hubAudioMuted(){ try{ return localStorage.getItem('mangoi_voice_muted')==='1'; }catch(_){ return false; } }
+function _hubAudioSyncBtn(){
+  var b = document.getElementById('hub-audio-mute-btn');
+  if(b) b.textContent = _hubAudioMuted() ? '🔇' : '🔊';
+}
+function toggleHubAudioMute(){
+  var muted = !_hubAudioMuted();
+  try{ localStorage.setItem('mangoi_voice_muted', muted ? '1' : '0'); }catch(_){}
+  if(muted){ var a = document.getElementById('hub-intro-audio'); if(a) a.pause(); }
+  _hubAudioSyncBtn();
+}
+function _hubPlayIntroAudio(){
+  _hubAudioSyncBtn();
+  if(_hubAudioMuted()) return;
+  var a = document.getElementById('hub-intro-audio');
+  if(a){ try{ a.currentTime = 0; a.play().catch(function(){}); }catch(_){} }   // 자동재생 차단 시 조용히 무시(음소거 버튼으로 수동 재생 가능하도록 남겨둠)
 }
 document.addEventListener('DOMContentLoaded', function(){
   document.documentElement.lang = _siteLang();
@@ -2397,6 +2424,7 @@ document.addEventListener('keydown', function(e){
 hubRenderMenu();
 renderSpeedPicks();   // ⚡ 속도(난이도) 선택 UI (허브 헤더 + 게임 상단바)
 setGameLang(GAME_LANG);   // 🌐 언어 UI 초기화(저장된 언어로 헤더/버튼/TTS 반영)
+_hubPlayIntroAudio();   // 🔊 게임 메뉴 진입 안내음성 자동재생(음소거 상태면 재생 안 함)
 
 /* ══════════════════════════════════════════════════════════════════
    🎯 오늘의 추천 카드 — /api/games/recommend (룰 기반 피드백 루프)
@@ -2482,7 +2510,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260730235220 -->
+<!-- BUILD:20260731010531 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
