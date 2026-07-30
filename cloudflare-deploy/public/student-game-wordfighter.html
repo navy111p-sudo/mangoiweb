@@ -88,10 +88,10 @@
 
   /* ===== 좀비 (캐릭터 + 큰 단어표) ===== */
   .ztag{position:absolute;display:flex;flex-direction:column-reverse;align-items:center;gap:2px;border:0;background:none;cursor:pointer;font-family:inherit;z-index:6;padding:0;transform:translate(-50%,-50%)}
-  .zbody{font-size:68px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.8));transition:filter .15s;transform-origin:center bottom}
+  .zbody{line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.8));transition:filter .15s;transform-origin:center bottom}
   .ztag:hover .zbody{filter:drop-shadow(0 4px 8px rgba(0,0,0,.8)) brightness(1.25)}
-  /* 걷기 모션 — 몸통(inline scale)과 분리된 내부 span에 적용 */
-  .zface{display:inline-block;animation:zwalk .7s infinite ease-in-out}
+  /* 걷기 모션 — 몸통(inline scale)과 분리된 내부 실사 이미지에 적용 */
+  .zface{display:block;width:74px;height:auto;pointer-events:none;user-select:none;animation:zwalk .7s infinite ease-in-out}
   @keyframes zwalk{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-7%) rotate(6deg)}}
   .ztag.ghosty .zbody{opacity:.92}
   .ztag.ghosty .zface{animation:zfloat 1.6s infinite ease-in-out}
@@ -178,6 +178,25 @@
   .repdots .d.on{border-color:var(--good);background:var(--good);color:#04220f;transform:scale(1.12)}
   .heard{font-size:14px;color:var(--sub);min-height:20px}.heard b{color:#86efac}
 
+  /* ===== 🔞 보호자 인증 게이트 — 실사 좀비 격투 콘텐츠(만 10세 이상)는 시작화면보다 먼저 뜬다 ===== */
+  #ageGate{z-index:60;background:rgba(2,4,9,.86)}
+
+  /* ===== 🏏 1인칭 배트(무기) — 대기 흔들림 + 타격 시 스윙 ===== */
+  #batRig{position:absolute;right:-8%;bottom:-4%;width:56%;max-width:320px;z-index:44;pointer-events:none;
+    transform-origin:86% 92%;transform:rotate(-4deg);filter:drop-shadow(0 10px 18px rgba(0,0,0,.65));animation:batIdle 2.6s ease-in-out infinite}
+  #batRig img{display:block;width:100%;height:auto;pointer-events:none;user-select:none}
+  @keyframes batIdle{0%,100%{transform:rotate(-4deg) translateY(0)}50%{transform:rotate(-1deg) translateY(-5px)}}
+  #batRig.swing{animation:batSwing .32s cubic-bezier(.15,.7,.3,1)}
+  @keyframes batSwing{
+    0%{transform:rotate(-4deg) translateY(0) scale(1)}
+    35%{transform:rotate(-46deg) translateY(8px) translateX(-30px) scale(1.05)}
+    62%{transform:rotate(20deg) translateY(-16px) translateX(20px) scale(1.02)}
+    100%{transform:rotate(-4deg) translateY(0) scale(1)}
+  }
+  @media (max-width:560px),(max-height:640px){
+    #batRig{width:48%;max-width:220px;right:-10%}
+  }
+
   /* ===== 오버레이 ===== */
   .overlay{position:absolute;inset:0;z-index:50;display:flex;align-items:flex-start;justify-content:center;background:rgba(2,4,9,.72);overflow:auto;padding:14px 0}
   .card{width:min(94%,420px);background:linear-gradient(180deg,rgba(20,12,12,.94),rgba(8,6,10,.96));border:1px solid var(--line);border-radius:18px;padding:18px;text-align:center;box-shadow:0 26px 64px rgba(0,0,0,.7);margin:0 auto}
@@ -227,7 +246,7 @@
     /* ── 게임 요소 ── */
     .chip{font-size:15px;padding:4px 10px}
     .ztag .w{font-size:21px;padding:4px 14px}
-    .zbody{font-size:52px}
+    .zface{width:56px}
     #waveTitle .wt-main{font-size:38px}
     .bigline{font-size:42px}
     html.zh-font .bigline{font-size:34px}
@@ -273,6 +292,7 @@
     <div class="voicebadge" id="voiceBadge">🔊 음성 준비 중…</div>
     <div id="combo"></div>
     <div id="waveTitle"><div class="wt-main" id="wtMain"></div><div class="wt-sub" id="wtSub"></div></div>
+    <div id="batRig" aria-hidden="true"><img src="/img/wf-bat-hand.webp" alt=""></div>
 
     <div class="review" id="review1">
       <h2>🧩 <span class="em">복습 1 — 문장 조합</span></h2>
@@ -332,6 +352,14 @@
       <div class="speedrow"><span class="sr-lab">⚙ 속도</span><button class="spd" data-k="snail">🐌 아주 천천히</button><button class="spd" data-k="relax">🐢 느긋</button><button class="spd sel" data-k="normal">⚔️ 보통</button><button class="spd" data-k="turbo">🔥 광속</button></div>
       <button class="btn red" id="startBtn">전투 시작 ▶</button>
       <div class="warn" id="voiceWarn"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="ageGate">
+    <div class="card" id="gateCard">
+      <div class="tag">🔞 이용 안내</div>
+      <h1>보호자 확인이<br><span class="em">필요해요</span> 🛡️</h1>
+      <div class="rules" id="gateBody"></div>
     </div>
   </div>
 </div>
@@ -493,17 +521,18 @@
   mountLessonNav();
   var COMBO_WINDOW=2500;
   // 🧟 좀비 도감 — 종류별 속도·크기·좌우 흔들림(지그재그 %)이 다르다
+  // 🎬 실사화(2026-07-30) — 슈팅게임용으로 이미 생성된 실사 좀비 8종(public/img/shooter-zom-*.webp) 재사용
   var ZTYPES=[
-    {e:'🧟',  spd:1.0,  size:1.0,  wob:1.2},
-    {e:'🧟‍♂️', spd:1.05, size:1.0,  wob:1.4},
-    {e:'🧟‍♀️', spd:1.05, size:1.0,  wob:1.4},
-    {e:'👻',  spd:0.9,  size:1.0,  wob:3.5, ghost:true},
-    {e:'💀',  spd:1.35, size:0.85, wob:1.8},
-    {e:'🎃',  spd:0.7,  size:1.25, wob:0.6},
-    {e:'👽',  spd:1.15, size:0.95, wob:2.6},
-    {e:'🦇',  spd:1.5,  size:0.8,  wob:4.0}
+    {img:'shooter-zom-office',   spd:1.0,  size:1.0,  wob:1.2},
+    {img:'shooter-zom-soldier',  spd:1.05, size:1.0,  wob:1.4},
+    {img:'shooter-zom-trooper',  spd:1.05, size:1.0,  wob:1.4},
+    {img:'shooter-zom-doc',      spd:0.9,  size:1.0,  wob:3.5, ghost:true},
+    {img:'shooter-zom-sprinter', spd:1.35, size:0.85, wob:1.8},
+    {img:'shooter-zom-tank',     spd:0.7,  size:1.25, wob:0.6},
+    {img:'shooter-zom-medic',    spd:1.15, size:0.95, wob:2.6},
+    {img:'shooter-zom-worker',   spd:1.5,  size:0.8,  wob:4.0}
   ];
-  var BOSSFACES=['🧟‍♂️','👹','🤡'];
+  var BOSSFACES=['shooter-zom-soldier','shooter-zom-tank','shooter-zom-office'];
   // ⚙ 속도 조절 — 아주 천천히부터 빠르게 4단계. 빠를수록 점수 배율 ↑
   var SPEEDS=[
     {k:'snail', label:'🐌 아주 천천히', mul:0.1,  score:0.7},
@@ -630,8 +659,8 @@
     n=n||1;
     var ty=ZTYPES[Math.floor(Math.random()*ZTYPES.length)];
     var el=document.createElement('button'); el.className='ztag'+(it.isTarget?'':' distractor')+(it.golden?' golden':'')+(it.boss?' boss':'')+(ty.ghost&&!it.boss?' ghosty':'');
-    var face=it.boss?BOSSFACES[Math.floor(Math.random()*BOSSFACES.length)]:ty.e;
-    el.innerHTML='<span class="w">'+it.word+(it.boss?'<span class="bhp">💥2</span>':'')+'</span><span class="zbody"><span class="zface">'+face+'</span></span>';
+    var img=it.boss?BOSSFACES[Math.floor(Math.random()*BOSSFACES.length)]:ty.img;
+    el.innerHTML='<span class="w">'+it.word+(it.boss?'<span class="bhp">💥2</span>':'')+'</span><span class="zbody"><img class="zface" src="/img/'+img+'.webp" alt="" draggable="false"></span>';
     var spdMul=(0.6+Math.min(level*0.12,1.1))*(it.boss?0.45:ty.spd);   // 웨이브 1은 아주 느리게 시작 → 갈수록 빨라짐, 보스는 느림
     var z={ el:el, word:it.word, isTarget:it.isTarget, golden:!!it.golden, boss:!!it.boss, hp:it.boss?2:1,
       body:null, wEl:null, xPct:(laneX!=null?laneX:rand(14,86)),
@@ -666,8 +695,13 @@
     zombies.forEach(function(z){ z.el.classList.toggle('next', show && z.isTarget && z.word===targetWords[currentIndex] && !z.el.classList.contains('dead')); });
   }
 
+  // 🏏 1인칭 배트 스윙 — 정답/오답 상관없이 클릭할 때마다 실제로 휘두른다
+  var batRig=document.getElementById('batRig');
+  function swingBat(){ if(!batRig) return; batRig.classList.remove('swing'); void batRig.offsetWidth; batRig.classList.add('swing'); }
+
   function strike(z){
     if(!running||phase!=='battle'||!z.el.isConnected||z.el.classList.contains('dead')) return;
+    swingBat();
     var f=field.getBoundingClientRect(), r=z.el.getBoundingClientRect(); var x=r.left+r.width/2-f.left, y=r.top+r.height/2-f.top;
     var required=targetWords[currentIndex];
     if(z.word===required){
@@ -844,9 +878,83 @@
   bgmBtn.addEventListener('click', function(){ bgmOn=!bgmOn; LSset('wf_bgm',bgmOn?'1':'0'); applyBgmUI(); if(!bgmOn) bgmStop(); else if(running&&phase==='battle') bgmStart(); });
   applyBgmUI();
   if(!synth){ document.getElementById('voiceWarn').textContent='⚠ 이 브라우저는 음성합성을 지원하지 않습니다.'; }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 🔞 보호자 인증 게이트 — 실사 좀비 격투 콘텐츠(만 10세 이상)
+  //   로그인 학생 = 등록 보호자 연락처로 SMS 인증(1회, 계정에 영구 기록)
+  //   게스트(미로그인) = 고지문 + 체크박스 확인(기기 1회, localStorage)
+  //   #ageGate 는 시작화면(#overlay)보다 앞(z-index 60)에 떠서 인증 전엔 시작 자체가 불가능하다.
+  // ═══════════════════════════════════════════════════════════════
+  (function(){
+    var ageGate=document.getElementById('ageGate'), gateBody=document.getElementById('gateBody');
+    if(!ageGate||!gateBody) return;
+    function getUid(){
+      try{ var u=JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if(u&&(u.uid||u.user_id)) return String(u.uid||u.user_id); }catch(e){}
+      try{ var v=JSON.parse(localStorage.getItem('mango_user')||'null'); if(v&&(v.user_id||v.uid)) return String(v.user_id||v.uid); }catch(e){}
+      return '';
+    }
+    function hideGate(){ ageGate.style.display='none'; }
+    function renderGuestGate(){
+      gateBody.innerHTML=
+        '<div class="sub" style="margin-bottom:10px">이 콘텐츠는 실사 좀비 격투 장면이 포함된 <b>만 10세 이상 이용가</b>입니다. 보호자와 함께 확인한 뒤 진행해 주세요.</div>'
+        +'<label style="display:flex;gap:8px;align-items:flex-start;text-align:left;font-size:13.5px;color:#d7deec;margin:4px 0 14px">'
+        +'<input type="checkbox" id="gateAckChk" style="margin-top:3px;width:18px;height:18px;flex:none">'
+        +'<span>보호자가 이 콘텐츠(실사 좀비 격투 장면)를 확인했으며, 만 10세 이상 아동의 이용을 허락합니다.</span></label>'
+        +'<button class="btn" id="gateAckBtn" disabled style="opacity:.5">▶ 확인하고 계속하기</button>';
+      var chk=document.getElementById('gateAckChk'), btn=document.getElementById('gateAckBtn');
+      chk.addEventListener('change', function(){ btn.disabled=!chk.checked; btn.style.opacity=chk.checked?'1':'.5'; });
+      btn.addEventListener('click', function(){ if(!chk.checked) return; try{ localStorage.setItem('wf_parent_ok','1'); }catch(e){} hideGate(); });
+    }
+    function renderAccountGate(uid){
+      gateBody.innerHTML=
+        '<div class="sub" style="margin-bottom:10px">이 콘텐츠는 실사 좀비 격투 장면이 포함된 <b>만 10세 이상 이용가</b>입니다. 등록된 보호자 연락처로 인증번호를 보내드릴게요.</div>'
+        +'<button class="btn" id="gateSendBtn">📱 보호자 휴대폰으로 인증번호 받기</button>'
+        +'<div id="gateMsg" style="font-size:13px;color:var(--sub);margin-top:10px;min-height:18px"></div>'
+        +'<div id="gateCodeRow" style="display:none;margin-top:6px">'
+        +'<input id="gateCodeInput" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" style="width:100%;font-size:20px;text-align:center;letter-spacing:6px;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--tx);font-family:inherit;box-sizing:border-box">'
+        +'<button class="btn green" id="gateConfirmBtn" style="width:100%;margin-top:10px">✅ 확인</button></div>';
+      var msg=document.getElementById('gateMsg');
+      document.getElementById('gateSendBtn').addEventListener('click', function(){
+        msg.textContent='발송 중…';
+        fetch('/api/student/wf-verify/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid})})
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            if(d && d.ok){ msg.textContent='✅ '+(d.message||'인증번호를 보냈어요.'); document.getElementById('gateCodeRow').style.display='block'; }
+            else if(d && d.error==='no_phone'){ msg.textContent='⚠ '+(d.message||'등록된 보호자 연락처가 없어요.'); renderGuestGate(); }
+            else { msg.textContent='⚠ '+((d&&d.message)||'발송에 실패했어요. 잠시 후 다시 시도해 주세요.'); }
+          }).catch(function(){ msg.textContent='⚠ 네트워크 오류 — 잠시 후 다시 시도해 주세요.'; });
+      });
+      gateBody.addEventListener('click', function(e){
+        if(!e.target||e.target.id!=='gateConfirmBtn') return;
+        var code=(document.getElementById('gateCodeInput').value||'').trim();
+        if(!code) return;
+        msg.textContent='확인 중…';
+        fetch('/api/student/wf-verify/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,code:code})})
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            if(d && d.ok){ try{ localStorage.setItem('wf_verified_'+uid,'1'); }catch(e){} hideGate(); }
+            else { msg.textContent='⚠ '+((d&&d.message)||'인증에 실패했어요.'); }
+          }).catch(function(){ msg.textContent='⚠ 네트워크 오류 — 잠시 후 다시 시도해 주세요.'; });
+      });
+    }
+    var uid=getUid();
+    if(uid){
+      var cached=false; try{ cached=localStorage.getItem('wf_verified_'+uid)==='1'; }catch(e){}
+      if(cached){ hideGate(); }
+      else{
+        renderAccountGate(uid);
+        fetch('/api/student/wf-verify/status?user_id='+encodeURIComponent(uid)).then(function(r){ return r.json(); }).then(function(d){
+          if(d && d.ok && d.verified){ try{ localStorage.setItem('wf_verified_'+uid,'1'); }catch(e){} hideGate(); }
+        }).catch(function(){});
+      }
+    } else {
+      var ok=false; try{ ok=localStorage.getItem('wf_parent_ok')==='1'; }catch(e){}
+      if(ok){ hideGate(); } else { renderGuestGate(); }
+    }
+  })();
 })();
 </script>
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730215532 -->
+<!-- BUILD:20260730231115 -->
 </body>
 </html>

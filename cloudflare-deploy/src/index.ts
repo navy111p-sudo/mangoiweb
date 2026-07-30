@@ -1165,6 +1165,10 @@ const worker = {
         // 🔑 비밀번호 재설정 (SMS 인증) — 2026-07-22
         path === '/api/student/password-reset/request' ||
         path === '/api/student/password-reset/confirm' ||
+        // 🔞 워드파이터 보호자 인증(SMS) — 2026-07-30
+        path === '/api/student/wf-verify/status' ||
+        path === '/api/student/wf-verify/request' ||
+        path === '/api/student/wf-verify/confirm' ||
         // 😊 Phase PASSKEY 얼굴/지문 로그인 (WebAuthn)
         /^\/api\/passkey\/(register\/options|register\/verify|login\/options|login\/verify|list|remove)$/.test(path) ||
         // 🌐 Phase OAUTH 소셜 로그인

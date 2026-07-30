@@ -584,6 +584,81 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 11시(주말·공휴
     // 🔐 Phase LOGIN 끝
     // ═══════════════════════════════════════════════════════════════
 
+    // ── 🔞 워드파이터 보호자 인증 (만 10세 이상 실사 좀비 격투 콘텐츠) — 2026-07-30 ──
+    //   등록 보호자 연락처로 6자리 코드 발송 → 확인되면 students_erp.wf_verified_at 에 영구 기록(계정당 1회).
+    //   GET  /api/student/wf-verify/status?user_id=X          → { ok, verified }
+    //   POST /api/student/wf-verify/request  { user_id }       → 코드 발송(마스킹 응답)
+    //   POST /api/student/wf-verify/confirm  { user_id, code } → 검증 후 wf_verified_at 기록
+    //   안전장치: password-reset과 동일 — 코드 10분 유효 · 검증 5회 제한 · 요청 1시간 3회 제한 · 코드는 해시로만 저장
+    const ensureWfVerify = async () => {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS wf_parent_verify (user_id TEXT PRIMARY KEY, code_hash TEXT, expires_at INTEGER, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, first_sent_at INTEGER, created_at INTEGER)`);
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN wf_verified_at INTEGER`); } catch {}
+    };
+    if (method === 'GET' && path === '/api/student/wf-verify/status') {
+      await ensureWfVerify();
+      const uid = String(url.searchParams.get('user_id') || '').trim();
+      if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
+      const stu: any = await env.DB.prepare(`SELECT wf_verified_at FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 1`).bind(uid).first().catch(() => null);
+      return json({ ok: true, verified: !!(stu && stu.wf_verified_at) });
+    }
+    if (method === 'POST' && path === '/api/student/wf-verify/request') {
+      await ensureWfVerify();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.user_id || '').trim();
+      if (!uid) return json({ ok: false, error: 'user_id_required', message: '아이디를 입력해 주세요.' }, 400);
+      const stu: any = await env.DB.prepare(`SELECT * FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 1`).bind(uid).first();
+      if (!stu) return json({ ok: false, error: 'user_not_found', message: '학생 정보를 찾을 수 없습니다. 학원에 문의해 주세요.' }, 404);
+      const canonUid = String(stu.user_id);
+      const phone = String(stu.parent_phone || stu.phone || '').replace(/[^0-9]/g, '');
+      if (!phone || phone.length < 8) {
+        return json({ ok: false, error: 'no_phone', message: '등록된 보호자 연락처가 없어요. 학원(카카오 채널)으로 문의해 주세요.' }, 400);
+      }
+      const now = Date.now();
+      const prev: any = await env.DB.prepare(`SELECT * FROM wf_parent_verify WHERE user_id = ?`).bind(canonUid).first().catch(() => null);
+      let sentCount = 0, firstSentAt = now;
+      if (prev && prev.first_sent_at && now - prev.first_sent_at < 3600 * 1000) {
+        sentCount = Number(prev.sent_count) || 0; firstSentAt = prev.first_sent_at;
+        if (sentCount >= 3) return json({ ok: false, error: 'too_many_requests', message: '요청이 너무 잦아요. 1시간 후 다시 시도해 주세요.' }, 429);
+      }
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const codeHash = await hashPwd('wfverify|' + canonUid + '|' + code);
+      await env.DB.prepare(
+        `INSERT INTO wf_parent_verify (user_id, code_hash, expires_at, attempts, sent_count, first_sent_at, created_at)
+         VALUES (?,?,?,0,?,?,?)
+         ON CONFLICT(user_id) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at, attempts=0, sent_count=excluded.sent_count, first_sent_at=excluded.first_sent_at, created_at=excluded.created_at`
+      ).bind(canonUid, codeHash, now + 10 * 60000, sentCount + 1, firstSentAt, now).run();
+      const sms = await sendPlainSms(env as any, phone, `[망고아이] '워드 파이터' 좀비 격투 콘텐츠는 만 10세 이상 이용가이며 보호자 확인이 필요합니다. 인증번호 [${code}] (10분 유효)`);
+      if (!sms || !sms.ok) return json({ ok: false, error: 'sms_failed', message: '인증번호 발송에 실패했어요. 잠시 후 다시 시도해 주세요.' }, 502);
+      const masked = phone.length > 4 ? phone.slice(0, 3) + '****' + phone.slice(-2) : '등록번호';
+      return json({ ok: true, message: `${masked} 로 인증번호를 보냈어요. (10분 유효)`, masked_phone: masked });
+    }
+    if (method === 'POST' && path === '/api/student/wf-verify/confirm') {
+      await ensureWfVerify();
+      const b: any = await request.json().catch(() => ({}));
+      const uid = String(b.user_id || '').trim();
+      const code = String(b.code || '').trim();
+      if (!uid || !code) return json({ ok: false, error: 'invalid_input', message: '아이디와 인증번호를 입력해 주세요.' }, 400);
+      const stu: any = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 1`).bind(uid).first();
+      if (!stu) return json({ ok: false, error: 'user_not_found', message: '해당 아이디를 찾을 수 없습니다.' }, 404);
+      const canonUid = String(stu.user_id);
+      const row: any = await env.DB.prepare(`SELECT * FROM wf_parent_verify WHERE user_id = ?`).bind(canonUid).first().catch(() => null);
+      const now = Date.now();
+      if (!row || !row.code_hash || now > Number(row.expires_at || 0)) {
+        return json({ ok: false, error: 'code_expired', message: '인증번호가 만료됐어요. 다시 요청해 주세요.' }, 400);
+      }
+      if (Number(row.attempts || 0) >= 5) {
+        return json({ ok: false, error: 'too_many_attempts', message: '시도 횟수를 초과했어요. 인증번호를 다시 요청해 주세요.' }, 429);
+      }
+      const codeHash = await hashPwd('wfverify|' + canonUid + '|' + code);
+      if (codeHash !== row.code_hash) {
+        try { await env.DB.prepare(`UPDATE wf_parent_verify SET attempts = attempts + 1 WHERE user_id = ?`).bind(canonUid).run(); } catch {}
+        return json({ ok: false, error: 'invalid_code', message: '인증번호가 일치하지 않아요.' }, 401);
+      }
+      await env.DB.prepare(`UPDATE students_erp SET wf_verified_at = ? WHERE user_id = ?`).bind(now, canonUid).run();
+      try { await env.DB.prepare(`DELETE FROM wf_parent_verify WHERE user_id = ?`).bind(canonUid).run(); } catch {}
+      return json({ ok: true, verified: true, message: '보호자 인증이 완료됐어요.' });
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // 🌐 Phase OAUTH — 카카오·네이버·구글 소셜 로그인
     // ═══════════════════════════════════════════════════════════════
