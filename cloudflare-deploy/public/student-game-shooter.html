@@ -30,14 +30,29 @@
       radial-gradient(52% 42% at 50% 108%,rgba(52,211,153,.45),transparent 70%);
     animation:mgAurora 15s ease-in-out infinite alternate}
   @keyframes mgAurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(3%,2%) scale(1.14)}100%{transform:translate(-2%,-1%) scale(1.06)}}
-  /* 🚀 떠다니는 우주 장식 */
+  /* 떠다니는 장식 파티클 — 이모지 글리프 대신 CSS 로만 그린 작은 빛 입자(테마 공용) */
   .bgfx{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-  .bgfx b{position:absolute;bottom:-10%;font-style:normal;font-weight:400;line-height:1;
-    filter:drop-shadow(0 2px 5px rgba(0,0,0,.35));will-change:transform;animation:mgFloatUp linear infinite}
+  .bgfx b{position:absolute;bottom:-10%;width:.9em;height:.9em;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#fff,#bcd6ff 55%,transparent 78%);opacity:.8;
+    box-shadow:0 0 6px 1px rgba(190,215,255,.5);will-change:transform;animation:mgFloatUp linear infinite}
   @keyframes mgFloatUp{0%{transform:translateY(0) rotate(0);opacity:0}
-    12%{opacity:.85}88%{opacity:.85}100%{transform:translateY(-118vh) rotate(48deg);opacity:0}}
+    12%{opacity:.8}88%{opacity:.8}100%{transform:translateY(-118vh) rotate(48deg);opacity:0}}
   #game.shake{animation:shake .4s}
   @keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-7px,4px)}50%{transform:translate(6px,-5px)}75%{transform:translate(-5px,5px)}}
+  /* ❤ 생명력 — 좀비가 위협선(화면 하단)까지 오면 1개씩 소모. 하트는 이모지가 아니라 CSS 도형 */
+  .livesBox{display:flex;gap:4px;align-items:center}
+  .heart{width:13px;height:12px;position:relative;transform:rotate(-45deg);background:var(--bad);flex:none;transition:transform .2s,opacity .2s}
+  .heart::before,.heart::after{content:'';position:absolute;width:13px;height:13px;background:inherit;border-radius:50%}
+  .heart::before{top:-6.5px;left:0}
+  .heart::after{left:6.5px;top:0}
+  .heart.lost{background:rgba(255,255,255,.14);transform:rotate(-45deg) scale(.72)}
+  .heart.hit{animation:heartHit .45s}
+  @keyframes heartHit{0%{transform:rotate(-45deg) scale(1.7)}100%{transform:rotate(-45deg) scale(.72)}}
+  /* 🔴 위협선 근접 경고 — 화면 하단이 붉게 펄스, 좀비가 코앞까지 왔다는 신호 */
+  .dangerFx{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .25s;
+    background:linear-gradient(0deg,rgba(220,38,38,.5) 0%,transparent 28%)}
+  .dangerFx.on{opacity:1;animation:mgDangerPulse .7s ease-in-out infinite}
+  @keyframes mgDangerPulse{50%{opacity:.55}}
 
   .hud{display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid var(--line);
     background:rgba(8,16,34,.55)}
@@ -75,6 +90,10 @@
   /* 🌌 배경 사진은 테마(우주/좀비)에 따라 JS 가 갈아끼운다 — 여기선 위치·크기만 정한다.
      아래 body 그라디언트는 사진이 못 뜰 때의 폴백으로 그대로 남겨둔다.
      두 배경 모두 중앙부가 어두워 단어 알약과 문장 칩이 그 위에서 읽힌다. */
+  /* 🧟 좀비 무대에서는 우주 장식(별·오로라·로켓·UFO)을 끈다 — 폐허도시 위에 떠다니면 딴 세상이 된다 */
+  #game.theme-zombie #field::before,
+  #game.theme-zombie #field::after,
+  #game.theme-zombie .bgfx{display:none}
   #field{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;
     background-position:center;background-size:cover;background-repeat:no-repeat}
   .monster{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
@@ -82,15 +101,16 @@
   @keyframes sway{from{transform:translateX(-8px) rotate(-5deg)}to{transform:translateX(8px) rotate(5deg)}}
   /* 🛸 실사 크리처. 8종 전부 300x300 정사각 캔버스로 구워져 있어(build-shooter-assets.py) width=height 로 끝난다.
      ⚠ aspect-ratio 나 max-height 를 쓰면 크롬이 높이제한을 폭에 되먹여 그림이 찌그러진다 — 쓰지 말 것. */
-  .monster .face{width:44px;height:44px;object-fit:contain;display:block;filter:drop-shadow(0 3px 7px rgba(0,0,0,.6))}
+  .monster .face{width:44px;height:44px;object-fit:contain;display:block;filter:drop-shadow(0 3px 7px rgba(0,0,0,.6));transform-origin:50% 100%}
   .monster .word{font-size:14px;font-weight:800;color:#fff;background:rgba(12,20,40,.85);
     border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 11px;white-space:nowrap;
     box-shadow:0 4px 12px rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
   .monster.distractor .word{border-color:rgba(255,120,120,.35)}
-  /* 👑 황금 보너스 표적 — 2배 점수 */
+  /* 💰 황금 보너스 표적 — 2배 점수. 왕관 이모지 대신 CSS 로만 그린 금빛 광채 링 */
   .monster.golden .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 12px rgba(0,0,0,.4)}
   .monster.golden .face{filter:drop-shadow(0 0 9px gold)}
-  .monster.golden::after{content:'👑';position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:15px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  .monster.golden::after{content:'';position:absolute;top:-11px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;
+    background:radial-gradient(circle,#fffbe8,#fde68a 45%,#f59e0b 75%,transparent 85%);box-shadow:0 0 9px 2px rgba(251,191,36,.9)}
   .monster:active{transform:scale(.9)}
   .monster.pop{animation:pop .28s forwards}
   @keyframes pop{to{transform:scale(1.8);opacity:0}}
@@ -115,10 +135,16 @@
      위치가 구조적으로 절대 안 맞았다(손 x≈10% vs 총 x=52%). 이제 무기를 쥔 한 장이라
      손·총이 항상 붙어 있고, 무기 종류마다 쥐는 법도 다르다.
      13장 전부 '머리'를 같은 캔버스 좌표에 맞춰 구워서 src 만 갈아끼워도 안 튄다. */
-  #turret{position:absolute;left:50%;bottom:-30px;transform:translateX(-50%) scale(.72);transform-origin:50% 100%;
-    z-index:10;width:338px;height:146px;pointer-events:none}   /* bottom 음수 = 허리 아래를 화면 밖으로 크롭 */
+  /* ⚠ translateX 가 -50% 가 아닌 이유: 캔버스 오른쪽 절반은 뻗은 무기가 차지해서
+     캔버스를 중앙정렬하면 '사람'이 왼쪽으로 치우쳐 보인다. 몸통 중심(캔버스 36.6% 지점 —
+     build-shooter-armed.py 가 출력한다)을 화면 중앙에 맞춘다. 캔버스 크기가 바뀌면 이 값도 바꿀 것.
+     캔버스 아래끝 = 허리 잘린 선이라 bottom:0 이면 잘린 선이 화면 밖으로 딱 떨어진다. */
+  #turret{position:absolute;left:50%;bottom:0;transform:translateX(-36.6%) scale(.72);transform-origin:36.6% 100%;
+    z-index:10;width:278px;height:200px;pointer-events:none}
   /* 조준 시 상체+총이 통째로 기운다. 총만 따로 돌리면 손에서 떨어지므로 함께 움직여야 한다. */
-  #soldierWrap{position:absolute;inset:0;transform-origin:50% 100%;transition:transform .16s ease-out;
+  /* 회전축 = 사수의 허리(몸통과 같은 가로 위치). 캔버스 중앙(50%)으로 두면
+     무기 쪽이 축이 돼 몸이 붕 뜬 채 돌아간다. */
+  #soldierWrap{position:absolute;inset:0;transform-origin:36.6% 100%;transition:transform .16s ease-out;
     animation:soldierBob 3.4s ease-in-out infinite alternate}
   @keyframes soldierBob{from{transform:translateY(0)}to{transform:translateY(3px)}}
   #soldierWrap.recoil{animation:soldierRecoil .2s}
@@ -129,7 +155,7 @@
   @keyframes gunSwap{0%{transform:scale(.86);opacity:.25}60%{transform:scale(1.04);opacity:1}100%{transform:scale(1)}}
   /* 총구 = 총알 출발점. setGun 이 무기별 좌표(MUZZLE)로 옮긴다. 사진과 함께 기울고 반전된다. */
   .barrel-rot{position:absolute;left:50%;top:25%;width:0;height:0;z-index:11}
-  @media (min-width:820px){ #turret{width:452px;height:195px;bottom:0;transform:translateX(-50%) scale(1)} }
+  @media (min-width:820px){ #turret{width:371px;height:266px;transform:translateX(-36.6%) scale(1)} }
   /* 🔥 화염방사기 불줄기 파티클 (총구→표적 연속 분사) */
   .flamep{position:absolute;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;z-index:9;mix-blend-mode:screen;filter:blur(1px);will-change:transform,opacity}
   /* 🤾 수류탄 투척체 + 착탄 대형 화염 */
@@ -324,31 +350,33 @@
     <button class="gunbtn" id="backBtn" title="뒤로 가기">←</button>
     <div class="stat"><span class="lab">점수</span><span class="val" id="scoreVal">0</span></div>
     <span class="lvlpill" id="lvlPill">문장 1</span>
+    <div class="livesBox" id="livesBox" title="생명력 — 좀비가 코앞까지 오면 1개씩 줄어요"></div>
     <button class="gunbtn optkebab" id="gunBtn" title="게임 설정 — 속도·무기 선택 (게임 중에도 변경 가능)">⋮</button>
     <div class="stat timer" id="timerBox"><span class="lab">남은 시간</span><span class="val" id="timerVal">60</span></div>
   </div>
 
   <div class="target">
-    <div class="hint">🎯 단어 몬스터를 <b>문장 순서대로</b> 쏘세요 · 맞히면 <b>원어민 발음</b>이 나옵니다</div>
-    <button class="listen" id="listenBtn" title="목표 문장 듣기">🔊 문장 듣기</button>
+    <div class="hint">표적을 <b>문장 순서대로</b> 쏘세요 · 맞히면 <b>원어민 발음</b>이 나옵니다 · 코앞까지 오면 생명력이 줄어요</div>
+    <button class="listen" id="listenBtn" title="목표 문장 듣기">문장 듣기</button>
     <div id="sentence" style="display:contents"></div>
   </div>
 
   <div id="field">
     <div class="bgfx" aria-hidden="true">
-      <b style="left:8%;font-size:30px;animation-duration:19s;animation-delay:-2s">🪐</b>
-      <b style="left:22%;font-size:20px;animation-duration:15s;animation-delay:-9s">⭐</b>
-      <b style="left:37%;font-size:26px;animation-duration:23s;animation-delay:-5s">🚀</b>
-      <b style="left:52%;font-size:18px;animation-duration:14s;animation-delay:-12s">✨</b>
-      <b style="left:66%;font-size:28px;animation-duration:21s;animation-delay:-1s">🛸</b>
-      <b style="left:79%;font-size:22px;animation-duration:17s;animation-delay:-7s">☄️</b>
-      <b style="left:90%;font-size:24px;animation-duration:25s;animation-delay:-14s">🌟</b>
-      <b style="left:15%;font-size:16px;animation-duration:13s;animation-delay:-6s">✨</b>
-      <b style="left:45%;font-size:20px;animation-duration:18s;animation-delay:-16s">⭐</b>
-      <b style="left:72%;font-size:16px;animation-duration:12s;animation-delay:-3s">✨</b>
+      <b style="left:8%;font-size:30px;animation-duration:19s;animation-delay:-2s"></b>
+      <b style="left:22%;font-size:20px;animation-duration:15s;animation-delay:-9s"></b>
+      <b style="left:37%;font-size:26px;animation-duration:23s;animation-delay:-5s"></b>
+      <b style="left:52%;font-size:18px;animation-duration:14s;animation-delay:-12s"></b>
+      <b style="left:66%;font-size:28px;animation-duration:21s;animation-delay:-1s"></b>
+      <b style="left:79%;font-size:22px;animation-duration:17s;animation-delay:-7s"></b>
+      <b style="left:90%;font-size:24px;animation-duration:25s;animation-delay:-14s"></b>
+      <b style="left:15%;font-size:16px;animation-duration:13s;animation-delay:-6s"></b>
+      <b style="left:45%;font-size:20px;animation-duration:18s;animation-delay:-16s"></b>
+      <b style="left:72%;font-size:16px;animation-duration:12s;animation-delay:-3s"></b>
     </div>
+    <div class="dangerFx" id="dangerFx"></div>
     <div id="combo"></div>
-    <div class="voicebadge" id="voiceBadge">🔊 음성 준비 중…</div>
+    <div class="voicebadge" id="voiceBadge">음성 준비 중…</div>
     <div class="crosshair" id="crosshair"></div>
     <div id="turret">
       <!-- 사수 사진과 총구를 한 래퍼에 담는다 — 조준 시 둘이 같이 기울고 같이 반전돼야
@@ -360,40 +388,46 @@
     </div>
   </div>
 
-  <!-- 🎤 말하기 미션 오버레이 (문장 완성 → 원어민 1회 듣기 → 3회 말하기) — 슈팅+말하기 융합 -->
+  <!-- 말하기 미션 오버레이 (문장 완성 → 원어민 1회 듣기 → 3회 말하기) — 슈팅+말하기 융합 -->
   <div class="overlay" id="speakOverlay" style="display:none">
     <div class="card">
-      <h1>🎤 말하기 미션 <span class="em">3회</span></h1>
-      <div class="say" id="speakText">—<span class="ko" id="speakKo"></span><span class="kohint">👆 문장을 누르면 한국어 뜻이 보여요</span></div>
+      <h1>말하기 미션 <span class="em">3회</span></h1>
+      <div class="say" id="speakText">—<span class="ko" id="speakKo"></span><span class="kohint">문장을 누르면 한국어 뜻이 보여요</span></div>
       <div class="listen-row">
-        <button class="listen" id="listenAgain" title="원어민 발음 다시 듣기">🔊 다시 듣기</button>
+        <button class="listen" id="listenAgain" title="원어민 발음 다시 듣기">다시 듣기</button>
         <div class="listen-spd" id="listenSpd" title="발음 속도 조절"></div>
       </div>
       <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
       <div class="mission-status" id="missionStatus">아래 버튼을 누르고 또렷하게 문장을 말하세요.</div>
-      <button class="mic-btn" id="micBtn">🎤 누르고 말하기</button>
+      <button class="mic-btn" id="micBtn">누르고 말하기</button>
       <button class="admin-pass" id="adminPass">Admin Pass (교사 수동 통과)</button>
     </div>
   </div>
 
   <div class="overlay" id="overlay">
     <div class="card" id="card">
-      <h1>문장 슈팅 <span class="em">+ 말하기</span> 🔫🎤</h1>
+      <h1>문장 슈팅 <span class="em">+ 말하기</span></h1>
       <div class="rules">
         • 위 <b>목표 문장</b>을 보고 단어를 <b>순서대로</b> 쏩니다.<br>
-        • 정답 → <b>+100점</b> & 💥 + <b>원어민 발음 재생</b> 🔊<br>
+        • 정답 → <b>+100점</b> & <b>원어민 발음 재생</b><br>
         • 오답(순서 틀림) → <b>−50점</b> & 안 터짐<br>
-        • 문장 완성 → 원어민 듣고 <b>🎤 3번 말하기</b> (성공마다 <b>+100점</b>)<br>
+        • 표적이 코앞까지 오면 → <b>생명력 -1</b> (0이 되면 종료)<br>
+        • 문장 완성 → 원어민 듣고 <b>3번 말하기</b> (성공마다 <b>+100점</b>)<br>
         • 빠른 연속 정답 → <b>콤보!</b> · 제한시간 <b>60초</b> (말하기 중엔 멈춤)
       </div>
-      <div class="gunlabel">🌐 언어 선택</div>
+      <div class="gunlabel">언어 선택</div>
       <div class="langpick" id="langPick" role="group" aria-label="게임 언어 선택">
         <button type="button" data-lang="en">English</button>
         <button type="button" data-lang="zh">中文 중국어</button>
       </div>
-      <div class="gunlabel">⚙️ 게임 설정 — 눌러서 속도·무기 선택</div>
+      <div class="gunlabel">무대 선택</div>
+      <div class="langpick" id="themePick" role="group" aria-label="게임 무대 선택">
+        <button type="button" data-theme="space">우주</button>
+        <button type="button" data-theme="zombie">좀비 도시</button>
+      </div>
+      <div class="gunlabel">게임 설정 — 눌러서 속도·무기 선택</div>
       <button class="setbtn" id="optOpenStart" type="button">
-        <span class="cur"><span id="spdSummary">🙂 보통</span> · <span id="gunSummary">🔫 권총</span></span>
+        <span class="cur"><span id="spdSummary">보통</span> · <span id="gunSummary">권총</span></span>
         <span class="kb">⋮</span>
       </button>
       <!-- 속도/무기 선택은 통합 ⋮ 모달(#gunModal)로 이동 — 아래 두 피커는 하위호환용 숨김 컨테이너 -->
@@ -588,19 +622,19 @@
   var _facePre = FACES.map(function(id){ var im = new Image(); im.src = FACE_SRC(id); return im; });
   var COMBO_WINDOW = 2500;
   var GUNS = [
-    {id:'pistol',  name:'권총',   icon:'🔫'},
-    {id:'rifle',   name:'장총',   icon:'🏹'},
-    {id:'mg',      name:'기관총', icon:'💥'},
-    {id:'shotgun', name:'산탄총', icon:'🎯'},
-    {id:'sniper',  name:'저격총', icon:'🔭'},
-    {id:'tank',    name:'전차포', icon:'💣'},
-    {id:'revolver',name:'리볼버', icon:'🤠'},
-    {id:'ar',      name:'돌격소총',icon:'🎖️'},
-    {id:'minigun', name:'미니건', icon:'🌀'},
-    {id:'railgun', name:'레일건', icon:'⚡'},
-    {id:'grenade', name:'유탄',   icon:'🧨'},
-    {id:'flame',   name:'화염방사',icon:'🔥'},
-    {id:'handnade',name:'수류탄', icon:'🤾'}
+    {id:'pistol',  name:'권총'},
+    {id:'rifle',   name:'장총'},
+    {id:'mg',      name:'기관총'},
+    {id:'shotgun', name:'산탄총'},
+    {id:'sniper',  name:'저격총'},
+    {id:'tank',    name:'전차포'},
+    {id:'revolver',name:'리볼버'},
+    {id:'ar',      name:'돌격소총'},
+    {id:'minigun', name:'미니건'},
+    {id:'railgun', name:'레일건'},
+    {id:'grenade', name:'유탄'},
+    {id:'flame',   name:'화염방사'},
+    {id:'handnade',name:'수류탄'}
   ];
   var curGun = localStorage.getItem('ess_gun') || 'pistol';
 
@@ -634,13 +668,13 @@
 
   // ⚡ 게임 속도(난이도) 5단계 — ?speed=1..5 (허브 전달) > localStorage > 보통(3)
   var SPEED_LEVELS = [
-    { lvl:1, ico:'🐢', name:'아주 천천히', mult:0.5  },
-    { lvl:2, ico:'🚶', name:'천천히',     mult:0.75 },
-    { lvl:3, ico:'🙂', name:'보통',       mult:1    },
-    { lvl:4, ico:'🏃', name:'빨리',       mult:1.4  },
-    { lvl:5, ico:'🚀', name:'아주 빨리',  mult:1.9  },
-    { lvl:6, ico:'⚡', name:'초고속',     mult:2.5  },
-    { lvl:7, ico:'🔥', name:'극한',       mult:3.2  }
+    { lvl:1, name:'아주 천천히', mult:0.5  },
+    { lvl:2, name:'천천히',     mult:0.75 },
+    { lvl:3, name:'보통',       mult:1    },
+    { lvl:4, name:'빨리',       mult:1.4  },
+    { lvl:5, name:'아주 빨리',  mult:1.9  },
+    { lvl:6, name:'초고속',     mult:2.5  },
+    { lvl:7, name:'극한',       mult:3.2  }
   ];
   var speedLvl = (function(){
     try{
@@ -660,7 +694,7 @@
     var gm=document.getElementById('gunModal');
     if(gm) [].forEach.call(gm.querySelectorAll('.sp2'), function(b){ b.classList.toggle('sel', +b.getAttribute('data-spd')===l); });
     // 시작화면 요약 갱신
-    var sp=SPEED_LEVELS[l-1], sum=document.getElementById('spdSummary'); if(sum&&sp) sum.textContent=sp.ico+' '+sp.name;
+    var sp=SPEED_LEVELS[l-1], sum=document.getElementById('spdSummary'); if(sum&&sp) sum.textContent=sp.name;
     // 진행 중 몬스터는 loop() 가 매 프레임 spdMult() 를 곱하므로 속도 변경이 자동 즉시 반영됨(별도 처리 불필요)
   }
   function buildSpeedPicker(){
@@ -668,7 +702,7 @@
     picker.innerHTML='';
     SPEED_LEVELS.forEach(function(s){
       var b=document.createElement('button'); b.className='gp'; b.setAttribute('data-spd',s.lvl);
-      b.innerHTML='<span class="ic">'+s.ico+'</span><span class="nm">'+s.name+'</span>';
+      b.innerHTML='<span class="nm">'+s.name+'</span>';
       b.addEventListener('click', function(){ setSpeed(s.lvl); });
       picker.appendChild(b);
     });
@@ -679,6 +713,7 @@
 
   var field=document.getElementById('field');
   field.style.backgroundImage = "url('" + THEMES[THEME].bg + "')";   // 🎨 테마 배경
+  try{ document.getElementById('game').classList.add('theme-' + THEME); }catch(e){}   // 테마별 장식 on/off 용
   var barrelRot=document.getElementById('barrelRot'), barrel=document.getElementById('barrel');
   var muzzle=document.getElementById('muzzle'), crosshair=document.getElementById('crosshair');
   var comboEl=document.getElementById('combo'), sentenceEl=document.getElementById('sentence');
@@ -755,9 +790,9 @@
 
   // 🐢 말하기 미션 발음 속도 — 게임 속도와 무관하게 카드에서 직접 선택(느리게/보통/빠르게), 게임 간 공유
   var LISTEN_SPEEDS = [
-    { ico:'🐢', lab:'느리게', mult:0.65 },
-    { ico:'🙂', lab:'보통',   mult:1    },
-    { ico:'🏃', lab:'빠르게', mult:1.3  }
+    { lab:'느리게', mult:0.65 },
+    { lab:'보통',   mult:1    },
+    { lab:'빠르게', mult:1.3  }
   ];
   var listenIdx = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_listen_speed'),10); return (v>=0&&v<LISTEN_SPEEDS.length)?v:1; }catch(e){ return 1; } })();
   function speakMission(cb){ speak(targetWords.join(' ').replace(/[.?!]/g,''), 0.92*LISTEN_SPEEDS[listenIdx].mult, cb, true); }
@@ -1082,7 +1117,7 @@
     function paint(){ [].forEach.call(box.children, function(b,i){ b.classList.toggle('on', i===listenIdx); }); }
     LISTEN_SPEEDS.forEach(function(s,i){
       var b=document.createElement('button'); b.type='button';
-      b.textContent=s.ico+' '+s.lab; b.title='발음 속도 '+s.lab+' (x'+s.mult+')';
+      b.textContent=s.lab; b.title='발음 속도 '+s.lab+' (x'+s.mult+')';
       b.addEventListener('click', function(){
         listenIdx=i; try{ localStorage.setItem('mangoi_listen_speed', String(i)); }catch(e){}
         paint();
@@ -1208,9 +1243,9 @@
      MUZZLE = 무기별 총구 좌표(캔버스 대비 %). 총알이 여기서 출발한다.
      build-shooter-armed.py 가 추정값을 출력하지만 그대로 믿지 않고, 마커를 찍어 눈으로 확인한 값이다. */
   var MUZZLE = {
-    pistol:[53.6,27.4], revolver:[57.7,23.5], rifle:[64.7,25.7], shotgun:[58.2,25.2],
-    sniper:[92.0,35.2], ar:[63.9,31.8], mg:[93.1,28.4], minigun:[97.9,26.9],
-    flame:[83.0,41.7], tank:[79.5,9.5], railgun:[88.8,3.2], grenade:[83.8,6.8], handnade:[68.2,31.1]
+    pistol:[75.5,46.5], revolver:[81.2,44.4], rifle:[90.7,42.3], shotgun:[85.6,43.0],
+    sniper:[93.1,46.9], ar:[86.5,49.4], mg:[98.7,36.1], minigun:[90.2,34.7],
+    flame:[72.0,46.5], tank:[82.8,12.0], railgun:[88.2,1.8], grenade:[83.9,2.7], handnade:[62.5,18.4]
   };
   function armedSrc(id){ return '/img/shooter-armed-' + (MUZZLE[id] ? id : 'pistol') + '.webp'; }
   // ⚠ 13장을 전부 프리로드하지 않는다 — 한 번에 한 자루만 쓰므로 그건 낭비다(장당 ~36KB).
@@ -1589,6 +1624,27 @@
     });
   })();
 
+  /* 🎨 무대 선택(우주 / 좀비 도시)
+     배경·적 목록이 로드 시점에 갈리므로 언어 선택과 같이 ?theme= 을 바꿔 다시 읽는다.
+     ⚠ 언어 전환과 달리 ?sentence= 는 그대로 둔다 — 무대가 바뀌어도 출제 문장은 같아야 한다. */
+  (function(){
+    var pick = document.getElementById('themePick');
+    if(!pick) return;
+    [].forEach.call(pick.querySelectorAll('button'), function(b){
+      if(b.getAttribute('data-theme') === THEME) b.classList.add('on');
+      b.addEventListener('click', function(){
+        var t = b.getAttribute('data-theme');
+        if(t === THEME) return;
+        try{ localStorage.setItem('mangoi_shooter_theme', t); }catch(e){}
+        try{
+          var u = new URL(location.href);
+          u.searchParams.set('theme', t);
+          location.replace(u.toString());
+        }catch(e){ location.replace(location.pathname + '?theme=' + t); }
+      });
+    });
+  })();
+
   document.getElementById('startBtn').addEventListener('click', startGame);
   document.getElementById('listenBtn').addEventListener('click', function(){ if(running) speakSentence(); });
   (function(){
@@ -1613,6 +1669,7 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730200032 -->
+<!-- BUILD:20260730203132 -->
 </body>
 </html>
+          
