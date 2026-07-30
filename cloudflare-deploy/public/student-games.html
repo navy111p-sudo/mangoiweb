@@ -1520,10 +1520,11 @@ const HUB_GAMES = [
 /* ============================================================
    허브 네비게이션
    ============================================================ */
-// 🌐 언어별 카드 제목: '슈팅+말하기' 는 중국어 모드에서 '중국어 슈팅+말하기' 로 (나머지는 그대로)
-// ⚠ '우주 배틀'(battle3d)은 게임 안에 영어/중국어 전환 버튼이 있어 한 게임이 두 언어를 다 담는다
-//   → 허브 언어에 따라 '중국어 배틀'로 바꿔 부르면 영어판이 없는 것처럼 보인다. 언어 무관 단일 제목 유지.
-function _gameTitle(g){ if(g.mode==='shooter') return (GAME_LANG==='zh') ? '중국어 슈팅+말하기' : '슈팅+말하기'; return g.ttl; }
+// 🌐 카드 제목은 언어와 무관하게 하나로 간다.
+// ⚠ 예전엔 중국어 모드에서 '중국어 슈팅+말하기' 로 바꿔 불렀는데, 이제 게임 안에 영어/중국어
+//   선택 버튼이 있어 한 게임이 두 언어를 다 담는다 → 제목에 '중국어'를 붙이면 영어판이 없는
+//   것처럼 보인다(사장님 지적, 2026-07-30). '우주 배틀'(battle3d)도 같은 이유로 단일 제목이다.
+function _gameTitle(g){ return g.ttl; }
 function hubRenderMenu(){
   // 3D 배틀은 영어/중국어 모두 지원(glang 전달) — 전체 노출
   var list = HUB_GAMES.slice();
@@ -2481,7 +2482,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260730214842 -->
+<!-- BUILD:20260730215532 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
