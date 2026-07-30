@@ -159,7 +159,10 @@
       card.appendChild(photo);
 
       const name = t.english_name || t.korean_name || '강사';
-      const spec = t.group_name || t.certifications || '영어 회화';
+      /* 🔴 (2026-07-30) group_name(재택/사무실 등 내부 인사 분류)을 프론트에 노출하지 않는다.
+         "Office Teacher"/"Home-based" 같은 값이 학부모 화면에 그대로 떴었다(제보) — 학부모·학생
+         이 알 필요 없는 내부 배정 정보. DB 값·관리자 화면은 그대로 두고 여기서만 안 보여준다. */
+      const spec = t.certifications || '영어 회화';
       const career = t.career || '';
       const careerStr = career ? (career + (/^\d+$/.test(career) ? '년차' : '')) : '';
       const star = '⭐ 4.9' + (careerStr ? ' · ' + careerStr : '');
@@ -220,7 +223,8 @@
     headInfo.appendChild(nameDiv);
     const specDiv = document.createElement('div');
     specDiv.style.cssText = 'font-size:13px;color:#94a3b8;margin-top:4px';
-    (function(){ var _f={ph:'/img/flag-ph.svg?v=1',us:'/img/flag-us.svg?v=1',gb:'/img/flag-gb.svg?v=1',cn:'/img/flag-cn.svg?v=1'}; var _c=(window.__teacherCat?window.__teacherCat(t):'ph'); var _n=document.createTextNode(' ' + (t.group_name || '영어 회화')); var _i=document.createElement('img'); _i.src=_f[_c]||_f.ph; _i.alt=''; _i.className='spec-flag'; specDiv.appendChild(_i); specDiv.appendChild(_n); })();
+    /* 🔴 (2026-07-30) 여기도 group_name 노출 지점이었다 — 카드 목록과 동일하게 제거. */
+    (function(){ var _f={ph:'/img/flag-ph.svg?v=1',us:'/img/flag-us.svg?v=1',gb:'/img/flag-gb.svg?v=1',cn:'/img/flag-cn.svg?v=1'}; var _c=(window.__teacherCat?window.__teacherCat(t):'ph'); var _n=document.createTextNode(' ' + (t.certifications || '영어 회화')); var _i=document.createElement('img'); _i.src=_f[_c]||_f.ph; _i.alt=''; _i.className='spec-flag'; specDiv.appendChild(_i); specDiv.appendChild(_n); })();
     headInfo.appendChild(specDiv);
     const statDiv = document.createElement('div');
     statDiv.style.cssText = 'font-size:12px;color:#10b981;margin-top:2px';
@@ -257,7 +261,8 @@
       ['🌏 출신', t.origin_region],
       ['📅 가능 요일', t.available_days],
       ['⏰ 가능 시간', t.available_hours],
-      ['👥 그룹', t.group_name],
+      // 🔴 (2026-07-30) '👥 그룹' 행 삭제 — 재택/사무실 등 내부 인사 분류라 학부모·학생용이 아님(제보 #5).
+      //    데이터(teacher_profiles.group_name)와 관리자 화면은 그대로 유지, 여기서만 안 보여준다.
     ].filter(function(p) { return p[1]; });
 
     if (fields.length > 0) {

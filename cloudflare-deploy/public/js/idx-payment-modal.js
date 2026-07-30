@@ -6,7 +6,13 @@
   let selectedProgram = null;
   let selectedPrice = 0;
   let selectedMethod = null;
-  // ─── 신규/연장 분기 상태 ───
+  /* ─── 신규/연장 분기 상태 ───
+     🔴 (2026-07-30) 연장('extend'/'auto') 카드는 이제 클릭 즉시 /enroll.html 로 리다이렉트한다
+     (제보 #4 — extPackage.id 가 서버 가격표에 없어 결제수단을 뭘 골라도 항상 거부되던 버그,
+     B안 채택: enroll.html 의 이미 검증된 연장 기능 재사용). payMode 는 이제 'new' 외의 값이
+     되지 않으므로, 아래 extStudent/extPackage/ADDON_CATALOG 와 payMode==='extend' 로 갈라지는
+     코드들은 전부 도달 불가능(dead) 상태다 — 당장 지우진 않았지만(범위가 넓어 위험도가 높음),
+     새 기능을 여기 추가하지 말 것. '자동연장'(매월 할인) 개념 자체를 되살리려면 별도 설계 필요. */
   let payMode = null;            // 'new' | 'extend'
   let extStudent = null;         // { uid, name, level, current_program, remaining, expire_at, total_classes, months }
   let extMode = 'same';          // 'same' | 'upgrade' | 'addon'
@@ -255,17 +261,24 @@
   document.querySelectorAll('.paymode-card').forEach(card => {
     card.addEventListener('click', () => {
       const mode = card.dataset.mode;
-      // 자동연장(auto)은 내부적으로 extend 흐름을 재사용 (학생 인증 → 패키지 선택 → 결제수단)
-      // 다만 추가 할인과 자동결제 메타가 적용됨
-      payMode = (mode === 'auto') ? 'extend' : mode;
-      window._isAutoRenew = (mode === 'auto');
+
+      /* 🔁 (2026-07-30) 연장·자동연장 → 수강신청 페이지(enroll.html)로 통일 — 제보 #4, B안.
+         이 모달의 연장 흐름(업그레이드·부가옵션 포함)은 extPackage.id(예: '1on1-8-extend',
+         'addon-8')를 서버 가격표가 전혀 모르는 값으로 만들어, 결제수단을 뭘 골라도 항상
+         거부되고 있었다(한 번도 성공한 적 없음). enroll.html 에는 같은 요일·시간·강사로
+         이어지는 연장 기능이 이미 정상 동작 중이라(서버가 금액을 그때그때 재계산), 그걸 그대로 쓴다.
+         ⚠️ 트레이드오프: '자동연장'(매월 자동결제 할인)은 enroll.html에 없는 개념이라, 지금은
+            일반 연장과 동일하게 처리된다(부가옵션·자동결제도 마찬가지). 둘 다 "고장난 상태"보다는
+            "부가기능 없이 정상 동작"이 우선이라는 판단 — 자동연장을 살리려면 별도 기능 개발 필요. */
+      if (mode === 'extend' || mode === 'auto') {
+        location.href = '/enroll.html';
+        return;
+      }
+
+      payMode = mode;
       document.querySelectorAll('.paymode-card.selected').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      setTimeout(() => {
-        payGoStep(1);
-        // 🆕 로그인한 학생이면 '학생 확인' 단계를 자동 통과
-        if (payMode === 'extend') setTimeout(payAutoVerifyIfLoggedIn, 280);
-      }, 180);
+      setTimeout(() => { payGoStep(1); }, 180);
     });
   });
 
@@ -307,6 +320,20 @@
       card.classList.add('selected');
       selectedProgram = card.dataset.program;
       selectedPrice = Number(card.dataset.price) || 0;
+
+      /* 🔒 (2026-07-30) 비로그인 결제 차단 — 제보 #1.
+         결제 어느 단계에도 로그인 검사가 없어서, 회원가입 없이도 카드/가상계좌 결제가
+         끝까지 완료되고 있었다(결제기록이 학생 계정에 안 묶여 이후 수강배정·환불 처리 불가).
+         유료 상품(무료체험·상담 제외)을 비로그인 상태로 고르면 여기서 막고 로그인창을 띄운다.
+         서버(api-pay.ts create-order/manual-request)도 uid 없으면 거부하도록 이중으로 막아뒀다 —
+         여기 클라이언트 가드는 UX 용이고, 실제 방어선은 서버 쪽이다. */
+      if (selectedPrice > 0 && !payIsLoggedIn()) {
+        document.querySelectorAll('.product-card.selected').forEach(c => c.classList.remove('selected'));
+        card.classList.remove('selected');
+        if (typeof window.openLoginModal === 'function') window.openLoginModal();
+        else alert('로그인 후 이용해 주세요.');
+        return;
+      }
 
       /* 📝 (2026-07-29) 1:1 수강권은 '수강신청 페이지'로 보낸다 — 제보 #2 대응.
          이 결제창은 횟수(상품)만 받고 강사·요일·시간·개월·시작일을 아예 묻지 않는다.
@@ -430,6 +457,8 @@
     try {
       var _u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
       var student = (document.getElementById('pay-student') || {}).value || '';
+      // 🔒 (2026-07-30) 서버가 uid 를 세션 토큰으로 재검증하므로(제보 #1) token 도 함께 보낸다.
+      var _token = (function(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } })();
       const res = await fetch('/api/pay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -438,11 +467,17 @@
           payer: payer,
           student: student,
           method: 'card',
-          uid: (_u && _u.uid) ? _u.uid : null
+          uid: (_u && _u.uid) ? _u.uid : null,
+          token: _token
         })
       });
       order = await res.json().catch(function(){ return null; });
       if (!order || !order.ok) {
+        if (order && order.error === 'auth_required') {
+          alert('로그인이 필요합니다. 다시 로그인 후 진행해 주세요.');
+          if (typeof window.openLoginModal === 'function') window.openLoginModal();
+          return;
+        }
         alert('주문을 만들 수 없습니다: ' + ((order && order.message) || '상품을 다시 선택해 주세요.'));
         return;
       }
@@ -498,6 +533,7 @@
     try {
       var _u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
       var student = (document.getElementById('pay-student') || {}).value || '';
+      var _token = (function(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } })();
       const res = await fetch('/api/pay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -506,11 +542,17 @@
           payer: payer,
           student: student,
           method: 'virtual',
-          uid: (_u && _u.uid) ? _u.uid : null
+          uid: (_u && _u.uid) ? _u.uid : null,
+          token: _token
         })
       });
       order = await res.json().catch(function(){ return null; });
       if (!order || !order.ok) {
+        if (order && order.error === 'auth_required') {
+          alert('로그인이 필요합니다. 다시 로그인 후 진행해 주세요.');
+          if (typeof window.openLoginModal === 'function') window.openLoginModal();
+          return;
+        }
         alert('주문을 만들 수 없습니다: ' + ((order && order.message) || '상품을 다시 선택해 주세요.'));
         return;
       }
@@ -1223,6 +1265,7 @@
           // 연장 전용 메타
           is_extension: true,
           uid: extStudent.uid,
+          token: (function(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } })(),
           base_program: extPackage.baseCourseId || extStudent.current_program,
           carry_over: extStudent.remaining || 0,
           addons: Array.from(extAddons),
@@ -1232,6 +1275,9 @@
           auto_renew_cycle: isAuto ? 'monthly' : null,
         };
       } else {
+        // 🔒 (2026-07-30) 서버가 로그인을 요구하므로(제보 #1) uid/token 을 함께 보낸다.
+        var _mrU = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        var _mrToken = (function(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } })();
         bodyPayload = {
           payer_name: payer,
           student_name: student,
@@ -1243,6 +1289,8 @@
           referrer: document.getElementById('pay-referrer').value.trim(),
           coupon_code: document.getElementById('pay-coupon').value.trim(),
           memo: document.getElementById('pay-memo').value.trim() + ' [즉석결제완료]',
+          uid: (_mrU && _mrU.uid) ? _mrU.uid : null,
+          token: _mrToken,
         };
       }
       /* 🔴 (2026-07-29) 여기서 부르던 '/api/student/payment' 는 서버에 아예 없는 주소라
@@ -1254,7 +1302,16 @@
         body: JSON.stringify(bodyPayload)
       });
       const d = await r.json().catch(() => null);
-      if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || '접수 처리 실패');
+      if (!d || !d.ok) {
+        if (d && d.error === 'auth_required') {
+          alert('로그인이 필요합니다. 다시 로그인 후 진행해 주세요.');
+          if (typeof window.openLoginModal === 'function') window.openLoginModal();
+          submitBtn.disabled = false;
+          submitBtn.textContent = '✅ 결제 완료 확인';
+          return;
+        }
+        throw new Error((d && (d.message || d.error)) || '접수 처리 실패');
+      }
 
       // 성공 화면 — 즉시 수강 활성화 톤
       document.getElementById('pay-step3').style.display = 'none';

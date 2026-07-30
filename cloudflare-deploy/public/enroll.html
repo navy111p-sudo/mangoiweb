@@ -74,12 +74,26 @@
   <div class="step">
     <h2>3️⃣ <span data-ko="요일·시간" data-en="Days & time">요일·시간</span></h2>
     <div class="row"><span class="lbl" data-ko="요일" data-en="Days">요일</span><div class="grid" id="gDays"></div></div>
+    <!-- 🔴 (2026-07-30) 주말 수업은 별도 협의 정책 — 제보 #2. 요일칩에서 토·일을 빼는 대신 안내로 대체 -->
+    <div class="row" style="margin-top:6px">
+      <span class="lbl"></span>
+      <a href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener" style="font-size:12px;color:#93c5fd;text-decoration:none" data-ko="🗓 주말(토·일) 수업은 별도 문의 →" data-en="🗓 Weekend classes: contact us →">🗓 주말(토·일) 수업은 별도 문의 →</a>
+    </div>
     <div class="row">
       <span class="lbl" data-ko="시작 시각" data-en="Start time">시작 시각</span>
       <select id="selTime"></select>
       <span class="lbl" data-ko="시작일" data-en="Start date">시작일</span>
       <input type="date" id="selDate">
     </div>
+    <!-- 🕐 (2026-07-30) 요일별 다른 시간 — 제보 #2-3. 기본은 끔(전 요일 같은 시간, 위 selTime 그대로 씀).
+         켜면 요일마다 개별 시각을 고를 수 있다 — 대부분은 안 써도 되니 기본은 단순하게 둔다. -->
+    <div class="row" style="margin-top:2px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;cursor:pointer;user-select:none">
+        <input type="checkbox" id="perDayToggle" style="width:15px;height:15px;accent-color:#fbbf24;cursor:pointer">
+        <span data-ko="요일마다 다른 시간으로 설정" data-en="Set a different time for each day">요일마다 다른 시간으로 설정</span>
+      </label>
+    </div>
+    <div id="perDayTimes" style="display:none;margin-top:6px"></div>
     <div id="slotMsg" class="note"></div>
   </div>
 
@@ -101,7 +115,9 @@
     TOKEN = localStorage.getItem('mango_token') || null;
   } catch(e){}
 
-  var st = { teacher:null, teacherName:'', weekly:2, months:1, minutes:20, days:[], time:'16:00', date:'' };
+  /* 🕐 (2026-07-30) st.times = { 요일: 'HH:MM' } — 제보 #2-3. st.time 은 "요일마다 다른 시간" 을
+     끈 기본 상태에서 전 요일에 적용되는 공통 시각(기존 UI 그대로)이고, perDayOn=true 면 개별로 쓴다. */
+  var st = { teacher:null, teacherName:'', weekly:2, months:1, minutes:20, days:[], time:'16:00', times:{}, perDayOn:false, date:'' };
 
   /* 🔗 (2026-07-29) 홈 결제창에서 1:1 수강권을 고르면 여기로 넘어온다(?program=1on1-8).
      거기서 고른 '회차'를 버리지 않고 주 횟수·기간으로 이어받는다. 총 회차 = 주횟수 × 4 × 개월. */
@@ -133,10 +149,14 @@
   fetch('/api/pay/enroll/teachers').then(function(r){return r.json();}).then(function(d){
     var box = el('tList');
     if (!d || !d.ok || !d.teachers || !d.teachers.length) { box.innerHTML = '<div class="bad">강사 목록을 불러오지 못했어요</div>'; return; }
+    /* 🔗 (2026-07-30) 사진·MBTI 노출 — 제보 #2-1. 사진 URL이 있어도 깨질 수 있어(onerror)
+       이모지로 되돌린다. 관리자가 아직 이 강사를 프로필과 연결 안 했으면 photo/mbti 가 빈 값. */
     box.innerHTML = d.teachers.map(function(t){
       return '<div class="tcard" data-id="'+esc(t.id)+'" data-name="'+esc(t.name)+'">'
-        + (t.photo ? '<img src="'+esc(t.photo)+'" alt="">' : '<div style="font-size:34px">🧑‍🏫</div>')
-        + '<div class="nm">'+esc(t.name)+'</div></div>';
+        + (t.photo ? '<img src="'+esc(t.photo)+'" alt="" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{style:\'font-size:34px\',textContent:\'🧑‍🏫\'}))">' : '<div style="font-size:34px">🧑‍🏫</div>')
+        + '<div class="nm">'+esc(t.name)+'</div>'
+        + (t.mbti ? '<div style="font-size:10.5px;color:#93c5fd;font-weight:700;margin-top:2px">'+esc(t.mbti)+'</div>' : '')
+        + '</div>';
     }).join('');
     box.addEventListener('click', function(ev){
       var c = ev.target.closest('.tcard'); if (!c) return;
@@ -163,10 +183,13 @@
     chips('gMonths', [{v:1,t:'1개월'},{v:3,t:'3개월'},{v:6,t:'6개월',dc:'-5%'},{v:12,t:'12개월',dc:'-10%'}], st.months, function(v){ st.months=v; renderOpts(); refresh(); });
     chips('gMinutes', [{v:20,t:'20분'},{v:40,t:'40분 (×2)'}], st.minutes, function(v){ st.minutes=v; renderOpts(); refresh(); });
     var DN = ['일','월','화','수','목','금','토'];
+    // 🔴 (2026-07-30) 정책상 평일(월~금)만 선택 가능 — 토(6)·일(0)은 칩에서 아예 뺀다(제보 #2-2).
+    //    st.weekly 최댓값이 5(주5회)라 월~금 5일과 정확히 맞아떨어짐.
+    var WEEKDAY_IDX = [1,2,3,4,5];
     var box = el('gDays');
-    box.innerHTML = DN.map(function(n,i){
+    box.innerHTML = WEEKDAY_IDX.map(function(i){
       var on = st.days.indexOf(i) >= 0;
-      return '<div class="chip'+(on?' on':'')+'" data-v="'+i+'">'+n+'</div>';
+      return '<div class="chip'+(on?' on':'')+'" data-v="'+i+'">'+DN[i]+'</div>';
     }).join('');
     box.onclick = function(ev){
       var c = ev.target.closest('.chip'); if (!c) return;
@@ -175,18 +198,44 @@
       if (ix >= 0) st.days.splice(ix,1);
       else { if (st.days.length >= st.weekly) st.days.shift(); st.days.push(v); }
       st.days.sort();
-      renderOpts(); refresh();
+      renderOpts(); renderPerDayTimes(); refresh();
     };
+    renderPerDayTimes();
+  }
+
+  var DN2 = ['일','월','화','수','목','금','토'];
+  /* 시간 select 옵션 HTML (06:00~23:40, 10분 단위) — selTime·요일별 선택 공용 */
+  function timeOptionsHtml(selected){
+    var opts = [];
+    for (var m = 6*60; m <= 23*60+40; m += 10) {
+      var hh = String(Math.floor(m/60)).padStart(2,'0'), mm = String(m%60).padStart(2,'0');
+      var v = hh+':'+mm;
+      opts.push('<option value="'+v+'"'+(v===selected?' selected':'')+'>'+v+'</option>');
+    }
+    return opts.join('');
+  }
+  /* 🕐 (2026-07-30) 요일마다 다른 시간 — 제보 #2-3. perDayOn 이 꺼져 있으면 아무 것도 안 그림
+     (기존처럼 selTime 하나로 전 요일 통일). 켜져 있으면 st.days 각각에 시간 select 를 하나씩 그린다. */
+  function renderPerDayTimes(){
+    var box = el('perDayTimes');
+    if (!st.perDayOn || !st.days.length) { box.innerHTML = ''; box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    box.innerHTML = st.days.map(function(d){
+      var cur = st.times[d] || st.time;
+      return '<div class="row" style="margin-top:4px"><span class="lbl">'+DN2[d]+'</span>'
+        + '<select data-day="'+d+'" class="perDaySel">'+timeOptionsHtml(cur)+'</select></div>';
+    }).join('');
+    box.querySelectorAll('.perDaySel').forEach(function(sel){
+      var d = Number(sel.getAttribute('data-day'));
+      st.times[d] = sel.value;   // 렌더 직후 현재값으로 동기화(요일 추가 시 기본값 채움)
+      sel.onchange = function(){ st.times[d] = sel.value; refresh(); };
+    });
   }
 
   /* 시간·날짜 */
   (function(){
-    var sel = el('selTime'), opts = [];
-    for (var m = 6*60; m <= 23*60+40; m += 10) {
-      var hh = String(Math.floor(m/60)).padStart(2,'0'), mm = String(m%60).padStart(2,'0');
-      opts.push('<option value="'+hh+':'+mm+'"'+((hh+':'+mm)===st.time?' selected':'')+'>'+hh+':'+mm+'</option>');
-    }
-    sel.innerHTML = opts.join('');
+    var sel = el('selTime');
+    sel.innerHTML = timeOptionsHtml(st.time);
     sel.onchange = function(){ st.time = sel.value; refresh(); };
     var d = new Date(Date.now() + 86400000 + 9*3600*1000); // 기본 = 내일(KST)
     st.date = d.toISOString().slice(0,10);
@@ -194,7 +243,23 @@
     inp.value = st.date;
     inp.min = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
     inp.onchange = function(){ st.date = inp.value; refresh(); };
+    // 🕐 요일마다 다른 시간 토글 — 끄면 selTime 행을 다시 보여주고 개별값을 지운다.
+    var toggle = el('perDayToggle');
+    var uniformRow = sel.closest('.row');
+    toggle.onchange = function(){
+      st.perDayOn = toggle.checked;
+      uniformRow.style.display = st.perDayOn ? 'none' : '';
+      if (!st.perDayOn) st.times = {};
+      renderPerDayTimes(); refresh();
+    };
   })();
+
+  /* 요일별 st.times 를 서버에 보낼 형태로 — perDayOn 꺼져 있으면 전 요일에 st.time 을 채워 채운다 */
+  function timesPayload(){
+    var out = {};
+    st.days.forEach(function(d){ out[d] = st.perDayOn ? (st.times[d] || st.time) : st.time; });
+    return out;
+  }
 
   /* 가격 + 슬롯 확인 (디바운스) */
   function refresh(){
@@ -214,7 +279,7 @@
     clearTimeout(checkTimer);
     checkTimer = setTimeout(function(){
       fetch('/api/pay/enroll/check', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ teacher_id:st.teacher, weekly:st.weekly, months:st.months, minutes:st.minutes, days:st.days, time:st.time, start_date:st.date }) })
+        body: JSON.stringify({ teacher_id:st.teacher, weekly:st.weekly, months:st.months, minutes:st.minutes, days:st.days, times:timesPayload(), start_date:st.date }) })
         .then(function(r){return r.json();}).then(function(d){
           if (!d || !d.ok) { msg.innerHTML = '<span class="bad">확인 실패: '+esc((d&&d.error)||'오류')+'</span>'; return; }
           if (d.ok_to_book) {
@@ -234,7 +299,7 @@
     var btn = el('btnPay');
     btn.disabled = true; btn.textContent = '🔄 결제창 여는 중…';
     fetch('/api/pay/enroll/create-order', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ uid:UID, token:TOKEN, teacher_id:st.teacher, weekly:st.weekly, months:st.months, minutes:st.minutes, days:st.days, time:st.time, start_date:st.date }) })
+      body: JSON.stringify({ uid:UID, token:TOKEN, teacher_id:st.teacher, weekly:st.weekly, months:st.months, minutes:st.minutes, days:st.days, times:timesPayload(), start_date:st.date }) })
       .then(function(r){return r.json();}).then(function(o){
         if (!o || !o.ok) {
           btn.disabled = false; btn.textContent = '결제하기';
@@ -286,9 +351,17 @@
       var wk = (CUR.days||[]).length;
       // 요일 패턴을 서버가 확신하지 못하면(중간에 요일 변경 등) 연장 카드를 숨기고 신규 신청으로 유도
       if (!CUR.days_resolved || !(wk===1||wk===2||wk===3||wk===5)) return;
+      // 🕐 (2026-07-30) 요일별 시간도 마찬가지로 확실할 때만 연장 카드를 보여준다 — 제보 #2-3.
+      if (!CUR.times_resolved) return;
+      // 모든 요일이 같은 시각이면 기존처럼 한 번만 표시, 요일마다 다르면 각각 표시.
+      var timeList = CUR.days.map(function(i){ return (CUR.times && CUR.times[i]) || CUR.time; });
+      var sameTime = timeList.every(function(t){ return t === timeList[0]; });
+      var dayTimeStr = sameTime
+        ? CUR.days.map(function(i){ return DN2[i]; }).join('·') + ' ' + esc(timeList[0])
+        : CUR.days.map(function(i, idx){ return DN2[i] + ' ' + esc(timeList[idx]); }).join(' · ');
       el('renewInfo').innerHTML =
         '👩‍🏫 <b>'+esc(CUR.teacher_name||'담당 선생님')+'</b> · '
-        + CUR.days.map(function(i){ return DN2[i]; }).join('·') + ' ' + esc(CUR.time) + ' (' + CUR.minutes + '분)<br>'
+        + dayTimeStr + ' (' + CUR.minutes + '분)<br>'
         + '📅 남은 수업 <b>'+CUR.remaining+'회</b> · 종료 예정 <b>'+esc(CUR.last_date)+'</b>'
         + (CUR.days_left <= 7 ? ' <span style="color:#fca5a5">('+CUR.days_left+'일 남음)</span>' : '');
       el('stRenew').style.display = 'block';

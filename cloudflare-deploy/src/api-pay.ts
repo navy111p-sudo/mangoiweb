@@ -16,6 +16,7 @@ import { json, parseJsonBody } from './api-util';
 import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
 import { handleEnrollApi, enrollCreateSchedules } from './enroll-ops';
+import { authUidFromRequest } from './auth-token';
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 // 토스 클라이언트 키(공개). 실전 전환 시 env.TOSS_CLIENT_KEY 를 live_ck_* 로 설정하면 코드수정 없이 교체됨.
@@ -107,6 +108,19 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'not_payable', message: '이 상품은 온라인 결제 대상이 아닙니다.' }, 400);
     }
 
+    /* 🔒 (2026-07-30) 비로그인 결제 차단 — 제보 #1, 서버 쪽 최종 방어선.
+       클라이언트 가드(idx-payment-modal.js)는 우회 가능하므로, 실제 보안 경계는 여기다.
+       uid 는 클라이언트가 보낸 값을 그대로 믿지 않고 세션 토큰으로 재검증한다(enroll-ops.ts
+       renew-order 와 동일 패턴) — 그래야 "아무 uid나 적어서 보내는" 위조를 막는다. */
+    const authUid = await authUidFromRequest(request, url, env, body);
+    if (!authUid) {
+      return json({ ok: false, error: 'auth_required', message: '로그인 후 결제할 수 있습니다.' }, 401);
+    }
+    if (uid && authUid !== uid) {
+      return json({ ok: false, error: 'uid_mismatch', message: '로그인 정보가 일치하지 않습니다. 다시 로그인해 주세요.' }, 403);
+    }
+    const verifiedUid = authUid;
+
     // 서버 생성 주문번호(추측 어렵게). 시각은 요청 헤더 기반이 아닌 Date.now() 사용.
     const rnd = bytesHex(crypto.getRandomValues(new Uint8Array(6)));
     const orderId = `MGI-${Date.now().toString(36).toUpperCase()}-${rnd}`;
@@ -114,7 +128,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       await env.DB.prepare(
         `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, phone, created_at)
          VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`
-      ).bind(orderId, uid, program, amount, method_, payer, student, phone, Date.now()).run();
+      ).bind(orderId, verifiedUid, program, amount, method_, payer, student, phone, Date.now()).run();
     } catch (e) {
       return json({ ok: false, error: 'order_create_failed', message: String((e as any)?.message || e) }, 500);
     }
@@ -149,6 +163,17 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'missing_method', message: '결제수단을 선택해 주세요.' }, 400);
     }
 
+    /* 🔒 (2026-07-30) 비로그인 결제 차단 — 제보 #1. create-order 와 동일한 이유·동일한 방식.
+       'other'(맞춤 상담)도 실제 금액이 찍힌 payment_orders 행이 만들어지므로 예외 없이 로그인 요구. */
+    const authUid = await authUidFromRequest(request, url, env, body);
+    if (!authUid) {
+      return json({ ok: false, error: 'auth_required', message: '로그인 후 접수할 수 있습니다.' }, 401);
+    }
+    if (uid && authUid !== uid) {
+      return json({ ok: false, error: 'uid_mismatch', message: '로그인 정보가 일치하지 않습니다. 다시 로그인해 주세요.' }, 403);
+    }
+    const verifiedUid2 = authUid;
+
     // 금액: 서버 가격표가 정본. 가격표에 없는 상담형(other) 만 입력 금액을 받는다.
     const priced = PRICES[program];
     let amount: number;
@@ -173,7 +198,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       await env.DB.prepare(
         `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, phone, created_at, raw)
          VALUES (?, ?, ?, ?, 'await_deposit', ?, ?, ?, ?, ?, ?)`
-      ).bind(orderId, uid, program, amount, method_, payer, student, phone, Date.now(),
+      ).bind(orderId, verifiedUid2, program, amount, method_, payer, student, phone, Date.now(),
              JSON.stringify({ contact, memo, source: 'home_payment_modal' }).slice(0, 2000)).run();
     } catch (e) {
       return json({ ok: false, error: 'request_create_failed', message: String((e as any)?.message || e) }, 500);
