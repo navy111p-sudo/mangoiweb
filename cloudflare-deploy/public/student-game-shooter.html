@@ -805,16 +805,42 @@
       .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
       .then(function(b){ var u=URL.createObjectURL(b); ttsCache[text]=u; return u; });
   }
-  function prefetchTTS(text){ text=(text||'').trim(); if(!text || ttsCache[text]) return; ttsFetch(text).catch(function(){}); }
+  function prefetchTTS(text){ text=(text||'').trim(); if(!text || ttsCache[text]) return;
+    if(GLANG==='zh') return;   // 🀄 중국어는 브라우저 음성을 쓰므로 서버 음성을 미리 받지 않는다(깨진 소리·헛트래픽)
+    ttsFetch(text).catch(function(){}); }
   function playUrl(u, rate, cb){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.onended=cb||null; ttsAudio.src=u; ttsAudio.playbackRate=rate||1; ttsAudio.play().catch(function(){ if(cb) cb(); }); }catch(e){ if(cb) cb(); } }  // ⚡ 재생속도=7단계 반영 · cb=재생 완료 콜백
+  /* 🀄 중국어는 브라우저(OS) 만다린 음성을 '먼저' 쓴다.
+     서버 /api/voice/tts 의 zh 경로는 CF 발신 구글TTS 라 깨진 소리가 나온다 —
+     화면의 한자와 다른 발음이 들린다는 제보가 실제로 이것이었다.
+     서버 코드(api-games.ts) 주석에도 "zh 는 서버 정상 경로 없음, 프론트가 브라우저 음성을
+     우선하도록 정리됨, 서버 zh 는 최후 폴백"이라고 적혀 있는데 이 게임만 반대로 돼 있었다.
+     ⚠ 서버가 200 + audio/mpeg 로 '깨진 소리'를 주기 때문에 ttsFetch 의 실패 폴백으로는 안 걸린다.
+        반드시 호출 순서를 뒤집어야 한다. */
+  function zhVoiceReady(){ return !!(synth && enVoice && /^zh/i.test(enVoice.lang || '')); }
   function speak(text, rate, cb, fixed){
     text=(text||'').trim(); if(!text){ if(cb) cb(); return; }
     // fixed=true → 게임 속도(7단계) 배수를 안 곱함(말하기 미션 듣기 등 절대 속도 재생)
     var pr = Math.max(0.5, Math.min(3.2, (rate||1) * (fixed?1:spdMult())));   // ⚡ 상단 7단계 속도 → 발음 속도
+    if(GLANG==='zh'){
+      if(!zhVoiceReady()) pickVoice();          // voiceschanged 가 늦게 오는 첫 재생 대비
+      if(zhVoiceReady()){ synthSpeak(text, pr, cb); return; }
+    }
     if(ttsCache[text]){ playUrl(ttsCache[text], pr, cb); return; }      // 미리받은 음성 즉시 재생
-    ttsFetch(text).then(function(u){ playUrl(u, pr, cb); }).catch(function(){ synthSpeak(text, pr, cb); }); // 클라우드 우선(zh=서버가 만다린) → 실패 시 브라우저
+    ttsFetch(text).then(function(u){ playUrl(u, pr, cb); }).catch(function(){ synthSpeak(text, pr, cb); }); // 영어=클라우드 우선 → 실패 시 브라우저
   }
-  function speakSentence(cb){ speak(targetWords.join(' ').replace(/[.?!]/g,''), 0.92, cb); }
+  // 🀄 중국어는 한자를 붙여서 읽혀야 자연스럽다(공백을 끼우면 글자마다 끊어 읽어 화면과 다르게 들린다)
+  function joinWords(){ return targetWords.join(GLANG==='zh' ? '' : ' ').replace(/[.?!]/g,''); }
+  function speakSentence(cb){ speak(joinWords(), 0.92, cb); }
+  /* 🔊 지금 '색칠된' 목표 단어를 읽는다.
+     사장님 제보: "음성이 말한 것과 색이 된 단어가 다르다".
+     원인 = 명중 처리에서 currentIndex++ 가 speak() 보다 먼저라, 방금 맞힌 단어를 읽는 동안
+     색칠은 이미 다음 단어로 넘어가 있었다(항상 한 칸씩 어긋남).
+     → 읽기가 끝나면 '새로 색칠된 단어'를 한 번 더 읽어, 마지막에 들리는 소리가 항상 화면과 맞게 한다. */
+  function speakTarget(cb){
+    var w = targetWords[currentIndex];
+    if(!w){ if(cb) cb(); return; }
+    speak(w.replace(/[.?!]/g,''), 1, cb);
+  }
 
   // 🐢 말하기 미션 발음 속도 — 게임 속도와 무관하게 카드에서 직접 선택(느리게/보통/빠르게), 게임 간 공유
   var LISTEN_SPEEDS = [
@@ -823,7 +849,7 @@
     { lab:'빠르게', mult:1.3  }
   ];
   var listenIdx = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_listen_speed'),10); return (v>=0&&v<LISTEN_SPEEDS.length)?v:1; }catch(e){ return 1; } })();
-  function speakMission(cb){ speak(targetWords.join(' ').replace(/[.?!]/g,''), 0.92*LISTEN_SPEEDS[listenIdx].mult, cb, true); }
+  function speakMission(cb){ speak(joinWords(), 0.92*LISTEN_SPEEDS[listenIdx].mult, cb, true); }
 
   // 오답음만 비음성(짧은 버저) — 정답/문장은 전부 원어민 음성
   // 총 발사음 / 명중·폭발음 (WebAudio 합성, 외부 파일 없음) — 총마다 다른 소리
@@ -1194,7 +1220,10 @@
     var _lanes=laneXs(items.length, 8, Math.max(40, field.clientWidth-86));
     items.forEach(function(it,i){ spawnMonster(it.word, it.isTarget, it.golden, i, items.length, _lanes[i]); });
     renderSentence();
-    setTimeout(function(){ speakSentence(function(){ setTimeout(speakSentence, 420); }); }, 250); // 🔊 라운드 시작 시 목표 문장 자동 2회 듣기
+    // 🔊 라운드 시작: 목표 문장 2회 → 그다음 '색칠된 첫 단어'를 읽어 무엇을 쏠지 소리로도 알려준다
+    setTimeout(function(){ speakSentence(function(){
+      setTimeout(function(){ speakSentence(function(){ setTimeout(function(){ if(running) speakTarget(); }, 320); }); }, 420);
+    }); }, 250);
   }
   function spawnMonster(word,isTarget,isGolden,i,n,laneX){
     n=n||1; i=i||0;
@@ -1217,7 +1246,9 @@
     var m={ el:el, faceEl:el.querySelector('.face'), word:word, isTarget:isTarget, golden:!!isGolden, breached:false,
             x:(laneX!=null?laneX:rand(8,Math.max(40,fw-86))),
             y:_yTop+_step*i+rand(-_step*0.05,_step*0.05),
-            vyBase:rand(28,58), vxBase:rand(-48,48) };
+            // ⚡ 좌우 이동 폭을 키움(사장님 요청 "옆으로 더 빨리빨리"). 세로는 그대로 둔다 —
+            //   세로를 올리면 위협선에 너무 빨리 닿아 난이도가 확 뛴다.
+            vyBase:rand(28,58), vxBase:(Math.random()<0.5?-1:1)*rand(70,150) };
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
     el.addEventListener('click', function(){ fireAt(m); });
@@ -1429,7 +1460,8 @@
       var now=performance.now();
       combo = (now-lastHit<COMBO_WINDOW)?combo+1:1; lastHit=now; currentIndex++;
       sndHit();                                      // ★ 표적 명중/폭발음
-      speak(m.word.replace(/[.?!]/g,''));            // ★ 맞힌 단어를 원어민 발음으로 재생
+      // ★ 맞힌 단어를 원어민 발음으로 재생 → 이어서 '새로 색칠된' 다음 목표 단어를 읽어준다
+      speak(m.word.replace(/[.?!]/g,''), 1, function(){ setTimeout(function(){ if(running) speakTarget(); }, 260); });
       popMonster(m); floatScore((m.golden?'BONUS+200':'+100'),x,y,true);
       if(m.golden) showCombo('골든 보너스! +200');
       else if(combo>=2) showCombo(combo+' COMBO!');
@@ -1725,6 +1757,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730212821 -->
+<!-- BUILD:20260730214842 -->
 </body>
 </html>

@@ -824,7 +824,17 @@
     { ico:'🏃', lab:'빠르게', mult:1.3  }
   ];
   var listenIdx = (function(){ try{ var v=parseInt(localStorage.getItem('mangoi_listen_speed'),10); return (v>=0&&v<LISTEN_SPEEDS.length)?v:1; }catch(e){ return 1; } })();
-  function speakMission(cb){ speak(targetSentence.replace(/[.?!]/g,''), 0.95*LISTEN_SPEEDS[listenIdx].mult, cb, true); }
+  // 🎙 말하기 미션 목소리 — 들을 때마다 여성/남성을 번갈아 재생(영어만). 중국어는 서버가
+  // Google 번역 TTS 단일 목소리라 성별 선택 옵션이 없어 그대로 둠(MeloTTS 중국어는 잡음이 심해 배제된 상태).
+  var _missionVoiceMale = false;
+  function speakMission(cb){
+    var useEnglishGender = (GLANG!=='zh') && window.MangoiTTS;
+    if(useEnglishGender){ try{ MangoiTTS.setSpeaker(_missionVoiceMale ? 'orion' : 'asteria'); }catch(e){} }
+    speak(targetSentence.replace(/[.?!]/g,''), 0.95*LISTEN_SPEEDS[listenIdx].mult, cb, true);
+    // ⚠️ curSpeaker 는 MangoiTTS 전역 상태라, 여기서 즉시 기본값(null=여성)으로 되돌려 놔야
+    // 게임 안의 다른 "🔊 문장 듣기" 등이 미션 목소리에 영향받지 않는다(fetch 요청은 위에서 이미 동기로 떠났음).
+    if(useEnglishGender){ try{ MangoiTTS.setSpeaker(null); }catch(e){} _missionVoiceMale = !_missionVoiceMale; }
+  }
 
   // 효과음 (WebAudio 합성) — 발사음 / 명중·폭발음 / 오답 버저
   var actx=null, _master=null;
@@ -2025,6 +2035,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730212821 -->
+<!-- BUILD:20260730214842 -->
 </body>
 </html>
