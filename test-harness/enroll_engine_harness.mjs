@@ -137,7 +137,13 @@ console.log('── 1단계: 결제 전 입력 검증(enrollParse — 이상 주
 const good = { weekly: 2, months: 3, minutes: 20, time: '16:00', days: [1, 3], start_date: '2099-01-05', teacher_id: 'T29' };
 const parse = (over) => fns.enrollParse({ ...good, ...over });
 eq('정상 주문 통과(에러 없음)', parse({}).error, undefined);
-eq('정상 주문 필드 정규화', [parse({}).weekly, parse({}).startMin, parse({}).days], [2, 960, [1, 3]]);
+// 🕐 (2026-07-30) 제보 #2-3 — enrollParse 가 startMin(공통 1개) 대신 timesMin(요일→분) 맵을 반환하도록 변경.
+//   구버전 호출(단일 body.time)은 모든 선택 요일에 같은 시각이 적용되는지로 호환성을 확인한다.
+eq('정상 주문 필드 정규화(구버전 단일 time → 전 요일 동일 시각)',
+   [parse({}).weekly, parse({}).timesMin, parse({}).days], [2, { 1: 960, 3: 960 }, [1, 3]]);
+eq('요일별 다른 시간 지정(신규 — 제보 #2-3)',
+   parse({ time: undefined, times: { '1': '19:00', '3': '20:00' } }).timesMin, { 1: 1140, 3: 1200 });
+eq('요일별 시간 중 하나라도 빠지면 거부', parse({ time: undefined, times: { '1': '19:00' } }).error, 'bad_time');
 eq('상품에 없는 주횟수(4) 거부', parse({ weekly: 4, days: [1, 2, 3, 4] }).error, 'bad_weekly');
 eq('상품에 없는 개월(5) 거부', parse({ months: 5 }).error, 'bad_months');
 eq('허용 안 된 수업길이(30분) 거부', parse({ minutes: 30 }).error, 'bad_minutes');

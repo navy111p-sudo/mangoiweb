@@ -270,6 +270,11 @@ function showKakaoShareDialog(url) {
         <label id="pw-label" style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px">🔑 비밀번호</label>
         <input id="pw-input" class="uid-input" type="password" placeholder="••••••" onkeypress="if(event.key==='Enter')pdPwGo()" style="margin:0 auto 8px;display:block" />
         <div id="pw-hint" style="display:none;font-size:11.5px;color:#fde68a;line-height:1.55;margin:0 auto 10px;max-width:400px">💡 이 비밀번호를 아는 사람만 자녀 정보를 볼 수 있어요. 꼭 기억해두세요! (분실 시 학원에 초기화 요청)</div>
+        <!-- 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증. 학부모가 직접 체크해야만 로그인이 유지된다. -->
+        <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;color:#94a3b8;margin:0 auto 12px;cursor:pointer;user-select:none">
+          <input id="pw-remember" type="checkbox" style="width:15px;height:15px;accent-color:#8b5cf6;cursor:pointer">
+          이 기기에서 30일간 로그인 유지 (체크 안 하면 다음에도 비밀번호를 입력해요)
+        </label>
         <button id="pw-go-btn" class="uid-go" onclick="pdPwGo()">🔓 확인</button>
       </div>
       <div style="margin-top:14px;font-size:11.5px;color:#6b7a99;line-height:1.6" data-ko="💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다." data-en="💡 Don't know the ID? Ask your teacher. The ID is saved after first lookup.">💡 학생 ID 를 모르시면 강사 또는 학원에 문의해주세요. 한 번 조회하면 자동 저장됩니다.</div>
@@ -500,7 +505,20 @@ async function pdLogin(pw){
     const d = await r.json();
     if (!d.ok || !d.token) { alert('❌ ' + (d.message || '비밀번호가 일치하지 않습니다.')); return; }
     _token = d.token;
-    try { localStorage.setItem('mangoi_parent_uid', _currentUid); localStorage.setItem('mangoi_parent_token', _token); } catch(e){}
+    /* 🔒 (2026-07-30) 제보 #3 — 기본값은 매번 재인증, 체크박스를 켰을 때만 로그인 유지.
+       이전엔 최초 인증 성공 시 무조건 30일 토큰을 저장해서, 자녀가 같은 기기로 비밀번호 없이
+       학부모 페이지를 열 수 있었다. 체크 안 하면 이번 탭에서만 열람되고(_token 메모리 변수),
+       새로고침·재방문 시 다시 비밀번호를 물어본다(localStorage 에 아무 것도 안 남으므로). */
+    const remember = !!(document.getElementById('pw-remember') || {}).checked;
+    try {
+      if (remember) {
+        localStorage.setItem('mangoi_parent_uid', _currentUid);
+        localStorage.setItem('mangoi_parent_token', _token);
+      } else {
+        localStorage.removeItem('mangoi_parent_uid');
+        localStorage.removeItem('mangoi_parent_token');
+      }
+    } catch(e){}
     await pdLoad();
   } catch(e){ alert('❌ 네트워크 오류'); }
 }

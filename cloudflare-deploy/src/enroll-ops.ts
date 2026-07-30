@@ -144,8 +144,11 @@ async function holidaySet(env: any, fromDay: string): Promise<Set<string>> {
   return s;
 }
 
-/** 강사의 기존 수업과 충돌하는 날짜들 (날짜지정 + 요일반복 모두 검사) */
-export async function enrollConflicts(env: any, teacherId: string, dates: string[], startMin: number, minutes: number, days: number[]): Promise<Set<string>> {
+/** 강사의 기존 수업과 충돌하는 날짜들 (날짜지정 + 요일반복 모두 검사)
+ *  🕐 (2026-07-30) 요일별 다른 시간 지정 — 제보 #2-3. startMin(공통 시각) 하나 대신
+ *  timesMinByDow(요일→분) 맵을 받는다 — 날짜마다 그 날의 요일에 맞는 시각으로 충돌을 검사한다.
+ *  timesMinByDow 에 없는 요일(days 밖)은 건너뛴다. */
+export async function enrollConflicts(env: any, teacherId: string, dates: string[], timesMinByDow: Record<number, number>, minutes: number, days: number[]): Promise<Set<string>> {
   const conflicts = new Set<string>();
   if (!dates.length) return conflicts;
   try {
@@ -157,6 +160,9 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
          WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`
       ).bind(teacherId, ...chunk).all();
       for (const r of ((rs?.results as any[]) || [])) {
+        const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+        const startMin = timesMinByDow[dow];
+        if (startMin === undefined) continue;
         const s = enrollTimeToMin(String(r.start_time || ''));
         if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) conflicts.add(String(r.scheduled_date));
       }
@@ -170,6 +176,8 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
     for (const r of ((rs2?.results as any[]) || [])) {
       const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
       if (dw === undefined || !days.includes(dw)) continue;
+      const startMin = timesMinByDow[dw];
+      if (startMin === undefined) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
       if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) badDows.add(dw);
     }
@@ -183,12 +191,14 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
   return conflicts;
 }
 
-/** 요청 본문 검증 → 정규화 */
+/** 요청 본문 검증 → 정규화
+ *  🕐 (2026-07-30) 요일별 다른 시간 지정 — 제보 #2-3.
+ *  body.times = { "1":"19:00", "3":"20:00" } (요일 인덱스 → 'HH:MM') 형식을 우선 쓴다.
+ *  구버전 호출(단일 body.time 문자열)은 모든 요일에 같은 시각을 적용하는 것으로 호환 처리. */
 export function enrollParse(body: any): any {
   const weekly = Number(body?.weekly || 0);
   const months = Number(body?.months || 0);
   const minutes = Number(body?.minutes || 20);
-  const time = String(body?.time || '').trim();
   const startDate = String(body?.start_date || '').trim();
   const teacherId = String(body?.teacher_id || '').trim().slice(0, 40);
   const days: number[] = Array.isArray(body?.days)
@@ -197,13 +207,25 @@ export function enrollParse(body: any): any {
   if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'bad_weekly' };
   if (!ENROLL_MONTHS.includes(months)) return { error: 'bad_months' };
   if (minutes !== 20 && minutes !== 40) return { error: 'bad_minutes' };
-  const startMin = enrollTimeToMin(time);
-  if (startMin < ENROLL_TIME_MIN || startMin > ENROLL_TIME_MAX || startMin % 10 !== 0) return { error: 'bad_time' };
   if (days.length !== weekly) return { error: 'days_count_mismatch' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return { error: 'bad_start_date' };
   if (startDate < kstToday()) return { error: 'start_date_past' };
   if (!teacherId) return { error: 'teacher_required' };
-  return { weekly, months, minutes, time, startMin, startDate, teacherId, days };
+
+  const rawTimes = (body && typeof body.times === 'object' && body.times) ? body.times : null;
+  const uniformTime = String(body?.time || '').trim();   // 구버전 호환
+  // ⚠️ enroll_engine_harness.mjs 가 이 함수를 원문 그대로 뽑아 순수 JS로 실행한다 —
+  //   그 스트리핑 정규식이 Record<..> 같은 제네릭은 못 지운다. 여기서는 타입 주석 없이 둘 것.
+  const times = {};
+  const timesMin = {};
+  for (const d of days) {
+    const t = rawTimes ? String(rawTimes[String(d)] ?? rawTimes[d] ?? '').trim() : uniformTime;
+    const m = enrollTimeToMin(t);
+    if (m < ENROLL_TIME_MIN || m > ENROLL_TIME_MAX || m % 10 !== 0) return { error: 'bad_time', day: d };
+    times[d] = t;
+    timesMin[d] = m;
+  }
+  return { weekly, months, minutes, startDate, teacherId, days, times, timesMin };
 }
 
 /* ═══════════════ 1단계: 결제 확정 → 수업 전량 생성 ═══════════════ */
@@ -225,12 +247,21 @@ export async function enrollCreateSchedules(env: any, order: any, orderId: strin
   if (dup) return;   // 이미 생성됨(confirm·webhook 경합 안전)
 
   const sessions = Number(ej.sessions || 0);
-  const startMin = enrollTimeToMin(String(ej.time || ''));
-  if (!sessions || startMin < 0) return;
+  /* 🕐 (2026-07-30) 요일별 다른 시간 — 제보 #2-3. ej.times = { "1":"19:00", "3":"20:00" }.
+     구주문 호환: ej.times 가 없는 옛 주문(단일 ej.time)은 모든 요일에 그 시각을 적용한다. */
+  const timesMap: Record<string, string> = (ej.times && typeof ej.times === 'object') ? ej.times : {};
+  const fallbackTime = String(ej.time || '');
+  const timesMinByDow: Record<number, number> = {};
+  for (const d of ej.days as number[]) {
+    const t = String(timesMap[String(d)] ?? timesMap[d] ?? fallbackTime);
+    const m = enrollTimeToMin(t);
+    if (m >= 0) timesMinByDow[d] = m;
+  }
+  if (!sessions || Object.keys(timesMinByDow).length !== ej.days.length) return;
 
   // 결제 시점 기준 재검사 — 주문~결제 사이에 찬 슬롯 + 공휴일을 함께 blocked 처리
   const probe = enrollDates(String(ej.start_date), ej.days, sessions * 2);
-  const blocked = await enrollConflicts(env, String(ej.teacher_id), probe, startMin, Number(ej.minutes) || 20, ej.days);
+  const blocked = await enrollConflicts(env, String(ej.teacher_id), probe, timesMinByDow, Number(ej.minutes) || 20, ej.days);
   const hol = await holidaySet(env, String(ej.start_date));
   hol.forEach((d) => blocked.add(d));
   const dates = enrollDates(String(ej.start_date), ej.days, sessions, blocked);
@@ -243,8 +274,11 @@ export async function enrollCreateSchedules(env: any, order: any, orderId: strin
      VALUES (?, ?, 'dated', 'regular', ?, ?, ?, ?, 'active', ?, 'enroll-auto', ?, ?)`
   );
   const note = `수강신청 자동생성 · ${ej.teacher_name || ''} · 주${ej.weekly}회×${ej.months}개월`;
-  const batch: any[] = dates.map((d) =>
-    stmt.bind(String(ej.uid), sName || null, d, String(ej.time), Number(ej.minutes) || 20, String(ej.teacher_id), src, now, note));
+  const batch: any[] = dates.map((d) => {
+    const dow = new Date(d + 'T00:00:00Z').getUTCDay();
+    const t = String(timesMap[String(dow)] ?? timesMap[dow] ?? fallbackTime);
+    return stmt.bind(String(ej.uid), sName || null, d, t, Number(ej.minutes) || 20, String(ej.teacher_id), src, now, note);
+  });
   for (let i = 0; i < batch.length; i += 80) await env.DB.batch(batch.slice(i, i + 80));
 }
 
@@ -294,6 +328,21 @@ async function currentEnrollment(env: any, uid: string): Promise<any> {
     const t: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`).bind(String(last.teacher_id)).first();
     teacherName = String(t?.name || '');
   } catch (_) {}
+
+  /* 🕐 (2026-07-30) 요일별 시간 추정 — 제보 #2-3. days 추정과 같은 원리·같은 데이터(과거14일+미래).
+     요일별로 실제 등록된 시각을 모으고, 배열을 시간순(ASC)으로 훑으므로 나중 값이 그 요일의 최신 시각이 된다.
+     ⚠️ days 에 있는 요일 전부가 시간을 얻지 못하면(그 요일 수업이 이미 다 소진돼 남은 행이 없는 경우 등)
+        '연장 결제'를 진행하면 안 된다 — days_resolved 와 같은 이유로 추측 청구를 막는다. */
+  const timesByDow: Record<number, string> = {};
+  for (const r of all) {
+    const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+    const t = String(r.start_time || '');
+    if (enrollTimeToMin(t) >= 0) timesByDow[dow] = t;
+  }
+  const timesResolved = !!days && days.every((d) => timesByDow[d] !== undefined);
+  const times: Record<number, string> = {};
+  if (timesResolved) for (const d of (days as number[])) times[d] = timesByDow[d];
+
   return {
     active: true,
     remaining: future.length,
@@ -301,7 +350,9 @@ async function currentEnrollment(env: any, uid: string): Promise<any> {
     last_date: String(last.scheduled_date),
     days: days || [],
     days_resolved: !!days,               // false 면 화면이 연장 카드를 숨기고 신규 신청으로 안내
-    time: String(last.start_time || ''),
+    times,                                // { 요일: 'HH:MM' } — days_resolved && times_resolved 일 때만 신뢰
+    times_resolved: timesResolved,
+    time: String(last.start_time || ''), // 구버전 호환(단일 표시용) — 새 로직은 times 를 쓸 것
     minutes: Number(last.dm) || 20,
     teacher_id: String(last.teacher_id || ''),
     teacher_name: teacherName,
@@ -440,7 +491,7 @@ export async function runHolidayShiftSweep(env: any, opts?: { dry?: boolean }): 
         for (let k = 1; k <= 12 && !target; k++) {
           const cand = enrollDates(addDays(anchor, 1), [dow], k)[k - 1];
           if (!cand || holSet.has(cand)) continue;
-          const conf = tid ? await enrollConflicts(env, tid, [cand], startMin, Number(r.dm) || 20, [dow]) : new Set<string>();
+          const conf = tid ? await enrollConflicts(env, tid, [cand], { [dow]: startMin }, Number(r.dm) || 20, [dow]) : new Set<string>();
           if (!conf.has(cand)) target = cand;
         }
         if (!target) { out.failed++; continue; }
@@ -466,11 +517,20 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
   if (!path.startsWith('/api/pay/enroll/')) return null;
   await ensureEnrollTables(env);
 
-  /* ── (a) 강사 목록 (공개 — 이름·사진만) ── */
+  /* ── (a) 강사 목록 (공개 — 이름·사진·MBTI) ── */
+  //   🔗 (2026-07-30) 제보 #2-1: teachers(급여·스케줄용)엔 사진·MBTI 컬럼이 아예 없다.
+  //   실제 사진/MBTI는 teacher_profiles 에 있는데, 이름으로 자동 매칭이 안 돼(29명 중 1명만 일치)
+  //   teacher_profiles.linked_teacher_id(관리자가 수동 연결) 로 LEFT JOIN 한다. 연결 안 된 강사는
+  //   photo/mbti 가 빈 값으로 오고(기존처럼 이모지 폴백), 배정·가격 로직(teachers.id 기준)은 그대로.
   if (path === '/api/pay/enroll/teachers' && method === 'GET') {
     let rows: any[] = [];
     try {
-      const rs: any = await env.DB.prepare(`SELECT id, name, photo_url FROM teachers WHERE active = 1 ORDER BY name ASC LIMIT 200`).all();
+      const rs: any = await env.DB.prepare(
+        `SELECT t.id, t.name, tp.image_url AS photo_url, tp.mbti, tp.intro_video_url
+           FROM teachers t
+           LEFT JOIN teacher_profiles tp ON tp.linked_teacher_id = t.id
+          WHERE t.active = 1 ORDER BY t.name ASC LIMIT 200`
+      ).all();
       rows = (rs?.results as any[]) || [];
     } catch (_) {
       try {
@@ -484,7 +544,12 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       const pr: any = await env.DB.prepare(`SELECT teacher_id, rate_pct FROM teacher_pricing`).all();
       for (const p of ((pr?.results as any[]) || [])) rates[String(p.teacher_id)] = Number(p.rate_pct || 100);
     } catch (_) {}
-    return json({ ok: true, teachers: rows.map((t) => ({ id: String(t.id), name: String(t.name || ''), photo: String(t.photo_url || ''), rate_pct: rates[String(t.id)] || 100 })) });
+    return json({ ok: true, teachers: rows.map((t) => ({
+      id: String(t.id), name: String(t.name || ''),
+      photo: String(t.photo_url || ''), mbti: String(t.mbti || ''),
+      intro_video_url: String(t.intro_video_url || ''),
+      rate_pct: rates[String(t.id)] || 100,
+    })) });
   }
 
   /* ── (b) 가격 견적 (공개) ── */
@@ -512,7 +577,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const sessions = p.weekly * 4 * p.months;
     const hol = await holidaySet(env, p.startDate);
     const probe = enrollDates(p.startDate, p.days, sessions * 2);
-    const conflicts = await enrollConflicts(env, p.teacherId, probe, p.startMin, p.minutes, p.days);
+    const conflicts = await enrollConflicts(env, p.teacherId, probe, p.timesMin, p.minutes, p.days);
     const blocked = new Set<string>([...conflicts, ...hol]);
     const dates = enrollDates(p.startDate, p.days, sessions, blocked);
     if (dates.length < sessions) return json({ ok: false, error: 'date_gen_failed' }, 400);
@@ -571,14 +636,18 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     if (!cur.days_resolved || !ENROLL_WEEKLY.includes(weekly)) {
       return json({ ok: false, error: 'weekly_unresolved', message: '현재 수업 요일을 확인할 수 없습니다. 새로 신청해 주세요.' }, 400);
     }
+    // 🕐 (2026-07-30) 요일별 시간도 마찬가지로 전부 확실할 때만 진행 — 제보 #2-3.
+    if (!cur.times_resolved) {
+      return json({ ok: false, error: 'time_unresolved', message: '현재 수업 시간을 확인할 수 없습니다. 새로 신청해 주세요.' }, 400);
+    }
 
+    const timesMin: Record<number, number> = {};
+    for (const d of cur.days as number[]) timesMin[d] = enrollTimeToMin(cur.times[d]);
     const p = {
-      weekly, months, minutes: cur.minutes, time: cur.time,
-      startMin: enrollTimeToMin(cur.time),
+      weekly, months, minutes: cur.minutes, times: cur.times, timesMin,
       startDate: addDays(cur.last_date, 1),        // 마지막 수업 다음 회차부터 이어짐(부장님 답변 12번)
       teacherId: cur.teacher_id, days: cur.days,
     };
-    if (p.startMin < 0) return json({ ok: false, error: 'time_unresolved' }, 400);
     return await createEnrollOrder(env, uid, p, 'renew');
   }
 
@@ -710,7 +779,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     for (const r of rows) {
       const startMin = enrollTimeToMin(String(r.start_time || ''));
       const dow = new Date(day + 'T00:00:00Z').getUTCDay();
-      const conf = await enrollConflicts(env, to, [day], startMin, Number(r.dm) || 20, [dow]);
+      const conf = await enrollConflicts(env, to, [day], { [dow]: startMin }, Number(r.dm) || 20, [dow]);
       if (conf.has(day)) { skipped.push({ id: r.id, student: r.student_name, time: r.start_time, reason: '대체 강사도 그 시간에 수업 있음' }); continue; }
       if (!dry) {
         await env.DB.prepare(`UPDATE class_schedules SET teacher_id=?, updated_at=?, notes=COALESCE(notes,'')||' · 강사 휴가 대체' WHERE id=? AND status='active'`)
@@ -765,7 +834,7 @@ async function createEnrollOrder(env: any, uid: string, p: any, kind: 'new' | 'r
   const sessions = p.weekly * 4 * p.months;
   const hol = await holidaySet(env, p.startDate);
   const probe = enrollDates(p.startDate, p.days, sessions * 2);
-  const conflicts = await enrollConflicts(env, p.teacherId, probe, p.startMin, p.minutes, p.days);
+  const conflicts = await enrollConflicts(env, p.teacherId, probe, p.timesMin, p.minutes, p.days);
   const blocked = new Set<string>([...conflicts, ...hol]);
   const dates = enrollDates(p.startDate, p.days, sessions, blocked);
   if (dates.length < sessions) {
@@ -793,7 +862,7 @@ async function createEnrollOrder(env: any, uid: string, p: any, kind: 'new' | 'r
 
   const orderName = `${kind === 'renew' ? '[연장] ' : ''}주${p.weekly}회 × ${p.months}개월 수강권 (${q.sessions}회${p.minutes === 40 ? '·40분' : ''})`;
   const enrollJson = JSON.stringify({
-    v: 1, kind, uid, teacher_id: p.teacherId, teacher_name: tName, days: p.days, time: p.time,
+    v: 2, kind, uid, teacher_id: p.teacherId, teacher_name: tName, days: p.days, times: p.times,
     minutes: p.minutes, weekly: p.weekly, months: p.months, start_date: p.startDate,
     sessions: q.sessions, per_session: q.perSession, weekly1_price: weekly1Price,
     teacher_rate: tRate, shop_name: shopName || null,
@@ -812,7 +881,7 @@ async function createEnrollOrder(env: any, uid: string, p: any, kind: 'new' | 'r
     ok: true, kind, orderId, amount: q.amount, orderName,
     clientKey: env.TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq',
     summary: {
-      teacher: tName, days: p.days, time: p.time, minutes: p.minutes, sessions: q.sessions,
+      teacher: tName, days: p.days, times: p.times, minutes: p.minutes, sessions: q.sessions,
       first_date: dates[0], last_date: dates[dates.length - 1], discount: q.discountRate,
       teacher_rate: tRate, shifted: sessions - enrollDates(p.startDate, p.days, sessions).filter((d) => !blocked.has(d)).length,
     },

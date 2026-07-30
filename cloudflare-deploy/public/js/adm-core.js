@@ -2228,7 +2228,26 @@ window._tpMbtiBadge = _tpMbtiBadge;
   };
 })();
 
+/* 🔗 (2026-07-30) 제보 #2-1 — 급여용 teachers 목록을 "강사 계정 연결" 드롭다운에 채운다.
+   한 번 불러오면 캐시(같은 관리자 세션 내 재요청 안 함). 이름을 함께 보여줘서
+   비슷한 이름끼리 헷갈려 잘못 연결하는 사고를 줄인다. */
+var _tpTeacherOptionsLoaded = false;
+async function _tpLoadTeacherOptions() {
+  if (_tpTeacherOptionsLoaded) return;
+  const sel = document.getElementById('tp-linked-teacher');
+  if (!sel) return;
+  try {
+    const r = await fetch('/api/admin/teachers', { credentials: 'include', cache: 'no-store' });
+    const d = await r.json().catch(() => ({}));
+    const list = (d && d.ok && d.teachers) ? d.teachers : [];
+    sel.innerHTML = '<option value="">— 연결 안 함 —</option>' +
+      list.map(function(t){ return '<option value="' + t.id + '">' + _aiEsc(t.name || ('#' + t.id)) + ' (id:' + t.id + ')</option>'; }).join('');
+    _tpTeacherOptionsLoaded = true;
+  } catch (e) { sel.innerHTML = '<option value="">불러오기 실패</option>'; }
+}
+
 async function loadTeacherProfiles() {
+  _tpLoadTeacherOptions();
   const status = document.getElementById('tp-filter-status')?.value || '';
   const group  = document.getElementById('tp-filter-group')?.value || '';
   const params = new URLSearchParams();
@@ -2614,6 +2633,8 @@ async function addTeacherProfile() {
     active_region: e('tp-active-region')?.value.trim() || null,
     origin_region: e('tp-origin-region')?.value.trim() || null,
     fee_per_10min: e('tp-fee-10min')?.value ? parseInt(e('tp-fee-10min').value, 10) : null,
+    // 🔗 (2026-07-30) 제보 #2-1 — 급여용 강사 계정 연결(enroll.html 강사선택에 사진·MBTI 노출용)
+    linked_teacher_id: e('tp-linked-teacher')?.value ? parseInt(e('tp-linked-teacher').value, 10) : null,
     group_name: e('tp-group')?.value || null,
     status: e('tp-status')?.value || '활동중',
     join_date: e('tp-join-date')?.value || null,
@@ -2695,7 +2716,7 @@ function clearTeacherForm() {
   ['tp-name','tp-en-name','tp-email','tp-phone','tp-kakao','tp-dob','tp-gender','tp-active-region','tp-origin-region',
    'tp-fee-10min','tp-group','tp-join-date','tp-leave-date','tp-image-url','tp-video-url',
    'tp-education','tp-career','tp-cert','tp-avail-days','tp-avail-hours','tp-bank-name','tp-bank-acct','tp-notes',
-   'tp-mbti-type','tp-mbti-hobby','tp-mbti-style','tp-mbti-intro']
+   'tp-mbti-type','tp-mbti-hobby','tp-mbti-style','tp-mbti-intro','tp-linked-teacher']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const st = document.getElementById('tp-status'); if (st) st.value = '활동중';
 }
@@ -2914,6 +2935,8 @@ async function editTeacherProfile(id) {
   set('tp-name', t.korean_name); set('tp-en-name', t.english_name); set('tp-email', t.email);
   set('tp-phone', t.phone); set('tp-kakao', t.kakao_id); set('tp-dob', t.dob); set('tp-gender', t.gender);
   set('tp-mbti', t.mbti);
+  await _tpLoadTeacherOptions();   // 🔗 드롭다운이 채워진 뒤에 값을 지정해야 선택이 반영된다
+  set('tp-linked-teacher', t.linked_teacher_id);
   set('tp-active-region', t.active_region); set('tp-origin-region', t.origin_region);
   set('tp-fee-10min', t.fee_per_10min); set('tp-group', t.group_name); set('tp-status', t.status||'활동중');
   set('tp-join-date', t.join_date); set('tp-leave-date', t.leave_date);

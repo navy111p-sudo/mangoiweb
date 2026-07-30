@@ -2245,6 +2245,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       // 🌏 (2026-07-23 사장님 지시) 국적 — 이 값이 로그인 계정으로 흘러가 화면 언어를 정한다.
       //   ISO 3166-1 alpha-2 대문자 2글자('KR' | 'PH' | 'US' …). 'KR' 만 한국어, 나머지는 영어.
       try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN nationality TEXT`); } catch {}
+      /* 🔗 (2026-07-30) teachers(급여·스케줄용, 사진/MBTI 없음) ↔ teacher_profiles(사진·MBTI 있음)
+         연결 컬럼 — 제보 #2-1. 이름으로 자동 매칭 시도했더니 29명 중 1명만 우연히 일치해서
+         자동 조인이 불가능함을 확인(잘못 매칭하면 다른 강사 사진이 나가는 사고가 됨).
+         그래서 사람이 직접 확인하며 연결하는 컬럼을 둔다 — 관리자 화면 "강사 사진 연결" 탭에서 채움. */
+      try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN linked_teacher_id INTEGER`); } catch {}
     };
 
     if (method === 'GET' && path === '/api/admin/teacher-profiles') {
@@ -2410,7 +2415,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const allowed = ['korean_name','english_name','email','phone','kakao_id','dob','gender',
           'image_url','intro_video_url','active_region','origin_region','fee_per_10min',
           'group_name','status','join_date','leave_date','education','career','certifications',
-          'available_days','available_hours','bank_name','bank_account','mbti','nationality','notes'];
+          'available_days','available_hours','bank_name','bank_account','mbti','nationality','notes',
+          'linked_teacher_id'];   // 🔗 (2026-07-30) 제보 #2-1 — 급여용 teachers.id 와 수동 연결
         const sets: string[] = []; const binds: any[] = [];
         allowed.forEach(k => {
           if (b.hasOwnProperty(k)) {
@@ -2418,6 +2424,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             if (k === 'mbti' && v) v = String(v).toUpperCase().slice(0, 4);   // 표준화 (예: intj → INTJ)
             // 🌏 국적 — ISO 2글자 대문자로 표준화(예: ph → PH). 이 값이 화면 언어를 정한다.
             if (k === 'nationality' && v) v = String(v).toUpperCase().trim().slice(0, 2);
+            if (k === 'linked_teacher_id') v = (v === null ? null : (parseInt(v, 10) || null));
             sets.push(k + ' = ?'); binds.push(v);
           }
         });
