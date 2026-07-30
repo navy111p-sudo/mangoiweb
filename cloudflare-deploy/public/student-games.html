@@ -431,7 +431,7 @@
     </div>
     <div class="hub-head">
       <div class="brand">MANGOI · LEARNING GAMES</div>
-      <h1 id="hub-title">영어 <span class="em">학습 게임</span> 🎮</h1>
+      <h1 id="hub-title">언어 <span class="em">학습 게임</span> 🎮</h1>
       <div class="sub" id="hub-sub">재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.</div>
       <!-- 🎛️ 컨트롤 패널: 코인·유틸 / 언어·연속학습 / 속도 를 한 카드로 정돈 -->
       <div class="hub-panel">
@@ -1328,7 +1328,7 @@ function setGameLang(lang){
   renderLangPicks();
   // 헤더 문구 갱신
   var t = document.getElementById('hub-title'), s = document.getElementById('hub-sub');
-  if(t) t.innerHTML = (lang==='zh' ? '중국어 <span class="em">학습 게임</span> 🀄' : '영어 <span class="em">학습 게임</span> 🎮');
+  if(t) t.innerHTML = '언어 <span class="em">학습 게임</span> ' + (lang==='zh' ? '🀄' : '🎮');
   if(s) s.innerHTML = (lang==='zh'
     ? '재미있는 게임으로 중국어 단어·문장을 익혀요! (중국어 마스터 어휘)<br>원하는 게임을 눌러 바로 플레이하세요.'
     : '재미있는 게임을 통해 오늘 배운 단어·문장을 다시 예복습해요!<br>원하는 게임을 눌러 바로 플레이하세요.');
@@ -2482,7 +2482,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260730231115 -->
+<!-- BUILD:20260730232148 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

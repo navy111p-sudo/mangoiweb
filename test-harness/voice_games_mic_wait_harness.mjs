@@ -126,6 +126,12 @@ console.log('\n🔬 슈팅게임 — 실제 인식 함수를 실행');
   }
   check('setupRecognition() 원문을 떼어냈다', !!body && /return r;/.test(body));
 
+  /* 첫 대기시간(SIL_FIRST)은 요구사항에 따라 바뀐다(8초 → 10초 → 20초).
+     고정 11초로 검사하면 대기시간을 늘릴 때마다 하니스가 오탐한다 → 소스에서 읽어 그 값 기준으로 본다.
+     지켜야 할 진짜 규칙은 "언젠가는 반드시 정리된다(무한 대기 아님)" 이다. */
+  const SIL_FIRST_MS = Number((src.match(/SIL_FIRST\s*=\s*(\d+)/) || [])[1] || 10000);
+  const SETTLE_MS = SIL_FIRST_MS + 2000;
+
   if (body) {
     const stt = readFileSync(join(PUB, 'js', 'mangoi-stt.js'), 'utf8');   // 보호막은 진짜 파일을 쓴다
     const mkEnv = () => {
@@ -193,8 +199,8 @@ console.log('\n🔬 슈팅게임 — 실제 인식 함수를 실행');
     /* ③ 침묵이 길어지면 결국 정리된다 (무한 대기 아님) */
     const e2 = mkEnv();
     const r2 = e2.make(); r2.start();
-    e2.tick(11000);
-    check('말이 없으면 11초 안에는 정리된다', r2.stopped || e2.attempts.length > 0,
+    e2.tick(SETTLE_MS);
+    check('말이 없으면 SIL_FIRST(' + SIL_FIRST_MS / 1000 + '초) 안에는 정리된다', r2.stopped || e2.attempts.length > 0,
       'stopped=' + r2.stopped + ' attempts=' + e2.attempts.length);
 
     /* ④ no-speech 오류가 와도 즉시 끝내지 않는다 */
@@ -217,7 +223,7 @@ console.log('\n🔬 슈팅게임 — 실제 인식 함수를 실행');
           (슈팅은 recog 를 한 번만 만들어 계속 쓴다 → onstart 에서 침묵 플래그가 초기화돼야 한다) */
     const e5 = mkEnv();
     const r5 = e5.make();
-    r5.start(); e5.tick(11000);                     // 1회차: 침묵으로 종료(플래그 발동)
+    r5.start(); e5.tick(SETTLE_MS);                 // 1회차: 침묵으로 종료(플래그 발동)
     r5.start();                                     // 2회차 시작
     e5.tick(4000);
     check('두 번째 시도에서도 4초 뜸들이기가 보호된다', !r5.stopped,

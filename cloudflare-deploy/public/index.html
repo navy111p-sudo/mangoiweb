@@ -22425,8 +22425,8 @@ window.addEventListener('DOMContentLoaded', () => {
         lbl.setAttribute('data-en', _as.name);
         var _r = String(_as.role || '');
         var _dest = (_r.indexOf('teacher') >= 0 || _r === 'branch' || _r === 'agency') ? '/admin/mypage' : '/admin.html';
-        btn.title = L ? '내 페이지로 이동' : 'Go to my page';
-        btn.onclick = function(){ location.href = _dest; };
+        btn.title = L ? '메뉴 열기' : 'Open menu';
+        btn.onclick = function(){ toggleAdminUserMenu(_as, _dest); };
         btn.style.background = 'linear-gradient(135deg,rgba(59,130,246,.18),rgba(37,99,235,.18))';
         btn.style.borderColor = 'rgba(59,130,246,.5)';
         btn.style.color = '#bfdbfe';
@@ -22819,8 +22819,33 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.logout = function(){
     setUser(null);
+    try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
     document.getElementById('user-menu').classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
+  };
+
+  // 🧑‍🏫 (2026-07-30 버그수정) 교사·지사·대리점 세션 칩용 메뉴 —
+  //   이전엔 칩 클릭이 곧장 마이페이지로 이동해서 로그아웃할 방법이 없었다
+  //   (mangoi_admin_session 을 지우는 코드가 어디에도 없어 한 번 로그인하면 영구히 남음).
+  window.toggleAdminUserMenu = function(as, dest){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var menu = document.getElementById('user-menu');
+    if(!menu) return;
+    if(menu.classList.contains('show')){ menu.classList.remove('show'); return; }
+    menu.innerHTML =
+      '<div class="um-header">'+(L?'로그인됨':'Signed in')+'<br><b>'+escapeLT(as.name||'')+'</b></div>'+
+      '<div class="um-item" onclick="location.href=&quot;'+dest+'&quot;">👤 '+(L?'내 페이지로 이동':'Go to my page')+'</div>'+
+      '<div class="um-divider"></div>'+
+      '<div class="um-item danger" onclick="logoutAdminSession()">🚪 '+(L?'로그아웃':'Logout')+'</div>';
+    menu.classList.add('show');
+  };
+
+  window.logoutAdminSession = function(){
+    try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    var menu = document.getElementById('user-menu');
+    if(menu) menu.classList.remove('show');
+    showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
+    updateLoginUI();
   };
 
   function showLcToast2(msg){
@@ -27975,7 +28000,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260730231115 -->
+<!-- BUILD:20260730232148 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

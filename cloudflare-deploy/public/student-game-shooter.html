@@ -284,6 +284,10 @@
   /* 🐢 발음 속도 조절 — 다시 듣기 옆 3단계(느리게/보통/빠르게), 게임 속도와 무관 */
   .listen-row{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
   .listen-row .listen{margin:0}
+  /* 🎧 내 목소리 = 원어민(초록)과 구분되게 파란 계열. 녹음 전엔 눌러도 소용없으니 흐리게. */
+  .listen.mine{background:rgba(56,189,248,.16);border-color:rgba(56,189,248,.5);color:#a5e4ff}
+  .listen.mine:disabled{opacity:.4;cursor:default}
+  .listen.mine.playing{background:rgba(56,189,248,.34);color:#fff}
   .listen-spd{display:inline-flex;gap:3px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:3px}
   .listen-spd button{background:none;border:none;border-radius:999px;padding:6px 11px;font-size:12.5px;font-weight:800;color:var(--sub);cursor:pointer;font-family:inherit;line-height:1.2;white-space:nowrap}
   .listen-spd button.on{background:rgba(34,197,94,.28);color:#86efac}
@@ -405,8 +409,11 @@
     <div class="card">
       <h1>말하기 미션 <span class="em">3회</span></h1>
       <div class="say" id="speakText">—<span class="ko" id="speakKo"></span><span class="kohint">문장을 누르면 한국어 뜻이 보여요</span></div>
+      <!-- 🎧 원어민 발음과 '내 발음'을 나란히 두어 바로 비교할 수 있게 한다(사장님 요청).
+           내 목소리 버튼은 녹음이 하나라도 생기기 전엔 비활성. -->
       <div class="listen-row">
-        <button class="listen" id="listenAgain" title="원어민 발음 다시 듣기">다시 듣기</button>
+        <button class="listen" id="listenAgain" title="원어민 발음 다시 듣기">🔊 원어민 듣기</button>
+        <button class="listen mine" id="playMine" title="방금 내가 말한 발음 다시 듣기" disabled>🎧 내 목소리</button>
         <div class="listen-spd" id="listenSpd" title="발음 속도 조절"></div>
       </div>
       <div class="stars" id="stars"><span class="s">★</span><span class="s">★</span><span class="s">★</span></div>
@@ -1055,6 +1062,9 @@
   function awardSpeak(){ if(_onSpeakScore) _onSpeakScore(SPEAK_POINTS); speakAwarded++; }
   function startMission(done, onScore){
     onMissionDone=done; _onSpeakScore=onScore||null; speakCount=0; speakAwarded=0; audioPlayed=false;
+    // 🎧 새 문장 = 이전 문장 녹음은 버린다(다른 문장을 비교하면 헷갈린다)
+    try{ if(myUrl){ URL.revokeObjectURL(myUrl); myUrl=''; } }catch(e){}
+    if(playMineBtn){ playMineBtn.disabled=true; playMineBtn.classList.remove('playing'); }
     var s=missionSentence();
     speakTextEl.firstChild.nodeValue=s;
     speakKoEl.textContent=KO[s]||'';
@@ -1080,24 +1090,41 @@
        SIL_FIRST = 버튼을 누르고 **첫 말이 들리기 전**까지 기다리는 시간. 예전에는 이것도 2.2초라
        문장을 떠올리는 사이 마이크가 스스로 꺼졌다(방탈출에서 실측 2.5초 — 같은 결함이었다).
        SIL_AFTER = 말이 들린 뒤 조용해지면 마무리하는 시간(문장 다 말할 시간 확보). */
-    var SIL_FIRST=10000, SIL_AFTER=2400;
+    /* ⏱ (2026-07-30) 사장님: "다시 말하기가 너무 일찍 끝난다. 20초 주고, 남은 시간 보여주고,
+       말 끝나면 자동 입력되고, 다시 20초로 리셋되게."
+       SIL_FIRST 를 10초 → 20초로 늘리고 micBtn 에 남은 초를 찍는다.
+       말이 한 번 들리기 시작하면 SIL_AFTER(2.4초)로 전환 → 문장을 일찍 끝내면 20초를 다 안 기다리고
+       바로 채점·제출된다(= "말 끝나면 자동으로 입력"). */
+    var SIL_FIRST=20000, SIL_AFTER=2400;
+    var _cdTimer=null, _deadline=0;
+    function paintCd(){
+      if(!recogActive){ return; }
+      if(_bestHeard){ micBtn.innerHTML='말이 끝나면 자동 채점…'; return; }
+      var left=Math.max(0, Math.ceil((_deadline-Date.now())/1000));
+      micBtn.innerHTML='말하세요 <b>'+left+'</b>초';
+    }
+    function stopCd(){ if(_cdTimer){ try{ clearInterval(_cdTimer); }catch(e){} _cdTimer=null; } }
     function armSilence(){ if(_silence) clearTimeout(_silence);
-      _silence=setTimeout(function(){ _silFired=true; try{ r.stop(); }catch(e){} }, _bestHeard?SIL_AFTER:SIL_FIRST); }
+      _deadline=Date.now()+(_bestHeard?SIL_AFTER:SIL_FIRST);
+      _silence=setTimeout(function(){ _silFired=true; try{ r.stop(); }catch(e){} }, _bestHeard?SIL_AFTER:SIL_FIRST);
+      // 카운트다운 표시는 부가 UI — 없는 환경(하니스 샌드박스)에서도 타이머 로직은 그대로 돌아야 한다
+      if(!_cdTimer && typeof setInterval==='function') _cdTimer=setInterval(paintCd, 250);
+      paintCd(); }
     /* 🎤 (2026-07-22) 새 시도마다 초기화 — 안 하면 3회 반복 미션의 1회차만 인정되고 마이크가 죽는다.
        recog 는 한 번만 만들어 재사용하는데 _done 이 첫 onend 에서 true 로 굳어, 이후 onresult 가
        맨 앞의 `if(_done) return;` 로 즉시 빠져나갔다. */
-    r.onstart=function(){ _done=false; _bestHeard=''; _bestConf=0; _silFired=false; recogActive=true; micBtn.classList.add('listening'); micBtn.innerHTML='듣는 중… 말하세요'; armSilence(); };
+    r.onstart=function(){ _done=false; _bestHeard=''; _bestConf=0; _silFired=false; recogActive=true; micBtn.classList.add('listening'); if(typeof myRecStart==='function') myRecStart(); armSilence(); };   // 🎧 말하는 동안 내 목소리도 녹음(부가기능이라 없어도 진행)
     r.onerror=function(ev){
       // no-speech = 아직 말을 안 꺼냈을 뿐이다. 여기서 마이크를 닫으면 생각하는 사이에 죽는다.
       // 진짜 끝은 침묵 타이머(_silFired)가 만든다 → 그전까지는 보호막이 다시 듣게 놔둔다.
       if((ev&&ev.error)==='no-speech' && !_silFired && !_done) return;
-      if(_silence) clearTimeout(_silence);
+      if(_silence) clearTimeout(_silence); stopCd(); if(typeof myRecStop==='function') myRecStop();
       recogActive=false; micBtn.classList.remove('listening'); micBtn.innerHTML='누르고 말하기'; micBtn.disabled=false;
       if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){ _done=true; missionStatus.innerHTML='⚠ 마이크 권한이 필요합니다. 브라우저에서 허용해 주세요.'; }
       else if(ev.error==='no-speech'){ _done=true; missionStatus.innerHTML='소리가 들리지 않았어요. 다시 시도해 주세요 🎤'; }
     };
     r.onend=function(){
-      if(_silence) clearTimeout(_silence);
+      if(_silence) clearTimeout(_silence); stopCd(); if(typeof myRecStop==='function') myRecStop();
       recogActive=false; micBtn.classList.remove('listening'); if(speakCount<SPEAK_TARGET){ micBtn.innerHTML='다시 말하기'; micBtn.disabled=false; }
       if(!_done){ _done=true; handleAttempt(_bestHeard, _bestConf, false); }   // 침묵으로 끝남 → 마지막 인식으로 판정
     };
@@ -1118,7 +1145,7 @@
     /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
        그 종료를 "말을 마쳤다"로 보고 채점하면 조각이 오답이 된다 → 우리가 stop() 을 안 불렀으면 다시 듣는다. */
     try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(r, { isDone: function(){ return _done; }, onRestart: armSilence,
-      maxRestarts:3, maxMs:SIL_FIRST+6000 }); }catch(e){}
+      maxRestarts:3, maxMs:SIL_FIRST+6000 }); }catch(e){}   // SIL_FIRST 가 20초라 여기도 26초로 함께 늘어난다
     return r;
   }
   function handleAttempt(heard, confidence, matched){
@@ -1141,6 +1168,7 @@
     }
   }
   function finishMission(){
+    myRecRelease();                            // 🎧 미션 끝 = 마이크 완전히 놓아준다(녹음 표시등이 계속 켜져 있지 않게)
     while(speakAwarded<SPEAK_TARGET){ awardSpeak(); }     // Admin Pass 등으로 덜 반영된 점수 보정
     speakOverlay.style.display='none';
     var cb=onMissionDone; onMissionDone=null; _onSpeakScore=null;
@@ -1160,6 +1188,55 @@
     setTimeout(finishMission, 400);
   });
   // 🔊 다시 듣기 — 원어민 발음을 몇 번이든 다시 들을 수 있게 (듣는 중이던 마이크는 끄고 재생)
+  /* ═══ 🎧 내 목소리 녹음·재생 (사장님 요청: 원어민과 내 발음을 비교) ═══
+     SpeechRecognition 은 오디오를 돌려주지 않으므로, 말하는 동안 MediaRecorder 로 따로 녹음한다.
+     ⚠ 마이크 스트림은 미션이 끝날 때까지 열어 둔 채 재사용한다 — 시도마다 getUserMedia 를 다시
+       부르면 기기에 따라 권한 프롬프트가 반복되고 첫 1초가 잘린다.
+     ⚠ 실패해도 게임 흐름을 절대 막지 않는다(권한 거부·미지원이면 버튼만 비활성으로 남는다). */
+  var myStream=null, myRec=null, myChunks=[], myUrl='', myAudio=null;
+  var playMineBtn=document.getElementById('playMine');
+  function myRecStart(){
+    try{
+      if(!window.MediaRecorder || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+      if(myRec && myRec.state==='recording') return;
+      var go=function(stream){
+        myStream=stream;
+        try{ myRec=new MediaRecorder(stream); }catch(e){ myRec=null; return; }
+        myChunks=[];
+        myRec.ondataavailable=function(e){ if(e.data && e.data.size) myChunks.push(e.data); };
+        myRec.onstop=function(){
+          if(!myChunks.length) return;
+          try{
+            if(myUrl) URL.revokeObjectURL(myUrl);              // 이전 녹음 정리(메모리 누수 방지)
+            myUrl=URL.createObjectURL(new Blob(myChunks,{type:myRec.mimeType||'audio/webm'}));
+            if(playMineBtn) playMineBtn.disabled=false;
+          }catch(e){}
+        };
+        try{ myRec.start(); }catch(e){}
+      };
+      if(myStream && myStream.active) go(myStream);
+      else navigator.mediaDevices.getUserMedia({audio:true}).then(go).catch(function(){});
+    }catch(e){}
+  }
+  function myRecStop(){ try{ if(myRec && myRec.state==='recording') myRec.stop(); }catch(e){} }
+  function myRecRelease(){
+    myRecStop();
+    try{ if(myStream){ myStream.getTracks().forEach(function(t){ t.stop(); }); } }catch(e){}
+    myStream=null; myRec=null;
+  }
+  if(playMineBtn) playMineBtn.addEventListener('click', function(){
+    if(!myUrl) return;
+    if(recogActive){ try{ recog.stop(); }catch(e){} }        // 듣는 중엔 먼저 마이크를 닫는다
+    try{ if(synth) synth.cancel(); if(ttsAudio) ttsAudio.pause(); }catch(e){}   // 원어민 소리와 겹치지 않게
+    try{
+      if(!myAudio) myAudio=new Audio();
+      myAudio.src=myUrl;
+      playMineBtn.classList.add('playing');
+      myAudio.onended=function(){ playMineBtn.classList.remove('playing'); };
+      myAudio.play().catch(function(){ playMineBtn.classList.remove('playing'); });
+    }catch(e){ playMineBtn.classList.remove('playing'); }
+  });
+
   document.getElementById('listenAgain').addEventListener('click', function(){
     if(recogActive){ try{ recog.stop(); }catch(e){} }
     speakMission();
@@ -1757,6 +1834,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730231115 -->
+<!-- BUILD:20260730232148 -->
 </body>
 </html>
