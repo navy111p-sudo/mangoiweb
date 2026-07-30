@@ -86,6 +86,23 @@
   .rule b{color:#ffd479}
   .rule .k{display:inline-block;background:rgba(255,212,121,.15);border:1px solid rgba(255,212,121,.35);
     border-radius:6px;padding:1px 8px;font-weight:800;color:#ffe9a8;font-size:12.5px}
+  /* 설명을 "1·2·3·4 단계"로 — 글을 읽지 않고 훑어도 순서가 보이게 */
+  .rule .stp{display:flex;gap:10px;align-items:flex-start;margin-bottom:11px}
+  .rule .stp:last-of-type{margin-bottom:0}
+  .rule .num{flex:0 0 23px;width:23px;height:23px;border-radius:50%;margin-top:2px;
+    background:linear-gradient(180deg,#ffe08a,#e0a838);color:#141a20;font-weight:900;font-size:13px;
+    display:flex;align-items:center;justify-content:center}
+  .en{display:inline-block;color:#8fa6bd;font-size:11.5px;font-weight:600;line-height:1.45}
+  .oS .en{margin-top:5px}
+  .ex2{display:inline-block;margin-top:4px;background:rgba(255,212,121,.16);
+    border:1px solid rgba(255,212,121,.42);border-radius:7px;padding:2px 9px;
+    font-weight:800;color:#fff;font-size:13px}
+  .tips{margin-top:13px;padding-top:11px;border-top:1px solid rgba(140,165,195,.2);
+    font-size:12.5px;color:#a9bacd;line-height:1.75}
+  .tips b{color:#ffd479}
+  /* 마이크 버튼 아래 영어 한 줄 */
+  #micBtn .mSub{display:block;font-size:10.5px;font-weight:700;opacity:.72;margin-top:1px;letter-spacing:.2px}
+  .sBtn .sub2{display:block;font-size:9.5px;font-weight:700;opacity:.68;margin-top:1px}
   .bigBtn{margin-top:18px;padding:15px 46px;border-radius:14px;font-size:19px;font-weight:900;cursor:pointer;
     border:none;color:#141a20;background:linear-gradient(180deg,#ffe08a,#e0a838);
     box-shadow:0 6px 20px rgba(224,168,56,.45)}
@@ -113,8 +130,8 @@
   <div id="panel">
     <div id="heard"></div>
     <div id="micRow">
-      <button id="micBtn">🎤 눌러서 영어로 말하기</button>
-      <button class="sBtn" id="hintBtn">💡 힌트</button>
+      <button id="micBtn">🎤 눌러서 영어로 말하기<span class="mSub">Press &amp; speak English</span></button>
+      <button class="sBtn" id="hintBtn">💡 힌트<span class="sub2">Hint</span></button>
       <button class="sBtn" id="typeBtn">⌨️</button>
     </div>
     <div id="typeRow">
@@ -128,14 +145,28 @@
   <div class="ov" id="startOv">
     <div class="oT">🚪 탈출: 말해야 열린다</div>
     <div class="oEn">Escape by Voice</div>
-    <div class="oS">이 방에는 <b>버튼이 없습니다.</b><br>영어로 <b>소리 내어 말해야</b> 방이 움직입니다.</div>
+    <div class="oS">이 방은 <b>말을 알아듣습니다.</b><br>
+      영어로 소리 내어 말하면 방이 움직여요.<br>
+      <span class="en">This room listens. Speak English and it moves.</span></div>
     <div class="rule">
-      🎤 마이크를 누르고 <span class="k">Look at the desk</span> 처럼 말하세요<br>
-      🔍 살펴보면 단서가 나오고, 단서가 다음 할 말을 알려줍니다<br>
-      ⏳ <b>5분</b> 안에 나가야 합니다 — 시간이 줄면 방이 어두워집니다<br>
-      💡 막히면 힌트 버튼을 누르세요 (감점 없음)
+      <div class="stp"><span class="num">1</span>
+        <div><b>노란 버튼</b>을 누르세요<br>
+          <span class="en">Press the yellow button</span></div></div>
+      <div class="stp"><span class="num">2</span>
+        <div>화면에 보이는 문장을 <b>그대로 소리 내어</b> 읽으세요<br>
+          <span class="ex2">Look at the desk</span><br>
+          <span class="en">Read the sentence on the screen out loud</span></div></div>
+      <div class="stp"><span class="num">3</span>
+        <div>방이 대답하면 <b>다음에 할 말</b>을 알려줘요<br>
+          <span class="en">The room answers and tells you what to say next</span></div></div>
+      <div class="stp"><span class="num">4</span>
+        <div><b>7번</b> 말하면 문이 열립니다 🚪<br>
+          <span class="en">Speak 7 times and the door opens</span></div></div>
+      <div class="tips">⏳ 시간은 <b>5분</b> — 줄어들면 방이 어두워져요 · <b>5 minutes</b><br>
+        💡 모르겠으면 <b>힌트</b> 버튼 (감점 없어요) · Hint costs nothing<br>
+        ⌨️ 마이크가 안 되면 <b>키보드</b> 버튼으로도 할 수 있어요 · Typing works too</div>
     </div>
-    <button class="bigBtn" id="btnStart">▶ 방에 들어가기</button>
+    <button class="bigBtn" id="btnStart">▶ 방에 들어가기 · Enter</button>
   </div>
 
   <!-- 결과 -->
@@ -320,18 +351,32 @@ function matchStep(said, step){
    5. 진행
    ════════════════════════════════════════════════════════════ */
 function curStep(){ return STEPS[G.i]; }
+/* ⏳ 가만히 있으면 스스로 도와준다 — 학생이 "무슨 말을 해야 하는지" 몰라 멈추는 것을 막는 장치.
+   힌트 버튼을 눌러야만 문장이 나오던 구조가 막힘의 원인이었다(2026-07-30). */
+var _idleT=null;
+function clearIdle(){ if(_idleT){ clearTimeout(_idleT); _idleT=null; } }
+function armIdle(ms){ clearIdle();
+  _idleT=setTimeout(function(){ _idleT=null;
+    if(!G||!G.running||G.over||G.busy) return;
+    showHint(true); armIdle(9000);            // 단계가 올라갈 때까지 9초마다 한 칸씩 더 알려준다
+  }, ms); }
 function showStep(){
   var s=curStep(); if(!s) return;
   setScene(s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
   // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
   setGoal(s.goal, s.goalKo);
   G.hintLv=0; hintTxt('');
+  if(G.i<=1){
+    // 처음 두 단계는 사용법을 익히는 구간 → 말할 문장을 그대로 보여준다(소리로는 읽어주지 않음:
+    // 이 시점에 방 내레이션이 재생 중이라 겹치면 둘 다 안 들린다)
+    G.hintLv=2; showHint(true,true); armIdle(13000);
+  } else armIdle(8000);
 }
 function advance(){
   var s=curStep();
-  G.busy=true;
+  G.busy=true; clearIdle();
   sndOk(); flash();
-  heard('<span class="ok">정확해요!</span>');
+  heard('<span class="ok">정확해요! · Correct!</span>');
   // 결과 장면으로 전환
   setScene(s.scene);
   logProg(s.id, true);
@@ -355,25 +400,26 @@ function advance(){
 function wrongTry(said){
   G.wrong++;
   sndNo();
-  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 방이 반응하지 않아요</span>');
-  // 3회 틀리면 힌트 자동 노출
-  if(G.wrong%3===0){ showHint(true); }
+  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 방이 반응하지 않아요 · Try again</span>');
+  showHint(true);            // 틀렸으면 곧바로 한 칸 더 알려준다(예전엔 3번 틀려야 나왔다)
+  armIdle(9000);
 }
 function submitSaid(said){
   if(!G||!G.running||G.over||G.busy) return;
+  clearIdle();
   G.utter++; $('utterN').textContent=G.utter;
   var s=curStep();
   if(matchStep(said,s)){ G.utterOk++; $('utterOk').textContent='성공 '+G.utterOk; advance(); }
   else wrongTry(said);
 }
-function showHint(auto){
+function showHint(auto,noSpeak){
   var s=curStep(); if(!s)return;
   if(!auto) G.hintUsed++;
   var lv=Math.min(2,G.hintLv);
   var h=s.hints[lv];
-  hintTxt(lv>=2 ? ('이렇게 말해보세요 → <span class="ex">'+esc(h)+'</span>')
+  hintTxt(lv>=2 ? ('이렇게 말해보세요 · Say this → <span class="ex">'+esc(h)+'</span>')
                 : ('💡 '+esc(h)));
-  if(lv>=2) speak(h);
+  if(lv>=2 && !noSpeak) speak(h);
   G.hintLv=Math.min(2,G.hintLv+1);
 }
 
@@ -382,22 +428,42 @@ function showHint(auto){
    ════════════════════════════════════════════════════════════ */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 var recActive=false;
+/* 🎤 마이크 버튼 문구 — 상태가 바뀔 때마다 여기로만 바꾼다(문구가 흩어지면 한쪽만 고쳐진다) */
+var MIC_IDLE='🎤 눌러서 영어로 말하기<span class="mSub">Press &amp; speak English</span>';
+var MIC_REC ='🔴 지금 말하세요!<span class="mSub">Speak now — I am listening</span>';
+function micLabel(rec){ var b=$('micBtn'); if(!b)return;
+  b.innerHTML = rec ? MIC_REC : MIC_IDLE; b.classList.toggle('rec', !!rec); }
+/* ⏱ 침묵 대기시간 — 두 종류로 나눠야 한다.
+   (2026-07-30) 예전에는 "말이 들리기 전"에도 2.2초만 기다렸다. 버튼을 누른 뒤 숨을 고르거나
+   문장을 떠올리는 동안 마이크가 스스로 꺼져서, 학생이 말을 해도 "소리가 잘 안 들렸어요"만 떴다.
+   → 첫 말이 들리기 전에는 넉넉히 기다리고(SIL_FIRST), 말이 들린 뒤에만 짧게 끊는다(SIL_AFTER). */
+var SIL_FIRST=10000, SIL_AFTER=2400;
 function listen(){
-  if(!G||!G.running||G.over||G.busy) return;
+  if(!G||!G.running||G.over) return;
+  // 방이 이야기하는 중 마이크를 누르면 → 아무 반응 없이 무시하지 말고, 내레이션을 건너뛰고 바로 듣는다
+  if(G.busy){ if(G._skip){ _ttsStop(); G._skip(); setTimeout(listen,80); } return; }
   if(!SR){ enableTyping('이 브라우저는 음성인식을 지원하지 않아요 — 타이핑으로 진행하세요'); return; }
   if(recActive) return;
   var rec; try{ rec=new SR(); }catch(_){ enableTyping('마이크를 열 수 없어요 — 타이핑으로 진행하세요'); return; }
   rec.lang='en-US'; rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
-  var done=false, best='', matched=false, sil=null, started=false;
-  var btn=$('micBtn'); btn.classList.add('rec'); btn.textContent='🔴 듣는 중… 말하세요';
+  var done=false, best='', matched=false, sil=null, started=false, denied=false;
+  micLabel(true);
+  heard('<span style="color:#8fa6bd">🔴 듣고 있어요 — 천천히 말해도 괜찮아요</span>');
   recActive=true;
   function finish(){ if(done)return; done=true; recActive=false;
     if(sil)clearTimeout(sil); try{rec.stop();}catch(_){}
-    btn.classList.remove('rec'); btn.textContent='🎤 눌러서 영어로 말하기';
+    micLabel(false);
     if(best) submitSaid(best);
-    else { heard('<span class="no">소리가 잘 안 들렸어요 — 다시 말해보세요</span>'); }
+    else if(denied) enableTyping('마이크 권한이 꺼져 있어요 — 타이핑으로도 할 수 있어요');
+    else {
+      // 못 들었을 때 그냥 "다시 말해보세요"로 끝내면 학생이 무슨 말을 할지 모른 채 멈춘다 → 예문을 같이 띄운다
+      heard('<span class="no">소리를 못 들었어요</span> — 버튼을 누르고 <b>바로</b> 말해보세요'+
+            '<br><span class="en">I heard nothing — press the button, then speak right away</span>');
+      showHint(true);
+    }
   }
-  function arm(){ if(sil)clearTimeout(sil); sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, 2200); }
+  function arm(){ if(sil)clearTimeout(sil);
+    sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, best?SIL_AFTER:SIL_FIRST); }
   rec.onstart=function(){ started=true; arm(); };
   rec.onresult=function(e){ if(done)return; started=true;
     for(var i=e.resultIndex;i<e.results.length;i++){
@@ -410,12 +476,19 @@ function listen(){
     }
     heard('듣는 중… <b>'+esc(best)+'</b>');
     arm(); };
-  rec.onerror=function(){ finish(); };
+  rec.onerror=function(e){ var er=(e&&e.error)||'';
+    if(er==='not-allowed'||er==='service-not-allowed'){ denied=true; finish(); return; }
+    // no-speech = "아직 말을 안 꺼냄". 여기서 끝내면 생각하는 사이에 마이크가 죽는다 →
+    // 보호막(MangoiSTT)이 다시 듣게 놔둔다. 진짜 끝은 침묵 타이머의 stop() 이 만든다.
+    if(er==='no-speech') return;
+    finish(); };
   rec.onend=function(){ finish(); };
-  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec,{isDone:function(){return done;},onRestart:arm}); }catch(_){}
-  try{ rec.start(); }catch(_){ recActive=false; btn.classList.remove('rec');
-    btn.textContent='🎤 눌러서 영어로 말하기'; enableTyping('마이크 권한이 필요해요 — 타이핑으로도 가능해요'); return; }
-  setTimeout(function(){ if(!started && !done) finish(); }, 9000);
+  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec,
+    {isDone:function(){return done;},onRestart:arm,maxRestarts:3,maxMs:SIL_FIRST+6000}); }catch(_){}
+  try{ rec.start(); }catch(_){ recActive=false; micLabel(false);
+    enableTyping('마이크 권한이 필요해요 — 타이핑으로도 가능해요'); return; }
+  // 마이크가 아예 열리지 않는 경우(권한 대화상자 방치 등)만 여기서 정리한다
+  setTimeout(function(){ if(!started && !done) finish(); }, 12000);
 }
 /* 타이핑 폴백 — 마이크가 안 되는 환경에서 게임이 막히지 않게 */
 function enableTyping(msg){
@@ -441,7 +514,7 @@ function startTimer(){
     if(G.t<=0) lose();
   },1000);
 }
-function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); _ttsStop();
+function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop();
   setScene('escape');
   $('scene').style.filter='brightness(1) saturate(1)';
   $('endT').textContent='🎉 탈출 성공!'; $('endEn').textContent='Escaped';
@@ -453,7 +526,7 @@ function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(ti
   flushProg(true);
   setTimeout(function(){ speak('Well done! You escaped!'); },400);
 }
-function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); _ttsStop();
+function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop();
   $('endT').textContent='⏳ 시간 초과'; $('endEn').textContent='Time Up';
   $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+STEPS.length+'</b> 단계까지 갔어요<br>'+
     '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회';
@@ -482,6 +555,7 @@ function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
 function startGame(){
   $('startOv').classList.add('hide'); $('endOv').classList.add('hide');
   $('typeRow').classList.remove('on');
+  clearIdle(); micLabel(false);
   newGame(); G.running=true;
   $('utterN').textContent='0'; $('utterOk').textContent='성공 0';
   $('timeVal').textContent='5:00'; $('timeVal').classList.remove('warn');
@@ -497,7 +571,7 @@ $('scene').addEventListener('click', function(){ if(G && G.busy && G._skip){ _tt
 $('btnStart').addEventListener('click', startGame);
 $('btnAgain').addEventListener('click', startGame);
 $('micBtn').addEventListener('click', listen);
-$('hintBtn').addEventListener('click', function(){ showHint(false); });
+$('hintBtn').addEventListener('click', function(){ showHint(false); armIdle(9000); });
 $('typeBtn').addEventListener('click', function(){ $('typeRow').classList.toggle('on'); });
 $('typeGo').addEventListener('click', function(){ var v=$('typeIn').value.trim();
   if(v){ $('typeIn').value=''; submitSaid(v); } });
@@ -510,6 +584,6 @@ window.addEventListener('keydown', function(e){
 setScene('room');
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260730051409 -->
+<!-- BUILD:20260730144748 -->
 </body>
 </html>

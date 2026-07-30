@@ -186,7 +186,7 @@
                초소형 축소본을 HTML 안에 직접 심었다(네트워크 요청 0 → 첫 화면에 바로 그려짐).
                예전엔 이 남색 화면이 먼저 보이고 배경 이미지가 늦게 떠서 '옛날 화면'처럼 보였다.
                위에 덮이는 ::before 원본도 어차피 블러 처리라 교체 순간이 눈에 안 띈다. */
-            background: #171247 url('data:image/jpeg;base64,/9j//gAQTGF2YzYyLjExLjEwMAD/2wBDAAgQEBMQExYWFhYWFhoYGhsbGxoaGhobGxsdHR0iIiIdHR0bGx0dICAiIiUmJSMjIiMmJigoKDAwLi44ODpFRVP/xABlAAACAgMBAAAAAAAAAAAAAAAEBQYABwECAwEBAQEAAAAAAAAAAAAAAAAAAwECEAABBAIDAQEBAQAAAAAAAAABAAIRAwQSITFRYROxQREAAwEBAQAAAAAAAAAAAAAAAAERITEC/8AAEQgAGwAoAwEiAAIRAAMRAP/aAAwDAQACEQMRAD8AwJK9O0fTjm0+BS6nGY3iByOS4fxNMrNKtkPrx7LOgU0GA+OYCyL+uJj1wIc5Q7IytnS2Asp3iYr8xayPPp0Qmv1ellpcg9imqA0YNv19lbdkk/6UqVR0o2ru3eA52oPZ8+oKww4iZgxI6Qy0pSFVXS4WSn//2Q==') center center / cover no-repeat;
+            background: #0E1424 url('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABkRExYTEBkWFBYcGxkeJT4pJSIiJUw3Oi0+WlBfXllQV1ZkcJB6ZGqIbFZXfap+iJSZoaKhYXiwva+cu5CeoZr/2wBDARscHCUhJUkpKUmaZ1dnmpqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampr/wAARCAAWACgDASIAAhEBAxEB/8QAGAABAQEBAQAAAAAAAAAAAAAAAAIBAwb/xAAZEAEBAQEBAQAAAAAAAAAAAAAAAQIRIUH/xAAWAQEBAQAAAAAAAAAAAAAAAAAAAQL/xAAVEQEBAAAAAAAAAAAAAAAAAAAAEf/aAAwDAQACEQMRAD8A85FTSGtIubs+ne1DelHTeNY5N+Wzo59FEgMg0AAAf//Z') center center / cover no-repeat;
         }
         /* 배경 이미지 레이어: 살짝 블러 + 밝고 선명하게 — 우주 테마는 유지하되 화사하게 */
         #view-home::before {
@@ -194,8 +194,13 @@
             position: absolute; inset: 0;
             z-index: 0;
             pointer-events: none;
-            /* 2026-07-22: space.jpg(399KB) → WebP(278KB). 위 밝은테마와 같은 이유. */
-            background: url('/img/home-bg-dark.webp') center center / cover no-repeat;
+            /* 2026-07-22: space.jpg(399KB) → WebP(278KB). 위 밝은테마와 같은 이유.
+               2026-07-30: Higgsfield 실사 딥필드로 교체(284KB→40KB). 은하가 화면을 가로지르던
+               구버전은 중앙의 골드 타이틀·검색창과 겹쳐 산만했다. 새 이미지는 중앙과 왼쪽
+               (우주인이 서는 자리)을 비우고 나선은하를 오른쪽 위 구석으로 밀어냈다.
+               ⚠ 이 파일을 갈면 위 #view-home 의 인라인 base64 축소본도 같이 갈아야 한다.
+                  안 그러면 로딩 첫 순간에 옛 배경색이 번쩍인다. */
+            background: url('/img/home-bg-dark.webp?v=20260730') center center / cover no-repeat;
             filter: blur(3px) brightness(0.88) saturate(1.22);
             transform: scale(1.08);
         }
@@ -3624,7 +3629,7 @@
 <!-- 🖼️ 홈 배경 먼저 받기 — 배경이 늦게 오면 그때까지 '배경 없는 옛 화면'이 보인다.
      두 장 다 걸어두는 이유: 시간대에 따라 밝은/어두운 테마가 자동으로 바뀌기 때문. -->
 <link rel="preload" as="image" href="/img/home-bg-bright.webp">
-<link rel="preload" as="image" href="/img/home-bg-dark.webp">
+<link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style id="mg-title-final">
   .home-title { background: transparent !important; gap: 0 !important; font-size: clamp(40px, 7.6vw, 80px) !important; }
   /* 🌟 속은 투명(우주 배경이 비침) + 빛나는 금색 외곽선, 가로로 살짝 넓게 */
@@ -27895,7 +27900,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260730051409 -->
+<!-- BUILD:20260730144748 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
