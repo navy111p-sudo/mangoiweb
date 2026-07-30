@@ -218,12 +218,15 @@
         /* ── 🌤️ 밝은 홈 배경 (옵션): body.home-bright 이면 우주 배경을 밝은 판타지 풍경으로 교체 ──
            어두운 배경(기본)은 그대로 두고, 밝게 옵션만 아래에서 덮어씀 */
         /* 🚀 밝은 테마도 동일 — 평평한 하늘색 대신 풍경 축소본을 즉시 표시 */
-        body.home-bright #view-home { background:#cfe8f5 url('data:image/jpeg;base64,/9j//gAQTGF2YzYyLjExLjEwMAD/2wBDAAgQEBMQExYWFhYWFhoYGhsbGxoaGhobGxsdHR0iIiIdHR0bGx0dICAiIiUmJSMjIiMmJigoKDAwLi44ODpFRVP/xACCAAEBAQEBAQAAAAAAAAAAAAAGBQQCBwMBAAMBAQAAAAAAAAAAAAAAAAUDBAECEAABAgYBAQQDEQEAAAAAAAABAhEDABIxBCFRQWGBsSLBMxMGIxUUQjSR0cKTkoPxgnJxUkMRAQACAgIDAQEBAAAAAAAAAAECACERAxIxE1Fx0UH/wAARCAAWACgDASIAAhEAAxEA/9oADAMBAAIRAxEAPwALFxPY7INgQWd3Y76T6T7nocBC1hYTWWKSwYpI6av/AEZCnLTHx0A111PEJHlpTYdey0t4WdD0G/4hnS3mIDBPIHMmeUOWPUwIZPv8ovikwWT5Fw7Mfv2p8gY8HNrCUsWqZmq5/Sb8aNjLhqWaVUDQ5LWkrBXDUhCYiUEvSlO6+8jre848qNB9kRChlbHq9OrvLOg9DctxxuwMuQ9miOpu9ZvmpUpcaKoQgnqlhpG5699/0PoTKWNmJShRhAQ1ISF2BBNmLX9El/hjL5hfdj6pr9vTGW5DhZRPFhwslIRStFQPbY8h/A6mpCaIFBL6CWfoSz2kn0EqsT5f5fgJFxaXT/bYGXFx4lALqSlq91c3vPyXkLWipJbbENrY3qz904cj5wr+P2Z5T6n93oliubwGCyouQsso8MnsD2Is3ZOP42rhP4RPEb1aO/xmXMu2tAfN/9k=') center 42% / cover no-repeat; }
+        body.home-bright #view-home { background:#829091 url('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABkRExYTEBkWFBYcGxkeJT4pJSIiJUw3Oi0+WlBfXllQV1ZkcJB6ZGqIbFZXfap+iJSZoaKhYXiwva+cu5CeoZr/2wBDARscHCUhJUkpKUmaZ1dnmpqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampqampr/wAARCAAWACgDASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAAUDBAYBAv/EACUQAAICAgECBgMAAAAAAAAAAAECAAMEESESMQUGIjIzoUFRcf/EABcBAQEBAQAAAAAAAAAAAAAAAAIBAwD/xAAWEQEBAQAAAAAAAAAAAAAAAAAAARH/2gAMAwEAAhEDEQA/AFleG9lJdeQDyI1o8NLYoVuOobI1L2NStFYRO0sDUWYDMZWMce4VfgMD9R7iVqKVRGHUPUw/s9ZeNXkoquSADvYi3Ivsxbrwg92lDfoQ2FKk8wGpsYKPkRvowivIvawEMdk8kmEK7rRgzvUYQmzNDdaQpii12tUgniEJK6KOSdW632MIQgN//9k=') center 42% / cover no-repeat; }
         body.home-bright #view-home::before {
             /* 2026-07-22: 2.18MB PNG → 164KB WebP. 어차피 아래 filter 로 블러 처리되는
                배경이라 화질 손해는 눈에 안 보이고, 로딩 초반 '배경 없는 옛 화면'이
-               보이던 시간이 크게 줄었다. 원본 PNG 는 삭제했다(되돌리려면 git 이력 참고). */
-            background: url('/img/home-bg-bright.webp') center 42% / cover no-repeat;
+               보이던 시간이 크게 줄었다. 원본 PNG 는 삭제했다(되돌리려면 git 이력 참고).
+               2026-07-30: 기존 CG풍 판타지 풍경(행성+절벽) → Higgsfield 실사 톤으로 교체
+               (167KB→150KB). 구도는 유지(중앙·왼쪽 비우고 절벽·행성을 위/양옆으로),
+               색감만 실사로. 인라인 base64 축소본·폴백색(#cfe8f5→#829091)도 같이 갱신. */
+            background: url('/img/home-bg-bright.webp?v=20260730') center 42% / cover no-repeat;
             /* 배경을 한 발 뒤로: 블러↑·채도/명도 살짝↓ 해서 풍경이 앞 콘텐츠와 경쟁하지 않게 */
             filter: blur(3px) brightness(0.94) saturate(0.94);
             transform: scale(1.06);
@@ -470,16 +473,11 @@
             55%  { transform: translate(112vw, -11vh) scale(1.22); opacity: 0; }
             100% { transform: translate(112vw, -11vh) scale(1.22); opacity: 0; }
         }
+        /* 2026-07-30: 모바일은 화면이 좁아 우주인+UFO 둘 다 있으면 혼잡하다는 사장님 지적 —
+           우주인은 자리 고정·아이콘 크기라 유지, UFO는 화면을 대각선으로 크게 가로지르는
+           애니메이션이라 좁은 화면일수록 상대적으로 더 산만해서 이쪽을 뺐다. */
         @media (max-width: 640px) {
-            .mango-ufo { top: 25%; width: clamp(110px, 34vw, 200px); }
-            @keyframes mangoUfoFly {
-                0%   { transform: translate(-30vw, 6vh) scale(0.12); opacity: 0; }
-                5%   { opacity: 1; }
-                30%  { transform: translate(30vw, 0vh) scale(0.5); opacity: 1; }
-                52%  { transform: translate(120vw, -8vh) scale(1.15); opacity: 1; }
-                58%  { transform: translate(120vw, -8vh) scale(1.15); opacity: 0; }
-                100% { transform: translate(120vw, -8vh) scale(1.15); opacity: 0; }
-            }
+            .mango-ufo { display: none; }
         }
         /* ═══════ 🚀 우주선 — 사용자 요청으로 완전 제거 (2026-06-09) ═══════ */
         .starship-wrap { display: none !important; }
@@ -3628,7 +3626,7 @@
 <!-- ph161 (2026-07-23): 구글 웹폰트 제거. 여기서 받던 한글(Noto Sans KR/Serif)은 맑은 고딕·바탕으로 폴백 -->
 <!-- 🖼️ 홈 배경 먼저 받기 — 배경이 늦게 오면 그때까지 '배경 없는 옛 화면'이 보인다.
      두 장 다 걸어두는 이유: 시간대에 따라 밝은/어두운 테마가 자동으로 바뀌기 때문. -->
-<link rel="preload" as="image" href="/img/home-bg-bright.webp">
+<link rel="preload" as="image" href="/img/home-bg-bright.webp?v=20260730">
 <link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style id="mg-title-final">
   .home-title { background: transparent !important; gap: 0 !important; font-size: clamp(40px, 7.6vw, 80px) !important; }
@@ -27972,7 +27970,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260730163540 -->
+<!-- BUILD:20260730170804 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
