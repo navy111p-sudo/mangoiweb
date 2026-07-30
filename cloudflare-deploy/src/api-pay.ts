@@ -254,6 +254,30 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       });
     }
 
+    /* 🏦 (2026-07-30) 가상계좌 발급 성공 — 아직 입금 전.
+       장지웅 부장님 Q2: 실제 계좌는 노출하지 않고, 고객마다 발급되는 정식 가상계좌로 받는다.
+       가상계좌는 confirm() 이 성공해도 토스 상태가 'DONE'이 아니라 'WAITING_FOR_DEPOSIT'이다.
+       이걸 위 DONE 분기가 못 잡으면 바로 아래 "실패" 분기로 떨어져 발급 성공을 결제 실패로
+       오판하고 사장님께 "⚠️ 결제 실패" 문자까지 나갈 뻔했다 — 별도 분기로 반드시 갈라야 한다.
+       실제 입금 확인은 여기서 하지 않는다: 입금되면 토스가 /api/pay/webhook 으로 알려주고,
+       거기서 상태를 'DONE'으로 재조회해 확정 + 수강 자동활성화까지 처리한다(기존 로직 그대로). */
+    if (tossRes.ok && tossJson?.status === 'WAITING_FOR_DEPOSIT') {
+      await env.DB.prepare(
+        `UPDATE payment_orders SET status='await_deposit', payment_key=?, raw=? WHERE order_id=?`
+      ).bind(paymentKey, JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+      const va = tossJson?.virtualAccount || null;
+      return json({
+        ok: true, orderId, amount, waitingDeposit: true,
+        virtualAccount: va ? {
+          bankCode: va.bankCode || null,
+          bank: va.bank || null,
+          accountNumber: va.accountNumber || null,
+          accountHolder: va.customerName || order.student_name || order.payer_name || null,
+          dueDate: va.dueDate || null,
+        } : null,
+      });
+    }
+
     // 실패 — 토스 에러코드/메시지를 그대로 담아 프론트가 친절히 안내
     const code = tossJson?.code || ('http_' + tossRes.status);
     const msg = tossJson?.message || '결제 승인에 실패했습니다.';

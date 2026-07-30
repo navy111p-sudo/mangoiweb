@@ -1279,6 +1279,7 @@ const worker = {
         // Audit-added: points balance + earn-by-rule
         path === '/api/points/balance' ||
         path === '/api/points/earn-by-rule' ||
+        path === '/api/points/rules' ||         // 🎁 "포인트 모으는 법" 공개 안내(2026-07-30, PII 아님)
         path === '/api/points/leaderboard' ||   // 🏆 학원 랭킹(공개, admin/points/list 대체)
         path === '/api/uptime-hook' ||          // 📟 UptimeRobot 장애 웹훅(토큰 보호) → 관리자 문자
         // 🌟 실시간 칭찬 포인트 — 학생 입장 등록 + 선생님 서버측 적립(학생 전체 포인트 확실 반영)

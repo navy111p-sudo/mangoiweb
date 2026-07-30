@@ -22258,7 +22258,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=6"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=7"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){
@@ -22515,6 +22515,10 @@ window.addEventListener('DOMContentLoaded', () => {
     })();
     ov.innerHTML = '<div class="ps-modal"><div class="ps-head">'+
         '<h2>🎁 '+(L?'포인트 상점':'Point Shop')+'</h2>'+
+        /* 🎁 (2026-07-30) "포인트 모으는 법" — 요청 슬라이드5: "내 포인트" 왼쪽에 배치.
+           DOM 순서상 ps-bal 바로 앞이면 flex 행에서 자동으로 왼쪽에 온다(ps-head h2 는 flex:1). */
+        '<button type="button" class="ps-howto-btn" onclick="showPointsHowTo()" style="background:rgba(0,0,0,0.3);border:1px solid rgba(251,191,36,0.35);color:#fde68a;padding:8px 12px;border-radius:99px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">'+
+          '💡 '+(L?'포인트 모으는 법':'How to earn')+'</button>'+
         '<div class="ps-bal" id="ps-balance">'+(L?'잔액 불러오는 중…':'Loading…')+'</div>'+
         '<button id="ps-audio-btn" type="button" title="안내 음성 끄기/켜기" onclick="psToggleAudio()" style="background:rgba(20,28,48,.65);border:1px solid rgba(251,191,36,.45);color:#fde68a;width:32px;height:32px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;backdrop-filter:blur(8px);padding:0;line-height:1">🔊</button>'+
         '<button class="ps-close" onclick="closePointsShop()">✕</button>'+
@@ -22559,6 +22563,63 @@ window.addEventListener('DOMContentLoaded', () => {
     // 모달 닫으면 음성 즉시 정지
     stopPointsGreeting();
   };
+  /* 🎁 (2026-07-30) "포인트 모으는 법" — 제보 슬라이드5 요청.
+     하드코딩 금지: /api/points/rules(신설)가 DB point_rules(enabled=1) 를 그대로 읽어 보여준다.
+     관리자가 규칙을 바꾸면(추가·금액변경·비활성화) 이 표도 자동으로 같이 바뀐다.
+     (장지웅 부장님 Q5: 학부모·학생에게 안내한 적 없는 7개는 별도 마이그레이션으로 이미 정리 대상) */
+  window.showPointsHowTo = async function(){
+    var L = (window.getLang?window.getLang():'ko')==='ko';
+    var bg = document.getElementById('points-howto-bg') || (function(){
+      var d = document.createElement('div');
+      d.id = 'points-howto-bg';
+      d.style.cssText = 'display:none;position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px';
+      d.onclick = function(e){ if (e.target===d) closePointsHowTo(); };
+      document.body.appendChild(d);
+      return d;
+    })();
+    bg.innerHTML = '<div style="max-width:480px;width:100%;max-height:80vh;overflow-y:auto;background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,0.32);border-radius:18px;box-shadow:0 30px 80px -10px rgba(0,0,0,0.7);color:#e2e8f0;font-family:inherit">'+
+      '<div style="padding:18px 22px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.08)">'+
+        '<h3 style="margin:0;flex:1;font-size:17px;font-weight:800;color:#fff">💡 '+(L?'포인트 모으는 법':'How to earn points')+'</h3>'+
+        '<button type="button" onclick="closePointsHowTo()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;font-size:16px;width:30px;height:30px;border-radius:50%;cursor:pointer">✕</button>'+
+      '</div>'+
+      '<div id="points-howto-body" style="padding:16px 20px 22px"><div style="padding:30px 10px;text-align:center;color:#94a3b8;font-size:13px">'+(L?'불러오는 중…':'Loading…')+'</div></div>'+
+    '</div>';
+    bg.style.display = 'flex';
+    try {
+      var r = await fetch('/api/points/rules', { cache: 'no-store' });
+      var d = await r.json();
+      var body = document.getElementById('points-howto-body');
+      if (!d || !d.ok || !d.rules || !d.rules.length) {
+        body.innerHTML = '<div style="padding:20px 10px;text-align:center;color:#94a3b8;font-size:13px">'+(L?'현재 안내할 활동이 없어요. 곧 채워질 예정이에요!':'Nothing to show yet — check back soon!')+'</div>';
+        return;
+      }
+      var rows = d.rules.map(function(rule){
+        var cap = rule.daily_cap ? (L ? ('하루 '+rule.daily_cap+'회') : (rule.daily_cap+'/day')) : (L?'제한 없음':'No limit');
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)">'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="color:#fff;font-size:13.5px;font-weight:700">'+escapeHtmlPointsHowTo(rule.label)+'</div>'+
+            (rule.description ? '<div style="color:#94a3b8;font-size:11.5px;margin-top:2px;line-height:1.4">'+escapeHtmlPointsHowTo(rule.description)+'</div>' : '')+
+          '</div>'+
+          '<div style="text-align:right;flex-shrink:0">'+
+            '<div style="color:#fde68a;font-size:15px;font-weight:900">+'+Number(rule.amount).toLocaleString('ko-KR')+'P</div>'+
+            '<div style="color:#64748b;font-size:10.5px;margin-top:1px">'+cap+'</div>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+      body.innerHTML = '<div>'+rows+'</div>'+
+        '<p style="margin:14px 0 0;color:#7c88a8;font-size:11px;line-height:1.6;text-align:center">'+
+        (L?'모은 포인트는 포인트 상점에서 상품으로 교환할 수 있어요 🎁':'Redeem points for gifts in the Point Shop 🎁')+'</p>';
+    } catch (e) {
+      var body2 = document.getElementById('points-howto-body');
+      if (body2) body2.innerHTML = '<div style="padding:20px 10px;text-align:center;color:#fca5a5;font-size:13px">'+(L?'불러오지 못했어요. 잠시 후 다시 시도해 주세요.':'Failed to load. Please try again.')+'</div>';
+    }
+  };
+  window.closePointsHowTo = function(){
+    var bg = document.getElementById('points-howto-bg');
+    if (bg) bg.style.display = 'none';
+  };
+  function escapeHtmlPointsHowTo(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
   window.psSwitchTab = function(tab, btn){
     document.querySelectorAll('.ps-tab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
