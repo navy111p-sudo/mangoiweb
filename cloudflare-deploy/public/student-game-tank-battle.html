@@ -1424,7 +1424,7 @@ function drawShell(b,col){ var sp=Math.hypot(b.vx,b.vy)||1, ux=b.vx/sp, uy=b.vy/
   // 🎯 아군/적군 색 구분(피해야 할 적 포탄임을 알 수 있게) — 실사 포탄 몸체 밑에 색 트레일로 남김
   ctx.strokeStyle=col; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(b.x-ux*len*0.7,b.y-uy*len*0.7); ctx.lineTo(b.x,b.y); ctx.stroke();
   if(SHELL_RDY){
-    var w=30*SCALE, h=w*(89/480), ang=Math.atan2(uy,ux);
+    var w=14*SCALE, h=w*(89/480), ang=Math.atan2(uy,ux);   // 🔧 탱크(50~65*SCALE)보다 작게 — 30→14
     ctx.translate(b.x,b.y); ctx.rotate(ang);   // 이미지 코=+X(오른쪽) → 그대로 진행방향을 향하게 정렬
     ctx.drawImage(SHELL_IMG, -w, -h/2, w, h);
   } else {
@@ -1744,7 +1744,10 @@ function syncTanks3D(){
   if(T3.player.userData.allyRing) T3.player.userData.allyRing.material.opacity=0.28+0.14*Math.sin(performance.now()/300);
   var pw=simToWorld(G.px,G.py); T3.player.position.set(pw.x,0,pw.z);
   T3.player.rotation.y=simAngToWorldYaw(G.hullAng);
-  T3.player.userData.turret.rotation.y=simAngToWorldYaw(G.turAng-G.hullAng);
+  // 🎯 (2026-07-31) 포신 실제 방향 ≠ 발사 방향 버그 — GLB 포탑 모델마다 baked 기본방향(turYaw)이 있는데
+  // attachGLB3()가 그 회전을 turGroup '안쪽'에 정적으로 더해서 turAng 기준 조준과 어긋났다(포탄이 실사라 방향이
+  // 눈에 보이게 되면서 발견됨). 여기서 -turYaw 로 상쇄해야 포신이 진짜로 turAng(=포탄 진행방향)을 향해 선다.
+  T3.player.userData.turret.rotation.y=simAngToWorldYaw(G.turAng-G.hullAng)-(TANK_GLB.sherman.turYaw||0);
   var pool=T3.enemyPool;
   for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
   G.enemies.forEach(function(en){
@@ -1754,12 +1757,13 @@ function syncTanks3D(){
       var hpBar=en.isBoss ? makeHpSprite3() : null; if(hpBar) T3.scene.add(hpBar);
       var aimGeo=new THREE.CylinderGeometry(0.028,0.028,38,5); aimGeo.rotateZ(Math.PI/2); aimGeo.translate(19,0,0);
       var aimLine=new THREE.Mesh(aimGeo, new THREE.MeshBasicMaterial({color:0xff4632, transparent:true, opacity:0})); T3.tankRoot.add(aimLine);
-      entry={ ref:en, obj:obj, label:label, hpBar:hpBar, aimLine:aimLine, lastWord:null, lastHi:null, lastHp:null };
+      entry={ ref:en, obj:obj, label:label, hpBar:hpBar, aimLine:aimLine, lastWord:null, lastHi:null, lastHp:null, glbType:type };
       pool.push(entry); }
     entry._seen=true;
     var w=simToWorld(en.x,en.y);
     entry.obj.position.set(w.x,0,w.z); entry.obj.rotation.y=simAngToWorldYaw(en.hullAng);
-    entry.obj.userData.turret.rotation.y=simAngToWorldYaw(en.turAng-en.hullAng);
+    // 🎯 포신 방향 보정(위 플레이어와 동일 이유) — 모델별 turYaw 상쇄
+    entry.obj.userData.turret.rotation.y=simAngToWorldYaw(en.turAng-en.hullAng)-((TANK_GLB[entry.glbType]||{}).turYaw||0);
     entry.obj.scale.setScalar(en.isBoss?1.55:1);
     var hi=sameWord(en.word, neededWord());
     if(entry.lastWord!==en.word || entry.lastHi!==hi){ updateWordSprite(entry.label, en.word, hi); entry.lastWord=en.word; entry.lastHi=hi; }
@@ -1787,9 +1791,10 @@ function syncShells3D(){ var pool=T3.shellPool; for(var pi=0;pi<pool.length;pi++
       var mesh = SHELL_TEX3
         ? new THREE.Sprite(new THREE.SpriteMaterial({map:SHELL_TEX3,transparent:true}))
         : new THREE.Mesh(SHELL_GEO, mat);
-      if(SHELL_TEX3) mesh.scale.set(2.0, 2.0*(89/480), 1);
+      // 🔧 (2026-07-31) 탱크(사수만 해도 4.5유닛)보다 훨씬 작아야 진짜 포탄 비례 — 2.0→0.8
+      if(SHELL_TEX3) mesh.scale.set(0.8, 0.8*(89/480), 1);
       var glow=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW_TEX,color:(mat===SHELL_MAT_P?0xffe090:0xff9050),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
-      glow.scale.set(1.5,1.5,1); mesh.add(glow);   // ✨ 예광 글로우 — 포탄이 확실히 보이게(+아군/적군 색 구분)
+      glow.scale.set(0.6,0.6,1); mesh.add(glow);   // ✨ 예광 글로우 — 포탄이 확실히 보이게(+아군/적군 색 구분)
       T3.shellRoot.add(mesh); entry={ref:b,obj:mesh}; pool.push(entry); }
     entry._seen=true; var w=simToWorld(b.x,b.y,0.8); entry.obj.position.set(w.x,w.y,w.z);
     var ang=Math.atan2(b.vy,b.vx);
@@ -2135,6 +2140,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260731072058 -->
+<!-- BUILD:20260731073005 -->
 </body>
 </html>

@@ -171,21 +171,31 @@
   /* 대시보드 = 실사 계기판 사진(/img/p38-dash.webp, 143KB).
      그 위 '진짜 계기 자리'에 살아 움직이는 바늘 계기를 정확히 겹쳐 놓는다.
      사진이 주변(리벳·황동 명판·토글 스위치·가죽 코밍)을 맡고, 우리 계기가 값을 맡는다. */
-  #dash{position:absolute;left:0;right:0;bottom:0;z-index:6;pointer-events:none;overflow:hidden;
-    box-shadow:0 -10px 26px rgba(0,0,0,.45)}
-  /* 뒤판 — 같은 사진을 꽉 채워 깔고 흐리게·어둡게. 평평한 단색으로 메우면 '띠를 붙인 것'처럼 보인다. */
-  #dashBg{position:absolute;inset:-14px;background:#232820 url('/img/p38-dash.webp?v=1') center/cover no-repeat;
-    filter:blur(13px) brightness(.5) saturate(.85)}
+  #dash{position:absolute;left:0;right:0;bottom:0;z-index:6;pointer-events:none;overflow:hidden}
+  /* 뒤판 — 같은 사진을 흐리게·어둡게 깔아 앞판의 잘린 가장자리를 부드럽게 감싼다.
+     ⚠️ 예전엔 이걸 `center/cover` 로 **화면 전체에 꽉 채웠다**. 그래서 넓은 화면에서
+        계기판 사진(폭 dw)보다 훨씬 넓은 좌우가 어두운 판으로 막혀 "답답하다"는 지적이 나왔다.
+        → 사진 폭만큼만 깔고 좌우는 비워 **하늘(3D 캔버스)이 그대로 비치게** 한다.
+        크기·위치는 layoutCockpit() 이 앞판과 같은 기준으로 넣는다. */
+  #dashBg{position:absolute;background:url('/img/p38-dash.webp?v=1') no-repeat;
+    filter:blur(15px) brightness(.5) saturate(.85)}
   /* 앞판 — 실제 계기가 있는 선명한 사진.
      ⚠️ 원본 사진에는 조종간이 '고정된 채' 찍혀 있다. 그대로 쓰면 우리가 얹은 회전 조종간과
         두 개가 겹쳐 보인다 → 조종간 위(세로 66%)까지만 잘라낸 판을 쓴다.
         좌표계는 원본과 동일(같은 폭·같은 원점)이라 계기 위치 계산은 그대로 유효하다. */
-  #dashFg{position:absolute;inset:0;background-repeat:no-repeat;
+  #dashFg{position:absolute;background-repeat:no-repeat;
     background-image:url('/img/p38-dash-panel.webp?v=1')}
-  /* 좌우 경계를 어둡게 눌러 뒤판과 이어지게 */
-  #dash .dvig{position:absolute;inset:0;pointer-events:none;
-    background:linear-gradient(90deg,rgba(8,10,7,.9) 0%,rgba(8,10,7,0) 17%,
-               rgba(8,10,7,0) 83%,rgba(8,10,7,.9) 100%)}
+  /* 계기판 좌우 끝을 하늘로 서서히 녹인다 — 안 그러면 사진이 칼같이 잘려 '붙여 넣은 판'으로 보인다.
+     ⚠️ 어둡게 덮는 방식(예전 .dvig)은 못 쓴다. 뒤가 하늘이라 검은 띠가 하늘 위에 그려진다.
+        알파를 깎는 mask 여야 한다. */
+  #dashBg,#dashFg{
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%)}
+  /* 계기판 윗변에만 그림자 — 예전엔 #dash 전체에 box-shadow 를 걸어 하늘 위로 검은 띠가 가로질렀다 */
+  #dash .dvig{position:absolute;pointer-events:none;
+    background:linear-gradient(180deg,rgba(6,9,5,.55) 0,rgba(6,9,5,0) 26px);
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%)}
   body.night #dash{filter:brightness(.5) saturate(.85)}
 
   /* 계기는 사진 속 '진짜 계기 자리'에 하나씩 절대좌표로 얹는다(flex 배열이 아니다).
@@ -1205,10 +1215,31 @@ function layoutCockpit(){
     var dw = Math.max(560, Math.min(W*1.1, dashH/0.56 * (DASH_W/DASH_H)));
     var dh = dw*DASH_H/DASH_W;
     var offY = -0.10*dh;                                  // 코밍 위쪽을 조금 잘라 계기를 위로
+    /* 계기판 사진은 화면 폭보다 좁다. 남는 좌우를 어두운 판으로 메우지 않고 **비워서 하늘이 보이게** 한다.
+       앞판·뒤판·윗그림자를 모두 '사진이 있는 띠'에만 놓는다(뒤판만 흐림이 번지도록 조금 더 넓게). */
+    var side = Math.max(0, (W-dw)/2);
+    var BLEED = 28;
     var dfg=document.getElementById('dashFg');
     if(dfg){
+      dfg.style.left = side.toFixed(1)+'px';
+      dfg.style.right = side.toFixed(1)+'px';
+      dfg.style.top = '0px'; dfg.style.bottom = '0px';
       dfg.style.backgroundSize = dw.toFixed(1)+'px auto';
       dfg.style.backgroundPosition = 'center '+offY.toFixed(1)+'px';
+    }
+    var dbg=document.getElementById('dashBg');
+    if(dbg){
+      dbg.style.left = Math.max(0, side-BLEED).toFixed(1)+'px';
+      dbg.style.right = Math.max(0, side-BLEED).toFixed(1)+'px';
+      dbg.style.top = '-14px'; dbg.style.bottom = '-14px';
+      dbg.style.backgroundSize = (dw+BLEED*2).toFixed(1)+'px auto';
+      dbg.style.backgroundPosition = 'center '+(offY-14).toFixed(1)+'px';
+    }
+    var dvg=document.querySelector('#dash .dvig');
+    if(dvg){
+      dvg.style.left = side.toFixed(1)+'px';
+      dvg.style.right = side.toFixed(1)+'px';
+      dvg.style.top = '0px'; dvg.style.bottom = '0px';
     }
 
     // ── 사진 속 진짜 계기 자리에 우리 계기를 하나씩 얹는다
@@ -3134,6 +3165,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260731072058 -->
+<!-- BUILD:20260731073005 -->
 </body>
 </html>
