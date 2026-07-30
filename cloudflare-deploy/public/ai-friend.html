@@ -1037,5 +1037,148 @@
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 <script defer src="/js/flow.js?v=8"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     💬 대화창 넓히기 (2026-07-29 사장님 지시: "봐야 할 부분이 너무 작다")
+     실측(375×812 폰): 고정 영역 523px vs 대화창 270px → 대화창이 화면의 33%뿐.
+     범인 순서: 아바타 카드 206px > .top 103 > .opts 50 > .hud 49 > .quests 44.
+       1) 아바타를 세로 카드 → 가로 한 줄로 (206px → 약 74px)
+       2) 설정(레벨·스타일·속도·목소리)과 퀘스트는 ⚙ 버튼 안으로 접기 (기본 접힘)
+       3) 남는 높이는 .chat(flex:1)이 자동으로 가져간다 → 대화창 약 60%
+     휴대폰 세로·가로·PC 모두 적용. 아바타 CSS(css/mango-avatar.css)는 다른 화면과
+     공용이라 건드리지 않고, 이 페이지 안에서만 덮어쓴다. ══════════════════════ -->
+<style id="chat-roomy-2026-07-29">
+/* ① 아바타: 세로 카드 → 가로 한 줄 (얼굴은 그대로 보이되 높이를 크게 아낌).
+      ring 높이는 mango-avatar.js 가 인라인으로 넣으므로 !important 로 덮는다. */
+#tavatar-wrap{ flex-direction:row; align-items:center; justify-content:center;
+  gap:10px; margin:6px auto 8px; }
+#tavatar-ring{ width:64px!important; height:80px!important; border-radius:14px; padding:3px; }
+#tavatar-canvas,#tavatar-video{ border-radius:11px; }
+#tavatar-status{ font-size:11px; padding:3px 10px; }
+@media (min-width:760px){
+  #tavatar-ring{ width:88px!important; height:110px!important; border-radius:16px; }
+  #tavatar-status{ font-size:13px; padding:4px 12px; }
+}
+/* 가로로 눕힌 폰 — 세로가 짧을 때.
+   ⚠️ 폰을 눕히면 폭이 844px 이나 되어 "PC용 큰 글씨" 규칙(min-width:760px)이 걸린다.
+      그래서 높이가 390px 뿐인데도 글씨·여백이 PC처럼 커져 대화창이 16%까지 눌렸다.
+      폭이 아니라 '높이' 기준으로 전부 되돌린다. */
+@media (max-height:520px){
+  #tavatar-ring{ width:40px!important; height:50px!important; }
+  #tavatar-wrap{ margin:3px auto 5px; gap:8px; }
+  #tavatar-status{ font-size:10px; padding:2px 8px; }
+  .top{ padding:6px 14px; }
+  .top .mango-icon{ width:28px; height:28px; }
+  .top .name{ font-size:14px; }
+  .top .status{ display:none; }
+  .top .clear-btn{ font-size:11px; padding:5px 9px; }
+  .snd-toggle{ width:32px; height:32px; font-size:15px; }
+  .opts-toggle{ font-size:11px; padding:5px 9px; }
+  .hud{ padding:4px 12px; gap:6px; }
+  .hud-chip{ font-size:11.5px; padding:4px 9px; }
+  .hud-lv .xp-track{ width:44px; height:6px; }
+  .quests{ padding:4px 12px 5px; }
+  .quest, .q-label{ font-size:11px; }
+  .topicbar{ padding:4px 12px; }
+  .chat{ padding:8px 12px; gap:8px; }
+  .msg{ font-size:14px; padding:8px 12px; }
+  .input-bar{ padding:6px 12px; }
+  .input-bar input{ padding:9px 12px; font-size:15px; }
+  .input-bar button{ padding:9px 14px; font-size:14px; }
+  .input-bar button[type=submit]{ font-size:14px; }
+  .mic-btn{ width:40px; height:40px; font-size:17px; }
+}
+
+/* ② 설정·퀘스트는 기본으로 접어 둔다 (⚙ 버튼으로 펼침) */
+body:not(.opts-open) .opts,
+body:not(.opts-open) .quests{ display:none; }
+
+/* ⚙ 토글 버튼 — 헤더의 다른 버튼과 같은 모양 */
+.opts-toggle{ background:rgba(148,163,184,0.16); color:#e2e8f0;
+  border:1px solid rgba(148,163,184,0.35); border-radius:10px;
+  padding:6px 10px; font-size:12px; font-weight:800; cursor:pointer;
+  white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:5px; }
+.opts-toggle .ot-sum{ color:var(--gold); font-weight:900; }
+body.opts-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba(251,191,36,0.5); }
+@media (min-width:760px){ .opts-toggle{ font-size:14px; padding:8px 13px; } }
+
+/* ③ 대화창이 확실히 주인공이 되게 — 남는 높이를 모두 가져간다 */
+.chat{ flex:1 1 auto; min-height:0; }
+</style>
+<script>
+/* ⚙ 설정/퀘스트 접기 토글 — 마크업은 건드리지 않고 여기서 버튼만 끼워 넣는다.
+   접힘 상태에서도 지금 레벨을 버튼에 함께 보여줘(예: "⚙ B1") 뭘 고르고 있는지 알 수 있게. */
+(function(){
+  var KEY = 'mangoi_aifriend_opts_open';
+  function apply(open){
+    document.body.classList.toggle('opts-open', !!open);
+    try { localStorage.setItem(KEY, open ? '1' : '0'); } catch(e){}
+  }
+  function summary(){
+    var lv = document.querySelector('.opts .opt.active[data-level]');
+    return lv ? lv.textContent.trim() : '';
+  }
+  function init(){
+    var top = document.querySelector('.top');
+    if (!top || document.querySelector('.opts-toggle')) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'opts-toggle';
+    btn.title = '레벨·스타일·속도·목소리 설정과 오늘의 퀘스트 열기/닫기';
+    btn.setAttribute('data-ko-title', '레벨·스타일·속도·목소리 설정과 오늘의 퀘스트 열기/닫기');
+    btn.setAttribute('data-en-title', 'Show/hide settings and daily quests');
+    btn.innerHTML = '⚙ <span class="ot-sum"></span>';
+    function paint(){ btn.querySelector('.ot-sum').textContent = summary(); }
+    btn.onclick = function(){
+      apply(!document.body.classList.contains('opts-open'));
+      paint();
+    };
+    /* 소리 버튼 앞에 둔다 — 대화 초기화(빨간 버튼) 옆이면 잘못 누르기 쉽다 */
+    var anchor = top.querySelector('.snd-toggle');
+    if (anchor) top.insertBefore(btn, anchor); else top.appendChild(btn);
+
+    var saved = '0';
+    try { saved = localStorage.getItem(KEY) || '0'; } catch(e){}
+    apply(saved === '1');
+    paint();
+    /* 레벨을 바꾸면 요약 글자도 따라 바뀌게 */
+    document.querySelectorAll('.opts .opt[data-level]').forEach(function(o){
+      o.addEventListener('click', function(){ setTimeout(paint, 0); });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+  /* 📐 아바타 카드 높이 다시 맞추기.
+     mango-avatar.js 는 '폭 ÷ 비율' 로 높이를 계산해 인라인으로 한 번 박아 넣는다. 위에서
+     화면 크기에 따라 폭을 바꾸게 했으므로, 폰을 가로↔세로로 돌리면 옛 높이가 남아 얼굴이
+     찌그러진다(회전만 하면 그 계산이 다시 돌지 않는다). 비율은 캔버스 크기가 알고 있다. */
+  function refitAvatar(){
+    var ring = document.getElementById('tavatar-ring');
+    var cv = document.getElementById('tavatar-canvas');
+    if (!ring || !cv || !cv.width || !cv.height) return;
+    var w = ring.getBoundingClientRect().width;
+    if (!w) return;
+    ring.style.height = Math.round(w * (cv.height / cv.width)) + 'px';
+  }
+  var rt;
+  function scheduleRefit(){ clearTimeout(rt); rt = setTimeout(refitAvatar, 120); }
+  window.addEventListener('resize', scheduleRefit);
+  window.addEventListener('orientationchange', scheduleRefit);
+  /* 카드 '폭'이 바뀌는 순간을 직접 지켜본다 — resize 이벤트가 오지 않는 상황(주소창 접힘,
+     화면분할 등)에서도 확실히 다시 맞춰진다. 높이를 고쳐 다시 불려도 목표값과 같으면
+     아무것도 하지 않으므로 되풀이(무한 루프)에 빠지지 않는다. */
+  if (window.ResizeObserver) {
+    var lastW = 0;
+    var ro = new ResizeObserver(function(entries){
+      var w = Math.round(entries[0].contentRect.width);
+      if (w && w !== lastW) { lastW = w; refitAvatar(); }
+    });
+    var target = document.getElementById('tavatar-ring');
+    if (target) ro.observe(target);
+  }
+  setTimeout(refitAvatar, 800);   // 아바타 스크립트가 준비된 뒤 한 번
+})();
+</script>
 </body>
 </html>
