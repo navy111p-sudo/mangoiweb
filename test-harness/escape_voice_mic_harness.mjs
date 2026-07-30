@@ -52,8 +52,25 @@ check('마이크 안 될 때 타이핑으로도 된다고 알려준다',
   /키보드|타이핑|Typing/.test(introBlock));
 
 /* ══ 2. 가짜 브라우저에서 게임 스크립트를 원문 그대로 실행 ═════════════════ */
+/* 인라인 스크립트를 "마커가 든 블록"으로 고른다.
+   ⚠️ `<script>…</script>` 를 `</body>` 로 앵커해 한 방에 캡처하면 안 된다 — 라이브는 CDN 이
+   자기 스크립트(<script type="module" src="https://static…">)를 끼워 넣기 때문에 비탐욕 캡처가
+   첫 `</script>` 를 넘어 다음 블록까지 삼킨다(라이브 파일로 돌렸다가 SyntaxError 로 겪음). */
+function inlineScript(src, marker) {
+  const re = /<script(\s[^>]*)?>/g;
+  let m;
+  while ((m = re.exec(src))) {
+    if (m[1] && /\ssrc\s*=/.test(m[1])) continue;          // 외부 파일 로드는 건너뛴다
+    const start = m.index + m[0].length;
+    const end = src.indexOf('</script>', start);
+    if (end < 0) continue;
+    const body = src.slice(start, end);
+    if (body.includes(marker)) return body;
+  }
+  return null;
+}
 function boot() {
-  const code = (html.match(/<script>([\s\S]*?)<\/script>\s*(?:<!--[\s\S]*?-->\s*)*<\/body>/) || [])[1];
+  const code = inlineScript(html, 'var STEPS=');
   if (!code) throw new Error('게임 인라인 스크립트를 찾지 못했다');
 
   /* 가짜 시계 — arm() 이 실제로 몇 ms 를 걸었는지 보려면 지연시간을 붙잡아야 한다 */

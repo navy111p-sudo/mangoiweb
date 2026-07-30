@@ -8583,8 +8583,14 @@ window.mgIsSlowNet = function(){
                 </div>
                 <!-- PDF 위에 그리기 (주석) 툴바 -->
                 <div class="pdf-anno-bar">
-                    <button id="pdf-tool-none" class="active" onclick="pdfSetDrawTool('none', this)" title="그리기 끔" data-ko="🖱 보기 (View)" data-en="🖱 View (보기)">🖱 보기 (View)</button>
+                    <!-- 🔴 (2026-07-31 강사 요청 "포인터를 넣어주세요")
+                         레이저 포인터는 예전부터 있었으나 켜는 버튼이 없어(보기 모드에서 마우스를 움직이면
+                         동작) 강사가 존재 자체를 알 수 없었다. '보기'를 '포인터'로 승격해 입구를 만든다.
+                         보기(스크롤) 기능은 그대로다 — 같은 모드다. -->
+                    <button id="pdf-tool-none" class="active" onclick="pdfSetDrawTool('none', this)" title="레이저 포인터 — 마우스를 움직이면 학생 화면에 내 이름표가 붙은 점이 따라다닙니다. 교재 스크롤·확대도 이 모드에서 됩니다." data-ko="🔴 포인터 (Pointer)" data-en="🔴 Pointer (포인터)">🔴 포인터 (Pointer)</button>
+                    <button id="pdf-tool-arrow" onclick="pdfSetDrawTool('arrow', this)" title="콕 찍기 — 누른 자리에 이름표가 붙은 표시가 그대로 머무릅니다. 설명하는 동안 손을 떼도 남아 있습니다." data-ko="➡️ 콕 찍기 (Point Here)" data-en="➡️ Point Here (콕 찍기)">➡️ 콕 찍기 (Point Here)</button>
                     <button id="pdf-tool-pen" onclick="pdfSetDrawTool('pen', this)" title="펜" data-ko="✏️ 펜 (Pen)" data-en="✏️ Pen (펜)">✏️ 펜 (Pen)</button>
+                    <button id="pdf-tool-vanish" onclick="pdfSetDrawTool('vanish', this)" title="사라지는 펜 — 그린 선이 약 3초 뒤 저절로 사라집니다. 지우개를 쓰지 않아도 교재가 깨끗하게 유지됩니다." data-ko="✨ 사라지는 펜 (Vanishing Pen)" data-en="✨ Vanishing Pen (사라지는 펜)">✨ 사라지는 펜 (Vanishing Pen)</button>
                     <button id="pdf-tool-highlighter" onclick="pdfSetDrawTool('highlighter', this)" title="형광펜" data-ko="🖍 형광펜 (Marker)" data-en="🖍 Marker (형광펜)">🖍 형광펜 (Marker)</button>
                     <button id="pdf-tool-eraser" onclick="pdfSetDrawTool('eraser', this)" title="지우개" data-ko="🧽 지우개 (Eraser)" data-en="🧽 Eraser (지우개)">🧽 지우개 (Eraser)</button>
                     <!-- ph265: 키보드 텍스트 도구 -->
@@ -28000,7 +28006,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260731041146 -->
+<!-- BUILD:20260731042026 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
