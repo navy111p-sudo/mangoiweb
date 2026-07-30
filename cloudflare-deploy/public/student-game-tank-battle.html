@@ -1185,19 +1185,26 @@ function speakTimes(text, rate, times, cb){ var seq=++_spkSeq; var called=false;
 function listenOnce(cb){ var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ cb(true,'(음성인식 미지원 · 통과)'); return; } var rec; try{ rec=new SR(); }catch(_){ cb(true,'(통과)'); return; }
   rec.lang=(MODE==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
-  var done=false, best='', matched=false, _sil=null, _started=false, SILENCE_MS=2400;
+  /* ⏱ (2026-07-30) 말이 들리기 전에는 넉넉히, 들린 뒤에만 짧게 끊는다.
+     예전엔 둘 다 2.4초여서 버튼을 누르고 뜸들이는 사이 마이크가 스스로 꺼졌다. */
+  var done=false, best='', matched=false, _sil=null, _started=false, _silFired=false;
+  var SIL_FIRST=10000, SIL_AFTER=2400;
   function finish(ok,txt){ if(done)return; done=true; if(_sil)clearTimeout(_sil); try{rec.stop();}catch(_){}; cb(ok,txt); }
-  function arm(){ if(_sil)clearTimeout(_sil); _sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, SILENCE_MS); }
+  function arm(){ if(_sil)clearTimeout(_sil);
+    _sil=setTimeout(function(){ _silFired=true; try{rec.stop();}catch(_){} }, best?SIL_AFTER:SIL_FIRST); }
   rec.onstart=function(){ _started=true; arm(); };
   rec.onresult=function(e){ if(done)return; _started=true; var target=spFull();
     for(var s=e.resultIndex;s<e.results.length;s++){ var alts=e.results[s];
       for(var i=0;i<alts.length;i++){ var tx=alts[i].transcript||''; if(tx)best=tx; if(matchSentence(tx,target)){ matched=true; best=tx; finish(true,best); return; } } }
     arm(); };
-  rec.onerror=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
+  rec.onerror=function(e){ var er=(e&&e.error)||'';
+    if(er==='no-speech' && !_silFired && !done) return;   // 아직 말을 안 꺼냈을 뿐 → 계속 듣는다
+    if(_sil)clearTimeout(_sil); finish(matched, best); };
   rec.onend=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
   /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
      그 종료를 "말을 마쳤다"로 보고 채점하면 조각으로 채점된다 → stop() 을 안 불렀으면 다시 듣는다. */
-  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec, { isDone: function(){ return done; }, onRestart: arm }); }catch(_h){}
+  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec, { isDone: function(){ return done; }, onRestart: arm,
+    maxRestarts:3, maxMs:SIL_FIRST+6000 }); }catch(_h){}
   try{ rec.start(); }catch(_){ finish(false,''); return; }
   // ⏱ 무이벤트 워치독: 9초간 onstart/onresult가 전혀 없으면(마이크 권한 멈춤 등) 종료 — 말하는 중엔 절대 안 끊음
   setTimeout(function(){ if(!_started && !done) finish(matched, best); }, 9000); }

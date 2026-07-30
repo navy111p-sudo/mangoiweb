@@ -1188,20 +1188,30 @@ function listenOnce(cb){
   // 🎤 말 중간에 숨 쉬어도 안 끊기게: continuous=true + 침묵 감시. 정답이 들리면 즉시 통과,
   //    아니면 "말 끝나고 조용해질 때까지" 기다렸다가 마지막 인식으로 판정(8초 강제 종료 제거).
   rec.lang=(MODE==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
-  var done=false, best='', matched=false, _sil=null, _started=false, SILENCE_MS=2400;
+  /* ⏱ (2026-07-30) 침묵 대기시간을 두 종류로 나눈다.
+     예전에는 말이 들리기 전에도 2.4초만 기다려서, 버튼을 누르고 문장을 떠올리는 사이
+     마이크가 스스로 꺼졌다(방탈출에서 실측 2.5초). 학생이 그 뒤에 말해도 이미 닫혀 있었다. */
+  var done=false, best='', matched=false, _sil=null, _started=false, _silFired=false;
+  var SIL_FIRST=10000, SIL_AFTER=2400;
   function finish(ok,txt){ if(done)return; done=true; if(_sil)clearTimeout(_sil); try{rec.stop();}catch(_){}; cb(ok,txt); }
-  function arm(){ if(_sil)clearTimeout(_sil); _sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, SILENCE_MS); }
+  function arm(){ if(_sil)clearTimeout(_sil);
+    _sil=setTimeout(function(){ _silFired=true; try{rec.stop();}catch(_){} }, best?SIL_AFTER:SIL_FIRST); }
   rec.onstart=function(){ _started=true; arm(); };
   rec.onresult=function(e){ if(done)return; _started=true; var target=spFull();
     for(var s=e.resultIndex;s<e.results.length;s++){ var alts=e.results[s];
       for(var i=0;i<alts.length;i++){ var tx=alts[i].transcript||''; if(tx)best=tx; if(matchSentence(tx,target)){ matched=true; best=tx; finish(true,best); return; } }
     }
     arm(); };                                    // 아직 정답 아님 → 계속 말할 시간 부여
-  rec.onerror=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
+  rec.onerror=function(e){ var er=(e&&e.error)||'';
+    // no-speech = 아직 말을 안 꺼냈을 뿐이다. 여기서 끝내면 생각하는 사이에 마이크가 죽는다.
+    // 진짜 끝은 침묵 타이머(_silFired)가 만든다 → 그전까지는 보호막이 다시 듣게 놔둔다.
+    if(er==='no-speech' && !_silFired && !done) return;
+    if(_sil)clearTimeout(_sil); finish(matched, best); };
   rec.onend=function(){ if(_sil)clearTimeout(_sil); finish(matched, best); };
   /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
      그 종료를 "말을 마쳤다"로 보고 판정하면 조각으로 채점된다 → stop() 을 안 불렀으면 다시 듣는다. */
-  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec, { isDone: function(){ return done; }, onRestart: arm }); }catch(_h){}
+  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec, { isDone: function(){ return done; }, onRestart: arm,
+    maxRestarts:3, maxMs:SIL_FIRST+6000 }); }catch(_h){}
   try{ rec.start(); }catch(_){ finish(false,''); return; }
   // ⏱ 무이벤트 워치독: 9초간 onstart/onresult가 전혀 없으면(마이크 권한 멈춤 등) 종료 — 말하는 중엔 절대 안 끊음
   setTimeout(function(){ if(!_started && !done) finish(matched, best); }, 9000);
