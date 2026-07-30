@@ -1319,13 +1319,21 @@
     //   맨 아래 몬스터는 화면 30% 지점(너무 가까이 스폰 안 됨), 나머지는 그 위(음수 y=화면 밖)에서 내려옴 → 몇 마리든 안 겹침
     // 세로 간격은 몬스터 한 마리 높이(실사 크리처 ~90px + 단어알약 ~35px ≒ 145px)보다 커야 안 겹친다.
     // 이모지 시절엔 글리프 주변 여백이 커서 74px 로도 티가 덜 났지만, 사진은 불투명이라 바로 표난다.
-    var _step=Math.max(fh*0.165, 118), _yBot=fh*0.30, _yTop=_yBot-_step*(n-1);
+    /* 🧟 소실점에서 걸어 나온다. depth 0=지평선, 1=코앞.
+       여러 마리가 한꺼번에 겹치지 않게 depth 를 계단식으로 벌리고(뒤쪽일수록 촘촘),
+       lane 은 '소실점에서 좌우로 벌어지는 각도'로 쓴다(-1=왼쪽 끝, +1=오른쪽 끝). */
+    var _lane = (laneX!=null) ? ((laneX/Math.max(1,fw-86))*2-1) : (Math.random()*2-1);
     var m={ el:el, faceEl:el.querySelector('.face'), word:word, isTarget:isTarget, golden:!!isGolden, breached:false,
-            x:(laneX!=null?laneX:rand(8,Math.max(40,fw-86))),
-            y:_yTop+_step*i+rand(-_step*0.05,_step*0.05),
-            // ⚡ 좌우 이동 폭을 키움(사장님 요청 "옆으로 더 빨리빨리"). 세로는 그대로 둔다 —
-            //   세로를 올리면 위협선에 너무 빨리 닿아 난이도가 확 뛴다.
-            vyBase:rand(28,58), vxBase:(Math.random()<0.5?-1:1)*rand(70,150) };
+            lane:_lane, wob:Math.random()*Math.PI*2,
+            /* 음수 depth = 아직 지평선 뒤(줄지어 순서대로 등장).
+               ⚠ 간격을 좁게 잡았더니 여러 마리가 거의 동시에 코앞까지 와서 생명력 3개가
+                  5초 만에 날아갔다(실측) → 넉넉히 벌린다. */
+            depth:-(i*0.30) - Math.random()*0.10,
+            // ⚡ 다가오는 속도(초당 depth). "빨리 걸어오게" 지시 반영하되 뒤에서 앞까지 약 9~14초 —
+            //    이보다 빠르면 단어를 읽고 순서대로 쏠 시간이 안 나온다.
+            vDepth:rand(0.072,0.115),
+            vLane:(Math.random()<0.5?-1:1)*rand(0.10,0.26) };   // 걸으며 좌우로도 조금씩 이동
+    m.y=depthY(m.depth, fh); m.x=fw/2;
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
     el.addEventListener('click', function(){ fireAt(m); });
@@ -1334,7 +1342,21 @@
   // 🧟 접근형 원근 스케일 — 위협선(field 높이의 BREACH_FRAC 지점)에 가까울수록 표적이 커 보이게.
   //    .monster 자체는 sway 애니메이션이 transform 을 쓰고 있어, 원근 확대는 반드시 .face 에만 걸어 충돌을 피한다.
   var BREACH_FRAC=0.80, WARN_FRAC=0.62;   // WARN_FRAC 이후부터 화면이 붉게 경고(위협선 도달 전)
-  function faceScaleFor(fracY){ return 0.55 + Math.min(1, Math.max(0, fracY)) * 1.0; }
+  /* 🧟 (2026-07-30) "하늘에서 내려오는 게 아니라 뒤에서 걸어오게" — 사장님 지시.
+     예전에는 화면 위 가장자리에서 x 를 아무 데나 잡고 아래로 떨어뜨렸다(= 하늘에서 낙하).
+     이제는 배경 도로의 소실점(HORIZON_FRAC)에서 아주 작게 나타나 카메라 쪽으로 걸어온다.
+       depth 0 = 저 멀리 지평선(작다)  →  depth 1 = 코앞(크다)
+     · y  는 지평선~위협선 사이를 depth 로 보간 (원근이라 뒤쪽이 촘촘하게 = pow 곡선)
+     · x  는 소실점 중앙에서 depth 에 비례해 좌우로 벌어진다(가까울수록 넓게 퍼짐)
+     · 크기도 depth 로 보간 → 멀리선 작고 다가올수록 커진다 */
+  var HORIZON_FRAC=0.46;                 // 폐허도시·우주 배경 모두 이쯤이 소실점
+  var SCALE_FAR=0.22, SCALE_NEAR=1.55;   // 지평선에서의 크기 → 코앞에서의 크기
+  function depthY(d, h){                 // 원근 보간: 뒤쪽은 조금만 움직여도 멀리 보이게 pow
+    var hy=h*HORIZON_FRAC, by=h*BREACH_FRAC;
+    return hy + (by-hy) * Math.pow(Math.min(1,Math.max(0,d)), 1.7);
+  }
+  function depthScale(d){ return SCALE_FAR + (SCALE_NEAR-SCALE_FAR) * Math.pow(Math.min(1,Math.max(0,d)), 1.5); }
+  function faceScaleFor(fracY){ return depthScale(fracY); }   // (구 호출부 호환)
   function clearMonsters(){ monsters.forEach(function(m){ if(m.el&&m.el.parentNode) m.el.remove(); }); monsters=[]; }
   function renderSentence(){
     sentenceEl.innerHTML = targetWords.map(function(w,i){
@@ -1604,15 +1626,25 @@
     var h=field.clientHeight, w=field.clientWidth, sm=spdMult();   // ⚡ 매 프레임 현재 속도 반영(변경 즉시)
     var breachY=h*BREACH_FRAC, warnY=h*WARN_FRAC, danger=false;
     for(var i=0;i<monsters.length;i++){ var m=monsters[i];
-      m.y+=m.vyBase*sm*dt;
-      m.x+=m.vxBase*sm*dt;
-      if(m.x<4){ m.x=4; m.vxBase=Math.abs(m.vxBase); } else if(m.x>w-80){ m.x=w-80; m.vxBase=-Math.abs(m.vxBase); }  // 좌우 벽에서 튕김
-      if(m.faceEl) m.faceEl.style.transform='scale('+faceScaleFor(m.y/breachY).toFixed(3)+')';   // 🧟 다가올수록 확대(원근)
+      m.depth += m.vDepth*sm*dt;                                   // 🧟 카메라 쪽으로 전진
+      m.lane  += m.vLane*sm*dt;                                    // 걸으며 좌우로도 조금
+      if(m.lane<-1){ m.lane=-1; m.vLane=Math.abs(m.vLane); } else if(m.lane>1){ m.lane=1; m.vLane=-Math.abs(m.vLane); }
+      var d=Math.max(0,m.depth), sc=depthScale(d);
+      m.wob += dt*3.2;
+      // 소실점(가운데)에서 depth 에 비례해 좌우로 벌어진다 + 걸음에 맞춘 미세한 흔들림
+      var spread=(w*0.46)*Math.pow(d,1.25);
+      m.y=depthY(d,h);
+      m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
+      m.x=Math.max(2, Math.min(w-40, m.x));
+      if(m.faceEl) m.faceEl.style.transform='scale('+sc.toFixed(3)+')';
+      // 멀수록 흐릿하게(공기원근) + 뒤쪽이 앞쪽을 가리지 않게 z 정렬
+      m.el.style.opacity = (m.depth<0) ? '0' : String(Math.min(1, 0.35+d*1.6));
+      m.el.style.zIndex = String(5 + Math.round(d*40));
       if(m.isTarget && m.y>=warnY) danger=true;                    // 표적이 위협선에 가까우면 화면 경고
-      if(m.y>breachY && !m.breached){                              // 🩸 위협선 돌파 — 표적이면 생명력 -1, 재출현은 공통
+      if(m.depth>=1 && !m.breached){                               // 🩸 코앞까지 옴 — 표적이면 생명력 -1, 재출현은 공통
         m.breached=true;
         if(m.isTarget) loseLife();
-        m.y=-6; m.x=rand(8,Math.max(40,w-86)); m.breached=false;
+        m.depth=-0.05; m.lane=Math.random()*2-1; m.breached=false; // 다시 저 멀리서 걸어온다
       }
       m.el.style.left=m.x+'px'; m.el.style.top=m.y+'px';
     }
@@ -1834,6 +1866,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260731031123 -->
+<!-- BUILD:20260731034858 -->
 </body>
 </html>
