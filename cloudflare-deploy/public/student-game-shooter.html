@@ -1641,9 +1641,12 @@
       m.el.style.opacity = (m.depth<0) ? '0' : String(Math.min(1, 0.35+d*1.6));
       m.el.style.zIndex = String(5 + Math.round(d*40));
       if(m.isTarget && m.y>=warnY) danger=true;                    // 표적이 위협선에 가까우면 화면 경고
-      if(m.depth>=1 && !m.breached){                               // 🩸 코앞까지 옴 — 표적이면 생명력 -1, 재출현은 공통
+      if(m.depth>=1 && !m.breached){
+        /* 🩸 코앞까지 옴. ⚠ 생명력은 '지금 쏴야 할 그 단어'가 통과했을 때만 깎는다.
+           이 게임은 문장 순서대로만 쏠 수 있어서, 아직 차례가 아닌 단어는 플레이어가
+           손쓸 방법이 없다. 그것까지 벌하면 16초 만에 하트 3개가 날아간다(실측). */
         m.breached=true;
-        if(m.isTarget) loseLife();
+        if(m.isTarget && m.word===targetWords[currentIndex]) loseLife();
         m.depth=-0.05; m.lane=Math.random()*2-1; m.breached=false; // 다시 저 멀리서 걸어온다
       }
       m.el.style.left=m.x+'px'; m.el.style.top=m.y+'px';
@@ -1866,6 +1869,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260731034858 -->
+<!-- BUILD:20260731035027 -->
 </body>
 </html>
