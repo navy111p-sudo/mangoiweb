@@ -112,10 +112,10 @@
      4프레임 전부 발바닥·몸통중심을 맞춰 구웠으므로 제자리에서 걷는다. */
   .monster .face{width:44px;height:44px;display:block;filter:drop-shadow(0 3px 7px rgba(0,0,0,.6));
     transform-origin:50% 100%;background-repeat:no-repeat;background-size:400% 100%;background-position:0 0;
-    animation:foeWalk4 .72s steps(4) infinite}
+    animation:foeWalk4 1.05s steps(4) infinite}
   /* 8프레임으로 올린 캐릭터. background-size 와 steps 와 끝 위치가 프레임 수와 반드시 같이 가야 하므로
      CSS 변수 대신 규칙을 두 벌 둔다(keyframes 안의 var 는 브라우저마다 불안정하다). */
-  .monster .face.f8{background-size:800% 100%;animation:foeWalk8 .72s steps(8) infinite}
+  .monster .face.f8{background-size:800% 100%;animation:foeWalk8 1.05s steps(8) infinite}
   /* ⚠ 끝 위치가 -400% / -800% 가 아니다. background-position 의 % 는 '이미지 폭'이 아니라
      (칸 폭 − 이미지 폭) 에 곱해진다. 이미지가 칸보다 크면 이 값이 음수라서 -400% 는 스트립을
      오른쪽 저 멀리로 밀어버린다 → 4프레임 중 3프레임이 빈칸(캐릭터가 안 보임)이었다.
@@ -123,9 +123,10 @@
      (steps(n) 은 진행도를 k/n 으로 끊으므로 k/n * n/(n-1) = k/(n-1) → 오프셋 정확히 -k칸) */
   @keyframes foeWalk4{to{background-position:133.3333% 0}}
   @keyframes foeWalk8{to{background-position:114.2857% 0}}
-  /* 걸음 속도를 개체마다 살짝 다르게 — 다 같은 박자로 걸으면 기계처럼 보인다 */
-  .monster:nth-child(3n) .face{animation-duration:.62s}
-  .monster:nth-child(3n+1) .face{animation-duration:.84s}
+  /* 걸음 속도는 개체마다 살짝 다르게 — 다 같은 박자로 걸으면 기계처럼 보인다.
+     ⚠ 예전엔 여기 nth-child 로 줬는데, 그러면 JS 가 그 값을 몰라 상하 반동(bob)과 박자가
+       어긋난다. 이제 spawnMonster 에서 개체마다 walkSec 을 뽑아 인라인으로 넣고,
+       같은 값으로 반동 위상을 맞춘다. */
   /* 🏷 단어 라벨 (사장님 지시 2026-07-31: "투명으로, 뒤가 안 가려지게, 좀비보다 작게").
      예전엔 불투명 알약(배경 .85 + 굵은 테두리 + 그림자)이라 애써 키운 좀비 몸을 라벨이
      통째로 덮었다. 배경을 거의 투명하게 낮추고, 대신 글자에 검은 외곽선을 둘러
@@ -1405,6 +1406,10 @@
     var m={ el:el, faceEl:el.querySelector('.face'), wordEl:el.querySelector('.word'),
             word:word, isTarget:isTarget, isCiv:!!isCiv, golden:!!isGolden, breached:false,
             lane:_lane, wob:Math.random()*Math.PI*2,
+            /* 🚶 개체별 걸음 주기(초). 사람 걸음은 한 사이클 1초 안팎이다.
+               예전 0.72초는 초당 11컷이라 종종거리며 끊겨 보였다(사장님: "부드럽게, 천천히").
+               이 값으로 스프라이트 애니메이션과 상하 반동의 박자를 함께 맞춘다. */
+            walkSec:rand(0.95,1.30),
             /* 음수 depth = 아직 지평선 뒤(줄지어 순서대로 등장).
                ⚠ 간격을 좁게 잡았더니 여러 마리가 거의 동시에 코앞까지 와서 생명력 3개가
                   5초 만에 날아갔다(실측) → 넉넉히 벌린다. */
@@ -1415,7 +1420,12 @@
             vLane:(Math.random()<0.5?-1:1)*rand(0.10,0.26) };   // 걸으며 좌우로도 조금씩 이동
     m.y=depthY(m.depth, fh); m.x=fw/2;
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
-    el.style.animationDuration=rand(1.4,3).toFixed(2)+'s'; el.style.animationDelay=(-rand(0,2)).toFixed(2)+'s';
+    /* 걸음 애니메이션은 .face 에 걸려 있다(.monster 의 sway 는 제거됨).
+       개체마다 주기를 다르게 + 시작 시점도 흩어 놓아야 여럿이 군무처럼 안 보인다. */
+    if(m.faceEl){
+      m.faceEl.style.animationDuration=m.walkSec.toFixed(2)+'s';
+      m.faceEl.style.animationDelay=(-rand(0,m.walkSec)).toFixed(2)+'s';
+    }
     el.addEventListener('click', function(){ fireAt(m); });
     field.appendChild(el); monsters.push(m);
   }
@@ -1763,7 +1773,11 @@
       m.lane  += m.vLane*sm*dt;                                    // 걸으며 좌우로도 조금
       if(m.lane<-1){ m.lane=-1; m.vLane=Math.abs(m.vLane); } else if(m.lane>1){ m.lane=1; m.vLane=-Math.abs(m.vLane); }
       var d=Math.max(0,m.depth), sc=depthScale(d);
-      m.wob += dt*3.2;
+      /* 🚶 걸음 위상 — 스프라이트 애니메이션과 '같은 주기'로 돈다(walkSec).
+         스프라이트는 steps() 라 어차피 뚝뚝 끊기는데, 그 위에 60fps 로 도는 연속 움직임
+         (상하 반동 + 좌우 흔들림)을 얹으면 눈이 프레임 경계를 훨씬 덜 느낀다.
+         프레임을 더 늘리지 않고 부드러움을 얻는 가장 값싼 방법이다. */
+      m.wob += dt * (6.2832 / (m.walkSec || 1.05));
       // 소실점(가운데)에서 depth 에 비례해 좌우로 벌어진다 + 걸음에 맞춘 미세한 흔들림
       /* 🛣 좌우로 벌어지는 폭 — '도로 위'를 걷게 한다(사장님 지시: "도로에 바짝").
          예전 값(폭 0.46·지수 0.7)은 너무 일찍 넓게 퍼져서 좀비가 인도·자동차·버스 지붕
@@ -1785,7 +1799,10 @@
       if(Math.abs(dx) < need) m.x = w/2 + (dx<0 || (dx===0 && m.lane<0) ? -need : need);
       // 커진 만큼 화면 밖으로 잘리지 않게 자기 폭을 기준으로 가둔다(예전엔 40px 고정이었다)
       m.x=Math.max(halfW+2, Math.min(w-halfW-2, m.x));
-      m.y=depthY(d,h,w) - faceH;
+      /* 한 걸음마다 몸이 한 번 오르내린다 → 한 사이클(두 걸음)에 2회. 실제 걷기의 특징이라
+         이것만 넣어도 '미끄러지듯 다가오는' 느낌이 사라진다. 진폭은 거리에 비례. */
+      var bob = Math.sin(m.wob*2) * 1.6 * sc;
+      m.y=depthY(d,h,w) - faceH + bob;
       if(m.faceEl) m.faceEl.style.transform='scale('+sc.toFixed(3)+')';
       /* 🌫 공기원근 — 안개 속에서 서서히 떠오르게. 앞 FADE_IN 구간 동안 0 → 1 로 올리고,
          그 구간에선 살짝 흐리게(blur) 해 '멀리 희미하게' 가 눈에 보이도록 한다. */
