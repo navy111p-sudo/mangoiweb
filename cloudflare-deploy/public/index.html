@@ -8525,6 +8525,9 @@ window.mgIsSlowNet = function(){
         <div class="tab-panel" id="tab-whiteboard">
             <div class="whiteboard-container">
                 <div class="wb-toolbar">
+                    <!-- 🔴 (2026-07-31 강사 요청) 칠판에도 포인터. 칠판엔 잉크를 남기지 않고
+                         마우스/손가락 위치만 상대 화면에 점으로 보여준다. -->
+                    <button onclick="wbSetTool('pointer')" title="레이저 포인터 — 마우스를 움직이면 학생 화면에 내 이름표가 붙은 점이 따라다닙니다. 칠판에는 아무것도 그려지지 않습니다." data-ko="🔴 포인터 (Pointer)" data-en="🔴 Pointer (포인터)">🔴 포인터 (Pointer)</button>
                     <button class="active" onclick="wbSetTool('pen')" data-ko="✏️ 펜 (Pen)" data-en="✏️ Pen (펜)">✏️ 펜 (Pen)</button>
                     <button onclick="wbSetTool('eraser')" data-ko="🧽 지우개 (Eraser)" data-en="🧽 Eraser (지우개)">🧽 지우개 (Eraser)</button>
                     <button onclick="wbSetTool('line')" data-ko="📏 선 (Line)" data-en="📏 Line (선)">📏 선 (Line)</button>
@@ -12481,6 +12484,9 @@ function vcHandleMessage(msg) {
             break;
         case 'whiteboard-text':
             wbReceiveText(msg.data);
+            break;
+        case 'whiteboard-pointer':      // 🔴 칠판 레이저 포인터
+            wbReceivePointer(msg.data);
             break;
         case 'whiteboard-shape':
             wbReceiveShape(msg.data);
@@ -17360,6 +17366,36 @@ function wbSetTool(tool) {
     event.target.classList.add('active');
 }
 
+/* 🔴 (2026-07-31) 칠판 포인터 표시 — 보내는 쪽(self)·받는 쪽 모두 이 함수로 그린다.
+   1.6초 동안 갱신이 없으면 사라진다(교재 레이저와 동일). */
+let _wbPtrTimers = {};
+function wbReceivePointer(d) {
+    var canvas = document.getElementById('wb-canvas');
+    var wrap = canvas && canvas.parentElement;
+    if (!canvas || !wrap) return;
+    // 점은 wrap 기준 절대배치 — wrap 이 static 이면 엉뚱한 곳에 붙는다
+    try { if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative'; } catch (_) {}
+    var key = 'mgWbLaser_' + (d.self ? 'me_' : '') + String(d.name || 'x').replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    var dot = document.getElementById(key);
+    if (d.hide) { if (dot) dot.remove(); return; }
+    if (!dot) {
+        var c  = d.color || '#ef4444';
+        var op = d.self ? '.5' : '.85';
+        dot = document.createElement('div');
+        dot.id = key;
+        dot.style.cssText = 'position:absolute;z-index:50;pointer-events:none;transform:translate(-50%,-50%);transition:left .05s linear,top .05s linear;';
+        dot.innerHTML = '<span class="laser-core"></span><span class="laser-name"></span>';
+        wrap.appendChild(dot);
+        dot.querySelector('.laser-core').style.cssText = 'display:block;width:16px;height:16px;border-radius:50%;background:' + c + ';box-shadow:0 0 10px 3px ' + c + ';opacity:' + op + ';';
+        dot.querySelector('.laser-name').style.cssText = 'position:absolute;left:14px;top:-2px;white-space:nowrap;font-size:11px;font-weight:700;color:#fff;background:' + c + ';padding:1px 6px;border-radius:8px;opacity:' + op + ';';
+        dot.querySelector('.laser-name').textContent = d.name || '';
+    }
+    dot.style.left = (d.x * canvas.clientWidth) + 'px';
+    dot.style.top  = (d.y * canvas.clientHeight) + 'px';
+    if (_wbPtrTimers[key]) clearTimeout(_wbPtrTimers[key]);
+    _wbPtrTimers[key] = setTimeout(function(){ var n = document.getElementById(key); if (n) n.remove(); }, 1600);
+}
+
 function wbResize() {
     const canvas = document.getElementById('wb-canvas');
     const wrap = canvas.parentElement;
@@ -17391,7 +17427,46 @@ function wbInit() {
     try { new ResizeObserver(() => wbFitCanvas()).observe(canvas.parentElement); } catch (_) {}
     wbFitCanvas();
 
+    /* 🔴 (2026-07-31 강사 요청) 칠판 레이저 포인터 ───────────────────────────────
+       칠판엔 잉크를 남기지 않고 위치만 상대 화면에 점으로 보낸다.
+       교재 쪽(pdfBindLaser)과 같은 규칙 — 터치·펜은 화면에 닿아 있을 때만, 마우스는 그냥 움직여도.
+       보내는 사람 화면에도 흐리게 같이 그려서 "학생에게 나가고 있다"를 눈으로 확인하게 한다. */
+    var _wbPtrSent = 0, _wbPtrDown = false;
+    function wbPtrIdentity() {
+        try { if (typeof pdfMyIdentity === 'function') return pdfMyIdentity(); } catch (_) {}
+        return { name: (window.vcUsername || ''), color: '#ef4444' };
+    }
+    function wbPtrTrack(e) {
+        if (wbTool !== 'pointer') return;
+        if (e.pointerType && e.pointerType !== 'mouse' && !_wbPtrDown) return;
+        var now = Date.now();
+        if (now - _wbPtrSent < 45) return;              // 송신 스로틀
+        _wbPtrSent = now;
+        var r = canvas.getBoundingClientRect();
+        if (!r.width) return;
+        var x = (e.clientX - r.left) / r.width;
+        var y = (e.clientY - r.top) / r.height;
+        if (x < 0 || x > 1 || y < 0 || y > 1) return;
+        var me = wbPtrIdentity();
+        wbReceivePointer({ x: x, y: y, name: me.name, color: me.color, self: true });
+        if (vcConn) { try { vcConn.send({ type: 'whiteboard-pointer', data: { x: x, y: y, name: me.name, color: me.color } }); } catch (_) {} }
+    }
+    canvas.addEventListener('pointerdown', function (e) {
+        if (e.pointerType && e.pointerType !== 'mouse') { _wbPtrDown = true; wbPtrTrack(e); }
+    });
+    canvas.addEventListener('pointerup',     function () { _wbPtrDown = false; });
+    canvas.addEventListener('pointercancel', function () { _wbPtrDown = false; });
+    canvas.addEventListener('pointermove', wbPtrTrack);
+    canvas.addEventListener('pointerleave', function () {
+        _wbPtrDown = false;
+        if (wbTool !== 'pointer') return;
+        var me = wbPtrIdentity();
+        wbReceivePointer({ hide: true, name: me.name, self: true });
+        if (vcConn) { try { vcConn.send({ type: 'whiteboard-pointer', data: { hide: true, name: me.name } }); } catch (_) {} }
+    });
+
     canvas.addEventListener('mousedown', e => {
+        if (wbTool === 'pointer') return;   // 포인터 모드에선 칠판에 아무것도 그리지 않는다
         wbFitCanvas();   // 그리기 직전 버퍼 크기 보정(불일치 시에만 → 내용 유지)
         // ph268: 텍스트 도구 — 클릭 위치에 input 띄우기
         if (wbTool === 'text') {
@@ -18707,6 +18782,8 @@ function pdfSetDrawTool(t, btn) {
 
 function pdfApplyClear(pages) {
     pages.forEach(p => { delete pdfAnnotations[p]; });
+    // ➡️ 콕 찍기 표시는 캔버스가 아니라 DOM 이라 지우기에서 따로 걷어내야 한다
+    document.querySelectorAll('[id^="mgArrow_"]').forEach(n => n.remove());
     document.querySelectorAll('.pdf-anno').forEach(anno => {
         const p = parseInt(anno.dataset.page);
         if (pages.includes(p)) anno.getContext('2d').clearRect(0, 0, anno.width, anno.height);
@@ -18742,6 +18819,23 @@ function pdfBindAnnoEvents(annoId) {
                     mangoToast(_en ? 'The teacher has locked drawing.' : '선생님이 필기를 잠갔어요.');
                 }
             }
+            return;
+        }
+        /* ➡️ (2026-07-31) 콕 찍기 — 잉크를 남기지 않고 '머무는 표시'만 찍는다.
+           레이저는 손을 떼면 사라져서, 한 곳을 가리키며 설명하는 동안 유지가 안 된다는
+           강사 요청에서 나온 도구. 다음에 찍거나 '지우기'를 누를 때까지 그 자리에 남는다. */
+        if (pdfDrawTool === 'arrow') {
+            e.preventDefault();
+            const _r  = anno.getBoundingClientRect();
+            const _me = pdfMyIdentity();
+            const _d  = {
+                page: parseInt(anno.dataset.page),
+                x: (e.clientX - _r.left) / _r.width,
+                y: (e.clientY - _r.top)  / _r.height,
+                name: _me.name, color: _me.color, sticky: true
+            };
+            pdfReceivePointer(_d);              // 내 화면에도 즉시 표시
+            pdfAnnoSend('pdf-pointer', _d);     // 상대 화면에 전송
             return;
         }
         const color = document.getElementById('pdf-anno-color').value;
@@ -18786,7 +18880,8 @@ function pdfBindAnnoEvents(annoId) {
         anno.setPointerCapture(e.pointerId);
         const sid = pdfNewStrokeId();
         const p0 = pos(e);
-        currentStroke = { tool: pdfDrawTool, color, size, points: [p0], _id: sid };
+        // _t = 마지막으로 점이 찍힌 시각 — ✨ 사라지는 펜이 이 값으로 수명을 잰다
+        currentStroke = { tool: pdfDrawTool, color, size, points: [p0], _id: sid, _t: Date.now() };
         if (!pdfAnnotations[pageNum]) pdfAnnotations[pageNum] = [];
         pdfAnnotations[pageNum].push(currentStroke);
         // 🔄 상대에게 획 시작 전송 (id 로 이어붙임)
@@ -18796,6 +18891,7 @@ function pdfBindAnnoEvents(annoId) {
         if (!drawing || !currentStroke) return;
         const pt = pos(e);
         currentStroke.points.push(pt);
+        currentStroke._t = Date.now();          // ✨ 사라지는 펜 수명 갱신
         const pageNum = parseInt(anno.dataset.page);
         pdfRedrawAnno(anno, pageNum);
         // 🔄 상대에게 좌표 추가 전송
@@ -18925,7 +19021,7 @@ let _pdfRemoteStrokes = {};
 
 function pdfReceiveAnnoStart(d) {
     if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
-    var stroke = { tool: d.tool, color: d.color, size: d.size, points: [d.point], _id: d.id };
+    var stroke = { tool: d.tool, color: d.color, size: d.size, points: [d.point], _id: d.id, _t: Date.now() };
     pdfAnnotations[d.page].push(stroke);
     _pdfRemoteStrokes[d.id] = stroke;
     var el = pdfAnnoElForPage(d.page);
@@ -18941,6 +19037,7 @@ function pdfReceiveAnnoPoint(d) {
         _pdfRemoteStrokes[d.id] = stroke;
     }
     stroke.points.push(d.point);
+    stroke._t = Date.now();                    // ✨ 사라지는 펜: 받는 쪽도 같은 기준으로 수명 계산
     var el = pdfAnnoElForPage(d.page);
     if (el) pdfRedrawAnno(el, d.page);
 }
@@ -19014,16 +19111,27 @@ function pdfAnnoUndo() {
     }
 }
 
-/* ── 레이저 포인터 ───────────────────────────────────────────────── */
+/* ── 레이저 포인터 / 콕 찍기 ────────────────────────────────────────
+   🔴 (2026-07-31 강사 요청 "포인터를 넣어주세요")
+   레이저 포인터 자체는 예전부터 있었다. 그런데 아래 세 가지 때문에 사실상 못 쓰는 기능이었다.
+     1) 켜는 버튼이 없었다 — "보기 모드에서 마우스를 움직이면 된다"를 우연히 알아내야 했다.
+        → 툴바의 '보기'를 '🔴 포인터'로 승격해 입구를 만들었다(HTML 쪽).
+     2) mousemove 만 듣고 있었다 — 태블릿·휴대폰으로 수업하는 강사는 아예 동작하지 않았다.
+        → pointermove 로 바꿨다. 터치는 hover 가 없으므로 '손가락을 대고 움직일 때'만 보낸다.
+     3) 보내는 사람 화면에는 아무것도 안 보였다 — 학생에게 나가고 있는지 확인할 방법이 없어
+        "안 되네요"로 이어졌다. → 자기 화면에도 흐리게(로컬 에코) 같이 그린다.
+   콕 찍기(sticky)는 같은 pdf-pointer 통로를 쓰되 자동으로 사라지지 않는 표시다. */
 let _pdfLaserSend = 0;
 function pdfBindLaser(anno) {
     if (!anno || anno._laserBound) return;
     anno._laserBound = true;
     var wrap = anno.parentElement;
-    // '보기' 모드에서는 anno 가 pointer-events:none 이라 wrap 에서 마우스를 추적
-    wrap.addEventListener('mousemove', function(e){
+    var touchDown = false;   // 터치·펜은 화면에 닿아 있을 때만 추적 (마우스는 그냥 움직여도 됨)
+
+    // '보기(포인터)' 모드에서는 anno 가 pointer-events:none 이라 wrap 에서 좌표를 추적
+    function track(e) {
         if (pdfDrawTool !== 'none') return;            // 그리기 중엔 레이저 끔
-        if (typeof vcConn === 'undefined' || !vcConn) return;
+        if (e.pointerType && e.pointerType !== 'mouse' && !touchDown) return;
         var now = Date.now();
         if (now - _pdfLaserSend < 45) return;          // 송신 스로틀
         _pdfLaserSend = now;
@@ -19032,12 +19140,25 @@ function pdfBindLaser(anno) {
         var x = (e.clientX - r.left) / r.width;
         var y = (e.clientY - r.top) / r.height;
         if (x < 0 || x > 1 || y < 0 || y > 1) return;
+        var page = parseInt(anno.dataset.page);
         var me = pdfMyIdentity();
-        pdfAnnoSend('pdf-pointer', { page: parseInt(anno.dataset.page), x: x, y: y, name: me.name, color: me.color });
+        pdfReceivePointer({ page: page, x: x, y: y, name: me.name, color: me.color, self: true });
+        pdfAnnoSend('pdf-pointer', { page: page, x: x, y: y, name: me.name, color: me.color });
+    }
+    function release() { touchDown = false; }
+
+    wrap.addEventListener('pointerdown', function(e){
+        if (e.pointerType && e.pointerType !== 'mouse') { touchDown = true; track(e); }
     });
-    wrap.addEventListener('mouseleave', function(){
-        if (typeof vcConn === 'undefined' || !vcConn) return;
-        pdfAnnoSend('pdf-pointer', { page: parseInt(anno.dataset.page), hide: true, name: pdfMyIdentity().name });
+    wrap.addEventListener('pointerup', release);
+    wrap.addEventListener('pointercancel', release);
+    wrap.addEventListener('pointermove', track);
+    wrap.addEventListener('pointerleave', function(){
+        touchDown = false;
+        var page = parseInt(anno.dataset.page);
+        var me = pdfMyIdentity();
+        pdfReceivePointer({ page: page, hide: true, name: me.name, self: true });
+        pdfAnnoSend('pdf-pointer', { page: page, hide: true, name: me.name });
     });
 }
 let _pdfLaserTimers = {};
@@ -19046,26 +19167,61 @@ function pdfReceivePointer(d) {
     var el = pdfAnnoElForPage(page);
     if (!el) return;
     var wrap = el.parentElement;
-    var key = 'laser_' + String(d.name || 'x').replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    var safe = String(d.name || 'x').replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    /* 레이저(따라다니다 사라짐) / 콕 찍기(그 자리에 머무름) / 내 화면용 에코는 서로 다른 요소로 관리.
+       같은 id 를 쓰면 내 에코가 상대 표시를 덮어써서 둘 중 하나가 사라진다. */
+    var key = (d.sticky ? 'mgArrow_' : 'mgLaser_') + (d.self ? 'me_' : '') + safe;
     var dot = document.getElementById(key);
     if (d.hide) { if (dot) dot.remove(); return; }
     if (!dot) {
+        var c  = d.color || '#ef4444';
+        var op = d.self ? '.5' : '.85';   // 내 화면에 보이는 내 포인터는 흐리게 = "나가고 있다"는 확인용
         dot = document.createElement('div');
         dot.id = key;
         dot.style.cssText = 'position:absolute;z-index:50;pointer-events:none;transform:translate(-50%,-50%);transition:left .05s linear,top .05s linear;';
         dot.innerHTML = '<span class="laser-core"></span><span class="laser-name"></span>';
         wrap.appendChild(dot);
-        dot.querySelector('.laser-core').style.cssText = 'display:block;width:16px;height:16px;border-radius:50%;background:' + (d.color||'#ef4444') + ';box-shadow:0 0 10px 3px ' + (d.color||'#ef4444') + ';opacity:.85;';
-        dot.querySelector('.laser-name').style.cssText = 'position:absolute;left:14px;top:-2px;white-space:nowrap;font-size:11px;font-weight:700;color:#fff;background:' + (d.color||'#ef4444') + ';padding:1px 6px;border-radius:8px;';
+        // 콕 찍기는 '속이 빈 굵은 링' — 꽉 찬 레이저 점과 한눈에 구분되고, 링 중심이 정확히 찍은 지점이다
+        dot.querySelector('.laser-core').style.cssText = d.sticky
+            ? 'display:block;box-sizing:border-box;width:26px;height:26px;border-radius:50%;border:3px solid ' + c + ';box-shadow:0 0 0 2px rgba(255,255,255,.55),0 0 8px 2px ' + c + ';opacity:' + op + ';'
+            : 'display:block;width:16px;height:16px;border-radius:50%;background:' + c + ';box-shadow:0 0 10px 3px ' + c + ';opacity:' + op + ';';
+        dot.querySelector('.laser-name').style.cssText = 'position:absolute;left:' + (d.sticky ? 20 : 14) + 'px;top:-2px;white-space:nowrap;font-size:11px;font-weight:700;color:#fff;background:' + c + ';padding:1px 6px;border-radius:8px;opacity:' + op + ';';
         dot.querySelector('.laser-name').textContent = d.name || '';
     }
     // wrap 이 anno 캔버스와 같은 크기라고 가정(top:0,left:0 오버레이)
     dot.style.left = (d.x * el.clientWidth) + 'px';
     dot.style.top  = (d.y * el.clientHeight) + 'px';
-    // 일정 시간 갱신 없으면 사라짐
-    if (_pdfLaserTimers[key]) clearTimeout(_pdfLaserTimers[key]);
-    _pdfLaserTimers[key] = setTimeout(function(){ var x = document.getElementById(key); if (x) x.remove(); }, 1600);
+    if (_pdfLaserTimers[key]) { clearTimeout(_pdfLaserTimers[key]); delete _pdfLaserTimers[key]; }
+    // 레이저만 자동 소멸. 콕 찍기는 다음에 찍거나 🗑 지우기 전까지 남는다(그게 이 도구의 목적).
+    if (!d.sticky) {
+        _pdfLaserTimers[key] = setTimeout(function(){ var x = document.getElementById(key); if (x) x.remove(); }, 1600);
+    }
 }
+
+/* ✨ 사라지는 펜 — 그린 뒤 일정 시간이 지난 획을 양쪽 화면에서 함께 걷어낸다.
+   전용 메시지를 새로 만들지 않고 '마지막으로 점이 찍힌 시각(_t)' 하나로 각자 지운다.
+   보내는 쪽은 그릴 때, 받는 쪽은 점을 받을 때 _t 를 갱신하므로 두 화면이 거의 동시에 사라진다. */
+const PDF_VANISH_MS = 3000;
+setInterval(function(){
+    if (typeof pdfDoc === 'undefined' || !pdfDoc) return;      // 교재가 떠 있을 때만 (평소 비용 0)
+    if (typeof pdfAnnotations === 'undefined' || !pdfAnnotations) return;
+    var now = Date.now(), touched = [];
+    Object.keys(pdfAnnotations).forEach(function(p){
+        var arr = pdfAnnotations[p];
+        if (!arr || !arr.length) return;
+        for (var i = arr.length - 1; i >= 0; i--) {
+            var s = arr[i];
+            if (s && s.tool === 'vanish' && s._t && now - s._t > PDF_VANISH_MS) {
+                arr.splice(i, 1);
+                if (touched.indexOf(p) < 0) touched.push(p);
+            }
+        }
+    });
+    touched.forEach(function(p){
+        var el = pdfAnnoElForPage(parseInt(p));
+        if (el) pdfRedrawAnno(el, parseInt(p));
+    });
+}, 500);
 
 // 한 번에 보일 페이지 수 변경 (1 또는 2)
 function pdfSetPagesPerView(n, btn) {
@@ -28006,7 +28162,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260731042026 -->
+<!-- BUILD:20260731043111 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
