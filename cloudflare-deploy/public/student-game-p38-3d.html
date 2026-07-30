@@ -349,6 +349,12 @@
   /* 듣는 중에는 같은 버튼이 '제출' 이 된다 — 색을 바꿔 지금 무슨 버튼인지 헷갈리지 않게 */
   #micBtn.submit{background:linear-gradient(135deg,#f59e0b,#e2600f)}
   .rateRow{display:flex;gap:6px;justify-content:center;margin-top:9px}
+  /* 원어민/내 목소리 — 따라 말하기 바로 밑에 나란히 */
+  .spTools{display:flex;gap:8px;margin-top:9px}
+  .spTools .rb{flex:1;padding:9px 6px;line-height:1.25}
+  .spTools .rb small{display:block;font-size:9.5px;font-weight:700;color:#8fa9c2;margin-top:1px}
+  .spTools .rb:disabled{opacity:.4;cursor:default}
+  .spTools .rb.playing{border-color:#7fd1ff;background:rgba(127,209,255,.16);color:#dff2ff}
   .rb{padding:6px 12px;border-radius:9px;border:1px solid rgba(140,175,210,.3);
     background:rgba(16,28,40,.85);color:#cfe0f0;font-size:12px;font-weight:800;cursor:pointer}
   .rb.on{border-color:#7fd1ff;color:#dff2ff;background:rgba(127,209,255,.16)}
@@ -692,6 +698,11 @@
       <div id="spCount"></div>
       <div id="spHeard"></div>
       <button id="micBtn">🎤 따라 말하기</button>
+      <!-- 원어민 다시 듣기 · 내 목소리 듣기(사장님 지시 — 따라 한 소리를 스스로 비교) -->
+      <div class="spTools">
+        <button class="rb" id="btnHearNative">🔊 원어민<small>Native</small></button>
+        <button class="rb" id="btnHearMine" disabled>🎧 내 목소리<small>My voice</small></button>
+      </div>
       <div class="rateRow">
         <button class="rb" data-rate="0.7">느리게</button>
         <button class="rb on" data-rate="0.95">보통</button>
@@ -2009,6 +2020,54 @@ function aceDown(){
    6. 무전 교신(말하기 미션) — 듣기 3회 → 따라 말하기 3회
    ════════════════════════════════════════════════════════════════════ */
 var SP=null, spRate=0.95;
+/* ── 내 목소리 녹음 ──────────────────────────────────────────
+   따라 말하는 동안 마이크를 함께 녹음해 두고, 끝난 뒤 다시 들어 원어민과 비교하게 한다.
+   ⚠️ 음성인식(SpeechRecognition)과 마이크를 동시에 쓴다. 크롬은 되지만 안 되는 환경도 있으므로
+      실패하면 조용히 포기하고 버튼만 비활성으로 둔다 — 말하기 흐름을 절대 막지 않는다.
+   ⚠️ 끝나면 트랙을 반드시 stop() 한다. 안 그러면 마이크 표시등이 계속 켜져 있다. */
+var _recWanted=false, _recStream=null, _recorder=null, _myVoiceUrl=null, _myAudio=null;
+function myVoiceReset(){
+  if(_myVoiceUrl){ try{ URL.revokeObjectURL(_myVoiceUrl); }catch(_){} _myVoiceUrl=null; }
+  var b=document.getElementById('btnHearMine'); if(b) b.disabled=true;
+}
+function startMyVoiceRec(){
+  _recWanted=true;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return;
+  try{
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){
+      if(!_recWanted){ try{ st.getTracks().forEach(function(t){t.stop();}); }catch(_){} return; }
+      _recStream=st;
+      var chunks=[], mr;
+      try{ mr=new MediaRecorder(st); }catch(_){ try{ st.getTracks().forEach(function(t){t.stop();}); }catch(__){} return; }
+      mr.ondataavailable=function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop=function(){
+        try{ if(_recStream){ _recStream.getTracks().forEach(function(t){t.stop();}); } }catch(_){}
+        _recStream=null;
+        if(!chunks.length) return;
+        try{
+          if(_myVoiceUrl) URL.revokeObjectURL(_myVoiceUrl);
+          _myVoiceUrl=URL.createObjectURL(new Blob(chunks,{type:mr.mimeType||'audio/webm'}));
+          var b=document.getElementById('btnHearMine'); if(b) b.disabled=false;
+        }catch(_){}
+      };
+      _recorder=mr;
+      try{ mr.start(); }catch(_){}
+    }).catch(function(){ /* 권한 거부 등 — 조용히 넘어간다 */ });
+  }catch(_){}
+}
+function stopMyVoiceRec(){
+  _recWanted=false;
+  try{ if(_recorder && _recorder.state!=='inactive') _recorder.stop(); }catch(_){}
+  _recorder=null;
+  // recorder 가 없더라도 스트림이 남아 있으면 마이크를 놓아 준다
+  try{ if(_recStream){ _recStream.getTracks().forEach(function(t){t.stop();}); _recStream=null; } }catch(_){}
+}
+/* 두 버튼은 '듣는 중'에는 잠근다 — 이때 소리를 내면 내 말 위에 겹쳐 녹음·인식된다 */
+function spToolsEnable(on){
+  var n=document.getElementById('btnHearNative'), m=document.getElementById('btnHearMine');
+  if(n) n.disabled=!on;
+  if(m) m.disabled=(!on || !_myVoiceUrl);
+}
 function spFull(){ return SP.w.join(LANGMETA[MODE].join); }
 function startSpeaking(){
   G.speaking=true; stopSpeak();
@@ -2016,6 +2075,7 @@ function startSpeaking(){
   document.getElementById('spSent').textContent=spFull();
   document.getElementById('spKo').textContent=SP.ko||'';
   document.getElementById('spHeard').textContent='';
+  myVoiceReset();                    // 지난 문장의 녹음이 남아 헷갈리지 않게
   document.getElementById('ovSpeak').classList.remove('hide');
   spDots(0,'listen'); spListenStep();
 }
@@ -2042,9 +2102,11 @@ function spSpeakStep(){
      끄면 아이는 제한시간이 다 갈 때까지 멀뚱히 기다려야 한다. */
   var mic=document.getElementById('micBtn');
   mic.disabled=false; mic.classList.add('submit'); mic.textContent='✅ 다 말했어요';
+  spToolsEnable(false);              // 듣는 중에 소리를 내면 내 말 위에 겹친다
   document.getElementById('spState').textContent='🎤 듣는 중… 다 말하면 버튼을 누르세요';
   listenOnce(function(ok, heard){
     mic.classList.remove('submit'); mic.textContent='🎤 따라 말하기';
+    spToolsEnable(true);
     if(!SP) return;
     G.pronTry++;
     document.getElementById('spHeard').textContent = heard ? ('들린 말: “'+heard+'”') : '';
@@ -2061,6 +2123,9 @@ function spSpeakStep(){
 }
 function spFinish(success){
   document.getElementById('ovSpeak').classList.add('hide');
+  // 카드를 닫을 때 재생과 마이크를 반드시 놓아 준다(마이크 표시등이 계속 켜져 있으면 안 된다)
+  try{ if(_myAudio) _myAudio.pause(); }catch(_){}
+  stopMyVoiceRec();
   SP=null; G.speaking=false;
   if(success){ G.score+=250; banner('🎖️ 무전 교신 성공! +250', '#4ade80'); hubComplete(250); }
   updateHUD();
@@ -2115,6 +2180,7 @@ function listenOnce(cb){
     if(_deadline)clearTimeout(_deadline); if(_tick)clearInterval(_tick);
     stopUI();
     try{rec.stop();}catch(_){}
+    stopMyVoiceRec();
     cb(ok,txt);
   }
   /* 야구 투구시간과 같다 — 15초를 주되 다 말했으면 버튼을 눌러 바로 제출한다.
@@ -2167,6 +2233,7 @@ function listenOnce(cb){
     MangoiSTT.harden(rec,{isDone:function(){return done;}, maxRestarts:20, maxMs:MS});
   }catch(_h){}
   try{ rec.start(); }catch(_){ finish(false,''); return; }
+  startMyVoiceRec();                 // 따라 말하는 소리를 같이 녹음해 둔다(비교용)
 
   paint(); _tick=setInterval(paint, 200);
   _deadline=setTimeout(function(){ finish(matched,best); }, MS);
@@ -2961,6 +3028,25 @@ function togglePause(){
   document.getElementById('btnMute').addEventListener('click', function(){
     muted=!muted; this.textContent = muted?'🔇':'🔈';
     if(muted){ stopSpeak(); } engineSet(G?G.speed:190);
+  });
+  /* 원어민 다시 듣기 — 지금 문장을 고른 속도로 한 번 더 읽어 준다 */
+  document.getElementById('btnHearNative').addEventListener('click', function(){
+    if(!SP) return; ac(); stopSpeak();
+    var b=this; b.classList.add('playing');
+    speak(spFull(), spRate, 1, function(){ b.classList.remove('playing'); });
+  });
+  /* 내 목소리 듣기 — 방금 따라 말한 녹음을 그대로 들려준다(원어민과 비교) */
+  document.getElementById('btnHearMine').addEventListener('click', function(){
+    if(!_myVoiceUrl) return; ac(); stopSpeak();
+    var b=this;
+    try{
+      if(!_myAudio) _myAudio=new Audio();
+      _myAudio.pause();
+      _myAudio.src=_myVoiceUrl;
+      b.classList.add('playing');
+      _myAudio.onended=_myAudio.onerror=function(){ b.classList.remove('playing'); };
+      _myAudio.play().catch(function(){ b.classList.remove('playing'); });
+    }catch(_){ b.classList.remove('playing'); }
   });
   document.getElementById('micBtn').addEventListener('click', function(){
     if(_listenSubmit){ _listenSubmit(); return; }   // 듣는 중 = '다 말했어요'(즉시 제출)
