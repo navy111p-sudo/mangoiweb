@@ -165,14 +165,13 @@
     requestAnimationFrame(tick);
   }
 
-  /** 시작 "HH:MM"(오늘 기준)부터 1초마다 경과 시간을 갱신 */
-  function startElapsed(startHHMM) {
-    var mm = /^(\d{1,2}):(\d{2})/.exec(String(startHHMM || ''));
+  /** 절대시각(ms, 서버가 KST 기준으로 계산해 준 값)부터 1초마다 경과 시간을 갱신.
+   *  🔧 (2026-07-30) 예전엔 "HH:MM"을 받아 클라이언트 로컬 날짜에 꽂아 넣었는데,
+   *     서버가 이미 정확한 절대시각을 주므로 그대로 쓰는 게 더 정확하다(시간대 오차 원천 차단). */
+  function startElapsedTs(startMs) {
     if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
-    if (!mm) { if (elElapsed) elElapsed.textContent = ''; classStartMs = null; return; }
-    var d = new Date();
-    d.setHours(parseInt(mm[1], 10), parseInt(mm[2], 10), 0, 0);
-    classStartMs = d.getTime();
+    if (startMs == null || isNaN(startMs)) { if (elElapsed) elElapsed.textContent = ''; classStartMs = null; return; }
+    classStartMs = startMs;
     function upd() {
       if (!elElapsed) return;
       var diff = Date.now() - classStartMs;
@@ -181,6 +180,13 @@
     }
     upd();
     elapsedTimer = setInterval(upd, 1000);
+  }
+
+  /** 절대시각(ms) → "HH:MM" 표시용 */
+  function formatTimeMs(ms) {
+    if (ms == null || isNaN(ms)) return '--:--';
+    var d = new Date(ms);
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   }
 
   function stopElapsed() {
@@ -204,11 +210,11 @@
     elapsedTimer = setInterval(upd, 1000);
   }
 
-  function render(startTime, endTime) {
+  function render(startMs, endMs) {
     ensureUI();
-    elText.textContent = formatTime(startTime) + ' ~ ' + formatTime(endTime);
+    elText.textContent = formatTimeMs(startMs) + ' ~ ' + formatTimeMs(endMs);
     elWrap.classList.remove('is-loading');
-    startElapsed(formatTime(startTime));   // 시작시간부터 흐르는 경과 타이머 시작
+    startElapsedTs(startMs);   // 시작시각부터 흐르는 경과 타이머 시작
   }
 
   function renderFail(msg) {
@@ -220,30 +226,34 @@
 
   // ===== 3) 서버 데이터 연동 =====
 
-  /** 현재 수업의 시작/종료 시간을 받아 표시 */
+  /** 현재 수업의 시작/종료 시간을 받아 표시.
+   *  🔧 (2026-07-30 실사고) 예전엔 /api/admin/class-schedules 를 썼는데, 이건 관리자 세션
+   *     전용이라 학생·(관리자 세션 없는) 강사 화면에서는 **항상 401** 로 실패했다. 실패할 때마다
+   *     renderFail()→startElapsedFromEntry() 가 window.__vcStartedAt(대개 미설정) 또는
+   *     Date.now() 로 리셋돼서, 5분 주기 재조회 때마다 경과시간 배지가 0 근처로 되돌아가고
+   *     REC 배지(실제 녹화 경과)와 계속 어긋났다. [[vc-room-match]]가 이미 공개(무인증)로
+   *     운영 중인 /api/class/sessions/today 로 바꾼다 — 학생·교사 둘 다 이미 이 API로
+   *     "오늘 내 수업 바로 입장"을 하고 있어 안전하고, 절대시각(ms)까지 KST 기준으로 내려줘서
+   *     클라이언트 시간대 오차도 함께 없앤다. */
   async function loadClassTime() {
     ensureUI();
     try {
-      // 학생 이름(vcUsername) 우선, 없으면 로그인 사용자 ID로 조회
       var studentName = (typeof vcUsername !== 'undefined' && vcUsername) ? vcUsername : '';
       var userId = (window.MangoV3 && window.MangoV3.userId) ? window.MangoV3.userId : '';
-      var today = new Date().toISOString().slice(0, 10);
+      var isTeacher = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+      if (!userId && (!studentName || studentName === '관찰자')) { renderFail('시간 정보 없음'); return; }
 
-      var qs = new URLSearchParams({ from_date: today, to_date: today, limit: '50' });
+      var qs = new URLSearchParams({ role: isTeacher ? 'teacher' : 'student' });
+      if (userId) qs.set('user_id', userId);
       if (studentName && studentName !== '관찰자') qs.set('student_name', studentName);
-      else if (userId) qs.set('user_id', userId);
 
-      var data = await (window.MangoV3
-        ? window.MangoV3.api('/api/admin/class-schedules?' + qs.toString())
-        : fetch('/api/admin/class-schedules?' + qs.toString(), { credentials: 'include' }).then(function (r) { return r.json(); })
-      );
+      var data = await fetch('/api/class/sessions/today?' + qs.toString(), { credentials: 'include' })
+        .then(function (r) { return r.json(); });
 
-      var sched = pickTodaySchedule((data && data.items) || [], new Date());
-      if (!sched || !sched.start_time) { renderFail('시간 정보 없음'); return; }
+      var sess = (data && data.ok) ? (data.current || (data.sessions && data.sessions[0])) : null;
+      if (!sess || sess.start_ts == null) { renderFail('시간 정보 없음'); return; }
 
-      var start = sched.start_time;                              // "22:00"
-      var end = addMinutes(start, sched.duration_min || 20);     // 시작 + 수업시간(기본 20분 — 영어·중국어 공통, 2026-07-23)
-      render(start, end);
+      render(sess.start_ts, sess.end_ts);
     } catch (err) {
       console.warn('[mango-class-time] 수업 시간 로드 실패:', err);
       renderFail('시간 정보 없음');

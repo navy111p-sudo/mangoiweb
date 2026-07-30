@@ -72,10 +72,11 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(251,191,36,.55)}100%{box-shadow:0 0 0 12px rgba(251,191,36,0)}}
   .chip.pending{background:rgba(255,255,255,.06);color:var(--sub);border-color:var(--line)}
 
-  /* 🌌 실사 우주 배경 사진. 아래 body 그라디언트는 사진이 못 뜰 때의 폴백으로 그대로 남겨둔다.
-     사진 중앙부는 일부러 어둡게 생성했다 — 단어 알약과 문장 칩이 그 위에서 읽혀야 하기 때문. */
+  /* 🌌 배경 사진은 테마(우주/좀비)에 따라 JS 가 갈아끼운다 — 여기선 위치·크기만 정한다.
+     아래 body 그라디언트는 사진이 못 뜰 때의 폴백으로 그대로 남겨둔다.
+     두 배경 모두 중앙부가 어두워 단어 알약과 문장 칩이 그 위에서 읽힌다. */
   #field{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;
-    background:url('/img/shooter-space-bg.webp') center/cover no-repeat}
+    background-position:center;background-size:cover;background-repeat:no-repeat}
   .monster{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
     cursor:pointer;font-family:inherit;will-change:transform;animation:sway 2s ease-in-out infinite alternate;padding:2px}
   @keyframes sway{from{transform:translateX(-8px) rotate(-5deg)}to{transform:translateX(8px) rotate(5deg)}}
@@ -109,27 +110,26 @@
   @keyframes comboPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-8deg)}
     35%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(4deg)}
     70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-85%)}}
-  /* ===== 🪖 실사 사수(상반신) + 회전 총 — 화면 아래에서 상체만 내밀고 총을 조작 ===== */
-  /* 📱 모바일: 사수+총을 통째로 비율 그대로 축소(허리선까지만 살짝 보이게) — 몸이 화면을 덜 차지. 총 위치는 pivot()이 실시간 계측이라 조준 정확도 유지 */
-  #turret{position:absolute;left:50%;bottom:-36px;transform:translateX(-50%) scale(.72);transform-origin:50% 100%;z-index:10;width:160px;height:150px;pointer-events:none}   /* bottom:-36px = 팔꿈치·허리 아래를 화면 밖으로 크롭(상체만 보이게) */
-  .turret-soldier{position:absolute;left:50%;bottom:0;transform:translateX(-50%);height:100%;z-index:9;
-    transform-origin:50% 88%;transition:transform .18s ease-out;   /* 조준 시 몸통이 허리를 축으로 부드럽게 비틀림 */
-    filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));animation:soldierBob 3.4s ease-in-out infinite alternate}
-  @keyframes soldierBob{from{transform:translateX(-50%) translateY(0)}to{transform:translateX(-50%) translateY(3px)}}
-  .turret-soldier.flinch{animation:soldierFlinch .22s}   /* 발사 반동 — 사수가 살짝 움찔 */
-  @keyframes soldierFlinch{0%{transform:translateX(-50%) translateY(0)}40%{transform:translateX(-50%) translateY(4px)}100%{transform:translateX(-50%) translateY(0)}}
-  /* 총은 사수 몸 뒤(z 8 < 사수 z 9)에 그려 몸이 총 몸통을 가리고, 긴 총열만 어깨 위로 보인다(앞에서 잡은 모습) */
-  .barrel-rot{position:absolute;left:52%;bottom:12%;transform-origin:50% 100%;transform:translateX(-50%) rotate(4deg);
-    transition:transform .1s ease-out;z-index:8}
-  @media (min-width:820px){ #turret{width:204px;height:190px;bottom:0;transform:translateX(-50%) scale(1)} }   /* PC 는 사수도 더 크게(축소·크롭 해제) */
-  /* 총 실루엣은 JS(GUN_SVG)의 SVG 를 barrel 배경으로 그림 — 무기마다 실제 총 모양 (크기는 setGun 에서 GUN_DIM×배율) */
-  .barrel{position:relative;width:28px;height:52px;
-    background:50% 50%/100% 100% no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
-  .barrel.recoil{animation:recoil .18s}
-  @keyframes recoil{0%{transform:translateY(0)}35%{transform:translateY(6px)}100%{transform:translateY(0)}}
-  /* 무기 교체 연출 — 새 총이 '뿅' 하고 커지며 등장 */
-  .barrel.swap{animation:gunSwap .38s cubic-bezier(.3,1.4,.5,1)}
-  @keyframes gunSwap{0%{transform:scale(.4);opacity:.15}60%{transform:scale(1.14);opacity:1}100%{transform:scale(1)}}
+  /* ===== 🪖 실사 사수 — 무기를 '실제로 쥔' 사진 13종 (build-shooter-armed.py) =====
+     예전엔 빈손 사수 사진 위에 총 SVG 를 따로 얹었는데, 사진 속 손 위치와 CSS 로 박은 총
+     위치가 구조적으로 절대 안 맞았다(손 x≈10% vs 총 x=52%). 이제 무기를 쥔 한 장이라
+     손·총이 항상 붙어 있고, 무기 종류마다 쥐는 법도 다르다.
+     13장 전부 '머리'를 같은 캔버스 좌표에 맞춰 구워서 src 만 갈아끼워도 안 튄다. */
+  #turret{position:absolute;left:50%;bottom:-30px;transform:translateX(-50%) scale(.72);transform-origin:50% 100%;
+    z-index:10;width:338px;height:146px;pointer-events:none}   /* bottom 음수 = 허리 아래를 화면 밖으로 크롭 */
+  /* 조준 시 상체+총이 통째로 기운다. 총만 따로 돌리면 손에서 떨어지므로 함께 움직여야 한다. */
+  #soldierWrap{position:absolute;inset:0;transform-origin:50% 100%;transition:transform .16s ease-out;
+    animation:soldierBob 3.4s ease-in-out infinite alternate}
+  @keyframes soldierBob{from{transform:translateY(0)}to{transform:translateY(3px)}}
+  #soldierWrap.recoil{animation:soldierRecoil .2s}
+  @keyframes soldierRecoil{0%{transform:translateY(0) scale(1)}40%{transform:translateY(5px) scale(.985)}100%{transform:translateY(0) scale(1)}}
+  .turret-soldier{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;object-position:50% 100%;
+    filter:drop-shadow(0 6px 12px rgba(0,0,0,.5))}
+  .turret-soldier.swap{animation:gunSwap .34s cubic-bezier(.3,1.4,.5,1)}   /* 무기 교체 '뿅' */
+  @keyframes gunSwap{0%{transform:scale(.86);opacity:.25}60%{transform:scale(1.04);opacity:1}100%{transform:scale(1)}}
+  /* 총구 = 총알 출발점. setGun 이 무기별 좌표(MUZZLE)로 옮긴다. 사진과 함께 기울고 반전된다. */
+  .barrel-rot{position:absolute;left:50%;top:25%;width:0;height:0;z-index:11}
+  @media (min-width:820px){ #turret{width:452px;height:195px;bottom:0;transform:translateX(-50%) scale(1)} }
   /* 🔥 화염방사기 불줄기 파티클 (총구→표적 연속 분사) */
   .flamep{position:absolute;margin:-7px 0 0 -7px;border-radius:50%;pointer-events:none;z-index:9;mix-blend-mode:screen;filter:blur(1px);will-change:transform,opacity}
   /* 🤾 수류탄 투척체 + 착탄 대형 화염 */
@@ -138,10 +138,12 @@
   .nadeproj::after{content:'';position:absolute;top:-4px;left:6px;width:6px;height:5px;border-radius:2px;background:#2c3644}
   .fireball{position:absolute;border-radius:50%;pointer-events:none;z-index:13;mix-blend-mode:screen;will-change:transform,opacity;
     background:radial-gradient(circle,#fff 0%,#fde68a 16%,#fb923c 42%,rgba(234,88,12,.65) 62%,rgba(120,30,8,0) 76%)}
-  .muzzle{position:absolute;top:-13px;left:50%;transform:translateX(-50%);width:32px;height:32px;opacity:0;pointer-events:none;
+  /* 총구 화염 — barrel(크기 0) 의 정중앙에 놓아 총구 좌표와 정확히 겹치게 */
+  .barrel{position:absolute;width:0;height:0}
+  .muzzle{position:absolute;top:0;left:0;transform:translate(-50%,-50%);width:32px;height:32px;opacity:0;pointer-events:none;
     background:radial-gradient(circle,#fff 0%,#fde68a 32%,rgba(251,191,36,.55) 58%,transparent 72%)}
   .muzzle.flash{animation:flash .16s}
-  @keyframes flash{0%{opacity:0;transform:translateX(-50%) scale(.3)}30%{opacity:1;transform:translateX(-50%) scale(1.3)}100%{opacity:0;transform:translateX(-50%) scale(1)}}
+  @keyframes flash{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.3)}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
   /* 조준선 */
   .crosshair{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border:2px solid rgba(251,191,36,.7);
     border-radius:50%;opacity:0;transition:opacity .2s;pointer-events:none;z-index:7;box-shadow:0 0 8px rgba(251,191,36,.45)}
@@ -349,8 +351,12 @@
     <div class="voicebadge" id="voiceBadge">🔊 음성 준비 중…</div>
     <div class="crosshair" id="crosshair"></div>
     <div id="turret">
-      <img class="turret-soldier" id="soldierImg" src="/img/shooter-pose-0.webp" alt="사수" draggable="false">
-      <div class="barrel-rot" id="barrelRot"><div class="barrel" id="barrel"><div class="muzzle" id="muzzle"></div></div></div>
+      <!-- 사수 사진과 총구를 한 래퍼에 담는다 — 조준 시 둘이 같이 기울고 같이 반전돼야
+           총알이 실제 총구에서 나간다. src 는 setGun 이 무기별로 갈아끼운다. -->
+      <div id="soldierWrap">
+        <img class="turret-soldier" id="soldierImg" src="/img/shooter-armed-pistol.webp" alt="사수" draggable="false">
+        <div class="barrel-rot" id="barrelRot"><div class="barrel" id="barrel"><div class="muzzle" id="muzzle"></div></div></div>
+      </div>
     </div>
   </div>
 
@@ -560,9 +566,23 @@
   var DISTRACTORS = (GLANG==='zh')
     ? ["猫","跑","蓝","苹果","绿","快","做","高兴","跳","红","水","桌子","想","下面","他们","大","牛奶"]
     : ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
-  // 🛸 실사 크리처 8종 (이모지 얼굴에서 교체). 파일은 build-shooter-assets.py 가 굽는다.
-  var FACES = ['alien','bug','dragon','parasite','phantom','mech','oni','imp'];
-  var FACE_SRC = function(id){ return '/img/shooter-mon-' + id + '.webp'; };
+  /* 🎨 테마 2종 — 사장님 지시(2026-07-30): 우주와 좀비를 둘 다 두고 플레이어가 고른다.
+     ⚠ 두 테마 에셋이 모두 public/img/ 에 있어야 한다. 한쪽을 지우면 wrangler 가
+        배포에서 그 파일들을 빼버려 그 테마가 라이브에서 통째로 깨진다(실제로 한 번 지워졌었다). */
+  var THEMES = {
+    space:  { name:'🌌 우주',   bg:'/img/shooter-space-bg.webp', pre:'/img/shooter-mon-',
+              foes:['alien','bug','dragon','parasite','phantom','mech','oni','imp'] },
+    zombie: { name:'🧟 좀비',   bg:'/img/shooter-city-bg.webp',  pre:'/img/shooter-zom-',
+              foes:['office','sprinter','tank','soldier','trooper','worker','doc','medic'] }
+  };
+  var THEME = (function(){
+    try{ var t=(new URLSearchParams(location.search).get('theme')||'').toLowerCase();
+      if(THEMES[t]) return t;
+      var s=localStorage.getItem('mangoi_shooter_theme'); return THEMES[s] ? s : 'space';
+    }catch(e){ return 'space'; }
+  })();
+  var FACES = THEMES[THEME].foes;
+  var FACE_SRC = function(id){ return THEMES[THEME].pre + id + '.webp'; };
   // 첫 스폰에서 깜빡이지 않게 미리 받아둔다. ⚠ 참조를 배열에 붙잡아 둬야 한다 —
   // 지역변수로만 만들면 GC 후 메모리 캐시에서 빠져 스폰마다 다시 요청이 나간다.
   var _facePre = FACES.map(function(id){ var im = new Image(); im.src = FACE_SRC(id); return im; });
@@ -658,6 +678,7 @@
   var targetWords=[], monsters=[], running=false, lastHit=0, lastTs=0, rafId=null, timerId=null;
 
   var field=document.getElementById('field');
+  field.style.backgroundImage = "url('" + THEMES[THEME].bg + "')";   // 🎨 테마 배경
   var barrelRot=document.getElementById('barrelRot'), barrel=document.getElementById('barrel');
   var muzzle=document.getElementById('muzzle'), crosshair=document.getElementById('crosshair');
   var comboEl=document.getElementById('combo'), sentenceEl=document.getElementById('sentence');
@@ -1175,64 +1196,54 @@
       .catch(function(){ wordPop(chip, w, '', '(뜻을 찾지 못했어요)'); });
   });
 
-  // 회전축(허브) 위치 = barrel-rot 의 회전 원점(밑변 중앙)
-  function pivot(){ var f=field.getBoundingClientRect(), b=barrelRot.getBoundingClientRect();
-    return { x:b.left+b.width/2-f.left, y:b.bottom-f.top }; }
   var _aimBack=null;
   var soldierEl=document.querySelector('.turret-soldier');
+  var soldierWrap=document.getElementById('soldierWrap');
 
-  /* ═══ 🪖 사수 포즈 시스템 (실사 9포즈) ═══
-     9장 전부 같은 캔버스에 '머리'를 같은 좌표로 정렬해 구웠다(build-shooter-assets.py) →
-     src 만 갈아끼우면 레이아웃도 머리 위치도 안 튄다. 기존 몸통 rotate/lean 은 그 위에 그대로 얹힌다.
-     ⚠ 사진 교체는 프리로드 없이는 첫 전환에서 한 프레임 비어 보인다 → 아래에서 9장 다 받아둔다. */
-  var POSE = { idle:[0,3,5,6], left:[1,4], right:[2], fire:7, reload:8 };
-  function poseSrc(n){ return '/img/shooter-pose-' + n + '.webp'; }
-  // 배열에 붙잡아 둔다 — 대기 포즈가 2.1초마다 돌기 때문에 참조를 놓치면 그때마다 네트워크 요청이 나간다
-  var _posePre = []; for (var _pp = 0; _pp < 9; _pp++) { var _pi = new Image(); _pi.src = poseSrc(_pp); _posePre.push(_pi); }
-  var _poseNow = 0, _poseHold = 0, _idleAt = 0, _lastDeg = 0, _lastAim = -1e9;
-  function setPose(n, holdMs){
-    if(!soldierEl) return;
-    var now = performance.now();
-    if(holdMs) _poseHold = now + holdMs;          // 발사 반동처럼 '이 포즈를 잠깐 붙잡는' 경우
-    else if(now < _poseHold) return;              // 붙잡힌 동안은 숨쉬기/조준이 덮어쓰지 않게
-    if(n === _poseNow) return;
-    _poseNow = n; soldierEl.src = poseSrc(n);
-  }
-  function idlePose(){                            // 숨쉬기·체중이동 — 정지 사진 한 장이 아니라 천천히 자세가 바뀐다
-    _idleAt = (_idleAt + 1) % POSE.idle.length; setPose(POSE.idle[_idleAt]);
-  }
-  // 대기 타이머는 '조준 중'에는 쉬어야 한다 — 안 그러면 표적을 겨눈 순간 혼자 힘을 빼고 대기 자세로 돌아간다
-  setInterval(function(){ var t = performance.now(); if(t >= _poseHold && t - _lastAim > 1400) idlePose(); }, 2100);
-  function aimPose(deg){
-    _lastAim = performance.now();
-    var s = deg < -12 ? POSE.left : (deg > 12 ? POSE.right : POSE.idle);
-    setPose(s[Math.floor(Math.random() * s.length)]);
-  }
-  function firePose(){                            // 발사 순간 = 어깨를 웅크린 반동 포즈로 고정했다가 조준 자세 복귀
-    setPose(POSE.fire, 210);
-    setTimeout(function(){ _poseHold = 0; aimPose(_lastDeg); }, 220);
-  }
-  function reloadPose(){ setPose(POSE.reload, 900); setTimeout(function(){ _poseHold = 0; idlePose(); }, 910); }
+  /* ═══ 🪖 무기를 쥔 사수 (실사 13종) ═══
+     예전 방식은 '빈손 사수 사진 + 별개 총 SVG' 라 손과 총이 절대 안 맞았다(사장님 지적).
+     이제 무기를 쥔 사진 한 장이라 손·총이 항상 붙어 있고, 조준하면 상체와 총이 통째로 기운다.
+     총만 따로 돌리는 건 포기했다 — 그게 애초에 손과 어긋난 원인이었다.
 
+     MUZZLE = 무기별 총구 좌표(캔버스 대비 %). 총알이 여기서 출발한다.
+     build-shooter-armed.py 가 추정값을 출력하지만 그대로 믿지 않고, 마커를 찍어 눈으로 확인한 값이다. */
+  var MUZZLE = {
+    pistol:[53.6,27.4], revolver:[57.7,23.5], rifle:[64.7,25.7], shotgun:[58.2,25.2],
+    sniper:[92.0,35.2], ar:[63.9,31.8], mg:[93.1,28.4], minigun:[97.9,26.9],
+    flame:[83.0,41.7], tank:[79.5,9.5], railgun:[88.8,3.2], grenade:[83.8,6.8], handnade:[68.2,31.1]
+  };
+  function armedSrc(id){ return '/img/shooter-armed-' + (MUZZLE[id] ? id : 'pistol') + '.webp'; }
+  // ⚠ 13장을 전부 프리로드하지 않는다 — 한 번에 한 자루만 쓰므로 그건 낭비다(장당 ~36KB).
+  //   대신 무기를 바꿀 때 받아두고, 참조를 잡아 둬 재요청이 안 나가게 한다.
+  var _armedPre = {};
+  function preloadArmed(id){ if(_armedPre[id]) return; var im=new Image(); im.src=armedSrc(id); _armedPre[id]=im; }
+
+  var _lastDeg = 0, _faceLeft = false;
+  /* 조준 = 상체+총 통째로 기울이기. 사진이라 총구를 표적에 정확히 맞출 수는 없지만,
+     총알은 총구→표적으로 날아가므로 명중 판정은 그대로다.
+     ±26° 를 넘겨 기울이면 사람이 꺾이는 것처럼 보여서 클램프한다. 대신 표적이 반대쪽이면
+     사진을 좌우반전해 '그쪽을 겨눈' 모습을 만든다(뒷모습이라 반전 티가 안 난다). */
+  function applyAim(deg, left){
+    if(!soldierWrap) return;
+    var d=Math.max(-26,Math.min(26,deg));
+    soldierWrap.style.animation='none';
+    soldierWrap.style.transform='rotate('+d.toFixed(1)+'deg)' + (left ? ' scaleX(-1)' : '');
+  }
+  function restAim(){
+    if(!soldierWrap) return;
+    soldierWrap.style.transform = _faceLeft ? 'scaleX(-1)' : '';
+    soldierWrap.style.animation='';
+  }
   function aimAt(tx,ty){
-    var p=pivot(), deg=Math.atan2(tx-p.x, -(ty-p.y))*180/Math.PI;
-    // 총이 표적을 실제로 따라간다 — 좌우 합쳐 180°(±90°)까지 꺾임.
-    // 총은 사수 몸 뒤(z 8 < 몸 9)에 그려지므로 옆으로 꺾여도 항상 '팔 밑'으로 나가고 절대 팔·머리 위를 덮지 않는다.
-    deg=Math.max(-90,Math.min(90,deg));
-    barrelRot.style.transform='translateX(-50%) rotate('+deg+'deg)';
-    _lastDeg=deg; aimPose(deg);                  // 🪖 조준 방향에 맞는 실사 포즈로 교체(좌/우/정면)
-    // 🪖 실제 사수처럼: 몸은 살짝만 비틀고(최대 ±16°) 총 쏘는 쪽으로 체중을 옮기는 느낌(좌우 이동 몇 px)
-    //    총은 몸 뒤(z 8 < 몸 9)라 크게 꺾여도 항상 팔 밑으로 나간다.
-    if(soldierEl){ var bodyDeg=Math.max(-16,Math.min(16,deg*0.22)), lean=(deg*0.10).toFixed(1);
-      soldierEl.style.animation='none';
-      soldierEl.style.transform='translateX(calc(-50% + '+lean+'px)) rotate('+bodyDeg+'deg)'; }
-    // 쏜 뒤 잠시 후 기본 견착 자세로 복귀 — 총이 옆으로 누운 채 멈춰있지 않게 (몸도 함께 복귀)
+    var f=field.getBoundingClientRect(), t=document.getElementById('turret').getBoundingClientRect();
+    var px=t.left+t.width/2-f.left, py=t.top+t.height*0.5-f.top;      // 회전축 = 사수 몸통 한가운데
+    var deg=Math.atan2(tx-px, -(ty-py))*180/Math.PI;
+    _faceLeft = (tx < px - 12);
+    _lastDeg = deg;
+    // 반전하면 화면상 회전 방향도 뒤집히므로 부호를 맞춰준다
+    applyAim(_faceLeft ? -deg : deg, _faceLeft);
     clearTimeout(_aimBack);
-    _aimBack=setTimeout(function(){ barrelRot.style.transition='transform .35s ease-out'; barrelRot.style.transform='translateX(-50%) rotate(4deg)';
-      if(soldierEl){ soldierEl.style.transition='transform .35s ease-out'; soldierEl.style.transform='translateX(-50%)'; }
-      setTimeout(function(){ barrelRot.style.transition='';
-        if(soldierEl){ soldierEl.style.transition=''; soldierEl.style.transform=''; soldierEl.style.animation=''; }
-        _lastDeg=0; idlePose(); },380); },650);   // 🪖 자세 복귀 = 실사 포즈도 대기 자세로
+    _aimBack=setTimeout(function(){ restAim(); }, 900);   // 잠시 뒤 편한 자세로 복귀
   }
   // 🔥 화염방사기: 총구(sx,sy)→표적(ex,ey) 로 불줄기가 쭉 이어져 나가게 다수 파티클을 시차 분사
   function flameStream(sx,sy,ex,ey){
@@ -1315,11 +1326,10 @@
       var ex=r2.left+r2.width/2-f2.left, ey=r2.top+r2.height/2-f2.top;
       if(curGun!=='handnade'){                       // 수류탄은 총구 화염 없음(던지기)
         muzzle.classList.remove('flash'); void muzzle.offsetWidth; muzzle.classList.add('flash');  // 머즐 플래시
-        barrel.classList.remove('recoil'); void barrel.offsetWidth; barrel.classList.add('recoil'); // 반동
       }
-      var _sold=document.querySelector('.turret-soldier');                                        // 🪖 사수도 반동에 움찔
-      if(_sold){ _sold.classList.remove('flinch'); void _sold.offsetWidth; _sold.classList.add('flinch'); }
-      firePose();                                 // 🪖 + 실사 반동 포즈(어깨 웅크림) 210ms
+      // 🪖 반동 — 사수와 총이 한 장이라 둘이 같이 움찔한다(예전엔 총만 따로 튀었다)
+      if(soldierWrap){ soldierWrap.classList.remove('recoil'); void soldierWrap.offsetWidth; soldierWrap.classList.add('recoil');
+        setTimeout(function(){ soldierWrap.classList.remove('recoil'); }, 220); }
       fireSound();                                  // ★ 총마다 다른 발사음
       if(curGun==='handnade'){                      // 🤾 수류탄 = 포물선 투척 → '꽝' + 대형 화염
         throwNade(sx,sy,ex,ey,function(){
@@ -1364,7 +1374,7 @@
   function roundComplete(){
     var bonus=50+combo*10; score+=bonus; updateHUD();
     showCombo('문장 완성! +'+bonus);
-    reloadPose();                                 // 🪖 한 문장 끝 = 사수가 탄창을 갈아끼우는 실사 포즈
+    restAim();                                    // 🪖 한 문장 끝 = 사수도 편한 자세로
     try{ if(window.parent && window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete', score:100+bonus}, '*'); }catch(e){} // 학생게임 탭 점수 반영
     // 🎤 말하기 미션(슈팅+말하기 융합): 게임·제한시간 일시정지 → 원어민 1회 듣기 → 3회 말하기(+100/회)
     running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters();
@@ -1463,18 +1473,20 @@
   }
 
   // ===== 무기 전환 =====
-  function gunScale(){ return (window.innerWidth>=820) ? 2.6 : 2.0; }   // 총 크게 — PC 는 더 크게
-  var GUN_LEN = 1.5;   // 총 길이 배율 — 몸 뒤에서 총열이 어깨 위로 길게 나오게 (총 아랫부분은 몸에 가려짐)
   function setGun(id, noFx){
     if(!GUNS.some(function(g){return g.id===id;})) id=GUNS[0].id;
     var changed = (id!==curGun);
     curGun=id; try{ localStorage.setItem('ess_gun',id); }catch(e){}
     GUNS.forEach(function(g){ gameEl.classList.remove('gun-'+g.id); });
     gameEl.classList.add('gun-'+id);
-    // 총 실루엣 그리기: 무기별 SVG 를 barrel 배경으로 + 크기 지정(총구=상단중앙=총알 발사점 유지)
-    var dim=GUN_DIM[id]||GUN_DIM.pistol, sc=gunScale();
-    barrel.style.width=Math.round(dim[0]*sc)+'px'; barrel.style.height=Math.round(dim[1]*sc*GUN_LEN)+'px'; barrel.style.backgroundImage=gunDataUri(id);
-    if(changed && !noFx){ barrel.classList.remove('swap'); void barrel.offsetWidth; barrel.classList.add('swap'); }   // 교체 '뿅' 연출
+    /* 🪖 사수 사진을 그 무기를 쥔 컷으로 교체 + 총구를 그 무기의 총구 자리로 이동.
+       13장 모두 머리를 같은 좌표에 맞춰 구웠으므로 src 만 바꿔도 사수가 튀지 않는다. */
+    preloadArmed(id);
+    if(soldierEl) soldierEl.src = armedSrc(id);
+    var mz = MUZZLE[id] || MUZZLE.pistol;
+    barrelRot.style.left = mz[0] + '%';
+    barrelRot.style.top  = mz[1] + '%';
+    if(changed && !noFx && soldierEl){ soldierEl.classList.remove('swap'); void soldierEl.offsetWidth; soldierEl.classList.add('swap'); }   // 교체 '뿅' 연출
     var picker=document.getElementById('gunPicker');
     if(picker) [].forEach.call(picker.children, function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===id); });
     var gm=document.getElementById('gunModal');
@@ -1601,6 +1613,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730191150 -->
+<!-- BUILD:20260730200032 -->
 </body>
 </html>
