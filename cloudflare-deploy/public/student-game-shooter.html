@@ -1377,7 +1377,8 @@
        여러 마리가 한꺼번에 겹치지 않게 depth 를 계단식으로 벌리고(뒤쪽일수록 촘촘),
        lane 은 '소실점에서 좌우로 벌어지는 각도'로 쓴다(-1=왼쪽 끝, +1=오른쪽 끝). */
     var _lane = (laneX!=null) ? ((laneX/Math.max(1,fw-86))*2-1) : (Math.random()*2-1);
-    var m={ el:el, faceEl:el.querySelector('.face'), word:word, isTarget:isTarget, isCiv:!!isCiv, golden:!!isGolden, breached:false,
+    var m={ el:el, faceEl:el.querySelector('.face'), wordEl:el.querySelector('.word'),
+            word:word, isTarget:isTarget, isCiv:!!isCiv, golden:!!isGolden, breached:false,
             lane:_lane, wob:Math.random()*Math.PI*2,
             /* 음수 depth = 아직 지평선 뒤(줄지어 순서대로 등장).
                ⚠ 간격을 좁게 잡았더니 여러 마리가 거의 동시에 코앞까지 와서 생명력 3개가
@@ -1404,12 +1405,21 @@
      · x  는 소실점 중앙에서 depth 에 비례해 좌우로 벌어진다(가까울수록 넓게 퍼짐)
      · 크기도 depth 로 보간 → 멀리선 작고 다가올수록 커진다 */
   var HORIZON_FRAC=0.46;                 // 폐허도시·우주 배경 모두 이쯤이 소실점
-  var SCALE_FAR=0.22, SCALE_NEAR=1.55;   // 지평선에서의 크기 → 코앞에서의 크기
+  /* 🧟 크기 (사장님 지시 2026-07-31: "마지막엔 사격수 몸 크기만큼 크게").
+     실측 기준 — field 1280x791 에서 사수(#soldierWrap)=371x266px, 좀비 face 기본=95px.
+     예전 SCALE_NEAR=1.55 는 최대 148px 라 사수의 절반, 화면에 실제로 보이는 건 21~32px 뿐이었다.
+       · SCALE_NEAR 2.2 → 95*2.2 ≈ 210px = 사수 몸통 높이와 거의 같다.
+       · 지수 1.5 → 1.15 로 낮춰 '중간 거리에서 이미 쏠 만한 크기'가 되게 한다.
+         (1.5 는 d=0.5 에서도 66px 라 끝까지 작았다. 1.15 면 같은 지점에서 116px) */
+  var SCALE_FAR=0.20, SCALE_NEAR=2.20, SCALE_POW=1.15;
+  /* 🌫 멀리서 희미하게 떠오르게 — FADE_IN 구간(전체 거리의 앞 20%) 동안 0 → 1.
+     예전엔 0.35 에서 시작해 '뿅' 하고 나타났다. */
+  var FADE_IN=0.20;
   function depthY(d, h){                 // 원근 보간: 뒤쪽은 조금만 움직여도 멀리 보이게 pow
     var hy=h*HORIZON_FRAC, by=h*BREACH_FRAC;
     return hy + (by-hy) * Math.pow(Math.min(1,Math.max(0,d)), 1.7);
   }
-  function depthScale(d){ return SCALE_FAR + (SCALE_NEAR-SCALE_FAR) * Math.pow(Math.min(1,Math.max(0,d)), 1.5); }
+  function depthScale(d){ return SCALE_FAR + (SCALE_NEAR-SCALE_FAR) * Math.pow(Math.min(1,Math.max(0,d)), SCALE_POW); }
   function faceScaleFor(fracY){ return depthScale(fracY); }   // (구 호출부 호환)
   function clearMonsters(){ monsters.forEach(function(m){ if(m.el&&m.el.parentNode) m.el.remove(); }); monsters=[]; }
   function renderSentence(){
@@ -1701,16 +1711,38 @@
       var d=Math.max(0,m.depth), sc=depthScale(d);
       m.wob += dt*3.2;
       // 소실점(가운데)에서 depth 에 비례해 좌우로 벌어진다 + 걸음에 맞춘 미세한 흔들림
-      /* 좌우로 벌어지는 폭. pow 지수를 1.25 로 두면 실제 도로 원근과는 맞지만 뒤쪽에서
-         전부 가운데 뭉쳐 단어가 겹쳐 안 읽힌다(실측) → 0.7 로 낮춰 일찍 벌어지게 한다.
-         학습 게임이라 '원근의 정확함'보다 '단어가 읽히는 것'이 우선이다. */
-      var spread=(w*0.46)*Math.pow(d,0.7);
+      /* 🛣 좌우로 벌어지는 폭 — '도로 위'를 걷게 한다(사장님 지시: "도로에 바짝").
+         예전 값(폭 0.46·지수 0.7)은 너무 일찍 넓게 퍼져서 좀비가 인도·자동차·버스 지붕
+         위를 걸어왔다(스크린샷으로 확인).
+         배경 실측: 좀비의 y 는 소실점(0.46h)~위협선(0.80h) 사이만 쓰는데, 그 구간에서
+         도로의 반폭은 화면폭의 0(소실점) ~ 0.13(위협선) 정도밖에 안 된다.
+         그래서 폭 0.17·지수 1.25 — 멀리서는 도로 가운데로 바짝 모였다가 가까워질수록
+         도로가 벌어지는 만큼만 퍼진다. 더 키우면 다시 인도·차 위로 올라간다. */
+      var spread=(w*0.17)*Math.pow(d,1.25);
       m.y=depthY(d,h);
       m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
-      m.x=Math.max(2, Math.min(w-40, m.x));
+      // 커진 만큼 화면 밖으로 잘리지 않게 자기 폭을 기준으로 가둔다(예전엔 40px 고정이었다)
+      var halfW=(m.faceEl ? m.faceEl.offsetWidth : 40)*sc/2;
+      m.x=Math.max(halfW+2, Math.min(w-halfW-2, m.x));
       if(m.faceEl) m.faceEl.style.transform='scale('+sc.toFixed(3)+')';
-      // 멀수록 흐릿하게(공기원근) + 뒤쪽이 앞쪽을 가리지 않게 z 정렬
-      m.el.style.opacity = (m.depth<0) ? '0' : String(Math.min(1, 0.35+d*1.6));
+      /* 🌫 공기원근 — 안개 속에서 서서히 떠오르게. 앞 FADE_IN 구간 동안 0 → 1 로 올리고,
+         그 구간에선 살짝 흐리게(blur) 해 '멀리 희미하게' 가 눈에 보이도록 한다. */
+      var fade=Math.min(1, d/FADE_IN);
+      m.el.style.opacity = (m.depth<0) ? '0' : String(fade);
+      if(m.faceEl){
+        var bl=(1-fade)*2.4;                                        // 멀 때 2.4px → 가까우면 0
+        m.faceEl.style.filter = bl>0.05
+          ? 'drop-shadow(0 3px 7px rgba(0,0,0,.6)) blur('+bl.toFixed(2)+'px)'
+          : 'drop-shadow(0 3px 7px rgba(0,0,0,.6))';
+      }
+      /* 🏷 라벨만 좌우로 펼친다 — 몸은 도로 위에 모여 있어야 하지만(사장님 지시) 그러면
+         단어 말풍선이 서로 겹쳐 안 읽힌다. 몸은 그대로 두고 라벨만 자기 lane 방향으로
+         밀어내면 '도로 위 행렬 + 읽히는 단어' 를 둘 다 얻는다.
+         멀수록(작을수록) 더 많이 밀어야 겹침이 풀린다 → (1-d) 가중. */
+      if(m.wordEl){
+        var lx=m.lane*(46+58*(1-d));
+        m.wordEl.style.transform='translateX('+lx.toFixed(0)+'px)';
+      }
       m.el.style.zIndex = String(5 + Math.round(d*40));
       if(m.isTarget && m.y>=warnY) danger=true;                    // 표적이 위협선에 가까우면 화면 경고
       if(m.depth>=1 && !m.breached){
