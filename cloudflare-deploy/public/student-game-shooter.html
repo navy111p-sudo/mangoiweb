@@ -793,13 +793,26 @@
   // ===================================================================
   var synth = ('speechSynthesis' in window) ? window.speechSynthesis : null;
   var enVoice = null;
+  /* 🔊 음성 표시등 — 이 뱃지는 '지금 실제로 무엇으로 소리가 나는지'만 말해야 한다.
+     예전엔 브라우저 내장 음성을 못 찾으면 아래 세 곳에서 그냥 return 해버려서
+     뱃지가 영영 "음성 준비 중…" 에 멈춰 있었다. 한국어 윈도우처럼 영어/중국어 음성이
+     하나도 안 깔린 PC 가 흔한데, 그런 PC 는 클라우드 TTS 로 멀쩡히 소리가 나는데도
+     화면은 "준비 중" 이라 사장님이 '음성이 안 들린다'고 읽으실 수밖에 없었다. */
+  var badgeLocked = false;                       // 실제 재생에 성공하면 그 표시를 우선한다
+  function setBadge(txt, lock){
+    if(!voiceBadge) return;
+    if(badgeLocked && !lock) return;
+    voiceBadge.textContent = txt; if(lock) badgeLocked = true;
+  }
+  var CLOUD_LABEL = '원어민 음성 (클라우드) · Cloud voice';
   function pickVoice(){
-    if(!synth) return;
-    var vs = synth.getVoices(); if(!vs.length) return;
+    if(!synth){ setBadge(CLOUD_LABEL); return; }
+    var vs = synth.getVoices(); if(!vs.length){ setBadge(CLOUD_LABEL); return; }
     var en = (GLANG==='zh')
       ? vs.filter(function(v){ return /^zh/i.test(v.lang||'') || /Chinese|Mandarin|中文|普通话/i.test(v.name||''); })
       : vs.filter(function(v){ return /^en[-_]?/i.test(v.lang||'') || /English/i.test(v.name||''); });
-    if(!en.length){ enVoice=null; return; }
+    // 내장 음성이 없어도 정상이다 — 영어는 원래 클라우드 TTS 를 먼저 쓴다.
+    if(!en.length){ enVoice=null; setBadge(CLOUD_LABEL); return; }
     function score(v){               // '자연스러움' 점수 — 로봇 음성 회피, 자연 음성 우대
       var n=(v.name||''), l=(v.lang||''), s=0;
       if(/en[-_]US/i.test(l)) s+=3; else if(/^en/i.test(l)) s+=1;
@@ -813,7 +826,7 @@
     }
     en.sort(function(a,b){ return score(b)-score(a); });
     enVoice = en[0];
-    voiceBadge.textContent = enVoice ? enVoice.name : '영어 음성 없음';
+    setBadge(enVoice ? enVoice.name : CLOUD_LABEL);
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
   // 브라우저 TTS (폴백용) — cb: 재생이 끝나면 호출(말하기 미션의 '듣기 전제'용)
@@ -839,7 +852,17 @@
   function prefetchTTS(text){ text=(text||'').trim(); if(!text || ttsCache[text]) return;
     if(GLANG==='zh') return;   // 🀄 중국어는 브라우저 음성을 쓰므로 서버 음성을 미리 받지 않는다(깨진 소리·헛트래픽)
     ttsFetch(text).catch(function(){}); }
-  function playUrl(u, rate, cb){ try{ if(!ttsAudio) ttsAudio=new Audio(); ttsAudio.onended=cb||null; ttsAudio.src=u; ttsAudio.playbackRate=rate||1; ttsAudio.play().catch(function(){ if(cb) cb(); }); }catch(e){ if(cb) cb(); } }  // ⚡ 재생속도=7단계 반영 · cb=재생 완료 콜백
+  /* ⚡ 재생속도=7단계 반영 · cb=재생 완료 콜백
+     재생이 실제로 시작됐는지로 뱃지를 확정한다. 브라우저가 자동재생을 막으면(play() 거부)
+     소리가 안 나는데 화면엔 아무 표시가 없어서 원인을 알 수 없었다 → 그때만 안내를 띄운다. */
+  function playUrl(u, rate, cb){
+    try{
+      if(!ttsAudio) ttsAudio=new Audio();
+      ttsAudio.onended=cb||null; ttsAudio.src=u; ttsAudio.playbackRate=rate||1;
+      ttsAudio.play().then(function(){ setBadge(CLOUD_LABEL, true); })
+        .catch(function(){ setBadge('🔇 화면을 한 번 눌러주세요 · Tap once to enable sound', true); if(cb) cb(); });
+    }catch(e){ if(cb) cb(); }
+  }
   /* 🀄 중국어는 브라우저(OS) 만다린 음성을 '먼저' 쓴다.
      서버 /api/voice/tts 의 zh 경로는 CF 발신 구글TTS 라 깨진 소리가 나온다 —
      화면의 한자와 다른 발음이 들린다는 제보가 실제로 이것이었다.
