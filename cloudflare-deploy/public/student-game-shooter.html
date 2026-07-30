@@ -186,6 +186,13 @@
   .setbtn .cur{font-size:clamp(15px,2vw,19px);font-weight:800}
   .setbtn .kb{font-size:24px;font-weight:900;line-height:1;color:#ffd34d}
   .setbtn:active{transform:scale(.98)}
+  /* 🌐 언어 선택(영어 / 중국어) — 시작화면. 허브를 거치지 않고 게임 안에서 바로 바꾼다 */
+  .langpick{display:flex;gap:8px;width:100%;margin-bottom:10px}
+  .langpick button{flex:1;background:rgba(255,255,255,.06);border:1.5px solid var(--line);border-radius:14px;
+    padding:11px 8px;cursor:pointer;font-family:inherit;color:var(--sub);
+    font-size:clamp(14px,1.9vw,18px);font-weight:800;transition:.15s}
+  .langpick button.on{background:rgba(251,191,36,.18);border-color:var(--accent);color:#ffe9a8}
+  .langpick button:active{transform:scale(.97)}
 
   .voicebadge{position:absolute;left:8px;bottom:6px;z-index:11;font-size:10px;color:var(--sub);
     background:rgba(8,16,34,.6);border:1px solid var(--line);border-radius:8px;padding:3px 7px;pointer-events:none;max-width:60%;
@@ -372,6 +379,11 @@
         • 오답(순서 틀림) → <b>−50점</b> & 안 터짐<br>
         • 문장 완성 → 원어민 듣고 <b>🎤 3번 말하기</b> (성공마다 <b>+100점</b>)<br>
         • 빠른 연속 정답 → <b>콤보!</b> · 제한시간 <b>60초</b> (말하기 중엔 멈춤)
+      </div>
+      <div class="gunlabel">🌐 언어 선택</div>
+      <div class="langpick" id="langPick" role="group" aria-label="게임 언어 선택">
+        <button type="button" data-lang="en">English</button>
+        <button type="button" data-lang="zh">中文 중국어</button>
       </div>
       <div class="gunlabel">⚙️ 게임 설정 — 눌러서 속도·무기 선택</div>
       <button class="setbtn" id="optOpenStart" type="button">
@@ -1539,6 +1551,31 @@
     }catch(e){}
     if(history.length>1) history.back(); else location.href='/student-games.html';
   });
+
+  /* 🌐 언어 선택(영어 / 중국어)
+     언어는 문장세트·보기단어·TTS 음성·음성인식 언어·한자 폰트까지 전부 로드 시점에 갈리므로,
+     현장에서 갈아끼우지 않고 ?glang= 을 바꿔 다시 읽는다(부분 갱신은 반드시 어딘가 빠진다).
+     ⚠ 이때 ?sentence= 는 반드시 버린다 — 허브가 넣어준 '이전 언어' 문장이라 그대로 두면
+        중국어로 바꿨는데 영어 문장이 첫 문제로 나온다. 빼면 각 언어 기본 문장세트로 돌아간다.
+     localStorage 는 허브(student-games.html)와 같은 키라, 뒤로 나가도 언어가 유지된다. */
+  (function(){
+    var pick = document.getElementById('langPick');
+    if(!pick) return;
+    [].forEach.call(pick.querySelectorAll('button'), function(b){
+      if(b.getAttribute('data-lang') === GLANG) b.classList.add('on');
+      b.addEventListener('click', function(){
+        var l = b.getAttribute('data-lang');
+        if(l === GLANG) return;
+        try{ localStorage.setItem('mangoi_game_lang', l); }catch(e){}
+        try{
+          var u = new URL(location.href);
+          u.searchParams.set('glang', l);
+          u.searchParams.delete('sentence');
+          location.replace(u.toString());
+        }catch(e){ location.replace(location.pathname + '?glang=' + l); }
+      });
+    });
+  })();
 
   document.getElementById('startBtn').addEventListener('click', startGame);
   document.getElementById('listenBtn').addEventListener('click', function(){ if(running) speakSentence(); });
