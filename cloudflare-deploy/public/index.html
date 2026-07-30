@@ -28659,8 +28659,9 @@ document.addEventListener('keydown', function(e){
     if (document.getElementById('mangoi-allmenu')) return;
     var ov = document.createElement('div');
     ov.id = 'mangoi-allmenu';
-    // 🌌 우주 배경 (홈 화면과 동일한 space.jpg + 비네팅) + 투명 글래스 모달
-    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.55) 0%,rgba(6,9,20,0.90) 100%),#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;animation:mgAmFade .28s ease;');
+    // 🌌 우주 배경(홈과 동일한 Higgsfield 딥필드 재사용, 40KB) + 투명 글래스 모달
+    // ⚠ 이 배경(#050714 등)은 mgam-bg 로딩 전 찰나에만 보이는 폴백 — 진하게 유지해 깜빡임 방지
+    ov.setAttribute('style', 'position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;z-index:2147483600;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(ellipse at center,rgba(8,11,24,0.75) 0%,rgba(5,7,16,0.95) 100%),#050714;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;animation:mgAmFade .28s ease;');
 
     // ✨ 반짝이는 별 필드 (디자인 디테일)
     var sf = '<style>@keyframes mgAmFade{from{opacity:0}to{opacity:1}}@keyframes mgAmRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes mgamTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}@media(max-width:560px){#mgam-grid{grid-template-columns:repeat(3,1fr)!important}}</style>'
@@ -28676,8 +28677,11 @@ document.addEventListener('keydown', function(e){
 
     // 🖥️ 투명 글래스 모달 박스
     var h = sf;
-    h += '<div id="mgam-bg" style="position:absolute;inset:-40px;z-index:0;background:url(\'/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg\') center center / cover no-repeat;filter:blur(13px) brightness(0.5) saturate(1.1);transform:scale(1.06)"></div>';
-    h += '<div id="mgam-box" style="position:relative;z-index:2;width:100%;max-width:820px;min-height:74vh;max-height:92vh;display:flex;flex-direction:column;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
+    // 🔑 어둡게 하는 힘을 filter:brightness()가 아니라 배경 레이어에 직접 구운 그라디언트로 확보 —
+    //    CSS filter/backdrop-filter 미지원 환경(구형 WebView 등)에서도 글자 대비가 항상 보장된다.
+    //    옛 space.jpg(403KB, 은하가 화면을 가로질러 산만)를 버리고 홈과 같은 딥필드(40KB, 중앙 여백)로 교체.
+    h += '<div id="mgam-bg" style="position:absolute;inset:-40px;z-index:0;background:linear-gradient(rgba(4,6,14,0.62),rgba(4,6,14,0.74)),url(\'/img/home-bg-dark.webp?v=20260730\') center center / cover no-repeat;filter:blur(4px) saturate(1.05);transform:scale(1.06)"></div>';
+    h += '<div id="mgam-box" style="position:relative;z-index:2;width:100%;max-width:820px;min-height:74vh;max-height:92vh;display:flex;flex-direction:column;background:linear-gradient(165deg,rgba(26,32,54,0.62),rgba(8,10,20,0.80));backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,0.16);border-radius:22px;box-shadow:0 24px 70px -20px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.14);overflow:hidden;animation:mgAmRise .32s cubic-bezier(.2,.8,.2,1)">';
 
     // 헤더
     h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid rgba(255,255,255,0.1);flex:0 0 auto">'
@@ -28696,7 +28700,7 @@ document.addEventListener('keydown', function(e){
         : '<span style="' + ALLMENU_EMO_CSS + '">' + m.emoji + '</span>';
       // justify-content 는 center 가 아니라 flex-start — 라벨이 2줄로 접히는 카드('내 주간 스케줄' 등)만
       // 세로 중앙정렬 때문에 아이콘이 아래로 밀려 한 줄 안에서 아이콘 높이가 들쭉날쭉해진다.
-      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.13);border-radius:18px;color:#F1F5F9;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
         + ico + '<span>' + m.name + '</span></a>';
     });
     h += '</div></div>';
@@ -28763,8 +28767,8 @@ document.addEventListener('keydown', function(e){
 
     // 호버 효과 (마우스 환경)
     ov.querySelectorAll('.mgam-card').forEach(function(c){
-      c.addEventListener('mouseenter', function(){ c.style.transform='translateY(-3px)'; c.style.background='rgba(96,165,250,0.18)'; c.style.borderColor='rgba(96,165,250,0.55)'; });
-      c.addEventListener('mouseleave', function(){ c.style.transform=''; c.style.background='rgba(255,255,255,0.06)'; c.style.borderColor='rgba(255,255,255,0.13)'; });
+      c.addEventListener('mouseenter', function(){ c.style.transform='translateY(-3px)'; c.style.background='linear-gradient(160deg,rgba(147,197,253,0.32),rgba(30,58,95,0.62))'; c.style.borderColor='rgba(96,165,250,0.6)'; });
+      c.addEventListener('mouseleave', function(){ c.style.transform=''; c.style.background='linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64))'; c.style.borderColor='rgba(255,255,255,0.16)'; });
     });
 
     function _closeFromEvent(ev){ ev.preventDefault(); ev.stopPropagation(); closeAllMenuOverlay(); }
