@@ -770,7 +770,7 @@ function playerFire(ang){ if(!G||!G.running||G.speaking||G.dead)return;
   var sp=460*(0.9+SPMUL*0.15);
   G.pbul.push({ x:m.x, y:m.y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0, mine:true });
   sndShot();
-  G.parts.push({flash:true,x:m.x,y:m.y,age:0,life:0.12,rad:16*SCALE});
+  G.parts.push({flash:true,x:m.x,y:m.y,ang:a,age:0,life:0.12,rad:16*SCALE});
   for(var i=0;i<4;i++){ var ea=a+(Math.random()-0.5)*0.5; G.parts.push({x:m.x,y:m.y,vx:Math.cos(ea)*120,vy:Math.sin(ea)*120,life:0.4,age:0,size:3,kind:'smoke'}); }
   G.shake=Math.min(10,G.shake+4);
 }
@@ -820,7 +820,7 @@ function enemyFire(e){
   var ang=Math.atan2(G.py-m.y, G.px-m.x) + (Math.random()-0.5)*0.12;   // 약간의 오차
   G.ebul.push({ x:m.x, y:m.y, vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, life:0 });
   sndEnemyShot();
-  G.parts.push({flash:true,x:m.x,y:m.y,age:0,life:0.1,rad:12*SCALE});
+  G.parts.push({flash:true,x:m.x,y:m.y,ang:ang,age:0,life:0.1,rad:12*SCALE});
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1118,7 +1118,7 @@ function winGame(){ if(!G||!G.running)return; G.running=false; G.speaking=false;
   try{ document.getElementById('speak').classList.add('hide'); }catch(_){}
   setTimeout(function(){ endGame(true); }, 900); }
 function collectFuel(fu){ sndPickup(); G.time=Math.min(G.timeMax, G.time+8); G.score+=30;
-  G.parts.push({fire:true,x:fu.x,y:fu.y,age:0,life:0.35,rad:40*SCALE});
+  G.parts.push({fire:true,pop:true,x:fu.x,y:fu.y,age:0,life:0.35,rad:40*SCALE});   // pop=true: 연료 획득 반짝임(격파 폭발 사진 미사용)
   for(var i=0;i<10;i++){ var a=Math.random()*6.28; G.parts.push({x:fu.x,y:fu.y,vx:Math.cos(a)*90,vy:Math.sin(a)*90-40,life:0.5,age:0,size:3,kind:'spark',fuel:true}); }
   banner('⛽ +8s', '#7fd1ff'); updateHUD(); }
 
@@ -1426,6 +1426,9 @@ function drawShell(b,col){ var sp=Math.hypot(b.vx,b.vy)||1, ux=b.vx/sp, uy=b.vy/
 /* ⛟ 젤리(제리캔) 연료통 — 앞면에 X 프레스 패널 있는 WWII 석유통 */
 // 🖼️ 실사 미군 제리캔 스프라이트(크로마키 제거·투명 PNG). 로드 전엔 벡터 폴백.
 var FUELIMG=new Image(); FUELIMG.src='/img/fuel-jerrycan.png?v=1'; var FUELRDY=false; FUELIMG.onload=function(){FUELRDY=true;};
+/* 💥 실사 포구섬광·폭발(2D 클래식 뷰). 로드 전엔 기존 방사그라디언트 폴백 */
+var VFX_MUZZLE_IMG=new Image(); VFX_MUZZLE_IMG.src='/img/tank-vfx-muzzle.webp?v=1'; var VFX_MRDY=false; VFX_MUZZLE_IMG.onload=function(){VFX_MRDY=true;};
+var VFX_BOOM_IMG=new Image(); VFX_BOOM_IMG.src='/img/tank-vfx-explosion.webp?v=1'; var VFX_BRDY=false; VFX_BOOM_IMG.onload=function(){VFX_BRDY=true;};
 function drawFuel(fu){ var r=fu.r; ctx.save(); ctx.translate(fu.x,fu.y+Math.sin(fu.bob)*3);
   // ⛽ 연료 부족 시 젤리통 강조(맥동 초록 글로우)
   if(G && G.time<15){ var gp=0.4+0.4*Math.sin(performance.now()/200+fu.bob);
@@ -1449,11 +1452,17 @@ function drawFuel(fu){ var r=fu.r; ctx.save(); ctx.translate(fu.x,fu.y+Math.sin(
   ctx.fillStyle='#1e2c1c'; ctx.beginPath(); ctx.arc(bw*0.30,-bh*0.5-r*0.10, r*0.20,0,7); ctx.fill();
   ctx.restore(); }
 function drawPart(p){ var k=1-p.age/p.life;
-  if(p.flash){ var fr=p.rad*(0.6+0.4*(p.age/p.life)); var fg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,fr);
+  if(p.flash){
+    if(VFX_MRDY){ var d=p.rad*2.6*(0.6+0.4*(p.age/p.life)); ctx.save(); ctx.globalAlpha=Math.max(0,Math.min(1,k*1.3));
+      ctx.translate(p.x,p.y); ctx.rotate(p.ang||0); ctx.drawImage(VFX_MUZZLE_IMG,-d/2,-d/2,d,d); ctx.restore(); return; }
+    var fr=p.rad*(0.6+0.4*(p.age/p.life)); var fg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,fr);
     fg.addColorStop(0,'rgba(255,255,220,'+k+')'); fg.addColorStop(.5,'rgba(255,200,90,'+(k*0.8)+')'); fg.addColorStop(1,'rgba(255,120,30,0)');
     ctx.fillStyle=fg; ctx.beginPath(); ctx.arc(p.x,p.y,fr,0,7); ctx.fill(); return; }
   if(p.ring){ var r=p.r0+(p.r1-p.r0)*(p.age/p.life); ctx.strokeStyle='rgba(255,220,150,'+(k*0.8)+')'; ctx.lineWidth=3*k+0.5; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,7); ctx.stroke(); return; }
-  if(p.fire){ var rr2=p.rad*(0.5+0.5*(p.age/p.life)); var fg2=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,rr2);
+  if(p.fire){
+    if(VFX_BRDY && !p.pop){ var d2=p.rad*2.3*(0.5+0.5*(p.age/p.life)); ctx.save(); ctx.globalAlpha=Math.max(0,Math.min(1,k*1.15));
+      ctx.drawImage(VFX_BOOM_IMG,p.x-d2/2,p.y-d2/2,d2,d2); ctx.restore(); return; }
+    var rr2=p.rad*(0.5+0.5*(p.age/p.life)); var fg2=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,rr2);
     fg2.addColorStop(0,'rgba(255,255,240,'+k+')'); fg2.addColorStop(.3,'rgba(255,210,80,'+(k*0.95)+')'); fg2.addColorStop(.6,'rgba(255,120,30,'+(k*0.8)+')');
     fg2.addColorStop(.85,'rgba(190,40,20,'+(k*0.5)+')'); fg2.addColorStop(1,'rgba(60,20,15,0)'); ctx.fillStyle=fg2; ctx.beginPath(); ctx.arc(p.x,p.y,rr2,0,7); ctx.fill(); return; }
   if(p.kind==='smoke'){ var sr=p.size*(1+(p.age/p.life)*2.4); ctx.fillStyle='rgba(70,70,70,'+(k*0.45)+')'; ctx.beginPath(); ctx.arc(p.x,p.y,sr,0,7); ctx.fill(); return; }
@@ -1476,6 +1485,10 @@ function disposeObj3(o){ o.traverse(function(m){ if(m.geometry && m.geometry!==S
     mats.forEach(function(mm){ if(mm!==SHELL_MAT_P && mm!==SHELL_MAT_E) mm.dispose(); }); } }); }
 function disposeSprite(sp){ if(sp.material){ if(sp.material.map) sp.material.map.dispose(); sp.material.dispose(); } }
 var SHELL_GEO=null, SHELL_MAT_P=null, SHELL_MAT_E=null, GLOW_TEX=null;
+var VFX_MUZZLE_TEX3=null, VFX_BOOM_TEX3=null;   // 🔥 실사 포구섬광·폭발(3D) — 로드 전엔 GLOW_TEX 대체
+(function loadVfxTex3(){ if(!window.THREE) return; var ld=new THREE.TextureLoader();
+  ld.load('/img/tank-vfx-muzzle.webp?v=1', function(t){ t.encoding=THREE.sRGBEncoding; VFX_MUZZLE_TEX3=t; });
+  ld.load('/img/tank-vfx-explosion.webp?v=1', function(t){ t.encoding=THREE.sRGBEncoding; VFX_BOOM_TEX3=t; }); })();
 function makeGlowTexture(){ var c=document.createElement('canvas'); c.width=c.height=64; var g=c.getContext('2d');
   var gr=g.createRadialGradient(32,32,0,32,32,32);
   gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.4,'rgba(255,255,255,0.7)'); gr.addColorStop(1,'rgba(255,255,255,0)');
@@ -1808,6 +1821,9 @@ function syncParticles3D(){ var pool=T3.partPool; for(var pi=0;pi<pool.length;pi
       if(p.kind==='debris'){ obj=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.2), new THREE.MeshBasicMaterial({color:0x3a3020})); }
       else if(p.ring){ obj=new THREE.Mesh(new THREE.RingGeometry(0.85,1.0,20), new THREE.MeshBasicMaterial({color:0xffdc96,transparent:true,side:THREE.DoubleSide})); obj.rotation.x=-Math.PI/2; }
       else if(p.kind==='smoke'){ obj=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW_TEX,transparent:true,depthWrite:false,blending:THREE.NormalBlending,color:0x3c3c3c})); }   // 연기=일반 블렌딩(가산이면 겹칠 때 흰 돔이 됨)
+      // 🔥 실사 포구섬광·폭발 사진(있으면) — 검은 연기가 섞인 실사라 가산(additive)이면 연기가 통째로 사라짐 → 일반 블렌딩
+      else if(p.flash && VFX_MUZZLE_TEX3){ obj=new THREE.Sprite(new THREE.SpriteMaterial({map:VFX_MUZZLE_TEX3,transparent:true,depthWrite:false,blending:THREE.NormalBlending})); }
+      else if(p.fire && !p.pop && VFX_BOOM_TEX3){ obj=new THREE.Sprite(new THREE.SpriteMaterial({map:VFX_BOOM_TEX3,transparent:true,depthWrite:false,blending:THREE.NormalBlending})); }
       else { obj=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW_TEX,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); }
       T3.partRoot.add(obj); entry={ref:p,obj:obj}; pool.push(entry); }
     entry._seen=true;
@@ -1818,9 +1834,11 @@ function syncParticles3D(){ var pool=T3.partPool; for(var pi=0;pi<pool.length;pi
     else if(p.kind==='debris'){ entry.obj.material.opacity=1; entry.obj.rotation.set(p.rot||0,(p.rot||0)*0.7,0); }
     else { var sc = p.fire ? Math.min(7,(p.rad*(0.5+0.5*(p.age/p.life)))/9) : p.flash ? Math.min(5,(p.rad*(0.6+0.4*(p.age/p.life)))/9)
         : p.kind==='smoke' ? Math.min(6,p.size*(1+(p.age/p.life)*2.4)/6) : (p.size||3)/3;   // 상한 — 격파 대폭발이 화면을 다 덮지 않게
+      var usePhoto = (p.flash && entry.obj.material.map===VFX_MUZZLE_TEX3) || (p.fire && entry.obj.material.map===VFX_BOOM_TEX3);
+      if(usePhoto) sc *= 1.4;   // 실사 사진은 정사각 캔버스 안에 여백이 있어 옛 글로우보다 체감 크기가 작음 → 보정
       entry.obj.scale.set(sc,sc,1);
       entry.obj.material.opacity = (p.fire||p.flash) ? k : p.kind==='smoke' ? k*0.4 : k;
-      if(p.kind!=='smoke') entry.obj.material.color.setHex((p.fire||p.flash) ? 0xffcc55 : p.kind==='spark' ? (p.fuel?0x78ffaa:0xffb050) : 0xffffff); }
+      if(p.kind!=='smoke') entry.obj.material.color.setHex(usePhoto ? 0xffffff : (p.fire||p.flash) ? 0xffcc55 : p.kind==='spark' ? (p.fuel?0x78ffaa:0xffb050) : 0xffffff); }
   });
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.partRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } }
   // 💡 포구 섬광·폭발 라이트 — 가장 강한 flash/fire 파티클 위치에 배치(풀 라이트 2개 재사용)
@@ -2096,6 +2114,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260730232148 -->
+<!-- BUILD:20260730235220 -->
 </body>
 </html>
