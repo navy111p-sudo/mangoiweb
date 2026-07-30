@@ -659,7 +659,7 @@
       // ⚠ 아틀라스 레이아웃(5x5→6x6)이 바뀌면 ?v= 를 반드시 올릴 것. 안 올리면 기존 사용자가 옛 아틀라스에
       //   새 UV 좌표를 써서 캐릭터가 통째로 깨진다(잘린 몸/엉뚱한 포즈).
       boy: { sprite:'astro-real.webp?v=2', ico:'🧑‍🚀', name:'우주 소년', desc:'실사 우주비행사 파이터', tint:[1.18,1.16,1.16] },   // 차콜 수트라 어두운 우주에 묻히지 않게 살짝만 리프트
-      dog: { sprite:'dog-real.webp?v=2',   ico:'🐶',        name:'우주 강아지', desc:'실사 우주복 리트리버', tint:[1.10,1.09,1.11] }
+      dog: { sprite:'dog-real.webp?v=3',   ico:'🐶',        name:'우주 강아지', desc:'실사 우주복 리트리버', tint:[1.10,1.09,1.11] }   // v=3: 대기 프레임(22~27)이 보스 반대편을 보던 것 좌우반전
     };
     var heroSkin=(function(){ try{ var v=localStorage.getItem('mangoi_battle_hero'); return (v==='dog'||v==='boy')?v:'boy'; }catch(e){ return 'boy'; } })();
     /* 👾 보스 선택 — 문어 괴물 / 티라노 공룡. 시작 화면에서 고르면 저장되고 다음 스폰부터 적용. attachBossSprite(cfg) 용 전체 설정 포함 */
@@ -1660,6 +1660,6 @@
 }
 </style>
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730144748 -->
+<!-- BUILD:20260730154740 -->
 </body>
 </html>

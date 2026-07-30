@@ -49,7 +49,12 @@ console.log('═'.repeat(64));
 /* ── 1. 느리다 → 가벼운 모드 자동감지 ─────────────────────────────── */
 console.log('\n▶ 1. 저사양 PC — 가벼운 모드 자동감지');
 {
-  const m = indexHtml.match(/on\s*=\s*\(cores\s*<=\s*(\d+)\s*\|\|\s*mem\s*<=\s*(\d+)\)/);
+  // 2026-07-30: mem 비교연산자는 <= 든 < 든(버그수정으로 <=8 → <8) 상관없다 —
+  //   deviceMemory 는 크로미움에서 최대 8로 상한(bucketize)돼 16GB PC 도 8 로 보고되므로
+  //   'mem <= 8' 은 사실상 모든 PC 에서 항상 참이 되어 저사양 감지가 무의미해졌었다.
+  //   이 하니스가 지키려는 진짜 불변조건은 "6코어/8GB 강사 PC는 여전히 자동 ON" 뿐이고,
+  //   그건 cores<=6 만으로 충족되므로 연산자 자체는 검사 대상이 아니다.
+  const m = indexHtml.match(/on\s*=\s*\(cores\s*<=\s*(\d+)\s*\|\|\s*mem\s*<=?\s*(\d+)\)/);
   check('자동감지 조건이 존재', !!m, m ? '' : 'cores/mem 판정식을 못 찾음');
   if (m) {
     const cores = Number(m[1]), mem = Number(m[2]);
