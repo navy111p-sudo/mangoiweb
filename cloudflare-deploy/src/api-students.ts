@@ -62,15 +62,20 @@ export async function handleStudentsApi(
       // 최근 평가서 4개
       const evals = await env.DB.prepare(`SELECT id, lesson_date, score_overall, score_speaking, score_listening, score_grammar, score_vocab, score_attitude, strengths, next_goal, teacher_name, created_at FROM student_evaluations WHERE student_uid = ? ORDER BY created_at DESC LIMIT 4`).bind(childUid).all();
 
-      // 출석 (최근 30일 point_rule_log 의 attendance/on_time)
+      // 출석 (최근 30일, attendance 테이블 — 월간 리포트(report.html/buildMonthlyReportData)와 동일한 원천으로 통일)
+      //   이전엔 point_rule_log(포인트 적립 로그, rule_code='attendance')를 썼는데, 이 리워드는 프론트가
+      //   수업 페이지에서 별도로 /api/points/earn-by-rule 을 호출해야만 쌓여 실제 화상수업 입장 기록(attendance
+      //   테이블)과 자주 어긋났다 — 마이페이지·월간 리포트 출석 숫자가 서로 다르게 보이던 원인(2026-07-31).
+      //   status='attended' 는 수업 시간 내 입장으로 확정된 행(api-mango.ts checkin)만 표시하므로
+      //   on_time_days 는 항상 attDays 의 부분집합이 되어 on_time_rate 가 100%를 넘는 일이 없다.
       const sinceMs = Date.now() - 30 * 86400000;
-      const attRows = await env.DB.prepare(`SELECT rule_code, occurred_at FROM point_rule_log WHERE user_id = ? AND occurred_at >= ? AND rule_code IN ('attendance', 'on_time') ORDER BY occurred_at DESC LIMIT 60`).bind(childUid, sinceMs).all();
+      const attRows = await env.DB.prepare(`SELECT date, status FROM attendance WHERE user_id = ? AND joined_at >= ? AND date IS NOT NULL`).bind(childUid, sinceMs).all();
       const attDays = new Set<string>();
       const onTimeDays = new Set<string>();
       (attRows.results || []).forEach((r: any) => {
-        const d = new Date(r.occurred_at).toISOString().slice(0, 10);
-        if (r.rule_code === 'attendance') attDays.add(d);
-        if (r.rule_code === 'on_time') onTimeDays.add(d);
+        if (!r.date) return;
+        attDays.add(r.date);
+        if (r.status === 'attended') onTimeDays.add(r.date);
       });
 
       // 결제내역 (최근 6개)
