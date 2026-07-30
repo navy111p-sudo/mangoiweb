@@ -186,9 +186,15 @@
     border-radius:50%;opacity:0;transition:opacity .2s;pointer-events:none;z-index:7;box-shadow:0 0 8px rgba(251,191,36,.45)}
 
   /* ===================== Game B : Fishing ===================== */
-  #fish .field{background:linear-gradient(180deg,#4fd1e8 0%,#22aed4 24%,#1287b0 52%,#0c6389 78%,#0a4a6b 100%)}
+  /* 🌊 실사 바닷속 사진(fish-ocean-bg.webp) — 로드 실패 시 아래 그라디언트가 그대로 보임(폴백) */
+  #fish .field{background:url('/img/fish-ocean-bg.webp') center 28%/cover no-repeat,
+    linear-gradient(180deg,#4fd1e8 0%,#22aed4 24%,#1287b0 52%,#0c6389 78%,#0a4a6b 100%)}
   #fish .field::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
     background:radial-gradient(72% 48% at 50% -10%,rgba(190,240,255,.42),rgba(190,240,255,.06) 55%,transparent 73%)}
+  /* 입체감(depth) — 가장자리를 살짝 어둡게 눌러 화면 전체가 '수조'처럼 보이게 */
+  #fish .field::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
+    box-shadow:inset 0 -80px 100px -30px rgba(2,10,26,.55),inset 0 70px 90px -40px rgba(190,240,255,.16),
+      inset 0 0 120px rgba(2,10,26,.25)}
   /* 햇살(god rays) */
   #fish .rays{position:absolute;top:-12%;left:-12%;right:-12%;height:80%;z-index:1;pointer-events:none;opacity:.42;mix-blend-mode:screen;
     background:repeating-linear-gradient(102deg,rgba(195,240,255,.13) 0 26px,transparent 26px 90px);
@@ -219,7 +225,7 @@
   @keyframes rise{from{transform:translateY(0)}to{transform:translateY(-100vh)}}
   #fish .fish{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;
     cursor:pointer;font-family:inherit;will-change:transform;z-index:5;padding:2px}   /* #fish 스코프: 메뉴의 .game-btn.fish 오염 방지 */
-  .fish .face{font-size:30px;line-height:1;filter:drop-shadow(0 3px 5px rgba(0,0,0,.45))}
+  .fish .face{width:30px;height:30px;object-fit:contain;display:block;filter:drop-shadow(0 4px 6px rgba(0,0,0,.5))}
   .fish.flip .face{transform:scaleX(-1)}
   .fish .word{font-size:14px;font-weight:800;color:#06223a;background:#fde68a;border:2px solid #fbbf24;
     border-radius:999px;padding:2px 11px;white-space:nowrap;box-shadow:0 0 9px rgba(253,230,138,.55),0 4px 10px rgba(0,0,0,.35)}
@@ -276,7 +282,7 @@
   #fish .hud{padding:7px 11px;gap:7px}                      /* 상단바 슬림화로 게임영역 확대 */
   #fish .target{padding:7px 11px}
   #fish .target .hint{display:none}                         /* 안내문 숨겨 세로공간 회수(규칙은 그대로 동작) */
-  #fish .fish .face{font-size:clamp(40px,6.2vmin,80px)}     /* 물고기 — 화면 크기에 따라 커짐 */
+  #fish .fish .face{width:clamp(40px,6.2vmin,80px);height:clamp(40px,6.2vmin,80px)}     /* 물고기 — 화면 크기에 따라 커짐 */
   #fish .fish .word{font-size:clamp(15px,2.3vmin,28px);padding:3px 13px}
   #fish .boat{width:150px;height:74px}
   #fish .boat .hull{font-size:58px}
@@ -305,8 +311,9 @@
   #fishTimer{font-variant-numeric:tabular-nums}
   #fishTimer.low{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.55);color:#fecaca;animation:pulse 1s infinite}
   /* 상어 (난이도별 출몰) */
-  #fish .shark{position:absolute;z-index:6;font-size:48px;pointer-events:none;will-change:transform;
-    filter:drop-shadow(0 5px 9px rgba(0,0,0,.55))}
+  #fish .shark{position:absolute;z-index:6;width:64px;height:64px;pointer-events:none;will-change:transform;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,.6))}
+  #fish .shark .face{width:100%;height:100%;object-fit:contain;display:block}
   #fish .shark.flip{transform:scaleX(-1)}
   /* 집중모드(Focus) 화면 연출 */
   #fish .field.focus::after{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;
@@ -419,7 +426,9 @@
 
   /* ===== 🖥️ PC(넓은 화면) — 중앙 글자·요소 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
   @media (min-width:820px){
-    #shoot .monster .face,#fish .fish .face{font-size:clamp(54px,8.2vmin,110px)}
+    #shoot .monster .face{font-size:clamp(54px,8.2vmin,110px)}
+    #fish .fish .face{width:clamp(54px,8.2vmin,110px);height:clamp(54px,8.2vmin,110px)}
+    #fish .shark{width:96px;height:96px}
     #shoot .monster .word,#fish .fish .word{font-size:clamp(20px,3.1vmin,38px);padding:4px 17px}
     .chip{font-size:21px;padding:7px 16px;border-radius:11px}
     .saybubble{font-size:19px;padding:6px 16px}
@@ -622,7 +631,11 @@
     ? ["猫","跑","蓝","苹果","绿","快","做","高兴","跳","红","水","桌子","想","下面","他们","大","牛奶"]
     : ["cat","run","blue","apple","green","quickly","does","happy","jump","red","water","table","want","under","they","big","milk"];
   var ALIENS = ['👽','👾','🤖','🧟','👹','😈','🦠','👻'];
-  var FISHES = ['🐟','🐠','🐡','🦈','🐬','🦑','🐙','🦐'];
+  // 🐟 실사 플러시토이 크리처 8종(이모지 얼굴에서 교체). 파일은 build-fish-atlas.py 가 굽는다.
+  var FISHES = ['clown','fish','puffer','shark','dolphin','squid','octopus','shrimp'];
+  var FISH_SRC = function(id){ return '/img/fish-mon-' + id + '.webp'; };
+  // 첫 스폰에서 깜빡이지 않게 미리 받아둔다. ⚠ 참조를 배열에 붙잡아 둬야 GC 로 캐시가 빠지지 않는다.
+  var _fishPre = FISHES.map(function(id){ var im = new Image(); im.src = FISH_SRC(id); return im; });
   // 중국어 문장 세트(단어 단위 공백 분절) — PRESETS 대체 (다락원 중국어 마스터 수준)
   var ZH_PRESETS = [
     "我 爱 你", "你 好 吗", "我 是 学生", "今天 天气 很 好", "我 喜欢 吃 苹果",
@@ -1045,15 +1058,29 @@
     // 🎤 말 중간에 숨 쉬어도 안 끊기게: continuous=true + 침묵 감시 타이머. 정답이 들리면 즉시 통과,
     //    아니면 "말 끝나고 조용해질 때까지" 기다렸다가 마지막 인식으로 판정.
     r.lang=(GLANG==='zh'?'zh-CN':'en-US'); r.interimResults=true; r.maxAlternatives=3; r.continuous=true;   // 🌐 중국어 모드는 중국어 인식
-    var _done=false, _bestHeard='', _bestConf=0, _silence=null;
-    var SILENCE_MS=2200;                 // 마지막 말 이후 이 시간(ms) 조용하면 종료
+    var _done=false, _bestHeard='', _bestConf=0, _silence=null, _maxTimer=null, _tickTimer=null, _heardAny=false, _remainSec=0;
+    var SILENCE_MS=2200;                 // 말을 시작한 뒤로 이 시간(ms) 조용하면 "다 말함"으로 보고 바로 제출+다음으로
+    var MAX_LISTEN_MS=20000;             // 🎤 (2026-07-30) 아직 말을 시작하기 전이라도 최대 20초까지는 기다림 —
+                                          // 예전엔 듣기 시작하자마자 SILENCE_MS(2.2초) 가 돌아 문장을 읽고 입 떼기도 전에 잘렸다.
     function armSilence(){ if(_silence) clearTimeout(_silence); _silence=setTimeout(function(){ try{ r.stop(); }catch(e){} }, SILENCE_MS); }
+    function armMax(){ if(_maxTimer) clearTimeout(_maxTimer); _maxTimer=setTimeout(function(){ try{ r.stop(); }catch(e){} }, MAX_LISTEN_MS); }
+    function stopCountdown(){ if(_tickTimer){ clearInterval(_tickTimer); _tickTimer=null; } }
+    function startCountdown(){
+      _remainSec = Math.round(MAX_LISTEN_MS/1000);
+      micBtn.innerHTML='🔴 듣는 중… ('+_remainSec+'초 안에 말하세요)';
+      stopCountdown();
+      _tickTimer=setInterval(function(){
+        _remainSec--;
+        if(_heardAny || _remainSec<=0){ stopCountdown(); return; }
+        micBtn.innerHTML='🔴 듣는 중… ('+_remainSec+'초 안에 말하세요)';
+      }, 1000);
+    }
     /* 🎤 (2026-07-22) 새 시도마다 초기화 — 안 하면 3회 반복 미션의 1회차만 인정되고 마이크가 죽는다.
        recog 는 한 번만 만들어 재사용하는데 _done 이 첫 onend 에서 true 로 굳어, 이후 onresult 가
        맨 앞의 `if(_done) return;` 로 즉시 빠져나갔다. */
-    r.onstart = function(){ _done=false; _bestHeard=''; _bestConf=0; recogActive=true; micBtn.classList.add('listening'); micBtn.innerHTML='🔴 듣는 중… 말하세요'; armSilence(); };
+    r.onstart = function(){ _done=false; _bestHeard=''; _bestConf=0; _heardAny=false; recogActive=true; micBtn.classList.add('listening'); armMax(); startCountdown(); };
     r.onerror = function(ev){
-      if(_silence) clearTimeout(_silence);
+      if(_silence) clearTimeout(_silence); if(_maxTimer) clearTimeout(_maxTimer); stopCountdown();
       recogActive=false; micBtn.classList.remove('listening'); micBtn.innerHTML='🎤 누르고 말하기'; micBtn.disabled=false;
       if(ev.error==='not-allowed' || ev.error==='service-not-allowed'){
         _done=true; missionStatus.innerHTML='⚠ 마이크 권한이 필요합니다. 브라우저에서 허용해 주세요.';
@@ -1062,12 +1089,13 @@
       }
     };
     r.onend = function(){
-      if(_silence) clearTimeout(_silence);
+      if(_silence) clearTimeout(_silence); if(_maxTimer) clearTimeout(_maxTimer); stopCountdown();
       recogActive=false; micBtn.classList.remove('listening'); if(speakCount<SPEAK_TARGET){ micBtn.innerHTML='🎤 다시 말하기'; micBtn.disabled=false; }
-      if(!_done){ _done=true; handleAttempt(_bestHeard, _bestConf, false); }   // 침묵으로 끝남 → 마지막 인식으로 판정
+      if(!_done){ _done=true; handleAttempt(_bestHeard, _bestConf, false); }   // 침묵으로 끝남(20초 초과 포함) → 마지막 인식으로 판정
     };
     r.onresult = function(ev){
       if(_done) return;
+      if(!_heardAny){ _heardAny=true; if(_maxTimer) clearTimeout(_maxTimer); stopCountdown(); micBtn.innerHTML='🔴 듣는 중… 말하세요'; }
       var anyMatch = false;
       for(var s=ev.resultIndex;s<ev.results.length;s++){
         var res = ev.results[s];
@@ -1077,12 +1105,13 @@
           if(matchSpoken(tr, targetSentence)) { anyMatch=true; _bestHeard=tr; }
         }
       }
+      // 🎤 말이 빨리 끝나면(=조용해지면) 20초를 다 안 기다리고 바로 제출 → 다음 문장으로 넘어감
       if(anyMatch){ _done=true; if(_silence) clearTimeout(_silence); handleAttempt(_bestHeard, _bestConf>0?_bestConf:1, true); try{ r.stop(); }catch(e){} return; }
       armSilence();
     };
     /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
        그 종료를 "말을 마쳤다"로 보고 채점하면 조각이 오답이 된다 → 우리가 stop() 을 안 불렀으면 다시 듣는다. */
-    try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(r, { isDone: function(){ return _done; }, onRestart: armSilence }); }catch(e){}
+    try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(r, { isDone: function(){ return _done; }, onRestart: function(){ if(_heardAny) armSilence(); else { armMax(); startCountdown(); } } }); }catch(e){}
     return r;
   }
 
@@ -1558,7 +1587,7 @@
     r.items.forEach(function(it){
       var el=document.createElement('button');
       el.className='fish'+(it.isTarget?'':' distractor')+(it.golden?' golden':'');
-      el.innerHTML='<span class="face">'+FISHES[Math.floor(Math.random()*FISHES.length)]+'</span><span class="word">'+it.word+'</span>';
+      el.innerHTML='<img class="face" alt="" draggable="false" src="'+FISH_SRC(FISHES[Math.floor(Math.random()*FISHES.length)])+'"><span class="word">'+it.word+'</span>';
       var dir = Math.random()<0.5?1:-1;
       var sp = fishCfg().speed;
       // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영, 상위 속도일수록 빨리빨리 헤엄
@@ -1687,7 +1716,8 @@
     if(!FI.running || FI.paused) return;
     var fw=FI.field.clientWidth, fh=FI.field.clientHeight;
     var dir=Math.random()<0.5?1:-1;
-    var el=document.createElement('div'); el.className='shark'+(dir>0?' flip':''); el.textContent='🦈';
+    var el=document.createElement('div'); el.className='shark'+(dir>0?' flip':'');
+    el.innerHTML='<img class="face" alt="" draggable="false" src="'+FISH_SRC('shark')+'">';
     var sh={ el:el, x: dir>0? -90 : fw+90, y:rand(120, Math.max(170, fh-150)), vx:dir*rand(130,190)*spdMult() };   // ⚡ 속도(난이도) 반영
     el.style.left=sh.x+'px'; el.style.top=sh.y+'px';
     FI.field.appendChild(el); FI.sharks.push(sh);
@@ -1995,6 +2025,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730171126 -->
+<!-- BUILD:20260730191150 -->
 </body>
 </html>
