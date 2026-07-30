@@ -11,7 +11,15 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at 50% 18%, #5b4bb8 0%, #362d86 45%, #201a55 100%);
+            background: #201a55;
+        }
+        /* 🖼️ 탐정 사무실 실사 배경(Higgsfield) — body 대신 별도 레이어에 걸어 블러를 콘텐츠에 안 묻힌다 */
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: -2; pointer-events: none;
+            background: linear-gradient(180deg, rgba(35,29,90,.58), rgba(20,16,58,.8)), url('/img/suspect-bg.webp') center / cover no-repeat;
+            filter: blur(2px) saturate(1.08) brightness(0.92);
+            transform: scale(1.04);
         }
         /* 🎨 주니어 컬러풀 배경 FX — 탐정 테마 */
         .bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
@@ -56,7 +64,6 @@
         @media (min-width:820px){
             #clueBubble{font-size:1.9rem !important;line-height:1.35 !important}
             #targetSentence{font-size:2.4rem !important}
-            [id^="suspectEmoji-"]{font-size:5.4rem !important}
             [id^="suspectName-"]{font-size:2.4rem !important}
             [id^="suspectDesc-"]{font-size:1.5rem !important}
         }
@@ -147,8 +154,8 @@
                         <div class="relative inline-block">
                             <!-- Animated halo or talk pulse -->
                             <div id="teacherPulse" class="absolute inset-0 bg-indigo-500/20 rounded-full scale-110 animate-ping hidden"></div>
-                            <div class="w-32 h-32 bg-indigo-950 rounded-full border-4 border-indigo-400 flex items-center justify-center text-6xl shadow-inner relative z-10">
-                                👩‍🏫
+                            <div class="w-32 h-32 bg-indigo-950 rounded-full border-4 border-indigo-400 flex items-center justify-center shadow-inner relative z-10 overflow-hidden">
+                                <img src="/img/suspect-teacher.webp" alt="Ms. Emily" class="w-full h-full object-cover">
                             </div>
                         </div>
                         <h3 class="font-playful text-2xl mt-3 text-indigo-300">Ms. Emily</h3>
@@ -204,7 +211,7 @@
                     <!-- Suspect 1 -->
                     <div onclick="selectSuspect(1)" id="suspect-1" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
                         <span class="absolute top-2 right-3 font-playful text-slate-500 text-xl group-hover:text-indigo-400">#01</span>
-                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-sky-500/15 border-2 border-sky-400/50 flex items-center justify-center text-6xl md:text-7xl my-2" id="suspectEmoji-1">👦</div>
+                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-sky-500/15 border-2 border-sky-400/50 flex items-center justify-center my-2 overflow-hidden" id="suspectEmoji-1"><img src="/img/suspect-leo.webp" alt="Leo" class="w-full h-full object-cover"></div>
                         <div class="text-center">
                             <h4 id="suspectName-1" class="font-playful text-2xl md:text-3xl text-indigo-300">Leo</h4>
                             <p id="suspectDesc-1" class="text-base md:text-lg font-semibold text-slate-300 mt-1">Has glasses & Red hat</p>
@@ -213,7 +220,7 @@
                     <!-- Suspect 2 -->
                     <div onclick="selectSuspect(2)" id="suspect-2" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
                         <span class="absolute top-2 right-3 font-playful text-slate-500 text-xl group-hover:text-indigo-400">#02</span>
-                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-pink-500/15 border-2 border-pink-400/50 flex items-center justify-center text-6xl md:text-7xl my-2" id="suspectEmoji-2">👧</div>
+                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-pink-500/15 border-2 border-pink-400/50 flex items-center justify-center my-2 overflow-hidden" id="suspectEmoji-2"><img src="/img/suspect-zoe.webp" alt="Zoe" class="w-full h-full object-cover"></div>
                         <div class="text-center">
                             <h4 id="suspectName-2" class="font-playful text-2xl md:text-3xl text-indigo-300">Zoe</h4>
                             <p id="suspectDesc-2" class="text-base md:text-lg font-semibold text-slate-300 mt-1">Wearing yellow scarf</p>
@@ -222,7 +229,7 @@
                     <!-- Suspect 3 -->
                     <div onclick="selectSuspect(3)" id="suspect-3" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
                         <span class="absolute top-2 right-3 font-playful text-slate-500 text-xl group-hover:text-indigo-400">#03</span>
-                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-amber-500/15 border-2 border-amber-400/50 flex items-center justify-center text-6xl md:text-7xl my-2" id="suspectEmoji-3">👩‍🦰</div>
+                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-amber-500/15 border-2 border-amber-400/50 flex items-center justify-center my-2 overflow-hidden" id="suspectEmoji-3"><img src="/img/suspect-mia.webp" alt="Mia" class="w-full h-full object-cover"></div>
                         <div class="text-center">
                             <h4 id="suspectName-3" class="font-playful text-2xl md:text-3xl text-indigo-300">Mia</h4>
                             <p id="suspectDesc-3" class="text-base md:text-lg font-semibold text-slate-300 mt-1">Wearing red hat</p>
@@ -231,7 +238,7 @@
                     <!-- Suspect 4 -->
                     <div onclick="selectSuspect(4)" id="suspect-4" class="bg-slate-900/50 border-2 border-slate-800 hover:border-indigo-500 hover:bg-slate-800/50 rounded-3xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.02] relative group">
                         <span class="absolute top-2 right-3 font-playful text-slate-500 text-xl group-hover:text-indigo-400">#04</span>
-                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-emerald-500/15 border-2 border-emerald-400/50 flex items-center justify-center text-6xl md:text-7xl my-2" id="suspectEmoji-4">🧔</div>
+                        <div class="w-24 h-24 md:w-28 md:h-28 rounded-full bg-emerald-500/15 border-2 border-emerald-400/50 flex items-center justify-center my-2 overflow-hidden" id="suspectEmoji-4"><img src="/img/suspect-max.webp" alt="Max" class="w-full h-full object-cover"></div>
                         <div class="text-center">
                             <h4 id="suspectName-4" class="font-playful text-2xl md:text-3xl text-indigo-300">Max</h4>
                             <p id="suspectDesc-4" class="text-base md:text-lg font-semibold text-slate-300 mt-1">Blue jacket & Glasses</p>
@@ -911,10 +918,8 @@
 
                 document.getElementById(`suspectName-${i}`).innerText = sData.name;
                 document.getElementById(`suspectDesc-${i}`).innerText = sData.desc;
-
-                // Extract emoji
-                const emoji = sData.emoji.split(' ')[0];
-                document.getElementById(`suspectEmoji-${i}`).innerText = emoji;
+                // 🖼️ suspectEmoji-N은 이제 실사 포트레이트 <img>를 담고 있다(자리 1~4=Leo/Zoe/Mia/Max 고정,
+                //    모든 라운드·개인화 시나리오에서 이 순서가 항상 유지됨) — 더 이상 이모지로 덮어쓰지 않는다.
             }
 
             // Reset UI States
@@ -1164,6 +1169,6 @@ html{overflow-x:hidden}
 }
 </style>
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260731010531 -->
+<!-- BUILD:20260731013201 -->
 </body>
 </html>
