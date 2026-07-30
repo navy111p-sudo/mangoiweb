@@ -710,8 +710,23 @@
 
   var score=0, timeLeft=60, combo=0, level=0, currentIndex=0;
   var targetWords=[], monsters=[], running=false, lastHit=0, lastTs=0, rafId=null, timerId=null;
+  var MAX_LIVES=3, lives=MAX_LIVES;                 // ❤ 표적이 위협선까지 오면 1개씩 소모(접근형 메커닉의 핵심 긴장감)
+  var livesBox=document.getElementById('livesBox');
+  function renderLives(){
+    if(!livesBox) return;
+    if(!livesBox.children.length){ for(var i=0;i<MAX_LIVES;i++){ var h=document.createElement('span'); h.className='heart'; livesBox.appendChild(h); } }
+    [].forEach.call(livesBox.children, function(h,i){ h.classList.toggle('lost', i>=lives); });
+  }
+  function loseLife(){
+    if(lives<=0) return;
+    lives--; renderLives();
+    var box=livesBox&&livesBox.children[lives]; if(box){ box.classList.remove('hit'); void box.offsetWidth; box.classList.add('hit'); }
+    shake(); sndMiss();
+    if(lives<=0) loseGame();
+  }
 
   var field=document.getElementById('field');
+  var dangerFx=document.getElementById('dangerFx');
   field.style.backgroundImage = "url('" + THEMES[THEME].bg + "')";   // 🎨 테마 배경
   try{ document.getElementById('game').classList.add('theme-' + THEME); }catch(e){}   // 테마별 장식 on/off 용
   var barrelRot=document.getElementById('barrelRot'), barrel=document.getElementById('barrel');
@@ -754,7 +769,7 @@
     }
     en.sort(function(a,b){ return score(b)-score(a); });
     enVoice = en[0];
-    voiceBadge.textContent = enVoice ? ('🔊 ' + enVoice.name) : '🔊 영어 음성 없음';
+    voiceBadge.textContent = enVoice ? enVoice.name : '영어 음성 없음';
   }
   if(synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
   // 브라우저 TTS (폴백용) — cb: 재생이 끝나면 호출(말하기 미션의 '듣기 전제'용)
@@ -1006,12 +1021,12 @@
     speakKoEl.textContent=KO[s]||'';
     speakTextEl.classList.remove('show-ko');   // 새 문장은 다시 원문만 (탭하면 한국어 뜻)
     renderStars();
-    micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='🔊 듣는 중…';
-    missionStatus.innerHTML='먼저 원어민 발음을 잘 들어보세요 🎧';
+    micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='듣는 중…';
+    missionStatus.innerHTML='먼저 원어민 발음을 잘 들어보세요';
     speakOverlay.style.display='flex';
     // ▼ Audio Prerequisite: 목표 문장을 1회 들려준 뒤에만 마이크 활성화 (+6초 보험 해제)
     var armed=false; function arm(){ if(armed) return; armed=true; audioPlayed=true;
-      micBtn.disabled=false; micBtn.innerHTML='🎤 누르고 말하기';
+      micBtn.disabled=false; micBtn.innerHTML='누르고 말하기';
       missionStatus.innerHTML='버튼을 누르고 <b>또렷하게</b> 문장을 말하세요. ('+SPEAK_TARGET+'회 성공 필요)'; }
     speakMission(arm); setTimeout(arm, 6000);   // 미션 발음 속도(느리게/보통/빠르게) 적용
   }
@@ -1032,19 +1047,19 @@
     /* 🎤 (2026-07-22) 새 시도마다 초기화 — 안 하면 3회 반복 미션의 1회차만 인정되고 마이크가 죽는다.
        recog 는 한 번만 만들어 재사용하는데 _done 이 첫 onend 에서 true 로 굳어, 이후 onresult 가
        맨 앞의 `if(_done) return;` 로 즉시 빠져나갔다. */
-    r.onstart=function(){ _done=false; _bestHeard=''; _bestConf=0; _silFired=false; recogActive=true; micBtn.classList.add('listening'); micBtn.innerHTML='🔴 듣는 중… 말하세요'; armSilence(); };
+    r.onstart=function(){ _done=false; _bestHeard=''; _bestConf=0; _silFired=false; recogActive=true; micBtn.classList.add('listening'); micBtn.innerHTML='듣는 중… 말하세요'; armSilence(); };
     r.onerror=function(ev){
       // no-speech = 아직 말을 안 꺼냈을 뿐이다. 여기서 마이크를 닫으면 생각하는 사이에 죽는다.
       // 진짜 끝은 침묵 타이머(_silFired)가 만든다 → 그전까지는 보호막이 다시 듣게 놔둔다.
       if((ev&&ev.error)==='no-speech' && !_silFired && !_done) return;
       if(_silence) clearTimeout(_silence);
-      recogActive=false; micBtn.classList.remove('listening'); micBtn.innerHTML='🎤 누르고 말하기'; micBtn.disabled=false;
+      recogActive=false; micBtn.classList.remove('listening'); micBtn.innerHTML='누르고 말하기'; micBtn.disabled=false;
       if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){ _done=true; missionStatus.innerHTML='⚠ 마이크 권한이 필요합니다. 브라우저에서 허용해 주세요.'; }
       else if(ev.error==='no-speech'){ _done=true; missionStatus.innerHTML='소리가 들리지 않았어요. 다시 시도해 주세요 🎤'; }
     };
     r.onend=function(){
       if(_silence) clearTimeout(_silence);
-      recogActive=false; micBtn.classList.remove('listening'); if(speakCount<SPEAK_TARGET){ micBtn.innerHTML='🎤 다시 말하기'; micBtn.disabled=false; }
+      recogActive=false; micBtn.classList.remove('listening'); if(speakCount<SPEAK_TARGET){ micBtn.innerHTML='다시 말하기'; micBtn.disabled=false; }
       if(!_done){ _done=true; handleAttempt(_bestHeard, _bestConf, false); }   // 침묵으로 끝남 → 마지막 인식으로 판정
     };
     r.onresult=function(ev){
@@ -1076,14 +1091,14 @@
     if(pass){
       speakCount++; renderStars(); awardSpeak();          // ★ 말할 때마다 +100(라이브 반영)
       if(speakCount>=SPEAK_TARGET){
-        missionStatus.innerHTML=line+'<br>🎉 <b>완벽해요!</b> '+SPEAK_TARGET+'회 모두 성공! <b>+'+SPEAK_POINTS+'점</b>';
-        micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='✅ 미션 완료';
+        missionStatus.innerHTML=line+'<br><b>완벽해요!</b> '+SPEAK_TARGET+'회 모두 성공! <b>+'+SPEAK_POINTS+'점</b>';
+        micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='미션 완료';
         setTimeout(finishMission, 900);
       } else {
-        missionStatus.innerHTML=line+'<br>👍 <b>성공! +'+SPEAK_POINTS+'점</b> ('+speakCount+'/'+SPEAK_TARGET+') 다시 한 번!';
+        missionStatus.innerHTML=line+'<br><b>성공! +'+SPEAK_POINTS+'점</b> ('+speakCount+'/'+SPEAK_TARGET+') 다시 한 번!';
       }
     } else {
-      missionStatus.innerHTML=line+'<br>😅 Keep trying! Speak clearly.';
+      missionStatus.innerHTML=line+'<br>Keep trying! Speak clearly.';
     }
   }
   function finishMission(){
@@ -1155,7 +1170,7 @@
     currentIndex = 0;
     targetWords.forEach(function(w){ prefetchTTS(w.replace(/[.?!]/g,'')); });          // 원어민 음성 미리받기(즉시 재생)
     prefetchTTS(targetWords.join(' ').replace(/[.?!]/g,''));
-    lvlPill.textContent = '⭐' + stageLvl + ' · 문장 ' + (level+1) + ' · ✅ ' + correctWords + '/' + GOAL;
+    lvlPill.textContent = '단계' + stageLvl + ' · 문장 ' + (level+1) + ' · ' + correctWords + '/' + GOAL;
     var pool = DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; });
     shuffle(pool);
     var tItems = targetWords.map(function(w){ return {word:w,isTarget:true}; });
@@ -1181,7 +1196,7 @@
     // 세로 간격은 몬스터 한 마리 높이(실사 크리처 ~90px + 단어알약 ~35px ≒ 145px)보다 커야 안 겹친다.
     // 이모지 시절엔 글리프 주변 여백이 커서 74px 로도 티가 덜 났지만, 사진은 불투명이라 바로 표난다.
     var _step=Math.max(fh*0.165, 118), _yBot=fh*0.30, _yTop=_yBot-_step*(n-1);
-    var m={ el:el, word:word, isTarget:isTarget, golden:!!isGolden,
+    var m={ el:el, faceEl:el.querySelector('.face'), word:word, isTarget:isTarget, golden:!!isGolden, breached:false,
             x:(laneX!=null?laneX:rand(8,Math.max(40,fw-86))),
             y:_yTop+_step*i+rand(-_step*0.05,_step*0.05),
             vyBase:rand(28,58), vxBase:rand(-48,48) };
@@ -1190,6 +1205,10 @@
     el.addEventListener('click', function(){ fireAt(m); });
     field.appendChild(el); monsters.push(m);
   }
+  // 🧟 접근형 원근 스케일 — 위협선(field 높이의 BREACH_FRAC 지점)에 가까울수록 표적이 커 보이게.
+  //    .monster 자체는 sway 애니메이션이 transform 을 쓰고 있어, 원근 확대는 반드시 .face 에만 걸어 충돌을 피한다.
+  var BREACH_FRAC=0.80, WARN_FRAC=0.62;   // WARN_FRAC 이후부터 화면이 붉게 경고(위협선 도달 전)
+  function faceScaleFor(fracY){ return 0.55 + Math.min(1, Math.max(0, fracY)) * 1.0; }
   function clearMonsters(){ monsters.forEach(function(m){ if(m.el&&m.el.parentNode) m.el.remove(); }); monsters=[]; }
   function renderSentence(){
     sentenceEl.innerHTML = targetWords.map(function(w,i){
@@ -1393,8 +1412,8 @@
       combo = (now-lastHit<COMBO_WINDOW)?combo+1:1; lastHit=now; currentIndex++;
       sndHit();                                      // ★ 표적 명중/폭발음
       speak(m.word.replace(/[.?!]/g,''));            // ★ 맞힌 단어를 원어민 발음으로 재생
-      popMonster(m); floatScore((m.golden?'👑+200':'+100'),x,y,true);
-      if(m.golden) showCombo('✨ 골든 보너스! +200');
+      popMonster(m); floatScore((m.golden?'BONUS+200':'+100'),x,y,true);
+      if(m.golden) showCombo('골든 보너스! +200');
       else if(combo>=2) showCombo(combo+' COMBO!');
       correctWords++;
       renderSentence(); updateHUD();
@@ -1448,7 +1467,7 @@
   function showCombo(txt){ comboEl.textContent=txt; comboEl.classList.remove('show'); void comboEl.offsetWidth; comboEl.classList.add('show'); }
   function shake(){ gameEl.classList.remove('shake'); void gameEl.offsetWidth; gameEl.classList.add('shake'); setTimeout(function(){ gameEl.classList.remove('shake'); }, 420); }
 
-  function updateHUD(){ scoreVal.textContent=score; try{ lvlPill.textContent='⭐'+stageLvl+' · 문장 '+(level+1)+' · ✅ '+correctWords+'/'+GOAL; }catch(e){} }
+  function updateHUD(){ scoreVal.textContent=score; try{ lvlPill.textContent='단계'+stageLvl+' · 문장 '+(level+1)+' · '+correctWords+'/'+GOAL; }catch(e){} }
   function updateTimer(){ timerVal.textContent=timeLeft; timerBox.classList.toggle('low', timeLeft<=10); }
   function tick(){ if(!running) return; timeLeft--; updateTimer(); if(timeLeft<=0) endGame(); }
 
@@ -1456,13 +1475,22 @@
     if(!running) return;
     if(!lastTs) lastTs=ts; var dt=Math.min(0.05,(ts-lastTs)/1000); lastTs=ts;
     var h=field.clientHeight, w=field.clientWidth, sm=spdMult();   // ⚡ 매 프레임 현재 속도 반영(변경 즉시)
+    var breachY=h*BREACH_FRAC, warnY=h*WARN_FRAC, danger=false;
     for(var i=0;i<monsters.length;i++){ var m=monsters[i];
       m.y+=m.vyBase*sm*dt;
       m.x+=m.vxBase*sm*dt;
       if(m.x<4){ m.x=4; m.vxBase=Math.abs(m.vxBase); } else if(m.x>w-80){ m.x=w-80; m.vxBase=-Math.abs(m.vxBase); }  // 좌우 벽에서 튕김
-      if(m.y>h-66){ m.y=-6; m.x=rand(8,Math.max(40,w-86)); }
+      if(m.faceEl) m.faceEl.style.transform='scale('+faceScaleFor(m.y/breachY).toFixed(3)+')';   // 🧟 다가올수록 확대(원근)
+      if(m.isTarget && m.y>=warnY) danger=true;                    // 표적이 위협선에 가까우면 화면 경고
+      if(m.y>breachY && !m.breached){                              // 🩸 위협선 돌파 — 표적이면 생명력 -1, 재출현은 공통
+        m.breached=true;
+        if(m.isTarget) loseLife();
+        m.y=-6; m.x=rand(8,Math.max(40,w-86)); m.breached=false;
+      }
       m.el.style.left=m.x+'px'; m.el.style.top=m.y+'px';
     }
+    if(dangerFx) dangerFx.classList.toggle('on', danger);
+    if(!running) return;                                          // 프레임 도중 생명력 소진으로 게임이 끝났을 수 있다
     rafId=requestAnimationFrame(loop);
   }
 
@@ -1474,30 +1502,39 @@
     speakOverlay.style.display='none'; onMissionDone=null; _onSpeakScore=null;
     if(recogActive){ try{ recog.stop(); }catch(e){} }
     score=0; timeLeft=60; combo=0; level=0; lastHit=0; lastTs=0; correctWords=0; running=true;
+    lives=MAX_LIVES; renderLives(); if(dangerFx) dangerFx.classList.remove('on');
     overlay.style.display='none'; updateHUD(); updateTimer(); startRound();
     clearInterval(timerId); timerId=setInterval(tick,1000);
     cancelAnimationFrame(rafId); rafId=requestAnimationFrame(loop);
   }
   function endGame(){
-    running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel();
+    running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel(); if(dangerFx) dangerFx.classList.remove('on');
     var best=+(localStorage.getItem('ess_best')||0); if(score>best){ best=score; localStorage.setItem('ess_best',best); }
-    card.innerHTML='<h1>⏰ 시간 종료!</h1><div class="big">'+score+'점</div><div class="best">🏆 최고 '+best+'점</div><button class="btn" id="restartBtn">다시 시작 ↻</button>'
-      +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">🚀 다음 활동 고르기</button>';
+    card.innerHTML='<h1>시간 종료!</h1><div class="big">'+score+'점</div><div class="best">최고 '+best+'점</div><button class="btn" id="restartBtn">다시 시작 ↻</button>'
+      +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">다음 활동 고르기</button>';
+    overlay.style.display='flex'; document.getElementById('restartBtn').addEventListener('click', startGame);
+  }
+  // 🩸 표적에게 코앞까지 잡혀 생명력 소진 — 시간 종료와는 다른 결과 화면(재도전 유도 문구)
+  function loseGame(){
+    running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel(); if(dangerFx) dangerFx.classList.remove('on');
+    var best=+(localStorage.getItem('ess_best')||0); if(score>best){ best=score; localStorage.setItem('ess_best',best); }
+    card.innerHTML='<h1>붙잡혔어요!</h1><div class="big">'+score+'점</div><div class="best">최고 '+best+'점</div><button class="btn" id="restartBtn">다시 도전 ↻</button>'
+      +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">다음 활동 고르기</button>';
     overlay.style.display='flex'; document.getElementById('restartBtn').addEventListener('click', startGame);
   }
   // 🎯 정답 단어 10개 명중 달성 → 결과 화면(난이도 단계 클리어) + 허브에 점수 전달
   function winGame(){
-    running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel();
+    running=false; clearInterval(timerId); cancelAnimationFrame(rafId); clearMonsters(); if(synth) synth.cancel(); if(dangerFx) dangerFx.classList.remove('on');
     var best=+(localStorage.getItem('ess_best')||0); if(score>best){ best=score; localStorage.setItem('ess_best',best); }
     try{ if(window.parent && window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete', score:score, reason:'goal'}, '*'); }catch(e){}
     var nextBtn = stageLvl < STAGE_MAX
-      ? '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">🔥 다음 난이도 ⭐'+(stageLvl+1)+' 도전!</button>'
-      : '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff">👑 전 단계 클리어! ⭐1부터</button>';
-    card.innerHTML='<h1>🏆 난이도 ⭐'+stageLvl+' 클리어!</h1><div class="big">'+score+'점</div>'
-      +'<div class="best">✅ 정답 '+correctWords+'개 · 🎤 말하기 마스터 · 🏆 최고 '+best+'점</div>'
+      ? '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff">다음 난이도 '+(stageLvl+1)+'단계 도전!</button>'
+      : '<button class="btn" id="nextStageBtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff">전 단계 클리어! 1단계부터</button>';
+    card.innerHTML='<h1>난이도 '+stageLvl+'단계 클리어!</h1><div class="big">'+score+'점</div>'
+      +'<div class="best">정답 '+correctWords+'개 · 말하기 마스터 · 최고 '+best+'점</div>'
       +nextBtn
       +'<button class="btn" id="restartBtn" style="margin-top:8px">같은 단계 다시 ↻</button>'
-      +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">🚀 다음 활동 고르기</button>';
+      +'<button class="btn" onclick="window.MangoFlow&&MangoFlow.open(\'game\')" style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;margin-top:8px">다음 활동 고르기</button>';
     overlay.style.display='flex';
     document.getElementById('restartBtn').addEventListener('click', startGame);
     document.getElementById('nextStageBtn').addEventListener('click', function(){
@@ -1528,14 +1565,14 @@
     if(gm) [].forEach.call(gm.querySelectorAll('.gp2'), function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===id); });
     var g=GUNS.find(function(x){ return x.id===id; });
     // HUD 버튼은 항상 ⋮(통합 설정) 유지 — 무기 아이콘으로 덮어쓰지 않음. 현재 무기는 요약/모달 하이라이트로 표시.
-    var gsum=document.getElementById('gunSummary'); if(gsum&&g) gsum.textContent=g.icon+' '+g.name;
+    var gsum=document.getElementById('gunSummary'); if(gsum&&g) gsum.textContent=g.name;
   }
   function buildGunPicker(){
     var picker=document.getElementById('gunPicker'); if(!picker) return;
     picker.innerHTML='';
     GUNS.forEach(function(g){
       var b=document.createElement('button'); b.className='gp'; b.setAttribute('data-gun',g.id);
-      b.innerHTML='<span class="ic">'+g.icon+'</span><span class="nm">'+g.name+'</span>';
+      b.innerHTML='<span class="ic" style="width:26px;height:34px;background:50% 50%/contain no-repeat;display:inline-block;background-image:'+gunDataUri(g.id)+'"></span><span class="nm">'+g.name+'</span>';
       b.addEventListener('click', function(){ setGun(g.id); });
       picker.appendChild(b);
     });
@@ -1545,19 +1582,19 @@
   function buildGunModal(){
     if(document.getElementById('gunModal')) return;
     var m=document.createElement('div'); m.id='gunModal';
-    var html='<div class="box"><h3>⚙️ 게임 설정</h3>';
-    // ⚡ 속도 섹션
-    html+='<div class="seclab">⚡ 게임 속도 (7단계)</div><div class="sgrid">';
+    var html='<div class="box"><h3>게임 설정</h3>';
+    // 속도 섹션
+    html+='<div class="seclab">게임 속도 (7단계)</div><div class="sgrid">';
     SPEED_LEVELS.forEach(function(s){
-      html+='<button class="sp2" data-spd="'+s.lvl+'"><span class="ic">'+s.ico+'</span><span class="nm">'+s.name+'</span></button>';
+      html+='<button class="sp2" data-spd="'+s.lvl+'"><span class="nm">'+s.name+'</span></button>';
     });
     html+='</div>';
-    // 🔫 무기 섹션
-    html+='<div class="seclab">🔫 무기 선택 (13종)</div><div class="grid">';
+    // 무기 섹션
+    html+='<div class="seclab">무기 선택 (13종)</div><div class="grid">';
     GUNS.forEach(function(g){
       html+='<button class="gp2" data-gun="'+g.id+'"><span class="ic" style="background-image:'+gunDataUri(g.id)+'"></span><span class="nm">'+g.name+'</span></button>';
     });
-    html+='</div><div class="pausenote">⏸ 고르는 동안 시간과 몬스터가 멈춰요 · 여러 개 바꾼 뒤 닫기</div><button class="cls">닫기 ✓</button></div>';
+    html+='</div><div class="pausenote">고르는 동안 시간과 몬스터가 멈춰요 · 여러 개 바꾼 뒤 닫기</div><button class="cls">닫기</button></div>';
     m.innerHTML=html; gameEl.appendChild(m);
     // 속도: 고르면 즉시 반영(모달은 열린 채 — 여러 설정을 이어서 조정 가능)
     [].forEach.call(m.querySelectorAll('.sp2'), function(b){
@@ -1590,6 +1627,7 @@
   if(optOpenStart) optOpenStart.addEventListener('click', function(){ ensureCtx(); openGunModal(); });
   buildGunPicker(); setGun(curGun);
   buildSpeedPicker(); setSpeed(speedLvl);
+  renderLives();
 
   // ← 뒤로가기: 허브(iframe) 안이면 부모에 알리고, 단독 실행이면 게임 목록으로
   document.getElementById('backBtn').addEventListener('click', function(){
@@ -1669,7 +1707,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730203132 -->
+<!-- BUILD:20260730205255 -->
 </body>
 </html>
-          
