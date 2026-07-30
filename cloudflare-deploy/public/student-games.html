@@ -1417,7 +1417,22 @@ function _hubPlayIntroAudio(){
   _hubAudioSyncBtn();
   if(_hubAudioMuted()) return;
   var a = document.getElementById('hub-intro-audio');
-  if(a){ try{ a.currentTime = 0; a.play().catch(function(){}); }catch(_){} }   // 자동재생 차단 시 조용히 무시(음소거 버튼으로 수동 재생 가능하도록 남겨둠)
+  if(!a) return;
+  try{ a.currentTime = 0; }catch(_){}
+  var p;
+  try{ p = a.play(); }catch(_){}
+  // 🔇 자동재생 차단(브라우저 정책) 대비: 레벨테스트 인트로음성과 동일한 폴백 —
+  //   막히면 이 페이지에서의 '첫 클릭/탭/키입력'을 진짜 사용자 제스처로 삼아 그때 재생.
+  if(p && p.catch){
+    p.catch(function(){
+      var retry = function(){
+        if(_hubAudioMuted()) return;
+        a.play().catch(function(){});
+      };
+      document.addEventListener('pointerdown', retry, {once:true});
+      document.addEventListener('keydown', retry, {once:true});
+    });
+  }
 }
 document.addEventListener('DOMContentLoaded', function(){
   document.documentElement.lang = _siteLang();
@@ -2510,7 +2525,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260731013201 -->
+<!-- BUILD:20260731031010 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

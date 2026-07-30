@@ -204,21 +204,22 @@ console.log('\n💡 게임 중 안내');
   check('시작하자마자 1단계 말할 문장이 보인다',
     /Look at the desk/.test(g.txt('hint')), 'hint=' + g.txt('hint'));
   check('자동 힌트 타이머가 걸려 있다 (가만히 있어도 도와준다)',
-    g.clock.hasDelayNear(13000, 1000) || g.clock.hasDelayNear(8000, 1000),
+    g.clock.hasDelayNear(18000, 1000) || g.clock.hasDelayNear(14000, 1000),
     'delays=' + g.clock.delays.filter(d => d >= 5000).join(','));
 
   // 3단계 이후: 가만히 있으면 힌트가 한 칸씩 올라간다
+  // (2026-07-31) "힌트가 너무 빨리 나온다·생각할 시간 필요" 피드백으로 첫 자동힌트 8s→14s, 반복 9s→12s로 늦춤
   const g2 = boot();
   g2.click('btnStart');
   g2.win.G.i = 2; g2.win.showStep();
   check('3단계는 처음엔 정답을 안 보여준다 (스스로 생각할 시간)',
     !/Move the painting/.test(g2.txt('hint')), 'hint=' + g2.txt('hint'));
-  g2.clock.tick(9000);
+  g2.clock.tick(14500);
   const h1 = g2.txt('hint');
-  g2.clock.tick(9500);
+  g2.clock.tick(12000);
   const h2 = g2.txt('hint');
-  g2.clock.tick(9500);
-  check('가만히 있으면 힌트가 스스로 올라온다', h1 && h2 && h1 !== h2, '9초=' + h1 + ' / 18초=' + h2);
+  g2.clock.tick(12500);
+  check('가만히 있으면 힌트가 스스로 올라온다', h1 && h2 && h1 !== h2, '14.5초=' + h1 + ' / 26.5초=' + h2);
   check('끝내는 정답 문장까지 알려준다', /Move the painting/.test(g2.txt('hint')), 'hint=' + g2.txt('hint'));
   check('자동 힌트는 사용횟수(감점)에 잡히지 않는다', g2.win.G.hintUsed === 0, 'hintUsed=' + g2.win.G.hintUsed);
 }

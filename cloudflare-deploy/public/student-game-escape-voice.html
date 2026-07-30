@@ -20,10 +20,22 @@
   #wrap{position:fixed;inset:0;overflow:hidden}
   /* ── 장면 ── */
   #scene{position:absolute;inset:0;background-size:cover;background-position:center;
-    transition:background-image .35s,filter 1.2s linear}
+    transition:background-image .35s,filter 1.2s linear,background-position .6s ease,background-size .6s ease}
   #vig{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(115% 85% at 50% 45%,rgba(0,0,0,0) 40%,rgba(0,0,0,.72) 100%)}
   #flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;transition:opacity .25s}
+  /* 쪽지 카드 — 서랍 속 단서를 사진이 아니라 "실물처럼" 잠깐 보여준다(새 이미지 없이) */
+  #noteCard{position:absolute;left:50%;top:44%;z-index:15;width:min(78%,320px);
+    transform:translate(-50%,-50%) rotate(-3deg) scale(.85);opacity:0;pointer-events:none;
+    transition:transform .35s cubic-bezier(.2,1.4,.4,1),opacity .3s;
+    background:linear-gradient(155deg,#f3e6c8,#e2d0a4);border-radius:2px 10px 2px 10px;
+    box-shadow:0 14px 34px rgba(0,0,0,.55);padding:18px 20px;
+    font-family:Georgia,'Nanum Myeongjo',serif;color:#3a2c14;text-align:left;line-height:1.5}
+  #noteCard::before{content:'';position:absolute;right:-1px;top:-1px;width:0;height:0;
+    border-style:solid;border-width:0 18px 18px 0;border-color:transparent #cbb47c transparent transparent}
+  #noteCard.show{opacity:1;transform:translate(-50%,-50%) rotate(-2deg) scale(1)}
+  #noteEn{font-size:15.5px;font-weight:700}
+  #noteKo{font-size:12.5px;color:#5c4a26;margin-top:6px}
 
   /* ── 상단 목표 ── */
   #goalBar{position:absolute;top:0;left:0;right:0;z-index:6;padding:10px 14px 12px;
@@ -118,6 +130,7 @@
   <div id="scene"></div>
   <div id="vig"></div>
   <div id="flash"></div>
+  <div id="noteCard"><div id="noteEn"></div><div id="noteKo"></div></div>
 
   <div id="utterWrap">발화 <b id="utterN">0</b>회<br><span id="utterOk">성공 0</span></div>
   <div id="timeWrap"><div id="timeVal">5:00</div></div>
@@ -197,7 +210,7 @@ Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
    ════════════════════════════════════════════════════════════ */
 var STEPS=[
   { id:'desk',
-    goal:'Find a way out.', goalKo:'방을 둘러보세요 — 무엇을 볼까요?',
+    goal:'Find a way out.', goalKo:'방을 둘러보세요 — 책상 · 그림 · 책장 · 스탠드, 무엇을 볼까요?',
     accept:[['look','desk'],['see','desk'],['check','desk'],['examine','desk'],['look','table']],
     scene:'room',
     say:'You see an old desk. There is one drawer, and it is closed.',
@@ -222,7 +235,7 @@ var STEPS=[
     hints:['그림을 옮기세요','"옮기다"는 영어로 move','Move the painting'] },
 
   { id:'books',
-    goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 어디를 볼까요?',
+    goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 책장 · 서랍 · 그림, 어디를 볼까요?',
     accept:[['look','book'],['check','book'],['see','book'],['examine','book'],['look','shelf'],['read','book']],
     scene:'safe',
     say:'On the bookshelf, three books are pulled out. Their numbers are four, seven, two.',
@@ -299,16 +312,50 @@ function sndNo(){ beep(200,.18,'sawtooth',.14); }
 function sndUnlock(){ beep(320,.1,'square',.16); setTimeout(function(){beep(480,.1,'square',.16);},110);
   setTimeout(function(){beep(760,.3,'triangle',.2);},230); }
 function sndAlarm(){ beep(880,.12,'square',.1); setTimeout(function(){beep(660,.12,'square',.1);},150); }
+function sndTick(){ beep(1300,.025,'square',.05); }
+function sndCreak(){ beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(150,.12,'sawtooth',.08);},70);
+  setTimeout(function(){beep(105,.16,'sawtooth',.07);},150); setTimeout(function(){beep(85,.2,'sawtooth',.06);},260); }
+function sndKeyTurn(){ beep(300,.08,'square',.15); setTimeout(function(){beep(220,.08,'square',.15);},90);
+  setTimeout(function(){beep(150,.16,'sawtooth',.18);},190); }
+/* 방 분위기 — 은은한 저음 드론(스산함) + 시간이 줄면 자동으로 강해지는 초침 소리는 타이머에서 처리 */
+var _drone=null;
+function startAmbience(){ var a=ac(); if(!a||_drone) return;
+  try{
+    var o1=a.createOscillator(), o2=a.createOscillator(), g=a.createGain(), lfo=a.createOscillator(), lfoG=a.createGain();
+    o1.type='sine'; o1.frequency.value=54; o2.type='sine'; o2.frequency.value=55.6;
+    g.gain.value=.026; lfo.frequency.value=.11; lfoG.gain.value=.011;
+    lfo.connect(lfoG); lfoG.connect(g.gain); o1.connect(g); o2.connect(g); g.connect(a.destination);
+    o1.start(); o2.start(); lfo.start(); _drone={o1:o1,o2:o2,lfo:lfo};
+  }catch(_){}
+}
+function stopAmbience(){ if(!_drone) return; try{ _drone.o1.stop(); _drone.o2.stop(); _drone.lfo.stop(); }catch(_){} _drone=null; }
 
 /* ════════════════════════════════════════════════════════════
    3. 화면
    ════════════════════════════════════════════════════════════ */
 var $=function(id){ return document.getElementById(id); };
-function setScene(k){ $('scene').style.backgroundImage='url('+SCENES[k]+')'; }
+/* 장면 확대/위치 — 사진은 4장뿐이라 단계마다 "그 물건이 화면에 실제로 보이도록" 확대·이동해서 보여준다.
+   (2026-07-31) cover+center로만 두면 세로 화면에서 책장·서랍·문 손잡이가 화면 밖으로 잘려나갔다 */
+var FOCUS={ desk:['28% 62%','175%'], drawer:['66% 84%','250%'], painting:['48% 24%','185%'],
+  books:['94% 55%','170%'], code:['54% 46%','150%'], key:['50% 40%','130%'], door:['90% 55%','215%'] };
+function setScene(k,pos,size){
+  var el=$('scene');
+  el.style.backgroundImage='url('+SCENES[k]+')';
+  el.style.backgroundPosition=pos||'center';
+  el.style.backgroundSize=size||'cover';
+}
 function setGoal(en,ko){ $('goalTxt').textContent=en; $('goalKo').textContent=ko; }
 function heard(html){ $('heard').innerHTML=html||''; }
 function hintTxt(html){ $('hint').innerHTML=html||''; }
 function flash(){ var f=$('flash'); f.style.opacity='.55'; setTimeout(function(){ f.style.opacity='0'; },160); }
+/* 쪽지 카드 — 서랍 속 단서를 잠깐 실물처럼 띄운다 */
+var _noteT=null;
+function showNote(en,ko){
+  var c=$('noteCard'); if(!c) return;
+  $('noteEn').textContent=en; $('noteKo').textContent=ko;
+  c.classList.add('show');
+  clearTimeout(_noteT); _noteT=setTimeout(function(){ c.classList.remove('show'); },3600);
+}
 /* 시간이 줄수록 방이 어두워짐 — 긴장 장치 */
 function applyDim(){ if(!G)return;
   var r=Math.max(0,Math.min(1,G.t/TIME_LIMIT));
@@ -358,28 +405,40 @@ function clearIdle(){ if(_idleT){ clearTimeout(_idleT); _idleT=null; } }
 function armIdle(ms){ clearIdle();
   _idleT=setTimeout(function(){ _idleT=null;
     if(!G||!G.running||G.over||G.busy) return;
-    showHint(true); armIdle(9000);            // 단계가 올라갈 때까지 9초마다 한 칸씩 더 알려준다
+    showHint(true); armIdle(12000);            // 단계가 올라갈 때까지 12초마다 한 칸씩 더 알려준다
   }, ms); }
 function showStep(){
   var s=curStep(); if(!s) return;
-  setScene(s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
+  // door 단계는 "아직 잠겨 있는 문 손잡이"를 보여줘야 한다 — s.scene(escape)을 그대로 쓰면
+  // 열기도 전에 열린 문이 먼저 보여서 순서가 뒤바뀐다(2026-07-31 피드백)
+  var imgKey = s.id==='door' ? 'room' : (s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
+  var f=FOCUS[s.id];
+  setScene(imgKey, f&&f[0], f&&f[1]);
   // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
   setGoal(s.goal, s.goalKo);
   G.hintLv=0; hintTxt('');
   if(G.i<=1){
     // 처음 두 단계는 사용법을 익히는 구간 → 말할 문장을 그대로 보여준다(소리로는 읽어주지 않음:
     // 이 시점에 방 내레이션이 재생 중이라 겹치면 둘 다 안 들린다)
-    G.hintLv=2; showHint(true,true); armIdle(13000);
-  } else armIdle(8000);
+    G.hintLv=2; showHint(true,true); armIdle(18000);
+  } else armIdle(14000);
 }
 function advance(){
   var s=curStep();
   G.busy=true; clearIdle();
   sndOk(); flash();
   heard('<span class="ok">정확해요! · Correct!</span>');
-  // 결과 장면으로 전환
-  setScene(s.scene);
   logProg(s.id, true);
+  // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(새 사진 없이도 순서가 보이게)
+  if(s.id==='door'){
+    setScene('room', FOCUS.door[0], FOCUS.door[1]);
+    sndKeyTurn();
+    setTimeout(function(){ setScene(s.scene); }, 650);
+  } else {
+    setScene(s.scene);
+    if(s.id==='drawer'||s.id==='painting') sndCreak();
+  }
+  if(s.id==='drawer') showNote('The key is behind the painting.','열쇠는 그림 뒤에 있다');
   // 🔒 안전장치 — TTS 콜백이 오지 않아도(음성 미지원·재생 차단 등) 게임이 잠기지 않게
   //    콜백과 타임아웃 중 먼저 오는 쪽으로 1회만 진행한다.
   var moved=false;
@@ -394,7 +453,9 @@ function advance(){
   G._advT=setTimeout(go, 6000);
   G._skip=go;                        // 화면을 탭하면 내레이션 건너뛰기
   speak(s.say, go);
-  hintTxt('<span style="color:#a3e635">'+s.sayKo+'</span>');
+  // 영어 원문도 자막으로 함께 띄운다 — "음성이 빨리 지나가서 잘 안 들림" 피드백 반영(2026-07-31)
+  hintTxt('<div style="color:#a3e635;font-weight:800">'+esc(s.say)+'</div>'+
+          '<div style="color:#9db3c9;margin-top:2px">'+esc(s.sayKo)+'</div>');
   if(s.id==='code') sndUnlock();
 }
 function wrongTry(said){
@@ -402,7 +463,7 @@ function wrongTry(said){
   sndNo();
   heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 방이 반응하지 않아요 · Try again</span>');
   showHint(true);            // 틀렸으면 곧바로 한 칸 더 알려준다(예전엔 3번 틀려야 나왔다)
-  armIdle(9000);
+  armIdle(12000);
 }
 function submitSaid(said){
   if(!G||!G.running||G.over||G.busy) return;
@@ -442,6 +503,12 @@ function listen(){
   if(!G||!G.running||G.over) return;
   // 방이 이야기하는 중 마이크를 누르면 → 아무 반응 없이 무시하지 말고, 내레이션을 건너뛰고 바로 듣는다
   if(G.busy){ if(G._skip){ _ttsStop(); G._skip(); setTimeout(listen,80); } return; }
+  // 🔊 오류 수정(2026-07-31): 힌트 음성이 재생 중일 때 바로 듣기 시작하면 스피커 소리가 마이크로
+  //    새어 들어가 "방이 말한 문장"을 학생이 말한 것으로 오인식해 자동으로 다음 단계로 넘어가버렸다.
+  //    먼저 음성을 끄고 잠깐(에코가 가라앉을 시간) 기다린 뒤에 듣기 시작한다.
+  var speaking=false;
+  try{ speaking=(_ttsAudio&&!_ttsAudio.paused)||(window.speechSynthesis&&speechSynthesis.speaking); }catch(_){}
+  if(speaking){ _ttsStop(); setTimeout(listen,220); return; }
   if(!SR){ enableTyping('이 브라우저는 음성인식을 지원하지 않아요 — 타이핑으로 진행하세요'); return; }
   if(recActive) return;
   var rec; try{ rec=new SR(); }catch(_){ enableTyping('마이크를 열 수 없어요 — 타이핑으로 진행하세요'); return; }
@@ -510,11 +577,12 @@ function startTimer(){
     var el=$('timeVal'); el.textContent=m+':'+(s<10?'0':'')+s;
     el.classList.toggle('warn', G.t<=60);
     if(G.t===60||G.t===30||G.t===10) sndAlarm();
+    else if(G.t<=60 && G.t>0) sndTick();      // 마지막 1분 — 초침 소리로 긴장감(스토리 피드백 반영)
     applyDim();
     if(G.t<=0) lose();
   },1000);
 }
-function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop();
+function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
   setScene('escape');
   $('scene').style.filter='brightness(1) saturate(1)';
   $('endT').textContent='🎉 탈출 성공!'; $('endEn').textContent='Escaped';
@@ -526,7 +594,7 @@ function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(ti
   flushProg(true);
   setTimeout(function(){ speak('Well done! You escaped!'); },400);
 }
-function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop();
+function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
   $('endT').textContent='⏳ 시간 초과'; $('endEn').textContent='Time Up';
   $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+STEPS.length+'</b> 단계까지 갔어요<br>'+
     '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회';
@@ -561,7 +629,7 @@ function startGame(){
   $('timeVal').textContent='5:00'; $('timeVal').classList.remove('warn');
   heard(''); hintTxt('');
   setScene('room'); applyDim(); showStep();
-  try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); }catch(_){}
+  try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); startAmbience(); }catch(_){}
   startTimer();
   speak('You are locked in. Look around the room.');
   if(!SR) enableTyping('이 브라우저는 음성인식이 없어요 — 타이핑으로 진행하세요');
@@ -571,7 +639,7 @@ $('scene').addEventListener('click', function(){ if(G && G.busy && G._skip){ _tt
 $('btnStart').addEventListener('click', startGame);
 $('btnAgain').addEventListener('click', startGame);
 $('micBtn').addEventListener('click', listen);
-$('hintBtn').addEventListener('click', function(){ showHint(false); armIdle(9000); });
+$('hintBtn').addEventListener('click', function(){ showHint(false); armIdle(12000); });
 $('typeBtn').addEventListener('click', function(){ $('typeRow').classList.toggle('on'); });
 $('typeGo').addEventListener('click', function(){ var v=$('typeIn').value.trim();
   if(v){ $('typeIn').value=''; submitSaid(v); } });
@@ -584,6 +652,6 @@ window.addEventListener('keydown', function(e){
 setScene('room');
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260731013201 -->
+<!-- BUILD:20260731031010 -->
 </body>
 </html>

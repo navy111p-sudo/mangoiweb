@@ -1421,14 +1421,24 @@ function drawLabel(e){ var isT=sameWord(e.word, neededWord());
 function drawShell(b,col){ var sp=Math.hypot(b.vx,b.vy)||1, ux=b.vx/sp, uy=b.vy/sp, len=12*SCALE;
   ctx.save(); ctx.lineCap='round';
   ctx.strokeStyle='rgba(90,50,10,.5)'; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(b.x-ux*len,b.y-uy*len); ctx.lineTo(b.x,b.y); ctx.stroke();
+  // 🎯 아군/적군 색 구분(피해야 할 적 포탄임을 알 수 있게) — 실사 포탄 몸체 밑에 색 트레일로 남김
   ctx.strokeStyle=col; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(b.x-ux*len*0.7,b.y-uy*len*0.7); ctx.lineTo(b.x,b.y); ctx.stroke();
-  ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(b.x,b.y,2.4*SCALE,0,7); ctx.fill(); ctx.restore(); }
+  if(SHELL_RDY){
+    var w=30*SCALE, h=w*(89/480), ang=Math.atan2(uy,ux);
+    ctx.translate(b.x,b.y); ctx.rotate(ang);   // 이미지 코=+X(오른쪽) → 그대로 진행방향을 향하게 정렬
+    ctx.drawImage(SHELL_IMG, -w, -h/2, w, h);
+  } else {
+    ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(b.x,b.y,2.4*SCALE,0,7); ctx.fill();
+  }
+  ctx.restore(); }
 /* ⛟ 젤리(제리캔) 연료통 — 앞면에 X 프레스 패널 있는 WWII 석유통 */
 // 🖼️ 실사 미군 제리캔 스프라이트(크로마키 제거·투명 PNG). 로드 전엔 벡터 폴백.
 var FUELIMG=new Image(); FUELIMG.src='/img/fuel-jerrycan.png?v=1'; var FUELRDY=false; FUELIMG.onload=function(){FUELRDY=true;};
 /* 💥 실사 포구섬광·폭발(2D 클래식 뷰). 로드 전엔 기존 방사그라디언트 폴백 */
 var VFX_MUZZLE_IMG=new Image(); VFX_MUZZLE_IMG.src='/img/tank-vfx-muzzle.webp?v=1'; var VFX_MRDY=false; VFX_MUZZLE_IMG.onload=function(){VFX_MRDY=true;};
 var VFX_BOOM_IMG=new Image(); VFX_BOOM_IMG.src='/img/tank-vfx-explosion.webp?v=1'; var VFX_BRDY=false; VFX_BOOM_IMG.onload=function(){VFX_BRDY=true;};
+/* 🎯 실사 포탄(2D 클래식 뷰). 로드 전엔 기존 색선+글로우점 폴백. 이미지 코=+X(오른쪽) */
+var SHELL_IMG=new Image(); SHELL_IMG.src='/img/tank-vfx-shell.webp?v=1'; var SHELL_RDY=false; SHELL_IMG.onload=function(){SHELL_RDY=true;};
 function drawFuel(fu){ var r=fu.r; ctx.save(); ctx.translate(fu.x,fu.y+Math.sin(fu.bob)*3);
   // ⛽ 연료 부족 시 젤리통 강조(맥동 초록 글로우)
   if(G && G.time<15){ var gp=0.4+0.4*Math.sin(performance.now()/200+fu.bob);
@@ -1485,10 +1495,11 @@ function disposeObj3(o){ o.traverse(function(m){ if(m.geometry && m.geometry!==S
     mats.forEach(function(mm){ if(mm!==SHELL_MAT_P && mm!==SHELL_MAT_E) mm.dispose(); }); } }); }
 function disposeSprite(sp){ if(sp.material){ if(sp.material.map) sp.material.map.dispose(); sp.material.dispose(); } }
 var SHELL_GEO=null, SHELL_MAT_P=null, SHELL_MAT_E=null, GLOW_TEX=null;
-var VFX_MUZZLE_TEX3=null, VFX_BOOM_TEX3=null;   // 🔥 실사 포구섬광·폭발(3D) — 로드 전엔 GLOW_TEX 대체
+var VFX_MUZZLE_TEX3=null, VFX_BOOM_TEX3=null, SHELL_TEX3=null;   // 🔥 실사 포구섬광·폭발·포탄(3D) — 로드 전엔 옛 도형 대체
 (function loadVfxTex3(){ if(!window.THREE) return; var ld=new THREE.TextureLoader();
   ld.load('/img/tank-vfx-muzzle.webp?v=1', function(t){ t.encoding=THREE.sRGBEncoding; VFX_MUZZLE_TEX3=t; });
-  ld.load('/img/tank-vfx-explosion.webp?v=1', function(t){ t.encoding=THREE.sRGBEncoding; VFX_BOOM_TEX3=t; }); })();
+  ld.load('/img/tank-vfx-explosion.webp?v=1', function(t){ t.encoding=THREE.sRGBEncoding; VFX_BOOM_TEX3=t; });
+  ld.load('/img/tank-vfx-shell.webp?v=1', function(t){ t.encoding=THREE.sRGBEncoding; SHELL_TEX3=t; }); })();
 function makeGlowTexture(){ var c=document.createElement('canvas'); c.width=c.height=64; var g=c.getContext('2d');
   var gr=g.createRadialGradient(32,32,0,32,32,32);
   gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.4,'rgba(255,255,255,0.7)'); gr.addColorStop(1,'rgba(255,255,255,0)');
@@ -1646,7 +1657,7 @@ function init3D(){
   var groundMat=new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.92, metalness:0.04});
   var ground=new THREE.Mesh(groundGeo, groundMat); ground.position.z=(ZFAR_VAL+ZNEAR_VAL)/2; ground.receiveShadow=true; scene.add(ground);
   GLOW_TEX=makeGlowTexture();
-  SHELL_GEO=new THREE.CylinderGeometry(0.09,0.12,1.4,6); SHELL_GEO.rotateZ(Math.PI/2);   // 💥 화살같이 작던 포탄 → 굵고 길게
+  SHELL_GEO=new THREE.CylinderGeometry(0.09,0.12,1.4,6); SHELL_GEO.rotateZ(Math.PI/2);   // 💥 화살같이 작던 포탄 → 굵고 길게(실사 텍스처 로드 전 폴백)
   SHELL_MAT_P=new THREE.MeshBasicMaterial({color:0xffe66a}); SHELL_MAT_E=new THREE.MeshBasicMaterial({color:0xff7b3c});
   // 💡 포구 섬광·폭발광 전용 풀 라이트 2개(모바일 부담 최소) — syncParticles3D가 위치·세기 갱신
   var flashLight=new THREE.PointLight(0xffd890, 0, 10); scene.add(flashLight);
@@ -1767,12 +1778,22 @@ function syncTanks3D(){
 }
 function syncShells3D(){ var pool=T3.shellPool; for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
   function upsert(b,mat){ var entry=null; for(var i=0;i<pool.length;i++){ if(pool[i].ref===b){ entry=pool[i]; break; } }
-    if(!entry){ var mesh=new THREE.Mesh(SHELL_GEO, mat);
+    if(!entry){
+      // 🎯 실사 포탄 사진(있으면) — 몸체는 아군/적군 공통(진짜 포탄이니 색을 안 입힘),
+      // 예광 글로우만 색으로 구분(피해야 할 적 포탄임을 계속 알 수 있게)
+      // 🔑 눕힌 평면이 아니라 '카메라를 항상 보는' 스프라이트로 — 쿼터뷰 카메라에서
+      // 눕힌 평면은 위에서 내려보면 납작하게 짜부라져 보인다(1차 시도에서 실측, 잎사귀처럼 보임).
+      // 스프라이트는 항상 옆모습 그대로 보이고, material.rotation 으로 진행방향만 맞춘다.
+      var mesh = SHELL_TEX3
+        ? new THREE.Sprite(new THREE.SpriteMaterial({map:SHELL_TEX3,transparent:true}))
+        : new THREE.Mesh(SHELL_GEO, mat);
+      if(SHELL_TEX3) mesh.scale.set(2.0, 2.0*(89/480), 1);
       var glow=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW_TEX,color:(mat===SHELL_MAT_P?0xffe090:0xff9050),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
-      glow.scale.set(1.5,1.5,1); mesh.add(glow);   // ✨ 예광 글로우 — 포탄이 확실히 보이게
+      glow.scale.set(1.5,1.5,1); mesh.add(glow);   // ✨ 예광 글로우 — 포탄이 확실히 보이게(+아군/적군 색 구분)
       T3.shellRoot.add(mesh); entry={ref:b,obj:mesh}; pool.push(entry); }
     entry._seen=true; var w=simToWorld(b.x,b.y,0.8); entry.obj.position.set(w.x,w.y,w.z);
-    entry.obj.rotation.y=simAngToWorldYaw(Math.atan2(b.vy,b.vx)); }
+    var ang=Math.atan2(b.vy,b.vx);
+    if(entry.obj.isSprite) entry.obj.material.rotation=-ang; else entry.obj.rotation.y=simAngToWorldYaw(ang); }
   G.pbul.forEach(function(b){ upsert(b,SHELL_MAT_P); }); G.ebul.forEach(function(b){ upsert(b,SHELL_MAT_E); });
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.shellRoot.remove(pool[i].obj);
     var gl=pool[i].obj.children[0]; if(gl&&gl.material) gl.material.dispose();
@@ -2114,6 +2135,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260731013201 -->
+<!-- BUILD:20260731031010 -->
 </body>
 </html>
