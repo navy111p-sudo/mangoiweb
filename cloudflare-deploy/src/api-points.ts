@@ -156,6 +156,19 @@ export async function handlePointsApi(
       return { ok: true, ...r, amount, rule: { code: 'teacher_praise_point', label: rule?.label, amount } };
     };
 
+    /* ── GET /api/points/rules — "포인트 모으는 법" 공개 안내용 (2026-07-30 신설) ──
+       PII 아니고 인증도 필요 없다(누구나 볼 수 있는 정책 안내). enabled=1 인 것만 노출한다.
+       하드코딩 금지 이유: 관리자가 규칙을 바꾸면(금액·활성화) 안내표도 자동으로 같이 바뀌어야
+       "지키지 못할 약속"이 다시 생기지 않는다. (장지웅 부장님 Q5: 학부모·학생에게 안내한 적 없는
+       7개 규칙은 별도 마이그레이션으로 enabled=0 처리 — migration-point-rules-cleanup-2026-07-30.sql) */
+    if (method === 'GET' && path === '/api/points/rules') {
+      await ensurePointTables(env);
+      const rs = await env.DB.prepare(
+        `SELECT code, label, amount, daily_cap, description FROM point_rules WHERE enabled=1 ORDER BY amount DESC`
+      ).all();
+      return json({ ok: true, rules: rs.results || [] });
+    }
+
     // ── GET /api/points/balance?uid=xxx — 학생 본인 포인트 잔액 + 최근 거래 ──
     if (method === 'GET' && path === '/api/points/balance') {
       const uid = (url.searchParams.get('uid') || '').trim();

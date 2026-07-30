@@ -333,24 +333,31 @@
 
   // ━━━━━━━━━━ 결제 회사 정보 (실제 운영 시 변경) ━━━━━━━━━━
   const PAY_INFO = {
+    // 🔴 (2026-07-30) bank_name/bank_code/account_no/account_holder — 장지웅 부장님 Q2:
+    //   "실제 입금 계좌는 넣지 않고, 각 고객 앞으로 발행되는 가상계좌만 표기해야 합니다."
+    //   → 이 4개 값을 채워서 되살릴 화면(계좌이체·네이버페이·토스 딥링크) 자체를 코드에서 지웠다.
+    //   실제 계좌가 필요해질 일이 생겨도 여기 값만 바꿔서는 아무 화면도 안 바뀐다 — 값을 안 채우는 게 맞다.
     bank_name: '신한은행',
     bank_code: 'SHINHAN',
     account_no: '110-555-123456',
     account_holder: '망고아이(주)',
     biz_name: '망고아이',
-    kakaopay_url: 'https://qr.kakaopay.com/Ej86dkamx',  // 카카오페이 송금 코드 (실제 코드로 교체)
-    toss_id: 'mangoi',                                    // toss.me/<id> (실제 ID로 교체)
+    kakaopay_url: 'https://qr.kakaopay.com/Ej86dkamx',  // 카카오페이 송금 코드 (실제 코드로 교체 — Q3: 연동 예정)
+    toss_id: 'mangoi',                                    // toss.me/<id> (실제 ID로 교체 — Q3: 연동 예정)
     tosspayments_client_key: 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq', // 토스페이먼츠 공식 테스트 클라이언트키 (실전 전환 시 live_ck_ 로 교체)
   };
 
-  /* ━━━━━━━━━━ 🔴 (2026-07-29) 송금 목적지 안전장치 ━━━━━━━━━━
-     위 PAY_INFO 의 계좌·송금코드·토스ID 는 전부 '개발용 자리표시자'인 채로 실서비스에 노출되고 있었다.
+  /* ━━━━━━━━━━ 🔴 (2026-07-29, 갱신 2026-07-30) 송금 목적지 안전장치 ━━━━━━━━━━
+     위 PAY_INFO 의 값들은 전부 '개발용 자리표시자'인 채로 실서비스에 노출되고 있었다.
      학부모가 이 값으로 송금하면 반송되거나 엉뚱한 사람에게 간다. 그래서 아래처럼 처리한다.
 
-       · 자리표시자 그대로면  → 계좌/링크를 감추고 '카카오 상담' 안내 패널을 대신 보여준다.
-       · 실제 값으로 바꾸면   → 아무 것도 안 해도 자동으로 원래 화면이 돌아온다.
+       · 자리표시자 그대로면  → 링크를 감추고 '카카오 상담'(+가상계좌 추천) 패널을 대신 보여준다.
+       · 실제 값으로 바꾸면   → kakaopay_url·toss_id 는 아무 것도 안 해도 원래 화면이 돌아온다.
+       · account_no 는 예외다 — 표시할 화면 자체가 삭제됐으니 값을 바꿔도 아무 일도 안 일어난다
+         (Q2: 계좌이체는 영구 비노출, 가상계좌로 대체됨). 목록에 남겨둔 건 payDestReady() 가
+         계속 false 를 반환하게 하기 위한 안전핀일 뿐, "값이 오길 기다린다"는 뜻이 아니다.
 
-     ▶ 실제 값을 넣는 방법: 위 PAY_INFO 의 해당 값을 바꾸기만 하면 된다. 이 목록은 손댈 필요 없다. */
+     ▶ 카카오페이/토스 실제 값을 넣는 방법: 위 PAY_INFO 의 해당 값을 바꾸기만 하면 된다. */
   const PAY_PLACEHOLDERS = {
     account_no:   ['110-555-123456'],
     kakaopay_url: ['https://qr.kakaopay.com/Ej86dkamx'],
@@ -366,15 +373,20 @@
      (보낸 곳이 없는데 "결제 완료"를 접수하면 장부만 더럽혀진다) */
   function payMethodReady(method) {
     if (method === 'card') return true;                       // PG 결제창이 처리
-    if (method === 'virtual') return false;                   // 정식 PG 가상계좌 연동 전
+    if (method === 'virtual') return true;                     // 🏦 (2026-07-30) 정식 PG 가상계좌 연동 완료
     if (method === 'kakao')  return payDestReady('kakaopay_url');
     if (method === 'toss')   return payDestReady('toss_id');
+    /* 🔴 (2026-07-30) 장지웅 부장님 Q2: "실제 입금 계좌는 넣지 않고, 각 고객 앞으로 발행되는
+       가상계좌만 표기해야 합니다." → 계좌이체(bank/cash)·네이버페이는 값이 오길 "기다리는" 게
+       아니라 회사가 영구적으로 안 쓰기로 한 방식이다. account_no 는 앞으로도 채워지지 않는다. */
     if (method === 'bank' || method === 'cash' || method === 'naver') return payDestReady('account_no');
     return true;
   }
 
   /* 목적지가 아직 준비 안 된 결제수단에 띄울 안내 패널.
-     "고장났다"가 아니라 "상담으로 도와드린다"로 읽히게 쓴다(학부모가 보는 화면). */
+     "고장났다"가 아니라 "상담으로 도와드린다"로 읽히게 쓴다(학부모가 보는 화면).
+     🏦 (2026-07-30) 가상계좌가 실제로 동작하게 된 뒤로는 상담보다 가상계좌가 더 빠른 대안이라
+     recommendVirtual=true 인 경우 그 버튼을 우선 보여준다(bank/cash/naver 에서 사용). */
   /* 은/는 자동 선택 — '카카오페이 송금는' 같은 어색한 문장 방지.
      한글 마지막 글자에 받침이 있으면 '은', 없으면 '는'. */
   function josaEunNeun(word) {
@@ -383,7 +395,11 @@
     if (!(code >= 0xAC00 && code <= 0xD7A3)) return '는';   // 한글이 아니면 기본값
     return ((code - 0xAC00) % 28) > 0 ? '은' : '는';
   }
-  function payNotReadyPanel(title) {
+  function payNotReadyPanel(title, recommendVirtual) {
+    const virtualBtn = recommendVirtual ? `
+      <button type="button" onclick="paySwitchMethod('virtual')" style="width:100%;padding:13px;margin-bottom:8px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:0;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer">
+        🏦 가상계좌로 결제하기 (더 빠름)
+      </button>` : '';
     return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <span style="font-size:22px">💬</span>
@@ -393,13 +409,19 @@
         </div>
       </div>
       <p style="margin:0 0 12px;color:#cbd5e1;font-size:12.5px;line-height:1.6">
-        아래 <b style="color:#FEE500">카카오 상담</b>을 눌러주시면 담당자가 입금 방법을
+        ${recommendVirtual ? '<b style="color:#93c5fd">가상계좌</b>는 발급 즉시 입금 확인까지 자동이에요. 또는 ' : ''}아래 <b style="color:#FEE500">카카오 상담</b>을 눌러주시면 담당자가 입금 방법을
         <b>1:1로 정확히 안내</b>해 드려요. 카드 결제는 지금 바로 가능합니다.
       </p>
+      ${virtualBtn}
       <button type="button" onclick="window.openKakao&&window.openKakao()" style="width:100%;padding:13px;background:linear-gradient(135deg,#FEE500,#FFCD00);border:0;border-radius:10px;color:#3C1E1E;font-size:14px;font-weight:800;cursor:pointer">
         💬 카카오로 상담받기
       </button>`;
   }
+  // 안내 패널의 "가상계좌로 결제하기" 버튼 → 실제 가상계좌 method-card 를 대신 눌러준다.
+  window.paySwitchMethod = function(method){
+    const card = document.querySelector(`.method-card[data-method="${method}"]`);
+    if (card) card.click();
+  };
 
   // 카드 결제 (토스페이먼츠) — 서버 주문 생성 → 결제창 (금액은 서버가 결정 = 위변조 방지)
   async function executeCardPayment(amount, payer, orderId, programLabel) {
@@ -463,15 +485,81 @@
     }
   }
 
+  /* 🏦 (2026-07-30) 가상계좌 발급 — 장지웅 부장님 Q2 반영.
+     "실제 회사 계좌는 노출하지 않고, 고객마다 발급되는 가상계좌만 표기해야 합니다"
+     → 직접 계좌를 안내하는 대신, 토스가 주문마다 실제로 발급하는 가상계좌를 쓴다.
+     흐름은 카드 결제와 거의 같다(서버 create-order → 토스 SDK → successUrl 콜백).
+     차이는 tp.requestPayment 의 결제수단이 '가상계좌' 라는 것과, successUrl 로 돌아왔을 때
+     '결제 완료'가 아니라 '입금 대기'로 표시된다는 것(서버 /api/pay/confirm 이 이미 분기 처리함).
+     ⚠️ Toss SDK 파라미터 이름(cashReceipt 등)은 문서 기준으로 작성 — 브라우저 팝업으로 직접
+        눌러보는 최종 확인은 못 했다(테스트 PG 라 실패해도 실제 청구는 없음). */
+  async function executeVirtualAccountPayment(amount, payer, orderId, programLabel) {
+    let order;
+    try {
+      var _u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      var student = (document.getElementById('pay-student') || {}).value || '';
+      const res = await fetch('/api/pay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          program: selectedProgram,
+          payer: payer,
+          student: student,
+          method: 'virtual',
+          uid: (_u && _u.uid) ? _u.uid : null
+        })
+      });
+      order = await res.json().catch(function(){ return null; });
+      if (!order || !order.ok) {
+        alert('주문을 만들 수 없습니다: ' + ((order && order.message) || '상품을 다시 선택해 주세요.'));
+        return;
+      }
+    } catch (e) {
+      alert('주문 생성 중 오류가 발생했습니다: ' + (e.message || e) + '\n잠시 후 다시 시도해 주세요.');
+      return;
+    }
+
+    if (!window.TossPayments) {
+      try {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://js.tosspayments.com/v1/payment';
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      } catch (e) {
+        alert('결제 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.');
+        return;
+      }
+    }
+
+    try {
+      const tp = window.TossPayments(PAY_INFO.tosspayments_client_key);
+      await tp.requestPayment('가상계좌', {
+        amount: order.amount,
+        orderId: order.orderId,
+        orderName: order.orderName || programLabel || '망고아이 수강료',
+        customerName: payer,
+        cashReceipt: { type: '미발행' },
+        successUrl: location.origin + '/payment-success.html',
+        failUrl: location.origin + '/payment-fail.html',
+      });
+    } catch (e) {
+      if (e && e.code !== 'USER_CANCEL') {
+        alert('가상계좌 발급창을 열 수 없습니다: ' + (e.message || 'unknown') + '\n잠시 후 다시 시도해 주세요.');
+      }
+    }
+  }
+
   // 결제수단 → 즉시 결제 패널 렌더
   function renderInstantPayPanel(method) {
     const amount = selectedPrice || (Number(document.getElementById('pay-amount')?.value) || 0);
     const amountStr = '₩ ' + amount.toLocaleString('ko-KR');
     const payer = (document.getElementById('pay-payer')?.value || '').trim() || '결제자';
-    const student = (document.getElementById('pay-student')?.value || '').trim() || '학생';
     const orderId = 'PAY-' + Date.now().toString(36).toUpperCase() + '-' + Math.floor(Math.random()*999);
     const programLabel = (PROG_INFO[selectedProgram]||{}).name || '수강료';
-    const depositName = student.replace(/\s+/g,'').slice(0,8) + (Math.floor(Math.random()*9000)+1000);
+    // 🔴 (2026-07-30) student·depositName(입금자명 자동매칭용 랜덤 접미사) 삭제 — 이 값을 쓰던
+    // 계좌이체 수기입금 화면 자체가 제거됐다(장지웅 부장님 Q2, 위 method==='virtual' 주석 참고).
 
     const c = document.getElementById('instant-pay-content');
     if (method === 'card') {
@@ -504,7 +592,7 @@
     } else if (method === 'toss' && !payDestReady('toss_id')) {
       c.innerHTML = payNotReadyPanel('토스 송금');
     } else if ((method === 'bank' || method === 'cash' || method === 'naver') && !payDestReady('account_no')) {
-      c.innerHTML = payNotReadyPanel(method === 'naver' ? '네이버페이 송금' : '계좌이체');
+      c.innerHTML = payNotReadyPanel(method === 'naver' ? '네이버페이 송금' : '계좌이체', /* recommendVirtual */ true);
     } else if (method === 'kakao') {
       c.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -531,13 +619,18 @@
       `;
     } else if (method === 'toss') {
       const tossWeb = `https://toss.me/${PAY_INFO.toss_id}/${amount}`;
-      const tossDeep = `supertoss://send?bank=${PAY_INFO.bank_code}&accountNo=${PAY_INFO.account_no.replace(/-/g,'')}&amount=${amount}&origin=mangoi`;
+      /* 🔴 (2026-07-30) "모바일 토스 앱 직접 열기" 딥링크(tossDeep)를 삭제했다.
+         이 링크는 PAY_INFO.account_no·bank_code(회사 계좌)로 딥링크를 만드는데,
+         계좌이체와 마찬가지로 account_no 는 장지웅 부장님 Q2 에 따라 영구히 채워지지 않는다.
+         이 결제수단은 payMethodReady() 가 toss_id 만 검사해서 열리므로, toss_id 만 실제값이
+         되면 이 딥링크는 '가짜 회사 계좌로 딥링크가 뜨는' 상태로 조용히 살아있었을 것 —
+         toss.me 링크(toss_id 기반) 하나만 남긴다. */
       c.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <span style="font-size:22px">🔵</span>
           <div>
             <div style="color:#86efac;font-size:14px;font-weight:800">토스 즉시 송금</div>
-            <div style="color:#94a3b8;font-size:11px">토스 앱이 열려 자동으로 금액·계좌가 입력됩니다</div>
+            <div style="color:#94a3b8;font-size:11px">토스 앱이 열려 자동으로 금액이 입력됩니다</div>
           </div>
         </div>
         <div style="background:rgba(0,0,0,0.3);padding:12px;border-radius:10px;margin-bottom:12px">
@@ -545,86 +638,43 @@
             <span>송금 금액</span><b style="color:#fbbf24;font-size:16px">${amountStr}</b>
           </div>
         </div>
-        <a href="${tossWeb}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:13px;background:linear-gradient(135deg,#0064FF,#0050cc);border-radius:10px;color:#fff;font-size:14px;font-weight:800;text-decoration:none;margin-bottom:8px">
+        <a href="${tossWeb}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:13px;background:linear-gradient(135deg,#0064FF,#0050cc);border-radius:10px;color:#fff;font-size:14px;font-weight:800;text-decoration:none">
           🔵 toss.me로 송금 (PC·모바일)
         </a>
-        <a href="${tossDeep}" style="display:block;text-align:center;padding:11px;background:rgba(0,100,255,0.15);border:1px solid rgba(0,100,255,0.4);border-radius:10px;color:#60a5fa;font-size:12px;font-weight:700;text-decoration:none">
-          📱 모바일 토스 앱 직접 열기
-        </a>
       `;
-    } else if (method === 'bank' || method === 'cash') {
+    }
+    /* 🔴 (2026-07-30) 계좌이체(bank/cash)·네이버페이의 "실제 계좌 표시" 렌더 코드는
+       삭제했다. 위 payNotReadyPanel 분기가 payDestReady('account_no') 를 항상 false 로
+       판정해 이 아래 코드는 도달하지 않는 죽은 코드였고, 장지웅 부장님 Q2 답변(실제 계좌는
+       영구적으로 노출하지 않음)에 따라 앞으로도 도달할 일이 없다. 되살리지 말 것 —
+       계좌 노출이 필요해지면 가상계좌(PG 정식 발급)를 쓴다. */
+    else if (method === 'virtual') {
+      /* 🏦 (2026-07-30) 정식 PG 가상계좌 — 브라우저가 지어내던 가짜 번호(2026-07-29 삭제)를
+         토스가 실제로 발급하는 계좌로 교체. 흐름은 카드 결제와 동일(주문 생성 → SDK → 콜백). */
       c.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <span style="font-size:22px">🏦</span>
           <div>
-            <div style="color:#86efac;font-size:14px;font-weight:800">계좌이체 / 무통장입금</div>
-            <div style="color:#94a3b8;font-size:11px">아래 계좌로 송금 후 "결제 완료 확인" 클릭</div>
-          </div>
-        </div>
-        <div style="background:rgba(0,0,0,0.4);padding:14px;border-radius:10px;margin-bottom:10px;font-family:'SF Mono',Consolas,monospace">
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:13px;color:#cbd5e1;margin-bottom:8px">
-            <span style="color:#94a3b8">은행</span>
-            <b style="color:#fff">${PAY_INFO.bank_name}</b>
-            <span></span>
-          </div>
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:14px;color:#cbd5e1;margin-bottom:8px">
-            <span style="color:#94a3b8">계좌번호</span>
-            <b style="color:#fbbf24;letter-spacing:0.5px" id="bank-acct-text">${PAY_INFO.account_no}</b>
-            <button type="button" onclick="copyText('${PAY_INFO.account_no}', this)" style="padding:4px 10px;background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);border-radius:6px;color:#fbbf24;font-size:11px;cursor:pointer">복사</button>
-          </div>
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:13px;color:#cbd5e1;margin-bottom:8px">
-            <span style="color:#94a3b8">예금주</span>
-            <b style="color:#fff">${PAY_INFO.account_holder}</b>
-            <span></span>
-          </div>
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:14px;color:#cbd5e1;margin-bottom:8px">
-            <span style="color:#94a3b8">송금 금액</span>
-            <b style="color:#86efac;font-size:15px">${amountStr}</b>
-            <button type="button" onclick="copyText('${amount}', this)" style="padding:4px 10px;background:rgba(74,222,128,0.2);border:1px solid rgba(74,222,128,0.4);border-radius:6px;color:#86efac;font-size:11px;cursor:pointer">복사</button>
-          </div>
-          <div style="display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;font-size:13px;color:#cbd5e1">
-            <span style="color:#94a3b8">입금자명</span>
-            <b style="color:#fbbf24" id="depositor-name">${depositName}</b>
-            <button type="button" onclick="copyText('${depositName}', this)" style="padding:4px 10px;background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);border-radius:6px;color:#fbbf24;font-size:11px;cursor:pointer">복사</button>
-          </div>
-        </div>
-        <div style="padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:11px;color:#fca5a5;line-height:1.5">
-          ⚠️ 입금자명을 정확히 <b style="color:#fbbf24">${depositName}</b> 으로 입력해주세요. (자동 매칭용)
-        </div>
-      `;
-    } else if (method === 'naver') {
-      c.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-          <span style="font-size:22px">🟢</span>
-          <div>
-            <div style="color:#86efac;font-size:14px;font-weight:800">네이버페이 송금</div>
-            <div style="color:#94a3b8;font-size:11px">네이버 앱에서 간편 송금</div>
+            <div style="color:#86efac;font-size:14px;font-weight:800">가상계좌 발급</div>
+            <div style="color:#94a3b8;font-size:11px">고객님 전용 계좌가 발급돼요 · 입금하면 자동 확인</div>
           </div>
         </div>
         <div style="background:rgba(0,0,0,0.3);padding:12px;border-radius:10px;margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;color:#cbd5e1;font-size:13px;margin-bottom:6px">
-            <span>송금 금액</span><b style="color:#fbbf24;font-size:16px">${amountStr}</b>
-          </div>
-          <div style="display:flex;justify-content:space-between;color:#cbd5e1;font-size:12px">
-            <span>입금 계좌</span><b>${PAY_INFO.bank_name} ${PAY_INFO.account_no}</b>
+          <div style="display:flex;justify-content:space-between;color:#cbd5e1;font-size:13px">
+            <span>결제 금액</span><b style="color:#fbbf24;font-size:16px">${amountStr}</b>
           </div>
         </div>
-        <a href="https://new-m.pay.naver.com/historybenefit/transferGuide" target="_blank" rel="noopener" style="display:block;text-align:center;padding:13px;background:linear-gradient(135deg,#03C75A,#01a448);border-radius:10px;color:#fff;font-size:14px;font-weight:800;text-decoration:none">
-          🟢 네이버페이 송금 열기
-        </a>
-        <p style="margin:10px 0 0;color:#94a3b8;font-size:11px;text-align:center">
-          네이버 앱 → 송금 → 위 계좌번호 입력
+        <button type="button" id="btn-virtual-pay" style="width:100%;padding:13px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:0;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer">
+          🏦 가상계좌 발급받기
+        </button>
+        <p style="margin:10px 0 0;color:#64748b;font-size:11px;text-align:center">
+          발급 후 24시간 내 입금하시면 자동으로 수강이 활성화됩니다
         </p>
       `;
-    } else if (method === 'virtual') {
-      /* 🔴 (2026-07-29) 가짜 가상계좌 발급 제거.
-         이전 코드는 `'79' + Math.random()` 으로 계좌번호를 브라우저가 지어낸 뒤
-         "가상계좌 즉시 발급 완료 · 입금하면 자동으로 결제 처리됩니다" 라고 표시했다.
-         존재하지 않는 번호면 반송, 우연히 실재하면 생면부지 타인에게 송금된다.
-         정식 PG 가상계좌(서버 발급 + /api/pay/webhook 입금통보)를 붙이기 전까지 상담으로 돌린다.
-         ※ 카드를 숨기지 않고 '상담 안내'로 바꾸는 이유: 가상계좌를 찾아온 학부모를 막다른 길에
-            두지 않고 사람에게 연결하기 위함. 다른 송금수단 4개도 같은 방식으로 통일했다. */
-      c.innerHTML = payNotReadyPanel('가상계좌');
+      setTimeout(() => {
+        const btn = document.getElementById('btn-virtual-pay');
+        if (btn) btn.addEventListener('click', () => executeVirtualAccountPayment(amount, payer, orderId, programLabel));
+      }, 0);
     }
 
     document.getElementById('instant-pay-panel').style.display = 'block';
@@ -1134,9 +1184,15 @@
         return;
       }
     }
-    // 카드 결제는 PG 결제창에서 자동 처리되므로 여기서 호출하면 안 됨
+    // 카드·가상계좌는 PG 결제창(SDK)이 자동 처리하므로 여기서 수기접수로 호출하면 안 됨
+    //   🏦 (2026-07-30) 가상계좌를 카드처럼 실제 PG 연동으로 바꾸면서 같은 함정이 생겼다 — 안 막으면
+    //   "가상계좌 발급받기"를 누르기 전에 이 버튼을 눌러 미발급 상태로 manual-request 가 접수돼 버린다.
     if (selectedMethod === 'card') {
       const ok = confirm('💳 카드 결제는 위의 [카드 결제창 열기] 버튼을 누르셔야 결제됩니다.\n\n이미 결제하셨다면 [확인], 아니면 [취소]를 누르고 카드결제창을 열어주세요.');
+      if (!ok) return;
+    }
+    if (selectedMethod === 'virtual') {
+      const ok = confirm('🏦 가상계좌는 위의 [가상계좌 발급받기] 버튼을 누르셔야 발급됩니다.\n\n이미 발급받고 입금하셨다면 [확인], 아니면 [취소]를 누르고 발급받기를 눌러주세요.');
       if (!ok) return;
     }
     submitBtn.disabled = true;
