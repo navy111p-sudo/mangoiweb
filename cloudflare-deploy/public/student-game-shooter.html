@@ -101,7 +101,19 @@
   @keyframes sway{from{transform:translateX(-8px) rotate(-5deg)}to{transform:translateX(8px) rotate(5deg)}}
   /* 🛸 실사 크리처. 8종 전부 300x300 정사각 캔버스로 구워져 있어(build-shooter-assets.py) width=height 로 끝난다.
      ⚠ aspect-ratio 나 max-height 를 쓰면 크롬이 높이제한을 폭에 되먹여 그림이 찌그러진다 — 쓰지 말 것. */
-  .monster .face{width:44px;height:44px;object-fit:contain;display:block;filter:drop-shadow(0 3px 7px rgba(0,0,0,.6));transform-origin:50% 100%}
+  /* 🚶 적은 4프레임 걷기 스프라이트다 — 손·발이 실제로 움직인다(사장님 지시).
+     한 파일에 프레임 4장이 가로로 들어 있고(build-shooter-frames.py), background-position 을
+     steps(4) 로 끊어 넘긴다. <img> 가 아니라 <div> 인 이유가 이것.
+     ⚠ steps(4) 는 반드시 4프레임을 '끊어서' 보여준다. 빼먹으면 프레임 사이가 부드럽게
+       보간돼 캐릭터가 좌우로 미끄러지는 것처럼 된다.
+     4프레임 전부 발바닥·몸통중심을 맞춰 구웠으므로 제자리에서 걷는다. */
+  .monster .face{width:44px;height:44px;display:block;filter:drop-shadow(0 3px 7px rgba(0,0,0,.6));
+    transform-origin:50% 100%;background-repeat:no-repeat;background-size:400% 100%;background-position:0 0;
+    animation:foeWalk .72s steps(4) infinite}
+  @keyframes foeWalk{to{background-position:-400% 0}}
+  /* 걸음 속도를 개체마다 살짝 다르게 — 다 같은 박자로 걸으면 기계처럼 보인다 */
+  .monster:nth-child(3n) .face{animation-duration:.62s}
+  .monster:nth-child(3n+1) .face{animation-duration:.84s}
   .monster .word{font-size:14px;font-weight:800;color:#fff;background:rgba(12,20,40,.85);
     border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 11px;white-space:nowrap;
     box-shadow:0 4px 12px rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
@@ -616,7 +628,8 @@
     }catch(e){ return 'space'; }
   })();
   var FACES = THEMES[THEME].foes;
-  var FACE_SRC = function(id){ return THEMES[THEME].pre + id + '.webp'; };
+  // 걷기 스프라이트(4프레임 가로 스트립). 정지컷 shooter-mon-/shooter-zom- 는 폴백으로 남겨둔다.
+  var FACE_SRC = function(id){ return '/img/shooter-anim-' + id + '.webp'; };
   // 첫 스폰에서 깜빡이지 않게 미리 받아둔다. ⚠ 참조를 배열에 붙잡아 둬야 한다 —
   // 지역변수로만 만들면 GC 후 메모리 캐시에서 빠져 스폰마다 다시 요청이 나간다.
   var _facePre = FACES.map(function(id){ var im = new Image(); im.src = FACE_SRC(id); return im; });
@@ -1187,7 +1200,12 @@
     n=n||1; i=i||0;
     var el=document.createElement('button');
     el.className='monster'+(isTarget?'':' distractor')+(isGolden?' golden':'');
-    el.innerHTML='<img class="face" alt="" draggable="false" src="'+FACE_SRC(FACES[Math.floor(Math.random()*FACES.length)])+'"><span class="word">'+word+'</span>';
+    /* 걷기 스프라이트는 background-image 로 넣는다 — <img> 로는 프레임을 끊어 넘길 수 없다.
+       ⚠ 정지컷을 두 번째 배경 레이어로 깔아 폴백을 만들려 했으나 잘못된 방법이다:
+         스프라이트의 투명한 부분으로 정지컷이 비쳐 캐릭터가 둘로 겹쳐 보인다.
+         16종 스프라이트는 항상 함께 배포되므로 폴백 없이 간다. */
+    var _foe=FACES[Math.floor(Math.random()*FACES.length)];
+    el.innerHTML='<div class="face" style="background-image:url(\''+FACE_SRC(_foe)+'\')"></div><span class="word">'+word+'</span>';
     var fw=field.clientWidth, fh=field.clientHeight;
     // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영.
     //   세로 낙하 + 좌우 드리프트로 몬스터가 더 활발히 빨리빨리 움직임. 상위 속도일수록 훨씬 빠름.
@@ -1707,6 +1725,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260730205255 -->
+<!-- BUILD:20260730212018 -->
 </body>
 </html>
