@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>좀비 실험실 탈출: 말해야 열린다 (Zombie Lab Escape)</title>
+<!--
+  🔬 좀비 실험실 탈출 — 말하기 강제형 방탈출 (student-game-escape-voice.html 의 자매 게임)
+  · 핵심 규칙: 버튼으로 진행 불가. 반드시 영어로 소리 내어 말해야 방이 반응한다.
+  · 퍼즐 사슬: 실험실 둘러보기 → 보관함 열기 → 컴퓨터 확인 → 기록 읽기 → 금고 →
+    숫자 말하기 → 백신 가져가기 → 문 열고 탈출
+  · 톤: PG 애니메이션 영화 수준의 "살짝 으스스한 모험" — 유혈·실제 인간 위협·괴물 등장 없음.
+    실험실은 비어 있고, 낮은 신음소리 1회 + 조명 깜빡임 1회만으로 긴장감을 준다.
+  · 긴장 장치: 제한시간(조명이 점점 어두워짐) · 경보음 · 되돌릴 수 없는 시간
+  · 발화 계측: 시도 횟수·성공률을 /api/games/progress 로 전송
+  · 접근성: 마이크 불가 환경에서는 타이핑 폴백 (게임이 막히지 않게)
+  · 배경: 힉스필드 생성 실사 이미지 — 공용 룸샷 4종(escape-zombie-lab/vault/open/escape.jpg) +
+    단계 전용 클로즈업 3종(escape-zombie-cabinet/logs/door.jpg)
+  · 이 파일은 student-game-escape-voice.html 의 2026-07-31 버그 수정(마이크 침묵 대기시간,
+    힌트 속도, 자막 병기, 마이크-오디오 블리드 방지 등)을 전부 그대로 물려받는다.
+-->
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#060907;
+    font-family:'Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8f5ec;user-select:none}
+  #wrap{position:fixed;inset:0;overflow:hidden}
+  /* ── 장면 ── */
+  #scene{position:absolute;inset:0;background-size:cover;background-position:center;
+    transition:background-image .35s,filter 1.2s linear,background-position .6s ease,background-size .6s ease}
+  #vig{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(115% 85% at 50% 45%,rgba(0,0,0,0) 40%,rgba(0,0,0,.72) 100%)}
+  #flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;transition:opacity .25s}
+  /* 쪽지 카드 — 보관함 속 단서를 사진이 아니라 "실물처럼" 잠깐 보여준다(새 이미지 없이) */
+  #noteCard{position:absolute;left:50%;top:44%;z-index:15;width:min(78%,320px);
+    transform:translate(-50%,-50%) rotate(-3deg) scale(.85);opacity:0;pointer-events:none;
+    transition:transform .35s cubic-bezier(.2,1.4,.4,1),opacity .3s;
+    background:linear-gradient(155deg,#eef3d8,#d9e2b0);border-radius:2px 10px 2px 10px;
+    box-shadow:0 14px 34px rgba(0,0,0,.55);padding:18px 20px;
+    font-family:Georgia,'Nanum Myeongjo',serif;color:#293a1c;text-align:left;line-height:1.5}
+  #noteCard::before{content:'';position:absolute;right:-1px;top:-1px;width:0;height:0;
+    border-style:solid;border-width:0 18px 18px 0;border-color:transparent #b9c88a transparent transparent}
+  #noteCard.show{opacity:1;transform:translate(-50%,-50%) rotate(-2deg) scale(1)}
+  #noteEn{font-size:15.5px;font-weight:700}
+  #noteKo{font-size:12.5px;color:#4c5c34;margin-top:6px}
+
+  /* ── 상단 목표 ── */
+  #goalBar{position:absolute;top:0;left:0;right:0;z-index:6;padding:10px 14px 12px;
+    background:linear-gradient(180deg,rgba(5,9,7,.92),rgba(5,9,7,0));pointer-events:none}
+  #goalTxt{font-size:15px;font-weight:800;color:#baff6e;text-align:center;letter-spacing:.2px;
+    text-shadow:0 2px 6px #000}
+  #goalKo{font-size:12.5px;color:#a9c8b5;text-align:center;margin-top:2px;text-shadow:0 1px 4px #000}
+  /* 시간 */
+  #timeWrap{position:absolute;top:9px;right:12px;z-index:7;text-align:right}
+  #timeVal{font-size:20px;font-weight:900;color:#7fffb0;font-variant-numeric:tabular-nums;
+    text-shadow:0 2px 6px #000}
+  #timeVal.warn{color:#ff6b6b;animation:tpulse .8s ease-in-out infinite}
+  @keyframes tpulse{0%,100%{opacity:1}50%{opacity:.45}}
+  #utterWrap{position:absolute;top:9px;left:12px;z-index:7;font-size:11.5px;color:#8fbda1;
+    text-shadow:0 1px 4px #000;line-height:1.35}
+  #utterWrap b{color:#a3e635;font-size:14px}
+
+  /* ── 하단 대화 패널 ── */
+  #panel{position:absolute;left:0;right:0;bottom:0;z-index:8;padding:12px 14px 16px;
+    background:linear-gradient(0deg,rgba(5,9,7,.96) 62%,rgba(5,9,7,0))}
+  #heard{min-height:26px;text-align:center;font-size:14.5px;color:#cde6d5;margin-bottom:8px}
+  #heard b{color:#7fffb0}
+  #heard .ok{color:#a3e635;font-weight:800}
+  #heard .no{color:#ff8a8a;font-weight:800}
+  #micRow{display:flex;gap:9px;align-items:center;justify-content:center;flex-wrap:wrap}
+  #micBtn{padding:14px 34px;border-radius:40px;font-size:17px;font-weight:900;cursor:pointer;
+    border:none;color:#0e1c11;background:linear-gradient(180deg,#c8ffab,#4f9d3a);
+    box-shadow:0 6px 20px rgba(79,157,58,.45);letter-spacing:.3px;min-width:210px}
+  #micBtn:active{transform:translateY(2px)}
+  #micBtn.rec{background:linear-gradient(180deg,#ff8080,#e03131);color:#fff;
+    animation:recp .9s ease-in-out infinite}
+  @keyframes recp{0%,100%{box-shadow:0 0 0 3px rgba(255,90,90,.35),0 6px 20px rgba(224,49,49,.5)}
+    50%{box-shadow:0 0 0 12px rgba(255,90,90,.06),0 6px 24px rgba(224,49,49,.7)}}
+  .sBtn{padding:11px 15px;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;
+    border:1px solid rgba(140,195,165,.35);background:rgba(14,26,18,.85);color:#c8e2d0}
+  .sBtn:active{transform:scale(.95)}
+  /* 타이핑 폴백 */
+  #typeRow{display:none;gap:8px;justify-content:center;margin-top:9px}
+  #typeRow.on{display:flex}
+  #typeIn{flex:1;max-width:340px;padding:11px 13px;border-radius:10px;font-size:15px;
+    border:1px solid rgba(140,195,165,.4);background:rgba(10,20,14,.9);color:#eefff2}
+  /* 힌트 */
+  #hint{margin-top:9px;text-align:center;font-size:13px;color:#baff6e;min-height:19px;
+    text-shadow:0 1px 4px #000}
+  #hint .ex{color:#fff;background:rgba(186,255,110,.16);border:1px solid rgba(186,255,110,.4);
+    padding:2px 9px;border-radius:7px;font-weight:800;display:inline-block;margin-top:3px}
+
+  /* ── 오버레이 ── */
+  .ov{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:24px;overflow-y:auto;
+    background:radial-gradient(120% 90% at 50% 40%,rgba(18,30,22,.9),rgba(3,6,4,.97))}
+  .ov.hide{display:none}
+  .oT{font-size:clamp(26px,7vw,38px);font-weight:900;line-height:1.2;
+    background:linear-gradient(180deg,#e8ffc0,#5ec24c);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent}
+  .oEn{font-size:13px;font-weight:700;color:#8fbda1;letter-spacing:2.5px;margin-top:4px;text-transform:uppercase}
+  .oS{margin-top:12px;font-size:14.5px;color:#b8d6c1;max-width:460px;line-height:1.75}
+  .rule{margin:18px 0 4px;background:rgba(14,28,18,.8);border:1px solid rgba(140,195,165,.24);
+    border-radius:12px;padding:15px 18px;max-width:440px;text-align:left;font-size:13.5px;line-height:1.8}
+  .rule b{color:#baff6e}
+  .rule .k{display:inline-block;background:rgba(186,255,110,.15);border:1px solid rgba(186,255,110,.35);
+    border-radius:6px;padding:1px 8px;font-weight:800;color:#e8ffc0;font-size:12.5px}
+  /* 설명을 "1·2·3·4 단계"로 — 글을 읽지 않고 훑어도 순서가 보이게 */
+  .rule .stp{display:flex;gap:10px;align-items:flex-start;margin-bottom:11px}
+  .rule .stp:last-of-type{margin-bottom:0}
+  .rule .num{flex:0 0 23px;width:23px;height:23px;border-radius:50%;margin-top:2px;
+    background:linear-gradient(180deg,#c8ffab,#4f9d3a);color:#10210c;font-weight:900;font-size:13px;
+    display:flex;align-items:center;justify-content:center}
+  .en{display:inline-block;color:#8fbda1;font-size:11.5px;font-weight:600;line-height:1.45}
+  .oS .en{margin-top:5px}
+  .ex2{display:inline-block;margin-top:4px;background:rgba(186,255,110,.16);
+    border:1px solid rgba(186,255,110,.42);border-radius:7px;padding:2px 9px;
+    font-weight:800;color:#fff;font-size:13px}
+  .tips{margin-top:13px;padding-top:11px;border-top:1px solid rgba(140,195,165,.2);
+    font-size:12.5px;color:#a9c8b5;line-height:1.75}
+  .tips b{color:#baff6e}
+  /* 마이크 버튼 아래 영어 한 줄 */
+  #micBtn .mSub{display:block;font-size:10.5px;font-weight:700;opacity:.72;margin-top:1px;letter-spacing:.2px}
+  .sBtn .sub2{display:block;font-size:9.5px;font-weight:700;opacity:.68;margin-top:1px}
+  .bigBtn{margin-top:18px;padding:15px 46px;border-radius:14px;font-size:19px;font-weight:900;cursor:pointer;
+    border:none;color:#10210c;background:linear-gradient(180deg,#c8ffab,#4f9d3a);
+    box-shadow:0 6px 20px rgba(79,157,58,.45)}
+  .bigBtn:active{transform:translateY(2px)}
+  #resStat{margin:14px 0 2px;font-size:15px;color:#dbf2e2;line-height:1.9}
+  #resStat b{color:#baff6e;font-size:21px}
+  @media(max-height:520px){ .rule{font-size:12.5px;padding:11px 14px} .oS{font-size:13px} }
+</style>
+<script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+</head>
+<body>
+<div id="wrap">
+  <div id="scene"></div>
+  <div id="vig"></div>
+  <div id="flash"></div>
+  <div id="noteCard"><div id="noteEn"></div><div id="noteKo"></div></div>
+
+  <div id="utterWrap">발화 <b id="utterN">0</b>회<br><span id="utterOk">성공 0</span></div>
+  <div id="timeWrap"><div id="timeVal">5:00</div></div>
+
+  <div id="goalBar">
+    <div id="goalTxt">Find a way out.</div>
+    <div id="goalKo">실험실을 살펴보세요</div>
+  </div>
+
+  <div id="panel">
+    <div id="heard"></div>
+    <div id="micRow">
+      <button id="micBtn">🎤 눌러서 영어로 말하기<span class="mSub">Press &amp; speak English</span></button>
+      <button class="sBtn" id="hintBtn">💡 힌트<span class="sub2">Hint</span></button>
+      <button class="sBtn" id="typeBtn">⌨️</button>
+    </div>
+    <div id="typeRow">
+      <input id="typeIn" type="text" placeholder="영어로 입력 후 Enter" autocomplete="off">
+      <button class="sBtn" id="typeGo">확인</button>
+    </div>
+    <div id="hint"></div>
+  </div>
+
+  <!-- 시작 -->
+  <div class="ov" id="startOv">
+    <div class="oT">🔬 좀비 실험실 탈출</div>
+    <div class="oEn">Zombie Lab Escape</div>
+    <div class="oS">이 실험실은 <b>말을 알아듣습니다.</b><br>
+      영어로 소리 내어 말하면 실험실이 움직여요.<br>
+      <span class="en">This lab listens. Speak English and it moves.</span></div>
+    <div class="rule">
+      <div class="stp"><span class="num">1</span>
+        <div><b>초록 버튼</b>을 누르세요<br>
+          <span class="en">Press the green button</span></div></div>
+      <div class="stp"><span class="num">2</span>
+        <div>화면에 보이는 문장을 <b>그대로 소리 내어</b> 읽으세요<br>
+          <span class="ex2">Look at the lab</span><br>
+          <span class="en">Read the sentence on the screen out loud</span></div></div>
+      <div class="stp"><span class="num">3</span>
+        <div>실험실이 대답하면 <b>다음에 할 말</b>을 알려줘요<br>
+          <span class="en">The lab answers and tells you what to say next</span></div></div>
+      <div class="stp"><span class="num">4</span>
+        <div>백신을 찾아 <b>7번</b> 말하면 탈출합니다 💉<br>
+          <span class="en">Speak 7 times, find the vaccine, and escape</span></div></div>
+      <div class="tips">⏳ 시간은 <b>5분</b> — 줄어들면 조명이 어두워져요 · <b>5 minutes</b><br>
+        💡 모르겠으면 <b>힌트</b> 버튼 (감점 없어요) · Hint costs nothing<br>
+        ⌨️ 마이크가 안 되면 <b>키보드</b> 버튼으로도 할 수 있어요 · Typing works too</div>
+    </div>
+    <button class="bigBtn" id="btnStart">▶ 실험실 들어가기 · Enter</button>
+  </div>
+
+  <!-- 결과 -->
+  <div class="ov hide" id="endOv">
+    <div class="oT" id="endT">탈출 성공!</div>
+    <div class="oEn" id="endEn">Escaped</div>
+    <div id="resStat"></div>
+    <button class="bigBtn" id="btnAgain">🔄 다시 도전</button>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   0. 파라미터 · 상태
+   ════════════════════════════════════════════════════════════ */
+var QS=new URLSearchParams(location.search);
+var UID=QS.get('uid')||'';
+var TIME_LIMIT=parseInt(QS.get('time'),10)||300;   // 초
+
+var SCENES={ room:'/img/escape-zombie-lab.jpg?v=1', safe:'/img/escape-zombie-vault.jpg?v=1',
+             open:'/img/escape-zombie-open.jpg?v=1', escape:'/img/escape-zombie-escape.jpg?v=1',
+             cabinetCU:'/img/escape-zombie-cabinet.jpg?v=1', logsCU:'/img/escape-zombie-logs.jpg?v=1',
+             doorCU:'/img/escape-zombie-door.jpg?v=1' };
+// 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
+Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
+
+/* ════════════════════════════════════════════════════════════
+   1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
+      accept: 인정할 표현들(부분일치·유연 매칭) / goal: 화면 목표 / hint 3단계
+      (student-game-escape-voice.html 과 동일한 7단계 구조 — 검증된 페이싱을 그대로 물려받는다)
+   ════════════════════════════════════════════════════════════ */
+var STEPS=[
+  { id:'lab',
+    goal:'Find a way out.', goalKo:'실험실을 둘러보세요 — 무엇이 보이나요?',
+    accept:[['look','lab'],['see','lab'],['check','lab'],['examine','lab'],['look','room'],['look','around']],
+    scene:'room',
+    say:'You are in an old lab. In the corner there is a locked supply cabinet.',
+    sayKo:'낡은 실험실 안입니다. 구석에 잠긴 보관함이 있습니다.',
+    hints:['실험실을 살펴보세요','"보다"는 영어로 look','Look at the lab'] },
+
+  { id:'cabinet',
+    goal:'The cabinet is locked.', goalKo:'보관함을 열어보세요',
+    accept:[['open','cabinet']],
+    scene:'room',
+    say:'Inside the cabinet you find a note. It says: Check the computer logs for the code.',
+    sayKo:'보관함 안에 쪽지가 있습니다. "암호는 컴퓨터 기록에 있다"',
+    hints:['보관함을 여세요','"열다"는 영어로 open','Open the cabinet'] },
+
+  { id:'computer',
+    goal:'A note points to the computer.', goalKo:'컴퓨터를 확인해보세요',
+    accept:[['check','computer'],['look','computer'],['use','computer'],['read','computer'],
+            ['check','screen'],['look','screen']],
+    scene:'safe',
+    say:'The computer unlocks a hidden panel. A storage vault appears in the wall. It needs a three digit code.',
+    sayKo:'컴퓨터가 숨겨진 패널을 엽니다. 벽에 보관 금고가 나타납니다. 세 자리 암호가 필요합니다.',
+    hints:['컴퓨터를 확인하세요','"확인하다"는 영어로 check','Check the computer'] },
+
+  { id:'logs',
+    goal:'The vault needs a code.', goalKo:'암호를 찾아보세요 — 기록을 읽어보세요',
+    accept:[['look','logs'],['check','logs'],['read','logs'],['look','notes'],['read','notes'],['check','notes']],
+    scene:'safe',
+    say:'The logs show three numbers: five, one, nine.',
+    sayKo:'기록에 숫자 세 개가 보입니다. 5, 1, 9 입니다.',
+    hints:['기록을 읽어보세요','기록(logs)을 보세요','Look at the logs'] },
+
+  { id:'code',
+    goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 (5 1 9)',
+    accept:[['five','one','nine'],['5','1','9']],
+    scene:'safe', numMode:true,
+    say:'The vault clicks open. A small vaccine case is inside.',
+    sayKo:'금고가 열립니다. 작은 백신 케이스가 들어 있습니다.',
+    hints:['숫자 5 1 9 를 영어로','five, one, nine','Five one nine'] },
+
+  { id:'vaccine',
+    goal:'A vaccine case is in the vault.', goalKo:'백신을 가져가세요',
+    accept:[['take','vaccine'],['get','vaccine'],['grab','vaccine'],['take','case'],['get','case']],
+    scene:'open',
+    say:'You have the vaccine. Now find the door.',
+    sayKo:'백신을 얻었습니다. 이제 문을 찾으세요.',
+    hints:['백신을 가져가세요','"가져가다"는 take','Take the vaccine'] },
+
+  { id:'door',
+    goal:'Unlock the door and escape!', goalKo:'문을 열고 탈출하세요',
+    accept:[['open','door'],['unlock','door'],['use','vaccine','door']],
+    scene:'escape',
+    say:'The airlock hisses open. Fresh air rushes in. You are free!',
+    sayKo:'에어락이 열립니다. 신선한 공기가 들어옵니다. 탈출!',
+    hints:['문을 여세요','"열다"는 open','Open the door'] }
+];
+
+var G=null;
+function newGame(){
+  G={ i:0, t:TIME_LIMIT, running:false, over:false,
+      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false, groaned:false };
+}
+
+/* ════════════════════════════════════════════════════════════
+   2. 음성 (TTS) — 서버 원어민 우선, 실패 시 기기 음성
+   ════════════════════════════════════════════════════════════ */
+var _ttsAudio=null, _ttsCache={};
+function _ttsStop(){ try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.pause(); } }catch(_){}
+  try{ speechSynthesis.cancel(); }catch(_){} }
+function speak(text, cb){
+  _ttsStop();
+  function fallback(){ try{ var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=.92;
+    u.onend=function(){ if(cb)cb(); }; u.onerror=function(){ if(cb)cb(); };
+    speechSynthesis.speak(u); }catch(_){ if(cb)cb(); } }
+  function play(url){ try{ if(!_ttsAudio) _ttsAudio=new Audio(); _ttsAudio.src=url;
+      _ttsAudio.onended=function(){ if(cb)cb(); };
+      _ttsAudio.onerror=function(){ fallback(); };
+      var p=_ttsAudio.play(); if(p&&p.catch) p.catch(function(){ fallback(); });
+    }catch(_){ fallback(); } }
+  if(_ttsCache[text]){ play(_ttsCache[text]); return; }
+  fetch('/api/voice/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:text,lang:'en',speaker:'asteria'})})
+    .then(function(r){ var ct=r.headers.get('content-type')||'';
+      if(!r.ok||ct.indexOf('audio')<0) throw 0; return r.blob(); })
+    .then(function(b){ if(b.size<200) throw 0;
+      var fr=new FileReader(); fr.onload=function(){ _ttsCache[text]=String(fr.result); play(_ttsCache[text]); };
+      fr.onerror=function(){ fallback(); }; fr.readAsDataURL(b); })
+    .catch(function(){ fallback(); });
+}
+/* 효과음 — Web Audio 합성(외부 파일 없음) */
+var AC=null;
+function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} } return AC; }
+function beep(freq,dur,type,vol){ var a=ac(); if(!a)return; var t=a.currentTime;
+  var o=a.createOscillator(), g=a.createGain(); o.type=type||'sine'; o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.18,t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t+dur+0.02); }
+function sndOk(){ beep(660,.12,'triangle',.2); setTimeout(function(){beep(990,.18,'triangle',.2);},110); }
+function sndNo(){ beep(200,.18,'sawtooth',.14); }
+function sndUnlock(){ beep(320,.1,'square',.16); setTimeout(function(){beep(480,.1,'square',.16);},110);
+  setTimeout(function(){beep(760,.3,'triangle',.2);},230); }
+function sndAlarm(){ beep(880,.12,'square',.1); setTimeout(function(){beep(660,.12,'square',.1);},150); }
+function sndTick(){ beep(1300,.025,'square',.05); }
+function sndCreak(){ beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(150,.12,'sawtooth',.08);},70);
+  setTimeout(function(){beep(105,.16,'sawtooth',.07);},150); setTimeout(function(){beep(85,.2,'sawtooth',.06);},260); }
+/* 에어락 — 문 열릴 때 쉬익(고음 짧게) + 쿵(저음) */
+function sndAirlock(){ beep(1400,.05,'sawtooth',.05); setTimeout(function(){beep(1200,.05,'sawtooth',.05);},60);
+  setTimeout(function(){beep(260,.12,'square',.16);},260); setTimeout(function(){beep(180,.2,'square',.14);},380); }
+/* 낮은 신음소리 — 게임당 딱 1번만 재생(보관함을 연 직후). 점프스케어 아님, 아주 작게. */
+function sndGroan(){ beep(140,.35,'sawtooth',.08); setTimeout(function(){beep(110,.4,'sawtooth',.07);},220);
+  setTimeout(function(){beep(80,.5,'sawtooth',.06);},480); }
+/* 방 분위기 — 은은한 저음 드론(스산함) + 시간이 줄면 자동으로 강해지는 초침 소리는 타이머에서 처리 */
+var _drone=null;
+function startAmbience(){ var a=ac(); if(!a||_drone) return;
+  try{
+    var o1=a.createOscillator(), o2=a.createOscillator(), g=a.createGain(), lfo=a.createOscillator(), lfoG=a.createGain();
+    o1.type='sine'; o1.frequency.value=54; o2.type='sine'; o2.frequency.value=55.6;
+    g.gain.value=.026; lfo.frequency.value=.11; lfoG.gain.value=.011;
+    lfo.connect(lfoG); lfoG.connect(g.gain); o1.connect(g); o2.connect(g); g.connect(a.destination);
+    o1.start(); o2.start(); lfo.start(); _drone={o1:o1,o2:o2,lfo:lfo};
+  }catch(_){}
+}
+function stopAmbience(){ if(!_drone) return; try{ _drone.o1.stop(); _drone.o2.stop(); _drone.lfo.stop(); }catch(_){} _drone=null; }
+
+/* ════════════════════════════════════════════════════════════
+   3. 화면
+   ════════════════════════════════════════════════════════════ */
+var $=function(id){ return document.getElementById(id); };
+/* 장면 확대/위치 — 공용 사진(lab/computer/code/vaccine)은 단계마다 "그 물건이 실제로 보이도록" 확대·이동한다.
+   cabinet/logs/door는 전용 클로즈업 사진이 따로 있어 확대가 필요 없다. */
+var FOCUS={ lab:['50% 58%','130%'], computer:['52% 40%','150%'],
+  code:['50% 45%','130%'], vaccine:['50% 45%','120%'] };
+/* 단계 id → 전용 클로즈업 사진(있으면 공용 사진 대신 이걸 쓴다) */
+var CLOSEUP={ cabinet:'cabinetCU', logs:'logsCU', door:'doorCU' };
+function setScene(k,pos,size){
+  var el=$('scene');
+  el.style.backgroundImage='url('+SCENES[k]+')';
+  el.style.backgroundPosition=pos||'center';
+  el.style.backgroundSize=size||'cover';
+}
+function setGoal(en,ko){ $('goalTxt').textContent=en; $('goalKo').textContent=ko; }
+function heard(html){ $('heard').innerHTML=html||''; }
+function hintTxt(html){ $('hint').innerHTML=html||''; }
+function flash(){ var f=$('flash'); f.style.opacity='.55'; setTimeout(function(){ f.style.opacity='0'; },160); }
+/* 쪽지 카드 — 보관함 속 단서를 잠깐 실물처럼 띄운다 */
+var _noteT=null;
+function showNote(en,ko){
+  var c=$('noteCard'); if(!c) return;
+  $('noteEn').textContent=en; $('noteKo').textContent=ko;
+  c.classList.add('show');
+  clearTimeout(_noteT); _noteT=setTimeout(function(){ c.classList.remove('show'); },3600);
+}
+/* 조명 깜빡임 — 신음소리와 함께 딱 1번, 점프스케어 아닌 은은한 연출 */
+function flickerLights(){
+  var el=$('scene'); if(!el) return;
+  var orig=el.style.transition;
+  el.style.transition='filter .05s linear';
+  var seq=[.3,1,.25,1,.4,1]; var i=0;
+  (function step(){
+    if(i>=seq.length){ el.style.transition=orig; applyDim(); return; }
+    el.style.filter='brightness('+seq[i]+')'; i++; setTimeout(step,70);
+  })();
+}
+/* 시간이 줄수록 실험실이 어두워짐 — 긴장 장치 */
+function applyDim(){ if(!G)return;
+  var r=Math.max(0,Math.min(1,G.t/TIME_LIMIT));
+  var b=0.35+0.65*r;                       // 밝기 1.0 → 0.35
+  $('scene').style.filter='brightness('+b.toFixed(3)+') saturate('+(0.7+0.3*r).toFixed(2)+')'; }
+
+/* ════════════════════════════════════════════════════════════
+   4. 발화 판정 — 유연 매칭(부분 어절 포함, 대소문자·문장부호 무시)
+   ════════════════════════════════════════════════════════════ */
+var NUMWORD={zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9',
+  ten:'10',for:'4',to:'2',too:'2',tree:'3',won:'1',ate:'8'};
+function normalize(s){
+  return String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(Boolean);
+}
+/* 숫자 단계: 말한 것에서 숫자만 뽑아 순서 비교 */
+function digitsOf(words){
+  var out=[];
+  words.forEach(function(w){
+    if(/^\d+$/.test(w)){ w.split('').forEach(function(d){ out.push(d); }); }
+    else if(NUMWORD[w]!==undefined){ out.push(NUMWORD[w]); }
+  });
+  return out;
+}
+function matchStep(said, step){
+  var w=normalize(said);
+  if(!w.length) return false;
+  if(step.numMode){
+    var d=digitsOf(w).join('');
+    return d.indexOf('519')>=0;
+  }
+  // accept 후보 중 하나라도 모든 키워드가 들어있으면 통과
+  return step.accept.some(function(keys){
+    return keys.every(function(k){
+      return w.some(function(x){ return x===k || x.indexOf(k)===0 || k.indexOf(x)===0; });
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   5. 진행
+   ════════════════════════════════════════════════════════════ */
+function curStep(){ return STEPS[G.i]; }
+/* ⏳ 가만히 있으면 스스로 도와준다 — 학생이 "무슨 말을 해야 하는지" 몰라 멈추는 것을 막는 장치. */
+var _idleT=null;
+function clearIdle(){ if(_idleT){ clearTimeout(_idleT); _idleT=null; } }
+function armIdle(ms){ clearIdle();
+  _idleT=setTimeout(function(){ _idleT=null;
+    if(!G||!G.running||G.over||G.busy) return;
+    showHint(true); armIdle(12000);            // 단계가 올라갈 때까지 12초마다 한 칸씩 더 알려준다
+  }, ms); }
+function showStep(){
+  var s=curStep(); if(!s) return;
+  // cabinet/logs/door는 전용 클로즈업 사진을 쓴다. door는 특히 "아직 잠겨 있는 에어락"을 보여줘야
+  // 한다 — s.scene(escape)을 그대로 쓰면 열기도 전에 열린 문이 먼저 보여서 순서가 뒤바뀐다
+  var cu=CLOSEUP[s.id];
+  var imgKey = cu || (s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
+  var f=cu ? null : FOCUS[s.id];
+  setScene(imgKey, f&&f[0], f&&f[1]);
+  // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
+  setGoal(s.goal, s.goalKo);
+  G.hintLv=0; hintTxt('');
+  if(G.i<=1){
+    // 처음 두 단계는 사용법을 익히는 구간 → 말할 문장을 그대로 보여준다(소리로는 읽어주지 않음:
+    // 이 시점에 방 내레이션이 재생 중이라 겹치면 둘 다 안 들린다)
+    G.hintLv=2; showHint(true,true); armIdle(18000);
+  } else armIdle(14000);
+}
+function advance(){
+  var s=curStep();
+  G.busy=true; clearIdle();
+  sndOk(); flash();
+  heard('<span class="ok">정확해요! · Correct!</span>');
+  logProg(s.id, true);
+  // 결과 장면으로 전환 — door는 "닫힘 → 에어락 → 열림" 한 박자를 넣는다(새 사진 없이도 순서가 보이게)
+  if(s.id==='door'){
+    setScene('doorCU');
+    sndAirlock();
+    setTimeout(function(){ setScene(s.scene); }, 650);
+  } else {
+    setScene(s.scene);
+    if(s.id==='cabinet'||s.id==='computer') sndCreak();
+  }
+  if(s.id==='cabinet'){
+    showNote('Check the computer logs for the code.','암호는 컴퓨터 기록에 있다');
+    // 실험실이 조용하지만 비어있지 않다는 신호 — 게임당 딱 1번, 낮은 신음 + 조명 깜빡임
+    if(!G.groaned){ G.groaned=true; setTimeout(function(){ sndGroan(); flickerLights(); },1100); }
+  }
+  // 🔒 안전장치 — TTS 콜백이 오지 않아도(음성 미지원·재생 차단 등) 게임이 잠기지 않게
+  //    콜백과 타임아웃 중 먼저 오는 쪽으로 1회만 진행한다.
+  var moved=false;
+  function go(){
+    if(moved) return; moved=true;
+    clearTimeout(G._advT);
+    G.busy=false;
+    G.i++;
+    if(G.i>=STEPS.length){ win(); return; }
+    showStep();
+  }
+  G._advT=setTimeout(go, 6000);
+  G._skip=go;                        // 화면을 탭하면 내레이션 건너뛰기
+  speak(s.say, go);
+  // 영어 원문도 자막으로 함께 띄운다 — 음성이 빨리 지나가도 읽을 수 있게
+  hintTxt('<div style="color:#a3e635;font-weight:800">'+esc(s.say)+'</div>'+
+          '<div style="color:#9dc9ab;margin-top:2px">'+esc(s.sayKo)+'</div>');
+  if(s.id==='code') sndUnlock();
+}
+function wrongTry(said){
+  G.wrong++;
+  sndNo();
+  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 실험실이 반응하지 않아요 · Try again</span>');
+  showHint(true);            // 틀렸으면 곧바로 한 칸 더 알려준다
+  armIdle(12000);
+}
+function submitSaid(said){
+  if(!G||!G.running||G.over||G.busy) return;
+  clearIdle();
+  G.utter++; $('utterN').textContent=G.utter;
+  var s=curStep();
+  if(matchStep(said,s)){ G.utterOk++; $('utterOk').textContent='성공 '+G.utterOk; advance(); }
+  else wrongTry(said);
+}
+function showHint(auto,noSpeak){
+  var s=curStep(); if(!s)return;
+  if(!auto) G.hintUsed++;
+  var lv=Math.min(2,G.hintLv);
+  var h=s.hints[lv];
+  hintTxt(lv>=2 ? ('이렇게 말해보세요 · Say this → <span class="ex">'+esc(h)+'</span>')
+                : ('💡 '+esc(h)));
+  if(lv>=2 && !noSpeak) speak(h);
+  G.hintLv=Math.min(2,G.hintLv+1);
+}
+
+/* ════════════════════════════════════════════════════════════
+   6. 음성인식
+   ════════════════════════════════════════════════════════════ */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+var recActive=false;
+/* 🎤 마이크 버튼 문구 — 상태가 바뀔 때마다 여기로만 바꾼다(문구가 흩어지면 한쪽만 고쳐진다) */
+var MIC_IDLE='🎤 눌러서 영어로 말하기<span class="mSub">Press &amp; speak English</span>';
+var MIC_REC ='🔴 지금 말하세요!<span class="mSub">Speak now — I am listening</span>';
+function micLabel(rec){ var b=$('micBtn'); if(!b)return;
+  b.innerHTML = rec ? MIC_REC : MIC_IDLE; b.classList.toggle('rec', !!rec); }
+/* ⏱ 침묵 대기시간 — 두 종류로 나눠야 한다.
+   버튼을 누른 뒤 숨을 고르거나 문장을 떠올리는 동안 마이크가 스스로 꺼지면
+   "소리가 잘 안 들렸어요"만 뜨고 학생은 이미 인식이 닫힌 뒤에 말하게 된다.
+   → 첫 말이 들리기 전에는 넉넉히 기다리고(SIL_FIRST), 말이 들린 뒤에만 짧게 끊는다(SIL_AFTER). */
+var SIL_FIRST=10000, SIL_AFTER=2400;
+function listen(){
+  if(!G||!G.running||G.over) return;
+  // 방이 이야기하는 중 마이크를 누르면 → 아무 반응 없이 무시하지 말고, 내레이션을 건너뛰고 바로 듣는다
+  if(G.busy){ if(G._skip){ _ttsStop(); G._skip(); setTimeout(listen,80); } return; }
+  // 🔊 힌트 음성이 재생 중일 때 바로 듣기 시작하면 스피커 소리가 마이크로 새어 들어가
+  //    "방이 말한 문장"을 학생이 말한 것으로 오인식해 자동으로 다음 단계로 넘어가버린다.
+  //    먼저 음성을 끄고 잠깐(에코가 가라앉을 시간) 기다린 뒤에 듣기 시작한다.
+  var speaking=false;
+  try{ speaking=(_ttsAudio&&!_ttsAudio.paused)||(window.speechSynthesis&&speechSynthesis.speaking); }catch(_){}
+  if(speaking){ _ttsStop(); setTimeout(listen,220); return; }
+  if(!SR){ enableTyping('이 브라우저는 음성인식을 지원하지 않아요 — 타이핑으로 진행하세요'); return; }
+  if(recActive) return;
+  var rec; try{ rec=new SR(); }catch(_){ enableTyping('마이크를 열 수 없어요 — 타이핑으로 진행하세요'); return; }
+  rec.lang='en-US'; rec.interimResults=true; rec.maxAlternatives=3; rec.continuous=true;
+  var done=false, best='', matched=false, sil=null, started=false, denied=false;
+  micLabel(true);
+  heard('<span style="color:#8fbda1">🔴 듣고 있어요 — 천천히 말해도 괜찮아요</span>');
+  recActive=true;
+  function finish(){ if(done)return; done=true; recActive=false;
+    if(sil)clearTimeout(sil); try{rec.stop();}catch(_){}
+    micLabel(false);
+    if(best) submitSaid(best);
+    else if(denied) enableTyping('마이크 권한이 꺼져 있어요 — 타이핑으로도 할 수 있어요');
+    else {
+      // 못 들었을 때 그냥 "다시 말해보세요"로 끝내면 학생이 무슨 말을 할지 모른 채 멈춘다 → 예문을 같이 띄운다
+      heard('<span class="no">소리를 못 들었어요</span> — 버튼을 누르고 <b>바로</b> 말해보세요'+
+            '<br><span class="en">I heard nothing — press the button, then speak right away</span>');
+      showHint(true);
+    }
+  }
+  function arm(){ if(sil)clearTimeout(sil);
+    sil=setTimeout(function(){ try{rec.stop();}catch(_){} }, best?SIL_AFTER:SIL_FIRST); }
+  rec.onstart=function(){ started=true; arm(); };
+  rec.onresult=function(e){ if(done)return; started=true;
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      var alts=e.results[i];
+      for(var j=0;j<alts.length;j++){
+        var tx=alts[j].transcript||''; if(tx) best=tx;
+        // 정답이 들리면 즉시 종료(반응 빠르게)
+        if(matchStep(tx,curStep())){ matched=true; best=tx; finish(); return; }
+      }
+    }
+    heard('듣는 중… <b>'+esc(best)+'</b>');
+    arm(); };
+  rec.onerror=function(e){ var er=(e&&e.error)||'';
+    if(er==='not-allowed'||er==='service-not-allowed'){ denied=true; finish(); return; }
+    // no-speech = "아직 말을 안 꺼냄". 여기서 끝내면 생각하는 사이에 마이크가 죽는다 →
+    // 보호막(MangoiSTT)이 다시 듣게 놔둔다. 진짜 끝은 침묵 타이머의 stop() 이 만든다.
+    if(er==='no-speech') return;
+    finish(); };
+  rec.onend=function(){ finish(); };
+  try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec,
+    {isDone:function(){return done;},onRestart:arm,maxRestarts:3,maxMs:SIL_FIRST+6000}); }catch(_){}
+  try{ rec.start(); }catch(_){ recActive=false; micLabel(false);
+    enableTyping('마이크 권한이 필요해요 — 타이핑으로도 가능해요'); return; }
+  // 마이크가 아예 열리지 않는 경우(권한 대화상자 방치 등)만 여기서 정리한다
+  setTimeout(function(){ if(!started && !done) finish(); }, 12000);
+}
+/* 타이핑 폴백 — 마이크가 안 되는 환경에서 게임이 막히지 않게 */
+function enableTyping(msg){
+  $('typeRow').classList.add('on');
+  if(msg) heard('<span class="no">'+esc(msg)+'</span>');
+  setTimeout(function(){ try{ $('typeIn').focus(); }catch(_){} },50);
+}
+
+/* ════════════════════════════════════════════════════════════
+   7. 타이머 · 종료 · 기록
+   ════════════════════════════════════════════════════════════ */
+var tick=null;
+function startTimer(){
+  clearInterval(tick);
+  tick=setInterval(function(){
+    if(!G||!G.running||G.over) return;
+    G.t--;
+    var m=Math.floor(G.t/60), s=G.t%60;
+    var el=$('timeVal'); el.textContent=m+':'+(s<10?'0':'')+s;
+    el.classList.toggle('warn', G.t<=60);
+    if(G.t===60||G.t===30||G.t===10) sndAlarm();
+    else if(G.t<=60 && G.t>0) sndTick();      // 마지막 1분 — 초침 소리로 긴장감
+    applyDim();
+    if(G.t<=0) lose();
+  },1000);
+}
+function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
+  setScene('escape');
+  $('scene').style.filter='brightness(1) saturate(1)';
+  $('endT').textContent='💉 탈출 성공!'; $('endEn').textContent='Escaped';
+  var used=TIME_LIMIT-G.t, m=Math.floor(used/60), s=used%60;
+  $('resStat').innerHTML='탈출 시간 <b>'+m+'분 '+(s<10?'0':'')+s+'초</b><br>'+
+    '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회<br>'+
+    '<span style="font-size:13px;color:#8fbda1">힌트 '+G.hintUsed+'회 사용</span>';
+  $('endOv').classList.remove('hide');
+  flushProg(true);
+  setTimeout(function(){ speak('Well done! You found the vaccine and escaped!'); },400);
+}
+function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
+  $('endT').textContent='⏳ 시간 초과'; $('endEn').textContent='Time Up';
+  $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+STEPS.length+'</b> 단계까지 갔어요<br>'+
+    '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회';
+  $('endOv').classList.remove('hide');
+  flushProg(false);
+}
+/* 학습기록 — "세션당 발화 횟수" 지표를 실제로 수집 */
+function logProg(item, ok){ G.prog.push({item:item, ko:'', correct:!!ok}); }
+function flushProg(cleared){
+  try{
+    var body=JSON.stringify({ user_id:UID, lang:'en', game:'escape-zombie',
+      events:G.prog.slice(0,60),
+      meta:{ utter:G.utter, utterOk:G.utterOk, hints:G.hintUsed, cleared:!!cleared,
+             steps:G.i, timeUsed:TIME_LIMIT-G.t } });
+    if(navigator.sendBeacon) navigator.sendBeacon('/api/games/progress', new Blob([body],{type:'application/json'}));
+    else fetch('/api/games/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:body,keepalive:true}).catch(function(){});
+  }catch(_){}
+}
+
+/* ════════════════════════════════════════════════════════════
+   8. 시작 · 바인딩
+   ════════════════════════════════════════════════════════════ */
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+function startGame(){
+  $('startOv').classList.add('hide'); $('endOv').classList.add('hide');
+  $('typeRow').classList.remove('on');
+  clearIdle(); micLabel(false);
+  newGame(); G.running=true;
+  $('utterN').textContent='0'; $('utterOk').textContent='성공 0';
+  $('timeVal').textContent='5:00'; $('timeVal').classList.remove('warn');
+  heard(''); hintTxt('');
+  setScene('room'); applyDim(); showStep();
+  try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); startAmbience(); }catch(_){}
+  startTimer();
+  speak('You are locked in the lab. Look around.');
+  if(!SR) enableTyping('이 브라우저는 음성인식이 없어요 — 타이핑으로 진행하세요');
+}
+/* 내레이션 중 화면 탭 = 건너뛰기 (기다리기 싫은 학생 배려) */
+$('scene').addEventListener('click', function(){ if(G && G.busy && G._skip){ _ttsStop(); G._skip(); } });
+$('btnStart').addEventListener('click', startGame);
+$('btnAgain').addEventListener('click', startGame);
+$('micBtn').addEventListener('click', listen);
+$('hintBtn').addEventListener('click', function(){ showHint(false); armIdle(12000); });
+$('typeBtn').addEventListener('click', function(){ $('typeRow').classList.toggle('on'); });
+$('typeGo').addEventListener('click', function(){ var v=$('typeIn').value.trim();
+  if(v){ $('typeIn').value=''; submitSaid(v); } });
+$('typeIn').addEventListener('keydown', function(e){ if(e.key==='Enter'){ var v=this.value.trim();
+  if(v){ this.value=''; submitSaid(v); } } });
+window.addEventListener('keydown', function(e){
+  if(e.code==='Space' && G && G.running && !G.over && document.activeElement!==$('typeIn')){
+    e.preventDefault(); listen(); } });
+
+setScene('room');
+</script>
+<!-- BUILD:dev -->
+<!-- BUILD:20260731041146 -->
+</body>
+</html>

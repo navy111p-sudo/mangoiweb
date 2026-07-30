@@ -118,6 +118,12 @@
     border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 11px;white-space:nowrap;
     box-shadow:0 4px 12px rgba(0,0,0,.4);text-shadow:0 1px 2px rgba(0,0,0,.6)}
   .monster.distractor .word{border-color:rgba(255,120,120,.35)}
+  /* 🙋 민간인 — 단어를 안 들고 있고 라벨이 파랗다. 좀비와 헷갈리면 안 되므로 확실히 구분한다. */
+  .monster.civ .word{background:rgba(56,189,248,.9);color:#04283a;border-color:#bae6fd}
+  .monster.civ.hurt{animation:civFall .7s forwards}      /* 잘못 쏘면 "oh no!" 하며 쓰러진다 */
+  @keyframes civFall{0%{transform:none;opacity:1}
+    35%{transform:translateY(6px) rotate(-14deg)}
+    100%{transform:translateY(30px) rotate(-82deg);opacity:0}}
   /* 💰 황금 보너스 표적 — 2배 점수. 왕관 이모지 대신 CSS 로만 그린 금빛 광채 링 */
   .monster.golden .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 12px rgba(0,0,0,.4)}
   .monster.golden .face{filter:drop-shadow(0 0 9px gold)}
@@ -637,6 +643,9 @@
   var FACES = THEMES[THEME].foes;
   // 걷기 스프라이트(4프레임 가로 스트립). 정지컷 shooter-mon-/shooter-zom- 는 폴백으로 남겨둔다.
   var FACE_SRC = function(id){ return '/img/shooter-anim-' + id + '.webp'; };
+  // 🙋 민간인 4명 — 테마와 무관하게 공통(좀비 도시든 우주든 '구해야 할 사람')
+  var CIVS = ['civ-girl','civ-man','civ-woman','civ-elder'];
+  var _civPre = CIVS.map(function(id){ var im=new Image(); im.src=FACE_SRC(id); return im; });
   // 첫 스폰에서 깜빡이지 않게 미리 받아둔다. ⚠ 참조를 배열에 붙잡아 둬야 한다 —
   // 지역변수로만 만들면 GC 후 메모리 캐시에서 빠져 스폰마다 다시 요청이 나간다.
   var _facePre = FACES.map(function(id){ var im = new Image(); im.src = FACE_SRC(id); return im; });
@@ -1293,25 +1302,32 @@
     // 👑 이 라운드에 45% 확률로 목표 단어 하나를 황금 보너스 표적으로 (2배 점수 + 특수 연출)
     if(tItems.length && Math.random()<0.45){ tItems[Math.floor(Math.random()*tItems.length)].golden=true; }
     var items = tItems.concat(pool.slice(0,2).map(function(w){ return {word:w,isTarget:false}; }));
+    /* 🙋 민간인 2명을 섞는다(사장님 지시: "민간인은 피해서 쏴서 죽이는 게임").
+       단어를 들고 있지 않아 규칙이 단순하다 — 단어가 없는 사람은 쏘면 안 된다.
+       옷 색이 밝아(남색·빨강·노랑·갈색) 회녹색 좀비와 한눈에 구분된다. */
+    for(var _c=0;_c<2;_c++) items.push({word:'', isTarget:false, civ:true});
     shuffle(items);
     var _lanes=laneXs(items.length, 8, Math.max(40, field.clientWidth-86));
-    items.forEach(function(it,i){ spawnMonster(it.word, it.isTarget, it.golden, i, items.length, _lanes[i]); });
+    items.forEach(function(it,i){ spawnMonster(it.word, it.isTarget, it.golden, i, items.length, _lanes[i], it.civ); });
     renderSentence();
     // 🔊 라운드 시작: 목표 문장 2회 → 그다음 '색칠된 첫 단어'를 읽어 무엇을 쏠지 소리로도 알려준다
     setTimeout(function(){ speakSentence(function(){
       setTimeout(function(){ speakSentence(function(){ setTimeout(function(){ if(running) speakTarget(); }, 320); }); }, 420);
     }); }, 250);
   }
-  function spawnMonster(word,isTarget,isGolden,i,n,laneX){
+  function spawnMonster(word,isTarget,isGolden,i,n,laneX,isCiv){
     n=n||1; i=i||0;
     var el=document.createElement('button');
-    el.className='monster'+(isTarget?'':' distractor')+(isGolden?' golden':'');
+    el.className='monster'+(isTarget?'':' distractor')+(isGolden?' golden':'')+(isCiv?' civ':'');
     /* 걷기 스프라이트는 background-image 로 넣는다 — <img> 로는 프레임을 끊어 넘길 수 없다.
        ⚠ 정지컷을 두 번째 배경 레이어로 깔아 폴백을 만들려 했으나 잘못된 방법이다:
          스프라이트의 투명한 부분으로 정지컷이 비쳐 캐릭터가 둘로 겹쳐 보인다.
          16종 스프라이트는 항상 함께 배포되므로 폴백 없이 간다. */
-    var _foe=FACES[Math.floor(Math.random()*FACES.length)];
-    el.innerHTML='<div class="face" style="background-image:url(\''+FACE_SRC(_foe)+'\')"></div><span class="word">'+word+'</span>';
+    var _foe = isCiv ? CIVS[Math.floor(Math.random()*CIVS.length)]
+                     : FACES[Math.floor(Math.random()*FACES.length)];
+    var _bg = FACE_SRC(_foe);
+    el.innerHTML = '<div class="face" style="background-image:url(&quot;' + _bg + '&quot;)"></div>'
+                 + (isCiv ? '<span class="word civtag">민간인</span>' : '<span class="word">' + word + '</span>');
     var fw=field.clientWidth, fh=field.clientHeight;
     // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영.
     //   세로 낙하 + 좌우 드리프트로 몬스터가 더 활발히 빨리빨리 움직임. 상위 속도일수록 훨씬 빠름.
@@ -1323,7 +1339,7 @@
        여러 마리가 한꺼번에 겹치지 않게 depth 를 계단식으로 벌리고(뒤쪽일수록 촘촘),
        lane 은 '소실점에서 좌우로 벌어지는 각도'로 쓴다(-1=왼쪽 끝, +1=오른쪽 끝). */
     var _lane = (laneX!=null) ? ((laneX/Math.max(1,fw-86))*2-1) : (Math.random()*2-1);
-    var m={ el:el, faceEl:el.querySelector('.face'), word:word, isTarget:isTarget, golden:!!isGolden, breached:false,
+    var m={ el:el, faceEl:el.querySelector('.face'), word:word, isTarget:isTarget, isCiv:!!isCiv, golden:!!isGolden, breached:false,
             lane:_lane, wob:Math.random()*Math.PI*2,
             /* 음수 depth = 아직 지평선 뒤(줄지어 순서대로 등장).
                ⚠ 간격을 좁게 잡았더니 여러 마리가 거의 동시에 코앞까지 와서 생명력 3개가
@@ -1550,8 +1566,23 @@
     }, 105);
   }
 
+  var CIV_PENALTY=100;                                  // 🙋 민간인 오사 감점(사장님 지시: -100점)
   function resolve(m,x,y){
     if(!running || !m.el.isConnected) return;
+    if(m.isCiv){                                        // 🙋 민간인을 쐈다 — 점수만 깎고 생명력은 안 건드린다
+      score=Math.max(0, score-CIV_PENALTY);
+      combo=0;
+      floatScore('oh no! -'+CIV_PENALTY, x, y, false);
+      showCombo('민간인이에요! -'+CIV_PENALTY);
+      m.el.classList.add('hurt');
+      var _mm=m;
+      setTimeout(function(){                            // 쓰러진 뒤 저 멀리서 다시 걸어온다
+        if(_mm.el){ _mm.el.classList.remove('hurt'); }
+        _mm.depth=-0.35; _mm.lane=Math.random()*2-1;
+      }, 720);
+      updateHUD();
+      return;
+    }
     var required = targetWords[currentIndex];
     if(m.word === required){
       var pts = m.golden ? 200 : 100;               // 👑 황금 표적 = 2배 점수
@@ -1632,7 +1663,10 @@
       var d=Math.max(0,m.depth), sc=depthScale(d);
       m.wob += dt*3.2;
       // 소실점(가운데)에서 depth 에 비례해 좌우로 벌어진다 + 걸음에 맞춘 미세한 흔들림
-      var spread=(w*0.46)*Math.pow(d,1.25);
+      /* 좌우로 벌어지는 폭. pow 지수를 1.25 로 두면 실제 도로 원근과는 맞지만 뒤쪽에서
+         전부 가운데 뭉쳐 단어가 겹쳐 안 읽힌다(실측) → 0.7 로 낮춰 일찍 벌어지게 한다.
+         학습 게임이라 '원근의 정확함'보다 '단어가 읽히는 것'이 우선이다. */
+      var spread=(w*0.46)*Math.pow(d,0.7);
       m.y=depthY(d,h);
       m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
       m.x=Math.max(2, Math.min(w-40, m.x));
@@ -1869,6 +1903,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260731035027 -->
+<!-- BUILD:20260731041146 -->
 </body>
 </html>
