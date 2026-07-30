@@ -11,7 +11,8 @@
   · 긴장 장치: 제한시간(조명이 점점 어두워짐) · 경보음 · 되돌릴 수 없는 시간
   · 발화 계측: 시도 횟수·성공률을 /api/games/progress 로 전송 (제안서의 "세션당 발화 횟수" 지표)
   · 접근성: 마이크 불가 환경에서는 타이핑 폴백 (게임이 막히지 않게)
-  · 배경: 힉스필드 생성 실사 이미지 4종 (escape-room1~4.jpg)
+  · 배경: 힉스필드 생성 실사 이미지 — 공용 룸샷 4종(escape-room1~4.jpg) +
+    단계 전용 클로즈업 3종(escape-room-drawer/books/door.jpg, 2026-07-31 추가)
 -->
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -24,7 +25,7 @@
   #vig{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(115% 85% at 50% 45%,rgba(0,0,0,0) 40%,rgba(0,0,0,.72) 100%)}
   #flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;transition:opacity .25s}
-  /* 쪽지 카드 — 서랍 속 단서를 사진이 아니라 "실물처럼" 잠깐 보여준다(새 이미지 없이) */
+  /* 쪽지 카드 — 서랍/책 속 단서를 사진이 아니라 "실물처럼" 잠깐 보여준다(새 이미지 없이) */
   #noteCard{position:absolute;left:50%;top:44%;z-index:15;width:min(78%,320px);
     transform:translate(-50%,-50%) rotate(-3deg) scale(.85);opacity:0;pointer-events:none;
     transition:transform .35s cubic-bezier(.2,1.4,.4,1),opacity .3s;
@@ -200,7 +201,9 @@ var UID=QS.get('uid')||'';
 var TIME_LIMIT=parseInt(QS.get('time'),10)||300;   // 초
 
 var SCENES={ room:'/img/escape-room1.jpg?v=1', safe:'/img/escape-room2.jpg?v=1',
-             open:'/img/escape-room3.jpg?v=1', escape:'/img/escape-room4.jpg?v=1' };
+             open:'/img/escape-room3.jpg?v=1', escape:'/img/escape-room4.jpg?v=1',
+             drawerCU:'/img/escape-room-drawer.jpg?v=1', booksCU:'/img/escape-room-books.jpg?v=1',
+             doorCU:'/img/escape-room-door.jpg?v=1' };
 // 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
 Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
 
@@ -334,10 +337,13 @@ function stopAmbience(){ if(!_drone) return; try{ _drone.o1.stop(); _drone.o2.st
    3. 화면
    ════════════════════════════════════════════════════════════ */
 var $=function(id){ return document.getElementById(id); };
-/* 장면 확대/위치 — 사진은 4장뿐이라 단계마다 "그 물건이 화면에 실제로 보이도록" 확대·이동해서 보여준다.
-   (2026-07-31) cover+center로만 두면 세로 화면에서 책장·서랍·문 손잡이가 화면 밖으로 잘려나갔다 */
-var FOCUS={ desk:['28% 62%','175%'], drawer:['66% 84%','250%'], painting:['48% 24%','185%'],
-  books:['94% 55%','170%'], code:['54% 46%','150%'], key:['50% 40%','130%'], door:['90% 55%','215%'] };
+/* 장면 확대/위치 — 공용 사진(desk/painting/code/key)은 단계마다 "그 물건이 실제로 보이도록" 확대·이동한다.
+   (2026-07-31) cover+center로만 두면 세로 화면에서 책장·문 손잡이가 화면 밖으로 잘려나갔다.
+   drawer/books/door는 전용 클로즈업 사진(escape-room-drawer/books/door.jpg)이 따로 있어 확대가 필요 없다. */
+var FOCUS={ desk:['28% 62%','175%'], painting:['48% 24%','185%'],
+  code:['54% 46%','150%'], key:['50% 40%','130%'] };
+/* 단계 id → 전용 클로즈업 사진(있으면 공용 사진 대신 이걸 쓴다) */
+var CLOSEUP={ drawer:'drawerCU', books:'booksCU', door:'doorCU' };
 function setScene(k,pos,size){
   var el=$('scene');
   el.style.backgroundImage='url('+SCENES[k]+')';
@@ -409,10 +415,11 @@ function armIdle(ms){ clearIdle();
   }, ms); }
 function showStep(){
   var s=curStep(); if(!s) return;
-  // door 단계는 "아직 잠겨 있는 문 손잡이"를 보여줘야 한다 — s.scene(escape)을 그대로 쓰면
-  // 열기도 전에 열린 문이 먼저 보여서 순서가 뒤바뀐다(2026-07-31 피드백)
-  var imgKey = s.id==='door' ? 'room' : (s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
-  var f=FOCUS[s.id];
+  // drawer/books/door는 전용 클로즈업 사진을 쓴다. door는 특히 "아직 잠겨 있는 문 손잡이"를 보여줘야
+  // 한다 — s.scene(escape)을 그대로 쓰면 열기도 전에 열린 문이 먼저 보여서 순서가 뒤바뀐다(2026-07-31 피드백)
+  var cu=CLOSEUP[s.id];
+  var imgKey = cu || (s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
+  var f=cu ? null : FOCUS[s.id];
   setScene(imgKey, f&&f[0], f&&f[1]);
   // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
   setGoal(s.goal, s.goalKo);
@@ -431,7 +438,7 @@ function advance(){
   logProg(s.id, true);
   // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(새 사진 없이도 순서가 보이게)
   if(s.id==='door'){
-    setScene('room', FOCUS.door[0], FOCUS.door[1]);
+    setScene('doorCU');
     sndKeyTurn();
     setTimeout(function(){ setScene(s.scene); }, 650);
   } else {
@@ -652,6 +659,6 @@ window.addEventListener('keydown', function(e){
 setScene('room');
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260731031123 -->
+<!-- BUILD:20260731013201 -->
 </body>
 </html>
