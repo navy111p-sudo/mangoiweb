@@ -355,6 +355,7 @@ function sndCreak(){ beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(15
   setTimeout(function(){beep(105,.16,'sawtooth',.07);},150); setTimeout(function(){beep(85,.2,'sawtooth',.06);},260); }
 function sndKeyTurn(){ beep(300,.08,'square',.15); setTimeout(function(){beep(220,.08,'square',.15);},90);
   setTimeout(function(){beep(150,.16,'sawtooth',.18);},190); }
+function sndEvent(){ beep(140,.3,'sawtooth',.22); setTimeout(function(){beep(90,.4,'sawtooth',.22);},260); }
 /* 방 분위기 — 은은한 저음 드론(스산함) + 시간이 줄면 자동으로 강해지는 초침 소리는 타이머에서 처리 */
 var _drone=null;
 function startAmbience(){ var a=ac(); if(!a||_drone) return;
@@ -397,6 +398,19 @@ function showNote(en,ko){
   c.classList.add('show');
   clearTimeout(_noteT); _noteT=setTimeout(function(){ c.classList.remove('show'); },3600);
 }
+/* 중간 긴장 이벤트 — 시간이 절반 남으면 한 판에 한 번, 조용히 어두워지기만 하는 것과는 다른
+   "사건"을 준다("분위기 더 무섭게" 피드백, 2026-07-31). 새 사진 없이 조명 플리커+경보음+메시지로 연출 */
+var _eventT=null;
+function fireMidEvent(){
+  var sc=$('scene'); sc.classList.add('flicker');
+  setTimeout(function(){ sc.classList.remove('flicker'); },950);
+  sndEvent();
+  var m=$('eventMsg');
+  m.innerHTML='<div class="eEn">⚡ The lights flicker. Time is running out!</div>'+
+              '<div class="eKo">⚡ 조명이 깜빡인다. 시간이 얼마 남지 않았다!</div>';
+  m.classList.add('show');
+  clearTimeout(_eventT); _eventT=setTimeout(function(){ m.classList.remove('show'); },2600);
+}
 /* 시간이 줄수록 방이 어두워짐 — 긴장 장치 */
 function applyDim(){ if(!G)return;
   var r=Math.max(0,Math.min(1,G.t/TIME_LIMIT));
@@ -438,7 +452,7 @@ function matchStep(said, step){
 /* ════════════════════════════════════════════════════════════
    5. 진행
    ════════════════════════════════════════════════════════════ */
-function curStep(){ return STEPS[G.i]; }
+function curStep(){ return G.steps[G.i]; }
 /* ⏳ 가만히 있으면 스스로 도와준다 — 학생이 "무슨 말을 해야 하는지" 몰라 멈추는 것을 막는 장치.
    힌트 버튼을 눌러야만 문장이 나오던 구조가 막힘의 원인이었다(2026-07-30). */
 var _idleT=null;
@@ -489,7 +503,7 @@ function advance(){
     clearTimeout(G._advT);
     G.busy=false;
     G.i++;
-    if(G.i>=STEPS.length){ win(); return; }
+    if(G.i>=G.steps.length){ win(); return; }
     showStep();
   }
   G._advT=setTimeout(go, 6000);
@@ -610,19 +624,24 @@ function enableTyping(msg){
    7. 타이머 · 종료 · 기록
    ════════════════════════════════════════════════════════════ */
 var tick=null;
+/* 매초 하는 일 — setInterval 콜백에서 분리해뒀다(테스트가 실제 초 단위를 흘려보내지 않고도
+   1초씩 직접 불러서 검증할 수 있게, 2026-07-31) */
+function tickOnce(){
+  if(!G||!G.running||G.over) return;
+  G.t--;
+  var m=Math.floor(G.t/60), s=G.t%60;
+  var el=$('timeVal'); el.textContent=m+':'+(s<10?'0':'')+s;
+  el.classList.toggle('warn', G.t<=60);
+  if(G.t===60||G.t===30||G.t===10) sndAlarm();
+  else if(G.t<=60 && G.t>0) sndTick();      // 마지막 1분 — 초침 소리로 긴장감(스토리 피드백 반영)
+  // 시간이 절반 남으면 한 판에 한 번, 그냥 어두워지는 것과 다른 "사건"을 터뜨린다
+  if(!G.eventFired && G.t<=Math.floor(TIME_LIMIT*0.5)){ G.eventFired=true; fireMidEvent(); }
+  applyDim();
+  if(G.t<=0) lose();
+}
 function startTimer(){
   clearInterval(tick);
-  tick=setInterval(function(){
-    if(!G||!G.running||G.over) return;
-    G.t--;
-    var m=Math.floor(G.t/60), s=G.t%60;
-    var el=$('timeVal'); el.textContent=m+':'+(s<10?'0':'')+s;
-    el.classList.toggle('warn', G.t<=60);
-    if(G.t===60||G.t===30||G.t===10) sndAlarm();
-    else if(G.t<=60 && G.t>0) sndTick();      // 마지막 1분 — 초침 소리로 긴장감(스토리 피드백 반영)
-    applyDim();
-    if(G.t<=0) lose();
-  },1000);
+  tick=setInterval(tickOnce,1000);
 }
 function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
   setScene('escape');
@@ -638,7 +657,7 @@ function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(ti
 }
 function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
   $('endT').textContent='⏳ 시간 초과'; $('endEn').textContent='Time Up';
-  $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+STEPS.length+'</b> 단계까지 갔어요<br>'+
+  $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+G.steps.length+'</b> 단계까지 갔어요<br>'+
     '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회';
   $('endOv').classList.remove('hide');
   flushProg(false);
@@ -670,6 +689,8 @@ function startGame(){
   $('utterN').textContent='0'; $('utterOk').textContent='성공 0';
   $('timeVal').textContent='5:00'; $('timeVal').classList.remove('warn');
   heard(''); hintTxt('');
+  clearTimeout(_eventT); $('eventMsg').classList.remove('show');
+  $('scene').classList.remove('flicker');
   setScene('room'); applyDim(); showStep();
   try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); startAmbience(); }catch(_){}
   startTimer();

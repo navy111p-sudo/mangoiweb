@@ -70,7 +70,7 @@ function inlineScript(src, marker) {
   return null;
 }
 function boot() {
-  const code = inlineScript(html, 'var STEPS=');
+  const code = inlineScript(html, 'function buildSteps');
   if (!code) throw new Error('게임 인라인 스크립트를 찾지 못했다');
 
   /* 가짜 시계 — arm() 이 실제로 몇 ms 를 걸었는지 보려면 지연시간을 붙잡아야 한다 */
@@ -108,7 +108,8 @@ function boot() {
     focus() {}, offsetWidth: 1,
   });
   ['scene','vig','flash','utterN','utterOk','timeVal','goalTxt','goalKo','heard','micBtn','hintBtn',
-   'typeBtn','typeRow','typeIn','typeGo','hint','startOv','endOv','endT','endEn','resStat','btnStart','btnAgain']
+   'typeBtn','typeRow','typeIn','typeGo','hint','startOv','endOv','endT','endEn','resStat','btnStart','btnAgain',
+   'noteCard','noteEn','noteKo','eventMsg']
     .forEach(id => { els[id] = mkEl(id); });
   const click = id => (els[id]._on.click || []).forEach(fn => fn.call(els[id], {}));
   const txt = id => (els[id].innerHTML || els[id].textContent || '').replace(/<[^>]*>/g, '');
@@ -258,8 +259,9 @@ console.log('\n🚪 처음부터 끝까지');
 {
   const g = boot();
   g.click('btnStart');
+  const codeSpoken = g.win.G.code.map(d => g.win.DIGIT_WORD[d]).join(' ');
   const answers = ['Look at the desk','Open the drawer','Move the painting','Look at the books',
-                   'four seven two','Take the key','Open the door'];
+                   codeSpoken,'Take the key','Open the door'];
   for (const a of answers) {
     g.click('micBtn');
     g.sr.last.say(a);
@@ -283,6 +285,51 @@ console.log('\n⏭ 방이 이야기하는 중에 마이크를 누르면');
   check('내레이션을 건너뛰고 다음 단계로 넘어간다', g.win.G.busy === false && g.win.G.i === 1,
     'busy=' + g.win.G.busy + ' step=' + g.win.G.i);
   check('그리고 바로 다시 듣기 시작한다', g.sr.made > madeBefore, 'made=' + madeBefore + '→' + g.sr.made);
+}
+
+/* ══ 10. 암호 무작위화 — 재도전마다 다른 3자리 숫자(2026-07-31, "매번 같은 정답이라 재미없다") ══ */
+console.log('\n🔢 암호 무작위화');
+{
+  const g = boot();
+  g.click('btnStart');
+  const code = g.win.G.code;
+  check('3자리 암호가 생성된다', Array.isArray(code) && code.length === 3, 'code=' + JSON.stringify(code));
+  check('암호 숫자가 전부 다르다(0 제외 1~9)', new Set(code).size === 3 && code.every(d => d >= '1' && d <= '9'),
+    'code=' + JSON.stringify(code));
+  const digitWord = g.win.DIGIT_WORD;
+  const spoken = code.map(d => digitWord[d]).join(' ');
+  g.win.G.i = 4; g.win.showStep();               // 'code' 단계로 강제 이동
+  g.win.submitSaid(spoken);
+  g.clock.tick(6500);                             // advance()의 내레이션 안전 타임아웃(6s) 지나가기
+  check('실제로 생성된 암호를 말하면 통과한다', g.win.G.i === 5, 'spoken=' + spoken + ' step=' + g.win.G.i);
+}
+{
+  // 완전 결정론적 재현이 안 되는 값이라 "10판 중 최소 한 번은 다르다"로 판정한다
+  // (같은 3자리 조합이 10번 연속 우연히 나올 확률은 극히 낮다 — 9*8*7=504 가지)
+  const g0 = boot(); g0.click('btnStart');
+  const firstCode = g0.win.G.code.join('');
+  let sawDifferent = false;
+  for (let i = 0; i < 10 && !sawDifferent; i++) {
+    const g = boot(); g.click('btnStart');
+    if (g.win.G.code.join('') !== firstCode) sawDifferent = true;
+  }
+  check('재도전마다 암호가 달라질 수 있다(고정값이 아니다)', sawDifferent);
+}
+
+/* ══ 11. 중간 긴장 이벤트 — 시간이 절반 남으면 한 번, 조용한 디밍과 다른 "사건" ══════ */
+console.log('\n⚡ 중간 긴장 이벤트');
+{
+  const g = boot();
+  g.click('btnStart');
+  const half = Math.floor(300 * 0.5);
+  for (let i = 0; i < half - 1; i++) g.win.tickOnce();
+  check('절반 시점 직전까지는 이벤트가 안 터진다', g.win.G.eventFired === false, 'eventFired=' + g.win.G.eventFired);
+  g.win.tickOnce();
+  check('시간이 절반 남으면 이벤트가 터진다', g.win.G.eventFired === true);
+  check('이벤트 메시지가 화면에 뜬다', g.els.eventMsg._cls.has('show'));
+  check('장면에 플리커 효과가 걸린다', g.els.scene._cls.has('flicker'));
+  for (let i = 0; i < 30; i++) g.win.tickOnce();
+  check('이벤트는 한 판에 한 번만 터진다(중복 없음)', g.win.G.eventFired === true);
 }
 
 /* ══ 결과 ═══════════════════════════════════════════════════════════════ */
