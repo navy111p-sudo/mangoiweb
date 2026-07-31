@@ -1053,6 +1053,8 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       for (const col of ['level TEXT', 'textbook TEXT', 'lesson_no INTEGER', "source TEXT DEFAULT 'manual'", 'draw TEXT']) {
         try { await env.DB.exec(`ALTER TABLE review_quizzes ADD COLUMN ${col};`); } catch {}
       }
+      // Phase RQ3 (2026-07-31) — 언어 컬럼. NULL = 기존 영어 퀴즈(하위호환), 'zh' = 중국어.
+      try { await env.DB.exec(`ALTER TABLE review_quizzes ADD COLUMN lang TEXT;`); } catch {}
       // 웜업 개인화(warmup-graph.ts) — 제출 시 채점 상세(JSON)를 보존해 오답 문장을 정확히 추출
       try { await env.DB.exec(`ALTER TABLE review_quiz_results ADD COLUMN detail TEXT;`); } catch {}
     };
@@ -1162,13 +1164,32 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       });
       return { score, detail };
     };
+    // 🈶 (2026-07-31) 중국어 복습퀴즈 그라운딩용 실제 어휘 샘플 — zh_vocab(다락원 Lv3 등, 검수된 실교재 데이터)
+    //   AI가 존재하지 않는 한자/병음을 지어내지 않도록, 실제 DB 어휘를 골라 프롬프트에 그대로 박아 넣는다.
+    const rqZhVocabSample = async (level?: string, textbook?: string, lessonNo?: number | null) => {
+      const tries: Array<{ sql: string; binds: any[] }> = [];
+      if (textbook && lessonNo) tries.push({ sql: `SELECT hanzi, pinyin, ko FROM zh_vocab WHERE active=1 AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY RANDOM() LIMIT 24`, binds: [textbook, lessonNo] });
+      if (textbook) tries.push({ sql: `SELECT hanzi, pinyin, ko FROM zh_vocab WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY RANDOM() LIMIT 24`, binds: [textbook] });
+      if (level) tries.push({ sql: `SELECT hanzi, pinyin, ko FROM zh_vocab WHERE active=1 AND LOWER(level)=LOWER(?) ORDER BY RANDOM() LIMIT 24`, binds: [level] });
+      tries.push({ sql: `SELECT hanzi, pinyin, ko FROM zh_vocab WHERE active=1 ORDER BY RANDOM() LIMIT 24`, binds: [] });
+      for (const t of tries) {
+        try {
+          const rs = await env.DB.prepare(t.sql).bind(...t.binds).all();
+          const rows = (rs.results as any[]) || [];
+          if (rows.length >= 8) return rows;
+        } catch {}
+      }
+      return [];
+    };
     // 🤖 AI 자동 출제 — 교재/레벨/레슨 기반 (Workers AI llama-3.3-70b)
-    const rqAiGenerate = async (o: { level?: string; textbook?: string; lesson_no?: number | null; topic?: string; counts?: any }) => {
+    const rqAiGenerate = async (o: { level?: string; textbook?: string; lesson_no?: number | null; topic?: string; counts?: any; lang?: string }) => {
       const ai = (env as any).AI;
       if (!ai) return { ok: false as const, error: 'workers_ai_not_bound' };
+      const isZh = o.lang === 'zh';
       const c = o.counts || {};
       const lim = (v: any, dft: number) => Math.min(Math.max(Number(v ?? dft) || 0, 0), 5);
-      const nListen = lim(c.listen, 2), nWrite = lim(c.write, 2), nSpeak = lim(c.speak, 2), nChoice = lim(c.choice, 0);
+      // 🈶 중국어는 서버 TTS(구글)가 깨지고 STT 검증도 안 돼 있어 listen/speak 는 항상 0으로 강제 — choice/write만.
+      const nListen = isZh ? 0 : lim(c.listen, 2), nWrite = lim(c.write, 2), nSpeak = isZh ? 0 : lim(c.speak, 2), nChoice = lim(c.choice, isZh ? 4 : 0);
       if (nListen + nWrite + nSpeak + nChoice === 0) return { ok: false as const, error: 'counts_required' };
       const ctx = [
         o.textbook ? `Textbook: ${o.textbook}` : '',
@@ -1176,7 +1197,29 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
         (o.lesson_no != null && o.lesson_no > 0) ? `Lesson number: ${o.lesson_no}` : '',
         o.topic ? `Key vocabulary / topic from this lesson: ${o.topic}` : '',
       ].filter(Boolean).join('\n');
-      const prompt = `You are an English quiz writer for a Korean kids' English academy (망고아이).
+      let prompt: string;
+      let systemMsg: string;
+      if (isZh) {
+        const vocab = await rqZhVocabSample(o.level, o.textbook, o.lesson_no ?? null);
+        if (!vocab.length) return { ok: false as const, error: 'zh_vocab_empty' };
+        const vocabList = vocab.map((v: any) => `${v.hanzi} (${v.pinyin || ''}) = ${v.ko || ''}`).join('\n');
+        systemMsg = 'You write JSON quizzes for Korean students learning Chinese. Output a raw JSON array only.';
+        prompt = `You are a Chinese (중국어) quiz writer for a Korean kids' language academy (망고아이).
+Create a review quiz for this class:
+${ctx || 'General 중국어'}
+
+🔒 IMPORTANT: Use ONLY the Chinese words below (already verified/curated) — do NOT invent any other hanzi, pinyin, or meaning. Every question's correct answer AND every multiple-choice distractor must come from this exact list:
+${vocabList}
+
+Make exactly:
+- ${nChoice} "choice" questions: {"type":"choice","q":"<Korean question, e.g. 다음 뜻에 해당하는 중국어 단어는?>","opts":["<hanzi from the list>","..","..","..(4 options, 1 correct + 3 distractors, all from the list)"],"answer":<correct index 0-3>,"explain":"<Korean explanation including pinyin>"}
+- ${nWrite} "write" questions: {"type":"write","q":"<Korean prompt, e.g. 다음 우리말 뜻에 해당하는 중국어 단어를 한자로 쓰세요: ...>","answer_text":"<hanzi from the list>","accept":["<pinyin form>"],"explain":"<Korean explanation with pinyin>"}
+
+Rules: All Chinese words must be copy-pasted exactly from the list above (no new characters). Questions/instructions/explanations in Korean.
+Reply with a JSON array ONLY. No markdown, no commentary.`;
+      } else {
+        systemMsg = 'You write JSON quizzes for Korean children learning English. Output a raw JSON array only.';
+        prompt = `You are an English quiz writer for a Korean kids' English academy (망고아이).
 Create a review quiz for this class:
 ${ctx || 'General elementary English'}
 
@@ -1189,10 +1232,11 @@ Make exactly:
 
 Rules: English sentences max 8 words. Korean for instructions/explanations. Vocabulary must fit the textbook/lesson. The "listen" options must include the audio sentence itself as the correct option.
 Reply with a JSON array ONLY. No markdown, no commentary.`;
+      }
       try {
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
-            { role: 'system', content: 'You write JSON quizzes for Korean children learning English. Output a raw JSON array only.' },
+            { role: 'system', content: systemMsg },
             { role: 'user', content: prompt }
           ],
           max_tokens: 2400,
@@ -1427,8 +1471,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     if (method === 'POST' && path === '/api/review-quiz/auto') {
       await ensureReviewQuizTables();
       const b: any = await request.json().catch(() => ({}));
-      const level = String(b.level || '').trim();
-      const textbook = String(b.textbook || '').trim();
+      const lang = String(b.lang || '').trim() === 'zh' ? 'zh' : 'en';
+      let level = String(b.level || '').trim();
+      let textbook = String(b.textbook || '').trim();
+      // 🈶 (2026-07-31) 중국어는 아직 다락원 Lv3 단일 커리큘럼뿐이라, 수업 화면이 교재를 못 읽어와도
+      //   비어 있지 않게 안전한 기본값으로 채운다(교재/레벨이 늘면 이 fallback 은 자연히 무해해짐).
+      if (lang === 'zh' && !textbook && !level) { textbook = '다락원'; level = 'Lv 3'; }
       const lessonNo = Number(b.lesson_no) > 0 ? Number(b.lesson_no) : null;
       const topic = String(b.topic || '').trim().slice(0, 300);
       const allowGenerate = b.auto_generate !== 0 && b.auto_generate !== false;
@@ -1438,26 +1486,31 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         let safe: any[];
         if (draw && qs.length) { const idxs = rqDrawIndices(qs, draw); safe = idxs.map((i: number) => rqSafeOne(qs[i], i)); }
         else { safe = rqSafeQuestions(qs); }
-        return { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, questions: safe };
+        return { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, lang: row.lang || 'en', questions: safe };
       };
+      // 🈶 언어 필터: en 은 예전에 만들어진 lang=NULL 행도 포함(하위호환), zh 는 lang='zh' 행만.
+      const langCond = lang === 'zh' ? `lang = ?` : `(lang = ? OR lang IS NULL)`;
+      const langBind = lang;
       // 1) 교재+레슨 → 2) 교재 전체용 → 3) 레벨 전체용 순서로 매칭
       const tries: Array<{ sql: string; binds: any[] }> = [];
-      if (textbook && lessonNo) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY id DESC LIMIT 1`, binds: [textbook, lessonNo] });
-      if (textbook) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no IS NULL ORDER BY id DESC LIMIT 1`, binds: [textbook] });
-      if (level) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND level IS NOT NULL AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 1`, binds: [level] });
+      if (textbook && lessonNo) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY id DESC LIMIT 1`, binds: [langBind, textbook, lessonNo] });
+      if (textbook) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no IS NULL ORDER BY id DESC LIMIT 1`, binds: [langBind, textbook] });
+      if (level) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND level IS NOT NULL AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 1`, binds: [langBind, level] });
       for (const t of tries) {
         const row: any = await env.DB.prepare(t.sql).bind(...t.binds).first();
         if (row) return json({ ok: true, matched: true, quiz: pickSafe(row) });
       }
       if (!allowGenerate || (!textbook && !level && !topic)) return json({ ok: true, matched: false, quiz: null });
       // 🤖 매칭 퀴즈가 없으면 AI 가 교재/레벨/레슨에 맞춰 즉석 출제 → 저장 (관리자 페이지에서 확인·조정 가능)
-      const gen = await rqAiGenerate({ level, textbook, lesson_no: lessonNo, topic, counts: { listen: 2, write: 2, speak: 2 } });
+      const gen = await rqAiGenerate({ level, textbook, lesson_no: lessonNo, topic, lang, counts: lang === 'zh' ? { choice: 4, write: 4 } : { listen: 2, write: 2, speak: 2 } });
       if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
       const title = `[AI] ${textbook || level || '오늘의 수업'}${lessonNo ? ` Lesson ${lessonNo}` : ''} 복습퀴즈`;
-      const desc = `AI 자동 출제 (듣기/쓰기/말하기) — ${new Date().toISOString().slice(0, 10)}`;
+      const desc = lang === 'zh'
+        ? `AI 자동 출제 (객관식/쓰기, 다락원 교재 어휘 기반) — ${new Date().toISOString().slice(0, 10)}`
+        : `AI 자동 출제 (듣기/쓰기/말하기) — ${new Date().toISOString().slice(0, 10)}`;
       const now = Date.now();
-      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'ai',?,?)`)
-        .bind(title, desc, JSON.stringify(gen.questions), level || null, textbook || null, lessonNo, now, now).run();
+      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, lang, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'ai',?,?,?)`)
+        .bind(title, desc, JSON.stringify(gen.questions), level || null, textbook || null, lessonNo, lang === 'zh' ? 'zh' : null, now, now).run();
       const newId = (ins as any).meta?.last_row_id;
       const nrow: any = await env.DB.prepare(`SELECT * FROM review_quizzes WHERE id=?`).bind(newId).first();
       return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow) });

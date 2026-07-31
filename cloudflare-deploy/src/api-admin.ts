@@ -23,6 +23,7 @@ import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수�
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
+import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import type { MangoEnv } from './api-mango';
 
 // ═══ ⚡ 관리자 KV 캐시 공용 헬퍼 (2026-07-19 통합) ═══
@@ -7882,17 +7883,20 @@ LIMIT $limit`;
         return json({ ok: true, stats: { active: st?.active || 0, cancelled: st?.cancelled || 0, month_revenue: st?.month_revenue || 0 }, list: (lr as any).results || [] });
       }
 
+      /* 🔴🔴 (2026-07-31) 이전 구현은 실제로 토스에 청구하지 않고 student_payments 에
+         '성공'만 써넣는 가짜였다(카드가 진짜로 청구된 적이 한 번도 없음). 제보 #2-2/#3-2
+         (자동연장 정식 개발) 작업 중 발견 — 이제 billing_key 로 실제 청구한다.
+         카드 등록(billing_key 발급)은 학생이 /api/pay/billing/register+confirm 로 직접 진행하며,
+         billing_key 가 없는 구독행은 절대 '성공'으로 표시되지 않는다(chargeSubscriptionOnce 참고). */
       if (method === 'POST' && path === '/api/admin/subscription/charge-now') {
         const b: any = await parseJsonBody(request);
         const id = parseInt(b?.id, 10);
         if (!id) return json({ ok: false, error: 'id_required' }, 400);
         const sub: any = await env.DB.prepare(`SELECT * FROM subscriptions WHERE id = ?`).bind(id).first();
         if (!sub) return json({ ok: false, error: 'not_found' }, 404);
-        const now = Date.now();
-        await env.DB.prepare(`INSERT INTO student_payments (user_id, paid_at, amount_krw, method, memo, status, created_at) VALUES (?,?,?,?,?,?,?)`)
-          .bind(sub.user_id, now, sub.amount || 0, '정기결제', '정기결제 즉시청구', 'paid', now).run();
-        await env.DB.prepare(`UPDATE subscriptions SET last_billed_at = ?, next_billing_at = ?, updated_at = ? WHERE id = ?`).bind(now, now + 30 * 86400 * 1000, now, id).run();
-        return json({ ok: true, charged: sub.amount || 0 });
+        const r = await chargeSubscriptionOnce(env, sub);
+        if (!r.ok) return json({ ok: false, error: r.error || 'charge_failed' }, 402);
+        return json({ ok: true, charged: r.amount || 0 });
       }
 
       if (method === 'POST' && path === '/api/admin/subscription/cancel') {
@@ -7903,26 +7907,20 @@ LIMIT $limit`;
         return json({ ok: true });
       }
 
+      // ⚠️ 이 엔드포인트로 만든 행은 billing_key 가 없어 실제 청구가 불가능하다(항상 no_billing_key 로 실패).
+      //   실제 자동연장 등록은 학생이 enroll.html 에서 /api/pay/billing/register+confirm 로 진행해야 한다.
       if (method === 'POST' && path === '/api/subscription/create') {
         const b: any = await parseJsonBody(request);
         if (!b?.user_id) return json({ ok: false, error: 'user_id_required' }, 400);
         const now = Date.now();
         const r = await env.DB.prepare(`INSERT INTO subscriptions (user_id, student_name, plan, amount, status, next_billing_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`)
           .bind(b.user_id, b.student_name || null, b.plan || '월정기', parseInt(b.amount, 10) || 0, 'active', now + 30 * 86400 * 1000, now, now).run();
-        return json({ ok: true, id: r.meta.last_row_id });
+        return json({ ok: true, id: r.meta.last_row_id, warning: 'billing_key 없이 생성됨 — 카드 등록 전까지 실제 청구 불가' });
       }
 
       if (method === 'POST' && path === '/api/admin/subscription/cron-check') {
-        const now = Date.now();
-        const due = await env.DB.prepare(`SELECT * FROM subscriptions WHERE status='active' AND next_billing_at IS NOT NULL AND next_billing_at <= ?`).bind(now).all().catch(() => ({ results: [] }));
-        let charged = 0;
-        for (const sub of (((due as any).results) || [])) {
-          await env.DB.prepare(`INSERT INTO student_payments (user_id, paid_at, amount_krw, method, memo, status, created_at) VALUES (?,?,?,?,?,?,?)`)
-            .bind(sub.user_id, now, sub.amount || 0, '정기결제', '정기결제 자동청구(cron)', 'paid', now).run();
-          await env.DB.prepare(`UPDATE subscriptions SET last_billed_at = ?, next_billing_at = ?, updated_at = ? WHERE id = ?`).bind(now, now + 30 * 86400 * 1000, now, sub.id).run();
-          charged++;
-        }
-        return json({ ok: true, charged });
+        const result = await runAutoRenewChargeSweep(env);
+        return json(result);
       }
     }
 

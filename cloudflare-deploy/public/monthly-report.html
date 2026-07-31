@@ -4,81 +4,89 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>망고아이 월간 학습 레포트</title>
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
+<link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style>
-  :root{--mango:#FFCC00;--mango-d:#F5A800;--kakao:#FEE500;--navy:#0F172A;--slate:#334155;--muted:#64748b;
-    --line:#e2e8f0;--bg:#eef2f7;--card:#fff;--good:#10b981;--up:#22c55e;--blue:#3b82f6;--pink:#ec4899;}
+  /* 🎨 마이페이지(parent.html)·월별 리포트(report.html)·평가서(eval.html)와 같은 "리포트 패밀리" 톤으로 통일 — 2026-07-31 */
+  :root{--mango:#fbbf24;--mango-d:#f59e0b;--kakao:#FEE500;--navy:#fff;--slate:#e6ecff;--muted:#94a3b8;
+    --line:rgba(139,92,246,0.15);--bg:#0a0e1a;--card:rgba(20,26,43,0.7);--good:#34d399;--up:#22c55e;--blue:#a78bfa;--pink:#ec4899;}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+  body{position:relative;font-family:'Noto Sans KR','Pretendard','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,sans-serif;
     background:var(--bg);color:var(--navy);line-height:1.55;-webkit-font-smoothing:antialiased;padding:18px 12px 60px}
+  body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/img/home-bg-dark.webp?v=20260730') center/cover no-repeat;filter:blur(2px) brightness(0.55) saturate(1.15);transform:scale(1.06)}
+  body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at center top, rgba(251,191,36,0.08), transparent 60%),radial-gradient(ellipse at center, rgba(11,15,30,0.55), rgba(8,11,24,0.95))}
   .wrap{max-width:640px;margin:0 auto}
-  .topbar{display:flex;align-items:center;gap:8px;max-width:640px;margin:0 auto 14px}
+  .topbar{display:flex;align-items:center;gap:8px;max-width:640px;margin:0 auto 14px;color:#fff}
   .topbar .logo{font-weight:900;font-size:15px}
   .topbar .sp{flex:1}
-  .lang-btn{background:#fff;border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;color:var(--slate)}
+  .lang-btn{background:rgba(20,26,43,0.7);border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;color:var(--slate);backdrop-filter:blur(8px)}
   /* form */
-  .formcard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px 22px;box-shadow:0 10px 30px -16px rgba(15,23,42,.3)}
-  .formcard h2{font-size:17px;font-weight:900;margin-bottom:4px}
+  .formcard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px 22px;box-shadow:0 10px 30px -16px rgba(0,0,0,.5);backdrop-filter:blur(8px)}
+  .formcard h2{font-size:17px;font-weight:900;margin-bottom:4px;color:#fff}
   .formcard p{font-size:12.5px;color:var(--muted);margin-bottom:16px}
   .fld{margin-bottom:13px}
-  .fld label{display:block;font-size:12px;font-weight:800;color:var(--slate);margin-bottom:5px}
-  .fld input{width:100%;padding:11px 13px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit}
+  .fld label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:5px}
+  .fld input{width:100%;padding:11px 13px;border:1px solid rgba(139,92,246,0.35);border-radius:10px;font-size:14px;font-family:inherit;background:#0e1e40;color:#fff}
   .gobtn{width:100%;margin-top:6px;padding:13px;border:0;border-radius:11px;font-weight:900;font-size:14px;cursor:pointer;
-    background:linear-gradient(135deg,#F5A800,#e08e00);color:#fff;box-shadow:0 8px 18px -8px rgba(245,168,0,.7)}
+    background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;box-shadow:0 8px 18px -8px rgba(245,158,11,.5)}
   /* dashboard */
-  .dash{background:var(--card);border-radius:22px;overflow:hidden;box-shadow:0 18px 44px -22px rgba(15,23,42,.4);border:1px solid var(--line)}
-  .hero{background:linear-gradient(135deg,#FFCC00,#F5A800);padding:22px 22px 48px;position:relative;color:#3b2f00}
-  .hero .mango{position:absolute;right:18px;top:14px;font-size:44px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.18))}
-  .hero .badge{display:inline-block;background:rgba(255,255,255,.6);font-size:11px;font-weight:800;padding:3px 11px;border-radius:99px;margin-bottom:8px}
+  .dash{background:var(--card);border-radius:22px;overflow:hidden;box-shadow:0 18px 44px -22px rgba(0,0,0,.6);border:1px solid var(--line);backdrop-filter:blur(8px)}
+  .hero{background:linear-gradient(135deg,rgba(251,191,36,0.22),rgba(245,158,11,0.10));border-bottom:1px solid rgba(251,191,36,0.30);padding:22px 22px 48px;position:relative;color:#fff}
+  .hero .mango{position:absolute;right:18px;top:14px;font-size:44px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.3))}
+  .hero .badge{display:inline-block;background:rgba(0,0,0,.28);font-size:11px;font-weight:800;padding:3px 11px;border-radius:99px;margin-bottom:8px;color:#fde68a}
   .hero h2{font-size:21px;font-weight:900}
   .hero .who{font-size:13px;font-weight:700;opacity:.85;margin-top:2px}
   .body{padding:0 16px 22px;margin-top:-30px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px 15px;margin-bottom:13px;box-shadow:0 4px 14px -8px rgba(15,23,42,.18)}
-  .card h3{font-size:13px;font-weight:900;display:flex;align-items:center;gap:7px;margin-bottom:10px}
-  .ai-greet{font-size:13.5px;color:var(--slate);line-height:1.75;white-space:pre-wrap}
-  .ai-tag{margin-left:auto;font-size:10px;font-weight:800;color:#92600e;background:#fff3cf;padding:2px 8px;border-radius:99px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 15px;margin-bottom:13px;box-shadow:0 4px 14px -8px rgba(0,0,0,.35);backdrop-filter:blur(8px)}
+  .card h3{font-size:13px;font-weight:900;display:flex;align-items:center;gap:7px;margin-bottom:10px;color:#c4b5fd}
+  .ai-greet{font-size:13.5px;color:#e2e8f0;line-height:1.75;white-space:pre-wrap}
+  .ai-tag{margin-left:auto;font-size:10px;font-weight:800;color:#92600e;background:#fde68a;padding:2px 8px;border-radius:99px}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:13px}
-  .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center}
-  .kpi .v{font-size:19px;font-weight:900}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center;backdrop-filter:blur(8px)}
+  .kpi .v{font-size:19px;font-weight:900;color:#fff}
   .kpi .l{font-size:10px;color:var(--muted);font-weight:700;margin-top:2px}
   .mg{color:var(--mango-d)}.blue{color:var(--blue)}.up{color:var(--up)}.pink{color:var(--pink)}
   .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;flex-wrap:wrap}
   .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
   .pron-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
-  .pron-row .lab{font-size:12px;font-weight:700;width:64px;flex-shrink:0;color:var(--slate)}
-  .bar{flex:1;height:12px;background:#eef2f7;border-radius:99px;overflow:hidden}
+  .pron-row .lab{font-size:12px;font-weight:700;width:64px;flex-shrink:0;color:var(--muted)}
+  .bar{flex:1;height:12px;background:rgba(0,0,0,0.3);border-radius:99px;overflow:hidden}
   .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#34d399,#10b981)}
-  .pron-row .pct{font-size:12px;font-weight:900;width:54px;text-align:right}
-  .comment{background:#fffdf5;border:1px dashed #f3d27a;border-radius:14px;padding:12px 14px;font-size:13px;color:#4b3f1d;line-height:1.65}
-  .comment .by{font-size:11px;font-weight:800;color:#b45309;margin-top:8px}
-  .goal{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--slate);margin-bottom:7px}
-  .goal .n{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--mango);color:#3b2f00;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .pron-row .pct{font-size:12px;font-weight:900;width:54px;text-align:right;color:#fff}
+  .comment{background:rgba(251,191,36,0.08);border:1px dashed rgba(251,191,36,0.35);border-radius:14px;padding:12px 14px;font-size:13px;color:#fde68a;line-height:1.65}
+  .comment .by{font-size:11px;font-weight:800;color:#fbbf24;margin-top:8px}
+  .goal{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:#e2e8f0;margin-bottom:7px}
+  .goal .n{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--mango);color:#1a1a1a;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center}
   .cta{display:flex;gap:10px;margin-top:4px}
   .cta a{flex:1;text-align:center;padding:13px;border-radius:13px;font-weight:900;font-size:13.5px;text-decoration:none}
-  .cta .primary{background:linear-gradient(135deg,#F5A800,#e08e00);color:#fff;box-shadow:0 8px 18px -8px rgba(245,168,0,.7)}
-  .cta .ghost{background:#fff;border:1.5px solid var(--mango-d);color:var(--mango-d)}
+  .cta .primary{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;box-shadow:0 8px 18px -8px rgba(245,158,11,.5)}
+  .cta .ghost{background:rgba(20,26,43,0.7);border:1.5px solid var(--mango-d);color:var(--mango-d)}
   .empty{padding:40px 20px;text-align:center;color:var(--muted)}
   .empty .ico{font-size:46px;opacity:.5;margin-bottom:10px}
   .muted-note{font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.6}
   .spin{text-align:center;padding:60px 0;color:var(--muted);font-weight:700}
   /* 🌟 2026-07-25 — 오각형 요약 카드 + 인쇄 버튼 (기획안 Phase 2, 기존 카드는 그대로 둔 "증축") */
-  .print-btn{background:#fff;border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;color:var(--mango-d);border-color:#f3d27a;margin-right:6px}
-  .radar-card{border:1.5px solid #ffe28a;background:linear-gradient(180deg,#fffef8,#fff)}
-  .growth-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#92600e;background:#fff3cf;padding:5px 11px;border-radius:99px;margin-bottom:10px}
+  .print-btn{background:rgba(20,26,43,0.7);border:1px solid rgba(251,191,36,0.35);border-radius:99px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;color:var(--mango-d);margin-right:6px;backdrop-filter:blur(8px)}
+  .radar-card{border:1.5px solid rgba(251,191,36,0.30);background:linear-gradient(180deg,rgba(251,191,36,0.06),var(--card))}
+  .growth-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#92600e;background:#fde68a;padding:5px 11px;border-radius:99px;margin-bottom:10px}
   .radar-row{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
   .radar-row svg{width:170px;height:170px;flex:none;overflow:visible}
   .radar-list{list-style:none;flex:1;min-width:160px}
   .radar-list li{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:6px}
-  .radar-list .rlab{color:var(--slate);font-weight:700}
+  .radar-list .rlab{color:#e2e8f0;font-weight:700}
   .radar-list .rval{font-weight:900;color:var(--blue)}
   .chip-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-  .chip{display:flex;gap:9px;align-items:flex-start;padding:11px 12px;border-radius:12px;background:#f8fafc;border:1px solid var(--line)}
+  .chip{display:flex;gap:9px;align-items:flex-start;padding:11px 12px;border-radius:12px;background:rgba(139,92,246,0.08);border:1px solid var(--line)}
   .chip .stripe{width:4px;align-self:stretch;border-radius:3px;flex:none;background:var(--good)}
   .chip .ttl{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:2px}
   .chip .cval{font-size:13.5px;font-weight:900;color:var(--good)}
   @media print{
-    body{background:#fff;padding:0}
+    body{background:#fff !important;color:#1a1a1a !important;padding:0}
+    body::before,body::after{display:none !important}
     .topbar{display:none !important}
-    .dash{box-shadow:none;border:none;border-radius:0}
+    .dash{box-shadow:none;border:none;border-radius:0;background:#fff !important;backdrop-filter:none !important}
+    .card,.kpi,.formcard{background:#fff !important;border:1px solid #ddd !important;backdrop-filter:none !important;color:#1a1a1a !important}
+    .card h3{color:#1a1a1a !important}
     .cta{display:none !important}
     .detail-section{display:none !important}
     @page{size:A4;margin:14mm}
@@ -149,11 +157,11 @@
     var xs=function(i){ return pad + (W-pad*2)*(i/(n-1)); };
     var ys=function(v){ return 18 + (H-40)*(1-(v-min)/(max-min)); };
     var poly=pts.map(function(v,i){return xs(i).toFixed(1)+','+ys(v).toFixed(1);}).join(' ');
-    var dots=pts.map(function(v,i){return '<circle cx="'+xs(i).toFixed(1)+'" cy="'+ys(v).toFixed(1)+'" r="4.5" fill="#3b82f6"/>';}).join('');
-    var labs=pts.map(function(v,i){return '<text x="'+xs(i).toFixed(1)+'" y="'+H+'" fill="#64748b" font-size="10" font-weight="700" text-anchor="middle">'+(i+1)+t('회','')+'</text>';}).join('');
+    var dots=pts.map(function(v,i){return '<circle cx="'+xs(i).toFixed(1)+'" cy="'+ys(v).toFixed(1)+'" r="4.5" fill="#a78bfa"/>';}).join('');
+    var labs=pts.map(function(v,i){return '<text x="'+xs(i).toFixed(1)+'" y="'+H+'" fill="#94a3b8" font-size="10" font-weight="700" text-anchor="middle">'+(i+1)+t('회','')+'</text>';}).join('');
     return '<svg viewBox="0 0 '+W+' '+(H+6)+'" style="width:100%;height:auto">'+
-      '<g stroke="#eef2f7"><line x1="'+pad+'" y1="18" x2="'+(W-pad)+'" y2="18"/><line x1="'+pad+'" y1="78" x2="'+(W-pad)+'" y2="78"/><line x1="'+pad+'" y1="138" x2="'+(W-pad)+'" y2="138"/></g>'+
-      '<polyline fill="none" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="'+poly+'"/>'+dots+labs+'</svg>';
+      '<g stroke="rgba(255,255,255,0.08)"><line x1="'+pad+'" y1="18" x2="'+(W-pad)+'" y2="18"/><line x1="'+pad+'" y1="78" x2="'+(W-pad)+'" y2="78"/><line x1="'+pad+'" y1="138" x2="'+(W-pad)+'" y2="138"/></g>'+
+      '<polyline fill="none" stroke="#a78bfa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="'+poly+'"/>'+dots+labs+'</svg>';
   }
 
   // 🌟 오각형(레이더) 5축 — d.radar = {pronunciation,vocab,sentence,attitude,participation} (0~100 또는 null)
@@ -172,13 +180,13 @@
     function ringPt(i,frac){ var a=-Math.PI/2+i*(2*Math.PI/n); return [cx+R*frac*Math.cos(a), cy+R*frac*Math.sin(a)]; }
     var rings=[0.25,0.5,0.75,1].map(function(frac){
       var pts=[]; for(var i=0;i<n;i++) pts.push(ringPt(i,frac).join(','));
-      return '<polygon points="'+pts.join(' ')+'" fill="none" stroke="#e2e8f0" stroke-width="1"/>';
+      return '<polygon points="'+pts.join(' ')+'" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>';
     }).join('');
-    var spokes=''; for(var i=0;i<n;i++){ var o=ringPt(i,1); spokes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+o[0]+'" y2="'+o[1]+'" stroke="#e2e8f0" stroke-width="1"/>'; }
+    var spokes=''; for(var i=0;i<n;i++){ var o=ringPt(i,1); spokes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+o[0]+'" y2="'+o[1]+'" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>'; }
     var poly = axes.map(function(a,i){ return pt(i,radar[a.k]).join(','); }).join(' ');
-    var dots = axes.map(function(a,i){ var p=pt(i,radar[a.k]); return '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3.2" fill="#3b82f6"/>'; }).join('');
+    var dots = axes.map(function(a,i){ var p=pt(i,radar[a.k]); return '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3.2" fill="#a78bfa"/>'; }).join('');
     var svg = '<svg viewBox="0 0 200 200" role="img">'+rings+spokes+
-      '<polygon points="'+poly+'" fill="#3b82f6" fill-opacity="0.18" stroke="#3b82f6" stroke-width="2.2" stroke-linejoin="round"/>'+dots+'</svg>';
+      '<polygon points="'+poly+'" fill="#a78bfa" fill-opacity="0.22" stroke="#a78bfa" stroke-width="2.2" stroke-linejoin="round"/>'+dots+'</svg>';
     var list = '<ul class="radar-list">'+axes.map(function(a){
       var v = radar[a.k];
       return '<li><span class="rlab">'+t(a.ko,a.en)+'</span><span class="rval">'+(v!=null?v:'—')+'</span></li>';
@@ -206,7 +214,7 @@
       '<div class="body">';
 
     if(!hasData){
-      html += '<div class="card"><div class="empty"><div class="ico">📭</div><div style="font-weight:800;color:#334155">'+
+      html += '<div class="card"><div class="empty"><div class="ico">📭</div><div style="font-weight:800;color:#e6ecff">'+
         t('이번 달 학습 기록이 아직 없습니다','No records for this month yet')+'</div>'+
         '<div style="font-size:12.5px;margin-top:6px">'+t('수업·평가·발음 연습 기록이 쌓이면 자동으로 채워집니다.','It fills automatically as lessons and evaluations accumulate.')+'</div></div></div>';
     } else {
@@ -247,7 +255,7 @@
         html += '<div class="card"><h3>🧠 '+t('판단력 성장','Decision-making')+' <span class="ai-tag">AI</span></h3>'+
           '<div style="text-align:center;margin:2px 0 10px"><span style="font-size:32px;font-weight:900;color:#7c3aed">'+(jd.index!=null?jd.index:'—')+'</span>'+
           '<span style="color:#94a3b8;font-size:12.5px"> / 100 · '+(jd.events||0)+t('회 판단','')+'</span>'+
-          '<div style="font-size:12px;color:#64748b;margin-top:2px">'+t('상황에 맞는 표현을 스스로 고르고 이유를 설명하는 힘','Choosing the best expression and explaining why')+'</div></div>'+
+          '<div style="font-size:12px;color:#94a3b8;margin-top:2px">'+t('상황에 맞는 표현을 스스로 고르고 이유를 설명하는 힘','Choosing the best expression and explaining why')+'</div></div>'+
           pronRow(t('선택 적절성','Choice'), jd.axis&&jd.axis.choice)+
           pronRow(t('이유 논리','Reasoning'), jd.axis&&jd.axis.reasoning)+
           pronRow(t('어투 민감도','Register'), jd.axis&&jd.axis.register)+
@@ -295,7 +303,7 @@
   if(uid && period){ loadReport(); } else { renderForm(); }
 })();
 </script>
-<!-- BUILD:20260731145703 -->
+<!-- BUILD:20260731200556 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

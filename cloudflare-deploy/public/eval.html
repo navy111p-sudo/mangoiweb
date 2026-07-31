@@ -14,20 +14,21 @@
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
+<link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style>
   *,*::before,*::after{box-sizing:border-box}
+  /* 🎨 마이페이지(parent.html)·월별 리포트(report.html)와 같은 "리포트 패밀리" 톤으로 통일 — 2026-07-31 */
   body{
+    position:relative;
     margin:0;
     min-height:100vh;
-    background:
-      radial-gradient(ellipse at center top, rgba(251,191,36,0.10), transparent 60%),
-      radial-gradient(ellipse at center, rgba(11,15,30,0.45), rgba(8,11,24,0.92)),
-      url('/img/%EB%B0%B0%EA%B2%BD%ED%99%94%EB%A9%B4/space.jpg') center/cover no-repeat fixed,
-      #0a0e1a;
+    background:#0a0e1a;
     color:#f1f5f9;
     font-family:'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;
     letter-spacing:-0.2px;
   }
+  body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/img/home-bg-dark.webp?v=20260730') center/cover no-repeat;filter:blur(2px) brightness(0.55) saturate(1.15);transform:scale(1.06)}
+  body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at center top, rgba(251,191,36,0.08), transparent 60%),radial-gradient(ellipse at center, rgba(11,15,30,0.55), rgba(8,11,24,0.95))}
   .wrap{max-width:680px;margin:0 auto;padding:32px 18px 80px}
   .brand{text-align:center;margin-bottom:24px}
   .brand-logo{
@@ -36,11 +37,11 @@
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;
     font-size:36px;letter-spacing:1px;display:block;line-height:1
   }
-  .brand-sub{font-size:13px;color:#94a3b8;margin-top:4px}
+  .brand-sub{font-weight:800;font-size:14px;letter-spacing:-0.2px;margin-top:6px;background:linear-gradient(135deg,#fde68a 0%,#fbbf24 35%,#f59e0b 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
   /* 평가서 카드 */
   .eval-card{
-    background:linear-gradient(180deg,rgba(26,32,50,0.95),rgba(19,24,38,0.95));
-    border:1px solid rgba(251,191,36,0.32);
+    background:rgba(20,26,43,0.7);
+    border:1px solid rgba(139,92,246,0.15);
     border-radius:22px;
     box-shadow:0 30px 80px -10px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.04);
     overflow:hidden;
@@ -82,7 +83,7 @@
   .score-num{font-size:16px;font-weight:800;color:#fde68a;font-family:'Inter',sans-serif}
   /* 코멘트 섹션 */
   .section{padding:18px 24px;border-top:1px solid rgba(255,255,255,0.06)}
-  .section h3{font-size:14px;font-weight:800;color:#fde68a;margin:0 0 10px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.5px}
+  .section h3{font-size:14px;font-weight:800;color:#c4b5fd;margin:0 0 10px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.5px}
   .section p{font-size:14px;color:#e2e8f0;line-height:1.7;margin:0;white-space:pre-wrap;word-break:keep-all}
   .empty{color:#64748b;font-style:italic;font-size:13px}
   /* 푸터 */
@@ -152,12 +153,12 @@
         <div style="margin-bottom:12px">
           <label style="display:block;font-size:11.5px;color:#94a3b8;margin-bottom:6px">학생 ID</label>
           <input id="ev-lg-uid" type="text" autocomplete="username" placeholder="예: hong_gd"
-            style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(251,191,36,0.32);background:#0e1e40;color:#fff;font-size:14px;outline:none">
+            style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(139,92,246,0.35);background:#0e1e40;color:#fff;font-size:14px;outline:none">
         </div>
         <div style="margin-bottom:16px">
           <label style="display:block;font-size:11.5px;color:#94a3b8;margin-bottom:6px">비밀번호</label>
           <input id="ev-lg-pw" type="password" autocomplete="current-password" placeholder="비밀번호"
-            style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(251,191,36,0.32);background:#0e1e40;color:#fff;font-size:14px;outline:none">
+            style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(139,92,246,0.35);background:#0e1e40;color:#fff;font-size:14px;outline:none">
         </div>
         <p id="ev-lg-err" style="display:none;color:#fca5a5;font-size:12.5px;margin-bottom:12px;text-align:center"></p>
         <button id="ev-lg-btn" onclick="window.evalDoLogin()"
@@ -264,7 +265,7 @@
       items.forEach(function(e){
         var dt = e.lesson_date || (e.created_at ? new Date(e.created_at).toISOString().slice(0,10) : '');
         var st = '<span style="color:#fbbf24">'+'★'.repeat(Math.round(e.score_overall||0))+'</span><span style="color:#475569">'+'☆'.repeat(5-Math.round(e.score_overall||0))+'</span>';
-        html += '<a href="/eval.html?id=' + e.id + '" style="display:block;background:rgba(255,255,255,0.05);border:1px solid rgba(251,191,36,0.25);border-radius:14px;padding:16px 18px;margin-bottom:12px;text-decoration:none;color:#fff;transition:all .15s" onmouseover="this.style.background=\'rgba(251,191,36,0.15)\';this.style.transform=\'translateY(-2px)\';" onmouseout="this.style.background=\'rgba(255,255,255,0.05)\';this.style.transform=\'\';">';
+        html += '<a href="/eval.html?id=' + e.id + '" style="display:block;background:rgba(139,92,246,0.08);border-left:3px solid #a78bfa;border-radius:10px;padding:16px 18px;margin-bottom:12px;text-decoration:none;color:#fff;transition:all .15s" onmouseover="this.style.background=\'rgba(139,92,246,0.15)\';this.style.transform=\'translateY(-2px)\';" onmouseout="this.style.background=\'rgba(139,92,246,0.08)\';this.style.transform=\'\';">';
         html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">';
         html += '<div><div style="font-size:11.5px;color:#fde68a;margin-bottom:4px">' + dt + '</div>';
         html += '<div style="font-size:15px;font-weight:700">' + (e.lesson_title || '수업') + '</div></div>';
@@ -359,7 +360,7 @@
   load();
 })();
 </script>
-<!-- BUILD:20260731145703 -->
+<!-- BUILD:20260731200556 -->
 <style id="mb-tidy-2026-07-11">
 /* mango-i18n 공용 홈/EN 바가 같은 자리에 주입되므로 자체 홈 버튼은 숨김(기능 중복·겹침 방지) */
 .global-home{display:none}

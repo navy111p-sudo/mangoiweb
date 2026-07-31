@@ -6,7 +6,9 @@
 (function(){
   'use strict';
   var ABC = ['A','B','C','D','E','F'];
-  var st = { quiz:null, idx:0, answers:[], loadedOnce:false, rec:null, chunks:[], recIdx:-1 };
+  var st = { quiz:null, idx:0, answers:[], loadedOnce:false, rec:null, chunks:[], recIdx:-1, lang:'en' };
+  // 🈶 (2026-07-31) 복습퀴즈 언어 — 게임 탭에서 학생이 골라둔 언어(mangoi_game_lang)를 기본값으로 이어받는다.
+  try { st.lang = (localStorage.getItem('mangoi_review_lang') || localStorage.getItem('mangoi_game_lang')) === 'zh' ? 'zh' : 'en'; } catch(e){}
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
   function isEn(){ return (window.langCurrent === 'en') || (document.documentElement.lang === 'en'); }
@@ -24,7 +26,11 @@
     try { level = me().level || localStorage.getItem('mangoi_current_level') || ''; } catch(e){}
     var lesson = 0;
     try { lesson = parseInt(localStorage.getItem('mangoi_current_lesson')||'0',10) || 0; } catch(e){}
-    return { textbook: String(textbook||'').trim(), level: String(level||'').trim(), lesson_no: lesson };
+    textbook = String(textbook||'').trim(); level = String(level||'').trim();
+    // 🈶 중국어는 아직 다락원 Lv3 단일 커리큘럼뿐 — 수업화면이 교재를 못 읽어와도 기본값으로 채워
+    //   "맞춤 퀴즈" 버튼이 항상 뭔가 만들어내도록 한다(교재가 늘면 이 기본값은 자연히 안 쓰이게 됨).
+    if (st.lang === 'zh' && !textbook && !level) { textbook = '다락원'; level = 'Lv 3'; }
+    return { textbook: textbook, level: level, lesson_no: lesson };
   }
   function setCtxLabel(){
     var c = ctx(); var parts = [];
@@ -32,7 +38,15 @@
     if (c.level) parts.push('📊 '+c.level);
     if (c.lesson_no) parts.push('Lesson '+c.lesson_no);
     var el = $('rqv-ctx'); if (el) el.textContent = parts.length ? parts.join('  ·  ') : (isEn()?'(general)':'(공통 퀴즈)');
+    var lb = $('rqv-lang-btn'); if (lb) lb.textContent = (st.lang==='zh') ? '🇨🇳 中文' : '🇬🇧 EN';
   }
+  // 🈶 EN ↔ 中文 토글 — 게임탭과 같은 키(mangoi_game_lang 겸용)에 저장해 다음에도 이어짐
+  window.rqvToggleLang = function(){
+    st.lang = (st.lang === 'zh') ? 'en' : 'zh';
+    try { localStorage.setItem('mangoi_review_lang', st.lang); } catch(e){}
+    st.loadedOnce = true;
+    rqvAuto(true);
+  };
   window.rqvOnEnter = function(){
     setCtxLabel();
     if (st.loadedOnce) return;
@@ -50,7 +64,7 @@
       + '<div style="margin-top:10px;font-size:11.5px;color:#64748b">' + (isEn()?'AI may take ~10s to create one.':'없으면 AI가 약 10초 안에 새로 만들어요.') + '</div></div>';
     try {
       var r = await fetch('/api/review-quiz/auto', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ textbook:c.textbook, level:c.level, lesson_no:c.lesson_no, auto_generate:1 }) }).then(function(x){return x.json();});
+        body: JSON.stringify({ textbook:c.textbook, level:c.level, lesson_no:c.lesson_no, lang:st.lang, auto_generate:1 }) }).then(function(x){return x.json();});
       if (r && r.ok && r.quiz) { startQuiz(r.quiz, r.generated); return; }
       if (r && r.ok && !r.quiz) { body.innerHTML = '<div style="text-align:center;padding:30px;color:#a3b3d1;font-size:13px">'+(isEn()?'No matching quiz. Showing all quizzes.':'맞춤 퀴즈가 아직 없어요. 전체 목록을 보여드릴게요.')+'</div>'; setTimeout(rqvLoadList, 600); return; }
       throw new Error((r&&r.error)||'auto_fail');

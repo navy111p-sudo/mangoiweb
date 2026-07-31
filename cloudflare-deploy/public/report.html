@@ -13,38 +13,43 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
+<link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style>
   @media print {
     body { background: white !important; color: #1a1a1a !important; }
+    body::before, body::after { display: none !important; }
     .no-print { display: none !important; }
-    .card { background: white !important; border: 1px solid #ddd !important; box-shadow: none !important; color: #1a1a1a !important; }
+    .card { background: white !important; border: 1px solid #ddd !important; box-shadow: none !important; backdrop-filter: none !important; color: #1a1a1a !important; }
     .card h3, .card .stat, .card p, .card div { color: #1a1a1a !important; }
   }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{min-height:100vh;background:linear-gradient(180deg,#0a1530,#0b1c44,#0f1d40);color:#e6ecff;font-family:'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;padding-bottom:80px}
+  /* 🎨 마이페이지(parent.html)·평가서(eval.html)와 같은 "리포트 패밀리" 톤으로 통일 — 2026-07-31 */
+  body{position:relative;min-height:100vh;background:#0a0e1a;color:#e6ecff;font-family:'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;padding-bottom:80px}
+  body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/img/home-bg-dark.webp?v=20260730') center/cover no-repeat;filter:blur(2px) brightness(0.55) saturate(1.15);transform:scale(1.06)}
+  body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at center top, rgba(251,191,36,0.08), transparent 60%),radial-gradient(ellipse at center, rgba(11,15,30,0.55), rgba(8,11,24,0.95))}
   .wrap{max-width:860px;margin:0 auto;padding:32px 18px}
-  .brand{text-align:center;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid rgba(99,102,241,0.18)}
-  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:36px;letter-spacing:1px;display:block}
-  .brand-sub{color:#a3b3d1;font-size:12.5px;margin-top:6px;letter-spacing:1px}
+  .brand{text-align:center;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid rgba(139,92,246,0.18)}
+  .brand-logo{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;background:linear-gradient(180deg,#fff4cc,#fbbf24,#8a5e10);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:36px;letter-spacing:1px;display:block;line-height:1}
+  .brand-sub{font-weight:800;font-size:14px;letter-spacing:-0.2px;margin-top:6px;background:linear-gradient(135deg,#fde68a 0%,#fbbf24 35%,#f59e0b 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
   h1{font-size:24px;font-weight:800;margin:18px 0 8px;color:#fff}
-  .meta{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:#a3b3d1;margin-bottom:24px}
+  .meta{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:#94a3b8;margin-bottom:24px}
   .meta b{color:#fbbf24}
   .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:24px}
-  .stat{background:#142950;border:1px solid rgba(99,102,241,0.18);border-radius:12px;padding:14px;text-align:center}
+  .stat{background:rgba(20,26,43,0.7);border:1px solid rgba(139,92,246,0.15);border-radius:12px;padding:14px;text-align:center;backdrop-filter:blur(8px)}
   .stat-num{font-size:28px;font-weight:900;background:linear-gradient(180deg,#fff4cc,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-  .stat-label{font-size:10px;color:#a3b3d1;letter-spacing:1.5px;margin-top:4px}
-  .card{background:#142950;border:1px solid rgba(99,102,241,0.18);border-radius:14px;padding:20px;margin-bottom:14px}
+  .stat-label{font-size:10px;color:#94a3b8;letter-spacing:1.5px;margin-top:4px}
+  .card{background:rgba(20,26,43,0.7);border:1px solid rgba(139,92,246,0.15);border-radius:14px;padding:20px;margin-bottom:14px;backdrop-filter:blur(8px)}
   .card h3{font-size:15px;font-weight:800;color:#c4b5fd;margin-bottom:14px}
-  .eval-item{padding:14px 16px;background:rgba(99,102,241,0.08);border-left:3px solid #a78bfa;border-radius:10px;margin-bottom:8px}
+  .eval-item{padding:14px 16px;background:rgba(139,92,246,0.08);border-left:3px solid #a78bfa;border-radius:10px;margin-bottom:8px}
   .eval-score{display:inline-block;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a}
-  .eval-date{font-size:11px;color:#a3b3d1;margin-left:6px}
+  .eval-date{font-size:11px;color:#94a3b8;margin-left:6px}
   .eval-body{font-size:12.5px;color:#cbd5e1;line-height:1.7;margin-top:8px}
   .eval-body b{color:#fbbf24}
   .actions{position:fixed;bottom:20px;right:20px;display:flex;gap:8px}
   .actions button{padding:10px 18px;font-weight:800;border:0;border-radius:99px;cursor:pointer;box-shadow:0 8px 24px -4px rgba(0,0,0,0.5)}
   .print-btn{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a}
-  .home-btn{background:rgba(99,102,241,0.5);color:#fff}
-  .empty{padding:30px;text-align:center;color:#a3b3d1}
+  .home-btn{background:rgba(139,92,246,0.5);color:#fff}
+  .empty{padding:30px;text-align:center;color:#94a3b8}
 </style>
 </head>
 <body>
@@ -90,16 +95,16 @@ function showLogin() {
   document.getElementById('content').innerHTML = `
     <div class="card" style="max-width:380px;margin:20px auto;padding:28px 24px">
       <h3 style="font-size:17px;color:#fff;text-align:center;margin-bottom:6px">🔑 학생 로그인</h3>
-      <p style="color:#a3b3d1;font-size:12.5px;text-align:center;margin-bottom:20px">보고서를 보려면 로그인하세요</p>
+      <p style="color:#94a3b8;font-size:12.5px;text-align:center;margin-bottom:20px">보고서를 보려면 로그인하세요</p>
       <div style="margin-bottom:12px">
-        <label style="display:block;font-size:11.5px;color:#a3b3d1;margin-bottom:6px">학생 ID</label>
+        <label style="display:block;font-size:11.5px;color:#94a3b8;margin-bottom:6px">학생 ID</label>
         <input id="lg-uid" type="text" autocomplete="username" placeholder="예: hong_gd"
-          style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(99,102,241,0.35);background:#0e1e40;color:#fff;font-size:14px;outline:none">
+          style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(139,92,246,0.35);background:#0e1e40;color:#fff;font-size:14px;outline:none">
       </div>
       <div style="margin-bottom:16px">
-        <label style="display:block;font-size:11.5px;color:#a3b3d1;margin-bottom:6px">비밀번호</label>
+        <label style="display:block;font-size:11.5px;color:#94a3b8;margin-bottom:6px">비밀번호</label>
         <input id="lg-pw" type="password" autocomplete="current-password" placeholder="비밀번호"
-          style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(99,102,241,0.35);background:#0e1e40;color:#fff;font-size:14px;outline:none">
+          style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(139,92,246,0.35);background:#0e1e40;color:#fff;font-size:14px;outline:none">
       </div>
       <p id="lg-err" style="display:none;color:#fca5a5;font-size:12.5px;margin-bottom:12px;text-align:center"></p>
       <button id="lg-btn" onclick="doStudentLogin()"
@@ -209,9 +214,9 @@ function render(d) {
     <div class="card">
       <h3>🎙 AI 음성 코칭 평균</h3>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
-        <div><div style="font-size:22px;font-weight:800;color:#34d399">${v.avg_accuracy||0}</div><div style="font-size:11px;color:#a3b3d1">정확도</div></div>
-        <div><div style="font-size:22px;font-weight:800;color:#fbbf24">${v.avg_pronunciation||0}</div><div style="font-size:11px;color:#a3b3d1">발음</div></div>
-        <div><div style="font-size:22px;font-weight:800;color:#a78bfa">${v.avg_fluency||0}</div><div style="font-size:11px;color:#a3b3d1">유창성</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:#34d399">${v.avg_accuracy||0}</div><div style="font-size:11px;color:#94a3b8">정확도</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:#fbbf24">${v.avg_pronunciation||0}</div><div style="font-size:11px;color:#94a3b8">발음</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:#a78bfa">${v.avg_fluency||0}</div><div style="font-size:11px;color:#94a3b8">유창성</div></div>
       </div>
     </div>
 
@@ -228,14 +233,14 @@ function render(d) {
         </div>`).join('') : '<div class="empty">이번 달 평가서가 없습니다</div>'}
     </div>
 
-    <div style="text-align:center;margin-top:30px;padding:20px;color:#a3b3d1;font-size:11.5px;border-top:1px solid rgba(99,102,241,0.18)">
+    <div style="text-align:center;margin-top:30px;padding:20px;color:#94a3b8;font-size:11.5px;border-top:1px solid rgba(139,92,246,0.18)">
       ✨ <b style="color:#fbbf24">망고아이 영어학원</b> — AI 기반 영어 교육 플랫폼<br>
       이 보고서는 자동 생성되었습니다. 인쇄/PDF 저장 가능.
     </div>`;
   document.getElementById('content').innerHTML = html;
 }
 </script>
-<!-- BUILD:20260731145703 -->
+<!-- BUILD:20260731200556 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

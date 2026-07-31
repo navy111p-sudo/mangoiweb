@@ -200,6 +200,23 @@ check('소스 일치: 정검이 음성≠정답/정답범위밖 검출', /음성
 check('소스 일치: 제목 클릭 → rqPreview 연결', /onclick="rqPreview\(/.test(ADMIN));
 
 // ════════════════════════════════════════════════════════════════════
+// [F] 중국어 복습퀴즈 (2026-07-31 — /api/review-quiz/auto lang 분기 회귀가드)
+//   맥락: review_quizzes 는 원래 영어 전용(AI 프롬프트 하드코딩)이라 중국어 수업엔
+//   퀴즈가 하나도 안 뜨고 전체(영어) 목록으로 폴백했다. lang 컬럼 + zh 전용 프롬프트로 해결.
+// ════════════════════════════════════════════════════════════════════
+section('[F] 중국어(zh) 복습퀴즈 — 스키마/분기/TTS회피 회귀가드');
+check('lang 컬럼 마이그레이션 존재', /ALTER TABLE review_quizzes ADD COLUMN lang/.test(API));
+check('rqAiGenerate 가 lang 파라미터를 받음', /rqAiGenerate\s*=\s*async\s*\(o:\s*\{[^}]*lang\?:\s*string/.test(API));
+check('🔒 중국어는 listen/speak 강제 0 (깨진 CF 구글TTS·미검증 STT 회피)', /isZh\s*\?\s*0\s*:\s*lim\(c\.listen/.test(API) && /isZh\s*\?\s*0\s*:\s*lim\(c\.speak/.test(API));
+check('중국어 프롬프트가 실제 zh_vocab 어휘로 그라운딩됨(할루시네이션 방지)', /rqZhVocabSample/.test(API) && /Use ONLY the Chinese words below/.test(API));
+check('/api/review-quiz/auto 가 body.lang 을 읽음', /const lang = String\(b\.lang \|\| ''\)\.trim\(\) === 'zh'/.test(API));
+check('중국어 매칭은 lang=\'zh\' 로 엄격 필터(영어 문항과 안 섞임)', /langCond = lang === 'zh' \? `lang = \?`/.test(API));
+check('영어는 lang IS NULL(기존 행) 도 계속 매칭 — 하위호환', /lang = \? OR lang IS NULL/.test(API));
+check('교재/레벨 미상이어도 중국어는 다락원/Lv 3 기본값으로 폴백', /textbook = '다락원'; level = 'Lv 3'/.test(API));
+check('소스 일치(프론트): rqvToggleLang 존재', /window\.rqvToggleLang\s*=\s*function/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
+check('소스 일치(프론트): auto 호출이 lang 을 전송', /lang:st\.lang/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
+
+// ════════════════════════════════════════════════════════════════════
 //  요약 + 리포트
 // ════════════════════════════════════════════════════════════════════
 console.log('\n' + '═'.repeat(60));
