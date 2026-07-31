@@ -720,18 +720,20 @@
       flag.position.set(0.32,2.15,-0.4); proc.add(flag);
       g.userData.flag=flag;
       // 조타륜(선실 자리) — 배·선장과 별도 GLB로 붙여서 조종 방향에 맞춰 매 프레임 회전시킴(선장이 실제로 돌리는 것처럼)
-      var wheelGroup=new THREE.Group(); wheelGroup.position.set(0,0.15,0.35); g.add(wheelGroup); g.userData.wheel=wheelGroup;   // TEMP 디버그 위치
-      var wheelProc=new THREE.Group(); wheelGroup.add(wheelProc); wheelGroup.userData.proc=wheelProc;
+      var wheelGroup=new THREE.Group(); wheelGroup.position.set(0,0.15,0.35); g.add(wheelGroup);   // 갑판 위 조타대 자리
+      // 회전 피벗을 조타륜 허브 높이에 둠 — 피벗만 돌리면 받침대는 그대로 있고 휠만 제자리 회전
+      var wheelPivot=new THREE.Group(); wheelPivot.position.set(0,0.45,0); wheelGroup.add(wheelPivot); g.userData.wheel=wheelPivot;
+      var wheelProc=new THREE.Group(); wheelPivot.add(wheelProc); wheelPivot.userData.proc=wheelProc;
       var wheelMat=new THREE.MeshStandardMaterial({color:0x8b5a2b,flatShading:true,roughness:0.7});
-      var wheelPost=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,8), new THREE.MeshStandardMaterial({color:0x777777,flatShading:true,metalness:0.3,roughness:0.5}));
-      wheelPost.position.set(0,0.76,0); wheelProc.add(wheelPost);
       var wheelRing=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.035,8,16), wheelMat);
-      wheelRing.position.set(0,0.98,0); wheelProc.add(wheelRing);
+      wheelProc.add(wheelRing);   // 피벗 원점=허브 → 링/허브는 원점에
       var wheelHub=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.06,8), wheelMat);
-      wheelHub.rotation.x=Math.PI/2; wheelHub.position.set(0,0.98,0); wheelProc.add(wheelHub);
+      wheelHub.rotation.x=Math.PI/2; wheelProc.add(wheelHub);
+      var wheelPost=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,8), new THREE.MeshStandardMaterial({color:0x777777,flatShading:true,metalness:0.3,roughness:0.5}));
+      wheelPost.position.set(0,0.24,0); wheelGroup.add(wheelPost);   // 받침대는 피벗 밖(회전 안 함)
       attachGLB(g, GLB_MODELS.boat, 4.3, 0.1, true, -Math.PI/2, 0, 0, true, {top:0.55, bot:-0.5});   // 선체 물 아래 부분 자연 페이드 — 조타륜 없는 빈 갑판 버전
       attachGLB(g, GLB_MODELS.captain, 1.6, 0.03, false, Math.PI, 0, 0.5, true);   // 선장 — 앉은 모습 대신 조타륜을 잡고 서서 운전하는 모습으로 교체(스탠딩 포즈, 1.05→1.6). 진행방향(앞)을 보고 조타륜을 잡게 180° 회전. extraZ=0.5(조타륜 뒤), hideProc=true
-      attachGLB(wheelGroup, GLB_MODELS.wheel, 0.75, 0, false, Math.PI, 0, 0, true);   // 조타륜 단독 GLB — wheelGroup 자체를 매 프레임 회전시켜 조종에 반응
+      attachGLB(wheelPivot, GLB_MODELS.wheel, 0.75, -0.45, false, Math.PI, 0, 0, true);   // 조타륜 단독 GLB — 허브가 피벗 원점에 오게 내려붙임(yOffset=-0.45). 피벗 회전=휠 제자리 회전
       return g;
     }
     var boat=buildBoat(); scene.add(boat);
@@ -1446,6 +1448,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260801054325 -->
+<!-- BUILD:20260801054917 -->
 </body>
 </html>
