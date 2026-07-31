@@ -2277,6 +2277,70 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
     }
 
+    /* 🔗 (2026-07-31) 제보 #2-1 후속 — "이미 DB에 들어가 있으니 찾아서 자동으로 매칭한 뒤 틀린 것만
+       확인하는 게 낫다"는 피드백 반영. 이전엔 원문 그대로("Teacher Belle" vs "BELLE") 비교해서
+       29명 중 1명만 우연히 맞았지만, "Teacher " 접두사를 떼고 대소문자를 맞추면 실제로는 대부분
+       정확히 일치한다. 정확히 일치하는 것만 자동 연결하고, 애매하거나 안 맞는 것만 관리자가 보게 한다
+       (틀리게 매칭되면 다른 강사 사진이 나가는 사고라 fuzzy 매칭은 자동 적용하지 않음). */
+    if (method === 'POST' && path === '/api/admin/teacher-profiles/auto-match') {
+      const _amActor = await getAdminActor(request, env as any);
+      if (_amActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      try { await ensureTeacherProfilesSchema(); }
+      catch (e: any) { return json({ ok: false, error: '테이블 생성 실패: ' + String(e?.message || e) }, 500); }
+
+      const norm = (s: any) => String(s || '').trim().toUpperCase().replace(/^TEACHER\s+/, '').replace(/\s+/g, ' ').trim();
+
+      let teachers: any[] = [];
+      let profiles: any[] = [];
+      try {
+        teachers = (await env.DB.prepare(`SELECT id, name FROM teachers`).all<any>()).results || [];
+        profiles = (await env.DB.prepare(`SELECT id, korean_name, english_name, linked_teacher_id FROM teacher_profiles`).all<any>()).results || [];
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+
+      // 정규화 이름이 겹치는 teacher 가 2명 이상이면 그 이름은 애매한 것으로 취급(자동매칭 제외)
+      const byNorm = new Map<string, any[]>();
+      for (const t of teachers) {
+        const n = norm(t.name);
+        if (!n) continue;
+        if (!byNorm.has(n)) byNorm.set(n, []);
+        byNorm.get(n)!.push(t);
+      }
+
+      const usedTeacherIds = new Set<number>(profiles.filter(p => p.linked_teacher_id).map(p => p.linked_teacher_id));
+      const matched: any[] = [];
+      const unmatched: any[] = [];
+      const now = Date.now();
+
+      for (const p of profiles) {
+        if (p.linked_teacher_id) continue; // 이미 연결된 건 건드리지 않음(기존 수동 작업 보존)
+        const cands = byNorm.get(norm(p.korean_name)) || byNorm.get(norm(p.english_name)) || [];
+        const cand = cands.length === 1 ? cands[0] : null;
+        if (cand && !usedTeacherIds.has(cand.id)) {
+          try {
+            await env.DB.prepare(`UPDATE teacher_profiles SET linked_teacher_id = ?, updated_at = ? WHERE id = ?`)
+              .bind(cand.id, now, p.id).run();
+            usedTeacherIds.add(cand.id);
+            matched.push({ profile_id: p.id, profile_name: p.korean_name, teacher_id: cand.id, teacher_name: cand.name });
+          } catch (e: any) {
+            unmatched.push({ profile_id: p.id, profile_name: p.korean_name, reason: 'update_failed: ' + String(e?.message || e) });
+          }
+        } else {
+          // 참고용 추천(자동 적용 X) — 이름에 서로를 포함하는 정도로만 힌트 제공
+          const pn = norm(p.korean_name) || norm(p.english_name);
+          const suggestion = teachers.find(t => !usedTeacherIds.has(t.id) && pn && (norm(t.name).includes(pn) || pn.includes(norm(t.name))));
+          unmatched.push({
+            profile_id: p.id, profile_name: p.korean_name,
+            reason: cands.length > 1 ? 'ambiguous(동명이인)' : (cand ? 'teacher_already_linked' : 'no_match'),
+            suggested_teacher: suggestion ? { id: suggestion.id, name: suggestion.name } : null,
+          });
+        }
+      }
+
+      return json({ ok: true, matched, unmatched, matched_count: matched.length, unmatched_count: unmatched.length });
+    }
+
     if (method === 'POST' && path === '/api/admin/teacher-profiles') {
       const _tpwActor = await getAdminActor(request, env as any);
       if (_tpwActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 등록할 수 없습니다.' }, 403);

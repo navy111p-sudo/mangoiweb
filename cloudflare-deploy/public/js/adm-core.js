@@ -2246,6 +2246,34 @@ async function _tpLoadTeacherOptions() {
   } catch (e) { sel.innerHTML = '<option value="">불러오기 실패</option>'; }
 }
 
+/* 🔗 (2026-07-31) 제보 #2-1 후속 — "자동으로 매칭한 뒤 틀린 것만 확인" 요청 반영.
+   정확히 일치하는 이름만 서버가 자동 연결하고, 애매한 것만 알려준다. */
+window.runTeacherAutoMatch = async function () {
+  const btn = document.getElementById('tp-auto-match-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '매칭 중…'; }
+  try {
+    const r = await fetch('/api/admin/teacher-profiles/auto-match', { method: 'POST', credentials: 'include' });
+    const d = await r.json().catch(() => ({}));
+    if (!d || !d.ok) { alert('자동 매칭 실패: ' + (d && d.error || r.status)); return; }
+    let msg = '✅ 자동 매칭 완료: ' + d.matched_count + '명\n';
+    if (d.matched.length) msg += d.matched.map(m => '  · ' + m.profile_name + ' → ' + m.teacher_name).join('\n') + '\n\n';
+    if (d.unmatched_count) {
+      msg += '⚠️ 확인 필요: ' + d.unmatched_count + '명\n';
+      msg += d.unmatched.map(u => '  · ' + u.profile_name + ' (' + u.reason + (u.suggested_teacher ? ', 추천: ' + u.suggested_teacher.name : '') + ')').join('\n');
+      msg += '\n\n위 목록은 강사 프로필 편집 화면의 "강사 계정 연결" 드롭다운에서 직접 확인해 주세요.';
+    } else {
+      msg += '⚠️ 확인 필요한 건 없습니다.';
+    }
+    alert(msg);
+    _tpTeacherOptionsLoaded = false; // 연결 상태가 바뀌었으니 다음 편집 시 드롭다운 재로드
+    if (typeof loadTeacherProfiles === 'function') loadTeacherProfiles();
+  } catch (e) {
+    alert('자동 매칭 중 오류: ' + e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 강사 계정 자동 매칭'; }
+  }
+};
+
 async function loadTeacherProfiles() {
   _tpLoadTeacherOptions();
   const status = document.getElementById('tp-filter-status')?.value || '';

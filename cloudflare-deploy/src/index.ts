@@ -895,6 +895,8 @@ const worker = {
         /^\/api\/admin\/class-schedules\/\d+$/.test(path) ||
         path === '/api/admin/teacher-profiles' ||
         path === '/api/admin/teacher-profiles/import' ||
+        // 🔗 (2026-07-31) 제보 #2-1 후속 — 이름 자동매칭(payroll teachers ↔ teacher_profiles)
+        path === '/api/admin/teacher-profiles/auto-match' ||
         /^\/api\/admin\/teacher-profiles\/\d+$/.test(path) ||
         path === '/api/admin/teachers' ||
         /^\/api\/admin\/teachers\/\d+$/.test(path) ||
