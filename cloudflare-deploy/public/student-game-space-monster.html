@@ -427,12 +427,7 @@
       monster.title = creature.word
       monster.dataset.frameIndex = 0
 
-      // 실제 이미지 스프라이트 사용 (10 레벨, 4 프레임 애니메이션)
-      const level = 5 // 중간 해상도 선택 (1-10)
-      const frameCount = 4
-      let frameIndex = 0
-
-      // 프레임 크기 설정
+      // Higgsfield 4K 실사 + PIL 벡터 혼합 (10 레벨, 4 프레임 애니메이션)
       const frameSizes = {
         1: { w: 80, h: 100 },
         2: { w: 120, h: 150 },
@@ -446,15 +441,40 @@
         10: { w: 500, h: 625 }
       }
 
-      const size = frameSizes[level]
+      const frameCount = 4
+      let frameIndex = 0
+      let currentLevel = 1 // 시작: 가장 멀리서 가장 작은 이미지
+
+      // Higgsfield 4K 스프라이트 목록 (실사 영화급)
+      const creatures4k = ['tripod', 'blob', 'spider', 'cyclops']
+      const use4k = creatures4k.includes(creature.name)
+
+      const size = frameSizes[currentLevel]
       monster.style.width = size.w + 'px'
       monster.style.height = size.h + 'px'
-      monster.dataset.level = level
+      monster.dataset.level = currentLevel
+      monster.dataset.quality = use4k ? '4k' : 'standard'
 
-      // 애니메이션: 프레임 순환
+      // 애니메이션: 프레임 순환 + 동적 해상도
       const animateFrames = () => {
         if (monster.classList.contains('hit')) return
-        const framePath = `/img/space-monsters/${creature.name}-level-${String(level).padStart(2, '0')}-frame-${String(frameIndex).padStart(2, '0')}.png`
+
+        // 접근 애니메이션에 따라 레벨 동적 변경 (점진적 zoom in 효과)
+        // approachCenter: 0.16 ~ 1.0 scale (5초)
+        // 현재 시간 기반으로 대략적인 레벨 추정
+        const elapsed = performance.now() % 5000 // 5초 사이클
+        const progress = elapsed / 5000 // 0 ~ 1
+        const newLevel = Math.min(10, Math.max(1, Math.round(progress * 9 + 1)))
+
+        if (currentLevel !== newLevel) {
+          currentLevel = newLevel
+          const newSize = frameSizes[newLevel]
+          monster.style.width = newSize.w + 'px'
+          monster.style.height = newSize.h + 'px'
+          monster.dataset.level = newLevel
+        }
+
+        const framePath = `/img/space-monsters/${creature.name}-level-${String(currentLevel).padStart(2, '0')}-frame-${String(frameIndex).padStart(2, '0')}.png`
         monster.style.backgroundImage = `url('${framePath}')`
         frameIndex = (frameIndex + 1) % frameCount
         monster.dataset.frameIndex = frameIndex
@@ -467,7 +487,7 @@
         } else {
           clearInterval(frameInterval)
         }
-      }, 200) // 200ms마다 프레임 전환 (5fps 애니메이션)
+      }, 150) // 150ms마다 프레임 전환 (6.7fps, 더 부드러운 애니메이션)
 
       monster.onclick = (e) => {
         e.stopPropagation()
@@ -587,6 +607,6 @@
       }
     })
   </script>
-<!-- BUILD:20260801033013 -->
+<!-- BUILD:20260801045500 -->
 </body>
 </html>

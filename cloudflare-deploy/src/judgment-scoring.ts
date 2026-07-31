@@ -14,8 +14,13 @@ export const AXIS_WEIGHTS: Record<string, number> = {
 
 // 최근 성과 반영 — 단순 누적 평균이면 27번 푼 학생이 100점을 받아도 지수가 0.3점밖에 안 움직여
 // "몇 점을 받든 65" 로 보입니다. 반감기 RECENCY_HALF_LIFE 회의 지수가중 평균을 씁니다.
-export const RECENCY_HALF_LIFE = 6;   // 6회 전 판단의 가중치 = 최신의 1/2
-export const RECENT_WINDOW = 12;      // 자기교정력·일관성을 보는 최근 창
+// ⚠️ 2026-07-31 1차 수정: 선택 축만 half-life 6→2 로 줄임(문제: 정답 98점/오답 20점을 내도
+//   지수가 1~3점만 움직임). ⚠️ 2026-07-31 2차 수정: 배포 후 "선택 적절성·이유논리·자기교정력
+//   그래프가 질문마다 거의 비슷하다" 재신고 — 이유논리·어투민감도 축은 여전히 half-life=6 을 쓰고
+//   있었고(선택 축과 똑같은 문제), 자기교정력·일관성도 RECENT_WINDOW=12 라 답 1개의 비중이 낮았음.
+//   5축 모두 같은 정도로 반응하도록 half-life 를 2 로, 최근 창을 6 으로 통일한다.
+export const RECENCY_HALF_LIFE = 2;   // 이유논리·어투민감도·선택 축 공통 — 2회 전 판단의 가중치 = 최신의 1/2
+export const RECENT_WINDOW = 6;       // 자기교정력·일관성을 보는 최근 창
 
 /**
  * 난이도별 도달 가능 상한 — 변별력의 핵심.
@@ -83,14 +88,14 @@ export function stddev(arr: number[]): number {
   return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length);
 }
 
-/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. */
-export function recencyAvg(arr: Array<number | null>): number | null {
+/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. halfLife 생략 시 RECENCY_HALF_LIFE. */
+export function recencyAvg(arr: Array<number | null>, halfLife: number = RECENCY_HALF_LIFE): number | null {
   let ws = 0, vs = 0;
   const n = arr.length;
   for (let i = 0; i < n; i++) {
     const v = arr[i];
     if (v == null) continue;                                     // 값 없는 회차는 가중치 자리도 차지하지 않음
-    const w = Math.pow(0.5, (n - 1 - i) / RECENCY_HALF_LIFE);
+    const w = Math.pow(0.5, (n - 1 - i) / halfLife);
     ws += w; vs += w * v;
   }
   return ws > 0 ? vs / ws : null;
