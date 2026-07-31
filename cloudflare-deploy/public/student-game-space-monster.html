@@ -337,14 +337,17 @@
     };
 
     /* ═══ 에셋 ═══ */
-    // Higgsfield 4K 실사 — 배경 매팅이 깨끗한 5종만 사용 (각자 고유 오라 색·포효 음높이)
-    // blob/spider/armor 는 복도가 몸에 붙어 떨어지지 않아 제외 — 그린스크린 재생성 후 복귀 예정
+    // Higgsfield 4K 실사 8종 (각자 고유 오라 색·포효 음높이)
+    // blob/spider/armor 는 그린스크린으로 재생성해 크로마키로 정확히 배경 제거함
     const CREATURES = [
       { n:'tripod',   aura:'80,255,150',  pitch:0.85 },
       { n:'cyclops',  aura:'255,90,60',   pitch:0.55 },
       { n:'flyer',    aura:'90,180,255',  pitch:1.55 },
       { n:'tentacle', aura:'255,170,60',  pitch:1.05 },
-      { n:'phantom',  aura:'150,255,235', pitch:1.4  }
+      { n:'phantom',  aura:'150,255,235', pitch:1.4  },
+      { n:'blob',     aura:'255,140,60',  pitch:0.65 },
+      { n:'spider',   aura:'190,90,255',  pitch:1.25 },
+      { n:'armor',    aura:'150,200,255', pitch:0.75 }
     ];
     // 배경 제거된 알파 스프라이트 시트 (12프레임 세로 스트립)
     const sheetPath = (n) => `/img/space-monsters/${n}-sheet.webp`;
@@ -705,6 +708,6 @@
 
     startWave();
   </script>
-<!-- BUILD:20260801082304 -->
+<!-- BUILD:20260801085058 -->
 </body>
 </html>
