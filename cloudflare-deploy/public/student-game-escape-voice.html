@@ -564,6 +564,30 @@ function sndCreak(){ beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(15
 function sndKeyTurn(){ beep(300,.08,'square',.15); setTimeout(function(){beep(220,.08,'square',.15);},90);
   setTimeout(function(){beep(150,.16,'sawtooth',.18);},190); }
 function sndEvent(){ beep(140,.3,'sawtooth',.22); setTimeout(function(){beep(90,.4,'sawtooth',.22);},260); }
+/* 🎭 긴장 이벤트 효과음 풀(2026-07-31) — "발자국·피아노·TV·물방울·책·커튼" 피드백. 전부 합성음이라
+   새 파일 없음. TV·가스불처럼 실제로 위험/무서운 인상을 주는 건 순한 쪽으로 눌러서 만들었다
+   (가스불→물방울 소리로 대체: 불 이미지는 아이 대상 서비스에 안 어울린다고 판단, 2026-07-31). */
+function sndFootsteps(){ [0,340,620,1010].forEach(function(dt,i){
+  setTimeout(function(){ beep(92+i*3,.09,'square',.12); },dt); }); }
+function sndPiano(){ [392,523,466,587].forEach(function(f,i){
+  setTimeout(function(){ beep(f,.5,'triangle',.1); },i*380); }); }
+function sndTVStatic(){ for(var i=0;i<6;i++){ (function(i){
+  setTimeout(function(){ beep(200+Math.random()*3000,.04,'sawtooth',.08); },i*45); })(i); }
+  setTimeout(function(){ beep(150,.05,'square',.12); },380); }
+function sndDrip(){ [0,520,980].forEach(function(dt,i){
+  setTimeout(function(){ beep(1400-i*80,.06,'sine',.09); },dt); }); }
+function sndBookFall(){ beep(70,.14,'square',.2); setTimeout(function(){ beep(1800,.03,'sine',.05); },90); }
+function sndCurtain(){ [260,220,240,200].forEach(function(f,i){
+  setTimeout(function(){ beep(f,.18,'sawtooth',.05); },i*90); }); }
+var MID_EVENTS=[
+  { flicker:true, sfx:sndEvent, en:'The lights flicker. Time is running out!', ko:'조명이 깜빡인다. 시간이 얼마 남지 않았다!' },
+  { flicker:false, sfx:sndFootsteps, en:'Footsteps echo... but no one is here.', ko:'발소리가 들린다… 아무도 없는데.' },
+  { flicker:false, sfx:sndPiano, en:'A faint piano note drifts from somewhere.', ko:'어디선가 희미한 피아노 소리가 들린다.' },
+  { flicker:true, sfx:sndTVStatic, en:'A TV flickers on for a second, then goes dark.', ko:'TV가 잠깐 켜졌다가 다시 꺼진다.' },
+  { flicker:false, sfx:sndDrip, en:'Somewhere, water drips slowly.', ko:'어디선가 물이 똑똑 떨어지는 소리가 난다.' },
+  { flicker:false, sfx:sndBookFall, en:'A book falls to the floor by itself.', ko:'책 한 권이 저절로 바닥에 떨어진다.' },
+  { flicker:false, sfx:sndCurtain, en:'The curtain sways, though the window is shut.', ko:'창문이 닫혀 있는데 커튼이 흔들린다.' }
+];
 /* 방 분위기 — 은은한 저음 드론(스산함) + 시간이 줄면 자동으로 강해지는 초침 소리는 타이머에서 처리 */
 var _drone=null;
 function startAmbience(){ var a=ac(); if(!a||_drone) return;
@@ -610,12 +634,12 @@ function showNote(en,ko){
    "사건"을 준다("분위기 더 무섭게" 피드백, 2026-07-31). 새 사진 없이 조명 플리커+경보음+메시지로 연출 */
 var _eventT=null;
 function fireMidEvent(){
-  var sc=$('scene'); sc.classList.add('flicker');
-  setTimeout(function(){ sc.classList.remove('flicker'); },950);
-  sndEvent();
+  var ev=MID_EVENTS[Math.floor(Math.random()*MID_EVENTS.length)];
+  if(ev.flicker){ var sc=$('scene'); sc.classList.add('flicker');
+    setTimeout(function(){ sc.classList.remove('flicker'); },950); }
+  ev.sfx();
   var m=$('eventMsg');
-  m.innerHTML='<div class="eEn">⚡ The lights flicker. Time is running out!</div>'+
-              '<div class="eKo">⚡ 조명이 깜빡인다. 시간이 얼마 남지 않았다!</div>';
+  m.innerHTML='<div class="eEn">⚡ '+ev.en+'</div><div class="eKo">⚡ '+ev.ko+'</div>';
   m.classList.add('show');
   clearTimeout(_eventT); _eventT=setTimeout(function(){ m.classList.remove('show'); },2600);
 }

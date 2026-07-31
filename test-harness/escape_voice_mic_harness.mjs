@@ -326,6 +326,9 @@ console.log('\n⚡ 중간 긴장 이벤트');
 {
   const g = boot();
   g.click('btnStart');
+  // 🎭(2026-07-31) 이제 이벤트가 풀에서 무작위로 뽑히므로, 풀을 1개(조명 플리커)로 줄여서
+  // 이 케이스에서는 결정론적으로 검증한다(vm 컨텍스트 밖에서 Math.random을 직접 바꿀 수 없다)
+  g.win.MID_EVENTS.length = 1;
   const half = Math.floor(300 * 0.5);
   for (let i = 0; i < half - 1; i++) g.win.tickOnce();
   check('절반 시점 직전까지는 이벤트가 안 터진다', g.win.G.eventFired === false, 'eventFired=' + g.win.G.eventFired);
@@ -335,6 +338,24 @@ console.log('\n⚡ 중간 긴장 이벤트');
   check('장면에 플리커 효과가 걸린다', g.els.scene._cls.has('flicker'));
   for (let i = 0; i < 30; i++) g.win.tickOnce();
   check('이벤트는 한 판에 한 번만 터진다(중복 없음)', g.win.G.eventFired === true);
+}
+/* ══ 11b. 긴장 이벤트 풀 — 발자국·피아노·TV·물방울·책·커튼 중 매번 다르게(2026-07-31) ══════ */
+console.log('\n🎭 긴장 이벤트 다양화');
+{
+  const g = boot();
+  g.click('btnStart');
+  check('이벤트 풀이 5가지 이상이다(매번 같은 연출이면 지루하다)',
+    g.win.MID_EVENTS.length >= 5, 'count=' + g.win.MID_EVENTS.length);
+  check('모든 이벤트에 효과음과 한/영 메시지가 있다',
+    g.win.MID_EVENTS.every(e => typeof e.sfx === 'function' && e.en && e.ko));
+}
+{
+  // fireMidEvent()를 직접 반복 호출해 실제로 여러 연출이 나오는지 확인한다(자체 무작위 선택 로직)
+  const g = boot();
+  g.click('btnStart');
+  const seen = new Set();
+  for (let i = 0; i < 20; i++) { g.win.fireMidEvent(); seen.add(g.txt('eventMsg')); }
+  check('이벤트가 매번 같은 것만 뽑히지 않는다', seen.size > 1, 'variants seen=' + seen.size);
 }
 
 /* ══ 12. 장소 다양화 — 매번 6곳 중 하나를 무작위로("같은 방만 나오면 지루하다" 피드백, 2026-07-31) ══ */
