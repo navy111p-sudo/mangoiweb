@@ -319,8 +319,8 @@
         window.scrollTo(0,0);
       } catch(e) { alert('퀴즈를 열 수 없어요. 잠시 후 다시 시도해주세요.'); }
     }
-    var TYPE_ICON = { choice:'📝', listen:'🎧', write:'✍️', speak:'🎤' };
-    var TYPE_KO = { choice:'객관식', listen:'듣기', write:'쓰기', speak:'말하기' };
+    var TYPE_ICON = { choice:'📝', listen:'🎧', speak:'🎤' };
+    var TYPE_KO = { choice:'객관식', listen:'듣기', speak:'말하기' };
     var rec = { mr:null, chunks:[], idx:-1 };
 
     function renderQ() {
@@ -369,14 +369,6 @@
           }
           return '<button class="'+cls+'"'+(answered?'':' onclick="pick('+k+')"')+'><span class="opt-prefix">'+ABC[k]+'</span>'+optText+mark+'</button>';
         }).join('');
-      } else if (typ==='write') {
-        inner += '<div class="q-text">' + esc(q.q) + '</div>';
-        if (graded) {
-          inner += '<div style="width:100%;padding:14px 16px;border-radius:10px;background:rgba(255,255,255,0.06);font-size:15px;font-weight:700;color:#fff">'+esc(fb.your||'-')+'</div>';
-        } else {
-          inner += '<input id="writeIn" value="'+esc(state.answers[i]||'')+'" oninput="setText(this.value)" onkeydown="if(event.key===\'Enter\')checkText()" placeholder="한자를 입력하세요" autocomplete="off" autocapitalize="off" style="width:100%;padding:14px 16px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.96);color:#111;font-size:15px;font-family:inherit" />'
-            + '<button id="checkBtn" type="button" class="nav-btn primary" style="width:100%;margin-top:10px" onclick="checkText()">✅ 정답 확인</button>';
-        }
       } else { // speak
         inner += '<div style="font-size:14px;color:var(--text2);margin-bottom:8px">'+esc(q.q)+'</div>'
           + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(59,130,246,0.10);border:1px dashed rgba(59,130,246,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.answer_text||'')+'</div>';
@@ -391,7 +383,7 @@
         var ok = fb.correct;
         var extra = '';
         if (typ==='listen' && fb.audio_text) extra += '<div style="font-size:12.5px;color:var(--text2);margin-top:6px">🎧 '+esc(fb.audio_text)+'</div>';
-        if (typ==='write' || typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">정답: '+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
+        if (typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">정답: '+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
         fbHtml = '<div class="rq-mascot '+(animate?(ok?'react':'sad'):'')+'">'
           + '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'">'
           + '<div class="rq-bubble '+(ok?'ok':'no')+' show">'+esc(fb.line||'')+'</div></div>'
@@ -420,16 +412,6 @@
       if (typ==='listen' && !graded) setTimeout(function(){ playAudio(i, true); }, 350);
     }
 
-    window.setText = function(v){ state.answers[state.idx]=v; };
-    window.checkText = async function(){
-      var i=state.idx; if(state.fb[i]) return;
-      var el=document.getElementById('writeIn'); var v=el?el.value.trim():String(state.answers[i]||'').trim();
-      if(!v){ if(el) el.focus(); return; }
-      state.answers[i]=v;
-      var btn=document.getElementById('checkBtn'); if(btn){ btn.disabled=true; btn.textContent='확인 중…'; }
-      var resp=await rqCheck(i, v);
-      applyFeedback(i, resp, v);
-    };
 
     var SILENT_WAV='data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YYQDAAAAAAAAAA==';
     var rqAudio=null;
