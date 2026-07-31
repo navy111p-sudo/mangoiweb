@@ -235,6 +235,10 @@ check('중국어 듣기음성은 Google 번역TTS 우선 + MeloTTS(zh) 최후폴
 check('소스 일치(프론트): rqvMic 이 STT 에 lang 힌트 전송(짧은 중국어 오인식 방지)', /fd\.append\('lang', st\.lang===/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
 check('소스 일치(프론트): startQuiz 가 실제 퀴즈의 lang 으로 st.lang 동기화(목록에서 바로 열어도 STT 힌트 정확)', /st\.lang = \(quiz\.lang === 'zh'\)/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
 check('/api/review-quiz/get·list 응답에 lang 필드 포함(프론트가 언어를 알 수 있어야 함)', /lang: row\.lang \|\| 'en'/.test(API));
+check('🔒 (2026-07-31 실사고) 패시지 생성 저장이 요청 lesson_no 를 그대로 씀(내부적으로 고른 과 번호를 저장하면 다음 호출이 매번 새로 생성해 중복 행이 쌓인다)',
+  /binds: \[langBind, textbook\]/.test(API) /* lesson_no IS NULL 매칭 버킷이 여전히 존재 */
+  && !/\.bind\(title, desc, JSON\.stringify\(qsList\)[\s\S]{0,20}lessonNo \|\| passRow\.lesson_no/.test(API) /* 옛 버그 패턴이 없어야 함 */
+  && /\.bind\(title, desc, JSON\.stringify\(qsList\)[\s\S]{0,300}, lessonNo, now, now\)/.test(API));
 
 // ════════════════════════════════════════════════════════════════════
 //  요약 + 리포트

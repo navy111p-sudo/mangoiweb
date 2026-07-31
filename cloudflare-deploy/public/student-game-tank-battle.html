@@ -1557,35 +1557,63 @@ function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THR
   attachTankGLB(type, g, turGroup);
   return g; }
 /* ── 🖼️ 힉스필드 생성 GLB(차체/포탑 분리) — 로드 전엔 위 절차적 도형 폴백 그대로 유지 ── */
+// (2026-07-31) 노멀맵을 JPEG q95 로 재압축(기하는 무손실). 옛 파일이 캐시에서 나오지
+//   않도록 참조 7개의 캐시버스팅을 전부 v=4 로 올렸다. 파일을 다시 손대면 v 를 꼭 올릴 것.
 var TANK_GLB = {
   // 전체 크기 상향(화면에서 잘 보이게) + 셔먼은 포탑 대비 차체를 크게(머리만 커 보이던 비율 교정)
-  sherman:   { hull:'/models/tank-sherman-hull.glb?v=3', hullSize:4.5, hullYaw:Math.PI/2, ringCap:0.9,
-               turret:'/models/tank-sherman-turret.glb?v=3', turSize:2.3, turYaw:Math.PI/2, turFwd:0.14, turPivotX:0.12 },   // 차체 +25%(실제 셔먼 비례: 포탑≈차체길이 1/3)
+  sherman:   { hull:'/models/tank-sherman-hull.glb?v=4', hullSize:4.5, hullYaw:Math.PI/2, ringCap:0.9,
+               turret:'/models/tank-sherman-turret.glb?v=4', turSize:2.3, turYaw:Math.PI/2, turFwd:0.14, turPivotX:0.12 },   // 차체 +25%(실제 셔먼 비례: 포탑≈차체길이 1/3)
   // 🇩🇪 독일군: 차체가 너무 밝은 청록으로 재구성돼 포탑과 색이 어긋남 → 차체·포탑 모두 펠트그라우(군복 청회녹)로 틴트 수렴
   // ⚠️ 킹타이거도 소스 방향 90° 상이(마커 실측: rot0에서 코=+Z) → yaw=π, 링=차체 중심(pivot 0). 포탑 0°/180° 회전 검증 완료
-  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=1', hullSize:3.7, hullYaw:Math.PI, hullTint:0x9aabb4, ringCap:1.05,
-               turret:'/models/tank-tiger-turret.glb?v=2', turSize:3.0, turYaw:Math.PI, turTint:0x7fa6c0, turFwd:0.2, turPivotX:0 },
+  kingtiger: { hull:'/models/tank-kingtiger-hull.glb?v=4', hullSize:3.7, hullYaw:Math.PI, hullTint:0x9aabb4, ringCap:1.05,
+               turret:'/models/tank-tiger-turret.glb?v=4', turSize:3.0, turYaw:Math.PI, turTint:0x7fa6c0, turFwd:0.2, turPivotX:0 },
   // ⚠️ 펜더 GLB는 소스 방향이 다른 모델과 90° 다름(마커 실측으로 확정) → yaw=π, 링은 중심보다 뒤(-0.55)
   // 펜더 포탑: 0°/90°/180° 3각도 탑다운 검증으로 확정 — 축=링 중심(0.02), 몸통중심 보정 turFwd 0.28
-  panther:   { hull:'/models/tank-panther-hull.glb?v=1', hullSize:3.5, hullYaw:Math.PI, hullTint:0x9aabb4, ringCap:0.95,
-               turret:'/models/tank-panther-turret.glb?v=1', turSize:2.3, turYaw:Math.PI, turTint:0xaec6d6, turFwd:0.28, turPivotX:0.02 },
-  stug:      { full:'/models/tank-stug.glb?v=3', fullSize:3.5, fullYaw:Math.PI/2, fullTint:0x9aabb4 }
+  panther:   { hull:'/models/tank-panther-hull.glb?v=4', hullSize:3.5, hullYaw:Math.PI, hullTint:0x9aabb4, ringCap:0.95,
+               turret:'/models/tank-panther-turret.glb?v=4', turSize:2.3, turYaw:Math.PI, turTint:0xaec6d6, turFwd:0.28, turPivotX:0.02 },
+  stug:      { full:'/models/tank-stug.glb?v=4', fullSize:3.5, fullYaw:Math.PI/2, fullTint:0x9aabb4 }
 };
 var _glb3Cache={};
-/* ⏬ 프리페치 — 시작 화면에 있는 동안 전차 GLB(총 ~14MB)를 미리 내려받아,
-   전투 시작 시 흰 폴백 도형이 보이는 시간을 없앰(느린 회선에서 특히 중요) */
+/* ⏬ 프리페치 — 시작 화면에 있는 동안 전차 GLB 를 미리 내려받아,
+   전투 시작 시 흰 폴백 도형이 보이는 시간을 없앰(느린 회선에서 특히 중요)
+
+   🔴 (2026-07-31) 전면 재작성 — 강사 신고: "게임을 쓰려고 하면 컴퓨터가 계속 로딩만 한다".
+   원인은 이 함수였다. 전차 GLB 9개(실측 17.7MB, 게임 전체 21.7MB)를 시작 화면에서
+   forEach 로 '한꺼번에 병렬' 요청했다. 필리핀 사무실 회선에서는 이 순간 회선이 포화되고,
+   화상수업 탭 안 iframe 으로 실행될 때는 수업 트래픽까지 함께 밀린다.
+   → ① 플레이어 전차(셔먼)만 먼저,  ② 나머지는 '한 번에 하나씩' 순차로,
+      ③ 느린 회선·데이터 절약 모드면 프리페치를 건너뛰고 필요할 때 받는다
+        (attachGLB3 가 이미 온디맨드 로드를 지원하므로 기능 손실은 없다). */
 function prefetchTankGLBs(){
   if(!window.THREE || !THREE.GLTFLoader) return;
-  Object.keys(TANK_GLB).forEach(function(k){ var cfg=TANK_GLB[k];
-    [ [cfg.full,cfg.fullTint], [cfg.hull,cfg.hullTint], [cfg.turret,cfg.turTint] ].forEach(function(pair){
-      var url=pair[0]; if(!url || _glb3Cache[url]) return;
-      var entry=_glb3Cache[url]={loading:true,scene:null,waiters:[]};
-      try{ new THREE.GLTFLoader().load(url, function(gltf){ entry.loading=false; entry.scene=gltf.scene;
-        if(pair[1]) applyTint3(gltf.scene, pair[1]);
-        entry.waiters.forEach(function(fn){ fn(gltf.scene); }); entry.waiters=[];
-      }, undefined, function(){ entry.loading=false; }); }catch(e){ entry.loading=false; }
+  // ③ 느린 회선에서는 미리받기를 하지 않는다 — 미리받기가 오히려 '계속 로딩'의 원인이 된다
+  try{
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (c && (c.saveData === true || /(^|-)2g$/.test(c.effectiveType||''))) return;
+  }catch(e){}
+  var queue=[];
+  // ① 플레이어 전차를 맨 앞에 (전투 시작 즉시 필요한 것)
+  var order=['sherman'].concat(Object.keys(TANK_GLB).filter(function(k){ return k!=='sherman'; }));
+  order.forEach(function(k){ var cfg=TANK_GLB[k]||{};
+    [ [cfg.hull,cfg.hullTint], [cfg.turret,cfg.turTint], [cfg.full,cfg.fullTint] ].forEach(function(pair){
+      if(pair[0]) queue.push(pair);
     });
   });
+  // ② 하나 끝나면 다음 하나 — 회선을 독점하지 않는다
+  (function next(){
+    if(!queue.length) return;
+    var pair=queue.shift(), url=pair[0];
+    if(_glb3Cache[url]) return next();
+    var entry=_glb3Cache[url]={loading:true,scene:null,waiters:[]};
+    var done=function(){ setTimeout(next, 150); };   // 약간의 숨돌림 — UI 스레드 양보
+    try{
+      new THREE.GLTFLoader().load(url, function(gltf){ entry.loading=false; entry.scene=gltf.scene;
+        if(pair[1]) applyTint3(gltf.scene, pair[1]);
+        entry.waiters.forEach(function(fn){ fn(gltf.scene); }); entry.waiters=[];
+        done();
+      }, undefined, function(){ entry.loading=false; done(); });
+    }catch(e){ entry.loading=false; done(); }
+  })();
 }
 /* tint: GLB 재질 색에 곱할 색(예: 황갈 타이거 포탑 → 펠트그라우). 같은 URL은 재질이 공유되므로 최초 1회만 적용 */
 function applyTint3(sourceScene, tint){
@@ -2140,6 +2168,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260731202931 -->
+<!-- BUILD:20260731205041 -->
 </body>
 </html>

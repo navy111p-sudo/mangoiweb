@@ -1607,8 +1607,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
             const title = `[${label}] 복습퀴즈`;
             const desc = `${passRow.textbook}${passRow.level ? ' ' + passRow.level : ''} 제${passRow.lesson_no}과 본문 기반 (객관식/듣기/쓰기/말하기) — ${new Date().toISOString().slice(0, 10)}`;
             const now = Date.now();
+            // 🔒 (버그수정) lesson_no 는 "요청이 물어본 값" 그대로 저장해야 한다 — passRow.lesson_no(내부적으로
+            //   고른 실제 과)를 저장하면, 다음에 같은 lesson_no 없는 요청이 왔을 때 매칭 쿼리(lesson_no IS NULL
+            //   버킷)가 이 행을 못 찾아 매번 새로 생성해버린다(중복 행 누적). 화면에 보이는 제목/설명은 어차피
+            //   실제 고른 과(passRow.lesson_no) 기준이라 사용자에게는 문제 없다.
             const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, lang, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'passage','zh',?,?)`)
-              .bind(title, desc, JSON.stringify(qsList), level || passRow.level || null, textbook || passRow.textbook || null, lessonNo || passRow.lesson_no || null, now, now).run();
+              .bind(title, desc, JSON.stringify(qsList), level || passRow.level || null, textbook || passRow.textbook || null, lessonNo, now, now).run();
             const newId = (ins as any).meta?.last_row_id;
             const nrow: any = await env.DB.prepare(`SELECT * FROM review_quizzes WHERE id=?`).bind(newId).first();
             return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow) });

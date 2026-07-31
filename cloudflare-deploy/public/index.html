@@ -5724,15 +5724,42 @@ window.mgIsSlowNet = function(){
         sf.appendChild(p);
       });
       // 별똥별 주기적 생성 (더 자주, 여러개)
+      // 🔴 (2026-07-31) 누수 수정 — 삭제를 animationend 하나에만 맡기면 영구 누적된다.
+      //   ① 수업 입장 시 showView() 가 #view-home 에서 .active 를 떼어 display:none 이 된다.
+      //      display:none 서브트리에서는 CSS 애니메이션이 시작조차 하지 않아 animationend 가 영원히 안 온다.
+      //   ② html.lite-mode 는 `animation: none !important` 로 애니메이션을 죽인다(저사양 PC 자동 ON).
+      //   두 경우 다 '계속 만들고 하나도 못 지우는' 상태 → 분당 약 67개, 40분 수업 약 2,700개 누적.
+      //   실측(2026-07-31 test.mangoi.co.kr): lite-mode 264초 후 별똥별 75개 전부 getAnimations()==0.
+      //   → 로비 별똥별(lobbyInitStarfield)에 이미 있는 가시성 가드를 이식하고, 4780행 메뉴탭처럼
+      //     '이벤트가 안 와도 강제 삭제' 안전망을 함께 둔다. 둘 중 하나만으론 부족하다
+      //     (가드는 이미 만들어진 것을 못 지우고, 안전망만 있으면 헛일을 계속 한다).
+      function starfieldVisible(){
+        // display:none 이면 offsetParent 가 null — 애니메이션이 돌 수 없는 상태와 정확히 일치
+        if (!sf.offsetParent && getComputedStyle(sf).position !== 'fixed') return false;
+        // lite-mode 는 animation 을 강제로 끈다 → 만들면 안 지워진다
+        if (document.documentElement.classList.contains('lite-mode')) return false;
+        return true;
+      }
       function spawnShootingStar(){
+        if (!starfieldVisible()) return;                 // ① 지울 수 없는 상황이면 만들지 않는다
         const ss=document.createElement('div');
         ss.className='shooting-star';
         ss.style.top=Math.random()*50+'%';
         ss.style.right='-80px';
-        ss.style.animation=`shoot ${Math.random()*0.6+0.6}s linear forwards`;
+        const dur=Math.random()*0.6+0.6;
+        ss.style.animation=`shoot ${dur}s linear forwards`;
         sf.appendChild(ss);
-        ss.addEventListener('animationend',()=>ss.remove());
+        let done=false;
+        const kill=()=>{ if(done) return; done=true; ss.remove(); };
+        ss.addEventListener('animationend',kill,{once:true});
+        setTimeout(kill, dur*1000+1500);                 // ② 안전망: 이벤트가 안 와도 반드시 지운다
       }
+      // 혹시 이전 세션/다른 경로로 이미 쌓인 것이 있으면 주기적으로 청소 (애니메이션이 없는 = 죽은 별)
+      setInterval(function(){
+        const stuck = sf.querySelectorAll('.shooting-star');
+        if (stuck.length <= 8) return;
+        stuck.forEach(function(el){ if (el.getAnimations && el.getAnimations().length === 0) el.remove(); });
+      }, 10000);
       setInterval(function(){ spawnShootingStar(); setTimeout(spawnShootingStar, 300+Math.random()*400); }, 1800);
       setTimeout(spawnShootingStar, 500);
       setTimeout(spawnShootingStar, 900);
@@ -10764,11 +10791,17 @@ function lobbyInitStarfield() {
         sf.appendChild(s);
     }
     // 별똥별 주기적 생성
+    // 🔴 (2026-07-31) 홈 별똥별(5727행)과 같은 누수 수정. 두 군데를 같은 방식으로 맞춘다.
+    //   · 기존 가드는 `lobbyView.style.display === 'none'` 을 봤지만, 화면 전환은 .view/.active
+    //     '클래스'로 하므로 인라인 style.display 는 거의 항상 빈 문자열이었다 → 가드가 사실상 무효.
+    //     → offsetParent 로 '실제로 렌더되는지' 를 본다.
+    //   · lite-mode 는 animation 을 죽여 animationend 가 안 온다 → 만들지 않는다.
+    //   · 그래도 안전망(강제 삭제)을 함께 둔다.
     const spawn = () => {
         if (!document.body.contains(sf)) return;
         // 로비 화면이 보일 때만 별똥별 생성 (성능 보호)
-        const lobbyView = document.getElementById('view-videocall-lobby');
-        if (!lobbyView || lobbyView.style.display === 'none') return;
+        if (!sf.offsetParent && getComputedStyle(sf).position !== 'fixed') return;
+        if (document.documentElement.classList.contains('lite-mode')) return;
         const ss = document.createElement('div');
         ss.className = 'shooting-star';
         ss.style.top = Math.random() * 60 + '%';
@@ -10776,7 +10809,10 @@ function lobbyInitStarfield() {
         const dur = Math.random() * 0.6 + 0.7;
         ss.style.animation = `shoot ${dur}s linear forwards`;
         sf.appendChild(ss);
-        ss.addEventListener('animationend', () => ss.remove());
+        let done = false;
+        const kill = () => { if (done) return; done = true; ss.remove(); };
+        ss.addEventListener('animationend', kill, { once: true });
+        setTimeout(kill, dur * 1000 + 1500);
     };
     setInterval(() => { spawn(); setTimeout(spawn, 300 + Math.random() * 400); }, 2400);
 }
@@ -14749,10 +14785,41 @@ function vcToggleCam() {
 
 /** 탭 전환 (event 인자가 없어도 안전하게 동작) */
 function vcSwitchTab(tabName, evt) {
+    // 🔴 (2026-07-31) 게임 탭을 벗어날 때 게임 iframe 을 실제로 해제한다.
+    //   이 함수는 .active 클래스만 토글하므로, 게임을 켠 채 교재/칠판 탭으로 가면 화면에서만
+    //   사라지고 iframe 은 DOM 에 그대로 남았다. 3D 게임(탱크대전·3D배틀·P-38)은 WebGL 컨텍스트와
+    //   AudioContext 를 잡고 있어 숨겨진 뒤에도 그 자원을 계속 점유한다(게임을 여러 번 바꿨다면 누적).
+    //   → 탭을 떠나면 src 를 비우고 제거해 자원을 확실히 반납한다. 게임 탭으로 돌아오면
+    //     gameInit()/gameSwitchMode() 가 #game-area 를 다시 그리므로 복구는 기존 경로로 이뤄진다.
+    if (tabName !== 'game') {
+        try {
+            const gf = document.getElementById('game-suite-frame');
+            if (gf) {
+                try { gf.src = 'about:blank'; } catch (_) {}   // 내부 문서 먼저 정리 → WebGL/오디오 반납
+                gf.remove();
+                const ga = document.getElementById('game-area');
+                if (ga) ga.dataset.needsRestore = '1';          // 돌아왔을 때 다시 그려야 함을 표시
+            }
+        } catch (_) {}
+    }
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     const panel = document.getElementById(`tab-${tabName}`);
     if (panel) panel.classList.add('active');
+    // 게임 탭으로 (다시) 들어왔고 위에서 해제한 상태면 현재 모드로 복구
+    if (tabName === 'game') {
+        try {
+            const ga = document.getElementById('game-area');
+            if (ga && ga.dataset.needsRestore === '1') {
+                delete ga.dataset.needsRestore;
+                if (typeof _gameIsClassActive === 'function' && _gameIsClassActive()) {
+                    if (typeof _gameRenderBlocked === 'function') _gameRenderBlocked();
+                } else if (typeof gameNextRound === 'function') {
+                    gameNextRound();
+                }
+            }
+        } catch (_) {}
+    }
     // 클릭 이벤트가 있으면 그 버튼을, 없으면 onclick 속성 매칭으로 active 처리
     const e = evt || (typeof event !== 'undefined' ? event : null);
     if (e && e.target && e.target.classList && e.target.classList.contains('tab-btn')) {
@@ -28161,9 +28228,9 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- 🎭 얼굴 꾸미기(마스크·액세서리) 엔진 — MediaPipe Face Detection -->
 <!--    카메라(또는 가상배경 합성 캔버스) → 얼굴 landmark 검출 → 액세서리 오버레이 합성 →
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
-<script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x6.js?v=4"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260731202931 -->
+<!-- BUILD:20260731205041 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -31200,8 +31267,12 @@ window.vcAutoLoadStudentTextbook = async function(){
 <!-- 🥭 망고아이 AI 상담직원 위젯 (Cloudflare Worker: mangoi-ai-avatar-cf) -->
 <div id="mangoi-widget">
   <div id="mangoi-label" data-ko="A.i 상담사" data-en="A.i Consultant">A.i 상담사</div>
+  <!-- 🔴 (2026-07-31) 지연 로드 — src → data-src.
+       64px 접힌 버튼일 뿐인데도 페이지를 열 때마다 다른 Worker 의 문서(41KB)를 항상 미리 받아
+       파싱까지 하고 있었다(오디오 컨텍스트·video 요소 포함). 실제로 여는 사람은 일부다.
+       → 처음 열 때 한 번만 로드한다(아래 mangoiEnsureFrame). -->
   <iframe id="mangoi-frame"
-    src="https://mangoi-ai-avatar-cf.navy111p.workers.dev/student.html"
+    data-src="https://mangoi-ai-avatar-cf.navy111p.workers.dev/student.html"
     allow="autoplay; microphone"
     title="망고아이 AI 상담직원"></iframe>
   <button id="mangoi-toggle" aria-label="AI 상담사 열기"></button>
@@ -31311,18 +31382,40 @@ window.vcAutoLoadStudentTextbook = async function(){
       w.classList.toggle("flip-down", r.top < fh+12);                       // 위 공간 부족 → 아래로
       w.classList.toggle("flip-left", (r.left + fw) > (window.innerWidth-6)); // 오른쪽 부족 → 왼쪽으로
     }
+    // 🔴 (2026-07-31) 처음 열 때 한 번만 iframe 을 로드한다.
+    //   반환값 true = 이번에 로드를 시작함(아직 contentWindow 가 준비되지 않았으므로
+    //   언어·인사 메시지는 load 이후에 보내야 한다).
+    function mangoiEnsureFrame(){
+      var fr=document.getElementById('mangoi-frame');
+      if(!fr) return false;
+      var ds=fr.getAttribute('data-src');
+      if(!ds) return false;                       // 이미 로드됨(data-src 를 지웠음)
+      fr.removeAttribute('data-src');
+      fr.src=ds;
+      return true;
+    }
+    function mangoiHandshake(){                   // 언어 동기화 + 인사 (기존 로직 그대로)
+      try{ var lg=(window.getLang?window.getLang():'ko'); var fr=document.getElementById('mangoi-frame');
+        if(fr&&fr.contentWindow) fr.contentWindow.postMessage({type:'mangoi-lang', lang:lg}, '*'); }catch(e){}
+      try{ var frG=document.getElementById('mangoi-frame');
+        if(frG&&frG.contentWindow){ frG.contentWindow.postMessage({type:'mangoi-greet'},'*');
+          setTimeout(function(){ try{ frG.contentWindow.postMessage({type:'mangoi-greet'},'*'); }catch(e){} }, 400); } }catch(e){}
+    }
     function setOpen(open){
       if(open){
         positionPanel();
         try{ window.postMessage({type:"mangoi-typing"},"*"); }catch(e){}   // 열림 → 홍보영상 페이드아웃
         try{ var __pv=document.getElementById('mango-promo-vid'); if(__pv){ __pv.muted=true; __pv.pause(); } }catch(e){}  // 홍보영상 즉시 음소거(안전망)
-        // 열 때 현재 사이트 언어를 채팅 iframe 에 동기화(헤더·인사말·입력창 일치)
-        try{ var lg=(window.getLang?window.getLang():'ko'); var fr=document.getElementById('mangoi-frame');
-          if(fr&&fr.contentWindow) fr.contentWindow.postMessage({type:'mangoi-lang', lang:lg}, '*'); }catch(e){}
-        // 열 때 "무엇을 도와 드릴까요?" 인사를 말+글로 (iframe 표시 직후 2회 발동해 누락 방지)
-        try{ var frG=document.getElementById('mangoi-frame');
-          if(frG&&frG.contentWindow){ frG.contentWindow.postMessage({type:'mangoi-greet'},'*');
-            setTimeout(function(){ try{ frG.contentWindow.postMessage({type:'mangoi-greet'},'*'); }catch(e){} }, 400); } }catch(e){}
+        // 열 때 현재 사이트 언어 동기화 + 인사. 첫 열림이면 문서가 준비된 뒤에 보낸다.
+        var justLoaded=false;
+        try{ justLoaded=mangoiEnsureFrame(); }catch(e){}
+        if(justLoaded){
+          var frL=document.getElementById('mangoi-frame');
+          if(frL) frL.addEventListener('load', mangoiHandshake, {once:true});
+          setTimeout(mangoiHandshake, 2500);      // 안전망: load 가 안 와도 한 번 시도
+        } else {
+          mangoiHandshake();
+        }
       }
       else { mangoiStopVoice(); mangoiResetWidget(); }   // 닫힐 때 음성 정지 + 위젯 초기화(다음에 깨끗하게 시작)
       w.classList.toggle("open", open);
@@ -31483,7 +31576,9 @@ window.vcAutoLoadStudentTextbook = async function(){
     (function(){
       var fr = document.getElementById("mangoi-frame");
       if (!fr || !window.MutationObserver) return;
-      var savedSrc = fr.getAttribute("src");
+      // (2026-07-31) 지연 로드 대응 — 초기에는 src 가 없고 주소가 data-src 에 있다.
+      //   src 만 읽으면 savedSrc 가 null 이 되어 수업 후 복원이 깨진다.
+      var savedSrc = fr.getAttribute("src") || fr.getAttribute("data-src");
       var inCall = false;   // sync() 첫 호출이 현재 상태를 반영하도록 항상 false 에서 출발
       function sync(){
         var now = document.body.classList.contains("vc-in-call");
@@ -31495,12 +31590,15 @@ window.vcAutoLoadStudentTextbook = async function(){
           try {
             var cur = fr.getAttribute("src");
             if (cur && cur !== "about:blank") savedSrc = cur;
-            fr.src = "about:blank";
+            // 아직 한 번도 열지 않아 로드조차 안 된 상태면 about:blank 로 바꿀 필요가 없다
+            //   (오히려 data-src 지연로드를 무력화한다). 그대로 둔다.
+            if (cur) fr.src = "about:blank";
           } catch(e){}
         } else {
           try {
             var c = fr.getAttribute("src");
-            if ((!c || c === "about:blank") && savedSrc) fr.src = savedSrc;
+            // 로드 이력이 있는 경우(about:blank)만 복원. 미로드 상태(src 없음)는 지연로드에 맡긴다.
+            if (c === "about:blank" && savedSrc) fr.src = savedSrc;
           } catch(e){}
         }
       }

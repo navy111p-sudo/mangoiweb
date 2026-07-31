@@ -486,9 +486,16 @@
         if (it) fxDrawItem(ctx, it, vcFx.lastLM, cv.width, cv.height);
       }
     }
-    // 검출 — 데스크톱 매 프레임, 모바일 격프레임(발열·부하 절감)
+    // 검출 — 부하 절감을 위해 프레임을 건너뛴다.
+    // 🔴 (2026-07-31) 데스크톱이 `1`(매 프레임 = 최대 60Hz)이었다. 얼굴 랜드마크 검출은
+    //   가상배경 세그멘테이션과 같은 급으로 무거운데, 가상배경은 이미 데스크톱 3프레임당 1회로
+    //   낮춰 뒀다(index.html vcBgRenderLoop: "CPU 66% 절약 → 멈춤 방지"). 그 교훈이 이 엔진에는
+    //   적용되지 않아, 얼굴꾸미기를 켜면 메인스레드가 포화돼 오히려 장식이 얼굴을 못 따라갔다
+    //   (강사 신고: "얼굴 장식이 기대한 효과가 안 난다"). 가상배경까지 켜면 무거운 추론이 동시에 2개.
+    //   → 데스크톱 3프레임당 1회(≈20Hz), 모바일 6프레임당 1회로 가상배경과 동일하게 맞춘다.
+    //   검출 사이 프레임은 위쪽에서 vcFx.lastLM(마지막 랜드마크)으로 계속 그리므로 장식은 끊기지 않는다.
     vcFx.frameTick++;
-    var everyN = fxMobile()?2:1;
+    var everyN = fxMobile()?6:3;
     var hv = vcFx.hiddenVideo;
     // 워치독: 레거시 send 가 2초 넘게 안 끝나면(WASM 멈춤) 풀어줘 파이프라인이 영구히 죽지 않게
     if (vcFx.sending && vcFx._sendStart && (performance.now()-vcFx._sendStart > 2000)) vcFx.sending=false;
