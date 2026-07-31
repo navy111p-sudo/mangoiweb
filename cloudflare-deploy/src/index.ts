@@ -9,7 +9,7 @@ import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi } from './api-mango';
 import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
-import { handlePayApi, runPaymentAudit } from './api-pay';
+import { handlePayApi, runPaymentAudit, runAutoRenewChargeSweep } from './api-pay';
 import { runEnrollExpirySweep, runHolidayShiftSweep } from './enroll-ops';   // 📚 수강 만료 안내 · 공휴일 자동 연기
 import { runWeeklyParentDigestSweep } from './api-students';   // 📅 학부모 주간 리포트(금요일 크론)
 import { handlePayrollIngest, getPayrollAuto, payrollAiSummary, setPhpKrwRate, markPayrollPaid } from './api-payroll-auto';
@@ -1870,6 +1870,15 @@ const worker = {
           if (ex && (ex.sent > 0 || !ex.ok)) console.log('[enroll-expiry]', JSON.stringify({ ok: ex.ok, checked: ex.checked, sent: ex.sent, skipped: ex.skipped }));
         } catch (err) {
           console.error('[enroll-expiry] error', err);
+        }
+
+        // ♾️ 자동연장(정기결제) 자동 청구 (KST 10:00) — 제보 #2-2/#3-2. 카드 등록한 학생을 매월 재청구.
+        //   킬스위치: KV 'billing:auto_renew_live'='1' 이어야 실제 청구(기본은 dry-run으로 대상자만 집계).
+        try {
+          const ar = await runAutoRenewChargeSweep(env as any);
+          console.log('[auto-renew]', JSON.stringify(ar));
+        } catch (err) {
+          console.error('[auto-renew] error', err);
         }
       }
 

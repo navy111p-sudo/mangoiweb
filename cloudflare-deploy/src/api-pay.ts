@@ -15,7 +15,7 @@
 import { json, parseJsonBody } from './api-util';
 import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
-import { handleEnrollApi, enrollCreateSchedules } from './enroll-ops';
+import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
@@ -71,6 +71,134 @@ function tossMode(env: any): 'test' | 'live' | 'disabled' {
   const k = String(env.TOSS_SECRET_KEY || '');
   if (!k) return 'disabled';
   return k.startsWith('live_') ? 'live' : 'test';
+}
+
+/* 💳♾️ (2026-07-31) 자동연장(정기결제) — 제보 #4 후속(2-2/3-2). "자동연장은 기존에 없던 기능"이라는
+   확인 답변에 따라 새로 개발. 토스 "빌링키"(카드 등록 → 매월 재청구) 방식.
+   ⚠️ 기존 /api/admin/subscription/* (api-admin.ts) 는 billing_key 없이 그냥 '결제 성공'을 DB에
+   써넣기만 하던 가짜 구현이었다(실제로 카드가 청구된 적이 없음) — 이번에 real 청구로 교체한다. */
+async function ensureSubscriptionsSchema(env: any): Promise<void> {
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, plan TEXT, amount INTEGER, status TEXT DEFAULT 'active', next_billing_at INTEGER, last_billed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+  } catch {}
+  for (const col of ['billing_key TEXT', 'customer_key TEXT', 'fail_count INTEGER DEFAULT 0', 'teacher_id TEXT', 'weekly INTEGER', 'minutes INTEGER']) {
+    try { await env.DB.exec(`ALTER TABLE subscriptions ADD COLUMN ${col}`); } catch {}
+  }
+}
+
+/** 자동연장 대상 학생의 "월 1회" 견적 — renew-order 와 완전히 같은 계산식(가격 산정 이원화 방지) */
+async function autoRenewQuote(env: any, uid: string) {
+  const cur = await currentEnrollment(env, uid);
+  if (!cur.active || !cur.days_resolved || !cur.times_resolved) return { error: 'no_active_enrollment' };
+  const weekly = cur.days.length;
+  if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'weekly_unresolved' };
+  const { shopName, weekly1Price } = await priceForUid(env, uid);
+  const tRate = await teacherRateFor(env, cur.teacher_id);
+  const q = enrollQuoteCalc(weekly1Price, weekly, 1, cur.minutes, tRate);
+  return { ok: true, cur, weekly, amount: q.amount, sessions: q.sessions, shopName, weekly1Price, tRate };
+}
+
+/** 토스 빌링키로 실제 청구 1회 — 관리자 "지금 청구" 버튼과 cron 자동청구가 공용으로 쓴다.
+ *  성공: payment_orders 에 실제 결제로 기록 + enrollCreateSchedules 로 다음 달 수업 실제 생성.
+ *  실패: fail_count 누적, 3회째면 자동 해지(카드가 계속 막히는데 계속 시도하지 않음). */
+export async function chargeSubscriptionOnce(env: any, sub: any): Promise<{ ok: boolean; error?: string; amount?: number }> {
+  if (!sub.billing_key || !sub.customer_key) return { ok: false, error: 'no_billing_key' };
+  const q = await autoRenewQuote(env, sub.user_id);
+  if (!('ok' in q) || !q.ok) {
+    // 현재 요일·시간 패턴을 더 이상 확신할 수 없음(수동으로 스케줄이 바뀐 경우 등) — 잘못된 금액 청구 방지, 해지 처리
+    await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', updated_at=? WHERE id=?`).bind(Date.now(), sub.id).run();
+    try {
+      const toPhone = (env as any).OWNER_ALERT_PHONE;
+      if (toPhone) await sendPlainSms(env, toPhone, `[망고아이] ♻️ 자동연장 자동해지\n${sub.student_name || sub.user_id}\n사유: ${(q as any).error} (현재 수업 패턴 확인 불가)\n학부모에게 재신청 안내 필요`);
+    } catch (_) {}
+    return { ok: false, error: (q as any).error || 'quote_failed' };
+  }
+
+  // 1) 정상 주문 생성(연장과 동일 로직 — enroll_json·회차·충돌회피 전부 재사용)
+  const orderResp = await createEnrollOrder(env, sub.user_id, {
+    weekly: q.weekly, months: 1, minutes: q.cur.minutes, times: q.cur.times,
+    startDate: addDays(q.cur.last_date, 1), teacherId: q.cur.teacher_id, days: q.cur.days,
+  }, 'auto_renew');
+  const orderBody: any = await orderResp.json().catch(() => ({}));
+  if (!orderBody || !orderBody.ok) {
+    await bumpSubscriptionFailure(env, sub, 'order_failed:' + (orderBody?.error || 'unknown'));
+    return { ok: false, error: orderBody?.error || 'order_failed' };
+  }
+  const { orderId, amount, orderName } = orderBody;
+
+  // 2) 토스 빌링키 실청구
+  const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
+  let tossRes: Response, tossJson: any;
+  try {
+    tossRes = await fetch(`https://api.tosspayments.com/v1/billing/${encodeURIComponent(sub.billing_key)}`, {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerKey: sub.customer_key, amount, orderId, orderName }),
+    });
+    tossJson = await tossRes.json();
+  } catch (e: any) {
+    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=? WHERE order_id=?`).bind('network:' + String(e?.message || e), orderId).run();
+    await bumpSubscriptionFailure(env, sub, 'network_error');
+    return { ok: false, error: 'network_error' };
+  }
+
+  if (!tossRes.ok || tossJson.status !== 'DONE') {
+    await env.DB.prepare(`UPDATE payment_orders SET status='failed', fail_reason=?, raw=? WHERE order_id=?`)
+      .bind(String(tossJson?.message || tossJson?.code || 'toss_declined'), JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+    await bumpSubscriptionFailure(env, sub, String(tossJson?.message || 'card_declined'));
+    return { ok: false, error: String(tossJson?.message || 'card_declined') };
+  }
+
+  // 3) 성공 — 결제 확정 + 수업 실제 생성(기존 confirm/webhook과 동일 경로)
+  const now = Date.now();
+  await env.DB.prepare(`UPDATE payment_orders SET status='paid', payment_key=?, paid_at=?, method=?, raw=? WHERE order_id=?`)
+    .bind(String(tossJson.paymentKey || ''), now, '자동연장(빌링키)', JSON.stringify(tossJson).slice(0, 4000), orderId).run();
+  const order: any = await env.DB.prepare(`SELECT * FROM payment_orders WHERE order_id = ?`).bind(orderId).first();
+  if (order) {
+    await activateEnrollment(env, order, amount, now, orderId);
+    await sendBuyerPaidSms(env, order, amount, orderId).catch(() => {});
+  }
+  await env.DB.prepare(`UPDATE subscriptions SET amount=?, last_billed_at=?, next_billing_at=?, fail_count=0, updated_at=? WHERE id=?`)
+    .bind(amount, now, now + 30 * 86400 * 1000, now, sub.id).run();
+  return { ok: true, amount };
+}
+
+async function bumpSubscriptionFailure(env: any, sub: any, reason: string): Promise<void> {
+  const now = Date.now();
+  const failCount = Number(sub.fail_count || 0) + 1;
+  if (failCount >= 3) {
+    await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', fail_count=?, updated_at=? WHERE id=?`).bind(failCount, now, sub.id).run();
+  } else {
+    // 내일 다시 시도 (카드 한도·잔액 문제는 하루 지나면 풀리는 경우가 많음)
+    await env.DB.prepare(`UPDATE subscriptions SET fail_count=?, next_billing_at=?, updated_at=? WHERE id=?`).bind(failCount, now + 86400 * 1000, now, sub.id).run();
+  }
+  try {
+    const toPhone = (env as any).OWNER_ALERT_PHONE;
+    if (toPhone) {
+      await sendPlainSms(env, toPhone, `[망고아이] ⚠️ 자동연장 청구 실패 (${failCount}/3)\n${sub.student_name || sub.user_id}\n사유: ${reason}${failCount >= 3 ? '\n→ 자동 해지됨. 학부모에게 재결제 안내 필요' : '\n→ 내일 재시도'}`);
+    }
+  } catch (_) {}
+}
+
+/** cron 전용 — KV 'billing:auto_renew_live' 가 '1' 일 때만 실제 청구(기본 dry-run, 오청구 방지) */
+export async function runAutoRenewChargeSweep(env: any): Promise<any> {
+  await ensureSubscriptionsSchema(env);
+  const now = Date.now();
+  const due = await env.DB.prepare(`SELECT * FROM subscriptions WHERE status='active' AND billing_key IS NOT NULL AND next_billing_at IS NOT NULL AND next_billing_at <= ?`).bind(now).all();
+  const rows = (due as any).results || [];
+  let live = false;
+  try { live = (await env.SESSION_STATE.get('billing:auto_renew_live')) === '1'; } catch {}
+  if (!live) {
+    return { ok: true, dry_run: true, due_count: rows.length, note: 'KV billing:auto_renew_live=1 로 켜야 실제 청구됩니다(현재 미리보기만)' };
+  }
+  let charged = 0, failed = 0;
+  const results: any[] = [];
+  for (const sub of rows) {
+    const r = await chargeSubscriptionOnce(env, sub);
+    if (r.ok) charged++; else failed++;
+    results.push({ id: sub.id, user_id: sub.user_id, ...r });
+  }
+  return { ok: true, dry_run: false, due_count: rows.length, charged, failed, results };
 }
 
 /**
@@ -452,6 +580,87 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const withSms = url.searchParams.get('sms') === '1';
     const out = await runPaymentAudit(env, { sms: withSms });
     return json({ ok: true, audit: out });
+  }
+
+  // ── 9) 자동연장(정기결제) — 제보 #2-2/#3-2. 현재 수강 중인 학생만 카드를 등록해 매월 자동 청구받는다 ──
+  if (path === '/api/pay/billing/register' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const authUid = await authUidFromRequest(request, url, env, body);
+    if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+    await ensureSubscriptionsSchema(env);
+    const q = await autoRenewQuote(env, authUid);
+    if (!('ok' in q) || !q.ok) {
+      return json({ ok: false, error: (q as any).error, message: '자동연장은 현재 요일·시간이 확실한 수강 중 학생만 신청할 수 있어요.' }, 400);
+    }
+    const rnd = Array.from(crypto.getRandomValues(new Uint8Array(4))).map((b) => b.toString(16).padStart(2, '0')).join('');
+    const customerKey = `mgi_${authUid}_${Date.now().toString(36)}${rnd}`;
+    return json({
+      ok: true, customerKey, clientKey: env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT,
+      preview_amount: q.amount, preview_sessions: q.sessions,
+      teacher_name: q.cur.teacher_name, weekly: q.weekly, minutes: q.cur.minutes,
+    });
+  }
+
+  if (path === '/api/pay/billing/confirm' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const authUid = await authUidFromRequest(request, url, env, body);
+    if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+    const authKey = String(body.authKey || '').trim();
+    const customerKey = String(body.customerKey || '').trim();
+    if (!authKey || !customerKey) return json({ ok: false, error: 'missing_fields' }, 400);
+    // customerKey 는 register 단계에서 authUid 로 서명해 만들었다 — 다른 사람 걸 훔쳐 쓸 수 없게 접두사로 재검증.
+    if (!customerKey.startsWith(`mgi_${authUid}_`)) return json({ ok: false, error: 'customer_key_mismatch' }, 403);
+    await ensureSubscriptionsSchema(env);
+
+    const q = await autoRenewQuote(env, authUid);
+    if (!('ok' in q) || !q.ok) return json({ ok: false, error: (q as any).error }, 400);
+
+    const auth = 'Basic ' + btoa(String(env.TOSS_SECRET_KEY) + ':');
+    let tossRes: Response, tossJson: any;
+    try {
+      tossRes = await fetch('https://api.tosspayments.com/v1/billing/authorizations/issue', {
+        method: 'POST',
+        headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authKey, customerKey }),
+      });
+      tossJson = await tossRes.json();
+    } catch (e: any) {
+      return json({ ok: false, error: 'toss_network_error', message: String(e?.message || e) }, 502);
+    }
+    if (!tossRes.ok || !tossJson.billingKey) {
+      return json({ ok: false, error: 'billing_auth_failed', message: String(tossJson?.message || '카드 등록에 실패했습니다.') }, 400);
+    }
+
+    const now = Date.now();
+    // 기존에 활성 구독이 있으면 정리하고(중복청구 방지) 새로 등록
+    await env.DB.prepare(`UPDATE subscriptions SET status='replaced', updated_at=? WHERE user_id=? AND status='active'`).bind(now, authUid).run();
+    const ins = await env.DB.prepare(
+      `INSERT INTO subscriptions (user_id, student_name, plan, amount, status, next_billing_at, created_at, updated_at, billing_key, customer_key, fail_count, teacher_id, weekly, minutes)
+       VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+    ).bind(authUid, q.cur.teacher_name ? String(q.cur.teacher_name) : authUid, 'auto_renew', q.amount,
+           now + 30 * 86400 * 1000, now, now, String(tossJson.billingKey), customerKey,
+           String(q.cur.teacher_id), q.weekly, q.cur.minutes).run();
+
+    return json({ ok: true, id: ins.meta.last_row_id, next_billing_at: now + 30 * 86400 * 1000, amount: q.amount });
+  }
+
+  if (path === '/api/pay/billing/cancel' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const authUid = await authUidFromRequest(request, url, env, body);
+    if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+    await ensureSubscriptionsSchema(env);
+    await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', updated_at=? WHERE user_id=? AND status='active'`).bind(Date.now(), authUid).run();
+    return json({ ok: true });
+  }
+
+  if (path === '/api/pay/billing/status' && method === 'GET') {
+    const authUid = await authUidFromRequest(request, url, env, {});
+    if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+    await ensureSubscriptionsSchema(env);
+    const sub: any = await env.DB.prepare(
+      `SELECT id, plan, amount, status, next_billing_at, teacher_id, weekly, minutes FROM subscriptions WHERE user_id=? AND status='active' ORDER BY id DESC LIMIT 1`
+    ).bind(authUid).first();
+    return json({ ok: true, subscription: sub || null });
   }
 
   return null;

@@ -57,6 +57,9 @@
       <button class="btn" id="btnRenew" style="flex:0 0 auto;padding:12px 22px" data-ko="연장 결제" data-en="Extend & pay">연장 결제</button>
     </div>
     <div class="note" data-ko="현재 요일·시간·선생님이 그대로 이어집니다. 마지막 수업 다음 회차부터 시작해요." data-en="Same days, time and teacher continue — starting right after your last class.">현재 요일·시간·선생님이 그대로 이어집니다. 마지막 수업 다음 회차부터 시작해요.</div>
+
+    <!-- ♾️ (2026-07-31) 자동연장(정기결제) — 제보 #2-2/#3-2. 매번 연장 결제를 안 눌러도 카드가 등록돼 있으면 매월 자동으로 이어진다 -->
+    <div id="autoRenewBox" style="margin-top:14px;padding:12px;border-top:1px dashed rgba(148,163,184,0.3)"></div>
   </div>
 
   <div class="step" id="stTeacher">
@@ -366,7 +369,68 @@
         + (CUR.days_left <= 7 ? ' <span style="color:#fca5a5">('+CUR.days_left+'일 남음)</span>' : '');
       el('stRenew').style.display = 'block';
       renderRenewMonths(); renewQuote();
+      renderAutoRenewBox();
     }).catch(function(){});
+
+  /* ══ ♾️ 자동연장(정기결제) — 카드 한 번 등록하면 매월 자동으로 이어짐 ══ */
+  function renderAutoRenewBox(){
+    var box = el('autoRenewBox');
+    if (!box) return;
+    box.innerHTML = '<span style="color:#94a3b8;font-size:12px">불러오는 중…</span>';
+    fetch('/api/pay/billing/status' + (TOKEN ? ('?token='+encodeURIComponent(TOKEN)) : ''))
+      .then(function(r){return r.json();}).then(function(d){
+        var sub = d && d.ok ? d.subscription : null;
+        if (sub) {
+          var next = new Date(sub.next_billing_at);
+          var nextStr = next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0')+'-'+String(next.getDate()).padStart(2,'0');
+          box.innerHTML = '<div style="font-size:12.5px;color:#6ee7b7">♾️ <b>자동연장 켜짐</b> · 매월 '+won(sub.amount)+' · 다음 결제 '+nextStr+'</div>'
+            + '<button id="btnAutoRenewOff" style="margin-top:6px;padding:6px 12px;font-size:11.5px;border-radius:8px;border:1px solid rgba(252,165,165,0.4);background:transparent;color:#fca5a5;cursor:pointer" data-ko="자동연장 해지" data-en="Turn off auto-renew">자동연장 해지</button>';
+          el('btnAutoRenewOff').addEventListener('click', function(){
+            if (!confirm('자동연장을 해지할까요? 다음 결제부터는 자동으로 진행되지 않아요.')) return;
+            fetch('/api/pay/billing/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid:UID, token:TOKEN }) })
+              .then(function(){ renderAutoRenewBox(); });
+          });
+        } else {
+          box.innerHTML = '<div style="font-size:12px;color:#94a3b8">매번 결제 버튼을 안 눌러도 되도록, 카드 한 번 등록해두면 매월 자동으로 연장돼요.</div>'
+            + '<button id="btnAutoRenewOn" style="margin-top:6px;padding:8px 14px;font-size:12.5px;font-weight:700;border-radius:8px;border:0;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;cursor:pointer" data-ko="♾️ 자동연장으로 전환" data-en="♾️ Switch to auto-renew">♾️ 자동연장으로 전환</button>';
+          el('btnAutoRenewOn').addEventListener('click', startAutoRenewRegister);
+        }
+      }).catch(function(){ box.innerHTML = ''; });
+  }
+  function startAutoRenewRegister(){
+    var b = el('btnAutoRenewOn');
+    if (b) { b.disabled = true; b.textContent = '🔄 처리 중…'; }
+    fetch('/api/pay/billing/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid:UID, token:TOKEN }) })
+      .then(function(r){return r.json();}).then(function(o){
+        if (!o || !o.ok) { if(b){b.disabled=false;b.textContent='♾️ 자동연장으로 전환';} alert((o&&o.message)||'자동연장 신청에 실패했어요.'); return; }
+        try {
+          var tp = window.TossPayments(o.clientKey);
+          tp.requestBillingAuth('카드', {
+            customerKey: o.customerKey,
+            successUrl: location.origin + '/enroll.html?billing_return=1',
+            failUrl: location.origin + '/enroll.html?billing_fail=1'
+          }).catch(function(e){
+            if (b) { b.disabled=false; b.textContent='♾️ 자동연장으로 전환'; }
+            if (e && e.code !== 'USER_CANCEL') alert('카드 등록창 오류: ' + (e.message||''));
+          });
+        } catch(e){ if(b){b.disabled=false;b.textContent='♾️ 자동연장으로 전환';} alert('결제 모듈 오류'); }
+      }).catch(function(){ if(b){b.disabled=false;b.textContent='♾️ 자동연장으로 전환';} alert('네트워크 오류'); });
+  }
+  /* 토스 카드등록 완료 후 돌아왔을 때 — authKey·customerKey 를 서버에 넘겨 실제 빌링키로 교환 */
+  (function handleBillingReturn(){
+    var qp = new URLSearchParams(location.search);
+    if (qp.get('billing_return') !== '1') return;
+    var authKey = qp.get('authKey'), customerKey = qp.get('customerKey');
+    history.replaceState(null, '', location.pathname);   // 쿼리스트링 정리(새로고침 시 중복 confirm 방지)
+    if (!authKey || !customerKey) return;
+    fetch('/api/pay/billing/confirm', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ uid:UID, token:TOKEN, authKey:authKey, customerKey:customerKey }) })
+      .then(function(r){return r.json();}).then(function(d){
+        if (d && d.ok) alert('♾️ 자동연장이 켜졌어요! 매월 '+won(d.amount)+'이 자동으로 결제됩니다.');
+        else alert('카드 등록은 완료됐지만 자동연장 설정에 실패했어요: '+((d&&d.message)||(d&&d.error)||'오류'));
+        renderAutoRenewBox();
+      }).catch(function(){});
+  })();
 
   el('btnRenew').addEventListener('click', function(){
     var b = el('btnRenew');
@@ -394,6 +458,6 @@
 </script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 <script src="/js/ux-track.js?v=1" defer></script>
-<!-- BUILD:20260731052744 -->
+<!-- BUILD:20260731145703 -->
 </body>
 </html>

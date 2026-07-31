@@ -108,7 +108,7 @@ export async function ensureEnrollTables(env: any): Promise<void> {
 /* ═══════════════ 조회 헬퍼 ═══════════════ */
 
 /** 학생 uid → 대리점(shop_name)과 주1회 단가 */
-async function priceForUid(env: any, uid: string): Promise<{ shopName: string; weekly1Price: number }> {
+export async function priceForUid(env: any, uid: string): Promise<{ shopName: string; weekly1Price: number }> {
   let shopName = '';
   try {
     const st: any = await env.DB.prepare(`SELECT shop_name FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first();
@@ -125,7 +125,7 @@ async function priceForUid(env: any, uid: string): Promise<{ shopName: string; w
 }
 
 /** 강사 가산 배율 (기본 1.0 — 정책 미정, 확인답변 ③) */
-async function teacherRateFor(env: any, teacherId: string): Promise<number> {
+export async function teacherRateFor(env: any, teacherId: string): Promise<number> {
   try {
     const r: any = await env.DB.prepare(`SELECT rate_pct FROM teacher_pricing WHERE teacher_id = ? LIMIT 1`).bind(String(teacherId)).first();
     const pct = Number(r?.rate_pct || 100);
@@ -308,7 +308,7 @@ export function inferWeeklyDays(pastAndFuture: string[], futureOnly: string[]): 
 }
 
 /** 학생의 현재 수강 상태 요약 (남은 회차·마지막 수업일·요일·시간·강사) */
-async function currentEnrollment(env: any, uid: string): Promise<any> {
+export async function currentEnrollment(env: any, uid: string): Promise<any> {
   const today = kstToday();
   const since = addDays(today, -14);   // 요일 패턴 추정용 과거 창(연장 시점엔 미래가 거의 없다)
   const rs: any = await env.DB.prepare(
@@ -830,7 +830,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
 
 /* ═══════════════ 주문 생성 공통 (신규·연장) ═══════════════ */
 
-async function createEnrollOrder(env: any, uid: string, p: any, kind: 'new' | 'renew'): Promise<Response> {
+export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'new' | 'renew' | 'auto_renew'): Promise<Response> {
   const sessions = p.weekly * 4 * p.months;
   const hol = await holidaySet(env, p.startDate);
   const probe = enrollDates(p.startDate, p.days, sessions * 2);
@@ -860,7 +860,7 @@ async function createEnrollOrder(env: any, uid: string, p: any, kind: 'new' | 'r
   let sName = '';
   try { const s: any = await env.DB.prepare(`SELECT COALESCE(korean_name, english_name, username) AS n FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first(); sName = String(s?.n || ''); } catch (_) {}
 
-  const orderName = `${kind === 'renew' ? '[연장] ' : ''}주${p.weekly}회 × ${p.months}개월 수강권 (${q.sessions}회${p.minutes === 40 ? '·40분' : ''})`;
+  const orderName = `${kind === 'auto_renew' ? '[자동연장] ' : kind === 'renew' ? '[연장] ' : ''}주${p.weekly}회 × ${p.months}개월 수강권 (${q.sessions}회${p.minutes === 40 ? '·40분' : ''})`;
   const enrollJson = JSON.stringify({
     v: 2, kind, uid, teacher_id: p.teacherId, teacher_name: tName, days: p.days, times: p.times,
     minutes: p.minutes, weekly: p.weekly, months: p.months, start_date: p.startDate,
@@ -868,7 +868,7 @@ async function createEnrollOrder(env: any, uid: string, p: any, kind: 'new' | 'r
     teacher_rate: tRate, shop_name: shopName || null,
   });
   const rnd = Array.from(crypto.getRandomValues(new Uint8Array(6))).map((b) => b.toString(16).padStart(2, '0')).join('');
-  const orderId = `${kind === 'renew' ? 'MGR' : 'MGE'}-${Date.now().toString(36).toUpperCase()}-${rnd}`;
+  const orderId = `${kind === 'auto_renew' ? 'MGA' : kind === 'renew' ? 'MGR' : 'MGE'}-${Date.now().toString(36).toUpperCase()}-${rnd}`;
   try {
     await env.DB.prepare(
       `INSERT INTO payment_orders (order_id, uid, program, amount, status, method, payer_name, student_name, phone, enroll_json, created_at)
