@@ -623,11 +623,18 @@
         ? '<span style="color:var(--mut)">'+T('지수 변화 없음','no change','指数无变化')+'</span>'
         : (dl>0 ? '<span style="color:#34d399">▲ '+dl+'</span>' : '<span style="color:#f87171">▼ '+Math.abs(dl)+'</span>');
       lastBox = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;'
-        + 'margin:0 0 14px;padding:10px 14px;border-radius:14px;'
+        + 'margin:0 0 6px;padding:10px 14px;border-radius:14px;'
         + 'background:rgba(124,58,237,.14);border:1px solid rgba(168,85,247,.35);font-weight:800">'
         + '<span>'+T('이번 판단','This attempt','本次判断')+'</span>'
         + '<span style="color:'+(d.last.is_optimal?'#fbbf24':'#f0abfc')+';font-size:1.15em">'+ls+T('점','','分')+'</span>'
         + '<span style="color:var(--mut);font-weight:700">'+T('지수','index','指数')+'</span>'+dTxt
+        + '</div>'
+        // 🆕 "이번 판단 점수"와 "판단력 지수"가 다른 이유를 매번 헷갈려해서(신고 반복) 바로 밑에 짧게 설명.
+        //    지수는 오늘 답 하나가 아니라 최근 여러 판단(선택·이유·교정력·어투·일관성)의 평균이라는 점을 명시.
+        + '<div style="font-size:12px;color:var(--mut);margin:0 0 14px;line-height:1.5">'
+        +   T('💡 지수는 이번 점수 하나가 아니라, 최근 여러 판단(선택·이유·교정력·어투·일관성)을 종합한 평균이에요.',
+              '💡 The index isn\'t just this score — it\'s an average of several recent decisions (choice, reasoning, self-correction, register, consistency).',
+              '💡 指数不是这一次的分数，而是最近多次判断（选择、理由、纠正力、语气、一致性）的综合平均值。')
         + '</div>';
     }
     var practice = has
