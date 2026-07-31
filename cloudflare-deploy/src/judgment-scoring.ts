@@ -14,13 +14,13 @@ export const AXIS_WEIGHTS: Record<string, number> = {
 
 // 최근 성과 반영 — 단순 누적 평균이면 27번 푼 학생이 100점을 받아도 지수가 0.3점밖에 안 움직여
 // "몇 점을 받든 65" 로 보입니다. 반감기 RECENCY_HALF_LIFE 회의 지수가중 평균을 씁니다.
-export const RECENCY_HALF_LIFE = 6;   // 이유논리 축 — 6회 전 판단의 가중치 = 최신의 1/2
-// ⚠️ 2026-07-31: 선택 축은 half-life=6 이어도, 답이 30개 넘게 쌓인 학생은 방금 낸 답 1개의
-//   실반영 비중이 전체의 ~11%뿐이라 "정답 98점 vs 오답 20점"을 내도 지수가 1~3점만 움직였습니다
-//   (신고: 몇 번을 풀어도 성장보기가 60~68 사이에서 거의 안 움직임). 선택 축만 반감기를 줄여
-//   "이번 판단이 정답/오답이었다"는 체감을 살립니다. 이유논리 축은 사유 텍스트 채점이라 원인이 달라 유지.
-export const CHOICE_RECENCY_HALF_LIFE = 2;   // 선택 축 — 2회 전 판단의 가중치 = 최신의 1/2
-export const RECENT_WINDOW = 12;      // 자기교정력·일관성을 보는 최근 창
+// ⚠️ 2026-07-31 1차 수정: 선택 축만 half-life 6→2 로 줄임(문제: 정답 98점/오답 20점을 내도
+//   지수가 1~3점만 움직임). ⚠️ 2026-07-31 2차 수정: 배포 후 "선택 적절성·이유논리·자기교정력
+//   그래프가 질문마다 거의 비슷하다" 재신고 — 이유논리·어투민감도 축은 여전히 half-life=6 을 쓰고
+//   있었고(선택 축과 똑같은 문제), 자기교정력·일관성도 RECENT_WINDOW=12 라 답 1개의 비중이 낮았음.
+//   5축 모두 같은 정도로 반응하도록 half-life 를 2 로, 최근 창을 6 으로 통일한다.
+export const RECENCY_HALF_LIFE = 2;   // 이유논리·어투민감도·선택 축 공통 — 2회 전 판단의 가중치 = 최신의 1/2
+export const RECENT_WINDOW = 6;       // 자기교정력·일관성을 보는 최근 창
 
 /**
  * 난이도별 도달 가능 상한 — 변별력의 핵심.
@@ -88,7 +88,7 @@ export function stddev(arr: number[]): number {
   return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length);
 }
 
-/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. halfLife 생략 시 RECENCY_HALF_LIFE(이유논리 축 기준). */
+/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. halfLife 생략 시 RECENCY_HALF_LIFE. */
 export function recencyAvg(arr: Array<number | null>, halfLife: number = RECENCY_HALF_LIFE): number | null {
   let ws = 0, vs = 0;
   const n = arr.length;
@@ -156,7 +156,7 @@ export function axesFromRows(rows: any[]): GrowthAxes {
   const round = (v: number | null) => v == null ? null : Math.round(v);
   const a: GrowthAxes = {
     events_count: rows.length,
-    axis_choice: round(recencyAvg(choiceSeq, CHOICE_RECENCY_HALF_LIFE)),
+    axis_choice: round(recencyAvg(choiceSeq)),
     axis_reasoning: round(recencyAvg(reasoningSeq)),
     axis_selfcorrection: axisSelf,
     axis_register: round(recencyAvg(registerSeq)),
