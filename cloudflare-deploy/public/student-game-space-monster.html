@@ -73,13 +73,16 @@
 
     /* ── 괴물 ── */
     .mon { position: absolute; z-index: 30; width: var(--d); height: calc(var(--d)*1.25); will-change: transform; --aura: 150,70,255; }
+    /* 배경 제거된 알파 스프라이트 12프레임 세로 스트립 — 괴물만 보인다 */
     .mon .face {
       position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: cover; object-position: center 34%;
-      -webkit-mask-image: radial-gradient(ellipse 45% 45% at 50% 44%, #000 56%, rgba(0,0,0,.5) 74%, transparent 88%);
-              mask-image: radial-gradient(ellipse 45% 45% at 50% 44%, #000 56%, rgba(0,0,0,.5) 74%, transparent 88%);
-      filter: brightness(1.55) contrast(1.22) saturate(1.35) drop-shadow(0 0 18px rgba(var(--aura),.55));
+      background-repeat: no-repeat;
+      background-size: 100% 1200%;
+      background-position: 0 0;
+      animation: spriteRun 1.1s steps(12) infinite;
+      filter: brightness(1.18) contrast(1.1) saturate(1.25) drop-shadow(0 6px 18px rgba(0,0,0,.85)) drop-shadow(0 0 16px rgba(var(--aura),.5));
     }
+    @keyframes spriteRun { from { background-position: 0 0; } to { background-position: 0 -1200%; } }
     .mon .glow {
       position: absolute; left: 50%; top: 46%; width: 126%; height: 102%;
       transform: translate(-50%,-50%); pointer-events: none;
@@ -104,7 +107,7 @@
     @keyframes warpFace {
       0% { opacity: 0; filter: brightness(4) blur(6px); }
       50% { opacity: 1; filter: brightness(2) blur(1px); }
-      100% { opacity: 1; filter: brightness(1.55) contrast(1.22) saturate(1.35) drop-shadow(0 0 18px rgba(var(--aura),.55)); }
+      100% { opacity: 1; filter: brightness(1.18) contrast(1.1) saturate(1.25) drop-shadow(0 6px 18px rgba(0,0,0,.85)) drop-shadow(0 0 16px rgba(var(--aura),.5)); }
     }
 
     /* 피격 스파크 */
@@ -116,12 +119,14 @@
     .mon .tag {
       position: absolute; left: 50%; bottom: 1%; transform: translateX(-50%);
       transform-origin: center bottom; z-index: 3;
-      padding: 5px 13px; border-radius: 999px;
-      background: rgba(6,12,32,.94); border: 2px solid rgba(251,191,36,.85);
-      box-shadow: 0 0 14px rgba(251,191,36,.35), 0 3px 12px rgba(0,0,0,.7);
-      font-size: 16px; font-weight: 900; letter-spacing: 1.2px; color: #fff; white-space: nowrap;
+      padding: 3px 10px; border-radius: 999px;
+      background: rgba(6,12,32,.35); border: 1px solid rgba(251,191,36,.45);
+      backdrop-filter: blur(2px);
+      font-size: 13px; font-weight: 800; letter-spacing: 1px;
+      color: rgba(255,255,255,.9); white-space: nowrap;
+      text-shadow: 0 1px 5px rgba(0,0,0,.95);
     }
-    .mon.wrongHit .tag { border-color: #ef4444; color: #fca5a5; background: rgba(60,8,8,.94); }
+    .mon.wrongHit .tag { border-color: rgba(239,68,68,.7); color: #fca5a5; background: rgba(60,8,8,.45); }
     .mon .shield {
       position: absolute; inset: -4%; border-radius: 50%;
       border: 3px solid rgba(120,200,255,.9);
@@ -333,21 +338,18 @@
     };
 
     /* ═══ 에셋 ═══ */
-    // Higgsfield 4K 실사 8종 — 각자 고유 오라 색·포효 음높이
+    // Higgsfield 4K 실사 — 배경 매팅이 깨끗한 5종만 사용 (각자 고유 오라 색·포효 음높이)
+    // blob/spider/armor 는 복도가 몸에 붙어 떨어지지 않아 제외 — 그린스크린 재생성 후 복귀 예정
     const CREATURES = [
       { n:'tripod',   aura:'80,255,150',  pitch:0.85 },
-      { n:'blob',     aura:'255,90,120',  pitch:0.65 },
-      { n:'spider',   aura:'190,90,255',  pitch:1.25 },
       { n:'cyclops',  aura:'255,90,60',   pitch:0.55 },
       { n:'flyer',    aura:'90,180,255',  pitch:1.55 },
       { n:'tentacle', aura:'255,170,60',  pitch:1.05 },
-      { n:'armor',    aura:'110,200,255', pitch:0.75 },
       { n:'phantom',  aura:'150,255,235', pitch:1.4  }
     ];
-    const vidPath = (n) => `/vid/space-monsters/${n}.mp4`;
-    const posterPath = (n) => `/img/space-monsters/${n}-level-10-frame-00.png`;
-    // 영상 프리로드 (첫 등장 끊김 방지)
-    CREATURES.forEach(c => { const v = document.createElement('video'); v.preload = 'auto'; v.src = vidPath(c.n); });
+    // 배경 제거된 알파 스프라이트 시트 (12프레임 세로 스트립)
+    const sheetPath = (n) => `/img/space-monsters/${n}-sheet.webp`;
+    CREATURES.forEach(c => { const im = new Image(); im.src = sheetPath(c.n); });
 
     /* ═══ 문장 은행 (스테이지별: 3 → 4 → 5단어) ═══ */
     const SENTENCES = [
@@ -445,21 +447,18 @@
         el.style.setProperty('--aura', cre.aura);
         el.innerHTML =
           '<div class="warp"></div><div class="glow"></div>' +
-          '<video class="face" autoplay muted loop playsinline preload="auto" ' +
-            'poster="' + posterPath(cre.n) + '" src="' + vidPath(cre.n) + '"></video>' +
+          '<div class="face"></div>' +
           '<div class="shield"></div><div class="tag"></div>';
+        const face = el.querySelector('.face');
+        face.style.backgroundImage = `url('${sheetPath(cre.n)}')`;
+        face.style.animationDuration = (0.85 + Math.random() * 0.6).toFixed(2) + 's'; // 개체마다 다른 움직임 속도
         el.querySelector('.tag').textContent = w;
         field.appendChild(el);
         setTimeout(() => el.classList.remove('warpin'), 900);
 
-        const vid = el.querySelector('video');
-        vid.playbackRate = 0.75 + Math.random() * 0.6;   // 개체마다 다른 움직임 속도
-        const tryPlay = () => { const p = vid.play(); if (p && p.catch) p.catch(()=>{}); };
-        tryPlay(); vid.addEventListener('canplay', tryPlay, { once:true });
-
         const start = randSurface();
         wave.monsters.push({
-          el, vid, tag: el.querySelector('.tag'),
+          el, face, tag: el.querySelector('.tag'),
           word: w, order: i, creature: cre,
           born: now + i * rnd(180, 700),      // 시차를 두고 몰려나온다
           dur: rnd(lo, hi),                    // 괴물마다 다른 속도
@@ -700,6 +699,6 @@
 
     startWave();
   </script>
-<!-- BUILD:20260801072003 -->
+<!-- BUILD:20260801081153 -->
 </body>
 </html>
