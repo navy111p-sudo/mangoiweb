@@ -184,6 +184,36 @@
     /* 도망 */
     .mon.flee { transition: opacity .45s ease-out; opacity: 0 !important; }
 
+    /* 1인칭 저격수 사망: 카메라가 쓰러짐 */
+    #field.dying { animation: die 1.25s ease-in forwards; }
+    @keyframes die {
+      0% { transform: none; filter: none; }
+      30% { transform: rotate(-3deg); }
+      100% { transform: rotate(22deg) translateY(30%) scale(1.06); filter: brightness(.3) saturate(.5) blur(2px); }
+    }
+    #ohNo {
+      position: absolute;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 60;
+      font-size: 54px;
+      font-weight: 900;
+      color: #ff5a5a;
+      letter-spacing: 2px;
+      text-shadow: 0 3px 18px rgba(0,0,0,.9), 0 0 24px rgba(255,60,60,.6);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #ohNo.show { animation: ohNoPop 1.2s ease-out forwards; }
+    @keyframes ohNoPop {
+      0% { opacity: 0; transform: translate(-50%,-50%) scale(.5) rotate(-4deg); }
+      15% { opacity: 1; transform: translate(-50%,-50%) scale(1.15) rotate(2deg); }
+      30% { transform: translate(-50%,-50%) scale(1); }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
     /* 처치 문구 팝업 */
     #killPop {
       position: absolute;
@@ -311,6 +341,7 @@
     <div id="field">
       <div id="flash"></div>
       <div id="killPop"><div class="en"></div><div class="ko"></div><div class="pts">+100</div></div>
+      <div id="ohNo">Oh no!</div>
       <div id="dangerBar"><div id="dangerFill"></div></div>
     </div>
   </div>
@@ -376,6 +407,15 @@
       { name: 'wallR',   sx: 118, sy: 44, ex: 80, ey: 46 }    // 오른쪽 벽
     ];
 
+    // 등장 후 바닥·천장·벽 사이를 랜덤으로 왔다갔다 — 박진감!
+    function randAnchor() {
+      const z = Math.floor(Math.random() * 4);
+      if (z === 0) return { x: 18 + Math.random() * 64, y: 64 + Math.random() * 16 };  // 바닥
+      if (z === 1) return { x: 18 + Math.random() * 64, y: 18 + Math.random() * 12 };  // 천장
+      if (z === 2) return { x: 11 + Math.random() * 9,  y: 28 + Math.random() * 38 };  // 왼쪽 벽
+      return               { x: 80 + Math.random() * 9,  y: 28 + Math.random() * 38 }; // 오른쪽 벽
+    }
+
     let score = 0, stage = 1, lives = 3, kills = 0, timeLeft = 99;
     let gameActive = true;
     let wave = null; // { answer, monsters:[], born, dur, done }
@@ -431,6 +471,8 @@
           correct: w.en === answer.en,
           creature: creatures[i],
           path,
+          cx: path.sx, cy: path.sy,
+          from: null, to: null, moveStart: 0, moveDur: 0, nextHopAt: 0,
           phase: i * 2.1,
           frame: -1,
           gone: false
@@ -446,19 +488,33 @@
         for (const m of wave.monsters) {
           if (m.gone) continue;
 
-          // 1단계(~28%): 바닥/천장/벽에서 화면 안으로 등장
-          const emerge = Math.min(1, p / 0.28);
-          const eo = 1 - (1 - emerge) * (1 - emerge);   // easeOut
-          let x = m.path.sx + (m.path.ex - m.path.sx) * eo;
-          let y = m.path.sy + (m.path.ey - m.path.sy) * eo;
-
-          // 2단계(28%~): 자리 잡은 뒤 플레이어 쪽으로 조여들며 커짐
-          const r = Math.max(0, (p - 0.28) / 0.72);
-          x += (50 - m.path.ex) * r * 0.35;
-          y += (52 - m.path.ey) * r * 0.5;
+          // 1단계(~22%): 바닥/천장/벽에서 화면 안으로 등장
+          const emerge = Math.min(1, p / 0.22);
+          let x, y;
+          if (emerge < 1) {
+            const eo = 1 - (1 - emerge) * (1 - emerge);   // easeOut
+            x = m.path.sx + (m.path.ex - m.path.sx) * eo;
+            y = m.path.sy + (m.path.ey - m.path.sy) * eo;
+            m.cx = x; m.cy = y;
+          } else {
+            // 2단계: 바닥·천장·벽 사이를 랜덤으로 휙휙 이동하며 다가옴
+            if (!m.nextHopAt || now >= m.nextHopAt) {
+              m.from = { x: m.cx, y: m.cy };
+              m.to = randAnchor();
+              m.moveStart = now;
+              m.moveDur = 550 + Math.random() * 350;
+              // 머무는 시간: 스테이지 오를수록 짧아짐 = 더 정신없이 이동
+              m.nextHopAt = now + m.moveDur + 400 + Math.random() * Math.max(300, 1400 - stage * 350);
+            }
+            const q = Math.min(1, (now - m.moveStart) / m.moveDur);
+            const ei = q < .5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2;  // easeInOut
+            x = m.from.x + (m.to.x - m.from.x) * ei;
+            y = m.from.y + (m.to.y - m.from.y) * ei;
+            m.cx = x; m.cy = y;
+          }
 
           const s = 0.2 + 0.8 * p * p;
-          const sway = Math.sin(now / 420 + m.phase) * 14 * (1 - p);
+          const sway = Math.sin(now / 420 + m.phase) * 10 * (1 - p);
 
           m.el.style.left = x + '%';
           m.el.style.top = y + '%';
@@ -565,6 +621,15 @@
       field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 320);
     }
 
+    function sayOhNo() {
+      try {
+        const u = new SpeechSynthesisUtterance('Oh no!');
+        u.lang = 'en-US'; u.rate = 1; u.pitch = 0.8;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+      } catch (e) {}
+    }
+
     function monstersAttack() {
       wave.done = true;
       lives--;
@@ -572,11 +637,21 @@
       flash.className = ''; void flash.offsetWidth; flash.classList.add('hurtfx');
       field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 320);
 
+      // 저격수 피격: "Oh no!"
+      sayOhNo();
+      const oh = $('ohNo');
+      oh.classList.remove('show'); void oh.offsetWidth; oh.classList.add('show');
+
       // 정답 괴물 공개 (학습 효과)
       const ans = wave.monsters.find(o => o.correct);
       if (ans) ans.el.classList.add('reveal');
 
-      if (lives <= 0) return endGame(false);
+      if (lives <= 0) {
+        // 최후: 저격수 사망 — 카메라가 쓰러진다
+        field.classList.add('dying');
+        setTimeout(() => endGame(false), 1350);
+        return;
+      }
       setTimeout(startWave, 1500);
     }
 
@@ -627,6 +702,6 @@
 
     startWave();
   </script>
-<!-- BUILD:20260801063730 -->
+<!-- BUILD:20260801064537 -->
 </body>
 </html>
