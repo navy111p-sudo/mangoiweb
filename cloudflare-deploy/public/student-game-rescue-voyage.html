@@ -574,7 +574,7 @@
     scene.fog=new THREE.Fog(0x9fe3f0, 40, 95);
     var camera=new THREE.PerspectiveCamera(60,1,0.1,300);
     // 화면 비율에 맞춘 카메라 거리 — 세로(좁음)일수록 카메라를 뒤로 빼서 배·물체가 작게 보이게(휴대폰 세로 대응)
-    var CAM_Y=6, CAM_Z=10, LANE_CAP=6.2;   // LANE_CAP: 가로에서 배가 양끝까지 가지 않고 중앙 위주로(상한)
+    var CAM_Y=6, CAM_Z=10, LANE_CAP=20;   // LANE_CAP: 사실상 무제한 — 배가 화면 좌우 끝까지 갈 수 있게(실제 상한은 보이는 폭)
     function _updateCamFrame(){
       var w=window.innerWidth||1, h=window.innerHeight||1, asp=w/h;
       if(asp<1){ var k=Math.min(2.3, 1/Math.max(0.4,asp)); CAM_Z=10+(k-1)*6.5; CAM_Y=6+(k-1)*2.2; }   // 세로: 멀리
@@ -1346,9 +1346,9 @@
       // 배가 파도를 탐 + 충돌 시 좌우 진동(회전 아님)
       var by=waveH(G.boatX,0,G.t);
       var vib=(G.controlLock>0)? Math.sin(G.t*48)*0.16 : 0;   // 부딪히면 부르르 진동
-      boat.position.set(G.boatX + (G.controlLock>0?Math.sin(G.t*55)*0.05:0), by+0.2, 0);
-      boat.rotation.z = (waveH(G.boatX-1,0,G.t)-waveH(G.boatX+1,0,G.t))*0.35 - (G.aimSteer||0)*0.12 + vib;
-      boat.rotation.x = (waveH(G.boatX,-1.5,G.t)-waveH(G.boatX,1.5,G.t))*0.25;
+      boat.position.set(G.boatX + (G.controlLock>0?Math.sin(G.t*55)*0.05:0), by+0.42, 0);   // 파도 위 여유고도 상향(0.2→0.42) — 파도가 뱃머리/고물을 덮치듯 물속에 잠기는 현상 방지
+      boat.rotation.z = (waveH(G.boatX-1,0,G.t)-waveH(G.boatX+1,0,G.t))*0.22 - (G.aimSteer||0)*0.12 + vib;
+      boat.rotation.x = (waveH(G.boatX,-1.5,G.t)-waveH(G.boatX,1.5,G.t))*0.16;
       if(boat.userData.flag) boat.userData.flag.rotation.y=Math.sin(G.t*8)*0.4;
 
       // 오브젝트 이동/판정
@@ -1442,6 +1442,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260801051657 -->
+<!-- BUILD:20260801052902 -->
 </body>
 </html>

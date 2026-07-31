@@ -415,10 +415,14 @@
     }
 
     function spawnMonster() {
-      if (!gameActive || timeLeft <= 0) return
+      if (!gameActive || timeLeft <= 0) {
+        console.log('spawnMonster blocked:', { gameActive, timeLeft })
+        return
+      }
 
       const creature = creatures[Math.floor(Math.random() * creatures.length)]
       const approach = approaches[Math.floor(Math.random() * approaches.length)]
+      console.log('spawning:', creature.name, approach)
 
       const monster = document.createElement('div')
       monster.className = `monster ${approach}`
@@ -609,6 +613,6 @@
       }
     })
   </script>
-<!-- BUILD:20260801051657 -->
+<!-- BUILD:20260801052902 -->
 </body>
 </html>
