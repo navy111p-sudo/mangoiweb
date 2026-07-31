@@ -161,7 +161,12 @@
       background-repeat: no-repeat;
       background-position: center;
       will-change: transform, opacity;
-      filter: drop-shadow(0 0 10px rgba(147,51,234,.4));
+      filter: drop-shadow(0 0 15px rgba(147,51,234,.6)) drop-shadow(0 0 8px rgba(100,150,255,.5));
+      transition: filter 0.1s ease;
+    }
+
+    .monster:hover {
+      filter: drop-shadow(0 0 20px rgba(251,191,36,.8)) drop-shadow(0 0 12px rgba(100,200,255,.7));
     }
 
     .monster.approach-center {
@@ -420,14 +425,49 @@
       monster.dataset.creature = creature.name
       monster.dataset.word = creature.word
       monster.title = creature.word
+      monster.dataset.frameIndex = 0
 
-      // 이모지 사용 (임시, 실제는 스프라이트로 교체)
-      const emojiMap = {
-        tripod: '👽', blob: '🧬', spider: '🕷️', cyclops: '👁️',
-        flyer: '🦇', tentacle: '🐙', armor: '💎', phantom: '👻'
+      // 실제 이미지 스프라이트 사용 (10 레벨, 4 프레임 애니메이션)
+      const level = 5 // 중간 해상도 선택 (1-10)
+      const frameCount = 4
+      let frameIndex = 0
+
+      // 프레임 크기 설정
+      const frameSizes = {
+        1: { w: 80, h: 100 },
+        2: { w: 120, h: 150 },
+        3: { w: 160, h: 200 },
+        4: { w: 200, h: 250 },
+        5: { w: 240, h: 300 },
+        6: { w: 280, h: 350 },
+        7: { w: 320, h: 400 },
+        8: { w: 360, h: 450 },
+        9: { w: 420, h: 525 },
+        10: { w: 500, h: 625 }
       }
-      monster.textContent = emojiMap[creature.name] || '👽'
-      monster.style.fontSize = '60px'
+
+      const size = frameSizes[level]
+      monster.style.width = size.w + 'px'
+      monster.style.height = size.h + 'px'
+      monster.dataset.level = level
+
+      // 애니메이션: 프레임 순환
+      const animateFrames = () => {
+        if (monster.classList.contains('hit')) return
+        const framePath = `/img/space-monsters/${creature.name}-level-${String(level).padStart(2, '0')}-frame-${String(frameIndex).padStart(2, '0')}.png`
+        monster.style.backgroundImage = `url('${framePath}')`
+        frameIndex = (frameIndex + 1) % frameCount
+        monster.dataset.frameIndex = frameIndex
+      }
+
+      animateFrames()
+      const frameInterval = setInterval(() => {
+        if (monster.parentElement && !monster.classList.contains('hit')) {
+          animateFrames()
+        } else {
+          clearInterval(frameInterval)
+        }
+      }, 200) // 200ms마다 프레임 전환 (5fps 애니메이션)
 
       monster.onclick = (e) => {
         e.stopPropagation()
@@ -547,6 +587,6 @@
       }
     })
   </script>
-<!-- BUILD:20260801031437 -->
+<!-- BUILD:20260801032728 -->
 </body>
 </html>
