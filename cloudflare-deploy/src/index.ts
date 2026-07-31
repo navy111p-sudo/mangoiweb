@@ -41,6 +41,7 @@ import { decisionGraphRouter, runDecisionGraphSync } from './decision-graph';  /
 import { runGrowthSnapshot } from './api-judgment';                            // 📈 판단력 성장 스냅샷(3단계)
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
 import { nightlyCafe24Refresh } from './cafe24-sync';  // 🔄 카페24→D1 야간 자동 새로고침
+import { handleSpaceMonsterApi } from './api-space-monster';  // 🛸 Space Monster Hunter 게임 API
 
 interface Env {
   SIGNALING_ROOM: DurableObjectNamespace;
@@ -1333,10 +1334,21 @@ const worker = {
         // Audit-added: student recordings listing
         path === '/api/student/recordings' ||
         // 📝 학생/학부모 수업 피드백 조회 (본인 것만, 토큰 필수) — 2026-07-22 컴플레인 #3
-        path === '/api/student/feedbacks') {
+        path === '/api/student/feedbacks' ||
+        // 🛸 Space Monster Hunter 게임 API
+        path === '/api/games/space-monster/hit' ||
+        path === '/api/games/space-monster/stage-complete' ||
+        path === '/api/games/space-monster/results') {
       // fix (2026-06-01) — 미처리 예외가 Cloudflare 503 으로 새지 않도록 방어:
       //   어떤 경우에도 JSON 응답을 보장 (콘솔 503 도배 방지).
       try {
+        // 🛸 Space Monster Hunter 게임 API (우선순위 높음)
+        if (path.startsWith('/api/games/space-monster/')) {
+          const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {};
+          const res = await handleSpaceMonsterApi(request.method, path, url, body, env as any);
+          if (res) return res;
+        }
+
         const res = await handleMangoApi(request, url, env, ctx);
         if (res) return res;
       } catch (e: any) {

@@ -166,11 +166,21 @@
   @keyframes civFall{0%{transform:none;opacity:1}
     35%{transform:translateY(6px) rotate(-14deg)}
     100%{transform:translateY(30px) rotate(-82deg);opacity:0}}
-  /* 💰 황금 보너스 표적 — 2배 점수. 왕관 이모지 대신 CSS 로만 그린 금빛 광채 링 */
-  .monster.golden .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 12px rgba(0,0,0,.4)}
-  .monster.golden .face{filter:drop-shadow(0 0 9px gold)}
-  .monster.golden::after{content:'';position:absolute;top:-11px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;
-    background:radial-gradient(circle,#fffbe8,#fde68a 45%,#f59e0b 75%,transparent 85%);box-shadow:0 0 9px 2px rgba(251,191,36,.9)}
+  /* ═══ 🟡 금색은 오직 한 가지 뜻 = "지금 쏴야 할 단어" ═══
+     사장님 지적: "왜 황금색이 글자하고 달라?"
+     예전엔 금색이 두 뜻으로 쓰였다 — 상단 문장칩(.chip.next)은 '지금 쏠 단어',
+     필드의 .monster.golden 은 '2배 점수 보너스'. 게다가 보너스는 목표 단어 중
+     무작위 하나(45%)에 붙어서 대개 지금 쏠 단어가 아니었다. 같은 색이 서로 다른 곳을
+     가리키니 화면을 믿을 수 없었다.
+     → 금색은 상단칩과 필드 모두 '지금 쏠 단어'로 통일. 보너스는 색이 아니라 왕관으로. */
+  .monster.cur .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;
+    border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 12px rgba(0,0,0,.45)}
+  /* ⚠ 확대(transform)와 광채(filter)는 여기 적으면 안 먹는다 — 루프가 매 프레임
+     .word 의 transform 과 .face 의 filter 를 인라인으로 덮어쓰기 때문이다. JS 쪽에서 함께 넣는다. */
+  /* 💰 보너스 표적(2배 점수) — 색이 아니라 왕관 뱃지로만 구분한다.
+     ⚠ 왕관 U+1F451 은 유니코드 6.0 이라 Win10 에서도 안전(13+ 는 두부로 뜬다). */
+  .monster.golden::after{content:'👑';position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+    font-size:15px;line-height:1;text-shadow:0 2px 4px rgba(0,0,0,.85);pointer-events:none}
   .monster:active{transform:scale(.9)}
   .monster.pop{animation:pop .28s forwards}
   @keyframes pop{to{transform:scale(1.8);opacity:0}}
@@ -1860,7 +1870,16 @@
     // 사수(#soldierWrap)의 실제 반폭 — 좀비가 사수를 비켜 가는 데 쓴다(없으면 넉넉한 기본값)
     var _sw=document.getElementById('soldierWrap');
     var SHOOTER_HALF=(_sw ? _sw.getBoundingClientRect().width : 320)/2;
+    /* 🚦 동시 등장 수 제한 (사장님: "좀비들이 너무 합쳐서 오다 보니 쏘기가 힘들어").
+       몬스터 수 = 문장 단어 수 + 오답 2 + 민간인 2 다. 8단어 문장이면 12마리가 되는데,
+       도로 폭을 0.17 로 좁히고 몸집을 2.75배로 키운 뒤라 전부 포개졌다(실측: 보이는 3마리가 3쌍 전부 겹침).
+       화면에 나온 수가 한도에 차 있으면, 아직 지평선 뒤(depth<0)인 놈은 그 자리에서 대기시킨다.
+       스폰 자체를 미루는 게 아니라 '전진만 멈추는' 방식이라 기존 흐름을 안 건드린다. */
+    var MAX_ACTIVE=6, _active=0;
+    for(var _a=0;_a<monsters.length;_a++){ if(monsters[_a].depth>=0) _active++; }
+    var _curWord = targetWords[currentIndex];
     for(var i=0;i<monsters.length;i++){ var m=monsters[i];
+      if(m.depth<0 && _active>=MAX_ACTIVE){ m.el.style.opacity='0'; continue; }   // 대기
       m.depth += m.vDepth*sm*dt;                                   // 🧟 카메라 쪽으로 전진
       m.lane  += m.vLane*sm*dt;                                    // 걸으며 좌우로도 조금
       if(m.lane<-1){ m.lane=-1; m.vLane=Math.abs(m.vLane); } else if(m.lane>1){ m.lane=1; m.vLane=-Math.abs(m.vLane); }
@@ -1899,12 +1918,19 @@
       /* 🌫 공기원근 — 안개 속에서 서서히 떠오르게. 앞 FADE_IN 구간 동안 0 → 1 로 올리고,
          그 구간에선 살짝 흐리게(blur) 해 '멀리 희미하게' 가 눈에 보이도록 한다. */
       var fade=Math.min(1, d/FADE_IN);
-      m.el.style.opacity = (m.depth<0) ? '0' : String(fade);
+      /* 🟡 지금 쏴야 할 단어만 또렷하게, 나머지는 뒤로 물린다.
+         화면에 단어가 여러 개라 '무엇을 쏠지'를 매번 찾아야 하는 게 이 게임이 어려운 진짜 이유였다.
+         민간인은 잘못 쏘면 감점이라 너무 흐리면 안 된다 → 중간값. */
+      var isCur = m.isTarget && m.word===_curWord;
+      if(m._cur!==isCur){ m.el.classList.toggle('cur', isCur); m._cur=isCur; }
+      var dim = isCur ? 1 : (m.isCiv ? 0.82 : 0.5);
+      m.el.style.opacity = (m.depth<0) ? '0' : String(fade*dim);
       if(m.faceEl){
         var bl=(1-fade)*2.4;                                        // 멀 때 2.4px → 가까우면 0
-        m.faceEl.style.filter = bl>0.05
-          ? 'drop-shadow(0 3px 7px rgba(0,0,0,.6)) blur('+bl.toFixed(2)+'px)'
-          : 'drop-shadow(0 3px 7px rgba(0,0,0,.6))';
+        var fx='drop-shadow(0 3px 7px rgba(0,0,0,.6))';
+        if(isCur) fx='drop-shadow(0 0 10px rgba(251,191,36,.9)) '+fx;   // 금빛 광채(CSS 로는 덮여서 안 먹는다)
+        if(bl>0.05) fx+=' blur('+bl.toFixed(2)+'px)';
+        m.faceEl.style.filter=fx;
       }
       /* 🏷 라벨만 좌우로 펼친다 — 몸은 도로 위에 모여 있어야 하지만(사장님 지시) 그러면
          단어 말풍선이 서로 겹쳐 안 읽힌다. 몸은 그대로 두고 라벨만 자기 lane 방향으로
@@ -1912,9 +1938,11 @@
          멀수록(작을수록) 더 많이 밀어야 겹침이 풀린다 → (1-d) 가중. */
       if(m.wordEl){
         var lx=m.lane*(46+58*(1-d));
-        m.wordEl.style.transform='translateX('+lx.toFixed(0)+'px)';
+        // 지금 쏠 단어는 살짝 크게(확대도 여기서 — CSS 에 적으면 이 인라인 transform 에 덮인다)
+        m.wordEl.style.transform='translateX('+lx.toFixed(0)+'px)'+(isCur?' scale(1.16)':'');
       }
-      m.el.style.zIndex = String(5 + Math.round(d*40));
+      // 지금 쏠 단어는 항상 맨 위로 — 겹쳐도 가려지지 않게(클릭도 이 순서를 따른다)
+      m.el.style.zIndex = String((isCur?150:5) + Math.round(d*40));
       // 표적이 코앞에 가까우면 화면 경고. y 임계값은 소실점이 화면비마다 달라 못 쓴다 → depth 기준.
       if(m.isTarget && d>=WARN_DEPTH) danger=true;
       if(m.depth>=1 && !m.breached){
@@ -2154,6 +2182,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260801011800 -->
+<!-- BUILD:20260801031437 -->
 </body>
 </html>
