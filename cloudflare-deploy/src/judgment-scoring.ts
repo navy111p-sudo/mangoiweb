@@ -14,7 +14,12 @@ export const AXIS_WEIGHTS: Record<string, number> = {
 
 // 최근 성과 반영 — 단순 누적 평균이면 27번 푼 학생이 100점을 받아도 지수가 0.3점밖에 안 움직여
 // "몇 점을 받든 65" 로 보입니다. 반감기 RECENCY_HALF_LIFE 회의 지수가중 평균을 씁니다.
-export const RECENCY_HALF_LIFE = 6;   // 6회 전 판단의 가중치 = 최신의 1/2
+export const RECENCY_HALF_LIFE = 6;   // 이유논리 축 — 6회 전 판단의 가중치 = 최신의 1/2
+// ⚠️ 2026-07-31: 선택 축은 half-life=6 이어도, 답이 30개 넘게 쌓인 학생은 방금 낸 답 1개의
+//   실반영 비중이 전체의 ~11%뿐이라 "정답 98점 vs 오답 20점"을 내도 지수가 1~3점만 움직였습니다
+//   (신고: 몇 번을 풀어도 성장보기가 60~68 사이에서 거의 안 움직임). 선택 축만 반감기를 줄여
+//   "이번 판단이 정답/오답이었다"는 체감을 살립니다. 이유논리 축은 사유 텍스트 채점이라 원인이 달라 유지.
+export const CHOICE_RECENCY_HALF_LIFE = 2;   // 선택 축 — 2회 전 판단의 가중치 = 최신의 1/2
 export const RECENT_WINDOW = 12;      // 자기교정력·일관성을 보는 최근 창
 
 /**
@@ -83,14 +88,14 @@ export function stddev(arr: number[]): number {
   return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length);
 }
 
-/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. */
-export function recencyAvg(arr: Array<number | null>): number | null {
+/** 배열 끝(=최신)에 가까울수록 큰 가중치를 주는 가중 평균. halfLife 생략 시 RECENCY_HALF_LIFE(이유논리 축 기준). */
+export function recencyAvg(arr: Array<number | null>, halfLife: number = RECENCY_HALF_LIFE): number | null {
   let ws = 0, vs = 0;
   const n = arr.length;
   for (let i = 0; i < n; i++) {
     const v = arr[i];
     if (v == null) continue;                                     // 값 없는 회차는 가중치 자리도 차지하지 않음
-    const w = Math.pow(0.5, (n - 1 - i) / RECENCY_HALF_LIFE);
+    const w = Math.pow(0.5, (n - 1 - i) / halfLife);
     ws += w; vs += w * v;
   }
   return ws > 0 ? vs / ws : null;
@@ -151,7 +156,7 @@ export function axesFromRows(rows: any[]): GrowthAxes {
   const round = (v: number | null) => v == null ? null : Math.round(v);
   const a: GrowthAxes = {
     events_count: rows.length,
-    axis_choice: round(recencyAvg(choiceSeq)),
+    axis_choice: round(recencyAvg(choiceSeq, CHOICE_RECENCY_HALF_LIFE)),
     axis_reasoning: round(recencyAvg(reasoningSeq)),
     axis_selfcorrection: axisSelf,
     axis_register: round(recencyAvg(registerSeq)),
