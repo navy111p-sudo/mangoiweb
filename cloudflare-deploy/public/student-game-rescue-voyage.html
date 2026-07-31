@@ -609,7 +609,7 @@
           로드 실패 시(저대역폭/오프라인) 절차적 모델을 그대로 유지(폴백).
           battle-3d.html 의 attachModel() 패턴과 동일.
        ============================================================ */
-    var GLB_MODELS = { boat:'/models/rescue-boat.glb?v=1', friend:'/models/rescue-friend.glb?v=1', rock:'/models/rescue-rock.glb?v=1', captain:'/models/rescue-captain.glb?v=1' };
+    var GLB_MODELS = { boat:'/models/rescue-boat.glb?v=3', friend:'/models/rescue-friend.glb?v=1', rock:'/models/rescue-rock.glb?v=1', captain:'/models/rescue-captain.glb?v=2' };
     // 장애물(피해야 하는 바다생물) 변형 — 스폰마다 랜덤으로 골라 다양하게(같은 모델도 랜덤 회전/스케일로 변주)
     // 힉스필드 생성 실사 GLB(상어·바다거북·돌고래). 로드 실패 시 절차적 회색 바위(buildRock proc)로 폴백.
     var ROCK_VARIANTS = [
@@ -715,14 +715,20 @@
       var bow=new THREE.Mesh(new THREE.ConeGeometry(0.9,1.5,7), hullMat);
       bow.rotation.x=-Math.PI/2; bow.scale.set(1,0.55,1); bow.position.set(0,0.15,-2.0); proc.add(bow);
       var deck=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.28,2.6), deckMat); deck.position.y=0.55; proc.add(deck);
-      var cabin=new THREE.Mesh(new THREE.BoxGeometry(1.05,0.7,1.0), new THREE.MeshStandardMaterial({color:0xffd08a,flatShading:true}));
-      cabin.position.set(0,0.95,0.35); proc.add(cabin);
+      // 선실(cabin) 대신 조타 핸들(선장이 잡는 작은 조타륜) — 배 크기에 비례한 작은 크기로
+      var wheelMat=new THREE.MeshStandardMaterial({color:0x8b5a2b,flatShading:true,roughness:0.7});
+      var wheelPost=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,8), new THREE.MeshStandardMaterial({color:0x777777,flatShading:true,metalness:0.3,roughness:0.5}));
+      wheelPost.position.set(0,0.76,0.35); proc.add(wheelPost);
+      var wheelRing=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.035,8,16), wheelMat);
+      wheelRing.position.set(0,0.98,0.35); proc.add(wheelRing);
+      var wheelHub=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.06,8), wheelMat);
+      wheelHub.rotation.x=Math.PI/2; wheelHub.position.set(0,0.98,0.35); proc.add(wheelHub);
       var mast=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.7,6), deckMat); mast.position.set(0,1.6,-0.4); proc.add(mast);
       var flag=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.35,0.02), new THREE.MeshStandardMaterial({color:0xff5e3a,flatShading:true}));
       flag.position.set(0.32,2.15,-0.4); proc.add(flag);
       g.userData.flag=flag;
       attachGLB(g, GLB_MODELS.boat, 4.3, 0.1, true, -Math.PI/2, 0, 0, true, {top:0.55, bot:-0.5});   // 선체 물 아래 부분 자연 페이드
-      attachGLB(g, GLB_MODELS.captain, 2.0, 0.05, false, Math.PI, 0, 0.95, true);   // 선장 — 진행방향(앞)을 보고 운전대를 잡게 180° 회전. extraZ=0.95(조타대 뒤), hideProc=true
+      attachGLB(g, GLB_MODELS.captain, 1.6, 0.03, false, Math.PI, 0, 0.5, true);   // 선장 — 앉은 모습 대신 조타륜을 잡고 서서 운전하는 모습으로 교체(스탠딩 포즈, 1.05→1.6). 진행방향(앞)을 보고 조타륜을 잡게 180° 회전. extraZ=0.5(조타륜 뒤), hideProc=true
       return g;
     }
     var boat=buildBoat(); scene.add(boat);
@@ -1436,6 +1442,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260731052744 -->
+<!-- BUILD:20260731235704 -->
 </body>
 </html>
