@@ -79,8 +79,21 @@
     hiddenVideo:null,
     rafId:null, sending:false,
     processedStream:null,
-    lastLM:null,       // 보간된 FaceMesh 랜드마크(떨림 완화)
-    frameTick:0
+    lastLM:null,       // 실제로 그리는 좌표 — 매 프레임 targetLM 으로 다가간다(fxLerpToTarget)
+    targetLM:null,     // 마지막 검출 좌표(목표). (2026-08-01) 검출 간격을 넓혀도 부드럽게 하려고 분리
+    frameTick:0, _everyN:7
+  };
+
+  /* (2026-08-01) vcPerf 등급 변경 알림 수신부.
+     즉시 반영되는 값: 검출 간격(everyN)·캔버스 폭(fxLoop 이 매 프레임 vcBgTargetWidth() 를 다시 읽음).
+     즉시 반영 안 되는 값: captureStream 의 fps — 스트림 생성 시 한 번 정해진다.
+       수업 중에 스트림을 다시 만들면 replaceTrack 이 한 번 더 일어나 화면이 깜빡이고
+       재연결 위험이 있어 일부러 건드리지 않는다(효과를 껐다 켜면 새 fps 로 적용된다). */
+  vcFx._applyTier = function(){
+    try {
+      // 보간 목표를 현재 위치로 리셋 — 새 간격에서 첫 프레임이 튀지 않게
+      if (vcFx.lastLM && !vcFx.targetLM) vcFx.targetLM = vcFx.lastLM;
+    } catch(e){}
   };
 
   // 진단·튜닝용 내부 핸들 노출 — 정지 사진에 액세서리를 얹어 scale/yOff 를 눈으로 맞출 때 사용.
@@ -232,13 +245,22 @@
 
   // 두 엔진(FaceLandmarker / 레거시 FaceMesh) 공통 — 원시 랜드마크 배열을 받아 보간 후 저장
   //   src: 랜드마크 배열(src[i] = {x,y[,z]} 정규화 0~1) 또는 null(미검출)
+  /* 검출 결과 도착 시 — '목표' 좌표만 갱신한다.
+     🔴 (2026-08-01) 여기서만 보간하던 것이 문제였다. 이 함수는 검출이 도착할 때만 불리므로
+        검출 간격이 벌어지면(8Hz = 125ms) 그 사이 lastLM 이 얼어 가면이 뚝뚝 끊긴다.
+        → 목표(targetLM)만 여기서 정하고, 실제 그리는 좌표(lastLM)는 fxLerpToTarget 이
+          매 프레임 목표로 다가가게 한다. 그래서 검출을 8Hz 로 낮춰도 움직임은 60fps 로 부드럽다. */
   function fxApplyRawLandmarks(src){
-    if (!src){ vcFx._missCount=(vcFx._missCount||0)+1; if (vcFx._missCount>10) vcFx.lastLM=null; return; }
+    if (!src){
+      vcFx._missCount=(vcFx._missCount||0)+1;
+      if (vcFx._missCount>10) { vcFx.lastLM=null; vcFx.targetLM=null; }
+      return;
+    }
     vcFx._missCount = 0;
     var cur = {};
     FX_IDX.forEach(function(i){ var p=src[i]; if(p) cur[i]={x:p.x,y:p.y}; });
-    // 적응형 보간 — 움직임이 크면 즉각 따라붙고(최대 0.92), 정지 시엔 강하게 떨림 억제(0.45)
-    var prev = vcFx.lastLM;
+    // 검출 자체의 떨림(지터)만 여기서 눌러 준다 — 프레임 간 추종은 fxLerpToTarget 담당
+    var prev = vcFx.targetLM;
     if (prev){
       FX_IDX.forEach(function(i){
         var o=prev[i], n=cur[i];
@@ -249,7 +271,26 @@
         }
       });
     }
-    vcFx.lastLM = cur;
+    vcFx.targetLM = cur;
+    if (!vcFx.lastLM) vcFx.lastLM = cur;      // 첫 검출은 즉시 반영(가면이 늦게 뜨는 느낌 방지)
+  }
+
+  /* 매 프레임 목표 좌표로 조금씩 다가간다(지수 보간).
+     alpha 는 '검출 간격'에 맞춰 정한다 — 간격이 넓을수록 더 천천히 따라가야 자연스럽다.
+     0.9 를 넘기면 사실상 순간이동이라 상한을 둔다. */
+  function fxLerpToTarget(){
+    var t = vcFx.targetLM, l = vcFx.lastLM;
+    if (!t) return;
+    if (!l) { vcFx.lastLM = t; return; }
+    var everyN = vcFx._everyN || 3;
+    var a = Math.min(0.9, 1.6 / everyN);      // everyN=8 → 0.20, =3 → 0.53
+    var out = {};
+    FX_IDX.forEach(function(i){
+      var o=l[i], n=t[i];
+      if (o && n) out[i] = { x:o.x+(n.x-o.x)*a, y:o.y+(n.y-o.y)*a };
+      else if (n) out[i] = n;
+    });
+    vcFx.lastLM = out;
   }
 
   // --- [폴백 2순위 엔진] MediaPipe FaceMesh(468점 정밀 랜드마크) lazy 로드 ---
@@ -480,8 +521,9 @@
       var cw = Math.min(bw, target), ch = Math.round(cw*bh/bw);
       if (cv.width!==cw || cv.height!==ch){ cv.width=cw; cv.height=ch; }
       try { ctx.drawImage(base, 0, 0, cv.width, cv.height); } catch(_){}
-      // 액세서리
+      // 액세서리 — 그리기 전에 목표 좌표로 한 걸음 다가간다(검출 간격이 넓어도 부드럽게)
       if (vcFx.mode!=='off'){
+        fxLerpToTarget();
         var it = null; for (var i=0;i<FX_ITEMS.length;i++){ if (FX_ITEMS[i].id===vcFx.mode){ it=FX_ITEMS[i]; break; } }
         if (it) fxDrawItem(ctx, it, vcFx.lastLM, cv.width, cv.height);
       }
@@ -494,8 +536,13 @@
     //   (강사 신고: "얼굴 장식이 기대한 효과가 안 난다"). 가상배경까지 켜면 무거운 추론이 동시에 2개.
     //   → 데스크톱 3프레임당 1회(≈20Hz), 모바일 6프레임당 1회로 가상배경과 동일하게 맞춘다.
     //   검출 사이 프레임은 위쪽에서 vcFx.lastLM(마지막 랜드마크)으로 계속 그리므로 장식은 끊기지 않는다.
+    // 🔵 (2026-08-01) 2단계 — 간격을 vcPerf 등급값으로 받는다(기본 7프레임 ≈ 8Hz).
+    //   얼굴은 몸보다 천천히 움직이므로 세그멘테이션(20Hz)보다 더 드물게 해도 된다.
+    //   낮춘 만큼은 fxLerpToTarget 의 매 프레임 보간이 메워 준다 → 눈에는 차이가 없고 부하만 내려간다.
     vcFx.frameTick++;
-    var everyN = fxMobile()?6:3;
+    var everyN = (window.vcPerf ? vcPerf.get().faceEvery : (fxMobile()?12:7));
+    if (fxMobile()) everyN = Math.max(10, everyN);      // 휴대폰은 발열까지 고려해 하한을 둔다
+    vcFx._everyN = everyN;                               // fxLerpToTarget 이 보간 속도 계산에 사용
     var hv = vcFx.hiddenVideo;
     // 워치독: 레거시 send 가 2초 넘게 안 끝나면(WASM 멈춤) 풀어줘 파이프라인이 영구히 죽지 않게
     if (vcFx.sending && vcFx._sendStart && (performance.now()-vcFx._sendStart > 2000)) vcFx.sending=false;
@@ -507,11 +554,14 @@
         vcFx._lastTs = ts;
         // 프레임 유효성 가드(폭·높이 0 이면 NaN ROI 유발) — 한쪽이라도 0 이면 이번 프레임 검출 건너뜀
         if (hv.videoWidth>0 && hv.videoHeight>0){
+          var _p0 = (window.vcPerf ? vcPerf.begin() : 0);   // ⏱ 얼굴검출 추론 시간 측정
           try {
             var r = vcFx.fl.detectForVideo(hv, ts);
             vcFx._flErr = 0;
             fxApplyRawLandmarks(r && r.faceLandmarks && r.faceLandmarks.length ? r.faceLandmarks[0] : null);
+            if (window.vcPerf) vcPerf.end(_p0);
           } catch(err){
+            if (window.vcPerf) vcPerf.end(_p0);
             vcFx._lastErr = err;
             var em = (err && err.message) ? err.message : String(err);
             // ROI NaN / 그래프 손상 → 인스턴스 영구 손상. 누적 2회 시 CPU 로 재생성.
@@ -606,7 +656,12 @@
     // 캔버스 스트림 → 송신 + 로컬 미리보기
     if (!vcFx.processedStream){
       var baseFps = (typeof vcBgCaptureFps==='function') ? vcBgCaptureFps() : (fxMobile()?12:20);
-      var fps = Math.max(baseFps, fxMobile()?15:24);   // 출력 영상 fps 상향 → 액세서리 움직임이 더 부드럽고 즉각적
+      // 출력 영상 fps 상향 → 액세서리 움직임이 더 부드럽고 즉각적
+      // (2026-08-01) 단, 낮은 등급(하·최하)에서는 이 하한을 걷어낸다. 인코딩 비용이 fps 에
+      //   그대로 비례하는데, 하한 24 가 등급의 fps 절감을 무력화하고 있었다.
+      //   매 프레임 보간(fxLerpToTarget)이 들어간 뒤로는 낮은 fps 에서도 움직임이 자연스럽다.
+      var _lv = (window.vcPerf ? vcPerf.level : 0);
+      var fps = (_lv >= 2) ? baseFps : Math.max(baseFps, fxMobile()?15:24);
       vcFx.processedStream = vcFx.canvas.captureStream(fps);
       var audio = ls.getAudioTracks()[0];
       if (audio) vcFx.processedStream.addTrack(audio);

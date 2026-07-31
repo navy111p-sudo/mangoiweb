@@ -1586,10 +1586,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       // 🈶 언어 필터: en 은 예전에 만들어진 lang=NULL 행도 포함(하위호환), zh 는 lang='zh' 행만.
       const langCond = lang === 'zh' ? `lang = ?` : `(lang = ? OR lang IS NULL)`;
       const langBind = lang;
-      // 1) 교재+레슨 → 2) 교재 전체용 → 3) 레벨 전체용 순서로 매칭
+      // 1) 교재+레슨 → 2) 교재 전체용(무과) → 3) 레벨 전체용 순서로 매칭
       const tries: Array<{ sql: string; binds: any[] }> = [];
       if (textbook && lessonNo) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY id DESC LIMIT 1`, binds: [langBind, textbook, lessonNo] });
-      if (textbook) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no IS NULL ORDER BY id DESC LIMIT 1`, binds: [langBind, textbook] });
+      // 🈶 (버그수정) 중국어는 zh_passage 에 과별로 실제 다른 본문이 있다 — 특정 과를 물었는데
+      //   이 "무과 전체용" 버킷으로 뭉뚱그려 매칭하면 엉뚱한 과 내용이 나온다. 영어는 과별 실콘텐츠가
+      //   없어(AI 즉석출제뿐) 원래 의도대로 무과 캐치올로 폴백시키되, 중국어+특정과 요청일 땐 건너뛴다.
+      if (textbook && !(lang === 'zh' && lessonNo)) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no IS NULL ORDER BY id DESC LIMIT 1`, binds: [langBind, textbook] });
       if (level) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND level IS NOT NULL AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 1`, binds: [langBind, level] });
       for (const t of tries) {
         const row: any = await env.DB.prepare(t.sql).bind(...t.binds).first();
