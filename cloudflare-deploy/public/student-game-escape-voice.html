@@ -13,6 +13,8 @@
   · 접근성: 마이크 불가 환경에서는 타이핑 폴백 (게임이 막히지 않게)
   · 배경: 힉스필드 생성 실사 이미지 — 공용 룸샷 4종(escape-room1~4.jpg) +
     단계 전용 클로즈업 3종(escape-room-drawer/books/door.jpg, 2026-07-31 추가)
+  · 재미·완성도(2026-07-31): 금고 암호를 재도전마다 무작위 3자리로 새로 뽑는다(buildSteps) +
+    시간이 절반 남으면 단순히 어두워지는 것과는 다른 "사건"(조명 플리커+경보음+메시지)이 한 번 터진다
 -->
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -37,6 +39,23 @@
   #noteCard.show{opacity:1;transform:translate(-50%,-50%) rotate(-2deg) scale(1)}
   #noteEn{font-size:15.5px;font-weight:700}
   #noteKo{font-size:12.5px;color:#5c4a26;margin-top:6px}
+  /* 중간 긴장 이벤트 — 시간이 절반 남으면 한 번, 그냥 어두워지는 것과 다른 "사건"을 준다(2026-07-31) */
+  @keyframes flickerScene{
+    0%,100%{filter:brightness(1) saturate(1)}
+    10%{filter:brightness(.1) saturate(.5)} 20%{filter:brightness(1) saturate(1)}
+    30%{filter:brightness(.05) saturate(.4)} 45%{filter:brightness(.9) saturate(1)}
+    60%{filter:brightness(.08) saturate(.5)} 75%{filter:brightness(1) saturate(1)}
+  }
+  #scene.flicker{animation:flickerScene .9s steps(1,end) 1}
+  #eventMsg{position:absolute;left:50%;top:38%;z-index:16;max-width:82%;
+    transform:translate(-50%,-50%) scale(.9);opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s;
+    padding:12px 22px;border-radius:10px;background:rgba(120,10,10,.88);
+    border:1px solid rgba(255,90,90,.6);box-shadow:0 10px 30px rgba(0,0,0,.6);
+    color:#fff;font-weight:900;text-align:center}
+  #eventMsg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  #eventMsg .eEn{font-size:15px;letter-spacing:.3px}
+  #eventMsg .eKo{font-size:12.5px;font-weight:700;color:#ffd0d0;margin-top:3px}
 
   /* ── 상단 목표 ── */
   #goalBar{position:absolute;top:0;left:0;right:0;z-index:6;padding:10px 14px 12px;
@@ -132,6 +151,7 @@
   <div id="vig"></div>
   <div id="flash"></div>
   <div id="noteCard"><div id="noteEn"></div><div id="noteKo"></div></div>
+  <div id="eventMsg"></div>
 
   <div id="utterWrap">발화 <b id="utterN">0</b>회<br><span id="utterOk">성공 0</span></div>
   <div id="timeWrap"><div id="timeVal">5:00</div></div>
@@ -211,7 +231,19 @@ Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
    1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
       accept: 인정할 표현들(부분일치·유연 매칭) / goal: 화면 목표 / hint 3단계
    ════════════════════════════════════════════════════════════ */
-var STEPS=[
+/* 🔢 금고 암호 — 재도전마다 새로 뽑는다("매번 같은 정답이라 재미없다" 피드백, 2026-07-31).
+   0은 빼고 1~9 중 서로 다른 3개 — "오"(zero)가 잘못 들릴 여지를 없앤다. */
+var DIGIT_WORD={'1':'one','2':'two','3':'three','4':'four','5':'five','6':'six','7':'seven','8':'eight','9':'nine'};
+function randCode(){
+  var d=[1,2,3,4,5,6,7,8,9];
+  for(var i=d.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=d[i]; d[i]=d[j]; d[j]=t; }
+  return d.slice(0,3).map(String);
+}
+function buildSteps(code){
+  var w=code.map(function(d){ return DIGIT_WORD[d]; });
+  var codeSpoken=w.join(', ');                                              // 내레이션용 "four, seven, two"
+  var codeEx=w[0].charAt(0).toUpperCase()+w[0].slice(1)+' '+w[1]+' '+w[2];   // 힌트 예문용 "Four seven two"
+  return [
   { id:'desk',
     goal:'Find a way out.', goalKo:'방을 둘러보세요 — 책상 · 그림 · 책장 · 스탠드, 무엇을 볼까요?',
     accept:[['look','desk'],['see','desk'],['check','desk'],['examine','desk'],['look','table']],
@@ -241,17 +273,17 @@ var STEPS=[
     goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 책장 · 서랍 · 그림, 어디를 볼까요?',
     accept:[['look','book'],['check','book'],['see','book'],['examine','book'],['look','shelf'],['read','book']],
     scene:'safe',
-    say:'On the bookshelf, three books are pulled out. Their numbers are four, seven, two.',
-    sayKo:'책장에 책 세 권이 튀어나와 있습니다. 숫자는 4, 7, 2 입니다.',
+    say:'On the bookshelf, three books are pulled out. Their numbers are '+codeSpoken+'.',
+    sayKo:'책장에 책 세 권이 튀어나와 있습니다. 숫자는 '+code.join(', ')+' 입니다.',
     hints:['책장을 살펴보세요','책(books)을 보세요','Look at the books'] },
 
   { id:'code',
-    goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 (4 7 2)',
-    accept:[['four','seven','two'],['4','7','2']],
+    goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 ('+code.join(' ')+')',
+    accept:[[w[0],w[1],w[2]],[code[0],code[1],code[2]]],
     scene:'safe', numMode:true,
     say:'The safe clicks open. An old brass key is inside.',
     sayKo:'금고가 열립니다. 낡은 황동 열쇠가 들어 있습니다.',
-    hints:['숫자 4 7 2 를 영어로','four, seven, two','Four seven two'] },
+    hints:['숫자 '+code.join(' ')+' 를 영어로', codeSpoken, codeEx] },
 
   { id:'key',
     goal:'A key is in the safe.', goalKo:'열쇠를 가져가세요',
@@ -268,12 +300,15 @@ var STEPS=[
     say:'The lock turns. The door opens. You are free!',
     sayKo:'자물쇠가 돌아갑니다. 문이 열립니다. 탈출!',
     hints:['문을 여세요','"열다"는 open','Open the door'] }
-];
+  ];
+}
 
 var G=null;
 function newGame(){
+  var code=randCode();
   G={ i:0, t:TIME_LIMIT, running:false, over:false,
-      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false };
+      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false,
+      code:code, steps:buildSteps(code), eventFired:false };
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -390,7 +425,7 @@ function matchStep(said, step){
   if(!w.length) return false;
   if(step.numMode){
     var d=digitsOf(w).join('');
-    return d.indexOf('472')>=0;
+    return d.indexOf(G.code.join(''))>=0;
   }
   // accept 후보 중 하나라도 모든 키워드가 들어있으면 통과
   return step.accept.some(function(keys){
@@ -659,6 +694,6 @@ window.addEventListener('keydown', function(e){
 setScene('room');
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260731073005 -->
+<!-- BUILD:20260731144857 -->
 </body>
 </html>

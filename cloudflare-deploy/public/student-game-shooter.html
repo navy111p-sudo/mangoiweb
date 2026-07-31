@@ -110,9 +110,22 @@
      ⚠ steps(4) 는 반드시 4프레임을 '끊어서' 보여준다. 빼먹으면 프레임 사이가 부드럽게
        보간돼 캐릭터가 좌우로 미끄러지는 것처럼 된다.
      4프레임 전부 발바닥·몸통중심을 맞춰 구웠으므로 제자리에서 걷는다. */
-  .monster .face{width:44px;height:44px;display:block;filter:drop-shadow(0 3px 7px rgba(0,0,0,.6));
+  .monster .face{width:44px;height:44px;display:block;position:relative;filter:drop-shadow(0 3px 7px rgba(0,0,0,.6));
     transform-origin:50% 100%;background-repeat:no-repeat;background-size:400% 100%;background-position:0 0;
     animation:foeWalk4 1.05s steps(4) infinite}
+  /* 🎞 프레임 보간 레이어 — 같은 그림을 '한 프레임 앞선' 위치로 깔고, 한 프레임이 지속되는
+     동안 0→1 로 겹쳐 녹인다(cross-fade). steps() 는 프레임을 뚝 끊어 넘기는데 그 사이가
+     연속으로 이어져, 프레임 수를 안 늘리고도 눈에 띄게 부드러워진다(필름 모션블러와 같은 원리).
+     .face 안에 있으므로 원근 확대(transform)와 그림자(filter)를 자동으로 함께 받는다.
+     ⚠ linear 로 녹이면 '반쯤 겹친' 상태(팔다리가 둘로 보이는 구간)에 오래 머물러 모션블러가
+       아니라 이중노출처럼 읽힌다(50% 합성 렌더로 실제 확인). 앞뒤로는 머물고 가운데를 빠르게
+       지나는 이징을 써서 연속성은 유지하되 겹쳐 보이는 시간을 짧게 만든다.
+     실제 재생 주기·시작 시점은 개체마다 JS 가 넣어 준다. */
+  .monster .face .nx{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;
+    background-image:inherit;background-size:inherit;background-repeat:no-repeat;
+    animation:foeWalk4 1.05s steps(4) infinite, foeXfade .2625s cubic-bezier(.75,0,.25,1) infinite}
+  .monster .face.f8 .nx{animation:foeWalk8 1.05s steps(8) infinite, foeXfade .13125s cubic-bezier(.75,0,.25,1) infinite}
+  @keyframes foeXfade{from{opacity:0}to{opacity:1}}
   /* 8프레임으로 올린 캐릭터. background-size 와 steps 와 끝 위치가 프레임 수와 반드시 같이 가야 하므로
      CSS 변수 대신 규칙을 두 벌 둔다(keyframes 안의 var 는 브라우저마다 불안정하다). */
   .monster .face.f8{background-size:800% 100%;animation:foeWalk8 1.05s steps(8) infinite}
@@ -1390,7 +1403,10 @@
     var _foe = isCiv ? CIVS[Math.floor(Math.random()*CIVS.length)]
                      : FACES[Math.floor(Math.random()*FACES.length)];
     var _bg = FACE_SRC(_foe);
-    el.innerHTML = '<div class="face' + (ANIM8[_foe] ? ' f8' : '') + '" style="background-image:url(&quot;' + _bg + '&quot;)"></div>'
+    /* <i class="nx"> = 프레임 보간(cross-fade) 레이어. 위 CSS 주석 참고. */
+    el.innerHTML = '<div class="face' + (ANIM8[_foe] ? ' f8' : '') + '" style="background-image:url(&quot;' + _bg + '&quot;)">'
+                 +   '<i class="nx"></i>'
+                 + '</div>'
                  + (isCiv ? '<span class="word civtag">민간인</span>' : '<span class="word">' + word + '</span>');
     var fw=field.clientWidth, fh=field.clientHeight;
     // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영.
@@ -1423,8 +1439,18 @@
     /* 걸음 애니메이션은 .face 에 걸려 있다(.monster 의 sway 는 제거됨).
        개체마다 주기를 다르게 + 시작 시점도 흩어 놓아야 여럿이 군무처럼 안 보인다. */
     if(m.faceEl){
-      m.faceEl.style.animationDuration=m.walkSec.toFixed(2)+'s';
-      m.faceEl.style.animationDelay=(-rand(0,m.walkSec)).toFixed(2)+'s';
+      var _d=-rand(0,m.walkSec);                       // 시작 시점(음수 딜레이) — 개체마다 흩는다
+      m.faceEl.style.animationDuration=m.walkSec.toFixed(3)+'s';
+      m.faceEl.style.animationDelay=_d.toFixed(3)+'s';
+      /* 보간 레이어: 걷기는 '한 프레임 앞'(딜레이를 프레임 하나만큼 더 당김),
+         페이드는 부모와 같은 딜레이 → 부모가 프레임을 넘기는 순간 페이드도 0 에서 다시 시작한다.
+         (부모의 프레임 경계와 페이드 주기가 같은 위상이 되어 정확히 맞물린다) */
+      var _nx=m.faceEl.querySelector('.nx');
+      if(_nx){
+        var _fr=m.walkSec/(ANIM8[_foe]?8:4);
+        _nx.style.animationDuration=m.walkSec.toFixed(3)+'s, '+_fr.toFixed(3)+'s';
+        _nx.style.animationDelay=(_d-_fr).toFixed(3)+'s, '+_d.toFixed(3)+'s';
+      }
     }
     el.addEventListener('click', function(){ fireAt(m); });
     field.appendChild(el); monsters.push(m);
@@ -2076,6 +2102,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260731073005 -->
+<!-- BUILD:20260731144857 -->
 </body>
 </html>

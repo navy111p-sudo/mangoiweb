@@ -167,7 +167,12 @@ async function load() {
   try {
     const r = await fetch(url);
     const d = await r.json();
-    if (!d.ok) throw new Error(d.error);
+    if (!d.ok) {
+      // 🔐 URL의 ?uid= 는 실제 로그인(토큰)을 대신할 수 없다 — 인증 안 됐으면 로그인 화면으로.
+      //   (카카오톡 공유 링크 등 uid만 아는 상태로 들어와도 실제 데이터는 로그인해야만 보임)
+      if (r.status === 401 || d.error === 'auth_required') { showLogin(); return; }
+      throw new Error(d.error);
+    }
     render(d);
   } catch(e) {
     document.getElementById('content').innerHTML = `<div class="empty">로드 실패: ${esc(e.message)}</div>`;
@@ -230,7 +235,7 @@ function render(d) {
   document.getElementById('content').innerHTML = html;
 }
 </script>
-<!-- BUILD:20260731073005 -->
+<!-- BUILD:20260731144857 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>
