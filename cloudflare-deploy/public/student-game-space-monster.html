@@ -45,21 +45,16 @@
 
     .monster {
       position: absolute;
-      cursor: pointer;
+      top: 50%;
+      left: 50%;
       width: 150px;
       height: 180px;
+      margin: -90px 0 0 -75px;
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
       filter: drop-shadow(0 0 15px rgba(147, 51, 234, 0.6));
-      animation: approach 5s linear forwards;
-    }
-
-    @keyframes approach {
-      0% { transform: scale(0.1); opacity: 0; }
-      5% { opacity: 1; }
-      95% { opacity: 1; }
-      100% { transform: scale(1.0); opacity: 0; }
+      will-change: transform, opacity;
     }
 
     .monster.hit {
@@ -79,6 +74,41 @@
       transform: translate(-50%, -50%);
       pointer-events: none;
       z-index: 100;
+    }
+
+    #muzzle {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), rgba(255,240,180,.55), transparent 18%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 90;
+    }
+
+    #muzzle.fire {
+      animation: muzzleFlash .12s ease-out;
+    }
+
+    @keyframes muzzleFlash {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .splash {
+      position: fixed;
+      width: 90px;
+      height: 90px;
+      margin: -45px 0 0 -45px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,220,120,.95), rgba(255,120,40,.5) 45%, transparent 70%);
+      pointer-events: none;
+      z-index: 95;
+      animation: splashPop .45s ease-out forwards;
+    }
+
+    @keyframes splashPop {
+      0% { transform: scale(.4); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
     }
 
     #gameOverModal {
@@ -134,6 +164,7 @@
   </div>
 
   <div id="crosshair"></div>
+  <div id="muzzle"></div>
 
   <div id="gameOverModal">
     <h2 id="gameOverTitle">Game Over!</h2>
@@ -142,14 +173,13 @@
   </div>
 
   <script>
-    console.log('🎮 Space Monster Hunter — Script Started');
-
     const field = document.getElementById('field');
     const scoreEl = document.getElementById('scoreVal');
     const timerEl = document.getElementById('timerVal');
     const gameOverModal = document.getElementById('gameOverModal');
     const gameOverTitle = document.getElementById('gameOverTitle');
     const gameOverText = document.getElementById('gameOverText');
+    const muzzle = document.getElementById('muzzle');
 
     let score = 0;
     let timeLeft = 60;
@@ -162,60 +192,105 @@
       { name: 'spider', img: 'spider-level-01-frame-00.png' }
     ];
 
-    function spawnMonster() {
-      if (!gameActive) {
-        console.log('❌ Game inactive, skip spawn');
-        return;
-      }
+    const APPROACH_MS = 6000;
+    const live = [];
 
-      console.log('✅ Spawning monster...');
+    function spawnMonster() {
+      if (!gameActive) return;
 
       const creature = creatures[Math.floor(Math.random() * creatures.length)];
       const monster = document.createElement('div');
 
       monster.className = 'monster';
       monster.style.backgroundImage = `url('/img/space-monsters/${creature.img}')`;
-      monster.style.left = Math.random() * 60 + 20 + '%';
 
-      monster.onclick = (e) => {
-        e.stopPropagation();
-        if (monster.classList.contains('hit')) return;
-
-        monster.classList.add('hit');
-        score += 100;
-        scoreEl.textContent = score;
-
-        console.log('💥 Hit! Score:', score);
-
-        setTimeout(() => monster.remove(), 500);
-      };
+      // 화면 안쪽 임의 지점에서 시작해 시야 밖으로 퍼지며 다가온다
+      const dirX = (Math.random() * 2 - 1);
+      const dirY = (Math.random() * 2 - 1) * 0.5;
 
       field.appendChild(monster);
-      console.log('➕ Monster added to field');
-
-      setTimeout(() => {
-        if (monster.parentElement && !monster.classList.contains('hit')) {
-          monster.remove();
-          console.log('⏰ Monster timeout');
-        }
-      }, 5000);
+      live.push({ el: monster, dirX, dirY, born: performance.now(), dead: false });
     }
+
+    function tick(now) {
+      for (let i = live.length - 1; i >= 0; i--) {
+        const m = live[i];
+        const p = (now - m.born) / APPROACH_MS;
+
+        if (m.dead) continue;
+
+        if (p >= 1) {
+          m.el.remove();
+          live.splice(i, 1);
+          continue;
+        }
+
+        // 원근: 뒤에서 앞으로 — 스케일이 커지며 화면 밖으로 벌어진다
+        const scale = 0.12 + p * p * 1.9;
+        const x = m.dirX * p * p * 420;
+        const y = m.dirY * p * p * 300;
+
+        m.el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+        m.el.style.opacity = p < 0.06 ? String(p / 0.06) : (p > 0.94 ? String((1 - p) / 0.06) : '1');
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // 라이트건: 화면 아무 데나 쏘면 그 지점에 명중 판정
+    function fire(clientX, clientY) {
+      if (!gameActive) return;
+
+      muzzle.style.setProperty('--fx', clientX + 'px');
+      muzzle.style.setProperty('--fy', clientY + 'px');
+      muzzle.classList.remove('fire');
+      void muzzle.offsetWidth;
+      muzzle.classList.add('fire');
+
+      const splash = document.createElement('div');
+      splash.className = 'splash';
+      splash.style.left = clientX + 'px';
+      splash.style.top = clientY + 'px';
+      document.body.appendChild(splash);
+      setTimeout(() => splash.remove(), 450);
+
+      // 탄착점과 겹치는 괴물 중 가장 앞(큰) 것을 맞춘다
+      let target = null;
+      let bestScale = -1;
+      for (const m of live) {
+        if (m.dead) continue;
+        const r = m.el.getBoundingClientRect();
+        if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) continue;
+        if (r.width > bestScale) { bestScale = r.width; target = m; }
+      }
+
+      if (!target) return;
+
+      target.dead = true;
+      target.el.classList.add('hit');
+      score += 100;
+      scoreEl.textContent = score;
+      setTimeout(() => {
+        target.el.remove();
+        const i = live.indexOf(target);
+        if (i >= 0) live.splice(i, 1);
+      }, 300);
+    }
+
+    document.addEventListener('pointerdown', (e) => fire(e.clientX, e.clientY));
 
     function endGame() {
       gameActive = false;
       clearInterval(timerInterval);
       clearInterval(spawnTimer);
 
+      live.length = 0;
       document.querySelectorAll('.monster').forEach(m => m.remove());
 
       gameOverTitle.textContent = 'Game Over!';
       gameOverText.textContent = `Final Score: ${score}`;
       gameOverModal.classList.add('show');
-
-      console.log('🏁 Game Over. Final Score:', score);
     }
-
-    console.log('⏰ Starting game...');
 
     const timerInterval = setInterval(() => {
       timeLeft--;
@@ -226,16 +301,9 @@
       }
     }, 1000);
 
-    // 첫 괴물 즉시 스폰
     spawnMonster();
-
-    // 매 2초마다 스폰
-    spawnTimer = setInterval(() => {
-      spawnMonster();
-    }, 2000);
-
-    console.log('✅ Game initialized');
+    spawnTimer = setInterval(spawnMonster, 1400);
   </script>
-<!-- BUILD:20260801053503 -->
+<!-- BUILD:20260801054325 -->
 </body>
 </html>

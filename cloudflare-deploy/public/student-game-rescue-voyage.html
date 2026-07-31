@@ -720,7 +720,7 @@
       flag.position.set(0.32,2.15,-0.4); proc.add(flag);
       g.userData.flag=flag;
       // 조타륜(선실 자리) — 배·선장과 별도 GLB로 붙여서 조종 방향에 맞춰 매 프레임 회전시킴(선장이 실제로 돌리는 것처럼)
-      var wheelGroup=new THREE.Group(); wheelGroup.position.set(0,0,0.35); g.add(wheelGroup); g.userData.wheel=wheelGroup;
+      var wheelGroup=new THREE.Group(); wheelGroup.position.set(0,0.15,0.35); g.add(wheelGroup); g.userData.wheel=wheelGroup;   // TEMP 디버그 위치
       var wheelProc=new THREE.Group(); wheelGroup.add(wheelProc); wheelGroup.userData.proc=wheelProc;
       var wheelMat=new THREE.MeshStandardMaterial({color:0x8b5a2b,flatShading:true,roughness:0.7});
       var wheelPost=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,8), new THREE.MeshStandardMaterial({color:0x777777,flatShading:true,metalness:0.3,roughness:0.5}));
@@ -1446,6 +1446,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260801053503 -->
+<!-- BUILD:20260801054325 -->
 </body>
 </html>
