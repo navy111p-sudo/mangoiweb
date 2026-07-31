@@ -240,12 +240,8 @@
   .crosshair::before,.crosshair::after{content:'';position:absolute;background:rgba(251,191,36,.75)}
   .crosshair::before{left:50%;top:-6px;width:2px;height:8px;transform:translateX(-50%)}
   .crosshair::after{top:50%;left:-6px;height:2px;width:8px;transform:translateY(-50%)}
-  /* 🎯 총구 → 조준점 조준선. 사진 사수라 몸통 기울기는 ±34° 로 묶여 있어 급한 각도까지
-     총열을 정확히 겨눌 수는 없다. 대신 총구에서 조준점까지 실선을 그어 '어디를 겨누는지'를
-     눈으로 확실히 잇는다(사장님: "동그란 표적과 총구가 같은 방향으로 일치하게").
-     z-index 는 사수(60)보다 낮춰, 총구 뒤에서 뻗어 나오는 것처럼 보이게 한다. */
-  .aimline{position:absolute;height:2px;transform-origin:0 50%;pointer-events:none;z-index:55;
-    background:linear-gradient(90deg,rgba(251,191,36,.85),rgba(251,191,36,.12));opacity:0;transition:opacity .12s}
+  /* ⚠ 조준선(.aimline)은 제거했다(사장님: "선은 왜 있어, 없애"). 그건 조준 각도 계산이
+     틀린 걸 가리는 임시방편이었다 — 이제 총이 실제로 표적을 향하므로 선이 필요 없다. */
 
   /* ===== 무기별 총알·머즐 색 (총 실루엣은 JS 의 GUN_SVG 로 그림) — #game 에 gun-XXX 클래스 ===== */
   #game.gun-pistol .bullet{width:11px;height:11px}
@@ -451,7 +447,6 @@
     <div class="dangerFx" id="dangerFx"></div>
     <div id="combo"></div>
     <div class="voicebadge" id="voiceBadge">음성 준비 중…</div>
-    <div class="aimline" id="aimline"></div>
     <div class="crosshair" id="crosshair"></div>
     <div id="turret">
       <!-- 사수 사진과 총구를 한 래퍼에 담는다 — 조준 시 둘이 같이 기울고 같이 반전돼야
@@ -1579,14 +1574,64 @@
   var _armedPre = {};
   function preloadArmed(id){ if(_armedPre[id]) return; var im=new Image(); im.src=armedSrc(id); _armedPre[id]=im; }
 
-  var _lastDeg = 0, _faceLeft = false, _aimPt = null;   // _aimPt = 마지막 포인터 위치(조준선 매 프레임 갱신용)
-  /* 조준 = 상체+총 통째로 기울이기. 사진이라 총구를 표적에 정확히 맞출 수는 없지만,
-     총알은 총구→표적으로 날아가므로 명중 판정은 그대로다.
-     ±26° 를 넘겨 기울이면 사람이 꺾이는 것처럼 보여서 클램프한다. 대신 표적이 반대쪽이면
-     사진을 좌우반전해 '그쪽을 겨눈' 모습을 만든다(뒷모습이라 반전 티가 안 난다). */
+  var _lastDeg = 0, _faceLeft = false, _aimPt = null;
+  /* ═══ 🎯 조준 각도 (2026-07-31 전면 수정) ═══
+     사장님: "총과 표적이 똑같은 방향으로 일치하게. 왜 안 되냐."
+
+     예전 계산이 틀려 있었다:
+         deg = atan2(표적x-몸통중심x, -(표적y-몸통중심y))
+     이건 '수직선 기준 표적 방향'이다. 그런데 사진 속 총은 이미 오른쪽 위로
+     기울어진 채 찍혀 있다(무기마다 다름). 그 초기 각도를 빼지 않고 그대로 회전값으로
+     썼기 때문에, 정면 위 표적이면 0° 회전 → 총은 여전히 오른쪽 위를 봤다.
+     항상 '총의 초기 각도'만큼 어긋나 있었던 것이다. 조준선을 그어 가린 것도 이 때문이다.
+
+     올바른 식:  회전각 = (몸통중심→표적 각도) − (몸통중심→총구 초기 각도)
+     이렇게 하면 '몸통중심→총구' 벡터가 표적을 정확히 가리키게 되고,
+     총구는 그 직선 위에 놓이므로 총이 표적을 향한다.
+     BARREL_REST 는 추측하지 않고 회전 0° 상태에서 실측한다(무기마다 다르므로). */
+  var BARREL_REST = null;                  // 회전 0°일 때 회전축→총구 각도(도). setGun 때 실측
+  function normDeg(d){ while(d>180) d-=360; while(d<-180) d+=360; return d; }
+  /* ⚠⚠ 각도 계산의 기준점은 '몸통 한가운데'가 아니라 실제 CSS 회전축이어야 한다.
+     #soldierWrap 은 transform-origin:36.6% 100%(바닥·왼쪽) 로 돈다. 몸통 중앙을 기준으로
+     각을 재면 회전각과 실제 방향 변화가 안 맞는다 — 실측: 30° 회전 시 방향 변화가
+     몸통중앙 기준 34.85°, 바닥중앙 기준 37.15°, transform-origin 기준에서만 정확히 30.00°.
+     그래서 회전축 좌표를 computed style 에서 직접 읽어 쓴다(값이 바뀌어도 따라간다). */
+  function aimPivot(){
+    var t=document.getElementById('turret').getBoundingClientRect();
+    var f=field.getBoundingClientRect();
+    var o=(getComputedStyle(soldierWrap).transformOrigin||'').split(' ');
+    var fx=0.366, fy=1;
+    if(o.length>=2 && soldierWrap.offsetWidth && soldierWrap.offsetHeight){
+      fx=parseFloat(o[0])/soldierWrap.offsetWidth;
+      fy=parseFloat(o[1])/soldierWrap.offsetHeight;
+      if(!isFinite(fx)||!isFinite(fy)){ fx=0.366; fy=1; }
+    }
+    return { x:t.left+t.width*fx-f.left, y:t.top+t.height*fy-f.top };
+  }
+  function measureBarrelRest(){
+    if(!soldierWrap || !muzzle) return;
+    var prevT=soldierWrap.style.transform, prevA=soldierWrap.style.animation, prevTr=soldierWrap.style.transition;
+    /* ⚠ #soldierWrap 에는 transition:transform .16s 가 걸려 있다. 회전을 0 으로 되돌린 '직후'
+       읽으면 전환 중간값이 나와 기준각이 통째로 틀린다(실측 오차 49°). 재는 동안만 전환·애니를 끈다. */
+    soldierWrap.style.transition='none';
+    soldierWrap.style.animation='none';
+    soldierWrap.style.transform='none';                   // 회전·반전 없는 원본 상태로
+    void soldierWrap.offsetWidth;
+    var f=field.getBoundingClientRect(), pv=aimPivot();
+    var mr=muzzle.getBoundingClientRect();
+    if(mr.width||mr.height||mr.left){
+      BARREL_REST=Math.atan2((mr.top+mr.height/2-f.top)-pv.y,
+                             (mr.left+mr.width/2-f.left)-pv.x)*180/Math.PI;
+    }
+    soldierWrap.style.transform=prevT;
+    void soldierWrap.offsetWidth;                         // 복원값을 전환 없이 즉시 반영
+    soldierWrap.style.transition=prevTr; soldierWrap.style.animation=prevA;
+  }
   function applyAim(deg, left){
     if(!soldierWrap) return;
-    var d=Math.max(-34,Math.min(34,deg));   // 26→34: 조준점을 더 넓게 따라가게(사장님: "따로 논다")
+    /* 사진이라 너무 크게 돌리면 사람이 꺾여 보인다. 다만 위 식으로 바로잡은 뒤로는
+       실제로 필요한 각도가 훨씬 작아져서(초기 각도를 빼므로) 이 한계에 잘 안 걸린다. */
+    var d=Math.max(-58,Math.min(58,deg));
     soldierWrap.style.animation='none';
     soldierWrap.style.transform='rotate('+d.toFixed(1)+'deg)' + (left ? ' scaleX(-1)' : '');
   }
@@ -1596,13 +1641,23 @@
     soldierWrap.style.animation='';
   }
   function aimAt(tx,ty){
-    var f=field.getBoundingClientRect(), t=document.getElementById('turret').getBoundingClientRect();
-    var px=t.left+t.width/2-f.left, py=t.top+t.height*0.5-f.top;      // 회전축 = 사수 몸통 한가운데
-    var deg=Math.atan2(tx-px, -(ty-py))*180/Math.PI;
-    _faceLeft = (tx < px - 12);
+    if(BARREL_REST===null) measureBarrelRest();
+    if(BARREL_REST===null) return;
+    var pv=aimPivot();                                                // 실제 CSS 회전축
+    // 화면 기준 '회전축→표적' 각도(0°=오른쪽, 음수=위쪽) — 총구 초기 각도와 같은 좌표계
+    var want=Math.atan2(ty-pv.y, tx-pv.x)*180/Math.PI;
+    /* 좌우반전(scaleX(-1))을 하면 총구가 반대쪽을 보므로, 반전된 좌표계에서의 목표각을 쓴다.
+       transform 은 오른쪽부터 적용된다 → 반전 먼저, 그 다음 회전.
+       반전 후 총구 초기각은 (180 − BARREL_REST) 이다.
+       ⚠ 어느 쪽으로 볼지는 'tx < px-12' 같은 임의 기준으로 정하면 안 된다 — 사수 회전축이
+         화면 정중앙이 아니라서(translateX(-36.6%)) 정면 표적인데도 반전이 켜져 클램프에
+         걸렸다(실측 58° 고정). 두 자세의 필요 회전각을 다 구해 '덜 꺾이는 쪽'을 고른다. */
+    var degR=normDeg(want - BARREL_REST);              // 그대로
+    var degL=normDeg(want - (180 - BARREL_REST));      // 좌우반전
+    _faceLeft = Math.abs(degL) < Math.abs(degR);
+    var deg = _faceLeft ? degL : degR;
     _lastDeg = deg;
-    // 반전하면 화면상 회전 방향도 뒤집히므로 부호를 맞춰준다
-    applyAim(_faceLeft ? -deg : deg, _faceLeft);
+    applyAim(deg, _faceLeft);
     /* ⚠ 예전엔 여기서 900ms 뒤 restAim() 으로 '편한 자세'로 되돌렸다. 그런데 조준점(동그라미)은
        마우스 자리에 그대로 남아 있어서, 마우스를 멈추는 순간 총만 홀로 원위치로 돌아갔다 —
        사장님이 말한 "총구와 표적이 따로 논다"가 정확히 이것이다.
@@ -1872,8 +1927,7 @@
       }
       m.el.style.left=m.x+'px'; m.el.style.top=m.y+'px';
     }
-    // 🎯 조준선은 총이 다 기운 뒤의 총구 위치로 매 프레임 다시 그린다(위 drawAimLine 주석 참고)
-    if(_aimPt && typeof drawAimLine==='function') drawAimLine(_aimPt[0], _aimPt[1]);
+    // 🎯 조준은 pointermove 에서 즉시 반영된다(조준선이 없어져 매 프레임 다시 그릴 필요가 없다)
     if(dangerFx) dangerFx.classList.toggle('on', danger);
     if(!running) return;                                          // 프레임 도중 생명력 소진으로 게임이 끝났을 수 있다
     rafId=requestAnimationFrame(loop);
@@ -1943,6 +1997,10 @@
     var mz = MUZZLE[id] || MUZZLE.pistol;
     barrelRot.style.left = mz[0] + '%';
     barrelRot.style.top  = mz[1] + '%';
+    /* 무기마다 총구 위치가 달라 '총의 초기 각도'도 달라진다 → 무기를 바꾸면 반드시 다시 잰다.
+       레이아웃이 반영된 뒤 재야 하므로 다음 프레임에. */
+    BARREL_REST=null;
+    requestAnimationFrame(function(){ measureBarrelRest(); });
     if(changed && !noFx && soldierEl){ soldierEl.classList.remove('swap'); void soldierEl.offsetWidth; soldierEl.classList.add('swap'); }   // 교체 '뿅' 연출
     var picker=document.getElementById('gunPicker');
     if(picker) [].forEach.call(picker.children, function(b){ b.classList.toggle('sel', b.getAttribute('data-gun')===id); });
@@ -2084,28 +2142,11 @@
     if(running) aimAt(px,py);
     crosshair.style.left=px+'px'; crosshair.style.top=py+'px'; crosshair.style.opacity='1';
     _aimPt=[px,py];
-    drawAimLine(px,py);
-  }
-  /* 총구의 '현재' 화면 좌표는 조준으로 기울고 좌우반전까지 되므로 계산으로 맞히기 어렵다.
-     #muzzle 엘리먼트가 그 변환을 이미 다 받은 상태라, 그 실제 위치를 그대로 읽는 게 정확하다.
-     ⚠ 단, aimAt() 직후에 읽으면 총이 기울기 전(또는 트랜지션 중) 위치가 나온다 — 실제로
-       조준선이 -24.9° 로 그려졌는데 정답은 -81.8° 였다. 그래서 포인터 좌표만 기억해 두고
-       매 프레임(loop) 다시 그린다. 그러면 총이 다 기운 뒤의 총구 위치로 자동 보정된다. */
-  function drawAimLine(px,py){
-    var line=document.getElementById('aimline'); if(!line) return;
-    if(!running){ line.style.opacity='0'; return; }
-    var f=field.getBoundingClientRect(), mr=muzzle.getBoundingClientRect();
-    var mx=mr.left+mr.width/2-f.left, my=mr.top+mr.height/2-f.top;
-    var dx=px-mx, dy=py-my, len=Math.hypot(dx,dy);
-    line.style.left=mx+'px'; line.style.top=my+'px'; line.style.width=len+'px';
-    line.style.transform='rotate('+(Math.atan2(dy,dx)*180/Math.PI).toFixed(2)+'deg)';
-    line.style.opacity='1';
   }
   field.addEventListener('pointermove', trackAim);
   field.addEventListener('pointerdown', trackAim);
   field.addEventListener('pointerleave', function(){
     crosshair.style.opacity='0';
-    var l=document.getElementById('aimline'); if(l) l.style.opacity='0';
     restAim();                                  // 포인터가 나갔을 때만 쉬는 자세로
   });
   window.addEventListener('resize', function(){ var w=field.clientWidth; monsters.forEach(function(m){ if(m.x>w-66){ m.x=Math.max(8,w-86); m.el.style.left=m.x+'px'; } }); setGun(curGun, true); });   // 총 크기 배율(모바일↔PC) 재적용
