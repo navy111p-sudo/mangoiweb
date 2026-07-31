@@ -72,6 +72,12 @@ export async function handleRecordingUpload(
   }
 
   // 3) 업로드 마무리 — 수업 종료 시 호출
+  //    🔴 2026-07-31 실장애: R2 mp.complete()가 실패(또는 beforeunload sendBeacon과 중복 호출로
+  //    이미 끝난 upload_id 재완료 시도)해도 예외를 못 잡아 DB가 'completed'로 잘못 남고, 정작
+  //    R2엔 파일이 없어 학생이 재생 클릭 시 "재생할 수 없어요"만 뜸(보관기간 만료가 아님).
+  //    → (a) 같은 recording_id가 이미 처리됐으면 재호출 없이 그대로 응답(중복 completion 방지)
+  //      (b) complete() 예외를 잡아 'upload_failed'로 명시 기록
+  //      (c) complete() 성공해도 head()로 실제 존재를 재확인 후에만 'completed' 확정
   if (path === "/api/recordings/upload/complete" && method === "POST") {
     const b = (await request.json().catch(() => null)) as {
       recording_id: number;
@@ -82,17 +88,51 @@ export async function handleRecordingUpload(
       size_bytes?: number;
     } | null;
     if (!b || !b.key || !b.upload_id || !Array.isArray(b.parts)) return J({ error: "invalid body" }, 400);
+
+    // (a) 이미 처리된 recording_id면 R2를 다시 건드리지 않고 그대로 확인 응답
+    const existing = await env.DB.prepare(
+      `SELECT status FROM recordings WHERE id = ?`
+    ).bind(b.recording_id).first<{ status: string | null }>();
+    if (existing && (existing.status === "completed" || existing.status === "upload_failed")) {
+      return J({ ok: existing.status === "completed", key: b.key, already: true, status: existing.status });
+    }
+
     const mp = env.RECORDINGS.resumeMultipartUpload(b.key, b.upload_id);
-    const obj = await mp.complete(b.parts);
     const now = Date.now();
+    let obj: { size: number } | null = null;
+    let failReason = "";
+    try {
+      obj = await mp.complete(b.parts);
+    } catch (e: any) {
+      failReason = "mp.complete: " + (e?.message || e);
+    }
+
+    // (c) complete()가 성공했다고 보고해도 실제로 R2에 안착했는지 재확인
+    if (obj && !failReason) {
+      try {
+        const head = await env.RECORDINGS.head(b.key);
+        if (!head) failReason = "head() 재확인 실패 — 완료 응답은 왔지만 객체가 없음";
+      } catch (e: any) {
+        failReason = "head() 에러: " + (e?.message || e);
+      }
+    }
+
+    if (failReason) {
+      console.error(`[recordings-r2] upload/complete 실패 recording_id=${b.recording_id} key=${b.key}: ${failReason}`);
+      await env.DB.prepare(
+        `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed' WHERE id = ?`
+      ).bind(b.recording_id).run();
+      return J({ ok: false, error: failReason }, 500);
+    }
+
     await env.DB.prepare(
       `UPDATE recordings
        SET ended_at = ?, duration_ms = ?, size_bytes = ?, status = 'completed', file_url = ?
        WHERE id = ?`
     )
-      .bind(now, b.duration_ms || 0, b.size_bytes || obj.size || 0, b.key, b.recording_id)
+      .bind(now, b.duration_ms || 0, b.size_bytes || obj!.size || 0, b.key, b.recording_id)
       .run();
-    return J({ ok: true, key: b.key, size: obj.size });
+    return J({ ok: true, key: b.key, size: obj!.size });
   }
 
   // 4) 중단 (네트워크 에러·탭 종료 시 정리)
@@ -177,7 +217,7 @@ export async function handleRecordingUpload(
       filename: string | null; participant_ids: string | null; participant_names: string | null;
       teacher_id: string | null; teacher_name: string | null; expires_at: number | null;
     }>();
-    if (!row || row.status === "deleted") return new Response("Not found", { status: 404 });
+    if (!row || row.status === "deleted" || row.status === "upload_failed") return new Response("Not found", { status: 404 });
     if (row.expires_at && row.expires_at < Date.now()) return new Response("Not found", { status: 404 });
 
     // 학생은 본인이 참여한 녹화만 — 불일치도 404(존재 여부 오라클 방지).
