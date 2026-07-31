@@ -83,13 +83,15 @@
       if (!r.ok) throw new Error(r.error||'load_fail');
       if (!r.quizzes.length){ body.innerHTML = '<div style="text-align:center;padding:34px;color:#a3b3d1;font-size:13.5px">📭 '+(isEn()?'No quizzes yet.':'아직 등록된 퀴즈가 없어요.<br>위 [🤖 이 수업 맞춤 퀴즈]를 눌러 AI 출제를 받아보세요.')+'</div>'; return; }
       body.innerHTML = r.quizzes.map(function(q){
-        var srcBadge = q.source==='ai' ? '<span style="font-size:10px;background:rgba(251,191,36,0.18);color:#fbbf24;padding:1px 7px;border-radius:99px;font-weight:800">AI</span>' : '';
+        var srcBadge = q.source==='ai' ? '<span style="font-size:10px;background:rgba(251,191,36,0.18);color:#fbbf24;padding:1px 7px;border-radius:99px;font-weight:800">AI</span>'
+          : q.source==='passage' ? '<span style="font-size:10px;background:rgba(16,185,129,0.18);color:#6ee7b7;padding:1px 7px;border-radius:99px;font-weight:800">📖 교재본문</span>' : '';
+        var langBadge = q.lang==='zh' ? '<span style="font-size:10px;background:rgba(239,68,68,0.18);color:#fca5a5;padding:1px 7px;border-radius:99px;font-weight:800">中文</span>' : '';
         var tags = []; if (q.textbook) tags.push('📚 '+esc(q.textbook)); if (q.level) tags.push('📊 '+esc(q.level)); if (q.lesson_no) tags.push('L'+q.lesson_no);
         var meta = '<span>📝 '+q.question_count+(isEn()?' Q':'문항')+'</span>';
         if (q.best_score!=null) meta += '<span style="color:#6ee7b7;font-weight:700">🏆 '+(isEn()?'Best ':'최고 ')+q.best_score+'/'+q.question_count+'</span>';
         return '<button onclick="rqvOpen('+q.id+')" style="display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:#14213b;border:1px solid rgba(251,191,36,0.18);border-radius:13px;padding:14px 16px;margin-bottom:9px;cursor:pointer;color:#e6ecff;font-family:inherit">'
           + '<span style="font-size:24px">🧠</span><span style="flex:1;min-width:0">'
-          + '<div style="font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:6px">'+esc(q.title)+' '+srcBadge+'</div>'
+          + '<div style="font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:6px">'+esc(q.title)+' '+srcBadge+' '+langBadge+'</div>'
           + (tags.length?'<div style="font-size:11px;color:#fbbf24;margin-top:3px">'+tags.join(' · ')+'</div>':'')
           + (q.description?'<div style="font-size:11.5px;color:#a3b3d1;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(q.description)+'</div>':'')
           + '<div style="font-size:11px;color:#a3b3d1;margin-top:5px;display:flex;gap:10px;flex-wrap:wrap">'+meta+'</div></span>'
@@ -105,6 +107,8 @@
   };
   function startQuiz(quiz, generated){
     st.quiz = quiz; st.idx = 0; st.answers = new Array(quiz.questions.length).fill(null);
+    // 🈶 목록에서 직접 연 퀴즈는 EN/中文 토글과 무관하게 실제 퀴즈 언어를 따른다(말하기 STT 힌트용).
+    st.lang = (quiz.lang === 'zh') ? 'zh' : 'en';
     if (generated) { var t=$('rqv-ctx'); if(t) t.textContent='🤖 '+(isEn()?'AI just created this':'AI가 방금 만든 퀴즈')+' · '+(t.textContent||''); }
     renderQ();
   }
@@ -182,7 +186,9 @@
         st.rec=null; st.recIdx=-1;
         if (blob.size < 600){ if(stt) stt.textContent=isEn()?'Too short, try again':'너무 짧아요. 다시 시도해주세요'; return; }
         try {
-          var fd = new FormData(); fd.append('audio', blob, 'speak.webm');
+          // 🈶 언어 힌트 필수 — 안 보내면 Whisper 가 자동감지하다 짧은 발화를 엉뚱한 언어로 오인식한다
+          //   (영어를 한국어로 오인식하는 사고가 실제로 있었음). 중국어는 특히 짧은 단어일수록 치명적.
+          var fd = new FormData(); fd.append('audio', blob, 'speak.webm'); fd.append('lang', st.lang==='zh'?'zh':'en');
           var r = await fetch('/api/voice/transcribe', { method:'POST', body: fd }).then(function(x){return x.json();});
           var text = (r && r.ok && r.text) ? String(r.text).trim() : '';
           if (!text){ if(stt) stt.textContent=isEn()?'Could not hear you. Try again.':'잘 못 들었어요. 다시 말해볼까요?'; return; }
