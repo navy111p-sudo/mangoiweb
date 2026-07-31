@@ -1406,13 +1406,14 @@ function toggleSiteLang(){
   _syncSiteLangBtn();
 }
 
-/* 🔊 게임 메뉴 진입 안내음성 — mangoi_voice_muted 는 레벨테스트 등과 공유하는 전역 음소거 상태 */
-function _hubAudioMuted(){ try{ return localStorage.getItem('mangoi_voice_muted')==='1'; }catch(_){ return false; } }
+/* 🔊 게임 메뉴 진입 안내음성 — 방문할 때마다 무조건 재생(다른 페이지의 음소거 저장값과 무관),
+   다음 페이지·게임 카드·음소거 버튼 중 아무거나 누르면 그 즉시 사라진다(이번 방문 한정, 저장 안 함). */
+var _hubIntroDismissed = false;
+var _hubAudioResumedAt = 0;   // 자동재생 차단을 방금 해제한 제스처 시각 — 그 직후 클릭이 곧바로 되멈춤으로 오작동하지 않게 막는 용도
 function _hubAudioSyncBtn(){
   var b = document.getElementById('hub-audio-mute-btn');
-  if(b) b.textContent = _hubAudioMuted() ? '🔇' : '🔊';
+  if(b) b.textContent = _hubIntroDismissed ? '🔇' : '🔊';
 }
-var _hubAudioResumedAt = 0;   // 자동재생 차단을 방금 해제한 제스처 시각 — 그 직후 클릭이 음소거 토글로 오작동하지 않게 막는 용도
 function _hubAudioClearTapHint(){
   var b = document.getElementById('hub-audio-mute-btn'), h = document.getElementById('hub-audio-tap-hint');
   if(b) b.classList.remove('needs-tap');
@@ -1420,17 +1421,16 @@ function _hubAudioClearTapHint(){
 }
 function toggleHubAudioMute(){
   if(Date.now() - _hubAudioResumedAt < 400){ _hubAudioSyncBtn(); return; }   // 방금 "눌러서 듣기" 제스처였던 클릭은 토글 취급하지 않음
-  var muted = !_hubAudioMuted();
-  try{ localStorage.setItem('mangoi_voice_muted', muted ? '1' : '0'); }catch(_){}
+  _hubIntroDismissed = !_hubIntroDismissed;
   var a = document.getElementById('hub-intro-audio');
-  if(muted){ if(a) a.pause(); }
-  else if(a){ try{ a.play().catch(function(){}); }catch(_){} }   // 음소거 해제 시 안내음성 재생(레벨테스트 재생 안 되던 경우 포함)
+  if(_hubIntroDismissed){ if(a) a.pause(); }
+  else if(a){ try{ a.play().catch(function(){}); }catch(_){} }
   _hubAudioClearTapHint();
   _hubAudioSyncBtn();
 }
 function _hubPlayIntroAudio(){
+  _hubIntroDismissed = false;
   _hubAudioSyncBtn();
-  if(_hubAudioMuted()) return;
   var a = document.getElementById('hub-intro-audio');
   if(!a) return;
   try{ a.currentTime = 0; }catch(_){}
@@ -1446,7 +1446,7 @@ function _hubPlayIntroAudio(){
       if(h) h.classList.add('show');
       var retry = function(){
         _hubAudioClearTapHint();
-        if(_hubAudioMuted()) return;
+        if(_hubIntroDismissed) return;
         a.play().catch(function(){});
         _hubAudioResumedAt = Date.now();
       };
@@ -1460,7 +1460,7 @@ function _hubPlayIntroAudio(){
 document.addEventListener('pointerdown', function(){
   if(Date.now() - _hubAudioResumedAt < 400) return;
   var a = document.getElementById('hub-intro-audio');
-  if(a && !a.paused) a.pause();
+  if(a && !a.paused){ a.pause(); _hubIntroDismissed = true; _hubAudioSyncBtn(); }
 });
 document.addEventListener('DOMContentLoaded', function(){
   document.documentElement.lang = _siteLang();
@@ -2557,7 +2557,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260731232831 -->
+<!-- BUILD:20260731235704 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
