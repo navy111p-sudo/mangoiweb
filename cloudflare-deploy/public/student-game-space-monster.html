@@ -48,11 +48,12 @@
     /* ── 전장: 우주선 복도 ── */
     #field {
       flex: 1; position: relative; overflow: hidden; cursor: none;
-      background: #04060f url('/img/space-corridor.webp') center 46% / cover no-repeat;
+      background: #04060f;
     }
     #corridorZoom {
       position: absolute; inset: -3%;
-      background: inherit; background-size: cover; background-position: center 46%;
+      background: #04060f url('/img/space-corridor.webp') center 46% / cover no-repeat;
+      filter: brightness(.62) saturate(.9);   /* 괴물이 배경보다 밝게 튀어나오도록 */
       will-change: transform;
     }
     #depthFog {
@@ -77,7 +78,7 @@
       object-fit: cover; object-position: center 34%;
       -webkit-mask-image: radial-gradient(ellipse 45% 45% at 50% 44%, #000 56%, rgba(0,0,0,.5) 74%, transparent 88%);
               mask-image: radial-gradient(ellipse 45% 45% at 50% 44%, #000 56%, rgba(0,0,0,.5) 74%, transparent 88%);
-      filter: drop-shadow(0 12px 26px rgba(0,0,0,.9)) contrast(1.1) saturate(1.2);
+      filter: brightness(1.55) contrast(1.22) saturate(1.35) drop-shadow(0 0 18px rgba(var(--aura),.55));
     }
     .mon .glow {
       position: absolute; left: 50%; top: 46%; width: 126%; height: 102%;
@@ -103,7 +104,7 @@
     @keyframes warpFace {
       0% { opacity: 0; filter: brightness(4) blur(6px); }
       50% { opacity: 1; filter: brightness(2) blur(1px); }
-      100% { opacity: 1; filter: drop-shadow(0 12px 26px rgba(0,0,0,.9)) contrast(1.1) saturate(1.2); }
+      100% { opacity: 1; filter: brightness(1.55) contrast(1.22) saturate(1.35) drop-shadow(0 0 18px rgba(var(--aura),.55)); }
     }
 
     /* 피격 스파크 */
@@ -115,10 +116,10 @@
     .mon .tag {
       position: absolute; left: 50%; bottom: 1%; transform: translateX(-50%);
       transform-origin: center bottom; z-index: 3;
-      padding: 7px 17px; border-radius: 999px;
+      padding: 5px 13px; border-radius: 999px;
       background: rgba(6,12,32,.94); border: 2px solid rgba(251,191,36,.85);
       box-shadow: 0 0 14px rgba(251,191,36,.35), 0 3px 12px rgba(0,0,0,.7);
-      font-size: 21px; font-weight: 900; letter-spacing: 1.4px; color: #fff; white-space: nowrap;
+      font-size: 16px; font-weight: 900; letter-spacing: 1.2px; color: #fff; white-space: nowrap;
     }
     .mon.wrongHit .tag { border-color: #ef4444; color: #fca5a5; background: rgba(60,8,8,.94); }
     .mon .shield {
@@ -502,7 +503,7 @@
           m.el.style.left = x+'px'; m.el.style.top = y+'px';
           m.el.style.transform = 'translate(-50%,-50%)';
           m.el.style.zIndex = 30 + Math.round(depth*40);
-          m.tag.style.transform = `translateX(-50%) scale(${Math.max(.85, Math.min(1.6, 140/d))})`;
+          m.tag.style.transform = `translateX(-50%) scale(${Math.max(.9, Math.min(1.12, 120/d))})`;
 
           if (p >= 1) { monsterReached(m); break; }
         }
@@ -699,6 +700,6 @@
 
     startWave();
   </script>
-<!-- BUILD:20260801071441 -->
+<!-- BUILD:20260801072003 -->
 </body>
 </html>
