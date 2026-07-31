@@ -44,7 +44,7 @@
     #timerVal { color: #7fd1ff; }
     #livesVal { color: #ef4444; font-size: 16px; letter-spacing: 2px; }
 
-    /* ── 문제 배너: 한국어 뜻 ── */
+    /* ── 문제 배너 ── */
     .quizbar {
       position: relative;
       z-index: 50;
@@ -56,33 +56,31 @@
     .quizbar .prompt { font-size: 24px; font-weight: 900; color: #fde68a; letter-spacing: 1px; }
     .quizbar .guide { font-size: 12px; color: #9fb3d6; margin-top: 2px; }
 
-    /* ── 전장 ── */
+    /* ── 전장: 우주 배경 ── */
     #field {
       flex: 1;
       position: relative;
       overflow: hidden;
       cursor: none;
-      background: #04060f;
-    }
-
-    /* 괴물 장면: 은은한 줌인 (괴물이 항상 다 보이게) */
-    #scene {
-      position: absolute;
-      inset: -4%;
-      background-size: cover;
-      background-position: center 38%;
-      background-repeat: no-repeat;
-      will-change: transform;
-      transform-origin: center 45%;
-    }
-
-    #vignette {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
       background:
-        radial-gradient(ellipse 78% 68% at center 45%, transparent 42%, rgba(2,4,12,.5) 80%, rgba(2,4,12,.9) 100%),
-        linear-gradient(180deg, rgba(2,4,12,.3), transparent 20%, transparent 82%, rgba(2,4,12,.45));
+        radial-gradient(1.5px 1.5px at 40px 60px, rgba(255,255,255,.8), transparent),
+        radial-gradient(1px 1px at 120px 150px, rgba(200,220,255,.7), transparent),
+        radial-gradient(1.5px 1.5px at 220px 40px, rgba(255,255,255,.6), transparent),
+        radial-gradient(1px 1px at 300px 190px, rgba(190,210,255,.7), transparent),
+        radial-gradient(2px 2px at 170px 250px, rgba(255,255,255,.5), transparent),
+        radial-gradient(1px 1px at 80px 280px, rgba(220,230,255,.6), transparent),
+        radial-gradient(ellipse 90% 60% at 50% 120%, rgba(60, 30, 110, .45), transparent 60%),
+        radial-gradient(ellipse 70% 50% at 20% -10%, rgba(20, 60, 140, .35), transparent 60%),
+        linear-gradient(180deg, #05081a 0%, #0a0e2c 55%, #120a2e 100%);
+      background-size: 340px 340px, 340px 340px, 340px 340px, 340px 340px, 340px 340px, 340px 340px, 100% 100%, 100% 100%, 100% 100%;
+    }
+
+    #field.shake { animation: shake .3s; }
+    @keyframes shake {
+      0%, 100% { margin-left: 0; }
+      25% { margin-left: -12px; }
+      50% { margin-left: 10px; }
+      75% { margin-left: -6px; }
     }
 
     /* 접근 경고 게이지 */
@@ -100,14 +98,6 @@
       transition: width .12s linear;
     }
 
-    #field.shake #scene { animation: shake .3s; }
-    @keyframes shake {
-      0%, 100% { margin-left: 0; }
-      25% { margin-left: -12px; margin-top: 6px; }
-      50% { margin-left: 10px; margin-top: -6px; }
-      75% { margin-left: -6px; margin-top: 3px; }
-    }
-
     #flash {
       position: absolute;
       inset: 0;
@@ -115,58 +105,89 @@
       opacity: 0;
       z-index: 40;
     }
-    #flash.hitfx { background: rgba(255, 250, 220, .85); animation: flashOut .25s ease-out; }
+    #flash.hitfx { background: rgba(255, 250, 220, .8); animation: flashOut .25s ease-out; }
     #flash.hurtfx { background: rgba(255, 30, 30, .5); animation: flashOut .5s ease-out; }
     @keyframes flashOut { 0% { opacity: 1; } 100% { opacity: 0; } }
 
-    /* ── 단어 표적 (쏘는 대상) ── */
-    .orb {
+    /* ── 괴물 (워프게이트 원형) ── */
+    .mon {
       position: absolute;
-      transform: translate(-50%, -50%);
-      z-index: 44;
-      padding: 13px 26px;
+      z-index: 30;
+      width: var(--d);
+      height: var(--d);
+      will-change: transform;
+    }
+    .mon .face {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center 30%;
+      border: 3px solid rgba(147, 100, 255, .8);
+      box-shadow:
+        0 0 26px rgba(147, 51, 234, .65),
+        0 0 60px rgba(90, 60, 220, .3),
+        inset 0 0 34px rgba(20, 5, 50, .8);
+    }
+    /* 가슴 단어판 */
+    .mon .tag {
+      position: absolute;
+      left: 50%;
+      bottom: 4%;
+      transform: translateX(-50%);
+      transform-origin: center bottom;
+      z-index: 2;
+      padding: 8px 20px;
       border-radius: 999px;
-      background: rgba(6, 12, 32, 0.88);
-      border: 2px solid rgba(251, 191, 36, 0.75);
-      box-shadow: 0 0 18px rgba(251,191,36,.3), 0 4px 16px rgba(0,0,0,.6);
-      font-size: 22px;
+      background: rgba(6, 12, 32, 0.92);
+      border: 2px solid rgba(251, 191, 36, 0.85);
+      box-shadow: 0 0 14px rgba(251,191,36,.35), 0 3px 12px rgba(0,0,0,.6);
+      font-size: clamp(15px, 3.2vmin, 24px);
       font-weight: 900;
       letter-spacing: 1.5px;
       color: #fff;
       white-space: nowrap;
-      animation: bob 2.2s ease-in-out infinite;
     }
-    .orb.slot1 { animation-delay: 0s; }
-    .orb.slot2 { animation-delay: .7s; }
-    .orb.slot3 { animation-delay: 1.4s; }
-    @keyframes bob {
-      0%, 100% { margin-top: 0; }
-      50% { margin-top: -14px; }
-    }
-    .orb.wrong {
+    .mon.wrongHit .tag {
       border-color: #ef4444;
       color: #fca5a5;
-      background: rgba(60, 8, 8, 0.9);
-      animation: none;
-      opacity: .45;
+      background: rgba(60, 8, 8, 0.92);
     }
-    .orb.reveal {
-      border-color: #22c55e;
-      box-shadow: 0 0 24px rgba(34,197,94,.7);
-      animation: none;
+    /* 오답 방어막 튕김 */
+    .mon .shield {
+      position: absolute;
+      inset: -6%;
+      border-radius: 50%;
+      border: 3px solid rgba(120, 200, 255, .9);
+      box-shadow: 0 0 30px rgba(120, 200, 255, .8), inset 0 0 24px rgba(120, 200, 255, .35);
+      opacity: 0;
+      pointer-events: none;
     }
-    .orb.gone {
-      animation: orbBurst .35s ease-out forwards;
+    .mon.deflect .shield { animation: deflectFx .45s ease-out; }
+    @keyframes deflectFx {
+      0% { opacity: 1; transform: scale(.92); }
+      100% { opacity: 0; transform: scale(1.12); }
     }
-    @keyframes orbBurst {
-      0% { opacity: 1; }
-      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); }
+    /* 정답 공개 */
+    .mon.reveal .face { border-color: #22c55e; box-shadow: 0 0 30px rgba(34,197,94,.8), inset 0 0 34px rgba(10, 60, 30, .8); }
+    .mon.reveal .tag { border-color: #22c55e; }
+    /* 처치 폭발 */
+    .mon.boom .face {
+      animation: boomFx .5s ease-out forwards;
     }
+    .mon.boom .tag { animation: boomFx .5s ease-out forwards; }
+    @keyframes boomFx {
+      0% { filter: brightness(2.6) saturate(1.6); opacity: 1; }
+      40% { filter: brightness(3) saturate(2); opacity: 1; transform: scale(1.15); }
+      100% { filter: brightness(4); opacity: 0; transform: scale(1.5); }
+    }
+    /* 도망 */
+    .mon.flee { transition: opacity .45s ease-out; opacity: 0 !important; }
 
     /* 처치 문구 팝업 */
     #killPop {
       position: absolute;
-      top: 30%;
+      top: 28%;
       left: 50%;
       transform: translate(-50%, -50%) scale(.6);
       z-index: 45;
@@ -284,12 +305,10 @@
 
     <div class="quizbar">
       <div class="prompt" id="quizPrompt">READY</div>
-      <div class="guide">뜻에 맞는 <b>영어 단어를 쏘세요!</b> 오답이면 괴물이 다가옵니다 &middot; Shoot the matching word!</div>
+      <div class="guide"><b>정답 단어를 가진 괴물</b>을 쏘세요! 오답 괴물은 방어막이 튕겨냅니다 &middot; Shoot the monster with the right word!</div>
     </div>
 
     <div id="field">
-      <div id="scene"></div>
-      <div id="vignette"></div>
       <div id="flash"></div>
       <div id="killPop"><div class="en"></div><div class="ko"></div><div class="pts">+100</div></div>
       <div id="dangerBar"><div id="dangerFill"></div></div>
@@ -308,7 +327,7 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
-    const field = $('field'), scene = $('scene'), flash = $('flash');
+    const field = $('field'), flash = $('flash');
     const killPop = $('killPop'), crosshair = $('crosshair');
     const scoreEl = $('scoreVal'), stageEl = $('stageVal'), timerEl = $('timerVal');
     const livesEl = $('livesVal'), wordsEl = $('wordsVal');
@@ -320,7 +339,7 @@
     const framePath = (name, i) => `/img/space-monsters/${name}-level-10-frame-0${i}.png`;
     CREATURES.forEach(c => { for (let i = 0; i < 4; i++) { const im = new Image(); im.src = framePath(c, i); } });
 
-    // ── 스테이지별 단어 은행 (쉬움 → 어려움, 3스테이지=우주 테마) ──
+    // ── 스테이지별 단어 은행 ──
     const BANK = [
       [ // Stage 1: 기초
         { en: 'APPLE', ko: '사과' }, { en: 'DOG', ko: '개' }, { en: 'CAT', ko: '고양이' },
@@ -345,14 +364,21 @@
       ]
     ];
 
-    // 스테이지: 조우당 제한시간(ms)
-    const STAGE_DUR = [9000, 7500, 6000];
+    // 스테이지: 웨이브 제한시간(ms) — 3마리 읽고 조준할 시간
+    const STAGE_DUR = [10000, 8000, 6500];
     const KILLS_PER_STAGE = 5;
-    const ORB_SLOTS = [ { x: 20, y: 60 }, { x: 50, y: 40 }, { x: 80, y: 60 } ];
+
+    // 등장 지점: 바닥에서 솟아오르고, 천장에서 내려오고, 벽에서 미끄러져 들어옴
+    const ENTRIES = [
+      { name: 'floor',   sx: 50, sy: 118, ex: 50, ey: 62 },   // 바닥
+      { name: 'ceiling', sx: 50, sy: -18, ex: 50, ey: 28 },   // 천장
+      { name: 'wallL',   sx: -18, sy: 44, ex: 20, ey: 46 },   // 왼쪽 벽
+      { name: 'wallR',   sx: 118, sy: 44, ex: 80, ey: 46 }    // 오른쪽 벽
+    ];
 
     let score = 0, stage = 1, lives = 3, kills = 0, timeLeft = 99;
     let gameActive = true;
-    let enc = null; // { creature, quiz, born, dur, done, frame, orbs: [{el, word, correct}] }
+    let wave = null; // { answer, monsters:[], born, dur, done }
     const learned = [];
 
     function pick(arr, n) {
@@ -362,59 +388,102 @@
       return out;
     }
 
-    function startEncounter() {
+    function monsterDiameter() {
+      return Math.max(170, Math.min(340, Math.min(field.clientWidth, field.clientHeight) * 0.52));
+    }
+
+    function startWave() {
       if (!gameActive) return;
-      clearOrbs();
+      field.querySelectorAll('.mon').forEach(m => m.remove());
 
-      const creature = CREATURES[Math.floor(Math.random() * CREATURES.length)];
-      const trio = pick(BANK[stage - 1], 3);      // 정답 1 + 오답 2
-      const answer = trio[0];
-      const shuffled = pick(trio, 3);             // 슬롯 배치 섞기
+      const words = pick(BANK[stage - 1], 3);   // [0]=정답
+      const answer = words[0];
+      const shuffledWords = pick(words, 3);
+      const creatures = pick(CREATURES, 3);
 
-      enc = { creature, quiz: answer, born: performance.now(), dur: STAGE_DUR[stage - 1], done: false, frame: -1, orbs: [] };
+      wave = { answer, born: performance.now(), dur: STAGE_DUR[stage - 1], done: false, monsters: [] };
       quizPrompt.textContent = '🎯 ' + answer.ko;
 
-      shuffled.forEach((w, i) => {
+      const d = monsterDiameter();
+      const entries = pick(ENTRIES, 3);          // 바닥/천장/벽 중 3곳 무작위
+      const xSlots = pick([25, 50, 75], 3);      // 바닥·천장용 가로 위치 (겹침 방지)
+
+      shuffledWords.forEach((w, i) => {
         const el = document.createElement('div');
-        el.className = 'orb slot' + (i + 1);
-        el.textContent = w.en;
-        el.style.left = ORB_SLOTS[i].x + '%';
-        el.style.top = ORB_SLOTS[i].y + '%';
+        el.className = 'mon';
+        el.style.setProperty('--d', d + 'px');
+        el.innerHTML = '<div class="face"></div><div class="shield"></div><div class="tag"></div>';
+        el.querySelector('.tag').textContent = w.en;
         field.appendChild(el);
-        enc.orbs.push({ el, word: w, correct: w.en === answer.en, used: false });
+
+        // 등장 경로 계산: 바닥/천장은 가로 슬롯 적용, 벽은 고정 경로
+        const e = entries[i];
+        let path;
+        if (e.name === 'floor')        path = { sx: xSlots[i], sy: 118, ex: xSlots[i], ey: 60 };
+        else if (e.name === 'ceiling') path = { sx: xSlots[i], sy: -18, ex: xSlots[i], ey: 30 };
+        else                           path = { sx: e.sx, sy: e.sy, ex: e.ex, ey: e.ey };
+
+        wave.monsters.push({
+          el,
+          face: el.querySelector('.face'),
+          tag: el.querySelector('.tag'),
+          word: w,
+          correct: w.en === answer.en,
+          creature: creatures[i],
+          path,
+          phase: i * 2.1,
+          frame: -1,
+          gone: false
+        });
       });
-
-      scene.style.opacity = '1';
     }
 
-    function clearOrbs() {
-      field.querySelectorAll('.orb').forEach(o => o.remove());
-    }
-
-    // ── 메인 루프 (rAF): 은은한 줌 + 프레임 순환 + 위험 게이지 ──
+    // ── 메인 루프 (rAF): 3마리 동시 접근 ──
     function tick(now) {
-      if (enc && !enc.done) {
-        const p = Math.min(1, (now - enc.born) / enc.dur);
+      if (wave && !wave.done) {
+        const p = Math.min(1, (now - wave.born) / wave.dur);
 
-        const f = Math.floor(now / 200) % 4;
-        if (f !== enc.frame) {
-          enc.frame = f;
-          scene.style.backgroundImage = `url('${framePath(enc.creature, f)}')`;
+        for (const m of wave.monsters) {
+          if (m.gone) continue;
+
+          // 1단계(~28%): 바닥/천장/벽에서 화면 안으로 등장
+          const emerge = Math.min(1, p / 0.28);
+          const eo = 1 - (1 - emerge) * (1 - emerge);   // easeOut
+          let x = m.path.sx + (m.path.ex - m.path.sx) * eo;
+          let y = m.path.sy + (m.path.ey - m.path.sy) * eo;
+
+          // 2단계(28%~): 자리 잡은 뒤 플레이어 쪽으로 조여들며 커짐
+          const r = Math.max(0, (p - 0.28) / 0.72);
+          x += (50 - m.path.ex) * r * 0.35;
+          y += (52 - m.path.ey) * r * 0.5;
+
+          const s = 0.2 + 0.8 * p * p;
+          const sway = Math.sin(now / 420 + m.phase) * 14 * (1 - p);
+
+          m.el.style.left = x + '%';
+          m.el.style.top = y + '%';
+          m.el.style.transform = `translate(-50%, -50%) translateX(${sway}px) scale(${s})`;
+
+          // 단어판은 멀리 있어도 읽히게 역보정
+          const k = Math.max(1, 0.5 / s);
+          m.tag.style.transform = `translateX(-50%) scale(${k})`;
+
+          // 괴물 프레임 순환 (개체별 위상차)
+          const f = Math.floor(now / 220 + m.phase) % 4;
+          if (f !== m.frame) {
+            m.frame = f;
+            m.face.style.backgroundImage = `url('${framePath(m.creature, f)}')`;
+          }
         }
 
-        // 괴물이 항상 다 보이도록 줌은 약하게
-        const zoom = 1 + p * 0.3;
-        const sway = Math.sin(now / 320) * 5;
-        scene.style.transform = `translate(${sway}px, 0) scale(${zoom})`;
         dangerFill.style.width = (p * 100) + '%';
-
-        if (p >= 1) monsterAttacks();
+        if (p >= 1) monstersAttack();
       }
       requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
 
-    // ── 발사: 단어 캡슐 명중 판정 ──
+    // ── 발사 ──
     function fire(x, y) {
       crosshair.classList.add('bang');
       setTimeout(() => crosshair.classList.remove('bang'), 70);
@@ -424,18 +493,21 @@
       document.body.appendChild(sp);
       setTimeout(() => sp.remove(), 400);
 
-      if (!gameActive || !enc || enc.done) return;
+      if (!gameActive || !wave || wave.done) return;
 
-      for (const orb of enc.orbs) {
-        if (orb.used) continue;
-        const r = orb.el.getBoundingClientRect();
-        const pad = 14; // 판정 여유
-        if (x < r.left - pad || x > r.right + pad || y < r.top - pad || y > r.bottom + pad) continue;
-
-        if (orb.correct) hitCorrect(orb);
-        else hitWrong(orb);
-        return;
+      // 원형 판정: 클릭점이 괴물 원 안이면 명중
+      let best = null, bestDist = Infinity;
+      for (const m of wave.monsters) {
+        if (m.gone) continue;
+        const r = m.face.getBoundingClientRect();
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const dist = Math.hypot(x - cx, y - cy);
+        if (dist <= r.width / 2 + 12 && dist < bestDist) { best = m; bestDist = dist; }
       }
+      if (!best) return;
+
+      if (best.correct) killMonster(best);
+      else deflect(best);
     }
 
     function speak(word) {
@@ -447,33 +519,32 @@
       } catch (e) {}
     }
 
-    function hitCorrect(orb) {
-      enc.done = true;
-      orb.used = true;
-      orb.el.classList.add('gone');
+    function killMonster(m) {
+      wave.done = true;
+      m.el.classList.add('boom');
+      wave.monsters.forEach(o => { if (o !== m) o.el.classList.add('flee'); });
 
-      const timeBonus = Math.round((1 - (performance.now() - enc.born) / enc.dur) * 50);
+      const timeBonus = Math.round((1 - (performance.now() - wave.born) / wave.dur) * 50);
       score += 100 + timeBonus;
       kills++;
-      learned.push(enc.quiz);
+      learned.push(wave.answer);
       scoreEl.textContent = score;
       wordsEl.textContent = learned.length;
 
       flash.className = ''; void flash.offsetWidth; flash.classList.add('hitfx');
       field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 320);
 
-      killPop.querySelector('.en').textContent = enc.quiz.en;
-      killPop.querySelector('.ko').textContent = enc.quiz.ko + ' 맞춤! 괴물 퇴치!';
+      killPop.querySelector('.en').textContent = wave.answer.en;
+      killPop.querySelector('.ko').textContent = wave.answer.ko + ' 맞춤! 괴물 퇴치!';
       killPop.querySelector('.pts').textContent = '+' + (100 + timeBonus);
       killPop.classList.remove('show'); void killPop.offsetWidth; killPop.classList.add('show');
 
-      speak(enc.quiz.en);
-      scene.style.opacity = '0.3';
+      speak(wave.answer.en);
 
       fetch('/api/games/space-monster/hit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, creature: enc.creature, stage, word: enc.quiz.en })
+        body: JSON.stringify({ score, creature: m.creature, stage, word: wave.answer.en })
       }).catch(() => {});
 
       if (kills >= stage * KILLS_PER_STAGE) {
@@ -481,38 +552,38 @@
         stage++;
         stageEl.textContent = stage + '/3';
       }
-      setTimeout(startEncounter, 900);
+      setTimeout(startWave, 950);
     }
 
-    function hitWrong(orb) {
-      orb.used = true;
-      orb.el.classList.add('wrong');
+    function deflect(m) {
+      // 오답 괴물: 방어막이 총알을 튕겨냄 + 전체가 확 다가옴
+      m.el.classList.remove('deflect'); void m.el.offsetWidth; m.el.classList.add('deflect');
+      m.el.classList.add('wrongHit');
       score = Math.max(0, score - 20);
       scoreEl.textContent = score;
-      // 오답 페널티: 괴물이 확 다가옴 (남은 시간 30% 차감)
-      enc.born -= enc.dur * 0.3;
+      wave.born -= wave.dur * 0.22;
       field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 320);
     }
 
-    function monsterAttacks() {
-      enc.done = true;
+    function monstersAttack() {
+      wave.done = true;
       lives--;
       livesEl.innerHTML = '&#9829;'.repeat(Math.max(0, lives)) + '<span style="opacity:.25">' + '&#9829;'.repeat(3 - Math.max(0, lives)) + '</span>';
       flash.className = ''; void flash.offsetWidth; flash.classList.add('hurtfx');
       field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 320);
 
-      // 정답 공개 (학습 효과)
-      const ans = enc.orbs.find(o => o.correct);
+      // 정답 괴물 공개 (학습 효과)
+      const ans = wave.monsters.find(o => o.correct);
       if (ans) ans.el.classList.add('reveal');
 
       if (lives <= 0) return endGame(false);
-      setTimeout(startEncounter, 1400);
+      setTimeout(startWave, 1500);
     }
 
     function endGame(win) {
       gameActive = false;
-      enc = null;
-      clearOrbs();
+      wave = null;
+      field.querySelectorAll('.mon').forEach(m => m.remove());
       clearInterval(timerInterval);
 
       $('modalTitle').textContent = win ? 'Mission Clear!' : 'Game Over';
@@ -554,8 +625,8 @@
       if (timeLeft <= 0) endGame(kills >= 10);
     }, 1000);
 
-    startEncounter();
+    startWave();
   </script>
-<!-- BUILD:20260801062516 -->
+<!-- BUILD:20260801063730 -->
 </body>
 </html>
