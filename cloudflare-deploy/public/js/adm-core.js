@@ -2309,6 +2309,14 @@ async function loadTeacherProfiles() {
       return true;
     });
   }
+  // 🔍 강사 찾기 — 이름/전화/이메일/카톡ID 부분일치(대소문자 무시)
+  var searchQ = (document.getElementById('tp-search')?.value || '').trim().toLowerCase();
+  if (searchQ) {
+    items = items.filter(function(t){
+      return [t.korean_name, t.english_name, t.phone, t.email, t.kakao_id]
+        .some(function(v){ return v && String(v).toLowerCase().indexOf(searchQ) >= 0; });
+    });
+  }
   if (cnt) cnt.textContent = items.length + '명';
   if (items.length === 0) {
     tbody.innerHTML = '<tr><td colspan="13" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
@@ -2883,7 +2891,7 @@ async function viewTeacherProfile(id) {
         (t.image_url ? '<img src="' + _aiEsc(t.image_url) + '" style="width:72px;height:72px;border-radius:50%;object-fit:cover">' : '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:bold">'+(t.korean_name||'?').charAt(0)+'</div>') +
         '<div><div style="font-size:20px;font-weight:bold;color:#1f2937">' + _aiEsc(t.korean_name||'') + '</div>' +
         (t.english_name ? '<div style="color:#6b7280">' + _aiEsc(t.english_name) + '</div>' : '') +
-        '<div style="margin-top:4px">' + (_TP_STATUS_BADGE[t.status]||'') + ' ' + (_TP_GROUP_BADGE[t.group_name]||'') + '</div></div>' +
+        '<div style="margin-top:4px">' + _tpStatusBadge(t.status) + ' ' + _tpGroupBadge(t.group_name) + '</div></div>' +
         '<button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');if(m)m.remove()" style="margin-left:auto;background:transparent;border:0;font-size:20px;cursor:pointer">✕</button>' +
       '</div>' +
       tabBar + panes +
@@ -6670,6 +6678,13 @@ window.bulkCopyContacts = function() {
   if (e('tp-refresh-btn'))      e('tp-refresh-btn').addEventListener('click', loadTeacherProfiles);
   if (e('tp-filter-status'))    e('tp-filter-status').addEventListener('change', loadTeacherProfiles);
   if (e('tp-filter-group'))     e('tp-filter-group').addEventListener('change', loadTeacherProfiles);
+  if (e('tp-search')) {
+    var _tpSearchTimer = null;
+    e('tp-search').addEventListener('input', function(){
+      clearTimeout(_tpSearchTimer);
+      _tpSearchTimer = setTimeout(loadTeacherProfiles, 250);
+    });
+  }
   // 페이지 로드시 강사 목록 자동 로드
   if (document.getElementById('tp-list-body')) {
     setTimeout(loadTeacherProfiles, 200);

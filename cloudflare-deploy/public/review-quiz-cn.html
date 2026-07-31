@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5" />
+  <title>🧠 復習퀴즈 (中文) — Mangoi</title>
+  <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0a1530" />
+  <script src="/js/mango-i18n.js" defer></script>
+  <style>
+    :root { --bg:#0a1530; --card:#14213b; --text:#e6ecff; --text2:#a3b3d1;
+      --gold:#fbbf24; --green:#10b981; --red:#ef4444; --blue:#3b82f6;
+      --border:rgba(251,191,36,0.18); --tone1:#ef4444; --tone2:#f59e0b; --tone3:#fbbf24; --tone4:#3b82f6; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:radial-gradient(125% 100% at 50% -8%,#1a3d5c 0%,#0f2844 42%,#0a1d35 100%); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Noto Sans SC',sans-serif; line-height:1.55; }
+    .top { display:flex; align-items:center; gap:12px; padding:14px 18px;
+      background:rgba(20,33,59,0.95); position:sticky; top:0; z-index:50;
+      backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+    .top a { color:var(--text); text-decoration:none; font-weight:700; font-size:14px; white-space:nowrap; }
+    .top h1 { margin:0; font-size:16px; font-weight:800; flex:1; }
+    .top-controls { display:flex; gap:8px; }
+    .top-btn { padding:6px 12px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:var(--text); border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; transition:all .15s; }
+    .top-btn:hover { background:rgba(251,191,36,0.2); border-color:rgba(251,191,36,0.5); }
+    .top-btn.active { background:rgba(251,191,36,0.35); border-color:var(--gold); }
+    .wrap { max-width:720px; margin:0 auto; padding:18px; }
+    .intro { background:linear-gradient(135deg,rgba(26,61,92,0.25),rgba(59,130,246,0.10));
+      border:1px solid rgba(59,130,246,0.3); border-radius:14px; padding:16px 18px; margin-bottom:16px; }
+    .intro h2 { margin:0 0 6px 0; font-size:17px; color:#60a5fa; font-weight:800; }
+    .intro p { margin:4px 0; color:var(--text2); font-size:13px; line-height:1.6; }
+    .quiz-item { display:flex; align-items:center; gap:14px; width:100%; text-align:left;
+      background:var(--card); border:1px solid var(--border); border-radius:14px;
+      padding:16px 18px; margin-bottom:10px; cursor:pointer; color:var(--text);
+      font-family:inherit; transition:all .15s; }
+    .quiz-item:hover { border-color:rgba(251,191,36,0.55); transform:translateY(-1px);
+      box-shadow:0 6px 16px -4px rgba(0,0,0,0.45); }
+    .qi-icon { font-size:26px; flex-shrink:0; }
+    .qi-body { flex:1; min-width:0; }
+    .qi-title { font-size:15px; font-weight:800; color:#fff; }
+    .qi-desc { font-size:12px; color:var(--text2); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .qi-meta { font-size:11.5px; color:var(--text2); margin-top:5px; display:flex; gap:10px; flex-wrap:wrap; }
+    .qi-best { color:#6ee7b7; font-weight:700; }
+    .qi-go { font-size:13px; color:var(--gold); font-weight:800; flex-shrink:0; }
+    .empty-box { text-align:center; padding:38px 20px; background:var(--card);
+      border:1px dashed rgba(148,163,184,0.35); border-radius:14px; color:var(--text2); font-size:13.5px; }
+    .progress-bar { height:6px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden; margin-bottom:14px; }
+    .progress-fill { height:100%; background:linear-gradient(90deg,#60a5fa,#3b82f6); transition:width .3s; border-radius:99px; }
+    .quiz-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:14px; }
+    .q-num { font-size:11.5px; color:#60a5fa; font-weight:800; letter-spacing:0.5px; margin-bottom:8px; }
+    .q-text { font-size:18px; font-weight:800; color:#fff; margin-bottom:18px; line-height:1.4; }
+    .q-pinyin { font-size:13px; color:#60a5fa; margin-bottom:12px; font-style:italic; }
+    .opt { display:block; width:100%; text-align:left; padding:14px 18px; margin-bottom:8px;
+      background:rgba(15,23,42,0.6); color:var(--text); border:1px solid rgba(148,163,184,0.2);
+      border-radius:10px; cursor:pointer; font-size:14px; font-weight:600; font-family:inherit;
+      transition:all .15s; }
+    .opt:hover { background:rgba(59,130,246,0.12); border-color:rgba(59,130,246,0.5); }
+    .opt.sel { background:rgba(59,130,246,0.22); border-color:#3b82f6; color:#bfdbfe; }
+    .opt-prefix { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center;
+      background:rgba(59,130,246,0.18); color:#60a5fa; border-radius:50%; font-weight:800;
+      font-size:12px; margin-right:10px; }
+    .opt-hanzi { font-weight:800; font-size:15px; }
+    .opt-pinyin { font-size:11px; color:#a3b3d1; margin-left:4px; font-style:italic; }
+    .nav-btns { display:flex; gap:10px; margin-top:12px; }
+    .nav-btn { flex:1; padding:13px; background:rgba(255,255,255,0.06); color:var(--text);
+      border:1px solid var(--border); border-radius:10px; font-weight:700; cursor:pointer;
+      font-size:13px; font-family:inherit; }
+    .nav-btn:hover { background:rgba(59,130,246,0.15); }
+    .nav-btn.primary { background:linear-gradient(135deg,#60a5fa,#3b82f6); color:#fff; border:0; }
+    .nav-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .result-card { text-align:center; padding:30px 20px; }
+    .result-score { font-size:54px; font-weight:900; line-height:1; }
+    .result-label { font-size:14px; color:var(--text2); margin-top:6px; }
+    .result-msg { margin-top:14px; padding:13px 18px; background:rgba(59,130,246,0.10);
+      border-radius:10px; font-size:13.5px; color:#93c5fd; line-height:1.6; }
+    .review-q { text-align:left; background:rgba(15,23,42,0.55); border:1px solid rgba(148,163,184,0.18);
+      border-radius:12px; padding:14px 16px; margin-top:10px; }
+    .review-q .rq-t { font-size:13.5px; font-weight:700; color:#fff; margin-bottom:6px; }
+    .review-q .rq-a { font-size:12.5px; margin:3px 0; }
+    .rq-ok { color:#6ee7b7; } .rq-no { color:#fca5a5; }
+    .rq-explain { font-size:12px; color:var(--text2); margin-top:6px; padding-top:6px;
+      border-top:1px dashed rgba(148,163,184,0.25); }
+    .badge-ok { color:#10b981; font-weight:800; } .badge-no { color:#ef4444; font-weight:800; }
+    .rq-hud { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .rq-chip { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:99px;
+      font-size:13px; font-weight:800; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); }
+    .rq-chip.score { color:#60a5fa; }
+    .rq-chip.combo { color:#fb7185; background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.3); }
+    .rq-chip.combo.hot { animation:comboPop .4s ease-out; }
+    .rq-mute { margin-left:auto; cursor:pointer; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
+      border-radius:99px; width:34px; height:34px; font-size:15px; color:var(--text); }
+    @keyframes comboPop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
+    .rq-track { position:relative; height:34px; margin:2px 0 16px; }
+    .rq-track-rail { position:absolute; left:14px; right:14px; top:22px; height:6px; border-radius:99px;
+      background:rgba(255,255,255,0.08); overflow:hidden; }
+    .rq-track-fill { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,#60a5fa,#3b82f6); transition:width .5s cubic-bezier(.3,1.4,.5,1); }
+    .rq-track-mango { position:absolute; top:-2px; width:30px; height:30px; transition:left .5s cubic-bezier(.3,1.4,.5,1);
+      transform:translateX(-50%); filter:drop-shadow(0 3px 5px rgba(0,0,0,.5)); }
+    .rq-track-goal { position:absolute; right:2px; top:2px; font-size:20px; }
+    .rq-mascot { display:flex; align-items:flex-end; gap:10px; margin:14px 0 4px; min-height:64px; }
+    .rq-mascot img { width:58px; height:58px; object-fit:contain; flex-shrink:0; }
+    .rq-mascot.react img { animation:mangoBounce .5s ease-out; }
+    .rq-mascot.sad img { animation:mangoShake .5s ease-out; }
+    .rq-bubble { position:relative; background:#fff; color:#0f2844; border-radius:14px; padding:9px 14px;
+      font-size:14px; font-weight:800; line-height:1.35; box-shadow:0 4px 14px -2px rgba(0,0,0,.4); max-width:calc(100% - 74px);
+      opacity:0; transform:translateY(6px); transition:all .25s; }
+    .rq-bubble.show { opacity:1; transform:translateY(0); }
+    .rq-bubble::before { content:''; position:absolute; left:-7px; bottom:12px; border:7px solid transparent;
+      border-right-color:#fff; border-left:0; }
+    .rq-bubble.ok { background:linear-gradient(135deg,#d1fae5,#a7f3d0); color:#065f46; }
+    .rq-bubble.ok::before { border-right-color:#a7f3d0; }
+    .rq-bubble.no { background:linear-gradient(135deg,#fee2e2,#fecaca); color:#991b1b; }
+    .rq-bubble.no::before { border-right-color:#fecaca; }
+    @keyframes mangoBounce { 0%{transform:translateY(0) scale(1)} 30%{transform:translateY(-14px) scale(1.08)} 55%{transform:translateY(2px) scale(.96)} 100%{transform:translateY(0) scale(1)} }
+    @keyframes mangoShake { 0%,100%{transform:translateX(0) rotate(0)} 20%{transform:translateX(-6px) rotate(-6deg)} 40%{transform:translateX(6px) rotate(6deg)} 60%{transform:translateX(-4px) rotate(-4deg)} 80%{transform:translateX(4px) rotate(4deg)} }
+    .opt.correct { background:rgba(16,185,129,0.22) !important; border-color:#10b981 !important; color:#a7f3d0 !important; }
+    .opt.wrong { background:rgba(239,68,68,0.20) !important; border-color:#ef4444 !important; color:#fca5a5 !important; }
+    .opt.reveal { box-shadow:0 0 0 2px #10b981 inset; }
+    .opt .opt-mark { float:right; font-weight:900; font-size:16px; }
+    .opt.locked { cursor:default; pointer-events:none; }
+    .rq-explain-inline { margin-top:10px; padding:10px 14px; background:rgba(255,255,255,0.05);
+      border-left:3px solid #60a5fa; border-radius:8px; font-size:13px; color:#93c5fd; line-height:1.5; }
+    .rq-pop { position:fixed; z-index:9999; font-weight:900; font-size:26px; color:#60a5fa; pointer-events:none;
+      text-shadow:0 2px 8px rgba(0,0,0,.5); animation:popUp 1s ease-out forwards; }
+    @keyframes popUp { 0%{opacity:0; transform:translateY(0) scale(.6)} 15%{opacity:1; transform:translateY(-8px) scale(1.1)}
+      100%{opacity:0; transform:translateY(-60px) scale(1)} }
+    #rqConfetti { position:fixed; inset:0; pointer-events:none; z-index:9998; }
+    .rq-reward-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:14px; }
+    .rq-reward { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:14px;
+      padding:12px 16px; min-width:92px; }
+    .rq-reward .rv { font-size:24px; font-weight:900; line-height:1; }
+    .rq-reward .rl { font-size:11px; color:var(--text2); margin-top:4px; font-weight:700; }
+    .rq-stamp { display:inline-block; margin-top:12px; padding:8px 20px; border-radius:99px; font-size:15px; font-weight:900;
+      border:2px dashed; animation:stampIn .5s cubic-bezier(.2,1.5,.4,1); }
+    @keyframes stampIn { 0%{opacity:0; transform:scale(2) rotate(-12deg)} 100%{opacity:1; transform:scale(1) rotate(-5deg)} }
+    @media (min-width:900px) {
+      html, body { background:radial-gradient(125% 100% at 50% -6%,#2d5a7f 0%,#1e4157 46%,#0f2844 100%); }
+      .top h1 { font-size:26px; }
+      .top a  { font-size:20px; }
+      .wrap { zoom:1.25; }
+    }
+    @media (min-width:1200px) {
+      .top h1 { font-size:32px; }
+      .top a  { font-size:22px; }
+      .wrap { zoom:1.6; }
+    }
+    @media (max-width:480px) {
+      .wrap { padding:14px 12px; }
+      .quiz-card { padding:18px 16px; }
+      .q-text { font-size:16px; }
+      .result-score { font-size:46px; }
+      .top-controls { gap:4px; }
+      .top-btn { padding:5px 10px; font-size:11px; }
+    }
+    /* 톤마크 색상 */
+    .tone1 { color:var(--tone1); font-weight:700; }
+    .tone2 { color:var(--tone2); font-weight:700; }
+    .tone3 { color:var(--tone3); font-weight:700; }
+    .tone4 { color:var(--tone4); font-weight:700; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <a href="/">← 首页</a>
+    <h1>🧠 <span>復習퀴즈 (中文)</span></h1>
+    <div class="top-controls">
+      <button class="top-btn" id="pinyin-toggle" title="拼音 표시/숨기기" onclick="togglePinyin()">拼音</button>
+      <button class="top-btn" id="tone-toggle" title="톤마크 색상" onclick="toggleToneColor()">声调</button>
+    </div>
+  </div>
+  <div class="wrap">
+    <div id="listView">
+      <div class="intro">
+        <h2>🧠 선생님이 내주신 復習퀴즈</h2>
+        <p>📚 다락원 교재로 배운 중국어를 퀴즈로 복습해요. 풀고 나면 <b>점수와 해설</b>이 바로 나와요!</p>
+      </div>
+      <div id="quizList"><div class="empty-box">⏳ 퀴즈를 불러오는 중…</div></div>
+      <div style="text-align:center;margin-top:22px">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px">다른 활동으로 이동할까요?</div>
+        <button onclick="window.MangoFlow&&MangoFlow.open('quiz')" style="display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;border:0;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px -4px rgba(96,165,250,.5);font-family:inherit">🚀 다음으로 이동 (수업·웜업·게임·나가기)</button>
+      </div>
+    </div>
+    <div id="playView" style="display:none"></div>
+    <div id="resultView" style="display:none"></div>
+  </div>
+
+  <script>
+    var APP_STATE = { showPinyin:true, showToneColor:true, lang:'zh' };
+    try { var saved=JSON.parse(localStorage.getItem('rq_cn_state')||'{}'); APP_STATE={...APP_STATE,...saved}; } catch(e){}
+    function saveAppState(){ try{ localStorage.setItem('rq_cn_state',JSON.stringify(APP_STATE)); }catch(e){} }
+    function togglePinyin(){ APP_STATE.showPinyin=!APP_STATE.showPinyin; saveAppState(); renderQ(); }
+    function toggleToneColor(){ APP_STATE.showToneColor=!APP_STATE.showToneColor; saveAppState(); renderQ(); }
+
+    function getUser() {
+      try { var u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (u && u.uid) return { uid:u.uid, name:u.name||u.uid }; } catch(e){}
+      try { var a = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (a && (a.uid||a.id||a.user_id)) return { uid:a.uid||a.id||a.user_id, name:a.name||'' }; } catch(e){}
+      try {
+        var g = localStorage.getItem('rq_cn_guest_id');
+        if (!g) { g = 'guest_zh_' + Math.random().toString(36).slice(2,10); localStorage.setItem('rq_cn_guest_id', g); }
+        return { uid:g, name:'게스트' };
+      } catch(e){ return { uid:'guest_zh', name:'게스트' }; }
+    }
+    function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+    var ME = getUser();
+    var state = { quiz:null, idx:0, answers:[], fb:[], combo:0, maxCombo:0, correctCount:0, animate:-1 };
+    var ABC = ['A','B','C','D','E','F'];
+    var MANGO_IMG = '/img/mango-char.png';
+
+    var SFX = { ctx:null, muted:false };
+    try { SFX.muted = (localStorage.getItem('rq_cn_muted')==='1'); } catch(e){}
+    function sfxCtx(){ if(!SFX.ctx){ try{ SFX.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return SFX.ctx; }
+    function beep(freqs, dur, type, gain){
+      if(SFX.muted) return; var c=sfxCtx(); if(!c) return;
+      try{ if(c.state==='suspended') c.resume(); }catch(e){}
+      var t0=c.currentTime;
+      freqs.forEach(function(f,i){
+        var o=c.createOscillator(), g=c.createGain();
+        o.type=type||'sine'; o.frequency.value=f;
+        var st=t0+i*(dur*0.55);
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(gain||0.18, st+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, st+dur);
+        o.connect(g); g.connect(c.destination); o.start(st); o.stop(st+dur+0.03);
+      });
+    }
+    function sfxCorrect(combo){ var b=[523.25,659.25,783.99]; if(combo>=3) b.push(1046.5); if(combo>=5) b.push(1318.5); beep(b,0.15,'triangle',0.2); }
+    function sfxWrong(){ beep([196,155.56],0.22,'sawtooth',0.11); }
+    function sfxWin(){ beep([523.25,659.25,783.99,1046.5,1318.5],0.2,'triangle',0.22); }
+    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_cn_muted', SFX.muted?'1':'0'); }catch(e){} if(btn) btn.textContent=SFX.muted?'🔇':'🔊'; if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
+
+    var CHEER_OK   = { ko:['정답이야! 🎉','完美! 🌟','太棒了! 👏','바로 그거야! 🔥','天才! 🧠','最高! 😆'] };
+    var CHEER_HOT  = { ko:['불타오른다! 🔥','아직도 계속! ⚡','连续正确! 🚀','完全燃烧了! 🌊'] };
+    var CHEER_NO   = { ko:['아쉬워! 정답을 볼까? 👀','괜찮아, 다음엔 맞힐 거야! 💪','꼭 기억해두자! 📌','조금만 더! 다시 도전! 🙌'] };
+    function pickLine(set){ var arr=set['ko']; return arr[Math.floor(Math.random()*arr.length)]; }
+
+    function floatPop(text, x, y){
+      var el=document.createElement('div'); el.className='rq-pop'; el.textContent=text;
+      el.style.left=(x-14)+'px'; el.style.top=(y-18)+'px'; document.body.appendChild(el);
+      setTimeout(function(){ try{ el.remove(); }catch(e){} }, 1000);
+    }
+
+    function confetti(){
+      var cv=document.getElementById('rqConfetti');
+      if(!cv){ cv=document.createElement('canvas'); cv.id='rqConfetti'; document.body.appendChild(cv); }
+      var ctx=cv.getContext('2d'); if(!ctx) return;
+      cv.width=window.innerWidth; cv.height=window.innerHeight;
+      var cols=['#60a5fa','#3b82f6','#10b981','#fb7185','#a78bfa','#93c5fd'];
+      var P=[]; for(var i=0;i<130;i++){ P.push({x:Math.random()*cv.width, y:-20-Math.random()*cv.height*0.4, r:4+Math.random()*5, c:cols[i%cols.length], vy:2.2+Math.random()*3.2, vx:-1.6+Math.random()*3.2, rot:Math.random()*6, vr:-0.25+Math.random()*0.5}); }
+      var t0=performance.now();
+      (function frame(now){
+        ctx.clearRect(0,0,cv.width,cv.height);
+        for(var k=0;k<P.length;k++){ var p=P[k]; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.c; ctx.fillRect(-p.r,-p.r,p.r*2,p.r*1.3); ctx.restore(); }
+        if(now-t0<2800) requestAnimationFrame(frame); else ctx.clearRect(0,0,cv.width,cv.height);
+      })(t0);
+    }
+
+    async function rqCheck(i, answer){
+      try {
+        var bank=(state.quiz.questions[i] && state.quiz.questions[i].idx!=null) ? state.quiz.questions[i].idx : i;
+        return await fetch('/api/review-quiz/check', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ quiz_id:state.quiz.id, idx:bank, answer:answer, lang:'zh' }) }).then(function(x){ return x.json(); });
+      } catch(e){ return { ok:false }; }
+    }
+    function applyFeedback(i, resp, rawAnswer){
+      if(!resp || !resp.ok){ state.fb[i]={ unchecked:true }; renderQ(); return; }
+      resp.your = rawAnswer;
+      if(resp.correct){ state.combo++; state.correctCount++; if(state.combo>state.maxCombo) state.maxCombo=state.combo; resp.line = (state.combo>=3?pickLine(CHEER_HOT):pickLine(CHEER_OK)); sfxCorrect(state.combo); }
+      else { state.combo=0; resp.line = pickLine(CHEER_NO); sfxWrong(); }
+      state.fb[i]=resp; state.animate=i;
+      renderQ();
+      if(resp.correct){ var sc=document.querySelector('.rq-chip.score'); if(sc){ var r=sc.getBoundingClientRect(); floatPop('+10', r.left+r.width/2, r.top); } }
+    }
+
+    function renderToneColor(pinyin){
+      if(!pinyin || !APP_STATE.showToneColor) return esc(pinyin);
+      var m = pinyin.match(/^([a-z]+)(\d)$/i);
+      if(!m) return esc(pinyin);
+      var tone = parseInt(m[2]);
+      var classes = ['', 'tone1', 'tone2', 'tone3', 'tone4'];
+      return '<span class="' + (classes[tone]||'') + '">' + esc(pinyin) + '</span>';
+    }
+
+    async function loadList() {
+      var box = document.getElementById('quizList');
+      try {
+        var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()) + '&lang=zh').then(function(x){ return x.json(); });
+        if (!r.ok) throw new Error(r.error||'load_fail');
+        if (!r.quizzes.length) {
+          box.innerHTML = '<div class="empty-box">📭 아직 등록된 퀴즈가 없어요.<br>선생님이 곧 中文 퀴즈를 올려주실 거예요!</div>';
+          return;
+        }
+        box.innerHTML = r.quizzes.map(function(q){
+          var meta = '<span>📝 ' + q.question_count + '문항</span>';
+          if (q.best_score != null) meta += '<span class="qi-best">🏆 최고 ' + q.best_score + '/' + q.question_count + ' · ' + q.attempts + '회 도전</span>';
+          return '<button class="quiz-item" onclick="startQuiz(' + q.id + ')">' +
+            '<span class="qi-icon">🧠</span><span class="qi-body">' +
+            '<div class="qi-title">' + esc(q.title) + '</div>' +
+            (q.description ? '<div class="qi-desc">' + esc(q.description) + '</div>' : '') +
+            '<div class="qi-meta">' + meta + '</div></span>' +
+            '<span class="qi-go">풀기 ▶</span></button>';
+        }).join('');
+      } catch(e) {
+        box.innerHTML = '<div class="empty-box">⚠️ 퀴즈를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</div>';
+      }
+    }
+
+    async function startQuiz(id) {
+      try {
+        var r = await fetch('/api/review-quiz/get?id=' + id).then(function(x){ return x.json(); });
+        if (!r.ok) throw new Error(r.error||'get_fail');
+        state.quiz = r.quiz; state.idx = 0;
+        state.answers = new Array(r.quiz.questions.length).fill(null);
+        state.fb = new Array(r.quiz.questions.length).fill(null);
+        state.combo = 0; state.maxCombo = 0; state.correctCount = 0; state.animate = -1;
+        try{ if(SFX.ctx && SFX.ctx.state==='suspended') SFX.ctx.resume(); }catch(e){}
+        document.getElementById('listView').style.display = 'none';
+        document.getElementById('resultView').style.display = 'none';
+        document.getElementById('playView').style.display = 'block';
+        renderQ();
+        window.scrollTo(0,0);
+      } catch(e) { alert('퀴즈를 열 수 없어요. 잠시 후 다시 시도해주세요.'); }
+    }
+    var TYPE_ICON = { choice:'📝', listen:'🎧', write:'✍️', speak:'🎤' };
+    var TYPE_KO = { choice:'객관식', listen:'듣기', write:'쓰기', speak:'말하기' };
+    var rec = { mr:null, chunks:[], idx:-1 };
+
+    function renderQ() {
+      var qz = state.quiz, i = state.idx, q = qz.questions[i], total = qz.questions.length;
+      var typ = q.type || 'choice';
+      var fb = state.fb[i];
+      var answered = !!fb;
+      var graded = fb && !fb.unchecked;
+      var animate = (state.animate === i);
+      state.animate = -1;
+
+      var comboOn = state.combo >= 2;
+      var hud = '<div class="rq-hud">'
+        + '<span class="rq-chip score">⭐ ' + (state.correctCount*10) + '점</span>'
+        + (comboOn ? '<span class="rq-chip combo' + (animate?' hot':'') + '">🔥 ' + state.combo + ' 콤보</span>' : '')
+        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" title="소리 켜기/끄기">' + (SFX.muted?'🔇':'🔊') + '</button>'
+        + '</div>';
+
+      var prog = total > 1 ? (i/(total-1)) : 1;
+      var track = '<div class="rq-track">'
+        + '<div class="rq-track-rail"><div class="rq-track-fill" style="width:' + Math.round((i/total)*100) + '%"></div></div>'
+        + '<img class="rq-track-mango" src="' + MANGO_IMG + '" alt="" onerror="this.style.display=\'none\'" style="left:calc(14px + ' + prog + ' * (100% - 28px))">'
+        + '<span class="rq-track-goal">🏁</span></div>';
+
+      var inner = '';
+      if (typ==='choice' || typ==='listen') {
+        if (typ==='listen') {
+          inner += '<div style="text-align:center;margin-bottom:16px"><button id="playBtn" type="button" onclick="playAudio('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🔊 음성 듣기</button>'
+            + '<div style="font-size:11.5px;color:var(--text2);margin-top:7px">잘 듣고 정답을 고르세요 (여러 번 가능)</div></div>';
+        }
+        inner += '<div class="q-text" style="font-size:20px">' + esc(q.q) + '</div>';
+        if(q.py && APP_STATE.showPinyin) inner += '<div class="q-pinyin">' + renderToneColor(q.py) + '</div>';
+        inner += q.opts.map(function(o,k){
+          var cls='opt', mark='';
+          if (graded){ cls+=' locked';
+            if (k===fb.answer){ cls+=' correct reveal'; mark='<span class="opt-mark">✓</span>'; }
+            else if (k===fb.your){ cls+=' wrong'; mark='<span class="opt-mark">✕</span>'; }
+          } else if (answered){ cls+=' locked'; if (state.answers[i]===k) cls+=' sel'; }
+          else if (state.answers[i]===k){ cls+=' sel'; }
+          var optText = '';
+          if(typeof o === 'object' && o.hz){
+            optText = '<span class="opt-hanzi">' + esc(o.hz) + '</span>';
+            if(o.py && APP_STATE.showPinyin) optText += '<span class="opt-pinyin">' + renderToneColor(o.py) + '</span>';
+          } else {
+            optText = esc(o);
+          }
+          return '<button class="'+cls+'"'+(answered?'':' onclick="pick('+k+')"')+'><span class="opt-prefix">'+ABC[k]+'</span>'+optText+mark+'</button>';
+        }).join('');
+      } else if (typ==='write') {
+        inner += '<div class="q-text">' + esc(q.q) + '</div>';
+        if (graded) {
+          inner += '<div style="width:100%;padding:14px 16px;border-radius:10px;background:rgba(255,255,255,0.06);font-size:15px;font-weight:700;color:#fff">'+esc(fb.your||'-')+'</div>';
+        } else {
+          inner += '<input id="writeIn" value="'+esc(state.answers[i]||'')+'" oninput="setText(this.value)" onkeydown="if(event.key===\'Enter\')checkText()" placeholder="한자를 입력하세요" autocomplete="off" autocapitalize="off" style="width:100%;padding:14px 16px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.96);color:#111;font-size:15px;font-family:inherit" />'
+            + '<button id="checkBtn" type="button" class="nav-btn primary" style="width:100%;margin-top:10px" onclick="checkText()">✅ 정답 확인</button>';
+        }
+      } else { // speak
+        inner += '<div style="font-size:14px;color:var(--text2);margin-bottom:8px">'+esc(q.q)+'</div>'
+          + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(59,130,246,0.10);border:1px dashed rgba(59,130,246,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.answer_text||'')+'</div>';
+        if (!graded) {
+          inner += '<div style="text-align:center"><button id="micBtn" type="button" onclick="micToggle('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🎤 녹음하고 말하기</button>'
+            + '<div id="micStatus" style="font-size:12px;color:var(--text2);margin-top:10px">버튼을 누르고 또박또박 말해보세요</div></div>';
+        }
+      }
+
+      var fbHtml = '';
+      if (graded) {
+        var ok = fb.correct;
+        var extra = '';
+        if (typ==='listen' && fb.audio_text) extra += '<div style="font-size:12.5px;color:var(--text2);margin-top:6px">🎧 '+esc(fb.audio_text)+'</div>';
+        if (typ==='write' || typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">정답: '+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
+        fbHtml = '<div class="rq-mascot '+(animate?(ok?'react':'sad'):'')+'">'
+          + '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'">'
+          + '<div class="rq-bubble '+(ok?'ok':'no')+' show">'+esc(fb.line||'')+'</div></div>'
+          + (fb.explain ? '<div class="rq-explain-inline">💡 '+esc(fb.explain)+'</div>' : '')
+          + (extra ? '<div style="margin-top:2px">'+extra+'</div>' : '');
+      }
+
+      var isLast = (i >= total-1);
+      var primary = graded
+        ? (isLast ? '<button class="nav-btn primary" onclick="submitQuiz()">🏁 결과 보기</button>'
+                  : '<button class="nav-btn primary" onclick="moveQ(1)">다음 →</button>')
+        : (isLast ? '<button class="nav-btn" style="opacity:.65" onclick="submitQuiz()">건너뛰고 끝내기 ›</button>'
+                  : '<button class="nav-btn" style="opacity:.65" onclick="moveQ(1)">건너뛰기 ›</button>');
+
+      var html = hud + track +
+        '<div class="quiz-card">' +
+        '<div class="q-num">' + esc(qz.title) + ' — ' + TYPE_ICON[typ] + ' ' + TYPE_KO[typ] + ' · Q' + (i+1) + ' / ' + total + '</div>' +
+        inner + fbHtml +
+        '<div class="nav-btns">' +
+        (i > 0 ? '<button class="nav-btn" onclick="moveQ(-1)">← 이전</button>' : '') +
+        primary +
+        '</div>' +
+        '<div style="margin-top:10px;text-align:center"><button class="nav-btn" style="flex:none;padding:9px 18px;font-size:12px" onclick="backToList()">그만두기</button></div>' +
+        '</div>';
+      document.getElementById('playView').innerHTML = html;
+      if (typ==='listen' && !graded) setTimeout(function(){ playAudio(i, true); }, 350);
+    }
+
+    window.setText = function(v){ state.answers[state.idx]=v; };
+    window.checkText = async function(){
+      var i=state.idx; if(state.fb[i]) return;
+      var el=document.getElementById('writeIn'); var v=el?el.value.trim():String(state.answers[i]||'').trim();
+      if(!v){ if(el) el.focus(); return; }
+      state.answers[i]=v;
+      var btn=document.getElementById('checkBtn'); if(btn){ btn.disabled=true; btn.textContent='확인 중…'; }
+      var resp=await rqCheck(i, v);
+      applyFeedback(i, resp, v);
+    };
+
+    var SILENT_WAV='data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YYQDAAAAAAAAAA==';
+    var rqAudio=null;
+    function rqGetAudio(){ if(!rqAudio){ rqAudio=new Audio(); rqAudio.preload='auto'; try{rqAudio.playsInline=true;}catch(e){} } return rqAudio; }
+    document.addEventListener('click', function rqOnce(){ try{ var a=rqGetAudio(); a.muted=true; a.src=SILENT_WAV; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} document.removeEventListener('click', rqOnce, true); }, true);
+
+    window.playAudio = async function(i, auto){
+      var btn=document.getElementById('playBtn'); if(btn && !auto){ btn.disabled=true; btn.textContent='🔊 …'; }
+      var a=rqGetAudio();
+      try{ a.muted=true; a.src=SILENT_WAV; var pp=a.play(); if(pp&&pp.catch)pp.catch(function(){}); }catch(e){}
+      try {
+        var idx=(state.quiz.questions[i] && state.quiz.questions[i].idx!=null ? state.quiz.questions[i].idx : i);
+        var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:state.quiz.id, idx:idx, lang:'zh' }) });
+        if(!resp.ok){ var q=false; try{ var j=await resp.clone().json(); q=!!(j&&j.quota); }catch(e){} throw new Error(q?'quota':('http_'+resp.status)); }
+        var blob = await resp.blob();
+        if(!blob || blob.size < 200 || /json|text/i.test(blob.type||'')) throw new Error('empty_audio');
+        a.muted=false; a.src=URL.createObjectURL(blob);
+        await a.play();
+        if(btn){ btn.disabled=false; btn.textContent='🔊 다시 듣기'; }
+      } catch(e){
+        var quota = (e && e.message)==='quota';
+        if(btn){ btn.disabled=false;
+          btn.textContent = quota ? '🔇 음성 잠시 제한 · 다음으로'
+                            : auto ? '🔊 음성 듣기'
+                                   : '🔁 다시 눌러 듣기'; }
+      }
+    };
+
+    window.micToggle = async function(i){
+      var btn=document.getElementById('micBtn'), stt=document.getElementById('micStatus');
+      if (rec.mr && rec.idx===i){ try{ rec.mr.stop(); }catch(e){} return; }
+      if (!navigator.mediaDevices || !window.MediaRecorder){ if(stt) stt.textContent='이 기기는 녹음을 지원하지 않아요'; return; }
+      try {
+        var stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+        rec.chunks=[]; rec.idx=i;
+        var mime = MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'';
+        rec.mr = new MediaRecorder(stream, mime?{mimeType:mime}:undefined);
+        rec.mr.ondataavailable=function(e){ if(e.data&&e.data.size) rec.chunks.push(e.data); };
+        rec.mr.onstop=async function(){
+          try{ stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
+          if(btn){ btn.textContent='🎤 녹음하고 말하기'; btn.style.background='linear-gradient(135deg,#10b981,#059669)'; }
+          if(stt) stt.textContent='🧠 음성 인식 중…';
+          var blob=new Blob(rec.chunks,{type:'audio/webm'}); rec.mr=null; rec.idx=-1;
+          if(blob.size<600){ if(stt) stt.textContent='너무 짧아요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
+          try {
+            var fd=new FormData(); fd.append('audio',blob,'speak.webm');
+            var r=await fetch('/api/voice/transcribe',{method:'POST',body:fd}).then(function(x){return x.json();});
+            var text=(r&&r.ok&&r.text)?String(r.text).trim():'';
+            if(!text){ if(stt) stt.textContent='잘 못 들었어요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
+            state.answers[i]=text; if(stt) stt.innerHTML='🗣 '+esc(text)+' · 채점 중…';
+            var resp=await rqCheck(i, text); applyFeedback(i, resp, text);
+          } catch(e){ if(stt) stt.textContent='인식 실패. 다시 하거나 다음으로 넘어가도 돼요'; }
+        };
+        rec.mr.start();
+        if(btn){ btn.textContent='⏹ 정지'; btn.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
+        if(stt) stt.textContent='🔴 녹음 중… 끝나면 정지';
+      } catch(e){ if(stt) stt.textContent='마이크 권한이 필요해요. 허용하거나 다음으로 넘어가도 돼요'; }
+    };
+
+    async function pick(k){
+      var i=state.idx; if(state.fb[i]) return;
+      state.answers[i]=k;
+      var btns=document.querySelectorAll('#playView .opt');
+      for(var b=0;b<btns.length;b++){ btns[b].classList.add('locked'); if(b===k) btns[b].classList.add('sel'); }
+      var resp=await rqCheck(i,k);
+      applyFeedback(i, resp, k);
+    }
+    function moveQ(d) { state.idx += d; renderQ(); window.scrollTo(0,0); }
+    function backToList() {
+      document.getElementById('playView').style.display = 'none';
+      document.getElementById('resultView').style.display = 'none';
+      document.getElementById('listView').style.display = 'block';
+      loadList(); window.scrollTo(0,0);
+    }
+
+    async function submitQuiz() {
+      var pb = document.querySelector('#playView .nav-btn.primary') || document.querySelector('#playView .nav-btn');
+      if (pb) { pb.disabled = true; pb.textContent = '채점 중…'; }
+      try {
+        var _tok = (function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })();
+        var _served = state.quiz.questions.map(function(q){ return (q && q.idx!=null) ? q.idx : 0; });
+        var _payload = { quiz_id: state.quiz.id, user_id: ME.uid, user_name: ME.name, answers: state.answers, served: _served, token: _tok, lang: 'zh' };
+        var r = await fetch('/api/review-quiz/submit', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(_payload)
+        }).then(function(x){ return x.json(); });
+        if (!r.ok && r.error === 'auth_required') {
+          _payload.user_id = (function(){ try { var g=localStorage.getItem('rq_cn_guest_id'); if(!g){ g='guest_zh_'+Math.random().toString(36).slice(2,10); localStorage.setItem('rq_cn_guest_id',g);} return g; } catch(e){ return 'guest_zh_fb'; } })();
+          r = await fetch('/api/review-quiz/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_payload) }).then(function(x){ return x.json(); });
+        }
+        if (!r.ok) throw new Error(r.error||'submit_fail');
+        showResult(r);
+      } catch(e) {
+        alert('제출에 실패했어요. 다시 시도해주세요.');
+        renderQ();
+      }
+    }
+
+    function showResult(r) {
+      var qz = state.quiz;
+      var color = r.percent >= 80 ? '#10b981' : (r.percent >= 50 ? '#60a5fa' : '#ef4444');
+      var msg, emo;
+      if (r.percent === 100){ msg = '만점! 完美! 太棒了!'; emo='🏆'; }
+      else if (r.percent >= 80){ msg = '훌륭해요! 거의 다 맞췄어요!'; emo='🌟'; }
+      else if (r.percent >= 50){ msg = '잘했어요! 틀린 문제를 한 번 더 복습해봐요.'; emo='💪'; }
+      else { msg = '괜찮아요! 복습하고 다시 도전해봐요.'; emo='📚'; }
+      var wrongPositions=[];
+      var review = r.detail.map(function(d, i){
+        var q = qz.questions[i]; var typ = d.type||'choice';
+        if(!d.correct) wrongPositions.push(i);
+        var body='';
+        if (typ==='choice' || typ==='listen') {
+          var your = (d.your_answer!=null && q.opts && q.opts[d.your_answer]!=null) ? (ABC[d.your_answer] + '. ' + (typeof q.opts[d.your_answer]==='object'?q.opts[d.your_answer].hz:q.opts[d.your_answer])) : '(무응답)';
+          var ans = (q.opts && q.opts[d.answer]!=null) ? (ABC[d.answer] + '. ' + (typeof q.opts[d.answer]==='object'?q.opts[d.answer].hz:q.opts[d.answer])) : '';
+          body = '<div class="rq-a ' + (d.correct?'rq-ok':'rq-no') + '">내 답: ' + esc(your) + '</div>' +
+            (!d.correct ? '<div class="rq-a rq-ok">정답: ' + esc(ans) + '</div>' : '') +
+            (typ==='listen' && d.audio_text ? '<div class="rq-a" style="color:var(--text2)">🎧 ' + esc(d.audio_text) + '</div>' : '');
+        } else {
+          body = '<div class="rq-a ' + (d.correct?'rq-ok':'rq-no') + '">내 답: ' + esc(d.your_text||'-') + (d.accuracy!=null?' ('+d.accuracy+'%)':'') + '</div>' +
+            '<div class="rq-a rq-ok">정답: ' + esc(d.answer_text||'') + '</div>';
+        }
+        return '<div class="review-q">' +
+          '<div class="rq-t">' + (d.correct?'<span class="badge-ok">⭕</span>':'<span class="badge-no">❌</span>') + ' ' + (TYPE_ICON[typ]||'') + ' Q' + (i+1) + '. ' + esc(q.q) + '</div>' +
+          body +
+          (d.explain ? '<div class="rq-explain">💡 ' + esc(d.explain) + '</div>' : '') +
+          '</div>';
+      }).join('');
+
+      var rewards='', stamp='';
+      rewards = '<div class="rq-reward-row">'
+        + '<div class="rq-reward"><div class="rv" style="color:#60a5fa" id="rvPts">+0</div><div class="rl">획득 포인트</div></div>'
+        + (r.streak>=2 ? '<div class="rq-reward"><div class="rv" style="color:#fb7185">🔥 '+r.streak+'</div><div class="rl">연속 復習일</div></div>' : '')
+        + (state.maxCombo>=2 ? '<div class="rq-reward"><div class="rv" style="color:#a78bfa">⚡ '+state.maxCombo+'</div><div class="rl">最高 콤보</div></div>' : '')
+        + '</div>'
+        + (r.balance!=null ? '<div style="font-size:12px;color:var(--text2);margin-top:8px">總 보유 포인트: <b style="color:#60a5fa">'+r.balance+'</b></div>' : '');
+      var sc = r.percent>=80?'#10b981':(r.percent>=50?'#60a5fa':'#94a3b8');
+      stamp = '<div class="rq-stamp" style="color:'+sc+';border-color:'+sc+'">'+emo+' '+(r.first_clear?'첫 클리어!':'클리어')+'</div>';
+      var wrongBtn = wrongPositions.length ? '<button class="nav-btn" onclick="retryWrong(['+wrongPositions.join(',')+'])">🎯 틀린 문제만 다시 ('+wrongPositions.length+')</button>' : '';
+
+      document.getElementById('playView').style.display = 'none';
+      var rv = document.getElementById('resultView'); rv.style.display = 'block';
+      rv.innerHTML = '<div class="quiz-card result-card">' +
+        '<div class="result-score" style="color:'+color+'">' + r.score + ' / ' + r.total + '</div>' +
+        '<div class="result-label">(' + r.percent + '%)</div>' +
+        '<div class="result-msg">' + msg + '</div>' +
+        rewards + stamp +
+        '<div style="margin-top:20px">' +
+        review +
+        '</div>' +
+        '<div class="nav-btns" style="margin-top:18px">' +
+        wrongBtn +
+        '<button class="nav-btn primary" onclick="backToList()">← 목록으로</button>' +
+        '</div></div>';
+      confetti();
+      sfxWin();
+      window.scrollTo(0,0);
+    }
+
+    function retryWrong(positions){
+      var qz=state.quiz;
+      var qs = positions.map(function(p){ return qz.questions[p]; }).filter(Boolean);
+      if(!qs.length){ backToList(); return; }
+      state.quiz = { id: qz.id, title: qz.title + ' · 복수전', questions: qs };
+      state.answers = new Array(qs.length).fill(null);
+      state.fb = new Array(qs.length).fill(null);
+      state.idx=0; state.combo=0; state.maxCombo=0; state.correctCount=0; state.animate=-1;
+      document.getElementById('resultView').style.display='none';
+      document.getElementById('playView').style.display='block';
+      renderQ(); window.scrollTo(0,0);
+    }
+
+    window.addEventListener('load', function(){
+      document.getElementById('pinyin-toggle').textContent = APP_STATE.showPinyin ? '拼音 ✓' : '拼音';
+      document.getElementById('tone-toggle').textContent = APP_STATE.showToneColor ? '声调 ✓' : '声调';
+      loadList();
+    });
+  </script>
+<!-- BUILD:20260731232831 -->
+</body>
+</html>

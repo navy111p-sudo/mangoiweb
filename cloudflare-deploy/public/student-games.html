@@ -1455,6 +1455,13 @@ function _hubPlayIntroAudio(){
     });
   }
 }
+// 🔇 안내음성이 나오는 동안 다른 곳을 클릭하면(게임 시작·언어 전환·메뉴 이동 등) 그 즉시 멈춘다.
+//   막힌 자동재생을 방금 그 클릭으로 막 재개시킨 경우만 예외(_hubAudioResumedAt 400ms 창) — 안 그러면 재생하자마자 바로 멈춰버림.
+document.addEventListener('pointerdown', function(){
+  if(Date.now() - _hubAudioResumedAt < 400) return;
+  var a = document.getElementById('hub-intro-audio');
+  if(a && !a.paused) a.pause();
+});
 document.addEventListener('DOMContentLoaded', function(){
   document.documentElement.lang = _siteLang();
   _syncSiteLangBtn();
@@ -2550,7 +2557,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260731205041 -->
+<!-- BUILD:20260731232831 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
