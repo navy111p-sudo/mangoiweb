@@ -6,140 +6,195 @@
   <title>Space Monster Hunter — 우주 괴물 퇴치</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: 'Noto Sans KR', sans-serif; }
+    html, body { height: 100%; font-family: 'Noto Sans KR', 'Segoe UI', sans-serif; }
     body {
-      background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f1b4d 100%);
+      background: #04060f;
       color: #e8f0ff;
       overflow: hidden;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     #game {
       position: relative;
       width: 100%;
       height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
     }
 
+    /* ── HUD ── */
     .hud {
+      position: relative;
+      z-index: 50;
       display: flex;
-      gap: 20px;
-      padding: 12px;
-      background: rgba(8, 16, 34, 0.8);
-      border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+      align-items: center;
+      gap: 22px;
+      padding: 10px 16px;
+      background: rgba(4, 8, 20, 0.85);
+      border-bottom: 1px solid rgba(59, 130, 246, 0.35);
     }
+    .stat { display: flex; flex-direction: column; line-height: 1.15; }
+    .stat .label { font-size: 10px; color: #9fb3d6; letter-spacing: 1px; }
+    .stat .value { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    #scoreVal { color: #fbbf24; }
+    #stageVal { color: #60a5fa; }
+    #timerVal { color: #7fd1ff; }
+    #livesVal { color: #ef4444; font-size: 17px; letter-spacing: 2px; }
 
-    .stat { display: flex; flex-direction: column; }
-    .stat .label { font-size: 10px; color: #9fb3d6; }
-    .stat .value { font-size: 18px; font-weight: 800; }
+    /* ── 표적 단어 배너 ── */
+    .wordbar {
+      position: relative;
+      z-index: 50;
+      text-align: center;
+      padding: 7px 12px;
+      background: rgba(4, 8, 20, 0.7);
+      border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+    }
+    .wordbar .big { font-size: 20px; font-weight: 900; color: #fde68a; letter-spacing: 3px; }
+    .wordbar .sub { font-size: 12px; color: #9fb3d6; margin-top: 1px; }
 
+    /* ── 전장 ── */
     #field {
       flex: 1;
       position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: radial-gradient(ellipse at center, rgba(100,150,255,.1), transparent);
       overflow: hidden;
+      cursor: none;
+      background: #04060f;
     }
 
-    .monster {
+    /* 시네마틱 장면: 화면 전체를 채우고 줌인 */
+    #scene {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 150px;
-      height: 180px;
-      margin: -90px 0 0 -75px;
-      background-size: contain;
+      inset: -6%;
+      background-size: cover;
+      background-position: center 40%;
       background-repeat: no-repeat;
-      background-position: center;
-      filter: drop-shadow(0 0 15px rgba(147, 51, 234, 0.6));
-      will-change: transform, opacity;
+      will-change: transform;
+      transform-origin: center 45%;
     }
 
-    .monster.hit {
-      animation: none !important;
-      opacity: 0.2;
-      filter: grayscale(100%);
-    }
-
-    #crosshair {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      width: 40px;
-      height: 40px;
-      border: 2px solid rgba(251, 191, 36, 0.7);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 100;
-    }
-
-    #muzzle {
-      position: fixed;
+    /* 가장자리 비네트 — 프레임 경계를 자연스럽게 감춤 */
+    #vignette {
+      position: absolute;
       inset: 0;
-      background: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), rgba(255,240,180,.55), transparent 18%);
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 75% 65% at center 45%, transparent 40%, rgba(2,4,12,.55) 78%, rgba(2,4,12,.92) 100%),
+        linear-gradient(180deg, rgba(2,4,12,.35), transparent 22%, transparent 80%, rgba(2,4,12,.5));
+    }
+
+    #field.shake #scene { animation: shake .3s; }
+    @keyframes shake {
+      0%, 100% { margin-left: 0; }
+      25% { margin-left: -12px; margin-top: 6px; }
+      50% { margin-left: 10px; margin-top: -6px; }
+      75% { margin-left: -6px; margin-top: 3px; }
+    }
+
+    /* 명중/피격 플래시 */
+    #flash {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 40;
+    }
+    #flash.hitfx { background: rgba(255, 250, 220, .85); animation: flashOut .25s ease-out; }
+    #flash.hurtfx { background: rgba(255, 30, 30, .5); animation: flashOut .5s ease-out; }
+    @keyframes flashOut { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+    /* 처치 문구 팝업 */
+    #killPop {
+      position: absolute;
+      top: 34%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(.6);
+      z-index: 45;
+      text-align: center;
       opacity: 0;
       pointer-events: none;
-      z-index: 90;
+      text-shadow: 0 2px 14px rgba(0,0,0,.9);
+    }
+    #killPop .en { font-size: 42px; font-weight: 900; color: #fbbf24; letter-spacing: 4px; }
+    #killPop .ko { font-size: 17px; font-weight: 700; color: #e8f0ff; margin-top: 2px; }
+    #killPop .pts { font-size: 21px; font-weight: 800; color: #4ade80; margin-top: 4px; }
+    #killPop.show { animation: popIn 1s ease-out forwards; }
+    @keyframes popIn {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+      15% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+      25% { transform: translate(-50%, -50%) scale(1); }
+      75% { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, -62%) scale(1); }
     }
 
-    #muzzle.fire {
-      animation: muzzleFlash .12s ease-out;
+    /* ── 크로스헤어 (마우스 따라다님) ── */
+    #crosshair {
+      position: fixed;
+      width: 56px;
+      height: 56px;
+      margin: -28px 0 0 -28px;
+      border: 2px solid rgba(251, 191, 36, .85);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: 0 0 12px rgba(251,191,36,.35), inset 0 0 10px rgba(251,191,36,.15);
+      transition: transform .06s;
     }
-
-    @keyframes muzzleFlash {
-      0% { opacity: 1; }
-      100% { opacity: 0; }
+    #crosshair::before, #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(251, 191, 36, .8);
+      top: 50%; left: 50%;
     }
+    #crosshair::before { width: 2px; height: 30px; transform: translate(-50%, -50%); }
+    #crosshair::after { width: 30px; height: 2px; transform: translate(-50%, -50%); }
+    #crosshair.bang { transform: scale(.78); }
 
+    /* 총구 섬광 + 탄착 */
     .splash {
       position: fixed;
-      width: 90px;
-      height: 90px;
-      margin: -45px 0 0 -45px;
+      width: 110px;
+      height: 110px;
+      margin: -55px 0 0 -55px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,220,120,.95), rgba(255,120,40,.5) 45%, transparent 70%);
+      background: radial-gradient(circle, rgba(255,235,150,.95), rgba(255,120,40,.55) 40%, transparent 70%);
       pointer-events: none;
       z-index: 95;
-      animation: splashPop .45s ease-out forwards;
+      animation: splashPop .4s ease-out forwards;
     }
-
     @keyframes splashPop {
-      0% { transform: scale(.4); opacity: 1; }
-      100% { transform: scale(2.2); opacity: 0; }
+      0% { transform: scale(.35); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
     }
 
-    #gameOverModal {
+    /* ── 게임 오버/클리어 ── */
+    #modal {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(0, 0, 0, 0.88);
       z-index: 200;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 20px;
+      gap: 14px;
+      text-align: center;
     }
-
-    #gameOverModal.show {
-      display: flex;
-    }
-
-    #gameOverModal h2 {
-      font-size: 40px;
-      color: #fbbf24;
-    }
-
-    #gameOverModal button {
-      padding: 12px 24px;
+    #modal.show { display: flex; }
+    #modal h2 { font-size: 42px; font-weight: 900; color: #fbbf24; }
+    #modal .sub { font-size: 16px; color: #9fb3d6; }
+    #modal .score { font-size: 26px; font-weight: 800; color: #e8f0ff; }
+    #modal button {
+      margin-top: 10px;
+      padding: 13px 30px;
       background: #fbbf24;
-      color: #000;
+      color: #111;
       border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 700;
+      border-radius: 10px;
+      font-size: 17px;
+      font-weight: 800;
       cursor: pointer;
     }
   </style>
@@ -147,163 +202,193 @@
 <body>
   <div id="game">
     <div class="hud">
-      <div class="stat">
-        <div class="label">SCORE</div>
-        <div class="value" id="scoreVal">0</div>
-      </div>
-      <div class="stat">
-        <div class="label">STAGE</div>
-        <div class="value" id="stageVal">1/3</div>
-      </div>
-      <div class="stat" style="margin-left: auto;">
-        <div class="label">TIME</div>
-        <div class="value" id="timerVal">60</div>
-      </div>
+      <div class="stat"><div class="label">SCORE</div><div class="value" id="scoreVal">0</div></div>
+      <div class="stat"><div class="label">STAGE</div><div class="value" id="stageVal">1/3</div></div>
+      <div class="stat"><div class="label">LIFE</div><div class="value" id="livesVal">&#9829;&#9829;&#9829;</div></div>
+      <div class="stat" style="margin-left:auto;"><div class="label">TIME</div><div class="value" id="timerVal">90</div></div>
     </div>
-    <div id="field"></div>
+
+    <div class="wordbar">
+      <div class="big" id="wordEn">READY</div>
+      <div class="sub" id="wordKo">괴물이 다가옵니다! 조준하고 쏘세요 &middot; Aim &amp; Shoot!</div>
+    </div>
+
+    <div id="field">
+      <div id="scene"></div>
+      <div id="vignette"></div>
+      <div id="flash"></div>
+      <div id="killPop"><div class="en"></div><div class="ko"></div><div class="pts">+100</div></div>
+    </div>
   </div>
 
-  <div id="crosshair"></div>
-  <div id="muzzle"></div>
+  <div id="crosshair" style="top:50%; left:50%;"></div>
 
-  <div id="gameOverModal">
-    <h2 id="gameOverTitle">Game Over!</h2>
-    <p id="gameOverText" style="font-size: 18px; color: #9fb3d6;">Score: 0</p>
-    <button onclick="location.reload()">Restart</button>
+  <div id="modal">
+    <h2 id="modalTitle">Game Over</h2>
+    <div class="sub" id="modalSub"></div>
+    <div class="score" id="modalScore"></div>
+    <button onclick="location.reload()">다시 도전 &middot; Retry</button>
   </div>
 
   <script>
-    const field = document.getElementById('field');
-    const scoreEl = document.getElementById('scoreVal');
-    const timerEl = document.getElementById('timerVal');
-    const gameOverModal = document.getElementById('gameOverModal');
-    const gameOverTitle = document.getElementById('gameOverTitle');
-    const gameOverText = document.getElementById('gameOverText');
-    const muzzle = document.getElementById('muzzle');
+    const $ = (id) => document.getElementById(id);
+    const field = $('field'), scene = $('scene'), flash = $('flash');
+    const killPop = $('killPop'), crosshair = $('crosshair');
+    const scoreEl = $('scoreVal'), stageEl = $('stageVal'), timerEl = $('timerVal'), livesEl = $('livesVal');
+    const wordEn = $('wordEn'), wordKo = $('wordKo');
+    const modal = $('modal');
 
-    let score = 0;
-    let timeLeft = 60;
-    let gameActive = true;
-    let spawnTimer = null;
-
-    const creatures = [
-      { name: 'tripod', img: 'tripod-level-01-frame-00.png' },
-      { name: 'blob', img: 'blob-level-01-frame-00.png' },
-      { name: 'spider', img: 'spider-level-01-frame-00.png' }
+    // Higgsfield 4K 실사 크리처만 사용 (level-10 = 최대 해상도, 4프레임)
+    const CREATURES = [
+      { name: 'tripod',  word: 'TRIPOD',  ko: '삼각 괴물' },
+      { name: 'blob',    word: 'BLOB',    ko: '젤리 괴물' },
+      { name: 'spider',  word: 'SPIDER',  ko: '강철 거미' },
+      { name: 'cyclops', word: 'CYCLOPS', ko: '외눈 거인' }
     ];
+    const framePath = (name, i) => `/img/space-monsters/${name}-level-10-frame-0${i}.png`;
 
-    const APPROACH_MS = 6000;
-    const live = [];
+    // 프리로드
+    CREATURES.forEach(c => { for (let i = 0; i < 4; i++) { const im = new Image(); im.src = framePath(c.name, i); } });
 
-    function spawnMonster() {
+    // 스테이지: 접근 시간(ms)
+    const STAGES = [ { dur: 5200 }, { dur: 4200 }, { dur: 3200 } ];
+    const KILLS_PER_STAGE = 5;
+
+    let score = 0, stage = 1, lives = 3, kills = 0, timeLeft = 90;
+    let gameActive = true;
+    let enc = null; // 현재 조우 { c, born, dur, killed, frame }
+
+    function startEncounter() {
       if (!gameActive) return;
-
-      const creature = creatures[Math.floor(Math.random() * creatures.length)];
-      const monster = document.createElement('div');
-
-      monster.className = 'monster';
-      monster.style.backgroundImage = `url('/img/space-monsters/${creature.img}')`;
-
-      // 화면 안쪽 임의 지점에서 시작해 시야 밖으로 퍼지며 다가온다
-      const dirX = (Math.random() * 2 - 1);
-      const dirY = (Math.random() * 2 - 1) * 0.5;
-
-      field.appendChild(monster);
-      live.push({ el: monster, dirX, dirY, born: performance.now(), dead: false });
+      const c = CREATURES[Math.floor(Math.random() * CREATURES.length)];
+      enc = { c, born: performance.now(), dur: STAGES[stage - 1].dur, killed: false, frame: -1 };
+      wordEn.textContent = c.word;
+      wordKo.textContent = c.ko + ' · 쏘면 단어 획득!';
+      scene.style.opacity = '1';
     }
 
+    // ── 메인 루프: 줌인 + 프레임 애니메이션 ──
     function tick(now) {
-      for (let i = live.length - 1; i >= 0; i--) {
-        const m = live[i];
-        const p = (now - m.born) / APPROACH_MS;
+      if (enc && !enc.killed) {
+        const p = Math.min(1, (now - enc.born) / enc.dur);
 
-        if (m.dead) continue;
-
-        if (p >= 1) {
-          m.el.remove();
-          live.splice(i, 1);
-          continue;
+        // 프레임 순환 (부드러운 영상 느낌)
+        const f = Math.floor(now / 180) % 4;
+        if (f !== enc.frame) {
+          enc.frame = f;
+          scene.style.backgroundImage = `url('${framePath(enc.c.name, f)}')`;
         }
 
-        // 원근: 뒤에서 앞으로 — 스케일이 커지며 화면 밖으로 벌어진다
-        const scale = 0.12 + p * p * 1.9;
-        const x = m.dirX * p * p * 420;
-        const y = m.dirY * p * p * 300;
+        // 카메라가 괴물에게 다가감: 줌 + 미세 흔들림
+        const zoom = 1 + p * p * 0.85;
+        const sway = Math.sin(now / 300) * 6 * (1 - p);
+        scene.style.transform = `translate(${sway}px, 0) scale(${zoom})`;
 
-        m.el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-        m.el.style.opacity = p < 0.06 ? String(p / 0.06) : (p > 0.94 ? String((1 - p) / 0.06) : '1');
+        if (p >= 1) monsterAttacks();
       }
       requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
 
-    // 라이트건: 화면 아무 데나 쏘면 그 지점에 명중 판정
-    function fire(clientX, clientY) {
-      if (!gameActive) return;
+    // ── 명중 판정: 화면 중앙 히트존 (다가올수록 커짐) ──
+    function hitRadius() {
+      if (!enc) return 0;
+      const p = Math.min(1, (performance.now() - enc.born) / enc.dur);
+      const base = Math.min(field.clientWidth, field.clientHeight);
+      return base * (0.14 + p * 0.30);
+    }
 
-      muzzle.style.setProperty('--fx', clientX + 'px');
-      muzzle.style.setProperty('--fy', clientY + 'px');
-      muzzle.classList.remove('fire');
-      void muzzle.offsetWidth;
-      muzzle.classList.add('fire');
+    function fire(x, y) {
+      // 탄착 이펙트는 항상
+      crosshair.classList.add('bang');
+      setTimeout(() => crosshair.classList.remove('bang'), 70);
+      const sp = document.createElement('div');
+      sp.className = 'splash';
+      sp.style.left = x + 'px'; sp.style.top = y + 'px';
+      document.body.appendChild(sp);
+      setTimeout(() => sp.remove(), 400);
 
-      const splash = document.createElement('div');
-      splash.className = 'splash';
-      splash.style.left = clientX + 'px';
-      splash.style.top = clientY + 'px';
-      document.body.appendChild(splash);
-      setTimeout(() => splash.remove(), 450);
+      if (!gameActive || !enc || enc.killed) return;
 
-      // 탄착점과 겹치는 괴물 중 가장 앞(큰) 것을 맞춘다
-      let target = null;
-      let bestScale = -1;
-      for (const m of live) {
-        if (m.dead) continue;
-        const r = m.el.getBoundingClientRect();
-        if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) continue;
-        if (r.width > bestScale) { bestScale = r.width; target = m; }
-      }
+      const r = field.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height * 0.45;
+      const d = Math.hypot(x - cx, y - cy);
+      if (d <= hitRadius()) killMonster();
+    }
 
-      if (!target) return;
-
-      target.dead = true;
-      target.el.classList.add('hit');
+    function killMonster() {
+      enc.killed = true;
       score += 100;
+      kills++;
       scoreEl.textContent = score;
-      setTimeout(() => {
-        target.el.remove();
-        const i = live.indexOf(target);
-        if (i >= 0) live.splice(i, 1);
-      }, 300);
+
+      flash.className = ''; void flash.offsetWidth; flash.classList.add('hitfx');
+      field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 320);
+
+      killPop.querySelector('.en').textContent = enc.c.word;
+      killPop.querySelector('.ko').textContent = enc.c.ko + ' 퇴치!';
+      killPop.classList.remove('show'); void killPop.offsetWidth; killPop.classList.add('show');
+
+      fetch('/api/games/space-monster/hit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ score, creature: enc.c.name, stage, word: enc.c.word })
+      }).catch(() => {});
+
+      scene.style.opacity = '0.25';
+
+      if (kills >= stage * KILLS_PER_STAGE) {
+        if (stage >= 3) return endGame(true);
+        stage++;
+        stageEl.textContent = stage + '/3';
+      }
+      setTimeout(startEncounter, 650);
     }
 
-    document.addEventListener('pointerdown', (e) => fire(e.clientX, e.clientY));
+    function monsterAttacks() {
+      enc.killed = true; // 이 조우 종료
+      lives--;
+      livesEl.innerHTML = '&#9829;'.repeat(Math.max(0, lives)) + '<span style="opacity:.25">' + '&#9829;'.repeat(3 - Math.max(0, lives)) + '</span>';
+      flash.className = ''; void flash.offsetWidth; flash.classList.add('hurtfx');
+      field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 320);
 
-    function endGame() {
+      if (lives <= 0) return endGame(false);
+      setTimeout(startEncounter, 750);
+    }
+
+    function endGame(win) {
       gameActive = false;
+      enc = null;
       clearInterval(timerInterval);
-      clearInterval(spawnTimer);
-
-      live.length = 0;
-      document.querySelectorAll('.monster').forEach(m => m.remove());
-
-      gameOverTitle.textContent = 'Game Over!';
-      gameOverText.textContent = `Final Score: ${score}`;
-      gameOverModal.classList.add('show');
+      $('modalTitle').textContent = win ? 'Mission Clear!' : 'Game Over';
+      $('modalSub').textContent = win
+        ? '모든 우주 괴물을 퇴치했습니다! · All monsters defeated!'
+        : '우주 괴물에게 당했습니다… · The monsters got you…';
+      $('modalScore').textContent = 'Final Score: ' + score;
+      modal.classList.add('show');
     }
 
+    // ── 입력: 크로스헤어 추적 + 발사 ──
+    document.addEventListener('pointermove', (e) => {
+      crosshair.style.left = e.clientX + 'px';
+      crosshair.style.top = e.clientY + 'px';
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (modal.classList.contains('show')) return;
+      fire(e.clientX, e.clientY);
+    });
+
+    // ── 타이머 ──
     const timerInterval = setInterval(() => {
+      if (!gameActive) return;
       timeLeft--;
       timerEl.textContent = timeLeft;
-
-      if (timeLeft <= 0) {
-        endGame();
-      }
+      if (timeLeft <= 0) endGame(kills >= 5);
     }, 1000);
 
-    spawnMonster();
-    spawnTimer = setInterval(spawnMonster, 1400);
+    startEncounter();
   </script>
-<!-- BUILD:20260801054917 -->
+<!-- BUILD:20260801055721 -->
 </body>
 </html>
