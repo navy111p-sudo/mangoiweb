@@ -1468,7 +1468,11 @@
         _nx.style.animationDelay=(_d-_fr).toFixed(3)+'s, '+_d.toFixed(3)+'s';
       }
     }
-    el.addEventListener('click', function(){ fireAt(m); });
+    /* 🖱 겹쳐 있을 때 '지금 쏴야 할 단어'를 우선 집는다.
+       예전엔 그냥 fireAt(m) 이라 z-index 가 높은 놈이 클릭을 가로챘다 — 보이는 좀비를 눌러도
+       뒤에 있던 엉뚱한 단어가 맞아 −50 만 뜨고 아무것도 안 죽으니, 사장님 눈에는
+       "총이 잘 안 나간다"로 보였다. 실제로 총알은 나가고 있었다. */
+    el.addEventListener('click', function(ev){ fireAt(pickTarget(ev.clientX, ev.clientY, m)); });
     field.appendChild(el); monsters.push(m);
   }
   // 🧟 접근형 원근 스케일 — 위협선(field 높이의 BREACH_FRAC 지점)에 가까울수록 표적이 커 보이게.
@@ -1862,6 +1866,30 @@
   function updateTimer(){ timerVal.textContent=timeLeft; timerBox.classList.toggle('low', timeLeft<=10); }
   function tick(){ if(!running) return; timeLeft--; updateTimer(); if(timeLeft<=0) endGame(); }
 
+  /* 클릭 지점에 걸친 몬스터들 중 하나를 고른다. 우선순위:
+       ① 지금 쏴야 할 목표  ② 민간인(잘못 쏘면 감점이므로 숨겨 놓고 억울하게 만들지 않는다)
+       ③ 나머지 중 가장 가까운(=화면에서 가장 큰) 것
+     판정은 몸통(.face)과 단어 라벨 둘 다 허용 — 학생은 글자를 보고 누른다. */
+  function pickTarget(cx, cy, fallback){
+    var want=targetWords[currentIndex], hits=[];
+    for(var i=0;i<monsters.length;i++){
+      var mm=monsters[i];
+      if(!mm.el || !mm.el.isConnected || mm.depth<0) continue;
+      var parts=[mm.faceEl, mm.wordEl], hit=false;
+      for(var p=0;p<parts.length;p++){
+        var el2=parts[p]; if(!el2) continue;
+        var r=el2.getBoundingClientRect();
+        if(cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom){ hit=true; break; }
+      }
+      if(hit) hits.push(mm);
+    }
+    if(!hits.length) return fallback;
+    for(var k=0;k<hits.length;k++){ if(hits[k].isTarget && hits[k].word===want) return hits[k]; }
+    for(var k2=0;k2<hits.length;k2++){ if(hits[k2].isCiv) return hits[k2]; }
+    hits.sort(function(a,b){ return b.depth-a.depth; });
+    return hits[0];
+  }
+
   function loop(ts){
     if(!running) return;
     if(!lastTs) lastTs=ts; var dt=Math.min(0.05,(ts-lastTs)/1000); lastTs=ts;
@@ -1953,7 +1981,31 @@
         if(m.isTarget && m.word===targetWords[currentIndex]) loseLife();
         m.depth=-0.05; m.lane=Math.random()*2-1; m.breached=false; // 다시 저 멀리서 걸어온다
       }
-      m.el.style.left=m.x+'px'; m.el.style.top=m.y+'px';
+      m._halfW=halfW;                                // 아래 겹침 밀어내기에서 쓴다
+      m._d=d;
+    }
+    /* 🧍‍♂️🧍 겹침 밀어내기 — 도로 위에 모아 두되 서로 포개지지는 않게.
+       '비슷한 거리'(depth 차 0.16 이내)에 있는 둘만 본다. 멀리/가까이 있는 건 원근상
+       겹쳐 보이는 게 정상이라 건드리면 오히려 어색하다.
+       한 프레임에 한 번만 완화(relaxation)해도 매 프레임 누적되어 금방 벌어진다. */
+    for(var a=0;a<monsters.length;a++){
+      var A=monsters[a]; if(A.depth<0||A._halfW==null) continue;
+      for(var b=a+1;b<monsters.length;b++){
+        var B=monsters[b]; if(B.depth<0||B._halfW==null) continue;
+        if(Math.abs(A._d-B._d)>0.16) continue;
+        var need2=(A._halfW+B._halfW)*0.92, gap=B.x-A.x;
+        var absG=Math.abs(gap);
+        if(absG<need2){
+          var push=(need2-absG)/2, dir=(gap<0?-1:1);
+          if(gap===0) dir=(a%2?1:-1);
+          A.x-=push*dir; B.x+=push*dir;
+        }
+      }
+    }
+    for(var q=0;q<monsters.length;q++){
+      var M=monsters[q]; if(M.depth<0||M._halfW==null) continue;
+      M.x=Math.max(M._halfW+2, Math.min(w-M._halfW-2, M.x));       // 밀어낸 뒤 화면 안으로
+      M.el.style.left=M.x+'px'; M.el.style.top=M.y+'px';
     }
     // 🎯 조준은 pointermove 에서 즉시 반영된다(조준선이 없어져 매 프레임 다시 그릴 필요가 없다)
     if(dangerFx) dangerFx.classList.toggle('on', danger);
