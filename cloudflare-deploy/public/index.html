@@ -22434,7 +22434,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=9"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=10"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){
@@ -28162,7 +28162,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=3"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260731052744 -->
+<!-- BUILD:20260731145703 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -31179,6 +31179,12 @@ window.vcAutoLoadStudentTextbook = async function(){
     #mg-faq-ov{padding:0;align-items:flex-end}
     .mg-faq-panel{width:100vw;max-height:92vh;border-radius:20px 20px 0 0;border-left:none;border-right:none;border-bottom:none}
     .mg-faq-a{padding-left:14px}
+  }
+  /* 🖥 (2026-07-31) PC 화면 카테고리 잘림 — 제보. 좁은 화면(모바일)은 가로 스와이프 스크롤이 자연스럽지만,
+     PC는 스크롤바까지 숨겨놔(scrollbar-width:none) 잘린 카테고리를 넘길 방법이 안 보였다.
+     PC에서는 가로 스크롤 대신 줄바꿈으로 전부 펼쳐 보이게 한다. */
+  @media (min-width:641px){
+    .mg-faq-cats{flex-wrap:wrap;overflow-x:visible}
   }
 </style>
 <script src="/js/idx-x7.js?v=3"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->

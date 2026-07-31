@@ -191,6 +191,126 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
   return conflicts;
 }
 
+/* 🕐 (2026-07-31) 시간 슬롯 전체 목록(06:00~23:40, 10분 단위) — 예약가능시간 필터링·강사프리 조회 공용 */
+function allTimeSlots(): string[] {
+  const out: string[] = [];
+  for (let m = ENROLL_TIME_MIN; m <= ENROLL_TIME_MAX; m += 10) {
+    out.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+  }
+  return out;
+}
+
+/** 특정 요일들에 대해, 앞으로 N주 안에 이미 잡힌 실제 날짜(그 요일들만) — 충돌 조회용 probe */
+function probeDatesForDows(days: number[], weeks = 12): string[] {
+  const out: string[] = [];
+  const want = new Set(days);
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  for (let i = 0; i < weeks * 7 && out.length < weeks * days.length; i++) {
+    if (want.has(d.getUTCDay())) out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+/** 제보 #1 — 강사 선택 후 "이미 예약된 시간대"를 실제로 걸러낸다.
+ *  단일 강사에 대해, 요청한 각 요일(dow)마다 이미 다른 학생 수업으로 막혀 있는 시간을 돌려준다.
+ *  판정 기준: (a) 그 강사의 '고정 요일 수업'(recurring), (b) 앞으로 12주 안의 그 요일 실제 예약(dated) 중
+ *  단 한 번이라도 겹치면 "막힘" — 매주 반복 예약이라 한 번이라도 안 되면 안전하게 막는다(보수적 판정). */
+export async function busyTimesForTeacher(env: any, teacherId: string, days: number[], minutes: number): Promise<Record<number, string[]>> {
+  const result: Record<number, string[]> = {};
+  for (const d of days) result[d] = [];
+  if (!teacherId || !days.length) return result;
+
+  const busyByDow: Record<number, { start: number; dur: number }[]> = {};
+  for (const d of days) busyByDow[d] = [];
+  try {
+    const rs1: any = await env.DB.prepare(
+      `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+       WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
+    ).bind(teacherId).all();
+    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
+    for (const r of ((rs1?.results as any[]) || [])) {
+      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
+      if (dw === undefined || !busyByDow[dw]) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s >= 0) busyByDow[dw].push({ start: s, dur: Number(r.dm) || DEFAULT_CLASS_MINUTES });
+    }
+
+    const probe = probeDatesForDows(days, 12);
+    for (let i = 0; i < probe.length; i += 90) {
+      const chunk = probe.slice(i, i + 90);
+      const ph = chunk.map(() => '?').join(',');
+      const rs2: any = await env.DB.prepare(
+        `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`
+      ).bind(teacherId, ...chunk).all();
+      for (const r of ((rs2?.results as any[]) || [])) {
+        const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+        if (!busyByDow[dow]) continue;
+        const s = enrollTimeToMin(String(r.start_time || ''));
+        if (s >= 0) busyByDow[dow].push({ start: s, dur: Number(r.dm) || DEFAULT_CLASS_MINUTES });
+      }
+    }
+  } catch (e) { console.warn('[enroll] busyTimesForTeacher:', (e as any)?.message); }
+
+  const slots = allTimeSlots();
+  for (const d of days) {
+    const busy = busyByDow[d];
+    if (!busy.length) continue;
+    result[d] = slots.filter((t) => {
+      const startMin = enrollTimeToMin(t);
+      return busy.some((b) => enrollOverlap(startMin, minutes, b.start, b.dur));
+    });
+  }
+  return result;
+}
+
+/** 제보 #2 — "시간 먼저 선택" 모드. 요청한 요일·시각에 실제로 비어있는 강사 id 목록만 돌려준다.
+ *  (busyTimesForTeacher 와 판정 기준 동일 — 12주 안에 한 번이라도 겹치면 그 강사는 제외) */
+export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Record<number, number>, minutes: number): Promise<Set<string>> {
+  const busyTeacherIds = new Set<string>();
+  try {
+    const rs1: any = await env.DB.prepare(
+      `SELECT teacher_id, day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+       WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
+    ).all();
+    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
+    for (const r of ((rs1?.results as any[]) || [])) {
+      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
+      if (dw === undefined || !days.includes(dw)) continue;
+      const startMin = timesMinByDow[dw];
+      if (startMin === undefined) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
+    }
+
+    const probe = probeDatesForDows(days, 12);
+    for (let i = 0; i < probe.length; i += 90) {
+      const chunk = probe.slice(i, i + 90);
+      const ph = chunk.map(() => '?').join(',');
+      const rs2: any = await env.DB.prepare(
+        `SELECT teacher_id, scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+         WHERE status = 'active' AND scheduled_date IN (${ph})`
+      ).bind(...chunk).all();
+      for (const r of ((rs2?.results as any[]) || [])) {
+        const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+        const startMin = timesMinByDow[dow];
+        if (startMin === undefined) continue;
+        const s = enrollTimeToMin(String(r.start_time || ''));
+        if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
+      }
+    }
+  } catch (e) { console.warn('[enroll] teachersFreeAt:', (e as any)?.message); }
+
+  let allTeacherIds: string[] = [];
+  try {
+    const rs: any = await env.DB.prepare(`SELECT id FROM teachers WHERE active = 1`).all();
+    allTeacherIds = ((rs?.results as any[]) || []).map((t) => String(t.id));
+  } catch (e) { console.warn('[enroll] teachersFreeAt teachers list:', (e as any)?.message); }
+  return new Set(allTeacherIds.filter((id) => !busyTeacherIds.has(id)));
+}
+
 /** 요청 본문 검증 → 정규화
  *  🕐 (2026-07-30) 요일별 다른 시간 지정 — 제보 #2-3.
  *  body.times = { "1":"19:00", "3":"20:00" } (요일 인덱스 → 'HH:MM') 형식을 우선 쓴다.
@@ -567,6 +687,36 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       ok: true, shop_name: shopName || null, weekly1_price: weekly1Price, teacher_rate: tRate, ...q,
       name: `주${weekly}회 × ${months}개월 (${q.sessions}회${minutes === 40 ? '·40분' : ''})`,
     });
+  }
+
+  /* ── (b-1) 강사별 이미 예약된 시간대 (공개) — 제보 #1. 요일 선택 후 시간 select 에서 막힌 시간 비활성화용 ── */
+  if (path === '/api/pay/enroll/busy-times' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const teacherId = String(body.teacher_id || '').trim();
+    const days: number[] = Array.isArray(body.days) ? ([...new Set(body.days.map((x: any) => Number(x)))] as number[]).filter((n) => n >= 0 && n <= 6) : [];
+    const minutes = Number(body.minutes || 20);
+    if (!teacherId || !days.length || (minutes !== 20 && minutes !== 40)) return json({ ok: false, error: 'bad_params' }, 400);
+    const busy = await busyTimesForTeacher(env, teacherId, days, minutes);
+    return json({ ok: true, busy });
+  }
+
+  /* ── (b-2) 시간 먼저 선택 → 그 시간에 비어있는 강사만 (공개) — 제보 #2 ── */
+  if (path === '/api/pay/enroll/teachers-free-at' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const days: number[] = Array.isArray(body.days) ? ([...new Set(body.days.map((x: any) => Number(x)))] as number[]).filter((n) => n >= 0 && n <= 6) : [];
+    const minutes = Number(body.minutes || 20);
+    const uniformTime = String(body.time || '').trim();
+    const rawTimes = (body && typeof body.times === 'object' && body.times) ? body.times : null;
+    if (!days.length || (minutes !== 20 && minutes !== 40)) return json({ ok: false, error: 'bad_params' }, 400);
+    const timesMin: Record<number, number> = {};
+    for (const d of days) {
+      const t = rawTimes ? String(rawTimes[String(d)] ?? rawTimes[d] ?? '').trim() : uniformTime;
+      const m = enrollTimeToMin(t);
+      if (m < 0) return json({ ok: false, error: 'bad_time', day: d }, 400);
+      timesMin[d] = m;
+    }
+    const freeIds = await teachersFreeAt(env, days, timesMin, minutes);
+    return json({ ok: true, teacher_ids: Array.from(freeIds) });
   }
 
   /* ── (c) 슬롯 가능 여부 (공개 — 충돌 건수만, 강사 시간표 비노출) ── */

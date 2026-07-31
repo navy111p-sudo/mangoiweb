@@ -44,6 +44,16 @@
   <h1>🥭 <span data-ko="수강신청" data-en="Enroll">수강신청</span></h1>
   <div class="sub" data-ko="강사·요일·시간을 고르고 결제하면 수업이 자동으로 잡혀요" data-en="Pick a teacher, days and time — classes are scheduled automatically after payment">강사·요일·시간을 고르고 결제하면 수업이 자동으로 잡혀요</div>
 
+  <!-- 🧭 (2026-07-31) 강사 먼저 / 시간 먼저 — 제보 #2. 시간이 중요한 회원은 원하는 요일·시간을 먼저 고르면
+       그 시간에 비어있는 강사만 걸러서 보여준다(참고: www.mangoi.co.kr). -->
+  <div class="step" style="padding:10px 14px;display:flex;gap:8px;align-items:center">
+    <span class="lbl" style="min-width:auto" data-ko="선택 방식" data-en="Choose by">선택 방식</span>
+    <div class="grid" id="gEntryMode" style="flex:1">
+      <div class="chip on" data-v="teacher" style="flex:1;text-align:center" data-ko="👨‍🏫 강사 먼저" data-en="👨‍🏫 Teacher first">👨‍🏫 강사 먼저</div>
+      <div class="chip" data-v="time" style="flex:1;text-align:center" data-ko="🕐 시간 먼저" data-en="🕐 Time first">🕐 시간 먼저</div>
+    </div>
+  </div>
+
   <!-- 🔁 연장(재결제) — 현재 수강 중일 때만 표시. 요일·시간·강사 그대로 승계 -->
   <div class="step" id="stRenew" style="display:none;border-color:rgba(110,231,183,0.45);background:rgba(6,78,59,0.35)">
     <h2 style="color:#6ee7b7">🔁 <span data-ko="수업 연장하기" data-en="Extend my classes">수업 연장하기</span></h2>
@@ -63,7 +73,8 @@
   </div>
 
   <div class="step" id="stTeacher">
-    <h2>1️⃣ <span data-ko="강사 선택" data-en="Choose a teacher">강사 선택</span></h2>
+    <h2><span id="stTeacherNum">1️⃣</span> <span data-ko="강사 선택" data-en="Choose a teacher">강사 선택</span></h2>
+    <div class="note" id="tListWaitNote" style="display:none" data-ko="⏳ 아래에서 요일·시간을 먼저 골라주세요 — 그 시간에 가능한 강사만 보여드려요" data-en="⏳ Pick days & time below first — we'll show only teachers free at that time">⏳ 아래에서 요일·시간을 먼저 골라주세요 — 그 시간에 가능한 강사만 보여드려요</div>
     <div class="tgrid" id="tList"><div style="color:#94a3b8;font-size:13px">불러오는 중…</div></div>
   </div>
 
@@ -75,7 +86,7 @@
   </div>
 
   <div class="step">
-    <h2>3️⃣ <span data-ko="요일·시간" data-en="Days & time">요일·시간</span></h2>
+    <h2><span id="stTimeNum">3️⃣</span> <span data-ko="요일·시간" data-en="Days & time">요일·시간</span></h2>
     <div class="row"><span class="lbl" data-ko="요일" data-en="Days">요일</span><div class="grid" id="gDays"></div></div>
     <!-- 🔴 (2026-07-30) 주말 수업은 별도 협의 정책 — 제보 #2. 요일칩에서 토·일을 빼는 대신 안내로 대체 -->
     <div class="row" style="margin-top:6px">
@@ -148,27 +159,84 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function won(n){ return Number(n||0).toLocaleString('ko-KR') + '원'; }
 
-  /* 강사 목록 */
-  fetch('/api/pay/enroll/teachers').then(function(r){return r.json();}).then(function(d){
+  /* 강사 목록 — 🧭 (2026-07-31) 제보 #2: "시간 먼저" 모드에서 다시 그릴 수 있도록 전체 목록을 보관해 둔다 */
+  var ALL_TEACHERS = [];
+  function renderTeacherList(allowIds){
     var box = el('tList');
-    if (!d || !d.ok || !d.teachers || !d.teachers.length) { box.innerHTML = '<div class="bad">강사 목록을 불러오지 못했어요</div>'; return; }
+    var list = allowIds ? ALL_TEACHERS.filter(function(t){ return allowIds.indexOf(String(t.id)) >= 0; }) : ALL_TEACHERS;
+    if (!list.length) {
+      box.innerHTML = allowIds
+        ? '<div class="bad">이 시간에 비어있는 강사가 없어요. 다른 요일·시간을 선택해 주세요</div>'
+        : '<div class="bad">강사 목록을 불러오지 못했어요</div>';
+      return;
+    }
     /* 🔗 (2026-07-30) 사진·MBTI 노출 — 제보 #2-1. 사진 URL이 있어도 깨질 수 있어(onerror)
        이모지로 되돌린다. 관리자가 아직 이 강사를 프로필과 연결 안 했으면 photo/mbti 가 빈 값. */
-    box.innerHTML = d.teachers.map(function(t){
-      return '<div class="tcard" data-id="'+esc(t.id)+'" data-name="'+esc(t.name)+'">'
+    box.innerHTML = list.map(function(t){
+      return '<div class="tcard'+(st.teacher===t.id?' on':'')+'" data-id="'+esc(t.id)+'" data-name="'+esc(t.name)+'">'
         + (t.photo ? '<img src="'+esc(t.photo)+'" alt="" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{style:\'font-size:34px\',textContent:\'🧑‍🏫\'}))">' : '<div style="font-size:34px">🧑‍🏫</div>')
         + '<div class="nm">'+esc(t.name)+'</div>'
         + (t.mbti ? '<div style="font-size:10.5px;color:#93c5fd;font-weight:700;margin-top:2px">'+esc(t.mbti)+'</div>' : '')
         + '</div>';
     }).join('');
-    box.addEventListener('click', function(ev){
-      var c = ev.target.closest('.tcard'); if (!c) return;
-      box.querySelectorAll('.tcard').forEach(function(x){ x.classList.remove('on'); });
-      c.classList.add('on');
-      st.teacher = c.getAttribute('data-id'); st.teacherName = c.getAttribute('data-name');
-      refresh();
-    });
+  }
+  el('tList').addEventListener('click', function(ev){
+    var c = ev.target.closest('.tcard'); if (!c) return;
+    el('tList').querySelectorAll('.tcard').forEach(function(x){ x.classList.remove('on'); });
+    c.classList.add('on');
+    st.teacher = c.getAttribute('data-id'); st.teacherName = c.getAttribute('data-name');
+    refresh();
+  });
+  fetch('/api/pay/enroll/teachers').then(function(r){return r.json();}).then(function(d){
+    if (!d || !d.ok || !d.teachers || !d.teachers.length) { el('tList').innerHTML = '<div class="bad">강사 목록을 불러오지 못했어요</div>'; return; }
+    ALL_TEACHERS = d.teachers;
+    if (st.entryMode !== 'time') renderTeacherList(null);
   }).catch(function(){ el('tList').innerHTML = '<div class="bad">네트워크 오류</div>'; });
+
+  /* 🧭 (2026-07-31) 제보 #2 — 강사 먼저 / 시간 먼저 진입 방식 */
+  st.entryMode = 'teacher';
+  function applyEntryMode(){
+    var timeFirst = st.entryMode === 'time';
+    el('stTeacherNum').textContent = timeFirst ? '2️⃣' : '1️⃣';
+    el('stTimeNum').textContent = timeFirst ? '1️⃣' : '3️⃣';
+    if (!timeFirst) {
+      el('tListWaitNote').style.display = 'none';
+      renderTeacherList(null);
+      return;
+    }
+    updateFreeTeachers();
+  }
+  /* 시간 먼저 모드: 요일 수가 다 채워지고 시간이 정해졌을 때만 그 시간에 비는 강사로 필터링 */
+  function updateFreeTeachers(){
+    if (st.entryMode !== 'time') return;
+    var timesReady = st.days.length === st.weekly && st.days.every(function(d){ return !!(st.perDayOn ? st.times[d] : st.time); });
+    if (!timesReady) {
+      el('tListWaitNote').style.display = '';
+      el('tList').innerHTML = '';
+      return;
+    }
+    el('tListWaitNote').style.display = 'none';
+    el('tList').innerHTML = '<div style="color:#94a3b8;font-size:13px">⏳ 비어있는 강사 찾는 중…</div>';
+    fetch('/api/pay/enroll/teachers-free-at', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ days:st.days, minutes:st.minutes, times:timesPayload() }) })
+      .then(function(r){return r.json();}).then(function(d){
+        if (!d || !d.ok) { el('tList').innerHTML = '<div class="bad">조회 실패</div>'; return; }
+        if (st.teacher && d.teacher_ids.indexOf(st.teacher) < 0) { st.teacher = null; st.teacherName = ''; }
+        renderTeacherList(d.teacher_ids);
+      }).catch(function(){ el('tList').innerHTML = '<div class="bad">네트워크 오류</div>'; });
+  }
+  (function(){
+    var box = el('gEntryMode');
+    box.onclick = function(ev){
+      var c = ev.target.closest('.chip'); if (!c) return;
+      box.querySelectorAll('.chip').forEach(function(x){ x.classList.remove('on'); });
+      c.classList.add('on');
+      st.entryMode = c.getAttribute('data-v');
+      st.teacher = null; st.teacherName = '';
+      applyEntryMode();
+      refresh();
+    };
+  })();
 
   /* 옵션 칩 렌더 */
   function chips(id, items, cur, onPick){
@@ -207,15 +275,43 @@
   }
 
   var DN2 = ['일','월','화','수','목','금','토'];
-  /* 시간 select 옵션 HTML (06:00~23:40, 10분 단위) — selTime·요일별 선택 공용 */
-  function timeOptionsHtml(selected){
+  /* 시간 select 옵션 HTML (06:00~23:40, 10분 단위) — selTime·요일별 선택 공용
+     🔴 (2026-07-31) 제보 #1 — busySet 에 있는 시간은 disabled 처리해 애초에 고를 수 없게 한다. */
+  function timeOptionsHtml(selected, busySet){
     var opts = [];
     for (var m = 6*60; m <= 23*60+40; m += 10) {
       var hh = String(Math.floor(m/60)).padStart(2,'0'), mm = String(m%60).padStart(2,'0');
       var v = hh+':'+mm;
-      opts.push('<option value="'+v+'"'+(v===selected?' selected':'')+'>'+v+'</option>');
+      var busy = busySet && busySet.indexOf(v) >= 0;
+      opts.push('<option value="'+v+'"'+(v===selected?' selected':'')+(busy?' disabled':'')+'>'+v+(busy?' — 예약마감':'')+'</option>');
     }
     return opts.join('');
+  }
+
+  /* 🔴 (2026-07-31) 제보 #1 — 강사·요일이 정해지면 그 강사가 이미 예약된 시간을 물어와
+     select 옵션을 disabled 처리한다("실제로 예약 가능한 시간만 선택"). */
+  var BUSY = {};   // { dow: ['19:00', ...] }
+  function updateBusyTimes(){
+    if (!st.teacher || !st.days.length) { BUSY = {}; applyBusyToSelects(); return; }
+    fetch('/api/pay/enroll/busy-times', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ teacher_id:st.teacher, days:st.days, minutes:st.minutes }) })
+      .then(function(r){return r.json();}).then(function(d){
+        BUSY = (d && d.ok && d.busy) ? d.busy : {};
+        applyBusyToSelects();
+      }).catch(function(){ BUSY = {}; });
+  }
+  function applyBusyToSelects(){
+    // 공통시간 select: 선택된 모든 요일 중 하나라도 막혀 있으면 그 시간은 비활성화(모든 요일에 같은 시각을 쓰므로)
+    var union = [];
+    st.days.forEach(function(d){ (BUSY[d]||[]).forEach(function(t){ if (union.indexOf(t)<0) union.push(t); }); });
+    var uniformSel = el('selTime');
+    if (uniformSel) uniformSel.innerHTML = timeOptionsHtml(st.time, union);
+    // 요일별 select: 그 요일만의 막힌 시간으로 각각 표시
+    document.querySelectorAll('.perDaySel').forEach(function(sel){
+      var d = Number(sel.getAttribute('data-day'));
+      var cur = st.times[d] || st.time;
+      sel.innerHTML = timeOptionsHtml(cur, BUSY[d]||[]);
+    });
   }
   /* 🕐 (2026-07-30) 요일마다 다른 시간 — 제보 #2-3. perDayOn 이 꺼져 있으면 아무 것도 안 그림
      (기존처럼 selTime 하나로 전 요일 통일). 켜져 있으면 st.days 각각에 시간 select 를 하나씩 그린다. */
@@ -267,6 +363,8 @@
   /* 가격 + 슬롯 확인 (디바운스) */
   function refresh(){
     CHECK_OK = false; updatePayBtn();
+    updateBusyTimes();
+    updateFreeTeachers();
     fetch('/api/pay/enroll/quote', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ uid:UID, weekly:st.weekly, months:st.months, minutes:st.minutes }) })
       .then(function(r){return r.json();}).then(function(d){
@@ -276,8 +374,10 @@
         el('amtSub').textContent = d.name + (d.discountRate < 1 ? ' · 할인 적용' : '');
       }).catch(function(){});
     var msg = el('slotMsg');
-    if (!st.teacher) { msg.innerHTML = '<span class="bad">👆 강사를 먼저 선택해 주세요</span>'; return; }
+    // 🧭 (2026-07-31) 제보 #2 — "시간 먼저" 모드에서는 요일부터, "강사 먼저" 모드에서는 강사부터 안내한다.
+    if (st.entryMode !== 'time' && !st.teacher) { msg.innerHTML = '<span class="bad">👆 강사를 먼저 선택해 주세요</span>'; return; }
     if (st.days.length !== st.weekly) { msg.innerHTML = '<span class="bad">요일을 '+st.weekly+'개 선택해 주세요 (지금 '+st.days.length+'개)</span>'; return; }
+    if (st.entryMode === 'time' && !st.teacher) { msg.innerHTML = '<span class="bad">👆 위에서 강사를 선택해 주세요</span>'; return; }
     msg.textContent = '⏳ 시간 확인 중…';
     clearTimeout(checkTimer);
     checkTimer = setTimeout(function(){

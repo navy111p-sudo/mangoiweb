@@ -1389,8 +1389,8 @@ window.showRulesModal = function() {
           </ul>
           <h3 style="color:#fbbf24;font-size:15px;margin:0 0 8px">2. 수업 결강·연기</h3>
           <ul style="margin:0 0 14px;padding-left:18px">
-            <li>수업 시작 24시간 이내 연기: 1회 무상 (월 2회 한도)</li>
-            <li>당일 연기/결강: 1회 차감</li>
+            <li>당일 연기는 수업 시작 <b>30분 전까지</b> 신청 가능합니다</li>
+            <li>월별 연기 가능 횟수: 주1회 수강 시 <b>월 2회</b> · 주2회 수강 시 <b>월 4회</b> · 주3회 수강 시 <b>월 6회</b> · 주5회 수강 시 <b>월 10회</b>까지</li>
             <li>강사 사정 결강: 다른 강사로 자동 대체 또는 1회 무상 보강</li>
           </ul>
           <h3 style="color:#fbbf24;font-size:15px;margin:0 0 8px">3. 수강 기간</h3>
