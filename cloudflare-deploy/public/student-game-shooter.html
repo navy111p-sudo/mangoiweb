@@ -136,6 +136,11 @@
      (steps(n) 은 진행도를 k/n 으로 끊으므로 k/n * n/(n-1) = k/(n-1) → 오프셋 정확히 -k칸) */
   @keyframes foeWalk4{to{background-position:133.3333% 0}}
   @keyframes foeWalk8{to{background-position:114.2857% 0}}
+  /* 16프레임(가장 부드러움). 끝값 = 16/15*100 = 106.6667%. ANIM16 에 등록된 캐릭터만 쓴다 —
+     목록이 비어 있으면 이 규칙은 아무 데도 안 붙으므로 그대로 배포돼도 무해하다. */
+  .monster .face.f16{background-size:1600% 100%;animation:foeWalk16 1.05s steps(16) infinite}
+  .monster .face.f16 .nx{animation:foeWalk16 1.05s steps(16) infinite, foeXfade .0656s cubic-bezier(.75,0,.25,1) infinite}
+  @keyframes foeWalk16{to{background-position:106.6667% 0}}
   /* 걸음 속도는 개체마다 살짝 다르게 — 다 같은 박자로 걸으면 기계처럼 보인다.
      ⚠ 예전엔 여기 nth-child 로 줬는데, 그러면 JS 가 그 값을 몰라 상하 반동(bob)과 박자가
        어긋난다. 이제 spawnMonster 에서 개체마다 walkSec 을 뽑아 인라인으로 넣고,
@@ -699,6 +704,12 @@
   /* 적 16종은 전부 8프레임. 민간인 4종만 4프레임이라 여기 없다. */
   var ANIM8 = { office:1, sprinter:1, tank:1, soldier:1, trooper:1, worker:1, doc:1, medic:1,
                 alien:1, bug:1, dragon:1, parasite:1, phantom:1, mech:1, oni:1, imp:1 };
+  /* 16프레임으로 올린 캐릭터만 여기 적는다(ANIM8 보다 우선). 지금은 비어 있다 —
+     16프레임 스트립(1600% 폭)이 public/img 에 실제로 들어간 캐릭터만 등록해야 한다.
+     ⚠ 여기 먼저 적고 자산이 없으면 8프레임 스트립을 16칸으로 잘라 읽어 캐릭터가 깨진다. */
+  var ANIM16 = {};
+  function frameCount(id){ return ANIM16[id] ? 16 : (ANIM8[id] ? 8 : 4); }
+  function frameClass(id){ return ANIM16[id] ? ' f16' : (ANIM8[id] ? ' f8' : ''); }
   var _civPre = CIVS.map(function(id){ var im=new Image(); im.src=FACE_SRC(id); return im; });
   // 첫 스폰에서 깜빡이지 않게 미리 받아둔다. ⚠ 참조를 배열에 붙잡아 둬야 한다 —
   // 지역변수로만 만들면 GC 후 메모리 캐시에서 빠져 스폰마다 다시 요청이 나간다.
@@ -1404,7 +1415,7 @@
                      : FACES[Math.floor(Math.random()*FACES.length)];
     var _bg = FACE_SRC(_foe);
     /* <i class="nx"> = 프레임 보간(cross-fade) 레이어. 위 CSS 주석 참고. */
-    el.innerHTML = '<div class="face' + (ANIM8[_foe] ? ' f8' : '') + '" style="background-image:url(&quot;' + _bg + '&quot;)">'
+    el.innerHTML = '<div class="face' + frameClass(_foe) + '" style="background-image:url(&quot;' + _bg + '&quot;)">'
                  +   '<i class="nx"></i>'
                  + '</div>'
                  + (isCiv ? '<span class="word civtag">민간인</span>' : '<span class="word">' + word + '</span>');
@@ -1447,7 +1458,7 @@
          (부모의 프레임 경계와 페이드 주기가 같은 위상이 되어 정확히 맞물린다) */
       var _nx=m.faceEl.querySelector('.nx');
       if(_nx){
-        var _fr=m.walkSec/(ANIM8[_foe]?8:4);
+        var _fr=m.walkSec/frameCount(_foe);
         _nx.style.animationDuration=m.walkSec.toFixed(3)+'s, '+_fr.toFixed(3)+'s';
         _nx.style.animationDelay=(_d-_fr).toFixed(3)+'s, '+_d.toFixed(3)+'s';
       }
