@@ -575,7 +575,7 @@
       startGame(settings.spawnInterval)
     }
 
-    function startGame(spawnInterval) {
+    function startGame(spawnDelay) {
       // 타이머
       timerInterval = setInterval(() => {
         timeLeft--
@@ -583,9 +583,11 @@
         if (timeLeft <= 0) endStage()
       }, 1000)
 
+      // 첫 괴물 즉시 생성
+      spawnMonster()
+
       // 스폰 루프
-      spawnInterval = setInterval(() => spawnMonster(), spawnInterval)
-      window.spawnInterval = spawnInterval
+      spawnInterval = setInterval(() => spawnMonster(), spawnDelay)
     }
 
     // 이벤트 리스너
@@ -607,6 +609,6 @@
       }
     })
   </script>
-<!-- BUILD:20260801050525 -->
+<!-- BUILD:20260801051657 -->
 </body>
 </html>
