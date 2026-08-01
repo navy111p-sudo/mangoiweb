@@ -74,15 +74,17 @@
 
     /* ── 괴물 ── */
     .mon { position: absolute; z-index: 30; width: var(--d); height: calc(var(--d)*1.25); will-change: transform; --aura: 150,70,255; }
-    /* 배경 제거된 알파 스프라이트 12프레임 세로 스트립 — 괴물만 보인다 */
+    /* 배경 제거된 알파 스프라이트 24프레임 세로 스트립 — 괴물만 보인다.
+       두 겹을 겹쳐 다음 프레임을 교차 페이드해서 저프레임에서도 움직임이 부드럽다. */
     .mon .face {
       position: absolute; inset: 0; width: 100%; height: 100%;
       background-repeat: no-repeat;
-      background-size: 100% 1200%;
+      background-size: 100% 2400%;
       background-position-x: 50%;
       background-position-y: 0%;   /* 프레임은 rAF 에서 직접 계산 (백분율 좌표계 함정 회피) */
       filter: brightness(1.18) contrast(1.1) saturate(1.25) drop-shadow(0 6px 18px rgba(0,0,0,.85)) drop-shadow(0 0 16px rgba(var(--aura),.5));
     }
+    .mon .faceB { opacity: 0; }
     .mon .glow {
       position: absolute; left: 50%; top: 46%; width: 126%; height: 102%;
       transform: translate(-50%,-50%); pointer-events: none;
@@ -545,24 +547,25 @@
         el.style.setProperty('--aura', cre.aura);
         el.innerHTML =
           '<div class="warp"></div><div class="glow"></div>' +
-          '<div class="face"></div>' +
+          '<div class="face faceA"></div><div class="face faceB"></div>' +
           '<div class="shield"></div><div class="tag"></div>';
-        const face = el.querySelector('.face');
-        face.style.backgroundImage = `url('${sheetPath(cre.n)}')`;
+        const faceA = el.querySelector('.faceA'), faceB = el.querySelector('.faceB');
+        faceA.style.backgroundImage = faceB.style.backgroundImage = `url('${sheetPath(cre.n)}')`;
         el.querySelector('.tag').textContent = w;
         field.appendChild(el);
         setTimeout(() => el.classList.remove('warpin'), 900);
 
         const start = randSurface(zonePool[i % 4]);
         wave.monsters.push({
-          el, face, tag: el.querySelector('.tag'),
+          el, faceA, faceB, tag: el.querySelector('.tag'),
           word: w, order: i, creature: cre,
           born: now + i * rnd(140, 520),      // 시차를 두고 몰려나온다
           dur: rnd(lo, hi),                    // 괴물마다 다른 속도
           cur: start, from: start, to: start,
           moveStart: now, moveDur: 1, nextHopAt: 0,
           phase: i * 1.7, dead: false,
-          frame: -1, frameMs: 78 + Math.random() * 60   // 개체마다 다른 움직임 속도
+          // 5초 영상을 24프레임으로 뽑았으므로 208ms 가 실제 속도. 개체마다 약간의 편차만.
+          frame: -1, frameMs: 190 + Math.random() * 46, arc: 0
         });
       });
     }
@@ -590,18 +593,30 @@
             // 다른 괴물들의 목적지를 피해서 다음 지점을 고른다
             const avoid = live.filter(o => o !== m).map(o => o.to);
             m.from = m.cur; m.to = pickSurface(avoid);
-            m.moveStart = now; m.moveDur = rnd(600, 1050);
-            m.nextHopAt = now + m.moveDur + rnd(260, Math.max(320, 1500 - stage*300 - p*800));
+            m.moveStart = now; m.moveDur = rnd(900, 1600);   // 길게 = 미끄러지듯
+            m.arc = rnd(-0.16, 0.16);                        // 직선이 아니라 살짝 휘어서
+            m.nextHopAt = now + m.moveDur + rnd(320, Math.max(360, 1600 - stage*260 - p*700));
           }
           const q = Math.min(1, (now - m.moveStart) / m.moveDur);
-          const ei = q < .5 ? 2*q*q : 1 - Math.pow(-2*q+2,2)/2;
-          m.cur = { dx: m.from.dx + (m.to.dx-m.from.dx)*ei, dy: m.from.dy + (m.to.dy-m.from.dy)*ei, z: m.to.z };
+          // smootherstep — 시작·끝 가속도까지 연속이라 툭 끊기지 않는다
+          const ei = q*q*q*(q*(q*6 - 15) + 10);
+          let cdx = m.from.dx + (m.to.dx - m.from.dx)*ei;
+          let cdy = m.from.dy + (m.to.dy - m.from.dy)*ei;
+          // 이동 방향의 수직으로 호(arc)를 태워 곡선 궤적
+          const vx = m.to.dx - m.from.dx, vy = m.to.dy - m.from.dy;
+          const vl = Math.hypot(vx, vy) || 1;
+          const bow = Math.sin(Math.PI * ei) * m.arc;
+          cdx += (-vy / vl) * bow; cdy += (vx / vl) * bow;
+          m.cur = { dx: cdx, dy: cdy, z: m.to.z };
 
           const depth = 0.05 + 0.95 * p * p;
           m._depth = depth;
           m._d = Math.max(26, Math.min(W,H) * (0.09 + 0.60*depth) * (wave.sizeK || 1));
-          m._x = vpx + m.cur.dx * (W*0.46*depth);
-          m._y = vpy + m.cur.dy * (H*0.42*depth) + Math.sin(now/190 + m.phase)*6*depth;
+          // 느린 파동 두 겹을 합쳐 걸을 때처럼 자연스럽게 위아래·좌우로 흔들린다
+          const bobY = (Math.sin(now/560 + m.phase)*5 + Math.sin(now/330 + m.phase*1.7)*1.8) * depth;
+          const bobX = Math.sin(now/780 + m.phase*0.6) * 4 * depth;
+          m._x = vpx + m.cur.dx * (W*0.46*depth) + bobX;
+          m._y = vpy + m.cur.dy * (H*0.42*depth) + bobY;
         }
 
         // ── 2패스: 화면상 겹침 밀어내기 ──
@@ -637,12 +652,16 @@
           m.el.style.zIndex = 30 + Math.round(m._depth*40);
           m.tag.style.transform = `translateX(-50%) scale(${Math.max(.9, Math.min(1.12, 120/m._d))})`;
 
-          // 12프레임 스프라이트: 이미지가 박스의 12배 높이 → 프레임 k 는 k*(100/11)%
-          const fi = Math.floor(now / m.frameMs + m.phase * 3) % 12;
+          // 24프레임 스프라이트: 이미지가 박스의 24배 높이 → 프레임 k 는 k*(100/23)%
+          // 다음 프레임을 위에 겹쳐 교차 페이드 → 4.8fps 원본도 매끄럽게 보인다
+          const t = now / m.frameMs + m.phase * 3;
+          const fi = Math.floor(t) % 24;
           if (fi !== m.frame) {
             m.frame = fi;
-            m.face.style.backgroundPositionY = (fi * (100 / 11)).toFixed(3) + '%';
+            m.faceA.style.backgroundPositionY = (fi * (100 / 23)).toFixed(3) + '%';
+            m.faceB.style.backgroundPositionY = (((fi + 1) % 24) * (100 / 23)).toFixed(3) + '%';
           }
+          m.faceB.style.opacity = (t - Math.floor(t)).toFixed(3);
         }
 
         dangerFill.style.width = (maxP*100) + '%';
@@ -860,6 +879,6 @@
 
     startWave();
   </script>
-<!-- BUILD:20260801095234 -->
+<!-- BUILD:20260801100116 -->
 </body>
 </html>
