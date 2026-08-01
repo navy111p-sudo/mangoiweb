@@ -97,6 +97,21 @@
   .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;
     width:min(1100px,100%);margin-top:10px}
   @media(max-width:640px){.game-grid{grid-template-columns:1fr 1fr;gap:14px}}
+
+  /* 🖐 카드 순서 바꾸기 */
+  .order-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px 2px}
+  .order-btn{padding:7px 14px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:800;
+    background:rgba(255,255,255,.9);border:1.5px solid rgba(80,110,180,.35);color:#2c3e66}
+  .order-btn.on{background:#fbbf24;border-color:#e0a412;color:#3a2a00}
+  .order-btn.ghost{background:rgba(255,255,255,.7);color:#5a6a8c}
+  .order-tip{font-size:12px;font-weight:700;color:#4a5f8a}
+  .game-grid.reorder .game-card{cursor:grab;touch-action:none;animation:cardWiggle 1.1s ease-in-out infinite}
+  .game-grid.reorder .game-card:nth-child(even){animation-delay:.18s}
+  @keyframes cardWiggle{0%,100%{transform:rotate(-.5deg)}50%{transform:rotate(.5deg)}}
+  .game-card.dragging{animation:none!important;opacity:.9;transform:scale(1.05)!important;
+    box-shadow:0 18px 40px rgba(0,0,0,.35);z-index:60;cursor:grabbing}
+  .game-grid.reorder .game-card::after{content:'⠿';position:absolute;top:8px;left:10px;z-index:5;
+    font-size:16px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}
   /* 🖼️ 카드 = 실사 사진(4:3) 위 + 글 아래. 이모지 아이콘을 대체했다(2026-07-29).
      사진은 /img/games/<mode>.webp 720x540, 장당 10~73KB. 첫 화면 밖은 lazy 로 받는다. */
   .game-card{position:relative;cursor:pointer;border:1px solid rgba(255,255,255,.85);border-radius:20px;
@@ -493,6 +508,13 @@
       </div>
       <div class="rec-chips" id="rec-chips" style="display:none"></div>
       <button type="button" class="rec-cta" id="rec-cta" style="display:none"></button>
+    </div>
+
+    <!-- 🖐 카드 순서 바꾸기 — 학생이 좋아하는 게임을 앞으로 끌어다 놓을 수 있다 -->
+    <div class="order-bar">
+      <button type="button" class="order-btn" id="order-toggle">🖐 순서 바꾸기</button>
+      <button type="button" class="order-btn ghost" id="order-reset" style="display:none">↩ 기본 순서</button>
+      <span class="order-tip" id="order-tip" style="display:none">카드를 끌어서 원하는 자리에 놓으세요 · Drag the cards</span>
     </div>
 
     <div class="game-grid" id="game-grid"><!-- JS 렌더 --></div>
@@ -1601,14 +1623,31 @@ const HUB_GAMES = [
 //   선택 버튼이 있어 한 게임이 두 언어를 다 담는다 → 제목에 '중국어'를 붙이면 영어판이 없는
 //   것처럼 보인다(사장님 지적, 2026-07-30). '우주 배틀'(battle3d)도 같은 이유로 단일 제목이다.
 function _gameTitle(g){ return g.ttl; }
+/* 🖐 학생이 정한 카드 순서 — localStorage 에 mode 배열로 저장.
+   저장된 목록에 없는(새로 추가된) 게임은 원래 자리 순서를 지키며 뒤에 붙는다. */
+var ORDER_KEY = 'mangoi_game_order';
+function _loadOrder(){
+  try{ var v = JSON.parse(localStorage.getItem(ORDER_KEY)); return Array.isArray(v) ? v : null; }catch(_){ return null; }
+}
+function _saveOrder(modes){ try{ localStorage.setItem(ORDER_KEY, JSON.stringify(modes)); }catch(_){} }
+function _orderedGames(){
+  var saved = _loadOrder();
+  if(!saved) return HUB_GAMES.slice();
+  var byMode = {}; HUB_GAMES.forEach(function(g){ byMode[g.mode] = g; });
+  var out = [], seen = {};
+  saved.forEach(function(m){ if(byMode[m] && !seen[m]){ out.push(byMode[m]); seen[m] = 1; } });
+  HUB_GAMES.forEach(function(g){ if(!seen[g.mode]) out.push(g); });   // 신규 게임은 뒤에
+  return out;
+}
+
 function hubRenderMenu(){
   // 3D 배틀은 영어/중국어 모두 지원(glang 전달) — 전체 노출
-  var list = HUB_GAMES.slice();
+  var list = _orderedGames();
   document.getElementById('game-grid').innerHTML = list.map(function(g,i){
     // 🖼️ 카드 사진: 파일명은 mode 와 같다(/img/games/<mode>.webp).
     //    첫 6장은 바로 보이는 자리라 eager, 나머지는 lazy — 29,000명이 쓰는 화면이라 전송량을 아낀다.
     var eager = i < 6;
-    return '<div class="game-card" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
+    return '<div class="game-card" data-mode="'+g.mode+'" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
       + '<div class="phwrap">'
       +   '<span class="badge">'+g.badge+'</span>'
       +   '<img class="ph" src="/img/games/'+g.mode+'.webp" alt="" width="720" height="540"'
@@ -1625,6 +1664,86 @@ function hubRenderMenu(){
       + '</div>';
   }).join('');
 }
+
+/* ── 🖐 카드 끌어서 순서 바꾸기 ──
+   탭=게임시작 이라 드래그와 충돌한다 → '순서 바꾸기' 모드를 켠 동안만 드래그.
+   HTML5 drag 이벤트는 터치에서 안 먹으므로 pointer 이벤트로 직접 구현(태블릿·폰 지원). */
+var _reorderOn = false, _drag = null;
+
+function _gridEl(){ return document.getElementById('game-grid'); }
+
+function _commitOrder(){
+  var modes = Array.prototype.map.call(_gridEl().children, function(c){ return c.dataset.mode; })
+                .filter(Boolean);
+  if(modes.length) _saveOrder(modes);
+}
+
+function hubToggleReorder(){
+  _reorderOn = !_reorderOn;
+  var grid = _gridEl(), btn = document.getElementById('order-toggle');
+  grid.classList.toggle('reorder', _reorderOn);
+  btn.classList.toggle('on', _reorderOn);
+  btn.textContent = _reorderOn ? '✅ 완료' : '🖐 순서 바꾸기';
+  document.getElementById('order-reset').style.display = _reorderOn ? '' : 'none';
+  document.getElementById('order-tip').style.display  = _reorderOn ? '' : 'none';
+  if(!_reorderOn) _commitOrder();
+}
+
+function hubResetOrder(){
+  try{ localStorage.removeItem(ORDER_KEY); }catch(_){}
+  hubRenderMenu();
+  if(_reorderOn){ _gridEl().classList.add('reorder'); }
+}
+
+function _dragStart(e){
+  if(!_reorderOn) return;
+  var card = e.target.closest && e.target.closest('.game-card');
+  if(!card) return;
+  e.preventDefault();
+  _drag = { el: card, id: e.pointerId };
+  card.classList.add('dragging');
+  try{ card.setPointerCapture(e.pointerId); }catch(_){}
+}
+
+function _dragMove(e){
+  if(!_drag || e.pointerId !== _drag.id) return;
+  e.preventDefault();
+  var grid = _gridEl(), cards = Array.prototype.slice.call(grid.children);
+  var best = null, bestD = Infinity;
+  cards.forEach(function(c){
+    if(c === _drag.el) return;
+    var r = c.getBoundingClientRect();
+    var d = Math.hypot(e.clientX - (r.left + r.width/2), e.clientY - (r.top + r.height/2));
+    if(d < bestD){ bestD = d; best = c; }
+  });
+  if(!best) return;
+  var r = best.getBoundingClientRect();
+  // 대상 카드의 중심보다 앞쪽이면 그 앞에, 뒤쪽이면 그 뒤에 끼워넣는다
+  var after = (e.clientY > r.top + r.height/2) ||
+              (Math.abs(e.clientY - (r.top + r.height/2)) < r.height/2 && e.clientX > r.left + r.width/2);
+  grid.insertBefore(_drag.el, after ? best.nextSibling : best);
+}
+
+function _dragEnd(e){
+  if(!_drag || (e && e.pointerId !== _drag.id)) return;
+  _drag.el.classList.remove('dragging');
+  _drag = null;
+  _commitOrder();
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var grid = _gridEl(); if(!grid) return;
+  grid.addEventListener('pointerdown', _dragStart);
+  grid.addEventListener('pointermove', _dragMove);
+  grid.addEventListener('pointerup', _dragEnd);
+  grid.addEventListener('pointercancel', _dragEnd);
+  // 순서 바꾸기 모드에선 카드 탭으로 게임이 열리지 않게 클릭을 막는다
+  grid.addEventListener('click', function(e){
+    if(_reorderOn){ e.stopPropagation(); e.preventDefault(); }
+  }, true);
+  var t = document.getElementById('order-toggle'); if(t) t.onclick = hubToggleReorder;
+  var r = document.getElementById('order-reset'); if(r) r.onclick = hubResetOrder;
+});
 
 function _hubGame(mode){ return HUB_GAMES.find(function(g){ return g.mode===mode; }); }
 
@@ -2559,7 +2678,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260801100116 -->
+<!-- BUILD:20260801101228 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
