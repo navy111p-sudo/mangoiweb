@@ -22,11 +22,12 @@
     #scoreVal { color: #fbbf24; } #stageVal { color: #60a5fa; }
     #sentVal { color: #4ade80; } #timerVal { color: #7fd1ff; }
     #livesVal { color: #ef4444; font-size: 16px; letter-spacing: 2px; }
-    #sfxBtn {
-      margin-left: 8px; padding: 5px 11px; border-radius: 8px; cursor: pointer;
+    #sfxBtn, #langBtn {
+      margin-left: 6px; padding: 5px 11px; border-radius: 8px; cursor: pointer;
       background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18);
-      color: #cfe0ff; font-size: 13px; font-weight: 700;
+      color: #cfe0ff; font-size: 13px; font-weight: 700; white-space: nowrap;
     }
+    #langBtn { margin-left: 8px; }
 
     /* ── 문장 조립 바 ── */
     .quizbar {
@@ -227,10 +228,11 @@
   <div id="game">
     <div class="hud">
       <div class="stat"><div class="label">SCORE</div><div class="value" id="scoreVal">0</div></div>
-      <div class="stat"><div class="label">STAGE</div><div class="value" id="stageVal">1/3</div></div>
+      <div class="stat"><div class="label">LEVEL</div><div class="value" id="stageVal">1/6</div></div>
       <div class="stat"><div class="label">LIFE</div><div class="value" id="livesVal">&#9829;&#9829;&#9829;</div></div>
       <div class="stat"><div class="label">문장</div><div class="value" id="sentVal">0</div></div>
       <div class="stat" style="margin-left:auto;"><div class="label">TIME</div><div class="value" id="timerVal">120</div></div>
+      <button id="langBtn" type="button">&#127760; 영어</button>
       <button id="sfxBtn" type="button">&#9835; 소리 ON</button>
     </div>
 
@@ -267,7 +269,7 @@
     const scoreEl = $('scoreVal'), stageEl = $('stageVal'), timerEl = $('timerVal');
     const livesEl = $('livesVal'), sentEl = $('sentVal');
     const sentKo = $('sentKo'), slotsEl = $('slots'), dangerFill = $('dangerFill');
-    const modal = $('modal'), sfxBtn = $('sfxBtn');
+    const modal = $('modal'), sfxBtn = $('sfxBtn'), langBtn = $('langBtn');
 
     /* ═══ 효과음 (Web Audio 합성) ═══ */
     let AC = null, sfxOn = true, noiseBuf = null;
@@ -353,47 +355,123 @@
     const sheetPath = (n) => `/img/space-monsters/${n}-sheet.webp`;
     CREATURES.forEach(c => { const im = new Image(); im.src = sheetPath(c.n); });
 
-    /* ═══ 문장 은행 (스테이지별: 3 → 4 → 5단어) ═══ */
-    const SENTENCES = [
-      [
-        { en:['I','LIKE','APPLES'],      ko:'나는 사과를 좋아해요' },
-        { en:['THE','DOG','RUNS'],       ko:'그 개가 달려요' },
-        { en:['WE','READ','BOOKS'],      ko:'우리는 책을 읽어요' },
-        { en:['SHE','DRINKS','MILK'],    ko:'그녀는 우유를 마셔요' },
-        { en:['BIRDS','CAN','FLY'],      ko:'새들은 날 수 있어요' },
-        { en:['I','SEE','STARS'],        ko:'나는 별을 봐요' },
-        { en:['THE','SUN','SHINES'],     ko:'해가 빛나요' },
-        { en:['CATS','LOVE','FISH'],     ko:'고양이는 물고기를 좋아해요' }
-      ],
-      [
-        { en:['I','GO','TO','SCHOOL'],       ko:'나는 학교에 가요' },
-        { en:['WE','EAT','GOOD','DINNER'],   ko:'우리는 맛있는 저녁을 먹어요' },
-        { en:['MY','FRIEND','IS','KIND'],    ko:'내 친구는 친절해요' },
-        { en:['THE','WEATHER','IS','SUNNY'], ko:'날씨가 화창해요' },
-        { en:['SHE','OPENS','THE','WINDOW'], ko:'그녀가 창문을 열어요' },
-        { en:['I','WALK','EVERY','MORNING'], ko:'나는 매일 아침 걸어요' },
-        { en:['THE','TEACHER','HELPS','US'], ko:'선생님이 우리를 도와줘요' },
-        { en:['WE','CROSS','THE','BRIDGE'],  ko:'우리는 다리를 건너요' }
-      ],
-      [
-        { en:['THE','ROCKET','FLIES','TO','MARS'],       ko:'로켓이 화성으로 날아가요' },
-        { en:['WE','EXPLORE','THE','WIDE','UNIVERSE'],   ko:'우리는 넓은 우주를 탐험해요' },
-        { en:['COURAGE','HELPS','US','REACH','DREAMS'],  ko:'용기는 우리가 꿈에 닿게 해줘요' },
-        { en:['THE','GALAXY','HAS','MANY','PLANETS'],    ko:'은하에는 행성이 많이 있어요' },
-        { en:['SCIENCE','OPENS','THE','BRIGHT','FUTURE'],ko:'과학은 밝은 미래를 열어요' },
-        { en:['OUR','JOURNEY','BEGINS','WITH','HOPE'],   ko:'우리의 여행은 희망으로 시작해요' }
-      ]
-    ];
+    /* ═══ 언어 (허브가 ?glang=en|zh 로 전달) ═══ */
+    const QS = new URLSearchParams(location.search);
+    let lang = (QS.get('glang') === 'zh' || QS.get('lang') === 'zh') ? 'zh' : 'en';
+    try { if (!QS.get('glang') && localStorage.getItem('mangoi_game_lang') === 'zh') lang = 'zh'; } catch (e) {}
 
-    // 스테이지별 접근 속도 범위(ms) — 괴물마다 랜덤
-    const SPEED = [ [11000,15000], [9000,12500], [7500,10500] ];
+    /* ═══ 레벨: 1→6 으로 갈수록 단어 수 3·4·5·6·7·8, 어휘도 어려워진다 ═══ */
+    const LEVELS = [
+      { n:3, dur:[11000,14000] },
+      { n:4, dur:[12000,15000] },
+      { n:5, dur:[13500,16500] },
+      { n:6, dur:[15000,18000] },
+      { n:7, dur:[16500,19500] },
+      { n:8, dur:[18000,21000] }
+    ];
     const SENTENCES_PER_STAGE = 2;
 
-    let score = 0, stage = 1, lives = 3, cleared = 0, timeLeft = 120;
+    /* ═══ 문장 은행 — 레벨별 길이·난이도 (영어 / 중국어) ═══ */
+    const BANKS = {
+      en: [
+        [ // Lv1 · 3단어 · 기초
+          { w:['I','LIKE','APPLES'],   ko:'나는 사과를 좋아해요' },
+          { w:['THE','DOG','RUNS'],    ko:'그 개가 달려요' },
+          { w:['WE','READ','BOOKS'],   ko:'우리는 책을 읽어요' },
+          { w:['SHE','DRINKS','MILK'], ko:'그녀는 우유를 마셔요' },
+          { w:['BIRDS','CAN','FLY'],   ko:'새들은 날 수 있어요' },
+          { w:['THE','SUN','SHINES'],  ko:'해가 빛나요' },
+          { w:['CATS','LOVE','FISH'],  ko:'고양이는 물고기를 좋아해요' }
+        ],
+        [ // Lv2 · 4단어 · 생활
+          { w:['I','GO','TO','SCHOOL'],       ko:'나는 학교에 가요' },
+          { w:['MY','FRIEND','IS','KIND'],    ko:'내 친구는 친절해요' },
+          { w:['THE','WEATHER','IS','SUNNY'], ko:'날씨가 화창해요' },
+          { w:['SHE','OPENS','THE','WINDOW'], ko:'그녀가 창문을 열어요' },
+          { w:['THE','TEACHER','HELPS','US'], ko:'선생님이 우리를 도와줘요' },
+          { w:['WE','CROSS','THE','BRIDGE'],  ko:'우리는 다리를 건너요' }
+        ],
+        [ // Lv3 · 5단어
+          { w:['THE','ROCKET','FLIES','TO','MARS'],      ko:'로켓이 화성으로 날아가요' },
+          { w:['WE','EXPLORE','THE','WIDE','UNIVERSE'],  ko:'우리는 넓은 우주를 탐험해요' },
+          { w:['MY','SISTER','PLAYS','THE','PIANO'],     ko:'내 여동생은 피아노를 쳐요' },
+          { w:['THE','GALAXY','HAS','MANY','PLANETS'],   ko:'은하에는 행성이 많이 있어요' },
+          { w:['COURAGE','HELPS','US','REACH','DREAMS'], ko:'용기는 우리가 꿈에 닿게 해줘요' }
+        ],
+        [ // Lv4 · 6단어
+          { w:['I','READ','A','BOOK','EVERY','NIGHT'],          ko:'나는 매일 밤 책을 읽어요' },
+          { w:['WE','PLAY','IN','THE','SCHOOL','GARDEN'],       ko:'우리는 학교 정원에서 놀아요' },
+          { w:['MY','FATHER','DRIVES','A','BLUE','CAR'],        ko:'아버지는 파란 차를 운전해요' },
+          { w:['THE','SCIENTIST','STUDIES','THE','DEEP','OCEAN'], ko:'과학자가 깊은 바다를 연구해요' },
+          { w:['OUR','TEACHER','GIVES','US','NEW','HOMEWORK'],  ko:'선생님이 우리에게 새 숙제를 내주세요' }
+        ],
+        [ // Lv5 · 7단어
+          { w:['I','WANT','TO','VISIT','A','FOREIGN','COUNTRY'],    ko:'나는 외국에 가보고 싶어요' },
+          { w:['WE','LEARN','ENGLISH','TO','MEET','NEW','FRIENDS'], ko:'우리는 새 친구를 만나려고 영어를 배워요' },
+          { w:['THE','ASTRONAUT','LOOKS','AT','THE','BRIGHT','STARS'], ko:'우주비행사가 밝은 별들을 바라봐요' },
+          { w:['MY','MOTHER','COOKS','DINNER','FOR','OUR','FAMILY'], ko:'어머니가 우리 가족을 위해 저녁을 요리해요' },
+          { w:['SCIENCE','HELPS','US','BUILD','A','BETTER','FUTURE'], ko:'과학은 우리가 더 나은 미래를 만들게 도와줘요' }
+        ],
+        [ // Lv6 · 8단어 · 심화
+          { w:['I','HOPE','TO','TRAVEL','AROUND','THE','WHOLE','WORLD'],   ko:'나는 온 세계를 여행하고 싶어요' },
+          { w:['OUR','TEAM','WORKED','HARD','TO','WIN','THE','GAME'],      ko:'우리 팀은 경기에 이기려고 열심히 했어요' },
+          { w:['THE','BRAVE','PILOT','FLEW','THROUGH','THE','HEAVY','STORM'], ko:'용감한 조종사가 거센 폭풍을 뚫고 날았어요' },
+          { w:['WE','MUST','PROTECT','THE','EARTH','FOR','FUTURE','CHILDREN'], ko:'우리는 미래의 아이들을 위해 지구를 지켜야 해요' }
+        ]
+      ],
+      zh: [
+        [ // Lv1 · 3단어 · 기초
+          { w:['我','喜欢','苹果'], ko:'나는 사과를 좋아해요' },
+          { w:['狗','在','跑'],     ko:'개가 달려요' },
+          { w:['我们','读','书'],   ko:'우리는 책을 읽어요' },
+          { w:['她','喝','牛奶'],   ko:'그녀는 우유를 마셔요' },
+          { w:['鸟','会','飞'],     ko:'새는 날 수 있어요' },
+          { w:['太阳','很','亮'],   ko:'해가 밝아요' },
+          { w:['猫','爱','吃鱼'],   ko:'고양이는 생선을 좋아해요' }
+        ],
+        [ // Lv2 · 4단어 · 생활
+          { w:['我','每天','去','学校'],   ko:'나는 매일 학교에 가요' },
+          { w:['我','的','朋友','很好'],   ko:'내 친구는 좋은 사람이에요' },
+          { w:['今天','的','天气','很好'], ko:'오늘 날씨가 좋아요' },
+          { w:['她','打开','了','窗户'],   ko:'그녀가 창문을 열었어요' },
+          { w:['老师','帮助','我们','学习'], ko:'선생님이 우리 공부를 도와줘요' },
+          { w:['我们','一起','过','桥'],   ko:'우리는 함께 다리를 건너요' }
+        ],
+        [ // Lv3 · 5단어
+          { w:['火箭','飞','向','火星','了'],     ko:'로켓이 화성으로 날아갔어요' },
+          { w:['我们','一起','探索','广大','宇宙'], ko:'우리는 함께 넓은 우주를 탐험해요' },
+          { w:['我','妹妹','会','弹','钢琴'],     ko:'내 여동생은 피아노를 칠 줄 알아요' },
+          { w:['银河','里','有','很多','行星'],   ko:'은하에는 행성이 많이 있어요' },
+          { w:['勇气','让','我们','接近','梦想'], ko:'용기는 우리를 꿈에 가까이 가게 해요' }
+        ],
+        [ // Lv4 · 6단어
+          { w:['我','每天','晚上','都','读','书'],       ko:'나는 매일 밤 책을 읽어요' },
+          { w:['我们','在','学校','花园','里','玩'],     ko:'우리는 학교 정원에서 놀아요' },
+          { w:['爸爸','开','着','一辆','蓝色','汽车'],   ko:'아빠는 파란 차를 몰아요' },
+          { w:['科学家','正在','研究','深深','的','海洋'], ko:'과학자가 깊은 바다를 연구하고 있어요' },
+          { w:['老师','给','我们','布置','新','作业'],   ko:'선생님이 우리에게 새 숙제를 내주세요' }
+        ],
+        [ // Lv5 · 7단어
+          { w:['我','很','想','去','外国','旅行','一次'],       ko:'나는 외국에 한번 여행 가고 싶어요' },
+          { w:['我们','学','英语','是','为了','交','朋友'],     ko:'우리는 친구를 사귀려고 영어를 배워요' },
+          { w:['宇航员','正在','看','天上','明亮','的','星星'], ko:'우주비행사가 하늘의 밝은 별을 보고 있어요' },
+          { w:['妈妈','为','我们','全家','做','晚饭','了'],     ko:'어머니가 온 가족을 위해 저녁을 지으셨어요' },
+          { w:['科学','帮助','我们','创造','更','好','未来'],   ko:'과학은 우리가 더 좋은 미래를 만들게 도와줘요' }
+        ],
+        [ // Lv6 · 8단어 · 심화
+          { w:['我','希望','将来','能','环游','整个','世界','一次'], ko:'나는 언젠가 온 세계를 한번 여행하고 싶어요' },
+          { w:['我们','队','努力','练习','终于','赢','了','比赛'],   ko:'우리 팀은 열심히 연습해 결국 경기를 이겼어요' },
+          { w:['勇敢','的','飞行员','穿过','了','那','场','暴风雨'], ko:'용감한 조종사가 그 폭풍을 뚫고 지나갔어요' },
+          { w:['我们','应该','为','将来','的','孩子','保护','地球'], ko:'우리는 미래의 아이들을 위해 지구를 지켜야 해요' }
+        ]
+      ]
+    };
+
+    let score = 0, stage = 1, lives = 3, cleared = 0, timeLeft = 240;
     let gameActive = true;
     let wave = null;
     const built = [];
-    const usedIdx = [[],[],[]];
+    const usedIdx = LEVELS.map(() => []);
 
     function pick(arr, n) {
       const pool = arr.slice(), out = [];
@@ -441,25 +519,26 @@
       if (!gameActive) return;
       field.querySelectorAll('.mon').forEach(m => m.remove());
 
-      const bank = SENTENCES[stage-1];
+      const bank = BANKS[lang][stage-1];
       let idx = Math.floor(Math.random()*bank.length);
       let guard = 0;
       while (usedIdx[stage-1].includes(idx) && guard++ < 20) idx = Math.floor(Math.random()*bank.length);
       usedIdx[stage-1].push(idx);
       const S = bank[idx];
 
-      wave = { sentence: S, words: S.en, next: 0, monsters: [], failed: false };
+      wave = { sentence: S, words: S.w, next: 0, monsters: [], failed: false };
       sentKo.textContent = '🎯 ' + S.ko;
       renderSlots();
 
       // 매 웨이브 서로 다른 괴물 종을 뽑는다 (8종 전부 등장)
-      const shuffledCreatures = pick(CREATURES, S.en.length);
-      shuffledCreatures.forEach((c, k) => setTimeout(() => sfxGrowl(c.pitch), k * 260));
+      const shuffledCreatures = pick(CREATURES, S.w.length);
+      shuffledCreatures.forEach((c, k) => setTimeout(() => sfxGrowl(c.pitch), k * 220));
       const now = performance.now();
-      const [lo,hi] = SPEED[stage-1];
+      const [lo,hi] = LEVELS[stage-1].dur;
       const zonePool = pick([0,1,2,3], 4);   // 처음 4마리는 서로 다른 면에서 등장
+      wave.sizeK = 1 / Math.sqrt(S.w.length / 3);   // 많이 몰려올수록 개체는 작게
 
-      S.en.forEach((w, i) => {
+      S.w.forEach((w, i) => {
         const cre = shuffledCreatures[i];
         const el = document.createElement('div');
         el.className = 'mon warpin';
@@ -478,7 +557,7 @@
         wave.monsters.push({
           el, face, tag: el.querySelector('.tag'),
           word: w, order: i, creature: cre,
-          born: now + i * rnd(180, 700),      // 시차를 두고 몰려나온다
+          born: now + i * rnd(140, 520),      // 시차를 두고 몰려나온다
           dur: rnd(lo, hi),                    // 괴물마다 다른 속도
           cur: start, from: start, to: start,
           moveStart: now, moveDur: 1, nextHopAt: 0,
@@ -520,7 +599,7 @@
 
           const depth = 0.05 + 0.95 * p * p;
           m._depth = depth;
-          m._d = Math.max(30, Math.min(W,H) * (0.09 + 0.60*depth));
+          m._d = Math.max(26, Math.min(W,H) * (0.09 + 0.60*depth) * (wave.sizeK || 1));
           m._x = vpx + m.cur.dx * (W*0.46*depth);
           m._y = vpy + m.cur.dy * (H*0.42*depth) + Math.sin(now/190 + m.phase)*6*depth;
         }
@@ -599,8 +678,10 @@
 
     function speak(text, rate) {
       try {
-        const u = new SpeechSynthesisUtterance(text.toLowerCase());
-        u.lang='en-US'; u.rate = rate || 0.95;
+        const zh = (lang === 'zh');
+        const u = new SpeechSynthesisUtterance(zh ? text : text.toLowerCase());
+        u.lang = zh ? 'zh-CN' : 'en-US';
+        u.rate = rate || (zh ? 0.85 : 0.95);
         speechSynthesis.cancel(); speechSynthesis.speak(u);
       } catch(e) {}
     }
@@ -661,22 +742,22 @@
 
       wave.monsters.forEach(o => { if (!o.dead) { o.dead = true; o.el.classList.add('flee'); } });
 
-      killPop.querySelector('.en').textContent = S.en.join(' ');
+      killPop.querySelector('.en').textContent = S.w.join(lang === 'zh' ? '' : ' ');
       killPop.querySelector('.ko').textContent = S.ko;
       killPop.querySelector('.pts').textContent = '문장 완성! +' + bonus;
       killPop.classList.remove('show'); void killPop.offsetWidth; killPop.classList.add('show');
-      setTimeout(()=>speak(S.en.join(' '), 0.9), 320);
+      setTimeout(()=>speak(S.w.join(lang === 'zh' ? '' : ' '), 0.9), 320);
       sfxClear();
 
       fetch('/api/games/space-monster/hit', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ score, creature:'sentence', stage, word: S.en.join(' ') })
+        body: JSON.stringify({ score, creature:'sentence', stage, word: S.w.join(lang === 'zh' ? '' : ' ') })
       }).catch(()=>{});
 
       wave.failed = true;   // 루프 정지
       if (cleared >= stage * SENTENCES_PER_STAGE) {
-        if (stage >= 3) { setTimeout(()=>endGame(true), 1500); return; }
-        stage++; stageEl.textContent = stage + '/3';
+        if (stage >= LEVELS.length) { setTimeout(()=>endGame(true), 1500); return; }
+        stage++; stageEl.textContent = stage + '/' + LEVELS.length;
       }
       setTimeout(startWave, 1800);
     }
@@ -733,7 +814,7 @@
         built.forEach(s => {
           const row = document.createElement('div');
           row.className = 'row';
-          row.innerHTML = '<span class="en">' + s.en.join(' ') + '</span><br><span class="ko">' + s.ko + '</span>';
+          row.innerHTML = '<span class="en">' + s.w.join(s.w.some(x=>/[一-鿿]/.test(x)) ? '' : ' ') + '</span><br><span class="ko">' + s.ko + '</span>';
           list.appendChild(row);
         });
       }
@@ -746,7 +827,7 @@
     });
     document.addEventListener('pointerdown', (e) => {
       if (modal.classList.contains('show')) return;
-      if (e.target && e.target.id === 'sfxBtn') return;
+      if (e.target && (e.target.id === 'sfxBtn' || e.target.id === 'langBtn')) return;
       ac();
       fire(e.clientX, e.clientY);
     });
@@ -754,11 +835,30 @@
     const timerInterval = setInterval(() => {
       if (!gameActive) return;
       timeLeft--; timerEl.textContent = timeLeft;
-      if (timeLeft <= 0) endGame(cleared >= 3);
+      if (timeLeft <= 0) endGame(cleared >= 6);
     }, 1000);
+
+    /* ═══ 언어 전환 ═══ */
+    function applyLang() {
+      langBtn.innerHTML = (lang === 'zh') ? '&#127760; 中文' : '&#127760; 영어';
+      document.querySelector('.quizbar .guide').innerHTML = (lang === 'zh')
+        ? '<b>어순대로</b> 괴물을 쏴서 중국어 문장을 완성하세요! &middot; 按顺序射击，组成句子！'
+        : '<b>어순대로</b> 괴물을 쏴서 문장을 완성하세요! &middot; Shoot the monsters in the right word order!';
+      try { localStorage.setItem('mangoi_game_lang', lang); } catch (e) {}
+    }
+    langBtn.onclick = (e) => {
+      e.stopPropagation();
+      lang = (lang === 'zh') ? 'en' : 'zh';
+      applyLang();
+      // 진행 중이던 웨이브를 새 언어로 다시 시작 (레벨·점수는 유지)
+      usedIdx.forEach(a => a.length = 0);
+      if (gameActive) { if (wave) wave.failed = true; startWave(); }
+    };
+    applyLang();
+    stageEl.textContent = stage + '/' + LEVELS.length;
 
     startWave();
   </script>
-<!-- BUILD:20260801091141 -->
+<!-- BUILD:20260801092135 -->
 </body>
 </html>
