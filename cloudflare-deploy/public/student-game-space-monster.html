@@ -605,22 +605,23 @@
         }
 
         // ── 2패스: 화면상 겹침 밀어내기 ──
-        for (let iter = 0; iter < 3; iter++) {
+        // 스프라이트는 세로가 더 길다(높이 = 폭×1.25) → 세로 여유를 더 크게 잡는다
+        for (let iter = 0; iter < 5; iter++) {
           for (let a = 0; a < live.length; a++) {
             for (let b = a + 1; b < live.length; b++) {
               const A = live[a], B = live[b];
-              const minSep = (A._d + B._d) * 0.40;
-              let ddx = B._x - A._x, ddy = (B._y - A._y) * 1.15;
-              let dist = Math.hypot(ddx, ddy);
-              if (dist < 0.001) { ddx = (a % 2 ? 1 : -1); ddy = 0; dist = 1; }
-              if (dist >= minSep) continue;
-              const push = (minSep - dist) / 2;
-              const ux = ddx / dist, uy = ddy / dist;
-              // 가까이 온(큰) 괴물일수록 덜 밀린다
               const sum = A._d + B._d;
+              const rx = sum * 0.46, ry = rx * 1.25;
+              let nx = (B._x - A._x) / rx, ny = (B._y - A._y) / ry;
+              let nd = Math.hypot(nx, ny);
+              if (nd < 0.001) { nx = (a % 2 ? 1 : -1); ny = 0.2; nd = Math.hypot(nx, ny); }
+              if (nd >= 1) continue;
+              const push = (1 - nd) / 2;
+              const ux = nx / nd, uy = ny / nd;
+              // 가까이 온(큰) 괴물일수록 덜 밀린다
               const wA = B._d / sum, wB = A._d / sum;
-              A._x -= ux * push * 2 * wA; A._y -= uy * push * 2 * wA;
-              B._x += ux * push * 2 * wB; B._y += uy * push * 2 * wB;
+              A._x -= ux * push * rx * 2 * wA; A._y -= uy * push * ry * 2 * wA;
+              B._x += ux * push * rx * 2 * wB; B._y += uy * push * ry * 2 * wB;
             }
           }
         }
@@ -859,6 +860,6 @@
 
     startWave();
   </script>
-<!-- BUILD:20260801093944 -->
+<!-- BUILD:20260801095234 -->
 </body>
 </html>
