@@ -288,15 +288,33 @@ body{
     (DATA.resources || []).forEach(function(f){ add(f.name); });
     if (!want.length) return;                 // 번역할 게 없으면 요청 자체를 안 한다
 
+    // 🏷️ 고유명사 보호 — 번역기에 넘기기 **전에** 영문으로 바꿔 둔다.
+    //   실측(2026-08-02): '망고아이' 가 m2m100 에서 "Mangosteen"(망고스틴), llama 에서 "Mango Eye"
+    //   로 나왔다. 회사 이름이 매번 다른 과일이 되는 셈이라 그냥 두면 안 된다.
+    //   이미 영어인 낱말은 모델이 그대로 두므로, 미리 바꿔 놓는 게 가장 확실하다.
+    var GLOSSARY = [['망고아이', 'Mangoi'], ['망고아이지', 'Mangoi']];
+    var pairs = want.slice(0, 50).map(function(orig){
+      var src = orig;
+      GLOSSARY.forEach(function(g){ src = src.split(g[0]).join(g[1]); });
+      return { orig: orig, src: src };
+    });
+
     fetch('/api/translate', {
       method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ texts: want.slice(0, 50), target: 'en' })   // 서버 상한 50개
+      // mode:'chat' — 기본 번역모델(m2m100)은 짧은 제목에서 오역이 심하다(실측:
+      //   '미분류 레슨'→"Minority lessons", '멘토-멘티'→"Mentor-Mentor", '5월 휴강 안내'→"Leave in May").
+      //   chat 모드는 학원 맥락이 들어간 언어모델이라 같은 문장을 제대로 옮긴다.
+      body: JSON.stringify({ texts: pairs.map(function(p){ return p.src; }), target: 'en', mode: 'chat' })
     })
     .then(function(r){ return r.json(); })
     .then(function(j){
       if (!j || !j.ok || !j.map) return;
       var got = 0;
-      for (var k in j.map){ if (j.map[k] && j.map[k] !== k){ TR[k] = j.map[k]; got++; } }
+      // 응답은 '보낸 문장' 기준이므로 원문 키로 되돌려 저장한다(화면은 원문으로 조회한다).
+      pairs.forEach(function(p){
+        var out = j.map[p.src];
+        if (out && out !== p.orig){ TR[p.orig] = out; got++; }
+      });
       if (!got) return;
       try { localStorage.setItem(TRK, JSON.stringify(TR)); } catch (e) { /* 용량 초과는 무시 */ }
       renderNotices(DATA.notices || []);
@@ -873,6 +891,6 @@ body{
   load();
 })();
 </script>
-<!-- BUILD:20260803000821 -->
+<!-- BUILD:20260803001609 -->
 </body>
 </html>
