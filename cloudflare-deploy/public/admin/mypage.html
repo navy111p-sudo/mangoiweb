@@ -346,6 +346,25 @@
     transition: all 0.2s;
   }
   .field input::placeholder { color: #4a5670; }
+
+  /* 👁 비밀번호 보기 — 로그인 화면(admin/login.html #pwEye)에는 있었는데 여기만 없었다.
+     새 비밀번호를 오타로 저장하면 본인도 모른 채 로그인이 막힌다(실제로 겪음).
+     ⚠️ 눈 버튼이 글자를 덮지 않도록 input 오른쪽 여백을 반드시 함께 준다. */
+  .pw-wrap { position: relative; }
+  /* ⚠️ 선택자를 `.field .pw-wrap …` 로 쓴 이유: 아래(모바일 미디어쿼리)의
+     `.field input[type="password"] { padding: 13px 15px }` 이 **같은 명시도이면서 뒤에 있어**
+     padding-right 를 덮어쓴다. 그러면 긴 비밀번호가 눈 아이콘 밑으로 들어가 글자가 가려진다.
+     (실측으로 확인 — padding-right 가 15px 로 나왔다) */
+  .field .pw-wrap input[type="password"],
+  .field .pw-wrap input[type="text"] { padding-right: 52px; }
+  .pw-wrap .pw-eye {
+    position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+    background: transparent; border: 0; cursor: pointer; padding: 6px 8px;
+    border-radius: 8px; font-size: 17px; line-height: 1; opacity: .75;
+    min-width: 40px; min-height: 40px;   /* 폰에서 누를 수 있는 크기 */
+  }
+  .pw-wrap .pw-eye:hover { opacity: 1; }
+  .pw-wrap .pw-eye:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; opacity: 1; }
   .field input:focus {
     outline: none;
     border-color: var(--amber-1);
@@ -561,6 +580,7 @@
   .tab { font-size: 15px; padding: 11px 20px; }
   .field label { font-size: 14px; }
   .field input[type="text"], .field input[type="email"], .field input[type="tel"], .field input[type="password"] { font-size: 16.5px; padding: 13px 15px; }
+  /* 폰에서도 눈 버튼이 글자를 가리지 않게 — 오른쪽 여백 확보는 .pw-wrap input 규칙에서 처리 */
   .field .hint { font-size: 13px; }
   .btn-primary { font-size: 15.5px; padding: 13px 28px; }
   .info-box { font-size: 13.5px; }
@@ -1983,15 +2003,15 @@
       <div class="form-grid">
         <div class="field full">
           <label><span data-ko="🔓 현재 비밀번호" data-en="🔓 Current password">🔓 현재 비밀번호</span> <span class="req">*</span></label>
-          <input id="pwCur" type="password" autocomplete="current-password" placeholder="현재 사용 중인 비밀번호" data-ko-ph="현재 사용 중인 비밀번호" data-en-ph="Your current password">
+          <div class="pw-wrap"><input id="pwCur" type="password" autocomplete="current-password" placeholder="현재 사용 중인 비밀번호" data-ko-ph="현재 사용 중인 비밀번호" data-en-ph="Your current password"><button type="button" class="pw-eye" data-eye="pwCur" tabindex="-1" aria-label="Show password" title="비밀번호 보기/숨기기">👁</button></div>
         </div>
         <div class="field">
           <label><span data-ko="🆕 새 비밀번호" data-en="🆕 New password">🆕 새 비밀번호</span> <span class="req">*</span></label>
-          <input id="pwNew" type="password" autocomplete="new-password" minlength="6" placeholder="6자 이상" data-ko-ph="6자 이상" data-en-ph="At least 6 characters">
+          <div class="pw-wrap"><input id="pwNew" type="password" autocomplete="new-password" minlength="6" placeholder="6자 이상" data-ko-ph="6자 이상" data-en-ph="At least 6 characters"><button type="button" class="pw-eye" data-eye="pwNew" tabindex="-1" aria-label="Show password" title="비밀번호 보기/숨기기">👁</button></div>
         </div>
         <div class="field">
           <label><span data-ko="✅ 새 비밀번호 확인" data-en="✅ Confirm new password">✅ 새 비밀번호 확인</span> <span class="req">*</span></label>
-          <input id="pwNew2" type="password" autocomplete="new-password" minlength="6" placeholder="다시 한 번 입력" data-ko-ph="다시 한 번 입력" data-en-ph="Enter it again">
+          <div class="pw-wrap"><input id="pwNew2" type="password" autocomplete="new-password" minlength="6" placeholder="다시 한 번 입력" data-ko-ph="다시 한 번 입력" data-en-ph="Enter it again"><button type="button" class="pw-eye" data-eye="pwNew2" tabindex="-1" aria-label="Show password" title="비밀번호 보기/숨기기">👁</button></div>
         </div>
       </div>
       <button class="btn-primary" id="pwSaveBtn" data-ko="🔐 비밀번호 변경" data-en="🔐 Change password">🔐 비밀번호 변경</button>
@@ -2919,6 +2939,21 @@
   });
 
   // ── 로그아웃 ──
+  /* 👁 비밀번호 보기/숨기기 — 비밀번호 칸 3개(현재·새·확인) 공용.
+     버튼마다 리스너를 달지 않고 위임 하나로 처리한다(칸이 늘어도 그대로 동작).
+     data-eye 에 대상 input 의 id 가 들어 있다. */
+  document.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('.pw-eye[data-eye]') : null;
+    if (!btn) return;
+    e.preventDefault();
+    var input = el(btn.getAttribute('data-eye'));
+    if (!input) return;
+    var show = (input.type === 'password');
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '🙈' : '👁';   // 🙈 / 👁
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  });
+
   if (el('logoutBtn')) el('logoutBtn').addEventListener('click', function(e){
     e.preventDefault();
     fetch('/api/admin/logout', { method:'POST', credentials:'include' })
