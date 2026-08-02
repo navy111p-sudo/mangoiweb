@@ -1784,7 +1784,17 @@ const worker = {
     //   독립 HTML 한 장. 인증·역할 분기는 위 미들웨어에서 이미 끝났다.
     if (path === '/teacher' || path === '/teacher/') {
       const r = new Request(new URL('/teacher.html' + url.search, request.url).toString(), request);
-      return env.ASSETS.fetch(r);
+      const tResp = await env.ASSETS.fetch(r);
+      // 🚀 확장자 없는 경로는 아래 '정적자산' 블록(경로에 `.확장자`가 있어야 진입)을 타지 않는다.
+      //   그래서 여기서 직접 ETag/304 를 달아 주지 않으면, 강사가 페이지를 열 때마다
+      //   36KB HTML 이 **매번 통째로** 다시 내려간다. 필리핀 회선에서 이게 체감 지연이 된다.
+      //   BUILD_STAMP 는 '배포 때만 바뀌는' 검증자라 안전하게 304 를 줄 수 있다.
+      //   ※ /admin/mypage 등 다른 확장자 없는 경로도 같은 상태다(이번 범위 밖).
+      const tHeaders = new Headers(tResp.headers);
+      tHeaders.set('Cache-Control', 'no-cache');   // 캐시 금지가 아니라 '쓰기 전 재검증'
+      const tNotMod = htmlEtag304(request, '/teacher.html', env, tHeaders);
+      if (tNotMod) return tNotMod;
+      return new Response(tResp.body, { status: tResp.status, headers: tHeaders });
     }
 
     // Static assets (실제 파일 확장자가 있는 요청)

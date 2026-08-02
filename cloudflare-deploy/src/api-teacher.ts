@@ -91,15 +91,40 @@ export async function handleTeacherApi(
   const binds: any[] = [];
   if (actor.username) { conds.push('cs.teacher_id = ?'); binds.push(actor.username); }
   const tname = String(actor.name || '').trim();
-  if (tname) {
-    try {
-      const rs = await env.DB.prepare(
-        `SELECT CAST(id AS TEXT) AS tid FROM teachers
-          WHERE name = ? OR name LIKE ('%' || ? || '%') OR (length(name) > 0 AND ? LIKE ('%' || name || '%'))`
-      ).bind(tname, tname, tname).all<any>();
-      for (const x of (rs.results || [])) { if (x.tid) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); } }
-    } catch (e) { console.warn('[teacher-portal] teacher id lookup:', (e as any)?.message); }
-  }
+
+  // ⚡ 서로 의존하지 않는 조회는 **한꺼번에** 던진다.
+  //   예전엔 강사ID조회 → 예약 → 공지 → 자료 → 평점 을 하나씩 await 해서 D1 왕복이
+  //   그대로 5번 쌓였다(필리핀처럼 지연이 큰 회선일수록 그대로 대기시간이 된다).
+  //   지금은 [강사ID·공지·자료·평점]을 동시에 → 예약 1회. 왕복 5회가 2회로 줄었다.
+  //   ⚠️ 예약(class_schedules)만은 강사ID 결과가 있어야 조건을 만들 수 있어 뒤에 남는다.
+  //   ⚠️ 개별 실패가 화면 전체를 죽이지 않도록 각각 catch 로 빈 값을 준다(첫 화면 우선).
+  const empty = { results: [] as any[] };
+  const [tidRs, noticeRs, resourceRs, ratingRow] = await Promise.all([
+    tname
+      ? env.DB.prepare(
+          `SELECT CAST(id AS TEXT) AS tid FROM teachers
+            WHERE name = ? OR name LIKE ('%' || ? || '%') OR (length(name) > 0 AND ? LIKE ('%' || name || '%'))`
+        ).bind(tname, tname, tname).all<any>()
+         .catch((e) => { console.warn('[teacher-portal] teacher id lookup:', e?.message); return empty; })
+      : Promise.resolve(empty),
+    env.DB.prepare(
+      `SELECT id, title, body, pinned, created_at FROM community_posts
+        ORDER BY pinned DESC, created_at DESC LIMIT 5`
+    ).all<any>().catch((e) => { console.warn('[teacher-portal] notices:', e?.message); return empty; }),
+    env.DB.prepare(
+      `SELECT id, name, kind, level, size_bytes FROM textbook_files
+        WHERE active = 1 ORDER BY created_at DESC LIMIT 8`
+    ).all<any>().catch((e) => { console.warn('[teacher-portal] resources:', e?.message); return empty; }),
+    tname
+      ? env.DB.prepare(
+          `SELECT COUNT(*) AS n, AVG(score) AS avg FROM class_ratings
+            WHERE teacher_name = ? AND created_at >= ?`
+        ).bind(tname, now - 90 * 86400 * 1000).first<any>()
+         .catch((e) => { console.warn('[teacher-portal] rating:', e?.message); return null; })
+      : Promise.resolve(null),
+  ]);
+
+  for (const x of (tidRs.results || [])) { if (x.tid) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); } }
 
   const classes: any[] = [];
   if (conds.length) {
@@ -170,46 +195,24 @@ export async function handleTeacherApi(
     classes.sort((a, b) => a.start_ts - b.start_ts);
   }
 
-  // ── 본사 공지 (고정글 우선, 최근 5건) ──
-  let notices: any[] = [];
-  try {
-    const rs = await env.DB.prepare(
-      `SELECT id, title, body, pinned, created_at FROM community_posts
-        ORDER BY pinned DESC, created_at DESC LIMIT 5`
-    ).all<any>();
-    notices = (rs.results || []).map((n: any) => ({
-      id: n.id, title: n.title, pinned: !!n.pinned, created_at: n.created_at,
-      // 본문은 목록에서 미리보기만 — 전문을 다 실으면 첫 화면 응답이 무거워진다.
-      excerpt: String(n.body || '').replace(/\s+/g, ' ').slice(0, 140),
-    }));
-  } catch (e) { console.warn('[teacher-portal] notices:', (e as any)?.message); }
+  // ── 위 Promise.all 결과를 화면용 모양으로 정리 (여기서는 DB 접근 없음) ──
+  const notices = (noticeRs.results || []).map((n: any) => ({
+    id: n.id, title: n.title, pinned: !!n.pinned, created_at: n.created_at,
+    // 본문은 목록에서 미리보기만 — 전문을 다 실으면 첫 화면 응답이 무거워진다.
+    excerpt: String(n.body || '').replace(/\s+/g, ' ').slice(0, 140),
+  }));
 
-  // ── 자주 쓰는 교재 파일 (최근 8건) ──
-  let resources: any[] = [];
-  try {
-    const rs = await env.DB.prepare(
-      `SELECT id, name, kind, level, size_bytes FROM textbook_files
-        WHERE active = 1 ORDER BY created_at DESC LIMIT 8`
-    ).all<any>();
-    resources = (rs.results || []).map((f: any) => ({
-      id: f.id, name: f.name, kind: f.kind, level: f.level, size_bytes: f.size_bytes,
-      url: `/api/textbook-files/${f.id}/raw`,
-    }));
-  } catch (e) { console.warn('[teacher-portal] resources:', (e as any)?.message); }
+  const resources = (resourceRs.results || []).map((f: any) => ({
+    id: f.id, name: f.name, kind: f.kind, level: f.level, size_bytes: f.size_bytes,
+    url: `/api/textbook-files/${f.id}/raw`,
+  }));
 
-  // ── 내 평점 (무기명 — 강사에게 학생 신원은 절대 노출하지 않는다) ──
-  let rating: any = { avg: null, count: 0, days: 90 };
-  if (tname) {
-    try {
-      const since = now - 90 * 86400 * 1000;
-      const r: any = await env.DB.prepare(
-        `SELECT COUNT(*) AS n, AVG(score) AS avg FROM class_ratings
-          WHERE teacher_name = ? AND created_at >= ?`
-      ).bind(tname, since).first();
-      const n = Number(r?.n || 0);
-      rating = { avg: n ? Math.round(Number(r.avg) * 10) / 10 : null, count: n, days: 90 };
-    } catch (e) { console.warn('[teacher-portal] rating:', (e as any)?.message); }
-  }
+  // 내 평점 (무기명 — 강사에게 학생 신원은 절대 노출하지 않는다)
+  const _rn = Number((ratingRow as any)?.n || 0);
+  const rating = {
+    avg: _rn ? Math.round(Number((ratingRow as any).avg) * 10) / 10 : null,
+    count: _rn, days: 90,
+  };
 
   return json({
     ok: true,

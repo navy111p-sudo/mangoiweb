@@ -168,6 +168,11 @@ body{
 
   <div id="boot" class="card"><div class="empty" data-en="Loading your classes…" data-ko="수업을 불러오는 중…">Loading your classes…</div></div>
 
+  <!-- 캐시를 그렸는데 갱신에 실패했을 때만 뜬다. 오래된 시간표를 '지금 것'으로 믿게 두지 않는다. -->
+  <div class="card err" id="stale" hidden
+       data-en="Offline — showing the last information received. Tap Refresh when your connection is back."
+       data-ko="오프라인 — 마지막으로 받은 정보입니다. 연결이 되면 새로고침을 눌러 주세요.">Offline — showing the last information received.</div>
+
   <!-- ⚠️ 피드백 미작성 경고 — 강사 급여가 실제로 깎이는 지점이라 수업 목록보다 위에 둔다.
        첫 화면을 막지 않도록 월간 집계(lazy)가 도착한 뒤에만 나타난다. -->
   <div class="card alert" id="c-alert" hidden>
@@ -228,7 +233,8 @@ body{
     try { localStorage.setItem('mangoi_lang', LANG); localStorage.setItem('mangoi_lang_by','user'); } catch(e){}
     applyLang(); if (DATA) render(DATA);
   };
-  document.getElementById('reload').onclick = function(){ load(); };
+  // 새로고침을 직접 누른 것은 "지금 최신을 보여달라"는 뜻 — 캐시를 건너뛴다.
+  document.getElementById('reload').onclick = function(){ load(true); };
 
   var DATA = null;
   var SKEW = 0;   // 서버 시각 - 단말 시각. 단말 시계가 틀려도 입장창이 어긋나지 않게 보정.
@@ -246,8 +252,36 @@ body{
     return ('0'+d.getUTCHours()).slice(-2) + ':' + ('0'+d.getUTCMinutes()).slice(-2);
   }
 
-  // ── 첫 화면: API 1회 ──────────────────────────────────────────────────────
-  function load(){
+  // ── 캐시 ──────────────────────────────────────────────────────────────────
+  //   왜: 네트워크를 아무리 줄여도 '요청 → 응답' 한 번은 남고, 필리핀 회선에서는 그 한 번이
+  //   수백 ms 다. 그 동안 강사는 빈 화면을 본다. 지난번 응답을 즉시 그려 두고 뒤에서 갱신하면
+  //   두 번째 접속부터 **체감 로딩이 0** 이 된다.
+  //   ⚠️ 안전장치: 날짜(KST)가 바뀌면 캐시를 버린다. 어제 시간표를 오늘 것처럼 보여주면 안 된다.
+  var CK = 'mangoi_teacher_portal_v1';
+  function todayKST(){ return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10); }
+
+  function paintCached(){
+    try {
+      var c = JSON.parse(localStorage.getItem(CK) || 'null');
+      if (!c || c.today !== todayKST()) return false;
+      DATA = c;
+      // 시계 오차는 단말 고유값이라 지난번 값을 그대로 쓰는 게 0 보다 정확하다.
+      SKEW = Number(c._skew) || 0;
+      render(c);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function saveCache(d){
+    try {
+      d._skew = SKEW;
+      localStorage.setItem(CK, JSON.stringify(d));
+    } catch (e) { /* 용량 초과 등은 무시 — 캐시는 있으면 좋은 것일 뿐 */ }
+  }
+
+  // ── 첫 화면 ───────────────────────────────────────────────────────────────
+  function load(force){
+    var hadCache = paintCached();     // 있으면 즉시 그린다(네트워크 대기 없음)
     fetch('/api/teacher/portal', { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
       .then(function(r){
         if (r.status === 401) { location.href = '/admin/login?next=%2Fteacher'; throw new Error('auth'); }
@@ -257,16 +291,29 @@ body{
         if (!d || !d.ok) throw new Error((d && (EN() ? d.message_en : d.message)) || 'load failed');
         DATA = d;
         SKEW = (d.now || Date.now()) - Date.now();
+        setStale(false);
         render(d);
-        loadMonthStats();      // 무거운 집계는 첫 페인트 뒤에 (첫 화면을 막지 않는다)
+        saveCache(d);
+        loadMonthStats(force);  // 무거운 집계는 첫 페인트 뒤에 (첫 화면을 막지 않는다)
       })
       .catch(function(e){
         if (e && e.message === 'auth') return;
+        if (hadCache) {
+          // 캐시를 이미 그려 놨다면 화면을 지우지 않는다. 다만 **최신이 아님을 반드시 알린다** —
+          // 오래된 시간표를 지금 것으로 믿고 수업을 놓치면 강사가 공제를 맞는다.
+          setStale(true);
+          return;
+        }
         document.getElementById('boot').innerHTML =
           '<div class="err">' + esc(T('Could not load. Check your connection and tap Refresh.',
                                       '불러오지 못했습니다. 연결을 확인하고 새로고침을 눌러 주세요.')) +
           '<br><small>' + esc(e && e.message || '') + '</small></div>';
       });
+  }
+
+  function setStale(on){
+    var el = document.getElementById('stale');
+    if (el) el.hidden = !on;
   }
 
   function render(d){
@@ -288,15 +335,38 @@ body{
       (d.classes || []).length ? '(' + d.classes.length + ')' : '';
   }
 
+  var lastSig = null;   // 마지막으로 그린 상태의 지문 (불필요한 재그리기 차단)
+
   function renderClasses(list){
     var box = document.getElementById('classes');
     document.getElementById('c-classes').hidden = false;
     if (!list.length){
+      if (lastSig === 'empty') return;
+      lastSig = 'empty';
       box.innerHTML = '<div class="empty">' +
         esc(T('No classes scheduled today. Enjoy your day!', '오늘 예정된 수업이 없습니다.')) + '</div>';
       return;
     }
     var t = now(), h = '';
+
+    // ⚡ 60초마다 도는 tick 이 매번 innerHTML 을 통째로 갈아엎으면, 바뀐 게 없어도
+    //   저사양 폰에서 DOM 재생성 + 리플로우가 일어나 화면이 한 번씩 '움찔'한다.
+    //   실제로 바뀌는 건 (수업 상태 · 남은 분) 뿐이므로 그것만 지문으로 만들어 비교하고,
+    //   같으면 아무것도 하지 않는다. 대부분의 tick 은 여기서 끝난다.
+    var sig = LANG + '|';
+    for (var s=0;s<list.length;s++){
+      var sc = list[s];
+      var st = (t > sc.close_at_ts) ? 'done'
+             : (t >= sc.open_at_ts) ? ((t >= sc.start_ts) ? 'live' : 'open')
+             : ('w' + Math.max(1, Math.round((sc.open_at_ts - t) / 60000)));
+      // 상태뿐 아니라 '표시되는 내용'도 지문에 넣는다 — 캐시를 그린 뒤 서버 응답에서
+      // 학생·교재가 바뀌었는데 상태만 같아서 옛 내용이 남는 일을 막는다.
+      sig += sc.schedule_id + ':' + st + ':' + sc.start_time + ':' + (sc.student_name || '')
+           + ':' + (sc.level || '') + ':' + (sc.textbook || '') + ',';
+    }
+    if (sig === lastSig) return;
+    lastSig = sig;
+
     for (var i=0;i<list.length;i++){
       var c = list[i];
       // 서버가 준 시간창을 단말 시계(보정됨)로 다시 판정 — 페이지를 열어 둔 채 시간이
@@ -486,36 +556,68 @@ body{
 
   // ── 월간 집계 (lazy) ─────────────────────────────────────────────────────
   //   서버가 강사 로그인일 때 teacher_name 을 본인 것으로 강제하므로 파라미터를 보내지 않는다.
-  function loadMonthStats(){
+  //   ⚠️ 이 API 는 서버에서 '그 달 전체 강사'의 수업료를 계산한 뒤 본인 것만 걸러 준다 —
+  //      우리 화면에서 가장 무거운 호출이다. 강사는 하루에도 여러 번 이 페이지를 열기 때문에
+  //      **10분 캐시**를 둬서 매번 그 계산을 시키지 않는다(서버 부하 + 강사 대기 둘 다 줄어든다).
+  var MK = 'mangoi_teacher_month_v1';
+  var MONTH_TTL = 10 * 60 * 1000;
+
+  function loadMonthStats(force){
     var d = new Date();
+    var key = d.getFullYear() + '-' + (d.getMonth()+1);
+    if (!force){
+      try {
+        var c = JSON.parse(localStorage.getItem(MK) || 'null');
+        if (c && c.key === key && (Date.now() - c.at) < MONTH_TTL){
+          applyMonthStats(c.summary, c.lessons || []);
+          return;                       // 신선하면 요청 자체를 안 한다
+        }
+      } catch (e) {}
+    }
     fetch('/api/admin/payroll/lessons?year=' + d.getFullYear() + '&month=' + (d.getMonth()+1),
           { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
       .then(function(r){ return r.json(); })
       .then(function(j){
         if (!j || !j.ok || !j.summary) return;
-        var s = j.summary;
-        document.getElementById('k-done').textContent = s.finish_count || 0;
-        document.getElementById('k-pen').textContent =
-          (s.teacher_no_show_count || 0) + (s.no_feedback_count || 0);
-        // 같은 응답으로 피드백 경고까지 그린다 — 요청을 하나도 더 쓰지 않는다.
-        renderFeedbackAlert(j.lessons || []);
+        // 캐시에는 화면에 쓰는 것만 남긴다 — 수업 원본을 통째로 저장하면
+        // localStorage 파싱 비용이 저사양 폰에서 그대로 렉이 된다.
+        var slim = (j.lessons || []).filter(function(l){
+          return l.status === 'finish' && l.feedback_ok === false;
+        }).map(function(l){
+          var fee = 0;
+          (l.deductions || []).forEach(function(x){ if (x.code === 'no_feedback_day') fee += (x.amount || 0); });
+          return { date: l.date, start_time: l.start_time, student_name: l.student_name, fee: fee };
+        });
+        try {
+          localStorage.setItem(MK, JSON.stringify({
+            key: (new Date()).getFullYear() + '-' + ((new Date()).getMonth()+1),
+            at: Date.now(), summary: j.summary, lessons: slim
+          }));
+        } catch (e) {}
+        applyMonthStats(j.summary, slim);
       })
       .catch(function(){ /* 집계 실패는 첫 화면을 망치지 않는다 — '–' 로 남겨 둔다 */ });
   }
 
+  function applyMonthStats(s, missing){
+    document.getElementById('k-done').textContent = s.finish_count || 0;
+    document.getElementById('k-pen').textContent =
+      (s.teacher_no_show_count || 0) + (s.no_feedback_count || 0);
+    renderFeedbackAlert(missing || []);
+  }
+
   // ── ⚠️ 피드백 미작성 경고 ──────────────────────────────────────────────
-  //   공제 금액은 서버가 수업별로 이미 계산해 둔 deductions[] 중 code='no_feedback_day' 만 합산한다.
-  //   (지각·노쇼 공제까지 더하면 "피드백 때문에 깎였다"는 잘못된 인상을 준다)
-  function renderFeedbackAlert(lessons){
-    var miss = lessons.filter(function(l){ return l.status === 'finish' && l.feedback_ok === false; });
-    if (!miss.length) return;                       // 미작성이 없으면 카드 자체를 안 띄운다
+  //   입력은 loadMonthStats 가 걸러 둔 슬림 배열 {date,start_time,student_name,fee}.
+  //   fee 는 서버가 계산한 deductions[] 중 code='no_feedback_day' 만 합산한 값이다
+  //   (지각·노쇼 공제까지 더하면 "피드백 때문에 깎였다"는 잘못된 인상을 준다).
+  function renderFeedbackAlert(miss){
+    var box = document.getElementById('c-alert');
+    if (!miss || !miss.length){ box.hidden = true; return; }   // 다 쓰면 카드가 사라져야 한다
+    box.hidden = false;
     var fee = 0;
-    miss.forEach(function(l){
-      (l.deductions || []).forEach(function(d){ if (d.code === 'no_feedback_day') fee += (d.amount || 0); });
-    });
+    miss.forEach(function(l){ fee += (l.fee || 0); });
     miss.sort(function(a, b){ return String(b.date).localeCompare(String(a.date)); });
 
-    document.getElementById('c-alert').hidden = false;
     document.getElementById('alert-sum').innerHTML =
       '<div class="sum"><b>' + miss.length + '</b> ' +
       esc(T('lesson(s) this month have no feedback yet', '건이 이번 달 피드백 미작성입니다')) +
@@ -598,7 +700,9 @@ body{
     .then(function(j){
       if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
       loadDrafts();
-      loadMonthStats();     // 승인하면 공제가 풀릴 수 있으므로 경고·KPI 를 다시 계산한다
+      // 승인하면 공제가 풀릴 수 있으므로 경고·KPI 를 다시 계산한다.
+      // force=true — 이때만은 10분 캐시를 무시해야 방금 한 일이 화면에 반영된다.
+      loadMonthStats(true);
     })
     .catch(function(){
       btn.disabled = false;
@@ -697,6 +801,6 @@ body{
   load();
 })();
 </script>
-<!-- BUILD:20260802230012 -->
+<!-- BUILD:20260802232308 -->
 </body>
 </html>
