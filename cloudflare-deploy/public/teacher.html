@@ -57,10 +57,17 @@ body{
   min-height:44px;
 }
 .tbtn:active{background:#eef1f5}
-/* 좁은 폰에서 버튼 4개가 두 줄로 흩어지지 않게 여백만 줄인다 */
+.tbtn .lbl{margin-left:5px}
+/* 로그아웃은 되돌리기 어려운 동작이라 눈으로 구분되게 — 단 겁주지는 않는 톤 */
+.tbtn-out{color:#8c1d18;border-color:#e6b3ae}
+.tbtn-out:active{background:#fdecea}
+/* 좁은 폰에서 버튼 5개가 두 줄로 흩어지지 않게: 여백을 줄이고
+   뜻이 명확한 아이콘 버튼(홈·새로고침)은 글자를 접는다 */
 @media (max-width:420px){
   .tnav{gap:5px}
-  .tbtn{padding:8px 9px;font-size:13px}
+  /* 글자를 접은 아이콘 버튼이 너무 좁아지지 않게 — 폭도 44px 은 돼야 손가락이 맞는다 */
+  .tbtn{padding:8px 9px;font-size:13px;min-width:44px;justify-content:center}
+  .tbtn .lbl{display:none}
 }
 
 .card{background:#fff;border:1px solid #dde3ea;border-radius:10px;padding:14px;margin-bottom:12px}
@@ -173,11 +180,14 @@ body{
 
   <div class="top">
     <h1 id="hi">Loading…<span id="today"></span></h1>
+    <!-- 좁은 폰에서 버튼 5개가 두 줄로 접히지 않게, 뜻이 명확한 두 개(홈·새로고침)는
+         아이콘만 남기고 글자를 숨긴다(.lbl). 화면낭독기용 이름은 aria-label 로 남겨 둔다. -->
     <nav class="tnav">
       <button class="tbtn" id="back" type="button" data-en="← Back" data-ko="← 뒤로">← Back</button>
-      <a class="tbtn" id="home" href="/" data-en="🏠 Home" data-ko="🏠 홈">🏠 Home</a>
+      <a class="tbtn" id="home" href="/" aria-label="Home"><span aria-hidden="true">🏠</span><span class="lbl" data-en="Home" data-ko="홈">Home</span></a>
       <button class="tbtn" id="lang" type="button">한국어</button>
-      <button class="tbtn" id="reload" type="button" data-en="↻ Refresh" data-ko="↻ 새로고침">↻ Refresh</button>
+      <button class="tbtn" id="reload" type="button" aria-label="Refresh"><span aria-hidden="true">↻</span><span class="lbl" data-en="Refresh" data-ko="새로고침">Refresh</span></button>
+      <button class="tbtn tbtn-out" id="logout" type="button" data-en="Logout" data-ko="로그아웃">Logout</button>
     </nav>
   </div>
 
@@ -269,6 +279,21 @@ body{
   //      바로 뒤로 가면 `/admin/login` 이 나온다 — 이미 로그인한 사람에게 로그인 폼을 보여주는
   //      꼴이라 "로그아웃됐나?" 하고 놀란다. 그래서 직전 페이지가 로그인 화면이거나
   //      우리 사이트 밖이면 뒤로 가지 않고 홈으로 보낸다.
+  // 🚪 로그아웃 — 마이페이지와 같은 방식(POST /api/admin/logout → 로그인 화면).
+  //   🔴 이 화면은 오늘 수업·학생 이름을 localStorage 에 캐시해 둔다. 세션만 끊고 캐시를 두면
+  //      **다음 사람이 이전 강사의 수업표와 학생 이름을 그대로 본다**(사무실 공용 PC).
+  //      그래서 세션을 끊기 전에 개인 데이터부터 지운다.
+  //      번역 캐시(TRK)는 개인정보가 아니고 지우면 재요청만 늘어나므로 남긴다.
+  document.getElementById('logout').onclick = function(){
+    var btn = this;
+    btn.disabled = true;
+    try { localStorage.removeItem(CK); localStorage.removeItem(MK); } catch (e) {}
+    DATA = null;
+    var done = function(){ location.href = '/admin/login.html'; };
+    // 서버 호출이 실패해도 로그인 화면으로 보낸다 — 여기서 멈추면 로그아웃한 줄 알고 자리를 뜬다.
+    fetch('/api/admin/logout', { method:'POST', credentials:'include' }).then(done).catch(done);
+  };
+
   document.getElementById('back').onclick = function(){
     var ref = document.referrer || '';
     var sameSite = ref.indexOf(location.origin + '/') === 0;
@@ -919,6 +944,6 @@ body{
   load();
 })();
 </script>
-<!-- BUILD:20260803010326 -->
+<!-- BUILD:20260803011505 -->
 </body>
 </html>
