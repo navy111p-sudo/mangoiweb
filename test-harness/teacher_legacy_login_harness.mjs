@@ -164,5 +164,20 @@ const LGN = readFileSync(resolve(root, 'cloudflare-deploy', 'public', 'admin', '
 ok(/!data\.is_teacher && \(uid === 'capitown'/.test(LGN),
    '관리자 로그인 화면: 교사는 캐피타운 정산 화면으로 새지 않음');
 
+// 🚪 (2026-08-02 실사고) 화면 경로를 isAdminPath 에만 등록하고 미들웨어의 '로그인 리다이렉트
+//   목록'에 빠뜨리면, 인증은 걸리지만 **API 취급**이 되어 로그아웃 상태에서 로그인 화면 대신
+//   {"ok":false,"error":"auth_required"} JSON 원문이 화면에 뜬다. 실제로 /teacher 가 그렇게
+//   배포됐다(라이브 401 확인 → 즉시 수정). 두 곳에 다 있는지 소스로 못박는다.
+{
+  const SRC_IDX = readFileSync(resolve(root, 'cloudflare-deploy', 'src', 'index.ts'), 'utf8');
+  ok(/path === '\/teacher' \|\| path === '\/teacher\/' \|\| path === '\/teacher\.html'\) return true/.test(SRC_IDX),
+     '/teacher 가 isAdminPath 에 등록됨 (로그인 필수)');
+  const iRedir = SRC_IDX.indexOf('HTML 페이지 → 로그인 화면으로 리다이렉트');
+  const iBlockEnd = SRC_IDX.indexOf('const next = encodeURIComponent', iRedir);
+  const redirBlock = iRedir >= 0 ? SRC_IDX.slice(iRedir, iBlockEnd) : '';
+  ok(redirBlock.includes("path === '/teacher'"),
+     '/teacher 가 미인증 리다이렉트 목록에도 등록됨 (JSON 401 노출 방지)');
+}
+
 console.log(`\n${fail === 0 ? '✅ PASS' : '❌ FAIL'} ${pass}건 통과 / ${fail}건 실패`);
 process.exit(fail === 0 ? 0 : 1);

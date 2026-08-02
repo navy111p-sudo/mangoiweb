@@ -243,8 +243,14 @@ const worker = {
       const sess = await checkAdminSession(request, env);
       if (!sess.ok) {
         // HTML 페이지 → 로그인 화면으로 리다이렉트 (next 파라미터로 원래 경로 보존)
+        //   ⚠️ (2026-08-02) 여기에 `/teacher` 를 빠뜨려서, 로그아웃 상태의 강사가 /teacher 를
+        //      열면 로그인 화면 대신 `{"ok":false,"error":"auth_required"}` 라는 **JSON 원문**이
+        //      화면에 그대로 떴다(라이브에서 확인). isAdminPath 에만 등록하면 인증은 걸리지만
+        //      이 목록에 없으면 'API 취급'이 되어 401 로 떨어진다. 새 화면 경로를 추가할 때는
+        //      **두 곳 모두**(isAdminPath + 아래 리다이렉트 목록) 등록할 것.
         if (path === '/admin' || path === '/admin/' || path === '/admin.html'
-            || path.startsWith('/admin/')) {
+            || path.startsWith('/admin/')
+            || path === '/teacher' || path === '/teacher/' || path === '/teacher.html') {
           const next = encodeURIComponent(path + url.search);
           return Response.redirect(new URL(`/admin/login?next=${next}`, request.url).toString(), 302);
         }
