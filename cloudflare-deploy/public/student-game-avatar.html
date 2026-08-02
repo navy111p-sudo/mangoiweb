@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>아바타 키우기 — Avatar Quest</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   🥚 아바타 키우기 (Avatar Quest) — 말할수록 아바타가 자라는 육성형 학습게임
+   기획: docs/avatar-growth-game-plan.md
+
+   ⚠️ 설계상 반드시 지킨 것 (되돌리지 말 것)
+   1) 서버 API 를 새로 만들지 않는다. src/index.ts(인증 게이트)는 공동 금지구역이라
+      신규 경로는 405 로 죽는다. → 이미 게이트에 등록된 API 만 재사용한다.
+   2) EXP 를 지어내지 않는다. 성장 수치의 단일 권위는 서버의 game_stats.coins_total
+      (POST /api/games/coins {add:0} 으로 읽고, {add:N} 으로 적립).
+      서버 조회 실패 시 숫자를 0 으로 위조하지 않고 '—' 로 두고 안내한다.
+      비로그인은 '체험 모드 · 저장 안 됨' 을 상시 표기한다.
+   3) 애니메이션은 전부 rAF. CSS transition/keyframes 로 화면 전환을 만들지 않는다.
+      (백그라운드 탭·저전력에서 멈춰 opacity:0 요소가 영영 안 보이는 사고 전례)
+   4) 이모지는 Unicode 13 이하만 (Win10 두부 방지).
+   5) 모든 라벨 한/영 병기. 실패 문구는 희망톤 — 학생을 탓하지 않는다.
+   6) 아바타가 죽거나 강등되지 않는다. 에너지는 '졸림'까지만, 미션 1개로 즉시 회복.
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;font-family:'Noto Sans KR','Segoe UI',sans-serif}
+  body{
+    background:#0a0714;color:#f2e9df;overflow:hidden;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #app{position:relative;width:100%;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+
+  /* 배경 — 은은한 성운 (정적 그라디언트. 애니메이션은 캔버스가 담당) */
+  #bgWrap{position:absolute;inset:0;z-index:0;overflow:hidden}
+  #bgGrad{position:absolute;inset:-10%;
+    background:
+      radial-gradient(60% 45% at 22% 18%, rgba(120,80,220,.34), transparent 65%),
+      radial-gradient(55% 40% at 82% 26%, rgba(230,120,60,.24), transparent 66%),
+      radial-gradient(70% 55% at 50% 105%, rgba(40,120,190,.28), transparent 62%),
+      #0a0714;}
+  #bgStars{position:absolute;inset:0}
+
+  /* ───────── 상단 HUD ───────── */
+  .hud{position:relative;z-index:20;display:flex;align-items:center;gap:10px;
+    padding:8px 12px;background:rgba(10,7,20,.72);border-bottom:1px solid rgba(255,255,255,.10);
+    backdrop-filter:blur(6px)}
+  .hud .brand{font-size:14px;font-weight:900;letter-spacing:.3px;white-space:nowrap;color:#ffd9a0}
+  .hud .brand small{display:block;font-size:9px;font-weight:700;color:#9d8fb8;letter-spacing:.6px}
+  .hud .sp{flex:1}
+  .chip{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);
+    font-size:12px;font-weight:800;white-space:nowrap}
+  .chip b{font-variant-numeric:tabular-nums}
+  .chip.exp{color:#ffd27a} .chip.streak{color:#ff9a6c} .chip.guest{color:#9fd4ff;cursor:pointer}
+  .iconbtn{padding:5px 9px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:800;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:#e8dcff}
+  .iconbtn:active{transform:scale(.94)}
+
+  /* ───────── 화면 공통 ───────── */
+  .screen{position:absolute;inset:0;z-index:10;display:none;flex-direction:column;overflow:hidden}
+  .screen.on{display:flex}
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 22px}
+
+  /* ───────── 종족 선택 ───────── */
+  #pickWrap{display:flex;flex-direction:column;gap:12px;max-width:560px;margin:0 auto;width:100%}
+  .pickTitle{text-align:center;margin:14px 0 2px}
+  .pickTitle h1{font-size:22px;font-weight:900;color:#ffe1b0}
+  .pickTitle p{font-size:12px;color:#b6a6cf;margin-top:5px;line-height:1.6}
+  .pickCard{display:flex;gap:12px;align-items:center;padding:12px;border-radius:16px;cursor:pointer;
+    background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12)}
+  .pickCard:active{transform:scale(.985)}
+  .pickCard.sel{border-color:#ffc46b;background:rgba(255,196,107,.13)}
+  .pickCard canvas{width:92px;height:92px;flex:0 0 92px;border-radius:14px;background:rgba(0,0,0,.24)}
+  .pickCard .t{font-size:16px;font-weight:900}
+  .pickCard .t span{display:block;font-size:11px;font-weight:700;color:#a99bc4;margin-top:2px}
+  .pickCard .d{font-size:12px;color:#c9bcdf;margin-top:6px;line-height:1.55}
+
+  .bigbtn{display:block;width:100%;padding:14px;border-radius:14px;border:none;cursor:pointer;
+    font-size:16px;font-weight:900;color:#2a1400;
+    background:linear-gradient(180deg,#ffd88a,#f6a93b);box-shadow:0 6px 18px rgba(246,169,59,.3)}
+  .bigbtn:active{transform:translateY(1px)}
+  .bigbtn.ghost{background:rgba(255,255,255,.09);color:#e9dcff;box-shadow:none;border:1px solid rgba(255,255,255,.18)}
+  .bigbtn small{display:block;font-size:11px;font-weight:700;opacity:.75;margin-top:2px}
+
+  /* ───────── 홈(아바타) ───────── */
+  #stageWrap{position:relative;flex:0 0 auto;height:44%;min-height:210px;display:flex;align-items:center;justify-content:center}
+  #avatarCv{width:100%;height:100%;display:block}
+  #moodBubble{position:absolute;left:50%;top:8px;transform:translateX(-50%);
+    max-width:88%;padding:8px 14px;border-radius:14px;text-align:center;
+    background:rgba(20,12,34,.86);border:1px solid rgba(255,255,255,.16);
+    font-size:13px;font-weight:800;line-height:1.45;pointer-events:none}
+  #moodBubble span{display:block;font-size:11px;font-weight:700;color:#a99bc4;margin-top:2px}
+
+  .panel{background:rgba(16,10,28,.78);border-top:1px solid rgba(255,255,255,.10);
+    padding:10px 14px 14px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .nameRow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .nameRow .nm{font-size:17px;font-weight:900;color:#ffe1b0}
+  .nameRow .tier{font-size:11px;font-weight:800;color:#0f0a1a;background:#ffc46b;
+    padding:2px 8px;border-radius:999px}
+  .nameRow .en{font-size:11px;color:#a99bc4;font-weight:700}
+
+  .bar{height:12px;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden;position:relative}
+  .bar i{display:block;height:100%;border-radius:999px;width:0}
+  .bar.exp i{background:linear-gradient(90deg,#ffd27a,#ff8f4d)}
+  .bar.energy i{background:linear-gradient(90deg,#8be08b,#3fb96b)}
+  .bar.energy.low i{background:linear-gradient(90deg,#ffd27a,#ff9a4d)}
+  .barRow{margin-bottom:9px}
+  .barRow .lb{display:flex;justify-content:space-between;font-size:11px;font-weight:800;
+    color:#c3b4dc;margin-bottom:4px}
+  .barRow .lb b{color:#ffe1b0;font-variant-numeric:tabular-nums}
+
+  .missTitle{font-size:12px;font-weight:900;color:#b9a8d6;margin:12px 0 7px;letter-spacing:.4px}
+  .missGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .miss{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border-radius:14px;cursor:pointer;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);text-align:left}
+  .miss:active{transform:scale(.97)}
+  .miss .ic{font-size:20px;line-height:1}
+  .miss .t{font-size:13px;font-weight:900;color:#f4ead9}
+  .miss .e{font-size:10px;font-weight:700;color:#a99bc4}
+  .miss .r{font-size:10px;font-weight:900;color:#ffc46b;margin-top:3px}
+  .miss.off{opacity:.42;cursor:default}
+  .miss.done{border-color:rgba(120,220,150,.5)}
+  .miss.done .r{color:#8be08b}
+
+  .note{font-size:11px;line-height:1.6;color:#a99bc4;margin-top:12px;
+    padding:9px 11px;border-radius:11px;background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09)}
+  .note b{color:#ffd9a0}
+  .note.warn{border-color:rgba(255,180,90,.35);background:rgba(255,180,90,.09);color:#ffd6a8}
+
+  /* ───────── 미션 화면 ───────── */
+  #missBody{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:16px 16px 22px;overflow-y:auto}
+  .qHead{text-align:center}
+  .qHead .step{font-size:11px;font-weight:800;color:#a99bc4;letter-spacing:.6px}
+  .qHead .ask{font-size:15px;font-weight:800;color:#c9bcdf;margin-top:6px}
+  .qKo{text-align:center;font-size:22px;font-weight:900;color:#ffe1b0;line-height:1.4;
+    padding:0 6px;word-break:keep-all}
+  .qEn{text-align:center;font-size:19px;font-weight:900;color:#ffe1b0;line-height:1.45;letter-spacing:.3px}
+  .opts{display:flex;flex-direction:column;gap:9px;max-width:520px;width:100%;margin:0 auto}
+  .opt{padding:14px 16px;border-radius:13px;cursor:pointer;font-size:16px;font-weight:800;text-align:center;
+    background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.14);color:#f2e9df}
+  .opt:active{transform:scale(.98)}
+  .opt.ok{border-color:#4ade80;background:rgba(74,222,128,.18);color:#bbf7d0}
+  .opt.no{border-color:#f87171;background:rgba(248,113,113,.15);color:#fecaca}
+  .slots{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;min-height:44px}
+  .slot{min-width:56px;padding:7px 13px;border-radius:10px;font-size:15px;font-weight:900;
+    background:rgba(255,255,255,.05);border:2px dashed rgba(255,255,255,.2);color:#7c6d98}
+  .slot.done{border-style:solid;border-color:#4ade80;background:rgba(74,222,128,.15);color:#bbf7d0}
+  .slot.next{border-style:solid;border-color:#ffc46b;background:rgba(255,196,107,.14);color:#ffe1b0}
+  .tiles{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .tile{padding:10px 15px;border-radius:11px;cursor:pointer;font-size:16px;font-weight:900;
+    background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
+    border:1px solid rgba(255,255,255,.22);color:#f4ead9}
+  .tile:active{transform:scale(.95)}
+  .tile.used{opacity:.28;pointer-events:none}
+  .fb{text-align:center;font-size:14px;font-weight:900;min-height:22px;line-height:1.5}
+  .fb span{display:block;font-size:11px;font-weight:700;opacity:.8;margin-top:2px}
+  .fb.ok{color:#8be08b} .fb.no{color:#ffb98a}
+
+  .micBtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    width:118px;height:118px;border-radius:50%;margin:0 auto;cursor:pointer;
+    background:linear-gradient(180deg,#ff9a6c,#e2542f);border:none;color:#fff;
+    font-size:14px;font-weight:900;box-shadow:0 8px 26px rgba(226,84,47,.36)}
+  .micBtn:active{transform:scale(.95)}
+  .micBtn.rec{background:linear-gradient(180deg,#ff6b6b,#c81e1e)}
+  .micBtn .ic{font-size:30px;line-height:1}
+  .micBtn small{font-size:9px;font-weight:700;opacity:.85}
+  .micState{text-align:center;font-size:12px;font-weight:800;color:#c9bcdf;min-height:18px}
+
+  .missBar{display:flex;gap:8px;padding:10px 14px;background:rgba(10,7,20,.8);
+    border-top:1px solid rgba(255,255,255,.1)}
+  .missBar button{flex:1;padding:11px;border-radius:11px;border:none;cursor:pointer;
+    font-size:14px;font-weight:900;background:rgba(255,255,255,.09);color:#e9dcff;
+    border:1px solid rgba(255,255,255,.16)}
+  .missBar button.primary{background:linear-gradient(180deg,#ffd88a,#f6a93b);color:#2a1400;border:none}
+  .missBar button:active{transform:translateY(1px)}
+  .missBar button[disabled]{opacity:.4;pointer-events:none}
+
+  /* ───────── 레이드 ───────── */
+  #raidTop{padding:10px 14px;background:rgba(10,7,20,.8);border-bottom:1px solid rgba(255,255,255,.1)}
+  #raidTop .rn{display:flex;justify-content:space-between;font-size:12px;font-weight:900;color:#ffc46b;margin-bottom:5px}
+  .hpbar{height:14px;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden}
+  .hpbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#f87171,#b91c1c)}
+
+  /* ───────── 컷신 ───────── */
+  #cut{position:absolute;inset:0;z-index:90;display:none;background:#05030c}
+  #cut.on{display:block}
+  #cutCv{position:absolute;inset:0;width:100%;height:100%}
+  #cutVid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#05030c}
+  #cutText{position:absolute;left:0;right:0;bottom:12%;text-align:center;pointer-events:none}
+  #cutText .l1{font-size:13px;font-weight:800;color:#ffd9a0;letter-spacing:2px}
+  #cutText .l2{font-size:26px;font-weight:900;color:#fff;margin-top:6px;
+    text-shadow:0 0 22px rgba(255,190,110,.7)}
+  #cutText .l3{font-size:12px;font-weight:700;color:#c3b4dc;margin-top:5px}
+  #cutSkip{position:absolute;right:14px;top:14px;z-index:5;padding:7px 13px;border-radius:999px;
+    background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.25);color:#e9dcff;
+    font-size:12px;font-weight:800;cursor:pointer}
+
+  /* ───────── 토스트 ───────── */
+  #toast{position:absolute;left:50%;bottom:76px;z-index:80;transform:translateX(-50%);
+    max-width:90%;padding:10px 16px;border-radius:12px;text-align:center;display:none;
+    background:rgba(20,12,34,.94);border:1px solid rgba(255,196,107,.4);
+    font-size:13px;font-weight:900;color:#ffe1b0;line-height:1.5}
+  #toast span{display:block;font-size:11px;font-weight:700;color:#b6a6cf;margin-top:2px}
+
+  @media (max-width:400px){
+    .missGrid{grid-template-columns:1fr}
+    #stageWrap{height:38%;min-height:180px}
+    .qKo{font-size:19px} .qEn{font-size:17px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bgWrap"><div id="bgGrad"></div><canvas id="bgStars"></canvas></div>
+
+  <!-- 상단 HUD -->
+  <div class="hud">
+    <div class="brand">아바타 키우기<small>AVATAR QUEST</small></div>
+    <div class="sp"></div>
+    <div class="chip exp" id="chipExp" title="누적 코인 = 아바타 EXP">⭐ <b id="expVal">—</b></div>
+    <div class="chip streak" id="chipStreak" style="display:none">🔥 <b id="streakVal">0</b></div>
+    <div class="chip guest" id="chipGuest" style="display:none">체험 모드 · Guest</div>
+    <div class="iconbtn" id="langBtn">EN</div>
+    <div class="iconbtn" id="homeBtn" style="display:none">홈</div>
+  </div>
+
+  <!-- ① 종족 선택 -->
+  <div class="screen" id="scPick">
+    <div class="scroll">
+      <div id="pickWrap">
+        <div class="pickTitle">
+          <h1>🥚 어떤 친구를 키울까?</h1>
+          <p>영어·중국어 미션을 할 때마다 함께 자라요.<br>
+             <span style="color:#8f81ab">Which companion will you raise? It grows every time you study.</span><br>
+             <span style="color:#8f81ab">나중에 바꿔도 모은 EXP는 그대로예요 · You can switch later — EXP is kept.</span></p>
+        </div>
+        <div id="pickList"></div>
+        <button class="bigbtn" id="pickGo">이 친구로 시작하기<small>Start with this companion</small></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 홈 -->
+  <div class="screen" id="scHome">
+    <div id="stageWrap">
+      <canvas id="avatarCv"></canvas>
+      <div id="moodBubble"></div>
+    </div>
+    <div class="panel">
+      <div class="nameRow">
+        <div class="nm" id="avName">—</div>
+        <div class="tier" id="avTier">1</div>
+        <div class="en" id="avNameEn"></div>
+      </div>
+
+      <div class="barRow">
+        <div class="lb"><span>성장 EXP · Growth</span><b id="expLine">—</b></div>
+        <div class="bar exp"><i id="expFill"></i></div>
+      </div>
+      <div class="barRow">
+        <div class="lb"><span>에너지 · Energy</span><b id="enLine">100%</b></div>
+        <div class="bar energy" id="enBar"><i id="enFill"></i></div>
+      </div>
+
+      <div class="missTitle">오늘의 미션 · TODAY'S MISSIONS</div>
+      <div class="missGrid" id="missGrid"></div>
+
+      <div class="missTitle">주간 도전 · WEEKLY CHALLENGE</div>
+      <div class="missGrid">
+        <div class="miss" id="raidCard" style="grid-column:1/-1">
+          <div class="ic">⚔️</div>
+          <div class="t">주간 보스 레이드</div>
+          <div class="e">Weekly Boss Raid — 90초 안에 보스를 쓰러뜨려요</div>
+          <div class="r" id="raidR">+30 EXP · 진화 재료</div>
+        </div>
+      </div>
+
+      <div class="note" id="srcNote"></div>
+      <div class="note warn" id="guestNote" style="display:none">
+        <b>체험 모드예요 · Guest mode</b><br>
+        지금은 기록이 저장되지 않아요. 로그인하면 아바타가 계속 자라고, 다른 기기에서도 이어서 키울 수 있어요.<br>
+        <span style="color:#c9a882">Progress is not saved right now. Log in to keep your companion growing across devices.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 미션 -->
+  <div class="screen" id="scMiss">
+    <div id="missBody"></div>
+    <div class="missBar" id="missBar"></div>
+  </div>
+
+  <!-- ④ 레이드 -->
+  <div class="screen" id="scRaid">
+    <div id="raidTop">
+      <div class="rn"><span id="raidName">👾 보스</span><span id="raidTimer">90초</span></div>
+      <div class="hpbar"><i id="raidHp"></i></div>
+    </div>
+    <div id="raidBody" style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:16px;overflow-y:auto"></div>
+    <div class="missBar" id="raidBar"></div>
+  </div>
+
+  <!-- 컷신 -->
+  <div id="cut">
+    <canvas id="cutCv"></canvas>
+    <video id="cutVid" playsinline muted></video>
+    <div id="cutText"><div class="l1"></div><div class="l2"></div><div class="l3"></div></div>
+    <div id="cutSkip">건너뛰기 · Skip</div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script src="/js/game-tts.js"></script>
+<script src="/js/game-vocab.js"></script>
+<script src="/js/mangoi-voice-input.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  0. 기본 설정 · 사용자 · 언어
+ * ══════════════════════════════════════════════════════════════════════ */
+var QS = new URLSearchParams(location.search);
+
+// 학습 언어 — 허브가 ?glang=en|zh 로 전달. 없으면 게임 공용 키를 따른다.
+var LANG = (QS.get('glang') === 'zh' || QS.get('lang') === 'zh') ? 'zh' : 'en';
+try { if (!QS.get('glang') && !QS.get('lang') && localStorage.getItem('mangoi_game_lang') === 'zh') LANG = 'zh'; } catch(e){}
+
+function getUid(){
+  try { var u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null');
+        if (u && (u.uid || u.user_id)) return String(u.uid || u.user_id); } catch(e){}
+  try { var v = JSON.parse(localStorage.getItem('mango_user') || 'null');
+        if (v && (v.user_id || v.uid)) return String(v.user_id || v.uid); } catch(e){}
+  return '';
+}
+function getNick(){
+  try { var u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null');
+        if (u && (u.name || u.student_name)) return String(u.name || u.student_name).slice(0,24); } catch(e){}
+  return '';
+}
+var UID = getUid();
+var IS_GUEST = !UID;
+
+var LS = {
+  species: 'mangoi_avatar_species',
+  name   : 'mangoi_avatar_name',
+  lastAct: 'mangoi_avatar_last_act',
+  seenTier:'mangoi_avatar_seen_tier',
+  raidWeek:'mangoi_avatar_raid_week',
+  guestExp:'mangoi_avatar_guest_exp'
+};
+function lsGet(k, d){ try { var v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, String(v)); } catch(e){} }
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  1. 종족 · 단계 정의
+ *     임계값은 실측 기준(game_stats: 최대 200코인, 사실상 미사용)에 맞춰
+ *     "하루 성실히 = 첫 진화"가 되도록 낮게 잡았다.
+ * ══════════════════════════════════════════════════════════════════════ */
+var TIER_EXP = [0, 60, 180, 420, 900];   // 5단계
+
+var SPECIES = {
+  panda: {
+    key:'panda', icon:'🐼',
+    ko:'사이버 셰프 판다', en:'Cyber-Chef Panda',
+    desc:'요리하듯 문장을 조립해요. 재료를 순서대로 올리면 요리가 완성!',
+    descEn:'Builds sentences like recipes — stack the words in the right order.',
+    tiers:[
+      {ko:'말랑 알',    en:'Soft Egg'},
+      {ko:'견습 판다',  en:'Apprentice'},
+      {ko:'셰프 판다',  en:'Chef Panda'},
+      {ko:'마스터 셰프',en:'Master Chef'},
+      {ko:'전설의 셰프',en:'Legendary Chef'}
+    ],
+    body:'#f4f1ea', dark:'#241d2e', accent:'#ff9a6c', glow:'#ffbe6b'
+  },
+  fox: {
+    key:'fox', icon:'🦊',
+    ko:'탐험가 여우', en:'Explorer Fox',
+    desc:'우주를 탐험하며 새 단어를 발견해요. 멀리 갈수록 강해져요!',
+    descEn:'Explores space and discovers new words — the further it goes, the stronger it gets.',
+    tiers:[
+      {ko:'반짝 알',     en:'Shiny Egg'},
+      {ko:'훈련생 여우', en:'Cadet Fox'},
+      {ko:'파일럿 여우', en:'Pilot Fox'},
+      {ko:'캡틴 여우',   en:'Captain Fox'},
+      {ko:'사령관 여우', en:'Commander Fox'}
+    ],
+    body:'#f08b4a', dark:'#2a1a2e', accent:'#7fd1ff', glow:'#ffb35c'
+  },
+  dragon: {
+    key:'dragon', icon:'🐉',
+    ko:'수호 드래곤', en:'Guardian Dragon',
+    desc:'소리 내어 말하면 마법이 터져요. 발음이 곧 주문이에요!',
+    descEn:'Your voice is its magic — speak clearly and the spell ignites.',
+    tiers:[
+      {ko:'단단 알',   en:'Stone Egg'},
+      {ko:'새끼 드래곤',en:'Hatchling'},
+      {ko:'비행 드래곤',en:'Sky Dragon'},
+      {ko:'수호 드래곤',en:'Guardian'},
+      {ko:'고룡',      en:'Elder Dragon'}
+    ],
+    body:'#5fd39a', dark:'#122a24', accent:'#c084fc', glow:'#7ef0c0'
+  }
+};
+var SP_ORDER = ['panda','fox','dragon'];
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  2. 상태
+ * ══════════════════════════════════════════════════════════════════════ */
+var ST = {
+  species : lsGet(LS.species, ''),
+  exp     : null,        // null = 아직 모름/조회실패 → 화면에 '—'
+  expKnown: false,
+  streak  : null,
+  energy  : 100,
+  screen  : 'pick',
+  mood    : 'idle',      // idle | happy | sleepy | cheer | sad
+  moodUntil: 0,
+  data    : null,        // MangoiGameVocab 결과
+  todayDone: {},         // 오늘 완료한 미션 종류
+  busy    : false
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  3. 서버 동기화 — EXP 의 단일 권위는 game_stats.coins_total
+ *     · 읽기 : POST /api/games/coins {add:0}  (변경 없이 현재값만 반환)
+ *     · 적립 : POST /api/games/coins {add:N}
+ *     둘 다 이미 index.ts 게이트에 등록된 경로다. 신규 API 없음.
+ * ══════════════════════════════════════════════════════════════════════ */
+function coinsCall(add){
+  if (IS_GUEST) return Promise.resolve(null);
+  return fetch('/api/games/coins', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id: UID, nickname: getNick(), add: add || 0 })
+  }).then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){ return (d && d.ok) ? d : null; })
+    .catch(function(){ return null; });
+}
+
+function syncExp(){
+  if (IS_GUEST){
+    ST.exp = parseInt(lsGet(LS.guestExp, '0'), 10) || 0;
+    ST.expKnown = true;
+    return Promise.resolve();
+  }
+  return coinsCall(0).then(function(d){
+    if (d && typeof d.coins_total === 'number'){ ST.exp = d.coins_total; ST.expKnown = true; }
+    else { ST.exp = null; ST.expKnown = false; }   // 위조하지 않는다
+  });
+}
+
+// 출석 스트릭 — 있으면 표시(장식). 실패해도 게임에 영향 없음.
+function syncStreak(){
+  if (IS_GUEST) return Promise.resolve();
+  var tok = lsGet('mango_token', '');
+  return fetch('/api/streak/status?uid=' + encodeURIComponent(UID) + '&token=' + encodeURIComponent(tok))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if (d && d.ok && typeof d.current_streak === 'number') ST.streak = d.current_streak;
+    }).catch(function(){});
+}
+
+// EXP 적립 — 서버 성공값으로 화면을 갱신한다(낙관적 갱신 후 되돌리기 금지).
+function award(n, why){
+  if (IS_GUEST){
+    ST.exp = (ST.exp || 0) + n; lsSet(LS.guestExp, ST.exp);
+    afterAward(n, why); return Promise.resolve(true);
+  }
+  return coinsCall(n).then(function(d){
+    if (d && typeof d.coins_total === 'number'){
+      ST.exp = d.coins_total; ST.expKnown = true;
+      afterAward(n, why); return true;
+    }
+    // 서버 저장 실패 → 성공한 척하지 않는다
+    toast('기록을 저장하지 못했어요', 'Could not save just now — your answer was still correct!');
+    return false;
+  });
+}
+function afterAward(n, why){
+  touchActivity();
+  var before = tierOf(ST.exp - n), after = tierOf(ST.exp);
+  render();
+  if (after > before) { setTimeout(function(){ playCutscene(after); }, 620); }
+  else toast('+' + n + ' EXP · ' + (why || ''), '');
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  4. 단계 · 에너지
+ * ══════════════════════════════════════════════════════════════════════ */
+function tierOf(exp){
+  if (exp === null || isNaN(exp)) return 0;
+  var t = 0;
+  for (var i = 0; i < TIER_EXP.length; i++) if (exp >= TIER_EXP[i]) t = i;
+  return t;
+}
+function tierProgress(exp){
+  var t = tierOf(exp);
+  if (t >= TIER_EXP.length - 1) return { pct:100, cur:exp, need:null };
+  var lo = TIER_EXP[t], hi = TIER_EXP[t + 1];
+  return { pct: Math.max(0, Math.min(100, (exp - lo) / (hi - lo) * 100)), cur: exp - lo, need: hi - lo };
+}
+
+// 에너지 — 마지막 활동에서 24시간에 걸쳐 100 → 25 로만 떨어진다.
+// 절대 0 이 되지 않고, 미션 하나로 100 회복. 벌은 없다.
+var ENERGY_FLOOR = 25, ENERGY_FULL_MS = 24 * 3600 * 1000;
+function calcEnergy(){
+  var last = parseInt(lsGet(LS.lastAct, '0'), 10) || 0;
+  if (!last) return 100;
+  var gone = Date.now() - last;
+  if (gone <= 0) return 100;
+  var p = Math.min(1, gone / ENERGY_FULL_MS);
+  return Math.round(100 - (100 - ENERGY_FLOOR) * p);
+}
+function touchActivity(){ lsSet(LS.lastAct, Date.now()); ST.energy = 100; }
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  5. 아바타 렌더링 (캔버스 · rAF)
+ *     15개 폼을 이미지 없이 절차적으로 그린다. 단계가 오르면
+ *     크기·색·장신구(모자/헬멧/날개)가 함께 자란다.
+ * ══════════════════════════════════════════════════════════════════════ */
+function rr(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function ell(ctx, x, y, rx, ry){ ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.closePath(); }
+
+/**
+ * @param mood idle|happy|sleepy|cheer|sad
+ * @param t    ms 타임스탬프 (rAF)
+ * @param s    스케일 기준 반지름
+ */
+function drawAvatar(ctx, cx, cy, s, spKey, tier, mood, t){
+  var sp = SPECIES[spKey] || SPECIES.panda;
+  var bob = Math.sin(t / 620) * s * 0.045;
+  if (mood === 'cheer') bob = Math.abs(Math.sin(t / 170)) * -s * 0.18;
+  if (mood === 'sleepy') bob = Math.sin(t / 1500) * s * 0.02;
+  var y = cy + bob;
+  var grow = 0.72 + tier * 0.07;          // 단계가 오르면 커진다
+  var R = s * grow;
+
+  ctx.save();
+
+  // 바닥 그림자
+  ctx.globalAlpha = 0.32;
+  ctx.fillStyle = '#000';
+  ell(ctx, cx, cy + s * 0.95, R * 0.72, R * 0.13); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // 오라 (단계가 높을수록 진하게)
+  if (tier >= 1){
+    var pulse = 0.5 + 0.5 * Math.sin(t / 700);
+    var g = ctx.createRadialGradient(cx, y, R * 0.4, cx, y, R * (1.5 + tier * 0.16));
+    g.addColorStop(0, hexA(sp.glow, 0.02 + tier * 0.045 + pulse * 0.03));
+    g.addColorStop(1, hexA(sp.glow, 0));
+    ctx.fillStyle = g;
+    ell(ctx, cx, y, R * (1.6 + tier * 0.18), R * (1.5 + tier * 0.16)); ctx.fill();
+  }
+
+  if (tier === 0){ drawEgg(ctx, cx, y, R, sp, t); ctx.restore(); return; }
+
+  if (spKey === 'panda')       drawPanda(ctx, cx, y, R, sp, tier, mood, t);
+  else if (spKey === 'fox')    drawFox(ctx, cx, y, R, sp, tier, mood, t);
+  else                         drawDragon(ctx, cx, y, R, sp, tier, mood, t);
+
+  // 졸림 표시
+  if (mood === 'sleepy'){
+    ctx.globalAlpha = 0.55 + 0.35 * Math.sin(t / 800);
+    ctx.fillStyle = '#cbd5ff';
+    ctx.font = '900 ' + Math.round(R * 0.3) + 'px system-ui,sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('z', cx + R * 0.72, y - R * 0.66);
+    ctx.font = '900 ' + Math.round(R * 0.2) + 'px system-ui,sans-serif';
+    ctx.fillText('z', cx + R * 1.02, y - R * 0.9);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+function hexA(hex, a){
+  var h = hex.replace('#',''); if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  var n = parseInt(h, 16);
+  return 'rgba(' + ((n>>16)&255) + ',' + ((n>>8)&255) + ',' + (n&255) + ',' + a + ')';
+}
+
+function drawEgg(ctx, cx, y, R, sp, t){
+  var wob = Math.sin(t / 300) * 0.03;
+  ctx.save(); ctx.translate(cx, y); ctx.rotate(wob);
+  var g = ctx.createLinearGradient(0, -R, 0, R);
+  g.addColorStop(0, '#fffaf0'); g.addColorStop(1, sp.body);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(0, R * 0.08, R * 0.62, R * 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 얼룩
+  ctx.fillStyle = hexA(sp.accent, .35);
+  ell(ctx, -R*0.2, R*0.1, R*0.13, R*0.1); ctx.fill();
+  ell(ctx, R*0.22, -R*0.2, R*0.1, R*0.08); ctx.fill();
+  ell(ctx, R*0.05, R*0.42, R*0.11, R*0.08); ctx.fill();
+  // 금(진화 임박 느낌)
+  ctx.strokeStyle = hexA(sp.glow, .55); ctx.lineWidth = Math.max(1.5, R * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(-R*0.34, -R*0.1); ctx.lineTo(-R*0.1, R*0.02);
+  ctx.lineTo(-R*0.24, R*0.18); ctx.lineTo(0, R*0.3);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function eyes(ctx, cx, y, R, mood, t, spread, ey, sz){
+  var blink = (Math.floor(t / 3100) % 2 === 0) && ((t % 3100) < 130);
+  ctx.fillStyle = '#1b1424';
+  if (mood === 'sleepy' || blink){
+    ctx.lineWidth = Math.max(1.6, R * 0.035); ctx.strokeStyle = '#1b1424';
+    ctx.beginPath(); ctx.moveTo(cx - spread - sz, y + ey); ctx.lineTo(cx - spread + sz, y + ey);
+    ctx.moveTo(cx + spread - sz, y + ey); ctx.lineTo(cx + spread + sz, y + ey); ctx.stroke();
+  } else if (mood === 'happy' || mood === 'cheer'){
+    ctx.lineWidth = Math.max(1.8, R * 0.04); ctx.strokeStyle = '#1b1424';
+    ctx.beginPath();
+    ctx.arc(cx - spread, y + ey + sz*0.5, sz, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.arc(cx + spread, y + ey + sz*0.5, sz, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+  } else {
+    ell(ctx, cx - spread, y + ey, sz * 0.72, sz); ctx.fill();
+    ell(ctx, cx + spread, y + ey, sz * 0.72, sz); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ell(ctx, cx - spread + sz*0.22, y + ey - sz*0.3, sz*0.22, sz*0.26); ctx.fill();
+    ell(ctx, cx + spread + sz*0.22, y + ey - sz*0.3, sz*0.22, sz*0.26); ctx.fill();
+  }
+}
+function mouth(ctx, cx, y, R, mood, my, w){
+  ctx.strokeStyle = '#1b1424'; ctx.lineWidth = Math.max(1.6, R * 0.035);
+  ctx.beginPath();
+  if (mood === 'cheer' || mood === 'happy'){
+    ctx.arc(cx, y + my - w*0.3, w, Math.PI * 0.15, Math.PI * 0.85);
+  } else if (mood === 'sad'){
+    ctx.arc(cx, y + my + w*0.8, w*0.8, Math.PI * 1.2, Math.PI * 1.8);
+  } else {
+    ctx.moveTo(cx - w*0.45, y + my); ctx.lineTo(cx + w*0.45, y + my);
+  }
+  ctx.stroke();
+}
+
+function drawPanda(ctx, cx, y, R, sp, tier, mood, t){
+  // 몸
+  ctx.fillStyle = sp.body;
+  ell(ctx, cx, y + R*0.42, R*0.5, R*0.44); ctx.fill();
+  // 팔 (요리 동작)
+  var swing = (mood === 'cheer') ? Math.sin(t/110) * R*0.3 : Math.sin(t/700) * R*0.05;
+  ctx.fillStyle = sp.dark;
+  ell(ctx, cx - R*0.52, y + R*0.4 - swing, R*0.15, R*0.24); ctx.fill();
+  ell(ctx, cx + R*0.52, y + R*0.4 + swing, R*0.15, R*0.24); ctx.fill();
+  // 다리
+  ell(ctx, cx - R*0.22, y + R*0.82, R*0.16, R*0.12); ctx.fill();
+  ell(ctx, cx + R*0.22, y + R*0.82, R*0.16, R*0.12); ctx.fill();
+  // 머리
+  ctx.fillStyle = sp.body;
+  ell(ctx, cx, y - R*0.18, R*0.46, R*0.42); ctx.fill();
+  // 귀
+  ctx.fillStyle = sp.dark;
+  ell(ctx, cx - R*0.36, y - R*0.5, R*0.14, R*0.14); ctx.fill();
+  ell(ctx, cx + R*0.36, y - R*0.5, R*0.14, R*0.14); ctx.fill();
+  // 눈 주변 검은 무늬
+  ctx.fillStyle = sp.dark;
+  ctx.save(); ctx.translate(cx, y);
+  ctx.rotate(-0.28); ell(ctx, -R*0.19, -R*0.16, R*0.14, R*0.17); ctx.fill(); ctx.rotate(0.56);
+  ctx.restore();
+  ctx.save(); ctx.translate(cx, y); ctx.rotate(0.28);
+  ell(ctx, R*0.19, -R*0.16, R*0.14, R*0.17); ctx.fill(); ctx.restore();
+
+  eyes(ctx, cx, y, R, mood, t, R*0.19, -R*0.17, R*0.062);
+  ctx.fillStyle = '#1b1424'; ell(ctx, cx, y - R*0.02, R*0.06, R*0.045); ctx.fill();
+  mouth(ctx, cx, y, R, mood, R*0.09, R*0.12);
+
+  // 셰프 모자 — 단계가 오를수록 높아진다
+  var hh = R * (0.14 + tier * 0.1);
+  ctx.fillStyle = '#fffdf7';
+  rr(ctx, cx - R*0.3, y - R*0.6 - hh*0.35, R*0.6, hh*0.42, R*0.06); ctx.fill();
+  ell(ctx, cx - R*0.2, y - R*0.62 - hh*0.5, R*0.17, hh*0.4); ctx.fill();
+  ell(ctx, cx + R*0.2, y - R*0.62 - hh*0.5, R*0.17, hh*0.4); ctx.fill();
+  ell(ctx, cx, y - R*0.66 - hh*0.68, R*0.22, hh*0.5); ctx.fill();
+  if (tier >= 3){ // 황금 띠
+    ctx.fillStyle = sp.glow;
+    rr(ctx, cx - R*0.3, y - R*0.6 - hh*0.02, R*0.6, hh*0.09, R*0.03); ctx.fill();
+  }
+  if (tier >= 2){ // 프라이팬
+    ctx.fillStyle = '#3b3346';
+    ell(ctx, cx + R*0.74, y + R*0.34 + swing, R*0.2, R*0.09); ctx.fill();
+    ctx.fillRect(cx + R*0.9, y + R*0.31 + swing, R*0.26, R*0.045);
+  }
+  if (tier >= 4){ // 왕관 별
+    star(ctx, cx, y - R*0.72 - hh*1.05, R*0.11, sp.glow, t);
+  }
+}
+
+function drawFox(ctx, cx, y, R, sp, tier, mood, t){
+  // 꼬리
+  var wag = Math.sin(t / (mood === 'cheer' ? 130 : 620)) * 0.35;
+  ctx.save(); ctx.translate(cx - R*0.42, y + R*0.5); ctx.rotate(-0.5 + wag);
+  ctx.fillStyle = sp.body;
+  ell(ctx, -R*0.32, 0, R*0.34, R*0.16); ctx.fill();
+  ctx.fillStyle = '#fff6ec';
+  ell(ctx, -R*0.58, 0, R*0.12, R*0.11); ctx.fill();
+  ctx.restore();
+  // 몸
+  ctx.fillStyle = sp.body;
+  ell(ctx, cx, y + R*0.42, R*0.42, R*0.4); ctx.fill();
+  ctx.fillStyle = '#fff6ec';
+  ell(ctx, cx, y + R*0.54, R*0.24, R*0.26); ctx.fill();
+  // 다리
+  ctx.fillStyle = '#2c1d18';
+  ell(ctx, cx - R*0.2, y + R*0.8, R*0.12, R*0.11); ctx.fill();
+  ell(ctx, cx + R*0.2, y + R*0.8, R*0.12, R*0.11); ctx.fill();
+  // 머리
+  ctx.fillStyle = sp.body;
+  ell(ctx, cx, y - R*0.16, R*0.4, R*0.36); ctx.fill();
+  // 귀
+  ctx.beginPath(); ctx.moveTo(cx - R*0.38, y - R*0.34);
+  ctx.lineTo(cx - R*0.28, y - R*0.76); ctx.lineTo(cx - R*0.1, y - R*0.4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx + R*0.38, y - R*0.34);
+  ctx.lineTo(cx + R*0.28, y - R*0.76); ctx.lineTo(cx + R*0.1, y - R*0.4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#3a2119';
+  ctx.beginPath(); ctx.moveTo(cx - R*0.31, y - R*0.42);
+  ctx.lineTo(cx - R*0.27, y - R*0.68); ctx.lineTo(cx - R*0.18, y - R*0.44); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx + R*0.31, y - R*0.42);
+  ctx.lineTo(cx + R*0.27, y - R*0.68); ctx.lineTo(cx + R*0.18, y - R*0.44); ctx.closePath(); ctx.fill();
+  // 주둥이
+  ctx.fillStyle = '#fff6ec';
+  ell(ctx, cx, y - R*0.02, R*0.19, R*0.14); ctx.fill();
+
+  eyes(ctx, cx, y, R, mood, t, R*0.17, -R*0.18, R*0.058);
+  ctx.fillStyle = '#1b1424'; ell(ctx, cx, y - R*0.06, R*0.055, R*0.042); ctx.fill();
+  mouth(ctx, cx, y, R, mood, R*0.06, R*0.1);
+
+  // 우주 헬멧 — 단계 2부터
+  if (tier >= 2){
+    ctx.strokeStyle = hexA(sp.accent, .75); ctx.lineWidth = Math.max(1.6, R*0.028);
+    ctx.beginPath(); ctx.arc(cx, y - R*0.16, R*0.52, 0, Math.PI*2); ctx.stroke();
+    var gg = ctx.createLinearGradient(cx - R*0.5, y - R*0.6, cx + R*0.5, y + R*0.3);
+    gg.addColorStop(0, hexA('#ffffff', .16)); gg.addColorStop(.5, hexA(sp.accent, .05)); gg.addColorStop(1, hexA('#ffffff', .02));
+    ctx.fillStyle = gg;
+    ctx.beginPath(); ctx.arc(cx, y - R*0.16, R*0.52, 0, Math.PI*2); ctx.fill();
+  }
+  // 스카프/견장
+  if (tier >= 1){
+    ctx.fillStyle = sp.accent;
+    rr(ctx, cx - R*0.26, y + R*0.14, R*0.52, R*0.1, R*0.04); ctx.fill();
+  }
+  if (tier >= 3){ // 제트팩 불꽃
+    var f = 0.6 + 0.4 * Math.sin(t/90);
+    ctx.fillStyle = hexA('#ffb35c', .85);
+    ctx.beginPath(); ctx.moveTo(cx - R*0.12, y + R*0.86);
+    ctx.lineTo(cx, y + R*0.86 + R*0.34*f); ctx.lineTo(cx + R*0.12, y + R*0.86); ctx.closePath(); ctx.fill();
+  }
+  if (tier >= 4) star(ctx, cx, y - R*0.86, R*0.11, sp.glow, t);
+}
+
+function drawDragon(ctx, cx, y, R, sp, tier, mood, t){
+  // 날개 — 단계 2부터, 단계가 오를수록 커진다
+  if (tier >= 2){
+    var flap = Math.sin(t / (mood === 'cheer' ? 120 : 420)) * 0.4;
+    var wS = 0.5 + (tier - 2) * 0.22;
+    ctx.fillStyle = hexA(sp.accent, .8);
+    [-1, 1].forEach(function(d){
+      ctx.save(); ctx.translate(cx + d * R*0.34, y + R*0.06); ctx.rotate(d * (0.5 + flap));
+      ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(d*R*wS*1.2, -R*wS*1.1, d*R*wS*1.5, -R*wS*0.1);
+      ctx.quadraticCurveTo(d*R*wS*1.0, R*wS*0.16, 0, R*0.3);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    });
+  }
+  // 꼬리
+  ctx.strokeStyle = sp.body; ctx.lineWidth = R*0.13; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx + R*0.3, y + R*0.6);
+  ctx.quadraticCurveTo(cx + R*0.72, y + R*0.78, cx + R*0.66, y + R*0.34 + Math.sin(t/500)*R*0.06);
+  ctx.stroke();
+  // 몸
+  ctx.fillStyle = sp.body;
+  ell(ctx, cx, y + R*0.4, R*0.42, R*0.42); ctx.fill();
+  ctx.fillStyle = hexA('#ffffff', .5);
+  ell(ctx, cx, y + R*0.52, R*0.22, R*0.26); ctx.fill();
+  // 다리
+  ctx.fillStyle = sp.body;
+  ell(ctx, cx - R*0.2, y + R*0.82, R*0.14, R*0.11); ctx.fill();
+  ell(ctx, cx + R*0.2, y + R*0.82, R*0.14, R*0.11); ctx.fill();
+  // 머리
+  ell(ctx, cx, y - R*0.2, R*0.4, R*0.35); ctx.fill();
+  ell(ctx, cx, y - R*0.06, R*0.24, R*0.16); ctx.fill();
+  // 뿔
+  ctx.fillStyle = '#fde8b0';
+  [-1, 1].forEach(function(d){
+    ctx.beginPath(); ctx.moveTo(cx + d*R*0.2, y - R*0.44);
+    ctx.lineTo(cx + d*R*(0.3 + tier*0.03), y - R*(0.72 + tier*0.05));
+    ctx.lineTo(cx + d*R*0.1, y - R*0.46); ctx.closePath(); ctx.fill();
+  });
+  eyes(ctx, cx, y, R, mood, t, R*0.17, -R*0.24, R*0.055);
+  ctx.fillStyle = '#1b1424';
+  ell(ctx, cx - R*0.07, y - R*0.06, R*0.026, R*0.02); ctx.fill();
+  ell(ctx, cx + R*0.07, y - R*0.06, R*0.026, R*0.02); ctx.fill();
+  mouth(ctx, cx, y, R, mood, R*0.04, R*0.1);
+
+  // 마법 불꽃 (말하기 성공 연출)
+  if (mood === 'cheer'){
+    for (var i = 0; i < 3; i++){
+      var a = t/120 + i * 2.1;
+      var rx = cx + Math.cos(a) * R*0.8, ry = y - R*0.1 + Math.sin(a) * R*0.5;
+      ctx.fillStyle = hexA(sp.glow, .8);
+      ell(ctx, rx, ry, R*0.05, R*0.05); ctx.fill();
+    }
+  }
+  if (tier >= 4) star(ctx, cx, y - R*0.9, R*0.12, sp.glow, t);
+}
+
+function star(ctx, x, y, r, color, t){
+  var rot = t / 900;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.fillStyle = color; ctx.beginPath();
+  for (var i = 0; i < 10; i++){
+    var rad = (i % 2 === 0) ? r : r * 0.44, a = Math.PI / 5 * i - Math.PI / 2;
+    ctx[i === 0 ? 'moveTo' : 'lineTo'](Math.cos(a) * rad, Math.sin(a) * rad);
+  }
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+/* ── 홈 캔버스 루프 ── */
+var homeCv = document.getElementById('avatarCv'), homeCtx = homeCv.getContext('2d');
+function fitCanvas(cv){
+  var dpr = Math.min(2, window.devicePixelRatio || 1);
+  var r = cv.getBoundingClientRect();
+  var w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
+  if (cv.width !== w * dpr || cv.height !== h * dpr){
+    cv.width = w * dpr; cv.height = h * dpr;
+    var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  return { w:w, h:h };
+}
+function homeLoop(ts){
+  requestAnimationFrame(homeLoop);
+  if (ST.screen !== 'home') return;
+  var d = fitCanvas(homeCv);
+  homeCtx.clearRect(0, 0, d.w, d.h);
+  if (ST.moodUntil && ts > ST.moodUntil){ ST.mood = currentBaseMood(); ST.moodUntil = 0; }
+  var s = Math.min(d.w, d.h) * 0.36;
+  drawAvatar(homeCtx, d.w / 2, d.h * 0.5, s, ST.species, tierOf(ST.exp), ST.mood, ts);
+}
+function currentBaseMood(){ return ST.energy < 55 ? 'sleepy' : 'idle'; }
+function setMood(m, ms){ ST.mood = m; ST.moodUntil = performance.now() + (ms || 1500); }
+requestAnimationFrame(homeLoop);
+
+/* ── 배경 별 (rAF · 아주 가볍게) ── */
+var starCv = document.getElementById('bgStars'), starCtx = starCv.getContext('2d'), stars = [];
+function initStars(){
+  var d = fitCanvas(starCv); stars = [];
+  var n = Math.round(Math.min(90, d.w * d.h / 9000));
+  for (var i = 0; i < n; i++) stars.push({ x:Math.random()*d.w, y:Math.random()*d.h, r:Math.random()*1.4+.3, p:Math.random()*6.28 });
+}
+function starLoop(ts){
+  requestAnimationFrame(starLoop);
+  var d = fitCanvas(starCv);
+  if (!stars.length) initStars();
+  starCtx.clearRect(0, 0, d.w, d.h);
+  for (var i = 0; i < stars.length; i++){
+    var s = stars[i];
+    starCtx.globalAlpha = 0.25 + 0.5 * (0.5 + 0.5 * Math.sin(ts / 1400 + s.p));
+    starCtx.fillStyle = '#fff';
+    starCtx.beginPath(); starCtx.arc(s.x, s.y, s.r, 0, 6.284); starCtx.fill();
+  }
+  starCtx.globalAlpha = 1;
+}
+requestAnimationFrame(starLoop);
+window.addEventListener('resize', function(){ stars = []; });
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  6. 진화 컷신 — 영상이 있으면 재생, 없으면 캔버스(rAF)로 연출
+ *     ⚠️ CSS 애니메이션 금지. 백그라운드 탭에서 얼어붙는다.
+ * ══════════════════════════════════════════════════════════════════════ */
+var cutEl = document.getElementById('cut'), cutCv = document.getElementById('cutCv'),
+    cutCtx = cutCv.getContext('2d'), cutVid = document.getElementById('cutVid'),
+    cutText = document.getElementById('cutText'), cutSkip = document.getElementById('cutSkip');
+var cutRun = false, cutEnd = null;
+
+function playCutscene(newTier){
+  var sp = SPECIES[ST.species];
+  lsSet(LS.seenTier, newTier);
+  cutEl.classList.add('on'); cutRun = true;
+  cutText.querySelector('.l1').textContent = 'EVOLUTION · 진화';
+  cutText.querySelector('.l2').textContent = sp.tiers[newTier].ko;
+  cutText.querySelector('.l3').textContent = sp.tiers[newTier].en + ' — Tier ' + (newTier + 1);
+
+  // 1순위: Higgsfield 로 만든 컷신 영상 (public/video/avatar/{species}-{tier}.mp4)
+  var src = '/video/avatar/' + ST.species + '-' + newTier + '.mp4';
+  var done = false;
+  var finish = function(){ if (done) return; done = true; endCutscene(newTier); };
+  cutEnd = finish;
+
+  cutVid.onerror = null; cutVid.onended = null;
+  fetch(src, { method:'HEAD' }).then(function(r){
+    if (r.ok && !done){
+      cutVid.style.display = 'block'; cutCv.style.display = 'none';
+      cutVid.src = src; cutVid.currentTime = 0;
+      cutVid.onended = finish;
+      cutVid.onerror = function(){ cutVid.style.display = 'none'; cutCv.style.display = 'block'; canvasCutscene(newTier, finish); };
+      var p = cutVid.play();
+      if (p && p.catch) p.catch(function(){ cutVid.style.display='none'; cutCv.style.display='block'; canvasCutscene(newTier, finish); });
+      setTimeout(function(){ if (!done) finish(); }, 9000);   // 안전 상한
+    } else if (!done){
+      cutVid.style.display = 'none'; cutCv.style.display = 'block';
+      canvasCutscene(newTier, finish);
+    }
+  }).catch(function(){
+    if (!done){ cutVid.style.display = 'none'; cutCv.style.display = 'block'; canvasCutscene(newTier, finish); }
+  });
+}
+
+function canvasCutscene(newTier, onDone){
+  var sp = SPECIES[ST.species];
+  var t0 = performance.now(), DUR = 3400, parts = [];
+  // 🛟 안전장치 — 학생이 컷신 도중 탭을 전환하면 rAF 가 아예 멈춘다(백그라운드 탭·저전력).
+  //    그러면 frame() 이 다시 안 불려 컷신이 끝나지 않고 전체화면에 갇힌다.
+  //    setTimeout 은 백그라운드에서도(느려질 뿐) 반드시 불리므로 이것으로 강제 종료한다.
+  var guard = setTimeout(function(){ if (cutRun && onDone) onDone(); }, DUR + 1200);
+  var finishOnce = onDone;
+  onDone = function(){ clearTimeout(guard); if (finishOnce) finishOnce(); };
+  for (var i = 0; i < 90; i++){
+    var a = Math.random() * 6.284, v = 40 + Math.random() * 300;
+    parts.push({ a:a, v:v, r:1 + Math.random()*3.4, born: Math.random()*600 });
+  }
+  function frame(ts){
+    if (!cutRun) return;
+    var el = ts - t0;
+    var d = fitCanvas(cutCv);
+    cutCtx.clearRect(0, 0, d.w, d.h);
+    var cx = d.w / 2, cy = d.h * 0.46, base = Math.min(d.w, d.h) * 0.3;
+
+    // 배경 플래시
+    var flash = el < 900 ? 0 : Math.max(0, 1 - Math.abs(el - 1500) / 420);
+    cutCtx.fillStyle = hexA(sp.glow, 0.06 + flash * 0.5);
+    cutCtx.fillRect(0, 0, d.w, d.h);
+
+    // 빛기둥
+    var beam = Math.max(0, Math.min(1, (el - 300) / 900));
+    if (beam > 0){
+      var g = cutCtx.createLinearGradient(cx, 0, cx, d.h);
+      g.addColorStop(0, hexA(sp.glow, 0)); g.addColorStop(.5, hexA(sp.glow, .3 * beam)); g.addColorStop(1, hexA(sp.glow, 0));
+      cutCtx.fillStyle = g;
+      cutCtx.fillRect(cx - base * (0.5 + beam), 0, base * (1 + beam * 2), d.h);
+    }
+
+    // 파티클 (안에서 밖으로)
+    for (var i = 0; i < parts.length; i++){
+      var p = parts[i], pe = el - 700 - p.born;
+      if (pe <= 0) continue;
+      var life = Math.min(1, pe / 1800);
+      var dist = p.v * (pe / 1000);
+      cutCtx.globalAlpha = Math.max(0, 1 - life);
+      cutCtx.fillStyle = i % 3 === 0 ? '#fff' : sp.glow;
+      cutCtx.beginPath();
+      cutCtx.arc(cx + Math.cos(p.a) * dist, cy + Math.sin(p.a) * dist * .7, p.r, 0, 6.284);
+      cutCtx.fill();
+    }
+    cutCtx.globalAlpha = 1;
+
+    // 아바타 — 전 단계에서 새 단계로 교체 + 줌
+    var swap = el > 1500;
+    var zoom = el < 1500 ? (1 + el / 1500 * 0.35) : (1.35 - Math.min(1, (el - 1500) / 1400) * 0.35);
+    var shake = el > 1200 && el < 1650 ? (Math.random() - .5) * 8 : 0;
+    drawAvatar(cutCtx, cx + shake, cy, base * zoom, ST.species, swap ? newTier : Math.max(0, newTier - 1),
+               swap ? 'cheer' : 'idle', ts);
+
+    if (el >= DUR){ if (onDone) onDone(); return; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+function endCutscene(newTier){
+  cutRun = false;
+  try { cutVid.pause(); cutVid.removeAttribute('src'); cutVid.load(); } catch(e){}
+  cutVid.style.display = 'none';
+  cutEl.classList.remove('on');
+  render();
+  var sp = SPECIES[ST.species];
+  toast('진화! ' + sp.tiers[newTier].ko, 'Evolved to ' + sp.tiers[newTier].en + ' — keep going!');
+  setMood('cheer', 2600);
+}
+cutSkip.onclick = function(){ if (cutEnd) cutEnd(); };
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  7. 학습 데이터 — 학생 배정 교재 기반. 없으면 기본 어휘.
+ * ══════════════════════════════════════════════════════════════════════ */
+var FALLBACK = {
+  en: {
+    sentences:[
+      {en:'I like to read books',   ko:'나는 책 읽는 것을 좋아해요'},
+      {en:'She goes to school',     ko:'그녀는 학교에 가요'},
+      {en:'We play in the park',    ko:'우리는 공원에서 놀아요'},
+      {en:'He eats breakfast',      ko:'그는 아침을 먹어요'},
+      {en:'They watch a movie',     ko:'그들은 영화를 봐요'},
+      {en:'My dog runs very fast',  ko:'내 강아지는 아주 빨리 달려요'},
+      {en:'I want some water',      ko:'나는 물이 좀 필요해요'},
+      {en:'The sun is very bright', ko:'해가 아주 밝아요'}
+    ],
+    words:[
+      {en:'apple',ko:'사과'},{en:'water',ko:'물'},{en:'friend',ko:'친구'},{en:'school',ko:'학교'},
+      {en:'happy',ko:'행복한'},{en:'strong',ko:'강한'},{en:'kitchen',ko:'부엌'},{en:'travel',ko:'여행하다'},
+      {en:'brave',ko:'용감한'},{en:'garden',ko:'정원'},{en:'listen',ko:'듣다'},{en:'window',ko:'창문'}
+    ]
+  },
+  zh: {
+    sentences:[
+      {en:'我喜欢读书',   ko:'나는 책 읽는 것을 좋아해요'},
+      {en:'她去学校',     ko:'그녀는 학교에 가요'},
+      {en:'我们在公园玩', ko:'우리는 공원에서 놀아요'},
+      {en:'他吃早饭',     ko:'그는 아침을 먹어요'},
+      {en:'今天天气很好', ko:'오늘 날씨가 좋아요'}
+    ],
+    words:[
+      {en:'苹果',ko:'사과'},{en:'水',ko:'물'},{en:'朋友',ko:'친구'},{en:'学校',ko:'학교'},
+      {en:'快乐',ko:'행복한'},{en:'老师',ko:'선생님'},{en:'家',ko:'집'},{en:'书',ko:'책'}
+    ]
+  }
+};
+var BANK = { sentences:[], words:[], source:'기본 어휘' , sourceEn:'default word set' };
+
+function tokenize(s){ return String(s||'').replace(/[^A-Za-z' ]/g,' ').split(/\s+/).filter(Boolean); }
+
+function loadBank(){
+  var fb = FALLBACK[LANG] || FALLBACK.en;
+  BANK.sentences = fb.sentences.slice();
+  BANK.words = fb.words.slice();
+  BANK.source = '기본 어휘'; BANK.sourceEn = 'default word set';
+
+  if (LANG !== 'en' || !window.MangoiGameVocab) { return Promise.resolve(); }
+  return window.MangoiGameVocab.load().then(function(d){
+    if (!d) return;
+    if (d.sentences && d.sentences.length) BANK.sentences = d.sentences.map(function(s){ return { en:s.en, ko:s.ko }; });
+    if (d.words && d.words.length) BANK.words = d.words.slice();
+    BANK.source = d.textbook ? ('내 교재 · ' + d.textbook) : '내 학습 기록';
+    BANK.sourceEn = d.textbook ? ('my textbook · ' + d.textbook) : 'my learning record';
+  }).catch(function(){});
+}
+
+// 최근에 낸 문제는 피한다 — 3라운드 중 같은 단어가 두 번 나오면 학생은 "고장"으로 느낀다.
+var _recent = [];
+function pick(arr){
+  if (!arr || !arr.length) return null;
+  var fresh = arr.filter(function(x){ return _recent.indexOf(x.en) < 0; });
+  var item = (fresh.length ? fresh : arr)[Math.floor(Math.random() * (fresh.length ? fresh.length : arr.length))];
+  if (item && item.en){ _recent.push(item.en); if (_recent.length > 6) _recent.shift(); }
+  return item;
+}
+function shuffle(a){ a = a.slice(); for (var i = a.length - 1; i > 0; i--){ var j = Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  8. 미션
+ * ══════════════════════════════════════════════════════════════════════ */
+var MISSIONS = [
+  { key:'speak',  ic:'🎤', ko:'주문 외치기',  en:'Cast a Spell — speak it out', exp:10 },
+  { key:'build',  ic:'🍳', ko:'재료 조립',    en:'Cook It — word order',        exp:6  },
+  { key:'meaning',ic:'🧩', ko:'뜻 맞히기',    en:'Match the Meaning',           exp:3  },
+  { key:'listen', ic:'👂', ko:'듣고 고르기',  en:'Listen & Choose',             exp:4  }
+];
+
+var missBody = document.getElementById('missBody'), missBar = document.getElementById('missBar');
+var curMission = null;
+
+function openMission(key){
+  if (ST.busy) return;
+  curMission = { key:key, round:0, total:3, got:0 };
+  show('miss');
+  nextRound();
+}
+function missionDef(k){ for (var i=0;i<MISSIONS.length;i++) if (MISSIONS[i].key===k) return MISSIONS[i]; return MISSIONS[0]; }
+
+function nextRound(){
+  if (!curMission) return;
+  if (curMission.round >= curMission.total){ finishMission(); return; }
+  curMission.round++;
+  var k = curMission.key;
+  if (k === 'meaning') roundMeaning();
+  else if (k === 'build') roundBuild();
+  else if (k === 'listen') roundListen();
+  else roundSpeak();
+}
+
+function head(askKo, askEn){
+  var d = missionDef(curMission.key);
+  return '<div class="qHead"><div class="step">' + d.ic + ' ' + d.ko + ' · ' + curMission.round + ' / ' + curMission.total +
+         '</div><div class="ask">' + askKo + '<br><span style="font-size:12px;color:#8f81ab">' + askEn + '</span></div></div>';
+}
+function barBtns(html){ missBar.innerHTML = html; }
+
+/* ── 뜻 맞히기 ── */
+function roundMeaning(){
+  if (BANK.words.length < 4){ roundBuild(); return; }
+  var w = pick(BANK.words);
+  var wrong = shuffle(BANK.words.filter(function(x){ return x.ko !== w.ko; })).slice(0, 3);
+  var opts = shuffle([w].concat(wrong));
+  missBody.innerHTML = head('이 단어의 뜻은?', 'What does this word mean?') +
+    '<div class="qEn">' + esc(w.en) + '</div>' +
+    '<div class="opts">' + opts.map(function(o, i){
+      return '<div class="opt" data-i="' + i + '" data-ok="' + (o.ko === w.ko ? 1 : 0) + '">' + esc(o.ko) + '</div>';
+    }).join('') + '</div><div class="fb" id="fb"></div>';
+  barBtns('<button id="btnBack">그만하기 · Quit</button>');
+  document.getElementById('btnBack').onclick = quitMission;
+  var locked = false;
+  Array.prototype.forEach.call(missBody.querySelectorAll('.opt'), function(el){
+    el.onclick = function(){
+      if (locked) return; locked = true;
+      var ok = el.getAttribute('data-ok') === '1';
+      el.classList.add(ok ? 'ok' : 'no');
+      if (!ok) missBody.querySelector('.opt[data-ok="1"]').classList.add('ok');
+      judge(ok, w.en);
+    };
+  });
+  try { if (window.MangoiTTS){ MangoiTTS.setLang(LANG); MangoiTTS.speak(w.en); } } catch(e){}
+}
+
+/* ── 재료 조립(어순) ── */
+function roundBuild(){
+  var pool = BANK.sentences.filter(function(s){ var n = tokenize(s.en).length; return n >= 3 && n <= 8; });
+  if (LANG === 'zh' || !pool.length){ roundMeaning2(); return; }
+  var s = pick(pool), words = tokenize(s.en);
+  missBody.innerHTML = head('재료를 순서대로 올려요', 'Tap the words in the correct order') +
+    '<div class="qKo">' + esc(s.ko || '') + '</div>' +
+    '<div class="slots" id="slots"></div>' +
+    '<div class="tiles" id="tiles"></div><div class="fb" id="fb"></div>';
+  barBtns('<button id="btnUndo">되돌리기 · Undo</button><button id="btnBack">그만하기 · Quit</button>');
+  var slots = document.getElementById('slots'), tiles = document.getElementById('tiles');
+  var placed = [];
+  function paint(){
+    slots.innerHTML = words.map(function(w, i){
+      if (i < placed.length) return '<div class="slot done">' + esc(placed[i]) + '</div>';
+      return '<div class="slot' + (i === placed.length ? ' next' : '') + '">' + '&nbsp;'.repeat(Math.min(6, w.length)) + '</div>';
+    }).join('');
+  }
+  var order = shuffle(words.map(function(w, i){ return { w:w, i:i }; }));
+  tiles.innerHTML = order.map(function(o, i){ return '<div class="tile" data-k="' + i + '">' + esc(o.w) + '</div>'; }).join('');
+  paint();
+  var wrongOnce = false;
+  Array.prototype.forEach.call(tiles.querySelectorAll('.tile'), function(el){
+    el.onclick = function(){
+      var k = +el.getAttribute('data-k'), w = order[k].w;
+      if (w.toLowerCase() === words[placed.length].toLowerCase()){
+        placed.push(w); el.classList.add('used'); paint();
+        if (placed.length === words.length){
+          try { if (window.MangoiTTS){ MangoiTTS.setLang(LANG); MangoiTTS.speak(s.en); } } catch(e){}
+          judge(!wrongOnce, s.en);
+        }
+      } else {
+        wrongOnce = true;
+        fb('아직이야! 한국어 뜻을 보고 다시 골라보자', 'Not yet — check the meaning and try again', false);
+      }
+    };
+  });
+  document.getElementById('btnUndo').onclick = function(){
+    if (!placed.length) return;
+    var last = placed.pop();
+    var t = Array.prototype.filter.call(tiles.querySelectorAll('.tile.used'), function(e){ return e.textContent === last; })[0];
+    if (t) t.classList.remove('used');
+    paint();
+  };
+  document.getElementById('btnBack').onclick = quitMission;
+}
+// 문장이 없을 때(중국어 등) 조립 대신 뜻 맞히기로 대체
+function roundMeaning2(){ roundMeaning(); }
+
+/* ── 듣고 고르기 ── */
+function roundListen(){
+  if (BANK.words.length < 4){ roundMeaning(); return; }
+  var w = pick(BANK.words);
+  var wrong = shuffle(BANK.words.filter(function(x){ return x.en !== w.en; })).slice(0, 3);
+  var opts = shuffle([w].concat(wrong));
+  missBody.innerHTML = head('잘 듣고 맞는 것을 골라요', 'Listen carefully and choose') +
+    '<button class="micBtn" id="playBtn" style="background:linear-gradient(180deg,#7fd1ff,#3b82f6)">' +
+      '<div class="ic">🔊</div>다시 듣기<small>Play again</small></button>' +
+    '<div class="opts">' + opts.map(function(o){
+      return '<div class="opt" data-ok="' + (o.en === w.en ? 1 : 0) + '">' + esc(o.en) + '</div>';
+    }).join('') + '</div><div class="fb" id="fb"></div>';
+  barBtns('<button id="btnBack">그만하기 · Quit</button>');
+  document.getElementById('btnBack').onclick = quitMission;
+  var say = function(){ try { if (window.MangoiTTS){ MangoiTTS.setLang(LANG); MangoiTTS.speak(w.en); } } catch(e){} };
+  document.getElementById('playBtn').onclick = say;
+  setTimeout(say, 350);
+  var locked = false;
+  Array.prototype.forEach.call(missBody.querySelectorAll('.opt'), function(el){
+    el.onclick = function(){
+      if (locked) return; locked = true;
+      var ok = el.getAttribute('data-ok') === '1';
+      el.classList.add(ok ? 'ok' : 'no');
+      if (!ok) missBody.querySelector('.opt[data-ok="1"]').classList.add('ok');
+      judge(ok, w.en);
+    };
+  });
+}
+
+/* ── 주문 외치기(말하기) ── */
+function roundSpeak(){
+  var pool = BANK.sentences.length ? BANK.sentences : FALLBACK[LANG].sentences;
+  var s = pick(pool);
+  var micOk = !!(window.MangoiVoice && MangoiVoice.supported());
+  missBody.innerHTML = head('소리 내어 말해요 — 목소리가 곧 주문!', 'Say it out loud — your voice is the spell!') +
+    '<div class="qEn">' + esc(s.en) + '</div>' +
+    (s.ko ? '<div class="qKo" style="font-size:15px;color:#b6a6cf">' + esc(s.ko) + '</div>' : '') +
+    (micOk
+      ? '<button class="micBtn" id="micBtn"><div class="ic">🎤</div>눌러서 말하기<small>Tap &amp; speak</small></button>' +
+        '<div class="micState" id="micState"></div>'
+      : '<div class="note warn" style="max-width:460px;margin:0 auto">이 브라우저에서는 마이크를 쓸 수 없어요. 대신 소리 내어 읽고 아래 버튼을 눌러요.<br><span style="color:#c9a882">Mic is unavailable here — read it aloud, then tap the button.</span></div>' +
+        '<button class="micBtn" id="micBtn" style="background:linear-gradient(180deg,#a78bfa,#7c3aed)"><div class="ic">✨</div>읽었어요<small>I read it</small></button>') +
+    '<div class="fb" id="fb"></div>';
+  barBtns('<button id="btnHear">들어보기 · Hear it</button><button id="btnBack">그만하기 · Quit</button>');
+  document.getElementById('btnHear').onclick = function(){
+    try { if (window.MangoiTTS){ MangoiTTS.setLang(LANG); MangoiTTS.speak(s.en); } } catch(e){}
+  };
+  document.getElementById('btnBack').onclick = quitMission;
+
+  var btn = document.getElementById('micBtn'), stEl = document.getElementById('micState');
+  if (!micOk){ btn.onclick = function(){ btn.disabled = true; judge(true, s.en); }; return; }
+
+  btn.onclick = function(){
+    if (MangoiVoice.busy && MangoiVoice.busy()){ MangoiVoice.stop(); return; }
+    btn.classList.add('rec'); btn.querySelector('small').textContent = 'Tap to stop';
+    MangoiVoice.record({
+      lang: LANG,
+      maxMs: 12000,
+      onState: function(state){
+        var m = { ready:'마이크를 준비하고 있어요 · Getting mic ready',
+                  waiting:'말해보세요! · Go ahead, speak!',
+                  speaking:'듣고 있어요… · Listening…',
+                  thinking:'확인 중… · Checking…' };
+        stEl.textContent = m[state] || '';
+      }
+    }).then(function(text){
+      btn.classList.remove('rec'); btn.querySelector('small').textContent = 'Tap & speak';
+      stEl.textContent = '';
+      var score = similarity(text, s.en);
+      if (score >= 0.55) judge(true, s.en, text);
+      else {
+        fb('아깝다! 한 번 더 외쳐보자 🔥', 'So close! Cast it one more time' + (text ? ' (들린 말: "' + esc(text) + '")' : ''), false);
+        setMood('sad', 900);
+      }
+    }).catch(function(){
+      btn.classList.remove('rec'); stEl.textContent = '';
+      fb('소리를 못 들었어요. 다시 눌러볼까요?', 'I could not hear you — tap and try again', false);
+    });
+  };
+}
+
+// 전사 결과와 목표 문장의 단어 일치율
+function similarity(said, target){
+  var a = String(said || '').toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean);
+  var b = tokenize(target).map(function(x){ return x.toLowerCase(); });
+  if (!a.length || !b.length) return 0;
+  var pool = a.slice(), hit = 0;
+  for (var i = 0; i < b.length; i++){
+    var j = pool.indexOf(b[i]);
+    if (j >= 0){ hit++; pool.splice(j, 1); }
+  }
+  return hit / b.length;
+}
+
+function fb(ko, en, ok){
+  var el = document.getElementById('fb'); if (!el) return;
+  el.className = 'fb ' + (ok ? 'ok' : 'no');
+  el.innerHTML = esc0(ko) + '<span>' + en + '</span>';
+}
+function judge(ok, answer, heard){
+  if (ok){
+    fb('좋아요! ✨', 'Nice! ' + (heard ? '"' + esc(heard) + '"' : ''), true);
+    curMission.got++;
+    setMood('cheer', 1400);
+  } else {
+    fb('괜찮아요, 이제 알았죠!', 'That is okay — now you know it', false);
+  }
+  barBtns('<button class="primary" id="btnNext">' +
+          (curMission.round >= curMission.total ? '미션 끝내기 · Finish' : '다음 · Next') + '</button>');
+  document.getElementById('btnNext').onclick = nextRound;
+  // 학습 기록 (실패해도 게임 진행에 영향 없음)
+  if (UID && answer){
+    fetch('/api/games/progress', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id:UID, lang:LANG, events:[{ item:answer, correct: ok ? 1 : 0 }] })
+    }).catch(function(){});
+  }
+}
+
+function finishMission(){
+  var d = missionDef(curMission.key);
+  var earned = Math.round(d.exp * (curMission.got / curMission.total));
+  if (curMission.got === curMission.total) earned = d.exp;    // 만점 보너스 없음, 정액
+  var key = curMission.key, got = curMission.got, tot = curMission.total;
+  missBody.innerHTML =
+    '<div class="qHead"><div class="step">' + d.ic + ' ' + d.ko + '</div></div>' +
+    '<div class="qKo">' + got + ' / ' + tot + ' 성공!</div>' +
+    '<div style="text-align:center;font-size:14px;font-weight:800;color:#ffc46b">+' + earned + ' EXP</div>' +
+    '<div style="text-align:center;font-size:12px;color:#a99bc4;line-height:1.6">' +
+      (got === tot ? '완벽해요! 아바타가 힘을 얻었어요<br><span style="color:#8f81ab">Perfect! Your companion grew stronger</span>'
+                   : '잘했어요! 다시 하면 더 자랄 수 있어요<br><span style="color:#8f81ab">Well done — play again to grow more</span>') +
+    '</div>';
+  barBtns('<button class="primary" id="btnDone">아바타 보러 가기 · See my companion</button>');
+  ST.todayDone[key] = true;
+  document.getElementById('btnDone').onclick = function(){
+    show('home');
+    if (earned > 0) award(earned, d.ko);
+    else { touchActivity(); render(); }
+  };
+}
+function quitMission(){ curMission = null; show('home'); render(); }
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  9. 주간 보스 레이드
+ * ══════════════════════════════════════════════════════════════════════ */
+var BOSSES = [
+  { ko:'문법 괴물 그램록', en:'Grammar Gremlin', ic:'👾' },
+  { ko:'단어 도둑 워드냅', en:'Word Snatcher',   ic:'🦑' },
+  { ko:'침묵의 마왕',     en:'Lord of Silence', ic:'🕷️' }
+];
+var raid = null;
+var raidBody = document.getElementById('raidBody'), raidBar = document.getElementById('raidBar');
+
+function weekKey(){
+  var d = new Date(Date.now() + 32400000);   // KST
+  var onejan = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  var wk = Math.ceil((((d - onejan) / 86400000) + onejan.getUTCDay() + 1) / 7);
+  return d.getUTCFullYear() + '-' + wk;
+}
+function raidDoneThisWeek(){ return lsGet(LS.raidWeek, '') === weekKey(); }
+
+function startRaid(){
+  if (ST.busy) return;
+  var boss = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+  raid = { boss:boss, hp:100, t0:performance.now(), dur:90000, hits:0, over:false };
+  document.getElementById('raidName').textContent = boss.ic + ' ' + boss.ko;
+  show('raid');
+  raidRound();
+  requestAnimationFrame(raidTick);
+}
+function raidTick(ts){
+  if (!raid || raid.over || ST.screen !== 'raid') return;
+  requestAnimationFrame(raidTick);
+  // 🛟 자리를 비운 시간은 빼준다.
+  //    폰에 전화가 오거나 탭을 나가면 rAF 가 멈춘다 → 돌아온 순간 그 시간이 통째로 흘러
+  //    "즉시 시간 종료"가 되고 주간 보스 1회 기회를 잃는다. 학생 잘못이 아닌 패배를 만들지 않는다.
+  if (raid.awayMs) { raid.t0 += raid.awayMs; raid.awayMs = 0; }
+  var left = Math.max(0, raid.dur - (ts - raid.t0));
+  document.getElementById('raidTimer').textContent = Math.ceil(left / 1000) + '초 · s';
+  paintRaidHp();
+  if (left <= 0) endRaid(false);
+}
+function paintRaidHp(){
+  if (!raid) return;
+  var el = document.getElementById('raidHp');
+  if (el) el.style.width = raid.hp + '%';   // rAF 를 기다리지 않고 즉시 반영
+}
+function raidRound(){
+  if (!raid || raid.over) return;
+  var pool = BANK.sentences.length ? BANK.sentences : FALLBACK[LANG].sentences;
+  var s = pick(pool);
+  var wrongPool = BANK.words.length >= 3 ? BANK.words : FALLBACK[LANG].words;
+  var correct = s.en;
+  var opts = shuffle([{ t:correct, ok:1 }].concat(
+    shuffle(pool.filter(function(x){ return x.en !== correct; })).slice(0, 2).map(function(x){ return { t:x.en, ok:0 }; })
+  ));
+  raidBody.innerHTML =
+    '<div class="qHead"><div class="ask">한국어 뜻에 맞는 문장을 골라 공격!<br>' +
+    '<span style="font-size:12px;color:#8f81ab">Pick the matching sentence to attack!</span></div></div>' +
+    '<div class="qKo">' + esc(s.ko || s.en) + '</div>' +
+    '<div class="opts">' + opts.map(function(o){
+      return '<div class="opt" data-ok="' + o.ok + '">' + esc(o.t) + '</div>';
+    }).join('') + '</div><div class="fb" id="fb"></div>';
+  raidBar.innerHTML = '<button id="raidQuit">후퇴 · Retreat</button>';
+  document.getElementById('raidQuit').onclick = function(){ endRaid(false, true); };
+  var locked = false;
+  Array.prototype.forEach.call(raidBody.querySelectorAll('.opt'), function(el){
+    el.onclick = function(){
+      if (locked || !raid || raid.over) return; locked = true;
+      var ok = el.getAttribute('data-ok') === '1';
+      el.classList.add(ok ? 'ok' : 'no');
+      if (ok){
+        raid.hits++; raid.hp = Math.max(0, raid.hp - 14);
+        fbIn(raidBody, '명중! 💥', 'Direct hit!', true);
+        try { if (window.MangoiTTS){ MangoiTTS.setLang(LANG); MangoiTTS.speak(s.en); } } catch(e){}
+      } else {
+        raidBody.querySelector('.opt[data-ok="1"]').classList.add('ok');
+        fbIn(raidBody, '빗나갔어요! 다음 기회에!', 'Missed — next one is yours!', false);
+      }
+      if (raid.hp <= 0){ setTimeout(function(){ endRaid(true); }, 550); return; }
+      setTimeout(raidRound, 850);
+    };
+  });
+}
+function fbIn(root, ko, en, ok){
+  var el = root.querySelector('#fb'); if (!el) return;
+  el.className = 'fb ' + (ok ? 'ok' : 'no');
+  el.innerHTML = esc0(ko) + '<span>' + en + '</span>';
+}
+function endRaid(win, quiet){
+  if (!raid || raid.over) return;
+  raid.over = true;
+  var hits = raid.hits;
+  if (win){
+    lsSet(LS.raidWeek, weekKey());
+    show('home');
+    award(30, '보스 격파');
+    setTimeout(function(){ toast('보스 격파! 진화 재료 획득 🎁', 'Boss defeated! Evolution ingredient obtained'); }, 1200);
+  } else if (quiet){
+    show('home'); render();
+  } else {
+    var bonus = Math.min(20, hits * 2);
+    show('home');
+    if (bonus > 0) award(bonus, '레이드 참여');
+    else render();
+    setTimeout(function(){
+      toast('시간 종료! ' + hits + '번 명중했어요', 'Time up — ' + hits + ' hits. The boss is weaker now, try again!');
+    }, 900);
+  }
+  raid = null;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  10. 화면 · 렌더
+ * ══════════════════════════════════════════════════════════════════════ */
+var SCREENS = { pick:'scPick', home:'scHome', miss:'scMiss', raid:'scRaid' };
+function show(name){
+  ST.screen = name;
+  for (var k in SCREENS) document.getElementById(SCREENS[k]).classList.toggle('on', k === name);
+  document.getElementById('homeBtn').style.display = (name === 'home' || name === 'pick') ? 'none' : '';
+}
+document.getElementById('homeBtn').onclick = function(){
+  if (ST.screen === 'raid' && raid) { endRaid(false, true); return; }
+  curMission = null; show('home'); render();
+};
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+  return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+function esc0(s){ return esc(s); }
+
+var toastEl = document.getElementById('toast'), toastT = null;
+function toast(ko, en){
+  toastEl.innerHTML = esc(ko) + (en ? '<span>' + esc(en) + '</span>' : '');
+  toastEl.style.display = 'block';
+  if (toastT) clearTimeout(toastT);
+  toastT = setTimeout(function(){ toastEl.style.display = 'none'; }, 2600);
+}
+
+function render(){
+  var sp = SPECIES[ST.species] || SPECIES.panda;
+  var tier = tierOf(ST.exp);
+  ST.energy = calcEnergy();
+  if (!ST.moodUntil) ST.mood = currentBaseMood();
+
+  // HUD
+  document.getElementById('expVal').textContent = ST.expKnown ? ST.exp : '—';
+  document.getElementById('chipGuest').style.display = IS_GUEST ? '' : 'none';
+  var stChip = document.getElementById('chipStreak');
+  if (ST.streak !== null && ST.streak > 0){ stChip.style.display = ''; document.getElementById('streakVal').textContent = ST.streak; }
+  else stChip.style.display = 'none';
+  document.getElementById('langBtn').textContent = LANG === 'zh' ? '中文' : 'EN';
+
+  // 이름 · 단계
+  document.getElementById('avName').textContent = sp.tiers[tier].ko;
+  document.getElementById('avNameEn').textContent = sp.tiers[tier].en;
+  document.getElementById('avTier').textContent = 'Lv.' + (tier + 1);
+
+  // EXP 바
+  var expFill = document.getElementById('expFill'), expLine = document.getElementById('expLine');
+  if (!ST.expKnown){
+    expFill.style.width = '0%';
+    expLine.textContent = '—';
+  } else {
+    var p = tierProgress(ST.exp);
+    expFill.style.width = p.pct + '%';
+    expLine.textContent = (p.need === null)
+      ? (ST.exp + ' · 최고 단계 MAX')
+      : (p.cur + ' / ' + p.need + '  (다음 진화까지 ' + (p.need - p.cur) + ')');
+  }
+
+  // 에너지
+  var en = ST.energy;
+  document.getElementById('enFill').style.width = en + '%';
+  document.getElementById('enLine').textContent = en + '%';
+  document.getElementById('enBar').classList.toggle('low', en < 55);
+
+  // 말풍선
+  var bub = document.getElementById('moodBubble');
+  if (tier === 0){
+    bub.innerHTML = '미션을 하면 알이 깨어나요!<span>Finish a mission to hatch me!</span>';
+  } else if (en < 55){
+    bub.innerHTML = '기다리고 있었어! 같이 공부하자<span>I have been waiting — let us study together!</span>';
+  } else if (ST.mood === 'cheer'){
+    bub.innerHTML = '좋았어! 더 강해졌어<span>Awesome! I got stronger</span>';
+  } else {
+    bub.innerHTML = '오늘도 같이 해볼까?<span>Ready for today?</span>';
+  }
+
+  // 미션 카드
+  var grid = document.getElementById('missGrid');
+  grid.innerHTML = MISSIONS.map(function(m){
+    var done = !!ST.todayDone[m.key];
+    return '<div class="miss' + (done ? ' done' : '') + '" data-k="' + m.key + '">' +
+      '<div class="ic">' + m.ic + '</div>' +
+      '<div class="t">' + m.ko + '</div>' +
+      '<div class="e">' + m.en + '</div>' +
+      '<div class="r">' + (done ? '오늘 완료 · done' : '+' + m.exp + ' EXP') + '</div></div>';
+  }).join('');
+  Array.prototype.forEach.call(grid.querySelectorAll('.miss'), function(el){
+    el.onclick = function(){ openMission(el.getAttribute('data-k')); };
+  });
+
+  // 레이드 카드
+  var rc = document.getElementById('raidCard'), rr2 = document.getElementById('raidR');
+  if (raidDoneThisWeek()){
+    rc.classList.add('done'); rr2.textContent = '이번 주 격파 완료 · cleared this week';
+    rc.onclick = function(){ toast('이번 주 보스는 이미 물리쳤어요!', 'Already cleared — a new boss appears next week'); };
+  } else {
+    rc.classList.remove('done'); rr2.textContent = '+30 EXP · 진화 재료';
+    rc.onclick = startRaid;
+  }
+
+  // 데이터 출처 안내 — 무엇을 근거로 보여주는지 숨기지 않는다
+  var note = document.getElementById('srcNote');
+  var lines = [];
+  lines.push('문제 출처 · Source: <b>' + esc(BANK.source) + '</b> <span style="color:#8f81ab">(' + esc(BANK.sourceEn) + ')</span>');
+  if (IS_GUEST){
+    lines.push('EXP는 이 기기에만 임시로 저장돼요 · EXP is kept on this device only.');
+  } else if (!ST.expKnown){
+    lines.push('<b style="color:#ffb98a">지금은 성장 기록을 불러오지 못했어요.</b> 잠시 뒤 다시 열어주세요 · Could not load your growth record right now.');
+  } else {
+    lines.push('EXP는 망고아이에서 모은 누적 코인이에요. 서버에 저장되니 다른 기기에서도 이어집니다 · Your EXP is your saved coin total.');
+  }
+  lines.push('아바타 종류·이름은 이 기기에만 저장돼요 · Companion choice is stored on this device.');
+  note.innerHTML = lines.join('<br>');
+
+  document.getElementById('guestNote').style.display = IS_GUEST ? '' : 'none';
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  11. 종족 선택 화면
+ * ══════════════════════════════════════════════════════════════════════ */
+var pickSel = SP_ORDER[0], pickCvs = [];
+function buildPick(){
+  var list = document.getElementById('pickList');
+  list.innerHTML = SP_ORDER.map(function(k){
+    var s = SPECIES[k];
+    return '<div class="pickCard' + (k === pickSel ? ' sel' : '') + '" data-k="' + k + '">' +
+      '<canvas data-cv="' + k + '"></canvas>' +
+      '<div style="flex:1"><div class="t">' + s.icon + ' ' + s.ko + '<span>' + s.en + '</span></div>' +
+      '<div class="d">' + s.desc + '<br><span style="color:#8f81ab">' + s.descEn + '</span></div></div></div>';
+  }).join('');
+  pickCvs = SP_ORDER.map(function(k){
+    var cv = list.querySelector('canvas[data-cv="' + k + '"]');
+    return { k:k, cv:cv, ctx:cv.getContext('2d') };
+  });
+  Array.prototype.forEach.call(list.querySelectorAll('.pickCard'), function(el){
+    el.onclick = function(){
+      pickSel = el.getAttribute('data-k');
+      Array.prototype.forEach.call(list.querySelectorAll('.pickCard'), function(e){
+        e.classList.toggle('sel', e.getAttribute('data-k') === pickSel);
+      });
+    };
+  });
+}
+function pickLoop(ts){
+  requestAnimationFrame(pickLoop);
+  if (ST.screen !== 'pick' || !pickCvs.length) return;
+  for (var i = 0; i < pickCvs.length; i++){
+    var p = pickCvs[i], d = fitCanvas(p.cv);
+    p.ctx.clearRect(0, 0, d.w, d.h);
+    // 선택 화면에서는 3단계 모습으로 미리보기 (알만 보이면 고를 수가 없다)
+    drawAvatar(p.ctx, d.w / 2, d.h * 0.52, Math.min(d.w, d.h) * 0.33, p.k, 2, 'idle', ts + i * 700);
+  }
+}
+requestAnimationFrame(pickLoop);
+document.getElementById('pickGo').onclick = function(){
+  ST.species = pickSel; lsSet(LS.species, pickSel);
+  show('home'); render();
+  toast('함께 시작해요!', 'Let us begin — finish a mission to hatch your companion');
+};
+
+/* 언어 전환 */
+document.getElementById('langBtn').onclick = function(){
+  LANG = (LANG === 'zh') ? 'en' : 'zh';
+  lsSet('mangoi_game_lang', LANG);
+  try { if (window.MangoiTTS) MangoiTTS.setLang(LANG); } catch(e){}
+  loadBank().then(function(){ render(); toast(LANG === 'zh' ? '중국어 모드' : '영어 모드', LANG === 'zh' ? 'Chinese mode' : 'English mode'); });
+};
+document.getElementById('chipGuest').onclick = function(){
+  toast('로그인하면 계속 자라요', 'Log in and your companion keeps growing on any device');
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  12. 시작
+ * ══════════════════════════════════════════════════════════════════════ */
+buildPick();
+show(ST.species ? 'home' : 'pick');
+render();
+
+Promise.all([ loadBank(), syncExp(), syncStreak() ]).then(function(){
+  render();
+  // 앱을 켠 순간 이미 다음 단계인데 컷신을 못 본 경우(다른 게임에서 코인을 모았을 때) 보여준다
+  var t = tierOf(ST.exp), seen = parseInt(lsGet(LS.seenTier, '-1'), 10);
+  if (ST.expKnown && ST.species && t > 0 && t > seen && seen >= 0) setTimeout(function(){ playCutscene(t); }, 700);
+  else if (ST.expKnown && seen < 0) lsSet(LS.seenTier, t);
+});
+
+// 탭으로 돌아오면 에너지·EXP 재확인
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible' && ST.screen === 'home'){
+    syncExp().then(render);
+  }
+});
+})();
+</script>
+<!-- BUILD:20260803073251 -->
+</body>
+</html>

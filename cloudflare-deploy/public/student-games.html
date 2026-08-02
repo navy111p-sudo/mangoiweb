@@ -1579,6 +1579,10 @@ const HUB_GAMES = [
   // 🛸 맨 앞 고정 — 사장님 지시(26-08-02). 순서를 직접 바꾼 학생은 저장된 자기 순서가 우선이다.
   { mode:'spacemonster', kind:'iframe', ico:'🛸', ttl:'우주 괴물 사냥 (Space Monster)', dsc:'1인칭 라이트건 단어 퀴즈! 뜻에 맞는 영어 단어를 쏴서 다가오는 우주 괴물을 퇴치해요! 영화급 4K·3스테이지', bg:'#4f46e5', badge:'🛸·NEW',
     src:function(){ return '/student-game-space-monster.html'; } },
+  // 🥚 육성형 — 다른 게임은 전부 세션형(들어가서 이기고 나온다)이라, 재방문 동기를 만드는 유일한 게임이다.
+  //    EXP 는 서버 game_stats.coins_total 이 단일 권위 → 기기를 바꿔도 이어진다. 자체 언어전환 → 속도메뉴 숨김.
+  { mode:'avatar',  kind:'iframe', ico:'🥚', ttl:'아바타 키우기 (Avatar Quest)', dsc:'말할수록 아바타가 자라요! 판다·여우·드래곤 중 하나를 골라 5단계까지 진화시키고 주간 보스도 잡아요', bg:'#6d28d9', badge:'육성·NEW', ownSpeed:true,
+    src:function(){ return '/student-game-avatar.html?v=1'; } },
   { mode:'pizza',   kind:'iframe', ico:'🍕', ttl:'문법 피자 마스터 (Grammar Pizza)', dsc:'실사 재료를 문장 어순대로 도우에 올려 피자 완성! 문법 성분 배지 + 듣기·말하기 3회', bg:'#c0632a', badge:'문법·NEW',
     src:function(){ return '/student-game-grammar-pizza.html?v=16'; } },
   { mode:'escape',  kind:'iframe', ico:'🚪', ttl:'탈출: 말해야 열린다 (Escape by Voice)', dsc:'버튼이 없는 방! 서재·교실·화장실·창고·옥상·운동장 중 매번 다른 곳이 무작위로! 5분 안에 탈출!', bg:'#6b4a2a', badge:'말하기·NEW',
@@ -2679,7 +2683,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260803070455 -->
+<!-- BUILD:20260803073251 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
