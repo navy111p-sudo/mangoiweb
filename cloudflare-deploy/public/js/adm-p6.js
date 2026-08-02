@@ -8,6 +8,15 @@
   const AW_LS_KEY = 'mango_attendance_seed_v1';
   let _awTeachers = []; // [{ id, name }]
   let _awRecords = [];  // [{ teacher_id, teacher_name, date, scheduled, actual, late_min }]
+  let _awSeeded = false; // true = 서버 데이터가 아님(시드/로컬 사본). 화면에 경고를 띄운다.
+  // 서버 미연동 경고 배너 — 한/영 (강사 다수가 필리핀)
+  function _awSeedBanner() {
+    if (!_awSeeded) return '';
+    return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;background:rgba(245,158,11,0.10);'
+      + 'border-radius:8px;color:#b45309;font-size:13px;font-weight:700">'
+      + '⚠️ 서버 미연동 — 아래는 실제 출근 기록이 아니라 예시(시드) 데이터입니다. 급여 판단에 사용하지 마세요.<br>'
+      + '<span style="font-weight:500">Not connected to the server — the rows below are sample data, not real attendance records.</span></div>';
+  }
   let _awMode = 'byTeacher';
   let _awChart = null;
 
@@ -72,9 +81,12 @@
       if (r.ok) {
         const j = await r.json();
         const rows = j.rows || j.items || j;
-        if (Array.isArray(rows) && rows.length) { _awRecords = rows; return; }
+        if (Array.isArray(rows) && rows.length) { _awRecords = rows; _awSeeded = false; return; }
       }
     } catch(e) {}
+    // ⚠️ (2026-08-03) '/api/admin/teacher-attendance' 는 아직 서버에 없다(라이브 404 확인).
+    //   아래는 **서버 데이터가 아니다.** 표 위에 경고를 띄워 급여 판단에 쓰이지 않게 한다.
+    _awSeeded = true;
     // 시드: localStorage 에 있으면 사용, 없으면 자동 생성 (최근 14일)
     try {
       const saved = JSON.parse(localStorage.getItem(AW_LS_KEY) || 'null');
@@ -217,7 +229,7 @@
       html += '</tr>';
     });
     html += '</tbody></table></div>';
-    return html;
+    return _awSeedBanner() + html;
   }
 
     // 날짜별 표 — 한 행 = 하루 / 컬럼 = 강사별 지각분
@@ -251,7 +263,7 @@
       html += '</tr>';
     });
     html += '</tbody></table>';
-    return html;
+    return _awSeedBanner() + html;
   }
 
   function renderChart(rows) {

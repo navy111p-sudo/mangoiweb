@@ -1181,6 +1181,9 @@ const worker = {
         path === '/api/teacher/praise' ||
         path === '/api/admin/teacher/praise/list' ||
         path === '/api/admin/teacher/praise/stats' ||
+        // 🎯 학생 본인 집중도 이력 — 관리자 게이트가 아니라 **본인 서명토큰**으로 지킨다
+        //   (핸들러 안에서 uid 일치를 검사한다. api-students.ts 참고)
+        path === '/api/student/focus-history' ||
         // 🔐 Phase LOGIN 통합 로그인
         path === '/api/student/login' ||
         path === '/api/student/register' ||

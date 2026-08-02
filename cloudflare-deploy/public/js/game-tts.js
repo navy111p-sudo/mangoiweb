@@ -154,5 +154,10 @@
 
   // 👩‍🏫 아바타 음량 립싱크용 — 재생에 쓰는 <audio> 를 노출(없으면 생성). 다른 페이지엔 영향 없음.
   function getAudioEl(){ if(!audioEl){ try{ audioEl = new Audio(); }catch(_){} } return audioEl; }
-  window.MangoiTTS = { speak: speak, prefetch: prefetch, setLang: setLang, getLang: getLang, setSpeaker: setSpeaker, getSpeaker: getSpeaker, stop: stop, getAudioEl: getAudioEl };
+  // 🙊 (2026-08-03) stripEmoji 공개 — 이모지 정제 규칙의 **단일 출처**.
+  //   게임 4종(language-ace·tank-battle·tetris·p38-3d)은 TTS 스택을 각자 인라인으로
+  //   복사해 갖고 있어서 이 규칙만 빠져 있었다(공용 모듈은 2026-07-21 에 고쳤다).
+  //   파이프라인 전체 통합은 반복횟수·Android 브리지·시퀀스 토큰 등 구조가 달라 별건이고,
+  //   오디오 검증(Whisper 전사)이 필요하다. 우선 갈라진 규칙만 여기로 모은다.
+  window.MangoiTTS = { speak: speak, prefetch: prefetch, setLang: setLang, getLang: getLang, setSpeaker: setSpeaker, getSpeaker: getSpeaker, stop: stop, getAudioEl: getAudioEl, stripEmoji: stripEmoji };
 })();

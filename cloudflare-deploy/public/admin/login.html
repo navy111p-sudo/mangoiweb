@@ -206,13 +206,18 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
             name = '대리점 (' + agency_id + ')';
           } else if (uid === 'parent' || uid.indexOf('parent_') === 0) { role = 'parent'; name = '학부모'; }
           else if (uid === 'student' || uid.indexOf('student_') === 0) { role = 'student'; name = '학생'; }
-          if (data.user) {
-            if (data.user.role) role = data.user.role;
-            if (data.user.name) name = data.user.name;
-            if (data.user.branch) branch = data.user.branch;
-            if (data.user.branch_id) branch_id = data.user.branch_id;
-            if (data.user.agency_id) agency_id = data.user.agency_id;
-          }
+          // ⚠️ (2026-08-03) 여기 있던 `data.user.*` 블록을 제거했다 — **죽은 코드였다.**
+          //   /api/admin/login 응답에는 `user` 가 없다(그건 /api/admin/me 의 응답 형태다).
+          //   로그인 응답이 주는 건 `server_role` · `role_label` · `is_teacher` · `name` 이다.
+          //   그래서 "서버 권위 역할 우선 적용"이라는 원래 의도가 한 번도 실행된 적이 없고,
+          //   실질 판정은 아래 아이디 접두사 추측이었다(`is_teacher` 특례만 예외).
+          //
+          //   ⚠️ 어휘가 서로 다르다 — 서버 resolveRole(): teacher/hq/branch/agency/franchise/staff
+          //                          화면:              hq_teacher/hq_mgr/hq_exec/branch/agency/capitown
+          //   `hq` 는 hq_exec 인지 hq_mgr 인지 구분이 안 되고, branch/agency 로 바꿔봐야
+          //   로그인 응답에 branch_id/agency_id 가 없어 스코프가 비어버린다. 그래서 역할 자체는
+          //   바꾸지 않고, **서버 값을 세션에 그대로 실어** 화면이 참고할 수 있게만 한다
+          //   (admin.html 의 `_ses.server_role` 폴백이 여태 undefined 였던 이유가 이것이다).
           // 🪪 (2026-07-05) 서버가 판정한 권위 역할 우선 적용.
           //   아이디 접두사(hq_t_*)만으로 역할을 추측하던 탓에, 접두사 없는 강사 계정
           //   (예: 'jeong' = 정우영(교사), scope=hq)이 '관리자'로 잘못 표시되고
@@ -267,6 +272,9 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           } catch(e){}
           var session = {
             uid: uid, name: name, role: role,
+            // 🪪 서버가 판정한 역할·라벨 원본(어휘가 화면과 다르다 — 위 주석 참고).
+            //   화면은 `role` 을 쓰고, 서버 판정을 참고해야 할 때만 이 값을 본다.
+            server_role: data.server_role || '', role_label: data.role_label || '',
             branch: branch, branch_id: branch_id, agency_id: agency_id,
             // 🌐 하위 페이지(adm-lang-boot.js)가 매번 서버에 묻지 않고도 언어를 알도록 세션에 실어둔다.
             pref_lang: wantLang || 'ko',

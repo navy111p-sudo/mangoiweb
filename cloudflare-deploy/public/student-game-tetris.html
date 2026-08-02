@@ -285,6 +285,7 @@
   }
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<script defer src="/js/game-tts.js?v=5"></script><!-- 🙊 이모지 정제 규칙 단일 출처(MangoiTTS.stripEmoji) -->
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>
@@ -661,8 +662,14 @@ function _synthOnce(text, rate, cb){
   }catch(_){ setTimeout(fin, 600); }
 }
 /* 한 번 낭독 + 완료 콜백(반드시 1회) — 모든 발음의 공통 입구 */
+/* 🙊 이모지 정제 — 규칙의 단일 출처는 /js/game-tts.js 의 MangoiTTS.stripEmoji.
+   (이 파일은 TTS 스택을 인라인으로 따로 갖고 있어 그 규칙만 빠져 있었다 — 2026-08-03)
+   speak() · speakSentence() 가 모두 이 함수를 지나므로 여기 한 곳에서 정제한다. */
+function _ttsClean(t){ try{ return (window.MangoiTTS && MangoiTTS.stripEmoji) ? MangoiTTS.stripEmoji(t) : String(t==null?'':t); }catch(_){ return String(t==null?'':t); } }
 function speakCore(text, rate, cb){
+  text=_ttsClean(text);
   var fired=false; function fin(){ if(fired)return; fired=true; cb&&cb(); }
+  if(!text){ fin(); return; }
   _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
   _srvTts(text, rate, fin, function(){
     if(_bridgeSpeak(text, rate)) setTimeout(fin, Math.max(1800, text.length*(MODE==='zh'?260:110)));  // 브리지는 종료 이벤트가 없어 예상 시간

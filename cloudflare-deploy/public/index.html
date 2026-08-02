@@ -21937,7 +21937,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=18"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=19"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -23465,6 +23465,10 @@ window.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('mangoi_lang_uid', uid);
         localStorage.setItem('mangoi_admin_session', JSON.stringify({
           uid: uid, name: name, role: role,
+          // 🪪 (2026-08-03) 서버 판정 역할 원본을 세션에 함께 싣는다 — admin/login.html 과 동일.
+          //   어휘가 화면과 달라(서버 teacher/hq/branch… vs 화면 hq_teacher/hq_mgr…) 역할 자체를
+          //   대체하진 않는다. 자세한 배경은 admin/login.html 의 같은 지점 주석 참고.
+          server_role: data.server_role || '', role_label: data.role_label || '',
           branch: branch, branch_id: branch_id, agency_id: agency_id,
           pref_lang: wantLang,
           nationality: (data.nationality ? String(data.nationality).toUpperCase() : ''),

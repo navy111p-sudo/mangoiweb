@@ -2739,8 +2739,15 @@
     const days = Number(document.getElementById('fc-period')?.value) || 30;
     let data = null;
     try {
-      const r = await fetch(`/api/student/focus-history?uid=${encodeURIComponent(_focusSession.uid)}&days=${days}`, { credentials:'include' });
-      if (r.ok) data = await r.json();
+      // 🔐 서명토큰을 함께 보낸다 — 서버가 "본인만" 을 이 토큰으로 판정한다(IDOR 방지).
+      //   토큰은 /api/student/login 응답의 것. 데모 계정은 토큰이 없어 서버 조회를 건너뛴다.
+      //   ⚠️ 토큰은 **쿼리스트링에 넣지 않는다** — URL 은 접근로그·리퍼러에 남는다. Authorization 헤더로 보낸다.
+      const tok = _focusSession.token || (function(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } })();
+      if (tok) {
+        const r = await fetch(`/api/student/focus-history?uid=${encodeURIComponent(_focusSession.uid)}&days=${days}`,
+          { credentials:'include', headers: { 'Authorization': 'Bearer ' + tok } });
+        if (r.ok) data = await r.json();
+      }
     } catch {}
     // ⚠️ (2026-08-03) '/api/student/focus-history' 도 아직 서버에 없다(라이브 404 확인).
     //   위 평가표와 같은 이유로, 샘플로 그릴 때는 샘플이라고 밝힌다.

@@ -750,6 +750,7 @@
 
 <script src="/vendor/three/three.min.js?v=1"></script>
 <script src="/vendor/three/GLTFLoader.js?v=1"></script>
+<script defer src="/js/game-tts.js?v=5"></script><!-- 🙊 이모지 정제 규칙 단일 출처(MangoiTTS.stripEmoji) -->
 <script src="/js/lesson-nav.js?v=2"></script>
 <script src="/js/mangoi-stt.js?v=2"></script>
 <script>
@@ -927,9 +928,13 @@ function synthSpeak(text, rate, times, seq){
     if(v)u.voice=v; if(n<times) u.onend=function(){ setTimeout(once,340); }; speechSynthesis.speak(u); }catch(_){} }
   once(); }
 /* 낭독 — times회 반복. seq 토큰으로 이전 낭독과 안 꼬이게 */
+/* 🙊 이모지 정제 — 규칙의 단일 출처는 /js/game-tts.js 의 MangoiTTS.stripEmoji.
+   (이 파일은 TTS 스택을 인라인으로 따로 갖고 있어 그 규칙만 빠져 있었다 — 2026-08-03) */
+function _ttsClean(t){ try{ return (window.MangoiTTS && MangoiTTS.stripEmoji) ? MangoiTTS.stripEmoji(t) : String(t==null?'':t); }catch(_){ return String(t==null?'':t); } }
 function speak(text, rate, times, onDone){
   if(muted){ if(onDone)onDone(); return; }
   times=Math.max(1,times||1);
+  text=_ttsClean(text); if(!text){ if(onDone)onDone(); return; }
   var my=++_spkSeq; _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
   var n=0;
   function next(){ if(my!==_spkSeq) return;
