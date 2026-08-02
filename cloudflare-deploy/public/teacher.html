@@ -389,6 +389,19 @@ body{
     return ('0'+d.getUTCHours()).slice(-2) + ':' + ('0'+d.getUTCMinutes()).slice(-2);
   }
 
+  // ⏳ 남은 시간 표기 — "294 min" 처럼 큰 분 숫자는 강사가 머릿속으로 나눠야 한다.
+  //   시/분으로 끊어 준다: 294 → "4 hr 54 min" / "4시간 54분".
+  //   정각이면 분은 생략(300 → "5 hr"), 한 시간 미만이면 분만("45 min").
+  function fmtWait(mins){
+    var hh = Math.floor(mins / 60), mm = mins % 60;
+    if (EN()){
+      if (hh && mm) return hh + ' hr ' + mm + ' min';
+      return hh ? (hh + ' hr') : (mm + ' min');
+    }
+    if (hh && mm) return hh + '시간 ' + mm + '분';
+    return hh ? (hh + '시간') : (mm + '분');
+  }
+
   // ── 캐시 ──────────────────────────────────────────────────────────────────
   //   왜: 네트워크를 아무리 줄여도 '요청 → 응답' 한 번은 남고, 필리핀 회선에서는 그 한 번이
   //   수백 ms 다. 그 동안 강사는 빈 화면을 본다. 지난번 응답을 즉시 그려 두고 뒤에서 갱신하면
@@ -543,10 +556,10 @@ body{
         h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
           +    esc(T('Join Class','수업 입장')) + '</button>';
       } else {
-        // 문이 열리기 전에는 비활성 — 남은 시간을 분 단위로 알려 준다.
+        // 문이 열리기 전에는 비활성 — 남은 시간을 시/분으로 알려 준다.
         var mins = Math.max(1, Math.round((c.open_at_ts - t) / 60000));
         h += '<button class="btn btn-off" type="button" disabled>'
-          +    esc(T('Opens in ' + mins + ' min', mins + '분 뒤 입장')) + '</button>';
+          +    esc(T('Opens in ' + fmtWait(mins), fmtWait(mins) + ' 뒤 입장')) + '</button>';
       }
       // 📅 연기·변경 요청 — 아직 안 끝난 수업에만. 별도 폼 페이지로 보내지 않고
       //    '그 수업' 줄에서 바로 열리게 한다(어느 수업인지 고를 필요가 없다).
@@ -944,6 +957,6 @@ body{
   load();
 })();
 </script>
-<!-- BUILD:20260803064150 -->
+<!-- BUILD:20260803070455 -->
 </body>
 </html>

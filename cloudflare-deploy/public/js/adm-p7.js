@@ -461,28 +461,68 @@
     if (applyBtn) { applyBtn.disabled = false; applyBtn.style.opacity = '1'; }
   };
 
-  window.applyMatch = function(id) {
+  // ⚠️ (2026-08-03) 이 화면은 **전체가 시뮬레이션**이다.
+  //   결석 수업은 generateAbsentClasses() 가 만들어내고, 강사는 하드코딩 TEACHER_POOL 이며,
+  //   '/api/admin/substitute/apply' 는 서버에 존재하지 않는다(라이브 404 확인).
+  //   그런데도 예전엔 적용을 누르면 '적용됨' 으로 바뀌고, 일괄적용은 카톡 발송·시간표 갱신까지
+  //   "완료" 라고 단언했다. 실제로는 아무 일도 일어나지 않는다 — 운영 판단을 오도한다.
+  //   서버가 생기기 전까지는 **화면 안에서만 바뀐다**는 사실을 분명히 밝힌다.
+  window.applyMatch = async function(id) {
     const c = _absentClasses.find(x => x.id === id);
     if (!c || !c.match) return;
+    let saved = false;
+    try {
+      const r = await fetch('/api/admin/substitute/apply', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ class_id: id, original_teacher: c.absent_teacher.id, new_teacher: c.match.teacher.id })
+      });
+      saved = r.ok;
+    } catch(e) { saved = false; }
     c.status = 'applied';
-    // 실 운영: POST /api/admin/substitute/apply { class_id, teacher_id }
-    fetch('/api/admin/substitute/apply', {
-      method:'POST', credentials:'include',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ class_id: id, original_teacher: c.absent_teacher.id, new_teacher: c.match.teacher.id })
-    }).catch(()=>{});
+    c.local_only = !saved;      // 서버에 반영되지 않았음 — 표에 그렇게 표시된다
     renderSubTable();
     updateSubKpis();
+    if (!saved) {
+      alert('⚠️ 화면에만 반영되었습니다 (서버 미연동).\n\n'
+        + '대체 배정이 저장되지 않았고, 학생·강사에게 알림도 나가지 않았습니다.\n'
+        + '실제 배정은 아직 수동으로 처리해 주세요.\n\n'
+        + 'Screen only — not saved to the server, and no notifications were sent.');
+    }
   };
 
-  window.applyAllMatches = function() {
+  window.applyAllMatches = async function() {
     const matched = _absentClasses.filter(c => c.match && c.status === 'pending');
     if (matched.length === 0) { alert('매칭된 수업이 없습니다.'); return; }
-    if (!confirm(`${matched.length}개 수업의 대체 강사를 일괄 적용합니다.\n학생·강사에게 카카오톡 자동 알림이 발송됩니다.\n계속하시겠습니까?`)) return;
-    matched.forEach(c => c.status = 'applied');
+    // ⚠️ (2026-08-03) 예전엔 서버를 **부르지도 않고** "카톡 알림 N건 · 시간표 갱신 완료" 라고
+    //   단언했다. 발송된 알림도, 갱신된 시간표도 없었다. 확인 문구부터 사실대로 바꾼다.
+    if (!confirm(`${matched.length}개 수업의 대체 강사를 화면에 일괄 적용합니다.\n\n`
+      + `⚠️ 서버 연동 전이라 저장되지 않으며, 학생·강사 알림도 발송되지 않습니다.\n`
+      + `계속하시겠습니까?`)) return;
+
+    let savedCount = 0;
+    for (const c of matched) {
+      try {
+        const r = await fetch('/api/admin/substitute/apply', {
+          method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ class_id: c.id, original_teacher: c.absent_teacher.id, new_teacher: c.match.teacher.id })
+        });
+        if (r.ok) savedCount++; else c.local_only = true;
+      } catch(e) { c.local_only = true; }
+      c.status = 'applied';
+    }
     renderSubTable();
     updateSubKpis();
-    alert(`✅ ${matched.length}개 수업 대체 적용 완료!\n\n• 학생 카톡 알림: ${matched.length}건\n• 강사 카톡 알림: ${matched.length}건\n• 시간표 자동 갱신: 완료`);
+
+    if (savedCount === matched.length) {
+      alert(`✅ ${matched.length}개 수업 대체 적용 완료 (서버 저장됨).`);
+    } else {
+      alert(`⚠️ 화면에만 반영되었습니다 — ${matched.length}건 중 서버 저장 ${savedCount}건.\n\n`
+        + `저장되지 않은 건은 학생·강사 알림도 나가지 않았습니다.\n`
+        + `실제 배정은 아직 수동으로 처리해 주세요.\n\n`
+        + `Screen only — nothing was saved and no notifications were sent.`);
+    }
   };
 
   window.rejectMatch = function(id) {
@@ -494,9 +534,25 @@
     updateSubKpis();
   };
 
+  // 서버 미연동 경고 — 표 바로 위에 한 번만 띄운다(한/영: 강사 다수가 필리핀)
+  function _subShowSimBanner() {
+    const tbody = document.getElementById('sub-rows');
+    const host = tbody && tbody.closest('table') ? tbody.closest('table').parentNode : null;
+    if (!host || document.getElementById('sub-sim-banner')) return;
+    const d = document.createElement('div');
+    d.id = 'sub-sim-banner';
+    d.style.cssText = 'margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;'
+      + 'background:rgba(245,158,11,0.10);border-radius:8px;color:#b45309;font-size:13px;font-weight:700';
+    d.innerHTML = '⚠️ 서버 미연동 — 이 화면의 결석 수업·강사 목록은 예시(시뮬레이션)이며, '
+      + '대체 적용은 저장되지 않고 알림도 발송되지 않습니다.<br>'
+      + '<span style="font-weight:500">Simulation only — assignments are not saved and no notifications are sent.</span>';
+    host.insertBefore(d, host.firstChild);
+  }
+
   function renderSubTable() {
     const tbody = document.getElementById('sub-rows');
     if (!tbody) return;
+    _subShowSimBanner();
     if (_absentClasses.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" style="padding:30px;text-align:center;color:#9ca3af">결석 강사가 없습니다. 좋은 하루입니다! ☀️</td></tr>';
       return;
@@ -504,8 +560,11 @@
     tbody.innerHTML = _absentClasses.map(c => {
       const at = c.absent_teacher;
       const m = c.match;
+      // 서버에 저장되지 않은 건은 '적용완료' 로 보이면 안 된다 — 화면 반영일 뿐임을 밝힌다.
       const statusBadge = c.status === 'applied'
-        ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">✅ 적용완료</span>'
+        ? (c.local_only
+            ? '<span title="서버에 저장되지 않았습니다 / not saved to the server" style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">⚠️ 화면만 반영</span>'
+            : '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">✅ 적용완료</span>')
         : m
           ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">⏳ 대기</span>'
           : '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">❗ 미매칭</span>';

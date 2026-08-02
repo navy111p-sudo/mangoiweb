@@ -9373,6 +9373,15 @@ window.rebuildGlobalSearchIndex = function() {
 
   // ━━━━━━━━━━ 💳 법인카드 사용내역 (신한법인카드 연동 + AI 분석) ━━━━━━━━━━
   let _cardData = null;
+  // false = 카드사 동기화가 안 된 상태(= 화면 숫자가 예시 데이터). 화면에 반드시 표시한다.
+  let _cardSynced = false;
+  function _cardSampleBanner() {
+    if (_cardSynced) return '';
+    return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;background:rgba(245,158,11,0.10);'
+      + 'border-radius:8px;color:#b45309;font-size:13px;font-weight:700">'
+      + '⚠️ 카드사 미연동 — 아래 지출 내역은 실제 결제가 아니라 예시(샘플) 데이터입니다. 회계 판단에 사용하지 마세요.<br>'
+      + '<span style="font-weight:500">Card sync not connected — the transactions below are sample data, not real payments.</span></div>';
+  }
   let _cardCharts = {};
   // 한도 ₩1,000,000 카드에 맞게 카테고리 평균·임계값 조정 (총합이 1M 안에 들도록)
   const CARD_CATEGORIES = {
@@ -9393,13 +9402,26 @@ window.rebuildGlobalSearchIndex = function() {
       const r = await fetch('/api/admin/corpcard/sync', { method: 'POST', credentials: 'include' });
       let d = null;
       try { d = await r.json(); } catch {}
-      if (r.ok && d && d.ok && d.data) _cardData = d.data;
-      else _cardData = generateCardSampleData();
+      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = true; }
+      else { _cardData = generateCardSampleData(); _cardSynced = false; }
     } catch (e) {
-      _cardData = generateCardSampleData();
+      _cardData = generateCardSampleData(); _cardSynced = false;
     }
     renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback();
-    if (btn) { btn.textContent = '✅ 동기화 완료'; btn.disabled = false; setTimeout(() => btn.textContent = '🔄 신한 동기화', 1500); }
+    // ⚠️ (2026-08-03) 예전엔 실패했을 때도 무조건 '✅ 동기화 완료' 라고 찍었다.
+    //   '/api/admin/corpcard/sync' 는 서버에 없고(라이브 404), 카드사 연동 자체가 없다.
+    //   그래서 화면엔 generateCardSampleData() 가 만든 **가짜 카드 내역**이 뜨는데
+    //   버튼은 성공했다고 말했다 — 지출 판단을 오도한다.
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = _cardSynced ? '✅ 동기화 완료' : '⚠️ 미연동 (예시 데이터)';
+      setTimeout(() => btn.textContent = '🔄 신한 동기화', _cardSynced ? 1500 : 3000);
+    }
+    if (!_cardSynced) {
+      alert('⚠️ 카드사 동기화가 아직 연동되지 않았습니다.\n\n'
+        + '화면에 보이는 내역은 실제 지출이 아니라 예시(샘플) 데이터입니다. 회계 판단에 사용하지 마세요.\n\n'
+        + 'Card sync is not connected — the figures shown are sample data, not real transactions.');
+    }
   };
 
   window.cardLoad = function() {
@@ -9541,6 +9563,19 @@ window.rebuildGlobalSearchIndex = function() {
     if (!_cardData) return;
     const tbody = document.getElementById('acc-card-rows');
     if (!tbody) return;
+    // 표 바로 위에 '미연동/예시 데이터' 경고를 한 번만 띄운다
+    try {
+      const host = tbody.closest('table') ? tbody.closest('table').parentNode : null;
+      if (host) {
+        let b = document.getElementById('acc-card-sample-banner');
+        const html = _cardSampleBanner();
+        if (!html) { if (b) b.remove(); }
+        else {
+          if (!b) { b = document.createElement('div'); b.id = 'acc-card-sample-banner'; host.insertBefore(b, host.firstChild); }
+          b.innerHTML = html;
+        }
+      }
+    } catch (e) {}
     const catFilter = document.getElementById('acc-card-cat') ? document.getElementById('acc-card-cat').value : '';
     const search = ((document.getElementById('acc-card-search') && document.getElementById('acc-card-search').value) || '').toLowerCase();
     const rows = _cardData.current.filter(t => {
