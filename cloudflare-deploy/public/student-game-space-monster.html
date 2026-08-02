@@ -337,6 +337,8 @@
     <button onclick="location.reload()">다시 도전 &middot; Retry</button>
   </div>
 
+  <!-- 로그인 학생 판별(mangoi_logged_user / mango_user) — 다른 학생게임과 같은 공용 로더 -->
+  <script src="/js/game-vocab.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const field = $('field'), flash = $('flash'), zoom = $('corridorZoom');
@@ -1085,8 +1087,141 @@
     applyLang();
     stageEl.textContent = stage + '/' + LEVELS.length;
 
+    /* ═══════════════════════════════════════════════════════════════════
+     *  📚 로그인 학생의 배정 교재·레벨 문장으로 출제한다.
+     *
+     *  출처 우선순위 (앞에서 못 채우면 다음으로 내려간다)
+     *    ① URL 의 ?textbook= / ?level=   — 허브·교사가 콕 집어준 교재
+     *    ② 로그인 학생의 배정 교재/레벨  — /api/games/vocab?user_id=
+     *    ③ 레벨 밴드 어휘은행            — /api/games/en-vocab (easy·mid·hard)
+     *    ④ 내장 문장                     — 위의 BANKS.en
+     *  어느 단계든 실패하면 조용히 다음으로 내려가고, 최후에는 내장 문장으로 논다.
+     *  게임이 절대 안 뜨는 상황을 만들지 않는 게 이 함수의 첫 번째 목표다.
+     *
+     *  ⚠ 이 게임은 "한글 뜻을 보고 영어를 어순대로 맞히기" 라서 **뜻이 없으면 문제가 안 된다.**
+     *    교재 문장은 뜻이 비어 있는 경우가 많아 /api/translate 로 한 번에 채운다(KV 캐시됨).
+     * ═══════════════════════════════════════════════════════════════════ */
+    let bankLabel = '';
+
+    function bucketByWordCount(list) {
+      // LEVELS 의 단어 수(3·4·5·6·7·8)에 맞춰 6칸으로 나눈다. 8단어 초과는 마지막 칸에.
+      const out = LEVELS.map(() => []);
+      list.forEach(s => {
+        const n = s.w.length;
+        let i = LEVELS.findIndex(L => L.n === n);
+        if (i < 0) i = (n > LEVELS[LEVELS.length-1].n) ? LEVELS.length - 1 : -1;
+        if (i >= 0) out[i].push(s);
+      });
+      return out;
+    }
+
+    async function fillKorean(items) {
+      const need = items.filter(s => !s.ko).map(s => s.en);
+      if (!need.length) return items;
+      try {
+        const r = await fetch('/api/translate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texts: need.slice(0, 50), target: 'ko' })
+        });
+        const d = await r.json();
+        const map = (d && d.map) || {};
+        items.forEach(s => { if (!s.ko && map[s.en]) s.ko = String(map[s.en]).trim(); });
+      } catch (e) {}
+      // 뜻을 끝내 못 구한 문장은 버린다 — 뜻 없이 내면 학생이 풀 수가 없다
+      return items.filter(s => s.ko && /[가-힣]/.test(s.ko));
+    }
+
+    // 서버가 준 문장 → 게임 형식 { w:['I','LIKE','APPLES'], ko:'...' }
+    function toBankItems(rawSentences) {
+      const seen = new Set();
+      const out = [];
+      (rawSentences || []).forEach(s => {
+        const en = String((s && s.en) || '').trim();
+        if (!en) return;
+        const w = en.replace(/[^A-Za-z' ]/g, ' ').split(/\s+/).filter(Boolean);
+        if (w.length < LEVELS[0].n || w.length > 12) return;
+        const key = w.join(' ').toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ w: w.map(x => x.toUpperCase()), ko: String((s && s.ko) || '').trim(), en });
+      });
+      return out;
+    }
+
+    async function loadStudentBank() {
+      if (lang === 'zh') return;              // 중국어는 기존 내장 문장 유지
+      const qs = new URLSearchParams(location.search);
+      const qTextbook = (qs.get('textbook') || '').trim();
+      const qLevel = (qs.get('level') || '').trim();
+      let uid = '';
+      try { uid = (window.MangoiGameVocab && MangoiGameVocab.getUserId()) || ''; } catch (e) {}
+
+      let items = [], label = '';
+      // ①② 교재/레벨 맞춤
+      if (qTextbook || qLevel || uid) {
+        try {
+          const p = new URLSearchParams();
+          if (uid) p.set('user_id', uid);
+          if (qTextbook) p.set('textbook', qTextbook);
+          if (qLevel) p.set('level', qLevel);
+          const r = await fetch('/api/games/vocab?' + p.toString());
+          const d = await r.json();
+          if (d && d.ok) {
+            items = toBankItems(d.sentences);
+            label = d.textbook || d.level || '';
+          }
+        } catch (e) {}
+      }
+      // ③ 레벨 밴드 어휘은행
+      if (items.length < LEVELS.length) {
+        try {
+          const r = await fetch('/api/games/en-vocab');
+          const d = await r.json();
+          if (d && d.ok) {
+            const more = toBankItems(d.sentences || d.items || []);
+            const have = new Set(items.map(s => s.w.join(' ')));
+            more.forEach(s => { if (!have.has(s.w.join(' '))) items.push(s); });
+            if (!label && more.length) label = '레벨 맞춤';
+          }
+        } catch (e) {}
+      }
+      if (!items.length) return;              // ④ 내장 문장 그대로
+
+      items = await fillKorean(items);
+      if (!items.length) return;
+
+      // 레벨칸을 채우되, 부족한 칸은 내장 문장으로 메운다 (빈 레벨이 생기면 게임이 멈춘다).
+      //   한 레벨에 교재 문장이 넉넉하면(스테이지당 필요분 +1) **그 레벨은 교재 문장만** 쓴다.
+      //   섞어두면 startWave 가 무작위로 골라서 교재 문장이 잘 안 나온다.
+      const buckets = bucketByWordCount(items);
+      let used = 0;
+      const merged = BANKS.en.map((builtin, i) => {
+        const mine = buckets[i] || [];
+        used += mine.length;
+        return mine.length >= SENTENCES_PER_STAGE + 1 ? mine : mine.concat(builtin);
+      });
+      if (!used) return;
+      BANKS.en = merged;
+      usedIdx.forEach(a => a.length = 0);    // 은행이 바뀌었으니 '이미 낸 문제' 기록도 버린다
+      bankLabel = label;
+      showBankLabel();
+    }
+
+    function showBankLabel() {
+      if (!bankLabel || lang === 'zh') return;
+      const g = document.querySelector('.quizbar .guide');
+      if (!g || g.querySelector('.src')) return;
+      const b = document.createElement('span');
+      b.className = 'src';
+      b.style.cssText = 'margin-left:8px;padding:1px 8px;border-radius:999px;background:rgba(74,222,128,.16);border:1px solid rgba(74,222,128,.4);color:#86efac;font-weight:800;';
+      b.textContent = '📚 ' + bankLabel;
+      g.appendChild(b);
+    }
+
+    // 문장을 받아오는 동안 게임을 붙잡아 두지 않는다. 늦게 도착하면 그 다음 웨이브부터 적용된다.
+    loadStudentBank().catch(() => {});
     startWave();
   </script>
-<!-- BUILD:20260802232308 -->
+<!-- BUILD:20260802234726 -->
 </body>
 </html>
