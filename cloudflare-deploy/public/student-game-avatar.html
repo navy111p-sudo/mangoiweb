@@ -1384,6 +1384,7 @@ function raidRound(){
       el.classList.add(ok ? 'ok' : 'no');
       if (ok){
         raid.hits++; raid.hp = Math.max(0, raid.hp - 14);
+        paintRaidHp();   // rAF 를 기다리지 않는다 — 때렸는데 HP 가 안 줄면 "안 맞았다"고 느낀다
         fbIn(raidBody, '명중! 💥', 'Direct hit!', true);
         try { if (window.MangoiTTS){ MangoiTTS.setLang(LANG); MangoiTTS.speak(s.en); } } catch(e){}
       } else {
@@ -1609,14 +1610,20 @@ Promise.all([ loadBank(), syncExp(), syncStreak() ]).then(function(){
   else if (ST.expKnown && seen < 0) lsSet(LS.seenTier, t);
 });
 
-// 탭으로 돌아오면 에너지·EXP 재확인
+// 탭 전환 처리
+//  · 홈: 돌아오면 EXP 재확인
+//  · 레이드: 자리를 비운 시간을 재서 raidTick 이 제한시간에서 빼도록 넘긴다.
+//    (안 그러면 전화 한 통에 주간 보스 기회를 잃는다)
+var _hiddenAt = 0;
 document.addEventListener('visibilitychange', function(){
-  if (document.visibilityState === 'visible' && ST.screen === 'home'){
-    syncExp().then(render);
-  }
+  if (document.visibilityState === 'hidden'){ _hiddenAt = Date.now(); return; }
+  var away = _hiddenAt ? (Date.now() - _hiddenAt) : 0;
+  _hiddenAt = 0;
+  if (raid && !raid.over && away > 0) raid.awayMs = (raid.awayMs || 0) + away;
+  if (ST.screen === 'home') syncExp().then(render);
 });
 })();
 </script>
-<!-- BUILD:20260803073251 -->
+<!-- BUILD:20260803074015 -->
 </body>
 </html>
