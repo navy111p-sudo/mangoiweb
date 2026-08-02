@@ -233,11 +233,18 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           //   사용자가 EN/KO 를 직접 누른 적이 있으면(=by user, 같은 계정) 그 선택을 존중.
           var wantLang = (data.pref_lang === 'en' || data.pref_lang === 'ko') ? data.pref_lang : '';
           try {
-            // 🇵🇭 강사는 무조건 영어 — 강사는 전원 외국인(사장님 지시 2026-07-23).
-            //   서버가 pref_lang 을 못 내려준 경우의 폴백. 이름 형태를 보지 않는다.
-            //   `mangoi_NNN` = 실제 강사·해외 스태프 컨벤션(전원 외국인), `hq_t_*` = 시연 강사.
+            // 🇵🇭 강사는 기본 영어 — 강사는 사실상 전원 외국인(사장님 지시 2026-07-23).
+            //   `mangoi_NNN` = 실제 강사·해외 스태프 컨벤션, `hq_t_*` = 시연 강사.
             var isTeacherAcct = /^(hq_t|mangoi_)/i.test(uid) || String(role).indexOf('teacher') >= 0;
-            if (isTeacherAcct) wantLang = wantLang || 'en';
+            // 🇰🇷 (2026-08-02 사장님 지시) **단 하나의 예외 = 중국어 강사.**
+            //   이분은 한국어를 하시고, 실제로 강사 29명 중 한글 이름은 이 한 명뿐이다
+            //   (나머지 28명은 KES·BELLE·RICA… 로마자). 그래서 '이름에 한글이 있으면 한국어'가
+            //   현재 데이터에 100% 맞고, 필리핀 강사가 늘어도 자동으로 영어가 된다.
+            //   ⚠️ 이 규칙은 src/api-teacher.ts 의 me.lang 판정과 **같은 규칙**이어야 한다.
+            //      한쪽만 고치면 로그인 직후와 /teacher 의 언어가 서로 달라진다.
+            var _teacherName = String((data && data.name) || '').replace(/\s*[(（[【].*$/, '').trim();
+            var _koreanSpeakingTeacher = isTeacherAcct && /[가-힣]/.test(_teacherName);
+            if (isTeacherAcct) wantLang = wantLang || (_koreanSpeakingTeacher ? 'ko' : 'en');
             if (!wantLang) {
               //   매니저·직원은 이름으로 판정. 이름 칸에 직함이 붙어 있는 계정이 있어
               //   (`Maimai (본사 매니저)`) 괄호 이후를 잘라 사람 이름만 본다.

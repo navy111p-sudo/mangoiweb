@@ -182,6 +182,10 @@ export async function handleTeacherApi(
         room_id: `class-${s.id}-${ymd}`,
         student_uid: s.user_id,
         student_name: s.student_name || s.student_en || null,
+        // 🌐 학생 이름은 **번역하지 않는다** — 사람 이름을 기계번역하면 엉뚱한 말이 된다.
+        //   대신 학생 원부에 이미 있는 영문명을 그대로 내려주고, 영어 화면이면 이걸 쓴다.
+        //   (필리핀 강사가 '정우영' 을 읽지 못해 학생을 부르지 못하던 문제)
+        student_name_en: s.student_en || null,
         level: s.level || null,
         textbook: s.textbook || null,
         note: s.notes || null,
@@ -214,10 +218,19 @@ export async function handleTeacherApi(
     count: _rn, days: 90,
   };
 
+  // 🌐 강사별 기본 언어 — 브라우저 저장값이 아니라 **서버가 정한다**.
+  //   근거(2026-08-02 실데이터): 강사 29명 중 28명이 로마자 이름(KES·BELLE·RICA…)인 필리핀 강사,
+  //   한글 이름은 '중국어 강선생님' 한 명뿐이다. 그 한 명만 한국어를 한다.
+  //   → 이름에 한글이 있으면 'ko', 없으면 'en'. 현재 데이터에 100% 맞고,
+  //     앞으로 필리핀 강사가 늘어도(로마자 이름) 자동으로 영어가 된다.
+  //   ⚠️ localStorage 'mangoi_lang' 에 의존하지 말 것 — 기기를 바꾸거나 누가 잘못 눌러 두면
+  //      영어를 읽는 강사가 한국어 화면에 갇힌다(스스로 되돌리지 못한다).
+  const lang = /[가-힣]/.test(tname) ? 'ko' : 'en';
+
   return json({
     ok: true,
     now, today: todayStr,
-    me: { username: actor.username, name: actor.name, role: actor.role, is_teacher: true },
+    me: { username: actor.username, name: actor.name, role: actor.role, is_teacher: true, lang },
     classes, notices, resources, rating,
   });
 }

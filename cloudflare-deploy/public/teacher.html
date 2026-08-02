@@ -217,9 +217,18 @@ body{
 (function(){
   'use strict';
 
-  // ── 언어 (강사 전원 외국인 → 기본 영어. 공용 키 mangoi_lang 을 그대로 쓴다) ──
+  // ── 언어 ──────────────────────────────────────────────────────────────────
+  //   기본은 **영어**. 강사 대부분이 필리핀 사람이고, 한국어를 하는 건 중국어 강사뿐이다.
+  //   최종 판단은 **서버**가 한다(/api/teacher/portal 의 me.lang) — 기기가 바뀌거나
+  //   누가 잘못 눌러 둬도 강사가 읽지 못하는 화면에 갇히지 않게 하기 위해서다.
+  //   🔑 토글은 **이번 방문에만** 적용한다(저장하지 않음). 그래서 실수로 한국어를 눌러도
+  //      다시 들어오면 영어로 돌아온다 — 스스로 빠져나오지 못하는 상태가 생기지 않는다.
   var LANG = 'en';
-  try { if (localStorage.getItem('mangoi_lang') === 'ko') LANG = 'ko'; } catch(e){}
+  var langPickedByUser = false;   // 이번 방문에 사용자가 직접 골랐는가
+  function setLangFrom(serverLang){
+    if (langPickedByUser) return;                     // 직접 고른 건 그 방문 동안 존중
+    LANG = (serverLang === 'ko') ? 'ko' : 'en';
+  }
   function EN(){ return LANG !== 'ko'; }
   function T(en, ko){ return EN() ? en : ko; }
   function applyLang(){
@@ -230,14 +239,71 @@ body{
   }
   document.getElementById('lang').onclick = function(){
     LANG = EN() ? 'ko' : 'en';
-    try { localStorage.setItem('mangoi_lang', LANG); localStorage.setItem('mangoi_lang_by','user'); } catch(e){}
-    applyLang(); if (DATA) render(DATA);
+    langPickedByUser = true;
+    // ⚠️ 일부러 저장하지 않는다. 저장하면 필리핀 강사가 실수로 '한국어'를 눌렀을 때
+    //    읽지도 못하는 화면에 갇혀 되돌릴 방법을 못 찾는다(버튼 글자마저 한국어라서).
+    //    다시 들어오면 서버가 정한 언어(기본 영어)로 돌아온다.
+    applyLang();
+    if (DATA) { render(DATA); translateContent(); }
   };
   // 새로고침을 직접 누른 것은 "지금 최신을 보여달라"는 뜻 — 캐시를 건너뛴다.
   document.getElementById('reload').onclick = function(){ load(true); };
 
   var DATA = null;
   var SKEW = 0;   // 서버 시각 - 단말 시각. 단말 시계가 틀려도 입장창이 어긋나지 않게 보정.
+
+  // ── 🌐 내용 번역 ──────────────────────────────────────────────────────────
+  //   라벨만 영어고 **읽을 내용은 한국어**인 게 이 화면의 진짜 문제였다.
+  //   본사 공지·교재 파일명은 DB에 한국어로만 있어서, 영어 화면에서는 번역해 보여준다.
+  //   · 첫 페인트를 절대 막지 않는다 — 화면이 먼저 뜨고, 번역은 도착하는 대로 갈아 끼운다.
+  //   · 결과를 localStorage 에 쌓아 둔다 → 두 번째부터는 요청 없이 즉시 영어.
+  //   · 사람 이름·숫자는 번역 대상이 아니다(학생 이름은 원부의 영문명을 쓴다).
+  var TRK = 'mangoi_teacher_tr_v1';
+  var TR = {};
+  try { TR = JSON.parse(localStorage.getItem(TRK) || '{}') || {}; } catch (e) { TR = {}; }
+
+  function hasKo(s){ return /[가-힣]/.test(String(s || '')); }
+
+  // 학생 이름 — 영어 화면이면 원부의 영문명을 쓴다(기계번역 금지: 사람 이름이 망가진다).
+  //   영문명이 비어 있으면 한글 이름이라도 보여준다. 이름이 아예 안 보이는 게 최악이다.
+  function stuName(c){
+    if (EN() && c.student_name_en) return c.student_name_en;
+    return c.student_name || c.student_name_en || '';
+  }
+  // 화면에 글자를 낼 때 항상 이걸 거친다. 영어 화면 + 번역본이 있으면 번역본, 아니면 원문.
+  function tr(s){
+    if (!EN()) return s;
+    var k = String(s == null ? '' : s);
+    return TR[k] || k;
+  }
+
+  function translateContent(){
+    if (!EN() || !DATA) return;
+    var want = [];
+    function add(s){
+      var k = String(s == null ? '' : s);
+      if (k && hasKo(k) && !TR[k] && want.indexOf(k) < 0) want.push(k);
+    }
+    (DATA.notices || []).forEach(function(n){ add(n.title); add(n.excerpt); });
+    (DATA.resources || []).forEach(function(f){ add(f.name); });
+    if (!want.length) return;                 // 번역할 게 없으면 요청 자체를 안 한다
+
+    fetch('/api/translate', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ texts: want.slice(0, 50), target: 'en' })   // 서버 상한 50개
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || !j.ok || !j.map) return;
+      var got = 0;
+      for (var k in j.map){ if (j.map[k] && j.map[k] !== k){ TR[k] = j.map[k]; got++; } }
+      if (!got) return;
+      try { localStorage.setItem(TRK, JSON.stringify(TR)); } catch (e) { /* 용량 초과는 무시 */ }
+      renderNotices(DATA.notices || []);
+      renderResources(DATA.resources || []);
+    })
+    .catch(function(){ /* 번역 실패 = 한국어 원문이 보일 뿐, 화면은 멀쩡하다 */ });
+  }
   var draftsLoaded = false;   // AI 초안 목록을 이미 불렀는가 (중복 요청 방지)
 
   function esc(s){
@@ -267,6 +333,9 @@ body{
       DATA = c;
       // 시계 오차는 단말 고유값이라 지난번 값을 그대로 쓰는 게 0 보다 정확하다.
       SKEW = Number(c._skew) || 0;
+      // 서버가 정한 언어도 캐시에 실려 있다 → 첫 프레임부터 올바른 언어로 그린다.
+      setLangFrom(c.me && c.me.lang);
+      applyLang();
       render(c);
       return true;
     } catch (e) { return false; }
@@ -292,8 +361,11 @@ body{
         DATA = d;
         SKEW = (d.now || Date.now()) - Date.now();
         setStale(false);
+        setLangFrom(d.me && d.me.lang);   // 언어의 최종 권한은 서버에 있다
+        applyLang();
         render(d);
         saveCache(d);
+        translateContent();               // 공지·교재명을 영어로 (첫 페인트 뒤)
         loadMonthStats(force);  // 무거운 집계는 첫 페인트 뒤에 (첫 화면을 막지 않는다)
       })
       .catch(function(e){
@@ -361,7 +433,7 @@ body{
              : ('w' + Math.max(1, Math.round((sc.open_at_ts - t) / 60000)));
       // 상태뿐 아니라 '표시되는 내용'도 지문에 넣는다 — 캐시를 그린 뒤 서버 응답에서
       // 학생·교재가 바뀌었는데 상태만 같아서 옛 내용이 남는 일을 막는다.
-      sig += sc.schedule_id + ':' + st + ':' + sc.start_time + ':' + (sc.student_name || '')
+      sig += sc.schedule_id + ':' + st + ':' + sc.start_time + ':' + stuName(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '') + ',';
     }
     if (sig === lastSig) return;
@@ -383,7 +455,7 @@ body{
       h += '<div class="cls">'
         +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
         +   '<div class="cls-main">'
-        +     '<div class="cls-name">' + esc(c.student_name || T('(name not set)','(이름 미등록)'))
+        +     '<div class="cls-name">' + esc(stuName(c) || T('(name not set)','(이름 미등록)'))
         +       (live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
                       : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
                              : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : ''))
@@ -435,7 +507,7 @@ body{
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Postpone / Change request','연기 · 변경 요청')) + '</h3>'
-      + '<p class="sub">' + esc((c.student_name || '') + ' · ' + c.start_time) + '<br>'
+      + '<p class="sub">' + esc(stuName(c) + ' · ' + c.start_time) + '<br>'
       +   esc(T('For classes on other dates, use My Records & Settings.',
                 '다른 날짜 수업은 「내 기록 · 설정」에서 요청하세요.')) + '</p>'
       + '<div class="' + (isFree ? 'ok' : 'err') + '" style="margin-bottom:14px">'
@@ -533,8 +605,8 @@ body{
     document.getElementById('c-notice').hidden = false;
     var h = '';
     for (var i=0;i<list.length;i++){
-      h += '<div class="row"><b>' + (list[i].pinned ? '[!] ' : '') + esc(list[i].title) + '</b>'
-        +  '<span>' + esc(list[i].excerpt) + '</span></div>';
+      h += '<div class="row"><b>' + (list[i].pinned ? '[!] ' : '') + esc(tr(list[i].title)) + '</b>'
+        +  '<span>' + esc(tr(list[i].excerpt)) + '</span></div>';
     }
     document.getElementById('notices').innerHTML = h;
   }
@@ -546,7 +618,7 @@ body{
       var f = list[i];
       var kb = f.size_bytes ? Math.round(f.size_bytes/1024) : 0;
       h += '<a class="row row-dl" href="' + esc(f.url) + '" target="_blank" rel="noopener"><b>'
-        +  esc(f.name) + '</b><span>'
+        +  esc(tr(f.name)) + '</b><span>'
         +  esc([f.level, (f.kind||'').toUpperCase(), kb ? kb + ' KB' : ''].filter(Boolean).join(' · '))
         +  '</span></a>';
     }
@@ -729,7 +801,7 @@ body{
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Quick Evaluation','1분 평가')) + '</h3>'
-      + '<p class="sub">' + esc((c.student_name || '') + ' · ' + c.start_time) + '</p>'
+      + '<p class="sub">' + esc(stuName(c) + ' · ' + c.start_time) + '</p>'
       + stars('participation', T('Participation','참여도'))
       + stars('comprehension', T('Comprehension','이해도'))
       + '<div class="fld"><label>' + esc(T('Strengths','강점')) + '</label><textarea id="ev-s"></textarea></div>'
@@ -801,6 +873,6 @@ body{
   load();
 })();
 </script>
-<!-- BUILD:20260802234726 -->
+<!-- BUILD:20260803000515 -->
 </body>
 </html>
