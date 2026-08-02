@@ -1519,6 +1519,15 @@ var CAM_POS={x:0,y:18,z:13}, CAM_LOOK={x:0,y:0,z:-15};   // 카메라를 살짝 
 function simToWorld(px,py,y){ return { x:(px/Math.max(1,W)-0.5)*XSPAN, y:y||0, z:ZFAR_VAL+(py/Math.max(1,H))*(ZNEAR_VAL-ZFAR_VAL) }; }
 function worldToSim(x,z){ return { x:(x/XSPAN+0.5)*W, y:(z-ZFAR_VAL)/(ZNEAR_VAL-ZFAR_VAL)*H }; }
 function simAngToWorldYaw(ang){ return -ang; }   // 2D 화면각(0=+X,+PI/2=+Y아래) → THREE Y축 회전
+/* 🎯 (2026-08-03) 전차 '방향'용 각도 변환 — 위의 -ang 을 쓰면 안 된다.
+   이 판은 가로:세로 축척이 3배 넘게 다르다(sim 1px 당 월드 x 0.018 / z 0.055).
+   그래서 sim 각도를 그대로 Y회전으로 쓰면 포신이 **포탄이 실제로 날아가는 방향과 최대 30도**
+   어긋난다(실측). 포탄은 sim 좌표계에서 직진하므로, 그 진로를 월드로 옮긴 방향의 yaw 를 써야
+   포신·차체가 진짜 진로를 향한다.  등축척이면 -ang 과 같은 값이 나온다. */
+function simAngToWorldYawDir(ang){
+  return Math.atan2(-((ZNEAR_VAL-ZFAR_VAL)/Math.max(1,H))*Math.sin(ang),
+                     (XSPAN/Math.max(1,W))*Math.cos(ang));
+}
 function disposeObj3(o){ o.traverse(function(m){ if(m.geometry && m.geometry!==SHELL_GEO) m.geometry.dispose();
   if(m.material){ var mats=Array.isArray(m.material)?m.material:[m.material];
     mats.forEach(function(mm){ if(mm!==SHELL_MAT_P && mm!==SHELL_MAT_E) mm.dispose(); }); } }); }
@@ -1833,11 +1842,14 @@ function syncTanks3D(){
   T3.player.visible = !G.dead && !blink;
   if(T3.player.userData.allyRing) T3.player.userData.allyRing.material.opacity=0.28+0.14*Math.sin(performance.now()/300);
   var pw=simToWorld(G.px,G.py); T3.player.position.set(pw.x,0,pw.z);
-  T3.player.rotation.y=simAngToWorldYaw(G.hullAng);
+  T3.player.rotation.y=simAngToWorldYawDir(G.hullAng);
   // 🎯 (2026-07-31) 포신 실제 방향 ≠ 발사 방향 버그 — GLB 포탑 모델마다 baked 기본방향(turYaw)이 있는데
   // attachGLB3()가 그 회전을 turGroup '안쪽'에 정적으로 더해서 turAng 기준 조준과 어긋났다(포탄이 실사라 방향이
   // 눈에 보이게 되면서 발견됨). 여기서 -turYaw 로 상쇄해야 포신이 진짜로 turAng(=포탄 진행방향)을 향해 선다.
-  T3.player.userData.turret.rotation.y=simAngToWorldYaw(G.turAng-G.hullAng)-(TANK_GLB.sherman.turYaw||0);
+  // 포탑은 '월드에서의 목표 yaw' 에서 부모(차체) yaw 를 빼서 로컬 회전을 구한다.
+  //   ⚠ -turYaw 보정을 빼지 않는다 — 그 회전이 바로 포신을 기준축(+X)에 맞추는 값이라
+  //     상쇄해 버리면 포신이 옆(셔먼 +Z)이나 뒤(독일 -X)를 본다. 실측으로 확인함.
+  T3.player.userData.turret.rotation.y=simAngToWorldYawDir(G.turAng)-T3.player.rotation.y;
   var pool=T3.enemyPool;
   for(var pi=0;pi<pool.length;pi++) pool[pi]._seen=false;
   G.enemies.forEach(function(en){
@@ -1851,9 +1863,9 @@ function syncTanks3D(){
       pool.push(entry); }
     entry._seen=true;
     var w=simToWorld(en.x,en.y);
-    entry.obj.position.set(w.x,0,w.z); entry.obj.rotation.y=simAngToWorldYaw(en.hullAng);
+    entry.obj.position.set(w.x,0,w.z); entry.obj.rotation.y=simAngToWorldYawDir(en.hullAng);
     // 🎯 포신 방향 보정(위 플레이어와 동일 이유) — 모델별 turYaw 상쇄
-    entry.obj.userData.turret.rotation.y=simAngToWorldYaw(en.turAng-en.hullAng)-((TANK_GLB[entry.glbType]||{}).turYaw||0);
+    entry.obj.userData.turret.rotation.y=simAngToWorldYawDir(en.turAng)-entry.obj.rotation.y;
     entry.obj.scale.setScalar(en.isBoss?1.55:1);
     var hi=sameWord(en.word, neededWord());
     if(entry.lastWord!==en.word || entry.lastHi!==hi){ updateWordSprite(entry.label, en.word, hi); entry.lastWord=en.word; entry.lastHi=hi; }
