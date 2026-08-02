@@ -302,7 +302,9 @@
     background:rgba(8,16,34,.6);border:1px solid var(--line);border-radius:8px;padding:3px 7px;pointer-events:none;max-width:60%;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  .overlay{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  /* ⚠ z-index 는 반드시 #turret(60)·.barrel-rot(61) 보다 위여야 한다.
+     40 이던 시절엔 시작안내 카드 위로 사수 사진이 튀어나와 '게임 시작' 버튼을 가렸다. */
+  .overlay{position:absolute;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
     overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 0;
     background:rgba(4,9,22,.88);backdrop-filter:blur(5px)}
   .card{width:min(92%,400px);margin:auto 0;background:linear-gradient(180deg,#16233f,#0d1730);border:1px solid var(--line);
@@ -358,7 +360,7 @@
   .listen-spd button:active{transform:scale(.92)}
 
   /* ===== 🔫 게임 중 무기 선택 모달 (상단 🔫 버튼 → 12종 그리드에서 바로 선택) ===== */
-  #gunModal{position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(6,10,20,.74)}
+  #gunModal{position:absolute;inset:0;z-index:75;display:none;align-items:center;justify-content:center;background:rgba(6,10,20,.74)}
   #gunModal.on{display:flex}
   #gunModal .box{background:#0f172a;border:1px solid #33415a;border-radius:16px;padding:15px;max-width:340px;width:90%;max-height:86vh;overflow-y:auto;box-shadow:0 18px 50px rgba(0,0,0,.6)}
   #gunModal .box h3{margin:0 0 10px;color:#ffd34d;font-size:15px;text-align:center}
