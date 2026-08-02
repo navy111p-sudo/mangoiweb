@@ -390,8 +390,7 @@ function scheduleIdleSuggest(){
       if(sending || _recognizing || _idleShownForTurn) return;
       var inp=document.getElementById('inp');
       if(inp && inp.value.trim()) return;                       // 입력 중이면 방해 금지
-      var box=document.getElementById('qsChips');
-      if(box && box.children.length) return;                     // 이미 칩이 떠 있음
+      if(document.getElementById('qsCard')) return;               // 이미 추천 카드가 떠 있음
       _idleShownForTurn=true;
       addMsg('💡 지금 질문이 어려우면, 아래 새 질문 중에서 골라 대답해도 좋아요!','sys');
       loadFollowups();
@@ -1040,9 +1039,14 @@ function fanfare(){
    생성(같은 문장 반복 방지: 세션별 사용 질문 제외). 칩을 탭하면 AI가 그
    질문을 음성으로 물어보고, 서버 대화 히스토리에도 기록해 문맥이 이어진다.
    ══════════════════════════════════════════════════════════════════ */
+/* 📱 (2026-08-02 사장님 지적) 추천 질문 3개를 입력줄 아래에 쌓으니 세로 화면에서 150px 가까이
+   먹어, 정작 읽어야 할 말풍선 영역(#log)이 두 줄도 안 되게 눌렸다. 추천은 좋은 기능이니
+   없애지 않고 '대화창 안'으로 옮긴다 — 대화 흐름 끝에 카드로 붙으므로 화면 높이를 전혀
+   빼앗지 않고, 길어지면 대화창 스크롤로 함께 읽힌다. */
+function qsCardClear(){ var old = document.getElementById('qsCard'); if(old) old.remove(); }
 async function loadFollowups(){
-  var btn = document.getElementById('qsBtn'), box = document.getElementById('qsChips');
-  if(!btn || !box || btn.disabled) return;
+  var btn = document.getElementById('qsBtn');
+  if(!btn || btn.disabled) return;
   btn.disabled = true; btn.textContent = '💡 질문 만드는 중…';
   try{
     var body = withCtx({ session_id: SESSION_ID });
@@ -1051,14 +1055,24 @@ async function loadFollowups(){
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
     });
     var d = r.ok ? await r.json() : null;
-    box.innerHTML = '';
+    qsCardClear();
     if(d && d.ok && d.questions && d.questions.length){
+      var card = document.createElement('div');
+      card.id = 'qsCard'; card.className = 'qs-card';
+      var t = document.createElement('div');
+      t.className = 'qs-title';
+      t.setAttribute('data-ko', '💡 이 중에서 골라 대답해 보세요');
+      t.setAttribute('data-en', '💡 Pick one of these and answer');
+      t.textContent = '💡 이 중에서 골라 대답해 보세요';
+      card.appendChild(t);
       d.questions.forEach(function(q){
         var c = document.createElement('button');
         c.type = 'button'; c.className = 'qs-chip'; c.textContent = q;
         c.onclick = function(){ pickFollowup(q); };
-        box.appendChild(c);
+        card.appendChild(c);
       });
+      log.appendChild(card);
+      log.scrollTop = log.scrollHeight;
     } else {
       addMsg('⚠️ 지금은 새 질문을 만들 수 없어요. 잠시 후 다시 눌러주세요.', 'sys');
     }
@@ -1069,7 +1083,7 @@ async function loadFollowups(){
   }
 }
 function pickFollowup(q){
-  var box = document.getElementById('qsChips'); if(box) box.innerHTML = '';
+  qsCardClear();                          // 고른 순간 추천 카드는 걷어낸다
   addMsg(q, 'ai');                        // AI가 그 질문을 말함(자동 낭독 포함)
   // 서버 대화 히스토리에도 AI 발화로 기록 → 다음 답변에서 문맥 유지 (실패해도 대화는 계속)
   try{
@@ -1142,6 +1156,57 @@ async function sendMsg(){
   .inbar input{font-size:16px;padding:12px 12px}
   .inbar button{padding:0 14px;font-size:16px}
   .inbar .mic-btn{padding:0 12px}
+}
+</style>
+<!-- ══════════════════════════════════════════════════════════════
+     💬 말풍선 영역 넓히기 (2026-08-02 사장님 지시: "정작 봐야 할 문장 공간이 너무 작다")
+     실측(폰 세로 412×914): 아바타 카드 약 220px + 추천질문 3줄 약 150px 가 .wrap 의 고정
+     높이를 먼저 가져가, flex:1 인 #log 에 90px 남짓만 남았다.
+       ① 추천 질문 → 대화창 '안'의 카드로 이동 (위 loadFollowups) → 높이를 안 뺏음
+       ② 폰에서 아바타를 세로 카드 → 가로 한 줄로 (220px → 약 90px)
+     둘 다 기능은 그대로 두고 자리만 바꾼 것. ai-friend.html 이 07-29 에 같은 처방으로
+     효과를 본 방식이다. 아바타 공용 CSS(css/mango-avatar.css)는 다른 화면과 함께 쓰므로
+     건드리지 않고 이 페이지 안에서만 덮어쓴다. ══════════════════════════════════ -->
+<style id="log-roomy-2026-08-02">
+/* ① 💡 새 질문 추천 카드 — 대화창 안에 붙는다 */
+.qs-card{ align-self:flex-start; max-width:88%; display:flex; flex-direction:column; gap:7px;
+  padding:11px 13px; border-radius:16px; border:1px solid rgba(251,191,36,.35);
+  background:linear-gradient(180deg,rgba(251,191,36,.12),rgba(251,191,36,.04));
+  animation:msgIn .22s ease both; }
+.qs-card .qs-title{ font-size:13px; font-weight:800; color:#fcd34d; }
+.qs-card .qs-chip{ width:100%; }
+@media (min-width:760px){
+  .qs-card .qs-title{ font-size:15px; }
+  .qs-card .qs-chip{ font-size:16px; }
+}
+/* 빈 껍데기가 된 옛 칩 자리는 줄 간격만 남기지 않게 */
+#qsChips:empty{ display:none!important; }
+
+/* ② 폰(≤640px): 아바타를 가로 한 줄로 — 얼굴은 그대로 보이되 높이를 크게 아낀다.
+      높이는 mango-avatar.js 가 인라인으로 넣으므로 !important 로 덮는다(비율 4:5 유지). */
+@media (max-width:640px){
+  #tavatar-wrap{ flex-direction:row; align-items:center; justify-content:center;
+    gap:10px; margin:5px auto 6px; }
+  /* ⚠️ height 는 전환(transition) 대상에서 뺀다 — 공용 CSS 가 height .25s 를 걸어 두는데,
+        백그라운드 탭·저전력 모드에서는 전환이 얼어붙어 옛 높이(170px)로 남는다(직접 확인함). */
+  #tavatar-wrap #tavatar-ring{ width:64px!important; height:80px!important;
+    border-radius:14px; padding:3px; transition:box-shadow .3s, transform .3s; }
+  #tavatar-canvas,#tavatar-video{ border-radius:11px; }
+  #tavatar-status{ font-size:11px; padding:3px 10px; }
+  .meta{ padding:6px 12px 2px; }
+  .hint{ padding:0 12px 6px; }
+  .qs-row{ padding:0 12px 8px; }
+}
+/* 폰을 눕혔을 때(세로가 짧음) 한 번 더 줄인다 */
+@media (max-height:520px){
+  #tavatar-wrap{ flex-direction:row; align-items:center; gap:8px; margin:3px auto 4px; }
+  #tavatar-wrap #tavatar-ring{ width:40px!important; height:50px!important;
+    transition:box-shadow .3s, transform .3s; }
+  #tavatar-status{ font-size:10px; padding:2px 8px; }
+  /* 눕히면 세로가 390px 뿐이라 말풍선이 18% 까지 눌린다. 안내문(🎤 사용법)은 세로에서 이미
+     읽은 내용이므로 눕혔을 때만 감춰 그 자리를 대화창에 준다. */
+  .hint{ display:none; }
+  .meta{ padding:4px 12px 0; }
 }
 </style>
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->

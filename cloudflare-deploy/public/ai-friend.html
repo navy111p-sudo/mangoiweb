@@ -306,6 +306,13 @@
       <button type="submit" id="sendBtn" data-ko="전송" data-en="Send">전송</button>
     </form>
   </div>
+  <!-- 🚀 (2026-08-02 사장님 지시) 휴대폰 세로에서 다음 활동으로 나가는 문이 하단에 없었다.
+       헤더의 🚀 아이콘은 우상단 고정 홈/EN 바에 가려 잘 안 보인다. 입력줄 바로 아래에
+       얇은 한 줄(약 32px)만 쓰는 버튼을 둔다. PC(≥761px)는 헤더 버튼이 잘 보이므로 숨김. -->
+  <div class="next-bottom">
+    <button type="button" onclick="window.MangoFlow&&MangoFlow.open('aifriend')"
+      data-ko="🚀 다음 활동 고르기" data-en="🚀 Choose next activity">🚀 다음 활동 고르기</button>
+  </div>
 
   <script>
     // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
@@ -1104,6 +1111,24 @@ body.opts-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba
 
 /* ③ 대화창이 확실히 주인공이 되게 — 남는 높이를 모두 가져간다 */
 .chat{ flex:1 1 auto; min-height:0; }
+
+/* 🚀 (2026-08-02) 하단 '다음 활동 고르기' — 폰 전용, 입력줄 바로 아래 한 줄.
+   높이를 최소로 쓰려고 알약형 얇은 버튼 하나만 둔다(입력줄과 같은 배경으로 이어 붙임). */
+.next-bottom{ display:none; }
+@media (max-width:760px){
+  .next-bottom{ display:flex; justify-content:center; flex-shrink:0;
+    padding:0 12px 6px; background:rgba(20,33,59,0.98); }
+  .next-bottom button{ width:100%; max-width:420px; padding:6px 12px; line-height:1.25;
+    background:rgba(56,189,248,0.14); color:#7dd3fc;
+    border:1px solid rgba(56,189,248,0.45); border-radius:999px;
+    font-size:13px; font-weight:800; font-family:inherit; cursor:pointer; }
+  .next-bottom button:active{ transform:scale(.98); }
+}
+/* 눕힌 폰처럼 세로가 짧을 땐 더 얇게 */
+@media (max-height:520px){
+  .next-bottom{ padding:0 10px 4px; }
+  .next-bottom button{ padding:4px 10px; font-size:12px; }
+}
 </style>
 <script>
 /* ⚙ 설정/퀘스트 접기 토글 — 마크업은 건드리지 않고 여기서 버튼만 끼워 넣는다.
