@@ -30,6 +30,31 @@
     background:radial-gradient(circle at 38% 34%,#ffe9a8,#f0b429);border:2px solid rgba(255,255,255,.7);
     box-shadow:0 3px 12px rgba(0,0,0,.5);pointer-events:none}
   @media (max-width:820px){ #joyPad{width:116px;height:116px;left:12px;bottom:12px} }
+
+  /* 📱 세로 모드 — 단어 버튼 줄. 조이스틱은 그 아래 왼쪽에 작게 남긴다(조작을 뺏지 않는다) */
+  #wordBar{display:none;position:absolute;left:0;right:0;bottom:0;z-index:62;
+    padding:10px 10px calc(10px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(to top,rgba(4,10,16,.94),rgba(4,10,16,.72) 70%,rgba(4,10,16,0));
+    gap:8px;flex-wrap:wrap;justify-content:center;align-content:flex-end}
+  body.portraitPlay #wordBar{display:flex}
+  #wordBar .wbtn{min-width:74px;min-height:52px;padding:8px 14px;border-radius:14px;
+    background:linear-gradient(#2b3d52,#1b2836);border:2px solid rgba(255,255,255,.28);
+    color:#eaf2ff;font-size:19px;font-weight:900;letter-spacing:.5px;
+    box-shadow:0 3px 0 rgba(0,0,0,.5),0 6px 14px rgba(0,0,0,.45);
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  #wordBar .wbtn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.5)}
+  /* 지금 쏴야 할 단어에는 표시를 하지 않는다 — 정답을 알려주면 고를 이유가 사라진다 */
+  #wordBar .wbtn.gone{opacity:.28;pointer-events:none}
+  /* 세로에선 조이스틱을 단어 줄 위로 올려 겹치지 않게 */
+  body.portraitPlay #joyPad{width:104px;height:104px;left:10px;bottom:96px;opacity:.85}
+  /* 세로 안내 — 한 번만, 잠깐 */
+  #rotHint{display:none;position:absolute;left:50%;top:14%;transform:translateX(-50%);z-index:70;
+    padding:12px 18px;border-radius:14px;text-align:center;line-height:1.45;
+    background:rgba(6,12,22,.92);border:1px solid rgba(255,255,255,.3);color:#dbe8f7;font-size:14px;font-weight:800;
+    box-shadow:0 8px 24px rgba(0,0,0,.6)}
+  #rotHint small{font-weight:700;color:#9fb3c8;font-size:12px}
+  #rotHint.on{display:block;animation:rhFade 4.2s ease forwards}
+  @keyframes rhFade{0%{opacity:0}10%{opacity:1}75%{opacity:1}100%{opacity:0;visibility:hidden}}
   #cv{z-index:2}
   #cv3d{z-index:1}
 
@@ -269,6 +294,12 @@
 
   <!-- 📱 왼손 이동 조이스틱 — 터치 기기에서만 보인다. 오른손은 적을 눌러 쏜다. -->
   <div id="joyPad"><div id="joyKnob"></div></div>
+
+  <!-- 📱 세로 모드 전용 — 화면 아래(엄지가 닿는 자리)에서 단어를 고른다.
+       세로에서는 적이 화면 위쪽(엄지가 안 닿는 곳)에 있어서 직접 탭이 힘들다.
+       고르는 행위가 곧 학습이라, 조작과 학습 목표가 정확히 겹치는 방식이기도 하다. -->
+  <div id="wordBar"></div>
+  <div id="rotHint">📱 옆으로 돌리면 더 넓게 보여요<br><small>세로로도 그대로 할 수 있어요</small></div>
 
   <div id="topbar">
     <div id="sentKo">—</div>
@@ -974,10 +1005,61 @@ function tapFire(px,py){
   var e=_pickTargetNear(px,py);
   if(e){
     G.tapMark={ x:e.x, y:e.y, t:performance.now(), ok:sameWord(e.word, neededWord()) };
-    if(!G.tapMark.ok){ var nw=neededWord(); if(nw) banner('지금은 「'+nw+'」 를 찾아보세요!','#ffd84d'); }
+    if(!G.tapMark.ok) hintNeeded();
   }
   fireAt(px,py);
 }
+/* 틀렸을 때 '지금 찾을 단어'를 알려준다.
+   ⚠ 곧바로 띄우면 게임 자체의 '오답! -2.5s' 배너가 덮어써 버린다(실측). 그 뒤에 띄운다. */
+function hintNeeded(){
+  var nw=neededWord(); if(!nw) return;
+  setTimeout(function(){ if(G&&G.running&&sameWord(neededWord(),nw)) banner('지금은 「'+nw+'」 를 찾아보세요!','#ffd84d'); }, 1100);
+}
+/* 📱 세로 모드 — 단어 버튼으로 고르기.
+   버튼을 누르면 그 단어를 실은 전차 중 가장 가까운 놈을 조준해 쏜다.
+   ⚠ 어느 단어가 정답인지는 버튼에 절대 표시하지 않는다 — 고르는 게 학습이라 알려주면 의미가 없다. */
+function fireWord(w){
+  if(!G||!G.running||G.speaking||G.dead) return;
+  var best=null, bd=Infinity;
+  for(var i=0;i<G.enemies.length;i++){ var e=G.enemies[i];
+    if(!e.alive || !sameWord(e.word, w)) continue;
+    var d=Math.hypot(e.x-G.px, e.y-G.py);
+    if(d<bd){ bd=d; best=e; } }
+  if(!best) return;
+  G.tapMark={ x:best.x, y:best.y, t:performance.now(), ok:sameWord(best.word, neededWord()) };
+  if(!G.tapMark.ok) hintNeeded();
+  playerFire(_leadAngle(best));            // 포탑이 그쪽을 향하며 1발 (락은 안 건다 — 연사 낭비 방지)
+}
+/* 화면에 살아 있는 전차들의 단어로 버튼 줄을 만든다.
+   매 프레임 다시 그리면 탭이 씹히므로, 단어 구성이 바뀔 때만 새로 만든다. */
+var _wbSig='';
+function syncWordBar(){
+  var bar=document.getElementById('wordBar'); if(!bar) return;
+  if(!document.body.classList.contains('portraitPlay')){ _wbSig=''; bar.innerHTML=''; return; }
+  var seen={}, list=[];
+  for(var i=0;i<G.enemies.length;i++){ var e=G.enemies[i];
+    if(!e.alive || !e.word) continue;
+    var k=String(e.word);
+    if(seen[k]) continue; seen[k]=1; list.push(k); }
+  list.sort();
+  var sig=list.join('|');
+  if(sig===_wbSig) return;
+  _wbSig=sig;
+  bar.innerHTML='';
+  list.forEach(function(w){
+    var b=document.createElement('button');
+    b.type='button'; b.className='wbtn'; b.textContent=w;
+    b.addEventListener('pointerdown', function(ev){ ev.preventDefault(); ev.stopPropagation(); fireWord(w); });
+    bar.appendChild(b);
+  });
+}
+/* 세로/가로 전환 감지 — 세로일 때만 단어 줄을 쓴다 */
+function syncPortrait(){
+  var on = IS_TOUCH && VIEW==='quarter' && G && G.running &&
+           (window.innerHeight > window.innerWidth * 1.05);
+  document.body.classList.toggle('portraitPlay', !!on);
+}
+window.addEventListener('resize', function(){ syncPortrait(); syncWordBar(); });
 function _onCtxMenu(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p=ptr(e); fireAt(p.x, p.y); } }  // 우클릭=자동조준 발사
 [cv,cv3d].forEach(function(elx){
   elx.addEventListener('pointermove',_onPtrMove);
@@ -1217,6 +1299,7 @@ function update(dt){
     if(wk.age>7){ G.wrecks.splice(wr,1); } }
 
   stepParticles(dt);
+  syncWordBar();          // 📱 세로 단어 버튼 — 구성이 바뀔 때만 다시 그린다(탭 씹힘 방지)
   if(G.shake>0){ G.shake=Math.max(0,G.shake-dt*60); }
   if(G.flash>0){ G.flash=Math.max(0,G.flash-dt*1.6); }
 }
@@ -2336,6 +2419,12 @@ function startGame(){
   newGame(); G.running=true; updateHUD();
   // 조이스틱은 전투 중에만 보인다 - 시작 화면 위에 떠 있으면 설명을 가린다
   if(IS_TOUCH && VIEW==='quarter'){ var _jp=document.getElementById('joyPad'); if(_jp) _jp.classList.add('on'); }
+  syncPortrait(); _wbSig=''; syncWordBar();
+  // 세로로 들어왔으면 한 번만 안내. 돌리지 않아도 세로에서 그대로 할 수 있다
+  if(document.body.classList.contains('portraitPlay')){
+    try{ if(!localStorage.getItem('mangoi_tank_rot_hint')){ localStorage.setItem('mangoi_tank_rot_hint','1');
+      var _rh=document.getElementById('rotHint'); if(_rh) _rh.classList.add('on'); } }catch(_){}
+  }
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock(); bgmStart();
   banner('🛡️ 전투 시작!', '#ffd479');
   // 👋 첫 판 온보딩 힌트
@@ -2347,6 +2436,8 @@ function endGame(win){ if(!G||G.over)return; G.over=true; G.running=false; flush
   bgmStop(); _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
   var _jp=document.getElementById('joyPad'); if(_jp) _jp.classList.remove('on');
   _joy.on=false; _joy.dx=0; _joy.dy=0;
+  document.body.classList.remove('portraitPlay');
+  var _wb=document.getElementById('wordBar'); if(_wb){ _wb.innerHTML=''; } _wbSig='';
   document.getElementById('overTitle').textContent = win ? '🎖️ 임무 완료!' : '💥 격파당했다!';
   // ⭐ 성과 별점(승리 시): 라이프·최고콤보 기준 1~3개
   var stars = win ? (1 + (G.lives>=2?1:0) + ((G.maxCombo>=4||G.lives>=3)?1:0)) : 0;
