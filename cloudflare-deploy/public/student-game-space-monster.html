@@ -1218,9 +1218,13 @@
       g.appendChild(b);
     }
 
-    // 문장을 받아오는 동안 게임을 붙잡아 두지 않는다. 늦게 도착하면 그 다음 웨이브부터 적용된다.
-    loadStudentBank().catch(() => {});
-    startWave();
+    // 첫 문장부터 교재 문장이 나오도록 잠깐 기다린다. 다만 서버가 느리면 게임이
+    // 안 뜨는 게 더 큰 사고라, 2.5초가 지나면 내장 문장으로 그냥 시작한다.
+    // (늦게 도착한 교재 문장은 그 다음 웨이브부터 적용된다)
+    Promise.race([
+      loadStudentBank().catch(() => {}),
+      new Promise(r => setTimeout(r, 2500))
+    ]).then(startWave, startWave);
   </script>
 <!-- BUILD:20260802234726 -->
 </body>
