@@ -1444,8 +1444,11 @@
             walkSec:rand(0.95,1.30),
             /* 음수 depth = 아직 지평선 뒤(줄지어 순서대로 등장).
                ⚠ 간격을 좁게 잡았더니 여러 마리가 거의 동시에 코앞까지 와서 생명력 3개가
-                  5초 만에 날아갔다(실측) → 넉넉히 벌린다. */
-            depth:-(i*0.30) - Math.random()*0.10,
+                  5초 만에 날아갔다(실측) → 넉넉히 벌린다.
+               ⚠ 다만 마리당 0.30 을 그대로 쌓으면 8단어 문장(12마리)에서 맨 뒤는 -3.3 —
+                  지평선에 닿는 데만 40초다(제한시간 60초). 총 간격에 상한을 두고
+                  그 안에서 균등하게 나눈다. 마리 수가 적으면 예전과 같은 간격이 된다. */
+            depth:-(n>1 ? (i/(n-1))*Math.min(0.30*(n-1), 2.0) : 0) - Math.random()*0.10,
             // ⚡ 다가오는 속도(초당 depth). "빨리 걸어오게" 지시 반영하되 뒤에서 앞까지 약 9~14초 —
             //    이보다 빠르면 단어를 읽고 순서대로 쏠 시간이 안 나온다.
             vDepth:rand(0.072,0.115),
@@ -1907,8 +1910,17 @@
     for(var _a=0;_a<monsters.length;_a++){ if(monsters[_a].depth>=0) _active++; }
     var _curWord = targetWords[currentIndex];
     for(var i=0;i<monsters.length;i++){ var m=monsters[i];
-      if(m.depth<0 && _active>=MAX_ACTIVE){ m.el.style.opacity='0'; continue; }   // 대기
-      m.depth += m.vDepth*sm*dt;                                   // 🧟 카메라 쪽으로 전진
+      /* 🚨 '지금 쏴야 할 단어'는 절대 대기시키지 않는다 — 여기서 게임이 통째로 멈췄다.
+         이 게임은 문장 순서대로만 쏠 수 있다. 그런데 동시 등장 제한(MAX_ACTIVE)에 걸린 놈이
+         하필 지금 쏴야 할 단어면:
+           못 쏨 → 아무도 안 죽음 → 자리가 안 남 → 그 단어는 영영 안 나옴 = 교착.
+         3단어 문장도 몬스터가 7마리(단어3+오답2+민간인2)라 한 마리는 항상 대기 상태였고,
+         그게 1번 단어면 60초를 그냥 날렸다(실측: opacity 0 으로 8초 내내 정지). */
+      var _isCur = m.isTarget && m.word===_curWord;
+      if(m.depth<0 && _active>=MAX_ACTIVE && !_isCur){ m.el.style.opacity='0'; continue; }   // 대기
+      /* 지금 쏴야 할 단어가 아직 지평선 뒤라면 서둘러 걸어온다. 뒤쪽에 배치됐을 때
+         제한시간 60초 안에 도착도 못 하는 일을 막는다. 화면에 나온 뒤로는 평소 속도. */
+      m.depth += m.vDepth*(_isCur && m.depth<0 ? 3.2 : 1)*sm*dt;   // 🧟 카메라 쪽으로 전진
       m.lane  += m.vLane*sm*dt;                                    // 걸으며 좌우로도 조금
       if(m.lane<-1){ m.lane=-1; m.vLane=Math.abs(m.vLane); } else if(m.lane>1){ m.lane=1; m.vLane=-Math.abs(m.vLane); }
       var d=Math.max(0,m.depth), sc=depthScale(d);
