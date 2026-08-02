@@ -9612,10 +9612,26 @@ window.rebuildGlobalSearchIndex = function() {
     const t = _cardData.current.find(x => x.id === id);
     if (!t) return;
     const memo = prompt('메모 입력 (지출 사유, 영수증 번호 등)', t.memo || '');
-    if (memo !== null) {
-      t.memo = memo.trim();
-      fetch('/api/admin/corpcard/memo', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, memo: t.memo }) }).catch(() => {});
-    }
+    if (memo === null) return;
+    t.memo = memo.trim();
+    // ⚠️ (2026-08-03) 예전엔 결과를 버리는 fire-and-forget 이었다. 서버에 라우트가 없어
+    //   (라이브 404) 메모는 새로고침하면 사라지는데 사용자는 저장된 줄 알았다.
+    (async () => {
+      let saved = false;
+      try {
+        const r = await fetch('/api/admin/corpcard/memo', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, memo: t.memo })
+        });
+        saved = r.ok;
+      } catch (e) { saved = false; }
+      if (!saved) {
+        alert('⚠️ 메모가 서버에 저장되지 않았습니다 (미연동).\n\n'
+          + '새로고침하면 사라집니다.\n\n'
+          + 'Memo was not saved to the server — it will disappear on reload.');
+      }
+    })();
   };
 
   function renderCardFeedback() {
