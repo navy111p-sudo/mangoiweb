@@ -317,6 +317,9 @@
 <script src="/js/game-tts.js"></script>
 <script src="/js/game-vocab.js"></script>
 <script src="/js/mangoi-voice-input.js"></script>
+<!-- 🗣 따라 말하기 채점 단일 출처. 직접 만든 "단어 몇 개 들렸나" 방식은 쓰지 말 것 —
+     그 방식은 "I have a dog" 에 "I have a cat" 이라고 해도 통과시킨다(2026-07-23 확인). -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
 <script>
 (function(){
 'use strict';
@@ -405,9 +408,23 @@ var SPECIES = {
       {ko:'고룡',      en:'Elder Dragon'}
     ],
     body:'#5fd39a', dark:'#122a24', accent:'#c084fc', glow:'#7ef0c0'
+  },
+  dog: {
+    key:'dog', icon:'🐶',
+    ko:'용감한 히어로 강아지', en:'Hero Pup',
+    desc:'씩씩하게 대답할수록 강해져요. 친구를 지키는 히어로가 돼요!',
+    descEn:'Answers loudly and bravely — grows into a hero that protects its friends.',
+    tiers:[
+      {ko:'포근 알',      en:'Cozy Egg'},
+      {ko:'꼬마 강아지',  en:'Puppy'},
+      {ko:'용감한 강아지',en:'Brave Pup'},
+      {ko:'히어로 강아지',en:'Hero Dog'},
+      {ko:'전설의 수호견',en:'Legendary Guardian'}
+    ],
+    body:'#f2c078', dark:'#4a2f18', accent:'#ef4444', glow:'#ffd27a'
   }
 };
-var SP_ORDER = ['panda','fox','dragon'];
+var SP_ORDER = ['panda','fox','dragon','dog'];
 
 /* ══════════════════════════════════════════════════════════════════════
  *  2. 상태
@@ -567,6 +584,7 @@ function drawAvatar(ctx, cx, cy, s, spKey, tier, mood, t){
 
   if (spKey === 'panda')       drawPanda(ctx, cx, y, R, sp, tier, mood, t);
   else if (spKey === 'fox')    drawFox(ctx, cx, y, R, sp, tier, mood, t);
+  else if (spKey === 'dog')    drawDog(ctx, cx, y, R, sp, tier, mood, t);
   else                         drawDragon(ctx, cx, y, R, sp, tier, mood, t);
 
   // 졸림 표시
@@ -817,6 +835,85 @@ function drawDragon(ctx, cx, y, R, sp, tier, mood, t){
   if (tier >= 4) star(ctx, cx, y - R*0.9, R*0.12, sp.glow, t);
 }
 
+function drawDog(ctx, cx, y, R, sp, tier, mood, t){
+  // 망토 — 단계 1부터. 뒤에 먼저 그려야 몸에 가린다.
+  if (tier >= 1){
+    var wave = Math.sin(t / (mood === 'cheer' ? 140 : 560)) * R * 0.09;
+    ctx.fillStyle = sp.accent;
+    ctx.beginPath();
+    ctx.moveTo(cx - R*0.3, y + R*0.08);
+    ctx.quadraticCurveTo(cx - R*0.72 + wave, y + R*0.5, cx - R*0.44 + wave, y + R*0.88);
+    ctx.lineTo(cx + R*0.36 + wave, y + R*0.88);
+    ctx.quadraticCurveTo(cx + R*0.6 + wave, y + R*0.44, cx + R*0.3, y + R*0.08);
+    ctx.closePath(); ctx.fill();
+  }
+  // 꼬리 (흔들기)
+  var wag = Math.sin(t / (mood === 'cheer' ? 110 : 380)) * 0.5;
+  ctx.save(); ctx.translate(cx + R*0.38, y + R*0.52); ctx.rotate(-0.6 + wag);
+  ctx.fillStyle = sp.body;
+  ell(ctx, R*0.2, 0, R*0.22, R*0.1); ctx.fill();
+  ctx.fillStyle = '#fff6e8'; ell(ctx, R*0.38, 0, R*0.09, R*0.08); ctx.fill();
+  ctx.restore();
+  // 몸
+  ctx.fillStyle = sp.body;
+  ell(ctx, cx, y + R*0.44, R*0.4, R*0.4); ctx.fill();
+  ctx.fillStyle = '#fff6e8';
+  ell(ctx, cx, y + R*0.56, R*0.22, R*0.24); ctx.fill();
+  // 앞발
+  var paw = (mood === 'cheer') ? Math.sin(t/120) * R*0.22 : Math.sin(t/700) * R*0.04;
+  ctx.fillStyle = sp.body;
+  ell(ctx, cx - R*0.42, y + R*0.44 - paw, R*0.13, R*0.16); ctx.fill();
+  ell(ctx, cx + R*0.42, y + R*0.44 + paw, R*0.13, R*0.16); ctx.fill();
+  // 뒷발
+  ell(ctx, cx - R*0.2, y + R*0.82, R*0.14, R*0.11); ctx.fill();
+  ell(ctx, cx + R*0.2, y + R*0.82, R*0.14, R*0.11); ctx.fill();
+  // 머리
+  ell(ctx, cx, y - R*0.18, R*0.4, R*0.36); ctx.fill();
+  // 늘어진 귀
+  ctx.fillStyle = sp.dark;
+  ell(ctx, cx - R*0.42, y - R*0.12, R*0.13, R*0.26); ctx.fill();
+  ell(ctx, cx + R*0.42, y - R*0.12, R*0.13, R*0.26); ctx.fill();
+  // 주둥이
+  ctx.fillStyle = '#fff6e8';
+  ell(ctx, cx, y - R*0.02, R*0.2, R*0.15); ctx.fill();
+
+  eyes(ctx, cx, y, R, mood, t, R*0.17, -R*0.22, R*0.058);
+  ctx.fillStyle = '#1b1424'; ell(ctx, cx, y - R*0.08, R*0.06, R*0.048); ctx.fill();
+  mouth(ctx, cx, y, R, mood, R*0.08, R*0.11);
+
+  // 파란 목걸이 + 별 배지
+  if (tier >= 1){
+    ctx.fillStyle = '#3b82f6';
+    rr(ctx, cx - R*0.24, y + R*0.14, R*0.48, R*0.1, R*0.04); ctx.fill();
+    star(ctx, cx, y + R*0.19, R*0.07, '#fde68a', 0);
+  }
+  // 히어로 마스크 — 단계 2부터
+  if (tier >= 2){
+    ctx.fillStyle = hexA(sp.accent, .92);
+    ctx.beginPath();
+    ctx.moveTo(cx - R*0.34, y - R*0.3);
+    ctx.quadraticCurveTo(cx, y - R*0.4, cx + R*0.34, y - R*0.3);
+    ctx.quadraticCurveTo(cx + R*0.3, y - R*0.12, cx, y - R*0.15);
+    ctx.quadraticCurveTo(cx - R*0.3, y - R*0.12, cx - R*0.34, y - R*0.3);
+    ctx.closePath(); ctx.fill();
+    // 마스크 위에 눈을 다시 (가려지면 표정이 죽는다)
+    eyes(ctx, cx, y, R, mood, t, R*0.17, -R*0.24, R*0.05);
+  }
+  // 방패 — 단계 3부터
+  if (tier >= 3){
+    ctx.fillStyle = '#e2e8f0';
+    ctx.beginPath();
+    ctx.moveTo(cx - R*0.78, y + R*0.2);
+    ctx.lineTo(cx - R*0.46, y + R*0.2);
+    ctx.lineTo(cx - R*0.46, y + R*0.56);
+    ctx.quadraticCurveTo(cx - R*0.62, y + R*0.72, cx - R*0.78, y + R*0.56);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = sp.accent;
+    ell(ctx, cx - R*0.62, y + R*0.4, R*0.09, R*0.11); ctx.fill();
+  }
+  if (tier >= 4) star(ctx, cx, y - R*0.78, R*0.12, sp.glow, t);
+}
+
 function star(ctx, x, y, r, color, t){
   var rot = t / 900;
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
@@ -900,22 +997,29 @@ function playCutscene(newTier){
   cutEnd = finish;
 
   cutVid.onerror = null; cutVid.onended = null;
+  var fellBack = false;
+  // 영상을 포기하고 캔버스로 넘어가는 단일 지점 — 두 번 실행되지 않게 막는다.
+  var toCanvas = function(){
+    if (fellBack || done) return; fellBack = true;
+    try { cutVid.pause(); } catch(e){}
+    cutVid.style.display = 'none'; cutCv.style.display = 'block';
+    canvasCutscene(newTier, finish);
+  };
+
   fetch(src, { method:'HEAD' }).then(function(r){
-    if (r.ok && !done){
-      cutVid.style.display = 'block'; cutCv.style.display = 'none';
-      cutVid.src = src; cutVid.currentTime = 0;
-      cutVid.onended = finish;
-      cutVid.onerror = function(){ cutVid.style.display = 'none'; cutCv.style.display = 'block'; canvasCutscene(newTier, finish); };
-      var p = cutVid.play();
-      if (p && p.catch) p.catch(function(){ cutVid.style.display='none'; cutCv.style.display='block'; canvasCutscene(newTier, finish); });
-      setTimeout(function(){ if (!done) finish(); }, 9000);   // 안전 상한
-    } else if (!done){
-      cutVid.style.display = 'none'; cutCv.style.display = 'block';
-      canvasCutscene(newTier, finish);
-    }
-  }).catch(function(){
-    if (!done){ cutVid.style.display = 'none'; cutCv.style.display = 'block'; canvasCutscene(newTier, finish); }
-  });
+    if (!r.ok || done) { toCanvas(); return; }
+    cutVid.style.display = 'block'; cutCv.style.display = 'none';
+    cutVid.src = src; cutVid.currentTime = 0;
+    cutVid.onended = finish;
+    cutVid.onerror = toCanvas;
+    var p = cutVid.play();
+    if (p && p.catch) p.catch(toCanvas);
+    // ⏱ 3MB 짜리 영상이 다 받아질 때까지 검은 화면을 보여주지 않는다.
+    //    필리핀·저속 회선에서 이게 그대로 "게임이 멈췄다"가 된다.
+    //    1.2초 안에 실제로 재생이 시작(currentTime 이 전진)되지 않으면 캔버스 컷신으로 넘긴다.
+    setTimeout(function(){ if (!done && !fellBack && !(cutVid.currentTime > 0)) toCanvas(); }, 1200);
+    setTimeout(function(){ if (!done && !fellBack) finish(); }, 9000);   // 영상 재생 안전 상한
+  }).catch(toCanvas);
 }
 
 function canvasCutscene(newTier, onDone){
@@ -1239,10 +1343,11 @@ function roundSpeak(){
     }).then(function(text){
       btn.classList.remove('rec'); btn.querySelector('small').textContent = 'Tap & speak';
       stEl.textContent = '';
-      var score = similarity(text, s.en);
-      if (score >= 0.55) judge(true, s.en, text);
+      var g = gradeSpeech(text, s.en);
+      if (g.pass) judge(true, s.en, text);
       else {
-        fb('아깝다! 한 번 더 외쳐보자 🔥', 'So close! Cast it one more time' + (text ? ' (들린 말: "' + esc(text) + '")' : ''), false);
+        fb('아깝다! 한 번 더 외쳐보자 🔥',
+           (g.tip || 'So close! Cast it one more time') + (text ? ' (들린 말: "' + esc(text) + '")' : ''), false);
         setMood('sad', 900);
       }
     }).catch(function(){
@@ -1252,17 +1357,32 @@ function roundSpeak(){
   };
 }
 
-// 전사 결과와 목표 문장의 단어 일치율
-function similarity(said, target){
-  var a = String(said || '').toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean);
-  var b = tokenize(target).map(function(x){ return x.toLowerCase(); });
-  if (!a.length || !b.length) return 0;
-  var pool = a.slice(), hit = 0;
+/**
+ * 따라 말하기 채점.
+ * 영어는 공용 채점기(MangoiScore)에 맡긴다 — 순서·치환을 보기 때문에
+ * "I have a dog" 에 "I have a cat" 이라고 하면 떨어뜨린다.
+ * 여기서 직접 단어 겹침으로 재구현하지 말 것. 그게 원래 뚫려 있던 구멍이다.
+ */
+function gradeSpeech(said, target){
+  if (LANG === 'en' && window.MangoiScore && typeof MangoiScore.grade === 'function'){
+    try {
+      var r = MangoiScore.grade(said, target);
+      return { pass: !!r.pass, tip: r.tip || '' };
+    } catch(e){}
+  }
+  // 중국어(글자 단위) · 채점기 로드 실패 시의 최소 폴백.
+  // 영어에는 쓰이지 않는다 — 위에서 이미 처리된다.
+  var a = String(said || '').replace(/\s+/g, '');
+  var b = String(target || '').replace(/\s+/g, '');
+  if (!a || !b) return { pass:false, tip:'' };
+  var pool = a.split(''), hit = 0;
   for (var i = 0; i < b.length; i++){
     var j = pool.indexOf(b[i]);
     if (j >= 0){ hit++; pool.splice(j, 1); }
   }
-  return hit / b.length;
+  // 길이가 크게 다르면(딴 말을 길게 했으면) 통과시키지 않는다
+  var lenOk = a.length <= b.length * 1.8;
+  return { pass: lenOk && (hit / b.length) >= 0.7, tip:'' };
 }
 
 function fb(ko, en, ok){
