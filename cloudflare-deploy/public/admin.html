@@ -1,6 +1,20 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" translate="no" class="notranslate">
 <head>
+<!-- ═══════════════════════════════════════════════════════════════════════
+     🌐 (2026-08-02) 브라우저 자동번역 차단 — "영어 글자들이 정렬이 안되어 있음"의 진범
+       · 이 페이지는 자체 i18n(data-ko/data-en + adm-p3.js 사전)을 이미 갖고 있다.
+       · 그런데 <html lang="ko"> 가 고정이라, 관리자가 화면을 영어로 바꿔 놔도
+         엣지/크롬은 여전히 "한국어 문서"로 보고 자동번역을 걸었다.
+         → 앱이 넣은 영어(사전)와 브라우저가 넣은 기계번역이 같은 자리에 겹쳐 찍히고,
+           브라우저 번역 노드는 폭 계산을 못 해 몇 글자마다 줄이 바뀐다.
+           (제보 화면: 사전값 "Attendance Stats by Academy (SLP)" 이 4줄로 접힌 채
+            기계번역 "Academy Student Class Status (SLP Attendance Statistics)" 위에 겹침.
+            사전에 없는 "Voice guide ON" 이 영어로 보인 것도 같은 이유 — 소스에 없는 문자열)
+       · translate="no" + notranslate + 아래 meta 로 자동번역을 끄고,
+         lang 은 실제 선택 언어를 따라가게 한다. 번역은 화면의 언어 버튼으로만.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<meta name="google" content="notranslate">
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- ph160 (2026-07-23) — 사이드바 접기(아이콘 레일) 초기 상태 부팅       -->
@@ -16,6 +30,12 @@
       document.documentElement.setAttribute('data-adm-nav', 'rail');
     }
   } catch(e) { /* 시크릿 모드 등 localStorage 차단 — 기본(펼침)으로 둔다 */ }
+  // 🌐 <html lang> 을 실제 선택 언어에 맞춘다 (기본 ko). 첫 페인트 전에 끝내야
+  //    브라우저가 "번역할까요?" 배너를 띄우지 않는다.
+  try {
+    var L = localStorage.getItem('mangoi_lang');
+    if (L === 'en' || L === 'zh' || L === 'ko') document.documentElement.lang = L;
+  } catch(e) {}
 })();
 </script>
 
@@ -2904,7 +2924,7 @@
   })();
 </script>
 
-<details class="table-card menu-card" open id="card-ai-insights">
+<details class="table-card menu-card" id="card-ai-insights">
   <summary><span data-ko="🤖 AI 인사이트 대시보드" data-en="🤖 AI Insight Dashboards">🤖 AI 인사이트 대시보드</span></summary>
   <div class="menu-body">
     <style>
@@ -2938,7 +2958,7 @@
   </div>
 </details>
 
-<details class="table-card menu-card" open id="card-kpi-dashboard">
+<details class="table-card menu-card" id="card-kpi-dashboard">
   <summary><span data-ko="📊 운영 대시보드 KPI" data-en="📊 Operations KPI Dashboard">📊 운영 대시보드 KPI</span></summary>
   <div class="menu-body">
     <style>
@@ -3547,7 +3567,7 @@
     <div class="sub-menu">
 
       <!-- 🆕 0. 수강료 미납 자동 알림 — Phase F1~F2 (파란 톤 통일) -->
-      <details class="sub-item" id="sub-overdue" open>
+      <details class="sub-item" id="sub-overdue">
         <summary data-ko="🔔 수강료 미납 자동 알림" data-en="🔔 Overdue Auto-Notify">🔔 수강료 미납 자동 알림</summary>
         <div class="sub-body">
           <!-- 🎨 파란-인디고 명도 반전: 외부 진한 다크블루, 안쪽 영역 연한 흰빛-인디고 -->
@@ -3703,7 +3723,7 @@
       </details>
 
       <!-- 4. 가맹점 정산 — ph204 직관적 재디자인 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🏢 지점/가맹점 정산 (한눈에)" data-en="🏢 Branch Settlement Dashboard">🏢 지점/가맹점 정산 (한눈에)</summary>
         <div class="sub-body">
 
@@ -4224,7 +4244,7 @@
     <div class="sub-menu">
 
       <!-- 1. 역할별 권한 매트릭스 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="👥 역할별 권한 매트릭스" data-en="👥 Role Permission Matrix">👥 역할별 권한 매트릭스</summary>
         <div class="sub-body">
           <style>
@@ -4528,7 +4548,7 @@
         </div>
       </details>
 
-      <details class="sub-item" id="sub-teacher-roster" open ontoggle="if(this.open&&window.loadTeacherRoster)loadTeacherRoster()">
+      <details class="sub-item" id="sub-teacher-roster" ontoggle="if(this.open&&window.loadTeacherRoster)loadTeacherRoster()">
         <summary data-ko="👩‍🏫 강사 명부 (실데이터)" data-en="👩‍🏫 Teacher Roster (real data)">👩‍🏫 강사 명부 (실데이터)</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -4690,7 +4710,7 @@
       </details>
 
       <!-- 하위 ② — 강사 정보 (신규 CRUD) -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="📋 강사 정보 (등록·수정·제거)" data-en="📋 Teacher Profile (Add · Edit · Remove)">📋 강사 정보 (등록·수정·제거)</summary>
         <div class="sub-body">
 
@@ -5303,7 +5323,7 @@
     <div class="sub-menu">
 
       <!-- 0. 🎁 Phase P4 — KT alpha 기프티쇼 비즈 API 연동 상태 + 가입 가이드 -->
-      <details class="sub-item" id="sub-points-api" open>
+      <details class="sub-item" id="sub-points-api">
         <summary data-ko="🔌 자동발송 API 연동 상태" data-en="🔌 Auto-send API Status">🔌 자동발송 API 연동 상태</summary>
         <div class="sub-body">
           <div id="pt-api-status" style="margin-bottom:14px"><div style="padding:20px;text-align:center;color:#6b7280">상태 확인 중…</div></div>
@@ -5350,7 +5370,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       </details>
 
       <!-- 1. 학생 포인트 잔액 + 수동 충전/차감 -->
-      <details class="sub-item" id="sub-points-balances" open>
+      <details class="sub-item" id="sub-points-balances">
         <summary data-ko="💰 학생 포인트 잔액" data-en="💰 Student Balances">💰 학생 포인트 잔액</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
@@ -5423,7 +5443,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   <summary><span data-ko="🎮 학생 배지 (게이미피케이션)" data-en="🎮 Student Badges">🎮 학생 배지 (게이미피케이션)</span></summary>
   <div class="menu-body">
     <div class="sub-menu">
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🏆 배지 카탈로그 + 통계" data-en="🏆 Badge Catalog + Stats">🏆 배지 카탈로그 + 통계</summary>
         <div class="sub-body">
           <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;color:#92400e">
@@ -5496,7 +5516,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
           <input id="be-teacher-uid" type="text" placeholder="teacher_uid" data-ko-placeholder="teacher_uid" data-en-placeholder="teacher_uid" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
         </label>
       </div>
-      <details open style="border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:0;background:rgba(20,41,80,0.6)">
+      <details style="border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:0;background:rgba(20,41,80,0.6)">
         <summary style="cursor:pointer;padding:12px 16px;font-weight:800;background:linear-gradient(90deg,rgba(99,102,241,0.18),rgba(99,102,241,0.04));color:#e6ecff;border-radius:10px 10px 0 0" data-ko="💬 공통 코멘트 (모든 학생에게 자동 적용)" data-en="💬 Common Comments (auto-applied to all students)">💬 공통 코멘트 (모든 학생에게 자동 적용)</summary>
         <div style="padding:12px 16px;display:grid;gap:10px;border-top:1px solid rgba(99,102,241,0.15)">
           <label style="font-size:12px;color:#e6ecff"><span style="font-weight:700;color:#fbbf24" data-ko="잘한 점" data-en="Strengths">잘한 점</span> <textarea id="be-common-strengths" rows="2" placeholder="공통 잘한 점" data-ko-placeholder="공통 잘한 점" data-en-placeholder="Common strengths" style="width:100%;padding:8px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:12.5px;margin-top:4px;background:#0c1a3a;color:#e6ecff"></textarea></label>
@@ -7212,7 +7232,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- ① 졸업생 등록 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="➕ 졸업생 등록" data-en="➕ Register Alumnus">➕ 졸업생 등록</summary>
         <div class="sub-body">
           <div class="alu-light" style="margin-bottom:10px">
@@ -7425,7 +7445,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- ① 멘토 배정 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🔗 멘토 배정" data-en="🔗 Assign Mentor">🔗 멘토 배정</summary>
         <div class="sub-body">
           <div class="sup-light" style="margin-bottom:10px">
@@ -8084,7 +8104,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. 빠른 평가서 작성 -->
-      <details class="sub-item ev-form-dark" id="sub-eval-create" open>
+      <details class="sub-item ev-form-dark" id="sub-eval-create">
         <summary data-ko="➕ 빠른 평가서 작성" data-en="➕ Quick Evaluation">➕ 빠른 평가서 작성</summary>
         <div class="sub-body">
           <div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.06));border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#c4b5fd;line-height:1.65">
@@ -8331,7 +8351,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. 전환률 통계 -->
-      <details class="sub-item" id="sub-inquiry-stats" open>
+      <details class="sub-item" id="sub-inquiry-stats">
         <summary data-ko="📈 전환률 통계" data-en="📈 Conversion Stats">📈 전환률 통계</summary>
         <div class="sub-body">
           <div id="iq-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
@@ -8342,7 +8362,7 @@ window.__admSettleRun = function(fn){
       </details>
 
       <!-- 2. 상담 목록 -->
-      <details class="sub-item" id="sub-inquiry-list" open>
+      <details class="sub-item" id="sub-inquiry-list">
         <summary data-ko="📋 상담 목록 (실시간)" data-en="📋 Inquiries">📋 상담 목록</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -8373,7 +8393,7 @@ window.__admSettleRun = function(fn){
   <summary><span data-ko="🐞 버그·피드백 접수함" data-en="🐞 Bug / Feedback Inbox">🐞 버그·피드백 접수함</span></summary>
   <div class="menu-body">
     <div class="sub-menu">
-      <details class="sub-item" id="sub-bug-list" open>
+      <details class="sub-item" id="sub-bug-list">
         <summary data-ko="📋 신고 목록 (실시간)" data-en="📋 Reports (live)">📋 신고 목록</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -8401,7 +8421,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. VAPID/구독 상태 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span data-ko="📡 푸시 상태 + VAPID" data-en="📡 Status + VAPID">📡 푸시 상태 + VAPID</span>
           <span style="margin-left:auto;font-size:11px;font-weight:600;color:#94a3b8;background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.4);padding:3px 10px;border-radius:999px"
@@ -8515,7 +8535,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. API 연동 상태 -->
-      <details class="sub-item" id="sub-kakao-status" open>
+      <details class="sub-item" id="sub-kakao-status">
         <summary data-ko="🔌 API 연동 상태" data-en="🔌 API Status">🔌 API 연동 상태</summary>
         <div class="sub-body">
           <div id="kakao-status-panel" style="margin-bottom:14px"><div style="padding:20px;text-align:center;color:#6b7280">상태 확인 중…</div></div>
@@ -8676,7 +8696,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="sub-menu">
 
       <!-- 1. 활성 팝업 목록 + 통계 -->
-      <details class="sub-item" id="sub-popup-list" open>
+      <details class="sub-item" id="sub-popup-list">
         <summary data-ko="📋 팝업 목록 (활성+만료)" data-en="📋 Popup List (Active + Expired)">📋 팝업 목록</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
@@ -8739,7 +8759,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <!-- ① 포스터 만들기 패널 (기본 활성) -->
     <div class="ns-panel is-active" data-nspanel="make">
       <div class="sub-menu">
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🖼 내 포스터 (저장 목록)" data-en="🖼 Saved Posters">🖼 내 포스터 (저장 목록)</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
@@ -10326,7 +10346,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="sub-menu">
 
       <!-- 1) 대리점 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🏪 대리점" data-en="🏪 Agency">🏪 대리점</summary>
         <div class="sub-body">
           <details>
@@ -10717,7 +10737,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-enrollments">
   <summary><span data-ko="📚 수강신청 관리" data-en="📚 Enrollments">📚 수강신청 관리</span></summary>
   <div class="menu-body">
-    <details open>
+    <details>
       <summary style="cursor:pointer;font-size:13px;color:#3b82f6;font-weight:600"
                data-ko="＋ 수강신청 등록 (1명 또는 여러 명 동시)"
                data-en="＋ Add Enrollment (single or multiple at once)">＋ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
@@ -10867,7 +10887,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="sub-menu">
 
       <!-- 1-1) 컨텐츠 교재 관리 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="📚 컨텐츠 교재 관리" data-en="📚 Content Textbook Management">📚 컨텐츠 교재 관리</summary>
         <div class="sub-body">
           <!-- ph158 (2026-05-29) — 🆕 폴더 통째 업로드 + AI 자동 분류 진입 카드 -->
@@ -10995,7 +11015,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             try{ var _k=localStorage.getItem('mangoi_yt_api_key'); if(_k){ var _el=document.getElementById('yt-imp-key'); if(_el) _el.value=_k; } }catch(_){}
           </script>
 
-          <details open>
+          <details>
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 비디오 등록" data-en="＋ Add Video">＋ 비디오 등록</summary>
             <div class="menu-form" style="margin-top:8px;flex-wrap:wrap;">
               <input id="mv-title"      placeholder="제목 (한글)"  data-ko-placeholder="제목 (한글)"  data-en-placeholder="Title (Korean)"  style="width:220px;" />
@@ -20701,7 +20721,7 @@ button.chip:hover,
     font-size:10.5px;background:rgba(139,92,246,.18);color:#c4b5fd;border:1px solid rgba(139,92,246,.35)}
 </style>
 <script src="/js/adm-p1.js?v=1" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
-<script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
+<script src="/js/mango-worldclock.js?v=5" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 <!-- 📱 (2026-07-09) 모바일 마감 보정 — 좁은 화면에서 차트카드 삐져나감·표 잘림 방지(표는 가로 스크롤로 전환). 빼면 즉시 원복 -->
 <style id="mb-tidy-2026-07-09">
 @media (max-width: 640px){
@@ -21316,6 +21336,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260801101228 -->
+<!-- BUILD:20260802223235 -->
 </body>
 </html>

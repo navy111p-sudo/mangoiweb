@@ -146,8 +146,20 @@ const varsHits = (TOML.match(/^LEGACY_TEACHER_LOGIN\s*=/gm) || []).length;
 ok(varsHits >= 2, 'wrangler.toml [vars] 와 [env.production.vars] 양쪽에 스위치 존재 (한쪽만 = 운영 미적용)');
 
 const IDX = readFileSync(resolve(root, 'cloudflare-deploy', 'public', 'index.html'), 'utf8');
-ok(/var dest = '\/admin\.html';\s*\n\s*if \(String\(role\)\.indexOf\('teacher'\) >= 0/.test(IDX),
-   '홈 로그인: 교사 판정이 아이디 접두사(capi…)보다 먼저 → 마이페이지로 이동');
+// 🇵🇭 (2026-08-02) 강사 목적지가 /admin/mypage → /teacher (초경량 강사 포털)로 바뀌었다.
+//   이 가드가 지키려는 것은 목적지 문자열이 아니라 **판정 순서**다:
+//   교사 판정이 아이디 접두사(capi…)보다 먼저여야 한다. 순서가 뒤집히면 옛 LMS 에서 넘어온
+//   강사(아이디가 capi… 로 시작할 수 있음)가 캐피타운 정산 화면으로 새어 나간다.
+//   주석이 사이에 들어가도 깨지지 않도록 '순서'만 본다.
+{
+  const iDest = IDX.indexOf("var dest = '/admin.html';");
+  const iTeacher = IDX.indexOf("String(role).indexOf('teacher') >= 0", iDest);
+  const iCapi = IDX.indexOf("uid.indexOf('capi') === 0", iDest);
+  ok(iDest >= 0 && iTeacher > iDest && iCapi > iTeacher,
+     '홈 로그인: 교사 판정이 아이디 접두사(capi…)보다 먼저');
+  ok(/indexOf\('teacher'\) >= 0\) dest = '\/teacher'/.test(IDX),
+     '홈 로그인: 교사는 초경량 강사 포털(/teacher)로 이동');
+}
 const LGN = readFileSync(resolve(root, 'cloudflare-deploy', 'public', 'admin', 'login.html'), 'utf8');
 ok(/!data\.is_teacher && \(uid === 'capitown'/.test(LGN),
    '관리자 로그인 화면: 교사는 캐피타운 정산 화면으로 새지 않음');

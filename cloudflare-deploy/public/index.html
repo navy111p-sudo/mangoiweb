@@ -5904,14 +5904,22 @@ window.mgIsSlowNet = function(){
         <span class="ht-glass">Mango Ai</span>
       </h1>
       <p id="home-tagline" class="home-tagline">
-        <span data-ko="AI 시대 최고의 코딩은 영어실력! 망고아이에서 시작하세요!" data-en="In the AI era, the best coding skill is English! Start with Mango Ai!">AI 시대 최고의 코딩은 영어실력! 망고아이에서 시작하세요!</span>
+        <span data-ko="AI로 생각하고 결정하는 영어, 망고아이" data-en="Think and decide in English — Mango Ai">AI로 생각하고 결정하는 영어, 망고아이</span>
       </p>
     </div>
     <style>
       .home-tagline {
         margin: 0.2rem 0 0;
         text-align: center;
-        font-size: clamp(13px, 1.6vw, 16px);
+        /* 📱 [2026-08-02] 슬로건 교체("AI로 생각하고 결정하는 영어, 망고아이")에 맞춰
+           하한을 13px → 12.5px, 가변폭을 1.6vw → 3.8vw 로.
+           왜: 문구가 32자 → 20자로 짧아져 모바일에서 한 줄에 들어간다. 다만 1.6vw 는
+               좁은 화면에서 곧바로 하한(13px)에 걸려 폭에 반응하지 못했다 —
+               한 줄 유지는 '화면폭에 비례해 줄어드는' 값이어야 안전하다.
+           ⚠️ 상한 16px 은 그대로다. PC 에서 보이는 크기는 기존과 같다.
+           ⚠️ white-space:nowrap 은 일부러 안 썼다. 못 들어가면 잘리는 대신 두 줄로
+              흘러가는 편이 안전하다(번역문·글꼴 대체 상황). */
+        font-size: clamp(12.5px, 3.8vw, 16px);
         font-weight: 600;
         color: #fde68a;
         text-shadow: 0 2px 8px rgba(0,0,0,0.35);
@@ -6353,9 +6361,12 @@ window.mgIsSlowNet = function(){
             <span data-ko="강사 둘러보기" data-en="Meet the teachers">강사 둘러보기</span>
           </button>
         </div>
-        <button type="button" id="hero-guest-quiet" onclick="showView('view-videocall-lobby')"
-                data-ko="이미 수강 중이신가요? 수업 입장 →" data-en="Already enrolled? Enter class →">이미 수강 중이신가요? 수업 입장 →</button>
       </div>
+      <!-- ⬇ '이미 수강 중이신가요? 수업 입장 →' 은 4단계 칩 **아래**로 내렸다 (2026-08-02).
+           CTA 와 4단계 사이에 끼어 있어 히어로가 덩어리 3개로 쪼개져 보였다.
+           이제 CTA(지금 할 일) → 4단계(절차) → 조용한 링크 순으로 위계가 잡힌다.
+           ⚠️ #hero-guest 밖으로 나왔으므로 로그인 시 숨김을 아래 스크립트가 직접 처리한다.
+              비회원에게는 반드시 남아 있어야 한다 — 위 6340줄 주석 참조. -->
 
       <!-- ② 로그인한 회원 — 수업입장 + AI와 친구하기 한 줄 (같은 골드 스타일) -->
       <div class="ai-cta-row" id="hero-member" style="display:none">
@@ -6369,7 +6380,7 @@ window.mgIsSlowNet = function(){
         </button>
       </div>
       <style>
-        #hero-guest-quiet{display:block;margin:9px auto 0;background:none;border:0;padding:4px 8px;
+        #hero-guest-quiet{display:block;margin:13px auto 0;background:none;border:0;padding:4px 8px;
           color:rgba(226,232,240,.72);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;
           text-decoration:underline;text-underline-offset:3px}
         #hero-guest-quiet:hover{color:#fde68a}
@@ -6391,17 +6402,29 @@ window.mgIsSlowNet = function(){
           }catch(e){ return false; }
         }
         try{
-          if (loggedIn()){
+          var member = loggedIn();
+          if (member){
             var g = document.getElementById('hero-guest');
             var m = document.getElementById('hero-member');
             if (g) g.style.display = 'none';
             if (m) m.style.display = '';
-            /* 이미 등록한 회원에게 '무료 상담 → 레벨 테스트' 안내는 의미가 없다 */
-            document.addEventListener('DOMContentLoaded', function(){
-              var f = document.querySelector('.home-flow');
-              if (f) f.style.display = 'none';
-            });
           }
+          /* 나머지 정리는 해당 요소들이 아직 파싱되기 전이라 DOMContentLoaded 로 미룬다.
+             ⚠️ 실패해도 화면은 '비회원 기본형'으로 남는다(안내문구만 안 보일 뿐). */
+          document.addEventListener('DOMContentLoaded', function(){
+            var f = document.querySelector('.home-flow');
+            var q = document.getElementById('hero-guest-quiet');
+            var h = document.getElementById('lesson-enter-hint');
+            if (member){
+              /* 이미 등록한 회원에게 '무료 상담 → 레벨 테스트' 절차 안내는 의미가 없고,
+                 '이미 수강 중이신가요?' 도 마찬가지다(바로 위에 큰 '수업 입장'이 있다). */
+              if (f) f.style.display = 'none';
+              if (q) q.style.display = 'none';
+              /* 반대로 '🎥 로비 입장 / 📹 마이크·카메라' 안내는 수업 입장을 누를 사람에게만 뜻이 있다.
+                 (2026-08-02) 전에는 비회원에게도 항상 떠서 하단에 알약이 하나 더 쌓였다. */
+              if (h) h.style.display = 'flex';
+            }
+          });
         }catch(e){}
       })();
       </script>
@@ -6412,9 +6435,12 @@ window.mgIsSlowNet = function(){
            대신 '무엇을 궁금해하는가(=절차)'만 상시 노출로 답한다.
            ⚠️ 자동 재생·오버레이·강제 진행 금지. 누르면 그 단계로 가는 것까지가 전부. -->
       <div class="home-flow" role="list">
-        <!-- 1번만 채워서 시선을 모은다 — 4칸이 동등한 무게면 '지금 할 행동'이 안 생긴다.
-             경쟁사 히어로가 전부 단일 CTA 인 이유이기도 하다. -->
-        <button type="button" role="listitem" class="hf-step hf-lead" onclick="window.openInquiryModal&&window.openInquiryModal()">
+        <!-- ⚠️ [2026-08-02] 1번에서 골드 강조(.hf-lead)를 뺐다.
+             왜: 바로 위 히어로 CTA '무료 체험 신청'과 이 칩이 **같은 openInquiryModal 을 연다**.
+                 같은 동작이 화면에 두 번, 그것도 둘 다 골드로 강조돼 있어 '지금 누를 것'이
+                 오히려 흐려졌다. 강조는 히어로 CTA 하나만 갖는다.
+             (칩 자체는 남긴다 — 4단계는 '무엇을 하는 곳인가'를 알려주는 안내지 CTA 가 아니다.) -->
+        <button type="button" role="listitem" class="hf-step" onclick="window.openInquiryModal&&window.openInquiryModal()">
           <span class="hf-n">1</span><span class="hf-t" data-ko="무료 상담" data-en="Free consult">무료 상담</span>
         </button>
         <span class="hf-ar" aria-hidden="true">›</span>
@@ -6433,6 +6459,8 @@ window.mgIsSlowNet = function(){
           <span class="hf-n">4</span><span class="hf-t" data-ko="평가표 · 복습" data-en="Report & review">평가표 · 복습</span>
         </button>
       </div>
+      <button type="button" id="hero-guest-quiet" onclick="showView('view-videocall-lobby')"
+              data-ko="이미 수강 중이신가요? 수업 입장 →" data-en="Already enrolled? Enter class →">이미 수강 중이신가요? 수업 입장 →</button>
       <style>
         .home-flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;margin:14px auto 0;max-width:640px}
         .home-flow .hf-step{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:99px;
@@ -6444,10 +6472,17 @@ window.mgIsSlowNet = function(){
         .home-flow .hf-n{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;flex:none;
           border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f08;font-size:11px;font-weight:900}
         .home-flow .hf-ar{color:rgba(251,191,36,.7);font-size:15px;font-weight:800;line-height:1}
+        /* 📱 [2026-08-02] 모바일 정렬 — 알약 폭이 제각각(무료 상담 / 평가표 · 복습)이라
+           flex-wrap 으로 접히면 2×2 가 들쭉날쭉했고, 화살표 › 가 줄 끝·줄 머리에 떠서
+           '1→2→3→4 흐름'이 오히려 안 읽혔다(그냥 알약 4개가 흩어진 것처럼 보임).
+           → 폭이 같은 2×2 격자로 고정하고 화살표는 숨긴다. 순서는 번호가 이미 나타낸다.
+           ⚠️ 한 줄 가로스크롤도 후보였지만 3·4번이 화면 밖으로 숨어 채택하지 않았다. */
         @media(max-width:560px){
-          .home-flow{gap:3px;max-width:96vw}
-          .home-flow .hf-step{padding:7px 10px;font-size:12px}
-          .home-flow .hf-ar{font-size:13px}
+          .home-flow{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-width:min(96vw,340px);margin-top:8px}
+          .home-flow .hf-step{justify-content:center;padding:7px 8px;font-size:12px}
+          .home-flow .hf-ar{display:none}
+          /* 여백을 조금씩 줄여(합계 23px) 하단 덩어리를 컴팩트하게 만든다. */
+          #hero-guest-quiet{margin-top:4px}
         }
       </style>
       <!-- 🌤️/🌙 홈 배경 밝게·어둡게 전환 — 우측 상단 로그인 옆 칩으로 이동(중앙 X) -->
@@ -6509,8 +6544,8 @@ window.mgIsSlowNet = function(){
         setInterval(applyHomeTheme, 60000); // 켜둔 채로 6시/18시 넘어가면 자동 전환
       })();
       </script>
-      <!-- 안내문구 (수업입장 정보) -->
-      <div id="lesson-enter-hint" style="text-align:center;width:fit-content;margin:14px auto 0;font-size:11.5px;color:#cbd5e1;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;background:rgba(0,0,0,0.5);padding:8px 18px;border-radius:99px;border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);text-shadow:0 1px 2px rgba(0,0,0,0.6)">
+      <!-- 안내문구 (수업입장 정보) — 기본 숨김. 로그인한 회원에게만 위 스크립트가 flex 로 켠다 (2026-08-02) -->
+      <div id="lesson-enter-hint" style="text-align:center;width:fit-content;margin:14px auto 0;font-size:11.5px;color:#cbd5e1;display:none;gap:12px;justify-content:center;flex-wrap:wrap;background:rgba(0,0,0,0.5);padding:8px 18px;border-radius:99px;border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);text-shadow:0 1px 2px rgba(0,0,0,0.6)">
         <span data-ko="🎥 화상수업 로비로 입장" data-en="🎥 Enter video class lobby">🎥 화상수업 로비로 입장</span>
         <span style="opacity:.5">|</span>
         <span data-ko="📹 마이크 / 카메라 사용" data-en="📹 Mic / Camera required">📹 마이크 / 카메라 사용</span>
@@ -23440,7 +23475,10 @@ window.addEventListener('DOMContentLoaded', () => {
       //   아이디는 형태가 제각각이라(예: capi… 로 시작하는 이름) 접두사 규칙에 걸리면
       //   엉뚱한 화면(캐피타운 정산)으로 가버린다. 서버가 준 is_teacher 가 항상 우선.
       var dest = '/admin.html';
-      if (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency') dest = '/admin/mypage';
+      // 🇵🇭 (2026-08-02) 강사는 초경량 강사 포털(/teacher)로. admin/login.html 의 같은 분기와
+      //   **반드시 함께** 고쳐야 한다(역할판정 로직이 두 파일에 복제돼 있음 — CLAUDE.md 2절).
+      if (String(role).indexOf('teacher') >= 0) dest = '/teacher';
+      else if (role === 'branch' || role === 'agency') dest = '/admin/mypage';
       else if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
       closeLoginModal();
       var fbL = (window.getLang?window.getLang():'ko')==='ko';
@@ -28434,7 +28472,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=5"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260801101228 -->
+<!-- BUILD:20260802223235 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -30115,7 +30153,11 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
   @media (max-width: 380px) {
     .ai-quick { grid-template-columns: repeat(2, 1fr) !important; gap: 7px !important; }
     .ai-quick-btn { min-height: 48px !important; font-size: 11.5px !important; }
-    .ai-cta-row { margin-bottom: 130px !important; }
+    /* ⚠️ [2026-08-02] 130px → 88px.
+       이 여백은 CTA 아래에 '아바타가 앉을 자리'를 비워둔 것이다. 그런데 이번에
+       '이미 수강 중이신가요?' 가 4단계 칩 아래로 내려가면서, 그 자리 아래로 밀린 링크가
+       우하단으로 옮긴 '+' 버튼에 가렸다(실측 320px). 여백을 줄여 본문을 위로 올린다. */
+    .ai-cta-row { margin-bottom: 88px !important; }
     .cta-pay, .cta-enter { font-size: 13px !important; padding: 12px 8px !important; min-height: 56px !important; }
     #precheck-fab { bottom: 128px !important; }
   }
@@ -31493,11 +31535,17 @@ window.vcAutoLoadStudentTextbook = async function(){
     border:3px solid #ffcc00; border-radius:50%; padding:0; font-size:0; color:transparent;
     background:#ffcc00 url('/img/avatar-face.jpg') center 22% / cover no-repeat;
     cursor:grab; box-shadow:0 6px 18px rgba(0,0,0,0.35); touch-action:none; user-select:none;
-    animation: mangoiGlowPulse 1.8s ease-in-out infinite; }
-  /* ✨ 회전하는 후광 링 (테두리 바깥에서 반짝반짝) */
+    animation: mangoiGlowPulse 1.8s ease-in-out 3; }
+  /* ✨ 후광 링 (테두리 바깥) — 회전은 처음 6초만 */
   #mangoi-toggle::before { content:""; position:absolute; inset:-6px; border-radius:50%; z-index:-1;
     background:conic-gradient(from 0deg, #ffcc00, #fff7c2, #ffae00, #fff7c2, #ffcc00);
-    filter:blur(4px); opacity:.9; animation: mangoiHaloSpin 3s linear infinite; }
+    filter:blur(4px); opacity:.9; animation: mangoiHaloSpin 3s linear 2; }
+  /* ⏱ [2026-08-02] infinite → 유한 반복(글로우 3회 5.4초 / 회전 2바퀴 6초).
+     왜: 두 애니메이션이 페이지가 열려 있는 내내 동시에 돌아 하단에서 시선을 계속 뺏었다.
+         '눈에 띄게' 하는 목적은 처음 몇 초면 충분하고, 그 뒤로는 노란 아바타 자체로 이미 눈에 띈다.
+         저사양 기기·필리핀 회선에서 상시 합성 부담이 사라지는 이득도 있다.
+     ⚠️ 끝나도 아바타는 그대로 보인다 — 두 애니메이션 모두 시작/끝 상태가 같고,
+        opacity:0 에서 시작하는 요소가 아니라 백그라운드 탭에서 멈춰도 사라지지 않는다. */
   @keyframes mangoiHaloSpin { to { transform:rotate(360deg); } }
   @keyframes mangoiGlowPulse {
     0%,100% { box-shadow:0 6px 18px rgba(0,0,0,0.35), 0 0 8px 2px rgba(255,204,0,0.65), 0 0 20px 5px rgba(255,204,0,0.4); }
@@ -31549,6 +31597,19 @@ window.vcAutoLoadStudentTextbook = async function(){
   }
   /* 📱 모바일(≤480px) 전용 — A.i 상담사 위젯을 우하단 코너로 내려 '수업 입장' 버튼과 겹치지 않게 (2026-06-21).
      라벨이 위젯보다 72px 위에 뜨므로 위젯을 충분히 내려야 라벨이 CTA 버튼과 안 겹침. 이 규칙은 위쪽 bottom:104px 전역 override 보다 뒤에 와서 모바일에서만 이김. */
+  /* 🏷 [2026-08-02] 모바일(≤560px)에서 'A.i 상담사' 라벨 배지를 접는다.
+     왜 ①: 이 배지는 아바타보다 72px 위, 즉 본문 하단 높이대에 떠 있어서 홈 하단 글자와 겹쳤다.
+            '이미 수강 중이신가요?' 를 4단계 칩 아래로 내리자 360px 에서 15px 겹쳤다.
+     왜 ②: 여백으로 떼는 방법은 취약하다 — .ai-cta-row 아래 여백이 구간마다 다르고
+            (≤380px · 481~560px · 561~1023px 이 전부 다른 값이다),
+            라벨 y 는 아바타가 화면 하단 고정이라 화면폭과 무관해서 폭마다 값을 새로 맞춰야 한다.
+     왜 ③: 하단을 비우는 것이 이번 작업의 목적 자체이기도 하다.
+     ⚠️ 아바타 얼굴 버튼은 그대로다 — 눌러서 상담 여는 동작에 영향 없다.
+        PC·태블릿(≥561px)은 공간이 넉넉하므로 라벨을 유지한다.
+        되돌리려면 이 규칙 한 줄만 지우면 된다. */
+  @media (max-width:560px){
+    #mangoi-label { display:none !important; }
+  }
   @media (max-width:480px){
     #mangoi-widget { bottom: 18px !important; right: 14px !important; }
     /* 상담창이 열리면(전체화면) 아바타 얼굴 버튼을 입력창(전송/마이크) 위로 올려 겹침 방지 (2026-06-21).
@@ -31568,6 +31629,15 @@ window.vcAutoLoadStudentTextbook = async function(){
     #mangoi-toggle { width:104px !important; height:104px !important; border-width:5px !important; }
     #mangoi-label  { bottom:116px !important; font-size:17px !important; padding:6px 15px !important; }
     .ai-cta-row    { margin-bottom:260px !important; }
+  }
+  /* 🕳 481~560px 틈새 — 칩은 모바일 2×2(max-width:560)인데 아바타는 태블릿 크기(min-width:481)라
+     둘의 브레이크포인트가 어긋나 아바타가 오른쪽 열 칩(2·4번)을 덮는다.
+     **변경 전부터 있던 겹침**이고, 이 구간만 여백을 더 줘서 칩 격자를 아바타 아래로 통과시킨다.
+     ⚠️ 근본 해결은 아바타 확대 기준을 481 → 561 로 맞추는 것이지만, 아바타 크기 정책은
+        홈 밖(수업·태블릿 레이아웃)에도 걸려 있어 여기서 건드리지 않았다.
+     ⚠️ 값은 실측으로 맞췄다(390px 이면 3px 남는다). */
+  @media (min-width:481px) and (max-width:560px){
+    .ai-cta-row { margin-bottom:404px !important; }
   }
 </style>
 <script>
@@ -31916,10 +31986,19 @@ window.vcAutoLoadStudentTextbook = async function(){
      → '+' 가 위로 밀려 결제 버튼에 닿던 문제 해결. 말풍선도 '+' 바로 옆에 붙음. */
   #mg-fab-wrap{position:fixed;left:16px;right:auto;bottom:calc(20px + env(safe-area-inset-bottom,0px));
     z-index:2147483200;width:32px;height:32px}
-  /* 📱 모바일(≤480px): 좌하단 코너(설치배너 left:68 보다 왼쪽, 우하단 AI 얼굴과 좌우 분리) */
+  /* 📱 [2026-08-02] 모바일(≤480px): 좌하단 → 우하단 A.i 아바타 '왼쪽 옆'으로 이동.
+     왜: 좌하단 '+' 와 우하단 아바타가 화면 양쪽 코너를 동시에 점유해서, 그 사이에 낀
+         4단계 칩과 안내문구가 어디에도 붙지 못하고 떠 보였다(하단이 지저분하던 주원인).
+         좌하단을 비우면 칩이 화면 중앙 정렬로 온전히 읽히고, 떠 있는 것은 우하단 한 덩어리로 묶인다.
+     ⚠️ 아바타는 bottom:18px · 64px 이라 세로 중심이 50px. '+'(32px)를 bottom:34px 로 맞춰 나란히 놓는다.
+        아바타 쪽에 safe-area 가 안 걸려 있으므로 여기서도 env() 를 쓰지 않는다 — 쓰면 둘의 높이가 어긋난다.
+     ⚠️ 카카오·새로고침 동작은 그대로다. 위치만 옮겼다. */
   @media (max-width:480px){
-    #mg-fab-wrap{left:14px;right:auto;bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+    #mg-fab-wrap{left:auto;right:88px;bottom:34px}
   }
+  /* ⚠️ 펼침 메뉴·말풍선 미러링 규칙은 .mg-fab-items / .mg-fab-item / #mg-fab-hint 의
+     '무조건 규칙'이 아래에 정의돼 있어서, 여기 두면 뒤에 오는 그 규칙에 덮인다.
+     → 이 <style> 블록 **맨 끝**에 따로 넣었다. 아래 '📱 우하단 미러링' 참조. */
   /* 💻 PC(≥481px): 좌하단 코너 유지(아바타는 우하단이라 안 겹침) */
   @media (min-width:481px){
     #mg-fab-wrap{bottom:calc(24px + env(safe-area-inset-bottom,0px))}
@@ -31973,6 +32052,18 @@ window.vcAutoLoadStudentTextbook = async function(){
   #mg-fab-wrap.hint-on #mg-fab-hint{opacity:1;transform:translateY(50%)}
   /* 메뉴가 펼쳐지면 라벨이 이미 보이므로 말풍선 숨김 */
   #mg-fab-wrap.open #mg-fab-hint{opacity:0 !important}
+
+  /* 📱 우하단 미러링 (2026-08-02) — '+' 가 모바일에서 우하단(아바타 옆)으로 옮겨갔으므로
+     펼침 메뉴와 말풍선도 오른쪽 기준으로 뒤집는다.
+     ⚠️ 반드시 위의 .mg-fab-items / .mg-fab-item / #mg-fab-hint 정의 **뒤**에 있어야 한다.
+        앞에 두면 같은 명시도라 뒤의 무조건 규칙에 덮여서, 라벨이 오른쪽으로 뻗어
+        '카카오 상담'이 화면 밖으로 잘린다(실측: 375px 화면에서 오른쪽 끝 379px). */
+  @media (max-width:480px){
+    .mg-fab-items{left:auto;right:0;align-items:flex-end}
+    .mg-fab-item{flex-direction:row-reverse}
+    #mg-fab-hint{left:auto;right:45px}
+    #mg-fab-hint::before{left:auto;right:-7px;border-right:0;border-left:8px solid rgba(15,23,42,.96)}
+  }
 </style>
 
 <div id="mg-fab-scrim"></div>
@@ -32366,7 +32457,7 @@ window.vcAutoLoadStudentTextbook = async function(){
 })();
 </script>
 
-<script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 학생 홈+수업입장 화면 공용. 빼면 즉시 원복 -->
+<script src="/js/mango-worldclock.js?v=5" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 수업입장 화면 전용 — 모바일 홈에서는 숨김(2026-08-02). 빼면 즉시 원복 -->
 <script defer src="/js/flow.js?v=8"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=2"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
 <script defer src="/js/vc-judgment-capture.js?v=1"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->

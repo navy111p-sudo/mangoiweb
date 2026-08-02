@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light">
+<!-- 제목도 두 화면이 구분돼야 한다 — 강사는 탭·북마크를 제목으로 찾는다.
+     이 화면 = "Today", 마이페이지 = "My Records & Settings". -->
+<title>Today · Mangoi Teacher</title>
+<!--
+  ══════════════════════════════════════════════════════════════════════════════
+  🇵🇭 강사 전용 초경량 포털 — Teacher Portal  (2026-08-02)
+
+  ⚠️ 이 파일의 유일한 설계 목표는 **필리핀 모바일 회선에서 1초 안에 뜨는 것**이다.
+     아래 규칙을 깨는 순간 이 페이지의 존재 이유가 사라진다:
+
+     1. 외부 리소스 0개. link 태그·script src·웹폰트·CDN·아이콘팩 전부 금지.
+        (※ 이 주석 안에 script 태그를 각괄호로 쓰지 말 것 — 인라인 JS 문법 게이트가
+           주석까지 정규식으로 훑어 그 지점부터를 JS 로 오인해 문법오류로 잡는다.)
+        (admin.html / mypage.html 의 공통 레이아웃 — LNB, i18n 스윕, adm-light-theme,
+         back-nav, 서비스워커 — 를 **일절 상속하지 않는다.** 그것들을 부르면 끝이다.)
+     2. 차트 라이브러리 금지. 숫자와 글자로만 표현한다.
+     3. 애니메이션·transition 금지. 저사양 기기에서 렉의 원인이고, 백그라운드 탭에서는
+        멈춰서 요소가 영영 안 보이는 사고가 난다(과거 실사고).
+     4. 첫 화면은 API **1회** 호출로 끝낸다(/api/teacher/portal).
+        무거운 월간 집계는 첫 페인트 뒤에 따로 부른다(lazy).
+     5. 이모지는 Unicode 13 미만만 — 강사 단말·Win10 에서 두부(□)로 뜬다.
+
+  세션: 기존 관리자와 동일한 HttpOnly 쿠키(mango_admin_session). 별도 로그인 없음.
+  역할 분기: 서버(src/index.ts teacherPortalRedirect)가 이미 끝냈다. 여기선 신뢰만 한다.
+  ══════════════════════════════════════════════════════════════════════════════
+-->
+<style>
+/* ── 시스템 폰트만: 웹폰트 1개 = 저속 회선에서 수백 ms + 폰트 로딩 중 텍스트 공백 ── */
+*{box-sizing:border-box;-webkit-tap-highlight-color:rgba(0,0,0,.06)}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px;line-height:1.5;color:#16202c;background:#f4f6f8;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:760px;margin:0 auto;padding:12px 12px 48px}
+
+/* ── 상단바: 로고·차트·검색 없음. 이름 / 언어 / 로그아웃뿐 ── */
+.top{display:flex;align-items:center;gap:10px;padding:12px 4px 14px;flex-wrap:wrap}
+.top h1{font-size:19px;margin:0;font-weight:700;flex:1;min-width:0}
+.top h1 span{display:block;font-size:13px;font-weight:400;color:#5d6b7a}
+.tbtn{
+  border:1px solid #c9d2dc;background:#fff;color:#2c3a48;border-radius:8px;
+  padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer;
+}
+.tbtn:active{background:#eef1f5}
+
+.card{background:#fff;border:1px solid #dde3ea;border-radius:10px;padding:14px;margin-bottom:12px}
+.card > h2{
+  font-size:15px;margin:0 0 10px;font-weight:700;color:#2c3a48;
+  display:flex;align-items:center;gap:8px;
+}
+.card > h2 small{font-weight:400;color:#7a8794;font-size:13px}
+
+/* ── 오늘 수업 리스트 ── */
+.cls{border-top:1px solid #eaeef2;padding:12px 0;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.cls:first-of-type{border-top:0}
+.cls-time{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;color:#16202c}
+.cls-main{flex:1;min-width:150px}
+.cls-name{font-size:16px;font-weight:600}
+.cls-meta{font-size:13px;color:#5d6b7a;margin-top:2px}
+.cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── 큼직한 액션 버튼 (터치 최소 48px) ── */
+.btn{
+  display:inline-block;border:0;border-radius:8px;padding:13px 18px;
+  font-size:16px;font-weight:700;cursor:pointer;text-align:center;
+  min-height:48px;line-height:22px;text-decoration:none;
+}
+.btn-join{background:#0b7a3d;color:#fff;flex:1}
+.btn-join:active{background:#095f30}
+.btn-eval{background:#1355a8;color:#fff;flex:1}
+.btn-eval:active{background:#0f4488}
+.btn-off{background:#e7ebef;color:#8a95a1;cursor:default;flex:1}
+.btn-wide{width:100%;margin-top:6px}
+
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px;vertical-align:2px}
+.p-live{background:#0b7a3d;color:#fff}
+.p-done{background:#e7ebef;color:#6b7783}
+.p-soon{background:#fff2cc;color:#7a5c00}
+
+/* ── 대시보드: 차트 없음. 숫자만. ── */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{background:#f7f9fb;border:1px solid #e4e9ee;border-radius:8px;padding:12px 8px;text-align:center}
+.kpi b{display:block;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.kpi span{display:block;font-size:12px;color:#5d6b7a;margin-top:3px}
+.kpi.warn b{color:#b3261e}
+
+/* ── 공지 / 자료 ── */
+.row{display:block;border-top:1px solid #eaeef2;padding:11px 0;text-decoration:none;color:inherit}
+.row:first-of-type{border-top:0}
+.row b{font-size:15px;font-weight:600;display:block}
+.row span{font-size:13px;color:#5d6b7a;display:block;margin-top:2px}
+.row-dl b{color:#1355a8}
+
+.empty{color:#7a8794;font-size:14px;padding:6px 0}
+.err{background:#fdecea;border:1px solid #f5c2bd;color:#8c1d18;border-radius:8px;padding:12px;font-size:14px}
+.ok{background:#e6f4ea;border:1px solid #a8d5b5;color:#0b5c2a;border-radius:8px;padding:12px;font-size:14px}
+
+/* ⚠️ 경고 카드 — 돈이 걸린 정보라 시각적으로 확실히 구분한다 */
+.card.alert{border-color:#f0b429;background:#fffbf0}
+.card.alert > h2{color:#8a5a00}
+.sum{font-size:15px;font-weight:700;color:#8a5a00;margin-bottom:8px}
+.sum b{font-size:20px;font-variant-numeric:tabular-nums}
+.mini{font-size:13px;color:#5d6b7a;padding:4px 0}
+.draft{border-top:1px solid #f0e0c0;padding:12px 0}
+.draft-txt{font-size:14px;background:#fff;border:1px solid #e4dcc8;border-radius:8px;padding:10px;margin:6px 0;white-space:pre-wrap}
+.warnline{font-size:12.5px;color:#8a5a00;margin-bottom:8px}
+.btn-appr{background:#0b7a3d;color:#fff;flex:1}
+.btn-skip{background:#e7ebef;color:#2c3a48;flex:0 0 auto}
+.btn-sm{min-height:44px;padding:11px 14px;font-size:14px}
+.btn-post{background:#fff;color:#1355a8;border:1px solid #9db8dc;flex:0 0 auto}
+.fld input,.fld select{
+  width:100%;border:1px solid #c9d2dc;border-radius:8px;padding:10px;font-size:16px;
+  font-family:inherit;min-height:48px;background:#fff;
+}
+
+/* ── 평가 모달 ── */
+.mask{position:fixed;inset:0;background:rgba(15,22,30,.55);z-index:50;overflow-y:auto;padding:16px}
+.modal{background:#fff;border-radius:12px;max-width:520px;margin:0 auto;padding:16px}
+.modal h3{margin:0 0 4px;font-size:18px}
+.modal p.sub{margin:0 0 14px;font-size:14px;color:#5d6b7a}
+.fld{margin-bottom:14px}
+.fld label{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
+.fld textarea{
+  width:100%;border:1px solid #c9d2dc;border-radius:8px;padding:10px;font-size:16px;
+  font-family:inherit;resize:vertical;min-height:60px;
+}
+/* 별점: 라디오 접근성 유지 + 큰 터치 영역 (이미지·폰트아이콘 안 씀) */
+.stars{display:flex;gap:6px}
+.stars input{position:absolute;opacity:0;width:0;height:0}
+.stars label{
+  flex:1;border:1px solid #c9d2dc;border-radius:8px;background:#fff;
+  min-height:48px;line-height:46px;text-align:center;font-size:18px;font-weight:700;cursor:pointer;
+  margin:0;color:#8a95a1;
+}
+.stars input:checked + label{background:#1355a8;border-color:#1355a8;color:#fff}
+.stars input:focus-visible + label{outline:2px solid #1355a8;outline-offset:2px}
+.mrow{display:flex;gap:8px;margin-top:4px}
+.btn-gray{background:#e7ebef;color:#2c3a48;flex:1}
+
+@media (max-width:420px){
+  .cls-time{font-size:18px;min-width:56px}
+  .kpi b{font-size:22px}
+  .wrap{padding:8px 8px 40px}
+}
+@media (min-width:700px){
+  .cls-act{width:auto;flex:0 0 auto}
+  .btn{padding:13px 22px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <h1 id="hi">Loading…<span id="today"></span></h1>
+    <button class="tbtn" id="lang" type="button">한국어</button>
+    <button class="tbtn" id="reload" type="button" data-en="Refresh" data-ko="새로고침">Refresh</button>
+  </div>
+
+  <div id="boot" class="card"><div class="empty" data-en="Loading your classes…" data-ko="수업을 불러오는 중…">Loading your classes…</div></div>
+
+  <!-- ⚠️ 피드백 미작성 경고 — 강사 급여가 실제로 깎이는 지점이라 수업 목록보다 위에 둔다.
+       첫 화면을 막지 않도록 월간 집계(lazy)가 도착한 뒤에만 나타난다. -->
+  <div class="card alert" id="c-alert" hidden>
+    <h2 data-en="⚠ Feedback not written yet" data-ko="⚠ 피드백 미작성">⚠ Feedback not written yet</h2>
+    <div id="alert-sum"></div>
+    <div id="alert-list"></div>
+    <div id="drafts"></div>
+  </div>
+
+  <div class="card" id="c-classes" hidden>
+    <h2><span data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small></h2>
+    <div id="classes"></div>
+  </div>
+
+  <div class="card" id="c-dash" hidden>
+    <h2 data-en="My Dashboard (this month)" data-ko="나의 현황 (이번 달)">My Dashboard (this month)</h2>
+    <div class="kpis">
+      <div class="kpi"><b id="k-done">–</b><span data-en="Classes done" data-ko="완료 수업">Classes done</span></div>
+      <div class="kpi warn"><b id="k-pen">–</b><span data-en="Penalties" data-ko="페널티">Penalties</span></div>
+      <div class="kpi"><b id="k-rate">–</b><span data-en="Avg rating" data-ko="평균 평점">Avg rating</span></div>
+    </div>
+  </div>
+
+  <div class="card" id="c-notice" hidden>
+    <h2 data-en="Notices from HQ" data-ko="본사 공지사항">Notices from HQ</h2>
+    <div id="notices"></div>
+  </div>
+
+  <div class="card" id="c-res" hidden>
+    <h2 data-en="Materials &amp; Quick Links" data-ko="교재 · 퀵링크">Materials &amp; Quick Links</h2>
+    <div id="resources"></div>
+    <a class="btn btn-gray btn-wide" href="/admin/mypage"
+       data-en="My Records &amp; Settings (payroll, ratings, postpone, password)"
+       data-ko="내 기록 · 설정 (정산 · 내 평가 · 연기요청 · 비밀번호)">My Records &amp; Settings (payroll, ratings, postpone, password)</a>
+    <!-- ↑ 라벨에 '무엇이 그 안에 있는지'를 전부 적는다. '전체 마이페이지' 같은 이름은
+         강사에게 "이 화면은 일부인가?" 라는 의문만 남기고, 두 화면의 성격을 갈라 주지 못한다. -->
+  </div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── 언어 (강사 전원 외국인 → 기본 영어. 공용 키 mangoi_lang 을 그대로 쓴다) ──
+  var LANG = 'en';
+  try { if (localStorage.getItem('mangoi_lang') === 'ko') LANG = 'ko'; } catch(e){}
+  function EN(){ return LANG !== 'ko'; }
+  function T(en, ko){ return EN() ? en : ko; }
+  function applyLang(){
+    document.documentElement.lang = LANG;
+    var n = document.querySelectorAll('[data-en]');
+    for (var i=0;i<n.length;i++) n[i].textContent = EN() ? n[i].getAttribute('data-en') : n[i].getAttribute('data-ko');
+    document.getElementById('lang').textContent = EN() ? '한국어' : 'English';
+  }
+  document.getElementById('lang').onclick = function(){
+    LANG = EN() ? 'ko' : 'en';
+    try { localStorage.setItem('mangoi_lang', LANG); localStorage.setItem('mangoi_lang_by','user'); } catch(e){}
+    applyLang(); if (DATA) render(DATA);
+  };
+  document.getElementById('reload').onclick = function(){ load(); };
+
+  var DATA = null;
+  var SKEW = 0;   // 서버 시각 - 단말 시각. 단말 시계가 틀려도 입장창이 어긋나지 않게 보정.
+  var draftsLoaded = false;   // AI 초안 목록을 이미 불렀는가 (중복 요청 방지)
+
+  function esc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function now(){ return Date.now() + SKEW; }
+  function hhmm(ts){
+    // 수업 시각은 서버가 KST 벽시계로 계산해 보낸다. 강사 단말은 필리핀(UTC+8)이라
+    // 현지 시각으로 그리면 1시간이 어긋난다 → 한국 시각으로 고정 표기한다.
+    var d = new Date(ts + 9*3600*1000);
+    return ('0'+d.getUTCHours()).slice(-2) + ':' + ('0'+d.getUTCMinutes()).slice(-2);
+  }
+
+  // ── 첫 화면: API 1회 ──────────────────────────────────────────────────────
+  function load(){
+    fetch('/api/teacher/portal', { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+      .then(function(r){
+        if (r.status === 401) { location.href = '/admin/login?next=%2Fteacher'; throw new Error('auth'); }
+        return r.json();
+      })
+      .then(function(d){
+        if (!d || !d.ok) throw new Error((d && (EN() ? d.message_en : d.message)) || 'load failed');
+        DATA = d;
+        SKEW = (d.now || Date.now()) - Date.now();
+        render(d);
+        loadMonthStats();      // 무거운 집계는 첫 페인트 뒤에 (첫 화면을 막지 않는다)
+      })
+      .catch(function(e){
+        if (e && e.message === 'auth') return;
+        document.getElementById('boot').innerHTML =
+          '<div class="err">' + esc(T('Could not load. Check your connection and tap Refresh.',
+                                      '불러오지 못했습니다. 연결을 확인하고 새로고침을 눌러 주세요.')) +
+          '<br><small>' + esc(e && e.message || '') + '</small></div>';
+      });
+  }
+
+  function render(d){
+    document.getElementById('boot').hidden = true;
+    var nm = d.me && (d.me.name || d.me.username) || 'Teacher';
+    document.getElementById('hi').firstChild.nodeValue = T('Hello, ', '안녕하세요, ') + nm;
+    document.getElementById('today').textContent = d.today + ' (KST)';
+
+    renderClasses(d.classes || []);
+    renderNotices(d.notices || []);
+    renderResources(d.resources || []);
+
+    var rt = d.rating || {};
+    document.getElementById('k-rate').textContent = rt.avg != null ? (rt.avg + ' / 5') : '–';
+    document.getElementById('c-dash').hidden = false;
+    applyLang();
+    // applyLang 이 data-en 을 되쓰므로, 동적으로 채운 값은 그 뒤에 다시 넣는다.
+    document.getElementById('cls-count').textContent =
+      (d.classes || []).length ? '(' + d.classes.length + ')' : '';
+  }
+
+  function renderClasses(list){
+    var box = document.getElementById('classes');
+    document.getElementById('c-classes').hidden = false;
+    if (!list.length){
+      box.innerHTML = '<div class="empty">' +
+        esc(T('No classes scheduled today. Enjoy your day!', '오늘 예정된 수업이 없습니다.')) + '</div>';
+      return;
+    }
+    var t = now(), h = '';
+    for (var i=0;i<list.length;i++){
+      var c = list[i];
+      // 서버가 준 시간창을 단말 시계(보정됨)로 다시 판정 — 페이지를 열어 둔 채 시간이
+      // 흘러도 버튼이 저절로 열리고 닫힌다(아래 tick 이 60초마다 다시 그린다).
+      var open = (t >= c.open_at_ts && t <= c.close_at_ts);
+      var done = (t > c.close_at_ts);
+      var live = (t >= c.start_ts && t <= c.close_at_ts);
+
+      var meta = [];
+      if (c.level)    meta.push(esc(c.level));
+      if (c.textbook) meta.push(esc(c.textbook));
+      meta.push(c.duration_min + T(' min', '분'));
+
+      h += '<div class="cls">'
+        +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+        +   '<div class="cls-main">'
+        +     '<div class="cls-name">' + esc(c.student_name || T('(name not set)','(이름 미등록)'))
+        +       (live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
+                      : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
+                             : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : ''))
+        +     '</div>'
+        +     '<div class="cls-meta">' + meta.join(' &middot; ') + '</div>'
+        +   '</div>'
+        +   '<div class="cls-act">';
+
+      if (done){
+        h += '<button class="btn btn-off" type="button" disabled>' + esc(T('Done','완료')) + '</button>'
+          +  '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
+          +    esc(T('Evaluate','평가하기')) + '</button>';
+      } else if (open){
+        h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
+          +    esc(T('Join Class','수업 입장')) + '</button>';
+      } else {
+        // 문이 열리기 전에는 비활성 — 남은 시간을 분 단위로 알려 준다.
+        var mins = Math.max(1, Math.round((c.open_at_ts - t) / 60000));
+        h += '<button class="btn btn-off" type="button" disabled>'
+          +    esc(T('Opens in ' + mins + ' min', mins + '분 뒤 입장')) + '</button>';
+      }
+      // 📅 연기·변경 요청 — 아직 안 끝난 수업에만. 별도 폼 페이지로 보내지 않고
+      //    '그 수업' 줄에서 바로 열리게 한다(어느 수업인지 고를 필요가 없다).
+      if (!done){
+        h += '<button class="btn btn-post btn-sm" type="button" data-post="' + i + '">'
+          +    esc(T('Postpone', '연기/변경')) + '</button>';
+      }
+      h += '</div></div>';
+    }
+    box.innerHTML = h;
+
+    var b = box.querySelectorAll('[data-join]');
+    for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
+    var e = box.querySelectorAll('[data-eval]');
+    for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
+    var pp = box.querySelectorAll('[data-post]');
+    for (var m=0;m<pp.length;m++) pp[m].onclick = function(){ openPostpone(list[+this.getAttribute('data-post')]); };
+  }
+
+  // ── 📅 연기 · 취소 · 변경 요청 ─────────────────────────────────────────
+  //   요금 판정(시작 30분 전 기준 무료/유료)은 **서버가 한다.** 여기서 다시 계산하지 않는다 —
+  //   계산을 양쪽에 두면 화면에는 '무료'인데 실제로는 유료로 접수되는 사고가 난다.
+  //   대신 서버와 같은 기준을 '안내 문구'로만 보여 준다.
+  function openPostpone(c){
+    var freeUntil = c.start_ts - 30 * 60000;
+    var isFree = now() < freeUntil;
+    var mask = document.createElement('div');
+    mask.className = 'mask';
+    mask.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true">'
+      + '<h3>' + esc(T('Postpone / Change request','연기 · 변경 요청')) + '</h3>'
+      + '<p class="sub">' + esc((c.student_name || '') + ' · ' + c.start_time) + '<br>'
+      +   esc(T('For classes on other dates, use My Records & Settings.',
+                '다른 날짜 수업은 「내 기록 · 설정」에서 요청하세요.')) + '</p>'
+      + '<div class="' + (isFree ? 'ok' : 'err') + '" style="margin-bottom:14px">'
+      +   esc(isFree ? T('More than 30 minutes before the class — no fee.',
+                         '수업 시작 30분 전보다 이르므로 요금이 붙지 않습니다.')
+                     : T('Less than 30 minutes before the class — this may be charged.',
+                         '수업 시작 30분 이내라 유료 처리될 수 있습니다.'))
+      + '</div>'
+      + '<div class="fld"><label>' + esc(T('What do you need?','어떻게 할까요?')) + '</label>'
+      +   '<select id="pp-type">'
+      +     '<option value="postpone">' + esc(T('Postpone (decide later)','연기 (나중에 다시 잡기)')) + '</option>'
+      +     '<option value="change">'   + esc(T('Change to another time','다른 시간으로 변경')) + '</option>'
+      +     '<option value="cancel">'   + esc(T('Cancel','취소')) + '</option>'
+      +   '</select></div>'
+      + '<div class="fld" id="pp-when" style="display:none">'
+      +   '<label>' + esc(T('New date & time','새 날짜 · 시간')) + '</label>'
+      +   '<input type="date" id="pp-date"><div style="height:8px"></div><input type="time" id="pp-time">'
+      + '</div>'
+      + '<div class="fld"><label>' + esc(T('Reason (sent to your manager)','사유 (매니저에게 전달됩니다)'))
+      +   '</label><textarea id="pp-reason"></textarea></div>'
+      + '<div id="pp-msg"></div>'
+      + '<div class="mrow">'
+      +   '<button class="btn btn-gray" type="button" id="pp-x">' + esc(T('Cancel','닫기')) + '</button>'
+      +   '<button class="btn btn-eval" type="button" id="pp-ok">' + esc(T('Send request','요청 보내기')) + '</button>'
+      + '</div></div>';
+    document.body.appendChild(mask);
+
+    function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    mask.querySelector('#pp-x').onclick = close;
+    mask.onclick = function(ev){ if (ev.target === mask) close(); };
+    mask.querySelector('#pp-type').onchange = function(){
+      mask.querySelector('#pp-when').style.display = (this.value === 'change') ? '' : 'none';
+    };
+
+    mask.querySelector('#pp-ok').onclick = function(){
+      var btn = this, type = mask.querySelector('#pp-type').value;
+      var nd = mask.querySelector('#pp-date').value, nt = mask.querySelector('#pp-time').value;
+      if (type === 'change' && (!nd || !nt)){
+        mask.querySelector('#pp-msg').innerHTML =
+          '<div class="err">' + esc(T('Please pick the new date and time.','새 날짜와 시간을 골라 주세요.')) + '</div>';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = T('Sending…','보내는 중…');
+      fetch('/api/admin/schedule-requests', {
+        method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          schedule_id: c.schedule_id,
+          request_type: type,
+          teacher_name: DATA.me.name,
+          requester_name: DATA.me.name,
+          student_name: c.student_name,
+          orig_date: DATA.today,
+          orig_time: c.start_time,
+          new_date: type === 'change' ? nd : null,
+          new_time: type === 'change' ? nt : null,
+          reason: mask.querySelector('#pp-reason').value.slice(0,500)
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+        close();
+        toast(T('Request sent. Your manager will review it.','요청을 보냈습니다. 매니저가 확인합니다.'));
+      })
+      .catch(function(){
+        btn.disabled = false;
+        btn.textContent = T('Send request','요청 보내기');
+        mask.querySelector('#pp-msg').innerHTML =
+          '<div class="err">' + esc(T('Could not send. Please try again.','보내지 못했습니다. 다시 시도해 주세요.')) + '</div>';
+      });
+    };
+  }
+
+  // 아주 단순한 안내 띠 — 애니메이션 없이 3초 뒤 사라진다.
+  function toast(msg){
+    var d = document.createElement('div');
+    d.className = 'ok';
+    d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:60;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+    d.textContent = msg;
+    document.body.appendChild(d);
+    setTimeout(function(){ if (d.parentNode) d.parentNode.removeChild(d); }, 3000);
+  }
+
+  function joinClass(c){
+    // 방 번호는 서버가 준 결정론적 room_id 를 그대로 쓴다(학생과 반드시 같은 방).
+    // vc_name 의 '교사 ' 접두사는 기존 규약 — /api/class/verify-room 이 이 형태를 전제로 판정한다.
+    var nm = '교사 ' + ((DATA && DATA.me && DATA.me.name) || 'Teacher');
+    location.href = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(c.room_id)
+                  + '&vc_name=' + encodeURIComponent(nm);
+  }
+
+  function renderNotices(list){
+    if (!list.length) return;
+    document.getElementById('c-notice').hidden = false;
+    var h = '';
+    for (var i=0;i<list.length;i++){
+      h += '<div class="row"><b>' + (list[i].pinned ? '[!] ' : '') + esc(list[i].title) + '</b>'
+        +  '<span>' + esc(list[i].excerpt) + '</span></div>';
+    }
+    document.getElementById('notices').innerHTML = h;
+  }
+
+  function renderResources(list){
+    document.getElementById('c-res').hidden = false;
+    var h = '';
+    for (var i=0;i<list.length;i++){
+      var f = list[i];
+      var kb = f.size_bytes ? Math.round(f.size_bytes/1024) : 0;
+      h += '<a class="row row-dl" href="' + esc(f.url) + '" target="_blank" rel="noopener"><b>'
+        +  esc(f.name) + '</b><span>'
+        +  esc([f.level, (f.kind||'').toUpperCase(), kb ? kb + ' KB' : ''].filter(Boolean).join(' · '))
+        +  '</span></a>';
+    }
+    if (!h) h = '<div class="empty">' + esc(T('No materials uploaded yet.','등록된 자료가 없습니다.')) + '</div>';
+    document.getElementById('resources').innerHTML = h;
+  }
+
+  // ── 월간 집계 (lazy) ─────────────────────────────────────────────────────
+  //   서버가 강사 로그인일 때 teacher_name 을 본인 것으로 강제하므로 파라미터를 보내지 않는다.
+  function loadMonthStats(){
+    var d = new Date();
+    fetch('/api/admin/payroll/lessons?year=' + d.getFullYear() + '&month=' + (d.getMonth()+1),
+          { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok || !j.summary) return;
+        var s = j.summary;
+        document.getElementById('k-done').textContent = s.finish_count || 0;
+        document.getElementById('k-pen').textContent =
+          (s.teacher_no_show_count || 0) + (s.no_feedback_count || 0);
+        // 같은 응답으로 피드백 경고까지 그린다 — 요청을 하나도 더 쓰지 않는다.
+        renderFeedbackAlert(j.lessons || []);
+      })
+      .catch(function(){ /* 집계 실패는 첫 화면을 망치지 않는다 — '–' 로 남겨 둔다 */ });
+  }
+
+  // ── ⚠️ 피드백 미작성 경고 ──────────────────────────────────────────────
+  //   공제 금액은 서버가 수업별로 이미 계산해 둔 deductions[] 중 code='no_feedback_day' 만 합산한다.
+  //   (지각·노쇼 공제까지 더하면 "피드백 때문에 깎였다"는 잘못된 인상을 준다)
+  function renderFeedbackAlert(lessons){
+    var miss = lessons.filter(function(l){ return l.status === 'finish' && l.feedback_ok === false; });
+    if (!miss.length) return;                       // 미작성이 없으면 카드 자체를 안 띄운다
+    var fee = 0;
+    miss.forEach(function(l){
+      (l.deductions || []).forEach(function(d){ if (d.code === 'no_feedback_day') fee += (d.amount || 0); });
+    });
+    miss.sort(function(a, b){ return String(b.date).localeCompare(String(a.date)); });
+
+    document.getElementById('c-alert').hidden = false;
+    document.getElementById('alert-sum').innerHTML =
+      '<div class="sum"><b>' + miss.length + '</b> ' +
+      esc(T('lesson(s) this month have no feedback yet', '건이 이번 달 피드백 미작성입니다')) +
+      (fee > 0 ? ' &middot; ' + esc(T('estimated deduction', '예상 공제')) + ' <b>₱' + fee.toLocaleString() + '</b>' : '') +
+      '</div>';
+
+    var h = '', show = Math.min(5, miss.length);
+    for (var i = 0; i < show; i++){
+      h += '<div class="mini">' + esc(miss[i].date) + ' ' + esc(miss[i].start_time || '') + ' &middot; ' +
+           esc(miss[i].student_name || '-') + '</div>';
+    }
+    if (miss.length > show) {
+      h += '<div class="mini">' + esc(T('…and ' + (miss.length - show) + ' more',
+                                        '…외 ' + (miss.length - show) + '건')) + '</div>';
+    }
+    document.getElementById('alert-list').innerHTML = h;
+    // 초안은 '경고가 있을 때' + '최초 1회'만 부른다.
+    //   ⚠️ 여기서 무조건 loadDrafts() 를 부르면, 승인 후 loadMonthStats() 가 다시 이 경로를 타면서
+    //      같은 요청이 **두 번** 나간다(실측 확인). 승인 흐름은 decideDraft 가 직접 갱신한다.
+    if (!draftsLoaded){ draftsLoaded = true; loadDrafts(); }
+  }
+
+  // ── 🤖 AI 피드백 초안 승인 ─────────────────────────────────────────────
+  //   서버가 강사 로그인이면 teacher_name 을 본인 것으로 강제하므로 파라미터를 보내지 않는다.
+  function loadDrafts(){
+    fetch('/api/admin/feedback-drafts?days=3', { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+      .then(function(r){ return r.json(); })
+      .then(function(j){ renderDrafts((j && j.rows) || []); })
+      .catch(function(){ /* 초안은 부가기능 — 실패해도 경고 자체는 남는다 */ });
+  }
+
+  function renderDrafts(rows){
+    var pend = rows.filter(function(r){ return r.status === 'draft'; });
+    var box = document.getElementById('drafts');
+    if (!pend.length){
+      box.innerHTML = '<div class="mini" style="padding-top:10px">' +
+        esc(T('No AI drafts waiting. Tap below to create them.', '대기 중인 AI 초안이 없습니다. 아래에서 만들 수 있어요.')) +
+        '</div><button class="btn btn-eval btn-wide btn-sm" type="button" id="gen-draft">' +
+        esc(T('Create AI drafts', 'AI 초안 만들기')) + '</button>';
+      document.getElementById('gen-draft').onclick = genDrafts;
+      return;
+    }
+    var h = '<div class="warnline">' +
+      esc(T('Approving sends this feedback to the parent by SMS. To edit the wording first, use My Records & Settings.',
+            '승인하면 이 내용이 학부모에게 문자로 발송됩니다. 문구를 고쳐서 보내려면 「내 기록 · 설정」에서 하세요.')) + '</div>';
+    for (var i = 0; i < pend.length; i++){
+      var d = pend[i];
+      h += '<div class="draft">'
+        +   '<div class="cls-name">' + esc(d.student_name || '-') + ' <span class="cls-meta">'
+        +     esc(d.lesson_date || '') + ' ' + esc(d.start_time || '') + '</span></div>'
+        +   '<div class="draft-txt">' + esc(EN() ? (d.draft_en || d.draft_ko || '') : (d.draft_ko || d.draft_en || '')) + '</div>'
+        +   '<div class="mrow">'
+        +     '<button class="btn btn-appr btn-sm" type="button" data-appr="' + d.id + '">'
+        +       esc(T('Approve & send', '승인 · 발송')) + '</button>'
+        +     '<button class="btn btn-skip btn-sm" type="button" data-skip="' + d.id + '">'
+        +       esc(T('Skip', '건너뛰기')) + '</button>'
+        +   '</div>'
+        + '</div>';
+    }
+    box.innerHTML = h;
+    bindAll(box, 'data-appr', function(id, btn){ decideDraft(id, 'approve', btn); });
+    bindAll(box, 'data-skip', function(id, btn){ decideDraft(id, 'skip', btn); });
+  }
+
+  function bindAll(root, attr, fn){
+    var n = root.querySelectorAll('[' + attr + ']');
+    for (var i = 0; i < n.length; i++){
+      n[i].onclick = function(){ fn(this.getAttribute(attr), this); };
+    }
+  }
+
+  function decideDraft(id, action, btn){
+    btn.disabled = true;
+    btn.textContent = T('Working…', '처리 중…');
+    fetch('/api/admin/feedback-drafts/approve', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ id: Number(id), action: action })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+      loadDrafts();
+      loadMonthStats();     // 승인하면 공제가 풀릴 수 있으므로 경고·KPI 를 다시 계산한다
+    })
+    .catch(function(){
+      btn.disabled = false;
+      btn.textContent = action === 'approve' ? T('Approve & send','승인 · 발송') : T('Skip','건너뛰기');
+    });
+  }
+
+  function genDrafts(){
+    var b = document.getElementById('gen-draft');
+    b.disabled = true;
+    b.textContent = T('Creating… (up to 30s)', '만드는 중… (최대 30초)');
+    fetch('/api/admin/feedback-drafts/generate', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:'{}'
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(){ loadDrafts(); })
+    .catch(function(){ b.disabled = false; b.textContent = T('Create AI drafts','AI 초안 만들기'); });
+  }
+
+  // ── 1분 빠른 평가 ────────────────────────────────────────────────────────
+  function openEval(c){
+    var mask = document.createElement('div');
+    mask.className = 'mask';
+    mask.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true">'
+      + '<h3>' + esc(T('Quick Evaluation','1분 평가')) + '</h3>'
+      + '<p class="sub">' + esc((c.student_name || '') + ' · ' + c.start_time) + '</p>'
+      + stars('participation', T('Participation','참여도'))
+      + stars('comprehension', T('Comprehension','이해도'))
+      + '<div class="fld"><label>' + esc(T('Strengths','강점')) + '</label><textarea id="ev-s"></textarea></div>'
+      + '<div class="fld"><label>' + esc(T('To improve','보완점')) + '</label><textarea id="ev-i"></textarea></div>'
+      + '<div class="fld"><label>' + esc(T('Next goal','다음 목표')) + '</label><textarea id="ev-n"></textarea></div>'
+      + '<div id="ev-msg"></div>'
+      + '<div class="mrow">'
+      +   '<button class="btn btn-gray" type="button" id="ev-x">' + esc(T('Cancel','취소')) + '</button>'
+      +   '<button class="btn btn-eval" type="button" id="ev-ok">' + esc(T('Submit','제출')) + '</button>'
+      + '</div></div>';
+    document.body.appendChild(mask);
+
+    function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    mask.querySelector('#ev-x').onclick = close;
+    mask.onclick = function(ev){ if (ev.target === mask) close(); };
+
+    mask.querySelector('#ev-ok').onclick = function(){
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = T('Submitting…','제출 중…');
+      fetch('/api/eval/create', {
+        method:'POST', credentials:'same-origin',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          student_uid: c.student_uid,
+          student_name: c.student_name,
+          teacher_uid: DATA.me.username,
+          teacher_name: DATA.me.name,
+          room_id: c.room_id,
+          lesson_date: DATA.today,
+          score_participation: pick(mask,'participation'),
+          score_comprehension: pick(mask,'comprehension'),
+          strengths:   mask.querySelector('#ev-s').value.slice(0,500),
+          improvements:mask.querySelector('#ev-i').value.slice(0,500),
+          next_goals:  mask.querySelector('#ev-n').value.slice(0,500)
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok) throw new Error(j && j.error || 'failed');
+        close();
+      })
+      .catch(function(){
+        btn.disabled = false;
+        btn.textContent = T('Submit','제출');
+        mask.querySelector('#ev-msg').innerHTML =
+          '<div class="err">' + esc(T('Could not submit. Please try again.','제출하지 못했습니다. 다시 시도해 주세요.')) + '</div>';
+      });
+    };
+  }
+  function stars(key, label){
+    var h = '<div class="fld"><label>' + esc(label) + '</label><div class="stars">';
+    for (var i=1;i<=5;i++){
+      h += '<input type="radio" name="'+key+'" id="'+key+i+'" value="'+i+'"' + (i===4?' checked':'') + '>'
+        +  '<label for="'+key+i+'">'+i+'</label>';
+    }
+    return h + '</div></div>';
+  }
+  function pick(root, key){
+    var el = root.querySelector('input[name="'+key+'"]:checked');
+    return el ? Number(el.value) : null;
+  }
+
+  // ── 1분마다 수업 카드만 다시 그린다(입장 버튼 자동 활성/비활성) ──
+  //   setInterval 하나뿐 — rAF·transition 없음. 백그라운드 탭에서 느려져도 무해하다.
+  setInterval(function(){ if (DATA) renderClasses(DATA.classes || []); }, 60000);
+
+  applyLang();
+  load();
+})();
+</script>
+<!-- BUILD:20260802223235 -->
+</body>
+</html>

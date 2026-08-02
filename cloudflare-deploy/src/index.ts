@@ -25,6 +25,7 @@ import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r2';
 import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
+import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
 import { capitownRouter } from './api-capitown';
@@ -252,6 +253,14 @@ const worker = {
           JSON.stringify({ ok: false, error: 'auth_required' }),
           { status: 401, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
         );
+      }
+
+      // 🇵🇭 역할 분기 라우터 (2026-08-02) — 강사는 초경량 /teacher, 그 외는 기존 관리자 화면.
+      //   여기서(=서버에서) 판정하는 이유: 프론트에서만 나누면 URL 을 직접 치는 것으로 뚫린다.
+      //   판정 근거는 getAdminActor() 의 권위 역할(scope_type='teacher' · hq_t_* · 이름) 하나뿐.
+      if (sess.ok) {
+        const _tp = await teacherPortalRedirect(request, url, path, env);
+        if (_tp) return _tp;
       }
 
       // 🏪 대리점/지사(비-본사) 제한 뷰 — 본사 전용 콘솔/ API 차단, 자기 대시보드로 유도
@@ -860,6 +869,12 @@ const worker = {
         path.startsWith('/api/admin/2fa/')) {
       const authRes = await handleAdminAuthApi(request, url, env);
       if (authRes) return authRes;
+    }
+
+    // 🇵🇭 강사 포털 집계 API — 첫 화면에 필요한 전부를 한 번에 (필리핀 회선 왕복 최소화)
+    if (path === '/api/teacher/portal') {
+      const tRes = await handleTeacherApi(request, url, env as any);
+      if (tRes) return tRes;
     }
 
     // v3 명세서 신규 API (출석/보상/카카오/대시보드)
@@ -1755,6 +1770,14 @@ const worker = {
     // 👤 /admin/mypage — 마이페이지 (Phase 11)
     if (path === '/admin/mypage' || path === '/admin/mypage/') {
       const r = new Request(new URL('/admin/mypage.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 🇵🇭 /teacher — 강사 전용 초경량 포털 (2026-08-02)
+    //   admin.html 의 공통 레이아웃(LNB·차트·i18n 스윕·서비스워커)을 일절 상속하지 않는
+    //   독립 HTML 한 장. 인증·역할 분기는 위 미들웨어에서 이미 끝났다.
+    if (path === '/teacher' || path === '/teacher/') {
+      const r = new Request(new URL('/teacher.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -4256,6 +4279,56 @@ async function handleRecordingDelete(path: string, env: Env): Promise<Response> 
  * 학생용 API(출석 POST, 녹화 업로드, 시선 점수 POST 등) 는 건드리지 않음.
  * 학생 보상(POST /api/reward) 도 클라이언트 자동 호출이라 제외.
  */
+// ────────────────────────────────────────────────────────────────────────────
+// 🇵🇭 역할 기반 라우팅 — 강사 ↔ 관리자 분기 (2026-08-02)
+//
+//   role === 'teacher'  → /teacher        (초경량 강사 포털)
+//   그 외(hq·staff 등)  → /admin.html     (기존 통합 관리자)
+//
+// 설계 원칙:
+//   1) 기존 /admin/* 화면은 **건드리지 않는다.** 강사가 /admin/mypage(급여·평가서 초안 등
+//      기존 기능 전부)로 직접 들어가는 길은 그대로 열어 둔다. 이 함수가 막는 것은
+//      "강사가 1.3MB 짜리 admin.html 첫 화면에 떨어지는 것" 하나뿐이다.
+//   2) 되돌릴 수 있게 — `?full=1` 이 붙으면 리다이렉트하지 않는다(강사 지원·디버깅용).
+//   3) 판정 실패(DB 오류 등)는 리다이렉트하지 않고 기존 동작을 유지한다(가용성 우선).
+// ────────────────────────────────────────────────────────────────────────────
+async function teacherPortalRedirect(
+  request: Request, url: URL, path: string, env: Env
+): Promise<Response | null> {
+  const isTeacherPage  = (path === '/teacher' || path === '/teacher/' || path === '/teacher.html');
+  const isAdminHome    = (path === '/admin' || path === '/admin/' || path === '/admin.html');
+  const isTeacherApi   = (path === '/api/teacher/portal');
+  if (!isTeacherPage && !isAdminHome && !isTeacherApi) return null;
+  if (url.searchParams.get('full') === '1') return null;   // 탈출구
+
+  let actor: { ok: boolean; isTeacher: boolean };
+  try {
+    actor = await getAdminActor(request, env as any);
+  } catch (e) {
+    console.warn('[teacher-route] actor resolve failed:', (e as any)?.message);
+    return null;                                            // 판정 실패 → 기존 동작 유지
+  }
+  if (!actor.ok) return null;                               // 미인증은 세션 미들웨어가 이미 처리
+
+  // 강사 → 관리자 첫 화면 대신 강사 포털로
+  if (actor.isTeacher && isAdminHome) {
+    return Response.redirect(new URL('/teacher', request.url).toString(), 302);
+  }
+  // 비-강사 → 강사 포털은 볼 것이 없다(본인 수업이 없으므로 빈 화면). 관리자 화면으로.
+  if (!actor.isTeacher && isTeacherPage) {
+    return Response.redirect(new URL('/admin.html?full=1', request.url).toString(), 302);
+  }
+  // API 는 리다이렉트가 아니라 403 — fetch() 가 로그인 HTML 을 JSON 으로 파싱하다 죽지 않게.
+  if (!actor.isTeacher && isTeacherApi) {
+    return new Response(JSON.stringify({
+      ok: false, error: 'not_a_teacher',
+      message: '강사 계정만 사용할 수 있습니다.',
+      message_en: 'Teacher accounts only.',
+    }), { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  }
+  return null;
+}
+
 function isAdminPath(path: string, method: string): boolean {
   // 🔒🔒 [보안 근본수정 2026-07-27] 관리자 **화면**도 DEFAULT-DENY 로 전환.
   //   과거엔 /admin/xxx.html 을 한 줄씩 이 목록에 등록하는 allowlist 였다. 그래서 새 화면을
@@ -4267,6 +4340,15 @@ function isAdminPath(path: string, method: string): boolean {
   //     따라서 이 규칙이 로그인 페이지의 리소스 로딩을 막지 않는다. 새로 자산을 넣지 말 것.
   if (path === '/admin' || path === '/admin/' || path === '/admin.html') return true;
   if (path.startsWith('/admin/')) return true;
+
+  // 🇵🇭 강사 전용 초경량 포털 (2026-08-02) — 화면·API 모두 로그인 필수.
+  //   같은 도메인·같은 세션쿠키(mango_admin_session)를 그대로 쓴다 → 재로그인 없음.
+  //   역할 분기(강사만 통과)는 미들웨어의 teacherPortalRedirect() 가 담당한다.
+  if (path === '/teacher' || path === '/teacher/' || path === '/teacher.html') return true;
+  //   ⚠️ `/api/teacher/` 전체를 잠그지 말 것. 이미 있는 `/api/teacher/praise`(수업 중 실시간 칭찬)
+  //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
+  //      새로 만든 포털 엔드포인트만 콕 집어 잠근다.
+  if (path === '/api/teacher/portal') return true;
 
   // 🔒🔒 [보안 근본수정 2026-07-09] /api/admin/* 는 기본 전부 인증 필요 (DEFAULT-DENY).
   //   과거엔 아래처럼 경로를 하나씩 allowlist 로 나열했는데, 새 admin API 를 추가하면서

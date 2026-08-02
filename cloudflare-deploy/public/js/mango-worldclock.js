@@ -84,15 +84,38 @@
       }
       return false;
     }
+    // 📱 [2026-08-02] 모바일 '홈' 화면에서는 시계를 숨긴다 (사장님 지시).
+    //   왜: 홈 좌하단은 이미 붐빈다. 수업 시각은 '수업 입장' 쪽에서 보면 되는 정보라,
+    //       홈에서까지 초 단위 시계를 띄울 이유가 없다.
+    //   ⚠️ 수업 입장(로비·통화 중)에서는 그대로 보인다 — 홈 뷰일 때만 숨긴다.
+    //   ⚠️ 이 파일은 admin.html·parent.html 도 함께 쓴다. 그 페이지엔 #view-home 이
+    //      없으므로 이 조건은 항상 false 가 되어 아무 영향이 없다.
+    //   ⚠️ PC 는 공간이 넉넉하므로 그대로 둔다(모바일 한정).
+    //   되돌리려면 아래 함수와 syncVisibility 의 호출 한 곳만 지우면 된다.
+    var MOBILE_Q = '(max-width:600px)';        // 위 CSS 의 모바일 분기와 같은 기준
+    function hiddenOnMobileHome() {
+      try {
+        if (!window.matchMedia || !window.matchMedia(MOBILE_Q).matches) return false;
+        return !!document.querySelector('#view-home.active');
+      } catch (e) { return false; }            // 판정 실패는 '숨기지 않음'으로 (기존 동작 유지)
+    }
+
     function syncVisibility() {
       // toggle(force): 이미 상태가 같으면 속성을 안 건드림 → 옵저버 무한루프 없음
-      box.classList.toggle('mgwc-off', userHidden || menuOpen());
+      box.classList.toggle('mgwc-off', userHidden || menuOpen() || hiddenOnMobileHome());
     }
     // 메뉴 열림/닫힘(class 변경)을 감지해 즉시 표시/숨김
     //  (rAF 디바운스 없이 동기 실행: 백그라운드/WebView에서 rAF가 멈춰도 확실히 동작)
     try {
       new MutationObserver(syncVisibility).observe(document.documentElement,
         { subtree: true, attributes: true, attributeFilter: ['class'] });
+    } catch (e) {}
+    // 모바일↔PC 경계 통과는 matchMedia 로 직접 감지한다 (2026-08-02).
+    //   resize 이벤트가 전달되지 않는 환경(개발도구 뷰포트 변경 등)에서도 확실히 발화한다.
+    try {
+      var mqMobile = window.matchMedia(MOBILE_Q);
+      if (mqMobile.addEventListener) mqMobile.addEventListener('change', syncVisibility);
+      else if (mqMobile.addListener) mqMobile.addListener(syncVisibility);   // 구형 브라우저
     } catch (e) {}
     syncVisibility();
 
@@ -150,6 +173,11 @@
       var vw = window.innerWidth, vh = window.innerHeight;
       if (!vw || !vh) return;                 // 뷰포트가 아직 0(레이아웃 전)이면 건드리지 않음
       var r = box.getBoundingClientRect();
+      // 🛡 [2026-08-02] 숨겨져 있을 때(display:none → rect 가 전부 0)는 보정하지 않는다.
+      //   안 막으면 0,0 을 기준으로 계산해 위치를 좌상단(4,4)으로 밀어버리고,
+      //   다시 표시될 때 시계가 엉뚱한 자리에 나타난다. 모바일 홈에서 상시 숨김이 되면서
+      //   clamp 가 숨김 상태로 실행될 일이 많아졌기 때문에 특히 중요해졌다.
+      if (!r.width || !r.height) return;
       var maxX = vw - r.width - 4;
       var maxY = vh - r.height - 4;
       var x = Math.min(Math.max(4, r.left), Math.max(4, maxX));
@@ -169,6 +197,10 @@
     // 초기 1프레임 뒤 화면 안 보정 (bottom/left 기본값 → px 좌표화)
     requestAnimationFrame(clamp);
     window.addEventListener('resize', clamp);
+    // 📱 화면 회전·창 크기 변경은 MutationObserver(class 감시)로는 안 잡힌다.
+    //    모바일↔PC 경계를 넘나들 때 표시 여부를 다시 판정한다.
+    window.addEventListener('resize', syncVisibility);
+    window.addEventListener('orientationchange', syncVisibility);
 
     // ── 드래그 (마우스+터치 공용) / 탭 구분 ──
     var dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0, pid = null;
