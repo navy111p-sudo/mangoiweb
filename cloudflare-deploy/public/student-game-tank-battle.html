@@ -304,9 +304,9 @@
       <section class="sCard" style="grid-area:help">
         <div class="sCardT">조작법</div>
         <ul class="ctlList">
-          <li><span class="ck">🕹 이동</span><span class="cv"><b>마우스</b>를 움직이면 탱크가 따라와요<em>휴대폰·태블릿은 손가락으로 끌어요</em></span></li>
-          <li><span class="ck">🎯 조준</span><span class="cv">포탑이 <b>적을 자동으로 겨눠요</b><em>따로 조준할 필요 없어요</em></span></li>
-          <li><span class="ck">💥 발사</span><span class="cv"><b>클릭</b> 또는 <b>스페이스</b><em>휴대폰은 화면을 탭하세요</em></span></li>
+          <li><span class="ck">🕹 이동</span><span class="cv"><b>W A S D</b> 또는 <b>화살표</b> (왼손)<em>휴대폰·태블릿은 손가락으로 끌어요</em></span></li>
+          <li><span class="ck">🎯 조준</span><span class="cv"><b>마우스</b>를 움직이면 <b>조준원</b>이 따라와요 (오른손)<em>적 위에 올리면 빨갛게 변해요 — 그때 쏘면 맞아요</em></span></li>
+          <li><span class="ck">💥 발사</span><span class="cv">마우스 <b>왼쪽 버튼</b> 또는 <b>스페이스</b><em>휴대폰은 화면을 탭하세요</em></span></li>
         </ul>
 
         <div class="sCardT" style="margin-top:14px">게임 목표</div>
@@ -780,12 +780,15 @@ function playerFire(ang){ if(!G||!G.running||G.speaking||G.dead)return;
 }
 // 🎯 자동조준: 탭 근처의 적을 골라 '이동 예측(리드)'으로 정확히 조준 → 정밀 조준 부담 제거
 function _shellSp(){ return 460*(0.9+SPMUL*0.15); }
+/* 🎯 조준 보정(에임 어시스트) — 조준원 근처의 적을 잡아 준다.
+   ⚠ **정답 단어인지는 절대 보지 않는다.** 손이 서툴러 못 맞히는 것만 도와주고,
+     '어느 전차를 쏠지'는 학생이 고른다. 정답 쪽으로 당겨 주면 아무 데나 쏴도 맞아서
+     단어를 고를 이유가 사라진다 — 게임이 학습에서 분리된다. */
 function _pickTargetNear(x,y){
   var best=null, bd=95*SCALE;
   for(var i=0;i<G.enemies.length;i++){ var e=G.enemies[i]; if(!e.alive)continue;
     var d=Math.hypot(x-e.x,y-e.y);
-    var pri = sameWord(e.word, neededWord()) ? d-40*SCALE : d;   // 정답 단어 적이면 우선
-    if(d < bd+e.r && (!best || pri<best.pri)) best={e:e, pri:pri}; }
+    if(d < bd+e.r && (!best || d<best.pri)) best={e:e, pri:d}; }
   return best ? best.e : null;
 }
 /* 🎯 (2026-07-27 사장님 지시) 포탑 자동 조준 대상 —
@@ -816,7 +819,11 @@ function _leadAngle(e){
   return Math.atan2(ty-G.py, tx-G.px);
 }
 function fireAt(px,py){ var e=_pickTargetNear(px,py);
-  if(e){ G.lock=e; G.lockUntil=performance.now()+2200; playerFire(_leadAngle(e)); }  // 🔒 타깃 락 → 이후 자동 추적·연사
+  /* ⚠ 수동 조준(마우스) 중에는 타깃 락을 걸지 않는다. 락은 포탑을 2.2초간 제 마음대로
+     돌리며 자동 연사하는데, 그러면 학생이 조준원을 옮겨도 포가 안 따라와 "조준이 안 먹는다"가 된다.
+     터치·2D 는 정밀 조준이 어려우니 예전처럼 락으로 도와준다. */
+  if(e && !_mouseAim){ G.lock=e; G.lockUntil=performance.now()+2200; playerFire(_leadAngle(e)); }  // 🔒 타깃 락 → 자동 추적·연사
+  else if(e) playerFire(_leadAngle(e));                          // 수동: 어시스트로 맞히되 락은 없음
   else playerFire(Math.atan2(py-G.py, px-G.px)); }               // 빈 곳=그 방향 발사
 function enemyFire(e){
   var m=muzzle(e.x,e.y,e.turAng,26*SCALE);
@@ -843,25 +850,32 @@ function ptr(ev){ var r=wrap.getBoundingClientRect(); var t=ev.touches&&ev.touch
 var _drag={on:false,sx:0,sy:0,t:0,moved:false};
 var _aim={x:0,y:0};                              // 커서 조준점(키보드·우클릭 발사용)
 var _fireKey=false;                              // ⌨️ 발사키를 누르고 있는 중인가(연사)
+/* 🖱️ (2026-08-03 사장님 확정) 마우스 = **조준**, 키보드 = 이동, 왼쪽 버튼 = 발사.
+   [경위] 07-27 에는 마우스를 이동에 쓰고 포탑이 적을 자동 조준했다. 그런데 "포가 목표물
+     방향으로 안 간다"는 제보가 왔고, 일반적인 PC 슈팅 게임 조작(왼손 WASD·오른손 조준)으로
+     맞추기로 했다. 조준원이 커서를 그대로 따라오므로 드래그(누른 채 끌기)는 필요 없다.
+   터치(폰·태블릿)와 2D 클래식은 **기존 그대로** — 커서가 없어서 끌어서 이동하는 게 맞다. */
+var _mouseAim=false;                             // 마우스를 한 번이라도 움직였나(=수동 조준 모드)
 function _onPtrMove(ev){ if(!G||!G.running||G.speaking)return;
   var p=ptr(ev); _aim.x=p.x; _aim.y=p.y;
-  // 🖱️ (2026-07-27 최종) 3D 쿼터뷰 마우스 = 이동. 버튼을 누르지 않아도 커서를 따라간다.
-  //   [경위] 한때 마우스를 '조준 전용'으로 뒀지만, 포탑이 적을 **자동 조준**하게 된 뒤로는
-   //         마우스를 조준에 쓸 이유가 없다 → 가장 쉬운 이동 수단으로 되돌린다.
-  //         (WASD·화살표 이동도 함께 쓸 수 있고, 키를 누르면 키보드가 우선한다)
-  if(VIEW==='quarter' && ev.pointerType==='mouse' && !_drag.on){
-    G.dragging=true; G.tx=p.x; G.ty=p.y; return; }
+  if(VIEW==='quarter' && ev.pointerType==='mouse'){
+    _mouseAim=true;                              // 조준만 갱신 — 탱크는 키보드로 움직인다
+    if(!_drag.on) return;
+  }
   if(!_drag.on) return;                          // 버튼을 누른 동안만 이동 목표 갱신(터치·2D 클래식)
+  if(VIEW==='quarter' && ev.pointerType==='mouse') return;   // 마우스는 끌어도 이동하지 않는다
   G.tx=p.x; G.ty=p.y;
   if(!_drag.moved && Math.hypot(p.x-_drag.sx,p.y-_drag.sy)>12) _drag.moved=true;
 }
 function _onPtrDown(ev){ if(!G||!G.running||G.speaking)return;
-  if(ev.button!==undefined && ev.button!==0) return;   // 왼쪽 버튼(터치)만 드래그 시작
+  if(ev.button!==undefined && ev.button!==0) return;   // 왼쪽 버튼(터치)만
   audio(); if(AC&&AC.state==='suspended')AC.resume(); ttsUnlock();
   try{ ev.target.setPointerCapture(ev.pointerId); }catch(_){}
   var p=ptr(ev); _drag.on=true; _drag.sx=p.x; _drag.sy=p.y; _drag.t=performance.now(); _drag.moved=false;
   _aim.x=p.x; _aim.y=p.y;
-  G.dragging=true; G.tx=p.x; G.ty=p.y;   // 클릭한 곳으로도 이동(마우스=이동 수단)
+  // 🖱️ 마우스 왼쪽 버튼 = 조준원 자리로 즉시 발사(누른 순간 — 반응이 늦게 느껴지지 않게)
+  if(VIEW==='quarter' && ev.pointerType==='mouse'){ _mouseAim=true; fireAt(p.x,p.y); return; }
+  G.dragging=true; G.tx=p.x; G.ty=p.y;   // 터치·2D = 누른 곳으로 이동
 }
 function _dragEnd(ev){
   var was=_drag.on; _drag.on=false; if(G) G.dragging=false;
@@ -896,7 +910,8 @@ window.addEventListener('keydown',function(e){
   e.preventDefault();
   if(e.repeat) return;              // 길게 누름은 아래 연사 루프가 담당(OS 반복 속도에 의존하지 않음)
   _fireKey=true;
-  if(VIEW==='quarter') fireAuto();   // 🎯 자동 조준 대상에게 발사(포탑이 겨눈 적)
+  // 🎯 마우스로 조준 중이면 조준원 자리로, 아니면(터치) 자동 조준 대상에게
+  if(VIEW==='quarter' && !_mouseAim) fireAuto();
   else fireAt(_aim.x, _aim.y);       // 누른 즉시 1발 — 반응이 늦게 느껴지지 않게
 });
 window.addEventListener('keyup',function(e){
@@ -955,15 +970,25 @@ function update(dt){
     /* 🎯 (2026-07-27 사장님 지시) 포탑 자동 조준 — 머리(포탑)와 포가 적 전차를 스스로 겨누고,
        차체(몸통)가 그 방향을 천천히 따라 돈다. 손으로 포신을 돌리는 어려움을 없애고
        "겨누고 쏘는" 재미만 남긴다. 정답 단어 전차를 우선 겨눈다. */
-    var _at=_autoTarget();
-    if(_at && !G.lock){
-      G.turAng=angLerp(G.turAng, _leadAngle(_at), Math.min(1,dt*9));   // 머리·포 = 적 조준
-    } else if(!G.lock){
-      // 적이 없을 때만 마우스 커서 쪽을 본다(겹치면 마지막 각도 유지 — 0벡터 방지)
-      var adx=_aim.x-G.px, ady=_aim.y-G.py;
-      if(Math.hypot(adx,ady) > 14*SCALE){
-        var aa=Math.atan2(ady,adx);
-        if(isFinite(aa)) G.turAng=angLerp(G.turAng, aa, Math.min(1,dt*20));
+    /* 🎯 (2026-08-03) 마우스를 쓰면 **수동 조준** — 포탑이 조준원을 따라간다.
+       조준원 근처에 적이 있으면 그 적을 '이동 예측'해서 겨눈다(에임 어시스트).
+       어시스트는 조준원에 가장 가까운 적만 본다 — 정답 단어인지는 안 본다.
+       터치·2D 는 커서가 없으므로 예전 자동 조준 그대로. */
+    if(_mouseAim && !G.lock){
+      var _as=_pickTargetNear(_aim.x,_aim.y);
+      var _ma = _as ? _leadAngle(_as) : Math.atan2(_aim.y-G.py, _aim.x-G.px);
+      if(isFinite(_ma)) G.turAng=angLerp(G.turAng, _ma, Math.min(1,dt*16));
+    } else if(!_mouseAim){
+      var _at=_autoTarget();
+      if(_at && !G.lock){
+        G.turAng=angLerp(G.turAng, _leadAngle(_at), Math.min(1,dt*9));   // 머리·포 = 적 조준
+      } else if(!G.lock){
+        // 적이 없을 때만 마우스 커서 쪽을 본다(겹치면 마지막 각도 유지 — 0벡터 방지)
+        var adx=_aim.x-G.px, ady=_aim.y-G.py;
+        if(Math.hypot(adx,ady) > 14*SCALE){
+          var aa=Math.atan2(ady,adx);
+          if(isFinite(aa)) G.turAng=angLerp(G.turAng, aa, Math.min(1,dt*20));
+        }
       }
     }
     // 🚜 몸통은 포탑을 따라 회전(적을 향해 정면으로) — 이동 중에도 포탑이 기준이라 조준이 흔들리지 않는다
@@ -977,7 +1002,7 @@ function update(dt){
 
   // ⌨️ 발사키를 누르고 있으면 재장전마다 자동 연사(커서 조준점 기준) — 타깃 락 중엔 락이 우선
   if(_fireKey && !G.lock && performance.now()-G.fireT >= 380){
-    if(VIEW==='quarter') fireAuto(); else fireAt(_aim.x, _aim.y);
+    if(VIEW==='quarter' && !_mouseAim) fireAuto(); else fireAt(_aim.x, _aim.y);
   }
 
   // 🔒 타깃 락 — 탭한 적을 포탑이 자동 추적하며 재장전마다 자동 연사(맞을 때까지)
@@ -1765,7 +1790,40 @@ function simToScreen(px,py,yy){ if(!T3) return {x:px,y:py}; var w=wrap.clientWid
   var wp=simToWorld(px,py,yy||0); if(!_s2sVec) _s2sVec=new THREE.Vector3();
   _s2sVec.set(wp.x,wp.y,wp.z).project(T3.camera);
   return { x:(_s2sVec.x*0.5+0.5)*w, y:(-_s2sVec.y*0.5+0.5)*h }; }
+/* 🎯 조준원 — 조준점 바닥에 놓이는 동그란 링.
+   적 위에 올라가면 **빨갛게 커진다**. "지금 쏘면 저게 맞는다"를 눈으로 알려주는 신호라
+   아이들에게 특히 중요하다. 마우스로 조준할 때만 보인다(터치는 자동 조준이라 필요 없음). */
+function syncReticle3D(){
+  if(!T3) return;
+  if(!T3.reticle){
+    var g=new THREE.Group();
+    /* ⚠ fog:false — 이 판은 40~78 구간에 안개가 깔려 있어서, 그냥 두면 멀리 있는 조준원이
+       안개색으로 바래 빨강·노랑 구분이 안 된다(조준원은 정보라 항상 또렷해야 한다). */
+    var ring=new THREE.Mesh(new THREE.RingGeometry(0.85,1.10,32),
+      new THREE.MeshBasicMaterial({color:0xffd84d, transparent:true, opacity:0.95, side:THREE.DoubleSide, depthWrite:false, depthTest:false, fog:false, toneMapped:false}));
+    ring.rotation.x=-Math.PI/2; g.add(ring);
+    var dot=new THREE.Mesh(new THREE.CircleGeometry(0.15,16),
+      new THREE.MeshBasicMaterial({color:0xffd84d, transparent:true, opacity:1, side:THREE.DoubleSide, depthWrite:false, depthTest:false, fog:false, toneMapped:false}));
+    dot.rotation.x=-Math.PI/2; g.add(dot);
+    g.position.y=0.08; g.renderOrder=20;
+    T3.reticle=g; T3.reticleRing=ring; T3.reticleDot=dot; T3.scene.add(g);
+  }
+  var show = _mouseAim && G && G.running && !G.dead;
+  T3.reticle.visible = !!show;
+  if(!show) return;
+  var wp=simToWorld(_aim.x,_aim.y,0);
+  T3.reticle.position.set(wp.x, 0.08, wp.z);
+  var locked = !!_pickTargetNear(_aim.x,_aim.y);
+  var col = locked ? 0xff4d4d : 0xffd84d;
+  T3.reticleRing.material.color.setHex(col); T3.reticleDot.material.color.setHex(col);
+  /* 원근 보정 — 월드 크기 그대로 두면 먼 쪽에서 점처럼 작아져 안 보인다.
+     카메라와의 거리에 비례해 키워서 화면상 크기를 일정하게 유지한다(가까움 19 ~ 먼쪽 53). */
+  var s = T3.camera.position.distanceTo(T3.reticle.position)/20;
+  if(locked) s *= 1.22 + 0.06*Math.sin(performance.now()/110);   // 적을 물면 살짝 커지고 맥동
+  T3.reticle.scale.set(s,s,s);
+}
 function syncTanks3D(){
+  syncReticle3D();
   if(!T3.player){ T3.player=buildTank3('sherman'); T3.tankRoot.add(T3.player);
     // 🔵 아군 식별 링(내 탱크 아래 은은한 파란 링)
     var ring=new THREE.Mesh(new THREE.RingGeometry(1.7,2.05,28),
