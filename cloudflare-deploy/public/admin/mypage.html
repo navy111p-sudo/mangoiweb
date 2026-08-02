@@ -2664,7 +2664,13 @@
     var isBizRole = (role === 'agency' || role === 'branch' || role === 'franchise');
     var goDash = el('goDashboardBtn');
     if (goDash){
-      goDash.setAttribute('href', isBizRole ? '/admin/exec' : '/admin.html');
+      // 🚪 (2026-08-02 실사고) 강사는 `?full=1` 을 붙여야 한다.
+      //   index.ts teacherPortalRedirect 가 '강사가 /admin.html 에 오면 → /teacher' 로 돌려보내기
+      //   때문에, 이걸 안 붙이면 「📊 관리자 대시보드」를 눌렀는데 강사 화면이 떴다(라이브에서 확인).
+      //   **라벨과 목적지가 다른 버튼**은 이번 작업(헷갈림 제거)의 취지와 정면으로 어긋난다.
+      //   리다이렉트의 목적은 '로그인 후 기본 도착지'를 바꾸는 것이지 접근을 막는 게 아니다 —
+      //   버튼을 직접 누른 것은 강사의 의도적 행동이므로 라벨대로 콘솔로 보낸다.
+      goDash.setAttribute('href', isBizRole ? '/admin/exec' : (role === 'teacher' ? '/admin.html?full=1' : '/admin.html'));
     }
 
     // 📋 [상세 관리자 페이지] — 대리점·지사·프랜차이즈는 약식(경영) 대시보드 외에
