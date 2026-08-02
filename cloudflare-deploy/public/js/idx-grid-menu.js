@@ -1393,17 +1393,9 @@
         return renderReportFor(_reportSession);
       }
     } catch (e) {}
-    // 쿠키 기반 세션 자동 확인 (서버에 /api/me 류가 있으면)
-    try {
-      const r = await fetch('/api/me', { credentials: 'include' });
-      if (r.ok) {
-        const d = await r.json();
-        if (d && (d.uid || d.user_id || d.username)) {
-          _reportSession = { uid: d.uid || d.user_id, name: d.name || d.username, profile: d };
-          return renderReportFor(_reportSession);
-        }
-      }
-    } catch {}
+    // ⓘ (2026-08-03) 여기 있던 '/api/me' 호출을 제거했다 — 서버에 그런 라우트가 없어
+    //   열 때마다 100% 404 왕복만 발생했다(응답도 쓰이지 못했다).
+    //   로그인 세션은 위의 localStorage(mangoi_logged_user / mango_user)가 정본이다.
     // 로그인 폼 표시
     showLoginGate();
   }
@@ -1491,20 +1483,28 @@
       if (err) { err.textContent = 'ID와 비밀번호를 모두 입력해 주세요.'; err.style.display='block'; }
       return;
     }
+    // ⚠️ (2026-08-03) 예전엔 존재하지 않는 '/api/login' 을 불러 항상 404 →
+    //   데모 계정(demo/demo) 말고는 아무도 이 폼으로 들어올 수 없었다.
+    //   실제 라우트는 '/api/student/login' 이고 응답은 { ok, token, user:{...} } 형태다.
     try {
-      const r = await fetch('/api/login', {
+      const r = await fetch('/api/student/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ user_id: uid, password: pw, username: uid })
+        body: JSON.stringify({ user_id: uid, password: pw })
       });
       const d = await r.json().catch(() => ({}));
-      if (r.ok && (d.ok !== false)) {
-        _reportSession = { uid: d.uid || d.user_id || uid, name: d.name || d.username || uid, profile: d };
+      if (r.ok && d.ok && d.user) {
+        _reportSession = {
+          uid: d.user.user_id,
+          name: d.user.user_name || d.user.user_id,
+          token: d.token || '',
+          profile: d.user,
+        };
         renderReportFor(_reportSession);
         return;
       }
-      throw new Error(d.error || ('HTTP ' + r.status));
+      throw new Error(d.message || d.error || ('HTTP ' + r.status));
     } catch (e) {
       // 데모용 fallback — uid가 'demo'면 샘플 리포트 표시
       if (uid === 'demo' && pw === 'demo') {
@@ -1571,8 +1571,9 @@
   }
 
   window.logoutReport = function() {
+    // ⓘ (2026-08-03) '/api/logout' 호출 제거 — 서버에 없는 라우트라 404 만 나고
+    //   실제 로그아웃 효과가 전혀 없었다. 이 게이트의 세션은 클라이언트 변수뿐이다.
     _reportSession = null;
-    fetch('/api/logout', { method: 'POST', credentials: 'include' }).catch(()=>{});
     showLoginGate();
   };
 
@@ -1588,7 +1589,10 @@
       if (r.ok) data = await r.json();
     } catch {}
     // fallback — 샘플 데이터
-    if (!data || data.ok === false) data = sampleStudentFull(sess, days);
+    // ⚠️ (2026-08-03) '/api/student/full' 은 아직 서버에 없다(라이브 404 확인).
+    //   따라서 이 화면은 사실상 항상 아래 샘플로 그려진다. 예전엔 그 사실이 화면에
+    //   드러나지 않아 **지어낸 평가 수치가 본인 기록처럼 보였다**. 샘플이면 그렇다고 밝힌다.
+    if (!data || data.ok === false) { data = sampleStudentFull(sess, days); data.__sample = true; }
     renderReportPanels(data, days);
   };
 
@@ -1634,7 +1638,13 @@
     // 메타
     const meta = document.getElementById('rp-meta');
     const evDate = ev.eval_at ? new Date(ev.eval_at*1000).toISOString().slice(0,10) : '-';
-    if (meta) meta.textContent = `${evDate} · ${ev.eval_type||'평가'} · ${ev.level||'-'} 레벨${ev.evaluator?' · 평가자: '+safe(ev.evaluator):''}`;
+    if (meta) {
+      meta.textContent = `${evDate} · ${ev.eval_type||'평가'} · ${ev.level||'-'} 레벨${ev.evaluator?' · 평가자: '+safe(ev.evaluator):''}`;
+      if (f.__sample) {
+        meta.textContent = '⚠️ 예시(샘플) 화면입니다 — 실제 학습 기록이 아직 연결되지 않았습니다 / Sample data — not your real record';
+        meta.style.color = '#fbbf24';
+      }
+    }
 
     // 결석 계산
     const activeSet = new Set(); sessions.forEach(s => { if (s.date) activeSet.add(s.date); });
@@ -2522,28 +2532,45 @@
     showFocusLoginGate();
   }
 
-  // 허용 계정 목록 (백엔드 미연동 시 fallback)
+  // 허용 계정 목록 — 화면 안내문에 공개된 데모 계정만 둔다.
+  // 🔐 (2026-08-03) 실제 직원 계정의 **평문 비밀번호**가 여기 하드코딩돼 있었다.
+  //   이 파일은 인증 없이 받을 수 있는 공개 자산(/js/idx-grid-menu.js)이라 그대로 노출된 상태였다.
+  //   → 제거하고 인증은 서버(/api/student/login)로 일원화.
+  //   ⚠️ 코드에서 지웠다고 노출이 취소되지 않는다. 노출됐던 비밀번호는 반드시 교체해야 한다.
   const FOCUS_ACCOUNTS = [
-    { uid: '정우영',     pw: 'fleldk6019@', name: '정우영' },
-    { uid: 'jungwooyoung', pw: 'fleldk6019@', name: '정우영' },
-    { uid: 'demo',       pw: 'demo',        name: '데모 학생' },
+    { uid: 'demo', pw: 'demo', name: '데모 학생' },
   ];
   const FOCUS_LS = {
     saveId:   'mangoi_fc_save_id',
     autoLogin:'mangoi_fc_auto_login',
     uid:      'mangoi_fc_uid',
-    pw:       'mangoi_fc_pw',
+    // 🔐 자동로그인 저장값을 **비밀번호 → 서명토큰**으로 교체(2026-08-03).
+    //   기존엔 사용자의 평문 비밀번호를 localStorage 에 그대로 넣고 다음 방문 때 다시 제출했다.
+    token:    'mangoi_fc_token',
+    name:     'mangoi_fc_name',
+    pwLegacy: 'mangoi_fc_pw',   // 옛 키 — 남아 있으면 지우기만 한다(아래 즉시 삭제)
   };
+  // 이미 사용자 기기에 저장돼 있던 평문 비밀번호를 즉시 제거
+  try { localStorage.removeItem(FOCUS_LS.pwLegacy); } catch {}
 
   function showFocusLoginGate() {
-    // 저장된 값 미리 읽기
-    let savedUid = '', savedPw = '', savedSaveId = false, savedAuto = false;
+    // 저장된 값 미리 읽기 — 비밀번호는 더 이상 저장하지 않는다(토큰으로 대체)
+    let savedUid = '', savedToken = '', savedName = '', savedSaveId = false, savedAuto = false;
     try {
       savedSaveId = localStorage.getItem(FOCUS_LS.saveId) === '1';
       savedAuto   = localStorage.getItem(FOCUS_LS.autoLogin) === '1';
       if (savedSaveId) savedUid = localStorage.getItem(FOCUS_LS.uid) || '';
-      if (savedAuto)   savedPw  = localStorage.getItem(FOCUS_LS.pw) || '';
+      if (savedAuto) {
+        savedToken = localStorage.getItem(FOCUS_LS.token) || '';
+        savedName  = localStorage.getItem(FOCUS_LS.name) || '';
+      }
     } catch {}
+
+    // 🔓 자동로그인: 저장된 서명토큰이 있으면 비밀번호를 다시 묻지 않고 바로 결과로 간다.
+    if (savedAuto && savedUid && savedToken) {
+      _focusSession = { uid: savedUid, name: savedName || savedUid, token: savedToken };
+      return renderFocusResults(_focusSession);
+    }
 
     showModal(`
       <h2>🎯 집중도 측정 — 발화와 시선을 통한 집중도</h2>
@@ -2555,7 +2582,7 @@
         </div>
         <div style="margin-bottom:12px">
           <label style="display:block;color:#cbd5e1;font-size:12px;font-weight:600;margin-bottom:4px">🔑 비밀번호</label>
-          <input id="fc-pw" type="password" placeholder="••••••••" autocomplete="current-password" value="${escapeFC(savedPw)}" onkeydown="if(event.key==='Enter') doFocusLogin()" style="width:100%;padding:11px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:14px;outline:none;box-sizing:border-box" />
+          <input id="fc-pw" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter') doFocusLogin()" style="width:100%;padding:11px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:14px;outline:none;box-sizing:border-box" />
         </div>
         <!-- 자동저장 / 자동로그인 -->
         <div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap">
@@ -2573,21 +2600,16 @@
       </div>
       <p style="color:#94a3b8;font-size:11px;line-height:1.6;margin-top:10px">
         ※ 학생관리(관리자)에 등록된 본인 계정으로만 조회 가능합니다.<br/>
-        ※ 자동저장: 다음 방문 시 ID 자동 입력 / 자동로그인: ID·PW 자동 입력 + 자동 입장<br/>
+        ※ 자동저장: 다음 방문 시 ID 자동 입력 / 자동로그인: 다음 방문 시 비밀번호 없이 바로 입장<br/>
         ※ 데모 계정: <code style="background:rgba(0,0,0,0.4);padding:1px 6px;border-radius:4px;color:#fde68a">demo / demo</code>
       </p>
     `);
     setTimeout(() => {
       const u = document.getElementById('fc-uid');
       const p = document.getElementById('fc-pw');
-      // 자동로그인 활성 + 저장된 값 모두 있으면 600ms 후 자동 진입
-      if (savedAuto && savedUid && savedPw) {
-        setTimeout(() => doFocusLogin(true), 600);
-      } else if (!savedUid && u) {
-        u.focus();
-      } else if (savedUid && !savedPw && p) {
-        p.focus();
-      }
+      // 토큰 자동로그인은 위에서 이미 처리됐다. 여기선 포커스만 잡는다.
+      if (!savedUid && u) u.focus();
+      else if (savedUid && p) p.focus();
     }, 100);
   }
   function escapeFC(s) { return String(s||'').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -2603,62 +2625,65 @@
       return;
     }
 
-    // 자동저장 / 자동로그인 처리
+    // 아이디 자동저장 (자동로그인은 로그인 성공 후 토큰이 나와야 저장할 수 있다)
     try {
-      if (ckSave) {
+      if (ckSave || ckAuto) {
         localStorage.setItem(FOCUS_LS.saveId, '1');
         localStorage.setItem(FOCUS_LS.uid, uid);
       } else {
         localStorage.removeItem(FOCUS_LS.saveId);
         localStorage.removeItem(FOCUS_LS.uid);
       }
-      if (ckAuto) {
-        localStorage.setItem(FOCUS_LS.autoLogin, '1');
-        localStorage.setItem(FOCUS_LS.pw, pw);
-        // 자동로그인 켜면 자동저장도 자동 활성
-        localStorage.setItem(FOCUS_LS.saveId, '1');
-        localStorage.setItem(FOCUS_LS.uid, uid);
-      } else {
-        localStorage.removeItem(FOCUS_LS.autoLogin);
-        localStorage.removeItem(FOCUS_LS.pw);
-      }
+      if (!ckAuto) clearFocusAuto();
     } catch{}
 
-    // 1) 허용 계정 직접 매칭 (백엔드 미연동 시)
-    const acc = FOCUS_ACCOUNTS.find(a => a.uid === uid && a.pw === pw);
-    if (acc) {
-      _focusSession = { uid: acc.uid, name: acc.name };
+    // 로그인 성공 시 세션 확정 + (선택) 자동로그인 토큰 저장
+    function focusLoginOk(session) {
+      _focusSession = session;
+      try {
+        if (ckAuto && session.token) {
+          localStorage.setItem(FOCUS_LS.autoLogin, '1');
+          localStorage.setItem(FOCUS_LS.token, session.token);
+          localStorage.setItem(FOCUS_LS.name, session.name || session.uid);
+        }
+      } catch {}
       renderFocusResults(_focusSession);
-      return;
     }
-    // 2) 백엔드 시도
+
+    // 1) 데모 계정 (안내문에 공개된 계정 — 토큰이 없으므로 자동로그인 대상 아님)
+    const acc = FOCUS_ACCOUNTS.find(a => a.uid === uid && a.pw === pw);
+    if (acc) { focusLoginOk({ uid: acc.uid, name: acc.name }); return; }
+
+    // 2) 서버 인증 — 학생 통합 로그인.
+    //    ⚠️ 예전엔 존재하지 않는 '/api/login' 을 불러 항상 404 → 데모 계정 외에는
+    //       아무도 로그인할 수 없었다(2026-08-03 수정). 응답 형태는 api-students.ts 참조:
+    //       { ok, token, user:{ user_id, user_name, ... } }
     try {
-      const r = await fetch('/api/login', {
+      const r = await fetch('/api/student/login', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: uid, password: pw, username: uid })
+        body: JSON.stringify({ user_id: uid, password: pw })
       });
       const d = await r.json().catch(() => ({}));
-      if (r.ok && d.ok !== false) {
-        _focusSession = { uid: d.uid || d.user_id || uid, name: d.name || d.username || uid };
-        renderFocusResults(_focusSession);
+      if (r.ok && d.ok && d.user) {
+        focusLoginOk({ uid: d.user.user_id, name: d.user.user_name || d.user.user_id, token: d.token || '' });
         return;
       }
-      throw new Error(d.error || ('HTTP ' + r.status));
+      throw new Error(d.message || d.error || ('HTTP ' + r.status));
     } catch (e) {
-      if (err) { err.textContent = '로그인 실패: 아이디·비밀번호를 확인해 주세요.'; err.style.display='block'; }
+      if (err && !silent) { err.textContent = '로그인 실패: ' + (e.message || '아이디·비밀번호를 확인해 주세요.'); err.style.display='block'; }
     }
   };
 
-  // 집중도 로그아웃 시 자동저장 해제
-  const _origLogoutFocus = window.logoutFocus;
-  window.logoutFocus = function() {
+  // 자동로그인 저장값 해제 — 로그아웃·자동로그인 해제 양쪽에서 쓴다
+  function clearFocusAuto() {
     try {
       localStorage.removeItem(FOCUS_LS.autoLogin);
-      localStorage.removeItem(FOCUS_LS.pw);
+      localStorage.removeItem(FOCUS_LS.token);
+      localStorage.removeItem(FOCUS_LS.name);
+      localStorage.removeItem(FOCUS_LS.pwLegacy);
     } catch {}
-    if (_origLogoutFocus) _origLogoutFocus();
-  };
+  }
 
   async function renderFocusResults(sess) {
     const safeName = String(sess.name || sess.uid || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2699,8 +2724,13 @@
     reloadFocus();
   }
 
+  // ⚠️ (2026-08-03) 예전엔 이 정의보다 **앞에** 자동로그인 해제용 래퍼가 있었다.
+  //   래퍼가 먼저 정의되고 이 정의가 나중에 덮어써서, 래퍼가 통째로 사라졌다
+  //   (`closeInfoModal` 은 베이스→래퍼 순서라 정상 동작 — 이쪽만 순서가 뒤집혀 있었다).
+  //   그 결과 로그아웃해도 저장된 자격증명이 기기에 그대로 남았다. 정리 로직을 여기로 합친다.
   window.logoutFocus = function() {
     _focusSession = null;
+    clearFocusAuto();
     showFocusLoginGate();
   };
 
@@ -2712,7 +2742,9 @@
       const r = await fetch(`/api/student/focus-history?uid=${encodeURIComponent(_focusSession.uid)}&days=${days}`, { credentials:'include' });
       if (r.ok) data = await r.json();
     } catch {}
-    if (!data || !data.sessions) data = generateFocusSampleData(_focusSession, days);
+    // ⚠️ (2026-08-03) '/api/student/focus-history' 도 아직 서버에 없다(라이브 404 확인).
+    //   위 평가표와 같은 이유로, 샘플로 그릴 때는 샘플이라고 밝힌다.
+    if (!data || !data.sessions) { data = generateFocusSampleData(_focusSession, days); data.__sample = true; }
     renderFocusPanels(data, days);
   };
 
@@ -2755,7 +2787,13 @@
       document.getElementById('fc-sessions').innerHTML = '';
       return;
     }
-    document.getElementById('fc-meta').textContent = `최근 ${days}일 · 측정 ${sessions.length}회 · 마지막 수업: ${sessions[sessions.length-1].date}`;
+    const fcMeta = document.getElementById('fc-meta');
+    if (data.__sample) {
+      fcMeta.textContent = '⚠️ 예시(샘플) 화면입니다 — 실제 측정 기록이 아직 연결되지 않았습니다 / Sample data — not your real record';
+      fcMeta.style.color = '#fbbf24';
+    } else {
+      fcMeta.textContent = `최근 ${days}일 · 측정 ${sessions.length}회 · 마지막 수업: ${sessions[sessions.length-1].date}`;
+    }
 
     // KPI 계산
     const totals = sessions.map(s => s.scores.total);
