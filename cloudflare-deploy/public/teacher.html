@@ -46,11 +46,22 @@ body{
 .top{display:flex;align-items:center;gap:10px;padding:12px 4px 14px;flex-wrap:wrap}
 .top h1{font-size:19px;margin:0;font-weight:700;flex:1;min-width:0}
 .top h1 span{display:block;font-size:13px;font-weight:400;color:#5d6b7a}
+.tnav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tbtn{
   border:1px solid #c9d2dc;background:#fff;color:#2c3a48;border-radius:8px;
   padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer;
+  /* a 태그도 같은 모양이 되도록 (아이콘팩·이미지 안 씀) */
+  display:inline-flex;align-items:center;text-decoration:none;line-height:1.2;
+  font-family:inherit;white-space:nowrap;
+  /* 폰에서 손가락으로 누르는 버튼이다 — 44px 미만은 자꾸 빗나간다 */
+  min-height:44px;
 }
 .tbtn:active{background:#eef1f5}
+/* 좁은 폰에서 버튼 4개가 두 줄로 흩어지지 않게 여백만 줄인다 */
+@media (max-width:420px){
+  .tnav{gap:5px}
+  .tbtn{padding:8px 9px;font-size:13px}
+}
 
 .card{background:#fff;border:1px solid #dde3ea;border-radius:10px;padding:14px;margin-bottom:12px}
 .card > h2{
@@ -162,8 +173,12 @@ body{
 
   <div class="top">
     <h1 id="hi">Loading…<span id="today"></span></h1>
-    <button class="tbtn" id="lang" type="button">한국어</button>
-    <button class="tbtn" id="reload" type="button" data-en="Refresh" data-ko="새로고침">Refresh</button>
+    <nav class="tnav">
+      <button class="tbtn" id="back" type="button" data-en="← Back" data-ko="← 뒤로">← Back</button>
+      <a class="tbtn" id="home" href="/" data-en="🏠 Home" data-ko="🏠 홈">🏠 Home</a>
+      <button class="tbtn" id="lang" type="button">한국어</button>
+      <button class="tbtn" id="reload" type="button" data-en="↻ Refresh" data-ko="↻ 새로고침">↻ Refresh</button>
+    </nav>
   </div>
 
   <div id="boot" class="card"><div class="empty" data-en="Loading your classes…" data-ko="수업을 불러오는 중…">Loading your classes…</div></div>
@@ -248,6 +263,19 @@ body{
   };
   // 새로고침을 직접 누른 것은 "지금 최신을 보여달라"는 뜻 — 캐시를 건너뛴다.
   document.getElementById('reload').onclick = function(){ load(true); };
+
+  // ← 뒤로 — 앱 공통 규약(js/back-nav.js)과 같은 동작: history.back(), 없으면 홈.
+  //   ⚠️ 다만 이 화면에는 함정이 하나 있다. 강사는 **로그인 직후 여기로 리다이렉트**되므로
+  //      바로 뒤로 가면 `/admin/login` 이 나온다 — 이미 로그인한 사람에게 로그인 폼을 보여주는
+  //      꼴이라 "로그아웃됐나?" 하고 놀란다. 그래서 직전 페이지가 로그인 화면이거나
+  //      우리 사이트 밖이면 뒤로 가지 않고 홈으로 보낸다.
+  document.getElementById('back').onclick = function(){
+    var ref = document.referrer || '';
+    var sameSite = ref.indexOf(location.origin + '/') === 0;
+    var fromLogin = /\/admin\/login/.test(ref);
+    if (sameSite && !fromLogin && history.length > 1) { history.back(); return; }
+    location.href = '/';
+  };
 
   var DATA = null;
   var SKEW = 0;   // 서버 시각 - 단말 시각. 단말 시계가 틀려도 입장창이 어긋나지 않게 보정.
@@ -891,6 +919,6 @@ body{
   load();
 })();
 </script>
-<!-- BUILD:20260803004518 -->
+<!-- BUILD:20260803010326 -->
 </body>
 </html>
