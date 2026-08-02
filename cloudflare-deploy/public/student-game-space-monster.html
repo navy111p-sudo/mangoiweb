@@ -593,11 +593,81 @@
       slotsEl.innerHTML = '';
       wave.words.forEach((w,i) => {
         const s = document.createElement('div');
-        s.className = 'slot' + (i < wave.next ? ' done' : (i === wave.next ? ' next' : ''));
-        s.textContent = i < wave.next ? w : '＿＿';
+        const done = i < wave.next;
+        s.className = 'slot' + (done ? ' done' : (i === wave.next ? ' next' : ''));
+        s.textContent = done ? w : '＿＿';
+        // 맞힌 글자는 눌러서 뜻·발음을 다시 볼 수 있다 (아직 못 맞힌 칸은 정답이 새니까 막는다)
+        if (done) { s.dataset.word = w; s.title = '눌러서 뜻 보기'; }
         slotsEl.appendChild(s);
       });
     }
+
+    /* ═══ 글자 눌러서 뜻·발음 보기 ═══
+     *  이미 등록돼 있는 /api/games/define 을 그대로 쓴다(한국어 뜻 + 중국어 병음).
+     *  같은 글자를 반복해서 누르는 게임이라 한 번 받은 건 기억해 둔다. */
+    const defCache = new Map();
+
+    // ⚠ 게임이 문장을 낭독 중일 때는 speechSynthesis.cancel() 을 부르면 안 된다.
+    //   낭독 시퀀스의 onend 가 다음 웨이브를 물고 있어서, 끊으면 게임이 멈춘다.
+    //   그럴 땐 취소 없이 뒤에 이어 붙인다.
+    function speakWord(text) {
+      try {
+        const zh = (lang === 'zh');
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = zh ? 'zh-CN' : 'en-US';
+        u.rate = zh ? 0.7 : 0.75;             // 한 글자·한 단어라 아주 또박또박
+        const busy = wave && (wave.listening || wave.drilling);
+        if (!busy) speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+      } catch (e) {}
+    }
+
+    async function showDef(slotEl) {
+      const raw = String(slotEl.dataset.word || '').trim();
+      if (!raw) return;
+      const zh = (lang === 'zh');
+      const q = zh ? raw : raw.toLowerCase();
+
+      defPop.querySelector('.w').textContent = raw;
+      defPop.querySelector('.py').textContent = '';
+      defPop.querySelector('.ko').textContent = '뜻 찾는 중…';
+      // 슬롯 바로 아래에 붙이되 화면 밖으로 나가지 않게 가둔다
+      const r = slotEl.getBoundingClientRect();
+      defPop.style.display = 'block';
+      const w = defPop.offsetWidth;
+      defPop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width/2 - w/2)) + 'px';
+      defPop.style.top = (r.bottom + 8) + 'px';
+      speakWord(raw);
+
+      let d = defCache.get(q);
+      if (!d) {
+        try {
+          const p = new URLSearchParams({ word: q, lang: zh ? 'zh' : 'en' });
+          if (wave) p.set('sent', wave.words.join(zh ? '' : ' '));
+          const res = await fetch('/api/games/define?' + p.toString());
+          d = await res.json();
+          if (d && d.ok) defCache.set(q, d);
+        } catch (e) {}
+      }
+      if (defPop.style.display !== 'block') return;      // 그새 닫혔으면 그만
+      defPop.querySelector('.py').textContent = (d && d.pinyin) || '';
+      defPop.querySelector('.ko').textContent = (d && d.ko) || '뜻을 못 찾았어요';
+    }
+
+    function hideDef() { defPop.style.display = 'none'; }
+
+    // 슬롯을 누르면 뜻 보기, 스피커를 누르면 다시 읽기
+    slotsEl.addEventListener('pointerdown', (e) => {
+      const s = e.target.closest('.slot.done');
+      if (!s) return;
+      e.stopPropagation();
+      showDef(s);
+    });
+    defPop.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      if (e.target.closest('.say')) speakWord(defPop.querySelector('.w').textContent);
+      else hideDef();
+    });
 
     // retry 를 주면 **그 문장을 다시** 낸다 (틀렸을 때 같은 문장을 반복 학습).
     //   ⚠ setTimeout(startWave, ...) / .then(startWave, startWave) 로도 불리므로
