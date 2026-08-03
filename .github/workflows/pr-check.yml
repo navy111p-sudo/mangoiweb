@@ -85,3 +85,14 @@ jobs:
       - name: 요약
         if: always()
         run: echo "이 워크플로는 검증만 합니다. 배포는 main push 시 deploy.yml 이 담당합니다."
+
+      # ⛏ 임시 진단 step — CI(Linux/Node20)에서만 실패하는 6건의 실제 출력을 본다.
+      #    원인 확인 후 이 step 은 제거한다.
+      - name: (임시) 실패 하니스 개별 출력
+        if: always()
+        continue-on-error: true
+        run: |
+          for h in admin_404_apis attendance_last_seen cafe24_sync judgment_level judgment_scoring org_settlement; do
+            echo "═══════════ $h ═══════════"
+            node test-harness/${h}_harness.mjs 2>&1 | tail -22 || true
+          done
