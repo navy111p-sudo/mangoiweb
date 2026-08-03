@@ -2940,7 +2940,7 @@
      카드를 합치면 역할별 접근권한(CARD_POLICY)이 무너지므로, 카드는 그대로 두고
      자주 가는 곳만 위로 끌어올린다. 내용은 adm-quickmenu.js 가 채운다. -->
 <div id="quick-menu-bar" style="display:none"></div>
-<script src="/js/adm-lazy.js?v=1" defer></script><!-- 🐢 카드 펼칠 때 그 카드 스크립트만 로딩 (2026-08-04) -->
+<script src="/js/adm-lazy.js?v=2" defer></script><!-- 🐢 카드 펼칠 때 그 카드 스크립트만 로딩 (2026-08-04) -->
 <script src="/js/adm-quickmenu.js?v=1" defer></script>
 
 <details class="table-card menu-card" id="card-ai-insights">
@@ -5142,8 +5142,8 @@
         </div>
       </details>
 
-      <script type="text/lazy-js" data-src="/js/adm-r2.js?v=1" data-card="card-teacher-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r2 -->
-      <script type="text/lazy-js" data-src="/js/adm-teacher-util.js?v=1" data-card="card-teacher-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 📊 강사 가동률 (2026-08-04 신규) -->
+      <script type="text/lazy-js" data-src="/js/adm-r2.js?v=1" data-card="card-teacher-mgmt" data-globals="modxSettleSeed,modxSettleLoad,modxSettlePay,modxSettlePayAll,modxRiskScan,modxRiskEnqueue,modxQueueLoad,modxQueueSend,modxHoliSync,modxValidate,modxTbvSeed,modxTbvLoad"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r2 -->
+      <script type="text/lazy-js" data-src="/js/adm-teacher-util.js?v=1" data-card="card-teacher-mgmt" data-globals="loadTeacherUtil"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 📊 강사 가동률 (2026-08-04 신규) -->
 
             <!-- 🗑 [2026-08-04] ph179 카톡 평가 설문 블록 제거 — 위 정산통계관리와 같은 이유.
            발송·시뮬레이션·결과새로고침 3버튼 모두 담당 JS 가 없어 눌러도 아무 일이 없었다.
@@ -5553,7 +5553,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script type="text/lazy-js" data-src="/js/adm-s2.js?v=1" data-card="card-room-invite"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s2 -->
+<script type="text/lazy-js" data-src="/js/adm-s2.js?v=1" data-card="card-room-invite" data-globals="rtInvite,rtLoadMembers,rtTestJoin,rtKick"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s2 -->
 
 <!-- 🎙 Phase ALR — AI 학습 리포트 (수업 녹음 자동 분석) -->
 <details class="table-card menu-card" id="card-ai-lesson-report">
@@ -7209,7 +7209,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-s3.js?v=1" data-card="card-alumni"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s3 -->
+<script type="text/lazy-js" data-src="/js/adm-s3.js?v=1" data-card="card-alumni" data-globals="aluRegister,aluLoadList,aluPost,aluLoadPosts"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s3 -->
 
 <!-- ════════════════════════════════════════════════════════════════════
      📔 Phase VD — AI 음성 일기 (관리자 모니터)
@@ -7432,7 +7432,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-s5.js?v=1" data-card="card-supervisor"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s5 -->
+<script type="text/lazy-js" data-src="/js/adm-s5.js?v=1" data-card="card-supervisor" data-globals="supAssign,supLoadActive,supSendNote,supLoadIncoming,supOpenGhost"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s5 -->
 
 <!-- 📷 Phase QR — QR 출결 자동 체크 -->
 <details class="table-card menu-card" id="card-auto-attendance">
@@ -7838,7 +7838,7 @@ window.__admSettleRun = function(fn){
     </details>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-q2.js?v=1" data-card="card-mini-toeic"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q2 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q2.js?v=1" data-card="card-mini-toeic" data-globals="mtwPickLevel,mtwPickTopic,mtwCustomTopic,mtwRun,mtLoad,mtToggleDetail,mtGenMore,mtDelQ,mtToggleActive,mtDelExam,mtAddQ"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎮 Phase BTL — 영어 게임 배틀 P2P 관리 -->
 <details class="table-card menu-card" id="card-battle-mgmt">
@@ -8148,7 +8148,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-r6.js?v=1" data-card="card-eval-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r6 -->
+<script type="text/lazy-js" data-src="/js/adm-r6.js?v=1" data-card="card-eval-mgmt" data-globals="evClearForm,evSubmit,evLoadList,evDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r6 -->
 
 <!-- 💌 Phase I1~I2 — 신규상담 관리 (평가서 카드 다음) -->
 <details class="table-card menu-card" id="card-inquiry-mgmt">
@@ -8315,8 +8315,8 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-r7.js?v=1" data-card="card-inquiry-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r7 -->
-<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=1" data-card="card-inquiry-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
+<script type="text/lazy-js" data-src="/js/adm-r7.js?v=1" data-card="card-inquiry-mgmt" data-globals="iqLoadStats,iqLoad,iqUpdateStatus,iqEditNotes,iqDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r7 -->
+<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=1" data-card="card-inquiry-mgmt" data-globals="addWaitlist,resolveWaitlist,loadWaitlist"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
 
 <!-- 💰 Phase F2 — 미납 알림 JS 모듈 -->
 <script src="/js/adm-r8.js?v=1" defer></script><!-- 분할추출:adm-r8 -->
@@ -8345,7 +8345,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-bugreports.js?v=2" data-card="card-bug-reports"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-bugreports -->
+<script type="text/lazy-js" data-src="/js/adm-bugreports.js?v=2" data-card="card-bug-reports" data-globals="brLoad,brUpdateStatus,brEditNote,brDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-bugreports -->
 
 <!-- 🔔 Phase WP1~WP2 — Web Push 푸시 알림 관리 -->
 <details class="table-card menu-card" id="card-webpush-mgmt">
@@ -8459,7 +8459,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script type="text/lazy-js" data-src="/js/adm-r9.js?v=1" data-card="card-webpush-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r9 -->
+<script type="text/lazy-js" data-src="/js/adm-r9.js?v=1" data-card="card-webpush-mgmt" data-globals="wpLoadStatus,wpGenerateVapid,wpLoadSubs,wpSendNow,wpSubscribeMe,wpSendTestToSelf,wpLoadHistory"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r9 -->
 
 <!-- 📲 Phase K2~K4 — 카카오 알림톡 관리 (포인트 카드 다음) -->
 <details class="table-card menu-card" id="card-kakao-mgmt">
@@ -8589,7 +8589,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-s6.js?v=1" data-card="card-kakao-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s6 -->
+<script type="text/lazy-js" data-src="/js/adm-s6.js?v=1" data-card="card-kakao-mgmt" data-globals="loadKakaoStatus,kiLoadInbound"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s6 -->
 
 <!-- 📢 공지 스튜디오 — 포스터 제작(①) + 팝업 게시(②)를 한 카드·2탭으로 통합. (2026-07-06 병합)
      · 컨테이너 = id card-poster-maker (기존 참조 유지, ①만들기 탭)
@@ -8799,7 +8799,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-q3.js?v=2" data-card="card-payroll-auto"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q3.js?v=2" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
@@ -8825,7 +8825,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="srq-table" style="overflow-x:auto"></div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-r11.js?v=2" data-card="card-schedule-requests"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r11 -->
+<script type="text/lazy-js" data-src="/js/adm-r11.js?v=2" data-card="card-schedule-requests" data-globals="srqLoad,srqDecide"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r11 -->
 
 <!-- 📜 수업 변경 이력 (연기·삭제·종료) — 누가·언제 했는지 감사 로그 -->
 <details class="table-card menu-card" id="card-class-audit">
@@ -11533,7 +11533,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-q4.js?v=1" data-card="card-review-quiz"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q4 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q4.js?v=1" data-card="card-review-quiz" data-globals="rqAddQ,rqRenum,rqAiGen,rqBuildAllBanks,rqSave,rqCancelEdit,rqEdit,rqToggle,rqDel,rqResults,rqPreview,rqFilter,rqClearSearch,rqLoad"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q4 (원복: 이 위치에 인라인) -->
 
 <!-- 📣 Phase 5: 알림 큐 (운영 이벤트 자동 적재 + 상태 모니터링) -->
 <details class="table-card menu-card" id="card-notifications">

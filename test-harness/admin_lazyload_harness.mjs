@@ -42,7 +42,7 @@ check('넘길 때 다음 장 미리받기는 그대로 살아 있다 (넘김이 
   /tmp\s*=\s*new Image\(\)/.test(welc));
 
 console.log('\n[ ③ 카드 스크립트 지연 로딩 ]');
-const lazyTags = [...html.matchAll(/<script type="text\/lazy-js" data-src="([^"]+)" data-card="([^"]+)"><\/script>/g)];
+const lazyTags = [...html.matchAll(/<script type="text\/lazy-js" data-src="([^"]+)" data-card="([^"]+)"(?:\s+data-globals="([^"]*)")?><\/script>/g)];
 check(`지연 태그가 남아 있다 (${lazyTags.length}개)`, lazyTags.length >= 10);
 check('모든 지연 태그에 소속 카드가 지정돼 있다', lazyTags.every(m => /^card-/.test(m[2])));
 check('모든 지연 태그가 ?v= 캐시 버전을 유지한다 (immutable 캐시 안전)',
@@ -63,9 +63,23 @@ check('② 카드의 ontoggle 을 로드 후 다시 흘려준다',
 check('details 의 toggle 은 캡처 단계로 받는다 (버블링하지 않음)',
   /addEventListener\('toggle'[\s\S]{0,900}?\}\s*,\s*true\)/.test(lazy));
 check('처음부터 펼쳐진 카드도 챙긴다', /menu-card\[open\]/.test(lazy));
-check('안전망이 남은 것을 결국 다 받는다', /function loadRest\(/.test(lazy));
-check('안전망이 너무 일찍 돌지 않는다 (유휴 즉시 실행 방지)',
-  /IDLE_AFTER\s*=\s*\d{4}/.test(lazy) && /setTimeout\(function \(\)[\s\S]{0,180}requestIdleCallback/.test(lazy));
+
+console.log('\n[ 🛟 대역 함수 — «안 받고도 안 깨지게» (전체 프리페치 대체) ]');
+check('모든 지연 태그가 노출 함수 목록(data-globals)을 들고 있다',
+  lazyTags.every(m => m[3] && m[3].split(',').filter(Boolean).length > 0));
+check(`대역 대상 함수가 충분히 잡혀 있다 (${lazyTags.reduce((a, m) => a + (m[3] || '').split(',').filter(Boolean).length, 0)}개)`,
+  lazyTags.reduce((a, m) => a + (m[3] || '').split(',').filter(Boolean).length, 0) >= 50);
+check('부팅 때 대역 함수를 먼저 깐다', /installStubs\(\);/.test(lazy) && /function installStubs\(/.test(lazy));
+check('이미 존재하는 전역은 덮어쓰지 않는다',
+  /typeof window\[name\] !== 'undefined'\) return;/.test(lazy));
+check('대역이 불리면 그때 받아서 «같은 인자로» 다시 부른다',
+  /real\.apply\(self, args\)/.test(lazy));
+check('진짜 함수가 덮었는지 구분한다 (무한 재귀 방지)', /real !== stubOf\[name\]/.test(lazy));
+check('⛔ 전체 프리페치를 «자동으로» 돌리지 않는다 — 이게 바이트 절감의 핵심',
+  !/setTimeout\(\s*loadRest/.test(lazy)
+  && !/requestIdleCallback\(\s*loadRest/.test(lazy)
+  && !/addEventListener\([^)]*loadRest/.test(lazy));
+check('긴급 복구용 수동 호출구는 남겨 둔다', /loadRest: loadRest/.test(lazy));
 check('같은 파일을 두 번 넣지 않는다', /loadedSrc\[src\]/.test(lazy));
 check('순서를 보존한다 (async=false)', /s\.async = false/.test(lazy));
 

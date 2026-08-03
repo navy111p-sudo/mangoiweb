@@ -110,7 +110,40 @@
     });
   }
 
-  // 안전망 — 유휴 시간에 남은 것을 조용히 마저 받는다 (예상 못 한 참조 대비)
+  // ── 🛟 대역 함수(stub) — «안 받고도 안 깨지게» 하는 장치 ─────────────────
+  //   예전엔 «유휴 시간에 남은 걸 전부 받아두는» 안전망을 썼다. 안전하긴 한데 결국 다 받으니
+  //   바이트가 줄지 않았다. 그래서 미리 받는 대신, 각 스크립트가 노출하는 함수 이름만
+  //   (data-globals) 껍데기로 먼저 깔아 둔다.
+  //   그 이름이 어디서든 호출되면 — 인라인 onclick 이든, 사이드바 점프든, 다른 스크립트든 —
+  //   그때 진짜 파일을 받아서 «같은 인자로» 다시 부른다. 사용자는 한 박자 늦는 것 말고는 차이가 없다.
+  //   진짜 파일이 window.X 를 덮어쓰므로 껍데기는 자동으로 사라진다.
+  //   ⚠️ 껍데기는 값을 곧바로 돌려주지 못한다(비동기). 그래서 «함수로 대입되는 전역»만 대상으로 하고,
+  //      값(문자열·객체) 전역은 애초에 목록에서 제외했다.
+  var stubOf = {};   // 이름 → 껍데기 함수 (진짜가 덮었는지 판별용)
+
+  function installStubs() {
+    Array.prototype.forEach.call(document.querySelectorAll(SEL), function (tag) {
+      var names = (tag.getAttribute('data-globals') || '').split(',');
+      var cardId = tag.getAttribute('data-card');
+      names.forEach(function (name) {
+        name = name.trim();
+        if (!name || typeof window[name] !== 'undefined') return;   // 이미 있으면 건드리지 않는다
+        var stub = function () {
+          var args = arguments, self = this;
+          try { console.info('[adm-lazy] ' + name + '() 호출 → ' + tag.getAttribute('data-src') + ' 지금 불러옵니다'); } catch (e) { }
+          return loadCard(cardId, document.getElementById(cardId)).then(function () {
+            var real = window[name];
+            if (typeof real === 'function' && real !== stubOf[name]) return real.apply(self, args);
+            try { console.warn('[adm-lazy] ' + name + ' 을 불러왔는데도 찾지 못했습니다'); } catch (e) { }
+          });
+        };
+        stubOf[name] = stub;
+        window[name] = stub;
+      });
+    });
+  }
+
+  // (구) 전체 프리페치 — 더는 쓰지 않는다. 디버깅·긴급 복구용으로만 남긴다.
   function loadRest() {
     if (idleDone) return;
     idleDone = true;
@@ -118,23 +151,13 @@
     rest.forEach(function (t) { chain = chain.then(function () { return inject(t); }); });
   }
 
-  var IDLE_AFTER = 6000;   // 안전망이 도는 최소 시각 — 이 전에는 절대 안 받는다
-
   function boot() {
-    loadAlreadyOpen();
-    // ⚠️ requestIdleCallback 을 그냥 걸면 «할 일이 없는 순간» 바로 돌아 버려서
-    //    (특히 조용한 화면·헤드리스에서) 지연이 사실상 무효가 된다. 최소 대기 후에 건다.
-    setTimeout(function () {
-      if (window.requestIdleCallback) requestIdleCallback(loadRest, { timeout: 8000 });
-      else loadRest();
-    }, IDLE_AFTER);
-    // 사용자가 뭔가 누르기 시작하면 조금 앞당겨 받아둔다 (단, 최소 대기는 지킨다)
-    ['pointerdown', 'keydown'].forEach(function (ev) {
-      document.addEventListener(ev, function once() {
-        document.removeEventListener(ev, once, true);
-        setTimeout(loadRest, 2500);
-      }, true);
-    });
+    installStubs();      // 먼저 껍데기를 깔아야 «로드 전 호출» 을 받아낼 수 있다
+    loadAlreadyOpen();   // 처음부터 펼쳐진 카드는 바로 채운다
+    // ⛔ 전체 프리페치는 하지 않는다.
+    //    예전 안전망(유휴 시간에 나머지 전부 받기)은 결국 다 받아 바이트가 줄지 않았다.
+    //    이제는 «카드를 펼칠 때» 또는 «그 함수가 실제로 불릴 때» 만 받는다.
+    //    긴급 시에는 콘솔에서 __admLazy.loadRest() 로 한 번에 받을 수 있다.
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
