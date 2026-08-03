@@ -305,5 +305,7 @@
   "/js/adm-teacher-util.js?v=1": "80380c81b8417f7b",
   "/js/adm-waitlist.js?v=1": "839c1b189c4b73f6",
   "/js/mangoi-speak-cycle.js?v=4": "464d5953388bceba",
-  "/js/adm-quickmenu.js?v=1": "ee38e334f8e3a043"
+  "/js/adm-quickmenu.js?v=1": "ee38e334f8e3a043",
+  "/js/adm-lazy.js?v=1": "3d402bd62826c3fc",
+  "/js/adm-welcome.js?v=3": "33f261ff453767c8"
 }

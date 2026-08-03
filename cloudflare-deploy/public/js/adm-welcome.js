@@ -143,8 +143,11 @@
       dots.appendChild(d);
     });
 
-    // 이미지 미리 로딩
-    SLIDES.forEach(function (s) { var im = new Image(); im.src = slideSrc(s); });
+    // 이미지 미리 로딩 — 처음 2장만.
+    //   (2026-08-04) 예전엔 여기서 18장을 «전부» 미리 받았다. 안내 이미지 폴더가 7.5MB 라
+    //   첫 접속 세션마다 보지도 않을 장까지 통째로 내려받고 있었다. 필리핀 회선에서 특히 부담.
+    //   다음 장 미리받기는 아래 go() 안에 이미 있으니(넘길 때 tmp = new Image()) 넘김은 그대로 매끄럽다.
+    SLIDES.slice(0, 2).forEach(function (s) { var im = new Image(); im.src = slideSrc(s); });
 
     root.querySelector('#aw-prev').addEventListener('click', function () { go(-1); });
     root.querySelector('#aw-next').addEventListener('click', function () { go(1); });
