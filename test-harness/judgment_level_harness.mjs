@@ -245,12 +245,54 @@ console.log('\n[ J. 학생이 직접 고르는 길이 열려 있는가 ]');
     '화면에 범주 이름을 직접 적어 두면 서버와 어긋납니다');
   check('고른 범주가 자동조절·±1 보다 우선한다',
     /const nudge = picked \? 0 :/.test(readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8')));
-  check('고른 뒤에는 미리 받아둔 문제를 버린다', /if\(focusMisc \|\| nudge \|\| setBand\)/.test(HTML));
+  // 미리 받아둔 문제는 '바꾸기 전' 난이도·모드로 만들어진 것이라 반드시 버려야 합니다
+  check('고르거나 모드를 바꾸면 미리 받아둔 문제를 버린다', /if\(focusMisc \|\| nudge \|\| setBand \|\| mode\)/.test(HTML));
   check('같은 범주를 다시 고르면 서버를 부르지 않는다', /if\(b===CUR_BAND\)/.test(HTML));
   // 사장님 지시(2026-08-03): Lv 숫자 옆에 범주 이름이 보여야 한다
   check('목록에서 이름 옆에 교재 Lv 을 괄호로 붙인다', /lvp-lv">\('\+esc\(b\.lv\)\+'\)/.test(HTML));
   check('문제 화면에도 현재 범주를 이름+Lv 으로 보여준다',
-    /reading_band_name[\s\S]{0,400}reading_band_label/.test(HTML) && /lvChip/.test(HTML));
+    /var lvChip = lvName[\s\S]{0,400}reading_band_label/.test(HTML));
+  check('칩이 어느 모드인지 아이콘으로 알려준다', /CUR_MODE==='manual' \? '🖐️ ' : '🤖 '/.test(HTML));
+}
+
+console.log('\n[ K. 두 가지 모드 — AI가 맞춤 / 내가 고름 ]');
+{
+  const { normalizeBandMode, shouldAutoAdjust, DEFAULT_BAND_MODE } = L;
+  check('기본은 AI 자동', DEFAULT_BAND_MODE === 'auto', DEFAULT_BAND_MODE);
+  check('manual 은 그대로 읽는다', normalizeBandMode('manual') === 'manual');
+  check('대소문자·공백을 견딘다', normalizeBandMode(' MANUAL ') === 'manual');
+  check('모르는 값·빈 값은 전부 auto (옛 저장값 호환)',
+    ['', null, undefined, 'xx', 0, {}].every((v) => normalizeBandMode(v) === 'auto'));
+  check('auto 에서만 자동 조절이 돈다', shouldAutoAdjust('auto') === true && shouldAutoAdjust('manual') === false);
+  check('값이 없으면 자동 조절이 돈다(기존 학생 동작 유지)', shouldAutoAdjust(null) === true);
+
+  const SRVJ = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
+  // ★ 이게 빠지면 "직접 골랐는데 AI 가 다시 옮겨" 고르는 기능이 무의미해집니다
+  check('채점 뒤 자동 조절을 모드로 막는다', /if \(!shouldAutoAdjust\(st\.mode\)\)/.test(SRVJ));
+  check('직접 모드에서도 정오 이력은 계속 쌓는다(자동으로 되돌릴 때 이어서 판단)',
+    /if \(!shouldAutoAdjust\(st\.mode\)\)[\s\S]{0,200}hist,/.test(SRVJ));
+  check('범주를 고르면 자동으로 직접 모드가 된다', /mode: wantMode \|\| 'manual'/.test(SRVJ));
+  check('응답이 현재 모드를 알려준다', /band_mode: bandState\.mode/.test(SRVJ));
+  check('라우트가 band_mode 를 넘긴다', /mode: \(body\.band_mode/.test(SRVP));
+
+  check('화면에 모드 버튼 두 개가 있다',
+    /data-m="auto"/.test(HTML) && /data-m="manual"/.test(HTML));
+  check('화면이 band_mode 를 보낸다', /body\.band_mode = mode/.test(HTML));
+  check('현재 모드가 버튼에 표시된다', /CUR_MODE==='auto'\?' cur'/.test(HTML));
+}
+
+console.log('\n[ L. 범주 이름이 화면 언어를 따르는가 — 회귀 방지 ]');
+{
+  // 🐛 라이브 사고: 한국어 화면인데 칩이 'Elementary' 로 떴다.
+  //    문제 지문은 항상 영어라 서버에 lang:'en' 을 보내는데, 이름까지 그 언어를 따라갔기 때문.
+  check('화면은 목록에서 이름을 고른다(서버의 reading_band_name 을 그대로 쓰지 않는다)',
+    /function bandNameOf\(band\)/.test(HTML) && /var lvName = bandNameOf\(scenario\.reading_band\)/.test(HTML));
+  check('칩이 reading_band_name 을 직접 쓰지 않는다',
+    !/esc\(scenario\.reading_band_name\)/.test(HTML),
+    '그 값은 문제 지문의 언어(en)를 따라갑니다');
+  check('bandNameOf 가 화면 언어(LANG)를 쓴다', /function bandText\(b, key\)[\s\S]{0,240}LANG==='en'/.test(HTML));
+  check('서버는 그 함정을 주석으로 남겨 두었다',
+    /lang 은 '문제 지문의 언어'/.test(readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8')));
 }
 
 console.log(`\n${'─'.repeat(60)}`);

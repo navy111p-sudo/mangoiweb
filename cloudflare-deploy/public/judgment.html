@@ -145,6 +145,21 @@
   .lvp-now{display:inline-block;margin-left:8px;font-size:11px;font-weight:800;color:#1a1a1a;
     background:linear-gradient(92deg,#f59e0b,#fbbf24);border-radius:999px;padding:2px 9px;vertical-align:middle}
 
+  /* ── 🎚️ 난이도를 누가 정할지 — 두 가지 모드 ── */
+  .lvm{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 6px}
+  @media(max-width:560px){.lvm{grid-template-columns:1fr}}
+  .lvm-btn{display:block;width:100%;text-align:left;background:rgba(255,255,255,.05);
+    border:2px solid var(--line);border-radius:16px;padding:14px 16px;cursor:pointer;
+    font-family:inherit;transition:border-color .15s,background .15s,transform .12s}
+  .lvm-btn:hover{border-color:var(--pp);background:rgba(167,139,250,.12);transform:translateY(-1px)}
+  .lvm-btn.cur{border-color:#fbbf24;background:rgba(245,158,11,.16)}
+  .lvm-ic{font-size:22px;line-height:1}
+  .lvm-t{display:block;margin-top:6px;font-size:clamp(15px,1.9vw,19px);font-weight:900;color:var(--ink)}
+  .lvm-d{display:block;margin-top:3px;font-size:clamp(12px,1.4vw,14px);color:var(--mut);font-weight:600}
+  .lvm-on{display:inline-block;margin-left:7px;font-size:11px;font-weight:800;color:#1a1a1a;
+    background:linear-gradient(92deg,#f59e0b,#fbbf24);border-radius:999px;padding:2px 9px;vertical-align:middle}
+  .lvp-sub{margin:18px 0 0;font-size:clamp(13px,1.6vw,16px);font-weight:800;color:var(--pp)}
+
   /* ── 결과 ── */
   .res{margin-top:2px}
   .banner{border-radius:18px;padding:18px 22px;font-weight:900;font-size:clamp(19px,2.6vw,27px);
@@ -418,13 +433,14 @@
   // ⚡ 다음 문제 선(先)생성 — 문제는 AI가 만들어 몇 초 걸립니다. 학생이 지금 문제를 푸는 동안
   //    다음 문제를 미리 받아두면 "다음 문제 →"가 즉시 뜹니다. (요청은 항상 1문제 앞서기만 함)
   var prefetch = null, prefetchDone = false;
-  function requestScenario(focusMisc, nudge, setBand){
+  function requestScenario(focusMisc, nudge, setBand, mode){
     var body = {uid:UID, lang:'en', textbook:TEXTBOOK};
     if(focusMisc) body.focus_misconception = focusMisc;
     // 🎚️ 읽기 난이도 조정 — 서버가 밴드를 옮긴 뒤 그 밴드로 문제를 만들어 돌려줍니다.
     //    새 API 경로 없이 기존 요청에 실어 보냅니다.
     if(nudge) body.band_nudge = nudge;
     if(setBand) body.set_band = setBand;      // 목록에서 직접 고른 범주(1~8)
+    if(mode) body.band_mode = mode;           // 'auto'(AI가 조절) / 'manual'(고른 자리 유지)
     return fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
       body:JSON.stringify(body)})
       .then(function(r){ return r.json(); })
@@ -440,16 +456,26 @@
   // ── 🏷️ 문장 난이도 범주 ──────────────────────────────────────────────
   //   이름·설명은 서버(judgment-level.ts)가 단일 출처입니다. 화면에 하드코딩하지 않아
   //   범주를 손볼 때 서버 한 곳만 고치면 됩니다.
-  var BAND_CATALOG = null, CUR_BAND = 0;
+  var BAND_CATALOG = null, CUR_BAND = 0, CUR_MODE = 'auto';
+  // 방금 'AI가 맞춰줄게요'로 바꾼 경우에만 안내 한 줄을 띄우기 위한 표시(다음 문제부터는 안 띄움)
+  var MODE_JUST_SET = false;
   function captureBand(d){
     if(!d) return;
     if(Array.isArray(d.band_catalog) && d.band_catalog.length) BAND_CATALOG = d.band_catalog;
     if(d.reading_band) CUR_BAND = Number(d.reading_band)||0;
+    if(d.band_mode) CUR_MODE = (d.band_mode==='manual') ? 'manual' : 'auto';
   }
   function bandText(b, key){
     // key: 이름(n) / 설명(d) — 화면 언어에 맞춰 고릅니다
     if(key==='n') return LANG==='en' ? b.en : LANG==='zh' ? b.zh : b.ko;
     return LANG==='en' ? b.den : LANG==='zh' ? b.dzh : b.dko;
+  }
+  // ⚠️ 서버의 reading_band_name 을 그대로 쓰면 안 됩니다 — 그건 '문제 지문의 언어'(항상 en)를 따라가서
+  //    한국어 화면에 'Elementary' 가 떴습니다. 화면 언어는 여기서만 아니까 목록에서 골라 씁니다.
+  function bandNameOf(band){
+    var list = BAND_CATALOG || [];
+    for(var i=0;i<list.length;i++) if(Number(list[i].band)===Number(band)) return bandText(list[i],'n');
+    return '';
   }
   function showBandPicker(){
     if(!BAND_CATALOG || !BAND_CATALOG.length) return;
@@ -464,14 +490,51 @@
         + '<span class="lvp-desc">'+esc(bandText(b,'d'))+'</span>'
         + '</button>';
     }).join('');
+    // 🎚️ 누가 난이도를 정할지 — 두 가지 중 하나. 지금 켜진 쪽에 표시가 붙습니다.
+    var onChip = '<span class="lvm-on">'+T('지금','on','当前')+'</span>';
+    var modes =
+      '<div class="lvm">'+
+        '<button type="button" class="lvm-btn'+(CUR_MODE==='auto'?' cur':'')+'" data-m="auto">'+
+          '<span class="lvm-ic">🤖</span>'+
+          '<span class="lvm-t">'+T('AI가 맞춰줄게요','Let AI adjust','让AI来调整')+(CUR_MODE==='auto'?onChip:'')+'</span>'+
+          '<span class="lvm-d">'+T('푸는 걸 보고 더 쉽게·더 어렵게 자동으로 바꿔요.',
+                                   'It watches your answers and moves up or down for you.',
+                                   '根据你的作答自动变简单或变难。')+'</span>'+
+        '</button>'+
+        '<button type="button" class="lvm-btn'+(CUR_MODE==='manual'?' cur':'')+'" data-m="manual">'+
+          '<span class="lvm-ic">🖐️</span>'+
+          '<span class="lvm-t">'+T('내가 고를래요','I choose myself','我自己选')+(CUR_MODE==='manual'?onChip:'')+'</span>'+
+          '<span class="lvm-d">'+T('아래에서 고른 난이도에 그대로 있어요.',
+                                   'Stays exactly where you set it.',
+                                   '停留在你选择的难度上。')+'</span>'+
+        '</button>'+
+      '</div>';
     stage.innerHTML =
-      '<div class="lvp-title">🏷️ '+T('문장 난이도 고르기','Choose your sentence level','选择句子难度')+'</div>'+
-      '<div class="hint">'+T('지금 읽기 편한 정도를 골라요. 언제든 다시 바꿀 수 있어요.',
-                             'Pick what feels comfortable to read. You can change it anytime.',
-                             '选择你现在读起来舒服的程度，随时可以再改。')+'</div>'+
+      '<div class="lvp-title">🎚️ '+T('문장 난이도 설정','Sentence level settings','句子难度设置')+'</div>'+
+      '<div class="hint">'+T('둘 중 하나를 고르세요. 언제든 다시 바꿀 수 있어요.',
+                             'Pick one of the two. You can change it anytime.',
+                             '二选一，随时可以再改。')+'</div>'+
+      modes+
+      '<div class="lvp-sub">'+T('직접 고르기','Choose a level','自选难度')+'</div>'+
+      '<div class="hint">'+T('여기서 고르면 자동으로 ‘내가 고를래요’가 돼요.',
+                             'Picking one here switches to “I choose myself”.',
+                             '在此选择即切换为“我自己选”。')+'</div>'+
       '<div class="lvp-list">'+items+'</div>'+
       '<button class="btn ghost" id="lvpClose">'+T('그냥 계속하기','Keep going','继续做题')+'</button>';
     reEnter();
+    Array.prototype.forEach.call(stage.querySelectorAll('.lvm-btn'), function(el){
+      el.addEventListener('click', function(){
+        var m = el.getAttribute('data-m');
+        if(m===CUR_MODE){ if(scenario){ renderQuestion(); reEnter(); } else { loadScenario(); } return; }
+        Array.prototype.forEach.call(stage.querySelectorAll('.lvm-btn,.lvp-item'), function(x){ x.disabled = true; });
+        if(m==='manual'){
+          // '직접'은 어느 범주에 머물지가 있어야 뜻이 생깁니다 → 지금 범주 그대로 고정합니다.
+          loadScenario(null, 0, CUR_BAND || 0, 'manual');
+        } else {
+          loadScenario(null, 0, 0, 'auto');
+        }
+      });
+    });
     Array.prototype.forEach.call(stage.querySelectorAll('.lvp-item'), function(el){
       el.addEventListener('click', function(){
         var b = Number(el.getAttribute('data-b'))||0;
@@ -491,19 +554,21 @@
   // focusMisc 를 주면 그 오답 유형에 맞춘 문제를 새로 받습니다.
   //   미리 받아둔 문제는 '일반' 문제라 이 경우엔 쓰지 않고 버립니다.
   //   nudge(-1/+1)·setBand 도 마찬가지 — 미리 받아둔 문제는 '옮기기 전' 밴드로 만들어졌으므로 반드시 버립니다.
-  async function loadScenario(focusMisc, nudge, setBand){
+  async function loadScenario(focusMisc, nudge, setBand, mode){
     view='q'; chosen = -1;
+    MODE_JUST_SET = (mode === 'auto' && !setBand);
     var p = null, ready = false;
-    if(focusMisc || nudge || setBand){
+    if(focusMisc || nudge || setBand || mode){
       prefetch = null; prefetchDone = false;
-      p = requestScenario(focusMisc, nudge, setBand);
+      p = requestScenario(focusMisc, nudge, setBand, mode);
     } else {
       p = prefetch; ready = prefetchDone;
       prefetch = null; prefetchDone = false;
       if(!p){ p = requestScenario(); ready = false; }
     }
     if(!ready) loading(
-      setBand ? T('고른 난이도로 문제를 만들고 있어요…','Making a question at that level…','正在按所选难度出题…')
+      (mode==='auto' && !setBand) ? T('이제 AI가 맞춰줄게요…','AI will adjust from now on…','接下来交给AI调整…')
+      : setBand ? T('고른 난이도로 문제를 만들고 있어요…','Making a question at that level…','正在按所选难度出题…')
       : nudge ? (nudge<0
           ? T('조금 더 쉬운 문장으로 바꾸고 있어요…','Making the sentences easier…','正在换成更简单的句子…')
           : T('조금 더 도전적인 문장으로 바꾸고 있어요…','Making the sentences harder…','正在换成更有挑战的句子…'))
@@ -533,9 +598,10 @@
     var tbChip = scenario.textbook ? '<span class="tb-chip">📖 '+esc(scenario.textbook)+' '+T('연계','linked','关联')+'</span>' : '';
     // 🏷️ 지금 문장 난이도 — 숫자가 아니라 이름으로, 교재 Lv 을 옆에 붙여서.
     //    학생은 '초급'으로 알아보고, 옆에서 보는 강사·학부모는 'Lv 9–12'로 교재와 맞춥니다.
-    var lvChip = scenario.reading_band_name
-      ? '<span class="tb-chip" title="'+T('난이도 직접 고르기 버튼으로 바꿀 수 있어요','You can change this with the Choose level button','可用“自选难度”按钮更改')+'">🏷️ '
-        + esc(scenario.reading_band_name)
+    var lvName = bandNameOf(scenario.reading_band);
+    var lvChip = lvName
+      ? '<span class="tb-chip" title="'+T('아래 ‘난이도 설정’에서 바꿀 수 있어요','Change it in Level settings below','可在下方“难度设置”中更改')+'">'
+        + (CUR_MODE==='manual' ? '🖐️ ' : '🤖 ') + esc(lvName)
         + (scenario.reading_band_label ? ' ('+esc(scenario.reading_band_label)+')' : '')+'</span>'
       : '';
     // 난이도 — 어려운 문제를 맞히면 판단력 지수에 더 크게 반영되므로 미리 알려줍니다
@@ -545,10 +611,12 @@
     // 🎚️ 읽기 난이도가 방금 조정됐으면 한 줄만 알려 줍니다 — 레벨 숫자는 보여주지 않습니다.
     var mv = Number(scenario.band_moved)||0;
     var lvlNote = '';
-    if(scenario.band_picked) lvlNote = '<div class="lvlnote">✅ '
-      + T('‘'+(scenario.reading_band_name||'')+'’ 난이도로 바꿨어요.',
-          'Switched to “'+(scenario.reading_band_name||'')+'”.',
-          '已切换到“'+(scenario.reading_band_name||'')+'”。')+'</div>';
+    if(scenario.band_picked) lvlNote = '<div class="lvlnote">🖐️ '
+      + T('‘'+lvName+'’ 난이도로 맞춰 뒀어요. 여기 그대로 있을게요.',
+          'Set to “'+lvName+'”. It will stay here.',
+          '已设为“'+lvName+'”，将保持不变。')+'</div>';
+    else if(scenario.band_mode==='auto' && CUR_MODE==='auto' && scenario.band_moved===0 && !scenario.band_at_edge && MODE_JUST_SET)
+      lvlNote = '<div class="lvlnote">🤖 '+T('이제 AI가 난이도를 맞춰줄게요.','AI will adjust the level from now on.','接下来由AI调整难度。')+'</div>';
     else if(mv<0) lvlNote = '<div class="lvlnote">✅ '+T('조금 쉬운 문장으로 바꿨어요.','Switched to easier sentences.','已换成更简单的句子。')+'</div>';
     else if(mv>0) lvlNote = '<div class="lvlnote">✅ '+T('조금 더 긴 문장에 도전해요!','Let\'s try longer sentences!','来挑战更长的句子吧！')+'</div>';
     else if(scenario.band_at_edge) lvlNote = '<div class="lvlnote">'+T('지금이 가장 알맞은 문장 길이예요.','This is already the best fit for you.','现在的句子长度已经最合适了。')+'</div>';
@@ -568,7 +636,7 @@
         '<button type="button" data-n="1">'+T('너무 쉬워요','Too easy','太简单了')+'</button>'+
         // 한 칸씩 옮기는 것 말고, 범주를 직접 고르고 싶은 학생·학부모를 위한 길
         (BAND_CATALOG && BAND_CATALOG.length
-          ? '<button type="button" data-pick="1">🏷️ '+T('난이도 직접 고르기','Choose level','自选难度')+'</button>' : '')+
+          ? '<button type="button" data-pick="1">🎚️ '+T('난이도 설정','Level settings','难度设置')+'</button>' : '')+
       '</div>';
     Array.prototype.forEach.call(stage.querySelectorAll('.lvladj button'), function(el){
       el.addEventListener('click', function(){
