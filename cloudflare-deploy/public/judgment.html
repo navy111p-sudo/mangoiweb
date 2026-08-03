@@ -117,6 +117,19 @@
   .btn.ghost{background:rgba(167,139,250,.14);color:#e6ddff;border:1px solid var(--line);box-shadow:none}
   .btn.gold{background:linear-gradient(92deg,#f59e0b,#fbbf24);color:#1a1a1a;box-shadow:0 14px 30px -10px rgba(245,158,11,.5)}
 
+  /* ── 🎚️ 읽기 난이도 탈출구 — 조용하게. 레벨 '숫자'는 아이에게 보여주지 않습니다.
+        ("너는 레벨 2"는 초등학생에게 낙인이 됩니다. 문장 길이만 조용히 바뀝니다.) ── */
+  .lvladj{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+  /* 눈에 띄지 않게 두되 터치 영역은 44px 이상 — 초등학생 손가락 기준(작으면 오터치로 난이도가 엉뚱하게 바뀜) */
+  .lvladj button{flex:0 1 auto;background:transparent;border:1px dashed var(--line);color:var(--mut);
+    font-family:inherit;font-size:clamp(12px,1.5vw,15px);font-weight:700;padding:0 18px;min-height:46px;border-radius:999px;
+    cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+  .lvladj button:hover{color:#e6ddff;border-color:var(--pp);background:rgba(167,139,250,.1)}
+  .lvladj button:disabled{opacity:.45;cursor:not-allowed}
+  .lvlnote{display:block;margin-bottom:12px;font-size:clamp(12px,1.5vw,15px);font-weight:700;
+    color:#a7f3d0;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);
+    border-radius:12px;padding:9px 14px}
+
   /* ── 결과 ── */
   .res{margin-top:2px}
   .banner{border-radius:18px;padding:18px 22px;font-weight:900;font-size:clamp(19px,2.6vw,27px);
@@ -390,9 +403,12 @@
   // ⚡ 다음 문제 선(先)생성 — 문제는 AI가 만들어 몇 초 걸립니다. 학생이 지금 문제를 푸는 동안
   //    다음 문제를 미리 받아두면 "다음 문제 →"가 즉시 뜹니다. (요청은 항상 1문제 앞서기만 함)
   var prefetch = null, prefetchDone = false;
-  function requestScenario(focusMisc){
+  function requestScenario(focusMisc, nudge){
     var body = {uid:UID, lang:'en', textbook:TEXTBOOK};
     if(focusMisc) body.focus_misconception = focusMisc;
+    // 🎚️ 읽기 난이도 조정 — 서버가 밴드를 한 칸 옮긴 뒤 그 밴드로 문제를 만들어 돌려줍니다.
+    //    새 API 경로 없이 기존 요청에 실어 보냅니다.
+    if(nudge) body.band_nudge = nudge;
     return fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
       body:JSON.stringify(body)})
       .then(function(r){ return r.json(); })
@@ -407,20 +423,25 @@
 
   // focusMisc 를 주면 그 오답 유형에 맞춘 문제를 새로 받습니다.
   //   미리 받아둔 문제는 '일반' 문제라 이 경우엔 쓰지 않고 버립니다.
-  async function loadScenario(focusMisc){
+  //   nudge(-1/+1)도 마찬가지 — 미리 받아둔 문제는 '옮기기 전' 밴드로 만들어졌으므로 반드시 버립니다.
+  async function loadScenario(focusMisc, nudge){
     view='q'; chosen = -1;
     var p = null, ready = false;
-    if(focusMisc){
+    if(focusMisc || nudge){
       prefetch = null; prefetchDone = false;
-      p = requestScenario(focusMisc);
+      p = requestScenario(focusMisc, nudge);
     } else {
       p = prefetch; ready = prefetchDone;
       prefetch = null; prefetchDone = false;
       if(!p){ p = requestScenario(); ready = false; }
     }
-    if(!ready) loading(focusMisc
-      ? T('이 유형에 맞춘 문제를 만들고 있어요…','Making a question on this type…','正在出这类题…')
-      : T('맞춤 문제를 만들고 있어요…','Creating your question…','正在为你出题…'));
+    if(!ready) loading(
+      nudge ? (nudge<0
+          ? T('조금 더 쉬운 문장으로 바꾸고 있어요…','Making the sentences easier…','正在换成更简单的句子…')
+          : T('조금 더 도전적인 문장으로 바꾸고 있어요…','Making the sentences harder…','正在换成更有挑战的句子…'))
+      : focusMisc
+        ? T('이 유형에 맞춘 문제를 만들고 있어요…','Making a question on this type…','正在出这类题…')
+        : T('맞춤 문제를 만들고 있어요…','Creating your question…','正在为你出题…'));
     try{
       var d = await p;
       if(!validScenario(d)) throw new Error('no scenario');
@@ -443,7 +464,14 @@
     var dv = Math.max(1, Math.min(5, Math.round(Number(scenario.difficulty)||3)));
     var dChip = '<span class="tb-chip" title="'+T('어려운 문제일수록 지수에 더 크게 반영돼요','Harder questions count more toward your index','越难的题对指数影响越大')+'">'
       + T('난이도','Level','难度')+' '+'★'.repeat(dv)+'<span style="opacity:.4">'+'☆'.repeat(5-dv)+'</span></span>';
+    // 🎚️ 읽기 난이도가 방금 조정됐으면 한 줄만 알려 줍니다 — 레벨 숫자는 보여주지 않습니다.
+    var mv = Number(scenario.band_moved)||0;
+    var lvlNote = '';
+    if(mv<0) lvlNote = '<div class="lvlnote">✅ '+T('조금 쉬운 문장으로 바꿨어요.','Switched to easier sentences.','已换成更简单的句子。')+'</div>';
+    else if(mv>0) lvlNote = '<div class="lvlnote">✅ '+T('조금 더 긴 문장에 도전해요!','Let\'s try longer sentences!','来挑战更长的句子吧！')+'</div>';
+    else if(scenario.band_at_edge) lvlNote = '<div class="lvlnote">'+T('지금이 가장 알맞은 문장 길이예요.','This is already the best fit for you.','现在的句子长度已经最合适了。')+'</div>';
     stage.innerHTML =
+      lvlNote+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+tbChip+dChip+'</div>'+
       '<div class="sit-label">🗣️ '+T('이런 상황이에요','Here is the situation','情境是这样的')+'</div>'+
       '<div class="sit">'+esc(scenario.situation)+'</div>'+
@@ -451,7 +479,19 @@
       '<div class="why-label">🤔 '+T('왜 그 표현을 골랐어요?','Why did you choose it?','你为什么选这个表达？')+'</div>'+
       '<textarea id="why" placeholder="'+T('예: 선생님께 말하는 거라서 공손하게…  (한국어로 써도 괜찮아요)','e.g. Because I am talking to my teacher, so I chose a polite one…','例如：因为是对老师说的话，所以选了礼貌的表达…（用中文写也可以）')+'"></textarea>'+
       '<div class="hint">✨ '+T('이유를 잘 설명할수록 판단력 점수가 올라가요.','The better you explain, the higher your score.','理由说明得越好，判断力分数就越高。')+'</div>'+
-      '<button class="btn" id="submit"'+(chosen<0?' disabled':'')+'>'+T('제출하기 🚀','Submit 🚀','提交 🚀')+'</button>';
+      '<button class="btn" id="submit"'+(chosen<0?' disabled':'')+'>'+T('제출하기 🚀','Submit 🚀','提交 🚀')+'</button>'+
+      // 읽기가 버거워서 틀리는 것은 판단력이 아니라 읽기를 재는 것입니다. 아이가 직접 빠져나올 길을 둡니다.
+      '<div class="lvladj">'+
+        '<button type="button" data-n="-1">'+T('문장이 너무 어려워요','Sentences are too hard','句子太难了')+'</button>'+
+        '<button type="button" data-n="1">'+T('너무 쉬워요','Too easy','太简单了')+'</button>'+
+      '</div>';
+    Array.prototype.forEach.call(stage.querySelectorAll('.lvladj button'), function(el){
+      el.addEventListener('click', function(){
+        // 연타로 여러 밴드가 한꺼번에 밀리지 않도록 즉시 잠급니다(요청은 ±1 로만 해석되지만 화면도 막아 둡니다).
+        Array.prototype.forEach.call(stage.querySelectorAll('.lvladj button'), function(b){ b.disabled = true; });
+        loadScenario(null, Number(el.getAttribute('data-n')));
+      });
+    });
     Array.prototype.forEach.call(stage.querySelectorAll('.opt'), function(el){
       if(el.getAttribute('data-sel')) el.classList.add('sel');
       el.addEventListener('click', function(){
@@ -533,9 +573,17 @@
         + '<div class="mp-q">“'+esc(d.options[d.chosen_index])+'”</div>'
         + '<div class="mp-w">'+esc(wc)+'</div></div>'
       : '';
+    // 🎚️ 자동 조절이 방금 밴드를 움직였으면 한 줄만. 레벨 숫자·승급 연출은 넣지 않습니다.
+    var bm = Number(d.band_moved)||0;
+    var mvNote = bm>0
+      ? '<div class="lvlnote">🌱 '+T('다음 문제는 조금 더 긴 문장으로 가볼게요.','Next questions will use longer sentences.','下一题会用更长的句子。')+'</div>'
+      : bm<0
+      ? '<div class="lvlnote">🌿 '+T('다음 문제는 조금 쉬운 문장으로 갈게요.','Next questions will use easier sentences.','下一题会用更简单的句子。')+'</div>'
+      : '';
     stage.innerHTML =
       '<div class="res">'+
         '<div class="banner '+(ok?'ok':'no')+'">'+bannerText(ok, d.choice_score)+'</div>'+
+        mvNote+
         myPick+
         best+
         '<div class="fb">'+esc(fb)+'</div>'+
@@ -697,7 +745,7 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260803173632 -->
+<!-- BUILD:20260803181217 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>
