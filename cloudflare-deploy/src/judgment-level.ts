@@ -26,6 +26,26 @@ export const DEFAULT_BAND = 3;
 export const BAND_WINDOW = 6;
 
 /**
+ * 난이도를 누가 정하는가 — 학생이 고르는 두 가지 모드.
+ *   'auto'   : AI 가 답을 보고 알아서 올리고 내림(기본·추천)
+ *   'manual' : 학생이 고른 범주에 그대로 머묾 — AI 가 건드리지 않음
+ *
+ * ⚠️ 모드가 없으면 "직접 골랐는데 AI 가 다시 옮겨 버리는" 모순이 생깁니다.
+ *    고른 값이 유지되지 않으면 고르는 기능 자체가 의미를 잃습니다.
+ */
+export type BandMode = 'auto' | 'manual';
+export const DEFAULT_BAND_MODE: BandMode = 'auto';
+
+export function normalizeBandMode(raw: any): BandMode {
+  return String(raw || '').trim().toLowerCase() === 'manual' ? 'manual' : 'auto';
+}
+
+/** 이 모드에서 자동 조절을 돌려도 되는가. */
+export function shouldAutoAdjust(mode: any): boolean {
+  return normalizeBandMode(mode) === 'auto';
+}
+
+/**
  * 🎯 자동 조절 임계값 — Wilson et al., "The Eighty Five Percent Rule for optimal learning"
  *   (Nature Communications, 2019): 학습이 가장 빠른 지점은 정답률 약 85%(오답률 15.87%).
  *

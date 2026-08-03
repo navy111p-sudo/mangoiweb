@@ -21,10 +21,14 @@
     // ── 얼굴 전체 마스크 ──
     // 미스터 망고 = 망고아이 마스코트. 소재는 build-mrmango-mask.py 가 그린스크린 원본
     //   (cloudflare-deploy/Mr.Mango실사.png)에서 전시대를 잘라내고 크로마키한 것.
-    //   scale/imgYOff 는 그 스크립트가 '망고 머리 폭 = 얼굴 폭 x1.70' 이 되도록 역산한 값이다.
-    //   헤드폰·잎이 머리보다 넓고 높아서 이미지 전체 폭 기준 배율(2.49)이 다른 가면보다 크다.
+    //   scale/imgYOff 는 그 스크립트가 '망고 머리 폭 = 얼굴 폭 x1.40' 이 되도록 역산한 값이다.
+    //   헤드폰·잎이 머리보다 넓고 높아서 이미지 전체 폭 기준 배율(2.05)이 다른 가면보다 크다.
     //   임의로 1.7~1.8 대로 낮추면 망고가 얼굴보다 작아진다. 바꾸려면 스크립트를 다시 돌릴 것.
-    { id:'rmrmango',ko:'미스터 망고', en:'Mr. Mango', anchor:'face', scale:2.49, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/mrmango.png', imgYOff:-0.04 },
+    //   (2026-08-03) 첫 배포는 x1.70(scale 2.49)이었는데 실화면에서 "몸에 비해 얼굴이 크다" 는
+    //   피드백 → x1.40 으로 축소(가로 -18%·면적 -32%). imgYOff 가 -0.04 → +0.03 으로 바뀐 건
+    //   줄어든 몫을 위(머리카락)가 아니라 아래(턱)를 지키는 데 쓰기 위한 하향 보정이다.
+    //   턱이 망고 밑으로 나오면 확 이상해 보이므로 더 줄일 때도 이 보정은 같이 키워야 한다.
+    { id:'rmrmango',ko:'미스터 망고', en:'Mr. Mango', anchor:'face', scale:2.05, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/mrmango.png', imgYOff:0.03 },
     { id:'rtiger',  ko:'호랑이',   en:'Tiger',      anchor:'face', scale:1.77, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/tiger.png' },
     { id:'rfox',    ko:'여우',     en:'Fox',        anchor:'face', scale:1.57, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/fox.png' },
     { id:'rcat',    ko:'고양이',   en:'Cat',        anchor:'face', scale:1.60, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/cat.png' },

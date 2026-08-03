@@ -25,6 +25,7 @@ import {
 import {
   DEFAULT_BAND, normalizeBand, bandFromTextbookLevel, bandLabel, bandPromptLine,
   bandCatalog, bandName, pushResult, nextBand, nudgeBand, type BandTransition,
+  DEFAULT_BAND_MODE, normalizeBandMode, shouldAutoAdjust, type BandMode,
 } from './judgment-level';
 export type { GrowthAxes };
 export { normalizeOptionScores, normalizeDifficulty } from './judgment-scoring';
@@ -609,11 +610,13 @@ interface BandState {
   /** 사람이 준 레벨 원문(students_erp.level 또는 level_tests.level). 값이 바뀌면 재시드 판단에 씁니다. */
   base: string | null;
   src: 'teacher' | 'auto' | 'student' | 'default';
+  /** 'auto' = AI 가 답을 보고 조절 / 'manual' = 학생이 고른 자리에 머묾 */
+  mode: BandMode;
   at: number;
 }
 
 function emptyBandState(band: any = DEFAULT_BAND, src: BandState['src'] = 'default', base: string | null = null): BandState {
-  return { band: normalizeBand(band), hist: [], base, src, at: Date.now() };
+  return { band: normalizeBand(band), hist: [], base, src, mode: DEFAULT_BAND_MODE, at: Date.now() };
 }
 
 async function readBandState(env: MangoEnv, uid: string): Promise<BandState | null> {
@@ -628,6 +631,8 @@ async function readBandState(env: MangoEnv, uid: string): Promise<BandState | nu
       hist: Array.isArray(j?.hist) ? j.hist.map((v: any) => (v ? 1 : 0)) : [],
       base: j?.base != null ? String(j.base) : null,
       src: (['teacher', 'auto', 'student', 'default'] as const).includes(j?.src) ? j.src : 'auto',
+      // 모드가 없던 옛 저장값은 기본(자동)으로 읽습니다 — 기존 학생의 동작이 바뀌지 않도록.
+      mode: normalizeBandMode(j?.mode),
       at: Number(j?.at) || 0,
     };
   } catch { return null; }   // 손상된 값은 없는 것으로 — 기본 밴드로 안전 폴백
@@ -672,8 +677,13 @@ async function resolveReadingBand(env: MangoEnv, uid: string, erpLevel?: string 
  */
 export async function generatePersonalizedScenario(
   env: MangoEnv, studentUid: string, lang = 'en', textbookHint?: string, focusMisconception?: string | null,
-  /** 읽기 밴드 조작 — nudge: 학생이 누른 ±1 / setBand: 학생이 목록에서 직접 고른 범주(1~8) */
-  bandOpts?: { nudge?: number | null; setBand?: number | null } | null,
+  /**
+   * 읽기 밴드 조작
+   *   nudge   : 학생이 누른 ±1
+   *   setBand : 학생이 목록에서 직접 고른 범주(1~8) — 고르면 자동으로 '직접' 모드가 됩니다
+   *   mode    : 'auto'(AI 가 조절) / 'manual'(내가 고른 자리 유지)
+   */
+  bandOpts?: { nudge?: number | null; setBand?: number | null; mode?: string | null } | null,
 ): Promise<any> {
   const t0 = Date.now();
   await ensureJudgmentTables(env);
@@ -707,13 +717,20 @@ export async function generatePersonalizedScenario(
   // ② 학생이 "너무 어려워요 / 너무 쉬워요"를 눌렀으면 6문항 창을 기다리지 않고 즉시 한 밴드 옮깁니다.
   //    ⚠️ 새 API 경로를 만들지 않으려고 기존 시나리오 요청 body 에 실어 받습니다(index.ts 는 금지구역).
   const nudge = picked ? 0 : Math.sign(Math.round(+(bandOpts?.nudge as any)) || 0);
+  // ③ 모드 — 학생이 "AI가 맞춰줘요 / 내가 고를래요" 중 하나를 누른 경우.
+  //    범주를 직접 고르면 모드를 묻지 않아도 '직접'이 됩니다(고른 자리를 AI가 뒤집으면 모순).
+  const wantMode = bandOpts?.mode ? normalizeBandMode(bandOpts.mode) : null;
+  const modeChanged = !!wantMode && wantMode !== bandState.mode;
   if (picked) {
-    bandState = { ...bandState, band: picked, hist: [], src: 'student', at: Date.now() };
-  } else if (nudge !== 0) {
-    bandMove = nudgeBand(bandState.band, nudge);
-    bandState = { ...bandState, band: bandMove.band, hist: [], src: 'student', at: Date.now() };
+    bandState = { ...bandState, band: picked, hist: [], src: 'student', mode: wantMode || 'manual', at: Date.now() };
+  } else {
+    if (wantMode) bandState = { ...bandState, mode: wantMode, hist: [], at: Date.now() };
+    if (nudge !== 0) {
+      bandMove = nudgeBand(bandState.band, nudge);
+      bandState = { ...bandState, band: bandMove.band, hist: [], src: 'student', at: Date.now() };
+    }
   }
-  if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked) await writeBandState(env, studentUid, bandState);
+  if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked || modeChanged) await writeBandState(env, studentUid, bandState);
 
   // 🎲 다양화 컨텍스트 — 같은 문항 반복 방지의 핵심.
   //   ① KV 최근 출제 이력(judgrecent:<uid>, 48h): 프롬프트 '반복 금지' 목록 + 생성 후 중복 검사
@@ -843,7 +860,11 @@ Return STRICT JSON only:
     // 🎚️ 읽기 밴드 — 학생 화면은 이 숫자를 보여주지 않습니다("너는 레벨 2"는 낙인).
     //    버튼을 눌러 옮겨졌을 때만 안내 한 줄을 띄우는 데 씁니다.
     reading_band: bandState.band, reading_band_label: bandLabel(bandState.band),
+    // ⚠️ lang 은 '문제 지문의 언어'(항상 en)라 이름을 여기에 맞추면 한국어 화면에 'Elementary' 가 뜹니다.
+    //    화면 언어는 클라이언트만 아니까, 이름은 band_catalog 에서 골라 쓰게 하고
+    //    이 값은 하위호환·서버 로그용으로만 남깁니다.
     reading_band_name: bandName(bandState.band, lang),
+    band_mode: bandState.mode,
     band_moved: bandMove ? bandMove.direction : 0,
     band_at_edge: bandMove ? (bandMove.reason === 'at_ceiling' || bandMove.reason === 'at_floor') : false,
     band_picked: picked ? 1 : 0,
@@ -1053,13 +1074,21 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
   let bandOut: any = {};
   try {
     const st = (await readBandState(env, input.studentUid)) || emptyBandState();
+    // 🖐️ '직접' 모드면 AI 는 난이도를 건드리지 않습니다.
+    //    학생이 고른 자리를 AI 가 옮겨 버리면 고르는 기능이 의미를 잃기 때문입니다.
+    //    (정오 이력은 계속 쌓아 둡니다 — '자동'으로 되돌리면 바로 이어서 판단할 수 있게)
     const hist = pushResult(st.hist, !!isOptimal);
-    const mv = nextBand(st.band, hist);
-    await writeBandState(env, input.studentUid, {
-      ...st, band: mv.band, hist: mv.reset ? [] : hist,
-      src: mv.direction !== 0 ? 'auto' : st.src, at: Date.now(),
-    });
-    bandOut = { reading_band: mv.band, reading_band_label: bandLabel(mv.band), band_moved: mv.direction };
+    if (!shouldAutoAdjust(st.mode)) {
+      await writeBandState(env, input.studentUid, { ...st, hist, at: Date.now() });
+      bandOut = { reading_band: st.band, reading_band_label: bandLabel(st.band), band_moved: 0, band_mode: st.mode };
+    } else {
+      const mv = nextBand(st.band, hist);
+      await writeBandState(env, input.studentUid, {
+        ...st, band: mv.band, hist: mv.reset ? [] : hist,
+        src: mv.direction !== 0 ? 'auto' : st.src, at: Date.now(),
+      });
+      bandOut = { reading_band: mv.band, reading_band_label: bandLabel(mv.band), band_moved: mv.direction, band_mode: st.mode };
+    }
   } catch (e: any) { console.warn('[judgment] band adjust fail:', e?.message); }
 
   await logPerf(env, 'judgment_answer', input.studentUid, Date.now() - t0, 0, 'ok', { optimal: isOptimal, difficulty, choice: choiceScore, band: askedBand, band_moved: bandOut.band_moved ?? 0 });

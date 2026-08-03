@@ -703,7 +703,9 @@ Return STRICT JSON only, in BOTH Korean and English:
         const sc = await generatePersonalizedScenario(
           env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined,
           (body.focus_misconception || '').toString().trim().slice(0, 40) || null,
-          { nudge: Math.sign(Number(body.band_nudge) || 0), setBand: Number(body.set_band) || 0 });
+          //     band_mode  — 'auto'(AI가 조절) / 'manual'(내가 고른 자리 유지)
+          { nudge: Math.sign(Number(body.band_nudge) || 0), setBand: Number(body.set_band) || 0,
+            mode: (body.band_mode || '').toString().trim() || null });
         return json(sc, 200);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }
