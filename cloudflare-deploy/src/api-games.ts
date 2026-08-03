@@ -20,6 +20,25 @@ import type { MangoEnv } from './api-mango';
 // 🎮 게이미피케이션 공용부 — api-mango.ts 에서 이동 (3차, 2026-07-14)
 //   checkAndAwardBadges 는 api-mango(영작 첨삭)도 import 해서 사용한다.
 // ═══════════════════════════════════════════════════════════════════════
+/**
+ * 🔤 학생에게 글자를 보여줘도 되는지 — 인코딩이 깨진 문자열을 걸러냅니다.
+ *   U+FFFD(replacement character)는 "여기 바이트를 못 읽었다"는 표시라, 한 글자라도 있으면
+ *   그 문자열은 이미 원본을 잃은 것입니다(되살릴 수 없음). 화면에 내보내지 않습니다.
+ *
+ *   왜 필요한가 — 셸에서 한글을 인라인으로 POST 하면 EUC-KR 바이트가 그대로 저장됩니다
+ *   (CLAUDE.md §2 함정). 그렇게 들어온 QA 데이터가 실제 학생 퀴즈의 보기로 새어 나온 사고가
+ *   2026-08-03 에 있었습니다. 넣는 쪽을 다 막기는 어려우니 보여주는 쪽에서 한 번 더 거릅니다.
+ *
+ *   ⚠️ 리터럴 대신 String.fromCharCode(0xFFFD) 로 만듭니다 — 소스에 깨진 문자를 직접 박아 두면
+ *      이 파일이 다른 인코딩으로 저장되는 순간 검사 자체가 조용히 망가집니다.
+ */
+export function isCleanText(s: any): boolean {
+  if (s == null) return false;
+  const t = String(s).trim();
+  if (!t) return false;
+  return t.indexOf(String.fromCharCode(0xFFFD)) === -1;
+}
+
 // ── 🔥 연속 출석(Streak) 그래프 DFS — 출결의 단일 권위(source of truth) ──────
 // attendance 의 날짜들을 (수업)<-[:NEXT_LESSON]-(이전수업) 연결 리스트로 간주하고,
 // 가장 최근 출석일(anchor)을 기점으로 하루씩 역방향으로 사슬을 타며
@@ -894,16 +913,27 @@ Variety: mix of nouns, verbs, adjectives.`;
       }
 
       // 오답 선택지 풀 (은행 출제면 은행에서, 내 단어장이면 전체 학생 단어에서)
+      //   ⚠️ 2026-08-03: 학생 화면에 보기 하나가 대체문자(U+FFFD)로 깨져 나온 사고.
+      //     원인은 두 겹이었습니다.
+      //       ① QA 계정(`__qa_vocab_...`)이 셸에서 한글을 인라인으로 넣어 EUC-KR 바이트가 그대로 저장됨
+      //          (CLAUDE.md §2 '셸에서 한글 POST' 함정)
+      //       ② 오답 풀이 `user_id != ?` 라 **다른 사람 전부**를 긁어와, QA·테스트 계정 데이터가
+      //          실제 학생 문제의 보기로 새어 들어감
+      //     ②가 진짜 원인입니다. 깨진 행을 지워도 테스트 계정이 또 생기면 그대로 재발합니다.
+      //     그래서 여기서 두 가지를 막습니다 — 내부(`__`) 계정 제외 + 깨진 문자(U+FFFD) 제외.
       const distRs: any = source === 'textbook'
-        ? await env.DB.prepare(`SELECT ko AS korean FROM en_vocab WHERE active=1 AND type='word' AND ko IS NOT NULL AND ko != '' ORDER BY RANDOM() LIMIT 60`).all()
-        : await env.DB.prepare(`SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' ORDER BY RANDOM() LIMIT 60`).bind(userId).all();
-      const distractors = (distRs.results || []).map((x: any) => x.korean).filter(Boolean);
-      const myDistractors = words.map(w => w.korean).filter(Boolean);
+        ? await env.DB.prepare(`SELECT ko AS korean FROM en_vocab WHERE active=1 AND type='word' AND ko IS NOT NULL AND ko != '' AND ko NOT LIKE '%'||char(65533)||'%' ORDER BY RANDOM() LIMIT 60`).all()
+        : await env.DB.prepare(`SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' AND korean NOT LIKE '%'||char(65533)||'%' AND user_id NOT LIKE '\\_\\_%' ESCAPE '\\' ORDER BY RANDOM() LIMIT 60`).bind(userId).all();
+      // 마지막 방어선 — DB 필터를 빠져나온 깨진 문자열은 여기서 버립니다(어느 경로로 들어왔든).
+      const distractors = (distRs.results || []).map((x: any) => x.korean).filter((s: any) => isCleanText(s));
+      const myDistractors = words.map(w => w.korean).filter((s: any) => isCleanText(s));
 
       const now = Date.now();
       const quizzes: any[] = [];
       for (const w of words) {
-        if (!w.korean) continue;
+        // 정답(뜻)이 깨진 단어는 아예 출제하지 않습니다 — 문제 자체가 읽을 수 없게 되므로.
+        //   (그 단어는 학생 단어장에는 그대로 남아 있어 확인·수정할 수 있습니다)
+        if (!isCleanText(w.korean)) continue;
         const pool = [...distractors, ...myDistractors].filter(d => d !== w.korean);
         // 중복 제거 + 셔플 + 3개 선택
         const uniq = [...new Set(pool)];
@@ -925,6 +955,10 @@ Variety: mix of nouns, verbs, adjectives.`;
           source_word: w.word,
         });
       }
+
+      // 뜻이 전부 비었거나 깨져서 한 문제도 못 만든 경우 — 빈 퀴즈를 내보내면 화면이
+      //   문제 0개짜리 결과창으로 떨어집니다. 단어장이 빈 것과 같은 안내로 돌려보냅니다.
+      if (!quizzes.length) return json({ ok: false, error: 'no_words', message: '뜻이 등록된 단어가 없어요. 단어를 먼저 추가해주세요!' });
 
       return json({ ok: true, quizzes, total: quizzes.length, source, band });
     }
