@@ -2924,6 +2924,13 @@
   })();
 </script>
 
+<!-- 📌 자주 쓰는 메뉴 / 🕘 최근 사용 (2026-08-04 신규)
+     본사 계정 기준 최상위 메뉴가 88개라 «있는 기능을 못 찾는» 문제가 있었다.
+     카드를 합치면 역할별 접근권한(CARD_POLICY)이 무너지므로, 카드는 그대로 두고
+     자주 가는 곳만 위로 끌어올린다. 내용은 adm-quickmenu.js 가 채운다. -->
+<div id="quick-menu-bar" style="display:none"></div>
+<script src="/js/adm-quickmenu.js?v=1" defer></script>
+
 <details class="table-card menu-card" id="card-ai-insights">
   <summary><span data-ko="🤖 AI 인사이트 대시보드" data-en="🤖 AI Insight Dashboards">🤖 AI 인사이트 대시보드</span></summary>
   <div class="menu-body">
@@ -21276,6 +21283,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260804061242 -->
+<!-- BUILD:20260804062336 -->
 </body>
 </html>
