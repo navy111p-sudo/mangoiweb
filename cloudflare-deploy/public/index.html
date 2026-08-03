@@ -6492,6 +6492,21 @@ window.mgIsSlowNet = function(){
           /* 여백을 조금씩 줄여(합계 23px) 하단 덩어리를 컴팩트하게 만든다. */
           #hero-guest-quiet{margin-top:4px}
         }
+        /* 🕳 [2026-08-03] 561~760px — 칩 한 줄이 폭에는 들어가는데도 아바타에 물린다
+           (실측 라이브 561px: '3 수업 신청' 348~453 vs 아바타 441~545 = 12px).
+           이 구간은 아바타가 태블릿 크기(104px)로 커져 오른쪽을 차지하기 때문이다.
+           한 줄이 아바타를 피할 조건 — 칩 줄은 중앙정렬이므로:
+               (vw + W)/2 < vw - 120     (W = 칩 줄 총폭, 우변 = 아바타 왼쪽 = vw - right16 - 104)
+               →  vw > W + 240
+           ⚠️ W 를 처음에 481px 로 어림했다가 경계를 721 로 잘못 잡았다. **실측 W = 494px**
+              (722px 에서 마지막 칩이 6px 물리는 것으로 역산) → 안전 하한은 735px.
+              글꼴·폰트 대체로 W 가 흔들릴 수 있어 여유를 두고 760 까지 2×2 로 접는다.
+           → 이 구간만 2×2 로 접고 폭을 아바타 왼쪽 안쪽으로 제한한다(300px → 561px 에서 여유 10px). */
+        @media (min-width:561px) and (max-width:760px){
+          .home-flow{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-width:300px}
+          .home-flow .hf-step{justify-content:center}
+          .home-flow .hf-ar{display:none}
+        }
       </style>
       <!-- 🌤️/🌙 홈 배경 밝게·어둡게 전환 — 우측 상단 로그인 옆 칩으로 이동(중앙 X) -->
       <!-- (position:absolute .hero-chip 라서 DOM 위치와 무관하게 우상단에 붙음) -->
@@ -28484,7 +28499,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260804072355 -->
+<!-- BUILD:20260804073315 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
