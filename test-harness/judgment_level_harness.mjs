@@ -273,8 +273,22 @@ console.log('\n[ J-2. 지시를 어긴 결과를 서버가 걸러내는가 ]');
   check('여유값이 하한 아래·상한 위로 열려 있다', L.BAND_LEN_UNDER < 1 && L.BAND_LEN_OVER > 1,
     `under=${L.BAND_LEN_UNDER} over=${L.BAND_LEN_OVER}`);
   const SRVJ2 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
-  check('생성기가 길이를 검사해 다시 뽑는다', /if \(attempt < 2 && !situationFitsBand\(situation, bandState\.band\)\)/.test(SRVJ2));
-  check('끝까지 안 맞으면 그래도 문제를 준다(재시도는 앞 2회만)', /attempt < 2 && !situationFitsBand/.test(SRVJ2));
+  check('생성기가 길이를 검사해 다시 뽑는다', /if \(attempt < 3 && !situationFitsBand\(situation, bandState\.band\)\)/.test(SRVJ2));
+  check('끝까지 안 맞으면 그래도 문제를 준다(마지막 시도는 수용)', /attempt < 3 && !situationFitsBand/.test(SRVJ2));
+  // 여유를 넓게 두면 LLM 이 그 바닥에 눌러앉습니다(0.75 일 때 실측이 전부 하한의 75~80%)
+  check('하한 여유가 너무 헐겁지 않다(≥0.85)', L.BAND_LEN_UNDER >= 0.85, String(L.BAND_LEN_UNDER));
+
+  // 단어 수보다 문장 개수를 훨씬 잘 지키므로 함께 지시합니다
+  check('밴드마다 문장 개수 힌트가 있다', BAND_SPECS.every((s) => /sentence/i.test(L.sentenceHint(s.band))));
+  check('낮은 밴드는 한 문장', /ONE sentence/.test(L.sentenceHint(1)), L.sentenceHint(1));
+  check('높은 밴드는 여러 문장', /[23] short sentences/.test(L.sentenceHint(8)), L.sentenceHint(8));
+  check('문장 개수가 밴드와 함께 늘어난다',
+    parseInt((L.sentenceHint(8).match(/^(\d+)/) || [0, 1])[1], 10) >= 2);
+  check('프롬프트에 문장 개수와 자가 점검이 들어간다',
+    BAND_SPECS.every((s) => {
+      const l = bandPromptLine(s.band);
+      return /Write it as /.test(l) && /Count the words of your situation before you answer/.test(l);
+    }));
 }
 
 console.log('\n[ K. 두 가지 모드 — AI가 맞춤 / 내가 고름 ]');
