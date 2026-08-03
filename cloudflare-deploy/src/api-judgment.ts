@@ -804,7 +804,7 @@ Return STRICT JSON only:
           // 📏 읽기 밴드가 실제로 지켜졌는지 세어 봅니다 — LLM 은 단어 수 지시를 자주 어깁니다
           //    (라이브 실측: 고급 16~22단어 지정에 14단어). 앞 두 번은 다시 뽑고,
           //    그 뒤에는 받아들입니다 — 길이가 조금 어긋나는 것보다 문제를 못 주는 것이 더 나쁩니다.
-          if (attempt < 2 && !situationFitsBand(situation, bandState.band)) {
+          if (attempt < 3 && !situationFitsBand(situation, bandState.band)) {
             console.warn('[judgment] situation length off band ' + bandState.band + ' (' + countWords(situation) + ' words), retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }

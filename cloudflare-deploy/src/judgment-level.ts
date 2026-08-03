@@ -189,12 +189,26 @@ export function bandLabel(band: any): string {
  *      (이 문장이 빠지면 LLM 이 낮은 밴드에서 선택지를 뻔하게 만들어
  *       판단력 훈련이 아니라 단순 어휘 문제가 되어 버립니다.)
  */
+/**
+ * 밴드에 맞는 문장 개수 힌트.
+ *   LLM 은 '단어 수'보다 '문장 개수'를 훨씬 잘 지킵니다. 라이브 실측에서 단어 수만 주면
+ *   목표 구간의 아래쪽으로 계속 치우쳤습니다(고급 16~22 지시에 14~15).
+ */
+export function sentenceHint(band: any): string {
+  const s = bandSpec(band);
+  const n = Math.max(1, Math.round(s.maxWords / 9));
+  return n <= 1 ? 'ONE sentence' : `${n} short sentences`;
+}
+
 export function bandPromptLine(band: any): string {
   const s = bandSpec(band);
   return `READING LEVEL (strict): the child reads at Mangoi textbook level ${bandLabel(s.band)}. `
     // ⚠️ 하한이 반드시 있어야 합니다. 상한만 주면 LLM 이 어느 밴드에서든 짧게 써 버려
     //    위쪽 범주가 아무 효과를 못 냅니다(라이브 실측: 상한 18 인데 7단어가 나왔음).
     + `The SITUATION text must be ${s.minWords}-${s.maxWords} words long — not shorter, not longer. `
+    // 문장 개수 + 자가 점검 지시 — 단어 수만으로는 계속 짧게 씁니다(라이브 실측).
+    + `Write it as ${sentenceHint(s.band)}. Count the words of your situation before you answer: `
+    + `if it is under ${s.minWords} words, add concrete detail (who, where, what just happened) until it fits. `
     // 선택지에는 하한을 주지 않습니다 — 아이가 실제로 할 법한 말이라 억지로 늘리면 부자연스러워집니다.
     + `Each OPTION must be at most ${s.maxWords} words and must stay something a child would really say. `
     + `Grammar allowed: ${s.grammar}. `
@@ -206,7 +220,9 @@ export function bandPromptLine(band: any): string {
 //   라이브 실측(2026-08-03): 고급(16~22단어)으로 지정했는데 14단어가 왔습니다.
 //   프롬프트에 하한을 적어도 LLM 은 단어 수를 자주 어기므로, 받은 결과를 세어 보고
 //   어긋나면 다시 뽑습니다. 다만 완벽을 요구하면 문제를 아예 못 주게 되므로 여유를 둡니다.
-export const BAND_LEN_UNDER = 0.75;   // 하한의 75% 까지는 허용
+//   ⚠️ 여유를 너무 넓게 두면 LLM 이 그 바닥에 눌러앉습니다 — 0.75 로 뒀더니 실측이
+//      전부 하한의 75~80% 에 몰렸습니다(초중급 8~12 인데 6). 0.9 로 좁혀 목표 안으로 밀어 넣습니다.
+export const BAND_LEN_UNDER = 0.9;    // 하한의 90% 까지는 허용
 export const BAND_LEN_OVER = 1.3;     // 상한의 130% 까지는 허용
 
 /** 영어 문장의 단어 수 — 구두점만 있는 토큰은 세지 않습니다. */
