@@ -4455,6 +4455,20 @@
   <div class="menu-body">
     <div class="sub-menu">
 
+      <!-- 📊 강사 가동률 (2026-08-04 신규) — 열어둔 시간 중 실제로 수업이 찬 비율.
+           최상위 메뉴를 늘리지 않으려고 강사관리 카드 안에 넣었다. -->
+      <details class="sub-item" id="sub-teacher-util" ontoggle="if(this.open&&window.loadTeacherUtil)loadTeacherUtil()">
+        <summary data-ko="📊 강사 가동률 (열어둔 시간 대비 수업)" data-en="📊 Teacher Utilization">📊 강사 가동률 (열어둔 시간 대비 수업)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <button type="button" class="primary" onclick="window.loadTeacherUtil&&loadTeacherUtil()" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+            <span id="tu-summary" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <div id="tu-note" style="font-size:11.5px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:9px 12px;margin-bottom:10px;line-height:1.7"></div>
+          <div id="tu-wrap" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
       <!-- 👩‍🏫 강사 명부 (카페24 실데이터) -->
       <!-- ⭐ 강사 평가·품질 대시보드 (카페24 학생평가·후기 집계) -->
       <details class="sub-item" id="sub-teacher-quality" ontoggle="if(this.open)loadTeacherQuality()">
@@ -5105,6 +5119,7 @@
       </details>
 
       <script src="/js/adm-r2.js?v=1" defer></script><!-- 분할추출:adm-r2 -->
+      <script src="/js/adm-teacher-util.js?v=1" defer></script><!-- 📊 강사 가동률 (2026-08-04 신규) -->
 
             <!-- 🗑 [2026-08-04] ph179 카톡 평가 설문 블록 제거 — 위 정산통계관리와 같은 이유.
            발송·시뮬레이션·결과새로고침 3버튼 모두 담당 JS 가 없어 눌러도 아무 일이 없었다.
@@ -21224,6 +21239,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804061242 -->
 </body>
 </html>

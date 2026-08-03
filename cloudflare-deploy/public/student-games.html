@@ -385,6 +385,14 @@
     min-height:44px;padding:7px 10px;border-radius:11px;
     background:rgba(8,18,39,.55);border:1px dashed rgba(148,163,184,.5);
     backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+  /* 완성칸에 쌓인 단어 — 눌러서 뜻·소리를 다시 들을 수 있는 '버튼'임이 보이게 */
+  .bsent-chip{padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;
+    border:0;border-radius:8px;font-size:clamp(15px,2.2vmin,26px);font-weight:800;
+    font-family:inherit;cursor:pointer;min-height:40px;line-height:1.2;
+    box-shadow:0 2px 8px rgba(5,150,105,.45)}
+  .bsent-chip:hover{filter:brightness(1.12)}
+  .bsent-chip:active{transform:scale(.95)}
+  @media (min-width:820px){ .bsent-chip{min-height:46px;padding:10px 18px} }
 
   /* 📚 결과 화면 '오늘 복습할 항목' — 기본(폰) 크기 */
   .rv-head{font-size:14px;color:#fbbf24;font-weight:700;margin-bottom:6px;text-align:center}
@@ -3030,10 +3038,21 @@ function gameBalloonSentPop(el){
   var built = document.getElementById('bsent-built');
   var emp = document.getElementById('bsent-empty'); if(emp) emp.remove();
   if(built){
-    var sp = document.createElement('span');
-    sp.textContent = el.dataset.w;
+    /* 🔊 (2026-08-04 사장님 지시) 완성칸에 쌓인 단어도 **누르면 뜻과 소리**가 나온다.
+       뜻 말풍선은 벽돌 모드가 쓰던 _brickShowWordHint 를 그대로 재사용한다
+       (사전 조회·위치 보정·다시 듣기까지 이미 들어 있다 — 새로 만들 이유가 없다). */
+    var word = el.dataset.w;
+    var sp = document.createElement('button');
+    sp.type = 'button';
+    sp.className = 'bsent-chip';
+    sp.textContent = word;
+    sp.title = '눌러서 뜻·소리 듣기';
     if(GAME_LANG==='zh') sp.setAttribute('lang','zh-CN');
-    sp.style.cssText = 'padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-radius:8px;font-size:clamp(15px,2.2vmin,26px);font-weight:800';
+    sp.onclick = function(ev){
+      if(ev && ev.stopPropagation) ev.stopPropagation();
+      try{ window.gameSpeak && gameSpeak(word); }catch(_){}
+      try{ _brickShowWordHint(sp, word); }catch(_){}
+    };
     built.appendChild(sp);
   }
   if(cur.picked.length >= cur.words.length){
@@ -3055,7 +3074,9 @@ function _balloonSentComplete(){
   if(_gameState._advTimer){ clearTimeout(_gameState._advTimer); _gameState._advTimer = null; }
   _gameState.correct++;
   _gameUpdateScore();
-  if(fb) fb.innerHTML = '<span style="color:#10b981">🎉 문장 완성!</span>';
+  /* 완성칸 단어가 눌린다는 걸 한 번 알려 준다 — 모르면 아무도 안 누른다 */
+  if(fb) fb.innerHTML = '<span style="color:#10b981">🎉 문장 완성!</span>' +
+    ' <span style="color:#94a3b8;font-size:.9em">아래 단어를 누르면 뜻·소리를 다시 들어요</span>';
 
   var listened = 0, rep = 0, scores = [];
 
@@ -3285,7 +3306,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804061242 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

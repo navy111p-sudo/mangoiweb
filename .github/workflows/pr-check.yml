@@ -1,0 +1,71 @@
+name: PR 검증 (배포 안 함)
+
+# 이 워크플로는 **절대 배포하지 않는다.**
+#   · 배포는 deploy.yml (main push) 과 로컬 deploy.ps1 두 경로뿐이다.
+#   · 여기는 PR 을 열었을 때 "머지해도 되는 코드인가"만 본다.
+#
+# 왜 만들었나 (2026-08-04):
+#   그전까지 이 저장소의 워크플로는 deploy.yml / android.yml 둘뿐이었고
+#   **둘 다 main push 에만 걸려 있었다.** 즉 PR 단계에서 도는 검사가 하나도 없었고,
+#   문제가 있어도 main 에 머지되어 실서비스로 나간 뒤에야 알 수 있었다.
+#   (Claude Code 의 CI 패널이 늘 "보고된 검사가 없습니다" 였던 이유가 이것)
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 같은 PR 에 push 가 연달아 오면 이전 실행은 취소 (배포가 아니라 검사이므로 취소해도 안전)
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: 타입체크 + 인라인 JS 문법 + 회귀 하니스
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'cloudflare-deploy/package-lock.json'
+
+      - name: Install dependencies (cloudflare-deploy)
+        working-directory: cloudflare-deploy
+        run: npm ci
+
+      # ─── 1) TypeScript 컴파일 (차단) ───
+      # deploy.yml 의 같은 검사는 continue-on-error 라 실패해도 배포가 진행된다.
+      # 여기서는 차단한다 — 머지 전에 잡는 것이 이 워크플로의 존재 이유다.
+      - name: TypeScript check (src/*.ts)
+        working-directory: cloudflare-deploy
+        run: npx tsc --noEmit
+
+      # ─── 2) 인라인 JS 문법 게이트 (차단) ───
+      # 2026-07-23 장애 재발 방지용. tsc 는 src/*.ts 만 보므로
+      # public/*.html 안의 <script> 블록이 깨져도 절대 못 잡는다.
+      - name: Inline JS syntax gate (HTML <script> + .js)
+        run: node test-harness/inline_js_syntax_harness.mjs
+
+      # ─── 3) 회귀 하니스 --fast (차단) ───
+      # puppeteer E2E 는 제외되므로 npm 의존성 없이 node 내장 모듈만으로 돈다.
+      # 기준선(2026-08-04): PASS 59 / SKIP(E2E) 19 / FAIL 0
+      #
+      # ⚠ 참고: --fast 대상 중 admin_auth_gate / admin_404_apis 두 개는
+      #   라이브(test.mangoi.co.kr)로 실제 요청을 보낸다. 라이브가 잠깐 흔들리면
+      #   PR 과 무관하게 빨간불이 날 수 있다. run.mjs 가 1회 재시도로 흡수하지만,
+      #   이 두 개만 실패했다면 내 PR 문제가 아닐 가능성을 먼저 의심할 것.
+      - name: Regression harness (--fast)
+        run: node test-harness/run.mjs --fast
+
+      - name: 요약
+        if: always()
+        run: echo "이 워크플로는 검증만 합니다. 배포는 main push 시 deploy.yml 이 담당합니다."
