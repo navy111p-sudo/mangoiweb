@@ -367,12 +367,37 @@
   /* 🎈 각 풍선 좌우 흔들림(제각각 폭·주기) — 따로따로 랜덤 낙하 느낌 */
   @keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}
   /* ===== 🖥️ PC(넓은 화면) — 인라인 게임 중앙 글자·카드 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+  /* 📚 결과 화면 '오늘 복습할 항목' — 기본(폰) 크기 */
+  .rv-head{font-size:14px;color:#fbbf24;font-weight:700;margin-bottom:6px;text-align:center}
+  .rv-row{display:flex;align-items:center;gap:10px;background:rgba(15,23,42,.6);
+    border:1px solid #334155;border-radius:10px;padding:8px 12px;margin:5px 0}
+  .rv-say{background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.5);color:#86efac;
+    border-radius:8px;padding:6px 11px;cursor:pointer;font-size:16px;font-family:inherit;flex:none}
+  .rv-word{font-weight:700;color:#f1f5f9;font-size:16px;line-height:1.3}
+  .rv-py{font-size:13px}
+  .rv-ko{font-size:13px;color:#94a3b8}
+  .rv-title{font-size:26px}
+  .rv-sub{font-size:14px}
+
   @media (min-width:820px){
+    /* 🖥 PC 에서는 확실히 키운다 — 예전 크기(병음·뜻 12px)는 모니터에서 읽히지 않았다.
+       글자만 키우면 칸이 좁아 두 줄로 접히므로 칸 너비·여백도 함께 올린다. */
+    .rv-head{font-size:19px;margin-bottom:11px}
+    .rv-row{gap:15px;padding:14px 20px;margin:9px 0;border-radius:13px;max-width:760px;margin-left:auto;margin-right:auto}
+    .rv-say{font-size:23px;padding:10px 16px}
+    .rv-word{font-size:26px}
+    .rv-py{font-size:18px}
+    .rv-ko{font-size:17px}
+    .rv-title{font-size:38px}
+    .rv-sub{font-size:19px}
+
     #game-area .brick-btn{font-size:clamp(24px,3.5vmin,46px)!important;padding:clamp(16px,2.4vmin,28px) clamp(24px,3.4vmin,44px)!important}
     #game-area .match-card{font-size:clamp(26px,4.4vmin,52px)!important}
     #game-area .match-card > span{font-size:clamp(42px,6.6vmin,78px)!important}
     #game-area .match-card div span{font-size:clamp(24px,4vmin,48px)!important}
     #game-area .balloon{font-size:clamp(24px,3.4vmin,40px)!important}
+    /* 풍선 위 병음은 인라인 11~15px 로 박혀 있어 PC 에서 안 읽힌다 → !important 로 키운다 */
+    #game-area .balloon .pinyin{font-size:clamp(15px,2.1vmin,22px)!important}
     #game-area .fill-sentence{font-size:clamp(40px,5vw,64px)!important;padding:30px 42px!important}
     #game-area [onclick^="gameFillCheck"]{font-size:clamp(36px,3.75vw,48px)!important;padding:32px 24px!important}
   }
@@ -1339,13 +1364,15 @@ function _reviewPanelHtml(){
     if(!items.length) return '';
     var rows=items.slice(0,6).map(function(w){
       var em=w._sent?'📝':(_emojiFor(w,'word')||'🔤');
-      return '<div style="display:flex;align-items:center;gap:10px;background:rgba(15,23,42,.6);border:1px solid #334155;border-radius:10px;padding:8px 12px;margin:5px 0">'
-        +'<button onclick="_say(\''+encodeURIComponent(w.en)+'\')" style="background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.5);color:#86efac;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:16px">🔊</button>'
-        +'<div style="text-align:left;flex:1"><div style="font-weight:700;color:#f1f5f9">'+em+' '+w.en+'</div>'
-        +(w.pinyin?'<div class="pinyin" style="font-size:12px">'+w.pinyin+'</div>':'')
-        +(w.ko?'<div style="font-size:12px;color:#94a3b8">'+w.ko+'</div>':'')+'</div></div>';
+      /* 📏 (2026-08-04) 크기는 인라인이 아니라 클래스로 — PC에서 키우려면 미디어쿼리가 이겨야 한다.
+         예전엔 병음·뜻이 12px 로 못박혀 있어 PC에서 눈에 안 들어왔다(사장님 지적). */
+      return '<div class="rv-row">'
+        +'<button class="rv-say" onclick="_say(\''+encodeURIComponent(w.en)+'\')">🔊</button>'
+        +'<div style="text-align:left;flex:1"><div class="rv-word">'+em+' '+w.en+'</div>'
+        +(w.pinyin?'<div class="pinyin rv-py">'+w.pinyin+'</div>':'')
+        +(w.ko?'<div class="rv-ko">'+w.ko+'</div>':'')+'</div></div>';
     }).join('');
-    return '<div style="margin-top:12px;text-align:left"><div style="font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:6px;text-align:center">📚 오늘 복습할 항목 (🔊 눌러 다시 들어요)</div>'+rows+'</div>';
+    return '<div style="margin-top:12px;text-align:left"><div class="rv-head">📚 오늘 복습할 항목 (🔊 눌러 다시 들어요)</div>'+rows+'</div>';
   }catch(_){ return ''; }
 }
 function _gameOver(){
@@ -1357,8 +1384,8 @@ function _gameOver(){
   var area=document.getElementById('game-area'); if(area) area.innerHTML=
     '<div style="text-align:center;max-width:560px;margin:0 auto;padding:20px">'
     +'<div style="font-size:52px;margin-bottom:6px">💪</div>'
-    +'<div style="font-size:26px;font-weight:800;color:#fbbf24;margin-bottom:4px">아깝다! 다시 도전해요</div>'
-    +'<div style="font-size:14px;color:#94a3b8;margin-bottom:6px">정답 '+_gameState.correct+'개 · 점수 '+_gameState.score+' · 정확도 '+acc+'% · 최고 콤보 🔥'+_comboBest+'</div>'
+    +'<div class="rv-title" style="font-weight:800;color:#fbbf24;margin-bottom:4px">아깝다! 다시 도전해요</div>'
+    +'<div class="rv-sub" style="color:#94a3b8;margin-bottom:6px">정답 '+_gameState.correct+'개 · 점수 '+_gameState.score+' · 정확도 '+acc+'% · 최고 콤보 🔥'+_comboBest+'</div>'
     + _reviewPanelHtml()
     +'<div style="display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap">'
     +'<button onclick="gameInit()" style="padding:14px 28px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer">🔄 다시 도전</button>'
@@ -3129,7 +3156,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260804034717 -->
+<!-- BUILD:20260804041001 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
