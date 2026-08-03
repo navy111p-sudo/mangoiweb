@@ -8223,6 +8223,42 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. 전환률 통계 -->
+      <!-- 🪑 대기자 명단 (2026-08-04 신규) — 원하는 시간에 자리가 없어 상담이 끊기던 것을 줄로 세운다.
+           희망 요일·시간을 적으면 그 시간이 비어 있는 강사를 서버가 즉시 계산해 보여준다. -->
+      <details class="sub-item" id="sub-waitlist" ontoggle="if(this.open&&window.loadWaitlist)loadWaitlist()">
+        <summary data-ko="🪑 대기자 명단 (자리 나면 연락)" data-en="🪑 Waitlist">🪑 대기자 명단 (자리 나면 연락)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <input id="wl-name" type="text" placeholder="학생 이름" data-ko-placeholder="학생 이름" data-en-placeholder="Student name" style="padding:7px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
+            <input id="wl-phone" type="text" placeholder="연락처" data-ko-placeholder="연락처" data-en-placeholder="Phone" style="padding:7px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
+            <select id="wl-day" style="padding:7px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+              <option value="" data-ko="희망 요일" data-en="Preferred day">희망 요일</option>
+              <option value="1" data-ko="월" data-en="Mon">월</option>
+              <option value="2" data-ko="화" data-en="Tue">화</option>
+              <option value="3" data-ko="수" data-en="Wed">수</option>
+              <option value="4" data-ko="목" data-en="Thu">목</option>
+              <option value="5" data-ko="금" data-en="Fri">금</option>
+              <option value="6" data-ko="토" data-en="Sat">토</option>
+              <option value="0" data-ko="일" data-en="Sun">일</option>
+            </select>
+            <input id="wl-time" type="time" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+            <input id="wl-note" type="text" placeholder="메모 (선택)" data-ko-placeholder="메모 (선택)" data-en-placeholder="Note (optional)" style="padding:7px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;flex:1;min-width:120px">
+            <button type="button" class="primary" onclick="window.addWaitlist&&addWaitlist()" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="＋ 대기 등록" data-en="＋ Add">＋ 대기 등록</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+            <select id="wl-filter" onchange="window.loadWaitlist&&loadWaitlist()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+              <option value="waiting" data-ko="⏳ 대기중" data-en="⏳ Waiting">⏳ 대기중</option>
+              <option value="all" data-ko="전체" data-en="All">전체</option>
+              <option value="enrolled" data-ko="✅ 등록됨" data-en="✅ Enrolled">✅ 등록됨</option>
+              <option value="cancelled" data-ko="✖ 취소" data-en="✖ Cancelled">✖ 취소</option>
+            </select>
+            <span id="wl-summary" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <div id="wl-note-box" style="font-size:11.5px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:9px 12px;margin-bottom:10px;line-height:1.7"></div>
+          <div id="wl-wrap" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
       <details class="sub-item" id="sub-inquiry-stats">
         <summary data-ko="📈 전환률 통계" data-en="📈 Conversion Stats">📈 전환률 통계</summary>
         <div class="sub-body">
@@ -8256,6 +8292,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 <script src="/js/adm-r7.js?v=1" defer></script><!-- 분할추출:adm-r7 -->
+<script src="/js/adm-waitlist.js?v=1" defer></script><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
 
 <!-- 💰 Phase F2 — 미납 알림 JS 모듈 -->
 <script src="/js/adm-r8.js?v=1" defer></script><!-- 분할추출:adm-r8 -->
