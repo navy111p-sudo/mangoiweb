@@ -61,10 +61,14 @@ console.log('\n[ C. 코드에도 마지막 방어선이 있는가 — DB 필터�
 console.log('\n[ D. 다 걸러져 문제가 0개가 되면 안내로 돌려보내는가 ]');
 {
   // 빈 배열을 ok:true 로 내보내면 화면이 '문제 0개짜리 결과창'으로 떨어집니다
-  check('quizzes 가 비면 no_words 로 응답한다',
-    /if \(!quizzes\.length\) return json\(\{ ok: false, error: 'no_words'/.test(genQuiz));
-  check('클라이언트가 no_words 를 안내 화면으로 처리한다',
-    /d\.error === 'no_words'/.test(readFileSync(resolve(__dir, '../cloudflare-deploy/public/micro-quiz.html'), 'utf8')));
+  // (2026-08-04) 오류코드를 no_words / no_usable_words 로 나눴습니다 —
+  //   "단어장이 빔" 과 "단어는 있는데 뜻이 없어 못 냄" 은 학생이 할 일이 다릅니다.
+  //   여기서 지켜야 할 계약은 코드 이름이 아니라 'ok:true 로 내보내지 않는다' 입니다.
+  const mqHtml = readFileSync(resolve(__dir, '../cloudflare-deploy/public/micro-quiz.html'), 'utf8');
+  check('quizzes 가 비면 ok:false 로 응답한다',
+    /if \(!quizzes\.length\)[\s\S]{0,400}?ok: false, error: '(no_words|no_usable_words)'/.test(genQuiz));
+  check('클라이언트가 그 오류를 안내 화면으로 처리한다',
+    /d\.error === 'no_words'/.test(mqHtml) && /d\.error === 'no_usable_words'/.test(mqHtml));
 }
 
 console.log('\n[ E. 들어오는 쪽(파일 업로드)의 인코딩 복구가 살아 있는가 ]');
