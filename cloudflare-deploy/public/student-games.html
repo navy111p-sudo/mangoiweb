@@ -2623,12 +2623,22 @@ function gameRenderBalloon(){
     const swayT = (Math.random() * 1.6 + 1.4).toFixed(2);      // 흔들림 주기(초)
     const c = colors[i];
     var _bpin = b.pinyin ? '<div class="pinyin" style="font-size:clamp(11px,1.6vmin,15px);color:#e0f2fe;margin-top:2px">' + b.pinyin + '</div>' : '';
+    /* 🎈 (2026-08-04) 풍선마다 '크기가 달라 보이던' 진짜 원인 — 풍선 크기는 원래 다 같았고,
+       **글자가 줄바꿈**돼서 모양이 달라 보였다(大减价 → "大减 / 价", 一块儿 → "一块 / 儿").
+       글자를 한 줄로 고정하고, 긴 낱말은 글자 크기만 줄여서 **네 풍선의 모양을 똑같이** 맞춘다. */
+    var _txt = String(b.en || '');
+    var _len = (GAME_LANG === 'zh') ? _txt.replace(/\s/g,'').length : _txt.length;
+    var _fs  = (GAME_LANG === 'zh')
+      ? (_len <= 1 ? 'clamp(20px,3.0vmin,34px)' : _len === 2 ? 'clamp(17px,2.5vmin,29px)'
+        : _len === 3 ? 'clamp(13px,1.9vmin,22px)' : 'clamp(11px,1.6vmin,18px)')
+      : (_len <= 4 ? 'clamp(14px,2.1vmin,23px)' : _len <= 6 ? 'clamp(12px,1.8vmin,20px)'
+        : _len <= 8 ? 'clamp(10px,1.5vmin,17px)' : 'clamp(9px,1.3vmin,15px)');
     html += '<div class="balloon" data-en="' + b.en + '" data-color="' + c.solid + '" data-spd="' + spd.toFixed(3) + '" onclick="gameBalloonPop(this)" ' +
       'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;width:clamp(67px,10.5vmin,118px);height:clamp(81px,12.6vmin,140px);' +
       'background:' + c.bg + ';border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;' +
       'box-shadow:0 8px 30px ' + c.shadow + ', inset -10px -10px 30px rgba(0,0,0,0.2);' +
-      'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:clamp(13px,1.9vmin,21px);cursor:pointer;' +
-      'transition:transform 0.2s"><div style="text-align:center">' +
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:' + _fs + ';cursor:pointer;' +
+      'transition:transform 0.2s"><div style="text-align:center;white-space:nowrap;line-height:1.1;text-shadow:0 1px 3px rgba(0,0,0,.45)">' +
       b.en + _bpin + '</div>' +
       '<div style="position:absolute;bottom:-30px;left:50%;width:2px;height:30px;background:rgba(255,255,255,0.3);transform:translateX(-50%)"></div>' +
       '</div>';
@@ -2846,7 +2856,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260804000655 -->
+<!-- BUILD:20260804003745 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
