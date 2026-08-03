@@ -84,19 +84,93 @@
           font-size: 8px; color: #a6b2be; }
   .foot b { color: #ff8a1e; }
 
+
+  /* ── 🎨 색 (2026-08-04) — 인쇄·화면 공통.
+     흑백 표는 정보는 맞지만 읽고 싶어지지 않는다. 항목마다 고유색을 줘서
+     "여섯 개의 서로 다른 이야기"라는 게 한눈에 보이게 한다. */
+  table tr:nth-child(2) td:first-child { border-left: 5px solid #ff8a1e; }
+  table tr:nth-child(3) td:first-child { border-left: 5px solid #2f9e6d; }
+  table tr:nth-child(4) td:first-child { border-left: 5px solid #3b7fd4; }
+  table tr:nth-child(5) td:first-child { border-left: 5px solid #8b5cf6; }
+  table tr:nth-child(6) td:first-child { border-left: 5px solid #e0435f; }
+  table tr:nth-child(7) td:first-child { border-left: 5px solid #0e9aa7; }
+  table tr:nth-child(n+2) td:first-child { padding-left: 11px; }
+  table tr:nth-child(even) td { background: #fbfcfd; }
+
+  .step:nth-child(1){ border-left-color:#ff8a1e; background:#fff8f0 }
+  .step:nth-child(2){ border-left-color:#2f9e6d; background:#f2fbf6 }
+  .step:nth-child(3){ border-left-color:#3b7fd4; background:#f2f7fd }
+  .step:nth-child(4){ border-left-color:#8b5cf6; background:#f8f5ff }
+
+  .fx:nth-child(1){ border-left:5px solid #ff8a1e; background:#fff8f0 }
+  .fx:nth-child(2){ border-left:5px solid #0e9aa7; background:#f0fafb }
+  .fx:nth-child(3){ border-left:5px solid #8b5cf6; background:#f8f5ff }
+
+  .ch:nth-child(1){ background:#f7fbff; border-color:#cfe0f3 }
+  .ch:nth-child(2){ background:#fff9f3; border-color:#ffdcbb }
+
+  h1 { background: linear-gradient(90deg,#17242f 0%,#17242f 55%,#c2610a 100%);
+       -webkit-background-clip: text; background-clip: text; }
+
   /* ── 🌐 화면(웹)에서만 적용 — 인쇄(@media print)는 위 기본값 그대로라 A4 1장이 유지된다.
         인쇄용 크기(표 10.3px 등)는 모니터·폰에서 읽기엔 작다. ── */
+  /* 🔴 (2026-08-04) 화면에서 글자가 너무 작다는 지적 — 원인은 폰트가 아니라 **폭**이었다.
+     .page 가 인쇄용 210mm(794px)에 묶여 있어서, 큰 모니터에서도 가운데 작은 종이 한 장처럼
+     보이고 그 안의 글자는 인쇄용 크기(10~12px) 그대로였다.
+     → 화면에서는 폭을 1180px 까지 열고 글자도 1.4~1.6배로 키운다.
+       인쇄(@media print)는 위 기본값을 그대로 쓰므로 **A4 1장은 그대로**다. */
   @media screen {
-    .page { min-height: auto; box-shadow: 0 2px 18px rgba(23,36,47,.08); border-radius: 4px; }
-    .lead { font-size: 13.5px; }
-    td { font-size: 12px; padding: 8px 8px; }
-    td.th1 small { font-size: 9.5px; }
-    .ch .cn, .ch .ct { font-size: 12.5px; }
-    .ch .cs, .lg { font-size: 11px; }
-    .fq { font-size: 12px; } .fa { font-size: 12px; }
-    .step .st { font-size: 12px; } .step .sd { font-size: 10.5px; }
-    .refs li { font-size: 9px; } .refs .rt { font-size: 10.5px; }
-    .foot { font-size: 9.5px; }
+    body { background: #eef1f4; }
+    .page { min-height: auto; max-width: 1180px; padding: 26px 34px 30px;
+            box-shadow: 0 6px 30px rgba(23,36,47,.10); border-radius: 14px; margin: 14px auto; }
+    h1 { font-size: 40px; letter-spacing: -1.4px; margin-top: 16px; }
+    .lead { font-size: 18px; line-height: 1.72; margin-top: 12px; }
+    .lead-en { font-size: 13px; margin-top: 6px; }
+    .brand { font-size: 28px; } .brand small { font-size: 13px; }
+    .kicker { font-size: 13px; }
+
+    .sec { font-size: 21px; margin-top: 26px; padding-bottom: 8px; }
+    .sec em { font-size: 13px; margin-left: 9px; }
+
+    .charts { gap: 16px; margin-top: 18px; }
+    .ch { padding: 16px 18px 15px; border-radius: 14px; }
+    .ch .ct { font-size: 19px; }
+    .ch .cs { font-size: 13px; margin-top: 3px; }
+    .ch .cn { font-size: 15.5px; line-height: 1.65; margin-top: 10px; padding-top: 10px; }
+    .lg { font-size: 14px; gap: 18px; margin-top: 6px; }
+    .lg i { width: 14px; height: 14px; }
+
+    table { margin-top: 12px; }
+    th { font-size: 13.5px; padding: 9px 12px; }
+    td { font-size: 16px; padding: 14px 12px; line-height: 1.6; }
+    td.th1 { font-size: 17px; }
+    td.th1 small { font-size: 12px; margin-top: 3px; }
+
+    .flow { gap: 10px; margin-top: 14px; }
+    .step { padding: 12px 15px 13px; border-radius: 11px; border-left-width: 5px; }
+    .step .st { font-size: 17px; }
+    .step .sd { font-size: 14px; margin-top: 4px; }
+
+    .fix { gap: 12px; margin-top: 14px; }
+    .fx { padding: 14px 17px 15px; border-radius: 11px; }
+    .fq { font-size: 16px; } .fq b { font-size: 19px; } .fq span { font-size: 18px; }
+    .fa { font-size: 16.5px; margin-top: 8px; padding-top: 8px; }
+
+    .refs { padding-top: 14px; margin-top: 26px; }
+    .refs .rt { font-size: 14px; margin-bottom: 6px; }
+    .refs li { font-size: 11.5px; line-height: 1.6; margin-bottom: 3px; }
+    .note { font-size: 11.5px; margin-top: 8px; }
+    .foot { font-size: 12.5px; margin-top: 12px; }
+    .tn-btn { min-height: 46px; font-size: 15.5px; padding: 0 18px; }
+    .whofor { font-size: 13.5px; padding: 6px 15px; }
+  }
+  /* 태블릿·좁은 창 — 1180px 를 다 못 쓰는 폭에서는 조금 줄인다 */
+  @media screen and (max-width: 1000px) {
+    .page { padding: 20px 20px 24px; }
+    h1 { font-size: 31px; }
+    .lead { font-size: 16px; }
+    .sec { font-size: 18.5px; }
+    td { font-size: 15px; }
   }
 
   /* ── 상단바 (허브와 같은 모양) ── */
@@ -115,14 +189,23 @@
      (820px 로 뒀더니 인쇄·PDF 까지 폰 레이아웃으로 나왔다). */
   @media screen and (max-width: 700px) {
     body { background: #fff; }
-    .page { min-height: 0; padding: 16px 14px 22px; }
+    .page { min-height: 0; padding: 16px 14px 22px; margin: 0; border-radius: 0; box-shadow: none; }
+    h1 { font-size: 26px; }
+    .lead { font-size: 15.5px; }
+    .sec { font-size: 17px; margin-top: 20px; }
+    td { font-size: 14.5px; padding: 11px 9px; }
+    td.th1 { font-size: 15.5px; }
+    .ch .ct { font-size: 17px; } .ch .cn { font-size: 14px; }
+    .fq { font-size: 14.5px; } .fa { font-size: 15px; }
+    .step .st { font-size: 15.5px; } .step .sd { font-size: 13px; }
+    .note { font-size: 11px; }
     .charts { grid-template-columns: 1fr; }
     .flow { flex-wrap: wrap; }
     .step { flex: 1 1 45%; }
     .fix { grid-template-columns: 1fr; }
     .refs ol { columns: 1; }
-    h1 { font-size: 23px; }
-    td, .lead { font-size: 12px; }
+    /* ⚠️ 예전 규칙(h1 23px / td·lead 12px)이 이 블록 **뒤쪽**에 있어서 위의 확대를 덮어쓰고 있었다.
+       같은 미디어쿼리 안에서는 나중 규칙이 이긴다 — 실측으로 잡았다(폰 리드가 12px 로 남아 있었음). */
   }
 </style>
 </head>
@@ -311,7 +394,7 @@
       <li>MacIntyre, P. D. — Willingness to Communicate. / Krashen, S. — Affective Filter. / AI conversation bots &amp; L2 speaking anxiety (2025). <i>Humanit. Soc. Sci. Commun.</i></li>
       <li>Gamification &amp; intrinsic motivation: minimal impact on competency — meta-analysis (2023). <i>ETR&amp;D</i>. / Deci &amp; Ryan — Self-Determination Theory.</li>
     </ol>
-    <div style="font-size:6.9px;color:#a6b2be;margin-top:3px">
+    <div class="note">
       ※ 왼쪽 그림은 망각·분산복습 연구를 바탕으로 한 <b>개념 그림</b>입니다. 오른쪽 그림은 망고아이 채점기로 <b>실제 측정한 점수</b>입니다.
     </div>
   </div>
@@ -323,6 +406,6 @@
 
 </div>
 <script defer src="/js/back-nav.js"></script>
-<!-- BUILD:20260803234654 -->
+<!-- BUILD:20260804000655 -->
 </body>
 </html>
