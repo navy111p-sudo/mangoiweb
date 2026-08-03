@@ -378,6 +378,33 @@ console.log('\n[ M. 레벨 찾기(배치테스트) — 6문항으로 출발점 �
     /requestScenario\(null, 0, plBand, 'auto', 0, 'placement'\)/.test(HTML));
 }
 
+console.log('\n[ N. 강사·관리자 화면에 레벨이 닿는가 ]');
+{
+  const SRVT = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-teacher.ts'), 'utf8');
+  const TEA = readFileSync(resolve(__dir, '../cloudflare-deploy/public/teacher.html'), 'utf8');
+  const ADM = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-admin.ts'), 'utf8');
+  const SRVJ4 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
+
+  check('밴드 조회 함수가 공개돼 있다', /export async function getReadingBandFor/.test(SRVJ4));
+  // ★ 훈련한 적 없는 학생에게 기본값을 보여주면 강사가 "이 아이는 초급이구나" 하고 오해합니다
+  check('기록이 없으면 null 을 준다(기본값으로 채우지 않는다)', /const st = await readBandState[\s\S]{0,120}if \(!st\) return null/.test(SRVJ4));
+  check('강사 다수가 필리핀이라 한/영 이름을 함께 준다', /name_ko: bandName\([\s\S]{0,60}name_en: bandName/.test(SRVJ4));
+
+  check('강사 포털이 오늘 수업에 밴드를 얹는다', /getReadingBandFor/.test(SRVT));
+  check('학생 수만큼만 병렬 조회한다(중복 제거)', /\[\.\.\.new Set\(classes\.map[\s\S]{0,200}Promise\.all/.test(SRVT));
+  check('조회 실패가 오늘 수업 표시를 막지 않는다', /catch \{ \/\* 밴드 조회 실패가 오늘 수업 표시를 막지 않는다/.test(SRVT));
+  check('강사 화면이 밴드를 표시한다', /c\.reading_band/.test(TEA));
+  check('강사 화면도 한/영을 가른다', /EN\(\) \? \(c\.reading_band_en/.test(TEA));
+
+  check('관리자 통계 엔드포인트가 있다', /path === '\/api\/admin\/stats\/judgment-bands'/.test(ADM));
+  check('목표 85% 와의 차이를 함께 준다', /off_target/.test(ADM));
+  // ★ 표본이 2건일 때 정답률을 근거로 쓰면 잘못된 튜닝을 합니다
+  check('표본이 적으면 경고를 함께 내려보낸다', /enough_data/.test(ADM) && /note_ko/.test(ADM));
+  check('새 테이블 없이 기존 기록에서 뽑는다', /FROM judgment_analysis/.test(ADM) && !/CREATE TABLE[\s\S]{0,80}band/.test(ADM));
+  // 새 API 경로를 index.ts(금지구역) 손대지 않고 붙이려면 이 접두사여야 합니다
+  check('금지구역을 피하는 접두사를 쓴다', /\/api\/admin\/stats\//.test(ADM));
+}
+
 console.log(`\n${'─'.repeat(60)}`);
 console.log(`판단력 읽기밴드 하니스: ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);
 if (FAIL) { console.log('\n실패 항목:'); FAILS.forEach((f) => console.log('  · ' + f)); }

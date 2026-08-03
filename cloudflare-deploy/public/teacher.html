@@ -568,6 +568,12 @@ body{
       var meta = [];
       if (c.level)    meta.push(esc(c.level));
       if (c.textbook) meta.push(esc(c.textbook));
+      // 🎚️ 판단력 훈련의 읽기 난이도 — 수업 전에 "이 아이가 지금 어느 정도 문장을 읽나"를 알려준다.
+      //   한 번도 훈련하지 않은 학생은 값이 없어 아무것도 붙지 않는다(빈 값을 기본값으로 채우지 않음).
+      if (c.reading_band) {
+        var rbName = EN() ? (c.reading_band_en || '') : (c.reading_band_ko || '');
+        if (rbName) meta.push('📖 ' + esc(rbName) + (c.reading_band_lv ? ' (' + esc(c.reading_band_lv) + ')' : ''));
+      }
       meta.push(c.duration_min + T(' min', '분'));
 
       // 🏷️ 망고아이 수업이 아닌 행(LMS 점유 슬롯 · 시연용 시드)은 '일정 표시'로만 그린다.

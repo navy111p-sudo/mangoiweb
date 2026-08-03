@@ -339,6 +339,49 @@ export async function handleAdminApi(
     //     · 가동률    = 배정시간 ÷ 가능시간
     //   ※ 일회성(one_off) 수업은 주간 반복 지표를 왜곡하므로 제외한다.
     // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎚️ GET /api/admin/stats/judgment-bands — 판단력 훈련 읽기 난이도 분포·적중도
+    //   ⚠️ 담당 밖(B) 이 추가한 핸들러입니다 — CLAUDE.md 4-2. 기존 코드는 건드리지 않고
+    //      이 블록만 덧붙였습니다. 옮기거나 지우셔도 판단력 기능 자체는 영향받지 않습니다.
+    //
+    //   이 수치가 이 기능의 유일한 성공 지표입니다. 밴드별 정답률이 목표 85%
+    //   (Wilson et al., Nature Comm. 2019 — 학습이 가장 빠른 지점)에서 얼마나 벗어났는지 봅니다.
+    //     · 85% 보다 훨씬 높다 → 그 밴드가 너무 쉽다(문장 기준을 올릴 것)
+    //     · 85% 보다 훨씬 낮다 → 너무 어렵다(내릴 것)
+    //   원천은 judgment_analysis.reasoning_features_json.reading_band — 새 테이블 없음.
+    //   ⚠️ 표본이 적으면 정답률은 의미가 없습니다. 그래서 n 을 반드시 함께 내려보냅니다.
+    // ═══════════════════════════════════════════════════════════════════
+    if (method === 'GET' && path === '/api/admin/stats/judgment-bands') {
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT CAST(json_extract(reasoning_features_json,'$.reading_band') AS INTEGER) AS band,
+                  COUNT(*) AS n,
+                  ROUND(AVG(is_optimal) * 100, 1) AS pct_correct,
+                  COUNT(DISTINCT student_uid) AS students
+             FROM judgment_analysis
+            WHERE json_extract(reasoning_features_json,'$.reading_band') IS NOT NULL
+            GROUP BY band ORDER BY band`
+        ).all<any>();
+        const rows = (rs.results || []).map((r: any) => ({
+          band: Number(r.band), n: Number(r.n) || 0,
+          pct_correct: r.pct_correct == null ? null : Number(r.pct_correct),
+          students: Number(r.students) || 0,
+          // 목표에서 얼마나 떨어졌는지 — 부호까지 봐야 올릴지 내릴지 판단할 수 있습니다
+          off_target: r.pct_correct == null ? null : Math.round((Number(r.pct_correct) - 85) * 10) / 10,
+        }));
+        const total = rows.reduce((s, r) => s + r.n, 0);
+        return json({
+          ok: true, target_pct: 85, total, bands: rows,
+          // 표본이 적을 때 정답률을 근거로 쓰지 않도록 화면에 경고 문구를 띄우기 위한 신호
+          enough_data: total >= 100,
+          note_ko: total >= 100 ? null : '표본이 적어 정답률은 아직 참고용입니다.',
+          note_en: total >= 100 ? null : 'Sample is small — accuracy is indicative only.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
     if (method === 'GET' && path === '/api/admin/stats/teacher-utilization') {
       try {
         const toMin = (hhmm: any) => {
