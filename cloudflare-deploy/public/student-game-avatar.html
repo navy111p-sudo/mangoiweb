@@ -540,6 +540,56 @@ function touchActivity(){ lsSet(LS.lastAct, Date.now()); ST.energy = 100; }
  *     15개 폼을 이미지 없이 절차적으로 그린다. 단계가 오르면
  *     크기·색·장신구(모자/헬멧/날개)가 함께 자란다.
  * ══════════════════════════════════════════════════════════════════════ */
+/* ── 아바타 원화(컷신과 같은 캐릭터) ──────────────────────────────────
+ * 홈 화면 아바타를 캔버스로만 그리면 진화 컷신에 나오는 캐릭터와 생김새가 달라
+ * 학생 눈에는 "내 캐릭터가 아닌데?" 가 된다. 그래서 컷신을 만든 그 원화를
+ * 배경만 지워 아바타 본체로 쓴다.
+ *   · 이미지가 아직 안 왔거나 없으면 기존 절차적 그림으로 폴백한다(깨지지 않는다).
+ *   · 알(tier 0)은 원화가 없으므로 계속 캔버스로 그린다.
+ *   · 정지 이미지라도 rAF 로 움직인다 — 숨쉬기·환호 때 눌렸다 튀기·졸릴 때 기울기.
+ * ------------------------------------------------------------------ */
+var AV_IMG = {};
+function getAvatarImg(spKey, tier){
+  if (tier < 1) return null;
+  var key = spKey + '-' + tier;
+  var e = AV_IMG[key];
+  if (e === undefined){
+    e = AV_IMG[key] = { img: new Image(), ok: false, dead: false };
+    e.img.onload  = function(){ e.ok = true; };
+    e.img.onerror = function(){ e.dead = true; };   // 없으면 조용히 캔버스 폴백
+    e.img.src = '/img/avatar/' + key + '.webp';
+  }
+  return (e.ok && !e.dead) ? e.img : null;
+}
+
+function drawAvatarImage(ctx, cx, y, R, img, mood, t){
+  var natW = img.naturalWidth || 768, natH = img.naturalHeight || 1376;
+  var h = R * 2.55, w = h * (natW / natH);
+  // 날개를 펼친 드래곤처럼 가로로 넓은 원화가 화면 밖으로 나가지 않게 폭도 제한한다
+  var maxW = R * 2.7;
+  if (w > maxW){ h *= maxW / w; w = maxW; }
+  // 기분에 따른 변형 — 이미지는 한 장이지만 움직임으로 표정을 대신한다
+  var sx = 1, sy = 1, rot = 0;
+  if (mood === 'cheer'){
+    var p = Math.abs(Math.sin(t / 150));
+    sy = 1 + p * 0.07; sx = 1 - p * 0.05;          // 위로 늘어나며 환호
+  } else if (mood === 'sleepy'){
+    rot = 0.06 + Math.sin(t / 1500) * 0.02;         // 꾸벅
+    sy = 1 - 0.02;
+  } else if (mood === 'sad'){
+    rot = -0.03; sy = 0.97;
+  } else {
+    var b = Math.sin(t / 900);
+    sy = 1 + b * 0.012; sx = 1 - b * 0.012;         // 숨쉬기
+  }
+  ctx.save();
+  ctx.translate(cx, y);
+  if (rot) ctx.rotate(rot);
+  ctx.scale(sx, sy);
+  try { ctx.drawImage(img, -w / 2, -h / 2, w, h); } catch(e){}
+  ctx.restore();
+}
+
 function rr(ctx, x, y, w, h, r){
   ctx.beginPath();
   ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -582,7 +632,10 @@ function drawAvatar(ctx, cx, cy, s, spKey, tier, mood, t){
 
   if (tier === 0){ drawEgg(ctx, cx, y, R, sp, t); ctx.restore(); return; }
 
-  if (spKey === 'panda')       drawPanda(ctx, cx, y, R, sp, tier, mood, t);
+  // 원화가 준비됐으면 그걸로 — 컷신에 나온 그 캐릭터와 같은 모습이어야 한다
+  var art = getAvatarImg(spKey, tier);
+  if (art)                     drawAvatarImage(ctx, cx, y, R, art, mood, t);
+  else if (spKey === 'panda')  drawPanda(ctx, cx, y, R, sp, tier, mood, t);
   else if (spKey === 'fox')    drawFox(ctx, cx, y, R, sp, tier, mood, t);
   else if (spKey === 'dog')    drawDog(ctx, cx, y, R, sp, tier, mood, t);
   else                         drawDragon(ctx, cx, y, R, sp, tier, mood, t);
