@@ -156,8 +156,23 @@
     <style>
         /* ── 전역 리셋 & 기본 설정 ── */
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* 🀄 한자 자형 통일 (2026-08-04) — student-games.html 과 **같은 규칙**.
+           원인: 한자 전용 글꼴 지정이 없으면 브라우저가 시스템 기본(한국 PC=맑은 고딕 등)으로
+                 그린다. 한국 폰트의 한자는 **한국식 자형**이고, 폰트에 없는 글자·병음 성조부호는
+                 글자마다 다른 폰트로 대체돼 획 굵기·모양이 제각각이 된다.
+           해결: unicode-range 로 **한자·병음 성조부호 구간에만** 중국어 글꼴 적용.
+                 한글·영문은 범위 밖이라 무영향, local() 만 써서 다운로드 0바이트.
+           ⚠️ 화상수업 중국어 게임(풍선·벽돌 등)이 이 규칙에 의존한다. 지우지 말 것. */
+        @font-face {
+            font-family: 'MangoiHanSC';
+            src: local('Noto Sans SC'), local('Noto Sans CJK SC'), local('Source Han Sans SC'),
+                 local('PingFang SC'), local('Microsoft YaHei'), local('微软雅黑'),
+                 local('Hiragino Sans GB'), local('Heiti SC'), local('SimHei');
+            unicode-range: U+2E80-2EFF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+0100-017F, U+01CD-01DC;
+            font-display: swap;
+        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'MangoiHanSC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: #0f172a;      /* 어두운 남색 배경 */
             color: #e2e8f0;           /* 밝은 회색 텍스트 */
             min-height: 100vh;
@@ -28476,7 +28491,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260804010359 -->
+<!-- BUILD:20260804013005 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){

@@ -30,7 +30,28 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
-  body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);min-height:100dvh;
+
+  /* 🀄 한자 자형 통일 (2026-08-04 사장님 지적: "한자가 다 달라")
+     원인: 이 페이지 본문 글꼴이 'Noto Sans KR' = **한국어 폰트**다. 한국 폰트에도 한자는 들어 있지만
+           **한국식 자형(강희자전 계열)** 이라 중국 간체 표준 자형과 모양이 다르다.
+           게다가 그 폰트에 없는 한자·병음 성조부호(ǎ ě ǐ ǒ ǔ)는 브라우저가 **글자 하나하나마다
+           제각각 다른 폰트로** 대체한다 → 같은 화면에서 획 굵기·모양이 들쭉날쭉해진다.
+           (풍선 디자인은 동일한데 글자만 달라 보이던 이유가 이것)
+     해결: unicode-range 로 **한자 구간과 병음 성조부호 구간에만** 중국어 글꼴을 지정한다.
+           · 한글·일반 영문은 범위 밖이라 전혀 건드리지 않는다.
+           · local() 만 쓰므로 **웹폰트 다운로드 0바이트** (경량 원칙 유지).
+           · 중국어 폰트가 없는 기기에서는 조용히 종전대로 폴백된다(무해).
+     ⚠️ 이 규칙을 지우면 한자가 다시 한국식 자형으로 섞여 보인다. */
+  @font-face{
+    font-family:'MangoiHanSC';
+    src:local('Noto Sans SC'),local('Noto Sans CJK SC'),local('Source Han Sans SC'),
+        local('PingFang SC'),local('Microsoft YaHei'),local('微软雅黑'),
+        local('Hiragino Sans GB'),local('Heiti SC'),local('SimHei');
+    /* 한자(CJK 통합·확장A·호환) + 병음 성조부호(마크론·캐런) */
+    unicode-range:U+2E80-2EFF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+0100-017F,U+01CD-01DC;
+    font-display:swap;
+  }
+  body{font-family:'MangoiHanSC','Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);min-height:100dvh;
     /* 🌤️ 밝은 하늘색 균일 배경(위·아래 톤차이 없앰) */
     background:#9ed6fb;
     background:linear-gradient(180deg,#a9ddff 0%,#8fcef8 100%);background-attachment:fixed}
@@ -2657,7 +2678,11 @@ function gameRenderBalloon(){
       'background-size:100% 100%;background-repeat:no-repeat;' +
       'filter:drop-shadow(0 10px 18px ' + c.shadow + ');' +
       'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:' + _fs + ';cursor:pointer;' +
-      'transition:transform 0.2s"><div style="text-align:center;white-space:nowrap;line-height:1.1;margin-top:-6%;' +
+      /* 🀄 중국어 단어(병음이 있으면 중국어)에는 lang="zh-CN" 을 붙인다.
+         범용 CJK 폰트(한·중·일 자형을 한 파일에 담은 것)를 쓰는 기기에서는 이 표시가 있어야
+         브라우저가 **중국 간체 자형**을 고른다. 위 @font-face 와 이중 안전장치. */
+      'transition:transform 0.2s"><div ' + (b.pinyin ? 'lang="zh-CN" ' : '') +
+      'style="text-align:center;white-space:nowrap;line-height:1.1;margin-top:-6%;' +
       /* 노랑·은색·금색 풍선 위에서도 읽히도록 — 흰 글자 + 검은 외곽선·그림자 */
       'text-shadow:0 1px 2px rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.55);-webkit-text-stroke:.6px rgba(0,0,0,.5)">' +
       b.en + _bpin + '</div>' +
@@ -2877,7 +2902,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260804010359 -->
+<!-- BUILD:20260804013005 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
