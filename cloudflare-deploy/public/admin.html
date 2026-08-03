@@ -20159,6 +20159,38 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num { background: rgba(217,119,6,0.22) !important; color: #92400e !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #b45309 !important; }
 
+  /* ⚡ '자주 쓰는 기능'(#ph161-quick) — 아이보리 테마 가독성
+     ─────────────────────────────────────────────────────────────
+     🐞 멜카(본사 매니저) 2026-08-04 신고: "글자를 검정으로 바꿔 주세요. 눈이 덜 피로합니다."
+        (Melca: "Can we change the text to black? It's easier on the eyes.")
+
+     원인: 이 아이보리 블록(위 9번, 2026-07-22)은 사이드바의 모든 요소를 밝은 배경용으로
+           다시 칠하는데, #ph161-quick 은 **그 다음날(07-23)에 추가**돼서 여기 목록에 없었다.
+           그래서 이 상자만 다크 시절 색(제목 #fbbf24 · 항목 #fde68a · 아이콘 #fbbf24)을
+           그대로 쓰고 있었고, 크림색(#fffaf0) 배경 위 옅은 금색이라 거의 안 보였다.
+           → 캡처에서 'Student list / Class observation …' 이 노랗게 흐려 보이던 것이 이것이다.
+
+     ⚠️ 항목 색은 adm-quick-access.js 가 **인라인 style 로** 박는다(color:#fde68a).
+        인라인을 이기려면 반드시 !important 가 있어야 한다. 빼면 조용히 원래대로 돌아간다.
+     ⚠️ 아이콘은 CSS 가 아니라 SVG **속성**(stroke="#fbbf24")이라 stroke 로 덮는다.
+     ⚠️ 다크 테마(data-admin-theme="dark")는 원래 색이 맞으므로 건드리지 않는다. */
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick {
+    background: rgba(255,255,255,0.78) !important;
+    border-color: rgba(180,83,9,0.35) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick > div:first-child {
+    color: #92400e !important;                                  /* 머리글 — 진한 앰버 */
+    border-bottom-color: rgba(180,83,9,0.22) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick .ph161-q {
+    color: #2b2620 !important;                                  /* 본문 — 요청대로 사실상 검정 */
+    border-top-color: rgba(150,120,70,0.20) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick .ph161-q svg { stroke: #b45309 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick .ph161-q:hover {
+    background: rgba(245,158,11,0.16) !important; color: #7c2d12 !important;
+  }
+
   /* ═══════════════════════════════════════════════════════════════
      🎨 (2026-07-22) 사이드바 자식·손자 메뉴 아이콘 정돈 — mi-menu-icons
        문제: 자식은 컬러 이모지, 손자는 파란 원형 번호 배지라 상위 그룹의
@@ -21336,6 +21368,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260804003745 -->
+<!-- BUILD:20260804010114 -->
 </body>
 </html>

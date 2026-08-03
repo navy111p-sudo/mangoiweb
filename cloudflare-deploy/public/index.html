@@ -28476,7 +28476,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260804003745 -->
+<!-- BUILD:20260804010114 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -31588,9 +31588,29 @@ window.vcAutoLoadStudentTextbook = async function(){
   /* 🔄 (2026-07-01) 수업 중(vc-in-call)엔 리셋(↻ 캐시) 버튼을 하단 컨트롤 독 '위'로 올려
      겹침 방지 — 세로에선 가운데 독(폭이 넓어 좌하단까지 닿음)에 반쯤 가려지던 문제,
      가로에서도 독/문고리와 세로로 분리. 좌측 하단은 유지하되 y만 독 높이만큼 위로. */
+  /* 🔄 (2026-08-04) 두 가지를 같이 고침 — 크기 2배 + 세계시계와 겹침 해소.
+     · 크기: 20px 는 수업 중에 너무 작아 눌리지 않았다 → 40px(2배), 글리프도 15→30px.
+     · 겹침: mango-worldclock.js 의 #mgWorldClock 이 left:12px / bottom:96px 에 뜬다
+             (2026-08-03 부터 '수업 화면에서만' 표시로 바뀌면서 이 버튼과 정면충돌).
+             시계 높이가 약 65px(닫기 버튼 포함 ~70px)이라 96+70 = 166px 위로 올려야 안 겹친다.
+             아래(독 위 92px)는 이미 컨트롤 독이 쓰므로 내릴 수 없어 시계 '위'로 보낸다.
+     ⚠️ 시계 쪽(js/mango-worldclock.js)은 건드리지 않았다 — 그 파일은 admin·parent 도 함께 쓴다.
+        시계 위치를 바꾸면 세 페이지가 같이 움직이므로, 이 버튼만 비켜서는 쪽이 안전하다.
+     ⚠️ 시계 bottom 이 바뀌면 아래 176/158px 도 같이 올려야 한다. */
   body.vc-in-call #ph52-cache-fab, body.vc-in-call .ph52-cache-fab {
     left: 16px !important; right: auto !important; top: auto !important;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 92px) !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 186px) !important;
+    width: 40px !important; height: 40px !important; font-size: 30px !important;
+  }
+  /* ↻ 글리프는 span 안에 있다. 위쪽 @media(max-width:640px) 블록이 이 span 을 18px 로 못박아 두어
+     버튼 font-size 만 키우면 폰에서는 글리프가 그대로 작다 → id 선택자로 같이 올린다. */
+  body.vc-in-call #ph52-cache-fab span:first-child,
+  body.vc-in-call .ph52-cache-fab span:first-child { font-size: 30px !important; }
+  /* 모바일은 시계가 bottom:78px 로 더 낮게 뜬다(worldclock 의 max-width:600px 분기) → 그만큼만 올림 */
+  @media (max-width: 600px) {
+    body.vc-in-call #ph52-cache-fab, body.vc-in-call .ph52-cache-fab {
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 166px) !important;
+    }
   }
   /* 💻 PC(데스크톱) 전용 — A.i 상담사 위젯 2배 크게 (모바일은 기존 크기 그대로 유지) (2026-06-17) */
   @media (min-width:481px){

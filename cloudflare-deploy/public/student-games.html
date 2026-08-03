@@ -337,15 +337,11 @@
   #game-area.theme-suspect{background:linear-gradient(160deg,#4338ca,#312e81)}
   #game-area.theme-speaking{background:linear-gradient(160deg,#059669,#047857)}
 
-  /* 🎈 풍선 스테이지 — 밤하늘 → 밝은 낮 하늘 + 뭉게구름 */
+  /* 🎈 풍선 스테이지 — 실사 하늘 사진(/img/balloon/balloon-sky.webp)
+     ❌ 예전엔 여기에 CSS 로 만든 '가짜 구름'(흰 타원 4개)을 덧그렸다. 사진으로 바꾼 뒤에는
+        진짜 구름 위에 흰 얼룩이 겹쳐 보여서 뺐다(실측 확인). 사진이 못 뜨면 밑의 그라데이션이 받는다. */
   .balloon-sky::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
-    background-repeat:no-repeat;
-    background-image:
-      radial-gradient(ellipse 90px 34px at 18% 20%,rgba(255,255,255,.85),transparent),
-      radial-gradient(ellipse 120px 40px at 78% 30%,rgba(255,255,255,.8),transparent),
-      radial-gradient(ellipse 70px 28px at 50% 14%,rgba(255,255,255,.75),transparent),
-      radial-gradient(ellipse 100px 36px at 40% 62%,rgba(255,255,255,.6),transparent);
-    animation:gbDriftX 26s ease-in-out infinite alternate-reverse}
+    background:linear-gradient(180deg,rgba(255,255,255,.06),transparent 30%,rgba(0,0,0,.05))}
   .balloon-sky .balloon{z-index:2}
   /* 🎈 각 풍선 좌우 흔들림(제각각 폭·주기) — 따로따로 랜덤 낙하 느낌 */
   @keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}
@@ -1060,10 +1056,19 @@ function doSpin(){
 
 // 🛍️ 상점 (코인으로 스킨 잠금해제)
 var _SKINS={
-  balloon:[{id:'default',nm:'기본',price:0,prev:'🎈',pal:['#ef4444','#3b82f6','#10b981','#f59e0b']},
-    {id:'candy',nm:'캔디',price:80,prev:'🍬',pal:['#f472b6','#c084fc','#fb7185','#facc15']},
-    {id:'ocean',nm:'바다',price:120,prev:'🌊',pal:['#22d3ee','#38bdf8','#2dd4bf','#818cf8']},
-    {id:'neon',nm:'네온',price:200,prev:'💜',pal:['#a3e635','#22d3ee','#f0abfc','#fb7185']}],
+  /* 🎈 (2026-08-04) 풍선을 CSS 도형에서 **실사 사진**으로 교체.
+     img = /img/balloon/balloon-<색>.webp (크로마키로 오려낸 투명 PNG→webp, 8색: red blue green
+     yellow purple pink silver gold). pal 은 그림자·팝 효과 색으로 계속 쓴다.
+     스킨마다 서로 다른 4색 조합을 주어 상점(코인 구매) 기능을 그대로 살렸다 — 한 판에
+     같은 색이 겹치지 않도록 4개는 반드시 서로 다른 색으로 고른다. */
+  balloon:[{id:'default',nm:'기본',price:0,prev:'🎈',pal:['#ef4444','#3b82f6','#10b981','#f59e0b'],
+      img:['red','blue','green','yellow']},
+    {id:'candy',nm:'캔디',price:80,prev:'🍬',pal:['#f472b6','#c084fc','#fb7185','#facc15'],
+      img:['pink','purple','red','yellow']},
+    {id:'ocean',nm:'바다',price:120,prev:'🌊',pal:['#22d3ee','#38bdf8','#2dd4bf','#818cf8'],
+      img:['blue','green','silver','purple']},
+    {id:'neon',nm:'네온',price:200,prev:'💜',pal:['#a3e635','#22d3ee','#f0abfc','#fb7185'],
+      img:['gold','silver','pink','blue']}],
   brick:[{id:'default',nm:'기본',price:0,prev:'🧱',grad:'linear-gradient(135deg,#3b82f6,#1d4ed8)'},
     {id:'gold',nm:'황금',price:100,prev:'🟨',grad:'linear-gradient(135deg,#fbbf24,#b45309)'},
     {id:'grape',nm:'포도',price:150,prev:'🟪',grad:'linear-gradient(135deg,#a855f7,#6d28d9)'},
@@ -1072,6 +1077,9 @@ var _SKINS={
 function _owned(cat){ try{ return JSON.parse(_lsGet('mangoi_owned_'+cat,'["default"]'))||['default']; }catch(_){ return ['default']; } }
 function _selSkin(cat){ return _lsGet('mangoi_skin_'+cat, 'default'); }
 function _balloonPal(){ var s=_SKINS.balloon.find(function(x){return x.id===_selSkin('balloon');})||_SKINS.balloon[0]; return s.pal; }
+/* 선택한 스킨의 실사 풍선 4종. 옛 저장값(img 없는 스킨)이어도 기본 4색으로 떨어진다. */
+function _balloonImgs(){ var s=_SKINS.balloon.find(function(x){return x.id===_selSkin('balloon');})||_SKINS.balloon[0];
+  return (s && s.img && s.img.length===4) ? s.img : ['red','blue','green','yellow']; }
 function _brickGrad(){ var s=_SKINS.brick.find(function(x){return x.id===_selSkin('brick');})||_SKINS.brick[0]; return s.grad; }
 function openShop(){
   function grid(cat, title){
@@ -2610,10 +2618,17 @@ function gameRenderBalloon(){
       '<div class="gko-txt">' + (_em?_em+' ':'') + word.ko + '</div>' +
       '<div style="margin-top:10px"><button onclick="gameSpeakAnswer()" class="gko-listen">🔊 발음 듣기</button></div>' +
     '</div>' +
-    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:300px;background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
+    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:300px;' +
+      /* 🌤 실사 하늘 사진(1600px webp, 28KB). 이미지가 아직 안 왔거나 못 받으면 밑에 깔린
+         그라데이션이 그대로 보인다 → 화면이 비는 일은 없다. */
+      'background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);' +
+      'background-image:url(/img/balloon/balloon-sky.webp),linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);' +
+      'background-size:cover;background-position:center bottom;' +
+      'border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
   // 🛍️ 선택한 풍선 스킨 색상 적용
   const _pal = _balloonPal();
-  const colors = _pal.map(function(hex){ return {bg:'linear-gradient(135deg,'+hex+','+hex+')', shadow:hex+'99', solid:hex}; });
+  const _imgs = _gameShuffle(_balloonImgs());          // 매 판 색 순서를 섞는다(자리 외우기 방지)
+  const colors = _pal.map(function(hex){ return {shadow:hex+'99', solid:hex}; });
   balloons.forEach((b, i) => {
     // 🎈 따로따로 랜덤 낙하: 시작 높이·속도·좌우 흔들림을 풍선마다 다르게
     const left = 4 + i * 22 + (Math.random() * 8 - 4);          // 열은 유지(겹침 방지) + 소폭 랜덤 지터
@@ -2634,13 +2649,19 @@ function gameRenderBalloon(){
       : (_len <= 4 ? 'clamp(14px,2.1vmin,23px)' : _len <= 6 ? 'clamp(12px,1.8vmin,20px)'
         : _len <= 8 ? 'clamp(10px,1.5vmin,17px)' : 'clamp(9px,1.3vmin,15px)');
     html += '<div class="balloon" data-en="' + b.en + '" data-color="' + c.solid + '" data-spd="' + spd.toFixed(3) + '" onclick="gameBalloonPop(this)" ' +
-      'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;width:clamp(67px,10.5vmin,118px);height:clamp(81px,12.6vmin,140px);' +
-      'background:' + c.bg + ';border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;' +
-      'box-shadow:0 8px 30px ' + c.shadow + ', inset -10px -10px 30px rgba(0,0,0,0.2);' +
+      'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;' +
+      /* 🎈 실사 사진. 사진 비율(267:360)을 aspect-ratio 로 그대로 지켜야 찌그러지지 않는다.
+         네 풍선의 폭·비율이 같으므로 화면에서 **크기와 모양이 완전히 동일**하다. */
+      'width:clamp(76px,11.8vmin,132px);aspect-ratio:267/360;' +
+      'background-image:url(/img/balloon/balloon-' + _imgs[i % _imgs.length] + '.webp);' +
+      'background-size:100% 100%;background-repeat:no-repeat;' +
+      'filter:drop-shadow(0 10px 18px ' + c.shadow + ');' +
       'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:' + _fs + ';cursor:pointer;' +
-      'transition:transform 0.2s"><div style="text-align:center;white-space:nowrap;line-height:1.1;text-shadow:0 1px 3px rgba(0,0,0,.45)">' +
+      'transition:transform 0.2s"><div style="text-align:center;white-space:nowrap;line-height:1.1;margin-top:-6%;' +
+      /* 노랑·은색·금색 풍선 위에서도 읽히도록 — 흰 글자 + 검은 외곽선·그림자 */
+      'text-shadow:0 1px 2px rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.55);-webkit-text-stroke:.6px rgba(0,0,0,.5)">' +
       b.en + _bpin + '</div>' +
-      '<div style="position:absolute;bottom:-30px;left:50%;width:2px;height:30px;background:rgba(255,255,255,0.3);transform:translateX(-50%)"></div>' +
+      '<div style="position:absolute;bottom:-26px;left:50%;width:2px;height:26px;background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.15));transform:translateX(-50%)"></div>' +
       '</div>';
   });
   html += '</div>' +
@@ -2856,7 +2877,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260804003745 -->
+<!-- BUILD:20260804010114 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

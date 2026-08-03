@@ -241,6 +241,23 @@ body{
          강사에게 "이 화면은 일부인가?" 라는 의문만 남기고, 두 화면의 성격을 갈라 주지 못한다. -->
   </div>
 
+  <!-- 🐞 문제 신고 — 멜카(본사 매니저) 요청 5번:
+         "강사가 오류를 바로 신고할 수 있도록 피드백 버튼을 넣어 주세요."
+       접수함(admin.html #card-bug-reports)과 POST /api/bug-report 은 이미 있었는데,
+       **강사 화면에는 신고를 보낼 입구가 없었다**(홈 index.html 의 FAB 은 수업 중에만 뜬다).
+
+       ➕ 요청 25번(PC 사양 표시)도 여기서 함께 해결한다. 사양을 어딘가 따로 보여 주는 것보다
+          문제가 접수되는 바로 그 순간에 붙여 보내는 편이 IT 에게 실제로 쓸모가 있다
+          ("IT 가 더 빨리 원인을 찾게" — 요청의 목적 그대로).
+          서버·DB 변경은 없다. 기존 message 필드(2000자)에 한 줄로 덧붙일 뿐이라
+          지금 있는 접수함에서 추가 작업 없이 바로 보인다. -->
+  <div class="card" id="c-bug">
+    <h2 data-en="Something not working?" data-ko="문제가 있나요?">Something not working?</h2>
+    <button class="btn btn-gray btn-wide" type="button" id="bug-open"
+            data-en="🐞 Report a problem (your PC info is attached automatically)"
+            data-ko="🐞 문제 신고하기 (내 PC 정보가 자동으로 함께 전송됩니다)">🐞 Report a problem</button>
+  </div>
+
 </div>
 
 <script>
@@ -707,6 +724,102 @@ body{
     };
   }
 
+  // ── 🖥 이 PC 사양 (요청 25번) ────────────────────────────────────────────
+  //   navigator 로 알 수 있는 것만 모은다. 브라우저가 안 주는 값(정확한 CPU 모델, 실제 RAM)은
+  //   **지어내지 않고 '?' 로 남긴다** — 틀린 사양은 IT 를 엉뚱한 데로 보낸다.
+  //   ⚠️ deviceMemory / connection 은 크롬 계열에만 있다(사파리·파이어폭스는 undefined).
+  //      그래서 전부 옵셔널로 읽고, 없으면 그 항목만 빠진다.
+  function deviceSpec(){
+    var n = navigator, p = [];
+    var ram = n.deviceMemory;                 // GB, 크롬만. 8 초과는 8 로 잘려 나온다(스펙상 상한)
+    var cpu = n.hardwareConcurrency;          // 논리 코어 수
+    var c   = n.connection || {};
+    p.push('RAM ' + (ram ? (ram >= 8 ? '>=' + ram : ram) + 'GB' : '?'));
+    p.push('CPU ' + (cpu ? cpu + ' cores' : '?'));
+    // 브라우저 이름·버전 — UA 문자열 전체는 서버가 user_agent 로 이미 저장하므로 여기선 짧게.
+    var ua = n.userAgent || '', b = '?';
+    var m = ua.match(/(Edg|OPR|Chrome|Firefox|Version)\/([\d.]+)/);
+    if (m) b = (m[1] === 'Version' ? 'Safari' : (m[1] === 'OPR' ? 'Opera' : (m[1] === 'Edg' ? 'Edge' : m[1]))) + ' ' + m[2].split('.')[0];
+    p.push(b);
+    p.push('screen ' + screen.width + 'x' + screen.height + '@' + (window.devicePixelRatio || 1) + 'x');
+    if (c.effectiveType) p.push('net ' + c.effectiveType + (c.downlink ? ' ~' + c.downlink + 'Mbps' : '') + (c.rtt ? ' rtt' + c.rtt + 'ms' : ''));
+    if (n.onLine === false) p.push('OFFLINE');
+    return p.join(' · ');
+  }
+
+  // ── 🐞 문제 신고 (요청 5번) ──────────────────────────────────────────────
+  //   서버는 이미 있는 공개 엔드포인트 POST /api/bug-report 를 그대로 쓴다(신규 API 없음).
+  function openBug(){
+    var mask = document.createElement('div');
+    mask.className = 'mask';
+    var spec = deviceSpec();
+    mask.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true">'
+      + '<h3>🐞 ' + esc(T('Report a problem','문제 신고')) + '</h3>'
+      + '<p class="sub">' + esc(T('Tell us what went wrong. Your page, time and PC info are sent with it.',
+                                  '무엇이 잘못됐는지 적어 주세요. 화면 주소·시각·PC 정보가 함께 전송됩니다.')) + '</p>'
+      + '<div class="fld"><label>' + esc(T('Type','종류')) + '</label>'
+      +   '<select id="bg-cat">'
+      +     '<option value="bug">'     + esc(T('Something is broken','오류 · 안 됨')) + '</option>'
+      +     '<option value="improve">' + esc(T('Suggestion','개선 의견')) + '</option>'
+      +     '<option value="etc">'     + esc(T('Other','기타')) + '</option>'
+      +   '</select></div>'
+      + '<div class="fld"><label>' + esc(T('What happened?','무슨 일이 있었나요?')) + '</label>'
+      +   '<textarea id="bg-msg" placeholder="' + esc(T('e.g. The class list did not load this morning.',
+                                                       '예: 오늘 아침에 수업 목록이 안 떴습니다.')) + '"></textarea></div>'
+      // 무엇이 함께 가는지 강사에게 그대로 보여 준다 — 모르는 채 보내지지 않게.
+      + '<div class="fld"><label>' + esc(T('Your PC (sent automatically)','내 PC 정보 (자동 전송)')) + '</label>'
+      +   '<div class="sub" style="word-break:break-all">' + esc(spec) + '</div></div>'
+      + '<div id="bg-res"></div>'
+      + '<div class="mrow">'
+      +   '<button class="btn btn-gray" type="button" id="bg-x">' + esc(T('Close','닫기')) + '</button>'
+      +   '<button class="btn btn-eval" type="button" id="bg-ok">' + esc(T('Send','보내기')) + '</button>'
+      + '</div></div>';
+    document.body.appendChild(mask);
+
+    function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    mask.querySelector('#bg-x').onclick = close;
+    mask.onclick = function(ev){ if (ev.target === mask) close(); };
+
+    mask.querySelector('#bg-ok').onclick = function(){
+      var btn = this;
+      var msg = (mask.querySelector('#bg-msg').value || '').trim().slice(0, 1500);
+      if (!msg){
+        mask.querySelector('#bg-res').innerHTML =
+          '<div class="err">' + esc(T('Please describe the problem.','내용을 입력해 주세요.')) + '</div>';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = T('Sending…','보내는 중…');
+      var me = (DATA && DATA.me) || {};
+      fetch('/api/bug-report', {
+        method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          category: mask.querySelector('#bg-cat').value || 'bug',
+          // 🖥 사양은 별도 컬럼이 없으므로 본문에 덧붙인다(서버·DB 무변경).
+          message: msg + '\n\n[PC] ' + spec,
+          reporter_role: 'teacher',
+          reporter_uid: me.username || '',
+          reporter_name: me.name || '',
+          page_url: location.href
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok) throw new Error('failed');
+        close();
+        toast(T('Thank you. Your report was received.','신고가 접수되었습니다. 감사합니다.'));
+      })
+      .catch(function(){
+        btn.disabled = false;
+        btn.textContent = T('Send','보내기');
+        mask.querySelector('#bg-res').innerHTML =
+          '<div class="err">' + esc(T('Could not send. Please try again.','보내지 못했습니다. 다시 시도해 주세요.')) + '</div>';
+      });
+    };
+  }
+  document.getElementById('bug-open').onclick = openBug;
+
   // 아주 단순한 안내 띠 — 애니메이션 없이 3초 뒤 사라진다.
   function toast(msg){
     var d = document.createElement('div');
@@ -998,6 +1111,6 @@ body{
   load();
 })();
 </script>
-<!-- BUILD:20260804003745 -->
+<!-- BUILD:20260804010114 -->
 </body>
 </html>
