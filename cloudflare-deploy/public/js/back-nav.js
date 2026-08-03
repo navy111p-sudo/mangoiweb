@@ -29,6 +29,17 @@
     try {
       if (history.length > 1) { history.back(); return; }
     } catch (e) {}
+    /* (2026-08-03) 히스토리가 없는 진입 — 앱/PWA 첫 화면, 카톡·문자 링크, target=_blank 새 탭 —
+       에서는 back() 이 아무 데도 못 간다. 여기서 곧장 홈으로 보내면 ← 가 [🏠 홈] 버튼과
+       똑같아진다. 같은 사이트에서 넘어온 흔적(referrer)이 있으면 그 페이지를 직전 페이지로 본다.
+       사장님 지시: "뒤로가기는 바로 직전 페이지로, 홈 버튼은 처음 페이지로." */
+    try {
+      var ref = document.referrer || '';
+      if (ref.indexOf(location.origin + '/') === 0 &&
+          ref.split('#')[0] !== location.href.split('#')[0]) {
+        location.href = ref; return;
+      }
+    } catch (e) {}
     location.href = fallback;
   }
 

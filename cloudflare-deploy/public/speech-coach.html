@@ -911,7 +911,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260803181217 -->
+<!-- BUILD:20260803182503 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
@@ -991,21 +991,12 @@ if (typeof window.speechSynthesis !== 'undefined') {
     } catch(e){}
   }, true);
 
-  /* 연습 앱에서 ← 로 돌아온 경우(#from-practice)에는 이 화면의 ← 가 '홈페이지'로 가게 한다.
-     그러지 않으면 back-nav.js 의 history.back() 이 방금 떠나온 연습 앱으로 되돌아가
-     두 화면을 왔다갔다 한다. 사장님 요구: ← 한 번=발음 연습, 또 누르면=홈페이지. */
-  (function(){
-    if (location.hash !== '#from-practice') return;
-    var tries = 0;
-    var t = setInterval(function(){
-      var b = document.getElementById('mangoi-back-btn');
-      if (b) {
-        clearInterval(t);
-        b.title = '홈페이지로';
-        b.onclick = function(ev){ if (ev) ev.preventDefault(); location.replace('/'); };
-      } else if (++tries > 40) { clearInterval(t); }
-    }, 100);
-  })();
+  /* 2026-08-03 사장님 지시: "뒤로가기는 바로 직전 페이지로, 홈 버튼은 처음 페이지로."
+     07-28에는 연습 앱에서 돌아온 경우(#from-practice) 이 화면의 ← 를 '홈페이지로' 바꿔
+     끼웠으나(왔다갔다 방지), 그러면 ← 가 홈 버튼과 같은 일을 해서 두 버튼이 구분되지
+     않는다. 이제 ← 는 어떤 경우에도 back-nav.js 의 history.back()(=직전 페이지)이고,
+     처음 페이지로 나가는 문은 우상단 [🏠 홈] 버튼 하나로 정리한다.
+     ↳ 되돌리려면 이 자리에 mangoi-back-btn 의 onclick 을 다시 덮어쓰면 된다. */
 
   /* 연습 앱이 토큰을 요청하면 — 그 출처가 연습 앱일 때만 — 건네준다 */
   window.addEventListener('message', function(ev){
