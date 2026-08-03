@@ -59,7 +59,10 @@
   .iconbtn:active{transform:scale(.94)}
 
   /* ───────── 화면 공통 ───────── */
-  .screen{position:absolute;inset:0;z-index:10;display:none;flex-direction:column;overflow:hidden}
+  /* ⚠️ position:absolute; inset:0 으로 두면 안 된다 — 화면이 상단바(.hud) 아래가 아니라
+     상단바까지 덮어서, 종족 선택 화면의 제목이 상단바에 가려진다(신규 학생이 첫 화면에서 겪음).
+     #app 이 flex column 이므로 남은 높이를 차지하는 flex 항목으로 두는 것이 맞다. */
+  .screen{position:relative;z-index:10;flex:1;min-height:0;display:none;flex-direction:column;overflow:hidden}
   .screen.on{display:flex}
   .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 22px}
 
