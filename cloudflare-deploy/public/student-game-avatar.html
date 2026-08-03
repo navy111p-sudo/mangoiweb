@@ -728,10 +728,10 @@ function drawAvatar(ctx, cx, cy, s, spKey, tier, mood, t){
   if (mood === 'sleepy'){
     ctx.globalAlpha = 0.55 + 0.35 * Math.sin(t / 800);
     ctx.fillStyle = '#cbd5ff';
-    ctx.font = '900 ' + Math.round(R * 0.3) + 'px system-ui,sans-serif';
+    ctx.font = '900 ' + Math.round(R * 0.3) + 'px MangoiHanSC,system-ui,sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('z', cx + R * 0.72, y - R * 0.66);
-    ctx.font = '900 ' + Math.round(R * 0.2) + 'px system-ui,sans-serif';
+    ctx.font = '900 ' + Math.round(R * 0.2) + 'px MangoiHanSC,system-ui,sans-serif';
     ctx.fillText('z', cx + R * 1.02, y - R * 0.9);
     ctx.globalAlpha = 1;
   }
@@ -2044,6 +2044,6 @@ document.addEventListener('visibilitychange', function(){
 });
 })();
 </script>
-<!-- BUILD:20260804075225 -->
+<!-- BUILD:20260804081836 -->
 </body>
 </html>

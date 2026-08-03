@@ -762,10 +762,10 @@
       // 텍스트 — 반투명 배경 위에서도 또렷하게(흰 외곽선 + 진한 글자)
       x.textAlign='center'; x.textBaseline='middle';
       x.lineJoin='round';
-      x.font='800 '+(golden?54:60)+'px "Segoe UI",sans-serif';
+      x.font='800 '+(golden?54:60)+'px MangoiHanSC,"Segoe UI",sans-serif';
       x.strokeStyle='rgba(255,255,255,0.95)'; x.lineWidth=6; x.strokeText((golden?'⭐ ':'')+main,160, sub?66:82);
       x.fillStyle='#12324a'; x.fillText((golden?'⭐ ':'')+main,160, sub?66:82);
-      if(sub){ x.font='600 28px "Segoe UI",sans-serif';
+      if(sub){ x.font='600 28px MangoiHanSC,"Segoe UI",sans-serif';
         x.strokeStyle='rgba(255,255,255,0.9)'; x.lineWidth=5; x.strokeText(sub,160,116);
         x.fillStyle='#5a6b70'; x.fillText(sub,160,116); }
       var tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
@@ -1484,6 +1484,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260804075225 -->
+<!-- BUILD:20260804081836 -->
 </body>
 </html>

@@ -1726,9 +1726,9 @@ function labelTexture(text, kind){
   var bd = kind==='ace' ? 'rgba(255,138,92,0.75)' : (kind==='chunk' ? 'rgba(127,209,255,0.7)' : 'rgba(255,212,121,0.62)');
   x.fillStyle=bg; roundRect(x, 8, 26, 496, 108, 26); x.fill();
   x.lineWidth=4; x.strokeStyle=bd; roundRect(x, 8, 26, 496, 108, 26); x.stroke();
-  x.font='900 74px "Malgun Gothic", Arial, sans-serif';
+  x.font='900 74px MangoiHanSC,"Malgun Gothic", Arial, sans-serif';
   x.textAlign='center'; x.textBaseline='middle';
-  var t=String(text); if(t.length>13) x.font='900 52px "Malgun Gothic", Arial, sans-serif';
+  var t=String(text); if(t.length>13) x.font='900 52px MangoiHanSC,"Malgun Gothic", Arial, sans-serif';
   x.shadowColor='rgba(0,0,0,0.95)'; x.shadowBlur=14; x.shadowOffsetY=2;
   x.lineWidth=9; x.strokeStyle='rgba(0,0,0,0.92)'; x.strokeText(t, 256, 82);   // 검은 외곽선
   x.shadowBlur=0; x.shadowOffsetY=0;
@@ -2894,7 +2894,7 @@ function drawRadar(ts){
         가운데 삼각형이 '내가 위를 향한다'를 이미 말해 주므로 정보 손실이 없다. */
   var TINY = css < 110;
   if(!TINY){
-    g.fillStyle='rgba(190,235,210,.85)'; g.font='bold 6px system-ui,sans-serif'; g.textAlign='center';
+    g.fillStyle='rgba(190,235,210,.85)'; g.font='bold 6px MangoiHanSC,system-ui,sans-serif'; g.textAlign='center';
     g.fillText('전방 FWD', cx, cy-R-2.5);
   }
 
@@ -2936,13 +2936,13 @@ function drawRadar(ts){
     // 고도차 — 평면 점만으론 3D 에서 못 찾는다
     if(Math.abs(dy)>30){
       g.fillStyle=e.correct?'#ffe8ad':'rgba(255,190,190,.95)';
-      g.font='bold 5.4px system-ui,sans-serif';
+      g.font='bold 5.4px MangoiHanSC,system-ui,sans-serif';
       g.fillText(dy>0?'▲':'▼', X, Y-5.0);
     }
   }
 
   // ── 목표까지의 거리·방향 안내(맨 아래 한 줄). 작을수록 글자를 키워야 읽힌다
-  g.textAlign='center'; g.font='bold '+(TINY?9:7)+'px system-ui,sans-serif';
+  g.textAlign='center'; g.font='bold '+(TINY?9:7)+'px MangoiHanSC,system-ui,sans-serif';
   if(tgt){
     g.fillStyle='#ffd479';
     g.fillText('목표 '+Math.round(tgt.dist)+'m'+(tgt.out?' ↗':''), cx, cy+R+7.2);
@@ -3218,6 +3218,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260804075225 -->
+<!-- BUILD:20260804081836 -->
 </body>
 </html>

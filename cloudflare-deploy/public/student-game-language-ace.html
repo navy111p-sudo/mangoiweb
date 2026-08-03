@@ -1394,7 +1394,7 @@ function drawPilot(p){
 /* 💬 조종사 말풍선 "Oh no!" — 머리 위 고정 크기(가독성), 화면 안 클램프 */
 function drawPilotBubble(cx, headY){
   var txt='Oh no!', fs=Math.round(20*(SCALE>1?1.4:1));
-  ctx.save(); ctx.font='900 '+fs+'px "Segoe UI",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.save(); ctx.font='900 '+fs+'px MangoiHanSC,"Segoe UI",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   var tw=ctx.measureText(txt).width, bw=tw+26, bh=fs+16;
   var bx=clampPos(cx, bw/2+4, W), by=clampPos(headY-bh/2-8, bh/2+4, H);
   rr(bx-bw/2, by-bh/2, bw, bh, 11); ctx.fillStyle='rgba(255,255,255,.97)'; ctx.fill();
@@ -1444,7 +1444,7 @@ function drawZeroVec(e){
 /* 단어 라벨(적기 아래) */
 function drawLabel(e){
   var isT = sameWord(e.word, neededWord());
-  ctx.save(); ctx.font='bold 15px "Segoe UI",sans-serif'; ctx.textAlign='center';   // 🈶 한자 정식 자형
+  ctx.save(); ctx.font='bold 15px MangoiHanSC,"Segoe UI",sans-serif'; ctx.textAlign='center';   // 🈶 한자 정식 자형
   var tw=ctx.measureText(e.word).width, pad=7, bw=tw+pad*2, by=e.y+e.r+4;
   ctx.fillStyle = isT ? 'rgba(60,44,10,.92)' : 'rgba(10,16,22,.82)';
   rr(e.x-bw/2, by, bw, 21, 6); ctx.fill();
@@ -1477,7 +1477,7 @@ function drawFuel(fu){
   ctx.fillStyle=bg; rr(-fu.r*0.72,-fu.r,fu.r*1.44,fu.r*2,4); ctx.fill();
   ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-fu.r*0.72,-4); ctx.lineTo(fu.r*0.72,-4);
   ctx.moveTo(-fu.r*0.72,5); ctx.lineTo(fu.r*0.72,5); ctx.stroke();
-  ctx.fillStyle='#1a1a1a'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#1a1a1a'; ctx.font='bold 11px MangoiHanSC,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('⛽',0,0);
   ctx.restore();
 }
@@ -1624,6 +1624,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260804075225 -->
+<!-- BUILD:20260804081836 -->
 </body>
 </html>
