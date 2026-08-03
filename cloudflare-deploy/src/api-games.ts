@@ -763,9 +763,20 @@ Variety: mix of nouns, verbs, adjectives.`;
       }
       const mm = raw.match(/\{[\s\S]*\}/);
       let words: any[] = [];
-      try { const p = JSON.parse(mm ? mm[0] : raw); words = Array.isArray(p.words) ? p.words : []; } catch {}
+      try { const p = JSON.parse(mm ? mm[0] : raw); words = Array.isArray(p.words) ? p.words : []; }
+      catch (e: any) { console.error('[auto-gen] JSON parse failed:', e?.message, '| raw head:', raw.slice(0, 120)); }
 
-      // 폴백: AI 실패 시 레벨별 기본 단어
+      // 🛡️ 뜻(korean) 없는 단어는 버린다 — AI 가 example 만 주고 korean 을 비워서 응답하는 경우가 실제로 있었다.
+      //    빈 뜻으로 저장되면 gen-quiz 의 출제 대상에서 영영 제외돼(뜻이 정답 보기라서),
+      //    학생 입장에서는 "단어를 담았는데 퀴즈에 안 나오는" 상태가 된다. 그래서 저장 전에 거른다.
+      //    (2026-08-03 조사: 운영 D1 에 이렇게 생긴 빈 뜻 90행 확인 — 시도 14회 중 9회)
+      const aiTotal = words.length;
+      words = words.filter((w: any) => String(w?.word || '').trim() && String(w?.korean || '').trim());
+      if (aiTotal && words.length < aiTotal) {
+        console.error(`[auto-gen] dropped ${aiTotal - words.length}/${aiTotal} AI words with no Korean meaning (level=${level}, topic=${topic || '-'})`);
+      }
+
+      // 폴백: AI 실패 시(또는 쓸 만한 단어가 하나도 안 남았을 때) 레벨별 기본 단어
       if (!words.length) {
         const fallback: any = {
           A1: [
@@ -833,20 +844,23 @@ Variety: mix of nouns, verbs, adjectives.`;
       }
 
       const now = Date.now();
-      let added = 0, skipped = 0;
+      let added = 0, skipped = 0, skippedNoMeaning = 0;
       const inserted: any[] = [];
       for (const w of words.slice(0, count)) {
         const word = String(w.word || '').trim();
+        const korean = String(w.korean || '').trim();
         if (!word || existing.has(word.toLowerCase())) { skipped++; continue; }
+        // 위에서 이미 걸렀지만, 저장 직전에 한 번 더 막는다 (빈 뜻은 어떤 경로로도 DB 에 들어가지 않게)
+        if (!korean) { skippedNoMeaning++; continue; }
         try {
           const r: any = await env.DB.prepare(
             `INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,0,?,?)`
-          ).bind(userId, word, String(w.korean || '').trim(), String(w.example || '').trim(), now + 86400000, now).run();
-          inserted.push({ id: r.meta?.last_row_id, word, korean: w.korean, example: w.example });
+          ).bind(userId, word, korean, String(w.example || '').trim(), now + 86400000, now).run();
+          inserted.push({ id: r.meta?.last_row_id, word, korean, example: w.example });
           added++;
-        } catch { skipped++; }
+        } catch (e: any) { skipped++; console.error('[auto-gen] insert failed:', word, e?.message || e); }
       }
-      return json({ ok: true, added, skipped, level, topic, words: inserted });
+      return json({ ok: true, added, skipped, skipped_no_meaning: skippedNoMeaning, level, topic, words: inserted });
     }
 
     // ── POST /api/vocab/gen-quiz — 학생 단어장 기반 자동 퀴즈 5문항 ──
@@ -882,15 +896,34 @@ Variety: mix of nouns, verbs, adjectives.`;
         if (!words.length) return json({ ok: false, error: 'no_bank', message: '어휘은행이 비어있어요.' });
       } else {
         // 약한 단어 가중 출제: 오답 많을수록·정답 적을수록·미복습 단어 우선 (+무작위 지터로 매번 조금씩 변화)
+        //   뜻이 빈 단어는 애초에 뽑지 않는다 — 뜻이 곧 정답 보기라 출제가 불가능하고,
+        //   LIMIT 안을 빈 단어가 차지하면 멀쩡한 단어까지 밀려나 출제 수가 줄어든다.
         const rs: any = await env.DB.prepare(
-          `SELECT id, word, korean, example FROM vocabulary WHERE user_id = ?
+          `SELECT id, word, korean, example FROM vocabulary
+           WHERE user_id = ? AND korean IS NOT NULL AND TRIM(korean) != ''
            ORDER BY (COALESCE(wrong_count,0)*3 - COALESCE(correct_count,0)
                      + CASE WHEN last_reviewed_at IS NULL THEN 1 ELSE 0 END
                      + (ABS(RANDOM()) % 6)) DESC
            LIMIT ?`
         ).bind(userId, count).all();
         words = (rs.results || []) as any[];
-        if (!words.length) return json({ ok: false, error: 'no_words', message: '단어장이 비어있어요. 단어를 먼저 추가해주세요!' });
+        if (!words.length) {
+          // "단어장이 비었다" 와 "단어는 있는데 뜻이 없어 못 낸다" 는 학생이 할 일이 다르므로 구분해서 알린다.
+          const anyRow: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM vocabulary WHERE user_id = ?`).bind(userId).first();
+          if (Number(anyRow?.n || 0) > 0) {
+            console.error('[gen-quiz] user has words but none usable (empty korean):', userId, 'total=', anyRow?.n);
+            return json({
+              ok: false, error: 'no_usable_words',
+              message: '단어장에 단어는 있지만 뜻이 저장되지 않아 문제를 만들 수 없어요. 단어를 다시 추가해주세요!',
+              message_en: 'Your list has words, but their meanings were not saved, so no questions can be made. Please add the words again!',
+            });
+          }
+          return json({
+            ok: false, error: 'no_words',
+            message: '단어장이 비어있어요. 단어를 먼저 추가해주세요!',
+            message_en: 'Your vocab list is empty. Please add some words first!',
+          });
+        }
       }
 
       // 오답 선택지 풀 (은행 출제면 은행에서, 내 단어장이면 전체 학생 단어에서)
@@ -926,6 +959,17 @@ Variety: mix of nouns, verbs, adjectives.`;
         });
       }
 
+      // 🚫 거짓 성공 금지: 한 문제도 못 만들었으면 ok:true 로 돌려주지 않는다.
+      //    예전에는 여기서 quizzes:[] 를 ok:true 로 반환해, 화면이 "성공"으로 판단하고
+      //    문제를 하나도 보여주지 않은 채 0점 결과창을 띄웠다.
+      if (!quizzes.length) {
+        console.error('[gen-quiz] produced 0 quizzes from', words.length, 'words (source=' + source + ') uid=', userId);
+        return json({
+          ok: false, error: 'no_usable_words',
+          message: '지금은 문제를 만들 수 없어요. 뜻이 있는 단어를 추가한 뒤 다시 시도해주세요!',
+          message_en: 'No questions could be made right now. Please add words that have meanings and try again!',
+        });
+      }
       return json({ ok: true, quizzes, total: quizzes.length, source, band });
     }
 
