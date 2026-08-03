@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko" translate="no" class="notranslate">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-08-02) 브라우저 자동번역 차단 — "영어 글자들이 정렬이 안되어 있음"의 진범
        · 이 페이지는 자체 i18n(data-ko/data-en + adm-p3.js 사전)을 이미 갖고 있다.
@@ -234,7 +235,7 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'Noto Sans KR', -apple-system, "맑은 고딕", "Malgun Gothic", sans-serif;
+    font-family: 'MangoiHanSC','Noto Sans KR', -apple-system, "맑은 고딕", "Malgun Gothic", sans-serif;
     color: #1c1917;
     padding: 24px;
     letter-spacing: -0.5px;
@@ -4482,7 +4483,12 @@
             <button type="button" class="primary" onclick="window.loadTeacherUtil&&loadTeacherUtil()" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
             <span id="tu-summary" style="font-size:12px;color:#6b7280"></span>
           </div>
-          <div id="tu-note" style="font-size:11.5px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:9px 12px;margin-bottom:10px;line-height:1.7"></div>
+          <!-- 안내문 — 채운 박스는 쓰지 않는다.
+               카드 안의 밝은 인라인 배경(#f9fafb 등)은 전역 다크화 규칙([id^="card-"] [style*="background:#f9fafb"])과
+               ph105 스크립트가 진한 남색으로 덮어버려 "색이 너무 세다"는 지적을 받았다.
+               배경을 투명으로 두면 두 장치 모두 건너뛰고(투명은 alpha 0이라 ph105 대상 아님), 글자색은 부모를 따라가 밝은/어두운 테마 양쪽에서 읽힌다. -->
+          <style>#tu-note{background:transparent!important;background-image:none!important;border:0!important;border-left:3px solid rgba(148,163,184,.5)!important;border-radius:0!important;color:inherit!important}</style>
+          <div id="tu-note" style="font-size:11px;line-height:1.5;opacity:.72;padding:1px 0 1px 9px;margin-bottom:9px"></div>
           <div id="tu-wrap" style="overflow-x:auto"></div>
         </div>
       </details>

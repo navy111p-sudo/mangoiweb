@@ -1,0 +1,8 @@
+Noto Sans SC (Simplified Chinese) — subset for Mangoi
+Copyright 2014-2021 Adobe (http://www.adobe.com/), Google
+Licensed under the SIL Open Font License, Version 1.1
+https://scripts.sil.org/OFL
+
+이 파일은 Noto Sans SC Regular 에서 GB2312 한자 + 병음 성조부호 + 라틴/문장부호만
+추려낸 부분집합(subset)입니다. 원본과 동일한 OFL 조건으로 배포됩니다.
+용도: 망고아이 전 게임에서 한자를 '하나의 글꼴'로 고정하기 위함.

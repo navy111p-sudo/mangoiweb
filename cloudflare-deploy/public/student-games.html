@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>영어 학습 게임 — Mangoi 화상영어</title>
@@ -42,15 +43,6 @@
            · local() 만 쓰므로 **웹폰트 다운로드 0바이트** (경량 원칙 유지).
            · 중국어 폰트가 없는 기기에서는 조용히 종전대로 폴백된다(무해).
      ⚠️ 이 규칙을 지우면 한자가 다시 한국식 자형으로 섞여 보인다. */
-  @font-face{
-    font-family:'MangoiHanSC';
-    src:local('Noto Sans SC'),local('Noto Sans CJK SC'),local('Source Han Sans SC'),
-        local('PingFang SC'),local('Microsoft YaHei'),local('微软雅黑'),
-        local('Hiragino Sans GB'),local('Heiti SC'),local('SimHei');
-    /* 한자(CJK 통합·확장A·호환) + 병음 성조부호(마크론·캐런) */
-    unicode-range:U+2E80-2EFF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+0100-017F,U+01CD-01DC;
-    font-display:swap;
-  }
   body{font-family:'MangoiHanSC','Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);min-height:100dvh;
     /* 🌤️ 밝은 하늘색 균일 배경(위·아래 톤차이 없앰) */
     background:#9ed6fb;
@@ -543,7 +535,7 @@
 <script src="/js/mangoi-memory.js?v=1"></script>
 <!-- 🗣 말하기 4단 선순환 (2026-08-04) — ① 뜻 가리고 듣기 → ② 낱말 → ③ 문장 → ④ 되듣고 따라 말하기.
      게임마다 복제돼 있던 말하기 절차를 한 곳으로 모은 모듈. 위 5개 모듈을 재사용하므로 반드시 뒤에 실린다. -->
-<script src="/js/mangoi-speak-cycle.js?v=4"></script>
+<script src="/js/mangoi-speak-cycle.js?v=5"></script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>

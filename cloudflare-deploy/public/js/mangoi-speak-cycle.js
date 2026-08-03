@@ -414,9 +414,8 @@
        · 한글·영문은 범위 밖이라 무영향  · local() 만 써서 다운로드 0바이트
        · 이 모듈은 여러 페이지가 공유하므로 @font-face 를 여기 안에 넣어 자기완결로 둔다. */
     '@font-face{font-family:"MangoiHanSC";',
-    '  src:local("Noto Sans SC"),local("Noto Sans CJK SC"),local("Source Han Sans SC"),',
-    '      local("PingFang SC"),local("Microsoft YaHei"),local("Hiragino Sans GB"),',
-    '      local("Heiti SC"),local("SimHei");',
+    '  src:url("/fonts/mangoi-han-sc.woff2") format("woff2");',
+    '  font-weight:100 900;',
     '  unicode-range:U+2E80-2EFF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+0100-017F,U+01CD-01DC;',
     '  font-display:swap;}',
     '#mcyc-back{position:fixed;inset:0;z-index:2147483000;background:rgba(8,14,28,.93);',
