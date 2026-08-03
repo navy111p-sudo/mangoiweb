@@ -645,6 +645,23 @@ async function writeBandState(env: MangoEnv, uid: string, st: BandState): Promis
   try { await kv.put(bandKey(uid), JSON.stringify(st), { expirationTtl: BAND_KV_TTL }); } catch { /* 저장 실패가 문제 풀이를 막지 않습니다 */ }
 }
 
+/**
+ * 🧑‍🏫 강사·관리자 화면용 — 학생의 현재 읽기 밴드 조회(KV 1회, 없으면 null).
+ *   ⚠️ 여기서 밴드를 '만들지' 않습니다. 판단력 훈련을 한 번도 안 한 학생은 null 이 나오고,
+ *      화면은 아무것도 표시하지 않습니다(없는 값을 기본값으로 채워 보여주면 강사가 오해합니다).
+ */
+export async function getReadingBandFor(env: MangoEnv, uid: string): Promise<
+  { band: number; mode: BandMode; src: string; name_ko: string; name_en: string; lv: string } | null
+> {
+  const st = await readBandState(env, String(uid || '').trim());
+  if (!st) return null;
+  return {
+    band: st.band, mode: st.mode, src: st.src,
+    // 강사 다수가 필리핀이라 한/영 둘 다 내려보냅니다(운영 원칙)
+    name_ko: bandName(st.band, 'ko'), name_en: bandName(st.band, 'en'), lv: bandLabel(st.band),
+  };
+}
+
 /** 사람이 정해 준 레벨(언제나 1순위) — students_erp.level → 최근 level_tests.level. 없으면 null. */
 async function humanLevel(env: MangoEnv, uid: string, erpLevel?: string | null): Promise<string | null> {
   const s = String(erpLevel || '').trim();
