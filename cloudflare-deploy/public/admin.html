@@ -3705,8 +3705,7 @@
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <input id="acc-fx-month" type="month" value="2026-05" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
             <button id="acc-fx-load" class="primary" onclick="accLoadForex()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
-            <button id="acc-fx-rates" onclick="alert(window.adminLang==='en'?'FX update: PHP 24.34 / USD 1,365 / GBP 1,720 (manual setting)':'환율 갱신: PHP 24.34 / USD 1,365 / GBP 1,720 (수동 설정)')" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="💱 환율 갱신" data-en="💱 Update FX">💱 환율 갱신</button>
-            <span style="font-size:11px;color:#6b7280" data-ko="PHP 24.34 / USD 1,365 / GBP 1,720" data-en="PHP 24.34 / USD 1,365 / GBP 1,720">PHP 24.34 / USD 1,365 / GBP 1,720</span>
+            <span style="font-size:11px;color:#6b7280" data-ko="💱 적용 환율(수동 설정) PHP 24.34 / USD 1,365 / GBP 1,720" data-en="💱 FX applied (manual) PHP 24.34 / USD 1,365 / GBP 1,720">💱 적용 환율(수동 설정) PHP 24.34 / USD 1,365 / GBP 1,720</span>
           </div>
           <table>
             <thead><tr>
@@ -3732,8 +3731,7 @@
             <span style="font-size:12px;color:#6b7280" data-ko="📅 정산 월:" data-en="📅 Month:">📅 정산 월:</span>
             <input id="acc-fr-month" type="month" value="2026-05" style="padding:6px 10px;font-size:13px;border-radius:8px;border:1px solid #d1d5db;font-weight:600" />
             <button id="acc-fr-load" onclick="accLoadFranchise()" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="🧮 새로고침" data-en="🧮 Refresh">🧮 새로고침</button>
-            <button id="acc-fr-transfer" onclick="alert(window.adminLang==='en'?'💸 Bulk Transfer Guide\n\nTo transfer each branch settlement at once:\n1. 📥 Download statement → review\n2. Bulk transfer via internet/firm banking\n3. Update status after transfer is complete':'💸 일괄 송금 안내\n\n각 지점 정산액을 일괄 송금하시려면:\n1. 📥 정산서 다운로드 → 검토\n2. 은행 인터넷뱅킹 또는 펌뱅킹 일괄 이체\n3. 송금 완료 후 상태 업데이트')" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="💸 일괄 송금하기" data-en="💸 Bulk Transfer">💸 일괄 송금하기</button>
-            <button onclick="alert(window.adminLang==='en'?'📥 Download settlement Excel (all branches)':'📥 정산서 Excel 다운로드 (전체 지점)')" style="padding:7px 14px;font-size:12.5px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:700" data-ko="📥 Excel 다운로드" data-en="📥 Excel Download">📥 Excel 다운로드</button>
+            <button id="acc-fr-transfer" onclick="alert(window.adminLang==='en'?'💸 Bulk Transfer Guide\n\nTo transfer each branch settlement at once:\n1. 📥 Download statement → review\n2. Bulk transfer via internet/firm banking\n3. Update status after transfer is complete':'💸 일괄 송금 안내\n\n각 지점 정산액을 일괄 송금하시려면:\n1. 📥 정산서 다운로드 → 검토\n2. 은행 인터넷뱅킹 또는 펌뱅킹 일괄 이체\n3. 송금 완료 후 상태 업데이트')" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="💸 일괄 송금 안내" data-en="💸 Bulk Transfer Guide">💸 일괄 송금 안내</button>
           </div>
 
           <!-- 4개 KPI 카드 (한눈에 보이는 핵심 숫자) -->
@@ -3840,8 +3838,7 @@
               <option data-ko="회원 포인트" data-en="Member points">회원 포인트</option>
               <option data-ko="추천인 보상" data-en="Referral rewards">추천인 보상</option>
             </select>
-            <button class="primary" onclick="alert('쿠폰 발급은 별도 화면에서 처리됩니다. (수강신청 관리 메뉴 또는 학생 상세보기에서)')" style="padding:5px 12px;font-size:12px;" data-ko="＋ 새 쿠폰" data-en="＋ New">＋ 새 쿠폰</button>
-            <button onclick="alert('쿠폰 사용 통계는 추후 별도 페이지에서 제공됩니다.')" style="padding:5px 12px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="📊 사용 통계" data-en="📊 Usage stats">📊 사용 통계</button>
+            <button class="primary" onclick="var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}" style="padding:5px 12px;font-size:12px;" data-ko="＋ 새 쿠폰 발급하러 가기" data-en="＋ Go to issue coupon">＋ 새 쿠폰 발급하러 가기</button>
           </div>
           <table>
             <thead><tr>
@@ -3871,7 +3868,7 @@
               <option value="withholding" data-ko="원천세" data-en="Withholding tax">원천세</option>
             </select>
             <button class="primary" onclick="accLoadTax()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 집계" data-en="🧮 Compute">🧮 집계</button>
-            <button onclick="alert('홈택스 전송은 국세청 인증서가 필요합니다. 집계 결과 CSV를 다운받아 홈택스에 업로드해 주세요.\n\n홈택스: https://hometax.go.kr')" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📤 홈택스 전송" data-en="📤 Submit to Hometax">📤 홈택스 전송</button>
+            <button onclick="alert('홈택스 전송은 국세청 인증서가 필요합니다. 집계 결과 CSV를 다운받아 홈택스에 업로드해 주세요.\n\n홈택스: https://hometax.go.kr')" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📤 홈택스 전송 방법" data-en="📤 How to submit (Hometax)">📤 홈택스 전송 방법</button>
           </div>
           <table>
             <thead><tr>
@@ -15495,7 +15492,7 @@ button.chip:hover,
       <div class="pl-feature-card"><b>💬 댓글 토론</b><span>학부모 질문 + 강사 답글</span></div>
       <div class="pl-feature-card"><b>📌 상단 고정</b><span>중요 공지 일정 기간 항상 상단 노출</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="alert('공지 작성 폼 (다음 phase 구현)')">➕ 새 공지 작성</button>
+    <div class="pl-cta-btn" role="status" aria-disabled="true" style="display:inline-block;background:#e2e8f0!important;color:#475569!important;cursor:default!important;box-shadow:none;pointer-events:none" data-ko="🚧 준비 중 — 공지 작성" data-en="🚧 Coming soon — notice editor">🚧 준비 중 — 공지 작성</div>
   </div>
 </details>
 
@@ -15578,7 +15575,7 @@ button.chip:hover,
       <div class="pl-feature-card"><b>📊 누적 보관</b><span>학생별 타임라인, 학기말 리포트</span></div>
       <div class="pl-feature-card"><b>💬 학부모 댓글</b><span>답글 + 강사 응답</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="alert('수업 일지 작성 (수업 종료 자동 트리거 예정)')">📝 오늘 일지 작성</button>
+    <div class="pl-cta-btn" role="status" aria-disabled="true" style="display:inline-block;background:#e2e8f0!important;color:#475569!important;cursor:default!important;box-shadow:none;pointer-events:none" data-ko="🚧 준비 중 — 수업 일지" data-en="🚧 Coming soon — class journal">🚧 준비 중 — 수업 일지</div>
   </div>
 </details>
 
@@ -15594,7 +15591,7 @@ button.chip:hover,
       <div class="pl-feature-card"><b>📅 월별 하이라이트</b><span>매월 베스트 5장 자동 선정</span></div>
       <div class="pl-feature-card"><b>💝 졸업 앨범</b><span>학년말 자동 PDF 졸업 앨범</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="alert('갤러리 업로더 (R2 스토리지 연결 예정)')">📤 사진 업로드</button>
+    <div class="pl-cta-btn" role="status" aria-disabled="true" style="display:inline-block;background:#e2e8f0!important;color:#475569!important;cursor:default!important;box-shadow:none;pointer-events:none" data-ko="🚧 준비 중 — 사진 업로드" data-en="🚧 Coming soon — photo upload">🚧 준비 중 — 사진 업로드</div>
   </div>
 </details>
 
