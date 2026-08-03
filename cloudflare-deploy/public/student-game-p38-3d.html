@@ -753,6 +753,10 @@
 <script defer src="/js/game-tts.js?v=5"></script><!-- 🙊 이모지 정제 규칙 단일 출처(MangoiTTS.stripEmoji) -->
 <script src="/js/lesson-nav.js?v=2"></script>
 <script src="/js/mangoi-stt.js?v=2"></script>
+<!-- 🗣🎧 (2026-08-03) 말하기 판정 통일 + 한국인 발음 처방 + 게임 공통 기억 큐 (무료·서버 호출 없음) -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script>
 'use strict';
 /* ════════════════════════════════════════════════════════════════════
@@ -2043,7 +2047,8 @@ function startAceDuel(){
     G.pronTry++;
     if(ok){ G.pronOk++; banner('🔓 조준 완료! 사격!', '#4ade80');
       if(ace && !ace.dead) ace.hp=1; }
-    else { banner('발음이 안 잡혔어요 — 그래도 사격 가능', '#ffd479');
+    else { var _fix=(typeof _spkCoach==='function') ? _spkCoach(heard, _spkTarget(), false) : '';
+      banner(_fix || '발음이 안 잡혔어요 — 그래도 사격 가능', '#ffd479');   // 🌱 잡히면 뭘 고칠지 알려준다
       if(ace && !ace.dead) ace.hp=2; }
   });
 }
@@ -2148,11 +2153,15 @@ function spSpeakStep(){
     document.getElementById('spHeard').textContent = heard ? ('들린 말: “'+heard+'”') : '';
     if(ok){
       G.pronOk++; SP.spoke++; sndGood();
+      try{ if(typeof _spkCoach==='function') _spkCoach(heard, _spkTarget(), true); }catch(_e){}   // 🧠 성공도 기억 큐에
       if(SP.spoke>=SP.need){ spFinish(true); return; }
       spDots(SP.spoke,'speak'); document.getElementById('micBtn').disabled=false;
     }else{
       sndBad();
-      document.getElementById('spState').textContent='다시 한 번! 천천히 또박또박 🙂';
+      /* 🌱 "다시 한 번"만으로는 뭘 바꿔야 할지 모른 채 같은 말을 반복한다.
+         한국인 취약 발음(R/L·TH·끝소리…)이 잡히면 그 처방으로 대체한다. */
+      var _fix2=''; try{ if(typeof _spkCoach==='function') _fix2=_spkCoach(heard, _spkTarget(), false); }catch(_e){}
+      document.getElementById('spState').textContent = _fix2 || '다시 한 번! 천천히 또박또박 🙂';
       document.getElementById('micBtn').disabled=false;
     }
   });
@@ -2185,8 +2194,11 @@ function listenMs(target){
   var units = (MODE==='zh') ? t.replace(/\s/g,'').length : t.split(/\s+/).filter(Boolean).length;
   return Math.max(15000, Math.min(22000, 7000 + units*1100));
 }
+/* 🎯 지금 채점 대상 문장 — listenOnce 와 발음 코치가 **같은 것**을 봐야 한다.
+   (에이스 결투는 SP 가 아직 없어서 G.sent 를 쓴다. 여기가 어긋나면 엉뚱한 문장으로 진단한다.) */
+function _spkTarget(){ return SP ? spFull() : (G && G.sent ? G.sent.w.join(LANGMETA[MODE].join) : ''); }
 function listenOnce(cb){
-  var target = SP ? spFull() : (G && G.sent ? G.sent.w.join(LANGMETA[MODE].join) : '');
+  var target = _spkTarget();
   var MS = listenMs(target);
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ cb(true,'(음성인식 미지원 · 통과)'); return; }
@@ -2282,11 +2294,41 @@ function matchSentence(said, target){
     for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; }
     return hit/t.length>=0.7;
   }
+  /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
+     예전엔 `set[w]` — **목표 단어가 발화 어딘가에 있기만 하면** 맞은 것으로 셌다.
+     어순이 완전히 뒤바뀌어도, 같은 단어를 여러 번 말해도 통과했다.
+     ⚠️ 반환값은 예전과 같은 boolean 이다 → 호출부는 한 줄도 안 바뀐다. */
+  if(window.MangoiScore) return MangoiScore.grade(said, target).pass;
+  return _legacyMatchSentence(said, target);
+}
+// 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
+function _legacyMatchSentence(said, target){
   function norm(x){ return x.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
   var sw=norm(said), tw=norm(target); if(!tw.length) return false;
   var set={}; sw.forEach(function(w){ set[w]=1; });
   var hit2=0; tw.forEach(function(w){ if(set[w]) hit2++; });
   return hit2/tw.length>=0.65;
+}
+/* 🗣 발음 코치 (2026-08-03) — 판정이 끝난 뒤 **한 번만** 부른다.
+   matchSentence 는 인식 후보마다 불리므로 거기서 적립하면 한 문장이 수십 번 쌓인다. */
+function _spkCoach(said, target, ok){
+  try{
+    if(MODE==='zh') return '';
+    if(!window.MangoiScore || !window.MangoiPron || !target) return '';
+    /* 🔴 (수정) 처음엔 성공했을 때 `target vs target` 으로 채점했다. 그러면 만점이 나오니
+       goodTags 는 잘 쌓이지만, **통과했지만 잘못 발음한 경우의 진단이 통째로 버려진다.**
+       실측: 목표 "He drinks cold milk" 에 "mirk" 라고 해도 통과라 R/L 오류가 기록되지 않았다.
+       이 게임들의 과제는 '그 문장을 그대로 따라 하기'이므로, **항상 실제 발화로 채점**한다.
+       (통과 여부와 진단은 별개다 — 점수는 관대하게, 진단은 정확하게) */
+    var g = MangoiScore.grade(said || target, target);
+    var d = MangoiPron.analyze(g);
+    if(ok || (d.tags && d.tags.length)){
+      try{ window.MangoiMemory && MangoiMemory.log({ en:target }, !!ok,
+             { tags:d.tags, goodTags:d.goodTags, score:g.score }); }catch(_e){}
+    }
+    if(ok) return '';
+    return MangoiPron.tipFor(d.tags) || '';
+  }catch(_){ return ''; }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -3170,6 +3212,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260803143934 -->
+<!-- BUILD:20260803152344 -->
 </body>
 </html>

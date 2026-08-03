@@ -316,6 +316,10 @@
   <script src="/vendor/three/three.min.js?v=1"></script>
   <script src="/vendor/three/GLTFLoader.js?v=1"></script>
   <script src="/js/game-vocab.js?v=1"></script>
+  <!-- 🗣🎧 (2026-08-03) 말하기 판정 통일 + 한국인 발음 처방 + 게임 공통 기억 큐 (무료·서버 호출 없음) -->
+  <script src="/js/mangoi-speak-score.js?v=1"></script>
+  <script src="/js/mangoi-pron-tags.js?v=1"></script>
+  <script src="/js/mangoi-memory.js?v=1"></script>
   <script>
   (function(){
     'use strict';
@@ -1056,9 +1060,32 @@
         t.forEach(function(c){ if(sset[c]) hit++; });
         return t.length? (hit/t.length)>=0.6 : false;
       }
+      /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
+         예전엔 `sw[w]` — **목표 단어가 발화 어딘가에 있기만 하면** 맞은 것으로 셌다.
+         어순이 완전히 뒤바뀌어도, 같은 단어를 여러 번 말해도 통과했다.
+         ⚠️ 반환 boolean 유지 → 호출부 무변경. 어린이 대상이라 채점기의 관대함(기능어
+            가중치·억양 구제)은 그대로 살아 있다. */
+      if(window.MangoiScore) return MangoiScore.grade(said, target).pass;
       var tw=target.split(' ').filter(Boolean), sw={}; said.split(' ').forEach(function(w){ sw[w]=1; });
       var hit=0; tw.forEach(function(w){ if(sw[w]) hit++; });
-      return tw.length? (hit/tw.length)>=0.6 : false;   // 60% 단어 일치면 통과(관대하게 — 어린이 발음 고려)
+      return tw.length? (hit/tw.length)>=0.6 : false;   // 60% 단어 일치면 통과(채점기 로드 실패 시 폴백)
+    }
+    /* 🗣 발음 코치 — 판정이 끝난 뒤 한 번만. 반환: 처방 한 줄(없으면 ''). 부수효과: 기억 큐 적립 */
+    function _pronCoach(said, ok){
+      try{
+        if(G.mode==='zh') return '';
+        var target = speakMission.sent ? speakMission.sent.en : '';
+        if(!target || !window.MangoiScore || !window.MangoiPron) return '';
+        /* 🔴 항상 **실제 발화**로 채점한다. 성공했을 때 target vs target 으로 채점하면
+           "통과했지만 잘못 발음한 경우"(milk→mirk)의 진단이 버려진다. */
+        var g = MangoiScore.grade(said || target, target);
+        var d = MangoiPron.analyze(g);
+        if(ok || (d.tags && d.tags.length)){
+          try{ window.MangoiMemory && MangoiMemory.log({ en:target }, !!ok,
+                 { tags:d.tags, goodTags:d.goodTags, score:g.score }); }catch(_e){}
+        }
+        return ok ? '' : (MangoiPron.tipFor(d.tags) || '');
+      }catch(_){ return ''; }
     }
     function _updateSpeakDots(){
       var dots=''; for(var i=0;i<speakMission.need;i++){ dots += (i<speakMission.done?'● ':'○ '); }
@@ -1111,6 +1138,7 @@
         } }
         if(ok){
           speakMission.done++; sfxDing(speakMission.done+3); _updateSpeakDots();
+          try{ if(typeof _pronCoach==='function') _pronCoach(heard, true); }catch(_e){}   // 🧠 성공도 기억 큐에
           if(speakMission.done>=speakMission.need){
             G.score += 150; sfxFanfare();
             $('speakFeedback').innerHTML='🎉 완벽해요! 발음 보너스 +150점'; btn.style.display='none';
@@ -1119,7 +1147,9 @@
             btn.disabled=true; setTimeout(_speakRound, 800);   // 번갈아: 다음 라운드는 다시 듣기부터
           }
         } else {
-          $('speakFeedback').textContent='"'+ (heard||'…') +'" — 다시 또박또박 말해볼까요?';
+          /* 🌱 "다시 또박또박"만으로는 무엇을 바꿔야 할지 모른다 → 잡히면 처방을 붙인다 */
+          var _fix=''; try{ if(typeof _pronCoach==='function') _fix=_pronCoach(heard, false); }catch(_e){}
+          $('speakFeedback').textContent='"'+ (heard||'…') +'" — ' + (_fix || '다시 또박또박 말해볼까요?');
         }
       };
       rec.onerror=function(){ $('speakFeedback').textContent='마이크를 사용할 수 없어요. 권한을 확인해주세요.'; };
@@ -1448,6 +1478,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260803143934 -->
+<!-- BUILD:20260803152344 -->
 </body>
 </html>

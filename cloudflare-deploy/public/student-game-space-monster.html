@@ -363,6 +363,11 @@
 
   <!-- 로그인 학생 판별(mangoi_logged_user / mango_user) — 다른 학생게임과 같은 공용 로더 -->
   <script src="/js/game-vocab.js"></script>
+  <!-- 🧠 (2026-08-03) 게임 공통 기억 큐만 싣는다 — 이 게임엔 말하기가 없어서 채점기·발음진단은 불필요.
+       ⚠️ 듣기 관문(mangoi-listen-first)도 **일부러 안 넣었다.** 이 게임은 이미
+          "문장을 소리로만 들려주고(영어 글자 안 보여줌) 그동안 괴물도 안 나온다"는
+          듣기 우선 설계다. 관문을 덧대면 같은 걸 두 번 시키는 셈이라 리듬만 깨진다. -->
+  <script src="/js/mangoi-memory.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const field = $('field'), flash = $('flash'), zoom = $('corridorZoom');
@@ -1014,6 +1019,7 @@
 
       wave.next++;
       score += 60;
+      try{ if(window.MangoiMemory) MangoiMemory.log({ en:m.word }, true); }catch(_e){}   // 🧠 다른 게임과 이어지게
       scoreEl.textContent = score;
       renderSlots();
       flash.className=''; void flash.offsetWidth; flash.classList.add('hitfx');
@@ -1034,6 +1040,10 @@
       m.el.classList.add('wrongHit');
       score = Math.max(0, score - 20);
       scoreEl.textContent = score;
+      /* 🧠 틀린 단어를 기억 큐에 — 다음에 다른 게임에서 이 단어를 먼저 만나게 된다.
+         ⚠️ m.word 는 '학생이 쏜 괴물의 단어'(= 오답 단어)다. 목표 단어가 아니다.
+            그래도 이걸 적립하는 게 맞다 — 헷갈린 단어가 곧 약점이다. */
+      try{ if(window.MangoiMemory) MangoiMemory.log({ en:m.word }, false); }catch(_e){}
       // 오답 = 그 괴물이 확 다가온다
       m.born -= m.dur * 0.16;
       field.classList.add('shake'); setTimeout(()=>field.classList.remove('shake'), 300);
@@ -1335,6 +1345,6 @@
       new Promise(r => setTimeout(r, 2500))
     ]).then(startWave, startWave);
   </script>
-<!-- BUILD:20260803143934 -->
+<!-- BUILD:20260803152344 -->
 </body>
 </html>

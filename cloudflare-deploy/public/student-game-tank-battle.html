@@ -1483,7 +1483,12 @@ function _spkCoach(said, target, ok){
   try{
     if(MODE==='zh') return '';
     if(!window.MangoiScore || !window.MangoiPron || !target) return '';
-    var g = MangoiScore.grade(ok ? target : (said||''), target);
+    /* 🔴 (수정) 처음엔 성공했을 때 `target vs target` 으로 채점했다. 그러면 만점이 나오니
+       goodTags 는 잘 쌓이지만, **통과했지만 잘못 발음한 경우의 진단이 통째로 버려진다.**
+       실측: 목표 "He drinks cold milk" 에 "mirk" 라고 해도 통과라 R/L 오류가 기록되지 않았다.
+       이 게임들의 과제는 '그 문장을 그대로 따라 하기'이므로, **항상 실제 발화로 채점**한다.
+       (통과 여부와 진단은 별개다 — 점수는 관대하게, 진단은 정확하게) */
+    var g = MangoiScore.grade(said || target, target);
     var d = MangoiPron.analyze(g);
     if(ok || (d.tags && d.tags.length)){
       try{ window.MangoiMemory && MangoiMemory.log({ en:target }, !!ok,
@@ -2527,6 +2532,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260803143934 -->
+<!-- BUILD:20260803152344 -->
 </body>
 </html>
