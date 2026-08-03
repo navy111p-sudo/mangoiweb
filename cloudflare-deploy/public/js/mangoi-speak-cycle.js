@@ -561,8 +561,13 @@
     var wordTarget = words.join(' ');
     _busy = true;
 
-    var res = { ran: true, skipped: false, passed: false, wordScore: 0, sentScore: 0, shadowScore: 0, score: 0, tags: [] };
+    var res = { ran: true, skipped: false, passed: false, noMic: false, wordScore: 0, sentScore: 0, shadowScore: 0, score: 0, tags: [] };
     var skipped = false, skipTimer = null;
+    /* 이번 사이클에서 학생 목소리가 **한 번이라도** 잡혔는가.
+       한 번도 안 잡혔다면 마이크가 없거나 막힌 것이지 "0점"이 아니다. 둘을 구분해야
+       ① 「발음 점수 0점」 같은 상처 주는 문구를 안 띄우고
+       ② 들리지도 않는 상태에서 재도전을 시켜 사공(dead air)을 만들지 않는다. */
+    var heardAny = false;
 
     function done() {
       _busy = false;
@@ -645,6 +650,7 @@
             .then(function (r) {
               if (!r) return;
               res.wordScore = r.g.score || 0;
+              if (r.said) heardAny = true;
               remember(wordTarget, '', !!r.g.pass, { tags: r.p.tags, goodTags: r.p.goodTags, score: r.g.score });
               return wait(r.g.pass ? 700 : 1500);
             });
@@ -669,8 +675,12 @@
               res.sentScore = Math.max(res.sentScore, r.g.score || 0);
               res.tags = r.p.tags || [];
               remember(en, ko, !!r.g.pass, { tags: r.p.tags, goodTags: r.p.goodTags, score: r.g.score });
+              if (r.said) heardAny = true;
               if (r.g.pass) { res.passed = true; return wait(900); }
               if (tries >= SENT_TRIES) return wait(1600);
+              /* 아무 소리도 안 잡혔으면 재도전을 안 시킨다 — 마이크가 없는 학생에게
+                 같은 화면을 한 번 더 띄우는 것은 사공(dead air)일 뿐이다. */
+              if (!r.said) return wait(1200);
               /* 모범 문장을 다시 들려준 뒤 재도전 */
               return wait(1200).then(function () {
                 if (stopped()) return;
@@ -697,6 +707,7 @@
             .then(function (r) {
               if (!r) return;
               res.shadowScore = r.g.score || 0;
+              if (r.said) heardAny = true;
               if (r.g.pass) res.passed = true;
               remember(en, ko, !!r.g.pass, { tags: r.p.tags, goodTags: r.p.goodTags, score: r.g.score });
               return wait(r.g.pass ? 900 : 1600);
@@ -709,7 +720,10 @@
           if (stopped()) return;
           res.score = Math.round(res.sentScore * 0.5 + res.shadowScore * 0.3 + res.wordScore * 0.2);
           var best = Math.max(res.sentScore, res.shadowScore);
-          if (best > 0) sendShadow(en, ko, best, lang);       // 서버 적립 — 기기를 바꿔도 남는다
+          res.noMic = !heardAny;
+          /* 목소리가 한 번도 안 잡혔으면 서버에 보내지 않는다.
+             pron_count 만 올라가고 pron_best 는 그대로여서, 교사 화면의 평균이 왜곡된다. */
+          if (heardAny && best > 0) sendShadow(en, ko, best, lang);
           setStep(4);
           set('title', res.passed ? T('fin1') : T('fin0'));
           set('main', en);
@@ -722,7 +736,9 @@
             if (localStorage.getItem('mangoi_lang') !== 'en')
               note = (window.MangoiMemory && MangoiMemory.note({ en: en })) || '';
           } catch (_) {}
-          set('feed', '<span style="color:#4ade80">'+T('score')+' ' + best + T('pts')+'</span>');
+          set('feed', heardAny
+            ? '<span style="color:#4ade80">'+T('score')+' ' + best + T('pts')+'</span>'
+            : '<span style="color:#94a3b8">'+T('nomic')+'</span>');
           set('tip', note || (res.passed ? '' : T('again')));
           return wait(1700);
         })
