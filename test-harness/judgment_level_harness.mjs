@@ -273,7 +273,8 @@ console.log('\n[ J-2. 지시를 어긴 결과를 서버가 걸러내는가 ]');
   check('여유값이 하한 아래·상한 위로 열려 있다', L.BAND_LEN_UNDER < 1 && L.BAND_LEN_OVER > 1,
     `under=${L.BAND_LEN_UNDER} over=${L.BAND_LEN_OVER}`);
   const SRVJ2 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
-  check('생성기가 길이를 검사해 다시 뽑는다', /if \(attempt < 3 && !situationFitsBand\(situation, bandState\.band\)\)/.test(SRVJ2));
+  // askBand = 배치 탐색 중이면 탐색 밴드, 아니면 학생의 밴드 — 길이 검사도 그 밴드 기준이어야 합니다
+  check('생성기가 길이를 검사해 다시 뽑는다', /if \(attempt < 3 && !situationFitsBand\(situation, askBand\)\)/.test(SRVJ2));
   check('끝까지 안 맞으면 그래도 문제를 준다(마지막 시도는 수용)', /attempt < 3 && !situationFitsBand/.test(SRVJ2));
   // 여유를 넓게 두면 LLM 이 그 바닥에 눌러앉습니다(0.75 일 때 실측이 전부 하한의 75~80%)
   check('하한 여유가 너무 헐겁지 않다(≥0.85)', L.BAND_LEN_UNDER >= 0.85, String(L.BAND_LEN_UNDER));
@@ -329,6 +330,52 @@ console.log('\n[ L. 범주 이름이 화면 언어를 따르는가 — 회귀 �
   check('bandNameOf 가 화면 언어(LANG)를 쓴다', /function bandText\(b, key\)[\s\S]{0,240}LANG==='en'/.test(HTML));
   check('서버는 그 함정을 주석으로 남겨 두었다',
     /lang 은 '문제 지문의 언어'/.test(readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8')));
+}
+
+console.log('\n[ M. 레벨 찾기(배치테스트) — 6문항으로 출발점 찾기 ]');
+{
+  const { placementNext, runPlacement, PLACEMENT_ITEMS, PLACEMENT_START, PLACEMENT_FIRST_STEP } = L;
+  check('6문항으로 잡았다', PLACEMENT_ITEMS === 6, String(PLACEMENT_ITEMS));
+  check('가운데(4)에서 시작한다', PLACEMENT_START === 4, String(PLACEMENT_START));
+  check('첫 보폭이 2다(빨리 훑고 좁힌다)', PLACEMENT_FIRST_STEP === 2);
+
+  const up = placementNext(4, true, 2);
+  const dn = placementNext(4, false, 2);
+  check('맞히면 보폭만큼 올라간다', up.band === 6, `현재 ${up.band}`);
+  check('틀리면 보폭만큼 내려간다', dn.band === 2, `현재 ${dn.band}`);
+  check('보폭이 한 칸씩 줄어 수렴한다', up.step === 1 && dn.step === 1);
+  check('보폭은 1 아래로 안 내려간다', placementNext(4, true, 1).step === 1);
+  check('위 경계를 넘지 않는다', placementNext(8, true, 2).band === 8);
+  check('아래 경계를 넘지 않는다', placementNext(1, false, 2).band === 1);
+
+  // 6문항이면 최상단·최하단 모두 닿아야 합니다(못 닿으면 그 레벨 학생을 배치할 수 없음)
+  const allRight = runPlacement([true, true, true, true, true, true]);
+  const allWrong = runPlacement([false, false, false, false, false, false]);
+  check('전부 맞히면 최상단(8)에 닿는다', allRight.band === BAND_COUNT, `현재 ${allRight.band}`);
+  check('전부 틀리면 최하단(1)에 닿는다', allWrong.band === 1, `현재 ${allWrong.band}`);
+  check('물어본 밴드가 6개 기록된다', allRight.asked.length === 6 && allWrong.asked.length === 6);
+  check('첫 문항은 항상 시작 밴드', allRight.asked[0] === PLACEMENT_START && allWrong.asked[0] === PLACEMENT_START);
+
+  // 실력이 중간인 학생 — 위로 갔다 아래로 오며 가운데로 수렴
+  const mid = runPlacement([true, false, true, false, true, false]);
+  check('오르내리는 학생은 중간 어딘가로 수렴한다', mid.band >= 3 && mid.band <= 6, `현재 ${mid.band}`);
+  check('빈 입력에도 안 터진다', runPlacement([]).band === PLACEMENT_START && runPlacement(null).band === PLACEMENT_START);
+
+  const SRVJ3 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
+  // ★ 찾는 도중 저장된 밴드가 바뀌면 결과가 오염됩니다
+  check('탐색 중에는 저장된 밴드를 건드리지 않는다', /if \(!probing\) \{/.test(SRVJ3));
+  check('탐색 밴드로 문제를 만든다', /const askBand = probing \? probeRaw : bandState\.band/.test(SRVJ3));
+  check('라우트가 probe_band 를 넘긴다', /probeBand: Number\(body\.probe_band\)/.test(SRVJ3) || /probeBand: Number\(body\.probe_band\)/.test(SRVP));
+
+  check('화면에 레벨 찾기 진입이 있다', /id="plStart"/.test(HTML));
+  check('배치 6문항 상수가 화면과 서버에서 같다', /var PL_ITEMS = 6/.test(HTML));
+  check('배치는 가운데(4)에서 시작한다', /PL_START = 4/.test(HTML));
+  // ★ 배치 문항은 일부러 너무 어려운 것을 섞으므로 지수에 들어가면 안 됩니다
+  check('배치 답안을 채점 API 로 보내지 않는다',
+    !/answerPlacement[\s\S]{0,800}\/api\/judgment\/answer/.test(HTML),
+    '배치 문항이 판단력 지수를 왜곡합니다');
+  check('끝나면 자동 모드로 확정한다(출발점만 정하고 이후는 AI)',
+    /requestScenario\(null, 0, plBand, 'auto', 0, 'placement'\)/.test(HTML));
 }
 
 console.log(`\n${'─'.repeat(60)}`);

@@ -238,6 +238,38 @@ export function situationFitsBand(text: any, band: any): boolean {
   return n >= Math.round(s.minWords * BAND_LEN_UNDER) && n <= Math.round(s.maxWords * BAND_LEN_OVER);
 }
 
+// ── 🎯 레벨 찾기(배치테스트) ────────────────────────────────────────────────
+//   Duolingo 식 적응형 계단. 가운데서 시작해 맞으면 올리고 틀리면 내리되 보폭을 줄여 수렴합니다.
+//   적응형 검사 연구상 12문항이면 95% 정확도, 5~10문항이 실용 하한 — 아이가 지치지 않는 6문항으로 잡습니다.
+//   ⚠️ 채점은 화면에서 정답 인덱스로 바로 합니다(LLM 재호출 0). 그래서 3분이면 끝납니다.
+//   ⚠️ 배치 문항은 판단력 지수에 넣지 않습니다 — 일부러 너무 어려운 문제를 섞기 때문입니다.
+export const PLACEMENT_ITEMS = 6;
+export const PLACEMENT_START = 4;        // 중앙(4)에서 시작 — 위아래 모두 6문항 안에 닿습니다
+export const PLACEMENT_FIRST_STEP = 2;   // 첫 보폭만 2, 이후 1로 좁혀 수렴
+
+/** 다음에 물어볼 밴드 — 맞으면 올리고 틀리면 내리되 보폭을 한 칸씩 줄입니다. */
+export function placementNext(current: any, correct: boolean, step: any): { band: number; step: number } {
+  const b = normalizeBand(current);
+  const s = Math.max(1, Math.round(+step) || 1);
+  const next = Math.max(1, Math.min(BAND_COUNT, b + (correct ? s : -s)));
+  return { band: next, step: Math.max(1, s - 1) };
+}
+
+/**
+ * 정오 배열 → 최종 밴드. 계단을 끝까지 따라간 자리가 그대로 답입니다.
+ *   (한 문제 실수로 1칸 어긋나도 이후 자동 조절이 바로잡습니다 — 배치는 '출발점'만 정하면 됩니다)
+ */
+export function runPlacement(results: Array<boolean | number>): { band: number; asked: number[] } {
+  let band = PLACEMENT_START, step = PLACEMENT_FIRST_STEP;
+  const asked: number[] = [];
+  for (const r of (Array.isArray(results) ? results : [])) {
+    asked.push(band);
+    const nx = placementNext(band, !!r, step);
+    band = nx.band; step = nx.step;
+  }
+  return { band, asked };
+}
+
 /** 최근 결과 창에 한 건 추가(오래된 것부터 밀어냄). 1=정답, 0=오답. */
 export function pushResult(hist: any, isCorrect: any): number[] {
   const arr = Array.isArray(hist) ? hist.map((v: any) => (v ? 1 : 0)) : [];

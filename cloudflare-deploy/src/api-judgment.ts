@@ -610,7 +610,7 @@ interface BandState {
   hist: number[];
   /** 사람이 준 레벨 원문(students_erp.level 또는 level_tests.level). 값이 바뀌면 재시드 판단에 씁니다. */
   base: string | null;
-  src: 'teacher' | 'auto' | 'student' | 'default';
+  src: 'teacher' | 'auto' | 'student' | 'default' | 'placement';
   /** 'auto' = AI 가 답을 보고 조절 / 'manual' = 학생이 고른 자리에 머묾 */
   mode: BandMode;
   at: number;
@@ -631,7 +631,7 @@ async function readBandState(env: MangoEnv, uid: string): Promise<BandState | nu
       band: normalizeBand(j?.band),
       hist: Array.isArray(j?.hist) ? j.hist.map((v: any) => (v ? 1 : 0)) : [],
       base: j?.base != null ? String(j.base) : null,
-      src: (['teacher', 'auto', 'student', 'default'] as const).includes(j?.src) ? j.src : 'auto',
+      src: (['teacher', 'auto', 'student', 'default', 'placement'] as const).includes(j?.src) ? j.src : 'auto',
       // 모드가 없던 옛 저장값은 기본(자동)으로 읽습니다 — 기존 학생의 동작이 바뀌지 않도록.
       mode: normalizeBandMode(j?.mode),
       at: Number(j?.at) || 0,
@@ -683,8 +683,11 @@ export async function generatePersonalizedScenario(
    *   nudge   : 학생이 누른 ±1
    *   setBand : 학생이 목록에서 직접 고른 범주(1~8) — 고르면 자동으로 '직접' 모드가 됩니다
    *   mode    : 'auto'(AI 가 조절) / 'manual'(내가 고른 자리 유지)
+   *   probeBand : 레벨 찾기(배치테스트) 전용 — 그 밴드로 한 문제만 뽑고
+   *               **학생의 저장된 밴드는 건드리지 않습니다**(찾는 중에 값이 흔들리면 안 되므로).
+   *   src     : 밴드를 누가 정했는지 기록용('placement' 등)
    */
-  bandOpts?: { nudge?: number | null; setBand?: number | null; mode?: string | null } | null,
+  bandOpts?: { nudge?: number | null; setBand?: number | null; mode?: string | null; probeBand?: number | null; src?: string | null } | null,
 ): Promise<any> {
   const t0 = Date.now();
   await ensureJudgmentTables(env);
@@ -722,16 +725,26 @@ export async function generatePersonalizedScenario(
   //    범주를 직접 고르면 모드를 묻지 않아도 '직접'이 됩니다(고른 자리를 AI가 뒤집으면 모순).
   const wantMode = bandOpts?.mode ? normalizeBandMode(bandOpts.mode) : null;
   const modeChanged = !!wantMode && wantMode !== bandState.mode;
-  if (picked) {
-    bandState = { ...bandState, band: picked, hist: [], src: 'student', mode: wantMode || 'manual', at: Date.now() };
-  } else {
-    if (wantMode) bandState = { ...bandState, mode: wantMode, hist: [], at: Date.now() };
-    if (nudge !== 0) {
-      bandMove = nudgeBand(bandState.band, nudge);
-      bandState = { ...bandState, band: bandMove.band, hist: [], src: 'student', at: Date.now() };
+  // 🎯 레벨 찾기(배치테스트) 중인가 — 그렇다면 저장된 밴드를 전혀 건드리지 않고
+  //    지정된 밴드로 한 문제만 만들어 줍니다. 찾는 도중에 값이 바뀌면 결과가 오염됩니다.
+  const probeRaw = Math.round(+(bandOpts?.probeBand as any));
+  const probing = Number.isFinite(probeRaw) && probeRaw >= 1 && probeRaw <= 8;
+
+  if (!probing) {
+    if (picked) {
+      const pickedSrc = (bandOpts?.src === 'placement') ? 'placement' : 'student';
+      bandState = { ...bandState, band: picked, hist: [], src: pickedSrc, mode: wantMode || 'manual', at: Date.now() };
+    } else {
+      if (wantMode) bandState = { ...bandState, mode: wantMode, hist: [], at: Date.now() };
+      if (nudge !== 0) {
+        bandMove = nudgeBand(bandState.band, nudge);
+        bandState = { ...bandState, band: bandMove.band, hist: [], src: 'student', at: Date.now() };
+      }
     }
+    if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked || modeChanged) await writeBandState(env, studentUid, bandState);
   }
-  if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked || modeChanged) await writeBandState(env, studentUid, bandState);
+  // 이 요청의 문제를 만들 밴드 — 배치 중이면 탐색 밴드, 아니면 학생의 밴드
+  const askBand = probing ? probeRaw : bandState.band;
 
   // 🎲 다양화 컨텍스트 — 같은 문항 반복 방지의 핵심.
   //   ① KV 최근 출제 이력(judgrecent:<uid>, 48h): 프롬프트 '반복 금지' 목록 + 생성 후 중복 검사
@@ -761,7 +774,7 @@ export async function generatePersonalizedScenario(
     // 🎚️ 읽기 난이도는 밴드가 단독으로 결정합니다(문장 길이·문법 범위를 숫자로 못 박음).
     //    예전에는 students_erp.level 을 그대로 넘겼는데, 그 값이 전 학생 빈칸이라
     //    이 줄이 항상 빈 문자열이었고 → AI 가 매번 백지에서 문장 길이를 정했습니다(난이도 들쭉날쭉의 원인).
-    const levelLine = bandPromptLine(bandState.band);
+    const levelLine = bandPromptLine(askBand);
     // LLM 이 가끔 깨진 JSON/중복 시나리오를 반환 → 최대 4회 재시도, 시도마다 주제·각도를 새로 뽑아 변주
     for (let attempt = 0; attempt < 4 && !scenario; attempt++) {
       const themePool = SCENARIO_THEMES.filter((t) => !recent.themes.includes(t));
@@ -804,8 +817,8 @@ Return STRICT JSON only:
           // 📏 읽기 밴드가 실제로 지켜졌는지 세어 봅니다 — LLM 은 단어 수 지시를 자주 어깁니다
           //    (라이브 실측: 고급 16~22단어 지정에 14단어). 앞 두 번은 다시 뽑고,
           //    그 뒤에는 받아들입니다 — 길이가 조금 어긋나는 것보다 문제를 못 주는 것이 더 나쁩니다.
-          if (attempt < 3 && !situationFitsBand(situation, bandState.band)) {
-            console.warn('[judgment] situation length off band ' + bandState.band + ' (' + countWords(situation) + ' words), retrying (attempt ' + (attempt + 1) + ')');
+          if (attempt < 3 && !situationFitsBand(situation, askBand)) {
+            console.warn('[judgment] situation length off band ' + askBand + ' (' + countWords(situation) + ' words), retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }
           const opts4 = j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4);
@@ -843,9 +856,9 @@ Return STRICT JSON only:
       }), { expirationTtl: SCENARIO_RECENT_TTL });
     } catch {}
   }
-  await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null, textbook: tb.textbook, focus: pickedMisc, band: bandState.band, band_src: bandState.src });
+  await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null, textbook: tb.textbook, focus: pickedMisc, band: askBand, band_src: probing ? 'probe' : bandState.src });
   // 문제 생성이 실패해도 레벨 목록은 함께 돌려줍니다 — 학생이 "레벨 고르기"로 빠져나갈 수 있어야 하므로.
-  if (!scenario) return { ok: false, error: 'scenario_unavailable', reading_band: bandState.band, band_catalog: bandCatalog(), based_on: { source, weak, textbook: tb.textbook } };
+  if (!scenario) return { ok: false, error: 'scenario_unavailable', reading_band: askBand, band_catalog: bandCatalog(), based_on: { source, weak, textbook: tb.textbook } };
 
   // 🔒 정답지를 서버에 보관 — 채점 때 클라이언트가 되돌려 보낸 점수 대신 이 값을 씁니다.
   //    학생 화면을 고쳐 option_scores 를 100 으로 보내도 기록되는 점수는 흔들리지 않습니다.
@@ -859,7 +872,7 @@ Return STRICT JSON only:
         correct_index: scenario.correct_index, n: scenario.options.length,
         // 이 문항이 '어느 밴드에서 출제됐는지' — 채점 때 그 밴드로 기록해야
         //   밴드별 정답률(성공 지표)이 정확해집니다. 푸는 도중 밴드를 옮겨도 어긋나지 않습니다.
-        band: bandState.band,
+        band: askBand,
       }), { expirationTtl: SCENARIO_KEY_TTL });
     } catch { sid = null; }
   }
@@ -867,11 +880,11 @@ Return STRICT JSON only:
     ok: true, ...scenario, sid, target_misconception: pickedMisc || targetMisc, focus_misconception: pickedMisc, textbook: tb.textbook,
     // 🎚️ 읽기 밴드 — 학생 화면은 이 숫자를 보여주지 않습니다("너는 레벨 2"는 낙인).
     //    버튼을 눌러 옮겨졌을 때만 안내 한 줄을 띄우는 데 씁니다.
-    reading_band: bandState.band, reading_band_label: bandLabel(bandState.band),
+    reading_band: askBand, reading_band_label: bandLabel(askBand),
     // ⚠️ lang 은 '문제 지문의 언어'(항상 en)라 이름을 여기에 맞추면 한국어 화면에 'Elementary' 가 뜹니다.
     //    화면 언어는 클라이언트만 아니까, 이름은 band_catalog 에서 골라 쓰게 하고
     //    이 값은 하위호환·서버 로그용으로만 남깁니다.
-    reading_band_name: bandName(bandState.band, lang),
+    reading_band_name: bandName(askBand, lang),
     band_mode: bandState.mode,
     band_moved: bandMove ? bandMove.direction : 0,
     band_at_edge: bandMove ? (bandMove.reason === 'at_ceiling' || bandMove.reason === 'at_floor') : false,

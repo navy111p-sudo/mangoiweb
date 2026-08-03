@@ -704,8 +704,11 @@ Return STRICT JSON only, in BOTH Korean and English:
           env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined,
           (body.focus_misconception || '').toString().trim().slice(0, 40) || null,
           //     band_mode  — 'auto'(AI가 조절) / 'manual'(내가 고른 자리 유지)
+          //     probe_band — 레벨 찾기 전용. 그 밴드로 한 문제만 뽑고 저장값은 안 건드림
           { nudge: Math.sign(Number(body.band_nudge) || 0), setBand: Number(body.set_band) || 0,
-            mode: (body.band_mode || '').toString().trim() || null });
+            mode: (body.band_mode || '').toString().trim() || null,
+            probeBand: Number(body.probe_band) || 0,
+            src: (body.band_src || '').toString().trim() || null });
         return json(sc, 200);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }
