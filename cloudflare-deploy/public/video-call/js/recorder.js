@@ -38,6 +38,9 @@ var MIN_PART_SIZE = 5 * 1024 * 1024; // 5MB — R2 multipart 최소 크기
 var _recBadge = null;
 var _recTimer = null;
 
+// stopRecording()이 이미 complete/abort 전송을 시작했는지 — beforeunload 중복 전송 방지용
+var _stopRequested = false;
+
 var RECORDING_MIME_CANDIDATES = [
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8,opus',
@@ -228,6 +231,12 @@ function stopRecording() {
       return;
     }
 
+    // 🔴 2026-07-31: 통화 종료 버튼 클릭이 페이지 이동/언로드와 거의 동시에 일어나면
+    //   이 정상 종료 흐름과 beforeunload 의 sendBeacon 이 같은 upload_id 에 대해 이중으로
+    //   /complete 를 호출할 수 있었음(완료된 멀티파트를 재완료 시도 → R2 쪽 오류로 파일 유실
+    //   가능성). 이 플래그가 서있으면 beforeunload 쪽은 전송을 양보한다.
+    _stopRequested = true;
+
     var savedRecordingId = _recordingId;
     var savedStartedAt = _recordingStartedAt;
     var savedKey = _r2Key;
@@ -262,6 +271,10 @@ function stopRecording() {
           var completeRes = await fetch('/api/recordings/upload/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            // keepalive — 이 호출과 거의 동시에 페이지가 이동/언로드돼도 요청이 중간에
+            // 끊기지 않고 서버까지 전달되게 한다(끊기면 파트는 R2에 남는데 completion만
+            // 유실되어 DB가 영영 'recording'에 머무는 사고 방지).
+            keepalive: true,
             body: JSON.stringify({
               recording_id: savedRecordingId,
               key: savedKey,
@@ -332,6 +345,10 @@ function stopRecording() {
  */
 function _onBeforeUnload() {
   if (!_r2Key || !_r2UploadId || !_recordingId) return;
+  // stopRecording()이 이미 (keepalive fetch로) complete 전송을 시작했으면 여기서 또
+  // 보내지 않는다 — 같은 upload_id를 두 번 완료 시도하면 R2가 두 번째 요청을 거부하며
+  // 그 과정에서 실제로는 완료된 파일이 목록에서만 안 보이는 등 예기치 못한 상태가 될 수 있음.
+  if (_stopRequested) return;
 
   // 파트가 업로드된 게 있으면 complete 시도
   if (_r2Parts.length > 0) {
@@ -397,6 +414,7 @@ function _callStop(recId, durationMs, sizeBytes, errorInfo) {
  */
 function _resetState() {
   window.removeEventListener('beforeunload', _onBeforeUnload);
+  _stopRequested = false;
   _mediaRecorder = null;
   _recordingId = null;
   _r2Key = null;

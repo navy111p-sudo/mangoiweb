@@ -13,6 +13,11 @@
   · 접근성: 마이크 불가 환경에서는 타이핑 폴백 (게임이 막히지 않게)
   · 배경: 힉스필드 생성 실사 이미지 — 공용 룸샷 4종(escape-room1~4.jpg) +
     단계 전용 클로즈업 3종(escape-room-drawer/books/door.jpg, 2026-07-31 추가)
+  · 재미·완성도(2026-07-31): 금고 암호를 재도전마다 무작위 3자리로 새로 뽑는다(buildSteps) +
+    시간이 절반 남으면 단순히 어두워지는 것과는 다른 "사건"(조명 플리커+경보음+메시지)이 한 번 터진다
+  · 장소 다양화(2026-07-31): "매번 같은 방만 나오면 지루하다" 피드백 → 서재/교실/화장실/창고/
+    옥상/운동장 6곳 중 매번 무작위 1곳. 퍼즐의 뼈대(물건찾기→보관함→가리개→단서→암호→열쇠→문)는
+    공통, 사물·어휘·사진만 장소별로 다르다(LOCATIONS 배열, buildSteps* 함수들)
 -->
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -37,10 +42,29 @@
   #noteCard.show{opacity:1;transform:translate(-50%,-50%) rotate(-2deg) scale(1)}
   #noteEn{font-size:15.5px;font-weight:700}
   #noteKo{font-size:12.5px;color:#5c4a26;margin-top:6px}
+  /* 중간 긴장 이벤트 — 시간이 절반 남으면 한 번, 그냥 어두워지는 것과 다른 "사건"을 준다(2026-07-31) */
+  @keyframes flickerScene{
+    0%,100%{filter:brightness(1) saturate(1)}
+    10%{filter:brightness(.1) saturate(.5)} 20%{filter:brightness(1) saturate(1)}
+    30%{filter:brightness(.05) saturate(.4)} 45%{filter:brightness(.9) saturate(1)}
+    60%{filter:brightness(.08) saturate(.5)} 75%{filter:brightness(1) saturate(1)}
+  }
+  #scene.flicker{animation:flickerScene .9s steps(1,end) 1}
+  #eventMsg{position:absolute;left:50%;top:38%;z-index:16;max-width:82%;
+    transform:translate(-50%,-50%) scale(.9);opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s;
+    padding:12px 22px;border-radius:10px;background:rgba(120,10,10,.88);
+    border:1px solid rgba(255,90,90,.6);box-shadow:0 10px 30px rgba(0,0,0,.6);
+    color:#fff;font-weight:900;text-align:center}
+  #eventMsg.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  #eventMsg .eEn{font-size:15px;letter-spacing:.3px}
+  #eventMsg .eKo{font-size:12.5px;font-weight:700;color:#ffd0d0;margin-top:3px}
 
   /* ── 상단 목표 ── */
   #goalBar{position:absolute;top:0;left:0;right:0;z-index:6;padding:10px 14px 12px;
     background:linear-gradient(180deg,rgba(6,10,14,.92),rgba(6,10,14,0));pointer-events:none}
+  #locTag{font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+    color:#ffd479;text-align:center;opacity:.85;margin-bottom:2px;text-shadow:0 1px 4px #000}
   #goalTxt{font-size:15px;font-weight:800;color:#ffe07a;text-align:center;letter-spacing:.2px;
     text-shadow:0 2px 6px #000}
   #goalKo{font-size:12.5px;color:#b9c8d8;text-align:center;margin-top:2px;text-shadow:0 1px 4px #000}
@@ -125,6 +149,13 @@
   @media(max-height:520px){ .rule{font-size:12.5px;padding:11px 14px} .oS{font-size:13px} }
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-03) 발음 처방 + 게임 공통 기억 큐 — 무료·서버 호출 없음
+     이 게임의 통과 판정(키워드 매칭)은 **그대로 둔다**. 탈출 게임은 "이 문장을 따라 하라"가
+     아니라 "뜻이 통하게 말하라"는 과제라, 문장 정렬 채점으로 바꾸면 게임이 망가진다.
+     대신 **틀렸을 때 무엇을 고치면 되는지** 한 줄을 붙인다. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 </head>
 <body>
 <div id="wrap">
@@ -132,11 +163,13 @@
   <div id="vig"></div>
   <div id="flash"></div>
   <div id="noteCard"><div id="noteEn"></div><div id="noteKo"></div></div>
+  <div id="eventMsg"></div>
 
   <div id="utterWrap">발화 <b id="utterN">0</b>회<br><span id="utterOk">성공 0</span></div>
   <div id="timeWrap"><div id="timeVal">5:00</div></div>
 
   <div id="goalBar">
+    <div id="locTag"></div>
     <div id="goalTxt">Find a way out.</div>
     <div id="goalKo">방을 살펴보세요</div>
   </div>
@@ -178,7 +211,8 @@
           <span class="en">Speak 7 times and the door opens</span></div></div>
       <div class="tips">⏳ 시간은 <b>5분</b> — 줄어들면 방이 어두워져요 · <b>5 minutes</b><br>
         💡 모르겠으면 <b>힌트</b> 버튼 (감점 없어요) · Hint costs nothing<br>
-        ⌨️ 마이크가 안 되면 <b>키보드</b> 버튼으로도 할 수 있어요 · Typing works too</div>
+        ⌨️ 마이크가 안 되면 <b>키보드</b> 버튼으로도 할 수 있어요 · Typing works too<br>
+        🎲 교실·화장실·창고·옥상·운동장 중 매번 다른 장소가 무작위로 나와요 · A different location every time</div>
     </div>
     <button class="bigBtn" id="btnStart">▶ 방에 들어가기 · Enter</button>
   </div>
@@ -203,7 +237,11 @@ var TIME_LIMIT=parseInt(QS.get('time'),10)||300;   // 초
 var SCENES={ room:'/img/escape-room1.jpg?v=1', safe:'/img/escape-room2.jpg?v=1',
              open:'/img/escape-room3.jpg?v=1', escape:'/img/escape-room4.jpg?v=1',
              drawerCU:'/img/escape-room-drawer.jpg?v=1', booksCU:'/img/escape-room-books.jpg?v=1',
-             doorCU:'/img/escape-room-door.jpg?v=1' };
+             doorCU:'/img/escape-room-door.jpg?v=1',
+             /* 🎲 장소 다양화(2026-07-31) — "매번 같은 방만 나오면 지루하다" 피드백. 장소마다 사진 1장 */
+             classroom:'/img/escape-loc-classroom.jpg?v=1', restroom:'/img/escape-loc-restroom.jpg?v=1',
+             storage:'/img/escape-loc-storage.jpg?v=1', rooftop:'/img/escape-loc-rooftop.jpg?v=1',
+             playground:'/img/escape-loc-playground.jpg?v=1' };
 // 이미지 미리 받아두기(장면 전환 시 깜빡임 방지)
 Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
 
@@ -211,7 +249,19 @@ Object.keys(SCENES).forEach(function(k){ var i=new Image(); i.src=SCENES[k]; });
    1. 퍼즐 사슬 — 각 단계는 "학생이 말해야 하는 것"으로 정의
       accept: 인정할 표현들(부분일치·유연 매칭) / goal: 화면 목표 / hint 3단계
    ════════════════════════════════════════════════════════════ */
-var STEPS=[
+/* 🔢 금고 암호 — 재도전마다 새로 뽑는다("매번 같은 정답이라 재미없다" 피드백, 2026-07-31).
+   0은 빼고 1~9 중 서로 다른 3개 — "오"(zero)가 잘못 들릴 여지를 없앤다. */
+var DIGIT_WORD={'1':'one','2':'two','3':'three','4':'four','5':'five','6':'six','7':'seven','8':'eight','9':'nine'};
+function randCode(){
+  var d=[1,2,3,4,5,6,7,8,9];
+  for(var i=d.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=d[i]; d[i]=d[j]; d[j]=t; }
+  return d.slice(0,3).map(String);
+}
+function buildSteps(code){
+  var w=code.map(function(d){ return DIGIT_WORD[d]; });
+  var codeSpoken=w.join(', ');                                              // 내레이션용 "four, seven, two"
+  var codeEx=w[0].charAt(0).toUpperCase()+w[0].slice(1)+' '+w[1]+' '+w[2];   // 힌트 예문용 "Four seven two"
+  return [
   { id:'desk',
     goal:'Find a way out.', goalKo:'방을 둘러보세요 — 책상 · 그림 · 책장 · 스탠드, 무엇을 볼까요?',
     accept:[['look','desk'],['see','desk'],['check','desk'],['examine','desk'],['look','table']],
@@ -226,6 +276,7 @@ var STEPS=[
     scene:'room',
     say:'Inside the drawer you find a note. It says: The key is behind the painting.',
     sayKo:'서랍 안에 쪽지가 있습니다. "열쇠는 그림 뒤에 있다"',
+    note:'The key is behind the painting.', noteKo:'열쇠는 그림 뒤에 있다',
     hints:['서랍을 여세요','"열다"는 영어로 open','Open the drawer'] },
 
   { id:'painting',
@@ -241,17 +292,17 @@ var STEPS=[
     goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 책장 · 서랍 · 그림, 어디를 볼까요?',
     accept:[['look','book'],['check','book'],['see','book'],['examine','book'],['look','shelf'],['read','book']],
     scene:'safe',
-    say:'On the bookshelf, three books are pulled out. Their numbers are four, seven, two.',
-    sayKo:'책장에 책 세 권이 튀어나와 있습니다. 숫자는 4, 7, 2 입니다.',
+    say:'On the bookshelf, three books are pulled out. Their numbers are '+codeSpoken+'.',
+    sayKo:'책장에 책 세 권이 튀어나와 있습니다. 숫자는 '+code.join(', ')+' 입니다.',
     hints:['책장을 살펴보세요','책(books)을 보세요','Look at the books'] },
 
   { id:'code',
-    goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 (4 7 2)',
-    accept:[['four','seven','two'],['4','7','2']],
+    goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 ('+code.join(' ')+')',
+    accept:[[w[0],w[1],w[2]],[code[0],code[1],code[2]]],
     scene:'safe', numMode:true,
     say:'The safe clicks open. An old brass key is inside.',
     sayKo:'금고가 열립니다. 낡은 황동 열쇠가 들어 있습니다.',
-    hints:['숫자 4 7 2 를 영어로','four, seven, two','Four seven two'] },
+    hints:['숫자 '+code.join(' ')+' 를 영어로', codeSpoken, codeEx] },
 
   { id:'key',
     goal:'A key is in the safe.', goalKo:'열쇠를 가져가세요',
@@ -268,12 +319,211 @@ var STEPS=[
     say:'The lock turns. The door opens. You are free!',
     sayKo:'자물쇠가 돌아갑니다. 문이 열립니다. 탈출!',
     hints:['문을 여세요','"열다"는 open','Open the door'] }
+  ];
+}
+
+/* 🎲 장소 다양화(2026-07-31) — "매번 같은 방만 나오면 지루하다" 피드백. 퍼즐의 뼈대(물건 찾기→
+   보관함 열기→가리개 옮기기→단서 찾기→암호 말하기→열쇠 챙기기→문 열기)는 그대로 두고
+   장소마다 사물·어휘·사진만 갈아끼운다. id는 study와 동일하게 맞춰서 advance()의 특수효과
+   (서랍 삐걱임·쪽지 카드·문 3박자 연출)가 장소 상관없이 그대로 재사용된다. */
+function buildStepsClassroom(code){
+  var w=code.map(function(d){ return DIGIT_WORD[d]; });
+  var codeSpoken=w.join(', '), codeEx=w[0].charAt(0).toUpperCase()+w[0].slice(1)+' '+w[1]+' '+w[2];
+  return [
+  { id:'desk', goal:'Find a way out.', goalKo:'교실을 둘러보세요 — 칠판 · 지도 · 사물함 · 게시판, 무엇을 볼까요?',
+    accept:[['look','classroom'],['see','classroom'],['check','classroom'],['examine','classroom'],['look','board']],
+    scene:'classroom', say:'You see rows of desks and a chalkboard. There is a teacher\'s cabinet, and it is closed.',
+    sayKo:'책상들과 칠판이 보입니다. 선생님 사물함이 하나 있고, 닫혀 있습니다.',
+    hints:['교실을 둘러보세요','"보다"는 영어로 look','Look at the classroom'] },
+  { id:'drawer', goal:'The cabinet is closed.', goalKo:'사물함을 열어보세요', accept:[['open','cabinet']],
+    scene:'classroom', say:'Inside the cabinet you find a note. It says: The key is behind the map.',
+    sayKo:'사물함 안에 쪽지가 있습니다. "열쇠는 지도 뒤에 있다"', note:'The key is behind the map.', noteKo:'열쇠는 지도 뒤에 있다',
+    hints:['사물함을 여세요','"열다"는 영어로 open','Open the cabinet'] },
+  { id:'painting', goal:'The key is behind the map.', goalKo:'지도를 옮겨보세요',
+    accept:[['move','map'],['look','map'],['open','map'],['push','map'],['pull','map']],
+    scene:'classroom', say:'Behind the map there is a small safe. It needs a three digit code.',
+    sayKo:'지도 뒤에 작은 금고가 있습니다. 세 자리 숫자가 필요합니다.',
+    hints:['지도를 옮기세요','"옮기다"는 영어로 move','Move the map'] },
+  { id:'books', goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 사물함 · 게시판 · 지도, 어디를 볼까요?',
+    accept:[['look','notebook'],['check','notebook'],['see','notebook'],['examine','notebook'],['look','shelf'],['read','notebook']],
+    scene:'classroom', say:'On the shelf, three notebooks are stacked. Their numbers are '+codeSpoken+'.',
+    sayKo:'책장에 공책 세 권이 쌓여 있습니다. 숫자는 '+code.join(', ')+' 입니다.',
+    hints:['책장을 살펴보세요','공책(notebooks)을 보세요','Look at the notebooks'] },
+  { id:'code', goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 ('+code.join(' ')+')',
+    accept:[[w[0],w[1],w[2]],[code[0],code[1],code[2]]], scene:'classroom', numMode:true,
+    say:'The safe clicks open. An old brass key is inside.', sayKo:'금고가 열립니다. 낡은 황동 열쇠가 들어 있습니다.',
+    hints:['숫자 '+code.join(' ')+' 를 영어로', codeSpoken, codeEx] },
+  { id:'key', goal:'A key is in the safe.', goalKo:'열쇠를 가져가세요', accept:[['take','key'],['get','key'],['grab','key'],['pick','key']],
+    scene:'classroom', say:'You have the key. Now the door.', sayKo:'열쇠를 얻었습니다. 이제 문입니다.',
+    hints:['열쇠를 가져가세요','"가져가다"는 take','Take the key'] },
+  { id:'door', goal:'Unlock the door and escape!', goalKo:'문을 열고 탈출하세요',
+    accept:[['open','door'],['unlock','door'],['use','key','door']], scene:'classroom',
+    say:'The lock turns. The door opens. You are free!', sayKo:'자물쇠가 돌아갑니다. 문이 열립니다. 탈출!',
+    hints:['문을 여세요','"열다"는 open','Open the door'] }
+  ];
+}
+function buildStepsRestroom(code){
+  var w=code.map(function(d){ return DIGIT_WORD[d]; });
+  var codeSpoken=w.join(', '), codeEx=w[0].charAt(0).toUpperCase()+w[0].slice(1)+' '+w[1]+' '+w[2];
+  return [
+  { id:'desk', goal:'Find a way out.', goalKo:'화장실을 둘러보세요 — 세면대 · 거울 · 창문 · 청소함, 무엇을 볼까요?',
+    accept:[['look','restroom'],['see','restroom'],['check','restroom'],['examine','restroom'],['look','sink']],
+    scene:'restroom', say:'You see a row of sinks and mirrors. There is a supply cabinet, and it is closed.',
+    sayKo:'세면대와 거울이 줄지어 있습니다. 청소도구함이 하나 있고, 닫혀 있습니다.',
+    hints:['화장실을 둘러보세요','"보다"는 영어로 look','Look at the restroom'] },
+  { id:'drawer', goal:'The cabinet is closed.', goalKo:'청소도구함을 열어보세요', accept:[['open','cabinet']],
+    scene:'restroom', say:'Inside the cabinet you find a note. It says: The key is behind the mirror.',
+    sayKo:'청소도구함 안에 쪽지가 있습니다. "열쇠는 거울 뒤에 있다"', note:'The key is behind the mirror.', noteKo:'열쇠는 거울 뒤에 있다',
+    hints:['청소도구함을 여세요','"열다"는 영어로 open','Open the cabinet'] },
+  { id:'painting', goal:'The key is behind the mirror.', goalKo:'거울을 옮겨보세요',
+    accept:[['move','mirror'],['look','mirror'],['open','mirror'],['push','mirror'],['pull','mirror']],
+    scene:'restroom', say:'Behind the mirror there is a small safe. It needs a three digit code.',
+    sayKo:'거울 뒤에 작은 금고가 있습니다. 세 자리 숫자가 필요합니다.',
+    hints:['거울을 옮기세요','"옮기다"는 영어로 move','Move the mirror'] },
+  { id:'books', goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 세면대 · 청소함 · 거울, 어디를 볼까요?',
+    accept:[['look','tile'],['check','tile'],['see','tile'],['examine','tile'],['look','floor'],['read','tile']],
+    scene:'restroom', say:'On the floor, three tiles are cracked. Their numbers are '+codeSpoken+'.',
+    sayKo:'바닥에 타일 세 개가 금이 가 있습니다. 숫자는 '+code.join(', ')+' 입니다.',
+    hints:['바닥 타일을 살펴보세요','타일(tiles)을 보세요','Look at the tiles'] },
+  { id:'code', goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 ('+code.join(' ')+')',
+    accept:[[w[0],w[1],w[2]],[code[0],code[1],code[2]]], scene:'restroom', numMode:true,
+    say:'The safe clicks open. An old brass key is inside.', sayKo:'금고가 열립니다. 낡은 황동 열쇠가 들어 있습니다.',
+    hints:['숫자 '+code.join(' ')+' 를 영어로', codeSpoken, codeEx] },
+  { id:'key', goal:'A key is in the safe.', goalKo:'열쇠를 가져가세요', accept:[['take','key'],['get','key'],['grab','key'],['pick','key']],
+    scene:'restroom', say:'You have the key. Now the door.', sayKo:'열쇠를 얻었습니다. 이제 문입니다.',
+    hints:['열쇠를 가져가세요','"가져가다"는 take','Take the key'] },
+  { id:'door', goal:'Unlock the door and escape!', goalKo:'문을 열고 탈출하세요',
+    accept:[['open','door'],['unlock','door'],['use','key','door']], scene:'restroom',
+    say:'The lock turns. The door opens. You are free!', sayKo:'자물쇠가 돌아갑니다. 문이 열립니다. 탈출!',
+    hints:['문을 여세요','"열다"는 open','Open the door'] }
+  ];
+}
+function buildStepsStorage(code){
+  var w=code.map(function(d){ return DIGIT_WORD[d]; });
+  var codeSpoken=w.join(', '), codeEx=w[0].charAt(0).toUpperCase()+w[0].slice(1)+' '+w[1]+' '+w[2];
+  return [
+  { id:'desk', goal:'Find a way out.', goalKo:'창고를 둘러보세요 — 선반 · 사다리 · 상자 · 공구함, 무엇을 볼까요?',
+    accept:[['look','storage'],['see','storage'],['check','storage'],['examine','storage'],['look','shelf']],
+    scene:'storage', say:'You see tall shelves full of boxes. There is an old toolbox, and it is closed.',
+    sayKo:'상자로 가득한 높은 선반이 보입니다. 낡은 공구함이 하나 있고, 닫혀 있습니다.',
+    hints:['창고를 둘러보세요','"보다"는 영어로 look','Look at the storage room'] },
+  { id:'drawer', goal:'The toolbox is closed.', goalKo:'공구함을 열어보세요', accept:[['open','toolbox']],
+    scene:'storage', say:'Inside the toolbox you find a note. It says: The key is behind the ladder.',
+    sayKo:'공구함 안에 쪽지가 있습니다. "열쇠는 사다리 뒤에 있다"', note:'The key is behind the ladder.', noteKo:'열쇠는 사다리 뒤에 있다',
+    hints:['공구함을 여세요','"열다"는 영어로 open','Open the toolbox'] },
+  { id:'painting', goal:'The key is behind the ladder.', goalKo:'사다리를 옮겨보세요',
+    accept:[['move','ladder'],['look','ladder'],['open','ladder'],['push','ladder'],['pull','ladder']],
+    scene:'storage', say:'Behind the ladder there is a small safe. It needs a three digit code.',
+    sayKo:'사다리 뒤에 작은 금고가 있습니다. 세 자리 숫자가 필요합니다.',
+    hints:['사다리를 옮기세요','"옮기다"는 영어로 move','Move the ladder'] },
+  { id:'books', goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 선반 · 공구함 · 사다리, 어디를 볼까요?',
+    accept:[['look','box'],['check','box'],['see','box'],['examine','box'],['look','shelf'],['read','box']],
+    scene:'storage', say:'On the shelf, three boxes are labeled. Their numbers are '+codeSpoken+'.',
+    sayKo:'선반에 상자 세 개가 표시되어 있습니다. 숫자는 '+code.join(', ')+' 입니다.',
+    hints:['선반의 상자를 살펴보세요','상자(boxes)를 보세요','Look at the boxes'] },
+  { id:'code', goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 ('+code.join(' ')+')',
+    accept:[[w[0],w[1],w[2]],[code[0],code[1],code[2]]], scene:'storage', numMode:true,
+    say:'The safe clicks open. An old brass key is inside.', sayKo:'금고가 열립니다. 낡은 황동 열쇠가 들어 있습니다.',
+    hints:['숫자 '+code.join(' ')+' 를 영어로', codeSpoken, codeEx] },
+  { id:'key', goal:'A key is in the safe.', goalKo:'열쇠를 가져가세요', accept:[['take','key'],['get','key'],['grab','key'],['pick','key']],
+    scene:'storage', say:'You have the key. Now the door.', sayKo:'열쇠를 얻었습니다. 이제 문입니다.',
+    hints:['열쇠를 가져가세요','"가져가다"는 take','Take the key'] },
+  { id:'door', goal:'Unlock the door and escape!', goalKo:'문을 열고 탈출하세요',
+    accept:[['open','door'],['unlock','door'],['use','key','door']], scene:'storage',
+    say:'The lock turns. The door opens. You are free!', sayKo:'자물쇠가 돌아갑니다. 문이 열립니다. 탈출!',
+    hints:['문을 여세요','"열다"는 open','Open the door'] }
+  ];
+}
+function buildStepsRooftop(code){
+  var w=code.map(function(d){ return DIGIT_WORD[d]; });
+  var codeSpoken=w.join(', '), codeEx=w[0].charAt(0).toUpperCase()+w[0].slice(1)+' '+w[1]+' '+w[2];
+  return [
+  { id:'desk', goal:'Find a way out.', goalKo:'옥상을 둘러보세요 — 물탱크 · 배관 · 환풍구 · 공구함, 무엇을 볼까요?',
+    accept:[['look','rooftop'],['see','rooftop'],['check','rooftop'],['examine','rooftop'],['look','tank']],
+    scene:'rooftop', say:'You see a large water tank and old pipes. There is a maintenance box, and it is closed.',
+    sayKo:'커다란 물탱크와 낡은 배관이 보입니다. 정비함이 하나 있고, 닫혀 있습니다.',
+    hints:['옥상을 둘러보세요','"보다"는 영어로 look','Look at the rooftop'] },
+  { id:'drawer', goal:'The box is closed.', goalKo:'정비함을 열어보세요', accept:[['open','box']],
+    scene:'rooftop', say:'Inside the box you find a note. It says: The key is behind the pipe.',
+    sayKo:'정비함 안에 쪽지가 있습니다. "열쇠는 배관 뒤에 있다"', note:'The key is behind the pipe.', noteKo:'열쇠는 배관 뒤에 있다',
+    hints:['정비함을 여세요','"열다"는 영어로 open','Open the box'] },
+  { id:'painting', goal:'The key is behind the pipe.', goalKo:'배관을 옮겨보세요',
+    accept:[['move','pipe'],['look','pipe'],['open','pipe'],['push','pipe'],['pull','pipe']],
+    scene:'rooftop', say:'Behind the pipe there is a small safe. It needs a three digit code.',
+    sayKo:'배관 뒤에 작은 금고가 있습니다. 세 자리 숫자가 필요합니다.',
+    hints:['배관을 옮기세요','"옮기다"는 영어로 move','Move the pipe'] },
+  { id:'books', goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 물탱크 · 정비함 · 배관, 어디를 볼까요?',
+    accept:[['look','tag'],['check','tag'],['see','tag'],['examine','tag'],['look','pipe'],['read','tag']],
+    scene:'rooftop', say:'On the pipes, three tags are hanging. Their numbers are '+codeSpoken+'.',
+    sayKo:'배관에 태그 세 개가 걸려 있습니다. 숫자는 '+code.join(', ')+' 입니다.',
+    hints:['배관의 태그를 살펴보세요','태그(tags)를 보세요','Look at the tags'] },
+  { id:'code', goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 ('+code.join(' ')+')',
+    accept:[[w[0],w[1],w[2]],[code[0],code[1],code[2]]], scene:'rooftop', numMode:true,
+    say:'The safe clicks open. An old brass key is inside.', sayKo:'금고가 열립니다. 낡은 황동 열쇠가 들어 있습니다.',
+    hints:['숫자 '+code.join(' ')+' 를 영어로', codeSpoken, codeEx] },
+  { id:'key', goal:'A key is in the safe.', goalKo:'열쇠를 가져가세요', accept:[['take','key'],['get','key'],['grab','key'],['pick','key']],
+    scene:'rooftop', say:'You have the key. Now the gate.', sayKo:'열쇠를 얻었습니다. 이제 출입문입니다.',
+    hints:['열쇠를 가져가세요','"가져가다"는 take','Take the key'] },
+  { id:'door', goal:'Unlock the gate and escape!', goalKo:'출입문을 열고 탈출하세요',
+    accept:[['open','gate'],['unlock','gate'],['use','key','gate'],['open','door'],['unlock','door']], scene:'rooftop',
+    say:'The lock turns. The gate opens. You are free!', sayKo:'자물쇠가 돌아갑니다. 출입문이 열립니다. 탈출!',
+    hints:['출입문을 여세요','"열다"는 open','Open the gate'] }
+  ];
+}
+function buildStepsPlayground(code){
+  var w=code.map(function(d){ return DIGIT_WORD[d]; });
+  var codeSpoken=w.join(', '), codeEx=w[0].charAt(0).toUpperCase()+w[0].slice(1)+' '+w[1]+' '+w[2];
+  return [
+  { id:'desk', goal:'Find a way out.', goalKo:'운동장을 둘러보세요 — 정글짐 · 골대 · 창고 · 스코어보드, 무엇을 볼까요?',
+    accept:[['look','playground'],['see','playground'],['check','playground'],['examine','playground'],['look','shed']],
+    scene:'playground', say:'You see the playground and a small equipment shed. It is closed.',
+    sayKo:'운동장과 작은 창고가 보입니다. 창고 문이 닫혀 있습니다.',
+    hints:['운동장을 둘러보세요','"보다"는 영어로 look','Look at the playground'] },
+  { id:'drawer', goal:'The shed is closed.', goalKo:'창고를 열어보세요', accept:[['open','shed']],
+    scene:'playground', say:'Inside the shed you find a note. It says: The key is behind the ball basket.',
+    sayKo:'창고 안에 쪽지가 있습니다. "열쇠는 공 바구니 뒤에 있다"', note:'The key is behind the ball basket.', noteKo:'열쇠는 공 바구니 뒤에 있다',
+    hints:['창고를 여세요','"열다"는 영어로 open','Open the shed'] },
+  { id:'painting', goal:'The key is behind the ball basket.', goalKo:'공 바구니를 옮겨보세요',
+    accept:[['move','basket'],['look','basket'],['open','basket'],['push','basket'],['pull','basket']],
+    scene:'playground', say:'Behind the ball basket there is a small safe. It needs a three digit code.',
+    sayKo:'공 바구니 뒤에 작은 금고가 있습니다. 세 자리 숫자가 필요합니다.',
+    hints:['공 바구니를 옮기세요','"옮기다"는 영어로 move','Move the basket'] },
+  { id:'books', goal:'The safe needs a code.', goalKo:'암호를 찾아보세요 — 정글짐 · 창고 · 바구니, 어디를 볼까요?',
+    accept:[['look','scoreboard'],['check','scoreboard'],['see','scoreboard'],['examine','scoreboard'],['read','scoreboard']],
+    scene:'playground', say:'On the scoreboard, three numbers are lit up. They are '+codeSpoken+'.',
+    sayKo:'스코어보드에 숫자 세 개가 켜져 있습니다. 숫자는 '+code.join(', ')+' 입니다.',
+    hints:['스코어보드를 살펴보세요','스코어보드(scoreboard)를 보세요','Look at the scoreboard'] },
+  { id:'code', goal:'Say the code out loud.', goalKo:'암호를 영어 숫자로 말하세요 ('+code.join(' ')+')',
+    accept:[[w[0],w[1],w[2]],[code[0],code[1],code[2]]], scene:'playground', numMode:true,
+    say:'The safe clicks open. An old brass key is inside.', sayKo:'금고가 열립니다. 낡은 황동 열쇠가 들어 있습니다.',
+    hints:['숫자 '+code.join(' ')+' 를 영어로', codeSpoken, codeEx] },
+  { id:'key', goal:'A key is in the safe.', goalKo:'열쇠를 가져가세요', accept:[['take','key'],['get','key'],['grab','key'],['pick','key']],
+    scene:'playground', say:'You have the key. Now the gate.', sayKo:'열쇠를 얻었습니다. 이제 출입문입니다.',
+    hints:['열쇠를 가져가세요','"가져가다"는 take','Take the key'] },
+  { id:'door', goal:'Unlock the gate and escape!', goalKo:'출입문을 열고 탈출하세요',
+    accept:[['open','gate'],['unlock','gate'],['use','key','gate'],['open','door'],['unlock','door']], scene:'playground',
+    say:'The lock turns. The gate opens. You are free!', sayKo:'자물쇠가 돌아갑니다. 출입문이 열립니다. 탈출!',
+    hints:['출입문을 여세요','"열다"는 open','Open the gate'] }
+  ];
+}
+
+/* 🎲 장소 풀 — 재도전마다 이 중 하나를 무작위로 고른다 */
+var LOCATIONS=[
+  { id:'study', nameKo:'서재', nameEn:'study', build:buildSteps },
+  { id:'classroom', nameKo:'교실', nameEn:'classroom', build:buildStepsClassroom },
+  { id:'restroom', nameKo:'화장실', nameEn:'restroom', build:buildStepsRestroom },
+  { id:'storage', nameKo:'창고', nameEn:'storage room', build:buildStepsStorage },
+  { id:'rooftop', nameKo:'옥상', nameEn:'rooftop', build:buildStepsRooftop },
+  { id:'playground', nameKo:'운동장', nameEn:'playground', build:buildStepsPlayground }
 ];
 
 var G=null;
 function newGame(){
+  var code=randCode();
+  var loc=LOCATIONS[Math.floor(Math.random()*LOCATIONS.length)];
   G={ i:0, t:TIME_LIMIT, running:false, over:false,
-      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false };
+      utter:0, utterOk:0, hintUsed:0, wrong:0, prog:[], hintLv:0, busy:false,
+      code:code, loc:loc, steps:loc.build(code), eventFired:false };
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -320,6 +570,31 @@ function sndCreak(){ beep(190,.12,'sawtooth',.09); setTimeout(function(){beep(15
   setTimeout(function(){beep(105,.16,'sawtooth',.07);},150); setTimeout(function(){beep(85,.2,'sawtooth',.06);},260); }
 function sndKeyTurn(){ beep(300,.08,'square',.15); setTimeout(function(){beep(220,.08,'square',.15);},90);
   setTimeout(function(){beep(150,.16,'sawtooth',.18);},190); }
+function sndEvent(){ beep(140,.3,'sawtooth',.22); setTimeout(function(){beep(90,.4,'sawtooth',.22);},260); }
+/* 🎭 긴장 이벤트 효과음 풀(2026-07-31) — "발자국·피아노·TV·물방울·책·커튼" 피드백. 전부 합성음이라
+   새 파일 없음. TV·가스불처럼 실제로 위험/무서운 인상을 주는 건 순한 쪽으로 눌러서 만들었다
+   (가스불→물방울 소리로 대체: 불 이미지는 아이 대상 서비스에 안 어울린다고 판단, 2026-07-31). */
+function sndFootsteps(){ [0,340,620,1010].forEach(function(dt,i){
+  setTimeout(function(){ beep(92+i*3,.09,'square',.12); },dt); }); }
+function sndPiano(){ [392,523,466,587].forEach(function(f,i){
+  setTimeout(function(){ beep(f,.5,'triangle',.1); },i*380); }); }
+function sndTVStatic(){ for(var i=0;i<6;i++){ (function(i){
+  setTimeout(function(){ beep(200+Math.random()*3000,.04,'sawtooth',.08); },i*45); })(i); }
+  setTimeout(function(){ beep(150,.05,'square',.12); },380); }
+function sndDrip(){ [0,520,980].forEach(function(dt,i){
+  setTimeout(function(){ beep(1400-i*80,.06,'sine',.09); },dt); }); }
+function sndBookFall(){ beep(70,.14,'square',.2); setTimeout(function(){ beep(1800,.03,'sine',.05); },90); }
+function sndCurtain(){ [260,220,240,200].forEach(function(f,i){
+  setTimeout(function(){ beep(f,.18,'sawtooth',.05); },i*90); }); }
+var MID_EVENTS=[
+  { flicker:true, sfx:sndEvent, en:'The lights flicker. Time is running out!', ko:'조명이 깜빡인다. 시간이 얼마 남지 않았다!' },
+  { flicker:false, sfx:sndFootsteps, en:'Footsteps echo... but no one is here.', ko:'발소리가 들린다… 아무도 없는데.' },
+  { flicker:false, sfx:sndPiano, en:'A faint piano note drifts from somewhere.', ko:'어디선가 희미한 피아노 소리가 들린다.' },
+  { flicker:true, sfx:sndTVStatic, en:'A TV flickers on for a second, then goes dark.', ko:'TV가 잠깐 켜졌다가 다시 꺼진다.' },
+  { flicker:false, sfx:sndDrip, en:'Somewhere, water drips slowly.', ko:'어디선가 물이 똑똑 떨어지는 소리가 난다.' },
+  { flicker:false, sfx:sndBookFall, en:'A book falls to the floor by itself.', ko:'책 한 권이 저절로 바닥에 떨어진다.' },
+  { flicker:false, sfx:sndCurtain, en:'The curtain sways, though the window is shut.', ko:'창문이 닫혀 있는데 커튼이 흔들린다.' }
+];
 /* 방 분위기 — 은은한 저음 드론(스산함) + 시간이 줄면 자동으로 강해지는 초침 소리는 타이머에서 처리 */
 var _drone=null;
 function startAmbience(){ var a=ac(); if(!a||_drone) return;
@@ -362,6 +637,19 @@ function showNote(en,ko){
   c.classList.add('show');
   clearTimeout(_noteT); _noteT=setTimeout(function(){ c.classList.remove('show'); },3600);
 }
+/* 중간 긴장 이벤트 — 시간이 절반 남으면 한 판에 한 번, 조용히 어두워지기만 하는 것과는 다른
+   "사건"을 준다("분위기 더 무섭게" 피드백, 2026-07-31). 새 사진 없이 조명 플리커+경보음+메시지로 연출 */
+var _eventT=null;
+function fireMidEvent(){
+  var ev=MID_EVENTS[Math.floor(Math.random()*MID_EVENTS.length)];
+  if(ev.flicker){ var sc=$('scene'); sc.classList.add('flicker');
+    setTimeout(function(){ sc.classList.remove('flicker'); },950); }
+  ev.sfx();
+  var m=$('eventMsg');
+  m.innerHTML='<div class="eEn">⚡ '+ev.en+'</div><div class="eKo">⚡ '+ev.ko+'</div>';
+  m.classList.add('show');
+  clearTimeout(_eventT); _eventT=setTimeout(function(){ m.classList.remove('show'); },2600);
+}
 /* 시간이 줄수록 방이 어두워짐 — 긴장 장치 */
 function applyDim(){ if(!G)return;
   var r=Math.max(0,Math.min(1,G.t/TIME_LIMIT));
@@ -390,7 +678,7 @@ function matchStep(said, step){
   if(!w.length) return false;
   if(step.numMode){
     var d=digitsOf(w).join('');
-    return d.indexOf('472')>=0;
+    return d.indexOf(G.code.join(''))>=0;
   }
   // accept 후보 중 하나라도 모든 키워드가 들어있으면 통과
   return step.accept.some(function(keys){
@@ -403,7 +691,7 @@ function matchStep(said, step){
 /* ════════════════════════════════════════════════════════════
    5. 진행
    ════════════════════════════════════════════════════════════ */
-function curStep(){ return STEPS[G.i]; }
+function curStep(){ return G.steps[G.i]; }
 /* ⏳ 가만히 있으면 스스로 도와준다 — 학생이 "무슨 말을 해야 하는지" 몰라 멈추는 것을 막는 장치.
    힌트 버튼을 눌러야만 문장이 나오던 구조가 막힘의 원인이었다(2026-07-30). */
 var _idleT=null;
@@ -415,12 +703,18 @@ function armIdle(ms){ clearIdle();
   }, ms); }
 function showStep(){
   var s=curStep(); if(!s) return;
-  // drawer/books/door는 전용 클로즈업 사진을 쓴다. door는 특히 "아직 잠겨 있는 문 손잡이"를 보여줘야
-  // 한다 — s.scene(escape)을 그대로 쓰면 열기도 전에 열린 문이 먼저 보여서 순서가 뒤바뀐다(2026-07-31 피드백)
-  var cu=CLOSEUP[s.id];
-  var imgKey = cu || (s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
-  var f=cu ? null : FOCUS[s.id];
-  setScene(imgKey, f&&f[0], f&&f[1]);
+  if(G.loc.id==='study'){
+    // drawer/books/door는 전용 클로즈업 사진을 쓴다. door는 특히 "아직 잠겨 있는 문 손잡이"를 보여줘야
+    // 한다 — s.scene(escape)을 그대로 쓰면 열기도 전에 열린 문이 먼저 보여서 순서가 뒤바뀐다(2026-07-31 피드백)
+    var cu=CLOSEUP[s.id];
+    var imgKey = cu || (s.scene==='safe'&&G.i<=2 ? 'room' : (G.i===0||G.i===1?'room':s.scene));
+    var f=cu ? null : FOCUS[s.id];
+    setScene(imgKey, f&&f[0], f&&f[1]);
+  } else {
+    // 새 장소들은 아직 전용 클로즈업 사진 없이 사진 1장을 그대로 쓴다(2026-07-31 — 5곳 동시 추가라
+    // 우선 비용을 낮췄다. 반응 보고 study처럼 단계별 클로즈업을 추가할 수 있음)
+    setScene(G.loc.id);
+  }
   // 장면은 "그 단계에 들어선 시점"의 모습 — 직전 단계 결과가 반영된 상태
   setGoal(s.goal, s.goalKo);
   G.hintLv=0; hintTxt('');
@@ -436,16 +730,18 @@ function advance(){
   sndOk(); flash();
   heard('<span class="ok">정확해요! · Correct!</span>');
   logProg(s.id, true);
-  // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(새 사진 없이도 순서가 보이게)
+  // 결과 장면으로 전환 — door는 "닫힘 → 열쇠 돌림 → 열림" 한 박자를 넣는다(study는 전용 클로즈업 사진으로,
+  // 나머지 장소는 사진이 1장뿐이라 소리·효과만으로 그 박자를 준다)
+  var study=G.loc.id==='study';
   if(s.id==='door'){
-    setScene('doorCU');
+    if(study) setScene('doorCU');
     sndKeyTurn();
-    setTimeout(function(){ setScene(s.scene); }, 650);
+    setTimeout(function(){ setScene(study?s.scene:G.loc.id); }, 650);
   } else {
-    setScene(s.scene);
+    setScene(study?s.scene:G.loc.id);
     if(s.id==='drawer'||s.id==='painting') sndCreak();
   }
-  if(s.id==='drawer') showNote('The key is behind the painting.','열쇠는 그림 뒤에 있다');
+  if(s.note) showNote(s.note, s.noteKo);
   // 🔒 안전장치 — TTS 콜백이 오지 않아도(음성 미지원·재생 차단 등) 게임이 잠기지 않게
   //    콜백과 타임아웃 중 먼저 오는 쪽으로 1회만 진행한다.
   var moved=false;
@@ -454,7 +750,7 @@ function advance(){
     clearTimeout(G._advT);
     G.busy=false;
     G.i++;
-    if(G.i>=STEPS.length){ win(); return; }
+    if(G.i>=G.steps.length){ win(); return; }
     showStep();
   }
   G._advT=setTimeout(go, 6000);
@@ -465,10 +761,37 @@ function advance(){
           '<div style="color:#9db3c9;margin-top:2px">'+esc(s.sayKo)+'</div>');
   if(s.id==='code') sndUnlock();
 }
+/* 🗣 발음 코치 (2026-08-03) — 통과 판정은 **한 글자도 안 바꾼다.**
+   탈출 게임의 과제는 "이 문장을 따라 하라"가 아니라 "뜻이 통하게 말하라"다.
+   그래서 키워드 매칭(matchStep)이 맞다. 여기서 하는 일은 두 가지뿐:
+     ① 틀렸을 때, 모범 문장(hints 마지막 = 영어 예문)과 비교해 **뭘 고치면 되는지** 한 줄
+     ② 성공/실패를 **게임 공통 기억 큐**에 적립 → 다른 게임과 학습이 이어진다
+   근거: Swain 출력가설 — 말하려다 막히는 순간이 배움의 지점이다. 그 순간에
+        "다시 해보세요"만 주면 학생은 뭘 바꿔야 할지 모른 채 같은 말을 반복한다.
+   ⚠️ 숫자 암호 단계(numMode)와 한국어 힌트는 진단하지 않는다(오진 방지). */
+function _pronCoach(said, step, ok){
+  try{
+    if(!step || step.numMode) return '';
+    if(!window.MangoiScore || !window.MangoiPron) return '';
+    var model = (step.hints && step.hints[step.hints.length-1]) || '';
+    if(!model || /[가-힣]/.test(model)) return '';   // 힌트가 한국어면 모범 문장이 아니다
+    var g = MangoiScore.grade(ok ? model : said, model);
+    var d = MangoiPron.analyze(g);
+    // 성공은 항상 적립(연습 기회 통계), 실패는 **진단이 잡혔을 때만** 적립(잡음 방지)
+    if(ok || (d.tags && d.tags.length)){
+      try{ window.MangoiMemory && MangoiMemory.log({ en:model }, !!ok,
+             { tags:d.tags, goodTags:d.goodTags, score:g.score }); }catch(_e){}
+    }
+    if(ok) return '';
+    var fix = MangoiPron.tipFor(d.tags);
+    return fix ? '<div style="margin-top:6px;color:#fcd34d;font-weight:700">'+fix+'</div>' : '';
+  }catch(_){ return ''; }
+}
 function wrongTry(said){
   G.wrong++;
   sndNo();
-  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 방이 반응하지 않아요 · Try again</span>');
+  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 방이 반응하지 않아요 · Try again</span>'
+        + (typeof _pronCoach==='function' ? _pronCoach(said, curStep(), false) : ''));   // 🗣 뭘 고치면 되는지 한 줄 (부가기능이 본 안내를 못 막게 typeof 로 감싼다)
   showHint(true);            // 틀렸으면 곧바로 한 칸 더 알려준다(예전엔 3번 틀려야 나왔다)
   armIdle(12000);
 }
@@ -477,7 +800,9 @@ function submitSaid(said){
   clearIdle();
   G.utter++; $('utterN').textContent=G.utter;
   var s=curStep();
-  if(matchStep(said,s)){ G.utterOk++; $('utterOk').textContent='성공 '+G.utterOk; advance(); }
+  if(matchStep(said,s)){ G.utterOk++; $('utterOk').textContent='성공 '+G.utterOk;
+    try{ if(typeof _pronCoach==='function') _pronCoach(said, s, true); }catch(_e){}   // 🧠 성공도 기억 큐에
+    advance(); }
   else wrongTry(said);
 }
 function showHint(auto,noSpeak){
@@ -575,22 +900,27 @@ function enableTyping(msg){
    7. 타이머 · 종료 · 기록
    ════════════════════════════════════════════════════════════ */
 var tick=null;
+/* 매초 하는 일 — setInterval 콜백에서 분리해뒀다(테스트가 실제 초 단위를 흘려보내지 않고도
+   1초씩 직접 불러서 검증할 수 있게, 2026-07-31) */
+function tickOnce(){
+  if(!G||!G.running||G.over) return;
+  G.t--;
+  var m=Math.floor(G.t/60), s=G.t%60;
+  var el=$('timeVal'); el.textContent=m+':'+(s<10?'0':'')+s;
+  el.classList.toggle('warn', G.t<=60);
+  if(G.t===60||G.t===30||G.t===10) sndAlarm();
+  else if(G.t<=60 && G.t>0) sndTick();      // 마지막 1분 — 초침 소리로 긴장감(스토리 피드백 반영)
+  // 시간이 절반 남으면 한 판에 한 번, 그냥 어두워지는 것과 다른 "사건"을 터뜨린다
+  if(!G.eventFired && G.t<=Math.floor(TIME_LIMIT*0.5)){ G.eventFired=true; fireMidEvent(); }
+  applyDim();
+  if(G.t<=0) lose();
+}
 function startTimer(){
   clearInterval(tick);
-  tick=setInterval(function(){
-    if(!G||!G.running||G.over) return;
-    G.t--;
-    var m=Math.floor(G.t/60), s=G.t%60;
-    var el=$('timeVal'); el.textContent=m+':'+(s<10?'0':'')+s;
-    el.classList.toggle('warn', G.t<=60);
-    if(G.t===60||G.t===30||G.t===10) sndAlarm();
-    else if(G.t<=60 && G.t>0) sndTick();      // 마지막 1분 — 초침 소리로 긴장감(스토리 피드백 반영)
-    applyDim();
-    if(G.t<=0) lose();
-  },1000);
+  tick=setInterval(tickOnce,1000);
 }
 function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
-  setScene('escape');
+  setScene(G.loc.id==='study' ? 'escape' : G.loc.id);
   $('scene').style.filter='brightness(1) saturate(1)';
   $('endT').textContent='🎉 탈출 성공!'; $('endEn').textContent='Escaped';
   var used=TIME_LIMIT-G.t, m=Math.floor(used/60), s=used%60;
@@ -603,7 +933,7 @@ function win(){ if(G.over)return; G.over=true; G.running=false; clearInterval(ti
 }
 function lose(){ if(G.over)return; G.over=true; G.running=false; clearInterval(tick); clearIdle(); _ttsStop(); stopAmbience();
   $('endT').textContent='⏳ 시간 초과'; $('endEn').textContent='Time Up';
-  $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+STEPS.length+'</b> 단계까지 갔어요<br>'+
+  $('resStat').innerHTML='아쉬워요! <b>'+G.i+'/'+G.steps.length+'</b> 단계까지 갔어요<br>'+
     '영어로 말한 횟수 <b>'+G.utter+'</b>회 · 성공 <b>'+G.utterOk+'</b>회';
   $('endOv').classList.remove('hide');
   flushProg(false);
@@ -635,10 +965,13 @@ function startGame(){
   $('utterN').textContent='0'; $('utterOk').textContent='성공 0';
   $('timeVal').textContent='5:00'; $('timeVal').classList.remove('warn');
   heard(''); hintTxt('');
-  setScene('room'); applyDim(); showStep();
+  clearTimeout(_eventT); $('eventMsg').classList.remove('show');
+  $('scene').classList.remove('flicker');
+  $('locTag').textContent=G.loc.nameKo+' · '+G.loc.nameEn;
+  applyDim(); showStep();
   try{ ac(); if(AC&&AC.state==='suspended') AC.resume(); startAmbience(); }catch(_){}
   startTimer();
-  speak('You are locked in. Look around the room.');
+  speak('You are locked in. Look around the '+G.loc.nameEn+'.');
   if(!SR) enableTyping('이 브라우저는 음성인식이 없어요 — 타이핑으로 진행하세요');
 }
 /* 내레이션 중 화면 탭 = 건너뛰기 (기다리기 싫은 학생 배려) */
@@ -659,6 +992,6 @@ window.addEventListener('keydown', function(e){
 setScene('room');
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260731052744 -->
+<!-- BUILD:20260804041001 -->
 </body>
 </html>

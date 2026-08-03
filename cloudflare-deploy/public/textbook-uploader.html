@@ -7,7 +7,7 @@
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
 <!-- ph257: JSZip CDN — zip 파일 자동 풀기 -->
 <script src="/vendor/jszip/jszip.min.js?v=1"></script>
-<!-- BUILD:20260731052744 -->
+<!-- BUILD:20260804041001 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -1095,51 +1095,16 @@ window.delTextbook = async (id) => {
   await renderLibrary();
 };
 
-async function traverseEntry(entry, files, path) {
-  path = path || '';
-  return new Promise(resolve => {
-    if (entry.isFile) {
-      entry.file(f => { f.fullPath = path + entry.name; files.push(f); resolve(); });
-    } else if (entry.isDirectory) {
-      const reader = entry.createReader();
-      reader.readEntries(async entries => {
-        await Promise.all(entries.map(e => traverseEntry(e, files, path + entry.name + '/')));
-        resolve();
-      });
-    } else { resolve(); }
-  });
-}
+// ⚠️ 여기에 traverseEntry(entry, files, path) 가 한 벌 더 정의돼 있었다.
+//   위쪽 '드래그앤드롭 & 폴더 스캔' 절의 traverseEntry(entry, prefix, out) 와
+//   인자 순서가 정반대라, 나중에 선언된 이쪽이 위쪽을 덮어써서
+//   readDataTransfer() 의 호출(traverseEntry(entry,'',all))이 문자열에 push 를 시도해
+//   드롭 경로가 조용히 멈춰 있었다. 또 이쪽 구현에는 readEntries 반복 읽기가 없어
+//   폴더당 100개를 넘는 파일이 소리 없이 잘렸다. → 위쪽 한 벌만 남긴다.
 
 (function init(){
-  const dz = document.getElementById('dropzone');
-  if (dz) {
-    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
-    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
-    dz.addEventListener('drop', async e => {
-      e.preventDefault();
-      dz.classList.remove('dragover');
-      const items = e.dataTransfer.items;
-      const files = [];
-      if (items && items[0] && items[0].webkitGetAsEntry) {
-        const tasks = [];
-        for (const it of items) {
-          const ent = it.webkitGetAsEntry();
-          if (ent) tasks.push(traverseEntry(ent, files));
-        }
-        await Promise.all(tasks);
-      } else {
-        for (const f of e.dataTransfer.files) files.push(f);
-      }
-      processFiles(files);
-    });
-  }
-  const fileInput = document.getElementById('file-input');
-  if (fileInput) fileInput.addEventListener('change', e => processFiles(Array.from(e.target.files)));
-  const folderInput = document.getElementById('folder-input');
-  if (folderInput) folderInput.addEventListener('change', e => {
-    const files = Array.from(e.target.files).map(f => { f.fullPath = f.webkitRelativePath; return f; });
-    processFiles(files);
-  });
+  // 드롭존·폴더선택 배선은 위쪽 '드래그앤드롭 & 폴더 스캔' 절에서 이미 끝났다.
+  //   (여기서 한 번 더 등록해 폴더를 고르면 같은 파일이 두 번 처리됐다)
   ['lib-search','lib-filter-pub','lib-filter-cat'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {

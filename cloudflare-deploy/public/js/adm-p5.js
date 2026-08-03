@@ -6,6 +6,15 @@
   const CA_LS_KEY = 'mango_class_attendance_seed_v1';
   let _caTeachers = [];
   let _caRecords = [];   // [{ teacher_id, teacher_name, date, class_no, scheduled, class_min, actual, late_min, penalty, reason, answer, deleted }]
+  let _caSeeded = false; // true = 서버 데이터가 아님(시드/로컬 사본). 화면에 경고를 띄운다.
+  // 서버 미연동 경고 배너 — 한/영 (강사 다수가 필리핀)
+  function _caSeedBanner() {
+    if (!_caSeeded) return '';
+    return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;background:rgba(245,158,11,0.10);'
+      + 'border-radius:8px;color:#b45309;font-size:13px;font-weight:700">'
+      + '⚠️ 서버 미연동 — 아래는 실제 출결 기록이 아니라 예시(시드) 데이터입니다. 급여·별점 판단에 사용하지 마세요.<br>'
+      + '<span style="font-weight:500">Not connected to the server — the rows below are sample data, not real attendance records.</span></div>';
+  }
   let _caMode = 'byTeacher';
   let _caCharts = [];
 
@@ -60,9 +69,14 @@
       if (r.ok) {
         const j = await r.json();
         const rows = j.rows || j.items || j;
-        if (Array.isArray(rows) && rows.length) { _caRecords = rows; return; }
+        if (Array.isArray(rows) && rows.length) { _caRecords = rows; _caSeeded = false; return; }
       }
     } catch(e) {}
+    // ⚠️ (2026-08-03) '/api/admin/class-attendance' 는 아직 서버에 없다(라이브 404 확인).
+    //   아래는 전부 **서버 데이터가 아니다** — localStorage 사본이거나 여기서 만들어낸 시드다.
+    //   그동안 화면에 아무 표시가 없어서, 지어낸 출결이 실기록처럼 보였다. 급여·별점 판단에
+    //   쓰이는 화면이라 반드시 구분되어야 한다. 표 위에 경고를 띄운다.
+    _caSeeded = true;
     try {
       const saved = JSON.parse(localStorage.getItem(CA_LS_KEY) || 'null');
       if (Array.isArray(saved) && saved.length) { _caRecords = saved; return; }
@@ -121,7 +135,7 @@
 
   // 강사별 모드 — 컬럼 8개 (날짜·규정·수업·실제·경과·별점·사유·답변·삭제)
   function renderClassTable(rows, groupBy) {
-    if (!rows.length) return '<div style="padding:30px;text-align:center;color:#9ca3af">데이터가 없습니다.</div>';
+    if (!rows.length) return _caSeedBanner() + '<div style="padding:30px;text-align:center;color:#9ca3af">데이터가 없습니다.</div>';
     const en = isEn();
     const L = en
       ? { date:'date', start:'start work time', clsmin:'Class minute', actual:'Actual enter time', elapsed:'elapsed time', penaltyTime:'penalty time', penalty:'Penalty', reason:'Reason', answer:'Answer', delete:'Delete' }
@@ -223,7 +237,7 @@
       html += '</div>'; // 그룹 카드 끝
     });
     html += '</div>';
-    return html;
+    return _caSeedBanner() + html;
   }
 
   function renderChart(rows) {

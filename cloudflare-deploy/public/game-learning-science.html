@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>게임으로 영어가 늘까요? — 망고아이 학습 게임의 근거</title>
+<meta name="description" content="망고아이 학습 게임이 어떤 교육 이론과 연구를 근거로 만들어졌는지 한 장으로 정리했습니다. 학부모·선생님용.">
+<meta name="theme-color" content="#ff8a1e">
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { max-width: 100%; overflow-x: hidden; }
+  body { font-family: 'Malgun Gothic','Apple SD Gothic Neo',sans-serif; color: #17242f;
+         background: #f2f4f6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* 🔴 width:210mm 로 못 박으면 폰에서 화면 밖으로 나가 오른쪽이 잘린다(실측).
+     width:100% + max-width 로 두면 인쇄·PC 는 210mm, 폰은 화면 폭에 맞는다. */
+  .page { width: 100%; max-width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff;
+          padding: 9mm 11mm 6mm; display: flex; flex-direction: column; }
+
+  .top { display: flex; align-items: flex-end; justify-content: space-between;
+         border-bottom: 3px solid #ff8a1e; padding-bottom: 5px; }
+  .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .brand span { color: #ff8a1e; }
+  .brand small { display: block; font-size: 10px; font-weight: 600; color: #7d8a99; margin-top: 2px; }
+  .kicker { font-size: 10px; font-weight: 700; color: #ff8a1e; letter-spacing: 1.2px; }
+
+  h1 { font-size: 25px; font-weight: 800; letter-spacing: -1px; margin-top: 8px; line-height: 1.2; }
+  h1 b { color: #ff8a1e; }
+  .lead { font-size: 12px; color: #47576a; line-height: 1.6; margin-top: 6px; }
+  .lead b { color: #17242f; }
+
+  /* ── 차트 2단 ── */
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 8px; }
+  .ch { border: 1px solid #dfe5eb; border-radius: 9px; padding: 9px 10px 8px; background: #fcfcfb; }
+  .ch .ct { font-size: 13px; font-weight: 800; letter-spacing: -0.4px; }
+  .ch .cs { font-size: 9.5px; color: #7d8a99; margin-top: 2px; font-weight: 600; }
+  .ch svg { display: block; width: 100%; height: auto; margin-top: 4px; }
+  .ch .cn { font-size: 10.5px; line-height: 1.55; margin-top: 5px; padding-top: 6px;
+            border-top: 1px dashed #e0e6ec; color: #2a3946; }
+  .ch .cn b { color: #c2610a; }
+  .lg { display: flex; gap: 12px; font-size: 10px; font-weight: 700; color: #47576a; margin-top: 2px; }
+  .lg i { display: inline-block; width: 11px; height: 11px; border-radius: 3px;
+          margin-right: 4px; vertical-align: -1px; }
+
+  /* ── 이론 표 ── */
+  .sec { font-size: 13.5px; font-weight: 800; margin-top: 8px; padding-bottom: 3px;
+         border-bottom: 2px solid #eceff2; letter-spacing: -0.4px; }
+  .sec em { font-style: normal; font-size: 9.5px; font-weight: 600; color: #93a1b0; margin-left: 7px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 7px; }
+  th { font-size: 9.5px; font-weight: 800; color: #6b7885; text-align: left;
+       padding: 4px 7px; background: #f5f7f9; border-bottom: 1.5px solid #e2e8ee; }
+  td { font-size: 10.3px; padding: 4px 7px; border-bottom: 1px solid #edf1f4; vertical-align: top;
+       line-height: 1.45; }
+  td.th1 { width: 27%; font-weight: 800; color: #17242f; }
+  td.th1 small { display: block; font-size: 8.4px; font-weight: 600; color: #93a1b0; margin-top: 1px; }
+  td.th2 { width: 34%; color: #2a3946; }
+  td.th3 { color: #47576a; }
+  td.th3 b { color: #c2610a; }
+
+  /* ── 흐름 4칩 ── */
+  .flow { display: flex; gap: 5px; margin-top: 7px; }
+  .step { flex: 1; border: 1px solid #e2e8ee; border-left: 3px solid #ff8a1e; border-radius: 6px;
+          padding: 6px 8px 7px; background: #fffdfa; }
+  .step .st { font-size: 11px; font-weight: 800; }
+  .step .sd { font-size: 9.3px; color: #55636f; line-height: 1.45; margin-top: 2px; }
+
+  /* ── 발음 처방 예시 ── */
+  .fix { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-top: 7px; }
+  .fx { border: 1px solid #e2e8ee; border-radius: 7px; padding: 8px 10px 9px; background: #fcfcfb; }
+  .fq { font-size: 10.5px; color: #47576a; }
+  .fq b { font-size: 13px; color: #17242f; }
+  .fq span { color: #b4483f; font-weight: 800; font-size: 12px; }
+  .fa { font-size: 11px; font-weight: 800; color: #c2610a; margin-top: 5px; padding-top: 5px;
+        border-top: 1px dashed #e0e6ec; line-height: 1.4; }
+  .fa::before { content: "→ "; color: #ff8a1e; }
+
+  /* ── 참고문헌 ── */
+  .refs { margin-top: auto; padding-top: 6px; border-top: 1px solid #e6ebf0; }
+  .refs .rt { font-size: 9px; font-weight: 800; color: #47576a; margin-bottom: 3px; }
+  .refs ol { margin-left: 13px; columns: 2; column-gap: 14px; }
+  .refs li { font-size: 6.9px; color: #7d8a99; line-height: 1.45; margin-bottom: 1.5px;
+             break-inside: avoid; }
+  /* ⚠️ 이 줄은 원래 인라인 style 이라 미디어쿼리에서 못 키웠다 → 클래스로 뺐는데,
+     그때 **인쇄용 기본 크기를 같이 넣지 않아** 인쇄에서 16px 로 나와 A4 2장이 됐다.
+     클래스로 뺄 때는 기본값도 반드시 같이 옮길 것. */
+  .note { font-size: 6.9px; color: #a6b2be; margin-top: 2px; line-height: 1.35; }
+  .foot { margin-top: 5px; display: flex; justify-content: space-between;
+          font-size: 8px; color: #a6b2be; }
+  .foot b { color: #ff8a1e; }
+
+
+  /* ── 🎨 색 (2026-08-04) — 인쇄·화면 공통.
+     흑백 표는 정보는 맞지만 읽고 싶어지지 않는다. 항목마다 고유색을 줘서
+     "여섯 개의 서로 다른 이야기"라는 게 한눈에 보이게 한다. */
+  table tr:nth-child(2) td:first-child { border-left: 5px solid #ff8a1e; }
+  table tr:nth-child(3) td:first-child { border-left: 5px solid #2f9e6d; }
+  table tr:nth-child(4) td:first-child { border-left: 5px solid #3b7fd4; }
+  table tr:nth-child(5) td:first-child { border-left: 5px solid #8b5cf6; }
+  table tr:nth-child(6) td:first-child { border-left: 5px solid #e0435f; }
+  table tr:nth-child(7) td:first-child { border-left: 5px solid #0e9aa7; }
+  table tr:nth-child(n+2) td:first-child { padding-left: 11px; }
+  table tr:nth-child(even) td { background: #fbfcfd; }
+
+  .step:nth-child(1){ border-left-color:#ff8a1e; background:#fff8f0 }
+  .step:nth-child(2){ border-left-color:#2f9e6d; background:#f2fbf6 }
+  .step:nth-child(3){ border-left-color:#3b7fd4; background:#f2f7fd }
+  .step:nth-child(4){ border-left-color:#8b5cf6; background:#f8f5ff }
+
+  .fx:nth-child(1){ border-left:5px solid #ff8a1e; background:#fff8f0 }
+  .fx:nth-child(2){ border-left:5px solid #0e9aa7; background:#f0fafb }
+  .fx:nth-child(3){ border-left:5px solid #8b5cf6; background:#f8f5ff }
+
+  .ch:nth-child(1){ background:#f7fbff; border-color:#cfe0f3 }
+  .ch:nth-child(2){ background:#fff9f3; border-color:#ffdcbb }
+
+  h1 { background: linear-gradient(90deg,#17242f 0%,#17242f 55%,#c2610a 100%);
+       -webkit-background-clip: text; background-clip: text; }
+
+  /* ── 🌐 화면(웹)에서만 적용 — 인쇄(@media print)는 위 기본값 그대로라 A4 1장이 유지된다.
+        인쇄용 크기(표 10.3px 등)는 모니터·폰에서 읽기엔 작다. ── */
+  /* 🔴 (2026-08-04) 화면에서 글자가 너무 작다는 지적 — 원인은 폰트가 아니라 **폭**이었다.
+     .page 가 인쇄용 210mm(794px)에 묶여 있어서, 큰 모니터에서도 가운데 작은 종이 한 장처럼
+     보이고 그 안의 글자는 인쇄용 크기(10~12px) 그대로였다.
+     → 화면에서는 폭을 1180px 까지 열고 글자도 1.4~1.6배로 키운다.
+       인쇄(@media print)는 위 기본값을 그대로 쓰므로 **A4 1장은 그대로**다. */
+  @media screen {
+    body { background: #eef1f4; }
+    .page { min-height: auto; max-width: 1180px; padding: 26px 34px 30px;
+            box-shadow: 0 6px 30px rgba(23,36,47,.10); border-radius: 14px; margin: 14px auto; }
+    h1 { font-size: 40px; letter-spacing: -1.4px; margin-top: 16px; }
+    .lead { font-size: 18px; line-height: 1.72; margin-top: 12px; }
+    .lead-en { font-size: 13px; margin-top: 6px; }
+    .brand { font-size: 28px; } .brand small { font-size: 13px; }
+    .kicker { font-size: 13px; }
+
+    .sec { font-size: 21px; margin-top: 26px; padding-bottom: 8px; }
+    .sec em { font-size: 13px; margin-left: 9px; }
+
+    .charts { gap: 16px; margin-top: 18px; }
+    .ch { padding: 16px 18px 15px; border-radius: 14px; }
+    .ch .ct { font-size: 19px; }
+    .ch .cs { font-size: 13px; margin-top: 3px; }
+    .ch .cn { font-size: 15.5px; line-height: 1.65; margin-top: 10px; padding-top: 10px; }
+    .lg { font-size: 14px; gap: 18px; margin-top: 6px; }
+    .lg i { width: 14px; height: 14px; }
+
+    table { margin-top: 12px; }
+    th { font-size: 13.5px; padding: 9px 12px; }
+    td { font-size: 16px; padding: 14px 12px; line-height: 1.6; }
+    td.th1 { font-size: 17px; }
+    td.th1 small { font-size: 12px; margin-top: 3px; }
+
+    .flow { gap: 10px; margin-top: 14px; }
+    .step { padding: 12px 15px 13px; border-radius: 11px; border-left-width: 5px; }
+    .step .st { font-size: 17px; }
+    .step .sd { font-size: 14px; margin-top: 4px; }
+
+    .fix { gap: 12px; margin-top: 14px; }
+    .fx { padding: 14px 17px 15px; border-radius: 11px; }
+    .fq { font-size: 16px; } .fq b { font-size: 19px; } .fq span { font-size: 18px; }
+    .fa { font-size: 16.5px; margin-top: 8px; padding-top: 8px; }
+
+    .refs { padding-top: 14px; margin-top: 26px; }
+    .refs .rt { font-size: 14px; margin-bottom: 6px; }
+    .refs li { font-size: 11.5px; line-height: 1.6; margin-bottom: 3px; }
+    .note { font-size: 11.5px; margin-top: 8px; }
+    .foot { font-size: 12.5px; margin-top: 12px; }
+    .tn-btn { min-height: 46px; font-size: 15.5px; padding: 0 18px; }
+    .whofor { font-size: 13.5px; padding: 6px 15px; }
+  }
+  /* 태블릿·좁은 창 — 1180px 를 다 못 쓰는 폭에서는 조금 줄인다 */
+  @media screen and (max-width: 1000px) {
+    .page { padding: 20px 20px 24px; }
+    h1 { font-size: 31px; }
+    .lead { font-size: 16px; }
+    .sec { font-size: 18.5px; }
+    td { font-size: 15px; }
+  }
+
+  /* ── 상단바 (허브와 같은 모양) ── */
+  .tnav { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .tn-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #dfe5eb;
+            background: #fff; color: #2a3946; font-size: 14px; font-weight: 700;
+            text-decoration: none; cursor: pointer; font-family: inherit; }
+  .tn-btn:hover { background: #f5f7f9; border-color: #c9d3dc; }
+  .tn-print { margin-left: auto; border-color: #ffc98a; background: #fff7ef; color: #c2610a; }
+  .whofor { display: inline-block; font-size: 11.5px; font-weight: 800; color: #c2610a;
+            background: #fff2e2; border: 1px solid #ffd6ae; border-radius: 999px; padding: 4px 12px; }
+  @media print { .tnav { display: none; } }
+
+  /* 📱 폰에서 볼 때만 1단으로. A4 인쇄 폭이 794px 이므로 분기점은 그보다 낮아야 한다
+     (820px 로 뒀더니 인쇄·PDF 까지 폰 레이아웃으로 나왔다). */
+  @media screen and (max-width: 700px) {
+    body { background: #fff; }
+    .page { min-height: 0; padding: 16px 14px 22px; margin: 0; border-radius: 0; box-shadow: none; }
+    h1 { font-size: 26px; }
+    .lead { font-size: 15.5px; }
+    .sec { font-size: 17px; margin-top: 20px; }
+    td { font-size: 14.5px; padding: 11px 9px; }
+    td.th1 { font-size: 15.5px; }
+    .ch .ct { font-size: 17px; } .ch .cn { font-size: 14px; }
+    .fq { font-size: 14.5px; } .fa { font-size: 15px; }
+    .step .st { font-size: 15.5px; } .step .sd { font-size: 13px; }
+    .note { font-size: 11px; }
+    .charts { grid-template-columns: 1fr; }
+    .flow { flex-wrap: wrap; }
+    .step { flex: 1 1 45%; }
+    .fix { grid-template-columns: 1fr; }
+    .refs ol { columns: 1; }
+    /* ⚠️ 예전 규칙(h1 23px / td·lead 12px)이 이 블록 **뒤쪽**에 있어서 위의 확대를 덮어쓰고 있었다.
+       같은 미디어쿼리 안에서는 나중 규칙이 이긴다 — 실측으로 잡았다(폰 리드가 12px 로 남아 있었음). */
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="tnav">
+    <button type="button" class="tn-btn" title="뒤로 가기 (이전 페이지)" aria-label="뒤로 가기"
+      onclick="if(history.length>1){history.back()}else{location.href='/student-games.html'}">← 뒤로</button>
+    <a href="/student-games.html" class="tn-btn" title="학습 게임으로">🎮 게임으로</a>
+    <a href="/" class="tn-btn" title="처음 화면으로" aria-label="홈으로">🏠</a>
+    <span class="whofor">학부모·선생님용</span>
+    <button type="button" class="tn-btn tn-print" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+  </div>
+
+  <div class="top">
+    <div class="brand">망고<span>아이</span><small>AI로 생각하고 결정하는 영어</small></div>
+    <div class="kicker">교육 이론 · 연구 근거</div>
+  </div>
+
+  <h1>게임으로 영어가 늘까요?<br><b>재미가 아니라 연구로 만들었습니다.</b></h1>
+  <p class="lead">아이가 <b>이기려면 들어야 하고, 말해야 하고, 기억을 꺼내야</b> 하도록 게임의 규칙을 짰습니다.
+    아래 두 그림이 그 이유입니다.</p>
+
+  <div class="charts">
+
+    <!-- ── 차트 1 : 망각곡선 ── -->
+    <div class="ch">
+      <div class="ct">사람은 원래 잊어버립니다</div>
+      <div class="cs">배운 것이 머리에 남아 있는 정도 (개념 그림)</div>
+      <div class="lg">
+        <span><i style="background:#3f6fb0"></i>그냥 두면</span>
+        <span><i style="background:#d96a0a"></i>잊을 때쯤 다시 만나면</span>
+      </div>
+      <svg viewBox="0 0 340 180" role="img" aria-label="망각곡선: 그냥 두면 14일 뒤 26%만 남고, 잊을 때쯤 다시 만나면 90%가 남는다">
+        <g stroke="#eceff2" stroke-width="1">
+          <line x1="46" y1="26" x2="330" y2="26"/>
+          <line x1="46" y1="83" x2="330" y2="83"/>
+          <line x1="46" y1="140" x2="330" y2="140"/>
+        </g>
+        <g font-size="9" fill="#a6b2be" text-anchor="end" font-family="inherit">
+          <text x="41" y="29">100%</text><text x="41" y="86">50%</text><text x="41" y="143">0%</text>
+        </g>
+        <!-- 그냥 두면 -->
+        <polyline fill="none" stroke="#3f6fb0" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"
+          points="46,26 66.3,73.9 86.6,86.4 127.1,96.7 188,103.5 330,110.4"/>
+        <!-- 잊을 때쯤 다시 만나면 (톱니 = 다시 만날 때마다 회복) -->
+        <polyline fill="none" stroke="#d96a0a" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"
+          points="46,26 66.3,73.9 66.3,26 106.9,55.6 106.9,26 188,46.5 188,26 330,37.4"/>
+        <g fill="#d96a0a">
+          <circle cx="66.3" cy="26" r="3.8" stroke="#fff" stroke-width="1.8"/>
+          <circle cx="106.9" cy="26" r="3.8" stroke="#fff" stroke-width="1.8"/>
+          <circle cx="188" cy="26" r="3.8" stroke="#fff" stroke-width="1.8"/>
+        </g>
+        <text x="132" y="17" font-size="9.5" fill="#c2610a" font-weight="700" font-family="inherit">● 다시 만난 날</text>
+        <text x="326" y="33" font-size="12" fill="#c2610a" font-weight="800" text-anchor="end" font-family="inherit">90%</text>
+        <text x="326" y="123" font-size="12" fill="#3f6fb0" font-weight="800" text-anchor="end" font-family="inherit">26%</text>
+        <g font-size="9.5" fill="#7d8a99" text-anchor="middle" font-family="inherit">
+          <text x="48" y="157">배운 날</text><text x="107" y="157">3일</text>
+          <text x="188" y="157">7일</text><text x="322" y="157">14일</text>
+        </g>
+      </svg>
+      <div class="cn">그래서 망고아이는 <b>어제 틀린 단어를 오늘 다른 게임에서 먼저</b> 내보냅니다.
+        단어마다 다시 만날 날짜를 따로 계산합니다.</div>
+    </div>
+
+    <!-- ── 차트 2 : 채점 비교 ── -->
+    <div class="ch">
+      <div class="ct">아는 단어만 나열하면 통과 못 합니다</div>
+      <div class="cs">목표 문장 "I have a red car" · 실제 채점 점수</div>
+      <div class="lg">
+        <span><i style="background:#3f6fb0"></i>예전 채점</span>
+        <span><i style="background:#d96a0a"></i>지금 채점</span>
+      </div>
+      <svg viewBox="0 0 340 180" role="img" aria-label="채점 비교: 순서를 바꿔 말하면 예전 100점 지금 11점, 다른 낱말은 예전 80점 지금 74점, 관사 하나 빠뜨리면 예전 80점 지금 89점, 정확히 말하면 둘 다 100점">
+        <line x1="24" y1="140" x2="332" y2="140" stroke="#d8dfe6" stroke-width="1.5"/>
+        <!-- 1) 순서 바꿔 말함 : 100 → 11 -->
+        <rect x="38"  y="26"    width="22" height="114"  rx="4" fill="#3f6fb0"/>
+        <rect x="65"  y="127.5" width="22" height="12.5" rx="4" fill="#d96a0a"/>
+        <text x="49" y="21"  font-size="11.5" font-weight="800" fill="#3f6fb0" text-anchor="middle" font-family="inherit">100</text>
+        <text x="76" y="122" font-size="11.5" font-weight="800" fill="#c2610a" text-anchor="middle" font-family="inherit">11</text>
+        <!-- 2) 다른 낱말 : 80 → 74 -->
+        <rect x="115" y="48.8" width="22" height="91.2" rx="4" fill="#3f6fb0"/>
+        <rect x="142" y="55.6" width="22" height="84.4" rx="4" fill="#d96a0a"/>
+        <text x="126" y="44" font-size="11.5" font-weight="800" fill="#3f6fb0" text-anchor="middle" font-family="inherit">80</text>
+        <text x="153" y="51" font-size="11.5" font-weight="800" fill="#c2610a" text-anchor="middle" font-family="inherit">74</text>
+        <!-- 3) 관사 하나 빠뜨림 : 80 → 89 -->
+        <rect x="192" y="48.8" width="22" height="91.2"  rx="4" fill="#3f6fb0"/>
+        <rect x="219" y="38.5" width="22" height="101.5" rx="4" fill="#d96a0a"/>
+        <text x="203" y="44" font-size="11.5" font-weight="800" fill="#3f6fb0" text-anchor="middle" font-family="inherit">80</text>
+        <text x="230" y="34" font-size="11.5" font-weight="800" fill="#c2610a" text-anchor="middle" font-family="inherit">89</text>
+        <!-- 4) 정확히 말함 : 100 → 100 -->
+        <rect x="269" y="26" width="22" height="114" rx="4" fill="#3f6fb0"/>
+        <rect x="296" y="26" width="22" height="114" rx="4" fill="#d96a0a"/>
+        <text x="280" y="21" font-size="11.5" font-weight="800" fill="#3f6fb0" text-anchor="middle" font-family="inherit">100</text>
+        <text x="307" y="21" font-size="11.5" font-weight="800" fill="#c2610a" text-anchor="middle" font-family="inherit">100</text>
+        <!-- 통과 여부 -->
+        <g font-size="8.5" text-anchor="middle" font-weight="800" font-family="inherit">
+          <text x="62.5"  y="153" fill="#b4483f">불통과</text>
+          <text x="139.5" y="153" fill="#b4483f">불통과</text>
+          <text x="216.5" y="153" fill="#2f7d55">통과</text>
+          <text x="293.5" y="153" fill="#2f7d55">통과</text>
+        </g>
+        <!-- ⚠️ 한 줄로 쓰면 라벨끼리 붙는다(칸 너비 77 · "다른 낱말 (car→cat)"이 90을 넘음) → 두 줄로 나눈다 -->
+        <g font-size="8.8" fill="#47576a" text-anchor="middle" font-weight="700" font-family="inherit">
+          <text x="62.5"  y="165">순서를</text>     <text x="62.5"  y="175">뒤죽박죽</text>
+          <text x="139.5" y="165">다른 낱말</text>  <text x="139.5" y="175">(car→cat)</text>
+          <text x="216.5" y="165">관사 하나</text>  <text x="216.5" y="175">빠뜨림</text>
+          <text x="293.5" y="165">정확히</text>     <text x="293.5" y="175">말함</text>
+        </g>
+      </svg>
+      <div class="cn">예전에는 순서를 뒤죽박죽 말해도 <b>만점</b>이었습니다. 지금은 11점입니다.
+        반대로 <b>관사 하나 빠진 것은 더 후하게</b> 봐줍니다 — 엄격해진 게 아니라 <b>정확해진 것</b>입니다.</div>
+    </div>
+
+  </div>
+
+  <div class="sec">이론적 배경 <em>왜 이렇게 만들었는지 — 근거가 된 연구</em></div>
+  <table>
+    <tr><th>이론 · 학자</th><th>쉽게 말하면</th><th>망고아이 게임에서는</th></tr>
+    <tr>
+      <td class="th1">메타인지 청취<small>Vandergrift · 듣기 교수법 ⁴</small></td>
+      <td class="th2">미리 짐작해 보게 하면 그때부터 <b>귀가 열립니다.</b></td>
+      <td class="th3">문제 전에 뜻을 가리고 <b>소리만</b> 들려준 뒤 고르게 합니다. 틀려도 감점은 없습니다.</td>
+    </tr>
+    <tr>
+      <td class="th1">출력 가설<small>Swain · 제2언어 습득 ⁵</small></td>
+      <td class="th2">듣기만으로는 부족합니다. <b>말해봐야 늡니다.</b></td>
+      <td class="th3">말하기 게임 <b>12종</b>에서 소리 내어 말해야 다음으로 갑니다.</td>
+    </tr>
+    <tr>
+      <td class="th1">바람직한 어려움<small>Bjork · 인지심리학 ⁶</small></td>
+      <td class="th2">다시 읽기보다 <b>기억에서 꺼내는 연습</b>이, 몰아서보다 <b>나눠서</b>가 오래갑니다.</td>
+      <td class="th3">21개 게임이 <b>기억 기록 하나를 함께</b> 씁니다 (위 왼쪽 그림).</td>
+    </tr>
+    <tr>
+      <td class="th1">멀티미디어 학습<small>Mayer · 인지부하 ²</small></td>
+      <td class="th2">눈과 귀는 각각 <b>용량이 정해져</b> 있습니다. 화면이 바쁘면 귀가 놉니다.</td>
+      <td class="th3">소리가 나오는 동안 <b>화면과 타이머를 멈춥니다.</b></td>
+    </tr>
+    <tr>
+      <td class="th1">말할 의지 · 정의적 여과기<small>MacIntyre · Krashen ⁸</small></td>
+      <td class="th2">실력보다 <b>"말할 마음이 드는가"</b>가 실제 말하는 양을 정합니다.</td>
+      <td class="th3">게임 캐릭터에게 말하는 건 사람 앞보다 편합니다. <b>벌도 없고 끌 수도</b> 있습니다.</td>
+    </tr>
+    <tr>
+      <td class="th1">자기결정성 이론<small>Deci &amp; Ryan · 동기 ⁹</small></td>
+      <td class="th2">포인트·배지는 흥미는 올려도 <b>실력에는 거의 영향이 없다</b>고 연구는 말합니다.</td>
+      <td class="th3">코인 대신 <b>"이 단어 4번 연속 맞혔어요"</b> 처럼 <b>늘고 있다는 증거</b>를 보여줍니다.</td>
+    </tr>
+  </table>
+
+  <div class="flow">
+    <div class="step"><div class="st">① 듣기</div><div class="sd">뜻을 가리고 소리만</div></div>
+    <div class="step"><div class="st">② 말하기</div><div class="sd">말해야 문이 열립니다</div></div>
+    <div class="step"><div class="st">③ 처방</div><div class="sd">틀린 소리를 한 줄로</div></div>
+    <div class="step"><div class="st">④ 기억</div><div class="sd">잊을 때쯤 다시 만남</div></div>
+  </div>
+
+  <div class="sec">"틀렸어요" 대신 이렇게 알려줍니다 <em>한국인이 특히 어려워하는 소리를 따로 짚어 줍니다</em></div>
+  <div class="fix">
+    <div class="fx">
+      <div class="fq"><b>rice</b> 를 <span>&ldquo;lice&rdquo;</span> 라고 말하면</div>
+      <div class="fa">혀끝을 입천장에 안 대고 &ldquo;r&rdquo;</div>
+    </div>
+    <div class="fx">
+      <div class="fq"><b>desk</b> 를 <span>&ldquo;des&rdquo;</span> 라고 말하면</div>
+      <div class="fa">끝소리까지 또렷하게! (desk 의 &ldquo;k&rdquo;)</div>
+    </div>
+    <div class="fx">
+      <div class="fq"><b>think</b> 를 <span>&ldquo;sink&rdquo;</span> 라고 말하면</div>
+      <div class="fa">혀끝을 이 사이로 살짝 내밀고 &ldquo;th&rdquo;</div>
+    </div>
+  </div>
+
+  <div class="refs">
+    <div class="rt">참고 문헌 · References</div>
+    <ol>
+      <li>Barz, N. et al. (2024). Digital Game-Based Learning Interventions: A Meta-Analysis. <i>Review of Educational Research</i>.</li>
+      <li>Noetel, M. et al. (2022). Multimedia Design for Learning: Meta-Meta-Analysis. <i>Rev. Educ. Res.</i> 92(3). / Mayer, R. E. (2024). <i>Educ. Psychol. Rev.</i> 36(8).</li>
+      <li>Shadowing practice &amp; ASR for EFL pronunciation and fluency (2025). <i>J. Computers in Education</i>.</li>
+      <li>Vandergrift, L. &amp; Goh, C. — Metacognitive Pedagogical Cycle. <i>Asia-Pacific Educ. Researcher</i> 24.</li>
+      <li>Swain, M. — Output Hypothesis. / Long, M. H. — Interaction Hypothesis.</li>
+      <li>Bjork, R. A. &amp; Bjork, E. L. — Desirable Difficulties. <i>Memory &amp; Cognition</i> 43.</li>
+      <li>Settles, B. &amp; Meeder, B. (2016). A Trainable Spaced Repetition Model. <i>ACL 2016</i> (Duolingo).</li>
+      <li>MacIntyre, P. D. — Willingness to Communicate. / Krashen, S. — Affective Filter. / AI conversation bots &amp; L2 speaking anxiety (2025). <i>Humanit. Soc. Sci. Commun.</i></li>
+      <li>Gamification &amp; intrinsic motivation: minimal impact on competency — meta-analysis (2023). <i>ETR&amp;D</i>. / Deci &amp; Ryan — Self-Determination Theory.</li>
+    </ol>
+    <div class="note">
+      ※ 왼쪽 그림은 망각·분산복습 연구를 바탕으로 한 <b>개념 그림</b>입니다. 오른쪽 그림은 망고아이 채점기로 <b>실제 측정한 점수</b>입니다.
+    </div>
+  </div>
+
+  <div class="foot">
+    <div>망고아이 화상영어 · 학습 게임 <b>21종</b> · 말하기 게임 <b>12종</b> · 등록 학생 <b>29,000명 이상</b></div>
+    <div>2026. 08.</div>
+  </div>
+
+</div>
+<script defer src="/js/back-nav.js"></script>
+<!-- BUILD:20260804041001 -->
+</body>
+</html>

@@ -171,6 +171,12 @@
   #fireBtn:active{transform:scale(.8)}
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-03) 따라 말하기 채점을 허브와 같은 것으로 통일 + 한국인 발음 처방
+     기존 판정은 "목표 단어가 발화에 들어있나"(집합 포함)라 **어순도 중복도 안 봤다**. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
+<script defer src="/js/game-tts.js?v=5"></script><!-- 🙊 이모지 정제 규칙 단일 출처(MangoiTTS.stripEmoji) -->
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>
@@ -558,7 +564,11 @@ function _bridgeSpeak(text, rate){
   try{ if(window.AndroidTTS && window.AndroidTTS.isReady && window.AndroidTTS.isReady()){
     window.AndroidTTS.speak(text, LANGMETA[MODE].tts.slice(0,2), 1.0, rate||0.95); return true; } }catch(_){}
   return false; }
-function speak(text, rate, times){ if(muted)return; times=Math.max(1,times||1);
+/* 🙊 이모지 정제 — 규칙의 단일 출처는 /js/game-tts.js 의 MangoiTTS.stripEmoji.
+   (이 파일은 TTS 스택을 인라인으로 따로 갖고 있어 그 규칙만 빠져 있었다 — 2026-08-03)
+   모듈이 아직 안 붙었으면 원문 그대로 둔다(낭독 품질만 영향, 기능은 유지). */
+function _ttsClean(t){ try{ return (window.MangoiTTS && MangoiTTS.stripEmoji) ? MangoiTTS.stripEmoji(t) : String(t==null?'':t); }catch(_){ return String(t==null?'':t); } }
+function speak(text, rate, times){ if(muted)return; times=Math.max(1,times||1); text=_ttsClean(text); if(!text)return;
   _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
   if(MODE==='zh'){                                          // ★ 중국어 = 서버 오디오(/api/tts-free 구글 만다린) 우선.
     var zn=0;                                               //    기기·앱에 중국어 음성이 없어도 오디오 파일이라 소리가 난다.
@@ -1107,7 +1117,8 @@ function spDoRep(){
     mic.classList.remove('recording');    // 녹음 끝 → 빨강 해제
     var idx=SP.done; SP.done++; if(ok) SP.ok++;
     spSetDot(idx, ok);
-    spHeard(said ? ('들린 말: <b>'+esc(said)+'</b> '+(ok?'✅':'❌')) : '❌ 잘 안 들렸어요');
+    spHeard((said ? ('들린 말: <b>'+esc(said)+'</b> '+(ok?'✅':'❌')) : '❌ 잘 안 들렸어요')
+      + (typeof _spkCoach==='function' ? _spkCoach(said, spFull(), ok) : ''));   // 🗣 뭘 고치면 되는지 한 줄
     if(ok) sndPickup(); else sndBuzz();
     if(SP.done<3){
       spPhase('🎤 따라 말해보세요! ('+(SP.done+1)+'/3)');
@@ -1224,11 +1235,44 @@ function matchSentence(said, target){
     if(!t) return false; var hit=0; for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; }
     return hit/t.length >= 0.7;
   }
+  /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
+     예전엔 `setS[w]` — **목표 단어가 발화 어딘가에 있기만 하면** 맞은 것으로 셌다.
+     그래서 어순이 완전히 뒤바뀌어도, 같은 단어를 여러 번 말해도 통과했다.
+     지금은 단어를 순서대로 정렬해 누락·삽입·치환을 구분한다(기능어는 가중치를 낮춘다).
+     ⚠️ 반환값은 예전과 같은 boolean 이다 → 호출부는 한 줄도 안 바뀐다. */
+  if(window.MangoiScore) return MangoiScore.grade(said, target).pass;
+  return _legacyMatchSentence(said, target);
+}
+// 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
+function _legacyMatchSentence(said, target){
   function norm(x){ return x.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
   var sw=norm(said), tw=norm(target); if(!tw.length) return false;
   var setS={}; sw.forEach(function(w){ setS[w]=1; });
   var hit2=0; tw.forEach(function(w){ if(setS[w]) hit2++; });
   return hit2/tw.length >= 0.65;
+}
+/* 🗣 발음 코치 (2026-08-03) — 판정이 끝난 뒤 **한 번만** 부른다.
+   matchSentence 는 인식 후보마다 불리므로 거기서 적립하면 한 문장이 수십 번 쌓인다.
+   반환: 화면에 붙일 처방 한 줄(없으면 ''). 부수효과: 기억 큐 적립. */
+function _spkCoach(said, target, ok){
+  try{
+    if(MODE==='zh') return '';
+    if(!window.MangoiScore || !window.MangoiPron || !target) return '';
+    /* 🔴 (수정) 처음엔 성공했을 때 `target vs target` 으로 채점했다. 그러면 만점이 나오니
+       goodTags 는 잘 쌓이지만, **통과했지만 잘못 발음한 경우의 진단이 통째로 버려진다.**
+       실측: 목표 "He drinks cold milk" 에 "mirk" 라고 해도 통과라 R/L 오류가 기록되지 않았다.
+       이 게임들의 과제는 '그 문장을 그대로 따라 하기'이므로, **항상 실제 발화로 채점**한다.
+       (통과 여부와 진단은 별개다 — 점수는 관대하게, 진단은 정확하게) */
+    var g = MangoiScore.grade(said || target, target);
+    var d = MangoiPron.analyze(g);
+    if(ok || (d.tags && d.tags.length)){
+      try{ window.MangoiMemory && MangoiMemory.log({ en:target }, !!ok,
+             { tags:d.tags, goodTags:d.goodTags, score:g.score }); }catch(_e){}
+    }
+    if(ok) return '';
+    var fix = MangoiPron.tipFor(d.tags);
+    return fix ? '<div style="margin-top:5px;color:#fcd34d;font-weight:700">'+fix+'</div>' : '';
+  }catch(_){ return ''; }
 }
 function collectFuel(fu){ explode(fu.x,fu.y,false); sndPickup();
   G.time=Math.min(G.timeMax, G.time+8); G.score+=30;
@@ -1574,6 +1618,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260731052744 -->
+<!-- BUILD:20260804041001 -->
 </body>
 </html>

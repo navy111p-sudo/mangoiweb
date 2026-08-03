@@ -2309,6 +2309,14 @@ async function loadTeacherProfiles() {
       return true;
     });
   }
+  // 🔍 강사 찾기 — 이름/전화/이메일/카톡ID 부분일치(대소문자 무시)
+  var searchQ = (document.getElementById('tp-search')?.value || '').trim().toLowerCase();
+  if (searchQ) {
+    items = items.filter(function(t){
+      return [t.korean_name, t.english_name, t.phone, t.email, t.kakao_id]
+        .some(function(v){ return v && String(v).toLowerCase().indexOf(searchQ) >= 0; });
+    });
+  }
   if (cnt) cnt.textContent = items.length + '명';
   if (items.length === 0) {
     tbody.innerHTML = '<tr><td colspan="13" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
@@ -2883,7 +2891,7 @@ async function viewTeacherProfile(id) {
         (t.image_url ? '<img src="' + _aiEsc(t.image_url) + '" style="width:72px;height:72px;border-radius:50%;object-fit:cover">' : '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:bold">'+(t.korean_name||'?').charAt(0)+'</div>') +
         '<div><div style="font-size:20px;font-weight:bold;color:#1f2937">' + _aiEsc(t.korean_name||'') + '</div>' +
         (t.english_name ? '<div style="color:#6b7280">' + _aiEsc(t.english_name) + '</div>' : '') +
-        '<div style="margin-top:4px">' + (_TP_STATUS_BADGE[t.status]||'') + ' ' + (_TP_GROUP_BADGE[t.group_name]||'') + '</div></div>' +
+        '<div style="margin-top:4px">' + _tpStatusBadge(t.status) + ' ' + _tpGroupBadge(t.group_name) + '</div></div>' +
         '<button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');if(m)m.remove()" style="margin-left:auto;background:transparent;border:0;font-size:20px;cursor:pointer">✕</button>' +
       '</div>' +
       tabBar + panes +
@@ -6670,6 +6678,13 @@ window.bulkCopyContacts = function() {
   if (e('tp-refresh-btn'))      e('tp-refresh-btn').addEventListener('click', loadTeacherProfiles);
   if (e('tp-filter-status'))    e('tp-filter-status').addEventListener('change', loadTeacherProfiles);
   if (e('tp-filter-group'))     e('tp-filter-group').addEventListener('change', loadTeacherProfiles);
+  if (e('tp-search')) {
+    var _tpSearchTimer = null;
+    e('tp-search').addEventListener('input', function(){
+      clearTimeout(_tpSearchTimer);
+      _tpSearchTimer = setTimeout(loadTeacherProfiles, 250);
+    });
+  }
   // 페이지 로드시 강사 목록 자동 로드
   if (document.getElementById('tp-list-body')) {
     setTimeout(loadTeacherProfiles, 200);
@@ -9358,6 +9373,15 @@ window.rebuildGlobalSearchIndex = function() {
 
   // ━━━━━━━━━━ 💳 법인카드 사용내역 (신한법인카드 연동 + AI 분석) ━━━━━━━━━━
   let _cardData = null;
+  // false = 카드사 동기화가 안 된 상태(= 화면 숫자가 예시 데이터). 화면에 반드시 표시한다.
+  let _cardSynced = false;
+  function _cardSampleBanner() {
+    if (_cardSynced) return '';
+    return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;background:rgba(245,158,11,0.10);'
+      + 'border-radius:8px;color:#b45309;font-size:13px;font-weight:700">'
+      + '⚠️ 카드사 미연동 — 아래 지출 내역은 실제 결제가 아니라 예시(샘플) 데이터입니다. 회계 판단에 사용하지 마세요.<br>'
+      + '<span style="font-weight:500">Card sync not connected — the transactions below are sample data, not real payments.</span></div>';
+  }
   let _cardCharts = {};
   // 한도 ₩1,000,000 카드에 맞게 카테고리 평균·임계값 조정 (총합이 1M 안에 들도록)
   const CARD_CATEGORIES = {
@@ -9378,13 +9402,26 @@ window.rebuildGlobalSearchIndex = function() {
       const r = await fetch('/api/admin/corpcard/sync', { method: 'POST', credentials: 'include' });
       let d = null;
       try { d = await r.json(); } catch {}
-      if (r.ok && d && d.ok && d.data) _cardData = d.data;
-      else _cardData = generateCardSampleData();
+      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = true; }
+      else { _cardData = generateCardSampleData(); _cardSynced = false; }
     } catch (e) {
-      _cardData = generateCardSampleData();
+      _cardData = generateCardSampleData(); _cardSynced = false;
     }
     renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback();
-    if (btn) { btn.textContent = '✅ 동기화 완료'; btn.disabled = false; setTimeout(() => btn.textContent = '🔄 신한 동기화', 1500); }
+    // ⚠️ (2026-08-03) 예전엔 실패했을 때도 무조건 '✅ 동기화 완료' 라고 찍었다.
+    //   '/api/admin/corpcard/sync' 는 서버에 없고(라이브 404), 카드사 연동 자체가 없다.
+    //   그래서 화면엔 generateCardSampleData() 가 만든 **가짜 카드 내역**이 뜨는데
+    //   버튼은 성공했다고 말했다 — 지출 판단을 오도한다.
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = _cardSynced ? '✅ 동기화 완료' : '⚠️ 미연동 (예시 데이터)';
+      setTimeout(() => btn.textContent = '🔄 신한 동기화', _cardSynced ? 1500 : 3000);
+    }
+    if (!_cardSynced) {
+      alert('⚠️ 카드사 동기화가 아직 연동되지 않았습니다.\n\n'
+        + '화면에 보이는 내역은 실제 지출이 아니라 예시(샘플) 데이터입니다. 회계 판단에 사용하지 마세요.\n\n'
+        + 'Card sync is not connected — the figures shown are sample data, not real transactions.');
+    }
   };
 
   window.cardLoad = function() {
@@ -9526,6 +9563,19 @@ window.rebuildGlobalSearchIndex = function() {
     if (!_cardData) return;
     const tbody = document.getElementById('acc-card-rows');
     if (!tbody) return;
+    // 표 바로 위에 '미연동/예시 데이터' 경고를 한 번만 띄운다
+    try {
+      const host = tbody.closest('table') ? tbody.closest('table').parentNode : null;
+      if (host) {
+        let b = document.getElementById('acc-card-sample-banner');
+        const html = _cardSampleBanner();
+        if (!html) { if (b) b.remove(); }
+        else {
+          if (!b) { b = document.createElement('div'); b.id = 'acc-card-sample-banner'; host.insertBefore(b, host.firstChild); }
+          b.innerHTML = html;
+        }
+      }
+    } catch (e) {}
     const catFilter = document.getElementById('acc-card-cat') ? document.getElementById('acc-card-cat').value : '';
     const search = ((document.getElementById('acc-card-search') && document.getElementById('acc-card-search').value) || '').toLowerCase();
     const rows = _cardData.current.filter(t => {
@@ -9562,10 +9612,26 @@ window.rebuildGlobalSearchIndex = function() {
     const t = _cardData.current.find(x => x.id === id);
     if (!t) return;
     const memo = prompt('메모 입력 (지출 사유, 영수증 번호 등)', t.memo || '');
-    if (memo !== null) {
-      t.memo = memo.trim();
-      fetch('/api/admin/corpcard/memo', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, memo: t.memo }) }).catch(() => {});
-    }
+    if (memo === null) return;
+    t.memo = memo.trim();
+    // ⚠️ (2026-08-03) 예전엔 결과를 버리는 fire-and-forget 이었다. 서버에 라우트가 없어
+    //   (라이브 404) 메모는 새로고침하면 사라지는데 사용자는 저장된 줄 알았다.
+    (async () => {
+      let saved = false;
+      try {
+        const r = await fetch('/api/admin/corpcard/memo', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, memo: t.memo })
+        });
+        saved = r.ok;
+      } catch (e) { saved = false; }
+      if (!saved) {
+        alert('⚠️ 메모가 서버에 저장되지 않았습니다 (미연동).\n\n'
+          + '새로고침하면 사라집니다.\n\n'
+          + 'Memo was not saved to the server — it will disappear on reload.');
+      }
+    })();
   };
 
   function renderCardFeedback() {

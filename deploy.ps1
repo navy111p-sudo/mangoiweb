@@ -172,16 +172,47 @@ Write-Host "  주입 후 재검사 통과" -ForegroundColor Green
 Write-Step "5/7" "git commit + push"
 git config user.email "navy111p@gmail.com" 2>&1 | Out-Null
 git config user.name  "navy111p-sudo" 2>&1 | Out-Null
+
+# 🔍 (2026-07-31) 배포 전 가시성 — 여러 세션이 같은 작업폴더를 공유하는 구조라(워크트리 없이
+#   이 폴더에서 바로 작업하는 세션도 있음), 아래 스테이징 경로에 이번 작업과 무관한 다른 세션의
+#   미완성 변경이 섞여 있어도 예전엔 아무 표시 없이 그대로 커밋+배포됐다(실제로 겪음: 학생게임
+#   HTML 하나가 다른 세션이 편집 중이던 애니메이션 값과 충돌). git add 전에 무엇이 커밋될지
+#   전부 나열해 사람이 훑어보고 이상하면 Ctrl+C 로 끊을 기회를 준다.
+$stagePaths = @(
+    'cloudflare-deploy/public/', 'cloudflare-deploy/src/', 'cloudflare-deploy/scripts/',
+    'cloudflare-deploy/wrangler.toml', 'cloudflare-deploy/schema.sql',
+    'cloudflare-deploy/migration-attendance-checkin.sql', 'cloudflare-deploy/tsconfig.testbuild.json',
+    'test-harness/', '.github/workflows/', '.gitignore', 'deploy.ps1'
+)
+Write-Host ""
+Write-Host "  이번 배포 커밋에 포함될 변경 파일:" -ForegroundColor Yellow
+$dirtyFiles = git status --porcelain -- $stagePaths
+if ($dirtyFiles) { $dirtyFiles | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray } }
+else { Write-Host "    (BUILD 스탬프/캐시버전 갱신만 — 그 외 변경 없음)" -ForegroundColor Gray }
+Write-Host "  ⚠ 위 목록에 이번 작업과 무관한 파일이 보이면 Ctrl+C 로 중단하고 확인하세요." -ForegroundColor Yellow
+Write-Host ""
+
 # .github/workflows/ 포함 — GitHub Actions 자동배포 경로에도 게이트가 걸려 있어서,
 # 워크플로 변경이 커밋에서 빠지면 그 경로만 무방비로 남는다.
-git add cloudflare-deploy/public/ cloudflare-deploy/src/ cloudflare-deploy/scripts/ cloudflare-deploy/wrangler.toml cloudflare-deploy/schema.sql cloudflare-deploy/migration-attendance-checkin.sql cloudflare-deploy/tsconfig.testbuild.json test-harness/ .github/workflows/ .gitignore deploy.ps1 2>&1 | Out-Null
+git add $stagePaths 2>&1 | Out-Null
 git commit -m "deploy: $(Get-Date -Format 'yyyy-MM-dd HH:mm') (build $buildTs)" 2>&1 | Out-Null
-git push origin main
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "  [!] git push origin main 실패 (exit $LASTEXITCODE) — 원격이 앞서거나 인증 문제일 수 있음." -ForegroundColor Red
-    Write-Host "      수동 확인: git pull --no-rebase origin main  후  git push origin main" -ForegroundColor Yellow
+
+# 🔀 (2026-07-31) push 대상 — 예전엔 무조건 origin/main 이었는데, 이 저장소는 실제로 다들
+#   main 이 아니라 기능 브랜치에서 배포를 돌린다(main 자체는 별도 워크트리에 체크아웃돼 있어
+#   이 스크립트가 있는 위치에서 갱신할 방법이 없다). 그 결과 매 배포마다 non-fast-forward 로
+#   push 만 실패하고(라이브 배포엔 지장 없었지만) GitHub 은 계속 안 갱신되는 게 반복됐다.
+#   → 하드코딩 대신 '지금 실제로 체크아웃된 브랜치'로 push한다.
+$currentBranch = (git rev-parse --abbrev-ref HEAD).Trim()
+if ($currentBranch -eq 'HEAD') {
+    Write-Host "  [!] detached HEAD 상태라 push 를 건너뜁니다 — 브랜치를 만들어 수동으로 push 하세요." -ForegroundColor Yellow
 } else {
-    Write-Host "  push 완료" -ForegroundColor Green
+    git push origin "HEAD:$currentBranch"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [!] git push origin $currentBranch 실패 (exit $LASTEXITCODE) — 원격이 앞서거나 인증 문제일 수 있음." -ForegroundColor Red
+        Write-Host "      수동 확인: git pull --no-rebase origin $currentBranch  후  git push origin $currentBranch" -ForegroundColor Yellow
+    } else {
+        Write-Host "  push 완료 ($currentBranch)" -ForegroundColor Green
+    }
 }
 
 # [6] Cloudflare deploy — 기본(webrtc-unified-platform) + 프로덕션(webrtc-unified-platform-prod) 둘 다

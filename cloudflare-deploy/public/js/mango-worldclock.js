@@ -13,7 +13,9 @@
 
   // 클릭 시 이동할 곳 (data-clock-go 속성으로 페이지별 덮어쓰기 가능)
   var GO_URL = (document.currentScript && document.currentScript.getAttribute('data-clock-go')) || '/';
-  var LS_KEY = 'mangoWorldClockPos';
+  // 위치 기억 키도 v2 로 — 예전에 아무 데나 끌어다 놓은 좌표가 남아 있으면
+  // "왼쪽 하단으로 해달라"는 지시대로 안 뜬다. 한 번 초기화하고, 이후 드래그는 그대로 기억된다.
+  var LS_KEY = 'mangoWorldClockPosV2';
 
   function ready(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
@@ -71,9 +73,14 @@
     // ── 표시/숨김 관리 ──
     //  · 사용자가 X로 끄면(userHidden) localStorage에 기억 → 계속 숨김
     //  · 사이드바/메뉴(드로어)가 열려 있는 동안엔 시계가 메뉴를 가리지 않도록 자동 숨김
-    var HIDE_KEY = 'mangoWorldClockHidden';
+    // 🔑 (2026-08-03) 키 이름에 v2 를 붙여 **한 번 초기화**한다.
+    //   왜: X 로 한 번 끄면 localStorage 에 영구 기억돼, 사장님 화면에서 시계가 사라진 채였다.
+    //   코드를 고쳐도 그 기억이 남아 있으면 계속 안 보인다 → 키를 바꿔 '껐던 기억'을 흘려보낸다.
+    //   (끄기 기능 자체는 그대로. 새로 끄면 v2 키에 다시 기억된다)
+    var HIDE_KEY = 'mangoWorldClockHiddenV2';
     var userHidden = false;
     try { userHidden = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+    try { localStorage.removeItem('mangoWorldClockHidden'); } catch (e) {}   // 옛 키 청소
 
     // 열리면 화면을 덮어 시계와 겹치는 메뉴/드로어들 (페이지별)
     var MENU_SELECTORS = ['#mg-drawer.open', '#mg-drawer-overlay.open',
@@ -84,9 +91,26 @@
       }
       return false;
     }
+    // 🎥 [2026-08-03 사장님 지시] **수업 화면에서만** 보인다.
+    //   이전(08-02)에는 '모바일 홈에서만 숨김' 이었는데, 그러면 PC 홈·기타 화면에서도
+    //   계속 떠 있다. 지시는 "수업 입장했을 때만 화면에 보이게" 이므로 조건을 뒤집는다:
+    //     · 화상수업 뷰(로비·통화 중)가 활성 → 보인다
+    //     · 그 외(홈 등) → 숨긴다  (모바일·PC 구분 없이)
+    //   ⚠️ 이 파일은 admin.html·parent.html 도 함께 쓴다. 그 페이지엔 #view-videocall-*
+    //      자체가 없으므로 **아무 영향이 없다**(종전 그대로 보인다). 아래 hasClassView 가드가 그것.
+    //   되돌리려면 이 함수와 syncVisibility 의 호출 한 곳만 지우면 된다.
+    var CLASS_VIEWS = '#view-videocall-lobby, #view-videocall-call';
+    function hiddenOffClassScreen() {
+      try {
+        // 이 페이지에 화상수업 뷰가 아예 없으면(관리자·학부모 페이지) 판정하지 않는다.
+        if (!document.querySelector(CLASS_VIEWS)) return false;
+        return !document.querySelector('#view-videocall-lobby.active, #view-videocall-call.active');
+      } catch (e) { return false; }            // 판정 실패는 '숨기지 않음'으로 (수업을 방해하지 않는다)
+    }
+
     function syncVisibility() {
       // toggle(force): 이미 상태가 같으면 속성을 안 건드림 → 옵저버 무한루프 없음
-      box.classList.toggle('mgwc-off', userHidden || menuOpen());
+      box.classList.toggle('mgwc-off', userHidden || menuOpen() || hiddenOffClassScreen());
     }
     // 메뉴 열림/닫힘(class 변경)을 감지해 즉시 표시/숨김
     //  (rAF 디바운스 없이 동기 실행: 백그라운드/WebView에서 rAF가 멈춰도 확실히 동작)
@@ -94,6 +118,10 @@
       new MutationObserver(syncVisibility).observe(document.documentElement,
         { subtree: true, attributes: true, attributeFilter: ['class'] });
     } catch (e) {}
+    // (2026-08-03) 모바일↔PC 경계 감지(matchMedia)는 제거했다 —
+    //   표시 조건이 '화면 폭'에서 '수업 뷰인가'로 바뀌어 더 이상 필요 없다.
+    //   ⚠️ 지우지 않고 두면 삭제된 MOBILE_Q 를 참조해 매번 ReferenceError 가 나고,
+    //      try/catch 에 삼켜져 조용히 죽는다(문법검사도 못 잡는다).
     syncVisibility();
 
     // X 버튼: 시계 끄기(기억). 드래그/탭-홈 이벤트로 새지 않게 전파 차단.
@@ -150,6 +178,11 @@
       var vw = window.innerWidth, vh = window.innerHeight;
       if (!vw || !vh) return;                 // 뷰포트가 아직 0(레이아웃 전)이면 건드리지 않음
       var r = box.getBoundingClientRect();
+      // 🛡 [2026-08-02] 숨겨져 있을 때(display:none → rect 가 전부 0)는 보정하지 않는다.
+      //   안 막으면 0,0 을 기준으로 계산해 위치를 좌상단(4,4)으로 밀어버리고,
+      //   다시 표시될 때 시계가 엉뚱한 자리에 나타난다. 모바일 홈에서 상시 숨김이 되면서
+      //   clamp 가 숨김 상태로 실행될 일이 많아졌기 때문에 특히 중요해졌다.
+      if (!r.width || !r.height) return;
       var maxX = vw - r.width - 4;
       var maxY = vh - r.height - 4;
       var x = Math.min(Math.max(4, r.left), Math.max(4, maxX));
@@ -169,6 +202,10 @@
     // 초기 1프레임 뒤 화면 안 보정 (bottom/left 기본값 → px 좌표화)
     requestAnimationFrame(clamp);
     window.addEventListener('resize', clamp);
+    // 📱 화면 회전·창 크기 변경은 MutationObserver(class 감시)로는 안 잡힌다.
+    //    모바일↔PC 경계를 넘나들 때 표시 여부를 다시 판정한다.
+    window.addEventListener('resize', syncVisibility);
+    window.addEventListener('orientationchange', syncVisibility);
 
     // ── 드래그 (마우스+터치 공용) / 탭 구분 ──
     var dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0, pid = null;

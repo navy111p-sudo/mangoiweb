@@ -171,21 +171,31 @@
   /* 대시보드 = 실사 계기판 사진(/img/p38-dash.webp, 143KB).
      그 위 '진짜 계기 자리'에 살아 움직이는 바늘 계기를 정확히 겹쳐 놓는다.
      사진이 주변(리벳·황동 명판·토글 스위치·가죽 코밍)을 맡고, 우리 계기가 값을 맡는다. */
-  #dash{position:absolute;left:0;right:0;bottom:0;z-index:6;pointer-events:none;overflow:hidden;
-    box-shadow:0 -10px 26px rgba(0,0,0,.45)}
-  /* 뒤판 — 같은 사진을 꽉 채워 깔고 흐리게·어둡게. 평평한 단색으로 메우면 '띠를 붙인 것'처럼 보인다. */
-  #dashBg{position:absolute;inset:-14px;background:#232820 url('/img/p38-dash.webp?v=1') center/cover no-repeat;
-    filter:blur(13px) brightness(.5) saturate(.85)}
+  #dash{position:absolute;left:0;right:0;bottom:0;z-index:6;pointer-events:none;overflow:hidden}
+  /* 뒤판 — 같은 사진을 흐리게·어둡게 깔아 앞판의 잘린 가장자리를 부드럽게 감싼다.
+     ⚠️ 예전엔 이걸 `center/cover` 로 **화면 전체에 꽉 채웠다**. 그래서 넓은 화면에서
+        계기판 사진(폭 dw)보다 훨씬 넓은 좌우가 어두운 판으로 막혀 "답답하다"는 지적이 나왔다.
+        → 사진 폭만큼만 깔고 좌우는 비워 **하늘(3D 캔버스)이 그대로 비치게** 한다.
+        크기·위치는 layoutCockpit() 이 앞판과 같은 기준으로 넣는다. */
+  #dashBg{position:absolute;background:url('/img/p38-dash.webp?v=1') no-repeat;
+    filter:blur(15px) brightness(.5) saturate(.85)}
   /* 앞판 — 실제 계기가 있는 선명한 사진.
      ⚠️ 원본 사진에는 조종간이 '고정된 채' 찍혀 있다. 그대로 쓰면 우리가 얹은 회전 조종간과
         두 개가 겹쳐 보인다 → 조종간 위(세로 66%)까지만 잘라낸 판을 쓴다.
         좌표계는 원본과 동일(같은 폭·같은 원점)이라 계기 위치 계산은 그대로 유효하다. */
-  #dashFg{position:absolute;inset:0;background-repeat:no-repeat;
+  #dashFg{position:absolute;background-repeat:no-repeat;
     background-image:url('/img/p38-dash-panel.webp?v=1')}
-  /* 좌우 경계를 어둡게 눌러 뒤판과 이어지게 */
-  #dash .dvig{position:absolute;inset:0;pointer-events:none;
-    background:linear-gradient(90deg,rgba(8,10,7,.9) 0%,rgba(8,10,7,0) 17%,
-               rgba(8,10,7,0) 83%,rgba(8,10,7,.9) 100%)}
+  /* 계기판 좌우 끝을 하늘로 서서히 녹인다 — 안 그러면 사진이 칼같이 잘려 '붙여 넣은 판'으로 보인다.
+     ⚠️ 어둡게 덮는 방식(예전 .dvig)은 못 쓴다. 뒤가 하늘이라 검은 띠가 하늘 위에 그려진다.
+        알파를 깎는 mask 여야 한다. */
+  #dashBg,#dashFg{
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%)}
+  /* 계기판 윗변에만 그림자 — 예전엔 #dash 전체에 box-shadow 를 걸어 하늘 위로 검은 띠가 가로질렀다 */
+  #dash .dvig{position:absolute;pointer-events:none;
+    background:linear-gradient(180deg,rgba(6,9,5,.55) 0,rgba(6,9,5,0) 26px);
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%)}
   body.night #dash{filter:brightness(.5) saturate(.85)}
 
   /* 계기는 사진 속 '진짜 계기 자리'에 하나씩 절대좌표로 얹는다(flex 배열이 아니다).
@@ -740,8 +750,13 @@
 
 <script src="/vendor/three/three.min.js?v=1"></script>
 <script src="/vendor/three/GLTFLoader.js?v=1"></script>
+<script defer src="/js/game-tts.js?v=5"></script><!-- 🙊 이모지 정제 규칙 단일 출처(MangoiTTS.stripEmoji) -->
 <script src="/js/lesson-nav.js?v=2"></script>
 <script src="/js/mangoi-stt.js?v=2"></script>
+<!-- 🗣🎧 (2026-08-03) 말하기 판정 통일 + 한국인 발음 처방 + 게임 공통 기억 큐 (무료·서버 호출 없음) -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script>
 'use strict';
 /* ════════════════════════════════════════════════════════════════════
@@ -917,9 +932,13 @@ function synthSpeak(text, rate, times, seq){
     if(v)u.voice=v; if(n<times) u.onend=function(){ setTimeout(once,340); }; speechSynthesis.speak(u); }catch(_){} }
   once(); }
 /* 낭독 — times회 반복. seq 토큰으로 이전 낭독과 안 꼬이게 */
+/* 🙊 이모지 정제 — 규칙의 단일 출처는 /js/game-tts.js 의 MangoiTTS.stripEmoji.
+   (이 파일은 TTS 스택을 인라인으로 따로 갖고 있어 그 규칙만 빠져 있었다 — 2026-08-03) */
+function _ttsClean(t){ try{ return (window.MangoiTTS && MangoiTTS.stripEmoji) ? MangoiTTS.stripEmoji(t) : String(t==null?'':t); }catch(_){ return String(t==null?'':t); } }
 function speak(text, rate, times, onDone){
   if(muted){ if(onDone)onDone(); return; }
   times=Math.max(1,times||1);
+  text=_ttsClean(text); if(!text){ if(onDone)onDone(); return; }
   var my=++_spkSeq; _ttsStop(); try{ speechSynthesis.cancel(); }catch(_){}
   var n=0;
   function next(){ if(my!==_spkSeq) return;
@@ -1205,10 +1224,31 @@ function layoutCockpit(){
     var dw = Math.max(560, Math.min(W*1.1, dashH/0.56 * (DASH_W/DASH_H)));
     var dh = dw*DASH_H/DASH_W;
     var offY = -0.10*dh;                                  // 코밍 위쪽을 조금 잘라 계기를 위로
+    /* 계기판 사진은 화면 폭보다 좁다. 남는 좌우를 어두운 판으로 메우지 않고 **비워서 하늘이 보이게** 한다.
+       앞판·뒤판·윗그림자를 모두 '사진이 있는 띠'에만 놓는다(뒤판만 흐림이 번지도록 조금 더 넓게). */
+    var side = Math.max(0, (W-dw)/2);
+    var BLEED = 28;
     var dfg=document.getElementById('dashFg');
     if(dfg){
+      dfg.style.left = side.toFixed(1)+'px';
+      dfg.style.right = side.toFixed(1)+'px';
+      dfg.style.top = '0px'; dfg.style.bottom = '0px';
       dfg.style.backgroundSize = dw.toFixed(1)+'px auto';
       dfg.style.backgroundPosition = 'center '+offY.toFixed(1)+'px';
+    }
+    var dbg=document.getElementById('dashBg');
+    if(dbg){
+      dbg.style.left = Math.max(0, side-BLEED).toFixed(1)+'px';
+      dbg.style.right = Math.max(0, side-BLEED).toFixed(1)+'px';
+      dbg.style.top = '-14px'; dbg.style.bottom = '-14px';
+      dbg.style.backgroundSize = (dw+BLEED*2).toFixed(1)+'px auto';
+      dbg.style.backgroundPosition = 'center '+(offY-14).toFixed(1)+'px';
+    }
+    var dvg=document.querySelector('#dash .dvig');
+    if(dvg){
+      dvg.style.left = side.toFixed(1)+'px';
+      dvg.style.right = side.toFixed(1)+'px';
+      dvg.style.top = '0px'; dvg.style.bottom = '0px';
     }
 
     // ── 사진 속 진짜 계기 자리에 우리 계기를 하나씩 얹는다
@@ -2007,7 +2047,8 @@ function startAceDuel(){
     G.pronTry++;
     if(ok){ G.pronOk++; banner('🔓 조준 완료! 사격!', '#4ade80');
       if(ace && !ace.dead) ace.hp=1; }
-    else { banner('발음이 안 잡혔어요 — 그래도 사격 가능', '#ffd479');
+    else { var _fix=(typeof _spkCoach==='function') ? _spkCoach(heard, _spkTarget(), false) : '';
+      banner(_fix || '발음이 안 잡혔어요 — 그래도 사격 가능', '#ffd479');   // 🌱 잡히면 뭘 고칠지 알려준다
       if(ace && !ace.dead) ace.hp=2; }
   });
 }
@@ -2112,11 +2153,15 @@ function spSpeakStep(){
     document.getElementById('spHeard').textContent = heard ? ('들린 말: “'+heard+'”') : '';
     if(ok){
       G.pronOk++; SP.spoke++; sndGood();
+      try{ if(typeof _spkCoach==='function') _spkCoach(heard, _spkTarget(), true); }catch(_e){}   // 🧠 성공도 기억 큐에
       if(SP.spoke>=SP.need){ spFinish(true); return; }
       spDots(SP.spoke,'speak'); document.getElementById('micBtn').disabled=false;
     }else{
       sndBad();
-      document.getElementById('spState').textContent='다시 한 번! 천천히 또박또박 🙂';
+      /* 🌱 "다시 한 번"만으로는 뭘 바꿔야 할지 모른 채 같은 말을 반복한다.
+         한국인 취약 발음(R/L·TH·끝소리…)이 잡히면 그 처방으로 대체한다. */
+      var _fix2=''; try{ if(typeof _spkCoach==='function') _fix2=_spkCoach(heard, _spkTarget(), false); }catch(_e){}
+      document.getElementById('spState').textContent = _fix2 || '다시 한 번! 천천히 또박또박 🙂';
       document.getElementById('micBtn').disabled=false;
     }
   });
@@ -2149,8 +2194,11 @@ function listenMs(target){
   var units = (MODE==='zh') ? t.replace(/\s/g,'').length : t.split(/\s+/).filter(Boolean).length;
   return Math.max(15000, Math.min(22000, 7000 + units*1100));
 }
+/* 🎯 지금 채점 대상 문장 — listenOnce 와 발음 코치가 **같은 것**을 봐야 한다.
+   (에이스 결투는 SP 가 아직 없어서 G.sent 를 쓴다. 여기가 어긋나면 엉뚱한 문장으로 진단한다.) */
+function _spkTarget(){ return SP ? spFull() : (G && G.sent ? G.sent.w.join(LANGMETA[MODE].join) : ''); }
 function listenOnce(cb){
-  var target = SP ? spFull() : (G && G.sent ? G.sent.w.join(LANGMETA[MODE].join) : '');
+  var target = _spkTarget();
   var MS = listenMs(target);
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ cb(true,'(음성인식 미지원 · 통과)'); return; }
@@ -2246,11 +2294,41 @@ function matchSentence(said, target){
     for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; }
     return hit/t.length>=0.7;
   }
+  /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
+     예전엔 `set[w]` — **목표 단어가 발화 어딘가에 있기만 하면** 맞은 것으로 셌다.
+     어순이 완전히 뒤바뀌어도, 같은 단어를 여러 번 말해도 통과했다.
+     ⚠️ 반환값은 예전과 같은 boolean 이다 → 호출부는 한 줄도 안 바뀐다. */
+  if(window.MangoiScore) return MangoiScore.grade(said, target).pass;
+  return _legacyMatchSentence(said, target);
+}
+// 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
+function _legacyMatchSentence(said, target){
   function norm(x){ return x.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
   var sw=norm(said), tw=norm(target); if(!tw.length) return false;
   var set={}; sw.forEach(function(w){ set[w]=1; });
   var hit2=0; tw.forEach(function(w){ if(set[w]) hit2++; });
   return hit2/tw.length>=0.65;
+}
+/* 🗣 발음 코치 (2026-08-03) — 판정이 끝난 뒤 **한 번만** 부른다.
+   matchSentence 는 인식 후보마다 불리므로 거기서 적립하면 한 문장이 수십 번 쌓인다. */
+function _spkCoach(said, target, ok){
+  try{
+    if(MODE==='zh') return '';
+    if(!window.MangoiScore || !window.MangoiPron || !target) return '';
+    /* 🔴 (수정) 처음엔 성공했을 때 `target vs target` 으로 채점했다. 그러면 만점이 나오니
+       goodTags 는 잘 쌓이지만, **통과했지만 잘못 발음한 경우의 진단이 통째로 버려진다.**
+       실측: 목표 "He drinks cold milk" 에 "mirk" 라고 해도 통과라 R/L 오류가 기록되지 않았다.
+       이 게임들의 과제는 '그 문장을 그대로 따라 하기'이므로, **항상 실제 발화로 채점**한다.
+       (통과 여부와 진단은 별개다 — 점수는 관대하게, 진단은 정확하게) */
+    var g = MangoiScore.grade(said || target, target);
+    var d = MangoiPron.analyze(g);
+    if(ok || (d.tags && d.tags.length)){
+      try{ window.MangoiMemory && MangoiMemory.log({ en:target }, !!ok,
+             { tags:d.tags, goodTags:d.goodTags, score:g.score }); }catch(_e){}
+    }
+    if(ok) return '';
+    return MangoiPron.tipFor(d.tags) || '';
+  }catch(_){ return ''; }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -3134,6 +3212,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260731052744 -->
+<!-- BUILD:20260804041001 -->
 </body>
 </html>

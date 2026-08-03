@@ -206,13 +206,18 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
             name = '대리점 (' + agency_id + ')';
           } else if (uid === 'parent' || uid.indexOf('parent_') === 0) { role = 'parent'; name = '학부모'; }
           else if (uid === 'student' || uid.indexOf('student_') === 0) { role = 'student'; name = '학생'; }
-          if (data.user) {
-            if (data.user.role) role = data.user.role;
-            if (data.user.name) name = data.user.name;
-            if (data.user.branch) branch = data.user.branch;
-            if (data.user.branch_id) branch_id = data.user.branch_id;
-            if (data.user.agency_id) agency_id = data.user.agency_id;
-          }
+          // ⚠️ (2026-08-03) 여기 있던 `data.user.*` 블록을 제거했다 — **죽은 코드였다.**
+          //   /api/admin/login 응답에는 `user` 가 없다(그건 /api/admin/me 의 응답 형태다).
+          //   로그인 응답이 주는 건 `server_role` · `role_label` · `is_teacher` · `name` 이다.
+          //   그래서 "서버 권위 역할 우선 적용"이라는 원래 의도가 한 번도 실행된 적이 없고,
+          //   실질 판정은 아래 아이디 접두사 추측이었다(`is_teacher` 특례만 예외).
+          //
+          //   ⚠️ 어휘가 서로 다르다 — 서버 resolveRole(): teacher/hq/branch/agency/franchise/staff
+          //                          화면:              hq_teacher/hq_mgr/hq_exec/branch/agency/capitown
+          //   `hq` 는 hq_exec 인지 hq_mgr 인지 구분이 안 되고, branch/agency 로 바꿔봐야
+          //   로그인 응답에 branch_id/agency_id 가 없어 스코프가 비어버린다. 그래서 역할 자체는
+          //   바꾸지 않고, **서버 값을 세션에 그대로 실어** 화면이 참고할 수 있게만 한다
+          //   (admin.html 의 `_ses.server_role` 폴백이 여태 undefined 였던 이유가 이것이다).
           // 🪪 (2026-07-05) 서버가 판정한 권위 역할 우선 적용.
           //   아이디 접두사(hq_t_*)만으로 역할을 추측하던 탓에, 접두사 없는 강사 계정
           //   (예: 'jeong' = 정우영(교사), scope=hq)이 '관리자'로 잘못 표시되고
@@ -233,11 +238,21 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           //   사용자가 EN/KO 를 직접 누른 적이 있으면(=by user, 같은 계정) 그 선택을 존중.
           var wantLang = (data.pref_lang === 'en' || data.pref_lang === 'ko') ? data.pref_lang : '';
           try {
-            // 🇵🇭 강사는 무조건 영어 — 강사는 전원 외국인(사장님 지시 2026-07-23).
-            //   서버가 pref_lang 을 못 내려준 경우의 폴백. 이름 형태를 보지 않는다.
-            //   `mangoi_NNN` = 실제 강사·해외 스태프 컨벤션(전원 외국인), `hq_t_*` = 시연 강사.
+            // 🇵🇭 강사는 기본 영어 — 강사는 사실상 전원 외국인(사장님 지시 2026-07-23).
+            //   `mangoi_NNN` = 실제 강사·해외 스태프 컨벤션, `hq_t_*` = 시연 강사.
             var isTeacherAcct = /^(hq_t|mangoi_)/i.test(uid) || String(role).indexOf('teacher') >= 0;
-            if (isTeacherAcct) wantLang = wantLang || 'en';
+            // 🇰🇷 (2026-08-03 사장님 확인) **한국어 예외는 중국어 강사 한 명뿐.**
+            //   "kang 빼면 다 필리핀 교사" · "Janice 는 미국 교사" → 강사진은 kang 외 전원 영어권.
+            //   ❗ 이름에 한글이 있는지로 추측하지 않는다(그렇게 짰다가 되돌림).
+            //      직원이 필리핀 강사 이름을 한글로 적어 두면 그 강사가 못 읽는 화면을 받는다.
+            //      틀렸을 때 피해가 한쪽으로 기운다 → 안전한 쪽(영어)을 기본값으로.
+            //   ⚠️ src/api-teacher.ts 의 KOREAN_SPEAKING_TEACHERS 와 **같은 목록**이어야 한다.
+            //      한쪽만 고치면 로그인 직후와 /teacher 의 언어가 서로 달라진다.
+            var KOREAN_SPEAKING_TEACHERS = ['hq_t_kang'];
+            var _tName = String((data && data.name) || '').replace(/\s*[(（[【].*$/, '').trim();
+            var _koreanSpeakingTeacher = isTeacherAcct
+              && (KOREAN_SPEAKING_TEACHERS.indexOf(String(uid).toLowerCase()) >= 0 || /중국어/.test(_tName));
+            if (isTeacherAcct) wantLang = wantLang || (_koreanSpeakingTeacher ? 'ko' : 'en');
             if (!wantLang) {
               //   매니저·직원은 이름으로 판정. 이름 칸에 직함이 붙어 있는 계정이 있어
               //   (`Maimai (본사 매니저)`) 괄호 이후를 잘라 사람 이름만 본다.
@@ -257,6 +272,9 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           } catch(e){}
           var session = {
             uid: uid, name: name, role: role,
+            // 🪪 서버가 판정한 역할·라벨 원본(어휘가 화면과 다르다 — 위 주석 참고).
+            //   화면은 `role` 을 쓰고, 서버 판정을 참고해야 할 때만 이 값을 본다.
+            server_role: data.server_role || '', role_label: data.role_label || '',
             branch: branch, branch_id: branch_id, agency_id: agency_id,
             // 🌐 하위 페이지(adm-lang-boot.js)가 매번 서버에 묻지 않고도 언어를 알도록 세션에 실어둔다.
             pref_lang: wantLang || 'ko',
@@ -275,9 +293,14 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         }
         // 🪪 (2026-07-05) 교사·지사·대리점은 로그인하면 '마이페이지'가 가장 먼저 뜨게 한다.
         //   거기서 [📊 관리자 대시보드] 버튼으로 이동. (특정 next 딥링크가 있으면 그대로 존중)
+        //   🇵🇭 (2026-08-02) 강사는 초경량 강사 포털(/teacher)로 분리.
+        //      admin.html(1.3MB)·mypage.html(225KB)은 필리핀 모바일 회선에서 첫 화면까지
+        //      수 초가 걸린다. 강사가 매일 쓰는 것(오늘 수업·입장·평가)만 담은 /teacher 로 보낸다.
+        //      정산·피드백 초안 등 나머지는 /teacher 안의 [전체 마이페이지] 링크로 그대로 접근 가능.
+        //      ⚠️ 지사·대리점은 기존대로 /admin/mypage — 강사만 분리한다.
         if ((!clean || clean === '/admin.html')
             && (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency')) {
-          clean = '/admin/mypage';
+          clean = (String(role).indexOf('teacher') >= 0) ? '/teacher' : '/admin/mypage';
         }
         setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
       } else {

@@ -70,7 +70,7 @@ function inlineScript(src, marker) {
   return null;
 }
 function boot() {
-  const code = inlineScript(html, 'var STEPS=');
+  const code = inlineScript(html, 'function buildSteps');
   if (!code) throw new Error('게임 인라인 스크립트를 찾지 못했다');
 
   /* 가짜 시계 — arm() 이 실제로 몇 ms 를 걸었는지 보려면 지연시간을 붙잡아야 한다 */
@@ -108,7 +108,8 @@ function boot() {
     focus() {}, offsetWidth: 1,
   });
   ['scene','vig','flash','utterN','utterOk','timeVal','goalTxt','goalKo','heard','micBtn','hintBtn',
-   'typeBtn','typeRow','typeIn','typeGo','hint','startOv','endOv','endT','endEn','resStat','btnStart','btnAgain']
+   'typeBtn','typeRow','typeIn','typeGo','hint','startOv','endOv','endT','endEn','resStat','btnStart','btnAgain',
+   'noteCard','noteEn','noteKo','eventMsg']
     .forEach(id => { els[id] = mkEl(id); });
   const click = id => (els[id]._on.click || []).forEach(fn => fn.call(els[id], {}));
   const txt = id => (els[id].innerHTML || els[id].textContent || '').replace(/<[^>]*>/g, '');
@@ -164,12 +165,13 @@ console.log('\n🎤 마이크 대기시간 (버튼 누르고 말을 꺼내기까
 {
   const g = boot();
   g.click('btnStart');
+  const ans0 = g.win.G.steps[0].hints[2];     // 🎲(2026-07-31) 장소가 매번 달라져 정답 문장도 장소마다 다르다
   g.click('micBtn');
   g.clock.tick(4000);                         // 버튼 누르고 4초 동안 뜸들임 (문장을 떠올리는 시간)
   check('4초 뜸들여도 마이크가 살아 있다 (예전엔 2.5초에 스스로 꺼졌다)',
     g.els.micBtn._cls.has('rec') && !g.sr.last.stopped,
     'rec=' + g.els.micBtn._cls.has('rec') + ' stopped=' + g.sr.last.stopped + ' heard=' + g.txt('heard'));
-  g.sr.last.say('Look at the desk');          // 이제서야 말을 꺼냈다
+  g.sr.last.say(ans0);                        // 이제서야 말을 꺼냈다
   check('뜸들인 뒤에 말해도 인정된다', g.win.G.utterOk === 1, 'utterOk=' + g.win.G.utterOk);
 }
 {
@@ -205,12 +207,13 @@ console.log('\n🙉 못 들었을 때');
 {
   const g = boot();
   g.click('btnStart');
+  const ans0 = g.win.G.steps[0].hints[2];
   g.click('micBtn');
   g.clock.tick(15000);                        // 아무 말 없이 침묵 → 침묵 타이머가 마무리
   check('침묵이 길면 마이크를 정리한다', !g.els.micBtn._cls.has('rec'));
   check('못 들었다고 알려준다', /못 들었어요/.test(g.txt('heard')), 'heard=' + g.txt('heard'));
   check('말할 문장을 함께 보여준다 (예전엔 "다시 말해보세요"로 끝났다)',
-    /Look at the desk/.test(g.txt('hint')), 'hint=' + g.txt('hint'));
+    g.txt('hint').includes(ans0), 'hint=' + g.txt('hint') + ' 기대=' + ans0);
 }
 
 /* ══ 6. 안내가 쉬운가 — 예문 자동 노출·자동 힌트 ═════════════════════════ */
@@ -218,8 +221,9 @@ console.log('\n💡 게임 중 안내');
 {
   const g = boot();
   g.click('btnStart');
+  const ans0 = g.win.G.steps[0].hints[2];
   check('시작하자마자 1단계 말할 문장이 보인다',
-    /Look at the desk/.test(g.txt('hint')), 'hint=' + g.txt('hint'));
+    g.txt('hint').includes(ans0), 'hint=' + g.txt('hint') + ' 기대=' + ans0);
   check('자동 힌트 타이머가 걸려 있다 (가만히 있어도 도와준다)',
     g.clock.hasDelayNear(18000, 1000) || g.clock.hasDelayNear(14000, 1000),
     'delays=' + g.clock.delays.filter(d => d >= 5000).join(','));
@@ -229,15 +233,16 @@ console.log('\n💡 게임 중 안내');
   const g2 = boot();
   g2.click('btnStart');
   g2.win.G.i = 2; g2.win.showStep();
+  const ans2 = g2.win.G.steps[2].hints[2];    // 🎲 장소마다 다른 3단계 정답 문장(예: "Move the painting")
   check('3단계는 처음엔 정답을 안 보여준다 (스스로 생각할 시간)',
-    !/Move the painting/.test(g2.txt('hint')), 'hint=' + g2.txt('hint'));
+    !g2.txt('hint').includes(ans2), 'hint=' + g2.txt('hint') + ' 정답=' + ans2);
   g2.clock.tick(14500);
   const h1 = g2.txt('hint');
   g2.clock.tick(12000);
   const h2 = g2.txt('hint');
   g2.clock.tick(12500);
   check('가만히 있으면 힌트가 스스로 올라온다', h1 && h2 && h1 !== h2, '14.5초=' + h1 + ' / 26.5초=' + h2);
-  check('끝내는 정답 문장까지 알려준다', /Move the painting/.test(g2.txt('hint')), 'hint=' + g2.txt('hint'));
+  check('끝내는 정답 문장까지 알려준다', g2.txt('hint').includes(ans2), 'hint=' + g2.txt('hint') + ' 기대=' + ans2);
   check('자동 힌트는 사용횟수(감점)에 잡히지 않는다', g2.win.G.hintUsed === 0, 'hintUsed=' + g2.win.G.hintUsed);
 }
 
@@ -247,9 +252,10 @@ console.log('\n🔁 틀렸을 때');
   const g = boot();
   g.click('btnStart');
   g.win.G.i = 2; g.win.showStep();
+  const lv0Hint = g.win.G.steps[2].hints[0];  // 🎲 장소마다 다른 첫 힌트(예: "지도를 옮기세요")
   g.win.submitSaid('I do not know');
   check('오답 1회로도 힌트가 올라온다 (예전엔 3회 틀려야 나왔다)',
-    /그림|move|Move/.test(g.txt('hint')), 'hint=' + g.txt('hint'));
+    g.txt('hint').includes(lv0Hint), 'hint=' + g.txt('hint') + ' 기대=' + lv0Hint);
   check('들린 말을 보여준다', /I do not know/.test(g.txt('heard')), 'heard=' + g.txt('heard'));
 }
 
@@ -258,8 +264,8 @@ console.log('\n🚪 처음부터 끝까지');
 {
   const g = boot();
   g.click('btnStart');
-  const answers = ['Look at the desk','Open the drawer','Move the painting','Look at the books',
-                   'four seven two','Take the key','Open the door'];
+  // 🎲 hints[2]는 각 단계의 "이렇게 말해보세요" 예문 그 자체이므로, 장소가 무엇이든 항상 정답이다
+  const answers = g.win.G.steps.map(s => s.hints[2]);
   for (const a of answers) {
     g.click('micBtn');
     g.sr.last.say(a);
@@ -275,7 +281,8 @@ console.log('\n⏭ 방이 이야기하는 중에 마이크를 누르면');
 {
   const g = boot();
   g.click('btnStart');
-  g.click('micBtn'); g.sr.last.say('Look at the desk');
+  const ans0 = g.win.G.steps[0].hints[2];
+  g.click('micBtn'); g.sr.last.say(ans0);
   check('내레이션 중이다', g.win.G.busy === true);
   const madeBefore = g.sr.made;
   g.click('micBtn');
@@ -283,6 +290,109 @@ console.log('\n⏭ 방이 이야기하는 중에 마이크를 누르면');
   check('내레이션을 건너뛰고 다음 단계로 넘어간다', g.win.G.busy === false && g.win.G.i === 1,
     'busy=' + g.win.G.busy + ' step=' + g.win.G.i);
   check('그리고 바로 다시 듣기 시작한다', g.sr.made > madeBefore, 'made=' + madeBefore + '→' + g.sr.made);
+}
+
+/* ══ 10. 암호 무작위화 — 재도전마다 다른 3자리 숫자(2026-07-31, "매번 같은 정답이라 재미없다") ══ */
+console.log('\n🔢 암호 무작위화');
+{
+  const g = boot();
+  g.click('btnStart');
+  const code = g.win.G.code;
+  check('3자리 암호가 생성된다', Array.isArray(code) && code.length === 3, 'code=' + JSON.stringify(code));
+  check('암호 숫자가 전부 다르다(0 제외 1~9)', new Set(code).size === 3 && code.every(d => d >= '1' && d <= '9'),
+    'code=' + JSON.stringify(code));
+  const digitWord = g.win.DIGIT_WORD;
+  const spoken = code.map(d => digitWord[d]).join(' ');
+  g.win.G.i = 4; g.win.showStep();               // 'code' 단계로 강제 이동
+  g.win.submitSaid(spoken);
+  g.clock.tick(6500);                             // advance()의 내레이션 안전 타임아웃(6s) 지나가기
+  check('실제로 생성된 암호를 말하면 통과한다', g.win.G.i === 5, 'spoken=' + spoken + ' step=' + g.win.G.i);
+}
+{
+  // 완전 결정론적 재현이 안 되는 값이라 "10판 중 최소 한 번은 다르다"로 판정한다
+  // (같은 3자리 조합이 10번 연속 우연히 나올 확률은 극히 낮다 — 9*8*7=504 가지)
+  const g0 = boot(); g0.click('btnStart');
+  const firstCode = g0.win.G.code.join('');
+  let sawDifferent = false;
+  for (let i = 0; i < 10 && !sawDifferent; i++) {
+    const g = boot(); g.click('btnStart');
+    if (g.win.G.code.join('') !== firstCode) sawDifferent = true;
+  }
+  check('재도전마다 암호가 달라질 수 있다(고정값이 아니다)', sawDifferent);
+}
+
+/* ══ 11. 중간 긴장 이벤트 — 시간이 절반 남으면 한 번, 조용한 디밍과 다른 "사건" ══════ */
+console.log('\n⚡ 중간 긴장 이벤트');
+{
+  const g = boot();
+  g.click('btnStart');
+  // 🎭(2026-07-31) 이제 이벤트가 풀에서 무작위로 뽑히므로, 풀을 1개(조명 플리커)로 줄여서
+  // 이 케이스에서는 결정론적으로 검증한다(vm 컨텍스트 밖에서 Math.random을 직접 바꿀 수 없다)
+  g.win.MID_EVENTS.length = 1;
+  const half = Math.floor(300 * 0.5);
+  for (let i = 0; i < half - 1; i++) g.win.tickOnce();
+  check('절반 시점 직전까지는 이벤트가 안 터진다', g.win.G.eventFired === false, 'eventFired=' + g.win.G.eventFired);
+  g.win.tickOnce();
+  check('시간이 절반 남으면 이벤트가 터진다', g.win.G.eventFired === true);
+  check('이벤트 메시지가 화면에 뜬다', g.els.eventMsg._cls.has('show'));
+  check('장면에 플리커 효과가 걸린다', g.els.scene._cls.has('flicker'));
+  for (let i = 0; i < 30; i++) g.win.tickOnce();
+  check('이벤트는 한 판에 한 번만 터진다(중복 없음)', g.win.G.eventFired === true);
+}
+/* ══ 11b. 긴장 이벤트 풀 — 발자국·피아노·TV·물방울·책·커튼 중 매번 다르게(2026-07-31) ══════ */
+console.log('\n🎭 긴장 이벤트 다양화');
+{
+  const g = boot();
+  g.click('btnStart');
+  check('이벤트 풀이 5가지 이상이다(매번 같은 연출이면 지루하다)',
+    g.win.MID_EVENTS.length >= 5, 'count=' + g.win.MID_EVENTS.length);
+  check('모든 이벤트에 효과음과 한/영 메시지가 있다',
+    g.win.MID_EVENTS.every(e => typeof e.sfx === 'function' && e.en && e.ko));
+}
+{
+  // fireMidEvent()를 직접 반복 호출해 실제로 여러 연출이 나오는지 확인한다(자체 무작위 선택 로직)
+  const g = boot();
+  g.click('btnStart');
+  const seen = new Set();
+  for (let i = 0; i < 20; i++) { g.win.fireMidEvent(); seen.add(g.txt('eventMsg')); }
+  check('이벤트가 매번 같은 것만 뽑히지 않는다', seen.size > 1, 'variants seen=' + seen.size);
+}
+
+/* ══ 12. 장소 다양화 — 매번 6곳 중 하나를 무작위로("같은 방만 나오면 지루하다" 피드백, 2026-07-31) ══ */
+console.log('\n🎲 장소 다양화');
+{
+  const g = boot();
+  g.click('btnStart');
+  const validIds = ['study','classroom','restroom','storage','rooftop','playground'];
+  check('등록된 6곳 중 하나가 뽑힌다', validIds.includes(g.win.G.loc.id), 'loc=' + g.win.G.loc.id);
+  check('그 장소의 퍼즐 7단계가 만들어진다', g.win.G.steps.length === 7, 'steps=' + g.win.G.steps.length);
+  check('상단에 장소 이름표가 뜬다', g.els.locTag.textContent.includes(g.win.G.loc.nameKo),
+    'locTag=' + g.els.locTag.textContent);
+}
+{
+  // 완전 결정론적 재현이 안 되는 값이라 "20판 중 최소 한 번은 다르다"로 판정한다
+  const g0 = boot(); g0.click('btnStart');
+  const firstLoc = g0.win.G.loc.id;
+  let sawDifferent = false;
+  for (let i = 0; i < 20 && !sawDifferent; i++) {
+    const g = boot(); g.click('btnStart');
+    if (g.win.G.loc.id !== firstLoc) sawDifferent = true;
+  }
+  check('재도전마다 다른 장소가 나올 수 있다(고정 장소가 아니다)', sawDifferent);
+}
+{
+  // study가 아닌 장소는 사진 1장을 그대로 쓴다 — CLOSEUP/FOCUS(study 전용) 오적용으로 잘못된
+  // 이미지 키를 찾는 사고가 없는지 6곳 전부 순서대로 강제해 확인한다
+  const LOCS = ['study','classroom','restroom','storage','rooftop','playground'];
+  for (const id of LOCS) {
+    const g = boot();
+    g.click('btnStart');
+    g.win.G.loc = g.win.LOCATIONS.find(l => l.id === id);
+    g.win.G.steps = g.win.G.loc.build(g.win.G.code);
+    g.win.G.i = 0; g.win.showStep();
+    const bg = g.els.scene.style.backgroundImage || '';
+    check(`[${id}] 장면 사진이 정상적으로 설정된다(빈 값 아님)`, bg.length > 0, 'backgroundImage=' + bg);
+  }
 }
 
 /* ══ 결과 ═══════════════════════════════════════════════════════════════ */

@@ -262,7 +262,13 @@ console.log('\n▶ AI 목소리를 마이크가 받아 적지 않게 (에코 차
 
   const af = readFileSync(join(PUB, 'ai-friend.html'), 'utf8');
   check('ai-friend — 마이크 켜기 전 MangoiTTS.stop() 호출', /MangoiTTS\.stop\(\)/.test(af));
-  check('ai-friend — game-tts 캐시버스터 인상(?v=4)', /game-tts\.js\?v=4/.test(af));
+  // ⚠️ (2026-08-03) 예전엔 `?v=4` 를 문자 그대로 못박아 두었는데, 그러면 **캐시버스터를
+  //   올릴 때마다 이 가드가 깨진다.** 실제로 asset_version_harness("내용 바뀌었으니 올려라")와
+  //   정면으로 충돌했다. 이 가드의 의도는 특정 숫자가 아니라 "stop() 들어간 v4 이상을 쓸 것"
+  //   이므로 하한 비교로 바꾼다.
+  const afVer = (af.match(/game-tts\.js\?v=(\d+)/) || [])[1];
+  check('ai-friend — game-tts 캐시버스터 v4 이상', Number(afVer) >= 4,
+        afVer ? `현재 v${afVer}` : '?v= 가 아예 없음');
   const wu = readFileSync(join(PUB, 'warmup.html'), 'utf8');
   check('warmup — 마이크 켤 때 낭독 정지(_stopSpeak)', /function toggleMic\(\)\{[\s\S]{0,200}_stopSpeak\(\)/.test(wu));
 }

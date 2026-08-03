@@ -314,6 +314,12 @@
   .lv-btn.on{background:linear-gradient(180deg,var(--mango-orange),var(--mango-deep)); color:#fff; border-color:#c05f00;}
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-03) 따라 말하기 채점을 허브와 같은 것으로 통일 + 한국인 발음 처방
+     이 게임은 "이 문장을 따라 말하라" 과제라 문장 정렬 채점이 맞다.
+     기존 matchScore 는 단어가 **어디에 있든** 세어서 어순이 틀려도 통과했다. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>
@@ -765,6 +771,26 @@ function matchScore(said, target){
     for(var i = 0; i < b.length; i++){ if(a.indexOf(b[i]) > -1) hit++; }
     return hit / b.length;
   }
+  /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
+     예전엔 `pool2.indexOf(w)` 로 **단어가 어디에 있든** 셌다 → 어순이 뒤바뀌어도,
+     뜻이 다른 낱말을 말해도 7할만 겹치면 통과했다.
+     지금은 단어를 순서대로 정렬해 누락·삽입·치환을 구분한다(기능어는 가중치를 낮춘다).
+     ⚠️ 반환값은 예전과 같은 0~1 비율이다 → 호출부의 `>= 0.7` 기준은 안 바꿨다. */
+  if(window.MangoiScore){
+    var g = MangoiScore.grade(said, target);
+    _pzDiag = '';
+    try{
+      var d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags:[], goodTags:[] };
+      _pzTags = d;
+      _pzDiag = (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '';
+    }catch(_e){}
+    return g.accuracy;
+  }
+  return _legacyMatchScore(said, target);
+}
+var _pzDiag = '', _pzTags = { tags:[], goodTags:[] };
+// 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
+function _legacyMatchScore(said, target){
   var saidW = norm(said).split(' ').filter(Boolean);
   var tgtW = norm(target).split(' ').filter(Boolean);
   if(!tgtW.length) return 0;
@@ -774,6 +800,15 @@ function matchScore(said, target){
     if(i > -1){ hit2++; pool2.splice(i, 1); }
   });
   return hit2 / tgtW.length;
+}
+/* 🧠 판정이 끝난 순간에만 기억 큐에 적립한다.
+   matchScore 는 인식 중간결과마다 불리므로 거기서 적립하면 한 문장이 수십 번 쌓인다. */
+function _pzRemember(ok){
+  try{
+    if(!window.MangoiMemory) return;
+    MangoiMemory.log({ en: sentenceText() }, !!ok,
+      { tags:_pzTags.tags||[], goodTags:_pzTags.goodTags||[] });
+  }catch(_){}
 }
 
 /* ══════════ 문법 힌트 ══════════ */
@@ -1039,6 +1074,7 @@ $('btn-listen').onclick = function(){
 
 function speakSuccess(){
   speakCount++;
+  try{ if(typeof _pzRemember === 'function') _pzRemember(true); }catch(_e){}   // 🧠 성공 적립 (부가기능은 본 흐름 뒤에)
   renderDots('speak-dots', speakCount);
   if(speakCount >= 3){
     missionComplete();
@@ -1080,8 +1116,18 @@ $('btn-speak').onclick = function(){
   }
   function _pzFail(){
     // ❌ 틀리면: 정답 문장을 자동으로 다시 들려주고 → 다시 말하기
-    $('speech-result').textContent = '들린 말: "' + _pzSaid + '" — 정답 문장을 다시 들려줄게요!';
-    toast('🔊 잘 듣고 다시 따라해 보세요!');
+    /* 🌱 (2026-08-03) "다시 들려줄게요"만으로는 **뭘 바꿔야 하는지** 모른 채 같은 말을 반복한다.
+       한국인 취약 발음(R/L·TH·끝소리…)이 잡히면 그 처방을 한 줄 붙인다.
+       HTML 이 아니라 textContent 로 붙인다 — 음성인식 결과를 그대로 화면에 넣기 때문. */
+    /* 🔴 순서가 중요하다 — **화면 안내를 먼저** 쓰고, 부가기능은 그 다음에 부른다.
+       처음엔 _pzRemember() 를 먼저 불렀는데, 그 함수가 없는 환경(다른 스크립트 블록만
+       로드되는 경우)에서 ReferenceError 가 나면서 **오답 안내가 아예 안 뜨는** 상태가 됐다.
+       (stt_hardening_harness 가 잡아줬다.) 부가기능이 본 기능을 망가뜨리면 안 된다. */
+    var _fix = (typeof _pzDiag === 'string') ? _pzDiag : '';
+    $('speech-result').textContent = '들린 말: "' + _pzSaid + '" — 정답 문장을 다시 들려줄게요!'
+      + (_fix ? '   ' + _fix : '');
+    toast(_fix || '🔊 잘 듣고 다시 따라해 보세요!');
+    try{ if(typeof _pzRemember === 'function') _pzRemember(false); }catch(_e){}
     $('btn-speak').disabled = true;
     var reEnabled = false;
     var reEnable = function(){
@@ -1224,6 +1270,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260731052744 -->
+<!-- BUILD:20260804041001 -->
 </body>
 </html>

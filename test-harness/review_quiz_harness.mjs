@@ -200,6 +200,49 @@ check('소스 일치: 정검이 음성≠정답/정답범위밖 검출', /음성
 check('소스 일치: 제목 클릭 → rqPreview 연결', /onclick="rqPreview\(/.test(ADMIN));
 
 // ════════════════════════════════════════════════════════════════════
+// [F] 중국어 복습퀴즈 (2026-07-31 — /api/review-quiz/auto lang 분기 회귀가드)
+//   맥락: review_quizzes 는 원래 영어 전용(AI 프롬프트 하드코딩)이라 중국어 수업엔
+//   퀴즈가 하나도 안 뜨고 전체(영어) 목록으로 폴백했다. lang 컬럼 + zh 전용 프롬프트로 해결.
+// ════════════════════════════════════════════════════════════════════
+section('[F] 중국어(zh) 복습퀴즈 — 스키마/분기/TTS회피 회귀가드');
+check('lang 컬럼 마이그레이션 존재', /ALTER TABLE review_quizzes ADD COLUMN lang/.test(API));
+check('rqAiGenerate 가 lang 파라미터를 받음', /rqAiGenerate\s*=\s*async\s*\(o:\s*\{[^}]*lang\?:\s*string/.test(API));
+check('🔒 중국어는 listen/speak 강제 0 (깨진 CF 구글TTS·미검증 STT 회피)', /isZh\s*\?\s*0\s*:\s*lim\(c\.listen/.test(API) && /isZh\s*\?\s*0\s*:\s*lim\(c\.speak/.test(API));
+check('중국어 프롬프트가 실제 zh_vocab 어휘로 그라운딩됨(할루시네이션 방지)', /rqZhVocabSample/.test(API) && /Use ONLY the Chinese words below/.test(API));
+check('/api/review-quiz/auto 가 body.lang 을 읽음', /const lang = String\(b\.lang \|\| ''\)\.trim\(\) === 'zh'/.test(API));
+check('중국어 매칭은 lang=\'zh\' 로 엄격 필터(영어 문항과 안 섞임)', /langCond = lang === 'zh' \? `lang = \?`/.test(API));
+check('영어는 lang IS NULL(기존 행) 도 계속 매칭 — 하위호환', /lang = \? OR lang IS NULL/.test(API));
+check('교재/레벨 미상이어도 중국어는 다락원/Lv 3 기본값으로 폴백', /textbook = '다락원'; level = 'Lv 3'/.test(API));
+check('소스 일치(프론트): rqvToggleLang 존재', /window\.rqvToggleLang\s*=\s*function/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
+check('소스 일치(프론트): auto 호출이 lang 을 전송', /lang:st\.lang/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
+
+// ════════════════════════════════════════════════════════════════════
+// [G] 중국어 2차 개편(2026-07-31) — 다락원 본문(zh_passage) 기반 4유형 + 듣기/말하기 복구
+//   맥락: 1차는 TTS 위험 회피 위해 listen/speak 를 아예 껐다. 사용자가 "영어퀴즈처럼 듣기·
+//   말하기도 포함해서" 요청 → 실제 검증된 TTS/STT 경로를 찾아 다시 켜고, AI 대신 사람이
+//   만든 본문 이해문제(zh_passage.questions)를 그대로 써서 정확도까지 높였다.
+// ════════════════════════════════════════════════════════════════════
+section('[G] 중국어 2차 개편 — 본문기반 조립 + TTS/STT 언어분기 + 한자 채점');
+check('rqBuildZhFromPassage 가 4유형(choice/listen/write/speak) 전부 조립', /rqBuildZhFromPassage\s*=\s*\(p: any\)/.test(API)
+  && /type: 'choice'/.test(API) && /type: 'listen'/.test(API) && /type: 'write'/.test(API) && /type: 'speak'/.test(API));
+check('본문 이해문제는 zh_passage.questions 의 원저작 정답을 그대로 사용(AI 미사용)', /rqZhPassageFind/.test(API) && /q\.q_ko \|\| q\.q/.test(API));
+check('/api/review-quiz/auto 가 zh 일 때 패시지 우선 시도(AI보다 먼저)', /if \(lang === 'zh'\) \{\s*\n\s*const passRow = await rqZhPassageFind/.test(API));
+check("패시지로 만든 퀴즈는 source='passage' 로 구분 저장", /'passage','zh'/.test(API));
+check('🔒 한자 CJK 문자가 rqNorm 허용문자에 포함(채점 시 중국어가 안 지워짐)', API.includes('一-鿿'));
+check('중국어는 글자단위 토큰화로 부분점수 지원(공백분리 전부/전무 방지)', /rqTokenize/.test(API) && /\.split\(''\)/.test(API));
+check('/api/review-quiz/tts 가 퀴즈의 lang 을 조회해서 분기', /SELECT questions, lang FROM review_quizzes/.test(API) && /const isZh = row\.lang === 'zh'/.test(API));
+check('중국어 듣기음성은 Google 번역TTS 우선 + MeloTTS(zh) 최후폴백([[voice/tts]]와 동일 전략)', /translate\.google\.com\/translate_tts/.test(API) && /tl=zh-CN/.test(API) && /melotts', \{ prompt: text, lang: 'zh' \}/.test(API));
+check('소스 일치(프론트): rqvMic 이 STT 에 lang 힌트 전송(짧은 중국어 오인식 방지)', /fd\.append\('lang', st\.lang===/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
+check('소스 일치(프론트): startQuiz 가 실제 퀴즈의 lang 으로 st.lang 동기화(목록에서 바로 열어도 STT 힌트 정확)', /st\.lang = \(quiz\.lang === 'zh'\)/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
+check('/api/review-quiz/get·list 응답에 lang 필드 포함(프론트가 언어를 알 수 있어야 함)', /lang: row\.lang \|\| 'en'/.test(API));
+check('🔒 (2026-07-31 실사고) 패시지 생성 저장이 요청 lesson_no 를 그대로 씀(내부적으로 고른 과 번호를 저장하면 다음 호출이 매번 새로 생성해 중복 행이 쌓인다)',
+  /binds: \[langBind, textbook\] \}\);/.test(API) /* lesson_no IS NULL 매칭 버킷이 여전히 존재 */
+  && !/\.bind\(title, desc, JSON\.stringify\(qsList\)[\s\S]{0,20}lessonNo \|\| passRow\.lesson_no/.test(API) /* 옛 버그 패턴이 없어야 함 */
+  && /\.bind\(title, desc, JSON\.stringify\(qsList\)[\s\S]{0,300}, lessonNo, now, now\)/.test(API));
+check('🔒 (2026-07-31 실사고 #2) 중국어+특정과 요청은 "무과 전체용" 버킷을 건너뜀(안 그러면 2과를 물어도 1과 내용이 매칭돼버림)',
+  /!\(lang === 'zh' && lessonNo\)/.test(API));
+
+// ════════════════════════════════════════════════════════════════════
 //  요약 + 리포트
 // ════════════════════════════════════════════════════════════════════
 console.log('\n' + '═'.repeat(60));

@@ -20,6 +20,25 @@ import type { MangoEnv } from './api-mango';
 // 🎮 게이미피케이션 공용부 — api-mango.ts 에서 이동 (3차, 2026-07-14)
 //   checkAndAwardBadges 는 api-mango(영작 첨삭)도 import 해서 사용한다.
 // ═══════════════════════════════════════════════════════════════════════
+/**
+ * 🔤 학생에게 글자를 보여줘도 되는지 — 인코딩이 깨진 문자열을 걸러냅니다.
+ *   U+FFFD(replacement character)는 "여기 바이트를 못 읽었다"는 표시라, 한 글자라도 있으면
+ *   그 문자열은 이미 원본을 잃은 것입니다(되살릴 수 없음). 화면에 내보내지 않습니다.
+ *
+ *   왜 필요한가 — 셸에서 한글을 인라인으로 POST 하면 EUC-KR 바이트가 그대로 저장됩니다
+ *   (CLAUDE.md §2 함정). 그렇게 들어온 QA 데이터가 실제 학생 퀴즈의 보기로 새어 나온 사고가
+ *   2026-08-03 에 있었습니다. 넣는 쪽을 다 막기는 어려우니 보여주는 쪽에서 한 번 더 거릅니다.
+ *
+ *   ⚠️ 리터럴 대신 String.fromCharCode(0xFFFD) 로 만듭니다 — 소스에 깨진 문자를 직접 박아 두면
+ *      이 파일이 다른 인코딩으로 저장되는 순간 검사 자체가 조용히 망가집니다.
+ */
+export function isCleanText(s: any): boolean {
+  if (s == null) return false;
+  const t = String(s).trim();
+  if (!t) return false;
+  return t.indexOf(String.fromCharCode(0xFFFD)) === -1;
+}
+
 // ── 🔥 연속 출석(Streak) 그래프 DFS — 출결의 단일 권위(source of truth) ──────
 // attendance 의 날짜들을 (수업)<-[:NEXT_LESSON]-(이전수업) 연결 리스트로 간주하고,
 // 가장 최근 출석일(anchor)을 기점으로 하루씩 역방향으로 사슬을 타며
@@ -894,16 +913,27 @@ Variety: mix of nouns, verbs, adjectives.`;
       }
 
       // 오답 선택지 풀 (은행 출제면 은행에서, 내 단어장이면 전체 학생 단어에서)
+      //   ⚠️ 2026-08-03: 학생 화면에 보기 하나가 대체문자(U+FFFD)로 깨져 나온 사고.
+      //     원인은 두 겹이었습니다.
+      //       ① QA 계정(`__qa_vocab_...`)이 셸에서 한글을 인라인으로 넣어 EUC-KR 바이트가 그대로 저장됨
+      //          (CLAUDE.md §2 '셸에서 한글 POST' 함정)
+      //       ② 오답 풀이 `user_id != ?` 라 **다른 사람 전부**를 긁어와, QA·테스트 계정 데이터가
+      //          실제 학생 문제의 보기로 새어 들어감
+      //     ②가 진짜 원인입니다. 깨진 행을 지워도 테스트 계정이 또 생기면 그대로 재발합니다.
+      //     그래서 여기서 두 가지를 막습니다 — 내부(`__`) 계정 제외 + 깨진 문자(U+FFFD) 제외.
       const distRs: any = source === 'textbook'
-        ? await env.DB.prepare(`SELECT ko AS korean FROM en_vocab WHERE active=1 AND type='word' AND ko IS NOT NULL AND ko != '' ORDER BY RANDOM() LIMIT 60`).all()
-        : await env.DB.prepare(`SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' ORDER BY RANDOM() LIMIT 60`).bind(userId).all();
-      const distractors = (distRs.results || []).map((x: any) => x.korean).filter(Boolean);
-      const myDistractors = words.map(w => w.korean).filter(Boolean);
+        ? await env.DB.prepare(`SELECT ko AS korean FROM en_vocab WHERE active=1 AND type='word' AND ko IS NOT NULL AND ko != '' AND ko NOT LIKE '%'||char(65533)||'%' ORDER BY RANDOM() LIMIT 60`).all()
+        : await env.DB.prepare(`SELECT korean FROM vocabulary WHERE user_id != ? AND korean IS NOT NULL AND korean != '' AND korean NOT LIKE '%'||char(65533)||'%' AND user_id NOT LIKE '\\_\\_%' ESCAPE '\\' ORDER BY RANDOM() LIMIT 60`).bind(userId).all();
+      // 마지막 방어선 — DB 필터를 빠져나온 깨진 문자열은 여기서 버립니다(어느 경로로 들어왔든).
+      const distractors = (distRs.results || []).map((x: any) => x.korean).filter((s: any) => isCleanText(s));
+      const myDistractors = words.map(w => w.korean).filter((s: any) => isCleanText(s));
 
       const now = Date.now();
       const quizzes: any[] = [];
       for (const w of words) {
-        if (!w.korean) continue;
+        // 정답(뜻)이 깨진 단어는 아예 출제하지 않습니다 — 문제 자체가 읽을 수 없게 되므로.
+        //   (그 단어는 학생 단어장에는 그대로 남아 있어 확인·수정할 수 있습니다)
+        if (!isCleanText(w.korean)) continue;
         const pool = [...distractors, ...myDistractors].filter(d => d !== w.korean);
         // 중복 제거 + 셔플 + 3개 선택
         const uniq = [...new Set(pool)];
@@ -925,6 +955,10 @@ Variety: mix of nouns, verbs, adjectives.`;
           source_word: w.word,
         });
       }
+
+      // 뜻이 전부 비었거나 깨져서 한 문제도 못 만든 경우 — 빈 퀴즈를 내보내면 화면이
+      //   문제 0개짜리 결과창으로 떨어집니다. 단어장이 빈 것과 같은 안내로 돌려보냅니다.
+      if (!quizzes.length) return json({ ok: false, error: 'no_words', message: '뜻이 등록된 단어가 없어요. 단어를 먼저 추가해주세요!' });
 
       return json({ ok: true, quizzes, total: quizzes.length, source, band });
     }
@@ -1053,6 +1087,8 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       for (const col of ['level TEXT', 'textbook TEXT', 'lesson_no INTEGER', "source TEXT DEFAULT 'manual'", 'draw TEXT']) {
         try { await env.DB.exec(`ALTER TABLE review_quizzes ADD COLUMN ${col};`); } catch {}
       }
+      // Phase RQ3 (2026-07-31) — 언어 컬럼. NULL = 기존 영어 퀴즈(하위호환), 'zh' = 중국어.
+      try { await env.DB.exec(`ALTER TABLE review_quizzes ADD COLUMN lang TEXT;`); } catch {}
       // 웜업 개인화(warmup-graph.ts) — 제출 시 채점 상세(JSON)를 보존해 오답 문장을 정확히 추출
       try { await env.DB.exec(`ALTER TABLE review_quiz_results ADD COLUMN detail TEXT;`); } catch {}
     };
@@ -1094,10 +1130,19 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       return { ok: true, list: clean };
     };
     // 채점 보조 — 텍스트 정규화 + 단어 일치율
-    const rqNorm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣\s']/g, ' ').replace(/\s+/g, ' ').trim();
+    // 🈶 (2026-07-31) 한자(一-鿿) 를 허용문자에 추가 — 원래는 중국어를 전부 걸러내서
+    //   쓰기/말하기 채점이 항상 빈 문자열끼리 비교돼 정답이어도 오답 처리됐다.
+    const rqNorm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣一-鿿\s']/g, ' ').replace(/\s+/g, ' ').trim();
+    // 🈶 중국어는 띄어쓰기가 없어 공백 분리로 쪼개면 문장 전체가 토큰 1개가 되어 부분점수 없이
+    //   전부/전무로만 채점된다(발음 인식의 사소한 오차에도 0점). 한자가 섞이면 글자 단위로 쪼갠다.
+    const rqTokenize = (s: string) => {
+      const norm = rqNorm(s);
+      if (/[一-鿿]/.test(norm)) return norm.replace(/\s+/g, '').split('');
+      return norm.split(' ').filter(Boolean);
+    };
     const rqWordAcc = (target: string, said: string) => {
-      const t = rqNorm(target).split(' ').filter(Boolean);
-      const s = rqNorm(said).split(' ').filter(Boolean);
+      const t = rqTokenize(target);
+      const s = rqTokenize(said);
       if (!t.length) return 0;
       const pool = s.slice();
       let hit = 0;
@@ -1162,13 +1207,90 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       });
       return { score, detail };
     };
+    // 🈶 (2026-07-31) 중국어 복습퀴즈 그라운딩용 실제 어휘 샘플 — zh_vocab(다락원 Lv3 등, 검수된 실교재 데이터)
+    //   AI가 존재하지 않는 한자/병음을 지어내지 않도록, 실제 DB 어휘를 골라 프롬프트에 그대로 박아 넣는다.
+    const rqZhVocabSample = async (level?: string, textbook?: string, lessonNo?: number | null) => {
+      const tries: Array<{ sql: string; binds: any[] }> = [];
+      if (textbook && lessonNo) tries.push({ sql: `SELECT hanzi, pinyin, ko FROM zh_vocab WHERE active=1 AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY RANDOM() LIMIT 24`, binds: [textbook, lessonNo] });
+      if (textbook) tries.push({ sql: `SELECT hanzi, pinyin, ko FROM zh_vocab WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY RANDOM() LIMIT 24`, binds: [textbook] });
+      if (level) tries.push({ sql: `SELECT hanzi, pinyin, ko FROM zh_vocab WHERE active=1 AND LOWER(level)=LOWER(?) ORDER BY RANDOM() LIMIT 24`, binds: [level] });
+      tries.push({ sql: `SELECT hanzi, pinyin, ko FROM zh_vocab WHERE active=1 ORDER BY RANDOM() LIMIT 24`, binds: [] });
+      for (const t of tries) {
+        try {
+          const rs = await env.DB.prepare(t.sql).bind(...t.binds).all();
+          const rows = (rs.results as any[]) || [];
+          if (rows.length >= 8) return rows;
+        } catch {}
+      }
+      return [];
+    };
+    // 🈶 (2026-07-31) zh_passage(다락원 과별 본문 — 사람이 직접 쓴 지문+정답 있는 이해문제) 조회.
+    //   textbook+lesson 정확매칭 우선, 없으면 그 교재의 첫 과(제일 낮은 lesson_no)로.
+    const rqZhPassageFind = async (textbook?: string, level?: string, lessonNo?: number | null) => {
+      if (textbook && lessonNo) {
+        const r: any = await env.DB.prepare(`SELECT * FROM zh_passage WHERE active=1 AND LOWER(textbook)=LOWER(?) AND lesson_no=? LIMIT 1`).bind(textbook, lessonNo).first();
+        if (r) return r;
+      }
+      if (textbook) {
+        const r: any = await env.DB.prepare(`SELECT * FROM zh_passage WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY lesson_no ASC LIMIT 1`).bind(textbook).first();
+        if (r) return r;
+      }
+      if (level) {
+        const r: any = await env.DB.prepare(`SELECT * FROM zh_passage WHERE active=1 AND LOWER(level)=LOWER(?) ORDER BY lesson_no ASC LIMIT 1`).bind(level).first();
+        if (r) return r;
+      }
+      return null;
+    };
+    // 🈶 zh_passage 한 과 → 복습퀴즈 4유형 전부(객관식/듣기/쓰기/말하기) 조립.
+    //   AI 를 전혀 안 쓴다 — 지문의 이해문제(questions)는 사람이 직접 만든 정답이 이미 있고,
+    //   문장(sentences)·핵심단어(keywords)도 검수된 실데이터라 그대로 문제로 바꾸면 100% 정확하다.
+    const rqBuildZhFromPassage = (p: any) => {
+      let sentences: any[] = []; try { sentences = JSON.parse(p.sentences || '[]') || []; } catch {}
+      let questions: any[] = []; try { questions = JSON.parse(p.questions || '[]') || []; } catch {}
+      let keywords: any[] = []; try { keywords = JSON.parse(p.keywords || '[]') || []; } catch {}
+      const qs: any[] = [];
+      const label = p.title_ko || p.title_zh || '';
+      // 1) choice — 본문 이해 (원저작 정답 그대로)
+      for (const q of questions.slice(0, 4)) {
+        const opts = (Array.isArray(q.choices) ? q.choices : []).map((c: any) => String(c?.hz || ''));
+        const ai2 = Number(q.answer);
+        if (opts.length < 2 || opts.some((o: string) => !o) || !Number.isInteger(ai2) || ai2 < 0 || ai2 >= opts.length) continue;
+        const correctChoice = q.choices[ai2];
+        qs.push({ type: 'choice', q: (label ? `[${label}] ` : '') + String(q.q_ko || q.q || ''), opts, answer: ai2,
+          explain: correctChoice ? `정답: ${correctChoice.hz}${correctChoice.ko ? ' (' + correctChoice.ko + ')' : ''}` : '' });
+      }
+      // 2) listen — 본문 문장 하나를 듣고 뜻 고르기 (다른 문장들의 한국어 뜻이 오답 보기)
+      const koPool = sentences.map((s: any) => s.ko).filter(Boolean);
+      const listenPick = rqShuffle(sentences.filter((s: any) => s.hz && s.ko)).slice(0, 2);
+      for (const s of listenPick) {
+        const distractors = rqShuffle(koPool.filter((k: string) => k !== s.ko)).slice(0, 3);
+        if (distractors.length < 2) continue;
+        const opts = rqShuffle([s.ko, ...distractors]);
+        qs.push({ type: 'listen', q: '🎧 잘 듣고 무슨 뜻인지 고르세요.', audio_text: s.hz, opts, answer: opts.indexOf(s.ko),
+          explain: `${s.hz}${s.py ? ' (' + s.py + ')' : ''}` });
+      }
+      // 3) write — 핵심 단어: 우리말 뜻 → 한자
+      for (const k of keywords.slice(0, 3)) {
+        if (!k.hz || !k.ko) continue;
+        qs.push({ type: 'write', q: `다음 우리말 뜻에 해당하는 중국어 단어를 한자로 쓰세요: "${k.ko}"`, answer_text: k.hz,
+          accept: k.py ? [k.py] : [], explain: k.py ? `병음: ${k.py}` : '' });
+      }
+      // 4) speak — 본문 문장 소리내어 읽기
+      const speakPick = rqShuffle(sentences.filter((s: any) => s.hz)).slice(0, 2);
+      for (const s of speakPick) {
+        qs.push({ type: 'speak', q: `🎤 아래 문장을 또박또박 읽어보세요.${s.py ? ' (' + s.py + ')' : ''}`, answer_text: s.hz, explain: s.ko || '' });
+      }
+      return qs;
+    };
     // 🤖 AI 자동 출제 — 교재/레벨/레슨 기반 (Workers AI llama-3.3-70b)
-    const rqAiGenerate = async (o: { level?: string; textbook?: string; lesson_no?: number | null; topic?: string; counts?: any }) => {
+    const rqAiGenerate = async (o: { level?: string; textbook?: string; lesson_no?: number | null; topic?: string; counts?: any; lang?: string }) => {
       const ai = (env as any).AI;
       if (!ai) return { ok: false as const, error: 'workers_ai_not_bound' };
+      const isZh = o.lang === 'zh';
       const c = o.counts || {};
       const lim = (v: any, dft: number) => Math.min(Math.max(Number(v ?? dft) || 0, 0), 5);
-      const nListen = lim(c.listen, 2), nWrite = lim(c.write, 2), nSpeak = lim(c.speak, 2), nChoice = lim(c.choice, 0);
+      // 🈶 중국어는 서버 TTS(구글)가 깨지고 STT 검증도 안 돼 있어 listen/speak 는 항상 0으로 강제 — choice/write만.
+      const nListen = isZh ? 0 : lim(c.listen, 2), nWrite = lim(c.write, 2), nSpeak = isZh ? 0 : lim(c.speak, 2), nChoice = lim(c.choice, isZh ? 4 : 0);
       if (nListen + nWrite + nSpeak + nChoice === 0) return { ok: false as const, error: 'counts_required' };
       const ctx = [
         o.textbook ? `Textbook: ${o.textbook}` : '',
@@ -1176,7 +1298,29 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
         (o.lesson_no != null && o.lesson_no > 0) ? `Lesson number: ${o.lesson_no}` : '',
         o.topic ? `Key vocabulary / topic from this lesson: ${o.topic}` : '',
       ].filter(Boolean).join('\n');
-      const prompt = `You are an English quiz writer for a Korean kids' English academy (망고아이).
+      let prompt: string;
+      let systemMsg: string;
+      if (isZh) {
+        const vocab = await rqZhVocabSample(o.level, o.textbook, o.lesson_no ?? null);
+        if (!vocab.length) return { ok: false as const, error: 'zh_vocab_empty' };
+        const vocabList = vocab.map((v: any) => `${v.hanzi} (${v.pinyin || ''}) = ${v.ko || ''}`).join('\n');
+        systemMsg = 'You write JSON quizzes for Korean students learning Chinese. Output a raw JSON array only.';
+        prompt = `You are a Chinese (중국어) quiz writer for a Korean kids' language academy (망고아이).
+Create a review quiz for this class:
+${ctx || 'General 중국어'}
+
+🔒 IMPORTANT: Use ONLY the Chinese words below (already verified/curated) — do NOT invent any other hanzi, pinyin, or meaning. Every question's correct answer AND every multiple-choice distractor must come from this exact list:
+${vocabList}
+
+Make exactly:
+- ${nChoice} "choice" questions: {"type":"choice","q":"<Korean question, e.g. 다음 뜻에 해당하는 중국어 단어는?>","opts":["<hanzi from the list>","..","..","..(4 options, 1 correct + 3 distractors, all from the list)"],"answer":<correct index 0-3>,"explain":"<Korean explanation including pinyin>"}
+- ${nWrite} "write" questions: {"type":"write","q":"<Korean prompt, e.g. 다음 우리말 뜻에 해당하는 중국어 단어를 한자로 쓰세요: ...>","answer_text":"<hanzi from the list>","accept":["<pinyin form>"],"explain":"<Korean explanation with pinyin>"}
+
+Rules: All Chinese words must be copy-pasted exactly from the list above (no new characters). Questions/instructions/explanations in Korean.
+Reply with a JSON array ONLY. No markdown, no commentary.`;
+      } else {
+        systemMsg = 'You write JSON quizzes for Korean children learning English. Output a raw JSON array only.';
+        prompt = `You are an English quiz writer for a Korean kids' English academy (망고아이).
 Create a review quiz for this class:
 ${ctx || 'General elementary English'}
 
@@ -1189,10 +1333,11 @@ Make exactly:
 
 Rules: English sentences max 8 words. Korean for instructions/explanations. Vocabulary must fit the textbook/lesson. The "listen" options must include the audio sentence itself as the correct option.
 Reply with a JSON array ONLY. No markdown, no commentary.`;
+      }
       try {
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
-            { role: 'system', content: 'You write JSON quizzes for Korean children learning English. Output a raw JSON array only.' },
+            { role: 'system', content: systemMsg },
             { role: 'user', content: prompt }
           ],
           max_tokens: 2400,
@@ -1224,13 +1369,13 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const rqAuth = await authUidGlobal(request, url, env);
         if (!rqAuth || rqAuth !== userId) userId = '';   // 통계만 익명화
       }
-      const rs = await env.DB.prepare(`SELECT id, title, description, questions, level, textbook, lesson_no, source, draw, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
+      const rs = await env.DB.prepare(`SELECT id, title, description, questions, level, textbook, lesson_no, source, draw, lang, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
       const quizzes: any[] = [];
       for (const row of (((rs.results as any[]) || []))) {
         let count = 0; try { count = (JSON.parse(row.questions) || []).length; } catch {}
         let drawTotal = 0; try { if (row.draw) { const d = JSON.parse(row.draw); drawTotal = (d.listen || 0) + (d.speak || 0) + (d.choice || 0) + (d.write || 0); } } catch {}
         const shown = drawTotal > 0 ? Math.min(drawTotal, count) : count;
-        const item: any = { id: row.id, title: row.title, description: row.description || '', question_count: shown, bank_size: count, draw_total: drawTotal, level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', created_at: row.created_at, best_score: null, attempts: 0 };
+        const item: any = { id: row.id, title: row.title, description: row.description || '', question_count: shown, bank_size: count, draw_total: drawTotal, level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', lang: row.lang || 'en', created_at: row.created_at, best_score: null, attempts: 0 };
         if (userId) {
           const best: any = await env.DB.prepare(`SELECT MAX(score) AS best, COUNT(*) AS n FROM review_quiz_results WHERE quiz_id = ? AND user_id = ?`).bind(row.id, userId).first();
           if (best && Number(best.n) > 0) { item.best_score = best.best; item.attempts = Number(best.n); }
@@ -1245,14 +1390,14 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       await ensureReviewQuizTables();
       const id = parseInt(url.searchParams.get('id') || '0', 10);
       if (!id) return json({ ok: false, error: 'id_required' }, 400);
-      const row: any = await env.DB.prepare(`SELECT id, title, description, questions, active, level, textbook, lesson_no, source, draw FROM review_quizzes WHERE id = ?`).bind(id).first();
+      const row: any = await env.DB.prepare(`SELECT id, title, description, questions, active, level, textbook, lesson_no, source, draw, lang FROM review_quizzes WHERE id = ?`).bind(id).first();
       if (!row || !row.active) return json({ ok: false, error: 'quiz_not_found' }, 404);
       let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
       let draw: any = null; try { draw = row.draw ? JSON.parse(row.draw) : null; } catch {}
       let safe: any[];
       if (draw && qs.length) { const idxs = rqDrawIndices(qs, draw); safe = idxs.map((i: number) => rqSafeOne(qs[i], i)); }
       else { safe = rqSafeQuestions(qs); }
-      return json({ ok: true, quiz: { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, questions: safe } });
+      return json({ ok: true, quiz: { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, lang: row.lang || 'en', questions: safe } });
     }
 
     // ── POST /api/review-quiz/submit — 학생: 답안 제출 → 서버 채점 + 기록 저장 ──
@@ -1375,19 +1520,20 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       const quizId = Number(b.quiz_id) || 0;
       const idx = Number(b.idx);
       if (!quizId || !Number.isInteger(idx) || idx < 0) return json({ ok: false, error: 'quiz_id_and_idx_required' }, 400);
-      const row: any = await env.DB.prepare(`SELECT questions FROM review_quizzes WHERE id = ? AND active = 1`).bind(quizId).first();
+      const row: any = await env.DB.prepare(`SELECT questions, lang FROM review_quizzes WHERE id = ? AND active = 1`).bind(quizId).first();
       if (!row) return json({ ok: false, error: 'quiz_not_found' }, 404);
       let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
       const q = qs[idx];
       const text = (q && q.type === 'listen') ? String(q.audio_text || '').trim().slice(0, 300) : '';
       if (!text) return json({ ok: false, error: 'not_a_listen_question' }, 400);
+      const isZh = row.lang === 'zh';
       const ai = (env as any).AI;
       if (!ai) return json({ ok: false, error: 'workers_ai_not_bound' }, 503);
       const audioHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' };
       // 🔁 R2 캐시: 같은 듣기 문항은 1회만 생성 → 이후엔 뉴런 소모 없이 즉시 제공 (무료 뉴런 절약 + quota 소진 후에도 캐시본 재생)
       let cacheKey = '';
       try {
-        const enc = new TextEncoder().encode('aura-asteria|' + text);
+        const enc = new TextEncoder().encode((isZh ? 'gtts-zh' : 'aura-asteria') + '|' + text);
         const dig = await crypto.subtle.digest('SHA-256', enc);
         cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
       } catch {}
@@ -1399,8 +1545,35 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         if (!cacheKey || !r2) return;
         try { await r2.put(cacheKey, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
       };
+      const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
+      // 🈶 중국어 — Deepgram Aura 는 중국어를 지원 안 하고, Workers AI MeloTTS(zh)는 종종 빈 잡음
+      // WAV("앙캉캉캉")를 돌려줘 크기검사로도 못 거른다([[/api/voice/tts]]에서 이미 검증된 대응).
+      // 그래서 Google 번역 TTS(원어민 만다린)를 1순위로, MeloTTS(zh)는 최후 폴백으로만 쓴다.
+      if (isZh) {
+        try {
+          const q2 = encodeURIComponent(text.slice(0, 190));
+          const gurl = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=zh-CN&q=' + q2;
+          const gr = await fetch(gurl, { headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://translate.google.com/'
+          } });
+          if (gr.ok) {
+            const gb = await gr.arrayBuffer();
+            if (gb && gb.byteLength >= 300) { await putCache(gb); return new Response(gb, { headers: audioHeaders }); }
+          }
+        } catch {}
+        try {
+          const r: any = await ai.run('@cf/myshell-ai/melotts', { prompt: text, lang: 'zh' });
+          const b64 = typeof r === 'string' ? r : (r?.audio || '');
+          if (b64) {
+            const bin = atob(b64); const u8 = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+            if (u8.byteLength >= 1000) { await putCache(u8); return new Response(u8, { headers: audioHeaders }); }
+          }
+        } catch (e: any) { if (isQuota(e?.message)) return json({ ok: false, error: 'ai_quota_exceeded', quota: true }, 503); }
+        return json({ ok: false, error: 'zh_tts_failed' }, 502);
+      }
       // fix: AI 에러 Response 를 음성으로 내보내지 않도록 ok+audio 확인. 429(무료뉴런 소진) 는 quota 로 구분.
-      const isQuota = (m: any) => /429|neuron|allocation|free allocation/i.test(String(m || ''));
       let quota = false;
       try {
         const raw: any = await ai.run('@cf/deepgram/aura-1', { text, speaker: 'asteria' }, { returnRawResponse: true });
@@ -1427,8 +1600,12 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     if (method === 'POST' && path === '/api/review-quiz/auto') {
       await ensureReviewQuizTables();
       const b: any = await request.json().catch(() => ({}));
-      const level = String(b.level || '').trim();
-      const textbook = String(b.textbook || '').trim();
+      const lang = String(b.lang || '').trim() === 'zh' ? 'zh' : 'en';
+      let level = String(b.level || '').trim();
+      let textbook = String(b.textbook || '').trim();
+      // 🈶 (2026-07-31) 중국어는 아직 다락원 Lv3 단일 커리큘럼뿐이라, 수업 화면이 교재를 못 읽어와도
+      //   비어 있지 않게 안전한 기본값으로 채운다(교재/레벨이 늘면 이 fallback 은 자연히 무해해짐).
+      if (lang === 'zh' && !textbook && !level) { textbook = '다락원'; level = 'Lv 3'; }
       const lessonNo = Number(b.lesson_no) > 0 ? Number(b.lesson_no) : null;
       const topic = String(b.topic || '').trim().slice(0, 300);
       const allowGenerate = b.auto_generate !== 0 && b.auto_generate !== false;
@@ -1438,26 +1615,58 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         let safe: any[];
         if (draw && qs.length) { const idxs = rqDrawIndices(qs, draw); safe = idxs.map((i: number) => rqSafeOne(qs[i], i)); }
         else { safe = rqSafeQuestions(qs); }
-        return { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, questions: safe };
+        return { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, lang: row.lang || 'en', questions: safe };
       };
-      // 1) 교재+레슨 → 2) 교재 전체용 → 3) 레벨 전체용 순서로 매칭
+      // 🈶 언어 필터: en 은 예전에 만들어진 lang=NULL 행도 포함(하위호환), zh 는 lang='zh' 행만.
+      const langCond = lang === 'zh' ? `lang = ?` : `(lang = ? OR lang IS NULL)`;
+      const langBind = lang;
+      // 1) 교재+레슨 → 2) 교재 전체용(무과) → 3) 레벨 전체용 순서로 매칭
       const tries: Array<{ sql: string; binds: any[] }> = [];
-      if (textbook && lessonNo) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY id DESC LIMIT 1`, binds: [textbook, lessonNo] });
-      if (textbook) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no IS NULL ORDER BY id DESC LIMIT 1`, binds: [textbook] });
-      if (level) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND level IS NOT NULL AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 1`, binds: [level] });
+      if (textbook && lessonNo) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no=? ORDER BY id DESC LIMIT 1`, binds: [langBind, textbook, lessonNo] });
+      // 🈶 (버그수정) 중국어는 zh_passage 에 과별로 실제 다른 본문이 있다 — 특정 과를 물었는데
+      //   이 "무과 전체용" 버킷으로 뭉뚱그려 매칭하면 엉뚱한 과 내용이 나온다. 영어는 과별 실콘텐츠가
+      //   없어(AI 즉석출제뿐) 원래 의도대로 무과 캐치올로 폴백시키되, 중국어+특정과 요청일 땐 건너뛴다.
+      if (textbook && !(lang === 'zh' && lessonNo)) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND textbook IS NOT NULL AND LOWER(textbook)=LOWER(?) AND lesson_no IS NULL ORDER BY id DESC LIMIT 1`, binds: [langBind, textbook] });
+      if (level) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND level IS NOT NULL AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 1`, binds: [langBind, level] });
       for (const t of tries) {
         const row: any = await env.DB.prepare(t.sql).bind(...t.binds).first();
         if (row) return json({ ok: true, matched: true, quiz: pickSafe(row) });
       }
       if (!allowGenerate || (!textbook && !level && !topic)) return json({ ok: true, matched: false, quiz: null });
+      // 🈶 중국어 1순위: 다락원 본문(zh_passage) 기반 조립 — 사람이 만든 정답이라 AI보다 정확하고,
+      //   듣기/말하기까지 전부 실제 교재 문장으로 채울 수 있다(영어 퀴즈와 동급 4유형 구성).
+      if (lang === 'zh') {
+        const passRow = await rqZhPassageFind(textbook, level, lessonNo);
+        if (passRow) {
+          const qsList = rqBuildZhFromPassage(passRow);
+          if (qsList.length) {
+            const label = passRow.title_ko || passRow.title_zh || `제${passRow.lesson_no}과`;
+            const title = `[${label}] 복습퀴즈`;
+            const desc = `${passRow.textbook}${passRow.level ? ' ' + passRow.level : ''} 제${passRow.lesson_no}과 본문 기반 (객관식/듣기/쓰기/말하기) — ${new Date().toISOString().slice(0, 10)}`;
+            const now = Date.now();
+            // 🔒 (버그수정) lesson_no 는 "요청이 물어본 값" 그대로 저장해야 한다 — passRow.lesson_no(내부적으로
+            //   고른 실제 과)를 저장하면, 다음에 같은 lesson_no 없는 요청이 왔을 때 매칭 쿼리(lesson_no IS NULL
+            //   버킷)가 이 행을 못 찾아 매번 새로 생성해버린다(중복 행 누적). 화면에 보이는 제목/설명은 어차피
+            //   실제 고른 과(passRow.lesson_no) 기준이라 사용자에게는 문제 없다.
+            const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, lang, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'passage','zh',?,?)`)
+              .bind(title, desc, JSON.stringify(qsList), level || passRow.level || null, textbook || passRow.textbook || null, lessonNo, now, now).run();
+            const newId = (ins as any).meta?.last_row_id;
+            const nrow: any = await env.DB.prepare(`SELECT * FROM review_quizzes WHERE id=?`).bind(newId).first();
+            return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow) });
+          }
+        }
+        // 본문이 아예 없는 교재/레벨이면(향후 커리큘럼 확장 대비) zh_vocab 그라운딩 AI로 폴백.
+      }
       // 🤖 매칭 퀴즈가 없으면 AI 가 교재/레벨/레슨에 맞춰 즉석 출제 → 저장 (관리자 페이지에서 확인·조정 가능)
-      const gen = await rqAiGenerate({ level, textbook, lesson_no: lessonNo, topic, counts: { listen: 2, write: 2, speak: 2 } });
+      const gen = await rqAiGenerate({ level, textbook, lesson_no: lessonNo, topic, lang, counts: lang === 'zh' ? { choice: 4, write: 4 } : { listen: 2, write: 2, speak: 2 } });
       if (!gen.ok) return json({ ok: false, error: gen.error }, 502);
       const title = `[AI] ${textbook || level || '오늘의 수업'}${lessonNo ? ` Lesson ${lessonNo}` : ''} 복습퀴즈`;
-      const desc = `AI 자동 출제 (듣기/쓰기/말하기) — ${new Date().toISOString().slice(0, 10)}`;
+      const desc = lang === 'zh'
+        ? `AI 자동 출제 (객관식/쓰기, 다락원 어휘 기반) — ${new Date().toISOString().slice(0, 10)}`
+        : `AI 자동 출제 (듣기/쓰기/말하기) — ${new Date().toISOString().slice(0, 10)}`;
       const now = Date.now();
-      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'ai',?,?)`)
-        .bind(title, desc, JSON.stringify(gen.questions), level || null, textbook || null, lessonNo, now, now).run();
+      const ins = await env.DB.prepare(`INSERT INTO review_quizzes (title, description, questions, active, level, textbook, lesson_no, source, lang, created_at, updated_at) VALUES (?,?,?,1,?,?,?,'ai',?,?,?)`)
+        .bind(title, desc, JSON.stringify(gen.questions), level || null, textbook || null, lessonNo, lang === 'zh' ? 'zh' : null, now, now).run();
       const newId = (ins as any).meta?.last_row_id;
       const nrow: any = await env.DB.prepare(`SELECT * FROM review_quizzes WHERE id=?`).bind(newId).first();
       return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow) });

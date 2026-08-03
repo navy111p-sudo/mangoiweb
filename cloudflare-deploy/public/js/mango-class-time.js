@@ -237,11 +237,16 @@
    *     클라이언트 시간대 오차도 함께 없앤다. */
   async function loadClassTime() {
     ensureUI();
+    // 🔧 (2026-07-31 실사고) 5분 주기 재조회가 어쩌다 한 번 실패하면 renderFail()이 기준 시각을
+    //    Date.now()로 리셋해서, REC 배지(계속 흐름)와 ⏰ 배지(방금 리셋됨)가 서로 어긋나 보였다.
+    //    이미 정상 시작시각을 표시 중(classStartMs 있음)이면 이번 조회가 실패해도 리셋하지 않고
+    //    기존 타이머를 그대로 흘려보낸다 — renderFail()은 "아직 한 번도 성공 못 한" 최초 상태에만.
+    var hadStart = classStartMs != null;
     try {
       var studentName = (typeof vcUsername !== 'undefined' && vcUsername) ? vcUsername : '';
       var userId = (window.MangoV3 && window.MangoV3.userId) ? window.MangoV3.userId : '';
       var isTeacher = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
-      if (!userId && (!studentName || studentName === '관찰자')) { renderFail('시간 정보 없음'); return; }
+      if (!userId && (!studentName || studentName === '관찰자')) { if (!hadStart) renderFail('시간 정보 없음'); return; }
 
       var qs = new URLSearchParams({ role: isTeacher ? 'teacher' : 'student' });
       if (userId) qs.set('user_id', userId);
@@ -251,12 +256,12 @@
         .then(function (r) { return r.json(); });
 
       var sess = (data && data.ok) ? (data.current || (data.sessions && data.sessions[0])) : null;
-      if (!sess || sess.start_ts == null) { renderFail('시간 정보 없음'); return; }
+      if (!sess || sess.start_ts == null) { if (!hadStart) renderFail('시간 정보 없음'); return; }
 
       render(sess.start_ts, sess.end_ts);
     } catch (err) {
       console.warn('[mango-class-time] 수업 시간 로드 실패:', err);
-      renderFail('시간 정보 없음');
+      if (!hadStart) renderFail('시간 정보 없음');
     }
   }
 

@@ -1,9 +1,20 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" translate="no" class="notranslate">
 <head>
-
-<!-- ph149 (2026-05-28) — ph148 race condition 으로 인한 CSS raw 노출 제거 → 비활성 -->
-<style id="ph149-rollback-comment">/* ph148 비활성. admin.html 원본 사이드바 동작 복귀. */</style>
+<!-- ═══════════════════════════════════════════════════════════════════════
+     🌐 (2026-08-02) 브라우저 자동번역 차단 — "영어 글자들이 정렬이 안되어 있음"의 진범
+       · 이 페이지는 자체 i18n(data-ko/data-en + adm-p3.js 사전)을 이미 갖고 있다.
+       · 그런데 <html lang="ko"> 가 고정이라, 관리자가 화면을 영어로 바꿔 놔도
+         엣지/크롬은 여전히 "한국어 문서"로 보고 자동번역을 걸었다.
+         → 앱이 넣은 영어(사전)와 브라우저가 넣은 기계번역이 같은 자리에 겹쳐 찍히고,
+           브라우저 번역 노드는 폭 계산을 못 해 몇 글자마다 줄이 바뀐다.
+           (제보 화면: 사전값 "Attendance Stats by Academy (SLP)" 이 4줄로 접힌 채
+            기계번역 "Academy Student Class Status (SLP Attendance Statistics)" 위에 겹침.
+            사전에 없는 "Voice guide ON" 이 영어로 보인 것도 같은 이유 — 소스에 없는 문자열)
+       · translate="no" + notranslate + 아래 meta 로 자동번역을 끄고,
+         lang 은 실제 선택 언어를 따라가게 한다. 번역은 화면의 언어 버튼으로만.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<meta name="google" content="notranslate">
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- ph160 (2026-07-23) — 사이드바 접기(아이콘 레일) 초기 상태 부팅       -->
@@ -19,68 +30,12 @@
       document.documentElement.setAttribute('data-adm-nav', 'rail');
     }
   } catch(e) { /* 시크릿 모드 등 localStorage 차단 — 기본(펼침)으로 둔다 */ }
-})();
-</script>
-
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- ph239 (2026-05-30) — 두 번째 로그인 모달 영구 차단                 -->
-<!-- admin/login.html 이 1차 로그인. 이 admin-login-overlay 는 절대 안 뜸  -->
-<!-- 누군가 띄우려고 하면 자동으로 /admin/login.html 로 redirect       -->
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<style id="ph239-nuke-style">
-  #admin-login-overlay { display: none !important; visibility: hidden !important; opacity: 0 !important; }
-</style>
-<script id="ph239-nuke-script">
-(function(){
-  "use strict";
-  function goLogin(){
-    try {
-      if (sessionStorage.getItem('_admin_login_redirected')) return; // 무한 루프 방지
-      sessionStorage.setItem('_admin_login_redirected', '1');
-      var next = encodeURIComponent(location.pathname + location.search);
-      location.replace('/admin/login.html?next=' + next);
-    } catch(e) { try { location.replace('/admin/login.html'); } catch(_){} }
-  }
-  function hasSession(){
-    try { return !!localStorage.getItem('mangoi_admin_session'); } catch(e){ return false; }
-  }
-  function watch(){
-    var ov = document.getElementById('admin-login-overlay');
-    if (!ov) { setTimeout(watch, 80); return; }
-    // 즉시 강제 숨김
-    ov.style.setProperty('display', 'none', 'important');
-    ov.setAttribute('aria-hidden', 'true');
-    // 다른 코드가 표시 시도 → 차단 + redirect
-    try {
-      var mo = new MutationObserver(function(muts){
-        for (var i = 0; i < muts.length; i++) {
-          if (muts[i].attributeName === 'style' || muts[i].attributeName === 'class') {
-            var cs = (ov.getAttribute('style') || '').toLowerCase();
-            if (cs.indexOf('display: flex') >= 0 || cs.indexOf('display:flex') >= 0 ||
-                cs.indexOf('display: block') >= 0 || cs.indexOf('display:block') >= 0) {
-              ov.style.setProperty('display', 'none', 'important');
-              if (!hasSession()) { console.log('[ph239] overlay 표시 시도 차단 → login.html 로 이동'); goLogin(); }
-              else { console.log('[ph239] 세션 있으므로 overlay 숨김만 (redirect 없음)'); }
-            }
-          }
-        }
-      });
-      mo.observe(ov, { attributes: true, attributeFilter: ['style','class'] });
-    } catch(e){}
-    // 세션이 처음부터 없으면 즉시 redirect (페이지가 빈 상태로 보이지 않게)
-    if (!hasSession()) {
-      console.log('[ph239] 진입 시 세션 없음 → login.html 로 이동');
-      goLogin();
-    } else {
-      try { sessionStorage.removeItem('_admin_login_redirected'); } catch(e){}
-    }
-  }
-  // overlay 가 body 에 들어오는 시점에 작동하도록 DOMContentLoaded + 즉시 양쪽
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', watch);
-  } else {
-    watch();
-  }
+  // 🌐 <html lang> 을 실제 선택 언어에 맞춘다 (기본 ko). 첫 페인트 전에 끝내야
+  //    브라우저가 "번역할까요?" 배너를 띄우지 않는다.
+  try {
+    var L = localStorage.getItem('mangoi_lang');
+    if (L === 'en' || L === 'zh' || L === 'ko') document.documentElement.lang = L;
+  } catch(e) {}
 })();
 </script>
 
@@ -2271,57 +2226,6 @@
 
 <div class="admin-layout">
   <!-- 좌측 사이드바 — JS 로 자동 채워짐 -->
-  <!-- 🔐 로그인 게이트 모달 (admin 진입 시 세션 없으면 표시) -->
-  <div id="admin-login-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.92);z-index:99998;align-items:center;justify-content:center;backdrop-filter:blur(8px)">
-    <div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:440px;width:92%;box-shadow:0 24px 48px -12px rgba(0,0,0,0.5)">
-      <div style="text-align:center;margin-bottom:18px">
-        <div style="font-size:28px;margin-bottom:6px">🔐</div>
-        <h2 style="margin:0;font-size:20px;color:#0f172a"><span data-ko="관리자 로그인" data-en="Admin Login">관리자 로그인</span></h2>
-        <p style="margin:6px 0 0;font-size:12.5px;color:#64748b" data-ko="역할에 맞는 데이터 범위가 자동 적용됩니다." data-en="Data is auto-scoped to your role.">역할에 맞는 데이터 범위가 자동 적용됩니다.</p>
-      </div>
-      <label style="display:block;margin-bottom:10px;font-size:12px;color:#374151;font-weight:600">
-        <span data-ko="👤 아이디" data-en="👤 User ID">👤 아이디</span>
-        <input id="admin-login-uid" type="text" autocomplete="username" placeholder="아이디를 입력하세요" style="width:100%;margin-top:4px;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;font-family:Consolas,monospace" />
-      </label>
-      <label style="display:block;margin-bottom:14px;font-size:12px;color:#374151;font-weight:600">
-        <span data-ko="🔑 비밀번호" data-en="🔑 Password">🔑 비밀번호</span>
-        <input id="admin-login-pw" type="password" autocomplete="current-password" placeholder="●●●●" style="width:100%;margin-top:4px;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px" />
-      </label>
-      <div id="admin-login-msg" style="display:none;padding:8px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;color:#b91c1c;font-size:12px;margin-bottom:10px"></div>
-      <button onclick="window.adminLogin && window.adminLogin()" style="width:100%;padding:11px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">
-        <span data-ko="✅ 로그인" data-en="✅ Sign in">✅ 로그인</span>
-      </button>
-
-      <!-- 🌐 OAuth 소셜 로그인 -->
-      <div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:14px 0 8px;position:relative">
-        <span style="background:#fff;padding:0 12px;position:relative;z-index:1" data-ko="또는 소셜 계정으로 로그인" data-en="Or login with social account">또는 소셜 계정으로 로그인</span>
-        <span style="position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb;z-index:0"></span>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
-        <button type="button" onclick="oauthLogin('kakao')" style="padding:11px;background:#fee500;color:#191919;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">💬 카카오</button>
-        <button type="button" onclick="oauthLogin('naver')" style="padding:11px;background:#03c75a;color:#fff;border:0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">N 네이버</button>
-        <button type="button" onclick="oauthLogin('google')" style="padding:11px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:10px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">G 구글</button>
-      </div>
-      <script>
-      window.oauthLogin = async function(provider) {
-        try {
-          const r = await fetch('/api/oauth/' + provider + '/url');
-          const d = await r.json();
-          if (!d.configured) {
-            alert('⚠️ ' + provider.toUpperCase() + ' 로그인이 아직 설정되지 않았습니다.\n\n' + (d.message||'') + '\n\n' + (d.setup_guide||''));
-            return;
-          }
-          location.href = d.auth_url;
-        } catch(e) { alert('❌ ' + e.message); }
-      };
-      </script>
-
-      <!-- 🔐 (2026-07-14 보안) 계정/비번 안내(최고권한 포함)
-           안내 전면 삭제 (사장님 지시). 테스트 계정/비번을 화면에 노출하지 않음. 계정은 운영자 문의. -->
-    </div>
-  </div>
-
-  <!-- (옛 가나다 사이드바 #admin-sidebar 완전 제거됨 — 현재 사이드바는 #ph85-sidebar) -->
 
   <!-- 메인 영역 -->
   <div id="admin-main-scale">
@@ -3020,7 +2924,7 @@
   })();
 </script>
 
-<details class="table-card menu-card" open id="card-ai-insights">
+<details class="table-card menu-card" id="card-ai-insights">
   <summary><span data-ko="🤖 AI 인사이트 대시보드" data-en="🤖 AI Insight Dashboards">🤖 AI 인사이트 대시보드</span></summary>
   <div class="menu-body">
     <style>
@@ -3054,7 +2958,7 @@
   </div>
 </details>
 
-<details class="table-card menu-card" open id="card-kpi-dashboard">
+<details class="table-card menu-card" id="card-kpi-dashboard">
   <summary><span data-ko="📊 운영 대시보드 KPI" data-en="📊 Operations KPI Dashboard">📊 운영 대시보드 KPI</span></summary>
   <div class="menu-body">
     <style>
@@ -3663,7 +3567,7 @@
     <div class="sub-menu">
 
       <!-- 🆕 0. 수강료 미납 자동 알림 — Phase F1~F2 (파란 톤 통일) -->
-      <details class="sub-item" id="sub-overdue" open>
+      <details class="sub-item" id="sub-overdue">
         <summary data-ko="🔔 수강료 미납 자동 알림" data-en="🔔 Overdue Auto-Notify">🔔 수강료 미납 자동 알림</summary>
         <div class="sub-body">
           <!-- 🎨 파란-인디고 명도 반전: 외부 진한 다크블루, 안쪽 영역 연한 흰빛-인디고 -->
@@ -3819,7 +3723,7 @@
       </details>
 
       <!-- 4. 가맹점 정산 — ph204 직관적 재디자인 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🏢 지점/가맹점 정산 (한눈에)" data-en="🏢 Branch Settlement Dashboard">🏢 지점/가맹점 정산 (한눈에)</summary>
         <div class="sub-body">
 
@@ -4340,7 +4244,7 @@
     <div class="sub-menu">
 
       <!-- 1. 역할별 권한 매트릭스 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="👥 역할별 권한 매트릭스" data-en="👥 Role Permission Matrix">👥 역할별 권한 매트릭스</summary>
         <div class="sub-body">
           <style>
@@ -4644,7 +4548,7 @@
         </div>
       </details>
 
-      <details class="sub-item" id="sub-teacher-roster" open ontoggle="if(this.open&&window.loadTeacherRoster)loadTeacherRoster()">
+      <details class="sub-item" id="sub-teacher-roster" ontoggle="if(this.open&&window.loadTeacherRoster)loadTeacherRoster()">
         <summary data-ko="👩‍🏫 강사 명부 (실데이터)" data-en="👩‍🏫 Teacher Roster (real data)">👩‍🏫 강사 명부 (실데이터)</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -4806,7 +4710,7 @@
       </details>
 
       <!-- 하위 ② — 강사 정보 (신규 CRUD) -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="📋 강사 정보 (등록·수정·제거)" data-en="📋 Teacher Profile (Add · Edit · Remove)">📋 강사 정보 (등록·수정·제거)</summary>
         <div class="sub-body">
 
@@ -5040,6 +4944,9 @@
 
           <!-- 필터 + 새로고침 + 인사평가 토글 -->
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;align-items:center">
+            <input id="tp-search" type="search" placeholder="🔍 강사 검색 (이름·전화·이메일·카톡ID)"
+                   data-ko-placeholder="🔍 강사 검색 (이름·전화·이메일·카톡ID)" data-en-placeholder="🔍 Search teachers (name·phone·email·KakaoTalk ID)"
+                   style="padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;min-width:220px" />
             <select id="tp-filter-status" style="padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px">
               <option value="" data-ko="전체 상태" data-en="All Status">전체 상태</option>
               <option value="활동중" data-ko="🟢 활동중" data-en="🟢 Active">🟢 활동중</option>
@@ -5416,7 +5323,7 @@
     <div class="sub-menu">
 
       <!-- 0. 🎁 Phase P4 — KT alpha 기프티쇼 비즈 API 연동 상태 + 가입 가이드 -->
-      <details class="sub-item" id="sub-points-api" open>
+      <details class="sub-item" id="sub-points-api">
         <summary data-ko="🔌 자동발송 API 연동 상태" data-en="🔌 Auto-send API Status">🔌 자동발송 API 연동 상태</summary>
         <div class="sub-body">
           <div id="pt-api-status" style="margin-bottom:14px"><div style="padding:20px;text-align:center;color:#6b7280">상태 확인 중…</div></div>
@@ -5463,7 +5370,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       </details>
 
       <!-- 1. 학생 포인트 잔액 + 수동 충전/차감 -->
-      <details class="sub-item" id="sub-points-balances" open>
+      <details class="sub-item" id="sub-points-balances">
         <summary data-ko="💰 학생 포인트 잔액" data-en="💰 Student Balances">💰 학생 포인트 잔액</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
@@ -5536,7 +5443,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   <summary><span data-ko="🎮 학생 배지 (게이미피케이션)" data-en="🎮 Student Badges">🎮 학생 배지 (게이미피케이션)</span></summary>
   <div class="menu-body">
     <div class="sub-menu">
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🏆 배지 카탈로그 + 통계" data-en="🏆 Badge Catalog + Stats">🏆 배지 카탈로그 + 통계</summary>
         <div class="sub-body">
           <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;color:#92400e">
@@ -5609,7 +5516,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
           <input id="be-teacher-uid" type="text" placeholder="teacher_uid" data-ko-placeholder="teacher_uid" data-en-placeholder="teacher_uid" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
         </label>
       </div>
-      <details open style="border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:0;background:rgba(20,41,80,0.6)">
+      <details style="border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:0;background:rgba(20,41,80,0.6)">
         <summary style="cursor:pointer;padding:12px 16px;font-weight:800;background:linear-gradient(90deg,rgba(99,102,241,0.18),rgba(99,102,241,0.04));color:#e6ecff;border-radius:10px 10px 0 0" data-ko="💬 공통 코멘트 (모든 학생에게 자동 적용)" data-en="💬 Common Comments (auto-applied to all students)">💬 공통 코멘트 (모든 학생에게 자동 적용)</summary>
         <div style="padding:12px 16px;display:grid;gap:10px;border-top:1px solid rgba(99,102,241,0.15)">
           <label style="font-size:12px;color:#e6ecff"><span style="font-weight:700;color:#fbbf24" data-ko="잘한 점" data-en="Strengths">잘한 점</span> <textarea id="be-common-strengths" rows="2" placeholder="공통 잘한 점" data-ko-placeholder="공통 잘한 점" data-en-placeholder="Common strengths" style="width:100%;padding:8px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:12.5px;margin-top:4px;background:#0c1a3a;color:#e6ecff"></textarea></label>
@@ -7325,7 +7232,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- ① 졸업생 등록 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="➕ 졸업생 등록" data-en="➕ Register Alumnus">➕ 졸업생 등록</summary>
         <div class="sub-body">
           <div class="alu-light" style="margin-bottom:10px">
@@ -7538,7 +7445,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- ① 멘토 배정 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🔗 멘토 배정" data-en="🔗 Assign Mentor">🔗 멘토 배정</summary>
         <div class="sub-body">
           <div class="sup-light" style="margin-bottom:10px">
@@ -8197,7 +8104,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. 빠른 평가서 작성 -->
-      <details class="sub-item ev-form-dark" id="sub-eval-create" open>
+      <details class="sub-item ev-form-dark" id="sub-eval-create">
         <summary data-ko="➕ 빠른 평가서 작성" data-en="➕ Quick Evaluation">➕ 빠른 평가서 작성</summary>
         <div class="sub-body">
           <div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.06));border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#c4b5fd;line-height:1.65">
@@ -8444,7 +8351,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. 전환률 통계 -->
-      <details class="sub-item" id="sub-inquiry-stats" open>
+      <details class="sub-item" id="sub-inquiry-stats">
         <summary data-ko="📈 전환률 통계" data-en="📈 Conversion Stats">📈 전환률 통계</summary>
         <div class="sub-body">
           <div id="iq-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
@@ -8455,7 +8362,7 @@ window.__admSettleRun = function(fn){
       </details>
 
       <!-- 2. 상담 목록 -->
-      <details class="sub-item" id="sub-inquiry-list" open>
+      <details class="sub-item" id="sub-inquiry-list">
         <summary data-ko="📋 상담 목록 (실시간)" data-en="📋 Inquiries">📋 상담 목록</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -8486,7 +8393,7 @@ window.__admSettleRun = function(fn){
   <summary><span data-ko="🐞 버그·피드백 접수함" data-en="🐞 Bug / Feedback Inbox">🐞 버그·피드백 접수함</span></summary>
   <div class="menu-body">
     <div class="sub-menu">
-      <details class="sub-item" id="sub-bug-list" open>
+      <details class="sub-item" id="sub-bug-list">
         <summary data-ko="📋 신고 목록 (실시간)" data-en="📋 Reports (live)">📋 신고 목록</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -8514,7 +8421,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. VAPID/구독 상태 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span data-ko="📡 푸시 상태 + VAPID" data-en="📡 Status + VAPID">📡 푸시 상태 + VAPID</span>
           <span style="margin-left:auto;font-size:11px;font-weight:600;color:#94a3b8;background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.4);padding:3px 10px;border-radius:999px"
@@ -8628,7 +8535,7 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. API 연동 상태 -->
-      <details class="sub-item" id="sub-kakao-status" open>
+      <details class="sub-item" id="sub-kakao-status">
         <summary data-ko="🔌 API 연동 상태" data-en="🔌 API Status">🔌 API 연동 상태</summary>
         <div class="sub-body">
           <div id="kakao-status-panel" style="margin-bottom:14px"><div style="padding:20px;text-align:center;color:#6b7280">상태 확인 중…</div></div>
@@ -8789,7 +8696,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="sub-menu">
 
       <!-- 1. 활성 팝업 목록 + 통계 -->
-      <details class="sub-item" id="sub-popup-list" open>
+      <details class="sub-item" id="sub-popup-list">
         <summary data-ko="📋 팝업 목록 (활성+만료)" data-en="📋 Popup List (Active + Expired)">📋 팝업 목록</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
@@ -8852,7 +8759,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <!-- ① 포스터 만들기 패널 (기본 활성) -->
     <div class="ns-panel is-active" data-nspanel="make">
       <div class="sub-menu">
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🖼 내 포스터 (저장 목록)" data-en="🖼 Saved Posters">🖼 내 포스터 (저장 목록)</summary>
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
@@ -10439,7 +10346,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="sub-menu">
 
       <!-- 1) 대리점 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="🏪 대리점" data-en="🏪 Agency">🏪 대리점</summary>
         <div class="sub-body">
           <details>
@@ -10830,7 +10737,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-enrollments">
   <summary><span data-ko="📚 수강신청 관리" data-en="📚 Enrollments">📚 수강신청 관리</span></summary>
   <div class="menu-body">
-    <details open>
+    <details>
       <summary style="cursor:pointer;font-size:13px;color:#3b82f6;font-weight:600"
                data-ko="＋ 수강신청 등록 (1명 또는 여러 명 동시)"
                data-en="＋ Add Enrollment (single or multiple at once)">＋ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
@@ -10980,7 +10887,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="sub-menu">
 
       <!-- 1-1) 컨텐츠 교재 관리 -->
-      <details class="sub-item" open>
+      <details class="sub-item">
         <summary data-ko="📚 컨텐츠 교재 관리" data-en="📚 Content Textbook Management">📚 컨텐츠 교재 관리</summary>
         <div class="sub-body">
           <!-- ph158 (2026-05-29) — 🆕 폴더 통째 업로드 + AI 자동 분류 진입 카드 -->
@@ -11108,7 +11015,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             try{ var _k=localStorage.getItem('mangoi_yt_api_key'); if(_k){ var _el=document.getElementById('yt-imp-key'); if(_el) _el.value=_k; } }catch(_){}
           </script>
 
-          <details open>
+          <details>
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 비디오 등록" data-en="＋ Add Video">＋ 비디오 등록</summary>
             <div class="menu-form" style="margin-top:8px;flex-wrap:wrap;">
               <input id="mv-title"      placeholder="제목 (한글)"  data-ko-placeholder="제목 (한글)"  data-en-placeholder="Title (Korean)"  style="width:220px;" />
@@ -11988,7 +11895,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=25" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=27" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=3" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -12003,7 +11910,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-q5.js?v=1" defer></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
 
 <!-- ━━━━━━━━━━ 🔄 결석 강사 자동 대체 시스템 ━━━━━━━━━━ -->
-<script src="/js/adm-p7.js?v=6" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p7.js?v=7" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
 
 <style>
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -12111,11 +12018,11 @@ button.chip:hover,
 
 
 <!-- 🕒 출근현황 (강사관리 하위) — 데이터 + 렌더링 + Excel/Chart -->
-<script src="/js/adm-p6.js?v=1" defer></script><!-- 분할추출:adm-p6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p6.js?v=2" defer></script><!-- 분할추출:adm-p6 (원복: 이 위치에 인라인) -->
 
 
 <!-- 📚 출석현황 (수업당 출결) — 데이터 + 렌더링 + Excel/Chart -->
-<script src="/js/adm-p5.js?v=1" defer></script><!-- 분할추출:adm-p5 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p5.js?v=2" defer></script><!-- 분할추출:adm-p5 (원복: 이 위치에 인라인) -->
 
 
 <!-- 🎁 Phase P2 — 포인트 & 기프티콘 관리 모듈 -->
@@ -12795,7 +12702,6 @@ button.chip:hover,
       <div class="ph85-sub" data-ko="🎬 영상 사전" data-en="🎬 Video Dictionary" data-card="card-video-dict" onclick="event.stopPropagation();var c=document.getElementById('card-video-dict');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-video-dict');}">🎬 영상 사전</div>
       <div class="ph85-sub" data-ko="🎙 음성 일기" data-en="🎙 Voice Diary" data-card="card-voice-diary" onclick="event.stopPropagation();var c=document.getElementById('card-voice-diary');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-diary');}">🎙 음성 일기</div>
       <div class="ph85-sub" data-ko="📊 레벨테스트" data-en="📊 Level Test" data-card="card-level-tests" onclick="event.stopPropagation();var c=document.getElementById('card-level-tests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-level-tests');}">📊 레벨테스트</div>
-      <div class="ph85-sub" data-card="card-lesson-insight" data-ko="🎥 수업 리포트 (AI)" data-en="🎥 Lesson Reports (AI)" onclick="event.stopPropagation();var c=document.getElementById('card-lesson-insight');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lesson-insight');}">🎥 수업 리포트 (AI)</div>
       <div class="ph85-sub" data-ko="⚔ 영어 배틀" data-en="⚔ English Battle" data-card="card-battle-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-battle-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-battle-mgmt');}">⚔ 영어 배틀</div>
       <div class="ph85-sub" data-ko="💾 녹화 보관" data-en="💾 Recording Storage" data-card="card-recording-storage" onclick="event.stopPropagation();var c=document.getElementById('card-recording-storage');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-recording-storage');}">💾 녹화 보관</div>
       <div class="ph85-sub" data-ko="📚 숙제 관리 ⭐신규" data-en="📚 Homework ⭐NEW" data-card="card-homework" onclick="event.stopPropagation();var c=document.getElementById('card-homework');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-homework');}">📚 숙제 관리 ⭐신규</div>
@@ -12837,7 +12743,6 @@ button.chip:hover,
       <div class="ph85-sub" data-ko="📷 QR 출결" data-en="📷 QR Attendance" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
       <div class="ph85-sub" data-ko="📝 수업 출결" data-en="📝 Class Attendance" data-card="card-class-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-class-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-attendance');}">📝 수업 출결</div>
       <div class="ph85-sub" data-ko="🐞 버그·피드백 접수함 ⭐신규" data-en="🐞 Bug &amp; Feedback Inbox ⭐NEW" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
-      <div class="ph85-sub" data-ko="📋 보고서 양식" data-en="📋 Report Forms" data-card="card-report-forms" onclick="event.stopPropagation();var c=document.getElementById('card-report-forms');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-report-forms');}">📋 보고서 양식</div>
     </div>
   </div>
   <style>
@@ -13186,47 +13091,6 @@ button.chip:hover,
   setTimeout(ph85Init, 600);
 })();
 </script>
-<!-- ⭐ (2026-06-20) 사이드바 hover 설명·손자메뉴 팝업 (flyout)
-     · 사이드바 메뉴에 마우스 올리면 바로 옆에 [설명 + 손자메뉴 목록]을 즉시 표시(찾지 않고 바로 보기)
-     · 화면 아래쪽 메뉴는 팝업이 아래로 잘리지 않게 자동으로 위로 플립(올려서 표시)
-     · 데스크톱 body{zoom:1.3} 영향을 피하려 팝업을 <html>(documentElement)에 position:fixed 로 부착
-     · 손자메뉴 클릭 시 본문 카드로 바로 이동 -->
-<style id="mi-menu-fly-css">
-  #mi-menu-fly{
-    position:fixed; z-index:100000; left:-9999px; top:0;
-    min-width:230px; max-width:340px; max-height:78vh; overflow-y:auto;
-    background:#0f172a; color:#e2e8f0;
-    border:1px solid rgba(251,191,36,.35); border-left:3px solid #fbbf24;
-    border-radius:12px; box-shadow:0 18px 44px rgba(0,0,0,.55);
-    padding:10px 12px; font-size:13px; line-height:1.5;
-    opacity:0; visibility:hidden; transform:translateX(-6px);
-    transition:opacity .14s ease, transform .14s ease, visibility 0s linear .14s;
-    pointer-events:none;
-  }
-  #mi-menu-fly.show{ opacity:1; visibility:visible; transform:none; pointer-events:auto;
-    transition:opacity .14s ease, transform .14s ease, visibility 0s; }
-  #mi-menu-fly .mf-title{ font-weight:800; color:#fde047; font-size:14px; margin-bottom:6px;
-    display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  #mi-menu-fly .mf-stars{ color:#fbbf24; font-size:12px; }
-  #mi-menu-fly .mf-desc{ color:#cbd5e1; font-size:12px; margin:0 0 8px; }
-  #mi-menu-fly .mf-sec{ color:#94a3b8; font-size:10.5px; font-weight:800; letter-spacing:.5px; margin:8px 0 4px; }
-  #mi-menu-fly .mf-item{ padding:5px 8px; border-radius:7px; cursor:pointer; color:#e2e8f0;
-    display:flex; align-items:center; gap:6px; font-size:12.5px; }
-  #mi-menu-fly .mf-item:hover{ background:rgba(251,191,36,.16); color:#fde68a; }
-  #mi-menu-fly .mf-itemrow{ display:flex; align-items:center; gap:6px; }
-  #mi-menu-fly .mf-itemdesc{ color:#94a3b8; font-size:11px; line-height:1.4; margin-top:1px; }
-  html[data-admin-theme="ivory"] #mi-menu-fly .mf-itemdesc{ color:#8a7a66; }
-  #mi-menu-fly .mf-item .mf-istar{ margin-left:auto; color:#fbbf24; font-size:11px; white-space:nowrap; }
-  #mi-menu-fly .mf-empty{ color:#94a3b8; font-size:12px; }
-  html[data-admin-theme="ivory"] #mi-menu-fly{ background:#fffdf7; color:#4a3826; border-color:#e0b050; box-shadow:0 18px 44px rgba(0,0,0,.18); }
-  html[data-admin-theme="ivory"] #mi-menu-fly .mf-title{ color:#a35a00; }
-  html[data-admin-theme="ivory"] #mi-menu-fly .mf-desc{ color:#6b5640; }
-  html[data-admin-theme="ivory"] #mi-menu-fly .mf-item{ color:#4a3826; }
-  html[data-admin-theme="ivory"] #mi-menu-fly .mf-stars,
-  html[data-admin-theme="ivory"] #mi-menu-fly .mf-item .mf-istar{ color:#d99100; }
-  @media (max-width:1023px){ #mi-menu-fly{ display:none !important; } }  /* 모바일은 드로어 사용 */
-</style>
-<!-- (2026-07-22) adm-s8.js(사이드바 상세 hover 카드 #mi-menu-fly) 제거 — 회색 간단 말풍선(__sbTip)과 겹쳐 혼란. 간단 설명만 유지. 재추가 금지 -->
 
 <!-- ⭐ (2026-06-20) 손자메뉴 간단 설명 말풍선 (tooltip)
      · 본문 카드 안 각 손자메뉴(summary)에 마우스 올리면 바로 옆에 한 줄 설명 말풍선 표시
@@ -17740,126 +17604,6 @@ button.chip:hover,
 })();
 </script>
 
-
-<!-- Phase 123 admin (2026-05-25) — 사이드바 3단계 호버 플라이아웃 (부모 > 자식 > 손자) -->
-<style id="ph123-flyout-style">
-  /* === 손자 메뉴 플라이아웃 === */
-  #ph123-flyout {
-    position: fixed !important;
-    background: linear-gradient(135deg, #0F172A, #1E293B) !important;
-    border: 1px solid rgba(96,165,250,0.6) !important;
-    border-radius: 12px !important;
-    padding: 8px !important;
-    min-width: 280px !important;
-    max-width: 360px !important;
-    max-height: 70vh !important;
-    overflow-y: auto !important;
-    z-index: 100001 !important;
-    box-shadow: 0 16px 40px rgba(0,0,0,0.6), 0 0 0 3px rgba(37,99,235,0.2) !important;
-    animation: ph123In 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  }
-  @keyframes ph123In {
-    from { opacity: 0; transform: translateX(-8px) scale(0.96); }
-    to   { opacity: 1; transform: translateX(0) scale(1); }
-  }
-  #ph123-flyout::-webkit-scrollbar { width: 6px; }
-  #ph123-flyout::-webkit-scrollbar-thumb { background: rgba(96,165,250,0.4); border-radius: 3px; }
-
-  #ph123-flyout .ph123-header {
-    padding: 10px 14px;
-    background: linear-gradient(135deg, #1E3A8A, #2563EB);
-    border-radius: 8px;
-    margin-bottom: 6px;
-    color: #F8FAFC;
-    font-size: 12.5px;
-    font-weight: 800;
-  }
-  #ph123-flyout .ph123-header-sub {
-    font-size: 10.5px;
-    color: #BFDBFE;
-    font-weight: 600;
-    margin-top: 2px;
-  }
-  #ph123-flyout .ph123-empty {
-    padding: 16px;
-    color: #94A3B8;
-    font-size: 12px;
-    text-align: center;
-    font-style: italic;
-  }
-  #ph123-flyout .ph123-direct {
-    display: block;
-    padding: 10px 14px;
-    color: #67E8F9 !important;
-    background: rgba(34,211,238,0.1);
-    border: 1px solid rgba(34,211,238,0.3);
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-    margin-bottom: 4px;
-  }
-  #ph123-flyout .ph123-direct:hover {
-    background: rgba(34,211,238,0.25);
-    color: #A5F3FC !important;
-  }
-  #ph123-flyout .ph123-gc {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    color: #F8FAFC !important;
-    background: rgba(15,23,42,0.5);
-    border: 1px solid rgba(59,130,246,0.2);
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    margin-bottom: 3px;
-    transition: all 0.12s;
-  }
-  #ph123-flyout .ph123-gc:hover {
-    background: rgba(37,99,235,0.3) !important;
-    border-color: rgba(96,165,250,0.6) !important;
-    color: #DBEAFE !important;
-    padding-left: 18px;
-  }
-  #ph123-flyout .ph123-gc .ph123-num {
-    background: rgba(96,165,250,0.3);
-    color: #DBEAFE;
-    font-size: 10px;
-    font-weight: 900;
-    width: 20px; height: 20px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  #ph123-flyout .ph123-gc .ph123-text {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* sub 호버 시 우측 인디케이터 */
-  #ph85-sidebar .ph85-sub.ph123-active {
-    background: rgba(37,99,235,0.18) !important;
-    color: #93C5FD !important;
-  }
-  #ph85-sidebar .ph85-sub.ph123-active::after {
-    content: '▶';
-    margin-left: auto;
-    font-size: 10px;
-    color: #60A5FA;
-    margin-right: 4px;
-  }
-</style>
-
 <script src="/js/adm-r24.js?v=5" defer></script><!-- 분할추출:adm-r24 -->
 
 
@@ -20415,6 +20159,38 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num { background: rgba(217,119,6,0.22) !important; color: #92400e !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #b45309 !important; }
 
+  /* ⚡ '자주 쓰는 기능'(#ph161-quick) — 아이보리 테마 가독성
+     ─────────────────────────────────────────────────────────────
+     🐞 멜카(본사 매니저) 2026-08-04 신고: "글자를 검정으로 바꿔 주세요. 눈이 덜 피로합니다."
+        (Melca: "Can we change the text to black? It's easier on the eyes.")
+
+     원인: 이 아이보리 블록(위 9번, 2026-07-22)은 사이드바의 모든 요소를 밝은 배경용으로
+           다시 칠하는데, #ph161-quick 은 **그 다음날(07-23)에 추가**돼서 여기 목록에 없었다.
+           그래서 이 상자만 다크 시절 색(제목 #fbbf24 · 항목 #fde68a · 아이콘 #fbbf24)을
+           그대로 쓰고 있었고, 크림색(#fffaf0) 배경 위 옅은 금색이라 거의 안 보였다.
+           → 캡처에서 'Student list / Class observation …' 이 노랗게 흐려 보이던 것이 이것이다.
+
+     ⚠️ 항목 색은 adm-quick-access.js 가 **인라인 style 로** 박는다(color:#fde68a).
+        인라인을 이기려면 반드시 !important 가 있어야 한다. 빼면 조용히 원래대로 돌아간다.
+     ⚠️ 아이콘은 CSS 가 아니라 SVG **속성**(stroke="#fbbf24")이라 stroke 로 덮는다.
+     ⚠️ 다크 테마(data-admin-theme="dark")는 원래 색이 맞으므로 건드리지 않는다. */
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick {
+    background: rgba(255,255,255,0.78) !important;
+    border-color: rgba(180,83,9,0.35) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick > div:first-child {
+    color: #92400e !important;                                  /* 머리글 — 진한 앰버 */
+    border-bottom-color: rgba(180,83,9,0.22) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick .ph161-q {
+    color: #2b2620 !important;                                  /* 본문 — 요청대로 사실상 검정 */
+    border-top-color: rgba(150,120,70,0.20) !important;
+  }
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick .ph161-q svg { stroke: #b45309 !important; }
+  html[data-admin-theme="ivory"] #ph85-sidebar #ph161-quick .ph161-q:hover {
+    background: rgba(245,158,11,0.16) !important; color: #7c2d12 !important;
+  }
+
   /* ═══════════════════════════════════════════════════════════════
      🎨 (2026-07-22) 사이드바 자식·손자 메뉴 아이콘 정돈 — mi-menu-icons
        문제: 자식은 컬러 이모지, 손자는 파란 원형 번호 배지라 상위 그룹의
@@ -20977,7 +20753,7 @@ button.chip:hover,
     font-size:10.5px;background:rgba(139,92,246,.18);color:#c4b5fd;border:1px solid rgba(139,92,246,.35)}
 </style>
 <script src="/js/adm-p1.js?v=1" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
-<script src="/js/mango-worldclock.js?v=3" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
+<script src="/js/mango-worldclock.js?v=6" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 <!-- 📱 (2026-07-09) 모바일 마감 보정 — 좁은 화면에서 차트카드 삐져나감·표 잘림 방지(표는 가로 스크롤로 전환). 빼면 즉시 원복 -->
 <style id="mb-tidy-2026-07-09">
 @media (max-width: 640px){
@@ -21592,6 +21368,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260731145703 -->
+<!-- BUILD:20260804041001 -->
 </body>
 </html>

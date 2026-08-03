@@ -346,6 +346,25 @@
     transition: all 0.2s;
   }
   .field input::placeholder { color: #4a5670; }
+
+  /* 👁 비밀번호 보기 — 로그인 화면(admin/login.html #pwEye)에는 있었는데 여기만 없었다.
+     새 비밀번호를 오타로 저장하면 본인도 모른 채 로그인이 막힌다(실제로 겪음).
+     ⚠️ 눈 버튼이 글자를 덮지 않도록 input 오른쪽 여백을 반드시 함께 준다. */
+  .pw-wrap { position: relative; }
+  /* ⚠️ 선택자를 `.field .pw-wrap …` 로 쓴 이유: 아래(모바일 미디어쿼리)의
+     `.field input[type="password"] { padding: 13px 15px }` 이 **같은 명시도이면서 뒤에 있어**
+     padding-right 를 덮어쓴다. 그러면 긴 비밀번호가 눈 아이콘 밑으로 들어가 글자가 가려진다.
+     (실측으로 확인 — padding-right 가 15px 로 나왔다) */
+  .field .pw-wrap input[type="password"],
+  .field .pw-wrap input[type="text"] { padding-right: 52px; }
+  .pw-wrap .pw-eye {
+    position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+    background: transparent; border: 0; cursor: pointer; padding: 6px 8px;
+    border-radius: 8px; font-size: 17px; line-height: 1; opacity: .75;
+    min-width: 40px; min-height: 40px;   /* 폰에서 누를 수 있는 크기 */
+  }
+  .pw-wrap .pw-eye:hover { opacity: 1; }
+  .pw-wrap .pw-eye:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; opacity: 1; }
   .field input:focus {
     outline: none;
     border-color: var(--amber-1);
@@ -561,6 +580,7 @@
   .tab { font-size: 15px; padding: 11px 20px; }
   .field label { font-size: 14px; }
   .field input[type="text"], .field input[type="email"], .field input[type="tel"], .field input[type="password"] { font-size: 16.5px; padding: 13px 15px; }
+  /* 폰에서도 눈 버튼이 글자를 가리지 않게 — 오른쪽 여백 확보는 .pw-wrap input 규칙에서 처리 */
   .field .hint { font-size: 13px; }
   .btn-primary { font-size: 15.5px; padding: 13px 28px; }
   .info-box { font-size: 13.5px; }
@@ -1025,15 +1045,20 @@
     })();
     </script>
 
-    <!-- fix (2026-06-01) — 🎥 교사 수업 입장 카드 -->
-    <a href="javascript:void(0)" id="teacher-enter-class" class="js-enter-class-btn" onclick="enterClassAsTeacher();return false;"
+    <!-- fix (2026-06-01) — 🎥 교사 수업 입장 카드
+         🚪 (2026-08-02) 목적지를 '오늘 화면(/teacher)'으로 바꿨다. 버튼을 없애지 않고 옮긴 이유:
+            이 카드가 마이페이지에서 가장 눈에 띄는 요소라, 감추면 강사가 입장 경로를 잃어버린 것처럼
+            느낀다. 그래서 '가장 잘 보이는 자리'는 그대로 두고 목적지만 한 곳으로 모았다.
+            ⚠️ 여기서 직접 방으로 들어가게 되돌리지 말 것 — 그러면 시간창 판정이 다시 두 곳이 된다.
+            (enterClassAsTeacher() 함수 자체는 다른 곳에서 쓰므로 남겨 둔다) -->
+    <a href="/teacher" id="teacher-enter-class" class="js-enter-class-btn"
        style="display:flex;align-items:center;gap:14px;margin:0 0 18px;padding:18px 20px;border-radius:16px;
               background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;
               box-shadow:0 10px 24px -8px rgba(37,99,235,0.6);cursor:pointer">
       <span style="font-size:30px">🎥</span>
       <span style="flex:1">
-        <span style="display:block;font-size:17px;font-weight:800" data-ko="수업 입장" data-en="Enter Class">수업 입장</span>
-        <span style="display:block;font-size:12.5px;opacity:0.9;margin-top:2px" data-ko="화상수업 방에 교사로 바로 입장 · 교재 띄우기/업로드" data-en="Join the video class as teacher · open/upload materials">화상수업 방에 교사로 바로 입장 · 교재 띄우기/업로드</span>
+        <span style="display:block;font-size:17px;font-weight:800" data-ko="오늘 수업 화면 열기" data-en="Open Today screen">오늘 수업 화면 열기</span>
+        <span style="display:block;font-size:12.5px;opacity:0.9;margin-top:2px" data-ko="오늘 수업 목록 · 수업 입장 · 학생 평가는 그 화면에서 합니다" data-en="Today's class list, joining and student evaluations are all on that screen">오늘 수업 목록 · 수업 입장 · 학생 평가는 그 화면에서 합니다</span>
       </span>
       <span style="font-size:9.5px;font-weight:900;letter-spacing:0.6px;background:#ef4444;padding:3px 9px;border-radius:99px">LIVE ▶</span>
     </a>
@@ -1068,9 +1093,24 @@
       }
     </script>
 
+    <!-- 🇵🇭 (2026-08-02) 강사 전용 안내 — '지금 어느 화면인가'를 첫 줄에서 못박는다.
+         강사가 헷갈리는 이유는 두 화면 다 '홈'처럼 보이기 때문이다. 여기서 성격을 갈라 준다:
+           · /teacher      = 오늘 할 일 (매일 · 버튼을 누른다)
+           · 이 페이지     = 내 기록·설정 (가끔 · 확인한다)
+         JS 로 role 을 확인한 뒤에만 보이게 한다(지사·대리점에는 뜨지 않는다). -->
+    <div id="tw-portal-hint" style="display:none;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-weight:800;font-size:15px;color:#065f46;margin-bottom:4px"
+           data-ko="여기는 '내 기록 · 설정' 화면입니다" data-en="This is your Records &amp; Settings page">여기는 '내 기록 · 설정' 화면입니다</div>
+      <div style="font-size:13.5px;color:#047857;line-height:1.5;margin-bottom:10px"
+           data-ko="두 화면은 '범위'가 다릅니다 — 오늘 화면은 오늘 것만 빠르게(수업 입장 · 평가 · 오늘 수업 연기 · 피드백 승인), 이 페이지는 기간 전체를 자세히(월 정산 내역, 내 평가, 다른 날짜 연기·변경, 초안 직접 수정, 비밀번호)."
+           data-en="The two screens differ by scope — the Today screen is today only, done fast (join, evaluate, postpone today's class, approve feedback). This page covers the full period in detail (monthly payroll, your ratings, postpone/change on other dates, editing drafts, your password).">두 화면은 '범위'가 다릅니다 — 오늘 화면은 오늘 것만 빠르게(수업 입장 · 평가 · 오늘 수업 연기 · 피드백 승인), 이 페이지는 기간 전체를 자세히(월 정산 내역, 내 평가, 다른 날짜 연기·변경, 초안 직접 수정, 비밀번호).</div>
+      <a href="/teacher" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;padding:11px 18px;border-radius:8px;font-weight:800;font-size:14px;min-height:44px;line-height:22px"
+         data-ko="← 오늘 화면으로 가기" data-en="← Go to Today screen">← 오늘 화면으로 가기</a>
+    </div>
+
     <!-- 페이지 메타 -->
     <div class="page-meta">
-      <h2><span data-ko="⚙ 계정 설정" data-en="⚙ Account Settings">⚙ 계정 설정</span></h2>
+      <h2><span id="tw-page-title" data-ko="⚙ 계정 설정" data-en="⚙ Account Settings">⚙ 계정 설정</span></h2>
       <p data-ko="프로필 정보, 비밀번호, 로그인 보안 — 한 곳에서 관리합니다." data-en="Manage your profile, password and login security in one place.">프로필 정보, 비밀번호, 로그인 보안 — 한 곳에서 관리합니다.</p>
     </div>
 
@@ -1617,23 +1657,12 @@
           var el = document.getElementById('lesson-countdown');
           var info = document.getElementById('lesson-next-info');
           if (!el || !info) return;
-          // 🚪 수업 30분 전 ~ 40분 후에는 '그 수업 방으로 바로 입장' 버튼 노출 (결정론 room_id 재사용)
-          var roomBtn = document.getElementById('tw-enter-room');
-          if (roomBtn){
-            var show = false;
-            if (nextTarget && nextTarget.room_id){
-              var dd = nextTarget.ts - Date.now();
-              show = dd <= 30 * 60000 && dd > -40 * 60000;
-            }
-            if (show){
-              roomBtn.style.display = '';
-              roomBtn.textContent = '🚪 ' + nextTarget.time + ' ' + (EN() ? 'Enter this class' : '이 수업 방 입장');
-              roomBtn.onclick = function(){
-                var nm = '교사 ' + (window.__myName || 'Teacher');
-                location.href = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(nextTarget.room_id) + '&vc_name=' + encodeURIComponent(nm);
-              };
-            } else roomBtn.style.display = 'none';
-          }
+          // 🚪 (2026-08-02) 수업 입장 버튼 제어는 여기(tick)가 아니라 applyRole 로 옮겼다.
+          //   왜: tick 은 '내 수업' 데이터가 로드돼야 도는데, 그게 실패하거나 늦으면
+          //   로비 버튼이 그대로 남아 입장 경로가 다시 둘이 된다(실제로 그렇게 동작했다).
+          //   역할만 알면 판단 가능한 일을 데이터 로딩에 묶지 말 것.
+          //   ⚠️ 시간창 로직을 여기 다시 넣지 말 것 — 두 번째 진실 공급원이 생기면 다시 어긋난다.
+          //   입장 가능 판정은 오직 /api/teacher/portal(서버) 한 곳에서만 한다.
           if (!nextTarget){
             el.textContent = EN() ? 'None scheduled' : '예정 없음';
             info.textContent = EN() ? 'No upcoming classes on your schedule.' : '배정된 예정 수업이 없어요.';
@@ -1974,15 +2003,15 @@
       <div class="form-grid">
         <div class="field full">
           <label><span data-ko="🔓 현재 비밀번호" data-en="🔓 Current password">🔓 현재 비밀번호</span> <span class="req">*</span></label>
-          <input id="pwCur" type="password" autocomplete="current-password" placeholder="현재 사용 중인 비밀번호" data-ko-ph="현재 사용 중인 비밀번호" data-en-ph="Your current password">
+          <div class="pw-wrap"><input id="pwCur" type="password" autocomplete="current-password" placeholder="현재 사용 중인 비밀번호" data-ko-ph="현재 사용 중인 비밀번호" data-en-ph="Your current password"><button type="button" class="pw-eye" data-eye="pwCur" tabindex="-1" aria-label="Show password" title="비밀번호 보기/숨기기">👁</button></div>
         </div>
         <div class="field">
           <label><span data-ko="🆕 새 비밀번호" data-en="🆕 New password">🆕 새 비밀번호</span> <span class="req">*</span></label>
-          <input id="pwNew" type="password" autocomplete="new-password" minlength="6" placeholder="6자 이상" data-ko-ph="6자 이상" data-en-ph="At least 6 characters">
+          <div class="pw-wrap"><input id="pwNew" type="password" autocomplete="new-password" minlength="6" placeholder="6자 이상" data-ko-ph="6자 이상" data-en-ph="At least 6 characters"><button type="button" class="pw-eye" data-eye="pwNew" tabindex="-1" aria-label="Show password" title="비밀번호 보기/숨기기">👁</button></div>
         </div>
         <div class="field">
           <label><span data-ko="✅ 새 비밀번호 확인" data-en="✅ Confirm new password">✅ 새 비밀번호 확인</span> <span class="req">*</span></label>
-          <input id="pwNew2" type="password" autocomplete="new-password" minlength="6" placeholder="다시 한 번 입력" data-ko-ph="다시 한 번 입력" data-en-ph="Enter it again">
+          <div class="pw-wrap"><input id="pwNew2" type="password" autocomplete="new-password" minlength="6" placeholder="다시 한 번 입력" data-ko-ph="다시 한 번 입력" data-en-ph="Enter it again"><button type="button" class="pw-eye" data-eye="pwNew2" tabindex="-1" aria-label="Show password" title="비밀번호 보기/숨기기">👁</button></div>
         </div>
       </div>
       <button class="btn-primary" id="pwSaveBtn" data-ko="🔐 비밀번호 변경" data-en="🔐 Change password">🔐 비밀번호 변경</button>
@@ -2601,6 +2630,48 @@
     }
 
     var isTeacher = role === 'teacher';
+
+    // 🇵🇭 (2026-08-02) 강사에게만: '여기는 기록·설정 화면'임을 못박고 오늘 화면으로 가는 길을 준다.
+    //   강사는 로그인하면 /teacher 에 도착하므로 이 페이지는 '가끔 오는 곳'이다.
+    //   북마크·옛 링크로 여기 바로 들어와도 길을 잃지 않게 하는 것이 목적.
+    try {
+      var _hint = el('tw-portal-hint');
+      if (_hint) _hint.style.display = isTeacher ? '' : 'none';
+      var _ttl = el('tw-page-title');
+      if (_ttl && isTeacher) {
+        // 제목이 '⚙ 계정 설정' 이면 강사에겐 이 페이지가 설정 전용으로 보인다(정산·평가도 여기 있는데).
+        _ttl.setAttribute('data-ko', '📋 내 기록 · 설정');
+        _ttl.setAttribute('data-en', '📋 My Records &amp; Settings');
+        _ttl.textContent = en ? '📋 My Records & Settings' : '📋 내 기록 · 설정';
+      }
+      // 탭 제목도 갈라 준다 — 강사가 탭을 여러 개 띄워 두면 제목으로 구분한다.
+      if (isTeacher) document.title = en ? 'My Records & Settings · Mangoi' : '내 기록 · 설정 — 망고아이';
+
+      // 🚪 '수업에 들어가는 문'을 /teacher 한 곳으로 모은다.
+      //   예전엔 #tw-enter-room(30분 전~40분 후) · '🎬 수업 입장'(로비) · /teacher(10분 전~)
+      //   까지 **입장 경로가 셋**이었다. 같은 수업인데 화면마다 버튼이 보였다 안 보였다 하니
+      //   강사는 "고장났다"고 받아들인다. 문은 하나여야 한다.
+      //   ※ 지사·대리점 계정은 그대로 둔다 — 그쪽은 /teacher 를 쓰지 않는다.
+      //   강사에게 보이는 입장 경로를 위쪽 '🎥 오늘 수업 화면 열기' 카드 **하나로** 줄인다:
+      //     · #tw-enter-room (작은 🚪 알약)  → 숨김 (카드와 중복)
+      //     · 🎬 수업 입장 (로비 버튼)        → 숨김 (강사는 예약된 방으로만 들어간다)
+      //     · #teacher-enter-class            → 유지. 목적지를 /teacher 로 바꿔 둠(HTML 참조)
+      if (isTeacher) {
+        var _room = el('tw-enter-room');
+        if (_room) _room.style.display = 'none';
+        var _lobby = document.querySelectorAll('.js-enter-class-btn');
+        for (var _i = 0; _i < _lobby.length; _i++) {
+          if (_lobby[_i].id !== 'teacher-enter-class') _lobby[_i].style.display = 'none';
+        }
+      }
+      // 상단 빵부스러기도 '관리자 · 마이페이지' 대신 강사 표현으로 (crumb 는 위에서 이미 세팅됨)
+      if (isTeacher && crumb) {
+        crumb.setAttribute('data-ko', '내 기록 · 설정');
+        crumb.setAttribute('data-en', 'My Records & Settings');
+        crumb.textContent = en ? 'My Records & Settings' : '내 기록 · 설정';
+      }
+    } catch (_e) { console.warn('[mypage] teacher hint:', _e && _e.message); }
+
     // ⚠️ (2026-07-22) 서버 role 'hq' 는 '본사 소속(매니저·직원 포함)' 스코프 원문 — 정산 탭은 경영진 uid 만.
     //   (admin.html 사이드바 캐피타운 게이트와 동일 기준. 관리자에게 회계 차단인데 정산만 보이던 비일관 봉쇄)
     var _settleUid = ''; try { _settleUid = String((el('profUsername')||{}).value||'').toLowerCase(); } catch(_e){}
@@ -2613,7 +2684,13 @@
     var isBizRole = (role === 'agency' || role === 'branch' || role === 'franchise');
     var goDash = el('goDashboardBtn');
     if (goDash){
-      goDash.setAttribute('href', isBizRole ? '/admin/exec' : '/admin.html');
+      // 🚪 (2026-08-02 실사고) 강사는 `?full=1` 을 붙여야 한다.
+      //   index.ts teacherPortalRedirect 가 '강사가 /admin.html 에 오면 → /teacher' 로 돌려보내기
+      //   때문에, 이걸 안 붙이면 「📊 관리자 대시보드」를 눌렀는데 강사 화면이 떴다(라이브에서 확인).
+      //   **라벨과 목적지가 다른 버튼**은 이번 작업(헷갈림 제거)의 취지와 정면으로 어긋난다.
+      //   리다이렉트의 목적은 '로그인 후 기본 도착지'를 바꾸는 것이지 접근을 막는 게 아니다 —
+      //   버튼을 직접 누른 것은 강사의 의도적 행동이므로 라벨대로 콘솔로 보낸다.
+      goDash.setAttribute('href', isBizRole ? '/admin/exec' : (role === 'teacher' ? '/admin.html?full=1' : '/admin.html'));
     }
 
     // 📋 [상세 관리자 페이지] — 대리점·지사·프랜차이즈는 약식(경영) 대시보드 외에
@@ -2862,6 +2939,21 @@
   });
 
   // ── 로그아웃 ──
+  /* 👁 비밀번호 보기/숨기기 — 비밀번호 칸 3개(현재·새·확인) 공용.
+     버튼마다 리스너를 달지 않고 위임 하나로 처리한다(칸이 늘어도 그대로 동작).
+     data-eye 에 대상 input 의 id 가 들어 있다. */
+  document.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('.pw-eye[data-eye]') : null;
+    if (!btn) return;
+    e.preventDefault();
+    var input = el(btn.getAttribute('data-eye'));
+    if (!input) return;
+    var show = (input.type === 'password');
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '🙈' : '👁';   // 🙈 / 👁
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  });
+
   if (el('logoutBtn')) el('logoutBtn').addEventListener('click', function(e){
     e.preventDefault();
     fetch('/api/admin/logout', { method:'POST', credentials:'include' })
@@ -2884,51 +2976,13 @@
 </script>
 
 
-<!-- 🎥 상담직원 인사말 팝업 — 헤더(64px) 아래로 내려 우측 버튼(뒤로·홈·대시보드·로그아웃)과 겹치지 않게 top:72px -->
-<div id="greet-pop" style="position:fixed;top:72px;right:14px;z-index:99999;width:min(232px,62vw);background:rgba(15,23,42,0.94);border:1.5px solid rgba(251,191,36,0.55);border-radius:18px;box-shadow:0 18px 44px -10px rgba(0,0,0,0.65);overflow:hidden;display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:rgba(251,191,36,0.13)">
-    <span style="font-size:12px;font-weight:800;color:#fde68a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-ko="💁‍♀️ 상담직원 인사말" data-en="💁‍♀️ Counselor greeting">💁‍♀️ 상담직원 인사말</span>
-    <span style="display:flex;gap:5px;flex:none">
-      <button id="greet-pause" type="button" title="멈춤" aria-label="멈춤/재생" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:14px;line-height:1;cursor:pointer;padding:0">⏸️</button>
-      <button id="greet-close" type="button" title="나가기" aria-label="나가기" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(148,163,184,0.4);background:rgba(30,41,59,0.9);font-size:13px;line-height:1;cursor:pointer;padding:0">❌</button>
-    </span>
-  </div>
-  <video id="greet-video" src="/video/counselor-greeting.mp4" playsinline preload="auto" style="display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:#000"></video>
-  <button id="greet-sound" type="button" style="display:none;width:100%;border:none;padding:8px 0;background:#fbbf24;color:#1a1a1a;font-weight:900;font-size:12.5px;cursor:pointer" data-ko="🔊 소리 켜고 다시 듣기" data-en="🔊 Turn on sound & replay">🔊 소리 켜고 다시 듣기</button>
-</div>
-<script>
-(function(){
-  var pop = document.getElementById('greet-pop');
-  var v = document.getElementById('greet-video');
-  var btnP = document.getElementById('greet-pause');
-  var btnX = document.getElementById('greet-close');
-  var btnS = document.getElementById('greet-sound');
-  if (!pop || !v) return;
-  pop.style.display = 'block';
-  // 🔊 음성은 '클릭'해야만 재생 — 자동으로 목소리가 나오지 않음.
-  v.muted = true;                         // 음소거로 시작(음성 자동재생 금지)
-  btnS.style.display = 'block';           // "소리 켜고 듣기" 버튼 항상 노출
-  var p = v.play();                       // 무음 영상만 표시(소리 없음)
-  if (p && p.catch) p.catch(function(){ btnP.textContent = '▶️'; btnP.title = '재생'; });
-  v.addEventListener('click', function(){ v.muted=false; try{v.currentTime=0;}catch(e){} v.play(); btnS.style.display='none'; });
-  btnS.addEventListener('click', function(){
-    v.muted = false;
-    try { v.currentTime = 0; } catch(e){}
-    v.play();
-    btnS.style.display = 'none';
-  });
-  btnP.addEventListener('click', function(){
-    if (v.paused) { v.play(); } else { v.pause(); }
-  });
-  v.addEventListener('play',  function(){ btnP.textContent = '⏸️'; btnP.title = '멈춤'; });
-  v.addEventListener('pause', function(){ btnP.textContent = '▶️'; btnP.title = '재생'; });
-  v.addEventListener('ended', function(){ btnP.textContent = '▶️'; btnP.title = '다시 재생'; });
-  btnX.addEventListener('click', function(){
-    try { v.pause(); } catch(e){}
-    pop.style.display = 'none';
-  });
-})();
-</script>
+<!-- 🚫 (2026-08-02) 상담직원 인사말 팝업(#greet-pop) 제거 — 사장님 지시.
+     취향 문제가 아니다: /video/counselor-greeting.mp4 가 **909KB** 인데
+     페이지가 뜨자마자 muted autoplay 로 통째로 내려받는다.
+     필리핀 모바일 회선에서는 이 한 파일이 마이페이지 첫 화면보다 무겁다.
+     ⚠️ 되살리지 말 것. (같은 팝업이 admin/login.html · admin/exec.html 에도 남아 있다 —
+        그쪽은 이번 지시 범위 밖이라 건드리지 않았다) -->
+
 <!-- ⭐ 내 수업 평가 (직관형) — 무기명 · 절사평균 · 분포 그래프 · 학생 피드백 -->
 <script id="myratings-view">
 (function(){

@@ -791,7 +791,8 @@
       });
     };
 
-    window.ghdRefresh = function() { loadChat(); loadMembers(); loadAlerts(); };
+    // window.ghdRefresh 는 아래 '연결·폴링 안정화 엔진' 절에서 한 벌만 정의한다.
+    //   (여기에 있던 정의는 아래 정의에 매번 덮어써져 한 번도 실행되지 않는 죽은 코드였다)
 
     window.ghdEndObservation = async function() {
       if (!confirm('참관을 종료하시겠습니까?\n(참관 노트는 자동 저장됩니다)')) return;
@@ -960,8 +961,7 @@
     window.addEventListener('online',  () => { _failStreak = 0; kickPolling(); });
     window.addEventListener('offline', () => setConn('down'));
 
-    // 수동 새로고침도 스케줄러를 깨워 즉시 1회 갱신
-    const _origRefresh = window.ghdRefresh;
+    // 🔄 수동 새로고침 = 스케줄러를 깨워 즉시 1회 갱신(pollCycle 이 채팅·참여자·알림을 한꺼번에 다시 읽는다)
     window.ghdRefresh = function(){ kickPolling(); };
 
     kickPolling();

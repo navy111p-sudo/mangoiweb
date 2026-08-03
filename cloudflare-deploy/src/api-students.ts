@@ -443,6 +443,64 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 11시(주말·공휴
       });
     }
 
+    // ── GET /api/student/focus-history?uid=&days=30 — 학생 본인 집중도 이력 ──
+    //   🆕 (2026-08-03) 화면(js/idx-grid-menu.js '집중도 결과')이 이 경로를 부르고 있었는데
+    //      **서버에 아예 없었다.** 그래서 매번 404 → 클라이언트가 난수로 만든 샘플을
+    //      본인 기록처럼 보여주고 있었다. 실제 원천은 attendance 테이블이다.
+    //   원천: attendance(gaze_score, total_active_ms, total_session_ms, disconnect_count)
+    //   점수식은 api-mango.ts 의 녹화 채점과 **동일하게** 맞춘다 — 화면 안내문도 같은 비율이다:
+    //     시선 50% + 발화(수업 중 활동 비율) 30% + 안정성(끊김 적을수록 높음) 20%
+    //   🔐 본인만 조회 가능(서명토큰 uid 일치). 남의 uid 를 넣어도 열리면 IDOR 이다.
+    if (method === 'GET' && path === '/api/student/focus-history') {
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10) || 30));
+      const authUid = await authUidGlobal(request, url, env);
+      if (!authUid || authUid.toLowerCase() !== uid.toLowerCase()) {
+        return json({ ok: false, error: 'auth_required', message: '본인 계정으로 로그인해주세요.' }, 401);
+      }
+      const since = Date.now() - days * 86400000;
+      let rows: any[] = [];
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT date, joined_at, username, gaze_score, disconnect_count, total_active_ms, total_session_ms
+             FROM attendance
+            WHERE user_id = ? COLLATE NOCASE AND joined_at >= ?
+            ORDER BY joined_at ASC LIMIT 400`
+        ).bind(uid, since).all();
+        rows = (rs.results || []) as any[];
+      } catch { rows = []; }
+
+      const sessions = rows.map((r: any) => {
+        const sessMs = Number(r.total_session_ms) || 0;
+        const actMs = Number(r.total_active_ms) || 0;
+        // 측정값이 없는 회차는 추정하지 않고 null 로 둔다 — 지어낸 수치가 섞이면 안 된다.
+        const gaze = (typeof r.gaze_score === 'number') ? Math.round(r.gaze_score) : null;
+        const speak = sessMs > 0 ? Math.round(actMs * 100 / sessMs) : null;
+        const posture = (r.disconnect_count == null)
+          ? null : Math.max(0, 100 - Math.min(100, Number(r.disconnect_count) * 20));
+        const total = (gaze == null && speak == null && posture == null)
+          ? null
+          : Math.round((gaze == null ? 60 : gaze) * 0.5 + (speak == null ? 70 : speak) * 0.3 + (posture == null ? 100 : posture) * 0.2);
+        return {
+          date: r.date || (r.joined_at ? new Date(Number(r.joined_at)).toISOString().slice(0, 10) : '-'),
+          teacher: '', topic: '',
+          duration_min: sessMs > 0 ? Math.round(sessMs / 60000) : 0,
+          measured: gaze != null || speak != null,   // 화면이 '미측정'을 구분할 수 있도록
+          scores: { total, gaze, speak, posture },
+        };
+      }).filter((s: any) => s.scores.total != null);
+
+      let name = uid;
+      try {
+        const stu: any = await env.DB.prepare(
+          `SELECT student_name FROM students_erp WHERE user_id = ? COLLATE NOCASE`
+        ).bind(uid).first();
+        if (stu && stu.student_name) name = stu.student_name;
+      } catch {}
+      return json({ ok: true, sessions, profile: { name } });
+    }
+
     // ── POST /api/student/lookup — 학생 본인 수강정보 조회 (연장/자동연장 결제용) ──
     //   body: { user_id, auth?, from_session? }
     //   보안: 로그인(/api/student/login)과 "동일한" 보안수준으로만 노출 (IDOR 방지)

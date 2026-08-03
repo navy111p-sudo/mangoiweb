@@ -146,11 +146,38 @@ const varsHits = (TOML.match(/^LEGACY_TEACHER_LOGIN\s*=/gm) || []).length;
 ok(varsHits >= 2, 'wrangler.toml [vars] 와 [env.production.vars] 양쪽에 스위치 존재 (한쪽만 = 운영 미적용)');
 
 const IDX = readFileSync(resolve(root, 'cloudflare-deploy', 'public', 'index.html'), 'utf8');
-ok(/var dest = '\/admin\.html';\s*\n\s*if \(String\(role\)\.indexOf\('teacher'\) >= 0/.test(IDX),
-   '홈 로그인: 교사 판정이 아이디 접두사(capi…)보다 먼저 → 마이페이지로 이동');
+// 🇵🇭 (2026-08-02) 강사 목적지가 /admin/mypage → /teacher (초경량 강사 포털)로 바뀌었다.
+//   이 가드가 지키려는 것은 목적지 문자열이 아니라 **판정 순서**다:
+//   교사 판정이 아이디 접두사(capi…)보다 먼저여야 한다. 순서가 뒤집히면 옛 LMS 에서 넘어온
+//   강사(아이디가 capi… 로 시작할 수 있음)가 캐피타운 정산 화면으로 새어 나간다.
+//   주석이 사이에 들어가도 깨지지 않도록 '순서'만 본다.
+{
+  const iDest = IDX.indexOf("var dest = '/admin.html';");
+  const iTeacher = IDX.indexOf("String(role).indexOf('teacher') >= 0", iDest);
+  const iCapi = IDX.indexOf("uid.indexOf('capi') === 0", iDest);
+  ok(iDest >= 0 && iTeacher > iDest && iCapi > iTeacher,
+     '홈 로그인: 교사 판정이 아이디 접두사(capi…)보다 먼저');
+  ok(/indexOf\('teacher'\) >= 0\) dest = '\/teacher'/.test(IDX),
+     '홈 로그인: 교사는 초경량 강사 포털(/teacher)로 이동');
+}
 const LGN = readFileSync(resolve(root, 'cloudflare-deploy', 'public', 'admin', 'login.html'), 'utf8');
 ok(/!data\.is_teacher && \(uid === 'capitown'/.test(LGN),
    '관리자 로그인 화면: 교사는 캐피타운 정산 화면으로 새지 않음');
+
+// 🚪 (2026-08-02 실사고) 화면 경로를 isAdminPath 에만 등록하고 미들웨어의 '로그인 리다이렉트
+//   목록'에 빠뜨리면, 인증은 걸리지만 **API 취급**이 되어 로그아웃 상태에서 로그인 화면 대신
+//   {"ok":false,"error":"auth_required"} JSON 원문이 화면에 뜬다. 실제로 /teacher 가 그렇게
+//   배포됐다(라이브 401 확인 → 즉시 수정). 두 곳에 다 있는지 소스로 못박는다.
+{
+  const SRC_IDX = readFileSync(resolve(root, 'cloudflare-deploy', 'src', 'index.ts'), 'utf8');
+  ok(/path === '\/teacher' \|\| path === '\/teacher\/' \|\| path === '\/teacher\.html'\) return true/.test(SRC_IDX),
+     '/teacher 가 isAdminPath 에 등록됨 (로그인 필수)');
+  const iRedir = SRC_IDX.indexOf('HTML 페이지 → 로그인 화면으로 리다이렉트');
+  const iBlockEnd = SRC_IDX.indexOf('const next = encodeURIComponent', iRedir);
+  const redirBlock = iRedir >= 0 ? SRC_IDX.slice(iRedir, iBlockEnd) : '';
+  ok(redirBlock.includes("path === '/teacher'"),
+     '/teacher 가 미인증 리다이렉트 목록에도 등록됨 (JSON 401 노출 방지)');
+}
 
 console.log(`\n${fail === 0 ? '✅ PASS' : '❌ FAIL'} ${pass}건 통과 / ${fail}건 실패`);
 process.exit(fail === 0 ? 0 : 1);
