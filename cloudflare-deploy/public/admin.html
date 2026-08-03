@@ -17469,11 +17469,18 @@ button.chip:hover,
 
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 <style id="ph125-accordion">
-  /* sub 라인 — flex 로 토글 화살표 배치 */
+  /* sub 라인 — flex 로 토글 화살표 배치
+     🔴 (2026-08-04) space-between 금지 — hover 때 글자가 가운데로 튄다.
+        별점 ::after 는 평소 `margin-left:auto` 인 흐름 요소라 남는 공간을 다 먹어서
+        아이콘·글자·▸ 가 왼쪽에 붙는다. 그런데 hover 하면 **같은 ::after** 가
+        말풍선(data-tip)으로 바뀌며 position:absolute 가 되어 흐름에서 빠지고,
+        그 순간 space-between 이 남은 셋을 좌·중·우로 벌려 글자가 한가운데로 이동했다.
+        flex-start 로 두면 두 상태 모두 왼쪽 정렬이라 hover 시 글자가 안 움직인다
+        (별점은 자기 margin-left:auto 로 계속 오른쪽에 붙는다 — 겉모습 그대로). */
   #ph85-sidebar .ph85-sub {
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    justify-content: flex-start !important;
     position: relative !important;
   }
   #ph85-sidebar .ph85-sub .ph125-toggle {
@@ -17517,10 +17524,10 @@ button.chip:hover,
     margin: 2px 4px !important;
     transition: all 0.12s !important;
   }
+  /* (2026-08-04) hover 는 색만 — padding-left 로 글자를 밀지 않는다 */
   #ph85-sidebar .ph125-gc:hover {
     background: rgba(37,99,235,0.45) !important;
     color: #ffffff !important;
-    padding-left: 18px !important;
   }
   #ph85-sidebar .ph125-gc .ph125-num {
     background: rgba(96,165,250,0.45) !important;
@@ -20120,9 +20127,9 @@ button.chip:hover,
     font-variant-numeric:tabular-nums !important;
     transition:color .12s ease !important;
   }
+  /* (2026-08-04) hover 는 색만 — padding-left 로 글자를 밀지 않는다 */
   #ph85-sidebar .ph125-gc:hover{
     background:rgba(148,163,184,.12) !important; color:#f8fafc !important;
-    padding-left:14px !important;
   }
   #ph85-sidebar .ph125-gc:hover .ph125-num{ color:#fbbf24 !important; }
   #ph85-sidebar .ph85-sub .ph125-toggle{ opacity:.45 !important; }
