@@ -274,7 +274,7 @@
           <div class="ic">⚔️</div>
           <div class="t">주간 보스 레이드</div>
           <div class="e">Weekly Boss Raid — 90초 안에 보스를 쓰러뜨려요</div>
-          <div class="r" id="raidR">+30 EXP · 진화 재료</div>
+          <div class="r" id="raidR">+30 EXP · 한 번에 크게</div>
         </div>
       </div>
 
@@ -354,7 +354,8 @@ var LS = {
   lastAct: 'mangoi_avatar_last_act',
   seenTier:'mangoi_avatar_seen_tier',
   raidWeek:'mangoi_avatar_raid_week',
-  guestExp:'mangoi_avatar_guest_exp'
+  guestExp:'mangoi_avatar_guest_exp',
+  todayDone:'mangoi_avatar_today_done'
 };
 function lsGet(k, d){ try { var v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
 function lsSet(k, v){ try { localStorage.setItem(k, String(v)); } catch(e){} }
@@ -439,7 +440,7 @@ var ST = {
   mood    : 'idle',      // idle | happy | sleepy | cheer | sad
   moodUntil: 0,
   data    : null,        // MangoiGameVocab 결과
-  todayDone: {},         // 오늘 완료한 미션 종류
+  todayDone: {},         // 오늘 완료한 미션 종류 (아래 시작부에서 localStorage 로 복원)
   busy    : false
 };
 
@@ -483,27 +484,39 @@ function syncStreak(){
 }
 
 // EXP 적립 — 서버 성공값으로 화면을 갱신한다(낙관적 갱신 후 되돌리기 금지).
-function award(n, why){
+//   defer=true 면 진화 컷신을 지금 틀지 않고 보류한다.
+//   (미션 결과 화면 위에 전체화면 컷신이 덮치면 결과를 못 보고, 끝나도 미션 화면에 남는다)
+var pendingEvolve = 0;
+function award(n, why, defer){
   if (IS_GUEST){
     ST.exp = (ST.exp || 0) + n; lsSet(LS.guestExp, ST.exp);
-    afterAward(n, why); return Promise.resolve(true);
+    afterAward(n, why, defer); return Promise.resolve(true);
   }
   return coinsCall(n).then(function(d){
     if (d && typeof d.coins_total === 'number'){
       ST.exp = d.coins_total; ST.expKnown = true;
-      afterAward(n, why); return true;
+      afterAward(n, why, defer); return true;
     }
     // 서버 저장 실패 → 성공한 척하지 않는다
     toast('기록을 저장하지 못했어요', 'Could not save just now — your answer was still correct!');
     return false;
   });
 }
-function afterAward(n, why){
+function afterAward(n, why, defer){
   touchActivity();
   var before = tierOf(ST.exp - n), after = tierOf(ST.exp);
   render();
-  if (after > before) { setTimeout(function(){ playCutscene(after); }, 620); }
-  else toast('+' + n + ' EXP · ' + (why || ''), '');
+  if (after > before){
+    if (defer) pendingEvolve = after;                                  // 홈으로 돌아간 뒤에 튼다
+    else setTimeout(function(){ playCutscene(after); }, 620);
+  } else if (!defer) toast('+' + n + ' EXP · ' + (why || ''), '');
+}
+// 보류해 둔 진화 컷신이 있으면 지금 튼다 (홈 화면으로 돌아온 직후에 호출)
+function flushEvolve(){
+  if (!pendingEvolve) return false;
+  var t = pendingEvolve; pendingEvolve = 0;
+  setTimeout(function(){ playCutscene(t); }, 420);
+  return true;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -534,6 +547,23 @@ function calcEnergy(){
   return Math.round(100 - (100 - ENERGY_FLOOR) * p);
 }
 function touchActivity(){ lsSet(LS.lastAct, Date.now()); ST.energy = 100; }
+
+/* ── "오늘 완료" 는 새로고침해도 남아야 한다 ──────────────────────────
+ * 메모리에만 두면 화면을 다시 열었을 때 완료 표시가 사라져, 라벨이 거짓말이 된다.
+ * 날짜 경계는 다른 기능들과 같은 KST 기준.
+ * -------------------------------------------------------------- */
+function kstDay(){ return Math.floor((Date.now() + 32400000) / 86400000); }
+function loadTodayDone(){
+  try {
+    var raw = JSON.parse(lsGet(LS.todayDone, 'null'));
+    if (raw && raw.d === kstDay() && raw.k) return raw.k;
+  } catch(e){}
+  return {};
+}
+function markTodayDone(key){
+  ST.todayDone[key] = true;
+  lsSet(LS.todayDone, JSON.stringify({ d: kstDay(), k: ST.todayDone }));
+}
 
 /* ══════════════════════════════════════════════════════════════════════
  *  5. 아바타 렌더링 (캔버스 · rAF)
@@ -1211,6 +1241,23 @@ function loadBank(){
 
 // 최근에 낸 문제는 피한다 — 3라운드 중 같은 단어가 두 번 나오면 학생은 "고장"으로 느낀다.
 var _recent = [];
+/**
+ * 한국어 뜻이 있는 문장만 모은 풀.
+ * 🔴 이게 없으면 안 된다 — 교재 문장은 뜻(ko)이 비어 있는 경우가 많다.
+ *    뜻이 없는 문장으로 "뜻에 맞는 영어를 고르시오" 문제를 만들면
+ *    `s.ko || s.en` 때문에 문제와 정답이 똑같은 영어 문장이 되어, 글자만 맞춰도 풀린다.
+ *    보기를 만들 distractor 도 최소 3개는 있어야 한다.
+ */
+function poolWithKo(){
+  var withKo = BANK.sentences.filter(function(s){ return s.ko && s.ko.trim() && s.ko.trim() !== s.en; });
+  if (withKo.length >= 3) return withKo;
+  var fb = (FALLBACK[LANG] || FALLBACK.en).sentences;
+  var seen = {};
+  return withKo.concat(fb).filter(function(s){
+    if (!s || !s.ko || seen[s.en]) return false; seen[s.en] = 1; return true;
+  });
+}
+
 function pick(arr){
   if (!arr || !arr.length) return null;
   var fresh = arr.filter(function(x){ return _recent.indexOf(x.en) < 0; });
@@ -1287,7 +1334,8 @@ function roundMeaning(){
 
 /* ── 재료 조립(어순) ── */
 function roundBuild(){
-  var pool = BANK.sentences.filter(function(s){ var n = tokenize(s.en).length; return n >= 3 && n <= 8; });
+  // 뜻이 있는 문장만 — 뜻 없이 어순을 맞추라고 하면 학생은 근거 없이 찍게 된다
+  var pool = poolWithKo().filter(function(s){ var n = tokenize(s.en).length; return n >= 3 && n <= 8; });
   if (LANG === 'zh' || !pool.length){ roundMeaning2(); return; }
   var s = pick(pool), words = tokenize(s.en);
   missBody.innerHTML = head('재료를 순서대로 올려요', 'Tap the words in the correct order') +
@@ -1477,17 +1525,31 @@ function finishMission(){
   missBody.innerHTML =
     '<div class="qHead"><div class="step">' + d.ic + ' ' + d.ko + '</div></div>' +
     '<div class="qKo">' + got + ' / ' + tot + ' 성공!</div>' +
-    '<div style="text-align:center;font-size:14px;font-weight:800;color:#ffc46b">+' + earned + ' EXP</div>' +
+    '<div id="missEarn" style="text-align:center;font-size:14px;font-weight:800;color:#ffc46b">+' + earned + ' EXP <span style="color:#a99bc4">저장 중… · saving</span></div>' +
     '<div style="text-align:center;font-size:12px;color:#a99bc4;line-height:1.6">' +
       (got === tot ? '완벽해요! 아바타가 힘을 얻었어요<br><span style="color:#8f81ab">Perfect! Your companion grew stronger</span>'
                    : '잘했어요! 다시 하면 더 자랄 수 있어요<br><span style="color:#8f81ab">Well done — play again to grow more</span>') +
     '</div>';
   barBtns('<button class="primary" id="btnDone">아바타 보러 가기 · See my companion</button>');
-  ST.todayDone[key] = true;
+  markTodayDone(key);
+
+  // 🔴 EXP 는 "지금" 적립한다. 버튼을 눌러야 저장하면, 결과 화면에서 탭을 닫은 학생은
+  //    화면으로 "+N EXP" 를 본 뒤에 아무것도 못 받는다. 화면이 약속한 것은 반드시 남아야 한다.
+  if (earned > 0){
+    award(earned, d.ko, true).then(function(ok){
+      var line = document.getElementById('missEarn');
+      if (!line) return;                       // 이미 다른 화면으로 넘어갔으면 건드리지 않는다
+      if (ok) line.innerHTML = '+' + earned + ' EXP <span style="color:#8be08b">저장됨 · saved</span>';
+      else    line.innerHTML = '<span style="color:#ffb98a">기록을 저장하지 못했어요 · not saved — 다시 연결되면 저장돼요</span>';
+    });
+  } else {
+    touchActivity(); render();
+  }
+
   document.getElementById('btnDone').onclick = function(){
-    show('home');
-    if (earned > 0) award(earned, d.ko);
-    else { touchActivity(); render(); }
+    curMission = null;
+    show('home'); render();
+    flushEvolve();                             // 진화가 있었다면 홈에서 컷신을 튼다
   };
 }
 function quitMission(){ curMission = null; show('home'); render(); }
@@ -1539,17 +1601,18 @@ function paintRaidHp(){
 }
 function raidRound(){
   if (!raid || raid.over) return;
-  var pool = BANK.sentences.length ? BANK.sentences : FALLBACK[LANG].sentences;
+  var pool = poolWithKo();          // 뜻이 있는 문장만 — 아니면 문제와 정답이 같아진다
   var s = pick(pool);
-  var wrongPool = BANK.words.length >= 3 ? BANK.words : FALLBACK[LANG].words;
+  if (!s) { endRaid(false, true); return; }
   var correct = s.en;
+  var wrongs = shuffle(pool.filter(function(x){ return x.en !== correct; })).slice(0, 2);
   var opts = shuffle([{ t:correct, ok:1 }].concat(
-    shuffle(pool.filter(function(x){ return x.en !== correct; })).slice(0, 2).map(function(x){ return { t:x.en, ok:0 }; })
+    wrongs.map(function(x){ return { t:x.en, ok:0 }; })
   ));
   raidBody.innerHTML =
     '<div class="qHead"><div class="ask">한국어 뜻에 맞는 문장을 골라 공격!<br>' +
     '<span style="font-size:12px;color:#8f81ab">Pick the matching sentence to attack!</span></div></div>' +
-    '<div class="qKo">' + esc(s.ko || s.en) + '</div>' +
+    '<div class="qKo">' + esc(s.ko) + '</div>' +
     '<div class="opts">' + opts.map(function(o){
       return '<div class="opt" data-ok="' + o.ok + '">' + esc(o.t) + '</div>';
     }).join('') + '</div><div class="fb" id="fb"></div>';
@@ -1585,10 +1648,20 @@ function endRaid(win, quiet){
   raid.over = true;
   var hits = raid.hits;
   if (win){
-    lsSet(LS.raidWeek, weekKey());
     show('home');
-    award(30, '보스 격파');
-    setTimeout(function(){ toast('보스 격파! 진화 재료 획득 🎁', 'Boss defeated! Evolution ingredient obtained'); }, 1200);
+    // 🔴 주간 기회는 "저장에 성공했을 때만" 소진시킨다.
+    //    먼저 소진 처리하면, 서버 저장이 실패한 학생은 EXP 도 못 받고
+    //    주 1회뿐인 보스도 잃는다. 학생 잘못이 아닌 손해를 만들지 않는다.
+    award(30, '보스 격파').then(function(ok){
+      if (ok){
+        lsSet(LS.raidWeek, weekKey());
+        toast('보스 격파! +30 EXP', 'Boss defeated! +30 EXP');
+      } else {
+        toast('보스는 쓰러뜨렸어요! 기록만 저장이 안 됐어요',
+              'You beat the boss — only the save failed, so the raid is still open.');
+      }
+      render();
+    });
   } else if (quiet){
     show('home'); render();
   } else {
@@ -1699,7 +1772,7 @@ function render(){
     rc.classList.add('done'); rr2.textContent = '이번 주 격파 완료 · cleared this week';
     rc.onclick = function(){ toast('이번 주 보스는 이미 물리쳤어요!', 'Already cleared — a new boss appears next week'); };
   } else {
-    rc.classList.remove('done'); rr2.textContent = '+30 EXP · 진화 재료';
+    rc.classList.remove('done'); rr2.textContent = '+30 EXP · 한 번에 크게';   // 재료 시스템은 없다 — 없는 보상을 있다고 하지 않는다
     rc.onclick = startRaid;
   }
 
@@ -1777,6 +1850,7 @@ document.getElementById('chipGuest').onclick = function(){
 /* ══════════════════════════════════════════════════════════════════════
  *  12. 시작
  * ══════════════════════════════════════════════════════════════════════ */
+ST.todayDone = loadTodayDone();   // 새로고침해도 "오늘 완료" 표시가 남도록 복원
 buildPick();
 show(ST.species ? 'home' : 'pick');
 render();
