@@ -79,20 +79,38 @@
     50%    {color:#fff6a0;text-shadow:0 1px 2px #000,0 0 15px rgba(255,225,90,1),-1px 0 2px #000,1px 0 2px #000} }
 
   /* ── HUD ── */
-  #hud{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:8px 12px 10px;
-    display:flex;align-items:flex-end;justify-content:space-between;gap:10px;pointer-events:none;
-    background:linear-gradient(0deg,rgba(8,14,20,.9),transparent)}
-  .hbox{background:rgba(10,18,26,.72);border:1px solid rgba(120,150,180,.22);border-radius:10px;
-    padding:5px 11px;backdrop-filter:blur(3px)}
-  .hlab{font-size:10px;color:#8aa0b8;font-weight:700;letter-spacing:1px}
-  .hval{font-size:20px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
+  /* 오른쪽 위 한 줄. 조작 버튼(#ctlRow) 왼쪽에 붙는다. 전장을 가리지 않도록
+     배경 그라데이션 없이, 항목마다 작은 알약으로만 띄운다. */
+  #hud{position:absolute;top:60px;right:10px;left:auto;bottom:auto;z-index:6;
+    display:flex;align-items:center;gap:5px;pointer-events:none;max-width:calc(100% - 20px)}
+  .hbox{display:flex;align-items:center;gap:5px;
+    background:rgba(10,18,26,.62);border:1px solid rgba(120,150,180,.22);border-radius:8px;
+    padding:3px 8px;backdrop-filter:blur(3px);white-space:nowrap}
+  .hlab{font-size:9px;color:#8aa0b8;font-weight:700;letter-spacing:.5px}
+  .hval{font-size:14px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
   #hScore .hval{color:#ffd479}
   #hClear .hval{color:#7fd1ff}
-  #timeWrap{flex:1;max-width:340px}
-  #timeBar{height:12px;border-radius:7px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:4px;border:1px solid rgba(255,255,255,.14)}
-  #timeFill{height:100%;width:100%;border-radius:7px;background:linear-gradient(90deg,#3ddc84,#a3e635);transition:width .25s linear}
+  #timeWrap #vTime{color:#a3e635}
+  #timeBar{width:88px;height:7px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;border:1px solid rgba(255,255,255,.14)}
+  #timeFill{height:100%;width:100%;border-radius:5px;background:linear-gradient(90deg,#3ddc84,#a3e635);transition:width .25s linear}
   #timeFill.warn{background:linear-gradient(90deg,#f97316,#ef4444)}
-  #hHearts{font-size:19px;letter-spacing:1px;filter:drop-shadow(0 1px 2px #000)}
+  #hHearts{font-size:13px;letter-spacing:0;filter:drop-shadow(0 1px 2px #000)}
+  /* 문장(문제)은 화면 폭을 최대한 쓴다. 오른쪽 위 조작버튼(🔊⏸)만 피하면 된다.
+     HUD 는 문장 아래 줄로 내려서 문장을 가리지 않는다. */
+  #topbar{padding-right:92px}
+  /* 폰(가로 915 포함) — 라벨을 빼고 숫자만 남겨 폭을 크게 줄인다 */
+  @media (max-width:1100px){
+    #hud{right:8px;gap:4px}
+    .hbox{padding:2px 6px;gap:4px;border-radius:7px}
+    .hval{font-size:12px} .hlab{display:none}
+    #timeBar{width:46px;height:6px}
+    #hHearts{font-size:11px}
+    #hScore .hval::before{content:'★';color:#8aa0b8;font-size:9px;margin-right:2px}
+    #hClear .hval::before{content:'✓';color:#8aa0b8;font-size:9px;margin-right:2px}
+  }
+  @media (max-width:620px){
+    #timeBar{width:34px}
+  }
 
   /* ── 오버레이(시작/종료) ── */
   .overlay{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
@@ -324,12 +342,15 @@
 
   <div id="bannerMsg"></div>
 
+  <!-- 🎯 (2026-08-03 사장님 지시) HUD 를 화면 아래 가운데 → **오른쪽 위 한 줄**로.
+       예전엔 화면 폭 전체를 쓰는 아래 막대라 그 뒤의 전차가 안 보였다("탱크가 안 보여").
+       전장을 최대한 비우는 게 목적이라 그림자 배경도 없애고 높이를 한 줄로 줄였다. -->
   <div id="hud">
-    <div class="hbox" id="hScore"><div class="hlab">SCORE</div><div class="hval" id="vScore">0</div></div>
-    <div class="hbox" id="timeWrap"><div class="hlab">⛽ 연료 / TIME <span id="vTime" style="float:right;color:#a3e635">70</span></div>
-      <div id="timeBar"><div id="timeFill"></div></div>
-      <div id="hHearts" style="margin-top:5px">❤️❤️❤️</div></div>
-    <div class="hbox" id="hClear"><div class="hlab">정답</div><div class="hval" id="vClear">0/10</div></div>
+    <div class="hbox" id="hScore"><span class="hlab">SCORE</span><span class="hval" id="vScore">0</span></div>
+    <div class="hbox" id="timeWrap"><span class="hlab">⛽</span><span class="hval" id="vTime">70</span>
+      <div id="timeBar"><div id="timeFill"></div></div></div>
+    <div class="hbox" id="hHeartBox"><span id="hHearts">❤️❤️❤️</span></div>
+    <div class="hbox" id="hClear"><span class="hlab">정답</span><span class="hval" id="vClear">0/10</span></div>
   </div>
 
   <div id="wordpop"></div>
@@ -804,6 +825,7 @@ function loadSentence(){
   var s=_queue[_qi++];
   G.sent={ w:s.w.slice(), ko:s.ko }; G.next=0;
   renderSentence();
+  try{ syncHudTop(); }catch(_){}   // 문장이 길어지면 문장바 높이가 커진다 → HUD 를 그만큼 내린다
   speakTimes(G.sent.w.join(MODE==='zh'?'':' '), 0.95, 2);   // 🔊 새 문장 자동 2회 듣기 — seq 토큰 있는 speakTimes(미션 오디오와 안 꼬임)
 }
 /* 📚 진도(레슨) 네비게이터 연결 — 로그인 학생 교재의 레슨별 문장 로드 + ◀복습/▶예습 */
@@ -1064,13 +1086,21 @@ function syncWordBar(){
     bar.appendChild(b);
   });
 }
+/* HUD 는 문장(문제) 바로 아래 줄에 놓는다.
+   문장이 길어 두 줄이 되면 문장바가 높아지므로, CSS 고정값 대신 실제 높이를 재서 맞춘다.
+   (고정 60px 로 뒀더니 세로에서 1px 겹쳤다 — 문장이 길면 더 크게 겹친다) */
+function syncHudTop(){
+  var tb=document.getElementById('topbar'), hud=document.getElementById('hud');
+  if(!tb||!hud) return;
+  hud.style.top = Math.round(tb.getBoundingClientRect().height + 4) + 'px';
+}
 /* 세로/가로 전환 감지 — 세로일 때만 단어 줄을 쓴다 */
 function syncPortrait(){
   var on = IS_TOUCH && VIEW==='quarter' && G && G.running &&
            (window.innerHeight > window.innerWidth * 1.05);
   document.body.classList.toggle('portraitPlay', !!on);
 }
-window.addEventListener('resize', function(){ syncPortrait(); syncWordBar(); });
+window.addEventListener('resize', function(){ syncPortrait(); syncWordBar(); syncHudTop(); });
 function _onCtxMenu(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p=ptr(e); fireAt(p.x, p.y); } }  // 우클릭=자동조준 발사
 [cv,cv3d].forEach(function(elx){
   elx.addEventListener('pointermove',_onPtrMove);
@@ -1169,7 +1199,7 @@ function update(dt){
     G.vx += (_mvx*_mspd - G.vx)*Math.min(1,dt*14);            // 부드럽게 가속(급출발 방지)
     G.vy += (_mvy*_mspd - G.vy)*Math.min(1,dt*14);
     G.px+=G.vx*dt; G.py+=G.vy*dt;
-    G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
+    G.px=clamp(G.px,26,W-26); G.py=clamp(G.py,64,H-40);   // HUD 를 위로 올려 아래 여백을 90->40 으로 (전장 확대)
   }
   // 🚗 셔먼 = 왼쪽 버튼(손가락)을 누른 동안 커서에 딱 붙어 따라감. 떼면 그 자리에 정지.(터치·2D)
   else if(VIEW==='quarter' && G.dragging){
@@ -1187,7 +1217,7 @@ function update(dt){
     G.vx += (tvx-G.vx)*Math.min(1,dt*16); G.vy += (tvy-G.vy)*Math.min(1,dt*16);
   }
   G.px+=G.vx*dt; G.py+=G.vy*dt;
-  G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
+  G.px=clamp(G.px,26,W-26); G.py=clamp(G.py,64,H-40);   // HUD 를 위로 올려 아래 여백을 90->40 으로 (전장 확대)
   }
   var sp=Math.hypot(G.vx,G.vy);
   if(VIEW==='quarter'){
@@ -1593,7 +1623,7 @@ function render(){
 }
 /* 🗺️ 미니맵(레이더) — 적(빨강)·정답적(금색)·보스(큰빨강)·연료(초록)·셔먼(파랑) 위치 */
 function drawMinimap(){ if(!G||!G.running||G.dead)return;
-  var mw=88*SCALE, mh=64*SCALE, mx=W-mw-10, my=46;
+  var mw=88*SCALE, mh=64*SCALE, mx=W-mw-10, my=90;   // HUD 가 문장 아래 한 줄(60~82)로 내려와 그 밑에 놓는다
   ctx.save(); ctx.fillStyle='rgba(10,16,22,.62)'; rr(mx,my,mw,mh,6); ctx.fill();
   ctx.strokeStyle='rgba(140,165,195,.45)'; ctx.lineWidth=1; rr(mx,my,mw,mh,6); ctx.stroke();
   function fx(x){ return mx+clamp(x/W,0,1)*mw; } function fy(y){ return my+clamp(y/H,0,1)*mh; }
@@ -2485,7 +2515,7 @@ function startGame(){
   newGame(); G.running=true; updateHUD();
   // 조이스틱은 전투 중에만 보인다 - 시작 화면 위에 떠 있으면 설명을 가린다
   if(IS_TOUCH && VIEW==='quarter'){ var _jp=document.getElementById('joyPad'); if(_jp) _jp.classList.add('on'); }
-  syncPortrait(); _wbSig=''; syncWordBar();
+  syncPortrait(); _wbSig=''; syncWordBar(); syncHudTop();
   // 세로로 들어왔으면 한 번만 안내. 돌리지 않아도 세로에서 그대로 할 수 있다
   if(document.body.classList.contains('portraitPlay')){
     try{ if(!localStorage.getItem('mangoi_tank_rot_hint')){ localStorage.setItem('mangoi_tank_rot_hint','1');
@@ -2556,6 +2586,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260804084123 -->
+<!-- BUILD:20260804085001 -->
 </body>
 </html>
