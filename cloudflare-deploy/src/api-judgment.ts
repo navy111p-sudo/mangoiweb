@@ -24,11 +24,11 @@ import {
 //    judgment-level.ts 도 import 가 없는 순수 모듈이라 하니스가 직접 불러 검증합니다.
 import {
   DEFAULT_BAND, normalizeBand, bandFromTextbookLevel, bandLabel, bandPromptLine,
-  pushResult, nextBand, nudgeBand, type BandTransition,
+  bandCatalog, bandName, pushResult, nextBand, nudgeBand, type BandTransition,
 } from './judgment-level';
 export type { GrowthAxes };
 export { normalizeOptionScores, normalizeDifficulty } from './judgment-scoring';
-export { normalizeBand, bandLabel } from './judgment-level';
+export { normalizeBand, bandLabel, bandName, bandCatalog } from './judgment-level';
 
 const JUDGE_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 // 🔀 정본 페이로드 버전 — Mode A(엣지) / Mode B(Celery/Redis) 가 동일하게 읽고 쓰는 계약.
@@ -672,7 +672,8 @@ async function resolveReadingBand(env: MangoEnv, uid: string, erpLevel?: string 
  */
 export async function generatePersonalizedScenario(
   env: MangoEnv, studentUid: string, lang = 'en', textbookHint?: string, focusMisconception?: string | null,
-  bandNudge?: number | null,
+  /** 읽기 밴드 조작 — nudge: 학생이 누른 ±1 / setBand: 학생이 목록에서 직접 고른 범주(1~8) */
+  bandOpts?: { nudge?: number | null; setBand?: number | null } | null,
 ): Promise<any> {
   const t0 = Date.now();
   await ensureJudgmentTables(env);
@@ -699,14 +700,20 @@ export async function generatePersonalizedScenario(
   const bandRes = await resolveReadingBand(env, studentUid, tb.level);
   let bandState = bandRes.state;
   let bandMove: BandTransition | null = null;
-  // 학생이 "너무 어려워요 / 너무 쉬워요"를 눌렀으면 6문항 창을 기다리지 않고 즉시 한 밴드 옮깁니다.
-  //   ⚠️ 새 API 경로를 만들지 않으려고 기존 시나리오 요청 body 에 실어 받습니다(index.ts 는 금지구역).
-  const nudge = Math.sign(Math.round(+(bandNudge as any)) || 0);
-  if (nudge !== 0) {
+  // ① 학생이 목록에서 범주를 직접 골랐으면 그 값이 최우선 — 자동조절보다, ±1 보다 앞섭니다.
+  //    사람이 스스로 고른 것을 기계가 뒤집지 않는다는 원칙(강사 입력이 1순위인 것과 같은 이유).
+  const wantSet = Math.round(+(bandOpts?.setBand as any));
+  const picked = Number.isFinite(wantSet) && wantSet >= 1 && wantSet <= 8 ? wantSet : 0;
+  // ② 학생이 "너무 어려워요 / 너무 쉬워요"를 눌렀으면 6문항 창을 기다리지 않고 즉시 한 밴드 옮깁니다.
+  //    ⚠️ 새 API 경로를 만들지 않으려고 기존 시나리오 요청 body 에 실어 받습니다(index.ts 는 금지구역).
+  const nudge = picked ? 0 : Math.sign(Math.round(+(bandOpts?.nudge as any)) || 0);
+  if (picked) {
+    bandState = { ...bandState, band: picked, hist: [], src: 'student', at: Date.now() };
+  } else if (nudge !== 0) {
     bandMove = nudgeBand(bandState.band, nudge);
     bandState = { ...bandState, band: bandMove.band, hist: [], src: 'student', at: Date.now() };
   }
-  if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0) await writeBandState(env, studentUid, bandState);
+  if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked) await writeBandState(env, studentUid, bandState);
 
   // 🎲 다양화 컨텍스트 — 같은 문항 반복 방지의 핵심.
   //   ① KV 최근 출제 이력(judgrecent:<uid>, 48h): 프롬프트 '반복 금지' 목록 + 생성 후 중복 검사
@@ -812,7 +819,8 @@ Return STRICT JSON only:
     } catch {}
   }
   await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null, textbook: tb.textbook, focus: pickedMisc, band: bandState.band, band_src: bandState.src });
-  if (!scenario) return { ok: false, error: 'scenario_unavailable', based_on: { source, weak, textbook: tb.textbook } };
+  // 문제 생성이 실패해도 레벨 목록은 함께 돌려줍니다 — 학생이 "레벨 고르기"로 빠져나갈 수 있어야 하므로.
+  if (!scenario) return { ok: false, error: 'scenario_unavailable', reading_band: bandState.band, band_catalog: bandCatalog(), based_on: { source, weak, textbook: tb.textbook } };
 
   // 🔒 정답지를 서버에 보관 — 채점 때 클라이언트가 되돌려 보낸 점수 대신 이 값을 씁니다.
   //    학생 화면을 고쳐 option_scores 를 100 으로 보내도 기록되는 점수는 흔들리지 않습니다.
@@ -835,8 +843,13 @@ Return STRICT JSON only:
     // 🎚️ 읽기 밴드 — 학생 화면은 이 숫자를 보여주지 않습니다("너는 레벨 2"는 낙인).
     //    버튼을 눌러 옮겨졌을 때만 안내 한 줄을 띄우는 데 씁니다.
     reading_band: bandState.band, reading_band_label: bandLabel(bandState.band),
+    reading_band_name: bandName(bandState.band, lang),
     band_moved: bandMove ? bandMove.direction : 0,
     band_at_edge: bandMove ? (bandMove.reason === 'at_ceiling' || bandMove.reason === 'at_floor') : false,
+    band_picked: picked ? 1 : 0,
+    // 🏷️ 레벨 고르기 목록 — 서버가 단일 출처(화면에 이름을 하드코딩하지 않습니다).
+    //    8개 × 짧은 문자열이라 페이로드는 1KB 수준. 별도 왕복을 만들지 않으려고 함께 내려보냅니다.
+    band_catalog: bandCatalog(),
     based_on: { source, weak_skills: weak.map((w) => w.skill), textbook: tb.textbook, band_src: bandState.src },
   };
 }

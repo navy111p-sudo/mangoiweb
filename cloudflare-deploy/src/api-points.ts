@@ -696,13 +696,14 @@ Return STRICT JSON only, in BOTH Korean and English:
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
       try {
         // focus_misconception — 학생이 "이 유형 더 연습하기"를 누른 경우. 사전에 없는 코드는 생성기가 무시합니다.
-        // band_nudge — 학생이 "너무 어려워요(-1) / 너무 쉬워요(+1)"를 누른 경우.
-        //   새 API 경로를 만들지 않으려고 이 요청에 실어 받습니다(src/index.ts 는 금지구역).
-        //   ±1 로만 해석되므로 임의의 큰 값을 보내도 한 밴드 이상 움직이지 않습니다.
+        // 읽기 난이도 조작 두 가지 — 새 API 경로를 만들지 않으려고 이 요청에 실어 받습니다
+        //   (src/index.ts 는 금지구역). 생성기가 값을 다시 검증하므로 여기서는 형만 맞춥니다.
+        //     band_nudge — "너무 어려워요(-1) / 너무 쉬워요(+1)". ±1 로만 해석돼 한 밴드 이상 안 움직임
+        //     set_band   — 학생이 목록에서 직접 고른 범주(1~8). 범위 밖 값은 생성기가 무시
         const sc = await generatePersonalizedScenario(
           env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined,
           (body.focus_misconception || '').toString().trim().slice(0, 40) || null,
-          Math.sign(Number(body.band_nudge) || 0));
+          { nudge: Math.sign(Number(body.band_nudge) || 0), setBand: Number(body.set_band) || 0 });
         return json(sc, 200);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }

@@ -42,7 +42,13 @@ export const BAND_WINDOW = 6;
 export const BAND_UP_CORRECT = 6;    // 이 개수 '이상' 맞히면 한 밴드 올림
 export const BAND_DOWN_CORRECT = 3;  // 이 개수 '이하' 맞히면 한 밴드 내림
 
-/** 밴드별 사양 — 교재 Lv 구간 + LLM 에게 줄 문장 제약. */
+/**
+ * 밴드별 사양 — 교재 Lv 구간 + 이름 + LLM 에게 줄 문장 제약.
+ *
+ * 🏷️ 이름을 붙인 이유 — 학생·학부모·강사가 "밴드 4"로는 아무것도 판단할 수 없습니다.
+ *    "초중급"이면 고를 수 있습니다. 숫자는 내부 계산에만 쓰고 화면에는 이름을 보여줍니다.
+ *    (강사 다수가 필리핀이라 한/영은 필수 — CLAUDE.md 운영 원칙. 중문은 화면 지원 언어라 함께 둡니다)
+ */
 export interface BandSpec {
   band: number;
   /** 망고아이 교재 레벨(Lv 1~34) 구간 — 실제 커리큘럼 레벨(2026-08-03 확인). */
@@ -52,18 +58,63 @@ export interface BandSpec {
   maxWords: number;
   /** 허용 문법 범위 — 프롬프트에 그대로 들어갑니다(영문). */
   grammar: string;
+  /** 범주 이름 — 화면에 보이는 것은 숫자가 아니라 이것입니다. */
+  nameKo: string; nameEn: string; nameZh: string;
+  /** 한 줄 설명 — 고를 때 판단 근거가 됩니다("어느 정도 문장인지"). */
+  descKo: string; descEn: string; descZh: string;
 }
 
 export const BAND_SPECS: BandSpec[] = [
-  { band: 1, lvFrom: 1,  lvTo: 4,  maxWords: 5,  grammar: 'present tense only; only the most common everyday words (school, mom, play, want, help)' },
-  { band: 2, lvFrom: 5,  lvTo: 8,  maxWords: 7,  grammar: 'present tense plus "can"; common everyday words a beginner knows' },
-  { band: 3, lvFrom: 9,  lvTo: 12, maxWords: 9,  grammar: 'present and simple past; everyday vocabulary' },
-  { band: 4, lvFrom: 13, lvTo: 17, maxWords: 12, grammar: 'present, past and future; at most one conjunction (and / but / because)' },
-  { band: 5, lvFrom: 18, lvTo: 21, maxWords: 15, grammar: 'complex sentences allowed; common phrasal verbs' },
-  { band: 6, lvFrom: 22, lvTo: 25, maxWords: 18, grammar: 'relative clauses and conditionals allowed' },
-  { band: 7, lvFrom: 26, lvTo: 30, maxWords: 22, grammar: 'common idioms and varied register allowed' },
-  { band: 8, lvFrom: 31, lvTo: 34, maxWords: 30, grammar: 'no restriction; focus on subtle nuance and tone' },
+  { band: 1, lvFrom: 1,  lvTo: 4,  maxWords: 5,  grammar: 'present tense only; only the most common everyday words (school, mom, play, want, help)',
+    nameKo: '첫걸음',   nameEn: 'Starter',            nameZh: '入门',
+    descKo: '아주 짧은 문장 (3~5단어)',        descEn: 'Very short sentences (3–5 words)',   descZh: '很短的句子（3~5个词）' },
+  { band: 2, lvFrom: 5,  lvTo: 8,  maxWords: 7,  grammar: 'present tense plus "can"; common everyday words a beginner knows',
+    nameKo: '기초',     nameEn: 'Basic',              nameZh: '基础',
+    descKo: '짧은 문장 (5~7단어)',             descEn: 'Short sentences (5–7 words)',        descZh: '短句（5~7个词）' },
+  { band: 3, lvFrom: 9,  lvTo: 12, maxWords: 9,  grammar: 'present and simple past; everyday vocabulary',
+    nameKo: '초급',     nameEn: 'Elementary',         nameZh: '初级',
+    descKo: '과거형이 나오는 문장 (7~9단어)',   descEn: 'Past tense appears (7–9 words)',     descZh: '出现过去式（7~9个词）' },
+  { band: 4, lvFrom: 13, lvTo: 17, maxWords: 12, grammar: 'present, past and future; at most one conjunction (and / but / because)',
+    nameKo: '초중급',   nameEn: 'Pre-Intermediate',   nameZh: '初中级',
+    descKo: '두 문장이 이어진 문장 (9~12단어)', descEn: 'Two ideas joined (9–12 words)',      descZh: '两句连接（9~12个词）' },
+  { band: 5, lvFrom: 18, lvTo: 21, maxWords: 15, grammar: 'complex sentences allowed; common phrasal verbs',
+    nameKo: '중급',     nameEn: 'Intermediate',       nameZh: '中级',
+    descKo: '조금 긴 문장 (12~15단어)',        descEn: 'Longer sentences (12–15 words)',     descZh: '较长的句子（12~15个词）' },
+  { band: 6, lvFrom: 22, lvTo: 25, maxWords: 18, grammar: 'relative clauses and conditionals allowed',
+    nameKo: '중고급',   nameEn: 'Upper-Intermediate', nameZh: '中高级',
+    descKo: '관계절·가정법이 나와요 (15~18단어)', descEn: 'Relative clauses appear (15–18 words)', descZh: '出现关系从句（15~18个词）' },
+  { band: 7, lvFrom: 26, lvTo: 30, maxWords: 22, grammar: 'common idioms and varied register allowed',
+    nameKo: '고급',     nameEn: 'Advanced',           nameZh: '高级',
+    descKo: '관용표현이 섞여요 (18~22단어)',   descEn: 'Idioms mixed in (18–22 words)',      descZh: '夹杂习惯用语（18~22个词）' },
+  { band: 8, lvFrom: 31, lvTo: 34, maxWords: 30, grammar: 'no restriction; focus on subtle nuance and tone',
+    nameKo: '최상급',   nameEn: 'Fluent',             nameZh: '最高级',
+    descKo: '길이 제한 없이 뉘앙스 중심',       descEn: 'No length limit — nuance focused',   descZh: '不限长度，重在语感' },
 ];
+
+/** 화면(레벨 고르기)에 내려보낼 목록 — 서버가 단일 출처가 되도록 여기서 만듭니다. */
+export function bandCatalog(): Array<{ band: number; lv: string; ko: string; en: string; zh: string; dko: string; den: string; dzh: string }> {
+  return BAND_SPECS.map((s) => ({
+    // Lv 표기는 bandLabel() 하나만 씁니다 — 화면마다 'Lv 9-12'/'Lv 9–12' 로 갈리지 않게.
+    band: s.band, lv: bandLabel(s.band),
+    ko: s.nameKo, en: s.nameEn, zh: s.nameZh,
+    dko: s.descKo, den: s.descEn, dzh: s.descZh,
+  }));
+}
+
+/** 밴드 → 범주 이름(언어별). 강사·관리자 화면과 학생 화면이 같은 이름을 쓰게 합니다. */
+export function bandName(band: any, lang = 'ko'): string {
+  const s = bandSpec(band);
+  return lang === 'en' ? s.nameEn : lang === 'zh' ? s.nameZh : s.nameKo;
+}
+
+/**
+ * 밴드 → "첫걸음 (Lv 1-4)" 처럼 이름과 교재 Lv 을 붙여 놓은 표기.
+ *   숫자만 보면 학생·학부모가 판단할 수 없고, 이름만 보면 강사가 교재와 못 맞춥니다.
+ *   두 화면이 서로 다른 말을 쓰지 않도록 이 함수 하나로 통일합니다.
+ */
+export function bandLvName(band: any, lang = 'ko'): string {
+  return `${bandName(band, lang)} (${bandLabel(band)})`;
+}
 
 /**
  * 밴드 1~8 정규화. 값이 없거나 이상하면 DEFAULT_BAND.

@@ -20,7 +20,10 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const L = await import('file://' + resolve(__dir, '../cloudflare-deploy/src/judgment-level.ts').replace(/\\/g, '/'));
 const { BAND_COUNT, DEFAULT_BAND, BAND_WINDOW, BAND_UP_CORRECT, BAND_DOWN_CORRECT, BAND_SPECS,
         normalizeBand, bandSpec, bandFromTextbookLevel, bandLabel, bandPromptLine,
-        pushResult, nextBand, nudgeBand } = L;
+        bandCatalog, bandName, pushResult, nextBand, nudgeBand } = L;
+import { readFileSync } from 'node:fs';
+const HTML = readFileSync(resolve(__dir, '../cloudflare-deploy/public/judgment.html'), 'utf8');
+const SRVP = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-points.ts'), 'utf8');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
@@ -194,6 +197,45 @@ console.log('\n[ H. 실력에 맞는 밴드를 찾아가 그 자리에 머무는
   // 목표 정답률 검증 — 수렴한 자리에서의 실제 정답률이 85% 근처인가
   const settled = roundResults(ABILITY).reduce((a, b) => a + b, 0) / BAND_WINDOW * 100;
   check('수렴한 자리의 정답률이 목표 85% 근처다(±5%p)', Math.abs(settled - 85) <= 5, `${settled.toFixed(1)}%`);
+}
+
+console.log('\n[ I. 범주 이름 — 화면에는 숫자가 아니라 이름이 보이는가 ]');
+{
+  const cat = bandCatalog();
+  check('목록이 8개다', cat.length === BAND_COUNT, `현재 ${cat.length}개`);
+  check('모든 범주에 한/영/중 이름이 있다',
+    cat.every((c) => c.ko && c.en && c.zh), JSON.stringify(cat.filter((c) => !(c.ko && c.en && c.zh)).map((c) => c.band)));
+  check('모든 범주에 한/영/중 설명이 있다', cat.every((c) => c.dko && c.den && c.dzh));
+  check('이름이 서로 겹치지 않는다(한국어)', new Set(cat.map((c) => c.ko)).size === BAND_COUNT);
+  check('이름이 서로 겹치지 않는다(영어)', new Set(cat.map((c) => c.en)).size === BAND_COUNT);
+  check('목록에 교재 Lv 구간이 함께 온다', cat.every((c) => /^Lv \d+[-–]\d+$/.test(c.lv)), cat[0] && cat[0].lv);
+  // 화면마다 'Lv 9-12' / 'Lv 9–12' 로 갈리면 강사가 다른 레벨로 오해합니다
+  check('Lv 표기가 bandLabel 과 완전히 같다', cat.every((c) => c.lv === bandLabel(c.band)));
+  check('이름과 Lv 을 붙인 표기를 준다', L.bandLvName(3, 'ko') === '초급 (Lv 9–12)', L.bandLvName(3, 'ko'));
+  check('붙인 표기도 언어를 따른다', /Elementary/.test(L.bandLvName(3, 'en')), L.bandLvName(3, 'en'));
+  check('낮은 밴드가 쉬운 이름이다(첫걸음/기초)', /첫걸음|기초/.test(cat[0].ko), cat[0].ko);
+  check('높은 밴드가 어려운 이름이다(고급/최상급)', /고급|최상급/.test(cat[BAND_COUNT - 1].ko), cat[BAND_COUNT - 1].ko);
+  check('bandName 이 언어별로 다른 이름을 준다',
+    bandName(3, 'ko') !== bandName(3, 'en') && bandName(3, 'zh') !== bandName(3, 'en'),
+    `${bandName(3, 'ko')} / ${bandName(3, 'en')} / ${bandName(3, 'zh')}`);
+  check('범위 밖 밴드도 이름을 받는다(빈 화면 방지)', !!bandName(0) && !!bandName(99));
+}
+
+console.log('\n[ J. 학생이 직접 고르는 길이 열려 있는가 ]');
+{
+  check('라우트가 set_band 를 넘긴다', /setBand: Number\(body\.set_band\)/.test(SRVP));
+  check('화면이 set_band 를 보낸다', /body\.set_band = setBand/.test(HTML));
+  check('화면에 레벨 고르기 목록이 있다', /function showBandPicker\(\)/.test(HTML));
+  check('목록을 서버 카탈로그로 그린다(이름 하드코딩 금지)', /BAND_CATALOG\.map/.test(HTML) && !/첫걸음/.test(HTML.replace(/\/\/.*$/gm, '')),
+    '화면에 범주 이름을 직접 적어 두면 서버와 어긋납니다');
+  check('고른 범주가 자동조절·±1 보다 우선한다',
+    /const nudge = picked \? 0 :/.test(readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8')));
+  check('고른 뒤에는 미리 받아둔 문제를 버린다', /if\(focusMisc \|\| nudge \|\| setBand\)/.test(HTML));
+  check('같은 범주를 다시 고르면 서버를 부르지 않는다', /if\(b===CUR_BAND\)/.test(HTML));
+  // 사장님 지시(2026-08-03): Lv 숫자 옆에 범주 이름이 보여야 한다
+  check('목록에서 이름 옆에 교재 Lv 을 괄호로 붙인다', /lvp-lv">\('\+esc\(b\.lv\)\+'\)/.test(HTML));
+  check('문제 화면에도 현재 범주를 이름+Lv 으로 보여준다',
+    /reading_band_name[\s\S]{0,400}reading_band_label/.test(HTML) && /lvChip/.test(HTML));
 }
 
 console.log(`\n${'─'.repeat(60)}`);

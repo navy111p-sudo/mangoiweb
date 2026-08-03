@@ -185,7 +185,7 @@ console.log('\n[ I. 배선 — 정답지가 서버에서 오는가 (클라이언
   check('결과 화면에 이 유형 재연습 버튼이 있다', /id="again" data-misc=/.test(html));
   // 미리 받아둔 문제는 '지정 유형이 아닌 일반 문제'이자 '읽기 밴드를 옮기기 전 난이도'입니다.
   //   둘 중 어느 쪽이든 그대로 쓰면 학생의 요청(이 유형 더 / 너무 어려워요)이 조용히 무시됩니다.
-  check('지정 연습·난이도 조정은 미리 받아둔 문제를 쓰지 않는다', /if\(focusMisc\s*\|\|\s*nudge\)\{[\s\S]{0,160}prefetch = null/.test(html));
+  check('지정 연습·난이도 조정은 미리 받아둔 문제를 쓰지 않는다', /if\(focusMisc\s*\|\|\s*nudge[^)]*\)\{[\s\S]{0,200}prefetch = null/.test(html));
   check('클릭 핸들러가 이벤트 객체를 인자로 넘기지 않는다',
     !/addEventListener\('click', loadScenario\)/.test(html));
 }
