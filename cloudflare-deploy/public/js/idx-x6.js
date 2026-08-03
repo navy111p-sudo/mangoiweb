@@ -25,10 +25,11 @@
     //   헤드폰·잎이 머리보다 넓고 높아서 이미지 전체 폭 기준 배율(2.05)이 다른 가면보다 크다.
     //   임의로 1.7~1.8 대로 낮추면 망고가 얼굴보다 작아진다. 바꾸려면 스크립트를 다시 돌릴 것.
     //   (2026-08-03) 첫 배포는 x1.70(scale 2.49)이었는데 실화면에서 "몸에 비해 얼굴이 크다" 는
-    //   피드백 → x1.40 으로 축소(가로 -18%·면적 -32%). imgYOff 가 -0.04 → +0.03 으로 바뀐 건
-    //   줄어든 몫을 위(머리카락)가 아니라 아래(턱)를 지키는 데 쓰기 위한 하향 보정이다.
-    //   턱이 망고 밑으로 나오면 확 이상해 보이므로 더 줄일 때도 이 보정은 같이 키워야 한다.
-    { id:'rmrmango',ko:'미스터 망고', en:'Mr. Mango', anchor:'face', scale:2.05, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/mrmango.png', imgYOff:0.03 },
+    //   피드백 → x1.40 으로 축소(가로 -18%·면적 -32%).
+    //   imgYOff 는 -0.04 → +0.03(턱 보호용 하향) → **-0.06** 순으로 바뀌었다. 마지막 값이 맞다:
+    //   +0.03 에서는 망고 아래끝이 턱보다 19px 아래까지 내려와 **목을 가렸다**("목이 보이게 해줘").
+    //   -0.06 은 캡처 실측으로 아래끝을 턱선(+1px)에 맞춘 값 — 더 올리면 턱이 밖으로 드러난다.
+    { id:'rmrmango',ko:'미스터 망고', en:'Mr. Mango', anchor:'face', scale:2.05, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/mrmango.png', imgYOff:-0.06 },
     { id:'rtiger',  ko:'호랑이',   en:'Tiger',      anchor:'face', scale:1.77, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/tiger.png' },
     { id:'rfox',    ko:'여우',     en:'Fox',        anchor:'face', scale:1.57, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/fox.png' },
     { id:'rcat',    ko:'고양이',   en:'Cat',        anchor:'face', scale:1.60, yOff:0.00, rotate:true, draw:'image', img:'/face-fx/r/cat.png' },
