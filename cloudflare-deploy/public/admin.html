@@ -2333,7 +2333,10 @@
                 onclick="if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');} if(window.miSdClose)window.miSdClose();">
           <span class="mi-sd-ico" aria-hidden="true">
             <span style="display:inline-flex;width:100%;height:100%;border-radius:50%;overflow:hidden;">
-              <video src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;"></video>
+              <!-- preload="none" (2026-08-04): 이 영상은 «펼쳐야 보이는» 슬라이드 메뉴 안의 장식용 썸네일인데
+                   preload="auto" 라 페이지를 열자마자 750KB 를 받고 있었다. 같은 파일을 쓰는 요소가 3개라
+                   첫 방문에 같은 영상을 여러 번 내려받았다(미디어 요소는 서로 캐시를 나눠 쓰지 못함). -->
+              <video src="/video/ai-ops-greeting.mp4" muted loop playsinline preload="none" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;"></video>
             </span>
           </span>
           <span class="mi-sd-chip" data-ko="AI 상담" data-en="AI Assistant">AI 상담</span>
@@ -2500,6 +2503,13 @@
             trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
             trigger.setAttribute('aria-label', open ? '빠른 메뉴 닫기' : '빠른 메뉴 열기');
           }
+          // 🎬 (2026-08-04) 메뉴 안 장식 영상은 «열릴 때» 비로소 재생한다.
+          //   예전엔 autoplay 라서, 접혀 있어 보이지도 않는 상태에서 750KB 를 미리 받았다.
+          //   (preload="none" 만으로는 못 막는다 — autoplay 가 로딩을 강제한다)
+          try {
+            var sdv = dial.querySelector('video');
+            if (sdv) { if (open) { var p = sdv.play(); if (p && p.catch) p.catch(function(){}); } else sdv.pause(); }
+          } catch(e){}
         }
         window.miSdOpen   = function(){ setOpen(true); };
         window.miSdClose  = function(){ setOpen(false); };
@@ -2929,6 +2939,7 @@
      카드를 합치면 역할별 접근권한(CARD_POLICY)이 무너지므로, 카드는 그대로 두고
      자주 가는 곳만 위로 끌어올린다. 내용은 adm-quickmenu.js 가 채운다. -->
 <div id="quick-menu-bar" style="display:none"></div>
+<script src="/js/adm-lazy.js?v=1" defer></script><!-- 🐢 카드 펼칠 때 그 카드 스크립트만 로딩 (2026-08-04) -->
 <script src="/js/adm-quickmenu.js?v=1" defer></script>
 
 <details class="table-card menu-card" id="card-ai-insights">
@@ -5125,8 +5136,8 @@
         </div>
       </details>
 
-      <script src="/js/adm-r2.js?v=1" defer></script><!-- 분할추출:adm-r2 -->
-      <script src="/js/adm-teacher-util.js?v=1" defer></script><!-- 📊 강사 가동률 (2026-08-04 신규) -->
+      <script type="text/lazy-js" data-src="/js/adm-r2.js?v=1" data-card="card-teacher-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r2 -->
+      <script type="text/lazy-js" data-src="/js/adm-teacher-util.js?v=1" data-card="card-teacher-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 📊 강사 가동률 (2026-08-04 신규) -->
 
             <!-- 🗑 [2026-08-04] ph179 카톡 평가 설문 블록 제거 — 위 정산통계관리와 같은 이유.
            발송·시뮬레이션·결과새로고침 3버튼 모두 담당 JS 가 없어 눌러도 아무 일이 없었다.
@@ -5536,7 +5547,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-s2.js?v=1" defer></script><!-- 분할추출:adm-s2 -->
+<script type="text/lazy-js" data-src="/js/adm-s2.js?v=1" data-card="card-room-invite"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s2 -->
 
 <!-- 🎙 Phase ALR — AI 학습 리포트 (수업 녹음 자동 분석) -->
 <details class="table-card menu-card" id="card-ai-lesson-report">
@@ -7192,7 +7203,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-s3.js?v=1" defer></script><!-- 분할추출:adm-s3 -->
+<script type="text/lazy-js" data-src="/js/adm-s3.js?v=1" data-card="card-alumni"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s3 -->
 
 <!-- ════════════════════════════════════════════════════════════════════
      📔 Phase VD — AI 음성 일기 (관리자 모니터)
@@ -7415,7 +7426,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-s5.js?v=1" defer></script><!-- 분할추출:adm-s5 -->
+<script type="text/lazy-js" data-src="/js/adm-s5.js?v=1" data-card="card-supervisor"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s5 -->
 
 <!-- 📷 Phase QR — QR 출결 자동 체크 -->
 <details class="table-card menu-card" id="card-auto-attendance">
@@ -7821,7 +7832,7 @@ window.__admSettleRun = function(fn){
     </details>
   </div>
 </details>
-<script src="/js/adm-q2.js?v=1" defer></script><!-- 분할추출:adm-q2 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q2.js?v=1" data-card="card-mini-toeic"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎮 Phase BTL — 영어 게임 배틀 P2P 관리 -->
 <details class="table-card menu-card" id="card-battle-mgmt">
@@ -8131,7 +8142,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-r6.js?v=1" defer></script><!-- 분할추출:adm-r6 -->
+<script type="text/lazy-js" data-src="/js/adm-r6.js?v=1" data-card="card-eval-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r6 -->
 
 <!-- 💌 Phase I1~I2 — 신규상담 관리 (평가서 카드 다음) -->
 <details class="table-card menu-card" id="card-inquiry-mgmt">
@@ -8298,8 +8309,8 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-r7.js?v=1" defer></script><!-- 분할추출:adm-r7 -->
-<script src="/js/adm-waitlist.js?v=1" defer></script><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
+<script type="text/lazy-js" data-src="/js/adm-r7.js?v=1" data-card="card-inquiry-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r7 -->
+<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=1" data-card="card-inquiry-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
 
 <!-- 💰 Phase F2 — 미납 알림 JS 모듈 -->
 <script src="/js/adm-r8.js?v=1" defer></script><!-- 분할추출:adm-r8 -->
@@ -8328,7 +8339,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-bugreports.js?v=2" defer></script><!-- 분할추출:adm-bugreports -->
+<script type="text/lazy-js" data-src="/js/adm-bugreports.js?v=2" data-card="card-bug-reports"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-bugreports -->
 
 <!-- 🔔 Phase WP1~WP2 — Web Push 푸시 알림 관리 -->
 <details class="table-card menu-card" id="card-webpush-mgmt">
@@ -8442,7 +8453,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-r9.js?v=1" defer></script><!-- 분할추출:adm-r9 -->
+<script type="text/lazy-js" data-src="/js/adm-r9.js?v=1" data-card="card-webpush-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r9 -->
 
 <!-- 📲 Phase K2~K4 — 카카오 알림톡 관리 (포인트 카드 다음) -->
 <details class="table-card menu-card" id="card-kakao-mgmt">
@@ -8572,7 +8583,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script src="/js/adm-s6.js?v=1" defer></script><!-- 분할추출:adm-s6 -->
+<script type="text/lazy-js" data-src="/js/adm-s6.js?v=1" data-card="card-kakao-mgmt"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s6 -->
 
 <!-- 📢 공지 스튜디오 — 포스터 제작(①) + 팝업 게시(②)를 한 카드·2탭으로 통합. (2026-07-06 병합)
      · 컨테이너 = id card-poster-maker (기존 참조 유지, ①만들기 탭)
@@ -8782,7 +8793,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script src="/js/adm-q3.js?v=2" defer></script><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q3.js?v=2" data-card="card-payroll-auto"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
@@ -8808,7 +8819,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="srq-table" style="overflow-x:auto"></div>
   </div>
 </details>
-<script src="/js/adm-r11.js?v=2" defer></script><!-- 분할추출:adm-r11 -->
+<script type="text/lazy-js" data-src="/js/adm-r11.js?v=2" data-card="card-schedule-requests"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r11 -->
 
 <!-- 📜 수업 변경 이력 (연기·삭제·종료) — 누가·언제 했는지 감사 로그 -->
 <details class="table-card menu-card" id="card-class-audit">
@@ -11516,7 +11527,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script src="/js/adm-q4.js?v=1" defer></script><!-- 분할추출:adm-q4 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q4.js?v=1" data-card="card-review-quiz"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q4 (원복: 이 위치에 인라인) -->
 
 <!-- 📣 Phase 5: 알림 큐 (운영 이벤트 자동 적재 + 상태 모니터링) -->
 <details class="table-card menu-card" id="card-notifications">
@@ -11830,97 +11841,83 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <style>
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   🎯 메뉴 hover 확대 효과 (상위/하위 모두)
-   사용자 요청: 마우스 가져가면 커지고 빠지면 원복
+   🎯 메뉴 hover — 「움직이지 않는」 정적 강조 (2026-08-04 변경)
+   ⛔ 되살리지 말 것: 예전엔 hover 시 scale/translate 로 커졌으나
+      "정신이 없다"는 사장님 지시로 제거함. 색 강조만 남김.
+      → transform 을 다시 넣지 마세요. 크기·위치는 고정입니다.
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-/* 상위 메뉴 카드 (.menu-card = details) */
+/* 상위 메뉴 카드 (.menu-card = details) — 크기 변화 없음, 테두리 강조만 */
 .menu-card {
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  transform-origin: center top;
-  will-change: transform;
+  transition: box-shadow 0.15s ease !important;
+  transform: none !important;
+  will-change: auto;
 }
 .menu-card:hover {
-  transform: scale(1.015) translateY(-2px);
-  box-shadow:
-    0 14px 32px -10px rgba(245, 158, 11, 0.25),
-    0 6px 14px -4px rgba(120, 53, 15, 0.10),
-    0 0 0 1px rgba(245, 158, 11, 0.18) !important;
-  z-index: 5;
+  transform: none !important;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.22) !important;
 }
-/* 펼쳐진 카드는 약간만 확대 (레이아웃 깨짐 방지) */
 .menu-card[open]:hover {
-  transform: scale(1.005) translateY(-1px);
+  transform: none !important;
 }
 
-/* 카드 헤더 (summary) hover — 살구색 강조 */
+/* 카드 헤더 (summary) hover — 살구색 배경만, 들썩임(padding 이동) 없음 */
 .menu-card summary {
-  transition: background 0.18s ease, padding 0.18s ease !important;
+  transition: background 0.15s ease !important;
   border-radius: 10px;
 }
 .menu-card summary:hover {
   background: linear-gradient(135deg, rgba(254, 243, 199, 0.7), rgba(254, 215, 170, 0.4)) !important;
-  padding-left: 14px !important;
 }
 
-/* 사이드바 a (상위·하위 메뉴 모두) — 기존 translateX 강화 */
-.admin-sidebar a {
-  transform-origin: left center;
-}
+/* 사이드바 a — 원래 디자인(4px 슬라이드)만 유지, 확대는 제거 */
 .admin-sidebar a:hover {
-  transform: translateX(6px) scale(1.04) !important;
-  z-index: 5;
+  transform: translateX(4px) !important;
 }
 
-/* 카드 내부 sub-item 들 — 클릭 가능한 모든 요소에 확대 적용 */
+/* 카드 내부 sub-item 들 — 확대 없이 밝기만 */
 .menu-card .menu-body button,
 .menu-card .menu-body a,
 .menu-card .menu-body label.sub-item,
 .menu-card .menu-body .sub-item,
 .menu-card .menu-body .clickable {
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-              filter 0.18s ease !important;
-  transform-origin: center;
+  transition: filter 0.15s ease, box-shadow 0.15s ease !important;
 }
 .menu-card .menu-body button:hover,
 .menu-card .menu-body a:hover,
 .menu-card .menu-body label.sub-item:hover,
 .menu-card .menu-body .sub-item:hover,
 .menu-card .menu-body .clickable:hover {
-  transform: translateY(-1px) scale(1.04) !important;
+  transform: none !important;
   filter: brightness(1.06);
-  box-shadow: 0 4px 12px -2px rgba(120, 53, 15, 0.18) !important;
-  z-index: 5;
+  box-shadow: 0 2px 8px -2px rgba(120, 53, 15, 0.14) !important;
 }
 
-/* 테이블 row hover — 살짝만 확대 (가독성 우선) */
+/* 테이블 row hover — 배경색만 */
 .menu-card .menu-body table tbody tr {
-  transition: background 0.15s ease, transform 0.15s ease !important;
+  transition: background 0.15s ease !important;
 }
 .menu-card .menu-body table tbody tr:hover {
   background: rgba(254, 243, 199, 0.5) !important;
-  transform: scale(1.002);
+  transform: none !important;
 }
 
-/* 빠른진입 칩 등 외부 요소도 동일 hover */
+/* 빠른진입 칩 등 — 확대 없이 그림자만 */
 .quick-entry-chip,
 .btn-chip,
 button.chip,
 .hp-chip {
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: box-shadow 0.15s ease !important;
 }
 .quick-entry-chip:hover,
 .btn-chip:hover,
 button.chip:hover,
 .hp-chip:hover {
-  transform: translateY(-2px) scale(1.06) !important;
-  box-shadow: 0 6px 14px -4px rgba(245, 158, 11, 0.4) !important;
+  transform: none !important;
+  box-shadow: 0 2px 8px -3px rgba(245, 158, 11, 0.45) !important;
 }
 
-/* prefers-reduced-motion: 사용자가 모션 감소 설정한 경우 비활성 */
+/* prefers-reduced-motion: 사용자가 모션 감소 설정한 경우 전환도 제거 */
 @media (prefers-reduced-motion: reduce) {
   .menu-card, .menu-card:hover,
   .admin-sidebar a, .admin-sidebar a:hover,
@@ -19711,7 +19708,9 @@ button.chip:hover,
       <button id="mi-asst-vid-close" class="miv-btn" type="button" title="닫기" aria-label="닫기">❌</button>
     </span>
   </div>
-  <video id="mi-asst-vid" src="/video/ai-ops-greeting.mp4" playsinline preload="auto"></video>
+  <!-- preload="none" (2026-08-04): 이 영상은 «AI 운영비서» 팝업을 열어야 재생된다.
+       페이지 로드 때 미리 받을 이유가 없어 750KB 를 그대로 아낀다. -->
+  <video id="mi-asst-vid" src="/video/ai-ops-greeting.mp4" playsinline preload="none"></video>
 </div>
 <script>
 (function(){
@@ -20765,7 +20764,7 @@ button.chip:hover,
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=4" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
-<script src="/js/adm-welcome.js?v=2" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-welcome.js?v=3" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
