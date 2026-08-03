@@ -175,7 +175,19 @@ export async function handleTeacherApi(
       else if (now <= close_at_ts) status = 'live';
       else status = 'done';
 
+      // 🏷️ 이 행이 '진짜 망고아이 수업'인지 판정한다.
+      //   실측(2026-08-03) 활성 662행 중 진짜 수업은 4행뿐이고 나머지는 학생이 안 붙어 있다:
+      //     · user_id='lms'       (518행, notes='LMS 수업중', source=lms_import_w26)
+      //         → 강사가 **옛 LMS 에서 수업 중인 시간**을 표시한 점유 슬롯. 망고아이 수업이 아니다.
+      //     · user_id='type_seed' (140행, source=type_seed_20260623) → 6월 시연용 시드 데이터.
+      //   이 행들에는 학생이 없어서 학생 화면(/api/class/sessions/today)에도 절대 뜨지 않는다.
+      //   그런데 강사 화면에서 [수업 입장] 을 주면 **아무도 없는 방**에 들어가게 된다.
+      //   → 지우거나 숨기지 않고(운영 판단 영역), 정체를 밝히고 입장 버튼만 뺀다.
+      const _uid = String(s.user_id || '').toLowerCase();
+      const kind = _uid === 'lms' ? 'lms' : (_uid === 'type_seed' ? 'sample' : 'class');
+
       classes.push({
+        kind,
         schedule_id: s.id,
         // 🔑 결정론적 방 번호 — api-mango.ts 의 sessions/today 와 **반드시 같은 식**.
         //    다르면 강사와 학생이 서로 다른 방에 들어가 수업이 성립하지 않는다.

@@ -103,6 +103,11 @@ body{
 .p-live{background:#0b7a3d;color:#fff}
 .p-done{background:#e7ebef;color:#6b7783}
 .p-soon{background:#fff2cc;color:#7a5c00}
+.p-info{background:#eef1f5;color:#6b7783;font-weight:600}
+/* 망고아이 수업이 아닌 줄 — 눈에 띄되 '내 수업'과 헷갈리지 않게 한 단계 죽인다 */
+.cls-info{opacity:.72}
+.cls-info .cls-time,.cls-info .cls-name{color:#6b7783;font-weight:600}
+.cls-info .cls-time{font-size:17px}
 
 /* ── 대시보드: 차트 없음. 숫자만. ── */
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -487,8 +492,10 @@ body{
     document.getElementById('c-dash').hidden = false;
     applyLang();
     // applyLang 이 data-en 을 되쓰므로, 동적으로 채운 값은 그 뒤에 다시 넣는다.
-    document.getElementById('cls-count').textContent =
-      (d.classes || []).length ? '(' + d.classes.length + ')' : '';
+    // 🔢 개수는 **진짜 망고아이 수업만** 센다. LMS 점유 슬롯·시드까지 세면
+    //    강사가 "오늘 5개 있네" 하고 잘못 읽는다(실제 입장 가능한 건 0개일 수 있다).
+    var _real = (d.classes || []).filter(function(c){ return !c.kind || c.kind === 'class'; }).length;
+    document.getElementById('cls-count').textContent = _real ? '(' + _real + ')' : '';
   }
 
   var lastSig = null;   // 마지막으로 그린 상태의 지문 (불필요한 재그리기 차단)
@@ -504,6 +511,15 @@ body{
       return;
     }
     var t = now(), h = '';
+    // 망고아이 수업이 하나도 없고 안내용 줄만 있는 경우 — 그냥 목록만 보여주면
+    // 강사는 '오늘 수업 5개'로 착각한다. 위에 한 줄로 못박아 준다.
+    var realCount = 0;
+    for (var q=0;q<list.length;q++){ if (!list[q].kind || list[q].kind === 'class') realCount++; }
+    if (!realCount){
+      h += '<div class="empty">' +
+        esc(T('No Mangoi classes today. The rows below are for information only.',
+              '오늘 망고아이 수업은 없습니다. 아래는 참고용 표시입니다.')) + '</div>';
+    }
 
     // ⚡ 60초마다 도는 tick 이 매번 innerHTML 을 통째로 갈아엎으면, 바뀐 게 없어도
     //   저사양 폰에서 DOM 재생성 + 리플로우가 일어나 화면이 한 번씩 '움찔'한다.
@@ -517,7 +533,7 @@ body{
              : ('w' + Math.max(1, Math.round((sc.open_at_ts - t) / 60000)));
       // 상태뿐 아니라 '표시되는 내용'도 지문에 넣는다 — 캐시를 그린 뒤 서버 응답에서
       // 학생·교재가 바뀌었는데 상태만 같아서 옛 내용이 남는 일을 막는다.
-      sig += sc.schedule_id + ':' + st + ':' + sc.start_time + ':' + stuName(sc)
+      sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + sc.start_time + ':' + stuName(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '') + ',';
     }
     if (sig === lastSig) return;
@@ -535,6 +551,31 @@ body{
       if (c.level)    meta.push(esc(c.level));
       if (c.textbook) meta.push(esc(c.textbook));
       meta.push(c.duration_min + T(' min', '분'));
+
+      // 🏷️ 망고아이 수업이 아닌 행(LMS 점유 슬롯 · 시연용 시드)은 '일정 표시'로만 그린다.
+      //   학생이 붙어 있지 않아 방에 아무도 없다 → 입장·평가·연기 버튼을 주면 안 된다.
+      //   그렇다고 감추지도 않는다: LMS 슬롯은 '그 시간에 이미 수업이 있다'는 실제 정보다.
+      if (c.kind && c.kind !== 'class'){
+        var isLms = (c.kind === 'lms');
+        h += '<div class="cls cls-info">'
+          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-main">'
+          +     '<div class="cls-name">'
+          +       (isLms ? esc(T('Teaching on the old LMS', '옛 LMS 수업 중'))
+                         : esc(T('Sample data', '샘플 데이터')))
+          +       ' <span class="pill p-info">' + esc(T('Not a Mangoi class', '망고아이 수업 아님')) + '</span>'
+          +     '</div>'
+          +     '<div class="cls-meta">'
+          +       (isLms ? esc(T('This time slot is already taken. No Mangoi room to join.',
+                                 '이 시간은 이미 차 있습니다. 망고아이에서 입장할 방은 없습니다.'))
+                         : esc(T('Left over from a June demo. Ignore it.',
+                                 '6월 시연용으로 만들어진 데이터입니다. 무시하세요.')))
+          +       ' &middot; ' + c.duration_min + T(' min', '분')
+          +     '</div>'
+          +   '</div>'
+          + '</div>';
+        continue;
+      }
 
       h += '<div class="cls">'
         +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
@@ -957,6 +998,6 @@ body{
   load();
 })();
 </script>
-<!-- BUILD:20260803171340 -->
+<!-- BUILD:20260803173412 -->
 </body>
 </html>
