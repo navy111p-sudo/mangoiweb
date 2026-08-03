@@ -1709,7 +1709,7 @@ const HUB_GAMES = [
     src:function(){ return '/student-game-space-monster.html'; } },
   // 🥚 육성형 — 다른 게임은 전부 세션형(들어가서 이기고 나온다)이라, 재방문 동기를 만드는 유일한 게임이다.
   //    EXP 는 서버 game_stats.coins_total 이 단일 권위 → 기기를 바꿔도 이어진다. 자체 언어전환 → 속도메뉴 숨김.
-  { mode:'avatar',  kind:'iframe', ico:'🥚', ttl:'아바타 키우기 (Avatar Quest)', dsc:'말할수록 아바타가 자라요! 판다·여우·드래곤 중 하나를 골라 5단계까지 진화시키고 주간 보스도 잡아요', bg:'#6d28d9', badge:'육성·NEW', ownSpeed:true,
+  { mode:'avatar',  kind:'iframe', ico:'🥚', ttl:'아바타 키우기 (Avatar Quest)', dsc:'말할수록 내 아바타가 자라요! 판다·여우·드래곤·강아지 중 하나를 골라 5단계까지 진화시켜요. 진화할 때마다 영화 같은 장면이!', bg:'#6d28d9', badge:'육성·NEW', ownSpeed:true,
     src:function(){ return '/student-game-avatar.html?v=1'; } },
   { mode:'pizza',   kind:'iframe', ico:'🍕', ttl:'문법 피자 마스터 (Grammar Pizza)', dsc:'실사 재료를 문장 어순대로 도우에 올려 피자 완성! 문법 성분 배지 + 듣기·말하기 3회', bg:'#c0632a', badge:'문법·NEW',
     src:function(){ return '/student-game-grammar-pizza.html?v=16'; } },
@@ -1769,7 +1769,17 @@ function _orderedGames(){
   var byMode = {}; HUB_GAMES.forEach(function(g){ byMode[g.mode] = g; });
   var out = [], seen = {};
   saved.forEach(function(m){ if(byMode[m] && !seen[m]){ out.push(byMode[m]); seen[m] = 1; } });
-  HUB_GAMES.forEach(function(g){ if(!seen[g.mode]) out.push(g); });   // 신규 게임은 뒤에
+
+  // 🆕 학생 순서에 없는 게임 = 그 학생이 아직 본 적 없는 신규 게임.
+  //    예전에는 무조건 맨 뒤에 붙였는데, 그러면 **순서를 한 번이라도 바꿔 본 학생**
+  //    (=가장 열심히 쓰는 학생)에게 새 게임이 영영 맨 끝에 묻힌다. 실제로 그렇게 묻혔다.
+  //    학생이 정한 순서는 "그 학생이 알고 있던 게임들" 사이의 순서다.
+  //    한 번도 본 적 없는 게임까지 뒤로 밀라는 뜻은 아니므로, 기본 위치에 끼워 넣는다.
+  HUB_GAMES.forEach(function(g, defIdx){
+    if (seen[g.mode]) return;
+    out.splice(Math.min(defIdx, out.length), 0, g);
+    seen[g.mode] = 1;
+  });
   return out;
 }
 

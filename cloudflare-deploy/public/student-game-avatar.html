@@ -152,6 +152,16 @@
     background:rgba(255,255,255,.05);border:2px dashed rgba(255,255,255,.2);color:#7c6d98}
   .slot.done{border-style:solid;border-color:#4ade80;background:rgba(74,222,128,.15);color:#bbf7d0}
   .slot.next{border-style:solid;border-color:#ffc46b;background:rgba(255,196,107,.14);color:#ffe1b0}
+  /* 눌러서 듣는 문장 조각 — 중국어는 한자 한 자, 영어는 낱말 하나 */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:2px 0}
+  .chip{padding:8px 14px;border-radius:12px;cursor:pointer;
+    font-size:22px;font-weight:900;letter-spacing:.5px;color:#ffe1b0;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2)}
+  .chip:active{transform:scale(.93)}
+  .chip.on{background:rgba(255,196,107,.26);border-color:#ffc46b;color:#fff;
+    box-shadow:0 0 0 3px rgba(255,196,107,.18)}
+  .chipHint{text-align:center;font-size:11px;font-weight:700;color:#a99bc4;margin-top:-2px}
+
   .tiles{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
   .tile{padding:10px 15px;border-radius:11px;cursor:pointer;font-size:16px;font-weight:900;
     background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
@@ -1444,13 +1454,58 @@ function roundListen(){
   });
 }
 
+/**
+ * 문장을 눌러서 들을 수 있는 조각으로 쪼갠다.
+ *
+ * 왜 필요한가:
+ *   중국어 문장(我喜欢读书)은 읽는 법을 모르면 통째로 소리 내어 말할 수가 없다.
+ *   영어도 긴 문장은 어디서 막히는지 학생 스스로 짚어보게 해야 한다.
+ *   → 조각 하나를 누르면 그 조각만 원어민 발음으로 들려준다.
+ *
+ * 쪼개는 단위
+ *   중국어 : 한자 한 글자 (한 글자가 한 음절이라 발음 연습 단위로 맞다)
+ *            ⚠️ '喜欢' 처럼 두 글자가 한 낱말인 경우도 글자별로 나뉜다.
+ *               낱말 단위로 자르려면 중국어 형태소 분석기가 필요한데,
+ *               그걸 붙이는 비용보다 "글자마다 소리를 들려주는" 쪽이 실익이 크다.
+ *   그 외   : 공백 기준 낱말
+ */
+function splitSpeakable(text){
+  var t = String(text || '');
+  if (LANG === 'zh'){
+    return t.split('').filter(function(c){ return /[㐀-鿿豈-﫿]/.test(c); });
+  }
+  return t.split(/\s+/).filter(Boolean);
+}
+
+function wordChips(text){
+  var units = splitSpeakable(text);
+  if (units.length < 2) return '<div class="qEn">' + esc(text) + '</div>';   // 쪼갤 게 없으면 그대로
+  return '<div class="chips" data-full="' + esc(text) + '">' +
+    units.map(function(u){ return '<span class="chip">' + esc(u) + '</span>'; }).join('') +
+    '</div><div class="chipHint">글자를 누르면 그 소리만 들려줘요 · Tap a word to hear just that part</div>';
+}
+
+/** wordChips 로 만든 조각에 소리를 물린다. 화면을 새로 그릴 때마다 호출해야 한다. */
+function wireChips(root){
+  var box = (root || missBody).querySelector('.chips');
+  if (!box) return;
+  Array.prototype.forEach.call(box.querySelectorAll('.chip'), function(el){
+    el.onclick = function(){
+      Array.prototype.forEach.call(box.querySelectorAll('.chip.on'), function(e){ e.classList.remove('on'); });
+      el.classList.add('on');
+      setTimeout(function(){ el.classList.remove('on'); }, 900);
+      try { if (window.MangoiTTS){ MangoiTTS.setLang(LANG); MangoiTTS.speak(el.textContent); } } catch(e){}
+    };
+  });
+}
+
 /* ── 주문 외치기(말하기) ── */
 function roundSpeak(){
   var pool = BANK.sentences.length ? BANK.sentences : FALLBACK[LANG].sentences;
   var s = pick(pool);
   var micOk = !!(window.MangoiVoice && MangoiVoice.supported());
   missBody.innerHTML = head('소리 내어 말해요 — 목소리가 곧 주문!', 'Say it out loud — your voice is the spell!') +
-    '<div class="qEn">' + esc(s.en) + '</div>' +
+    wordChips(s.en) +
     (s.ko ? '<div class="qKo" style="font-size:15px;color:#b6a6cf">' + esc(s.ko) + '</div>' : '') +
     (micOk
       ? '<button class="micBtn" id="micBtn"><div class="ic">🎤</div>눌러서 말하기<small>Tap &amp; speak</small></button>' +
@@ -1458,11 +1513,12 @@ function roundSpeak(){
       : '<div class="note warn" style="max-width:460px;margin:0 auto">이 브라우저에서는 마이크를 쓸 수 없어요. 대신 소리 내어 읽고 아래 버튼을 눌러요.<br><span style="color:#c9a882">Mic is unavailable here — read it aloud, then tap the button.</span></div>' +
         '<button class="micBtn" id="micBtn" style="background:linear-gradient(180deg,#a78bfa,#7c3aed)"><div class="ic">✨</div>읽었어요<small>I read it</small></button>') +
     '<div class="fb" id="fb"></div>';
-  barBtns('<button id="btnHear">들어보기 · Hear it</button><button id="btnBack">그만하기 · Quit</button>');
+  barBtns('<button id="btnHear">문장 전체 듣기 · Hear all</button><button id="btnBack">그만하기 · Quit</button>');
   document.getElementById('btnHear').onclick = function(){
     try { if (window.MangoiTTS){ MangoiTTS.setLang(LANG); MangoiTTS.speak(s.en); } } catch(e){}
   };
   document.getElementById('btnBack').onclick = quitMission;
+  wireChips();   // 조각마다 소리 물리기
 
   var btn = document.getElementById('micBtn'), stEl = document.getElementById('micState');
   if (!micOk){ btn.onclick = function(){ btn.disabled = true; judge(true, s.en); }; return; }
