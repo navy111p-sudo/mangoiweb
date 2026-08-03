@@ -340,10 +340,20 @@ function getUid(){
         if (v && (v.user_id || v.uid)) return String(v.user_id || v.uid); } catch(e){}
   return '';
 }
+/**
+ * 🔐 주간 랭킹에 표시될 이름.
+ * game_stats.nickname 은 /api/games/coins 를 부를 때마다 덮어써지고,
+ * /api/games/leaderboard 로 **다른 학생에게 공개**된다.
+ *
+ * 그래서 여기에 실명(mangoi_logged_user.name)을 넣으면 안 된다. 두 가지가 동시에 깨진다.
+ *   ① 학생 실명이 공개 랭킹에 노출된다.
+ *   ② 학생이 허브에서 직접 정해둔 닉네임(mangoi_nick)이 실명으로 덮어써진다.
+ * 허브(student-games.html)가 쓰는 것과 같은 키만 쓴다.
+ * 아직 정한 닉네임이 없으면 빈 문자열 — 서버가 빈 닉네임은 랭킹에서 제외하므로,
+ * 학생이 스스로 정하기 전까지 아무 이름도 공개되지 않는다.
+ */
 function getNick(){
-  try { var u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null');
-        if (u && (u.name || u.student_name)) return String(u.name || u.student_name).slice(0,24); } catch(e){}
-  return '';
+  try { return String(localStorage.getItem('mangoi_nick') || '').slice(0, 24); } catch(e){ return ''; }
 }
 var UID = getUid();
 var IS_GUEST = !UID;
