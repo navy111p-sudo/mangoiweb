@@ -26,6 +26,7 @@ import {
   DEFAULT_BAND, normalizeBand, bandFromTextbookLevel, bandLabel, bandPromptLine,
   bandCatalog, bandName, pushResult, nextBand, nudgeBand, type BandTransition,
   DEFAULT_BAND_MODE, normalizeBandMode, shouldAutoAdjust, type BandMode,
+  situationFitsBand, countWords,
 } from './judgment-level';
 export type { GrowthAxes };
 export { normalizeOptionScores, normalizeDifficulty } from './judgment-scoring';
@@ -798,6 +799,13 @@ Return STRICT JSON only:
           const situation = String(j.situation || '').slice(0, 500);
           if (seenSits.has(normSituation(situation))) {
             console.warn('[judgment] scenario duplicate of recent, retrying (attempt ' + (attempt + 1) + ')');
+            continue;
+          }
+          // 📏 읽기 밴드가 실제로 지켜졌는지 세어 봅니다 — LLM 은 단어 수 지시를 자주 어깁니다
+          //    (라이브 실측: 고급 16~22단어 지정에 14단어). 앞 두 번은 다시 뽑고,
+          //    그 뒤에는 받아들입니다 — 길이가 조금 어긋나는 것보다 문제를 못 주는 것이 더 나쁩니다.
+          if (attempt < 2 && !situationFitsBand(situation, bandState.band)) {
+            console.warn('[judgment] situation length off band ' + bandState.band + ' (' + countWords(situation) + ' words), retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }
           const opts4 = j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4);

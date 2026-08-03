@@ -202,6 +202,26 @@ export function bandPromptLine(band: any): string {
     + `NOT from long sentences or hard words. Never make the best option obvious just because the words are simple.`;
 }
 
+// ── 📏 생성 결과 검사 — 지시만으로는 안 지켜집니다 ─────────────────────────
+//   라이브 실측(2026-08-03): 고급(16~22단어)으로 지정했는데 14단어가 왔습니다.
+//   프롬프트에 하한을 적어도 LLM 은 단어 수를 자주 어기므로, 받은 결과를 세어 보고
+//   어긋나면 다시 뽑습니다. 다만 완벽을 요구하면 문제를 아예 못 주게 되므로 여유를 둡니다.
+export const BAND_LEN_UNDER = 0.75;   // 하한의 75% 까지는 허용
+export const BAND_LEN_OVER = 1.3;     // 상한의 130% 까지는 허용
+
+/** 영어 문장의 단어 수 — 구두점만 있는 토큰은 세지 않습니다. */
+export function countWords(s: any): number {
+  return String(s || '').trim().split(/\s+/).filter((w) => /[a-zA-Z0-9]/.test(w)).length;
+}
+
+/** 상황문이 그 범주의 길이에 맞는가(여유 포함). */
+export function situationFitsBand(text: any, band: any): boolean {
+  const s = bandSpec(band);
+  const n = countWords(text);
+  if (!n) return false;
+  return n >= Math.round(s.minWords * BAND_LEN_UNDER) && n <= Math.round(s.maxWords * BAND_LEN_OVER);
+}
+
 /** 최근 결과 창에 한 건 추가(오래된 것부터 밀어냄). 1=정답, 0=오답. */
 export function pushResult(hist: any, isCorrect: any): number[] {
   const arr = Array.isArray(hist) ? hist.map((v: any) => (v ? 1 : 0)) : [];

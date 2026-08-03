@@ -255,6 +255,28 @@ console.log('\n[ J. 학생이 직접 고르는 길이 열려 있는가 ]');
   check('칩이 어느 모드인지 아이콘으로 알려준다', /CUR_MODE==='manual' \? '🖐️ ' : '🤖 '/.test(HTML));
 }
 
+console.log('\n[ J-2. 지시를 어긴 결과를 서버가 걸러내는가 ]');
+{
+  const { countWords, situationFitsBand } = L;
+  check('단어 수를 센다', countWords('I am in the library now.') === 6, String(countWords('I am in the library now.')));
+  check('구두점만 있는 토큰은 안 센다', countWords('Hello , world !') === 2, String(countWords('Hello , world !')));
+  check('빈 문장은 0', countWords('') === 0 && countWords(null) === 0);
+  // 라이브 실측 회귀: 고급(밴드7, 16~22단어) 지정에 14단어가 왔다 → 여유(75%)로도 12 이상이면 통과,
+  //   그보다 확실히 짧은 것은 걸러져야 한다
+  const short = 'I am in the library.';                                   // 5단어
+  check('고급 범주에 5단어짜리는 걸러진다', situationFitsBand(short, 7) === false);
+  check('첫걸음 범주에는 5단어가 통과한다', situationFitsBand(short, 1) === true);
+  const long = Array.from({ length: 40 }, () => 'word').join(' ');
+  check('첫걸음 범주에 40단어짜리는 걸러진다', situationFitsBand(long, 1) === false);
+  check('빈 상황문은 언제나 걸러진다', situationFitsBand('', 3) === false);
+  // 여유가 없으면 재시도만 반복하다 문제를 못 줍니다
+  check('여유값이 하한 아래·상한 위로 열려 있다', L.BAND_LEN_UNDER < 1 && L.BAND_LEN_OVER > 1,
+    `under=${L.BAND_LEN_UNDER} over=${L.BAND_LEN_OVER}`);
+  const SRVJ2 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
+  check('생성기가 길이를 검사해 다시 뽑는다', /if \(attempt < 2 && !situationFitsBand\(situation, bandState\.band\)\)/.test(SRVJ2));
+  check('끝까지 안 맞으면 그래도 문제를 준다(재시도는 앞 2회만)', /attempt < 2 && !situationFitsBand/.test(SRVJ2));
+}
+
 console.log('\n[ K. 두 가지 모드 — AI가 맞춤 / 내가 고름 ]');
 {
   const { normalizeBandMode, shouldAutoAdjust, DEFAULT_BAND_MODE } = L;
