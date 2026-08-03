@@ -550,8 +550,8 @@ function touchActivity(){ lsSet(LS.lastAct, Date.now()); ST.energy = 100; }
  * ------------------------------------------------------------------ */
 var AV_IMG = {};
 function getAvatarImg(spKey, tier){
-  if (tier < 1) return null;
-  var key = spKey + '-' + tier;
+  if (tier < 0) return null;
+  var key = spKey + '-' + tier;   // tier 0 = 알. 학생이 가장 먼저 보는 화면이라 여기도 원화를 쓴다
   var e = AV_IMG[key];
   if (e === undefined){
     e = AV_IMG[key] = { img: new Image(), ok: false, dead: false };
@@ -630,10 +630,16 @@ function drawAvatar(ctx, cx, cy, s, spKey, tier, mood, t){
     ell(ctx, cx, y, R * (1.6 + tier * 0.18), R * (1.5 + tier * 0.16)); ctx.fill();
   }
 
-  if (tier === 0){ drawEgg(ctx, cx, y, R, sp, t); ctx.restore(); return; }
-
   // 원화가 준비됐으면 그걸로 — 컷신에 나온 그 캐릭터와 같은 모습이어야 한다
   var art = getAvatarImg(spKey, tier);
+
+  if (tier === 0){
+    // 알도 원화가 있으면 원화로. 없으면 기존 캔버스 알.
+    if (art) drawAvatarImage(ctx, cx, y, R, art, mood === 'cheer' ? 'cheer' : 'idle', t);
+    else     drawEgg(ctx, cx, y, R, sp, t);
+    ctx.restore(); return;
+  }
+
   if (art)                     drawAvatarImage(ctx, cx, y, R, art, mood, t);
   else if (spKey === 'panda')  drawPanda(ctx, cx, y, R, sp, tier, mood, t);
   else if (spKey === 'fox')    drawFox(ctx, cx, y, R, sp, tier, mood, t);
