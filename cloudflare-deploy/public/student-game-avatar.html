@@ -210,6 +210,26 @@
     #stageWrap{height:38%;min-height:180px}
     .qKo{font-size:19px} .qEn{font-size:17px}
   }
+
+  /* 📱 폰 가로 모드 — 아이들은 게임을 눕혀서 한다.
+     세로처럼 위아래로 쌓으면 아바타가 화면의 절반 이상을 먹고
+     정작 미션 카드가 화면 밖으로 밀려, 학생은 165px 짜리 패널을 스크롤해야 한다.
+     가로에서는 좌우로 나눠 넓이를 쓴다. */
+  @media (orientation:landscape) and (max-height:560px){
+    #scHome{flex-direction:row}
+    #stageWrap{flex:0 0 38%;height:auto;min-height:0}
+    .panel{flex:1;border-top:none;border-left:1px solid rgba(255,255,255,.10);padding-top:12px}
+    #moodBubble{font-size:12px;padding:6px 11px;max-width:94%}
+    #moodBubble span{font-size:10px}
+    .missTitle{margin:9px 0 6px}
+    .miss{padding:9px 11px}
+    .miss .ic{font-size:17px}
+    /* 미션·레이드 화면도 위아래 여백을 줄여 본문이 잘리지 않게 */
+    #missBody{padding:10px 14px 14px;gap:10px}
+    .micBtn{width:96px;height:96px}
+    .qKo{font-size:18px} .qEn{font-size:17px}
+    .opt{padding:10px 14px}
+  }
 </style>
 </head>
 <body>
