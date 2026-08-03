@@ -84,6 +84,17 @@ console.log('\n[ C. 밴드가 올라갈수록 문장이 길어지는가 ]');
     if (BAND_SPECS[i].maxWords <= BAND_SPECS[i - 1].maxWords) { mono = false; detail = `밴드${i + 1}=${BAND_SPECS[i].maxWords} ≤ 밴드${i}=${BAND_SPECS[i - 1].maxWords}`; }
   }
   check('단어 수 상한이 밴드마다 실제로 늘어난다', mono, detail);
+  // ★ 하한이 없으면 위쪽 범주가 무력해집니다 — 라이브에서 상한 18인 중고급에 7단어가 나왔던 회귀
+  let monoMin = true, dmin = '';
+  for (let i = 1; i < BAND_SPECS.length; i++) {
+    if (BAND_SPECS[i].minWords <= BAND_SPECS[i - 1].minWords) { monoMin = false; dmin = `밴드${i + 1}=${BAND_SPECS[i].minWords} ≤ 밴드${i}=${BAND_SPECS[i - 1].minWords}`; }
+  }
+  check('모든 밴드에 단어 수 하한이 있다', BAND_SPECS.every((s) => Number.isFinite(s.minWords) && s.minWords >= 1));
+  check('하한도 밴드마다 실제로 늘어난다', monoMin, dmin);
+  check('하한이 상한보다 작다', BAND_SPECS.every((s) => s.minWords < s.maxWords));
+  check('위쪽 밴드의 하한이 아래쪽 밴드 상한보다 높다(구간이 실제로 갈린다)',
+    BAND_SPECS[BAND_COUNT - 1].minWords > BAND_SPECS[0].maxWords,
+    `최상 하한 ${BAND_SPECS[BAND_COUNT - 1].minWords} vs 최하 상한 ${BAND_SPECS[0].maxWords}`);
   check('최저 밴드가 충분히 짧다(≤6단어)', BAND_SPECS[0].maxWords <= 6, `현재 ${BAND_SPECS[0].maxWords}단어`);
   check('모든 밴드에 문법 범위 설명이 있다', BAND_SPECS.every((s) => typeof s.grammar === 'string' && s.grammar.length > 10));
   check('bandSpec 은 범위 밖 입력에도 항상 사양을 준다', !!bandSpec(0) && !!bandSpec(99) && !!bandSpec(null));
@@ -162,8 +173,12 @@ console.log('\n[ G. 프롬프트가 "읽기만 쉽게, 판단은 그대로"를 �
   // ★ 이 지시가 빠지면 낮은 밴드가 '뻔한 보기'가 되어 판단력 훈련이 아니라 어휘 문제가 됩니다
   check('모든 프롬프트가 "판단은 쉬워지면 안 된다"를 명시한다',
     lines.every((l) => /just as challenging/i.test(l) && /NOT from long sentences or hard words/i.test(l)));
-  check('상황문과 선택지 양쪽에 적용하라고 못 박는다',
-    lines.every((l) => /EVERY option/i.test(l)));
+  // 상황문은 '범위'(하한 필수), 선택지는 '상한만'(억지로 늘리면 아이 말투가 아니게 됨)
+  check('상황문에 단어 수 범위(하한+상한)를 못 박는다',
+    lines.every((l, i) => l.includes(`SITUATION text must be ${BAND_SPECS[i].minWords}-${BAND_SPECS[i].maxWords} words`)));
+  check('상황문에 "더 짧아도 안 된다"를 명시한다', lines.every((l) => /not shorter, not longer/i.test(l)));
+  check('선택지에도 상한을 건다', lines.every((l) => /Each OPTION must be at most/i.test(l)));
+  check('선택지는 아이가 할 법한 말로 유지하라고 한다', lines.every((l) => /a child would really say/i.test(l)));
   check('범위 밖 밴드를 넣어도 프롬프트가 나온다', bandPromptLine(0).length > 50 && bandPromptLine(99).length > 50);
 }
 

@@ -54,7 +54,13 @@ export interface BandSpec {
   /** 망고아이 교재 레벨(Lv 1~34) 구간 — 실제 커리큘럼 레벨(2026-08-03 확인). */
   lvFrom: number;
   lvTo: number;
-  /** 문장 1개의 목표 단어 수 상한(상황문·선택지 공통). */
+  /**
+   * 상황문 단어 수 범위.
+   *   ⚠️ 상한만 걸면 위쪽 범주가 무력해집니다 — 실측(2026-08-03 라이브): 중고급(상한 18)으로
+   *      지정했는데 7단어짜리가 나왔습니다. "최대 N단어"는 짧은 문장을 전혀 막지 못하기 때문입니다.
+   *      그래서 하한(minWords)을 함께 줍니다.
+   */
+  minWords: number;
   maxWords: number;
   /** 허용 문법 범위 — 프롬프트에 그대로 들어갑니다(영문). */
   grammar: string;
@@ -65,30 +71,30 @@ export interface BandSpec {
 }
 
 export const BAND_SPECS: BandSpec[] = [
-  { band: 1, lvFrom: 1,  lvTo: 4,  maxWords: 5,  grammar: 'present tense only; only the most common everyday words (school, mom, play, want, help)',
+  { band: 1, lvFrom: 1,  lvTo: 4,  minWords: 3, maxWords: 5,  grammar: 'present tense only; only the most common everyday words (school, mom, play, want, help)',
     nameKo: '첫걸음',   nameEn: 'Starter',            nameZh: '入门',
     descKo: '아주 짧은 문장 (3~5단어)',        descEn: 'Very short sentences (3–5 words)',   descZh: '很短的句子（3~5个词）' },
-  { band: 2, lvFrom: 5,  lvTo: 8,  maxWords: 7,  grammar: 'present tense plus "can"; common everyday words a beginner knows',
+  { band: 2, lvFrom: 5,  lvTo: 8,  minWords: 4, maxWords: 7,  grammar: 'present tense plus "can"; common everyday words a beginner knows',
     nameKo: '기초',     nameEn: 'Basic',              nameZh: '基础',
     descKo: '짧은 문장 (5~7단어)',             descEn: 'Short sentences (5–7 words)',        descZh: '短句（5~7个词）' },
-  { band: 3, lvFrom: 9,  lvTo: 12, maxWords: 9,  grammar: 'present and simple past; everyday vocabulary',
+  { band: 3, lvFrom: 9,  lvTo: 12, minWords: 6, maxWords: 9,  grammar: 'present and simple past; everyday vocabulary',
     nameKo: '초급',     nameEn: 'Elementary',         nameZh: '初级',
     descKo: '과거형이 나오는 문장 (7~9단어)',   descEn: 'Past tense appears (7–9 words)',     descZh: '出现过去式（7~9个词）' },
-  { band: 4, lvFrom: 13, lvTo: 17, maxWords: 12, grammar: 'present, past and future; at most one conjunction (and / but / because)',
+  { band: 4, lvFrom: 13, lvTo: 17, minWords: 8, maxWords: 12, grammar: 'present, past and future; at most one conjunction (and / but / because)',
     nameKo: '초중급',   nameEn: 'Pre-Intermediate',   nameZh: '初中级',
     descKo: '두 문장이 이어진 문장 (9~12단어)', descEn: 'Two ideas joined (9–12 words)',      descZh: '两句连接（9~12个词）' },
-  { band: 5, lvFrom: 18, lvTo: 21, maxWords: 15, grammar: 'complex sentences allowed; common phrasal verbs',
+  { band: 5, lvFrom: 18, lvTo: 21, minWords: 10, maxWords: 15, grammar: 'complex sentences allowed; common phrasal verbs',
     nameKo: '중급',     nameEn: 'Intermediate',       nameZh: '中级',
     descKo: '조금 긴 문장 (12~15단어)',        descEn: 'Longer sentences (12–15 words)',     descZh: '较长的句子（12~15个词）' },
-  { band: 6, lvFrom: 22, lvTo: 25, maxWords: 18, grammar: 'relative clauses and conditionals allowed',
+  { band: 6, lvFrom: 22, lvTo: 25, minWords: 13, maxWords: 18, grammar: 'relative clauses and conditionals allowed',
     nameKo: '중고급',   nameEn: 'Upper-Intermediate', nameZh: '中高级',
     descKo: '관계절·가정법이 나와요 (15~18단어)', descEn: 'Relative clauses appear (15–18 words)', descZh: '出现关系从句（15~18个词）' },
-  { band: 7, lvFrom: 26, lvTo: 30, maxWords: 22, grammar: 'common idioms and varied register allowed',
+  { band: 7, lvFrom: 26, lvTo: 30, minWords: 16, maxWords: 22, grammar: 'common idioms and varied register allowed',
     nameKo: '고급',     nameEn: 'Advanced',           nameZh: '高级',
     descKo: '관용표현이 섞여요 (18~22단어)',   descEn: 'Idioms mixed in (18–22 words)',      descZh: '夹杂习惯用语（18~22个词）' },
-  { band: 8, lvFrom: 31, lvTo: 34, maxWords: 30, grammar: 'no restriction; focus on subtle nuance and tone',
+  { band: 8, lvFrom: 31, lvTo: 34, minWords: 18, maxWords: 30, grammar: 'no restriction; focus on subtle nuance and tone',
     nameKo: '최상급',   nameEn: 'Fluent',             nameZh: '最高级',
-    descKo: '길이 제한 없이 뉘앙스 중심',       descEn: 'No length limit — nuance focused',   descZh: '不限长度，重在语感' },
+    descKo: '가장 긴 문장 · 뉘앙스 중심 (18~30단어)', descEn: 'Longest sentences — nuance focused (18–30 words)', descZh: '最长的句子 · 重在语感（18~30个词）' },
 ];
 
 /** 화면(레벨 고르기)에 내려보낼 목록 — 서버가 단일 출처가 되도록 여기서 만듭니다. */
@@ -166,7 +172,11 @@ export function bandLabel(band: any): string {
 export function bandPromptLine(band: any): string {
   const s = bandSpec(band);
   return `READING LEVEL (strict): the child reads at Mangoi textbook level ${bandLabel(s.band)}. `
-    + `Every sentence — both the situation and EVERY option — must be at most ${s.maxWords} words. `
+    // ⚠️ 하한이 반드시 있어야 합니다. 상한만 주면 LLM 이 어느 밴드에서든 짧게 써 버려
+    //    위쪽 범주가 아무 효과를 못 냅니다(라이브 실측: 상한 18 인데 7단어가 나왔음).
+    + `The SITUATION text must be ${s.minWords}-${s.maxWords} words long — not shorter, not longer. `
+    // 선택지에는 하한을 주지 않습니다 — 아이가 실제로 할 법한 말이라 억지로 늘리면 부자연스러워집니다.
+    + `Each OPTION must be at most ${s.maxWords} words and must stay something a child would really say. `
     + `Grammar allowed: ${s.grammar}. `
     + `Keep the JUDGMENT itself just as challenging: the difficulty must come from how subtle the choice is, `
     + `NOT from long sentences or hard words. Never make the best option obvious just because the words are simple.`;
