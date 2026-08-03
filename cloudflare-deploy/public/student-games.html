@@ -443,6 +443,13 @@
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <script src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 미지원 브라우저용 녹음+Whisper 전사 -->
 <script src="/js/mangoi-speak-score.js?v=1"></script><!-- 🗣 따라 말하기 채점(기준 문장 단어 정렬) -->
+<!-- 🎓 교육심리 고도화 3종 (2026-08-03) — 전부 무료·서버 호출 없음
+     · listen-first : 듣기를 '배경음'에서 '관문'으로 (Vandergrift 예측→검증→반성)
+     · pron-tags    : 점수 말고 처방 — 한국인 취약 발음 진단 (채점기는 안 건드림)
+     · memory       : 게임끼리 학습이 이어지게 (Bjork 분산·인출 / Duolingo 반감기) -->
+<script src="/js/mangoi-listen-first.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>
@@ -741,7 +748,23 @@ function _recordResult(kind, item, correct){
     }
     m[id]=rec; _saveMastery(m);
     _queueProgress(id, (item&&item.ko)||'', correct);   // 🧠 서버 학습기록에도 누적(로그인 학생만)
+    /* 🧠 게임 공통 기억 큐에도 적립 (2026-08-03)
+       여기가 정오답의 단일 통로라서 여기 한 곳만 물리면 인라인 게임 4종이 전부 이어진다.
+       서버 기록(_queueProgress)은 로그인 학생만 남지만, 이건 **비로그인도 남는다**.
+       그래야 게스트로 놀아도 "어제 틀린 걸 오늘 다시 만나는" 경험이 생긴다. */
+    try{ window.MangoiMemory && MangoiMemory.log(item, !!correct); }catch(_){}
   }catch(_){}
+}
+
+/* 🌱 유능감 한 줄 — 코인 대신 "무엇을 해냈는지"를 말해준다.
+   근거: 게임화 메타분석(2023)이 "게임화는 내재동기·자율성은 올려도 **유능감엔 영향이 미미**"
+   라고 지적했다. 유능감은 포인트가 아니라 **내가 늘고 있다는 구체적 증거**에서 온다.
+   자랑할 게 없으면 빈 문자열을 준다 — 억지 칭찬은 아이들이 먼저 알아챈다. */
+function _growthNote(item){
+  try{
+    var t = (window.MangoiMemory && MangoiMemory.note(item)) || '';
+    return t ? '<div style="color:#93c5fd;font-size:clamp(12px,1.9vmin,15px);margin-top:4px;font-weight:600">'+t+'</div>' : '';
+  }catch(_){ return ''; }
 }
 
 /* ── 🧠 서버 학습기록 전송(배치): 정오답 이벤트를 모아 /api/games/progress 로 UPSERT ──
@@ -797,6 +820,14 @@ function _pickFrom(pool, kind){
       var pk = q[Math.floor(Math.random()*q.length)];
       var found = pool.find(function(p){ return _itemId(kind,p)===pk.id; });
       return found || pk.item;
+    }
+    /* 🧠 분산 인출 (Bjork) — 미스큐에 안 걸렸어도 "복습할 때가 된" 항목을 우선한다.
+       예전엔 여기서 그냥 무작위였다. 그래서 이미 외운 단어가 계속 나오고,
+       며칠 전 겨우 맞힌 단어는 영영 안 나왔다. 기억은 그렇게 안 만들어진다.
+       pickDue 는 저장소를 못 읽으면 알아서 무작위를 돌려준다 → 게임은 안 멈춘다. */
+    if(window.MangoiMemory){
+      var due = MangoiMemory.pickDue(pool, 0.6);
+      if(due) return due;
     }
   }catch(_){}
   return pool[Math.floor(Math.random()*pool.length)];
@@ -1138,8 +1169,44 @@ function _isContentWord(w){
 function _isNew(item, kind){
   try{ if(!item) return false; var id=_itemId(kind,item); if(_seenItems[id]) return false; var rec=_loadMastery()[id]; return !rec || (rec.r||0)<1; }catch(_){ return false; }
 }
+/* 🎧 관문 빈도 — **매 문제마다 걸면 그건 훈련이 아니라 세금이다.**
+   어린이·어르신이 같이 쓰는 화면이라 리듬을 깨는 게 가장 큰 이탈 위험이다.
+   3문제에 1번만 건다(=한 판 10문제에 3번쯤). 효과와 리듬의 타협점이고, 이 숫자는
+   Phase 4에서 실제 플레이 시간·재방문율을 보고 조정할 값이다. */
+var _gateTick = 0;
+function _gateDue(){ _gateTick++; return (_gateTick % 3) === 1; }
+
+/* 🎧 듣기 관문용 오답 보기 하나 — 같은 스테이지 풀에서 뜻이 다른 항목을 고른다.
+   못 만들면 null 을 주고, 그러면 관문은 조용히 건너뛴다(억지로 문제를 만들지 않는다). */
+function _gateDistractor(item, kind){
+  try{
+    var pool = (kind==='sent') ? _stageVocab() : _stageWords();
+    if(!pool || pool.length < 2) return null;
+    var cand = pool.filter(function(p){
+      return p && p.ko && p.en && p.en !== item.en && String(p.ko).trim() !== String(item.ko||'').trim();
+    });
+    if(!cand.length) return null;
+    return cand[Math.floor(Math.random()*cand.length)];
+  }catch(_){ return null; }
+}
+
 function _preteachThen(item, kind, cb){
   try{
+    /* 🎧 듣기 관문 (2026-08-03) — 이미 한 번 본 항목은 **소리부터** 만난다.
+       왜: 화면에 한국어 뜻이 늘 떠 있어서, 뇌가 택하는 최단경로는 "한글만 보고 고르기"였다.
+           그래서 TTS 는 훈련이 아니라 배경음이 되어 있었다.
+       근거: Vandergrift 메타인지 청취 순환 — 예측을 앞에 두면 **듣지 않고는 답할 수 없다.**
+       ⚠️ 처음 보는 항목에는 걸지 않는다. 배운 적 없는 걸 맞히라고 하면 그건 시험이지 학습이 아니다.
+          (처음 보는 항목은 기존대로 '미리보기'로 알려준다 → 아래 선학습) */
+    if(item && !_isNew(item, kind) && window.MangoiListen && item.ko && _gateDue()){
+      var other = _gateDistractor(item, kind);
+      if(other){
+        MangoiListen.gate({ en:item.en, ko:item.ko, other:other, kind:kind })
+          .then(function(){ cb(); })
+          .catch(function(){ cb(); });
+        return;
+      }
+    }
     if(!item || !_isNew(item, kind)){ cb(); return; }
     _seenItems[_itemId(kind,item)] = 1;
     var area=document.getElementById('game-area'); if(!area){ cb(); return; }
@@ -1411,9 +1478,34 @@ function renderSpeedPicks(){
     }).join('');
     // 게임 상단바용도 라벨 포함 — 인라인 게임 폰에선 media query 가 숨기고, iframe ⋮ 드롭다운에선 표시
     el.innerHTML = (compact?'<span class="slab">⚡ 속도 <b>'+cur.name+'</b></span>':'<span class="slab">⚡ 속도<b>'+cur.name+'</b></span>')
-      + '<span class="seg">' + segs + '</span>';
+      + '<span class="seg">' + segs + '</span>'
+      + _listenToggleHtml();
   });
 }
+/* 🎧 듣기 문제 켜기/끄기 — **끌 수 있어야 한다.**
+   근거: SDT 의 자율성. 강제로 걸면 아이들은 '숙제'로 받아들이고, 어르신·저학년은
+        리듬이 끊기는 걸 고장으로 인식한다. 끌 수 있는 훈련이 안 끄고 계속 하는 훈련이 된다.
+   기본값은 켜짐(off 를 저장한 사람만 꺼짐). */
+function _listenToggleHtml(){
+  try{
+    if(!window.MangoiListen) return '';
+    var on = MangoiListen.enabled();
+    return '<button onclick="toggleListenGate(event)" title="소리를 먼저 듣고 뜻을 고르는 문제를 켜고 끕니다"'
+      + ' style="margin-left:8px;min-height:34px;padding:5px 12px;border-radius:999px;cursor:pointer;font-weight:700;font-size:13px;'
+      + 'border:1px solid '+(on?'rgba(56,189,248,.65)':'rgba(148,163,184,.4)')+';'
+      + 'background:'+(on?'rgba(56,189,248,.16)':'transparent')+';color:'+(on?'#7dd3fc':'#94a3b8')+'">'
+      + '🎧 듣기 문제 ' + (on?'켬':'끔') + '</button>';
+  }catch(_){ return ''; }
+}
+window.toggleListenGate = function(e){
+  if(e) e.stopPropagation();
+  try{
+    if(!window.MangoiListen) return;
+    MangoiListen.setEnabled(!MangoiListen.enabled());
+    MangoiListen.resetRun();
+    renderSpeedPicks();
+  }catch(_){}
+};
 /* 🌐 사이트 언어(UI) 한국어↔English 토글 — i18n-sweep.js 가 <html lang> 변화를 감지해 즉시 번역/복원.
    iframe 게임들은 같은 오리진의 storage 이벤트로 함께 전환된다. (게임 출제 언어 GAME_LANG 과는 별개) */
 function _siteLang(){ try{ return localStorage.getItem('mangoi_lang')==='en' ? 'en' : 'ko'; }catch(_){ return 'ko'; } }
@@ -1813,6 +1905,8 @@ function gameInit(){
   _hearts = _HEARTS_MAX; _renderHearts();   // 💗 하트 리셋
   _combo = 0; _comboBest = 0; _resetCombo();  // 🔥 콤보 리셋 (미스큐는 세션 유지 = 약점 이어짐)
   _gameState.boss = false;                    // 👹 보스 상태 리셋
+  _gateTick = 0;                              // 🎧 듣기 관문 주기 리셋
+  try{ window.MangoiListen && MangoiListen.resetRun(); }catch(_){}   // 🎧 "이 판은 그만 묻기" 해제
   // 모바일 세로 화면 채움: match/balloon 은 플레이영역이 세로공간 전부, brick/fill 은 가운데 정렬
   var area = document.getElementById('game-area');
   if(area){ area.classList.remove('area-center','area-fill');
@@ -1933,20 +2027,42 @@ function _shadowGrade(said, target){
   try{
     if(window.MangoiScore){
       var g = MangoiScore.grade(said, target);
-      return { sc: g.accuracy, pass: g.pass, tip: g.tip || '' };
+      /* 🇰🇷 (2026-08-03) 점수 옆에 **처방**을 하나 붙인다.
+         지금까지는 "몇 점"만 알려주고 "그래서 뭘 고치면 되는지"를 못 알려줬다.
+         진단은 채점기를 건드리지 않고 그 공개 결과(g.words)만 읽어서 한다. */
+      var d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags:[], goodTags:[] };
+      return { sc: g.accuracy, pass: g.pass, tip: g.tip || '',
+               complete: g.completeness, tags: d.tags, goodTags: d.goodTags,
+               fix: (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '' };
     }
   }catch(_){}
   var v = _shadowScore(said, target);
-  return { sc: v, pass: v >= 0.6, tip: '' };
+  return { sc: v, pass: v >= 0.6, tip: '', tags: [], goodTags: [], fix: '' };
 }
 function _shadowResult(g, text){
   if(typeof g === 'number') g = { sc: g, pass: g >= 0.6, tip: '' };   // 옛 호출부 호환
   var fb=document.getElementById('game-feedback');
-  if(fb) fb.innerHTML = g.pass
+  /* 🗣 화면에 뭘 보여줄까 — 어린이·어르신이 같이 본다.
+     계획서에는 '정확도/완성도/유창성 3칸 분리'를 적었지만, 실제로 만들어 보니
+     숫자 3개는 이 화면에서 **읽히지 않는다**(글씨가 작아지고 무슨 뜻인지 모른다).
+     그래서 점수 1개 + **다음에 뭘 하면 되는지 한 줄**로 간다. 정보량보다 행동가능성이 중요하다.
+     빠뜨린 단어가 많을 때만 완성도를 말로 알려준다(숫자 아님). */
+  var extra = '';
+  if(g.fix) extra += '<div style="color:#fcd34d;font-size:clamp(13px,2vmin,16px);margin-top:3px;font-weight:700">'+g.fix+'</div>';
+  else if(typeof g.complete === 'number' && g.complete < 0.8)
+    extra += '<div style="color:#fcd34d;font-size:clamp(13px,2vmin,16px);margin-top:3px;font-weight:700">빠뜨린 단어가 있어요 — 끝까지 말해볼까요? 🌱</div>';
+  if(fb) fb.innerHTML = (g.pass
     ? '<span style="color:#10b981">👍 발음 좋아요! ('+Math.round(g.sc*100)+'점)</span>'
-    : '<span style="color:#f59e0b">🔁 거의 됐어요! ('+Math.round(g.sc*100)+'점)'+(g.tip?' <b>'+g.tip+'</b>':'')+' 🔊 다시 도전</span>';
+    : '<span style="color:#f59e0b">🔁 거의 됐어요! ('+Math.round(g.sc*100)+'점)'+(g.tip?' <b>'+g.tip+'</b>':'')+' 🔊 다시 도전</span>') + extra;
   try{ var s=_gameState.current&&_gameState.current.sentence; _saveShadowScore(text, (s&&s.ko)||'', g.sc); }catch(_){}
-  _gameState._advTimer=setTimeout(gameNextRound,1700);
+  /* 🧠 발음 결과도 기억 큐에 — 취약 소리(R/L, TH…)가 누적돼야 "이번 달 R 발음 82%"가 나온다.
+     🔴 개별 1회 판정은 못 믿는다. 그래서 여기 쌓기만 하고, 화면에는 표본 5회 이상일 때만 쓴다. */
+  try{
+    if(window.MangoiMemory)
+      MangoiMemory.log({ en:text }, !!g.pass,
+        { tags:g.tags||[], goodTags:g.goodTags||[], score:Math.round((g.sc||0)*100) });
+  }catch(_){}
+  _gameState._advTimer=setTimeout(gameNextRound, g.fix ? 2600 : 1700);   // 처방을 읽을 시간을 준다
 }
 /* 🎤 음성인식 미지원 브라우저(앱 WebView·카카오 인앱·구형 iOS) → 녹음 → 서버 Whisper 전사 → 채점.
    (2026-07-23) 같은 로직이 여러 화면에 흩어져 있어 공용 모듈 js/mangoi-voice-input.js 로 통일.
@@ -2201,7 +2317,8 @@ function gameBrickCheck(){
     try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}  // 🔥 오늘 학습 달성
     fb.innerHTML = '<span style="color:#10b981">' + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
     if (fbi) fbi.innerHTML = '<div style="color:#34d399;font-weight:800;font-size:clamp(20px,3.4vmin,30px)">' + (r.boss?'👹 보스 격파!':'✅ 정답!') + ' +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</div>' +
-      '<div style="color:#f8fafc;font-size:clamp(15px,2.2vmin,24px);margin-top:4px">' + target.join(' ') + '</div>';
+      '<div style="color:#f8fafc;font-size:clamp(15px,2.2vmin,24px);margin-top:4px">' + target.join(' ') + '</div>' +
+      _growthNote(sent);   // 🌱 점수 밑에 "무엇을 해냈는지" 한 줄 (SDT 유능감)
     _brickRedrawBuilt(picked.length);   // 전부 초록으로 확정 표시
     try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
     _gameUpdateScore();
@@ -2411,7 +2528,7 @@ function gameFillCheck(picked, btn){
     const r = _onCorrect('sent', sent, 8);
     try{ window.MangoiStreak && MangoiStreak.complete('fill'); }catch(_){}  // 🔥 오늘 학습 달성
     const em = _emojiFor(sent, 'sent');
-    fb.innerHTML = '<span style="color:#10b981">' + (em?em+' ':'') + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
+    fb.innerHTML = '<span style="color:#10b981">' + (em?em+' ':'') + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>' + _growthNote(sent);
     try{ window.gameSpeak && sent && gameSpeak(sent.en); }catch(_){}
     _gameUpdateScore();
     if(!_gameCheckGoal()){
@@ -2683,7 +2800,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260803074015 -->
+<!-- BUILD:20260803143934 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

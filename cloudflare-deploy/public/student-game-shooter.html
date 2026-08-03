@@ -424,6 +424,11 @@
   .admin-pass{font-size:13px}
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-03) 발음 채점을 허브와 같은 것으로 통일 + 한국인 취약 발음 처방
+     이 게임은 자체 matchSpoken(단어 8할 포함) 을 쓰고 있었다 → 순서도 딴 단어도 안 봤다. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>
@@ -1150,12 +1155,37 @@
     for(i=1;i<=m;i++){ cur[0]=i; for(j=1;j<=n;j++){ var c=a.charAt(i-1)===b.charAt(j-1)?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); } var t=prev;prev=cur;cur=t; }
     return prev[n]; }
   function simRatio(a,b){ a=_mclean(a); b=_mclean(b); if(!a||!b)return 0; if(a===b)return 1; var L=Math.max(a.length,b.length); return L?(1-_lev(a,b)/L):0; }
-  // 관대한 일치 — 공백/구두점/대소문자 무시('every day'='everyday'), 단어 8할 이상이면 통과
+  /* 🗣 발음 판정 (2026-08-03 교체)
+     ── 예전 방식의 문제 ──
+       "목표 단어가 몇 개나 들렸나"만 셌다(아래 _legacyMatchSpoken).
+       그래서 **순서를 바꿔 말해도, 뜻이 다른 낱말을 말해도** 8할만 겹치면 통과했다.
+       이건 허브(mangoi-speak-score.js)가 2026-07-23 에 이미 고친 문제인데,
+       이 게임은 자체 함수를 쓰고 있어서 **고침이 여기까지 오지 않았다.**
+     ── 지금 ──
+       허브와 같은 채점기를 쓴다(단어 정렬 + 누락/삽입/치환 구분 + 기능어 가중치 완화).
+       중국어는 채점기가 영어 전용이라 기존 경로를 그대로 둔다.
+     ⚠️ 반환값은 예전과 같은 boolean 이다 — 호출부는 한 줄도 안 바뀐다. */
+  var lastSpeakDiag = null;   // 마지막 판정의 처방(있으면 화면에 한 줄 띄운다)
   function matchSpoken(heard, target){
     var h=_mclean(heard), t=_mclean(target);
     if(!h||!t) return false;
-    if(h===t) return true;
-    if(GLANG==='zh'){ return h.indexOf(t)>=0 || t.indexOf(h)>=0 || simRatio(heard,target)>=0.8; }
+    if(h===t){ lastSpeakDiag=null; return true; }
+    if(GLANG==='zh'){ lastSpeakDiag=null; return h.indexOf(t)>=0 || t.indexOf(h)>=0 || simRatio(heard,target)>=0.8; }
+    if(window.MangoiScore){
+      var g = MangoiScore.grade(heard, target);
+      var d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags:[], goodTags:[] };
+      lastSpeakDiag = (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '';
+      try{
+        if(window.MangoiMemory)
+          MangoiMemory.log({ en:target }, !!g.pass,
+            { tags:d.tags, goodTags:d.goodTags, score:g.score });
+      }catch(_){}
+      return !!g.pass;
+    }
+    return _legacyMatchSpoken(heard, target);
+  }
+  // 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
+  function _legacyMatchSpoken(heard, target){
     var hw=(heard||'').toLowerCase().replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(Boolean);
     var tw=(target||'').toLowerCase().replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(Boolean);
     var m2=0; tw.forEach(function(w){ var k=hw.indexOf(w); if(k>=0){ hw.splice(k,1); m2++; } });
@@ -1268,7 +1298,13 @@
         missionStatus.innerHTML=line+'<br><b>성공! +'+SPEAK_POINTS+'점</b> ('+speakCount+'/'+SPEAK_TARGET+') 다시 한 번!';
       }
     } else {
-      missionStatus.innerHTML=line+'<br>Keep trying! Speak clearly.';
+      /* 🌱 (2026-08-03) "다시 해보세요"만으로는 학생이 **뭘 고쳐야 하는지** 모른다.
+         한국인 취약 발음(R/L, TH, 끝소리…)이 잡히면 그 처방을 한 줄 붙인다.
+         한/영 둘 다 — 강사 다수가 필리핀이라 화면을 같이 볼 때 읽혀야 한다. */
+      var fix = (typeof lastSpeakDiag==='string' && lastSpeakDiag) ? lastSpeakDiag : '';
+      missionStatus.innerHTML = line
+        + '<br>다시 한 번! 또박또박 말해볼까요 · Keep trying! Speak clearly.'
+        + (fix ? '<br><b style="color:#fcd34d">'+fix+'</b>' : '');
     }
   }
   function finishMission(){
@@ -2248,6 +2284,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260803074015 -->
+<!-- BUILD:20260803143934 -->
 </body>
 </html>

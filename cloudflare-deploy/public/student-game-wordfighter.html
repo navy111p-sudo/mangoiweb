@@ -255,6 +255,11 @@
   }
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-03) 따라 말하기 채점을 허브와 같은 것으로 통일 + 한국인 발음 처방
+     기존 판정은 "목표 단어가 발화에 들어있나"(집합 포함)라 **어순도 중복도 안 봤다**. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>
@@ -766,10 +771,27 @@
       var goal=targetWords.join(' ').replace(/[.?!,。？！，]/g,'').toLowerCase();
       function arm(){ if(_sil)clearTimeout(_sil);
         _sil=setTimeout(function(){ _silFired=true; try{rec.stop();}catch(e){} }, _said?SIL_AFTER:SIL_FIRST); }
+      /* 🗣 (2026-08-03) 영어 판정을 허브와 같은 채점기로 교체.
+         예전 sim() 은 **단어가 어디에 있든** 세어서 어순이 뒤바뀌어도 통과했다.
+         ⚠️ 반환 boolean 유지 → 호출부 무변경. 중국어는 기존 경로 그대로. */
+      var _wfDiag='';
       function isOk(said){ var norm=said.replace(/[.?!,。？！，]/g,'').toLowerCase();
-        return (GLANG==='zh') ? (norm.replace(/\s+/g,'')===goal.replace(/\s+/g,'') || simCh(norm,goal)>=0.7) : (norm===goal || sim(norm,goal)>=0.7); }
+        if(GLANG==='zh') return (norm.replace(/\s+/g,'')===goal.replace(/\s+/g,'') || simCh(norm,goal)>=0.7);
+        if(norm===goal) { _wfDiag=''; return true; }
+        if(window.MangoiScore){
+          var g=MangoiScore.grade(norm, goal);
+          try{ var d=(window.MangoiPron&&MangoiPron.analyze(g))||{tags:[],goodTags:[]};
+               _wfDiag=(window.MangoiPron&&MangoiPron.tipFor(d.tags))||'';
+               if(window.MangoiMemory && (g.pass || (d.tags&&d.tags.length)))
+                 MangoiMemory.log({en:goal}, g.pass, {tags:d.tags, goodTags:d.goodTags, score:g.score});
+          }catch(_e){}
+          return g.pass;
+        }
+        return sim(norm,goal)>=0.7; }
       function judge(){ if(_done)return; _done=true; if(_sil)clearTimeout(_sil); var ok=isOk(_said);
-        r2heard.innerHTML='들린 말: <b>'+_said.trim()+'</b> '+(ok?'✅':'🔁 다시!'); if(ok){ score+=60; updateHUD(); sndWin(); } r2next.style.display='inline-block'; }
+        r2heard.innerHTML='들린 말: <b>'+_said.trim()+'</b> '+(ok?'✅':'🔁 다시!')
+          + ((!ok && _wfDiag) ? '<div style="margin-top:5px;color:#fcd34d;font-weight:700">'+_wfDiag+'</div>' : '');   // 🌱 뭘 고치면 되는지
+        if(ok){ score+=60; updateHUD(); sndWin(); } r2next.style.display='inline-block'; }
       rec.onstart=function(){ arm(); };
       rec.onresult=function(e){ if(_done)return; _said=''; for(var i=0;i<e.results.length;i++) _said+=(e.results[i][0].transcript||'')+' '; _said=_said.trim();
         if(isOk(_said)){ judge(); try{rec.stop();}catch(e){} return; }
@@ -955,6 +977,6 @@
 })();
 </script>
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260803074015 -->
+<!-- BUILD:20260803143934 -->
 </body>
 </html>

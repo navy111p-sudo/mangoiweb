@@ -285,6 +285,11 @@
   }
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-03) 따라 말하기 채점을 허브와 같은 것으로 통일 + 한국인 발음 처방
+     기존 판정은 "목표 단어가 발화에 들어있나"(집합 포함)라 **어순도 중복도 안 봤다**. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script defer src="/js/game-tts.js?v=5"></script><!-- 🙊 이모지 정제 규칙 단일 출처(MangoiTTS.stripEmoji) -->
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
@@ -701,6 +706,24 @@ function spkScore(said, target){
     tc.forEach(function(c){ var i=sc.indexOf(c); if(i>=0){ hit++; sc=sc.slice(0,i)+sc.slice(i+1); } });
     return Math.round(hit/Math.max(1,tc.length)*100);
   }
+  /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
+     예전엔 `sw.indexOf(w)` 로 **단어가 어디에 있든** 세어서 어순이 뒤바뀌어도 만점이 나왔다.
+     ⚠️ 반환값은 예전과 같은 0~100 정수다 → 호출부(80/50 기준)는 안 바꿨다. */
+  if(window.MangoiScore){
+    var g = MangoiScore.grade(said, target);
+    _tetDiag = '';
+    try{
+      var d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags:[], goodTags:[] };
+      _tetTags = d;
+      _tetDiag = (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '';
+    }catch(_e){}
+    return Math.round(g.accuracy*100);
+  }
+  return _legacySpkScore(t, s);
+}
+var _tetDiag = '', _tetTags = { tags:[], goodTags:[] };
+// 채점기 로드 실패 시에만 쓰는 옛 방식
+function _legacySpkScore(t, s){
   var tw=t.split(' ').filter(Boolean), sw=s.split(' ').filter(Boolean), hit=0;
   tw.forEach(function(w){ var i=sw.indexOf(w); if(i>=0){ hit++; sw.splice(i,1); } });
   return Math.round(hit/Math.max(1,tw.length)*100);
@@ -749,8 +772,12 @@ function spkRecord(){
     _sil=setTimeout(function(){ _silFired=true; try{r.stop();}catch(_){} }, said?SIL_AFTER:SIL_FIRST); }
   function grade(){ if(got)return; got=true; if(_sil)clearTimeout(_sil);
     var s=spkScore(said, SPK.sentence); SPK.best=Math.max(SPK.best,s);
-    sc.innerHTML='들린 말: "'+said.trim()+'"<br>점수 <b>'+s+'</b>점 '+(s>=80?'🌟 완벽!':s>=50?'👍 좋아요!':'💪 한번 더!');
+    var _fix=(typeof _tetDiag==='string')?_tetDiag:'';
+    sc.innerHTML='들린 말: "'+said.trim()+'"<br>점수 <b>'+s+'</b>점 '+(s>=80?'🌟 완벽!':s>=50?'👍 좋아요!':'💪 한번 더!')
+      + (_fix ? '<div style="margin-top:5px;color:#fcd34d;font-weight:700">'+_fix+'</div>' : '');   // 🌱 뭘 고치면 되는지
     try{ pushProg('🎤 '+SPK.sentence, s>=50); }catch(_){}
+    try{ if(window.MangoiMemory) MangoiMemory.log({en:SPK.sentence}, s>=50,
+      { tags:(_tetTags&&_tetTags.tags)||[], goodTags:(_tetTags&&_tetTags.goodTags)||[], score:s }); }catch(_){}
     spkAfter(); }
   r.onstart=function(){ arm(); };
   r.onresult=function(e){ if(got)return; said=''; for(var i=0;i<e.results.length;i++) said+=(e.results[i][0].transcript||'')+' '; said=said.trim();
@@ -1302,6 +1329,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260803074015 -->
+<!-- BUILD:20260803143934 -->
 </body>
 </html>

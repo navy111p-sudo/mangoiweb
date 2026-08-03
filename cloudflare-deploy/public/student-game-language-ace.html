@@ -171,6 +171,11 @@
   #fireBtn:active{transform:scale(.8)}
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-03) 따라 말하기 채점을 허브와 같은 것으로 통일 + 한국인 발음 처방
+     기존 판정은 "목표 단어가 발화에 들어있나"(집합 포함)라 **어순도 중복도 안 봤다**. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script defer src="/js/game-tts.js?v=5"></script><!-- 🙊 이모지 정제 규칙 단일 출처(MangoiTTS.stripEmoji) -->
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
@@ -1112,7 +1117,8 @@ function spDoRep(){
     mic.classList.remove('recording');    // 녹음 끝 → 빨강 해제
     var idx=SP.done; SP.done++; if(ok) SP.ok++;
     spSetDot(idx, ok);
-    spHeard(said ? ('들린 말: <b>'+esc(said)+'</b> '+(ok?'✅':'❌')) : '❌ 잘 안 들렸어요');
+    spHeard((said ? ('들린 말: <b>'+esc(said)+'</b> '+(ok?'✅':'❌')) : '❌ 잘 안 들렸어요')
+      + (typeof _spkCoach==='function' ? _spkCoach(said, spFull(), ok) : ''));   // 🗣 뭘 고치면 되는지 한 줄
     if(ok) sndPickup(); else sndBuzz();
     if(SP.done<3){
       spPhase('🎤 따라 말해보세요! ('+(SP.done+1)+'/3)');
@@ -1229,11 +1235,39 @@ function matchSentence(said, target){
     if(!t) return false; var hit=0; for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; }
     return hit/t.length >= 0.7;
   }
+  /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
+     예전엔 `setS[w]` — **목표 단어가 발화 어딘가에 있기만 하면** 맞은 것으로 셌다.
+     그래서 어순이 완전히 뒤바뀌어도, 같은 단어를 여러 번 말해도 통과했다.
+     지금은 단어를 순서대로 정렬해 누락·삽입·치환을 구분한다(기능어는 가중치를 낮춘다).
+     ⚠️ 반환값은 예전과 같은 boolean 이다 → 호출부는 한 줄도 안 바뀐다. */
+  if(window.MangoiScore) return MangoiScore.grade(said, target).pass;
+  return _legacyMatchSentence(said, target);
+}
+// 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
+function _legacyMatchSentence(said, target){
   function norm(x){ return x.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
   var sw=norm(said), tw=norm(target); if(!tw.length) return false;
   var setS={}; sw.forEach(function(w){ setS[w]=1; });
   var hit2=0; tw.forEach(function(w){ if(setS[w]) hit2++; });
   return hit2/tw.length >= 0.65;
+}
+/* 🗣 발음 코치 (2026-08-03) — 판정이 끝난 뒤 **한 번만** 부른다.
+   matchSentence 는 인식 후보마다 불리므로 거기서 적립하면 한 문장이 수십 번 쌓인다.
+   반환: 화면에 붙일 처방 한 줄(없으면 ''). 부수효과: 기억 큐 적립. */
+function _spkCoach(said, target, ok){
+  try{
+    if(MODE==='zh') return '';
+    if(!window.MangoiScore || !window.MangoiPron || !target) return '';
+    var g = MangoiScore.grade(ok ? target : (said||''), target);
+    var d = MangoiPron.analyze(g);
+    if(ok || (d.tags && d.tags.length)){
+      try{ window.MangoiMemory && MangoiMemory.log({ en:target }, !!ok,
+             { tags:d.tags, goodTags:d.goodTags, score:g.score }); }catch(_e){}
+    }
+    if(ok) return '';
+    var fix = MangoiPron.tipFor(d.tags);
+    return fix ? '<div style="margin-top:5px;color:#fcd34d;font-weight:700">'+fix+'</div>' : '';
+  }catch(_){ return ''; }
 }
 function collectFuel(fu){ explode(fu.x,fu.y,false); sndPickup();
   G.time=Math.min(G.timeMax, G.time+8); G.score+=30;
@@ -1579,6 +1613,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 /* ── 부트 ── */
 resize(); setLang(MODE); setSky(SKY); setDiff(DLEVEL); raf=requestAnimationFrame(loop);
 </script>
-<!-- BUILD:20260803074015 -->
+<!-- BUILD:20260803143934 -->
 </body>
 </html>

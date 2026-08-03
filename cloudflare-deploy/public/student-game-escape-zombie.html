@@ -130,6 +130,13 @@
   @media(max-height:520px){ .rule{font-size:12.5px;padding:11px 14px} .oS{font-size:13px} }
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-03) 발음 처방 + 게임 공통 기억 큐 — 무료·서버 호출 없음
+     이 게임의 통과 판정(키워드 매칭)은 **그대로 둔다**. 탈출 게임은 "이 문장을 따라 하라"가
+     아니라 "뜻이 통하게 말하라"는 과제라, 문장 정렬 채점으로 바꾸면 게임이 망가진다.
+     대신 **틀렸을 때 무엇을 고치면 되는지** 한 줄을 붙인다. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 </head>
 <body>
 <div id="wrap">
@@ -488,10 +495,37 @@ function advance(){
           '<div style="color:#9dc9ab;margin-top:2px">'+esc(s.sayKo)+'</div>');
   if(s.id==='code') sndUnlock();
 }
+/* 🗣 발음 코치 (2026-08-03) — 통과 판정은 **한 글자도 안 바꾼다.**
+   탈출 게임의 과제는 "이 문장을 따라 하라"가 아니라 "뜻이 통하게 말하라"다.
+   그래서 키워드 매칭(matchStep)이 맞다. 여기서 하는 일은 두 가지뿐:
+     ① 틀렸을 때, 모범 문장(hints 마지막 = 영어 예문)과 비교해 **뭘 고치면 되는지** 한 줄
+     ② 성공/실패를 **게임 공통 기억 큐**에 적립 → 다른 게임과 학습이 이어진다
+   근거: Swain 출력가설 — 말하려다 막히는 순간이 배움의 지점이다. 그 순간에
+        "다시 해보세요"만 주면 학생은 뭘 바꿔야 할지 모른 채 같은 말을 반복한다.
+   ⚠️ 숫자 암호 단계(numMode)와 한국어 힌트는 진단하지 않는다(오진 방지). */
+function _pronCoach(said, step, ok){
+  try{
+    if(!step || step.numMode) return '';
+    if(!window.MangoiScore || !window.MangoiPron) return '';
+    var model = (step.hints && step.hints[step.hints.length-1]) || '';
+    if(!model || /[가-힣]/.test(model)) return '';   // 힌트가 한국어면 모범 문장이 아니다
+    var g = MangoiScore.grade(ok ? model : said, model);
+    var d = MangoiPron.analyze(g);
+    // 성공은 항상 적립(연습 기회 통계), 실패는 **진단이 잡혔을 때만** 적립(잡음 방지)
+    if(ok || (d.tags && d.tags.length)){
+      try{ window.MangoiMemory && MangoiMemory.log({ en:model }, !!ok,
+             { tags:d.tags, goodTags:d.goodTags, score:g.score }); }catch(_e){}
+    }
+    if(ok) return '';
+    var fix = MangoiPron.tipFor(d.tags);
+    return fix ? '<div style="margin-top:6px;color:#fcd34d;font-weight:700">'+fix+'</div>' : '';
+  }catch(_){ return ''; }
+}
 function wrongTry(said){
   G.wrong++;
   sndNo();
-  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 실험실이 반응하지 않아요 · Try again</span>');
+  heard('들린 말: <b>'+esc(said)+'</b> <span class="no">— 실험실이 반응하지 않아요 · Try again</span>'
+        + (typeof _pronCoach==='function' ? _pronCoach(said, curStep(), false) : ''));   // 🗣 뭘 고치면 되는지 한 줄 (부가기능이 본 안내를 못 막게 typeof 로 감싼다)
   showHint(true);            // 틀렸으면 곧바로 한 칸 더 알려준다
   armIdle(12000);
 }
@@ -500,7 +534,9 @@ function submitSaid(said){
   clearIdle();
   G.utter++; $('utterN').textContent=G.utter;
   var s=curStep();
-  if(matchStep(said,s)){ G.utterOk++; $('utterOk').textContent='성공 '+G.utterOk; advance(); }
+  if(matchStep(said,s)){ G.utterOk++; $('utterOk').textContent='성공 '+G.utterOk;
+    try{ if(typeof _pronCoach==='function') _pronCoach(said, s, true); }catch(_e){}   // 🧠 성공도 기억 큐에
+    advance(); }
   else wrongTry(said);
 }
 function showHint(auto,noSpeak){
@@ -682,6 +718,6 @@ window.addEventListener('keydown', function(e){
 setScene('room');
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260803074015 -->
+<!-- BUILD:20260803143934 -->
 </body>
 </html>
