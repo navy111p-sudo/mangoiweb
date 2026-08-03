@@ -28,7 +28,9 @@
       const d = await r.json();
       const rows = d.rows || [];
       const counts = d.counts || {};
-      const cntEl = document.getElementById('br-count');
+      // ⚠️ id 는 'bugrep-count'. 'br-count' 는 위쪽 📚 교재 명부가 먼저 쓰고 있어서,
+      //   그대로 두면 버그신고 건수가 교재 명부 옆에 찍히고 이 칸은 영영 비어 있었다. (2026-08-04 수정)
+      const cntEl = document.getElementById('bugrep-count');
       if (cntEl) {
         const newN = counts.new || 0;
         cntEl.innerHTML = (_isEn()

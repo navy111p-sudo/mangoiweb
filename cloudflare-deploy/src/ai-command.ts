@@ -59,7 +59,6 @@ Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keyword
 - card-admin-alerts    (실시간 이상감지·이상 알림 | real-time anomaly alerts, monitoring)
 - card-admin-ghost     (라이브 참관·고스트뷰 | live observation, ghost view)
 - card-auto-dunning    (미납 자동 알림·독촉 | overdue/unpaid auto alert, dunning)
-- card-settlement-stats(지점 정산·정산 통계 | branch settlement, settlement stats)
 - card-points-mgmt     (포인트 관리 | points management)
 - card-badges-mgmt     (뱃지 관리 | badge management)
 - card-calendar        (캘린더·휴가·공휴일 | calendar, holidays, leave)
@@ -395,8 +394,9 @@ const CARD_ROUTES: Array<{ re: RegExp; menu_id?: string; url?: string; external_
   { re: /(미납|독촉|미수금|dunning|overdue)/i, menu_id: 'card-auto-dunning', ko: '미납 자동 알림(독촉) 카드로 이동합니다.', en: 'Opening the overdue payment auto-alert card.' },
   { re: /(결제\s*관리|결제관리|수강료|학원비|납부|tuition|payment|\bfee\b)/i, menu_id: 'card-payments-b2c', ko: '결제관리 카드로 이동합니다.', en: 'Opening the payments card.' },
   { re: /(강사\s*급여|급여|payroll|salary)/i, menu_id: 'card-payroll', ko: '강사 급여 카드로 이동합니다.', en: 'Opening the teacher payroll card.' },
-  { re: /(지점\s*정산|지사\s*정산|대리점\s*정산|본사\s*정산|정산\s*통계|정산|settlement)/i, menu_id: 'card-settlement-stats', ko: '지점 정산 카드로 이동합니다.', en: 'Opening the settlement stats card.' },
-  { re: /(회계\s*관리|회계관리|accounting)/i, menu_id: 'card-accounting-mgmt', ko: '회계관리 카드로 이동합니다.', en: 'Opening the accounting card.' },
+  // (2026-08-04) 'card-settlement-stats' 카드는 속이 빈 껍데기라 화면에서 제거됨.
+  //   '정산' 질의를 없는 카드로 보내면 AI 가 "이동합니다" 해놓고 아무 일도 안 일어난다 → 회계관리로 통합.
+  { re: /(지점\s*정산|지사\s*정산|대리점\s*정산|본사\s*정산|정산\s*통계|정산|settlement|회계\s*관리|회계관리|accounting)/i, menu_id: 'card-accounting-mgmt', ko: '회계관리 카드로 이동합니다.', en: 'Opening the accounting card.' },
   // ── 강사/학생 관리 ──
   { re: /(강사\s*관리|교사\s*관리|선생님?\s*관리|강사\s*목록|teacher\s*(management|list))/i, menu_id: 'card-teacher-mgmt', ko: '강사관리 카드로 이동합니다.', en: 'Opening the teacher management card.' },
   { re: /(학생\s*관리|학생관리|student\s*management)/i, url: '/admin/students.html', ko: '학생관리 페이지로 이동합니다.', en: 'Opening the student management page.' },
