@@ -438,6 +438,11 @@
   }
 </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-04) 채점기·발음처방·기억큐 — 예전엔 "목표 낱말이 어디에 있든 몇 개 들렸나"만 세서
+     어순을 바꿔 말해도 통과했다. 허브와 같은 채점기로 통일한다. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>
@@ -1129,11 +1134,50 @@
   function awardSpeak(){ if(onSpeakSuccess) onSpeakSuccess(SPEAK_POINTS); speakAwarded++; }
 
   // 말한 문장 일치 판정 — 공백/합성어('every day'='everyday') 차이와 사소한 단어 차이 허용
+  /* 🗣 (2026-08-04) 채점기를 허브(js/mangoi-speak-score.js)와 같은 것으로 교체.
+     ── 예전 ──
+       목표 낱말이 **어디에 있든** 8할만 겹치면 통과였다(`ht.indexOf(w)`).
+       "I have a dog" 에 "a dog have I" 라고 해도, 뜻이 다른 낱말을 말해도 통과했다.
+     ── 지금 ──
+       단어 정렬 + 누락/치환 구분 + 기능어 가중치 완화 + 길이별 통과기준.
+     ⚠️ 반환값은 예전과 같은 boolean → 호출부(handleAttempt)는 한 줄도 안 바뀐다. */
+  var _fishDiag = '', _fishGrade = null;
+
+  /* 🎤 발음 점수 서버 적립 → game_progress.pron_best / pron_count.
+     이미 있는 API(POST /api/games/shadow) 인데 이 화면이 안 쓰고 있었다.
+     이게 쌓여야 다른 게임이 GET /api/games/weak 로 "어제 막힌 문장"을 받아 다시 낼 수 있다. */
+  function _fishSaveShadow(score){
+    try{
+      /* 🔁 js/mangoi-shadow-sync.js 가 실려 있으면 그쪽이 이미 보낸다 — 두 번 쓰면 pron_count 가 부푼다 */
+      if(window.MangoiShadow && MangoiShadow.stats && MangoiShadow.stats().hooked) return;
+      var uid = (window.MangoiGameVocab && MangoiGameVocab.getUserId()) || '';
+      if(!uid || !targetSentence) return;
+      fetch('/api/games/shadow', {
+        method:'POST', headers:{'Content-Type':'application/json'}, keepalive:true,
+        body: JSON.stringify({ user_id:uid, lang:'en', item:targetSentence, ko:'',
+                               score: Math.max(0, Math.min(100, Math.round(score))) })
+      }).catch(function(){});
+    }catch(_){}
+  }
+
   function matchSpoken(heard, target){
     var h = norm(heard), t = norm(target);
+    _fishDiag=''; _fishGrade=null;
     if(!h || !t) return false;
     if(h === t) return true;
     if(h.replace(/ /g,'') === t.replace(/ /g,'')) return true;        // 'every day' ↔ 'everyday'
+    if(window.MangoiScore){
+      var g = MangoiScore.grade(heard, target);
+      _fishGrade = g;
+      try{
+        var d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags:[], goodTags:[] };
+        _fishDiag = (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '';
+        if(window.MangoiMemory) MangoiMemory.log({ en:target }, !!g.pass,
+          { tags:d.tags, goodTags:d.goodTags, score:g.score });
+      }catch(_){}
+      return !!g.pass;
+    }
+    // 모듈이 안 실렸을 때의 예전 경로 — 게임은 어떤 경우에도 안 멈춘다
     var ht = h.split(' '), tt = t.split(' '), m = 0;
     tt.forEach(function(w){ var k = ht.indexOf(w); if(k>=0){ ht.splice(k,1); m++; } });
     return tt.length>0 && (m/tt.length) >= 0.8;                       // 단어 8할 이상 일치하면 통과
@@ -1144,13 +1188,15 @@
     // 일부 브라우저(모바일/Edge 등)는 confidence 를 0 으로 반환 → 0이면 신뢰도 필터를 건너뛰고 문장 일치로만 판정
     var confOk = (confidence === 0) || (confidence > CONFIDENCE_THRESHOLD);
     var pass = matched && confOk;
-    // 표시 '정확도' = 문장 일치율(들린 말이 목표에 얼마나 가까운지) — confidence 0 기기에서도 의미있게
-    var confPct = Math.round(simRatio(heard, targetSentence) * 100);
+    /* 표시 '정확도' — 채점기가 낸 점수를 쓴다.
+       예전엔 simRatio(글자 편집거리)라 어순이 뒤바뀌어도 높은 %가 찍혀 학생이 오해했다. */
+    var confPct = _fishGrade ? _fishGrade.score : Math.round(simRatio(heard, targetSentence) * 100);
 
     var line = '들린 말: <span class="heard">"'+ (heard||'…') +'"</span><br>정확도 <span class="conf '+(matched?'ok':'no')+'">'+confPct+'%</span>';
 
     if(pass){
       speakCount++; renderStars(); awardSpeak();            // ★ 말할 때마다 +점수
+      _fishSaveShadow(confPct);                             // 🎤 발음 점수 서버 적립
       if(speakCount>=SPEAK_TARGET){
         missionStatus.innerHTML = line + '<br>🎉 <b>완벽해요!</b> 3회 모두 성공! <b>+'+SPEAK_POINTS+'점</b>';
         micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='✅ 미션 완료';
@@ -1162,7 +1208,10 @@
       }
     } else {
       // Fail State: confidence 미달 또는 문장 불일치 → 카운트 미증가
-      missionStatus.innerHTML = line + '<br>😅 Keep trying! Speak clearly.';
+      // 「다시 해보세요」만 주면 뭘 바꿔야 할지 모른 채 같은 말을 반복한다 → 처방 한 줄
+      var fix = _fishDiag || (_fishGrade && _fishGrade.tip) || '';
+      missionStatus.innerHTML = line + '<br>😅 Keep trying! Speak clearly.' +
+        (fix ? '<br><span style="color:#7dd3fc">'+fix+'</span>' : '');
       toast('Keep trying! Speak clearly.', 'bad');
     }
   }
@@ -2035,6 +2084,6 @@
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260804041001 -->
+<!-- BUILD:20260804044646 -->
 </body>
 </html>

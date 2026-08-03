@@ -367,6 +367,25 @@
   /* 🎈 각 풍선 좌우 흔들림(제각각 폭·주기) — 따로따로 랜덤 낙하 느낌 */
   @keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}
   /* ===== 🖥️ PC(넓은 화면) — 인라인 게임 중앙 글자·카드 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+  /* 🎈 (2026-08-04) 낙하 높이 최대화 — 높이가 낮아 라운드가 금방 끝나던 문제.
+     라운드는 **가장 먼저 바닥에 닿는 풍선**이 끝내므로, 체감 시간은 '낙하 거리'가 거의 전부다.
+     그래서 스테이지를 화면 높이의 70% 이상으로 키운다(예전 min-height:300px). */
+  #balloon-stage{min-height:clamp(420px,70vh,900px)!important}
+  /* 뜻·완성칸을 스테이지 '위에' 반투명으로 얹어, 그 자리만큼을 낙하 구간으로 되돌린다.
+     (사장님: "글자가 투명으로 해서 앞에 있는 한이 있더라도 높게") */
+  /* 오버레이 자체는 클릭이 통과해야 뒤의 풍선을 누를 수 있다.
+     ⚠️ 단, 그 안의 버튼(🔊 발음 듣기)은 눌려야 하므로 되살린다 —
+        안 해주면 pointer-events:none 이 상속돼 버튼이 죽는다(실측으로 잡음). */
+  .bsent-ov{position:absolute;left:0;right:0;z-index:5;pointer-events:none;text-align:center;padding:8px 12px}
+  .bsent-ov button,.bsent-ov a{pointer-events:auto}
+  .bsent-ov.top{top:0;background:linear-gradient(180deg,rgba(8,18,39,.62),rgba(8,18,39,0))}
+  .bsent-ov .gko-txt{background:rgba(15,23,42,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+  .bsent-built-ov{position:absolute;left:8px;right:8px;bottom:8px;z-index:6;
+    display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;
+    min-height:44px;padding:7px 10px;border-radius:11px;
+    background:rgba(8,18,39,.55);border:1px dashed rgba(148,163,184,.5);
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+
   /* 📚 결과 화면 '오늘 복습할 항목' — 기본(폰) 크기 */
   .rv-head{font-size:14px;color:#fbbf24;font-weight:700;margin-bottom:6px;text-align:center}
   .rv-row{display:flex;align-items:center;gap:10px;background:rgba(15,23,42,.6);
@@ -514,6 +533,9 @@
 <script src="/js/mangoi-listen-first.js?v=1"></script>
 <script src="/js/mangoi-pron-tags.js?v=1"></script>
 <script src="/js/mangoi-memory.js?v=1"></script>
+<!-- 🗣 말하기 4단 선순환 (2026-08-04) — ① 뜻 가리고 듣기 → ② 낱말 → ③ 문장 → ④ 되듣고 따라 말하기.
+     게임마다 복제돼 있던 말하기 절차를 한 곳으로 모은 모듈. 위 5개 모듈을 재사용하므로 반드시 뒤에 실린다. -->
+<script src="/js/mangoi-speak-cycle.js?v=3"></script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body>
@@ -1400,6 +1422,12 @@ function _gameOver(){
    🎯 목표: 10개 정답 → 결과 화면 (모든 인라인 게임 공통)
    ============================================================ */
 const GAME_GOAL = 10;
+/* 🎈 (2026-08-04 사장님 의도 정정) 풍선 터뜨리기는 **한 게임 안에서 두 단계**로 간다.
+     ① 앞 절반 = 단어 연습(뜻에 맞는 풍선 터뜨리기)
+     ② 뒤 절반 = 문장(단어 풍선을 어순대로 → 3번 듣기 → 3번 말하기 → 보너스)
+   ⚠️ 별도 게임으로 떼어내지 말 것. "단어를 연습하고 **이어서** 문장" 이 요구사항이다. */
+var BALLOON_WORD_PHASE = Math.ceil(GAME_GOAL / 2);   // 목표 10 → 앞 5문제는 단어
+function _balloonPhase(){ return (_gameState.correct < BALLOON_WORD_PHASE) ? 'word' : 'sent'; }
 
 /* ============================================================
    🎢 난이도(스테이지) 1~7 — 10문제 클리어 시 자동 상승
@@ -1747,7 +1775,7 @@ function _startRoundTimer(){
       var _it = _gameState.current && (_gameState.current.sentence || _gameState.current.word);
       var dead = false;
       if (_it) {
-        var _kd = (_gameState.mode==='balloon') ? 'word' : 'sent';   // balloonsent 는 문장 → 'sent'
+        var _kd = (_gameState.mode==='balloon') ? _balloonPhase() : 'sent';   // 풍선은 단계별(단어→문장)
         dead = _onWrong(_kd, _it);
         _gameUpdateScore();
       }
@@ -1791,8 +1819,7 @@ const HUB_GAMES = [
   { mode:'brick',   kind:'inline', ico:'🧱', ttl:'문장 벽돌',     dsc:'단어 브릭을 순서대로 쌓아 문장 완성!', bg:'#3b82f6', badge:'문장' },
   { mode:'match',   kind:'inline', ico:'🧩', ttl:'단어 매칭',     dsc:'한국어와 영어 카드 짝을 찾아요!',      bg:'#a855f7', badge:'단어' },
   { mode:'fill',    kind:'inline', ico:'🔤', ttl:'빈칸 채우기',   dsc:'문장 빈칸에 알맞은 단어를 골라요!',    bg:'#8b5cf6', badge:'문장' },
-  { mode:'balloon', kind:'inline', ico:'🎈', ttl:'풍선 터뜨리기', dsc:'뜻에 맞는 영어 풍선을 터뜨려요!',      bg:'#f59e0b', badge:'단어' },
-  { mode:'balloonsent', kind:'inline', ico:'🎈', ttl:'문장 풍선', dsc:'단어 풍선을 어순대로 터뜨려 문장 완성! 완성하면 3번 듣고 3번 말하기 + 보너스', bg:'#0ea5e9', badge:'문장·말하기' },
+  { mode:'balloon', kind:'inline', ico:'🎈', ttl:'풍선 터뜨리기', dsc:'먼저 단어를 연습하고, 이어서 단어 풍선을 어순대로 터뜨려 문장까지! 완성하면 3번 듣고 3번 말하기 + 보너스',      bg:'#f59e0b', badge:'단어→문장' },
   { mode:'suspect', kind:'iframe', ico:'🕵️', ttl:'용의자 추리',   dsc:'선생님 힌트를 듣고 범인을 찾아 영어로 말해요!', bg:'#6366f1', badge:'듣기·말하기',
     src:function(){ return '/suspect-mystery.html'; } },
   { mode:'speaking', kind:'iframe', ico:'🗣️', ttl:'말하기 퀴즈',  dsc:'내 교재·레벨 단어·문장을 듣고 따라 말해요!', bg:'#10b981', badge:'맞춤·말하기',
@@ -1958,12 +1985,16 @@ function _applyGameTheme(mode){
   area.classList.remove('themed');
   var cls = _GAME_THEME[mode]; if(!cls) return;
   area.classList.add(cls);
-  if(mode==='brick'||mode==='match'||mode==='fill'||mode==='balloon'||mode==='balloonsent') area.classList.add('themed');
+  if(mode==='brick'||mode==='match'||mode==='fill'||mode==='balloon') area.classList.add('themed');
 }
 
 function hubOpenGame(mode){
   var g = _hubGame(mode); if(!g) return;
   _gameState.mode = mode;
+  /* 🗣 (2026-08-04) 이 학생의 **약점 문장**을 서버에서 미리 받아둔다.
+     4단 사이클은 보통 3문제에 1번만 도는데, 약점으로 잡힌 문장은 **매번** 돌린다.
+     localStorage 기억큐와 달리 서버(game_progress)에 있으므로 기기를 바꿔도 이어진다. */
+  try{ window.MangoiCycle && MangoiCycle.warmWeak(GAME_LANG); }catch(_){}
   document.getElementById('hub-menu').style.display = 'none';
   document.getElementById('hub-game').classList.add('active');
   document.getElementById('hub-gname').textContent = g.ico+' '+_gameTitle(g);
@@ -2014,7 +2045,7 @@ function gameInit(){
   var area = document.getElementById('game-area');
   if(area){ area.classList.remove('area-center','area-fill');
     // brick 은 내용이 길어 세로로 넘치므로 위 정렬(area-fill)로 두고 하단 버튼을 sticky 로 고정한다.
-    area.classList.add((_gameState.mode==='match'||_gameState.mode==='balloon'||_gameState.mode==='balloonsent'||_gameState.mode==='brick') ? 'area-fill' : 'area-center'); }
+    area.classList.add((_gameState.mode==='match'||_gameState.mode==='balloon'||_gameState.mode==='brick') ? 'area-fill' : 'area-center'); }
   _gameUpdateScore();
   gameNextRound();
 }
@@ -2032,12 +2063,14 @@ function gameNextRound(){
     var s = boss ? _bossVocab() : _nextVocab(); _gameState._queued = s;
     _preteachThen(boss ? null : s, 'sent', function(){ if(mode==='brick') gameRenderBrick(); else gameRenderFill(); _startRoundTimer(); });
   } else if(mode === 'balloon'){
-    var w = _nextWord(); _gameState._queued = w;
-    _preteachThen(w, 'word', function(){ gameRenderBalloon(); _startRoundTimer(); });
-  } else if(mode === 'balloonsent'){
-    // 🎈📝 문장 풍선 — 문장 단위 출제(브릭과 같은 소스)
-    var bs = _nextVocab(); _gameState._queued = bs;
-    _preteachThen(bs, 'sent', function(){ gameRenderBalloonSent(); _startRoundTimer(); });
+    /* 🎈 단계 전환 — 앞 절반은 단어, 그 뒤는 문장. 같은 게임 안에서 이어진다. */
+    if(_balloonPhase() === 'sent'){
+      var bs = _nextVocab(); _gameState._queued = bs;
+      _preteachThen(bs, 'sent', function(){ gameRenderBalloonSent(); _startRoundTimer(); });
+    } else {
+      var w = _nextWord(); _gameState._queued = w;
+      _preteachThen(w, 'word', function(){ gameRenderBalloon(); _startRoundTimer(); });
+    }
   } else {   // match — 6쌍 보드라 선학습 생략
     _gameState._queued = null;
     gameRenderMatch(); _startRoundTimer();
@@ -2202,6 +2235,85 @@ function _shadowViaWhisper(text, fb){
     _shadowResult(_shadowGrade(said, text), text);
   })['catch'](function(){ _afterShadow(1500, null); });
 }
+/* 🗣 (2026-08-04) 「말하기 4단 선순환」 — 문장 벽돌·빈칸 채우기의 정답 직후에 붙는다.
+   ── 예전 ──
+     정답을 맞히면 `🎤 따라 말하기` **버튼**을 붙이고 2.6~2.8초 뒤 자동으로 다음 문제로 넘어갔다.
+     즉 학생이 안 누르면 **말하기가 아예 없는 게임**이었다. (실측: 21종 중 말하기 필수는 11종뿐)
+   ── 지금 ──
+     공용 모듈(js/mangoi-speak-cycle.js)의 4단을 돌린다:
+       ① 뜻 가리고 소리만 → ② 낱말 말하기 → ③ 문장 말하기 → ④ 되듣고 따라 말하기
+     그리고 그 결과를 서버(/api/games/shadow)에 적립해 **다른 게임이 이어받게** 한다.
+   ⚠️ 모듈이 아직 안 실렸거나 이번이 4단을 돌릴 차례가 아니면(3문제에 1번),
+      예전 그대로 자동으로 다음 문제로 넘어간다 — 게임은 어떤 경우에도 안 멈춘다. */
+function _speakCycleThenNext(sent, picked, fallbackMs){
+  var en = sent && sent.en;
+  if(!en || !window.MangoiCycle){
+    _gameState._advTimer = setTimeout(gameNextRound, fallbackMs);
+    return;
+  }
+  MangoiCycle.run({
+    en: en, ko: (sent && sent.ko) || '', lang: GAME_LANG,
+    words: (picked && picked.length) ? picked : (sent && sent.words) || null
+  }).then(function(r){
+    // 이번엔 돌릴 차례가 아니었다 → 예전처럼 잠깐 쉬었다가 넘어간다
+    if(!r || !r.ran){ _gameState._advTimer = setTimeout(gameNextRound, fallbackMs); return; }
+    gameNextRound();
+  })['catch'](function(){ _gameState._advTimer = setTimeout(gameNextRound, fallbackMs); });
+}
+
+/* 🪜 (2026-08-04) 「단어 → 문장」 사다리 — 단어 게임(매칭·풍선)용.
+   사장님 지시의 핵심은 "단어를 말한 다음 **그 단어로 문장을 말하게** 하라"였다.
+   그런데 매칭·풍선은 단어만 다루는 게임이라, 4단의 ③(문장)에 쓸 문장이 없다.
+   → 방금 맞힌 낱말이 **실제로 들어 있는** 문장을 교재 문장 풀에서 찾아 그걸로 4단을 돌린다.
+     이러면 "apple 을 맞혔다 → I have a red apple 을 말한다" 로 사다리가 이어진다.
+   찾지 못하면(교재에 그 낱말이 든 문장이 없으면) 그냥 다음 문장을 쓴다 — 안 도는 것보다 낫다. */
+function _sentenceForWords(words){
+  try{
+    var zh = (GAME_LANG === 'zh');
+    var want = (words || []).map(function(w){
+      return String((w && w.en) || w || '').trim().toLowerCase();
+    }).filter(Boolean);
+
+    function contains(s, w){
+      var en = String((s && s.en) || '').toLowerCase();
+      if(!en) return false;
+      // 중국어는 띄어쓰기가 없으므로 부분일치, 영어는 **낱말 단위**로 본다
+      // (부분일치로 하면 'a' 가 'apple' 에 걸려 엉뚱한 문장이 잡힌다)
+      if(zh) return en.indexOf(w) >= 0;
+      return en.split(/[^a-z0-9']+/).indexOf(w) >= 0;
+    }
+    function findIn(pool, w){
+      var hit = (pool || []).filter(function(s){ return contains(s, w); });
+      return hit.length ? hit[Math.floor(Math.random()*hit.length)] : null;
+    }
+
+    /* 🪜 ① 지금 스테이지 문장에서 먼저 찾는다(난이도가 맞는다).
+       ② 없으면 **교재 문장 전체**로 넓힌다.
+          ⚠️ 스테이지 풀만 뒤지면 사다리가 거의 안 걸린다 — 스테이지 1은 문장이 3개뿐이라
+             방금 맞힌 낱말이 그 안에 있을 확률이 낮다(실측으로 확인). 난이도보다
+             "그 낱말로 말해보게 하는 것"이 이 기능의 목적이므로 넓히는 쪽이 맞다. */
+    var stage = _stageVocab() || [];
+    for(var i=0; i<want.length; i++){
+      var s1 = findIn(stage, want[i]);
+      if(s1) return { sent: s1, word: want[i] };
+    }
+    for(var j=0; j<want.length; j++){
+      var s2 = findIn(_GAME_VOCAB, want[j]);
+      if(s2) return { sent: s2, word: want[j] };
+    }
+    // ③ 그래도 없으면 아무 문장이나 — 4단을 아예 안 도는 것보다 낫다
+    var any = _nextVocab();
+    return any ? { sent: any, word: '' } : null;
+  }catch(_){ return null; }
+}
+
+/* 단어 게임에서 4단을 돌린다 — 맞힌 낱말이 든 문장을 찾아 넘긴다. */
+function _speakCycleForWords(words, fallbackMs){
+  var pick = _sentenceForWords(words);
+  if(!pick || !pick.sent){ _gameState._advTimer = setTimeout(gameNextRound, fallbackMs); return; }
+  _speakCycleThenNext(pick.sent, pick.word ? [pick.word] : null, fallbackMs);
+}
+
 function gameShadow(enc){
   var text=decodeURIComponent(enc);
   var fb=document.getElementById('game-feedback');
@@ -2437,10 +2549,7 @@ function gameBrickCheck(){
     _brickRedrawBuilt(picked.length);   // 전부 초록으로 확정 표시
     try{ window.gameSpeak && gameSpeak(sent.en); }catch(_){}
     _gameUpdateScore();
-    if(!_gameCheckGoal()){
-      fb.innerHTML += ' <button onclick="gameShadow(\'' + encodeURIComponent(sent.en) + '\')" style="margin-left:8px;padding:5px 12px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🎤 따라 말하기</button>';
-      _gameState._advTimer = setTimeout(gameNextRound, 2800);   // 🎤 따라말하기 누를 시간 확보
-    }
+    if(!_gameCheckGoal()) _speakCycleThenNext(sent, picked, 2800);
     return;
   }
   // ── 부드러운 오답: 맞은 접두부는 초록으로 남기고, 첫 오답부터 되돌려 그 부분만 다시 ──
@@ -2541,7 +2650,10 @@ function gameMatchFlip(card){
         if (_gameState.current.matched.size === total){
           _stopRoundTimer();
           document.getElementById('game-feedback').innerHTML = '<span style="color:#fbbf24">🏆 완료! 다음 게임으로...</span>';
-          setTimeout(gameNextRound, 2000);
+          /* 🗣 판이 끝난 지점에서만 말하기 4단을 돌린다.
+             카드를 뒤집는 도중에 끼우면 짝 맞추기 리듬이 끊긴다.
+             방금 맞힌 낱말들이 든 문장을 찾아 「단어 → 문장」으로 이어준다. */
+          _speakCycleForWords(_gameState.current.pool, 2000);
         }
       }, 400);
     } else {
@@ -2646,10 +2758,7 @@ function gameFillCheck(picked, btn){
     fb.innerHTML = '<span style="color:#10b981">' + (em?em+' ':'') + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>' + _growthNote(sent);
     try{ window.gameSpeak && sent && gameSpeak(sent.en); }catch(_){}
     _gameUpdateScore();
-    if(!_gameCheckGoal()){
-      fb.innerHTML += ' <button onclick="gameShadow(\'' + encodeURIComponent(sent.en) + '\')" style="margin-left:8px;padding:5px 12px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🎤 따라 말하기</button>';
-      _gameState._advTimer = setTimeout(gameNextRound, 2600);   // 🎤 따라말하기 누를 시간 확보
-    }
+    if(!_gameCheckGoal()) _speakCycleThenNext(sent, null, 2600);
   } else {
     btn.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
     btn.style.opacity = '0.4';
@@ -2673,19 +2782,22 @@ function gameRenderBalloon(){
   _gameState.current = { answer: word.en, popped: false, word: word };
   try{ window.gameSpeakTwice && gameSpeakTwice(word.en); }catch(_){}   // 🔊 단어도 자동 2회 듣기
   const _em = _emojiFor(word, 'word');
+  /* 📐 (2026-08-04) 뜻·발음버튼을 스테이지 '위 오버레이'로 — 그 자리만큼을 낙하 구간으로 되돌린다.
+     예전에는 스테이지 위에 별도 블록으로 쌓여 있어 떨어질 높이를 그만큼 빼앗겼다. */
   let html =
-    '<div style="text-align:center;margin-bottom:14px">' +
-      '<div class="gko-cap">🎈 한국어 뜻에 맞는 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 풍선을 클릭!</div>' +
-      '<div class="gko-txt">' + (_em?_em+' ':'') + word.ko + '</div>' +
-      '<div style="margin-top:10px"><button onclick="gameSpeakAnswer()" class="gko-listen">🔊 발음 듣기</button></div>' +
-    '</div>' +
-    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:300px;' +
+    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;' +
       /* 🌤 실사 하늘 사진(1600px webp, 28KB). 이미지가 아직 안 왔거나 못 받으면 밑에 깔린
          그라데이션이 그대로 보인다 → 화면이 비는 일은 없다. */
       'background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);' +
       'background-image:url(/img/balloon/balloon-sky.webp),linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);' +
       'background-size:cover;background-position:center bottom;' +
-      'border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
+      'border-radius:14px;overflow:hidden;border:2px solid #bae6fd">' +
+    /* 뜻·발음버튼 = 반투명 오버레이(스테이지 안). 버튼은 눌려야 하므로 pointer-events 를 되살린다. */
+    '<div class="bsent-ov top">' +
+      '<div class="gko-cap">🎈 한국어 뜻에 맞는 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 풍선을 클릭!</div>' +
+      '<div class="gko-txt">' + (_em?_em+' ':'') + word.ko + '</div>' +
+      '<div style="margin-top:6px"><button onclick="gameSpeakAnswer()" class="gko-listen">🔊 발음 듣기</button></div>' +
+    '</div>';
   // 🛍️ 선택한 풍선 스킨 색상 적용
   const _pal = _balloonPal();
   const _imgs = _gameShuffle(_balloonImgs());          // 매 판 색 순서를 섞는다(자리 외우기 방지)
@@ -2805,28 +2917,40 @@ function gameRenderBalloonSent(){
     answer: (sentence.words && sentence.words.length) ? sentence.words.join(GAME_LANG==='zh' ? '' : ' ') : sentence.en };
   var shuffled = _gameShuffle(words.slice());
 
-  var promptBlock = sentence.ko
+  /* 🎈→📝 단어 단계를 막 끝냈으면 "이제 문장" 이라고 한 번 알려 준다(갑자기 규칙이 바뀌면 당황한다) */
+  var phaseBanner = (_gameState.correct === BALLOON_WORD_PHASE)
+    ? '<div style="background:rgba(14,165,233,.18);border:1px solid rgba(14,165,233,.5);color:#7dd3fc;' +
+      'border-radius:10px;padding:8px 14px;margin-bottom:8px;font-weight:800;font-size:clamp(13px,1.9vmin,17px)">' +
+      '🎉 단어 연습 끝! 이제 <b>문장</b>을 만들어 볼까요? 순서대로 터뜨리세요</div>'
+    : '';
+  var promptBlock = phaseBanner + (sentence.ko
     ? '<div class="gko-cap">📝 한국어 뜻</div><div class="gko-txt">' + _bsEsc(sentence.ko) + '</div>'
     : '<div class="gko-cap">🎧 문장을 듣고 순서대로 터뜨려 보세요</div>' +
-      '<button onclick="gameSpeakTarget()" class="gko-listen">🔊 문장 듣기</button>';
+      '<button onclick="gameSpeakTarget()" class="gko-listen">🔊 문장 듣기</button>');
 
   var colors = _bsentColors();
   var _imgs = ['red','blue','green','gold','purple','pink','silver'];
-  var cols = Math.max(2, Math.min(5, shuffled.length));
+  /* 🎈 겹침 방지 — 단어 하나당 **한 열**. 예전엔 최대 5열이라 6개째부터 첫 열로 되돌아가 포개졌다.
+     풍선 폭도 열 폭을 넘지 않게 묶어(calc) 물리적으로 겹칠 수 없게 한다. */
+  var cols = Math.max(1, shuffled.length);
+  var colPct = (92 / cols);
+  /* 📐 뜻·완성칸을 **스테이지 안 반투명 오버레이**로 넣는다.
+     예전에는 스테이지 위쪽에 별도 블록으로 쌓아서 그만큼 낙하 거리를 빼앗겼다. */
   var html =
-    '<div style="text-align:center;margin-bottom:10px">' + promptBlock +
-      '<div class="gko-cap" style="margin-top:8px">🎈 단어를 <b>순서대로</b> 클릭! (틀려도 감점 없어요)</div>' +
+    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;border-radius:14px;overflow:hidden">' +
+    '<style>@keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}</style>' +
+    '<div class="bsent-ov top">' + promptBlock +
+      '<div class="gko-cap" style="margin-top:4px">🎈 단어를 <b>순서대로</b> 클릭! (틀려도 감점 없어요)</div>' +
     '</div>' +
-    '<div id="bsent-built" style="min-height:52px;background:rgba(15,23,42,.62);border:2px dashed #475569;border-radius:12px;' +
-      'padding:10px 12px;display:flex;flex-wrap:wrap;gap:7px;justify-content:center;align-items:center;margin-bottom:10px">' +
-      '<span id="bsent-empty" style="color:#94a3b8;font-size:14px">첫 단어 풍선을 찾아 클릭하세요…</span>' +
-    '</div>' +
-    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:300px;border-radius:14px;overflow:hidden">' +
-    '<style>@keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}</style>';
+    '<div id="bsent-built" class="bsent-built-ov">' +
+      '<span id="bsent-empty" style="color:#cbd5e1;font-size:14px">첫 단어 풍선을 찾아 클릭하세요…</span>' +
+    '</div>';
 
   shuffled.forEach(function(w, i){
-    var left = 4 + (i % cols) * (88 / cols) + (Math.random()*6-3);
-    var startTop = -80 - Math.random()*320;
+    var left = 4 + i * colPct;                       /* 자기 열의 왼쪽 끝 — 되돌아가지 않는다 */
+    /* 시작 높이는 촘촘하게. 넓게 흩뿌리면 **낮게 시작한 풍선**이 먼저 바닥에 닿아
+       라운드가 오히려 빨리 끝난다(라운드 종료 = 첫 풍선 착지). */
+    var startTop = -110 - (i % 3) * 42 - Math.random()*28;
     var spd = 0.55 + Math.random()*0.9;
     var sway = (Math.random()*2.2+0.8).toFixed(2);
     var swayT = (Math.random()*1.6+1.4).toFixed(2);
@@ -2840,7 +2964,7 @@ function gameRenderBalloonSent(){
     html += '<div class="balloon" data-w="' + _bsAttr(w) + '" data-spd="' + spd.toFixed(3) + '" onclick="gameBalloonSentPop(this)" ' +
       'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;' +
       'animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;' +
-      'width:clamp(76px,11.8vmin,132px);aspect-ratio:267/360;' +
+      'width:min(clamp(64px,11vmin,124px), calc(' + colPct.toFixed(2) + '% - 8px));aspect-ratio:267/360;' +
       'background-image:url(/img/balloon/balloon-' + _imgs[i % _imgs.length] + '.webp);' +
       'background-size:100% 100%;background-repeat:no-repeat;' +
       'filter:drop-shadow(0 10px 18px ' + c.shadow + ');' +
@@ -2852,7 +2976,7 @@ function gameRenderBalloonSent(){
       '<div style="position:absolute;bottom:-26px;left:50%;width:2px;height:26px;background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.15));transform:translateX(-50%)"></div>' +
       '</div>';
   });
-  html += '</div><div style="text-align:center;margin-top:10px;font-size:12px;color:#94a3b8">⏱ 풍선이 바닥에 닿기 전에 순서대로!</div>';
+  html += '</div>';   /* 하단 안내문구 제거 — 그 줄도 낙하 높이로 돌린다 */
   document.getElementById('game-area').innerHTML = html;
 
   var SPEED = 3.5 * _speedMult();
@@ -2861,7 +2985,9 @@ function gameRenderBalloonSent(){
     if(!_gameState.current || _gameState.current.popped) return;
     var stage = document.getElementById('balloon-stage');
     if(!stage){ clearInterval(_gameState.balloonTimer); return; }
-    var bottomY = Math.max(220, stage.clientHeight - 120), fell = false;
+    /* 바닥선 — 완성칸 오버레이(하단 약 60px)에 닿기 직전까지 내려온다.
+       스테이지가 커진 만큼 이 값도 자동으로 커져 라운드가 길어진다. */
+    var bottomY = Math.max(260, stage.clientHeight - 74), fell = false;
     var list = stage.querySelectorAll('.balloon');
     for(var k=0;k<list.length;k++){
       var bl = list[k];
@@ -3039,7 +3165,10 @@ function gameBalloonPop(bl){
     try{ window.MangoiStreak && MangoiStreak.complete('balloon'); }catch(_){}  // 🔥 오늘 학습 달성
     document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">🎉 풍! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
     _gameUpdateScore();
-    if(!_gameCheckGoal()) setTimeout(gameNextRound, 1200);   // 🎯 10개 정답 → 결과 화면
+    /* 🗣 맞힌 낱말이 든 문장으로 4단(단어 → 문장). 게이트가 3문제에 1번만 열어 준다.
+       ⚠️ 풍선은 낭독이 320ms 뒤에 시작하므로, 4단이 마이크를 열기 전에 그 소리를 끊어야 한다
+          (안 끊으면 음성인식이 AI 목소리를 학생 말로 받아 적는다). 모듈이 hushTTS 로 끊는다. */
+    if(!_gameCheckGoal()) _speakCycleForWords([_gameState.current.word], 1200);   // 🎯 10개 정답 → 결과 화면
   } else {
     const dead = _onWrong('word', _gameState.current.word);   // 🧠 콤보 리셋·하트 차감·약점 기록
     _gameUpdateScore();
@@ -3156,7 +3285,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260804041001 -->
+<!-- BUILD:20260804044646 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>

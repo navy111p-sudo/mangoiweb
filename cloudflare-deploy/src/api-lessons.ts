@@ -6,8 +6,6 @@
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
-import { runCypher } from './teacher-match';
-import { studentScopeWhere } from './scope';
 import { sendPushToUser } from './api-notify';
 import type { MangoEnv } from './api-mango';
 

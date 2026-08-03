@@ -189,6 +189,18 @@
   <script src="/vendor/three/GLTFLoader.js?v=1"></script>
   <!-- 📚 로그인 학생 교재/레벨 맞춤 출제 로더 -->
   <script src="/js/game-vocab.js"></script>
+  <!-- 🗣 (2026-08-04) 말하기 4단 선순환 — 이 게임엔 말하기가 아예 없었다(보기 고르기만).
+       실측: SpeechRecognition 0회 · MangoiScore 0회. 문장 문제를 맞혀도 입을 열 일이 없었다.
+       ⚠️ game-tts.js 를 함께 싣는 이유: 이 게임은 자체 <audio>(ttsA) 로만 발음하는데,
+          4단 모듈의 낭독은 MangoiTTS 를 쓴다. 안 실으면 브라우저 speechSynthesis 로 떨어지고
+          중국어는 그 경로가 깨진 음성이 나온다(CLAUDE.md 함정표). -->
+  <script src="/js/game-tts.js?v=5"></script>
+  <script src="/js/mangoi-stt.js?v=2"></script>
+  <script src="/js/mangoi-voice-input.js?v=4"></script>
+  <script src="/js/mangoi-speak-score.js?v=1"></script>
+  <script src="/js/mangoi-pron-tags.js?v=1"></script>
+  <script src="/js/mangoi-memory.js?v=1"></script>
+  <script src="/js/mangoi-speak-cycle.js?v=3"></script>
   <script>
   (function(){
     'use strict';
@@ -1394,6 +1406,15 @@
     function speak(text){ text=(text||'').trim(); if(!text)return; if(ttsCache[text]){ play(ttsCache[text]); return; }
       fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text,lang:GLANG})}).then(function(r){var ct=r.headers.get('content-type')||''; if(!r.ok||ct.indexOf('audio')<0)throw 0; return r.blob();}).then(function(b){var u=URL.createObjectURL(b); ttsCache[text]=u; play(u);}).catch(function(){ if(synth){try{synth.cancel();var u=new SpeechSynthesisUtterance(text); u.lang=IS_ZH?'zh-CN':'en-US'; u.rate=IS_ZH?0.86:0.92; if(enVoice)u.voice=enVoice; synth.speak(u);}catch(e){}} }); }
     function play(u){ try{ if(!ttsA)ttsA=new Audio(); ttsA.src=u; ttsA.play().catch(function(){}); }catch(e){} }
+    /* 🔇 (2026-08-04) 이 게임의 발음을 즉시 끊는다 — **마이크를 켜기 전에 반드시** 호출할 것.
+       이 게임은 클라우드 TTS 를 자체 <audio>(ttsA) 로 재생한다. 그래서 공용 모듈의
+       정지 루틴(MangoiTTS.stop + speechSynthesis.cancel)이 **이 소리는 못 끊는다.**
+       안 끊고 마이크를 열면 음성인식이 AI 목소리를 학생 발화로 받아 적는다
+       (과거 다른 화면에서 실제로 터졌던 사고다). */
+    function stopOwnTTS(){
+      try{ if(ttsA){ ttsA.pause(); try{ ttsA.currentTime=0; }catch(e2){} } }catch(e){}
+      try{ if(synth) synth.cancel(); }catch(e){}
+    }
 
     /* ===== 오디오 언락 (중요) — iframe 임베드/모바일에서 AudioContext 가 suspended 로 남아 소리가 안 나는 문제 =====
        레슨 시작 클릭 1회만으로는 부족한 경우가 많아, '모든' 사용자 제스처에서 AC.resume() + speechSynthesis 프라임을
@@ -1439,6 +1460,8 @@
     function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
 
     function startLesson(i){ state.lesson=i; state.idx=0; state.heroHP=100; state.bossHP=100; state.combo=0; state.busy=false; stopQTimer();
+      /* 🗣 이 학생의 약점 문장을 서버에서 미리 받아둔다 — 약점으로 잡힌 문장은 게이트를 무시하고 매번 4단을 돈다 */
+      try{ window.MangoiCycle && MangoiCycle.warmWeak(IS_ZH?'zh':'en'); }catch(e){}
       // 이전 패배로 기사가 쓰러져 있었으면 다시 일으켜 세움(자세/스케일/위치 초기화)
       clearVictoryFx();   // 🏆 이전 승리 트로피/반짝이 정리
       hero.rotation.set(0,0.18,0); hero.scale.set(1,1,1); hero.position.set(-GAP,0,0); hero.userData.home.set(-GAP,0,0);
@@ -1500,7 +1523,25 @@
         btn.classList.add('right'); sfx.correct(); speak(it.type==='문장'? it.q.replace('___',it.a):it.a);
         state.combo++; state.score+=Math.round(100*(1+state.combo*0.1)); if(state.combo>=2) toast(state.combo+' COMBO!','#ffd34d');
         attackAnim(hero,boss); var dmg=Math.ceil(100/LESSONS[state.lesson].items.length); state.bossHP=Math.max(0,state.bossHP-dmg); updateHUD(); state.idx++;
-        setTimeout(function(){ if(state.bossHP<=0){ victory(); return; } el.quiz.style.display='none'; state.busy=false; setTimeout(nextQuestion,300); },800);
+        setTimeout(function(){
+          if(state.bossHP<=0){ victory(); return; }   // 마지막 한 방은 세리머니를 막지 않는다
+          el.quiz.style.display='none';
+          /* 🗣 (2026-08-04) 문장 문제를 맞혔으면 말하기 4단을 돌린다.
+             ① 뜻 가리고 듣기 → ② 낱말 → ③ 문장 → ④ 되듣고 따라 말하기.
+             ⚠️ 단어 문제(type==='단어')는 4단의 ②와 ③이 같은 말이 되어 버려 제외한다.
+             ⚠️ 보스를 쓰러뜨린 순간에는 안 돌린다 — 승리 세리머니가 보상의 절정이라
+                거기서 20초를 막으면 아이들이 가장 기다린 장면을 빼앗는 셈이다.
+             게이트가 3문제에 1번만 열어 주므로 전투 리듬이 크게 끊기지 않는다. */
+          var _full = (it.type === '문장') ? String(it.q || '').replace('___', it.a) : '';
+          var _go = function(){ state.busy=false; setTimeout(nextQuestion,300); };
+          if(_full && window.MangoiCycle){
+            stopOwnTTS();                                   // 낭독을 끊고 마이크를 연다
+            MangoiCycle.run({ en:_full, ko:(KO[it.a]||''), words:[it.a], lang: IS_ZH?'zh':'en' })
+              .then(_go)['catch'](_go);
+            return;
+          }
+          _go();
+        },800);
       } else {
         btn.classList.add('wrong'); sfx.wrong(); [].forEach.call(el.choices.children,function(b){ if(b.getAttribute('data-val')===it.a) b.classList.add('right'); }); state.combo=0;
         setTimeout(function(){ attackAnim(boss,hero); sfx.hurt(); state.heroHP=Math.max(0,state.heroHP-20); updateHUD();
@@ -1660,6 +1701,6 @@
 }
 </style>
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260804041001 -->
+<!-- BUILD:20260804044646 -->
 </body>
 </html>

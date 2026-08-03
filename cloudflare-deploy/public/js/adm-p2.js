@@ -202,8 +202,8 @@
     {re:/급여|월급|페이롤|payroll|salary/i, menu_id:'card-payroll', ko:'강사 급여 카드로 이동할게요.', en:'Opening the teacher payroll card.'},
     {re:/선생님|쌤|강사|teacher|tutor/i, menu_id:'card-teacher-mgmt', ko:'강사관리 카드에서 선생님 정보를 확인하세요.', en:'Opening the teacher management card.'},
     {re:/미납|독촉|연체|overdue|unpaid|dunning/i, menu_id:'card-auto-dunning', ko:'미납 자동 추적 카드로 이동할게요.', en:'Opening the overdue auto-tracking card.'},
-    {re:/정산|settle/i, menu_id:'card-settlement-stats', ko:'정산통계 카드로 이동할게요.', en:'Opening the settlement stats card.'},
-    {re:/회계|account/i, menu_id:'card-accounting-mgmt', ko:'회계관리 카드로 이동할게요.', en:'Opening the accounting card.'},
+    // (2026-08-04) '정산통계관리' 카드 제거 → 정산·회계를 한 규칙으로 합쳐 회계관리로 보낸다
+    {re:/회계|정산|account|settle/i, menu_id:'card-accounting-mgmt', ko:'회계관리 카드로 이동할게요.', en:'Opening the accounting card.'},
     {re:/출석|출결|attendance/i, menu_id:'card-class-attendance', ko:'출석현황 카드로 이동할게요.', en:'Opening the attendance card.'},
     {re:/레벨\s*테스트|레벨테스트|level\s*test/i, menu_id:'card-level-tests', ko:'레벨 테스트 카드로 이동할게요.', en:'Opening the level test card.'},
     {re:/수강\s*신청|수강신청|enroll/i, menu_id:'card-enrollments', ko:'수강신청 관리 카드로 이동할게요.', en:'Opening the enrollment card.'},

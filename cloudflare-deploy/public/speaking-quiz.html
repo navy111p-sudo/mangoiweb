@@ -260,6 +260,11 @@
 </div>
 
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-04) 채점기·발음처방·기억큐 — 예전엔 "목표 낱말이 어디에 있든 몇 개 들렸나"만 세서
+     어순을 바꿔 말해도 통과했다. 허브와 같은 채점기로 통일한다. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script src="/js/game-vocab.js"></script>
 <script src="/js/lesson-nav.js?v=2"></script>
 <script>
@@ -643,17 +648,60 @@
   function _lev(a,b){ var m=a.length,n=b.length; if(!m)return n; if(!n)return m; var prev=[],cur=[],i,j;
     for(j=0;j<=n;j++)prev[j]=j; for(i=1;i<=m;i++){ cur[0]=i; for(j=1;j<=n;j++){ var c=a.charAt(i-1)===b.charAt(j-1)?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c); } var t=prev;prev=cur;cur=t; } return prev[n]; }
   function simRatio(a,b){ a=_clean(a); b=_clean(b); if(!a||!b)return 0; if(a===b)return 1; var L=Math.max(a.length,b.length); return L?(1-_lev(a,b)/L):0; }
+  /* 🗣 (2026-08-04) 채점기를 허브(js/mangoi-speak-score.js)와 같은 것으로 교체.
+     ── 예전 ──
+       목표 낱말이 **어디에 있든** 몇 개나 들렸는지만 셌다(`ht.indexOf(w)` + 8할 기준).
+       그래서 **어순을 바꿔 말해도, 뜻이 다른 낱말을 말해도** 통과했다.
+       "말하기 퀴즈"라는 이름을 달고 정작 채점이 가장 헐거웠다.
+     ── 지금 ──
+       단어 정렬 + 누락/치환 구분 + 기능어 가중치 완화 + 길이별 통과기준을 쓴다.
+       (2단어 0.9 / 5단어 이하 0.75 / 9단어 이하 0.72 / 그 이상 0.68 — 짧을수록 엄격)
+     ⚠️ 반환값은 예전과 같은 boolean 이다 → 호출부(handleAttempt, onresult)는 한 줄도 안 바뀐다.
+     ⚠️ 중국어는 채점기가 영어 전용이라 기존 경로를 그대로 둔다. */
+  /* 🎤 발음 점수 서버 적립 → game_progress.pron_best / pron_count.
+     이미 있는 API 다(POST /api/games/shadow). 이 화면이 안 쓰고 있었을 뿐이다.
+     이게 쌓여야 ① 교사가 학생별 발음 향상을 보고 ② 다른 게임이 GET /api/games/weak 로
+     "어제 막힌 문장"을 받아 다시 내줄 수 있다(기기를 바꿔도 남는 유일한 경로). */
+  function _sqSaveShadow(it, score){
+    try{
+      /* 🔁 js/mangoi-shadow-sync.js 가 실려 있으면 그쪽이 이미 보낸다 — 두 번 쓰면 pron_count 가 부푼다 */
+      if(window.MangoiShadow && MangoiShadow.stats && MangoiShadow.stats().hooked) return;
+      var uid = (window.MangoiGameVocab && MangoiGameVocab.getUserId()) || '';
+      if(!uid || !it || !it.en) return;
+      fetch('/api/games/shadow', {
+        method:'POST', headers:{'Content-Type':'application/json'}, keepalive:true,
+        body: JSON.stringify({ user_id:uid, lang: IS_ZH?'zh':'en', item:it.en, ko:it.ko||'',
+                               score: Math.max(0, Math.min(100, Math.round(score))) })
+      }).catch(function(){});
+    }catch(_){}
+  }
+
+  var _sqDiag = '';          // 마지막 판정의 발음 처방(있으면 화면에 한 줄)
+  var _sqLastGrade = null;   // 마지막 판정 결과(정확도 표시·기억큐 적립에 재사용)
   function matchSpoken(heard, target){
     var h=norm(heard), t=norm(target); if(!h||!t) return false;
+    _sqDiag=''; _sqLastGrade=null;
     if(h===t) return true;
     if(IS_ZH){   // 🀄 한자 비교(관대) — STT 가 한두 글자 틀려도 통과
       var zsim=simRatio(h,t);
       return t.length<=2 ? zsim>=0.5 : zsim>=0.6;
     }
     if(h.replace(/ /g,'')===t.replace(/ /g,'')) return true;
+    if(window.MangoiScore){
+      var g = MangoiScore.grade(heard, target);
+      _sqLastGrade = g;
+      try{
+        var d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags:[], goodTags:[] };
+        _sqDiag = (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '';
+        // 🧠 게임 공통 기억 큐 — 여기서 막힌 문장을 다른 게임이 이어받는다
+        if(window.MangoiMemory) MangoiMemory.log({ en:target }, !!g.pass,
+          { tags:d.tags, goodTags:d.goodTags, score:g.score });
+      }catch(_){}
+      return !!g.pass;
+    }
+    // 모듈이 안 실렸을 때의 예전 경로 — 게임은 어떤 경우에도 안 멈춘다
     var ht=h.split(' '), tt=t.split(' '), m=0;
     tt.forEach(function(w){ var k=ht.indexOf(w); if(k>=0){ ht.splice(k,1); m++; } });
-    // 단어 1개 문제는 유사도로도 통과(발음 인식 관대)
     if(tt.length<=1) return (m>=1) || simRatio(h,t)>=0.7;
     return (m/tt.length) >= 0.7;
   }
@@ -737,7 +785,9 @@
     var matched = (typeof matchedFlag==='boolean') ? matchedFlag : matchSpoken(heard, it.en);
     var confOk = (confidence===0) || (confidence > CONF_TH);
     var pass = matched && confOk;
-    var pct = Math.round(simRatio(heard, it.en)*100);
+    /* 정확도 표시 — 채점기가 낸 점수를 쓴다.
+       예전엔 simRatio(글자 편집거리)라, 어순이 뒤바뀌어도 높은 %가 찍혀 학생이 오해했다. */
+    var pct = (_sqLastGrade ? _sqLastGrade.score : Math.round(simRatio(heard, it.en)*100));
     var line = '들린 말: <span class="heard">"'+(heard||'…')+'"</span> · 정확도 <span class="conf '+(matched?'ok':'no')+'">'+pct+'%</span>';
     if(pass){
       G.busy=true;
@@ -745,9 +795,13 @@
       $('#status').innerHTML = line + '<br>🎉 <b>정답! +'+pts+'점</b>';
       toast('👍 +'+pts+'점!', 'good');
       var mic=$('#micBtn'); mic.disabled=true; mic.classList.remove('listening'); mic.innerHTML='✅ 통과';
+      _sqSaveShadow(it, pct);          // 🎤 발음 점수 서버 적립(교사가 향상 확인)
       advance();
     } else {
-      $('#status').innerHTML = line + '<br>😅 다시 한 번 또렷하게 말해보세요.';
+      /* 「틀렸어요」 대신 **무엇을 고치면 되는지** 한 줄 — 없으면 채점기의 한 줄이라도 준다 */
+      var fix = _sqDiag || (_sqLastGrade && _sqLastGrade.tip) || '';
+      $('#status').innerHTML = line + '<br>😅 다시 한 번 또렷하게 말해보세요.' +
+        (fix ? '<br><span style="color:#7dd3fc">'+fix+'</span>' : '');
       toast('다시 말해보세요!', 'bad');
     }
   }
@@ -885,6 +939,6 @@
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
 <script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260804041001 -->
+<!-- BUILD:20260804044646 -->
 </body>
 </html>

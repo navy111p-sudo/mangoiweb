@@ -2790,7 +2790,7 @@
     </button>
 
     <!-- 📊 통계/KPI -->
-    <button class="hub-btn" onclick="hubJump('stats', ['card-kpi-dashboard','card-daily-charts','card-rankings','card-retention','card-retention-risk','card-no-shows','card-active-rooms','card-settlement-stats'])" data-hub="stats">
+    <button class="hub-btn" onclick="hubJump('stats', ['card-kpi-dashboard','card-daily-charts','card-rankings','card-retention','card-retention-risk','card-no-shows','card-active-rooms'])" data-hub="stats">
       <div class="hub-icon" style="background:linear-gradient(135deg,#6366f1,#4338ca)">📊</div>
       <div>
         <div class="hub-title" data-ko="통계/KPI" data-en="Stats/KPI">통계/KPI</div>
@@ -3705,8 +3705,7 @@
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <input id="acc-fx-month" type="month" value="2026-05" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
             <button id="acc-fx-load" class="primary" onclick="accLoadForex()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
-            <button id="acc-fx-rates" onclick="alert(window.adminLang==='en'?'FX update: PHP 24.34 / USD 1,365 / GBP 1,720 (manual setting)':'환율 갱신: PHP 24.34 / USD 1,365 / GBP 1,720 (수동 설정)')" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="💱 환율 갱신" data-en="💱 Update FX">💱 환율 갱신</button>
-            <span style="font-size:11px;color:#6b7280" data-ko="PHP 24.34 / USD 1,365 / GBP 1,720" data-en="PHP 24.34 / USD 1,365 / GBP 1,720">PHP 24.34 / USD 1,365 / GBP 1,720</span>
+            <span style="font-size:11px;color:#6b7280" data-ko="💱 적용 환율(수동 설정) PHP 24.34 / USD 1,365 / GBP 1,720" data-en="💱 FX applied (manual) PHP 24.34 / USD 1,365 / GBP 1,720">💱 적용 환율(수동 설정) PHP 24.34 / USD 1,365 / GBP 1,720</span>
           </div>
           <table>
             <thead><tr>
@@ -3732,8 +3731,7 @@
             <span style="font-size:12px;color:#6b7280" data-ko="📅 정산 월:" data-en="📅 Month:">📅 정산 월:</span>
             <input id="acc-fr-month" type="month" value="2026-05" style="padding:6px 10px;font-size:13px;border-radius:8px;border:1px solid #d1d5db;font-weight:600" />
             <button id="acc-fr-load" onclick="accLoadFranchise()" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="🧮 새로고침" data-en="🧮 Refresh">🧮 새로고침</button>
-            <button id="acc-fr-transfer" onclick="alert(window.adminLang==='en'?'💸 Bulk Transfer Guide\n\nTo transfer each branch settlement at once:\n1. 📥 Download statement → review\n2. Bulk transfer via internet/firm banking\n3. Update status after transfer is complete':'💸 일괄 송금 안내\n\n각 지점 정산액을 일괄 송금하시려면:\n1. 📥 정산서 다운로드 → 검토\n2. 은행 인터넷뱅킹 또는 펌뱅킹 일괄 이체\n3. 송금 완료 후 상태 업데이트')" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="💸 일괄 송금하기" data-en="💸 Bulk Transfer">💸 일괄 송금하기</button>
-            <button onclick="alert(window.adminLang==='en'?'📥 Download settlement Excel (all branches)':'📥 정산서 Excel 다운로드 (전체 지점)')" style="padding:7px 14px;font-size:12.5px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:700" data-ko="📥 Excel 다운로드" data-en="📥 Excel Download">📥 Excel 다운로드</button>
+            <button id="acc-fr-transfer" onclick="alert(window.adminLang==='en'?'💸 Bulk Transfer Guide\n\nTo transfer each branch settlement at once:\n1. 📥 Download statement → review\n2. Bulk transfer via internet/firm banking\n3. Update status after transfer is complete':'💸 일괄 송금 안내\n\n각 지점 정산액을 일괄 송금하시려면:\n1. 📥 정산서 다운로드 → 검토\n2. 은행 인터넷뱅킹 또는 펌뱅킹 일괄 이체\n3. 송금 완료 후 상태 업데이트')" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="💸 일괄 송금 안내" data-en="💸 Bulk Transfer Guide">💸 일괄 송금 안내</button>
           </div>
 
           <!-- 4개 KPI 카드 (한눈에 보이는 핵심 숫자) -->
@@ -3840,8 +3838,7 @@
               <option data-ko="회원 포인트" data-en="Member points">회원 포인트</option>
               <option data-ko="추천인 보상" data-en="Referral rewards">추천인 보상</option>
             </select>
-            <button class="primary" onclick="alert('쿠폰 발급은 별도 화면에서 처리됩니다. (수강신청 관리 메뉴 또는 학생 상세보기에서)')" style="padding:5px 12px;font-size:12px;" data-ko="＋ 새 쿠폰" data-en="＋ New">＋ 새 쿠폰</button>
-            <button onclick="alert('쿠폰 사용 통계는 추후 별도 페이지에서 제공됩니다.')" style="padding:5px 12px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="📊 사용 통계" data-en="📊 Usage stats">📊 사용 통계</button>
+            <button class="primary" onclick="var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}" style="padding:5px 12px;font-size:12px;" data-ko="＋ 새 쿠폰 발급하러 가기" data-en="＋ Go to issue coupon">＋ 새 쿠폰 발급하러 가기</button>
           </div>
           <table>
             <thead><tr>
@@ -3871,7 +3868,7 @@
               <option value="withholding" data-ko="원천세" data-en="Withholding tax">원천세</option>
             </select>
             <button class="primary" onclick="accLoadTax()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 집계" data-en="🧮 Compute">🧮 집계</button>
-            <button onclick="alert('홈택스 전송은 국세청 인증서가 필요합니다. 집계 결과 CSV를 다운받아 홈택스에 업로드해 주세요.\n\n홈택스: https://hometax.go.kr')" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📤 홈택스 전송" data-en="📤 Submit to Hometax">📤 홈택스 전송</button>
+            <button onclick="alert('홈택스 전송은 국세청 인증서가 필요합니다. 집계 결과 CSV를 다운받아 홈택스에 업로드해 주세요.\n\n홈택스: https://hometax.go.kr')" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📤 홈택스 전송 방법" data-en="📤 How to submit (Hometax)">📤 홈택스 전송 방법</button>
           </div>
           <table>
             <thead><tr>
@@ -4175,67 +4172,11 @@
   </div>
 </details>
 
-<!-- 📊 정산통계관리 (회계관리 옆 — 별도 최상위) — 2026-05-06 추가 -->
-<details class="table-card menu-card" id="card-settlement-stats">
-  <summary>
-    <span data-ko="📊 정산통계관리" data-en="📊 Settlement Statistics">📊 정산통계관리</span>
-  </summary>
-  <div class="menu-body">
-
-    <!-- 도움말 -->
-    <div style="font-size:12px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:12px;line-height:1.7">
-      <div data-ko="💡 지사·대리점·SLP·강사·학생·관리자 정산을 한 화면에서 — 검색·정렬·엑셀 다운로드 모두 지원." data-en="💡 Branch · Agency · SLP · Instructor · Student · Admin settlements in one place — search, sort, Excel export.">💡 지사·대리점·SLP·강사·학생·관리자 정산을 한 화면에서.</div>
-      <div style="margin-top:6px;font-size:11px;color:#475569">
-        <span style="display:inline-block;padding:2px 8px;background:#dbeafe;color:#1e40af;border-radius:10px;margin-right:6px;font-weight:700">👨‍🏫 강사 / Instructor</span>
-        <span data-ko="= 학생을 직접 가르치는 사람" data-en="= staff who teach students directly">= 학생을 직접 가르치는 사람</span>
-      </div>
-      <div style="margin-top:4px;font-size:11px;color:#475569">
-        <span style="display:inline-block;padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:10px;margin-right:6px;font-weight:700">🧑‍💼 관리자 / Admin</span>
-        <span data-ko="= 본사 직원, 지사장, 학습 컨설턴트 등 운영·관리 담당" data-en="= HQ staff, branch managers, learning consultants — operations and management">= 본사 직원, 지사장, 학습 컨설턴트 등 운영·관리 담당</span>
-      </div>
-    </div>
-
-    <!-- Tab 메뉴 (11개) -->
-    <div id="ss-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:8px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:10px"></div>
-
-    <!-- 필터 바 -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;padding:12px 14px;background:linear-gradient(135deg,#f9fafb,#f3f4f6);border:1px solid #e5e7eb;border-radius:10px">
-      <select id="ss-hq" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff;min-width:130px">
-        <option value="" data-ko="🏢 본사 선택" data-en="🏢 HQ — All">🏢 본사 선택</option>
-      </select>
-      <select id="ss-rep" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff;min-width:140px">
-        <option value="" data-ko="👤 대표지사 선택" data-en="👤 Rep. Branch — All">👤 대표지사 선택</option>
-      </select>
-      <select id="ss-year" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff"></select>
-      <select id="ss-month" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff"></select>
-      <select id="ss-status" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff">
-        <option value="active" data-ko="🟢 운영중" data-en="🟢 Active">🟢 운영중</option>
-        <option value="all" data-ko="전체" data-en="All">전체</option>
-        <option value="inactive" data-ko="⏸️ 비활동" data-en="⏸️ Inactive">⏸️ 비활동</option>
-      </select>
-      <input id="ss-search" type="search" placeholder="🔍 지사명 또는 관리자명" data-ko-placeholder="🔍 지사명 또는 관리자명" data-en-placeholder="🔍 Branch or manager" style="padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff;flex:1;min-width:180px;max-width:280px" oninput="ssRender()" />
-      <button type="button" onclick="ssRender()" style="padding:7px 16px;font-size:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;box-shadow:0 2px 4px rgba(59,130,246,0.3)" data-ko="🔍 검색" data-en="🔍 Search">🔍 검색</button>
-      <span style="flex:1"></span>
-      <button type="button" onclick="ssExportExcel()" style="padding:7px 14px;font-size:12px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700" data-ko="📥 엑셀" data-en="📥 Excel">📥 엑셀</button>
-    </div>
-
-    <!-- PG 수수료 안내 -->
-    <div style="text-align:right;font-size:11px;color:#dc2626;margin-bottom:6px;font-weight:600"
-         data-ko="※ 결제(PG)수수료를 제외한 금액"
-         data-en="※ Excludes payment gateway (PG) fees">
-      ※ 결제(PG)수수료를 제외한 금액
-    </div>
-
-    <!-- KPI 카드 (4종) -->
-    <div id="ss-kpi-row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px"></div>
-
-    <!-- 결과 표 -->
-    <div id="ss-table-wrap" style="border-radius:12px;overflow:hidden;box-shadow:0 4px 14px -4px rgba(0,0,0,0.10)"></div>
-
-    <!-- 통화 안내 -->
-    <div style="margin-top:10px;font-size:11px;color:#6b7280;text-align:right" data-ko="단위: KRW" data-en="Unit: KRW">단위: KRW</div>
-  </div>
-</details>
+<!-- 🗑 [2026-08-04] 📊 정산통계관리 카드 제거 — 사장님 지시.
+     탭 11개·KPI·표·검색/엑셀 버튼이 전부 HTML 껍데기뿐이고 담당 JS(ssRender/ssExportExcel)가
+     처음부터 없어, 열어도 빈 화면이고 버튼을 눌러도 아무 일이 없었다(구현 이력 없음 — git log -S 확인).
+     사이드바 '📊 정산 통계' 항목·통합검색·AI 명령 라우팅도 같이 뺐다.
+     되살릴 때: git show bd20472e5~1:cloudflare-deploy/public/admin.html 에서 이 자리 블록을 복원. -->
 
 <!-- 🔐 권한 설정 (역할별 접근 제어) -->
 <details class="table-card menu-card" id="card-permissions">
@@ -5165,93 +5106,9 @@
 
       <script src="/js/adm-r2.js?v=1" defer></script><!-- 분할추출:adm-r2 -->
 
-      <!-- ph179 (2026-05-29) — 📊 카톡 평가 설문 → 강사 평가 + 급여 반영 -->
-      <details class="sub-item" id="ph179-survey-block">
-        <summary data-ko="📊 카톡 강사 평가 설문 (학생·학부모) → 평가·급여 반영" data-en="📊 KakaoTalk Teacher Survey → Rating &amp; Salary">📊 카톡 강사 평가 설문 (학생·학부모) → 평가·급여 반영</summary>
-        <div class="sub-body">
-          <div style="background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(5,150,105,0.05));border:1px solid rgba(16,185,129,0.45);border-radius:12px;padding:14px 16px;margin-bottom:14px">
-            <h4 style="margin:0 0 6px;color:#34D399;font-size:14px">⚡ 자동 평가 시스템</h4>
-            <p style="margin:0;font-size:12.5px;color:#cbd5e1;line-height:1.65">
-              학생·학부모에게 <b style="color:#fcd34d">5문항 카톡 설문</b>(만족도/발음교정/진도/친절도/추천도)을 발송 → 응답이 들어오면 <b style="color:#86efac">강사 평균 점수</b> 자동 갱신 + <b style="color:#fcd34d">급여 인센티브</b> 자동 반영.
-            </p>
-          </div>
-
-          <!-- 1) 발송 설정 -->
-          <div style="background:#1A2548;border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:14px;margin-bottom:12px">
-            <div style="font-size:12px;font-weight:800;color:#93C5FD;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.4px">📤 설문 발송</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px">
-              <label style="display:flex;flex-direction:column;gap:4px">
-                <span style="font-size:11.5px;color:#cbd5e1;font-weight:600">강사 선택</span>
-                <select id="ph179-teacher" style="padding:8px 12px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(96,165,250,0.3);border-radius:7px;font-size:13px">
-                  <option value="all">전체 강사 (12명)</option>
-                  <option value="t01">박지윤 (5년차)</option>
-                  <option value="t02">이서연 (3년차)</option>
-                  <option value="t03">정수아 (2년차)</option>
-                  <option value="t04">Maria Santos (7년차)</option>
-                  <option value="t05">John Lee (4년차)</option>
-                </select>
-              </label>
-              <label style="display:flex;flex-direction:column;gap:4px">
-                <span style="font-size:11.5px;color:#cbd5e1;font-weight:600">발송 대상</span>
-                <select id="ph179-target" style="padding:8px 12px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(96,165,250,0.3);border-radius:7px;font-size:13px">
-                  <option value="both">학생 + 학부모 (둘 다)</option>
-                  <option value="student">학생만</option>
-                  <option value="parent">학부모만</option>
-                </select>
-              </label>
-              <label style="display:flex;flex-direction:column;gap:4px">
-                <span style="font-size:11.5px;color:#cbd5e1;font-weight:600">발송 주기</span>
-                <select id="ph179-cycle" style="padding:8px 12px;background:rgba(15,23,42,0.6);color:#fff;border:1px solid rgba(96,165,250,0.3);border-radius:7px;font-size:13px">
-                  <option value="monthly">월 1회 (매월 마지막 금요일)</option>
-                  <option value="biweekly">격주 1회</option>
-                  <option value="weekly">매주 (토요일)</option>
-                  <option value="now">지금 1회만 (테스트)</option>
-                </select>
-              </label>
-            </div>
-
-            <!-- 평가 항목 미리보기 -->
-            <div style="background:rgba(15,23,42,0.5);border:1px dashed rgba(96,165,250,0.25);border-radius:8px;padding:12px;margin-bottom:10px">
-              <div style="font-size:11.5px;color:#93C5FD;font-weight:700;margin-bottom:8px">📋 설문 항목 (5문항 · 별 1~5점)</div>
-              <ul style="margin:0;padding-left:20px;font-size:12px;color:#cbd5e1;line-height:1.9">
-                <li>1. <b style="color:#fff">수업 만족도</b> — 전반적인 수업이 만족스러우셨나요?</li>
-                <li>2. <b style="color:#fff">발음 교정</b> — 선생님의 발음 교정이 효과적이었나요?</li>
-                <li>3. <b style="color:#fff">진도 관리</b> — 진도와 숙제 관리가 체계적이었나요?</li>
-                <li>4. <b style="color:#fff">친절도·소통</b> — 선생님이 친절하고 소통이 잘 되셨나요?</li>
-                <li>5. <b style="color:#fff">종합 추천</b> — 친구·다른 학부모에게 추천하시겠어요? (0~10)</li>
-              </ul>
-            </div>
-
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button onclick="ph179_send()" class="primary" style="padding:9px 18px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#FEE500,#FBBF24);color:#191919;border:0;border-radius:8px;cursor:pointer">💬 카톡 설문 발송</button>
-              <button onclick="ph179_simulate()" style="padding:9px 18px;font-size:13px;font-weight:700;background:rgba(139,92,246,0.18);color:#c4b5fd;border:1px solid rgba(139,92,246,0.45);border-radius:8px;cursor:pointer">🧪 응답 시뮬레이션 (테스트)</button>
-              <button onclick="ph179_loadStats()" style="padding:9px 18px;font-size:13px;font-weight:700;background:rgba(59,130,246,0.18);color:#93c5fd;border:1px solid rgba(59,130,246,0.45);border-radius:8px;cursor:pointer">🔄 결과 새로고침</button>
-            </div>
-          </div>
-
-          <!-- 2) 응답 결과 표 -->
-          <div style="background:#1A2548;border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:14px;margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-              <div style="font-size:12px;font-weight:800;color:#93C5FD;text-transform:uppercase;letter-spacing:0.4px">📈 강사별 평가 점수 (이번 달)</div>
-              <span id="ph179-meta" style="font-size:11px;color:#94a3b8"></span>
-            </div>
-            <div id="ph179-table-wrap" style="overflow-x:auto"></div>
-          </div>
-
-          <!-- 3) 급여 반영 안내 -->
-          <div style="background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.04));border:1px solid rgba(251,191,36,0.4);border-radius:10px;padding:14px">
-            <div style="font-size:12px;font-weight:800;color:#FCD34D;margin-bottom:8px">💰 급여 인센티브 자동 반영 공식</div>
-            <div style="font-size:12px;color:#e2e8f0;line-height:1.8">
-              ▸ 평균 <b style="color:#86efac">4.5★ 이상</b> → 시급 <b>+15%</b> 인센티브<br>
-              ▸ 평균 <b style="color:#86efac">4.0~4.4★</b> → 시급 <b>+10%</b> 인센티브<br>
-              ▸ 평균 <b style="color:#fcd34d">3.5~3.9★</b> → 시급 그대로 (기본)<br>
-              ▸ 평균 <b style="color:#fca5a5">3.0~3.4★</b> → 시급 <b>-5%</b> + 코칭 권장<br>
-              ▸ 평균 <b style="color:#fca5a5">3.0★ 미만</b> → 시급 <b>-10%</b> + 1:1 면담 필수<br>
-              <span style="font-size:11px;color:#94a3b8;display:block;margin-top:6px">※ 응답 10건 이상부터 통계 신뢰 → 인센티브 자동 산정</span>
-            </div>
-          </div>
-        </div>
-      </details>
+            <!-- 🗑 [2026-08-04] ph179 카톡 평가 설문 블록 제거 — 위 정산통계관리와 같은 이유.
+           발송·시뮬레이션·결과새로고침 3버튼 모두 담당 JS 가 없어 눌러도 아무 일이 없었다.
+           (실제 학부모에게 카톡이 나가는 기능이라 임의 구현하지 않고 화면에서 뺌) -->
 
     </div>
   </div>
@@ -8404,7 +8261,7 @@ window.__admSettleRun = function(fn){
               <option value="resolved" data-ko="✅ 완료" data-en="✅ Resolved">✅ 완료</option>
             </select>
             <button class="primary" onclick="brLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
-            <span id="br-count" style="font-size:11.5px;color:#6b7280;margin-left:auto"></span>
+            <span id="bugrep-count" style="font-size:11.5px;color:#6b7280;margin-left:auto"></span>
           </div>
           <div id="br-list" style="overflow-x:auto"></div>
         </div>
@@ -8412,7 +8269,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-bugreports.js?v=1" defer></script><!-- 분할추출:adm-bugreports -->
+<script src="/js/adm-bugreports.js?v=2" defer></script><!-- 분할추출:adm-bugreports -->
 
 <!-- 🔔 Phase WP1~WP2 — Web Push 푸시 알림 관리 -->
 <details class="table-card menu-card" id="card-webpush-mgmt">
@@ -11895,7 +11752,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=27" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=28" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=3" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -12609,7 +12466,7 @@ button.chip:hover,
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-accounting-mgmt,card-payments-b2b,card-payments-b2c,card-recurring-billing,card-auto-dunning,card-settlement-stats,card-points-mgmt">
+  <div class="ph85-group" data-cards="card-accounting-mgmt,card-payments-b2b,card-payments-b2c,card-recurring-billing,card-auto-dunning,card-points-mgmt">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6v4"/><path d="M5.5 8h5"/></svg></div>
       <div class="ph85-title">회계 / 포인트</div>
@@ -12621,7 +12478,6 @@ button.chip:hover,
       <div class="ph85-sub" data-ko="👨‍👩‍👧 BtoC 결제관리" data-en="👨‍👩‍👧 B2C Payments" data-card="card-payments-b2c" onclick="event.stopPropagation();var c=document.getElementById('card-payments-b2c');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-payments-b2c');}">👨‍👩‍👧 BtoC 결제관리</div>
       <div class="ph85-sub" data-ko="🔄 정기 결제" data-en="🔄 Recurring Billing" data-card="card-recurring-billing" onclick="event.stopPropagation();var c=document.getElementById('card-recurring-billing');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-recurring-billing');}">🔄 정기 결제</div>
       <div class="ph85-sub" data-ko="💸 자동 수금" data-en="💸 Auto Collection" data-card="card-auto-dunning" onclick="event.stopPropagation();var c=document.getElementById('card-auto-dunning');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-dunning');}">💸 자동 수금</div>
-      <div class="ph85-sub" data-ko="📊 정산 통계" data-en="📊 Settlement Stats" data-card="card-settlement-stats" onclick="event.stopPropagation();var c=document.getElementById('card-settlement-stats');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-settlement-stats');}">📊 정산 통계</div>
       <div class="ph85-sub" data-ko="포인트 관리" data-en="Points Management" data-card="card-points-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-points-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-points-mgmt');}">포인트 관리</div>
       <div class="ph85-sub" id="ph85-capitown" data-ko="🏢 캐피타운 정산 ⭐신규" data-en="🏢 Capitown Settlement ⭐New" data-tip-ko="캐피타운 프랜차이즈 지점들의 정산을 한곳에서 관리해요." data-tip-en="Manage settlement for Capitown franchise branches in one place." style="display:none" onclick="event.stopPropagation();location.href='/admin/capitown-settlement.html';">🏢 캐피타운 정산 ⭐신규</div>
     </div>
@@ -15636,7 +15492,7 @@ button.chip:hover,
       <div class="pl-feature-card"><b>💬 댓글 토론</b><span>학부모 질문 + 강사 답글</span></div>
       <div class="pl-feature-card"><b>📌 상단 고정</b><span>중요 공지 일정 기간 항상 상단 노출</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="alert('공지 작성 폼 (다음 phase 구현)')">➕ 새 공지 작성</button>
+    <div class="pl-cta-btn" role="status" aria-disabled="true" style="display:inline-block;background:#e2e8f0!important;color:#475569!important;cursor:default!important;box-shadow:none;pointer-events:none" data-ko="🚧 준비 중 — 공지 작성" data-en="🚧 Coming soon — notice editor">🚧 준비 중 — 공지 작성</div>
   </div>
 </details>
 
@@ -15719,7 +15575,7 @@ button.chip:hover,
       <div class="pl-feature-card"><b>📊 누적 보관</b><span>학생별 타임라인, 학기말 리포트</span></div>
       <div class="pl-feature-card"><b>💬 학부모 댓글</b><span>답글 + 강사 응답</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="alert('수업 일지 작성 (수업 종료 자동 트리거 예정)')">📝 오늘 일지 작성</button>
+    <div class="pl-cta-btn" role="status" aria-disabled="true" style="display:inline-block;background:#e2e8f0!important;color:#475569!important;cursor:default!important;box-shadow:none;pointer-events:none" data-ko="🚧 준비 중 — 수업 일지" data-en="🚧 Coming soon — class journal">🚧 준비 중 — 수업 일지</div>
   </div>
 </details>
 
@@ -15735,7 +15591,7 @@ button.chip:hover,
       <div class="pl-feature-card"><b>📅 월별 하이라이트</b><span>매월 베스트 5장 자동 선정</span></div>
       <div class="pl-feature-card"><b>💝 졸업 앨범</b><span>학년말 자동 PDF 졸업 앨범</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="alert('갤러리 업로더 (R2 스토리지 연결 예정)')">📤 사진 업로드</button>
+    <div class="pl-cta-btn" role="status" aria-disabled="true" style="display:inline-block;background:#e2e8f0!important;color:#475569!important;cursor:default!important;box-shadow:none;pointer-events:none" data-ko="🚧 준비 중 — 사진 업로드" data-en="🚧 Coming soon — photo upload">🚧 준비 중 — 사진 업로드</div>
   </div>
 </details>
 
@@ -19758,7 +19614,7 @@ button.chip:hover,
 })();
 </script>
 <!-- 🥭 P3 — AI 운영 비서 대화 패널 (ai-command 연결 · 한/영 이중언어 · 가산적/비파괴 · mi-asst-) -->
-<script src="/js/adm-p2.js?v=1" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p2.js?v=2" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎥 AI 운영비서 영상 메시지 — 클릭 시 fade-in → 말하기 → fade-out (자동재생, 🔇 무음 / ❌ 닫기) -->
 <style>
@@ -21368,6 +21224,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260804041001 -->
+<!-- BUILD:20260804044646 -->
 </body>
 </html>

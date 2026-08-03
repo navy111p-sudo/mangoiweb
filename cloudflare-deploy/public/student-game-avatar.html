@@ -353,6 +353,10 @@
 <!-- 🗣 따라 말하기 채점 단일 출처. 직접 만든 "단어 몇 개 들렸나" 방식은 쓰지 말 것 —
      그 방식은 "I have a dog" 에 "I have a cat" 이라고 해도 통과시킨다(2026-07-23 확인). -->
 <script src="/js/mangoi-speak-score.js?v=1"></script>
+<!-- 🧠 (2026-08-04) 발음 처방 + 게임 공통 기억 큐.
+     이 게임은 채점만 하고 기록을 안 남겨서, 여기서 막힌 문장이 다른 게임으로 이어지지 않았다. -->
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script>
 (function(){
 'use strict';
@@ -1553,6 +1557,24 @@ function roundSpeak(){
   };
 }
 
+/* 🎤 발음 점수 서버 적립 → game_progress.pron_best / pron_count.
+   신규 API 아님 — 이미 있는 POST /api/games/shadow 다. 이 화면이 안 쓰고 있었을 뿐이다.
+   맞힌 것만 보낸다: 틀린 시도까지 보내면 pron_count 만 부풀어 교사 화면의 평균이 흐려진다. */
+function _avSaveShadow(target, score, ok){
+  try{
+      /* 🔁 js/mangoi-shadow-sync.js 가 실려 있으면 그쪽이 이미 보낸다 — 두 번 쓰면 pron_count 가 부푼다 */
+      if(window.MangoiShadow && MangoiShadow.stats && MangoiShadow.stats().hooked) return;
+    if (!ok || !target) return;
+    var uid = (window.MangoiGameVocab && MangoiGameVocab.getUserId()) || '';
+    if (!uid) return;
+    fetch('/api/games/shadow', {
+      method:'POST', headers:{'Content-Type':'application/json'}, keepalive:true,
+      body: JSON.stringify({ user_id:uid, lang:(LANG==='zh'?'zh':'en'), item:String(target), ko:'',
+                             score: Math.max(0, Math.min(100, Math.round(score||0))) })
+    }).catch(function(){});
+  }catch(_){}
+}
+
 /**
  * 따라 말하기 채점.
  * 영어는 공용 채점기(MangoiScore)에 맡긴다 — 순서·치환을 보기 때문에
@@ -1563,7 +1585,19 @@ function gradeSpeech(said, target){
   if (LANG === 'en' && window.MangoiScore && typeof MangoiScore.grade === 'function'){
     try {
       var r = MangoiScore.grade(said, target);
-      return { pass: !!r.pass, tip: r.tip || '' };
+      /* 🧠 (2026-08-04) 게임 공통 기억 큐 + 발음 처방.
+         이 게임은 채점기는 쓰면서 **기록을 아무 데도 안 남기고 있었다**(실측: MangoiMemory 0회).
+         그래서 여기서 세 번 막힌 문장이 내일 다른 게임에 나올 이유가 없었다 — 선순환이 여기서 끊겼다.
+         근거: Bjork 「바람직한 어려움」 — 인출 연습은 분산될 때 오래간다. */
+      var tip = r.tip || '';
+      try {
+        var d = (window.MangoiPron && MangoiPron.analyze(r)) || { tags:[], goodTags:[] };
+        if (window.MangoiPron) tip = MangoiPron.tipFor(d.tags) || tip;
+        if (window.MangoiMemory) MangoiMemory.log({ en: target }, !!r.pass,
+          { tags: d.tags, goodTags: d.goodTags, score: r.score });
+        _avSaveShadow(target, r.score, !!r.pass);
+      } catch(e2){}
+      return { pass: !!r.pass, tip: tip };
     } catch(e){}
   }
   // 중국어(글자 단위) · 채점기 로드 실패 시의 최소 폴백.
@@ -1966,6 +2000,6 @@ document.addEventListener('visibilitychange', function(){
 });
 })();
 </script>
-<!-- BUILD:20260804041001 -->
+<!-- BUILD:20260804044646 -->
 </body>
 </html>

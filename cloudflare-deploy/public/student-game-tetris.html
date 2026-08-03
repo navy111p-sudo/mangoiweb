@@ -290,6 +290,11 @@
 <script src="/js/mangoi-speak-score.js?v=1"></script>
 <script src="/js/mangoi-pron-tags.js?v=1"></script>
 <script src="/js/mangoi-memory.js?v=1"></script>
+<!-- 🔁 (2026-08-04) 발음 점수 서버 적립 — 이 게임은 채점·기억큐는 하면서 서버에는 한 건도
+     안 보내고 있었다(기기를 바꾸면 기록이 사라지고 교사 화면에도 안 남았다).
+     MangoiMemory.log 를 감싸 자동으로 POST /api/games/shadow 로 보낸다 — 채점 코드는 안 건드린다.
+     ⚠️ 반드시 mangoi-memory.js **다음에** 실을 것. -->
+<script src="/js/mangoi-shadow-sync.js?v=1"></script>
 <script defer src="/js/game-tts.js?v=5"></script><!-- 🙊 이모지 정제 규칙 단일 출처(MangoiTTS.stripEmoji) -->
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
@@ -1329,6 +1334,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260804041001 -->
+<!-- BUILD:20260804044646 -->
 </body>
 </html>

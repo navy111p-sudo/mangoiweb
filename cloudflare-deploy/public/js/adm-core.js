@@ -7057,8 +7057,9 @@ function buildMenuIndex() {
 
   // 🔎 검색 별칭(유사어) — 카드 라벨과 검색어가 달라도 바로 해당 페이지로 연결
   var MENU_ALIASES = [
-    { kw:'지사 대리점 정산 정산통계 branch agency', card:'card-settlement-stats', label:'지사·대리점·정산 통계' },
-    { kw:'재무 회계 매출 지출 손익 정산 accounting finance', card:'card-accounting-mgmt', label:'재무·회계 관리' },
+    // (2026-08-04) '정산통계관리' 카드는 속이 빈 껍데기라 화면에서 뺐다. '정산' 검색은
+    //   아래 재무·회계 관리로 보낸다 — 없는 카드로 점프시켜 아무 일도 안 일어나게 두지 않는다.
+    { kw:'재무 회계 매출 지출 손익 정산 지사 대리점 accounting finance settlement', card:'card-accounting-mgmt', label:'재무·회계 관리' },
     { kw:'권한 권한설정 역할 접근 permission role', card:'card-permissions', label:'권한 설정' },
     { kw:'학생 학생관리 수강생 student', card:'card-students-mgmt', label:'학생 관리' },
     { kw:'교사 강사 강사관리 선생 선생님 teacher', card:'card-teacher-mgmt', label:'강사 관리' },
