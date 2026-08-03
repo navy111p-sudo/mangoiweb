@@ -236,6 +236,7 @@
     <!-- 단어장 비어있을 때 — 2가지 옵션 -->
     <div id="emptyBox" style="display:none;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(99,102,241,0.06));border:1px solid rgba(99,102,241,0.30);border-radius:14px;padding:18px;margin-top:14px">
       <h3 style="margin:0 0 12px 0;font-size:23px;color:var(--gold);font-weight:800" data-ko="📭 단어장이 비어있어요" data-en="📭 Your vocab list is empty">📭 단어장이 비어있어요</h3>
+      <div id="emptyNote" style="display:none;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:10px;padding:11px 13px;margin:0 0 13px 0;font-size:16px;line-height:1.55;color:var(--text)"></div>
       <p style="color:var(--text2);font-size:17px;line-height:1.6;margin:0 0 16px 0" data-ko="두 가지 방법 중 하나를 선택하세요:" data-en="Choose one of these two options:">두 가지 방법 중 하나를 선택하세요:</p>
 
       <!-- 옵션 1: AI 자동 생성 (추천) -->
@@ -493,18 +494,40 @@
         const d = await r.json();
         if (!d.ok) {
           // 단어장 비어있음 → 옵션 화면 표시 (버튼은 원복해 잠기지 않게)
-          if (d.error === 'no_words') {
+          // 단어장 비어있음 / 뜻이 없어 출제 불가 → 둘 다 옵션 화면으로 보내되 이유를 다르게 안내
+          if (d.error === 'no_words' || d.error === 'no_usable_words') {
             btn.disabled = false; btn.innerHTML = '🚀 <span data-ko="퀴즈 시작" data-en="Start">퀴즈 시작</span>';
+            const note = document.getElementById('emptyNote');
+            if (d.error === 'no_usable_words') {
+              note.textContent = '⚠️ ' + tt(
+                '단어는 담겨 있는데 뜻이 저장되지 않아 문제를 만들 수 없어요. 아래에서 단어를 다시 만들어보세요!',
+                'Your words were saved without meanings, so no questions can be made. Try generating words again below!'
+              );
+              note.style.display = '';
+            } else {
+              note.style.display = 'none';
+            }
             document.getElementById('introBox').style.display = 'none';
             document.getElementById('emptyBox').style.display = '';
             return;
           }
-          document.getElementById('introMsg').innerHTML = '⚠️ ' + escHtml(d.message || d.error || '퀴즈를 만들 수 없어요.');
+          document.getElementById('introMsg').innerHTML = '⚠️ ' + escHtml(
+            tt(d.message, d.message_en || d.message) || d.error || tt('퀴즈를 만들 수 없어요.','Could not create the quiz.')
+          );
           btn.disabled = false; btn.innerHTML = '🚀 퀴즈 시작';
           return;
         }
         serverQuizzesRaw = d.quizzes; retryCount = 0;
         quizzes = prepareQuizzes(d.quizzes);
+        // 안전망: 문제가 0개면 결과창(0점)으로 넘어가지 않고 이유를 보여준다
+        if (!quizzes.length) {
+          document.getElementById('introMsg').innerHTML = '⚠️ ' + escHtml(tt(
+            '만들 수 있는 문제가 없어요. 뜻이 있는 단어를 추가한 뒤 다시 시도해주세요!',
+            'No questions could be made. Please add words that have meanings and try again!'
+          ));
+          btn.disabled = false; btn.innerHTML = '🚀 퀴즈 시작';
+          return;
+        }
         curIdx = 0; answers = []; dotResults = []; combo = 0; bestCombo = 0; xp = 0; stars = 0;
         document.getElementById('introBox').style.display = 'none';
         document.getElementById('emptyBox').style.display = 'none';
