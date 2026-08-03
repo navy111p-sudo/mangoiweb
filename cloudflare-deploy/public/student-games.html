@@ -367,6 +367,25 @@
   /* 🎈 각 풍선 좌우 흔들림(제각각 폭·주기) — 따로따로 랜덤 낙하 느낌 */
   @keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}
   /* ===== 🖥️ PC(넓은 화면) — 인라인 게임 중앙 글자·카드 약 30% 확대 (PC에서 작게 보이던 문제 개선) ===== */
+  /* 🎈 (2026-08-04) 낙하 높이 최대화 — 높이가 낮아 라운드가 금방 끝나던 문제.
+     라운드는 **가장 먼저 바닥에 닿는 풍선**이 끝내므로, 체감 시간은 '낙하 거리'가 거의 전부다.
+     그래서 스테이지를 화면 높이의 70% 이상으로 키운다(예전 min-height:300px). */
+  #balloon-stage{min-height:clamp(420px,70vh,900px)!important}
+  /* 뜻·완성칸을 스테이지 '위에' 반투명으로 얹어, 그 자리만큼을 낙하 구간으로 되돌린다.
+     (사장님: "글자가 투명으로 해서 앞에 있는 한이 있더라도 높게") */
+  /* 오버레이 자체는 클릭이 통과해야 뒤의 풍선을 누를 수 있다.
+     ⚠️ 단, 그 안의 버튼(🔊 발음 듣기)은 눌려야 하므로 되살린다 —
+        안 해주면 pointer-events:none 이 상속돼 버튼이 죽는다(실측으로 잡음). */
+  .bsent-ov{position:absolute;left:0;right:0;z-index:5;pointer-events:none;text-align:center;padding:8px 12px}
+  .bsent-ov button,.bsent-ov a{pointer-events:auto}
+  .bsent-ov.top{top:0;background:linear-gradient(180deg,rgba(8,18,39,.62),rgba(8,18,39,0))}
+  .bsent-ov .gko-txt{background:rgba(15,23,42,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+  .bsent-built-ov{position:absolute;left:8px;right:8px;bottom:8px;z-index:6;
+    display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;
+    min-height:44px;padding:7px 10px;border-radius:11px;
+    background:rgba(8,18,39,.55);border:1px dashed rgba(148,163,184,.5);
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+
   /* 📚 결과 화면 '오늘 복습할 항목' — 기본(폰) 크기 */
   .rv-head{font-size:14px;color:#fbbf24;font-weight:700;margin-bottom:6px;text-align:center}
   .rv-row{display:flex;align-items:center;gap:10px;background:rgba(15,23,42,.6);
@@ -2707,19 +2726,22 @@ function gameRenderBalloon(){
   _gameState.current = { answer: word.en, popped: false, word: word };
   try{ window.gameSpeakTwice && gameSpeakTwice(word.en); }catch(_){}   // 🔊 단어도 자동 2회 듣기
   const _em = _emojiFor(word, 'word');
+  /* 📐 (2026-08-04) 뜻·발음버튼을 스테이지 '위 오버레이'로 — 그 자리만큼을 낙하 구간으로 되돌린다.
+     예전에는 스테이지 위에 별도 블록으로 쌓여 있어 떨어질 높이를 그만큼 빼앗겼다. */
   let html =
-    '<div style="text-align:center;margin-bottom:14px">' +
-      '<div class="gko-cap">🎈 한국어 뜻에 맞는 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 풍선을 클릭!</div>' +
-      '<div class="gko-txt">' + (_em?_em+' ':'') + word.ko + '</div>' +
-      '<div style="margin-top:10px"><button onclick="gameSpeakAnswer()" class="gko-listen">🔊 발음 듣기</button></div>' +
-    '</div>' +
-    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:300px;' +
+    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;' +
       /* 🌤 실사 하늘 사진(1600px webp, 28KB). 이미지가 아직 안 왔거나 못 받으면 밑에 깔린
          그라데이션이 그대로 보인다 → 화면이 비는 일은 없다. */
       'background:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);' +
       'background-image:url(/img/balloon/balloon-sky.webp),linear-gradient(180deg,#7dd3fc 0%,#38bdf8 48%,#bae6fd 100%);' +
       'background-size:cover;background-position:center bottom;' +
-      'border-radius:14px;overflow:hidden;border:2px solid #bae6fd">';
+      'border-radius:14px;overflow:hidden;border:2px solid #bae6fd">' +
+    /* 뜻·발음버튼 = 반투명 오버레이(스테이지 안). 버튼은 눌려야 하므로 pointer-events 를 되살린다. */
+    '<div class="bsent-ov top">' +
+      '<div class="gko-cap">🎈 한국어 뜻에 맞는 ' + (GAME_LANG==='zh'?'중국어':'영어') + ' 풍선을 클릭!</div>' +
+      '<div class="gko-txt">' + (_em?_em+' ':'') + word.ko + '</div>' +
+      '<div style="margin-top:6px"><button onclick="gameSpeakAnswer()" class="gko-listen">🔊 발음 듣기</button></div>' +
+    '</div>';
   // 🛍️ 선택한 풍선 스킨 색상 적용
   const _pal = _balloonPal();
   const _imgs = _gameShuffle(_balloonImgs());          // 매 판 색 순서를 섞는다(자리 외우기 방지)
@@ -2852,21 +2874,27 @@ function gameRenderBalloonSent(){
 
   var colors = _bsentColors();
   var _imgs = ['red','blue','green','gold','purple','pink','silver'];
-  var cols = Math.max(2, Math.min(5, shuffled.length));
+  /* 🎈 겹침 방지 — 단어 하나당 **한 열**. 예전엔 최대 5열이라 6개째부터 첫 열로 되돌아가 포개졌다.
+     풍선 폭도 열 폭을 넘지 않게 묶어(calc) 물리적으로 겹칠 수 없게 한다. */
+  var cols = Math.max(1, shuffled.length);
+  var colPct = (92 / cols);
+  /* 📐 뜻·완성칸을 **스테이지 안 반투명 오버레이**로 넣는다.
+     예전에는 스테이지 위쪽에 별도 블록으로 쌓아서 그만큼 낙하 거리를 빼앗겼다. */
   var html =
-    '<div style="text-align:center;margin-bottom:10px">' + promptBlock +
-      '<div class="gko-cap" style="margin-top:8px">🎈 단어를 <b>순서대로</b> 클릭! (틀려도 감점 없어요)</div>' +
+    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;border-radius:14px;overflow:hidden">' +
+    '<style>@keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}</style>' +
+    '<div class="bsent-ov top">' + promptBlock +
+      '<div class="gko-cap" style="margin-top:4px">🎈 단어를 <b>순서대로</b> 클릭! (틀려도 감점 없어요)</div>' +
     '</div>' +
-    '<div id="bsent-built" style="min-height:52px;background:rgba(15,23,42,.62);border:2px dashed #475569;border-radius:12px;' +
-      'padding:10px 12px;display:flex;flex-wrap:wrap;gap:7px;justify-content:center;align-items:center;margin-bottom:10px">' +
-      '<span id="bsent-empty" style="color:#94a3b8;font-size:14px">첫 단어 풍선을 찾아 클릭하세요…</span>' +
-    '</div>' +
-    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:300px;border-radius:14px;overflow:hidden">' +
-    '<style>@keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}</style>';
+    '<div id="bsent-built" class="bsent-built-ov">' +
+      '<span id="bsent-empty" style="color:#cbd5e1;font-size:14px">첫 단어 풍선을 찾아 클릭하세요…</span>' +
+    '</div>';
 
   shuffled.forEach(function(w, i){
-    var left = 4 + (i % cols) * (88 / cols) + (Math.random()*6-3);
-    var startTop = -80 - Math.random()*320;
+    var left = 4 + i * colPct;                       /* 자기 열의 왼쪽 끝 — 되돌아가지 않는다 */
+    /* 시작 높이는 촘촘하게. 넓게 흩뿌리면 **낮게 시작한 풍선**이 먼저 바닥에 닿아
+       라운드가 오히려 빨리 끝난다(라운드 종료 = 첫 풍선 착지). */
+    var startTop = -110 - (i % 3) * 42 - Math.random()*28;
     var spd = 0.55 + Math.random()*0.9;
     var sway = (Math.random()*2.2+0.8).toFixed(2);
     var swayT = (Math.random()*1.6+1.4).toFixed(2);
@@ -2880,7 +2908,7 @@ function gameRenderBalloonSent(){
     html += '<div class="balloon" data-w="' + _bsAttr(w) + '" data-spd="' + spd.toFixed(3) + '" onclick="gameBalloonSentPop(this)" ' +
       'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;' +
       'animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;' +
-      'width:clamp(76px,11.8vmin,132px);aspect-ratio:267/360;' +
+      'width:min(clamp(64px,11vmin,124px), calc(' + colPct.toFixed(2) + '% - 8px));aspect-ratio:267/360;' +
       'background-image:url(/img/balloon/balloon-' + _imgs[i % _imgs.length] + '.webp);' +
       'background-size:100% 100%;background-repeat:no-repeat;' +
       'filter:drop-shadow(0 10px 18px ' + c.shadow + ');' +
@@ -2892,7 +2920,7 @@ function gameRenderBalloonSent(){
       '<div style="position:absolute;bottom:-26px;left:50%;width:2px;height:26px;background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.15));transform:translateX(-50%)"></div>' +
       '</div>';
   });
-  html += '</div><div style="text-align:center;margin-top:10px;font-size:12px;color:#94a3b8">⏱ 풍선이 바닥에 닿기 전에 순서대로!</div>';
+  html += '</div>';   /* 하단 안내문구 제거 — 그 줄도 낙하 높이로 돌린다 */
   document.getElementById('game-area').innerHTML = html;
 
   var SPEED = 3.5 * _speedMult();
@@ -2901,7 +2929,9 @@ function gameRenderBalloonSent(){
     if(!_gameState.current || _gameState.current.popped) return;
     var stage = document.getElementById('balloon-stage');
     if(!stage){ clearInterval(_gameState.balloonTimer); return; }
-    var bottomY = Math.max(220, stage.clientHeight - 120), fell = false;
+    /* 바닥선 — 완성칸 오버레이(하단 약 60px)에 닿기 직전까지 내려온다.
+       스테이지가 커진 만큼 이 값도 자동으로 커져 라운드가 길어진다. */
+    var bottomY = Math.max(260, stage.clientHeight - 74), fell = false;
     var list = stage.querySelectorAll('.balloon');
     for(var k=0;k<list.length;k++){
       var bl = list[k];
@@ -3196,7 +3226,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260804042255 -->
+<!-- BUILD:20260804044646 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
