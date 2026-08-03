@@ -7,18 +7,18 @@
  *  - 🥭 Phase 21: AI 명령 엔드포인트 (Workers AI Llama 3.3 70B)
  */
 
-import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
-import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
-import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';  // 🔄 카페24→D1 동기화 모듈
-import { scopeFragments, studentScopeWhere, getScope } from './scope';
-import { checkAdminSession, getAdminActor, sameTeacherName, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+// ※ ai-command / cafe24-sync 라우트는 다른 모듈로 옮겨졌다. 여기 남아 있던 import 는
+//   실제로 한 번도 쓰이지 않는 껍데기라 제거했다(런타임 동작 변화 없음).
+import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
+import { studentScopeWhere, getScope } from './scope';
+import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
-import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook, type GiftishowEnv } from './giftishow-client';
+import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { handleNotifyApi, ensureNotifSchema, enqueueNotification, sendPushToUser } from './api-notify';  // 🔔 알림큐·웹푸시 (분리됨)  // 🧰 공용 헬퍼 (REFACTOR_PLAN 1단계 분리)
 import { handleDiaryApi } from './api-diary';
-import { handleGamesApi, checkAndAwardBadges, BADGE_CATALOG } from './api-games';
-import { handlePointsApi, ensurePointTables, applyPointTransaction } from './api-points';  // 🎁 포인트 도메인 (분리됨)
+import { handleGamesApi } from './api-games';
+import { handlePointsApi } from './api-points';  // 🎁 포인트 도메인 (분리됨)
 import { handleLessonsApi } from './api-lessons';  // 📝 평가서·숙제 (분리됨)
 import { handleReportsApi } from './api-reports';  // 📄 월간리포트 (분리됨)
 import { handleAiApi } from './api-ai';  // 🤖 AI 영작·친구챗 (분리됨)
@@ -29,16 +29,9 @@ import { handleLessonInsightApi } from './lesson-insight';  // 🎥 수업 종�
 import { handleExamApi } from './api-exam';         // 📝 Mini TOEIC 시험 라우트 (2026-07-13 신규)
 import { handleUptimeApi } from './api-uptime';     // 📟 UptimeRobot 장애 웹훅 → 관리자 문자
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';  // 🔐 모듈레벨 소유자 검증(IDOR 방지)
-import {
-  sendLessonStartAlert, sendLessonEndAlert, sendChatSummaryAlert, sendMentionAlert,
-  sendPaymentOverdueAlert,
-  checkSolapiBalance, getSolapiMode, sendKakaoAlimtalk, sendPlainSms, type SolapiEnv,
-} from './solapi-client';
-import { sendEmail, emailLayout, type EmailEnv } from './email';   // 📧 이메일(Resend) — 레벨테스트 관리자/교사 알림
-import {
-  sendWebPushWakeup, broadcastWebPush, generateVapidKeyPair, getWebPushMode,
-  type WebPushEnv,
-} from './web-push';
+import { sendPlainSms, type SolapiEnv } from './solapi-client';
+import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
+import { broadcastWebPush } from './web-push';
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;

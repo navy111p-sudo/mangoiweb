@@ -7,8 +7,6 @@
  *
  *  dup_key = user_id | KST날짜 | 금액  (한 이중결제 그룹의 안정적 식별자)
  */
-import { json } from './api-util';
-
 async function ensureTable(env: any): Promise<void> {
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS refund_resolutions (
