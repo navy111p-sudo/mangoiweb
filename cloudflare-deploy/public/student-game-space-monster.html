@@ -376,11 +376,21 @@
 
   <!-- 로그인 학생 판별(mangoi_logged_user / mango_user) — 다른 학생게임과 같은 공용 로더 -->
   <script src="/js/game-vocab.js"></script>
-  <!-- 🧠 (2026-08-03) 게임 공통 기억 큐만 싣는다 — 이 게임엔 말하기가 없어서 채점기·발음진단은 불필요.
-       ⚠️ 듣기 관문(mangoi-listen-first)도 **일부러 안 넣었다.** 이 게임은 이미
+  <!-- 🧠 (2026-08-03) 게임 공통 기억 큐.
+       ⚠️ 듣기 관문(mangoi-listen-first)은 **일부러 안 넣었다.** 이 게임은 이미
           "문장을 소리로만 들려주고(영어 글자 안 보여줌) 그동안 괴물도 안 나온다"는
           듣기 우선 설계다. 관문을 덧대면 같은 걸 두 번 시키는 셈이라 리듬만 깨진다. -->
   <script src="/js/mangoi-memory.js?v=1"></script>
+  <!-- 🗣 (2026-08-04) 말하기 4단 선순환.
+       이 게임엔 문장 완성 뒤 `repeatDrill` 이 있었지만 **마이크가 없었다** — 망고아이가 3번
+       읽어주고 "따라 말하세요"라고만 했다. 학생이 입을 다물고 있어도 그대로 다음 문장으로 넘어갔다.
+       (실측: 이 파일에 SpeechRecognition 0회, MangoiScore 0회)
+       이제 실제로 듣고 채점하고, 그 결과를 서버(/api/games/shadow)에 적립해 다른 게임이 이어받는다. -->
+  <script src="/js/mangoi-stt.js?v=2"></script>
+  <script src="/js/mangoi-voice-input.js?v=4"></script>
+  <script src="/js/mangoi-speak-score.js?v=1"></script>
+  <script src="/js/mangoi-pron-tags.js?v=1"></script>
+  <script src="/js/mangoi-speak-cycle.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const field = $('field'), flash = $('flash'), zoom = $('corridorZoom');
@@ -1099,28 +1109,44 @@
 
       wave.failed = true;   // 루프 정지
 
-      // ③ 망고아이가 읽어준다 → 학생이 따라 말한다. 이걸 3번 하고 나서 다음 문장으로.
+      // ③ 문장을 다 맞혔으면 **말해야** 다음으로 간다.
       //    훈련하는 동안은 제한시간을 멈춘다 — 따라 말하는 시간이 손해가 되면 안 된다.
       const dots = repeatPop.querySelectorAll('.dots i');
       const sentLine = repeatPop.querySelector('.sent');
       wave.drilling = true;
-      setTimeout(() => {
+
+      /* 다음 문장(또는 다음 스테이지)으로 넘어가는 공통 마무리 — 어느 경로로 끝나든 여기로 모인다 */
+      function afterSpeaking() {
+        if (wave) wave.drilling = false;
+        repeatPop.classList.remove('show', 'say');
+        if (cleared >= stage * SENTENCES_PER_STAGE) {
+          if (stage >= LEVELS.length) { endGame(); return; }
+          stage++; stageEl.textContent = stage + '/' + LEVELS.length;
+        }
+        setTimeout(startWave, 700);
+      }
+
+      /* 🎤 예전 방식 — 망고아이가 3번 읽어주고 "따라 말하세요"라고만 했다(마이크 없음).
+         4단 사이클을 돌릴 차례가 아닐 때(3문장에 1번)와, 모듈이 안 실렸을 때의 경로로 남긴다.
+         입을 다물고 있어도 넘어가지만, 그 대신 소리 노출은 계속 유지된다. */
+      function legacyDrill() {
         sentLine.textContent = full;                 // 따라 말하려면 문장이 보여야 한다
         repeatPop.classList.add('show');
-        repeatDrill(full, 3, (lang === 'zh') ? 0.72 : 0.78,
-          () => {                       // 3번 다 끝
-            if (wave) wave.drilling = false;
-            repeatPop.classList.remove('show', 'say');
-            if (cleared >= stage * SENTENCES_PER_STAGE) {
-              if (stage >= LEVELS.length) { endGame(); return; }
-              stage++; stageEl.textContent = stage + '/' + LEVELS.length;
-            }
-            setTimeout(startWave, 700);
-          },
+        repeatDrill(full, 3, (lang === 'zh') ? 0.72 : 0.78, afterSpeaking,
           (phase, n) => {               // 'listen' = 듣는 차례 / 'say' = 따라 말하는 차례
             repeatPop.classList.toggle('say', phase === 'say');
             dots.forEach((d, i) => d.classList.toggle('on', i < n));
           });
+      }
+
+      setTimeout(() => {
+        if (!window.MangoiCycle) { legacyDrill(); return; }
+        /* ① 뜻 가리고 듣기 → ② 낱말 → ③ 문장 → ④ 되듣고 따라 말하기.
+           낭독이 겹치지 않게 이 게임의 TTS 를 먼저 끊는다(안 끊으면 인식기가 AI 목소리를 받아 적는다). */
+        try { stopSpeak(); } catch (e) {}
+        MangoiCycle.run({ en: full, ko: S.ko || '', words: S.w || null, lang: lang })
+          .then((r) => { if (!r || !r.ran) { legacyDrill(); return; } afterSpeaking(); })
+          .catch(() => { legacyDrill(); });
       }, 900);
     }
 
@@ -1354,11 +1380,15 @@
     // 첫 문장부터 교재 문장이 나오도록 잠깐 기다린다. 다만 서버가 느리면 게임이
     // 안 뜨는 게 더 큰 사고라, 2.5초가 지나면 내장 문장으로 그냥 시작한다.
     // (늦게 도착한 교재 문장은 그 다음 웨이브부터 적용된다)
+    /* 🗣 이 학생의 약점 문장을 서버에서 미리 받아둔다 — 4단 사이클은 보통 3문장에 1번만
+       돌지만, 여기 걸린 문장은 **매번** 돌린다. 기기를 바꿔도 이어지는 유일한 경로다. */
+    try { window.MangoiCycle && MangoiCycle.warmWeak(lang); } catch (e) {}
+
     Promise.race([
       loadStudentBank().catch(() => {}),
       new Promise(r => setTimeout(r, 2500))
     ]).then(startWave, startWave);
   </script>
-<!-- BUILD:20260804041001 -->
+<!-- BUILD:20260804042255 -->
 </body>
 </html>
