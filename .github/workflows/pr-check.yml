@@ -34,7 +34,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # ⚠️ 20 으로 두면 안 된다. 하니스가 Node 22+ 기능에 의존한다:
+          #   · node:sqlite            → Node 22.5+  (attendance_last_seen, cafe24_sync, org_settlement)
+          #   · .ts 파일 직접 import   → Node 22.18+ 타입 스트리핑 (judgment_level, judgment_scoring)
+          # Node 20 에서는 위 5건이 «내 PR 과 무관하게» 실패한다 (2026-08-04 CI 로그로 확인).
+          # 개발자 로컬이 Node 24 이므로 CI 도 24 로 맞춘다.
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: 'cloudflare-deploy/package-lock.json'
 
