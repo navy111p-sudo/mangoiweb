@@ -69,6 +69,11 @@
         }
     </style>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
+<!-- 🗣 (2026-08-04) 채점기·발음처방·기억큐 — 예전엔 "목표 낱말이 어디에 있든 몇 개 들렸나"만 세서
+     어순을 바꿔 말해도 통과했다. 허브와 같은 채점기로 통일한다. -->
+<script src="/js/mangoi-speak-score.js?v=1"></script>
+<script src="/js/mangoi-pron-tags.js?v=1"></script>
+<script src="/js/mangoi-memory.js?v=1"></script>
 <script src="/js/i18n-sweep.js?v=16" defer></script>
 </head>
 <body class="min-h-screen text-white overflow-x-hidden flex flex-col justify-between">
@@ -691,6 +696,7 @@
                     .join('');
 
                 document.getElementById('speechResultText').innerText = `"${speechToText}"`;
+                _smLastSpoken = speechToText;   // 실패로 끝났을 때 처방을 내주기 위해 기억해 둔다
 
                 // Real-time keyword alignment check
                 const currentData = roundData[currentRound - 1];
@@ -729,8 +735,57 @@
             } catch(e){}
         }
 
+        /* 🗣 (2026-08-04) 발음 처방 · 기억큐 · 서버 적립.
+           ⚠️ **합격 판정은 건드리지 않는다.** 이 게임의 과제는 "이 문장을 따라 하라"가 아니라
+              "누가 범인인지 뜻이 통하게 말하라"다. 그래서 핵심 낱말(targetKeywords) 매칭이 맞다.
+              (탈출 게임 3종도 같은 이유로 키워드 판정을 그대로 둔다)
+           여기서 하는 일은 세 가지뿐:
+             ① 모범 문장(targetSentence)과 비교해 **뭘 고치면 되는지** 한 줄
+             ② 게임 공통 기억 큐에 적립 → 다른 게임이 이 문장을 이어받는다
+             ③ 발음 점수를 서버에 적립 → 교사가 향상을 보고, 약점 문장이 다시 나온다
+           중국어는 채점기가 영어 전용이라 건드리지 않는다(오진 방지). */
+        var _smLastSpoken = '';
+        function _suspectCoach(spoken, ok) {
+            try {
+                if (ZH) return '';
+                var rd = roundData[currentRound - 1];
+                var model = rd && rd.targetSentence;
+                if (!model || !window.MangoiScore || !window.MangoiPron) return '';
+                var g = MangoiScore.grade(ok ? model : (spoken || ''), model);
+                var d = MangoiPron.analyze(g) || { tags: [], goodTags: [] };
+                // 성공은 항상 적립(연습 기회 통계), 실패는 **진단이 잡혔을 때만**(잡음 방지)
+                if (ok || (d.tags && d.tags.length)) {
+                    try {
+                        if (window.MangoiMemory) MangoiMemory.log({ en: model }, !!ok,
+                            { tags: d.tags, goodTags: d.goodTags, score: g.score });
+                    } catch (e) {}
+                }
+                if (ok) {
+                    try {
+                        var uid = (window.MangoiGameVocab && MangoiGameVocab.getUserId()) || '';
+                        if (uid) fetch('/api/games/shadow', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+                            body: JSON.stringify({ user_id: uid, lang: 'en', item: model, ko: '', score: g.score })
+                        }).catch(function () {});
+                    } catch (e) {}
+                    return '';
+                }
+                return MangoiPron.tipFor(d.tags) || '';
+            } catch (e) { return ''; }
+        }
+
         function stopSpeechRecognition() {
             if (_smSilence) { clearTimeout(_smSilence); _smSilence = null; }
+            /* 말은 했는데 핵심 낱말이 안 잡힌 채 끝났다 → 「다시 해보세요」 대신 처방 한 줄.
+               뭘 바꿔야 할지 모르면 학생은 같은 말을 그대로 반복한다(Swain 출력가설). */
+            if (isRecording && _smLastSpoken) {
+                var tip = _suspectCoach(_smLastSpoken, false);
+                if (tip) {
+                    var el = document.getElementById('speechResultText');
+                    if (el) el.innerHTML = '"' + _smLastSpoken + '"<br><span style="color:#7dd3fc">' + tip + '</span>';
+                }
+            }
+            _smLastSpoken = '';
             isRecording = false;
             document.getElementById('micBtn').classList.remove('bg-green-500', 'hover:bg-green-400', 'animate-pulse');
             document.getElementById('micBtn').classList.add('bg-red-600', 'hover:bg-red-500');
@@ -1015,6 +1070,8 @@
         }
 
         function verifySpeechSuccess(spokenText) {
+            _smLastSpoken = '';                 // 성공했으니 실패 처방은 띄우지 않는다
+            _suspectCoach(spokenText, true);    // 🧠 기억큐 + 🎤 발음 점수 서버 적립
             if (recognition) recognition.stop();
             score += 50; // Award marks
 

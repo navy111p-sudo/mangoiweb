@@ -260,9 +260,16 @@
     try { return !!(_weak.set && _weak.set[norm(en)]); } catch (_) { return false; }
   }
 
-  /** 발음 점수 적립 → game_progress.pron_best / pron_count (교사가 학생별 향상 확인) */
+  /** 발음 점수 적립 → game_progress.pron_best / pron_count (교사가 학생별 향상 확인)
+   *
+   *  ⚠️ js/mangoi-shadow-sync.js 가 같이 실려 있으면 **여기서 보내지 않는다.**
+   *     그 모듈은 MangoiMemory.log 를 감싸서 점수가 실린 호출마다 서버로 보낸다.
+   *     이 사이클도 단계마다 log 를 부르므로, 둘 다 보내면 **같은 점수가 두 번 기록**되어
+   *     pron_count 가 부풀고 교사 화면의 연습 횟수가 실제보다 많아 보인다.
+   *     둘 중 하나만 — 더 정확한 쪽(단계별로 다 보내는 hook)에 맡긴다. */
   function sendShadow(item, ko, score, lang) {
     try {
+      if (window.MangoiShadow && MangoiShadow.stats && MangoiShadow.stats().hooked) return;
       var u = uid();
       if (!u || !item) return;
       fetch('/api/games/shadow', {
