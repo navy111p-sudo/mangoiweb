@@ -22,12 +22,19 @@ function check(name, cond) { if (cond) { PASS++; } else { FAIL++; FAILS.push(nam
 // ═══ 0) esbuild 로 api-admin.ts 번들 ═══
 const outDir = mkdtempSync(join(tmpdir(), 'mangoi-h-'));
 const outFile = join(outDir, 'api-admin.bundle.mjs');
-execFileSync(process.execPath, [
-  join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'),
+// ⚠ node_modules/esbuild/bin/esbuild 는 **Windows 에서만** JS 셰임이다.
+//   Linux/macOS 에서는 같은 경로가 네이티브 실행파일이라 node 로 실행하면
+//   "SyntaxError: Invalid or unexpected token" 으로 죽는다.
+//   (2026-08-04 CI(ubuntu)에서 확인 — Windows 로컬에서는 절대 재현되지 않는다)
+const ESBUILD = join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild');
+const ESBUILD_ARGS = [
   join(CF, 'src', 'api-admin.ts'),
   '--bundle', '--format=esm', '--platform=neutral', '--target=es2022',
   `--outfile=${outFile}`,
-], { stdio: ['ignore', 'ignore', 'inherit'] });
+];
+const ESBUILD_OPTS = { stdio: ['ignore', 'ignore', 'inherit'] };
+if (process.platform === 'win32') execFileSync(process.execPath, [ESBUILD, ...ESBUILD_ARGS], ESBUILD_OPTS);
+else execFileSync(ESBUILD, ESBUILD_ARGS, ESBUILD_OPTS);
 const { handleAdminApi } = await import(pathToFileURL(outFile).href);
 console.log('— api-admin.ts 실번들 로드 완료 —');
 

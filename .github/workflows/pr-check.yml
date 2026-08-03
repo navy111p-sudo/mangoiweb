@@ -82,7 +82,7 @@ jobs:
       #   라이브(test.mangoi.co.kr)로 실제 요청을 보낸다. 라이브가 잠깐 흔들리면
       #   PR 과 무관하게 실패할 수 있다(run.mjs 가 1회 재시도로 흡수).
       #
-      # 기준선(2026-08-04, 깨끗한 main + npm ci): PASS 57 / SKIP(E2E) 19 / FAIL 2
+      # 기준선(2026-08-04, CI ubuntu + Node 24 + npm ci): PASS 57 / SKIP(E2E) 19 / FAIL 2
       - name: Regression harness (--fast)
         continue-on-error: true
         run: node test-harness/run.mjs --fast
@@ -90,10 +90,3 @@ jobs:
       - name: 요약
         if: always()
         run: echo "이 워크플로는 검증만 합니다. 배포는 main push 시 deploy.yml 이 담당합니다."
-
-      # ⛏ 임시 진단 step — admin_404_apis 가 Linux 에서만 죽는 이유(esbuild stderr) 확인용. 제거 예정.
-      - name: (임시) esbuild 직접 실행
-        if: always()
-        continue-on-error: true
-        run: |
-          node cloudflare-deploy/node_modules/esbuild/bin/esbuild             cloudflare-deploy/src/api-admin.ts             --bundle --format=esm --platform=neutral --target=es2022             --outfile=/tmp/api-admin.bundle.mjs 2>&1 | head -40
