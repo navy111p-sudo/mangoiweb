@@ -235,7 +235,7 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'MangoiHanSC','Noto Sans KR', -apple-system, "맑은 고딕", "Malgun Gothic", sans-serif;
+    font-family: MangoiHanSC,'Noto Sans KR', -apple-system, "맑은 고딕", "Malgun Gothic", sans-serif;
     color: #1c1917;
     padding: 24px;
     letter-spacing: -0.5px;
@@ -273,7 +273,7 @@
   .empty { text-align: center; color: #9ca3af; padding: 24px; }
   /* === 참여도 점수 셀 === */
   /* 점수 컬럼은 숫자가 깔끔하게 정렬되도록 오른쪽 정렬 + 등폭 숫자 폰트 적용 */
-  .score-cell { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .score-cell { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; font-family: MangoiHanSC,ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
   /* 총 참여도(%) 셀 색상 — 80% 이상 녹색, 50~79% 노랑, 그 미만 빨강 */
   .score-high { background:#d1fae5; color:#065f46; font-weight:600; }
   .score-mid  { background:#fef3c7; color:#92400e; font-weight:600; }
@@ -551,7 +551,7 @@
     padding: 8px 10px;
     border: 1px solid #d1d5db;
     border-radius: 8px;
-    font-family: 'Malgun Gothic', monospace;
+    font-family: MangoiHanSC,'Malgun Gothic', monospace;
     line-height: 1.5;
     resize: vertical;
     background: #fff;
@@ -751,7 +751,7 @@
   #sm-students-table tbody tr:hover td { background: rgba(245,158,11,0.12); cursor: default; }
   /* USER_ID — 모노 폰트, 색상 흐리게 */
   #sm-students-table td:nth-child(1) code {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: MangoiHanSC,ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 11px; color: #78716c; background: transparent;
   }
   /* 이름 — 굵게 + role 배지 */
@@ -949,7 +949,7 @@
   */
   .hero h1 {
     margin: 0 0 24px;
-    font-family: 'Jua', 'Black Han Sans', 'Noto Sans KR', sans-serif;
+    font-family: MangoiHanSC,'Jua', 'Black Han Sans', 'Noto Sans KR', sans-serif;
     font-size: 84px; font-weight: 400;
     letter-spacing: 2px;
     line-height: 1.18;
@@ -4053,7 +4053,7 @@
           <div style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;background:linear-gradient(135deg,#0f4c81,#1e6cb3);color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:12px;box-shadow:0 8px 24px -8px rgba(15,76,129,0.4)">
             <div>
               <div style="font-size:11px;opacity:0.85;letter-spacing:0.5px">SHINHAN BUSINESS CARD</div>
-              <div style="font-size:20px;font-weight:900;letter-spacing:2px;margin:3px 0 4px;font-family:Consolas,monospace">**** **** **** 8842</div>
+              <div style="font-size:20px;font-weight:900;letter-spacing:2px;margin:3px 0 4px;font-family:MangoiHanSC,Consolas,monospace">**** **** **** 8842</div>
               <div style="font-size:11px;opacity:0.95">법인 (주)에듀비전 · 결제일: 매월 15일 · 한도 <b>₩1,000,000</b></div>
             </div>
             <button onclick="cardSync()" id="acc-card-sync-btn" style="padding:9px 18px;background:rgba(255,255,255,0.95);color:#0f4c81;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">
@@ -4314,7 +4314,7 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px">
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="👤 아이디 (필수)" data-en="👤 User ID (required)">👤 아이디 (필수)</span>
-                <input id="hqe-uid" type="text" placeholder="hq_jane01" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:Consolas,monospace" />
+                <input id="hqe-uid" type="text" placeholder="hq_jane01" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:MangoiHanSC,Consolas,monospace" />
               </label>
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="👤 이름 (필수)" data-en="👤 Name (required)">👤 이름 (필수)</span>
@@ -4911,7 +4911,7 @@
                 첫 줄은 <b>헤더</b>(탭 또는 콤마 구분). 인식 컬럼: <code style="font-size:10.5px">name · phone · email · kakao_id · available_days · available_hours · mbti · group_name · status · fee_per_10min · active_region · notes</code>.
                 이름으로 기존 강사를 찾아 <b>빈칸이 아닌 값만</b> 갱신하고, 없으면 새로 추가합니다. MBTI는 매칭 그래프에도 자동 반영됩니다.
               </div>
-              <textarea id="tp-import-text" rows="7" placeholder="name&#9;phone&#9;email&#9;mbti&#9;available_days&#9;available_hours&#10;Teacher Belle&#9;0935-844-4527&#9;marybellejavien4@gmail.com&#9;ESFJ&#9;Mon,Tue,Wed,Thu,Fri&#9;15:00-23:00" style="width:100%;font-family:monospace;font-size:11.5px;padding:8px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box"></textarea>
+              <textarea id="tp-import-text" rows="7" placeholder="name&#9;phone&#9;email&#9;mbti&#9;available_days&#9;available_hours&#10;Teacher Belle&#9;0935-844-4527&#9;marybellejavien4@gmail.com&#9;ESFJ&#9;Mon,Tue,Wed,Thu,Fri&#9;15:00-23:00" style="width:100%;font-family:MangoiHanSC,monospace;font-size:11.5px;padding:8px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box"></textarea>
               <div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
                 <button type="button" onclick="tpImportPreview()" style="padding:6px 14px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-weight:700">👁 미리보기</button>
                 <button type="button" id="tp-import-apply" onclick="tpImportApply()" disabled style="padding:6px 16px;font-size:12px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:6px;cursor:not-allowed;font-weight:800">✅ 적용</button>
@@ -6873,7 +6873,7 @@ window.__admSettleRun = function(fn){
           <td style="padding:8px;color:#a5b4fc;font-size:11px">${ts}</td>
           <td style="padding:8px;color:#e2e8f0;font-size:12px">${esc(r.referrer_uid)}</td>
           <td style="padding:8px;color:#cbd5e1;font-size:12px">→ ${esc(r.referee_uid)}</td>
-          <td style="padding:8px;font-family:monospace;color:#fbbf24;font-size:12px">${esc(r.code)}</td>
+          <td style="padding:8px;font-family:MangoiHanSC,monospace;color:#fbbf24;font-size:12px">${esc(r.code)}</td>
           <td style="padding:8px;color:#86efac;font-size:11px">${esc(r.status)}</td>
         </tr>`;
       }).join('');
@@ -7483,7 +7483,7 @@ window.__admSettleRun = function(fn){
       <img src="${qrImg}" alt="QR" style="background:#fff;padding:6px;border-radius:8px;width:180px;height:180px">
       <div style="flex:1;min-width:180px">
         <div style="color:#86efac;font-size:12px;font-weight:700;margin-bottom:6px">${en?'Token':'토큰'}</div>
-        <div style="color:#e2e8f0;font-family:monospace;font-size:11px;word-break:break-all;background:#0f172a;padding:6px;border-radius:6px;margin-bottom:8px">${esc(r.token)}</div>
+        <div style="color:#e2e8f0;font-family:MangoiHanSC,monospace;font-size:11px;word-break:break-all;background:#0f172a;padding:6px;border-radius:6px;margin-bottom:8px">${esc(r.token)}</div>
         <div style="color:#fbbf24;font-size:12px">⏱ ${en?'Valid':'유효'}: ${expireMin}${en?' min':'분'}</div>
         <div style="color:#94a3b8;font-size:11px;margin-top:8px">${en?'URL':'주소'}: <a href="${esc(fullUrl)}" target="_blank" style="color:#60a5fa">${esc(fullUrl)}</a></div>
       </div>
@@ -7536,7 +7536,7 @@ window.__admSettleRun = function(fn){
           <option value="en">EN</option><option value="ko">KO</option><option value="zh">ZH</option><option value="ja">JA</option><option value="vi">VI</option>
         </select>
       </div>
-      <textarea id="vd-srt" rows="5" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Hello world..." style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px;font-family:monospace"></textarea>
+      <textarea id="vd-srt" rows="5" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Hello world..." style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px;font-family:MangoiHanSC,monospace"></textarea>
       <button onclick="vdUpload()" style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:0;border-radius:8px;padding:8px 14px;margin-top:10px;font-weight:700;cursor:pointer">
         <span data-ko="📤 자막 저장" data-en="📤 Save Subtitle">📤 자막 저장</span>
       </button>
@@ -13739,7 +13739,7 @@ button.chip:hover,
     border: 1px solid var(--border-on-dark) !important;
     border-radius: 4px !important;
     padding: 2px 6px !important;
-    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-family: MangoiHanSC,'Consolas', 'Monaco', monospace !important;
     font-size: 0.92em !important;
   }
   details.table-card.menu-card pre,
@@ -13752,7 +13752,7 @@ button.chip:hover,
     padding: 14px 18px !important;
     overflow-x: auto !important;
     line-height: 1.65 !important;
-    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-family: MangoiHanSC,'Consolas', 'Monaco', monospace !important;
     font-size: 12.5px !important;
   }
   /* pre 안의 code 는 wrapper, pre 스타일 우선 */
@@ -13832,7 +13832,7 @@ button.chip:hover,
   details.menu-card input[readonly] {
     background: var(--bg-darkest) !important;
     color: var(--text-on-dark-code) !important;
-    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-family: MangoiHanSC,'Consolas', 'Monaco', monospace !important;
   }
 
   /* ============================================
@@ -16171,7 +16171,7 @@ button.chip:hover,
   #topUserPopup .ph111-uid {
     font-size: 11.5px !important;
     color: #BFDBFE !important;
-    font-family: 'Consolas', monospace !important;
+    font-family: MangoiHanSC,'Consolas', monospace !important;
   }
   #topUserPopup .ph111-meta {
     display: grid !important;
@@ -16651,7 +16651,7 @@ button.chip:hover,
   }
   #ph114-modal .ph114-header-uid {
     font-size: 12px !important; color: #BFDBFE !important;
-    font-family: 'Consolas', monospace !important;
+    font-family: MangoiHanSC,'Consolas', monospace !important;
     margin-bottom: 8px !important;
   }
   #ph114-modal .ph114-header-role {
@@ -16849,7 +16849,7 @@ button.chip:hover,
     color: #fff !important;
   }
   #ph115-modal .ph115-mh-name { font-size: 20px !important; font-weight: 800 !important; color: #fff !important; margin-bottom: 4px !important; }
-  #ph115-modal .ph115-mh-uid { font-size: 12px !important; color: #BFDBFE !important; font-family: Consolas, monospace !important; margin-bottom: 8px !important; }
+  #ph115-modal .ph115-mh-uid { font-size: 12px !important; color: #BFDBFE !important; font-family: MangoiHanSC,Consolas, monospace !important; margin-bottom: 8px !important; }
   #ph115-modal .ph115-mh-role {
     display: inline-block !important; padding: 4px 12px !important;
     border-radius: 999px !important; font-size: 11px !important; font-weight: 800 !important;
@@ -17136,7 +17136,7 @@ button.chip:hover,
     margin-bottom: 8px !important;
   }
   #ph117-role-modal .ph117-rc-uid {
-    font-family: Consolas, monospace !important;
+    font-family: MangoiHanSC,Consolas, monospace !important;
     font-size: 10.5px !important;
     color: #67E8F9 !important;
     background: rgba(0,0,0,0.4) !important;
@@ -20673,7 +20673,7 @@ button.chip:hover,
     font-size:10.5px;background:rgba(139,92,246,.18);color:#c4b5fd;border:1px solid rgba(139,92,246,.35)}
 </style>
 <script src="/js/adm-p1.js?v=1" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
-<script src="/js/mango-worldclock.js?v=6" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
+<script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 <!-- 📱 (2026-07-09) 모바일 마감 보정 — 좁은 화면에서 차트카드 삐져나감·표 잘림 방지(표는 가로 스크롤로 전환). 빼면 즉시 원복 -->
 <style id="mb-tidy-2026-07-09">
 @media (max-width: 640px){
@@ -20716,7 +20716,7 @@ button.chip:hover,
 <style>
 #ag-overlay{position:fixed;inset:0;z-index:2147483647;display:none;flex-direction:column;
   background:rgba(10,14,25,0.96);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-  font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#fff;touch-action:none}
+  font-family:MangoiHanSC,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#fff;touch-action:none}
 #ag-overlay.ag-on{display:flex}
 #ag-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;flex:none}
 #ag-title{font-weight:800;font-size:16px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -21288,6 +21288,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260804073315 -->
+<!-- BUILD:20260804075225 -->
 </body>
 </html>

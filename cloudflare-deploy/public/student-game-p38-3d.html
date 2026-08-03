@@ -27,7 +27,7 @@
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#05080f;
-    font-family:'MangoiHanSC','Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
+    font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
     -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
   #wrap{position:fixed;inset:0;overflow:hidden}
   #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -120,7 +120,7 @@
   /* 낱말 슬롯 = 판에 파 넣은 홈. 각진 모양이 군용 장비 느낌 */
   .wchip{position:relative;padding:3px 10px 5px;border-radius:3px;
     font-size:clamp(14px,2.2vw,20px);font-weight:900;letter-spacing:.6px;
-    font-family:'Consolas','Malgun Gothic',monospace;
+    font-family:MangoiHanSC,'Consolas','Malgun Gothic',monospace;
     background:linear-gradient(180deg,#1a1e16,#23281d);
     border:1px solid #12150f;color:#cfd8c2;
     box-shadow:inset 0 2px 4px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.06);
@@ -162,7 +162,7 @@
     padding:3px 9px;backdrop-filter:blur(2px)}
   .gzL{font-size:9px;font-weight:800;color:#b9cba2;letter-spacing:.5px;text-shadow:0 1px 3px #000}
   .gzV{font-size:clamp(15px,2.6vw,22px);font-weight:900;color:#ffd479;
-    font-family:'Consolas',monospace;text-shadow:0 1px 4px #000,0 0 9px rgba(255,190,60,.55)}
+    font-family:MangoiHanSC,'Consolas',monospace;text-shadow:0 1px 4px #000,0 0 9px rgba(255,190,60,.55)}
   .gzV.small{font-size:clamp(12px,2vw,16px)}
   /* ═══ 조종석 계기판 — 실물 계기판 자리에 얹는 아날로그 원형 계기 ═══
      위치·크기는 layoutCockpit() 이 조종석 이미지 기준으로 px 로 넣는다. */
@@ -209,9 +209,9 @@
   .dial .bez{fill:#171b1f;stroke:#000;stroke-width:3}
   .dial .face{fill:#0a0d10;stroke:#2e363d;stroke-width:1.4}
   .dial .dl{fill:#93a9be;font-size:9.5px;font-weight:800;text-anchor:middle;
-    font-family:'Malgun Gothic',sans-serif}
+    font-family:MangoiHanSC,'Malgun Gothic',sans-serif}
   .dial .dv{fill:#ffd479;font-size:14px;font-weight:900;text-anchor:middle;
-    font-family:Consolas,monospace}
+    font-family:MangoiHanSC,Consolas,monospace}
   .dial .de{fill:#8fa9c2;font-size:9px;font-weight:800;text-anchor:middle}
   .dial .dr{fill:#dbe9f7;font-size:11px;font-weight:900;text-anchor:middle}
   .dial .ndl{stroke:#ffd479;stroke-width:3.2;stroke-linecap:round}
@@ -3218,6 +3218,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260804073315 -->
+<!-- BUILD:20260804075225 -->
 </body>
 </html>

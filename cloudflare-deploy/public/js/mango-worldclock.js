@@ -27,7 +27,7 @@
     var css = ''
       + '#mgWorldClock{position:fixed;z-index:2147483000;left:12px;bottom:96px;'
       + '  display:flex;flex-direction:column;gap:2px;padding:7px 11px;'
-      + '  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;'
+      + '  font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;'
       + '  background:rgba(12,20,40,.62);color:#eaf1ff;border:1px solid rgba(255,255,255,.18);'
       + '  border-radius:14px;backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);'
       + '  box-shadow:0 6px 22px rgba(0,0,0,.35);cursor:grab;user-select:none;-webkit-user-select:none;'

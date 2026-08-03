@@ -8,10 +8,10 @@
     <!-- Tailwind CSS CDN -->
     <link rel="stylesheet" href="/css/tailwind-build.css?v=1"><!-- ph163: cdn.tailwindcss.com(런타임 컴파일러) → 정적 빌드 -->
     <!-- Google Font (Inter) & Playful Font (Fredoka One) -->
-<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
     <style>
         body {
-            font-family: 'MangoiHanSC','Inter', sans-serif;
+            font-family: MangoiHanSC,'Inter', sans-serif;
             background: #201a55;
         }
         /* 🖼️ 탐정 사무실 실사 배경(Higgsfield) — body 대신 별도 레이어에 걸어 블러를 콘텐츠에 안 묻힌다 */
@@ -34,10 +34,10 @@
             filter:drop-shadow(0 2px 5px rgba(0,0,0,.35));will-change:transform;animation:mgFloatUp linear infinite}
         @keyframes mgFloatUp{0%{transform:translateY(0) rotate(0);opacity:0}12%{opacity:.7}88%{opacity:.7}100%{transform:translateY(-114vh) rotate(42deg);opacity:0}}
         .font-playful {
-            font-family: 'Fredoka One', cursive;
+            font-family: MangoiHanSC,'Fredoka One', cursive;
         }
         /* 🀄 중국어 모드 — 모든 한자를 같은 중국어 폰트로(글자별 폰트 섞임 방지) */
-        html.zh-font, html.zh-font body { font-family:'MangoiHanSC','Malgun Gothic',sans-serif; }
+        html.zh-font, html.zh-font body { font-family:MangoiHanSC,'Malgun Gothic',sans-serif; }
         /* 🀄 병음(拼音) — 한자 아래 읽기 보조 */
         .pinyin { color:#7dd3fc; font-weight:700; letter-spacing:.3px; }
         .glow-green {
@@ -1226,7 +1226,7 @@ html{overflow-x:hidden}
   header .px-4{padding-left:10px;padding-right:10px}
 }
 </style>
-<script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260804073315 -->
+<script defer src="/js/flow.js?v=9"></script>
+<!-- BUILD:20260804075225 -->
 </body>
 </html>

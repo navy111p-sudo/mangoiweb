@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
-<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style>
   *,*::before,*::after{box-sizing:border-box}
@@ -24,7 +24,7 @@
     min-height:100vh;
     background:#0a0e1a;
     color:#f1f5f9;
-    font-family:'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;
+    font-family:MangoiHanSC,'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif;
     letter-spacing:-0.2px;
   }
   body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/img/home-bg-dark.webp?v=20260730') center/cover no-repeat;filter:blur(2px) brightness(0.55) saturate(1.15);transform:scale(1.06)}
@@ -32,7 +32,7 @@
   .wrap{max-width:680px;margin:0 auto;padding:32px 18px 80px}
   .brand{text-align:center;margin-bottom:24px}
   .brand-logo{
-    font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:700;
+    font-family:MangoiHanSC,'Cormorant Garamond',serif;font-style:italic;font-weight:700;
     background:linear-gradient(180deg,#fff4cc,#fbbf24,#8a5e10);
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;
     font-size:36px;letter-spacing:1px;display:block;line-height:1
@@ -65,7 +65,7 @@
     font-size:48px;font-weight:900;
     background:linear-gradient(180deg,#fff8d8,#fbbf24,#c08820);
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-    line-height:1;font-family:'Inter',sans-serif
+    line-height:1;font-family:MangoiHanSC,'Inter',sans-serif
   }
   .overall-of{font-size:14px;color:#94a3b8;margin-top:6px}
   .overall-stars{font-size:20px;letter-spacing:2px;margin-top:4px}
@@ -80,7 +80,7 @@
   .score-label{font-size:11.5px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
   .score-bar-wrap{height:8px;background:rgba(0,0,0,0.3);border-radius:99px;overflow:hidden;margin-top:6px}
   .score-bar{height:100%;background:linear-gradient(90deg,#fbbf24,#f59e0b);transition:width .8s ease}
-  .score-num{font-size:16px;font-weight:800;color:#fde68a;font-family:'Inter',sans-serif}
+  .score-num{font-size:16px;font-weight:800;color:#fde68a;font-family:MangoiHanSC,'Inter',sans-serif}
   /* 코멘트 섹션 */
   .section{padding:18px 24px;border-top:1px solid rgba(255,255,255,0.06)}
   .section h3{font-size:14px;font-weight:800;color:#c4b5fd;margin:0 0 10px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.5px}
@@ -360,7 +360,7 @@
   load();
 })();
 </script>
-<!-- BUILD:20260804073315 -->
+<!-- BUILD:20260804075225 -->
 <style id="mb-tidy-2026-07-11">
 /* mango-i18n 공용 홈/EN 바가 같은 자리에 주입되므로 자체 홈 버튼은 숨김(기능 중복·겹침 방지) */
 .global-home{display:none}

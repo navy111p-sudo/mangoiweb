@@ -45,7 +45,7 @@
       '  width:auto;max-width:min(430px, calc(100% - 16px));padding:6px 12px;',
       '  background:rgba(27,35,48,0.90);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);',
       '  border:1px solid #2c3644;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.35);',
-      "  font-family:'Pretendard','Apple SD Gothic Neo',system-ui,sans-serif;}",
+      "  font-family:MangoiHanSC,'Pretendard','Apple SD Gothic Neo',system-ui,sans-serif;}",
       '#mg-unibar.show{display:flex;}',
       '#mg-unibar .uni-live{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:#37c97a;}',
       '#mg-unibar .uni-info{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:5px;',

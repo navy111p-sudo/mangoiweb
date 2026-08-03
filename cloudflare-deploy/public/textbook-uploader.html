@@ -8,7 +8,7 @@
 <title>📚 교재 업로더 — 폴더째 드래그 → AI 자동 분류</title>
 <!-- ph257: JSZip CDN — zip 파일 자동 풀기 -->
 <script src="/vendor/jszip/jszip.min.js?v=1"></script>
-<!-- BUILD:20260804073315 -->
+<!-- BUILD:20260804075225 -->
 <style>
 :root {
   --bg:#0B1224; --bg-soft:#131C36; --bg-card:#1A2548; --bg-card-2:#1E2D58;
@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:linear-gradient(160deg,var(--bg) 0%,#0E1834 100%);color:var(--text);
-  font-family:'MangoiHanSC',-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Pretendard",sans-serif;
+  font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Pretendard",sans-serif;
   font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;}
 .wrap{max-width:1180px;margin:0 auto;padding:18px 16px 100px}
 header.hero{background:linear-gradient(135deg,#3B82F6 0%,#1D4ED8 100%);border-radius:16px;padding:22px 24px;margin-bottom:18px;position:relative;overflow:hidden;
@@ -58,7 +58,7 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 .cr-group input,.cr-group select{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:12.5px;color:#fff;font-family:inherit;font-weight:600}
 .cr-group input:focus,.cr-group select:focus{outline:0;border-color:var(--accent-2)}
 .cr-group .cr-tag{font-size:11px;color:var(--text-mute);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;margin-right:2px}
-.cr-group .cr-files{font-size:12px;color:var(--text-dim);background:rgba(0,0,0,0.2);padding:6px 10px;border-radius:7px;margin-top:6px;font-family:ui-monospace,'SF Mono',Consolas,monospace;line-height:1.7;max-height:120px;overflow:auto}
+.cr-group .cr-files{font-size:12px;color:var(--text-dim);background:rgba(0,0,0,0.2);padding:6px 10px;border-radius:7px;margin-top:6px;font-family:MangoiHanSC,ui-monospace,'SF Mono',Consolas,monospace;line-height:1.7;max-height:120px;overflow:auto}
 .cr-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .cr-actions .btn{padding:9px 18px;border:0;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
 .cr-actions .btn-save{background:linear-gradient(135deg,var(--ok),#059669);color:#fff}
@@ -113,7 +113,7 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 /* 푸터 안내 */
 .tips{margin-top:18px;background:var(--bg-soft);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--text-dim);line-height:1.8}
 .tips b{color:var(--gold)}
-.tips code{background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:4px;font-size:11px;color:#fcd34d;font-family:ui-monospace,Consolas,monospace}
+.tips code{background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:4px;font-size:11px;color:#fcd34d;font-family:MangoiHanSC,ui-monospace,Consolas,monospace}
 
 @media (max-width:700px){
   .wrap{padding:14px 10px 80px}
@@ -623,7 +623,7 @@ function renderClassifyResult() {
         reasons[k] = (reasons[k]||0)+1;
       });
       html += Object.keys(reasons).map(function(k){ return k + ' ' + reasons[k] + '건'; }).join(' · ');
-      html += '<details style="margin-top:6px"><summary style="cursor:pointer;color:#92400e">📋 자세히 보기</summary><div style="margin-top:6px;max-height:120px;overflow-y:auto;background:rgba(255,255,255,0.4);padding:6px 8px;border-radius:6px;font-size:11.5px;font-family:ui-monospace,monospace">';
+      html += '<details style="margin-top:6px"><summary style="cursor:pointer;color:#92400e">📋 자세히 보기</summary><div style="margin-top:6px;max-height:120px;overflow-y:auto;background:rgba(255,255,255,0.4);padding:6px 8px;border-radius:6px;font-size:11.5px;font-family:MangoiHanSC,ui-monospace,monospace">';
       rejected.slice(0, 30).forEach(function(r){ html += '• ' + r.name + ' — ' + r.reason + '<br>'; });
       if (rejected.length > 30) html += '… (그 외 ' + (rejected.length-30) + '개)';
       html += '</div></details>';

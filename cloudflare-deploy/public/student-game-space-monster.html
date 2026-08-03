@@ -7,7 +7,7 @@
   <title>Space Monster Hunter — 우주 괴물 퇴치</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: 'MangoiHanSC','Noto Sans KR', 'Segoe UI', sans-serif; }
+    html, body { height: 100%; font-family: MangoiHanSC,'Noto Sans KR', 'Segoe UI', sans-serif; }
     body { background: #04060f; color: #e8f0ff; overflow: hidden; user-select: none; -webkit-tap-highlight-color: transparent; }
     #game { position: relative; width: 100%; height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
 
@@ -391,7 +391,7 @@
   <script src="/js/mangoi-voice-input.js?v=4"></script>
   <script src="/js/mangoi-speak-score.js?v=1"></script>
   <script src="/js/mangoi-pron-tags.js?v=1"></script>
-  <script src="/js/mangoi-speak-cycle.js?v=5"></script>
+  <script src="/js/mangoi-speak-cycle.js?v=6"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const field = $('field'), flash = $('flash'), zoom = $('corridorZoom');
@@ -1390,6 +1390,6 @@
       new Promise(r => setTimeout(r, 2500))
     ]).then(startWave, startWave);
   </script>
-<!-- BUILD:20260804073315 -->
+<!-- BUILD:20260804075225 -->
 </body>
 </html>

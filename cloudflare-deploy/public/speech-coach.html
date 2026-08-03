@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
 <script src="/js/mango-i18n.js" defer></script>
-<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
   *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
   /* 🌌 배경 (2026-07-30 사장님 지시: "배경이랑 글자가 섞여 안 보인다")
@@ -30,14 +30,14 @@
       linear-gradient(180deg, rgba(10,8,26,0.35) 0%, rgba(10,8,26,0.62) 55%, rgba(10,8,26,0.82) 100%),
       url('/img/speech-coach-bg.webp') center/cover no-repeat fixed,
       #0a081a;
-    color: #f1f5f9; font-family: 'MangoiHanSC','Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif; padding-bottom: 80px;
+    color: #f1f5f9; font-family: MangoiHanSC,'Noto Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',sans-serif; padding-bottom: 80px;
   }
   /* 배경을 고정하면 일부 모바일에서 스크롤이 뚝뚝 끊긴다 — 폰에서는 같이 흐르게 */
   @media (max-width: 768px) { body { background-attachment: scroll, scroll, scroll; } }
   .wrap { max-width: 720px; margin: 0 auto; padding: 28px 18px; }
   .brand { text-align: center; margin-bottom: 26px; }
   .brand-eyebrow { display:inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: 3px; color: #c4b5fd; text-transform: uppercase; padding: 4px 12px; border: 1px solid rgba(167,139,250,0.35); border-radius: 99px; background: rgba(167,139,250,0.08); margin-bottom: 12px; }
-  .brand-logo { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 700; background: linear-gradient(180deg,#fff8e1,#fbbf24 70%,#f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 38px; letter-spacing: 0.5px; display: block; line-height: 1.1; text-shadow: 0 0 40px rgba(251,191,36,0.15); }
+  .brand-logo { font-family: MangoiHanSC,'Cormorant Garamond', serif; font-style: italic; font-weight: 700; background: linear-gradient(180deg,#fff8e1,#fbbf24 70%,#f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 38px; letter-spacing: 0.5px; display: block; line-height: 1.1; text-shadow: 0 0 40px rgba(251,191,36,0.15); }
   .brand-sub { color: #cbd5e1; font-size: 13.5px; margin-top: 8px; line-height: 1.55; font-weight: 500; }
   .brand-rule { width: 54px; height: 2px; margin: 16px auto 0; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(251,191,36,0.7), transparent); }
   .brand-hint { margin-top: 12px; font-size: 11.5px; color: #94a3b8; }
@@ -912,7 +912,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260804073315 -->
+<!-- BUILD:20260804075225 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
@@ -1018,6 +1018,6 @@ if (typeof window.speechSynthesis !== 'undefined') {
 </style>
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
-<script defer src="/js/flow.js?v=8"></script>
+<script defer src="/js/flow.js?v=9"></script>
 </body>
 </html>

@@ -330,7 +330,7 @@
               '<button onclick=\"tbfDiagnostic()\" style=\"padding:10px 18px;background:#fef3c7;color:#78350f;border:1.5px solid #fbbf24;border-radius:99px;cursor:pointer;font-size:13px;font-weight:800\">🔬 진단</button>' +
             '</div>' +
           '</div>' +
-          '<div style=\"margin-top:14px;font-size:10.5px;color:#94a3b8;font-family:monospace\">🔍 진단: textbooks=0, files=' + fileCount + ', 상태=' + (res.err || 'ok') + ' · DB=mangoi-textbooks v3</div>' +
+          '<div style=\"margin-top:14px;font-size:10.5px;color:#94a3b8;font-family:MangoiHanSC,monospace\">🔍 진단: textbooks=0, files=' + fileCount + ', 상태=' + (res.err || 'ok') + ' · DB=mangoi-textbooks v3</div>' +
         '</div>';
       return;
     }

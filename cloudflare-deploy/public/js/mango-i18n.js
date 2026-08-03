@@ -195,7 +195,7 @@
     bar.style.cssText = [
       'position:fixed', 'top:' + baseTop, 'right:' + baseRight, 'z-index:99999',
       'display:flex', 'gap:8px', 'align-items:center',
-      'font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif',
+      'font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif',
     ].join(';');
 
     if (!isHome && !document.getElementById('lang-toggle')) {

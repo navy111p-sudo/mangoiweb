@@ -19,7 +19,7 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:#0a0f14;
-    font-family:'MangoiHanSC','Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8eef5;user-select:none;touch-action:none}
+    font-family:MangoiHanSC,'Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8eef5;user-select:none;touch-action:none}
   #wrap{position:fixed;inset:0;overflow:hidden}
   canvas{display:block;position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
   /* 📱 가상 조이스틱 — 왼손 엄지 자리(왼쪽 아래). 터치 기기에서만 표시(JS 가 켠다) */
@@ -64,7 +64,7 @@
   #sentKo{font-size:13px;color:#ffe07a;text-align:center;font-weight:800;letter-spacing:.3px;
     text-shadow:0 1px 2px #000,0 0 5px rgba(0,0,0,.85),-1px 0 2px #000,1px 0 2px #000}
   #sentEn{margin-top:2px;display:flex;flex-wrap:wrap;gap:1px 10px;justify-content:center;align-items:flex-start}
-  .wtok, .spSent{ font-family:'Segoe UI','MangoiHanSC','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
+  .wtok, .spSent{ font-family:MangoiHanSC,'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
   .wtok{font-size:19px;font-weight:900;padding:0;border:0;border-radius:0;line-height:1.05;
     background:none;color:#eef5ff;text-align:center;transition:color .2s;
     text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.95),-1px 0 2px #000,1px 0 2px #000,0 -1px 2px #000}
@@ -1702,7 +1702,7 @@ function drawLabel(e){ var isT=sameWord(e.word, neededWord());
     ctx.beginPath(); ctx.arc(e.x,e.y,(e.r+8*SCALE),0,7); ctx.stroke();
     ctx.fillStyle='rgba(255,214,90,'+(0.55+pu*0.45)+')';
     var ay=e.y-e.r-30-pu*4*SCALE; ctx.beginPath(); ctx.moveTo(e.x-8*SCALE,ay); ctx.lineTo(e.x+8*SCALE,ay); ctx.lineTo(e.x,ay+9*SCALE); ctx.closePath(); ctx.fill(); }
-  ctx.font='bold '+(15*Math.min(1.4,SCALE))+'px "Segoe UI","MangoiHanSC",sans-serif'; ctx.textAlign='center';
+  ctx.font='bold '+(15*Math.min(1.4,SCALE))+'px "Segoe UI",sans-serif'; ctx.textAlign='center';
   var tw=ctx.measureText(e.word).width, pad=7, bw=tw+pad*2, by=e.y - e.r - 20;
   ctx.fillStyle = isT ? 'rgba(60,44,10,.92)' : 'rgba(10,16,22,.82)';
   rr(e.x-bw/2, by, bw, 21, 6); ctx.fill();
@@ -1813,9 +1813,9 @@ function makeWordSprite(){ var c=document.createElement('canvas'); c.width=512; 
   var sp=new THREE.Sprite(mat); sp.scale.set(4.6,1.44,1); sp.renderOrder=10; sp.userData.cnv=c; sp.userData.ctx=c.getContext('2d'); return sp; }
 function updateWordSprite(sp,word,hi){ var c=sp.userData.cnv,g=sp.userData.ctx; g.clearRect(0,0,c.width,c.height);
   var fs=86;
-  g.font='900 '+fs+'px "Segoe UI","MangoiHanSC",sans-serif';
+  g.font='900 '+fs+'px "Segoe UI",sans-serif';
   var tw=g.measureText(word).width;
-  if(tw>c.width-24){ fs=Math.max(40, Math.floor(fs*(c.width-24)/tw)); g.font='900 '+fs+'px "Segoe UI","MangoiHanSC",sans-serif'; }
+  if(tw>c.width-24){ fs=Math.max(40, Math.floor(fs*(c.width-24)/tw)); g.font='900 '+fs+'px "Segoe UI",sans-serif'; }
   g.textAlign='center'; g.textBaseline='middle';
   g.lineJoin='round'; g.strokeStyle='rgba(8,12,16,0.95)'; g.lineWidth=Math.max(8,fs*0.16);
   g.strokeText(word, c.width/2, c.height/2);
@@ -2538,6 +2538,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260804073315 -->
+<!-- BUILD:20260804075225 -->
 </body>
 </html>
