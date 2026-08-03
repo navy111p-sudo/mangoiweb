@@ -1720,7 +1720,7 @@ function _startRoundTimer(){
       var _it = _gameState.current && (_gameState.current.sentence || _gameState.current.word);
       var dead = false;
       if (_it) {
-        var _kd = (_gameState.mode==='balloon') ? 'word' : 'sent';
+        var _kd = (_gameState.mode==='balloon') ? 'word' : 'sent';   // balloonsent 는 문장 → 'sent'
         dead = _onWrong(_kd, _it);
         _gameUpdateScore();
       }
@@ -1765,6 +1765,7 @@ const HUB_GAMES = [
   { mode:'match',   kind:'inline', ico:'🧩', ttl:'단어 매칭',     dsc:'한국어와 영어 카드 짝을 찾아요!',      bg:'#a855f7', badge:'단어' },
   { mode:'fill',    kind:'inline', ico:'🔤', ttl:'빈칸 채우기',   dsc:'문장 빈칸에 알맞은 단어를 골라요!',    bg:'#8b5cf6', badge:'문장' },
   { mode:'balloon', kind:'inline', ico:'🎈', ttl:'풍선 터뜨리기', dsc:'뜻에 맞는 영어 풍선을 터뜨려요!',      bg:'#f59e0b', badge:'단어' },
+  { mode:'balloonsent', kind:'inline', ico:'🎈', ttl:'문장 풍선', dsc:'단어 풍선을 어순대로 터뜨려 문장 완성! 완성하면 3번 듣고 3번 말하기 + 보너스', bg:'#0ea5e9', badge:'문장·말하기' },
   { mode:'suspect', kind:'iframe', ico:'🕵️', ttl:'용의자 추리',   dsc:'선생님 힌트를 듣고 범인을 찾아 영어로 말해요!', bg:'#6366f1', badge:'듣기·말하기',
     src:function(){ return '/suspect-mystery.html'; } },
   { mode:'speaking', kind:'iframe', ico:'🗣️', ttl:'말하기 퀴즈',  dsc:'내 교재·레벨 단어·문장을 듣고 따라 말해요!', bg:'#10b981', badge:'맞춤·말하기',
@@ -1930,7 +1931,7 @@ function _applyGameTheme(mode){
   area.classList.remove('themed');
   var cls = _GAME_THEME[mode]; if(!cls) return;
   area.classList.add(cls);
-  if(mode==='brick'||mode==='match'||mode==='fill'||mode==='balloon') area.classList.add('themed');
+  if(mode==='brick'||mode==='match'||mode==='fill'||mode==='balloon'||mode==='balloonsent') area.classList.add('themed');
 }
 
 function hubOpenGame(mode){
@@ -1986,7 +1987,7 @@ function gameInit(){
   var area = document.getElementById('game-area');
   if(area){ area.classList.remove('area-center','area-fill');
     // brick 은 내용이 길어 세로로 넘치므로 위 정렬(area-fill)로 두고 하단 버튼을 sticky 로 고정한다.
-    area.classList.add((_gameState.mode==='match'||_gameState.mode==='balloon'||_gameState.mode==='brick') ? 'area-fill' : 'area-center'); }
+    area.classList.add((_gameState.mode==='match'||_gameState.mode==='balloon'||_gameState.mode==='balloonsent'||_gameState.mode==='brick') ? 'area-fill' : 'area-center'); }
   _gameUpdateScore();
   gameNextRound();
 }
@@ -2006,6 +2007,10 @@ function gameNextRound(){
   } else if(mode === 'balloon'){
     var w = _nextWord(); _gameState._queued = w;
     _preteachThen(w, 'word', function(){ gameRenderBalloon(); _startRoundTimer(); });
+  } else if(mode === 'balloonsent'){
+    // 🎈📝 문장 풍선 — 문장 단위 출제(브릭과 같은 소스)
+    var bs = _nextVocab(); _gameState._queued = bs;
+    _preteachThen(bs, 'sent', function(){ gameRenderBalloonSent(); _startRoundTimer(); });
   } else {   // match — 6쌍 보드라 선학습 생략
     _gameState._queued = null;
     gameRenderMatch(); _startRoundTimer();
@@ -2114,6 +2119,14 @@ function _shadowGrade(said, target){
   var v = _shadowScore(said, target);
   return { sc: v, pass: v >= 0.6, tip: '', tags: [], goodTags: [], fix: '' };
 }
+/* 🔁 (2026-08-04) 섀도잉 1회가 끝난 뒤 어디로 갈지 한 곳에서 정한다.
+   평소에는 다음 문제로 넘어가지만, **3번 말하기 드릴이 도는 중이면** 드릴이 가로채 다음 회차로 간다.
+   ⚠️ 이렇게 안 하고 드릴에서 음성인식을 새로 짜면, gameShadow 안의 안드로이드 예외처리·
+      Whisper 폴백·침묵감시를 통째로 복제하게 된다(그쪽이 훨씬 위험하다). */
+function _afterShadow(ms, g){
+  try{ if(_gameState._drill && _gameState._drill.active){ _gameState._drill.onRep(g||null); return; } }catch(_){}
+  _gameState._advTimer = setTimeout(gameNextRound, ms);
+}
 function _shadowResult(g, text){
   if(typeof g === 'number') g = { sc: g, pass: g >= 0.6, tip: '' };   // 옛 호출부 호환
   var fb=document.getElementById('game-feedback');
@@ -2137,7 +2150,7 @@ function _shadowResult(g, text){
       MangoiMemory.log({ en:text }, !!g.pass,
         { tags:g.tags||[], goodTags:g.goodTags||[], score:Math.round((g.sc||0)*100) });
   }catch(_){}
-  _gameState._advTimer=setTimeout(gameNextRound, g.fix ? 2600 : 1700);   // 처방을 읽을 시간을 준다
+  _afterShadow(g.fix ? 2600 : 1700, g);   // 처방을 읽을 시간을 준다 (드릴 중이면 다음 회차로)
 }
 /* 🎤 음성인식 미지원 브라우저(앱 WebView·카카오 인앱·구형 iOS) → 녹음 → 서버 Whisper 전사 → 채점.
    (2026-07-23) 같은 로직이 여러 화면에 흩어져 있어 공용 모듈 js/mangoi-voice-input.js 로 통일.
@@ -2145,7 +2158,7 @@ function _shadowResult(g, text){
 function _shadowViaWhisper(text, fb){
   var giveUp=function(msg){
     if(fb) fb.innerHTML='<span style="color:#38bdf8">'+(msg||'🔊 잘 듣고 소리내어 따라 말해보세요!')+'</span>';
-    _gameState._advTimer=setTimeout(gameNextRound,2400);
+    _afterShadow(2400, null);
   };
   if(!window.MangoiVoice || !MangoiVoice.supported()){ giveUp(); return; }
   MangoiVoice.record({
@@ -2158,9 +2171,9 @@ function _shadowViaWhisper(text, fb){
       else if(st==='error')    fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>';
     }
   }).then(function(said){
-    if(!said){ _gameState._advTimer=setTimeout(gameNextRound,1500); return; }
+    if(!said){ _afterShadow(1500, null); return; }
     _shadowResult(_shadowGrade(said, text), text);
-  })['catch'](function(){ _gameState._advTimer=setTimeout(gameNextRound,1500); });
+  })['catch'](function(){ _afterShadow(1500, null); });
 }
 function gameShadow(enc){
   var text=decodeURIComponent(enc);
@@ -2194,8 +2207,8 @@ function gameShadow(enc){
         if(_shadowGrade(said, text).pass){ evaluate(); try{rec.stop();}catch(_){} return; }   // 충분히 맞음 → 즉시 통과
         if(fb) fb.innerHTML='<span style="color:#fbbf24">🎤 …(듣는 중) "'+said.trim()+'"</span>'; arm();
       };
-      rec.onerror=function(){ if(_sil)clearTimeout(_sil); if(!done){ done=true; if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _gameState._advTimer=setTimeout(gameNextRound,1500); } };
-      rec.onend=function(){ if(_sil)clearTimeout(_sil); if(!done){ if(said.trim()) evaluate(); else if(!_gameState._advTimer) _gameState._advTimer=setTimeout(gameNextRound,1500); } };
+      rec.onerror=function(){ if(_sil)clearTimeout(_sil); if(!done){ done=true; if(fb) fb.innerHTML='<span style="color:#94a3b8">🎤 마이크를 못 썼어요 — 다음 문제로…</span>'; _afterShadow(1500, null); } };
+      rec.onend=function(){ if(_sil)clearTimeout(_sil); if(!done){ if(said.trim()) evaluate(); else if(!_gameState._advTimer) _afterShadow(1500, null); } };
       /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
          그 종료를 "말을 마쳤다"로 보고 채점하면 조각으로 채점된다 → stop() 을 안 불렀으면 다시 듣는다. */
       try{ if(typeof MangoiSTT!=='undefined') MangoiSTT.harden(rec, { isDone: function(){ return done; }, onRestart: arm }); }catch(_h){}
@@ -2721,6 +2734,220 @@ function gameRenderBalloon(){
     }
   }, 50);
 }
+/* ══════════════════════════════════════════════════════════════════════════
+   🎈📝 문장 풍선 (Balloon Sentence) — 2026-08-04 사장님 지시
+     · 풍선에 실린 단어를 **어순대로** 터뜨려 문장을 완성한다
+     · 맞을 때마다 그 단어를 소리로 들려준다
+     · 문장이 완성되면 → 문장 3번 듣기 → 3번 따라 말하기(발음 채점) → 보너스
+     · 순서를 틀리면 **아무 일도 일어나지 않는다**(감점 없음). 어린 학생이 위축되지 않게.
+   ⚠️ 기존 '풍선 터뜨리기'(뜻 맞추기)는 건드리지 않았다. 별도 모드다.
+   ⚠️ 음성인식은 gameShadow 를 그대로 재사용한다(_afterShadow 훅으로 회차 제어) —
+      여기서 새로 짜면 안드로이드 예외처리·Whisper 폴백·침묵감시를 통째로 복제하게 된다.
+   ══════════════════════════════════════════════════════════════════════════ */
+var _BSENT_LISTEN = 3, _BSENT_SPEAK = 3;
+
+function _bsEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _bsAttr(s){ return _bsEsc(s).replace(/"/g,'&quot;'); }
+function _bsentColors(){
+  return [{shadow:'rgba(239,68,68,.6)'},{shadow:'rgba(59,130,246,.6)'},{shadow:'rgba(16,185,129,.6)'},
+          {shadow:'rgba(245,158,11,.6)'},{shadow:'rgba(139,92,246,.6)'},{shadow:'rgba(236,72,153,.6)'},
+          {shadow:'rgba(148,163,184,.6)'}];
+}
+/* 중국어면 단어별 병음을 붙인다(문장 데이터에 있을 때만) */
+function _bsentPinyin(sentence, w){
+  try{
+    if(GAME_LANG!=='zh') return '';
+    var py = '';
+    if(sentence.wordPinyin && sentence.wordPinyin[w]) py = sentence.wordPinyin[w];
+    else {
+      var arr = sentence.sents || null;
+      if(arr){ for(var i=0;i<arr.length;i++){ if(arr[i] && arr[i].hz===w && arr[i].py){ py=arr[i].py; break; } } }
+    }
+    if(!py) return '';
+    return '<div class="pinyin" style="font-size:clamp(11px,1.6vmin,15px);color:#e0f2fe;margin-top:2px">' + _bsEsc(py) + '</div>';
+  }catch(_){ return ''; }
+}
+
+function gameRenderBalloonSent(){
+  try{ _removeWordHint(); }catch(_){}
+  var sentence = _gameState._queued || _nextVocab();
+  _gameState._queued = null;
+  var words = (sentence.words && sentence.words.length) ? sentence.words.slice()
+            : String(sentence.en||'').split(/\s+/).filter(Boolean);
+  _gameState.current = { sentence: sentence, words: words, picked: [], popped: false,
+    answer: (sentence.words && sentence.words.length) ? sentence.words.join(GAME_LANG==='zh' ? '' : ' ') : sentence.en };
+  var shuffled = _gameShuffle(words.slice());
+
+  var promptBlock = sentence.ko
+    ? '<div class="gko-cap">📝 한국어 뜻</div><div class="gko-txt">' + _bsEsc(sentence.ko) + '</div>'
+    : '<div class="gko-cap">🎧 문장을 듣고 순서대로 터뜨려 보세요</div>' +
+      '<button onclick="gameSpeakTarget()" class="gko-listen">🔊 문장 듣기</button>';
+
+  var colors = _bsentColors();
+  var _imgs = ['red','blue','green','gold','purple','pink','silver'];
+  var cols = Math.max(2, Math.min(5, shuffled.length));
+  var html =
+    '<div style="text-align:center;margin-bottom:10px">' + promptBlock +
+      '<div class="gko-cap" style="margin-top:8px">🎈 단어를 <b>순서대로</b> 클릭! (틀려도 감점 없어요)</div>' +
+    '</div>' +
+    '<div id="bsent-built" style="min-height:52px;background:rgba(15,23,42,.62);border:2px dashed #475569;border-radius:12px;' +
+      'padding:10px 12px;display:flex;flex-wrap:wrap;gap:7px;justify-content:center;align-items:center;margin-bottom:10px">' +
+      '<span id="bsent-empty" style="color:#94a3b8;font-size:14px">첫 단어 풍선을 찾아 클릭하세요…</span>' +
+    '</div>' +
+    '<div id="balloon-stage" class="balloon-sky" style="position:relative;flex:1;min-height:300px;border-radius:14px;overflow:hidden">' +
+    '<style>@keyframes balloonSway{from{transform:translateX(calc(var(--sway,1px) * -1))}to{transform:translateX(var(--sway,1px))}}</style>';
+
+  shuffled.forEach(function(w, i){
+    var left = 4 + (i % cols) * (88 / cols) + (Math.random()*6-3);
+    var startTop = -80 - Math.random()*320;
+    var spd = 0.55 + Math.random()*0.9;
+    var sway = (Math.random()*2.2+0.8).toFixed(2);
+    var swayT = (Math.random()*1.6+1.4).toFixed(2);
+    var c = colors[i % colors.length];
+    var py = _bsentPinyin(sentence, w);
+    var _len = String(w).length;
+    var _fs = (GAME_LANG==='zh')
+      ? (_len<=2 ? 'clamp(17px,2.6vmin,29px)' : _len<=3 ? 'clamp(14px,2.1vmin,24px)' : 'clamp(12px,1.8vmin,20px)')
+      : (_len<=4 ? 'clamp(14px,2.1vmin,23px)' : _len<=6 ? 'clamp(12px,1.8vmin,20px)'
+        : _len<=8 ? 'clamp(10px,1.5vmin,17px)' : 'clamp(9px,1.3vmin,15px)');
+    html += '<div class="balloon" data-w="' + _bsAttr(w) + '" data-spd="' + spd.toFixed(3) + '" onclick="gameBalloonSentPop(this)" ' +
+      'style="position:absolute;top:' + startTop + 'px;left:' + left + '%;--sway:' + sway + 'px;' +
+      'animation:balloonSway ' + swayT + 's ease-in-out infinite alternate;' +
+      'width:clamp(76px,11.8vmin,132px);aspect-ratio:267/360;' +
+      'background-image:url(/img/balloon/balloon-' + _imgs[i % _imgs.length] + '.webp);' +
+      'background-size:100% 100%;background-repeat:no-repeat;' +
+      'filter:drop-shadow(0 10px 18px ' + c.shadow + ');' +
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:' + _fs + ';cursor:pointer;' +
+      'transition:transform .2s"><div ' + (py ? 'lang="zh-CN" ' : '') +
+      'style="text-align:center;white-space:nowrap;line-height:1.1;margin-top:-6%;' +
+      'text-shadow:0 1px 2px rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.55);-webkit-text-stroke:.6px rgba(0,0,0,.5)">' +
+      _bsEsc(w) + py + '</div>' +
+      '<div style="position:absolute;bottom:-26px;left:50%;width:2px;height:26px;background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.15));transform:translateX(-50%)"></div>' +
+      '</div>';
+  });
+  html += '</div><div style="text-align:center;margin-top:10px;font-size:12px;color:#94a3b8">⏱ 풍선이 바닥에 닿기 전에 순서대로!</div>';
+  document.getElementById('game-area').innerHTML = html;
+
+  var SPEED = 3.5 * _speedMult();
+  if(_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
+  _gameState.balloonTimer = setInterval(function(){
+    if(!_gameState.current || _gameState.current.popped) return;
+    var stage = document.getElementById('balloon-stage');
+    if(!stage){ clearInterval(_gameState.balloonTimer); return; }
+    var bottomY = Math.max(220, stage.clientHeight - 120), fell = false;
+    var list = stage.querySelectorAll('.balloon');
+    for(var k=0;k<list.length;k++){
+      var bl = list[k];
+      if(bl.dataset.done === '1') continue;           /* 이미 맞춘 풍선은 낙하 대상 아님 */
+      var top = parseFloat(bl.style.top) + SPEED * (parseFloat(bl.dataset.spd)||1);
+      bl.style.top = top + 'px';
+      if(top > bottomY) fell = true;
+    }
+    if(fell && !_gameState.current.popped){
+      _gameState.current.popped = true;
+      clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null;
+      var dead = _onWrong('sent', _gameState.current.sentence);
+      _gameUpdateScore();
+      var fb = document.getElementById('game-feedback');
+      if(fb) fb.innerHTML = '<span style="color:#ef4444">❌ 놓쳤어요! 정답: ' + _bsEsc(_gameState.current.answer) + '</span>';
+      if(!dead) setTimeout(gameNextRound, 1600);
+    }
+  }, 50);
+}
+
+/* 풍선 클릭 — 어순이 맞을 때만 터진다. 틀리면 살짝 흔들고 끝(감점 없음). */
+function gameBalloonSentPop(el){
+  if(!_gameState.current || _gameState.current.popped) return;
+  if(el.dataset.done === '1') return;
+  var cur = _gameState.current;
+  var need = cur.words[cur.picked.length];
+  if(String(el.dataset.w) !== String(need)){
+    el.style.transform = 'translateX(-6px)';
+    setTimeout(function(){ el.style.transform = ''; }, 130);
+    return;
+  }
+  cur.picked.push(el.dataset.w);
+  el.dataset.done = '1';
+  try{ gameBalloonPopSound(); }catch(_){}
+  try{ window.gameSpeak && gameSpeak(el.dataset.w); }catch(_){}   /* 맞출 때마다 그 단어 소리 */
+  el.style.transition = 'transform .18s, opacity .18s';
+  el.style.transform = 'scale(1.35)'; el.style.opacity = '0';
+  setTimeout(function(){ el.style.display = 'none'; }, 190);
+
+  var built = document.getElementById('bsent-built');
+  var emp = document.getElementById('bsent-empty'); if(emp) emp.remove();
+  if(built){
+    var sp = document.createElement('span');
+    sp.textContent = el.dataset.w;
+    if(GAME_LANG==='zh') sp.setAttribute('lang','zh-CN');
+    sp.style.cssText = 'padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-radius:8px;font-size:clamp(15px,2.2vmin,26px);font-weight:800';
+    built.appendChild(sp);
+  }
+  if(cur.picked.length >= cur.words.length){
+    cur.popped = true;
+    if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
+    _balloonSentComplete();
+  }
+}
+
+/* 문장 완성 → 3번 듣기 → 3번 따라 말하기(채점) → 보너스 */
+function _balloonSentComplete(){
+  var cur = _gameState.current;
+  var text = cur.answer;
+  var fb = document.getElementById('game-feedback');
+  try{ if(typeof _stopRoundTimer==='function') _stopRoundTimer(); }catch(_){}
+  /* 🛡 드릴이 겹치지 않게 — 앞 라운드의 드릴이 아직 돌고 있으면 버린다.
+     (겹치면 보너스가 두 번 붙는다. 테스트에서 실제로 260점이 나왔다) */
+  if(_gameState._drill) _gameState._drill = null;
+  if(_gameState._advTimer){ clearTimeout(_gameState._advTimer); _gameState._advTimer = null; }
+  _gameState.correct++;
+  _gameUpdateScore();
+  if(fb) fb.innerHTML = '<span style="color:#10b981">🎉 문장 완성!</span>';
+
+  var listened = 0, rep = 0, scores = [];
+
+  function listenOnce(){
+    listened++;
+    if(fb) fb.innerHTML = '<span style="color:#38bdf8">🔊 잘 들어보세요 (' + listened + '/' + _BSENT_LISTEN + ')</span>';
+    var fired = false;
+    var go = function(){
+      if(fired) return; fired = true;
+      if(listened < _BSENT_LISTEN) setTimeout(listenOnce, 420);
+      else setTimeout(startSpeak, 520);
+    };
+    try{ window.gameSpeak ? gameSpeak(text, go) : go(); }catch(_){ go(); }
+    setTimeout(go, Math.max(3000, String(text).length * 140));   /* 낭독 종료 신호 유실 대비 상한 */
+  }
+  function startSpeak(){
+    rep = 0; scores = [];
+    _gameState._drill = { active: true, onRep: onRep };
+    nextRep();
+  }
+  function nextRep(){
+    rep++;
+    if(fb) fb.innerHTML = '<span style="color:#fbbf24">🎤 따라 말하기 (' + rep + '/' + _BSENT_SPEAK + ')</span>';
+    setTimeout(function(){ try{ gameShadow(encodeURIComponent(text)); }catch(_){ finish(); } }, 380);
+  }
+  function onRep(g){
+    if(g && typeof g.sc === 'number') scores.push(g.sc);
+    if(rep < _BSENT_SPEAK) setTimeout(nextRep, 1000);
+    else setTimeout(finish, 1000);
+  }
+  function finish(){
+    _gameState._drill = null;
+    var avg = scores.length ? scores.reduce(function(a,b){ return a+b; }, 0) / scores.length : 0;
+    var bonus = 50 + Math.round(avg * 100);            /* 50 ~ 150 : 다 말하면 기본, 발음 좋으면 더 */
+    _gameState.score += bonus;
+    _gameUpdateScore();
+    if(fb) fb.innerHTML = '<span style="color:#10b981">🎉 보너스 +' + bonus + '점!</span>' +
+      (scores.length ? ' <span style="color:#fbbf24">발음 평균 ' + Math.round(avg*100) + '점</span>' : '');
+    try{ if(typeof _gameScoreVoice==='function') _gameScoreVoice(bonus); }catch(_){}
+    _gameState._advTimer = setTimeout(gameNextRound, 2200);
+  }
+
+  setTimeout(listenOnce, 600);
+}
+
 function gameBalloonPopSound(){
   try{
     var AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
@@ -2902,7 +3129,7 @@ else { window.addEventListener('DOMContentLoaded', _mountStreakBadges); }
 window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_){} });
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
-<!-- BUILD:20260804015735 -->
+<!-- BUILD:20260804022429 -->
 <script defer src="/js/flow.js?v=8"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
