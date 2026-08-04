@@ -193,10 +193,14 @@ function showGear(step) {
                          'background:rgba(255,255,255,.12);color:#cbd5e1;white-space:nowrap';
       host.appendChild(el);
     }
-    el.textContent = '⚡ ' + GEAR_NAME[step];
-    el.title = step === 0
+    /* 어느 쪽이 약한지도 같이 보여 준다 — 조치가 달라지기 때문이다.
+       내 쪽이 약하면 «내» 카메라를 끄면 되고, 상대가 약하면 상대에게 말해야 한다. */
+    const side = window.__liteWeakSide;
+    el.textContent = '⚡ ' + GEAR_NAME[step] + (side ? ' · ' + side.tag : '');
+    el.title = (step === 0 && !side)
       ? 'Connection is good — full quality · 회선이 좋아 최고 화질입니다'
-      : 'Protecting your connection — video quality lowered so the class never drops · 회선을 보호하려고 화질을 낮췄습니다';
+      : ((side ? side.why + '\n' : '') +
+         'Protecting your connection — video quality lowered so the class never drops · 회선을 보호하려고 화질을 낮췄습니다');
   } catch (e) {}
 }
 
@@ -206,38 +210,67 @@ setInterval(function () {
     if (!pc) return;
     const st = pc.iceConnectionState;
     if (st !== 'connected' && st !== 'completed') return;
-    const sender = pc.getSenders && pc.getSenders().find(function (s) { return s.track && s.track.kind === 'video'; });
-    if (!sender || !sender.getStats) return;
-    sender.getStats().then(function (stats) {
-      let lost = 0, sent = 0, rtt = 0;
+    if (!pc.getStats) return;
+    /* ── 양쪽 회선을 «합쳐» 판단한다 (2026-08-05 사장님 지시) ──
+       한 번의 getStats() 에 두 방향이 다 들어 있다.
+         ① remote-inbound-rtp : «상대가 나를 받은» 결과를 상대가 되돌려 준 보고서 → 내 올림길 상태
+         ② inbound-rtp        : «내가 상대를 받은» 결과                          → 내 내림길 상태
+       ①만 보면 «내가 보내는 길» 만 고친다. 그런데 가정 회선은 올림·내림이 같은 관을 쓴다.
+       내가 받는 게 나쁠 때 내가 계속 올려 보내면 그 관을 더 좁힌다.
+       → 둘 중 «나쁜 쪽» 을 기준으로 단수를 정한다. 트럭이 짐칸과 엔진 중 약한 쪽에 맞추는 것과 같다.
+
+       ⚠️ 상대에게 «내가 못 받고 있다» 고 알려 주는 방식은 쓸 수 없다. 서버 중계가 정해진 메시지
+          종류만 넘기고, 그 파일(video-call-room.ts)은 손대면 안 되는 금지구역이다.
+          대신 ①이 이미 «상대의 보고서» 라서, 상대 쪽 문제도 상당 부분 여기에 잡힌다. */
+    pc.getStats().then(function (stats) {
+      let outLost = 0, outSent = 0, rtt = 0;      // ① 내가 보내는 길
+      let inLost = 0, inRecv = 0;                 // ② 내가 받는 길
       stats.forEach(function (r) {
-        if (r.type === 'remote-inbound-rtp') {
-          lost = r.packetsLost || 0;
+        if (r.type === 'remote-inbound-rtp' && r.kind === 'video') {
+          outLost = r.packetsLost || 0;
           if (typeof r.roundTripTime === 'number') rtt = r.roundTripTime * 1000;
         }
-        if (r.type === 'outbound-rtp') sent = r.packetsSent || 0;
+        if (r.type === 'outbound-rtp' && r.kind === 'video') outSent = r.packetsSent || 0;
+        if (r.type === 'inbound-rtp' && r.kind === 'video') {
+          inLost = r.packetsLost || 0;
+          inRecv = r.packetsReceived || 0;
+        }
       });
-      const prev = pc.__gPrev || { lost: 0, sent: 0 };
-      pc.__gPrev = { lost: lost, sent: sent };
-      const dLost = Math.max(0, lost - prev.lost);
-      const dSent = Math.max(0, sent - prev.sent);
-      if (dSent + dLost < 25) return;            // 표본 부족(영상 꺼짐 등) → 판단 보류
-      const lossPct = 100 * dLost / (dSent + dLost);
-      let step = (typeof pc.__gear === 'number') ? pc.__gear : GEAR_START;
+      const p = pc.__gPrev || { oL: 0, oS: 0, iL: 0, iR: 0 };
+      pc.__gPrev = { oL: outLost, oS: outSent, iL: inLost, iR: inRecv };
 
-      if (lossPct > 6 || rtt > 450) {            // 오르막 — 즉시 한 단 내린다
+      const dOL = Math.max(0, outLost - p.oL), dOS = Math.max(0, outSent - p.oS);
+      const dIL = Math.max(0, inLost - p.iL),  dIR = Math.max(0, inRecv - p.iR);
+      const upPct   = (dOS + dOL >= 25) ? (100 * dOL / (dOS + dOL)) : -1;   // -1 = 표본 부족
+      const downPct = (dIR + dIL >= 25) ? (100 * dIL / (dIR + dIL)) : -1;
+      if (upPct < 0 && downPct < 0) return;       // 양쪽 다 표본 부족 → 판단 보류
+
+      const worst = Math.max(upPct, downPct);     // 나쁜 쪽에 맞춘다
+      /* 어느 쪽이 약한지 기록 — 화면 표시와 조치 안내가 달라진다 */
+      if (worst > 6) {
+        window.__liteWeakSide = (downPct >= upPct)
+          ? { tag: 'peer', why: "The other side's line is weak · 상대 회선이 약합니다" }
+          : { tag: 'mine', why: 'Your line is weak · 내 회선이 약합니다' };
+      } else if (worst >= 0 && worst < 1.5) {
+        window.__liteWeakSide = null;
+      }
+
+      let step = (typeof pc.__gear === 'number') ? pc.__gear : GEAR_START;
+      if (worst > 6 || rtt > 450) {               // 오르막 — 즉시 한 단 내린다
         pc.__gGood = 0;
         if (step < GEAR_MUL.length - 1) step++;
-      } else if (lossPct < 1.5 && (rtt === 0 || rtt < 250)) {
-        pc.__gGood = (pc.__gGood || 0) + 1;      // 평지 — 세 번 연속 좋을 때만 올린다
+      } else if (worst >= 0 && worst < 1.5 && (rtt === 0 || rtt < 250)) {
+        pc.__gGood = (pc.__gGood || 0) + 1;       // 평지 — 세 번 연속 좋을 때만 올린다
         if (pc.__gGood >= 3 && step > 0) { step--; pc.__gGood = 0; }
       } else {
         pc.__gGood = 0;
       }
       if (step !== pc.__gear) {
-        console.warn('[gear] 손실 ' + lossPct.toFixed(1) + '% · RTT ' + Math.round(rtt) + 'ms → ' +
-                     GEAR_NAME[pc.__gear] + ' → ' + GEAR_NAME[step]);
+        console.warn('[gear] 올림 ' + upPct.toFixed(1) + '% · 내림 ' + downPct.toFixed(1) +
+                     '% · RTT ' + Math.round(rtt) + 'ms → ' + GEAR_NAME[pc.__gear] + ' → ' + GEAR_NAME[step]);
         applyGear(pc, step);
+      } else {
+        showGear(step);                           // 단수는 그대로여도 «어느 쪽이 약한지» 는 갱신한다
       }
     }).catch(function () {});
 
