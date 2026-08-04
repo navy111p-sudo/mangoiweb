@@ -12,7 +12,7 @@
 
    ⚠️ 라틴(ASCII) 만 담았다. 이 폰트로 '한글'을 렌더링하면 글자가 안 나온다.
       → font-family 스택에서 반드시 한글 폴백을 뒤에 두어야 한다.
-        예) font-family: 'Cormorant Garamond', 'Malgun Gothic', serif;
+        예) font-family: MangoiHanSC,'Cormorant Garamond', 'Malgun Gothic', serif;
 
    @font-face 는 '선언'만으로는 다운로드하지 않는다. 실제로 그 폰트를 쓰는
    요소가 화면에 있을 때만 받는다. 그래서 3벌을 한 파일에 모아도 낭비가 없다.
@@ -24,7 +24,7 @@
    ════════════════════════════════════════════════════════════════════ */
 
 @font-face {
-  font-family: 'Cormorant Garamond';
+  font-family: MangoiHanSC,'Cormorant Garamond';
   font-style: italic;
   font-weight: 500 700;              /* 가변 — 500·600·700 을 한 파일이 담당 */
   font-display: swap;                /* 폰트를 기다리며 글자를 숨기지 않는다 */
@@ -33,7 +33,7 @@
 }
 
 @font-face {
-  font-family: 'Paytone One';
+  font-family: MangoiHanSC,'Paytone One';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -42,7 +42,7 @@
 }
 
 @font-face {
-  font-family: 'Fredoka One';
+  font-family: MangoiHanSC,'Fredoka One';
   font-style: normal;
   font-weight: 400;
   font-display: swap;

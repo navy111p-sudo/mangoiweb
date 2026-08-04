@@ -221,7 +221,7 @@
       ctx.fillRect(x, y, w, h);
       if (videos.length === 0) {
         ctx.fillStyle = '#64748b';
-        ctx.font = '18px sans-serif';
+        ctx.font = '18px MangoiHanSC,sans-serif';
         ctx.fillText('참가자 대기 중...', x + 16, y + 40);
         return;
       }
@@ -252,7 +252,7 @@
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(x, ty + tileH - 26, w, 26);
         ctx.fillStyle = '#fff';
-        ctx.font = '13px -apple-system,"맑은 고딕",sans-serif';
+        ctx.font = '13px MangoiHanSC,-apple-system,"맑은 고딕",sans-serif';
         ctx.fillText(v.label, x + 6, ty + tileH - 8);
         // 구분선
         if (i < videos.length - 1) {
@@ -278,7 +278,7 @@
         ctx.fillStyle = '#f8fafc';
         ctx.fillRect(x, y, w, h);
         ctx.fillStyle = '#94a3b8';
-        ctx.font = '20px sans-serif';
+        ctx.font = '20px MangoiHanSC,sans-serif';
         ctx.fillText('🖊 칠판', x + 20, y + 40);
       }
     }
@@ -322,7 +322,7 @@
         }
       } else {
         ctx.fillStyle = '#94a3b8';
-        ctx.font = '20px sans-serif';
+        ctx.font = '20px MangoiHanSC,sans-serif';
         ctx.fillText('📄 PDF 없음', x + 20, y + 40);
       }
     }
@@ -359,7 +359,7 @@
         }
       }
       ctx.fillStyle = '#475569';
-      ctx.font = '20px sans-serif';
+      ctx.font = '20px MangoiHanSC,sans-serif';
       ctx.fillText('📹 동영상 없음', x + 20, y + 40);
     }
  
@@ -384,7 +384,7 @@
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(CONTENT_X + 2, 0, CONTENT_W - 2, TAB_BAR_H);
       ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 15px -apple-system,"맑은 고딕",sans-serif';
+      ctx.font = 'bold 15px MangoiHanSC,-apple-system,"맑은 고딕",sans-serif';
       ctx.fillText(tabLabels[tab] || tab, CONTENT_X + 14, 22);
  
       // 탭 내용
@@ -412,7 +412,7 @@
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.fillRect(mx, my, 60, 18);
             ctx.fillStyle = '#fff';
-            ctx.font = '11px sans-serif';
+            ctx.font = '11px MangoiHanSC,sans-serif';
             ctx.fillText('📹 동영상', mx + 4, my + 13);
           }
         }
@@ -426,7 +426,7 @@
       ctx.fillStyle = 'rgba(220,38,38,0.9)';
       ctx.fillRect(composeCanvas.width - 200, 10, 190, 32);
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 14px sans-serif';
+      ctx.font = 'bold 14px MangoiHanSC,sans-serif';
       ctx.fillText('● REC ' + mm + ':' + ss + '  👤' + vidCount + '명', composeCanvas.width - 190, 31);
  
       composeRafId = requestAnimationFrame(draw);

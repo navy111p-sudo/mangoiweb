@@ -406,9 +406,21 @@
         백그라운드 탭·저전력 모드에서 transition 이 멈춰 영영 안 보인다.
      ══════════════════════════════════════════════════════════ */
   var CSS = [
+    /* 🀄 (2026-08-04) 한자 자형 통일 — 이 창은 페이지 글꼴을 물려받지 않고 아래에서 직접 지정한다.
+       예전엔 '맑은 고딕'(한국어 폰트)만 있어서, 한자가 **한국식 자형**으로 나오고
+       간체자 전용 글자(连·谱 등)는 폰트에 없어 **글자마다 다른 폰트로 대체**됐다
+       → 한 문장 안에서 획 굵기·모양이 제각각(사장님 지적: "글자가 달라").
+       unicode-range 로 한자·병음 성조부호 구간에만 중국어 글꼴을 쓴다.
+       · 한글·영문은 범위 밖이라 무영향  · local() 만 써서 다운로드 0바이트
+       · 이 모듈은 여러 페이지가 공유하므로 @font-face 를 여기 안에 넣어 자기완결로 둔다. */
+    '@font-face{font-family:MangoiHanSC,;',
+    '  src:url("/fonts/mangoi-han-sc.woff2") format("woff2");',
+    '  font-weight:100 900;',
+    '  unicode-range:U+2E80-2EFF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+0100-017F,U+01CD-01DC;',
+    '  font-display:swap;}',
     '#mcyc-back{position:fixed;inset:0;z-index:2147483000;background:rgba(8,14,28,.93);',
     '  display:flex;align-items:center;justify-content:center;padding:14px;',
-    '  font-family:system-ui,"Malgun Gothic","맑은 고딕",sans-serif;}',
+    '  font-family:MangoiHanSC,system-ui,"Malgun Gothic","맑은 고딕",sans-serif;}',
     '#mcyc-card{width:min(560px,96vw);background:#111c33;border:3px solid #fbbf24;border-radius:18px;',
     '  padding:clamp(14px,3vmin,26px);box-shadow:0 18px 50px rgba(0,0,0,.6);text-align:center;color:#f8fafc;}',
     '#mcyc-steps{display:flex;gap:6px;justify-content:center;margin-bottom:10px;}',

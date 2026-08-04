@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>English Mastery Suite — Mangoi 화상영어</title>
@@ -29,10 +30,10 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
-  body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);overflow:hidden;user-select:none;
+  body{font-family:MangoiHanSC,'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);overflow:hidden;user-select:none;
     background:radial-gradient(135% 105% at 50% -8%,#4b83e6 0%,#2a5fbd 38%,#173f8c 100%)}
   /* 🀄 중국어 모드 — 한자를 전부 하나의 중국어 폰트로 통일 (한국어 폰트가 한자를 일부만 갖고 있어 글자마다 폰트·굵기가 제각각 섞이는 문제 방지) */
-  html.zh-font body{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif}
+  html.zh-font body{font-family:MangoiHanSC,'Malgun Gothic',sans-serif}
   #app{position:relative;width:100%;height:100dvh;height:100vh;overflow:hidden}
   .scene{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
   .scene.active{display:flex}
@@ -2083,7 +2084,7 @@
 })();
 </script>
 <!-- BUILD:20260702 fishbig1 shootbig1 responsive1 speed5 back1 -->
-<script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260804044646 -->
+<script defer src="/js/flow.js?v=9"></script>
+<!-- BUILD:20260804085001 -->
 </body>
 </html>

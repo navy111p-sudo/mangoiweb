@@ -112,6 +112,12 @@
   <div class="kpi"><div class="n">0 bytes</div><div class="l">added for CJK font</div></div>
   <div class="kpi"><div class="n">0</div><div class="l">incidents / rollbacks</div></div>
 </div>
+<div class="kpis">
+  <div class="kpi"><div class="n">7.7 → 5.5MB</div><div class="l">admin first load (-28%)</div></div>
+  <div class="kpi"><div class="n">11</div><div class="l">fake buttons / empty menus removed</div></div>
+  <div class="kpi"><div class="n">3</div><div class="l">competitor features we lacked, now built</div></div>
+  <div class="kpi"><div class="n">11 / 16</div><div class="l">shared competitor features we already had</div></div>
+</div>
 
 <h2 class="sec">1. Speaking is now in all 21 learning games ★</h2>
 <p>The CEO's instruction was clear — <b>every game must require speaking, and above all speaking in
@@ -251,6 +257,66 @@ The table went from black-and-white to a colour per row, so it's immediately vis
 <p>An in-class button that was <b>too small to hit reliably</b> is now <b>twice the size</b>,
 and it no longer <b>collides head-on with the Korea/Philippines clock</b> that started appearing on the class screen yesterday.
 <span class="grey">(Moving the clock would move it on the admin and parent screens too, so it's safer to move only this button.)</span></p>
+
+<h2 class="sec">13. Admin console — removed the things that did nothing when clicked ★</h2>
+<div class="star"><span class="s">★</span><span>
+  Going through the whole admin console, I found <b>menus that were only a shell</b>.
+  <b>"Settlement Statistics"</b> had 11 tabs and a table drawn out neatly, but <b>opening it showed a blank screen</b> —
+  and the history showed it was <b>never built in the first place</b>, not half-finished.
+  <span class="grey">(Like a shop with a sign, a door and a menu board, but no kitchen inside.)</span>
+  I removed 2 such menus and <b>9 fake buttons</b> that only popped up a message box.
+</span></div>
+<p>The <b>"Update FX rates" button</b> was the worst: it showed <b>hard-coded numbers</b> as if they had just been fetched,
+so it went first. Where the message itself was <b>genuinely useful</b>, I kept it and made the <b>label honest</b> instead —
+"Submit to Hometax" became "<b>How to</b> submit to Hometax".
+And where the button <b>had a real destination</b>, it now <b>actually goes there</b> instead of just describing it.</p>
+
+<h2 class="sec">14. Compared against competitors — added the 3 features we were missing ★</h2>
+<p>I checked Mangoi one by one against the <b>16 features</b> that Korean academy-management products and
+overseas tutoring-management products all share. <b>11 were already here.</b>
+Only 5 were genuinely missing, and I built the <b>3 that could be done right away</b>.</p>
+<div class="star"><span class="s">★</span><span>
+  <b>① Teacher utilization</b> — the share of a teacher's <b>open hours that are actually filled with classes</b>.
+  The real cost of online classes is <b>teacher time</b>, and without this number there was
+  <b>no basis for deciding whether to hire more teachers or fewer</b>.
+  Teachers <b>under 30%</b> are listed separately.
+</span></div>
+<div class="star"><span class="s">★</span><span>
+  <b>② Blocking overlapping classes</b> — a check existed, but it only caught <b>identical start times</b>.
+  So if a <b>9:00 class (50 min)</b> existed, booking <b>9:30</b> went straight through even though 20 minutes overlap —
+  and <b>nothing stopped the same teacher from already having another student at that time</b>.
+  <span class="grey">(That means the teacher has to be in two classrooms at once — it turns into an incident on the day.)</span>
+  It now accounts for <b>class length</b> and checks <b>by teacher</b> as well.
+  <b>Group classes</b>, where several students share one slot on purpose, are not blocked.
+</span></div>
+<div class="star"><span class="s">★</span><span>
+  <b>③ Waitlist</b> — until now, <b>if the requested time was full the enquiry simply ended there</b>.
+  Now they join a queue, and if a preferred weekday and time are entered we
+  <b>immediately show which teachers are free at that slot</b>.
+  <span class="grey">(These are people who already showed interest — far cheaper to win than a brand-new lead.)</span>
+</span></div>
+<p class="grey">The remaining 2 are <b>e-signature contracts</b> and <b>automatic tax-invoice issuing</b>.
+Both need <b>an external provider contract first</b>, so I left them alone this time.</p>
+
+<h2 class="sec">15. "Frequently used menus" — so nobody gets lost among 88</h2>
+<p>An HQ account sees <b>88 top-level menus</b>. Staff couldn't find features
+<b>not because they were missing, but because they were lost among the 88</b>.</p>
+<p>My first idea was to <b>merge the look-alike menus</b> — but on inspection that would have been <b>a mistake</b>:
+the 5 libraries only <i>look</i> the same; <b>who is allowed to see each one is set separately</b>.
+<span class="grey">(Merging them would have let teachers into the admin library, and branches into the agency library.)</span>
+So the menus stay as they are, and instead the console now <b>surfaces your pinned and most recent menus at the top</b>.
+A menu you open once is remembered automatically, and the ones you use often can be <b>pinned</b>.</p>
+
+<h2 class="sec">16. Admin first load, 30% lighter ★</h2>
+<div class="star"><span class="s">★</span><span>
+  Opening the admin console once pulled down <b>7.7 MB</b>. Measuring it, the culprit was a surprise —
+  the <b>same intro video (750 KB) was downloaded four times</b>, and the
+  <b>18 "easy guide" images were fetched in full on every visit</b> (that image folder is <b>7.5 MB</b>).
+  <b>Even if you closed it after one slide, all of them came down.</b>
+  Fixing that, plus <b>the code for menus nobody had opened</b>, brought it to <b>5.5 MB (-28%)</b>.
+</span></div>
+<p class="grey">On the connections our teachers and staff in the Philippines use, that difference is simply <b>waiting time</b>.
+Since the screen needs a login, I couldn't just look at it — so I built a way to <b>launch a real browser and measure it</b>.</p>
 
 <h2 class="sec">Deployed and verified</h2>
 <p><b>11 deploys</b> this day. Each time I confirmed <b>0 compile errors</b> and passing automated checks,

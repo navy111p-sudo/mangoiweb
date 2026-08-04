@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎨 포스터 만들기 · 망고아이</title>
 <style>
@@ -11,7 +12,7 @@
     --ok:#22c55e; --radius:14px;
   }
   *{box-sizing:border-box; margin:0; padding:0}
-  body{font-family:'Pretendard','Malgun Gothic',system-ui,sans-serif; background:var(--bg); color:var(--txt); -webkit-font-smoothing:antialiased}
+  body{font-family:MangoiHanSC,'Pretendard','Malgun Gothic',system-ui,sans-serif; background:var(--bg); color:var(--txt); -webkit-font-smoothing:antialiased}
   .wrap{display:grid; grid-template-columns:340px 1fr; min-height:100vh}
   @media(max-width:900px){ .wrap{grid-template-columns:1fr} .stage{order:-1} }
 
@@ -336,7 +337,7 @@ function exportPng(){
   if(ifr){ const d=document.createElement('div'); d.textContent='▶ 동영상'; d.style.cssText='aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);border-radius:14px;font-weight:800'; ifr.replaceWith(d); }
   node.style.width=state.w+'px'; node.style.height=state.h+'px'; node.style.fontSize=(Math.min(state.w,state.h)/26)+'px';
   node.querySelector('.p-title').style.fontSize=(Math.min(state.w,state.h)/11)+'px';
-  const html=`<div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Malgun Gothic',sans-serif">${node.outerHTML}</div>`;
+  const html=`<div xmlns="http://www.w3.org/1999/xhtml" style="font-family:MangoiHanSC,'Malgun Gothic',sans-serif">${node.outerHTML}</div>`;
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${state.w}" height="${state.h}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
   const img=new Image();
   img.onload=()=>{
@@ -394,7 +395,7 @@ function getPublishHtml(){
   if(mediaState.type==='youtube' && mediaState.yt) media='<div style="width:82%;margin:0 auto 12px;border-radius:10px;overflow:hidden"><iframe src="https://www.youtube.com/embed/'+encodeURIComponent(mediaState.yt)+'" style="width:100%;aspect-ratio:16/9;border:0;display:block" allowfullscreen></iframe></div>';
   else if(mediaState.type==='image' && mediaState.img) media='<div style="width:82%;margin:0 auto 12px;border-radius:10px;overflow:hidden"><img src="'+escH(mediaState.img)+'" style="width:100%;display:block"></div>';
   var scrim = state.bgImg ? '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.4))"></div>' : '';
-  return '<div style="position:relative;width:100%;min-height:'+H+'px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:8%;background:'+bg+';color:'+state.cT+';border-radius:10px;overflow:hidden;font-family:sans-serif">'
+  return '<div style="position:relative;width:100%;min-height:'+H+'px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:8%;background:'+bg+';color:'+state.cT+';border-radius:10px;overflow:hidden;font-family:MangoiHanSC,sans-serif">'
     +scrim+'<div style="position:relative;width:100%">'
     +(badge?'<div style="display:inline-block;background:rgba(255,255,255,.22);padding:5px 14px;border-radius:999px;font-size:'+Math.round(base*0.034)+'px;font-weight:700;letter-spacing:.5px;margin-bottom:10px">'+escH(badge)+'</div>':'')
     +'<div style="font-weight:900;line-height:1.12;font-size:'+Math.round(base*0.092)+'px;margin-bottom:8px;text-shadow:0 2px 12px rgba(0,0,0,.35);white-space:pre-wrap">'+escH(title)+'</div>'
@@ -444,6 +445,6 @@ window.addEventListener('load',render);
 render();
 requestAnimationFrame(render);
 </script>
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804085001 -->
 </body>
 </html>

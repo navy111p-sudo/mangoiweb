@@ -107,7 +107,7 @@
     ov.setAttribute('aria-label', '다음 이동 선택');
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(2,6,23,.82);' +
       'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;' +
-      'align-items:center;justify-content:center;padding:20px;font-family:"Noto Sans KR",-apple-system,sans-serif;' +
+      'align-items:center;justify-content:center;padding:20px;font-family:MangoiHanSC,"Noto Sans KR",-apple-system,sans-serif;' +
       'animation:mgFlowFade .25s ease-out';
     ov.onclick = function (e) { if (e.target === ov) close(); };
 
@@ -287,7 +287,7 @@
     ov.id = 'mango-rec-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(2,6,23,.93);' +
       'display:flex;align-items:center;justify-content:center;padding:16px;' +
-      'font-family:"Noto Sans KR",-apple-system,sans-serif;animation:mgFlowFade .2s ease-out';
+      'font-family:MangoiHanSC,"Noto Sans KR",-apple-system,sans-serif;animation:mgFlowFade .2s ease-out';
     ov.addEventListener('click', function (e) { if (e.target === ov) recClose(); });
     ov.innerHTML = inner;
     doc.body.appendChild(ov);

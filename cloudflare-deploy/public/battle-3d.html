@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>망고아이 · 우주 배틀 — 레슨 보스전</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
-  body{background:#2b2570;font-family:'Noto Sans KR','Segoe UI',sans-serif;color:#eaf2ff;overflow:hidden}
+  body{background:#2b2570;font-family:MangoiHanSC,'Noto Sans KR','Segoe UI',sans-serif;color:#eaf2ff;overflow:hidden}
   #mango-battle-3d{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(180deg,#4b2f8f 0%,#a84bb8 55%,#1c1550 100%);display:flex;flex-direction:column}
   #battleCanvas{display:block;width:100%;flex:1 1 auto;min-height:0}
   /* 퀴즈 바는 flex 흐름의 맨 아래에 컴팩트하게(내용 높이만), 나머지 세로 공간은 전부 3D 캔버스가 차지 → 빈 검은 공간 0 */
@@ -66,9 +67,9 @@
   #quiz .ch.wrong{background:#ef4444;border-color:#ef4444;color:#fff;animation:qshake .35s}
   /* 🈶 한자 폰트 통일: 기본 폰트(한글용)가 일부 한자만 갖고 있어 글자마다 굵기/모양이 제각각(fallback 섞임) →
      중국어 전용 폰트(YaHei/PingFang/Noto CJK SC)를 먼저 지정해 모든 한자를 같은 폰트·같은 굵기로. 한글은 뒤의 Malgun으로 fallback */
-  #quiz .ch .hz, #quiz .q{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif}
+  #quiz .ch .hz, #quiz .q{font-family:MangoiHanSC,'Malgun Gothic',sans-serif}
   /* 🀄 중국어 모드에선 화면 전체(퀴즈 밖 한자 포함)에 같은 중국어 폰트 적용 */
-  html.zh-font body{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC','Malgun Gothic',sans-serif}
+  html.zh-font body{font-family:MangoiHanSC,'Malgun Gothic',sans-serif}
   #quiz .ch .hz{display:block;font-size:25px;line-height:1.1;letter-spacing:1px;font-weight:700}
   #quiz .ch .py{display:block;font-size:13px;font-weight:700;color:#a9c7ff;margin-top:2px}
   #quiz .ch.right .py{color:#0b3a1c}
@@ -200,7 +201,7 @@
   <script src="/js/mangoi-speak-score.js?v=1"></script>
   <script src="/js/mangoi-pron-tags.js?v=1"></script>
   <script src="/js/mangoi-memory.js?v=1"></script>
-  <script src="/js/mangoi-speak-cycle.js?v=3"></script>
+  <script src="/js/mangoi-speak-cycle.js?v=6"></script>
   <script>
   (function(){
     'use strict';
@@ -1700,7 +1701,7 @@
   .speedrow button{padding:8px 2px}
 }
 </style>
-<script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260804044646 -->
+<script defer src="/js/flow.js?v=9"></script>
+<!-- BUILD:20260804085001 -->
 </body>
 </html>

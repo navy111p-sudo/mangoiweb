@@ -273,8 +273,23 @@ console.log('\n[ J-2. 지시를 어긴 결과를 서버가 걸러내는가 ]');
   check('여유값이 하한 아래·상한 위로 열려 있다', L.BAND_LEN_UNDER < 1 && L.BAND_LEN_OVER > 1,
     `under=${L.BAND_LEN_UNDER} over=${L.BAND_LEN_OVER}`);
   const SRVJ2 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
-  check('생성기가 길이를 검사해 다시 뽑는다', /if \(attempt < 2 && !situationFitsBand\(situation, bandState\.band\)\)/.test(SRVJ2));
-  check('끝까지 안 맞으면 그래도 문제를 준다(재시도는 앞 2회만)', /attempt < 2 && !situationFitsBand/.test(SRVJ2));
+  // askBand = 배치 탐색 중이면 탐색 밴드, 아니면 학생의 밴드 — 길이 검사도 그 밴드 기준이어야 합니다
+  check('생성기가 길이를 검사해 다시 뽑는다', /if \(attempt < 3 && !situationFitsBand\(situation, askBand\)\)/.test(SRVJ2));
+  check('끝까지 안 맞으면 그래도 문제를 준다(마지막 시도는 수용)', /attempt < 3 && !situationFitsBand/.test(SRVJ2));
+  // 여유를 넓게 두면 LLM 이 그 바닥에 눌러앉습니다(0.75 일 때 실측이 전부 하한의 75~80%)
+  check('하한 여유가 너무 헐겁지 않다(≥0.85)', L.BAND_LEN_UNDER >= 0.85, String(L.BAND_LEN_UNDER));
+
+  // 단어 수보다 문장 개수를 훨씬 잘 지키므로 함께 지시합니다
+  check('밴드마다 문장 개수 힌트가 있다', BAND_SPECS.every((s) => /sentence/i.test(L.sentenceHint(s.band))));
+  check('낮은 밴드는 한 문장', /ONE sentence/.test(L.sentenceHint(1)), L.sentenceHint(1));
+  check('높은 밴드는 여러 문장', /[23] short sentences/.test(L.sentenceHint(8)), L.sentenceHint(8));
+  check('문장 개수가 밴드와 함께 늘어난다',
+    parseInt((L.sentenceHint(8).match(/^(\d+)/) || [0, 1])[1], 10) >= 2);
+  check('프롬프트에 문장 개수와 자가 점검이 들어간다',
+    BAND_SPECS.every((s) => {
+      const l = bandPromptLine(s.band);
+      return /Write it as /.test(l) && /Count the words of your situation before you answer/.test(l);
+    }));
 }
 
 console.log('\n[ K. 두 가지 모드 — AI가 맞춤 / 내가 고름 ]');
@@ -315,6 +330,79 @@ console.log('\n[ L. 범주 이름이 화면 언어를 따르는가 — 회귀 �
   check('bandNameOf 가 화면 언어(LANG)를 쓴다', /function bandText\(b, key\)[\s\S]{0,240}LANG==='en'/.test(HTML));
   check('서버는 그 함정을 주석으로 남겨 두었다',
     /lang 은 '문제 지문의 언어'/.test(readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8')));
+}
+
+console.log('\n[ M. 레벨 찾기(배치테스트) — 6문항으로 출발점 찾기 ]');
+{
+  const { placementNext, runPlacement, PLACEMENT_ITEMS, PLACEMENT_START, PLACEMENT_FIRST_STEP } = L;
+  check('6문항으로 잡았다', PLACEMENT_ITEMS === 6, String(PLACEMENT_ITEMS));
+  check('가운데(4)에서 시작한다', PLACEMENT_START === 4, String(PLACEMENT_START));
+  check('첫 보폭이 2다(빨리 훑고 좁힌다)', PLACEMENT_FIRST_STEP === 2);
+
+  const up = placementNext(4, true, 2);
+  const dn = placementNext(4, false, 2);
+  check('맞히면 보폭만큼 올라간다', up.band === 6, `현재 ${up.band}`);
+  check('틀리면 보폭만큼 내려간다', dn.band === 2, `현재 ${dn.band}`);
+  check('보폭이 한 칸씩 줄어 수렴한다', up.step === 1 && dn.step === 1);
+  check('보폭은 1 아래로 안 내려간다', placementNext(4, true, 1).step === 1);
+  check('위 경계를 넘지 않는다', placementNext(8, true, 2).band === 8);
+  check('아래 경계를 넘지 않는다', placementNext(1, false, 2).band === 1);
+
+  // 6문항이면 최상단·최하단 모두 닿아야 합니다(못 닿으면 그 레벨 학생을 배치할 수 없음)
+  const allRight = runPlacement([true, true, true, true, true, true]);
+  const allWrong = runPlacement([false, false, false, false, false, false]);
+  check('전부 맞히면 최상단(8)에 닿는다', allRight.band === BAND_COUNT, `현재 ${allRight.band}`);
+  check('전부 틀리면 최하단(1)에 닿는다', allWrong.band === 1, `현재 ${allWrong.band}`);
+  check('물어본 밴드가 6개 기록된다', allRight.asked.length === 6 && allWrong.asked.length === 6);
+  check('첫 문항은 항상 시작 밴드', allRight.asked[0] === PLACEMENT_START && allWrong.asked[0] === PLACEMENT_START);
+
+  // 실력이 중간인 학생 — 위로 갔다 아래로 오며 가운데로 수렴
+  const mid = runPlacement([true, false, true, false, true, false]);
+  check('오르내리는 학생은 중간 어딘가로 수렴한다', mid.band >= 3 && mid.band <= 6, `현재 ${mid.band}`);
+  check('빈 입력에도 안 터진다', runPlacement([]).band === PLACEMENT_START && runPlacement(null).band === PLACEMENT_START);
+
+  const SRVJ3 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
+  // ★ 찾는 도중 저장된 밴드가 바뀌면 결과가 오염됩니다
+  check('탐색 중에는 저장된 밴드를 건드리지 않는다', /if \(!probing\) \{/.test(SRVJ3));
+  check('탐색 밴드로 문제를 만든다', /const askBand = probing \? probeRaw : bandState\.band/.test(SRVJ3));
+  check('라우트가 probe_band 를 넘긴다', /probeBand: Number\(body\.probe_band\)/.test(SRVJ3) || /probeBand: Number\(body\.probe_band\)/.test(SRVP));
+
+  check('화면에 레벨 찾기 진입이 있다', /id="plStart"/.test(HTML));
+  check('배치 6문항 상수가 화면과 서버에서 같다', /var PL_ITEMS = 6/.test(HTML));
+  check('배치는 가운데(4)에서 시작한다', /PL_START = 4/.test(HTML));
+  // ★ 배치 문항은 일부러 너무 어려운 것을 섞으므로 지수에 들어가면 안 됩니다
+  check('배치 답안을 채점 API 로 보내지 않는다',
+    !/answerPlacement[\s\S]{0,800}\/api\/judgment\/answer/.test(HTML),
+    '배치 문항이 판단력 지수를 왜곡합니다');
+  check('끝나면 자동 모드로 확정한다(출발점만 정하고 이후는 AI)',
+    /requestScenario\(null, 0, plBand, 'auto', 0, 'placement'\)/.test(HTML));
+}
+
+console.log('\n[ N. 강사·관리자 화면에 레벨이 닿는가 ]');
+{
+  const SRVT = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-teacher.ts'), 'utf8');
+  const TEA = readFileSync(resolve(__dir, '../cloudflare-deploy/public/teacher.html'), 'utf8');
+  const ADM = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-admin.ts'), 'utf8');
+  const SRVJ4 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
+
+  check('밴드 조회 함수가 공개돼 있다', /export async function getReadingBandFor/.test(SRVJ4));
+  // ★ 훈련한 적 없는 학생에게 기본값을 보여주면 강사가 "이 아이는 초급이구나" 하고 오해합니다
+  check('기록이 없으면 null 을 준다(기본값으로 채우지 않는다)', /const st = await readBandState[\s\S]{0,120}if \(!st\) return null/.test(SRVJ4));
+  check('강사 다수가 필리핀이라 한/영 이름을 함께 준다', /name_ko: bandName\([\s\S]{0,60}name_en: bandName/.test(SRVJ4));
+
+  check('강사 포털이 오늘 수업에 밴드를 얹는다', /getReadingBandFor/.test(SRVT));
+  check('학생 수만큼만 병렬 조회한다(중복 제거)', /\[\.\.\.new Set\(classes\.map[\s\S]{0,200}Promise\.all/.test(SRVT));
+  check('조회 실패가 오늘 수업 표시를 막지 않는다', /catch \{ \/\* 밴드 조회 실패가 오늘 수업 표시를 막지 않는다/.test(SRVT));
+  check('강사 화면이 밴드를 표시한다', /c\.reading_band/.test(TEA));
+  check('강사 화면도 한/영을 가른다', /EN\(\) \? \(c\.reading_band_en/.test(TEA));
+
+  check('관리자 통계 엔드포인트가 있다', /path === '\/api\/admin\/stats\/judgment-bands'/.test(ADM));
+  check('목표 85% 와의 차이를 함께 준다', /off_target/.test(ADM));
+  // ★ 표본이 2건일 때 정답률을 근거로 쓰면 잘못된 튜닝을 합니다
+  check('표본이 적으면 경고를 함께 내려보낸다', /enough_data/.test(ADM) && /note_ko/.test(ADM));
+  check('새 테이블 없이 기존 기록에서 뽑는다', /FROM judgment_analysis/.test(ADM) && !/CREATE TABLE[\s\S]{0,80}band/.test(ADM));
+  // 새 API 경로를 index.ts(금지구역) 손대지 않고 붙이려면 이 접두사여야 합니다
+  check('금지구역을 피하는 접두사를 쓴다', /\/api\/admin\/stats\//.test(ADM));
 }
 
 console.log(`\n${'─'.repeat(60)}`);

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>판단력 훈련 · 망고아이</title>
@@ -12,7 +13,7 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
-  body{font-family:'Pretendard','Noto Sans KR','Malgun Gothic','Segoe UI',sans-serif;
+  body{font-family:MangoiHanSC,'Pretendard','Noto Sans KR','Malgun Gothic','Segoe UI',sans-serif;
     background:#0b1020;color:var(--ink);min-height:100dvh;padding:clamp(14px,3vw,34px);
     display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
   /* 🌌 살아있는 배경 — 은은히 떠다니는 빛 덩어리 */
@@ -159,6 +160,21 @@
   .lvm-on{display:inline-block;margin-left:7px;font-size:11px;font-weight:800;color:#1a1a1a;
     background:linear-gradient(92deg,#f59e0b,#fbbf24);border-radius:999px;padding:2px 9px;vertical-align:middle}
   .lvp-sub{margin:18px 0 0;font-size:clamp(13px,1.6vw,16px);font-weight:800;color:var(--pp)}
+
+  /* ── 🎯 레벨 찾기(배치테스트) ── */
+  .pl-cta{display:block;width:100%;margin-top:12px;text-align:left;background:rgba(16,185,129,.12);
+    border:2px solid rgba(16,185,129,.35);border-radius:16px;padding:14px 16px;cursor:pointer;
+    font-family:inherit;transition:border-color .15s,background .15s,transform .12s}
+  .pl-cta:hover{border-color:#10b981;background:rgba(16,185,129,.2);transform:translateY(-1px)}
+  .pl-cta .lvm-t{color:#a7f3d0}
+  .pl-dots{display:flex;gap:7px;justify-content:center;margin-bottom:14px}
+  .pl-dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.16)}
+  .pl-dot.on{background:linear-gradient(92deg,#10b981,#34d399)}
+  .pl-dot.now{background:#fbbf24;transform:scale(1.25)}
+  .pl-step{font-size:clamp(12px,1.5vw,15px);font-weight:800;color:var(--mut);text-align:center;margin-bottom:10px}
+  .pl-done{text-align:center;padding:8px 0 2px}
+  .pl-done .big{font-size:clamp(24px,4vw,38px);font-weight:900;color:#a7f3d0;margin:10px 0 4px}
+  .pl-done .sub{font-size:clamp(13px,1.7vw,17px);color:var(--mut);font-weight:600}
 
   /* ── 결과 ── */
   .res{margin-top:2px}
@@ -433,7 +449,7 @@
   // ⚡ 다음 문제 선(先)생성 — 문제는 AI가 만들어 몇 초 걸립니다. 학생이 지금 문제를 푸는 동안
   //    다음 문제를 미리 받아두면 "다음 문제 →"가 즉시 뜹니다. (요청은 항상 1문제 앞서기만 함)
   var prefetch = null, prefetchDone = false;
-  function requestScenario(focusMisc, nudge, setBand, mode){
+  function requestScenario(focusMisc, nudge, setBand, mode, probeBand, src){
     var body = {uid:UID, lang:'en', textbook:TEXTBOOK};
     if(focusMisc) body.focus_misconception = focusMisc;
     // 🎚️ 읽기 난이도 조정 — 서버가 밴드를 옮긴 뒤 그 밴드로 문제를 만들어 돌려줍니다.
@@ -441,6 +457,8 @@
     if(nudge) body.band_nudge = nudge;
     if(setBand) body.set_band = setBand;      // 목록에서 직접 고른 범주(1~8)
     if(mode) body.band_mode = mode;           // 'auto'(AI가 조절) / 'manual'(고른 자리 유지)
+    if(probeBand) body.probe_band = probeBand; // 레벨 찾기 — 저장값은 안 건드리고 이 밴드로만 출제
+    if(src) body.band_src = src;              // 밴드를 누가 정했는지 기록('placement')
     return fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
       body:JSON.stringify(body)})
       .then(function(r){ return r.json(); })
@@ -477,6 +495,102 @@
     for(var i=0;i<list.length;i++) if(Number(list[i].band)===Number(band)) return bandText(list[i],'n');
     return '';
   }
+  // ── 🎯 레벨 찾기(배치테스트) — 6문항 적응형 ──────────────────────────────
+  //   가운데(4)에서 시작해 맞으면 올리고 틀리면 내리되 보폭을 줄여 수렴합니다.
+  //   채점은 여기서 correct_index 로 바로 합니다 — AI 재호출이 없어 3분이면 끝납니다.
+  //   ⚠️ 배치 문항은 /api/judgment/answer 로 보내지 않습니다.
+  //      일부러 너무 어려운 문제를 섞기 때문에 판단력 지수에 넣으면 점수가 왜곡됩니다.
+  var PL_ITEMS = 6, PL_START = 4, PL_FIRST_STEP = 2;
+  var plOn = false, plIdx = 0, plBand = PL_START, plStep = PL_FIRST_STEP, plQ = null, plCorrect = 0;
+
+  function plDots(){
+    var s = '';
+    for(var i=0;i<PL_ITEMS;i++) s += '<span class="pl-dot'+(i<plIdx?' on':(i===plIdx?' now':''))+'"></span>';
+    return '<div class="pl-dots">'+s+'</div>';
+  }
+  function startPlacement(){
+    plOn = true; plIdx = 0; plBand = PL_START; plStep = PL_FIRST_STEP; plCorrect = 0;
+    prefetch = null; prefetchDone = false;      // 배치 중엔 미리 받아둔 일반 문제를 쓰지 않습니다
+    nextPlacementQuestion();
+  }
+  async function nextPlacementQuestion(){
+    view = 'placement';
+    loading(T('레벨을 찾는 중이에요…','Finding your level…','正在测定你的难度…'));
+    var d = await requestScenario(null, 0, 0, null, plBand);
+    if(!validScenario(d)){
+      stage.innerHTML = '<div class="center">'+T('문제를 불러오지 못했어요.','Could not load a question.','题目加载失败。')
+        + '<br><button class="btn ghost" style="max-width:260px;margin:18px auto 0" id="plAbort">'+T('그만두기','Stop','退出')+'</button></div>';
+      var ab=document.getElementById('plAbort'); if(ab) ab.addEventListener('click', function(){ plOn=false; loadScenario(); });
+      return;
+    }
+    captureBand(d);   // 목록만 받아 둡니다(배치 중 reading_band 는 탐색값이라 CUR_BAND 로 쓰지 않음)
+    plQ = d;
+    renderPlacement();
+  }
+  function renderPlacement(){
+    view = 'placement';
+    var letters = ['A','B','C','D'];
+    var opts = plQ.options.map(function(o,i){
+      return '<button class="opt" data-i="'+i+'"><span class="k">'+letters[i]+'</span><span>'+esc(o)+'</span></button>';
+    }).join('');
+    stage.innerHTML =
+      plDots()+
+      '<div class="pl-step">'+T('레벨 찾기','Finding your level','测定难度')+' '+(plIdx+1)+' / '+PL_ITEMS+'</div>'+
+      '<div class="sit-label">🗣️ '+T('이런 상황이에요','Here is the situation','情境是这样的')+'</div>'+
+      '<div class="sit">'+esc(plQ.situation)+'</div>'+
+      '<div class="opts">'+opts+'</div>'+
+      '<div class="hint">✨ '+T('가장 잘 어울리는 말을 골라요. 이유는 안 써도 돼요.',
+                                'Just pick the best one — no need to explain here.',
+                                '选出最合适的说法即可，这里不用写理由。')+'</div>'+
+      '<button class="btn ghost" id="plStop" style="margin-top:14px">'+T('그만두기','Stop','退出')+'</button>';
+    reEnter();
+    Array.prototype.forEach.call(stage.querySelectorAll('.opt'), function(el){
+      el.addEventListener('click', function(){
+        Array.prototype.forEach.call(stage.querySelectorAll('.opt'), function(x){ x.disabled = true; });
+        answerPlacement(Number(el.getAttribute('data-i')));
+      });
+    });
+    var st=document.getElementById('plStop');
+    if(st) st.addEventListener('click', function(){ plOn=false; loadScenario(); });
+  }
+  function answerPlacement(idx){
+    var ok = (Number(idx) === Number(plQ.correct_index));
+    if(ok) plCorrect++;
+    // 계단 이동 — 맞으면 올리고 틀리면 내리되 보폭을 한 칸씩 줄입니다(서버 placementNext 와 같은 규칙)
+    plBand = Math.max(1, Math.min(8, plBand + (ok ? plStep : -plStep)));
+    plStep = Math.max(1, plStep - 1);
+    plIdx++;
+    if(plIdx >= PL_ITEMS) finishPlacement();
+    else nextPlacementQuestion();
+  }
+  async function finishPlacement(){
+    view = 'placement';
+    loading(T('딱 맞는 난이도를 정하고 있어요…','Setting your level…','正在设定你的难度…'));
+    // 찾은 밴드로 확정 + 모드는 '자동' — 배치는 출발점만 정하고, 이후는 AI 가 이어서 맞춥니다
+    var d = await requestScenario(null, 0, plBand, 'auto', 0, 'placement');
+    plOn = false;
+    captureBand(d);
+    var nm = bandNameOf(plBand) || '';
+    var lv = (BAND_CATALOG||[]).filter(function(b){return Number(b.band)===Number(plBand);})[0];
+    stage.innerHTML =
+      '<div class="pl-done">'+
+        '<div style="font-size:44px">🎯</div>'+
+        '<div class="sub">'+T('너에게 딱 맞는 난이도를 찾았어요','We found your level','已找到适合你的难度')+'</div>'+
+        '<div class="big">'+esc(nm)+'</div>'+
+        '<div class="sub">'+(lv?esc(lv.lv)+' · '+esc(bandText(lv,'d')):'')+'</div>'+
+        '<div class="hint" style="margin-top:14px">'+T('6문제 중 '+plCorrect+'개를 맞혔어요. 이제 AI가 계속 맞춰줄게요.',
+              'You got '+plCorrect+' of 6. AI will keep adjusting from here.',
+              '6题中答对'+plCorrect+'题。接下来AI会继续调整。')+'</div>'+
+        '<button class="btn" id="plGo" style="margin-top:18px">'+T('이 난이도로 시작하기 🚀','Start at this level 🚀','用这个难度开始 🚀')+'</button>'+
+      '</div>';
+    reEnter();
+    var go=document.getElementById('plGo');
+    if(go) go.addEventListener('click', function(){
+      if(validScenario(d)){ scenario = d; renderQuestion(); reEnter(); prefetchNext(); }
+      else loadScenario();
+    });
+  }
+
   function showBandPicker(){
     if(!BAND_CATALOG || !BAND_CATALOG.length) return;
     view='lvpick';
@@ -515,6 +629,14 @@
                              'Pick one of the two. You can change it anytime.',
                              '二选一，随时可以再改。')+'</div>'+
       modes+
+      // 🎯 어느 쪽을 고르든, 출발점을 모르겠으면 여기서 찾습니다
+      '<button type="button" class="pl-cta" id="plStart">'+
+        '<span class="lvm-ic">🎯</span>'+
+        '<span class="lvm-t">'+T('내 레벨 찾아줄까요?','Find my level','帮我测一下难度')+'</span>'+
+        '<span class="lvm-d">'+T('문제 6개만 풀면 딱 맞는 난이도를 찾아드려요. (약 3분)',
+                                 'Just 6 questions and we will find your level. (about 3 min)',
+                                 '只需6道题就能找到合适的难度。（约3分钟）')+'</span>'+
+      '</button>'+
       '<div class="lvp-sub">'+T('직접 고르기','Choose a level','自选难度')+'</div>'+
       '<div class="hint">'+T('여기서 고르면 자동으로 ‘내가 고를래요’가 돼요.',
                              'Picking one here switches to “I choose myself”.',
@@ -545,6 +667,8 @@
         loadScenario(null, 0, b);
       });
     });
+    var ps = document.getElementById('plStart');
+    if(ps) ps.addEventListener('click', function(){ startPlacement(); });
     var cl = document.getElementById('lvpClose');
     if(cl) cl.addEventListener('click', function(){
       if(scenario){ renderQuestion(); reEnter(); } else { loadScenario(); }
@@ -899,7 +1023,7 @@
   loadScenario();
 })();
 </script>
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804085001 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

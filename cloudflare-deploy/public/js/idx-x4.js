@@ -19,7 +19,7 @@
     const overlay = document.createElement('div');
     overlay.id = 'mt-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(4px)';
-    overlay.innerHTML = `<div style="background:#0f172a;border:2px solid #6366f1;border-radius:16px;padding:22px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;color:#e2e8f0;font-family:system-ui,sans-serif">
+    overlay.innerHTML = `<div style="background:#0f172a;border:2px solid #6366f1;border-radius:16px;padding:22px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;color:#e2e8f0;font-family:MangoiHanSC,system-ui,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
         <div style="font-size:18px;font-weight:800;color:#a5b4fc">📝 ${en?'Mini TOEIC':'영어 능력 시험'}</div>
         <button onclick="closeMtOverlay()" style="background:#334155;color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer">${en?'Close':'닫기'}</button>
@@ -87,7 +87,7 @@
     const sel = mtState.answers[q.id] || '';
     body.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="font-size:13px;color:#a5b4fc"><b>${esc(mtState.examTitle)}</b> · ${q.section==='listening'?'🎧 Listening':'📖 Reading'} · ${mtState.idx+1}/${total}</div>
-        <div style="background:#1e293b;border:1px solid #6366f1;color:#fbbf24;padding:4px 10px;border-radius:8px;font-family:monospace;font-weight:800"><span id="mt-timer">--:--</span></div>
+        <div style="background:#1e293b;border:1px solid #6366f1;color:#fbbf24;padding:4px 10px;border-radius:8px;font-family:MangoiHanSC,monospace;font-weight:800"><span id="mt-timer">--:--</span></div>
       </div>
       ${q.audio_url ? `<audio controls src="${esc(q.audio_url)}" style="width:100%;margin-bottom:10px"></audio>` : ''}
       ${q.image_url ? `<img src="${esc(q.image_url)}" style="max-width:100%;border-radius:8px;margin-bottom:10px" />` : ''}
@@ -169,7 +169,7 @@
     const overlay = document.createElement('div');
     overlay.id = 'btl-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(4px)';
-    overlay.innerHTML = `<div style="background:#0f172a;border:2px solid #f43f5e;border-radius:16px;padding:22px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;color:#e2e8f0;font-family:system-ui,sans-serif">
+    overlay.innerHTML = `<div style="background:#0f172a;border:2px solid #f43f5e;border-radius:16px;padding:22px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;color:#e2e8f0;font-family:MangoiHanSC,system-ui,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
         <div style="font-size:18px;font-weight:800;color:#fda4af">🎮 ${en?'English Battle':'친구와 영어 배틀'}</div>
         <button onclick="closeBtlOverlay()" style="background:#334155;color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer">${en?'Close':'닫기'}</button>

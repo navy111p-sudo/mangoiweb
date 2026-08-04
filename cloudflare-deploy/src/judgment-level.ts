@@ -189,12 +189,26 @@ export function bandLabel(band: any): string {
  *      (이 문장이 빠지면 LLM 이 낮은 밴드에서 선택지를 뻔하게 만들어
  *       판단력 훈련이 아니라 단순 어휘 문제가 되어 버립니다.)
  */
+/**
+ * 밴드에 맞는 문장 개수 힌트.
+ *   LLM 은 '단어 수'보다 '문장 개수'를 훨씬 잘 지킵니다. 라이브 실측에서 단어 수만 주면
+ *   목표 구간의 아래쪽으로 계속 치우쳤습니다(고급 16~22 지시에 14~15).
+ */
+export function sentenceHint(band: any): string {
+  const s = bandSpec(band);
+  const n = Math.max(1, Math.round(s.maxWords / 9));
+  return n <= 1 ? 'ONE sentence' : `${n} short sentences`;
+}
+
 export function bandPromptLine(band: any): string {
   const s = bandSpec(band);
   return `READING LEVEL (strict): the child reads at Mangoi textbook level ${bandLabel(s.band)}. `
     // ⚠️ 하한이 반드시 있어야 합니다. 상한만 주면 LLM 이 어느 밴드에서든 짧게 써 버려
     //    위쪽 범주가 아무 효과를 못 냅니다(라이브 실측: 상한 18 인데 7단어가 나왔음).
     + `The SITUATION text must be ${s.minWords}-${s.maxWords} words long — not shorter, not longer. `
+    // 문장 개수 + 자가 점검 지시 — 단어 수만으로는 계속 짧게 씁니다(라이브 실측).
+    + `Write it as ${sentenceHint(s.band)}. Count the words of your situation before you answer: `
+    + `if it is under ${s.minWords} words, add concrete detail (who, where, what just happened) until it fits. `
     // 선택지에는 하한을 주지 않습니다 — 아이가 실제로 할 법한 말이라 억지로 늘리면 부자연스러워집니다.
     + `Each OPTION must be at most ${s.maxWords} words and must stay something a child would really say. `
     + `Grammar allowed: ${s.grammar}. `
@@ -206,7 +220,9 @@ export function bandPromptLine(band: any): string {
 //   라이브 실측(2026-08-03): 고급(16~22단어)으로 지정했는데 14단어가 왔습니다.
 //   프롬프트에 하한을 적어도 LLM 은 단어 수를 자주 어기므로, 받은 결과를 세어 보고
 //   어긋나면 다시 뽑습니다. 다만 완벽을 요구하면 문제를 아예 못 주게 되므로 여유를 둡니다.
-export const BAND_LEN_UNDER = 0.75;   // 하한의 75% 까지는 허용
+//   ⚠️ 여유를 너무 넓게 두면 LLM 이 그 바닥에 눌러앉습니다 — 0.75 로 뒀더니 실측이
+//      전부 하한의 75~80% 에 몰렸습니다(초중급 8~12 인데 6). 0.9 로 좁혀 목표 안으로 밀어 넣습니다.
+export const BAND_LEN_UNDER = 0.9;    // 하한의 90% 까지는 허용
 export const BAND_LEN_OVER = 1.3;     // 상한의 130% 까지는 허용
 
 /** 영어 문장의 단어 수 — 구두점만 있는 토큰은 세지 않습니다. */
@@ -220,6 +236,38 @@ export function situationFitsBand(text: any, band: any): boolean {
   const n = countWords(text);
   if (!n) return false;
   return n >= Math.round(s.minWords * BAND_LEN_UNDER) && n <= Math.round(s.maxWords * BAND_LEN_OVER);
+}
+
+// ── 🎯 레벨 찾기(배치테스트) ────────────────────────────────────────────────
+//   Duolingo 식 적응형 계단. 가운데서 시작해 맞으면 올리고 틀리면 내리되 보폭을 줄여 수렴합니다.
+//   적응형 검사 연구상 12문항이면 95% 정확도, 5~10문항이 실용 하한 — 아이가 지치지 않는 6문항으로 잡습니다.
+//   ⚠️ 채점은 화면에서 정답 인덱스로 바로 합니다(LLM 재호출 0). 그래서 3분이면 끝납니다.
+//   ⚠️ 배치 문항은 판단력 지수에 넣지 않습니다 — 일부러 너무 어려운 문제를 섞기 때문입니다.
+export const PLACEMENT_ITEMS = 6;
+export const PLACEMENT_START = 4;        // 중앙(4)에서 시작 — 위아래 모두 6문항 안에 닿습니다
+export const PLACEMENT_FIRST_STEP = 2;   // 첫 보폭만 2, 이후 1로 좁혀 수렴
+
+/** 다음에 물어볼 밴드 — 맞으면 올리고 틀리면 내리되 보폭을 한 칸씩 줄입니다. */
+export function placementNext(current: any, correct: boolean, step: any): { band: number; step: number } {
+  const b = normalizeBand(current);
+  const s = Math.max(1, Math.round(+step) || 1);
+  const next = Math.max(1, Math.min(BAND_COUNT, b + (correct ? s : -s)));
+  return { band: next, step: Math.max(1, s - 1) };
+}
+
+/**
+ * 정오 배열 → 최종 밴드. 계단을 끝까지 따라간 자리가 그대로 답입니다.
+ *   (한 문제 실수로 1칸 어긋나도 이후 자동 조절이 바로잡습니다 — 배치는 '출발점'만 정하면 됩니다)
+ */
+export function runPlacement(results: Array<boolean | number>): { band: number; asked: number[] } {
+  let band = PLACEMENT_START, step = PLACEMENT_FIRST_STEP;
+  const asked: number[] = [];
+  for (const r of (Array.isArray(results) ? results : [])) {
+    asked.push(band);
+    const nx = placementNext(band, !!r, step);
+    band = nx.band; step = nx.step;
+  }
+  return { band, asked };
 }
 
 /** 최근 결과 창에 한 건 추가(오래된 것부터 밀어냄). 1=정답, 0=오답. */

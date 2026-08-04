@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko" translate="no" class="notranslate">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-08-02) 브라우저 자동번역 차단 — "영어 글자들이 정렬이 안되어 있음"의 진범
        · 이 페이지는 자체 i18n(data-ko/data-en + adm-p3.js 사전)을 이미 갖고 있다.
@@ -234,7 +235,7 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'Noto Sans KR', -apple-system, "맑은 고딕", "Malgun Gothic", sans-serif;
+    font-family: MangoiHanSC,'Noto Sans KR', -apple-system, "맑은 고딕", "Malgun Gothic", sans-serif;
     color: #1c1917;
     padding: 24px;
     letter-spacing: -0.5px;
@@ -272,7 +273,7 @@
   .empty { text-align: center; color: #9ca3af; padding: 24px; }
   /* === 참여도 점수 셀 === */
   /* 점수 컬럼은 숫자가 깔끔하게 정렬되도록 오른쪽 정렬 + 등폭 숫자 폰트 적용 */
-  .score-cell { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .score-cell { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; font-family: MangoiHanSC,ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
   /* 총 참여도(%) 셀 색상 — 80% 이상 녹색, 50~79% 노랑, 그 미만 빨강 */
   .score-high { background:#d1fae5; color:#065f46; font-weight:600; }
   .score-mid  { background:#fef3c7; color:#92400e; font-weight:600; }
@@ -550,7 +551,7 @@
     padding: 8px 10px;
     border: 1px solid #d1d5db;
     border-radius: 8px;
-    font-family: 'Malgun Gothic', monospace;
+    font-family: MangoiHanSC,'Malgun Gothic', monospace;
     line-height: 1.5;
     resize: vertical;
     background: #fff;
@@ -750,7 +751,7 @@
   #sm-students-table tbody tr:hover td { background: rgba(245,158,11,0.12); cursor: default; }
   /* USER_ID — 모노 폰트, 색상 흐리게 */
   #sm-students-table td:nth-child(1) code {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: MangoiHanSC,ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 11px; color: #78716c; background: transparent;
   }
   /* 이름 — 굵게 + role 배지 */
@@ -948,7 +949,7 @@
   */
   .hero h1 {
     margin: 0 0 24px;
-    font-family: 'Jua', 'Black Han Sans', 'Noto Sans KR', sans-serif;
+    font-family: MangoiHanSC,'Jua', 'Black Han Sans', 'Noto Sans KR', sans-serif;
     font-size: 84px; font-weight: 400;
     letter-spacing: 2px;
     line-height: 1.18;
@@ -2333,7 +2334,10 @@
                 onclick="if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');} if(window.miSdClose)window.miSdClose();">
           <span class="mi-sd-ico" aria-hidden="true">
             <span style="display:inline-flex;width:100%;height:100%;border-radius:50%;overflow:hidden;">
-              <video src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;"></video>
+              <!-- preload="none" (2026-08-04): 이 영상은 «펼쳐야 보이는» 슬라이드 메뉴 안의 장식용 썸네일인데
+                   preload="auto" 라 페이지를 열자마자 750KB 를 받고 있었다. 같은 파일을 쓰는 요소가 3개라
+                   첫 방문에 같은 영상을 여러 번 내려받았다(미디어 요소는 서로 캐시를 나눠 쓰지 못함). -->
+              <video src="/video/ai-ops-greeting.mp4" muted loop playsinline preload="none" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;"></video>
             </span>
           </span>
           <span class="mi-sd-chip" data-ko="AI 상담" data-en="AI Assistant">AI 상담</span>
@@ -2500,6 +2504,13 @@
             trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
             trigger.setAttribute('aria-label', open ? '빠른 메뉴 닫기' : '빠른 메뉴 열기');
           }
+          // 🎬 (2026-08-04) 메뉴 안 장식 영상은 «열릴 때» 비로소 재생한다.
+          //   예전엔 autoplay 라서, 접혀 있어 보이지도 않는 상태에서 750KB 를 미리 받았다.
+          //   (preload="none" 만으로는 못 막는다 — autoplay 가 로딩을 강제한다)
+          try {
+            var sdv = dial.querySelector('video');
+            if (sdv) { if (open) { var p = sdv.play(); if (p && p.catch) p.catch(function(){}); } else sdv.pause(); }
+          } catch(e){}
         }
         window.miSdOpen   = function(){ setOpen(true); };
         window.miSdClose  = function(){ setOpen(false); };
@@ -2923,6 +2934,14 @@
     window.addEventListener('hashchange', openCardFromHash);
   })();
 </script>
+
+<!-- 📌 자주 쓰는 메뉴 / 🕘 최근 사용 (2026-08-04 신규)
+     본사 계정 기준 최상위 메뉴가 88개라 «있는 기능을 못 찾는» 문제가 있었다.
+     카드를 합치면 역할별 접근권한(CARD_POLICY)이 무너지므로, 카드는 그대로 두고
+     자주 가는 곳만 위로 끌어올린다. 내용은 adm-quickmenu.js 가 채운다. -->
+<div id="quick-menu-bar" style="display:none"></div>
+<script src="/js/adm-lazy.js?v=2" defer></script><!-- 🐢 카드 펼칠 때 그 카드 스크립트만 로딩 (2026-08-04) -->
+<script src="/js/adm-quickmenu.js?v=1" defer></script>
 
 <details class="table-card menu-card" id="card-ai-insights">
   <summary><span data-ko="🤖 AI 인사이트 대시보드" data-en="🤖 AI Insight Dashboards">🤖 AI 인사이트 대시보드</span></summary>
@@ -4034,7 +4053,7 @@
           <div style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;background:linear-gradient(135deg,#0f4c81,#1e6cb3);color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:12px;box-shadow:0 8px 24px -8px rgba(15,76,129,0.4)">
             <div>
               <div style="font-size:11px;opacity:0.85;letter-spacing:0.5px">SHINHAN BUSINESS CARD</div>
-              <div style="font-size:20px;font-weight:900;letter-spacing:2px;margin:3px 0 4px;font-family:Consolas,monospace">**** **** **** 8842</div>
+              <div style="font-size:20px;font-weight:900;letter-spacing:2px;margin:3px 0 4px;font-family:MangoiHanSC,Consolas,monospace">**** **** **** 8842</div>
               <div style="font-size:11px;opacity:0.95">법인 (주)에듀비전 · 결제일: 매월 15일 · 한도 <b>₩1,000,000</b></div>
             </div>
             <button onclick="cardSync()" id="acc-card-sync-btn" style="padding:9px 18px;background:rgba(255,255,255,0.95);color:#0f4c81;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">
@@ -4295,7 +4314,7 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px">
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="👤 아이디 (필수)" data-en="👤 User ID (required)">👤 아이디 (필수)</span>
-                <input id="hqe-uid" type="text" placeholder="hq_jane01" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:Consolas,monospace" />
+                <input id="hqe-uid" type="text" placeholder="hq_jane01" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:MangoiHanSC,Consolas,monospace" />
               </label>
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="👤 이름 (필수)" data-en="👤 Name (required)">👤 이름 (필수)</span>
@@ -4454,6 +4473,25 @@
   <summary><span data-ko="🧑‍🏫 강사관리" data-en="🧑‍🏫 Teacher Management">🧑‍🏫 강사관리</span></summary>
   <div class="menu-body">
     <div class="sub-menu">
+
+      <!-- 📊 강사 가동률 (2026-08-04 신규) — 열어둔 시간 중 실제로 수업이 찬 비율.
+           최상위 메뉴를 늘리지 않으려고 강사관리 카드 안에 넣었다. -->
+      <details class="sub-item" id="sub-teacher-util" ontoggle="if(this.open&&window.loadTeacherUtil)loadTeacherUtil()">
+        <summary data-ko="📊 강사 가동률 (열어둔 시간 대비 수업)" data-en="📊 Teacher Utilization">📊 강사 가동률 (열어둔 시간 대비 수업)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <button type="button" class="primary" onclick="window.loadTeacherUtil&&loadTeacherUtil()" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+            <span id="tu-summary" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <!-- 안내문 — 채운 박스는 쓰지 않는다.
+               카드 안의 밝은 인라인 배경(#f9fafb 등)은 전역 다크화 규칙([id^="card-"] [style*="background:#f9fafb"])과
+               ph105 스크립트가 진한 남색으로 덮어버려 "색이 너무 세다"는 지적을 받았다.
+               배경을 투명으로 두면 두 장치 모두 건너뛰고(투명은 alpha 0이라 ph105 대상 아님), 글자색은 부모를 따라가 밝은/어두운 테마 양쪽에서 읽힌다. -->
+          <style>#tu-note{background:transparent!important;background-image:none!important;border:0!important;border-left:3px solid rgba(148,163,184,.5)!important;border-radius:0!important;color:inherit!important}</style>
+          <div id="tu-note" style="font-size:11px;line-height:1.5;opacity:.72;padding:1px 0 1px 9px;margin-bottom:9px"></div>
+          <div id="tu-wrap" style="overflow-x:auto"></div>
+        </div>
+      </details>
 
       <!-- 👩‍🏫 강사 명부 (카페24 실데이터) -->
       <!-- ⭐ 강사 평가·품질 대시보드 (카페24 학생평가·후기 집계) -->
@@ -4873,7 +4911,7 @@
                 첫 줄은 <b>헤더</b>(탭 또는 콤마 구분). 인식 컬럼: <code style="font-size:10.5px">name · phone · email · kakao_id · available_days · available_hours · mbti · group_name · status · fee_per_10min · active_region · notes</code>.
                 이름으로 기존 강사를 찾아 <b>빈칸이 아닌 값만</b> 갱신하고, 없으면 새로 추가합니다. MBTI는 매칭 그래프에도 자동 반영됩니다.
               </div>
-              <textarea id="tp-import-text" rows="7" placeholder="name&#9;phone&#9;email&#9;mbti&#9;available_days&#9;available_hours&#10;Teacher Belle&#9;0935-844-4527&#9;marybellejavien4@gmail.com&#9;ESFJ&#9;Mon,Tue,Wed,Thu,Fri&#9;15:00-23:00" style="width:100%;font-family:monospace;font-size:11.5px;padding:8px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box"></textarea>
+              <textarea id="tp-import-text" rows="7" placeholder="name&#9;phone&#9;email&#9;mbti&#9;available_days&#9;available_hours&#10;Teacher Belle&#9;0935-844-4527&#9;marybellejavien4@gmail.com&#9;ESFJ&#9;Mon,Tue,Wed,Thu,Fri&#9;15:00-23:00" style="width:100%;font-family:MangoiHanSC,monospace;font-size:11.5px;padding:8px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box"></textarea>
               <div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
                 <button type="button" onclick="tpImportPreview()" style="padding:6px 14px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-weight:700">👁 미리보기</button>
                 <button type="button" id="tp-import-apply" onclick="tpImportApply()" disabled style="padding:6px 16px;font-size:12px;background:#e5e7eb;color:#9ca3af;border:0;border-radius:6px;cursor:not-allowed;font-weight:800">✅ 적용</button>
@@ -5104,7 +5142,8 @@
         </div>
       </details>
 
-      <script src="/js/adm-r2.js?v=1" defer></script><!-- 분할추출:adm-r2 -->
+      <script type="text/lazy-js" data-src="/js/adm-r2.js?v=1" data-card="card-teacher-mgmt" data-globals="modxSettleSeed,modxSettleLoad,modxSettlePay,modxSettlePayAll,modxRiskScan,modxRiskEnqueue,modxQueueLoad,modxQueueSend,modxHoliSync,modxValidate,modxTbvSeed,modxTbvLoad"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r2 -->
+      <script type="text/lazy-js" data-src="/js/adm-teacher-util.js?v=1" data-card="card-teacher-mgmt" data-globals="loadTeacherUtil"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 📊 강사 가동률 (2026-08-04 신규) -->
 
             <!-- 🗑 [2026-08-04] ph179 카톡 평가 설문 블록 제거 — 위 정산통계관리와 같은 이유.
            발송·시뮬레이션·결과새로고침 3버튼 모두 담당 JS 가 없어 눌러도 아무 일이 없었다.
@@ -5514,7 +5553,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-s2.js?v=1" defer></script><!-- 분할추출:adm-s2 -->
+<script type="text/lazy-js" data-src="/js/adm-s2.js?v=1" data-card="card-room-invite" data-globals="rtInvite,rtLoadMembers,rtTestJoin,rtKick"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s2 -->
 
 <!-- 🎙 Phase ALR — AI 학습 리포트 (수업 녹음 자동 분석) -->
 <details class="table-card menu-card" id="card-ai-lesson-report">
@@ -6834,7 +6873,7 @@ window.__admSettleRun = function(fn){
           <td style="padding:8px;color:#a5b4fc;font-size:11px">${ts}</td>
           <td style="padding:8px;color:#e2e8f0;font-size:12px">${esc(r.referrer_uid)}</td>
           <td style="padding:8px;color:#cbd5e1;font-size:12px">→ ${esc(r.referee_uid)}</td>
-          <td style="padding:8px;font-family:monospace;color:#fbbf24;font-size:12px">${esc(r.code)}</td>
+          <td style="padding:8px;font-family:MangoiHanSC,monospace;color:#fbbf24;font-size:12px">${esc(r.code)}</td>
           <td style="padding:8px;color:#86efac;font-size:11px">${esc(r.status)}</td>
         </tr>`;
       }).join('');
@@ -7170,7 +7209,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-s3.js?v=1" defer></script><!-- 분할추출:adm-s3 -->
+<script type="text/lazy-js" data-src="/js/adm-s3.js?v=1" data-card="card-alumni" data-globals="aluRegister,aluLoadList,aluPost,aluLoadPosts"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s3 -->
 
 <!-- ════════════════════════════════════════════════════════════════════
      📔 Phase VD — AI 음성 일기 (관리자 모니터)
@@ -7393,7 +7432,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-s5.js?v=1" defer></script><!-- 분할추출:adm-s5 -->
+<script type="text/lazy-js" data-src="/js/adm-s5.js?v=1" data-card="card-supervisor" data-globals="supAssign,supLoadActive,supSendNote,supLoadIncoming,supOpenGhost"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s5 -->
 
 <!-- 📷 Phase QR — QR 출결 자동 체크 -->
 <details class="table-card menu-card" id="card-auto-attendance">
@@ -7444,7 +7483,7 @@ window.__admSettleRun = function(fn){
       <img src="${qrImg}" alt="QR" style="background:#fff;padding:6px;border-radius:8px;width:180px;height:180px">
       <div style="flex:1;min-width:180px">
         <div style="color:#86efac;font-size:12px;font-weight:700;margin-bottom:6px">${en?'Token':'토큰'}</div>
-        <div style="color:#e2e8f0;font-family:monospace;font-size:11px;word-break:break-all;background:#0f172a;padding:6px;border-radius:6px;margin-bottom:8px">${esc(r.token)}</div>
+        <div style="color:#e2e8f0;font-family:MangoiHanSC,monospace;font-size:11px;word-break:break-all;background:#0f172a;padding:6px;border-radius:6px;margin-bottom:8px">${esc(r.token)}</div>
         <div style="color:#fbbf24;font-size:12px">⏱ ${en?'Valid':'유효'}: ${expireMin}${en?' min':'분'}</div>
         <div style="color:#94a3b8;font-size:11px;margin-top:8px">${en?'URL':'주소'}: <a href="${esc(fullUrl)}" target="_blank" style="color:#60a5fa">${esc(fullUrl)}</a></div>
       </div>
@@ -7497,7 +7536,7 @@ window.__admSettleRun = function(fn){
           <option value="en">EN</option><option value="ko">KO</option><option value="zh">ZH</option><option value="ja">JA</option><option value="vi">VI</option>
         </select>
       </div>
-      <textarea id="vd-srt" rows="5" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Hello world..." style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px;font-family:monospace"></textarea>
+      <textarea id="vd-srt" rows="5" placeholder="1&#10;00:00:01,000 --> 00:00:04,000&#10;Hello world..." style="width:100%;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px;font-family:MangoiHanSC,monospace"></textarea>
       <button onclick="vdUpload()" style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:0;border-radius:8px;padding:8px 14px;margin-top:10px;font-weight:700;cursor:pointer">
         <span data-ko="📤 자막 저장" data-en="📤 Save Subtitle">📤 자막 저장</span>
       </button>
@@ -7799,7 +7838,7 @@ window.__admSettleRun = function(fn){
     </details>
   </div>
 </details>
-<script src="/js/adm-q2.js?v=1" defer></script><!-- 분할추출:adm-q2 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q2.js?v=1" data-card="card-mini-toeic" data-globals="mtwPickLevel,mtwPickTopic,mtwCustomTopic,mtwRun,mtLoad,mtToggleDetail,mtGenMore,mtDelQ,mtToggleActive,mtDelExam,mtAddQ"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎮 Phase BTL — 영어 게임 배틀 P2P 관리 -->
 <details class="table-card menu-card" id="card-battle-mgmt">
@@ -8109,7 +8148,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-r6.js?v=1" defer></script><!-- 분할추출:adm-r6 -->
+<script type="text/lazy-js" data-src="/js/adm-r6.js?v=1" data-card="card-eval-mgmt" data-globals="evClearForm,evSubmit,evLoadList,evDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r6 -->
 
 <!-- 💌 Phase I1~I2 — 신규상담 관리 (평가서 카드 다음) -->
 <details class="table-card menu-card" id="card-inquiry-mgmt">
@@ -8208,6 +8247,42 @@ window.__admSettleRun = function(fn){
     <div class="sub-menu">
 
       <!-- 1. 전환률 통계 -->
+      <!-- 🪑 대기자 명단 (2026-08-04 신규) — 원하는 시간에 자리가 없어 상담이 끊기던 것을 줄로 세운다.
+           희망 요일·시간을 적으면 그 시간이 비어 있는 강사를 서버가 즉시 계산해 보여준다. -->
+      <details class="sub-item" id="sub-waitlist" ontoggle="if(this.open&&window.loadWaitlist)loadWaitlist()">
+        <summary data-ko="🪑 대기자 명단 (자리 나면 연락)" data-en="🪑 Waitlist">🪑 대기자 명단 (자리 나면 연락)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <input id="wl-name" type="text" placeholder="학생 이름" data-ko-placeholder="학생 이름" data-en-placeholder="Student name" style="padding:7px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
+            <input id="wl-phone" type="text" placeholder="연락처" data-ko-placeholder="연락처" data-en-placeholder="Phone" style="padding:7px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
+            <select id="wl-day" style="padding:7px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+              <option value="" data-ko="희망 요일" data-en="Preferred day">희망 요일</option>
+              <option value="1" data-ko="월" data-en="Mon">월</option>
+              <option value="2" data-ko="화" data-en="Tue">화</option>
+              <option value="3" data-ko="수" data-en="Wed">수</option>
+              <option value="4" data-ko="목" data-en="Thu">목</option>
+              <option value="5" data-ko="금" data-en="Fri">금</option>
+              <option value="6" data-ko="토" data-en="Sat">토</option>
+              <option value="0" data-ko="일" data-en="Sun">일</option>
+            </select>
+            <input id="wl-time" type="time" style="padding:6px 8px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+            <input id="wl-note" type="text" placeholder="메모 (선택)" data-ko-placeholder="메모 (선택)" data-en-placeholder="Note (optional)" style="padding:7px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;flex:1;min-width:120px">
+            <button type="button" class="primary" onclick="window.addWaitlist&&addWaitlist()" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="＋ 대기 등록" data-en="＋ Add">＋ 대기 등록</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+            <select id="wl-filter" onchange="window.loadWaitlist&&loadWaitlist()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+              <option value="waiting" data-ko="⏳ 대기중" data-en="⏳ Waiting">⏳ 대기중</option>
+              <option value="all" data-ko="전체" data-en="All">전체</option>
+              <option value="enrolled" data-ko="✅ 등록됨" data-en="✅ Enrolled">✅ 등록됨</option>
+              <option value="cancelled" data-ko="✖ 취소" data-en="✖ Cancelled">✖ 취소</option>
+            </select>
+            <span id="wl-summary" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <div id="wl-note-box" style="font-size:11.5px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:9px 12px;margin-bottom:10px;line-height:1.7"></div>
+          <div id="wl-wrap" style="overflow-x:auto"></div>
+        </div>
+      </details>
+
       <details class="sub-item" id="sub-inquiry-stats">
         <summary data-ko="📈 전환률 통계" data-en="📈 Conversion Stats">📈 전환률 통계</summary>
         <div class="sub-body">
@@ -8240,7 +8315,8 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-r7.js?v=1" defer></script><!-- 분할추출:adm-r7 -->
+<script type="text/lazy-js" data-src="/js/adm-r7.js?v=1" data-card="card-inquiry-mgmt" data-globals="iqLoadStats,iqLoad,iqUpdateStatus,iqEditNotes,iqDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r7 -->
+<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=1" data-card="card-inquiry-mgmt" data-globals="addWaitlist,resolveWaitlist,loadWaitlist"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
 
 <!-- 💰 Phase F2 — 미납 알림 JS 모듈 -->
 <script src="/js/adm-r8.js?v=1" defer></script><!-- 분할추출:adm-r8 -->
@@ -8269,7 +8345,7 @@ window.__admSettleRun = function(fn){
     </div>
   </div>
 </details>
-<script src="/js/adm-bugreports.js?v=2" defer></script><!-- 분할추출:adm-bugreports -->
+<script type="text/lazy-js" data-src="/js/adm-bugreports.js?v=2" data-card="card-bug-reports" data-globals="brLoad,brUpdateStatus,brEditNote,brDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-bugreports -->
 
 <!-- 🔔 Phase WP1~WP2 — Web Push 푸시 알림 관리 -->
 <details class="table-card menu-card" id="card-webpush-mgmt">
@@ -8383,7 +8459,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-r9.js?v=1" defer></script><!-- 분할추출:adm-r9 -->
+<script type="text/lazy-js" data-src="/js/adm-r9.js?v=1" data-card="card-webpush-mgmt" data-globals="wpLoadStatus,wpGenerateVapid,wpLoadSubs,wpSendNow,wpSubscribeMe,wpSendTestToSelf,wpLoadHistory"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r9 -->
 
 <!-- 📲 Phase K2~K4 — 카카오 알림톡 관리 (포인트 카드 다음) -->
 <details class="table-card menu-card" id="card-kakao-mgmt">
@@ -8513,7 +8589,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script src="/js/adm-s6.js?v=1" defer></script><!-- 분할추출:adm-s6 -->
+<script type="text/lazy-js" data-src="/js/adm-s6.js?v=1" data-card="card-kakao-mgmt" data-globals="loadKakaoStatus,kiLoadInbound"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s6 -->
 
 <!-- 📢 공지 스튜디오 — 포스터 제작(①) + 팝업 게시(②)를 한 카드·2탭으로 통합. (2026-07-06 병합)
      · 컨테이너 = id card-poster-maker (기존 참조 유지, ①만들기 탭)
@@ -8723,7 +8799,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script src="/js/adm-q3.js?v=2" defer></script><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q3.js?v=2" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
@@ -8749,7 +8825,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="srq-table" style="overflow-x:auto"></div>
   </div>
 </details>
-<script src="/js/adm-r11.js?v=2" defer></script><!-- 분할추출:adm-r11 -->
+<script type="text/lazy-js" data-src="/js/adm-r11.js?v=2" data-card="card-schedule-requests" data-globals="srqLoad,srqDecide"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r11 -->
 
 <!-- 📜 수업 변경 이력 (연기·삭제·종료) — 누가·언제 했는지 감사 로그 -->
 <details class="table-card menu-card" id="card-class-audit">
@@ -11457,7 +11533,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script src="/js/adm-q4.js?v=1" defer></script><!-- 분할추출:adm-q4 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q4.js?v=1" data-card="card-review-quiz" data-globals="rqAddQ,rqRenum,rqAiGen,rqBuildAllBanks,rqSave,rqCancelEdit,rqEdit,rqToggle,rqDel,rqResults,rqPreview,rqFilter,rqClearSearch,rqLoad"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q4 (원복: 이 위치에 인라인) -->
 
 <!-- 📣 Phase 5: 알림 큐 (운영 이벤트 자동 적재 + 상태 모니터링) -->
 <details class="table-card menu-card" id="card-notifications">
@@ -11771,97 +11847,83 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <style>
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   🎯 메뉴 hover 확대 효과 (상위/하위 모두)
-   사용자 요청: 마우스 가져가면 커지고 빠지면 원복
+   🎯 메뉴 hover — 「움직이지 않는」 정적 강조 (2026-08-04 변경)
+   ⛔ 되살리지 말 것: 예전엔 hover 시 scale/translate 로 커졌으나
+      "정신이 없다"는 사장님 지시로 제거함. 색 강조만 남김.
+      → transform 을 다시 넣지 마세요. 크기·위치는 고정입니다.
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-/* 상위 메뉴 카드 (.menu-card = details) */
+/* 상위 메뉴 카드 (.menu-card = details) — 크기 변화 없음, 테두리 강조만 */
 .menu-card {
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  transform-origin: center top;
-  will-change: transform;
+  transition: box-shadow 0.15s ease !important;
+  transform: none !important;
+  will-change: auto;
 }
 .menu-card:hover {
-  transform: scale(1.015) translateY(-2px);
-  box-shadow:
-    0 14px 32px -10px rgba(245, 158, 11, 0.25),
-    0 6px 14px -4px rgba(120, 53, 15, 0.10),
-    0 0 0 1px rgba(245, 158, 11, 0.18) !important;
-  z-index: 5;
+  transform: none !important;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.22) !important;
 }
-/* 펼쳐진 카드는 약간만 확대 (레이아웃 깨짐 방지) */
 .menu-card[open]:hover {
-  transform: scale(1.005) translateY(-1px);
+  transform: none !important;
 }
 
-/* 카드 헤더 (summary) hover — 살구색 강조 */
+/* 카드 헤더 (summary) hover — 살구색 배경만, 들썩임(padding 이동) 없음 */
 .menu-card summary {
-  transition: background 0.18s ease, padding 0.18s ease !important;
+  transition: background 0.15s ease !important;
   border-radius: 10px;
 }
 .menu-card summary:hover {
   background: linear-gradient(135deg, rgba(254, 243, 199, 0.7), rgba(254, 215, 170, 0.4)) !important;
-  padding-left: 14px !important;
 }
 
-/* 사이드바 a (상위·하위 메뉴 모두) — 기존 translateX 강화 */
-.admin-sidebar a {
-  transform-origin: left center;
-}
+/* 사이드바 a — 원래 디자인(4px 슬라이드)만 유지, 확대는 제거 */
 .admin-sidebar a:hover {
-  transform: translateX(6px) scale(1.04) !important;
-  z-index: 5;
+  transform: translateX(4px) !important;
 }
 
-/* 카드 내부 sub-item 들 — 클릭 가능한 모든 요소에 확대 적용 */
+/* 카드 내부 sub-item 들 — 확대 없이 밝기만 */
 .menu-card .menu-body button,
 .menu-card .menu-body a,
 .menu-card .menu-body label.sub-item,
 .menu-card .menu-body .sub-item,
 .menu-card .menu-body .clickable {
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-              filter 0.18s ease !important;
-  transform-origin: center;
+  transition: filter 0.15s ease, box-shadow 0.15s ease !important;
 }
 .menu-card .menu-body button:hover,
 .menu-card .menu-body a:hover,
 .menu-card .menu-body label.sub-item:hover,
 .menu-card .menu-body .sub-item:hover,
 .menu-card .menu-body .clickable:hover {
-  transform: translateY(-1px) scale(1.04) !important;
+  transform: none !important;
   filter: brightness(1.06);
-  box-shadow: 0 4px 12px -2px rgba(120, 53, 15, 0.18) !important;
-  z-index: 5;
+  box-shadow: 0 2px 8px -2px rgba(120, 53, 15, 0.14) !important;
 }
 
-/* 테이블 row hover — 살짝만 확대 (가독성 우선) */
+/* 테이블 row hover — 배경색만 */
 .menu-card .menu-body table tbody tr {
-  transition: background 0.15s ease, transform 0.15s ease !important;
+  transition: background 0.15s ease !important;
 }
 .menu-card .menu-body table tbody tr:hover {
   background: rgba(254, 243, 199, 0.5) !important;
-  transform: scale(1.002);
+  transform: none !important;
 }
 
-/* 빠른진입 칩 등 외부 요소도 동일 hover */
+/* 빠른진입 칩 등 — 확대 없이 그림자만 */
 .quick-entry-chip,
 .btn-chip,
 button.chip,
 .hp-chip {
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: box-shadow 0.15s ease !important;
 }
 .quick-entry-chip:hover,
 .btn-chip:hover,
 button.chip:hover,
 .hp-chip:hover {
-  transform: translateY(-2px) scale(1.06) !important;
-  box-shadow: 0 6px 14px -4px rgba(245, 158, 11, 0.4) !important;
+  transform: none !important;
+  box-shadow: 0 2px 8px -3px rgba(245, 158, 11, 0.45) !important;
 }
 
-/* prefers-reduced-motion: 사용자가 모션 감소 설정한 경우 비활성 */
+/* prefers-reduced-motion: 사용자가 모션 감소 설정한 경우 전환도 제거 */
 @media (prefers-reduced-motion: reduce) {
   .menu-card, .menu-card:hover,
   .admin-sidebar a, .admin-sidebar a:hover,
@@ -13677,7 +13739,7 @@ button.chip:hover,
     border: 1px solid var(--border-on-dark) !important;
     border-radius: 4px !important;
     padding: 2px 6px !important;
-    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-family: MangoiHanSC,'Consolas', 'Monaco', monospace !important;
     font-size: 0.92em !important;
   }
   details.table-card.menu-card pre,
@@ -13690,7 +13752,7 @@ button.chip:hover,
     padding: 14px 18px !important;
     overflow-x: auto !important;
     line-height: 1.65 !important;
-    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-family: MangoiHanSC,'Consolas', 'Monaco', monospace !important;
     font-size: 12.5px !important;
   }
   /* pre 안의 code 는 wrapper, pre 스타일 우선 */
@@ -13770,7 +13832,7 @@ button.chip:hover,
   details.menu-card input[readonly] {
     background: var(--bg-darkest) !important;
     color: var(--text-on-dark-code) !important;
-    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-family: MangoiHanSC,'Consolas', 'Monaco', monospace !important;
   }
 
   /* ============================================
@@ -16109,7 +16171,7 @@ button.chip:hover,
   #topUserPopup .ph111-uid {
     font-size: 11.5px !important;
     color: #BFDBFE !important;
-    font-family: 'Consolas', monospace !important;
+    font-family: MangoiHanSC,'Consolas', monospace !important;
   }
   #topUserPopup .ph111-meta {
     display: grid !important;
@@ -16589,7 +16651,7 @@ button.chip:hover,
   }
   #ph114-modal .ph114-header-uid {
     font-size: 12px !important; color: #BFDBFE !important;
-    font-family: 'Consolas', monospace !important;
+    font-family: MangoiHanSC,'Consolas', monospace !important;
     margin-bottom: 8px !important;
   }
   #ph114-modal .ph114-header-role {
@@ -16787,7 +16849,7 @@ button.chip:hover,
     color: #fff !important;
   }
   #ph115-modal .ph115-mh-name { font-size: 20px !important; font-weight: 800 !important; color: #fff !important; margin-bottom: 4px !important; }
-  #ph115-modal .ph115-mh-uid { font-size: 12px !important; color: #BFDBFE !important; font-family: Consolas, monospace !important; margin-bottom: 8px !important; }
+  #ph115-modal .ph115-mh-uid { font-size: 12px !important; color: #BFDBFE !important; font-family: MangoiHanSC,Consolas, monospace !important; margin-bottom: 8px !important; }
   #ph115-modal .ph115-mh-role {
     display: inline-block !important; padding: 4px 12px !important;
     border-radius: 999px !important; font-size: 11px !important; font-weight: 800 !important;
@@ -17074,7 +17136,7 @@ button.chip:hover,
     margin-bottom: 8px !important;
   }
   #ph117-role-modal .ph117-rc-uid {
-    font-family: Consolas, monospace !important;
+    font-family: MangoiHanSC,Consolas, monospace !important;
     font-size: 10.5px !important;
     color: #67E8F9 !important;
     background: rgba(0,0,0,0.4) !important;
@@ -17469,11 +17531,18 @@ button.chip:hover,
 
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 <style id="ph125-accordion">
-  /* sub 라인 — flex 로 토글 화살표 배치 */
+  /* sub 라인 — flex 로 토글 화살표 배치
+     🔴 (2026-08-04) space-between 금지 — hover 때 글자가 가운데로 튄다.
+        별점 ::after 는 평소 `margin-left:auto` 인 흐름 요소라 남는 공간을 다 먹어서
+        아이콘·글자·▸ 가 왼쪽에 붙는다. 그런데 hover 하면 **같은 ::after** 가
+        말풍선(data-tip)으로 바뀌며 position:absolute 가 되어 흐름에서 빠지고,
+        그 순간 space-between 이 남은 셋을 좌·중·우로 벌려 글자가 한가운데로 이동했다.
+        flex-start 로 두면 두 상태 모두 왼쪽 정렬이라 hover 시 글자가 안 움직인다
+        (별점은 자기 margin-left:auto 로 계속 오른쪽에 붙는다 — 겉모습 그대로). */
   #ph85-sidebar .ph85-sub {
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    justify-content: flex-start !important;
     position: relative !important;
   }
   #ph85-sidebar .ph85-sub .ph125-toggle {
@@ -17517,10 +17586,10 @@ button.chip:hover,
     margin: 2px 4px !important;
     transition: all 0.12s !important;
   }
+  /* (2026-08-04) hover 는 색만 — padding-left 로 글자를 밀지 않는다 */
   #ph85-sidebar .ph125-gc:hover {
     background: rgba(37,99,235,0.45) !important;
     color: #ffffff !important;
-    padding-left: 18px !important;
   }
   #ph85-sidebar .ph125-gc .ph125-num {
     background: rgba(96,165,250,0.45) !important;
@@ -19652,7 +19721,9 @@ button.chip:hover,
       <button id="mi-asst-vid-close" class="miv-btn" type="button" title="닫기" aria-label="닫기">❌</button>
     </span>
   </div>
-  <video id="mi-asst-vid" src="/video/ai-ops-greeting.mp4" playsinline preload="auto"></video>
+  <!-- preload="none" (2026-08-04): 이 영상은 «AI 운영비서» 팝업을 열어야 재생된다.
+       페이지 로드 때 미리 받을 이유가 없어 750KB 를 그대로 아낀다. -->
+  <video id="mi-asst-vid" src="/video/ai-ops-greeting.mp4" playsinline preload="none"></video>
 </div>
 <script>
 (function(){
@@ -20120,9 +20191,9 @@ button.chip:hover,
     font-variant-numeric:tabular-nums !important;
     transition:color .12s ease !important;
   }
+  /* (2026-08-04) hover 는 색만 — padding-left 로 글자를 밀지 않는다 */
   #ph85-sidebar .ph125-gc:hover{
     background:rgba(148,163,184,.12) !important; color:#f8fafc !important;
-    padding-left:14px !important;
   }
   #ph85-sidebar .ph125-gc:hover .ph125-num{ color:#fbbf24 !important; }
   #ph85-sidebar .ph85-sub .ph125-toggle{ opacity:.45 !important; }
@@ -20609,7 +20680,7 @@ button.chip:hover,
     font-size:10.5px;background:rgba(139,92,246,.18);color:#c4b5fd;border:1px solid rgba(139,92,246,.35)}
 </style>
 <script src="/js/adm-p1.js?v=1" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
-<script src="/js/mango-worldclock.js?v=6" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
+<script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 <!-- 📱 (2026-07-09) 모바일 마감 보정 — 좁은 화면에서 차트카드 삐져나감·표 잘림 방지(표는 가로 스크롤로 전환). 빼면 즉시 원복 -->
 <style id="mb-tidy-2026-07-09">
 @media (max-width: 640px){
@@ -20652,7 +20723,7 @@ button.chip:hover,
 <style>
 #ag-overlay{position:fixed;inset:0;z-index:2147483647;display:none;flex-direction:column;
   background:rgba(10,14,25,0.96);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-  font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#fff;touch-action:none}
+  font-family:MangoiHanSC,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#fff;touch-action:none}
 #ag-overlay.ag-on{display:flex}
 #ag-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;flex:none}
 #ag-title{font-weight:800;font-size:16px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -20706,7 +20777,7 @@ button.chip:hover,
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=4" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
-<script src="/js/adm-welcome.js?v=2" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-welcome.js?v=3" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
@@ -21224,6 +21295,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804085001 -->
 </body>
 </html>

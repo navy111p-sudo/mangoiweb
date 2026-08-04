@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>탈출: 말해야 열린다 (Escape by Voice)</title>
 <!--
@@ -22,7 +23,7 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:#07090c;
-    font-family:'Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8eef5;user-select:none}
+    font-family:MangoiHanSC,'Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8eef5;user-select:none}
   #wrap{position:fixed;inset:0;overflow:hidden}
   /* ── 장면 ── */
   #scene{position:absolute;inset:0;background-size:cover;background-position:center;
@@ -36,7 +37,7 @@
     transition:transform .35s cubic-bezier(.2,1.4,.4,1),opacity .3s;
     background:linear-gradient(155deg,#f3e6c8,#e2d0a4);border-radius:2px 10px 2px 10px;
     box-shadow:0 14px 34px rgba(0,0,0,.55);padding:18px 20px;
-    font-family:Georgia,'Nanum Myeongjo',serif;color:#3a2c14;text-align:left;line-height:1.5}
+    font-family:MangoiHanSC,Georgia,'Nanum Myeongjo',serif;color:#3a2c14;text-align:left;line-height:1.5}
   #noteCard::before{content:'';position:absolute;right:-1px;top:-1px;width:0;height:0;
     border-style:solid;border-width:0 18px 18px 0;border-color:transparent #cbb47c transparent transparent}
   #noteCard.show{opacity:1;transform:translate(-50%,-50%) rotate(-2deg) scale(1)}
@@ -997,6 +998,6 @@ window.addEventListener('keydown', function(e){
 setScene('room');
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804085001 -->
 </body>
 </html>
