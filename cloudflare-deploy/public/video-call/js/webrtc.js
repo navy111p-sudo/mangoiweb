@@ -133,24 +133,172 @@ function handleIceCandidateMessage(data) {
   pc.addIceCandidate(candidate).catch((e) => console.warn('[webrtc] ICE candidate error:', e && e.name));
 }
 
-/* ── 송신 상한 ──
-   🔴 (2026-08-05) 예전 값(데스크탑 1200kbps · 30fps)은 «회선이 좋다» 는 전제였다.
-   이 화면은 이제 필리핀 재택 강사의 기본 입장 경로다. 가정 회선의 병목은 거의 항상 «올리는 쪽» 이고,
-   상한을 높게 두면 브라우저가 그만큼 올리려다 큐가 밀려 오히려 끊긴다.
-   → 400kbps · 20fps 로 낮춘다. 1:1 얼굴 화면은 이 정도면 충분하고, 남는 대역은 «소리» 가 가져간다.
-   degradationPreference='maintain-framerate' — 얼굴은 또렷함보다 «끊기지 않는 것» 이 중요하다.
-   ⚠️ 소리는 건드리지 않는다. 나쁜 회선에서 마지막까지 지켜야 할 것이 소리다. */
-const VIDEO_CAP_KBPS = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 300 : 400;
-function capSenderBitrate(pc) {
+/* ═══════════════════════════════════════════════════════════════════════════
+   🚚 자동 변속기 (2026-08-05 사장님 지시)
+   ───────────────────────────────────────────────────────────────────────────
+   비유대로다. 오르막·빙판이면 짐을 줄이고 저단으로, 평지면 고단으로 올린다.
+   운전자(강사)는 아무것도 안 한다.
+
+   [왜 필요한가] 이 화면은 어제까지 «400kbps 고정» 이었다. 나쁜 길에는 맞지만
+                 평지에서도 2단으로 기어갔다. 반대로 예전 정식 화면 값(1200kbps)은
+                 오르막에서 짐을 지고 올라가려다 큐가 밀려 오히려 끊겼다.
+   [속도계] 4초마다 getStats() — 패킷 손실률과 왕복지연(RTT).
+   [변속 규칙] 내려갈 땐 «즉시», 올라갈 땐 «3번 연속 좋을 때만».
+               경계선에서 화면이 오르내리며 떨리는 것을 막는다.
+   [출발 단수] 1단이 아니라 «2단(step 1)» 에서 출발한다. 필리핀 가정 회선은
+               오르막일 확률이 높다. 좋으면 곧 올라간다 — 나쁜데 높게 출발해
+               10초간 깨져 보이는 것보다 낫다.
+   ⚠️ 변속에 재협상(renegotiation)을 쓰지 않는다. setParameters 와 track.enabled 만
+      건드린다. 그래야 기어를 바꾸는 동안에도 수업이 끊기지 않는다.
+   ⚠️ 소리는 어느 단에서도 건드리지 않는다. 마지막까지 지켜야 할 것이 소리다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const GEAR_MOBILE   = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const GEAR_BASE_KBPS = GEAR_MOBILE ? 500 : 800;   // 평지(최고단) 상한
+const GEAR_BASE_FPS  = GEAR_MOBILE ? 20 : 24;
+const GEAR_MUL   = [1.0, 0.6, 0.35, 0.2];         // 단수별 비트레이트 배율
+const GEAR_SCALE = [1, 1.5, 2, 3];                // 단수별 해상도 축소 — 낮은 비트레이트에선
+                                                  // 픽셀을 줄여야 «블록 깨짐» 대신 «선명한 저해상도» 가 된다
+const GEAR_FPS   = [GEAR_BASE_FPS, 20, 15, 12];
+const GEAR_START = 1;                             // 오르막 출발
+const GEAR_NAME  = ['5단 · High', '4단 · Normal', '2단 · Low', '1단 · Minimum'];
+
+function applyGear(pc, step) {
+  step = Math.max(0, Math.min(GEAR_MUL.length - 1, step | 0));
+  pc.__gear = step;
   pc.getSenders().forEach((sender) => {
     if (!sender.track || sender.track.kind !== 'video') return;
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-    params.encodings[0].maxBitrate = VIDEO_CAP_KBPS * 1000;
-    params.encodings[0].maxFramerate = 20;
-    params.degradationPreference = 'maintain-framerate';
-    sender.setParameters(params).catch((e) => console.warn('[webrtc] 비트레이트 설정 실패:', e));
+    params.encodings[0].maxBitrate = Math.round(GEAR_BASE_KBPS * GEAR_MUL[step]) * 1000;
+    params.encodings[0].maxFramerate = GEAR_FPS[step];
+    params.encodings[0].scaleResolutionDownBy = GEAR_SCALE[step];
+    params.degradationPreference = 'maintain-framerate';  // 또렷함보다 «안 끊기는 것»
+    sender.setParameters(params).catch((e) => console.warn('[gear] 적용 실패:', e && e.name));
   });
+  showGear(step);
+}
+/* 새 연결이 붙을 때 현재 단수로 맞춰 준다(이름은 예전 호출부와 맞춰 그대로 둔다) */
+function capSenderBitrate(pc) { applyGear(pc, typeof pc.__gear === 'number' ? pc.__gear : GEAR_START); }
+
+/* 강사가 «왜 화질이 낮지?» 하고 신고하지 않도록 지금 몇 단인지 항상 보여 준다(한/영) */
+function showGear(step) {
+  try {
+    let el = document.getElementById('gear-badge');
+    if (!el) {
+      const host = document.querySelector('.toolbar-left');
+      if (!host) return;
+      el = document.createElement('span');
+      el.id = 'gear-badge';
+      el.style.cssText = 'margin-left:8px;font-size:12px;padding:3px 8px;border-radius:999px;' +
+                         'background:rgba(255,255,255,.12);color:#cbd5e1;white-space:nowrap';
+      host.appendChild(el);
+    }
+    el.textContent = '⚡ ' + GEAR_NAME[step];
+    el.title = step === 0
+      ? 'Connection is good — full quality · 회선이 좋아 최고 화질입니다'
+      : 'Protecting your connection — video quality lowered so the class never drops · 회선을 보호하려고 화질을 낮췄습니다';
+  } catch (e) {}
+}
+
+/* ── 변속 루프 ── 4초마다 각 연결의 손실률·RTT 를 보고 단수를 정한다 */
+setInterval(function () {
+  peerConnections.forEach(function (pc, id) {
+    if (!pc) return;
+    const st = pc.iceConnectionState;
+    if (st !== 'connected' && st !== 'completed') return;
+    const sender = pc.getSenders && pc.getSenders().find(function (s) { return s.track && s.track.kind === 'video'; });
+    if (!sender || !sender.getStats) return;
+    sender.getStats().then(function (stats) {
+      let lost = 0, sent = 0, rtt = 0;
+      stats.forEach(function (r) {
+        if (r.type === 'remote-inbound-rtp') {
+          lost = r.packetsLost || 0;
+          if (typeof r.roundTripTime === 'number') rtt = r.roundTripTime * 1000;
+        }
+        if (r.type === 'outbound-rtp') sent = r.packetsSent || 0;
+      });
+      const prev = pc.__gPrev || { lost: 0, sent: 0 };
+      pc.__gPrev = { lost: lost, sent: sent };
+      const dLost = Math.max(0, lost - prev.lost);
+      const dSent = Math.max(0, sent - prev.sent);
+      if (dSent + dLost < 25) return;            // 표본 부족(영상 꺼짐 등) → 판단 보류
+      const lossPct = 100 * dLost / (dSent + dLost);
+      let step = (typeof pc.__gear === 'number') ? pc.__gear : GEAR_START;
+
+      if (lossPct > 6 || rtt > 450) {            // 오르막 — 즉시 한 단 내린다
+        pc.__gGood = 0;
+        if (step < GEAR_MUL.length - 1) step++;
+      } else if (lossPct < 1.5 && (rtt === 0 || rtt < 250)) {
+        pc.__gGood = (pc.__gGood || 0) + 1;      // 평지 — 세 번 연속 좋을 때만 올린다
+        if (pc.__gGood >= 3 && step > 0) { step--; pc.__gGood = 0; }
+      } else {
+        pc.__gGood = 0;
+      }
+      if (step !== pc.__gear) {
+        console.warn('[gear] 손실 ' + lossPct.toFixed(1) + '% · RTT ' + Math.round(rtt) + 'ms → ' +
+                     GEAR_NAME[pc.__gear] + ' → ' + GEAR_NAME[step]);
+        applyGear(pc, step);
+      }
+    }).catch(function () {});
+
+    /* ── 비상 기어(빙판) — 소리까지 깨지면 영상을 끈다 ──
+       오디오 손실 12%↑ 또는 RTT 600ms↑ 가 «세 번 연속(약 12초)» 이면 망이 무너진 것이다.
+       이때는 화질을 낮추는 정도로는 안 되고 영상을 내려놓아야 소리가 산다.
+       ⚠️ 트랙 enabled 만 토글한다(재협상 없음) → 수업은 끊기지 않는다.
+       ⚠️ 강사가 «직접» 카메라를 꺼둔 경우엔 관여하지 않는다. */
+    try {
+      const aS = pc.getSenders && pc.getSenders().find(function (s) { return s.track && s.track.kind === 'audio'; });
+      if (aS && aS.getStats) aS.getStats().then(function (ast) {
+        let al = 0, ap = 0, art = 0;
+        ast.forEach(function (r) {
+          if (r.type === 'remote-inbound-rtp') { al = r.packetsLost || 0; if (typeof r.roundTripTime === 'number') art = r.roundTripTime * 1000; }
+          if (r.type === 'outbound-rtp') ap = r.packetsSent || 0;
+        });
+        const apv = pc.__aPrev || { l: 0, p: 0 }; pc.__aPrev = { l: al, p: ap };
+        const adl = Math.max(0, al - apv.l), adp = Math.max(0, ap - apv.p);
+        if (adp + adl < 8) return;               // 무음/DTX → 판단 보류
+        const alp = 100 * adl / (adp + adl);
+        const A = window.__liteAAO || (window.__liteAAO = { active: false, sev: 0, good: 0 });
+        if (alp > 12 || art > 600) { A.sev++; A.good = 0; }
+        else if (alp < 3) { A.good++; if (A.sev > 0) A.sev--; }
+        else { A.good = 0; }
+        applyAudioOnly();
+      }).catch(function () {});
+    } catch (e) {}
+  });
+}, 4000);
+
+/* 소리만 모드 진입/복구 — 진입 sev>=3(약 12초), 복구 good>=2(약 8초) */
+function applyAudioOnly() {
+  const A = window.__liteAAO; if (!A) return;
+  const vids = (typeof localStream !== 'undefined' && localStream && localStream.getVideoTracks)
+    ? localStream.getVideoTracks() : [];
+  if (!vids.length) return;
+  if (window.__liteCamOff === true) return;      // 사용자가 직접 끈 상태 — 건드리지 않는다
+  if (!A.active && A.sev >= 3) {
+    A.active = true; A.good = 0;
+    vids.forEach(function (t) { t.enabled = false; });
+    console.warn('[gear] 빙판 — 소리만 모드로 내려간다');
+    showAudioOnly(true);
+  } else if (A.active && A.good >= 2) {
+    A.active = false; A.sev = 0;
+    vids.forEach(function (t) { t.enabled = true; });
+    console.warn('[gear] 회복 — 영상 복구');
+    showAudioOnly(false);
+  }
+}
+function showAudioOnly(on) {
+  try {
+    const el = document.getElementById('gear-badge');
+    if (!el) return;
+    if (on) {
+      el.textContent = '🔊 Audio only · 소리만';
+      el.style.background = '#c0392b'; el.style.color = '#fff';
+      el.title = 'Connection is very weak — video paused so the voice stays clear. It comes back automatically. · 회선이 매우 약해 영상을 잠시 껐습니다. 좋아지면 자동 복구됩니다.';
+    } else {
+      el.style.background = 'rgba(255,255,255,.12)'; el.style.color = '#cbd5e1';
+    }
+  } catch (e) {}
 }
 
 /* ── 붙는 데 오래 걸리면 흔들어 준다 ──
