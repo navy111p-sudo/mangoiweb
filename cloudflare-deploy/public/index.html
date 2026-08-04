@@ -32831,9 +32831,42 @@ window.vcAutoLoadStudentTextbook = async function(){
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
+  /* ── 입장할 이름 찾기 ──
+     🔴 (2026-08-04 사장님 지시) 필리핀 매니저·강사(Mai · Melca · Karl)가 /?meet=번호 를 쓴다.
+     [사고] 이 링크는 지금까지 「홈에서 로그인한 사람」만 들어갔다. 아래 mangoi_logged_user 가
+            없으면 곧장 포기하고 로비에 세워 뒀기 때문이다. 그런데 강사·매니저는 /teacher 로
+            로그인하고, teacher.html 은 mangoi_logged_user 를 한 번도 저장하지 않는다(검색 0건).
+            → 필리핀 쪽은 이 링크로 들어온 적이 사실상 없다. 늘 한국어 로비에서 멈췄다.
+     [해결] 이름을 세 곳에서 차례로 찾는다. 하나만 있으면 들어간다.
+            ① ?name=  (링크가 실어 온 이름 — 로그인 자체가 필요 없다)
+            ② 홈 로그인(mangoi_logged_user)     ③ 지난번에 쓴 이름(mangoi_vc_uid)
+            셋 다 없을 때만 지금처럼 로비에 둔다. 모르는 이름으로 남의 방에 넣지 않는다.
+     ①로 들어온 이름은 mangoi_vc_uid 에 남긴다 → 그 PC 는 다음부터 /?meet=번호 만으로 들어간다.
+     ⚠️ mangoi_vc_pw 는 일부러 저장하지 않는다. 저장하면 mangoiJoinClass 가 +350ms 에 혼자
+        입장해 버려(30355줄) 아래 이중입장 가드보다 앞서고, 방코드가 아직 빈 순간이라
+        공용방(mangoi-class)으로 떨어진다. 비번 칸은 아래에서 '0000' 으로 채운다. */
+  function urlName(){
+    try {
+      var sp = new URLSearchParams(location.search);
+      return String(sp.get('name') || sp.get('vc_name') || '').trim().slice(0, 40);
+    } catch(e){ return ''; }
+  }
+  function resolveName(){
+    var n = urlName();
+    if (n) { try { localStorage.setItem('mangoi_vc_uid', n); } catch(e){} return n; }
+    try {
+      var raw = localStorage.getItem('mangoi_logged_user');
+      if (raw && raw !== 'null' && raw !== '{}'){
+        var u = JSON.parse(raw);
+        if (u && (u.uid || u.id) && u.name) return String(u.name).trim();
+      }
+    } catch(e){}
+    try { return String(localStorage.getItem('mangoi_vc_uid') || '').trim(); } catch(e){ return ''; }
+  }
+
   /* ── 클릭 0회 입장 ──
      mangoiJoinClass 는 mangoi_vc_uid/pw 가 저장돼 있어야 스스로 입장한다(30340줄).
-     저장 안 한 사람은 로비에 코드만 채워진 채 멈춘다 → 홈 로그인 정보로 대신 채워 넣는다.
+     저장 안 한 사람은 로비에 코드만 채워진 채 멈춘다 → 위 resolveName() 으로 대신 채워 넣는다.
      (10574~10577줄의 기존 자동입장과 같은 방식. 다른 점은 방 코드를 지우지 않는 것뿐) */
   function armAutoEnter(room){
     var tries = 0;
@@ -32855,11 +32888,9 @@ window.vcAutoLoadStudentTextbook = async function(){
         var ni = document.getElementById('vc-name-input');
         var pi = document.getElementById('vc-room-input');
         if (ni && !ni.value){
-          var raw = localStorage.getItem('mangoi_logged_user');
-          if (!raw || raw === 'null' || raw === '{}') { clearInterval(timer); return; }  // 비로그인 → 로비에 그대로 둔다
-          var u = null; try { u = JSON.parse(raw); } catch(_){ clearInterval(timer); return; }
-          if (!(u && (u.uid || u.id) && u.name)) { clearInterval(timer); return; }
-          ni.value = u.name;
+          var nm = resolveName();
+          if (!nm) { clearInterval(timer); return; }   // 이름을 어디서도 못 찾음 → 로비에 그대로 둔다
+          ni.value = nm;
         }
         if (pi && !pi.value) pi.value = '0000';
         if (ni && ni.value && typeof window.vcJoinRoom === 'function'){
