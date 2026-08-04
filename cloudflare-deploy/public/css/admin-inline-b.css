@@ -1,0 +1,8 @@
+/* admin-inline-b.css — admin.html 안에 흩어져 있던 <style> 블록을 문서 순서 그대로 이어붙인 것.
+   (2026-08-04) HTML 에서 빼내 브라우저가 «캐시» 할 수 있게 했다. admin.html 은 배포마다
+   BUILD 스탬프 때문에 매번 새로 받지만, 이 파일은 내용이 그대로면 다시 받지 않는다.
+   ⚠️ 순서를 바꾸면 화면이 깨진다. 뒤에 붙이는 규칙이 앞을 덮는 구조다. */
+/* ── [style#legacy-bars-instant-hide] ── */
+
+  .menu-toggle-bar,
+  .legacy-toggle-wrap { display: none !important; }

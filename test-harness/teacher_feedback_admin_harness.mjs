@@ -32,7 +32,12 @@ function check(name, cond, detail) {
 function read(p) { return existsSync(p) ? readFileSync(p, 'utf8') : ''; }
 
 const indexHtml = read(join(PUB, 'index.html'));
-const adminHtml = read(join(PUB, 'admin.html'));
+// (2026-08-04) admin.html 안에 있던 <style> 을 /css/admin-inline-*.css 로 빼냈다.
+//   여기서 CSS 규칙도 함께 검사하므로, 스타일이 어디 있든 찾도록 합본으로 읽는다.
+const adminHtml = read(join(PUB, 'admin.html'))
+  + '\n/*───*/\n' + read(join(PUB, 'css', 'admin-inline-a.css'))
+  + '\n/*───*/\n' + read(join(PUB, 'css', 'admin-inline-b.css'))
+  + '\n/*───*/\n' + read(join(PUB, 'css', 'admin-inline-c.css'));
 const admCore   = read(join(PUB, 'js', 'adm-core.js'));
 const admS1     = read(join(PUB, 'js', 'adm-s1.js'));
 const admToday  = read(join(PUB, 'js', 'adm-today-classes.js'));
