@@ -27,25 +27,25 @@ function cut(re, what) {
   return m[1].replace(/\s*:\s*any\b/g, '').replace(/\s*:\s*string\b/g, '');
 }
 
-const toMinBody   = cut(/const toMinLocal = \(hhmm[^)]*\) => \{([\s\S]*?)\n      \};/, 'toMinLocal');
-const overlapBody = cut(/const rowOverlaps = \(rowStart[^)]*\) => \{([\s\S]*?)\n      \};/, 'rowOverlaps');
+// (2026-08-04) 판정이 src/schedule-conflict.ts 한 곳으로 모였다 — 거기서 꺼낸다.
+const toMinBody   = cut(/export function toMinutes\(hhmm[^)]*\)[^{]*\{([\s\S]*?)\n\}/, 'toMinutes');
+const overlapBody = cut(/export function rowOverlaps\([^)]*\)[^{]*\{([\s\S]*?)\n\}/, 'rowOverlaps');
 
 let overlapsAt = null;
 if (toMinBody && overlapBody) {
   try {
-    // newStart / newEnd 를 주입해 '새로 넣으려는 수업' 기준으로 판정기를 만든다
     // ⚠️ 꺼낸 본문의 마지막 줄이 «// 주석» 으로 끝날 수 있다.
     //    닫는 중괄호를 같은 줄에 붙이면 주석에 삼켜져 함수가 안 닫힌다 → 반드시 줄바꿈 먼저.
-    const make = new Function('newStart', 'newEnd', `
-      const toMinLocal = (hhmm) => {${toMinBody}
-      };
-      return (rowStart, rowDur) => {${overlapBody}
-      };
-    `);
     const toMin = new Function('hhmm', toMinBody + '\n');
+    const overlap = new Function('newStart', 'newEnd', 'rowStart', 'rowDur', 'fallbackDur', `
+      const toMinutes = (hhmm) => {${toMinBody}
+      };
+      if (fallbackDur === undefined) fallbackDur = 30;
+      ${overlapBody}
+    `);
     overlapsAt = (start, dur) => {
       const s = toMin(start), e = s + dur;
-      return make(s, e);
+      return (rowStart, rowDur) => overlap(s, e, rowStart, rowDur, undefined);
     };
   } catch (e) {
     FAIL++; FAILS.push('판정 함수 실행 준비 실패: ' + e.message);
@@ -80,10 +80,18 @@ if (overlapsAt) {
 
 // ── 되살아나면 안 되는 것들 (소스 게이트) ──────────────────────────
 console.log('\n[ 회귀 가드 — 소스에 반드시 남아 있어야 하는 것 ]');
+check('판정이 한 곳(schedule-conflict.ts)에 모여 있다',
+  /export async function findScheduleConflicts/.test(src));
 check('강사 기준으로도 기존 수업을 조회한다',
-  /activeRowsBy\(\s*['"]teacher_id['"]/.test(src));
+  /activeRowsBy\(env,\s*['"]teacher_id['"]/.test(src));
 check('학생 기준 조회도 그대로 있다',
-  /activeRowsBy\(\s*['"]user_id['"]/.test(src));
+  /activeRowsBy\(env,\s*['"]user_id['"]/.test(src));
+check('«옮길 때» 자기 자신을 겹침에서 뺄 수 있다 (excludeId)',
+  /excludeId/.test(src) && /String\(row\.id\) !== exclude/.test(src));
+check('수업 이동(연기·변경 승인)에서도 겹침을 본다',
+  /findScheduleConflicts\(env, \{[\s\S]{0,300}?excludeId: row\.schedule_id/.test(src));
+check('겹치면 옮기지 않고 conflict 로 남긴다 (조용히 겹치게 두지 않음)',
+  /applied = 'conflict'/.test(src));
 check('합반(같은 시각·같은 길이)은 강사 겹침에서 제외한다',
   /sameSlot/.test(src) && /if \(sameSlot\) continue;/.test(src));
 check('같은 학생 행은 강사 겹침에서 중복으로 세지 않는다',
