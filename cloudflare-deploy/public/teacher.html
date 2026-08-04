@@ -179,7 +179,96 @@ body{
   .cls-act{width:auto;flex:0 0 auto}
   .btn{padding:13px 22px}
 }
+
+/* ── ⏳ 다음 수업 카운트다운 (요청 2번) — 애니메이션·그림자 없음, 색만 바뀐다 ── */
+.nextup{
+  border:1px solid #cfe0f5;background:#f2f7fd;border-radius:10px;
+  padding:11px 13px;margin-bottom:12px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.nextup .nu-box{flex:1;min-width:130px}
+.nextup .nu-l{font-size:12.5px;font-weight:700;color:#1355a8;letter-spacing:.2px}
+.nextup .nu-t{font-size:15px;font-weight:700;color:#16202c}
+.nextup .nu-c{
+  font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;
+  color:#1355a8;line-height:1.1;white-space:nowrap;
+}
+/* 곧 시작(10분 이내) — 빨강. 지금 이 색이 보이면 자리를 떠나면 안 된다는 뜻 */
+.nextup.soon{border-color:#f0c2bd;background:#fdf3f2}
+.nextup.soon .nu-l,.nextup.soon .nu-c{color:#b3261e}
+/* 이미 입장 가능 — 초록 */
+.nextup.open{border-color:#a8d5b5;background:#eef8f1}
+.nextup.open .nu-l,.nextup.open .nu-c{color:#0b7a3d}
+
+/* ── 🔄 새 수업 배지 (요청 26번) — 새로 들어왔을 때만 뜬다.
+   "갱신 중" 같은 상시 표시는 회선이 느린 곳에서 불안만 키운다. */
+.newbadge{
+  display:inline-block;background:#0b7a3d;color:#fff;border-radius:20px;
+  padding:3px 10px;font-size:12px;font-weight:700;margin-left:6px;cursor:pointer;
+}
+
+/* ══ 🌙 다크 모드 (요청 24번) ═════════════════════════════════════════════
+   기존 규칙은 한 줄도 안 건드리고 여기서 색만 덮어쓴다 — 밝은 모드에 사고 여지를
+   안 만들려고. transition 없음(저사양 기기에서 전환 프레임이 튄다).
+   시스템 설정을 자동으로 따라가지 않는다 — 모르는 새 화면이 까매지면 고장으로 오인한다. */
+html[data-t="dark"] body{background:#0f141a;color:#e6ecf2}
+html[data-t="dark"] .top h1 span,
+html[data-t="dark"] .cls-meta,
+html[data-t="dark"] .kpi span,
+html[data-t="dark"] .row span,
+html[data-t="dark"] .modal p.sub,
+html[data-t="dark"] .mini,
+html[data-t="dark"] .empty{color:#9dabb9}
+html[data-t="dark"] .card{background:#171e26;border-color:#2b3541}
+html[data-t="dark"] .card > h2{color:#dbe4ed}
+html[data-t="dark"] .card > h2 small{color:#9dabb9}
+html[data-t="dark"] .tbtn{background:#1d2630;border-color:#38434f;color:#dbe4ed}
+html[data-t="dark"] .tbtn:active{background:#273240}
+html[data-t="dark"] .tbtn-out{color:#f1a9a2;border-color:#6b3b36}
+html[data-t="dark"] .cls{border-top-color:#2b3541}
+html[data-t="dark"] .cls-time,
+html[data-t="dark"] .cls-name{color:#e6ecf2}
+html[data-t="dark"] .cls-info .cls-time,
+html[data-t="dark"] .cls-info .cls-name{color:#9dabb9}
+html[data-t="dark"] .kpi{background:#1d2630;border-color:#2b3541}
+html[data-t="dark"] .kpi.warn b{color:#f7897f}
+html[data-t="dark"] .row{border-top-color:#2b3541}
+html[data-t="dark"] .row-dl b{color:#7db1f0}
+html[data-t="dark"] .btn-off{background:#252f3a;color:#7f8d9b}
+html[data-t="dark"] .btn-gray{background:#252f3a;color:#dbe4ed}
+html[data-t="dark"] .btn-post{background:#1d2630;color:#7db1f0;border-color:#3c5a7f}
+html[data-t="dark"] .btn-skip{background:#252f3a;color:#dbe4ed}
+html[data-t="dark"] .p-done{background:#252f3a;color:#9dabb9}
+html[data-t="dark"] .p-soon{background:#4a3a06;color:#ffd97a}
+html[data-t="dark"] .p-info{background:#252f3a;color:#9dabb9}
+html[data-t="dark"] .err{background:#3a1e1b;border-color:#6b3b36;color:#f7c2bd}
+html[data-t="dark"] .ok{background:#123023;border-color:#2c5c41;color:#a8ddbd}
+html[data-t="dark"] .card.alert{background:#2b2410;border-color:#6b5417}
+html[data-t="dark"] .card.alert > h2,
+html[data-t="dark"] .sum,
+html[data-t="dark"] .warnline{color:#f6d47a}
+html[data-t="dark"] .draft{border-top-color:#4a3f1e}
+html[data-t="dark"] .draft-txt{background:#171e26;border-color:#4a3f1e;color:#e6ecf2}
+html[data-t="dark"] .modal{background:#171e26}
+html[data-t="dark"] .fld input,
+html[data-t="dark"] .fld select,
+html[data-t="dark"] .fld textarea{background:#1d2630;border-color:#38434f;color:#e6ecf2}
+html[data-t="dark"] .stars label{background:#1d2630;border-color:#38434f;color:#8895a3}
+html[data-t="dark"] .nextup{background:#152233;border-color:#2f4a6b}
+html[data-t="dark"] .nextup .nu-t{color:#e6ecf2}
+html[data-t="dark"] .nextup .nu-l,
+html[data-t="dark"] .nextup .nu-c{color:#7db1f0}
+html[data-t="dark"] .nextup.soon{background:#31201d;border-color:#6b3b36}
+html[data-t="dark"] .nextup.soon .nu-l,
+html[data-t="dark"] .nextup.soon .nu-c{color:#f7897f}
+html[data-t="dark"] .nextup.open{background:#13291d;border-color:#2c5c41}
+html[data-t="dark"] .nextup.open .nu-l,
+html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
 </style>
+<!-- 🌙 저장된 테마를 **첫 페인트 전에** 적용한다. 본문 스크립트(문서 끝)에서 하면
+     흰 화면이 한 번 번쩍인 뒤 어두워진다 — 새벽 근무 강사에게는 그 한 번이 눈부시다.
+     인라인 4줄, 외부 요청 0. localStorage 가 막혀 있어도 그냥 밝은 모드로 간다. -->
+<script>try{if(localStorage.getItem('mangoi_teacher_theme')==='dark')document.documentElement.setAttribute('data-t','dark');}catch(e){}</script>
 </head>
 <body>
 <div class="wrap">
@@ -192,6 +281,10 @@ body{
       <button class="tbtn" id="back" type="button" data-en="← Back" data-ko="← 뒤로">← Back</button>
       <a class="tbtn" id="home" href="/" aria-label="Home"><span aria-hidden="true">🏠</span><span class="lbl" data-en="Home" data-ko="홈">Home</span></a>
       <button class="tbtn" id="lang" type="button">한국어</button>
+      <!-- 🌙 다크 모드 (요청 24번) — 라벨은 '지금 누르면 무엇이 되는지'로 쓴다.
+           밝은 모드일 때 「🌙 Dark」, 어두울 때 「☀ Light」. 상태가 아니라 결과를 적어야
+           한 번에 이해된다. 글자는 좁은 폰에서 접힌다(.lbl). -->
+      <button class="tbtn" id="theme" type="button" aria-label="Dark mode"><span id="theme-ico" aria-hidden="true">🌙</span><span class="lbl" id="theme-lbl">Dark</span></button>
       <button class="tbtn" id="reload" type="button" aria-label="Refresh"><span aria-hidden="true">↻</span><span class="lbl" data-en="Refresh" data-ko="새로고침">Refresh</span></button>
       <button class="tbtn tbtn-out" id="logout" type="button" data-en="Logout" data-ko="로그아웃">Logout</button>
     </nav>
@@ -214,7 +307,15 @@ body{
   </div>
 
   <div class="card" id="c-classes" hidden>
-    <h2><span data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small></h2>
+    <h2><span data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small><span id="cls-new"></span></h2>
+    <!-- ⏳ 다음 수업 한 건만 크게 (요청 2번). 남은 수업이 없으면 통째로 숨는다. -->
+    <div class="nextup" id="nextup" hidden>
+      <div class="nu-box">
+        <div class="nu-l" id="nu-label"></div>
+        <div class="nu-t" id="nu-who"></div>
+      </div>
+      <div class="nu-c" id="nu-count"></div>
+    </div>
     <div id="classes"></div>
   </div>
 
@@ -284,6 +385,9 @@ body{
     var n = document.querySelectorAll('[data-en]');
     for (var i=0;i<n.length;i++) n[i].textContent = EN() ? n[i].getAttribute('data-en') : n[i].getAttribute('data-ko');
     document.getElementById('lang').textContent = EN() ? '한국어' : 'English';
+    // 상태에 따라 글자가 바뀌는 것들(data-en 방식으로는 못 다룬다)도 여기서 다시 그린다
+    applyTheme(themeOn());
+    paintNewBadge();
   }
   document.getElementById('lang').onclick = function(){
     LANG = EN() ? 'ko' : 'en';
@@ -296,6 +400,27 @@ body{
   };
   // 새로고침을 직접 누른 것은 "지금 최신을 보여달라"는 뜻 — 캐시를 건너뛴다.
   document.getElementById('reload').onclick = function(){ load(true); };
+
+  // ── 🌙 다크 모드 (요청 24번) ──────────────────────────────────────────────
+  //   이 값만은 **저장한다**(언어와 달리). 눈이 편한 쪽은 사람마다 고정된 취향이라
+  //   매번 다시 켜야 하면 있으나 마나다. 저장 실패(시크릿 모드)해도 동작은 한다.
+  var TK = 'mangoi_teacher_theme';
+  function applyTheme(dark){
+    document.documentElement.setAttribute('data-t', dark ? 'dark' : 'light');
+    var ico = document.getElementById('theme-ico');
+    var lbl = document.getElementById('theme-lbl');
+    var btn = document.getElementById('theme');
+    // 라벨 = '누르면 무엇이 되는가'. 지금 상태를 적으면 반대로 읽는 사람이 생긴다.
+    if (ico) ico.textContent = dark ? '☀' : '🌙';   // ☀ / 🌙 (둘 다 Unicode 6 이하)
+    if (lbl) lbl.textContent = dark ? T('Light', '밝게') : T('Dark', '어둡게');
+    if (btn) btn.setAttribute('aria-label', dark ? 'Light mode' : 'Dark mode');
+  }
+  function themeOn(){ return document.documentElement.getAttribute('data-t') === 'dark'; }
+  document.getElementById('theme').onclick = function(){
+    var next = !themeOn();
+    applyTheme(next);
+    try { localStorage.setItem(TK, next ? 'dark' : 'light'); } catch (e) {}
+  };
 
   // ← 뒤로 — 앱 공통 규약(js/back-nav.js)과 같은 동작: history.back(), 없으면 홈.
   //   ⚠️ 다만 이 화면에는 함정이 하나 있다. 강사는 **로그인 직후 여기로 리다이렉트**되므로
@@ -512,8 +637,14 @@ body{
     // applyLang 이 data-en 을 되쓰므로, 동적으로 채운 값은 그 뒤에 다시 넣는다.
     // 🔢 개수는 **진짜 망고아이 수업만** 센다. LMS 점유 슬롯·시드까지 세면
     //    강사가 "오늘 5개 있네" 하고 잘못 읽는다(실제 입장 가능한 건 0개일 수 있다).
-    var _real = (d.classes || []).filter(function(c){ return !c.kind || c.kind === 'class'; }).length;
-    document.getElementById('cls-count').textContent = _real ? '(' + _real + ')' : '';
+    paintClassCount(d.classes);
+  }
+
+  // 제목 옆 개수 — render() 와 자동 갱신(요청 26번) 두 곳에서 쓴다.
+  //   ⚠️ 한 곳에만 두면 자동 갱신으로 수업이 늘어났는데 제목은 옛 숫자로 남는다(실제로 그랬다).
+  function paintClassCount(list){
+    var real = (list || []).filter(function(c){ return !c.kind || c.kind === 'class'; }).length;
+    document.getElementById('cls-count').textContent = real ? '(' + real + ')' : '';
   }
 
   var lastSig = null;   // 마지막으로 그린 상태의 지문 (불필요한 재그리기 차단)
@@ -521,6 +652,7 @@ body{
   function renderClasses(list){
     var box = document.getElementById('classes');
     document.getElementById('c-classes').hidden = false;
+    renderNextUp(list);   // ⏳ 다음 수업 스트립은 지문 검사 바깥 — 1초마다 따로 갱신된다
     if (!list.length){
       if (lastSig === 'empty') return;
       lastSig = 'empty';
@@ -1114,8 +1246,162 @@ body{
   //   setInterval 하나뿐 — rAF·transition 없음. 백그라운드 탭에서 느려져도 무해하다.
   setInterval(function(){ if (DATA) renderClasses(DATA.classes || []); }, 60000);
 
+  // ══ ⏳ 다음 수업 카운트다운 (요청 2번) ════════════════════════════════════
+  //   남은 시간이 「입장」 버튼 안에만 작게 있었고 60초에 한 번만 갱신됐다 → 목록 맨 위에
+  //   다음 한 건만 크게 못박는다. 1초 타이머는 **10분 이내에만** 돈다(온종일 도는 1초
+  //   타이머는 저사양 폰 배터리를 태운다). 갱신 대상은 텍스트 노드 1개 — 리플로우 없음.
+  var secTimer = null;
+
+  function fmtClock(ms){    // 10분 이내에서만 쓴다 — 이때부터 초가 의미를 갖는다
+    var s = Math.max(0, Math.round(ms / 1000));
+    return ('0' + Math.floor(s / 60)).slice(-2) + ':' + ('0' + (s % 60)).slice(-2);
+  }
+
+  function renderNextUp(list){
+    var box = document.getElementById('nextup');
+    if (!box) return;
+    var t = now(), pick = null;
+
+    // 다음 한 건 = 아직 안 끝난 **진짜 망고아이 수업** 중 가장 이른 것.
+    //   LMS 점유 슬롯·시드는 입장할 방이 없으므로 여기 올리면 안 된다(오해를 만든다).
+    for (var i = 0; i < (list || []).length; i++){
+      var c = list[i];
+      if (c.kind && c.kind !== 'class') continue;
+      if (t > c.close_at_ts) continue;
+      if (!pick || c.start_ts < pick.start_ts) pick = c;
+    }
+    if (!pick){ box.hidden = true; stopSec(); return; }
+
+    var live  = (t >= pick.start_ts);
+    var open  = (t >= pick.open_at_ts);
+    var left  = pick.open_at_ts - t;          // 입장 문이 열릴 때까지
+    var soon  = !open && left <= 10 * 60000;  // 10분 이내
+
+    box.className = 'nextup' + (open ? ' open' : (soon ? ' soon' : ''));
+    box.hidden = false;
+
+    document.getElementById('nu-label').textContent =
+      live ? T('IN CLASS NOW', '수업 진행 중')
+           : open ? T('YOU CAN JOIN NOW', '지금 입장할 수 있습니다')
+                  : T('NEXT CLASS', '다음 수업');
+
+    document.getElementById('nu-who').textContent =
+      pick.start_time + '  ' + (stuName(pick) || T('(name not set)', '(이름 미등록)'));
+
+    document.getElementById('nu-count').textContent =
+      live ? T('NOW', '진행중')
+           : open ? T('OPEN', '입장가능')
+                  : (soon ? fmtClock(left) : fmtWait(Math.max(1, Math.round(left / 60000))));
+
+    // 초 단위가 필요한 구간에서만 1초 타이머를 켠다
+    if (soon) startSec(); else stopSec();
+  }
+
+  function startSec(){
+    if (secTimer || document.hidden) return;
+    secTimer = setInterval(function(){
+      if (document.hidden){ stopSec(); return; }   // 백그라운드에서는 태우지 않는다
+      if (DATA) renderNextUp(DATA.classes || []);
+    }, 1000);
+  }
+  function stopSec(){ if (secTimer){ clearInterval(secTimer); secTimer = null; } }
+
+  // ══ 🔄 30~60초 자동 갱신 (요청 26번) ═════════════════════════════════════
+  //   새로 배정된 수업이 새로고침 없이 저절로 뜨게 한다. 필리핀 회선에서 사고가 나는
+  //   지점과 대책:
+  //    ① 실패하면 간격을 2배로(45s→90→180→최대 300). 끊긴 회선에 재시도를 퍼붓지 않는다.
+  //    ② 백그라운드 탭·오프라인이면 아예 건너뛴다(데이터 낭비). 탭에 돌아오면 즉시 한 번.
+  //    ③ 렌더는 renderClasses 의 지문 검사를 그대로 탄다 — 바뀐 게 없으면 DOM 무변경.
+  //    ④ 모달(평가·연기)이 열려 있으면 갱신 안 함 — 입력 중 밑판이 바뀌면 안 된다.
+  //    ⑤ 실패해도 화면을 지우지 않는다. 있던 정보가 사라지는 게 제일 나쁘다.
+  var AR_MIN = 45000, AR_MAX = 300000;
+  var arDelay = AR_MIN, arTimer = null;
+  var knownRooms = null;   // 지금까지 본 수업 키 집합 — '새로 들어온 것'만 알리기 위해
+
+  function classKeys(list){
+    var out = {};
+    for (var i = 0; i < (list || []).length; i++){
+      var c = list[i];
+      if (c.kind && c.kind !== 'class') continue;
+      out[c.room_id || ('s' + c.schedule_id)] = 1;
+    }
+    return out;
+  }
+
+  function modalOpen(){ return !!document.querySelector('.mask'); }
+
+  var newCount = 0;   // 확인 전까지 쌓아 두는 새 수업 건수
+  function paintNewBadge(){
+    var nb = document.getElementById('cls-new');
+    if (!nb) return;
+    nb.innerHTML = newCount
+      ? '<span class="newbadge" role="button" tabindex="0" title="' +
+        esc(T('Tap to dismiss', '눌러서 확인')) + '">' +
+        esc(T('+' + newCount + ' new', '새 수업 ' + newCount + '건')) + '</span>'
+      : '';
+    var s = nb.firstChild;
+    if (s) s.onclick = function(){ newCount = 0; paintNewBadge(); };
+  }
+
+  function autoRefreshTick(){
+    arTimer = null;
+    if (document.hidden || navigator.onLine === false || modalOpen()){
+      scheduleAutoRefresh(arDelay);   // 조건이 아니면 그냥 다음으로 미룬다(요청 없음)
+      return;
+    }
+    fetch('/api/teacher/portal', { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+      .then(function(r){ return r.status === 401 ? null : r.json(); })
+      .then(function(d){
+        if (!d || !d.ok) throw new Error('bad');
+        // 날짜가 넘어갔으면(자정 근무) 통째로 다시 그린다 — 어제 목록을 남기면 안 된다
+        var dayChanged = DATA && DATA.today && d.today && DATA.today !== d.today;
+        var before = knownRooms || classKeys(DATA && DATA.classes);
+        var after  = classKeys(d.classes);
+        var added  = 0;
+        for (var k in after) if (!before[k]) added++;
+
+        DATA = d;
+        SKEW = (d.now || Date.now()) - Date.now();
+        setStale(false);
+        saveCache(d);
+        if (dayChanged) lastSig = null;     // 지문을 비워 강제로 다시 그리게 한다
+        renderClasses(d.classes || []);
+        renderNotices(d.notices || []);
+        paintClassCount(d.classes);
+        knownRooms = after;
+
+        // 새 수업 배지. **강사가 직접 누르기 전까지 안 지운다** —
+        //   다음 갱신 때 지우게 두면, 자리를 비운 사이 떴다 사라져서 못 본 것과 같아진다
+        //   (이 기능의 목적이 «관리자가 즉시 알려주지 못할 때 놓치지 않게» 인데 정반대가 된다).
+        if (added) newCount += added;
+        paintNewBadge();
+
+        arDelay = AR_MIN;                    // 성공 → 기본 간격 복귀
+        scheduleAutoRefresh(arDelay);
+      })
+      .catch(function(){
+        // 실패해도 화면은 그대로 둔다. 간격만 늘려 회선을 놓아준다.
+        arDelay = Math.min(AR_MAX, arDelay * 2);
+        scheduleAutoRefresh(arDelay);
+      });
+  }
+
+  function scheduleAutoRefresh(ms){
+    if (arTimer) clearTimeout(arTimer);
+    arTimer = setTimeout(autoRefreshTick, ms);
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden){ stopSec(); return; }
+    // 돌아온 즉시 한 번: 자리를 비운 사이 배정된 수업을 기다리지 않고 보여준다
+    if (DATA) renderClasses(DATA.classes || []);
+    scheduleAutoRefresh(1500);
+  });
+  window.addEventListener('online', function(){ arDelay = AR_MIN; scheduleAutoRefresh(1000); });
+
   applyLang();
   load();
+  scheduleAutoRefresh(AR_MIN);
 })();
 </script>
 <!-- BUILD:20260805033207 -->
