@@ -94,6 +94,39 @@ upNo.run(NOW, late.id);                                                         
 eq('정상 완료를 스윕이 덮어쓰지 못한다', row(late.id).status, 'completed');
 eq('  크기도 보존된다', row(late.id).size_bytes, 999);
 
+
+console.log('\n⑤ 「완료인데 크기 0」 바로잡기 — 목록엔 재생 버튼인데 눌러도 안 나오던 행들');
+check('sweepZeroSizeCompleted 가 존재한다', /export async function sweepZeroSizeCompleted/.test(SRC));
+check('크기 채우기 UPDATE 에 원래 상태 잠금이 있다',
+  /UPDATE recordings SET size_bytes = \?[\s\S]{0,200}?status = 'completed' AND COALESCE\(size_bytes, 0\) = 0/.test(SRC));
+check('실물이 없으면 upload_failed 로 내린다(거짓 재생버튼 제거)',
+  /UPDATE recordings SET status = 'upload_failed'[\s\S]{0,200}?status = 'completed' AND COALESCE\(size_bytes, 0\) = 0/.test(SRC));
+check('방금 끝난 녹화(1시간 이내)는 건드리지 않는다', /minAgeMs\s*\?\?\s*3600\s*\*\s*1000/.test(SRC));
+
+db.exec('DELETE FROM recordings');
+ins.run('class-9', 'rec/class-9/x.webm', NOW - 5 * H, 0, 'completed');   // 실물 있음 → 크기 채움
+ins.run('class-9', 'rec/class-9/y.webm', NOW - 5 * H, 0, 'completed');   // 실물 없음 → 실패로 내림
+ins.run('class-9', 'rec/class-9/z.webm', NOW - 5 * H, 777, 'completed'); // 이미 크기 있음 → 손대면 안 됨
+const zs = db.prepare(
+  `SELECT id, file_url FROM recordings
+    WHERE status = 'completed' AND COALESCE(size_bytes, 0) = 0
+      AND file_url IS NOT NULL AND file_url <> ''
+      AND COALESCE(ended_at, started_at, 0) < ?
+    ORDER BY started_at DESC LIMIT 200`
+).all(NOW - 1 * H);
+eq('크기 0 인 완료 행만 대상이 된다', zs.length, 2);
+
+const r2b = { 'rec/class-9/x.webm': { size: 4242 } };
+const fill = db.prepare(`UPDATE recordings SET size_bytes = ? WHERE id = ? AND status = 'completed' AND COALESCE(size_bytes, 0) = 0`);
+const demote = db.prepare(`UPDATE recordings SET status = 'upload_failed' WHERE id = ? AND status = 'completed' AND COALESCE(size_bytes, 0) = 0`);
+for (const t of zs) { const o = r2b[t.file_url]; if (o) fill.run(o.size, t.id); else demote.run(t.id); }
+
+const byUrl = (u) => db.prepare(`SELECT * FROM recordings WHERE file_url=?`).get(u);
+eq('실물 있는 건은 크기가 채워진다', byUrl('rec/class-9/x.webm').size_bytes, 4242);
+eq('  상태는 completed 그대로다', byUrl('rec/class-9/x.webm').status, 'completed');
+eq('실물 없는 건은 upload_failed 로 내려간다', byUrl('rec/class-9/y.webm').status, 'upload_failed');
+eq('이미 크기가 있는 건은 손대지 않는다', byUrl('rec/class-9/z.webm').size_bytes, 777);
+
 console.log('\n====================================================');
 console.log(`🎯 총 ${pass + fail}건 중 ✅ ${pass} 통과 / ❌ ${fail} 실패`);
 console.log(fail === 0 ? '🎉 준비중 녹화 스윕 — 안전장치 전부 통과' : '⚠ 실패 있음');

@@ -61,6 +61,8 @@ export interface CleanupResult {
   deleted_keys: string[];
   /** ⏳ 「준비중」에 갇힌 녹화 정리 결과 (dryRun 이면 없음) */
   stuck_sweep?: StuckSweepResult;
+  /** 🩹 「완료인데 크기 0」 바로잡기 결과 (dryRun 이면 없음) */
+  zero_size_sweep?: StuckSweepResult;
   errors: string[];
 }
 
@@ -160,6 +162,76 @@ export async function sweepStuckRecordings(
   return out;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   🩹 「완료」인데 크기가 0인 녹화 바로잡기 (2026-08-05)
+   ──────────────────────────────────────────────────────────────────────────
+   [무엇이 문제인가] status='completed' 인데 size_bytes=0 인 행이 있다. 목록에는
+     「▶ 재생」으로 멀쩡히 보이는데 눌러도 아무것도 안 나온다.
+     「저장 실패」보다 나쁘다 — 실패는 포기라도 하지만, 이건 될 줄 알고 기다리게 만든다.
+     [실측 2026-08-05] 51건 · 총 4시간 분량 · 정규수업 3건 포함.
+     발생 시기가 2026-07-07 ~ 08-02 에 몰려 있고 그 뒤로는 새로 안 생긴다
+     (멀티파트 파트 크기 문제를 고친 시점과 맞물린다). 즉 «과거에 쌓인 것» 을 치우는 일이다.
+
+   [어떻게] R2 에 실물이 있는지 본다.
+     · 있으면 → 크기를 채워 넣는다. 목록도 맞아지고 재생도 정상이 된다.
+     · 없으면 → upload_failed 로 내린다. 「재생」이라는 거짓 약속을 없앤다.
+   ⚠️ 방금 끝난 녹화(1시간 이내)는 건드리지 않는다 — complete 직후 크기 기록이
+      아직 안 들어온 찰나를 실패로 오판하지 않기 위해서다.
+   ⚠️ UPDATE 조건에 원래 상태를 다시 건다(동시성 잠금).
+   ══════════════════════════════════════════════════════════════════════════ */
+export async function sweepZeroSizeCompleted(
+  env: CleanupEnv,
+  options: { minAgeMs?: number; limit?: number } = {}
+): Promise<StuckSweepResult> {
+  const now = Date.now();
+  const minAgeMs = options.minAgeMs ?? 3600 * 1000;   // 1시간
+  const limit = options.limit ?? 200;
+  const out: StuckSweepResult = { checked: 0, recovered: 0, failed: 0, errors: [] };
+  if (!env.DB || !env.RECORDINGS) return out;
+
+  let rows: any;
+  try {
+    rows = await env.DB.prepare(
+      `SELECT id, file_url FROM recordings
+        WHERE status = 'completed' AND COALESCE(size_bytes, 0) = 0
+          AND file_url IS NOT NULL AND file_url <> ''
+          AND COALESCE(ended_at, started_at, 0) < ?
+        ORDER BY started_at DESC LIMIT ?`
+    ).bind(now - minAgeMs, limit).all();
+  } catch (e: any) {
+    out.errors.push('대상 조회 실패: ' + (e?.message || e));
+    return out;
+  }
+
+  for (const r of (rows?.results || []) as Array<{ id: number; file_url: string }>) {
+    out.checked++;
+    let size = 0;
+    try {
+      const head = await env.RECORDINGS.head(r.file_url);
+      size = head ? (head.size || 0) : 0;
+    } catch { /* 조회 실패 = 없음으로 본다 */ }
+
+    try {
+      if (size > 0) {
+        await env.DB.prepare(
+          `UPDATE recordings SET size_bytes = ?
+            WHERE id = ? AND status = 'completed' AND COALESCE(size_bytes, 0) = 0`
+        ).bind(size, r.id).run();
+        out.recovered++;
+      } else {
+        await env.DB.prepare(
+          `UPDATE recordings SET status = 'upload_failed'
+            WHERE id = ? AND status = 'completed' AND COALESCE(size_bytes, 0) = 0`
+        ).bind(r.id).run();
+        out.failed++;
+      }
+    } catch (e: any) {
+      out.errors.push('id=' + r.id + ' 갱신 실패: ' + (e?.message || e));
+    }
+  }
+  return out;
+}
+
 export async function purgeOrphanedRecordings(
   env: CleanupEnv,
   options: CleanupOptions = {}
@@ -200,6 +272,12 @@ export async function purgeOrphanedRecordings(
       result.stuck_sweep = await sweepStuckRecordings(env);
     } catch (e: any) {
       result.errors.push('준비중 정리 실패: ' + (e?.message || e));
+    }
+    /* 🩹 「완료인데 크기 0」 — 목록엔 재생 버튼이 있는데 눌러도 안 나오는 행들 */
+    try {
+      result.zero_size_sweep = await sweepZeroSizeCompleted(env);
+    } catch (e: any) {
+      result.errors.push('크기0 완료 정리 실패: ' + (e?.message || e));
     }
   }
 
