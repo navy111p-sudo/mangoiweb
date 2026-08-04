@@ -89,11 +89,12 @@ export async function handleRecordingUpload(
     } | null;
     if (!b || !b.key || !b.upload_id || !Array.isArray(b.parts)) return J({ error: "invalid body" }, 400);
 
-    // (a) 이미 처리된 recording_id면 R2를 다시 건드리지 않고 그대로 확인 응답
+    // (a) 이미 '완료'로 확정된 recording_id면 R2를 다시 건드리지 않고 그대로 확인 응답.
+    //   ('upload_failed' 는 여기서 걸러내지 않는다 — 아래 head() 재확인으로 자가복구시키기 위함)
     const existing = await env.DB.prepare(
       `SELECT status FROM recordings WHERE id = ?`
     ).bind(b.recording_id).first<{ status: string | null }>();
-    if (existing && (existing.status === "completed" || existing.status === "upload_failed")) {
+    if (existing && (existing.status === "completed" || existing.status === "deleted")) {
       return J({ ok: existing.status === "completed", key: b.key, already: true, status: existing.status });
     }
 
@@ -107,28 +108,43 @@ export async function handleRecordingUpload(
       failReason = "mp.complete: " + (e?.message || e);
     }
 
-    // (c) complete()가 성공했다고 보고해도 실제로 R2에 안착했는지 재확인
-    if (obj && !failReason) {
-      try {
-        const head = await env.RECORDINGS.head(b.key);
-        if (!head) failReason = "head() 재확인 실패 — 완료 응답은 왔지만 객체가 없음";
-      } catch (e: any) {
-        failReason = "head() 에러: " + (e?.message || e);
-      }
+    // 🔴 2026-08-04(2차 실장애): complete() 가 실패해도 «파일은 이미 R2 에 멀쩡히 있는» 경우가 있다.
+    //   페이지를 떠날 때 정상 종료(fetch keepalive)와 beforeunload(sendBeacon)가 거의 동시에
+    //   같은 upload_id 로 complete 를 보내면, 먼저 도착한 쪽이 성공시키고 뒤엣것은
+    //   "The specified multipart upload does not exist. (10024)" 로 실패한다(운영 워커에서 재현 확인).
+    //   위 (a) 가드는 «먼저 도착한 쪽의 DB 쓰기가 끝나기 전» 에 뒤엣것이 들어오면 못 막는다.
+    //   그때 뒤엣것의 실패를 그대로 믿고 'upload_failed' 로 찍으면 «파일은 멀쩡한데 목록엔
+    //   저장 실패» 가 된다 — 실제로 08-04 저녁 녹화 9건이 이 상태가 됐다.
+    //   → 성공/실패와 무관하게 head() 로 실물을 먼저 확인하고, 있으면 무조건 성공으로 취급한다.
+    //   (multipart 완료 직후 잠깐 안 보일 수 있어 1회 재시도)
+    let head: R2Object | null = null;
+    for (let i = 0; i < 2; i++) {
+      try { head = await env.RECORDINGS.head(b.key); } catch { head = null; }
+      if (head) break;
+      if (i === 0) await new Promise((r) => setTimeout(r, 300));
+    }
+    if (head) {
+      failReason = "";                                  // 실물이 있다 = 업로드는 성공한 것
+      if (!obj) obj = { size: head.size };
+    } else if (!failReason) {
+      failReason = "head() 재확인 실패 — 완료 응답은 왔지만 객체가 없음";
     }
 
     if (failReason) {
       console.error(`[recordings-r2] upload/complete 실패 recording_id=${b.recording_id} key=${b.key}: ${failReason}`);
+      // 이미 '완료'로 확정된 행은 절대 실패로 강등하지 않는다(늦게 도착한 중복 요청 방어)
       await env.DB.prepare(
-        `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed' WHERE id = ?`
+        `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed'
+          WHERE id = ? AND status NOT IN ('completed','deleted')`
       ).bind(b.recording_id).run();
       return J({ ok: false, error: failReason }, 500);
     }
 
+    // storage 도 'r2' 로 되돌린다 — 앞선 시도가 'r2_failed' 로 찍어놨을 수 있다(자가복구)
     await env.DB.prepare(
       `UPDATE recordings
-       SET ended_at = ?, duration_ms = ?, size_bytes = ?, status = 'completed', file_url = ?
-       WHERE id = ?`
+       SET ended_at = ?, duration_ms = ?, size_bytes = ?, status = 'completed', file_url = ?, storage = 'r2'
+       WHERE id = ? AND status != 'deleted'`
     )
       .bind(now, b.duration_ms || 0, b.size_bytes || obj!.size || 0, b.key, b.recording_id)
       .run();
