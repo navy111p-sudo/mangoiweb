@@ -35,6 +35,12 @@
   let r2TotalBytes = 0;
   let r2UploadQueue = Promise.resolve();
   let r2InitDone = false;
+  // 🔴 2026-08-04: 정상 종료(completeR2Upload)가 이미 complete 를 보냈으면 beforeunload 쪽은
+  //   전송을 양보한다. 같은 upload_id 로 complete 가 두 번 도착하면 뒤엣것이 R2 오류 10024
+  //   ("The specified multipart upload does not exist")를 받고, 그 실패가 «이미 성공한 행» 을
+  //   upload_failed 로 덮어써서 «파일은 멀쩡한데 목록엔 저장 실패» 가 됐다.
+  //   (recorder.js 에는 _stopRequested 가 있었는데 이 파일에만 빠져 있었다)
+  let r2CompleteSent = false;
   let chunkBuffer = [];
   let chunkBufferSize = 0;
   // 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
@@ -582,7 +588,8 @@
     r2UploadQueue = r2UploadQueue.then(async () => {
       const url = '/api/recordings/upload/part?key=' + encodeURIComponent(r2Key) +
                   '&upload_id=' + encodeURIComponent(r2UploadId) +
-                  '&part=' + pn;
+                  '&part=' + pn +
+                  '&rid=' + encodeURIComponent(recordingId);   // 서버 파트 장부용
       // 파트 하나가 유실되면 구멍 난 채로 이어붙여져 영상이 깨진다 — 일시 오류는 재시도
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
@@ -615,6 +622,7 @@
  
     if (r2Parts.length > 0 && r2Key && r2UploadId) {
       r2Parts.sort((a, b) => a.partNumber - b.partNumber);
+      r2CompleteSent = true;   // beforeunload 쪽 중복 전송 차단
       try {
         const res = await fetch('/api/recordings/upload/complete', {
           method: 'POST',
@@ -646,12 +654,14 @@
     r2TotalBytes = 0;
     r2UploadQueue = Promise.resolve();
     r2InitDone = false;
+    r2CompleteSent = false;   // 새 녹화에서는 다시 beforeunload 안전망이 살아나야 한다
     chunkBuffer = [];
     chunkBufferSize = 0;
   }
  
   function onBeforeUnload() {
     if (!r2Key || !r2UploadId || !recordingId) return;
+    if (r2CompleteSent) return;   // 정상 종료가 이미 complete 를 보냈다 — 두 번 보내면 10048/10024
     if (r2Parts.length > 0) {
       try {
         r2Parts.sort((a, b) => a.partNumber - b.partNumber);

@@ -342,5 +342,10 @@
   "/css/admin-readability.css?v=2": "a9ba3662bfdcf8ef",
   "/css/admin-inline-a.css?v=1": "560421d56c135442",
   "/css/admin-inline-b.css?v=1": "ef90db5df2ceca0f",
-  "/css/admin-inline-c.css?v=1": "2f090b2f953c3319"
+  "/css/admin-inline-c.css?v=1": "2f090b2f953c3319",
+  "/js/flow.js?v=10": "c5c5b7f7fadffff7",
+  "/js/mango-rec.js?v=41": "7a0cf98ac1cb3a87",
+  "/video-call/js/recorder.js?v=2": "cd8afef7c624bd5f",
+  "/js/mango-rec.js?v=42": "8aa610700ccb72a6",
+  "/video-call/js/recorder.js?v=3": "57388328ad0b58f7"
 }
