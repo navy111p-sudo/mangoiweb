@@ -280,6 +280,12 @@ export async function handleMangoApi(
             playUrl = '/api/recording/play?id=' + r.id
               + (recPlayTok ? '&token=' + encodeURIComponent(recPlayTok) : '');
           }
+          // 🔴 2026-08-04: 업로드가 실패한 녹화는 DB status 가 'completed' 여도 R2 에 실물이
+          //   없다(storage 로만 구분됨). 재생 URL 을 주면 학생이 눌렀을 때 404 → "재생할 수
+          //   없어요"(보관기간 만료로 오해)가 뜬다. 여기서 미리 걸러 '저장 실패'로 알린다.
+          const storageStr = String(r.storage || '');
+          const failed = storageStr === 'r2_failed' || storageStr === 'error'
+            || storageStr === 'debug' || String(r.status || '') === 'upload_failed';
           return {
             id: r.id,
             date,
@@ -287,8 +293,10 @@ export async function handleMangoApi(
             teacher: r.teacher_name || '-',
             duration: durStr,
             size: sizeMB,
-            url: playUrl,
+            url: failed ? '' : playUrl,
             status: r.status || 'completed',
+            storage: storageStr,
+            failed,
           };
         });
         return json({ ok: true, rows, recordings: rows, count: rows.length });
@@ -2761,15 +2769,24 @@ ${numbered}`;
       });
     }
 
+    // 🔴 2026-08-04: 이 엔드포인트가 조건 없이 status='completed' 로 덮어써서, R2 업로드가
+    //   실패해 'upload_failed' 로 찍힌 녹화까지 다시 «정상»으로 되돌려 놓고 있었다.
+    //   그 결과 목록엔 초록색 ▶재생 이 뜨는데 실물 파일은 없어 학생이 누르면 404 →
+    //   "녹화를 재생할 수 없어요"(=보관기간 만료로 오해). 07-31 에 넣은 안전장치가 무력화된 것.
+    //   → 종료 메타(시간·길이·용량)는 그대로 기록하되, 실패/삭제 판정은 절대 덮지 않는다.
     if (path === '/api/recordings/stop' && method === 'POST') {
       const b = await request.json() as any;
       const now = Date.now();
       await env.DB.prepare(
-        `UPDATE recordings SET ended_at = ?, duration_ms = ?, size_bytes = ?, status = 'completed',
-         file_url = COALESCE(?, file_url), storage = COALESCE(?, storage)
-         WHERE id = ?`
+        `UPDATE recordings
+            SET ended_at = ?, duration_ms = ?, size_bytes = ?,
+                status = CASE WHEN status IN ('upload_failed','deleted') THEN status ELSE 'completed' END,
+                file_url = COALESCE(?, file_url), storage = COALESCE(?, storage)
+          WHERE id = ?`
       ).bind(now, b.duration_ms || 0, b.size_bytes || 0, b.file_url || null, b.storage || null, b.recording_id).run();
-      return json({ ok: true, ended_at: now });
+      const after = await env.DB.prepare(`SELECT status, storage FROM recordings WHERE id = ?`)
+        .bind(b.recording_id).first<{ status: string | null; storage: string | null }>();
+      return json({ ok: true, ended_at: now, status: after?.status || null, storage: after?.storage || null });
     }
 
     if (path === '/api/recordings' && method === 'GET') {
