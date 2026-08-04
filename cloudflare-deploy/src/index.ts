@@ -26,6 +26,7 @@ import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r2';
 import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
+import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
 import { capitownRouter } from './api-capitown';
@@ -320,6 +321,8 @@ const worker = {
             '/api/admin/ghost', '/api/admin/alerts', '/api/admin/export',
             // ── 가족·리퍼럴 (card-family-mgmt · card-referral) ──
             '/api/admin/family', '/api/admin/families', '/api/admin/referrals',
+            // ── 결재(기안·지출) — 회사 지출 내역. 핸들러도 막지만 여기에도 이중으로 둔다 ──
+            '/api/approval',
           ];
           const _teacherBlocked = TEACHER_BLOCKED_PREFIXES.some(p => path.startsWith(p));
           if (_teacherBlocked) {
@@ -881,6 +884,12 @@ const worker = {
     if (path === '/api/teacher/portal') {
       const tRes = await handleTeacherApi(request, url, env as any);
       if (tRes) return tRes;
+    }
+
+    // 🧾 결재(기안·지출·문서) — 구 그룹웨어에서 유일하게 신규에 없던 기능
+    if (path.startsWith('/api/approval/')) {
+      const aRes = await handleApprovalApi(request, url, env as any);
+      if (aRes) return aRes;
     }
 
     // v3 명세서 신규 API (출석/보상/카카오/대시보드)
@@ -4380,6 +4389,9 @@ function isAdminPath(path: string, method: string): boolean {
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
   //      새로 만든 포털 엔드포인트만 콕 집어 잠근다.
   if (path === '/api/teacher/portal') return true;
+
+  // 🧾 결재 API — 회사 지출 내역이 담긴다. 로그인 필수(핸들러가 본사 계정인지 한 번 더 본다).
+  if (path.startsWith('/api/approval/')) return true;
 
   // 🔒🔒 [보안 근본수정 2026-07-09] /api/admin/* 는 기본 전부 인증 필요 (DEFAULT-DENY).
   //   과거엔 아래처럼 경로를 하나씩 allowlist 로 나열했는데, 새 admin API 를 추가하면서

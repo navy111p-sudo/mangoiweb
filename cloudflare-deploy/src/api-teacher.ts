@@ -18,7 +18,7 @@
 //     첫 화면(오늘 수업)의 렌더를 막으면 안 되므로 페이지가 나중에 따로 부른다.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { getAdminActor } from './auth-admin';
+import { getAdminActor, PH_MANAGERS } from './auth-admin';
 // 🎚️ 학생 읽기 밴드(판단력 훈련) — KV 1회 조회. 수업 전에 강사가 "이 아이가 지금
 //    어느 정도 문장을 읽나"를 알 수 있게 오늘 수업 목록에 얹는다.
 import { getReadingBandFor } from './api-judgment';
@@ -339,13 +339,14 @@ export async function handleTeacherApi(
   //   새 한국어권 강사가 생기면 아래 목록에 아이디를 추가할 것.
   const KOREAN_SPEAKING_TEACHERS = ['hq_t_kang'];
   const _uid = String(actor.username || '').toLowerCase();
-  //   🧑‍💼 매니저는 강사와 규칙이 다르다. 필리핀 매니저 계정은 `mgr_` 접두사로 만들어져 있고
-  //      (mgr_melca·mgr_maimai·mgr_karl, 2026-08-05 운영 DB 확인) 전원 영어권이다.
-  //      그 외 본사 계정(한국 직원)은 한국어가 기본이다.
-  //      ⚠️ 이름에 한글이 있는지로 판정하면 안 된다 — 계정명이 "Melca (본사 매니저)" 라
-  //         한글이 섞여 있어, 영어만 읽는 매니저가 한국어 화면에 갇힌다.
+  //   🧑‍💼 매니저는 강사와 규칙이 다르다. 필리핀 매니저만 영어, 나머지 본사 계정은 한국어.
+  //      ⚠️ `mgr_` 접두사로 판정하면 안 된다 — mgr_jjw(장지웅)·mgr_lby(이병엽) 처럼
+  //         **한국 본사 매니저도 같은 접두사**를 쓴다(2026-08-05 운영 DB 확인).
+  //      ⚠️ 이름에 한글이 있는지로도 판정하면 안 된다 — 계정명이 "Melca (본사 매니저)" 라
+  //         한글 꼬리표가 붙어 있어 영어만 읽는 매니저가 한국어 화면에 갇힌다.
+  //      → 그래서 **명단**으로 못박는다. 필리핀 직원이 늘면 여기에 아이디를 추가할 것.
   const lang = isManager
-    ? (/^mgr_/.test(_uid) ? 'en' : 'ko')
+    ? (PH_MANAGERS.indexOf(_uid) >= 0 ? 'en' : 'ko')
     : ((KOREAN_SPEAKING_TEACHERS.indexOf(_uid) >= 0
         // '중국어 …' 표기는 중국어 과정 담당(한국어권)에게만 붙는다 —
         // 필리핀 강사 이름에는 절대 나올 수 없어 오판 위험이 없다.
