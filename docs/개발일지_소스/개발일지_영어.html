@@ -97,6 +97,7 @@
   the flagship card at the top of the list, <b>"Space Monster Hunt", had none at all.</b>
   Also went through <b>all 25 requests manager Melca sent</b>, and
   <b>12 of them were already built and running</b> — there was simply no way to find them.
+  Also tracked down and fixed <b>smoke cutting out abruptly</b> when a tank explodes.
 </div>
 
 <div class="kpis">
@@ -117,6 +118,7 @@
   <div class="kpi"><div class="n">11</div><div class="l">fake buttons / empty menus removed</div></div>
   <div class="kpi"><div class="n">3</div><div class="l">competitor features we lacked, now built</div></div>
   <div class="kpi"><div class="n">11 / 16</div><div class="l">shared competitor features we already had</div></div>
+  <div class="kpi"><div class="n">4 → 1</div><div class="l">top buttons on the practice screen</div></div>
 </div>
 
 <h2 class="sec">1. Speaking is now in all 21 learning games ★</h2>
@@ -318,8 +320,65 @@ A menu you open once is remembered automatically, and the ones you use often can
 <p class="grey">On the connections our teachers and staff in the Philippines use, that difference is simply <b>waiting time</b>.
 Since the screen needs a login, I couldn't just look at it — so I built a way to <b>launch a real browser and measure it</b>.</p>
 
+<h2 class="sec">17. Smoke cut off abruptly when a tank blew up ★</h2>
+<p>The CEO's report — <b>"when the tank explodes and dies, the fire and smoke get cut off."</b></p>
+<div class="star"><span class="s">★</span><span>
+  The cause was unexpected. The part that <b>keeps the wreck billowing smoke</b> sat
+  <b>in a place that only runs while the game is running.</b>
+  But <b>when your own tank is destroyed, the game stops.</b>
+  So <b>the one moment that should be the most dramatic — being destroyed — was the only moment with no smoke at all.</b>
+  All that remained was the one-off flash of the explosion, so it <b>cut out after 2.5 seconds.</b>
+</span></div>
+<p>Now the wreck keeps smoking and then fades away naturally. Measured:</p>
+<div class="star"><span class="s">★</span><span>
+  Amount of smoke on screen right after being destroyed (counted every 0.5 s)<br>
+  <b>Before</b> — 10 · 10 · 8 · 4 · <b>0</b> &nbsp;&rarr;&nbsp; <b>gone at 2.5 s</b>
+  (new smoke emitted after the kill: <b>0</b>)<br>
+  <b>After</b> &nbsp;&nbsp;— 16 · 18 · 18 · 9 · 4 · 2 · 0 &nbsp;&rarr;&nbsp; <b>fades naturally at 3.5 s</b>
+  (new smoke emitted after the kill: <b>14</b>)
+</span></div>
+<p>The smoke is also <b>a little denser</b> now.
+<span class="grey">(Turning it up all the way makes a black blob that hides the tank, so we stopped partway.)</span></p>
+<div class="star"><span class="s">★</span><span>
+  <b>Worth recording that my first diagnosis was wrong.</b> I judged it as "the smoke image is being clipped by the ground"
+  and fixed that — but <b>counting the pixels actually drawn on screen showed a difference of 0.1%</b>. That was not the cause.
+  I <b>reverted that change entirely.</b> Changing draw order without evidence
+  creates <b>new problems</b> where smoke overlaps trees and terrain in front of it.
+</span></div>
+<p class="grey">(Screen problems have several plausible-looking causes, so checking with numbers before fixing turns out to be faster.)</p>
+
+<h2 class="sec">18. Pronunciation practice screens — top buttons cut from four to one ★</h2>
+<p>The CEO opened <b>AI pronunciation practice</b> on a phone and pointed out the problem —
+<b>four buttons crowd the top of the screen and cover the very text you are meant to read.</b>
+<b>"Translate" and "Homepage" are not needed; a single back arrow is enough.</b>
+<span class="grey">(Going back already lands you on the home screen, so a separate home button is a second button doing the same job.)</span></p>
+
+<div class="star"><span class="s">★</span><span>
+  <b>Cleaned up three screens.</b>
+  On the <b>practice screen</b> the four top buttons became <b>two</b>, and the two that remain are now
+  <b>small semi-transparent circles with no text</b>, so the artwork shows through.
+  On <b>AI Speaking Coach</b> and <b>Chinese pronunciation</b>, <b>only the arrow remains</b>.
+</span></div>
+
+<div class="star"><span class="s">★</span><span>
+  I also fixed the arrow that had been <b>sitting directly on top of the title and hiding it.</b>
+  <b>The direction I made room in differs per screen</b> —
+  <b>AI Speaking Coach</b> is tuned to fit <b>on one phone screen with no scrolling</b>, so giving the arrow
+  its own row would <b>push the record button off-screen on small phones.</b> There I moved the title <b>sideways</b>.
+  The <b>Chinese screen</b> is a level list that scrolls anyway, so there I made room <b>vertically</b>.
+</span></div>
+
+<p class="grey">I <b>measured the actual distance</b> between the arrow and the text at <b>three phone sizes</b>
+(including the smallest), confirming no overlap and that the <b>"one screen" fit still holds</b>.
+The arrow <b>grows automatically past a certain screen width</b>, which created a
+<b>trap where it overlapped very slightly at exactly that boundary</b> — I measured that width too and closed it.
+After shipping, I <b>measured again on the live address</b> and confirmed no overlap on either screen.</p>
+
+<p class="grey">One thing to note — <b>with the translate button removed, these screens can no longer switch between Korean and English.</b>
+They follow whatever language was chosen on another screen.</p>
+
 <h2 class="sec">Deployed and verified</h2>
-<p><b>11 deploys</b> this day. Each time I confirmed <b>0 compile errors</b> and passing automated checks,
+<p><b>12 deploys</b> this day. Each time I confirmed <b>0 compile errors</b> and passing automated checks,
 then verified on the live address that the change had landed. Nothing was rolled back.</p>
 <p class="grey">The speaking work went out only after <b>all 58 automated checks passed</b>. After release,
 I <b>downloaded the files back from the live service and compared them byte for byte</b> against the originals,
