@@ -66,6 +66,7 @@ function handleExistingUsers(data) {
   console.log('[webrtc] 기존 사용자 수:', list.length);
   list.forEach(({ userId, username: name }) => {
     console.log('[webrtc] 기존 사용자 연결(initiator):', userId, name);
+    ensureRemoteTile(userId, name);      // 내가 나중에 들어온 경우 — 먼저 있던 사람 타일도 바로 만든다
     createPeerConnection(userId, name, true);
   });
   if (data && data.pdfState && typeof handlePdfSync === 'function') {
@@ -73,11 +74,38 @@ function handleExistingUsers(data) {
   }
 }
 
+/* ── 상대 타일은 «사람이 들어오면» 만든다 (2026-08-05) ──
+   🔴 예전엔 ontrack(영상 트랙 도착)에서만 만들었다. 그래서 학생이 카메라를 못 켜면
+      — 권한 거부·웹캠 없음·회선이 나빠 영상이 늦음 — 강사 화면에 타일이 아예 안 생겼고,
+      타일이 없으니 «칭찬 별점 버튼» 도 줄 수가 없었다. 실제로 2명이 들어와 있는데
+      상대 칸이 비어 있는 상태를 라이브에서 확인했다.
+   → 참가자가 들어온 시점에 빈 타일부터 만든다. 영상은 나중에 그 안으로 들어온다.
+      (정식 화면이 vcEnsureParticipantBox 로 쓰던 것과 같은 방식이다) */
+function ensureRemoteTile(userId, peerName) {
+  let wrapper = document.getElementById('video-' + userId);
+  if (wrapper) return wrapper;
+  const grid = document.getElementById('video-grid');
+  if (!grid) return null;
+  wrapper = document.createElement('div');
+  wrapper.className = 'video-item remote';
+  wrapper.id = 'video-' + userId;
+  wrapper.innerHTML = '<video autoplay playsinline></video>' +
+                      '<span class="video-label">' + (peerName || 'Participant') + '</span>' +
+                      '<span class="lite-waiting" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);' +
+                      'color:#94a3b8;font-size:13px;white-space:nowrap">📷 Connecting… · 연결 중…</span>';
+  wrapper.style.position = 'relative';
+  grid.appendChild(wrapper);
+  if (typeof updateGridCount === 'function') updateGridCount();
+  try { if (typeof praiseButtonFor === 'function') praiseButtonFor(wrapper, userId); } catch (e) {}
+  return wrapper;
+}
+
 function handleUserJoined({ userId, username: name, userCount: count }) {
   console.log('[webrtc] user-joined:', userId, name);
   if (count) userCount = count;
   else userCount++;
   updateUserCount();
+  ensureRemoteTile(userId, name);      // 영상이 오기 전에도 칭찬을 줄 수 있게
   createPeerConnection(userId, name, false);
 }
 
@@ -386,20 +414,12 @@ function createPeerConnection(userId, peerName, isInitiator) {
 
   pc.ontrack = (event) => {
     console.log('[webrtc] ★ ontrack! userId:', userId, 'streams:', event.streams.length, 'track:', event.track.kind);
-    let videoEl = document.getElementById('video-' + userId);
-    if (!videoEl) {
-      const grid = document.getElementById('video-grid');
-      const wrapper = document.createElement('div');
-      wrapper.className = 'video-item remote';
-      wrapper.id = 'video-' + userId;
-      wrapper.innerHTML = '<video autoplay playsinline></video><span class="video-label">' + (peerName || 'Participant') + '</span>';
-      grid.appendChild(wrapper);
-      videoEl = wrapper;
-      if (typeof updateGridCount === 'function') updateGridCount();
-      /* ⭐ 칭찬 별점 — 상대(학생) 타일에만, 강사 화면에만 붙는다(app.js 가 역할을 판단) */
-      try { if (typeof praiseButtonFor === 'function') praiseButtonFor(wrapper, userId); } catch (e) {}
-      console.log('[webrtc] 원격 비디오 엘리먼트 생성:', userId);
-    }
+    /* 타일은 이미 입장 시점에 만들어져 있다(ensureRemoteTile). 없으면 여기서 만든다 —
+       한 곳에서만 만들어야 «별 버튼이 두 개» 같은 사고가 안 난다. */
+    const videoEl = ensureRemoteTile(userId, peerName);
+    if (!videoEl) return;
+    /* 영상이 실제로 왔으니 «연결 중…» 안내는 치운다 */
+    try { const w = videoEl.querySelector('.lite-waiting'); if (w) w.remove(); } catch (e) {}
     const videoTag = videoEl.querySelector('video');
     if (event.streams && event.streams[0]) {
       videoTag.srcObject = event.streams[0];
