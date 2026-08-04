@@ -154,7 +154,7 @@
         '<h3 style="margin:0 0 10px;font-size:15px;color:#0f172a">👨‍💼 운영자 문의</h3>' +
         '<div style="padding:14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;margin-bottom:12px">' +
           '<div style="font-size:13px;color:#0c4a6e;font-weight:700;margin-bottom:4px">📧 운영자 이메일</div>' +
-          '<div style="font-size:14px;color:#0369a1;font-family:Consolas,monospace">navy111p@gmail.com</div>' +
+          '<div style="font-size:14px;color:#0369a1;font-family:MangoiHanSC,Consolas,monospace">navy111p@gmail.com</div>' +
         '</div>' +
         '<button type="button" class="ph132-submit" data-action="contact-mail">📨 메일 작성하기</button>' +
         '<p style="font-size:11px;color:#94a3b8;margin:10px 0 0;line-height:1.5">' +

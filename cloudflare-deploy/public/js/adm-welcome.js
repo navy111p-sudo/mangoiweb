@@ -40,9 +40,18 @@
   ];
 
   // 지금 언어에 맞는 슬라이드 이미지 경로. 영어 데크에 해당 장이 없으면 한국어로 폴백(빈 화면 방지).
+  // 🖼 (2026-08-04) .jpg → .webp — 같은 그림인데 용량이 1/3 이다(21장 4.4MB → 1.5MB).
+  //   혹시 .webp 가 없는 그림이 있어도 화면이 비지 않도록, 아래 onErrorFallback 이
+  //   자동으로 원본 .jpg 로 되돌린다(원본 파일은 지우지 않고 그대로 둔다).
   function slideSrc(s) {
-    if (L() === 'en' && s.en_n) return '/guide/admin-easy-en/' + pad(s.en_n) + '.jpg';
-    return '/guide/admin-easy/' + pad(s.n) + '.jpg';
+    if (L() === 'en' && s.en_n) return '/guide/admin-easy-en/' + pad(s.en_n) + '.webp';
+    return '/guide/admin-easy/' + pad(s.n) + '.webp';
+  }
+  // .webp 로드 실패 → 같은 이름의 .jpg 로 한 번만 되돌린다(무한 재시도 방지)
+  function onErrorFallback(el) {
+    if (!el || el.__fellBack) return;
+    el.__fellBack = true;
+    if (typeof el.src === 'string' && /\.webp$/.test(el.src)) el.src = el.src.replace(/\.webp$/, '.jpg');
   }
 
   var idx = 0, root = null, built = false;
@@ -54,7 +63,7 @@
     s.textContent = [
       '#aw-overlay{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;',
       '  padding:16px;background:rgba(10,14,25,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);',
-      "  font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif}",
+      "  font-family:MangoiHanSC,'Malgun Gothic','Apple SD Gothic Neo',sans-serif}",
       '#aw-overlay.aw-on{display:flex;animation:awFade .22s ease}',
       '@keyframes awFade{from{opacity:0}to{opacity:1}}',
       '#aw-card{position:relative;width:100%;max-width:640px;max-height:92vh;overflow:hidden auto;border-radius:22px;',
@@ -184,10 +193,13 @@
     var next = slideSrc(s);
     if (img.getAttribute('src') !== next) {
       img.style.opacity = '0';
+      img.onerror = function () { onErrorFallback(img); img.style.opacity = '1'; };
       var tmp = new Image();
-      tmp.onload = function () { img.src = next; img.style.opacity = '1'; };
+      tmp.onload = function () { img.__fellBack = false; img.src = next; img.style.opacity = '1'; };
+      // .webp 를 못 받으면 원본 .jpg 로 (그림이 안 뜨는 것보다 낫다)
+      tmp.onerror = function () { img.__fellBack = false; img.src = next.replace(/\.webp$/, '.jpg'); img.style.opacity = '1'; };
       tmp.src = next;
-      if (tmp.complete) { img.src = next; img.style.opacity = '1'; }
+      if (tmp.complete) { img.__fellBack = false; img.src = next; img.style.opacity = '1'; }
     }
     root.querySelector('#aw-ctitle').textContent = en ? s.en_t : s.ko_t;
     root.querySelector('#aw-cdesc').textContent = en ? s.en_d : s.ko_d;

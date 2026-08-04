@@ -138,7 +138,7 @@
               <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                   <span style="font-weight:800;font-size:15px">${esc(r.student_name)}</span>
-                  <span style="font-family:monospace;font-size:11px;color:#a3b3d1">${esc(r.user_id)}</span>
+                  <span style="font-family:MangoiHanSC,monospace;font-size:11px;color:#a3b3d1">${esc(r.user_id)}</span>
                   ${r.parent_name ? `<span style="font-size:11px;color:#94a3b8">👪 ${esc(r.parent_name)}${r.parent_phone?' · '+esc(r.parent_phone):''}</span>` : ''}
                 </div>
                 <div style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#cbd5e1">${metrics}</div>

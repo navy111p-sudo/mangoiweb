@@ -8,6 +8,7 @@
 
 
   <meta charset="utf-8" />
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
@@ -178,14 +179,14 @@
           ctx.fillStyle = 'rgba(239,68,68,0.85)';
           ctx.fillRect(20, 20, 130, 30);
           ctx.fillStyle = '#fff';
-          ctx.font = 'bold 16px sans-serif';
+          ctx.font = 'bold 16px MangoiHanSC,sans-serif';
           ctx.fillText('● LIVE REC', 32, 41);
 
           // 우하단 타임스탬프
           ctx.fillStyle = 'rgba(0,0,0,0.7)';
           ctx.fillRect(cvs.width - 240, cvs.height - 40, 220, 30);
           ctx.fillStyle = '#fbbf24';
-          ctx.font = 'bold 13px monospace';
+          ctx.font = 'bold 13px MangoiHanSC,monospace';
           ctx.fillText(new Date().toLocaleString('ko-KR'), cvs.width - 230, cvs.height - 20);
         } catch(e) {
           console.warn('[REC-BOOT] snapshot fail:', e);
@@ -298,7 +299,7 @@
       --border:rgba(139,92,246,0.30); }
     * { box-sizing: border-box; }
     html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
-      font-family:-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      font-family:MangoiHanSC,-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
       line-height: 1.5; min-height: 100vh; }
 
     /* 🎯 우측 상단 컨트롤 바 정리 — 헤더 안 한 줄 정렬 */
@@ -527,7 +528,7 @@
     }
   </style>
   <script src="/js/mango-i18n.js" defer></script>
-<link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강 -->
 <style id="pc-scale">
   /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
   @media (min-width: 1024px) { body { zoom: 1.3; } }
@@ -877,7 +878,7 @@
         const d = await r.json();
         if (d.ok) {
           const win = window.open('', '_blank', 'width=720,height=600');
-          win.document.write('<!doctype html><html><body style="font-family:sans-serif;padding:20px;background:#0a1530;color:#e6ecff;line-height:1.6"><h1>🤖 AI 수업 요약</h1><h2>점수: ' + d.overall_score + '/100</h2><p>' + (d.summary_ko || '') + '</p><h3>강점</h3><ul>' + (d.strengths||[]).map(s=>'<li>'+s+'</li>').join('') + '</ul><h3>보완점</h3><ul>' + (d.weaknesses||[]).map(s=>'<li>'+s+'</li>').join('') + '</ul></body></html>');
+          win.document.write('<!doctype html><html><body style="font-family:MangoiHanSC,sans-serif;padding:20px;background:#0a1530;color:#e6ecff;line-height:1.6"><h1>🤖 AI 수업 요약</h1><h2>점수: ' + d.overall_score + '/100</h2><p>' + (d.summary_ko || '') + '</p><h3>강점</h3><ul>' + (d.strengths||[]).map(s=>'<li>'+s+'</li>').join('') + '</ul><h3>보완점</h3><ul>' + (d.weaknesses||[]).map(s=>'<li>'+s+'</li>').join('') + '</ul></body></html>');
         }
       } catch(e){ alert('AI 분석 실패'); }
     };

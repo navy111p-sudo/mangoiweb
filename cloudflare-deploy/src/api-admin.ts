@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -1896,17 +1897,36 @@ export async function handleAdminApi(
 
       const now = Date.now();
       let applied: string | null = null;
+      let conflictInfo: any = null;   // 겹쳐서 자동 이동을 못 한 경우 사유(한/영)
       if (action === 'approved' && row.schedule_id) {
         try {
           // ⚠️ 운영 스케줄은 대부분 반복(매주, scheduled_date=NULL) — 반복 row 를 덮어쓰면
           //   그 주만이 아니라 모든 주가 바뀌므로, 날짜 지정 수업일 때만 자동 반영한다.
           //   반복 수업은 요청 기록만 영구 보존(applied='recorded') → 시간표에서 수동 조정.
-          const cs: any = await env.DB.prepare(`SELECT scheduled_date FROM class_schedules WHERE id = ? LIMIT 1`).bind(row.schedule_id).first().catch(() => null);
+          const cs: any = await env.DB.prepare(
+            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id FROM class_schedules WHERE id = ? LIMIT 1`
+          ).bind(row.schedule_id).first().catch(() => null);
           const isDated = !!(cs && cs.scheduled_date);
           if (isDated && row.new_date && row.new_time) {
-            await env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
-              .bind(row.new_date, row.new_time, now, row.schedule_id).run();
-            applied = 'moved';
+            // ⛔ (2026-08-04) 옮기기 전에 «그 자리가 비어 있는지» 확인한다.
+            //   여기엔 겹침 검사가 없어서, 강사 요청을 승인하면 다른 수업과 겹쳐도 그대로 옮겨졌다.
+            //   겹치면 옮기지 않고 'conflict' 로 남긴다 — 승인 자체는 그대로 기록되므로
+            //   관리자가 시간표에서 자리를 보고 손으로 옮기면 된다. (조용히 겹치게 두는 것보다 낫다)
+            const conf = await findScheduleConflicts(env, {
+              kind: 'one_off',
+              userId: cs.user_id, teacherId: cs.teacher_id,
+              schedDate: String(row.new_date), startTime: String(row.new_time),
+              durationMin: Number(cs.duration_min) > 0 ? Number(cs.duration_min) : DEFAULT_CLASS_MINUTES,
+              excludeId: row.schedule_id,
+            });
+            if (conf.has) {
+              applied = 'conflict';
+              conflictInfo = { ko: conf.ko, en: conf.en, student: conf.student.length, teacher: conf.teacher.length };
+            } else {
+              await env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
+                .bind(row.new_date, row.new_time, now, row.schedule_id).run();
+              applied = 'moved';
+            }
           } else if (isDated) {
             await env.DB.prepare(`UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`)
               .bind(now, row.schedule_id).run();
@@ -1919,7 +1939,8 @@ export async function handleAdminApi(
       await env.DB.prepare(`UPDATE schedule_change_requests SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ? WHERE id = ?`)
         .bind(action, (body.decided_by || '관리자').trim(), now, (body.memo || '').trim() || null, id).run();
       // 📜 승인으로 수업이 실제 이동/연기된 경우 변경 이력에 기록(거절은 미기록)
-      if (action === 'approved' && applied) {
+      //   'conflict' = 승인은 했으나 그 자리가 겹쳐 «자동 이동을 하지 않은» 상태 → 이력에도 남기지 않는다
+      if (action === 'approved' && applied && applied !== 'conflict') {
         await writeClassAudit(env, {
           action: applied === 'moved' ? 'reschedule' : 'postpone',
           schedule_id: row.schedule_id,
@@ -1934,7 +1955,11 @@ export async function handleAdminApi(
           detail: (row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null),
         });
       }
-      return json({ ok: true, id, status: action, applied, decided_at: now });
+      return json({
+        ok: true, id, status: action, applied, decided_at: now,
+        // 겹쳐서 자동 이동을 못 했으면 화면이 그 사유를 그대로 보여줄 수 있게 함께 내려준다
+        ...(conflictInfo ? { conflict: conflictInfo, message: conflictInfo.ko, message_en: conflictInfo.en } : {}),
+      });
     }
 
     // ── GET /api/admin/classes/today — 📅 오늘 수업 전체 (매니저용) ──
@@ -4394,67 +4419,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       //     강사 겹침에서 제외한다. 막으면 멀쩡한 합반 등록이 깨진다.
       //   응답 코드는 기존과 같은 'conflict' 를 유지한다 → 화면(admin/student.html)이
       //     이미 409+conflict 를 확인창으로 처리하고 있어 프론트 수정이 필요 없다.
-      const toMinLocal = (hhmm: string) => {
-        const [h, m] = String(hhmm || '00:00').split(':').map(Number);
-        return (h || 0) * 60 + (m || 0);
-      };
-      const newStart = toMinLocal(startTime);
-      const newEnd = newStart + durationMin;
-      const rowOverlaps = (rowStart: any, rowDur: any) => {
-        const s = toMinLocal(String(rowStart || '00:00'));
-        const e = s + (Number(rowDur) > 0 ? Number(rowDur) : 30);
-        return newStart < e && s < newEnd;   // 반개구간 [start, end)
-      };
-      const rowHitsDay = (row: any) => {
-        if (kind !== 'recurring') return true;   // 일회성은 SQL 에서 이미 같은 날짜로 좁혔다
-        for (const p of String(row.day_of_week ?? '').split(/[,\s]+/)) {
-          const n = toDow(p);
-          if (n != null && days.includes(n)) return true;
-        }
-        return false;
-      };
-      const activeRowsBy = async (col: 'user_id' | 'teacher_id', val: string): Promise<any[]> => {
-        if (!val) return [];
-        try {
-          if (kind === 'recurring') {
-            const rs = await env.DB.prepare(
-              `SELECT id, day_of_week, start_time, duration_min, user_id, teacher_id FROM class_schedules
-                WHERE ${col} = ? AND status = 'active' AND schedule_kind = 'recurring'`
-            ).bind(val).all<any>();
-            return rs.results || [];
-          }
-          const rs = await env.DB.prepare(
-            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id FROM class_schedules
-              WHERE ${col} = ? AND status = 'active' AND scheduled_date = ?`
-          ).bind(val, schedDate).all<any>();
-          return rs.results || [];
-        } catch { return []; }
-      };
-
-      const conflicts: any[] = [];
-      const teacherConflicts: any[] = [];
-      for (const row of await activeRowsBy('user_id', userId)) {
-        if (!rowHitsDay(row) || !rowOverlaps(row.start_time, row.duration_min)) continue;
-        conflicts.push({ id: row.id, day_of_week: row.day_of_week, scheduled_date: row.scheduled_date, start_time: row.start_time, duration_min: row.duration_min });
-      }
-      for (const row of await activeRowsBy('teacher_id', teacherId)) {
-        if (!rowHitsDay(row) || !rowOverlaps(row.start_time, row.duration_min)) continue;
-        if (String(row.user_id ?? '') === String(userId)) continue;          // 학생 충돌에서 이미 셌다
-        const sameSlot = String(row.start_time) === String(startTime)
-          && (Number(row.duration_min) > 0 ? Number(row.duration_min) : 30) === durationMin;
-        if (sameSlot) continue;                                             // 합반(그룹) 수업 — 정상
-        teacherConflicts.push({ id: row.id, day_of_week: row.day_of_week, scheduled_date: row.scheduled_date, start_time: row.start_time, duration_min: row.duration_min, user_id: row.user_id });
-      }
-
-      if ((conflicts.length || teacherConflicts.length) && !body.force) {
-        const ko = conflicts.length
-          ? '이 학생에게 시간이 겹치는 예약이 이미 있습니다.'
-          : '이 강사에게 시간이 겹치는 다른 수업이 이미 있습니다. (같은 시각 합반이 아니라 시간이 어긋나게 겹칩니다 — 강사가 동시에 두 수업에 들어갈 수 없습니다)';
-        const en = conflicts.length
-          ? 'This student already has a class overlapping this time.'
-          : 'This teacher already has another class overlapping this time — not a same-slot group class, so the teacher cannot attend both.';
-        return bad('conflict', ko + ' 그래도 등록하려면 다시 확인해 주세요.', en + ' Confirm again to register anyway.',
-          { conflicts, teacher_conflicts: teacherConflicts }, 409);
+      //   판정은 schedule-conflict.ts 한 곳에만 둔다 — 경로마다 복사하면 또 어긋난다.
+      const conf = await findScheduleConflicts(env, {
+        kind, userId, teacherId, days, schedDate, startTime, durationMin,
+      });
+      if (conf.has && !body.force) {
+        return bad('conflict', conf.ko + ' 그래도 등록하려면 다시 확인해 주세요.', conf.en + ' Confirm again to register anyway.',
+          { conflicts: conf.student, teacher_conflicts: conf.teacher }, 409);
       }
 
       // ── 🚫 강사 근무불가(휴가·휴식시간) 검사 — 강사 피드백(2026-07-24):
@@ -4537,7 +4508,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
 
       return json({
-        ok: true, created, failed, conflicts,
+        ok: true, created, failed,
+        // force:true 로 겹침을 무릅쓰고 등록한 경우, 무엇과 겹쳤는지 그대로 돌려준다
+        conflicts: conf.student, teacher_conflicts: conf.teacher,
         user_id: userId, student_name: studentName || null,
         teacher_id: teacherId || null, teacher_name: teacherName, teacher_matched: teacherMatched,
         schedule_kind: kind, start_time: startTime, duration_min: durationMin,

@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
@@ -23,7 +24,7 @@
     radial-gradient(1200px 600px at 80% -10%,rgba(59,130,246,.08),transparent 60%),
     radial-gradient(900px 500px at -10% 10%,rgba(168,85,247,.07),transparent 55%),
     var(--bg);
-    color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Pretendard",sans-serif;font-size:14px;-webkit-text-size-adjust:100%}
+    color:var(--fg);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Pretendard",sans-serif;font-size:14px;-webkit-text-size-adjust:100%}
   a{color:inherit;text-decoration:none}
   header.top{min-height:58px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 16px;border-bottom:1px solid var(--bd);background:rgba(11,18,32,.82);backdrop-filter:saturate(160%) blur(12px);position:sticky;top:0;z-index:50}
   header.top h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.4px;display:flex;align-items:center;gap:8px}
@@ -163,7 +164,7 @@
     }catch(e){ document.documentElement.setAttribute('data-theme','dark'); }
   })();
 </script>
-<link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강 -->
 <style id="pc-scale">
   /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
   @media (min-width: 1024px) { body { zoom: 1.3; } }

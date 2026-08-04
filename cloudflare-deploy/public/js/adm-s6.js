@@ -96,7 +96,7 @@
         <tbody>${rows.map(r => `<tr style="border-bottom:1px solid #e5e7eb">
           <td style="padding:8px;color:#6b7280;font-size:11px">${fmtKDate(r.received_at)}</td>
           <td style="padding:8px"><b>${escFn(r.sender_name||'-')}</b><br><span style="color:#9ca3af;font-size:11px">${escFn(r.sender_phone||'')}</span></td>
-          <td style="padding:8px;font-family:monospace;color:#3b82f6">${escFn(r.mapped_user_id||'미매핑')}</td>
+          <td style="padding:8px;font-family:MangoiHanSC,monospace;color:#3b82f6">${escFn(r.mapped_user_id||'미매핑')}</td>
           <td style="padding:8px;color:#1f2937">${escFn(r.message||'')}</td>
         </tr>`).join('')}</tbody></table>`;
     } catch(e) {

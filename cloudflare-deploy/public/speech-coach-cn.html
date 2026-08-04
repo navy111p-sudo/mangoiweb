@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B1224">
 <title>🇨🇳 중국어 발음 교정 — 중국어 마스터 + Lv 1~20</title>
-<!-- BUILD:20260804085001 -->
+<!-- BUILD:20260804092314 -->
 <style>
 :root {
   --bg: #0B1224;
@@ -168,13 +168,29 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
   .main-card .pinyin{font-size:14px}
   .lvl-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
 }
+
+/* ⬅ 뒤로가기 화살표 자리 (2026-08-04 사장님 지시: 상단은 화살표 하나만, 제목과 겹치지 않게)
+   back-nav.js 의 ← 는 position:fixed 라 문서 흐름을 밀지 못해, 빨강·금색 헤더 카드
+   왼쪽 위 모서리에 그대로 얹혀 "🇨🇳 중국어 발음 교정" 제목을 가렸다.
+   한국어판(speech-coach.html)은 "폰에서 스크롤 없이 한 화면"이 대전제라 가로로 비켰지만,
+   이 화면은 레벨 목록이라 어차피 스크롤된다 → 세로로 자리를 낸다. 그러면 화살표가
+   카드 위가 아니라 배경 위에 홀로 놓여 한국어판과 같은 모양이 된다.
+   🪤 화살표 크기가 폭에 따라 달라진다 — back-nav.js 는 innerWidth<=480 에서만
+      34px(top 8, 아래끝 42), 그 위로는 38px(top 14, 아래끝 52)를 쓴다.
+      경계를 600px 로 잡으면 481~600px 구간에서 2px 겹친다. 반드시 480px 로 나눌 것.
+   폭 1000px 초과에서는 .wrap(max-width 900)이 가운데로 물러나 화살표와 가로로 안 만난다. */
+@media (max-width:1000px){ .wrap{padding-top:60px} }
+@media (max-width:480px){ .wrap{padding-top:50px} }
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <header class="hero">
-  <a class="home" href="/" onclick="event.preventDefault();try{location.replace('/?_h='+Date.now());}catch(e){location.href='/';}return false;">🏠 홈</a>
+  <!-- 🏠 홈 버튼 제거 (2026-08-04 사장님 지시, 한국어판 speech-coach.html 과 동일) —
+       ← 로 나가면 바로 앞이 곧 홈이라 같은 일을 하는 버튼이 둘이었다.
+       ↳ 되살리려면 이 자리에 <a class="home" href="/">🏠 홈</a> 을 다시 넣으면 된다
+         (header.hero .home 스타일은 그대로 남겨 뒀다). -->
   <h1><span class="ico">🇨🇳</span>중국어 발음 교정</h1>
   <p class="sub">중국어 마스터 + Lv 1~20 · AI 음성 인식 + 원어민 비교</p>
 </header>
