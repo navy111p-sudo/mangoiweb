@@ -104,6 +104,42 @@ async function acquireLocalMedia() {
 /* 「연결 중」 표시 — index.html 첫 조각에 인라인으로 있다. 없으면 조용히 무시한다. */
 const _boot = (t, p) => { try { if (window.bootStep) window.bootStep(t, p); } catch (e) {} };
 
+/* ── 정규 수업이면 출결·발화시간을 기록한다 ──
+   🔴 (2026-08-05) 이 화면은 출결 API 를 하나도 부르지 않았다. 회의방일 땐 상관없지만,
+      정규 예약 수업(class-…)을 이 화면으로 하면 «수업은 되는데 기록이 안 남는» 상태가 된다.
+      출결·발화시간은 강사료 정산과 학부모 리포트의 근거라, 조용히 비면 한 달 뒤 정산 때 발견된다.
+      (정식 화면은 /js/mango-attendance.js 가 그 일을 하는데, 이 화면은 그걸 안 실었다.)
+   → 방 번호가 class- 로 시작할 때만 그 파일(16KB)을 불러 붙인다.
+      회의방(meet-)·공용방은 예전 그대로 한 바이트도 더 받지 않는다.
+   ⚠️ 그 모듈은 body.vc-in-call 을 감시해 스스로 켜지는데, 이 화면엔 그 클래스가 없다.
+      그래서 공개 API(MangoAttendance.start)로 «직접» 켠다. 클래스를 흉내 내지 않는다 —
+      흉내 내면 정식 화면 전용 코드가 같이 깨어날 위험이 있다. */
+function maybeStartAttendance() {
+  try {
+    if (!/^class-/.test(String(roomId || ''))) return;   // 회의방·공용방은 기록 대상이 아니다
+    const sp = new URLSearchParams(location.search);
+    const uid  = (sp.get('uid') || sp.get('user_id') || '').trim();
+    const role = (sp.get('role') || sp.get('vc_role') || '').trim().toLowerCase();
+    if (!uid) { console.warn('[attendance] 링크에 uid 가 없어 기록 생략 — 수업 입장 버튼이 넣어 줘야 한다'); return; }
+    /* join 본문의 role 은 모듈이 localStorage(mango_role)에서 읽는다 — 정식 화면과 같은 규칙이다.
+       링크가 명시한 경우에만 맞춰 준다. 임의로 덮으면 공용 PC 에서 남의 역할이 남는다. */
+    if (role === 'teacher' || role === 'student') { try { localStorage.setItem('mango_role', role); } catch (e) {} }
+    const s = document.createElement('script');
+    s.src = '/js/mango-attendance.js?v=1';
+    s.onload = function () {
+      try {
+        window.MangoAttendance.start({
+          roomId: roomId, userId: uid, username: username,
+          stream: localStream, role: role || 'student'
+        });
+        console.log('[attendance] 경량 화면에서 출결 기록 시작:', roomId, uid, role);
+      } catch (e) { console.warn('[attendance] 시작 실패:', e); }
+    };
+    s.onerror = function () { console.warn('[attendance] 스크립트 로드 실패 — 수업은 계속된다'); };
+    document.head.appendChild(s);
+  } catch (e) { console.warn('[attendance] 예외:', e); }
+}
+
 async function joinRoom() {
   username = $usernameInput.value.trim() || ('사용자' + Math.floor(Math.random() * 1000));
   // fix (2026-06-01) — 비우면 랜덤 방이 아니라 공용 수업방(mangoi-class)으로 입장 → 교사·학생이 같은 방에서 만남
@@ -135,6 +171,8 @@ async function joinRoom() {
   /* 화면이 실제로 바뀐 뒤에 「연결 중」을 치운다 — 먼저 치우면 흰 화면이 한 번 스친다 */
   _boot('거의 다 됐어요 · Almost there', 95);
   setTimeout(() => { try { if (window.bootDone) window.bootDone(); } catch (e) {} }, 300);
+
+  maybeStartAttendance();   // 정규 수업(class-…)이면 출결·발화시간 기록을 붙인다
 
   initWhiteboard();
   initChat();
@@ -415,6 +453,11 @@ document.getElementById('leave-btn').addEventListener('click', async () => {
       console.log('[auto-record] 업로드 결과:', result);
     }
   } catch (e) { console.warn('[auto-record] 중지/업로드 예외:', e); }
+
+  /* 출결 마감 — 여기서 확정해야 발화시간(total_active_ms)이 서버에 남는다.
+     pagehide/beforeunload 안전망도 모듈 안에 있지만, 나가기 버튼은 «정상 종료» 라
+     beacon 이 확실히 나가도록 명시적으로 닫는다. */
+  try { if (window.MangoAttendance) window.MangoAttendance.stop({ useBeacon: true }); } catch (e) {}
 
   localStream.getTracks().forEach(t => t.stop());
   if (ws) ws.close();
