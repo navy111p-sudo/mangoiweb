@@ -4320,7 +4320,7 @@ async function teacherPortalRedirect(
   if (!isTeacherPage && !isAdminHome && !isTeacherApi) return null;
   if (url.searchParams.get('full') === '1') return null;   // 탈출구
 
-  let actor: { ok: boolean; isTeacher: boolean };
+  let actor: { ok: boolean; isTeacher: boolean; role: string };
   try {
     actor = await getAdminActor(request, env as any);
   } catch (e) {
@@ -4329,20 +4329,32 @@ async function teacherPortalRedirect(
   }
   if (!actor.ok) return null;                               // 미인증은 세션 미들웨어가 이미 처리
 
+  // 🇵🇭 (2026-08-05 사장님 지시) 본사 매니저도 이 가벼운 화면을 쓴다.
+  //   경위: mgr_melca·mgr_maimai·mgr_karl 은 scope_type='hq' → isTeacher=false 라
+  //   아래 분기에 걸려 **1MB admin.html 로 되튕겼다.** 그래서 이 화면에 만들어 둔
+  //   문제 신고·PC 사양·본사 공지·카운트다운·자동 갱신이 정작 그것을 요청한
+  //   필리핀 매니저들에게 하나도 닿지 않았다(요청 13·21 "페이지가 무겁다"의 실체).
+  //   ⚠️ 권한이 늘어나는 변경이 아니다 — hq 는 admin.html 에서 이미 전부 본다.
+  //      같은 정보를 가볍게 보는 창을 하나 더 주는 것뿐이다.
+  //   ⚠️ 외부 조직(agency·branch·franchise)은 여기에 넣지 않는다. 그들은 남의 학원
+  //      수업 현황을 보면 안 되고, 위쪽 미들웨어가 이미 /admin/exec 로 가둔다.
+  const isHqStaff = (actor.role === 'hq' || actor.role === 'staff');
+
   // 강사 → 관리자 첫 화면 대신 강사 포털로
+  //   (매니저는 여기에 걸리지 않는다 — 관리자 화면이 그들의 주 업무 도구다)
   if (actor.isTeacher && isAdminHome) {
     return Response.redirect(new URL('/teacher', request.url).toString(), 302);
   }
-  // 비-강사 → 강사 포털은 볼 것이 없다(본인 수업이 없으므로 빈 화면). 관리자 화면으로.
-  if (!actor.isTeacher && isTeacherPage) {
+  // 강사도 본사도 아닌 계정 → 강사 포털은 볼 것이 없다. 관리자 화면으로.
+  if (!actor.isTeacher && !isHqStaff && isTeacherPage) {
     return Response.redirect(new URL('/admin.html?full=1', request.url).toString(), 302);
   }
   // API 는 리다이렉트가 아니라 403 — fetch() 가 로그인 HTML 을 JSON 으로 파싱하다 죽지 않게.
-  if (!actor.isTeacher && isTeacherApi) {
+  if (!actor.isTeacher && !isHqStaff && isTeacherApi) {
     return new Response(JSON.stringify({
       ok: false, error: 'not_a_teacher',
-      message: '강사 계정만 사용할 수 있습니다.',
-      message_en: 'Teacher accounts only.',
+      message: '강사 또는 본사 계정만 사용할 수 있습니다.',
+      message_en: 'Teacher or head-office accounts only.',
     }), { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
   return null;

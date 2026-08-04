@@ -68,11 +68,19 @@ export async function handleTeacherApi(
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
   if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-  if (!actor.isTeacher) {
+
+  // 🇵🇭 (2026-08-05) 본사 매니저도 이 화면을 쓴다. 필리핀 매니저(Melca·Maimai·Karl)는
+  //   수업을 하지 않고 관리·IT 업무를 하지만, 하루 종일 붙잡고 있을 가벼운 화면이
+  //   하나도 없어서 1MB 관리자 화면에 갇혀 있었다. 아주 급할 때 커버 수업도 한다.
+  //   ⚠️ 매니저는 배정 수업이 0건이라 그대로 열면 빈 화면이 된다 → 아래에서 manager 블록을
+  //      따로 실어 보낸다(오늘 전체 수업·노쇼). 커버 수업이 잡힌 날은 classes 에 그냥 뜬다
+  //      (teachers 에 MELCA·MAIMAI·KARL 행이 있고, 아래 이름 매칭이 그것을 잡는다).
+  const isManager = !actor.isTeacher && (actor.role === 'hq' || actor.role === 'staff');
+  if (!actor.isTeacher && !isManager) {
     return json({
       ok: false, error: 'not_a_teacher',
-      message: '강사 계정만 사용할 수 있는 화면입니다.',
-      message_en: 'This page is for teacher accounts only.',
+      message: '강사 또는 본사 계정만 사용할 수 있는 화면입니다.',
+      message_en: 'This page is for teacher or head-office accounts only.',
     }, 403);
   }
 
@@ -235,6 +243,64 @@ export async function handleTeacherApi(
     } catch { /* 밴드 조회 실패가 오늘 수업 표시를 막지 않는다 */ }
   }
 
+  // ── 🧑‍💼 매니저 전용 블록 (강사에게는 조회 자체를 안 한다 = 강사 화면은 1바이트도 안 무거워짐) ──
+  //   매니저가 하루 종일 확인하는 것 두 가지만 담는다: 오늘 수업이 도는가 · 사고가 났는가.
+  //   차트·집계 없음. 숫자와 목록뿐이라 응답이 몇 KB 를 넘지 않는다.
+  let manager: any = null;
+  if (isManager) {
+    const dayStartMs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;   // 오늘 00:00 KST 를 UTC ms 로
+    const OPEN_BEFORE = 10 * 60 * 1000, LATE_AFTER = 15 * 60 * 1000;
+    const [allRs, nsRs] = await Promise.all([
+      env.DB.prepare(
+        `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date,
+                cs.start_time, cs.duration_min, cs.teacher_id, t.name AS teacher_name
+           FROM class_schedules cs
+           LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
+          WHERE cs.status != 'cancelled' AND cs.user_id NOT IN ('lms','type_seed')`
+      ).all<any>().catch((e) => { console.warn('[teacher-portal] mgr classes:', e?.message); return empty; }),
+      env.DB.prepare(
+        `SELECT id, missing_role, student_name, teacher_name, waited_min, created_at
+           FROM class_no_show WHERE created_at >= ? ORDER BY created_at DESC LIMIT 20`
+      ).bind(dayStartMs).all<any>()
+       .catch((e) => { console.warn('[teacher-portal] mgr no-show:', e?.message); return empty; }),
+    ]);
+
+    const today: any[] = [];
+    for (const s of (allRs.results || [])) {
+      const occurs = s.scheduled_date
+        ? (s.scheduled_date === todayStr)
+        : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow));
+      if (!occurs) continue;
+      const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+      const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;
+      const end_ts = start_ts + (Number(s.duration_min) || 30) * 60000;
+      today.push({
+        schedule_id: s.id,
+        start_time: `${pad(hh || 0)}:${pad(mm || 0)}`,
+        start_ts, end_ts,
+        teacher_name: s.teacher_name || s.teacher_id || null,
+        student_name: s.student_name || null,
+        live: (now >= start_ts - OPEN_BEFORE && now <= end_ts + LATE_AFTER),
+        done: (now > end_ts + LATE_AFTER),
+      });
+    }
+    today.sort((a, b) => a.start_ts - b.start_ts);
+
+    manager = {
+      total: today.length,
+      live: today.filter((c) => c.live && !c.done).length,
+      upcoming: today.filter((c) => now < c.start_ts - OPEN_BEFORE).length,
+      done: today.filter((c) => c.done).length,
+      // 지금 도는 것과 다음에 올 것만 — 전체 목록을 다 내리면 매니저도 눈으로 훑어야 한다.
+      now_list: today.filter((c) => c.live && !c.done).slice(0, 12),
+      next_list: today.filter((c) => now < c.start_ts - OPEN_BEFORE).slice(0, 8),
+      no_shows: (nsRs.results || []).map((n: any) => ({
+        id: n.id, missing_role: n.missing_role, student_name: n.student_name,
+        teacher_name: n.teacher_name, waited_min: n.waited_min, created_at: n.created_at,
+      })),
+    };
+  }
+
   // ── 위 Promise.all 결과를 화면용 모양으로 정리 (여기서는 DB 접근 없음) ──
   const notices = (noticeRs.results || []).map((n: any) => ({
     id: n.id, title: n.title, pinned: !!n.pinned, created_at: n.created_at,
@@ -273,17 +339,27 @@ export async function handleTeacherApi(
   //   새 한국어권 강사가 생기면 아래 목록에 아이디를 추가할 것.
   const KOREAN_SPEAKING_TEACHERS = ['hq_t_kang'];
   const _uid = String(actor.username || '').toLowerCase();
-  const lang =
-    (KOREAN_SPEAKING_TEACHERS.indexOf(_uid) >= 0
-      // '중국어 …' 표기는 중국어 과정 담당(한국어권)에게만 붙는다 —
-      // 필리핀 강사 이름에는 절대 나올 수 없어 오판 위험이 없다.
-      || /중국어/.test(tname))
-      ? 'ko' : 'en';
+  //   🧑‍💼 매니저는 강사와 규칙이 다르다. 필리핀 매니저 계정은 `mgr_` 접두사로 만들어져 있고
+  //      (mgr_melca·mgr_maimai·mgr_karl, 2026-08-05 운영 DB 확인) 전원 영어권이다.
+  //      그 외 본사 계정(한국 직원)은 한국어가 기본이다.
+  //      ⚠️ 이름에 한글이 있는지로 판정하면 안 된다 — 계정명이 "Melca (본사 매니저)" 라
+  //         한글이 섞여 있어, 영어만 읽는 매니저가 한국어 화면에 갇힌다.
+  const lang = isManager
+    ? (/^mgr_/.test(_uid) ? 'en' : 'ko')
+    : ((KOREAN_SPEAKING_TEACHERS.indexOf(_uid) >= 0
+        // '중국어 …' 표기는 중국어 과정 담당(한국어권)에게만 붙는다 —
+        // 필리핀 강사 이름에는 절대 나올 수 없어 오판 위험이 없다.
+        || /중국어/.test(tname))
+        ? 'ko' : 'en');
 
   return json({
     ok: true,
     now, today: todayStr,
-    me: { username: actor.username, name: actor.name, role: actor.role, is_teacher: true, lang },
+    me: {
+      username: actor.username, name: actor.name, role: actor.role,
+      is_teacher: !isManager, is_manager: isManager, lang,
+    },
     classes, notices, resources, rating,
+    ...(manager ? { manager } : {}),
   });
 }

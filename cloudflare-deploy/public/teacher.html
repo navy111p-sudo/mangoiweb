@@ -206,6 +206,9 @@ body{
   display:inline-block;background:#0b7a3d;color:#fff;border-radius:20px;
   padding:3px 10px;font-size:12px;font-weight:700;margin-left:6px;cursor:pointer;
 }
+/* 🧑‍💼 매니저 노쇼 목록의 한 줄 */
+.nsrow{padding:7px 0;border-top:1px solid #f0e0c0}
+.nsrow:first-child{border-top:0}
 
 /* ══ 🌙 다크 모드 (요청 24번) ═════════════════════════════════════════════
    기존 규칙은 한 줄도 안 건드리고 여기서 색만 덮어쓴다 — 밝은 모드에 사고 여지를
@@ -247,7 +250,9 @@ html[data-t="dark"] .card.alert{background:#2b2410;border-color:#6b5417}
 html[data-t="dark"] .card.alert > h2,
 html[data-t="dark"] .sum,
 html[data-t="dark"] .warnline{color:#f6d47a}
-html[data-t="dark"] .draft{border-top-color:#4a3f1e}
+html[data-t="dark"] .draft,
+html[data-t="dark"] .nsrow{border-top-color:#4a3f1e}
+html[data-t="dark"] .nsrow b{color:#f6d47a}
 html[data-t="dark"] .draft-txt{background:#171e26;border-color:#4a3f1e;color:#e6ecf2}
 html[data-t="dark"] .modal{background:#171e26}
 html[data-t="dark"] .fld input,
@@ -307,7 +312,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   </div>
 
   <div class="card" id="c-classes" hidden>
-    <h2><span data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small><span id="cls-new"></span></h2>
+    <h2><span id="cls-title" data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small><span id="cls-new"></span></h2>
     <!-- ⏳ 다음 수업 한 건만 크게 (요청 2번). 남은 수업이 없으면 통째로 숨는다. -->
     <div class="nextup" id="nextup" hidden>
       <div class="nu-box">
@@ -317,6 +322,23 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
       <div class="nu-c" id="nu-count"></div>
     </div>
     <div id="classes"></div>
+  </div>
+
+  <!-- 🧑‍💼 매니저 전용 — 서버가 manager 블록을 줄 때만 뜬다.
+       강사 응답에는 이 데이터가 아예 없으므로 강사 화면은 1바이트도 안 무거워진다. -->
+  <div class="card" id="c-mgr" hidden>
+    <h2><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span> <small id="mgr-count"></small></h2>
+    <div class="kpis">
+      <div class="kpi"><b id="m-live">–</b><span data-en="In class now" data-ko="진행 중">In class now</span></div>
+      <div class="kpi"><b id="m-next">–</b><span data-en="Still to come" data-ko="남은 수업">Still to come</span></div>
+      <div class="kpi"><b id="m-done">–</b><span data-en="Finished" data-ko="완료">Finished</span></div>
+    </div>
+    <div id="mgr-list"></div>
+  </div>
+
+  <div class="card alert" id="c-mgr-ns" hidden>
+    <h2 data-en="No-shows today" data-ko="오늘 노쇼 (미입장)">No-shows today</h2>
+    <div id="mgr-ns"></div>
   </div>
 
   <div class="card" id="c-dash" hidden>
@@ -626,13 +648,23 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     document.getElementById('hi').firstChild.nodeValue = T('Hello, ', '안녕하세요, ') + nm;
     document.getElementById('today').textContent = d.today + ' (KST)';
 
+    // 🧑‍💼 매니저인가 — 수업 목록의 뜻이 통째로 달라진다(내 수업 → 내 커버 수업).
+    IS_MGR = !!(d.me && d.me.is_manager);
+    if (IS_MGR){
+      var ct = document.getElementById('cls-title');
+      ct.setAttribute('data-en', 'My cover classes');
+      ct.setAttribute('data-ko', '내 커버 수업');
+    }
+
     renderClasses(d.classes || []);
     renderNotices(d.notices || []);
     renderResources(d.resources || []);
+    renderManager(d.manager);
 
     var rt = d.rating || {};
     document.getElementById('k-rate').textContent = rt.avg != null ? (rt.avg + ' / 5') : '–';
-    document.getElementById('c-dash').hidden = false;
+    // 완료수업·페널티·평점은 강사 본인 지표다. 매니저에게는 늘 비어 있어 오해만 만든다.
+    document.getElementById('c-dash').hidden = IS_MGR;
     applyLang();
     // applyLang 이 data-en 을 되쓰므로, 동적으로 채운 값은 그 뒤에 다시 넣는다.
     // 🔢 개수는 **진짜 망고아이 수업만** 센다. LMS 점유 슬롯·시드까지 세면
@@ -647,6 +679,63 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     document.getElementById('cls-count').textContent = real ? '(' + real + ')' : '';
   }
 
+  var IS_MGR = false;   // 본사 매니저로 열었는가 (서버 판정. 화면에서 추측하지 않는다)
+
+  // ── 🧑‍💼 매니저 화면 ──────────────────────────────────────────────────────
+  //   매니저(Melca·Maimai·Karl)는 수업을 하지 않아 «오늘의 수업»이 늘 비어 있다.
+  //   그들이 하루 종일 확인하는 것 둘만 올린다: 수업이 도는가 · 사고가 났는가.
+  //   차트 없음, 애니메이션 없음 — 이 화면의 규칙 그대로.
+  function mgrRows(list, title, pill){
+    if (!list || !list.length) return '';
+    var h = '<div class="mini" style="font-weight:700;margin-top:10px">' + esc(title) + '</div>';
+    for (var i=0;i<list.length;i++){
+      var c = list[i];
+      h += '<div class="cls">'
+        +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+        +   '<div class="cls-main">'
+        +     '<div class="cls-name">' + esc(c.teacher_name || T('(no teacher)','(강사 미지정)'))
+        +       (pill ? ' <span class="pill ' + pill + '">' + esc(pill === 'p-live' ? T('NOW','진행중') : T('Soon','예정')) + '</span>' : '')
+        +     '</div>'
+        +     '<div class="cls-meta">' + esc(c.student_name || T('(no student)','(학생 미지정)')) + '</div>'
+        +   '</div>'
+        + '</div>';
+    }
+    return h;
+  }
+
+  function renderManager(m){
+    var box = document.getElementById('c-mgr'), ns = document.getElementById('c-mgr-ns');
+    if (!m){ box.hidden = true; ns.hidden = true; return; }
+    box.hidden = false;
+    document.getElementById('mgr-count').textContent = m.total ? '(' + m.total + ')' : '';
+    document.getElementById('m-live').textContent = m.live;
+    document.getElementById('m-next').textContent = m.upcoming;
+    document.getElementById('m-done').textContent = m.done;
+    document.getElementById('mgr-list').innerHTML =
+        mgrRows(m.now_list,  T('In class now', '지금 진행 중'), 'p-live')
+      + mgrRows(m.next_list, T('Coming up',    '다음 수업'),    'p-soon')
+      + ((!m.total) ? '<div class="empty">' + esc(T('No classes scheduled today.', '오늘 예정된 수업이 없습니다.')) + '</div>' : '');
+
+    // 노쇼는 «있을 때만» 뜬다. 늘 떠 있는 빈 카드는 곧 아무도 안 본다.
+    var list = m.no_shows || [];
+    ns.hidden = !list.length;
+    if (!list.length) return;
+    var h = '';
+    for (var i=0;i<list.length;i++){
+      var n = list[i];
+      var who = (n.missing_role === 'teacher') ? T('Teacher did not join', '강사 미입장')
+              : (n.missing_role === 'student') ? T('Student did not join', '학생 미입장')
+              : T('Someone did not join', '미입장');
+      // ⚠️ 구분선을 인라인 style 로 주면 다크 모드가 못 덮는다(인라인이 이긴다) → 클래스로.
+      h += '<div class="mini nsrow">'
+        +   '<b>' + esc(who) + '</b> &middot; '
+        +   esc([n.teacher_name, n.student_name].filter(Boolean).join(' / ') || '-')
+        +   (n.waited_min ? ' &middot; ' + esc(T('waited ' + n.waited_min + ' min', n.waited_min + '분 대기')) : '')
+        + '</div>';
+    }
+    document.getElementById('mgr-ns').innerHTML = h;
+  }
+
   var lastSig = null;   // 마지막으로 그린 상태의 지문 (불필요한 재그리기 차단)
 
   function renderClasses(list){
@@ -654,10 +743,15 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     document.getElementById('c-classes').hidden = false;
     renderNextUp(list);   // ⏳ 다음 수업 스트립은 지문 검사 바깥 — 1초마다 따로 갱신된다
     if (!list.length){
-      if (lastSig === 'empty') return;
-      lastSig = 'empty';
+      // 지문에 언어·역할을 넣는다 — 넣지 않으면 언어를 바꿔도 이 문장만 옛 언어로 남는다.
+      var esig = 'empty|' + LANG + (IS_MGR ? '|m' : '|t');
+      if (lastSig === esig) return;
+      lastSig = esig;
       box.innerHTML = '<div class="empty">' +
-        esc(T('No classes scheduled today. Enjoy your day!', '오늘 예정된 수업이 없습니다.')) + '</div>';
+        esc(IS_MGR
+          ? T('No cover class assigned to you today. If one is assigned, it appears here by itself.',
+              '오늘 배정된 커버 수업이 없습니다. 배정되면 여기에 저절로 나타납니다.')
+          : T('No classes scheduled today. Enjoy your day!', '오늘 예정된 수업이 없습니다.')) + '</div>';
       return;
     }
     var t = now(), h = '';
@@ -1368,6 +1462,8 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         renderClasses(d.classes || []);
         renderNotices(d.notices || []);
         paintClassCount(d.classes);
+        // 매니저에게는 이쪽이 본체다 — 진행 중 수업과 노쇼가 45초마다 저절로 갱신된다.
+        renderManager(d.manager);
         knownRooms = after;
 
         // 새 수업 배지. **강사가 직접 누르기 전까지 안 지운다** —
@@ -1404,6 +1500,6 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   scheduleAutoRefresh(AR_MIN);
 })();
 </script>
-<!-- BUILD:20260805044911 -->
+<!-- BUILD:20260805050602 -->
 </body>
 </html>
