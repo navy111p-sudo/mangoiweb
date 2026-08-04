@@ -22,6 +22,12 @@
   let composeCanvas = null;
   let composeCtx = null;
   let composeRafId = null;
+  let composeTickAt = 0;        // 마지막으로 «실제로 그린» 시각 — rAF 정지 감지용
+  let composeKeepAlive = null;  // rAF 가 멎었을 때 대신 그리는 타이머
+  // 📉 녹화 정체 감시 — 데이터가 사실상 안 쌓이면 선생님께 눈에 보이게 알린다
+  let recTotalBytes = 0, stallBytesMark = 0, stallTimer = null, isStalled = false;
+  // 정상 녹화는 초당 100KB 안팎. 30초에 300KB(=초당 10KB) 도 못 채우면 «사실상 안 찍히는» 것.
+  const STALL_WINDOW_MS = 30000, STALL_MIN_BYTES = 300 * 1024;
   let audioCtx = null;
   let audioDest = null;
   let recBadge = null;
@@ -439,9 +445,23 @@
       ctx.font = 'bold 14px MangoiHanSC,sans-serif';
       ctx.fillText('● REC ' + mm + ':' + ss + '  👤' + vidCount + '명', composeCanvas.width - 190, 31);
  
+      // 🔴 2026-08-05 실장애(id=2022): 93.7분 수업이 R2 에 15MB(5MiB×3조각)만 남았다.
+      //   초당 2.8KB — 오디오만 담겨도 초당 16KB 는 나오므로 «거의 아무것도 안 찍힌» 것.
+      //   원인: 탭이 백그라운드로 내려가면 브라우저가 requestAnimationFrame 을 **완전히 멈춘다**.
+      //   그러면 이 캔버스가 얼어붙고, 얼어붙은 화면은 거의 압축돼 사라져 녹화가 빈 껍데기가 된다.
+      //   선생님은 수업 중 다른 창을 볼 수밖에 없으므로 **화면이 안 보여도 계속 그려야 한다.**
+      //   → rAF 는 그대로 두되, 멎으면 타이머가 대신 그린다(백그라운드에서 1초로 느려지지만 0 은 아니다).
+      composeTickAt = Date.now();
+      if (composeRafId) cancelAnimationFrame(composeRafId);
       composeRafId = requestAnimationFrame(draw);
     }
     draw();
+    if (composeKeepAlive) clearInterval(composeKeepAlive);
+    composeKeepAlive = setInterval(() => {
+      if (Date.now() - composeTickAt > 700) {     // rAF 가 멎었다 = 탭이 숨겨졌다
+        try { draw(); } catch (_) {}
+      }
+    }, 500);
     return composeCanvas.captureStream(15);
   }
  
@@ -479,6 +499,52 @@
     if (enBtn) host.insertBefore(recBadge, enBtn);   // EN 왼쪽
     else host.appendChild(recBadge);
     recBadge.setAttribute('data-docked', '1');
+  }
+
+  // ── 📉 녹화 정체 감시 ──────────────────────────────────────────────────────
+  //   왜: id=2022 는 93.7분 수업인데 15MB(초당 2.8KB)만 저장됐다. 오디오만 담겨도 초당 16KB 는
+  //   나오므로 «사실상 아무것도 안 찍힌» 것인데, 화면에는 REC 타이머가 멀쩡히 돌고 있어
+  //   선생님도 학생도 끝날 때까지 몰랐다. 조용히 빈 껍데기가 되는 게 가장 위험하다.
+  //   → 30초마다 실제 쌓인 바이트를 보고, 사실상 멎었으면 배지를 빨갛게 바꿔 알린다.
+  function startStallWatch() {
+    stopStallWatch();
+    stallBytesMark = recTotalBytes;
+    stallTimer = setInterval(() => {
+      const grew = recTotalBytes - stallBytesMark;
+      stallBytesMark = recTotalBytes;
+      const stalled = grew < STALL_MIN_BYTES;
+      if (stalled !== isStalled) {
+        isStalled = stalled;
+        if (stalled) {
+          console.error('[mango-rec] ⚠ 녹화 정체 — 최근 30초 동안', grew, '바이트만 기록됨');
+        } else {
+          console.log('[mango-rec] 녹화 정상 복구');
+        }
+        paintStallState();
+      }
+    }, STALL_WINDOW_MS);
+  }
+  function stopStallWatch() {
+    if (stallTimer) clearInterval(stallTimer);
+    stallTimer = null;
+    isStalled = false;
+  }
+  function paintStallState() {
+    if (!recBadge) return;
+    recBadge.classList.toggle('mango-rec-stalled', isStalled);
+    recBadge.title = isStalled
+      ? '⚠ 녹화가 기록되지 않고 있습니다 — 이 수업 창을 화면 앞으로 두세요'
+      : '자동녹화 중 — 눌러서 정지';
+    const warn = recBadge.querySelector('.mango-rec-warn');
+    if (isStalled && !warn) {
+      const w = document.createElement('span');
+      w.className = 'mango-rec-warn';
+      w.textContent = '⚠ 기록 안 됨';
+      w.style.cssText = 'margin-left:6px;font-weight:800;white-space:nowrap';
+      recBadge.appendChild(w);
+    } else if (!isStalled && warn) {
+      warn.remove();
+    }
   }
 
   function showRecBadge() {
@@ -521,6 +587,9 @@
         // 🥭 툴바에 도킹된 경우: 고정 위치 해제, 인라인 칩으로 EN 왼쪽에 흐르게 (모바일 media query의 !important 무력화)
         '#mango-rec-badge[data-docked]{position:static !important;top:auto !important;right:auto !important;bottom:auto !important;left:auto !important;width:auto !important;height:auto !important;border-radius:20px !important;padding:6px 12px !important;align-self:center;margin-right:8px;box-shadow:none;}',
         '#mango-rec-badge .mango-rec-dot{width:8px;height:8px;background:#fff;border-radius:50%;animation:mango-rec-blink 1s infinite;display:inline-block;}',
+        // ⚠ 녹화가 사실상 기록되지 않는 상태 — 배지를 주황으로 바꿔 눈에 띄게 한다
+        '#mango-rec-badge.mango-rec-stalled{background:#b45309 !important;box-shadow:0 0 0 3px rgba(245,158,11,.35);}',
+        '#mango-rec-badge.mango-rec-stalled .mango-rec-dot{animation:none;background:#fde68a;}',
         '#mango-rec-badge .mango-rec-time-text{display:inline;}',
         '#mango-rec-badge .mango-rec-stop{display:inline;font-size:13px;line-height:1;}',
         // 모바일: 작은 원형 점으로 축소 (시간/정지 숨김), 탭하면 확장
@@ -743,6 +812,7 @@
     recordingId = startRes.recording_id;
     startedAt = Date.now();
     recordedChunks = [];
+    recTotalBytes = 0;
     isAutoMode = !!auto;
  
     // R2 multipart 업로드 시작
@@ -793,11 +863,13 @@
  
     mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
+        recTotalBytes += e.data.size;
         recordedChunks.push(e.data);
         // R2에도 버퍼링
         bufferChunk(e.data);
       }
     };
+    startStallWatch();
  
     mediaRecorder.onstop = async () => {
       const blob = new Blob(recordedChunks, { type: 'video/webm' });
@@ -871,6 +943,9 @@
     if (!isRecording) return Promise.resolve({ success: false, reason: 'not-recording' });
     isRecording = false;
     if (composeRafId) cancelAnimationFrame(composeRafId);
+    if (composeKeepAlive) clearInterval(composeKeepAlive);
+    composeKeepAlive = null;
+    stopStallWatch();
     if (audioCtx) try { audioCtx.close(); } catch (_) {}
     audioCtx = null;
     audioDest = null;

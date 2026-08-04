@@ -6053,13 +6053,16 @@ LIMIT $limit`;
 
     // 🛟 버려진 녹화 자동 마무리 수동 실행 — cron(15분)과 동일 로직.
     //   브라우저가 complete 를 못 보내고 죽어 조각만 R2 에 떠 있는 녹화를 서버가 대신 마무리한다.
-    //   ?stale_min= «몇 분 조용하면 버려진 것으로 볼지»(기본 15분), ?limit= 건수 제한(최대 50).
+    //   ?min_age_min= 시작 후 최소 경과(기본 240=4시간, 진행 중 수업 보호), ?quiet_min= 마지막
+    //   조각 후 조용한 시간(기본 30), ?limit= 건수 제한(최대 50). 빈 껍데기 정리도 함께 수행.
     if (method === 'GET' && path === '/api/admin/recordings/finalize/run') {
-      const sm = parseInt(url.searchParams.get('stale_min') || '', 10);
+      const ageMin = parseInt(url.searchParams.get('min_age_min') || '', 10);
+      const quietMin = parseInt(url.searchParams.get('quiet_min') || '', 10);
       const lim = parseInt(url.searchParams.get('limit') || '', 10);
       try {
         const out = await runRecordingFinalizeSweep(env as any, {
-          staleMs: Number.isFinite(sm) && sm >= 0 ? sm * 60000 : undefined,
+          minAgeMs: Number.isFinite(ageMin) && ageMin >= 0 ? ageMin * 60000 : undefined,
+          quietMs: Number.isFinite(quietMin) && quietMin >= 0 ? quietMin * 60000 : undefined,
           limit: Number.isFinite(lim) && lim > 0 ? Math.min(lim, 50) : undefined,
         });
         return json(out);

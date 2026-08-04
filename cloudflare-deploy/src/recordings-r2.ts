@@ -385,28 +385,41 @@ export async function handleRecordingUpload(
 //   장부(recording_parts)에 upload_id·etag 가 남아 있으므로 **서버가 대신 마무리**한다.
 //
 //   안전장치:
-//     · 마지막 파트가 STALE_MS 이상 조용한 것만 건드린다(수업 진행 중인 녹화를 가로채지 않음)
 //     · status='recording' 인 행만 — completed/aborted/deleted 는 손대지 않는다
 //     · complete 가 실패해도 head() 로 실물을 확인해 «이미 있으면 성공» 처리
 //     · 한 번에 MAX_PER_RUN 건만 (크론 시간·D1 부하 제한)
 //     · 킬스위치: KV 'recording_finalize' = 'off'
+//
+// 🔴 2026-08-05 실장애로 «버려짐» 판정 기준을 바꿨다.
+//   처음엔 «15분간 새 파트 없음 = 버려진 것» 으로 봤는데, **파트는 5MiB 가 모여야 하나 올라간다.**
+//   화면 움직임이 적은 수업(정지된 교재를 띄워두고 말하는 수업)은 15분 안에 5MiB 를 못 채우는 게
+//   정상이다. 그 기준이면 **진행 중인 수업을 죽은 것으로 오인해 그 시점까지만 봉인**할 수 있다.
+//   → 아래 두 조건을 «모두» 만족할 때만 건드린다:
+//      ① 시작한 지 MIN_AGE_MS 이상 — 어떤 수업도 이만큼 길지 않으니 진행 중일 리 없다
+//      ② 마지막 파트가 QUIET_MS 이상 조용
+//   안전망은 «빨리» 보다 «절대 살아있는 걸 안 건드림» 이 우선이다. 복구가 몇 시간 늦어도 된다.
 // ═══════════════════════════════════════════════════════════════════════════
-const STALE_MS = 15 * 60 * 1000;   // 15분간 새 파트가 없으면 «버려진 것»으로 본다
+const MIN_AGE_MS = 4 * 60 * 60 * 1000;    // 시작 후 4시간(최장 수업 2시간 남짓의 두 배)
+const QUIET_MS = 30 * 60 * 1000;          // 마지막 파트 후 30분 조용
 const MAX_PER_RUN = 10;
+// 조각이 하나도 없이 오래 남은 'recording' = 빈 껍데기(데이터가 어디에도 없음).
+// 학생 목록에 ⏳준비중 으로 영원히 뜨므로 'aborted' 로 정리한다.
+const EMPTY_AGE_MS = 12 * 60 * 60 * 1000;
 
 export async function runRecordingFinalizeSweep(
   env: Env,
-  opts?: { staleMs?: number; limit?: number }
-): Promise<{ ok: boolean; scanned: number; finalized: number; failed: number; details: any[] }> {
-  const out = { ok: true, scanned: 0, finalized: 0, failed: 0, details: [] as any[] };
+  opts?: { minAgeMs?: number; quietMs?: number; limit?: number }
+): Promise<{ ok: boolean; scanned: number; finalized: number; failed: number; emptied: number; details: any[] }> {
+  const out = { ok: true, scanned: 0, finalized: 0, failed: 0, emptied: 0, details: [] as any[] };
   try {
     const kill = await env.SESSION_STATE?.get?.("recording_finalize");
     if (kill === "off") return { ...out, ok: true };
   } catch { /* KV 못 읽어도 계속 */ }
 
-  const staleMs = opts?.staleMs ?? STALE_MS;
+  const now = Date.now();
   const limit = opts?.limit ?? MAX_PER_RUN;
-  const cutoff = Date.now() - staleMs;
+  const ageCut = now - (opts?.minAgeMs ?? MIN_AGE_MS);
+  const quietCut = now - (opts?.quietMs ?? QUIET_MS);
 
   let cands: any[] = [];
   try {
@@ -417,11 +430,12 @@ export async function runRecordingFinalizeSweep(
          FROM recording_parts p
          JOIN recordings r ON r.id = p.recording_id
         WHERE r.status = 'recording'
+          AND r.started_at IS NOT NULL AND r.started_at < ?
         GROUP BY p.recording_id, p.r2_key, p.upload_id
        HAVING MAX(p.created_at) < ?
         ORDER BY MAX(p.created_at) ASC
         LIMIT ?`
-    ).bind(cutoff, limit).all();
+    ).bind(ageCut, quietCut, limit).all();
     cands = (rs.results || []) as any[];
   } catch (e: any) {
     // 장부 테이블이 아직 없으면(=배포 직후) 조용히 통과
@@ -485,5 +499,23 @@ export async function runRecordingFinalizeSweep(
       out.details.push({ rid, ok: false, error: String(e?.message || e) });
     }
   }
+
+  // 🧹 빈 껍데기 정리 — 조각이 하나도 없이 EMPTY_AGE_MS 넘게 'recording' 으로 남은 행.
+  //   R2 에 데이터가 아예 없으므로 복구 대상이 아니고, 그대로 두면 학생 목록에
+  //   ⏳준비중 으로 영원히 남는다. 되살릴 게 있는 행(장부에 조각이 있는 행)은 건드리지 않는다.
+  try {
+    const r = await env.DB.prepare(
+      `UPDATE recordings SET status = 'aborted'
+        WHERE status = 'recording'
+          AND started_at IS NOT NULL AND started_at < ?
+          AND size_bytes IS NULL
+          AND id NOT IN (SELECT DISTINCT recording_id FROM recording_parts)`
+    ).bind(now - EMPTY_AGE_MS).run();
+    out.emptied = r.meta?.changes || 0;
+    if (out.emptied) console.log(`[rec-finalize] 빈 껍데기 ${out.emptied}건 정리(aborted)`);
+  } catch (e: any) {
+    console.error('[rec-finalize] 빈 껍데기 정리 실패:', e?.message || e);
+  }
+
   return out;
 }
