@@ -204,21 +204,6 @@ async function joinRoom() {
            ② 2초 → 12초 뒤로 미룬다(입장·연결 협상이 끝난 뒤에 시작)
            ③ 그 시점에 연결이 아직 안 붙었으면 아예 시작하지 않는다. 붙고 나면 다시 본다. */
   const AUTO_REC_OPTS = { videoBitsPerSecond: 500000, audioBitsPerSecond: 48000 };
-
-  /* 🔴 (2026-08-05 사장님 승인) 녹화는 「회선 좋은 쪽 한 명」만 한다.
-     예전엔 방에 있는 사람이 «각자» 녹화해 «각자» R2 로 올렸다. 같은 수업을 두 번 올리는 셈이고,
-     그 업로드가 필리핀 강사의 «올리는 대역» 을 수업과 나눠 썼다. 올리는 쪽이 병목인 회선에서는
-     이게 곧 «상대 화면이 검거나 끊김» 으로 나타난다.
-     우리 수업 구조는 강사=필리핀, 학생=한국이고 한국 쪽 회선이 대개 훨씬 낫다.
-     → 이 화면에서 role=teacher 이고 방에 다른 사람이 있으면 녹화를 «상대에게 맡긴다».
-     ⚠️ 이 규칙의 유일한 제약은 «아무도 녹화 안 하는 상황을 만들지 않는 것» 이다.
-        그래서 혼자일 때는 내가 녹화하고, 혼자인지 60초 더 지켜본 뒤 시작한다. */
-  const _urlRole = (function () {
-    try { return (new URLSearchParams(location.search).get('role') ||
-                  new URLSearchParams(location.search).get('vc_role') || '').trim().toLowerCase(); }
-    catch (e) { return ''; }
-  })();
-  const shouldDeferRecordingToPeer = () => _urlRole === 'teacher' && userCount > 1;
   const anyPeerConnected = () => {
     try {
       if (typeof peerConnections === 'undefined' || !peerConnections || peerConnections.size === 0) return true; // 혼자면 방해할 상대가 없다
@@ -233,19 +218,6 @@ async function joinRoom() {
     try {
       if (typeof startRecording !== 'function') return;
       if (!localStream || localStream.getTracks().length === 0) return;
-
-      /* 상대가 있으면 녹화는 회선 좋은 쪽(한국 학생)에 맡기고 내 대역은 전부 수업에 쓴다 */
-      if (shouldDeferRecordingToPeer()) {
-        console.log('[auto-record] 상대가 있어 녹화를 넘긴다 — 이 회선은 수업에만 쓴다 (role=teacher)');
-        return;
-      }
-      /* 아직 혼자다. 상대가 곧 들어올 수 있으니 60초 더 지켜본 뒤에도 혼자면 그때 내가 녹화한다.
-         (여기서 바로 시작하면 뒤늦게 들어온 상대와 «둘 다 녹화» 가 되어 원래 문제로 되돌아간다) */
-      if (_urlRole === 'teacher' && attempt < 6) {
-        console.log('[auto-record] 아직 혼자 — 상대를 기다린다 (' + attempt + ')');
-        return setTimeout(() => tryAutoRecord(attempt + 1), 10000);
-      }
-
       if (!anyPeerConnected()) {
         if (attempt < 5) {   // 아직 붙는 중 → 수업을 방해하지 않도록 기다렸다 다시 본다
           console.log('[auto-record] 연결 대기 중 → 녹화 보류 (' + attempt + ')');
