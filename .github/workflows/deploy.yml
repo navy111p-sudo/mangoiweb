@@ -43,7 +43,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # ⚠️ 20 으로 되돌리지 말 것 (2026-08-04, pr-check.yml 과 같은 이유).
+          #   test-harness 가 Node 22+ 기능에 의존한다:
+          #     · node:sqlite            → Node 22.5+
+          #     · .ts 파일 직접 import   → Node 22.18+ 타입 스트리핑
+          #   지금 이 워크플로가 돌리는 인라인 JS 게이트는 20 에서도 통과하지만,
+          #   나중에 배포 게이트에 하니스를 추가하면 «내 변경과 무관한» 실패를 밟는다.
+          #   개발자 로컬(Node 24)·pr-check.yml 과 버전을 맞춰 둔다.
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: 'cloudflare-deploy/package-lock.json'
 
