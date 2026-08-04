@@ -14,6 +14,7 @@
  */
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(AI 명령 취소/연기/이동)
 import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
@@ -1077,24 +1078,21 @@ export async function executeAction(
           if (!startTime) {
             insertError = 'time_required';
           } else {
-            // Phase 3-2: 충돌 감지 - 같은 user_id + 같은 시간 + 같은 요일/날짜 활성 스케줄
+            // 충돌 감지 — (2026-08-04) 예전에는 «시작 시각이 완전히 같은» 학생 예약만 찾았다.
+            //   그래서 09:00(50분) 옆에 09:30 을 넣으면 «충돌 없음» 으로 보고돼 사용자가 모르고 지나갔다.
+            //   이제 수업 길이를 반영한 구간 겹침으로 보고, 강사 쪽 겹침도 함께 본다.
+            //   여기서는 «막지 않고 알려주기» 가 원래 동작이므로 그대로 두고 판정만 정확하게 한다.
             try {
-              let conflictRow: any = null;
-              if (scheduleKind === 'recurring' && dayOfWeek) {
-                // 같은 시간에 같은 요일 중 하나라도 겹치는 활성 스케줄
-                const dows = dayOfWeek.split(',');
-                for (const d of dows) {
-                  const r = await env.DB.prepare(
-                    `SELECT id, day_of_week, start_time, class_type FROM class_schedules WHERE user_id=? AND status='active' AND start_time=? AND schedule_kind='recurring' AND day_of_week LIKE ? LIMIT 1`
-                  ).bind(userId, startTime, '%'+d+'%').first<any>();
-                  if (r?.id) { conflictRow = r; break; }
-                }
-              } else if (scheduledDate) {
-                conflictRow = await env.DB.prepare(
-                  `SELECT id, scheduled_date, start_time, class_type FROM class_schedules WHERE user_id=? AND status='active' AND start_time=? AND scheduled_date=? LIMIT 1`
-                ).bind(userId, startTime, scheduledDate).first<any>();
-              }
-              if (conflictRow?.id) conflict = conflictRow;
+              const conf = await findScheduleConflicts(env as any, {
+                kind: scheduleKind === 'recurring' ? 'recurring' : 'one_off',
+                userId, teacherId,
+                days: (scheduleKind === 'recurring' && dayOfWeek)
+                  ? String(dayOfWeek).split(',').map((d: string) => Number(d)).filter((n: number) => Number.isFinite(n))
+                  : [],
+                schedDate: scheduledDate,
+                startTime, durationMin: DEFAULT_CLASS_MINUTES,
+              });
+              if (conf.has) conflict = { ...(conf.student[0] || conf.teacher[0]), reason: conf.ko, reason_en: conf.en };
             } catch {}
 
             // INSERT (충돌 있어도 일단 등록 - 사용자가 결정)
@@ -1497,7 +1495,8 @@ export async function executeAction(
       }
 
       const sel = await env.DB.prepare(
-        `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, class_type FROM class_schedules WHERE ${where.join(' AND ')} LIMIT 200`
+        // teacher_id·duration_min 도 함께 가져온다 — 옮기기 전 겹침 검사에 필요하다
+        `SELECT id, user_id, student_name, day_of_week, scheduled_date, start_time, class_type, teacher_id, duration_min FROM class_schedules WHERE ${where.join(' AND ')} LIMIT 200`
       ).bind(...binds).all<any>();
       const matches = sel.results || [];
 
@@ -1527,7 +1526,25 @@ export async function executeAction(
                 target = String(Math.floor(total/60)).padStart(2,'0') + ':' + String(total%60).padStart(2,'0');
               }
             }
+            // ⛔ (2026-08-04) 옮기기 전에 그 자리가 비어 있는지 본다.
+            //   AI 명령("전부 30분 뒤로")은 여러 건을 한꺼번에 옮기므로, 검사 없이 두면
+            //   그중 몇 건이 다른 수업과 겹친 채 조용히 저장된다.
+            let blocked: any = null;
             if (target) {
+              const conf = await findScheduleConflicts(env as any, {
+                kind: row.scheduled_date ? 'one_off' : 'recurring',
+                userId: row.user_id, teacherId: (row as any).teacher_id,
+                days: row.scheduled_date ? [] : [Number(row.day_of_week)].filter(n => Number.isFinite(n)),
+                schedDate: row.scheduled_date || null,
+                startTime: target,
+                durationMin: Number((row as any).duration_min) > 0 ? Number((row as any).duration_min) : DEFAULT_CLASS_MINUTES,
+                excludeId: row.id,
+              });
+              if (conf.has) blocked = { id: row.id, action: 'skipped_conflict', old_time: row.start_time, new_time: target, reason: conf.ko, reason_en: conf.en };
+            }
+            if (blocked) {
+              updated.push(blocked);
+            } else if (target) {
               await env.DB.prepare(`UPDATE class_schedules SET start_time=?, updated_at=? WHERE id=?`).bind(target, nowTs, row.id).run();
               updated.push({ id: row.id, action: 'rescheduled', old_time: row.start_time, new_time: target });
               await writeClassAudit(env as any, { action: 'reschedule', schedule_id: row.id, teacher_name: _aiTeacher, student_name: row.student_name || null, lesson_date: row.scheduled_date || null, lesson_time: row.start_time || null, actor: _aiActor, actor_role: 'admin', source: 'ai-command', detail: `→ ${target}` });

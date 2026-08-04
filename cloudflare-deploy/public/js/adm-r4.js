@@ -170,7 +170,7 @@
       if (!d.ok) { alert('전체 보기 실패: ' + (d.error||'')); return; }
       const w = window.open('', '_blank', 'width=900,height=700');
       if (!w) { alert('팝업이 차단되어 리포트를 열 수 없습니다. 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요.'); return; }
-      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre></body></html>');
+      w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AI 학습 리포트 #' + id + '</title></head><body style="font-family:MangoiHanSC,-apple-system,sans-serif;padding:24px;background:#0a1530;color:#e6ecff;line-height:1.7"><h1>🎙 AI 학습 리포트 #' + id + '</h1><h2>📝 전체 STT (' + (d.item.total_words||0) + ' 단어)</h2><pre style="white-space:pre-wrap;background:#14213b;padding:14px;border-radius:10px;color:#cbd5e1">' + (d.item.transcript || '').replace(/[<>]/g,'') + '</pre></body></html>');
       } catch(e) { console.error('alrViewFull broken:', e); }
     };
 })();

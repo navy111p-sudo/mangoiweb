@@ -64,7 +64,7 @@
     ov.id = 'mango-tf-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147483200;background:rgba(2,6,23,.82);' +
       'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;' +
-      'padding:clamp(8px,2vw,24px);font-family:"Noto Sans KR",-apple-system,sans-serif;animation:mgTfFade .25s ease-out';
+      'padding:clamp(8px,2vw,24px);font-family:MangoiHanSC,"Noto Sans KR",-apple-system,sans-serif;animation:mgTfFade .25s ease-out';
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
     ov.innerHTML = inner;
     dd.body.appendChild(ov);

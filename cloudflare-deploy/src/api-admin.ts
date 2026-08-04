@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { enqueueNotification, sendPushToUser } from './api-notify';
@@ -321,6 +322,311 @@ export async function handleAdminApi(
     //     · students_erp 의 signup_date / end_date 기준
     //     · 일자별 신규(new), 탈락(dropped), 활성(active) 카운트
     // ════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 📊 강사 가동률 (Teacher Utilization) — 2026-08-04 신규
+    //   GET /api/admin/stats/teacher-utilization
+    //
+    //   왜 —
+    //     화상수업 사업의 원가는 결국 «강사 시간» 이다. 강사 수·수업 수는 이미 보이지만
+    //     "열어둔 시간 중 실제로 얼마나 찼는가" 가 없어서 강사를 더 뽑을지 줄일지 판단할
+    //     근거가 없었다. 해외 튜터링 관리 제품이 관리자 지표 1순위로 꼽는 값이다.
+    //
+    //   정의 (임의 상수를 쓰지 않고 실제 데이터에서 끌어낸다) —
+    //     · 운영시간대 = 지금 잡혀 있는 정기수업들의 «가장 이른 시작 ~ 가장 늦은 종료»
+    //       (수업이 하나도 없으면 06:00~23:00 으로만 대체)
+    //     · 가능시간  = 7일 × 운영시간대 − 그 강사가 등록한 주간 근무불가(teacher_unavailability.kind='weekly')
+    //     · 배정시간  = 그 강사의 활성 정기수업 duration 합계
+    //     · 가동률    = 배정시간 ÷ 가능시간
+    //   ※ 일회성(one_off) 수업은 주간 반복 지표를 왜곡하므로 제외한다.
+    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎚️ GET /api/admin/stats/judgment-bands — 판단력 훈련 읽기 난이도 분포·적중도
+    //   ⚠️ 담당 밖(B) 이 추가한 핸들러입니다 — CLAUDE.md 4-2. 기존 코드는 건드리지 않고
+    //      이 블록만 덧붙였습니다. 옮기거나 지우셔도 판단력 기능 자체는 영향받지 않습니다.
+    //
+    //   이 수치가 이 기능의 유일한 성공 지표입니다. 밴드별 정답률이 목표 85%
+    //   (Wilson et al., Nature Comm. 2019 — 학습이 가장 빠른 지점)에서 얼마나 벗어났는지 봅니다.
+    //     · 85% 보다 훨씬 높다 → 그 밴드가 너무 쉽다(문장 기준을 올릴 것)
+    //     · 85% 보다 훨씬 낮다 → 너무 어렵다(내릴 것)
+    //   원천은 judgment_analysis.reasoning_features_json.reading_band — 새 테이블 없음.
+    //   ⚠️ 표본이 적으면 정답률은 의미가 없습니다. 그래서 n 을 반드시 함께 내려보냅니다.
+    // ═══════════════════════════════════════════════════════════════════
+    if (method === 'GET' && path === '/api/admin/stats/judgment-bands') {
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT CAST(json_extract(reasoning_features_json,'$.reading_band') AS INTEGER) AS band,
+                  COUNT(*) AS n,
+                  ROUND(AVG(is_optimal) * 100, 1) AS pct_correct,
+                  COUNT(DISTINCT student_uid) AS students
+             FROM judgment_analysis
+            WHERE json_extract(reasoning_features_json,'$.reading_band') IS NOT NULL
+            GROUP BY band ORDER BY band`
+        ).all<any>();
+        const rows = (rs.results || []).map((r: any) => ({
+          band: Number(r.band), n: Number(r.n) || 0,
+          pct_correct: r.pct_correct == null ? null : Number(r.pct_correct),
+          students: Number(r.students) || 0,
+          // 목표에서 얼마나 떨어졌는지 — 부호까지 봐야 올릴지 내릴지 판단할 수 있습니다
+          off_target: r.pct_correct == null ? null : Math.round((Number(r.pct_correct) - 85) * 10) / 10,
+        }));
+        const total = rows.reduce((s, r) => s + r.n, 0);
+        return json({
+          ok: true, target_pct: 85, total, bands: rows,
+          // 표본이 적을 때 정답률을 근거로 쓰지 않도록 화면에 경고 문구를 띄우기 위한 신호
+          enough_data: total >= 100,
+          note_ko: total >= 100 ? null : '표본이 적어 정답률은 아직 참고용입니다.',
+          note_en: total >= 100 ? null : 'Sample is small — accuracy is indicative only.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
+    if (method === 'GET' && path === '/api/admin/stats/teacher-utilization') {
+      try {
+        const toMin = (hhmm: any) => {
+          const [h, m] = String(hhmm || '00:00').split(':').map(Number);
+          return (h || 0) * 60 + (m || 0);
+        };
+        const dowsOf = (v: any): number[] => {
+          const out: number[] = [];
+          for (const p of String(v ?? '').split(/[,\s]+/)) {
+            const q = p.trim(); if (!q) continue;
+            const n = /^\d$/.test(q) ? Number(q) : ({ sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 } as any)[q.toLowerCase()];
+            if (n != null && n >= 0 && n <= 6 && !out.includes(n)) out.push(n);
+          }
+          return out;
+        };
+
+        const safeAll = async (sql: string, ...b: any[]): Promise<any[]> => {
+          try { const rs = await env.DB.prepare(sql).bind(...b).all<any>(); return rs.results || []; }
+          catch { return []; }
+        };
+
+        const [scheds, teachers, blocks] = await Promise.all([
+          safeAll(`SELECT teacher_id, day_of_week, start_time, duration_min FROM class_schedules
+                    WHERE status = 'active' AND schedule_kind = 'recurring' AND teacher_id IS NOT NULL AND teacher_id <> ''`),
+          safeAll(`SELECT id, name FROM teachers`),
+          safeAll(`SELECT teacher_id, day_of_week, start_time, end_time FROM teacher_unavailability WHERE kind = 'weekly'`),
+        ]);
+
+        // ── 운영시간대: 실제 잡힌 수업에서 관측 (없으면 06:00~23:00)
+        let openMin = 24 * 60, closeMin = 0;
+        for (const s of scheds) {
+          const st = toMin(s.start_time);
+          const en = st + (Number(s.duration_min) > 0 ? Number(s.duration_min) : DEFAULT_CLASS_MINUTES);
+          if (st < openMin) openMin = st;
+          if (en > closeMin) closeMin = en;
+        }
+        if (!scheds.length || closeMin <= openMin) { openMin = 6 * 60; closeMin = 23 * 60; }
+        const windowPerDay = closeMin - openMin;
+
+        const nameById = new Map<string, string>();
+        for (const t of teachers) nameById.set(String(t.id), String(t.name || ''));
+
+        // ── 강사별 집계
+        type Agg = { assigned: number; classes: number; blocked: number; byDow: number[] };
+        const agg = new Map<string, Agg>();
+        const ensure = (id: string): Agg => {
+          if (!agg.has(id)) agg.set(id, { assigned: 0, classes: 0, blocked: 0, byDow: [0, 0, 0, 0, 0, 0, 0] });
+          return agg.get(id)!;
+        };
+
+        for (const s of scheds) {
+          const id = String(s.teacher_id);
+          const dur = Number(s.duration_min) > 0 ? Number(s.duration_min) : DEFAULT_CLASS_MINUTES;
+          const a = ensure(id);
+          const dows = dowsOf(s.day_of_week);
+          // 반복 수업은 «요일당 1행» 이 원칙이지만, 한 행에 여러 요일이 담긴 과거 데이터도 있어 요일 수만큼 센다
+          const n = dows.length || 1;
+          a.assigned += dur * n;
+          a.classes += n;
+          for (const d of dows) a.byDow[d] += dur;
+        }
+
+        for (const b of blocks) {
+          const id = String(b.teacher_id || '');
+          if (!id) continue;
+          const bs = Math.max(openMin, b.start_time ? toMin(b.start_time) : openMin);
+          const be = Math.min(closeMin, b.end_time ? toMin(b.end_time) : closeMin);
+          if (be <= bs) continue;
+          const dows = dowsOf(b.day_of_week);
+          ensure(id).blocked += (be - bs) * (dows.length || 1);
+        }
+
+        const DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
+        const DOW_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const rows = [...agg.entries()].map(([id, a]) => {
+          const available = Math.max(0, windowPerDay * 7 - a.blocked);
+          const util = available > 0 ? Math.round((a.assigned / available) * 1000) / 10 : null;
+          let top = 0;
+          for (let i = 1; i < 7; i++) if (a.byDow[i] > a.byDow[top]) top = i;
+          return {
+            teacher_id: id,
+            name: nameById.get(id) || ('#' + id),
+            assigned_min: a.assigned,
+            blocked_min: a.blocked,
+            available_min: available,
+            utilization_pct: util,             // null = 가능시간 0 (전부 근무불가로 막힘)
+            class_count: a.classes,
+            busiest_dow: a.byDow[top] > 0 ? top : null,
+            busiest_dow_ko: a.byDow[top] > 0 ? DOW_KO[top] : null,
+            busiest_dow_en: a.byDow[top] > 0 ? DOW_EN[top] : null,
+          };
+        }).sort((x, y) => (y.utilization_pct ?? -1) - (x.utilization_pct ?? -1));
+
+        const withUtil = rows.filter(r => r.utilization_pct != null);
+        const totalAssigned = rows.reduce((s, r) => s + r.assigned_min, 0);
+        const totalAvailable = rows.reduce((s, r) => s + r.available_min, 0);
+
+        const hhmm = (m: number) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+        return json({
+          ok: true,
+          window: { open: hhmm(openMin), close: hhmm(closeMin), per_day_min: windowPerDay, days_per_week: 7 },
+          summary: {
+            teacher_count: rows.length,
+            avg_utilization_pct: withUtil.length
+              ? Math.round((withUtil.reduce((s, r) => s + (r.utilization_pct || 0), 0) / withUtil.length) * 10) / 10
+              : null,
+            overall_utilization_pct: totalAvailable > 0 ? Math.round((totalAssigned / totalAvailable) * 1000) / 10 : null,
+            total_assigned_min: totalAssigned,
+            total_available_min: totalAvailable,
+            observed_from_schedules: scheds.length > 0,
+          },
+          teachers: rows,
+          note: '가동률 = 주간 배정 수업시간 ÷ (운영시간대 7일 − 강사가 등록한 주간 근무불가). 일회성 수업은 제외합니다.',
+          note_en: 'Utilization = weekly assigned class minutes ÷ (operating window × 7 days − the teacher\'s weekly unavailability). One-off classes are excluded.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'utilization_failed', message: String(e?.message || e).slice(0, 300) }, 500);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🪑 대기자 명단 (Waitlist) — 2026-08-04 신규
+    //   GET  /api/admin/stats/waitlist            목록 + 희망시간에 «여유 있는 강사» 자동 매칭
+    //   POST /api/admin/stats/waitlist            {action:'add'|'resolve'|'cancel', ...}
+    //
+    //   왜 —
+    //     지금은 원하는 시간에 자리가 없으면 상담이 그대로 끝난다. 이미 관심을 보인 고객이라
+    //     신규 광고보다 회수 단가가 훨씬 싸다. 줄을 세워두고 자리가 나면 연락하기 위한 최소 기능.
+    //
+    //   ⚠️ 경로가 /stats/ 아래인 이유 —
+    //     새 API 경로는 src/index.ts 의 라우팅 게이트 + 인증 게이트 «두 곳» 에 등록해야 동작하는데
+    //     index.ts 는 공동 금지구역이다. '/api/admin/stats/' 는 두 게이트에 이미 열려 있어
+    //     금지구역을 건드리지 않고 안전하게 붙일 수 있는 유일한 접두사였다.
+    //     (index.ts 를 열 수 있게 되면 /api/admin/waitlist 로 옮기는 편이 이름에 맞다)
+    // ═══════════════════════════════════════════════════════════════════
+    if (path === '/api/admin/stats/waitlist' && (method === 'GET' || method === 'POST')) {
+      const WL_DDL = `CREATE TABLE IF NOT EXISTS class_waitlist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, student_name TEXT, phone TEXT, uid TEXT,
+        teacher_pref TEXT, day_pref TEXT, time_pref TEXT, note TEXT,
+        status TEXT NOT NULL DEFAULT 'waiting', created_at INTEGER NOT NULL,
+        created_by TEXT, resolved_at INTEGER, resolved_by TEXT)`;
+      try { await env.DB.exec(WL_DDL.replace(/\s+/g, ' ')); } catch { }
+
+      if (method === 'POST') {
+        const body: any = await parseJsonBody(request) ?? {};
+        const action = String(body.action || 'add').toLowerCase();
+        let actor = 'admin';
+        try { const a = await getAdminActor(request, env as any); if (a?.name) actor = a.name; } catch { }
+
+        if (action === 'add') {
+          const name = String(body.student_name || '').trim();
+          if (!name) return json({ ok: false, error: 'name_required', message: '학생 이름을 입력해 주세요.', message_en: 'Student name is required.' }, 400);
+          try {
+            const ins = await env.DB.prepare(
+              `INSERT INTO class_waitlist (student_name, phone, uid, teacher_pref, day_pref, time_pref, note, status, created_at, created_by)
+               VALUES (?,?,?,?,?,?,?,'waiting',?,?)`
+            ).bind(name, String(body.phone || '').trim() || null, String(body.uid || '').trim() || null,
+              String(body.teacher_pref || '').trim() || null, String(body.day_pref ?? '').trim() || null,
+              String(body.time_pref || '').trim() || null, String(body.note || '').trim() || null,
+              Date.now(), actor).run();
+            return json({ ok: true, id: (ins?.meta?.last_row_id as number) ?? null });
+          } catch (e: any) {
+            return json({ ok: false, error: 'insert_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+          }
+        }
+
+        if (action === 'resolve' || action === 'cancel') {
+          const id = Number(body.id);
+          if (!Number.isFinite(id)) return json({ ok: false, error: 'id_required' }, 400);
+          try {
+            await env.DB.prepare(`UPDATE class_waitlist SET status = ?, resolved_at = ?, resolved_by = ? WHERE id = ?`)
+              .bind(action === 'resolve' ? 'enrolled' : 'cancelled', Date.now(), actor, id).run();
+            return json({ ok: true });
+          } catch (e: any) {
+            return json({ ok: false, error: 'update_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+          }
+        }
+        return json({ ok: false, error: 'unknown_action', message: '알 수 없는 요청입니다.', message_en: 'Unknown action.' }, 400);
+      }
+
+      // ── GET: 목록 + «희망 시간에 여유 있는 강사» 자동 매칭 ──
+      try {
+        const status = String(url.searchParams.get('status') || 'waiting');
+        const rs = await env.DB.prepare(
+          `SELECT * FROM class_waitlist ${status === 'all' ? '' : 'WHERE status = ?'} ORDER BY created_at DESC LIMIT 300`
+        );
+        const list = status === 'all' ? (await rs.all<any>()).results || [] : (await rs.bind(status).all<any>()).results || [];
+
+        const toMin2 = (hhmm: any) => { const [h, m] = String(hhmm || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+        const dow1 = (v: any): number | null => {
+          const q = String(v ?? '').trim();
+          if (/^\d$/.test(q)) return Number(q);
+          const n = ({ sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 } as any)[q.toLowerCase()];
+          return n == null ? null : n;
+        };
+        const safeAll2 = async (sql: string): Promise<any[]> => {
+          try { const r = await env.DB.prepare(sql).all<any>(); return r.results || []; } catch { return []; }
+        };
+        const [teachers, scheds, blocks] = await Promise.all([
+          safeAll2(`SELECT id, name FROM teachers`),
+          safeAll2(`SELECT teacher_id, day_of_week, start_time, duration_min FROM class_schedules
+                     WHERE status='active' AND schedule_kind='recurring' AND teacher_id IS NOT NULL AND teacher_id <> ''`),
+          safeAll2(`SELECT teacher_id, day_of_week, start_time, end_time FROM teacher_unavailability WHERE kind='weekly'`),
+        ]);
+
+        // 희망 요일·시간이 적힌 대기자에 한해, 그 시간이 비어 있는 강사를 계산해 붙인다.
+        const withMatch = list.map((w: any) => {
+          const d = dow1(w.day_pref);
+          const t = String(w.time_pref || '').trim();
+          if (d == null || !/^\d{1,2}:\d{2}$/.test(t)) return { ...w, free_teachers: null };
+          const s = toMin2(t), e = s + DEFAULT_CLASS_MINUTES;
+          const busy = new Set<string>();
+          for (const r of scheds) {
+            const rd = String(r.day_of_week ?? '').split(/[,\s]+/).map(dow1);
+            if (!rd.includes(d)) continue;
+            const rs2 = toMin2(r.start_time);
+            const re2 = rs2 + (Number(r.duration_min) > 0 ? Number(r.duration_min) : DEFAULT_CLASS_MINUTES);
+            if (s < re2 && rs2 < e) busy.add(String(r.teacher_id));
+          }
+          for (const b of blocks) {
+            if (dow1(b.day_of_week) !== d) continue;
+            const bs = b.start_time ? toMin2(b.start_time) : 0;
+            const be = b.end_time ? toMin2(b.end_time) : 24 * 60;
+            if (s < be && bs < e) busy.add(String(b.teacher_id));
+          }
+          const free = teachers.filter(x => !busy.has(String(x.id))).map(x => ({ id: String(x.id), name: String(x.name || '') }));
+          return { ...w, free_teachers: free.slice(0, 8), free_teacher_count: free.length };
+        });
+
+        let counts: any = {};
+        try {
+          const c = await env.DB.prepare(`SELECT status, COUNT(*) AS n FROM class_waitlist GROUP BY status`).all<any>();
+          for (const r of (c.results || [])) counts[String(r.status)] = Number(r.n) || 0;
+        } catch { }
+
+        return json({
+          ok: true, rows: withMatch, counts,
+          note: '희망 요일·시간이 적힌 대기자는 그 시간에 수업이 없고 근무불가도 아닌 강사를 «지금 배정 가능» 으로 표시합니다.',
+          note_en: 'For entries with a preferred weekday and time, teachers with no class and no block at that slot are shown as immediately assignable.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'waitlist_failed', message: String(e?.message || e).slice(0, 300) }, 500);
+      }
+    }
 
     // 🥭 Phase 20 — 오늘의 KPI 4박스 통합 엔드포인트
     //   GET /api/admin/stats/today
@@ -1591,17 +1897,36 @@ export async function handleAdminApi(
 
       const now = Date.now();
       let applied: string | null = null;
+      let conflictInfo: any = null;   // 겹쳐서 자동 이동을 못 한 경우 사유(한/영)
       if (action === 'approved' && row.schedule_id) {
         try {
           // ⚠️ 운영 스케줄은 대부분 반복(매주, scheduled_date=NULL) — 반복 row 를 덮어쓰면
           //   그 주만이 아니라 모든 주가 바뀌므로, 날짜 지정 수업일 때만 자동 반영한다.
           //   반복 수업은 요청 기록만 영구 보존(applied='recorded') → 시간표에서 수동 조정.
-          const cs: any = await env.DB.prepare(`SELECT scheduled_date FROM class_schedules WHERE id = ? LIMIT 1`).bind(row.schedule_id).first().catch(() => null);
+          const cs: any = await env.DB.prepare(
+            `SELECT id, scheduled_date, start_time, duration_min, user_id, teacher_id FROM class_schedules WHERE id = ? LIMIT 1`
+          ).bind(row.schedule_id).first().catch(() => null);
           const isDated = !!(cs && cs.scheduled_date);
           if (isDated && row.new_date && row.new_time) {
-            await env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
-              .bind(row.new_date, row.new_time, now, row.schedule_id).run();
-            applied = 'moved';
+            // ⛔ (2026-08-04) 옮기기 전에 «그 자리가 비어 있는지» 확인한다.
+            //   여기엔 겹침 검사가 없어서, 강사 요청을 승인하면 다른 수업과 겹쳐도 그대로 옮겨졌다.
+            //   겹치면 옮기지 않고 'conflict' 로 남긴다 — 승인 자체는 그대로 기록되므로
+            //   관리자가 시간표에서 자리를 보고 손으로 옮기면 된다. (조용히 겹치게 두는 것보다 낫다)
+            const conf = await findScheduleConflicts(env, {
+              kind: 'one_off',
+              userId: cs.user_id, teacherId: cs.teacher_id,
+              schedDate: String(row.new_date), startTime: String(row.new_time),
+              durationMin: Number(cs.duration_min) > 0 ? Number(cs.duration_min) : DEFAULT_CLASS_MINUTES,
+              excludeId: row.schedule_id,
+            });
+            if (conf.has) {
+              applied = 'conflict';
+              conflictInfo = { ko: conf.ko, en: conf.en, student: conf.student.length, teacher: conf.teacher.length };
+            } else {
+              await env.DB.prepare(`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`)
+                .bind(row.new_date, row.new_time, now, row.schedule_id).run();
+              applied = 'moved';
+            }
           } else if (isDated) {
             await env.DB.prepare(`UPDATE class_schedules SET status = 'postponed', updated_at = ? WHERE id = ?`)
               .bind(now, row.schedule_id).run();
@@ -1614,7 +1939,8 @@ export async function handleAdminApi(
       await env.DB.prepare(`UPDATE schedule_change_requests SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ? WHERE id = ?`)
         .bind(action, (body.decided_by || '관리자').trim(), now, (body.memo || '').trim() || null, id).run();
       // 📜 승인으로 수업이 실제 이동/연기된 경우 변경 이력에 기록(거절은 미기록)
-      if (action === 'approved' && applied) {
+      //   'conflict' = 승인은 했으나 그 자리가 겹쳐 «자동 이동을 하지 않은» 상태 → 이력에도 남기지 않는다
+      if (action === 'approved' && applied && applied !== 'conflict') {
         await writeClassAudit(env, {
           action: applied === 'moved' ? 'reschedule' : 'postpone',
           schedule_id: row.schedule_id,
@@ -1629,7 +1955,11 @@ export async function handleAdminApi(
           detail: (row.new_date || row.new_time) ? `→ ${row.new_date || ''} ${row.new_time || ''}`.trim() : (applied === 'recorded' ? '반복수업 기록보존(수동조정 필요)' : null),
         });
       }
-      return json({ ok: true, id, status: action, applied, decided_at: now });
+      return json({
+        ok: true, id, status: action, applied, decided_at: now,
+        // 겹쳐서 자동 이동을 못 했으면 화면이 그 사유를 그대로 보여줄 수 있게 함께 내려준다
+        ...(conflictInfo ? { conflict: conflictInfo, message: conflictInfo.ko, message_en: conflictInfo.en } : {}),
+      });
     }
 
     // ── GET /api/admin/classes/today — 📅 오늘 수업 전체 (매니저용) ──
@@ -4078,29 +4408,24 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (kind === 'recurring' && !days.length) return bad('day_required', '반복 수업은 요일을 하나 이상 선택해 주세요.', 'Pick at least one weekday for a recurring class.');
       if (kind === 'one_off' && !/^\d{4}-\d{2}-\d{2}$/.test(schedDate)) return bad('date_required', '일회성 수업은 날짜(YYYY-MM-DD)를 입력해 주세요.', 'Enter a date (YYYY-MM-DD) for a one-off class.');
 
-      // ── 중복 예약 검사 (같은 학생·같은 시간·같은 요일/날짜의 활성 예약) ──
-      //   force:true 가 아니면 409 로 되돌려 화면이 확인을 받게 한다.
-      const conflicts: any[] = [];
-      try {
-        if (kind === 'recurring') {
-          const rs = await env.DB.prepare(
-            `SELECT id, day_of_week, start_time FROM class_schedules WHERE user_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND start_time = ?`
-          ).bind(userId, startTime).all<any>();
-          for (const row of (rs.results || [])) {
-            for (const p of String(row.day_of_week ?? '').split(/[,\s]+/)) {
-              const n = toDow(p);
-              if (n != null && days.includes(n)) conflicts.push({ id: row.id, day_of_week: n, start_time: row.start_time });
-            }
-          }
-        } else {
-          const row = await env.DB.prepare(
-            `SELECT id, scheduled_date, start_time FROM class_schedules WHERE user_id = ? AND status = 'active' AND scheduled_date = ? AND start_time = ? LIMIT 1`
-          ).bind(userId, schedDate, startTime).first<any>();
-          if (row?.id) conflicts.push({ id: row.id, scheduled_date: row.scheduled_date, start_time: row.start_time });
-        }
-      } catch {}
-      if (conflicts.length && !body.force) {
-        return bad('conflict', '같은 시간에 이미 예약이 있습니다. 그래도 등록하려면 다시 확인해 주세요.', 'A class already exists at this time. Confirm again to register anyway.', { conflicts }, 409);
+      // ── ⛔ 시간 겹침 검사 (2026-08-04 보강) ─────────────────────────────
+      //   [기존 문제 1] `start_time = ?` 로 '시작 시각이 완전히 같은' 예약만 잡았다.
+      //     → 09:00 (50분) 수업이 있는데 09:30 수업을 넣으면 20분이 겹치는데도 그냥 통과했다.
+      //     이제 duration_min 을 반영한 '구간 겹침' 으로 판정한다.
+      //   [기존 문제 2] user_id(학생) 기준만 봤다. 같은 강사가 같은 시간에 다른 학생 수업을
+      //     이미 갖고 있어도 아무도 막지 않았다 = 강사가 동시에 두 방에 들어가야 하는 상태.
+      //     화상수업에서는 물리적으로 불가능해 수업 당일 사고로 직결된다.
+      //   ⚠️ 단, '같은 시각·같은 길이' 는 합반(그룹) 수업이 정상적으로 만들어내는 모양이므로
+      //     강사 겹침에서 제외한다. 막으면 멀쩡한 합반 등록이 깨진다.
+      //   응답 코드는 기존과 같은 'conflict' 를 유지한다 → 화면(admin/student.html)이
+      //     이미 409+conflict 를 확인창으로 처리하고 있어 프론트 수정이 필요 없다.
+      //   판정은 schedule-conflict.ts 한 곳에만 둔다 — 경로마다 복사하면 또 어긋난다.
+      const conf = await findScheduleConflicts(env, {
+        kind, userId, teacherId, days, schedDate, startTime, durationMin,
+      });
+      if (conf.has && !body.force) {
+        return bad('conflict', conf.ko + ' 그래도 등록하려면 다시 확인해 주세요.', conf.en + ' Confirm again to register anyway.',
+          { conflicts: conf.student, teacher_conflicts: conf.teacher }, 409);
       }
 
       // ── 🚫 강사 근무불가(휴가·휴식시간) 검사 — 강사 피드백(2026-07-24):
@@ -4183,7 +4508,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
 
       return json({
-        ok: true, created, failed, conflicts,
+        ok: true, created, failed,
+        // force:true 로 겹침을 무릅쓰고 등록한 경우, 무엇과 겹쳤는지 그대로 돌려준다
+        conflicts: conf.student, teacher_conflicts: conf.teacher,
         user_id: userId, student_name: studentName || null,
         teacher_id: teacherId || null, teacher_name: teacherName, teacher_matched: teacherMatched,
         schedule_kind: kind, start_time: startTime, duration_min: durationMin,

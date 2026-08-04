@@ -176,7 +176,7 @@
 
       // 월 라벨
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '10px sans-serif';
+      ctx.font = '10px MangoiHanSC,sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(months[i], x + barW + 1, h - 8);
     });

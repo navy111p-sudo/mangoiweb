@@ -51,7 +51,7 @@
     wrap.style.cssText =
       'position:fixed;left:0;right:0;top:0;z-index:2147483647;' +
       'background:linear-gradient(135deg,#1f2433,#2b3146);color:#fff;' +
-      'font-family:-apple-system,BlinkMacSystemFont,sans-serif;' +
+      'font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,sans-serif;' +
       'box-shadow:0 4px 18px rgba(0,0,0,.35);padding:14px 16px;' +
       'display:flex;flex-direction:column;gap:10px;';
 

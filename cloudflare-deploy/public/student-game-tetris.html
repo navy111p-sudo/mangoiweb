@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>🎮 단어 테트리스 — Mangoi</title>
@@ -30,7 +31,7 @@
   html,body{ height:100%; overflow:hidden; }
   /* 📱 모바일 주소창 변동 대응 — 실제 보이는 화면 높이에 맞춤(하단 잘림 방지) */
   @supports (height:100dvh){ html,body{ height:100dvh; } }
-  body{ font-family:'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+  body{ font-family:MangoiHanSC,'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif;
     color:#e6edff; background:#0b0f1e; user-select:none; -webkit-user-select:none; touch-action:manipulation; }
   body::before{ content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
     background:
@@ -41,7 +42,7 @@
   /* 🈶 한자 자형 통일 — 한자 표시 요소는 '같은' 명시적 CJK 폰트 스택으로(요소마다 폴백 달라 보이던 문제 해결).
      라틴(영어모드)=Segoe, 한자(중국어모드)=YaHei/PingFang 등으로 일관 렌더 */
   .quest .qslot, #wordlabel, .sp-sentence, #mission{
-    font-family:'Segoe UI','Microsoft YaHei','微软雅黑','PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
+    font-family:MangoiHanSC,'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
   .wrap{ position:relative; z-index:1; height:100%; display:flex; flex-direction:column; align-items:center; }
 
   .scr{ display:none; width:100%; height:100%; flex-direction:column; align-items:center; }
@@ -1334,6 +1335,6 @@ window.addEventListener('beforeunload', flushProg);
 /* 시작 */
 showMode();
 </script>
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804092314 -->
 </body>
 </html>

@@ -219,7 +219,7 @@ async function load() {
     document.getElementById('kpi').innerHTML =
       '<div class="card" style="grid-column:1/-1;border-left:4px solid #dc2626;">' +
         '<div class="card-label" style="color:#dc2626;font-weight:700;">⚠️ ' + (L?'Dashboard Load Failed':'데이터 로드 실패') + ' · ' + statusLabel + '</div>' +
-        '<div style="margin-top:10px;font-size:13px;color:#374151;white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,monospace;">' + msg + '</div>' +
+        '<div style="margin-top:10px;font-size:13px;color:#374151;white-space:pre-wrap;word-break:break-all;font-family:MangoiHanSC,ui-monospace,monospace;">' + msg + '</div>' +
         '<div style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5;">' +
           (L?'Check F12 Console for full details. Most likely cause: D1 migration not applied yet — run <code>npx wrangler d1 execute mango-db --remote --file=migration-attendance-fields.sql</code>'
              :'F12 콘솔에서 자세한 내용을 확인하세요.<br>가장 흔한 원인: D1 마이그레이션 미적용 → <code style="background:#f3f4f6;padding:2px 4px;border-radius:3px;">npx wrangler d1 execute mango-db --remote --file=migration-attendance-fields.sql</code> 실행 필요.') +
@@ -3402,9 +3402,9 @@ function downloadEmptyEnrollmentTemplateExcel() {
   '</xml>' +
   '<![endif]-->' +
   '<style>' +
-    'body { font-family: "맑은 고딕", "Malgun Gothic", sans-serif; }' +
+    'body { font-family: MangoiHanSC,"맑은 고딕", "Malgun Gothic", sans-serif; }' +
     'table { border-collapse: collapse; mso-table-overlap: never; mso-table-lspace: 0; mso-table-rspace: 0; }' +
-    'td { font-family: "맑은 고딕", sans-serif; mso-number-format: "\\@"; vertical-align: middle; }' +
+    'td { font-family: MangoiHanSC,"맑은 고딕", sans-serif; mso-number-format: "\\@"; vertical-align: middle; }' +
     /* 제목 */
     '.title-cell { ' +
       'font-size: 22pt; font-weight: bold; color: #9a3412; ' +
@@ -3719,7 +3719,7 @@ function downloadEmptyEnrollmentTemplateWord() {
     '<style>' +
       // A4 가로 방향
       '@page { size: A4 landscape; margin: 1.4cm; mso-page-orientation: landscape; }' +
-      'body { font-family: "맑은 고딕", "Malgun Gothic", sans-serif; font-size: 10pt; color: #1f2937; line-height: 1.5; }' +
+      'body { font-family: MangoiHanSC,"맑은 고딕", "Malgun Gothic", sans-serif; font-size: 10pt; color: #1f2937; line-height: 1.5; }' +
       // 제목
       '.doc-title { font-size: 22pt; font-weight: bold; color: #9a3412; text-align: center; padding: 8pt 0; margin: 0; ' +
         'border-bottom: 3pt solid #f59e0b; }' +
@@ -4220,7 +4220,7 @@ function autoExportBulkEnrollment(records) {
   let docHtml =
     '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8"><title>수강신청 일괄 등록 ' + N + '명</title>' +
-    '<style>body{font-family:"Malgun Gothic",sans-serif;font-size:11pt;padding:30px}' +
+    '<style>body{font-family:MangoiHanSC,"Malgun Gothic",sans-serif;font-size:11pt;padding:30px}' +
     'h1{color:#9a3412;border-bottom:3px solid #f59e0b;padding-bottom:8px}' +
     'table{border-collapse:collapse;width:100%;margin-top:20px}' +
     'th{background:#fef3c7;color:#78350f;text-align:left;padding:8px 12px;border:1px solid #d6d3d1;font-size:10pt}' +
@@ -4314,7 +4314,7 @@ async function autoExportEnrollment(enr) {
           'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
           'xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8"><title>수강신청서 — ' + _aiEsc(enr.student_name) + '</title>' +
-    '<style>body{font-family:"Malgun Gothic",sans-serif;font-size:11pt;padding:30px;}' +
+    '<style>body{font-family:MangoiHanSC,"Malgun Gothic",sans-serif;font-size:11pt;padding:30px;}' +
     'h1{color:#9a3412;border-bottom:3px solid #f59e0b;padding-bottom:8px}' +
     'table{border-collapse:collapse;width:100%;margin-top:20px}' +
     'th{background:#fef3c7;color:#78350f;text-align:left;padding:10px 14px;border:1px solid #d6d3d1}' +
@@ -8632,7 +8632,7 @@ window.rebuildGlobalSearchIndex = function() {
       return;
     }
     win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
-      <style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
+      <style>body{font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;text-align:center}.spinner{display:inline-block;width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:#fb923c;border-radius:50%;animation:s 0.8s linear infinite;margin-bottom:14px}@keyframes s{to{transform:rotate(360deg)}}</style>
       </head><body><div class="spinner"></div><div>리포트 데이터 불러오는 중...</div>
 </body></html>`);
 
@@ -8658,7 +8658,7 @@ window.rebuildGlobalSearchIndex = function() {
     const baseStyle = `
       <style>
         @page { size:A4; margin:18mm 14mm; }
-        body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:24px;max-width:1000px;margin:0 auto;background:#fff}
+        body{font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:24px;max-width:1000px;margin:0 auto;background:#fff}
         h1{font-size:24px;margin:0 0 4px;border-bottom:3px solid #fb923c;padding-bottom:8px}
         h2{font-size:16px;color:#374151;margin:20px 0 8px}
         .meta{color:#6b7280;font-size:12px;margin-bottom:18px}
@@ -9053,7 +9053,7 @@ window.rebuildGlobalSearchIndex = function() {
       body.innerHTML = rows.length ? rows.map(function(row){
         return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
           var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
-          var align = c[2] ? 'text-align:right;font-family:Consolas,monospace' : '';
+          var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
           var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
           return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
         }).join('')+'</tr>';
@@ -9353,7 +9353,7 @@ window.rebuildGlobalSearchIndex = function() {
       }
       w.document.open();
       w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${_esc(d.label)}</title>
-        <style>@page{size:A4;margin:18mm 14mm}body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;max-width:900px;margin:0 auto}.toolbar{position:fixed;top:10px;right:10px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1)}.toolbar button{padding:8px 14px;font-size:13px;border:0;border-radius:6px;cursor:pointer;margin-left:6px;font-weight:600}@media print{.toolbar{display:none}body{padding:0}}</style>
+        <style>@page{size:A4;margin:18mm 14mm}body{font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;color:#111;padding:30px;max-width:900px;margin:0 auto}.toolbar{position:fixed;top:10px;right:10px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1)}.toolbar button{padding:8px 14px;font-size:13px;border:0;border-radius:6px;cursor:pointer;margin-left:6px;font-weight:600}@media print{.toolbar{display:none}body{padding:0}}</style>
         </head><body>
         <div class="toolbar">
           <button style="background:#fb923c;color:#fff" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button>
@@ -9598,10 +9598,10 @@ window.rebuildGlobalSearchIndex = function() {
       const color = t.amount > meta.threshold ? '#dc2626' : t.amount > catAvg * 1.5 ? '#d97706' : '#059669';
       const safeM = String(t.merchant).replace(/[<>]/g, '');
       return `<tr style="border-bottom:1px solid #f3f4f6">
-        <td style="padding:8px 10px;color:#6b7280;font-family:Consolas,monospace;font-size:11px">${t.datetime}</td>
+        <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${t.datetime}</td>
         <td style="padding:8px 10px;color:#111;font-weight:600">${safeM}</td>
         <td style="padding:8px 10px"><span style="background:${meta.color}22;color:${meta.color};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${meta.icon} ${t.category}</span></td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:${color};font-family:Consolas,monospace">₩${t.amount.toLocaleString('ko-KR')}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:${color};font-family:MangoiHanSC,Consolas,monospace">₩${t.amount.toLocaleString('ko-KR')}</td>
         <td style="padding:8px 10px;color:${color};font-size:11px;font-weight:700">${vs}</td>
         <td style="padding:8px 10px;text-align:center"><button onclick="cardEditMemo(${t.id})" style="padding:3px 8px;font-size:11px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;cursor:pointer">📝</button></td>
       </tr>`;
@@ -9974,7 +9974,7 @@ window.rebuildGlobalSearchIndex = function() {
         ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">● 활성</span>'
         : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">⏸ 대기</span>';
       return `<tr style="border-bottom:1px solid #f3f4f6">
-        <td style="padding:8px 10px;font-family:Consolas,monospace;color:#0ea5e9;font-size:11.5px">${u.uid}</td>
+        <td style="padding:8px 10px;font-family:MangoiHanSC,Consolas,monospace;color:#0ea5e9;font-size:11.5px">${u.uid}</td>
         <td style="padding:8px 10px;color:#111;font-weight:600">${u.name}</td>
         <td style="padding:8px 10px;text-align:center"><span style="background:${r.color}22;color:${r.color};padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700">${r.icon} ${r.name}</span></td>
         <td style="padding:8px 10px;color:#6b7280;font-size:11.5px">${u.branch}</td>
@@ -10424,7 +10424,7 @@ window.rebuildGlobalSearchIndex = function() {
     const ts = new Date().toLocaleString('ko-KR');
     const item = document.createElement('div');
     item.style.cssText = 'padding:6px 0;border-bottom:1px solid #f3f4f6;color:#374151;font-size:11.5px';
-    item.innerHTML = `<span style="color:#9ca3af;font-family:Consolas,monospace">${ts}</span> · ${msg}`;
+    item.innerHTML = `<span style="color:#9ca3af;font-family:MangoiHanSC,Consolas,monospace">${ts}</span> · ${msg}`;
     if (box.querySelector('div[style*="text-align:center"]')) box.innerHTML = '';
     box.insertBefore(item, box.firstChild);
   }
@@ -10560,12 +10560,12 @@ window.rebuildGlobalSearchIndex = function() {
       </thead>
       <tbody>${rows.map(s => `
         <tr style="border-bottom:1px solid #f3f4f6">
-          <td style="padding:8px 10px;font-family:Consolas,monospace;color:#0ea5e9;font-size:11.5px">${_se(s.user_id)}</td>
+          <td style="padding:8px 10px;font-family:MangoiHanSC,Consolas,monospace;color:#0ea5e9;font-size:11.5px">${_se(s.user_id)}</td>
           <td style="padding:8px 10px;color:#111;font-weight:600">${_se(s.name)}</td>
           <td style="padding:8px 10px;text-align:center;color:#6b7280">${_se(s.grade||'-')}</td>
           <td style="padding:8px 10px;text-align:center"><span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${_se(s.level||'-')}</span></td>
           <td style="padding:8px 10px;color:#374151">${_se(s.program||'-')}</td>
-          <td style="padding:8px 10px;text-align:right;color:#10b981;font-weight:700;font-family:Consolas,monospace">₩${(s.amount||0).toLocaleString('ko-KR')}</td>
+          <td style="padding:8px 10px;text-align:right;color:#10b981;font-weight:700;font-family:MangoiHanSC,Consolas,monospace">₩${(s.amount||0).toLocaleString('ko-KR')}</td>
           <td style="padding:8px 10px;text-align:center;color:#6b7280">${(s.classes_total - s.classes_used)||0} / ${s.classes_total||0}</td>
           <td style="padding:8px 10px;color:#6b7280;font-size:11.5px">${_se(s.teacher||'-')}</td>
           <td style="padding:8px 10px;color:#6b7280;font-size:11.5px">${_se(s.franchise||'-')}</td>
@@ -10594,10 +10594,10 @@ window.rebuildGlobalSearchIndex = function() {
           <td style="padding:8px 10px;color:#111;font-weight:700">${_se(b.name)}</td>
           <td style="padding:8px 10px;color:#6b7280;font-size:11.5px">${_se(b.city)} ${_se(b.district)}</td>
           <td style="padding:8px 10px;color:#374151">${_se(b.manager_name||'-')}</td>
-          <td style="padding:8px 10px;color:#6b7280;font-family:Consolas,monospace;font-size:11px">${_se(b.manager_phone||'-')}</td>
+          <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${_se(b.manager_phone||'-')}</td>
           <td style="padding:8px 10px;text-align:right;color:#1e40af;font-weight:700">${b.students_count||0}명</td>
           <td style="padding:8px 10px;text-align:right;color:#7c2d12;font-weight:700">${b.teachers_count||0}명</td>
-          <td style="padding:8px 10px;text-align:right;color:#10b981;font-weight:700;font-family:Consolas,monospace">₩${(b.monthly_revenue||0).toLocaleString('ko-KR')}</td>
+          <td style="padding:8px 10px;text-align:right;color:#10b981;font-weight:700;font-family:MangoiHanSC,Consolas,monospace">₩${(b.monthly_revenue||0).toLocaleString('ko-KR')}</td>
           <td style="padding:8px 10px;text-align:center;color:#6b7280;font-size:11px">${_se(b.open_date||'-')}</td>
           <td style="padding:8px 10px;text-align:center">${b.status==='active' ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">● 운영중</span>' : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">⏸ 대기</span>'}</td>
         </tr>`).join('')}</tbody>
@@ -10628,10 +10628,10 @@ window.rebuildGlobalSearchIndex = function() {
           <td style="padding:8px 10px;color:#111;font-weight:700">${_se(a.name)}</td>
           <td style="padding:8px 10px;color:#6b7280;font-size:11px">${_se(a.parent_branch||'-')}</td>
           <td style="padding:8px 10px;color:#374151">${_se(a.owner_name||'-')}</td>
-          <td style="padding:8px 10px;color:#6b7280;font-family:Consolas,monospace;font-size:11px">${_se(a.owner_phone||'-')}</td>
+          <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${_se(a.owner_phone||'-')}</td>
           <td style="padding:8px 10px;text-align:right;color:#1e40af;font-weight:700">${a.students_count||0}명</td>
           <td style="padding:8px 10px;text-align:center"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${_se(a.commission_rate||'-')}</span></td>
-          <td style="padding:8px 10px;text-align:right;color:#10b981;font-weight:700;font-family:Consolas,monospace">₩${(a.monthly_revenue||0).toLocaleString('ko-KR')}</td>
+          <td style="padding:8px 10px;text-align:right;color:#10b981;font-weight:700;font-family:MangoiHanSC,Consolas,monospace">₩${(a.monthly_revenue||0).toLocaleString('ko-KR')}</td>
           <td style="padding:8px 10px;text-align:center;color:#6b7280;font-size:11px">${_se(a.contract_end||'-')}</td>
           <td style="padding:8px 10px;text-align:center"><span style="background:#${bg};color:#${fg};padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">${stLabel}</span></td>
         </tr>`;

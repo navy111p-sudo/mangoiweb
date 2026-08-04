@@ -27,7 +27,10 @@
 
 /* ── 타이포 토큰 ───────────────────────────────────────────── */
 :root {
-  --mg-font-sans: 'Pretendard Variable', Pretendard, 'Noto Sans KR',
+  /* MangoiHanSC 가 «맨 앞» 이어야 한다. 뒤에 두면 한글 글꼴(Pretendard·맑은 고딕)에
+     한자 정자체가 들어 있어서 공통 한자(我·的)를 먼저 그려 한 단어에 두 글꼴이 섞인다.
+     unicode-range 로 한자 영역만 잡으므로 한글·영문·숫자는 아래 목록 그대로다. */
+  --mg-font-sans: MangoiHanSC, 'Pretendard Variable', Pretendard, 'Noto Sans KR',
     -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
     'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
   --mg-line: 1.65;          /* 본문 줄간격 — 빽빽함 해소 */

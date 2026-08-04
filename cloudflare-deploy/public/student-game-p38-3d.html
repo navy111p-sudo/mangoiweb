@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>P-38 라이트닝 3D 조종석 (Cockpit) — 망고아이</title>
@@ -26,7 +27,7 @@
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#05080f;
-    font-family:'Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
+    font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
     -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
   #wrap{position:fixed;inset:0;overflow:hidden}
   #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -119,7 +120,7 @@
   /* 낱말 슬롯 = 판에 파 넣은 홈. 각진 모양이 군용 장비 느낌 */
   .wchip{position:relative;padding:3px 10px 5px;border-radius:3px;
     font-size:clamp(14px,2.2vw,20px);font-weight:900;letter-spacing:.6px;
-    font-family:'Consolas','Malgun Gothic',monospace;
+    font-family:MangoiHanSC,'Consolas','Malgun Gothic',monospace;
     background:linear-gradient(180deg,#1a1e16,#23281d);
     border:1px solid #12150f;color:#cfd8c2;
     box-shadow:inset 0 2px 4px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.06);
@@ -161,7 +162,7 @@
     padding:3px 9px;backdrop-filter:blur(2px)}
   .gzL{font-size:9px;font-weight:800;color:#b9cba2;letter-spacing:.5px;text-shadow:0 1px 3px #000}
   .gzV{font-size:clamp(15px,2.6vw,22px);font-weight:900;color:#ffd479;
-    font-family:'Consolas',monospace;text-shadow:0 1px 4px #000,0 0 9px rgba(255,190,60,.55)}
+    font-family:MangoiHanSC,'Consolas',monospace;text-shadow:0 1px 4px #000,0 0 9px rgba(255,190,60,.55)}
   .gzV.small{font-size:clamp(12px,2vw,16px)}
   /* ═══ 조종석 계기판 — 실물 계기판 자리에 얹는 아날로그 원형 계기 ═══
      위치·크기는 layoutCockpit() 이 조종석 이미지 기준으로 px 로 넣는다. */
@@ -208,9 +209,9 @@
   .dial .bez{fill:#171b1f;stroke:#000;stroke-width:3}
   .dial .face{fill:#0a0d10;stroke:#2e363d;stroke-width:1.4}
   .dial .dl{fill:#93a9be;font-size:9.5px;font-weight:800;text-anchor:middle;
-    font-family:'Malgun Gothic',sans-serif}
+    font-family:MangoiHanSC,'Malgun Gothic',sans-serif}
   .dial .dv{fill:#ffd479;font-size:14px;font-weight:900;text-anchor:middle;
-    font-family:Consolas,monospace}
+    font-family:MangoiHanSC,Consolas,monospace}
   .dial .de{fill:#8fa9c2;font-size:9px;font-weight:800;text-anchor:middle}
   .dial .dr{fill:#dbe9f7;font-size:11px;font-weight:900;text-anchor:middle}
   .dial .ndl{stroke:#ffd479;stroke-width:3.2;stroke-linecap:round}
@@ -1725,9 +1726,9 @@ function labelTexture(text, kind){
   var bd = kind==='ace' ? 'rgba(255,138,92,0.75)' : (kind==='chunk' ? 'rgba(127,209,255,0.7)' : 'rgba(255,212,121,0.62)');
   x.fillStyle=bg; roundRect(x, 8, 26, 496, 108, 26); x.fill();
   x.lineWidth=4; x.strokeStyle=bd; roundRect(x, 8, 26, 496, 108, 26); x.stroke();
-  x.font='900 74px "Malgun Gothic", Arial, sans-serif';
+  x.font='900 74px MangoiHanSC,"Malgun Gothic", Arial, sans-serif';
   x.textAlign='center'; x.textBaseline='middle';
-  var t=String(text); if(t.length>13) x.font='900 52px "Malgun Gothic", Arial, sans-serif';
+  var t=String(text); if(t.length>13) x.font='900 52px MangoiHanSC,"Malgun Gothic", Arial, sans-serif';
   x.shadowColor='rgba(0,0,0,0.95)'; x.shadowBlur=14; x.shadowOffsetY=2;
   x.lineWidth=9; x.strokeStyle='rgba(0,0,0,0.92)'; x.strokeText(t, 256, 82);   // 검은 외곽선
   x.shadowBlur=0; x.shadowOffsetY=0;
@@ -2893,7 +2894,7 @@ function drawRadar(ts){
         가운데 삼각형이 '내가 위를 향한다'를 이미 말해 주므로 정보 손실이 없다. */
   var TINY = css < 110;
   if(!TINY){
-    g.fillStyle='rgba(190,235,210,.85)'; g.font='bold 6px system-ui,sans-serif'; g.textAlign='center';
+    g.fillStyle='rgba(190,235,210,.85)'; g.font='bold 6px MangoiHanSC,system-ui,sans-serif'; g.textAlign='center';
     g.fillText('전방 FWD', cx, cy-R-2.5);
   }
 
@@ -2935,13 +2936,13 @@ function drawRadar(ts){
     // 고도차 — 평면 점만으론 3D 에서 못 찾는다
     if(Math.abs(dy)>30){
       g.fillStyle=e.correct?'#ffe8ad':'rgba(255,190,190,.95)';
-      g.font='bold 5.4px system-ui,sans-serif';
+      g.font='bold 5.4px MangoiHanSC,system-ui,sans-serif';
       g.fillText(dy>0?'▲':'▼', X, Y-5.0);
     }
   }
 
   // ── 목표까지의 거리·방향 안내(맨 아래 한 줄). 작을수록 글자를 키워야 읽힌다
-  g.textAlign='center'; g.font='bold '+(TINY?9:7)+'px system-ui,sans-serif';
+  g.textAlign='center'; g.font='bold '+(TINY?9:7)+'px MangoiHanSC,system-ui,sans-serif';
   if(tgt){
     g.fillStyle='#ffd479';
     g.fillText('목표 '+Math.round(tgt.dist)+'m'+(tgt.out?' ↗':''), cx, cy+R+7.2);
@@ -3217,6 +3218,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804092314 -->
 </body>
 </html>

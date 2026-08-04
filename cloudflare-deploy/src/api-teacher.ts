@@ -19,6 +19,9 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { getAdminActor } from './auth-admin';
+// 🎚️ 학생 읽기 밴드(판단력 훈련) — KV 1회 조회. 수업 전에 강사가 "이 아이가 지금
+//    어느 정도 문장을 읽나"를 알 수 있게 오늘 수업 목록에 얹는다.
+import { getReadingBandFor } from './api-judgment';
 
 interface TeacherEnv {
   DB: D1Database;
@@ -209,6 +212,27 @@ export async function handleTeacherApi(
       });
     }
     classes.sort((a, b) => a.start_ts - b.start_ts);
+
+    // 🎚️ 오늘 수업 학생들의 읽기 밴드 — 학생 수만큼 KV 조회(보통 5~10건, 병렬).
+    //   · D1 조회가 아니라 KV 라 이 파일의 '한 번의 요청' 원칙을 깨지 않는다.
+    //   · 판단력 훈련을 한 번도 안 한 학생은 값이 없어 아무것도 안 붙는다
+    //     (없는 값을 기본값으로 채워 보여주면 강사가 "이 아이는 초급이구나" 하고 오해한다).
+    //   · 실패해도 포털 전체를 막지 않는다.
+    try {
+      const uids = [...new Set(classes.map((c) => String(c.student_uid || '')).filter(Boolean))];
+      const found = new Map<string, any>();
+      await Promise.all(uids.map(async (u) => {
+        try { const b = await getReadingBandFor(env as any, u); if (b) found.set(u, b); } catch { /* 학생 1명 실패는 무시 */ }
+      }));
+      for (const c of classes) {
+        const b = found.get(String(c.student_uid || ''));
+        if (!b) continue;
+        c.reading_band = b.band;
+        c.reading_band_ko = b.name_ko;
+        c.reading_band_en = b.name_en;
+        c.reading_band_lv = b.lv;
+      }
+    } catch { /* 밴드 조회 실패가 오늘 수업 표시를 막지 않는다 */ }
   }
 
   // ── 위 Promise.all 결과를 화면용 모양으로 정리 (여기서는 DB 접근 없음) ──

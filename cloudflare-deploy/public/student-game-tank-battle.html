@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>셔먼 탱크대전 (Tank Battle)</title>
@@ -18,7 +19,7 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:#0a0f14;
-    font-family:'Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8eef5;user-select:none;touch-action:none}
+    font-family:MangoiHanSC,'Segoe UI',system-ui,'Malgun Gothic',sans-serif;color:#e8eef5;user-select:none;touch-action:none}
   #wrap{position:fixed;inset:0;overflow:hidden}
   canvas{display:block;position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
   /* 📱 가상 조이스틱 — 왼손 엄지 자리(왼쪽 아래). 터치 기기에서만 표시(JS 가 켠다) */
@@ -63,7 +64,7 @@
   #sentKo{font-size:13px;color:#ffe07a;text-align:center;font-weight:800;letter-spacing:.3px;
     text-shadow:0 1px 2px #000,0 0 5px rgba(0,0,0,.85),-1px 0 2px #000,1px 0 2px #000}
   #sentEn{margin-top:2px;display:flex;flex-wrap:wrap;gap:1px 10px;justify-content:center;align-items:flex-start}
-  .wtok, .spSent{ font-family:'Segoe UI','Microsoft YaHei','微软雅黑','PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
+  .wtok, .spSent{ font-family:MangoiHanSC,'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
   .wtok{font-size:19px;font-weight:900;padding:0;border:0;border-radius:0;line-height:1.05;
     background:none;color:#eef5ff;text-align:center;transition:color .2s;
     text-shadow:0 1px 2px #000,0 0 4px rgba(0,0,0,.95),-1px 0 2px #000,1px 0 2px #000,0 -1px 2px #000}
@@ -78,20 +79,38 @@
     50%    {color:#fff6a0;text-shadow:0 1px 2px #000,0 0 15px rgba(255,225,90,1),-1px 0 2px #000,1px 0 2px #000} }
 
   /* ── HUD ── */
-  #hud{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:8px 12px 10px;
-    display:flex;align-items:flex-end;justify-content:space-between;gap:10px;pointer-events:none;
-    background:linear-gradient(0deg,rgba(8,14,20,.9),transparent)}
-  .hbox{background:rgba(10,18,26,.72);border:1px solid rgba(120,150,180,.22);border-radius:10px;
-    padding:5px 11px;backdrop-filter:blur(3px)}
-  .hlab{font-size:10px;color:#8aa0b8;font-weight:700;letter-spacing:1px}
-  .hval{font-size:20px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
+  /* 오른쪽 위 한 줄. 조작 버튼(#ctlRow) 왼쪽에 붙는다. 전장을 가리지 않도록
+     배경 그라데이션 없이, 항목마다 작은 알약으로만 띄운다. */
+  #hud{position:absolute;top:60px;right:10px;left:auto;bottom:auto;z-index:6;
+    display:flex;align-items:center;gap:5px;pointer-events:none;max-width:calc(100% - 20px)}
+  .hbox{display:flex;align-items:center;gap:5px;
+    background:rgba(10,18,26,.62);border:1px solid rgba(120,150,180,.22);border-radius:8px;
+    padding:3px 8px;backdrop-filter:blur(3px);white-space:nowrap}
+  .hlab{font-size:9px;color:#8aa0b8;font-weight:700;letter-spacing:.5px}
+  .hval{font-size:14px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
   #hScore .hval{color:#ffd479}
   #hClear .hval{color:#7fd1ff}
-  #timeWrap{flex:1;max-width:340px}
-  #timeBar{height:12px;border-radius:7px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:4px;border:1px solid rgba(255,255,255,.14)}
-  #timeFill{height:100%;width:100%;border-radius:7px;background:linear-gradient(90deg,#3ddc84,#a3e635);transition:width .25s linear}
+  #timeWrap #vTime{color:#a3e635}
+  #timeBar{width:88px;height:7px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;border:1px solid rgba(255,255,255,.14)}
+  #timeFill{height:100%;width:100%;border-radius:5px;background:linear-gradient(90deg,#3ddc84,#a3e635);transition:width .25s linear}
   #timeFill.warn{background:linear-gradient(90deg,#f97316,#ef4444)}
-  #hHearts{font-size:19px;letter-spacing:1px;filter:drop-shadow(0 1px 2px #000)}
+  #hHearts{font-size:13px;letter-spacing:0;filter:drop-shadow(0 1px 2px #000)}
+  /* 문장(문제)은 화면 폭을 최대한 쓴다. 오른쪽 위 조작버튼(🔊⏸)만 피하면 된다.
+     HUD 는 문장 아래 줄로 내려서 문장을 가리지 않는다. */
+  #topbar{padding-right:92px}
+  /* 폰(가로 915 포함) — 라벨을 빼고 숫자만 남겨 폭을 크게 줄인다 */
+  @media (max-width:1100px){
+    #hud{right:8px;gap:4px}
+    .hbox{padding:2px 6px;gap:4px;border-radius:7px}
+    .hval{font-size:12px} .hlab{display:none}
+    #timeBar{width:46px;height:6px}
+    #hHearts{font-size:11px}
+    #hScore .hval::before{content:'★';color:#8aa0b8;font-size:9px;margin-right:2px}
+    #hClear .hval::before{content:'✓';color:#8aa0b8;font-size:9px;margin-right:2px}
+  }
+  @media (max-width:620px){
+    #timeBar{width:34px}
+  }
 
   /* ── 오버레이(시작/종료) ── */
   .overlay{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
@@ -323,12 +342,15 @@
 
   <div id="bannerMsg"></div>
 
+  <!-- 🎯 (2026-08-03 사장님 지시) HUD 를 화면 아래 가운데 → **오른쪽 위 한 줄**로.
+       예전엔 화면 폭 전체를 쓰는 아래 막대라 그 뒤의 전차가 안 보였다("탱크가 안 보여").
+       전장을 최대한 비우는 게 목적이라 그림자 배경도 없애고 높이를 한 줄로 줄였다. -->
   <div id="hud">
-    <div class="hbox" id="hScore"><div class="hlab">SCORE</div><div class="hval" id="vScore">0</div></div>
-    <div class="hbox" id="timeWrap"><div class="hlab">⛽ 연료 / TIME <span id="vTime" style="float:right;color:#a3e635">70</span></div>
-      <div id="timeBar"><div id="timeFill"></div></div>
-      <div id="hHearts" style="margin-top:5px">❤️❤️❤️</div></div>
-    <div class="hbox" id="hClear"><div class="hlab">정답</div><div class="hval" id="vClear">0/10</div></div>
+    <div class="hbox" id="hScore"><span class="hlab">SCORE</span><span class="hval" id="vScore">0</span></div>
+    <div class="hbox" id="timeWrap"><span class="hlab">⛽</span><span class="hval" id="vTime">70</span>
+      <div id="timeBar"><div id="timeFill"></div></div></div>
+    <div class="hbox" id="hHeartBox"><span id="hHearts">❤️❤️❤️</span></div>
+    <div class="hbox" id="hClear"><span class="hlab">정답</span><span class="hval" id="vClear">0/10</span></div>
   </div>
 
   <div id="wordpop"></div>
@@ -803,6 +825,7 @@ function loadSentence(){
   var s=_queue[_qi++];
   G.sent={ w:s.w.slice(), ko:s.ko }; G.next=0;
   renderSentence();
+  try{ syncHudTop(); }catch(_){}   // 문장이 길어지면 문장바 높이가 커진다 → HUD 를 그만큼 내린다
   speakTimes(G.sent.w.join(MODE==='zh'?'':' '), 0.95, 2);   // 🔊 새 문장 자동 2회 듣기 — seq 토큰 있는 speakTimes(미션 오디오와 안 꼬임)
 }
 /* 📚 진도(레슨) 네비게이터 연결 — 로그인 학생 교재의 레슨별 문장 로드 + ◀복습/▶예습 */
@@ -1063,13 +1086,21 @@ function syncWordBar(){
     bar.appendChild(b);
   });
 }
+/* HUD 는 문장(문제) 바로 아래 줄에 놓는다.
+   문장이 길어 두 줄이 되면 문장바가 높아지므로, CSS 고정값 대신 실제 높이를 재서 맞춘다.
+   (고정 60px 로 뒀더니 세로에서 1px 겹쳤다 — 문장이 길면 더 크게 겹친다) */
+function syncHudTop(){
+  var tb=document.getElementById('topbar'), hud=document.getElementById('hud');
+  if(!tb||!hud) return;
+  hud.style.top = Math.round(tb.getBoundingClientRect().height + 4) + 'px';
+}
 /* 세로/가로 전환 감지 — 세로일 때만 단어 줄을 쓴다 */
 function syncPortrait(){
   var on = IS_TOUCH && VIEW==='quarter' && G && G.running &&
            (window.innerHeight > window.innerWidth * 1.05);
   document.body.classList.toggle('portraitPlay', !!on);
 }
-window.addEventListener('resize', function(){ syncPortrait(); syncWordBar(); });
+window.addEventListener('resize', function(){ syncPortrait(); syncWordBar(); syncHudTop(); });
 function _onCtxMenu(e){ e.preventDefault(); if(G&&G.running&&!G.speaking){ var p=ptr(e); fireAt(p.x, p.y); } }  // 우클릭=자동조준 발사
 [cv,cv3d].forEach(function(elx){
   elx.addEventListener('pointermove',_onPtrMove);
@@ -1168,7 +1199,7 @@ function update(dt){
     G.vx += (_mvx*_mspd - G.vx)*Math.min(1,dt*14);            // 부드럽게 가속(급출발 방지)
     G.vy += (_mvy*_mspd - G.vy)*Math.min(1,dt*14);
     G.px+=G.vx*dt; G.py+=G.vy*dt;
-    G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
+    G.px=clamp(G.px,26,W-26); G.py=clamp(G.py,64,H-40);   // HUD 를 위로 올려 아래 여백을 90->40 으로 (전장 확대)
   }
   // 🚗 셔먼 = 왼쪽 버튼(손가락)을 누른 동안 커서에 딱 붙어 따라감. 떼면 그 자리에 정지.(터치·2D)
   else if(VIEW==='quarter' && G.dragging){
@@ -1186,7 +1217,7 @@ function update(dt){
     G.vx += (tvx-G.vx)*Math.min(1,dt*16); G.vy += (tvy-G.vy)*Math.min(1,dt*16);
   }
   G.px+=G.vx*dt; G.py+=G.vy*dt;
-  G.px=clamp(G.px,40,W-40); G.py=clamp(G.py,70,H-90);
+  G.px=clamp(G.px,26,W-26); G.py=clamp(G.py,64,H-40);   // HUD 를 위로 올려 아래 여백을 90->40 으로 (전장 확대)
   }
   var sp=Math.hypot(G.vx,G.vy);
   if(VIEW==='quarter'){
@@ -1303,10 +1334,7 @@ function update(dt){
   for(var ff=G.fuels.length-1;ff>=0;ff--){ var fc=G.fuels[ff]; fc.bob+=dt*3;
     if(Math.hypot(fc.x-G.px,fc.y-G.py) < fc.r+18*SCALE){ collectFuel(fc); G.fuels.splice(ff,1); } }
 
-  // 잔해(부서진 전차) 연기 페이드
-  for(var wr=G.wrecks.length-1;wr>=0;wr--){ var wk=G.wrecks[wr]; wk.age+=dt;
-    if(wk.age<2.2 && Math.random()<0.3){ G.parts.push({x:wk.x+(Math.random()-0.5)*20,y:wk.y,vx:(Math.random()-0.5)*10,vy:-30-Math.random()*20,life:1.2,age:0,size:8,kind:'smoke'}); }
-    if(wk.age>7){ G.wrecks.splice(wr,1); } }
+  stepWrecks(dt);   // 잔해(부서진 전차) 연기 — 격파 뒤에도 이어지도록 별도 함수로 뺐다(stepWrecks 주석 참고)
 
   stepParticles(dt);
   syncWordBar();          // 📱 세로 단어 버튼 — 구성이 바뀔 때만 다시 그린다(탭 씹힘 방지)
@@ -1508,6 +1536,26 @@ function _spkCoach(said, target, ok){
 /* ════════════════════════════════════════════════════════════
    14. 파티클 스텝
    ════════════════════════════════════════════════════════════ */
+/* 💨 잔해(부서진 전차)에서 피어오르는 연기 — 2.2초간 뿜고, 7초 뒤 잔해가 사라진다.
+ *
+ * ⚠️ (2026-08-04) 이 코드는 원래 update() 안에 있었다. 그게 사장님이 말씀하신
+ *    「탱크가 터져서 꺼질 때 불·연기가 잘린다」의 원인이었다.
+ *      · 내 전차가 파괴되면 endGame 이 G.running=false 로 만든다
+ *      · loop() 는 running 이 꺼지면 update() 를 부르지 않는다
+ *      · 그래서 **잔해가 뿜어야 할 연기가 한 번도 안 생겼다**
+ *      · 남은 건 bigExplode 의 일회성 불꽃뿐 → 1.4~2.4초 만에 뚝 끊긴다
+ *    가장 극적으로 연출돼야 할 «내가 격파당하는 순간»에만 연기가 없었다.
+ *
+ * → 함수로 빼서 **살아 있을 때(update)와 격파된 뒤(loop 의 dead 분기) 둘 다** 부른다.
+ *   dt 만 받고 G 전역을 쓰므로 어느 쪽에서 불러도 동작이 같다.
+ */
+function stepWrecks(dt){
+  if(!G || !G.wrecks) return;
+  for(var wr=G.wrecks.length-1;wr>=0;wr--){ var wk=G.wrecks[wr]; wk.age+=dt;
+    if(wk.age<2.2 && Math.random()<0.3){ G.parts.push({x:wk.x+(Math.random()-0.5)*20,y:wk.y,vx:(Math.random()-0.5)*10,vy:-30-Math.random()*20,life:1.2,age:0,size:8,kind:'smoke'}); }
+    if(wk.age>7){ G.wrecks.splice(wr,1); } }
+}
+
 function stepParticles(dt){
   for(var i=G.parts.length-1;i>=0;i--){ var p=G.parts[i]; p.age+=dt;
     if(p.age>=p.life){ G.parts.splice(i,1); continue; }
@@ -1545,7 +1593,7 @@ function render(){
         ctx.fillStyle='rgba(0,0,0,.55)'; rr(bx-2,byy-2,bw+4,8*SCALE+4,3); ctx.fill();
         ctx.fillStyle='#3a0d0d'; rr(bx,byy,bw,8*SCALE,2); ctx.fill();
         ctx.fillStyle='#ff4d4d'; rr(bx,byy,bw*Math.max(0,e.hp/(e.hpMax||6)),8*SCALE,2); ctx.fill();
-        ctx.fillStyle='#ffd479'; ctx.font='900 '+(12*SCALE)+'px sans-serif'; ctx.textAlign='center'; ctx.fillText('👑 BOSS', e.x, byy-4*SCALE); } });
+        ctx.fillStyle='#ffd479'; ctx.font='900 '+(12*SCALE)+'px MangoiHanSC,sans-serif'; ctx.textAlign='center'; ctx.fillText('👑 BOSS', e.x, byy-4*SCALE); } });
     // 적 포탄
     G.ebul.forEach(function(b){ drawShell(b,'#ff7b3c'); });
     // 플레이어 포탄
@@ -1566,7 +1614,7 @@ function render(){
       vg.addColorStop(0,'rgba(255,40,40,0)'); vg.addColorStop(1,'rgba(255,30,30,'+fp+')'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H); }
     // 🔥 콤보 카운터(상단 중앙)
     if(G.combo>=2){ ctx.save(); ctx.textAlign='center'; var cs=1+Math.min(0.4,(performance.now()-G.comboT)<180?0.4:0);
-      ctx.font='900 '+Math.round(26*SCALE*cs)+'px "Segoe UI",sans-serif'; ctx.fillStyle='#ffd479';
+      ctx.font='900 '+Math.round(26*SCALE*cs)+'px MangoiHanSC,"Segoe UI",sans-serif'; ctx.fillStyle='#ffd479';
       ctx.shadowColor='rgba(0,0,0,.6)'; ctx.shadowBlur=8; ctx.fillText('🔥 '+G.combo+' COMBO', W/2, 70); ctx.restore(); }
   }
   ctx.restore();
@@ -1575,7 +1623,7 @@ function render(){
 }
 /* 🗺️ 미니맵(레이더) — 적(빨강)·정답적(금색)·보스(큰빨강)·연료(초록)·셔먼(파랑) 위치 */
 function drawMinimap(){ if(!G||!G.running||G.dead)return;
-  var mw=88*SCALE, mh=64*SCALE, mx=W-mw-10, my=46;
+  var mw=88*SCALE, mh=64*SCALE, mx=W-mw-10, my=90;   // HUD 가 문장 아래 한 줄(60~82)로 내려와 그 밑에 놓는다
   ctx.save(); ctx.fillStyle='rgba(10,16,22,.62)'; rr(mx,my,mw,mh,6); ctx.fill();
   ctx.strokeStyle='rgba(140,165,195,.45)'; ctx.lineWidth=1; rr(mx,my,mw,mh,6); ctx.stroke();
   function fx(x){ return mx+clamp(x/W,0,1)*mw; } function fy(y){ return my+clamp(y/H,0,1)*mh; }
@@ -1701,7 +1749,7 @@ function drawLabel(e){ var isT=sameWord(e.word, neededWord());
     ctx.beginPath(); ctx.arc(e.x,e.y,(e.r+8*SCALE),0,7); ctx.stroke();
     ctx.fillStyle='rgba(255,214,90,'+(0.55+pu*0.45)+')';
     var ay=e.y-e.r-30-pu*4*SCALE; ctx.beginPath(); ctx.moveTo(e.x-8*SCALE,ay); ctx.lineTo(e.x+8*SCALE,ay); ctx.lineTo(e.x,ay+9*SCALE); ctx.closePath(); ctx.fill(); }
-  ctx.font='bold '+(15*Math.min(1.4,SCALE))+'px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif'; ctx.textAlign='center';
+  ctx.font='bold '+(15*Math.min(1.4,SCALE))+'px MangoiHanSC,"Segoe UI",sans-serif'; ctx.textAlign='center';
   var tw=ctx.measureText(e.word).width, pad=7, bw=tw+pad*2, by=e.y - e.r - 20;
   ctx.fillStyle = isT ? 'rgba(60,44,10,.92)' : 'rgba(10,16,22,.82)';
   rr(e.x-bw/2, by, bw, 21, 6); ctx.fill();
@@ -1812,9 +1860,9 @@ function makeWordSprite(){ var c=document.createElement('canvas'); c.width=512; 
   var sp=new THREE.Sprite(mat); sp.scale.set(4.6,1.44,1); sp.renderOrder=10; sp.userData.cnv=c; sp.userData.ctx=c.getContext('2d'); return sp; }
 function updateWordSprite(sp,word,hi){ var c=sp.userData.cnv,g=sp.userData.ctx; g.clearRect(0,0,c.width,c.height);
   var fs=86;
-  g.font='900 '+fs+'px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
+  g.font='900 '+fs+'px MangoiHanSC,"Segoe UI",sans-serif';
   var tw=g.measureText(word).width;
-  if(tw>c.width-24){ fs=Math.max(40, Math.floor(fs*(c.width-24)/tw)); g.font='900 '+fs+'px "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif'; }
+  if(tw>c.width-24){ fs=Math.max(40, Math.floor(fs*(c.width-24)/tw)); g.font='900 '+fs+'px MangoiHanSC,"Segoe UI",sans-serif'; }
   g.textAlign='center'; g.textBaseline='middle';
   g.lineJoin='round'; g.strokeStyle='rgba(8,12,16,0.95)'; g.lineWidth=Math.max(8,fs*0.16);
   g.strokeText(word, c.width/2, c.height/2);
@@ -1830,7 +1878,7 @@ function updateHpSprite3(sp,hp,hpMax){ var c=sp.userData.cnv,g=sp.userData.ctx; 
   g.fillStyle='rgba(0,0,0,.55)'; roundRect3(g,4,20,248,20,6); g.fill();
   g.fillStyle='#3a0d0d'; roundRect3(g,8,23,242,14,4); g.fill();
   g.fillStyle='#ff4d4d'; roundRect3(g,8,23,242*Math.max(0,hp/(hpMax||6)),14,4); g.fill();
-  g.font='900 20px sans-serif'; g.fillStyle='#ffd479'; g.textAlign='center'; g.fillText('👑 BOSS', c.width/2, 16);
+  g.font='900 20px MangoiHanSC,sans-serif'; g.fillStyle='#ffd479'; g.textAlign='center'; g.fillText('👑 BOSS', c.width/2, 16);
   sp.material.map.needsUpdate=true; }
 function buildTank3(type){ var c=TANK_COL[type]||TANK_COL.sherman; var g=new THREE.Group();
   var hullMat=new THREE.MeshStandardMaterial({color:c.h, roughness:0.85});
@@ -2248,7 +2296,8 @@ function syncParticles3D(){ var pool=T3.partPool; for(var pi=0;pi<pool.length;pi
       var usePhoto = (p.flash && entry.obj.material.map===VFX_MUZZLE_TEX3) || (p.fire && entry.obj.material.map===VFX_BOOM_TEX3);
       if(usePhoto) sc *= 1.4;   // 실사 사진은 정사각 캔버스 안에 여백이 있어 옛 글로우보다 체감 크기가 작음 → 보정
       entry.obj.scale.set(sc,sc,1);
-      entry.obj.material.opacity = (p.fire||p.flash) ? k : p.kind==='smoke' ? k*0.4 : k;
+      // 💨 연기 농도 0.4 → 0.6 (사장님: "연기가 전체적으로 다 보이게"). 1.0 은 검은 덩어리가 되어 탱크를 가린다.
+      entry.obj.material.opacity = (p.fire||p.flash) ? k : p.kind==='smoke' ? k*0.6 : k;
       if(p.kind!=='smoke') entry.obj.material.color.setHex(usePhoto ? 0xffffff : (p.fire||p.flash) ? 0xffcc55 : p.kind==='spark' ? (p.fuel?0x78ffaa:0xffb050) : 0xffffff); }
   });
   for(var i=pool.length-1;i>=0;i--){ if(!pool[i]._seen){ T3.partRoot.remove(pool[i].obj); disposeObj3(pool[i].obj); pool.splice(i,1); } }
@@ -2369,7 +2418,7 @@ function makePilot3(){ var g=new THREE.Group();
   gx.strokeStyle='rgba(30,30,30,0.9)'; gx.lineWidth=5; roundRect3(gx,10,10,492,140,28); gx.stroke();
   gx.beginPath(); gx.moveTo(230,148); gx.lineTo(256,190); gx.lineTo(288,148); gx.closePath();   // 꼬리
   gx.fillStyle='rgba(255,255,255,0.96)'; gx.fill(); gx.strokeStyle='rgba(30,30,30,0.9)'; gx.stroke();
-  gx.font='900 64px "Segoe UI",sans-serif'; gx.fillStyle='#c22'; gx.textAlign='center'; gx.textBaseline='middle';
+  gx.font='900 64px MangoiHanSC,"Segoe UI",sans-serif'; gx.fillStyle='#c22'; gx.textAlign='center'; gx.textBaseline='middle';
   gx.fillText('Oh my God!', 256, 82);
   var bub=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));
   bub.scale.set(3.1,1.16,1); bub.position.y=2.75; bub.renderOrder=11; g.add(bub); g.userData.bubble=bub;   // 커진 군인 머리 위
@@ -2450,7 +2499,7 @@ var last=0, raf=null;
 function loop(ts){ raf=requestAnimationFrame(loop); if(!last)last=ts; var dt=(ts-last)/1000; last=ts;
   if(dt>0.05)dt=0.05;
   if(G&&G.running&&!G.paused){ update(dt); if(G.running) updateHUD(); }
-  else if(G&&!G.running&&G.dead){ stepParticles(dt);   // 격파 연출 중에도 폭발 파티클·플래시·셰이크가 얼지 않고 사그라들게
+  else if(G&&!G.running&&G.dead){ stepWrecks(dt); stepParticles(dt);   // 격파 연출 중에도 잔해 연기·폭발 파티클·플래시·셰이크가 얼지 않고 이어지게
     if(G.flash>0)G.flash=Math.max(0,G.flash-dt*1.6); if(G.shake>0)G.shake=Math.max(0,G.shake-dt*60); }
   if(VIEW==='quarter') render3D();
   // ⏳ 전차 GLB 아직 로딩 중이면 안내(흰 도형이 보이는 이유를 알림) — 완료 시 1회 알림
@@ -2466,7 +2515,7 @@ function startGame(){
   newGame(); G.running=true; updateHUD();
   // 조이스틱은 전투 중에만 보인다 - 시작 화면 위에 떠 있으면 설명을 가린다
   if(IS_TOUCH && VIEW==='quarter'){ var _jp=document.getElementById('joyPad'); if(_jp) _jp.classList.add('on'); }
-  syncPortrait(); _wbSig=''; syncWordBar();
+  syncPortrait(); _wbSig=''; syncWordBar(); syncHudTop();
   // 세로로 들어왔으면 한 번만 안내. 돌리지 않아도 세로에서 그대로 할 수 있다
   if(document.body.classList.contains('portraitPlay')){
     try{ if(!localStorage.getItem('mangoi_tank_rot_hint')){ localStorage.setItem('mangoi_tank_rot_hint','1');
@@ -2537,6 +2586,6 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 resize(); setLang(MODE); setField(FIELD); setDiff(DLEVEL); setView(VIEW); raf=requestAnimationFrame(loop);
 </script>
 <!-- BUILD:dev -->
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804092314 -->
 </body>
 </html>

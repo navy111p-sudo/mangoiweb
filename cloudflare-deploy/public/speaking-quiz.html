@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>말하기 퀴즈 — Mangoi 화상영어</title>
@@ -23,7 +24,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
-  body{font-family:'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);overflow:hidden;user-select:none;
+  body{font-family:MangoiHanSC,'Noto Sans KR','Segoe UI',sans-serif;color:var(--tx);overflow:hidden;user-select:none;
     background:radial-gradient(130% 100% at 50% -6%,#22b892 0%,#0e9e86 40%,#0a7080 74%,#0a5266 100%)}
   #app{position:relative;width:100%;height:100dvh;height:100vh;overflow:hidden;display:flex;flex-direction:column}
   /* 🎨 주니어 컬러풀 배경 FX — 말하기/음성 테마 */
@@ -106,7 +107,7 @@
   /* 🀄 중국어: 한자는 keep-all 이면 안 나뉘어 카드 밖으로 넘침 → 줄바꿈 허용 + 글자 규격 일정(카드 안에 담김) */
   .zh .target-en{font-size:clamp(23px,4.8vmin,38px);line-height:1.42;word-break:break-word;overflow-wrap:anywhere;letter-spacing:1.5px;
     /* 한자를 한 가지 중국어 글꼴로 통일(폴백 섞임=굵기 들쭉날쭉 방지) + 폴백이 무시않는 굵기 700 */
-    font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei','Hiragino Sans GB','Heiti SC','SimHei','Noto Sans KR',sans-serif;font-weight:700}
+    font-family:MangoiHanSC,'Noto Sans KR',sans-serif;font-weight:700}
   .zh .target-card{max-width:min(94%,660px)}
   .listen{margin-top:16px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.5);color:#86efac;
     font-size:14px;font-weight:800;padding:9px 18px;border-radius:999px;cursor:pointer;font-family:inherit}
@@ -938,7 +939,7 @@
 })();
 </script>
 <!-- BUILD:20260704 speakquiz1 -->
-<script defer src="/js/flow.js?v=8"></script>
-<!-- BUILD:20260804044646 -->
+<script defer src="/js/flow.js?v=9"></script>
+<!-- BUILD:20260804092314 -->
 </body>
 </html>

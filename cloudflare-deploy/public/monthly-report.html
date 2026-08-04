@@ -2,16 +2,17 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>망고아이 월간 학습 레포트</title>
-<link rel="stylesheet" href="/css/mangoi-fonts.css?v=1"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
+<link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
 <style>
   /* 🎨 마이페이지(parent.html)·월별 리포트(report.html)·평가서(eval.html)와 같은 "리포트 패밀리" 톤으로 통일 — 2026-07-31 */
   :root{--mango:#fbbf24;--mango-d:#f59e0b;--kakao:#FEE500;--navy:#fff;--slate:#e6ecff;--muted:#94a3b8;
     --line:rgba(139,92,246,0.15);--bg:#0a0e1a;--card:rgba(20,26,43,0.7);--good:#34d399;--up:#22c55e;--blue:#a78bfa;--pink:#ec4899;}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{position:relative;font-family:'Noto Sans KR','Pretendard','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,sans-serif;
+  body{position:relative;font-family:MangoiHanSC,'Noto Sans KR','Pretendard','Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,sans-serif;
     background:var(--bg);color:var(--navy);line-height:1.55;-webkit-font-smoothing:antialiased;padding:18px 12px 60px}
   body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;background:url('/img/home-bg-dark.webp?v=20260730') center/cover no-repeat;filter:blur(2px) brightness(0.55) saturate(1.15);transform:scale(1.06)}
   body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at center top, rgba(251,191,36,0.08), transparent 60%),radial-gradient(ellipse at center, rgba(11,15,30,0.55), rgba(8,11,24,0.95))}
@@ -303,7 +304,7 @@
   if(uid && period){ loadReport(); } else { renderForm(); }
 })();
 </script>
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804092314 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
 </body>

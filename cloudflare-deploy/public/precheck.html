@@ -2,10 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#0F172A" />
 <title>🎥 수업 입장 전 자가진단 · 망고아이 PreCheck</title>
-<!-- BUILD:20260804044646 -->
+<!-- BUILD:20260804092314 -->
 <!-- 카카오톡/인앱 브라우저 대응: 카메라 차단 시 외부 브라우저로 전환 -->
 <script>window.MANGO_VIDEO_PAGE = true;</script>
 <script src="/js/inapp-escape.js"></script>
@@ -24,7 +25,7 @@
     --bad: #EF4444;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system,BlinkMacSystemFont,"SF Pro","Segoe UI","Pretendard","Noto Sans KR",sans-serif; -webkit-font-smoothing: antialiased; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: MangoiHanSC,-apple-system,BlinkMacSystemFont,"SF Pro","Segoe UI","Pretendard","Noto Sans KR",sans-serif; -webkit-font-smoothing: antialiased; }
   body { min-height: 100vh; padding: 16px; }
   .wrap { max-width: 920px; margin: 0 auto; }
 
@@ -71,13 +72,13 @@
   /* 라이브 카메라 미리보기 */
   .cam-wrap { position: relative; margin-top: 8px; border-radius: 10px; overflow: hidden; background: #0a1530; aspect-ratio: 16 / 9; max-height: 200px; }
   .cam-wrap video { width: 100%; height: 100%; object-fit: cover; }
-  .cam-overlay { position: absolute; left: 8px; bottom: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-family: Consolas,monospace; }
+  .cam-overlay { position: absolute; left: 8px; bottom: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-family: MangoiHanSC,Consolas,monospace; }
 
   /* 마이크 VU meter */
   .vu-wrap { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
   .vu-bar { flex: 1; height: 10px; background: #0a1530; border-radius: 5px; overflow: hidden; position: relative; }
   .vu-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981 0%, #fbbf24 70%, #ef4444 90%); transition: width .08s linear; }
-  .vu-label { font-size: 11px; color: var(--muted); font-family: Consolas,monospace; min-width: 38px; text-align: right; }
+  .vu-label { font-size: 11px; color: var(--muted); font-family: MangoiHanSC,Consolas,monospace; min-width: 38px; text-align: right; }
 
   /* 액션 영역 */
   .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; padding: 20px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; }

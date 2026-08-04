@@ -23,7 +23,9 @@
   var deck=DECKS.ko, TITLES=deck.titles, N=TITLES.length, builtLang=null;
   var i=0, wired=false;
   var pad=function(n){return (n<10?'0':'')+n;};
-  var src=function(n){return deck.dir+pad(n+1)+'.jpg';};
+  // 🖼 (2026-08-04) .jpg → .webp (같은 그림, 용량 1/3). 없으면 아래에서 .jpg 로 되돌린다.
+  var src=function(n){return deck.dir+pad(n+1)+'.webp';};
+  var toJpg=function(u){return String(u||'').replace(/\.webp$/,'.jpg');};
   var ov,img,cap,cnt,prev,next,thumbs;
   // 언어에 맞춰 데크 선택 + 썸네일/프리로드 재구성 (언어가 바뀌면 다시).
   function useLang(lang){
@@ -34,7 +36,9 @@
     builtLang=lang;
     var h='';
     for(var k=0;k<N;k++){
-      h+='<div class="ag-thumb" data-i="'+k+'"><span class="ag-tn">'+(k+1)+'</span><img loading="lazy" src="'+src(k)+'" alt=""></div>';
+      h+='<div class="ag-thumb" data-i="'+k+'"><span class="ag-tn">'+(k+1)+'</span>'
+        +'<img loading="lazy" src="'+src(k)+'" alt="" '
+        +'onerror="if(!this.__fb){this.__fb=1;this.src=this.src.replace(/\\.webp$/,\'.jpg\');}"></div>';
     }
     thumbs.innerHTML=h;
     thumbs.querySelectorAll('.ag-thumb').forEach(function(t){
@@ -80,6 +84,8 @@
     img.style.opacity='0';
     var tmp=new Image();
     tmp.onload=function(){ img.src=tmp.src; img.style.opacity='1'; };
+    // .webp 를 못 받으면 원본 .jpg 로 (그림이 안 뜨는 것보다 낫다)
+    tmp.onerror=function(){ img.src=toJpg(src(i)); img.style.opacity='1'; };
     tmp.src=src(i);
     if(tmp.complete){ img.src=tmp.src; img.style.opacity='1'; }
     cap.textContent=TITLES[i]||'';
