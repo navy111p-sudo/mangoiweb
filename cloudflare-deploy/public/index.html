@@ -28499,7 +28499,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260804092314 -->
+<!-- BUILD:20260804105705 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -30199,8 +30199,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      조치: 세로 700px 이하에서만 CTA 아래 여백을 줄여 본문을 위로 올린다.
      ⚠️ 320×568(iPhone SE 1세대)은 이걸로도 안 된다 — 본문 총높이가 화면을 넘어서
         CTA·칩·링크를 전부 아바타 위(y<486)에 넣는 것이 산술적으로 불가능하다. */
-  @media (max-width:480px) and (max-height:700px){
-    .ai-cta-row { margin-bottom: 40px !important; }
+  @media (max-width:480px) and (max-height:780px){
+    /* 상한이 700 이면 360×701 에서 여백이 88px 로 되돌아가 여유가 0px 이 된다(경계 접촉).
+       40px 이면 641~700 구간에서 링크가 아바타에 걸린다(실측 350×641: 3px).
+       링크는 폭이 200px 고정이라 좁은 화면에선 x 로 못 피한다
+       (아바타를 x 로 피하려면 링크 폭 < vw-156 이어야 하는데 350px 에선 194px 밖에 안 된다)
+       → x 가 아니라 세로로 뗀다. 28px 이면 350×641 에서 7px 여유. */
+    .ai-cta-row { margin-bottom: 28px !important; }
   }
 
   /* 📐 [2026-08-04] 세로 640px 이하 — 4단계 칩을 접는다.
@@ -30217,6 +30222,12 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ⚠️ 칩은 '절차 안내'지 유일 동선이 아니다 — 무료상담·레벨테스트·수업신청·평가표는
         모두 사이드바 메뉴에 있다. 핵심 동선(무료 체험 CTA, 수업 입장 링크)은 그대로 남는다.
      ⚠️ 이 크기에서 칩은 이미 아바타에 34px·'+'에 32px 가려져 읽히지 않던 상태였다. */
+  /* 폭까지 좁으면(≤360px) 세로 700px 까지도 안 된다 — 링크 폭 200px 이 아바타 영역을 침범해
+     x 로 못 피하고, 세로 여백을 28px 까지 짜내도 350×641 에서 여유가 1px 뿐이다. */
+  @media (max-width:360px) and (max-height:700px){
+    .home-flow { display:none !important; }
+    .ai-cta-row { margin-bottom: 20px !important; }
+  }
   @media (max-width:480px) and (max-height:640px){
     .home-flow { display:none !important; }
     /* 칩을 접고도 링크가 아바타에 2px 걸쳐서(실측 링크 하단 488 vs 아바타 486) 더 올린다.
