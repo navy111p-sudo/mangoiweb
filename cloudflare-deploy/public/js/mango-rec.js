@@ -37,7 +37,11 @@
   let r2InitDone = false;
   let chunkBuffer = [];
   let chunkBufferSize = 0;
-  const MIN_PART_SIZE = 5 * 1024 * 1024; // 5MB
+  // 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
+  //   아니면 completeMultipartUpload 를 통째로 거부한다(오류 10048). 예전엔 «5MB 넘으면
+  //   모아둔 걸 통째로» 올려서 파트 크기가 제각각이었고, 비마지막 파트가 2개 이상 되는
+  //   순간(대략 1분 30초·10MB 이상) 마무리가 실패해 녹화가 통으로 사라졌다.
+  const PART_SIZE = 5 * 1024 * 1024; // 5MiB — R2 최소 파트 크기이자 «고정» 파트 크기
  
   function getRoomMembers() {
     const myId = (typeof vcUserId !== 'undefined' ? vcUserId : 'me');
@@ -544,15 +548,23 @@
  
   // ── R2 multipart 업로드 함수들 ──
  
+  // 버퍼가 PART_SIZE 이상이면 «정확히 PART_SIZE 바이트»만 잘라 올리고 나머지는 이월한다.
+  // (MediaRecorder 청크 크기가 들쭉날쭉해도 파트 크기는 항상 동일 — R2 오류 10048 방지)
   function bufferChunk(blob) {
     if (!r2InitDone) return;
     chunkBuffer.push(blob);
     chunkBufferSize += blob.size;
-    if (chunkBufferSize >= MIN_PART_SIZE) {
-      flushBuffer();
+    while (chunkBufferSize >= PART_SIZE) {
+      const merged = new Blob(chunkBuffer, { type: 'video/webm' });
+      const part = merged.slice(0, PART_SIZE);
+      const rest = merged.slice(PART_SIZE);
+      chunkBuffer = rest.size > 0 ? [rest] : [];
+      chunkBufferSize = rest.size;
+      enqueuePart(part);
     }
   }
- 
+
+  // 남은 버퍼를 마지막 파트로 (마지막 파트만 PART_SIZE 미만 허용)
   function flushBuffer() {
     if (chunkBuffer.length === 0) return;
     const combined = new Blob(chunkBuffer, { type: 'video/webm' });
@@ -571,18 +583,21 @@
       const url = '/api/recordings/upload/part?key=' + encodeURIComponent(r2Key) +
                   '&upload_id=' + encodeURIComponent(r2UploadId) +
                   '&part=' + pn;
-      try {
-        const res = await fetch(url, { method: 'PUT', body: blob });
-        if (!res.ok) {
-          console.error('[mango-rec] 파트 업로드 실패:', pn, res.status);
+      // 파트 하나가 유실되면 구멍 난 채로 이어붙여져 영상이 깨진다 — 일시 오류는 재시도
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetch(url, { method: 'PUT', body: blob });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          r2Parts.push({ partNumber: pn, etag: data.etag });
+          console.log('[mango-rec] R2 파트 업로드:', pn, (blob.size / 1048576).toFixed(1) + 'MB', '누적:', (r2TotalBytes / 1048576).toFixed(1) + 'MB');
           return;
+        } catch (err) {
+          console.error('[mango-rec] 파트 업로드 실패:', pn, '시도', attempt, err);
+          if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 1000));
         }
-        const data = await res.json();
-        r2Parts.push({ partNumber: pn, etag: data.etag });
-        console.log('[mango-rec] R2 파트 업로드:', pn, (blob.size / 1048576).toFixed(1) + 'MB', '누적:', (r2TotalBytes / 1048576).toFixed(1) + 'MB');
-      } catch (err) {
-        console.error('[mango-rec] 파트 업로드 에러:', pn, err);
       }
+      console.error('[mango-rec] 파트 최종 유실:', pn);
     });
   }
  

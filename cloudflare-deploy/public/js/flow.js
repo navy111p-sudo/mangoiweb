@@ -346,15 +346,21 @@
       if (!_recListRows.length) { recShowEmpty(); return; }
       var esc = function (s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]); }); };
       var items = _recListRows.map(function (r, i) {
-        var playable = !!r.url && String(r.status || 'completed') === 'completed';
+        // 🔴 2026-08-04: 업로드가 실패한 녹화는 DB status 가 'completed' 여도 실물 파일이 없다.
+        //   예전엔 초록 ▶재생 이 떠서 누르면 "녹화를 재생할 수 없어요"(=보관기간 만료로 오해)만
+        //   나왔다. 서버가 내려주는 failed 플래그로 «저장 실패»를 솔직하게 표시한다.
+        var failed = !!r.failed || String(r.status || '') === 'upload_failed';
+        var playable = !failed && !!r.url && String(r.status || 'completed') === 'completed';
         var meta = [r.date, r.teacher, r.duration].filter(function (x) { return x && x !== '-'; }).map(esc).join(' · ');
         var badge = playable
           ? '<span style="flex:0 0 auto;background:#10b981;color:#04231a;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:800">▶ 재생</span>'
+          : failed
+          ? '<span style="flex:0 0 auto;background:#7f1d1d;color:#fecaca;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">⚠ 저장 실패</span>'
           : '<span style="flex:0 0 auto;background:#334155;color:#94a3b8;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">⏳ 준비중</span>';
         return '<button data-rec-play="' + i + '"' + (playable ? '' : ' disabled') +
           ' style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;' +
-          'background:' + (playable ? 'rgba(56,189,248,.08)' : 'rgba(148,163,184,.06)') + ';' +
-          'border:1px solid ' + (playable ? 'rgba(56,189,248,.28)' : 'rgba(148,163,184,.18)') + ';' +
+          'background:' + (playable ? 'rgba(56,189,248,.08)' : failed ? 'rgba(248,113,113,.07)' : 'rgba(148,163,184,.06)') + ';' +
+          'border:1px solid ' + (playable ? 'rgba(56,189,248,.28)' : failed ? 'rgba(248,113,113,.26)' : 'rgba(148,163,184,.18)') + ';' +
           'border-radius:12px;padding:12px 14px;margin-bottom:8px;color:#e2e8f0;' +
           'cursor:' + (playable ? 'pointer' : 'default') + '">' +
           '<span style="flex:0 0 auto;font-size:24px">📼</span>' +
@@ -369,7 +375,7 @@
           '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
         '</div>' +
         '<div style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch">' + items + '</div>' +
-        '<div style="flex:0 0 auto;color:#64748b;font-size:11px;margin-top:10px;line-height:1.6">※ 본인 수업 녹화만 표시됩니다. 보관 기간이 지난 영상은 재생되지 않을 수 있어요.</div>'
+        '<div style="flex:0 0 auto;color:#64748b;font-size:11px;margin-top:10px;line-height:1.6">※ 본인 수업 녹화만 표시됩니다. ⚠ 저장 실패는 업로드 도중 파일이 저장되지 못한 수업이라 재생할 수 없어요.</div>'
       ));
       var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
       if (ov) {
@@ -482,6 +488,7 @@
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         if (!r || !r.url) continue;
+        if (r.failed || String(r.status || '') === 'upload_failed') continue;  // 저장 실패본은 후보에서 제외
         (String(r.status || 'completed') === 'completed' ? done : rest).push(r);
       }
       return done.concat(rest);
@@ -572,7 +579,7 @@
     recShell(recMsgBox(
       '<div style="font-size:40px;margin-bottom:8px">🎞️</div>' +
       '<div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#f8fafc">녹화를 재생할 수 없어요</div>' +
-      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">보관 기간이 지나 파일이 정리되었을 수 있어요.<br>전체 목록에서 다른 녹화를 확인해 보세요.</div>' +
+      '<div style="font-size:13px;color:#94a3b8;margin-bottom:16px">업로드 도중 파일이 저장되지 못했거나, 보관 기간이 지났을 수 있어요.<br>전체 목록에서 다른 녹화를 확인해 보세요.</div>' +
       '<div style="display:flex;gap:8px;justify-content:center">' +
         '<button data-rec-list style="background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:800;cursor:pointer">📚 전체 목록</button>' +
         '<button data-rec-close style="background:#334155;color:#e2e8f0;border:0;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer">닫기</button>' +

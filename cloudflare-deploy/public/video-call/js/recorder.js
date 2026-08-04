@@ -29,10 +29,15 @@ var _r2TotalBytes = 0;
 var _r2UploadQueue = Promise.resolve();
 var _r2InitDone = false;
 
-// 청크 버퍼 (5MB 이상 모이면 하나의 파트로 업로드)
+// 청크 버퍼 (정확히 PART_SIZE 바이트씩 잘라서 하나의 파트로 업로드)
 var _chunkBuffer = [];
 var _chunkBufferSize = 0;
-var MIN_PART_SIZE = 5 * 1024 * 1024; // 5MB — R2 multipart 최소 크기
+// 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
+//   아니면 completeMultipartUpload 를 통째로 거부한다(오류 10048 "All non-trailing parts
+//   must have the same length"). 예전엔 «5MB 넘으면 모아둔 걸 통째로» 올려서 파트마다
+//   5.0~5.6MB 로 제각각이었고, 비마지막 파트가 2개 이상 되는 순간(대략 1분 30초·10MB 이상)
+//   마무리가 실패해 수업 녹화가 통으로 사라졌다. → 반드시 고정 크기로 잘라 올릴 것.
+var PART_SIZE = 5 * 1024 * 1024; // 5MiB — R2 multipart 최소 크기이자 «고정» 파트 크기
 
 // 녹화 상태 배지
 var _recBadge = null;
@@ -165,26 +170,36 @@ async function _initAndStart(stream, mimeType, options) {
   }
 }
 
+function _partType() {
+  return _recordingMime.split(';')[0] || 'video/webm';
+}
+
 /**
  * MediaRecorder 청크를 버퍼에 추가.
- * 버퍼가 5MB 이상이면 하나의 R2 파트로 업로드.
+ * 버퍼가 PART_SIZE 이상이면 «정확히 PART_SIZE 바이트»만 잘라 파트로 올리고 나머지는 이월.
+ * (MediaRecorder 청크 크기가 들쭉날쭉해도 파트 크기는 항상 동일해진다 — R2 오류 10048 방지)
  */
 function _bufferChunk(blob) {
   if (!_r2InitDone) return;
   _chunkBuffer.push(blob);
   _chunkBufferSize += blob.size;
 
-  if (_chunkBufferSize >= MIN_PART_SIZE) {
-    _flushBuffer();
+  while (_chunkBufferSize >= PART_SIZE) {
+    var merged = new Blob(_chunkBuffer, { type: _partType() });
+    var part = merged.slice(0, PART_SIZE);
+    var rest = merged.slice(PART_SIZE);
+    _chunkBuffer = rest.size > 0 ? [rest] : [];
+    _chunkBufferSize = rest.size;
+    _enqueuePart(part);
   }
 }
 
 /**
- * 버퍼를 하나의 Blob으로 합쳐서 R2 파트로 업로드
+ * 남은 버퍼를 마지막 파트로 올린다 (마지막 파트만 PART_SIZE 미만 허용)
  */
 function _flushBuffer() {
   if (_chunkBuffer.length === 0) return;
-  var combined = new Blob(_chunkBuffer, { type: _recordingMime.split(';')[0] || 'video/webm' });
+  var combined = new Blob(_chunkBuffer, { type: _partType() });
   _chunkBuffer = [];
   _chunkBufferSize = 0;
   _enqueuePart(combined);
@@ -206,18 +221,22 @@ function _enqueuePart(blob) {
     var url = '/api/recordings/upload/part?key=' + encodeURIComponent(_r2Key) +
               '&upload_id=' + encodeURIComponent(_r2UploadId) +
               '&part=' + pn;
-    try {
-      var res = await fetch(url, { method: 'PUT', body: blob });
-      if (!res.ok) {
-        console.error('[recorder] 파트 업로드 실패:', pn, res.status);
+    // 파트 하나가 유실되면 그 자리에 구멍이 난 채로 이어붙여져 영상이 깨진다.
+    // 일시적 오류(네트워크 순단·5xx)는 재시도로 살린다.
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        var res = await fetch(url, { method: 'PUT', body: blob });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var data = await res.json();
+        _r2Parts.push({ partNumber: pn, etag: data.etag });
+        console.log('[recorder] 파트 업로드 완료:', pn, '크기:', (blob.size / 1048576).toFixed(1) + 'MB', '누적:', (_r2TotalBytes / 1048576).toFixed(1) + 'MB');
         return;
+      } catch (err) {
+        console.error('[recorder] 파트 업로드 실패:', pn, '시도', attempt, err);
+        if (attempt < 3) await new Promise(function (r) { setTimeout(r, attempt * 1000); });
       }
-      var data = await res.json();
-      _r2Parts.push({ partNumber: pn, etag: data.etag });
-      console.log('[recorder] 파트 업로드 완료:', pn, '크기:', (blob.size / 1048576).toFixed(1) + 'MB', '누적:', (_r2TotalBytes / 1048576).toFixed(1) + 'MB');
-    } catch (err) {
-      console.error('[recorder] 파트 업로드 에러:', pn, err);
     }
+    console.error('[recorder] 파트 최종 유실:', pn);
   });
 }
 
