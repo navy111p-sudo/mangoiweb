@@ -125,7 +125,7 @@ function maybeStartAttendance() {
        링크가 명시한 경우에만 맞춰 준다. 임의로 덮으면 공용 PC 에서 남의 역할이 남는다. */
     if (role === 'teacher' || role === 'student') { try { localStorage.setItem('mango_role', role); } catch (e) {} }
     const s = document.createElement('script');
-    s.src = '/js/mango-attendance.js?v=1';
+    s.src = '/js/mango-attendance.js?v=35';   // 정식 화면(index.html)과 같은 버전을 쓴다 — 캐시가 어긋나지 않게
     s.onload = function () {
       try {
         window.MangoAttendance.start({
