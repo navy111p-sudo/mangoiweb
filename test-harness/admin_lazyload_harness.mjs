@@ -41,6 +41,27 @@ check('전체 미리받기(SLIDES.forEach)로 되돌아가지 않았다',
 check('넘길 때 다음 장 미리받기는 그대로 살아 있다 (넘김이 끊기지 않게)',
   /tmp\s*=\s*new Image\(\)/.test(welc));
 
+console.log('\n[ ②-2 안내 그림은 WebP (같은 그림, 용량 1/3) ]');
+{
+  const s18 = rd('../cloudflare-deploy/public/js/adm-s18.js');
+  const gdir = resolve(__dir, '../cloudflare-deploy/public/guide');
+  let webpKo = 0, jpgKo = 0;
+  try {
+    const fs = await import('node:fs');
+    const ls = fs.readdirSync(gdir + '/admin-easy');
+    webpKo = ls.filter(f => f.endsWith('.webp')).length;
+    jpgKo = ls.filter(f => f.endsWith('.jpg')).length;
+  } catch { }
+  check(`한국어 안내 그림이 .webp 로 변환돼 있다 (${webpKo}장)`, webpKo >= 20);
+  check(`원본 .jpg 도 폴백용으로 남아 있다 (${jpgKo}장)`, jpgKo >= 20);
+  check('환영 모달이 .webp 를 가리킨다', /admin-easy(-en)?\/' \+ pad\([^)]*\) \+ '\.webp'/.test(welc));
+  check('상세 뷰어도 .webp 를 가리킨다', /pad\(n\+1\)\+'\.webp'/.test(s18));
+  check('환영 모달에 .jpg 폴백이 있다',
+    /onErrorFallback/.test(welc) && /replace\(\/\\\.webp\$\/, '\.jpg'\)/.test(welc));
+  check('상세 뷰어에 .jpg 폴백이 있다(큰 그림·썸네일 둘 다)',
+    /toJpg\(/.test(s18) && /onerror=/.test(s18) && /\.jpg/.test(s18));
+}
+
 console.log('\n[ ③ 카드 스크립트 지연 로딩 ]');
 const lazyTags = [...html.matchAll(/<script type="text\/lazy-js" data-src="([^"]+)" data-card="([^"]+)"(?:\s+data-globals="([^"]*)")?><\/script>/g)];
 check(`지연 태그가 남아 있다 (${lazyTags.length}개)`, lazyTags.length >= 10);
