@@ -410,10 +410,23 @@ export async function runRecordingFinalizeSweep(
   env: Env,
   opts?: { minAgeMs?: number; quietMs?: number; limit?: number }
 ): Promise<{ ok: boolean; scanned: number; finalized: number; failed: number; emptied: number; details: any[] }> {
-  const out = { ok: true, scanned: 0, finalized: 0, failed: 0, emptied: 0, details: [] as any[] };
+  // 🔎 2026-08-05: 이 스윕이 «돌긴 도는데 아무 일도 안 일어나는» 상태를 진단할 수단이 없었다.
+  //   크론 로그는 조건부 출력이라 조용하면 «정상적으로 할 일이 없었다» 와 «조용히 죽었다» 가
+  //   구분되지 않는다. → 매 실행 결과를 KV 에 한 줄 남긴다(기존 recordings-cleanup:last_run 과 같은 방식).
+  const out = {
+    ok: true, scanned: 0, finalized: 0, failed: 0, emptied: 0,
+    stage: 'start' as string, error: null as string | null, details: [] as any[],
+  };
+  const beat = async () => {
+    try {
+      await env.SESSION_STATE?.put?.('recording_finalize:last_run',
+        JSON.stringify({ at: new Date().toISOString(), ...out, details: undefined }));
+    } catch { /* 관측용이라 실패해도 무시 */ }
+  };
+
   try {
     const kill = await env.SESSION_STATE?.get?.("recording_finalize");
-    if (kill === "off") return { ...out, ok: true };
+    if (kill === "off") { out.stage = 'killswitch-off'; await beat(); return { ...out, ok: true }; }
   } catch { /* KV 못 읽어도 계속 */ }
 
   const now = Date.now();
@@ -438,8 +451,12 @@ export async function runRecordingFinalizeSweep(
     ).bind(ageCut, quietCut, limit).all();
     cands = (rs.results || []) as any[];
   } catch (e: any) {
-    // 장부 테이블이 아직 없으면(=배포 직후) 조용히 통과
-    return { ...out, ok: true };
+    // 🔴 2026-08-05: 여기서 조용히 return 하는 바람에 **아래 빈 껍데기 정리까지 통째로 건너뛰고**
+    //   있었다. 게다가 원인도 안 남아 «크론은 Ok 인데 아무 일도 안 일어남» 을 며칠 헤맬 뻔했다.
+    //   → 후보 조회 실패는 «마무리만» 포기하고, 정리는 그대로 진행한다. 원인도 반드시 남긴다.
+    out.error = '후보 조회 실패: ' + String(e?.message || e);
+    console.error('[rec-finalize]', out.error);
+    cands = [];
   }
   out.scanned = cands.length;
 
@@ -514,8 +531,11 @@ export async function runRecordingFinalizeSweep(
     out.emptied = r.meta?.changes || 0;
     if (out.emptied) console.log(`[rec-finalize] 빈 껍데기 ${out.emptied}건 정리(aborted)`);
   } catch (e: any) {
-    console.error('[rec-finalize] 빈 껍데기 정리 실패:', e?.message || e);
+    out.error = (out.error ? out.error + ' / ' : '') + '빈 껍데기 정리 실패: ' + String(e?.message || e);
+    console.error('[rec-finalize]', out.error);
   }
 
+  out.stage = 'done';
+  await beat();
   return out;
 }
