@@ -19,7 +19,13 @@ function flushPendingCandidates(userId, pc) {
   pendingCandidates.delete(userId);
 }
 
-const ICE_SERVERS = {
+/* 🔴 (2026-08-05) 이 화면은 «무료 공개 TURN(openrelay.metered.ca)» 을 쓰고 있었다.
+   정식 화면은 /api/turn-config 로 Cloudflare TURN(엣지·전용 자격증명)을 받아 쓰는데, 이쪽만 옛 설정이
+   그대로 남아 있었다. 무료 공개 TURN 은 혼잡·속도제한이 있어, 직접 연결이 막히는 필리핀 가정 회선에서
+   «참여자는 2명인데 영상이 검은» 상태로 오래 머무는 원인이 된다.
+   → 정식 화면과 같은 /api/turn-config 를 쓴다. 실패하면 공개 TURN 으로 폴백(연결 자체는 절대 포기 안 함).
+   Cloudflare TURN 에는 turns:443/tcp 가 있어 가정·회사 방화벽도 대개 통과한다. */
+const ICE_FALLBACK = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
@@ -29,6 +35,30 @@ const ICE_SERVERS = {
     { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
   ]
 };
+let ICE_SERVERS = ICE_FALLBACK;      // 아직 못 받았으면 이걸로라도 시작한다
+let _icePromise = null;
+
+function ensureIceServers() {
+  if (_icePromise) return _icePromise;
+  _icePromise = fetch('/api/turn-config', { credentials: 'omit' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (j && Array.isArray(j.iceServers) && j.iceServers.length) {
+        ICE_SERVERS = { iceServers: j.iceServers };
+        console.log('[webrtc] Cloudflare TURN 적용:', j.iceServers.length + '개');
+      } else {
+        console.warn('[webrtc] turn-config 응답이 비어 폴백 유지');
+      }
+      return ICE_SERVERS;
+    })
+    .catch(function (e) {
+      console.warn('[webrtc] turn-config 실패 → 공개 TURN 폴백:', e && e.message);
+      return ICE_SERVERS;
+    });
+  return _icePromise;
+}
+/* 입장 흐름을 막지 않도록 페이지가 뜨자마자 미리 받아 둔다(선반입) */
+try { ensureIceServers(); } catch (e) {}
 
 function handleExistingUsers(data) {
   console.log('[webrtc] existing-users 수신:', JSON.stringify(data).substring(0, 200));
@@ -103,17 +133,40 @@ function handleIceCandidateMessage(data) {
   pc.addIceCandidate(candidate).catch((e) => console.warn('[webrtc] ICE candidate error:', e && e.name));
 }
 
-// ── 송신 비트레이트 상한 (버벅임/대역폭 절감) ──
+/* ── 송신 상한 ──
+   🔴 (2026-08-05) 예전 값(데스크탑 1200kbps · 30fps)은 «회선이 좋다» 는 전제였다.
+   이 화면은 이제 필리핀 재택 강사의 기본 입장 경로다. 가정 회선의 병목은 거의 항상 «올리는 쪽» 이고,
+   상한을 높게 두면 브라우저가 그만큼 올리려다 큐가 밀려 오히려 끊긴다.
+   → 400kbps · 20fps 로 낮춘다. 1:1 얼굴 화면은 이 정도면 충분하고, 남는 대역은 «소리» 가 가져간다.
+   degradationPreference='maintain-framerate' — 얼굴은 또렷함보다 «끊기지 않는 것» 이 중요하다.
+   ⚠️ 소리는 건드리지 않는다. 나쁜 회선에서 마지막까지 지켜야 할 것이 소리다. */
+const VIDEO_CAP_KBPS = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 300 : 400;
 function capSenderBitrate(pc) {
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const maxKbps = isMobile ? 600 : 1200;
   pc.getSenders().forEach((sender) => {
     if (!sender.track || sender.track.kind !== 'video') return;
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-    params.encodings[0].maxBitrate = maxKbps * 1000;
-    params.encodings[0].maxFramerate = 30;
+    params.encodings[0].maxBitrate = VIDEO_CAP_KBPS * 1000;
+    params.encodings[0].maxFramerate = 20;
+    params.degradationPreference = 'maintain-framerate';
     sender.setParameters(params).catch((e) => console.warn('[webrtc] 비트레이트 설정 실패:', e));
+  });
+}
+
+/* ── 붙는 데 오래 걸리면 흔들어 준다 ──
+   (2026-08-05) 어제 «참여자 2명 · P2P 탐색중» 상태로 오래 머물렀다. 직접 연결이 막힌 회선에서
+   브라우저가 안 되는 경로를 계속 두드리느라 시간을 버린 것이다. 6초·12초에 restartIce 로 흔들면
+   중계(TURN) 후보로 다시 붙는다. 이미 붙었으면 아무 일도 하지 않는다. */
+function nudgeIfStalled(pc, userId) {
+  [6000, 12000].forEach(function (ms) {
+    setTimeout(function () {
+      try {
+        const st = pc.iceConnectionState;
+        if (st === 'connected' || st === 'completed' || st === 'closed') return;
+        console.warn('[webrtc] ' + (ms / 1000) + '초째 ' + st + ' → restartIce:', userId);
+        pc.restartIce();
+      } catch (e) {}
+    }, ms);
   });
 }
 
@@ -218,6 +271,8 @@ function createPeerConnection(userId, peerName, isInitiator) {
   } else {
     console.warn('[webrtc] localStream 없음!');
   }
+
+  nudgeIfStalled(pc, userId);   // 오래 «탐색중» 이면 중계 경로로 다시 붙게 흔든다
 
   // ★ 안전장치: initiator인데 1.5초 후에도 offer가 안 갔으면 강제 생성
   if (isInitiator) {

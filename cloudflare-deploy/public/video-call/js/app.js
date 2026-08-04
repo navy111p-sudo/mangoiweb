@@ -50,9 +50,15 @@ async function acquireLocalMedia() {
     sampleRate: 48000,
     channelCount: 1
   };
+  /* 🔴 (2026-08-05) 예전엔 1280×720(최대 1920×1080)을 달라고 했다.
+     카메라가 큰 그림을 주면 인코더가 그걸 줄여 보내느라 CPU 를 쓰고, 저사양 노트북에서는 그 자체가 렉이다.
+     1:1 얼굴 화면에 720p 는 과하다. 처음부터 작게 받는다 — 640×360 · 20fps.
+     받는 사람 화면에서 차이를 거의 못 느끼고, 올리는 대역과 CPU 는 크게 준다.
+     ⚠️ ideal 로만 준다. max 로 못 박으면 그 해상도를 못 내는 웹캠에서 아예 실패한다. */
   const videoConstraints = {
-    width:  { ideal: 1280, max: 1920 },
-    height: { ideal: 720,  max: 1080 },
+    width:     { ideal: 640 },
+    height:    { ideal: 360 },
+    frameRate: { ideal: 20, max: 24 },
     facingMode: 'user'
   };
 
@@ -95,12 +101,17 @@ async function acquireLocalMedia() {
   return new MediaStream();
 }
 
+/* 「연결 중」 표시 — index.html 첫 조각에 인라인으로 있다. 없으면 조용히 무시한다. */
+const _boot = (t, p) => { try { if (window.bootStep) window.bootStep(t, p); } catch (e) {} };
+
 async function joinRoom() {
   username = $usernameInput.value.trim() || ('사용자' + Math.floor(Math.random() * 1000));
   // fix (2026-06-01) — 비우면 랜덤 방이 아니라 공용 수업방(mangoi-class)으로 입장 → 교사·학생이 같은 방에서 만남
   roomId = $roomInput.value.trim() || 'mangoi-class';
 
+  _boot('카메라·마이크를 준비하고 있어요 · Preparing camera and mic', 25);
   localStream = await acquireLocalMedia();
+  _boot('수업방에 접속하는 중 · Joining the room', 60);
 
   // 디버그: 오디오 트랙 상태
   const audioTracks = localStream.getAudioTracks();
@@ -121,6 +132,9 @@ async function joinRoom() {
   $lobby.classList.add('hidden');
   $app.classList.remove('hidden');
   $roomBadge.textContent = '방: ' + roomId;
+  /* 화면이 실제로 바뀐 뒤에 「연결 중」을 치운다 — 먼저 치우면 흰 화면이 한 번 스친다 */
+  _boot('거의 다 됐어요 · Almost there', 95);
+  setTimeout(() => { try { if (window.bootDone) window.bootDone(); } catch (e) {} }, 300);
 
   initWhiteboard();
   initChat();
@@ -143,16 +157,43 @@ async function joinRoom() {
   window.addEventListener('pageshow', resumeAllVideos);
   window.addEventListener('focus', resumeAllVideos);
 
-  // 방 입장 즉시 자동 녹화 시작 (R2 스트리밍 업로드)
-  setTimeout(() => {
+  /* 🔴🔴 (2026-08-05) 여기가 나쁜 회선에서 수업을 죽이던 자리다.
+     예전: 입장 2초 뒤 곧바로 녹화를 켜고, 기본값 «영상 2.5Mbps + 소리 128kbps» 로 R2 에 계속 올렸다.
+     필리핀 가정 회선의 올리는 속도는 그보다 낮은 경우가 흔하다. 그러면 녹화 업로드가 올리는 길을
+     통째로 막아 «수업 영상» 이 밀린다 — 상대 화면이 검거나 끊기는 것으로 나타난다.
+     녹화는 수업의 부산물이고, 수업이 먼저다.
+     지금: ① 비트레이트를 1/5 로(영상 500kbps · 소리 48kbps — 다시 보기용으로 충분)
+           ② 2초 → 12초 뒤로 미룬다(입장·연결 협상이 끝난 뒤에 시작)
+           ③ 그 시점에 연결이 아직 안 붙었으면 아예 시작하지 않는다. 붙고 나면 다시 본다. */
+  const AUTO_REC_OPTS = { videoBitsPerSecond: 500000, audioBitsPerSecond: 48000 };
+  const anyPeerConnected = () => {
     try {
-      if (typeof startRecording === 'function' && localStream && localStream.getTracks().length > 0) {
-        const ok = startRecording();
-        if (ok) console.log('[auto-record] 녹화 자동 시작 (R2 스트리밍)');
-        else console.warn('[auto-record] 시작 실패');
+      if (typeof peerConnections === 'undefined' || !peerConnections || peerConnections.size === 0) return true; // 혼자면 방해할 상대가 없다
+      let ok = false;
+      peerConnections.forEach((pc) => {
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') ok = true;
+      });
+      return ok;
+    } catch (e) { return true; }
+  };
+  const tryAutoRecord = (attempt) => {
+    try {
+      if (typeof startRecording !== 'function') return;
+      if (!localStream || localStream.getTracks().length === 0) return;
+      if (!anyPeerConnected()) {
+        if (attempt < 5) {   // 아직 붙는 중 → 수업을 방해하지 않도록 기다렸다 다시 본다
+          console.log('[auto-record] 연결 대기 중 → 녹화 보류 (' + attempt + ')');
+          return setTimeout(() => tryAutoRecord(attempt + 1), 10000);
+        }
+        console.warn('[auto-record] 연결이 계속 불안정 → 녹화 시작하지 않음(수업 우선)');
+        return;
       }
+      const ok = startRecording(AUTO_REC_OPTS);
+      if (ok) console.log('[auto-record] 녹화 시작 (저비트레이트, 수업 대역 보호)');
+      else console.warn('[auto-record] 시작 실패');
     } catch (e) { console.warn('[auto-record] 예외:', e); }
-  }, 2000);
+  };
+  setTimeout(() => tryAutoRecord(0), 12000);
 }
 
 /**
