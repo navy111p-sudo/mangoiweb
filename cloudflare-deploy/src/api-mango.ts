@@ -257,6 +257,9 @@ export async function handleMangoApi(
              FROM recordings
             WHERE (participant_ids LIKE ? OR participant_names LIKE ? OR teacher_name = ? OR teacher_id = ?)
               AND status != 'deleted'
+              -- 'aborted' = 시작만 하고 데이터가 어디에도 없는 빈 껍데기.
+              -- 학생 목록에 ⏳준비중 으로 영원히 남아 «언젠가 볼 수 있나» 오해를 준다 (2026-08-05)
+              AND status != 'aborted'
             ORDER BY started_at DESC
             LIMIT ?`
         ).bind(likePattern, likePattern, uid, uid, limit).all();
