@@ -2848,6 +2848,18 @@ ${numbered}`;
         whereParts.push('r.status = ?');
         whereBinds.push(status);
       }
+      /* 🧹 (2026-08-05) 0초짜리 «부산물» 행은 기본 목록에서 감춘다.
+         [무엇인가] R2 멀티파트는 마지막이 아닌 파트가 «5MiB 고정» 이라, 그만큼 안 모이면
+           올릴 파트가 하나도 없다. 이때 브라우저는 R2 에 쓰레기를 남기지 않으려고 abort 한다.
+           즉 status='aborted' + size 0 은 «사고» 가 아니라 «올바른 뒷정리» 다.
+         [언제 생기나] 새로고침·재입장처럼 방에 잠깐 들어왔다 나가면 그 조각마다 한 행씩 생긴다.
+           [실측 7일] 정규수업 24건 중 6건, 회의·공용 106건 중 40건이 이것이었다.
+         [왜 감추나] 진짜 봐야 할 것은 「저장 실패」와 「준비중」이다. 0초 행이 목록을 채우면
+           강사·관리자가 그 둘을 못 찾는다. 실제 수업 영상이 아니므로 숨겨도 잃는 것이 없다.
+         ⚠️ 지우지 않는다. 감추기만 한다 — ?status=aborted 로 부르면 그대로 다 보인다(원인 추적용). */
+      if (!status || status === 'all') {
+        whereParts.push("NOT (r.status = 'aborted' AND COALESCE(r.size_bytes, 0) = 0)");
+      }
       const whereSQL = whereParts.length ? ('WHERE ' + whereParts.join(' AND ')) : 'WHERE 1=1';
 
       // Total count (필터 적용된 상태에서의 전체 건수 — 페이지네이션 UI 에 사용)
