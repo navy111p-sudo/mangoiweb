@@ -22,6 +22,46 @@ const J = (d: any, s = 200) =>
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 📒 파트 접수장부 (recording_parts)
+//
+// 왜 필요한가 (2026-08-04):
+//   multipart 는 «조각을 다 올린 뒤 complete 를 불러야» 파일이 생긴다. 그런데 그 complete 에
+//   필요한 upload_id 와 파트별 etag 목록이 **선생님 브라우저 메모리에만** 있었다. 탭이 죽거나
+//   PC 가 절전에 들어가면 아무도 마무리를 못 해 조각만 붕 뜬 채 녹화가 통째로 사라진다.
+//   실측: status='recording' 으로 멈춘 행이 296건(완료 423건).
+//   → 조각이 올라갈 때마다 서버가 장부에 적어두면, 브라우저가 죽어도 **크론이 대신 마무리**한다.
+// ─────────────────────────────────────────────────────────────────────────────
+const PARTS_DDL = `CREATE TABLE IF NOT EXISTS recording_parts (
+  recording_id INTEGER NOT NULL,
+  part_number  INTEGER NOT NULL,
+  r2_key       TEXT    NOT NULL,
+  upload_id    TEXT    NOT NULL,
+  etag         TEXT    NOT NULL,
+  size_bytes   INTEGER,
+  created_at   INTEGER NOT NULL,
+  PRIMARY KEY (recording_id, part_number)
+)`;
+let _partsTableReady = false;   // isolate 당 1회만 DDL (파트 업로드는 5MB 마다라 핫패스)
+async function ensurePartsTable(env: Env): Promise<void> {
+  if (_partsTableReady) return;
+  await env.DB.exec(PARTS_DDL.replace(/\s+/g, " "));
+  _partsTableReady = true;
+}
+
+/** 키에서 recording_id 추출 — create() 가 `rec/<room>/<id>_<ts>.webm` 로 만든다 */
+function ridFromKey(key: string): number {
+  const base = key.split("/").pop() || "";
+  const n = parseInt(base.split("_")[0], 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+async function clearParts(env: Env, recordingId: number): Promise<void> {
+  try {
+    await env.DB.prepare(`DELETE FROM recording_parts WHERE recording_id = ?`).bind(recordingId).run();
+  } catch { /* 장부 정리는 실패해도 본 흐름에 영향 없음 */ }
+}
+
 /**
  * 라우팅 진입점. index.ts의 fetch()에서 /api/recordings/upload 경로를 이쪽으로 분기시키세요.
  */
@@ -68,6 +108,25 @@ export async function handleRecordingUpload(
 
     const mp = env.RECORDINGS.resumeMultipartUpload(key, uploadId);
     const part = await mp.uploadPart(partNumber, request.body as ReadableStream);
+
+    // 📒 장부 적재 — 브라우저가 죽어도 서버가 마무리할 수 있게 (best-effort).
+    //    장부 쓰기가 실패해도 파트 업로드 자체는 성공이므로 응답은 그대로 200.
+    try {
+      const rid = parseInt(url.searchParams.get("rid") || "", 10) || ridFromKey(key);
+      if (rid > 0) {
+        await ensurePartsTable(env);
+        const len = parseInt(request.headers.get("content-length") || "", 10);
+        await env.DB.prepare(
+          `INSERT OR REPLACE INTO recording_parts
+             (recording_id, part_number, r2_key, upload_id, etag, size_bytes, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(rid, partNumber, key, uploadId, part.etag,
+               Number.isFinite(len) ? len : null, Date.now()).run();
+      }
+    } catch (e: any) {
+      console.error(`[recordings-r2] 파트 장부 기록 실패 key=${key} part=${partNumber}: ${e?.message || e}`);
+    }
+
     return J({ ok: true, part_number: partNumber, etag: part.etag });
   }
 
@@ -148,6 +207,7 @@ export async function handleRecordingUpload(
     )
       .bind(now, b.duration_ms || 0, b.size_bytes || obj!.size || 0, b.key, b.recording_id)
       .run();
+    await clearParts(env, b.recording_id);   // 마무리됐으니 장부는 비운다
     return J({ ok: true, key: b.key, size: obj!.size });
   }
 
@@ -166,6 +226,7 @@ export async function handleRecordingUpload(
     await env.DB.prepare(`UPDATE recordings SET status = 'aborted' WHERE id = ?`)
       .bind(b.recording_id)
       .run();
+    await clearParts(env, b.recording_id);   // 중단됐으니 크론이 되살리지 않도록 장부를 비운다
     return J({ ok: true });
   }
 
@@ -315,4 +376,114 @@ export async function handleRecordingUpload(
   }
 
   return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🛟 버려진 녹화 자동 마무리 (크론) — 2026-08-04
+//
+//   브라우저가 complete 를 못 보내고 죽으면 조각은 R2 에 다 올라와 있는데도 파일이 안 생긴다.
+//   장부(recording_parts)에 upload_id·etag 가 남아 있으므로 **서버가 대신 마무리**한다.
+//
+//   안전장치:
+//     · 마지막 파트가 STALE_MS 이상 조용한 것만 건드린다(수업 진행 중인 녹화를 가로채지 않음)
+//     · status='recording' 인 행만 — completed/aborted/deleted 는 손대지 않는다
+//     · complete 가 실패해도 head() 로 실물을 확인해 «이미 있으면 성공» 처리
+//     · 한 번에 MAX_PER_RUN 건만 (크론 시간·D1 부하 제한)
+//     · 킬스위치: KV 'recording_finalize' = 'off'
+// ═══════════════════════════════════════════════════════════════════════════
+const STALE_MS = 15 * 60 * 1000;   // 15분간 새 파트가 없으면 «버려진 것»으로 본다
+const MAX_PER_RUN = 10;
+
+export async function runRecordingFinalizeSweep(
+  env: Env,
+  opts?: { staleMs?: number; limit?: number }
+): Promise<{ ok: boolean; scanned: number; finalized: number; failed: number; details: any[] }> {
+  const out = { ok: true, scanned: 0, finalized: 0, failed: 0, details: [] as any[] };
+  try {
+    const kill = await env.SESSION_STATE?.get?.("recording_finalize");
+    if (kill === "off") return { ...out, ok: true };
+  } catch { /* KV 못 읽어도 계속 */ }
+
+  const staleMs = opts?.staleMs ?? STALE_MS;
+  const limit = opts?.limit ?? MAX_PER_RUN;
+  const cutoff = Date.now() - staleMs;
+
+  let cands: any[] = [];
+  try {
+    const rs = await env.DB.prepare(
+      `SELECT p.recording_id AS rid, p.r2_key AS r2key, p.upload_id AS uid,
+              COUNT(*) AS n, MAX(p.created_at) AS last_at, SUM(p.size_bytes) AS total,
+              r.started_at AS started_at
+         FROM recording_parts p
+         JOIN recordings r ON r.id = p.recording_id
+        WHERE r.status = 'recording'
+        GROUP BY p.recording_id, p.r2_key, p.upload_id
+       HAVING MAX(p.created_at) < ?
+        ORDER BY MAX(p.created_at) ASC
+        LIMIT ?`
+    ).bind(cutoff, limit).all();
+    cands = (rs.results || []) as any[];
+  } catch (e: any) {
+    // 장부 테이블이 아직 없으면(=배포 직후) 조용히 통과
+    return { ...out, ok: true };
+  }
+  out.scanned = cands.length;
+
+  for (const c of cands) {
+    const rid = Number(c.rid);
+    try {
+      const pr = await env.DB.prepare(
+        `SELECT part_number, etag FROM recording_parts
+          WHERE recording_id = ? AND r2_key = ? AND upload_id = ?
+          ORDER BY part_number ASC`
+      ).bind(rid, c.r2key, c.uid).all();
+      const parts = ((pr.results || []) as any[])
+        .map((p) => ({ partNumber: Number(p.part_number), etag: String(p.etag) }));
+      if (!parts.length) { await clearParts(env, rid); continue; }
+
+      let failReason = "";
+      let size = 0;
+      try {
+        const mp = env.RECORDINGS.resumeMultipartUpload(String(c.r2key), String(c.uid));
+        const obj = await mp.complete(parts);
+        size = obj.size;
+      } catch (e: any) {
+        failReason = String(e?.message || e);
+      }
+      // 실패했어도 실물이 있으면 성공 (누군가 이미 마무리했을 수 있다)
+      let head: R2Object | null = null;
+      try { head = await env.RECORDINGS.head(String(c.r2key)); } catch { head = null; }
+      if (head) { failReason = ""; size = size || head.size; }
+
+      if (failReason) {
+        out.failed++;
+        out.details.push({ rid, ok: false, parts: parts.length, error: failReason });
+        console.error(`[rec-finalize] 실패 id=${rid} key=${c.r2key} parts=${parts.length}: ${failReason}`);
+        await env.DB.prepare(
+          `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed'
+            WHERE id = ? AND status NOT IN ('completed','deleted')`
+        ).bind(rid).run();
+        await clearParts(env, rid);
+        continue;
+      }
+
+      const lastAt = Number(c.last_at) || Date.now();
+      const startedAt = Number(c.started_at) || lastAt;
+      await env.DB.prepare(
+        `UPDATE recordings
+            SET ended_at = ?, duration_ms = ?, size_bytes = ?, status = 'completed',
+                file_url = ?, storage = 'r2'
+          WHERE id = ? AND status NOT IN ('completed','deleted')`
+      ).bind(lastAt, Math.max(0, lastAt - startedAt), size || Number(c.total) || 0,
+             String(c.r2key), rid).run();
+      await clearParts(env, rid);
+      out.finalized++;
+      out.details.push({ rid, ok: true, parts: parts.length, size });
+      console.log(`[rec-finalize] 되살림 id=${rid} parts=${parts.length} size=${size}`);
+    } catch (e: any) {
+      out.failed++;
+      out.details.push({ rid, ok: false, error: String(e?.message || e) });
+    }
+  }
+  return out;
 }

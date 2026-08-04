@@ -588,7 +588,8 @@
     r2UploadQueue = r2UploadQueue.then(async () => {
       const url = '/api/recordings/upload/part?key=' + encodeURIComponent(r2Key) +
                   '&upload_id=' + encodeURIComponent(r2UploadId) +
-                  '&part=' + pn;
+                  '&part=' + pn +
+                  '&rid=' + encodeURIComponent(recordingId);   // 서버 파트 장부용
       // 파트 하나가 유실되면 구멍 난 채로 이어붙여져 영상이 깨진다 — 일시 오류는 재시도
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
