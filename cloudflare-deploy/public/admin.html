@@ -3525,11 +3525,14 @@ window.__admSettleRun = function(fn){
   'use strict';
   if (window.__admStickyJumpOffset) return; window.__admStickyJumpOffset = true;
 
-  var GAP = 10;   // 헤더와 제목 사이 숨 쉴 틈
+  var GAP = 0;    // 헤더와 제목 사이 숨 쉴 틈. 카드 자체 margin-top(≈19px)이 이미 있어 0 이어도 붙지 않는다
+                  // (2026-08-04 사장님 "여백 좀 줄여줘" — 10 → 0. 실측 화면상 38px → 25px)
   try {
     var st = document.createElement('style');
     st.id = 'adm-jump-offset';
-    st.textContent = '[id^="card-"],.menu-card{scroll-margin-top:var(--adm-jump-offset,0px)}';
+    // details.sub-item 도 포함 — 사이드바 「전체 시간표」(#sm-all-schedules)처럼 카드가 아니라
+    // 하위 항목으로 바로 뛰는 메뉴가 있다. 뛰는 대상이 아니면 여백은 아무 영향이 없다.
+    st.textContent = '[id^="card-"],.menu-card,details.sub-item{scroll-margin-top:var(--adm-jump-offset,0px)}';
     (document.head || document.documentElement).appendChild(st);
   } catch(e){ return; }
 
