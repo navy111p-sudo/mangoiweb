@@ -356,7 +356,89 @@ function handleWebSocketMessage(msg) {
     case 'offer': handleOfferMessage(data); break;
     case 'answer': handleAnswerMessage(data); break;
     case 'ice-candidate': handleIceCandidateMessage(data); break;
+    case 'point-award-ack': handlePraiseAck(data); break;   // ⭐ 학생 쪽 적립 결과
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ⭐ 칭찬 별점 — 경량 화면판 (2026-08-05 사장님 요청)
+   ───────────────────────────────────────────────────────────────
+   정식 화면에만 있던 기능이라 경량 화면으로 옮긴 강사가 칭찬을 못 줬다.
+   다행히 무거운 것을 옮길 필요가 없다 — 적립은 이미 «학생 브라우저» 가 한다:
+     강사 → WS 'point-award' → 서버 DO 가 중계 → 학생 화면이 받아 자기 계정으로 적립
+     → 학생이 'point-award-ack' 로 결과를 되돌려 준다.
+   즉 이 화면이 할 일은 «버튼 하나와 신호 한 번» 뿐이다. 서버도 DO 도 고치지 않는다.
+   ⚠️ 강사(role=teacher)에게만 보인다. 학생 화면에 별이 보이면 자기 자신에게 줄 수 있다.
+   ⚠️ 서버 적립 경로(/api/points/award-praise)는 교사 «쿠키 세션» 을 요구한다. 이 화면은
+      그 세션이 없을 수 있어 401 이 날 수 있는데, 그래도 문제가 없다 — 학생 경로가 이미
+      같은 award_id 로 적립하고 서버가 멱등 처리한다. 그래서 실패해도 조용히 넘긴다.
+   ═══════════════════════════════════════════════════════════════ */
+const _praisePending = {};
+
+/* 역할은 링크가 알려 준다(수업 입장 버튼이 &role=teacher 를 붙인다). 없으면 학생으로 본다 —
+   모르면 «안 보여주는» 쪽이 안전하다. 별 버튼이 학생에게 보이면 자기 자신에게 줄 수 있다. */
+const _urlRole = (function () {
+  try {
+    const sp = new URLSearchParams(location.search);
+    return (sp.get('role') || sp.get('vc_role') || '').trim().toLowerCase();
+  } catch (e) { return ''; }
+})();
+
+function isTeacherView() { return _urlRole === 'teacher'; }
+
+function praiseButtonFor(wrapper, peerId) {
+  if (!wrapper || !isTeacherView() || wrapper.querySelector('.lite-star')) return;
+  const btn = document.createElement('button');
+  btn.className = 'lite-star';
+  btn.type = 'button';
+  btn.title = 'Give a praise point · 칭찬 포인트 주기';
+  btn.textContent = '⭐ +1';
+  btn.style.cssText =
+    'position:absolute;right:8px;top:8px;z-index:5;border:0;border-radius:999px;' +
+    'padding:7px 12px;font-size:14px;font-weight:700;cursor:pointer;' +
+    'background:#f0a500;color:#1f2433;box-shadow:0 2px 8px rgba(0,0,0,.35)';
+  btn.addEventListener('click', function (e) { e.stopPropagation(); sendPraise(peerId, btn); });
+  wrapper.style.position = wrapper.style.position || 'relative';
+  wrapper.appendChild(btn);
+}
+
+function sendPraise(peerId, btn) {
+  if (!peerId || (btn && btn.disabled)) return;
+  const awardId = 'pt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+  _praisePending[awardId] = btn || null;
+  try {
+    sendWsMessage({ type: 'point-award', data: { targetUserId: peerId, awardId: awardId, fromName: username || 'Teacher' } });
+  } catch (e) { console.warn('[praise] 전송 실패:', e); }
+  /* 보조 경로 — 세션이 있으면 서버가 직접 적립한다. 없으면 401 이지만 학생 경로가 이미 처리한다. */
+  try {
+    fetch('/api/points/award-praise', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ room: roomId, target_peer_id: peerId, award_id: awardId, from_name: username || 'Teacher' })
+    }).catch(function () {});
+  } catch (e) {}
+  if (btn) {
+    btn.textContent = '⭐ …';
+    btn.disabled = true;                       // 서버 쿨다운 1초와 맞춘다 — 연타로 중복 지급되지 않게
+    setTimeout(function () { btn.disabled = false; btn.textContent = '⭐ +1'; }, 1400);
+  }
+}
+
+function handlePraiseAck(data) {
+  try {
+    if (!data || !data.awardId) return;
+    const btn = _praisePending[data.awardId];
+    delete _praisePending[data.awardId];
+    if (!btn) return;
+    /* 성공/실패를 강사가 «반드시» 알아야 한다 — 안 그러면 줬다고 믿고 넘어간다 */
+    btn.textContent = data.ok ? '⭐ OK' : '⚠ ' + (data.error || 'failed');
+    btn.style.background = data.ok ? '#1e874b' : '#c0392b';
+    btn.style.color = '#fff';
+    setTimeout(function () {
+      btn.textContent = '⭐ +1';
+      btn.style.background = '#f0a500';
+      btn.style.color = '#1f2433';
+    }, 1800);
+  } catch (e) {}
 }
 
 function handleRoomJoined(data) {

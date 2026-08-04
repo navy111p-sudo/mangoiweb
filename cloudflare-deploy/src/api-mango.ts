@@ -738,17 +738,33 @@ export async function handleMangoApi(
       //   반면 last_seen_at = '이 요청이 서버에 실제로 도착한 시각' 이므로 위조도 과다계상도 불가능하다.
       //   회선이 끊기면 이 갱신이 멈추고, 그 마지막 값이 곧 그 사람이 마지막으로 살아 있던 시각이 된다.
       //   D1 쓰기는 늘지 않는다 — 기존 UPDATE 문에 컬럼 하나만 더 얹었다.
+      /* 🔎 (2026-08-05) 「말하기 점수가 왜 비어 있는가」를 알 수 있게 진단값을 남긴다.
+         [실측] 최근 30일 attendance 4,513행 중 total_session_ms>0 은 4,293행(95%)인데
+                total_active_ms>0 은 581행(13%)뿐이다. 즉 수업 시간은 재는데 «발화» 만 0 이다.
+         원인 후보가 셋인데(마이크 분석기 미생성 / 마이크 꺼짐 / AudioContext suspended),
+         클라이언트는 이미 그 셋을 보내고 있었고 서버가 «그냥 버리고» 있었다.
+         → 한 칸(spk_diag)에 모아 둔다. 하루치 실제 수업이면 어느 원인인지 숫자로 갈린다.
+         추측으로 감지 로직을 고치면 과다·과소 집계가 나고, 그건 강사 평가에 그대로 간다.
+         ⚠️ 컬럼은 더하기만 한다(TEXT, NULL 허용). 기존 조회·집계에 영향 없음. */
+      const _spkDiag = [
+        'an=' + (b.has_analyser ? 1 : 0),
+        'mic=' + (b.mic_enabled ? 1 : 0),
+        'ac=' + String(b.ac_state || '?').slice(0, 12)
+      ].join(';');
       try {
         await env.DB.prepare(
           `UPDATE attendance
-           SET total_active_ms = ?, total_session_ms = ?, last_seen_at = ?
+           SET total_active_ms = ?, total_session_ms = ?, last_seen_at = ?, spk_diag = ?
            WHERE id = (
              SELECT id FROM attendance
              WHERE room_id = ? AND user_id = ? AND left_at IS NULL
              ORDER BY joined_at DESC LIMIT 1
            )`
-        ).bind(b.total_active_ms || 0, b.total_session_ms || 0, now, b.room_id, b.user_id).run();
+        ).bind(b.total_active_ms || 0, b.total_session_ms || 0, now, _spkDiag, b.room_id, b.user_id).run();
       } catch {
+        /* 컬럼이 아직 없는 배포본 → 한 번 만들어 두고, 이번 요청은 아래 기존 경로로 처리한다.
+           (여기서 재시도까지 하면 실패가 겹칠 때 수업 중 D1 쓰기가 늘어난다) */
+        try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN spk_diag TEXT`); } catch {}
         // 컬럼이 아직 없는 배포본 대비 폴백 — 발화시간 집계는 절대 멈추지 않게(기존 동작 유지)
         await env.DB.prepare(
           `UPDATE attendance

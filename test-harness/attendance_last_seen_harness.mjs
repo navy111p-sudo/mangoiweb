@@ -43,6 +43,8 @@ const pick = (needles, not = []) =>
   LITS.find(s => needles.every(n => s.includes(n)) && not.every(n => !s.includes(n)));
 
 const ALTER_SQL   = pick(['ALTER TABLE attendance ADD COLUMN last_seen_at']);
+// (2026-08-05) 말하기 진단 컬럼도 같은 자가치유 방식으로 붙는다 — 그 ALTER 도 함께 검사한다.
+const ALTER_DIAG  = pick(['ALTER TABLE attendance ADD COLUMN spk_diag']);
 const CHECKIN_INS = pick(['INSERT INTO attendance', 'last_seen_at', 'attended_at']);
 // speaking-time: total_session_ms 를 '직접' 대입(= ?)하고 left_at 은 건드리지 않는다
 const SPEAK_SQL   = pick(['UPDATE attendance', 'total_session_ms = ?', 'last_seen_at = ?', 'left_at IS NULL'],
@@ -93,6 +95,11 @@ check('시작 시점엔 last_seen_at 이 없다(운영 D1 재현)', !cols().incl
 let altered = false;
 try { db.exec(ALTER_SQL); altered = true; } catch { /* noop */ }
 check('소스의 ALTER 문이 실제 SQLite 에서 성공한다', altered);
+
+check('소스에 spk_diag 자가치유 ALTER 가 있다', !!ALTER_DIAG);
+let alteredDiag = false;
+try { db.exec(ALTER_DIAG); alteredDiag = true; } catch { /* noop */ }
+check('spk_diag ALTER 도 실제 SQLite 에서 성공한다', alteredDiag);
 check('ALTER 후 last_seen_at 컬럼이 생긴다', cols().includes('last_seen_at'));
 
 // 멱등성 — 두 번째 호출은 실패하지만 try/catch 로 삼켜야 정상(운영에서 매 checkin 마다 호출됨)
@@ -116,7 +123,7 @@ const LAST_HB = T(14, 26);
 for (let t = START + 30_000; t <= LAST_HB; t += 30_000) {
   // 클라이언트가 보내는 누적값은 '오프라인 동안에도 계속 증가'하는 신뢰 불가 값이다(일부러 부풀려 넣는다)
   const bogusSession = (t - START) * 3;
-  db.prepare(SPEAK_SQL).run(1000, bogusSession, t, 'class-848-20260728', 'teacher_kang');
+  db.prepare(SPEAK_SQL).run(1000, bogusSession, t, 'an=1;mic=1;ac=running', 'class-848-20260728', 'teacher_kang');
 }
 
 const row = db.prepare(`SELECT * FROM attendance WHERE user_id='teacher_kang'`).get();
@@ -128,6 +135,9 @@ check('last_seen_at 은 마지막 하트비트 시각으로 남아 있다', row.
 // 복원 규칙: 실제 종료 시각 = left_at ?? last_seen_at
 const effectiveEnd = r => (r.left_at != null ? r.left_at : r.last_seen_at);
 check('복원된 종료 시각 = 14:26 (기존에는 알 방법이 전혀 없었음)', effectiveEnd(row) === T(14, 26));
+
+// (2026-08-05) 말하기 점수가 0 인 이유를 사후에 갈라내려면 진단값이 함께 남아야 한다.
+check('spk_diag 가 마지막 하트비트 값으로 남는다', row.spk_diag === 'an=1;mic=1;ac=running');
 
 // 오차 한계: 하트비트 주기(30초) 이내여야 한다
 const trueEnd = T(14, 26, 20); // 실제로는 14:26:20 에 끊겼다고 가정

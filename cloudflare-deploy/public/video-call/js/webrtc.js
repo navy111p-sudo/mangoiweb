@@ -215,6 +215,8 @@ function createPeerConnection(userId, peerName, isInitiator) {
       grid.appendChild(wrapper);
       videoEl = wrapper;
       if (typeof updateGridCount === 'function') updateGridCount();
+      /* ⭐ 칭찬 별점 — 상대(학생) 타일에만, 강사 화면에만 붙는다(app.js 가 역할을 판단) */
+      try { if (typeof praiseButtonFor === 'function') praiseButtonFor(wrapper, userId); } catch (e) {}
       console.log('[webrtc] 원격 비디오 엘리먼트 생성:', userId);
     }
     const videoTag = videoEl.querySelector('video');
