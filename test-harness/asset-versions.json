@@ -367,5 +367,13 @@
   "/video-call/js/pdf-viewer.js?v=20260805b": "cc0f3ded4b087587",
   "/video-call/js/recorder.js?v=20260805b": "cd8afef7c624bd5f",
   "/video-call/js/webrtc.js?v=20260805b": "b1c4e25c5773bd9e",
-  "/video-call/js/whiteboard.js?v=20260805b": "97c63a2d61546afd"
+  "/video-call/js/whiteboard.js?v=20260805b": "97c63a2d61546afd",
+  "/js/inapp-escape.js?v=20260805c": "44c7d7d234fae8e4",
+  "/video-call/css/style.css?v=20260805c": "0904a57af7307b2c",
+  "/video-call/js/app.js?v=20260805c": "cfa1bbb57bb91d46",
+  "/video-call/js/chat.js?v=20260805c": "8810bb80a0999d48",
+  "/video-call/js/pdf-viewer.js?v=20260805c": "cc0f3ded4b087587",
+  "/video-call/js/recorder.js?v=20260805c": "cd8afef7c624bd5f",
+  "/video-call/js/webrtc.js?v=20260805c": "7cadf5632b7bc206",
+  "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd"
 }
