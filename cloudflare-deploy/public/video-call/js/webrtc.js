@@ -211,7 +211,7 @@ function createPeerConnection(userId, peerName, isInitiator) {
       const wrapper = document.createElement('div');
       wrapper.className = 'video-item remote';
       wrapper.id = 'video-' + userId;
-      wrapper.innerHTML = '<video autoplay playsinline></video><span class="video-label">' + (peerName || '참가자') + '</span>';
+      wrapper.innerHTML = '<video autoplay playsinline></video><span class="video-label">' + (peerName || 'Participant') + '</span>';
       grid.appendChild(wrapper);
       videoEl = wrapper;
       if (typeof updateGridCount === 'function') updateGridCount();
@@ -300,7 +300,7 @@ function updateFloatingVideo(userId, peerName, stream) {
     el = document.createElement('div');
     el.className = 'floating-video-item';
     el.id = 'float-' + userId;
-    el.innerHTML = '<video autoplay playsinline muted></video><span class="floating-video-label">' + (peerName || '참가자') + '</span>';
+    el.innerHTML = '<video autoplay playsinline muted></video><span class="floating-video-label">' + (peerName || 'Participant') + '</span>';
     container.appendChild(el);
   }
   if (stream) el.querySelector('video').srcObject = stream;

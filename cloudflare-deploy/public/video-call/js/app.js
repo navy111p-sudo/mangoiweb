@@ -141,7 +141,7 @@ function maybeStartAttendance() {
 }
 
 async function joinRoom() {
-  username = $usernameInput.value.trim() || ('사용자' + Math.floor(Math.random() * 1000));
+  username = $usernameInput.value.trim() || ('Guest' + Math.floor(Math.random() * 1000));
   // fix (2026-06-01) — 비우면 랜덤 방이 아니라 공용 수업방(mangoi-class)으로 입장 → 교사·학생이 같은 방에서 만남
   roomId = $roomInput.value.trim() || 'mangoi-class';
 
@@ -161,13 +161,13 @@ async function joinRoom() {
   }
 
   document.getElementById('local-video').srcObject = localStream;
-  document.getElementById('local-label').textContent = username + ' (나)';
+  document.getElementById('local-label').textContent = username + ' (me · 나)';
 
   connectWebSocket();
 
   $lobby.classList.add('hidden');
   $app.classList.remove('hidden');
-  $roomBadge.textContent = '방: ' + roomId;
+  $roomBadge.textContent = 'Room ' + roomId;   // 방 번호는 언어와 무관 — 짧게 영어로 통일
   /* 화면이 실제로 바뀐 뒤에 「연결 중」을 치운다 — 먼저 치우면 흰 화면이 한 번 스친다 */
   _boot('거의 다 됐어요 · Almost there', 95);
   setTimeout(() => { try { if (window.bootDone) window.bootDone(); } catch (e) {} }, 300);
@@ -391,7 +391,7 @@ function updateGridCount() {
 document.addEventListener('DOMContentLoaded', updateGridCount);
 
 let userCount = 1;
-function updateUserCount() { $userCount.textContent = userCount + '명'; }
+function updateUserCount() { $userCount.textContent = userCount + (userCount > 1 ? ' in room' : ' in room'); }
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
