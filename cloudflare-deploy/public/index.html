@@ -32887,6 +32887,15 @@ window.vcAutoLoadStudentTextbook = async function(){
         if (!rc || rc.value !== room) return;               // 코드가 아직 안 채워짐 → 더 기다린다
         var ni = document.getElementById('vc-name-input');
         var pi = document.getElementById('vc-room-input');
+        /* 🔴 (라이브 실측으로 잡은 것) ?name= 은 이미 채워진 이름보다 세다.
+           mangoiJoinClass 가 +350ms 에 mangoi_vc_uid 로 이름칸을 먼저 채운다(30355줄).
+           그대로 두면 «Melca 링크를 열었는데 Mai 로 입장» 한다 — 한 PC 를 돌려쓰거나
+           앞사람 이름이 남아 있으면 방 안에 남의 이름이 뜬다. 링크가 이름을 실어 왔으면 그게 정답이다. */
+        var un = urlName();
+        if (ni && un && ni.value !== un){
+          ni.value = un;
+          try { localStorage.setItem('mangoi_vc_uid', un); } catch(e){}
+        }
         if (ni && !ni.value){
           var nm = resolveName();
           if (!nm) { clearInterval(timer); return; }   // 이름을 어디서도 못 찾음 → 로비에 그대로 둔다
