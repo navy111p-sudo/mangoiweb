@@ -13,6 +13,12 @@
 <title>AI 음성 코칭 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
+<!-- ⬅ (2026-08-04 사장님 지시) 이 화면 상단은 뒤로가기 화살표 하나만.
+     mango-i18n.js 가 우상단에 자동으로 붙이는 [🏠 홈] + [🌐 EN] 묶음을 이 meta 로 끈다
+     (mango-i18n.js 의 공식 opt-out — CSS 로 숨기지 말 것. 숨기면 자리만 차지한다).
+     홈 버튼을 왜 빼나: ← 로 나가면 바로 앞이 곧 홈이라 같은 일을 하는 버튼이 둘이 된다.
+     ↳ 되살리려면 이 meta 한 줄만 지우면 된다. -->
+<meta name="mangoi-no-global-bar" content="1">
 <script src="/js/mango-i18n.js" defer></script>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
@@ -143,6 +149,18 @@
     .brand-eyebrow { margin-bottom: 4px; }
     .brand-logo { font-size: 20px; }
 
+    /* ⬅ 뒤로가기 화살표 자리 (2026-08-04 사장님 지시: "화살표하고 망고아이 겹치지 않게")
+       back-nav.js 의 ← 는 position:fixed(왼쪽 8px, 34px 원형)라 문서 흐름을 밀지 못해
+       제목 "Mangoi · AI Voice Coach" 위에 그대로 얹혀 글자를 가렸다.
+       화살표를 제목 위 별도 줄로 내리면 세로로 40px 넘게 먹어 이 화면의 대전제인
+       "폰에서 스크롤 없이 한 화면"이 깨진다(작은 폰에선 녹음 버튼이 화면 밖으로 밀림).
+       그래서 세로를 쓰지 않고 제목 줄 왼쪽에 화살표 몫(46px = 8+34+여백4)만 비우고,
+       제목은 남은 오른쪽 폭에서 가운데 정렬한다. 세로 손실 0, 겹침 0.
+       우상단 [🏠][🌐] 은 meta 로 껐으므로 오른쪽은 비어 있다. */
+    .brand { padding-left: 46px; }
+    /* 결과를 볼 때는 .brand 가 통째로 숨으므로(아래 m-showing-result) 화살표 아래에
+       문장 카드가 들어온다 — 그때만 세로로 자리를 낸다. */
+
     #lang-curriculum-picker, .step-nav, .step-count, .step-progress, .preset { display: none !important; }
 
     #tavatar-wrap { margin: 2px 0 10px; }
@@ -165,7 +183,7 @@
     body.m-showing-result #tavatar-wrap { display: none; }
     body.m-showing-result .brand,
     body.m-showing-result .m-level-trigger { display: none; }   /* 결과 보는 동안은 로고·레벨줄도 접어 작은 폰(SE)에서도 결과가 다 보이게 */
-    body.m-showing-result .wrap { padding-top: 10px; }
+    body.m-showing-result .wrap { padding-top: 46px; }   /* 로고가 접히면 ← 밑으로 문장카드가 올라오므로 그 높이만큼 비운다 */
     body.m-showing-result .target-box { padding: 8px 14px; margin-bottom: 6px; }
     body.m-showing-result .target-box .target-label,
     body.m-showing-result .target-box .target-input,
@@ -226,7 +244,8 @@
 </head>
 <body>
 
-<a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+<!-- 🏠 자체 홈 버튼도 제거 (2026-08-04) — ← 바로 앞이 홈이라 같은 일을 하는 버튼이 둘이었다.
+     .home-btn 스타일/숨김 규칙은 남겨 둔다(되살릴 때 이 자리에 <a class="home-btn" href="/"> 만 넣으면 됨). -->
 
 <div class="wrap">
   <div class="brand">
@@ -1013,7 +1032,8 @@ if (typeof window.speechSynthesis !== 'undefined') {
 })();
 </script>
 <style id="mb-tidy2-2026-07-11">
-/* 자체 홈 버튼은 공용 홈/EN 바(mango-i18n 주입)와 같은 자리에 포개지므로 숨김 — 홈 기능은 공용 바가 제공 */
+/* 자체 홈 버튼 숨김. (2026-08-04) 공용 홈/EN 바도 meta 로 껐으므로 이 화면에는 홈 버튼이
+   아예 없다 — ← 바로 앞이 홈이라 사장님 지시로 뺐다. 규칙은 안전망으로 남겨 둔다. */
 .home-btn{display:none}
 </style>
 <script defer src="/js/back-nav.js"></script>
