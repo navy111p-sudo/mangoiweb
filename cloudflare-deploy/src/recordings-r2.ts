@@ -218,6 +218,11 @@ export async function handleRecordingUpload(
       teacher_id: string | null; teacher_name: string | null; expires_at: number | null;
     }>();
     if (!row || row.status === "deleted" || row.status === "upload_failed") return new Response("Not found", { status: 404 });
+    // 업로드가 실패한 녹화는 status 가 'completed' 로 남아 있어도 R2 에 실물이 없다 —
+    // storage 로만 구분되므로 여기서도 함께 본다 (2026-08-04).
+    if (row.storage === "r2_failed" || row.storage === "error" || row.storage === "debug") {
+      return new Response("Not found", { status: 404 });
+    }
     if (row.expires_at && row.expires_at < Date.now()) return new Response("Not found", { status: 404 });
 
     // 학생은 본인이 참여한 녹화만 — 불일치도 404(존재 여부 오라클 방지).
