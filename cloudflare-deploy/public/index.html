@@ -32917,6 +32917,49 @@ window.vcAutoLoadStudentTextbook = async function(){
     }, 520);
   }
 
+  /* ── 🔇 클릭 0회 입장의 대가 — 상대방 목소리가 안 들린다 ──
+     (2026-08-04 실사고: meet-7038 에서 영상은 나오는데 무음)
+     [원인] 브라우저 자동재생 정책은 «무음 재생»만 허용한다. 사용자가 아무것도 누르지 않은 상태에서
+            muted=false 로 바꾸면 조용히 되돌린다. 원격 타일은 muted 로 시작하므로(13450줄)
+            영상만 나오고 소리는 영영 안 난다.
+            기존 unmute 사다리(13463줄)는 0.4~5초 안에 3번 시도하고 끝난다 — 그 사이 클릭이 없으면 끝.
+            ▶재생 폴백 버튼도 안 뜬다. 그건 «무음 재생조차 실패»했을 때만 붙기 때문이다.
+            클릭해서 들어오는 사람은 그 클릭이 제스처로 남아 안 겪는다. /?meet= 입장만 겪는다.
+     [해결] 첫 클릭·터치·키입력이 들어오는 «그 순간»(제스처가 살아 있을 때) 원격 타일을 전부 켠다.
+     ⚠️ 내 타일(vc-local-box / vc-local-video)은 절대 건드리지 않는다 — 켜면 하울링이 난다.
+     ⚠️ 한 번으로 끝내지 않는다. 나중에 들어온 사람의 타일도 muted 로 생기므로,
+        제스처가 이미 있었으면 새 타일에도 적용되게 몇 번 더 훑는다. */
+  (function unmuteRemotesOnFirstGesture(){
+    var seen = false;
+    function sweep(){
+      var n = 0;
+      try {
+        var vids = document.querySelectorAll('#vc-video-grid .video-box video');
+        for (var i = 0; i < vids.length; i++){
+          var v = vids[i];
+          if (v.id === 'vc-local-video') continue;
+          var box = v.parentElement;
+          if (box && box.id === 'vc-local-box') continue;      // 내 화면 — 하울링 방지
+          if (!v.muted && v.volume > 0) continue;
+          try { v.muted = false; v.volume = 1; if (v.paused) v.play().catch(function(){}); n++; } catch(e){}
+        }
+      } catch(e){}
+      return n;
+    }
+    function onGesture(){
+      if (!seen){ seen = true; }
+      var n = sweep();
+      if (n) console.log('[meet] 첫 제스처로 원격 소리 켬:', n);
+      /* 늦게 들어온 참가자 타일까지 — 2·5·10초 뒤 한 번씩 더 훑는다(제스처는 이미 확보됨) */
+      setTimeout(sweep, 2000); setTimeout(sweep, 5000); setTimeout(sweep, 10000);
+    }
+    try {
+      ['pointerdown','touchstart','keydown'].forEach(function(ev){
+        document.addEventListener(ev, onGesture, { capture: true, passive: true });
+      });
+    } catch(e){}
+  })();
+
   /* ── /?meet=<방번호> 로 들어오면 아무것도 누르지 않고 바로 입장 ── */
   (function fromUrl(){
     var code = '';
