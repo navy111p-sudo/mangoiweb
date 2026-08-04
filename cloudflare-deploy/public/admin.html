@@ -2058,7 +2058,7 @@
 <script src="/js/pii-mask.js" defer></script><!-- 🔒 PII 마스킹 유틸 -->
 <script src="/js/media-guard.js?v=3" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/admin-tip-i18n.js?v=1" defer></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
-<link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 <!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
      기존에도 PC(≥1024)·모바일에서 숨기던 레거시 UI인데, 숨김 규칙이 파일 한참 아래에 있어 로드 초반 잠깐 보였음.
      head 에서 전역 즉시 숨김 → 어떤 화면폭/속도에서도 처음부터 안 보임. -->
@@ -5430,7 +5430,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-r3.js?v=2" defer></script><!-- 분할추출:adm-r3 -->
+<script src="/js/adm-r3.js?v=3" defer></script><!-- 분할추출:adm-r3 -->
 
 <!-- 👁 Phase GM-3 — 관리자 통제: Ghost / Whisper / Alerts -->
 <details class="table-card menu-card" id="card-admin-ghost">
@@ -5553,7 +5553,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script type="text/lazy-js" data-src="/js/adm-s2.js?v=1" data-card="card-room-invite" data-globals="rtInvite,rtLoadMembers,rtTestJoin,rtKick"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s2 -->
+<script type="text/lazy-js" data-src="/js/adm-s2.js?v=2" data-card="card-room-invite" data-globals="rtInvite,rtLoadMembers,rtTestJoin,rtKick"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s2 -->
 
 <!-- 🎙 Phase ALR — AI 학습 리포트 (수업 녹음 자동 분석) -->
 <details class="table-card menu-card" id="card-ai-lesson-report">
@@ -5610,7 +5610,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-r4.js?v=1" defer></script><!-- 분할추출:adm-r4 -->
+<script src="/js/adm-r4.js?v=2" defer></script><!-- 분할추출:adm-r4 -->
 
 <!-- Phase 60 admin (2026-05-23) — 상단 ▲ 토글 제거 + 칩 3개씩 정렬 -->
 <style id="ph60-admin">
@@ -6213,7 +6213,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-q1.js?v=1" defer></script><!-- 분할추출:adm-q1 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q1.js?v=2" defer></script><!-- 분할추출:adm-q1 (원복: 이 위치에 인라인) -->
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 🌅 Daily Morning Briefing — 매일 아침 자동 일일 브리핑              -->
@@ -8459,7 +8459,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script type="text/lazy-js" data-src="/js/adm-r9.js?v=1" data-card="card-webpush-mgmt" data-globals="wpLoadStatus,wpGenerateVapid,wpLoadSubs,wpSendNow,wpSubscribeMe,wpSendTestToSelf,wpLoadHistory"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r9 -->
+<script type="text/lazy-js" data-src="/js/adm-r9.js?v=2" data-card="card-webpush-mgmt" data-globals="wpLoadStatus,wpGenerateVapid,wpLoadSubs,wpSendNow,wpSubscribeMe,wpSendTestToSelf,wpLoadHistory"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r9 -->
 
 <!-- 📲 Phase K2~K4 — 카카오 알림톡 관리 (포인트 카드 다음) -->
 <details class="table-card menu-card" id="card-kakao-mgmt">
@@ -8589,7 +8589,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-s6.js?v=1" data-card="card-kakao-mgmt" data-globals="loadKakaoStatus,kiLoadInbound"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s6 -->
+<script type="text/lazy-js" data-src="/js/adm-s6.js?v=2" data-card="card-kakao-mgmt" data-globals="loadKakaoStatus,kiLoadInbound"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-s6 -->
 
 <!-- 📢 공지 스튜디오 — 포스터 제작(①) + 팝업 게시(②)를 한 카드·2탭으로 통합. (2026-07-06 병합)
      · 컨테이너 = id card-poster-maker (기존 참조 유지, ①만들기 탭)
@@ -8799,7 +8799,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-q3.js?v=2" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q3.js?v=3" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
@@ -11828,7 +11828,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=28" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=29" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=3" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -11840,10 +11840,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- /js/kakao-fab.js 는 사용하지 않음 (글로벌 홈 FAB 로 대체) -->
 
 <!-- ━━━━━━━━━━ 🌱 SEED 글로벌 주입 — 모든 admin 기능에 자동 통합 ━━━━━━━━━━ -->
-<script src="/js/adm-q5.js?v=1" defer></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q5.js?v=2" defer></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
 
 <!-- ━━━━━━━━━━ 🔄 결석 강사 자동 대체 시스템 ━━━━━━━━━━ -->
-<script src="/js/adm-p7.js?v=7" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p7.js?v=8" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
 
 <style>
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -11945,7 +11945,7 @@ button.chip:hover,
 
 
 <!-- 🎁 Phase P2 — 포인트 & 기프티콘 관리 모듈 -->
-<script src="/js/adm-p4.js?v=1" defer></script><!-- 분할추출:adm-p4 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p4.js?v=2" defer></script><!-- 분할추출:adm-p4 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 51 admin (2026-05-22) — mobile: hide hero greeting image -->
 <style id="ph51-admin-overrides">
@@ -15004,7 +15004,7 @@ button.chip:hover,
 </details>
 
 <!-- ph106 JS — Chart.js + 데모 데이터 (실서비스 시 fetch API 로 교체) -->
-<script src="/js/adm-q7.js?v=1" defer></script><!-- 분할추출:adm-q7 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q7.js?v=2" defer></script><!-- 분할추출:adm-q7 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 107 admin (2026-05-25) — 보고서 양식 관리 카드 (강사+시스템 양쪽 사이드바 노출) -->
@@ -15520,7 +15520,7 @@ button.chip:hover,
   }
 </style>
 
-<script src="/js/adm-q8.js?v=3" defer></script><!-- 분할추출:adm-q8 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q8.js?v=4" defer></script><!-- 분할추출:adm-q8 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 110 admin (2026-05-25) — 신규 5개 카드 + 사이드바 31개 카드 통합 -->
@@ -16552,7 +16552,7 @@ button.chip:hover,
   #topUserBtn:hover::before { opacity: 1; }
 </style>
 
-<script src="/js/adm-r19.js?v=3" defer></script><!-- 분할추출:adm-r19 -->
+<script src="/js/adm-r19.js?v=4" defer></script><!-- 분할추출:adm-r19 -->
 
 
 <!-- Phase 114 admin (2026-05-25) — Floating 사용자 메뉴 (기존 #topUserBtn 의존 없음) -->
@@ -18038,7 +18038,7 @@ button.chip:hover,
     #ph132-forgot-modal .ph132-method { padding: 12px 14px; }
   }
 </style>
-<script src="/js/adm-q12.js?v=1" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q12.js?v=2" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
 
 <!-- ============================================================
      Phase 133 (2026-05-27) — 관리자 화면에서도 수업 진단 플로팅 버튼
@@ -20777,7 +20777,7 @@ button.chip:hover,
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
-<script src="/js/adm-welcome.js?v=4" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
@@ -21295,6 +21295,6 @@ button.chip:hover,
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260804085001 -->
+<!-- BUILD:20260804092314 -->
 </body>
 </html>

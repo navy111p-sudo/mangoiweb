@@ -37,7 +37,7 @@
     const rowsHtml = rows.map(x => `
       <tr style="border-bottom:1px solid #e5e7eb">
         <td style="padding:10px 12px;font-weight:700;color:#374151">${esc(x.student_name||'-')}</td>
-        <td style="padding:10px 12px;color:#6b7280;font-family:monospace;font-size:11.5px">${esc(x.user_id)}</td>
+        <td style="padding:10px 12px;color:#6b7280;font-family:MangoiHanSC,monospace;font-size:11.5px">${esc(x.user_id)}</td>
         <td style="padding:10px 12px;text-align:right;font-weight:800;color:#d97706;font-size:14px">${fmt(x.balance)} P</td>
         <td style="padding:10px 12px;text-align:right;color:#10b981;font-size:11.5px">+${fmt(x.lifetime_earned)}</td>
         <td style="padding:10px 12px;text-align:right;color:#ef4444;font-size:11.5px">-${fmt(x.lifetime_spent)}</td>
@@ -350,7 +350,7 @@
       }
       const rowsHtml = rules.map(x => `
         <tr style="border-bottom:1px solid #e5e7eb;${x.enabled?'':'opacity:.5'}">
-          <td style="padding:10px 12px"><b>${esc(x.label)}</b><br><span style="font-size:11px;color:#9ca3af;font-family:monospace">${esc(x.code)}</span></td>
+          <td style="padding:10px 12px"><b>${esc(x.label)}</b><br><span style="font-size:11px;color:#9ca3af;font-family:MangoiHanSC,monospace">${esc(x.code)}</span></td>
           <td style="padding:10px 12px;text-align:right;font-weight:800;color:#d97706">+${fmt(x.amount)} P</td>
           <td style="padding:10px 12px;text-align:center;font-size:11.5px;color:#6b7280">${x.cooldown_sec?Math.round(x.cooldown_sec/60)+'분':'-'}</td>
           <td style="padding:10px 12px;text-align:center;font-size:11.5px;color:#6b7280">${x.daily_cap?x.daily_cap+'회':'무제한'}</td>
@@ -533,7 +533,7 @@
           </div>
           ${balLine}
           ${catLine}
-          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed ${info.color};font-size:11px;color:#6b7280;font-family:monospace">
+          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed ${info.color};font-size:11px;color:#6b7280;font-family:MangoiHanSC,monospace">
             api_key=${d.api_key_set?'✓':'✗'} · user_id=${d.user_id_set?'✓':'✗'} · callback=${d.callback_url_set?'✓':'✗'} · test_mode=${d.test_mode?'on':'off'}<br>
             base: ${esc(d.api_base)}
           </div>

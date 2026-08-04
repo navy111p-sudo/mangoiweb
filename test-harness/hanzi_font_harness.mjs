@@ -8,8 +8,12 @@
 //          + 캔버스(ctx.font)는 CSS 를 아예 안 봐서 검사에 안 걸림
 //   → 네 갈래를 한꺼번에 지켜야 통일이 유지된다.
 //
-// 검사 대상은 학생·게임 화면(public/*.html)과 공용 js/css.
-// 관리자(public/admin/*, js/adm-*.js)는 한국어·영어 전용 UI 라 대상에서 뺐다 — 담당 영역도 다르다.
+// 검사 대상: 학생·게임 화면(public/*.html) + 공용 js/css + 관리자 콘솔(public/admin/*, js/adm-*.js).
+// 관리자도 2026-08-04 사장님 지시로 같은 글꼴로 통일했다.
+//
+// 관리자 쪽 주의:
+//   등폭 표기(금액·ID)는 font-family:MangoiHanSC,Consolas,monospace 가 됐지만 정렬이 깨지지 않는다.
+//   MangoiHanSC 의 unicode-range 에 ASCII 가 없어서 숫자·영문은 그대로 Consolas 가 그린다.
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
@@ -20,17 +24,16 @@ const FONT = 'MangoiHanSC';
 
 // 벤더 번들·이모지 전용 그리기는 제외
 const SKIP = new Set(['pdf.min.js', 'pdf.worker.min.js', 'idx-x6.js',
-                      'tailwind-build.css', 'mangoi-han.css',
-                      'admin-readability.css']);   // 관리자 전용 CSS — 위와 같은 이유로 제외
+                      'tailwind-build.css', 'mangoi-han.css']);
 
 const ls = (dir, ext) => {
   try {
-    return fs.readdirSync(dir).filter(f => f.endsWith(ext) && !SKIP.has(f) && !f.startsWith('adm-'))
+    return fs.readdirSync(dir).filter(f => f.endsWith(ext) && !SKIP.has(f))
              .map(f => path.join(dir, f));
   } catch { return []; }
 };
 
-const HTML = ls(PUB, '.html');
+const HTML = [...ls(PUB, '.html'), ...ls(path.join(PUB, 'admin'), '.html')];
 const JS = ls(path.join(PUB, 'js'), '.js');
 const CSS = ls(path.join(PUB, 'css'), '.css');
 
@@ -52,6 +55,7 @@ for (const p of [...HTML, ...JS, ...CSS]) {
     const t = v.trim();
     if (KEYWORD.test(t)) continue;
     if (t.startsWith(`'${FONT}'`) || t.startsWith(`"${FONT}'`)) continue;  // @font-face 정의문
+    if (t.startsWith('var(')) continue;   // 변수 참조 — 아래 ⑤ 에서 정의 쪽을 본다
     nFF++;
     if (!t.toLowerCase().startsWith(FONT.toLowerCase()))
       fails.push(`${rel} — font-family 맨 앞이 ${FONT} 가 아님: ${t.slice(0, 50)}`);
@@ -70,7 +74,7 @@ for (const p of [...HTML, ...JS, ...CSS]) {
 // ③ 화면마다 @font-face «정의» 가 닿아 있어야 한다.
 //    정의가 없으면 font-family 에 이름이 있어도 브라우저가 조용히 건너뛴다.
 for (const p of HTML) {
-  const rel = path.basename(p);
+  const rel = path.relative(PUB, p).replace(/\\/g, '/');   // admin/student.html 과 루트 파일을 구분
   const s = fs.readFileSync(p, 'utf8');
   nLink++;
   const hasLink = s.includes('mangoi-han.css');
@@ -83,8 +87,24 @@ for (const p of HTML) {
 const woff2 = path.join(PUB, 'fonts', 'mangoi-han-sc.woff2');
 if (!fs.existsSync(woff2)) fails.push('fonts/mangoi-han-sc.woff2 가 없음');
 
+// ⑤ 글꼴 목록을 담은 CSS 변수(--*-font-*)도 맨 앞이 우리 글꼴이어야 한다.
+//    관리자 콘솔이 --mg-font-sans 를 통해 글꼴을 받으므로 여기가 뚫리면 ① 이 다 통과해도 소용없다.
+const FONTVAR = /(--[\w-]*font[\w-]*)\s*:\s*([^;}]{0,200})/g;
+let nVar = 0;
+for (const p of [...HTML, ...JS, ...CSS]) {
+  const rel = path.relative(PUB, p).replace(/\\/g, '/');
+  for (const m of fs.readFileSync(p, 'utf8').matchAll(FONTVAR)) {
+    const val = m[2].trim();
+    if (!/[A-Za-z가-힣'"]/.test(val) || /^\d/.test(val)) continue;   // 크기·굵기 변수는 제외
+    if (!/(sans-serif|serif|monospace|Gothic|Pretendard|Noto|system-ui)/i.test(val)) continue;
+    nVar++;
+    if (!val.toLowerCase().startsWith(FONT.toLowerCase()))
+      fails.push(`${rel} — CSS 변수 ${m[1]} 맨 앞이 ${FONT} 가 아님: ${val.slice(0, 45)}`);
+  }
+}
+
 console.log('\n════════ 한자 글꼴 통일 가드 ════════');
-console.log(`  검사: 화면 ${nLink}개 · font-family ${nFF}곳 · 캔버스 글꼴 ${nCanvas}곳`);
+console.log(`  검사: 화면 ${nLink}개 · font-family ${nFF}곳 · 캔버스 ${nCanvas}곳 · 글꼴변수 ${nVar}개`);
 if (fails.length) {
   console.log(`  ❌ ${fails.length}건`);
   for (const f of fails.slice(0, 30)) console.log('     ' + f);

@@ -129,7 +129,7 @@
             const tier = r.avg_overall >= 80 ? '#34d399' : r.avg_overall >= 60 ? '#fbbf24' : '#f87171';
             const rowBg = tvsRowBg(r.avg_overall);
             return `<tr style="border-bottom:1px solid #e5e7eb;background:${rowBg}">
-              <td style="padding:8px"><b>${esc(r.student_name)}</b><br><span style="color:#9ca3af;font-size:10.5px;font-family:monospace">${esc(r.student_uid)}</span></td>
+              <td style="padding:8px"><b>${esc(r.student_name)}</b><br><span style="color:#9ca3af;font-size:10.5px;font-family:MangoiHanSC,monospace">${esc(r.student_uid)}</span></td>
               <td style="padding:8px;text-align:right;font-weight:700">${r.sessions}</td>
               <td style="padding:8px;text-align:right;font-weight:800;color:${tier}">${r.avg_overall}</td>
               ${tvsBar(r.avg_accuracy, '#3b82f6')}

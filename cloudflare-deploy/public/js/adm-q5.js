@@ -64,7 +64,7 @@
           <td>${dateStr}</td>
           <td><b>${_esc(s.name)}</b> <span style="background:#dcfce7;color:#15803d;font-size:9px;padding:1px 5px;border-radius:99px;margin-left:3px">TEST</span></td>
           <td>${_esc(s.program)}</td>
-          <td style="text-align:right;font-family:Consolas,monospace;color:#10b981;font-weight:700">₩${(s.amount||0).toLocaleString('ko-KR')}</td>
+          <td style="text-align:right;font-family:MangoiHanSC,Consolas,monospace;color:#10b981;font-weight:700">₩${(s.amount||0).toLocaleString('ko-KR')}</td>
           <td>${['card','bank','kakao','toss'][i%4]}</td>
           <td><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">paid</span></td>
           <td>${_esc(s.franchise||'-')}</td>`;
@@ -85,7 +85,7 @@
         tr.innerHTML = `
           <td><b>${_esc(s.name)}</b></td>
           <td>${_esc(s.program)}</td>
-          <td style="text-align:right;font-family:Consolas,monospace;color:#dc2626;font-weight:700">₩${dueAmt.toLocaleString('ko-KR')}</td>
+          <td style="text-align:right;font-family:MangoiHanSC,Consolas,monospace;color:#dc2626;font-weight:700">₩${dueAmt.toLocaleString('ko-KR')}</td>
           <td>${days}일 경과</td>
           <td>${_esc(s.franchise||'-')}</td>
           <td><button style="padding:3px 8px;font-size:11px;background:#fef3c7;color:#92400e;border:0;border-radius:4px;cursor:pointer">독촉</button></td>`;
@@ -142,7 +142,7 @@
         tr.innerHTML = `
           <td><b>${_esc(b.name)}</b></td>
           <td style="text-align:right">${b.students_count||0}명</td>
-          <td style="text-align:right;font-family:Consolas,monospace">₩${(b.monthly_revenue||0).toLocaleString('ko-KR')}</td>
+          <td style="text-align:right;font-family:MangoiHanSC,Consolas,monospace">₩${(b.monthly_revenue||0).toLocaleString('ko-KR')}</td>
           <td style="text-align:right;color:#dc2626">₩${commission.toLocaleString('ko-KR')}</td>
           <td style="text-align:right;color:#10b981;font-weight:700">₩${net.toLocaleString('ko-KR')}</td>
           <td>15%</td>`;

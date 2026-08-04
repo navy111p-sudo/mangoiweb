@@ -139,7 +139,7 @@
     html += '<xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>' + data.title.substring(0, 28) + '</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml>';
     html += '<style>td{vnd.ms-excel.numberformat:"@";}</style>';
     html += '</head><body>';
-    html += '<table border="1" style="border-collapse:collapse;font-family:Malgun Gothic,Arial">';
+    html += '<table border="1" style="border-collapse:collapse;font-family:MangoiHanSC,Malgun Gothic,Arial">';
     // 제목
     html += '<tr><td colspan="2" style="background:#1E3A8A;color:#fff;font-size:16pt;font-weight:bold;padding:10px;text-align:center">' + data.title + '</td></tr>';
     html += '<tr><td colspan="2" style="background:#E0F2FE;color:#1E40AF;padding:6px;text-align:center">' + data.subtitle + '</td></tr>';
@@ -173,7 +173,7 @@
     var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">';
     html += '<head><meta charset="utf-8"><title>' + data.title + '</title>';
     html += '<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotPromptForConvert/><w:DoNotShowInsertionsAndDeletions/></w:WordDocument></xml>';
-    html += '<style>@page WordSection1 { size: A4; margin: 2cm; } div.WordSection1 { page: WordSection1; } body { font-family: "Malgun Gothic", "맑은 고딕", Arial; font-size: 11pt; }</style>';
+    html += '<style>@page WordSection1 { size: A4; margin: 2cm; } div.WordSection1 { page: WordSection1; } body { font-family: MangoiHanSC,"Malgun Gothic", "맑은 고딕", Arial; font-size: 11pt; }</style>';
     html += '</head><body>';
     html += '<div class="WordSection1">';
     // 제목

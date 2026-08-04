@@ -8,6 +8,7 @@
 
 
 <meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
@@ -72,7 +73,7 @@
       radial-gradient(ellipse 60% 40% at 100% 100%, rgba(96,165,250,0.06), transparent 60%),
       var(--bg-base);
     background-attachment: fixed;
-    font-family: 'Noto Sans KR', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
+    font-family: MangoiHanSC,'Noto Sans KR', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
     color: var(--text-primary);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -218,7 +219,7 @@
   .profile-info .user-id {
     font-size: 13px;
     color: var(--amber-3);
-    font-family: 'Inter', monospace;
+    font-family: MangoiHanSC,'Inter', monospace;
     background: rgba(251,191,36,0.10);
     padding: 2px 10px;
     border-radius: 99px;
@@ -251,7 +252,7 @@
     font-size: 18px;
     font-weight: 800;
     color: var(--amber-3);
-    font-family: 'Inter', monospace;
+    font-family: MangoiHanSC,'Inter', monospace;
   }
 
   /* ── 페이지 타이틀 + 부제 ── */
@@ -500,7 +501,7 @@
   .ua {
     color: var(--text-muted);
     font-size: 11.5px;
-    font-family: 'Inter', monospace;
+    font-family: MangoiHanSC,'Inter', monospace;
     max-width: 320px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -728,7 +729,7 @@
     } catch(e){ document.documentElement.setAttribute('data-theme', 'dark'); }
   })();
 </script>
-<link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강 -->
 <link rel="stylesheet" href="/css/adm-light-theme.css?v=2"><!-- ☀️ 관리자 밝은 테마 통일 (2026-07-23) -->
 </head>
 <body>
@@ -2040,7 +2041,7 @@
             <li data-ko="앱에서 <b>+ → 설정 키 직접 입력</b>을 고르고, 아래 키를 입력하세요:" data-en="In the app choose <b>+ → Enter a setup key</b> and type the key below:">앱에서 <b>+ → 설정 키 직접 입력</b>을 고르고, 아래 키를 입력하세요:</li>
           </ol>
           <div style="text-align:center;margin:10px 0">
-            <div id="twofaSecret" style="font-family:monospace;font-size:20px;font-weight:800;letter-spacing:3px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px;word-break:break-all">…</div>
+            <div id="twofaSecret" style="font-family:MangoiHanSC,monospace;font-size:20px;font-weight:800;letter-spacing:3px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px;word-break:break-all">…</div>
             <button type="button" id="twofaCopyBtn" style="margin-top:8px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:13px">📋 <span data-ko="키 복사" data-en="Copy key">키 복사</span></button>
             <div style="margin-top:8px;font-size:12.5px;color:var(--text-muted)">
               <a id="twofaLink" href="#" style="color:#60a5fa" data-ko="📱 휴대폰에서 이 페이지를 보고 있다면 여기를 눌러 앱에 자동 등록" data-en="📱 On your phone? Tap here to add automatically">📱 휴대폰에서 이 페이지를 보고 있다면 여기를 눌러 앱에 자동 등록</a>

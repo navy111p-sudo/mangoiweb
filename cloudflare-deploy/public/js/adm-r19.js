@@ -34,7 +34,7 @@
             '<span style="width:36px;height:36px;background:rgba(255,255,255,0.25);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:900">' + (user.name||'U').charAt(0) + '</span>' +
             (user.name || user.uid) +
           '</div>' +
-          '<div style="font-size:11.5px;color:#BFDBFE;font-family:Consolas,monospace">@' + user.uid + '</div>' +
+          '<div style="font-size:11.5px;color:#BFDBFE;font-family:MangoiHanSC,Consolas,monospace">@' + user.uid + '</div>' +
           '<div style="margin-top:8px"><span style="background:rgba(220,38,38,0.25);color:#FCA5A5;border:1px solid rgba(220,38,38,0.6);padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:800">🛠 본사 · 관리자</span></div>' +
           '<div style="font-size:11px;color:#BFDBFE;margin-top:8px">📧 ' + (user.email||'-') + ' · 🏢 ' + (user.branch||'-') + '</div>' +
         '</div>' +

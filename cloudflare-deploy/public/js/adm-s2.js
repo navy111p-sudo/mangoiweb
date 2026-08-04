@@ -57,7 +57,7 @@
       out.innerHTML = `<div style="padding:14px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.30);border-radius:10px">
         <div style="color:#86efac;font-weight:800;margin-bottom:8px">✅ 토큰 발급 성공 (${d.expires_in}초 유효)</div>
         <div style="font-size:11.5px;color:#a3b3d1;margin-bottom:6px">role: <b style="color:#fcd34d">${esc(d.role)}</b> · jti: <code style="font-size:10.5px">${esc(d.jti)}</code></div>
-        <textarea readonly style="width:100%;height:80px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:6px;padding:8px;font-size:11px;font-family:monospace;resize:vertical">${esc(d.room_token)}</textarea>
+        <textarea readonly style="width:100%;height:80px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:6px;padding:8px;font-size:11px;font-family:MangoiHanSC,monospace;resize:vertical">${esc(d.room_token)}</textarea>
         <div style="font-size:11px;color:#94a3b8;margin-top:6px">💡 이 토큰을 시그널링 URL 에 첨부: <code>?token=...</code></div>
       </div>`;
     } catch(e){ out.innerHTML = '<div style="padding:12px;color:#fca5a5">네트워크 오류</div>'; }

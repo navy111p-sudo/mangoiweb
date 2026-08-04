@@ -75,7 +75,7 @@
           </tr></thead>
           <tbody>
             ${rows.map(r => `<tr style="border-bottom:1px solid #e5e7eb">
-              <td style="padding:8px;font-family:monospace">${esc(r.user_id||'-')}</td>
+              <td style="padding:8px;font-family:MangoiHanSC,monospace">${esc(r.user_id||'-')}</td>
               <td style="padding:8px">${r.enabled?'<span style="color:#10b981;font-weight:700">✓ 활성</span>':'<span style="color:#9ca3af">○ 비활성</span>'}</td>
               <td style="padding:8px;color:#6b7280;font-size:10.5px">${esc((r.ua||'').slice(0,60))}</td>
               <td style="padding:8px;color:#6b7280">${fmtDate(r.created_at)}</td>
@@ -190,7 +190,7 @@
           </tr></thead>
           <tbody>${rows.map(r => `<tr style="border-bottom:1px solid #e5e7eb">
             <td style="padding:8px;color:#6b7280;font-size:11px;white-space:nowrap">${fmtDate(r.queued_at)}</td>
-            <td style="padding:8px;font-family:monospace">${esc(r.user_id||'-')}</td>
+            <td style="padding:8px;font-family:MangoiHanSC,monospace">${esc(r.user_id||'-')}</td>
             <td style="padding:8px;font-weight:700">${esc(r.title||'')}</td>
             <td style="padding:8px;color:#374151;font-size:11.5px">${esc((r.body||'').slice(0,60))}</td>
             <td style="padding:8px;text-align:center">${r.fetched_at?'<span style="color:#10b981">✓</span>':'<span style="color:#9ca3af">○</span>'}</td>

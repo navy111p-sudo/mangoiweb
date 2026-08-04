@@ -580,7 +580,7 @@
           ? `<button onclick="applyMatch(${c.id})" style="padding:3px 8px;font-size:11px;background:#10b981;color:#fff;border:0;border-radius:4px;cursor:pointer;margin-right:3px">✅</button><button onclick="rejectMatch(${c.id})" style="padding:3px 8px;font-size:11px;background:#fee2e2;color:#991b1b;border:0;border-radius:4px;cursor:pointer">✕</button>`
           : statusBadge;
       return `<tr style="border-bottom:1px solid #f3f4f6">
-        <td style="padding:8px 10px;font-family:Consolas,monospace;color:#0ea5e9;font-weight:700">${c.time}</td>
+        <td style="padding:8px 10px;font-family:MangoiHanSC,Consolas,monospace;color:#0ea5e9;font-weight:700">${c.time}</td>
         <td style="padding:8px 10px;color:#111;font-weight:600">${c.student}</td>
         <td style="padding:8px 10px;text-align:center"><span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${c.level}</span></td>
         <td style="padding:8px 10px"><b style="color:#dc2626">${at.name}</b><div style="font-size:10px;color:#9ca3af">⚠️ 결석</div></td>

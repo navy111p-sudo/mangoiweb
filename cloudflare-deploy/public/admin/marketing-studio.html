@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
@@ -16,7 +17,7 @@
     --y:#f59e0b; --g:#10b981; --r:#ef4444; --b:#3b82f6; --p:#a855f7;
   }
   *,*::before,*::after{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;font-size:14px}
   a{color:#fde68a;text-decoration:none}
 
   header.top{min-height:56px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:8px 14px;border-bottom:1px solid var(--bd);background:#0b1220;position:sticky;top:0;z-index:50}
@@ -84,7 +85,7 @@
 
   @media(max-width:860px){ .grid{grid-template-columns:1fr} }
 </style>
-<link rel="stylesheet" href="/css/admin-readability.css"><!-- 가독성 보강 -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강 -->
 <style id="pc-scale">
   /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
   @media (min-width: 1024px) { body { zoom: 1.3; } }

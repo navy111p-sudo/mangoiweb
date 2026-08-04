@@ -389,7 +389,7 @@
             <td style="padding:8px 10px;text-align:right">
               <input type="number" value="${r.adjusted_amount ?? ''}" placeholder="${fmt(fin)}"
                      onchange="prRowAdjust(${i}, this.value)"
-                     style="width:100px;padding:5px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:5px;text-align:right;font-family:'Inter',monospace" />
+                     style="width:100px;padding:5px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:5px;text-align:right;font-family:MangoiHanSC,'Inter',monospace" />
             </td>
             <td style="padding:9px 12px;text-align:center">
               ${r.status === 'paid'
