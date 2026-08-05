@@ -4,15 +4,21 @@
 Higgsfield(nano_banana_pro) 로 만든 그린스크린 시트를 게임이 읽는 webp 로 굽는다.
 키잉/디스필 로직은 build-real-hero-atlas.py 와 동일 계열(검증된 것)이고, 배치만 다르다.
 
-  python build-shooter-assets.py            # 전부
-  python build-shooter-assets.py bg         # 배경만
-  python build-shooter-assets.py mons       # 크리처 8종만
-  python build-shooter-assets.py soldier    # 사수 9포즈만
+게임은 테마 2종(우주 / 좀비)을 옵션으로 고를 수 있다 — 사장님 지시(2026-07-30).
+그래서 두 테마 에셋이 **둘 다** public/img/ 에 있어야 한다. 한쪽을 지우면
+wrangler 가 배포에서 그 파일들을 제거해 그 테마가 라이브에서 깨진다(실제로 한 번 지워졌었다).
 
-산출(public/img/, 합계 약 450KB):
-  shooter-space-bg.webp        배경 (알파 없음, 1600px)
-  shooter-mon-<id>.webp        크리처 8종 (알파, 260x260 정사각)
-  shooter-pose-<n>.webp        사수 9포즈 (알파, 전부 동일 캔버스 = 머리 위치·크기 고정)
+  python build-shooter-assets.py            # 전부
+  python build-shooter-assets.py bg         # 우주 배경만
+  python build-shooter-assets.py mons       # 우주 크리처 8종만
+  python build-shooter-assets.py soldier    # 사수 9포즈만(구 빈손 포즈)
+  python build-shooter-assets.py zombie     # 좀비 테마(배경+좀비 8종)만
+
+산출(public/img/):
+  [우주] shooter-space-bg.webp / shooter-mon-<id>.webp 8종 (260x260 정사각)
+  [좀비] shooter-city-bg.webp  / shooter-zom-<id>.webp 8종 (260x260 정사각)
+  [공용] shooter-pose-<n>.webp 사수 9포즈
+         ※ 무기를 쥔 사수 13종은 별도 스크립트 build-shooter-armed.py 가 굽는다
 
 ⚠ 원본 png 는 game_image/ 에만 둔다. public/ 에 두면 배포에 그대로 실린다.
 """
@@ -54,6 +60,16 @@ MONS = [
 # 기생생물만 화면을 가로로 다 차지한다 → 정사각 통일이라야 8종 표시 크기가 고르다.
 # CSS 쪽은 .face{height:X;width:X} 로 끝난다(aspect-ratio·max-height 안 씀 — 크롬에서 어긋남).
 MON_BOX = 260               # 가로화면 최대 표시가 142px 이라 260 이면 레티나(1.8x)까지 충분
+
+# ── 좀비 테마 ───────────────────────────────────────────────────────────────
+# 4x2 시트 1장. ⚠ 좀비 피부가 '창백한 초록'이라 그린스크린 키잉과 충돌할 수 있다 —
+#   실측하니 피부는 G-max(R,B) ≈ 20 이고 배경은 100 이상이라 기본 임계값(34)으로 안전하다.
+#   임계값을 낮추면(사수용 20 처럼) 좀비 얼굴이 뚫리니 여기선 절대 낮추지 말 것.
+ZOM_SRC = SRC + 'shooter-zombie-sheet.png'
+ZOM_GRID = (4, 2)
+ZOMS = ['office', 'sprinter', 'tank', 'soldier',     # 사무직 · 달리는 좀비 · 방호복 · 군인
+        'trooper', 'worker', 'doc', 'medic']          # 트루퍼 · 건설노동자 · 연구원 · 의무병
+CITY_SRC = SRC + 'shooter-city-bg.png'
 
 # ── 사수: 3x3 시트 → 9포즈 (3x2 로 주문했는데 모델이 9칸으로 뽑았다. 포즈가 많아 오히려 이득) ──
 SOL_SRC = SRC + 'shooter-soldier-sheet2.png'
@@ -183,6 +199,33 @@ def build_mons():
               % (mid, nw, nh, MON_BOX, MON_BOX, __import__('os').path.getsize(p) / 1024))
 
 
+def build_zombie():
+    """좀비 테마 = 폐허도시 배경 + 좀비 8종. 크리처와 같은 정사각 캔버스 규격이라
+    게임 쪽 CSS(.face{width:X;height:X})를 그대로 공유한다."""
+    import os
+    im = Image.open(CITY_SRC).convert('RGB')
+    h = round(BG_W * im.height / im.width)
+    p = OUT + 'shooter-city-bg.webp'
+    im.resize((BG_W, h), Image.LANCZOS).save(p, 'WEBP', quality=80, method=6)
+    print('bg   city %dx%d  %.0fKB' % (BG_W, h, os.path.getsize(p) / 1024))
+
+    A = np.asarray(Image.open(ZOM_SRC).convert('RGB')).astype(np.float32)
+    for cell, zid in enumerate(ZOMS):
+        rgb, a = piece(A, cell, ZOM_GRID)
+        if rgb is None:
+            print('  !! 빈 셀', zid); continue
+        ph, pw = a.shape
+        s = min(MON_BOX / pw, MON_BOX / ph)
+        nw, nh = max(1, round(pw * s)), max(1, round(ph * s))
+        canvas = Image.new('RGBA', (MON_BOX, MON_BOX), (0, 0, 0, 0))
+        canvas.alpha_composite(to_rgba(rgb, a).resize((nw, nh), Image.LANCZOS),
+                               ((MON_BOX - nw) // 2, MON_BOX - nh))   # 가로 가운데 · 바닥 정렬
+        p = OUT + 'shooter-zom-%s.webp' % zid
+        canvas.save(p, 'WEBP', quality=82, method=6)
+        print('zom  %-9s 내용 %dx%d → %dx%d  %.0fKB'
+              % (zid, nw, nh, MON_BOX, MON_BOX, os.path.getsize(p) / 1024))
+
+
 def head_metrics(a):
     """머리 꼭대기 y 와, 상단 12% 구간의 알파 폭·가로중심 → 포즈가 달라도 잘 안 흔들리는 정렬 기준."""
     rows = np.where(a.max(1) > 0.35)[0]
@@ -247,3 +290,5 @@ if __name__ == '__main__':
         build_mons()
     if what in ('all', 'soldier'):
         build_soldier()
+    if what in ('all', 'zombie'):
+        build_zombie()

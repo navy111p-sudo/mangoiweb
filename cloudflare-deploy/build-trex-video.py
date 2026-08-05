@@ -1,6 +1,6 @@
 """
 망고아이 3D 배틀 티라노 보스 — 그린스크린 원본 → public/trex-walk.mp4 (제자리 다동작 루프, 걷기+포효)
-원본: game_image/hf_20260708_094451_*.mp4 (1280x720, 24fps, 왼쪽으로 걸어 지나감)
+원본: game_image/티렉스_크로마키_영상.mp4 (1280x720, 24fps, 왼쪽으로 걸어 지나감)
 
 ⚠️ 매트(초록 제거) 정본 — 예전 버전은 침식+연결성분 기반 바닥제거가 공룡 아래쪽(턱·배·다리·발)을
    거칠게 깎아먹고 초록 스필도 안 지워서, 게임 셰이더가 그 초록끼를 다시 키잉→아래가 잘려보였음.
@@ -18,7 +18,7 @@ from PIL import Image, ImageFilter
 from scipy import ndimage as ndi
 
 D='C:/Users/Admin/Desktop/mangoi_develop2-main/cloudflare-deploy/'
-SRCVIDEO=D+'game_image/hf_20260708_094451_8898775f-c38d-48fb-b1f5-09da60290a02.mp4'
+SRCVIDEO=D+'game_image/티렉스_크로마키_영상.mp4'
 OUT=D+'public/trex-walk.mp4'
 CW,CH=1260,470
 SNOUT_X=56           # 캔버스상 코끝 목표 x

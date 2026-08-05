@@ -1630,6 +1630,25 @@ export async function handleAdminApi(
         tid = 0;
         tname = _lsActor.name;
       }
+
+      // ── all=1 : 강사 구분 없이 그 달 전체 수업 (2026-08-05) ──────────────────
+      //   왜 넣었나: 출석현황 카드(adm-p5.js)가 서버 엔드포인트가 없어서
+      //   **실제 강사 이름으로 가짜 지각·결강·별점을 지어내고 있었다.** 그 숫자가 엑셀로
+      //   빠져나가면 경고 배너가 사라져 실기록처럼 보인다 → 급여 사고로 직결.
+      //   여기서 급여와 **같은 계산(computeLessonFeeMonth)** 을 그대로 내려준다.
+      //   같은 원천을 쓰므로 출석현황과 급여가 서로 어긋날 수 없다(요청 8·22 «한곳에서»).
+      //   🔐 강사는 전면 차단 — 전 강사의 단가·공제가 담긴다.
+      if (url.searchParams.get('all') === '1') {
+        if (_lsActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        const dAll = await computeLessonFeeMonth(year, month);
+        return json({
+          ok: true, year, month, all: true,
+          lessons: dAll.lessons,
+          rules: (dAll.rules || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rule_type: r.rule_type, amount: r.amount, enabled: r.enabled })),
+          absent_pay_percent: dAll.absent_pay_percent,
+        });
+      }
+
       if (!tid && !tname) return json({ ok: false, error: 'teacher_id_or_teacher_name_required' }, 400);
 
       const data = await computeLessonFeeMonth(year, month);

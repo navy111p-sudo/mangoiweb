@@ -3,12 +3,30 @@
 //   외부 classic script — admin.html 다른 <script> 와 전역 스코프 공유. 원복=이 위치에 인라인.
 // ═══════════════════════════════════════════════════════════════
 (function(){
-  const CA_LS_KEY = 'mango_class_attendance_seed_v1';
+  // 🗒 이 PC 메모 전용 키. 출결·지각 «기록» 은 이제 전부 서버에서 온다(localStorage 아님).
+  //   여기 남는 것은 서버에 저장할 곳이 없는 지각사유·관리자답변 두 칸뿐이다.
+  //   ⚠️ 예전 키(mango_class_attendance_seed_v1)에는 **지어낸 시드 데이터**가 들어 있다.
+  //      다시 읽지 않는다. 남아 있어도 화면에 영향 없다.
+  const CA_MEMO_KEY = 'mango_class_attendance_memo_v1';
+  /** 서버 기록에서 «이 PC 메모»만 뽑아낸다 — 기록 전체를 브라우저에 쌓아 두지 않는다. */
+  function _caMemo(rows) {
+    const out = {};
+    (rows || []).forEach(r => { if (r.reason || r.answer) out[r.id] = { reason: r.reason || '', answer: r.answer || '' }; });
+    return out;
+  }
   let _caTeachers = [];
   let _caRecords = [];   // [{ teacher_id, teacher_name, date, class_no, scheduled, class_min, actual, late_min, penalty, reason, answer, deleted }]
-  let _caSeeded = false; // true = 서버 데이터가 아님(시드/로컬 사본). 화면에 경고를 띄운다.
-  // 서버 미연동 경고 배너 — 한/영 (강사 다수가 필리핀)
+  let _caSeeded = false;    // (남겨 둠) true = 서버 데이터가 아님. 이제는 항상 false 다.
+  let _caLoadError = '';    // 불러오기에 실패한 이유. 비어 있으면 정상.
+  // 상태 배너 — 한/영 (강사 다수가 필리핀)
   function _caSeedBanner() {
+    if (_caLoadError) {
+      return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #ef4444;background:rgba(239,68,68,0.10);'
+        + 'border-radius:8px;color:#b91c1c;font-size:13px;font-weight:700">'
+        + '기록을 불러오지 못했습니다. 아래 표는 비어 있습니다 — <b>없는 것이지 «0건»이 아닙니다.</b><br>'
+        + '<span style="font-weight:500">Could not load the records. The table below is empty — this means '
+        + '<b>unknown</b>, not «zero». (' + String(_caLoadError).slice(0, 80) + ')</span></div>';
+    }
     if (!_caSeeded) return '';
     return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;background:rgba(245,158,11,0.10);'
       + 'border-radius:8px;color:#b45309;font-size:13px;font-weight:700">'
@@ -63,54 +81,76 @@
     _caTeachers.forEach(t => { const o=document.createElement('option'); o.value=t.id; o.textContent=t.name; sel.appendChild(o); });
   }
 
+  // ── 실제 출결·지각 기록 (2026-08-05 서버 연동) ─────────────────────────────
+  //   🔴 이전 동작: 서버 엔드포인트가 없어서 **실제 강사 이름으로 지각·결강·별점을 지어냈다.**
+  //      («Karl 3분 지각», «Melca 결강» 같은 것이 전부 계산식으로 만들어진 값이었다.)
+  //      화면에는 경고 배너가 있었지만 **엑셀로 내보내면 배너가 사라져** 실기록처럼 보였다.
+  //      이 카드는 급여 공제 판단에 쓰인다 → 지어낸 값이 급여로 갈 수 있는 경로였다.
+  //   ✅ 지금: 급여 자동정산과 **같은 계산**(/api/admin/payroll/lessons?all=1)을 읽는다.
+  //      같은 원천이라 «출석현황에서 본 지각»과 «급여에서 깎인 지각»이 어긋날 수 없다.
+  //   ⚠️ 못 불러오면 **아무것도 지어내지 않는다.** 빈 표 + 이유를 적는다.
+  //      틀린 숫자를 보여주는 것보다 «없다»고 말하는 편이 언제나 안전하다.
   async function loadRecords() {
-    try {
-      const r = await fetch('/api/admin/class-attendance?limit=1000', { credentials:'include' });
-      if (r.ok) {
-        const j = await r.json();
-        const rows = j.rows || j.items || j;
-        if (Array.isArray(rows) && rows.length) { _caRecords = rows; _caSeeded = false; return; }
-      }
-    } catch(e) {}
-    // ⚠️ (2026-08-03) '/api/admin/class-attendance' 는 아직 서버에 없다(라이브 404 확인).
-    //   아래는 전부 **서버 데이터가 아니다** — localStorage 사본이거나 여기서 만들어낸 시드다.
-    //   그동안 화면에 아무 표시가 없어서, 지어낸 출결이 실기록처럼 보였다. 급여·별점 판단에
-    //   쓰이는 화면이라 반드시 구분되어야 한다. 표 위에 경고를 띄운다.
-    _caSeeded = true;
-    try {
-      const saved = JSON.parse(localStorage.getItem(CA_LS_KEY) || 'null');
-      if (Array.isArray(saved) && saved.length) { _caRecords = saved; return; }
-    } catch(e){}
-    // 시드: 강사별로 일 1~3회 수업 (결정적)
     _caRecords = [];
-    for (let day = 13; day >= 0; day--) {
-      const d = new Date(); d.setDate(d.getDate() - day);
-      const dStr = dateStr(d);
-      const dow = d.getDay(); if (dow === 0 || dow === 6) continue;
-      _caTeachers.forEach(t => {
-        const seedBase = (String(t.id) + dStr).split('').reduce((a,c)=>a+c.charCodeAt(0), 0);
-        const numClasses = (seedBase % 3) + 1; // 1~3
-        for (let i = 0; i < numClasses; i++) {
-          const sched = pad2(9 + i * 3) + ':00';
-          const seed = seedBase + i * 7;
-          const lateMin = (seed % 9 === 0) ? 0 : (seed % 5 === 0 ? Math.floor((seed%30)) : (seed % 3 === 0 ? (seed%6) : 0));
-          const isAbsent = (seed % 17 === 0);
-          const [sh, sm] = sched.split(':').map(Number);
-          const actMs = new Date(d).setHours(sh, sm + lateMin, 0, 0);
-          const actDate = new Date(actMs);
-          const actual = isAbsent ? '' : (pad2(actDate.getHours()) + ':' + pad2(actDate.getMinutes()));
-          const classMin = 20;
-          const penalty = isAbsent ? -10 : Math.max(-10, -lateMin);
-          _caRecords.push({
-            id: t.id + '_' + dStr + '_' + i,
-            teacher_id: t.id, teacher_name: t.name, date: dStr,
-            class_no: i+1, scheduled: sched, class_min: classMin, actual,
-            late_min: lateMin, penalty, reason: '', answer: '', deleted: false,
-          });
-        }
-      });
+    _caSeeded = false;
+    _caLoadError = '';
+    const { from, to } = getRange();
+    // 급여 계산이 월 단위라 조회 범위가 걸친 달을 모두 불러 합친다(보통 1~2개월).
+    const months = [];
+    const cur = parseDate(from); cur.setDate(1);
+    const end = parseDate(to);
+    while (cur <= end && months.length < 6) {
+      months.push({ y: cur.getFullYear(), m: cur.getMonth() + 1 });
+      cur.setMonth(cur.getMonth() + 1);
     }
-    localStorage.setItem(CA_LS_KEY, JSON.stringify(_caRecords));
+    try {
+      const parts = await Promise.all(months.map(async ({ y, m }) => {
+        const r = await fetch('/api/admin/payroll/lessons?all=1&year=' + y + '&month=' + m,
+                              { credentials:'include', cache:'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+        return j.lessons || [];
+      }));
+      _caRecords = parts.flat().map(mapLessonToRecord).filter(Boolean);
+      // 이 PC 에 적어 둔 지각사유·답변을 서버 기록 위에 다시 얹는다(기록 자체는 서버가 진실).
+      try {
+        const memo = JSON.parse(localStorage.getItem(CA_MEMO_KEY) || '{}');
+        _caRecords.forEach(r => { const m = memo[r.id]; if (m) { r.reason = m.reason || ''; r.answer = m.answer || ''; } });
+      } catch (e) { /* 메모가 깨져도 기록 표시는 막지 않는다 */ }
+    } catch (e) {
+      // 화면을 지어낸 값으로 채우지 않는다. 왜 비었는지만 정확히 말한다.
+      _caRecords = [];
+      _caLoadError = String((e && e.message) || e || 'unknown');
+    }
+  }
+
+  /** 급여 계산의 수업 1건 → 이 표의 한 줄. 없는 값은 **추정하지 않고 비운다.** */
+  function mapLessonToRecord(l) {
+    if (!l || l.status === 'upcoming') return null;   // 아직 안 한 수업은 출결이 없다
+    const lateMin = Number(l.late_minutes) || 0;
+    const noShow  = (l.status === 'teacher_no_show');
+    // 실제 입장 시각은 급여 계산이 내려주지 않는다 → **지어내지 않고**, 규정시각+지각분으로만
+    //   표시한다. 지각분이 0이고 노쇼도 아니면 규정시각에 들어온 것으로 본다.
+    let actual = '';
+    if (!noShow) {
+      const hm = String(l.start_time || '').slice(0, 5).split(':').map(Number);
+      if (hm.length === 2 && !isNaN(hm[0])) {
+        const t = hm[0] * 60 + hm[1] + lateMin;
+        actual = pad2(Math.floor(t / 60) % 24) + ':' + pad2(t % 60);
+      }
+    }
+    // 별점 = 급여에서 실제로 깎인 근거 그대로. 노쇼는 -10, 지각은 분당 -1(최대 -10).
+    const penalty = noShow ? -10 : -Math.min(10, lateMin);
+    return {
+      id: String(l.schedule_id) + '_' + l.date,
+      teacher_id: l.teacher_id, teacher_name: l.teacher_name || '',
+      date: l.date, class_no: '', scheduled: String(l.start_time || '').slice(0, 5),
+      class_min: Number(l.duration_minutes) || 0, actual,
+      late_min: lateMin, penalty,
+      // 지각사유·관리자답변은 서버에 저장할 곳이 아직 없다. 이 PC 메모로만 남는다.
+      reason: '', answer: '', deleted: false,
+    };
   }
 
   function filterRecords() {
@@ -463,16 +503,39 @@
     caRender();
   };
 
+  // 지각사유·관리자답변은 서버에 저장할 곳이 아직 없다 → **이 PC 메모**로만 남는다.
+  //   그래도 저장은 해 둔다(입력 중 새로고침에 날아가지 않게). 다만 «회사 기록»이 아니다.
   window.caUpdateField = function(input) {
     const id = input.dataset.id, field = input.dataset.field, val = input.value;
     const r = _caRecords.find(x => x.id === id);
-    if (r) { r[field] = val; localStorage.setItem(CA_LS_KEY, JSON.stringify(_caRecords)); }
+    if (r) { r[field] = val; try { localStorage.setItem(CA_MEMO_KEY, JSON.stringify(_caMemo(_caRecords))); } catch(e){} }
   };
-  window.caResetPenalty = function(id) {
+
+  // 🔴 별점 초기화는 «화면에서만» 0으로 만들면 안 된다 — 급여는 그대로 깎인 채로 남아
+  //   화면과 급여가 조용히 어긋난다(예전 동작이 그랬다: localStorage 에만 반영).
+  //   별점의 근거는 «지각분»이고, 그것을 고치는 **진짜 입구가 이미 서버에 있다**
+  //   (POST /api/admin/payroll/late-minutes — 급여 상세 화면이 쓰는 그 엔드포인트).
+  //   그래서 여기서도 같은 곳에 쓴다. 돈이 실제로 바뀌므로 확인 문구에 그 사실을 적는다.
+  window.caResetPenalty = async function(id) {
     const r = _caRecords.find(x => x.id === id); if (!r) return;
-    if (!confirm(isEn()?'Reset penalty to 0?':'별점을 0으로 초기화하시겠습니까?')) return;
-    r.penalty = 0; localStorage.setItem(CA_LS_KEY, JSON.stringify(_caRecords));
-    caRender();
+    const en = isEn();
+    if (r.penalty === 0) return;
+    if (!confirm(en
+        ? 'Set the late minutes of this lesson to 0?\nThis removes the deduction from the teacher\'s pay as well.'
+        : '이 수업의 지각분을 0으로 만들까요?\n급여에서 깎인 공제도 함께 사라집니다.')) return;
+    const schedId = String(id).split('_')[0];
+    try {
+      const res = await fetch('/api/admin/payroll/late-minutes', {
+        method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ schedule_id: Number(schedId), lesson_date: r.date, minutes: 0 })
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok || !j || !j.ok) throw new Error((j && j.error) || ('HTTP ' + res.status));
+      await loadRecords();            // 서버가 진실 — 다시 읽어서 그린다
+      caRender();
+    } catch (e) {
+      alert((en ? 'Could not save: ' : '저장하지 못했습니다: ') + String((e && e.message) || e));
+    }
   };
 
   // ───────────────────────────────────────────────────────────────
@@ -524,20 +587,33 @@
     const cnt = btn.querySelector('.ca-bulk-count');
     if (cnt) cnt.textContent = '(' + n + ')';
   };
-  // (3-c) 선택 항목 일괄 정상 처리 — 별점 0 복구 후 저장·재렌더
-  window.caBulkReset = function() {
+  // (3-c) 선택 항목 일괄 정상 처리 — 지각분을 0으로. **서버(급여)에 실제로 반영된다.**
+  //   예전에는 localStorage 에만 써서, 화면은 «정상»인데 급여는 계속 깎이고 있었다.
+  window.caBulkReset = async function() {
     const checked = Array.from(document.querySelectorAll('.ca-rowcheck:checked'));
     if (!checked.length) return;
-    const msg = isEn() ? ('Reset ' + checked.length + ' selected rows to normal (penalty 0)?')
-                       : ('선택한 ' + checked.length + '건을 정상(별점 0)으로 복구할까요?');
-    if (!confirm(msg)) return;
-    checked.forEach(cb => {
-      const r = _caRecords.find(x => x.id === cb.dataset.id);
-      if (r) { r.penalty = 0; }                           // 별점 0으로 복구
-    });
-    // TODO(실서비스): 변경분을 서버에 저장 (PATCH /api/admin/class-attendance)
-    localStorage.setItem(CA_LS_KEY, JSON.stringify(_caRecords));
-    caRender();                                           // 재렌더 → 배경 하이라이트 자동 갱신
+    const en = isEn();
+    const targets = checked.map(cb => _caRecords.find(x => x.id === cb.dataset.id))
+                           .filter(r => r && r.penalty !== 0);
+    if (!targets.length) { alert(en ? 'Nothing to reset.' : '되돌릴 것이 없습니다.'); return; }
+    if (!confirm(en
+        ? ('Set the late minutes of ' + targets.length + ' lesson(s) to 0?\nThis removes those deductions from pay as well.')
+        : ('선택한 ' + targets.length + '건의 지각분을 0으로 만들까요?\n급여에서 깎인 공제도 함께 사라집니다.'))) return;
+    let fail = 0;
+    // 한 건씩 순서대로 — 한꺼번에 던지면 실패가 섞였을 때 무엇이 반영됐는지 알 수 없다.
+    for (const r of targets) {
+      try {
+        const res = await fetch('/api/admin/payroll/late-minutes', {
+          method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ schedule_id: Number(String(r.id).split('_')[0]), lesson_date: r.date, minutes: 0 })
+        });
+        const j = await res.json().catch(() => null);
+        if (!res.ok || !j || !j.ok) fail++;
+      } catch (e) { fail++; }
+    }
+    await loadRecords();
+    caRender();
+    if (fail) alert(en ? (fail + ' of them could not be saved.') : (fail + '건은 저장하지 못했습니다.'));
   };
 
   window.caExportExcel = function() {
@@ -545,6 +621,19 @@
     const rows = filterRecords();
     if (!rows.length) { alert('데이터가 없습니다.'); return; }
     const en = isEn();
+    // 🔴 화면의 경고 배너는 **엑셀로 따라가지 않는다.** 파일만 보면 실기록과 구분이 안 된다.
+    //   실제로 이 경로로 지어낸 지각·결강이 실기록처럼 빠져나갈 수 있었다(급여 사고 직전).
+    //   → 서버 데이터가 아니면 아예 내보내지 않는다. 조건부 표시로는 부족하다.
+    if (_caSeeded) {
+      alert(en ? 'This table is sample data, not real records. Export is blocked.'
+               : '이 표는 실제 기록이 아니라 예시 데이터입니다. 내보내기를 막았습니다.');
+      return;
+    }
+    if (_caLoadError) {
+      alert(en ? 'Records could not be loaded, so there is nothing to export.'
+               : '기록을 불러오지 못해 내보낼 것이 없습니다.');
+      return;
+    }
     const headers = ['날짜 (date)','강사명 (teacher)','수업번호 (class no.)','규정출석시간 (start work time)','수업시간(분) (Class minute)','실제출석시간 (Actual enter time)','경과시간 (elapsed time)','별점시간(분) (penalty time)','별점 (Penalty)','지각사유 (Reason)','관리자답변 (Answer)'];
     const aoa = [headers];
     const sorted = rows.slice().sort((a,b) => a.date.localeCompare(b.date) || (a.teacher_name||'').localeCompare(b.teacher_name||'','ko-KR') || (a.scheduled||'').localeCompare(b.scheduled||''));

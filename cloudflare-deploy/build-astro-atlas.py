@@ -11,11 +11,11 @@ D='C:/Users/Admin/Desktop/mangoi_develop2-main/cloudflare-deploy/'
 OUT=D+'public/astro-atlas.png'
 
 SHEETS={  # 전부 카툰 그린스크린 3x2 (원본은 game_image/ 보관)
- 'react'    :D+'game_image/Gemini_Generated_Image_mzqyi3mzqyi3mzqy.png',  # 0 HighGuard,1 BodyFlinch,2 HeadSnap,3 Stagger,4 LowCover,5 Recover
- 'sidekick' :D+'game_image/Gemini_Generated_Image_2z2h1m2z2h1m2z2h.png',  # 0 Chamber,1 HipLoad,2 Extend,3 Peak,4 Retract,5 Land
- 'flykick'  :D+'game_image/Gemini_Generated_Image_io4m2yio4m2yio4m.png',  # 0 Crouch,1 Launch,2 Tuck,3 FlyExtend,4 Descend,5 Land
- 'dash'     :D+'game_image/Gemini_Generated_Image_kj3x3jkj3x3jkj3x.png',  # 0 Lean,1 Push,2 Stride1,3 Stride2,4 Lunge,5 Brake
- 'victory'  :D+'game_image/Gemini_Generated_Image_i1v0fvi1v0fvi1v0.png',  # 0 VSign,1 FistPump,2 Flag,3 ChestThump,4 Boast,5 Bow
+ 'react'    :D+'game_image/우주인_피격방어_포즈6종.png',  # 0 HighGuard,1 BodyFlinch,2 HeadSnap,3 Stagger,4 LowCover,5 Recover
+ 'sidekick' :D+'game_image/우주인_옆차기_포즈6종.png',  # 0 Chamber,1 HipLoad,2 Extend,3 Peak,4 Retract,5 Land
+ 'flykick'  :D+'game_image/우주인_점프킥_포즈6종.png',  # 0 Crouch,1 Launch,2 Tuck,3 FlyExtend,4 Descend,5 Land
+ 'dash'     :D+'game_image/우주인_달리기_포즈6종.png',  # 0 Lean,1 Push,2 Stride1,3 Stride2,4 Lunge,5 Brake
+ 'victory'  :D+'game_image/우주인_승리_포즈6종.png',  # 0 VSign,1 FistPump,2 Flag,3 ChestThump,4 Boast,5 Bow
 }
 GRID={'cols':3,'rows':2}
 REFCELL={'react':5,'sidekick':5,'flykick':5,'dash':5,'victory':0}  # 서있는 가드 기준

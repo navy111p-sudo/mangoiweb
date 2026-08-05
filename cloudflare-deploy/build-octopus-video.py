@@ -1,6 +1,6 @@
 """
 망고아이 3D 배틀 문어 보스 — 그린스크린 클레이 문어(빨간 복싱글러브) 실사 영상 → public/octopus-boss.mp4
-원본: game_image/hf_20260708_105407_*.mp4 (1280x720, 24fps, 10s). 문어가 링 안을 좌우로 배회(머리중심 410~841px)하며 복싱.
+원본: game_image/문어괴물_크로마키_영상.mp4 (1280x720, 24fps, 10s). 문어가 링 안을 좌우로 배회(머리중심 410~841px)하며 복싱.
 목표(사용자: "자연스럽게·부드럽게·실사에 가깝게"): 원본 클레이 모션(펀치/촉수/몸흔들)은 전부 살리고, 창피한 좌우
       '슬라이딩 배회'만 제거 → 매 프레임 **머리 중심 x·발 y 를 고정**해 '제자리 복싱' 으로 재정렬. 배경은 게임
       셰이더가 다시 키잉하므로 균일 그린 캔버스면 됨. 이음매 없는 루프는 합성후 프레임 유사도로 최적 (i,j) 구간 탐색.
@@ -12,7 +12,7 @@ from PIL import Image, ImageFilter
 from scipy import ndimage as ndi
 
 D='C:/Users/Admin/Desktop/mangoi_develop2-main/cloudflare-deploy/'
-SRCVIDEO=D+'game_image/hf_20260708_105407_7a37f07c-ee52-4987-a906-0fd69ff88e6d.mp4'
+SRCVIDEO=D+'game_image/문어괴물_크로마키_영상.mp4'
 OUT=D+'public/octopus-boss.mp4'
 CW,CH=1120,740
 CX=500              # 캔버스상 머리중심 목표 x (좌442/우538 펀치 여유: 좌500·우620)
