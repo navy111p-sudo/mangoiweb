@@ -6282,6 +6282,9 @@ LIMIT $limit`;
         ['assigned_reason', 'TEXT'], ['teacher_seen_at', 'INTEGER'], ['teacher_confirmed_at', 'INTEGER'],
         // 📚 (2026-07-22) 학부모 컴플레인 #6: 결과에 '추천 교재/다음 수업 안내'가 없던 문제
         ['recommended_textbook', 'TEXT'], ['next_class_guide', 'TEXT'], ['result_notified_at', 'INTEGER'],
+        // 🔗 (2026-08-05) 신청 ↔ 실제 수업예약 연결고리. 이게 없어서 «완료» 처리를 해도 수업은
+        //    한 건도 안 생겼고, 반대로 예약을 만들어도 신청서엔 아무 표시가 남지 않았다.
+        ['schedule_id', 'INTEGER'],
       ] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE leveltest_applications ADD COLUMN ${col} ${type}`); } catch {}
       }
@@ -6576,6 +6579,159 @@ LIMIT $limit`;
       // POST → 상태/배정/메모 업데이트
       const b = await parseJsonBody(request);
       if (!b || !b.id) return invalidBody(['id']);
+
+      /* ═══════════════════════════════════════════════════════════════════════
+         🔗 1단계 (2026-08-05 사장님 지시) — 신청 → «실제 수업 예약» 만들기
+         ───────────────────────────────────────────────────────────────────────
+         [왜] 지금까지 신청을 «완료» 처리해도 수업은 한 건도 생기지 않았다.
+              사장님 테스트 건(#13)은 사람이 D1 에 직접 넣어야 했다.
+              두 표가 서로를 모르니 «달력에 뜬 것이 확정인지 희망인지» 도 구분이 안 됐다.
+         [무엇] 희망일·희망시간·담당강사로 class_schedules 를 만들고,
+              신청서에 schedule_id 를 박아 둘을 잇는다.
+              예약이 있으면 방 번호가 class-{id}-{YYYYMMDD} 로 자동 결정되므로,
+              강사·학생이 방 코드를 주고받다 엇갈리는 사고가 원천 차단된다.
+         ⚠️ 새 라우트를 만들지 않고 «이미 열려 있는 이 POST» 에 action 으로 얹는다.
+            새 경로는 src/index.ts 의 라우팅+인증게이트에 등록해야 하는데, 그 파일은
+            사고 반경이 서비스 전체다. 여기 얹으면 인증은 이미 통과한 뒤다.
+         ⚠️ 조용한 실패를 만들지 않는다 — 학생 계정·강사를 못 찾으면 «만들어 두고 모른 척»
+            하지 않고 이유를 돌려준다. 계정 없는 예약은 학생 화면에 영영 안 뜬다.
+         ═══════════════════════════════════════════════════════════════════════ */
+      if (String(b.action || '') === 'create_schedule') {
+        const appRow: any = await env.DB.prepare(
+          `SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`
+        ).bind(Number(b.id)).first();
+        if (!appRow) return json({ ok: false, error: 'not_found', message: '신청 건을 찾을 수 없습니다.', message_en: 'Application not found.' }, 404);
+
+        // 이미 이어져 있으면 또 만들지 않는다 (버튼 두 번 눌러 예약이 둘 생기는 것 방지)
+        if (appRow.schedule_id) {
+          const dup: any = await env.DB.prepare(`SELECT id, scheduled_date, start_time FROM class_schedules WHERE id = ? LIMIT 1`).bind(Number(appRow.schedule_id)).first();
+          if (dup) return json({ ok: true, already: true, schedule_id: dup.id, scheduled_date: dup.scheduled_date, start_time: dup.start_time,
+                                 message: `이미 수업 #${dup.id} 로 연결돼 있습니다.`, message_en: `Already linked to class #${dup.id}.` });
+          // 연결된 예약이 지워졌다면 다시 만들 수 있게 흘려보낸다
+        }
+
+        const dDate = String(appRow.desired_date || '').trim();
+        const dTime = String(appRow.desired_time || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dDate)) {
+          return json({ ok: false, error: 'no_desired_date',
+            message: '희망 날짜가 비어 있어 수업을 만들 수 없습니다. 신청서에서 날짜를 먼저 채워 주세요.',
+            message_en: 'No preferred date on this application. Fill the date first.' }, 400);
+        }
+        if (!/^\d{1,2}:\d{2}$/.test(dTime)) {
+          return json({ ok: false, error: 'no_desired_time',
+            message: '희망 시간이 비어 있어 수업을 만들 수 없습니다.',
+            message_en: 'No preferred time on this application.' }, 400);
+        }
+        const startTime = String(Number(dTime.split(':')[0])).padStart(2, '0') + ':' + dTime.split(':')[1];
+        const durationMin = Number.isFinite(Number(b.duration_min)) && Number(b.duration_min) > 0
+          ? Math.min(Number(b.duration_min), 240) : 20;   // 레벨테스트 기본 20분
+
+        // ── 학생 계정 찾기 ── body 지정 > 신청서의 계정 > 이름으로 조회
+        //    ⚠️ 없는 계정으로 예약을 만들면 «학생 화면에 영영 안 뜨는 예약» 이 된다.
+        let studentUid = String(b.user_id || appRow.student_uid || '').trim();
+        const nameGuess = String(appRow.student_name || '').trim();
+        const findStudent = async (cand: string): Promise<string | null> => {
+          if (!cand) return null;
+          try {
+            const e: any = await env.DB.prepare(
+              `SELECT user_id FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`).bind(cand, cand).first();
+            if (e?.user_id) return String(e.user_id);
+          } catch {}
+          try {
+            const u: any = await env.DB.prepare(`SELECT user_id FROM users WHERE user_id = ? LIMIT 1`).bind(cand).first();
+            if (u?.user_id) return String(u.user_id);
+          } catch {}
+          return null;
+        };
+        let resolved = await findStudent(studentUid);
+        if (!resolved) resolved = await findStudent(nameGuess);
+        if (!resolved) {
+          return json({ ok: false, error: 'student_not_found',
+            candidate: studentUid || nameGuess,
+            message: `학생 계정 '${studentUid || nameGuess}' 을(를) 찾을 수 없습니다. 실제 계정 아이디를 지정해 주세요.`,
+            message_en: `Student account '${studentUid || nameGuess}' not found. Specify a real account id.` }, 400);
+        }
+        studentUid = resolved;
+
+        // ── 담당 강사 찾기 ── assigned_teacher 는 teacher_profiles 의 «이름» 이고
+        //    class_schedules.teacher_id 는 teachers 의 «id» 다. 두 표의 표기가 달라
+        //    ('Teacher Maimai' ↔ 'MAIMAI') 글자 그대로 비교하면 못 찾는다 → 정규화 비교.
+        const tName = String(appRow.assigned_teacher || '').trim();
+        if (!tName) {
+          return json({ ok: false, error: 'no_teacher',
+            message: '담당 강사가 지정되지 않았습니다. 먼저 강사를 배정해 주세요.',
+            message_en: 'No teacher assigned yet. Assign a teacher first.' }, 400);
+        }
+        const normName = (s: any) => String(s || '').toLowerCase().replace(/teacher/g, '').replace(/[^a-z0-9가-힣]/g, '');
+        let teacherId: string | null = null;
+        let teacherMatched = '';
+        try {
+          const ts: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE COALESCE(active,1) = 1`).all();
+          const want = normName(tName);
+          const hit = (ts.results || []).find((r: any) => normName(r.name) === want);
+          if (hit) { teacherId = String(hit.id); teacherMatched = String(hit.name); }
+        } catch {}
+        if (!teacherId) {
+          return json({ ok: false, error: 'teacher_not_found', candidate: tName,
+            message: `강사 '${tName}' 이(가) 강사 명부에 없습니다. 강사 관리에서 등록한 뒤 다시 시도해 주세요.`,
+            message_en: `Teacher '${tName}' is not in the teacher roster. Register them first.` }, 400);
+        }
+
+        // ── ⛔ 시간 겹침 검사 ── 같은 강사가 같은 시간에 두 방에 들어갈 수는 없다.
+        //    분 단위 구간으로 비교한다(시작 시각만 비교하면 18:00 50분 옆의 18:30 을 놓친다).
+        const toMin = (hhmm: string) => { const p = String(hhmm || '0:0').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); };
+        const s1 = toMin(startTime), e1 = s1 + durationMin;
+        if (!b.force) {
+          try {
+            const sameDay: any = await env.DB.prepare(
+              `SELECT id, student_name, start_time, duration_min, teacher_id, user_id FROM class_schedules
+                WHERE (status IS NULL OR status = 'active') AND scheduled_date = ?`).bind(dDate).all();
+            const clash = (sameDay.results || []).find((r: any) => {
+              const s2 = toMin(r.start_time), e2 = s2 + (Number(r.duration_min) || 30);
+              const overlap = s1 < e2 && s2 < e1;
+              if (!overlap) return false;
+              return String(r.teacher_id || '') === teacherId || String(r.user_id || '') === studentUid;
+            });
+            if (clash) {
+              return json({ ok: false, error: 'conflict', conflict_id: clash.id,
+                message: `그 시간에 이미 수업이 있습니다 (예약 #${clash.id} · ${clash.start_time}). 그래도 만들려면 다시 눌러 주세요.`,
+                message_en: `Overlapping class already exists (#${clash.id} at ${clash.start_time}). Press again to create anyway.` }, 409);
+            }
+          } catch { /* 겹침 검사 실패가 예약 자체를 막지는 않는다 */ }
+        }
+
+        let actorName = 'admin';
+        try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; } catch {}
+        const nowTs = Date.now();
+        const ins: any = await env.DB.prepare(
+          `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
+           VALUES (?, ?, 'one_off', 'level_test', NULL, ?, ?, ?, ?, 'active', 'leveltest_app', ?, ?, ?)`
+        ).bind(studentUid, appRow.student_name || null, dDate, startTime, durationMin, teacherId, actorName, nowTs,
+               `레벨테스트 신청 #${appRow.id} 에서 생성 / Created from level-test application #${appRow.id}`).run();
+        const schedId = (ins?.meta?.last_row_id as number) ?? null;
+        if (!schedId) return json({ ok: false, error: 'insert_failed', message: '예약 생성에 실패했습니다.', message_en: 'Failed to create the class.' }, 500);
+
+        await env.DB.prepare(`UPDATE leveltest_applications SET schedule_id = ?, status = CASE WHEN status IN ('pending','proposed') THEN 'confirmed' ELSE status END, updated_at = ? WHERE id = ?`)
+          .bind(schedId, nowTs, Number(b.id)).run();
+
+        try {
+          await writeClassAudit(env, {
+            action: 'add', schedule_id: schedId,
+            teacher_name: teacherMatched, student_name: appRow.student_name || null,
+            lesson_date: dDate, lesson_time: startTime,
+            actor: actorName, actor_role: 'admin', source: 'leveltest_app', reason: null,
+          });
+        } catch {}
+
+        return json({
+          ok: true, schedule_id: schedId, scheduled_date: dDate, start_time: startTime,
+          duration_min: durationMin, teacher: teacherMatched, user_id: studentUid,
+          room_id: `class-${schedId}-${dDate.replace(/-/g, '')}`,
+          message: `수업 #${schedId} 생성됨 — ${dDate} ${startTime} (${durationMin}분) · ${teacherMatched}`,
+          message_en: `Class #${schedId} created — ${dDate} ${startTime} (${durationMin}min) · ${teacherMatched}`,
+        });
+      }
+
       const fields: string[] = [];
       const binds: any[] = [];
       if (b.status != null)           { fields.push('status = ?');           binds.push(String(b.status)); }

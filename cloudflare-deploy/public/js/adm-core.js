@@ -3213,6 +3213,42 @@ async function leveltestAssign(id, teacher, sel) {
   else if (sel) { sel.value = prev; }   // 실패하면 화면을 되돌린다 — 바뀐 것처럼 남겨두지 않는다
 }
 
+/* ── 📅 (2026-08-05) 신청 → «실제 수업» 만들기 ────────────────────────────────
+   지금까지 «완료» 를 눌러도 수업은 한 건도 생기지 않았다. 사장님 테스트 건은
+   사람이 DB 에 직접 넣어야 했다. 이 버튼 하나가 그걸 대신한다.
+   ⚠️ _menuPost 를 쓰지 않는다 — 그건 실패하면 alert 만 띄우고 null 을 돌려줘서
+      «시간이 겹칩니다(그래도 만들까요?)» 같은 되물음을 만들 수 없다. 응답 본문이 필요하다. */
+async function leveltestMakeClass(id, opts) {
+  opts = opts || {};
+  const en = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, action: 'create_schedule', force: !!opts.force, user_id: opts.user_id })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while creating the class.' : '수업 생성 중 통신 오류가 났습니다.');
+    return;
+  }
+  const msg = (en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '실패');
+  if (d.ok) { alert('✅ ' + msg); loadLeveltestApps(); return; }
+
+  // 시간이 겹침 → 사람이 판단한다. 합반·연강일 수 있으므로 시스템이 막기만 하지 않는다.
+  if (d.error === 'conflict') {
+    if (confirm('⚠ ' + msg)) leveltestMakeClass(id, { force: true, user_id: opts.user_id });
+    return;
+  }
+  // 학생 계정을 못 찾음 → 계정 없는 예약은 학생 화면에 영영 안 뜬다. 그래서 되묻는다.
+  if (d.error === 'student_not_found') {
+    const uid = prompt(msg + '\n\n' + (en ? 'Student account id:' : '학생 계정 아이디:'), d.candidate || '');
+    if (uid && uid.trim()) leveltestMakeClass(id, { force: opts.force, user_id: uid.trim() });
+    return;
+  }
+  alert('⚠ ' + msg);
+}
+
 async function loadLeveltestApps() {
   let items = [], pending = 0;
   try {
@@ -3265,7 +3301,7 @@ function _ltRenderApps() {
     const msg = __ltApps.length
       ? (adminLang==='en' ? 'No match — clear the search/filter' : '검색·필터에 걸리는 것이 없습니다 (조건을 지워 보세요)')
       : (adminLang==='en' ? 'No applications yet' : '아직 신청이 없습니다');
-    tb.innerHTML = '<tr><td colspan="9" class="empty">' + msg + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="10" class="empty">' + msg + '</td></tr>';
     return;
   }
   _ltPaint(tb, items);
@@ -3294,10 +3330,18 @@ function _ltPaint(tb, items) {
     const ai = a.ai_score!=null ? Number(a.ai_score).toFixed(0) : '—';
     const pron = a.pron_score!=null ? Number(a.pron_score).toFixed(0) : '—';
     const lvl = a.final_level ? ('<b style="color:#059669">'+_esc(a.final_level)+'</b>') : '—';
+    /* 📅 수업 연결 상태 — 이어져 있으면 «수업 #852 ✓», 아니면 만들기 버튼.
+       희망일이 비어 있으면 만들 수 없으므로 버튼 대신 이유를 보여준다(눌러도 안 되는 버튼 금지). */
+    const canMake = !!(a.desired_date && a.desired_time);
+    const clsCell = a.schedule_id
+      ? `<span title="${adminLang==='en'?'Linked class':'연결된 수업'}" style="font-size:11px;font-weight:800;color:#0369a1;background:#e0f2fe;border-radius:6px;padding:3px 8px;white-space:nowrap">📅 #${a.schedule_id} ✓</span>`
+      : (canMake
+        ? `<button onclick="leveltestMakeClass(${a.id})" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#2563eb;color:#fff;cursor:pointer;margin-right:4px;white-space:nowrap">${adminLang==='en'?'📅 Create class':'📅 수업 만들기'}</button>`
+        : `<span title="${adminLang==='en'?'Needs a preferred date and time':'희망 날짜·시간이 있어야 합니다'}" style="font-size:11px;color:#94a3b8;white-space:nowrap">${adminLang==='en'?'no date':'희망일 없음'}</span>`);
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${a.student_uid?(' <code style="font-size:10px;color:#64748b">'+_esc(a.student_uid)+'</code>'):''}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:right;white-space:nowrap">${actions}</td></tr>`;
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${a.student_uid?(' <code style="font-size:10px;color:#64748b">'+_esc(a.student_uid)+'</code>'):''}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${actions}</td></tr>`;
   }).join('');
   _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
