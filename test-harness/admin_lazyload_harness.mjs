@@ -62,6 +62,39 @@ console.log('\n[ ②-2 안내 그림은 WebP (같은 그림, 용량 1/3) ]');
     /toJpg\(/.test(s18) && /onerror=/.test(s18) && /\.jpg/.test(s18));
 }
 
+console.log('\n[ ②-3 한자 폰트(983KB)를 «장식 문자» 때문에 받지 않기 ]');
+{
+  const fs = await import('node:fs');
+  const pub = resolve(__dir, '../cloudflare-deploy/public');
+  // 폰트 unicode-range 에 CJK 문장부호·전각형이 들어 있어, 「」·＋ 같은 «한국어 UI 장식» 하나만 있어도
+  // 한자가 한 글자도 없는 화면이 983KB 를 통째로 내려받는다. (실제로 vocab·finance-realtime 이 그랬다)
+  const HAN = c => (c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF) || (c >= 0xF900 && c <= 0xFAFF);
+  const DECO = c => (c >= 0x3000 && c <= 0x303F) || (c >= 0xFF00 && c <= 0xFFEF);
+  const walk = (d, out = []) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (e.name.startsWith('.')) continue;
+      const p = d + '/' + e.name;
+      if (e.isDirectory()) walk(p, out); else if (p.endsWith('.html')) out.push(p);
+    }
+    return out;
+  };
+  const bad = [];
+  for (const f of walk(pub)) {
+    let t = ''; try { t = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    if (!t.includes('mangoi-han.css')) continue;
+    // 화면에 그려지는 부분만 본다 — <script> 안 정규식·주석은 폰트를 부르지 않는다
+    const body = t.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<!--[\s\S]*?-->/g, '');
+    let han = 0, deco = 0;
+    for (const ch of body) { const c = ch.codePointAt(0); if (HAN(c)) han++; else if (DECO(c)) deco++; }
+    const rel = f.slice(pub.length + 1);
+    // 예외: refund.html 의 「」 는 «학원의 설립·운영 및 과외교습에 관한 법률» 처럼
+    //   법령 이름을 감싸는 한국 법률 인용 표기다. 표기를 바꾸는 건 문서 내용을 바꾸는 것이라 그대로 둔다.
+    if (rel === 'refund.html') continue;
+    if (!han && deco) bad.push(rel + ' (장식 ' + deco + '자)');
+  }
+  check(`한자 없는 화면이 장식 문자로 폰트를 부르지 않는다${bad.length ? ' — ' + bad.join(', ') : ''}`, bad.length === 0);
+}
+
 console.log('\n[ ③ 카드 스크립트 지연 로딩 ]');
 const lazyTags = [...html.matchAll(/<script type="text\/lazy-js" data-src="([^"]+)" data-card="([^"]+)"(?:\s+data-globals="([^"]*)")?><\/script>/g)];
 check(`지연 태그가 남아 있다 (${lazyTags.length}개)`, lazyTags.length >= 10);

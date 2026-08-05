@@ -372,7 +372,7 @@
 
   <div class="tab">
     <button id="tab-preview" onclick="switchTab('preview')"><span class="tab-ic">🔮</span><span data-ko="예습" data-en="Preview">예습</span></button>
-    <button id="tab-add" class="active" onclick="switchTab('add')"><span class="tab-ic">＋</span><span data-ko="단어 추가" data-en="Add Word">단어 추가</span></button>
+    <button id="tab-add" class="active" onclick="switchTab('add')"><span class="tab-ic">+</span><span data-ko="단어 추가" data-en="Add Word">단어 추가</span></button>
     <button id="tab-flash" onclick="switchTab('flash')"><span class="tab-ic">🎮</span><span data-ko="복습 게임" data-en="Review Game">복습 게임</span><span id="due-badge" style="padding:1px 7px;background:#ef4444;color:#fff;border-radius:99px;font-size:11px;font-weight:900;display:none"></span></button>
     <button id="tab-quiz" onclick="switchTab('quiz')"><span class="tab-ic">🧠</span><span data-ko="AI 퀴즈" data-en="AI Quiz">AI 퀴즈</span></button>
     <button id="tab-rank" onclick="switchTab('rank')"><span class="tab-ic">🏆</span><span data-ko="주간 랭킹" data-en="Weekly Ranking">주간 랭킹</span></button>
@@ -722,7 +722,7 @@ async function renderPreview(){
         (s.ko ? '<div class="prev-ko">🇰🇷 '+esc(s.ko)+'</div>' : '')+
         '<div class="prev-words">'+
           '<button class="tool-btn" data-word="'+esc(s.en)+'" onclick="speakWord(this.dataset.word)">🔊 듣기</button>'+
-          s.words.map(w => '<button class="tool-btn" data-w="'+esc(w)+'" onclick="addPreviewWord(this)">＋ '+esc(w)+'</button>').join('')+
+          s.words.map(w => '<button class="tool-btn" data-w="'+esc(w)+'" onclick="addPreviewWord(this)">+ '+esc(w)+'</button>').join('')+
         '</div>'+
       '</div>').join('');
   } catch(e){ el.innerHTML = '<div class="empty">로드 실패</div>'; }
@@ -735,8 +735,8 @@ async function addPreviewWord(btn){
     const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, word, korean: '' }) });
     const d = await r.json();
     if (d.ok) { btn.classList.add('active'); btn.textContent = '✅ 담음'; sndCorrect(); loadDueCount(); loadStats(); }
-    else { btn.disabled = false; btn.textContent = '＋ '+word; }
-  } catch(e){ btn.disabled = false; btn.textContent = '＋ '+word; }
+    else { btn.disabled = false; btn.textContent = '+ '+word; }
+  } catch(e){ btn.disabled = false; btn.textContent = '+ '+word; }
 }
 
 /* ═══════════ 탭 ═══════════ */
@@ -909,13 +909,13 @@ function renderBulkPreview(){
     '<div class="bp-actions">'+
       '<button class="bp-sub" onclick="bulkToggleAll()">전체 선택/해제</button>'+
       '<button class="bp-sub" onclick="bulkCancel()">취소</button>'+
-      '<button class="bp-add" id="bp-add-btn" onclick="doBulkAdd()">＋ 선택한 '+_bulkItems.length+'개 추가하기</button>'+
+      '<button class="bp-add" id="bp-add-btn" onclick="doBulkAdd()">+ 선택한 '+_bulkItems.length+'개 추가하기</button>'+
     '</div>'+
     '<div class="bp-bar" id="bp-bar"><i></i></div>';
   pv.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 function bulkChecked(){ return Array.from(document.querySelectorAll('#bulk-preview input[type=checkbox]:checked')).map(c=>_bulkItems[+c.dataset.bi]).filter(Boolean); }
-function bulkCount(){ const b = document.getElementById('bp-add-btn'); if (b) b.textContent = '＋ 선택한 '+bulkChecked().length+'개 추가하기'; }
+function bulkCount(){ const b = document.getElementById('bp-add-btn'); if (b) b.textContent = '+ 선택한 '+bulkChecked().length+'개 추가하기'; }
 function bulkToggleAll(){ const cbs = document.querySelectorAll('#bulk-preview input[type=checkbox]'); const anyOff = Array.from(cbs).some(c=>!c.checked); cbs.forEach(c=>{ c.checked = anyOff; }); bulkCount(); }
 function bulkCancel(){ _bulkItems = []; const pv = document.getElementById('bulk-preview'); pv.style.display='none'; pv.innerHTML=''; }
 
@@ -1002,7 +1002,7 @@ function renderPlayHome(){
       el.innerHTML = `<div class="play-hero">
         <h2>🎉 오늘 복습 끝!</h2>
         <p>복습할 단어가 없어요. 새 단어를 추가하거나 내일 다시 만나요!</p>
-        <button class="big-btn" onclick="switchTab('add')">＋ 단어 추가하러 가기</button>
+        <button class="big-btn" onclick="switchTab('add')">+ 단어 추가하러 가기</button>
       </div>`;
       return;
     }
@@ -1415,7 +1415,7 @@ async function loadCollection(){
       el.innerHTML = '<div class="empty">🔑 로그인 정보가 만료됐어요.<br><a href="/login" style="color:#fbbf24;text-decoration:underline">다시 로그인</a>하면 카드가 보여요.</div>'; return;
     }
     if (!d.words || !d.words.length) {
-      el.innerHTML = '<div class="empty">아직 카드가 없어요.<br>＋ 단어 추가 탭에서 첫 카드를 수집해 보세요!</div>'; return;
+      el.innerHTML = '<div class="empty">아직 카드가 없어요.<br>+ 단어 추가 탭에서 첫 카드를 수집해 보세요!</div>'; return;
     }
     const mastered = d.words.filter(w => (w.level||0) >= 5).length;
     el.innerHTML = `<div class="dex-head">
