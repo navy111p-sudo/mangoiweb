@@ -22,6 +22,7 @@ import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
+import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
@@ -6063,6 +6064,26 @@ LIMIT $limit`;
       const dry = url.searchParams.get('dry') === '1';
       try {
         const out = await runAbsentStudentSweep(env as any, { dry });
+        return json(out);
+      } catch (e: any) {
+        return json({ ok: false, error: String(e?.message || e) }, 500);
+      }
+    }
+
+    // 🛟 버려진 녹화 자동 마무리 수동 실행 — cron(15분)과 동일 로직.
+    //   브라우저가 complete 를 못 보내고 죽어 조각만 R2 에 떠 있는 녹화를 서버가 대신 마무리한다.
+    //   ?min_age_min= 시작 후 최소 경과(기본 240=4시간, 진행 중 수업 보호), ?quiet_min= 마지막
+    //   조각 후 조용한 시간(기본 30), ?limit= 건수 제한(최대 50). 빈 껍데기 정리도 함께 수행.
+    if (method === 'GET' && path === '/api/admin/recordings/finalize/run') {
+      const ageMin = parseInt(url.searchParams.get('min_age_min') || '', 10);
+      const quietMin = parseInt(url.searchParams.get('quiet_min') || '', 10);
+      const lim = parseInt(url.searchParams.get('limit') || '', 10);
+      try {
+        const out = await runRecordingFinalizeSweep(env as any, {
+          minAgeMs: Number.isFinite(ageMin) && ageMin >= 0 ? ageMin * 60000 : undefined,
+          quietMs: Number.isFinite(quietMin) && quietMin >= 0 ? quietMin * 60000 : undefined,
+          limit: Number.isFinite(lim) && lim > 0 ? Math.min(lim, 50) : undefined,
+        });
         return json(out);
       } catch (e: any) {
         return json({ ok: false, error: String(e?.message || e) }, 500);

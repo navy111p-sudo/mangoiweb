@@ -22,6 +22,46 @@ const J = (d: any, s = 200) =>
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 📒 파트 접수장부 (recording_parts)
+//
+// 왜 필요한가 (2026-08-04):
+//   multipart 는 «조각을 다 올린 뒤 complete 를 불러야» 파일이 생긴다. 그런데 그 complete 에
+//   필요한 upload_id 와 파트별 etag 목록이 **선생님 브라우저 메모리에만** 있었다. 탭이 죽거나
+//   PC 가 절전에 들어가면 아무도 마무리를 못 해 조각만 붕 뜬 채 녹화가 통째로 사라진다.
+//   실측: status='recording' 으로 멈춘 행이 296건(완료 423건).
+//   → 조각이 올라갈 때마다 서버가 장부에 적어두면, 브라우저가 죽어도 **크론이 대신 마무리**한다.
+// ─────────────────────────────────────────────────────────────────────────────
+const PARTS_DDL = `CREATE TABLE IF NOT EXISTS recording_parts (
+  recording_id INTEGER NOT NULL,
+  part_number  INTEGER NOT NULL,
+  r2_key       TEXT    NOT NULL,
+  upload_id    TEXT    NOT NULL,
+  etag         TEXT    NOT NULL,
+  size_bytes   INTEGER,
+  created_at   INTEGER NOT NULL,
+  PRIMARY KEY (recording_id, part_number)
+)`;
+let _partsTableReady = false;   // isolate 당 1회만 DDL (파트 업로드는 5MB 마다라 핫패스)
+async function ensurePartsTable(env: Env): Promise<void> {
+  if (_partsTableReady) return;
+  await env.DB.exec(PARTS_DDL.replace(/\s+/g, " "));
+  _partsTableReady = true;
+}
+
+/** 키에서 recording_id 추출 — create() 가 `rec/<room>/<id>_<ts>.webm` 로 만든다 */
+function ridFromKey(key: string): number {
+  const base = key.split("/").pop() || "";
+  const n = parseInt(base.split("_")[0], 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+async function clearParts(env: Env, recordingId: number): Promise<void> {
+  try {
+    await env.DB.prepare(`DELETE FROM recording_parts WHERE recording_id = ?`).bind(recordingId).run();
+  } catch { /* 장부 정리는 실패해도 본 흐름에 영향 없음 */ }
+}
+
 /**
  * 라우팅 진입점. index.ts의 fetch()에서 /api/recordings/upload 경로를 이쪽으로 분기시키세요.
  */
@@ -68,6 +108,25 @@ export async function handleRecordingUpload(
 
     const mp = env.RECORDINGS.resumeMultipartUpload(key, uploadId);
     const part = await mp.uploadPart(partNumber, request.body as ReadableStream);
+
+    // 📒 장부 적재 — 브라우저가 죽어도 서버가 마무리할 수 있게 (best-effort).
+    //    장부 쓰기가 실패해도 파트 업로드 자체는 성공이므로 응답은 그대로 200.
+    try {
+      const rid = parseInt(url.searchParams.get("rid") || "", 10) || ridFromKey(key);
+      if (rid > 0) {
+        await ensurePartsTable(env);
+        const len = parseInt(request.headers.get("content-length") || "", 10);
+        await env.DB.prepare(
+          `INSERT OR REPLACE INTO recording_parts
+             (recording_id, part_number, r2_key, upload_id, etag, size_bytes, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(rid, partNumber, key, uploadId, part.etag,
+               Number.isFinite(len) ? len : null, Date.now()).run();
+      }
+    } catch (e: any) {
+      console.error(`[recordings-r2] 파트 장부 기록 실패 key=${key} part=${partNumber}: ${e?.message || e}`);
+    }
+
     return J({ ok: true, part_number: partNumber, etag: part.etag });
   }
 
@@ -89,11 +148,12 @@ export async function handleRecordingUpload(
     } | null;
     if (!b || !b.key || !b.upload_id || !Array.isArray(b.parts)) return J({ error: "invalid body" }, 400);
 
-    // (a) 이미 처리된 recording_id면 R2를 다시 건드리지 않고 그대로 확인 응답
+    // (a) 이미 '완료'로 확정된 recording_id면 R2를 다시 건드리지 않고 그대로 확인 응답.
+    //   ('upload_failed' 는 여기서 걸러내지 않는다 — 아래 head() 재확인으로 자가복구시키기 위함)
     const existing = await env.DB.prepare(
       `SELECT status FROM recordings WHERE id = ?`
     ).bind(b.recording_id).first<{ status: string | null }>();
-    if (existing && (existing.status === "completed" || existing.status === "upload_failed")) {
+    if (existing && (existing.status === "completed" || existing.status === "deleted")) {
       return J({ ok: existing.status === "completed", key: b.key, already: true, status: existing.status });
     }
 
@@ -107,31 +167,47 @@ export async function handleRecordingUpload(
       failReason = "mp.complete: " + (e?.message || e);
     }
 
-    // (c) complete()가 성공했다고 보고해도 실제로 R2에 안착했는지 재확인
-    if (obj && !failReason) {
-      try {
-        const head = await env.RECORDINGS.head(b.key);
-        if (!head) failReason = "head() 재확인 실패 — 완료 응답은 왔지만 객체가 없음";
-      } catch (e: any) {
-        failReason = "head() 에러: " + (e?.message || e);
-      }
+    // 🔴 2026-08-04(2차 실장애): complete() 가 실패해도 «파일은 이미 R2 에 멀쩡히 있는» 경우가 있다.
+    //   페이지를 떠날 때 정상 종료(fetch keepalive)와 beforeunload(sendBeacon)가 거의 동시에
+    //   같은 upload_id 로 complete 를 보내면, 먼저 도착한 쪽이 성공시키고 뒤엣것은
+    //   "The specified multipart upload does not exist. (10024)" 로 실패한다(운영 워커에서 재현 확인).
+    //   위 (a) 가드는 «먼저 도착한 쪽의 DB 쓰기가 끝나기 전» 에 뒤엣것이 들어오면 못 막는다.
+    //   그때 뒤엣것의 실패를 그대로 믿고 'upload_failed' 로 찍으면 «파일은 멀쩡한데 목록엔
+    //   저장 실패» 가 된다 — 실제로 08-04 저녁 녹화 9건이 이 상태가 됐다.
+    //   → 성공/실패와 무관하게 head() 로 실물을 먼저 확인하고, 있으면 무조건 성공으로 취급한다.
+    //   (multipart 완료 직후 잠깐 안 보일 수 있어 1회 재시도)
+    let head: R2Object | null = null;
+    for (let i = 0; i < 2; i++) {
+      try { head = await env.RECORDINGS.head(b.key); } catch { head = null; }
+      if (head) break;
+      if (i === 0) await new Promise((r) => setTimeout(r, 300));
+    }
+    if (head) {
+      failReason = "";                                  // 실물이 있다 = 업로드는 성공한 것
+      if (!obj) obj = { size: head.size };
+    } else if (!failReason) {
+      failReason = "head() 재확인 실패 — 완료 응답은 왔지만 객체가 없음";
     }
 
     if (failReason) {
       console.error(`[recordings-r2] upload/complete 실패 recording_id=${b.recording_id} key=${b.key}: ${failReason}`);
+      // 이미 '완료'로 확정된 행은 절대 실패로 강등하지 않는다(늦게 도착한 중복 요청 방어)
       await env.DB.prepare(
-        `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed' WHERE id = ?`
+        `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed'
+          WHERE id = ? AND status NOT IN ('completed','deleted')`
       ).bind(b.recording_id).run();
       return J({ ok: false, error: failReason }, 500);
     }
 
+    // storage 도 'r2' 로 되돌린다 — 앞선 시도가 'r2_failed' 로 찍어놨을 수 있다(자가복구)
     await env.DB.prepare(
       `UPDATE recordings
-       SET ended_at = ?, duration_ms = ?, size_bytes = ?, status = 'completed', file_url = ?
-       WHERE id = ?`
+       SET ended_at = ?, duration_ms = ?, size_bytes = ?, status = 'completed', file_url = ?, storage = 'r2'
+       WHERE id = ? AND status != 'deleted'`
     )
       .bind(now, b.duration_ms || 0, b.size_bytes || obj!.size || 0, b.key, b.recording_id)
       .run();
+    await clearParts(env, b.recording_id);   // 마무리됐으니 장부는 비운다
     return J({ ok: true, key: b.key, size: obj!.size });
   }
 
@@ -150,6 +226,7 @@ export async function handleRecordingUpload(
     await env.DB.prepare(`UPDATE recordings SET status = 'aborted' WHERE id = ?`)
       .bind(b.recording_id)
       .run();
+    await clearParts(env, b.recording_id);   // 중단됐으니 크론이 되살리지 않도록 장부를 비운다
     return J({ ok: true });
   }
 
@@ -299,4 +376,166 @@ export async function handleRecordingUpload(
   }
 
   return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🛟 버려진 녹화 자동 마무리 (크론) — 2026-08-04
+//
+//   브라우저가 complete 를 못 보내고 죽으면 조각은 R2 에 다 올라와 있는데도 파일이 안 생긴다.
+//   장부(recording_parts)에 upload_id·etag 가 남아 있으므로 **서버가 대신 마무리**한다.
+//
+//   안전장치:
+//     · status='recording' 인 행만 — completed/aborted/deleted 는 손대지 않는다
+//     · complete 가 실패해도 head() 로 실물을 확인해 «이미 있으면 성공» 처리
+//     · 한 번에 MAX_PER_RUN 건만 (크론 시간·D1 부하 제한)
+//     · 킬스위치: KV 'recording_finalize' = 'off'
+//
+// 🔴 2026-08-05 실장애로 «버려짐» 판정 기준을 바꿨다.
+//   처음엔 «15분간 새 파트 없음 = 버려진 것» 으로 봤는데, **파트는 5MiB 가 모여야 하나 올라간다.**
+//   화면 움직임이 적은 수업(정지된 교재를 띄워두고 말하는 수업)은 15분 안에 5MiB 를 못 채우는 게
+//   정상이다. 그 기준이면 **진행 중인 수업을 죽은 것으로 오인해 그 시점까지만 봉인**할 수 있다.
+//   → 아래 두 조건을 «모두» 만족할 때만 건드린다:
+//      ① 시작한 지 MIN_AGE_MS 이상 — 어떤 수업도 이만큼 길지 않으니 진행 중일 리 없다
+//      ② 마지막 파트가 QUIET_MS 이상 조용
+//   안전망은 «빨리» 보다 «절대 살아있는 걸 안 건드림» 이 우선이다. 복구가 몇 시간 늦어도 된다.
+// ═══════════════════════════════════════════════════════════════════════════
+const MIN_AGE_MS = 4 * 60 * 60 * 1000;    // 시작 후 4시간(최장 수업 2시간 남짓의 두 배)
+const QUIET_MS = 30 * 60 * 1000;          // 마지막 파트 후 30분 조용
+const MAX_PER_RUN = 10;
+// 조각이 하나도 없이 오래 남은 'recording' = 빈 껍데기(데이터가 어디에도 없음).
+// 학생 목록에 ⏳준비중 으로 영원히 뜨므로 'aborted' 로 정리한다.
+const EMPTY_AGE_MS = 12 * 60 * 60 * 1000;
+
+export async function runRecordingFinalizeSweep(
+  env: Env,
+  opts?: { minAgeMs?: number; quietMs?: number; limit?: number }
+): Promise<{ ok: boolean; scanned: number; finalized: number; failed: number; emptied: number; details: any[] }> {
+  // 🔎 2026-08-05: 이 스윕이 «돌긴 도는데 아무 일도 안 일어나는» 상태를 진단할 수단이 없었다.
+  //   크론 로그는 조건부 출력이라 조용하면 «정상적으로 할 일이 없었다» 와 «조용히 죽었다» 가
+  //   구분되지 않는다. → 매 실행 결과를 KV 에 한 줄 남긴다(기존 recordings-cleanup:last_run 과 같은 방식).
+  const out = {
+    ok: true, scanned: 0, finalized: 0, failed: 0, emptied: 0,
+    stage: 'start' as string, error: null as string | null, details: [] as any[],
+  };
+  const beat = async () => {
+    try {
+      await env.SESSION_STATE?.put?.('recording_finalize:last_run',
+        JSON.stringify({ at: new Date().toISOString(), ...out, details: undefined }));
+    } catch { /* 관측용이라 실패해도 무시 */ }
+  };
+
+  try {
+    const kill = await env.SESSION_STATE?.get?.("recording_finalize");
+    if (kill === "off") { out.stage = 'killswitch-off'; await beat(); return { ...out, ok: true }; }
+  } catch { /* KV 못 읽어도 계속 */ }
+
+  const now = Date.now();
+  const limit = opts?.limit ?? MAX_PER_RUN;
+  const ageCut = now - (opts?.minAgeMs ?? MIN_AGE_MS);
+  const quietCut = now - (opts?.quietMs ?? QUIET_MS);
+
+  let cands: any[] = [];
+  try {
+    const rs = await env.DB.prepare(
+      `SELECT p.recording_id AS rid, p.r2_key AS r2key, p.upload_id AS uid,
+              COUNT(*) AS n, MAX(p.created_at) AS last_at, SUM(p.size_bytes) AS total,
+              r.started_at AS started_at
+         FROM recording_parts p
+         JOIN recordings r ON r.id = p.recording_id
+        WHERE r.status = 'recording'
+          AND r.started_at IS NOT NULL AND r.started_at < ?
+        GROUP BY p.recording_id, p.r2_key, p.upload_id
+       HAVING MAX(p.created_at) < ?
+        ORDER BY MAX(p.created_at) ASC
+        LIMIT ?`
+    ).bind(ageCut, quietCut, limit).all();
+    cands = (rs.results || []) as any[];
+  } catch (e: any) {
+    // 🔴 2026-08-05: 여기서 조용히 return 하는 바람에 **아래 빈 껍데기 정리까지 통째로 건너뛰고**
+    //   있었다. 게다가 원인도 안 남아 «크론은 Ok 인데 아무 일도 안 일어남» 을 며칠 헤맬 뻔했다.
+    //   → 후보 조회 실패는 «마무리만» 포기하고, 정리는 그대로 진행한다. 원인도 반드시 남긴다.
+    out.error = '후보 조회 실패: ' + String(e?.message || e);
+    console.error('[rec-finalize]', out.error);
+    cands = [];
+  }
+  out.scanned = cands.length;
+
+  for (const c of cands) {
+    const rid = Number(c.rid);
+    try {
+      const pr = await env.DB.prepare(
+        `SELECT part_number, etag FROM recording_parts
+          WHERE recording_id = ? AND r2_key = ? AND upload_id = ?
+          ORDER BY part_number ASC`
+      ).bind(rid, c.r2key, c.uid).all();
+      const parts = ((pr.results || []) as any[])
+        .map((p) => ({ partNumber: Number(p.part_number), etag: String(p.etag) }));
+      if (!parts.length) { await clearParts(env, rid); continue; }
+
+      let failReason = "";
+      let size = 0;
+      try {
+        const mp = env.RECORDINGS.resumeMultipartUpload(String(c.r2key), String(c.uid));
+        const obj = await mp.complete(parts);
+        size = obj.size;
+      } catch (e: any) {
+        failReason = String(e?.message || e);
+      }
+      // 실패했어도 실물이 있으면 성공 (누군가 이미 마무리했을 수 있다)
+      let head: R2Object | null = null;
+      try { head = await env.RECORDINGS.head(String(c.r2key)); } catch { head = null; }
+      if (head) { failReason = ""; size = size || head.size; }
+
+      if (failReason) {
+        out.failed++;
+        out.details.push({ rid, ok: false, parts: parts.length, error: failReason });
+        console.error(`[rec-finalize] 실패 id=${rid} key=${c.r2key} parts=${parts.length}: ${failReason}`);
+        await env.DB.prepare(
+          `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed'
+            WHERE id = ? AND status NOT IN ('completed','deleted')`
+        ).bind(rid).run();
+        await clearParts(env, rid);
+        continue;
+      }
+
+      const lastAt = Number(c.last_at) || Date.now();
+      const startedAt = Number(c.started_at) || lastAt;
+      await env.DB.prepare(
+        `UPDATE recordings
+            SET ended_at = ?, duration_ms = ?, size_bytes = ?, status = 'completed',
+                file_url = ?, storage = 'r2'
+          WHERE id = ? AND status NOT IN ('completed','deleted')`
+      ).bind(lastAt, Math.max(0, lastAt - startedAt), size || Number(c.total) || 0,
+             String(c.r2key), rid).run();
+      await clearParts(env, rid);
+      out.finalized++;
+      out.details.push({ rid, ok: true, parts: parts.length, size });
+      console.log(`[rec-finalize] 되살림 id=${rid} parts=${parts.length} size=${size}`);
+    } catch (e: any) {
+      out.failed++;
+      out.details.push({ rid, ok: false, error: String(e?.message || e) });
+    }
+  }
+
+  // 🧹 빈 껍데기 정리 — 조각이 하나도 없이 EMPTY_AGE_MS 넘게 'recording' 으로 남은 행.
+  //   R2 에 데이터가 아예 없으므로 복구 대상이 아니고, 그대로 두면 학생 목록에
+  //   ⏳준비중 으로 영원히 남는다. 되살릴 게 있는 행(장부에 조각이 있는 행)은 건드리지 않는다.
+  try {
+    const r = await env.DB.prepare(
+      `UPDATE recordings SET status = 'aborted'
+        WHERE status = 'recording'
+          AND started_at IS NOT NULL AND started_at < ?
+          AND size_bytes IS NULL
+          AND id NOT IN (SELECT DISTINCT recording_id FROM recording_parts)`
+    ).bind(now - EMPTY_AGE_MS).run();
+    out.emptied = r.meta?.changes || 0;
+    if (out.emptied) console.log(`[rec-finalize] 빈 껍데기 ${out.emptied}건 정리(aborted)`);
+  } catch (e: any) {
+    out.error = (out.error ? out.error + ' / ' : '') + '빈 껍데기 정리 실패: ' + String(e?.message || e);
+    console.error('[rec-finalize]', out.error);
+  }
+
+  out.stage = 'done';
+  await beat();
+  return out;
 }

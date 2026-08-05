@@ -22,6 +22,12 @@
   let composeCanvas = null;
   let composeCtx = null;
   let composeRafId = null;
+  let composeTickAt = 0;        // 마지막으로 «실제로 그린» 시각 — rAF 정지 감지용
+  let composeKeepAlive = null;  // rAF 가 멎었을 때 대신 그리는 타이머
+  // 📉 녹화 정체 감시 — 데이터가 사실상 안 쌓이면 선생님께 눈에 보이게 알린다
+  let recTotalBytes = 0, stallBytesMark = 0, stallTimer = null, isStalled = false;
+  // 정상 녹화는 초당 100KB 안팎. 30초에 300KB(=초당 10KB) 도 못 채우면 «사실상 안 찍히는» 것.
+  const STALL_WINDOW_MS = 30000, STALL_MIN_BYTES = 300 * 1024;
   let audioCtx = null;
   let audioDest = null;
   let recBadge = null;
@@ -35,6 +41,12 @@
   let r2TotalBytes = 0;
   let r2UploadQueue = Promise.resolve();
   let r2InitDone = false;
+  // 🔴 2026-08-04: 정상 종료(completeR2Upload)가 이미 complete 를 보냈으면 beforeunload 쪽은
+  //   전송을 양보한다. 같은 upload_id 로 complete 가 두 번 도착하면 뒤엣것이 R2 오류 10024
+  //   ("The specified multipart upload does not exist")를 받고, 그 실패가 «이미 성공한 행» 을
+  //   upload_failed 로 덮어써서 «파일은 멀쩡한데 목록엔 저장 실패» 가 됐다.
+  //   (recorder.js 에는 _stopRequested 가 있었는데 이 파일에만 빠져 있었다)
+  let r2CompleteSent = false;
   let chunkBuffer = [];
   let chunkBufferSize = 0;
   // 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
@@ -433,9 +445,23 @@
       ctx.font = 'bold 14px MangoiHanSC,sans-serif';
       ctx.fillText('● REC ' + mm + ':' + ss + '  👤' + vidCount + '명', composeCanvas.width - 190, 31);
  
+      // 🔴 2026-08-05 실장애(id=2022): 93.7분 수업이 R2 에 15MB(5MiB×3조각)만 남았다.
+      //   초당 2.8KB — 오디오만 담겨도 초당 16KB 는 나오므로 «거의 아무것도 안 찍힌» 것.
+      //   원인: 탭이 백그라운드로 내려가면 브라우저가 requestAnimationFrame 을 **완전히 멈춘다**.
+      //   그러면 이 캔버스가 얼어붙고, 얼어붙은 화면은 거의 압축돼 사라져 녹화가 빈 껍데기가 된다.
+      //   선생님은 수업 중 다른 창을 볼 수밖에 없으므로 **화면이 안 보여도 계속 그려야 한다.**
+      //   → rAF 는 그대로 두되, 멎으면 타이머가 대신 그린다(백그라운드에서 1초로 느려지지만 0 은 아니다).
+      composeTickAt = Date.now();
+      if (composeRafId) cancelAnimationFrame(composeRafId);
       composeRafId = requestAnimationFrame(draw);
     }
     draw();
+    if (composeKeepAlive) clearInterval(composeKeepAlive);
+    composeKeepAlive = setInterval(() => {
+      if (Date.now() - composeTickAt > 700) {     // rAF 가 멎었다 = 탭이 숨겨졌다
+        try { draw(); } catch (_) {}
+      }
+    }, 500);
     return composeCanvas.captureStream(15);
   }
  
@@ -473,6 +499,52 @@
     if (enBtn) host.insertBefore(recBadge, enBtn);   // EN 왼쪽
     else host.appendChild(recBadge);
     recBadge.setAttribute('data-docked', '1');
+  }
+
+  // ── 📉 녹화 정체 감시 ──────────────────────────────────────────────────────
+  //   왜: id=2022 는 93.7분 수업인데 15MB(초당 2.8KB)만 저장됐다. 오디오만 담겨도 초당 16KB 는
+  //   나오므로 «사실상 아무것도 안 찍힌» 것인데, 화면에는 REC 타이머가 멀쩡히 돌고 있어
+  //   선생님도 학생도 끝날 때까지 몰랐다. 조용히 빈 껍데기가 되는 게 가장 위험하다.
+  //   → 30초마다 실제 쌓인 바이트를 보고, 사실상 멎었으면 배지를 빨갛게 바꿔 알린다.
+  function startStallWatch() {
+    stopStallWatch();
+    stallBytesMark = recTotalBytes;
+    stallTimer = setInterval(() => {
+      const grew = recTotalBytes - stallBytesMark;
+      stallBytesMark = recTotalBytes;
+      const stalled = grew < STALL_MIN_BYTES;
+      if (stalled !== isStalled) {
+        isStalled = stalled;
+        if (stalled) {
+          console.error('[mango-rec] ⚠ 녹화 정체 — 최근 30초 동안', grew, '바이트만 기록됨');
+        } else {
+          console.log('[mango-rec] 녹화 정상 복구');
+        }
+        paintStallState();
+      }
+    }, STALL_WINDOW_MS);
+  }
+  function stopStallWatch() {
+    if (stallTimer) clearInterval(stallTimer);
+    stallTimer = null;
+    isStalled = false;
+  }
+  function paintStallState() {
+    if (!recBadge) return;
+    recBadge.classList.toggle('mango-rec-stalled', isStalled);
+    recBadge.title = isStalled
+      ? '⚠ 녹화가 기록되지 않고 있습니다 — 이 수업 창을 화면 앞으로 두세요'
+      : '자동녹화 중 — 눌러서 정지';
+    const warn = recBadge.querySelector('.mango-rec-warn');
+    if (isStalled && !warn) {
+      const w = document.createElement('span');
+      w.className = 'mango-rec-warn';
+      w.textContent = '⚠ 기록 안 됨';
+      w.style.cssText = 'margin-left:6px;font-weight:800;white-space:nowrap';
+      recBadge.appendChild(w);
+    } else if (!isStalled && warn) {
+      warn.remove();
+    }
   }
 
   function showRecBadge() {
@@ -515,6 +587,9 @@
         // 🥭 툴바에 도킹된 경우: 고정 위치 해제, 인라인 칩으로 EN 왼쪽에 흐르게 (모바일 media query의 !important 무력화)
         '#mango-rec-badge[data-docked]{position:static !important;top:auto !important;right:auto !important;bottom:auto !important;left:auto !important;width:auto !important;height:auto !important;border-radius:20px !important;padding:6px 12px !important;align-self:center;margin-right:8px;box-shadow:none;}',
         '#mango-rec-badge .mango-rec-dot{width:8px;height:8px;background:#fff;border-radius:50%;animation:mango-rec-blink 1s infinite;display:inline-block;}',
+        // ⚠ 녹화가 사실상 기록되지 않는 상태 — 배지를 주황으로 바꿔 눈에 띄게 한다
+        '#mango-rec-badge.mango-rec-stalled{background:#b45309 !important;box-shadow:0 0 0 3px rgba(245,158,11,.35);}',
+        '#mango-rec-badge.mango-rec-stalled .mango-rec-dot{animation:none;background:#fde68a;}',
         '#mango-rec-badge .mango-rec-time-text{display:inline;}',
         '#mango-rec-badge .mango-rec-stop{display:inline;font-size:13px;line-height:1;}',
         // 모바일: 작은 원형 점으로 축소 (시간/정지 숨김), 탭하면 확장
@@ -582,7 +657,8 @@
     r2UploadQueue = r2UploadQueue.then(async () => {
       const url = '/api/recordings/upload/part?key=' + encodeURIComponent(r2Key) +
                   '&upload_id=' + encodeURIComponent(r2UploadId) +
-                  '&part=' + pn;
+                  '&part=' + pn +
+                  '&rid=' + encodeURIComponent(recordingId);   // 서버 파트 장부용
       // 파트 하나가 유실되면 구멍 난 채로 이어붙여져 영상이 깨진다 — 일시 오류는 재시도
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
@@ -615,6 +691,7 @@
  
     if (r2Parts.length > 0 && r2Key && r2UploadId) {
       r2Parts.sort((a, b) => a.partNumber - b.partNumber);
+      r2CompleteSent = true;   // beforeunload 쪽 중복 전송 차단
       try {
         const res = await fetch('/api/recordings/upload/complete', {
           method: 'POST',
@@ -646,12 +723,14 @@
     r2TotalBytes = 0;
     r2UploadQueue = Promise.resolve();
     r2InitDone = false;
+    r2CompleteSent = false;   // 새 녹화에서는 다시 beforeunload 안전망이 살아나야 한다
     chunkBuffer = [];
     chunkBufferSize = 0;
   }
  
   function onBeforeUnload() {
     if (!r2Key || !r2UploadId || !recordingId) return;
+    if (r2CompleteSent) return;   // 정상 종료가 이미 complete 를 보냈다 — 두 번 보내면 10048/10024
     if (r2Parts.length > 0) {
       try {
         r2Parts.sort((a, b) => a.partNumber - b.partNumber);
@@ -733,6 +812,7 @@
     recordingId = startRes.recording_id;
     startedAt = Date.now();
     recordedChunks = [];
+    recTotalBytes = 0;
     isAutoMode = !!auto;
  
     // R2 multipart 업로드 시작
@@ -783,11 +863,13 @@
  
     mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
+        recTotalBytes += e.data.size;
         recordedChunks.push(e.data);
         // R2에도 버퍼링
         bufferChunk(e.data);
       }
     };
+    startStallWatch();
  
     mediaRecorder.onstop = async () => {
       const blob = new Blob(recordedChunks, { type: 'video/webm' });
@@ -861,6 +943,9 @@
     if (!isRecording) return Promise.resolve({ success: false, reason: 'not-recording' });
     isRecording = false;
     if (composeRafId) cancelAnimationFrame(composeRafId);
+    if (composeKeepAlive) clearInterval(composeKeepAlive);
+    composeKeepAlive = null;
+    stopStallWatch();
     if (audioCtx) try { audioCtx.close(); } catch (_) {}
     audioCtx = null;
     audioDest = null;

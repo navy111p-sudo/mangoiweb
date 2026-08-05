@@ -28499,7 +28499,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260805092708 -->
+<!-- BUILD:20260804092314 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -29646,13 +29646,13 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
 <script src="/js/vc-dock.js?v=13" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=35" defer></script>
-<script src="/js/mango-rec.js?v=40" defer></script>
+<script src="/js/mango-rec.js?v=43" defer></script>
 <script src="/js/mango-class-time.js?v=12" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
 <script src="/js/mango-topbar-unified.js?v=4" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
 <script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
 <script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
-<script src="/js/mango-attendance.js?v=35" defer></script>
+<script src="/js/mango-attendance.js?v=34" defer></script>
 <script src="/js/mango-gaze.js?v=36" defer></script>
 <script src="/js/mango-i18n.js?v=36" defer></script>
 
@@ -30199,13 +30199,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      조치: 세로 700px 이하에서만 CTA 아래 여백을 줄여 본문을 위로 올린다.
      ⚠️ 320×568(iPhone SE 1세대)은 이걸로도 안 된다 — 본문 총높이가 화면을 넘어서
         CTA·칩·링크를 전부 아바타 위(y<486)에 넣는 것이 산술적으로 불가능하다. */
-  @media (max-width:480px) and (max-height:780px){
-    /* 상한이 700 이면 360×701 에서 여백이 88px 로 되돌아가 여유가 0px 이 된다(경계 접촉).
-       40px 이면 641~700 구간에서 링크가 아바타에 걸린다(실측 350×641: 3px).
-       링크는 폭이 200px 고정이라 좁은 화면에선 x 로 못 피한다
-       (아바타를 x 로 피하려면 링크 폭 < vw-156 이어야 하는데 350px 에선 194px 밖에 안 된다)
-       → x 가 아니라 세로로 뗀다. 28px 이면 350×641 에서 7px 여유. */
-    .ai-cta-row { margin-bottom: 28px !important; }
+  @media (max-width:480px) and (max-height:700px){
+    .ai-cta-row { margin-bottom: 40px !important; }
   }
 
   /* 📐 [2026-08-04] 세로 640px 이하 — 4단계 칩을 접는다.
@@ -30222,12 +30217,6 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ⚠️ 칩은 '절차 안내'지 유일 동선이 아니다 — 무료상담·레벨테스트·수업신청·평가표는
         모두 사이드바 메뉴에 있다. 핵심 동선(무료 체험 CTA, 수업 입장 링크)은 그대로 남는다.
      ⚠️ 이 크기에서 칩은 이미 아바타에 34px·'+'에 32px 가려져 읽히지 않던 상태였다. */
-  /* 폭까지 좁으면(≤360px) 세로 700px 까지도 안 된다 — 링크 폭 200px 이 아바타 영역을 침범해
-     x 로 못 피하고, 세로 여백을 28px 까지 짜내도 350×641 에서 여유가 1px 뿐이다. */
-  @media (max-width:360px) and (max-height:700px){
-    .home-flow { display:none !important; }
-    .ai-cta-row { margin-bottom: 20px !important; }
-  }
   @media (max-width:480px) and (max-height:640px){
     .home-flow { display:none !important; }
     /* 칩을 접고도 링크가 아바타에 2px 걸쳐서(실측 링크 하단 488 vs 아바타 486) 더 올린다.
@@ -32831,42 +32820,9 @@ window.vcAutoLoadStudentTextbook = async function(){
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  /* ── 입장할 이름 찾기 ──
-     🔴 (2026-08-04 사장님 지시) 필리핀 매니저·강사(Mai · Melca · Karl)가 /?meet=번호 를 쓴다.
-     [사고] 이 링크는 지금까지 「홈에서 로그인한 사람」만 들어갔다. 아래 mangoi_logged_user 가
-            없으면 곧장 포기하고 로비에 세워 뒀기 때문이다. 그런데 강사·매니저는 /teacher 로
-            로그인하고, teacher.html 은 mangoi_logged_user 를 한 번도 저장하지 않는다(검색 0건).
-            → 필리핀 쪽은 이 링크로 들어온 적이 사실상 없다. 늘 한국어 로비에서 멈췄다.
-     [해결] 이름을 세 곳에서 차례로 찾는다. 하나만 있으면 들어간다.
-            ① ?name=  (링크가 실어 온 이름 — 로그인 자체가 필요 없다)
-            ② 홈 로그인(mangoi_logged_user)     ③ 지난번에 쓴 이름(mangoi_vc_uid)
-            셋 다 없을 때만 지금처럼 로비에 둔다. 모르는 이름으로 남의 방에 넣지 않는다.
-     ①로 들어온 이름은 mangoi_vc_uid 에 남긴다 → 그 PC 는 다음부터 /?meet=번호 만으로 들어간다.
-     ⚠️ mangoi_vc_pw 는 일부러 저장하지 않는다. 저장하면 mangoiJoinClass 가 +350ms 에 혼자
-        입장해 버려(30355줄) 아래 이중입장 가드보다 앞서고, 방코드가 아직 빈 순간이라
-        공용방(mangoi-class)으로 떨어진다. 비번 칸은 아래에서 '0000' 으로 채운다. */
-  function urlName(){
-    try {
-      var sp = new URLSearchParams(location.search);
-      return String(sp.get('name') || sp.get('vc_name') || '').trim().slice(0, 40);
-    } catch(e){ return ''; }
-  }
-  function resolveName(){
-    var n = urlName();
-    if (n) { try { localStorage.setItem('mangoi_vc_uid', n); } catch(e){} return n; }
-    try {
-      var raw = localStorage.getItem('mangoi_logged_user');
-      if (raw && raw !== 'null' && raw !== '{}'){
-        var u = JSON.parse(raw);
-        if (u && (u.uid || u.id) && u.name) return String(u.name).trim();
-      }
-    } catch(e){}
-    try { return String(localStorage.getItem('mangoi_vc_uid') || '').trim(); } catch(e){ return ''; }
-  }
-
   /* ── 클릭 0회 입장 ──
      mangoiJoinClass 는 mangoi_vc_uid/pw 가 저장돼 있어야 스스로 입장한다(30340줄).
-     저장 안 한 사람은 로비에 코드만 채워진 채 멈춘다 → 위 resolveName() 으로 대신 채워 넣는다.
+     저장 안 한 사람은 로비에 코드만 채워진 채 멈춘다 → 홈 로그인 정보로 대신 채워 넣는다.
      (10574~10577줄의 기존 자동입장과 같은 방식. 다른 점은 방 코드를 지우지 않는 것뿐) */
   function armAutoEnter(room){
     var tries = 0;
@@ -32875,12 +32831,7 @@ window.vcAutoLoadStudentTextbook = async function(){
        그래서 ① 그 콜백이 끝난 뒤(520ms)에 시작하고 ② 아래에서 그가 이미 들어갔는지 본다. */
     setTimeout(function(){
     var timer = setInterval(function(){
-      /* 🔴 (2026-08-04 실사고) 3초(20회)로는 짧다 — 필리핀 매니저 PC 에서 홈 화면만 뜬 채
-         자동 입장이 포기했다. index.html 이 1.9MB 라 느린 기기·회선에서는 로비가 활성화되기
-         전에 창이 닫힌다(실측: 느린 회선 + CPU 4배 저하에서 화면 준비까지 7.2초).
-         120회 = 약 18초로 늘린다. 늘려도 안전하다 — 아래 세 관문(이미 입장함 · 남이 입장시킴 ·
-         방코드 불일치)이 모두 지키고 있어서, 조건이 안 맞으면 끝까지 아무 일도 하지 않는다. */
-      if (++tries > 120) { clearInterval(timer); return; }   // 최대 약 18초
+      if (++tries > 20) { clearInterval(timer); return; }   // 최대 약 3초
       try {
         if (document.body.classList.contains('vc-in-call')) { clearInterval(timer); return; }
         /* mangoiJoinClass 는 스스로 입장하면 __vcLobbyAutoJoined 를 true 로 남기고,
@@ -32892,19 +32843,12 @@ window.vcAutoLoadStudentTextbook = async function(){
         if (!rc || rc.value !== room) return;               // 코드가 아직 안 채워짐 → 더 기다린다
         var ni = document.getElementById('vc-name-input');
         var pi = document.getElementById('vc-room-input');
-        /* 🔴 (라이브 실측으로 잡은 것) ?name= 은 이미 채워진 이름보다 세다.
-           mangoiJoinClass 가 +350ms 에 mangoi_vc_uid 로 이름칸을 먼저 채운다(30355줄).
-           그대로 두면 «Melca 링크를 열었는데 Mai 로 입장» 한다 — 한 PC 를 돌려쓰거나
-           앞사람 이름이 남아 있으면 방 안에 남의 이름이 뜬다. 링크가 이름을 실어 왔으면 그게 정답이다. */
-        var un = urlName();
-        if (ni && un && ni.value !== un){
-          ni.value = un;
-          try { localStorage.setItem('mangoi_vc_uid', un); } catch(e){}
-        }
         if (ni && !ni.value){
-          var nm = resolveName();
-          if (!nm) { clearInterval(timer); return; }   // 이름을 어디서도 못 찾음 → 로비에 그대로 둔다
-          ni.value = nm;
+          var raw = localStorage.getItem('mangoi_logged_user');
+          if (!raw || raw === 'null' || raw === '{}') { clearInterval(timer); return; }  // 비로그인 → 로비에 그대로 둔다
+          var u = null; try { u = JSON.parse(raw); } catch(_){ clearInterval(timer); return; }
+          if (!(u && (u.uid || u.id) && u.name)) { clearInterval(timer); return; }
+          ni.value = u.name;
         }
         if (pi && !pi.value) pi.value = '0000';
         if (ni && ni.value && typeof window.vcJoinRoom === 'function'){
@@ -32915,104 +32859,6 @@ window.vcAutoLoadStudentTextbook = async function(){
       } catch(e){ clearInterval(timer); console.warn('[meet] autoEnter', e); }
     }, 150);
     }, 520);
-  }
-
-  /* ── 🔇 클릭 0회 입장의 대가 — 상대방 목소리가 안 들린다 ──
-     (2026-08-04 실사고: meet-7038 에서 영상은 나오는데 무음)
-     [원인] 브라우저 자동재생 정책은 «무음 재생»만 허용한다. 사용자가 아무것도 누르지 않은 상태에서
-            muted=false 로 바꾸면 조용히 되돌린다. 원격 타일은 muted 로 시작하므로(13450줄)
-            영상만 나오고 소리는 영영 안 난다.
-            기존 unmute 사다리(13463줄)는 0.4~5초 안에 3번 시도하고 끝난다 — 그 사이 클릭이 없으면 끝.
-            ▶재생 폴백 버튼도 안 뜬다. 그건 «무음 재생조차 실패»했을 때만 붙기 때문이다.
-            클릭해서 들어오는 사람은 그 클릭이 제스처로 남아 안 겪는다. /?meet= 입장만 겪는다.
-     [해결] 첫 클릭·터치·키입력이 들어오는 «그 순간»(제스처가 살아 있을 때) 원격 타일을 전부 켠다.
-     ⚠️ 내 타일(vc-local-box / vc-local-video)은 절대 건드리지 않는다 — 켜면 하울링이 난다.
-     ⚠️ 한 번으로 끝내지 않는다. 나중에 들어온 사람의 타일도 muted 로 생기므로,
-        제스처가 이미 있었으면 새 타일에도 적용되게 몇 번 더 훑는다. */
-  (function unmuteRemotesOnFirstGesture(){
-    var seen = false;
-    function sweep(){
-      var n = 0;
-      try {
-        var vids = document.querySelectorAll('#vc-video-grid .video-box video');
-        for (var i = 0; i < vids.length; i++){
-          var v = vids[i];
-          if (v.id === 'vc-local-video') continue;
-          var box = v.parentElement;
-          if (box && box.id === 'vc-local-box') continue;      // 내 화면 — 하울링 방지
-          if (!v.muted && v.volume > 0) continue;
-          try { v.muted = false; v.volume = 1; if (v.paused) v.play().catch(function(){}); n++; } catch(e){}
-        }
-      } catch(e){}
-      return n;
-    }
-    function onGesture(){
-      if (!seen){ seen = true; }
-      var n = sweep();
-      if (n) console.log('[meet] 첫 제스처로 원격 소리 켬:', n);
-      /* 늦게 들어온 참가자 타일까지 — 2·5·10초 뒤 한 번씩 더 훑는다(제스처는 이미 확보됨) */
-      setTimeout(sweep, 2000); setTimeout(sweep, 5000); setTimeout(sweep, 10000);
-    }
-    try {
-      ['pointerdown','touchstart','keydown'].forEach(function(ev){
-        document.addEventListener(ev, onGesture, { capture: true, passive: true });
-      });
-    } catch(e){}
-  })();
-
-  /* ── ⚡ 20초가 지나도 못 들어갔으면 「가벼운 화면」을 권한다 ──
-     (2026-08-04 실사고) 이 페이지는 1.9MB 다. 필리핀 매니저 PC 에서 실측 13.4초가 걸렸고,
-     그날은 끝내 홈 화면만 본 채 회의가 무산됐다.
-     그런데 같은 방(meet-*)으로 들어가는 7.9KB 짜리 화면이 이미 있다 — /video-call/index.html.
-     둘 다 /ws/video-call 를 쓰므로 서로 만난다(라이브에서 «2명» 으로 직접 확인).
-     → 링크를 두 벌로 나눠 관리하지 말고, 「느린 사람만」 알아서 넘어가게 한다.
-
-     ⚠️ 자동으로 넘기지 않는다. 정식 화면에는 교재·칠판·게임·녹화가 있고 가벼운 화면에는 없다.
-        빼앗지 말고 물어본다.
-     ⚠️ 20초인 이유: 위 armAutoEnter 가 18초까지 기다린다. 그보다 먼저 뜨면
-        「들어가는 중인데 실패한 줄 알고」 누르게 된다.
-     ⚠️ /video-call/ 까지만 쓰면 서버가 이 무거운 홈으로 되돌려 보낸다. index.html 을 반드시 붙인다. */
-  function lightUrl(room, name){
-    var u = '/video-call/index.html?room=' + encodeURIComponent(room) + '&autojoin=1';
-    if (name) u += '&name=' + encodeURIComponent(name);
-    return u;
-  }
-  function armLightFallback(room){
-    var card = null;
-    /* 늦게라도 들어가면 조용히 치운다 — 들어간 사람에게 «못 들어갔나요?» 는 사고다 */
-    var watch = setInterval(function(){
-      if (!document.body.classList.contains('vc-in-call')) return;
-      clearInterval(watch);
-      if (card) { try { card.remove(); } catch(e){} card = null; }
-    }, 1000);
-    setTimeout(function(){
-      try {
-        if (document.body.classList.contains('vc-in-call')) return;
-        if (document.getElementById('vc-meet-light')) return;
-        var nm = '';
-        try { nm = ((document.getElementById('vc-name-input') || {}).value || '').trim() || resolveName(); } catch(e){}
-        card = document.createElement('div');
-        card.id = 'vc-meet-light';
-        card.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);' +
-          'z-index:2147482900;max-width:min(560px,92vw);background:#111827;color:#f3f4f6;' +
-          'border:1px solid #374151;border-radius:12px;padding:14px 16px;' +
-          'box-shadow:0 10px 34px rgba(0,0,0,.45);font-size:14px;line-height:1.5;text-align:center';
-        /* 한/영 두 벌 — 강사·매니저 다수가 필리핀이다. 라벨만이 아니라 안내문까지 둘 다 적는다. */
-        card.innerHTML =
-          '<div style="font-weight:700;margin-bottom:6px">⚡ 아직 못 들어가셨나요? &nbsp;·&nbsp; Still not in the room?</div>' +
-          '<div style="color:#cbd5e1;margin-bottom:4px">이 PC·인터넷에는 이 화면이 무거울 수 있어요. 같은 방으로 들어가는 가벼운 화면이 있습니다.</div>' +
-          '<div style="color:#cbd5e1;margin-bottom:11px">This page may be too heavy for your connection. There is a lighter page that joins the same room.</div>' +
-          '<button id="vc-meet-light-go" style="background:#f0a500;color:#111827;border:0;border-radius:9px;' +
-            'padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">가벼운 화면으로 열기 · Open the light version</button>' +
-          '<button id="vc-meet-light-x" style="background:transparent;color:#9ca3af;border:0;margin-left:10px;' +
-            'font-size:13px;cursor:pointer">닫기 · Close</button>';
-        document.body.appendChild(card);
-        var go = document.getElementById('vc-meet-light-go');
-        if (go) go.onclick = function(){ location.href = lightUrl(room, nm); };
-        var x = document.getElementById('vc-meet-light-x');
-        if (x) x.onclick = function(){ try { card.remove(); } catch(e){} card = null; };
-      } catch(e){ console.warn('[meet] lightFallback', e); }
-    }, 20000);
   }
 
   /* ── /?meet=<방번호> 로 들어오면 아무것도 누르지 않고 바로 입장 ── */
@@ -33026,7 +32872,6 @@ window.vcAutoLoadStudentTextbook = async function(){
       if (typeof window.mangoiJoinClass !== 'function') return setTimeout(start, 120);
       window.mangoiJoinClass(room);
       armAutoEnter(room);
-      armLightFallback(room);
     };
     /* 기존 ?room= 자동입장이 +700ms 라 그보다 늦게 시작해 서로 밟지 않게 한다 */
     setTimeout(start, 760);

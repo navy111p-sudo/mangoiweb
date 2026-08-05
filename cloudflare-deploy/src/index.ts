@@ -23,7 +23,7 @@ import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감�
 import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
-import { handleRecordingUpload as handleR2MultipartUpload } from './recordings-r2';
+import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeSweep } from './recordings-r2';
 import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
@@ -1039,6 +1039,8 @@ const worker = {
         path === '/api/admin/payments/cafe24-diag' ||
         // 🚨 결석 위험 자동 알림 수동 실행/진단 (dry=1 지원)
         path === '/api/admin/absent-sweep/run' ||
+        // 🛟 버려진 녹화 자동 마무리 수동 실행/진단 (stale_min= 로 기준시간 조절)
+        path === '/api/admin/recordings/finalize/run' ||
         // 📣 수업 전 리마인더 수동 실행/진단 (dry=1 지원)
         path === '/api/admin/lesson-reminder/run' ||
         path === '/api/admin/payments/notify-overdue' ||
@@ -1887,6 +1889,17 @@ const worker = {
         if (w.changed) console.log('[watchdog] state change', JSON.stringify(w));
       } catch (err) {
         console.error('[watchdog] error', err);
+      }
+
+      // 🛟 버려진 녹화 자동 마무리 — 매 15분: 브라우저가 complete 를 못 보내고 죽어
+      //   조각만 R2에 붕 떠 있는 녹화를, 서버가 파트 장부(recording_parts)를 보고 대신 마무리.
+      //   15분 이상 새 파트가 없는 status='recording' 만 건드린다(진행 중 수업은 안 건드림).
+      //   킬스위치 = KV 'recording_finalize'='off'.
+      try {
+        const rf = await runRecordingFinalizeSweep(env as any);
+        if (rf && (rf.finalized > 0 || rf.failed > 0)) console.log('[rec-finalize]', JSON.stringify(rf));
+      } catch (err) {
+        console.error('[rec-finalize] error', err);
       }
 
       // 📣 수업 전 리마인더 — 매 15분: 시작 15~45분 전 수업을 찾아 학부모+학생에게 문자.
