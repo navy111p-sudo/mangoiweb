@@ -192,6 +192,43 @@ console.log('\n[8] prefix 한정 + KV last_run 기록');
   check('KV last_run 저장됨', !!saved && JSON.parse(saved).deleted_count === 1);
 }
 
+// ── 9) 🔴 기본 청소 범위는 «rec/ 안» 이다 (2026-08-05 사장님 지시) ────────
+//   왜 못박는가: 예전 기본값은 «전 버킷» 이었다. 이 버킷에는 녹화가 아닌 파일도 들어 있고
+//   (레거시 업로드가 «방번호/날짜/…» 로 D1 기록 없이 저장한다), 실제 운영에서
+//   42,264개 중 41,880개(99.1%)가 고아로 잡혀 50% 안전장치가 삭제를 막았다.
+//   그 장치 하나가 4만 개를 지켰다. 기본 범위가 다시 «전체» 로 돌아가면 그 위험이 되살아난다.
+console.log('\n[9] 기본 범위 = rec/ (녹화 아닌 파일은 후보에도 안 든다)');
+{
+  const R2 = fakeR2([
+    { key: 'rec/class-1/a.webm' },        // 녹화 · D1 등록 → 보존
+    { key: 'rec/class-1/c.webm' },        // 녹화 · D1 등록 → 보존
+    { key: 'rec/class-1/d.webm' },        // 녹화 · D1 등록 → 보존
+    { key: 'rec/class-1/b.webm' },        // 녹화 · 미등록  → 고아 (1/4=25%, 안전장치 미발동)
+    { key: '850/2026-08-05/textbook.pdf' }, // 레거시 업로드(수업 자료) → 후보에 들면 안 됨
+    { key: '850/2026-08-05/photo.png' },    // 〃
+    { key: '_test/ping.txt' },              // 연결 테스트 파일 → 후보에 들면 안 됨
+  ]);
+  const env = { DB: fakeDB(['rec/class-1/a.webm','rec/class-1/c.webm','rec/class-1/d.webm']), RECORDINGS: R2, SESSION_STATE: fakeKV() };
+  const r = await purgeOrphanedRecordings(env, { dryRun: true });
+  eq('rec/ 안의 객체만 센다(4)', r.total_objects, 4);
+  eq('고아는 rec/ 안에서만(1)', r.orphan_count, 1);
+  check('수업 자료(textbook.pdf)는 후보에 없다', !r.deleted_keys.includes('850/2026-08-05/textbook.pdf'));
+  check('사진(photo.png)도 후보에 없다', !r.deleted_keys.includes('850/2026-08-05/photo.png'));
+  check('테스트 파일(_test/)도 후보에 없다', !r.deleted_keys.includes('_test/ping.txt'));
+  check('안전장치에 기대지 않는다 — 애초에 후보가 아니다', r.aborted_by_guard === false);
+}
+
+// ── 10) 전 버킷 청소는 «명시적으로만» 가능 ───────────────────────────────
+console.log('\n[10] 전 버킷은 prefix:"" 를 «직접» 넣어야만 열린다');
+{
+  const R2 = fakeR2([
+    { key: 'rec/class-1/a.webm' }, { key: '850/2026-08-05/textbook.pdf' },
+  ]);
+  const env = { DB: fakeDB(['rec/class-1/a.webm']), RECORDINGS: R2, SESSION_STATE: fakeKV() };
+  const r = await purgeOrphanedRecordings(env, { dryRun: true, prefix: '' });
+  eq('prefix:"" 면 전체를 본다(2)', r.total_objects, 2);
+}
+
 // ── 정리 ──────────────────────────────────────────────────────────────
 try { rmSync(OUTDIR, { recursive: true, force: true }); } catch {}
 

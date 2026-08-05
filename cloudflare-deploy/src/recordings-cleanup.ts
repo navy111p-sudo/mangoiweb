@@ -34,7 +34,11 @@ export interface CleanupOptions {
    * 삭제 대상 비율이 이 값을 넘으면 전체 실행을 중단(대량삭제 사고 방지). 기본 0.5(50%).
    */
   maxDeleteRatio?: number;
-  /** R2 list prefix (특정 폴더만 청소하고 싶을 때). 기본 전체. */
+  /**
+   * R2 list prefix — 청소 대상 폴더.
+   * 🔴 기본값이 'rec/' 다(2026-08-05 사장님 지시). 「전체」가 아니다.
+   *    명시적으로 '' 를 넣으면 전 버킷을 훑지만, 그건 아래 경고를 읽고 판단할 것.
+   */
   prefix?: string;
 }
 
@@ -240,7 +244,19 @@ export async function purgeOrphanedRecordings(
   const dryRun = options.dryRun ?? false;
   const graceMs = options.graceMs ?? 24 * 3600 * 1000; // 24h
   const maxDeleteRatio = options.maxDeleteRatio ?? 0.5; // 50%
-  const prefix = options.prefix;
+  /* 🔴🔴 (2026-08-05 사장님 지시) 고아는 «rec/ 안에서만» 찾는다.
+     [무슨 일이 있었나] 예전 기본값은 «전 버킷» 이었다. 그런데 이 버킷에는 녹화 말고도
+       다른 것이 들어 있다 — 특히 레거시 업로드(index.ts handleRecordingUpload)가
+       «방번호/날짜/파일명» 으로 접두사 없이 저장하고 D1 에 기록도 남기지 않는다.
+       그 결과 실제 운영에서 이렇게 나왔다:
+         R2 객체 42,264개 · D1 등록 key 1,873개 → 고아 판정 41,880개(99.1%)
+       50% 안전장치가 걸려 삭제 0건으로 중단됐다. 그 장치 하나가 4만 개 파일을 지켰다.
+     [무엇이 위험했나] 「고아가 99%나 되니 한도를 올리자」는 판단이 한 번이라도 내려지면
+       녹화가 아닌 수업 자료까지 전부 지워진다. 되돌릴 수 없다.
+     [그래서] 후보를 만들 때부터 rec/ 밖은 «쳐다보지도 않는다». 안전장치에 기대지 않는다.
+       현재 D1 의 key 1,373건이 전부 rec/ 접두사라, 정상 녹화는 하나도 놓치지 않는다.
+     ⚠️ 전 버킷을 훑고 싶으면 prefix: '' 를 명시해야 한다. 실수로 그렇게 되지 않는다. */
+  const prefix = (options.prefix === undefined) ? 'rec/' : options.prefix;
 
   const result: CleanupResult = {
     executed_at: now,
@@ -305,7 +321,8 @@ export async function purgeOrphanedRecordings(
     return result;
   }
 
-  // ── 2) R2: 전체 객체를 cursor 로 순회하며 고아 후보 수집 ─────────────────
+  // ── 2) R2: 대상 폴더(prefix, 기본 rec/)만 순회하며 고아 후보 수집 ────────
+  //    ⚠️ 「전체」가 아니다. 위 prefix 주석의 사고 경위를 반드시 읽을 것.
   const orphans: Array<{ key: string; size: number }> = [];
   try {
     let cursor: string | undefined = undefined;
