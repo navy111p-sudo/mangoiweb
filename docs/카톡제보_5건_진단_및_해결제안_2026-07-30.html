@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>카톡 제보 5건 - 문제 진단 및 해결 제안서 (2026-07-30)</title>
+<style>
+ :root{--bg:#ffffff;--fg:#1f2430;--mut:#5b6472;--line:#e3e7ee;--accent:#c2410c;--head:#0f172a;--code:#f6f8fa}
+ *{box-sizing:border-box}
+ body{margin:0;padding:0;background:#eef1f6;color:var(--fg);
+      font-family:'Malgun Gothic','맑은 고딕',-apple-system,'Segoe UI',sans-serif;
+      font-size:15px;line-height:1.75;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .page{max-width:1000px;margin:24px auto;background:var(--bg);padding:56px 60px 72px;
+       box-shadow:0 2px 18px rgba(15,23,42,.10);border-radius:6px}
+ h1{font-size:27px;color:var(--head);margin:0 0 6px;line-height:1.35;
+    border-bottom:3px solid var(--accent);padding-bottom:14px}
+ h2{font-size:20px;color:var(--head);margin:44px 0 14px;padding:9px 0 9px 13px;
+    border-left:5px solid var(--accent);background:#fbf5f1}
+ h3{font-size:16.5px;color:#0f172a;margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+ p{margin:10px 0}
+ ul,ol{margin:10px 0;padding-left:26px} li{margin:5px 0}
+ table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+ th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+ th{background:#f1f5f9;color:var(--head);font-weight:700;white-space:nowrap}
+ tr:nth-child(even) td{background:#fafbfd}
+ code{background:var(--code);padding:2px 6px;border-radius:4px;font-size:12.5px;
+      font-family:Consolas,'D2Coding',monospace;color:#a3305e;word-break:break-all}
+ pre{background:#0f172a;color:#e2e8f0;padding:15px 18px;border-radius:8px;overflow-x:auto;
+     font-size:12.5px;line-height:1.6}
+ pre code{background:none;color:inherit;padding:0}
+ blockquote{margin:14px 0;padding:12px 18px;background:#fff8ed;border-left:4px solid #f59e0b;color:#5b4520}
+ blockquote p{margin:5px 0}
+ hr{border:0;border-top:1px solid var(--line);margin:36px 0}
+ a{color:#1d4ed8}
+ em{color:var(--mut)}
+ h1+ul{list-style:none;padding:0;margin:14px 0 26px;color:var(--mut);font-size:13.5px}
+ h1+ul li{margin:3px 0}
+ @media print{
+   body{background:#fff} .page{margin:0;padding:0 8mm;box-shadow:none;max-width:none;border-radius:0}
+   h2{page-break-after:avoid} table,pre,blockquote{page-break-inside:avoid}
+ }
+ @media (max-width:760px){ .page{padding:26px 16px;margin:0;border-radius:0} body{font-size:14px} }
+</style></head><body><div class="page">
+<h1>카카오톡 제보 5건 — 문제 진단 및 해결 제안서</h1>
+<ul>
+<li><strong>작성일</strong>: 2026-07-30</li>
+<li><strong>대상 사이트</strong>: https://test.mangoi.co.kr</li>
+<li><strong>제보 출처</strong>: <code>mangoi_수정요청_프롬프트블록.pdf</code> (내부 QA 피드백, <code>260730_수정.pptx</code> 기반)</li>
+<li><strong>검증 방법</strong>: 소스코드 정독 + 운영 D1(<code>mango-db</code>) 조회(SELECT 전용, 변경 없음)</li>
+</ul>
+<hr />
+<h2>0. 한 장 요약</h2>
+<p>제보 5건 모두 코드와 DB 조회로 원인을 확정했습니다. 이번 5건의 공통점은 지난번(결제 P0)과 다릅니다 — <strong>돈이 새는 문제가 아니라 "두 개의 서로 다른 구현이 한 화면인 척 붙어 있다가 어긋나는" 문제</strong>가 3건(#1, #2, #4)입니다.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>항목</th>
+<th>확인</th>
+<th>심각도</th>
+<th>실제 원인 (한 줄)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>비로그인 결제 허용</td>
+<td>✅ 확인</td>
+<td>🔴 P0</td>
+<td>결제 흐름 어디에도 로그인 검사가 없음 — 서버도 uid를 선택값으로 취급</td>
+</tr>
+<tr>
+<td>4</td>
+<td>연장결제 결제수단 선택 미노출</td>
+<td>✅ 확인</td>
+<td>🔴 P0</td>
+<td>연장 패키지 ID가 서버 가격표에 아예 없어 <strong>어떤 수단을 골라도 결제가 거부됨</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>강사 선택 화면(사진·MBTI·요일·시간)</td>
+<td>✅ 확인</td>
+<td>🟠 P1</td>
+<td>강사 관련 테이블이 <strong>3개로 쪼개져 있고 서로 연결할 키가 없음</strong>(구조적 문제)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>학부모 페이지 인증 잔존</td>
+<td>✅ 확인</td>
+<td>🟠 P1</td>
+<td>로그인 토큰 유효기간이 30일로 길고, 재인증 여부를 학부모가 선택할 수 없음</td>
+</tr>
+<tr>
+<td>5</td>
+<td>강사소개 그룹명(노란 글씨) 노출</td>
+<td>✅ 확인</td>
+<td>🟢 P2</td>
+<td>내부 인사 분류(재택/사무실)가 관리자 입력값 그대로 학부모 화면에 노출</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>1. 비로그인 결제 허용 🔴 P0</h2>
+<h3>확인된 사실</h3>
+<p>결제 흐름의 <strong>어느 단계에도 로그인 여부를 막는 코드가 없습니다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>지점</th>
+<th>파일:라인</th>
+<th>실제 동작</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>결제창 진입</td>
+<td><code>idx-payment-modal.js:91-129</code> (<code>openPaymentModal</code>)</td>
+<td>로그인 여부와 무관하게 모달이 열림. 로그인 상태면 안내 배너만 하나 더 보일 뿐</td>
+</tr>
+<tr>
+<td>카드 결제</td>
+<td><code>idx-payment-modal.js:427-486</code> (<code>executeCardPayment</code>)</td>
+<td><code>getCurrentUser()</code>가 null이면 <code>uid: null</code>로 그대로 서버 전송</td>
+</tr>
+<tr>
+<td>가상계좌 결제</td>
+<td><code>idx-payment-modal.js:496-552</code> (<code>executeVirtualAccountPayment</code>)</td>
+<td>위와 동일</td>
+</tr>
+<tr>
+<td>결제 완료 확인(수기접수)</td>
+<td><code>idx-payment-modal.js:1161-1186</code> (submit 핸들러)</td>
+<td>결제자·학생·연락처 <strong>텍스트 입력값</strong>만 검사, 로그인 여부는 검사하지 않음</td>
+</tr>
+<tr>
+<td>서버 주문 생성</td>
+<td><code>api-pay.ts:94, 141</code></td>
+<td><code>const uid = String(body.uid||'').trim() || null;</code> — uid가 없어도 주문이 정상 생성(INSERT 성공)</td>
+</tr>
+</tbody>
+</table>
+<p>유일하게 로그인을 강제하는 곳은 어제 제가 만든 <strong>1:1 수강권 → <code>enroll.html</code> 리다이렉트</strong>(<code>idx-payment-modal.js:320</code>)뿐입니다. 그런데 이건 "1:1 상품 + 로그인 상태"일 때만 걸리는 조건이라, <strong>비로그인 상태</strong>이거나 <strong>그룹/비즈니스/키즈/시험 등 1:1이 아닌 상품</strong>이면 그대로 뚫립니다.</p>
+<p><strong>즉 지금은 회원가입도, 로그인도 하지 않은 방문자가 그룹 수업이나 키즈 영어를 카드로 결제까지 끝낼 수 있는 상태</strong>이고, 그 결제 기록은 <code>payment_orders.uid = NULL</code>로 저장돼 나중에 수강 배정도, 결제 내역 조회도, 환불 처리도 안 됩니다.</p>
+<h3>해결 방안</h3>
+<p><strong>클라이언트 + 서버 이중 방어</strong> (한쪽만 하면 우회 가능하므로 반드시 둘 다):</p>
+<ol>
+<li><strong>클라이언트</strong>: 상품 카드를 클릭하는 시점(<code>document.querySelectorAll('.product-card')</code> 클릭 핸들러, <code>idx-payment-modal.js:292</code> 부근)에서, 선택한 상품이 유료(가격 &gt; 0)이고 <code>getCurrentUser()</code>가 없으면 <strong>로그인 모달을 강제로 띄우고 결제 단계 진입을 막습니다.</strong> 로그인 완료 후 원래 선택했던 상품으로 자동 복귀시킵니다.</li>
+<li><strong>신규 회원(비회원)의 경우</strong>: 로그인 모달에 "회원가입" 링크가 이미 있으므로, 그 경로를 그대로 타면 됩니다. 결제 이전에 반드시 회원가입 → 로그인이 선행되도록 흐름만 강제하면 되고, 별도 신규 개발은 필요 없습니다.</li>
+<li><strong>서버</strong>: <code>api-pay.ts</code>의 <code>/api/pay/create-order</code>, <code>/api/pay/manual-request</code> 둘 다 <code>uid</code>가 없으면 <strong>400 거부</strong>로 바꿉니다(현재는 null 허용). 클라이언트를 우회해서 API를 직접 호출해도 막히도록 하는 최종 방어선입니다.</li>
+<li><strong>무료체험(trial)·상담(other) 제외 여부</strong>: 무료체험은 이미 결제 자체를 안 거치고(<code>/api/student/inquiry</code>로 분리됨, 어제 조치), 'other'(맞춤 상담)는 서버 가격표에 없어 카드/가상계좌로는 원천적으로 완결 안 됩니다. 다만 수기접수(<code>manual-request</code>)의 'other' 경로는 지금 로그인 없이도 접수는 가능하므로, 일관성을 위해 이 경로도 로그인을 요구하도록 함께 처리하겠습니다.</li>
+</ol>
+<p><strong>공수</strong>: 클라이언트 가드 0.5일 + 서버 검증 0.5일 = <strong>총 1일</strong>. 기존 로그인 모달·회원가입 흐름을 그대로 재사용하므로 새 화면은 필요 없습니다.</p>
+<hr />
+<h2>2. 강사 선택 화면 — 사진·MBTI·요일·시간대 🟠 P1</h2>
+<p>이 항목은 4개 요청이 섞여 있는데, <strong>성격이 완전히 다릅니다.</strong> 하나씩 보겠습니다.</p>
+<h3>2-1. 강사 사진·MBTI 미노출 — 구조적 문제 (관리자 화면 손보는 걸로는 해결 안 됨)</h3>
+<p><strong>확인된 사실</strong>: 강사 관련 데이터가 서로 <strong>연결되지 않은 3개의 테이블</strong>에 흩어져 있습니다.</p>
+<table>
+<thead>
+<tr>
+<th>테이블</th>
+<th>용도</th>
+<th>건수</th>
+<th>사진</th>
+<th>MBTI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>teachers</code></td>
+<td>급여·스케줄용 (enroll.html이 강사 목록을 여기서 가져옴)</td>
+<td>29건</td>
+<td>❌ 컬럼 자체가 없음</td>
+<td>❌ 컬럼 자체가 없음</td>
+</tr>
+<tr>
+<td><code>teacher_profiles</code></td>
+<td>인사 프로필(관리자 화면)</td>
+<td>30건</td>
+<td>✅ <code>image_url</code> 26건</td>
+<td>✅ <code>mbti</code> 컬럼 보유</td>
+</tr>
+<tr>
+<td><code>teacher_mbti</code></td>
+<td><code>mbti.html</code> 매칭 전용</td>
+<td>19건</td>
+<td>✅ <code>photo_url</code></td>
+<td>✅ <code>mbti</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>enroll.html</code>의 강사 선택 화면(<code>enroll-ops.ts:473</code>)은 <code>teachers</code> 테이블만 조회합니다. 이 테이블엔 애초에 사진·MBTI 컬럼이 없어서(SELECT 자체가 실패하고 폴백 쿼리로 넘어감, <code>enroll-ops.ts:477</code>), 아무리 관리자 화면에서 사진을 올려도 <strong>올릴 곳이 없습니다.</strong></p>
+<p>더 심각한 건, <code>teachers.name</code>과 <code>teacher_profiles.korean_name/english_name</code>, <code>teacher_mbti.teacher_uid</code>를 서로 대조해봤더니 <strong>29명 중 정확히 매칭되는 사람이 1명뿐</strong>이었습니다(이름 표기가 다르거나, 애초에 다른 사람 목록이거나). 즉 "사진 테이블에 사진이 있으니 그냥 조인하면 된다"가 아니라, <strong>어느 <code>teachers.id</code>가 어느 <code>teacher_profiles</code> 행인지 지금은 시스템이 알 방법이 없습니다.</strong></p>
+<p><strong>해결 방안</strong> — 2단계로 나눠야 합니다:</p>
+<ul>
+<li><strong>1단계 (개발)</strong>: <code>teacher_profiles</code> 테이블에 <code>linked_teacher_id INTEGER</code> 컬럼을 추가하고, <code>enroll.html</code>의 강사 목록 쿼리가 <code>teachers</code>에 이 컬럼으로 LEFT JOIN해서 <code>image_url</code>·<code>mbti</code>·<code>intro_video_url</code>을 함께 받아오도록 수정합니다. 급여·스케줄 로직은 지금처럼 <code>teachers.id</code>를 그대로 쓰므로 <strong>기존 기능에 영향 없음</strong>.</li>
+<li><strong>2단계 (데이터 작업, 사람이 해야 함)</strong>: 29명의 <code>teachers.id</code> ↔ <code>teacher_profiles.id</code> 매칭표를 만들어야 합니다. 이름이 안 맞아서 코드가 자동으로 매칭할 수 없고, <strong>잘못 매칭하면 다른 강사의 사진이 나가는 사고</strong>가 됩니다. 관리자 화면에 "이 급여용 강사 계정은 이 프로필입니다"를 고르는 드롭다운을 하나 만들어 사람이 확인하며 연결하는 것을 권장합니다.</li>
+<li>MBTI는 <code>teacher_profiles.mbti</code>를 그대로 쓰면 되고(이미 있음), <code>mbti.html</code>과의 연동은 이번 작업 범위에 포함하지 않고 "강사 선택 화면에 MBTI 노출"까지만 우선 처리하는 것을 제안합니다(연동은 <code>teacher_mbti</code> 테이블까지 얽혀 있어 별도 검토 필요).</li>
+</ul>
+<p><strong>공수</strong>: 1단계 개발 0.5일. 2단계 매칭 작업은 <strong>사람이 해야 하는 일</strong>이라 개발 공수에 포함 안 됨 — 아래 §4 결정 필요 항목 참고.</p>
+<h3>2-2. 요일 선택에 토·일요일이 노출됨 — 간단한 수정</h3>
+<p><code>enroll.html:165</code>의 요일 배열이 일~토 7일을 전부 그대로 보여주고 있습니다. 정책상 평일만 되는데 막고 있는 코드가 없었을 뿐입니다.</p>
+<p><strong>해결</strong>: 요일 칩 렌더링에서 일(0)·토(6)를 제외한 월~금만 클릭 가능하게 하고, 그 자리에 "주말 수업은 별도 문의" 버튼(카카오 상담 연결)을 넣습니다. <strong>공수 0.5일.</strong></p>
+<h3>2-3. 요일별로 다른 시간 지정 불가 — 데이터 구조 자체를 바꿔야 함</h3>
+<p>지금 구조는 "요일 여러 개 + 시각 1개"입니다(<code>st.time</code>은 문자열 하나, <code>st.days</code>는 배열 — 모든 요일에 같은 시각이 적용됨). 서버 파싱(<code>enrollParse</code>, <code>enroll-ops.ts:187-207</code>)도 같은 구조입니다.</p>
+<p>"월요일 19시, 수요일 20시"처럼 요일마다 다른 시각을 넣으려면:
+- 화면: 요일 칩을 고르면 그 요일 옆에 개별 시각 선택이 나오는 UI로 교체
+- 서버: 슬롯 충돌 확인(<code>enrollConflicts</code>)과 스케줄 생성(<code>enrollCreateSchedules</code>)이 지금은 "요일 배열 + 시각 1개"를 전제로 짜여 있어서, "요일-시각 쌍의 배열"을 받도록 로직을 다시 짜야 합니다.</p>
+<p>이건 UI 몇 줄 고치는 게 아니라 <strong>수강신청 스케줄링 로직의 재설계</strong>에 가깝습니다. 다른 3개 항목과 묶지 말고 별도 작업으로 잡는 것을 권장합니다. <strong>공수 2~3일</strong> (충돌검사·저장 로직 회귀 위험 있어 테스트 비중이 큽니다).</p>
+<hr />
+<h2>3. 학부모 페이지 인증 잔존 🟠 P1</h2>
+<h3>확인된 사실</h3>
+<p><code>parent.html:893-905</code>에서 최초 인증 성공 시 <code>localStorage</code>에 <code>mangoi_parent_uid</code> + <code>mangoi_parent_token</code>을 저장하고, 다음 방문부터는 이 토큰만 있으면 비밀번호 재입력 없이 바로 대시보드(<code>pdLoad()</code>)가 열립니다.</p>
+<p>토큰 자체는 서버가 서명(<code>auth-token.ts:29</code>)하므로 위조는 불가능합니다. 문제는 <strong>유효기간이 30일</strong>이라는 점입니다(<code>signUidToken(uid, env, ttlMs=30*86400*1000)</code>). 같은 브라우저를 쓰는 자녀(학생)가 30일 이내에는 비밀번호 없이 학부모 페이지를 열 수 있습니다. 비밀번호를 아예 설정하지 않은 계정은 uid만으로도 토큰이 발급됩니다(<code>api-students.ts:429</code>).</p>
+<h3>해결 방안</h3>
+<p>제보 원문에 이미 정확한 방향이 적혀 있습니다: <strong>"기본값은 매번 재인증, 필요한 사람만 선택적으로 자동로그인 유지."</strong> 이대로 구현하는 것을 제안합니다.</p>
+<ol>
+<li>학부모 페이지 진입 시 <strong>기본은 항상 비밀번호(또는 동등한 인증) 재입력</strong>을 요구합니다. 지금처럼 토큰만 보고 자동으로 열리는 경로를 제거합니다.</li>
+<li>인증 화면에 <strong>"이 기기에서 30일간 로그인 유지"</strong> 체크박스를 추가합니다. 기본값은 <strong>체크 해제</strong>. 학부모가 직접 체크해야만 토큰이 저장됩니다.</li>
+<li>체크하지 않았다면, 페이지를 벗어나는 순간(또는 세션 종료 시) 토큰을 즉시 지웁니다.</li>
+<li>로그아웃 버튼을 누르면 로컬 토큰과 서버측 유효성 모두 확실히 만료되는지 함께 점검합니다.</li>
+</ol>
+<p><strong>공수</strong>: 0.5~1일. UI(체크박스 하나)와 저장 조건 분기만 바꾸면 되고, 서버의 토큰 서명·검증 로직은 그대로 재사용합니다.</p>
+<hr />
+<h2>4. 연장결제 "결제수단 선택" 미노출 🔴 P0</h2>
+<h3>확인된 사실 — 여기가 이번 제보에서 가장 심각합니다</h3>
+<p>연장결제(같은 코스/업그레이드/추가회차) 흐름에서 "결제수단 선택"까지는 정상적으로 화면에 진입합니다(<code>selectedProgram</code>/<code>selectedPrice</code> 동기화 코드 자체는 정상 동작, <code>idx-payment-modal.js:236-247</code>). 하지만 <strong>어떤 결제수단을 선택해도 결제가 완결되지 않습니다.</strong></p>
+<p>원인은 연장 패키지에 붙는 ID 값입니다.</p>
+<pre><code class="language-js">// idx-payment-modal.js:860, 880, 916
+id: s.current_program + '-extend',        // 예: '1on1-8-extend'
+id: series[idx+1] + '-extend',            // 업그레이드
+id: 'addon-' + n,                         // 추가회차
+</code></pre>
+<p>이 ID들을 그대로 서버에 보내는데, 서버의 가격표(<code>api-pay.ts:26-42</code> <code>PRICES</code>)에는 <code>1on1-8</code>, <code>group-12</code> 같은 <strong>신규 구매용 상품 ID만</strong> 있습니다. <code>1on1-8-extend</code>, <code>addon-8</code> 같은 연장 전용 ID는 <strong>단 하나도 없습니다.</strong> 그래서:
+- 카드/가상계좌(<code>create-order</code>) → <code>unknown_program</code> 오류로 거부(<code>api-pay.ts:103</code>)
+- 카카오·토스·계좌이체(<code>manual-request</code>) → <code>not_payable</code> 오류로 거부(<code>api-pay.ts:167</code>)</p>
+<p>즉 결제수단 카드 자체는 보이지만, <strong>어느 것을 눌러도 서버가 상품을 못 알아봐서 결제가 끝까지 갈 수 없는</strong> 상태입니다. (제보 원문의 "빈 화면"이라는 표현과 정확히 같은 증상인지는 알림창이 뜨는지 여부에 따라 다를 수 있어, 수정 후 실제 클릭으로 재확인이 필요합니다.)</p>
+<p><strong>더 중요한 사실 하나</strong>: <code>enroll.html</code>에는 이미 <strong>정상 동작하는 별개의 연장결제 기능</strong>이 있습니다(<code>/api/pay/enroll/renew-order</code>, <code>enroll-ops.ts:557</code>). 이쪽은 금액을 고정 가격표에서 찾지 않고 <strong>서버가 그때그때 다시 계산</strong>해서 정확한 금액으로 주문을 만듭니다. 즉, <strong>이번에 고친 홈 결제창의 연장 기능과, 이미 잘 되고 있는 enroll.html의 연장 기능이 서로 다른 두 벌로 존재</strong>하고 있었고, 새로 만든 쪽(홈 결제창, 업그레이드·추가옵션까지 지원하는 더 복잡한 버전)이 처음부터 서버와 안 맞은 채로 배포됐던 것으로 보입니다.</p>
+<h3>해결 방안 — 두 가지 선택지</h3>
+<table>
+<thead>
+<tr>
+<th>안</th>
+<th>내용</th>
+<th>장단점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A. 서버가 연장 금액을 동적으로 인식하게 함</strong></td>
+<td><code>create-order</code>/<code>manual-request</code>가 연장 주문일 때는 고정 가격표 대신, 클라이언트가 계산한 금액을 서버가 다시 계산해서 대조하는 방식으로 바꿈(<code>enroll.html</code>의 renew-order가 이미 하는 방식과 동일)</td>
+<td>지금의 업그레이드·추가옵션(강사고정·영작첨삭 등) 기능을 그대로 살릴 수 있음. 다만 이 복잡한 로직이 실제로 한 번도 결제 성공까지 간 적이 없어서(서버가 항상 거부해왔으므로), 검증이 많이 필요함</td>
+</tr>
+<tr>
+<td><strong>B. enroll.html의 이미 검증된 연장 기능으로 통일</strong></td>
+<td>홈 결제창의 "연장 결제" 버튼을 눌렀을 때, 어제 1:1 신규결제를 enroll.html로 보낸 것과 같은 방식으로 연장도 enroll.html로 보냄</td>
+<td>이미 정상 동작 확인된 코드를 재사용해 안전함. 다만 업그레이드·추가옵션(부가서비스) 같은 세부 기능은 enroll.html에 없어서, 그 기능을 원하시면 이 안으로는 부족함</td>
+</tr>
+</tbody>
+</table>
+<p><strong>권장</strong>: <strong>B안.</strong> 이유는 어제와 같습니다 — 검증된 코드를 재사용하는 편이 사고 반경이 작고, 지금 A안대로 복잡한 로직을 살리려면 "한 번도 성공한 적 없는 기능"을 처음부터 제대로 검증해야 해서 오히려 공수가 더 듭니다. 업그레이드·추가옵션 기능이 꼭 필요하시면 A안으로 가되, 그 경우는 별도 일정으로 잡는 것을 제안합니다. <strong>어느 안으로 갈지는 의사결정이 필요합니다 (§4 참고).</strong></p>
+<p><strong>공수</strong>: B안 1일 / A안 2~3일(검증 포함).</p>
+<hr />
+<h2>5. 강사소개 그룹명(노란 글씨) 표기 🟢 P2</h2>
+<h3>확인된 사실</h3>
+<p><code>idx-grid-menu.js:162, 168</code>:</p>
+<pre><code class="language-js">const spec = t.group_name || t.certifications || '영어 회화';
+specEl.textContent = spec;   // .ph-spec { color:#fbbf24 } (노란색) — index.html:21384
+</code></pre>
+<p><code>t.group_name</code>은 <code>teacher_profiles.group_name</code> 값을 그대로 받아온 것이고, 실제 값들을 보면 "Office Teacher"(12건), "Home-based"(9건), "중국어 강사"(2건), "Head Teacher"(2건) 등 <strong>관리자가 자유 입력한 내부 분류값</strong>이 그대로 노출되고 있었습니다. 영/한 혼용이라 학부모 입장에서는 더 혼란스러울 수 있습니다.</p>
+<h3>해결 방안</h3>
+<ul>
+<li><code>idx-grid-menu.js</code>에서 이 요소를 화면에 그리지 않도록 제거(또는 <code>certifications</code>가 있으면 그것만, 없으면 아예 빈칸)합니다.</li>
+<li><code>teacher_profiles.group_name</code> 데이터·관리자 화면(admin.html)의 편집 기능은 그대로 둡니다 — 내부 배정용으로 계속 쓰이므로 삭제 대상이 아닙니다.</li>
+<li>그 자리가 비면서 카드 레이아웃이 어색해지지 않는지 확인 후 여백을 재정렬합니다.</li>
+</ul>
+<p><strong>공수</strong>: 0.5일 (프론트 전용, 서버·DB 변경 없음).</p>
+<hr />
+<h2>6. 실행 계획</h2>
+<table>
+<thead>
+<tr>
+<th>순위</th>
+<th>항목</th>
+<th>조치</th>
+<th>공수</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P0</td>
+<td>#1 비로그인 결제</td>
+<td>클라이언트 로그인 가드 + 서버 uid 필수화</td>
+<td>1일</td>
+<td>결정 불필요, 바로 착수 가능</td>
+</tr>
+<tr>
+<td>P0</td>
+<td>#4 연장결제 결제수단 미노출</td>
+<td>B안(enroll.html 재사용) 권장</td>
+<td>1일</td>
+<td><strong>A/B 중 결정 필요</strong></td>
+</tr>
+<tr>
+<td>P1</td>
+<td>#2-2 요일 토·일 제외</td>
+<td>월~금 제한 + 주말 상담버튼</td>
+<td>0.5일</td>
+<td>결정 불필요</td>
+</tr>
+<tr>
+<td>P1</td>
+<td>#3 학부모 인증 잔존</td>
+<td>기본 재인증 + 선택적 "로그인 유지" 체크박스</td>
+<td>0.5~1일</td>
+<td>결정 불필요(요청안 그대로 채택)</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>#5 그룹명 노출</td>
+<td>프론트 요소 제거</td>
+<td>0.5일</td>
+<td>결정 불필요</td>
+</tr>
+<tr>
+<td>P1</td>
+<td>#2-1 강사 사진·MBTI</td>
+<td>연결 컬럼 추가(개발)</td>
+<td>0.5일</td>
+<td><strong>DB 매칭 작업은 사람이 해야 함</strong></td>
+</tr>
+<tr>
+<td>P1</td>
+<td>#2-3 요일별 다른 시간</td>
+<td>스케줄링 데이터구조 재설계</td>
+<td>2~3일</td>
+<td>별도 일정 권장</td>
+</tr>
+</tbody>
+</table>
+<p><strong>총 개발 공수(사람이 해야 하는 DB 매칭·A안 선택 시 추가공수 제외): 약 5~6일</strong></p>
+<hr />
+<h2>7. 결정이 필요한 사항</h2>
+<ol>
+<li><strong>#4 연장결제 — A안(기능 유지, 검증 필요) vs B안(검증된 기능 재사용, 일부 기능 축소)</strong> 중 선택 필요. 업그레이드·부가옵션(강사고정·영작첨삭 등) 기능이 실제 운영에 꼭 필요한 기능인지 확인 부탁드립니다.</li>
+<li><strong>#2-1 강사 사진·MBTI 연결 — 29명분 매칭 작업</strong>은 개발이 자동으로 할 수 없습니다(이름이 안 맞아 자동 매칭 시 강사를 잘못 연결할 위험). 관리자 화면에 매칭용 드롭다운을 만들어 사람이 확인하며 연결하는 방식을 제안드리는데, 이 작업을 누가·언제 할지 정해주셔야 합니다.</li>
+<li><strong>#2-3 요일별 다른 시간 지정</strong>은 스케줄링 로직 재설계급 작업이라 다른 항목과 일정을 분리하는 걸 권장드립니다 — 언제까지 필요하신지 알려주시면 그에 맞춰 일정을 잡겠습니다.</li>
+</ol>
+<hr />
+<p><em>본 보고서의 모든 파일:라인·DB 수치는 2026-07-30 기준 실측입니다. 코드 수정은 아직 수행하지 않았습니다.</em></p>
+</div></body></html>

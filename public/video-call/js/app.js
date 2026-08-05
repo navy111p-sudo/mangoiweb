@@ -97,6 +97,9 @@ document.getElementById('toggle-cam').addEventListener('click', function() {
   const videoTrack = localStream.getVideoTracks()[0];
   if (!videoTrack) return;
   videoTrack.enabled = !videoTrack.enabled;
+  /* 🚚 자동 변속기에게 «사람이 직접 껐다» 를 알려 준다.
+     이게 없으면 회선이 좋아졌을 때 변속기가 카메라를 멋대로 다시 켠다 — 강사가 일부러 끈 것을 되돌리면 사고다. */
+  window.__liteCamOff = !videoTrack.enabled;
   this.classList.toggle('active', !videoTrack.enabled);
   this.textContent = videoTrack.enabled ? '📷' : '📷';
 });

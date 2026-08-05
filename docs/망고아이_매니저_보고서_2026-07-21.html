@@ -1,0 +1,143 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<title>망고아이 매니저 보고서 (2026-07-21)</title>
+<style>
+@page { size: A4; margin: 12mm 11mm; }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Malgun Gothic","맑은 고딕",sans-serif; font-size: 10.8pt; line-height: 1.6; color:#111827; margin:0; }
+.banner { background: linear-gradient(120deg, #f97316, #f43f5e 55%, #8b5cf6); color:#fff; border-radius: 14px; padding: 14px 18px 12px; margin-bottom: 10px; }
+.banner h1 { font-size: 17pt; margin: 0 0 3px; color:#fff; }
+.banner .sub { font-size: 9.3pt; color:#ffe9d6; }
+h2.sec { font-size: 13pt; color:#fff; margin: 16px 0 8px; padding: 7px 14px; border-radius: 10px; page-break-after: avoid; }
+h2.c1 { background: linear-gradient(90deg, #2563eb, #06b6d4); }
+h2.c2 { background: linear-gradient(90deg, #f59e0b, #f97316); }
+h2.c3 { background: linear-gradient(90deg, #16a34a, #84cc16); }
+h2.c4 { background: linear-gradient(90deg, #dc2626, #f43f5e); }
+h2.c5 { background: linear-gradient(90deg, #7c3aed, #c026d3); }
+h3 { font-size: 11.2pt; color:#1e3a8a; margin: 11px 0 5px; }
+p { margin: 5px 0; }
+ul { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 3px 0; }
+table { border-collapse: collapse; width: 100%; margin: 7px 0 11px; }
+tr { page-break-inside: avoid; }
+th, td { border: 1px solid #e2e8f0; padding: 5px 8px; vertical-align: top; text-align: left; font-size: 9.8pt; }
+th { color: #fff; font-weight: 700; }
+.t-blue th { background: #2563eb; }
+.t-amber th { background: #f59e0b; }
+.t-green th { background: #16a34a; }
+.t-purple th { background: #7c3aed; }
+tbody tr:nth-child(even) td { background: #f8fafc; }
+.box { border-radius: 12px; padding: 10px 13px; margin: 8px 0; page-break-inside: avoid; }
+.box.summary { background: linear-gradient(135deg, #fff7e0, #ffe8f0); border: 2.5px solid #f97316; }
+.box.warn { background: #fff1f2; border: 2.5px solid #e11d48; }
+.box.act { background: #f0fdf4; border: 2.5px solid #16a34a; }
+.feel { background: linear-gradient(135deg, #eef2ff, #fdf4ff); border-left: 6px solid #8b5cf6; border-radius: 0 10px 10px 0; padding: 8px 12px; margin: 6px 0; font-size: 10pt; color:#374151; }
+sup { color:#dc2626; font-weight: 700; font-size: 8pt; }
+.term { border-bottom: 2px dotted #dc2626; }
+.star { color:#f59e0b; letter-spacing: 0.5px; white-space: nowrap; font-size: 9pt; text-shadow: 0 0 1px #b45309; }
+.dday { color:#fff; background:#dc2626; border-radius: 6px; padding: 0 6px; font-weight: 800; }
+.small { font-size: 9pt; color:#6b7280; }
+.who { display:inline-block; padding: 1px 9px; border-radius: 999px; font-size: 8.5pt; font-weight: 800; color:#fff; }
+.who.mgr { background:#16a34a; }
+.who.ceo { background:#dc2626; }
+.who.ai { background:#2563eb; }
+.ok { color:#16a34a; font-weight:800; }
+.no { color:#dc2626; font-weight:800; }
+</style></head><body>
+
+<div class="banner">
+<h1>🥭 망고아이 매니저 보고서 — 크몽 회의 결과와 우리가 할 일</h1>
+<div class="sub">2026년 7월 21일 · 매니저 공유용 (IT 지식 없이 읽을 수 있게 작성) · 밑줄 용어<sup style="color:#ffd7d7">번호</sup>는 맨 뒤 "용어 풀이" 참조 · ⭐ 중요도 1~7개 (⭐7개 = 반드시, 매우 중요!)</div>
+</div>
+
+<div class="box summary">
+<b>📌 세 줄 요약</b><br>
+① 외부 개발사(크몽<sup>1</sup> 소개 '똑똑한개발자')와 회의한 결과 — "처음부터 다시 만들자(6~7천만 원)"는 제안이지만, <b>그들이 만들겠다는 것의 절반은 이미 우리에게 있습니다.</b><br>
+② 진짜 급한 일은 따로 있습니다 — <b>옛 서버 이사</b>(임대 계약 <span class="dday">8월 15일 만료</span>)와 <b>결제 자동화 복원</b>.<br>
+③ 매니저 여러분이 도와줄 일이 명확합니다 — 특히 <b>"결제 규칙 질문지" 작성이 최우선</b>입니다 (아래 4장).
+</div>
+
+<h2 class="sec c1">1. 크몽·똑똑한개발자 회의 — 결과, 우리의 의견과 느낌</h2>
+
+<h3>회의에서 그들이 한 말 vs 사실</h3>
+<table class="t-blue">
+<tr><th>그들의 주장·제안</th><th>우리의 검토 결과</th></tr>
+<tr><td>"화상수업을 직접 만들면 불안정하고 비싸다. 외부 제품을 사서 쓰라"</td><td><span class="no">❌ 사실과 다름</span> — 우리 화상수업은 이미 자체 개발되어 몇 주째 실수업 운영 중. 끊기면 스스로 복구되고, 수업 중 포인트·게임·교재 같은 우리만의 기능은 외부 제품엔 없음</td></tr>
+<tr><td>"결제를 토스<sup>2</sup>로 바꿔주겠다"</td><td><span class="ok">✅ 이미 우리가 완료</span> (심사만 대기 중) — 견적에서 빼야 할 항목</td></tr>
+<tr><td>"AI 기능은 '수업 후 자동 학습 리포트' 1개부터 만들어주겠다"</td><td><span class="ok">✅ 이미 운영 중</span> — 수업이 끝나면 자동으로 리포트가 생성되고 있음. 이미 있는 것을 살 뻔함</td></tr>
+<tr><td>"결제하면 수업이 자동으로 잡히는 로직을 100% 이관해야 한다"</td><td><span class="ok">⭕ 유일하게 맞는 말</span> — 우리도 최우선 과제로 이미 시작함 (매니저 질문지가 그 재료!)</td></tr>
+<tr><td>"시장가 6~7천만 원대 패키지로 제안하겠다"</td><td>⏳ 견적서가 오면 항목별로 "이미 있음 / 필요 / 불필요"를 따져 필요한 것만 검토</td></tr>
+</table>
+
+<h3>우리의 솔직한 느낌</h3>
+<div class="feel">
+💬 그들은 나쁜 사람들이 아니고 실력도 있어 보입니다. 다만 <b>3주 전의 옛 자료(구판 설계서)를 보고 견적을 준비</b>하고 있었고, 회의 내내 기준이 "2019년에 만든 옛 시스템"이었습니다. 비유하면 — <b>우리는 이미 새집에 이사했는데, 옛집을 둘러보고 "새집을 지어드리겠다"는 견적을 만들고 있는 상황</b>입니다. 그래서 우리 방침은: 싸울 필요 없이 사실만 정정해 주고(회신 메일 준비 완료), 필요한 것만 골라 쓰는 것 — 비상시 도와줄 보험 계약, 그리고 원하면 서버 이사 대행 정도입니다.
+</div>
+<div class="box warn">
+<b>🚨 주의 1</b> — 그들이 <b>백오피스<sup>3</sup> 관리자 계정을 공유해 달라</b>고 요청했습니다. <b>절대 직접 전달하지 마세요.</b> 외부 업체가 계정·비밀번호·학생정보를 요청하면 어떤 경우든 <b>대표님을 통해서만</b> 진행합니다. (회사 차원에서 "메뉴 구조 문서"를 만들어 전달합니다 — 이미 준비됨)<br>
+<b>🚨 주의 2</b> — "3년 단위 장기 고도화" 같은 말은 장기 계약으로 묶으려는 신호일 수 있습니다. 업체와의 통화·미팅 내용은 꼭 대표님께 공유해 주세요.
+</div>
+
+<h2 class="sec c2">2. 전체 할 일 — 중요도 별점표 (⭐7 = 반드시!)</h2>
+<table class="t-amber">
+<tr><th>중요도</th><th>할 일</th><th>담당</th><th>쉬운 설명</th></tr>
+<tr><td class="star">⭐⭐⭐⭐⭐⭐⭐</td><td><b>서버 이사 (카페24→NCP<sup>4</sup>)</b></td><td><span class="who ceo">대표</span> <span class="who ai">AI</span></td><td>데이터가 사는 건물의 임대계약이 <span class="dday">8/15 종료</span>. 이사 계획은 준비 끝, 시작만 하면 됨</td></tr>
+<tr><td class="star">⭐⭐⭐⭐⭐⭐⭐</td><td><b>결제 규칙 질문지 작성</b></td><td><span class="who mgr">매니저</span></td><td>"결제하면 수업이 자동으로 잡히는" 옛 시스템 규칙의 정답지 — <b>매니저만 아는 지식</b>이라 여러분 없이는 개발 불가! (4장)</td></tr>
+<tr><td class="star">⭐⭐⭐⭐⭐⭐</td><td>서버 원격접속(SSH<sup>5</sup>) 복구 문의</td><td><span class="who ceo">대표</span></td><td>카페24에 전화 한 통 — 막힌 통로가 뚫려야 이사·매출 복원이 시작됨</td></tr>
+<tr><td class="star">⭐⭐⭐⭐⭐⭐</td><td>결제→수업 자동 배정 개발</td><td><span class="who ai">AI</span></td><td>질문지가 회수되는 즉시 개발 시작 — 완성되면 매니저 수작업(수업 넣어주기)이 사라짐</td></tr>
+<tr><td class="star">⭐⭐⭐⭐⭐</td><td>크몽에 정정 회신 발송</td><td><span class="who ceo">대표</span></td><td>사실 정정 3건+견적 분리 요청 문안 준비 완료 — 발송만 남음</td></tr>
+<tr><td class="star">⭐⭐⭐⭐⭐</td><td>7월 매출 "주인 찾아주기"</td><td><span class="who ai">AI</span></td><td>결제 기록과 학생 연결표 복원 (SSH 복구 후 즉시)</td></tr>
+<tr><td class="star">⭐⭐⭐⭐</td><td>토스 결제 정식 오픈 (PG 심사<sup>6</sup>)</td><td><span class="who ceo">대표</span></td><td>심사 신청서 제출 — 통과하면 카드결제 바로 열림 (코드는 완성됨)</td></tr>
+<tr><td class="star">⭐⭐⭐⭐</td><td>첫 화면 단순화</td><td><span class="who ai">AI</span></td><td>"복잡하다"는 지적 수용 — 어떤 메뉴가 실제 쓰이는지 자동 집계 중, 1~2주 데이터 보고 정리</td></tr>
+<tr><td class="star">⭐⭐⭐</td><td>신기능 베타 테스트</td><td><span class="who mgr">매니저</span></td><td>새 기능이 나오면 1주일 먼저 써보고 의견 주기 (최근: AI 친구 개인화·목소리 선택·온보딩)</td></tr>
+<tr><td class="star">⭐⭐⭐</td><td>카카오 알림톡 승인</td><td><span class="who ceo">대표</span></td><td>노쇼·결석 자동 알림용 템플릿 승인 신청</td></tr>
+<tr><td class="star">⭐⭐</td><td>화면 캡처 팩(마스킹) 준비</td><td><span class="who ai">AI</span></td><td>크몽에 줄 참고자료 — 개인정보 가리고 준비</td></tr>
+<tr><td class="star">⭐</td><td>학원관리(ERP) 사업 확장 검토</td><td><span class="who ceo">대표</span></td><td>장기 구상 — 서버 이사 안정화 후</td></tr>
+</table>
+
+<h2 class="sec c3">3. 우리 시스템, 지금 어디까지 와 있나 (현황 한 장)</h2>
+<table class="t-green">
+<tr><th>분야</th><th>상태</th></tr>
+<tr><td>화상수업</td><td><span class="ok">✅</span> 자체 시스템 실수업 운영 중 — 끊김 자동복구, 인터넷 나쁠 땐 음성이라도 유지</td></tr>
+<tr><td>학습·게임</td><td><span class="ok">✅</span> 교재 연동 게임 15종 + 단어장 + 발음 코칭 + 판단력 훈련(한/영/중)</td></tr>
+<tr><td>AI</td><td><span class="ok">✅</span> 10여 종 가동 — 이번 주 추가: AI 친구가 <b>학생 이름·교재·틀린 단어를 아는 친구</b>로 업그레이드, 목소리 남/여/번갈아 선택, 이모지 낭독 제거</td></tr>
+<tr><td>학생 안내</td><td><span class="ok">✅</span> 첫 로그인 시 30초 사용 안내(온보딩) 자동 표시 — 신규 학생 문의가 줄어들 것</td></tr>
+<tr><td>보안·백업</td><td><span class="ok">✅</span> 매일 밤 자동 백업 + 24시간 감시(다운 시 대표님 폰 문자) + 침입 점검 5차</td></tr>
+<tr><td>남은 약점</td><td>⚠ 옛 서버 계약 만료(8/15) · 결제→수업 자동 배정 미이식(질문지로 해결) · 화면 복잡(데이터 기반 정리 예정)</td></tr>
+</table>
+
+<h2 class="sec c4">4. 매니저 여러분과 "반드시" 해야 할 것 — 4가지</h2>
+<div class="box act">
+<b>① ⭐⭐⭐⭐⭐⭐⭐ 결제 규칙 질문지 작성 → 수요일(7/23)까지 회수</b><br>
+전달받은 「결제규칙_질문지_매니저용」 PDF의 빈칸을 채워주세요. 수강권 종류·가격, 결제 시 학생이 고르는 것(요일·시간·강사), 연장·종료·보강 규칙 등 7개 영역입니다. <b>정확한 숫자를 몰라도 "대략 이랬다"도 좋고, 예외 사례가 특히 귀합니다.</b> 이 답변이 그대로 새 자동화의 설계도가 됩니다 — 완성되면 "결제 확인하고 수업 넣어주는" 수작업이 사라집니다.<br><br>
+<b>② ⭐⭐⭐⭐ 버그·불편 신고는 한 곳으로</b><br>
+학생·학부모·강사에게 들은 오류·불편은 관리자 화면의 <b>버그 신고함</b>에 남겨주세요(카톡으로 흩어지면 놓칩니다). 대부분 당일 수정됩니다.<br><br>
+<b>③ ⭐⭐⭐⭐ 비상 대응 원페이지 숙지</b><br>
+「망고아이_비상대응_원페이지_직원용」 1장을 읽고 사무실에 붙여주세요 — 사이트 이상 시 확인 순서(새로고침→폰 데이터→대표님 전화)와 학부모 응대 문구가 있습니다.<br><br>
+<b>④ ⭐⭐⭐ 새 기능을 학생·학부모에게 알려주기</b><br>
+"AI 친구가 우리 아이 교재랑 틀린 단어를 알고 대화해 줘요"는 학부모에게 강력한 한마디입니다. 상담·안내 때 활용해 주세요. 목소리(남/여)도 고를 수 있게 됐습니다.
+</div>
+
+<h2 class="sec c5">5. 용어 풀이 + 주의사항</h2>
+<table class="t-purple">
+<tr><th>#</th><th>용어</th><th>쉬운 설명</th></tr>
+<tr><td>1</td><td>크몽</td><td>개발자 등 전문가를 소개해 주는 국내 외주 중개 사이트. '똑똑한개발자'는 크몽이 소개한 개발 회사</td></tr>
+<tr><td>2</td><td>토스(토스페이먼츠)</td><td>온라인 카드결제를 처리해 주는 결제 회사. 옛 시스템은 KCP라는 다른 회사를 썼음</td></tr>
+<tr><td>3</td><td>백오피스</td><td>관리자 화면 — 학생·강사·결제·통계를 관리하는 내부 시스템 (현재 86개 기능)</td></tr>
+<tr><td>4</td><td>NCP</td><td>네이버 클라우드 — 낡은 카페24 서버의 데이터가 이사 갈 새 집</td></tr>
+<tr><td>5</td><td>SSH</td><td>서버에 원격으로 접속하는 열쇠(통로). 지금 막혀 있어 몇 가지 작업이 대기 중</td></tr>
+<tr><td>6</td><td>PG 심사</td><td>카드결제를 정식으로 열기 전 결제회사가 우리 사업자를 확인하는 절차</td></tr>
+<tr><td>7</td><td>MVP</td><td>"가장 중요한 최소 기능부터 먼저" 만드는 개발 방식. 회의에서 자주 나온 단어</td></tr>
+<tr><td>8</td><td>SRS(설계서)</td><td>시스템 전체를 정리한 도면 문서. 크몽이 갖고 있는 건 3주 전 구판이라 정정 예정</td></tr>
+</table>
+
+<div class="box warn">
+<b>🔒 보안 주의사항 (전 직원 공통)</b><br>
+· 외부 업체(크몽 포함)가 <b>계정·비밀번호·학생 개인정보</b>를 요청하면 절대 직접 주지 말고 대표님께 전달<br>
+· 관리자 화면을 캡처해 외부에 보낼 때는 학생 이름·전화번호가 보이지 않는지 확인<br>
+· 업체와의 통화·메시지 내용은 대표님께 공유 (계약 관련 발언은 특히)<br>
+· 사무실 PC에 비밀번호를 메모지로 붙여두지 않기
+</div>
+
+<p class="small">작성: 망고아이 개발 AI(클로드) · 근거: 크몽 회의 녹음 49분 전사 + 회의록 이메일(7/21) 검증 + 개발 기록 전체 · 문의는 대표님께 · 관련 문서: 새 망고아이 개발 폴더(알기쉬운 종합보고서, 비상대응 원페이지, 결제규칙 질문지)</p>
+
+</body></html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>강사 관리 개편안 시안 (Teacher Hub Redesign Mockup)</title>
+<style>
+  :root{
+    --bg:#0f1424; --panel:#171d33; --panel2:#1e2540; --line:#2b3357;
+    --violet:#8b5cf6; --violet-d:#6d28d9; --amber:#fbbf24;
+    --txt:#e6ecff; --txt2:#a3b3d1; --txt3:#6b779b;
+    --green:#34d399; --red:#f87171; --blue:#60a5fa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Malgun Gothic','Segoe UI',sans-serif;background:var(--bg);color:var(--txt);padding:20px;font-size:14px;line-height:1.5}
+  .wrap{max-width:1080px;margin:0 auto}
+
+  .demo-note{background:linear-gradient(135deg,rgba(251,191,36,.14),rgba(245,158,11,.05));border:1px solid rgba(251,191,36,.4);border-left:5px solid var(--amber);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12.5px;color:#fde68a}
+  .demo-note b{color:var(--amber)}
+
+  /* 상단 진입 탭 (전사 단위) */
+  .top-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .top-tab{padding:11px 20px;border-radius:12px 12px 0 0;background:var(--panel);border:1px solid var(--line);border-bottom:none;color:var(--txt2);cursor:pointer;font-weight:700;font-size:14px;transition:.15s}
+  .top-tab .en{display:block;font-size:10px;color:var(--txt3);font-weight:500;margin-top:1px}
+  .top-tab:hover{background:var(--panel2);color:var(--txt)}
+  .top-tab.on{background:linear-gradient(135deg,var(--violet),var(--violet-d));color:#fff;border-color:var(--violet)}
+  .top-tab.on .en{color:#e9d5ff}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+
+  /* 검색+등록 바 */
+  .listbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .listbar input{flex:1;min-width:160px;padding:9px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--txt);font-size:13px}
+  .btn{padding:9px 16px;border-radius:9px;border:none;font-weight:700;font-size:13px;cursor:pointer}
+  .btn-primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+  .btn-ghost{background:var(--panel2);color:var(--txt2);border:1px solid var(--line)}
+  .filter-chip{padding:6px 12px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);color:var(--txt2);font-size:12px;cursor:pointer}
+  .filter-chip.on{background:rgba(139,92,246,.2);border-color:var(--violet);color:#c4b5fd}
+
+  /* 목록 표 */
+  table{width:100%;border-collapse:collapse}
+  thead th{text-align:left;padding:9px 12px;font-size:11.5px;color:var(--txt3);border-bottom:2px solid var(--line);text-transform:uppercase;letter-spacing:.4px}
+  tbody tr{border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+  tbody tr:hover{background:var(--panel2)}
+  tbody td{padding:11px 12px;font-size:13.5px}
+  .av{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:13px;margin-right:9px;vertical-align:middle}
+  .badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800}
+  .b-active{background:rgba(52,211,153,.16);color:var(--green)}
+  .b-leave{background:rgba(248,113,113,.16);color:var(--red)}
+  .b-new{background:rgba(96,165,250,.16);color:var(--blue)}
+  .b-mgr{background:rgba(251,191,36,.16);color:var(--amber)}
+  .row-name{font-weight:700}
+  .go{color:var(--txt3);font-size:18px}
+
+  /* 강사 상세 */
+  .hidden{display:none}
+  .back{display:inline-flex;align-items:center;gap:6px;color:var(--txt2);background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;margin-bottom:14px}
+  .back:hover{color:var(--txt)}
+  .detail-head{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:0}
+  .av-lg{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:24px;flex-shrink:0}
+  .detail-head h2{font-size:20px}
+  .detail-head .sub{color:var(--txt2);font-size:12.5px;margin-top:3px}
+
+  /* 상세 탭 */
+  .dtabs{display:flex;gap:4px;margin-top:16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .dtab{padding:10px 16px;color:var(--txt2);cursor:pointer;font-weight:700;font-size:13.5px;border-bottom:2.5px solid transparent;transition:.12s}
+  .dtab .en{font-size:9.5px;color:var(--txt3);font-weight:500;margin-left:4px}
+  .dtab:hover{color:var(--txt)}
+  .dtab.on{color:#fff;border-bottom-color:var(--amber)}
+  .dtab.on .en{color:var(--amber)}
+  .dpane{padding:20px 4px 4px;display:none}
+  .dpane.on{display:block}
+
+  .field{display:grid;grid-template-columns:130px 1fr;gap:6px 14px;padding:9px 0;border-bottom:1px solid rgba(43,51,87,.5);font-size:13.5px}
+  .field .k{color:var(--txt3);font-size:12px;padding-top:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:14px}
+  .stat .n{font-size:24px;font-weight:800;color:var(--amber)}
+  .stat .l{font-size:11.5px;color:var(--txt2);margin-top:2px}
+  .mini{width:100%;border-collapse:collapse;margin-top:8px}
+  .mini th{font-size:11px;color:var(--txt3);text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  .mini td{font-size:13px;padding:8px 10px;border-bottom:1px solid rgba(43,51,87,.5)}
+  .sec-title{font-size:13px;font-weight:800;color:#c4b5fd;margin:4px 0 10px;display:flex;align-items:center;gap:7px}
+  .star{color:var(--amber)}
+  .memo{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--violet);border-radius:8px;padding:11px 13px;margin-bottom:9px;font-size:13px}
+  .memo .meta{font-size:11px;color:var(--txt3);margin-bottom:4px}
+  textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:10px;font-size:13px;font-family:inherit;resize:vertical}
+
+  .pane-simple{padding:26px;text-align:center;color:var(--txt2)}
+  .pane-simple .big{font-size:15px;color:var(--txt);font-weight:700;margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="demo-note">
+    <b>📐 시안(Mockup)입니다.</b> 실제 서비스와 분리된 클릭 데모예요. 데이터는 예시입니다.
+    강사 이름을 <b>클릭</b>하면 → 그 강사의 <b>프로필·수업배정·급여·평가·메모</b>가 한 화면 탭으로 열립니다.
+  </div>
+
+  <!-- 상단 진입 탭 (전사 단위) -->
+  <div class="top-tabs">
+    <div class="top-tab on" data-top="list" onclick="topTab('list')">강사 목록<span class="en">Teachers</span></div>
+    <div class="top-tab" data-top="pay" onclick="topTab('pay')">급여 정산<span class="en">Payroll</span></div>
+    <div class="top-tab" data-top="req" onclick="topTab('req')">승인 요청함<span class="en">Requests</span></div>
+    <div class="top-tab" data-top="stat" onclick="topTab('stat')">통계<span class="en">Stats</span></div>
+  </div>
+
+  <!-- ===== 강사 목록 ===== -->
+  <div id="top-list" class="card">
+    <!-- 목록 뷰 -->
+    <div id="view-roster">
+      <div class="listbar">
+        <input placeholder="이름·연락처 검색  (Search name / phone)">
+        <div class="filter-chip on">전체 42</div>
+        <div class="filter-chip">활동중 34</div>
+        <div class="filter-chip">신규 3</div>
+        <div class="filter-chip">휴직 5</div>
+        <button class="btn btn-primary">＋ 강사 등록</button>
+      </div>
+      <table>
+        <thead><tr><th>강사 / Teacher</th><th>구분</th><th>상태</th><th>주간 수업</th><th>평점</th><th></th></tr></thead>
+        <tbody id="roster-body"></tbody>
+      </table>
+    </div>
+
+    <!-- 상세 뷰 -->
+    <div id="view-detail" class="hidden">
+      <button class="back" onclick="closeDetail()">← 강사 목록으로 (Back)</button>
+      <div class="detail-head">
+        <div class="av-lg" id="d-av"></div>
+        <div style="flex:1">
+          <h2 id="d-name"></h2>
+          <div class="sub" id="d-sub"></div>
+        </div>
+        <div id="d-badges"></div>
+      </div>
+
+      <div class="dtabs">
+        <div class="dtab on" data-d="prof" onclick="dTab('prof')">프로필<span class="en">Profile</span></div>
+        <div class="dtab" data-d="assign" onclick="dTab('assign')">수업 배정<span class="en">Schedule</span></div>
+        <div class="dtab" data-d="pay" onclick="dTab('pay')">급여<span class="en">Pay</span></div>
+        <div class="dtab" data-d="eval" onclick="dTab('eval')">평가·평점<span class="en">Rating</span></div>
+        <div class="dtab" data-d="memo" onclick="dTab('memo')">메모·MBTI<span class="en">Notes</span></div>
+      </div>
+
+      <!-- 프로필 -->
+      <div class="dpane on" data-pane="prof">
+        <div class="sec-title">👤 기본 정보 · 연락처 <button class="btn btn-ghost" style="margin-left:auto;padding:5px 12px;font-size:12px">✎ 수정</button></div>
+        <div class="field"><span class="k">한글 / 영문</span><span id="p-name"></span></div>
+        <div class="field"><span class="k">연락처</span><span>010-2345-6789 · teacher@mangoi.com</span></div>
+        <div class="field"><span class="k">카카오 ID</span><span>mangoi_teacher</span></div>
+        <div class="field"><span class="k">담당 과목</span><span>영어회화 · 발음교정</span></div>
+        <div class="field"><span class="k">입사일</span><span id="p-join"></span></div>
+        <div class="field"><span class="k">학생 페이지</span><span style="color:var(--green)">✔ 강사 소개에 자동 노출 중 (사진·소개영상·경력)</span></div>
+      </div>
+
+      <!-- 수업 배정 -->
+      <div class="dpane" data-pane="assign">
+        <div class="sec-title">📅 이번 주 배정된 수업</div>
+        <table class="mini">
+          <thead><tr><th>요일·시간 (KST)</th><th>학생</th><th>교재</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td>월 19:30</td><td>김민준</td><td>Let's Go 3</td><td><span class="badge b-active">확정</span></td></tr>
+            <tr><td>수 20:00</td><td>이서연</td><td>Phonics 2</td><td><span class="badge b-active">확정</span></td></tr>
+            <tr><td>금 19:00</td><td>박도윤</td><td>Speaking A</td><td><span class="badge b-new">연기 요청</span></td></tr>
+          </tbody>
+        </table>
+        <button class="btn btn-ghost" style="margin-top:12px">＋ 수업 배정 / 시간표 편집</button>
+      </div>
+
+      <!-- 급여 -->
+      <div class="dpane" data-pane="pay">
+        <div class="sec-title">💰 이번 달 급여 (이 강사만)</div>
+        <div class="grid2" style="margin-bottom:6px">
+          <div class="stat"><div class="n">₩1,840,000</div><div class="l">이달 예상 급여 (환전 전)</div></div>
+          <div class="stat"><div class="n">92</div><div class="l">이달 완료 수업 수</div></div>
+        </div>
+        <table class="mini">
+          <thead><tr><th>월</th><th>완료 수업</th><th>급여</th><th>지급 상태</th></tr></thead>
+          <tbody>
+            <tr><td>2026-07</td><td>92</td><td>₩1,840,000</td><td><span class="badge b-new">정산 중</span></td></tr>
+            <tr><td>2026-06</td><td>88</td><td>₩1,760,000</td><td><span class="badge b-active">지급 완료</span></td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:11.5px;color:var(--txt3);margin-top:10px">※ 전사 급여 정산·국가별 환전은 상단 <b style="color:var(--txt2)">[급여 정산]</b> 탭에서 한꺼번에.</p>
+      </div>
+
+      <!-- 평가·평점 -->
+      <div class="dpane" data-pane="eval">
+        <div class="sec-title">⭐ 학생·학부모 평점</div>
+        <div class="grid2" style="margin-bottom:12px">
+          <div class="stat"><div class="n"><span class="star">★</span> 4.8</div><div class="l">평균 평점 (최근 30일 · 54건)</div></div>
+          <div class="stat"><div class="n">96%</div><div class="l">출석·정시 시작률</div></div>
+        </div>
+        <table class="mini">
+          <thead><tr><th>날짜</th><th>학생</th><th>평점</th><th>코멘트</th></tr></thead>
+          <tbody>
+            <tr><td>07-23</td><td>김민준</td><td><span class="star">★★★★★</span></td><td>발음 교정이 꼼꼼해요</td></tr>
+            <tr><td>07-21</td><td>이서연</td><td><span class="star">★★★★☆</span></td><td>재밌게 잘 이끌어주세요</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 메모·MBTI -->
+      <div class="dpane" data-pane="memo">
+        <div class="sec-title">📝 내부 메모 · 칭찬 · MBTI</div>
+        <div class="grid2" style="margin-bottom:14px">
+          <div class="stat"><div class="n">ENFJ</div><div class="l">MBTI (본인 입력)</div></div>
+          <div class="stat"><div class="n">12회</div><div class="l">이달 받은 칭찬</div></div>
+        </div>
+        <div class="memo"><div class="meta">매니저 Melca · 2026-07-20</div>학부모 상담 응대가 훌륭함. 다음 분기 시니어 검토.</div>
+        <div class="memo"><div class="meta">원장 · 2026-07-10</div>신규 학생 배정 우선 배려 요망.</div>
+        <textarea rows="2" placeholder="새 메모 추가... (Add note)"></textarea>
+        <button class="btn btn-primary" style="margin-top:8px">메모 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 급여 정산 (전사) ===== -->
+  <div id="top-pay" class="card hidden">
+    <div class="pane-simple">
+      <div class="big">💰 전사 급여 정산 · 국가별 환전</div>
+      전체 강사 급여를 한 표로 계산·확정·지급하는 화면. (지금의 <b>자동 급여 + 급여/정산</b>을 여기 하나로 합침)
+      <div class="grid2" style="max-width:520px;margin:18px auto 0">
+        <div class="stat"><div class="n">₩61.2M</div><div class="l">이달 총 급여 (42명)</div></div>
+        <div class="stat"><div class="n">7개국</div><div class="l">환전 통화 (필리핀 등)</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 요청함 ===== -->
+  <div id="top-req" class="card hidden">
+    <div class="pane-simple">
+      <div class="big">📥 승인 요청함</div>
+      강사가 올린 <b>수업 연기·시간표 변경</b> 요청을 한곳에서 승인/반려. (지금의 스케줄 변경요청)
+      <table class="mini" style="max-width:640px;margin:16px auto 0;text-align:left">
+        <thead><tr><th>강사</th><th>요청</th><th>사유</th><th>처리</th></tr></thead>
+        <tbody>
+          <tr><td>Karl</td><td>금 19:00 → 20:00</td><td>병원 예약</td><td><span class="badge b-new">대기</span></td></tr>
+          <tr><td>Maimai</td><td>수 수업 연기</td><td>정전</td><td><span class="badge b-active">승인됨</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== 통계 ===== -->
+  <div id="top-stat" class="card hidden">
+    <div class="pane-simple">
+      <div class="big">📊 강사 통계</div>
+      전체 평점·수업 감사로그·칭찬 순위 등 집계. (지금의 수업 평점·감사로그·칭찬 통계를 묶음)
+    </div>
+  </div>
+
+</div>
+
+<script>
+  var teachers = [
+    {id:1,ko:'강수진',en:'Sujin Kang',color:'#8b5cf6',status:'active',badge:'활동중',bcls:'b-active',mgr:true,cls:26,rate:4.8,join:'2024-03-11'},
+    {id:2,ko:'Karl Reyes',en:'Karl Reyes',color:'#0ea5e9',status:'active',badge:'활동중',bcls:'b-active',mgr:false,cls:31,rate:4.9,join:'2023-08-02'},
+    {id:3,ko:'Maimai Cruz',en:'Maimai Cruz',color:'#10b981',status:'active',badge:'활동중',bcls:'b-active',mgr:true,cls:29,rate:4.7,join:'2022-05-19'},
+    {id:4,ko:'이하늘',en:'Haneul Lee',color:'#f59e0b',status:'new',badge:'신규',bcls:'b-new',mgr:false,cls:8,rate:0,join:'2026-07-14'},
+    {id:5,ko:'Melca Santos',en:'Melca Santos',color:'#ec4899',status:'active',badge:'활동중',bcls:'b-active',mgr:true,cls:24,rate:4.9,join:'2023-01-30'},
+    {id:6,ko:'박준영',en:'Junyoung Park',color:'#ef4444',status:'leave',badge:'휴직',bcls:'b-leave',mgr:false,cls:0,rate:4.6,join:'2024-11-08'}
+  ];
+
+  function renderRoster(){
+    var h='';
+    teachers.forEach(function(t){
+      var mgr = t.mgr ? ' <span class="badge b-mgr">매니저</span>' : '';
+      var rate = t.rate ? '<span class="star">★</span> '+t.rate.toFixed(1) : '<span style="color:var(--txt3)">—</span>';
+      var cls = t.cls ? t.cls+'회' : '<span style="color:var(--txt3)">—</span>';
+      h+='<tr onclick="openDetail('+t.id+')">'
+        +'<td><span class="av" style="background:'+t.color+'">'+t.ko.charAt(0)+'</span><span class="row-name">'+t.ko+'</span>'+mgr+'</td>'
+        +'<td style="color:var(--txt2);font-size:12.5px">'+(t.mgr?'매니저':'강사')+'</td>'
+        +'<td><span class="badge '+t.bcls+'">'+t.badge+'</span></td>'
+        +'<td>'+cls+'</td><td>'+rate+'</td><td class="go">›</td></tr>';
+    });
+    document.getElementById('roster-body').innerHTML=h;
+  }
+  renderRoster();
+
+  function openDetail(id){
+    var t = teachers.find(function(x){return x.id===id});
+    document.getElementById('d-av').style.background=t.color;
+    document.getElementById('d-av').textContent=t.ko.charAt(0);
+    document.getElementById('d-name').textContent=t.ko;
+    document.getElementById('d-sub').textContent=t.en+' · 담당 매니저: Melca';
+    var bg='<span class="badge '+t.bcls+'">'+t.badge+'</span>';
+    if(t.mgr) bg=' <span class="badge b-mgr">매니저</span> '+bg;
+    document.getElementById('d-badges').innerHTML=bg;
+    document.getElementById('p-name').textContent=t.ko+' / '+t.en;
+    document.getElementById('p-join').textContent=t.join;
+    document.getElementById('view-roster').classList.add('hidden');
+    document.getElementById('view-detail').classList.remove('hidden');
+    dTab('prof');
+    window.scrollTo(0,0);
+  }
+  function closeDetail(){
+    document.getElementById('view-detail').classList.add('hidden');
+    document.getElementById('view-roster').classList.remove('hidden');
+  }
+  function dTab(k){
+    document.querySelectorAll('.dtab').forEach(function(e){e.classList.toggle('on',e.dataset.d===k)});
+    document.querySelectorAll('.dpane').forEach(function(e){e.classList.toggle('on',e.dataset.pane===k)});
+  }
+  function topTab(k){
+    document.querySelectorAll('.top-tab').forEach(function(e){e.classList.toggle('on',e.dataset.top===k)});
+    ['list','pay','req','stat'].forEach(function(id){
+      document.getElementById('top-'+id).classList.toggle('hidden',id!==k);
+    });
+    if(k==='list') closeDetail();
+  }
+</script>
+</body>
+</html>

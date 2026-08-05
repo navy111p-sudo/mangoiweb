@@ -1,0 +1,134 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>Mangoi Easy Report (2026-07-21)</title>
+<style>
+@page { size: A4; margin: 14mm 13mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI","Malgun Gothic",sans-serif; font-size: 10.6pt; line-height: 1.6; color:#1f2430; margin:0; }
+h1 { font-size: 17pt; color:#b45309; border-bottom: 3px solid #f59e0b; padding-bottom: 6px; margin: 0 0 4px; }
+.sub { color:#6b7280; font-size: 9.5pt; margin-bottom: 14px; }
+h2 { font-size: 13.2pt; color:#92400e; margin: 18px 0 7px; page-break-after: avoid; }
+h3 { font-size: 11.2pt; color:#1f2937; margin: 12px 0 5px; }
+p { margin: 5px 0; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 3px 0; }
+table { border-collapse: collapse; width: 100%; margin: 7px 0 11px; }
+tr { page-break-inside: avoid; }
+th, td { border: 0.8px solid #d7c9a8; padding: 5px 8px; vertical-align: top; text-align: left; font-size: 9.7pt; }
+th { background: #ffe9c2; font-weight: 700; }
+.box { border-radius: 8px; padding: 9px 12px; margin: 8px 0; page-break-inside: avoid; }
+.box.summary { background: #fff7e8; border: 1.5px solid #f59e0b; }
+.box.good { background: #f0faf1; border: 1.5px solid #34a853; }
+.box.bad { background: #fdf1f0; border: 1.5px solid #ea4335; }
+.box.fix { background: #f0f5fd; border: 1.5px solid #4285f4; }
+sup { color:#b45309; font-weight: 700; font-size: 8pt; }
+.term { border-bottom: 1.5px dotted #b45309; }
+.easy { background:#fffbe8; border-left: 4px solid #fbbf24; padding: 5px 10px; margin: 6px 0; font-size: 9.8pt; color:#4b5563; }
+.dday { color:#dc2626; font-weight: 800; }
+.small { font-size: 9pt; color:#6b7280; }
+</style></head><body>
+
+<h1>🥭 Mangoi Easy Report — For All Staff</h1>
+<div class="sub">July 21, 2026 · Written so you can understand it without any IT background · Underlined terms<sup>№</sup> are explained in the Glossary at the end</div>
+
+<div class="box summary">
+<b>📌 Three-Line Summary</b><br>
+① Our new online system is <b>almost fully built and already running real classes</b> (video classes, games, AI, admin system).<br>
+② An outside dev company proposed "rebuild everything from scratch (KRW 60M–300M / about USD 45K–220K)". After careful review: <b>a rebuild is NOT needed.</b> But some of their feedback is fair (e.g., "the screens are too complex") and we will fix those ourselves.<br>
+③ The truly urgent job is <b>moving our old server</b> — its rental contract <span class="dday">ends on August 15 (25 days left)</span>.
+</div>
+
+<h2>1. Where Our System Stands Today</h2>
+<p>Separate from the old 2019 website, we have been building a brand-new system on the <span class="term">cloud</span><sup>1</sup> this year. Current status:</p>
+<table>
+<tr><th>Area</th><th>What's done</th><th>In plain words</th></tr>
+<tr><td><b>Video classes</b></td><td>Our own video-class system + "never-drop" protection (auto-recovery, keeps audio alive on weak internet)</td><td>We built our own Zoom-like tool; if a class glitches, it reconnects by itself</td></tr>
+<tr><td><b>Learning & games</b></td><td>15 textbook-linked learning games, vocabulary book, pronunciation coach, review quizzes</td><td>Kids learn by playing, and results flow into teacher reports</td></tr>
+<tr><td><b>AI features</b></td><td>AI warm-up, AI consultation avatar, automatic post-class coaching reports, <span class="term">Judgment Training</span><sup>2</sup>, and more (10+)</td><td>AI assistants are already on the job in many places</td></tr>
+<tr><td><b>Admin</b></td><td>Student/teacher/payroll/settlement/statistics screens (73 menus), automatic teacher payroll</td><td>HQ, branches, and agencies each see only what they're allowed to</td></tr>
+<tr><td><b>Security & backup</b></td><td>2-step admin login, 5 rounds of security audits, automatic nightly backups, 24/7 monitoring with SMS alerts</td><td>We re-locked every door and keep a copy of the safe in another building every night</td></tr>
+</table>
+<p class="small">※ Scale: 52 screens, 370+ functions (<span class="term">API</span><sup>3</sup>). Full details are in the 27-page <span class="term">SRS</span><sup>4</sup> v2.1 document.</p>
+
+<h2>2. What Happened in the Kmong Meeting (Jul 21)</h2>
+<p>Attendees: a <span class="term">Kmong</span><sup>5</sup> manager + the dev company "Smart Developer" (CEO Seo) + our CEO. We transcribed and analyzed the full 49-minute recording.</p>
+<ul>
+<li><b>Their proposal:</b> move (= effectively rebuild) our system onto their technology and add 1 AI feature for <b>at least KRW 60M</b>; a full rebuild would be <b>KRW 300M+ and 6+ months</b>. They also advised buying a commercial video-call product instead of using our own.</li>
+<li><b>Status:</b> Kmong promised a written proposal with budget options by email (<b>not yet arrived</b> — when it comes, we will add an item-by-item review).</li>
+</ul>
+
+<h2>3. How Much of What They Said Is True?</h2>
+
+<h3>✅ Fair points — we accept these and will fix them</h3>
+<table>
+<tr><th>Their point</th><th>Our improvement plan</th></tr>
+<tr><td>"The screens and features are too complex; new users get lost"</td><td>Simplify the home screen to <b>3 big buttons</b> (Enter Class / Review & Homework / Help); tuck the rest inside. New features off by default</td></tr>
+<tr><td>"Even good features are useless if nobody uses them"</td><td>Measure which menus are actually used; clean up the rest</td></tr>
+<tr><td>"Relying on one developer is risky in an emergency"</td><td>Sign a pay-per-incident on-call contract as insurance (almost no fixed monthly cost — request letter already prepared)</td></tr>
+<tr><td>"Build step by step, keep improving continuously"</td><td>Agreed — this is already how we work: build, verify, deploy every day</td></tr>
+</table>
+
+<h3>❌ Claims that are NOT true for us — no need to worry</h3>
+<table>
+<tr><th>Their claim</th><th>The facts</th></tr>
+<tr><td>"If you build video calls yourself, servers overheat, it's unstable and expensive"</td><td>Our video uses <span class="term">P2P</span><sup>6</sup> — video travels directly between student and teacher devices, and we run on a <span class="term">serverless</span><sup>7</sup> cloud, so there is no machine of ours to overheat. Real classes have run on it for weeks</td></tr>
+<tr><td>"200,000 concurrent users is extremely hard"</td><td>Our classes are 1:1 and small groups; rooms scale automatically. 200K is an irrelevant, scary-sounding number</td></tr>
+<tr><td>"An AI assistant is a big, expensive project"</td><td>AI avatar, class coaching, judgment training and more are <b>already built and running</b>, at pay-as-you-go minor cost</td></tr>
+<tr><td>"You must redesign the system to add AI"</td><td>AI is already integrated in 10+ places. The premise is simply wrong</td></tr>
+<tr><td>Their example AI feature: "automatic report after each class"</td><td><b>We already have it</b> — teacher AI coaching cards and monthly learning reports are generated automatically</td></tr>
+</table>
+<div class="easy">💡 <b>Why the mismatch?</b> Most of the meeting was about our <b>old 2019 system</b> (external video vendor + old payment gateway). The dev company CEO said he was hearing about our new system's core technology "for the first time." In short: they quoted a price after looking at our old house — but we already live in the new one.</div>
+
+<h2>4. Two Paths Compared — Rebuild vs. Grow What We Have</h2>
+<table>
+<tr><th></th><th>A. Full rebuild (their proposal)</th><th>B. Keep & improve (recommended ✅)</th></tr>
+<tr><td><b>Cost</b></td><td>KRW 60M – 300M+</td><td>Small monthly cloud bills + per-incident support + server moving cost</td></tr>
+<tr><td><b>Time</b></td><td>6+ months</td><td>A little every day (already ongoing)</td></tr>
+<tr><td><b>Aug 15 server expiry</b></td><td>❌ Not solved (expires before they finish)</td><td>✅ Just do the move now</td></tr>
+<tr><td><b>Existing features</b></td><td>Risk of losing games, AI, etc. (partial rebuild)</td><td>All kept</td></tr>
+<tr><td><b>Risk</b></td><td>Unstable new system, vendor dependence</td><td>One-developer dependence → covered by on-call contract</td></tr>
+</table>
+
+<h2>5. Honest Self-Assessment — Strengths · Weaknesses · Fixes</h2>
+<div class="box good"><b>👍 Strengths</b><br>
+① We already own more than what others would charge KRW 60M to build ② Video + games + AI in one body — hard for competitors to copy ③ Very low running cost (pay-as-you-go cloud) ④ Daily improvement speed ⑤ Automated backup, monitoring, and security</div>
+<div class="box bad"><b>👎 Weaknesses (we admit)</b><br>
+① Too many features — confusing for first-time users ② Development depends on one axis (CEO + AI) — a gap in emergencies ③ The old system's "pay → schedule is auto-created" automation is not yet ported to the new system ④ Old data still sits on the aging Cafe24 server, whose contract expires soon</div>
+<div class="box fix"><b>🔧 Fix plan</b><br>
+① Simplify the home screen + measure usage (August) ② Sign the per-incident on-call contract (reply demanded by Jul 24) ③ <b>Port the payment→auto-scheduling automation</b> (top priority after the move — removes managers' manual work) ④ <b>Server move before Aug 15</b> — the 3 moving-plan documents are ready</div>
+
+<h2>6. The Month Ahead</h2>
+<table>
+<tr><th>When</th><th>What</th></tr>
+<tr><td>This week</td><td>① Ask Cafe24 to restore server access (<span class="term">SSH</span><sup>8</sup>) ② Review Kmong's proposal when it arrives ③ Get their on-call contract terms (by Jul 24)</td></tr>
+<tr><td>Late July</td><td>Prepare the new <span class="term">NCP</span><sup>9</sup> server → start moving data (night hours; no impact on classes)</td></tr>
+<tr><td>Early August</td><td>Finish & verify the move <span class="dday">before the Aug 15 expiry</span> → restore payment-to-student links (fixes July revenue that currently shows as "unassigned")</td></tr>
+<tr><td>Mid August</td><td>Port payment→auto-scheduling, simplify the home screen, open live card payments (after <span class="term">PG review</span><sup>10</sup>)</td></tr>
+</table>
+
+<h2>7. Who Does What</h2>
+<table>
+<tr><th>Who</th><th>What</th></tr>
+<tr><td><b>CEO</b></td><td>Decisions & contracts (Cafe24 call, NCP signup, Kmong negotiation); weekly 30-min priority meeting</td></tr>
+<tr><td><b>Development AI (Claude)</b></td><td>All development, fixes, security, and the server move; keeping documents current</td></tr>
+<tr><td><b>Korean Managers</b></td><td>① Tell us the old system's payment & scheduling rules (the answer key for the automation port!) ② Try new features one week early and give feedback ③ Report bugs through one channel ④ Know the Emergency One-Pager</td></tr>
+<tr><td><b>Philippine Teachers & Managers</b></td><td>① Tell us what's inconvenient in the English teacher screens ② Check video-call quality on Philippine internet ③ Onboard new teachers with the EN training manual ④ Monthly feedback: do the AI coaching reports actually help?</td></tr>
+</table>
+
+<h2>8. Glossary</h2>
+<table>
+<tr><th>#</th><th>Term</th><th>Plain explanation</th></tr>
+<tr><td>1</td><td>Cloud (Cloudflare)</td><td>Instead of buying and maintaining our own server computers, we rent from a company that runs computers worldwide. We pay only for what we use; they handle breakdowns. We use "Cloudflare"</td></tr>
+<tr><td>2</td><td>Judgment Training</td><td>Our own AI feature that trains "thinking and judging for yourself in the AI era" instead of memorization. Supports Korean/English/Chinese</td></tr>
+<tr><td>3</td><td>API</td><td>A doorway to one function inside a program. Think "370 functions"</td></tr>
+<tr><td>4</td><td>SRS</td><td>The document that describes the whole system — a "blueprint of the house" any developer can read to understand our system</td></tr>
+<tr><td>5</td><td>Kmong</td><td>A Korean marketplace website that connects companies with freelance developers and designers</td></tr>
+<tr><td>6</td><td>P2P</td><td>Person-to-person: the video call connects the student's and teacher's devices directly, without passing through a central server — so almost no server load</td></tr>
+<tr><td>7</td><td>Serverless</td><td>Not "no server," but "no server for US to manage." The cloud company scales computers up and down automatically. No overheating, no electric bills, no hardware failures for us</td></tr>
+<tr><td>8</td><td>SSH</td><td>The remote "key/passage" for logging into a server. This passage to our old Cafe24 server is currently blocked, holding up a few tasks</td></tr>
+<tr><td>9</td><td>NCP</td><td>Naver Cloud Platform — the new home for the data on our aging Cafe24 server (a Korean data center, which also fits privacy-law requirements)</td></tr>
+<tr><td>10</td><td>PG review</td><td>Before opening real card payments, the payment company (Toss Payments) screens our business. Once passed, live payments open</td></tr>
+</table>
+
+<p class="small">Prepared by the Mangoi Development AI (Claude) · Sources: SRS v2.1, full transcript of the 49-min Kmong meeting, 31 meeting notes, complete development records · An item-by-item review will be added when Kmong's written proposal arrives</p>
+
+</body></html>

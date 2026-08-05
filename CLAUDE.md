@@ -44,6 +44,7 @@
 - 인트로 화면의 별도 입장 버튼
 - 관리자 KPI 타일의 이모지
 - 판단력 훈련 UI의 게임 요소
+- 관리자 메뉴 카드(`.menu-card`)·서브아이템·표행·칩의 **hover 확대(scale/translate)** — "정신없다"고 제거함. hover 강조는 **색만**, 크기·위치는 고정
 
 ### 1-4. 기타 금지
 
@@ -70,6 +71,7 @@
 | 셸에서 한글 POST | UTF-8 파일로 저장해서 보내세요. 인라인 한글은 깨집니다 |
 | 새 API 추가 | `src/index.ts` 의 라우팅 + 인증 게이트에 **반드시 등록**해야 동작합니다 |
 | 브라우저 애니메이션 | 백그라운드 탭·저전력 모드에서 CSS transition과 rAF가 멈춥니다. `opacity:0` 으로 시작하는 요소는 영영 안 보일 수 있습니다 |
+| hover 때 글자가 움직임 | `transform` 만 찾으면 못 찾습니다. 사이드바 `.ph85-sub` 는 **별점과 말풍선이 같은 `::after` 를 나눠 써서**, hover 시 별점이 `absolute` 로 흐름에서 빠지고 그 순간 `justify-content:space-between` 이 라벨을 가운데로 밀었습니다. **flex 컨테이너에서 `space-between` 금지, `flex-start` + `margin-left:auto` 로 오른쪽 정렬**할 것 |
 | 로그인 역할 판정 로직 | `public/index.html`(`tryAdminLoginFallback`, 학생홈 통합 로그인)과 `public/admin/login.html`(ph239)에 **아이디 접두사 기반 역할판정 로직이 그대로 복제**돼 있습니다. 역할 분기(교사/본사/지사/대리점/캐피타운)를 고치면 반드시 두 파일 다 고쳐야 합니다 |
 
 ---
