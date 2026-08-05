@@ -495,10 +495,14 @@
   }
 
   /* 📐 Phase 18c — 학생 목록 표 그리드 정렬 (행·열 깔끔) */
+  /* ⚡ (2026-08-05) table-layout:auto + min-width:max-content 였던 것을 «fixed + 고정폭» 으로.
+     auto/max-content 는 표를 다시 그릴 때마다 1000행 × 19열의 내용을 전부 재측정해서
+     ① 열 너비가 렌더마다 달라져 좌우로 흔들리고 ② 레이아웃 계산이 통째로 다시 돌아 버벅였다.
+     실제 폭은 admin.html 의 <colgroup> 이 정한다. */
   #sm-students-table {
-    table-layout: auto;
-    width: 100%;
-    min-width: max-content;
+    table-layout: fixed;
+    width: 2000px;
+    min-width: 100%;
     border-collapse: collapse;
     font-size: 12.5px;
   }
