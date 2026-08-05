@@ -3225,9 +3225,58 @@ async function loadLeveltestApps() {
     if (pending > 0) { badge.textContent = (adminLang==='en' ? (pending+' new') : ('대기 '+pending+'건')); badge.style.display='inline-block'; }
     else badge.style.display='none';
   }
+  __ltApps = items;
+  _ltRenderApps();
+}
+
+/* ── 🔎 검색 · 필터 · 정렬 (2026-08-05 사장님 지시) ────────────────────────
+   [정렬] 서버는 `ORDER BY (status='pending') DESC, created_at DESC` — 처리할 것을 위로
+     올리는 «업무 순서» 다. 그래서 8월 5일 신청이 7월 11일 대기건들 밑, 6번째에 있었다.
+     화면은 «최신순» 을 기본으로 한다. 서버 정렬은 그대로 둔다 — 강사 마이페이지
+     (admin/mypage.html)가 같은 API 를 쓰고 있어 서버를 바꾸면 그쪽까지 흔들린다.
+   [필터] 전부 화면에서만 거른다. 서버 왕복 없음 = 타이핑마다 즉시 반응.
+   ⚠️ 원본 배열(__ltApps)은 절대 건드리지 않는다. sort() 는 제자리 정렬이라
+      원본에 하면 «오래된순» 을 한 번 누른 뒤 필터를 바꾸면 순서가 뒤엉킨다. */
+let __ltApps = [];
+function _ltRenderApps() {
   const tb = document.getElementById('leveltest-apps-table');
   if (!tb) return;
-  if (!items.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">'+(adminLang==='en'?'No applications yet':'아직 신청이 없습니다')+'</td></tr>'; return; }
+  const q  = (document.getElementById('lt-apps-q')?.value || '').trim().toLowerCase();
+  const fs = document.getElementById('lt-apps-status')?.value || '';
+  const so = document.getElementById('lt-apps-sort')?.value || 'new';
+
+  let items = __ltApps.slice();                       // 사본에 정렬 — 원본 보존
+  if (fs) items = items.filter(a => String(a.status || '') === fs);
+  if (q) {
+    items = items.filter(a => [a.student_name, a.student_uid, a.assigned_teacher, a.final_level, a.note, a.desired_date, a.phone]
+      .map(v => String(v == null ? '' : v).toLowerCase()).join(' ').includes(q));
+  }
+  items.sort((a, b) => so === 'old' ? (a.created_at - b.created_at) : (b.created_at - a.created_at));
+
+  const cnt = document.getElementById('lt-apps-count');
+  if (cnt) {
+    cnt.textContent = (q || fs)
+      ? (adminLang==='en' ? (items.length + ' / ' + __ltApps.length) : (items.length + '건 / 전체 ' + __ltApps.length + '건'))
+      : (adminLang==='en' ? (__ltApps.length + ' total') : ('전체 ' + __ltApps.length + '건'));
+  }
+  if (!items.length) {
+    // 🔴 «검색 결과 없음» 과 «신청 자체가 없음» 을 구분한다. 안 그러면 필터를 켜 둔 걸 잊고
+    //    "신청이 하나도 안 들어왔네" 로 오인한다.
+    const msg = __ltApps.length
+      ? (adminLang==='en' ? 'No match — clear the search/filter' : '검색·필터에 걸리는 것이 없습니다 (조건을 지워 보세요)')
+      : (adminLang==='en' ? 'No applications yet' : '아직 신청이 없습니다');
+    tb.innerHTML = '<tr><td colspan="9" class="empty">' + msg + '</td></tr>';
+    return;
+  }
+  _ltPaint(tb, items);
+}
+function _ltResetAppFilters() {
+  const q = document.getElementById('lt-apps-q');       if (q) q.value = '';
+  const s = document.getElementById('lt-apps-status');  if (s) s.value = '';
+  const o = document.getElementById('lt-apps-sort');    if (o) o.value = 'new';
+  _ltRenderApps();
+}
+function _ltPaint(tb, items) {
   /* 🧑‍🏫 (2026-08-05) «담당 강사» 칸 신설 — 서버는 처음부터 assigned_teacher 변경을 받아주는데
      (POST /api/admin/leveltest/applications {id, assigned_teacher}) 화면에 칸이 없어서
      관리자가 자동배정된 강사를 «볼 수도, 바꿀 수도» 없었다. 실제로 사장님이 테스트 신청을
@@ -5945,6 +5994,20 @@ let _smSort = [{ key: 'last_seen', dir: 'desc' }];          // 정렬 배열 (�
 let _smSearch = '';                                         // 🔍 검색어 (학생명·아이디)
 let _smAgency = '';                                         // 🏫 대리점·학원 필터 (빈값 = 전체)
 let _smCountBase = '';                                      // 전체 인원수 라벨 (검색 시 "N명 / 전체" 표시용)
+/* ⚡ (2026-08-05 사장님 지적: "버벅거리고 자꾸 왔다갔다 움직인다") 안정화용 상태 4개.
+   원인이 네 겹이었다 —
+   ① 검색 한 글자마다 tbody 를 «불러오는 중…» 한 줄로 비웠다가 다시 채워서 표 높이가 위아래로 튐
+   ② 요청 순서 보장이 없어 «정»→«정우»→«정우영» 중 늦게 온 옛 응답이 최신 결과를 덮어씀
+   ③ 1000행 × 19열(19,000셀)을 매 입력마다 통째로 다시 그림
+   ④ Neo4j 가 죽어 있으면 검색마다 502 를 기다린 뒤에야 D1 로 폴백 (지연 2배)
+   → seq/abort 로 ②, quiet 로 ①, _smShown 청크로 ③, _smGraphOff 로 ④ 를 각각 막는다. */
+let _smReqSeq = 0;                                          // 요청 일련번호 — 늦게 온 옛 응답 폐기용
+let _smAbort = null;                                        // 진행 중 요청 취소 핸들
+let _smShown = 0;                                           // 지금 그려둔 행 수 (스크롤 시 증가)
+let _smRows = [];                                           // 필터·정렬이 끝난 현재 목록 (이어붙이기용)
+let _smRowHtml = null;                                      // 한 행 HTML 생성기 (renderStudentTable 이 채움)
+const SM_CHUNK = 200;                                       // 한 번에 그리는 행 수
+let _smGraphOff = false;                                    // 그래프DB 가 한 번 죽으면 이 화면에선 재시도 안 함
 
 /* 🏫 대리점·학원 드롭다운 채우기 (2026-07-23) — 불러온 학생들의 대리점명(shop_name)에서 자동 생성.
    서버가 이미 권한 범위로 걸러 보낸 _smStudents 만 쓰므로, 지사 계정엔 자기 대리점만 나온다. */
@@ -6013,40 +6076,64 @@ function mangoiGetDataScope(){
 window.mangoiGetDataScope = mangoiGetDataScope;
 window.mangoiScopeQS = function(sep){ try{ var sc=mangoiGetDataScope(); if(!sc) return ''; return (sep||'&')+'scope_field='+encodeURIComponent(sc.field)+'&scope_value='+encodeURIComponent(sc.value); }catch(e){ return ''; } };
 
-async function loadStudentList(q) {
+async function loadStudentList(q, opts) {
   // 🔍 (2026-07-25 강사 피드백) 이름으로 검색해도 안 나오던 버그:
   //   예전엔 서버에서 limit=1000 만 받아와 '클라이언트에서만' 필터했다. 학생이 29,000명이라
   //   1000명 밖의 학생(예: 이시우·정우영·어재선)은 목록에 없어 검색해도 안 나왔다.
   //   → 검색어(q)가 있으면 서버로 넘겨 전체 학생에서 korean_name·english_name·user_id 로 찾는다.
+  // 🔴 (2026-08-05) 「🧮 불러오기」 버튼이 addEventListener 로 직결돼 있어 **클릭 이벤트 객체가
+  //   그대로 q 로 들어왔다** → String(PointerEvent) = "[object PointerEvent]" 를 검색어로 서버에
+  //   보내 LIKE '%[object PointerEvent]%' → 0건 → "아직 학생 데이터 없음". 즉 자동 펼침 때는
+  //   29,000명 중 1000명이 뜨는데 버튼을 누르면 목록이 사라졌다. 여기서 이벤트를 방어한다.
+  if (q && typeof q === 'object') q = '';
   const _qSrv = String(q || '').trim();
   const _qs = _qSrv ? ('&q=' + encodeURIComponent(_qSrv)) : '';
   const _L = adminLang === 'en';
   const tb = document.getElementById('sm-students-tbody');
   const cnt = document.getElementById('sm-students-count');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
+  // ⚡ 요청 일련번호 + 이전 요청 취소 — 늦게 도착한 옛 응답이 최신 목록을 덮어쓰지 못하게
+  const _mySeq = ++_smReqSeq;
+  try { if (_smAbort) _smAbort.abort(); } catch (_) {}
+  const _ac = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  _smAbort = _ac;
+  const _stale = () => _mySeq !== _smReqSeq;
+  // 🩹 quiet = 검색 중 백그라운드 갱신. 표를 비우지 않는다(비우면 높이가 튀어 "왔다갔다" 보임).
+  //   대신 인원수 라벨 옆에만 조용히 표시한다.
+  const _quiet = !!(opts && opts.quiet) && _smStudents.length > 0;
+  if (_quiet) { if (cnt) cnt.textContent = (_L ? '🔄 Searching…' : '🔄 전체에서 찾는 중…'); }
+  else tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
   let _dataSource = 'D1';
   let d = null;
   // 1차: Neo4j 그래프 DB 실데이터 (/api/admin/students/graph-list)
   //   미설정(503)·연결 실패(502)·빈 결과·비본사 403 이면 조용히 D1(unified)로 폴백
-  try {
-    const rg = await fetch('/api/admin/students/graph-list?limit=1000' + _qs, { cache: 'no-store', credentials: 'include' });
+  //   ⚡ (2026-08-05) 한 번 죽은 그래프DB 를 검색마다 다시 두드리면 502 를 기다린 뒤에야 D1 로
+  //      가서 지연이 두 배가 된다. 이 화면에서는 첫 실패 이후 건너뛴다(_smGraphOff).
+  if (!_smGraphOff) try {
+    const rg = await fetch('/api/admin/students/graph-list?limit=1000' + _qs, { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined });
     const dg = await rg.json();
     if (rg.ok && dg && dg.ok && Array.isArray(dg.students) && dg.students.length) {
       d = dg; _dataSource = 'Neo4j';
     } else if (dg && dg.error) {
+      if (rg.status === 502 || rg.status === 503) _smGraphOff = true;   // 미설정·접속불가 → 이후 D1 직행
       console.warn('[students] 그래프DB 폴백 (D1 사용):', dg.error);
     }
-  } catch (e) { console.warn('[students] 그래프DB 접속 실패 — D1 폴백:', e); }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;                            // 최신 요청에 밀림 — 조용히 종료
+    _smGraphOff = true;
+    console.warn('[students] 그래프DB 접속 실패 — D1 폴백:', e);
+  }
+  if (_stale()) return;
   try {
     if (!d) {
       const _scope = (typeof mangoiGetDataScope==='function') ? mangoiGetDataScope() : null;
       const _su = '/api/admin/students/unified' + (_scope ? ('?scope_field='+encodeURIComponent(_scope.field)+'&scope_value='+encodeURIComponent(_scope.value)+_qs) : (_qSrv ? ('?q='+encodeURIComponent(_qSrv)) : ''));
-      const r = await fetch(_su, { cache: 'no-store', credentials: 'include' });
+      const r = await fetch(_su, { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined });
       d = await r.json();
     }
+    if (_stale()) return;
     if (window.PIIMask && d && typeof d.can_view_pii !== 'undefined') PIIMask.setCanView(d.can_view_pii);  // 🔒 PII 권한 반영
     const rows = (d && d.ok && Array.isArray(d.students)) ? d.students : (Array.isArray(d && d.items) ? d.items : []);
     apiItems = rows.map(s => ({
@@ -6075,7 +6162,10 @@ async function loadStudentList(q) {
       first_seen: s.signup_date || s.created_at || null,
       last_seen: s.last_seen || null,
     }));
-  } catch (e) {}
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;   // 최신 요청에 밀림 — 화면 손대지 않고 종료
+  }
+  if (_stale()) return;
   let merged = apiItems;
   // 🔐 RBAC 스코프 — 학생 목록은 **서버가 세션 기준으로 이미 격리**해서 준다:
   //   · unified: studentScopeWhere(대리점=shop_name, 지사=franchise LIKE …)
@@ -6085,6 +6175,9 @@ async function loadStudentList(q) {
   //   탈락 → 0명으로 나오는 버그였다(2026-07-18, branch_daegu 643→0). 서버 격리가 권위 소스이므로
   //   여기서 다시 거르지 않는다. (merged 는 이미 스코프된 rows)
   if (!merged.length) {
+    // 🩹 백그라운드 검색이 0건이어도 이미 떠 있는 목록을 지우지 않는다.
+    //   (지우면 "결과 있음 → 없음 → 있음" 으로 표가 깜빡이며 왔다갔다 한다)
+    if (_quiet) { renderStudentTable(); return; }
     tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'No students yet':'아직 학생 데이터 없음') + '</td></tr>';
     return;
   }
@@ -6282,34 +6375,68 @@ function renderStudentTable() {
 
   const _c = v => { const x = _esc(v == null ? '' : v); return x || '—'; };
   const _d = v => v ? _esc(String(v).slice(0,10)) : '—';
-  tb.innerHTML = arr.map(s => {
+  // 🔤 열 너비를 고정(table-layout:fixed)했으므로 넘치는 값은 …으로 잘린다 → 원문을 title 로 붙여 둔다.
+  const _ct = v => { const x = _esc(v == null ? '' : v); return x ? `<td title="${x}">${x}</td>` : '<td>—</td>'; };
+  _smRowHtml = (s) => {
     const uid = String(s.user_id || '');
     const uidEnc = encodeURIComponent(uid);
     const safeUid  = _esc(uid);
     const safeName = _esc(s.username || uid);
     return `<tr>
       <td title="${safeUid}"><code>${safeUid}</code></td>
-      <td><b>${safeName}</b></td>
+      <td title="${safeName}"><b>${safeName}</b></td>
       <td style="text-align:center"><a href="/admin/student?uid=${uidEnc}" target="_blank">🎓 ${_L?'Details':'상세'}</a></td>
       <td>${_c(s.payment_type)}</td>
       <td>${_d(s.signup_date)}</td>
       <td>${_d(s.end_date)}</td>
-      <td>${_c(s.summary)}</td>
+      ${_ct(s.summary)}
       <td>${splitDt(s.created_at)}</td>
       <td style="text-align:right">${_c(s.classes_per_week)}</td>
       <td style="text-align:right">${(Number(s.points)||0).toLocaleString()}</td>
-      <td>${_c(s.enroll_req)}</td>
+      ${_ct(s.enroll_req)}
       <td>${_c(_piiPhone(s.student_phone))}</td>
       <td>${_c(_piiPhone(s.parent_phone))}</td>
       <td>${_c(_piiPhone(s.teacher_phone))}</td>
-      <td>${_c(s.shop_name)}</td>
-      <td>${_c(s.hq_name)}</td>
-      <td>${_c(s.branch2_name)}</td>
+      ${_ct(s.shop_name)}
+      ${_ct(s.hq_name)}
+      ${_ct(s.branch2_name)}
       <td style="text-align:right"><span class="sess-count">${(s.session_count||0).toLocaleString()}</span></td>
       <td>${_c(s.status)}</td>
     </tr>`;
-  }).join('');
+  };
+
+  /* ⚡ (2026-08-05) 1000행 × 19열 = 19,000 셀을 매 입력마다 통째로 그려서 버벅였다.
+     → 처음 200행만 그리고, 표를 아래로 굴리면 200행씩 이어 붙인다.
+       정렬·검색·CSV 는 전체(arr)를 그대로 쓰므로 «보이는 것»과 «내려받는 것»은 종전과 동일. */
+  _smRows = arr;
+  _smShown = Math.min(SM_CHUNK, arr.length);
+  // 가로/세로 스크롤 위치 보존 — 다시 그릴 때마다 맨 위·맨 왼쪽으로 튀지 않게
+  const wrap = document.getElementById('sm-students-wrap');
+  const keepTop = wrap ? wrap.scrollTop : 0, keepLeft = wrap ? wrap.scrollLeft : 0;
+  tb.innerHTML = arr.slice(0, _smShown).map(_smRowHtml).join('') + _smMoreRow(_L);
+  if (wrap) { wrap.scrollTop = keepTop; wrap.scrollLeft = keepLeft; }
 }
+
+/* 남은 행 안내 줄 — 스크롤로 자동 추가되지만, 안 굴려도 몇 명이 더 있는지 보이게 한다. */
+function _smMoreRow(_L) {
+  const left = _smRows.length - _smShown;
+  if (left <= 0) return '';
+  return '<tr id="sm-more-row"><td colspan="19" class="empty" style="cursor:pointer" onclick="smAppendRows()">'
+       + (_L ? ('▾ ' + left.toLocaleString() + ' more — scroll or click') : ('▾ ' + left.toLocaleString() + '명 더 있습니다 — 아래로 굴리거나 눌러서 더 보기'))
+       + '</td></tr>';
+}
+/* 다음 200행 이어 붙이기 — 이미 그려진 행은 손대지 않아 화면이 흔들리지 않는다. */
+function smAppendRows() {
+  const tb = document.getElementById('sm-students-tbody');
+  if (!tb || _smShown >= _smRows.length) return;
+  const _L = adminLang === 'en';
+  const next = _smRows.slice(_smShown, _smShown + SM_CHUNK);
+  _smShown += next.length;
+  const more = document.getElementById('sm-more-row');
+  if (more) more.remove();
+  tb.insertAdjacentHTML('beforeend', next.map(_smRowHtml).join('') + _smMoreRow(_L));
+}
+window.smAppendRows = smAppendRows;
 
 // 📥 (2026-07-18) 학생 목록 CSV 내보내기 — 화면에 보이는 것과 100% 동일(스코프+검색 필터+정렬 그대로).
 //   ⚠️ PII 마스킹도 테이블과 똑같이 _piiPhone 을 거쳐, 마스킹된 전화번호가 CSV 로 새지 않게 한다.
@@ -6410,8 +6537,10 @@ document.addEventListener('click', (ev) => {
 
 // 학생 목록 로드 버튼 + 첫 펼침 시 자동 로드
 (function bindStudentList(){
-  const btn = document.getElementById('sm-load-students');
-  if (btn) btn.addEventListener('click', loadStudentList);
+  // 🔴 (2026-08-05) 예전엔 loadStudentList 를 그대로 넘겨 **클릭 이벤트가 검색어로 들어갔다**
+  //   → q="[object PointerEvent]" 로 서버 조회 → 0건 → 버튼을 누르면 목록이 사라지던 버그.
+  if (btn) btn.addEventListener('click', () => loadStudentList(String(
+    (document.getElementById('sm-student-search') || {}).value || '').trim()));
   // 📥 CSV 다운로드 — 화면에 보이는(스코프+검색+정렬) 학생만, PII 마스킹 유지
   const xb = document.getElementById('sm-export-csv');
   if (xb) xb.addEventListener('click', smExportStudentsCsv);
@@ -6422,10 +6551,17 @@ document.addEventListener('click', (ev) => {
     _smSearch = sr.value;
     renderStudentTable();                       // 즉시: 이미 불러온 목록에서 필터(빠른 반응)
     // 🔍 2글자 이상이면 서버로도 질의 — 로드 안 된 학생(1000명 밖)까지 전체에서 찾는다.
+    //   ⚡ quiet:true — 표를 비우지 않고 조용히 갱신한다(비우면 높이가 튀어 "왔다갔다" 보임).
+    //   디바운스 350→500ms: 타자 중간에 나가는 요청 수를 줄여 결과가 여러 번 뒤바뀌지 않게.
     clearTimeout(_smSearchTimer);
     const q = String(sr.value || '').trim();
-    _smSearchTimer = setTimeout(() => { loadStudentList(q.length >= 2 ? q : ''); }, 350);
+    _smSearchTimer = setTimeout(() => { loadStudentList(q.length >= 2 ? q : '', { quiet: true }); }, 500);
   });
+  // ⬇️ 표를 아래로 굴리면 다음 200행 이어 붙이기 (첫 렌더는 200행만 — 1000행 통짜 렌더가 버벅임의 원인)
+  const wrap = document.getElementById('sm-students-wrap');
+  if (wrap) wrap.addEventListener('scroll', () => {
+    if (wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 240) smAppendRows();
+  }, { passive: true });
   // 🏫 대리점·학원 필터 — 선택 즉시 필터링 (2026-07-23)
   const af = document.getElementById('sm-agency-filter');
   if (af) af.addEventListener('change', () => { _smAgency = af.value; renderStudentTable(); });
