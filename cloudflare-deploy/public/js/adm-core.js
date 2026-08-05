@@ -3158,6 +3158,61 @@ async function addLevelTest() {
 }
 
 // ── 🆕 레벨테스트 신청 현황 (학생 접수 실데이터) ──────────────────────────────
+/* ── 🧑‍🏫 레벨테스트 «담당 강사» 배정 (2026-08-05) ─────────────────────────
+   신청이 들어오면 서버가 그 요일·시간 가능한 강사 중 평가 최고를 자동배정한다(status='proposed').
+   하지만 관리자 화면엔 그 결과를 보여주는 칸조차 없어서, 누가 맡았는지도 모르고 바꿀 수도 없었다.
+   ⚠️ 강사 목록은 teacher_profiles 를 쓴다 — 서버 자동배정이 보는 것과 «같은 표» 여야
+      화면에서 고른 이름이 배정 로직·마이페이지 조회와 어긋나지 않는다.
+   ⚠️ 목록은 한 번만 받아 캐시한다. 표를 그릴 때마다 부르면 신청 100건에 100번 나간다. */
+let __ltTeachers = null, __ltTeachersLoading = false;
+async function _ltLoadTeachers() {
+  if (__ltTeachers || __ltTeachersLoading) return __ltTeachers;
+  __ltTeachersLoading = true;
+  try {
+    const r = await fetch('/api/admin/teacher-profiles?status=' + encodeURIComponent('활동중'), { cache:'no-store', credentials:'include' });
+    const d = await r.json().catch(()=>({}));
+    if (d && d.ok) {
+      __ltTeachers = (d.items || [])
+        .map(t => (t.english_name || t.korean_name || '').trim())
+        .filter(Boolean)
+        .filter((v, i, arr) => arr.indexOf(v) === i)
+        .sort();
+      _ltFillTeacherSelects();
+    }
+  } catch (e) { /* 목록을 못 받아도 표는 그대로 보여야 한다 */ }
+  __ltTeachersLoading = false;
+  return __ltTeachers;
+}
+/* 현재 배정된 이름은 «항상» 보이게 한다 — 목록 로딩 실패·명단에서 빠진 강사여도 마찬가지.
+   (목록에 없다고 화면에서 이름이 사라지면 관리자가 «미배정» 으로 오인한다) */
+function _ltTeacherCell(a) {
+  const cur = (a.assigned_teacher || '').trim();
+  const curLabel = cur ? _esc(cur) : (adminLang==='en' ? '— unassigned —' : '— 미배정 —');
+  return '<select class="lt-tsel" data-id="' + a.id + '" data-cur="' + _esc(cur) + '"' +
+         ' onchange="leveltestAssign(' + a.id + ', this.value, this)"' +
+         ' style="max-width:150px;font-size:12px;padding:3px 6px;border:1px solid #d1d5db;border-radius:6px;background:#fff">' +
+         '<option value="' + _esc(cur) + '" selected>' + curLabel + '</option></select>';
+}
+function _ltFillTeacherSelects() {
+  if (!__ltTeachers) return;
+  document.querySelectorAll('select.lt-tsel').forEach(sel => {
+    const cur = sel.getAttribute('data-cur') || '';
+    const opts = [ '<option value="">' + (adminLang==='en' ? '— unassigned —' : '— 미배정 —') + '</option>' ]
+      .concat(__ltTeachers.map(n => '<option value="' + _esc(n) + '"' + (n === cur ? ' selected' : '') + '>' + _esc(n) + '</option>'));
+    // 명단에 없는 이름이 배정돼 있으면 그 이름도 항목으로 남긴다(선택이 풀려 지워지지 않게)
+    if (cur && __ltTeachers.indexOf(cur) === -1) {
+      opts.push('<option value="' + _esc(cur) + '" selected>' + _esc(cur) + ' *</option>');
+    }
+    sel.innerHTML = opts.join('');
+  });
+}
+async function leveltestAssign(id, teacher, sel) {
+  const prev = sel ? (sel.getAttribute('data-cur') || '') : '';
+  const d = await _menuPost('/api/admin/leveltest/applications', { id, assigned_teacher: teacher });
+  if (d) { if (sel) sel.setAttribute('data-cur', teacher); loadLeveltestApps(); }
+  else if (sel) { sel.value = prev; }   // 실패하면 화면을 되돌린다 — 바뀐 것처럼 남겨두지 않는다
+}
+
 async function loadLeveltestApps() {
   let items = [], pending = 0;
   try {
@@ -3172,8 +3227,17 @@ async function loadLeveltestApps() {
   }
   const tb = document.getElementById('leveltest-apps-table');
   if (!tb) return;
-  if (!items.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">'+(adminLang==='en'?'No applications yet':'아직 신청이 없습니다')+'</td></tr>'; return; }
-  const STMAP = { pending:['대기','Pending','#f59e0b'], done:['완료','Done','#10b981'], cancelled:['취소','Cancelled','#94a3b8'] };
+  if (!items.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">'+(adminLang==='en'?'No applications yet':'아직 신청이 없습니다')+'</td></tr>'; return; }
+  /* 🧑‍🏫 (2026-08-05) «담당 강사» 칸 신설 — 서버는 처음부터 assigned_teacher 변경을 받아주는데
+     (POST /api/admin/leveltest/applications {id, assigned_teacher}) 화면에 칸이 없어서
+     관리자가 자동배정된 강사를 «볼 수도, 바꿀 수도» 없었다. 실제로 사장님이 테스트 신청을
+     넣고 특정 매니저에게 맡기려다 막혔다. */
+  _ltLoadTeachers();
+  const STMAP = {
+    pending:['대기','Pending','#f59e0b'], done:['완료','Done','#10b981'], cancelled:['취소','Cancelled','#94a3b8'],
+    /* 🔴 'proposed'(자동배정 제안됨)가 이 표에 없어서 회색 raw 문자열로 떴다. 서버가 실제로 쓰는 값이다. */
+    proposed:['배정 제안','Proposed','#6366f1'], confirmed:['확정','Confirmed','#0ea5e9']
+  };
   tb.innerHTML = items.map(a => {
     const st = STMAP[a.status] || [a.status||'—', a.status||'—', '#94a3b8'];
     const stLabel = adminLang==='en' ? st[1] : st[0];
@@ -3184,8 +3248,9 @@ async function loadLeveltestApps() {
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${a.student_uid?(' <code style="font-size:10px;color:#64748b">'+_esc(a.student_uid)+'</code>'):''}</td><td>${when}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:right;white-space:nowrap">${actions}</td></tr>`;
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${a.student_uid?(' <code style="font-size:10px;color:#64748b">'+_esc(a.student_uid)+'</code>'):''}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:right;white-space:nowrap">${actions}</td></tr>`;
   }).join('');
+  _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
 async function leveltestAppStatus(id, status) {
   const d = await _menuPost('/api/admin/leveltest/applications', { id, status });
