@@ -6596,6 +6596,7 @@ document.addEventListener('click', (ev) => {
 
 // 학생 목록 로드 버튼 + 첫 펼침 시 자동 로드
 (function bindStudentList(){
+  const btn = document.getElementById('sm-load-students');
   // 🔴 (2026-08-05) 예전엔 loadStudentList 를 그대로 넘겨 **클릭 이벤트가 검색어로 들어갔다**
   //   → q="[object PointerEvent]" 로 서버 조회 → 0건 → 버튼을 누르면 목록이 사라지던 버그.
   if (btn) btn.addEventListener('click', () => loadStudentList(String(
