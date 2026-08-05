@@ -7510,7 +7510,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </details>
 <!-- 📅 Phase CAL — 캘린더 관리 (교사 휴가 + 한국/필리핀 공휴일) -->
 <details class="table-card menu-card" id="card-calendar">
-  <summary><span data-ko="📅 캘린더 관리 (휴가·공휴일)" data-en="📅 Calendar (Vacation·Holiday)">📅 캘린더 관리 (휴가·공휴일)</span></summary>
+  <summary><span data-ko="📅 통합 캘린더" data-en="📅 Unified Calendar">📅 통합 캘린더</span></summary>
   <div class="menu-body">
     
 
@@ -7532,6 +7532,28 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <span><i class="cal-dot" style="background:#f59e0b"></i>교사 휴가</span>
       </span>
     </div>
+
+    <!-- 🗂 (2026-08-05) 레이어 — 달력을 하나로 통합한다. 달력을 카드마다 새로 만들면
+         «어느 달력이 진짜냐» 가 된다. 여기 한 곳에 겹쳐 보여준다.
+         ⚠️ 일반 수업은 기본 «꺼짐». 활성 예약 663건 중 662건이 반복 수업이라
+            한 달 격자에 펼치면 3천 개 가까운 칩이 박혀 아무것도 못 읽는다. -->
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;margin:10px 0">
+      <span style="font-size:12px;font-weight:800;color:#475569" data-ko="표시할 것" data-en="Layers">표시할 것</span>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="cal-layer-ev" checked onchange="calLoad()" /><span data-ko="🏖 휴가·공휴일" data-en="🏖 Vacation·Holiday">🏖 휴가·공휴일</span></label>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="cal-layer-lt" checked onchange="calLoad()" /><span data-ko="🎯 레벨테스트" data-en="🎯 Level Tests">🎯 레벨테스트</span></label>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="cal-layer-cls" onchange="calLoad()" /><span data-ko="📚 일반 수업" data-en="📚 Classes">📚 일반 수업</span></label>
+      <input id="cal-cls-q" type="search" oninput="calRender()" placeholder="강사·학생으로 좁히기"
+             data-ko-placeholder="강사·학생으로 좁히기" data-en-placeholder="Narrow by teacher or student"
+             style="flex:1;min-width:150px;padding:4px 9px;font-size:12px;border:1px solid #cbd5e1;border-radius:7px" />
+      <span class="cal-legend" style="font-size:11px">
+        <span><i class="cal-dot" style="background:#8b5cf6"></i><span data-ko="레벨테스트 확정" data-en="Level test (fixed)">레벨테스트 확정</span></span>
+        <span><i class="cal-dot" style="background:#c4b5fd"></i><span data-ko="희망일만(점선)" data-en="Wish only (dashed)">희망일만(점선)</span></span>
+      </span>
+    </div>
+    <div id="cal-notice" style="display:none;font-size:12px;line-height:1.6;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:9px;padding:9px 13px;margin-bottom:8px"></div>
 
     <div class="cal-grid" id="cal-grid"></div>
 
@@ -7588,13 +7610,58 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   function calEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function calISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function calRange(base){var y=base.getFullYear(),m=base.getMonth();var first=new Date(y,m,1);var gs=new Date(y,m,1-first.getDay());var ge=new Date(gs);ge.setDate(gs.getDate()+41);return {gs:gs,ge:ge};}
+  /* 🗂 통합 캘린더 (2026-08-05 사장님 지시) — 한 달력에 세 겹을 겹쳐 본다.
+     ⚠️ 서버 API 는 하나도 고치지 않았다. 기존 /api/calendar/events 에 수업을 섞으면
+        같은 API 를 쓰는 «학생 화면» 까지 흔들린다. 화면이 세 곳에서 받아 합쳐 그린다.
+     🔑 «확정» 과 «희망» 을 반드시 다르게 그린다. 섞이면 달력을 보고 "잡혔네" 하고
+        넘어갔는데 그날 아무도 안 들어오는 사고가 난다. 확정=실선, 희망일만=점선. */
+  var calLT = [], calCls = [];
+  function calOn(id){ var e=document.getElementById(id); return !!(e && e.checked); }
   async function calLoad(){
-    var r=calRange(calCur);
-    try{var res=await fetch('/api/calendar/events?from='+calISO(r.gs)+'&to='+calISO(r.ge),{credentials:'include',cache:'no-store'});var j=await res.json();calEvents=(j&&j.events)||[];}
-    catch(e){calEvents=[];}
+    var r=calRange(calCur), from=calISO(r.gs), to=calISO(r.ge);
+    calEvents=[]; calLT=[]; calCls=[];
+    if(calOn('cal-layer-ev')){
+      try{var res=await fetch('/api/calendar/events?from='+from+'&to='+to,{credentials:'include',cache:'no-store'});var j=await res.json();calEvents=(j&&j.events)||[];}
+      catch(e){calEvents=[];}
+    }
+    if(calOn('cal-layer-lt')){
+      try{
+        var r2=await fetch('/api/admin/leveltest/applications?limit=200',{credentials:'include',cache:'no-store'});
+        var j2=await r2.json();
+        calLT=((j2&&j2.items)||[]).filter(function(a){
+          var d=String(a.desired_date||''); return d>=from && d<=to && a.status!=='cancelled';
+        });
+      }catch(e){calLT=[];}
+    }
+    if(calOn('cal-layer-cls')){
+      try{
+        var r3=await fetch('/api/admin/class-schedules?from_date='+from+'&to_date='+to+'&limit=500',{credentials:'include',cache:'no-store'});
+        var j3=await r3.json();
+        calCls=(j3&&(j3.items||j3.schedules))||[];
+      }catch(e){calCls=[];}
+    }
     calRender();
   }
   function evOn(iso){return calEvents.filter(function(ev){var s=ev.date,e=ev.end_date||ev.date;return iso>=s&&iso<=e;});}
+  function ltOn(iso){return calLT.filter(function(a){return String(a.desired_date||'')===iso;});}
+  function clsQ(){var e=document.getElementById('cal-cls-q');return (e&&e.value||'').trim().toLowerCase();}
+  function clsOn(iso,dow){
+    var q=clsQ();
+    return calCls.filter(function(c){
+      var hit = (c.schedule_kind==='one_off') ? (String(c.scheduled_date||'')===iso)
+                                              : (String(c.day_of_week)===String(dow));
+      if(!hit) return false;
+      if(!q) return true;
+      return [c.teacher_name,c.student_name,c.user_id].map(function(v){return String(v==null?'':v).toLowerCase();}).join(' ').indexOf(q)>=0;
+    });
+  }
+  /* 레벨테스트 칩을 누르면 그 신청 건으로 데려간다 — 달력에서 «보기» 로 끝나지 않게. */
+  window.calGotoLT=function(name){
+    var card=document.getElementById('card-level-tests');
+    if(card){ if(card.tagName==='DETAILS') card.open=true; card.scrollIntoView({behavior:'auto',block:'start'}); }
+    var q=document.getElementById('lt-apps-q');
+    if(q){ q.value=name||''; if(typeof _ltRenderApps==='function') _ltRenderApps(); }
+  };
   function calRender(){
     var grid=document.getElementById('cal-grid');if(!grid)return;
     var lbl=document.getElementById('cal-month-label');if(lbl)lbl.textContent=calCur.getFullYear()+'년 '+(calCur.getMonth()+1)+'월';
@@ -11661,6 +11728,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260805175823 -->
+<!-- BUILD:20260805181809 -->
 </body>
 </html>
