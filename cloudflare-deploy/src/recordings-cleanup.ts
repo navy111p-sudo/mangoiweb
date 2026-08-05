@@ -35,6 +35,11 @@ export interface CleanupOptions {
    */
   maxDeleteRatio?: number;
   /**
+   * 🔴 R2 파일을 «실제로 지울지». 기본 false — 분석만 하고 지우지 않는다(2026-08-05 사장님 지시).
+   *    상태 정리 스윕(준비중·크기0)은 이 값과 무관하게 돈다(파일을 안 건드리므로).
+   */
+  deleteOrphans?: boolean;
+  /**
    * R2 list prefix — 청소 대상 폴더.
    * 🔴 기본값이 'rec/' 다(2026-08-05 사장님 지시). 「전체」가 아니다.
    *    명시적으로 '' 를 넣으면 전 버킷을 훑지만, 그건 아래 경고를 읽고 판단할 것.
@@ -382,6 +387,27 @@ export async function purgeOrphanedRecordings(
     console.warn(
       `[recordings-cleanup] SAFETY GUARD TRIPPED ratio=${(ratio * 100).toFixed(1)}% ` +
         `orphans=${orphans.length} total=${result.total_objects} — aborting, deleted nothing`
+    );
+    await saveLastRun(env, result);
+    return result;
+  }
+
+  /* 🔴🔴 (2026-08-05 사장님 지시) 파일 삭제는 «명시적으로 켜야만» 한다.
+     [왜] 오늘 고아 판정 범위를 rec/ 로 좁히기 전까지, 이 함수는 매일 새벽
+       «전 버킷» 을 훑으며 4만 개를 고아로 세고 있었다. 50% 안전장치 하나가
+       수업 자료 전량 삭제를 막고 있던 셈이다.
+       범위를 좁혀 지금은 정상(512개 중 169개, 33%)이지만, 판정이 옳다는 확신이
+       실제 운영에서 며칠 쌓이기 전까지 «자동으로 지우게» 두지 않는다.
+       삭제는 되돌릴 수 없고, 녹화는 학부모·강사에게 다시 만들어 줄 수 없는 자료다.
+     [지금 동작] 분석은 그대로 한다(orphan_count·용량이 결과에 남는다). 지우지만 않는다.
+       지우려면 호출부가 deleteOrphans: true 를 «직접» 넘겨야 한다.
+     ⚠️ 상태 정리 스윕(준비중·크기0)은 이 스위치와 무관하게 돈다 —
+        그건 파일을 건드리지 않고 D1 상태만 바로잡는 일이라 안전하다. */
+  const doDelete = options.deleteOrphans === true;
+  if (!doDelete) {
+    result.errors.push(
+      `ℹ️ 삭제 안 함(기본값) — 고아 ${orphans.length}건 · ${humanBytes(orphans.reduce((s, o) => s + o.size, 0))} 확인만 함. ` +
+      `실제로 지우려면 deleteOrphans: true 로 호출할 것.`
     );
     await saveLastRun(env, result);
     return result;
