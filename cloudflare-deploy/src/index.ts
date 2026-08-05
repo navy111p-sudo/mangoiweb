@@ -27,6 +27,7 @@ import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeS
 import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
+import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
 import { capitownRouter } from './api-capitown';
@@ -890,6 +891,12 @@ const worker = {
     if (path.startsWith('/api/approval/')) {
       const aRes = await handleApprovalApi(request, url, env as any);
       if (aRes) return aRes;
+    }
+
+    // ⚡ 정전·인터넷 장애 신고 — 필리핀 강사가 끊겼을 때 사무실이 «가장 먼저» 알게
+    if (path.startsWith('/api/outage/')) {
+      const oRes = await handleOutageApi(request, url, env as any);
+      if (oRes) return oRes;
     }
 
     // v3 명세서 신규 API (출석/보상/카카오/대시보드)
@@ -4405,6 +4412,10 @@ function isAdminPath(path: string, method: string): boolean {
 
   // 🧾 결재 API — 회사 지출 내역이 담긴다. 로그인 필수(핸들러가 본사 계정인지 한 번 더 본다).
   if (path.startsWith('/api/approval/')) return true;
+
+  // ⚡ 장애 신고 API — 누가 언제 끊겼는지는 강사 개인 정보다. 로그인 필수.
+  //   (강사 본인도 써야 하므로 TEACHER_BLOCKED_PREFIXES 에는 넣지 않는다 — 여기서 로그인만 요구.)
+  if (path.startsWith('/api/outage/')) return true;
 
   // 🔒🔒 [보안 근본수정 2026-07-09] /api/admin/* 는 기본 전부 인증 필요 (DEFAULT-DENY).
   //   과거엔 아래처럼 경로를 하나씩 allowlist 로 나열했는데, 새 admin API 를 추가하면서
