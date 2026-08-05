@@ -3306,6 +3306,21 @@ function _ltRenderApps() {
   }
   _ltPaint(tb, items);
 }
+/* 📅 (2026-08-05) 레벨테스트 카드 → 통합 캘린더로. 달력을 카드마다 새로 만들지 않고
+   «한 곳» 으로 보낸다. 달력이 여럿이면 어느 것이 진짜인지 아무도 모르게 된다. */
+function ltGotoCalendar() {
+  const cal = document.getElementById('card-calendar');
+  if (!cal) { alert(adminLang==='en' ? 'Calendar card not found.' : '캘린더 카드를 찾지 못했습니다.'); return; }
+  if (cal.tagName === 'DETAILS') cal.open = true;
+  const lt = document.getElementById('cal-layer-lt');   // 레벨테스트 레이어를 확실히 켜 준다
+  if (lt && !lt.checked) lt.checked = true;
+  if (typeof window.calLoad === 'function') window.calLoad();
+  cal.scrollIntoView({ behavior: 'auto', block: 'start' });
+  const o = cal.style.boxShadow;
+  cal.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.55)';
+  setTimeout(function(){ cal.style.boxShadow = o; }, 1600);
+}
+
 function _ltResetAppFilters() {
   const q = document.getElementById('lt-apps-q');       if (q) q.value = '';
   const s = document.getElementById('lt-apps-status');  if (s) s.value = '';

@@ -6888,7 +6888,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <!-- 🔎 검색·필터·정렬 (2026-08-05) — 기본 정렬은 «최신순». 서버는 처리할 것을 위로 올리는
            업무 순서(pending 우선)라 방금 들어온 신청이 목록 한참 아래에 있었다. -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-        <input id="lt-apps-q" type="search" oninput="_ltRenderApps()"
+        <input id="lt-apps-q" type="search" autocomplete="off" oninput="_ltRenderApps()"
                placeholder="🔎 학생·강사·레벨·희망일 검색" data-ko-placeholder="🔎 학생·강사·레벨·희망일 검색" data-en-placeholder="🔎 Search student, teacher, level, date"
                style="flex:1;min-width:190px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
         <select id="lt-apps-status" onchange="_ltRenderApps()" style="padding:5px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff">
@@ -6904,6 +6904,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <option value="old" data-ko="오래된순" data-en="Oldest first">오래된순</option>
         </select>
         <button onclick="_ltResetAppFilters()" style="padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer" data-ko="지우기" data-en="Clear">지우기</button>
+        <button onclick="ltGotoCalendar()" style="padding:5px 10px;font-size:12px;border:1px solid #c4b5fd;border-radius:8px;background:#f5f3ff;color:#5b21b6;font-weight:700;cursor:pointer;white-space:nowrap" data-ko="📅 캘린더에서 보기" data-en="📅 See on calendar">📅 캘린더에서 보기</button>
         <span id="lt-apps-count" style="font-size:11px;color:#64748b;white-space:nowrap"></span>
       </div>
       <div style="overflow-x:auto">
@@ -7515,9 +7516,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     
 
     <div style="font-size:12px;color:#6b7280;background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.6"
-         data-ko="💡 교사 휴가와 한국·필리핀 공휴일을 캘린더에 등록합니다. 등록 즉시 색상으로 표시되고, 공지사항·알림에 자동으로 올라가며, 주간 스케줄에도 색으로 나타납니다."
+         data-ko="💡 휴가·공휴일 + 레벨테스트 + 일반 수업을 한 달력에서 봅니다. 위 «표시할 것» 으로 겹쳐 보세요. 레벨테스트는 확정=실선, 희망일만=점선으로 구분됩니다."
          data-en="💡 Register teacher vacations and KR/PH holidays. They appear in color, auto-post to announcements/alerts, and show on the weekly schedule.">
-      💡 교사 휴가와 한국·필리핀 공휴일을 캘린더에 등록합니다. 등록 즉시 색상으로 표시되고, 공지사항·알림에 자동으로 올라가며, 주간 스케줄에도 색으로 나타납니다.
+      💡 휴가·공휴일 + 레벨테스트 + 일반 수업을 한 달력에서 봅니다. 위 «표시할 것» 으로 겹쳐 보세요. 레벨테스트는 확정=실선, 희망일만=점선으로 구분됩니다.
     </div>
 
     <div class="cal-bar">
@@ -7545,7 +7546,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <input type="checkbox" id="cal-layer-lt" checked onchange="calLoad()" /><span data-ko="🎯 레벨테스트" data-en="🎯 Level Tests">🎯 레벨테스트</span></label>
       <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer">
         <input type="checkbox" id="cal-layer-cls" onchange="calLoad()" /><span data-ko="📚 일반 수업" data-en="📚 Classes">📚 일반 수업</span></label>
-      <input id="cal-cls-q" type="search" oninput="calRender()" placeholder="강사·학생으로 좁히기"
+      <input id="cal-cls-q" type="search" autocomplete="off" oninput="calRender()" placeholder="강사·학생으로 좁히기"
              data-ko-placeholder="강사·학생으로 좁히기" data-en-placeholder="Narrow by teacher or student"
              style="flex:1;min-width:150px;padding:4px 9px;font-size:12px;border:1px solid #cbd5e1;border-radius:7px" />
       <span class="cal-legend" style="font-size:11px">
@@ -7668,10 +7669,49 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     var r=calRange(calCur),dow=['일','월','화','수','목','금','토'],html='';
     dow.forEach(function(d,i){html+='<div class="cal-dow" style="color:'+(i===0?'#f87171':i===6?'#60a5fa':'#cbd5e1')+'">'+d+'</div>';});
     var cur=new Date(r.gs),today=calISO(new Date());
+    /* ⚠️ 수업이 너무 많으면 «그리지 않고 이유를 말한다». 3천 개를 격자에 박아 놓고
+       "다 보여드렸습니다" 하는 것이 제일 나쁘다 — 화면은 꽉 찼는데 아무것도 못 읽는다. */
+    var clsTotal=0;
+    if(calOn('cal-layer-cls')){
+      var c2=new Date(r.gs);
+      for(var k=0;k<42;k++){ clsTotal+=clsOn(calISO(c2),c2.getDay()).length; c2.setDate(c2.getDate()+1); }
+    }
+    var tooMany = clsTotal>150;
+    var nt=document.getElementById('cal-notice');
+    if(nt){
+      if(tooMany){
+        /* 🪤 이미 검색어를 넣은 사람에게 "검색칸에 넣어 좁히세요" 라고 하면 안 된다.
+           숫자는 좁힐 때마다 줄어드니(360→180→…) 얼마나 더 가야 하는지 보인다. */
+        var q0=clsQ();
+        nt.style.display='block';
+        nt.innerHTML='📚 <b>이 달에 그릴 수업이 '+clsTotal+'건</b>입니다. 그대로 그리면 달력이 읽히지 않아 <b>일반 수업은 표시하지 않았습니다</b>.<br>'
+          +(q0
+            ? '‘<b>'+calEsc(q0)+'</b>’ 로 좁혔지만 아직 많습니다 — <b>더 좁혀 주세요</b> (150건 아래로).'
+            : '위 검색칸에 <b>강사나 학생 이름</b>을 넣어 좁혀 주세요.')
+          +' (휴가·공휴일·레벨테스트는 그대로 보입니다)';
+      } else nt.style.display='none';
+    }
     for(var i=0;i<42;i++){
       var iso=calISO(cur),inM=cur.getMonth()===calCur.getMonth(),evs=evOn(iso);
       var chips=evs.map(function(ev){var col=(ev.color||'').toLowerCase();var safe=calEsc(ev.title).replace(/'/g,'');var cls='cal-chip ';if(ev.event_type==='vacation'){cls+='bg-teacher-vacation';}else if(ev.country==='PH'||col.indexOf('3b82f6')>=0||col.indexOf('60a5fa')>=0||col.indexOf('2563eb')>=0){cls+='bg-ph-holiday';}else{cls+='bg-kr-holiday';}return '<div class="'+cls+'" title="'+calEsc(ev.title)+'" onclick="calDelete('+ev.id+",'"+safe+"')\">"+(ev.event_type==='vacation'?'🏖 ':'')+calEsc(ev.title)+'</div>';}).join('');
-      var dowCls=cur.getDay()===0?' cal-sun':cur.getDay()===6?' cal-sat':'';html+='<div class="cal-cell'+(inM?'':' cal-out')+(iso===today?' cal-today':'')+'"><div class="cal-date'+dowCls+'">'+cur.getDate()+'</div>'+chips+'</div>';
+      /* 🎯 레벨테스트 — 확정(수업이 만들어진 것)은 실선, 희망일뿐이면 점선 */
+      var ltChips=ltOn(iso).map(function(a){
+        var fixed=!!a.schedule_id;
+        var nm=calEsc(a.student_name||'?');
+        var tip=(fixed?'확정 · 수업 #'+a.schedule_id:'희망일만 — 아직 수업이 없습니다')
+                +' / '+(a.assigned_teacher||'미배정')+(a.desired_time?(' '+a.desired_time):'');
+        return '<div class="cal-chip" title="'+calEsc(tip)+'" onclick="calGotoLT(\''+String(a.student_name||'').replace(/['\\\\]/g,'')+'\')"'
+          +' style="background:'+(fixed?'#ede9fe':'#faf5ff')+';color:#5b21b6;border:1px '+(fixed?'solid #8b5cf6':'dashed #c4b5fd')+';cursor:pointer">'
+          +'🎯'+(a.desired_time?(' '+calEsc(a.desired_time)):'')+' '+nm+(fixed?'':' ?')+'</div>';
+      }).join('');
+      /* 📚 일반 수업 — 기본 꺼짐. 켜도 너무 많으면 위 안내로 대체한다 */
+      var clsChips=(calOn('cal-layer-cls')&&!tooMany)?clsOn(iso,cur.getDay()).map(function(c){
+        var who=calEsc(c.student_name||c.user_id||'');
+        var tch=calEsc(c.teacher_name||'');
+        return '<div class="cal-chip" title="'+calEsc((c.start_time||'')+' '+who+(tch?(' · '+tch):'')+' · '+(c.class_type||''))+'"'
+          +' style="background:#dcfce7;color:#166534;border:1px solid #86efac">'+calEsc(c.start_time||'')+' '+who+'</div>';
+      }).join(''):'';
+      var dowCls=cur.getDay()===0?' cal-sun':cur.getDay()===6?' cal-sat':'';html+='<div class="cal-cell'+(inM?'':' cal-out')+(iso===today?' cal-today':'')+'"><div class="cal-date'+dowCls+'">'+cur.getDate()+'</div>'+chips+ltChips+clsChips+'</div>';
       cur.setDate(cur.getDate()+1);
     }
     grid.innerHTML=html;
@@ -7679,6 +7719,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   window.calPrev=function(){calCur.setMonth(calCur.getMonth()-1);calLoad();};
   window.calNext=function(){calCur.setMonth(calCur.getMonth()+1);calLoad();};
   window.calToday=function(){calCur=new Date();calCur.setDate(1);calLoad();};
+  /* ⚠️ 레이어 체크박스(onchange="calLoad()")와 검색칸(oninput="calRender()")은 HTML 속성이라
+     전역에서 찾는다. 이 두 줄이 없으면 «체크해도 아무 일도 안 일어나는» 화면이 된다. */
+  window.calLoad=calLoad; window.calRender=calRender;
   window.calSeed=async function(){
     if(!confirm('한국·필리핀 2026 공휴일을 캘린더에 자동으로 채울까요?\n(이미 있는 항목은 건너뜁니다)'))return;
     try{var res=await fetch('/api/admin/calendar/seed-holidays',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({countries:['KR','PH'],year:2026})});var j=await res.json();
@@ -8137,7 +8180,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=33" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=34" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=3" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
