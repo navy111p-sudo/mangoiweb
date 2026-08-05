@@ -2740,9 +2740,25 @@ ${numbered}`;
     }
 
     // ===== 녹화(Recording) =====
+    // 🔐 2026-08-05: 이 엔드포인트는 인증이 없어 «누구나» 녹화 행을 무제한 생성할 수 있었고,
+    //   그 id 로 /api/recordings/upload/* 를 열어 우리 R2 에 파일을 쌓을 수 있었다(저장 비용).
+    //   토큰을 곧바로 필수로 만들면 교사 브라우저가 토큰을 안 보내는 경우 녹화가 통째로 멈추므로
+    //   (MangoV3.api 는 쿠키만 보내고 Authorization 을 안 붙인다), 우선 **IP 당 속도 제한**으로
+    //   남용만 막는다. 실제 수업은 시간당 몇 건이라 정상 사용에는 걸리지 않는다.
+    //   (토큰 필수화는 클라이언트가 토큰을 보내는 것을 배포·확인한 뒤 2단계에서)
     if (path === '/api/recordings/start' && method === 'POST') {
       const b = await request.json() as any;
       const now = Date.now();
+      try {
+        const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+        const rkey = `recstart:${ip}:${Math.floor(now / 3600000)}`;   // 1시간 단위
+        const cur = parseInt((await (env as any).SESSION_STATE?.get?.(rkey)) || '0', 10) || 0;
+        if (cur >= 30) {
+          console.error(`[recordings] start 속도제한 ip=${ip} count=${cur}`);
+          return json({ ok: false, error: 'rate_limited' }, 429);
+        }
+        await (env as any).SESSION_STATE?.put?.(rkey, String(cur + 1), { expirationTtl: 7200 });
+      } catch { /* KV 장애로 정상 수업이 막히면 안 되므로 통과 */ }
       // 동의 안 한 학생 필터링
       const participantIds = (b.participant_ids || []) as string[];
       let consentedIds: string[] = [];
