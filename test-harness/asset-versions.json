@@ -366,5 +366,7 @@
   "/video-call/js/whiteboard.js?v=20260805c": "97c63a2d61546afd",
   "/js/mango-rec.js?v=44": "fa536c93b3f2fcf5",
   "/video-call/js/recorder.js?v=20260805d": "57388328ad0b58f7",
-  "/js/adm-p5.js?v=4": "32f7c283f8d6a77a"
+  "/js/adm-p5.js?v=4": "32f7c283f8d6a77a",
+  "/video-call/js/app.js?v=20260805d": "7010e9c10420601d",
+  "/video-call/js/webrtc.js?v=20260805d": "8ab78fa3a1291105"
 }
