@@ -96,5 +96,8 @@ check('all=1 은 강사에게 차단된다',
 check('all=1 이 급여와 같은 계산(computeLessonFeeMonth)을 쓴다',
       /searchParams\.get\('all'\)[\s\S]{0,400}computeLessonFeeMonth/.test(api));
 
-console.log(`\n════════════════════════════════════════\n  PASS ${pass}   FAIL ${fail}\n════════════════════════════════════════`);
+// ⚠️ 요약 형식 주의 — run.mjs 는 마지막 25줄에서 /([1-9]\d*)\s*(?:FAIL|실패)/ 를 찾는다.
+//   "PASS 27   FAIL 0" 처럼 쓰면 «27 FAIL» 로 읽혀 통과인데도 배포가 막힌다(실제로 겪음).
+//   숫자와 FAIL 사이에 공백 아닌 글자(⚠)를 둔다 — 다른 하니스들과 같은 형식.
+console.log(`\n════════════════════════════════════════\n  ✅ PASS ${pass}   ⚠ FAIL ${fail}\n════════════════════════════════════════`);
 process.exit(fail ? 1 : 0);
