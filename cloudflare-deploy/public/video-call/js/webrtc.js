@@ -97,7 +97,64 @@ function ensureRemoteTile(userId, peerName) {
   grid.appendChild(wrapper);
   if (typeof updateGridCount === 'function') updateGridCount();
   try { if (typeof praiseButtonFor === 'function') praiseButtonFor(wrapper, userId); } catch (e) {}
+  armTileWatchdog(userId, wrapper);
   return wrapper;
+}
+
+/* ⏱️ (2026-08-05) «연결 중…» 이 영원히 안 없어지는 것을 막는다.
+   좀비 소켓 상대로는 offer/answer 가 오가지 않아 ICE 가 시작조차 못 한다. 그러면 pc 는
+   'failed' 로도 안 가고 'new' 에 머물러서, 기존 실패 복구(oniceconnectionstatechange)가
+   한 번도 안 불린다 → 타일이 「📷 Connecting…」 인 채로 영원히 남는다. 실제로 라이브에서
+   3명 중 하나가 이 상태였다.
+   ⚠️ 여기서 타일을 «자동으로 지우지 않는다». 필리핀 가정 회선은 진짜로 늦게 붙는 일이 있고,
+      멀쩡히 들어와 있는 사람을 화면에서 지워버리는 쪽이 더 나쁘다.
+      → 25초: 조용히 한 번 재시도(restartIce). 75초: 사실대로 «연결 안 됨» 이라고 쓰고,
+        치울지 말지는 사람이 ✕ 로 정한다. */
+function tileIsLive(userId) {
+  const pc = peerConnections.get(userId);
+  if (pc && (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' ||
+             pc.iceConnectionState === 'completed')) return true;
+  const el = document.getElementById('video-' + userId);
+  const v = el && el.querySelector('video');
+  return !!(v && v.srcObject);            // 영상이 들어왔으면 살아있는 것
+}
+
+function armTileWatchdog(userId, wrapper) {
+  if (wrapper.__wd) return;               // 이미 걸려 있으면 중복으로 안 건다
+  wrapper.__wd = [
+    setTimeout(function () {
+      if (tileIsLive(userId)) return;
+      const pc = peerConnections.get(userId);
+      if (!pc) return;
+      console.warn('[webrtc] 25초째 연결 없음 → restartIce:', userId);
+      try { pc.restartIce(); } catch (e) {}
+    }, 25000),
+    setTimeout(function () {
+      if (tileIsLive(userId)) return;
+      const w = wrapper.querySelector('.lite-waiting');
+      if (!w) return;
+      console.warn('[webrtc] 75초째 연결 없음 → 유령 타일로 표시:', userId);
+      w.style.color = '#f59e0b';
+      w.textContent = '⚠ Not connected · 연결 안 됨';
+      const x = document.createElement('button');
+      x.textContent = '✕';
+      x.title = 'Remove this tile · 이 칸 치우기';
+      x.setAttribute('style', 'position:absolute;right:6px;top:6px;z-index:5;width:26px;height:26px;' +
+        'border:0;border-radius:8px;background:rgba(15,23,42,.75);color:#e2e8f0;font-size:13px;cursor:pointer');
+      x.onclick = function () {
+        // 화면에서만 치운다. 상대를 방에서 내보내지 않는다 — 다시 들어오면 타일도 다시 생긴다.
+        try { const pc = peerConnections.get(userId); if (pc) { pc.close(); peerConnections.delete(userId); } } catch (e) {}
+        wrapper.remove();
+        if (typeof updateGridCount === 'function') updateGridCount();
+      };
+      wrapper.appendChild(x);
+    }, 75000)
+  ];
+}
+
+function clearTileWatchdog(userId) {
+  const el = document.getElementById('video-' + userId);
+  if (el && el.__wd) { el.__wd.forEach(clearTimeout); el.__wd = null; }
 }
 
 function handleUserJoined({ userId, username: name, userCount: count }) {
@@ -420,6 +477,7 @@ function createPeerConnection(userId, peerName, isInitiator) {
     if (!videoEl) return;
     /* 영상이 실제로 왔으니 «연결 중…» 안내는 치운다 */
     try { const w = videoEl.querySelector('.lite-waiting'); if (w) w.remove(); } catch (e) {}
+    try { clearTileWatchdog(userId); } catch (e) {}   // 붙었으니 «연결 안 됨» 표시가 뜨면 안 된다
     const videoTag = videoEl.querySelector('video');
     if (event.streams && event.streams[0]) {
       videoTag.srcObject = event.streams[0];

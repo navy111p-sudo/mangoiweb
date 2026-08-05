@@ -280,6 +280,32 @@ function generateRoomId() {
   return id;
 }
 
+/* 🧹 (2026-08-05) 유령 타일 수정 — 이 화면만 clientId 를 «안 보내고» 있었다.
+   서버(video-call-room.ts handleJoinRoom)는 접속마다 새 랜덤 userId 를 발급한다. 그래서
+   새로고침·회선 끊김으로 소켓이 다시 열리면 옛 소켓이 로스터에 좀비로 남아 «같은 사람 타일이
+   두 개» 가 된다. 서버에는 이미 청소 장치가 있는데, 그 장치가 통째로 `if (clientId)` 안에 있다
+   (같은 clientId 의 옛 소켓만 닫는다 = 진짜 다른 사람은 절대 안 닫는 fail-safe).
+   정식 화면(index.html)은 `clientId: vcClientId()` 를 보내서 보호받고 있었고, 이 경량 화면만
+   `{ roomId, username }` 두 개만 보내 청소가 한 번도 돌지 않았다 → 좀비가 그대로 쌓였다.
+   식별자 규칙은 정식 화면과 «같게» 맞춘다: sessionStorage 의 `mangoi_vc_client_id` (탭 단위).
+     · 새로고침·재연결에는 유지된다 → 좀비 청소가 동작한다
+     · 다른 탭·다른 기기와는 절대 겹치지 않는다 → 가족 공용 계정이 서로를 걷어차는
+       «무한 킥 루프» (2026-07-14 사고) 가 재발하지 않는다 */
+function liteClientId() {
+  try {
+    var k = sessionStorage.getItem('mangoi_vc_client_id');
+    if (!k) {
+      k = 'tab:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      sessionStorage.setItem('mangoi_vc_client_id', k);
+    }
+    return k;
+  } catch (e) {}
+  // sessionStorage 불가 환경(사파리 프라이빗 등) 폴백 — 페이지 수명 동안만 유지되는 메모리 id.
+  // 계정 id 는 절대 쓰지 않는다(같은 계정 두 기기가 서로를 닫는다).
+  if (!window.__liteCid) window.__liteCid = 'mem:' + Math.random().toString(36).slice(2, 10);
+  return window.__liteCid;
+}
+
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
@@ -289,7 +315,7 @@ function connectWebSocket() {
     console.log('WebSocket 연결 완료');
     _wsReconnectCount = 0;
     startHeartbeat();
-    sendWsMessage({ type: 'join-room', data: { roomId, username } });
+    sendWsMessage({ type: 'join-room', data: { roomId, username, clientId: liteClientId() } });
   };
   ws.onmessage = (event) => {
     try {
@@ -457,6 +483,7 @@ function handleUserLeft({ userId }) {
     peerConnections.delete(userId);
   }
   if (typeof pendingCandidates !== 'undefined') pendingCandidates.delete(userId);
+  try { if (typeof clearTileWatchdog === 'function') clearTileWatchdog(userId); } catch (_) {}
   const el = document.getElementById('video-' + userId);
   if (el) el.remove();
   if (typeof removeFloatingVideo === 'function') removeFloatingVideo(userId);
