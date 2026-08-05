@@ -74,6 +74,22 @@
     background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #1e3a8a;
     border-radius: 5px; padding: 9px 13px; margin-bottom: 14px; font-size: 9.3pt; color: #334155;
   }
+  /* ── Added 2026-08-05: the four boxes (Important / Done / Not done / Next).
+       CEO's instruction — "less text, plain language, easy to see at a glance." */
+  .blk { border-radius: 8px; padding: 11px 15px 12px; margin: 0 0 11px; border: 2px solid; }
+  .blk h3 { margin: 0 0 8px; font-size: 13pt; font-weight: 900; letter-spacing: -.02em; }
+  .blk ul { margin: 0; padding-left: 19px; }
+  .blk li { margin: 0 0 7px; font-size: 11.3pt; line-height: 1.6; }
+  .blk li:last-child { margin-bottom: 0; }
+  .blk li small { display: block; font-size: 9.2pt; color: #64748b; margin-top: 1px; }
+  .blk-imp  { background: #fff1f2; border-color: #fca5a5; }
+  .blk-imp h3 { color: #b91c1c; }
+  .blk-did  { background: #f0fdf4; border-color: #86efac; }
+  .blk-did h3 { color: #15803d; }
+  .blk-not  { background: #fffbeb; border-color: #fcd34d; }
+  .blk-not h3 { color: #b45309; }
+  .blk-next { background: #eff6ff; border-color: #93c5fd; }
+  .blk-next h3 { color: #1d4ed8; }
 </style>
 </head>
 <body>
@@ -84,307 +100,135 @@
   <b>How to read this</b> — The <b>most recent date is at the front</b>; older entries follow (past dates have grey headers).
   Reading just the <b>blue "In one line"</b> bar for each date gives you the gist,
   and the <b>yellow ★ rows</b> are that day's most important wins. Hard terms are explained on the spot in <span class="grey">(grey parentheses)</span>.
+  <br><b>From August 4 the entries are split into four boxes</b> —
+  <span style="color:#b91c1c;font-weight:800">🔴 Most important</span> ·
+  <span style="color:#15803d;font-weight:800">✅ Done</span> ·
+  <span style="color:#b45309;font-weight:800">⚠️ Not done</span> ·
+  <span style="color:#1d4ed8;font-weight:800">📌 Next</span>.
+  <b>Reading only the red box is enough.</b>
 </div>
 
 <div class="datehead">
-  <h1>Tuesday, August 4</h1>
+  <h1>Wednesday, August 5</h1>
   <span class="badge">LATEST</span>
 </div>
 
 <div class="oneline">
-  <b>In one line</b> — <b>Put speaking into all 21 learning games.</b>
-  On inspection, <b>only 11 games actually required the student to speak</b>, and
-  the flagship card at the top of the list, <b>"Space Monster Hunt", had none at all.</b>
-  Also went through <b>all 25 requests manager Melca sent</b>, and
-  <b>12 of them were already built and running</b> — there was simply no way to find them.
-  Also tracked down and fixed <b>smoke cutting out abruptly</b> when a tank explodes.
+  <b>In one line</b> — Fixed <b>class recordings that were going missing</b>, in four separate layers.
+  And built a <b>light class screen that does not drop on Philippine connections.</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">4 layers</div><div class="l">causes of lost recordings</div></div>
+  <div class="kpi"><div class="n">272 → 5</div><div class="l">recordings stuck "preparing"</div></div>
+  <div class="kpi"><div class="n">4 gears</div><div class="l">automatic quality shifting</div></div>
+  <div class="kpi"><div class="n">17</div><div class="l">deploys verified</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (3 things to know)</h3>
+  <ul>
+    <li><b>A 94-minute class was left with only 15MB.</b> When the teacher looks at another window, the browser <b>stops drawing the screen completely</b> — so the recording froze.
+      <small>→ It now keeps drawing anyway, and if it still stalls the screen shows <b>"NOT BEING RECORDED".</b></small></li>
+    <li><b>A cleanup job I added almost deleted a live class's recording.</b> A quiet class builds its file slowly, and the job read that as a "dead recording."
+      <small>→ It now cleans up only when <b>both</b> conditions are met.</small></li>
+    <li><b>The admin attendance screen was showing invented lateness, absences and star ratings under real teachers' names.</b> Those numbers <b>could have reached payroll.</b>
+      <small>→ The invented numbers are gone.</small></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done today</h3>
+  <ul>
+    <li><b>Made the class screen lighter.</b> It often dropped on Philippine connections. It now <b>shifts through 4 gears on its own</b>, falls back to <b>audio only</b> when the line is very bad, and <b>restores itself</b> when it improves.</li>
+    <li><b>Put Korean and English side by side</b> on the class screen. It is used by Filipino teachers, and it was <b>entirely in Korean.</b></li>
+    <li><b>Teacher attendance had been 0 records for a month.</b> It was reading a value nobody uses. Fixed.</li>
+    <li><b>Added 3 things to the teacher screen</b> — a <b>countdown</b> to the next class, <b>auto-refresh</b> every 45 seconds, and a <b>dark mode.</b> (Manager Melca's requests)</li>
+    <li><b>Built an approval feature</b> (drafts and expenses). Of the 5 old groupware features, <b>only one genuinely did not exist</b> — so I built only that one.</li>
+    <li><b>Slow connections were downloading a 983KB Chinese font</b> — because of <b>a single decorative character.</b> Removed.</li>
+    <li><b>Stopped a cleanup job that could have deleted 40,000 class materials.</b> Deleting now requires <b>a person to switch it on.</b></li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>Recordings already lost cannot be brought back.</b> All I removed was the <b>fake play button</b> in the list (it failed when pressed).</li>
+    <li>On a very bad line it is <b>still audio only.</b> That is <b>deliberate</b> — better than dropping the class.</li>
+    <li>The complaint that <b>the admin console is heavy</b> is not fully solved yet.</li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Next</h3>
+  <ul>
+    <li><b>Please change the staff password.</b> On August 3 it was removed from the public file, but <b>what already leaked cannot be undone.</b></li>
+    <li><b>Textbook and level are empty for all 29,377 students.</b> Personalised questions are built, but <b>students see no difference yet.</b></li>
+    <li>I will <b>sweep for any remaining screens showing invented numbers.</b></li>
+    <li><b>Extended-class teacher pay</b> is not applied automatically — it is still calculated from the <b>booked</b> length.</li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Tuesday, August 4</h1>
+  <span class="badge past">PAST ENTRY</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — Added <b>speaking to all 21 learning games</b>,
+  and went through <b>all 25 of manager Melca's requests</b> one by one.
 </div>
 
 <div class="kpis">
   <div class="kpi"><div class="n">21</div><div class="l">games with speaking (all)</div></div>
-  <div class="kpi"><div class="n">11 &rarr; 21</div><div class="l">games that require speaking</div></div>
-  <div class="kpi"><div class="n">1 &rarr; 18</div><div class="l">screens saving pronunciation</div></div>
-  <div class="kpi"><div class="n">$0</div><div class="l">added server cost</div></div>
-</div>
-<div class="kpis">
-  <div class="kpi"><div class="n">25</div><div class="l">Melca requests reviewed</div></div>
-  <div class="kpi"><div class="n">12</div><div class="l">already existed</div></div>
-  <div class="kpi"><div class="n">9</div><div class="l">photoreal balloons</div></div>
-  <div class="kpi"><div class="n">0 bytes</div><div class="l">added for CJK font</div></div>
-  <div class="kpi"><div class="n">0</div><div class="l">incidents / rollbacks</div></div>
-</div>
-<div class="kpis">
-  <div class="kpi"><div class="n">7.7 → 5.5MB</div><div class="l">admin first load (-28%)</div></div>
-  <div class="kpi"><div class="n">11</div><div class="l">fake buttons / empty menus removed</div></div>
-  <div class="kpi"><div class="n">3</div><div class="l">competitor features we lacked, now built</div></div>
-  <div class="kpi"><div class="n">11 / 16</div><div class="l">shared competitor features we already had</div></div>
-  <div class="kpi"><div class="n">4 → 1</div><div class="l">top buttons on the practice screen</div></div>
+  <div class="kpi"><div class="n">25 → 12</div><div class="l">requests that already existed</div></div>
+  <div class="kpi"><div class="n">-28%</div><div class="l">admin first screen</div></div>
+  <div class="kpi"><div class="n">27</div><div class="l">deploys verified</div></div>
 </div>
 
-<h2 class="sec">1. Speaking is now in all 21 learning games ★</h2>
-<p>The CEO's instruction was clear — <b>every game must require speaking, and above all speaking in
-full sentences. And the sentence the student speaks must come back to be heard and repeated —
-a <u>virtuous cycle</u>.</b></p>
-
-<div class="star"><span class="s">★</span><span>
-  I first <b>opened all 21 games one by one</b> to see how each actually works. The result was unexpected —
-  <b>only 11 games genuinely required speaking.</b>
-  Six were <b>half-done</b> (a button the student could ignore and still move on, loose grading, or no record kept),
-  and <b>four had no speaking at all</b> — one of them being
-  <b>"Space Monster Hunt", the flagship card pinned to the top of the list.</b>
-</span></div>
-
-<div class="star"><span class="s">★</span><span>
-  <b>I built a "4-step speaking cycle" and put it into all 21 games.</b>
-  <b>&#9312;</b> The meaning is hidden and the student hears <b>sound only</b>, twice &rarr;
-  <b>&#9313;</b> they say the <b>key word</b> (short, so success comes easily) &rarr;
-  <b>&#9314;</b> they say the <b>whole sentence</b> (if wrong, the model sentence is played again for one more try) &rarr;
-  <b>&#9315;</b> they hear the native voice and <b>repeat it immediately.</b>
-  <span class="grey">(This follows the research table on the parent-facing "Why these games work" page &mdash;
-  guessing first opens the ears, speaking is what turns knowledge into ability,
-  and spaced re-encounters make it last.)</span>
-</span></div>
-
-<h2 class="sec">2. Fixed grading that was far too loose ★</h2>
-<div class="star"><span class="s">★</span><span>
-  Some games were only counting <b>how many target words appeared anywhere in what was heard.</b>
-  So for <b>"I have a red apple"</b>, saying
-  <b>"apple red a have I" &mdash; the word order completely reversed &mdash; still passed</b>,
-  and saying <b>"banana" instead of "apple" also passed.</b>
-  <b>The game literally named "Speaking Quiz" had the loosest grading of all.</b>
-</span></div>
-<p>Neither passes any more. And we no longer just say <b>"wrong"</b> &mdash;
-the student is told, in one line, exactly what to change.
-<span class="grey">(e.g. saying <i>rice</i> like <i>lice</i> &rarr; <b>"keep the tongue tip off the roof of the mouth for r"</b>)</span>
-If a child does not know what to change, <b>they simply repeat the same thing again.</b></p>
-
-<h2 class="sec">3. The virtuous cycle — yesterday's stuck sentence returns tomorrow, in a different game ★</h2>
-<div class="star"><span class="s">★</span><span>
-  The most important finding was that <b>there was nothing to build.</b>
-  The <b>server endpoint that receives pronunciation scores already existed</b> &mdash;
-  but <b>only 1 of the 21 games was using it.</b> The rest scored the student and <b>sent that score nowhere.</b>
-  So <b>we did not build a new server &mdash; we only connected the wiring.</b>
-  <span class="grey">(Because nothing new was built, <b>server cost does not go up at all.</b>)</span>
-</span></div>
-<p>Once connected, this is what happens &mdash;
-<b>a sentence the student got stuck on yesterday on a tablet comes back today on their phone, in a different game.</b>
-Previously the record lived only on that one device and <b>vanished entirely when the student switched devices.</b>
-Teachers can now also see <b>whether each student's pronunciation is improving.</b></p>
-
-<h2 class="sec">4. Speaking is required, but not forced</h2>
-<p>Some students are in a library or on a bus, have no microphone, or opened the page inside KakaoTalk
-where the microphone is unavailable. So after 3 seconds a <b>"I can't speak out loud right now"</b> button appears.
-However, <b>skipping earns no points</b>, and that sentence is <b>queued to come back later.</b></p>
-<div class="star"><span class="s">★</span><span>
-  One thing we nearly missed &mdash; if you do not distinguish <b>a child who could not use the microphone at all</b>
-  from <b>a child who spoke and got it wrong</b>, the child without a microphone is shown
-  <b>"Pronunciation score: 0".</b> We separated the two so that <b>no score is stated</b> in that case.
-</span></div>
-
-<h2 class="sec">5. What we deliberately did not touch</h2>
-<p><b>The shooting game's speaking mission was left as it is.</b> On inspection it already had
-<b>a 20-second allowance, star ratings, and playback of the student's own voice.</b>
-Replacing that to make it match the other games would have made it <b>worse.</b>
-The only thing missing was sending the record to the server, so <b>that is all we added.</b>
-<span class="grey">(What works for the child comes before making everything uniform.)</span></p>
-<p><b>"Suspect Mystery" and the escape games also kept their original pass criteria.</b>
-Their task is not "repeat this sentence exactly" but
-<b>"explain who the culprit is in a way that makes sense"</b>.</p>
-
-<h2 class="sec">6. An automatic check so this wiring cannot break silently ★</h2>
-<div class="star"><span class="s">★</span><span>
-  This kind of failure <b>cannot be caught by eye.</b>
-  The screen keeps working and scores still appear &mdash; <b>only the record goes missing.</b>
-  In fact, until this work, <b>15 games had never sent a single record and nobody knew.</b>
-  So we built a check that <b>blocks the release automatically.</b>
-  <span class="grey">(We deliberately broke the wiring to confirm the check actually catches it.)</span>
-</span></div>
-
-<h2 class="sec">7. Melca's 25 requests — half were not "build it" but "find it" ★</h2>
-<div class="star"><span class="s">★</span><span>
-  I checked each of the <b>25 items</b> manager Melca sent against the actual screens and data.
-  <b>12 of them were already built and running</b> — the paid marking on postponed classes,
-  the late/absence penalty amounts (₱10 per minute · ₱25), the no-show report, holiday handling,
-  teacher-unavailability blocking, and automatic recording.
-  <b>Nothing needed to be built; nobody knew where these things were.</b>
-</span></div>
-<div class="ask">
-  <b>So my suggestion</b> — for items like these, the real fix is not more code but
-  <b>telling people where the feature is.</b> A staff guide should come before development.
+<div class="blk blk-imp">
+  <h3>🔴 Most important (3 things to know)</h3>
+  <ul>
+    <li><b>All 21 games now have speaking.</b> Only <b>11</b> had it before, and the flagship game at the front of the list, <b>Space Monster Hunt, had none at all.</b>
+      <small>→ <b>A sentence a student got stuck on yesterday comes back tomorrow in a different game.</b> Server cost added: <b>zero.</b></small></li>
+    <li><b>12 of Melca's 25 requests were already built.</b> There was simply no way to find them.
+      <small>→ The real fix is not building more, but <b>telling staff where things are.</b></small></li>
+    <li><b>Class recordings longer than 1 minute 30 seconds were disappearing entirely.</b> When a file is uploaded in pieces, <b>every piece must be exactly the same size</b> — and that wasn't being respected.</li>
+  </ul>
 </div>
-<p><b>Only 2 items actually needed fixing.</b></p>
-<div class="star"><span class="s">★</span><span>
-  <b>①</b> The <b>"Frequently used" box in the admin sidebar was nearly unreadable</b>
-  (Melca: "Can we change the text to black? It's easier on the eyes.")
-  It still carried the <b>pale gold from the old dark screen</b> on a bright ivory background —
-  because that box was <b>added the day after</b> the bright screen was built, so it was missing from the recolour list.
-</span></div>
-<div class="star"><span class="s">★</span><span>
-  <b>②</b> <b>Teachers had no way to report a problem.</b> The report inbox and the receiving endpoint
-  <b>already existed — only the teacher's screen had no button.</b> I added <b>[Report a problem]</b> to the teacher screen,
-  and made it <b>automatically attach that PC's specs</b> (which also resolves the separate request to show PC specs).
-  <span class="grey">(Values the browser won't disclose are left as '?' rather than invented — wrong specs send IT down the wrong path.)</span>
-</span></div>
-<p class="grey">(The things that genuinely <b>don't exist</b> are power-outage alerts, groupware, and the complaint that the admin console is heavy — those three.)</p>
 
-<h2 class="sec">8. "The Chinese characters all look different" — it was the font ★</h2>
-<div class="star"><span class="s">★</span><span>
-  As the CEO pointed out, <b>Chinese characters were rendering differently from one another.</b>
-  Without a font specified for Chinese characters, <b>a Korean PC draws them with a Korean font</b>
-  (a visibly different letterform), and any character missing from that font is
-  <b>substituted from a different font per character</b>, so even stroke weight varies.
-  I applied a Chinese font <b>only to the Chinese-character and pinyin tone-mark ranges.</b>
-</span></div>
-<p class="grey">(It only uses fonts already installed on the PC, so <b>0 bytes are downloaded</b>, and Korean and Latin text are untouched.)</p>
+<div class="blk blk-did">
+  <h3>✅ Done that day</h3>
+  <ul>
+    <li>Fixed <b>Filipino managers and teachers being unable to enter class links at all.</b> There were <b>5 overlapping causes.</b></li>
+    <li><b>"The Chinese characters all look different"</b> — the cause was the <b>font.</b> Korean PCs were drawing Chinese characters <b>with a Korean font.</b></li>
+    <li><b>Made the admin first screen 28% lighter</b>, and removed <b>11 fake buttons</b> that did nothing when pressed.</li>
+    <li>Added <b>"find my level"</b> to judgment training — 6 questions and it finds the student's level.</li>
+    <li>Balloons became <b>real photographs</b>, Space Monster Hunt <b>lost its game-over</b>, and the tank's <b>smoke that cut off abruptly</b> was fixed.</li>
+    <li>Reduced 42 guide images from <b>8.7MB to 2.9MB.</b></li>
+  </ul>
+</div>
 
-<h2 class="sec">9. Sentence-balloon game — real photographs</h2>
-<p>In the <b>sentence-balloon</b> game, where you pop balloons in the right word order, the balloons are now
-<b>9 real photographs</b> and the background is a <b>real sky photo</b> (28KB).
-The <b>balloons that appeared to be different sizes</b> turned out to be squashed because the photo's aspect ratio wasn't respected — fixed.
-White text now carries a black outline so it <b>stays readable on yellow, silver and gold balloons.</b></p>
+<div class="blk blk-not">
+  <h3>⚠️ Not done · deliberately left alone</h3>
+  <ul>
+    <li><b>Speaking is not forced.</b> Students can skip it — <b>on purpose.</b> Forcing it makes them stop playing.</li>
+    <li>Of Melca's requests, <b>power-outage alerts</b> and <b>groupware</b> were not done that day. (The approval part was built <b>the next day.</b>)</li>
+    <li>The <b>heavy admin console</b> was only started on, not finished.</li>
+  </ul>
+</div>
 
-<h2 class="sec">10. Space Monster Hunt — game over removed</h2>
-<div class="star"><span class="s">★</span><span>
-  Removed <b>dying and ending the run</b>, replacing it with a <b>practice mode that repeats until you get it right.</b>
-  In a learning game, "ending in failure" mostly works to <b>keep the student from coming back.</b>
-</span></div>
-
-<h2 class="sec">11. Parent-facing "why games work" page — why the text looked small</h2>
-<p>The complaint that <b>the text was too small on screen</b> wasn't the font — it was the <b>width.</b>
-The page was <b>locked to A4 print width</b>, so even on a large monitor it looked like one small sheet of paper in the middle.
-On screen the width is now wider and the text <b>1.4–1.6× larger</b> (<b>printing is still a single A4 page</b>).
-The table went from black-and-white to a colour per row, so it's immediately visible that these are <b>six different stories.</b></p>
-
-<h2 class="sec">12. In-class button overlapping the world clock</h2>
-<p>An in-class button that was <b>too small to hit reliably</b> is now <b>twice the size</b>,
-and it no longer <b>collides head-on with the Korea/Philippines clock</b> that started appearing on the class screen yesterday.
-<span class="grey">(Moving the clock would move it on the admin and parent screens too, so it's safer to move only this button.)</span></p>
-
-<h2 class="sec">13. Admin console — removed the things that did nothing when clicked ★</h2>
-<div class="star"><span class="s">★</span><span>
-  Going through the whole admin console, I found <b>menus that were only a shell</b>.
-  <b>"Settlement Statistics"</b> had 11 tabs and a table drawn out neatly, but <b>opening it showed a blank screen</b> —
-  and the history showed it was <b>never built in the first place</b>, not half-finished.
-  <span class="grey">(Like a shop with a sign, a door and a menu board, but no kitchen inside.)</span>
-  I removed 2 such menus and <b>9 fake buttons</b> that only popped up a message box.
-</span></div>
-<p>The <b>"Update FX rates" button</b> was the worst: it showed <b>hard-coded numbers</b> as if they had just been fetched,
-so it went first. Where the message itself was <b>genuinely useful</b>, I kept it and made the <b>label honest</b> instead —
-"Submit to Hometax" became "<b>How to</b> submit to Hometax".
-And where the button <b>had a real destination</b>, it now <b>actually goes there</b> instead of just describing it.</p>
-
-<h2 class="sec">14. Compared against competitors — added the 3 features we were missing ★</h2>
-<p>I checked Mangoi one by one against the <b>16 features</b> that Korean academy-management products and
-overseas tutoring-management products all share. <b>11 were already here.</b>
-Only 5 were genuinely missing, and I built the <b>3 that could be done right away</b>.</p>
-<div class="star"><span class="s">★</span><span>
-  <b>① Teacher utilization</b> — the share of a teacher's <b>open hours that are actually filled with classes</b>.
-  The real cost of online classes is <b>teacher time</b>, and without this number there was
-  <b>no basis for deciding whether to hire more teachers or fewer</b>.
-  Teachers <b>under 30%</b> are listed separately.
-</span></div>
-<div class="star"><span class="s">★</span><span>
-  <b>② Blocking overlapping classes</b> — a check existed, but it only caught <b>identical start times</b>.
-  So if a <b>9:00 class (50 min)</b> existed, booking <b>9:30</b> went straight through even though 20 minutes overlap —
-  and <b>nothing stopped the same teacher from already having another student at that time</b>.
-  <span class="grey">(That means the teacher has to be in two classrooms at once — it turns into an incident on the day.)</span>
-  It now accounts for <b>class length</b> and checks <b>by teacher</b> as well.
-  <b>Group classes</b>, where several students share one slot on purpose, are not blocked.
-</span></div>
-<div class="star"><span class="s">★</span><span>
-  <b>③ Waitlist</b> — until now, <b>if the requested time was full the enquiry simply ended there</b>.
-  Now they join a queue, and if a preferred weekday and time are entered we
-  <b>immediately show which teachers are free at that slot</b>.
-  <span class="grey">(These are people who already showed interest — far cheaper to win than a brand-new lead.)</span>
-</span></div>
-<p class="grey">The remaining 2 are <b>e-signature contracts</b> and <b>automatic tax-invoice issuing</b>.
-Both need <b>an external provider contract first</b>, so I left them alone this time.</p>
-
-<h2 class="sec">15. "Frequently used menus" — so nobody gets lost among 88</h2>
-<p>An HQ account sees <b>88 top-level menus</b>. Staff couldn't find features
-<b>not because they were missing, but because they were lost among the 88</b>.</p>
-<p>My first idea was to <b>merge the look-alike menus</b> — but on inspection that would have been <b>a mistake</b>:
-the 5 libraries only <i>look</i> the same; <b>who is allowed to see each one is set separately</b>.
-<span class="grey">(Merging them would have let teachers into the admin library, and branches into the agency library.)</span>
-So the menus stay as they are, and instead the console now <b>surfaces your pinned and most recent menus at the top</b>.
-A menu you open once is remembered automatically, and the ones you use often can be <b>pinned</b>.</p>
-
-<h2 class="sec">16. Admin first load, 30% lighter ★</h2>
-<div class="star"><span class="s">★</span><span>
-  Opening the admin console once pulled down <b>7.7 MB</b>. Measuring it, the culprit was a surprise —
-  the <b>same intro video (750 KB) was downloaded four times</b>, and the
-  <b>18 "easy guide" images were fetched in full on every visit</b> (that image folder is <b>7.5 MB</b>).
-  <b>Even if you closed it after one slide, all of them came down.</b>
-  Fixing that, plus <b>the code for menus nobody had opened</b>, brought it to <b>5.5 MB (-28%)</b>.
-</span></div>
-<p class="grey">On the connections our teachers and staff in the Philippines use, that difference is simply <b>waiting time</b>.
-Since the screen needs a login, I couldn't just look at it — so I built a way to <b>launch a real browser and measure it</b>.</p>
-
-<h2 class="sec">17. Smoke cut off abruptly when a tank blew up ★</h2>
-<p>The CEO's report — <b>"when the tank explodes and dies, the fire and smoke get cut off."</b></p>
-<div class="star"><span class="s">★</span><span>
-  The cause was unexpected. The part that <b>keeps the wreck billowing smoke</b> sat
-  <b>in a place that only runs while the game is running.</b>
-  But <b>when your own tank is destroyed, the game stops.</b>
-  So <b>the one moment that should be the most dramatic — being destroyed — was the only moment with no smoke at all.</b>
-  All that remained was the one-off flash of the explosion, so it <b>cut out after 2.5 seconds.</b>
-</span></div>
-<p>Now the wreck keeps smoking and then fades away naturally. Measured:</p>
-<div class="star"><span class="s">★</span><span>
-  Amount of smoke on screen right after being destroyed (counted every 0.5 s)<br>
-  <b>Before</b> — 10 · 10 · 8 · 4 · <b>0</b> &nbsp;&rarr;&nbsp; <b>gone at 2.5 s</b>
-  (new smoke emitted after the kill: <b>0</b>)<br>
-  <b>After</b> &nbsp;&nbsp;— 16 · 18 · 18 · 9 · 4 · 2 · 0 &nbsp;&rarr;&nbsp; <b>fades naturally at 3.5 s</b>
-  (new smoke emitted after the kill: <b>14</b>)
-</span></div>
-<p>The smoke is also <b>a little denser</b> now.
-<span class="grey">(Turning it up all the way makes a black blob that hides the tank, so we stopped partway.)</span></p>
-<div class="star"><span class="s">★</span><span>
-  <b>Worth recording that my first diagnosis was wrong.</b> I judged it as "the smoke image is being clipped by the ground"
-  and fixed that — but <b>counting the pixels actually drawn on screen showed a difference of 0.1%</b>. That was not the cause.
-  I <b>reverted that change entirely.</b> Changing draw order without evidence
-  creates <b>new problems</b> where smoke overlaps trees and terrain in front of it.
-</span></div>
-<p class="grey">(Screen problems have several plausible-looking causes, so checking with numbers before fixing turns out to be faster.)</p>
-
-<h2 class="sec">18. Pronunciation practice screens — top buttons cut from four to one ★</h2>
-<p>The CEO opened <b>AI pronunciation practice</b> on a phone and pointed out the problem —
-<b>four buttons crowd the top of the screen and cover the very text you are meant to read.</b>
-<b>"Translate" and "Homepage" are not needed; a single back arrow is enough.</b>
-<span class="grey">(Going back already lands you on the home screen, so a separate home button is a second button doing the same job.)</span></p>
-
-<div class="star"><span class="s">★</span><span>
-  <b>Cleaned up three screens.</b>
-  On the <b>practice screen</b> the four top buttons became <b>two</b>, and the two that remain are now
-  <b>small semi-transparent circles with no text</b>, so the artwork shows through.
-  On <b>AI Speaking Coach</b> and <b>Chinese pronunciation</b>, <b>only the arrow remains</b>.
-</span></div>
-
-<div class="star"><span class="s">★</span><span>
-  I also fixed the arrow that had been <b>sitting directly on top of the title and hiding it.</b>
-  <b>The direction I made room in differs per screen</b> —
-  <b>AI Speaking Coach</b> is tuned to fit <b>on one phone screen with no scrolling</b>, so giving the arrow
-  its own row would <b>push the record button off-screen on small phones.</b> There I moved the title <b>sideways</b>.
-  The <b>Chinese screen</b> is a level list that scrolls anyway, so there I made room <b>vertically</b>.
-</span></div>
-
-<p class="grey">I <b>measured the actual distance</b> between the arrow and the text at <b>three phone sizes</b>
-(including the smallest), confirming no overlap and that the <b>"one screen" fit still holds</b>.
-The arrow <b>grows automatically past a certain screen width</b>, which created a
-<b>trap where it overlapped very slightly at exactly that boundary</b> — I measured that width too and closed it.
-After shipping, I <b>measured again on the live address</b> and confirmed no overlap on either screen.</p>
-
-<p class="grey">One thing to note — <b>with the translate button removed, these screens can no longer switch between Korean and English.</b>
-They follow whatever language was chosen on another screen.</p>
-
-<h2 class="sec">Deployed and verified</h2>
-<p><b>12 deploys</b> this day. Each time I confirmed <b>0 compile errors</b> and passing automated checks,
-then verified on the live address that the change had landed. Nothing was rolled back.</p>
-<p class="grey">The speaking work went out only after <b>all 58 automated checks passed</b>. After release,
-I <b>downloaded the files back from the live service and compared them byte for byte</b> against the originals,
-then <b>checked again 9 minutes later</b> to confirm nothing had overwritten them.
-<span class="grey">(When two people release at the same time, the later one can overwrite the earlier — this has actually happened.)</span></p>
-
+<div class="blk blk-next">
+  <h3>📌 Decided that day, to do next</h3>
+  <ul>
+    <li>A <b>staff guide showing where each feature is</b> — this comes before more development.</li>
+    <li><b>More on the teacher screen</b> (countdown to next class, etc.) — <b>done the next day.</b></li>
+  </ul>
+</div>
 <div class="pg"></div>
 
 <div class="month">AUGUST 2026</div>
