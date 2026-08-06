@@ -2744,8 +2744,21 @@ ${numbered}`;
     //   그 id 로 /api/recordings/upload/* 를 열어 우리 R2 에 파일을 쌓을 수 있었다(저장 비용).
     //   토큰을 곧바로 필수로 만들면 교사 브라우저가 토큰을 안 보내는 경우 녹화가 통째로 멈추므로
     //   (MangoV3.api 는 쿠키만 보내고 Authorization 을 안 붙인다), 우선 **IP 당 속도 제한**으로
-    //   남용만 막는다. 실제 수업은 시간당 몇 건이라 정상 사용에는 걸리지 않는다.
+    //   남용만 막는다.
     //   (토큰 필수화는 클라이언트가 토큰을 보내는 것을 배포·확인한 뒤 2단계에서)
+    //
+    // ⚠️ 2026-08-07 검토: 한도를 30 → 300 으로 올린다.
+    //   30 은 «강사 한 명이 시간당 몇 번 수업하나» 로 잡은 수인데, 세는 단위는 **IP** 다.
+    //   필리핀 사무실 강사들이 공인 IP 하나를 나눠 쓰면 그 IP 로 전부 합산된다.
+    //   운영 D1 실측(최근 14일, 시간대별 recordings.started_at):
+    //     2026-07-28 19시 **37건**(강사 14명) · 08-04 20시 21건 · 07-25 13시 18건
+    //   피크 37 > 한도 30 → 그 시간대에 정상 녹화가 429 로 막혔을 것이다.
+    //   더 나쁜 건 **자동녹화는 실패해도 화면에 아무 말이 없다**는 점이다
+    //   (mango-rec.js `if (!auto) alert(...)`) — 조용히 녹화가 안 남고, 나중에 찾을 때야 안다.
+    //   강사 21명 × 시간당 3회 = 63건이 이론상 최대라 300 이면 5배 여유이고,
+    //   남용은 수천 건 단위로 들어오므로 300 으로도 그대로 막힌다.
+    //   ⚠️ 이 값을 다시 내리려면 위 실측을 먼저 다시 뜰 것. 「몇 건이면 충분하겠지」로 정하지 말 것.
+    const REC_START_MAX_PER_IP_HOUR = 300;
     if (path === '/api/recordings/start' && method === 'POST') {
       const b = await request.json() as any;
       const now = Date.now();
@@ -2753,7 +2766,7 @@ ${numbered}`;
         const ip = request.headers.get('cf-connecting-ip') || 'unknown';
         const rkey = `recstart:${ip}:${Math.floor(now / 3600000)}`;   // 1시간 단위
         const cur = parseInt((await (env as any).SESSION_STATE?.get?.(rkey)) || '0', 10) || 0;
-        if (cur >= 30) {
+        if (cur >= REC_START_MAX_PER_IP_HOUR) {
           console.error(`[recordings] start 속도제한 ip=${ip} count=${cur}`);
           return json({ ok: false, error: 'rate_limited' }, 429);
         }

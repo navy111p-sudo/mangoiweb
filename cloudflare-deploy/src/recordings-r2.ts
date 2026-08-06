@@ -111,12 +111,31 @@ export async function handleRecordingUpload(
     // 🔐 실재하고 «지금 녹화 중인» 행에만 업로드 통로를 연다.
     //   예전엔 존재하지 않는 recording_id 로도 multipart 가 생성돼, 아무나 R2 에 쌓을 수 있었다.
     const own = await env.DB.prepare(
-      `SELECT id, started_at, status FROM recordings WHERE id = ?`
-    ).bind(b.recording_id).first<{ id: number; started_at: number | null; status: string | null }>();
+      `SELECT id, started_at, status, file_url FROM recordings WHERE id = ?`
+    ).bind(b.recording_id).first<{ id: number; started_at: number | null; status: string | null; file_url: string | null }>();
     if (!own || own.status !== 'recording' ||
         !own.started_at || Date.now() - own.started_at > UPLOAD_WINDOW_MS) {
       console.error(`[recordings-r2] create 거부 recording_id=${b.recording_id} status=${own?.status ?? '없음'}`);
       return J({ ok: false, error: "not recording" }, 404);
+    }
+
+    /* 🔐 2026-08-07 검토 추가 — create 는 recording_id 당 «한 번만».
+       위 가드가 요구하는 «status='recording' + 6시간 이내» 는 **진행 중인 녹화가 정확히 만족하는 조건**이다.
+       recording_id 는 순번이라 추측도 쉽다. 그래서 이 가드만으로는 아래 UPDATE 가 여전히
+       «남이 지금 쓰고 있는 file_url» 을 덮어쓸 수 있다.
+
+       그게 왜 치명적이냐 — 이 PR 이 part/complete 를 file_url 일치에 묶었기 때문이다.
+       file_url 이 바뀌는 순간 강사가 올리던 파트는 assertUploadable() 을 통과하지 못해
+       **그 시점부터 전부 404 → 그 수업 녹화가 통째로 사라진다.**
+       (이 PR 이전에는 part/complete 가 file_url 을 안 봐서 같은 조작이 거의 무해했다.
+        즉 이 한 줄이 없으면 이 PR 이 «남의 진행 중 녹화를 끄는 스위치» 를 새로 만드는 셈이다.)
+
+       정상 흐름은 안 깨진다 — create 를 부르는 곳은 두 군데(mango-rec.js:893, video-call/js/recorder.js:114)
+       뿐이고 둘 다 /start 직후 **한 번만** 부른다(재시도 루프 없음). 실패하면 로컬 녹화로 내려간다.
+       새로고침하면 /start 부터 다시 하므로 새 id 가 나온다. */
+    if (own.file_url) {
+      console.error(`[recordings-r2] create 재요청 거부 recording_id=${b.recording_id} 기존키=${own.file_url}`);
+      return J({ ok: false, error: "already opened" }, 409);
     }
 
     const key = `rec/${b.room_id}/${b.recording_id}_${Date.now()}.webm`;
