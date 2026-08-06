@@ -1248,6 +1248,8 @@ const worker = {
         path === '/api/admin/subscriptions' ||
         path === '/api/admin/subscription/charge-now' ||
         path === '/api/admin/subscription/cron-check' ||
+        // 🔗 강사 계정 ↔ 강사 원부 연결 (이름 추측 대신 사람이 정한 정답표)
+        path === '/api/admin/teacher-links' ||
         // 🎁 Phase RF — 추천 친구 보상
         path === '/api/referral/my-code' ||
         path === '/api/referral/use' ||

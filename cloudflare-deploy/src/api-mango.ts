@@ -1324,6 +1324,7 @@ export async function handleMangoApi(
         || path === '/api/admin/absent-sweep/run'
         || path === '/api/admin/lesson-reminder/run'
         || path.startsWith('/api/admin/referrals') || path.startsWith('/api/admin/counseling/')
+        || path.startsWith('/api/admin/teacher-links')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'
         || path === '/api/battle/leaderboard' || path === '/api/battle/history'
         || path === '/api/admin/org/import-cafe24' || path === '/api/admin/staff/graph-list'

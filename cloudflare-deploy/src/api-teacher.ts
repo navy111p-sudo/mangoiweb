@@ -116,7 +116,7 @@ export async function handleTeacherApi(
   //   ⚠️ 예약(class_schedules)만은 강사ID 결과가 있어야 조건을 만들 수 있어 뒤에 남는다.
   //   ⚠️ 개별 실패가 화면 전체를 죽이지 않도록 각각 catch 로 빈 값을 준다(첫 화면 우선).
   const empty = { results: [] as any[] };
-  const [tidRs, noticeRs, resourceRs, ratingRow] = await Promise.all([
+  const [tidRs, noticeRs, resourceRs, ratingRow, linkRow] = await Promise.all([
     tname
       ? env.DB.prepare(
           // exact 는 «완전일치인가»를 표시만 한다(WHERE 는 그대로) — 후보를 넓히지 않는다.
@@ -141,6 +141,13 @@ export async function handleTeacherApi(
             WHERE teacher_name = ? AND created_at >= ?`
         ).bind(tname, now - 90 * 86400 * 1000).first<any>()
          .catch((e) => { console.warn('[teacher-portal] rating:', e?.message); return null; })
+      : Promise.resolve(null),
+    /* 🔗 관리자가 손으로 정해 준 «계정 = 강사» 정답표. 있으면 이름 추측을 건너뛴다.
+       (관리자 화면: 강사 계정 연결 카드 / 표: teacher_account_links) */
+    actor.username
+      ? env.DB.prepare(`SELECT teacher_id, teacher_name FROM teacher_account_links WHERE username = ?`)
+          .bind(actor.username).first<any>()
+          .catch(() => null)   // 표가 아직 없어도(첫 배포) 화면은 예전대로 돌아야 한다
       : Promise.resolve(null),
   ]);
 
@@ -176,7 +183,13 @@ export async function handleTeacherApi(
   const tidRows = (tidRs.results || []).filter((x: any) => x && x.tid);
   const exactRows = tidRows.filter((x: any) => Number(x.exact) === 1);
   const wordRows = tidRows.filter((x: any) => wordMatch(x.name));
-  const resolvedRows = exactRows.length ? exactRows : (wordRows.length === 1 ? wordRows : []);
+  /* 0순위 — 사람이 정해 준 연결이 있으면 그것만 쓴다.
+     이름이 'mangoi_033' 처럼 원부에 없는 계정도 이걸로 바로 붙는다.
+     ⚠️ 이름 규칙(1~3순위)보다 **앞**이다. 관리자가 고른 것을 코드가 뒤집으면 안 된다. */
+  const manualTid = linkRow && linkRow.teacher_id ? String(linkRow.teacher_id) : '';
+  const resolvedRows = manualTid
+    ? [{ tid: manualTid, name: String((linkRow && linkRow.teacher_name) || tname) }]
+    : (exactRows.length ? exactRows : (wordRows.length === 1 ? wordRows : []));
   // 확정에 실패했지만 «비슷한 사람은 있다» — 본사에 누구와 헷갈리는지 그대로 보여 준다.
   //   (Anna 처럼 후보가 한 명이어도 확정하지 않았다면 여기 실린다. 이유를 알아야 고친다.)
   const ambiguousNames = resolvedRows.length ? [] : tidRows.map((x: any) => String(x.name || x.tid));

@@ -110,6 +110,7 @@
     'card-teacher-mgmt':'userCheck','card-payroll':'money','card-payroll-auto':'sliders',
     'card-mbti-mgmt':'puzzle','card-praise-stats':'thumb','card-supervisor':'headset',
     'card-room-invite':'link','card-timetable':'grid','card-lesson-log':'file',
+    'card-teacher-link':'link',
     'card-schedule-requests':'clock',
 
     'card-kpi-dashboard':'activity','card-daily-charts':'chartBar','card-rankings':'trophy',
