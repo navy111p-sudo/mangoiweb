@@ -115,41 +115,39 @@ check('가입 완료 화면이 «로그인 없이 확인하는 길» 을 알려�
 check('신청 완료 화면이 티켓 링크를 «먼저» 준다 (마이페이지는 대비책)',
   /ticketUrl\s*\n?\s*\? `<a class="info-cta" href="\$\{ticketUrl\}"/.test(grid) && /`<a class="info-cta" href="\/parent\.html/.test(grid));
 
-console.log('\n[ ⑥-2 기존 회원이 «자기 아이디에 막히지» 않아야 한다 ]');
-/* 신청서를 모달 한 벌로 모으면서 생긴 새 위험: 모달은 원래 «회원가입 폼» 이라
-   아이디·비밀번호가 필수였다. 그대로 두면 이미 가입한 학생(2.9만 명)은 아이디를
-   새로 지어내야 하고, 자기 아이디를 넣으면 「이미 사용 중」 에 막혀 신청 자체가 불가능해진다. */
-check('로그인 상태면 계정 만들기 칸을 접는다',
-  /var accountBlock = _ltIn/.test(grid) && /🔐 로그인됨/.test(grid));
-check('로그인 상태면 아이디·비밀번호를 요구하지 않는다', /if \(!loggedIn && !noAcct\) \{\s*\n\s*if \(!uid \|\| uid\.length < 4\)/.test(grid));
-check('로그인 상태면 회원가입 API 를 부르지 않는다', /if \(!loggedIn && !noAcct\) try \{[\s\S]{0,200}?\/api\/student\/register/.test(grid));
-check('로그인 상태면 «이미 사용 중» 자기검사에 자기가 걸리지 않는다',
-  /if \(!loggedIn && !noAcct\) \{[\s\S]{0,260}?student_user_id === uid/.test(grid));
-check('로그인 세션(학부모)을 학생으로 덮어쓰지 않는다',
-  /if \(!loggedIn && !noAcct\) try \{[\s\S]{0,300}?setItem\('mangoi_logged_user'/.test(grid));
-check('기존 회원 신청도 uid 를 실어 보낸다 (안 실으면 마이페이지에 안 뜬다)',
-  /student_uid: uid/.test(grid) && /loggedIn \? 'home-member'/.test(grid));
-
-console.log('\n[ ⑥-3 처음 온 사람에게 «비밀번호부터» 묻지 않는다 ]');
-/* 레벨테스트 신청 ≠ 회원가입. 신청자 절반은 계정이 없다(2026-08-06 확인).
-   통일하면서 모달의 회원가입 폼이 그대로 벽이 됐다 — 옛 페이지엔 없던 벽이다.
-   결과 확인은 계정이 아니라 티켓 링크(t.html, 로그인 불필요)가 맡는다. */
-check('아이디·비밀번호가 «선택»으로 표시된다', /계정 만들기 <span class="ltf-opt">\(선택/.test(grid));
-check('«계정 없이 신청» 전환이 있다', /ltToggleAccount\(1\)/.test(grid) && /window\.ltToggleAccount = function/.test(grid));
-check('아이디 칸을 비워 둬도 그대로 접수된다 (안내를 못 본 사람이 막히지 않게)',
-  /const noAcct = !loggedIn && \(acctOff \|\| \(!uidTyped && !pw\)\)/.test(grid));
-check('계정 없이 신청이면 아이디·비밀번호를 검증하지 않는다', /if \(!loggedIn && !noAcct\) \{\s*\n\s*if \(!uid \|\| uid\.length < 4\)/.test(grid));
-check('계정 없이 신청이면 회원가입 API 를 부르지 않는다', /if \(!loggedIn && !noAcct\) try \{[\s\S]{0,200}?\/api\/student\/register/.test(grid));
-check('계정 없이 신청은 uid 를 비워 보낸다 (남의 계정에 붙지 않게)',
-  /noAcct \? '' : uidTyped/.test(grid) && /noAcct \? 'home-guest'/.test(grid));
-check('전환해도 이미 친 아이디를 지우지 않는다 (되돌릴 때 이탈 지점)',
-  /fields\.style\.display = off \? 'none' : ''/.test(grid) && !/lt-uid'\)\.value = ''/.test(grid));
+console.log('\n[ ⑥-2 신청서는 «회원가입» 이 아니다 — 아이디·비밀번호를 아예 묻지 않는다 ]');
+/* 2026-08-07, 사장님 지적 2회. 신청서를 모달 한 벌로 모으면서 «회원가입 폼» 이 그대로
+   신청서가 됐다. 레벨테스트 신청 ≠ 회원가입이고 신청자 절반은 계정이 없다 —
+   비밀번호가 «보이는» 순간 거기서 나간다. «(선택)» 이라고 적어두는 1차 시도로는 부족해
+   칸 자체를 없앴다. 가입은 홈 로그인 모달에서 따로, 결과 확인은 티켓 링크(t.html)가 맡는다. */
+check('⛔ 신청서에 아이디 칸이 없다', !/id="lt-uid"/.test(grid));
+/* ⚠ 파일 전체에서 type="password" 를 금지하면 안 된다 — 성적표·집중력 측정의 «로그인» 폼은
+   비밀번호를 받는 게 맞다. 금지 대상은 «레벨테스트 신청서 안» 뿐이라 lt- 접두사로 좁힌다. */
+check('⛔ 신청서에 비밀번호 칸이 없다', !/id="lt-pw"/.test(grid));
+check('⛔ 신청서에 «계정 만들기» 칸이 없다', !/ltf-sec">🔐 계정 만들기/.test(grid));
+check('⛔ 신청이 회원가입 API 를 부르지 않는다', !/\/api\/student\/register/.test(grid));
+check('비로그인 안내가 «회원가입 없이» 라고 분명히 말한다', /회원가입 없이<\/b> 신청하실 수 있어요/.test(grid));
+check('제출 버튼이 «레벨테스트 신청하기» 다 (가입 문구 없음)',
+  /var submitLabel = '✅ 레벨테스트 신청하기'/.test(grid) && !/회원가입 완료 \+ 레벨테스트 신청/.test(grid));
+check('완료 화면도 «회원가입 완료» 라고 말하지 않는다',
+  /<h2 style="color:#86efac">🎉 레벨테스트 신청 완료!<\/h2>/.test(grid));
+check('비로그인 신청은 uid 를 비워 보낸다 (남의 계정에 붙지 않게)',
+  /const uid = loggedIn \? sess\.uid : ''/.test(grid) && /loggedIn \? 'home-member' : 'home-guest'/.test(grid));
+check('계정 없는 건은 로컬 «결과보기» 목록에 쌓지 않는다 (아이디 \'\' 행이 서로 섞인다)',
+  /if \(loggedIn\) try \{[\s\S]{0,300}?mangoi_level_test_results/.test(grid));
 check('⛔ 티켓도 계정도 없을 때 빈 uid 로 마이페이지에 보내지 않는다',
   /: \(uid\s*\n?\s*\? `<a class="info-cta" href="\/parent\.html\?uid=/.test(grid));
 check('그때는 «문자로 보냈다» 고만 말한다 (가짜 버튼 금지)',
   /확인 링크를 문자로 보내드렸어요/.test(grid));
-check('계정 없는 건은 로컬 «결과보기» 목록에 쌓지 않는다 (아이디 \'\' 행이 서로 섞인다)',
-  /if \(!noAcct\) try \{[\s\S]{0,200}?mangoi_level_test_results/.test(grid));
+check('이미 신청한 사람은 아이디 대신 티켓으로 돌아온다 (계정이 없으니 아이디로 못 찾는다)',
+  /mangoi_lt_ticket[\s\S]{0,300}?🎟️ 이미 신청하셨나요\? 내 신청 확인하기/.test(grid));
+
+console.log('\n[ ⑥-3 로그인한 회원은 «자기 아이디에 막히지» 않아야 한다 ]');
+check('로그인 상태면 «○○ 님으로 신청합니다» 로 바뀐다',
+  /var accountBlock = _ltIn/.test(grid) && /🔐 로그인됨/.test(grid));
+check('로그인 세션(학부모)을 학생으로 덮어쓰지 않는다', !/role: 'student' \}/.test(grid));
+check('기존 회원 신청도 uid·토큰을 실어 보낸다 (안 실으면 마이페이지에 안 뜬다)',
+  /student_uid: uid/.test(grid) && /token: regToken/.test(grid) && /loggedIn \? \(sess\.token \|\| ''\)/.test(grid));
 
 console.log('\n[ ⑦ 캐시 — 고친 js 가 실제로 내려가야 한다 ]');
 const v = (home.match(/idx-grid-menu\.js\?v=(\d+)/) || [])[1];
