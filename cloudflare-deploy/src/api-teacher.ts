@@ -95,9 +95,15 @@ export async function handleTeacherApi(
 
   // ── 담당 예약 조회 조건 ────────────────────────────────────────────────
   //   teacher_id 는 운영 DB 에서 TEXT("28") 이고, 계정 username 이 그대로 들어간 행도 있다.
-  //   그래서 (a) username (b) teachers.name 부분일치로 얻은 id 들을 모두 OR 로 건다.
+  //   그래서 (a) username (b) teachers.name 대조로 얻은 id 들을 OR 로 건다.
   //   ⚠️ 부분일치는 api-mango 의 sessions/today 와 동일한 사유 — 계정명('강선생님')과
   //      teachers.name('중국어 강선생님') 표기가 달라 완전일치면 매칭이 통째로 깨진다.
+  //   🔴 (2026-08-06) 그런데 이 파일만 «부분일치로 걸린 사람을 전부» 담당으로 붙이고 있었다.
+  //      api-mango.ts:1463 에는 «완전일치가 있으면 그쪽만» 규칙이 이미 있는데 여기만 빠져 있었다.
+  //      실제 사고: 계정 `hq_t_anna`(name='Anna') → 원부에 'Anna' 는 없고
+  //      **'HANNAH' 안에 'anna' 가 들어 있어**(H-ANNA-H) id 24 에 붙었다.
+  //      → Anna 로 로그인하면 HANNAH 의 오늘 수업·학생 이름이 보이고 그 방에 입장까지 됐다.
+  //      남의 수업이다. 이름 문자열로 사람을 정하는 이상 이 사고는 또 난다.
   const conds: string[] = [];
   const binds: any[] = [];
   if (actor.username) { conds.push('cs.teacher_id = ?'); binds.push(actor.username); }
@@ -113,9 +119,12 @@ export async function handleTeacherApi(
   const [tidRs, noticeRs, resourceRs, ratingRow] = await Promise.all([
     tname
       ? env.DB.prepare(
-          `SELECT CAST(id AS TEXT) AS tid FROM teachers
+          // exact 는 «완전일치인가»를 표시만 한다(WHERE 는 그대로) — 후보를 넓히지 않는다.
+          // COLLATE NOCASE: 원부는 대문자('ANA'), 계정은 섞여 쓴다('Ana'). 대소문자 차이로
+          //   완전일치를 놓치면 부분일치로 떨어져 엉뚱한 사람에게 붙는다.
+          `SELECT CAST(id AS TEXT) AS tid, name, (name = ? COLLATE NOCASE) AS exact FROM teachers
             WHERE name = ? OR name LIKE ('%' || ? || '%') OR (length(name) > 0 AND ? LIKE ('%' || name || '%'))`
-        ).bind(tname, tname, tname).all<any>()
+        ).bind(tname, tname, tname, tname).all<any>()
          .catch((e) => { console.warn('[teacher-portal] teacher id lookup:', e?.message); return empty; })
       : Promise.resolve(empty),
     env.DB.prepare(
@@ -135,7 +144,25 @@ export async function handleTeacherApi(
       : Promise.resolve(null),
   ]);
 
-  for (const x of (tidRs.results || [])) { if (x.tid) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); } }
+  /* 🔒 계정 → 강사원부 확정 규칙. 위에서 적은 'Anna → HANNAH' 사고를 막는다.
+   *
+   *   1순위  완전일치가 하나라도 있으면 **그것만** 쓴다   (부분일치분은 전부 버린다)
+   *   2순위  완전일치가 없고 부분일치가 **정확히 1명**이면 그 사람
+   *   3순위  부분일치가 2명 이상이면 **아무도 붙이지 않는다** → '누구인지 확정 필요'
+   *
+   *  ⚠️ 3순위가 이 수정의 핵심이다. 예전엔 여러 명이 걸리면 전부 담당으로 붙여서
+   *     남의 수업이 목록에 섞였다. «모르면 보여주지 않는다»가 «아무나 보여준다»보다 낫다 —
+   *     못 보는 건 본사에 문의하면 끝이지만, 남의 학생 이름과 방은 되돌릴 수 없다.
+   *  ⚠️ 매칭을 «좁히기만» 한다. 지금 제대로 연결된 사람이 못 찾아지는 경우는 없다.
+   */
+  const tidRows = (tidRs.results || []).filter((x: any) => x && x.tid);
+  const exactRows = tidRows.filter((x: any) => Number(x.exact) === 1);
+  const resolvedRows = exactRows.length ? exactRows : (tidRows.length === 1 ? tidRows : []);
+  // 확정에 실패한 다중 후보 — 화면과 본사에 «누구와 누구가 헷갈린다»를 그대로 알려 준다.
+  const ambiguousNames = (!exactRows.length && tidRows.length > 1)
+    ? tidRows.map((x: any) => String(x.name || x.tid)) : [];
+
+  for (const x of resolvedRows) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); }
 
   /* 🔗 (2026-08-06 마이마이 제보 "no class in mangoi_033") 계정↔강사원부 연결이 끊긴 경우.
    *
@@ -149,8 +176,11 @@ export async function handleTeacherApi(
    *     매니저는 강사가 왜 안 들어오는지 모른다. 상태를 구분해서 알려 준다.
    *  ⛔ 계정 데이터를 코드가 임의로 고치지 않는다(누구인지는 운영이 정할 일). 사실만 알린다.
    */
-  const linkedTeacherIds = (tidRs.results || []).map((x: any) => x.tid).filter(Boolean);
+  const linkedTeacherIds = resolvedRows.map((x: any) => x.tid);
   const identityUnlinked = !isManager && linkedTeacherIds.length === 0;
+  // 🔀 '연결 안 됨'과 '누구인지 헷갈림'은 본사가 할 일이 다르다.
+  //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
+  const identityAmbiguous = !isManager && ambiguousNames.length > 1;
 
   const classes: any[] = [];
   if (conds.length) {
@@ -158,14 +188,14 @@ export async function handleTeacherApi(
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
     const sqlJoin =
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes, se.level AS level, se.textbook AS textbook,
+              cs.duration_min, cs.notes, cs.class_type, cs.source, se.level AS level, se.textbook AS textbook,
               se.english_name AS student_en
          FROM class_schedules cs
          LEFT JOIN students_erp se ON se.user_id = cs.user_id
         WHERE ${whereSql}`;
     const sqlPlain =
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes
+              cs.duration_min, cs.notes, cs.class_type, cs.source
          FROM class_schedules cs WHERE ${whereSql}`;
     let rows: any;
     try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
@@ -227,6 +257,11 @@ export async function handleTeacherApi(
         level: s.level || null,
         textbook: s.textbook || null,
         note: s.notes || null,
+        /* 🧪 (2026-08-06) 레벨테스트인지 알려 준다. 강사에겐 응대가 다르다 —
+           처음 만나는 학생이고, 보호자가 옆에 있고, 끝나면 평가를 남겨야 한다.
+           예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 방법이 없었다. */
+        is_level_test: String(s.class_type || '') === 'level_test'
+          || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         start_time: `${pad(hh || 0)}:${pad(mm || 0)}`,
         start_ts, end_ts, open_at_ts, close_at_ts,
         duration_min: dur,
@@ -378,6 +413,10 @@ export async function handleTeacherApi(
       //    화면은 "수업 없음"이 아니라 "계정 연결 안 됨"으로 말해야 한다.
       identity_unlinked: identityUnlinked,
       linked_teacher_ids: linkedTeacherIds,
+      // 🔀 true = 이름이 원부의 여러 명에 걸려 «누구인지 확정하지 못했다».
+      //    이때는 수업을 한 건도 보여주지 않는다(남의 수업이 섞이는 것보다 낫다).
+      identity_ambiguous: identityAmbiguous,
+      identity_candidates: ambiguousNames,
     },
     classes, notices, resources, rating,
     ...(manager ? { manager } : {}),

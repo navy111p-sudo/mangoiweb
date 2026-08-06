@@ -84,6 +84,7 @@ body{
 .cls-time{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;color:#16202c}
 .cls-main{flex:1;min-width:150px}
 .cls-name{font-size:16px;font-weight:600}
+.pill.p-lt{background:#0d9488;color:#fff}
 .cls-meta{font-size:13px;color:#5d6b7a;margin-top:2px}
 .cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
 
@@ -786,7 +787,11 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     renderNextUp(list);   // ⏳ 다음 수업 스트립은 지문 검사 바깥 — 1초마다 따로 갱신된다
     if (!list.length){
       // 지문에 언어·역할을 넣는다 — 넣지 않으면 언어를 바꿔도 이 문장만 옛 언어로 남는다.
-      var esig = 'empty|' + LANG + (IS_MGR ? '|m' : '|t');
+      //   신원 상태(정상/연결안됨/헷갈림)도 넣는다 — 본사가 계정을 고쳐 새로고침했는데
+      //   세 문구가 다 '수업 0건'이라 지문이 같으면 옛 경고가 그대로 남는다.
+      var idState = (DATA && DATA.me)
+        ? (DATA.me.identity_ambiguous ? 'a' : DATA.me.identity_unlinked ? 'u' : 'k') : 'k';
+      var esig = 'empty|' + LANG + (IS_MGR ? '|m' : '|t') + '|' + idState;
       if (lastSig === esig) return;
       lastSig = esig;
       /* 🔗 (2026-08-06) "수업 없음" 과 "누구인지 모름" 은 완전히 다른 상태다.
@@ -794,6 +799,27 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
          (운영 실태: mangoi_0XX 계정 20개 중 18개가 이름을 안 바꿔 연결이 끊겨 있다).
          그걸 "오늘 수업이 없습니다"라고 말하면 강사는 수업이 취소된 줄 알고 안 들어온다.
          고칠 수 있는 사람(본사)에게 무엇을 알려야 하는지까지 화면에 적는다. */
+      /* 🔀 (2026-08-06) "누구인지 헷갈림" — 새로 갈라낸 세 번째 상태.
+         이름이 원부의 여러 명에 걸리면 서버가 **아무도 담당으로 붙이지 않는다**.
+         실제 사고: 계정 'Anna' 가 'HANNAH' 안의 'anna' 에 걸려 남의 수업이 보였다.
+         강사에게는 "본사가 골라 줘야 한다"고, 본사에는 "누구와 누구가 헷갈리는지"를 그대로 보인다. */
+      var ambiguous = DATA && DATA.me && DATA.me.identity_ambiguous;
+      if (ambiguous && !IS_MGR){
+        var cand = (DATA.me.identity_candidates || []).join(', ');
+        box.innerHTML = '<div class="empty" style="color:#b45309;font-weight:700">'
+          + esc(T('⚠ Your name matches more than one teacher record, so we cannot tell which one is you.',
+                  '⚠ 이 이름이 강사 명부의 여러 명과 겹쳐 누구인지 확정하지 못했습니다.'))
+          + '</div><div class="empty" style="font-size:12px">'
+          + esc(T('Classes are hidden on purpose — showing them could show you another teacher\'s class. Send this to HQ: account = ',
+                  '남의 수업이 섞이지 않도록 일부러 감춘 것입니다. 본사에 이대로 전달해 주세요: 계정 = ')
+                + ((DATA.me && DATA.me.username) || '?')
+                + T(' · display name = ', ' · 표시이름 = ')
+                + ((DATA.me && DATA.me.name) || '?')
+                + T(' · candidates = ', ' · 후보 = ') + (cand || '?'))
+          + '</div>';
+        return;
+      }
+
       var unlinked = DATA && DATA.me && DATA.me.identity_unlinked;
       if (unlinked && !IS_MGR){
         box.innerHTML = '<div class="empty" style="color:#b45309;font-weight:700">'
@@ -892,6 +918,10 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
         +   '<div class="cls-main">'
         +     '<div class="cls-name">' + esc(stuName(c) || T('(name not set)','(이름 미등록)'))
+        /* 🧪 (2026-08-06) 레벨테스트는 응대가 다르다 — 처음 만나는 학생이고, 보호자가 옆에 있고,
+           끝나면 평가를 남겨야 한다. 예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 수 없었다.
+           크기·위치는 다른 배지와 같게 두고 색으로만 구분한다(hover 확대 금지 규칙과 같은 이유). */
+        +       (c.is_level_test ? ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
         +       (live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
                       : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
                              : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : ''))

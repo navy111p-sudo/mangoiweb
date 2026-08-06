@@ -14,6 +14,7 @@ import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시�
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, publicBase } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
+import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
@@ -6467,6 +6468,21 @@ LIMIT $limit`;
       ).run();
       const appId = r.meta.last_row_id;
 
+      /* 📅 (2026-08-06) 신청 즉시 «실제 수업» 까지 만든다.
+         [왜] 예전엔 관리자가 「📅 수업 만들기」를 손으로 눌러야만 방이 생겼다. 안 누르면
+              학생 티켓엔 입장 버튼이 안 생기고, 강사 화면·주간 캘린더 어디에도 안 뜬다.
+              신청서만 쌓이고 아무도 못 들어가는 상태가 «에러 없이» 남는다.
+              그런데 그 버튼이 하는 일은 신청서에 이미 있는 값(날짜·시간·배정교사)을
+              옮겨 적는 것뿐이라 사람이 판단할 여지가 거의 없다.
+         ⚠️ best-effort — 만들 수 없는 상황(과거 날짜·겹침·강사 미배정)이면 조용히 넘기고
+            신청 자체는 성공시킨다. 그 경우는 관리자가 기존 버튼으로 처리하면 된다. */
+      let autoSched: any = null;
+      try {
+        const appRowNew: any = await env.DB.prepare(
+          `SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`).bind(appId).first();
+        if (appRowNew) autoSched = await autoScheduleOnApply(env, appRowNew);
+      } catch (e: any) { console.warn('[leveltest] auto-schedule skipped:', e?.message || e); }
+
       // 📅 예약 표시용 문자열
       const whenLabel = (() => {
         if (!desiredDate) return desiredTime || '일정 협의';
@@ -6531,7 +6547,14 @@ LIMIT $limit`;
         } catch (e: any) { console.warn('[leveltest] teacher email skipped:', e?.message || e); }
       }
 
-      return json({ ok: true, id: appId, status: teacher ? 'proposed' : 'pending', proposed_teacher: teacher ? teacher.name : null, scheduled: whenLabel });
+      return json({
+        ok: true, id: appId,
+        status: teacher ? 'proposed' : 'pending',
+        proposed_teacher: teacher ? teacher.name : null,
+        scheduled: whenLabel,
+        // 📅 자동으로 수업까지 잡혔으면 그 사실을 알려 준다(화면이 «예약 완료» 라고 말할 근거)
+        schedule_id: (autoSched && autoSched.schedule_id) || null,
+      });
     }
     // ── 🧑‍🏫 교사 마이페이지: 나에게 배정된 레벨테스트 목록 + 미확인 배지 ──
     //   GET  /api/teacher/leveltest-assignments?teacher_name=이름[&teacher_id=]  → { items, unseen }
@@ -6743,157 +6766,35 @@ LIMIT $limit`;
             하지 않고 이유를 돌려준다. 계정 없는 예약은 학생 화면에 영영 안 뜬다.
          ═══════════════════════════════════════════════════════════════════════ */
       if (String(b.action || '') === 'create_schedule') {
+        /* 🔗 신청 → «실제 수업». 로직은 leveltest-schedule.ts 한 곳에만 있다.
+           같은 일을 신청 직후 자동으로도 하기 때문에(autoScheduleOnApply), 두 경로가
+           서로 다르게 동작하면 «자동으로 만든 수업»과 «손으로 만든 수업»이 미묘하게
+           달라져 나중에 아무도 원인을 못 찾는다. */
         const appRow: any = await env.DB.prepare(
           `SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`
         ).bind(Number(b.id)).first();
         if (!appRow) return json({ ok: false, error: 'not_found', message: '신청 건을 찾을 수 없습니다.', message_en: 'Application not found.' }, 404);
 
-        // 이미 이어져 있으면 또 만들지 않는다 (버튼 두 번 눌러 예약이 둘 생기는 것 방지)
-        if (appRow.schedule_id) {
-          const dup: any = await env.DB.prepare(`SELECT id, scheduled_date, start_time FROM class_schedules WHERE id = ? LIMIT 1`).bind(Number(appRow.schedule_id)).first();
-          if (dup) return json({ ok: true, already: true, schedule_id: dup.id, scheduled_date: dup.scheduled_date, start_time: dup.start_time,
-                                 message: `이미 수업 #${dup.id} 로 연결돼 있습니다.`, message_en: `Already linked to class #${dup.id}.` });
-          // 연결된 예약이 지워졌다면 다시 만들 수 있게 흘려보낸다
-        }
-
-        /* 📅 (2026-08-06) 날짜는 신청서의 희망일이 기본, 관리자가 고쳐 보내면 그것을 쓴다.
-           왜 고칠 수 있어야 하나 — 신청서는 며칠~몇 달 전에 들어온다. 희망일이 이미 지난 뒤
-           수락하면 «과거에 잡힌 수업»이 만들어진다. 실제로 그렇게 됐다:
-             신청 #11(희망 2026-07-13)을 08-06 16:15 에 수락 → 수업 #853 이 2026-07-13 에 생성.
-           과거 수업은 오늘 목록에도, 강사 화면에도, 학생 화면에도 영영 안 뜬다.
-           만든 사람은 «만들었는데 들어갈 데가 없다»가 되고(마이마이: "where to enter sir?"),
-           에러는 한 줄도 안 난다. 조용한 실패를 만들지 않는다 — 아래에서 되묻는다. */
-        const dDate = String(b.scheduled_date || appRow.desired_date || '').trim();
-        const dTime = String(b.start_time || appRow.desired_time || '').trim();
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dDate)) {
-          return json({ ok: false, error: 'no_desired_date',
-            message: '희망 날짜가 비어 있어 수업을 만들 수 없습니다. 신청서에서 날짜를 먼저 채워 주세요.',
-            message_en: 'No preferred date on this application. Fill the date first.' }, 400);
-        }
-        if (!/^\d{1,2}:\d{2}$/.test(dTime)) {
-          return json({ ok: false, error: 'no_desired_time',
-            message: '희망 시간이 비어 있어 수업을 만들 수 없습니다.',
-            message_en: 'No preferred time on this application.' }, 400);
-        }
-        // ⛔ 지난 날짜로는 만들지 않는다 — 만들어도 아무 화면에도 안 뜨는 «죽은 수업»이 된다.
-        //    (KST 기준 오늘까지 허용. 오늘 안의 지난 시각은 막지 않는다 — 방금 끝난 수업을
-        //     기록으로 남기는 정상 사용이 있고, 그건 목록에 '종료'로 보이기라도 한다.)
-        {
-          const kToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
-          if (dDate < kToday) {
-            return json({ ok: false, error: 'past_date', desired_date: dDate, today: kToday,
-              message: `희망 날짜(${dDate})가 이미 지났습니다. 지난 날짜로 만들면 오늘 수업·강사·학생 화면 어디에도 뜨지 않습니다. 새 날짜를 정해 주세요.`,
-              message_en: `The preferred date (${dDate}) is already past. A class created in the past never appears in Today's Classes, or on the teacher/student screens. Please pick a new date.` }, 400);
-          }
-        }
-        const startTime = String(Number(dTime.split(':')[0])).padStart(2, '0') + ':' + dTime.split(':')[1];
-        const durationMin = Number.isFinite(Number(b.duration_min)) && Number(b.duration_min) > 0
-          ? Math.min(Number(b.duration_min), 240) : 20;   // 레벨테스트 기본 20분
-
-        // ── 학생 계정 찾기 ── body 지정 > 신청서의 계정 > 이름으로 조회
-        //    ⚠️ 없는 계정으로 예약을 만들면 «학생 화면에 영영 안 뜨는 예약» 이 된다.
-        let studentUid = String(b.user_id || appRow.student_uid || '').trim();
-        const nameGuess = String(appRow.student_name || '').trim();
-        const findStudent = async (cand: string): Promise<string | null> => {
-          if (!cand) return null;
-          try {
-            const e: any = await env.DB.prepare(
-              `SELECT user_id FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`).bind(cand, cand).first();
-            if (e?.user_id) return String(e.user_id);
-          } catch {}
-          try {
-            const u: any = await env.DB.prepare(`SELECT user_id FROM users WHERE user_id = ? LIMIT 1`).bind(cand).first();
-            if (u?.user_id) return String(u.user_id);
-          } catch {}
-          return null;
-        };
-        let resolved = await findStudent(studentUid);
-        if (!resolved) resolved = await findStudent(nameGuess);
-        if (!resolved) {
-          return json({ ok: false, error: 'student_not_found',
-            candidate: studentUid || nameGuess,
-            message: `학생 계정 '${studentUid || nameGuess}' 을(를) 찾을 수 없습니다. 실제 계정 아이디를 지정해 주세요.`,
-            message_en: `Student account '${studentUid || nameGuess}' not found. Specify a real account id.` }, 400);
-        }
-        studentUid = resolved;
-
-        // ── 담당 강사 찾기 ── assigned_teacher 는 teacher_profiles 의 «이름» 이고
-        //    class_schedules.teacher_id 는 teachers 의 «id» 다. 두 표의 표기가 달라
-        //    ('Teacher Maimai' ↔ 'MAIMAI') 글자 그대로 비교하면 못 찾는다 → 정규화 비교.
-        const tName = String(appRow.assigned_teacher || '').trim();
-        if (!tName) {
-          return json({ ok: false, error: 'no_teacher',
-            message: '담당 강사가 지정되지 않았습니다. 먼저 강사를 배정해 주세요.',
-            message_en: 'No teacher assigned yet. Assign a teacher first.' }, 400);
-        }
-        const normName = (s: any) => String(s || '').toLowerCase().replace(/teacher/g, '').replace(/[^a-z0-9가-힣]/g, '');
-        let teacherId: string | null = null;
-        let teacherMatched = '';
-        try {
-          const ts: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE COALESCE(active,1) = 1`).all();
-          const want = normName(tName);
-          const hit = (ts.results || []).find((r: any) => normName(r.name) === want);
-          if (hit) { teacherId = String(hit.id); teacherMatched = String(hit.name); }
-        } catch {}
-        if (!teacherId) {
-          return json({ ok: false, error: 'teacher_not_found', candidate: tName,
-            message: `강사 '${tName}' 이(가) 강사 명부에 없습니다. 강사 관리에서 등록한 뒤 다시 시도해 주세요.`,
-            message_en: `Teacher '${tName}' is not in the teacher roster. Register them first.` }, 400);
-        }
-
-        // ── ⛔ 시간 겹침 검사 ── 같은 강사가 같은 시간에 두 방에 들어갈 수는 없다.
-        //    분 단위 구간으로 비교한다(시작 시각만 비교하면 18:00 50분 옆의 18:30 을 놓친다).
-        const toMin = (hhmm: string) => { const p = String(hhmm || '0:0').split(':'); return Number(p[0]) * 60 + Number(p[1] || 0); };
-        const s1 = toMin(startTime), e1 = s1 + durationMin;
-        if (!b.force) {
-          try {
-            const sameDay: any = await env.DB.prepare(
-              `SELECT id, student_name, start_time, duration_min, teacher_id, user_id FROM class_schedules
-                WHERE (status IS NULL OR status = 'active') AND scheduled_date = ?`).bind(dDate).all();
-            const clash = (sameDay.results || []).find((r: any) => {
-              const s2 = toMin(r.start_time), e2 = s2 + (Number(r.duration_min) || 30);
-              const overlap = s1 < e2 && s2 < e1;
-              if (!overlap) return false;
-              return String(r.teacher_id || '') === teacherId || String(r.user_id || '') === studentUid;
-            });
-            if (clash) {
-              return json({ ok: false, error: 'conflict', conflict_id: clash.id,
-                message: `그 시간에 이미 수업이 있습니다 (예약 #${clash.id} · ${clash.start_time}). 그래도 만들려면 다시 눌러 주세요.`,
-                message_en: `Overlapping class already exists (#${clash.id} at ${clash.start_time}). Press again to create anyway.` }, 409);
-            }
-          } catch { /* 겹침 검사 실패가 예약 자체를 막지는 않는다 */ }
-        }
-
         let actorName = 'admin';
         try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; } catch {}
-        const nowTs = Date.now();
-        const ins: any = await env.DB.prepare(
-          `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, source, created_by, created_at, notes)
-           VALUES (?, ?, 'one_off', 'level_test', NULL, ?, ?, ?, ?, 'active', 'leveltest_app', ?, ?, ?)`
-        ).bind(studentUid, appRow.student_name || null, dDate, startTime, durationMin, teacherId, actorName, nowTs,
-               `레벨테스트 신청 #${appRow.id} 에서 생성 / Created from level-test application #${appRow.id}`).run();
-        const schedId = (ins?.meta?.last_row_id as number) ?? null;
-        if (!schedId) return json({ ok: false, error: 'insert_failed', message: '예약 생성에 실패했습니다.', message_en: 'Failed to create the class.' }, 500);
 
-        await env.DB.prepare(`UPDATE leveltest_applications SET schedule_id = ?, status = CASE WHEN status IN ('pending','proposed') THEN 'confirmed' ELSE status END, updated_at = ? WHERE id = ?`)
-          .bind(schedId, nowTs, Number(b.id)).run();
-
-        try {
-          await writeClassAudit(env, {
-            action: 'add', schedule_id: schedId,
-            teacher_name: teacherMatched, student_name: appRow.student_name || null,
-            lesson_date: dDate, lesson_time: startTime,
-            actor: actorName, actor_role: 'admin', source: 'leveltest_app', reason: null,
-          });
-        } catch {}
-
-        return json({
-          ok: true, schedule_id: schedId, scheduled_date: dDate, start_time: startTime,
-          duration_min: durationMin, teacher: teacherMatched, user_id: studentUid,
-          room_id: `class-${schedId}-${dDate.replace(/-/g, '')}`,
-          message: `수업 #${schedId} 생성됨 — ${dDate} ${startTime} (${durationMin}분) · ${teacherMatched}`,
-          message_en: `Class #${schedId} created — ${dDate} ${startTime} (${durationMin}min) · ${teacherMatched}`,
+        const res = await createLeveltestSchedule(env, appRow, {
+          userId: b.user_id, scheduledDate: b.scheduled_date, startTime: b.start_time,
+          durationMin: b.duration_min, force: !!b.force, actor: actorName,
+          /* 관리자가 직접 누른 경우에도 계정이 없으면 만들어 준다 — 되묻는 순간 관리자는
+             «아무 계정이나» 넣게 되고(실제로 그렇게 남의 학생 기록이 오염될 뻔했다),
+             그 판단은 사람이 할 만한 일이 아니다. */
+          allowCreateStudent: b.create_student !== false,
         });
+        if (!res.ok) {
+          const { status, ...rest } = res;
+          return json(rest, status);
+        }
+        // 수업이 잡혔으면 신청 상태도 확정으로 올린다(대기 중이던 건만)
+        await env.DB.prepare(
+          `UPDATE leveltest_applications SET status = CASE WHEN status IN ('pending','proposed') THEN 'confirmed' ELSE status END, updated_at = ? WHERE id = ?`
+        ).bind(Date.now(), Number(b.id)).run();
+        return json(res);
       }
 
       const fields: string[] = [];

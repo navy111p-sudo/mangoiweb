@@ -154,7 +154,15 @@ check('⑰ 화면이 미연결을 «수업 없음»과 다른 문구로 알린�
 //    생성됐다. 어느 화면에도 안 뜨고 에러도 없다 → "where to enter sir?"
 const CORE = readFileSync(join(__dir, '../cloudflare-deploy/public/js/adm-core.js'), 'utf8');
 const csAt = ADMIN.indexOf(`String(b.action || '') === 'create_schedule'`);
-const CREATE = csAt > 0 ? ADMIN.slice(csAt, csAt + 3500) : '';
+/* 📦 (2026-08-06) 「신청 → 수업 만들기」 본체가 leveltest-schedule.ts 로 옮겨졌다.
+   신청 직후 **자동으로도** 같은 일을 하게 되면서, 자동·수동이 서로 다르게 동작하지 않도록
+   로직을 한 곳에 모은 것이다. 규칙(지난 날짜 차단·KST 기준)은 그대로다 —
+   그래서 검사도 두 파일을 함께 본다. 위치만 옮겼는데 실패하면 잘못된 경보가 된다. */
+const SCHEDMOD = (() => {
+  try { return readFileSync(join(__dir, '../cloudflare-deploy/src/leveltest-schedule.ts'), 'utf8'); }
+  catch { return ''; }
+})();
+const CREATE = [csAt > 0 ? ADMIN.slice(csAt, csAt + 3500) : '', SCHEDMOD].join('\n');
 check('⑱ create_schedule 에 지난 날짜 차단(past_date)이 있다', /error:\s*'past_date'/.test(CREATE));
 check('⑲ 차단 기준이 KST 오늘이다 (UTC 로 재면 한국 새벽에 오늘이 지난 날이 된다)',
   /9\s*\*\s*3600\s*\*\s*1000[\s\S]{0,120}slice\(0,\s*10\)/.test(CREATE));
