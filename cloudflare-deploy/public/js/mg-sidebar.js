@@ -16,7 +16,8 @@
   // 메뉴 코드 → 이동 URL (index.html URLS 맵과 일치)
   var URLS = {
     'about':'/', 'all-menu':'/', 'home':'/',
-    'leveltest':'/level-test.html',
+    'leveltest':'/?menu=leveltest',   // 2026-08-07: 신청서 통일 — 옛 /level-test.html 폐지, 홈 모달로
+
     'admin':'/admin.html',
     'mypage':'/parent.html',
     'payment':'/?pay=1',

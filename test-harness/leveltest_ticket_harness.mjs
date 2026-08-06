@@ -181,7 +181,11 @@ const idxHtml = rd('../cloudflare-deploy/public/index.html');
 check('신청 응답이 티켓 주소를 돌려준다', /ticket_url: ticketUrl \|\| null/.test(api));
 check('전화번호가 없어 문자를 못 보내도 링크는 만든다',
   /if \(!ticketUrl\) \{ try \{ ticketUrl = await ltTicketUrl/.test(api));
-check('레벨테스트 신청 화면이 그 링크를 보여준다', /var myLink = ticketUrl/.test(ltHtml));
+/* ⚠️ (2026-08-07) 신청 화면은 홈 모달 한 벌로 통일됐다 — 옛 level-test.html 의 폼은
+   회원가입·동의 없이 접수되던 «두 번째 신청서» 라 폐지하고 모달로 넘겨주는 다리만 남겼다.
+   검사도 그 정책을 지킨다: 옛 페이지엔 폼이 없어야 하고, 대신 모달이 링크를 보여준다. */
+check('옛 신청 화면이 되살아나지 않았다 (신청서는 한 벌)',
+  !/leveltest\/apply/.test(ltHtml) && /menu=leveltest/.test(ltHtml));
 check('홈 가입 팝업도 그 링크를 보여준다', /ad\.ticket_url\) ticketUrl = ad\.ticket_url/.test(gridJs));
 check('홈 팝업 버튼이 «내 신청 확인하기» 다', /🎟️ 내 신청 확인하기/.test(gridJs));
 check('링크를 못 받았을 때의 대비책이 있다 (버튼이 사라지지 않게)',
@@ -194,7 +198,7 @@ check('링크를 못 받았을 때의 대비책이 있다 (버튼이 사라지�
 console.log('\n[ ⑤-3 홈에서 «내 레벨테스트» 를 바로 찾을 수 있어야 한다 ]');
 /* 처음 망고아이를 접한 사람이 자기 예약을 홈에서 못 찾으면 그대로 이탈한다.
    문자를 놓치거나 탭을 닫으면 들어갈 문이 아예 없었다. */
-check('신청할 때 티켓 주소를 남긴다 (신청 화면)', /localStorage\.setItem\('mangoi_lt_ticket', ticketUrl\)/.test(ltHtml));
+// (2026-08-07) 신청 화면은 홈 팝업 하나뿐 — 옛 페이지 검사는 위 «되살아나지 않았다» 로 대체됨
 check('신청할 때 티켓 주소를 남긴다 (홈 팝업)', /localStorage\.setItem\('mangoi_lt_ticket', ticketUrl\)/.test(gridJs));
 check('홈에 «내 레벨테스트» 카드가 있다', /id="hero-lt"/.test(idxHtml));
 check('히어로 CTA «위» 에 온다 (가장 먼저 보여야 한다)',

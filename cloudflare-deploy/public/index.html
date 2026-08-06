@@ -28,7 +28,7 @@
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
-    'leveltest':'/level-test.html','battle':'/battle.html',
+    'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
@@ -6544,7 +6544,10 @@ window.mgIsSlowNet = function(){
           <span class="hf-n">1</span><span class="hf-t" data-ko="무료 상담" data-en="Free consult">무료 상담</span>
         </button>
         <span class="hf-ar" aria-hidden="true">›</span>
-        <button type="button" role="listitem" class="hf-step" onclick="location.href='/level-test.html'">
+        <!-- 🎯 (2026-08-07) 신청서는 홈 모달 한 벌뿐이다. 옛 `/level-test.html` 은 신청 폼이
+             따로 있어 회원가입·동의 없이 접수되던 «두 번째 신청서»였다 → 모달로 통일.
+             여기는 이미 홈이므로 페이지를 다시 부르지 않고 모달을 바로 연다. -->
+        <button type="button" role="listitem" class="hf-step" onclick="if(window.showLevelTestModal)window.showLevelTestModal();else location.href='/?menu=leveltest'">
           <span class="hf-n">2</span><span class="hf-t" data-ko="레벨 테스트" data-en="Level test">레벨 테스트</span>
         </button>
         <span class="hf-ar" aria-hidden="true">›</span>
@@ -22296,7 +22299,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=22"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=23"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -28849,7 +28852,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260807034833 -->
+<!-- BUILD:20260807042116 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -29072,7 +29075,7 @@ document.addEventListener('keydown', function(e){
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
-    'leveltest':'/level-test.html','battle':'/battle.html',
+    'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
@@ -29209,7 +29212,7 @@ document.addEventListener('keydown', function(e){
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
-    'leveltest':'/level-test.html','battle':'/battle.html',
+    'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
@@ -32385,7 +32388,7 @@ window.vcAutoLoadStudentTextbook = async function(){
       var map={
         "lesson-enter":  function(){ if(window.showView) window.showView("view-videocall-lobby"); },
         "lesson-change": function(){ if(window.mgGo) window.mgGo("lesson-change"); },
-        "leveltest":     function(){ if(window.mgGo) window.mgGo("leveltest"); else location.href="/level-test.html"; },
+        "leveltest":     function(){ if(window.showLevelTestModal) window.showLevelTestModal(); else if(window.mgGo) window.mgGo("leveltest"); else location.href="/?menu=leveltest"; },
         "library":       function(){ if(window.mgGo) window.mgGo("library"); },
         "report":        function(){ if(window.mgGo) window.mgGo("report"); },
         "mypage":        function(){ location.href="/parent.html"; },

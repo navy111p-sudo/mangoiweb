@@ -78,7 +78,18 @@ check('신청이 0건이면 카드째 숨긴다 (빈 카드 금지)',
 check('한/영 둘 다 나온다 (강사·학부모 다국어)', /window\.getLang && window\.getLang\(\) === 'en'/.test(parent));
 
 console.log('\n[ ⑤ uid 가 «붙어서» 저장돼야 나중에 본인이 찾는다 ]');
-for (const [label, src] of [['level-test.html', ltPage], ['level-test-ai.html', ltAi]]) {
+/* ⚠️ (2026-08-07 갱신) 신청서가 «두 벌» 이었다 — 홈 모달과 옛 level-test.html.
+   받는 항목이 달라서 어느 문으로 들어왔느냐에 따라 계정이 생기기도 하고 안 생기기도 했고,
+   계정이 없으면 uid 가 빈 채로 접수돼 마이페이지에 영영 안 떴다(이 하니스가 지키던 바로 그 사고).
+   → 신청서는 홈 모달 한 벌로 통일하고, 옛 페이지는 모달로 넘겨주는 다리로만 남겼다.
+   그래서 옛 페이지에 uid 수집 코드가 «있는지» 를 묻는 검사는 뒤집는다 — 이제는
+   **폼이 되살아나지 않았는지** 를 지킨다(그냥 지우면 두 벌로 갈라진 게 다시 들어온다). */
+check('옛 level-test.html 이 신청 폼을 다시 갖지 않는다 (신청서는 한 벌)',
+  !/id="lt-submit"/.test(ltPage) && !/leveltest\/apply/.test(ltPage));
+check('옛 level-test.html 은 홈 모달로 넘겨준다 (404 로 끊지 않는다)',
+  /location\.replace\(/.test(ltPage) && /menu=leveltest/.test(ltPage));
+check('홈이 그 주소를 받아 모달을 연다', /get\('menu'\) === 'leveltest'/.test(grid));
+for (const [label, src] of [['level-test-ai.html', ltAi]]) {
   check(`${label} 이 mangoi_parent_uid 도 본다 (마이페이지 로그인 학생)`,
     /'mangoi_parent_uid'/.test(src));
   check(`${label} 이 mangoi_logged_user 도 본다`, /mangoi_logged_user/.test(src));
@@ -100,8 +111,24 @@ console.log('\n[ ⑥ 안내 문구가 «진짜로 되는 것» 만 말한다 ]')
    정책이 바뀌었으니 검사도 새 정책을 지킨다(그냥 지우면 보호가 사라진다). */
 check('가입 완료 화면이 «로그인 없이 확인하는 길» 을 알려준다',
   /내 신청 확인하기/.test(grid) && /로그인 불필요/.test(grid));
+/* (2026-08-07) 신청 완료 화면은 이제 홈 모달 하나뿐이다 — 옛 페이지가 아니라 여기서 본다. */
 check('신청 완료 화면이 티켓 링크를 «먼저» 준다 (마이페이지는 대비책)',
-  /var myLink = ticketUrl/.test(ltPage) && /: \(uid \? '<br><a href="\/parent\.html\?uid='/.test(ltPage));
+  /ticketUrl \? `<a class="info-cta" href="\$\{ticketUrl\}"/.test(grid) && /: `<a class="info-cta" href="\/parent\.html/.test(grid));
+
+console.log('\n[ ⑥-2 기존 회원이 «자기 아이디에 막히지» 않아야 한다 ]');
+/* 신청서를 모달 한 벌로 모으면서 생긴 새 위험: 모달은 원래 «회원가입 폼» 이라
+   아이디·비밀번호가 필수였다. 그대로 두면 이미 가입한 학생(2.9만 명)은 아이디를
+   새로 지어내야 하고, 자기 아이디를 넣으면 「이미 사용 중」 에 막혀 신청 자체가 불가능해진다. */
+check('로그인 상태면 계정 만들기 칸을 접는다',
+  /var accountBlock = _ltIn/.test(grid) && /🔐 로그인됨/.test(grid));
+check('로그인 상태면 아이디·비밀번호를 요구하지 않는다', /if \(!loggedIn\) \{\s*\n\s*if \(!uid \|\| uid\.length < 4\)/.test(grid));
+check('로그인 상태면 회원가입 API 를 부르지 않는다', /if \(!loggedIn\) try \{[\s\S]{0,200}?\/api\/student\/register/.test(grid));
+check('로그인 상태면 «이미 사용 중» 자기검사에 자기가 걸리지 않는다',
+  /if \(!loggedIn\) \{[\s\S]{0,260}?student_user_id === uid/.test(grid));
+check('로그인 세션(학부모)을 학생으로 덮어쓰지 않는다',
+  /if \(!loggedIn\) try \{[\s\S]{0,300}?setItem\('mangoi_logged_user'/.test(grid));
+check('기존 회원 신청도 uid 를 실어 보낸다 (안 실으면 마이페이지에 안 뜬다)',
+  /student_uid: uid/.test(grid) && /loggedIn \? 'home-member' : 'home-signup'/.test(grid));
 
 console.log('\n[ ⑦ 캐시 — 고친 js 가 실제로 내려가야 한다 ]');
 const v = (home.match(/idx-grid-menu\.js\?v=(\d+)/) || [])[1];

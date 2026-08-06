@@ -66,7 +66,7 @@
 <body>
 <div class="wrap">
   <div class="topbar">
-    <a class="back" href="/level-test.html">← 레벨테스트</a>
+    <a class="back" href="/?menu=leveltest">← 레벨테스트</a>
     <span class="brand"><img src="/img/mango-char.png" alt="망고아이" style="height:1.15em;width:auto;vertical-align:-0.2em;margin-right:.1em">망고아이</span>
   </div>
 
@@ -131,7 +131,7 @@
       <b style="color:#fde68a">선생님 1:1 평가</b>와 <b style="color:#fcd34d">발음 평가</b>까지 합쳐 최종 레벨이 확정됩니다.</p>
     <div class="cta">
       <a class="voice" href="/speech-coach.html">🎤 발음 평가 하러가기</a>
-      <a class="home" href="/level-test.html">← 레벨테스트로</a>
+      <a class="home" href="/?menu=leveltest">← 레벨테스트로</a>
     </div>
   </div>
 
@@ -143,10 +143,18 @@
   var $ = function(id){ return document.getElementById(id); };
   var questions = [], answers = {}, idx = 0;
 
-  // 이름 프리필 — 레벨테스트 신청 기록에서
+  /* 이름 프리필 — 레벨테스트 신청 기록에서.
+     ⚠ (2026-08-07) `mangoi_leveltest_booking` 은 폐지된 옛 신청 페이지(level-test.html)만
+        쓰던 키다. 신청서를 홈 모달 한 벌로 통일하면서 이 키를 쓰는 곳이 없어졌다 →
+        모달이 남기는 로그인 세션의 이름으로 이어받는다. 옛 키는 이미 브라우저에 남아
+        있는 사람이 있으니 그대로 먼저 본다(지우면 그 사람만 프리필이 사라진다). */
   try {
+    var _pf = '';
     var bk = JSON.parse(localStorage.getItem('mangoi_leveltest_booking') || 'null');
-    if (bk && bk.name) $('ai-name').value = bk.name;
+    if (bk && bk.name) _pf = bk.name;
+    if (!_pf) { var lu = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (lu && (lu.name || lu.user_name)) _pf = lu.name || lu.user_name; }
+    if (!_pf) { var mu = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (mu && (mu.name || mu.user_name)) _pf = mu.name || mu.user_name; }
+    if (_pf) $('ai-name').value = _pf;
   } catch(e){}
 
   /* ⚠ (2026-08-06) 여기서 uid 를 못 찾으면 진단 결과가 «누구 것인지 모르는 채» 저장돼
@@ -277,6 +285,6 @@
 })();
 </script>
 <script defer src="/js/mg-sidebar.js"></script>
-<!-- BUILD:20260807034833 -->
+<!-- BUILD:20260807042116 -->
 </body>
 </html>
