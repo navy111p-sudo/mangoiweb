@@ -199,7 +199,10 @@ console.log('\n▶ 화면 배선');
   check('설정 팝업이 저장된 화질을 보여준다', /setSeg\('#sg-quality', 'data-q', savedQuality\(\)\)/.test(dock));
   check("'자동'이 하드코딩으로 켜져 있지 않다",
         !/data-q="auto" class="on"/.test(dock), '자동이 항상 선택된 것처럼 보임');
-  check('독 캐시버스터 인상(vc-dock ?v=13)', /vc-dock\.js\?v=13/.test(html));
+  /* 🔢 (2026-08-06) 특정 숫자로 고정하면 vc-dock 을 고칠 때마다 이 항목이 '실패' 로 뜬다.
+     지키려던 건 "13 이다" 가 아니라 "버전을 올려서 낡은 독이 캐시로 남지 않게 한다" 였다 → 하한만 본다. */
+  const _dockV = (html.match(/vc-dock\.js\?v=(\d+)/) || [])[1];
+  check('독 캐시버스터가 v13 이상 (지금 v' + (_dockV || '없음') + ')', !!_dockV && Number(_dockV) >= 13);
 }
 
 console.log('\n' + '═'.repeat(64));
