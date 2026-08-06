@@ -115,7 +115,26 @@ const apiCode = api.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter(l => !/^
 check('확정 문자가 «보내드립니다» 약속 대신 링크를 «지금» 준다',
   !/예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다/.test(apiCode) && /\$\{ticketLine2\}/.test(apiCode));
 check('링크 만들기가 실패해도 문자는 나간다 (try/catch 로 감쌈)',
-  /try \{ ticketLine = `[\s\S]{0,120}?\} catch \{\}/.test(api));
+  /try \{ ticketUrl = await ltTicketUrl[\s\S]{0,160}?\} catch \{\}/.test(api));
+
+console.log('\n[ ⑤-2 «신청이 됐는지» 를 화면에서도 확인할 수 있어야 한다 ]');
+/* 문자만 믿으면 «문자가 늦거나 안 오는» 사람은 자기 신청이 들어갔는지 확인할 길이 없다.
+   신청한 본인에게 주는 링크라 노출 문제도 없다 — 응답에 실어 화면에도 남긴다. */
+const gridJs = rd('../cloudflare-deploy/public/js/idx-grid-menu.js');
+const ltHtml = rd('../cloudflare-deploy/public/level-test.html');
+const idxHtml = rd('../cloudflare-deploy/public/index.html');
+check('신청 응답이 티켓 주소를 돌려준다', /ticket_url: ticketUrl \|\| null/.test(api));
+check('전화번호가 없어 문자를 못 보내도 링크는 만든다',
+  /if \(!ticketUrl\) \{ try \{ ticketUrl = await ltTicketUrl/.test(api));
+check('레벨테스트 신청 화면이 그 링크를 보여준다', /var myLink = ticketUrl/.test(ltHtml));
+check('홈 가입 팝업도 그 링크를 보여준다', /ad\.ticket_url\) ticketUrl = ad\.ticket_url/.test(gridJs));
+check('홈 팝업 버튼이 «내 신청 확인하기» 다', /🎟️ 내 신청 확인하기/.test(gridJs));
+check('링크를 못 받았을 때의 대비책이 있다 (버튼이 사라지지 않게)',
+  /ticketUrl \? `<a class="info-cta" href="\$\{ticketUrl\}"[\s\S]{0,200}?: `<a class="info-cta" href="\/parent\.html/.test(gridJs));
+{
+  const v = (idxHtml.match(/idx-grid-menu\.js\?v=(\d+)/) || [])[1];
+  check(`캐시 버전이 21 이상 (안 올리면 옛 js 가 그대로) [현재 ${v}]`, Number(v || 0) >= 21);
+}
 
 console.log('\n[ ⑥ T-10 리마인더 — 지금 «안 닿는» 사람에게 닿아야 한다 ]');
 check('리마인더 스윕이 있다', /export async function runLeveltestReminderSweep/.test(mod));

@@ -94,10 +94,14 @@ check('서버가 uid 없으면 토큰에서 직접 꺼낸다 (프론트가 놓�
   /if \(!uid\) \{[\s\S]{0,160}?authUidGlobal\(request, url, env, b\)/.test(api));
 
 console.log('\n[ ⑥ 안내 문구가 «진짜로 되는 것» 만 말한다 ]');
-check('가입 완료 화면이 어디를 봐야 하는지 정확히 말한다',
-  /마이페이지 → <b[^>]*>🎯 레벨테스트 신청 현황<\/b>/.test(grid));
-check('신청 완료 화면의 마이페이지 링크는 uid 를 알 때만 뜬다 (헛걸음 방지)',
-  /var myLink = uid\s*\n?\s*\?\s*'<br><a href="\/parent\.html\?uid='/.test(ltPage));
+/* ⚠️ (2026-08-06 갱신) 안내 대상이 «마이페이지» 에서 «티켓 링크» 로 바뀌었다.
+   마이페이지는 계정이 있어야 열리는데 신청자 절반은 계정이 없다 — 그 사람들에게
+   마이페이지를 가리키는 건 여전히 막다른 길이다. 티켓은 로그인 없이 열린다.
+   정책이 바뀌었으니 검사도 새 정책을 지킨다(그냥 지우면 보호가 사라진다). */
+check('가입 완료 화면이 «로그인 없이 확인하는 길» 을 알려준다',
+  /내 신청 확인하기/.test(grid) && /로그인 불필요/.test(grid));
+check('신청 완료 화면이 티켓 링크를 «먼저» 준다 (마이페이지는 대비책)',
+  /var myLink = ticketUrl/.test(ltPage) && /: \(uid \? '<br><a href="\/parent\.html\?uid='/.test(ltPage));
 
 console.log('\n[ ⑦ 캐시 — 고친 js 가 실제로 내려가야 한다 ]');
 const v = (home.match(/idx-grid-menu\.js\?v=(\d+)/) || [])[1];

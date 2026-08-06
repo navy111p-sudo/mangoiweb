@@ -6504,12 +6504,18 @@ LIMIT $limit`;
               옮겨 적는 것뿐이라 사람이 판단할 여지가 거의 없다.
          ⚠️ best-effort — 만들 수 없는 상황(과거 날짜·겹침·강사 미배정)이면 조용히 넘기고
             신청 자체는 성공시킨다. 그 경우는 관리자가 기존 버튼으로 처리하면 된다. */
+      /* 🎟️ 티켓 주소는 응답에도 실어 준다. 문자만 믿으면 «문자가 늦거나 안 오는» 사람은
+         자기 신청을 확인할 길이 사라진다. 신청한 본인에게 주는 것이라 노출 문제도 없다. */
+      let ticketUrl = '';
       let autoSched: any = null;
       try {
         const appRowNew: any = await env.DB.prepare(
           `SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`).bind(appId).first();
         if (appRowNew) autoSched = await autoScheduleOnApply(env, appRowNew);
       } catch (e: any) { console.warn('[leveltest] auto-schedule skipped:', e?.message || e); }
+
+      // 전화번호가 없어 문자를 못 보낸 경우에도 화면에는 링크를 줘야 한다
+      if (!ticketUrl) { try { ticketUrl = await ltTicketUrl(Number(appId), env); } catch {} }
 
       // 📅 예약 표시용 문자열
       const whenLabel = (() => {
@@ -6529,7 +6535,8 @@ LIMIT $limit`;
            자기 신청을 확인할 방법이 문자 한 통의 기억뿐이었다. 이 링크 하나가 확인·일정·
            장비점검·당일 입장까지 전부 담당한다(로그인 불필요). */
         let ticketLine = '';
-        try { ticketLine = `\n▶ 확인·입장: ${await ltTicketUrl(Number(appId), env)}`; } catch {}
+        try { ticketUrl = await ltTicketUrl(Number(appId), env); ticketLine = `
+▶ 확인·입장: ${ticketUrl}`; } catch {}
         const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.${ticketLine}\n문의: pf.kakao.com/_xlqnSxd/chat`;
         try { await sendPlainSms(env, phone, smsText); }
         catch (e: any) { console.warn('[leveltest] applicant receipt skipped:', e?.message || e); }
@@ -6582,6 +6589,8 @@ LIMIT $limit`;
         scheduled: whenLabel,
         // 📅 자동으로 수업까지 잡혔으면 그 사실을 알려 준다(화면이 «예약 완료» 라고 말할 근거)
         schedule_id: (autoSched && autoSched.schedule_id) || null,
+        // 🎟️ 이 링크 하나가 «확인 + 입장» 이다. 로그인·계정 없이 열린다.
+        ticket_url: ticketUrl || null,
       });
     }
     // ── 🧑‍🏫 교사 마이페이지: 나에게 배정된 레벨테스트 목록 + 미확인 배지 ──

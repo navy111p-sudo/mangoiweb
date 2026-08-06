@@ -2249,6 +2249,9 @@
       }
       // 🎯 레벨테스트 신청 저장 + 교사 자동배정 + 접수 안내 — 희망 날짜·시간·연락처 전달 (best-effort)
       var scheduledLabel = '';
+      /* 🎟️ 접수 확인서. 문자만 믿으면 «문자가 늦거나 안 오는» 사람은
+         자기 신청이 들어갔는지 확인할 길이 없어진다. 화면에도 그대로 남긴다. */
+      var ticketUrl = '';
       try {
         const ar = await fetch('/api/leveltest/apply', {
           method: 'POST',
@@ -2258,6 +2261,7 @@
         });
         const ad = await ar.json().catch(() => null);
         if (ad && ad.scheduled) scheduledLabel = ad.scheduled;
+        if (ad && ad.ticket_url) ticketUrl = ad.ticket_url;
       } catch (e) { /* 서버 미연결이어도 시연 진행 */ }
 
       // 🔑 가입 = 자동 로그인 — 세션 심기 (재로그인 없이 마이페이지 진입)
@@ -2306,12 +2310,12 @@
         </div>
         <ul>
           <li>담당 선생님 확정 후, 예약 시간 10분 전 카카오톡 채널로 화상 링크 안내</li>
-          <li>마이페이지 → <b style="color:#fde68a">🎯 레벨테스트 신청 현황</b> 에서 진행 상태·결과 확인</li>
+          <li>아래 <b style="color:#fde68a">🎟️ 내 신청 확인하기</b> 를 누르면 언제든 상태·일정·결과를 볼 수 있어요 (로그인 불필요)</li>
           <li>결과 수령 후 추천 코스로 즉시 수강 신청 가능</li>
         </ul>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
           <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;text-align:center;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡 채널 추가</a>
-          <a class="info-cta" href="/parent.html?uid=${encodeURIComponent(uid)}" style="margin:0;text-align:center">🔑 마이페이지 가기</a>
+          ${ticketUrl ? `<a class="info-cta" href="${ticketUrl}" style="margin:0;text-align:center">🎟️ 내 신청 확인하기</a>` : `<a class="info-cta" href="/parent.html?uid=${encodeURIComponent(uid)}" style="margin:0;text-align:center">🔑 마이페이지 가기</a>`}
         </div>
       `);
       ltAudioIntroReplay();   // 🎬 완료 화면에서 인트로 음성 한 번 더 (처음·마지막)

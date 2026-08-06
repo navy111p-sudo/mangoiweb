@@ -203,7 +203,7 @@
        (조회는 uid 로만 한다 — 이름으로 찾으면 동명이인의 신청이 새어나간다).
        마이페이지로만 로그인한 학생은 mangoi_parent_uid 만 갖고 있어 기존 4개 키를 다 비껴갔다.
        → 키를 넓히고, 그래도 못 찾으면 서버가 로그인 토큰에서 직접 꺼내도록 token 도 같이 보낸다. */
-    var uid=null, token='';
+    var uid=null, token='', ticketUrl='';
     try{
       ['mangoi_uid','mango_uid','student_uid','uid','mangoi_parent_uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
       if(!uid){ var s=JSON.parse(localStorage.getItem('mangoi_student')||'null'); if(s&&s.uid) uid=s.uid; }
@@ -211,13 +211,15 @@
       token = localStorage.getItem('mango_token') || localStorage.getItem('mangoi_parent_token') || '';
     }catch(e){}
     try{
-      await fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ student_name:rec.name, student_uid:uid, token:token, phone:phone, desired_date:rec.date, desired_time:rec.time, source:'level-test' })}).catch(function(){});
+      var _ar = await fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ student_name:rec.name, student_uid:uid, token:token, phone:phone, desired_date:rec.date, desired_time:rec.time, source:'level-test' })}).catch(function(){ return null; });
+      if(_ar){ try{ var _ad = await _ar.json(); if(_ad && _ad.ticket_url) ticketUrl = _ad.ticket_url; }catch(e){} }
     }catch(e){}
-    // 로그인해서 uid 를 아는 경우에만 마이페이지 링크 — 모르면 조회가 안 되므로 안내하지 않는다(헛걸음 방지)
-    var myLink = uid
-      ? '<br><a href="/parent.html?uid='+encodeURIComponent(uid)+'" style="display:inline-block;margin-top:10px;font-size:13px;color:#a5b4fc;font-weight:800">🔑 마이페이지에서 진행 상태 보기 →</a>'
-      : '';
+    /* 🎟️ 접수 확인서 — 계정이 없어도 열린다(서명 토큰이 곱 신원).
+       문자만 믿으면 문자가 늦는 사람은 확인할 길이 없어진다 → 화면에도 남긴다. */
+    var myLink = ticketUrl
+      ? '<br><a href="'+ticketUrl+'" style="display:inline-block;margin-top:10px;font-size:13px;color:#a5b4fc;font-weight:800">🎟️ 내 신청 확인하기 →</a>'
+      : (uid ? '<br><a href="/parent.html?uid='+encodeURIComponent(uid)+'" style="display:inline-block;margin-top:10px;font-size:13px;color:#a5b4fc;font-weight:800">🔑 마이페이지에서 진행 상태 보기 →</a>' : '');
     document.getElementById('lt-sched').innerHTML =
       '📅 '+fmtDate(sel.date)+' '+sel.time
       +'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 신청이 접수됐어요! 접수 안내 문자를 보내드렸어요.<br>담당 선생님이 확정되면 다시 문자로 알려드릴게요. 👩‍🏫</span>'
