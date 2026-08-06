@@ -138,6 +138,30 @@ check('건이 없으면 카드째 숨긴다 (빈 카드 금지)',
 check('여기엔 입장 버튼을 주지 않는다 (그날이 아니면 방이 없다)',
   !/renderUpcoming[\s\S]{0,2200}?cls-act/.test(thtml));
 
+console.log('\n[ ⑥-3 강사도 «내 주간 스케줄» 을 본다 ]');
+/* 사장님 지적: "미리 교사의 스케줄에 올라와 있어야 하지 않나". 확인해 보니 강사에게
+   자기 일정을 보는 화면이 **아예 없었다** — 마이페이지 탭 11개 중 스케줄 없음,
+   /teacher 는 오늘만. 관리자에겐 주간 통합 캘린더가 있는데 당사자만 못 봤다. */
+check('서버가 week 를 내려준다', /week: \{\s*\n\s*start: weekDates\[0\], end: weekDates\[6\]/.test(tapi));
+check('?week= 로 주를 옮길 수 있다', /url\.searchParams\.get\('week'\)/.test(tapi));
+check('어느 날짜를 주든 그 주 «월요일» 로 맞춘다', /const mondayOf = \(ms: number\)/.test(tapi));
+check('반복 수업도 넣는다 (여기는 «내 시간표» 다)', /dowMatches\(s\.day_of_week, weekDays\[wi\]\.dow\)/.test(tapi));
+check('일회성 수업도 넣는다', /String\(s\.scheduled_date\)\.slice\(0, 10\) === weekDays\[wi\]\.date/.test(tapi));
+check('🔑 D1 을 다시 조회하지 않는다 (같은 rows 를 펼치기만)',
+  /같은 rows 를 요일로 펼치기만/.test(tapi));
+check('레벨테스트 표시가 주간에도 실린다',
+  /weekDays\[wi\]\.items\.push\([\s\S]{0,700}?is_level_test:/.test(tapi));
+check('오늘 칸을 표시한다', /is_today: date === todayStr/.test(tapi));
+check('화면에 «내 주간 스케줄» 카드가 있다', /id="c-week"/.test(thtml));
+check('그리는 함수가 있다', /function renderWeek\(w\)/.test(thtml));
+check('첫 로드 때 «불린다»', /renderWeek\(d\.week\)/.test(thtml));
+check('이전/이번/다음 주 버튼이 있다',
+  /id="wk-prev"/.test(thtml) && /id="wk-this"/.test(thtml) && /id="wk-next"/.test(thtml));
+check('버튼이 실제로 배선된다', /function bindWeekNav\(\)/.test(thtml) && /bindWeekNav\(\);/.test(thtml));
+check('리스너가 겹쳐 쌓이지 않는다 (클릭 한 번에 여러 번 나가지 않게)', /!b\._wkBound/.test(thtml));
+check('LMS 점유 슬롯은 흐리게 (학생이 없어 들어갈 방이 없다)', /it\.kind !== 'class'/.test(thtml));
+check('한/영 둘 다', /T\('No classes','수업 없음'\)/.test(thtml));
+
 console.log('\n[ ⑦ 관리자 화면 — 오늘 수업 · 주간 캘린더 ]');
 check('「오늘 수업」이 레벨테스트를 구분한다', /is_level_test/.test(tc));
 check('주간 캘린더에 레벨테스트 색이 있다', /'leveltest':'#0d9488'/.test(q6));

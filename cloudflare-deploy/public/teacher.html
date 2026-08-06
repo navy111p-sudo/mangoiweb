@@ -831,6 +831,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     var card = document.getElementById('c-week'), box = document.getElementById('week');
     if (!card || !box || !w || !w.days) return;
     card.hidden = false;
+    bindWeekNav();
     var rg = document.getElementById('wk-range');
     if (rg) rg.textContent = '(' + w.start + ' ~ ' + w.end + ')';
     var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
@@ -849,6 +850,13 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         : '<div class="wk-none">' + T('No classes','수업 없음') + '</div>';
       return '<div class="wk-day' + (d.is_today ? ' today' : '') + '"><div class="wk-d">' + esc(head) + '</div>' + body + '</div>';
     }).join('');
+  }
+  /* 주 이동 버튼 — 한 번만 배선한다(다시 그릴 때마다 리스너가 쌓이면 클릭 한 번에 여러 번 나간다) */
+  function bindWeekNav(){
+    [['wk-prev',-1],['wk-this',0],['wk-next',1]].forEach(function(pair){
+      var b = document.getElementById(pair[0]);
+      if (b && !b._wkBound){ b._wkBound = true; b.addEventListener('click', function(){ loadWeek(pair[1]); }); }
+    });
   }
   function loadWeek(off){
     WK_OFFSET = off;
