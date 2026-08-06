@@ -62,6 +62,42 @@ const visLen = (s) => s.replace(/&#\d+;/g, 'x').replace(/&[a-z]+;/gi, 'x').lengt
 check(`⑩ 꺼짐 라벨이 상단바를 넘치지 않을 길이 (${visLen(labelOff)}자 ≤ 12)`, visLen(labelOff) <= 12);
 
 /* ═══════════════════════════════════════════════════════════════
+   ①-B 우주 괴물 사냥 — «맞춰도 단어 소리가 안 난다» (2차 신고)
+   실제: 소리는 켜져 있었다. 낭독을 브라우저 내장 음성 하나로만 하고 있었는데,
+        **한국 폰에는 중국어 음성이 없는 경우가 많다** → speak() 가 조용히 끝난다(에러 0).
+        효과음(WebAudio)은 나므로 «소리는 켜져 있는데 단어만 조용»한 상태가 됐다.
+   ✅ 서버 /api/voice/tts 가 중국어 원어민 MP3 를 준다(실측) → 그걸 1순위로.
+   ═══════════════════════════════════════════════════════════════ */
+console.log('\n①-B 우주 괴물 사냥 — 낭독이 브라우저 음성에만 매달려 있지 않은가');
+
+check('⑪ 서버 원어민 음성을 1순위로 부른다',
+  /function ttsUrl\(text\)/.test(SM) && /fetch\('\/api\/voice\/tts'/.test(SM));
+check('⑫ 중국어면 lang:zh 로 보낸다 (폰에 중국어 음성이 없어도 소리가 난다)',
+  /lang:\s*\(lang === 'zh'\)\s*\?\s*'zh'\s*:\s*'en'/.test(SM));
+check('⑬ 서버가 안 되면 브라우저 내장 음성으로 내려간다',
+  /const browser = \(\) => \{[\s\S]{0,400}?SpeechSynthesisUtterance/.test(SM) &&
+  /\.catch\(\(\) => \{ if \(!finished && !handed\) \{ handed = true; browser\(\); \} \}\)/.test(SM));
+/* 🪤 실패한 약속을 캐시에 남기면 그 낱말은 영영 폴백만 탄다 */
+check('⑭ 실패한 요청은 캐시에서 지운다', /p\.catch\(\(\) => ttsCache\.delete\(key\)\)/.test(SM));
+/* 🔴 모바일은 «제스처 없이 시작한 소리»를 막는다 — 맞힌 순간에 내려받기 시작하면 거부될 수 있다 */
+check('⑮ 웨이브 시작에 문장·낱말을 미리 받아 둔다',
+  /function ttsPrefetch\(/.test(SM) && /ttsPrefetch\(\[fullSentence\(S\)\]\.concat\(S\.w\)\)/.test(SM));
+check('⑯ 첫 탭에서 오디오 요소를 깨운다 (효과음과 함께)',
+  /function primeAudio\(\)/.test(SM) && /ac\(\);\s*primeAudio\(\);/.test(SM));
+/* ⚠ 앞 낭독을 안 끊으면 새 낭독 위에 겹친다 */
+check('⑰ stopSpeak 이 서버 음성(오디오 요소)도 끊는다',
+  /function stopSpeak\(\)\s*\{[\s\S]{0,300}?ttsAudio\.pause\(\)/.test(SM));
+check('⑱ done 은 어떤 경로로도 반드시 불린다 (게임 진행이 물려 있다)',
+  /const guard = \(\) => \{[\s\S]{0,220}?setTimeout\(fin/.test(SM) && /guard\(\);/.test(SM));
+
+console.log('\n①-C 우주 괴물 사냥 — 폰에서 «어떻게 쏘는지»를 알려 주는가');
+check('⑲ 터치 기기 판정이 있다', /const IS_TOUCH = \('ontouchstart' in window\)/.test(SM));
+check('⑳ 폰에서만 손가락 안내를 붙인다 (PC 는 그대로)',
+  /const how = IS_TOUCH[\s\S]{0,200}?Tap a monster to shoot/.test(SM));
+check('㉑ 안내가 한/영 둘 다다 (강사 다수 필리핀 — 저장소 규칙)',
+  /괴물을 손가락으로 톡[\s\S]{0,80}?Tap a monster to shoot/.test(SM));
+
+/* ═══════════════════════════════════════════════════════════════
    ② P-38 — 발사 버튼이 조종간을 따라간다
    신고: "발사가 안돼"
    실제: 보이는 빨간 버튼은 조종간과 함께 최대 ±30px 움직이는데,
