@@ -85,6 +85,18 @@ body{
 .cls-main{flex:1;min-width:150px}
 .cls-name{font-size:16px;font-weight:600}
 .pill.p-lt{background:#0d9488;color:#fff}
+.wk-nav{display:flex;gap:6px;margin:0 0 10px}
+.wk-nav button{flex:1;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
+.wk-nav button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+.wk-day{border-top:1px solid #e6ebf1;padding:9px 0}
+.wk-day:first-child{border-top:0}
+.wk-d{font-size:12.5px;font-weight:800;color:#6b7783;margin-bottom:4px}
+.wk-day.today .wk-d{color:#2563eb}
+.wk-i{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;padding:3px 0}
+.wk-i b{min-width:46px}
+.wk-none{font-size:12.5px;color:#9aa7b4}
+html[data-t="dark"] .wk-nav button{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
+html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-meta{font-size:13px;color:#5d6b7a;margin-top:2px}
 .cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
 
@@ -341,6 +353,19 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   <div class="card" id="c-upcoming" hidden>
     <h2><span data-en="Coming Up (7 days)" data-ko="다가오는 수업 (7일)">Coming Up (7 days)</span> <small id="up-count"></small></h2>
     <div id="upcoming"></div>
+  </div>
+
+  <!-- 🗓 (2026-08-06) 「내 주간 스케줄」 — 강사에게 자기 일정을 미리 보는 화면이 아예 없었다.
+       마이페이지 탭 11개 중 스케줄이 없고, 이 화면은 «오늘» 만 그렸다. 관리자에게는 주간
+       통합 캘린더가 있는데 정작 당사자인 강사는 못 봤다. -->
+  <div class="card" id="c-week" hidden>
+    <h2><span data-en="My Week" data-ko="내 주간 스케줄">My Week</span> <small id="wk-range"></small></h2>
+    <div class="wk-nav">
+      <button type="button" id="wk-prev" data-en="◀ Prev" data-ko="◀ 이전 주">◀ 이전 주</button>
+      <button type="button" id="wk-this" class="on" data-en="This week" data-ko="이번 주">이번 주</button>
+      <button type="button" id="wk-next" data-en="Next ▶" data-ko="다음 주 ▶">다음 주 ▶</button>
+    </div>
+    <div id="week"></div>
   </div>
 
   <!-- ⚡ 정전 · 인터넷 장애 신고 (멜카 요청) — 수업 목록 바로 아래.
@@ -709,6 +734,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
 
     renderClasses(d.classes || []);
     renderUpcoming(d.upcoming || []);
+    renderWeek(d.week);
     renderNotices(d.notices || []);
     renderResources(d.resources || []);
     renderManager(d.manager);
@@ -790,6 +816,50 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   }
 
   var lastSig = null;   // 마지막으로 그린 상태의 지문 (불필요한 재그리기 차단)
+
+  /* 🗓 내 주간 스케줄. 폰으로 보는 화면이라 격자 대신 «요일별 목록» 으로 둔다
+     (관리자 캘린더의 시간축 격자는 좁은 화면에서 읽히지 않는다).
+     ⚠️ LMS 점유 슬롯·시드 데이터는 학생이 없어 입장할 방이 없다 → 정체를 밝히고 흐리게. */
+  var WK_OFFSET = 0;
+  function wkMonday(off){
+    var d = new Date();
+    var wd = (d.getDay() + 6) % 7;                       // 월=0
+    d.setDate(d.getDate() - wd + off * 7);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function renderWeek(w){
+    var card = document.getElementById('c-week'), box = document.getElementById('week');
+    if (!card || !box || !w || !w.days) return;
+    card.hidden = false;
+    var rg = document.getElementById('wk-range');
+    if (rg) rg.textContent = '(' + w.start + ' ~ ' + w.end + ')';
+    var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+    box.innerHTML = w.days.map(function(d){
+      var head = d.date.slice(5) + ' (' + DOW[d.dow] + ')' + (d.is_today ? (EN() ? ' · today' : ' · 오늘') : '');
+      var body = (d.items && d.items.length)
+        ? d.items.map(function(it){
+            var dim = (it.kind !== 'class');
+            return '<div class="wk-i"' + (dim ? ' style="opacity:.55"' : '') + '>'
+              + '<b>' + esc(it.start_time) + '</b>'
+              + '<span>' + esc(stuName(it) || (dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)'))) + '</span>'
+              + (it.is_level_test ? '<span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
+              + '<span class="wk-none">' + it.duration_min + T(' min','분') + '</span>'
+              + '</div>';
+          }).join('')
+        : '<div class="wk-none">' + T('No classes','수업 없음') + '</div>';
+      return '<div class="wk-day' + (d.is_today ? ' today' : '') + '"><div class="wk-d">' + esc(head) + '</div>' + body + '</div>';
+    }).join('');
+  }
+  function loadWeek(off){
+    WK_OFFSET = off;
+    ['wk-prev','wk-this','wk-next'].forEach(function(id){ var b=document.getElementById(id); if(b) b.classList.remove('on'); });
+    var on = document.getElementById(off === 0 ? 'wk-this' : (off < 0 ? 'wk-prev' : 'wk-next'));
+    if (on) on.classList.add('on');
+    fetch('/api/teacher/portal?week=' + wkMonday(off), { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if (d && d.ok) renderWeek(d.week); })
+      .catch(function(e){ try { console.warn('[week] load failed:', e); } catch(_){} });
+  }
 
   /* 📅 다가오는 수업 — 오늘 목록과 «따로» 둔다. 섞으면 오늘 할 일이 흐려진다.
      입장 버튼은 주지 않는다(그날이 아니면 방이 없다). 언제·누구·무엇인지만 알린다. */
@@ -2033,6 +2103,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         if (dayChanged) lastSig = null;     // 지문을 비워 강제로 다시 그리게 한다
         renderClasses(d.classes || []);
     renderUpcoming(d.upcoming || []);
+    renderWeek(d.week);
         renderNotices(d.notices || []);
         paintClassCount(d.classes);
         // 매니저에게는 이쪽이 본체다 — 진행 중 수업과 노쇼가 45초마다 저절로 갱신된다.
@@ -2065,7 +2136,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   document.addEventListener('visibilitychange', function(){
     if (document.hidden){ stopSec(); return; }
     // 돌아온 즉시 한 번: 자리를 비운 사이 배정된 수업을 기다리지 않고 보여준다
-    if (DATA) { renderClasses(DATA.classes || []); renderUpcoming(DATA.upcoming || []); }
+    if (DATA) { renderClasses(DATA.classes || []); renderUpcoming(DATA.upcoming || []); if (DATA.week) renderWeek(DATA.week); }
     scheduleAutoRefresh(1500);
   });
   window.addEventListener('online', function(){ arDelay = AR_MIN; scheduleAutoRefresh(1000); });
@@ -2075,6 +2146,6 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   scheduleAutoRefresh(AR_MIN);
 })();
 </script>
-<!-- BUILD:20260806215853 -->
+<!-- BUILD:20260806221957 -->
 </body>
 </html>

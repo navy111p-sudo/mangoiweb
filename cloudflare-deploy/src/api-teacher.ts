@@ -204,6 +204,31 @@ export async function handleTeacherApi(
   const classes: any[] = [];
   // 📅 앞으로 7일 안의 일회성 수업 — 선언은 여기(반환문과 같은 스코프). 채우는 건 아래 루프.
   const upcoming: any[] = [];
+
+  /* 🗓 (2026-08-06) 「내 주간 스케줄」.
+     [왜] 강사에게 **자기 일정을 미리 보는 화면이 아예 없었다**. 마이페이지 탭 11개 중
+          스케줄이 없고, /teacher 는 «오늘» 만 그린다. 관리자에게는 주간 통합 캘린더가
+          있는데 정작 당사자인 강사는 못 본다 — 그래서 며칠 뒤 잡힌 레벨테스트를
+          당일 아침에야 알게 됐다.
+     ⚠️ D1 을 다시 조회하지 않는다. 위에서 이미 이 강사의 «전체» 예약을 읽어 두었으므로
+        같은 rows 를 요일로 펼치기만 한다(필리핀처럼 지연 큰 회선에서 왕복이 곧 대기시간). */
+  const weekParam = (url.searchParams.get('week') || '').trim();
+  const mondayOf = (ms: number) => {
+    const k2 = new Date(ms + KST);
+    const wd = (k2.getUTCDay() + 6) % 7;            // 월=0 … 일=6
+    return Date.UTC(k2.getUTCFullYear(), k2.getUTCMonth(), k2.getUTCDate()) - wd * 86400000;
+  };
+  const weekBaseMs = /^\d{4}-\d{2}-\d{2}$/.test(weekParam)
+    ? mondayOf(Date.parse(weekParam + 'T00:00:00Z') - KST)
+    : mondayOf(now);
+  const weekDates: string[] = [];
+  const weekDow: number[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekBaseMs + i * 86400000);
+    weekDates.push(`${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`);
+    weekDow.push(d.getUTCDay());
+  }
+  const weekDays: any[] = weekDates.map((date, i) => ({ date, dow: weekDow[i], is_today: date === todayStr, items: [] as any[] }));
   if (conds.length) {
     const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
@@ -241,6 +266,28 @@ export async function handleTeacherApi(
 
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
+      /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
+         반복 수업도 넣는다: 여기는 «내 시간표» 라 그게 본래 목적이다.
+         (앞의 upcoming 목록에는 일부러 안 넣었다 — 거기는 «특별한 한 건» 을 띄우는 자리다) */
+      for (let wi = 0; wi < 7; wi++) {
+        const hit = s.scheduled_date
+          ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
+          : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, weekDays[wi].dow));
+        if (!hit) continue;
+        const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+        weekDays[wi].items.push({
+          id: s.id,
+          start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
+          duration_min: Number(s.duration_min) || 30,
+          student_name: s.student_name || s.student_en || null,
+          student_name_en: s.student_en || null,
+          kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
+              : (String(s.user_id || '').toLowerCase() === 'type_seed' ? 'sample' : 'class'),
+          is_level_test: String(s.class_type || '') === 'level_test'
+            || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
+        });
+      }
+
       if (seen.has(s.id)) continue;
       let occurs = false;
       if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
@@ -477,6 +524,11 @@ export async function handleTeacherApi(
     classes,
     // 📅 앞으로 7일 안의 «일회성» 수업(레벨테스트 포함). 오늘 목록과 별개로 미리 준비하라고 알린다.
     upcoming: upcoming.sort((a, b) => a.start_ts - b.start_ts),
+    // 🗓 내 주간 스케줄 — ?week=YYYY-MM-DD 로 주 이동(그 주의 월요일로 맞춰진다)
+    week: {
+      start: weekDates[0], end: weekDates[6],
+      days: weekDays.map(d => ({ ...d, items: d.items.sort((a: any, b: any) => a.start_time.localeCompare(b.start_time)) })),
+    },
     notices, resources, rating,
     ...(manager ? { manager } : {}),
   });
