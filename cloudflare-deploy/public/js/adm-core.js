@@ -3225,7 +3225,7 @@ async function leveltestMakeClass(id, opts) {
   try {
     const r = await fetch('/api/admin/leveltest/applications', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id, action: 'create_schedule', force: !!opts.force, user_id: opts.user_id })
+      body: JSON.stringify({ id: id, action: 'create_schedule', force: !!opts.force, user_id: opts.user_id, scheduled_date: opts.scheduled_date })
     });
     d = await r.json().catch(() => ({}));
   } catch (e) {
@@ -3244,6 +3244,15 @@ async function leveltestMakeClass(id, opts) {
   if (d.error === 'student_not_found') {
     const uid = prompt(msg + '\n\n' + (en ? 'Student account id:' : '학생 계정 아이디:'), d.candidate || '');
     if (uid && uid.trim()) leveltestMakeClass(id, { force: opts.force, user_id: uid.trim() });
+    return;
+  }
+  /* 희망 날짜가 이미 지남 → 과거에 만들면 «어느 화면에도 안 뜨는 수업»이 된다.
+     막기만 하면 담당자는 여기서 갇힌다(신청서 날짜를 고칠 화면이 따로 없다). 여기서 바로 받는다. */
+  if (d.error === 'past_date') {
+    const nd = prompt(msg + '\n\n' + (en ? 'New date (YYYY-MM-DD):' : '새 날짜 (YYYY-MM-DD):'), d.today || '');
+    if (nd && /^\d{4}-\d{2}-\d{2}$/.test(nd.trim())) {
+      leveltestMakeClass(id, { force: opts.force, user_id: opts.user_id, scheduled_date: nd.trim() });
+    }
     return;
   }
   alert('⚠ ' + msg);
@@ -3321,6 +3330,17 @@ function ltGotoCalendar() {
   setTimeout(function(){ cal.style.boxShadow = o; }, 1600);
 }
 
+/* 📅 (2026-08-06) «📅 #852 ✓» 배지 → 그 수업이 잡힌 «날짜» 로 달력을 데려간다.
+   🔴 지금까지 이 배지는 클릭 핸들러가 하나도 없는 <span> 이었다. 파란 배경에 굵은 글씨라
+      누구나 버튼으로 읽는데 눌러도 아무 일이 없어서 «캘린더가 안 뜬다» 는 신고가 됐다.
+   ⚠️ 달력 본체(calCur·calLoad)는 admin.html 안 IIFE 라 window 로만 닿는다.
+      그 함수가 없는 옛 화면에서는 달 이동 없이 캘린더 카드만 열어 준다(무동작 금지). */
+function ltOpenClass(iso, name) {
+  const d = String(iso || '').replace(/[^0-9-]/g, '');
+  if (d && typeof window.calGotoDate === 'function') { window.calGotoDate(d, { classes: true, name: name || '' }); return; }
+  ltGotoCalendar();
+}
+
 function _ltResetAppFilters() {
   const q = document.getElementById('lt-apps-q');       if (q) q.value = '';
   const s = document.getElementById('lt-apps-status');  if (s) s.value = '';
@@ -3349,7 +3369,7 @@ function _ltPaint(tb, items) {
        희망일이 비어 있으면 만들 수 없으므로 버튼 대신 이유를 보여준다(눌러도 안 되는 버튼 금지). */
     const canMake = !!(a.desired_date && a.desired_time);
     const clsCell = a.schedule_id
-      ? `<span title="${adminLang==='en'?'Linked class':'연결된 수업'}" style="font-size:11px;font-weight:800;color:#0369a1;background:#e0f2fe;border-radius:6px;padding:3px 8px;white-space:nowrap">📅 #${a.schedule_id} ✓</span>`
+      ? `<button onclick="ltOpenClass('${String(a.desired_date||'').replace(/[^0-9-]/g,'')}','${String(a.student_name||'').replace(/['\\]/g,'')}')" title="${adminLang==='en'?'Open this class on the calendar':'달력에서 이 수업 보기'}" style="font-size:11px;font-weight:800;color:#0369a1;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:6px;padding:3px 8px;white-space:nowrap;cursor:pointer">📅 #${a.schedule_id} ✓</button>`
       : (canMake
         ? `<button onclick="leveltestMakeClass(${a.id})" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#2563eb;color:#fff;cursor:pointer;margin-right:4px;white-space:nowrap">${adminLang==='en'?'📅 Create class':'📅 수업 만들기'}</button>`
         : `<span title="${adminLang==='en'?'Needs a preferred date and time':'희망 날짜·시간이 있어야 합니다'}" style="font-size:11px;color:#94a3b8;white-space:nowrap">${adminLang==='en'?'no date':'희망일 없음'}</span>`);
@@ -7351,7 +7371,14 @@ function buildMenuIndex() {
     { kw:'갤러리 사진 영상갤러리 gallery', card:'card-gallery', label:'사진·영상 갤러리' },
     { kw:'수강신청 수강 등록 enrollment', card:'card-students-mgmt', label:'학생·수강 관리' },
     { kw:'결제 수납 입금 payment', card:'card-accounting-mgmt', label:'결제·회계' },
-    { kw:'레벨테스트 레벨 테스트 level', card:'card-students-mgmt', label:'학생 관리(레벨)' },
+    /* 🎯 (2026-08-06) '레벨테스트' 검색이 엉뚱한 곳으로 가고 있었다.
+       ① 이 별칭이 «학생 관리» 를 가리켜, 정작 신청·등록 결과 표가 있는 card-level-tests 로
+          아무도 못 갔다.  ② 그 카드의 라벨은 「📝 레벨 **테스트**」(띄어쓰기) 라서
+          붙여 쓴 검색어 「레벨테스트」 에는 글자 대조가 영영 안 걸렸고,
+          띄어쓰기 없는 「🏅 레벨테스트 배치 현황」(카페24 집계) 만 떴다.
+       → 찾는 것(학생이 접수한 신청·등록 결과)을 «맨 위» 에 올린다.
+          집계 카드는 자기 라벨로 이미 걸리므로 별칭을 따로 두지 않는다. */
+    { kw:'레벨테스트 레벨 테스트 신청 신청현황 등록 등록결과 접수 결과 배정 대기 level test application signup', card:'card-level-tests', label:'레벨테스트 신청·등록 결과', en:'Level Test Applications', top:true },
     { kw:'법인카드 법인 카드내역 카드사용 지출 지출내역 경비 corpcard', card:'acc-corpcard', label:'법인카드 사용내역 (지출)' },
     { kw:'강의실 입장 테스트 장비점검 웹캠 마이크 점검 테스트하네스 진단 test', card:'card-classroom-test', label:'강의실 입장·장비 점검 테스트' }
   ];
@@ -7360,8 +7387,9 @@ function buildMenuIndex() {
     if (!el || el.style.display === 'none') return;  // RBAC 숨김 카드는 제외
     _globalSearchIndex.push({
       kind:'menu', kindLabelKo:'📋 바로가기', kindLabelEn:'📋 Shortcut',
-      label: a.label, labelEn: a.label,
+      label: a.label, labelEn: a.en || a.label,   // en 이 있으면 영문 라벨로 (강사 다수 필리핀)
       sub: a.kw,                       // 유사어 — 검색 매칭용
+      top: !!a.top,                    // 같은 말로 여러 카드가 걸릴 때 «이게 찾던 것» 이라고 못박기
       action: function(){ jumpToMenu(a.card); }
     });
   });
@@ -7741,11 +7769,22 @@ function _highlight(text, q) {
 function searchAllFor(q) {
   const ql = q.toLowerCase().trim();
   if (!ql) return [];
-  const matchBy = (needle) => _globalSearchIndex.filter(it =>
-    (it.label    || '').toLowerCase().includes(needle) ||
-    (it.labelEn  || '').toLowerCase().includes(needle) ||
-    (it.sub      || '').toLowerCase().includes(needle)
-  );
+  /* 🔎 (2026-08-06) 띄어쓰기 때문에 못 찾던 것 — 「레벨테스트」로 검색하면
+     라벨이 「📝 레벨 테스트」인 카드가 영영 안 걸렸다(글자 그대로 대조라서).
+     한글 메뉴 이름은 사람마다 붙여 쓰기도, 띄어 쓰기도 한다. 공백을 지운 사본으로도
+     한 번 더 대조한다. 2글자 미만은 과매칭이 나므로 제외. */
+  const _ns = s => String(s || '').toLowerCase().replace(/\s+/g, '');
+  const matchBy = (needle) => {
+    const nn = _ns(needle);
+    return _globalSearchIndex.filter(it =>
+      (it.label    || '').toLowerCase().includes(needle) ||
+      (it.labelEn  || '').toLowerCase().includes(needle) ||
+      (it.sub      || '').toLowerCase().includes(needle) ||
+      (nn.length >= 2 && (
+        _ns(it.label).includes(nn) || _ns(it.labelEn).includes(nn) || _ns(it.sub).includes(nn)
+      ))
+    );
+  };
   let hits = matchBy(ql);
   // 🆕 문장형 검색 fallback — "법인카드 내역 보여줘"처럼 명령어가 붙으면 단어별로 매칭
   if (hits.length === 0 && /\s/.test(ql)) {
@@ -7759,8 +7798,17 @@ function searchAllFor(q) {
       });
     });
   }
-  // 정렬: (1) 메뉴 최우선  (2) 매칭 위치 앞쪽  (3) 짧은 이름
+  /* 지정 바로가기(top) — 같은 말에 여러 카드가 걸릴 때 «찾던 것» 을 맨 위로.
+     예: 「레벨테스트」 는 집계 카드(🏅 배치 현황)와 신청·등록 결과 카드에 둘 다 걸리는데,
+     사람이 찾는 건 거의 항상 «학생이 접수한 신청·등록 결과» 쪽이다.
+     단, 별칭의 «유사어» 에만 스쳐 걸린 경우(예: 「등록」)까지 위로 올리면 방해가 되므로
+     이름이 그 말로 «시작할 때» 만 적용한다. */
+  const topRank = it => (it.top && (_ns(it.label).indexOf(_ns(ql)) === 0 ||
+                                    _ns(it.labelEn).indexOf(_ns(ql)) === 0)) ? 0 : 1;
+  // 정렬: (0) 지정 바로가기  (1) 메뉴 최우선  (2) 매칭 위치 앞쪽  (3) 짧은 이름
   return hits.sort((a, b) => {
+    const at = topRank(a), bt = topRank(b);
+    if (at !== bt) return at - bt;
     if (a.kind === 'menu' && b.kind !== 'menu') return -1;
     if (a.kind !== 'menu' && b.kind === 'menu') return 1;
     const ai = Math.min(

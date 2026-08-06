@@ -137,6 +137,21 @@ export async function handleTeacherApi(
 
   for (const x of (tidRs.results || [])) { if (x.tid) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); } }
 
+  /* 🔗 (2026-08-06 마이마이 제보 "no class in mangoi_033") 계정↔강사원부 연결이 끊긴 경우.
+   *
+   *  운영 실태: 로그인 계정 `mangoi_0XX` 20개 중 **18개가 name 을 한 번도 바꾸지 않아
+   *  name === username** 이다('mangoi_033'). 배정은 class_schedules.teacher_id = teachers.id
+   *  (예: '27' = MAIMAI) 로 걸리는데, 이 계정은 이름이 teachers 어디에도 없어
+   *  teachers 조회가 0건 → 조건이 `teacher_id = 'mangoi_033'` 하나만 남고 → 0건.
+   *
+   *  ⚠️ 여기서 화면은 "배정된 예정 수업이 없어요" 라고 말했다. 이건 **거짓말이다**.
+   *     수업이 없는 게 아니라 «누구인지 모르는» 것이다. 강사는 자기 수업이 취소된 줄 알고,
+   *     매니저는 강사가 왜 안 들어오는지 모른다. 상태를 구분해서 알려 준다.
+   *  ⛔ 계정 데이터를 코드가 임의로 고치지 않는다(누구인지는 운영이 정할 일). 사실만 알린다.
+   */
+  const linkedTeacherIds = (tidRs.results || []).map((x: any) => x.tid).filter(Boolean);
+  const identityUnlinked = !isManager && linkedTeacherIds.length === 0;
+
   const classes: any[] = [];
   if (conds.length) {
     const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
@@ -359,6 +374,10 @@ export async function handleTeacherApi(
     me: {
       username: actor.username, name: actor.name, role: actor.role,
       is_teacher: !isManager, is_manager: isManager, lang,
+      // 🔗 true = 이 계정이 강사원부(teachers)의 누구와도 연결돼 있지 않다.
+      //    화면은 "수업 없음"이 아니라 "계정 연결 안 됨"으로 말해야 한다.
+      identity_unlinked: identityUnlinked,
+      linked_teacher_ids: linkedTeacherIds,
     },
     classes, notices, resources, rating,
     ...(manager ? { manager } : {}),

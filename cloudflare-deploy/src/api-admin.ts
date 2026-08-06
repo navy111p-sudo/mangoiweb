@@ -13,6 +13,7 @@ import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
+import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, publicBase } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
@@ -72,6 +73,43 @@ function classifyEvalGrade(weighted: number): string {
 }
 
 const VALID_TEACHER_STATUS = ['office', 'home'] as const;
+
+/* 🗓️ 요일 표기 관용 파서 — /api/admin/classes/today (매니저 '오늘 수업') 용.
+ *
+ *  [무슨 일이 있었나 — 2026-08-06 마이마이 제보 "no class in manager's page"]
+ *   매니저 화면의 '오늘 수업'은 **하루도 빠짐없이 비어 있었다**. 예약이 없어서가 아니다.
+ *   여기만 `Number(day_of_week) === kDow` 로 비교하고 있었는데, 운영 D1 의
+ *   class_schedules.day_of_week 는 **전부 영문 텍스트**('Wed' 153건·'Fri' 142·'Tue' 123·
+ *   'Thu' 108·'Mon' 106·'Sat' 26)로 저장돼 있다. `Number('Thu')` 는 NaN 이고
+ *   NaN === 4 는 항상 false → 반복수업 662건이 매일 통째로 걸러졌다.
+ *   테이블 DDL 이 `day_of_week INTEGER` 라고 적혀 있어서 숫자일 거라 믿은 것이 화근인데,
+ *   SQLite 는 선언 타입을 강제하지 않는다(실제 typeof = 'text').
+ *   ⚠️ 에러가 한 줄도 안 난다. 화면은 "오늘 예정된 수업이 없습니다"라는 **정상 문구**를 띄웠고,
+ *      그래서 아무도 고장으로 신고하지 않았다.
+ *
+ *  [왜 다른 화면은 멀쩡했나]
+ *   학생·강사 경로(api-mango.ts sessions/today, api-teacher.ts)는 2026-07-24 에 이미
+ *   같은 사고를 겪고 관용 파서로 고쳤다. 그때 **매니저 경로만 빠졌다**.
+ *   → 세 곳이 같은 규칙이어야 한다. 여기만 좁으면 학생은 수업이 보이는데
+ *     대신 들어가 줘야 할 매니저에게만 안 보이는, 가장 나쁜 방향의 엇갈림이 생긴다.
+ */
+const ADM_DOW_MAP: Record<string, number> = {
+  sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+  tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+  thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+  sat: 6, saturday: 6, '토': 6, '토요일': 6,
+};
+/** 숫자 '5' · 콤마목록 '1,3' · 영문 'Mon' · 한글 '월' 을 모두 받는다. (매칭을 넓히기만 한다) */
+function admDowMatches(raw: any, target: number): boolean {
+  for (const p of String(raw ?? '').split(/[,\s/·]+/)) {
+    const t = p.trim();
+    if (!t) continue;
+    if (/^\d+$/.test(t)) { if (Number(t) === target) return true; continue; }
+    const k = ADM_DOW_MAP[t.toLowerCase()];
+    if (k !== undefined && k === target) return true;
+  }
+  return false;
+}
 
 // ═══ 📊 인사평가 근거 분석 공용 헬퍼 (/api/admin/teacher-hr-analysis) ═══
 /** 강사 이름 정규화 — 수업기록 테이블은 teacher_name(자유문자열)만 남기므로 표기 흔들림을 흡수. */
@@ -2020,7 +2058,8 @@ export async function handleAdminApi(
         // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
         let occurs = false;
         if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === todayStr);
-        else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow);
+        // ⚠️ Number() 로 비교하지 말 것 — 운영 값은 'Thu' 같은 문자열이라 NaN 이 된다(admDowMatches 주석 참고).
+        else if (s.day_of_week != null && s.day_of_week !== '') occurs = admDowMatches(s.day_of_week, kDow);
         if (!occurs) continue;
 
         const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
@@ -2046,10 +2085,19 @@ export async function handleAdminApi(
           duration_min: dur,
           start_ts, end_ts, status,
           join_open: nowMs >= open_at_ts && nowMs <= close_at_ts,
+          /* 🧪 (2026-08-06 마이마이 요청) "레벨테스트와 일반수업을 한 화면에서 보고 싶다".
+             레벨테스트도 예약을 잡는 순간 class_schedules 의 일회성(one_off) 행이 되므로
+             목록은 이미 하나다. 다만 **구분이 안 돼서** 따로 있는 것처럼 보였다.
+             → 별도 목록을 만들지 않고 종류만 실어 보낸다(화면에서 배지로 구분). */
+          schedule_kind: s.schedule_kind || null,
+          is_level_test: /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         });
       }
       sessions.sort((a, b) => a.start_ts - b.start_ts);
-      return json({ ok: true, today: todayStr, now: nowMs, count: sessions.length, sessions });
+      return json({
+        ok: true, today: todayStr, now: nowMs, count: sessions.length, sessions,
+        level_test_count: sessions.filter(x => x.is_level_test).length,
+      });
     }
 
     // ── GET /api/admin/class-audit — 수업 변경 이력(연기/삭제/종료/이동) 조회 ──
@@ -6430,7 +6478,12 @@ LIMIT $limit`;
       // 🔔 알림은 모두 best-effort — 실패해도 신청 자체는 성공 처리
       // 1) 신청자 "접수" 안내 — 담당 교사는 수락 후 확정 통보(과잉 약속 방지). 교사명은 아직 안 넣는다.
       if (phone) {
-        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.\n문의: pf.kakao.com/_xlqnSxd/chat`;
+        /* 🎟️ 접수 문자에 «티켓 링크» 를 넣는다. 이전엔 문의 카톡 주소만 있어서, 신청자가
+           자기 신청을 확인할 방법이 문자 한 통의 기억뿐이었다. 이 링크 하나가 확인·일정·
+           장비점검·당일 입장까지 전부 담당한다(로그인 불필요). */
+        let ticketLine = '';
+        try { ticketLine = `\n▶ 확인·입장: ${await ltTicketUrl(Number(appId), env)}`; } catch {}
+        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.${ticketLine}\n문의: pf.kakao.com/_xlqnSxd/chat`;
         try { await sendPlainSms(env, phone, smsText); }
         catch (e: any) { console.warn('[leveltest] applicant receipt skipped:', e?.message || e); }
       }
@@ -6527,7 +6580,13 @@ LIMIT $limit`;
         }
         const tLabel = app.assigned_teacher || '담당 선생님';
         if (app.phone) {
-          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}\n예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다.\n문의: pf.kakao.com/_xlqnSxd/chat`;
+          /* 🎟️ 예전엔 "예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다" 라고 «약속만» 했다.
+             그 링크를 보내는 코드는 전화번호를 students_erp 에서만 찾아, 계정이 없는 신청자에겐
+             구조적으로 못 갔다 — 지키지 못할 약속이었다. 이제는 링크를 «지금» 준다.
+             수업 전엔 일정 확인, 10분 전부터 입장 버튼으로 바뀌는 같은 주소다. */
+          let ticketLine2 = '\n※ 시작 10분 전부터 입장할 수 있어요.';
+          try { ticketLine2 = `\n▶ 확인·입장: ${await ltTicketUrl(Number(app.id), env)}\n※ 시작 10분 전부터 입장 버튼이 열려요.`; } catch {}
+          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}${ticketLine2}\n문의: pf.kakao.com/_xlqnSxd/chat`;
           try {
             const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
             if (tmpl) {
@@ -6554,6 +6613,35 @@ LIMIT $limit`;
       ).bind(Date.now(), ...binds).run();
       return json({ ok: true });
     }
+    /* ═══════════════════════════════════════════════════════════════════════
+       🎟️ 티켓 — 「확인」과 「입장」을 링크 하나로  (leveltest-ticket.ts 참고)
+         GET /api/leveltest/ticket?k=<토큰>      → 지금 보여줄 것 전부(JSON)
+         GET /api/leveltest/ticket.ics?k=<토큰>  → 「내 캘린더에 추가」
+       계정이 없어도 동작한다 — 서명 토큰이 곧 신원이다. 신청번호를 바꿔치기하면
+       서명이 깨져 남의 티켓은 열리지 않는다.
+       ═══════════════════════════════════════════════════════════════════════ */
+    if (method === 'GET' && (path === '/api/leveltest/ticket' || path === '/api/leveltest/ticket.ics')) {
+      await ensureLtApps();
+      const k = (url.searchParams.get('k') || '').trim();
+      const appId = await verifyLtTicket(k, env);
+      if (!appId) {
+        return json({ ok: false, error: 'invalid_ticket', message: '링크가 만료되었거나 올바르지 않습니다.', message_en: 'This link is expired or invalid.' }, 404);
+      }
+      const t = await buildLtTicket(env, appId, k);
+      if (!t) return json({ ok: false, error: 'not_found' }, 404);
+      if (path === '/api/leveltest/ticket.ics') {
+        if (!t.start_ts) return json({ ok: false, error: 'no_schedule', message: '아직 일정이 확정되지 않았습니다.', message_en: 'The schedule is not confirmed yet.' }, 409);
+        return new Response(buildLtIcs(t, `${publicBase(env)}/t.html?k=${k}`), {
+          headers: {
+            'Content-Type': 'text/calendar; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="mangoi-leveltest.ics"',
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+      return json({ ok: true, ticket: t });
+    }
+
     /* ═══════════════════════════════════════════════════════════════════════
        🙋 «내 레벨테스트» — 학생/학부모 본인 조회  GET /api/leveltest/my?uid=&token=
        ───────────────────────────────────────────────────────────────────────
@@ -6665,8 +6753,15 @@ LIMIT $limit`;
           // 연결된 예약이 지워졌다면 다시 만들 수 있게 흘려보낸다
         }
 
-        const dDate = String(appRow.desired_date || '').trim();
-        const dTime = String(appRow.desired_time || '').trim();
+        /* 📅 (2026-08-06) 날짜는 신청서의 희망일이 기본, 관리자가 고쳐 보내면 그것을 쓴다.
+           왜 고칠 수 있어야 하나 — 신청서는 며칠~몇 달 전에 들어온다. 희망일이 이미 지난 뒤
+           수락하면 «과거에 잡힌 수업»이 만들어진다. 실제로 그렇게 됐다:
+             신청 #11(희망 2026-07-13)을 08-06 16:15 에 수락 → 수업 #853 이 2026-07-13 에 생성.
+           과거 수업은 오늘 목록에도, 강사 화면에도, 학생 화면에도 영영 안 뜬다.
+           만든 사람은 «만들었는데 들어갈 데가 없다»가 되고(마이마이: "where to enter sir?"),
+           에러는 한 줄도 안 난다. 조용한 실패를 만들지 않는다 — 아래에서 되묻는다. */
+        const dDate = String(b.scheduled_date || appRow.desired_date || '').trim();
+        const dTime = String(b.start_time || appRow.desired_time || '').trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dDate)) {
           return json({ ok: false, error: 'no_desired_date',
             message: '희망 날짜가 비어 있어 수업을 만들 수 없습니다. 신청서에서 날짜를 먼저 채워 주세요.',
@@ -6676,6 +6771,17 @@ LIMIT $limit`;
           return json({ ok: false, error: 'no_desired_time',
             message: '희망 시간이 비어 있어 수업을 만들 수 없습니다.',
             message_en: 'No preferred time on this application.' }, 400);
+        }
+        // ⛔ 지난 날짜로는 만들지 않는다 — 만들어도 아무 화면에도 안 뜨는 «죽은 수업»이 된다.
+        //    (KST 기준 오늘까지 허용. 오늘 안의 지난 시각은 막지 않는다 — 방금 끝난 수업을
+        //     기록으로 남기는 정상 사용이 있고, 그건 목록에 '종료'로 보이기라도 한다.)
+        {
+          const kToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+          if (dDate < kToday) {
+            return json({ ok: false, error: 'past_date', desired_date: dDate, today: kToday,
+              message: `희망 날짜(${dDate})가 이미 지났습니다. 지난 날짜로 만들면 오늘 수업·강사·학생 화면 어디에도 뜨지 않습니다. 새 날짜를 정해 주세요.`,
+              message_en: `The preferred date (${dDate}) is already past. A class created in the past never appears in Today's Classes, or on the teacher/student screens. Please pick a new date.` }, 400);
+          }
         }
         const startTime = String(Number(dTime.split(':')[0])).padStart(2, '0') + ':' + dTime.split(':')[1];
         const durationMin = Number.isFinite(Number(b.duration_min)) && Number(b.duration_min) > 0

@@ -92,9 +92,13 @@
     }
     if (cntEl) {
       var live = _rows.filter(function (s) { return s.join_open; }).length;
+      /* 🧪 (2026-08-06 마이마이 요청) 레벨테스트도 이 목록에 함께 있다는 것을 숫자로 먼저 알린다.
+         "레벨테스트는 어디서 보나요"가 반복 질문이었는데, 실제로는 같은 목록에 섞여 있었고
+         구분 표시가 없어서 못 찾았을 뿐이다. */
+      var lt = _rows.filter(function (s) { return s.is_level_test; }).length;
       cntEl.textContent = T(
-        '오늘 ' + _rows.length + '건 · 지금 입장가능 ' + live + '건',
-        _rows.length + ' today · ' + live + ' joinable now'
+        '오늘 ' + _rows.length + '건 · 지금 입장가능 ' + live + '건' + (lt ? ' · 레벨테스트 ' + lt + '건' : ''),
+        _rows.length + ' today · ' + live + ' joinable now' + (lt ? ' · ' + lt + ' level test' : '')
       );
     }
 
@@ -124,10 +128,17 @@
           act += '<button type="button" onclick="tcObserveClass(decodeURIComponent(\'' + rid + '\'))" '
               + 'style="padding:4px 10px;font-size:11.5px;background:rgba(139,92,246,0.16);color:#6d28d9;border:1px solid rgba(139,92,246,0.45);border-radius:6px;font-weight:700;cursor:pointer">'
               + T('👁 참관', '👁 Observe') + '</button>';
+          /* 🧪 레벨테스트 표시 — 일반수업과 응대가 다르다(첫 수업·보호자 대기·결과 입력).
+             한 목록에 두되 눈으로 즉시 갈라지게. 크기·위치는 고정, 색으로만 구분한다. */
+          var kindTag = s.is_level_test
+            ? '<span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;'
+              + 'background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.45)">'
+              + T('🧪 레벨테스트', '🧪 Level test') + '</span>'
+            : '';
           return '<tr>'
             + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
-            + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + act + '</div></td>'
+            + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div></td>'
             + '<td>' + teacher + '</td>'
             + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code></td>'
             + '</tr>';

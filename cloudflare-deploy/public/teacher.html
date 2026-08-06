@@ -789,6 +789,25 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
       var esig = 'empty|' + LANG + (IS_MGR ? '|m' : '|t');
       if (lastSig === esig) return;
       lastSig = esig;
+      /* 🔗 (2026-08-06) "수업 없음" 과 "누구인지 모름" 은 완전히 다른 상태다.
+         계정이 강사원부와 연결돼 있지 않으면 배정이 아무리 많아도 0건으로 보인다
+         (운영 실태: mangoi_0XX 계정 20개 중 18개가 이름을 안 바꿔 연결이 끊겨 있다).
+         그걸 "오늘 수업이 없습니다"라고 말하면 강사는 수업이 취소된 줄 알고 안 들어온다.
+         고칠 수 있는 사람(본사)에게 무엇을 알려야 하는지까지 화면에 적는다. */
+      var unlinked = DATA && DATA.me && DATA.me.identity_unlinked;
+      if (unlinked && !IS_MGR){
+        box.innerHTML = '<div class="empty" style="color:#b45309;font-weight:700">'
+          + esc(T('⚠ This account is not linked to a teacher record yet, so your classes cannot be found.',
+                  '⚠ 이 계정이 강사 명부와 연결돼 있지 않아 수업을 찾지 못합니다.'))
+          + '</div><div class="empty" style="font-size:12px">'
+          + esc(T('This does NOT mean you have no classes. Send this to HQ: account = ',
+                  '수업이 없다는 뜻이 아닙니다. 본사에 이대로 전달해 주세요: 계정 = ')
+                + ((DATA.me && DATA.me.username) || '?')
+                + T(' · display name = ', ' · 표시이름 = ')
+                + ((DATA.me && DATA.me.name) || '?'))
+          + '</div>';
+        return;
+      }
       box.innerHTML = '<div class="empty">' +
         esc(IS_MGR
           ? T('No cover class assigned to you today. If one is assigned, it appears here by itself.',
