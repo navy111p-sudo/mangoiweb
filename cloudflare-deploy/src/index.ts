@@ -4015,34 +4015,42 @@ async function handleActiveRooms(env: Env): Promise<Response> {
 
     // KV에서 active-room: 프리픽스로 활성 방 목록 조회
     const list = await env.SESSION_STATE.list({ prefix: 'active-room:' });
-    const rooms: any[] = [];
 
-    for (const key of list.keys) {
+    /* ⚡ (2026-08-07) 방을 **한꺼번에** 물어본다.
+     *   예전엔 for 루프 안에서 `await durableObject.fetch(...)` 라 방 20개면 왕복이 20번 쌓였다.
+     *   관리자 대시보드가 주기적으로 부르는 경로여서 그대로 응답 지연 + 워커 시간으로 나갔다.
+     *   ⚠️ 동작은 바꾸지 않는다 — 빈 방/죽은 방의 KV 정리, 반환 순서(KV 키 순)까지 그대로.
+     *      순서를 안 지키면 관리자 화면의 방 목록이 새로고침마다 뒤바뀐다. */
+    const settled = await Promise.all(list.keys.map(async (key) => {
       const roomId = key.name.replace('active-room:', '');
       try {
-        // 각 Durable Object에 상태 질의
         const durableObjectId = env.VIDEO_CALL_ROOM.idFromName(roomId);
         const durableObject = env.VIDEO_CALL_ROOM.get(durableObjectId);
         const statusUrl = new URL(`https://internal/status?roomId=${roomId}`);
         const statusResp = await durableObject.fetch(statusUrl.toString());
 
-        // 응답이 JSON 이 아니거나 비정상이면 KV 정리 후 continue
+        // 응답이 JSON 이 아니거나 비정상이면 정리 대상
         let status: any = null;
         if (statusResp.ok) {
           const text = await statusResp.text();
           try { status = JSON.parse(text); } catch { status = null; }
         }
-
         if (!status || typeof status.userCount !== 'number' || status.userCount === 0) {
-          try { await env.SESSION_STATE.delete(key.name); } catch {}
-          continue;
+          return { stale: key.name, status: null as any };
         }
-        rooms.push(status);
+        return { stale: null as string | null, status };
       } catch (e) {
-        // DO가 이미 사라진 경우 KV 정리 — 정리 실패는 무시
-        try { await env.SESSION_STATE.delete(key.name); } catch {}
+        // DO 가 이미 사라진 경우 — 정리 대상
+        return { stale: key.name, status: null as any };
       }
+    }));
+
+    // 정리(삭제)는 응답을 막지 않게 한꺼번에. 실패는 무시(다음 조회에서 다시 걸린다).
+    const staleKeys = settled.map((r) => r.stale).filter(Boolean) as string[];
+    if (staleKeys.length) {
+      await Promise.all(staleKeys.map((k) => env.SESSION_STATE.delete(k).catch(() => {})));
     }
+    const rooms: any[] = settled.filter((r) => r.status).map((r) => r.status);
 
     return new Response(JSON.stringify(rooms), {
       status: 200,
