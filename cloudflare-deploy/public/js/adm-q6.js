@@ -32,13 +32,22 @@
     });
   }
 
+  /* 🔴 (2026-08-06) 강사 필터가 «다른 번호 체계» 를 보고 있었다.
+     이 캘린더가 그리는 것은 class_schedules 이고, 그 teacher_id 는 **teachers.id** 다(운영 664건 전부 일치).
+     그런데 필터 목록은 teacher_profiles 에서 가져와 **teacher_profiles.id** 를 값으로 썼다.
+     두 표는 번호가 완전히 다른 체계라, 숫자가 우연히 겹치면서 **엉뚱한 사람의 수업이 나왔다**:
+       · 마이마이  = profiles #25 / teachers #27  → 「Teacher Maimai」 로 거르면 teacher_id='25' 를 찾는데
+                                                   그건 KARL 이라 **0건**(실제 마이마이 수업은 27번에 있다)
+       · 「Teacher Len」(profiles #8) 으로 거르면 teachers #8 = **KAYE 의 수업 50건**이 나왔다
+     운영 예약 664건 중 611건이 profiles 에도 «존재하는 번호» 라 조용히 틀린 사람을 보여주고 있었다.
+     → 캘린더가 쓰는 표(teachers)에서 그대로 가져와 번호 체계를 하나로 맞춘다. */
   async function ph54LoadTeachers(){
     try {
-      var r = await fetch('/api/admin/teacher-profiles?status=활동중', { credentials:'include', cache:'no-store' });
+      var r = await fetch('/api/admin/teachers', { credentials:'include', cache:'no-store' });
       var j = await r.json();
       if (j && j.ok && Array.isArray(j.items) && j.items.length) {
         ph54State.teachers = j.items.map(function(t){
-          return { id: t.id, name: t.korean_name || t.english_name || ('강사 '+t.id) };
+          return { id: t.id, name: t.name || t.korean_name || t.english_name || ('강사 '+t.id) };
         });
         return;
       }
@@ -52,7 +61,8 @@
   async function ph54LoadRecords(){
     // 🗓 강사 '수업 스케줄'(class_schedules)을 로드한다.
     //    - /api/admin/schedules?week=<해당 주 월요일> 가 그 주(월~일)로 펼친 슬롯 배열을 돌려줌.
-    //    - 각 슬롯의 teacher_id 는 teacher_profiles.id 와 동일하므로 강사 행과 그대로 매칭된다.
+    //    - ⚠️ 각 슬롯의 teacher_id 는 **teachers.id** 다. (예전 주석은 teacher_profiles.id 라고
+    //      적혀 있었는데 그게 틀렸고, 그 오해가 위의 필터 버그를 만들었다.)
     //    - 표시 중인 주(weekOffset)에 맞춰 매번 다시 불러온다.
     var monday = ph54FmtDate(ph54GetWeekDays()[0]);   // 현재 보고 있는 주의 월요일
     try {
@@ -70,9 +80,28 @@
 
   // HTML 이스케이프 (학생 이름 등 안전 출력)
   function ph54Esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  // 수업 유형별 색/라벨
-  var PH54_TYPE_COLOR = { '1on1':'#7c3aed', 'group':'#2563eb', 'temp':'#f59e0b', 'blocked':'#475569' };
-  var PH54_TYPE_LABEL = { '1on1':'1:1', 'group':'그룹', 'temp':'대체', 'blocked':'휴무' };
+  // 수업 유형별 색/라벨 — 🎯 레벨테스트는 정규수업과 성격이 달라 한눈에 구분되게 별도 색
+  var PH54_TYPE_COLOR = { '1on1':'#7c3aed', 'group':'#2563eb', 'temp':'#f59e0b', 'blocked':'#475569', 'leveltest':'#0d9488' };
+  var PH54_TYPE_LABEL = { '1on1':'1:1', 'group':'그룹', 'temp':'대체', 'blocked':'휴무', 'leveltest':'레벨테스트' };
+
+  /* 강사 원부(teachers)와 강사관리 표(teacher_profiles)는 «이름 표기» 도 다르다:
+       'Teacher Maimai'(profiles) vs 'MAIMAI'(teachers)
+     강사 목록 행의 📅 버튼은 profiles 쪽 id 를 갖고 있으므로, 이름으로 teachers.id 를 되찾는다.
+     ⚠️ 부분일치를 먼저 하면 안 된다 — 'FAR' 가 'HT FARRAH' 에 걸려 남의 일정이 뜬다(실제 사고 사례).
+        ① 접두사 떼고 완전일치 → ② 「HT NESS」처럼 접두어가 붙은 경우만 **단어 단위**로 비교. */
+  function ph54NormName(s){
+    return String(s||'').replace(/^\s*(?:teacher|tutor|강사|선생님)\s+/i, '').trim().toUpperCase();
+  }
+  function ph54ResolveTeacherId(name){
+    var want = ph54NormName(name);
+    if (!want) return '';
+    var list = ph54State.teachers || [];
+    for (var i = 0; i < list.length; i++) if (ph54NormName(list[i].name) === want) return String(list[i].id);
+    for (var j = 0; j < list.length; j++) {
+      if (ph54NormName(list[j].name).split(/\s+/).indexOf(want) !== -1) return String(list[j].id);
+    }
+    return '';
+  }
 
   // 한 개 수업 슬롯 → 캘린더 블록 HTML (시간 · 인원 + 학생 이름)
   function ph54ClassBlock(s){
@@ -370,12 +399,17 @@
         // 2) 이번 주로 + 이 강사만 필터 + 수업 데이터 로드 후 렌더
         (async function(){
           ph54State.weekOffset = 0;                  // 이번 주
-          ph54State.teacherFilter = String(tid);     // 클릭한 강사(teacher_profiles.id)만
-          // 강사 목록(1회)+수업기록 병렬 로드
+          // 강사 목록(1회)+수업기록 병렬 로드 — 필터를 «정하기 전에» 원부가 있어야 이름을 되찾는다
           await Promise.all([
             ph54State.teachers.length ? null : ph54LoadTeachers(),
             ph54LoadRecords()
           ]);
+          /* ⚠️ 이 버튼이 가진 tid 는 teacher_profiles.id 라, 캘린더가 쓰는 teachers.id 와 다르다.
+             예전엔 그대로 필터에 넣어 «남의 수업» 또는 0건이 나왔다 → 이름으로 원부 id 를 되찾는다. */
+          var rid = ph54ResolveTeacherId(tname);
+          ph54State.teacherFilter = rid;
+          // 못 찾으면 조용히 0건을 보여주지 않는다 — 왜 전체가 뜨는지 말해 준다
+          if (!rid) ph54Toast((tname || '이 강사') + ' — 강사 원부와 이름이 연결되지 않아 전체 일정을 표시합니다');
           ph54Render();
           // 3) 카드로 스크롤
           setTimeout(function(){ sched.scrollIntoView({ behavior:'smooth', block:'start' }); }, 100);

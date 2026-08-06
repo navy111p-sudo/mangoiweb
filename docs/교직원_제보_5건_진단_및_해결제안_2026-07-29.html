@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>교직원 제보 5건 - 문제 진단 및 해결 제안서 (2026-07-29)</title>
+<style>
+ :root{--bg:#ffffff;--fg:#1f2430;--mut:#5b6472;--line:#e3e7ee;--accent:#c2410c;--head:#0f172a;--code:#f6f8fa}
+ *{box-sizing:border-box}
+ body{margin:0;padding:0;background:#eef1f6;color:var(--fg);
+      font-family:'Malgun Gothic','맑은 고딕',-apple-system,'Segoe UI',sans-serif;
+      font-size:15px;line-height:1.75;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .page{max-width:1000px;margin:24px auto;background:var(--bg);padding:56px 60px 72px;
+       box-shadow:0 2px 18px rgba(15,23,42,.10);border-radius:6px}
+ h1{font-size:27px;color:var(--head);margin:0 0 6px;line-height:1.35;
+    border-bottom:3px solid var(--accent);padding-bottom:14px}
+ h2{font-size:20px;color:var(--head);margin:44px 0 14px;padding:9px 0 9px 13px;
+    border-left:5px solid var(--accent);background:#fbf5f1}
+ h3{font-size:16.5px;color:#0f172a;margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+ p{margin:10px 0}
+ ul,ol{margin:10px 0;padding-left:26px} li{margin:5px 0}
+ table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+ th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+ th{background:#f1f5f9;color:var(--head);font-weight:700;white-space:nowrap}
+ tr:nth-child(even) td{background:#fafbfd}
+ code{background:var(--code);padding:2px 6px;border-radius:4px;font-size:12.5px;
+      font-family:Consolas,'D2Coding',monospace;color:#a3305e;word-break:break-all}
+ pre{background:#0f172a;color:#e2e8f0;padding:15px 18px;border-radius:8px;overflow-x:auto;
+     font-size:12.5px;line-height:1.6}
+ pre code{background:none;color:inherit;padding:0}
+ blockquote{margin:14px 0;padding:12px 18px;background:#fff8ed;border-left:4px solid #f59e0b;color:#5b4520}
+ blockquote p{margin:5px 0}
+ hr{border:0;border-top:1px solid var(--line);margin:36px 0}
+ a{color:#1d4ed8}
+ em{color:var(--mut)}
+ h1+ul{list-style:none;padding:0;margin:14px 0 26px;color:var(--mut);font-size:13.5px}
+ h1+ul li{margin:3px 0}
+ @media print{
+   body{background:#fff} .page{margin:0;padding:0 8mm;box-shadow:none;max-width:none;border-radius:0}
+   h2{page-break-after:avoid} table,pre,blockquote{page-break-inside:avoid}
+ }
+ @media (max-width:760px){ .page{padding:26px 16px;margin:0;border-radius:0} body{font-size:14px} }
+</style></head><body><div class="page">
+<h1 id="5">교직원 제보 5건 — 문제 진단 및 해결 제안서</h1>
+<ul>
+<li><strong>작성일</strong>: 2026-07-29</li>
+<li><strong>대상 사이트</strong>: https://test.mangoi.co.kr (검증 시점 라이브 빌드 <code>BUILD:20260729174744</code>)</li>
+<li><strong>제보 출처</strong>: 교직원 슬라이드 5건 (<code>test.mangoi.co.kr 수정 요청 프롬프트</code>)</li>
+<li><strong>검증 방법</strong>: 소스코드 정독 + 라이브 사이트 응답 확인 + 운영 D1(<code>mango-db</code>) 조회(SELECT 전용)</li>
+</ul>
+<hr />
+<h2 id="0">0. 한 장 요약</h2>
+<p>제보 5건은 <strong>전부 사실로 확인</strong>됐습니다. 확인 과정에서 제보에 없던 <strong>더 심각한 문제 3건</strong>이 추가로 나왔습니다.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>항목</th>
+<th>제보/신규</th>
+<th>확인</th>
+<th>심각도</th>
+<th>실제 원인 (한 줄)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td>가상계좌가 <strong>가짜 난수</strong></td>
+<td>🆕 신규</td>
+<td>✅ 확인</td>
+<td>🔴 P0</td>
+<td>브라우저가 <code>Math.random()</code>으로 계좌번호를 지어내고 "발급 완료"라고 표시</td>
+</tr>
+<tr>
+<td>B</td>
+<td>결제 접수 API가 <strong>없음(404)</strong></td>
+<td>🆕 신규</td>
+<td>✅ 확인</td>
+<td>🔴 P0</td>
+<td>「결제 완료 확인」이 부르는 <code>/api/student/payment</code> 핸들러가 서버에 없음</td>
+</tr>
+<tr>
+<td>C</td>
+<td>계좌이체 계좌번호가 <strong>자리표시자</strong></td>
+<td>🆕 신규</td>
+<td>✅ 확인</td>
+<td>🔴 P0</td>
+<td><code>신한 110-555-123456</code> = 개발용 더미값이 그대로 노출</td>
+</tr>
+<tr>
+<td>1</td>
+<td>카카오 상담 버튼 404</td>
+<td>제보</td>
+<td>✅ 확인</td>
+<td>🟠 P1</td>
+<td>채널 ID가 예시값 <code>_mangoi</code> (실제는 <code>_xlqnSxd</code>)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>무료 체험인데 결제 진행</td>
+<td>제보</td>
+<td>✅ 확인</td>
+<td>🟠 P1</td>
+<td><code>trial</code> 상품에 결제 분기가 없음 (0원인데 결제수단 화면으로 진입)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>필수 선택 항목 누락</td>
+<td>제보</td>
+<td>✅ 확인</td>
+<td>🟠 P1</td>
+<td>결제 진입점이 <strong>두 개</strong>인데, 6개 항목을 받는 쪽이 메뉴에서 거의 안 보임</td>
+</tr>
+<tr>
+<td>3</td>
+<td>실시간 계좌이체 전환</td>
+<td>제보</td>
+<td>✅ 타당</td>
+<td>🟡 P2</td>
+<td>현행 계좌이체는 PG를 안 거치는 수기 송금 안내 화면</td>
+</tr>
+<tr>
+<td>5</td>
+<td>「포인트 모으는 법」 메뉴</td>
+<td>제보</td>
+<td>✅ 타당</td>
+<td>🟢 P3</td>
+<td>기능 신설 + <strong>규칙표 정합성 선행 필요</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="_1">가장 중요한 한 가지</h3>
+<blockquote>
+<p><strong>결제 시스템은 아직 "테스트 모드"입니다.</strong>
+운영 DB <code>payment_orders</code>의 결제완료 5건이 <strong>전부 토스 테스트 가맹점(<code>tvivarepublica</code>)</strong> 기록입니다.
+즉 <strong>카드로 실제 돈이 빠져나간 적은 아직 0건</strong>입니다.</p>
+</blockquote>
+<p>이 사실이 우선순위를 뒤집습니다.</p>
+<ul>
+<li>제보 #4(무료체험 결제)는 <strong>아직 실제 청구로 이어지지 않았습니다.</strong> 다만 실키(live) 전환하는 순간 즉시 사고가 됩니다.</li>
+<li>반대로 <strong>계좌이체 · 카카오페이 · 토스송금 · 가상계좌는 PG를 거치지 않습니다.</strong> 화면에 적힌 계좌로 학부모가 직접 송금하는 방식이라 <strong>테스트/실전 구분이 없습니다.</strong> 지금 이 순간에도 실제 돈이 움직일 수 있는데, 그 계좌번호가 <strong>자리표시자이거나 난수</strong>입니다.</li>
+</ul>
+<p><strong>따라서 오늘 당장 막아야 할 것은 제보 #4가 아니라 신규 발견 A·C 입니다.</strong></p>
+<hr />
+<h2 id="1">1. 신규 발견 (제보에 없지만 더 급한 것)</h2>
+<h3 id="a">A. 🔴 가상계좌가 실제로는 존재하지 않는 번호입니다</h3>
+<p><strong>증거</strong> — <code>cloudflare-deploy/public/js/idx-payment-modal.js:530-566</code></p>
+<pre><code class="language-js">} else if (method === 'virtual') {
+  // 가상계좌 — 즉시 발급 시뮬레이션 (실제 PG 연동 시 서버에서 발급)
+  const va = '79' + (Math.floor(Math.random()*1e10).toString().padStart(10,'0'));
+</code></pre>
+<p>이렇게 만든 난수를 화면에는 이렇게 표시합니다.</p>
+<ul>
+<li>「<strong>가상계좌 즉시 발급 완료</strong>」</li>
+<li>「발급 은행: 우리은행 (가상계좌)」</li>
+<li>「✅ 위 가상계좌로 입금하시면 자동으로 결제 처리됩니다 (24시간 유효)」</li>
+</ul>
+<p><strong>실제로 벌어지는 일</strong>: 학부모가 이 번호로 입금하면 <strong>존재하지 않는 계좌이면 반송</strong>, <strong>우연히 타인 계좌와 일치하면 남에게 송금</strong>됩니다. 어느 쪽이든 우리 장부에는 아무 기록도 남지 않습니다(<code>payment_orders</code>에 행 자체가 생기지 않음 — 아래 표 참고).</p>
+<p><strong>운영 DB 실측</strong> (<code>payment_orders</code> 전체)</p>
+<table>
+<thead>
+<tr>
+<th>method</th>
+<th>status</th>
+<th>건수</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>card</td>
+<td>failed</td>
+<td>12</td>
+</tr>
+<tr>
+<td>card</td>
+<td>pending</td>
+<td>7</td>
+</tr>
+<tr>
+<td>card</td>
+<td>paid</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+<p>→ <strong>카드 외 결제수단은 주문 기록이 단 1건도 없습니다.</strong> 가상계좌·계좌이체로 접수된 건은 시스템상 아예 존재하지 않습니다.</p>
+<p><strong>즉시 조치(오늘, 30분)</strong>: 가상계좌 결제수단 카드를 <strong>화면에서 숨김</strong>. 정식 PG 가상계좌를 붙이기 전까지는 노출하지 않습니다.</p>
+<hr />
+<h3 id="b-api">B. 🔴 「결제 완료 확인」 버튼이 부르는 API가 서버에 없습니다</h3>
+<p><strong>증거</strong></p>
+<ul>
+<li>호출부: <code>idx-payment-modal.js:1058</code> → <code>fetch('/api/student/payment', {method:'POST'})</code></li>
+<li>서버: <code>src/</code> 전체에 <code>/api/student/payment</code> 핸들러 <strong>없음</strong></li>
+<li>라우팅 종단: <code>src/index.ts:1780</code> — 매칭 안 된 <code>/api/*</code> 는 <strong>404 JSON 반환</strong></li>
+<li>라이브 확인: <code>GET https://test.mangoi.co.kr/api/student/payment</code> → <strong>404</strong></li>
+</ul>
+<p><strong>실제로 벌어지는 일</strong>: 학부모가 송금한 뒤 「✅ 결제 완료 확인」을 누르면
+<code>alert('결제 처리 중 오류: Not Found')</code> 만 뜨고 <strong>접수가 전혀 되지 않습니다.</strong></p>
+<p>즉 <strong>카드를 제외한 5개 결제수단(카카오페이·토스·계좌이체·네이버페이·가상계좌)은 접수 경로 자체가 끊겨 있습니다.</strong> 위 DB 표에 카드 외 기록이 0건인 이유가 이것입니다.</p>
+<p><strong>조치(1일)</strong>: <code>POST /api/student/payment</code> 신설 — 주문을 <code>payment_orders</code>에 <code>status='pending_manual'</code>로 기록하고, 관리자 결제센터에 "입금 확인 대기" 목록으로 띄웁니다.
+⚠️ <code>src/index.ts</code> 라우팅 + 인증 게이트에 <strong>반드시 등록</strong>해야 동작합니다(CLAUDE.md 함정 항목).</p>
+<hr />
+<h3 id="c">C. 🔴 계좌이체 화면의 계좌번호가 개발용 더미값입니다</h3>
+<p><strong>증거</strong> — <code>idx-payment-modal.js:310-319</code></p>
+<pre><code class="language-js">// ━━━━━━━━━━ 결제 회사 정보 (실제 운영 시 변경) ━━━━━━━━━━
+const PAY_INFO = {
+  bank_name: '신한은행',
+  account_no: '110-555-123456',          // ← 자리표시자
+  account_holder: '망고아이(주)',
+  kakaopay_url: 'https://qr.kakaopay.com/Ej86dkamx',  // 카카오페이 송금 코드 (실제 코드로 교체)
+  toss_id: 'mangoi',                                   // toss.me/&lt;id&gt; (실제 ID로 교체)
+  tosspayments_client_key: 'test_ck_...',              // 실전 전환 시 live_ck_ 로 교체
+};
+</code></pre>
+<p>이 값은 계좌이체·네이버페이·토스송금 화면 <strong>세 곳</strong>에 그대로 노출됩니다.</p>
+<p>추가로, <strong>홈 결제창은 토스 클라이언트 키를 코드에 하드코딩</strong>하고 있습니다. 서버는 <code>env.TOSS_CLIENT_KEY</code>를 읽도록 이미 만들어져 있는데(<code>src/api-pay.ts:222</code>), 홈 결제창만 이를 쓰지 않습니다. → <strong>환경변수를 실키로 바꿔도 홈 결제창은 영원히 테스트 모드</strong>입니다.</p>
+<p><strong>조치(0.5일)</strong>: 실제 법인계좌·카카오페이 코드·토스 ID로 교체하고, 클라이언트 키는 <code>/api/pay/quote</code> 응답값을 쓰도록 변경.</p>
+<hr />
+<h2 id="2">2. 제보별 진단과 해결 방안</h2>
+<h3 id="1-ai">슬라이드 1 — AI 상담사 → 카카오 상담 연결 오류 🟠</h3>
+<p><strong>제보</strong>: 상담창의 "카카오로 즉시 상담받기"를 누르면 "페이지를 찾을 수 없습니다".</p>
+<p><strong>확인</strong>: 재현됨. 원인은 <strong>채널 ID 오타가 아니라 주석의 예시값이 실제 코드에 들어간 것</strong>입니다.</p>
+<p><code>cloudflare-deploy/public/index.html:27020-27027</code></p>
+<pre><code class="language-js">/* ★ 채널 변경 시 아래 KAKAO_CHANNEL_ID 만 본인 채널 '검색용 아이디'로 교체:
+     ... (예: _mangoi) */
+var KAKAO_CHANNEL_ID = '_mangoi';        // ← 주석의 '예시'가 실제 값이 됨
+window.openKakao = function(){
+  var url = 'https://pf.kakao.com/' + KAKAO_CHANNEL_ID + '/chat';
+</code></pre>
+<p><strong>라이브 실측</strong></p>
+<table>
+<thead>
+<tr>
+<th>URL</th>
+<th>페이지 제목</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>https://pf.kakao.com/_mangoi</code></td>
+<td><strong>채널 - 페이지를 찾을 수 없습니다.</strong></td>
+</tr>
+<tr>
+<td><code>https://pf.kakao.com/_xlqnSxd</code></td>
+<td>카카오톡채널 - <strong>망고아이</strong></td>
+</tr>
+</tbody>
+</table>
+<p>저장소 전체에서 올바른 ID <code>_xlqnSxd</code>는 <strong>27곳</strong>에 하드코딩돼 있고, 잘못된 <code>_mangoi</code>는 이 <strong>1곳</strong>뿐입니다.</p>
+<p><strong>영향 범위가 제보보다 넓습니다.</strong> <code>window.openKakao()</code>는 아래 <strong>9곳 이상</strong>이 함께 씁니다.</p>
+<ul>
+<li>AI 상담사 상담창 (제보된 곳)</li>
+<li>우측 하단 카카오 FAB — <code>href</code>는 올바른데 <code>onclick</code>이 <code>openKakao()</code>로 덮어써서 <strong>똑같이 깨짐</strong> (<code>index.html:27010-27012</code>)</li>
+<li>결제 완료 화면의 「💬 카톡으로 확인받기」</li>
+<li>「기타/상담」 코스 선택 시 상담 연결</li>
+<li>「비밀번호 모르겠어요 — 카톡 도움받기」</li>
+<li>카테고리 그리드의 「카톡으로 신청」, 「카톡 채널 추가」</li>
+</ul>
+<p><strong>해결</strong>: 1줄 수정.</p>
+<pre><code class="language-js">var KAKAO_CHANNEL_ID = '_xlqnSxd';
+</code></pre>
+<p>동시에 하드코딩된 27곳도 <code>openKakao()</code>를 쓰도록 정리하면 다음 채널 변경 때 한 곳만 고치면 됩니다(선택, 별도 작업).</p>
+<p><strong>검증</strong>: PC·모바일에서 위 7개 진입점 클릭 → 「카카오톡채널 - 망고아이」 도달 확인.
+<strong>공수</strong>: 수정 10분 / 회귀 확인 1시간</p>
+<hr />
+<h3 id="2_1">슬라이드 2 — 결제창 필수 선택 항목 누락 🟠</h3>
+<p><strong>제보</strong>: 횟수·개월·시작날짜·강사·요일·시간 6개를 다 골라야 하는데, "횟수"만 고르면 바로 결제로 넘어감.</p>
+<p><strong>확인</strong>: 사실입니다. 다만 원인은 "검증 로직이 빠진 것"이 아니라 <strong>결제 진입점이 두 개로 갈라져 있는 것</strong>입니다.</p>
+<table>
+<thead>
+<tr>
+<th>진입점</th>
+<th>파일</th>
+<th>받는 항목</th>
+<th>결제 버튼 잠금</th>
+<th>접근 경로</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>홈 결제 모달</strong></td>
+<td><code>index.html:21000~21352</code></td>
+<td><strong>횟수(상품)만</strong></td>
+<td>없음</td>
+<td>홈 상단 「💳 결제하기」, 사이드바, AI검색 — <strong>주 동선</strong></td>
+</tr>
+<tr>
+<td><strong>수강신청 페이지</strong></td>
+<td><code>enroll.html</code></td>
+<td><strong>6개 전부</strong> ✅</td>
+<td>있음 ✅</td>
+<td>전체메뉴 그리드 카드 1개뿐 — <strong>거의 안 보임</strong></td>
+</tr>
+</tbody>
+</table>
+<p><code>enroll.html</code>은 이미 제보 내용대로 정확히 동작합니다.</p>
+<ul>
+<li>강사 카드 선택 → 주 횟수 / 기간(개월) / 수업 길이 → 요일 / 시작 시각 / 시작일</li>
+<li>서버에 슬롯 충돌 확인(<code>/api/pay/enroll/check</code>) 후에만 결제 버튼 활성화
+  (<code>enroll.html:219</code> — <code>btnPay.disabled = !(CHECK_OK &amp;&amp; QUOTE &amp;&amp; st.teacher)</code>)</li>
+<li>요일 개수가 모자라면 안내: 「요일을 N개 선택해 주세요 (지금 M개)」</li>
+</ul>
+<p>반면 홈 결제 모달에는 <strong><code>요일</code>·<code>개월</code>·<code>시작일</code> 이라는 글자 자체가 한 번도 등장하지 않습니다</strong>(모달 영역 전수 검색 결과 0건). 강사 선택 UI도 없습니다. 즉 "검증을 추가"할 대상이 없습니다.</p>
+<p><strong>해결 — 두 가지 안</strong></p>
+<table>
+<thead>
+<tr>
+<th>안</th>
+<th>내용</th>
+<th>공수</th>
+<th>장단점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A (권장)</strong></td>
+<td>홈 「결제하기」에서 <strong>정규 수강권</strong>을 고르면 <code>enroll.html</code>로 넘김. 모달은 무료체험·상담·연장 전용으로 축소</td>
+<td><strong>1~2일</strong></td>
+<td>이미 검증된 흐름 재사용. 중복 코드 제거. 사고 반경 작음</td>
+</tr>
+<tr>
+<td>B</td>
+<td>홈 모달 안에 6개 항목 UI를 새로 이식</td>
+<td>3~4일</td>
+<td>같은 로직이 두 벌 → 앞으로 계속 어긋남. <code>index.html</code>(1.6MB, 공동 금지구역) 대폭 수정</td>
+</tr>
+</tbody>
+</table>
+<p><strong>권장: A안.</strong> 이유는 세 가지입니다.
+1. 슬롯 충돌 확인·가격 계산·자동 스케줄 생성이 이미 <code>enroll</code> API에 다 있습니다.
+2. 홈 모달의 결제 접수 경로는 어차피 끊겨 있습니다(신규발견 B). 살릴 이유보다 정리할 이유가 큽니다.
+3. <code>index.html</code>은 공동 금지구역이라 수정 반경을 최소화하는 편이 안전합니다.</p>
+<p><strong>검증</strong>: 6개 중 하나라도 비우면 결제 버튼이 잠기는지 / 요일 수가 주 횟수와 다르면 안내가 뜨는지 / 결제 후 스케줄이 실제로 생성되는지.
+<strong>공수</strong>: A안 1~2일</p>
+<hr />
+<h3 id="3">슬라이드 3 — 계좌이체 → 실시간 계좌이체 전환 🟡</h3>
+<p><strong>제보</strong>: 가상계좌는 자동 식별되는데, 계좌이체는 입금자-회원 매칭이 안 돼 관리자가 수동으로 기간을 연장해야 함.</p>
+<p><strong>확인</strong>: 문제 인식은 정확합니다. 다만 전제 한 가지를 바로잡아야 합니다.</p>
+<blockquote>
+<p>제보 전제: "가상계좌는 입금 시 회원 식별이 자동으로 되어 별도 작업이 필요 없음"
+<strong>현재 시스템에서는 사실이 아닙니다.</strong> 지금의 가상계좌는 정식 PG 발급이 아니라 브라우저가 지어낸 난수입니다(신규발견 A). 식별은커녕 돈이 어디로 가는지도 모릅니다.</p>
+</blockquote>
+<p>현행 「계좌이체」 화면이 하는 일은 <strong>은행/계좌/예금주/금액/입금자명(랜덤 4자리 부여)을 보여주고 "송금 후 확인 버튼을 눌러달라"고 안내</strong>하는 것이 전부입니다(<code>idx-payment-modal.js:466-505</code>). PG를 전혀 거치지 않으므로 자동 매칭이 원리적으로 불가능합니다. 그 "확인 버튼"마저 404입니다.</p>
+<p><strong>해결 — 2단계로 나눌 것을 제안합니다</strong></p>
+<p><strong>3-1단계 (권장, 먼저)</strong> — 정식 <strong>PG 가상계좌</strong> 켜기
+- 토스페이먼츠 결제창의 가상계좌를 호출: <code>tp.requestPayment('가상계좌', {...})</code>
+- 입금 통보 웹훅은 <strong>이미 만들어져 있습니다</strong>: <code>src/api-pay.ts:267</code> (<code>/api/pay/webhook</code>)
+  - 웹훅 본문을 신뢰하지 않고 토스 API로 재조회해 검증, 금액 대조, 멱등 처리, 입금 확인 시 <code>activateEnrollment()</code>로 <strong>수강 자동 활성화</strong>까지 이미 구현돼 있습니다.
+- 즉 <strong>서버 작업이 사실상 끝나 있고, 프론트에서 난수 발급을 진짜 PG 호출로 바꾸기만 하면 됩니다.</strong>
+- 공수: <strong>2~3일</strong> · 추가 계약 불필요(토스 계약 범위 내)</p>
+<p><strong>3-2단계</strong> — <strong>실시간 계좌이체</strong> 추가
+- 토스페이먼츠 결제창의 계좌이체를 호출: <code>tp.requestPayment('계좌이체', {...})</code>
+- 학부모가 결제창에서 본인 은행 인증 후 즉시 출금 → 주문번호에 묶여 들어오므로 <strong>입금자명 매칭 자체가 불필요</strong>
+- 공수: 개발 1~2일 + <strong>PG 계약 항목 추가 리드타임</strong>(실시간 계좌이체는 별도 심사·수수료율)</p>
+<blockquote>
+<p>⚠️ <strong>통장 정보를 우리 화면에서 직접 입력받는 방식은 제안하지 않습니다.</strong>
+제보 원문의 "결제 팝업창에서 회원이 본인 통장 정보(은행/계좌번호)를 입력" 은
+우리 페이지가 금융정보를 직접 다루게 되어 <strong>PG사 정책·전자금융거래법상 불가</strong>합니다.
+실제 구현은 <strong>PG가 띄우는 결제창 안에서 은행 인증</strong>으로 이뤄지며, 사용자 경험은 제보 취지와 동일합니다.</p>
+</blockquote>
+<p><strong>병행 조치</strong>: 3-1단계 완료 전까지 「계좌이체」는 실제 법인계좌로 바로잡고(신규발견 C), 「가상계좌」는 숨깁니다.</p>
+<hr />
+<h3 id="4">슬라이드 4 — 무료 체험인데 결제가 진행됨 🟠</h3>
+<p><strong>제보</strong>: "무료 체험"을 골라도 결제가 그대로 진행됨. (우선순위 높음)</p>
+<p><strong>확인</strong>: 사실입니다. 다만 <strong>현재 실제 청구로는 이어지지 않습니다.</strong></p>
+<p><strong>코드 흐름</strong></p>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>위치</th>
+<th>현재 동작</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>상품 카드</td>
+<td><code>index.html:21143</code></td>
+<td><code>data-program="trial" data-price="0"</code></td>
+</tr>
+<tr>
+<td>카드 클릭</td>
+<td><code>idx-payment-modal.js:292-307</code></td>
+<td>0원 분기 없음 → step2(정보입력) → step3(<strong>결제수단 선택</strong>)</td>
+</tr>
+<tr>
+<td>결제수단 화면</td>
+<td><code>:384</code></td>
+<td><strong>₩0</strong> 으로 카드/카카오페이/토스/계좌이체 패널이 그대로 렌더</td>
+</tr>
+<tr>
+<td>카드 결제창</td>
+<td><code>:322</code></td>
+<td><code>/api/pay/create-order</code> 호출</td>
+</tr>
+<tr>
+<td>서버</td>
+<td><code>src/api-pay.ts:100-104</code></td>
+<td>서버 가격표에 <code>trial</code> <strong>없음</strong> → <strong>400 반환, 결제창 안 열림</strong> ✅</td>
+</tr>
+</tbody>
+</table>
+<p>즉 <strong>마지막 방어선(서버 가격표)이 실제 카드 청구를 막고 있습니다.</strong> 그래서 학부모에게는 "무료 체험인데 결제 화면이 뜨고, 결제하려니 오류가 난다"로 보입니다 — 신뢰를 잃는 경험이지만 금전 피해는 아직 없습니다.</p>
+<p><strong>다만 다음 두 경로는 방어선이 없습니다.</strong>
+1. 카드가 아닌 카카오페이/토스/계좌이체를 고르면 <strong>₩0 송금 안내 화면</strong>이 뜹니다(서버 검증을 안 거침).
+2. 실키(live) 전환 시 <code>trial</code>을 가격표에 넣는 실수 한 번이면 곧바로 실제 청구로 이어집니다.</p>
+<p><strong>해결 (0.5일)</strong></p>
+<ol>
+<li>상품 선택 시 분기: <code>selectedPrice === 0 &amp;&amp; selectedProgram === 'trial'</code> 이면 <strong>결제수단 단계(step3)를 건너뛰고</strong> 체험 신청 완료 화면으로 직행</li>
+<li>완료 화면 문구를 결제가 아닌 신청으로: 「무료 체험 신청이 접수됐습니다 · 결제 금액 0원」</li>
+<li>서버 방어선 유지 및 명문화: <code>trial</code>은 <strong>영구적으로 가격표에 넣지 않음</strong> (주석으로 이유 고정)</li>
+<li>체험 신청 기록은 결제가 아닌 상담/체험 신청 경로로 저장</li>
+</ol>
+<p><strong>검증</strong>: 무료체험 선택 → 결제수단 화면이 뜨지 않는지 / 결제 내역에 "무료 체험 · 0원"으로 남는지 / 카드·계좌에서 출금이 없는지(테스트 가맹점 기준 확인).</p>
+<hr />
+<h3 id="5_1">슬라이드 5 — 포인트상점에 「포인트 모으는 법」 메뉴 추가 🟢</h3>
+<p><strong>제보</strong>: 「내 포인트」 왼쪽에 메뉴를 추가하고, 활동별 적립 포인트를 표로 안내.</p>
+<p><strong>확인</strong>: 기능 신설 자체는 간단합니다(반나절). <strong>그런데 먼저 고쳐야 할 것이 있습니다.</strong></p>
+<p><strong>현재 적립 규칙표(운영 DB <code>point_rules</code> 실측, 2026-07-29)</strong></p>
+<table>
+<thead>
+<tr>
+<th>규칙</th>
+<th>포인트</th>
+<th>하루 한도</th>
+<th>실제 적립 이력</th>
+<th>판정</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>친구 추천</td>
+<td>300 P</td>
+<td>–</td>
+<td><strong>0건</strong></td>
+<td>❌ 부르는 코드 없음</td>
+</tr>
+<tr>
+<td>생일 축하</td>
+<td>200 P</td>
+<td>–</td>
+<td><strong>0건</strong></td>
+<td>❌ 부르는 코드 없음</td>
+</tr>
+<tr>
+<td>레벨업 달성</td>
+<td>100 P</td>
+<td>–</td>
+<td><strong>0건</strong></td>
+<td>❌ 부르는 코드 없음</td>
+</tr>
+<tr>
+<td>레벨테스트 통과</td>
+<td>80 P</td>
+<td>–</td>
+<td><strong>0건</strong></td>
+<td>❌ 부르는 코드 없음</td>
+</tr>
+<tr>
+<td>연속출석 보너스</td>
+<td>50 P</td>
+<td>1회</td>
+<td><strong>0건</strong></td>
+<td>❌ 부르는 코드 없음</td>
+</tr>
+<tr>
+<td>숙제 완료</td>
+<td>20 P</td>
+<td>2회</td>
+<td><strong>0건</strong></td>
+<td>❌ 부르는 코드 없음</td>
+</tr>
+<tr>
+<td>발음 세트 완주</td>
+<td>20 P</td>
+<td>5회</td>
+<td>3건</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>복습 완료</td>
+<td>15 P</td>
+<td>3회</td>
+<td><strong>0건</strong></td>
+<td>❌ 부르는 코드 없음</td>
+</tr>
+<tr>
+<td>출석 적립</td>
+<td>10 P</td>
+<td>1회</td>
+<td><strong>549건</strong></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>수업 평가 참여</td>
+<td>10 P</td>
+<td>5회</td>
+<td>28건</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>선생님 칭찬 포인트</td>
+<td>1 P</td>
+<td>100회</td>
+<td>67건</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>반대로, 코드는 부르는데 규칙표에 행이 없는 것</strong></p>
+<table>
+<thead>
+<tr>
+<th>규칙 코드</th>
+<th>부르는 곳</th>
+<th>상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>on_time</code> (제시간 입장 5P)</td>
+<td><code>index.html:11914</code></td>
+<td>규칙 없음 → <strong>404</strong>. 마지막 적립 <strong>2026-06-14 무렵</strong>, 이후 6주째 0건</td>
+</tr>
+<tr>
+<td><code>monthly_top</code> (월간 우수학생)</td>
+<td><code>js/adm-p4.js:489</code></td>
+<td>규칙 없음 → 관리자가 눌러도 <strong>지급 실패</strong></td>
+</tr>
+<tr>
+<td><code>ai_friend_chat</code>, <code>ai_friend_word</code></td>
+<td>(과거 경로)</td>
+<td>적립 이력은 남았으나 현재 규칙표에 없음</td>
+</tr>
+<tr>
+<td><code>ai_writing_rewrite</code>, <code>rescue_sentence</code></td>
+<td>영작·구조선 게임</td>
+<td>최초 호출 시 자동 생성되는 구조인데 <strong>행이 없음 = 한 번도 성공한 적 없음</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>즉, 11개 규칙 중 7개는 학생이 아무리 해도 포인트가 안 쌓입니다.</strong>
+이 상태에서 「포인트 모으는 법」 표를 손으로 적어 붙이면 <strong>지키지 못할 약속을 공지하는 셈</strong>이 됩니다.</p>
+<p><strong>해결 — 3단계 (합계 1~1.5일)</strong></p>
+<ol>
+<li><strong>정합성 정리 (0.5일)</strong> — 관리자 「포인트 규칙」 화면에서 누락된 <code>on_time</code>·<code>monthly_top</code> 복구, 코드가 부르지 않는 7개는 (가) 트리거를 붙이거나 (나) 비활성화(<code>enabled=0</code>) 처리. <strong>어느 쪽을 택할지는 경영 판단이 필요합니다</strong>(5-③ 참고).</li>
+<li><strong>공개 API 신설 (0.3일)</strong> — <code>GET /api/points/rules</code> : <code>enabled=1</code>인 규칙만 <code>label / amount / daily_cap / description</code> 반환.
+   ⚠️ <code>src/index.ts:1280</code> 인증 게이트 허용 목록에 <strong>반드시 등록</strong>해야 동작합니다.</li>
+<li><strong>UI 추가 (0.3일)</strong> — 포인트 상점 헤더(<code>index.html:22031-22036</code>, <code>.ps-head</code> / <code>#ps-balance</code>)의 「내 포인트」 <strong>왼쪽</strong>에 「💡 포인트 모으는 법」 버튼 추가 → 클릭 시 세 번째 탭 또는 팝업으로 표 노출.
+   - 표 항목: <code>활동 | 적립 포인트 | 하루 한도 | 설명</code>
+   - <strong>하드코딩 금지.</strong> 반드시 위 API를 읽어 그립니다. 그래야 관리자가 규칙을 바꾸면 안내도 같이 바뀝니다.
+   - 문구는 학생 대상이므로 희망적인 톤으로: 「오늘 출석만 해도 10P!」</li>
+</ol>
+<hr />
+<h2 id="3_1">3. 실행 계획</h2>
+<table>
+<thead>
+<tr>
+<th>순위</th>
+<th>항목</th>
+<th>조치</th>
+<th>공수</th>
+<th>담당</th>
+<th>배포</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P0</strong></td>
+<td>A. 가짜 가상계좌</td>
+<td>가상계좌 결제수단 <strong>숨김</strong></td>
+<td>0.5h</td>
+<td>A(배포권한자)</td>
+<td>오늘</td>
+</tr>
+<tr>
+<td><strong>P0</strong></td>
+<td>C. 자리표시자 계좌</td>
+<td>실제 법인계좌·카카오페이·토스 ID로 교체</td>
+<td>0.5d</td>
+<td>A + 경영 확인</td>
+<td>오늘~내일</td>
+</tr>
+<tr>
+<td><strong>P0</strong></td>
+<td>1. 카카오 채널 ID</td>
+<td><code>_mangoi</code> → <code>_xlqnSxd</code></td>
+<td>10m</td>
+<td>A</td>
+<td>오늘</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>4. 무료체험 분기</td>
+<td>0원이면 결제 단계 건너뜀</td>
+<td>0.5d</td>
+<td>A</td>
+<td>이번 주</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>B. 결제 접수 API</td>
+<td><code>POST /api/student/payment</code> 신설 + 게이트 등록</td>
+<td>1d</td>
+<td>A</td>
+<td>이번 주</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>2. 필수 항목 검증</td>
+<td>정규 수강권을 <code>enroll.html</code>로 일원화 (A안)</td>
+<td>1~2d</td>
+<td>A</td>
+<td>이번 주</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>3-1. 정식 가상계좌</td>
+<td>토스 가상계좌 + 기존 웹훅 연결</td>
+<td>2~3d</td>
+<td>A</td>
+<td>2주 내</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>3-2. 실시간 계좌이체</td>
+<td>토스 계좌이체 (+PG 계약 리드타임)</td>
+<td>1~2d + 계약</td>
+<td>A + 경영</td>
+<td>계약 후</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>5. 포인트 모으는 법</td>
+<td>규칙 정합성 → 공개 API → UI</td>
+<td>1~1.5d</td>
+<td>B(학습 콘텐츠)</td>
+<td>3주 내</td>
+</tr>
+</tbody>
+</table>
+<p><strong>총 개발 공수: 약 7~10일</strong> (PG 계약 리드타임 별도)</p>
+<blockquote>
+<p><strong>담당 안내</strong> — <code>public/index.html</code>, <code>src/index.ts</code>는 CLAUDE.md 기준 <strong>공동 금지구역(배포권한자 A 전담)</strong> 입니다.
+위 항목 중 5번을 제외한 전부가 이 두 파일을 건드리므로, <strong>A가 순차 진행</strong>해야 충돌이 나지 않습니다.</p>
+</blockquote>
+<hr />
+<h2 id="4-live">4. 실키(live) 전환 전 필수 체크리스트</h2>
+<p>지금은 테스트 모드라 사고가 유예된 상태입니다. <strong>아래를 전부 끝내기 전에는 <code>live_sk_</code>/<code>live_ck_</code>로 바꾸지 마십시오.</strong></p>
+<ul>
+<li>[ ] <code>trial</code>(무료체험)이 결제 흐름에 진입하지 않음</li>
+<li>[ ] 서버 가격표(<code>PRICES</code>)에 0원 상품이 없음</li>
+<li>[ ] 가상계좌가 PG 정식 발급이며, 웹훅으로 입금 확인이 되는 것을 실입금 1건으로 검증</li>
+<li>[ ] 계좌이체 안내 계좌가 실제 법인계좌</li>
+<li>[ ] 카드 외 결제수단의 접수 API가 동작(404 아님)</li>
+<li>[ ] 홈 결제창이 <code>env.TOSS_CLIENT_KEY</code>를 읽음(하드코딩 제거)</li>
+<li>[ ] <code>payment_orders</code>에 모든 결제수단의 주문이 기록되는지 확인</li>
+<li>[ ] 결제 실패/취소 시 학부모 안내 문구 점검</li>
+</ul>
+<hr />
+<h2 id="5_2">5. 경영 판단이 필요한 사항</h2>
+<ol>
+<li><strong>실시간 계좌이체 PG 계약</strong> — 토스페이먼츠에 실시간 계좌이체 항목 추가 신청 여부. 수수료율·심사 기간 확인 필요. (제보 #3의 전제 조건)</li>
+<li><strong>결제 안내 계좌 확정</strong> — 화면에 노출할 실제 법인계좌·예금주·카카오페이 송금코드·토스 ID. 현재는 전부 개발용 더미값입니다. (P0-C 진행 조건)</li>
+<li><strong>포인트 규칙 7개의 처리</strong> — 친구추천 300P / 생일 200P / 레벨업 100P / 레벨테스트 80P / 연속출석 50P / 숙제 20P / 복습 15P 는 <strong>규칙표에는 있으나 실제로 지급된 적이 없습니다.</strong>
+   - (가) 기능을 붙여 실제 지급한다 → 포인트 지출 증가, 개발 공수 추가
+   - (나) 규칙표에서 비활성화한다 → 안내 표가 4개 항목으로 줄어듦
+   - 이는 비용이 걸린 판단이라 개발 단독으로 정할 수 없습니다.</li>
+<li><strong>무료 체험 정책</strong> — 체험 신청을 결제 시스템에서 완전히 분리할지, 0원 주문으로 기록해 이력을 남길지.</li>
+</ol>
+<hr />
+<h2 id="a_1">부록 A. 검증 근거 목록</h2>
+<table>
+<thead>
+<tr>
+<th>확인 사항</th>
+<th>방법</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>라이브 빌드</td>
+<td><code>GET https://test.mangoi.co.kr/</code></td>
+<td><code>BUILD:20260729174744</code>, 소스와 일치</td>
+</tr>
+<tr>
+<td>카카오 채널 ID</td>
+<td>라이브 HTML 파싱</td>
+<td><code>KAKAO_CHANNEL_ID=_mangoi</code> (깨진 값 그대로 배포됨)</td>
+</tr>
+<tr>
+<td>채널 404</td>
+<td><code>pf.kakao.com/_mangoi</code> vs <code>_xlqnSxd</code></td>
+<td>「페이지를 찾을 수 없습니다」 vs 「카카오톡채널 - 망고아이」</td>
+</tr>
+<tr>
+<td>결제 접수 API</td>
+<td><code>GET /api/student/payment</code></td>
+<td><strong>404</strong></td>
+</tr>
+<tr>
+<td>결제 주문 현황</td>
+<td>D1 <code>payment_orders</code> GROUP BY</td>
+<td>card만 24건, 그 외 0건</td>
+</tr>
+<tr>
+<td>실전/테스트 여부</td>
+<td>D1 <code>payment_orders.raw</code></td>
+<td>결제완료 5건 전부 테스트 가맹점</td>
+</tr>
+<tr>
+<td>포인트 규칙</td>
+<td>D1 <code>point_rules</code></td>
+<td>11개 (표는 §2 슬라이드5 참고)</td>
+</tr>
+<tr>
+<td>포인트 적립 실적</td>
+<td>D1 <code>point_rule_log</code> GROUP BY</td>
+<td>7개 코드만 이력 존재</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>운영 DB 접근은 <strong>SELECT 전용</strong>으로만 수행했습니다(CLAUDE.md §1-1 준수). 변경 쿼리는 실행하지 않았습니다.</p>
+</blockquote>
+<hr />
+<h2 id="appendix-b-executive-summary-english">Appendix B. Executive Summary (English)</h2>
+<p><strong>Scope</strong>: 5 issues reported by staff on https://test.mangoi.co.kr, verified against source code, the live site, and the production D1 database (read-only).</p>
+<p><strong>All 5 reports are confirmed. Three additional, more urgent problems were found.</strong></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td><strong>Virtual account numbers are fabricated in the browser</strong> via <code>Math.random()</code>, yet shown as "issued successfully". A parent transferring money sends it nowhere — or to a stranger.</td>
+<td>🔴 P0</td>
+</tr>
+<tr>
+<td>B</td>
+<td><strong>The "confirm payment" button calls an API that does not exist</strong> (<code>/api/student/payment</code> → 404). Every non-card method (KakaoPay, Toss, bank transfer, NaverPay, virtual account) fails to register. Confirmed by DB: zero non-card orders ever recorded.</td>
+<td>🔴 P0</td>
+</tr>
+<tr>
+<td>C</td>
+<td><strong>Bank account shown to parents is a development placeholder</strong> (<code>Shinhan 110-555-123456</code>). KakaoPay code and Toss ID are placeholders too.</td>
+<td>🔴 P0</td>
+</tr>
+<tr>
+<td>1</td>
+<td>KakaoTalk consult button 404 — channel ID is the <em>example value</em> <code>_mangoi</code> from a code comment; the real one is <code>_xlqnSxd</code>. Affects 7+ entry points, not just the reported one. One-line fix.</td>
+<td>🟠 P1</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Free trial still enters the payment flow. <strong>No real charge occurs today</strong> — the server price table has no <code>trial</code> entry and rejects it — but the flow must be branched before going live.</td>
+<td>🟠 P1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Required fields (sessions/months/start date/teacher/days/time) — there are <strong>two payment entry points</strong>. <code>enroll.html</code> already validates all six correctly but is nearly unreachable; the home modal collects only "sessions". Recommend routing regular courses to <code>enroll.html</code>.</td>
+<td>🟠 P1</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Real-time bank transfer — valid request. Recommend <strong>PG virtual account first</strong> (server webhook already built, <code>src/api-pay.ts:267</code>), then real-time transfer. Note: collecting bank credentials on our own page is not permissible; it must happen inside the PG's payment window.</td>
+<td>🟡 P2</td>
+</tr>
+<tr>
+<td>5</td>
+<td>"How to earn points" menu — trivial to build, <strong>but 7 of 11 point rules have never awarded a single point</strong> because no code triggers them. Publishing the table as-is would promise rewards the system does not deliver. Fix data consistency first.</td>
+<td>🟢 P3</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key context</strong>: The payment system is still in <strong>test mode</strong> — all 5 completed orders in production used the Toss <em>test</em> merchant. No real card money has moved. However, bank transfer / KakaoPay / Toss transfer / virtual account <strong>bypass the PG entirely</strong>, so real money can move today into placeholder or fabricated account numbers. <strong>That, not the free-trial bug, is the true P0.</strong></p>
+<p><strong>Total engineering effort: ~7–10 days</strong>, excluding PG contract lead time. Most fixes touch <code>public/index.html</code> and <code>src/index.ts</code>, which are owner-restricted files — they must be done sequentially by the deploy owner.</p>
+<p><strong>Decisions needed from management</strong>: (1) apply for real-time bank transfer with the PG, (2) confirm the real corporate bank account / KakaoPay code / Toss ID to display, (3) decide whether to implement or disable the 7 dormant point rules, (4) confirm free-trial policy.</p>
+<hr />
+<p><em>본 보고서의 모든 수치는 2026-07-29 기준 실측입니다. 코드 수정은 아직 수행하지 않았습니다.</em></p>
+</div></body></html>

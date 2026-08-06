@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>AI 단어장 통합 개편 기획안 — 2026-07-26</title>
+<style>
+  :root{
+    --ink:#1b2432;
+    --paper:#f3f4f6;
+    --paper-raise:#ffffff;
+    --accent:#c97a1e;      /* mango gold, dialed back for AA contrast on paper */
+    --accent-2:#1c8a5c;    /* start-button green from the live product */
+    --line:#d7dbe2;
+    --muted:#5b6472;
+    --danger:#b0402f;
+    --code-bg:#eceef1;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#eef1f6;
+      --paper:#12161f;
+      --paper-raise:#1a212e;
+      --accent:#f0aa4a;
+      --accent-2:#33c48a;
+      --line:#2a3242;
+      --muted:#97a1b0;
+      --danger:#e2685a;
+      --code-bg:#1f2735;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#eef1f6; --paper:#12161f; --paper-raise:#1a212e;
+    --accent:#f0aa4a; --accent-2:#33c48a; --line:#2a3242; --muted:#97a1b0; --danger:#e2685a; --code-bg:#1f2735;
+  }
+  :root[data-theme="light"]{
+    --ink:#1b2432; --paper:#f3f4f6; --paper-raise:#ffffff;
+    --accent:#c97a1e; --accent-2:#1c8a5c; --line:#d7dbe2; --muted:#5b6472; --danger:#b0402f; --code-bg:#eceef1;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Pretendard","Noto Sans KR",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{
+    font-family:"Noto Serif KR","Nanum Myeongjo",Georgia,serif;
+    font-weight:700;
+    text-wrap:balance;
+    color:var(--ink);
+  }
+  .cover{
+    background:linear-gradient(160deg,#161c27,#0e1420 78%);
+    color:#f2ecdf;
+    padding:52px clamp(20px,6vw,72px) 44px;
+  }
+  :root[data-theme="light"] .cover, @media (prefers-color-scheme:light){ }
+  .cover .eyebrow{
+    font-size:12.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#e0ad63;
+    font-weight:600;
+    margin:0 0 14px;
+  }
+  .cover h1{
+    color:#fbf7ee;
+    font-size:clamp(26px,3.6vw,38px);
+    margin:0 0 10px;
+    line-height:1.32;
+  }
+  .cover p.sub{
+    margin:0 0 28px;
+    color:#c7cede;
+    font-size:15.5px;
+    max-width:62ch;
+  }
+  .cover .stats{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .cover .stat{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:4px;
+    padding:10px 16px;
+    min-width:120px;
+  }
+  .cover .stat b{
+    display:block;
+    font-size:20px;
+    font-variant-numeric:tabular-nums;
+    color:#f0aa4a;
+  }
+  .cover .stat span{
+    font-size:12px;
+    color:#aeb6c8;
+  }
+
+  main{
+    max-width:760px;
+    margin:0 auto;
+    padding:48px clamp(20px,6vw,28px) 100px;
+  }
+  section{ margin:0 0 56px; }
+  section:last-of-type{ margin-bottom:24px; }
+
+  .eyebrow-sec{
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--accent);
+    font-weight:700;
+    margin:0 0 8px;
+  }
+  h2{ font-size:23px; margin:0 0 6px; }
+  h2 + .lede{ color:var(--muted); font-size:14.5px; margin:0 0 22px; max-width:60ch; }
+  h3{ font-size:17px; margin:26px 0 10px; }
+  p{ margin:0 0 14px; }
+  ul,ol{ padding-left:1.3em; margin:0 0 14px; }
+  li{ margin-bottom:6px; }
+  strong{ color:var(--ink); }
+  a{ color:var(--accent); }
+
+  .card{
+    background:var(--paper-raise);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:18px 20px;
+  }
+  .grid{
+    display:grid;
+    gap:14px;
+  }
+  .grid-2{ grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+
+  /* 문제 목록 */
+  .problem{
+    display:grid;
+    grid-template-columns:34px 1fr;
+    gap:2px 14px;
+    padding:12px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .problem:last-child{ border-bottom:none; }
+  .problem .num{
+    font-family:"Noto Serif KR",serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+  }
+  .problem .txt b{ display:block; font-size:14.5px; }
+  .problem .txt span{ font-size:13px; color:var(--muted); }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+  }
+  .tablewrap{ overflow-x:auto; border:1px solid var(--line); border-radius:6px; }
+  th,td{
+    text-align:left;
+    padding:10px 13px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  thead th{
+    background:var(--code-bg);
+    font-size:11.5px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.hi{ color:var(--accent); font-weight:600; white-space:nowrap; }
+
+  /* 원칙 */
+  .principle{
+    border-left:3px solid var(--accent);
+    padding:2px 0 2px 16px;
+  }
+  .principle h3{ margin:0 0 4px; font-size:15.5px; }
+  .principle p{ margin:0; font-size:13.8px; color:var(--muted); }
+
+  /* IA 다이어그램 */
+  .flow{
+    display:flex;
+    flex-wrap:wrap;
+    gap:0;
+    align-items:stretch;
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .flow .step{
+    flex:1 1 150px;
+    padding:16px 16px;
+    background:var(--paper-raise);
+    position:relative;
+  }
+  .flow .step + .step{ border-left:1px dashed var(--line); }
+  .flow .step .tag{
+    font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:6px; display:block;
+  }
+  .flow .step b{ display:block; font-size:14.5px; margin-bottom:4px; }
+  .flow .step small{ color:var(--muted); font-size:12.3px; }
+  .flow .arrow{
+    flex:0 0 22px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--muted); font-size:16px;
+    background:var(--code-bg);
+  }
+
+  /* 매핑 표 */
+  .fix-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    padding:16px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .fix-row:last-child{ border-bottom:none; }
+  .fix-row .problem-col span.tag{
+    display:inline-block;
+    font-size:11px; font-weight:700;
+    color:var(--danger);
+    border:1px solid currentColor;
+    border-radius:3px;
+    padding:1px 6px;
+    margin-bottom:6px;
+  }
+  .fix-row .fix-col span.tag{
+    display:inline-block;
+    font-size:11px; font-weight:700;
+    color:var(--accent-2);
+    border:1px solid currentColor;
+    border-radius:3px;
+    padding:1px 6px;
+    margin-bottom:6px;
+  }
+  .fix-row p{ font-size:13.6px; margin:0; }
+  .fix-row .src{ display:block; margin-top:6px; font-size:12px; color:var(--muted); }
+  @media (max-width:600px){ .fix-row{ grid-template-columns:1fr; } }
+
+  /* 로드맵 */
+  .roadmap{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; }
+  .phase{
+    background:var(--paper-raise);
+    border:1px solid var(--line);
+    border-top:3px solid var(--accent);
+    border-radius:4px;
+    padding:16px 18px;
+  }
+  .phase .ph-num{ font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:700; }
+  .phase h3{ margin:4px 0 8px; font-size:15.5px; }
+  .phase ul{ margin:0; padding-left:1.1em; font-size:13.3px; }
+  .phase .why{ margin-top:10px; font-size:12.3px; color:var(--muted); border-top:1px solid var(--line); padding-top:8px; }
+
+  .callout{
+    background:var(--code-bg);
+    border-left:3px solid var(--danger);
+    padding:12px 16px;
+    font-size:13.5px;
+    border-radius:0 4px 4px 0;
+  }
+  .callout b{ color:var(--danger); }
+
+  footer{
+    max-width:760px; margin:0 auto; padding:0 clamp(20px,6vw,28px) 60px;
+    color:var(--muted); font-size:12.5px; border-top:1px solid var(--line); padding-top:20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <p class="eyebrow">Product Proposal · 학생 학습 콘텐츠</p>
+  <h1>AI 단어장, 왜 헷갈리고 어려운가 — 통합 개편 기획안</h1>
+  <p class="sub">현재 단어 학습이 vocab.html(나의 단어장)과 micro-quiz.html(AI 단어 퀴즈)로 나뉘어 있어 아이들이 "뭘 눌러야 하는지" 헷갈립니다. 8가지 지적사항을 하나의 학습 사이클로 재설계하는 안입니다.</p>
+  <div class="stats">
+    <div class="stat"><b>2 → 1</b><span>분산된 퀴즈 진입점 → 단일 허브</span></div>
+    <div class="stat"><b>5개사</b><span>경쟁 서비스 벤치마킹</span></div>
+    <div class="stat"><b>3단계</b><span>배포 리스크 최소화 로드맵</span></div>
+  </div>
+</div>
+
+<main>
+
+<section>
+  <p class="eyebrow-sec">01 · 진단</p>
+  <h2>말씀하신 8가지, 근본 원인으로 재정리</h2>
+  <p class="lede">현재 코드(vocab.html · micro-quiz.html · review-quiz.html)를 확인한 결과, 대부분의 불만은 "기능이 없어서"가 아니라 <strong>있는 기능이 두 화면에 나뉘어 보이지 않아서</strong> 발생하고 있었습니다. 실제로 서버에는 이미 복습 예정일(SRS due), 약점 단어 가중 출제, 레벨별 단어은행이 존재합니다 — 다만 학생 눈에는 안 보입니다.</p>
+
+  <div class="card">
+    <div class="problem">
+      <div class="num">1</div>
+      <div class="txt"><b>디자인 일관성 없음</b><span>vocab.html은 짙은 남색 카드형, micro-quiz.html은 밝은 아이보리 배경 — 같은 서비스처럼 안 느껴짐</span></div>
+    </div>
+    <div class="problem">
+      <div class="num">2</div>
+      <div class="txt"><b>사용법이 어려움</b><span>단어장 화면에 탭 4개(추가·복습게임·랭킹·도감) + 퀴즈는 완전히 다른 페이지 — 처음 온 아이가 순서를 모름</span></div>
+    </div>
+    <div class="problem">
+      <div class="num">3</div>
+      <div class="txt"><b>흥미가 떨어짐</b><span>게임 요소(콤보·배지·망고 성장)는 이미 있지만 진입 장벽 때문에 그 앞에서 이탈</span></div>
+    </div>
+    <div class="problem">
+      <div class="num">4</div>
+      <div class="txt"><b>동기부여·격려 부족</b><span>포인트 숫자는 나오지만 "잘하고 있다"는 감정적 메시지가 없음</span></div>
+    </div>
+    <div class="problem">
+      <div class="num">5</div>
+      <div class="txt"><b>전체 흐름 설명 없음</b><span>오늘 뭘, 왜 해야 하는지 한 문장 안내가 없어 대시보드 숫자만 나열됨</span></div>
+    </div>
+    <div class="problem">
+      <div class="num">6</div>
+      <div class="txt"><b>사용 안내 페이지 필요</b><span>첫 진입 시 그래픽 튜토리얼(닫기 가능) 부재</span></div>
+    </div>
+    <div class="problem">
+      <div class="num">7</div>
+      <div class="txt"><b>단어퀴즈 이원화</b><span>vocab.html 안의 "복습 게임" 4모드와 micro-quiz.html "AI 단어 퀴즈"가 사실상 같은 일(내 단어 맞히기)을 각자 다른 화면·다른 URL에서 함</span></div>
+    </div>
+    <div class="problem">
+      <div class="num">8</div>
+      <div class="txt"><b>복습 기능 없음(으로 느껴짐)</b><span>서버에는 복습 예정 단어(due count)가 이미 계산되고 있으나 화면에서 "선택해서 복습"하는 버튼이 없음</span></div>
+    </div>
+    <div class="problem">
+      <div class="num">9</div>
+      <div class="txt"><b>예습 기능 없음</b><span>다음 수업/교재 단어를 미리 보는 화면 자체가 없음 — 학생게임 쪽엔 레벨·교재 매핑 API가 있지만 단어장에 연결 안 됨</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow-sec">02 · 벤치마킹</p>
+  <h2>경쟁 서비스는 이 문제를 어떻게 풀었나</h2>
+  <p class="lede">국내외 어휘 학습 서비스 5곳에서 초·중·고 학생 대상으로 검증된 패턴만 추렸습니다.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>서비스</th><th>핵심 패턴</th><th>망고아이에 적용할 점</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="hi">클래스카드<br><span style="font-weight:400;color:var(--muted)">(국내 학교 표준)</span></td>
+          <td>암기 → 테스트 → 순위, 3단계가 <strong>한 화면 안 탭 전환</strong>으로만 이동. 별도 페이지 이동 없음</td>
+          <td>단어장·복습게임·테스트를 URL 이동 없이 <strong>탭 3개짜리 허브 하나</strong>로 합치는 근거</td>
+        </tr>
+        <tr>
+          <td class="hi">Quizlet<br><span style="font-weight:400;color:var(--muted)">Learn 모드</span></td>
+          <td>같은 단어 세트를 <strong>플래시카드→객관식→철자쓰기</strong> 순으로 난이도를 자동으로 올려가며 반복 노출(간격반복)</td>
+          <td>지금 4모드(플래시카드/4지선다/거꾸로/철자)를 학생이 "골라야" 하는 부담을 없애고, 숙련도 낮은 단어일수록 쉬운 모드부터 자동 배정</td>
+        </tr>
+        <tr>
+          <td class="hi">Duolingo</td>
+          <td>연속학습일(streak) 하나를 최상단에 고정 노출 + 하루 목표 게이지 + 캐릭터가 감정 반응(웃음/실망)으로 격려</td>
+          <td>망고 캐릭터가 이미 있음(성장 단계). "며칠째 복습 중이야, 대단해!" 같은 <strong>희망톤 리액션</strong>을 정답/미션 달성 시점에 붙임</td>
+        </tr>
+        <tr>
+          <td class="hi">몬스터워즈/캐치잇잉글리시<br><span style="font-weight:400;color:var(--muted)">(저연령 대상)</span></td>
+          <td>글자 대신 <strong>큰 캐릭터 그림 + 짧은 음성</strong>으로 첫 화면을 채움, 설명은 3컷 이하</td>
+          <td>온보딩 가이드는 텍스트 설명서가 아니라 "카드 3장 넘기기"형 그래픽 튜토리얼로 — 저학년일수록 그림 비중을 높임</td>
+        </tr>
+        <tr>
+          <td class="hi">Kahoot</td>
+          <td>퀴즈를 "시험"이 아니라 <strong>라이브 게임쇼</strong>로 프레이밍(카운트다운, 순위 변동 애니메이션)</td>
+          <td>이미 있는 콤보·타이머·컨페티 연출을 테스트 탭 진입 화면에서부터 "게임 시작!" 톤으로 통일</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow-sec">03 · 설계 원칙</p>
+  <h2>어린이·청소년 대상, 5가지 원칙</h2>
+  <div class="grid grid-2">
+    <div class="principle">
+      <h3>한 화면, 한 결정</h3>
+      <p>화면마다 학생이 눌러야 할 큰 버튼은 하나만. 선택지가 2개를 넘으면 그림 아이콘으로 대체.</p>
+    </div>
+    <div class="principle">
+      <h3>진입점은 하나</h3>
+      <p>"단어장"과 "퀴즈"라는 두 개의 이름 대신, 하나의 이름 아래 4개의 탭(예습·학습·복습·테스트)만 존재.</p>
+    </div>
+    <div class="principle">
+      <h3>실패해도 다음 문장은 희망적으로</h3>
+      <p>[[student-facing-ai-text-hopeful-tone]] 원칙 그대로 — 오답이어도 "다음엔 맞힐 수 있어" 톤 유지, 과장 없이 연령대별 표현.</p>
+    </div>
+    <div class="principle">
+      <h3>안 보이는 걸 보이게</h3>
+      <p>서버가 이미 계산해둔 복습 예정 단어·약점 단어를 카드 형태로 꺼내 보여주는 것 — 새 알고리즘을 만드는 게 아니라 <strong>숨어있는 데이터를 노출</strong>.</p>
+    </div>
+    <div class="principle">
+      <h3>비용 최소·기존 API 재사용</h3>
+      <p>[[product-design-philosophy-7principles]] 원칙에 따라 새 인프라 추가 없이 기존 3개 API(vocab reward/stats, games/vocab, micro-quiz gen)를 재배선.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow-sec">04 · 새로운 구조</p>
+  <h2>하나의 허브, 4단계 학습 사이클</h2>
+  <p class="lede">vocab.html과 micro-quiz.html을 물리적으로 한 파일로 합칠 필요는 없습니다 — <strong>"AI 단어장"이라는 하나의 진입 화면 안에서 4개 탭으로만 이동</strong>하도록 상단 탭바를 통일하고, 각 탭이 내부적으로 기존 파일의 로직을 호출하는 구조입니다.</p>
+
+  <div class="flow">
+    <div class="step">
+      <span class="tag">Tab 1</span>
+      <b>예습</b>
+      <small>다음 수업 단어 미리보기. 정답 힌트 항상 표시, 포인트는 소량</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <span class="tag">Tab 2</span>
+      <b>학습</b>
+      <small>새 단어 추가(수동 입력 + AI 자동 뜻/예문) — 기존 vocab.html 기능</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <span class="tag">Tab 3</span>
+      <b>복습</b>
+      <small>오늘의 복습 예정 단어(SRS due) + 범위 선택 체크박스, 게임 4모드</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <span class="tag">Tab 4</span>
+      <b>테스트</b>
+      <small>micro-quiz 흡수. 출제범위(단어장/레벨은행) + 결과·랭킹</small>
+    </div>
+  </div>
+
+  <h3>홈 화면은 "오늘 뭘 해야 하는지" 한 문장으로 시작</h3>
+  <p>대시보드 숫자 나열 대신, 서버 값을 조합한 안내 문장 하나를 최상단에 고정합니다. 예: <em>"오늘 복습할 단어 12개가 기다리고 있어요 — 5분이면 끝나요!"</em> 복습 예정이 0개면 <em>"새 단어 3개만 추가해볼까요?"</em>로 자동 전환. 이미 vocab.html에 있는 <code>updateHeroCta(due)</code> 배너 로직을 허브 홈 전체로 확장하는 방식이라 신규 개발이 아닙니다.</p>
+</section>
+
+<section>
+  <p class="eyebrow-sec">05 · 항목별 해결안</p>
+  <h2>9가지 지적사항 → 구체적 조치</h2>
+
+  <div class="card">
+    <div class="fix-row">
+      <div class="problem-col"><span class="tag">문제 1·5</span><p>디자인 불일치 + 전체 흐름 이해 어려움</p></div>
+      <div class="fix-col"><span class="tag">해결</span><p>vocab.html의 다크 카드 스타일을 공통 토큰으로 추출해 micro-quiz.html에도 적용. 상단 4탭 고정, 탭 밖 이동(다른 URL) 없이 동일 톤 유지<span class="src">근거: 두 파일 모두 vanilla CSS라 별도 프레임워크 없이 공통 CSS 파일 하나 분리 가능</span></p></div>
+    </div>
+    <div class="fix-row">
+      <div class="problem-col"><span class="tag">문제 2·3</span><p>어려운 사용법 · 흥미 저하</p></div>
+      <div class="fix-col"><span class="tag">해결</span><p>복습 탭 진입 시 모드를 학생이 고르지 않고 숙련도 기반 자동 배정(Quizlet Learn 방식). 선택 부담을 없애 "그냥 시작" 버튼 하나로<span class="src">근거: 이미 약점단어 가중 로직(wrong×3−correct)이 micro-quiz 서버에 존재 — 확장만 하면 됨</span></p></div>
+    </div>
+    <div class="fix-row">
+      <div class="problem-col"><span class="tag">문제 4</span><p>동기부여·격려 부족</p></div>
+      <div class="fix-col"><span class="tag">해결</span><p>망고 캐릭터 리액션에 연령대별 희망톤 문구 세트 추가(정답/오답/미션달성/스트릭 4시점), 보호자·강사 알림에도 "오늘 12단어 복습 완료" 요약 발송<span class="src">근거: [[student-facing-ai-text-hopeful-tone]], api-notify.ts 알림 채널 재사용</span></p></div>
+    </div>
+    <div class="fix-row">
+      <div class="problem-col"><span class="tag">문제 6</span><p>온보딩 그래픽 안내 부재</p></div>
+      <div class="fix-col"><span class="tag">해결</span><p>최초 진입 시 3~4컷 카드 튜토리얼(그림 중심, 텍스트 최소) 모달. 닫기(X) + "다시 보지 않기" 체크 → localStorage 플래그. 우측 하단에 언제든 다시 볼 수 있는 "?" 버튼 유지<span class="src">근거: 신규 UI, 서버 변경 없음 — 프론트 전용</span></p></div>
+    </div>
+    <div class="fix-row">
+      <div class="problem-col"><span class="tag">문제 7</span><p>단어퀴즈 이원화</p></div>
+      <div class="fix-col"><span class="tag">해결</span><p>micro-quiz.html의 화면·로직을 허브의 "테스트" 탭으로 흡수(파일은 남기고 iframe 또는 라우팅으로 내부 호출). 출제범위는 이미 있는 [내 단어장 | 내 레벨 단어은행] 토글을 그대로 승격<span class="src">근거: 두 화면 다 vocab_review_log에 기록하므로 데이터는 이미 통합돼 있음 — UI만 하나로</span></p></div>
+    </div>
+    <div class="fix-row">
+      <div class="problem-col"><span class="tag">문제 8</span><p>복습 기능 없음(으로 느껴짐)</p></div>
+      <div class="fix-col"><span class="tag">해결</span><p>"오늘의 복습" 카드에 due 단어 개수 노출 + 학생이 범위를 고를 수 있는 선택 버튼([오늘 복습 전체]/[틀렸던 것만]/[오래된 것만]) 추가<span class="src">근거: /api/vocab/stats가 이미 due count 계산 — 화면에 select UI만 추가</span></p></div>
+    </div>
+    <div class="fix-row">
+      <div class="problem-col"><span class="tag">문제 9</span><p>예습 기능 없음</p></div>
+      <div class="fix-col"><span class="tag">해결</span><p>신규 "예습" 탭 — 로그인 학생의 레벨·교재로 다음 단어를 미리 보여줌. 정답을 가리지 않고 "미리 보기" 모드로만 동작(포인트는 학습 완료 후에만 소량 지급)<span class="src">근거: /api/games/vocab(레벨·교재 매핑)을 그대로 재사용 — 새 데이터 파이프라인 불필요</span></p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow-sec">06 · 실행 순서</p>
+  <h2>3단계 로드맵 — 배포 리스크 낮은 순서</h2>
+  <div class="roadmap">
+    <div class="phase">
+      <div class="ph-num">Phase 1</div>
+      <h3>보이게 만들기</h3>
+      <ul>
+        <li>공통 디자인 토큰 통일</li>
+        <li>4탭 허브 네비게이션</li>
+        <li>온보딩 그래픽 튜토리얼</li>
+        <li>"오늘 할 일" 한 문장 배너</li>
+      </ul>
+      <div class="why">서버 변경 없음 · 프론트 전용이라 가장 안전. 데이터 파괴 위험 없음</div>
+    </div>
+    <div class="phase">
+      <div class="ph-num">Phase 2</div>
+      <h3>복습·예습 노출</h3>
+      <ul>
+        <li>복습 탭에 due 카드 + 범위 선택</li>
+        <li>예습 탭 신설(games/vocab API 연결)</li>
+        <li>모드 자동 배정(숙련도 기반)</li>
+      </ul>
+      <div class="why">기존 API 재사용, 신규 엔드포인트는 예습 조회 1개 정도로 최소화</div>
+    </div>
+    <div class="phase">
+      <div class="ph-num">Phase 3</div>
+      <h3>테스트 탭 완전 흡수</h3>
+      <ul>
+        <li>micro-quiz.html → 테스트 탭 내부화</li>
+        <li>보호자·강사 요약 알림 연동</li>
+        <li>희망톤 리액션 문구 세트 적용</li>
+      </ul>
+      <div class="why">가장 손이 많이 가는 단계 — 기존 게스트 토큰·포인트 멱등 로직을 건드리므로 마지막에 배치</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow-sec">07 · 주의사항</p>
+  <h2>진행 전 확인할 것</h2>
+  <div class="callout">
+    <p style="margin-bottom:8px"><b>review-quiz.html은 이번 통합 대상이 아닙니다.</b> 이건 학생이 스스로 보는 퀴즈가 아니라 <strong>강사가 낸 시험지</strong>(교재 진도 기반, 안티치트 구조)라 성격이 다릅니다. "테스트" 탭에 합치는 건 vocab.html 복습게임 ↔ micro-quiz.html 두 가지만입니다.</p>
+    <p style="margin:0">담당 영역: <code>vocab.html · micro-quiz.html · review-quiz.html</code>은 학생 학습 콘텐츠(B) 담당 파일입니다. <code>index.html</code> 안에도 단어 게임 쌍둥이 로직이 있어 변경 시 동기화가 필요합니다. 실제 착수 전 A담당(배포 권한자)에게 범위 공유 권장.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  AI 단어장 통합 개편 기획안 · 2026-07-26 작성 · 대상: vocab.html / micro-quiz.html (review-quiz.html 제외) · 배포 전 단계 — 코드 변경 없음, 계획 문서만
+</footer>
+
+</body>
+</html>

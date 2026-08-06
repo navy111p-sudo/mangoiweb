@@ -12,11 +12,11 @@ OUT=D+'public/dog-atlas.png'
 
 # 셀 인덱스 = row*3 + col  (0~2 윗줄, 3~5 아랫줄)
 SHEETS={  # 원본은 game_image/ 보관
- 'combatB':D+'game_image/Gemini_Generated_Image_8kx3v48kx3v48kx3.png',  # 0 AggressiveStance,1 ReadyToLunge,2 KickingGuard,3 HighBlock,4 Dodge&Counter,5 HeavyStrike
- 'combatA':D+'game_image/Gemini_Generated_Image_unat1junat1junat.png',  # 0 AggressiveStance,1 ReadyToLunge,2 KickingGuard,3 HighBlock,4 Dodge&Counter,5 Stagger&Collapse
- 'kick'   :D+'game_image/Gemini_Generated_Image_urt8tburt8tburt8.png',  # 0 VSign,1 FistPump,2 Flag,3 ChestThump,4 FrontKickStance,5 RoundhouseKickImpact
- 'vkick'  :D+'game_image/Gemini_Generated_Image_ovuzwwovuzwwovuz.png',  # 0 VSign,1 FistPump,2 Flag,3 ChestThump,4 FrontKickImpact,5 TrophyTriumph
- 'victory':D+'game_image/Gemini_Generated_Image_ktnsg5ktnsg5ktns.png',  # 0 VSign,1 FistPump,2 Flag,3 ChestThump,4 Explorer'sBoast,5 FinalBow
+ 'combatB':D+'game_image/우주견_격투포즈_공격.png',  # 0 AggressiveStance,1 ReadyToLunge,2 KickingGuard,3 HighBlock,4 Dodge&Counter,5 HeavyStrike
+ 'combatA':D+'game_image/우주견_격투포즈_피격.png',  # 0 AggressiveStance,1 ReadyToLunge,2 KickingGuard,3 HighBlock,4 Dodge&Counter,5 Stagger&Collapse
+ 'kick'   :D+'game_image/우주견_승리포즈_발차기.png',  # 0 VSign,1 FistPump,2 Flag,3 ChestThump,4 FrontKickStance,5 RoundhouseKickImpact
+ 'vkick'  :D+'game_image/우주견_승리포즈_트로피.png',  # 0 VSign,1 FistPump,2 Flag,3 ChestThump,4 FrontKickImpact,5 TrophyTriumph
+ 'victory':D+'game_image/우주견_승리포즈_인사.png',  # 0 VSign,1 FistPump,2 Flag,3 ChestThump,4 Explorer'sBoast,5 FinalBow
 }
 GRID={'cols':3,'rows':2}
 REFCELL={'combatB':3,'combatA':3,'kick':0,'vkick':0,'victory':0}  # 서있는 기준(HighBlock/VSign)

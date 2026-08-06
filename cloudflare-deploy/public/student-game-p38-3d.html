@@ -86,24 +86,21 @@
      예전에는 둥근 웹 UI 칩을 조종석 사진 위에 그대로 얹어 겉돌았다.
      조종석과 같은 재질(올리브 도색 금속 + 리벳 + 스텐실 글자)로 맞춘다.
      위치는 layoutCockpit() 이 '캐노피 창 윗변 바로 위'로 계산해 넣는다. */
+  /* 🔴 예전엔 여기에 «올리브 금속판»을 통째로 깔았다(리벳·그림자까지). 폰 세로 화면에서
+     11낱말 문장이 3줄로 펼쳐지면 그 판이 **캐노피 창 위쪽을 통째로 덮어 적기가 안 보였다**
+     (사장님 신고). → 판을 없애고 **낱말 칸만 반투명**으로 남긴다. 뒤로 하늘과 적기가 비친다.
+     ⚠️ 배경을 아예 0 으로 두면 밝은 하늘에서 글자가 사라진다 — 칸마다 옅은 어둠 + 진한 그림자로
+        읽히게 하되, 판은 다시 만들지 말 것. */
   #sentWrap{position:absolute;left:50%;transform:translateX(-50%);z-index:8;
-    width:max-content;max-width:94%;text-align:center;pointer-events:none;
-    padding:5px 12px 7px;border-radius:5px;
-    background:linear-gradient(180deg,#4a5340 0%,#3a4232 42%,#2b3126 100%);
-    border:1px solid #1d2118;
-    box-shadow:0 4px 12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10),
-               inset 0 -2px 5px rgba(0,0,0,.45)}
-  /* 리벳 — 판 네 모서리에 박은 못 */
-  #sentWrap::before,#sentWrap::after{content:'';position:absolute;top:4px;bottom:4px;width:5px;
-    background-image:radial-gradient(circle at 50% 4px,#9aa38c 0 1.6px,transparent 1.9px),
-                     radial-gradient(circle at 50% calc(100% - 4px),#9aa38c 0 1.6px,transparent 1.9px);
-    background-repeat:no-repeat}
-  #sentWrap::before{left:4px} #sentWrap::after{right:4px}
+    width:max-content;max-width:96%;text-align:center;pointer-events:none;
+    padding:0;border:0;background:none;box-shadow:none}
 
-  /* 한국어 뜻 = 판에 붙인 지시 라벨 · 그 옆에 '다른 문장' 스위치 */
-  #sentTop{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:5px}
-  #sentKo{display:inline-block;font-size:12.5px;font-weight:800;color:#e8dfbd;
-    letter-spacing:.2px;text-shadow:0 1px 2px rgba(0,0,0,.8)}
+  /* 한국어 뜻 · 그 옆에 '다른 문장' 스위치 — 글자만 남기고 알약은 글자 폭만큼만 */
+  #sentTop{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px}
+  #sentKo{display:inline-block;font-size:12.5px;font-weight:800;color:#f2e9c6;
+    letter-spacing:.2px;padding:2px 9px 3px;border-radius:11px;
+    background:rgba(6,11,7,.42);
+    text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.9)}
   #sentKo:empty{display:none}
   /* ⚠️ #sentWrap 이 pointer-events:none 이라 버튼에서 되살려야 눌린다 */
   #btnSkipSent{pointer-events:auto;cursor:pointer;flex:none;
@@ -117,25 +114,26 @@
   #btnSkipSent:disabled{opacity:.4;cursor:default}
   #sentEn{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
 
-  /* 낱말 슬롯 = 판에 파 넣은 홈. 각진 모양이 군용 장비 느낌 */
-  .wchip{position:relative;padding:3px 10px 5px;border-radius:3px;
-    font-size:clamp(14px,2.2vw,20px);font-weight:900;letter-spacing:.6px;
+  /* 낱말 슬롯 — 뒤가 비치는 반투명 칸. 판을 없앤 뒤로 이 칸들이 곧 문장 바다 */
+  .wchip{position:relative;padding:2px 8px 4px;border-radius:4px;
+    font-size:clamp(13px,2.1vw,19px);font-weight:900;letter-spacing:.5px;
     font-family:MangoiHanSC,'Consolas','Malgun Gothic',monospace;
-    background:linear-gradient(180deg,#1a1e16,#23281d);
-    border:1px solid #12150f;color:#cfd8c2;
-    box-shadow:inset 0 2px 4px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.06);
+    background:rgba(8,12,7,.34);
+    border:1px solid rgba(190,205,170,.28);color:#e6eddc;
+    text-shadow:0 1px 2px #000,0 0 5px rgba(0,0,0,.85);
     transition:.14s}
   /* 맞힌 낱말 = 스텐실로 찍힌 것처럼 */
-  .wchip.done{color:#ffd479;background:linear-gradient(180deg,#2b3320,#384227);
-    text-shadow:0 0 7px rgba(255,196,60,.45)}
+  .wchip.done{color:#ffd479;background:rgba(46,56,28,.44);border-color:rgba(255,212,121,.32);
+    text-shadow:0 1px 2px #000,0 0 7px rgba(255,196,60,.5)}
   /* 지금 쏠 낱말 = 노란 테두리 + 위쪽 삼각 표식 */
-  .wchip.now{color:#fff4d0;background:linear-gradient(180deg,#3d3a1c,#4b4622);
-    border-color:#ffd479;box-shadow:inset 0 2px 4px rgba(0,0,0,.5),0 0 8px rgba(255,196,60,.35)}
+  .wchip.now{color:#fff4d0;background:rgba(74,66,26,.52);
+    border-color:#ffd479;box-shadow:0 0 8px rgba(255,196,60,.45)}
   .wchip.now::before{content:'';position:absolute;left:50%;top:-7px;transform:translateX(-50%);
     border:4px solid transparent;border-top-color:#ffd479;animation:wpulse 1.05s ease-in-out infinite}
   /* 가려진 낱말 — ⚠️ color:transparent 만 쓰면 text-shadow 가 남아 글자가 비친다(듣기 문제가 새 나감) */
   .wchip.hide{color:transparent;text-shadow:none}
-  .wchip.hide::after{content:'— — —';color:#5f6b54;font-size:.66em;letter-spacing:-1px;
+  .wchip.hide::after{content:'— — —';color:#b6c3a6;font-size:.66em;letter-spacing:-1px;
+    text-shadow:0 1px 2px #000;
     position:absolute;left:0;right:0;top:50%;transform:translateY(-50%)}
   @keyframes wpulse{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
   /* 문법 성분 — 슬롯 아래 얇은 색띠(어순을 '색의 순서'로 익히게) */
@@ -184,8 +182,15 @@
      ⚠️ 원본 사진에는 조종간이 '고정된 채' 찍혀 있다. 그대로 쓰면 우리가 얹은 회전 조종간과
         두 개가 겹쳐 보인다 → 조종간 위(세로 66%)까지만 잘라낸 판을 쓴다.
         좌표계는 원본과 동일(같은 폭·같은 원점)이라 계기 위치 계산은 그대로 유효하다. */
+  /* ⚠️ 계기판 사진(1600x434)은 판 상자보다 세로가 짧다 — 상자 맨 아래 5~7% 는 사진이 없다.
+     예전엔 그 틈을 '화면 끝까지 늘린 조종석 사진'이 뒤에서 메워 줬는데, 세로 폰의 조종석
+     배율을 낮추면서(CP_COVER) 뒤가 비어 **판 아래 좌우에 하늘색 띠**가 생겼다.
+     → 사진 아래쪽 실측 색(89,82,66)을 판 자체 바탕색으로 깔아 메운다.
+       좌우 마스크가 같이 걸리므로 넓은 화면에서 '하늘이 보이는 옆구리'는 그대로다. */
   #dashFg{position:absolute;background-repeat:no-repeat;
-    background-image:url('/img/p38-dash-panel.webp?v=1')}
+    /* 2겹: ①계기판 사진 ②그 아래를 메우는 판 그림자. 크기·위치는 layoutCockpit() 이 두 겹 다 넣는다 */
+    background-image:url('/img/p38-dash-panel.webp?v=1'),
+      linear-gradient(180deg,rgb(89,82,66) 0,rgb(58,53,43) 55%,rgb(38,35,28) 100%)}
   /* 계기판 좌우 끝을 하늘로 서서히 녹인다 — 안 그러면 사진이 칼같이 잘려 '붙여 넣은 판'으로 보인다.
      ⚠️ 어둡게 덮는 방식(예전 .dvig)은 못 쓴다. 뒤가 하늘이라 검은 띠가 하늘 위에 그려진다.
         알파를 깎는 mask 여야 한다. */
@@ -266,16 +271,27 @@
   body.mob #topR .tb{display:none}
   body.mob #topR #btnMenu{display:flex}
   body.mob #topR.open .tb{display:flex}
-  /* ⚠️ 폰에서는 상단 좌우에 '나가기'·'점3개' 버튼(z12)이 있어 게이지가 그 아래로 깔린다.
-     같은 줄에 두면 점수와 격추 수가 버튼에 가려 안 읽힌다 → 버튼 줄 밑으로 내린다. */
-  body.mob #gauges{top:46px;padding:0 2%;gap:5px}
-  body.mob .gz{padding:2px 7px;min-width:38px;gap:1px}
-  body.mob .gzL{font-size:8px;letter-spacing:.2px}
-  body.mob .gzV{font-size:15px}
-  body.mob #hearts{font-size:12px;letter-spacing:0}
-  body.mob #hullTrack{height:4px;min-width:56px}
+  /* 🔑 예전엔 게이지를 버튼 줄 «밑»으로 내렸다(top:46px). 그래서 폰 상단에
+     ①버튼 줄 ②점수 줄 ③문장 줄 — **띠 세 개**가 쌓여 캐노피 위쪽이 통째로 막혔다.
+     → 게이지를 '나가기'와 '점3개' **사이 빈칸**으로 올려 한 줄로 합친다(띠 3 → 2).
+     라벨(SCORE/격추 KILLS)은 뺀다 — 좁은 폰에서 값만 있어도 읽힌다. */
+  body.mob #gauges{top:8px;left:92px;right:56px;padding:0;gap:6px;
+    justify-content:center;align-items:center}
+  body.mob .gzSide{gap:6px}
+  body.mob .gz{padding:3px 8px;min-width:0;gap:0;flex-direction:row;align-items:center;
+    background:rgba(4,10,16,.5);border-color:rgba(255,212,121,.18)}
+  body.mob .gzL{display:none}
+  body.mob .gzV{font-size:14px}
+  body.mob #hearts{font-size:11px;letter-spacing:0}
+  body.mob #hullTrack{height:3px;min-width:34px;margin-left:5px}
   body.mob #gzAtt{display:none}          /* 자세는 계기판 자세계가 보여 준다 — 글자로 또 띄우면 산만하다 */
   body.mob #backBtn{padding:6px 10px;font-size:12px}
+  /* 문장 바 — 버튼 줄 바로 밑(화면 최상단)에 붙인다. 세로 위치는 layoutCockpit() 이 넣는다 */
+  body.mob #sentTop{gap:6px;margin-bottom:3px}
+  body.mob #sentKo{font-size:11.5px;padding:2px 8px 3px}
+  body.mob #btnSkipSent{font-size:10px;padding:4px 8px 5px}
+  body.mob #sentEn{gap:4px}
+  body.mob .wchip{padding:1px 6px 3px;font-size:15px;letter-spacing:.2px}
   /* 조종 안내는 핸들 쪽으로 — 무엇을 끌어야 하는지 가리키게 */
   body.mob #stickHint{left:50%;transform:translateX(-50%);bottom:3%;font-size:11.5px;text-align:center}
   .tb{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.22);
@@ -1189,6 +1205,7 @@ var CP_AR=1.7926, CP_FX=0.4982, CP_FY=0.3636;
    좌표는 이미지 가로/세로 비율. 사진을 확대·축소해도 이 비율로 따라간다. */
 var DASH_W=1600, DASH_H=658;
 var YOKE_W=1000, YOKE_H=579;        // 잘라낸 실사 조종간 크기
+var _yokeH=0;                       // 화면에 그려진 조종간 높이 — 발사 버튼이 조종간을 따라갈 때 쓴다
 var DIAL_POS=[
   { id:'dSpd',  x:0.385,  y:0.272 },   // 좌상 — 속도계
   { id:'dAtt',  x:0.4975, y:0.272 },   // 중상 — 자세계
@@ -1201,8 +1218,18 @@ function layoutCockpit(){
   var img=document.querySelector('#cpPhoto img'); if(!img || !W || !H) return;
   var a=W/H;
   var k = (a>=1.9) ? 1.16 : (a<1.0 ? 1.62 : 1.34);      // 화면형태별 확대율
-  // 창 중심을 화면 중앙에 두고도 아래쪽에 빈틈이 생기지 않을 최소 배율
-  var minK = (0.5/(1-CP_FY)) * (H/W) * CP_AR;
+  /* 창 중심을 화면 중앙에 두고도 '아래쪽'에 빈틈이 생기지 않을 최소 배율.
+     🔑 예전엔 사진이 **화면 맨 아래(1.0H)** 까지 닿게 강제했다. 그런데 조종석 사진은
+        가로:세로 1.79 인 가로 사진이라, 세로 폰(0.45)에서 이 조건을 만족하려면 배율이
+        3.13 까지 올라간다 = 사진이 화면 폭의 3배. 그만큼 **캐노피 금속 프레임도 3배로
+        두꺼워져** 창이 좁아졌다("캐노피 프레임이 너무 두꺼워" — 사장님).
+     ✅ 화면 아래쪽은 계기판 사진(#dash, 세로 폰에서는 화면 폭을 꽉 채운다)이 덮는다.
+        따라서 조종석 사진은 계기판 윗선(0.674H) 아래까지만 내려오면 충분하다.
+        여유를 두고 0.85H 를 기준으로 잡으면 세로 폰 배율이 3.13 → 2.19 로 내려간다
+        (프레임 두께 70%, 하늘 보이는 면적 69% → 76%).
+     ⚠ 이 값을 다시 1.0 으로 올리지 말 것. 두께 문제가 그대로 돌아온다. */
+  var CP_COVER = 0.85;
+  var minK = ((CP_COVER-0.5)/(1-CP_FY)) * (H/W) * CP_AR;
   if(k < minK) k = minK;
   if(k < 1) k = 1;                                       // 가로는 최소한 화면을 덮는다
   var iw=k*W, ih=iw/CP_AR;
@@ -1219,6 +1246,12 @@ function layoutCockpit(){
      사진을 '계기 두 줄이 다 보이도록' 키워서, 그 위에 살아 움직이는 바늘 계기를 정확히 겹친다. */
   var dash=document.getElementById('dash');
   var dashTop = itop + 0.585*ih;
+  /* ⚠ 계기판 윗선은 조종석 사진의 코밍 선(58.5%)을 따라간다. 그런데 위에서 세로 화면의
+     사진 배율을 낮췄으므로 그대로 두면 코밍 선이 같이 올라와 **계기판이 커지고 하늘이
+     좁아진다** — 프레임을 얇게 만든 이득을 계기판이 도로 먹는다.
+     세로 화면의 계기판 자리는 예전(사진이 화면 아래까지 닿던 시절)과 똑같이 0.674H 로 고정한다.
+     0.674 는 계산값이다: 그 시절 dashTop = H - 0.415*0.7857H = 0.674H. */
+  if(a < 1.0) dashTop = H*0.674;
   if(dashTop > H-170) dashTop = H-170;
   if(dashTop < H*0.52) dashTop = H*0.52;
   var dashH = H - dashTop;
@@ -1239,8 +1272,13 @@ function layoutCockpit(){
       dfg.style.left = side.toFixed(1)+'px';
       dfg.style.right = side.toFixed(1)+'px';
       dfg.style.top = '0px'; dfg.style.bottom = '0px';
-      dfg.style.backgroundSize = dw.toFixed(1)+'px auto';
-      dfg.style.backgroundPosition = 'center '+offY.toFixed(1)+'px';
+      /* ⚠️ 계기판 사진(1600x434)은 판 상자보다 세로가 짧다 — 상자 맨 아래 약 5~7% 는 사진이 없다.
+         예전엔 그 틈을 '화면 끝까지 늘린 조종석 사진'이 뒤에서 메워 줬는데, 세로 폰의 조종석
+         배율을 낮추면서(CP_COVER) 뒤가 비어 **판 아래 좌우에 하늘색 띠**가 생겼다.
+         → 둘째 겹(판 그림자)을 상자 전체에 깔아 메운다. 좌우 마스크는 그대로 걸리므로
+           넓은 화면에서 '옆구리로 하늘이 보이는' 설계는 안 깨진다. */
+      dfg.style.backgroundSize = dw.toFixed(1)+'px auto, 100% 100%';
+      dfg.style.backgroundPosition = 'center '+offY.toFixed(1)+'px, center bottom';
     }
     var dbg=document.getElementById('dashBg');
     if(dbg){
@@ -1291,16 +1329,19 @@ function layoutCockpit(){
     if(yk){
       var yw = 0.50*dw;                                   // 사진 조종간 폭
       var yh = yw*YOKE_H/YOKE_W;
+      _yokeH = yh;                                        // 발사 버튼이 조종간을 따라가는 계산에 쓴다
       // 허브(붉은 버튼)가 화면 안에 보이도록 사진 원위치(0.70)보다 살짝 위에 놓는다
       var hubY = Math.min(dTop + 0.655*dh, H - yh*0.30);
       yk.style.width = yw.toFixed(1)+'px';
       yk.style.left  = '50%';
       yk.style.top   = (hubY - 0.47*yh).toFixed(1)+'px';  // 잘라낸 사진의 허브는 높이의 47% 지점
       yk.style.bottom= 'auto';
-      /* 발사 버튼 = 사진 속 빨간 허브. 손가락으로 눌러야 하므로 최소 66px 은 준다 */
+      /* 발사 버튼 = 사진 속 빨간 허브.
+         ⚠ 조종간은 비행 중 계속 움직인다(위 --ykY). 움직이는 표적을 손가락으로 누르는 것이라
+            정지 버튼 기준의 66px 로는 모자랐다 → 최소 88px. */
       var hb=document.getElementById('hubFire');
       if(hb){
-        var hs=Math.max(66, Math.round(yw*0.155));
+        var hs=Math.max(88, Math.round(yw*0.185));
         hb.style.width = hb.style.height = hs+'px';
         hb.style.left  = Math.round(W/2 - hs/2)+'px';
         hb.style.top   = Math.round(hubY - hs/2)+'px';
@@ -1367,6 +1408,11 @@ function layoutCockpit(){
     var winTop = itop + 0.169*ih;
     var sh = sw.offsetHeight || 64;
     var sy = winTop - sh - 8;
+    /* 📱 폰(세로·가로 모두) — "최대한 꼭대기로" (사장님 지시).
+       창 윗변 기준으로 두면 문장이 길 때(11낱말) 판이 아래로 자라 캐노피를 덮는다.
+       상단 버튼 줄(8px + 38px) 바로 밑에 **붙박이로** 고정하고, 아래로는 자라게 둔다.
+       판을 없애고 칸만 반투명이라 겹쳐도 적기가 비친다. */
+    if(MOBILE) sy = 50;
     if(sy < 8) sy = 8;
     sw.style.top = sy.toFixed(1)+'px';
   }
@@ -2952,8 +2998,8 @@ function drawRadar(ts){
   }
 }
 
-var last=0, raf=null, _yokeEl=null;
-try{ _yokeEl=document.getElementById('yoke'); }catch(_){}
+var last=0, raf=null, _yokeEl=null, _hubEl=null;
+try{ _yokeEl=document.getElementById('yoke'); _hubEl=document.getElementById('hubFire'); }catch(_){}
 function loop(ts){
   raf=requestAnimationFrame(loop);
   if(!last) last=ts;
@@ -2975,7 +3021,19 @@ function loop(ts){
       _yokeEl.style.setProperty('--ykR', (ux*64).toFixed(2)+'deg');   // 좌우 = 회전
       _yokeEl.style.setProperty('--ykY', (uy*30).toFixed(2)+'px');    // 상하 = 밀고 당김
       // 밀면 멀어지고 당기면 가까워지는 원근감 — 손끝의 깊이감을 만든다
-      _yokeEl.style.setProperty('--ykS', (1 - uy*0.055).toFixed(4));
+      var ykS = 1 - uy*0.055;
+      _yokeEl.style.setProperty('--ykS', ykS.toFixed(4));
+      /* 🔴🔴 발사 버튼(투명)은 **조종간과 같이 움직여야 한다.**
+         조종간은 밀고 당길 때 최대 ±30px 움직이는데 버튼은 layoutCockpit() 이 잡아 준
+         자리에 붙박이로 있었다 → 보이는 빨간 버튼과 실제 누르는 자리가 최대 29px 어긋난다.
+         버튼 반지름이 33px 이라 조종간을 끝까지 당긴 채 빨간 버튼 한가운데를 눌러도
+         테두리에 걸쳐 자주 빗나갔다 = "발사가 안돼".
+         ⚠ #yoke 의 확대 기준점은 50% 40% 인데 허브는 47% 지점이라, 확대분도 허브를
+            (0.47-0.40)*높이*(배율-1) 만큼 움직인다. 이 항까지 넣어야 정확히 겹친다. */
+      if(_hubEl){
+        var dy = uy*30 + 0.07*(_yokeH||_yokeEl.offsetHeight||0)*(ykS-1);
+        _hubEl.style.transform = 'translateY('+dy.toFixed(2)+'px)';
+      }
     }
     drawRadar(ts);
     // 사격 반동 흔들림
@@ -3218,6 +3276,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260804092314 -->
+<!-- BUILD:20260807052617 -->
 </body>
 </html>

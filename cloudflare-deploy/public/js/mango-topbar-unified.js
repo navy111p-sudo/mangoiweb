@@ -60,6 +60,10 @@
       '#mg-unibar .uni-rec{flex:0 0 auto;width:13px;height:13px;border-radius:50%;background:#ff4d4d;',
       '  cursor:pointer;animation:mg-uni-pulse 1.4s ease-out infinite;display:none;}',
       '#mg-unibar.recording .uni-rec{display:inline-block;}',
+      /* ⏹ 녹화 꺼짐 — 점을 숨기면 «다시 켤 수 있다»는 걸 아무도 모른다.
+         회색으로 죽여 두지도 않는다: 녹화가 꺼진 건 알려야 할 상태라 호박색 테두리로 남긴다. */
+      '#mg-unibar.rec-off .uni-rec{display:inline-block;background:transparent;',
+      '  border:2px solid #f0a132;box-sizing:border-box;animation:none;}',
       /* 🥭 (2026-07-14) ✕ 나가기 버튼 스타일 삭제 — 하단 독 '나가기'와 중복이라 버튼 자체를 없앰 */
       '@media (max-width:340px){#mg-unibar .uni-narrow{display:none;}#mg-unibar .uni-info{font-size:11px;}}',
       /* ▼ 통합 바가 켜진 동안(body.mg-uni-on)만 기존 겹침/중복 요소 숨김 (휴대폰 한정) */
@@ -102,10 +106,13 @@
     elElapsed = bar.querySelector('.uni-elapsed');
     elRecDot  = bar.querySelector('.uni-rec');
 
-    /* 녹화점 → 기존 녹화배지로 전달(모바일은 1탭=펼침이므로 펼친 뒤 정지 흐름으로) */
+    /* 녹화점 → 기존 녹화배지로 전달(모바일은 1탭=펼침이므로 펼친 뒤 정지 흐름으로).
+       꺼진 상태면 펼칠 게 없으므로 곧바로 배지를 눌러 «다시 시작» 시킨다. */
     elRecDot.addEventListener('click', function () {
       var rb = document.getElementById('mango-rec-badge');
-      if (rb) { rb.classList.add('mango-rec-expanded'); rb.click(); }
+      if (!rb) return;
+      if (rb.classList.contains('mango-rec-off')) { rb.click(); return; }
+      rb.classList.add('mango-rec-expanded'); rb.click();
     });
 
     /* 🥭 (2026-07-14) ✕ 나가기 버튼 제거 — 나가기는 하단 독(vc-dock)의 '나가기' 버튼만 사용 */
@@ -153,11 +160,20 @@
       var el = readElapsed();
       elElapsed.textContent = el;
       elElapsed.style.display = el ? 'inline' : 'none';
-      /* 녹화 여부: 녹화배지가 DOM에 존재하면 녹화 중으로 간주.
-         (mg-uni-on 이 배지를 display:none 처리하므로 visible() 은 항상 false → 존재 여부로 판단해야 함.
-          mango-rec.js 는 정지 시 recBadge.remove() 로 DOM 에서 제거하므로 존재=녹화중이 정확) */
-      if (document.getElementById('mango-rec-badge')) bar.classList.add('recording');
-      else bar.classList.remove('recording');
+      /* 녹화 여부: mg-uni-on 이 배지를 display:none 처리하므로 visible() 은 항상 false →
+         배지의 «상태 클래스»로 판단한다.
+         ⚠️ (2026-08-06) 예전엔 «배지가 DOM 에 있으면 녹화 중»이었는데, 이제 mango-rec.js 가
+            정지해도 배지를 지우지 않고 .mango-rec-off 로 남긴다(다시 켜는 버튼). 존재 여부로
+            판단하면 꺼놓고도 영영 «녹화 중»으로 보인다. */
+      var rb = document.getElementById('mango-rec-badge');
+      var recOn = !!rb && !rb.classList.contains('mango-rec-off');
+      bar.classList.toggle('recording', recOn);
+      bar.classList.toggle('rec-off', !!rb && !recOn);
+      var en = false;
+      try { en = (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) {}
+      elRecDot.title = recOn
+        ? (en ? 'Recording — tap to stop' : '녹화 중 — 눌러서 정지')
+        : (en ? 'Recording is OFF — tap to start again' : '녹화 꺼짐 — 눌러서 다시 시작');
     } else {
       document.body.classList.remove('mg-uni-on');
       bar.classList.remove('show');

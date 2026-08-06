@@ -15,8 +15,8 @@ OUT=D+'public/trex-atlas.png'
 
 SHEETS={
  # ⚠공룡이 셀 가장자리까지 꽉 차게 그려짐(주둥이·꼬리가 x=0/x=끝에 닿음) → ins 크게 자르면 잘림. ins 최소로 두고 검은 격자선은 키(near-black)로 제거.
- 'walk' : {'path':D+'game_image/Gemini_Generated_Image_ljfujrljfujrljfu.png', 'ncols':[5,4,4,4,4], 'ins':2},
- 'death': {'path':D+'game_image/Gemini_Generated_Image_gv6bm3gv6bm3gv6b.png', 'ncols':[7,7,7],     'ins':4},
+ 'walk' : {'path':D+'game_image/티렉스_동작시퀀스_세로A.png', 'ncols':[5,4,4,4,4], 'ins':2},
+ 'death': {'path':D+'game_image/티렉스_동작시퀀스_와이드.png', 'ncols':[7,7,7],     'ins':4},
 }
 # (sheet,row,col) 읽기 매핑
 FRAMES=[

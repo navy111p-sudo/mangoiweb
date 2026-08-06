@@ -156,8 +156,23 @@
   async function joinAttendance() {
     if (!state || state.joined) return;
     const role = (function () {
-      try { return (localStorage.getItem('mango_role') || '').trim() || 'student'; }
-      catch (_) { return 'student'; }
+      /* 🔴 (2026-08-05) 이 한 줄 때문에 「강사 출결」이 한 달째 0건이었다.
+         여기만 'mango_role' 을 읽는데, **그 키를 쓰는 코드가 저장소에 하나도 없다**(검색 0건).
+         실제로 역할을 저장하는 키는 'mangoi_user_role' 이다 — index.html 10966·11046줄에서
+         수업 입장 시 저장하고, 저장소 22곳이 그 이름을 쓴다. 이름이 한 글자(i) 달라 어긋났다.
+         그래서 강사가 포털에서 수업에 들어가도 출결은 늘 'student' 로 기록됐다.
+         [실측 2026-08-05] attendance 전체 183,445행 중 role='teacher' 는 16행뿐,
+                           그마저 2026-07-06 이 마지막. 그 뒤로 한 건도 없다.
+         경량 화면(video-call)은 링크의 role 을 'mango_role' 에 넣으므로 그걸 먼저 보고,
+         없으면 정식 화면이 쓰는 'mangoi_user_role' 로 넘어간다.
+         ⚠️ 'admin' 을 teacher 로 바꾸지 않는다 — 참관하는 관리자가 강사 근태에 섞이면 안 된다. */
+      try {
+        const r1 = (localStorage.getItem('mango_role') || '').trim();
+        if (r1) return r1;
+        const r2 = (localStorage.getItem('mangoi_user_role') || '').trim();
+        if (r2) return r2;
+      } catch (_) {}
+      return 'student';
     })();
     state.role = role;
     const body = {

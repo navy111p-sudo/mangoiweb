@@ -91,6 +91,14 @@
     '#vc-dock-settings .sg-sw.on{background:#ffd24d;border-color:#ffd24d;}',
     '#vc-dock-settings .sg-sw.on::after{left:22px;background:#1a1300;}',
     '#vc-dock-settings .sg-test{background:#1c2530;border:1px solid #283140;color:#e6ebf2;font-size:12.5px;padding:7px 12px;border-radius:7px;cursor:pointer;width:auto;height:auto;font-family:inherit;}',
+    '#vc-dock-settings .sg-test:disabled{opacity:.55;cursor:default;}',
+    /* 🎤 (2026-08-06) 마이크 테스트 — 소리 크기 막대 + 상태 글. 실제로 들리는지까지 확인시킨다 */
+    '#vc-dock-settings .sg-mic-test{display:flex;flex-direction:column;align-items:flex-end;gap:5px;}',
+    '#vc-dock-settings .sg-bar{width:150px;height:8px;background:#161d26;border-radius:5px;overflow:hidden;border:1px solid #283140;}',
+    '#vc-dock-settings .sg-bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22c55e,#ffd24d,#ef4444);transition:width .08s linear;}',
+    '#vc-dock-settings .sg-note{font-size:11.5px;color:#8a94a3;text-align:right;max-width:190px;line-height:1.35;}',
+    '#vc-dock-settings .sg-note.ok{color:#4ade80;} #vc-dock-settings .sg-note.warn{color:#fbbf24;} #vc-dock-settings .sg-note.bad{color:#f87171;}',
+    '#vc-dock-settings .sg-fixed{font-size:12.5px;color:#4ade80;font-weight:700;}',
     '/* 기존 중복 컨트롤 숨김 */',
     'body.vc-in-call.vc-dock-on .toolbar-center{display:none !important;}',
     'body.vc-in-call.vc-dock-on #vc-exit-btn-v34{display:none !important;}',
@@ -237,31 +245,198 @@
     if (typeof window.setLang==='function') { try{ window.setLang(en?'en':'ko'); return; }catch(_){ } }
     call('toggleLang');
   }
+  /* 🔔 (2026-08-06) 스피커 확인음.
+     예전 소리는 660Hz 사인파 0.4초 하나 = 강사들이 말한 "'띵' 하는 작은 소리 한 번".
+     너무 짧고 작아서 '스피커가 되는지' 판단이 안 됐다 → 3음 차임(도·미·솔) 1.2초, 음량도 올린다.
+     ⚠️ AudioContext 는 만들자마자 suspended 일 수 있다(자동재생 정책) → 반드시 resume 후 울린다. */
   function beep(){
     try {
       var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-      var ac = new AC(), o = ac.createOscillator(), g = ac.createGain();
-      o.type='sine'; o.frequency.value=660; o.connect(g); g.connect(ac.destination);
-      g.gain.setValueAtTime(0.0001, ac.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.25, ac.currentTime+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+0.4);
-      o.start(); o.stop(ac.currentTime+0.42);
+      var ac = new AC();
+      var play = function(){
+        var t0 = ac.currentTime + 0.02;
+        [523.25, 659.25, 783.99].forEach(function(f, i){
+          var o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'triangle'; o.frequency.value = f;
+          o.connect(g); g.connect(ac.destination);
+          var s = t0 + i * 0.22;
+          g.gain.setValueAtTime(0.0001, s);
+          g.gain.exponentialRampToValueAtTime(0.5, s + 0.03);
+          g.gain.exponentialRampToValueAtTime(0.0001, s + 0.55);
+          o.start(s); o.stop(s + 0.6);
+        });
+        setTimeout(function(){ try { ac.close(); } catch(_){} }, 1600);  // 컨텍스트 누수 방지
+      };
+      if (ac.state === 'suspended' && ac.resume) { ac.resume().then(play).catch(play); } else play();
     } catch(_){ }
+  }
+
+  /* 🎤 (2026-08-06) 진짜 마이크 테스트.
+     ① 지금 수업에 '실제로 나가고 있는' 오디오 트랙을 그대로 검사한다(새로 잡지 않는다).
+        새로 getUserMedia 하면 "테스트는 되는데 수업에선 안 들려요" 를 못 잡는다.
+     ② 3초간 소리 크기를 막대로 보여주고, 그 3초를 녹음해 되들려준다.
+        들리면 마이크+스피커가 둘 다 정상 — 강사가 혼자서 판단할 수 있다. */
+  var micTestBusy = false;
+  function micTest(){
+    if (micTestBusy) return;
+    var btn = setPop && setPop.querySelector('[data-act="mic"]');
+    var bar = setPop && setPop.querySelector('#sg-mic-bar');
+    var note = setPop && setPop.querySelector('#sg-mic-note');
+    var en = isEn();
+    function say(text, cls){ if (note){ note.textContent = text; note.className = 'sg-note' + (cls ? ' ' + cls : ''); note.removeAttribute('data-ko'); note.removeAttribute('data-en'); } }
+    var stream = null;
+    try { stream = window.vcLocalStream || null; } catch(_){ stream = null; }
+    var track = null;
+    try { track = stream && stream.getAudioTracks ? stream.getAudioTracks()[0] : null; } catch(_){ }
+    if (!track || track.readyState !== 'live'){
+      say(en ? 'No microphone in this class yet. Rejoin or check permission.' : '수업에 잡힌 마이크가 없습니다. 권한을 확인하거나 다시 입장해 주세요.', 'bad');
+      return;
+    }
+    if (track.enabled === false){
+      say(en ? 'Your mic is muted. Turn it on first.' : '지금 마이크가 꺼져 있어요. 먼저 마이크를 켜 주세요.', 'warn');
+      return;
+    }
+    micTestBusy = true;
+    if (btn) btn.disabled = true;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    var ac = null, timer = null, rec = null, chunks = [], peak = 0, url = '';
+    function cleanup(){
+      if (timer) { clearInterval(timer); timer = null; }
+      try { if (ac) ac.close(); } catch(_){}
+      ac = null;
+      if (bar) bar.style.width = '0';
+      if (btn) btn.disabled = false;
+      micTestBusy = false;
+    }
+    try {
+      var only = new MediaStream([track]);          // 수업 스트림은 건드리지 않고 트랙만 빌린다
+      if (AC){
+        ac = new AC();
+        if (ac.state === 'suspended' && ac.resume) { try { ac.resume(); } catch(_){} }
+        var an = ac.createAnalyser(); an.fftSize = 256;
+        ac.createMediaStreamSource(only).connect(an);
+        var data = new Uint8Array(an.frequencyBinCount);
+        timer = setInterval(function(){
+          an.getByteTimeDomainData(data);
+          var sum = 0;
+          for (var i = 0; i < data.length; i++){ var v = (data[i] - 128) / 128; sum += v * v; }
+          var rms = Math.sqrt(sum / data.length);
+          if (rms > peak) peak = rms;
+          if (bar) bar.style.width = Math.min(100, Math.round(rms * 600)) + '%';
+        }, 80);
+      }
+      say(en ? '🔴 Recording… speak now (3s)' : '🔴 지금 말해 보세요 (3초 녹음 중)', 'warn');
+      if (window.MediaRecorder){
+        try {
+          rec = new MediaRecorder(only);
+          rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
+          rec.onstop = function(){
+            var quiet = peak < 0.02;
+            try {
+              var blob = new Blob(chunks, { type: (rec.mimeType || 'audio/webm') });
+              if (!quiet && blob.size > 0){
+                url = URL.createObjectURL(blob);
+                var a = new Audio(url); a.volume = 1;
+                say(en ? '▶ Playing back what we heard…' : '▶ 방금 들린 소리를 그대로 들려드립니다…', 'ok');
+                a.onended = function(){
+                  try { URL.revokeObjectURL(url); } catch(_){}
+                  say(en ? '✅ Heard it? Then mic and speaker are both fine.' : '✅ 방금 소리가 들렸다면 마이크·스피커 모두 정상입니다.', 'ok');
+                };
+                var p = a.play(); if (p && p.catch) p.catch(function(){
+                  say(en ? '⚠ Mic OK, but playback was blocked by the browser.' : '⚠ 마이크는 정상인데 브라우저가 재생을 막았습니다. 화면을 한 번 클릭한 뒤 다시 눌러 주세요.', 'warn');
+                });
+              } else {
+                say(en ? '❌ No sound came in. Check Windows mic settings or pick another mic above.'
+                       : '❌ 소리가 전혀 들어오지 않았습니다. 위에서 다른 마이크를 골라 보거나 윈도우 소리 설정을 확인해 주세요.', 'bad');
+              }
+            } catch(e){ say(en ? '⚠ Playback failed.' : '⚠ 재생에 실패했습니다.', 'warn'); }
+            cleanup();
+          };
+          rec.start();
+          setTimeout(function(){ try { if (rec && rec.state !== 'inactive') rec.stop(); } catch(_){ cleanup(); } }, 3000);
+        } catch(e){ rec = null; }
+      }
+      if (!rec){
+        // MediaRecorder 가 없는 브라우저 — 막대만으로 판정
+        setTimeout(function(){
+          say(peak < 0.02
+            ? (en ? '❌ No sound came in. Check your mic.' : '❌ 소리가 전혀 들어오지 않았습니다. 마이크를 확인해 주세요.')
+            : (en ? '✅ Your voice is coming through.' : '✅ 목소리가 정상적으로 들어오고 있습니다.'),
+            peak < 0.02 ? 'bad' : 'ok');
+          cleanup();
+        }, 3000);
+      }
+    } catch(e){
+      console.warn('[vc-dock] micTest', e);
+      say(en ? '⚠ Test failed.' : '⚠ 테스트에 실패했습니다.', 'bad');
+      cleanup();
+    }
+  }
+
+  /* 📋 장치 목록 채우기.
+     🔴 (2026-08-06) 예전엔 ① 지금 쓰는 장치를 선택 상태로 표시하지 않았고 ② 팝업을 처음 만들 때
+        딱 한 번만 채웠다. 그래서 수업 도중 USB 웹캠을 꽂으면 목록에 안 나타났고, 나타나도
+        무엇이 지금 쓰는 카메라인지 알 수 없었다. 열 때마다 + 장치가 바뀔 때마다 다시 채운다. */
+  function activeDeviceId(kind){
+    try {
+      var s = window.vcLocalStream; if (!s) return '';
+      var t = (kind === 'video' ? s.getVideoTracks() : s.getAudioTracks())[0];
+      return (t && t.getSettings && t.getSettings().deviceId) || '';
+    } catch(_){ return ''; }
+  }
+  function savedDeviceId(kind){
+    try { return localStorage.getItem(kind === 'video' ? 'mangoi_vc_cam_id' : 'mangoi_vc_mic_id') || ''; } catch(_){ return ''; }
   }
   function fillDevices(){
     if (!setPop || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
     navigator.mediaDevices.enumerateDevices().then(function(list){
       var micSel = setPop.querySelector('#sg-mic-dev'), camSel = setPop.querySelector('#sg-cam-dev');
+      var curMic = activeDeviceId('audio') || savedDeviceId('audio');
+      var curCam = activeDeviceId('video') || savedDeviceId('video');
       if (micSel) micSel.innerHTML = ''; if (camSel) camSel.innerHTML = '';
       var mc=0, cc=0;
       list.forEach(function(d){
-        if (d.kind==='audioinput' && micSel){ var o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||('마이크 '+(++mc)); micSel.appendChild(o); }
-        if (d.kind==='videoinput' && camSel){ var o2=document.createElement('option'); o2.value=d.deviceId; o2.textContent=d.label||('카메라 '+(++cc)); camSel.appendChild(o2); }
+        if (!d.deviceId) return;
+        // 윈도우가 만들어 내는 가짜 항목(default/communications)은 실제 장치와 중복이라 뺀다
+        if (d.deviceId === 'communications') return;
+        var label = (d.label || '').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*/i, '').trim();
+        if (d.kind==='audioinput' && micSel){
+          var o=document.createElement('option'); o.value=d.deviceId;
+          o.textContent = label || ('마이크 '+(++mc));
+          micSel.appendChild(o);
+        }
+        if (d.kind==='videoinput' && camSel){
+          var o2=document.createElement('option'); o2.value=d.deviceId;
+          o2.textContent = label || ('카메라 '+(++cc));
+          camSel.appendChild(o2);
+        }
       });
+      /* 🔴 (2026-08-06) 선택 표시는 «옵션을 붙이면서» 하면 안 된다.
+         지금 쓰는 트랙의 deviceId 가 목록에 없는 경우가 실제로 있다
+         (가상배경·화면공유처럼 캔버스에서 만든 트랙은 목록에 없는 임의 id 를 돌려준다.
+          파이어폭스는 아예 빈 값이다). 그러면 아무것도 선택되지 않아 브라우저가 «첫 번째» 를
+         보여주고, 사용자 눈엔 "USB 캠을 골랐는데 노트북 캠으로 되돌아갔다" 로 보인다.
+         → 지금 트랙 → 저장된 선택 순서로, 목록에 «실제로 있는» 첫 후보를 골라 준다. */
+      function applySel(sel, ids){
+        if (!sel) return;
+        for (var i = 0; i < ids.length; i++){
+          if (!ids[i]) continue;
+          for (var j = 0; j < sel.options.length; j++){
+            if (sel.options[j].value === ids[i]) { sel.value = ids[i]; return; }
+          }
+        }
+      }
+      applySel(micSel, [curMic, savedDeviceId('audio')]);
+      applySel(camSel, [curCam, savedDeviceId('video')]);
       if (micSel && !micSel.children.length){ var om=document.createElement('option'); om.textContent='기본 마이크'; micSel.appendChild(om); }
       if (camSel && !camSel.children.length){ var oc=document.createElement('option'); oc.textContent='기본 카메라'; camSel.appendChild(oc); }
     }).catch(function(){ });
   }
+  try {
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener){
+      navigator.mediaDevices.addEventListener('devicechange', function(){ try { fillDevices(); } catch(_){} });
+    }
+  } catch(_){}
 
   function buildSettings(){
     if (setPop) return setPop;
@@ -275,15 +450,26 @@
       '<div class="sg-group">' +
         '<div class="sg-gtitle" data-ko="장치" data-en="Devices">장치</div>' +
         '<div class="sg-row"><label data-ko="마이크" data-en="Microphone">마이크</label><select id="sg-mic-dev"><option data-ko="기본 마이크" data-en="Default mic">기본 마이크</option></select></div>' +
-        '<div class="sg-row"><label data-ko="마이크 음량" data-en="Mic volume">마이크 음량</label><input type="range" id="sg-mic-vol" min="0" max="100" value="70"></div>' +
-        '<div class="sg-row"><label data-ko="스피커" data-en="Speaker">스피커</label><button class="sg-test" data-act="spk" data-ko="테스트 ▶" data-en="Test ▶">테스트 ▶</button></div>' +
+        /* 🎤 (2026-08-06) 자리에 있던 '마이크 음량' 슬라이더는 부르는 함수(vcSetMicVolume)가 아예 없어
+           아무 동작도 하지 않았다. 없는 기능을 흉내내는 슬라이더보다, 강사가 실제로 필요로 한
+           '내 소리가 나가긴 하나' 를 확인시켜 주는 테스트로 바꾼다(막대 + 3초 녹음 후 되들려주기). */
+        '<div class="sg-row"><label data-ko="마이크 테스트" data-en="Mic test">마이크 테스트</label>' +
+          '<div class="sg-mic-test">' +
+            '<button class="sg-test" data-act="mic" data-ko="🎤 말해보기" data-en="🎤 Speak">🎤 말해보기</button>' +
+            '<div class="sg-bar"><i id="sg-mic-bar"></i></div>' +
+            '<div class="sg-note" id="sg-mic-note" data-ko="누르고 3초간 말해 보세요" data-en="Press, then speak for 3s">누르고 3초간 말해 보세요</div>' +
+          '</div></div>' +
+        '<div class="sg-row"><label data-ko="스피커" data-en="Speaker">스피커</label><button class="sg-test" data-act="spk" data-ko="🔔 소리 확인" data-en="🔔 Play sound">🔔 소리 확인</button></div>' +
         '<div class="sg-row"><label data-ko="카메라" data-en="Camera">카메라</label><select id="sg-cam-dev"><option data-ko="기본 카메라" data-en="Default camera">기본 카메라</option></select></div>' +
         '<div class="sg-row"><label data-ko="잡음 제거" data-en="Noise removal">잡음 제거</label><div class="sg-sw on" data-act="noise"></div></div>' +
       '</div>' +
       '<div class="sg-group">' +
         '<div class="sg-gtitle" data-ko="영상 · 녹화" data-en="Video · Recording">영상 · 녹화</div>' +
         '<div class="sg-row"><label data-ko="영상 화질" data-en="Video quality">영상 화질</label><div class="sg-seg" id="sg-quality"><button data-q="auto" data-ko="자동" data-en="Auto">자동</button><button data-q="high" data-ko="고" data-en="High">고</button><button data-q="low" data-ko="저" data-en="Low">저</button></div></div>' +
-        '<div class="sg-row"><label data-ko="자동 녹화" data-en="Auto record">자동 녹화</label><div class="sg-sw on" data-act="autorec"></div></div>' +
+        /* 📼 (2026-08-06) 자동 녹화 스위치도 부르는 함수(vcSetAutoRecord)가 없어 껐다 켜도 아무 일이 없었다.
+           녹화는 '30일 복습' 이라는 학부모 약속이라 실제로 끌 수 있게 만들면 안 된다(한 번 끄면 그 수업은
+           영영 못 되돌린다) → 가짜 스위치를 없애고 사실대로 '항상 켬' 이라고 적는다. */
+        '<div class="sg-row"><label data-ko="자동 녹화" data-en="Auto record">자동 녹화</label><span class="sg-fixed" data-ko="항상 켬" data-en="Always on">항상 켬</span></div>' +
         '<div class="sg-row"><label data-ko="배경 흐림" data-en="Background blur">배경 흐림</label><div class="sg-sw" data-act="blur"></div></div>' +
       '</div>' +
       '<div class="sg-group" style="margin-bottom:2px;">' +
@@ -301,15 +487,13 @@
     micDev.onchange = function(){ call('vcSetMicDevice', micDev.value); };
     var camDev = setPop.querySelector('#sg-cam-dev');
     camDev.onchange = function(){ call('vcSetCamDevice', camDev.value); };
-    var vol = setPop.querySelector('#sg-mic-vol');
-    vol.oninput = function(){ call('vcSetMicVolume', +vol.value); };
+    setPop.querySelector('[data-act="mic"]').onclick = micTest;
     setPop.querySelector('[data-act="spk"]').onclick = beep;
     setPop.querySelector('[data-act="noise"]').onclick = function(){ this.classList.toggle('on'); call('vcSetNoiseSuppression', this.classList.contains('on')); };
     // 영상·녹화
     setPop.querySelectorAll('#sg-quality button').forEach(function(b){
       b.onclick = function(){ setPop.querySelectorAll('#sg-quality button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); call('vcSetQuality', b.getAttribute('data-q')); };
     });
-    setPop.querySelector('[data-act="autorec"]').onclick = function(){ this.classList.toggle('on'); call('vcSetAutoRecord', this.classList.contains('on')); };
     setPop.querySelector('[data-act="blur"]').onclick = function(){ this.classList.toggle('on'); call('vcSetBackgroundBlur', this.classList.contains('on')); };
     // 표시
     setPop.querySelectorAll('#sg-lang button').forEach(function(b){
@@ -336,6 +520,15 @@
     setSeg('#sg-lang', 'data-l', isEn()?'en':'ko');
     setSeg('#sg-quality', 'data-q', savedQuality());   // 저장된 화질을 그대로 보여준다
     var f = setPop.querySelector('[data-act="full"]'); if (f) f.classList.toggle('on', fullscreenOn());
+    // 🔁 (2026-08-06) 스위치도 '지금 실제 상태' 를 보여준다 — 여태 열 때마다 기본값으로 되돌아가 있었다
+    try {
+      var n = setPop.querySelector('[data-act="noise"]');
+      if (n) n.classList.toggle('on', (localStorage.getItem('mangoi_vc_noise') !== '0'));
+    } catch(_){}
+    try {
+      var b = setPop.querySelector('[data-act="blur"]');
+      if (b) b.classList.toggle('on', !!(window.vcBg && window.vcBg.mode === 'blur'));
+    } catch(_){}
   }
   // 설정 팝업 위치 — 도크 위, 화면 중앙 정렬 + 양옆 8px 안으로 클램프(모든 폰 폭에서 안 잘림)
   function positionSettings(){
@@ -352,6 +545,7 @@
   function openSettings(){
     buildSettings();
     refreshSettings();
+    fillDevices();      // 🔌 (2026-08-06) 열 때마다 다시 — 수업 중 꽂은 USB 웹캠·헤드셋이 바로 목록에 뜬다
     backdrop.classList.add('open');
     setPop.classList.add('open');       // 먼저 표시해야 폭을 측정할 수 있음
     if (bSet) bSet.classList.add('active');

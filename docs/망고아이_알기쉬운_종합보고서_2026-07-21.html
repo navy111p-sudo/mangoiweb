@@ -1,0 +1,135 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<title>망고아이 알기 쉬운 종합보고서 (2026-07-21)</title>
+<style>
+@page { size: A4; margin: 14mm 13mm; }
+* { box-sizing: border-box; }
+body { font-family: "Malgun Gothic","맑은 고딕",sans-serif; font-size: 10.8pt; line-height: 1.62; color:#1f2430; margin:0; }
+h1 { font-size: 17pt; color:#b45309; border-bottom: 3px solid #f59e0b; padding-bottom: 6px; margin: 0 0 4px; }
+.sub { color:#6b7280; font-size: 9.5pt; margin-bottom: 14px; }
+h2 { font-size: 13.2pt; color:#92400e; margin: 18px 0 7px; page-break-after: avoid; }
+h3 { font-size: 11.2pt; color:#1f2937; margin: 12px 0 5px; }
+p { margin: 5px 0; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 3px 0; }
+table { border-collapse: collapse; width: 100%; margin: 7px 0 11px; }
+tr { page-break-inside: avoid; }
+th, td { border: 0.8px solid #d7c9a8; padding: 5px 8px; vertical-align: top; text-align: left; font-size: 9.8pt; }
+th { background: #ffe9c2; font-weight: 700; }
+.box { border-radius: 8px; padding: 9px 12px; margin: 8px 0; page-break-inside: avoid; }
+.box.summary { background: #fff7e8; border: 1.5px solid #f59e0b; }
+.box.good { background: #f0faf1; border: 1.5px solid #34a853; }
+.box.bad { background: #fdf1f0; border: 1.5px solid #ea4335; }
+.box.fix { background: #f0f5fd; border: 1.5px solid #4285f4; }
+.box b.tag { display:inline-block; margin-bottom: 3px; }
+sup { color:#b45309; font-weight: 700; font-size: 8pt; }
+.term { border-bottom: 1.5px dotted #b45309; }
+.easy { background:#fffbe8; border-left: 4px solid #fbbf24; padding: 5px 10px; margin: 6px 0; font-size: 9.9pt; color:#4b5563; }
+.dday { color:#dc2626; font-weight: 800; }
+.small { font-size: 9pt; color:#6b7280; }
+</style></head><body>
+
+<h1>🥭 망고아이 알기 쉬운 종합보고서</h1>
+<div class="sub">2026년 7월 21일 · 전 직원 공유용 (IT 지식이 없어도 읽을 수 있게 작성) · 밑줄 친 용어<sup>번호</sup>는 맨 뒤 "용어 풀이"에 설명이 있습니다</div>
+
+<div class="box summary">
+<b>📌 세 줄 요약</b><br>
+① 우리 회사 온라인 시스템은 새 기술로 <b>거의 다 만들어져 실제로 운영 중</b>입니다 (화상수업·게임·AI·관리자 시스템).<br>
+② 외부 개발사(크몽 소개)가 "처음부터 다시 만들자(6천만~3억 원)"고 제안했지만, 검토 결과 <b>다시 만들 필요는 없습니다.</b> 다만 그들의 지적 중 "화면이 복잡하다"는 등 맞는 말은 우리가 직접 고칩니다.<br>
+③ 지금 진짜 급한 일은 <b>낡은 서버의 이사</b>입니다 — 서버 임대 계약이 <span class="dday">8월 15일에 끝납니다 (25일 남음)</span>.
+</div>
+
+<h2>1. 우리 시스템, 지금 어디까지 왔나</h2>
+<p>작년까지 쓰던 옛 홈페이지(2019년 제작)와 별개로, 올해 새 시스템을 <span class="term">클라우드</span><sup>1</sup> 위에 새로 만들어 왔습니다. 현재 상태:</p>
+<table>
+<tr><th>분야</th><th>완성된 것</th><th>쉽게 말하면</th></tr>
+<tr><td><b>화상수업</b></td><td>자체 개발 화상수업 시스템 + "절대 안 끊김" 장치(자동 복구, 인터넷 느릴 때 음성만이라도 유지)</td><td>줌(Zoom) 같은 프로그램을 우리 것으로 직접 만들었고, 수업 중 끊기면 스스로 다시 붙습니다</td></tr>
+<tr><td><b>학습·게임</b></td><td>교재 연동 학습게임 15종, 단어장, 발음 코칭, 복습 퀴즈</td><td>아이들이 게임하며 배우고, 결과가 선생님 리포트로 쌓입니다</td></tr>
+<tr><td><b>AI 기능</b></td><td>AI 수업 준비(웜업), AI 상담직원, 수업 후 자동 코칭 리포트, <span class="term">판단력 훈련</span><sup>2</sup> 등 10여 종</td><td>AI 비서가 이미 여러 곳에서 일하고 있습니다</td></tr>
+<tr><td><b>관리자</b></td><td>학생·강사·급여·정산·통계 관리 화면(73개 메뉴), 강사 급여 자동 계산</td><td>본사·지사·대리점이 각자 권한만큼만 보는 사무실 시스템</td></tr>
+<tr><td><b>보안·백업</b></td><td>관리자 2단계 인증, 해킹 점검 5차례, 매일 밤 자동 백업, 24시간 감시+문자 경보</td><td>문단속을 다시 했고, 금고 사본을 매일 다른 곳에 보관합니다</td></tr>
+</table>
+<p class="small">※ 규모: 화면 52개, 기능(API)<sup>3</sup> 370여 개. 전체 상세 내용은 「SRS<sup>4</sup> v2.1」 문서(27쪽)에 있습니다.</p>
+
+<h2>2. 크몽 회의(7/21), 무슨 얘기가 오갔나</h2>
+<p>참석: 크몽<sup>5</sup> 담당자 + 개발회사 '똑똑한개발자' 서장원 대표 + 우리 대표님. 49분 회의 녹음을 전부 글로 풀어 분석했습니다.</p>
+<ul>
+<li><b>그들의 제안:</b> 지금 시스템을 자기 회사 방식으로 옮겨(=사실상 새로 만들어) AI 기능 1개를 얹는 데 <b>최소 6천만 원</b>, 전체를 하면 <b>3억 원 이상 / 6개월 이상</b>. 화상수업은 직접 만들지 말고 외부 제품을 사서 쓰라고 권함.</li>
+<li><b>진행 상황:</b> 크몽이 예산 옵션별 제안서를 이메일로 보내주기로 함 (아직 미도착 — 도착하면 항목별로 검증 보고서를 추가로 드립니다).</li>
+</ul>
+
+<h2>3. 그들의 말, 어디까지 맞을까</h2>
+
+<h3>✅ 맞는 말 — 우리가 받아들여 고칠 것</h3>
+<table>
+<tr><th>그들의 지적</th><th>우리의 개선 계획</th></tr>
+<tr><td>"화면과 기능이 너무 복잡하다. 처음 쓰는 사람이 헤맨다"</td><td>첫 화면을 <b>큰 버튼 3개</b>(수업 입장 / 복습·숙제 / 도움)로 단순화하고, 나머지는 안쪽으로. 새 기능은 원하는 사람만 켜게</td></tr>
+<tr><td>"좋은 기능도 안 쓰이면 소용없다"</td><td>어떤 메뉴가 실제로 쓰이는지 측정해서, 안 쓰는 기능은 정리</td></tr>
+<tr><td>"개발자가 한 명뿐이면 비상시 위험하다"</td><td>"부르면 와주는" 건별 비상 계약을 맺어 보험으로 (월 고정비 거의 없음 — 조건 요청서 이미 발송 준비 완료)</td></tr>
+<tr><td>"한 번에 다 만들지 말고 조금씩 계속 개선해야 한다"</td><td>동의 — 이미 우리는 매일 만들고, 검사하고, 배포하는 방식으로 일하고 있습니다</td></tr>
+</table>
+
+<h3>❌ 사실과 다른 말 — 걱정하지 않으셔도 되는 것</h3>
+<table>
+<tr><th>그들의 주장</th><th>실제 사실</th></tr>
+<tr><td>"화상수업을 직접 만들면 서버가 과열되고 불안정하고 돈이 많이 든다"</td><td>우리 화상수업은 <span class="term">P2P</span><sup>6</sup> 방식 — 영상이 학생↔강사 기기끼리 직접 오가고, 우리 소유의 서버 자체가 없는 <span class="term">서버리스</span><sup>7</sup> 구조라 "과열될 기계"가 없습니다. 이미 실수업에서 몇 주째 잘 돌아가고 있습니다</td></tr>
+<tr><td>"동시접속 20만 명은 매우 어려운 기술이다"</td><td>우리 수업은 1:1과 소그룹입니다. 20만 명은 우리와 상관없는 숫자로, 겁을 주는 화법에 가깝습니다</td></tr>
+<tr><td>"AI 비서는 하나의 큰 프로젝트라 비용이 많이 든다"</td><td>AI 상담직원·수업 코칭·판단력 훈련 등이 <b>이미 만들어져 운영 중</b>입니다. 운영비도 쓴 만큼만 내는 소액입니다</td></tr>
+<tr><td>"AI를 넣으려면 시스템을 다시 설계해야 한다"</td><td>AI가 이미 10군데 넘게 들어가 돌아가는 시스템입니다. 전제가 틀렸습니다</td></tr>
+<tr><td>제안한 AI 기능 예시: "수업 끝나면 자동 보고서"</td><td><b>이미 있습니다</b> — 수업 종료 시 강사 AI 코칭 카드, 월간 학습 리포트가 자동 생성됩니다</td></tr>
+</table>
+<div class="easy">💡 <b>왜 이런 차이가 났을까?</b> 회의 내용 대부분이 <b>2019년에 만든 옛 시스템</b>(외부 화상 프로그램 '세하' + 옛 결제 방식) 기준이었습니다. 개발사 대표는 우리 새 시스템의 핵심 기술을 "처음 들어본다"고 했습니다. 즉, 옛집을 보고 견적을 낸 셈인데 우리는 이미 새집에 살고 있습니다.</div>
+
+<h2>4. 두 가지 길 비교 — 다시 만들기 vs 지금 것을 키우기</h2>
+<table>
+<tr><th></th><th>A. 전면 재개발 (개발사 제안)</th><th>B. 현행 유지 + 보완 (권고안 ✅)</th></tr>
+<tr><td><b>비용</b></td><td>6천만 ~ 3억 원 이상</td><td>월 운영비 소액 + 비상 계약(건별) + 서버 이사비</td></tr>
+<tr><td><b>기간</b></td><td>6개월 이상</td><td>매일 조금씩 (이미 진행 중)</td></tr>
+<tr><td><b>8/15 서버 만료</b></td><td>❌ 해결 못 함 (완성 전에 만료)</td><td>✅ 이사만 바로 진행하면 됨</td></tr>
+<tr><td><b>기존 기능</b></td><td>일부만 재현될 위험 (게임·AI 등 소실 가능)</td><td>전부 유지</td></tr>
+<tr><td><b>위험</b></td><td>새 시스템 초기 불안정, 업체 의존</td><td>개발 인력 1축 의존 → 비상 계약으로 보완</td></tr>
+</table>
+
+<h2>5. 우리 시스템의 장점 · 단점 · 보완점 (솔직 평가)</h2>
+<div class="box good"><b class="tag">👍 장점</b><br>
+① 남들이 6천만 원 받고 만들어 주겠다는 것 이상을 이미 보유 ② 화상·게임·AI가 한 몸이라 경쟁사가 따라 하기 어려움 ③ 운영비가 매우 저렴(쓴 만큼만 내는 클라우드) ④ 매일 개선·배포하는 속도 ⑤ 백업·감시·보안 자동화 완비</div>
+<div class="box bad"><b class="tag">👎 단점 (인정할 것)</b><br>
+① 기능이 많아 처음 쓰는 사람에게 복잡함 ② 개발이 사실상 대표+AI 한 축에 의존(비상시 공백) ③ 옛 시스템의 "결제하면 수업 일정 자동 등록" 자동화가 아직 새 시스템에 미이식 ④ 낡은 서버(카페24)에 옛 데이터가 남아 있고 계약 만료 임박</div>
+<div class="box fix"><b class="tag">🔧 보완 계획</b><br>
+① 첫 화면 단순화 + 사용률 측정(8월) ② 건별 비상 대응 계약 체결(7월 내 조건 회신 요구) ③ <b>결제→수업 자동 등록 기능 이식</b>(서버 이사 후 최우선 — 매니저 수작업 제거) ④ <b>서버 이사(8/15 전)</b> — 이사 계획서 3종 이미 준비 완료</div>
+
+<h2>6. 앞으로 한 달, 일정</h2>
+<table>
+<tr><th>시기</th><th>할 일</th></tr>
+<tr><td>이번 주</td><td>① 카페24에 서버 접속(<span class="term">SSH</span><sup>8</sup>) 복구 요청 ② 크몽 제안서 도착 시 항목별 검증 ③ 비상 계약 조건 회신 받기(7/24까지)</td></tr>
+<tr><td>7월 말</td><td><span class="term">NCP</span><sup>9</sup> 새 서버 준비 → 데이터 이사 시작 (밤 시간 활용, 수업 지장 없음)</td></tr>
+<tr><td>8월 초</td><td>이사 완료·검증 → <span class="dday">8/15 계약 만료 전 마무리</span> → 결제 기록과 학생 연결 복원(현재 7월 매출 일부가 "주인 없는 돈"으로 잡히는 문제 해소)</td></tr>
+<tr><td>8월 중</td><td>결제→수업 자동 등록 이식, 첫 화면 단순화, 토스 결제 정식 오픈(<span class="term">PG 심사</span><sup>10</sup> 후)</td></tr>
+</table>
+
+<h2>7. 우리 각자의 역할</h2>
+<table>
+<tr><th>누가</th><th>무엇을</th></tr>
+<tr><td><b>대표님</b></td><td>결정과 계약(카페24 문의 전화, NCP 가입, 크몽 협상), 주 1회 우선순위 정하기</td></tr>
+<tr><td><b>개발 AI(클로드)</b></td><td>개발·수리·보안·서버 이사 실행 전부, 문서 최신화</td></tr>
+<tr><td><b>한국 매니저</b></td><td>① 옛 시스템의 결제·수업 규칙을 아는 대로 알려주기(자동화 이식의 정답지!) ② 새 기능 나오면 1주일 먼저 써보고 의견 ③ 불편·오류는 한 창구로 모아 신고 ④ 「비상 대응 원페이지」 숙지</td></tr>
+<tr><td><b>필리핀 강사·매니저</b></td><td>① 강사 화면(영어) 쓰면서 불편한 점 알려주기 ② 필리핀 인터넷 환경에서 화상 품질 확인 ③ 영문 교육 매뉴얼로 신입 강사 교육 ④ 수업 후 AI 리포트가 실제 도움 되는지 매달 의견</td></tr>
+</table>
+
+<h2>8. 용어 풀이 (부록)</h2>
+<table>
+<tr><th>#</th><th>용어</th><th>쉬운 설명</th></tr>
+<tr><td>1</td><td>클라우드 (Cloudflare)</td><td>우리 컴퓨터(서버)를 직접 사서 관리하는 대신, 전 세계에 컴퓨터를 깔아둔 회사 것을 빌려 쓰는 방식. 쓴 만큼만 돈을 내고, 고장·관리는 그 회사가 책임집니다. 우리는 '클라우드플레어'라는 회사를 씁니다</td></tr>
+<tr><td>2</td><td>판단력 훈련 (Judgment Engine)</td><td>단순 암기가 아니라 "AI 시대에 스스로 생각하고 판단하는 힘"을 기르는 우리만의 AI 훈련 기능. 한/영/중 3개 국어 지원</td></tr>
+<tr><td>3</td><td>API</td><td>프로그램 안의 기능 하나하나를 부르는 창구. "기능 370개"라고 이해하시면 됩니다</td></tr>
+<tr><td>4</td><td>SRS</td><td>시스템 전체를 정리한 설계·명세 문서. 어떤 개발자가 와도 이 문서만 보면 우리 시스템을 파악할 수 있게 만든 "집의 도면"</td></tr>
+<tr><td>5</td><td>크몽</td><td>개발자·디자이너 등 전문가를 소개해 주는 국내 외주 중개 사이트</td></tr>
+<tr><td>6</td><td>P2P</td><td>Person to Person. 영상통화가 중앙 서버를 거치지 않고 학생↔강사 기기끼리 직접 연결되는 방식. 그래서 서버 부담이 거의 없습니다</td></tr>
+<tr><td>7</td><td>서버리스</td><td>"서버 없음"이 아니라 "우리가 관리할 서버가 없음". 클라우드 회사가 알아서 컴퓨터를 늘렸다 줄였다 해 줍니다. 과열·전기세·기계 고장 걱정이 없습니다</td></tr>
+<tr><td>8</td><td>SSH</td><td>서버에 원격으로 접속하는 열쇠(통로). 지금 카페24 서버의 이 통로가 막혀 있어 몇 가지 작업이 대기 중입니다</td></tr>
+<tr><td>9</td><td>NCP</td><td>네이버 클라우드 플랫폼. 낡은 카페24 서버의 데이터를 옮겨갈 새 집(국내 서버라 개인정보 보관 규정에도 맞음)</td></tr>
+<tr><td>10</td><td>PG 심사</td><td>온라인 카드결제를 정식 오픈하기 전, 결제회사(토스페이먼츠)가 우리 사업자를 심사하는 절차. 통과하면 실제 결제가 열립니다</td></tr>
+</table>
+
+<p class="small">작성: 망고아이 개발 AI(클로드) · 근거 자료: SRS v2.1, 크몽 회의 녹음(49분) 전사, 회의 메모 31건, 개발 기록 전체 · 크몽 서면 제안서 도착 시 "항목별 검증 보고서"가 추가됩니다</p>
+
+</body></html>

@@ -96,6 +96,26 @@ export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
 
 // (seedGiftCatalog → api-points.ts, 11차)
 
+/* 🧱 (2026-08-06 동시접속 진단) 자가치유 DDL 을 «요청마다» 돌리지 않기 위한 isolate 단위 빗장.
+ *
+ *  왜 — 수업 입장(출결 기록) 한 번에 스키마 명령이 5개 실행되고 있었다:
+ *    CREATE TABLE attendance / ALTER ADD attended_at / ALTER ADD last_seen_at / CREATE INDEX
+ *    (+ sessions/today 의 CREATE TABLE class_schedules)
+ *  50명이 정각에 몰리면 실제 일을 하기도 전에 250개의 스키마 명령이 D1 에 먼저 쌓인다.
+ *  게다가 ALTER 두 개는 «항상 실패하는» 문장이라(이미 컬럼이 있으므로) 매번 예외까지 만들었다.
+ *
+ *  무엇을 지키고 무엇을 바꿨나 — 자가치유 «기능» 은 그대로 둔다(운영 D1 에 컬럼이 없을 수 있다는
+ *  전제는 여전히 유효하다). 다만 한 isolate 안에서 한 번만 돌린다. Workers 는 isolate 를 재사용하므로
+ *  사실상 대부분의 요청에서 사라진다. 새 isolate 가 뜨면 다시 한 번 돌아 자가치유는 계속 보장된다.
+ *  ⚠️ 실패하면 빗장을 걸지 않는다 — 한 번 삐끗했다고 영영 안 고치면 자가치유가 무너진다.
+ */
+const _ddlDone = new Set<string>();
+async function ensureSchemaOnce(key: string, run: () => Promise<void>): Promise<void> {
+  if (_ddlDone.has(key)) return;
+  try { await run(); _ddlDone.add(key); }
+  catch { /* 다음 요청에서 다시 시도 — 일부러 빗장을 걸지 않는다 */ }
+}
+
 export async function handleMangoApi(
   request: Request,
   url: URL,
@@ -526,7 +546,9 @@ export async function handleMangoApi(
       const date = today(now); // KST 기준 YYYY-MM-DD (대시보드 집계 키와 동일)
 
       // ── 2) 자가치유 ── 운영 D1 에 테이블/컬럼이 없을 수 있으므로 보강 (NOOP if exists)
-      try {
+      //   🧱 (2026-08-06) isolate 당 1회로 제한. 예전엔 입장 «요청마다» 아래 5개가 전부 돌았다.
+      await ensureSchemaOnce('attendance', async () => {
+        try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, user_id TEXT NOT NULL, username TEXT, role TEXT DEFAULT 'student', joined_at INTEGER NOT NULL, left_at INTEGER, status TEXT DEFAULT 'present', date TEXT, attended_at INTEGER, total_session_ms INTEGER DEFAULT 0, total_active_ms INTEGER DEFAULT 0, disconnect_count INTEGER DEFAULT 0, last_seen_at INTEGER);`);
       } catch {}
       try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN attended_at INTEGER`); } catch {} // 이미 있으면 무시
@@ -541,6 +563,7 @@ export async function handleMangoApi(
       //      그래서 클라이언트 시각이 아니라 반드시 '서버 시각'을 쓴다. D1 쓰기는 늘지 않는다(기존 UPDATE 에 컬럼만 추가).
       try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN last_seen_at INTEGER`); } catch {} // 이미 있으면 무시
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
+      });
 
       // ── 3) 오늘 수업 스케줄 조회(class_schedules) ── 입장이 "수업 시간 내" 인지 판정
       //    스케줄이 없으면 막지 않고 출석 인정(보수적 기본값 = true). → 버그 재발 방지 우선.
@@ -741,17 +764,33 @@ export async function handleMangoApi(
       //   반면 last_seen_at = '이 요청이 서버에 실제로 도착한 시각' 이므로 위조도 과다계상도 불가능하다.
       //   회선이 끊기면 이 갱신이 멈추고, 그 마지막 값이 곧 그 사람이 마지막으로 살아 있던 시각이 된다.
       //   D1 쓰기는 늘지 않는다 — 기존 UPDATE 문에 컬럼 하나만 더 얹었다.
+      /* 🔎 (2026-08-05) 「말하기 점수가 왜 비어 있는가」를 알 수 있게 진단값을 남긴다.
+         [실측] 최근 30일 attendance 4,513행 중 total_session_ms>0 은 4,293행(95%)인데
+                total_active_ms>0 은 581행(13%)뿐이다. 즉 수업 시간은 재는데 «발화» 만 0 이다.
+         원인 후보가 셋인데(마이크 분석기 미생성 / 마이크 꺼짐 / AudioContext suspended),
+         클라이언트는 이미 그 셋을 보내고 있었고 서버가 «그냥 버리고» 있었다.
+         → 한 칸(spk_diag)에 모아 둔다. 하루치 실제 수업이면 어느 원인인지 숫자로 갈린다.
+         추측으로 감지 로직을 고치면 과다·과소 집계가 나고, 그건 강사 평가에 그대로 간다.
+         ⚠️ 컬럼은 더하기만 한다(TEXT, NULL 허용). 기존 조회·집계에 영향 없음. */
+      const _spkDiag = [
+        'an=' + (b.has_analyser ? 1 : 0),
+        'mic=' + (b.mic_enabled ? 1 : 0),
+        'ac=' + String(b.ac_state || '?').slice(0, 12)
+      ].join(';');
       try {
         await env.DB.prepare(
           `UPDATE attendance
-           SET total_active_ms = ?, total_session_ms = ?, last_seen_at = ?
+           SET total_active_ms = ?, total_session_ms = ?, last_seen_at = ?, spk_diag = ?
            WHERE id = (
              SELECT id FROM attendance
              WHERE room_id = ? AND user_id = ? AND left_at IS NULL
              ORDER BY joined_at DESC LIMIT 1
            )`
-        ).bind(b.total_active_ms || 0, b.total_session_ms || 0, now, b.room_id, b.user_id).run();
+        ).bind(b.total_active_ms || 0, b.total_session_ms || 0, now, _spkDiag, b.room_id, b.user_id).run();
       } catch {
+        /* 컬럼이 아직 없는 배포본 → 한 번 만들어 두고, 이번 요청은 아래 기존 경로로 처리한다.
+           (여기서 재시도까지 하면 실패가 겹칠 때 수업 중 D1 쓰기가 늘어난다) */
+        try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN spk_diag TEXT`); } catch {}
         // 컬럼이 아직 없는 배포본 대비 폴백 — 발화시간 집계는 절대 멈추지 않게(기존 동작 유지)
         await env.DB.prepare(
           `UPDATE attendance
@@ -1374,9 +1413,10 @@ export async function handleMangoApi(
     //   ▸ 입장 시간창(join_open)도 서버(신뢰 시계)가 계산 → "너무 일찍/늦게" 입장 방지.
     //   query: ?user_id=X | ?student_name=Y (학생) · ?role=teacher&user_id=teacherUid | &student_name=강사명 (교사)
     if (method === 'GET' && path === '/api/class/sessions/today') {
-      try {
+      // 🧱 (2026-08-06) isolate 당 1회 — 이 API 는 학생·교사 양쪽이 입장할 때마다 부른다(정각 폭주 경로).
+      await ensureSchemaOnce('class_schedules', async () => {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
-      } catch {}
+      });
       const url = new URL(request.url);
       const userId = (url.searchParams.get('user_id') || '').trim();
       const nameParam = (url.searchParams.get('student_name') || '').trim();
@@ -1384,33 +1424,56 @@ export async function handleMangoApi(
       const isTeacher = role === 'teacher' || role === 'admin';
 
       // ── 대상 예약 수집 조건 (신원: uid 우선, 없으면 이름으로 보강) ──
-      const conds: string[] = [];
-      const binds: any[] = [];
+      /* 🎯 (2026-08-06 동시접속 진단) 신원 조회를 «2단계» 로 나눈다 — 계정 ID 우선, 이름은 폴백.
+       *
+       *  [예전 구조와 그 사고]
+       *   조건을 전부 OR 로 묶어 한 번에 조회했다. 그래서 계정 ID 가 정확해도 «이름이 같은 남»의
+       *   예약까지 목록에 섞였고, 자동입장은 «지금 시각에 가장 가까운 수업»을 고르므로
+       *   남의 방으로 들어갈 수 있었다.
+       *   · 강사 실사례: teachers 'FAR'(id 22, 담당 35건) 가 'HT FARRAH'(id 3) 안에 들어 있어
+       *     FARRAH 로 조회하면 FAR 의 수업 35건이 함께 나왔다(부분일치 양방향).
+       *   · 학생: 동명이인이 실제로 많다(김민서 71명·김민준 56명). 지금 사고가 안 난 것은
+       *     예약이 걸린 663명 중 이름이 겹치는 쌍이 «아직» 없어서일 뿐이다.
+       *
+       *  [새 구조] 1차 = 계정 ID 로만 조회. 오늘 수업이 하나라도 잡히면 거기서 끝.
+       *           2차 = 1차가 0건일 때만 이름으로 조회(예전 완화책을 그대로 보존).
+       *   → 계정이 제대로 연결된 사람에게는 남의 수업이 절대 섞이지 않고,
+       *     계정 연결이 어긋난 사람(2026-07-24 에 완화했던 그 경우)은 예전처럼 이름으로 구제된다.
+       *  ⚠️ 매칭을 «좁히기만» 한다. 예전에 찾아지던 사람이 못 찾아지는 경우는 없다.
+       */
+      const condsUid: string[] = [];
+      const bindsUid: any[] = [];
+      const condsName: string[] = [];
+      const bindsName: any[] = [];
+
       if (isTeacher) {
-        if (userId) { conds.push('cs.teacher_id = ?'); binds.push(userId); }
+        if (userId) { condsUid.push('cs.teacher_id = ?'); bindsUid.push(userId); }
         if (nameParam) {
           try {
             // 🔧 (2026-07-24 실사고) 로그인 계정명(admin_account.name, 예:'강선생님')과
             //   teachers.name(예:'중국어 강선생님') 표기가 다를 수 있어 완전일치면 매칭 실패 →
             //   교사가 "오늘 예약된 수업 없음"으로 오판, 학생과 다른 방(mangoi-class)에 들어가 못 만났다.
-            //   부분일치(양방향)로 완화.
+            //   부분일치(양방향)로 완화. — 이 완화는 유지하되 «완전일치가 있으면 그쪽만» 쓴다.
             const rs = await env.DB.prepare(
-              `SELECT CAST(id AS TEXT) AS tid FROM teachers WHERE name = ? OR name LIKE ('%' || ? || '%') OR (length(name) > 0 AND ? LIKE ('%' || name || '%'))`
-            ).bind(nameParam, nameParam, nameParam).all<any>();
-            for (const x of (rs.results || [])) { if (x.tid) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); } }
+              `SELECT CAST(id AS TEXT) AS tid, (name = ?) AS exact FROM teachers WHERE name = ? OR name LIKE ('%' || ? || '%') OR (length(name) > 0 AND ? LIKE ('%' || name || '%'))`
+            ).bind(nameParam, nameParam, nameParam, nameParam).all<any>();
+            const all = (rs.results || []).filter((x: any) => x.tid);
+            const exact = all.filter((x: any) => Number(x.exact) === 1);
+            // 이름이 정확히 일치하는 강사가 있으면 부분일치분은 버린다(FAR ⊂ HT FARRAH 오염 차단)
+            for (const x of (exact.length ? exact : all)) { condsName.push('cs.teacher_id = ?'); bindsName.push(x.tid); }
           } catch {}
         }
       } else {
-        if (userId) { conds.push('cs.user_id = ?'); binds.push(userId); }
+        if (userId) { condsUid.push('cs.user_id = ?'); bindsUid.push(userId); }
         if (nameParam) {
-          conds.push('cs.student_name = ?'); binds.push(nameParam);
+          condsName.push('cs.student_name = ?'); bindsName.push(nameParam);
           try {
             const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(nameParam, nameParam).all<any>();
-            for (const x of (rs.results || [])) { if (x.uid) { conds.push('cs.user_id = ?'); binds.push(x.uid); } }
+            for (const x of (rs.results || [])) { if (x.uid) { condsName.push('cs.user_id = ?'); bindsName.push(x.uid); } }
           } catch {}
         }
       }
-      if (!conds.length) return json({ ok: false, error: 'identity_required', sessions: [], current: null }, 400);
+      if (!condsUid.length && !condsName.length) return json({ ok: false, error: 'identity_required', sessions: [], current: null }, 400);
 
       // ── KST(UTC+9) 기준 오늘 날짜/요일 계산 (Workers 는 UTC 라 명시 변환) ──
       const now = Date.now();
@@ -1446,46 +1509,60 @@ export async function handleMangoApi(
       const OPEN_BEFORE = 10 * 60 * 1000; // 시작 10분 전부터 입장 허용
       const LATE_AFTER = 15 * 60 * 1000;  // 종료 15분 후까지 지각 입장 허용
 
-      const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
-      const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
-      const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status FROM class_schedules cs WHERE ${whereSql}`;
-      let rows: any;
-      try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
-      catch { rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>(); }
+      /** 조건 한 벌로 «오늘 발생하는» 수업 목록을 만든다. 2단계 조회(ID → 이름)에서 두 번 쓰인다. */
+      const runPass = async (conds: string[], binds: any[]): Promise<any[]> => {
+        if (!conds.length) return [];
+        const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
+        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
+        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status FROM class_schedules cs WHERE ${whereSql}`;
+        let rows: any;
+        try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
+        catch { rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>(); }
 
-      const seen = new Set<number>();
-      const sessions: any[] = [];
-      for (const s of (rows.results || [])) {
-        if (seen.has(s.id)) continue;
-        // 오늘 발생하는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
-        let occurs = false;
-        if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
-        else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
-        if (!occurs) continue;
-        seen.add(s.id);
-        const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
-        const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
-        const dur = Number(s.duration_min) || 30;
-        const end_ts = start_ts + dur * 60000;
-        const open_at_ts = start_ts - OPEN_BEFORE;
-        const close_at_ts = end_ts + LATE_AFTER;
-        let status: string;
-        if (now < open_at_ts) status = 'early';
-        else if (now < start_ts) status = 'open';
-        else if (now <= close_at_ts) status = 'live';
-        else status = 'ended';
-        const join_open = now >= open_at_ts && now <= close_at_ts;
-        sessions.push({
-          schedule_id: s.id,
-          room_id: `class-${s.id}-${ymd}`, // ← 결정론적: 같은 예약 → 항상 같은 방
-          student_uid: s.user_id,
-          student_name: s.student_name || null,
-          teacher_id: s.teacher_id || null,
-          teacher_name: s.teacher_name || null,
-          start_ts, end_ts, open_at_ts, close_at_ts,
-          duration_min: dur, status, join_open,
-          starts_in_ms: start_ts - now,
-        });
+        const seen = new Set<number>();
+        const out: any[] = [];
+        for (const s of (rows.results || [])) {
+          if (seen.has(s.id)) continue;
+          // 오늘 발생하는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
+          let occurs = false;
+          if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
+          else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
+          if (!occurs) continue;
+          seen.add(s.id);
+          const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+          const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
+          const dur = Number(s.duration_min) || 30;
+          const end_ts = start_ts + dur * 60000;
+          const open_at_ts = start_ts - OPEN_BEFORE;
+          const close_at_ts = end_ts + LATE_AFTER;
+          let status: string;
+          if (now < open_at_ts) status = 'early';
+          else if (now < start_ts) status = 'open';
+          else if (now <= close_at_ts) status = 'live';
+          else status = 'ended';
+          const join_open = now >= open_at_ts && now <= close_at_ts;
+          out.push({
+            schedule_id: s.id,
+            room_id: `class-${s.id}-${ymd}`, // ← 결정론적: 같은 예약 → 항상 같은 방
+            student_uid: s.user_id,
+            student_name: s.student_name || null,
+            teacher_id: s.teacher_id || null,
+            teacher_name: s.teacher_name || null,
+            start_ts, end_ts, open_at_ts, close_at_ts,
+            duration_min: dur, status, join_open,
+            starts_in_ms: start_ts - now,
+          });
+        }
+        return out;
+      };
+
+      // 1차 = 계정 ID 로만. 2차 = 1차가 0건일 때만 이름으로(계정 연결이 어긋난 사람 구제).
+      let matchedBy: 'uid' | 'name' | 'none' = 'none';
+      let sessions = await runPass(condsUid, bindsUid);
+      if (sessions.length) matchedBy = 'uid';
+      else {
+        sessions = await runPass(condsName, bindsName);
+        if (sessions.length) matchedBy = 'name';
       }
       sessions.sort((a, b) => a.start_ts - b.start_ts);
 
@@ -1495,7 +1572,13 @@ export async function handleMangoApi(
       if (joinable.length) current = joinable.sort((a, b) => Math.abs(a.start_ts - now) - Math.abs(b.start_ts - now))[0];
       else { const up = sessions.filter(x => x.status === 'early'); if (up.length) current = up[0]; }
 
-      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current });
+      /* 🚪 student_gate — 학생을 공용방으로 흘려보내지 않는 기능의 on/off 를 «서버가» 알려 준다.
+         화면(index.html)은 정적 파일이라 wrangler 변수를 직접 못 읽는다. 이 API 는 학생이
+         입장을 누르는 바로 그 지점에서 호출되므로, 여기에 실어 보내는 것이 가장 확실하다.
+         ⛔ 기본 'off' — 지금 켜면 실제 학생 예약이 6건뿐이라 대다수가 입장 불가가 된다(wrangler.toml 주석 참고). */
+      const studentGate = ((env as any).VC_STUDENT_ROOM_GATE === 'on') ? 'on' : 'off';
+      // matched_by: 'uid'=계정 ID 로 찾음(가장 안전) · 'name'=이름 폴백(계정 연결 어긋남 → 운영에서 고쳐야 할 대상)
+      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate });
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
@@ -2834,6 +2917,18 @@ ${numbered}`;
       if (status && status !== 'all') {
         whereParts.push('r.status = ?');
         whereBinds.push(status);
+      }
+      /* 🧹 (2026-08-05) 0초짜리 «부산물» 행은 기본 목록에서 감춘다.
+         [무엇인가] R2 멀티파트는 마지막이 아닌 파트가 «5MiB 고정» 이라, 그만큼 안 모이면
+           올릴 파트가 하나도 없다. 이때 브라우저는 R2 에 쓰레기를 남기지 않으려고 abort 한다.
+           즉 status='aborted' + size 0 은 «사고» 가 아니라 «올바른 뒷정리» 다.
+         [언제 생기나] 새로고침·재입장처럼 방에 잠깐 들어왔다 나가면 그 조각마다 한 행씩 생긴다.
+           [실측 7일] 정규수업 24건 중 6건, 회의·공용 106건 중 40건이 이것이었다.
+         [왜 감추나] 진짜 봐야 할 것은 「저장 실패」와 「준비중」이다. 0초 행이 목록을 채우면
+           강사·관리자가 그 둘을 못 찾는다. 실제 수업 영상이 아니므로 숨겨도 잃는 것이 없다.
+         ⚠️ 지우지 않는다. 감추기만 한다 — ?status=aborted 로 부르면 그대로 다 보인다(원인 추적용). */
+      if (!status || status === 'all') {
+        whereParts.push("NOT (r.status = 'aborted' AND COALESCE(r.size_bytes, 0) = 0)");
       }
       const whereSQL = whereParts.length ? ('WHERE ' + whereParts.join(' AND ')) : 'WHERE 1=1';
 

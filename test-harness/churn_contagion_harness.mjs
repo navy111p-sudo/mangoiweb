@@ -101,7 +101,10 @@ check('cron: NEO4J_QUERY_URL 게이트(미설정 시 skip)',
 console.log('\n[5] admin.html 리텐션 센터 허브');
 const html = allAdm();
 check('허브 스크립트 존재(initRetentionCenterHub)', html.includes('initRetentionCenterHub'));
-check('허브 CSS 존재(rc-hub-css)', html.includes('id="rc-hub-css"'));
+// (2026-08-04) 스타일이 admin.html 인라인이든 /css/admin-inline-*.css 로 빠졌든 둘 다 인정한다.
+//   빼낼 때 원래 <style> 의 id 를 «/* ── [style#rc-hub-css] ── */» 주석으로 보존해 뒀다.
+check('허브 CSS 존재(rc-hub-css)',
+  html.includes('id="rc-hub-css"') || html.includes('[style#rc-hub-css]'));
 check('허브 카드 id = card-retention-center', html.includes("hub.id = 'card-retention-center'"));
 const memberBlock = html.slice(html.indexOf('var MEMBERS = ['), html.indexOf('var MEMBER_CARD_IDS'));
 check('멤버: 전염 위험 탭(__contagion)', memberBlock.includes("'__contagion'"));

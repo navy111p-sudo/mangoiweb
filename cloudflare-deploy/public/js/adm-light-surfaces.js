@@ -370,6 +370,27 @@
     document.addEventListener('mangoi:lang-changed', function () { schedule(300); });
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
+  // ⏳ (2026-08-04) 스타일시트가 «실제로 적용된 뒤» 에 시작한다.
+  //   이 보정기는 getComputedStyle 로 «지금 색» 을 읽어 다시 칠한다. 그래서 CSS 가 아직
+  //   안 붙은 상태에서 읽으면 엉뚱한 시작색을 보고 다른 결과를 쓴다.
+  //   DOMContentLoaded 는 스타일시트를 기다려 주지 않는다 — 그래서 링크의 sheet 가
+  //   채워졌는지 직접 확인한다. (CSS 를 외부 파일로 빼면 이 차이가 사이드바 글자색으로 드러났다)
+  function whenCssReady(cb) {
+    var links = [];
+    try { links = Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')); } catch (e) {}
+    var pending = links.filter(function (l) { try { return !l.sheet; } catch (e) { return true; } });
+    if (!pending.length) return cb();
+    var left = pending.length, fired = false;
+    function done() { if (--left <= 0 && !fired) { fired = true; cb(); } }
+    pending.forEach(function (l) {
+      l.addEventListener('load', done, { once: true });
+      l.addEventListener('error', done, { once: true });   // 못 받아도 진행 (안 칠하는 것보다 낫다)
+    });
+    // 안전망 — 어떤 이유로 load 가 안 와도 3초 뒤에는 반드시 시작한다
+    setTimeout(function () { if (!fired) { fired = true; cb(); } }, 3000);
+  }
+
+  function boot() { whenCssReady(start); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();

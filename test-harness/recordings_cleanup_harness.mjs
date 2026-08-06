@@ -74,7 +74,7 @@ console.log('\n[1] 기본 고아 탐지 (D1=A,B,C / R2=A,B,C,D → D만 삭제)'
     { key: 'rec/r2/C.webm', size: 300 }, { key: 'rec/r2/D.webm', size: 400 },
   ]);
   const env = { DB: fakeDB(['rec/r1/A.webm','rec/r1/B.webm','rec/r2/C.webm']), RECORDINGS: R2, SESSION_STATE: fakeKV() };
-  const r = await purgeOrphanedRecordings(env);
+  const r = await purgeOrphanedRecordings(env, { deleteOrphans: true });
   eq('총 객체 4', r.total_objects, 4);
   eq('known 3', r.known_keys, 3);
   eq('고아 1', r.orphan_count, 1);
@@ -93,7 +93,7 @@ console.log('\n[2] 페이지네이션 (10객체, pageSize=3 → 4페이지 전�
   // D1엔 0~7만 등록 → 8,9가 고아 (2/10=20% < 50% 통과)
   const known = objs.slice(0, 8).map(o => o.key);
   const env = { DB: fakeDB(known), RECORDINGS: R2, SESSION_STATE: fakeKV() };
-  const r = await purgeOrphanedRecordings(env);
+  const r = await purgeOrphanedRecordings(env, { deleteOrphans: true });
   eq('총 객체 10 (모든 페이지 순회)', r.total_objects, 10);
   eq('고아 2', r.orphan_count, 2);
   eq('삭제된 key = 8,9', R2._deleted.sort(), ['rec/p/8.webm','rec/p/9.webm']);
@@ -104,7 +104,7 @@ console.log('\n[3] 안전장치 (D1 비어있음 → 100% 고아 → 전량삭�
 {
   const R2 = fakeR2([{ key: 'rec/x/1.webm', size: 1 }, { key: 'rec/x/2.webm', size: 1 }]);
   const env = { DB: fakeDB([]), RECORDINGS: R2, SESSION_STATE: fakeKV() };
-  const r = await purgeOrphanedRecordings(env);
+  const r = await purgeOrphanedRecordings(env, { deleteOrphans: true });
   eq('안전장치 발동', r.aborted_by_guard, true);
   eq('삭제 0 (사고 방지)', r.deleted_count, 0);
   eq('R2 실제 삭제 0', R2._deleted.length, 0);
@@ -114,7 +114,7 @@ console.log('   └ 경계값: 정확히 50%도 차단되어야 함 (2객체 중
 {
   const R2 = fakeR2([{ key: 'rec/y/keep.webm' }, { key: 'rec/y/orphan.webm' }]);
   const env = { DB: fakeDB(['rec/y/keep.webm']), RECORDINGS: R2, SESSION_STATE: fakeKV() };
-  const r = await purgeOrphanedRecordings(env);
+  const r = await purgeOrphanedRecordings(env, { deleteOrphans: true });
   eq('50% 경계 차단', r.aborted_by_guard, true);
   eq('삭제 0', R2._deleted.length, 0);
 }
@@ -129,7 +129,7 @@ console.log('\n[4] grace period (방금 올라온 미완료 업로드 보호)');
     { key: 'rec/g/keep2.webm', size: 50, ageDays: 10 },
   ]);
   const env = { DB: fakeDB(['rec/g/keep.webm','rec/g/keep2.webm']), RECORDINGS: R2, SESSION_STATE: fakeKV() };
-  const r = await purgeOrphanedRecordings(env);
+  const r = await purgeOrphanedRecordings(env, { deleteOrphans: true });
   eq('최근건 skip 1', r.skipped_recent, 1);
   eq('삭제 1 (old만)', r.deleted_count, 1);
   eq('fresh 보호됨', R2._deleted.includes('rec/g/fresh.webm'), false);
@@ -144,10 +144,18 @@ console.log('\n[5] dry-run (미리보기 — 카운트는 잡되 실제 삭제 0
     { key: 'rec/d/C.webm', size: 100 }, { key: 'rec/d/orphan.webm', size: 100 },
   ]);
   const env = { DB: fakeDB(['rec/d/A.webm','rec/d/B.webm','rec/d/C.webm']), RECORDINGS: R2, SESSION_STATE: fakeKV() };
-  const r = await purgeOrphanedRecordings(env, { dryRun: true });
+  // dryRun + deleteOrphans → «지운다면 몇 건인지» 를 보고한다(실제로는 안 지움)
+  const r = await purgeOrphanedRecordings(env, { dryRun: true, deleteOrphans: true });
   eq('dry_run 플래그', r.dry_run, true);
   eq('고아 카운트는 보고(1)', r.orphan_count, 1);
   eq('deleted_count 보고(1)', r.deleted_count, 1);
+
+  // 🔴 기본값 확인 — 플래그 없이 부르면 «분석만» 하고 한 건도 안 지운다(2026-08-05 사장님 지시)
+  const r0 = await purgeOrphanedRecordings(env, {});
+  eq('기본값: 고아는 세지만', r0.orphan_count, 1);
+  eq('기본값: 삭제는 0', r0.deleted_count, 0);
+  eq('기본값: 지운 용량도 0', r0.deleted_bytes, 0);
+  check('기본값: «삭제 안 함» 안내가 남는다', r0.errors.some(e => e.includes('삭제 안 함')));
   eq('🔒 실제 R2 삭제 0', R2._deleted.length, 0);
 }
 
@@ -156,7 +164,7 @@ console.log('\n[6] D1 실패 안전 (조회 에러 시 전부 고아 오판 방�
 {
   const R2 = fakeR2([{ key: 'rec/f/1.webm' }, { key: 'rec/f/2.webm' }]);
   const env = { DB: fakeDB([], { fail: true }), RECORDINGS: R2, SESSION_STATE: fakeKV() };
-  const r = await purgeOrphanedRecordings(env);
+  const r = await purgeOrphanedRecordings(env, { deleteOrphans: true });
   eq('중단됨', r.aborted_by_guard, true);
   eq('R2 삭제 0', R2._deleted.length, 0);
   check('D1 에러 기록', r.errors.some(e => e.includes('D1')));
@@ -166,7 +174,7 @@ console.log('\n[6] D1 실패 안전 (조회 에러 시 전부 고아 오판 방�
 console.log('\n[7] R2 바인딩 없음 (로컬 환경 graceful)');
 {
   const env = { DB: fakeDB(['x']), SESSION_STATE: fakeKV() };
-  const r = await purgeOrphanedRecordings(env);
+  const r = await purgeOrphanedRecordings(env, { deleteOrphans: true });
   eq('삭제 0', r.deleted_count, 0);
   check('스킵 메시지', r.errors.some(e => e.includes('바인딩')));
 }
@@ -184,12 +192,49 @@ console.log('\n[8] prefix 한정 + KV last_run 기록');
   const env2 = { DB: fakeDB(['tmp/junk1.webm','tmp/junk2.webm']), RECORDINGS: fakeR2([
     { key: 'rec/keepzone/a.webm' }, { key: 'tmp/junk1.webm' }, { key: 'tmp/junk2.webm' }, { key: 'tmp/junk3.webm' },
   ]), SESSION_STATE: kv };
-  const r = await purgeOrphanedRecordings(env2, { prefix: 'tmp/' });
+  const r = await purgeOrphanedRecordings(env2, { prefix: 'tmp/', deleteOrphans: true });
   eq('prefix 범위만 카운트(3)', r.total_objects, 3);
   eq('keepzone 무시', r.deleted_keys.includes('rec/keepzone/a.webm'), false);
   eq('junk3 삭제', r.deleted_keys, ['tmp/junk3.webm']);
   const saved = await kv.get('recordings-cleanup:last_run');
   check('KV last_run 저장됨', !!saved && JSON.parse(saved).deleted_count === 1);
+}
+
+// ── 9) 🔴 기본 청소 범위는 «rec/ 안» 이다 (2026-08-05 사장님 지시) ────────
+//   왜 못박는가: 예전 기본값은 «전 버킷» 이었다. 이 버킷에는 녹화가 아닌 파일도 들어 있고
+//   (레거시 업로드가 «방번호/날짜/…» 로 D1 기록 없이 저장한다), 실제 운영에서
+//   42,264개 중 41,880개(99.1%)가 고아로 잡혀 50% 안전장치가 삭제를 막았다.
+//   그 장치 하나가 4만 개를 지켰다. 기본 범위가 다시 «전체» 로 돌아가면 그 위험이 되살아난다.
+console.log('\n[9] 기본 범위 = rec/ (녹화 아닌 파일은 후보에도 안 든다)');
+{
+  const R2 = fakeR2([
+    { key: 'rec/class-1/a.webm' },        // 녹화 · D1 등록 → 보존
+    { key: 'rec/class-1/c.webm' },        // 녹화 · D1 등록 → 보존
+    { key: 'rec/class-1/d.webm' },        // 녹화 · D1 등록 → 보존
+    { key: 'rec/class-1/b.webm' },        // 녹화 · 미등록  → 고아 (1/4=25%, 안전장치 미발동)
+    { key: '850/2026-08-05/textbook.pdf' }, // 레거시 업로드(수업 자료) → 후보에 들면 안 됨
+    { key: '850/2026-08-05/photo.png' },    // 〃
+    { key: '_test/ping.txt' },              // 연결 테스트 파일 → 후보에 들면 안 됨
+  ]);
+  const env = { DB: fakeDB(['rec/class-1/a.webm','rec/class-1/c.webm','rec/class-1/d.webm']), RECORDINGS: R2, SESSION_STATE: fakeKV() };
+  const r = await purgeOrphanedRecordings(env, { dryRun: true });
+  eq('rec/ 안의 객체만 센다(4)', r.total_objects, 4);
+  eq('고아는 rec/ 안에서만(1)', r.orphan_count, 1);
+  check('수업 자료(textbook.pdf)는 후보에 없다', !r.deleted_keys.includes('850/2026-08-05/textbook.pdf'));
+  check('사진(photo.png)도 후보에 없다', !r.deleted_keys.includes('850/2026-08-05/photo.png'));
+  check('테스트 파일(_test/)도 후보에 없다', !r.deleted_keys.includes('_test/ping.txt'));
+  check('안전장치에 기대지 않는다 — 애초에 후보가 아니다', r.aborted_by_guard === false);
+}
+
+// ── 10) 전 버킷 청소는 «명시적으로만» 가능 ───────────────────────────────
+console.log('\n[10] 전 버킷은 prefix:"" 를 «직접» 넣어야만 열린다');
+{
+  const R2 = fakeR2([
+    { key: 'rec/class-1/a.webm' }, { key: '850/2026-08-05/textbook.pdf' },
+  ]);
+  const env = { DB: fakeDB(['rec/class-1/a.webm']), RECORDINGS: R2, SESSION_STATE: fakeKV() };
+  const r = await purgeOrphanedRecordings(env, { dryRun: true, prefix: '' });
+  eq('prefix:"" 면 전체를 본다(2)', r.total_objects, 2);
 }
 
 // ── 정리 ──────────────────────────────────────────────────────────────

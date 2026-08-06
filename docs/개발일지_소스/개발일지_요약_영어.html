@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mangoi Development Diary — One-Page Summary</title>
+<style>
+  @page { size: A4; margin: 6mm 7mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    color: #1e293b; font-size: 10pt; line-height: 1.5; -webkit-print-color-adjust: exact;
+  }
+  .head {
+    background: linear-gradient(90deg, #fde68a, #fcd34d);
+    border-left: 7px solid #b45309; border-radius: 6px;
+    padding: 6px 13px; margin-bottom: 6px;
+  }
+  .head h1 { margin: 0; font-size: 13pt; color: #78350f; font-weight: 900; letter-spacing: -.03em; }
+  .head p  { margin: 3px 0 0; font-size: 9pt; color: #92400e; font-weight: 700; }
+
+  .legend {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    font-size: 8.2pt; color: #475569; margin-bottom: 6px; padding-left: 3px;
+  }
+  .legend b { font-weight: 800; }
+  .lg-did  { color: #15803d; }
+  .lg-next { color: #1d4ed8; }
+
+  /* ── one date = two lines (Done / Next) ── */
+  .row {
+    display: flex; align-items: stretch;
+    border: 1.4px solid #e2e8f0; border-radius: 7px;
+    margin-bottom: 3.4px; overflow: hidden; background: #fff;
+    page-break-inside: avoid;
+  }
+  .row .d {
+    flex: 0 0 54px; background: #f1f5f9; border-right: 1.4px solid #e2e8f0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 6px 2px;
+  }
+  .row .d b   { font-size: 11.6pt; font-weight: 900; color: #1e3a8a; line-height: 1.05; letter-spacing: -.04em; }
+  .row .d span{ font-size: 7.8pt; color: #64748b; font-weight: 700; margin-top: 1px; }
+
+  .row .c { flex: 1; padding: 3.5px 9px 4px; }
+  .row .c p { margin: 0; font-size: 8.1pt; line-height: 1.4; }
+  .row .c p + p { margin-top: 2px; padding-top: 2px; border-top: 1px dashed #e2e8f0; }
+  .row .c p b.tag {
+    display: inline-block; min-width: 34px; text-align: center;
+    font-size: 7.8pt; font-weight: 900; border-radius: 99px;
+    padding: 1px 7px; margin-right: 6px; vertical-align: 1.5px;
+  }
+  .did  b.tag { background: #dcfce7; color: #15803d; }
+  .next b.tag { background: #dbeafe; color: #1d4ed8; }
+  .row .c p.next { color: #334155; }
+
+  /* today */
+  .row.today { border-color: #f59e0b; border-width: 2px; background: #fffbeb; }
+  .row.today .d { background: #fcd34d; border-right-color: #f59e0b; }
+  .row.today .d b { color: #78350f; }
+  .row.today .d span { color: #92400e; }
+
+  /* 할 것의 완료 여부 — 줄 맨 오른쪽 */
+  .st { float: right; margin-left: 9px; font-size: 7.2pt; font-weight: 900;
+        border-radius: 99px; padding: 1.5px 8px; letter-spacing: .05em; }
+  .st-done { background: #16a34a; color: #fff; }
+  .st-not  { background: #fff; color: #94a3b8; border: 1px solid #cbd5e1; }
+
+  /* 한 줄씩 번갈아 색을 바꿔 눈이 줄을 안 놓치게 */
+  .list .row:nth-child(even) { background: #f1f7fd; border-color: #cfe0f3; }
+  .list .row:nth-child(even) .d { background: #dbeafe; border-right-color: #cfe0f3; }
+  .list .row:nth-child(even) .d b { color: #1d4ed8; }
+  .list .row:nth-child(odd)  { background: #fffdf6; border-color: #f0e3c8; }
+  .list .row:nth-child(odd) .d { background: #fdf3d9; border-right-color: #f0e3c8; }
+  .list .row:nth-child(odd) .d b { color: #92400e; }
+  .list .row.today { background: #fffbeb; border-color: #f59e0b; border-width: 2px; }
+  .list .row.today .d { background: #fcd34d; border-right-color: #f59e0b; }
+  .list .row.today .d b { color: #78350f; }
+  .foot { margin-top: 4px; font-size: 8pt; color: #94a3b8; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Mangoi Development Diary — One-Page Summary</h1>
+  <p>22 July – 5 August 2026 · two lines per day · today at the top</p>
+</div>
+
+<div class="legend">
+  <span class="lg-did"><b>■ DID</b> — finished that day</span>
+  <span class="lg-next"><b>■ TO DO</b> — left open that day</span>
+  <span style="margin-left:auto"><b style="background:#16a34a;color:#fff;border-radius:99px;padding:1.5px 8px;font-size:7.2pt">DONE</b> resolved &nbsp;<b style="background:#fff;color:#94a3b8;border:1px solid #cbd5e1;border-radius:99px;padding:1.5px 8px;font-size:7.2pt">NOT YET</b> still open</span>
+</div>
+
+<div class="list">
+
+<div class="row today">
+  <div class="d"><b>8/5</b><span>Wed</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Fixed <b>4 separate causes</b> of class recordings going missing, and built a <b>light class screen</b> for Philippine connections (4 gears, shifts automatically).</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b><b>Please change the leaked staff password.</b> Extended-class teacher pay still isn't applied automatically.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>8/4</b><span>Tue</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Added <b>speaking to all 21 learning games</b>, and reviewed all 25 of manager Melca's requests (<b>12 already existed</b>).</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b>A <b>staff guide showing where each feature is</b> comes before more development. Keep making the admin console lighter.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>8/3</b><span>Mon</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Built the new game <b>«Avatar Quest» in a single day</b>, and corrected screens that <b>looked successful while nothing worked.</b></p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b><b>Change the staff password</b> that was in the public file. Sweep for any remaining screens showing invented numbers.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>8/2</b><span>Sun</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Built a <b>teacher-only screen</b> and cut the doors into class from <b>4 down to 1</b> (1.3MB → 21KB).</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b><b>Textbook and level are empty for all 29,377 students.</b> That data must be filled in before personalised questions show.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>8/1</b><span>Sat</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Shipped the new game <b>«Space Monster Hunt»</b>, and solved the stutter when virtual background + mask were both on, with <b>automatic quality shifting.</b></p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">TO DO</b>Make the new game <b>run properly on phones.</b> Add more escape-game locations.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/31</b><span>Fri</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Measured out <b>3 layered causes</b> of the gun not lining up with the target, and fixed the <b>judgment index that wouldn't move</b>, across three rounds.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b><b>Switch on automatic recurring billing</b> (the current key is a test key). Confirm recordings stop going missing.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/30</b><span>Thu</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Replaced game and menu artwork with <b>real photographs</b>, and fixed scoring that gave <b>100 points for slurred pronunciation.</b></p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b><b>Tell parents and students about the 7 point types</b> (never communicated yet). Target for real payments: <b>15 August.</b></p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/29</b><span>Wed</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Added <b>real-time 3-language translation</b> to class chat, and fixed <b>3 urgent class incidents</b> hitting Filipino teachers.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">TO DO</b><b>Please send the list of overseas staff accounts.</b> Right now the language is guessed from the name.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/28</b><span>Tue</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Built the <b>P-38 3D flight game</b> and a <b>speak-to-open escape game</b>, and split the home screen for visitors vs. members.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b>Deploy the <b>5.8MB saving</b> on the home screen (verified already, held back by overlapping work).</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/27</b><span>Mon</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Opened access for <b>227 teachers who had no account at all</b>, and closed <b>3 class-room holes</b> that were reachable without authentication.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">TO DO</b>Confirm on-site that <b>real teachers can actually get in</b> with the opened accounts. Polish the 3D tank game.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/26</b><span>Sun</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Restructured the AI vocabulary book into <b>Preview → Learn → Review → Test</b>, and let teachers and admins log in from the student home.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">TO DO</b><b>Please log in once with a real teacher / branch account.</b> Only the failure path was checked, with a dummy account.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/25</b><span>Sat</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Completed the <b>parent report card</b> in 4 stages, and blocked <b>AI-written comments going to parents without teacher approval.</b></p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b>Make that approval step routine — report-card wording must go out <b>only after a teacher approves.</b></p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/24</b><span>Fri</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Fixed 3 reported video-class problems at the root, then re-reviewed my own work and caught <b>6 more.</b> Also closed a <b>silent server-cost leak.</b></p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b><b>Please confirm the Cloudflare plan is Paid ($5/month).</b> 800 real users is tight on the free plan.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/23</b><span>Thu</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Found <b>6 causes</b> behind "I set it to English but it still shows Korean", and got <b>22 admin/teacher screens</b> displaying in English.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">TO DO</b>If a screen looks unchanged, <b>close all tabs and re-enter</b> — the browser holds on to the old version.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/22</b><span>Wed</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">DID</b>Replaced teacher <b>performance scores that were fabricated numbers</b> with real lesson records, and fixed <b>6 of 7</b> Filipino teacher complaints the same day.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">TO DO</b>The remaining one isn't a software fault — <b>that student's textbook assignment is wrong</b> and needs correcting.</p>
+  </div>
+</div>
+
+</div>
+
+<div class="foot">Mangoi Development Diary summary · full detail in "Mangoi_Development_Diary_LATEST.pdf"</div>
+
+</body>
+</html>

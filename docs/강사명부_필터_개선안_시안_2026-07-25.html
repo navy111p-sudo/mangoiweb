@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>강사 명부 필터 개선안 (Teacher Roster Filter Redesign)</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --panel:#fff; --line:#e5e7eb; --line2:#eef1f6;
+    --txt:#1f2937; --txt2:#6b7280; --txt3:#9ca3af;
+    --indigo:#6366f1; --indigo-d:#4f46e5; --amber:#f59e0b;
+    --green:#059669; --green-bg:#ecfdf5; --red:#dc2626; --blue:#2563eb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Malgun Gothic','Segoe UI',sans-serif;background:var(--bg);color:var(--txt);padding:22px;font-size:14px;line-height:1.5}
+  .wrap{max-width:1120px;margin:0 auto}
+
+  .note{background:#fffbeb;border:1px solid #fcd34d;border-left:5px solid var(--amber);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#92400e}
+  .note b{color:#b45309}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
+  .card-head{padding:16px 20px 0}
+  .card-title{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .card-title .em{font-size:11px;font-weight:700;color:var(--indigo);background:#eef2ff;padding:2px 9px;border-radius:99px}
+
+  /* 툴바 — 한 줄 */
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px 20px}
+  .search{flex:1;min-width:200px;position:relative}
+  .search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:#fbfcfe}
+  .search input:focus{outline:none;border-color:var(--indigo);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+  .search .ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--txt3);font-size:14px}
+  select{padding:9px 30px 9px 12px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;-webkit-appearance:none;appearance:none;cursor:pointer;color:var(--txt);font-weight:600}
+  select:focus{outline:none;border-color:var(--indigo)}
+  select.on{border-color:var(--indigo);background-color:#eef2ff;color:var(--indigo-d)}
+  .count{margin-left:auto;font-size:13px;color:var(--txt2);white-space:nowrap;display:flex;align-items:center;gap:5px}
+  .count b{color:var(--txt);font-size:15px}
+  .info{width:16px;height:16px;border-radius:50%;background:#e5e7eb;color:#6b7280;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;cursor:help;position:relative}
+  .info:hover::after{content:attr(data-tip);position:absolute;bottom:130%;right:0;width:210px;background:#111827;color:#fff;font-size:11px;font-weight:400;padding:8px 10px;border-radius:8px;line-height:1.5;z-index:10}
+
+  /* 적용된 필터 칩 (활성 시만) */
+  .active-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:0 20px 12px}
+  .active-filters.hidden{display:none}
+  .af-label{font-size:11.5px;color:var(--txt3);font-weight:600}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#eef2ff;color:var(--indigo-d);border:1px solid #c7d2fe;border-radius:99px;padding:4px 8px 4px 11px;font-size:12px;font-weight:600}
+  .pill b{font-weight:800}
+  .pill .x{cursor:pointer;width:16px;height:16px;border-radius:50%;background:#c7d2fe;color:#4338ca;display:inline-flex;align-items:center;justify-content:center;font-size:11px;line-height:1}
+  .pill .x:hover{background:#a5b4fc}
+  .clear-all{font-size:12px;color:var(--txt2);cursor:pointer;text-decoration:underline;margin-left:2px}
+
+  table{width:100%;border-collapse:collapse}
+  thead th{text-align:left;padding:10px 14px;font-size:11.5px;color:var(--txt3);border-top:1px solid var(--line);border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.3px;background:#fafbfd;font-weight:700}
+  thead th.num{text-align:right}
+  tbody tr{border-bottom:1px solid var(--line2)}
+  tbody tr:hover{background:#f8faff}
+  tbody td{padding:11px 14px;font-size:13.5px}
+  tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .av{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:12px;margin-right:9px;vertical-align:middle}
+  .tname{font-weight:700}
+  .mgr{font-size:10px;font-weight:800;color:var(--amber);background:#fffbeb;border:1px solid #fde68a;padding:1px 6px;border-radius:99px;margin-left:6px}
+  .grp{font-size:11.5px;color:var(--txt2)}
+  .badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800}
+  .b-active{background:#ecfdf5;color:var(--green)}
+  .b-leave{background:#fef2f2;color:var(--red)}
+  .b-unknown{background:#f3f4f6;color:#6b7280}
+  .empty{padding:30px;text-align:center;color:var(--txt3)}
+
+  .before{margin-top:22px;background:#fff;border:1px dashed #fca5a5;border-radius:12px;padding:16px 18px}
+  .before h3{font-size:13px;color:var(--red);margin-bottom:8px}
+  .before ul{margin:0 0 0 18px;font-size:12.5px;color:#4b5563;line-height:1.9}
+  .before b{color:#b91c1c}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="note">
+    <b>📐 개선 샘플(클릭 데모)</b> — 드롭다운을 바꾸면 아래 표·칩·인원수가 실제로 반응합니다. 데이터는 예시입니다.
+    핵심: <b>3줄 칩 나열 → 한 줄 드롭다운</b> + <b>적용된 필터만 결과 위에 칩</b>으로.
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">👥 강사 명부 <span class="em">개선안 · Roster</span></div>
+    </div>
+
+    <!-- 한 줄 툴바 -->
+    <div class="toolbar">
+      <div class="search"><span class="ico">🔍</span><input id="q" placeholder="이름·닉네임·그룹 검색" oninput="render()"></div>
+      <select id="f-type" onchange="render()">
+        <option value="">구분: 전체</option>
+        <option value="mgr">매니저</option>
+        <option value="normal">일반강사</option>
+      </select>
+      <select id="f-status" class="on" onchange="render()">
+        <option value="active" selected>상태: 재직</option>
+        <option value="">전체</option>
+        <option value="leave">퇴사</option>
+        <option value="unknown">미확인</option>
+      </select>
+      <select id="f-group" onchange="render()">
+        <option value="">그룹: 전체</option>
+        <option value="Home-based">Home-based</option>
+        <option value="Head Teacher">Head Teacher</option>
+        <option value="중국어 강사">중국어 강사</option>
+        <option value="Office Teacher">Office Teacher</option>
+        <option value="미국 오전반">미국 오전반</option>
+        <option value="__none__">미분류</option>
+      </select>
+      <select id="sort" onchange="render()">
+        <option value="name">정렬: 이름순</option>
+        <option value="classes">담당수업 많은순</option>
+        <option value="days">근무일수순</option>
+      </select>
+      <div class="count">
+        표시 <b id="shown">0</b> / 총 227
+        <span class="info" data-tip="담당 수업·학생 수는 2026-07-04 집계값입니다. 현재값과 다를 수 있어요.">i</span>
+      </div>
+    </div>
+
+    <!-- 적용된 필터 (활성 시만) -->
+    <div class="active-filters" id="pills"></div>
+
+    <table>
+      <thead><tr>
+        <th>강사</th><th>그룹</th><th class="num">담당 수업</th><th class="num">담당 학생</th>
+        <th class="num">근무일수</th><th>학력·경력</th><th>상태</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="before">
+    <h3>❌ 지금 문제 (사장님 캡처)</h3>
+    <ul>
+      <li><b>필터 칩이 3줄</b>(구분 3 + 상태 4 + 그룹 <b>10개</b>) — 눈이 어디를 봐야 할지 산만</li>
+      <li><b>"— 34"</b> 이름 없는 그룹이 그대로 노출 → "미분류 34"로 명확히</li>
+      <li><b>"전체 227"이 줄마다 반복</b> → 인원수는 드롭다운 옵션 안/오른쪽 한 곳으로</li>
+      <li><b>퇴사 161명이 재직 32명을 압도</b> → 기본을 <b>"재직"</b>으로 두어 첫 화면을 깔끔하게</li>
+      <li>집계 경고문 인라인 → 작은 <b>ⓘ</b> 툴팁으로</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+  var DATA = [
+    {name:'Alex', en:'Alex', mgr:false, status:'unknown', group:'', classes:0, students:0, days:0, edu:'—', color:'#6366f1'},
+    {name:'강수진', en:'Sujin Kang', mgr:true, status:'active', group:'Head Teacher', classes:26, students:14, days:22, edu:'교육학 석사·8년', color:'#8b5cf6'},
+    {name:'Karl Reyes', en:'Karl', mgr:false, status:'active', group:'Home-based', classes:31, students:19, days:24, edu:'영문학·6년', color:'#0ea5e9'},
+    {name:'Maimai Cruz', en:'Maimai', mgr:true, status:'active', group:'Office Teacher', classes:29, students:17, days:23, edu:'TESOL·5년', color:'#10b981'},
+    {name:'李伟', en:'Li Wei', mgr:false, status:'active', group:'중국어 강사', classes:22, students:12, days:20, edu:'중어중문·4년', color:'#ef4444'},
+    {name:'Melca Santos', en:'Melca', mgr:true, status:'active', group:'미국 오전반', classes:24, students:15, days:21, edu:'교육·7년', color:'#ec4899'},
+    {name:'박준영', en:'Junyoung', mgr:false, status:'leave', group:'Home-based', classes:0, students:0, days:0, edu:'영교·3년', color:'#f59e0b'},
+    {name:'John Park', en:'John', mgr:false, status:'active', group:'Office Teacher', classes:18, students:11, days:19, edu:'경영·2년', color:'#14b8a6'},
+    {name:'Grace Lee', en:'Grace', mgr:false, status:'leave', group:'중국어 강사', classes:0, students:0, days:0, edu:'중문·5년', color:'#a855f7'},
+    {name:'Tom Wilson', en:'Tom', mgr:false, status:'active', group:'', classes:12, students:8, days:15, edu:'—', color:'#64748b'}
+  ];
+
+  var STATUS = { active:{cls:'b-active',ko:'재직'}, leave:{cls:'b-leave',ko:'퇴사'}, unknown:{cls:'b-unknown',ko:'미확인'} };
+
+  function markOn(){
+    ['f-type','f-status','f-group','sort'].forEach(function(id){
+      var el=document.getElementById(id);
+      var isDefault=(id==='f-status') ? el.value==='active' : (id==='sort' ? el.value==='name' : el.value==='');
+      // 상태=재직, 정렬=이름순 은 기본이지만 재직은 '적용됨'으로 표시(퇴사 제외 중이므로)
+      if(id==='sort') el.classList.toggle('on', el.value!=='name');
+      else el.classList.toggle('on', el.value!=='');
+    });
+  }
+
+  function render(){
+    var q=document.getElementById('q').value.trim().toLowerCase();
+    var ft=document.getElementById('f-type').value;
+    var fs=document.getElementById('f-status').value;
+    var fg=document.getElementById('f-group').value;
+    var sort=document.getElementById('sort').value;
+
+    var rows=DATA.filter(function(t){
+      if(q && (t.name+' '+t.en+' '+t.group).toLowerCase().indexOf(q)<0) return false;
+      if(ft==='mgr' && !t.mgr) return false;
+      if(ft==='normal' && t.mgr) return false;
+      if(fs && t.status!==fs) return false;
+      if(fg==='__none__' && t.group!=='') return false;
+      if(fg && fg!=='__none__' && t.group!==fg) return false;
+      return true;
+    });
+    if(sort==='classes') rows.sort(function(a,b){return b.classes-a.classes;});
+    else if(sort==='days') rows.sort(function(a,b){return b.days-a.days;});
+    else rows.sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
+
+    document.getElementById('shown').textContent=rows.length;
+
+    var tb=document.getElementById('tbody');
+    if(rows.length===0){ tb.innerHTML='<tr><td colspan="7" class="empty">조건에 맞는 강사가 없습니다.</td></tr>'; }
+    else tb.innerHTML=rows.map(function(t){
+      var st=STATUS[t.status];
+      var grp=t.group||'<span style="color:#c4b5cd">미분류</span>';
+      return '<tr>'+
+        '<td><span class="av" style="background:'+t.color+'">'+t.name.charAt(0)+'</span><span class="tname">'+t.name+'</span>'+(t.mgr?'<span class="mgr">매니저</span>':'')+'</td>'+
+        '<td class="grp">'+grp+'</td>'+
+        '<td class="num">'+(t.classes||'—')+'</td><td class="num">'+(t.students||'—')+'</td><td class="num">'+(t.days||'—')+'</td>'+
+        '<td class="grp">'+t.edu+'</td>'+
+        '<td><span class="badge '+st.cls+'">'+st.ko+'</span></td></tr>';
+    }).join('');
+
+    // 적용된 필터 칩
+    var pills=[];
+    if(ft) pills.push(['구분', ft==='mgr'?'매니저':'일반강사', 'f-type', '']);
+    if(fs) pills.push(['상태', STATUS[fs].ko, 'f-status', fs==='active'?'active':'']);
+    if(fg) pills.push(['그룹', fg==='__none__'?'미분류':fg, 'f-group', '']);
+    if(q) pills.push(['검색', '"'+document.getElementById('q').value.trim()+'"', 'q', '']);
+    var box=document.getElementById('pills');
+    if(pills.length===0){ box.className='active-filters hidden'; box.innerHTML=''; }
+    else{
+      box.className='active-filters';
+      box.innerHTML='<span class="af-label">적용된 필터</span>'+pills.map(function(p){
+        return '<span class="pill">'+p[0]+' <b>'+p[1]+'</b><span class="x" onclick="clearOne(\''+p[2]+'\')">✕</span></span>';
+      }).join('')+'<span class="clear-all" onclick="clearAll()">모두 해제</span>';
+    }
+    markOn();
+  }
+  function clearOne(id){
+    if(id==='q') document.getElementById('q').value='';
+    else document.getElementById(id).value = (id==='f-status'?'':document.getElementById(id).options[0].value);
+    render();
+  }
+  function clearAll(){
+    document.getElementById('q').value='';
+    document.getElementById('f-type').value='';
+    document.getElementById('f-status').value='';
+    document.getElementById('f-group').value='';
+    document.getElementById('sort').value='name';
+    render();
+  }
+  render();
+</script>
+</body>
+</html>

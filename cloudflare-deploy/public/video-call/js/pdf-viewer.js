@@ -90,6 +90,9 @@ function guessKindByMime(mime, name) {
 async function loadPdf(url) {
   try {
     currentKind = 'pdf';
+    /* ⚡ (2026-08-05) PDF.js 는 여기서 처음 필요해진다 — head 에서 미리 받지 않는다(320KB).
+       교재를 안 여는 수업은 한 바이트도 안 낸다. 느린 회선의 입장 시간을 그만큼 돌려준다. */
+    if (typeof window.ensurePdfJs === 'function') await window.ensurePdfJs();
     pdfDoc = await pdfjsLib.getDocument(url).promise;
     pdfTotalPages = pdfDoc.numPages;
     pdfCurrentPage = 1;

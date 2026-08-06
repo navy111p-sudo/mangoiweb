@@ -71,7 +71,19 @@
     'card-pronunciation':       ['발음 평가','녹음 보관','AI 채점','학습 가이드'],
     'card-video-dict':          ['영상 사전','단어 검색','자막 학습','즐겨찾기'],
     'card-voice-diary':         ['오늘 일기','녹음 보관','AI 첨삭','월간 모음'],
-    'card-level-tests':         ['레벨 테스트','결과 조회','레벨 변경','히스토리'],
+    /* 🎯 (2026-08-06) 레벨테스트 손자 — 여기만 «진짜 목적지» 방식이다.
+       예전 4개(레벨 테스트/결과 조회/레벨 변경/히스토리)는 이름만 다르고 동작이 전부 같았다.
+       아래 ph125Jump 가 «카드 안 N번째 details» 로 찾아가는데 이 카드엔 그런 게 0개라
+       무엇을 눌러도 카드 전체가 한 번 반짝이고 끝났다(에러 0 — 그래서 아무도 몰랐다).
+       ⚠️ 문자열로 되돌리지 말 것. 문자열은 곧 «위치로 찾아감» 이고, 카드 구조가 바뀌면
+          아무 소리 없이 다시 엉뚱한 데로 간다. 새 항목도 anchor/card/fn 중 하나를 반드시 줄 것. */
+    'card-level-tests':         [
+      { ko:'🆕 신청 현황',      en:'🆕 Applications',  anchor:'lt-sec-apps' },
+      { ko:'📊 응시 결과',      en:'📊 Test Results',  anchor:'lt-sec-results' },
+      { ko:'🏅 배치 현황',      en:'🏅 Placement',     card:'card-leveltest' },
+      { ko:'📅 캘린더에서 보기', en:'📅 On Calendar',   fn:'ltGotoCalendar' },
+      { ko:'＋ 결과 수동 등록',  en:'＋ Add Result',    anchor:'lt-sec-add' }
+    ],
     'card-battle-mgmt':         ['오늘의 배틀','리그 운영','순위','뱃지'],
     'card-recording-storage':   ['오늘 녹화','학생별 보관','용량 관리','자동 삭제'],
     'card-homework':            ['새 숙제 출제','제출 현황','채점','피드백 발송'],
@@ -116,10 +128,18 @@
         var gcContainer = document.createElement('div');
         gcContainer.className = 'ph125-grandchildren';
         gcContainer.dataset.parent = cardId;
-        gcContainer.innerHTML = children.map(function(t, i){
+        gcContainer.innerHTML = children.map(function(raw, i){
+          /* 항목은 두 가지 — 문자열(옛 방식: 카드 안 N번째로) 또는 객체(새 방식: 진짜 목적지).
+             🌐 라벨은 화면 언어를 따른다. 손자 이름만 한국어로 남으면 필리핀 강사·매니저가
+                무엇을 여는 메뉴인지 못 읽는다. */
+          var isObj = raw && typeof raw === 'object';
+          var en = !!(window.adminLang && window.adminLang !== 'ko');
+          var t = isObj ? ((en && raw.en) ? raw.en : raw.ko) : raw;
           var safe = String(t).replace(/'/g, "\\'");
           // 🌐 원본 한국어 이름을 data-gc-name 으로 보존(i18n 영어 스윕은 보이는 텍스트만 바꾸므로 설명 사전 조회 키가 안 깨짐)
-          var attr = String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          //    ⚠️ 여기는 «항상» 한국어여야 한다 — 위 t 는 화면 언어를 타므로 t 를 쓰면 영어 모드에서 키가 깨진다.
+          var koName = isObj ? raw.ko : raw;
+          var attr = String(koName).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
           return '<div class="ph125-gc" data-gc-name="' + attr + '" onclick="event.stopPropagation();ph125Jump(\'' + cardId + '\',' + i + ',\'' + safe + '\')">' +
             '<span class="ph125-num">' + (i + 1) + '</span>' +
             '<span class="ph125-text">' + t + '</span>' +
@@ -152,9 +172,41 @@
     //   열림/닫힘은 ▸ 클릭 토글만 담당하므로 마우스 위치로 상태가 바뀔 일이 없다.
   }
 
+  /* 노란 테두리로 «여기다» 표시 — 어디로 왔는지 모르면 점프한 의미가 없다 */
+  function ph125Flash(el, strong){
+    el.style.boxShadow = strong
+      ? '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)'
+      : '0 0 0 3px rgba(251,191,36,0.6), 0 12px 40px rgba(251,191,36,0.3)';
+    setTimeout(function(){ el.style.boxShadow = ''; }, 2500);
+  }
+
   window.ph125Jump = function(cardId, idx, title){
     var card = document.getElementById(cardId);
     if (!card) { alert('카드 미구현: ' + cardId); return; }
+
+    /* ── 새 방식: 항목이 «진짜 목적지» 를 들고 있으면 그대로 간다 ──────────────
+       옛 방식(아래)은 «카드 안 N번째 details» 라, 그런 게 없는 카드에서는 항목이 몇 개든
+       전부 같은 동작(카드 전체 반짝임)이 됐다. 에러가 안 나서 죽은 줄도 몰랐다. */
+    var descList = MAP[cardId];
+    var desc = (descList && typeof descList[idx] === 'object') ? descList[idx] : null;
+    if (desc) {
+      var host = desc.card ? document.getElementById(desc.card) : card;
+      if (!host) { alert('카드 미구현: ' + desc.card); return; }
+      if (host.tagName === 'DETAILS') host.open = true;
+      var anc = desc.anchor ? document.getElementById(desc.anchor) : null;
+      // 앵커가 접힌 details 안에 있으면 펼쳐 준다 — 안 그러면 스크롤만 하고 아무것도 안 보인다
+      if (anc) { var p = anc; while (p && p !== host) { if (p.tagName === 'DETAILS') p.open = true; p = p.parentElement; } }
+      host.scrollIntoView({ behavior:'auto', block:'start' });
+      setTimeout(function(){
+        if (desc.fn && typeof window[desc.fn] === 'function') { window[desc.fn](); return; }
+        var t = anc || host;
+        t.scrollIntoView({ behavior:'auto', block: anc ? 'center' : 'start' });
+        ph125Flash(t, !anc);
+      }, 300);
+      console.log('[ph125] 손자 점프(앵커):', desc.card || cardId, desc.anchor || desc.fn || '(카드)');
+      return;
+    }
+
     if (card.tagName === 'DETAILS') card.open = true;
     card.scrollIntoView({ behavior:'auto', block:'start' });
     var items = card.querySelectorAll('details.sub-item, .sub-menu > details');

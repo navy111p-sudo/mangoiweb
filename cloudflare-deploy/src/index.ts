@@ -17,6 +17,7 @@ import { handleRetentionIngest, getRetention, markRetentionContacted, getRetenti
 import { runAbsentStudentSweep } from './absent-sweep';
 import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종료 후 학생별 AI 리포트 배치
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
+import { runLeveltestReminderSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
@@ -26,6 +27,8 @@ import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeSweep } from './recordings-r2';
 import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
+import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
+import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
 import { capitownRouter } from './api-capitown';
@@ -320,6 +323,8 @@ const worker = {
             '/api/admin/ghost', '/api/admin/alerts', '/api/admin/export',
             // ── 가족·리퍼럴 (card-family-mgmt · card-referral) ──
             '/api/admin/family', '/api/admin/families', '/api/admin/referrals',
+            // ── 결재(기안·지출) — 회사 지출 내역. 핸들러도 막지만 여기에도 이중으로 둔다 ──
+            '/api/approval',
           ];
           const _teacherBlocked = TEACHER_BLOCKED_PREFIXES.some(p => path.startsWith(p));
           if (_teacherBlocked) {
@@ -883,6 +888,18 @@ const worker = {
       if (tRes) return tRes;
     }
 
+    // 🧾 결재(기안·지출·문서) — 구 그룹웨어에서 유일하게 신규에 없던 기능
+    if (path.startsWith('/api/approval/')) {
+      const aRes = await handleApprovalApi(request, url, env as any);
+      if (aRes) return aRes;
+    }
+
+    // ⚡ 정전·인터넷 장애 신고 — 필리핀 강사가 끊겼을 때 사무실이 «가장 먼저» 알게
+    if (path.startsWith('/api/outage/')) {
+      const oRes = await handleOutageApi(request, url, env as any);
+      if (oRes) return oRes;
+    }
+
     // v3 명세서 신규 API (출석/보상/카카오/대시보드)
     // ⚠ 새 API 경로를 api-mango.ts 에 추가했을 때는 반드시 이 게이트에도 등록할 것.
     //    여기 목록에 없으면 index.html 로 fallthrough → CF Assets 가 POST 에 405 반환.
@@ -1330,6 +1347,11 @@ const worker = {
         path === '/api/bug-report' ||
         // 🎯 레벨테스트 신청 (학생 제출 저장 + 관리자·강사 목록/상태변경)
         path === '/api/leveltest/apply' ||
+        // 🙋 학생·학부모 본인 조회(«내 레벨테스트») — 핸들러가 mango_token 으로 소유자 검증
+        path === '/api/leveltest/my' ||
+        // 🎟️ 티켓(확인+입장 링크 하나) — 핸들러가 서명 토큰으로 본인 확인. 계정 없어도 열림
+        path === '/api/leveltest/ticket' ||
+        path === '/api/leveltest/ticket.ics' ||
         path === '/api/admin/leveltest/applications' ||
         // 🧠 AI 자동 진단 (CEFR 배치테스트 문항 + 서버채점)
         path === '/api/leveltest/questions' ||
@@ -1900,6 +1922,18 @@ const worker = {
         if (lr && (lr.reminded > 0 || !lr.ok)) console.log('[lesson-reminder]', JSON.stringify(lr));
       } catch (err) {
         console.error('[lesson-reminder] error', err);
+      }
+
+      /* 🎟️ 레벨테스트 T-10 리마인더 — 매 15분.
+         위의 lesson-reminder 와 겹치지 않는다: 저쪽은 전화번호를 students_erp 에서만 찾아
+         «아직 학생 계정이 아닌 신청자»(실측 절반)에겐 구조적으로 못 간다. 여기서는
+         신청서에 직접 적은 번호로 «확인+입장» 티켓 링크를 보낸다.
+         킬스위치 = KV 'leveltest_reminder_send'='off'. */
+      try {
+        const lt = await runLeveltestReminderSweep(env as any);
+        if (lt && (lt.reminded > 0 || !lt.ok)) console.log('[leveltest-reminder]', JSON.stringify(lt));
+      } catch (err) {
+        console.error('[leveltest-reminder] error', err);
       }
 
       // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지 → 문자.
@@ -3438,7 +3472,35 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
   }
 }
 
+/* 📶 TURN 설정 — 수업 입장마다 호출되는 경로다(페이지 로드 1회 = 여기 1회).
+ *
+ *  (2026-08-06 동시접속 진단) 고친 것 2가지:
+ *   ① 캐시가 없었다 — 학생이 페이지를 열 때마다 Cloudflare TURN API 로 자격증명을 새로 발급받았다.
+ *      50명이 정각에 몰리면 외부 API 호출 50번이 동시에 나간다. → KV 에 1시간 캐시.
+ *      자격증명 자체는 24시간(ttl=86400) 짜리라 1시간 캐시로 만료 위험이 없다.
+ *   ② 마지막으로 성공한 자격증명을 붙잡아 두지 않았다 — CF API 가 잠깐 흔들리면 곧바로
+ *      «무료 공개 TURN(openrelay)» 으로 떨어졌다. 그 서버는 50명을 받을 수 있는 서버가 아니라서,
+ *      아무 에러 없이 «영상만 안 나오는» 상태가 된다. → 마지막 성공분(24시간 보관)을 먼저 쓴다.
+ *  ⚠️ 공개 TURN 은 지우지 않고 «최후의 수단» 으로만 남겼다. 대칭형 NAT 환경에서는 이것마저 없으면
+ *     연결 자체가 불가능해지므로, 느리더라도 있는 편이 낫다.
+ */
+const TURN_CACHE_KEY = 'turn:ice-servers:v1';       // 1시간 캐시(정상 경로)
+const TURN_LKG_KEY = 'turn:ice-servers:last-good';  // 마지막 성공분(24시간, 장애 시 구명줄)
+
 async function handleTurnConfig(env: Env): Promise<Response> {
+  const J = (body: any, cached: string) => new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'X-Turn-Source': cached }
+  });
+
+  // 0) 캐시 우선 — 외부 API 호출 없이 즉시 응답
+  if (env.SESSION_STATE) {
+    try {
+      const hit = await env.SESSION_STATE.get(TURN_CACHE_KEY, 'json');
+      if (hit && (hit as any).iceServers) return J(hit, 'kv-cache');
+    } catch {}
+  }
+
   // Cloudflare TURN 키가 설정되어 있으면 동적 자격증명 생성
   if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) {
     try {
@@ -3460,10 +3522,13 @@ async function handleTurnConfig(env: Env): Promise<Response> {
           { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
           ...(cfData.iceServers || [])
         ];
-        return new Response(JSON.stringify({ iceServers }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-        });
+        const payload = { iceServers };
+        if (env.SESSION_STATE) {
+          // 캐시(1시간) + 마지막 성공분(24시간) 동시 저장. 실패해도 응답은 그대로 나간다.
+          try { await env.SESSION_STATE.put(TURN_CACHE_KEY, JSON.stringify(payload), { expirationTtl: 3600 }); } catch {}
+          try { await env.SESSION_STATE.put(TURN_LKG_KEY, JSON.stringify(payload), { expirationTtl: 86400 }); } catch {}
+        }
+        return J(payload, 'cloudflare');
       }
       console.error('Cloudflare TURN API error:', cfResp.status, await cfResp.text());
     } catch (err) {
@@ -3471,7 +3536,21 @@ async function handleTurnConfig(env: Env): Promise<Response> {
     }
   }
 
-  // Fallback: 정적 STUN + 공개 TURN 서버들
+  // 1) CF 실패 → 마지막으로 성공했던 자격증명(최대 24시간 전)을 먼저 쓴다.
+  //    공개 무료 TURN 으로 떨어지기 전에 반드시 이 단계를 거친다.
+  if (env.SESSION_STATE) {
+    try {
+      const lkg = await env.SESSION_STATE.get(TURN_LKG_KEY, 'json');
+      if (lkg && (lkg as any).iceServers) {
+        console.warn('[turn-config] Cloudflare TURN 실패 → 마지막 성공 자격증명으로 응답');
+        return J(lkg, 'last-known-good');
+      }
+    } catch {}
+  }
+
+  // 2) 최후의 수단: 정적 STUN + 공개 TURN 서버들
+  //    ⚠️ 여기까지 왔다는 것은 «수업 품질이 무너지고 있다» 는 뜻이다. 로그로 남긴다.
+  console.error('[turn-config] ⚠️ 공개 무료 TURN 폴백 사용 — 동시 수업이 많으면 영상이 끊긴다');
   const response = {
     iceServers: [
       { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
@@ -3482,10 +3561,8 @@ async function handleTurnConfig(env: Env): Promise<Response> {
       { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
     ]
   };
-  return new Response(JSON.stringify(response), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-  });
+  // X-Turn-Source 헤더로 어느 경로였는지 밖에서 확인할 수 있다(curl 로 즉시 진단 가능).
+  return J(response, 'public-fallback');
 }
 
 // ArrayBuffer → base64 (Workers 호환, 청크 처리)
@@ -4333,7 +4410,7 @@ async function teacherPortalRedirect(
   if (!isTeacherPage && !isAdminHome && !isTeacherApi) return null;
   if (url.searchParams.get('full') === '1') return null;   // 탈출구
 
-  let actor: { ok: boolean; isTeacher: boolean };
+  let actor: { ok: boolean; isTeacher: boolean; role: string };
   try {
     actor = await getAdminActor(request, env as any);
   } catch (e) {
@@ -4342,20 +4419,32 @@ async function teacherPortalRedirect(
   }
   if (!actor.ok) return null;                               // 미인증은 세션 미들웨어가 이미 처리
 
+  // 🇵🇭 (2026-08-05 사장님 지시) 본사 매니저도 이 가벼운 화면을 쓴다.
+  //   경위: mgr_melca·mgr_maimai·mgr_karl 은 scope_type='hq' → isTeacher=false 라
+  //   아래 분기에 걸려 **1MB admin.html 로 되튕겼다.** 그래서 이 화면에 만들어 둔
+  //   문제 신고·PC 사양·본사 공지·카운트다운·자동 갱신이 정작 그것을 요청한
+  //   필리핀 매니저들에게 하나도 닿지 않았다(요청 13·21 "페이지가 무겁다"의 실체).
+  //   ⚠️ 권한이 늘어나는 변경이 아니다 — hq 는 admin.html 에서 이미 전부 본다.
+  //      같은 정보를 가볍게 보는 창을 하나 더 주는 것뿐이다.
+  //   ⚠️ 외부 조직(agency·branch·franchise)은 여기에 넣지 않는다. 그들은 남의 학원
+  //      수업 현황을 보면 안 되고, 위쪽 미들웨어가 이미 /admin/exec 로 가둔다.
+  const isHqStaff = (actor.role === 'hq' || actor.role === 'staff');
+
   // 강사 → 관리자 첫 화면 대신 강사 포털로
+  //   (매니저는 여기에 걸리지 않는다 — 관리자 화면이 그들의 주 업무 도구다)
   if (actor.isTeacher && isAdminHome) {
     return Response.redirect(new URL('/teacher', request.url).toString(), 302);
   }
-  // 비-강사 → 강사 포털은 볼 것이 없다(본인 수업이 없으므로 빈 화면). 관리자 화면으로.
-  if (!actor.isTeacher && isTeacherPage) {
+  // 강사도 본사도 아닌 계정 → 강사 포털은 볼 것이 없다. 관리자 화면으로.
+  if (!actor.isTeacher && !isHqStaff && isTeacherPage) {
     return Response.redirect(new URL('/admin.html?full=1', request.url).toString(), 302);
   }
   // API 는 리다이렉트가 아니라 403 — fetch() 가 로그인 HTML 을 JSON 으로 파싱하다 죽지 않게.
-  if (!actor.isTeacher && isTeacherApi) {
+  if (!actor.isTeacher && !isHqStaff && isTeacherApi) {
     return new Response(JSON.stringify({
       ok: false, error: 'not_a_teacher',
-      message: '강사 계정만 사용할 수 있습니다.',
-      message_en: 'Teacher accounts only.',
+      message: '강사 또는 본사 계정만 사용할 수 있습니다.',
+      message_en: 'Teacher or head-office accounts only.',
     }), { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   }
   return null;
@@ -4381,6 +4470,13 @@ function isAdminPath(path: string, method: string): boolean {
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
   //      새로 만든 포털 엔드포인트만 콕 집어 잠근다.
   if (path === '/api/teacher/portal') return true;
+
+  // 🧾 결재 API — 회사 지출 내역이 담긴다. 로그인 필수(핸들러가 본사 계정인지 한 번 더 본다).
+  if (path.startsWith('/api/approval/')) return true;
+
+  // ⚡ 장애 신고 API — 누가 언제 끊겼는지는 강사 개인 정보다. 로그인 필수.
+  //   (강사 본인도 써야 하므로 TEACHER_BLOCKED_PREFIXES 에는 넣지 않는다 — 여기서 로그인만 요구.)
+  if (path.startsWith('/api/outage/')) return true;
 
   // 🔒🔒 [보안 근본수정 2026-07-09] /api/admin/* 는 기본 전부 인증 필요 (DEFAULT-DENY).
   //   과거엔 아래처럼 경로를 하나씩 allowlist 로 나열했는데, 새 admin API 를 추가하면서

@@ -144,7 +144,11 @@ ok('ping 주기 25초는 그대로 유지(Cloudflare 유휴 타임아웃 방지)
 ok('정원초과·강제종료는 재연결 중단(예전엔 거절→재연결 무한루프)',
    /data\.type === 'room-full' \|\| data\.type === 'force_end'[\s\S]{0,200}intentionalClose = true;/.test(IDX));
 ok('그 이유를 화면에 한/영으로 안내(조용히 멈추면 "그냥 튕겼다"로 보임)',
-   /This class room is full/.test(IDX) && /정원\(10명\)이 가득/.test(IDX));
+   /This room is full \('/.test(IDX) && /이 방은 정원\('/.test(IDX));
+/* (2026-08-06) 정원이 방 종류별로 갈렸다(공용 연습방만 낮음). 안내문에 숫자를 박아 두면
+   4명 정원 방에서 "정원(10명)이 찼다"는 거짓 안내가 나간다 → 서버가 준 limit 을 쓰는지 확인. */
+ok('정원 숫자는 하드코딩이 아니라 서버가 알려 준 값(방마다 정원이 다름)',
+   /Number\(data\.data\.limit\)/.test(IDX) && !/정원\(10명\)이 가득/.test(IDX));
 ok('vcRemovePeer 가 reason 을 실제로 받음', /function vcRemovePeer\(userId, reason\)/.test(IDX));
 ok("순단(dropped)에는 타일을 지우지 않고 '재연결 중'으로 유지", /reason && reason !== 'left'\)[\s\S]{0,500}vcMarkPeerReconnecting\(box\)/.test(IDX));
 ok('강제종료·정원초과는 되돌릴 수 없는 플래그로 못박음(탭 전환으로 되살아나던 문제)',

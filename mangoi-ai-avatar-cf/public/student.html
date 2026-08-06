@@ -204,8 +204,8 @@
     if(!window.speechSynthesis){ startMouthPlain(); setTimeout(stopMouth, Math.min(12000, Math.max(1500, text.length*90))); return; }
     speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(text);
-    // 약간 느린 속도 + 살짝 높은 톤이 한국어를 더 따뜻하고 사람스럽게 들리게 함
-    if(/[가-힣]/.test(text)){ u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=0.97; u.pitch=1.32; }
+    // pitch는 1.15 이하로 유지 — 1.3대로 올리면 합성음이 갈라져 '깨진 기계음'이 됨(26-07-22 사장님 신고)
+    if(/[가-힣]/.test(text)){ u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=0.97; u.pitch=1.12; }
     else { u.lang="en-US"; if(enVoice) u.voice=enVoice; u.rate=0.98; u.pitch=1.02; }
     u.volume=1.0;
     u.onstart=startMouthPlain; u.onend=stopMouth; u.onerror=stopMouth;
@@ -251,7 +251,7 @@
     // ① 앱 네이티브 TTS(여성) — 브리지가 있으면 무조건 이 경로
     try{
       if(window.AndroidTTS && window.AndroidTTS.isReady && window.AndroidTTS.isReady()){
-        window.AndroidTTS.speak(spoken, isKo?"ko":"en", isKo?1.32:1.1, 1.0);
+        window.AndroidTTS.speak(spoken, isKo?"ko":"en", isKo?1.15:1.1, 1.0);
         startMouthPlain();
         setTimeout(stopMouth, Math.min(30000, Math.max(1500, spoken.length*(isKo?110:70))));
         return;
@@ -270,12 +270,9 @@
         if(lastBlobUrl){ try{ URL.revokeObjectURL(lastBlobUrl); }catch(e){} }
         lastBlobUrl=URL.createObjectURL(b);
         audioEl.src=lastBlobUrl;                // playing→startMouth / ended→stopMouth 는 리스너가 처리
-        // 👩 여자 목소리: 한국어 서버 TTS(Google, 중저음)는 피치를 올려 여성 톤으로.
-        //    preservesPitch=false + playbackRate>1 = 피치·속도 동반 상승(약 +2.4반음).
-        //    영어(Aura-2 asteria)는 원래 여성 음성이라 원음 그대로(1.0 + 피치 보존).
-        var isKo=/[가-힣]/.test(spoken);
-        try{ audioEl.preservesPitch=!isKo; audioEl.webkitPreservesPitch=!isKo; audioEl.mozPreservesPitch=!isKo; }catch(e){}
-        audioEl.playbackRate = isKo ? 1.22 : 1.0;
+        // 서버 오디오는 원음 그대로 재생 — playbackRate 피치업은 소리가 갈라져 폐지(26-07-22).
+        try{ audioEl.preservesPitch=true; audioEl.webkitPreservesPitch=true; audioEl.mozPreservesPitch=true; }catch(e){}
+        audioEl.playbackRate = 1.0;
         var p=audioEl.play();
         if(p&&p.catch) p.catch(function(){ if(mySeq===speakSeq) speakBrowser(text); });
       })

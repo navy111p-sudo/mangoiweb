@@ -30,5 +30,13 @@ export function allAdm() {
       if (/^adm-.*\.js$/.test(f)) { try { s += '\n/*───*/\n' + readFileSync(join(PUB_DIR, 'js', f), 'utf8'); } catch {} }
     }
   } catch {}
+  // (2026-08-04) admin.html 안에 있던 <style> 118개를 /css/admin-inline-*.css 로 빼냈다.
+  //   CSS 규칙을 admin.html 에서만 찾던 하니스들이 «없어졌다» 고 오판하지 않도록 함께 합친다.
+  //   → 스타일이 인라인이든 파일이든 검사는 그대로 통과한다(코드 위치와 무관하게 보는 이 헬퍼의 취지).
+  try {
+    for (const f of readdirSync(join(PUB_DIR, 'css'))) {
+      if (/^admin-.*\.css$/.test(f)) { try { s += '\n/*───*/\n' + readFileSync(join(PUB_DIR, 'css', f), 'utf8'); } catch {} }
+    }
+  } catch {}
   return s;
 }

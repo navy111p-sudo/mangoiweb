@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>공휴일 학습 넛지 프로그램 — 기획안 (2026-07-28)</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a1018;color:#e6eef7;
+    font-family:'Malgun Gothic','맑은 고딕',system-ui,-apple-system,sans-serif;
+    line-height:1.72;font-size:15.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px 90px}
+
+  .hero{position:relative;margin:0 -22px 34px;padding:56px 22px 44px;
+    background:linear-gradient(150deg,#0d2137 0%,#12304c 42%,#0b1a2b 100%);
+    border-bottom:3px solid #ffd479;overflow:hidden}
+  .hero::after{content:'';position:absolute;right:-60px;top:-40px;width:340px;height:340px;
+    background:radial-gradient(circle,rgba(255,212,121,.16),transparent 66%);border-radius:50%}
+  .hero .tag{display:inline-block;font-size:12px;font-weight:900;letter-spacing:2px;
+    color:#0a1018;background:#ffd479;border-radius:20px;padding:4px 14px;margin-bottom:14px}
+  .hero h1{margin:0 0 6px;font-size:clamp(26px,4.4vw,40px);line-height:1.22;letter-spacing:-1px}
+  .hero h1 span{color:#ffd479}
+  .hero .sub{font-size:15px;color:#9fc0dc;font-weight:700}
+  .hero .meta{margin-top:18px;font-size:12.5px;color:#7d9ab5}
+
+  h2{margin:52px 0 14px;font-size:23px;letter-spacing:-.6px;padding-bottom:9px;
+    border-bottom:2px solid rgba(255,212,121,.28)}
+  h2 .n{display:inline-block;width:31px;height:31px;line-height:31px;text-align:center;
+    background:#ffd479;color:#0a1018;border-radius:9px;font-size:15px;font-weight:900;margin-right:9px}
+  h2 small{display:block;font-size:12.5px;color:#7d9ab5;font-weight:700;margin-top:4px;
+    padding-left:40px;letter-spacing:0}
+  h3{margin:28px 0 8px;font-size:17.5px;color:#ffd479}
+  h4{margin:18px 0 6px;font-size:15.5px;color:#7fd1ff}
+  p{margin:10px 0}
+  a{color:#7fd1ff}
+
+  .lead{font-size:17px;background:rgba(255,212,121,.07);border-left:4px solid #ffd479;
+    border-radius:0 12px 12px 0;padding:16px 20px;margin:22px 0}
+  .lead b{color:#ffd479}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{border:1px solid rgba(140,175,210,.24);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:rgba(127,209,255,.10);color:#bfe2ff;font-weight:900;font-size:13px}
+  td b{color:#ffd479}
+  tr:nth-child(even) td{background:rgba(255,255,255,.022)}
+  .tbl-sm{font-size:13px}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:13px;margin:18px 0}
+  .card{background:linear-gradient(#12202e,#0d1822);border:1px solid rgba(140,175,210,.22);
+    border-radius:13px;padding:15px 16px}
+  .card h4{margin:0 0 6px;font-size:15px;color:#7fd1ff}
+  .card p{margin:0;font-size:13.5px;color:#b8cde0}
+  .card .big{font-size:26px;font-weight:900;color:#ffd479;line-height:1.2}
+
+  .warn{background:rgba(248,113,113,.09);border-left:4px solid #f87171;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14px}
+  .warn b{color:#ffb3b3}
+  .ok{background:rgba(74,222,128,.09);border-left:4px solid #4ade80;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14px}
+  .ok b{color:#a7f3c0}
+  .note{background:rgba(127,209,255,.08);border-left:4px solid #7fd1ff;border-radius:0 12px 12px 0;
+    padding:14px 18px;margin:18px 0;font-size:14px}
+  .note b{color:#bfe2ff}
+
+  ul,ol{padding-left:22px;margin:10px 0}
+  li{margin:5px 0}
+  code{background:rgba(255,255,255,.08);border-radius:5px;padding:1px 6px;font-size:13px;
+    font-family:Consolas,monospace;color:#ffe08a}
+  .en{color:#8fa9c2;font-weight:700;font-size:.86em}
+  .foot{margin-top:60px;padding-top:18px;border-top:1px solid rgba(140,175,210,.22);
+    font-size:12.5px;color:#7d9ab5}
+
+  /* 푸시 알림 목업 */
+  .push{max-width:430px;background:#1a222c;border:1px solid rgba(140,175,210,.3);
+    border-radius:15px;padding:13px 15px;margin:12px 0;box-shadow:0 8px 22px -8px rgba(0,0,0,.6)}
+  .push .app{font-size:11.5px;color:#8fa9c2;font-weight:800;margin-bottom:5px;
+    display:flex;justify-content:space-between}
+  .push .t{font-weight:900;font-size:14.5px;color:#fff;margin-bottom:3px}
+  .push .b{font-size:13.5px;color:#c3d4e4;line-height:1.5}
+  .push .btns{margin-top:9px;display:flex;gap:7px}
+  .push .btns span{font-size:12px;font-weight:800;padding:5px 12px;border-radius:7px;
+    background:rgba(255,212,121,.16);color:#ffd479}
+
+  .track{border-radius:14px;padding:18px 20px;margin:20px 0;border:1px solid}
+  .track.a{background:rgba(127,209,255,.06);border-color:rgba(127,209,255,.35)}
+  .track.b{background:rgba(255,212,121,.06);border-color:rgba(255,212,121,.35)}
+  .track.c{background:rgba(190,140,255,.07);border-color:rgba(190,140,255,.35)}
+  .track h3{margin-top:0}
+  .track.a h3{color:#7fd1ff}
+  .track.c h3{color:#c9a6ff}
+
+  .badge{display:inline-block;font-size:11.5px;font-weight:900;padding:2px 9px;border-radius:12px;
+    margin-right:5px;vertical-align:2px}
+  .b-p0{background:#f87171;color:#1a0a0a}
+  .b-p1{background:#ffd479;color:#1a1408}
+  .b-p2{background:#7fd1ff;color:#06131c}
+  .b-p3{background:#8fa9c2;color:#0a1018}
+  .b-new{background:#4ade80;color:#06210f}
+  .b-have{background:rgba(140,175,210,.28);color:#cfe0f0}
+
+  .toc{background:rgba(255,255,255,.03);border:1px solid rgba(140,175,210,.2);
+    border-radius:13px;padding:16px 20px;margin:24px 0;font-size:14px}
+  .toc ol{columns:2;column-gap:28px;margin:6px 0 0}
+  @media(max-width:640px){.toc ol{columns:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="tag">기획안 · PROPOSAL v1.0</div>
+  <h1>공휴일 <span>학습 넛지</span> 프로그램<br>Holiday Learning Nudge Program</h1>
+  <div class="sub">수업이 없는 날, 학생이 찾아오길 기다리지 않고 망고아이가 먼저 부른다<br>
+    <span class="en">On no-class days, Mangoi reaches out first.</span></div>
+  <div class="meta">2026-07-28 · 대상: 재원생 29,373명 · 첫 실전: 2026-08-21(금) 필리핀 공휴일 · D-24일</div>
+</div>
+
+<div class="lead">
+  <b>핵심은 공휴일을 두 가지로 나누는 것입니다.</b><br>
+  <b>한국 공휴일</b>은 학생이 쉬고 <b>강사는 근무</b>합니다 &rarr; 비어 있는 낮 시간에 <b>수업을 유도</b>합니다.<br>
+  <b>필리핀 공휴일</b>은 <b>강사가 쉽니다</b> &rarr; 화상수업이 불가능하므로 <b>예습·복습·동영상 리뷰 프로그램으로 유도</b>합니다.<br>
+  두 경우 모두 학생의 의지에 맡기지 않고, <b>망고아이가 먼저 말을 겁니다.</b>
+</div>
+
+<div class="toc">
+  <b>목차</b>
+  <ol>
+    <li>현황 실측 — 지금 무엇이 막혀 있나</li>
+    <li>경쟁사 분석 — 살릴 장점, 버릴 단점</li>
+    <li>망고아이만의 무기</li>
+    <li>핵심 전략 — 공휴일 3트랙 분기</li>
+    <li>트랙 A · 한국 공휴일 &rarr; 수업 유도</li>
+    <li>트랙 B · 필리핀 공휴일 &rarr; 예복습 유도</li>
+    <li>트랙 C · 양국 겹침 &rarr; 이벤트</li>
+    <li>넛지 8원칙과 실제 문구</li>
+    <li>연휴 미션 팩 — 무엇을 시키나</li>
+    <li>화면 설계</li>
+    <li>기술 설계</li>
+    <li>안전장치 — 29,373명 오발송 방지</li>
+    <li>측정 지표와 목표치</li>
+    <li>로드맵 — 8/21 역산 일정</li>
+    <li>리스크와 선행과제</li>
+    <li>의사결정 요청</li>
+  </ol>
+</div>
+
+
+<h2><span class="n">1</span>현황 실측 — 지금 무엇이 막혀 있나
+  <small>2026-07-28 운영 D1 직접 조회 (SELECT only)</small></h2>
+
+<p>기획에 앞서 운영 데이터베이스를 직접 조회했습니다. 결과는 <b>"기능이 없다"가 아니라 "만들어 둔 채널이 한 번도 켜진 적이 없다"</b> 였습니다.</p>
+
+<table>
+  <tr><th style="width:32%">항목</th><th style="width:20%">실측값</th><th>의미</th></tr>
+  <tr><td><code>push_subscriptions</code> (enabled=1)</td><td><b>0명</b></td><td>웹푸시 구독자가 한 명도 없음</td></tr>
+  <tr><td><code>push_queue</code> 누적</td><td><b>0건</b></td><td>푸시가 <b>단 한 번도 발송된 적 없음</b></td></tr>
+  <tr><td><code>alimtalk_log</code></td><td><b>0건</b></td><td>알림톡 실발송 기록도 0</td></tr>
+  <tr><td><code>digest_logs</code></td><td>412건 전부 <code>queued_cron</code></td><td>큐에만 쌓이고 실제 전달 안 됨. parent_phone 전부 공란</td></tr>
+  <tr><td><code>students_erp</code> 전화번호</td><td>29,373명 중 <b>3명</b></td><td>번호가 카페24에만 있고 D1 미동기화 &rarr; 문자·알림톡 타겟팅 불가</td></tr>
+  <tr><td><code>student_streaks</code></td><td>2,945명 중 <b>7월 활동 2명</b></td><td>자율학습이 현재 사실상 사용되지 않음</td></tr>
+  <tr><td><code>calendar_events</code> (holiday)</td><td><b>KR/PH 등록 완료</b></td><td>트리거 재료는 이미 준비됨</td></tr>
+</table>
+
+<div class="ok">
+  <b>좋은 소식:</b> 웹푸시 발송 엔진(<code>src/web-push.ts</code>), 서비스워커 수신부(<code>public/sw.js:169~208</code>),
+  구독 테이블, 발송 큐, 딥링크용 <code>url</code> 컬럼, 관리자 발송 API가 <b>전부 완성되어 있습니다.</b>
+  공휴일 캘린더도 이미 등록돼 있습니다. <b>새로 만들 것은 "대상 선정 + 문구 생성" 한 모듈뿐입니다.</b>
+</div>
+
+<div class="warn">
+  <b>나쁜 소식:</b> 그 완성된 파이프라인이 <b>지금 0명에게 연결되어 있습니다.</b>
+  <code>index.html</code>의 푸시 옵트인 배너는 <code>/api/push/vapid-public-key</code> 응답이 실패하면
+  <b>화면에 아예 뜨지 않도록</b> 되어 있습니다(23344~23349행).
+  구독자 0명의 가장 유력한 원인은 <b>VAPID 키 미설정</b>입니다.
+  <span class="en">(이 조사에서는 외부 네트워크가 차단되어 라이브 확인은 하지 못했습니다. 확인 필요.)</span>
+</div>
+
+<h3>2026년 남은 공휴일 — 요일까지 확인한 실제 대상일</h3>
+<p>망고아이 수업은 <b>평일 월~금 14:00~23:00</b>만 운영합니다. 따라서 주말에 걸린 공휴일은 애초에 대상이 아닙니다.
+이걸 확인하지 않으면 "원래 수업 없는 토요일"에 "수업이 없는 날입니다" 라는 알림을 보내게 됩니다.</p>
+
+<table class="tbl-sm">
+  <tr><th>날짜</th><th>요일</th><th>국가</th><th>공휴일명</th><th>판정</th></tr>
+  <tr><td>08-15</td><td>토</td><td>KR</td><td>광복절</td><td>대상 아님 (원래 수업 없음)</td></tr>
+  <tr><td><b>08-21</b></td><td><b>금</b></td><td>PH</td><td>Ninoy Aquino Day</td><td><b>트랙 B — 첫 실전</b></td></tr>
+  <tr><td>08-31</td><td>월</td><td>PH</td><td>National Heroes Day</td><td>트랙 B</td></tr>
+  <tr><td><b>09-24</b></td><td><b>목</b></td><td>KR</td><td>추석 연휴</td><td><b>트랙 A — 최대 기회</b></td></tr>
+  <tr><td><b>09-25</b></td><td><b>금</b></td><td>KR</td><td>추석</td><td><b>트랙 A — 최대 기회</b></td></tr>
+  <tr><td>09-26</td><td>토</td><td>KR</td><td>추석 연휴</td><td>대상 아님</td></tr>
+  <tr><td>10-03</td><td>토</td><td>KR</td><td>개천절</td><td>대상 아님</td></tr>
+  <tr><td>10-05</td><td>월</td><td>KR</td><td>대체공휴일(개천절)</td><td>트랙 A</td></tr>
+  <tr><td>10-09</td><td>금</td><td>KR</td><td>한글날</td><td>트랙 A</td></tr>
+  <tr><td>11-01</td><td>일</td><td>PH</td><td>All Saints' Day</td><td>대상 아님</td></tr>
+  <tr><td>11-02</td><td>월</td><td>PH</td><td>All Souls' Day</td><td>트랙 B</td></tr>
+  <tr><td>11-30</td><td>월</td><td>PH</td><td>Bonifacio Day</td><td>트랙 B</td></tr>
+  <tr><td>12-08</td><td>화</td><td>PH</td><td>Immaculate Conception</td><td>트랙 B</td></tr>
+  <tr><td>12-24</td><td>목</td><td>PH</td><td>Christmas Eve</td><td>트랙 B</td></tr>
+  <tr><td><b>12-25</b></td><td><b>금</b></td><td>KR+PH</td><td>크리스마스</td><td><b>트랙 C — 양국 겹침</b></td></tr>
+  <tr><td>12-30</td><td>수</td><td>PH</td><td>Rizal Day</td><td>트랙 B</td></tr>
+  <tr><td>12-31</td><td>목</td><td>PH</td><td>Last Day of the Year</td><td>트랙 B</td></tr>
+</table>
+
+<div class="cards">
+  <div class="card"><div class="big">4일</div><h4>트랙 A (한국·평일)</h4><p>수업 유도 — 9/24, 9/25, 10/5, 10/9</p></div>
+  <div class="card"><div class="big">8일</div><h4>트랙 B (필리핀·평일)</h4><p>예복습 유도 — 8/21 외 7일</p></div>
+  <div class="card"><div class="big">1일</div><h4>트랙 C (겹침)</h4><p>이벤트 데이 — 12/25</p></div>
+</div>
+
+
+<h2><span class="n">2</span>경쟁사 분석 — 살릴 장점, 버릴 단점
+  <small>공개 자료 조사 + Engoo는 브라우저로 직접 확인 (2026-07-28)</small></h2>
+
+<h3>A. 듀오링고 — 습관 엔진의 교과서</h3>
+<table>
+  <tr><th style="width:50%">장점 (가져올 것)</th><th>단점 (보완할 것)</th></tr>
+  <tr>
+    <td>
+      <ul>
+        <li><b>23.5시간 후 발송</b> — 어제 공부한 시각에 다시 부름</li>
+        <li><b>자정 직전 마지막 호출</b> — 스트릭 끊기기 직전 긴급 알림</li>
+        <li><b>스트릭 프리즈</b> — 1~2일 봐주는 장치로 이탈 위험군 <b>churn 21% 감소</b></li>
+        <li><b>홈화면 위젯</b> — 스트릭 상시 노출로 몰입도 <b>60% 상승</b></li>
+        <li><b>발송 오케스트레이션</b> — 세그먼트 &rarr; 긴급도 점수 &rarr; 문구 변형 선택 &rarr; 시간대 배정을 자동화</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li><b>"선생님"이 없습니다.</b> 알림의 발신자가 시스템/캐릭터라 정서적 무게가 가볍습니다</li>
+        <li><b>학부모가 수신자에 없습니다.</b> 초·중등에서는 실제 집행자가 빠져 있는 셈</li>
+        <li>문구가 <b>죄책감·협박 톤</b>으로 흐르는 사례가 많아 밈이 됐습니다. 아동에게는 부적절</li>
+        <li>콘텐츠가 <b>학생의 실제 수업 진도와 무관</b>합니다</li>
+        <li>"공휴일" 개념이 없어 <b>쉬는 날에도 똑같이 압박</b>합니다</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<h3>B. Engoo — 자율학습 콘텐츠 상시 개방형 <span class="en">(망고아이와 구조가 가장 유사)</span></h3>
+<p>2026-07-28 브라우저로 직접 열어 확인한 사실입니다.</p>
+<table>
+  <tr><th style="width:50%">장점 (가져올 것)</th><th>단점 (보완할 것)</th></tr>
+  <tr>
+    <td>
+      <ul>
+        <li><b>로그인 없이 즉시 열립니다.</b> 회원가입·결제 불필요 — 문턱이 0</li>
+        <li><b>매일 갱신</b> — "NEW / 1일 전 / 2일 전" 표기로 신선도를 계속 증명</li>
+        <li><b>레벨(4~9) + 카테고리 5종</b> 분류로 "내 것"을 바로 찾음</li>
+        <li>그 콘텐츠가 <b>그대로 수업 교재</b> &rarr; 자율학습 &harr; 수업 순환 구조</li>
+      </ul>
+    </td>
+    <td>
+      <ul>
+        <li><b>먼저 부르지 않습니다.</b> 학생이 스스로 찾아와야 하는 pull 구조 — 사장님이 지적하신 "본인 의지" 문제가 그대로 남습니다</li>
+        <li><b>개인화가 없습니다.</b> 모두에게 같은 기사</li>
+        <li>성인·시사 중심이라 <b>아동에게 부적합</b></li>
+        <li>강사 풀이 커서 <b>"오늘 수업이 없다"는 사건 자체가 발생하지 않습니다</b></li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<h3>C. 캠블리 키즈 · 노바키드 — 학부모 열람형</h3>
+<table>
+  <tr><th style="width:50%">장점</th><th>단점</th></tr>
+  <tr>
+    <td><ul>
+      <li>학부모가 자녀 계정으로 <b>활동·진도를 열람</b>할 수 있는 구조</li>
+      <li>학습 효과를 데이터로 증명하는 리포트 체계</li>
+    </ul></td>
+    <td><ul>
+      <li>리포트가 <b>"찾아가서 보는" 수동형</b>입니다. 넛지가 아니라 조회 기능</li>
+      <li>학부모가 안 들어오면 아무 일도 일어나지 않습니다</li>
+    </ul></td>
+  </tr>
+</table>
+
+<h3>D. 한국 학습지형 (밀크T · 아이스크림홈런 · 웅진스마트올) — 학부모 집행형</h3>
+<table>
+  <tr><th style="width:50%">장점</th><th>단점</th></tr>
+  <tr>
+    <td><ul>
+      <li><b>수신자를 학부모로 잡습니다.</b> 아이에게 학습 알림, 학부모에게 결과 피드백</li>
+      <li>일일 학습 피드백이 잘 되어 있어 <b>학부모가 체크하기 쉽다</b>는 평가</li>
+    </ul></td>
+    <td><ul>
+      <li>톤이 <b>감시·성과 보고</b>에 가까워 아이의 반발을 부르기 쉽습니다</li>
+      <li>콘텐츠가 학교 진도 중심이라 <b>영어 회화와는 결이 다릅니다</b></li>
+      <li class="en">주의: 각 사의 발송 시각·빈도·문구 등 세부는 이번 조사로 확인하지 못했습니다. 구조만 확인된 수준입니다.</li>
+    </ul></td>
+  </tr>
+</table>
+
+<h3>종합 — 살릴 7가지 / 버릴 5가지</h3>
+<table>
+  <tr><th style="width:50%">✅ 살린다</th><th>❌ 버린다</th></tr>
+  <tr>
+    <td>
+      <ol>
+        <li>마지막 학습 시각 기반 발송 <span class="en">(듀오링고)</span></li>
+        <li>스트릭 + <b>연휴 자동 보호</b> <span class="en">(듀오링고 프리즈)</span></li>
+        <li>스트릭 상시 노출 <span class="en">(위젯 대신 홈 상단 고정)</span></li>
+        <li>로그인 없는 첫 진입 <span class="en">(Engoo)</span></li>
+        <li>레벨·카테고리 분류와 "NEW" 신선도 표기 <span class="en">(Engoo)</span></li>
+        <li>자율학습 &rarr; 수업 순환 구조 <span class="en">(Engoo)</span></li>
+        <li>학부모를 두 번째 수신자로 <span class="en">(한국 학습지)</span></li>
+      </ol>
+    </td>
+    <td>
+      <ol>
+        <li><b>죄책감·협박 톤</b> &rarr; 희망·응원 톤으로 전면 교체</li>
+        <li><b>발신자가 시스템</b> &rarr; <b>담당 강사</b>가 말을 겁니다</li>
+        <li><b>수업과 무관한 콘텐츠</b> &rarr; 지난 수업 실제 문장을 재료로</li>
+        <li><b>찾아와야 보이는 리포트</b> &rarr; 먼저 보내는 결과 리포트</li>
+        <li><b>쉬는 날에도 똑같은 압박</b> &rarr; 연휴는 <b>다른 문법</b>으로 말합니다</li>
+      </ol>
+    </td>
+  </tr>
+</table>
+
+
+<h2><span class="n">3</span>망고아이만의 무기
+  <small>경쟁사가 구조적으로 흉내낼 수 없는 것</small></h2>
+
+<div class="cards">
+  <div class="card">
+    <h4>① 담당 강사 고정</h4>
+    <p>강사가 고정되어 있어 <b>"오늘 우리 선생님이 쉰다"</b>를 아는 유일한 사업자입니다.
+    강사 풀이 수천 명인 엔구·캠블리는 이 사건 자체가 발생하지 않습니다.</p>
+  </div>
+  <div class="card">
+    <h4>② 지난 수업의 실제 문장</h4>
+    <p>학생이 어제 무슨 단어로 무슨 문장을 말했는지 데이터가 있습니다.
+    듀오링고의 개인화는 "당신의 학습 기록"까지지만, 망고아이는 <b>"당신의 선생님이 낸 숙제"</b>까지 갑니다.</p>
+  </div>
+  <div class="card">
+    <h4>③ 양국 공휴일 캘린더</h4>
+    <p>한국·필리핀 공휴일이 <code>calendar_events</code>에 국가 코드까지 붙어 이미 들어 있습니다.
+    <b>수업 유도할 날과 자율학습 유도할 날을 자동으로 갈라낼 수 있습니다.</b></p>
+  </div>
+</div>
+
+<div class="lead">
+  이 셋을 합치면 <b>경쟁사가 절대 보낼 수 없는 한 문장</b>이 나옵니다.<br><br>
+  <span style="font-size:19px">"내일은 Kevin쌤이 쉬는 날이에요.<br>
+  대신 Kevin쌤이 지난 화요일 단어 5개를 남겨두고 갔어요. 3분이면 끝나요."</span><br><br>
+  <b>연휴 넛지의 승부처는 알림 기술이 아니라 여기입니다.</b>
+</div>
+
+
+<h2><span class="n">4</span>핵심 전략 — 공휴일 3트랙 분기
+  <small>같은 "공휴일"이라도 강사가 쉬느냐 학생이 쉬느냐에 따라 정반대의 제안이 나갑니다</small></h2>
+
+<table>
+  <tr><th>트랙</th><th>조건</th><th>실제 상황</th><th>망고아이의 제안</th><th>목표 지표</th></tr>
+  <tr>
+    <td><b>A</b></td>
+    <td><code>country='KR'</code><br>평일</td>
+    <td>학생은 학교·학원을 쉼<br><b>강사는 정상 근무</b></td>
+    <td><b>수업 유도</b><br>평소 못 하던 낮 시간대 특별수업</td>
+    <td>공휴일 수업 예약 건수<br>유휴 강사시간 소진율</td>
+  </tr>
+  <tr>
+    <td><b>B</b></td>
+    <td><code>country='PH'</code><br>평일</td>
+    <td><b>강사가 쉼</b><br>화상수업 물리적 불가</td>
+    <td><b>예복습 유도</b><br>연휴 미션 팩 + 동영상 리뷰</td>
+    <td>미션 완료율<br>다음 수업 출석률</td>
+  </tr>
+  <tr>
+    <td><b>C</b></td>
+    <td>KR+PH 동시<br>(12/25)</td>
+    <td>양쪽 다 쉼</td>
+    <td><b>이벤트 데이</b><br>가족 참여 미션 + 한정 배지</td>
+    <td>참여율<br>SNS·후기 확산</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td>주말에 걸림</td>
+    <td>원래 수업 없는 날</td>
+    <td><b>아무것도 보내지 않음</b></td>
+    <td>—</td>
+  </tr>
+</table>
+
+<div class="warn">
+  <b>가장 흔한 사고:</b> 필리핀 공휴일에 "오늘 보충수업 신청하세요"가 나가는 것.
+  강사가 없어서 신청을 받아줄 수 없습니다. 신뢰가 한 번에 무너집니다.
+  <b>트랙 판정은 반드시 <code>calendar_events.country</code>를 기준으로 자동화</b>하고, 사람이 손으로 고르지 않게 합니다.
+</div>
+
+<div class="note">
+  <b>확인이 필요한 전제:</b> <code>calendar_events</code>에 등록된 필리핀 공휴일이
+  <b>실제 강사 휴무와 100% 일치하는지</b>는 별도 확인이 필요합니다.
+  강사 개인 휴가·지역 공휴일(local holiday)은 다른 경로로 관리되고 있을 수 있습니다.
+  발송 전 <b>강사 근무 스케줄과 교차 검증</b>하는 단계를 파이프라인에 넣습니다.
+</div>
+
+
+<h2><span class="n">5</span>트랙 A · 한국 공휴일 &rarr; 수업 유도
+  <small>9/24(목) · 9/25(금) 추석 / 10/5(월) / 10/9(금) — 총 4일</small></h2>
+
+<div class="track a">
+<h3>왜 기회인가</h3>
+<p>한국 공휴일에 학생은 <b>학교도 학원도 가지 않습니다.</b> 낮 시간이 통째로 빕니다.
+그런데 필리핀 강사는 <b>평소와 똑같이 근무</b>합니다.
+평소 수업은 14:00~23:00에 몰려 있는데, 공휴일에는 <b>오전·이른 오후라는 새 시간대가 열립니다.</b></p>
+<p><b>즉 트랙 A는 비용이 아니라 매출 기회입니다.</b> 유휴 강사 시간을 수업으로 전환하는 날입니다.</p>
+
+<h4>제안 상품 (4종)</h4>
+<table>
+  <tr><th>상품</th><th>대상</th><th>내용</th><th>기대 효과</th></tr>
+  <tr><td><b>결석 보충수업</b></td><td>미소진 보충 보유 학생</td><td>밀린 보충을 공휴일 오전에 소진</td><td>보충 부채 해소 · 만족도</td></tr>
+  <tr><td><b>공휴일 특강</b><br><span class="en">Holiday Special</span></td><td>전 재원생</td><td>추석·한글날 등 <b>명절 주제 영어 수업</b><br>("Explain Chuseok to your teacher")</td><td>추가 수업 매출<br>콘텐츠 화제성</td></tr>
+  <tr><td><b>친구 초대 수업</b></td><td>재원생 + 친구 1명</td><td>2:1 무료 체험 — 친구가 옆에 앉아 함께</td><td><b>신규 획득</b> (최우선)</td></tr>
+  <tr><td><b>레벨업 테스트</b></td><td>진급 대상자</td><td>평소 시간이 없어 미룬 레벨테스트</td><td>재등록 근거 확보</td></tr>
+</table>
+
+<h4>발송 타임라인</h4>
+<table class="tbl-sm">
+  <tr><th>시점</th><th>수신자</th><th>채널</th><th>메시지 요지</th></tr>
+  <tr><td><b>D-5</b> 19:00</td><td>학부모</td><td>푸시 + (알림톡)</td><td>"추석에도 Kevin쌤은 수업합니다. 오전 특별 시간대가 열렸어요"</td></tr>
+  <tr><td><b>D-3</b> 19:00</td><td>학부모</td><td>푸시</td><td>남은 자리 안내 + 예약 링크 (희소성)</td></tr>
+  <tr><td><b>D-1</b> 18:00</td><td>학생 + 학부모</td><td>푸시</td><td>예약자: 내일 시간 확인 / 미예약자: 마지막 안내</td></tr>
+  <tr><td><b>D-day</b> 09:30</td><td>예약 학생</td><td>푸시</td><td>"오늘 11시 Kevin쌤 수업이에요" + 입장 딥링크</td></tr>
+  <tr><td><b>D-day</b> 14:00</td><td>미예약 학생</td><td>푸시</td><td><b>트랙 B로 전환</b> — 수업 안 할 거면 연휴 미션이라도</td></tr>
+</table>
+
+<div class="ok">
+  <b>핵심 설계:</b> 트랙 A에서 수업을 예약하지 않은 학생은 <b>당일 오후에 자동으로 트랙 B(자율학습)로 넘깁니다.</b>
+  "수업 아니면 아무것도 없음"이 아니라 <b>"수업이 안 되면 최소한 15분"</b>이 되게 합니다.
+</div>
+
+<h4>실제 문구 안</h4>
+<div class="push">
+  <div class="app"><span>망고아이</span><span>D-5 · 19:00</span></div>
+  <div class="t">🇰🇷 추석에도 Kevin쌤은 수업해요</div>
+  <div class="b">9/24(목)·25(금)은 학교가 쉬는 날이죠. Kevin쌤은 그날도 근무합니다.
+  평소엔 없던 <b>오전 10시·11시 자리</b>가 열렸어요. 밀린 보충수업도 이때 채울 수 있어요.</div>
+  <div class="btns"><span>시간표 보기</span><span>보충 확인</span></div>
+</div>
+
+<div class="push">
+  <div class="app"><span>망고아이</span><span>D-day · 14:00 (미예약자)</span></div>
+  <div class="t">오늘 수업이 없네요. 그럼 15분만!</div>
+  <div class="b">지난주에 Kevin쌤과 배운 단어 5개, 지금 딱 3분이면 복습 끝나요.
+  연휴에도 실력은 그대로 지켜집니다 🔥</div>
+  <div class="btns"><span>3분 미션 시작</span></div>
+</div>
+</div>
+
+
+<h2><span class="n">6</span>트랙 B · 필리핀 공휴일 &rarr; 예복습 유도
+  <small>8/21(금) 첫 실전 · 8/31 · 11/2 · 11/30 · 12/8 · 12/24 · 12/30 · 12/31 — 총 8일</small></h2>
+
+<div class="track b">
+<h3>설계 원칙</h3>
+<p>강사가 없으므로 <b>화상수업은 물리적으로 불가능</b>합니다. 이 날의 목표는 단 하나 —
+<b>"수업이 없어도 망고아이를 여는 습관"</b>을 만드는 것입니다.
+연간 8일이 습관의 실험장이 됩니다.</p>
+
+<h4>발송 타임라인 (4단 구조)</h4>
+<table class="tbl-sm">
+  <tr><th>시점</th><th>수신자</th><th>메시지 요지</th><th>노리는 심리</th></tr>
+  <tr><td><b>D-1</b> 18:00</td><td>학생</td><td><b>강사 30초 음성/영상</b> + "내일 미션 예약할까요?"</td><td>사전약속 · 관계</td></tr>
+  <tr><td><b>D-1</b> 19:00</td><td>학부모</td><td>"내일은 강사 공휴일입니다. 대신 15분 학습을 보내드려요"</td><td>사전 고지 · 신뢰</td></tr>
+  <tr><td><b>D-day</b> 10:00</td><td>예약 학생</td><td>"약속한 시간이에요" + 첫 문제 딥링크</td><td>일관성 원리</td></tr>
+  <tr><td><b>D-day</b> 15:00</td><td>미완료자만</td><td>"3문제 중 1개 남았어요" / 스트릭 잔여 안내</td><td>자이가르닉 · 손실회피</td></tr>
+  <tr><td><b>D-day</b> 20:00</td><td>학부모</td><td><b>결과 리포트</b> — "오늘 12분 학습, 단어 8개 복습"</td><td>집행자 피드백</td></tr>
+</table>
+
+<div class="warn">
+  <b>발송 상한 (반드시 준수):</b> 학생 1인당 <b>하루 최대 2건</b>, <b>21시 이후 발송 금지</b>,
+  미완료자 리마인드는 <b>1회만</b>. 아동 대상 서비스입니다. 볼륨으로 밀면 알림 자체가 차단됩니다.
+</div>
+
+<h4>실제 문구 안</h4>
+<div class="push">
+  <div class="app"><span>망고아이</span><span>D-1 · 18:00 (학생)</span></div>
+  <div class="t">🇵🇭 내일은 Kevin쌤이 쉬는 날이에요</div>
+  <div class="b">필리핀 공휴일(Ninoy Aquino Day)이라 내일은 수업이 없어요.
+  대신 Kevin쌤이 <b>30초 메시지</b>와 단어 5개를 남겨두고 갔어요.<br>
+  내일 몇 시에 할까요?</div>
+  <div class="btns"><span>오전 10시</span><span>오후 3시</span><span>메시지 듣기</span></div>
+</div>
+
+<div class="push">
+  <div class="app"><span>망고아이</span><span>D-day · 10:00 (예약자)</span></div>
+  <div class="t">약속한 10시예요! ⏰</div>
+  <div class="b">Kevin쌤이 남긴 단어 5개 — <i>grateful, celebrate, tradition…</i><br>
+  딱 <b>한 문제만</b> 풀어볼까요? 3분이면 끝나요.</div>
+  <div class="btns"><span>1문제 시작</span></div>
+</div>
+
+<div class="push">
+  <div class="app"><span>망고아이</span><span>D-day · 15:00 (미완료자)</span></div>
+  <div class="t">3문제 중 2개까지 했어요 👏</div>
+  <div class="b">마지막 1개만 남았어요. 오늘 끝내면 <b>🇵🇭 Heroes Day 한정 배지</b>를 받아요.
+  이 배지는 오늘만 받을 수 있어요!</div>
+  <div class="btns"><span>마지막 1문제</span></div>
+</div>
+
+<div class="push">
+  <div class="app"><span>망고아이</span><span>D-day · 20:00 (학부모)</span></div>
+  <div class="t">오늘 지훈이가 12분 공부했어요</div>
+  <div class="b">강사 공휴일이라 수업은 없었지만, 지훈이가 스스로 <b>단어 8개를 복습</b>하고
+  문장 3개를 소리 내어 말했어요. 발음 정확도 <b>87점</b>으로 지난주보다 올랐습니다.
+  다음 수업은 8/24(월) 오후 5시입니다.</div>
+  <div class="btns"><span>학습 리포트 보기</span></div>
+</div>
+
+<h4>강사 30초 메시지 — 운영 방법 <span class="en">Teacher 30-second message</span></h4>
+<p>이것이 트랙 B의 <b>차별화 핵심</b>입니다. 시스템 알림이 <b>아는 사람의 부탁</b>으로 바뀝니다.</p>
+<ul>
+  <li>공휴일 <b>D-3</b>에 강사 마이페이지에 녹화 요청 카드가 뜹니다</li>
+  <li>대본은 자동 제공(한/영 병기). 강사는 읽기만 하면 됩니다</li>
+  <li class="en">"Hi [Student]! Tomorrow is a holiday in the Philippines, so we don't have class.
+      But I left you 5 words from our last lesson. Just 3 minutes — do it for me, okay? See you Monday!"</li>
+  <li>미녹화 강사는 <b>기본 문구 + 강사 사진</b>으로 자동 대체 (녹화 강제하지 않음)</li>
+</ul>
+</div>
+
+
+<h2><span class="n">7</span>트랙 C · 양국 겹침 &rarr; 이벤트
+  <small>12/25(금) 크리스마스 — 연 1회</small></h2>
+
+<div class="track c">
+<p>양쪽 다 쉬는 날은 <b>학습을 밀어붙이는 날이 아니라 관계를 쌓는 날</b>입니다.
+이날 학습 압박을 넣으면 브랜드 호감이 깎입니다.</p>
+<ul>
+  <li><b>가족 참여 미션</b> — "가족에게 영어로 Merry Christmas 인사하고 녹음해서 올리기"</li>
+  <li><b>강사 단체 인사 영상</b> — 필리핀 강사들의 크리스마스 인사 (마케팅 자산으로도 재사용)</li>
+  <li><b>연말 성장 리포트</b> — 올 한 해 배운 단어 수, 말한 문장 수, 최장 스트릭. 학부모에게 발송
+    &rarr; <b>재등록 시즌과 정확히 겹칩니다</b></li>
+  <li><b>한정 배지 + 젬 2배</b></li>
+</ul>
+<div class="note"><b>부가 효과:</b> 12월 말 연말 성장 리포트는 재등록 상담의 근거 자료가 됩니다.
+학부모 주간 리포트 기획과 자연스럽게 연결됩니다.</div>
+</div>
+
+
+<h2><span class="n">8</span>넛지 8원칙과 실제 문구
+  <small>모든 문구는 이 원칙에서 파생됩니다</small></h2>
+
+<table>
+  <tr><th style="width:20%">원칙</th><th style="width:38%">적용</th><th>문구 예시</th></tr>
+  <tr><td><b>① 사전약속</b></td><td>당일이 아니라 <b>전날</b> 예약 버튼을 누르게 함. 예약자만 당일 알림 &rarr; 발송량도 줄고 실행률은 오름</td><td>"내일 몇 시에 할까요? [오전 10시] [오후 3시]"</td></tr>
+  <tr><td><b>② 손실 회피</b></td><td>스트릭 잔여 안내. 단 <b>연휴엔 자동 보호</b>를 함께 알려 불안을 제거</td><td>"🔥 연속 12일 — 연휴엔 자동으로 지켜드려요. 그래도 오늘 하면 13일!"</td></tr>
+  <tr><td><b>③ 문턱 제거</b></td><td>푸시 클릭 &rarr; <b>로그인 없이 첫 1문제</b> 화면. 풀고 나서 "저장하려면 로그인"</td><td>"딱 <b>한 문제만</b>"</td></tr>
+  <tr><td><b>④ 개인화</b></td><td>일반 콘텐츠가 아니라 <b>본인 지난 수업 문장</b>. 강사 이름 포함</td><td>"지난 화요일 Kevin쌤과 배운 <i>grateful</i>"</td></tr>
+  <tr><td><b>⑤ 미완성</b></td><td>3문제 중 2개까지만 진행된 상태를 남기고 다시 부름</td><td>"마지막 1개 남았어요"</td></tr>
+  <tr><td><b>⑥ 한정 보상</b></td><td>공휴일 한정 배지 — <b>오늘 아니면 못 받음</b></td><td>"🇵🇭 Heroes Day 배지는 오늘만"</td></tr>
+  <tr><td><b>⑦ 이중 수신자</b></td><td>학생에겐 <b>미션</b>, 학부모에겐 <b>결과</b>. 학부모가 본다는 걸 알면 다음엔 학부모가 먼저 시킴</td><td>"오늘 지훈이가 12분 공부했어요"</td></tr>
+  <tr><td><b>⑧ 사람의 목소리</b></td><td>발신자를 시스템이 아닌 <b>담당 강사</b>로. 30초 음성/영상</td><td>"Do it for me, okay?"</td></tr>
+</table>
+
+<div class="warn">
+  <b>톤 규칙 (절대 원칙):</b> 학생에게 나가는 모든 문구는 <b>희망·응원 톤</b>입니다.
+  "안 하면 뒤처져요", "또 안 했네요" 같은 <b>질책·죄책감 문구는 금지</b>합니다.
+  듀오링고가 밈이 된 협박 톤은 성인 대상이라 통한 것이고, 아동에게는 이탈 요인입니다.
+</div>
+
+<div class="note">
+  <b>다국어:</b> 모든 문구는 <b>한국어·영어·중국어</b> 3종으로 작성합니다.
+  학생 언어 설정 키는 <code>mangoi_lang</code>입니다(구버전 <code>mango_lang</code> 아님).
+  <b>강사에게 나가는 안내는 한/영 병기 필수</b>입니다(강사 다수가 필리핀 현지).
+</div>
+
+
+<h2><span class="n">9</span>연휴 미션 팩 — 무엇을 시키나
+  <small>새 콘텐츠를 만들지 않습니다. 이미 있는 자산을 15분 코스로 묶습니다</small></h2>
+
+<h3>기본 코스 — 15분 (초3~중2 기준)</h3>
+<table>
+  <tr><th>순서</th><th>활동</th><th>시간</th><th>사용 자산</th><th>상태</th></tr>
+  <tr><td>1</td><td>워밍업 — 오늘의 한 문장 듣고 따라 말하기</td><td>3분</td><td><code>warmup.html</code></td><td><span class="badge b-have">기존</span></td></tr>
+  <tr><td>2</td><td><b>지난 수업 단어 5개</b> 복습</td><td>4분</td><td><code>vocab.html</code> / <code>review-quiz.html</code></td><td><span class="badge b-have">기존</span></td></tr>
+  <tr><td>3</td><td>문장 말하기 3개 — 발음 점수</td><td>4분</td><td><code>speech-coach.html</code></td><td><span class="badge b-have">기존</span></td></tr>
+  <tr><td>4</td><td>게임 1판 — 보상 회수</td><td>4분</td><td>게임 허브 (P-38 3D, 탱크대전 등)</td><td><span class="badge b-have">기존</span></td></tr>
+</table>
+
+<h3>선택 코스</h3>
+<table>
+  <tr><th>코스</th><th>내용</th><th>대상</th></tr>
+  <tr><td><b>동영상 리뷰</b></td><td>지난 수업 <b>녹화 다시보기</b> + 강사가 표시한 하이라이트 구간</td><td>전체 — 사장님 요청 항목</td></tr>
+  <tr><td><b>예습 코스</b></td><td>다음 수업 교재의 새 단어를 미리 — 다음 수업에서 바로 티가 남</td><td>상위권 · 의욕 높은 학생</td></tr>
+  <tr><td><b>AI 영어친구 대화</b></td><td>연휴 주제로 자유 대화 ("What did you do today?")</td><td>말하기 부담 없는 학생</td></tr>
+  <tr><td><b>AI 영작 첨삭</b></td><td>"내 연휴 하루" 3문장 쓰고 첨삭받기</td><td>중등 이상</td></tr>
+  <tr><td><b>명절 특별 콘텐츠</b></td><td>추석·크리스마스 주제 단어·표현 팩 (한정)</td><td>전체 — 화제성</td></tr>
+</table>
+
+<div class="ok">
+  <b>난이도는 자동 배정합니다.</b> 학생 레벨과 최근 오답을 기준으로 문항을 뽑습니다.
+  "너무 어려워서 포기"가 연휴 학습 최대의 이탈 원인입니다. <b>정답률 70~80% 구간</b>을 목표로 출제합니다.
+</div>
+
+<h3>보상 설계</h3>
+<ul>
+  <li><b>공휴일 한정 배지</b> — 그날만 획득 가능 (예: 🇵🇭 Heroes Day, 🌙 추석 마스터, 🎄 Christmas)</li>
+  <li><b>젬 2배</b> — 연휴 당일 한정</li>
+  <li><b>연휴 스트릭 보호</b> — 미참여해도 스트릭 유지. <b>단, 참여하면 +1</b>
+      <span class="en">(듀오링고 프리즈의 개선판 — 벌이 아니라 상으로 설계)</span></li>
+  <li><b>다음 수업 첫 1분</b> — 강사가 "연휴에 미션한 친구" 이름을 불러줍니다. 가장 강력한 보상이며 비용이 0원입니다</li>
+</ul>
+
+
+<h2><span class="n">10</span>화면 설계</h2>
+
+<table>
+  <tr><th>화면</th><th>역할</th><th>핵심 요건</th><th>상태</th></tr>
+  <tr>
+    <td><code>/holiday.html</code><br>연휴 미션 랜딩</td>
+    <td>푸시 클릭 시 착지하는 단일 화면</td>
+    <td><b>로그인 없이 첫 1문제까지 진행</b> · 강사 메시지 재생 · 진행률 바 · 완료 시 배지</td>
+    <td><span class="badge b-new">신규</span></td>
+  </tr>
+  <tr>
+    <td>학생 홈 상단 배너</td>
+    <td>연휴 D-3부터 상시 노출</td>
+    <td>스트릭 상시 표시(위젯 대체) · "NEW" 신선도 표기</td>
+    <td><span class="badge b-new">신규</span></td>
+  </tr>
+  <tr>
+    <td>강사 마이페이지 카드</td>
+    <td>30초 메시지 녹화 요청</td>
+    <td>대본 자동 제공(한/영) · 미녹화 시 자동 대체 · <b>강제하지 않음</b></td>
+    <td><span class="badge b-new">신규</span></td>
+  </tr>
+  <tr>
+    <td>관리자 — 연휴 넛지 관제</td>
+    <td>발송 전 확인 · 발송 후 추적</td>
+    <td><b>dry-run 토글</b> · 대상 수 미리보기 · 도달/열람/완료 실시간 · 즉시 중단 버튼</td>
+    <td><span class="badge b-new">신규</span></td>
+  </tr>
+  <tr>
+    <td>학부모 리포트</td>
+    <td>D-day 저녁 결과 발송</td>
+    <td>기존 학부모 리포트 재사용 · 연휴 버전 템플릿만 추가</td>
+    <td><span class="badge b-have">기존 확장</span></td>
+  </tr>
+</table>
+
+<div class="warn">
+  <b>담당 구역 주의:</b> <code>public/index.html</code>(홈)과 <code>src/index.ts</code>(라우팅·인증게이트)는
+  <b>공동 금지구역</b>입니다. 홈 배너와 신규 API 라우팅 등록은 <b>배포 권한자(A)가 작업</b>해야 합니다.
+  학습 콘텐츠 쪽(<code>holiday.html</code>, 미션 팩, 게임 연동)은 B 담당 구역입니다.
+</div>
+
+
+<h2><span class="n">11</span>기술 설계</h2>
+
+<h3>파이프라인</h3>
+<pre style="background:rgba(255,255,255,.04);border:1px solid rgba(140,175,210,.2);border-radius:11px;padding:15px;overflow-x:auto;font-size:13px;color:#cfe0f0;line-height:1.7">
+[cron] scheduled() — src/index.ts:1806 에 holiday-nudge 추가
+   ↓  KST D-3 19:00 / D-1 18:00 / D-day 10:00 / 15:00 / 20:00
+[트랙 판정] calendar_events(event_type='holiday') + 요일 검사(월~금만)
+   ↓  country='KR' → 트랙A  |  'PH' → 트랙B  |  둘 다 → 트랙C
+[강사 교차검증] 트랙B는 실제 강사 근무 스케줄과 대조 ← 중요
+   ↓
+[대상 선정] 그날 수업이 있었어야 할 학생 + 최근 30일 내 수업 이력
+   ↓
+[콘텐츠 생성] 지난 수업 문장·단어 → 미션 3~5문항 + 딥링크 URL
+   ↓
+[안전 게이트] KV holiday_nudge:live 확인 → 기본 dry-run
+   ↓
+[발송] push_queue INSERT → sendWebPushWakeup() → SW가 /api/push/pending fetch
+   ↓
+[측정] push_queue.fetched_at + holiday_nudge_log 진입·완료 기록
+</pre>
+
+<h3>구성요소 — 있는 것 vs 새로 만들 것</h3>
+<table>
+  <tr><th>구성요소</th><th>위치</th><th>상태</th></tr>
+  <tr><td>웹푸시 발송 엔진 (VAPID/ES256)</td><td><code>src/web-push.ts</code></td><td><span class="badge b-have">완성</span></td></tr>
+  <tr><td>서비스워커 수신·알림 표시</td><td><code>public/sw.js:169~208</code></td><td><span class="badge b-have">완성</span></td></tr>
+  <tr><td>구독 테이블·발송 큐·딥링크 url</td><td><code>push_subscriptions</code>, <code>push_queue</code></td><td><span class="badge b-have">완성</span></td></tr>
+  <tr><td>구독 API / 관리자 발송 API</td><td><code>src/api-notify.ts:570~690</code></td><td><span class="badge b-have">완성</span></td></tr>
+  <tr><td>공휴일 캘린더 (KR/PH)</td><td><code>calendar_events</code></td><td><span class="badge b-have">완성</span></td></tr>
+  <tr><td>스트릭·젬·배지</td><td><code>student_streaks</code>, <code>student_badges</code></td><td><span class="badge b-have">완성</span></td></tr>
+  <tr><td>학습 콘텐츠 8종</td><td><code>vocab</code>·<code>review-quiz</code>·<code>warmup</code>·<code>speech-coach</code>·게임</td><td><span class="badge b-have">완성</span></td></tr>
+  <tr><td><b>VAPID 키 설정</b></td><td>Worker secret</td><td><span class="badge b-p0">확인 필요</span></td></tr>
+  <tr><td><b>넛지 오케스트레이터</b> (트랙판정·대상선정·문구생성)</td><td><code>src/holiday-nudge.ts</code> 신규</td><td><span class="badge b-new">신규</span></td></tr>
+  <tr><td><b>미션 테이블</b></td><td><code>holiday_missions</code>, <code>holiday_nudge_log</code></td><td><span class="badge b-new">신규</span></td></tr>
+  <tr><td><b>연휴 랜딩 화면</b></td><td><code>public/holiday.html</code></td><td><span class="badge b-new">신규</span></td></tr>
+  <tr><td><b>강사 30초 메시지 녹화</b></td><td>강사 마이페이지</td><td><span class="badge b-new">신규</span></td></tr>
+</table>
+
+<h3>신규 테이블 (안)</h3>
+<pre style="background:rgba(255,255,255,.04);border:1px solid rgba(140,175,210,.2);border-radius:11px;padding:15px;overflow-x:auto;font-size:12.5px;color:#cfe0f0;line-height:1.65">
+CREATE TABLE IF NOT EXISTS holiday_missions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  holiday_date TEXT NOT NULL,       -- '2026-08-21'
+  track TEXT NOT NULL,              -- 'A' | 'B' | 'C'
+  student_uid TEXT NOT NULL,
+  teacher_id TEXT,
+  payload TEXT,                     -- 문항·단어·딥링크 JSON
+  reserved_slot TEXT,               -- 학생이 예약한 시각 (사전약속)
+  started_at INTEGER, completed_at INTEGER,
+  score INTEGER, minutes INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS holiday_nudge_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  holiday_date TEXT NOT NULL, track TEXT, stage TEXT,   -- 'D-1' | 'D0-10' | ...
+  audience TEXT,                    -- 'student' | 'parent' | 'teacher'
+  student_uid TEXT, channel TEXT,   -- 'push' | 'alimtalk'
+  status TEXT,                      -- 'dry' | 'queued' | 'delivered' | 'clicked'
+  sent_at INTEGER NOT NULL
+);
+</pre>
+
+<div class="warn">
+  <b>함정 (과거 반복 사고):</b> 신규 API는 <code>src/index.ts</code>의 <b>라우팅과 인증 게이트에 반드시 등록</b>해야 동작합니다.
+  등록을 빠뜨리면 무인증 노출 또는 404가 됩니다. 또한 D1 파라미터는 <b>100개 제한</b>이므로
+  <code>IN</code> 절은 90개 이하로 잘라 실행합니다.
+</div>
+
+
+<h2><span class="n">12</span>안전장치 — 29,373명 오발송 방지
+  <small>이 항목은 협상 대상이 아닙니다</small></h2>
+
+<table>
+  <tr><th>장치</th><th>내용</th></tr>
+  <tr><td><b>기본 dry-run</b></td><td>KV <code>holiday_nudge:live</code> 게이트. 기본값은 <b>모의 발송</b>이며,
+    사람이 명시적으로 켜야 실제로 나갑니다. <span class="en">(학부모 다이제스트의 <code>digest:send_all_live</code>와 동일 구조)</span></td></tr>
+  <tr><td><b>단계적 확대</b></td><td>50명 &rarr; 500명 &rarr; 전체. 각 단계에서 도달·클릭·이탈 확인 후 다음 단계</td></tr>
+  <tr><td><b>발송 상한</b></td><td>학생 1인 <b>하루 2건</b>, 학부모 <b>하루 1건</b>. 공휴일당 총량 상한 별도 설정</td></tr>
+  <tr><td><b>시간대 제한</b></td><td><b>09:00~21:00 KST</b>만 발송. 그 외 시각 요청은 큐에서 자동 폐기</td></tr>
+  <tr><td><b>즉시 중단</b></td><td>관리자 화면에 <b>발송 중단 버튼</b>. 누르면 미발송 큐 전량 폐기</td></tr>
+  <tr><td><b>옵트아웃</b></td><td>알림 하단 "그만 받기" 1탭. 재구독도 1탭</td></tr>
+  <tr><td><b>개인정보</b></td><td>URL·쿼리스트링에 <b>PII 금지</b>. 문구에는 이름만, 식별자는 토큰으로</td></tr>
+  <tr><td><b>주말 차단</b></td><td>토·일에 걸린 공휴일은 <b>대상에서 자동 제외</b> (요일 검사 필수)</td></tr>
+  <tr><td><b>강사 교차검증</b></td><td>트랙 B는 실제 강사 휴무와 대조 후 발송. 불일치 시 <b>발송 보류 + 관리자 알림</b></td></tr>
+</table>
+
+
+<h2><span class="n">13</span>측정 지표와 목표치
+  <small>업계 벤치마크 대비 우리 목표</small></h2>
+
+<table>
+  <tr><th>지표</th><th>업계 벤치마크</th><th>망고아이 1차 목표</th><th>근거</th></tr>
+  <tr><td>푸시 클릭률 (CTR)</td><td>평균 2.25%<br>(업종별 0.5~7.4%)</td><td><b>8% 이상</b></td><td>고정 강사 실명 + 본인 수업 단어라는 강한 개인화</td></tr>
+  <tr><td>딥링크 진입 &rarr; 1문제 완료</td><td>—</td><td><b>60% 이상</b></td><td>로그인 없이 첫 문제까지 도달하게 설계</td></tr>
+  <tr><td>미션 전체 완료율</td><td>—</td><td><b>35% 이상</b></td><td>예약(사전약속)한 학생 기준</td></tr>
+  <tr><td>수업 완료율 상승</td><td>타겟 푸시 도입 시 +35%</td><td>연휴 다음 수업 <b>출석률 +5%p</b></td><td>2024 EdTech 조사</td></tr>
+  <tr><td>트랙 A 수업 예약</td><td>—</td><td>공휴일당 <b>50건</b></td><td>1차 파일럿 기준. 강사 유휴시간 소진율로 환산</td></tr>
+  <tr><td>구독자 수</td><td>—</td><td>8/21까지 <b>1,000명</b></td><td>현재 0명 &rarr; 최우선 선행 과제</td></tr>
+</table>
+
+<div class="note">
+  <b>발송 시각 근거:</b> 교육 분야는 <b>오전·저녁이 낮 시간대보다 확실히 우세</b>합니다.
+  본 기획의 D-1 18:00 / D-day 10:00 · 15:00 · 20:00 배치는 이 벤치마크를 따른 것입니다.
+  <b>이미지가 포함된 리치 푸시는 열람률이 56% 높으므로</b>, 강사 사진을 알림에 넣습니다.
+</div>
+
+
+<h2><span class="n">14</span>로드맵 — 8/21 역산 일정
+  <small>첫 실전까지 D-24일</small></h2>
+
+<table>
+  <tr><th>단계</th><th>기간</th><th>내용</th><th>완료 판정</th></tr>
+  <tr>
+    <td><span class="badge b-p0">P0</span> 채널 켜기</td>
+    <td>7/29~8/2<br><span class="en">D-23~D-19</span></td>
+    <td>VAPID 키 확인·설정 &rarr; 옵트인 배너 노출 확인 &rarr;
+        학생홈·마이페이지·수업종료 화면에 구독 유도 지점 추가</td>
+    <td><code>push_subscriptions</code>가 <b>0에서 증가</b><br>테스트 기기로 실제 알림 수신</td>
+  </tr>
+  <tr>
+    <td><span class="badge b-p0">P0</span> 구독 확보</td>
+    <td>8/3~8/16<br><span class="en">D-18~D-5</span></td>
+    <td>수업 종료 직후 구독 유도(가장 반응 좋은 순간) · 학부모 안내 · 구독 시 젬 보상</td>
+    <td><b>구독자 1,000명</b> 달성</td>
+  </tr>
+  <tr>
+    <td><span class="badge b-p1">P1</span> 트랙 B 구축</td>
+    <td>8/3~8/17<br><span class="en">D-18~D-4</span></td>
+    <td><code>holiday.html</code> · 미션 팩 · 오케스트레이터 · 관리자 관제 카드 · 강사 메시지 녹화</td>
+    <td><code>npx tsc --noEmit</code> 통과<br><code>test-harness/run.mjs --fast</code> 통과</td>
+  </tr>
+  <tr>
+    <td><span class="badge b-p1">P1</span> dry-run 리허설</td>
+    <td>8/18~8/19<br><span class="en">D-3~D-2</span></td>
+    <td>전체 파이프라인 모의 실행. 대상 수·문구·딥링크 육안 검수</td>
+    <td>관리자 화면에서 <b>대상자 명단·문구 전량 확인</b></td>
+  </tr>
+  <tr>
+    <td><span class="badge b-p1">P1</span> <b>8/21 첫 실전</b></td>
+    <td>8/20~8/21<br><span class="en">D-1~D-day</span></td>
+    <td><b>구독자 중 50명 파일럿 발송.</b> 전체 발송 아님</td>
+    <td>도달률·CTR·완료율 실측</td>
+  </tr>
+  <tr>
+    <td><span class="badge b-p2">P2</span> 트랙 A 구축</td>
+    <td>8/24~9/18</td>
+    <td>공휴일 특별 시간표 개설 · 예약 흐름 · 보충 소진 연동 · 친구 초대 수업</td>
+    <td><b>9/24~25 추석 실전</b></td>
+  </tr>
+  <tr>
+    <td><span class="badge b-p2">P2</span> 학부모 리포트</td>
+    <td>9월</td>
+    <td>D-day 저녁 결과 리포트 · 카페24 전화번호 동기화(알림톡 경로 확보)</td>
+    <td>전화번호 보유 3명 &rarr; <b>전체 동기화</b></td>
+  </tr>
+  <tr>
+    <td><span class="badge b-p3">P3</span> 확장</td>
+    <td>10~12월</td>
+    <td>iOS PWA 안내 · WebView 앱 FCM · 트랙 C 이벤트 · 연말 성장 리포트</td>
+    <td>12/25 트랙 C 실행</td>
+  </tr>
+</table>
+
+<div class="ok">
+  <b>일정 판단:</b> 8/21까지 24일 남았습니다. P0(채널 켜기)와 P1(트랙 B)을 병행하면 <b>충분히 가능합니다.</b>
+  다만 <b>구독자 확보가 병목</b>입니다. 지금 0명이라, 8/21에 구독자가 200명이면 200명에게만 나갑니다.
+  <b>P0를 오늘 시작해야 하는 이유가 여기 있습니다.</b>
+</div>
+
+
+<h2><span class="n">15</span>리스크와 선행과제</h2>
+
+<table>
+  <tr><th>리스크</th><th>영향</th><th>대응</th></tr>
+  <tr><td><b>VAPID 키 미설정</b></td><td>치명적 — 푸시 자체 불가</td><td>P0 첫 작업. 미설정이면 즉시 생성·등록 (<code>generateVapidKeyPair</code> 준비돼 있음)</td></tr>
+  <tr><td><b>iOS 웹푸시 제약</b></td><td>큼 — 아이폰은 <b>홈 화면 추가(PWA)</b> 없이는 웹푸시 원천 불가</td><td>안드로이드·PC 우선 시작. iOS는 "홈 화면에 추가" 안내 배너 + 알림톡 경로로 우회</td></tr>
+  <tr><td><b>WebView 앱은 웹푸시 미수신</b></td><td>큼 — 앱 사용 학생 누락</td><td>P3에서 FCM 연동. 그전까지는 앱 사용자에게 <b>앱 내 배너</b>로 대체</td></tr>
+  <tr><td><b>전화번호 D1 미동기화 (3명)</b></td><td>큼 — 알림톡·문자 타겟팅 불가</td><td>카페24 &rarr; D1 동기화가 학부모 리포트의 선행 과제</td></tr>
+  <tr><td><b>PH 공휴일 ≠ 실제 강사 휴무</b></td><td>중간 — 잘못된 안내</td><td>발송 전 강사 근무 스케줄 교차검증. 불일치 시 발송 보류</td></tr>
+  <tr><td><b>알림 피로 · 옵트아웃</b></td><td>중간 — 채널 영구 상실</td><td>발송 상한·시간대 제한·1탭 옵트아웃. <b>연 13일만 발송</b>하는 저빈도 설계</td></tr>
+  <tr><td><b>강사 협조 부담</b></td><td>낮음</td><td>30초 녹화는 <b>선택</b>. 미녹화 시 기본 문구 자동 대체</td></tr>
+  <tr><td><b>병행 세션 배포 충돌</b></td><td>중간</td><td>배포 전 <code>git status</code>·ff 확인. 배포 스탬프 커밋과 실제 변경 구분</td></tr>
+</table>
+
+
+<h2><span class="n">16</span>의사결정 요청</h2>
+
+<p>다음 항목은 사장님 결정이 필요합니다.</p>
+
+<table>
+  <tr><th style="width:5%">#</th><th style="width:45%">결정 사항</th><th>선택지</th></tr>
+  <tr><td>1</td><td><b>8/21 파일럿 발송 승인</b> — 실제 학생에게 알림이 나갑니다</td>
+      <td>① 50명 파일럿 진행 <b>(권장)</b><br>② dry-run만 하고 실발송은 추석부터<br>③ 코드만 만들고 발송 보류</td></tr>
+  <tr><td>2</td><td><b>트랙 A 공휴일 특별수업의 유료/무료</b></td>
+      <td>① 보충 소진 우선(무료) + 추가분 유료<br>② 전면 무료 이벤트<br>③ 유료 특강만</td></tr>
+  <tr><td>3</td><td><b>친구 초대 2:1 무료 체험</b> 시행 여부 — 신규 획득 효과가 가장 큰 항목</td>
+      <td>① 추석부터 시행<br>② 12/25부터<br>③ 미시행</td></tr>
+  <tr><td>4</td><td><b>강사 30초 메시지</b> — 강사에게 추가 업무 요청</td>
+      <td>① 선택 참여 <b>(권장)</b><br>② 전원 필수<br>③ 미시행(기본 문구만)</td></tr>
+  <tr><td>5</td><td><b>학부모 결과 리포트 발송</b> — 실제 학부모에게 메시지가 나갑니다</td>
+      <td>① 푸시만 먼저<br>② 전화번호 동기화 후 알림톡까지<br>③ 보류</td></tr>
+</table>
+
+<div class="lead">
+  <b>지금 당장 시작할 수 있는 것은 P0(VAPID 확인 + 구독 유도 지점 추가)입니다.</b><br>
+  이건 위 5개 결정과 무관하게 <b>어차피 필요한 선행 작업</b>이고, 실제 학생에게 나가는 메시지가 없어
+  안전합니다. 승인해 주시면 오늘 착수하겠습니다.
+</div>
+
+
+<div class="foot">
+  <b>망고아이 공휴일 학습 넛지 프로그램 기획안 v1.0</b> · 2026-07-28<br>
+  근거: 운영 D1 직접 조회(SELECT only, 2026-07-28) · Engoo 데일리뉴스 브라우저 직접 확인 ·
+  듀오링고/푸시 벤치마크는 공개 2차 자료(Deconstructor of Fun, Pushwoosh, Zigpoll 등)<br>
+  미확인 항목: VAPID 라이브 상태(네트워크 차단으로 확인 불가) · 한국 학습지 3사의 알림 운영 세부 ·
+  PH 공휴일과 실제 강사 휴무의 일치 여부
+</div>
+
+</div>
+</body>
+</html>

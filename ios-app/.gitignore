@@ -1,0 +1,10 @@
+# XcodeGen 생성물 — 원본은 project.yml 이다
+*.xcodeproj/
+*.xcworkspace/
+
+# Xcode 작업 부산물
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+.DS_Store

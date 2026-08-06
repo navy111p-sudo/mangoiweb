@@ -11,7 +11,7 @@ from PIL import Image, ImageFilter
 from scipy import ndimage as ndi
 
 D='C:/Users/Admin/Desktop/mangoi_develop2-main/cloudflare-deploy/'
-SRC=D+'Gemini_Generated_Image_nbs417nbs417nbs4.png'
+SRC=D+'game_image/문어괴물_동작시퀀스.png'
 OUT=D+'public/boss-atlas.png'
 
 IMGW,IMGH=880,1188

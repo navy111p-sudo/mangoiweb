@@ -1833,7 +1833,17 @@
   function ltDuck(on){ if(!ltAC||!ltMaster) return; try{ ltMaster.gain.setTargetAtTime(on?0.30:0.8, ltAC.currentTime, 0.3); }catch(e){} }
   function ltBgmStart(){ if(ltMuted()) return; if(!ltEnsureAC()) return; if(ltAC.state==='suspended'){ try{ ltAC.resume(); }catch(e){} } if(ltRunning) return; ltRunning=true; ltTick(); ltTimer=setInterval(ltTick, LT_BAR_MS); }
   function ltBgmStop(){ ltRunning=false; if(ltTimer){ clearInterval(ltTimer); ltTimer=null; } }
-  function ltPlayIntro(restart){ if(ltMuted()) return; var v=ltEnsureVoice(); if(restart){ try{ v.currentTime=0; }catch(e){} } var p=v.play(); if(p&&p.catch) p.catch(function(){}); }
+  /* 🔇 자동재생이 막히면 «첫 동작»에서 한 번 더 시도한다 (2026-08-07).
+     카드 클릭으로 열 때는 제스처가 있어 바로 재생되지만, 주소로 바로 들어오면
+     (`/?menu=leveltest` — 옛 level-test.html 링크가 여기로 온다) 제스처가 없어
+     play() 가 조용히 거절된다. 그러면 안내 음성이 영영 안 나온다. */
+  var ltArmed=false;
+  function ltArmGesture(){
+    if(ltArmed) return; ltArmed=true;
+    var once=function(){ document.removeEventListener('pointerdown',once); document.removeEventListener('keydown',once); ltArmed=false; ltBgmStart(); ltPlayIntro(false); };
+    document.addEventListener('pointerdown', once); document.addEventListener('keydown', once);
+  }
+  function ltPlayIntro(restart){ if(ltMuted()) return; var v=ltEnsureVoice(); if(restart){ try{ v.currentTime=0; }catch(e){} } var p=v.play(); if(p&&p.catch) p.catch(function(){ ltArmGesture(); }); }
   function ltUpdateMute(){ if(!ltMuteBtn) return; ltMuteBtn.textContent = ltMuted()?'🔇':'🔊'; ltMuteBtn.title = ltMuted()?'소리 켜기':'음소거'; }
   function ltMakeMuteBtn(){
     if(ltMuteBtn) return ltMuteBtn;
@@ -1852,6 +1862,32 @@
   function ltAudioStart(){ ltMakeMuteBtn(); ltMuteBtn.style.display='flex'; ltUpdateMute(); ltBgmStart(); ltPlayIntro(false); }
   function ltAudioIntroReplay(){ ltBgmStart(); setTimeout(function(){ ltPlayIntro(true); }, 350); }
   function ltAudioStop(){ try{ if(ltVoice){ ltVoice.pause(); ltVoice.currentTime=0; } }catch(e){} ltBgmStop(); if(ltMuteBtn) ltMuteBtn.style.display='none'; }
+
+  /* 🔑 이미 로그인한 학생은 «계정을 또 만들 수가 없다» (2026-08-07).
+     신청서를 이 모달 한 벌로 통일하면서, 옛 페이지로 «이름+연락처만» 내던 길이 사라졌다.
+     그대로 두면 기존 회원은 아이디를 새로 지어내야 하고 자기 아이디를 넣으면
+     「이미 사용 중인 아이디입니다」 에 막혀 **레벨테스트를 아예 신청하지 못한다.**
+     → 로그인 상태면 계정란을 «○○ 님으로 신청합니다» 로 바꾸고, 가입 호출 없이 그대로 접수한다.
+     ⚠️ 키 목록은 level-test-ai.html·옛 level-test.html 의 detectUid 와 같아야 한다
+        (마이페이지로만 로그인한 학생은 mangoi_parent_uid 하나만 갖고 있다). */
+  function ltSession() {
+    var s = { uid:'', name:'', phone:'', token:'' };
+    try {
+      ['mangoi_uid','mango_uid','student_uid','uid','mangoi_parent_uid'].some(function(k){
+        var v = localStorage.getItem(k); if (v) { s.uid = v; return true; } return false;
+      });
+      var lu = null;
+      try { lu = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); } catch(e){}
+      if (!lu) { try { lu = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){} }
+      if (lu) {
+        if (!s.uid) s.uid = lu.uid || lu.user_id || '';
+        s.name = lu.name || lu.user_name || '';
+        s.phone = lu.phone || '';
+      }
+      s.token = localStorage.getItem('mango_token') || localStorage.getItem('mangoi_parent_token') || '';
+    } catch (e) {}
+    return s;
+  }
 
   // ━━━━━━━━━━ 📊 레벨테스트 신청·안내 모달 ━━━━━━━━━━
   function showLevelTestModal() {
@@ -1874,6 +1910,23 @@
     for (var _h = 14; _h <= 23; _h++) { var _hh = ('0' + _h).slice(-2); hourOptions += '<option value="' + _hh + '">' + _h + '시</option>'; }
     var minOptions = '';
     ['00','10','20','30','40','50'].forEach(function(m){ minOptions += '<option value="' + m + '">' + m + '분</option>'; });
+    // 🔑 로그인이면 «누구로 신청하는지» 를 보이고, 비로그인이면 계정란 자체를 그리지 않는다
+    var _lts = ltSession(), _ltIn = !!_lts.uid;
+    var accountBlock = _ltIn
+      ? '<div class="ltf-sec">🔐 로그인됨 / Signed in</div>'
+        + '<div class="ltf-signed">✅ <b>' + escapeLT(_lts.uid) + '</b> 님으로 신청합니다 — 회원가입 없이 바로 접수돼요.'
+        + '<br><span style="color:#94a3b8;font-size:11.5px">결과는 마이페이지 「내 레벨테스트」에서 확인하실 수 있어요.</span></div>'
+      /* ⛔ 비로그인은 계정 칸을 **그리지 않는다** (2026-08-07, 사장님 지적 2회).
+         레벨테스트 신청 ≠ 회원가입. 신청자 절반은 계정이 없고, 처음 온 사람에게
+         비밀번호를 보이는 순간 거기서 나간다 — «선택» 이라고 적어두는 것으로는 부족했다.
+         결과 확인은 계정이 아니라 **티켓 링크(t.html, 로그인 불필요)** 가 맡는다.
+         ⚠️ 되살리지 말 것 — 가입은 홈 로그인 모달에서 따로 한다. */
+      : '';
+    var formTitle = '🎯 레벨테스트 신청';
+    var formLead  = _ltIn
+      ? '로그인돼 있어서 날짜·시간만 고르시면 끝나요.'
+      : '<b style="color:#cbd5e1">회원가입 없이</b> 신청하실 수 있어요. 이름·연락처와 원하시는 날짜·시간만 알려 주세요.';
+    var submitLabel = '✅ 레벨테스트 신청하기';
     showModal(`
       <style>
         /* 🎨 레벨테스트 안내 전용 (lti- 접두사, 이 모달 안에서만) */
@@ -2035,9 +2088,9 @@
       <div class="lti-lvcap"><span>이제 시작</span><span>원어민 수준</span></div>
       <p style="color:#94a3b8;font-size:11.5px;margin:8px 0 0">※ 레벨과 추천 교재가 <b style="color:#cbd5e1">모두 준비된 뒤 한 번에</b> 안내드립니다 — 숫자만 던지는 반쪽 결과는 보내지 않아요.</p>
 
-      <!-- 🆕 회원가입 + 레벨테스트 신청 폼 (간편) -->
-      <h3 style="color:#fbbf24;margin-top:18px">🆕 회원가입 + 레벨테스트 신청</h3>
-      <p style="color:#94a3b8;font-size:12px;margin:6px 0 12px">아이디·비밀번호를 만들어 두시면 마이페이지에서 결과 확인 + 다음 신청이 1초로 끝나요.</p>
+      <!-- 🆕 회원가입 + 레벨테스트 신청 폼 (간편). 로그인돼 있으면 «가입» 없이 신청만. -->
+      <h3 style="color:#fbbf24;margin-top:18px">${formTitle}</h3>
+      <p style="color:#94a3b8;font-size:12px;margin:6px 0 12px">${formLead}</p>
 
       <div id="lt-signup">
         <style>
@@ -2050,6 +2103,8 @@
           #lt-signup .ltf-f.full{grid-column:1/-1}
           #lt-signup .ltf-f label{font-size:11.5px;font-weight:700;color:#cbd5e1;display:flex;align-items:center;gap:4px}
           #lt-signup .ltf-req{color:#fb7185;font-weight:800}
+          #lt-signup .ltf-signed{background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.32);border-radius:12px;padding:11px 13px;font-size:12.5px;line-height:1.6;color:#a7f3d0}
+          #lt-signup .ltf-signed b{color:#6ee7b7}
           #lt-signup .ltf-opt{color:#64748b;font-weight:600;font-size:10.5px}
           #lt-signup .ltf-f input,#lt-signup .ltf-f select{width:100%;height:44px;padding:0 13px;background:rgba(2,6,23,0.55);border:1px solid rgba(148,163,184,0.22);border-radius:11px;color:#f1f5f9;font-size:13.5px;outline:none;box-sizing:border-box;appearance:none;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s,background .15s}
           #lt-signup .ltf-f input::placeholder{color:#5b6b86}
@@ -2070,27 +2125,17 @@
           @media(max-width:480px){#lt-signup .ltf-grid{grid-template-columns:1fr}}
         </style>
         <div class="ltf-card">
-          <div class="ltf-sec">🔐 계정 만들기</div>
-          <div class="ltf-grid">
-            <div class="ltf-f">
-              <label>🆔 아이디 <span class="ltf-req">*</span></label>
-              <input id="lt-uid" type="text" autocomplete="username" placeholder="영문/숫자 4~20자" maxlength="20" />
-            </div>
-            <div class="ltf-f">
-              <label>🔑 비밀번호 <span class="ltf-req">*</span></label>
-              <input id="lt-pw" type="password" autocomplete="new-password" placeholder="6자 이상" minlength="6" />
-            </div>
-          </div>
+          ${accountBlock}
 
           <div class="ltf-sec">🧑‍🎓 학생 정보</div>
           <div class="ltf-grid">
             <div class="ltf-f">
               <label>👤 학생 이름 <span class="ltf-req">*</span></label>
-              <input id="lt-name" type="text" placeholder="실명" maxlength="40" />
+              <input id="lt-name" type="text" placeholder="실명" maxlength="40" value="${escapeLT(_lts.name)}" />
             </div>
             <div class="ltf-f">
               <label>📱 연락처 <span class="ltf-req">*</span></label>
-              <input id="lt-phone" type="tel" placeholder="010-1234-5678" maxlength="20" />
+              <input id="lt-phone" type="tel" placeholder="010-1234-5678" maxlength="20" value="${escapeLT(_lts.phone)}" />
             </div>
             <div class="ltf-f">
               <label>📧 이메일 <span class="ltf-opt">(선택)</span></label>
@@ -2129,8 +2174,15 @@
             <span>개인정보 수집·이용에 동의합니다 (레벨테스트 안내·결과 발송 목적, <a onclick="closeInfoModal();window.gridActions&&window.gridActions.contact()">고객센터 문의</a>)</span>
           </label>
           <div id="lt-form-msg" class="ltf-err"></div>
-          <button type="button" onclick="submitLevelTestSignup()" id="lt-submit" class="ltf-submit">✅ 회원가입 완료 + 레벨테스트 신청</button>
-          <button type="button" onclick="window.openLevelTestResults && window.openLevelTestResults()" class="ltf-ghost">📊 이미 신청하셨나요? 레벨테스트 결과보기</button>
+          <button type="button" onclick="submitLevelTestSignup()" id="lt-submit" class="ltf-submit">${submitLabel}</button>
+          ${/* 📊 이미 신청한 사람의 «돌아올 길». 결과 조회 화면은 아이디로 찾는데, 이제 계정 없이
+                신청하는 사람이 대부분이다 → 그 사람에게 아이디를 물으면 막다른 길이다.
+                이 브라우저에 티켓 주소가 남아 있으면 그리로 바로 보낸다(로그인 불필요). */''}
+          ${(function(){ var t=''; try { t = localStorage.getItem('mangoi_lt_ticket') || ''; } catch(e){}
+            return t
+              ? `<a href="${t}" class="ltf-ghost" style="display:block;text-align:center;line-height:30px;text-decoration:none">🎟️ 이미 신청하셨나요? 내 신청 확인하기</a>`
+              : `<button type="button" onclick="window.openLevelTestResults && window.openLevelTestResults()" class="ltf-ghost">📊 이미 신청하셨나요? 레벨테스트 결과보기</button>`;
+          })()}
         </div>
       </div>
 
@@ -2178,8 +2230,14 @@
   // ━━━━━━━━━━ 회원가입 + 레벨테스트 신청 제출 ━━━━━━━━━━
   window.submitLevelTestSignup = async function() {
     const $ = (id) => document.getElementById(id);
-    const uid = ($('lt-uid')?.value || '').trim();
-    const pw  = ($('lt-pw')?.value || '').trim();
+    // 🔑 로그인이면 그 uid 로, 아니면 uid 없이 접수한다 (ltSession 주석 참조)
+    const sess = ltSession();
+    const loggedIn = !!sess.uid;
+    /* 🙅 비로그인 = «계정 없이 신청». 화면에 아이디·비밀번호 칸 자체가 없다.
+       가입은 홈 로그인 모달에서 따로 한다 — 여기서 다시 받지 않는다(accountBlock 주석 참조).
+       ⚠️ 가입 코드를 여기 되살리지 말 것. 되살리면 «신청 = 가입» 으로 돌아가고,
+          계정 없는 신청자(절반)가 그 자리에서 막힌다. 결과 확인은 티켓 링크가 맡는다. */
+    const uid = loggedIn ? sess.uid : '';
     const name = ($('lt-name')?.value || '').trim();
     const phone = ($('lt-phone')?.value || '').trim();
     const email = ($('lt-email')?.value || '').trim();
@@ -2198,10 +2256,7 @@
       if (msg) { msg.textContent = text; msg.style.display = 'block'; }
     }
 
-    // 검증
-    if (!uid || uid.length < 4) return showErr('아이디는 4자 이상 입력해 주세요.');
-    if (!/^[a-zA-Z0-9_]+$/.test(uid)) return showErr('아이디는 영문/숫자/언더바만 가능합니다.');
-    if (!pw || pw.length < 6) return showErr('비밀번호는 6자 이상 입력해 주세요.');
+    // 검증 — 받는 것은 이름·연락처·일정·동의뿐이다
     if (!name) return showErr('학생 이름을 입력해 주세요.');
     if (!phone) return showErr('연락처를 입력해 주세요.');
     if (!desiredDate) return showErr('희망 날짜를 선택해 주세요.');
@@ -2212,69 +2267,31 @@
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 처리 중…'; btn.style.opacity = '0.7'; }
 
     try {
-      // 1) 로컬 중복 검사 (이전에 같은 uid 로 신청한 적 있으면 차단)
-      let localExists = false;
-      try {
-        const existing = JSON.parse(localStorage.getItem('mangoi_level_test_results') || '[]');
-        localExists = existing.some(x => x.student_user_id === uid);
-      } catch (e) {}
-      if (localExists) {
-        showErr('이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.');
-        return;
-      }
-      // 2) 백엔드 회원가입 — 실제 계정 생성 + 자동 로그인 토큰 수신 (best-effort)
-      var regToken = '';
-      try {
-        const r = await fetch('/api/student/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ user_id: uid, password: pw, name, phone, email, age })
-        });
-        const d = await r.json().catch(() => ({}));
-        if (r.ok && d && d.ok) {
-          if (d.token) regToken = d.token;   // 🔐 로그인 토큰 → 재로그인 없이 마이페이지 데이터 로드
-        } else {
-          // 중복 아이디만 사용자에게 차단, 나머지는 로컬 저장으로 진행
-          const err = (d && d.error) || '';
-          if (r.status === 409 || err.includes('exists') || err.includes('duplicate')) {
-            showErr('이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.');
-            return;
-          }
-          console.warn('[signup] backend returned', r.status, err, '— proceeding with local fallback');
-        }
-      } catch (netErr) {
-        // 네트워크 오류 — 무시하고 로컬 fallback
-        console.warn('[signup] network error — proceeding with local fallback:', netErr && netErr.message);
-      }
+      // 로그인 상태면 갖고 있던 토큰을 그대로 쓴다(비로그인은 토큰이 없다 — 서버가 uid 없이 접수).
+      var regToken = loggedIn ? (sess.token || '') : '';
       // 🎯 레벨테스트 신청 저장 + 교사 자동배정 + 접수 안내 — 희망 날짜·시간·연락처 전달 (best-effort)
       var scheduledLabel = '';
+      /* 🎟️ 접수 확인서. 문자만 믿으면 «문자가 늦거나 안 오는» 사람은
+         자기 신청이 들어갔는지 확인할 길이 없어진다. 화면에도 그대로 남긴다. */
+      var ticketUrl = '';
       try {
         const ar = await fetch('/api/leveltest/apply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ student_name: name, student_uid: uid, phone: phone, email: email, desired_date: desiredDate, desired_time: desiredTime, source: 'home-signup' })
+          // token: uid 가 어떤 이유로든 비면 서버가 로그인 토큰에서 직접 꺼내 채운다(마이페이지 조회는 uid 로만 한다)
+          body: JSON.stringify({ student_name: name, student_uid: uid, token: regToken || '', phone: phone, email: email, desired_date: desiredDate, desired_time: desiredTime, source: loggedIn ? 'home-member' : 'home-guest' })
         });
         const ad = await ar.json().catch(() => null);
         if (ad && ad.scheduled) scheduledLabel = ad.scheduled;
+        if (ad && ad.ticket_url) ticketUrl = ad.ticket_url;
+        // 홈 히어로의 «내 신청 확인» 입구가 이 값을 읽는다(탭을 닫어도 다시 찾게)
+        if (ticketUrl) { try { localStorage.setItem('mangoi_lt_ticket', ticketUrl); } catch (e) {} }
       } catch (e) { /* 서버 미연결이어도 시연 진행 */ }
 
-      // 🔑 가입 = 자동 로그인 — 세션 심기 (재로그인 없이 마이페이지 진입)
-      try {
-        const _lu = { user_id: uid, uid: uid, name: name, user_name: name, role: 'student' };
-        localStorage.setItem('mango_user', JSON.stringify(_lu));
-        localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
-        localStorage.setItem('mangoi_uid', uid);
-        localStorage.setItem('mangoi_parent_uid', uid);
-        localStorage.setItem('mangoi_vc_uid', name || uid);
-        if (regToken) {
-          localStorage.setItem('mango_token', regToken);          // uid 기반 개인 API 인증
-          localStorage.setItem('mangoi_parent_token', regToken);  // parent.html 자동 데이터 로드
-        }
-      } catch (e) {}
-
-      // 🔗 학생 홈피 결과 조회용 로컬 기록 (레벨/점수는 실제 AI 진단·선생님 평가 전까지 비움 — 가짜점수 금지)
-      try {
+      /* 🔗 학생 홈피 결과 조회용 로컬 기록 (레벨/점수는 실제 AI 진단·선생님 평가 전까지 비움 — 가짜점수 금지)
+         ⚠ 계정 없는 건은 남기지 않는다 — 아이디가 '' 인 행이 쌓이면 «결과보기» 가
+           서로 다른 사람의 신청을 같은 줄로 본다. 그 사람의 확인 경로는 티켓 링크다. */
+      if (loggedIn) try {
         const arr = JSON.parse(localStorage.getItem('mangoi_level_test_results') || '[]');
         arr.unshift({
           student_name: name,
@@ -2293,8 +2310,8 @@
 
       // 성공 — 가입+신청 완료 화면
       showModal(`
-        <h2 style="color:#86efac">🎉 회원가입 + 레벨테스트 신청 완료!</h2>
-        <p>축하합니다! <b style="color:#fde68a">${escapeLT(name)}</b> 님의 회원가입이 완료되었고 레벨테스트 신청이 접수되었습니다.</p>
+        <h2 style="color:#86efac">🎉 레벨테스트 신청 완료!</h2>
+        <p><b style="color:#fde68a">${escapeLT(name)}</b> 님의 레벨테스트 신청이 접수되었습니다.</p>
         <div class="info-grid" style="margin:14px 0">
           <div class="info-tile"><b>📅 희망 일시</b><span>${escapeLT(scheduledLabel || (desiredDate + ' ' + desiredTime))}</span></div>
           <div class="info-tile"><b>👩‍🏫 담당 선생님</b><span>확정되면 안내</span></div>
@@ -2305,19 +2322,25 @@
         </div>
         <ul>
           <li>담당 선생님 확정 후, 예약 시간 10분 전 카카오톡 채널로 화상 링크 안내</li>
-          <li>마이페이지에서 진행 상태와 결과 확인 가능</li>
+          ${ticketUrl ? `<li>아래 <b style="color:#fde68a">🎟️ 내 신청 확인하기</b> 를 누르면 언제든 상태·일정·결과를 볼 수 있어요 (로그인 불필요)</li>` : `<li>문자로 보내드린 <b style="color:#fde68a">확인 링크</b>로 언제든 상태·일정·결과를 볼 수 있어요 (로그인 불필요)</li>`}
           <li>결과 수령 후 추천 코스로 즉시 수강 신청 가능</li>
         </ul>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
           <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;text-align:center;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡 채널 추가</a>
-          <a class="info-cta" href="/parent.html?uid=${encodeURIComponent(uid)}" style="margin:0;text-align:center">🔑 마이페이지 가기</a>
+          ${ticketUrl
+            ? `<a class="info-cta" href="${ticketUrl}" style="margin:0;text-align:center">🎟️ 내 신청 확인하기</a>`
+            : (uid
+              ? `<a class="info-cta" href="/parent.html?uid=${encodeURIComponent(uid)}" style="margin:0;text-align:center">🔑 마이페이지 가기</a>`
+              /* 티켓도 계정도 없다 = 갈 곳이 없다. 빈 uid 로 마이페이지에 보내면 «내 것이 아닌 화면»이 뜬다.
+                 이때는 문자가 유일한 길이므로 그 사실을 그대로 말한다(가짜 버튼 금지). */
+              : `<span class="info-cta" style="margin:0;text-align:center;background:rgba(148,163,184,0.14);color:#cbd5e1;cursor:default">📩 확인 링크를 문자로 보내드렸어요</span>`)}
         </div>
       `);
       ltAudioIntroReplay();   // 🎬 완료 화면에서 인트로 음성 한 번 더 (처음·마지막)
     } catch (e) {
       showErr('네트워크 오류 — 잠시 후 다시 시도해 주세요.');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '✅ 회원가입 완료 + 레벨테스트 신청'; btn.style.opacity = '1'; }
+      if (btn) { btn.disabled = false; btn.textContent = '✅ 레벨테스트 신청하기'; btn.style.opacity = '1'; }
     }
   };
 
@@ -3099,4 +3122,26 @@
       applyGmLang();
     });
   }
+
+  /* ━━━━━━━━━━ 🎯 레벨테스트 신청서 «한 벌»로 통일 (2026-08-07) ━━━━━━━━━━
+     그동안 신청서가 두 벌이었다 — 이 모달과 옛 페이지 `/level-test.html`.
+     같은 안내 음성을 쓰면서 받는 항목이 달라서, 어느 문으로 들어왔느냐에 따라
+     **계정이 생기기도 하고 안 생기기도 했다**(옛 페이지는 회원가입이 없어
+     비회원이 신청하면 student_uid 가 비고, 그러면 마이페이지 「내 레벨테스트」에
+     영영 안 뜬다). 개인정보 동의 체크도 모달에만 있었다.
+     → 옛 페이지는 `/?menu=leveltest` 로 넘겨주고, 그 주소를 여기서 받아 모달을 연다.
+     ⚠️ 이 진입은 **주소로 바로 들어오는 길**이라 사용자 제스처가 없다.
+        음성은 ltArmGesture() 가 첫 동작에서 다시 살린다. */
+  window.showLevelTestModal = showLevelTestModal;
+  try {
+    var _q = new URLSearchParams(location.search);
+    if (_q.get('menu') === 'leveltest') {
+      /* 주소에서 지운다 — 남겨두면 모달을 닫고 새로고침할 때마다 다시 열린다.
+         ⚠️ menu 만 지운다. 쿼리 전체를 날리면 같이 실려온 ?room=·?shop=1·?pay=1·utm_* 까지
+            사라져 뒤에 실행되는 다른 처리들이 못 읽는다. */
+      _q.delete('menu');
+      try { history.replaceState(null, '', location.pathname + (_q.toString() ? '?' + _q.toString() : '') + location.hash); } catch (e) {}
+      setTimeout(function(){ closeGrid(); showLevelTestModal(); }, 0);
+    }
+  } catch (e) {}
 })();

@@ -28,7 +28,7 @@
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
-    'leveltest':'/level-test.html','battle':'/battle.html',
+    'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
@@ -6358,6 +6358,17 @@ window.mgIsSlowNet = function(){
               빼버리면 그 학생이 수업에 못 들어간다. -->
 
       <!-- ① 처음 온 방문자 -->
+      <!-- 🎟️ (2026-08-07) 「내 레벨테스트」 — 신청한 사람에게 **가장 먼저** 보이는 카드.
+           [왜] 신청 뒤 확인할 길이 «문자 한 통» 과 «신청 직후 화면» 뿐이었다. 탭을 닫거나
+                문자를 놓치면 홈에 다시 와도 들어갈 문이 없었다. 처음 망고아이를 접한 사람이
+                자기 예약을 찾다가 못 찾으면 그대로 이탈한다.
+           ⚠️ 신청한 적 없는 사람에게는 안 보인다(기본 hidden) — 화면을 늘리지 않는다.
+           ⚠️ 로그인을 묻지 않는다. 신청자 절반은 계정이 없다 — 링크(서명 토큰)가 곧 신원이다. -->
+      <a id="hero-lt" hidden href="#">
+        <span class="lt-head">🎟️ <b data-ko="내 레벨테스트" data-en="My Level Test">내 레벨테스트</b></span>
+        <span class="lt-when" id="hero-lt-when"></span>
+        <span class="lt-sub" id="hero-lt-sub"></span>
+      </a>
       <div id="hero-guest">
         <div class="ai-cta-row">
           <button class="cta-enter" onclick="window.openInquiryModal&&window.openInquiryModal()">
@@ -6377,6 +6388,87 @@ window.mgIsSlowNet = function(){
               비회원에게는 반드시 남아 있어야 한다 — 위 6340줄 주석 참조. -->
 
       <!-- ② 로그인한 회원 — 수업입장 + AI와 친구하기 한 줄 (같은 골드 스타일) -->
+      <script>
+      /* 🎟️ 내 레벨테스트 카드 채우기.
+         저장된 티켓 주소(신청할 때 남긴 것)로 서버에 상태를 물어 «언제·어떤 상태» 를 보여준다.
+         ⚠️ 신청한 적 없으면 아무 요청도 하지 않는다(키가 없으면 바로 반환) — 홈 첫 화면 비용 0.
+         ⚠️ 링크가 만료·무효면 키를 지운다. 죽은 카드가 홈에 영영 남아 있으면 안 된다. */
+      (function(){
+        var KEY = 'mangoi_lt_ticket';
+        var url = ''; try { url = localStorage.getItem(KEY) || ''; } catch(e){}
+        if (!/^https?:\/\//.test(url)) return;
+        var k = ''; try { k = new URL(url).searchParams.get('k') || ''; } catch(e){}
+        if (!k) return;
+
+        var el = document.getElementById('hero-lt');
+        var whenEl = document.getElementById('hero-lt-when');
+        var subEl = document.getElementById('hero-lt-sub');
+        if (!el || !whenEl || !subEl) return;
+        var EN = function(){ try { return (localStorage.getItem('mangoi_lang')||'') === 'en'; } catch(e){ return false; } };
+        var T = function(ko, en){ return EN() ? en : ko; };
+
+        /* 두 언어를 한 번에 만든다 — 화면의 applyLang 이 data-ko/data-en 을 보고 바꿔 주므로
+           언어 전환 배선을 내가 따로 할 필요가 없다.
+           ⚠️ 직접 배선했다가 «요일만 Fri, 나머지는 한국어» 로 반쪽이 됐다(2026-08-07 실측).
+              이 화면의 규칙을 따르는 것이 언제나 더 안전하다. */
+        function label(d, t, en){
+          if (!d) return t || (en ? 'To be arranged' : '일정 협의 중');
+          var p = String(d).split('-'); if (p.length !== 3) return d + (t ? ' ' + t : '');
+          var dt = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+          var wk = (en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'])[dt.getUTCDay()];
+          var head = en ? ((+p[1]) + '/' + (+p[2]) + ' (' + wk + ')') : ((+p[1]) + '월 ' + (+p[2]) + '일(' + wk + ')');
+          return head + (t ? ' ' + t : '');
+        }
+        var ST = {
+          pending:   ['접수 완료 — 담당 선생님을 찾고 있어요','Received — finding a teacher'],
+          proposed:  ['담당 선생님 배정 중','Assigning a teacher'],
+          confirmed: ['확정 — 예정대로 진행됩니다','Confirmed — all set'],
+          done:      ['테스트 완료 — 결과 보기','Test completed — see result'],
+          cancelled: ['취소됨','Cancelled']
+        };
+        function put(node, ko, en){
+          node.setAttribute('data-ko', ko);
+          node.setAttribute('data-en', en);
+          var isEn = false; try { isEn = (localStorage.getItem('mangoi_lang')||'') === 'en'; } catch(e){}
+          node.textContent = isEn ? en : ko;
+        }
+
+        function load(){
+          fetch('/api/leveltest/ticket?k=' + encodeURIComponent(k), { cache:'no-store' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+              if (!d || !d.ok || !d.ticket) {
+                // 만료·무효 — 죽은 카드를 홈에 남기지 않는다
+                try { localStorage.removeItem(KEY); } catch(e){}
+                el.hidden = true; return;
+              }
+              var t = d.ticket;
+              el.href = url;
+              put(whenEl, label(t.desired_date, t.desired_time, false), label(t.desired_date, t.desired_time, true));
+              if (t.join_open) {
+                el.classList.add('is-open');
+                put(subEl, '▶ 지금 입장하기 — 선생님이 기다리고 있어요', '▶ Join now — your teacher is waiting');
+              } else {
+                el.classList.remove('is-open');
+                var st = ST[t.status] || ['', ''];
+                var mins = t.start_ts ? Math.round((t.start_ts - t.now) / 60000) : 0;
+                var soonKo = (t.start_ts && mins > 0 && mins <= 180) ? ' · ' + mins + '분 뒤' : '';
+                var soonEn = (t.start_ts && mins > 0 && mins <= 180) ? ' · in ' + mins + ' min' : '';
+                put(subEl, st[0] + soonKo + ' · 자세히 보기 →', st[1] + soonEn + ' · View details →');
+              }
+              el.hidden = false;
+            })
+            .catch(function(e){ try { console.warn('[hero-lt]', e); } catch(_){} });
+        }
+
+        load();
+        /* 시간이 되면 «저절로» 초록 입장 카드로 바뀌어야 한다 — 새로고침을 시키면 그 순간 이탈한다. */
+        setInterval(load, 60000);
+        document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+        /* 🌐 언어 전환은 화면의 applyLang 이 data-ko/data-en 을 보고 처리한다 — 여기서 배선하지 않는다. */
+      })();
+      </script>
+
       <div class="ai-cta-row" id="hero-member" style="display:none">
         <button class="cta-enter" onclick="showView('view-videocall-lobby')">
           <svg class="btn-enter-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><circle cx="12" cy="9" r="2.5" fill="#1a1a1a"/><path d="M7 14c.5-2 2.5-3 5-3s4.5 1 5 3"/></svg>
@@ -6452,7 +6544,10 @@ window.mgIsSlowNet = function(){
           <span class="hf-n">1</span><span class="hf-t" data-ko="무료 상담" data-en="Free consult">무료 상담</span>
         </button>
         <span class="hf-ar" aria-hidden="true">›</span>
-        <button type="button" role="listitem" class="hf-step" onclick="location.href='/level-test.html'">
+        <!-- 🎯 (2026-08-07) 신청서는 홈 모달 한 벌뿐이다. 옛 `/level-test.html` 은 신청 폼이
+             따로 있어 회원가입·동의 없이 접수되던 «두 번째 신청서»였다 → 모달로 통일.
+             여기는 이미 홈이므로 페이지를 다시 부르지 않고 모달을 바로 연다. -->
+        <button type="button" role="listitem" class="hf-step" onclick="if(window.showLevelTestModal)window.showLevelTestModal();else location.href='/?menu=leveltest'">
           <span class="hf-n">2</span><span class="hf-t" data-ko="레벨 테스트" data-en="Level test">레벨 테스트</span>
         </button>
         <span class="hf-ar" aria-hidden="true">›</span>
@@ -8105,6 +8200,28 @@ window.mgIsSlowNet = function(){
       }
       /* 결제하기는 이 그리드에서 제외하고 별도 라인으로 빼기 */
       .ai-quick .ai-quick-pay { display: none !important; }
+      /* 🎟️ 내 레벨테스트 카드 — 히어로 CTA 와 같은 폭. 입장 시간이 되면 초록으로 «확» 바뀐다.
+         ⚠️ hover 로 크기·위치를 바꾸지 않는다(«정신없다»고 제거한 규칙) — 색만 진해진다. */
+      /* 🔴 (2026-08-07) `hidden` 을 반드시 되살려 둘 것.
+         `display:block` 은 저작자 스타일이라 브라우저 기본 `[hidden]{display:none}` 을 **이긴다.**
+         그래서 신청한 적 없는 사람에게도 카드가 «제목만 있고 날짜·상태는 빈» 채로 보였고,
+         href 는 아직 '#' 이라 **눌러도 아무 일도 안 일어났다**(사장님 제보).
+         같은 함정을 #mango-intro-overlay 에서 이미 한 번 밟아 위쪽에 같은 규칙이 있다. */
+      #hero-lt[hidden]{display:none!important}
+      #hero-lt{display:block;max-width:720px;margin:20px auto 0;padding:14px 18px;border-radius:16px;
+        text-decoration:none;text-align:center;
+        background:linear-gradient(135deg,rgba(251,191,36,.16),rgba(245,158,11,.10));
+        border:1.5px solid rgba(251,191,36,.55);box-shadow:0 6px 22px -10px rgba(245,158,11,.55);
+        transition:background .18s ease,border-color .18s ease}
+      #hero-lt:hover{background:linear-gradient(135deg,rgba(251,191,36,.26),rgba(245,158,11,.18));border-color:rgba(251,191,36,.85)}
+      #hero-lt .lt-head{display:block;font-size:12.5px;font-weight:800;color:#fde68a;letter-spacing:.2px}
+      #hero-lt .lt-when{display:block;font-size:20px;font-weight:900;color:#fff;margin:4px 0 3px;letter-spacing:-.3px}
+      #hero-lt .lt-sub{display:block;font-size:12.5px;font-weight:700;color:rgba(253,230,138,.92)}
+      #hero-lt.is-open{background:linear-gradient(135deg,#34d399,#059669);border-color:#34d399;
+        box-shadow:0 10px 28px -8px rgba(16,185,129,.7)}
+      #hero-lt.is-open .lt-head,#hero-lt.is-open .lt-sub{color:#052e1b}
+      #hero-lt.is-open .lt-when{color:#052e1b;font-size:23px}
+      @media(max-width:520px){#hero-lt .lt-when{font-size:18px}}
       /* === Phase 8c: 결제하기 + 수업입장 한 줄 (세련된 디자인) === */
       .ai-cta-row {
         display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
@@ -8710,6 +8827,16 @@ window.mgIsSlowNet = function(){
                     <!-- fix (2026-06-02) — 휴대폰에서 교재 다음/이전을 확실히 넘기는 큰 화살표 -->
                     <button type="button" class="pdf-nav-arrow pdf-nav-prev" onclick="pdfPrevPage()" aria-label="이전 교재/페이지">‹</button>
                     <button type="button" class="pdf-nav-arrow pdf-nav-next" onclick="pdfNextPage()" aria-label="다음 교재/페이지">›</button>
+                    <!-- 🥭 (2026-08-06 사장님) 수업 첫 화면 = 강사가 올린 교재. 아직 없으면 이 대기 카드만 보인다.
+                         예전엔 '학생 배정 교재'를 대신 띄웠는데, 그게 강사가 보던 교재와 달라
+                         "나갔다 들어오니 교재가 다른 게 보인다"의 원인이었다. 추측해서 띄우지 않는다.
+                         ⚠️ opacity:0 으로 시작하지 않는다 — 백그라운드 탭에서 영영 안 보이는 사고 방지(CLAUDE.md). -->
+                    <div id="vc-wait-card" style="display:none;">
+                        <img id="vc-wait-mango" src="/img/mango-char.png" alt="Mr. Mango" />
+                        <div class="vwc-ko" data-ko="잠시만 기다려 주세요" data-en="Please wait">잠시만 기다려 주세요</div>
+                        <div class="vwc-en">Please wait.</div>
+                        <div class="vwc-sub" id="vc-wait-sub" data-ko="선생님이 교재를 여는 중이에요 · Your teacher is opening the textbook" data-en="Your teacher is opening the textbook · 선생님이 교재를 여는 중이에요">선생님이 교재를 여는 중이에요 · Your teacher is opening the textbook</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -9303,9 +9430,13 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
                     try {
                         const _en = (typeof currentLang !== 'undefined' && currentLang === 'en');
                         const _full = (data.type === 'room-full');
+                        /* 🚪 (2026-08-06) 정원 숫자를 서버가 알려 준 값으로 표시한다.
+                           예전엔 '10명' 이 하드코딩돼 있었는데, 방 종류별로 정원이 달라졌으므로
+                           그대로 두면 4명 정원 방에서 "정원(10명)이 찼다"는 거짓 안내가 나간다. */
+                        const _lim = (data.data && Number(data.data.limit)) || 10;
                         const _msg = _full
-                            ? (_en ? 'This class room is full (10 people). Please contact your manager.'
-                                   : '이 수업방은 정원(10명)이 가득 찼어요. 매니저에게 알려 주세요.')
+                            ? (_en ? ('This room is full (' + _lim + ' people). Please contact your manager.')
+                                   : ('이 방은 정원(' + _lim + '명)이 가득 찼어요. 매니저에게 알려 주세요.'))
                             : (_en ? 'The class was ended by the administrator.'
                                    : '관리자가 수업을 종료했습니다.');
                         let _n = document.getElementById('vc-conn-notice');
@@ -9539,7 +9670,11 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
     // 🔥 모바일 발열 최소화 — 휴대폰은 VGA(640x480)·15fps 로, PC는 HD·24fps 로 캡처
     var _isMobileCam = window.matchMedia('(max-width: 920px)').matches
                        || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-    const videoConstraints = video ? (_isMobileCam ? {
+    /* 📷 (2026-08-06) 마이크와 달리 카메라는 '저번에 고른 장치'를 기억하지 않아, USB 웹캠을 골라도
+       다음 수업에 다시 노트북 내장 카메라로 돌아가 있었다. 마이크와 같은 규약(ideal)으로 맞춘다.
+       exact 가 아니라 ideal 인 이유: 그 USB 캠을 빼고 들어와도 수업은 내장 캠으로 정상 시작해야 한다. */
+    const _savedCam = (function(){ try { return localStorage.getItem('mangoi_vc_cam_id') || ''; } catch(e){ return ''; } })();
+    const videoConstraints = video ? Object.assign(_isMobileCam ? {
         facingMode: 'user',
         width:  { ideal: 640,  max: 1280 },
         height: { ideal: 480,  max: 720 },
@@ -9549,7 +9684,7 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
         width:  { ideal: 1280, max: 1280 },
         height: { ideal: 720,  max: 720 },
         frameRate: { ideal: 24, max: 30 }
-    }) : false;
+    }, _savedCam ? { deviceId: { ideal: _savedCam } } : {}) : false;
 
     const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
     // getUserMedia 재시도 헬퍼 — 카메라가 '사용 중(NotReadableError)'이면 잠깐 뒤 몇 번 더.
@@ -9750,6 +9885,30 @@ window.vcStopPdfPoll = function(){
 
 let vcLocalStream = null;       // 내 미디어 스트림
 let vcPeerConnections = {};     // { userId: RTCPeerConnection } 맵
+
+/* 🔴🔴 (2026-08-06) `let` 은 window 프로퍼티를 만들지 않는다 — 이걸 몰라서 기능 여러 개가
+   "코드는 있는데 한 번도 실행되지 않은" 상태로 방치돼 있었다.
+     · vcHealLocalMic / vcHealLocalVideo  → `if (!window.vcLocalStream) return;` 에서 매번 즉시 반환
+       = 마이크·카메라 자가치유가 단 한 번도 돈 적이 없다.
+     · vcMicLockApply(선생님 전체 음소거) → `if (window.vcLocalStream)` 이 거짓이라 track.enabled 를
+       실제로 끄지 못했다. 화면의 아이콘만 음소거로 바뀌고 소리는 그대로 나갔다.
+     · vcShareMyScreen / vcStopMyScreen  → `Object.values(window.vcPeerConnections || {})` 가 항상 빈
+       객체라 sender.replaceTrack 이 아무에게도 안 갔다 = 화면공유가 내 화면에만 보였다.
+   같은 함정이 4158줄 주석에도 남아 있다(그때는 호출부만 고침). 근본은 '전역이 window 에 없다' 이므로
+   여기서 접근자를 걸어 두 이름을 window 에서도 읽고 쓸 수 있게 한다. 기존 코드는 한 줄도 안 고쳐도 된다.
+   ⚠️ 지우지 말 것 — 지우는 순간 위 4가지가 다시 조용히 죽는다. */
+try {
+    Object.defineProperty(window, 'vcLocalStream', {
+        configurable: true,
+        get: function(){ return vcLocalStream; },
+        set: function(v){ vcLocalStream = v; }
+    });
+    Object.defineProperty(window, 'vcPeerConnections', {
+        configurable: true,
+        get: function(){ return vcPeerConnections; },
+        set: function(v){ vcPeerConnections = v; }
+    });
+} catch (e) { console.warn('[vc] window 전역 노출 실패:', e); }
 let vcPendingCandidates = {};   // fix (2026-07-05) { userId: [candidate...] } — remoteDescription 전에 온 ICE 후보 버퍼(유실 방지)
 let vcRemoteStreams = {};       // fix (2026-06-01) { userId: MediaStream } — 트랙별 ontrack 누적용 (원격 영상 검게 나오던 문제)
 let vcRoomId = '';
@@ -9932,7 +10091,10 @@ async function vcHealLocalVideo() {
         __vcCamHealAt = now; __vcCamMutedTicks = 0;
         console.warn('[cam-heal] 송출 영상 트랙 이상(ended/muted) → 카메라 재획득 시도');
         let stream;
-        try { stream = await navigator.mediaDevices.getUserMedia({ video: true }); }
+        // 📷 (2026-08-06) 사용자가 고른 카메라를 존중한다. 그냥 {video:true} 로 다시 잡으면
+        //   자가치유가 돌 때마다 USB 웹캠 → 노트북 내장 카메라로 되돌아간다(사용자 눈엔 '설정이 안 먹음').
+        const _pickedCam = (function(){ try { return localStorage.getItem('mangoi_vc_cam_id') || ''; } catch(_){ return ''; } })();
+        try { stream = await navigator.mediaDevices.getUserMedia({ video: _pickedCam ? { deviceId: { ideal: _pickedCam } } : true }); }
         catch (e1) { console.warn('[cam-heal] getUserMedia 실패:', e1 && e1.name); return; }
         const newTrack = stream.getVideoTracks()[0];
         if (!newTrack) return;
@@ -11336,8 +11498,18 @@ async function vcJoinRoom(skipUI) {
 
     // 🧭 (2026-07-22) 학부모 컴플레인 #4 — 학생이 방코드 없이 입장하면 공용방(mangoi-class)에서
     //    혼자 기다리는 문제. 빈칸 + 학생 + 오늘 예약이 있으면 예약 방으로 자동 교정.
-    //    오늘 예약이 없으면 기존 공용방 폴백 유지(데모/체험 흐름 보존).
+    /* 🚪 (2026-08-06 동시접속 진단) 학생은 «절대» 공용방으로 흘려보내지 않는다.
+       [실측] 한 방 정원은 10명(MAX_USERS)이고 전 방 공통이다. 50명이 공용방에 몰리면
+              10명만 들어가고 40명이 room-full 로 즉시 거절당한다(운영에서 재현 확인).
+       [기존 사고] join_open 이 거짓(=시작 10분 전보다 이르거나 끝난 뒤)이면 아래 폴백으로 떨어져
+              학생이 «아무 안내도 없이» 공용방에 들어갔다. 경고 배너는 교사에게만 있었다.
+              2026-07-28 19:36 KST 공용방 동시 12명 = 이미 정원을 넘긴 기록이 있다.
+       [해결] 학생은 ① 입장창이 열렸으면 예약방 ② 아직 이르면 카운트다운 대기화면
+              (vcShowClassGate — 이미 만들어져 있었고 이 경로에서 호출만 안 되고 있었다)
+              ③ 예약이 없거나 조회 실패면 안내 후 정지. 어느 경우에도 공용방으로 가지 않는다.
+       ⚠️ 교사는 지금처럼 공용 연습방을 계속 쓴다(시연·연습). 대신 정원을 따로 낮췄다(video-call-room.ts). */
     if (!vcTypedRoom) {
+      var _stopJoin = false;
       try {
         var _ju = (window.getCurrentUser ? window.getCurrentUser() : null);
         var _jrole = (window.vcMyRole || (_ju && _ju.role) || ((typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) ? 'teacher' : 'student'));
@@ -11345,14 +11517,19 @@ async function vcJoinRoom(skipUI) {
            [원인] 이 자동 교정이 학생일 때만 돌아서, 교사는 방코드가 빈 채로 아래 공용방(mangoi-class)에
                   들어갔다. 로비는 순간만 보여 방코드를 넣을 방법도 사실상 없다 → 교사 전원이 같은 방에 모임.
            [해결] 교사·관리자도 같은 방식으로 '오늘 내 예약 방'으로 교정한다.
-                  API 는 role=teacher 를 이미 지원하고(teacher_id 또는 이름 부분일치), 조건은 OR 이라
-                  uid·이름을 함께 보내도 안전하다. */
-        var _isT = (_jrole === 'teacher' || _jrole === 'admin');
+           ⚠️ (2026-08-06) 정확일치로 보면 안 된다 — 역할 표기가 경로마다 다르다.
+              마이페이지는 'teacher', 홈 통합로그인 폴백은 'hq_teacher' 를 쓴다(tryAdminLoginFallback).
+              예전엔 (_jrole==='teacher') 라 hq_teacher 강사가 «학생» 취급을 받았다. */
+        var _isT = /teacher|admin/i.test(String(_jrole));
         var _jq = 'role=' + (_isT ? 'teacher' : 'student');
         if (_ju && _ju.uid) _jq += '&user_id=' + encodeURIComponent(_ju.uid);
         if (vcUsername) _jq += '&student_name=' + encodeURIComponent(vcUsername);
         var _jd = await fetch('/api/class/sessions/today?' + _jq, { credentials: 'include' }).then(function (x) { return x.json(); }).catch(function () { return null; });
-        var _js = _jd && (_jd.current || ((_jd.sessions || []).filter(function (s) { return s.join_open; })[0]));
+        var _jss = (_jd && _jd.sessions) || [];
+        var _js = _jd && (_jd.current || _jss.filter(function (s) { return s.join_open; })[0]);
+        // 게이트 상태를 기억해 둔다 — 조회가 실패한 다음 번에도 «막을지 말지» 를 알아야 한다.
+        if (_jd && _jd.student_gate) window.__vcStudentGate = _jd.student_gate;
+
         if (_js && _js.room_id && _js.join_open) {
           vcTypedRoom = _js.room_id;
           if (roomCodeEl) roomCodeEl.value = vcTypedRoom;
@@ -11361,8 +11538,46 @@ async function vcJoinRoom(skipUI) {
           /* 오늘 예약이 없는 교사(연습·시연)는 공용방으로 간다 — 이때는 다른 사람이 들어올 수 있음을
              분명히 알려 준다. 예약된 실제 수업은 위에서 각자 방으로 갈리므로 겹치지 않는다. */
           window.__vcSharedRoomNotice = true;
+        } else if (_jd && _jd.student_gate !== 'on') {
+          /* 🚪 게이트 꺼짐(기본) = 예전과 100% 동일하게 공용방으로 폴백한다.
+             ⛔ 지금 켜면 안 되는 이유: class_schedules 663건 중 «실제 학생 예약» 은 6건뿐이다.
+                518건은 학생이 없는 강사 시간표 점유(user_id='lms', student_name=NULL), 140건은 시드.
+                이 상태로 켜면 대다수 학생이 "예약된 수업이 없어요" 를 만나 입장 자체를 못 한다.
+                카페24 수업을 실제 학생 예약으로 옮긴 뒤 wrangler.toml 의
+                VC_STUDENT_ROOM_GATE 를 'on' 으로 바꾸면 아래 차단이 살아난다. */
+          console.log('[vc] student_gate=off → 예전 폴백 유지(공용방)');
+        } else {
+          // ── 학생: 공용방 폴백 금지 (게이트 켜짐) ──
+          var _early = _jss.filter(function (s) { return s.status === 'early'; })
+                           .sort(function (a, b) { return a.start_ts - b.start_ts; })[0];
+          if (_early && typeof vcShowClassGate === 'function') {
+            // 아직 이르다 → 카운트다운 대기. 시간이 되면 자동으로 «내» 예약방에 들어간다.
+            vcShowClassGate(_early, vcUsername || '학생', 'student');
+            _stopJoin = true;
+          } else if (_jss.length) {
+            /* 🌐 한/영을 «둘 다» 보여 준다. 언어 설정 하나로 갈라 두면, 설정이 어긋난 학생이나
+               필리핀 매니저가 대신 봐 줄 때 읽지 못한다(사장님 지시: 무조건 한/영 병기). */
+            alert('오늘 수업은 이미 끝났어요. ⏹\n그래도 들어가야 한다면 매니저에게 방 번호를 받아 아래에 입력해 주세요.\n\n'
+              + "Today's class has already ended.\nIf you still need to join, ask your manager for the room code and enter it below.");
+            _stopJoin = true;
+          } else {
+            alert('오늘 예약된 수업이 없어요. 🗓️\n예약이 있는데도 이렇게 나오면, 매니저에게 방 번호를 받아 아래에 입력해 주세요.\n\n'
+              + 'You have no class booked for today.\nIf you believe this is wrong, ask your manager for the room code and enter it below.');
+            _stopJoin = true;
+          }
         }
-      } catch (e) { /* 조회 실패 시 기존 폴백 유지 */ }
+      } catch (e) {
+        /* 🔴 조회 실패. 게이트가 켜져 있을 때만 학생을 멈춘다.
+           예전에는 무조건 «공용방 폴백 유지» 였고, 그게 학생을 남의 방에 밀어 넣던 길이다.
+           단 게이트가 꺼진 동안에는 그 예전 동작을 그대로 지켜야 한다(dormant 보장).
+           게이트 값은 직전 성공 응답에서 기억해 둔 것을 쓴다 — 지금은 물어볼 수 없으므로. */
+        console.warn('[vc] 오늘 수업 조회 실패', e);
+        if (window.__vcStudentGate === 'on' && !/teacher|admin/i.test(String(window.vcMyRole || ''))) {
+          alert('수업 정보를 불러오지 못했어요. 📶\n잠시 후 다시 시도하거나, 매니저에게 받은 방 번호를 아래에 입력해 주세요.\n\nCould not load your class. Please retry, or enter the room code you were given.');
+          _stopJoin = true;
+        }
+      }
+      if (_stopJoin) return;
     }
 
     // 🗓️ (2026-07-22) 컴플레인 #4 — 지난 날짜가 박힌 링크(class-…-어제) 재사용 시 빈 방 입장 차단.
@@ -12727,7 +12942,10 @@ function vcHandleMessage(msg) {
             pdfClearRemote();
             // 🥭 공유 종료 → 세로폰은 다시 '선생님 크게'로 복귀
             window.__vcPdfShared = false;
-            try { window._vcShownPdfUrl = ''; window._vcShownPdfKey = ''; } catch(_){}
+            // 🥭 (2026-08-06) 공유가 끊기면 화면엔 교재가 없다 → 대기 카드가 다시 나와야 한다.
+            //   _vcCurrentPdfUrl 은 '지금 보고 있는 교재'의 유일한 흔적이라 여기서 같이 비운다.
+            try { window._vcShownPdfUrl = ''; window._vcShownPdfKey = ''; window._vcCurrentPdfUrl = ''; } catch(_){}
+            try { window.vcWaitCardSync && window.vcWaitCardSync(); } catch(_){}
             try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
             break;
 
@@ -14750,6 +14968,133 @@ async function vcSwitchMic(deviceId) {
 }
 window.vcSwitchMic = vcSwitchMic;
 window.vcPopulateMicSelect = vcPopulateMicSelect;
+
+/* ══════════════════════════════════════════════════════════════════
+   ⚙️ (2026-08-06) 설정 팝업(vc-dock.js)이 부르던 함수들 — 여태 '아예 없었다'.
+   vc-dock 의 call() 은 `typeof window[name]==='function'` 일 때만 부르고 아니면 조용히 넘어간다.
+   그래서 카메라를 바꿔도, 마이크를 바꿔도, 잡음 제거를 눌러도 **화면만 바뀌고 아무 일도 안 일어났다**.
+   (같은 사고가 화질 버튼에서 한 번 있었고 그때 vcSetQuality 만 만들어 막았다 — 12905줄 주석 참고)
+   여기서 나머지를 전부 실제 동작에 연결한다.
+   ══════════════════════════════════════════════════════════════════ */
+const VC_CAM_PREF_KEY = 'mangoi_vc_cam_id';
+function vcSavedCamId(){ try { return localStorage.getItem(VC_CAM_PREF_KEY) || ''; } catch(e){ return ''; } }
+window.vcSavedCamId = vcSavedCamId;
+
+/** 🎙 설정 팝업의 마이크 드롭다운 — 이미 완성돼 있던 vcSwitchMic 에 연결만 하면 된다. */
+window.vcSetMicDevice = function(deviceId){
+    if (!deviceId) return;
+    return vcSwitchMic(deviceId);
+};
+
+/** 📷 선택한 카메라로 전환 — 모든 통화 연결에 즉시 반영(재협상 없음).
+ *  vcHealLocalVideo 의 교체 절차를 그대로 따른다(검증된 경로). */
+window.vcSetCamDevice = async function(deviceId){
+    if (!deviceId) return;
+    try { localStorage.setItem(VC_CAM_PREF_KEY, deviceId); } catch(e){}
+    /* 🖥 화면 공유 중에는 지금 갈아끼우지 않는다 — 지금 송출 중인 트랙은 '화면'이라
+       여기서 카메라로 바꾸면 학생 화면에서 공유가 끊긴다. 선택만 저장해 두고 공유가 끝나면 적용된다. */
+    if (window.__vcScreenSharing) {
+        try { if (typeof showToast === 'function') showToast('📷 화면 공유가 끝나면 새 카메라로 바뀝니다.'); } catch(e){}
+        return;
+    }
+    const mobile = window.matchMedia('(max-width: 920px)').matches
+                   || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+    const size = mobile
+        ? { width: { ideal: 640, max: 1280 }, height: { ideal: 480, max: 720 }, frameRate: { ideal: 15, max: 20 } }
+        : { width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 }, frameRate: { ideal: 24, max: 30 } };
+    let stream = null;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: Object.assign({ deviceId: { exact: deviceId } }, size) });
+    } catch (e1) {
+        /* 해상도 제약이 안 맞는 캠(예: 고정 해상도 USB 캠)은 위 요청이 OverconstrainedError 로 죽는다.
+           장치 지정만 남기고 한 번 더 — 여기서 실패해야 진짜 실패다. */
+        console.warn('[cam-switch] 제약 완화 재시도:', e1 && e1.name);
+        try { stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } }); }
+        catch (e2) {
+            console.error('[cam-switch] 실패:', e2);
+            const msg = (e2 && e2.name === 'NotAllowedError') ? '브라우저 카메라 권한이 차단되어 있습니다.'
+                      : (e2 && e2.name === 'NotFoundError' || e2 && e2.name === 'OverconstrainedError') ? '선택한 카메라를 찾을 수 없습니다. 케이블을 다시 꽂고 목록을 새로고침해 주세요.'
+                      : (e2 && (e2.name === 'NotReadableError' || e2.name === 'TrackStartError')) ? '다른 앱(Zoom·Teams·카메라 앱 등)이 이 카메라를 쓰고 있습니다. 그 앱을 끄고 다시 선택해 주세요.'
+                      : '카메라 전환 실패: ' + ((e2 && e2.message) || e2);
+            alert('📷 ' + msg);
+            return;
+        }
+    }
+    const newTrack = stream.getVideoTracks()[0];
+    if (!newTrack) { alert('📷 선택한 카메라에서 영상 트랙을 얻지 못했습니다.'); return; }
+    newTrack.enabled = (typeof vcCamOn === 'undefined') ? true : !!vcCamOn;   // 카메라 OFF 상태 존중
+    if (!vcLocalStream) vcLocalStream = new MediaStream();
+    vcLocalStream.getVideoTracks().forEach(old => {
+        try { old.stop(); } catch(e){}          // 옛 카메라의 LED·점유를 확실히 반납
+        try { vcLocalStream.removeTrack(old); } catch(e){}
+    });
+    vcLocalStream.addTrack(newTrack);
+    // 내 미리보기
+    try {
+        const lv = document.getElementById('vc-local-video');
+        if (lv) { lv.srcObject = vcLocalStream; const p = lv.play(); if (p && p.catch) p.catch(()=>{}); }
+    } catch(e){}
+    // 모든 피어 sender 교체 — 재협상 없이 상대 화면이 그 자리에서 바뀐다
+    Object.values(vcPeerConnections || {}).forEach(pc => {
+        try {
+            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) sender.replaceTrack(newTrack).catch(()=>{});
+            else pc.addTrack(newTrack, vcLocalStream);
+        } catch (e) { console.warn('[cam-switch] sender 교체 실패:', e); }
+    });
+    /* 🎨 가상배경이 켜져 있으면 송출은 합성 캔버스다. 원본 카메라만 바꾸면 캔버스는 죽은 옛 트랙을
+       계속 그려 화면이 얼어 버린다 → 같은 모드로 파이프라인을 새 카메라 위에 다시 세운다. */
+    try {
+        if (typeof vcBg !== 'undefined' && vcBg && vcBg.mode && vcBg.mode !== 'off' && typeof window.vcSetBackground === 'function') {
+            const m = vcBg.mode;
+            await window.vcSetBackground('off');
+            await window.vcSetBackground(m);
+        }
+    } catch (e) { console.warn('[cam-switch] 가상배경 재적용 실패:', e); }
+    try { __vcCamMutedTicks = 0; } catch(e){}   // 자가치유가 교체 직후를 '이상'으로 오인하지 않게
+    console.log('[cam-switch] ✅ 카메라 전환 완료:', newTrack.label);
+    try { if (typeof showToast === 'function') showToast('📷 ' + (newTrack.label || '카메라') + ' 로 바꿨어요.'); } catch(e){}
+};
+
+/** 🔇 잡음 제거 on/off — 살아있는 트랙에 먼저 적용하고, 안 먹는 브라우저는 재획득으로 확실히 반영 */
+window.vcSetNoiseSuppression = async function(on){
+    on = !!on;
+    try { localStorage.setItem('mangoi_vc_noise', on ? '1' : '0'); } catch(e){}
+    const track = vcLocalStream && vcLocalStream.getAudioTracks ? vcLocalStream.getAudioTracks()[0] : null;
+    if (!track) return;
+    try {
+        await track.applyConstraints({ echoCancellation: true, autoGainControl: true, noiseSuppression: on });
+        const s = (track.getSettings && track.getSettings()) || {};
+        if (s.noiseSuppression === on) { console.log('[noise] 잡음 제거 →', on); return; }
+    } catch (e) { console.warn('[noise] applyConstraints 실패, 재획득으로 적용:', e && e.name); }
+    // applyConstraints 를 무시하는 브라우저 대비 — 같은 장치를 새 제약으로 다시 잡아 교체
+    try {
+        const id = (track.getSettings && track.getSettings().deviceId) || vcSavedMicId();
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: Object.assign({ echoCancellation: true, autoGainControl: true, noiseSuppression: on }, id ? { deviceId: { exact: id } } : {})
+        });
+        const nt = stream.getAudioTracks()[0];
+        if (!nt) return;
+        nt.enabled = track.enabled;
+        vcLocalStream.getAudioTracks().forEach(old => { try { old.stop(); } catch(e){} try { vcLocalStream.removeTrack(old); } catch(e){} });
+        vcLocalStream.addTrack(nt);
+        Object.values(vcPeerConnections || {}).forEach(pc => {
+            try {
+                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+                if (sender) sender.replaceTrack(nt).catch(()=>{});
+            } catch(e){}
+        });
+        console.log('[noise] 재획득으로 적용 →', on);
+    } catch (e) { console.warn('[noise] 재획득 실패:', e); }
+};
+
+/** 🌫 배경 흐림 — 가상배경 엔진에 이미 'blur' 모드가 있다. 스위치를 거기에 연결만 한다. */
+window.vcSetBackgroundBlur = function(on){
+    try {
+        if (typeof window.vcSetBackground !== 'function') return;
+        window.vcSetBackground(on ? 'blur' : 'off');
+    } catch (e) { console.warn('[blur]', e); }
+};
 try {
     if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
         navigator.mediaDevices.addEventListener('devicechange', function(){ try { vcPopulateMicSelect(); } catch(e){} });
@@ -21960,7 +22305,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=19"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=25"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -27428,8 +27773,20 @@ window.addEventListener('DOMContentLoaded', () => {
   'use strict';
 
   async function ph52ClearCache(){
-    var ok = confirm('🔄 캐시 삭제 후 페이지를 새로 불러옵니다.\n\n로그인 정보는 유지됩니다.\n계속하시겠어요?');
+    /* 🔄 (2026-08-06) 수업 중에는 «홈으로 나가는 새로고침»이 아니라 «이 수업으로 되돌아오는
+       새로고침»이다. 안내 문구도 그렇게 말해야 사장님·강사가 누를 수 있다. */
+    var _inCall = false;
+    try { _inCall = document.body.classList.contains('vc-in-call'); } catch(_){}
+    var ok = confirm(_inCall
+      ? '🔄 화면을 새로 불러옵니다.\n\n수업에서 나가지 않고, 지금 이 수업 화면으로 다시 들어갑니다.\nReload — you will come back into this class.\n계속하시겠어요?'
+      : '🔄 캐시 삭제 후 페이지를 새로 불러옵니다.\n\n로그인 정보는 유지됩니다.\n계속하시겠어요?');
     if (!ok) return;
+    // 수업 중이면 '지금 이 방' 기록을 먼저 확정해 둔다 (아래 sessionStorage.clear 대비 백업도 함께)
+    var _rejoin = null;
+    try {
+      if (_inCall && typeof window.__vcRejoinMark === 'function') window.__vcRejoinMark();
+      _rejoin = sessionStorage.getItem('mangoi_vc_rejoin');
+    } catch(_){}
     var saved = {};
     try {
       ['mangoi_logged_user','mango_user','mangoi_uid',
@@ -27459,6 +27816,8 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       Object.keys(saved).forEach(function(k){ localStorage.setItem(k, saved[k]); });
     } catch(_){}
+    // 🔄 수업 복귀 기록은 sessionStorage.clear() 로 날아간다 → 되돌려 놓는다(주소의 ?room= 과 이중 안전망)
+    try { if (_rejoin) sessionStorage.setItem('mangoi_vc_rejoin', _rejoin); } catch(_){}
     // 강제 새로고침 (cache-bust 쿼리)
     try {
       var u = new URL(window.location.href);
@@ -28499,7 +28858,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260804092314 -->
+<!-- BUILD:20260807052617 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -28722,7 +29081,7 @@ document.addEventListener('keydown', function(e){
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
-    'leveltest':'/level-test.html','battle':'/battle.html',
+    'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
@@ -28859,7 +29218,7 @@ document.addEventListener('keydown', function(e){
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
-    'leveltest':'/level-test.html','battle':'/battle.html',
+    'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
     'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
@@ -29644,15 +30003,15 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
-<script src="/js/vc-dock.js?v=13" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
+<script src="/js/vc-dock.js?v=14" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=35" defer></script>
-<script src="/js/mango-rec.js?v=43" defer></script>
+<script src="/js/mango-rec.js?v=45" defer></script>
 <script src="/js/mango-class-time.js?v=12" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
-<script src="/js/mango-topbar-unified.js?v=4" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
+<script src="/js/mango-topbar-unified.js?v=5" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
 <script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
 <script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
-<script src="/js/mango-attendance.js?v=34" defer></script>
+<script src="/js/mango-attendance.js?v=35" defer></script>
 <script src="/js/mango-gaze.js?v=36" defer></script>
 <script src="/js/mango-i18n.js?v=36" defer></script>
 
@@ -31098,6 +31457,36 @@ body.vc-in-call #vc-main-row:not(.video-pip):not(.video-facepip):not(.video-solo
   margin-left: auto !important;
   opacity: .96;
 }
+
+/* 🥭 (2026-08-06) 교재 대기 카드 — 강사가 교재를 올리기 전 첫 화면.
+   ・교재 영역(.pdf-main-row)을 덮되 pointer-events:none 이라 아래 버튼(화살표 등)은 그대로 눌린다.
+   ・처음부터 opacity:1 이다. 백그라운드 탭에서 transition 이 멈춰도 반드시 보인다(CLAUDE.md 함정). */
+#vc-wait-card{
+  position:absolute; inset:0; z-index:8;
+  display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+  pointer-events:none; text-align:center; padding:16px;
+  background:linear-gradient(180deg,#0b1220 0%,#111c31 100%);
+  border-radius:10px;
+}
+body.vc-theme-light #vc-wait-card{ background:linear-gradient(180deg,#fdfaf3 0%,#f3f0e6 100%); }
+#vc-wait-mango{
+  width:min(190px,34vw); height:auto; display:block;
+  filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));
+  animation: vwcBob 2.4s ease-in-out infinite;
+}
+@keyframes vwcBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
+@media (prefers-reduced-motion: reduce){ #vc-wait-mango{ animation:none; } }
+#vc-wait-card .vwc-ko{ font-size:clamp(19px,3.2vw,30px); font-weight:800; color:#fbbf24; letter-spacing:-.5px; }
+#vc-wait-card .vwc-en{ font-size:clamp(15px,2.4vw,22px); font-weight:700; color:#e2e8f0; }
+#vc-wait-card .vwc-sub{ font-size:clamp(11.5px,1.6vw,14px); color:#94a3b8; max-width:32em; line-height:1.5; }
+body.vc-theme-light #vc-wait-card .vwc-ko{ color:#b45309; }
+body.vc-theme-light #vc-wait-card .vwc-en{ color:#1f2937; }
+body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
+/* 가로 휴대폰: 세로 여백이 없다 → 캐릭터를 줄이고 한 줄씩 붙인다 */
+@media (max-height:520px){
+  #vc-wait-mango{ width:min(110px,20vw); }
+  #vc-wait-card{ gap:6px; }
+}
 </style>
 <script>
 /* ★ (2026-07-14) 수업 첫 화면 기본 콘텐츠 = 당일 교재(교재/PDF 탭).
@@ -31176,40 +31565,88 @@ window.vcAutoLoadStudentTextbook = async function(){
   } catch(e){ try { console.warn('[vcAutoLoadStudentTextbook]', e); } catch(_){}; return false; }
 };
 
+/* ★★ (2026-08-06 사장님 지시) 수업 첫 화면 규칙이 바뀌었다.
+   ─────────────────────────────────────────────────────────────────────────────
+   [신고] "나갔다 들어오니까 교재가 다른 게 보여."
+   [원인] 두 겹이었다.
+     ① 서버(DO)가 «방이 0명이 되면» 공유 교재 상태를 지웠다. 방이 비는 가장 흔한
+        이유는 수업 종료가 아니라 새로고침·순단이다 → 재입장하면 방에 교재가 없다.
+     ② 그 빈자리를 클라이언트가 «학생 배정 교재»(students_erp.textbook, 없으면
+        'Mangoi Books')로 채우고 방에 공유까지 했다. 강사 계정으로 입장하면 배정이
+        없으니 항상 'Mangoi Books' 를 띄워 강사가 보던 교재를 덮어썼다.
+        = 들어올 때마다 '다른 교재'.
+   [지시] 수업에 들어가면 «강사가 올린 교재»만 보인다. 없으면 아무 것도 추측해서
+          띄우지 말고 미스터망고와 함께 "잠시만 기다려 주세요 / Please wait" 만.
+   [처리] ① 서버: 방이 비어도 공유 상태 보존(3시간) → 재입장 = 그 교재 그 페이지.
+          ② 여기: 배정 교재 자동 로드·자동 공유를 «하지 않는다». 대신 대기 카드.
+   ※ window._vcLoadTextbookByName / vcAutoLoadStudentTextbook 은 지우지 않았다.
+     라이브러리·콘솔에서 수동으로 부르는 용도로만 남긴다(자동 호출 없음). */
 (function(){
-  var _did = false, _waited = false;
-  function defaultToTextbook(){
-    if (_did) return;
-    // 관찰자(관리자 수신 전용) 입장은 자동 로드/공유 금지 — 진행 중 수업 화면을 건드리면 안 됨
-    if (window._vcObserverMode) { _did = true; return; }
-    // 이미 방에 '실제 공유된' 교재/동영상이 있으면(교사가 의도적으로 튼 콘텐츠) 그대로 존중
-    //   _vcShownPdfKey 는 pdf-sync 수신 즉시 기록되므로 함께 확인 (로드 완료 전 레이스 방지)
-    if (window._vcShownPdfKey || window._vcShownPdfUrl || window._vcShownVideoUrl) { _did = true; return; }
-    // ★ (2026-07-20) 진행 중 수업에 합류(다른 참가자 존재)면 서버가 재전송하는 현재 공유 상태를
-    //   잠깐 기다렸다가, 그래도 없을 때만 내 배정 교재를 로드 (교사 화면을 덮어쓰지 않게)
-    if (!_waited && (window._vcJoinUserCount || 1) > 1) {
-      _waited = true;
-      setTimeout(defaultToTextbook, 1600);
-      return;
-    }
-    _did = true;
-    // 입장 첫 화면: 학생 배정 교재 자동 로드 → 실패 시 최소한 빈 교재 탭으로
-    if (typeof window.vcAutoLoadStudentTextbook === 'function') {
-      window.vcAutoLoadStudentTextbook().then(function(ok){
-        if (!ok) { try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){} }
-      }).catch(function(){ try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){} });
-    } else {
-      try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){}
-    }
+  var _did = false, _el = null, _timer = null;
+
+  function card(){ return _el || (_el = document.getElementById('vc-wait-card')); }
+
+  // 교재/영상이 실제로 화면에 있나? — pdfLoad 는 어떤 경로(공유·라이브러리·로컬 업로드)로
+  //   열려도 _vcCurrentPdfUrl 을 남긴다. 공유 수신 직후(로드 완료 전)는 _vcShownPdfKey 로 잡는다.
+  function hasContent(){
+    try {
+      if (window._vcCurrentPdfUrl) return true;
+      if (window._vcShownPdfKey || window._vcShownPdfUrl) return true;
+      if (window._vcShownVideoUrl) return true;
+    } catch(e){}
+    return false;
   }
+
+  window.vcWaitCardSync = function(){
+    try {
+      var c = card(); if (!c) return;
+      var inCall = document.body.classList.contains('vc-in-call');
+      var pdfTab = document.getElementById('tab-pdf');
+      var onPdf  = !!(pdfTab && pdfTab.classList.contains('active'));
+      var show   = inCall && onPdf && !hasContent() && !window._vcObserverMode;
+      c.style.display = show ? 'flex' : 'none';
+      if (show) {
+        // 강사·관리자에겐 '기다리라'가 아니라 '고르라'가 맞는 안내다.
+        var sub = document.getElementById('vc-wait-sub');
+        var isT = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+        var ko = isT ? '📚 라이브러리에서 교재를 선택하세요 · Pick a textbook from the Library'
+                     : '선생님이 교재를 여는 중이에요 · Your teacher is opening the textbook';
+        var en = isT ? '📚 Pick a textbook from the Library · 라이브러리에서 교재를 선택하세요'
+                     : 'Your teacher is opening the textbook · 선생님이 교재를 여는 중이에요';
+        if (sub && sub.getAttribute('data-ko') !== ko) {
+          sub.setAttribute('data-ko', ko); sub.setAttribute('data-en', en);
+          // 공통 언어 키는 mangoi_lang (mango_lang 은 구버전) — CLAUDE.md 함정표
+          var lg = ''; try { lg = String(localStorage.getItem('mangoi_lang') || '').toLowerCase(); } catch(e2){}
+          sub.textContent = (lg.indexOf('en') === 0) ? en : ko;
+        }
+      }
+    } catch(e){}
+  };
+
+  function onEnterCall(){
+    if (_did) return;
+    _did = true;
+    // 지난 수업의 잔상으로 대기 카드가 안 뜨는 일이 없게, 표시 상태를 입장 시 한 번 비운다.
+    //   (vcStartPdfPoll 이 _vcShownPdf* 를 비우는 것과 같은 이유 — _vcCurrentPdfUrl 은 그동안 안 비웠다)
+    try { window._vcCurrentPdfUrl = ''; window._vcCurrentPdfKind = ''; } catch(e){}
+    // 첫 화면은 교재 탭. 교재는 강사 공유(pdf-sync / room-media 폴링)로만 채워진다.
+    try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){}
+    window.vcWaitCardSync();
+  }
+
   try {
     new MutationObserver(function(){
-      // ★ (2026-07-20) 1200→350ms — 사장님 지시 '입장하면 바로 첫 화면 = 해당 교재'.
-      //   잔존 공유 상태 하이재킹은 서버(DO) 첫 입장 정리로 해결됐으므로 길게 기다릴 이유 없음.
-      if (document.body.classList.contains('vc-in-call')) setTimeout(defaultToTextbook, 350);
-      else { _did = false; _waited = false; }   // 통화 종료 → 다음 수업 위해 리셋
+      if (document.body.classList.contains('vc-in-call')) setTimeout(onEnterCall, 350);
+      else {
+        _did = false;                                   // 통화 종료 → 다음 수업 위해 리셋
+        try { var c = card(); if (c) c.style.display = 'none'; } catch(e){}
+      }
     }).observe(document.body, { attributes:true, attributeFilter:['class'] });
   } catch(e){}
+
+  // 교재가 도착하면(공유 수신·라이브러리 선택·업로드) 카드는 즉시 사라져야 한다.
+  //   경로가 여러 갈래(WS·폴링·로컬)라 각 지점에 훅을 박는 대신 가벼운 감시 한 줄로 통일.
+  try { _timer = setInterval(function(){ window.vcWaitCardSync(); }, 600); } catch(e){}
 })();
 
 /* ★ (2026-07-14 사장님) 모바일 가로 입장 기본 = 1/2(half).
@@ -31472,6 +31909,139 @@ window.vcAutoLoadStudentTextbook = async function(){
     var room = new URLSearchParams(location.search).get('room');
     if (room) setTimeout(function(){ window.mangoiJoinClass(room); }, 700);
   } catch(e){}
+})();
+</script>
+<script id="vc-refresh-stay-in-class">
+/* 🔄 (2026-08-06 사장님 지시) 수업 중 새로고침 = «그 수업 화면»으로 되돌아오기.
+   ─────────────────────────────────────────────────────────────────────────────
+   [문제] 수업 중에 새로고침하면 홈페이지로 나가졌다.
+          로비에서 방 코드를 넣고 들어온 경우 주소는 그냥 `/` 라, 새로고침은
+          «앱을 처음 여는 것»과 완전히 같았다. 방에 대한 기억이 아무 데도 없었다.
+          (알림톡 링크 `?room=` 로 들어온 사람만 우연히 되돌아왔다)
+   [해결] 수업에 들어가는 순간 두 군데에 «지금 이 방에 있다»를 남긴다.
+          ① 주소창(history.replaceState 로 ?room= 추가) — F5·주소 재입력·PWA 재시작까지 커버
+          ② sessionStorage(이 탭 한정) — 주소가 지워지는 경로 대비. 탭을 닫으면 함께 사라진다.
+          나가기를 누르면 둘 다 지운다 → 나간 뒤 새로고침은 예전처럼 홈.
+   ⚠️ 방 기록은 «수업 중»에만 남긴다. 2시간이 지난 기록은 무시(끝난 수업 재입장 방지).
+   ⚠️ 회의방(?meet=)은 전용 블록이 이미 같은 일을 한다 → 여기서 손대지 않는다. */
+(function(){
+  'use strict';
+  var KEY = 'mangoi_vc_rejoin';
+  var MAX_AGE = 2 * 60 * 60 * 1000;   // 2시간 — 수업 한 타임을 넉넉히 덮는다
+
+  function inCall(){ try { return document.body.classList.contains('vc-in-call'); } catch(e){ return false; } }
+  function hasMeetParam(){ try { return !!new URLSearchParams(location.search).get('meet'); } catch(e){ return false; } }
+
+  // 지금 있는 방 id — vcRoomId 는 let 이라 window 에 없다(CLAUDE.md 함정) → 화면 값을 읽는다
+  function currentRoom(){
+    try {
+      var el = document.getElementById('vc-room-name');
+      return (el && el.textContent || '')
+        .replace(/^🔍\s*/, '').replace(/\s*\(관찰 중\)\s*$/, '').replace(/\s*수업 관찰 중\s*$/, '').trim();
+    } catch(e){ return ''; }
+  }
+
+  function mark(){
+    if (!inCall() || hasMeetParam()) return;
+    var room = currentRoom();
+    if (!room) return;
+    try { sessionStorage.setItem(KEY, JSON.stringify({ room: room, at: Date.now() })); } catch(e){}
+    try {
+      var u = new URL(location.href);
+      if (u.searchParams.get('room') !== room) {
+        u.searchParams.set('room', room);
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      }
+    } catch(e){}
+  }
+
+  function forget(){
+    try { sessionStorage.removeItem(KEY); } catch(e){}
+    // 나간 뒤의 새로고침이 방으로 다시 끌려가지 않게 주소에서도 지운다
+    try {
+      if (/[?&]room=/.test(location.search)) {
+        var u = new URL(location.href);
+        u.searchParams.delete('room');
+        history.replaceState(null, '', u.pathname + (u.search === '?' ? '' : u.search) + u.hash);
+      }
+    } catch(e){}
+  }
+  window.__vcRejoinMark = mark;
+  window.__vcRejoinForget = forget;
+
+  // 들어가면 기록, 나가면 지움 — 나가기 경로가 여러 갈래라 body 클래스 하나로 모은다
+  //   (vc-in-call 제거는 vcLeaveRoom 한 곳뿐 = 진짜 퇴장일 때만 지워진다)
+  try {
+    new MutationObserver(function(){
+      if (inCall()) setTimeout(mark, 300);
+      else forget();
+    }).observe(document.body, { attributes:true, attributeFilter:['class'] });
+  } catch(e){}
+  // 긴 수업도 '방금까지 수업 중'으로 유지 (기록 나이 = 마지막으로 수업에 있던 시각)
+  setInterval(function(){ if (inCall()) mark(); }, 30000);
+
+  /* ── 복귀: 아이디/비번이 저장돼 있지 않아도 홈 로그인 정보로 채워 넣는다 ──
+     mangoiJoinClass 는 mangoi_vc_uid/pw 가 있어야 스스로 입장한다. 없으면 로비에
+     방 코드만 채운 채 멈춘다 → 회의방(?meet=)이 쓰는 것과 같은 방식으로 마저 넣는다. */
+  function armAutoEnter(room){
+    var tries = 0;
+    setTimeout(function(){
+      var timer = setInterval(function(){
+        if (++tries > 25) { clearInterval(timer); return; }     // 최대 약 4초
+        try {
+          if (inCall()) { clearInterval(timer); return; }        // 이미 들어감
+          if (window.__vcLobbyAutoJoined) { clearInterval(timer); return; }
+          var lobby = document.getElementById('view-videocall-lobby');
+          if (!lobby || !lobby.classList.contains('active')) return;
+          var rc = document.getElementById('vc-roomcode-input');
+          if (!rc || rc.value !== room) return;                  // 코드가 아직 안 채워짐
+          var ni = document.getElementById('vc-name-input');
+          var pi = document.getElementById('vc-room-input');
+          if (ni && !ni.value){
+            var raw = localStorage.getItem('mangoi_logged_user');
+            if (!raw || raw === 'null' || raw === '{}') { clearInterval(timer); return; }  // 비로그인 → 로비에 그대로
+            var u = null; try { u = JSON.parse(raw); } catch(_){ clearInterval(timer); return; }
+            if (!(u && (u.uid || u.id) && u.name)) { clearInterval(timer); return; }
+            ni.value = u.name;
+          }
+          if (pi && !pi.value) pi.value = '0000';
+          if (ni && ni.value && typeof window.vcJoinRoom === 'function'){
+            clearInterval(timer);
+            window.__vcLobbyAutoJoined = true;
+            window.vcJoinRoom();
+          }
+        } catch(e){ clearInterval(timer); console.warn('[vc-rejoin] autoEnter', e); }
+      }, 150);
+    }, 520);
+  }
+
+  function boot(){
+    if (hasMeetParam()) return;                                  // 회의방은 전용 블록 담당
+    var urlRoom = '';
+    try { urlRoom = new URLSearchParams(location.search).get('room') || ''; } catch(e){}
+
+    if (urlRoom) {
+      // 위의 ?room= 자동입장이 이미 mangoiJoinClass 를 부른다 → 여기선 '마저 입장'만 거든다
+      armAutoEnter(urlRoom);
+      return;
+    }
+    // 주소에 방이 없다 = 로비에서 코드로 들어왔던 탭. 이 탭의 기록으로 되돌아간다.
+    var rec = null;
+    try { rec = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch(e){}
+    if (!rec || !rec.room) return;
+    if (!rec.at || (Date.now() - rec.at) > MAX_AGE) { forget(); return; }   // 끝난 수업 → 무시
+    var room = String(rec.room);
+    var start = function(){
+      if (typeof window.mangoiJoinClass !== 'function') return setTimeout(start, 120);
+      console.log('[vc-rejoin] 새로고침 복귀 →', room);
+      window.mangoiJoinClass(room);
+      armAutoEnter(room);
+    };
+    setTimeout(start, 500);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
 </script>
 <script>
@@ -31824,7 +32394,7 @@ window.vcAutoLoadStudentTextbook = async function(){
       var map={
         "lesson-enter":  function(){ if(window.showView) window.showView("view-videocall-lobby"); },
         "lesson-change": function(){ if(window.mgGo) window.mgGo("lesson-change"); },
-        "leveltest":     function(){ if(window.mgGo) window.mgGo("leveltest"); else location.href="/level-test.html"; },
+        "leveltest":     function(){ if(window.showLevelTestModal) window.showLevelTestModal(); else if(window.mgGo) window.mgGo("leveltest"); else location.href="/?menu=leveltest"; },
         "library":       function(){ if(window.mgGo) window.mgGo("library"); },
         "report":        function(){ if(window.mgGo) window.mgGo("report"); },
         "mypage":        function(){ location.href="/parent.html"; },

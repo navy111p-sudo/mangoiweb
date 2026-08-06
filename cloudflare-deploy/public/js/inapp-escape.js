@@ -55,21 +55,22 @@
       'box-shadow:0 4px 18px rgba(0,0,0,.35);padding:14px 16px;' +
       'display:flex;flex-direction:column;gap:10px;';
 
-    var title = isIOS ? '카메라가 안 보이나요?' : '화상 화면을 위해 브라우저로 이동합니다';
+    var title = isIOS ? 'Camera not working? · 카메라가 안 보이나요?'
+                      : 'Please open this in your browser · 브라우저로 이동합니다';
     var guide = isIOS
-      ? '카카오톡 화면 오른쪽 아래(또는 위쪽) 메뉴에서 "다른 브라우저로 열기 / Safari로 열기"를 눌러 주세요. 그래야 카메라와 마이크가 정상 작동합니다.'
-      : '카카오톡 안에서는 카메라가 차단됩니다. 아래 버튼을 누르면 크롬(기본 브라우저)에서 화상 화면이 열립니다.';
+      ? 'Tap the menu in this chat app and choose "Open in Safari". The camera and microphone only work there.<br>카카오톡 메뉴에서 "Safari로 열기"를 눌러 주세요.'
+      : 'Chat apps block the camera. Tap the button below to open this in Chrome.<br>카카오톡 안에서는 카메라가 차단됩니다.';
 
     var btnStyle = 'flex:1;min-width:140px;border:0;border-radius:10px;padding:12px 14px;font-size:15px;font-weight:700;cursor:pointer;background:#ffd54a;color:#1f2433';
     var actionBtn = isIOS
-      ? '<button id="mango-inapp-copy" style="' + btnStyle + '">링크 복사하기</button>'
-      : '<button id="mango-inapp-go" style="' + btnStyle + '">브라우저에서 열기</button>';
+      ? '<button id="mango-inapp-copy" style="' + btnStyle + '">Copy link · 링크 복사</button>'
+      : '<button id="mango-inapp-go" style="' + btnStyle + '">Open in Chrome · 브라우저에서 열기</button>';
 
     wrap.innerHTML =
       '<div style="font-size:15px;font-weight:700;line-height:1.4">' + title + '</div>' +
       '<div style="font-size:13px;line-height:1.55;opacity:.92">' + guide + '</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap">' + actionBtn +
-      '<button id="mango-inapp-close" style="border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:12px 14px;font-size:14px;cursor:pointer;background:transparent;color:#fff">닫기</button>' +
+      '<button id="mango-inapp-close" style="border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:12px 14px;font-size:14px;cursor:pointer;background:transparent;color:#fff">Close · 닫기</button>' +
       '</div>';
 
     document.body.appendChild(wrap);
@@ -80,7 +81,7 @@
 
     var copyBtn = document.getElementById('mango-inapp-copy');
     if (copyBtn) copyBtn.addEventListener('click', function () {
-      var done = function () { copyBtn.textContent = '복사됨! 브라우저에 붙여넣기'; };
+      var done = function () { copyBtn.textContent = 'Copied! Paste in your browser · 복사됨'; };
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(currentUrl).then(done, function () {});
@@ -118,10 +119,17 @@
         var name = err && err.name;
         var permErr = name === 'NotAllowedError' || name === 'NotFoundError' ||
                       name === 'NotReadableError' || name === 'SecurityError';
+        /* 🔴 (2026-08-05) 예전엔 permErr 만으로도 「카카오톡 안에서는 카메라가 차단됩니다」 배너를 띄웠다.
+           그런데 이 화면은 카메라를 여러 조건으로 «순차 시도» 한다(720p 실패 → 단순옵션 → 오디오만 …).
+           첫 시도가 한 번 실패하면, 뒤에서 성공해 화면이 멀쩡히 나와도 배너가 그대로 남았다.
+           실제로 일반 크롬(Windows)에서 카톡 안내가 화면 위를 덮는 것을 확인했다.
+           필리핀 강사에게는 «크롬에서 열라» 는 한국어 안내가 크롬 안에서 떠 있는 셈이라 더 혼란스럽다.
+           → 카톡 안내는 «정말 인앱일 때만». 일반 브라우저의 권한 오류는 성격이 달라 여기서 안 다룬다
+             (앱이 이미 마이크·카메라 안내를 따로 띄운다). */
         if (isInApp && isAndroid) {
           showBanner();
           openExternal();
-        } else if (isInApp || permErr) {
+        } else if (isInApp) {
           showBanner();
         }
         throw err;

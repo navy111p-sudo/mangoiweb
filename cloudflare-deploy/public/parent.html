@@ -390,6 +390,13 @@ function showKakaoShareDialog(url) {
     </div>
 
     <!-- 평가서 섹션 -->
+    <!-- 🎯 레벨테스트 신청 현황 — 신청건이 있을 때만 표시.
+         (그동안 이 화면에 신청 내역이 아예 없어서 «신청했는데 안 보인다» 문의가 났다) -->
+    <div class="card" id="pd-lt-card" style="margin-top:16px;display:none">
+      <h3>🎯 <span data-ko="레벨테스트 신청 현황" data-en="Level Test Status">레벨테스트 신청 현황</span></h3>
+      <div id="pd-leveltest"></div>
+    </div>
+
     <div class="card" style="margin-top:16px">
       <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📝" src="/img/menu/eval.webp" alt=""> <span data-ko="최근 학습 평가서" data-en="Recent Evaluations">최근 학습 평가서</span></h3>
       <div id="pd-evals"></div>
@@ -515,6 +522,14 @@ async function pdLogin(pw){
       if (remember) {
         localStorage.setItem('mangoi_parent_uid', _currentUid);
         localStorage.setItem('mangoi_parent_token', _token);
+        /* 🔑 (2026-08-06) 공용 학생 uid 키도 같이 심는다.
+           레벨테스트·게임 페이지는 mangoi_uid / mango_uid / student_uid / uid 만 읽는데,
+           여기서는 mangoi_parent_uid 하나만 저장했다 → 마이페이지로 로그인한 학생이
+           레벨테스트를 신청하면 uid 가 빈 채로 저장돼 나중에 «내 신청»에서 안 보였다.
+           ⚠ 위의 «로그인 유지» 체크를 켰을 때만 — 안 켜면 아무 것도 안 남기는 게
+             2026-07-30 제보 #3(자녀가 비번 없이 열람) 대응의 핵심이라 그대로 지킨다.
+             mangoi_uid 는 조회 편의용 식별자일 뿐, 열람 권한은 여전히 토큰이 쥔다. */
+        localStorage.setItem('mangoi_uid', _currentUid);
       } else {
         localStorage.removeItem('mangoi_parent_uid');
         localStorage.removeItem('mangoi_parent_token');
@@ -558,9 +573,72 @@ async function pdLoad(){
     pdRender(d);
     pdWeekRec(); // 🎯 주간 학습 진단 요약(룰 기반·즉시) — AI 버튼과 별개로 자동 로드
     pdPkLoad();  // 😊 패스키 목록도 함께 갱신
+    pdLeveltest(); // 🎯 레벨테스트 신청 현황 — 신청건 없으면 카드째 숨김
   } catch(e) {
     alert('❌ ' + e.message);
   }
+}
+
+/* ═══ 🎯 레벨테스트 신청 현황 — /api/leveltest/my (본인 토큰 필수)
+   신청은 서버에 저장되는데 이 화면엔 표시가 없어서 «신청했는데 안 보인다» 문의가 났다.
+   ⚠ 교사명은 서버가 «수락(confirmed) 이후»에만 내려준다 — 배정 검토 중에 이름이
+     새면 교사가 거절했을 때 담당이 바뀐 것처럼 보인다. 프론트는 있으면 보여줄 뿐.
+   ⚠ 신청건이 0이면 카드째 숨긴다(빈 카드가 «뭔가 잘못됐나» 하는 인상을 준다). ═══ */
+async function pdLeveltest(){
+  const card = document.getElementById('pd-lt-card');
+  const el = document.getElementById('pd-leveltest');
+  if (!card || !el || !_currentUid || !_token) return;
+  let items = [];
+  try {
+    const r = await fetch('/api/leveltest/my?uid=' + encodeURIComponent(_currentUid) + '&token=' + encodeURIComponent(_token));
+    const d = await r.json();
+    if (!d.ok) { card.style.display = 'none'; return; }
+    items = d.items || [];
+  } catch(e){ card.style.display = 'none'; return; }
+  if (!items.length) { card.style.display = 'none'; return; }
+
+  const isEn = window.getLang && window.getLang() === 'en';
+  // [한, 영, 색] — 상태는 서버 status 그대로 매핑. 모르는 값은 그대로 노출(숨기지 않음).
+  const ST = {
+    pending:   ['접수 완료 — 담당 선생님을 찾고 있어요', 'Received — finding a teacher', '#fbbf24'],
+    proposed:  ['담당 선생님 배정 중 (선생님 확인 대기)', 'Assigning a teacher (awaiting confirmation)', '#a78bfa'],
+    confirmed: ['확정 — 예정대로 진행됩니다', 'Confirmed — all set', '#34d399'],
+    done:      ['테스트 완료', 'Test completed', '#60a5fa'],
+    cancelled: ['취소됨', 'Cancelled', '#94a3b8']
+  };
+  const rows = items.map(a => {
+    const st = ST[a.status] || [a.status || '-', a.status || '-', '#94a3b8'];
+    const when = [a.desired_date, a.desired_time].filter(Boolean).join(' ');
+    const bits = [];
+    if (a.assigned_teacher) bits.push((isEn ? 'Teacher: ' : '담당 선생님: ') + '<b style="color:#fde68a">' + esc(a.assigned_teacher) + '</b>');
+    if (a.ai_score != null) bits.push((isEn ? 'AI ' : 'AI 진단 ') + '<b style="color:#fbbf24">' + a.ai_score + '</b>');
+    if (a.pron_score != null) bits.push((isEn ? 'Pronunciation ' : '발음 ') + '<b style="color:#fbbf24">' + a.pron_score + '</b>');
+    if (a.teacher_score != null) bits.push((isEn ? 'Teacher ' : '선생님 평가 ') + '<b style="color:#fbbf24">' + a.teacher_score + '</b>');
+    if (a.final_level) bits.push((isEn ? 'Level ' : '최종 레벨 ') + '<b style="color:#6ee7b7">' + esc(a.final_level) + '</b>');
+    const guide = a.next_class_guide ? '<div style="font-size:12px;color:#94e2c5;margin-top:6px">📘 ' + esc(a.next_class_guide) + '</div>' : '';
+    const book  = a.recommended_textbook ? '<div style="font-size:12px;color:#94e2c5;margin-top:4px">📚 ' + (isEn ? 'Recommended: ' : '추천 교재: ') + esc(a.recommended_textbook) + '</div>' : '';
+    return '<div style="padding:12px 14px;margin-bottom:10px;background:rgba(148,163,184,0.07);border-left:4px solid ' + st[2] + ';border-radius:8px">' +
+      '<div style="font-weight:800;font-size:13px;color:' + st[2] + '">' + esc(isEn ? st[1] : st[0]) + '</div>' +
+      (when ? '<div style="font-size:12.5px;color:#e6e9f5;margin-top:5px">🗓 ' + esc(when) + '</div>' : '') +
+      (bits.length ? '<div style="font-size:12.5px;color:#cbd5e1;margin-top:5px;line-height:1.7">' + bits.join(' · ') + '</div>' : '') +
+      book + guide +
+      // ⚠ 공용 fmtDate 는 'ko-KR' 고정이라 영어 화면에서 «Applied 8월 5일» 처럼 섞인다 → 여기선 언어에 맞춘다
+      '<div style="font-size:11px;color:#6b7a99;margin-top:6px">' + (isEn ? 'Applied ' : '신청일 ') +
+        (a.created_at ? new Date(a.created_at).toLocaleDateString(isEn ? 'en-US' : 'ko-KR', { month:'short', day:'numeric' }) : '-') + '</div>' +
+    '</div>';
+  }).join('');
+
+  // 아직 AI 진단을 안 본 신청이 있으면 바로 볼 수 있게 안내 (희망 톤)
+  const needsAi = items.some(a => a.ai_score == null && a.status !== 'cancelled');
+  const cta = needsAi
+    ? '<div style="margin-top:4px;padding:11px 13px;background:rgba(99,102,241,0.10);border-radius:8px;font-size:12.5px;color:#c7d2fe;line-height:1.6">' +
+        (isEn
+          ? 'Take the 5-minute AI placement check first — your teacher can then start at exactly the right level. '
+          : '먼저 5분짜리 AI 자동 진단을 받아보세요. 선생님이 딱 맞는 지점에서 시작할 수 있어요. ') +
+        '<a href="/level-test-ai.html" style="color:#a5b4fc;font-weight:800">' + (isEn ? 'Start →' : '시작하기 →') + '</a></div>'
+    : '';
+  el.innerHTML = rows + cta;
+  card.style.display = '';
 }
 
 /* ═══ 🎯 주간 학습 진단 요약 — /api/games/recommend (룰 기반, AI 무호출)
@@ -942,7 +1020,7 @@ function pdRender(d){
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>
-<!-- BUILD:20260804092314 -->
+<!-- BUILD:20260807052617 -->
 <script defer src="/js/mg-sidebar.js"></script>
 <script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
 </body>

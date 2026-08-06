@@ -220,8 +220,8 @@
     if(!window.speechSynthesis){ startMouthPlain(); setTimeout(stopMouth, Math.min(12000, Math.max(1500, text.length*90))); return; }
     speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(text);
-    // 약간 느린 속도 + 살짝 높은 톤이 한국어를 더 따뜻하고 사람스럽게 들리게 함
-    if(/[가-힣]/.test(text)){ u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=0.97; u.pitch=1.32; }
+    // pitch는 1.15 이하로 유지 — 1.3대로 올리면 합성음이 갈라져 '깨진 기계음'이 됨(26-07-22 사장님 신고)
+    if(/[가-힣]/.test(text)){ u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=0.97; u.pitch=1.12; }
     else { u.lang="en-US"; if(enVoice) u.voice=enVoice; u.rate=0.98; u.pitch=1.02; }
     u.volume=1.0;
     u.onstart=startMouthPlain; u.onend=stopMouth; u.onerror=stopMouth;
@@ -268,7 +268,7 @@
     // ① 앱 네이티브 TTS(여성)
     try{
       if(window.AndroidTTS && window.AndroidTTS.isReady && window.AndroidTTS.isReady()){
-        window.AndroidTTS.speak(spoken, isKo?"ko":"en", isKo?1.32:1.1, 1.0);
+        window.AndroidTTS.speak(spoken, isKo?"ko":"en", isKo?1.15:1.1, 1.0);
         startMouthPlain();
         setTimeout(stopMouth, Math.min(30000, Math.max(1500, spoken.length*(isKo?110:70))));
         return;
@@ -287,11 +287,9 @@
         if(lastBlobUrl){ try{ URL.revokeObjectURL(lastBlobUrl); }catch(e){} }
         lastBlobUrl=URL.createObjectURL(b);
         audioEl.src=lastBlobUrl;
-        // 👩 여자 목소리(성우 재선): 한국어 Google TTS는 중저음이라 피치업으로 여성 톤.
-        //    영어는 서버가 Aura-2 asteria(여성)라 원음 그대로.
-        var isKo=/[가-힣]/.test(spoken);
-        try{ audioEl.preservesPitch=!isKo; audioEl.webkitPreservesPitch=!isKo; audioEl.mozPreservesPitch=!isKo; }catch(e){}
-        audioEl.playbackRate = isKo ? 1.22 : 1.0;
+        // 서버 오디오는 원음 그대로 재생 — playbackRate 피치업은 소리가 갈라져 폐지(26-07-22).
+        try{ audioEl.preservesPitch=true; audioEl.webkitPreservesPitch=true; audioEl.mozPreservesPitch=true; }catch(e){}
+        audioEl.playbackRate = 1.0;
         var p=audioEl.play();
         if(p&&p.catch) p.catch(function(){ if(mySeq===speakSeq) speakBrowser(text); });
       })
@@ -301,11 +299,14 @@
   }
 
   // === 정지 트리거 ===
+  var parentOriginSeen="";   // 관리자 페이지가 보낸 메시지로 확인한 실제 부모 출처(등록 요청 대상)
   window.addEventListener("message", function(ev){
     var d=ev.data;
+    if(ev.origin && typeof ADMIN_ORIGINS!=="undefined" && ADMIN_ORIGINS.indexOf(ev.origin)>=0) parentOriginSeen=ev.origin;
     if(d==="mangoi-stop" || (d && d.type==="mangoi-stop")) stopSpeaking();
     if(d && d.type==="mangoi-lang" && d.lang) applyLang(d.lang);
     if(d==="mangoi-greet" || (d && d.type==="mangoi-greet")) greetOnOpen();
+    if(d && d.type==="mangoi-enroll-result") handleEnrollResult(d);   // 🎓 관리자 페이지가 실제 등록을 끝내고 보내는 결과
   });
   document.addEventListener("visibilitychange", function(){ if(document.hidden) stopSpeaking(); });
   window.addEventListener("pagehide", stopSpeaking);
@@ -402,10 +403,13 @@
     stopGreetVideo();
     if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-open", go:go, q:(q||"")}, "*"); }catch(e){} }
   }
-  // "열어줘/열어/보여줘/이동/가줘/띄워줘" 등 직접 열기 의도 감지(영문 open/show/go to 포함)
+  // "열어줘/열어/보여줘/이동/가줘/띄워줘" 등 직접 열기 의도 감지
+  //  영어 관리자도 많아 "where is / where can i find / find / locate / navigate" 까지 '바로 열기'로 본다.
+  //  (2026-07-23 — 영어로 "where is ...?" 물으면 설명만 하고 안 열리던 문제)
   function wantsOpen(msg){
     var s=String(msg||"").toLowerCase();
-    if(/열어|열기|띄워|보여|이동|가줘|가자|들어가|바로\s*가|open|show|go to|take me/.test(s)) return true;
+    if(/열어|열기|띄워|보여|이동|가줘|가자|들어가|바로\s*가|어디/.test(s)) return true;
+    if(/\b(open|show|go to|goto|take me|bring me|where\s+is|where\s+are|where\s+can|where\s+do|how\s+do\s+i\s+(get|find)|find|locate|navigate|jump)\b/.test(s)) return true;
     return false;
   }
   // === '○○ 페이지를 열어드릴까요?' 확인 후 열기(예/아니오 되묻기) ===
@@ -508,6 +512,73 @@
     subtitle.appendChild(b); subtitle.scrollTop=subtitle.scrollHeight;
   }
 
+  // ══════════════ 🎓 자동 수강등록 ══════════════
+  //  비서가 "아이디·비번·강사·요일·시간" 을 모아 확인카드를 띄우고,
+  //  [등록] 을 누르면 부모(관리자 페이지)가 관리자 세션으로 실제 등록까지 수행한다.
+  //  ⚠️ 이 iframe 은 DB 를 직접 건드리지 않는다(관리자 인증은 부모 창에만 있다).
+  var enrollDraft=null;      // 진행 중인 등록 대화(부족한 항목을 채워 나간다)
+  var enrollPending=null;    // 실행 요청 후 부모 응답 대기 중인 payload
+  // 등록 요청에는 비밀번호가 들어 있다 → 아무 부모에게나 보내지 않고 망고아이 관리자 출처로만 보낸다.
+  var ADMIN_ORIGINS=["https://test.mangoi.co.kr","https://mango-i.com","https://www.mango-i.com",
+                     "https://webrtc-unified-platform-prod.navy111p.workers.dev","https://webrtc-unified-platform.navy111p.workers.dev"];
+  function adminParentOrigin(){
+    if(parentOriginSeen) return parentOriginSeen;                        // 부모가 보낸 메시지로 확인된 출처 우선
+    try{
+      var o=document.referrer ? new URL(document.referrer).origin : "";
+      if(ADMIN_ORIGINS.indexOf(o)>=0) return o;
+      if(/^https?:\/\/localhost(:\d+)?$/.test(o)) return o;   // 로컬 검증용
+      return "";
+    }catch(e){ return ""; }
+  }
+  function postParentEnroll(payload){
+    var target=adminParentOrigin();
+    if(window.parent===window || !target){
+      var e1=(uiLang==="en")
+        ?"I can only register from the Mangoi admin page. Please open the assistant inside the admin screen."
+        :"수강등록은 망고아이 관리자 화면에서만 할 수 있어요. 관리자 페이지에서 비서를 열어 주세요.";
+      appendBot("⚠️ "+escHtml(e1)); speak(e1); return;
+    }
+    enrollPending=payload;
+    try{ window.parent.postMessage({type:"mangoi-enroll", payload:payload}, target); }catch(e){}
+    var m=(uiLang==="en")?"Registering now… 📝":"지금 등록하고 있어요… 📝";
+    appendBot(escHtml(m));
+    setTimeout(function(){
+      if(enrollPending!==payload) return;   // 이미 결과를 받았음
+      enrollPending=null;
+      var w=(uiLang==="en")
+        ?"The admin page didn't respond. Please refresh the admin screen and try again."
+        :"관리자 페이지에서 응답이 없어요. 관리자 화면을 새로고침한 뒤 다시 시도해 주세요.";
+      appendBot("⚠️ "+escHtml(w)); speak(w);
+    }, 20000);
+  }
+  function appendEnrollButton(payload, label){
+    var b=document.createElement("button");
+    b.type="button"; b.className="menu-item";
+    b.innerHTML='<span>✅ '+escHtml(label||(uiLang==="en"?"Register now":"이대로 등록"))+'</span><span class="arr">↗</span>';
+    b.addEventListener("click", function(){
+      if(b.disabled) return;
+      b.disabled=true; b.style.opacity="0.6";
+      postParentEnroll(payload);
+    });
+    subtitle.appendChild(b); subtitle.scrollTop=subtitle.scrollHeight;
+  }
+  function handleEnrollResult(d){
+    enrollPending=null;
+    var en=(uiLang==="en");
+    if(d && d.ok){
+      enrollDraft=null;
+      var txt=(en?(d.summary_en||d.summary):(d.summary||d.summary_en))||(en?"Enrollment completed.":"수강등록을 완료했어요.");
+      var html="✅ "+escHtml(txt);
+      var warns=(en?(d.warnings_en||d.warnings):(d.warnings||d.warnings_en))||[];
+      for(var i=0;i<warns.length;i++) html+="<br>⚠️ "+escHtml(warns[i]);
+      appendBot(html); speak(txt);
+    }else{
+      var err=(d&&(d.message||d.error))||(en?"Registration failed.":"등록에 실패했어요.");
+      appendBot("❌ "+escHtml(err));
+      speak(en?("Registration failed. "+err):("등록에 실패했어요. "+err));
+    }
+  }
+
   function send(){
     var msg=input.value.trim(); if(!msg) return;
     // 직전에 '○○ 페이지를 열어드릴까요?' 물었으면, 이번 답을 예/아니오로 처리
@@ -534,7 +605,7 @@
     input.value=""; sendBtn.disabled=true;
     var thinking=appendBot(uiLang==="en"?"…thinking":"답변을 준비하고 있어요…");
     fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({message:msg, lang:uiLang, mode:"ops"}) })
+      body:JSON.stringify({message:msg, lang:uiLang, mode:"ops", enroll_draft:enrollDraft}) })
       .then(function(r){ return r.json(); })
       .then(function(d){
         var ans=(d && d.answer) || (uiLang==="en"?"Sorry, could you say that again?":"음, 다시 한 번 말씀해 주시겠어요?");
@@ -544,6 +615,20 @@
           thinking.innerHTML=body;
         }
         subtitle.scrollTop=subtitle.scrollHeight;
+        // 🎓 수강등록 대화 — 부족한 항목은 되묻고, 다 모이면 확인카드+등록 버튼
+        if(d && d.enroll){
+          enrollDraft = d.enroll_draft || null;
+          pendingGo=null;                                              // 등록 대화 중에는 '메뉴 열까요?' 대기 해제
+          // ⚠️ 버튼을 음성보다 먼저 붙인다 — speak() 가 실패해도 [등록] 버튼은 반드시 보여야 한다
+          if(d.enroll_ready && d.enroll_payload){
+            if(d.auto_confirm) postParentEnroll(d.enroll_payload);      // "네"/"등록해줘" 로 이미 확인함
+            else appendEnrollButton(d.enroll_payload, d.confirm_text);
+          }
+          try{ speak(d.speak_text || ans); }catch(e){}
+          sendBtn.disabled=false; input.focus(); return;
+        }
+        if(d && d.enroll_cancel){ enrollDraft=null; speak(ans); sendBtn.disabled=false; input.focus(); return; }
+        enrollDraft=null;   // 등록과 무관한 답변 → 진행 중이던 등록 대화는 정리
         speak(ans);
         // 답변에 이동 신호(go)가 있으면 '○○ 메뉴 열기' 버튼을 띄운다(클릭 시 부모 관리자 메뉴로 이동, 질문 원문=학생 검색어)
         if(d && d.go){

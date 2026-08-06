@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>망고아이 개발일지 — 한 장 요약</title>
+<style>
+  @page { size: A4; margin: 7mm 8mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+    color: #1e293b; font-size: 10pt; line-height: 1.5; -webkit-print-color-adjust: exact;
+  }
+  .head {
+    background: linear-gradient(90deg, #fde68a, #fcd34d);
+    border-left: 7px solid #b45309; border-radius: 6px;
+    padding: 6px 13px; margin-bottom: 6px;
+  }
+  .head h1 { margin: 0; font-size: 13pt; color: #78350f; font-weight: 900; letter-spacing: -.03em; }
+  .head p  { margin: 3px 0 0; font-size: 9pt; color: #92400e; font-weight: 700; }
+
+  .legend {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    font-size: 8.2pt; color: #475569; margin-bottom: 6px; padding-left: 3px;
+  }
+  .legend b { font-weight: 800; }
+  .lg-did  { color: #15803d; }
+  .lg-next { color: #1d4ed8; }
+
+  /* ── 날짜 한 칸 = 두 줄 (한 것 / 할 것) ── */
+  .row {
+    display: flex; align-items: stretch;
+    border: 1.4px solid #e2e8f0; border-radius: 7px;
+    margin-bottom: 5px; overflow: hidden; background: #fff;
+    page-break-inside: avoid;
+  }
+  .row .d {
+    flex: 0 0 54px; background: #f1f5f9; border-right: 1.4px solid #e2e8f0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 6px 2px;
+  }
+  .row .d b   { font-size: 11.6pt; font-weight: 900; color: #1e3a8a; line-height: 1.05; letter-spacing: -.04em; }
+  .row .d span{ font-size: 7.8pt; color: #64748b; font-weight: 700; margin-top: 1px; }
+
+  .row .c { flex: 1; padding: 3.5px 9px 4px; }
+  .row .c p { margin: 0; font-size: 8.9pt; line-height: 1.45; }
+  .row .c p + p { margin-top: 2px; padding-top: 2px; border-top: 1px dashed #e2e8f0; }
+  .row .c p b.tag {
+    display: inline-block; min-width: 40px; text-align: center;
+    font-size: 7.8pt; font-weight: 900; border-radius: 99px;
+    padding: 1px 7px; margin-right: 6px; vertical-align: 1.5px;
+  }
+  .did  b.tag { background: #dcfce7; color: #15803d; }
+  .next b.tag { background: #dbeafe; color: #1d4ed8; }
+  .row .c p.next { color: #334155; }
+
+  /* 오늘 */
+  .row.today { border-color: #f59e0b; border-width: 2px; background: #fffbeb; }
+  .row.today .d { background: #fcd34d; border-right-color: #f59e0b; }
+  .row.today .d b { color: #78350f; }
+  .row.today .d span { color: #92400e; }
+
+  /* 할 것의 완료 여부 — 줄 맨 오른쪽 */
+  .st { float: right; margin-left: 9px; font-size: 7.2pt; font-weight: 900;
+        border-radius: 99px; padding: 1.5px 8px; letter-spacing: .05em; }
+  .st-done { background: #16a34a; color: #fff; }
+  .st-not  { background: #fff; color: #94a3b8; border: 1px solid #cbd5e1; }
+
+  /* 한 줄씩 번갈아 색을 바꿔 눈이 줄을 안 놓치게 */
+  .list .row:nth-child(even) { background: #f1f7fd; border-color: #cfe0f3; }
+  .list .row:nth-child(even) .d { background: #dbeafe; border-right-color: #cfe0f3; }
+  .list .row:nth-child(even) .d b { color: #1d4ed8; }
+  .list .row:nth-child(odd)  { background: #fffdf6; border-color: #f0e3c8; }
+  .list .row:nth-child(odd) .d { background: #fdf3d9; border-right-color: #f0e3c8; }
+  .list .row:nth-child(odd) .d b { color: #92400e; }
+  .list .row.today { background: #fffbeb; border-color: #f59e0b; border-width: 2px; }
+  .list .row.today .d { background: #fcd34d; border-right-color: #f59e0b; }
+  .list .row.today .d b { color: #78350f; }
+  .foot { margin-top: 6px; font-size: 8pt; color: #94a3b8; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>망고아이 개발일지 — 한 장 요약</h1>
+  <p>2026년 7월 22일 ~ 8월 5일 · 하루에 두 줄씩 · 오늘이 맨 위</p>
+</div>
+
+<div class="legend">
+  <span class="lg-did"><b>■ 한 것</b> — 그날 실제로 끝낸 것</span>
+  <span class="lg-next"><b>■ 할 것</b> — 그날 남긴 숙제</span>
+  <span style="margin-left:auto"><b style="background:#16a34a;color:#fff;border-radius:99px;padding:1.5px 8px;font-size:7.2pt">DONE</b> 해결 &nbsp;<b style="background:#fff;color:#94a3b8;border:1px solid #cbd5e1;border-radius:99px;padding:1.5px 8px;font-size:7.2pt">NOT YET</b> 아직</span>
+</div>
+
+<div class="list">
+
+<div class="row today">
+  <div class="d"><b>8/5</b><span>수</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>수업 녹화가 사라지던 원인 <b>4가지</b>를 잡고, 필리핀 회선용 <b>가벼운 수업 화면</b>(회선 따라 4단 자동 변속)을 만들었습니다.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b><b>새어 나간 직원 비밀번호를 바꿔 주세요.</b> 연장 수업 강사료가 아직 자동으로 안 붙습니다.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>8/4</b><span>화</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>학습 게임 <b>21종 전부에 「말하기」</b>를 넣었고, 멜카 매니저 요청 25건을 확인했습니다(<b>12건은 이미 있던 기능</b>).</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b><b>직원용 "어디에 있는지" 안내문</b>이 개발보다 먼저입니다. 관리자 화면 가볍게 하기 계속.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>8/3</b><span>월</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>새 게임 <b>「아바타 키우기」</b>를 하루 만에 만들었고, <b>안 되는데 된 것처럼 보이던 화면</b>들을 바로잡았습니다.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b>공개 파일에 있던 <b>직원 비밀번호 교체</b>. 남은 "지어낸 숫자" 화면 전수 점검.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>8/2</b><span>일</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b><b>강사 전용 화면</b>을 새로 만들어, 수업에 들어가는 문을 <b>4개 → 1개</b>로 통일했습니다(1.3MB → 21KB).</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b><b>학생 29,377명의 교재·레벨이 전부 비어 있습니다.</b> 배정 데이터를 채워야 맞춤 문제가 보입니다.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>8/1</b><span>토</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>새 게임 <b>「우주 괴물 사냥」</b>을 만들었고, 가상배경+가면을 같이 켜면 버벅이던 것을 <b>자동 화질조절</b>로 풀었습니다.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">할 것</b>새 게임을 <b>폰에서도 제대로 돌게</b> 다듬기. 탈출 게임 장소 더 늘리기.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/31</b><span>금</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>총과 표적이 안 맞던 원인 <b>3겹</b>을 실측으로 찾았고, <b>판단력 지수가 안 움직이던 것</b>을 세 차례에 걸쳐 고쳤습니다.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b><b>정기결제 자동청구 켜기</b>(지금 키는 테스트용). 녹화 유실이 다시 안 나는지 확인.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/30</b><span>목</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>게임·메뉴 아이콘을 <b>실사 사진</b>으로 대거 교체했고, <b>발음을 뭉개도 100점</b>이 나오던 채점을 바로잡았습니다.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b><b>포인트 7종을 학부모·학생에게 안내</b>(아직 안내한 적 없음). 실제 결제 시작 목표 <b>8월 15일</b>.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/29</b><span>수</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>수업 채팅에 <b>3개 국어 실시간 번역</b>을 넣었고, 필리핀 강사들이 겪던 <b>긴급 수업 사고 3건</b>을 잡았습니다.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">할 것</b><b>해외 스태프 계정 목록을 주세요.</b> 지금은 이름으로 추측해 언어를 정하고 있습니다.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/28</b><span>화</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b><b>P-38 3D 비행 게임</b>과 말해야 문이 열리는 <b>탈출 게임</b>을 만들었고, 홈 첫 화면을 손님·회원으로 나눴습니다.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b>홈 첫 화면 <b>5.8MB 절감</b> 배포(검증은 끝났고, 다른 작업과 겹쳐 대기 중).</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/27</b><span>월</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b><b>강사 227명이 아이디조차 없던 것</b>을 열어 주었고, 인증 없이 뚫려 있던 <b>수업방 구멍 3개</b>를 막았습니다.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">할 것</b>열어 준 계정으로 <b>실제 강사가 들어가지는지</b> 현장 확인. 탱크 3D 게임 다듬기.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/26</b><span>일</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>AI 단어장을 <b>「예습 → 학습 → 복습 → 테스트」</b>로 재구성했고, 학생 홈에서 교사·관리자도 로그인되게 했습니다.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">할 것</b><b>실제 교사·지사 계정으로 한 번 로그인해 봐 주세요.</b> 가짜 계정으로는 실패 경로만 확인했습니다.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/25</b><span>토</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b><b>학부모 성적표</b>를 4단계로 완성했고, <b>AI가 쓴 코멘트가 강사 승인 없이 학부모께 나가던 것</b>을 막았습니다.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b>성적표 문구는 <b>반드시 강사 승인 뒤에만</b> 나가도록 이 흐름을 정착시키기.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/24</b><span>금</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>화상수업 신고 3건을 원인까지 고쳤고, 스스로 다시 살펴 <b>6건을 더</b> 잡았습니다. <b>서버 요금이 새던 곳</b>도 없앴습니다.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b><b>Cloudflare 요금제가 유료($5/월)인지 확인 부탁드립니다.</b> 실사용 800명은 무료로 빠듯합니다.</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/23</b><span>목</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>"영어로 해놨는데 한국어로 나온다"던 원인 <b>6가지</b>를 찾아, 관리자·강사 화면 <b>22장</b>을 영어로 뜨게 했습니다.</p>
+    <p class="next"><span class="st st-done">DONE</span><b class="tag">할 것</b>화면이 안 바뀌어 보이면 <b>탭을 전부 닫고 다시</b> 들어가 주세요(브라우저가 옛 화면을 저장합니다).</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="d"><b>7/22</b><span>수</span></div>
+  <div class="c">
+    <p class="did"><b class="tag">한 것</b>강사 <b>인사평가 점수가 가짜 숫자</b>였던 것을 실제 수업 기록으로 바꿨고, 필리핀 강사 불편 7건 중 <b>6건을 당일</b> 고쳤습니다.</p>
+    <p class="next"><span class="st st-not">NOT YET</span><b class="tag">할 것</b>남은 1건은 프로그램이 아니라 <b>그 학생의 교재 배정이 잘못된 것</b> — 배정을 바로잡아야 합니다.</p>
+  </div>
+</div>
+
+</div>
+
+<div class="foot">망고아이 개발일지 요약 · 자세한 내용은 「망고아이_개발일지_최신.pdf」</div>
+
+</body>
+</html>

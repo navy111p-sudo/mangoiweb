@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>레벨테스트 — 망고아이 / Mangoi Level Test</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1"><!-- 한자 글꼴 통일 (전 화면 공통 가드) -->
+
+<!--
+  🎟️ 레벨테스트 티켓 — 「확인」과 「입장」을 한 화면에.
+  이 페이지 하나가 시간에 따라 모습을 바꾼다: 수업 전엔 일정, 10분 전부터 입장 버튼, 끝난 뒤엔 결과.
+  ⚠️ 설계 원칙 — 로그인·앱설치·이름입력을 절대 요구하지 않는다. 링크(서명 토큰)가 곧 신원이다.
+     신청자의 절반은 학생 계정이 아직 없다. 여기서 로그인을 물으면 그 사람들은 다시 막힌다.
+  ⚠️ 가볍게 유지할 것. 외부 스크립트·폰트·이미지 0개.
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:0;background:#0b1020;color:#e6ecff;
+       font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+       -webkit-text-size-adjust:100%}
+  .wrap{max-width:520px;margin:0 auto;padding:20px 16px 48px}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .brand{font-weight:800;font-size:15px;color:#fbbf24;letter-spacing:.3px}
+  .lang{background:rgba(148,163,184,.14);border:1px solid rgba(148,163,184,.3);color:#cbd5e1;
+        border-radius:99px;padding:5px 13px;font-size:12px;font-weight:700;cursor:pointer}
+  .card{background:rgba(255,255,255,.045);border:1px solid rgba(148,163,184,.18);
+        border-radius:16px;padding:20px 18px;margin-bottom:14px}
+  .badge{display:inline-block;padding:5px 13px;border-radius:99px;font-size:12px;font-weight:800;margin-bottom:12px}
+  h1{font-size:19px;font-weight:800;margin:0 0 6px;line-height:1.4}
+  .when{font-size:22px;font-weight:800;color:#fde68a;margin:10px 0 4px;letter-spacing:-.3px}
+  .sub{font-size:13px;color:#a3b3d1;line-height:1.65}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;
+       border-top:1px solid rgba(148,163,184,.13);font-size:13.5px}
+  .row:first-of-type{border-top:0}
+  .row b{color:#e6ecff;font-weight:700}
+  .k{color:#94a3b8}
+  .join{display:block;text-align:center;text-decoration:none;padding:22px 16px;border-radius:16px;
+        background:linear-gradient(135deg,#34d399,#059669);color:#052e1b;font-weight:800;font-size:22px;
+        box-shadow:0 10px 28px -8px rgba(16,185,129,.65);margin-bottom:12px}
+  .join:active{transform:translateY(1px)}
+  .count{text-align:center;font-size:13px;color:#93c5fd;margin:-4px 0 14px;font-weight:700}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px}
+  .btn{display:block;text-align:center;text-decoration:none;padding:13px 10px;border-radius:11px;
+       background:rgba(99,102,241,.16);border:1px solid rgba(129,140,248,.4);color:#c7d2fe;
+       font-weight:700;font-size:13.5px}
+  .muted{font-size:12px;color:#6b7a99;line-height:1.7;text-align:center;margin-top:18px}
+  .err{background:rgba(239,68,68,.1);border-color:rgba(248,113,113,.4);color:#fecaca}
+  a.help{color:#a5b4fc;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">🥭 <span data-ko="망고아이 레벨테스트" data-en="Mangoi Level Test">망고아이 레벨테스트</span></div>
+    <button class="lang" id="lang-btn" onclick="toggleLang()">EN</button>
+  </div>
+  <div id="body"><div class="card"><div class="sub" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div></div>
+  <div class="muted">
+    <span data-ko="문의" data-en="Questions">문의</span>
+    <a class="help" href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener">카카오톡 채널</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  var K = new URLSearchParams(location.search).get('k') || '';
+  var EN = false;
+  try { EN = (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch(e){}
+  var T = null, timer = null;
+  /* 🔑 4자리는 «이 화면이 열려 있는 동안만» 기억한다. 저장하면 남의 폰에서도 열린다. */
+  var PIN = '';
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function t(ko, en){ return EN ? en : ko; }
+
+  function applyStatic(){
+    document.getElementById('lang-btn').textContent = EN ? '한국어' : 'EN';
+    document.documentElement.lang = EN ? 'en' : 'ko';
+    var ns = document.querySelectorAll('[data-ko]');
+    for (var i=0;i<ns.length;i++){
+      var v = ns[i].getAttribute(EN ? 'data-en' : 'data-ko');
+      if (v != null) ns[i].textContent = v;
+    }
+  }
+  window.toggleLang = function(){
+    EN = !EN;
+    try { localStorage.setItem('mangoi_lang', EN ? 'en' : 'ko'); } catch(e){}
+    applyStatic(); if (T) render(T);
+  };
+
+  // 「8월 6일(목) 18:00」 — 서버가 준 원시값으로 화면에서 만든다(서버 문자열 이중관리 방지)
+  function whenLabel(dateStr, timeStr){
+    if (!dateStr) return timeStr || t('일정 협의 중','To be arranged');
+    var p = String(dateStr).split('-');
+    if (p.length !== 3) return dateStr + (timeStr ? ' ' + timeStr : '');
+    var d = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+    var wkKo = ['일','월','화','수','목','금','토'][d.getUTCDay()];
+    var wkEn = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()];
+    var head = EN ? ((+p[1]) + '/' + (+p[2]) + ' (' + wkEn + ')')
+                  : ((+p[1]) + '월 ' + (+p[2]) + '일(' + wkKo + ')');
+    return head + (timeStr ? ' ' + timeStr : '');
+  }
+
+  var ST = {
+    pending:   ['접수 완료 — 담당 선생님을 찾고 있어요','Received — finding a teacher','#fbbf24'],
+    proposed:  ['담당 선생님 배정 중','Assigning a teacher','#a78bfa'],
+    confirmed: ['확정 — 예정대로 진행됩니다','Confirmed — all set','#34d399'],
+    done:      ['테스트 완료','Test completed','#60a5fa'],
+    cancelled: ['취소됨','Cancelled','#94a3b8']
+  };
+
+  function countdown(ms){
+    var m = Math.max(0, Math.round(ms/60000));
+    if (m >= 60){
+      var h = Math.floor(m/60), r = m%60;
+      return EN ? ('in ' + h + 'h ' + r + 'm') : (h + '시간 ' + r + '분 뒤 시작');
+    }
+    return EN ? ('in ' + m + ' min') : (m + '분 뒤 시작');
+  }
+
+  function render(d){
+    var st = ST[d.status] || [d.status, d.status, '#94a3b8'];
+    var h = '';
+
+    // ── ① 지금 들어갈 수 있으면, 다른 어떤 것보다 먼저 크게 보여준다 ──
+    if (d.join_open && d.join_url){
+      h += '<a class="join" href="' + esc(d.join_url) + '">▶ ' + t('입장하기','Join now') + '</a>'
+        +  '<div class="count">' + t('선생님이 기다리고 있어요','Your teacher is waiting') + '</div>';
+    }
+
+    h += '<div class="card">'
+      +  '<div class="badge" style="background:' + st[2] + '22;color:' + st[2] + '">' + esc(EN?st[1]:st[0]) + '</div>'
+      +  '<h1>' + esc(d.student_name) + t(' 님','') + '</h1>'
+      +  '<div class="when">🗓 ' + esc(whenLabel(d.desired_date, d.desired_time)) + '</div>';
+
+    // 시작 전이면 남은 시간과 «언제 문이 열리는지» 를 같이 말해 준다 (지금 못 들어가는 이유)
+    if (!d.join_open && d.start_ts && d.start_ts > d.now){
+      h += '<div class="sub">⏳ ' + esc(countdown(d.start_ts - d.now)) + ' · '
+        +  t('시작 10분 전부터 입장 버튼이 열려요','Join opens 10 minutes before start') + '</div>';
+    } else if (!d.join_open && d.close_at_ts && d.now > d.close_at_ts){
+      h += '<div class="sub">' + t('이 수업은 종료되었어요.','This session has ended.') + '</div>';
+    } else if (!d.schedule_id){
+      h += '<div class="sub">' + t('수업 시간이 확정되면 문자로 알려드릴게요.','We will text you once the time is confirmed.') + '</div>';
+    }
+
+    if (d.teacher) h += '<div class="row"><span class="k">👩‍🏫 ' + t('담당 선생님','Teacher') + '</span><b>' + esc(d.teacher) + '</b></div>';
+
+    /* 🔒 결과는 «전화번호 뒷 4자리» 를 맞춰야 열린다.
+       링크는 문자로 가지만 문자는 남이 볼 수 있다. 일정·입장이 새는 건 큰일이 아니지만
+       성적은 다르다. 새 비밀번호를 만들게 하는 대신, 본인이 적어 낸 번호의 끝 4자리만 묻는다.
+       ⚠️ 여기서 막히더라도 위의 입장 버튼은 그대로다 — 수업에 못 들어가는 일은 없다. */
+    if (d.result_locked){
+      h += '<div class="card" style="margin-top:-2px">'
+        +   '<div class="sub" style="margin-bottom:9px">🔒 '
+        +     t('결과는 본인만 볼 수 있어요. 신청하신 전화번호 <b>뒷 4자리</b>를 넣어 주세요.',
+              'Results are private. Enter the <b>last 4 digits</b> of the phone number you applied with.')
+        +   '</div>'
+        +   (d.phone_hint ? '<div class="sub" style="color:#6b7a99;margin-bottom:9px">' + esc(d.phone_hint) + '</div>' : '')
+        +   '<div style="display:flex;gap:8px">'
+        +     '<input id="pin" inputmode="numeric" maxlength="4" placeholder="0000" '
+        +       'style="flex:1;min-width:0;padding:12px;border-radius:11px;border:1px solid rgba(148,163,184,.4);'
+        +       'background:rgba(255,255,255,.95);color:#1a1a1a;font-size:17px;font-weight:800;letter-spacing:4px;text-align:center">'
+        +     '<button id="pin-go" style="padding:12px 18px;border:0;border-radius:11px;cursor:pointer;'
+        +       'background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;font-weight:800;font-size:14px">'
+        +       t('확인','Check') + '</button>'
+        +   '</div>'
+        +   '<div id="pin-msg" class="sub" style="color:#fecaca;margin-top:8px;display:none"></div>'
+        + '</div>';
+    }
+    var r = d.result || {};
+    if (r.final_level) h += '<div class="row"><span class="k">🏅 ' + t('최종 레벨','Level') + '</span><b>' + esc(r.final_level) + '</b></div>';
+    if (r.ai_score != null) h += '<div class="row"><span class="k">🧠 ' + t('AI 진단','AI check') + '</span><b>' + esc(r.ai_score) + '</b></div>';
+    if (r.pron_score != null) h += '<div class="row"><span class="k">🎤 ' + t('발음','Pronunciation') + '</span><b>' + esc(r.pron_score) + '</b></div>';
+    if (r.teacher_score != null) h += '<div class="row"><span class="k">📝 ' + t('선생님 평가','Teacher score') + '</span><b>' + esc(r.teacher_score) + '</b></div>';
+    if (r.recommended_textbook) h += '<div class="row"><span class="k">📚 ' + t('추천 교재','Textbook') + '</span><b>' + esc(r.recommended_textbook) + '</b></div>';
+    if (r.next_class_guide) h += '<div class="sub" style="margin-top:10px">📘 ' + esc(r.next_class_guide) + '</div>';
+    h += '</div>';
+
+    // ── ② 미리 해두면 좋은 것 ──
+    h += '<div class="btns">'
+      +  '<a class="btn" href="' + esc(d.precheck_url) + '" target="_blank" rel="noopener">🎧 ' + t('장비 점검','Device check') + '</a>'
+      +  (d.ics_url ? '<a class="btn" href="' + esc(d.ics_url) + '">📆 ' + t('캘린더에 추가','Add to calendar') + '</a>' : '')
+      +  '</div>';
+
+    if (!d.join_open && d.start_ts && d.start_ts > d.now){
+      h += '<div class="muted">' + t('이 화면은 그대로 두셔도 됩니다 — 시간이 되면 입장 버튼이 저절로 나타나요.',
+                                      'You can leave this page open — the Join button appears automatically.') + '</div>';
+    }
+    document.getElementById('body').innerHTML = h;
+    var pinBtn = document.getElementById('pin-go');
+    if (pinBtn){
+      var inp = document.getElementById('pin'), msg = document.getElementById('pin-msg');
+      var go = function(){
+        var v = (inp.value || '').replace(/\D/g,'');
+        if (v.length !== 4){ msg.style.display=''; msg.textContent = t('4자리를 넣어 주세요.','Please enter 4 digits.'); return; }
+        PIN = v;                       // 이 화면이 열려 있는 동안만 기억한다(저장하지 않는다)
+        msg.style.display='none';
+        load();
+      };
+      pinBtn.addEventListener('click', go);
+      inp.addEventListener('keypress', function(e){ if (e.key === 'Enter') go(); });
+      inp.focus();
+    }
+  }
+
+  function fail(msgKo, msgEn){
+    document.getElementById('body').innerHTML =
+      '<div class="card err"><h1>' + t('링크를 열 수 없어요','Cannot open this link') + '</h1>'
+      + '<div class="sub" style="margin-top:8px">' + t(msgKo, msgEn) + '</div></div>';
+  }
+
+  function load(){
+    if (!K) { fail('주소가 올바르지 않습니다. 문자로 받은 링크를 그대로 눌러 주세요.',
+                   'This address is incomplete. Please tap the link from your text message.'); return; }
+    fetch('/api/leveltest/ticket?k=' + encodeURIComponent(K) + (PIN ? '&p=' + encodeURIComponent(PIN) : ''), { cache:'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || !d.ok || !d.ticket) {
+          fail('링크가 만료되었거나 올바르지 않습니다. 학원에 문의해 주세요.',
+               'This link is expired or invalid. Please contact us.');
+          return;
+        }
+        T = d.ticket; render(T);
+      })
+      .catch(function(e){
+        // ⚠️ 이 catch 는 통신 실패뿐 아니라 위 render() 안의 오류까지 삼킨다. 조용히 삼키면
+        //    «연결이 불안정해요» 만 보이고 진짜 원인이 영영 안 보인다 — 콘솔에는 남긴다.
+        try { console.warn('[ticket] load failed:', e); } catch(_){}
+        fail('연결이 불안정해요. 잠시 후 다시 시도해 주세요.','Connection problem. Please try again shortly.');
+      });
+  }
+
+  /* 🔄 30초마다 다시 확인 — 학부모가 화면을 열어 두고 기다리는 것이 자연스러운 흐름이다.
+     새로고침을 시키면 그 순간 이탈한다. 시간이 되면 입장 버튼이 «저절로» 나타나야 한다. */
+  applyStatic();
+  load();
+  timer = setInterval(load, 30000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+})();
+</script>
+<!-- BUILD:20260807052617 -->
+</body>
+</html>

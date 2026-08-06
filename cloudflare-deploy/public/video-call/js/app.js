@@ -50,9 +50,15 @@ async function acquireLocalMedia() {
     sampleRate: 48000,
     channelCount: 1
   };
+  /* 🔴 (2026-08-05) 예전엔 1280×720(최대 1920×1080)을 달라고 했다.
+     카메라가 큰 그림을 주면 인코더가 그걸 줄여 보내느라 CPU 를 쓰고, 저사양 노트북에서는 그 자체가 렉이다.
+     1:1 얼굴 화면에 720p 는 과하다. 처음부터 작게 받는다 — 640×360 · 20fps.
+     받는 사람 화면에서 차이를 거의 못 느끼고, 올리는 대역과 CPU 는 크게 준다.
+     ⚠️ ideal 로만 준다. max 로 못 박으면 그 해상도를 못 내는 웹캠에서 아예 실패한다. */
   const videoConstraints = {
-    width:  { ideal: 1280, max: 1920 },
-    height: { ideal: 720,  max: 1080 },
+    width:     { ideal: 640 },
+    height:    { ideal: 360 },
+    frameRate: { ideal: 20, max: 24 },
     facingMode: 'user'
   };
 
@@ -95,12 +101,53 @@ async function acquireLocalMedia() {
   return new MediaStream();
 }
 
+/* 「연결 중」 표시 — index.html 첫 조각에 인라인으로 있다. 없으면 조용히 무시한다. */
+const _boot = (t, p) => { try { if (window.bootStep) window.bootStep(t, p); } catch (e) {} };
+
+/* ── 정규 수업이면 출결·발화시간을 기록한다 ──
+   🔴 (2026-08-05) 이 화면은 출결 API 를 하나도 부르지 않았다. 회의방일 땐 상관없지만,
+      정규 예약 수업(class-…)을 이 화면으로 하면 «수업은 되는데 기록이 안 남는» 상태가 된다.
+      출결·발화시간은 강사료 정산과 학부모 리포트의 근거라, 조용히 비면 한 달 뒤 정산 때 발견된다.
+      (정식 화면은 /js/mango-attendance.js 가 그 일을 하는데, 이 화면은 그걸 안 실었다.)
+   → 방 번호가 class- 로 시작할 때만 그 파일(16KB)을 불러 붙인다.
+      회의방(meet-)·공용방은 예전 그대로 한 바이트도 더 받지 않는다.
+   ⚠️ 그 모듈은 body.vc-in-call 을 감시해 스스로 켜지는데, 이 화면엔 그 클래스가 없다.
+      그래서 공개 API(MangoAttendance.start)로 «직접» 켠다. 클래스를 흉내 내지 않는다 —
+      흉내 내면 정식 화면 전용 코드가 같이 깨어날 위험이 있다. */
+function maybeStartAttendance() {
+  try {
+    if (!/^class-/.test(String(roomId || ''))) return;   // 회의방·공용방은 기록 대상이 아니다
+    const sp = new URLSearchParams(location.search);
+    const uid  = (sp.get('uid') || sp.get('user_id') || '').trim();
+    const role = (sp.get('role') || sp.get('vc_role') || '').trim().toLowerCase();
+    if (!uid) { console.warn('[attendance] 링크에 uid 가 없어 기록 생략 — 수업 입장 버튼이 넣어 줘야 한다'); return; }
+    /* join 본문의 role 은 모듈이 localStorage(mango_role)에서 읽는다 — 정식 화면과 같은 규칙이다.
+       링크가 명시한 경우에만 맞춰 준다. 임의로 덮으면 공용 PC 에서 남의 역할이 남는다. */
+    if (role === 'teacher' || role === 'student') { try { localStorage.setItem('mango_role', role); } catch (e) {} }
+    const s = document.createElement('script');
+    s.src = '/js/mango-attendance.js?v=35';   // 정식 화면(index.html)과 같은 버전을 쓴다 — 캐시가 어긋나지 않게
+    s.onload = function () {
+      try {
+        window.MangoAttendance.start({
+          roomId: roomId, userId: uid, username: username,
+          stream: localStream, role: role || 'student'
+        });
+        console.log('[attendance] 경량 화면에서 출결 기록 시작:', roomId, uid, role);
+      } catch (e) { console.warn('[attendance] 시작 실패:', e); }
+    };
+    s.onerror = function () { console.warn('[attendance] 스크립트 로드 실패 — 수업은 계속된다'); };
+    document.head.appendChild(s);
+  } catch (e) { console.warn('[attendance] 예외:', e); }
+}
+
 async function joinRoom() {
-  username = $usernameInput.value.trim() || ('사용자' + Math.floor(Math.random() * 1000));
+  username = $usernameInput.value.trim() || ('Guest' + Math.floor(Math.random() * 1000));
   // fix (2026-06-01) — 비우면 랜덤 방이 아니라 공용 수업방(mangoi-class)으로 입장 → 교사·학생이 같은 방에서 만남
   roomId = $roomInput.value.trim() || 'mangoi-class';
 
+  _boot('카메라·마이크를 준비하고 있어요 · Preparing camera and mic', 25);
   localStream = await acquireLocalMedia();
+  _boot('수업방에 접속하는 중 · Joining the room', 60);
 
   // 디버그: 오디오 트랙 상태
   const audioTracks = localStream.getAudioTracks();
@@ -114,13 +161,18 @@ async function joinRoom() {
   }
 
   document.getElementById('local-video').srcObject = localStream;
-  document.getElementById('local-label').textContent = username + ' (나)';
+  document.getElementById('local-label').textContent = username + ' (me · 나)';
 
   connectWebSocket();
 
   $lobby.classList.add('hidden');
   $app.classList.remove('hidden');
-  $roomBadge.textContent = '방: ' + roomId;
+  $roomBadge.textContent = 'Room ' + roomId;   // 방 번호는 언어와 무관 — 짧게 영어로 통일
+  /* 화면이 실제로 바뀐 뒤에 「연결 중」을 치운다 — 먼저 치우면 흰 화면이 한 번 스친다 */
+  _boot('거의 다 됐어요 · Almost there', 95);
+  setTimeout(() => { try { if (window.bootDone) window.bootDone(); } catch (e) {} }, 300);
+
+  maybeStartAttendance();   // 정규 수업(class-…)이면 출결·발화시간 기록을 붙인다
 
   initWhiteboard();
   initChat();
@@ -143,16 +195,43 @@ async function joinRoom() {
   window.addEventListener('pageshow', resumeAllVideos);
   window.addEventListener('focus', resumeAllVideos);
 
-  // 방 입장 즉시 자동 녹화 시작 (R2 스트리밍 업로드)
-  setTimeout(() => {
+  /* 🔴🔴 (2026-08-05) 여기가 나쁜 회선에서 수업을 죽이던 자리다.
+     예전: 입장 2초 뒤 곧바로 녹화를 켜고, 기본값 «영상 2.5Mbps + 소리 128kbps» 로 R2 에 계속 올렸다.
+     필리핀 가정 회선의 올리는 속도는 그보다 낮은 경우가 흔하다. 그러면 녹화 업로드가 올리는 길을
+     통째로 막아 «수업 영상» 이 밀린다 — 상대 화면이 검거나 끊기는 것으로 나타난다.
+     녹화는 수업의 부산물이고, 수업이 먼저다.
+     지금: ① 비트레이트를 1/5 로(영상 500kbps · 소리 48kbps — 다시 보기용으로 충분)
+           ② 2초 → 12초 뒤로 미룬다(입장·연결 협상이 끝난 뒤에 시작)
+           ③ 그 시점에 연결이 아직 안 붙었으면 아예 시작하지 않는다. 붙고 나면 다시 본다. */
+  const AUTO_REC_OPTS = { videoBitsPerSecond: 500000, audioBitsPerSecond: 48000 };
+  const anyPeerConnected = () => {
     try {
-      if (typeof startRecording === 'function' && localStream && localStream.getTracks().length > 0) {
-        const ok = startRecording();
-        if (ok) console.log('[auto-record] 녹화 자동 시작 (R2 스트리밍)');
-        else console.warn('[auto-record] 시작 실패');
+      if (typeof peerConnections === 'undefined' || !peerConnections || peerConnections.size === 0) return true; // 혼자면 방해할 상대가 없다
+      let ok = false;
+      peerConnections.forEach((pc) => {
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') ok = true;
+      });
+      return ok;
+    } catch (e) { return true; }
+  };
+  const tryAutoRecord = (attempt) => {
+    try {
+      if (typeof startRecording !== 'function') return;
+      if (!localStream || localStream.getTracks().length === 0) return;
+      if (!anyPeerConnected()) {
+        if (attempt < 5) {   // 아직 붙는 중 → 수업을 방해하지 않도록 기다렸다 다시 본다
+          console.log('[auto-record] 연결 대기 중 → 녹화 보류 (' + attempt + ')');
+          return setTimeout(() => tryAutoRecord(attempt + 1), 10000);
+        }
+        console.warn('[auto-record] 연결이 계속 불안정 → 녹화 시작하지 않음(수업 우선)');
+        return;
       }
+      const ok = startRecording(AUTO_REC_OPTS);
+      if (ok) console.log('[auto-record] 녹화 시작 (저비트레이트, 수업 대역 보호)');
+      else console.warn('[auto-record] 시작 실패');
     } catch (e) { console.warn('[auto-record] 예외:', e); }
-  }, 2000);
+  };
+  setTimeout(() => tryAutoRecord(0), 12000);
 }
 
 /**
@@ -201,6 +280,32 @@ function generateRoomId() {
   return id;
 }
 
+/* 🧹 (2026-08-05) 유령 타일 수정 — 이 화면만 clientId 를 «안 보내고» 있었다.
+   서버(video-call-room.ts handleJoinRoom)는 접속마다 새 랜덤 userId 를 발급한다. 그래서
+   새로고침·회선 끊김으로 소켓이 다시 열리면 옛 소켓이 로스터에 좀비로 남아 «같은 사람 타일이
+   두 개» 가 된다. 서버에는 이미 청소 장치가 있는데, 그 장치가 통째로 `if (clientId)` 안에 있다
+   (같은 clientId 의 옛 소켓만 닫는다 = 진짜 다른 사람은 절대 안 닫는 fail-safe).
+   정식 화면(index.html)은 `clientId: vcClientId()` 를 보내서 보호받고 있었고, 이 경량 화면만
+   `{ roomId, username }` 두 개만 보내 청소가 한 번도 돌지 않았다 → 좀비가 그대로 쌓였다.
+   식별자 규칙은 정식 화면과 «같게» 맞춘다: sessionStorage 의 `mangoi_vc_client_id` (탭 단위).
+     · 새로고침·재연결에는 유지된다 → 좀비 청소가 동작한다
+     · 다른 탭·다른 기기와는 절대 겹치지 않는다 → 가족 공용 계정이 서로를 걷어차는
+       «무한 킥 루프» (2026-07-14 사고) 가 재발하지 않는다 */
+function liteClientId() {
+  try {
+    var k = sessionStorage.getItem('mangoi_vc_client_id');
+    if (!k) {
+      k = 'tab:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      sessionStorage.setItem('mangoi_vc_client_id', k);
+    }
+    return k;
+  } catch (e) {}
+  // sessionStorage 불가 환경(사파리 프라이빗 등) 폴백 — 페이지 수명 동안만 유지되는 메모리 id.
+  // 계정 id 는 절대 쓰지 않는다(같은 계정 두 기기가 서로를 닫는다).
+  if (!window.__liteCid) window.__liteCid = 'mem:' + Math.random().toString(36).slice(2, 10);
+  return window.__liteCid;
+}
+
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
@@ -210,7 +315,7 @@ function connectWebSocket() {
     console.log('WebSocket 연결 완료');
     _wsReconnectCount = 0;
     startHeartbeat();
-    sendWsMessage({ type: 'join-room', data: { roomId, username } });
+    sendWsMessage({ type: 'join-room', data: { roomId, username, clientId: liteClientId() } });
   };
   ws.onmessage = (event) => {
     try {
@@ -277,7 +382,89 @@ function handleWebSocketMessage(msg) {
     case 'offer': handleOfferMessage(data); break;
     case 'answer': handleAnswerMessage(data); break;
     case 'ice-candidate': handleIceCandidateMessage(data); break;
+    case 'point-award-ack': handlePraiseAck(data); break;   // ⭐ 학생 쪽 적립 결과
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ⭐ 칭찬 별점 — 경량 화면판 (2026-08-05 사장님 요청)
+   ───────────────────────────────────────────────────────────────
+   정식 화면에만 있던 기능이라 경량 화면으로 옮긴 강사가 칭찬을 못 줬다.
+   다행히 무거운 것을 옮길 필요가 없다 — 적립은 이미 «학생 브라우저» 가 한다:
+     강사 → WS 'point-award' → 서버 DO 가 중계 → 학생 화면이 받아 자기 계정으로 적립
+     → 학생이 'point-award-ack' 로 결과를 되돌려 준다.
+   즉 이 화면이 할 일은 «버튼 하나와 신호 한 번» 뿐이다. 서버도 DO 도 고치지 않는다.
+   ⚠️ 강사(role=teacher)에게만 보인다. 학생 화면에 별이 보이면 자기 자신에게 줄 수 있다.
+   ⚠️ 서버 적립 경로(/api/points/award-praise)는 교사 «쿠키 세션» 을 요구한다. 이 화면은
+      그 세션이 없을 수 있어 401 이 날 수 있는데, 그래도 문제가 없다 — 학생 경로가 이미
+      같은 award_id 로 적립하고 서버가 멱등 처리한다. 그래서 실패해도 조용히 넘긴다.
+   ═══════════════════════════════════════════════════════════════ */
+const _praisePending = {};
+
+/* 역할은 링크가 알려 준다(수업 입장 버튼이 &role=teacher 를 붙인다). 없으면 학생으로 본다 —
+   모르면 «안 보여주는» 쪽이 안전하다. 별 버튼이 학생에게 보이면 자기 자신에게 줄 수 있다. */
+const _urlRole = (function () {
+  try {
+    const sp = new URLSearchParams(location.search);
+    return (sp.get('role') || sp.get('vc_role') || '').trim().toLowerCase();
+  } catch (e) { return ''; }
+})();
+
+function isTeacherView() { return _urlRole === 'teacher'; }
+
+function praiseButtonFor(wrapper, peerId) {
+  if (!wrapper || !isTeacherView() || wrapper.querySelector('.lite-star')) return;
+  const btn = document.createElement('button');
+  btn.className = 'lite-star';
+  btn.type = 'button';
+  btn.title = 'Give a praise point · 칭찬 포인트 주기';
+  btn.textContent = '⭐ +1';
+  btn.style.cssText =
+    'position:absolute;right:8px;top:8px;z-index:5;border:0;border-radius:999px;' +
+    'padding:7px 12px;font-size:14px;font-weight:700;cursor:pointer;' +
+    'background:#f0a500;color:#1f2433;box-shadow:0 2px 8px rgba(0,0,0,.35)';
+  btn.addEventListener('click', function (e) { e.stopPropagation(); sendPraise(peerId, btn); });
+  wrapper.style.position = wrapper.style.position || 'relative';
+  wrapper.appendChild(btn);
+}
+
+function sendPraise(peerId, btn) {
+  if (!peerId || (btn && btn.disabled)) return;
+  const awardId = 'pt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+  _praisePending[awardId] = btn || null;
+  try {
+    sendWsMessage({ type: 'point-award', data: { targetUserId: peerId, awardId: awardId, fromName: username || 'Teacher' } });
+  } catch (e) { console.warn('[praise] 전송 실패:', e); }
+  /* 보조 경로 — 세션이 있으면 서버가 직접 적립한다. 없으면 401 이지만 학생 경로가 이미 처리한다. */
+  try {
+    fetch('/api/points/award-praise', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ room: roomId, target_peer_id: peerId, award_id: awardId, from_name: username || 'Teacher' })
+    }).catch(function () {});
+  } catch (e) {}
+  if (btn) {
+    btn.textContent = '⭐ …';
+    btn.disabled = true;                       // 서버 쿨다운 1초와 맞춘다 — 연타로 중복 지급되지 않게
+    setTimeout(function () { btn.disabled = false; btn.textContent = '⭐ +1'; }, 1400);
+  }
+}
+
+function handlePraiseAck(data) {
+  try {
+    if (!data || !data.awardId) return;
+    const btn = _praisePending[data.awardId];
+    delete _praisePending[data.awardId];
+    if (!btn) return;
+    /* 성공/실패를 강사가 «반드시» 알아야 한다 — 안 그러면 줬다고 믿고 넘어간다 */
+    btn.textContent = data.ok ? '⭐ OK' : '⚠ ' + (data.error || 'failed');
+    btn.style.background = data.ok ? '#1e874b' : '#c0392b';
+    btn.style.color = '#fff';
+    setTimeout(function () {
+      btn.textContent = '⭐ +1';
+      btn.style.background = '#f0a500';
+      btn.style.color = '#1f2433';
+    }, 1800);
+  } catch (e) {}
 }
 
 function handleRoomJoined(data) {
@@ -296,6 +483,7 @@ function handleUserLeft({ userId }) {
     peerConnections.delete(userId);
   }
   if (typeof pendingCandidates !== 'undefined') pendingCandidates.delete(userId);
+  try { if (typeof clearTileWatchdog === 'function') clearTileWatchdog(userId); } catch (_) {}
   const el = document.getElementById('video-' + userId);
   if (el) el.remove();
   if (typeof removeFloatingVideo === 'function') removeFloatingVideo(userId);
@@ -312,7 +500,7 @@ function updateGridCount() {
 document.addEventListener('DOMContentLoaded', updateGridCount);
 
 let userCount = 1;
-function updateUserCount() { $userCount.textContent = userCount + '명'; }
+function updateUserCount() { $userCount.textContent = userCount + (userCount > 1 ? ' in room' : ' in room'); }
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -374,6 +562,11 @@ document.getElementById('leave-btn').addEventListener('click', async () => {
       console.log('[auto-record] 업로드 결과:', result);
     }
   } catch (e) { console.warn('[auto-record] 중지/업로드 예외:', e); }
+
+  /* 출결 마감 — 여기서 확정해야 발화시간(total_active_ms)이 서버에 남는다.
+     pagehide/beforeunload 안전망도 모듈 안에 있지만, 나가기 버튼은 «정상 종료» 라
+     beacon 이 확실히 나가도록 명시적으로 닫는다. */
+  try { if (window.MangoAttendance) window.MangoAttendance.stop({ useBeacon: true }); } catch (e) {}
 
   localStream.getTracks().forEach(t => t.stop());
   if (ws) ws.close();

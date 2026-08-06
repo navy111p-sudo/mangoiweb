@@ -84,6 +84,19 @@ body{
 .cls-time{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:64px;color:#16202c}
 .cls-main{flex:1;min-width:150px}
 .cls-name{font-size:16px;font-weight:600}
+.pill.p-lt{background:#0d9488;color:#fff}
+.wk-nav{display:flex;gap:6px;margin:0 0 10px}
+.wk-nav button{flex:1;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
+.wk-nav button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+.wk-day{border-top:1px solid #e6ebf1;padding:9px 0}
+.wk-day:first-child{border-top:0}
+.wk-d{font-size:12.5px;font-weight:800;color:#6b7783;margin-bottom:4px}
+.wk-day.today .wk-d{color:#2563eb}
+.wk-i{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;padding:3px 0}
+.wk-i b{min-width:46px}
+.wk-none{font-size:12.5px;color:#9aa7b4}
+html[data-t="dark"] .wk-nav button{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
+html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-meta{font-size:13px;color:#5d6b7a;margin-top:2px}
 .cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
 
@@ -179,7 +192,101 @@ body{
   .cls-act{width:auto;flex:0 0 auto}
   .btn{padding:13px 22px}
 }
+
+/* ── ⏳ 다음 수업 카운트다운 (요청 2번) — 애니메이션·그림자 없음, 색만 바뀐다 ── */
+.nextup{
+  border:1px solid #cfe0f5;background:#f2f7fd;border-radius:10px;
+  padding:11px 13px;margin-bottom:12px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.nextup .nu-box{flex:1;min-width:130px}
+.nextup .nu-l{font-size:12.5px;font-weight:700;color:#1355a8;letter-spacing:.2px}
+.nextup .nu-t{font-size:15px;font-weight:700;color:#16202c}
+.nextup .nu-c{
+  font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;
+  color:#1355a8;line-height:1.1;white-space:nowrap;
+}
+/* 곧 시작(10분 이내) — 빨강. 지금 이 색이 보이면 자리를 떠나면 안 된다는 뜻 */
+.nextup.soon{border-color:#f0c2bd;background:#fdf3f2}
+.nextup.soon .nu-l,.nextup.soon .nu-c{color:#b3261e}
+/* 이미 입장 가능 — 초록 */
+.nextup.open{border-color:#a8d5b5;background:#eef8f1}
+.nextup.open .nu-l,.nextup.open .nu-c{color:#0b7a3d}
+
+/* ── 🔄 새 수업 배지 (요청 26번) — 새로 들어왔을 때만 뜬다.
+   "갱신 중" 같은 상시 표시는 회선이 느린 곳에서 불안만 키운다. */
+.newbadge{
+  display:inline-block;background:#0b7a3d;color:#fff;border-radius:20px;
+  padding:3px 10px;font-size:12px;font-weight:700;margin-left:6px;cursor:pointer;
+}
+/* 🧑‍💼 매니저 노쇼 목록의 한 줄 */
+.nsrow{padding:7px 0;border-top:1px solid #f0e0c0}
+.nsrow:first-child{border-top:0}
+
+/* ══ 🌙 다크 모드 (요청 24번) ═════════════════════════════════════════════
+   기존 규칙은 한 줄도 안 건드리고 여기서 색만 덮어쓴다 — 밝은 모드에 사고 여지를
+   안 만들려고. transition 없음(저사양 기기에서 전환 프레임이 튄다).
+   시스템 설정을 자동으로 따라가지 않는다 — 모르는 새 화면이 까매지면 고장으로 오인한다. */
+html[data-t="dark"] body{background:#0f141a;color:#e6ecf2}
+html[data-t="dark"] .top h1 span,
+html[data-t="dark"] .cls-meta,
+html[data-t="dark"] .kpi span,
+html[data-t="dark"] .row span,
+html[data-t="dark"] .modal p.sub,
+html[data-t="dark"] .mini,
+html[data-t="dark"] .empty{color:#9dabb9}
+html[data-t="dark"] .card{background:#171e26;border-color:#2b3541}
+html[data-t="dark"] .card > h2{color:#dbe4ed}
+html[data-t="dark"] .card > h2 small{color:#9dabb9}
+html[data-t="dark"] .tbtn{background:#1d2630;border-color:#38434f;color:#dbe4ed}
+html[data-t="dark"] .tbtn:active{background:#273240}
+html[data-t="dark"] .tbtn-out{color:#f1a9a2;border-color:#6b3b36}
+html[data-t="dark"] .cls{border-top-color:#2b3541}
+html[data-t="dark"] .cls-time,
+html[data-t="dark"] .cls-name{color:#e6ecf2}
+html[data-t="dark"] .cls-info .cls-time,
+html[data-t="dark"] .cls-info .cls-name{color:#9dabb9}
+html[data-t="dark"] .kpi{background:#1d2630;border-color:#2b3541}
+html[data-t="dark"] .kpi.warn b{color:#f7897f}
+html[data-t="dark"] .row{border-top-color:#2b3541}
+html[data-t="dark"] .row-dl b{color:#7db1f0}
+html[data-t="dark"] .btn-off{background:#252f3a;color:#7f8d9b}
+html[data-t="dark"] .btn-gray{background:#252f3a;color:#dbe4ed}
+html[data-t="dark"] .btn-post{background:#1d2630;color:#7db1f0;border-color:#3c5a7f}
+html[data-t="dark"] .btn-skip{background:#252f3a;color:#dbe4ed}
+html[data-t="dark"] .p-done{background:#252f3a;color:#9dabb9}
+html[data-t="dark"] .p-soon{background:#4a3a06;color:#ffd97a}
+html[data-t="dark"] .p-info{background:#252f3a;color:#9dabb9}
+html[data-t="dark"] .err{background:#3a1e1b;border-color:#6b3b36;color:#f7c2bd}
+html[data-t="dark"] .ok{background:#123023;border-color:#2c5c41;color:#a8ddbd}
+html[data-t="dark"] .card.alert{background:#2b2410;border-color:#6b5417}
+html[data-t="dark"] .card.alert > h2,
+html[data-t="dark"] .sum,
+html[data-t="dark"] .warnline{color:#f6d47a}
+html[data-t="dark"] .draft,
+html[data-t="dark"] .nsrow{border-top-color:#4a3f1e}
+html[data-t="dark"] .nsrow b{color:#f6d47a}
+html[data-t="dark"] .draft-txt{background:#171e26;border-color:#4a3f1e;color:#e6ecf2}
+html[data-t="dark"] .modal{background:#171e26}
+html[data-t="dark"] .fld input,
+html[data-t="dark"] .fld select,
+html[data-t="dark"] .fld textarea{background:#1d2630;border-color:#38434f;color:#e6ecf2}
+html[data-t="dark"] .stars label{background:#1d2630;border-color:#38434f;color:#8895a3}
+html[data-t="dark"] .nextup{background:#152233;border-color:#2f4a6b}
+html[data-t="dark"] .nextup .nu-t{color:#e6ecf2}
+html[data-t="dark"] .nextup .nu-l,
+html[data-t="dark"] .nextup .nu-c{color:#7db1f0}
+html[data-t="dark"] .nextup.soon{background:#31201d;border-color:#6b3b36}
+html[data-t="dark"] .nextup.soon .nu-l,
+html[data-t="dark"] .nextup.soon .nu-c{color:#f7897f}
+html[data-t="dark"] .nextup.open{background:#13291d;border-color:#2c5c41}
+html[data-t="dark"] .nextup.open .nu-l,
+html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
 </style>
+<!-- 🌙 저장된 테마를 **첫 페인트 전에** 적용한다. 본문 스크립트(문서 끝)에서 하면
+     흰 화면이 한 번 번쩍인 뒤 어두워진다 — 새벽 근무 강사에게는 그 한 번이 눈부시다.
+     인라인 4줄, 외부 요청 0. localStorage 가 막혀 있어도 그냥 밝은 모드로 간다. -->
+<script>try{if(localStorage.getItem('mangoi_teacher_theme')==='dark')document.documentElement.setAttribute('data-t','dark');}catch(e){}</script>
 </head>
 <body>
 <div class="wrap">
@@ -192,6 +299,10 @@ body{
       <button class="tbtn" id="back" type="button" data-en="← Back" data-ko="← 뒤로">← Back</button>
       <a class="tbtn" id="home" href="/" aria-label="Home"><span aria-hidden="true">🏠</span><span class="lbl" data-en="Home" data-ko="홈">Home</span></a>
       <button class="tbtn" id="lang" type="button">한국어</button>
+      <!-- 🌙 다크 모드 (요청 24번) — 라벨은 '지금 누르면 무엇이 되는지'로 쓴다.
+           밝은 모드일 때 「🌙 Dark」, 어두울 때 「☀ Light」. 상태가 아니라 결과를 적어야
+           한 번에 이해된다. 글자는 좁은 폰에서 접힌다(.lbl). -->
+      <button class="tbtn" id="theme" type="button" aria-label="Dark mode"><span id="theme-ico" aria-hidden="true">🌙</span><span class="lbl" id="theme-lbl">Dark</span></button>
       <button class="tbtn" id="reload" type="button" aria-label="Refresh"><span aria-hidden="true">↻</span><span class="lbl" data-en="Refresh" data-ko="새로고침">Refresh</span></button>
       <button class="tbtn tbtn-out" id="logout" type="button" data-en="Logout" data-ko="로그아웃">Logout</button>
     </nav>
@@ -204,6 +315,15 @@ body{
        data-en="Offline — showing the last information received. Tap Refresh when your connection is back."
        data-ko="오프라인 — 마지막으로 받은 정보입니다. 연결이 되면 새로고침을 눌러 주세요.">Offline — showing the last information received.</div>
 
+  <!-- ⚡ 내가 신고한 장애가 «아직 진행 중» 일 때만. 화면 맨 위 — 복구 버튼을 찾아 헤매지 않게. -->
+  <div class="card err" id="c-outage-live" hidden>
+    <h2 data-en="⚡ Outage reported" data-ko="⚡ 장애 신고 접수됨">⚡ Outage reported</h2>
+    <div id="outage-live-txt"></div>
+    <button class="btn btn-eval btn-wide" type="button" id="outage-resolve"
+            data-en="✔ I'm back online — close this report"
+            data-ko="✔ 복구됐습니다 — 신고 닫기">✔ I'm back online</button>
+  </div>
+
   <!-- ⚠️ 피드백 미작성 경고 — 강사 급여가 실제로 깎이는 지점이라 수업 목록보다 위에 둔다.
        첫 화면을 막지 않도록 월간 집계(lazy)가 도착한 뒤에만 나타난다. -->
   <div class="card alert" id="c-alert" hidden>
@@ -214,8 +334,83 @@ body{
   </div>
 
   <div class="card" id="c-classes" hidden>
-    <h2><span data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small></h2>
+    <h2><span id="cls-title" data-en="Today's Classes" data-ko="오늘의 수업">Today's Classes</span> <small id="cls-count"></small><span id="cls-new"></span></h2>
+    <!-- ⏳ 다음 수업 한 건만 크게 (요청 2번). 남은 수업이 없으면 통째로 숨는다. -->
+    <div class="nextup" id="nextup" hidden>
+      <div class="nu-box">
+        <div class="nu-l" id="nu-label"></div>
+        <div class="nu-t" id="nu-who"></div>
+      </div>
+      <div class="nu-c" id="nu-count"></div>
+    </div>
     <div id="classes"></div>
+  </div>
+
+  <!-- 📅 (2026-08-06 마이마이 제보 "내일 수업이 안 보인다")
+       이 화면은 «오늘» 만 그려서, 내일 잡힌 레벨테스트는 당일이 되어서야 처음 보였다.
+       레벨테스트는 준비가 필요한 수업이다(첫 대면·보호자 동석·평가) → 미리 알려준다.
+       건이 없으면 카드째 숨긴다(빈 카드는 «뭔가 잘못됐나» 하는 인상을 준다). -->
+  <div class="card" id="c-upcoming" hidden>
+    <h2><span data-en="Coming Up (7 days)" data-ko="다가오는 수업 (7일)">Coming Up (7 days)</span> <small id="up-count"></small></h2>
+    <div id="upcoming"></div>
+  </div>
+
+  <!-- 🗓 (2026-08-06) 「내 주간 스케줄」 — 강사에게 자기 일정을 미리 보는 화면이 아예 없었다.
+       마이페이지 탭 11개 중 스케줄이 없고, 이 화면은 «오늘» 만 그렸다. 관리자에게는 주간
+       통합 캘린더가 있는데 정작 당사자인 강사는 못 봤다. -->
+  <div class="card" id="c-week" hidden>
+    <h2><span data-en="My Week" data-ko="내 주간 스케줄">My Week</span> <small id="wk-range"></small></h2>
+    <div class="wk-nav">
+      <button type="button" id="wk-prev" data-en="◀ Prev" data-ko="◀ 이전 주">◀ 이전 주</button>
+      <button type="button" id="wk-this" class="on" data-en="This week" data-ko="이번 주">이번 주</button>
+      <button type="button" id="wk-next" data-en="Next ▶" data-ko="다음 주 ▶">다음 주 ▶</button>
+    </div>
+    <div id="week"></div>
+  </div>
+
+  <!-- ⚡ 정전 · 인터넷 장애 신고 (멜카 요청) — 수업 목록 바로 아래.
+       정전 중인 강사는 폰 배터리로 모바일데이터를 쓴다. 버튼 하나에서 시작해
+       «종류 → 예상시간» 두 번만 더 누르면 접수되게 했다. 타이핑은 선택. -->
+  <div class="card" id="c-outage">
+    <h2 data-en="Power / Internet problem?" data-ko="정전 · 인터넷 장애가 났나요?">Power / Internet problem?</h2>
+    <button class="btn btn-gray btn-wide" type="button" id="outage-open"
+            data-en="⚡ Report an outage now (office is notified immediately)"
+            data-ko="⚡ 지금 장애 신고하기 (사무실에 즉시 전달됩니다)">⚡ Report an outage now</button>
+  </div>
+
+  <!-- 🧑‍💼 매니저 전용 — 서버가 manager 블록을 줄 때만 뜬다.
+       강사 응답에는 이 데이터가 아예 없으므로 강사 화면은 1바이트도 안 무거워진다. -->
+  <div class="card" id="c-mgr" hidden>
+    <h2><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span> <small id="mgr-count"></small></h2>
+    <div class="kpis">
+      <div class="kpi"><b id="m-live">–</b><span data-en="In class now" data-ko="진행 중">In class now</span></div>
+      <div class="kpi"><b id="m-next">–</b><span data-en="Still to come" data-ko="남은 수업">Still to come</span></div>
+      <div class="kpi"><b id="m-done">–</b><span data-en="Finished" data-ko="완료">Finished</span></div>
+    </div>
+    <div id="mgr-list"></div>
+  </div>
+
+  <div class="card alert" id="c-mgr-ns" hidden>
+    <h2 data-en="No-shows today" data-ko="오늘 노쇼 (미입장)">No-shows today</h2>
+    <div id="mgr-ns"></div>
+  </div>
+
+  <!-- ⚡ 장애 현황 (본사·매니저 전용) — 강사에게는 서버가 403 을 주므로 카드가 안 뜬다.
+       45초 자동갱신 주기에 함께 태운다. 사무실이 «지금 누가 끊겨 있는지» 를 새로고침 없이 본다. -->
+  <div class="card alert" id="c-outage-mgr" hidden>
+    <h2><span data-en="Outages now" data-ko="현재 장애 현황">Outages now</span> <span id="outage-mgr-badge"></span></h2>
+    <div id="outage-mgr-list"></div>
+  </div>
+
+  <!-- 🧾 결재 — 구 그룹웨어의 «기안·지출 / 결재 파일» 을 대신한다.
+       본사 계정에만 뜬다(강사에게는 서버가 403). 첫 화면을 막지 않도록 뒤늦게 불러온다. -->
+  <div class="card" id="c-appr" hidden>
+    <h2><span data-en="Approvals" data-ko="결재">Approvals</span> <span id="appr-badge"></span></h2>
+    <button class="btn btn-gray btn-wide" type="button" id="appr-new"
+            data-en="Submit a request (expense / document)"
+            data-ko="결재 올리기 (지출 · 문서)">Submit a request</button>
+    <div id="appr-inbox"></div>
+    <div id="appr-mine"></div>
   </div>
 
   <div class="card" id="c-dash" hidden>
@@ -284,6 +479,9 @@ body{
     var n = document.querySelectorAll('[data-en]');
     for (var i=0;i<n.length;i++) n[i].textContent = EN() ? n[i].getAttribute('data-en') : n[i].getAttribute('data-ko');
     document.getElementById('lang').textContent = EN() ? '한국어' : 'English';
+    // 상태에 따라 글자가 바뀌는 것들(data-en 방식으로는 못 다룬다)도 여기서 다시 그린다
+    applyTheme(themeOn());
+    paintNewBadge();
   }
   document.getElementById('lang').onclick = function(){
     LANG = EN() ? 'ko' : 'en';
@@ -292,10 +490,33 @@ body{
     //    읽지도 못하는 화면에 갇혀 되돌릴 방법을 못 찾는다(버튼 글자마저 한국어라서).
     //    다시 들어오면 서버가 정한 언어(기본 영어)로 돌아온다.
     applyLang();
-    if (DATA) { render(DATA); translateContent(); }
+    // ⚠️ 동적으로 만든 행은 data-en/data-ko 가 없어 applyLang 이 못 고친다 — 다시 그려야 한다.
+    //    (장애 현황 행의 «복구됨/Recovered», «3건/3 class(es)» 이 영어로 굳어 있던 이유)
+    if (DATA) { render(DATA); translateContent(); loadApprovals(); loadOutage(); }
   };
   // 새로고침을 직접 누른 것은 "지금 최신을 보여달라"는 뜻 — 캐시를 건너뛴다.
   document.getElementById('reload').onclick = function(){ load(true); };
+
+  // ── 🌙 다크 모드 (요청 24번) ──────────────────────────────────────────────
+  //   이 값만은 **저장한다**(언어와 달리). 눈이 편한 쪽은 사람마다 고정된 취향이라
+  //   매번 다시 켜야 하면 있으나 마나다. 저장 실패(시크릿 모드)해도 동작은 한다.
+  var TK = 'mangoi_teacher_theme';
+  function applyTheme(dark){
+    document.documentElement.setAttribute('data-t', dark ? 'dark' : 'light');
+    var ico = document.getElementById('theme-ico');
+    var lbl = document.getElementById('theme-lbl');
+    var btn = document.getElementById('theme');
+    // 라벨 = '누르면 무엇이 되는가'. 지금 상태를 적으면 반대로 읽는 사람이 생긴다.
+    if (ico) ico.textContent = dark ? '☀' : '🌙';   // ☀ / 🌙 (둘 다 Unicode 6 이하)
+    if (lbl) lbl.textContent = dark ? T('Light', '밝게') : T('Dark', '어둡게');
+    if (btn) btn.setAttribute('aria-label', dark ? 'Light mode' : 'Dark mode');
+  }
+  function themeOn(){ return document.documentElement.getAttribute('data-t') === 'dark'; }
+  document.getElementById('theme').onclick = function(){
+    var next = !themeOn();
+    applyTheme(next);
+    try { localStorage.setItem(TK, next ? 'dark' : 'light'); } catch (e) {}
+  };
 
   // ← 뒤로 — 앱 공통 규약(js/back-nav.js)과 같은 동작: history.back(), 없으면 홈.
   //   ⚠️ 다만 이 화면에는 함정이 하나 있다. 강사는 **로그인 직후 여기로 리다이렉트**되므로
@@ -474,6 +695,8 @@ body{
         saveCache(d);
         translateContent();               // 공지·교재명을 영어로 (첫 페인트 뒤)
         loadMonthStats(force);  // 무거운 집계는 첫 페인트 뒤에 (첫 화면을 막지 않는다)
+        loadApprovals();        // 🧾 결재도 첫 페인트 뒤에 — 강사면 403 이라 카드가 안 뜬다
+        loadOutage();           // ⚡ 장애 현황 — 내 진행 중 신고 + (매니저면) 전체 현황
       })
       .catch(function(e){
         if (e && e.message === 'auth') return;
@@ -501,31 +724,247 @@ body{
     document.getElementById('hi').firstChild.nodeValue = T('Hello, ', '안녕하세요, ') + nm;
     document.getElementById('today').textContent = d.today + ' (KST)';
 
+    // 🧑‍💼 매니저인가 — 수업 목록의 뜻이 통째로 달라진다(내 수업 → 내 커버 수업).
+    IS_MGR = !!(d.me && d.me.is_manager);
+    if (IS_MGR){
+      var ct = document.getElementById('cls-title');
+      ct.setAttribute('data-en', 'My cover classes');
+      ct.setAttribute('data-ko', '내 커버 수업');
+    }
+
     renderClasses(d.classes || []);
+    renderUpcoming(d.upcoming || []);
+    renderWeek(d.week);
     renderNotices(d.notices || []);
     renderResources(d.resources || []);
+    renderManager(d.manager);
 
     var rt = d.rating || {};
     document.getElementById('k-rate').textContent = rt.avg != null ? (rt.avg + ' / 5') : '–';
-    document.getElementById('c-dash').hidden = false;
+    // 완료수업·페널티·평점은 강사 본인 지표다. 매니저에게는 늘 비어 있어 오해만 만든다.
+    document.getElementById('c-dash').hidden = IS_MGR;
     applyLang();
     // applyLang 이 data-en 을 되쓰므로, 동적으로 채운 값은 그 뒤에 다시 넣는다.
     // 🔢 개수는 **진짜 망고아이 수업만** 센다. LMS 점유 슬롯·시드까지 세면
     //    강사가 "오늘 5개 있네" 하고 잘못 읽는다(실제 입장 가능한 건 0개일 수 있다).
-    var _real = (d.classes || []).filter(function(c){ return !c.kind || c.kind === 'class'; }).length;
-    document.getElementById('cls-count').textContent = _real ? '(' + _real + ')' : '';
+    paintClassCount(d.classes);
+  }
+
+  // 제목 옆 개수 — render() 와 자동 갱신(요청 26번) 두 곳에서 쓴다.
+  //   ⚠️ 한 곳에만 두면 자동 갱신으로 수업이 늘어났는데 제목은 옛 숫자로 남는다(실제로 그랬다).
+  function paintClassCount(list){
+    var real = (list || []).filter(function(c){ return !c.kind || c.kind === 'class'; }).length;
+    document.getElementById('cls-count').textContent = real ? '(' + real + ')' : '';
+  }
+
+  var IS_MGR = false;   // 본사 매니저로 열었는가 (서버 판정. 화면에서 추측하지 않는다)
+  var OUTAGE_MINE = null;   // ⚡ 내가 신고해 «진행 중» 인 장애 (없으면 null — 이건 정상 상태다)
+
+  // ── 🧑‍💼 매니저 화면 ──────────────────────────────────────────────────────
+  //   매니저(Melca·Maimai·Karl)는 수업을 하지 않아 «오늘의 수업»이 늘 비어 있다.
+  //   그들이 하루 종일 확인하는 것 둘만 올린다: 수업이 도는가 · 사고가 났는가.
+  //   차트 없음, 애니메이션 없음 — 이 화면의 규칙 그대로.
+  function mgrRows(list, title, pill){
+    if (!list || !list.length) return '';
+    var h = '<div class="mini" style="font-weight:700;margin-top:10px">' + esc(title) + '</div>';
+    for (var i=0;i<list.length;i++){
+      var c = list[i];
+      h += '<div class="cls">'
+        +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+        +   '<div class="cls-main">'
+        +     '<div class="cls-name">' + esc(c.teacher_name || T('(no teacher)','(강사 미지정)'))
+        +       (pill ? ' <span class="pill ' + pill + '">' + esc(pill === 'p-live' ? T('NOW','진행중') : T('Soon','예정')) + '</span>' : '')
+        +     '</div>'
+        +     '<div class="cls-meta">' + esc(c.student_name || T('(no student)','(학생 미지정)')) + '</div>'
+        +   '</div>'
+        + '</div>';
+    }
+    return h;
+  }
+
+  function renderManager(m){
+    var box = document.getElementById('c-mgr'), ns = document.getElementById('c-mgr-ns');
+    if (!m){ box.hidden = true; ns.hidden = true; return; }
+    box.hidden = false;
+    document.getElementById('mgr-count').textContent = m.total ? '(' + m.total + ')' : '';
+    document.getElementById('m-live').textContent = m.live;
+    document.getElementById('m-next').textContent = m.upcoming;
+    document.getElementById('m-done').textContent = m.done;
+    document.getElementById('mgr-list').innerHTML =
+        mgrRows(m.now_list,  T('In class now', '지금 진행 중'), 'p-live')
+      + mgrRows(m.next_list, T('Coming up',    '다음 수업'),    'p-soon')
+      + ((!m.total) ? '<div class="empty">' + esc(T('No classes scheduled today.', '오늘 예정된 수업이 없습니다.')) + '</div>' : '');
+
+    // 노쇼는 «있을 때만» 뜬다. 늘 떠 있는 빈 카드는 곧 아무도 안 본다.
+    var list = m.no_shows || [];
+    ns.hidden = !list.length;
+    if (!list.length) return;
+    var h = '';
+    for (var i=0;i<list.length;i++){
+      var n = list[i];
+      var who = (n.missing_role === 'teacher') ? T('Teacher did not join', '강사 미입장')
+              : (n.missing_role === 'student') ? T('Student did not join', '학생 미입장')
+              : T('Someone did not join', '미입장');
+      // ⚠️ 구분선을 인라인 style 로 주면 다크 모드가 못 덮는다(인라인이 이긴다) → 클래스로.
+      h += '<div class="mini nsrow">'
+        +   '<b>' + esc(who) + '</b> &middot; '
+        +   esc([n.teacher_name, n.student_name].filter(Boolean).join(' / ') || '-')
+        +   (n.waited_min ? ' &middot; ' + esc(T('waited ' + n.waited_min + ' min', n.waited_min + '분 대기')) : '')
+        + '</div>';
+    }
+    document.getElementById('mgr-ns').innerHTML = h;
   }
 
   var lastSig = null;   // 마지막으로 그린 상태의 지문 (불필요한 재그리기 차단)
 
+  /* 🗓 내 주간 스케줄. 폰으로 보는 화면이라 격자 대신 «요일별 목록» 으로 둔다
+     (관리자 캘린더의 시간축 격자는 좁은 화면에서 읽히지 않는다).
+     ⚠️ LMS 점유 슬롯·시드 데이터는 학생이 없어 입장할 방이 없다 → 정체를 밝히고 흐리게. */
+  var WK_OFFSET = 0;
+  function wkMonday(off){
+    var d = new Date();
+    var wd = (d.getDay() + 6) % 7;                       // 월=0
+    d.setDate(d.getDate() - wd + off * 7);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function renderWeek(w){
+    var card = document.getElementById('c-week'), box = document.getElementById('week');
+    if (!card || !box || !w || !w.days) return;
+    card.hidden = false;
+    bindWeekNav();
+    var rg = document.getElementById('wk-range');
+    if (rg) rg.textContent = '(' + w.start + ' ~ ' + w.end + ')';
+    var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+    box.innerHTML = w.days.map(function(d){
+      var head = d.date.slice(5) + ' (' + DOW[d.dow] + ')' + (d.is_today ? (EN() ? ' · today' : ' · 오늘') : '');
+      var body = (d.items && d.items.length)
+        ? d.items.map(function(it){
+            var dim = (it.kind !== 'class');
+            return '<div class="wk-i"' + (dim ? ' style="opacity:.55"' : '') + '>'
+              + '<b>' + esc(it.start_time) + '</b>'
+              + '<span>' + esc(stuName(it) || (dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)'))) + '</span>'
+              + (it.is_level_test ? '<span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
+              + '<span class="wk-none">' + it.duration_min + T(' min','분') + '</span>'
+              + '</div>';
+          }).join('')
+        : '<div class="wk-none">' + T('No classes','수업 없음') + '</div>';
+      return '<div class="wk-day' + (d.is_today ? ' today' : '') + '"><div class="wk-d">' + esc(head) + '</div>' + body + '</div>';
+    }).join('');
+  }
+  /* 주 이동 버튼 — 한 번만 배선한다(다시 그릴 때마다 리스너가 쌓이면 클릭 한 번에 여러 번 나간다) */
+  function bindWeekNav(){
+    [['wk-prev',-1],['wk-this',0],['wk-next',1]].forEach(function(pair){
+      var b = document.getElementById(pair[0]);
+      if (b && !b._wkBound){ b._wkBound = true; b.addEventListener('click', function(){ loadWeek(pair[1]); }); }
+    });
+  }
+  function loadWeek(off){
+    WK_OFFSET = off;
+    ['wk-prev','wk-this','wk-next'].forEach(function(id){ var b=document.getElementById(id); if(b) b.classList.remove('on'); });
+    var on = document.getElementById(off === 0 ? 'wk-this' : (off < 0 ? 'wk-prev' : 'wk-next'));
+    if (on) on.classList.add('on');
+    fetch('/api/teacher/portal?week=' + wkMonday(off), { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if (d && d.ok) renderWeek(d.week); })
+      .catch(function(e){ try { console.warn('[week] load failed:', e); } catch(_){} });
+  }
+
+  /* 📅 다가오는 수업 — 오늘 목록과 «따로» 둔다. 섞으면 오늘 할 일이 흐려진다.
+     입장 버튼은 주지 않는다(그날이 아니면 방이 없다). 언제·누구·무엇인지만 알린다. */
+  function renderUpcoming(list){
+    var card = document.getElementById('c-upcoming');
+    var box  = document.getElementById('upcoming');
+    var cnt  = document.getElementById('up-count');
+    if (!card || !box) return;
+    list = list || [];
+    if (!list.length){ card.hidden = true; return; }
+    card.hidden = false;
+    var lt = list.filter(function(u){ return u.is_level_test; }).length;
+    if (cnt) cnt.textContent = '(' + list.length + (lt ? (EN() ? ' · ' + lt + ' level test' : ' · 레벨테스트 ' + lt) : '') + ')';
+    box.innerHTML = list.map(function(u){
+      var p = String(u.date || '').split('-');
+      var when = u.date;
+      if (p.length === 3){
+        var d = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+        var wk = (EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'])[d.getUTCDay()];
+        when = EN() ? ((+p[1]) + '/' + (+p[2]) + ' (' + wk + ')') : ((+p[1]) + '월 ' + (+p[2]) + '일(' + wk + ')');
+      }
+      var meta = [];
+      if (u.level) meta.push(esc(u.level));
+      if (u.textbook) meta.push(esc(u.textbook));
+      meta.push(u.duration_min + T(' min', '분'));
+      return '<div class="cls">'
+        + '<div class="cls-time">' + esc(u.start_time) + '</div>'
+        + '<div class="cls-main">'
+        +   '<div class="cls-name">' + esc(stuName(u) || T('(name not set)','(이름 미등록)'))
+        +     (u.is_level_test ? ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
+        +   '</div>'
+        +   '<div class="cls-meta">' + esc(when) + ' &middot; ' + meta.join(' &middot; ') + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
   function renderClasses(list){
     var box = document.getElementById('classes');
     document.getElementById('c-classes').hidden = false;
+    renderNextUp(list);   // ⏳ 다음 수업 스트립은 지문 검사 바깥 — 1초마다 따로 갱신된다
     if (!list.length){
-      if (lastSig === 'empty') return;
-      lastSig = 'empty';
+      // 지문에 언어·역할을 넣는다 — 넣지 않으면 언어를 바꿔도 이 문장만 옛 언어로 남는다.
+      //   신원 상태(정상/연결안됨/헷갈림)도 넣는다 — 본사가 계정을 고쳐 새로고침했는데
+      //   세 문구가 다 '수업 0건'이라 지문이 같으면 옛 경고가 그대로 남는다.
+      var idState = (DATA && DATA.me)
+        ? (DATA.me.identity_ambiguous ? 'a' : DATA.me.identity_unlinked ? 'u' : 'k') : 'k';
+      var esig = 'empty|' + LANG + (IS_MGR ? '|m' : '|t') + '|' + idState;
+      if (lastSig === esig) return;
+      lastSig = esig;
+      /* 🔗 (2026-08-06) "수업 없음" 과 "누구인지 모름" 은 완전히 다른 상태다.
+         계정이 강사원부와 연결돼 있지 않으면 배정이 아무리 많아도 0건으로 보인다
+         (운영 실태: mangoi_0XX 계정 20개 중 18개가 이름을 안 바꿔 연결이 끊겨 있다).
+         그걸 "오늘 수업이 없습니다"라고 말하면 강사는 수업이 취소된 줄 알고 안 들어온다.
+         고칠 수 있는 사람(본사)에게 무엇을 알려야 하는지까지 화면에 적는다. */
+      /* 🔀 (2026-08-06) "누구인지 확정 못 함" — 새로 갈라낸 세 번째 상태.
+         이름이 원부의 누구와도 «정확히» 맞지 않으면 서버가 아무도 담당으로 붙이지 않는다.
+         실제 사고: 계정 'Anna' 가 'H-ANNA-H' 안에 우연히 들어가 HANNAH 에 붙었고,
+         Anna 로 로그인하면 HANNAH 의 학생 이름이 보이고 그 방에 입장까지 됐다.
+         ⚠️ 비슷한 이름이 «한 명뿐» 이어도 확정하지 않는다 — Anna 가 정확히 그 경우였다.
+         강사에게는 "본사가 정해 줘야 한다"고, 본사에는 "누구와 헷갈리는지"를 그대로 보인다. */
+      var ambiguous = DATA && DATA.me && DATA.me.identity_ambiguous;
+      if (ambiguous && !IS_MGR){
+        var cand = (DATA.me.identity_candidates || []).join(', ');
+        box.innerHTML = '<div class="empty" style="color:#b45309;font-weight:700">'
+          + esc(T('⚠ Your name does not match a teacher record exactly, so we cannot tell which record is yours.',
+                  '⚠ 이름이 강사 명부와 정확히 맞지 않아 누구인지 확정하지 못했습니다.'))
+          + '</div><div class="empty" style="font-size:12px">'
+          + esc(T('Classes are hidden on purpose — a wrong guess would show you another teacher\'s class. Send this to HQ: account = ',
+                  '잘못 짚으면 남의 수업이 보이기 때문에 일부러 감춘 것입니다. 본사에 이대로 전달해 주세요: 계정 = ')
+                + ((DATA.me && DATA.me.username) || '?')
+                + T(' · display name = ', ' · 표시이름 = ')
+                + ((DATA.me && DATA.me.name) || '?')
+                + T(' · similar names = ', ' · 비슷한 이름 = ') + (cand || '?'))
+          + '</div>';
+        return;
+      }
+
+      var unlinked = DATA && DATA.me && DATA.me.identity_unlinked;
+      if (unlinked && !IS_MGR){
+        box.innerHTML = '<div class="empty" style="color:#b45309;font-weight:700">'
+          + esc(T('⚠ This account is not linked to a teacher record yet, so your classes cannot be found.',
+                  '⚠ 이 계정이 강사 명부와 연결돼 있지 않아 수업을 찾지 못합니다.'))
+          + '</div><div class="empty" style="font-size:12px">'
+          + esc(T('This does NOT mean you have no classes. Send this to HQ: account = ',
+                  '수업이 없다는 뜻이 아닙니다. 본사에 이대로 전달해 주세요: 계정 = ')
+                + ((DATA.me && DATA.me.username) || '?')
+                + T(' · display name = ', ' · 표시이름 = ')
+                + ((DATA.me && DATA.me.name) || '?'))
+          + '</div>';
+        return;
+      }
       box.innerHTML = '<div class="empty">' +
-        esc(T('No classes scheduled today. Enjoy your day!', '오늘 예정된 수업이 없습니다.')) + '</div>';
+        esc(IS_MGR
+          ? T('No cover class assigned to you today. If one is assigned, it appears here by itself.',
+              '오늘 배정된 커버 수업이 없습니다. 배정되면 여기에 저절로 나타납니다.')
+          : T('No classes scheduled today. Enjoy your day!', '오늘 예정된 수업이 없습니다.')) + '</div>';
       return;
     }
     var t = now(), h = '';
@@ -605,6 +1044,10 @@ body{
         +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
         +   '<div class="cls-main">'
         +     '<div class="cls-name">' + esc(stuName(c) || T('(name not set)','(이름 미등록)'))
+        /* 🧪 (2026-08-06) 레벨테스트는 응대가 다르다 — 처음 만나는 학생이고, 보호자가 옆에 있고,
+           끝나면 평가를 남겨야 한다. 예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 수 없었다.
+           크기·위치는 다른 배지와 같게 두고 색으로만 구분한다(hover 확대 금지 규칙과 같은 이유). */
+        +       (c.is_level_test ? ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
         +       (live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
                       : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
                              : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : ''))
@@ -826,6 +1269,439 @@ body{
     };
   }
   document.getElementById('bug-open').onclick = openBug;
+
+  // ══ ⚡ 정전 · 인터넷 장애 신고 ════════════════════════════════════════════
+  //   멜카 요청: "Outage notifications (internet/power interruption alerts)".
+  //   지금까지는 강사가 카톡으로 개인 연락했고, 사무실은 학생 전화로 처음 알았다.
+  //   ⚠️ 신고는 «수업을 취소하지 않는다». 대부분의 정전은 몇 분 만에 복구된다 —
+  //      취소 판단은 사무실 사람이 한다. 여기서는 «알린다» 까지만.
+
+  /**
+   * 지금부터 남은 진짜 수업 — 신고에 함께 보낼 스냅샷.
+   * 서버가 강사↔수업 매칭(username OR 이름 부분일치)을 다시 하지 않게, **화면이 본 것을 그대로** 준다.
+   * 같은 계산을 두 곳에서 하면 언젠가 서로 어긋난다.
+   */
+  function outageAffected(){
+    var list = (DATA && DATA.classes) || [], t = now(), out = [];
+    for (var i = 0; i < list.length; i++){
+      var c = list[i];
+      if (c.kind && c.kind !== 'class') continue;   // LMS 점유 슬롯·시드는 입장할 방이 없다
+      if (t > c.close_at_ts) continue;              // 이미 끝난 수업
+      out.push(c);
+    }
+    out.sort(function(a, b){ return a.start_ts - b.start_ts; });
+    var txt = [];
+    for (var j = 0; j < out.length && j < 6; j++){
+      txt.push(out[j].start_time + ' ' + (stuName(out[j]) || '?'));
+    }
+    return { count: out.length, text: txt.join(' / ') };
+  }
+
+  function outageKindLabel(k){
+    return k === 'power'    ? T('Power outage','정전')
+         : k === 'internet' ? T('Internet down','인터넷 끊김')
+         :                    T('Other problem','기타 장애');
+  }
+
+  function outageSince(ts){
+    var m = Math.max(0, Math.round((now() - ts) / 60000));
+    if (m < 60) return T(m + ' min ago', m + '분 전');
+    return T(Math.floor(m/60) + 'h ' + (m%60) + 'm ago', Math.floor(m/60) + '시간 ' + (m%60) + '분 전');
+  }
+
+  function renderOutageLive(item){
+    var card = document.getElementById('c-outage-live');
+    var rep  = document.getElementById('c-outage');
+    OUTAGE_MINE = item || null;
+    if (!item){
+      card.hidden = true;
+      if (rep) rep.hidden = false;          // 진행 중이 없을 때만 «신고하기» 를 보여 준다
+      return;
+    }
+    // 이미 신고 중이면 «또 신고» 버튼을 감춘다 — 중복 신고를 화면에서 먼저 막는다.
+    if (rep) rep.hidden = true;
+    card.hidden = false;
+    document.getElementById('outage-live-txt').innerHTML =
+      '<div class="cls-name">' + esc(outageKindLabel(item.kind)) + ' &middot; ' + esc(outageSince(item.started_at)) + '</div>'
+      + '<div class="cls-meta">'
+      +   esc(item.expected_min
+              ? T('Expected back in ' + item.expected_min + ' min', '예상 복구 ' + item.expected_min + '분')
+              : T('Recovery time unknown', '예상 복구 시간 모름'))
+      +   (item.affected_count
+            ? ' &middot; ' + esc(T(item.affected_count + ' class(es) affected', '영향 수업 ' + item.affected_count + '건'))
+            : '')
+      +   (item.memo ? '<br>' + esc(item.memo) : '')
+      + '</div>';
+  }
+
+  function renderOutageBoard(j){
+    var card = document.getElementById('c-outage-mgr');
+    // ⚠️ ok 만 보고 열지 않는다. active 가 실린 «장애 응답» 일 때만 연다(결재 카드와 같은 이유).
+    if (!j || !j.ok || typeof j.active !== 'number'){ card.hidden = true; return; }
+    var list = j.items || [];
+    if (!list.length){ card.hidden = true; return; }   // 아무도 안 끊겼으면 카드를 띄우지 않는다
+    card.hidden = false;
+    document.getElementById('outage-mgr-badge').innerHTML =
+      j.active ? '<span class="newbadge">' + esc(T(j.active + ' now', '진행 중 ' + j.active + '건')) + '</span>' : '';
+
+    var h = '';
+    for (var i = 0; i < list.length; i++){
+      var r = list[i], live = (r.status === 'active');
+      h += '<div class="cls">'
+        +   '<div class="cls-main">'
+        +     '<div class="cls-name">' + esc(r.teacher_name) + ' '
+        +       '<span class="pill ' + (live ? 'p-soon' : 'p-live') + '">'
+        +         esc(live ? outageKindLabel(r.kind) : T('Recovered','복구됨')) + '</span>'
+        +     '</div>'
+        +     '<div class="cls-meta">' + esc(outageSince(r.started_at))
+        +       (r.expected_min ? ' &middot; ' + esc(T('back in ~' + r.expected_min + 'm', '예상 ' + r.expected_min + '분')) : '')
+        +       (r.affected_count ? ' &middot; ' + esc(T(r.affected_count + ' class(es)', '수업 ' + r.affected_count + '건')) : '')
+        +       (r.affected_text ? '<br>' + esc(r.affected_text) : '')
+        +       (r.memo ? '<br>' + esc(r.memo) : '')
+        +     '</div>'
+        +   '</div>'
+        +   (live ? '<div class="cls-act">'
+                  +   '<button class="btn btn-eval btn-sm" type="button" data-outage-ok="' + r.id + '">'
+                  +     esc(T('Mark recovered','복구 처리')) + '</button>'
+                  + '</div>' : '')
+        + '</div>';
+    }
+    var box = document.getElementById('outage-mgr-list');
+    box.innerHTML = h;
+    var bs = box.querySelectorAll('[data-outage-ok]');
+    for (var b = 0; b < bs.length; b++){
+      bs[b].onclick = function(){ outageResolve(this.getAttribute('data-outage-ok'), this); };
+    }
+  }
+
+  function loadOutage(){
+    fetch('/api/outage/mine', { credentials:'same-origin' })
+      .then(function(r){ return r.status === 401 ? null : r.json(); })
+      .then(function(j){ if (j && j.ok) renderOutageLive(j.item); })
+      .catch(function(){ /* 장애 조회 실패가 오늘 수업 화면을 망치지 않는다 */ });
+
+    // 현황판은 본사·매니저만. is_manager 는 서버의 isHqStaff 와 같은 조건이라 어긋나지 않는다.
+    if (!IS_MGR) return;
+    fetch('/api/outage/active?limit=20', { credentials:'same-origin' })
+      .then(function(r){ return r.status === 403 ? null : r.json(); })
+      .then(renderOutageBoard)
+      .catch(function(){ /* 위와 같다 */ });
+  }
+
+  function outageResolve(id, btn){
+    if (btn){ btn.disabled = true; btn.textContent = T('Saving…','처리 중…'); }
+    fetch('/api/outage/' + id + '/resolve', { method:'POST', credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        // 이미 누군가 복구 처리했으면(409) 그것도 «성공» 이다 — 결과가 원하는 상태와 같다.
+        if (!j || (!j.ok && j.error !== 'already_resolved')) throw new Error('failed');
+        toast(T('Marked as recovered.','복구 처리했습니다.'));
+        loadOutage();
+      })
+      .catch(function(){
+        if (btn){ btn.disabled = false; btn.textContent = T('Mark recovered','복구 처리'); }
+        toast(T('Could not save. Please try again.','처리하지 못했습니다. 다시 시도해 주세요.'));
+      });
+  }
+
+  function openOutage(){
+    var aff = outageAffected();
+    var mask = document.createElement('div');
+    mask.className = 'mask';
+    mask.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true">'
+      + '<h3>⚡ ' + esc(T('Report an outage','장애 신고')) + '</h3>'
+      + '<p class="sub">' + esc(T('The office is notified right away. Your classes are NOT cancelled — the office will decide.',
+                                  '사무실에 즉시 전달됩니다. 수업이 자동 취소되지는 않습니다 — 사무실이 판단합니다.')) + '</p>'
+      + '<div class="fld"><label>' + esc(T('What happened?','무슨 일인가요?')) + '</label>'
+      +   '<select id="og-kind">'
+      +     '<option value="power">'    + esc(T('Power outage','정전')) + '</option>'
+      +     '<option value="internet">' + esc(T('Internet down','인터넷 끊김')) + '</option>'
+      +     '<option value="other">'    + esc(T('Other problem','기타 장애')) + '</option>'
+      +   '</select></div>'
+      + '<div class="fld"><label>' + esc(T('When will you be back?','언제 복구될 것 같나요?')) + '</label>'
+      +   '<select id="og-exp">'
+      +     '<option value="">'    + esc(T("I don't know",'모르겠습니다')) + '</option>'
+      +     '<option value="30">'  + esc(T('About 30 minutes','30분쯤')) + '</option>'
+      +     '<option value="60">'  + esc(T('About 1 hour','1시간쯤')) + '</option>'
+      +     '<option value="120">' + esc(T('About 2 hours','2시간쯤')) + '</option>'
+      +     '<option value="240">' + esc(T('4 hours or more','4시간 이상')) + '</option>'
+      +   '</select></div>'
+      + (aff.count
+          ? '<div class="fld"><label>' + esc(T('Classes affected today','오늘 영향받는 수업')) + '</label>'
+            + '<div class="mini">' + esc(String(aff.count) + (aff.text ? ' — ' + aff.text : '')) + '</div></div>'
+          : '')
+      + '<div class="fld"><label>' + esc(T('Note (optional)','메모 (선택)')) + '</label>'
+      +   '<textarea id="og-memo" rows="2" placeholder="' + esc(T('e.g. brownout in our area','예: 우리 지역 전체 정전')) + '"></textarea></div>'
+      + '<div id="og-res"></div>'
+      + '<div class="mrow">'
+      +   '<button class="btn btn-gray" type="button" id="og-x">' + esc(T('Close','닫기')) + '</button>'
+      +   '<button class="btn btn-eval" type="button" id="og-ok">' + esc(T('Report now','신고하기')) + '</button>'
+      + '</div></div>';
+    document.body.appendChild(mask);
+
+    function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    mask.querySelector('#og-x').onclick = close;
+    mask.onclick = function(ev){ if (ev.target === mask) close(); };
+
+    mask.querySelector('#og-ok').onclick = function(){
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = T('Sending…','보내는 중…');
+      fetch('/api/outage/report', {
+        method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          kind:           mask.querySelector('#og-kind').value || 'power',
+          expected_min:   mask.querySelector('#og-exp').value || null,
+          memo:           (mask.querySelector('#og-memo').value || '').trim().slice(0, 500),
+          affected_count: aff.count,
+          affected_text:  aff.text
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok) throw new Error('failed');
+        close();
+        // 이미 신고 중이었다면 서버가 기존 건을 그대로 돌려준다(중복 생성 없음).
+        toast(j.duplicated
+          ? T('You already have an open report.','이미 신고가 접수되어 있습니다.')
+          : T('Reported. The office has been notified.','신고했습니다. 사무실에 전달되었습니다.'));
+        renderOutageLive(j.item);
+      })
+      .catch(function(){
+        btn.disabled = false;
+        btn.textContent = T('Report now','신고하기');
+        mask.querySelector('#og-res').innerHTML =
+          '<div class="err">' + esc(T('Could not send. Please try again.','보내지 못했습니다. 다시 시도해 주세요.')) + '</div>';
+      });
+    };
+  }
+  document.getElementById('outage-open').onclick = openOutage;
+  document.getElementById('outage-resolve').onclick = function(){
+    if (OUTAGE_MINE) outageResolve(OUTAGE_MINE.id, this);
+  };
+
+  // ══ 🧾 결재 (기안 · 지출 · 문서) ═════════════════════════════════════════
+  //   구 그룹웨어 5개 메뉴 중 신규 사이트에 정말로 없던 것은 이것 하나다.
+  //   나머지(휴가·병가, 관리 메시지, 즐겨찾기)는 이미 있어서 옮기지 않았다 — 옮기면 이중이 된다.
+  //
+  //   ⚠️ 첫 화면을 막지 않는다. 오늘 수업이 다 그려진 뒤에 따로 부른다(강사에게는 403 → 카드 숨김).
+  var APPR = { can: false, pending: 0 };
+
+  function apprFmtMoney(a, cur){
+    if (a == null) return '';
+    var n = Number(a) || 0;
+    return (cur === 'KRW' ? '₩' : '₱') + n.toLocaleString();
+  }
+  function apprTypeLabel(t){
+    return t === 'expense' ? T('Expense', '지출')
+         : t === 'leave'   ? T('Leave',   '휴가')
+         :                   T('Document','문서');
+  }
+  function apprStatusPill(s){
+    var cls = s === 'approved' ? 'p-live' : (s === 'rejected' ? 'p-done' : 'p-soon');
+    var txt = s === 'approved' ? T('Approved','승인') : (s === 'rejected' ? T('Rejected','반려') : T('Waiting','대기'));
+    return '<span class="pill ' + cls + '">' + esc(txt) + '</span>';
+  }
+
+  function loadApprovals(){
+    var card = document.getElementById('c-appr');
+    // 대기함(승인자)과 내가 올린 것을 한 번씩. 강사면 403 이 와서 카드가 숨은 채로 끝난다.
+    fetch('/api/approval/requests?scope=mine&limit=8', { credentials:'same-origin' })
+      .then(function(r){ return r.status === 403 ? null : r.json(); })
+      .then(function(j){
+        // 강사에게는 서버가 403 을 준다 → 카드가 안 뜬다.
+        //   ⚠️ ok 만 보고 열지 않는다. can_approve 가 실린 «결재 응답» 일 때만 연다 —
+        //      다른 응답이 잘못 흘러들어와 회사 지출 카드가 강사 화면에 뜨는 일이 없게.
+        if (!j || !j.ok || typeof j.can_approve !== 'boolean') { card.hidden = true; return; }
+        card.hidden = false;
+        APPR.can = !!j.can_approve; APPR.pending = Number(j.pending) || 0;
+        renderApprMine(j.items || []);
+        paintApprBadge();
+        if (APPR.can) loadApprInbox();
+      })
+      .catch(function(){ /* 결재를 못 불러온 것이 오늘 수업 화면을 망치지 않는다 */ });
+  }
+
+  function paintApprBadge(){
+    var b = document.getElementById('appr-badge');
+    if (!b) return;
+    b.innerHTML = (APPR.can && APPR.pending)
+      ? '<span class="newbadge">' + esc(T(APPR.pending + ' waiting', '결재 대기 ' + APPR.pending + '건')) + '</span>'
+      : '';
+  }
+
+  function loadApprInbox(){
+    fetch('/api/approval/requests?scope=pending&limit=20', { credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j || !j.ok) return;
+        var box = document.getElementById('appr-inbox');
+        var list = j.items || [];
+        if (!list.length){ box.innerHTML = ''; return; }
+        var h = '<div class="mini" style="font-weight:700;margin-top:10px">'
+              + esc(T('Waiting for your decision', '내가 결재할 것')) + '</div>';
+        for (var i=0;i<list.length;i++){
+          var r = list[i];
+          h += '<div class="cls">'
+            +   '<div class="cls-main">'
+            +     '<div class="cls-name">' + esc(r.title) + ' ' + apprStatusPill(r.status) + '</div>'
+            +     '<div class="cls-meta">' + esc(apprTypeLabel(r.req_type))
+            +       (r.amount != null ? ' &middot; <b>' + esc(apprFmtMoney(r.amount, r.currency)) + '</b>' : '')
+            +       ' &middot; ' + esc(r.requester_name || r.requester_username)
+            +       (r.has_file ? ' &middot; <a href="/api/approval/requests/' + r.id + '/file">'
+                                + esc(T('attachment','첨부')) + '</a>' : '')
+            +     '</div>'
+            +   '</div>'
+            +   '<div class="cls-act">'
+            +     '<button class="btn btn-eval btn-sm" type="button" data-appr-ok="' + r.id + '">' + esc(T('Approve','승인')) + '</button>'
+            +     '<button class="btn btn-gray btn-sm" type="button" data-appr-no="' + r.id + '">' + esc(T('Reject','반려')) + '</button>'
+            +   '</div>'
+            + '</div>';
+        }
+        box.innerHTML = h;
+        var ok = box.querySelectorAll('[data-appr-ok]');
+        for (var a=0;a<ok.length;a++) ok[a].onclick = function(){ apprDecide(this.getAttribute('data-appr-ok'), 'approved', this); };
+        var no = box.querySelectorAll('[data-appr-no]');
+        for (var b2=0;b2<no.length;b2++) no[b2].onclick = function(){ apprDecide(this.getAttribute('data-appr-no'), 'rejected', this); };
+      })
+      .catch(function(){ /* 무시 */ });
+  }
+
+  function renderApprMine(list){
+    var box = document.getElementById('appr-mine');
+    if (!list.length){ box.innerHTML = ''; return; }
+    var h = '<div class="mini" style="font-weight:700;margin-top:10px">'
+          + esc(T('My requests', '내가 올린 결재')) + '</div>';
+    for (var i=0;i<list.length;i++){
+      var r = list[i];
+      h += '<div class="mini nsrow">'
+        +   '<b>' + esc(r.title) + '</b> ' + apprStatusPill(r.status)
+        +   '<br>' + esc(apprTypeLabel(r.req_type))
+        +   (r.amount != null ? ' &middot; ' + esc(apprFmtMoney(r.amount, r.currency)) : '')
+        +   (r.decide_memo ? ' &middot; ' + esc(r.decide_memo) : '')
+        + '</div>';
+    }
+    box.innerHTML = h;
+  }
+
+  function apprDecide(id, decision, btn){
+    // 반려는 이유가 없으면 올린 사람이 무엇을 고쳐야 할지 모른다 → 반려일 때만 사유를 받는다.
+    var memo = '';
+    if (decision === 'rejected'){
+      memo = prompt(T('Reason for rejection (the requester will see this)',
+                      '반려 사유를 적어 주세요 (올린 사람에게 그대로 보입니다)')) || '';
+      if (!memo.trim()) return;                 // 취소하거나 비우면 아무 일도 하지 않는다
+    }
+    btn.disabled = true;
+    fetch('/api/approval/requests/' + id + '/decide', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ decision: decision, memo: memo })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || !j.ok){
+        // 409 = 그 사이 다른 사람이 이미 결재함. 화면을 새로 그려 사실을 보여준다.
+        toast(j && j.error === 'already_decided'
+          ? T('Someone already decided this one.', '이미 다른 분이 결재한 건입니다.')
+          : T('Could not save. Please try again.', '저장하지 못했습니다. 다시 시도해 주세요.'));
+      } else {
+        toast(decision === 'approved' ? T('Approved.', '승인했습니다.') : T('Rejected.', '반려했습니다.'));
+      }
+      loadApprovals();
+    })
+    .catch(function(){ btn.disabled = false; toast(T('Network error.', '통신 오류입니다.')); });
+  }
+
+  function openApproval(){
+    var mask = document.createElement('div');
+    mask.className = 'mask';
+    mask.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true">'
+      + '<h3>' + esc(T('Submit for approval','결재 올리기')) + '</h3>'
+      + '<p class="sub">' + esc(T('Head office reviews it. You will see the result on this screen.',
+                                  '본사가 확인합니다. 결과는 이 화면에서 보입니다.')) + '</p>'
+      + '<div class="fld"><label>' + esc(T('Type','종류')) + '</label>'
+      +   '<select id="ap-type">'
+      +     '<option value="expense">' + esc(T('Expense (with amount)','지출 (금액 있음)')) + '</option>'
+      +     '<option value="doc">'     + esc(T('Document','문서 결재')) + '</option>'
+      +     '<option value="leave">'   + esc(T('Leave request','휴가 신청')) + '</option>'
+      +   '</select></div>'
+      + '<div class="fld"><label>' + esc(T('Title','제목')) + '</label>'
+      +   '<input id="ap-title" type="text" maxlength="200" placeholder="' +
+            esc(T('e.g. Office internet — August','예: 사무실 인터넷 요금 8월')) + '"></div>'
+      + '<div class="fld" id="ap-money"><label>' + esc(T('Amount','금액')) + '</label>'
+      +   '<div class="mrow">'
+      +     '<input id="ap-amount" type="text" inputmode="decimal" placeholder="0" style="flex:1">'
+      +     '<select id="ap-cur" style="flex:0 0 90px"><option value="PHP">PHP ₱</option><option value="KRW">KRW ₩</option></select>'
+      +   '</div></div>'
+      + '<div class="fld" id="ap-datewrap"><label>' + esc(T('Date spent','지출일')) + '</label>'
+      +   '<input id="ap-date" type="date"></div>'
+      + '<div class="fld"><label>' + esc(T('Details','내용')) + '</label>'
+      +   '<textarea id="ap-body" placeholder="' + esc(T('Why is this needed?','왜 필요한지 적어 주세요.')) + '"></textarea></div>'
+      + '<div class="fld"><label>' + esc(T('Attachment (receipt / document, optional)','첨부 (영수증·문서, 선택)')) + '</label>'
+      +   '<input id="ap-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></div>'
+      + '<div id="ap-res"></div>'
+      + '<div class="mrow">'
+      +   '<button class="btn btn-gray" type="button" id="ap-x">' + esc(T('Close','닫기')) + '</button>'
+      +   '<button class="btn btn-eval" type="button" id="ap-ok">' + esc(T('Submit','올리기')) + '</button>'
+      + '</div></div>';
+    document.body.appendChild(mask);
+
+    function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    mask.querySelector('#ap-x').onclick = close;
+    mask.onclick = function(ev){ if (ev.target === mask) close(); };
+
+    // 지출이 아니면 금액·지출일 칸을 감춘다 — 안 쓰는 칸이 보이면 안 채워도 되는지 헷갈린다.
+    function syncType(){
+      var isExp = mask.querySelector('#ap-type').value === 'expense';
+      mask.querySelector('#ap-money').style.display = isExp ? '' : 'none';
+      mask.querySelector('#ap-datewrap').style.display = isExp ? '' : 'none';
+    }
+    mask.querySelector('#ap-type').onchange = syncType;
+    syncType();
+
+    mask.querySelector('#ap-ok').onclick = function(){
+      var btn = this;
+      var type = mask.querySelector('#ap-type').value;
+      var title = (mask.querySelector('#ap-title').value || '').trim();
+      var amount = (mask.querySelector('#ap-amount').value || '').trim();
+      function err(m){ mask.querySelector('#ap-res').innerHTML = '<div class="err">' + esc(m) + '</div>'; }
+      if (!title) return err(T('Please enter a title.','제목을 입력해 주세요.'));
+      if (type === 'expense'){
+        if (!amount) return err(T('Please enter the amount.','금액을 입력해 주세요.'));
+        if (!isFinite(Number(amount.replace(/,/g,'')))) return err(T('Amount must be a number.','금액은 숫자로 입력해 주세요.'));
+      }
+      var fd = new FormData();
+      fd.append('req_type', type);
+      fd.append('title', title);
+      fd.append('body', (mask.querySelector('#ap-body').value || '').slice(0, 4000));
+      if (type === 'expense'){
+        fd.append('amount', amount);
+        fd.append('currency', mask.querySelector('#ap-cur').value || 'PHP');
+        fd.append('spent_at', mask.querySelector('#ap-date').value || '');
+      }
+      var f = mask.querySelector('#ap-file').files[0];
+      if (f) fd.append('file', f);
+
+      btn.disabled = true; btn.textContent = T('Sending…','올리는 중…');
+      fetch('/api/approval/requests', { method:'POST', credentials:'same-origin', body: fd })
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          if (!j || !j.ok) throw new Error(j && j.error || 'failed');
+          close();
+          toast(T('Submitted. Head office will review it.','결재를 올렸습니다. 본사가 확인합니다.'));
+          loadApprovals();
+        })
+        .catch(function(e){
+          btn.disabled = false; btn.textContent = T('Submit','올리기');
+          err(String(e && e.message) === 'file_too_large'
+            ? T('The attachment is too large (max 10MB).','첨부가 너무 큽니다 (최대 10MB).')
+            : T('Could not submit. Please try again.','올리지 못했습니다. 다시 시도해 주세요.'));
+        });
+    };
+  }
+  document.getElementById('appr-new').onclick = openApproval;
 
   // 아주 단순한 안내 띠 — 애니메이션 없이 3초 뒤 사라진다.
   function toast(msg){
@@ -1114,10 +1990,170 @@ body{
   //   setInterval 하나뿐 — rAF·transition 없음. 백그라운드 탭에서 느려져도 무해하다.
   setInterval(function(){ if (DATA) renderClasses(DATA.classes || []); }, 60000);
 
+  // ══ ⏳ 다음 수업 카운트다운 (요청 2번) ════════════════════════════════════
+  //   남은 시간이 「입장」 버튼 안에만 작게 있었고 60초에 한 번만 갱신됐다 → 목록 맨 위에
+  //   다음 한 건만 크게 못박는다. 1초 타이머는 **10분 이내에만** 돈다(온종일 도는 1초
+  //   타이머는 저사양 폰 배터리를 태운다). 갱신 대상은 텍스트 노드 1개 — 리플로우 없음.
+  var secTimer = null;
+
+  function fmtClock(ms){    // 10분 이내에서만 쓴다 — 이때부터 초가 의미를 갖는다
+    var s = Math.max(0, Math.round(ms / 1000));
+    return ('0' + Math.floor(s / 60)).slice(-2) + ':' + ('0' + (s % 60)).slice(-2);
+  }
+
+  function renderNextUp(list){
+    var box = document.getElementById('nextup');
+    if (!box) return;
+    var t = now(), pick = null;
+
+    // 다음 한 건 = 아직 안 끝난 **진짜 망고아이 수업** 중 가장 이른 것.
+    //   LMS 점유 슬롯·시드는 입장할 방이 없으므로 여기 올리면 안 된다(오해를 만든다).
+    for (var i = 0; i < (list || []).length; i++){
+      var c = list[i];
+      if (c.kind && c.kind !== 'class') continue;
+      if (t > c.close_at_ts) continue;
+      if (!pick || c.start_ts < pick.start_ts) pick = c;
+    }
+    if (!pick){ box.hidden = true; stopSec(); return; }
+
+    var live  = (t >= pick.start_ts);
+    var open  = (t >= pick.open_at_ts);
+    var left  = pick.open_at_ts - t;          // 입장 문이 열릴 때까지
+    var soon  = !open && left <= 10 * 60000;  // 10분 이내
+
+    box.className = 'nextup' + (open ? ' open' : (soon ? ' soon' : ''));
+    box.hidden = false;
+
+    document.getElementById('nu-label').textContent =
+      live ? T('IN CLASS NOW', '수업 진행 중')
+           : open ? T('YOU CAN JOIN NOW', '지금 입장할 수 있습니다')
+                  : T('NEXT CLASS', '다음 수업');
+
+    document.getElementById('nu-who').textContent =
+      pick.start_time + '  ' + (stuName(pick) || T('(name not set)', '(이름 미등록)'));
+
+    document.getElementById('nu-count').textContent =
+      live ? T('NOW', '진행중')
+           : open ? T('OPEN', '입장가능')
+                  : (soon ? fmtClock(left) : fmtWait(Math.max(1, Math.round(left / 60000))));
+
+    // 초 단위가 필요한 구간에서만 1초 타이머를 켠다
+    if (soon) startSec(); else stopSec();
+  }
+
+  function startSec(){
+    if (secTimer || document.hidden) return;
+    secTimer = setInterval(function(){
+      if (document.hidden){ stopSec(); return; }   // 백그라운드에서는 태우지 않는다
+      if (DATA) renderNextUp(DATA.classes || []);
+    }, 1000);
+  }
+  function stopSec(){ if (secTimer){ clearInterval(secTimer); secTimer = null; } }
+
+  // ══ 🔄 30~60초 자동 갱신 (요청 26번) ═════════════════════════════════════
+  //   새로 배정된 수업이 새로고침 없이 저절로 뜨게 한다. 필리핀 회선에서 사고가 나는
+  //   지점과 대책:
+  //    ① 실패하면 간격을 2배로(45s→90→180→최대 300). 끊긴 회선에 재시도를 퍼붓지 않는다.
+  //    ② 백그라운드 탭·오프라인이면 아예 건너뛴다(데이터 낭비). 탭에 돌아오면 즉시 한 번.
+  //    ③ 렌더는 renderClasses 의 지문 검사를 그대로 탄다 — 바뀐 게 없으면 DOM 무변경.
+  //    ④ 모달(평가·연기)이 열려 있으면 갱신 안 함 — 입력 중 밑판이 바뀌면 안 된다.
+  //    ⑤ 실패해도 화면을 지우지 않는다. 있던 정보가 사라지는 게 제일 나쁘다.
+  var AR_MIN = 45000, AR_MAX = 300000;
+  var arDelay = AR_MIN, arTimer = null;
+  var knownRooms = null;   // 지금까지 본 수업 키 집합 — '새로 들어온 것'만 알리기 위해
+
+  function classKeys(list){
+    var out = {};
+    for (var i = 0; i < (list || []).length; i++){
+      var c = list[i];
+      if (c.kind && c.kind !== 'class') continue;
+      out[c.room_id || ('s' + c.schedule_id)] = 1;
+    }
+    return out;
+  }
+
+  function modalOpen(){ return !!document.querySelector('.mask'); }
+
+  var newCount = 0;   // 확인 전까지 쌓아 두는 새 수업 건수
+  function paintNewBadge(){
+    var nb = document.getElementById('cls-new');
+    if (!nb) return;
+    nb.innerHTML = newCount
+      ? '<span class="newbadge" role="button" tabindex="0" title="' +
+        esc(T('Tap to dismiss', '눌러서 확인')) + '">' +
+        esc(T('+' + newCount + ' new', '새 수업 ' + newCount + '건')) + '</span>'
+      : '';
+    var s = nb.firstChild;
+    if (s) s.onclick = function(){ newCount = 0; paintNewBadge(); };
+  }
+
+  function autoRefreshTick(){
+    arTimer = null;
+    if (document.hidden || navigator.onLine === false || modalOpen()){
+      scheduleAutoRefresh(arDelay);   // 조건이 아니면 그냥 다음으로 미룬다(요청 없음)
+      return;
+    }
+    fetch('/api/teacher/portal', { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+      .then(function(r){ return r.status === 401 ? null : r.json(); })
+      .then(function(d){
+        if (!d || !d.ok) throw new Error('bad');
+        // 날짜가 넘어갔으면(자정 근무) 통째로 다시 그린다 — 어제 목록을 남기면 안 된다
+        var dayChanged = DATA && DATA.today && d.today && DATA.today !== d.today;
+        var before = knownRooms || classKeys(DATA && DATA.classes);
+        var after  = classKeys(d.classes);
+        var added  = 0;
+        for (var k in after) if (!before[k]) added++;
+
+        DATA = d;
+        SKEW = (d.now || Date.now()) - Date.now();
+        setStale(false);
+        saveCache(d);
+        if (dayChanged) lastSig = null;     // 지문을 비워 강제로 다시 그리게 한다
+        renderClasses(d.classes || []);
+    renderUpcoming(d.upcoming || []);
+    renderWeek(d.week);
+        renderNotices(d.notices || []);
+        paintClassCount(d.classes);
+        // 매니저에게는 이쪽이 본체다 — 진행 중 수업과 노쇼가 45초마다 저절로 갱신된다.
+        renderManager(d.manager);
+        // ⚡ 장애 현황도 같은 주기에 태운다. 사무실이 새로고침을 눌러야만 아는 일이 없게.
+        loadOutage();
+        knownRooms = after;
+
+        // 새 수업 배지. **강사가 직접 누르기 전까지 안 지운다** —
+        //   다음 갱신 때 지우게 두면, 자리를 비운 사이 떴다 사라져서 못 본 것과 같아진다
+        //   (이 기능의 목적이 «관리자가 즉시 알려주지 못할 때 놓치지 않게» 인데 정반대가 된다).
+        if (added) newCount += added;
+        paintNewBadge();
+
+        arDelay = AR_MIN;                    // 성공 → 기본 간격 복귀
+        scheduleAutoRefresh(arDelay);
+      })
+      .catch(function(){
+        // 실패해도 화면은 그대로 둔다. 간격만 늘려 회선을 놓아준다.
+        arDelay = Math.min(AR_MAX, arDelay * 2);
+        scheduleAutoRefresh(arDelay);
+      });
+  }
+
+  function scheduleAutoRefresh(ms){
+    if (arTimer) clearTimeout(arTimer);
+    arTimer = setTimeout(autoRefreshTick, ms);
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden){ stopSec(); return; }
+    // 돌아온 즉시 한 번: 자리를 비운 사이 배정된 수업을 기다리지 않고 보여준다
+    if (DATA) { renderClasses(DATA.classes || []); renderUpcoming(DATA.upcoming || []); if (DATA.week) renderWeek(DATA.week); }
+    scheduleAutoRefresh(1500);
+  });
+  window.addEventListener('online', function(){ arDelay = AR_MIN; scheduleAutoRefresh(1000); });
+
   applyLang();
   load();
+  scheduleAutoRefresh(AR_MIN);
 })();
 </script>
-<!-- BUILD:20260804092314 -->
+<!-- BUILD:20260807052617 -->
 </body>
 </html>

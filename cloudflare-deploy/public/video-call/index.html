@@ -5,32 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>화상통화 +</title>
   <!-- 카카오톡/인앱 브라우저 대응: 카메라 차단 시 외부 브라우저로 전환 (가장 먼저 로드) -->
-  <script src="/js/inapp-escape.js"></script>
-  <link rel="stylesheet" href="/video-call/css/style.css">
-  <!-- PDF.js — 자체 서버 서빙 (2026-07-13, CDN 실패 시 가짜 워커=메인스레드 멈춤 방지) -->
-  <script src="/js/pdf.min.js?v=3.11.174"></script>
+  <script src="/js/inapp-escape.js?v=20260805c"></script>
+  <link rel="stylesheet" href="/video-call/css/style.css?v=20260805c">
+  <!-- ⚡ (2026-08-05) PDF.js 320KB 를 «교재를 열 때» 로 미룬다.
+       예전: <head> 에서 무조건 받았다 → 교재를 한 번도 안 여는 수업도 320KB 를 냈다.
+             필리핀 재택 강사 회선에서 이건 입장 지연으로 그대로 돌아온다.
+       지금: ensurePdfJs() 를 처음 부를 때만 받는다. 유일한 사용처는 pdf-viewer.js 의 getDocument 하나다.
+       ⚠️ 자체 서빙이 원칙이다 — CDN 이 실패하면 «가짜 워커» 로 떨어져 메인스레드가 통째로 멈춘 전례가 있다.
+          그래서 로컬을 먼저 쓰고, 실패했을 때만 CDN 으로 간다. -->
   <script>
-    if (window.pdfjsLib) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
-    } else {
-      var _pjs = document.createElement('script');
-      _pjs.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      _pjs.onload = function(){ if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; };
-      document.head.appendChild(_pjs);
-    }
+    window.ensurePdfJs = function(){
+      if (window.__pdfJsReady) return window.__pdfJsReady;
+      window.__pdfJsReady = new Promise(function(resolve, reject){
+        function done(workerSrc){
+          try { if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc; } catch(e){}
+          window.pdfjsLib ? resolve(window.pdfjsLib) : reject(new Error('pdfjs 로드 실패'));
+        }
+        var s = document.createElement('script');
+        s.src = '/js/pdf.min.js?v=3.11.174';
+        s.onload  = function(){ done('/js/pdf.worker.min.js?v=3.11.174'); };
+        s.onerror = function(){
+          var c = document.createElement('script');
+          c.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          c.onload  = function(){ done('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'); };
+          c.onerror = function(){ reject(new Error('pdfjs 로드 실패(CDN 포함)')); };
+          document.head.appendChild(c);
+        };
+        document.head.appendChild(s);
+      });
+      return window.__pdfJsReady;
+    };
   </script>
 </head>
 <body>
+  <!--  ⚡ (2026-08-05) 「연결 중」을 첫 프레임에 그린다.
+        흰 화면이 무서운 진짜 이유는 느려서가 아니라, 강사가 «고장났다» 고 판단해 새로고침을 누르기 때문이다.
+        새로고침은 받던 것을 버리고 처음부터 다시 받게 해 상황을 더 나쁘게 만든다.
+        그래서 CSS 파일도 스크립트도 기다리지 않게 전부 인라인으로 둔다 — 이 블록은 HTML 첫 조각에 있다.
+        자동입장(autojoin=1) 일 때만 보인다. 손으로 들어오는 사람은 로비를 봐야 하기 때문이다. -->
+  <div id="boot" style="display:none;position:fixed;inset:0;z-index:9999;background:#0f172a;color:#e2e8f0;
+       font-family:system-ui,-apple-system,'Malgun Gothic',sans-serif;
+       align-items:center;justify-content:center;text-align:center">
+    <div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:10px">수업방에 연결 중 · Connecting…</div>
+      <div id="boot-step" style="font-size:14px;color:#94a3b8">잠시만 기다려 주세요 · Please wait</div>
+      <div style="margin-top:16px;width:220px;height:4px;background:#1e293b;border-radius:3px;overflow:hidden">
+        <div id="boot-bar" style="width:8%;height:100%;background:#f0a500;transition:width .4s"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    /* 자동입장이면 첫 프레임부터 «연결 중» 을 보여 준다. app.js 는 이 함수만 부르면 된다. */
+    (function () {
+      var on = false;
+      try { on = new URLSearchParams(location.search).get('autojoin') === '1'; } catch (e) {}
+      var el = document.getElementById('boot');
+      if (on && el) el.style.display = 'flex';
+      window.bootStep = function (text, pct) {
+        try {
+          var s = document.getElementById('boot-step'), b = document.getElementById('boot-bar');
+          if (s && text) s.textContent = text;
+          if (b && pct) b.style.width = pct + '%';
+        } catch (e) {}
+      };
+      window.bootDone = function () {
+        try { var e2 = document.getElementById('boot'); if (e2) e2.style.display = 'none'; } catch (e) {}
+      };
+    })();
+  </script>
+
   <!-- ===== 입장 화면 ===== -->
   <div id="lobby" class="lobby">
     <div class="lobby-card">
       <h1>화상통화 +</h1>
-      <p class="lobby-subtitle">칠판 · 채팅 · 교재 공유 (PDF/JPEG/PNG)</p>
+      <p class="lobby-subtitle">Board · Chat · Materials (PDF/JPEG/PNG) &nbsp;·&nbsp; 칠판 · 채팅 · 교재 공유</p>
       <div class="lobby-form">
-        <input type="text" id="username-input" placeholder="이름 입력" maxlength="20" autofocus>
-        <input type="text" id="room-input" placeholder="방 코드 (비우면 공용 수업방으로 입장)">
-        <button id="join-btn" class="btn-primary">입장하기</button>
-        <a href="/" style="text-align:center; color:#8b8fa3; font-size:13px; margin-top:8px; text-decoration:none;">← 메인으로</a>
+        <input type="text" id="username-input" placeholder="Your name · 이름" maxlength="20" autofocus>
+        <input type="text" id="room-input" placeholder="Room code · 방 코드">
+        <button id="join-btn" class="btn-primary">Join · 입장하기</button>
+        <a href="/" style="text-align:center; color:#8b8fa3; font-size:13px; margin-top:8px; text-decoration:none;">← Home · 메인으로</a>
       </div>
     </div>
   </div>
@@ -41,18 +94,18 @@
     <header class="toolbar">
       <div class="toolbar-left">
         <span class="room-badge" id="room-badge"></span>
-        <span class="user-count" id="user-count">1명</span>
+        <span class="user-count" id="user-count">1</span>
       </div>
       <div class="toolbar-center">
-        <button class="tab-btn active" data-tab="video">영상</button>
-        <button class="tab-btn" data-tab="materials">교재</button>
-        <button class="tab-btn" data-tab="whiteboard">칠판</button>
+        <button class="tab-btn active" data-tab="video">Video 영상</button>
+        <button class="tab-btn" data-tab="materials">Materials 교재</button>
+        <button class="tab-btn" data-tab="whiteboard">Board 칠판</button>
       </div>
       <div class="toolbar-right">
-        <button id="toggle-mic" class="icon-btn" title="마이크">🎤</button>
-        <button id="toggle-cam" class="icon-btn" title="카메라">📷</button>
-        <button id="toggle-chat" class="icon-btn chat-toggle" title="채팅">💬</button>
-        <button id="leave-btn" class="icon-btn danger" title="나가기">🚪</button>
+        <button id="toggle-mic" class="icon-btn" title="Microphone · 마이크">🎤</button>
+        <button id="toggle-cam" class="icon-btn" title="Camera · 카메라">📷</button>
+        <button id="toggle-chat" class="icon-btn chat-toggle" title="Chat · 채팅">💬</button>
+        <button id="leave-btn" class="icon-btn danger" title="Leave the room · 나가기">🚪</button>
       </div>
     </header>
 
@@ -71,36 +124,36 @@
       <section id="tab-materials" class="tab-panel">
         <div class="pdf-toolbar">
           <div class="tool-group material-upload-group">
-            <span class="upload-label-text">교재 업로드:</span>
-            <label class="btn-upload" title="PDF 파일 업로드">
+            <span class="upload-label-text">Upload · 교재 업로드:</span>
+            <label class="btn-upload" title="Upload PDF · PDF 업로드">
               📄 PDF
               <input type="file" id="material-upload-pdf" accept="application/pdf,.pdf" hidden>
             </label>
-            <label class="btn-upload btn-upload-alt" title="JPEG 파일 업로드">
+            <label class="btn-upload btn-upload-alt" title="Upload JPEG · JPEG 업로드">
               🖼️ JPEG
               <input type="file" id="material-upload-jpeg" accept="image/jpeg,image/jpg,.jpg,.jpeg" hidden>
             </label>
-            <label class="btn-upload btn-upload-alt" title="PNG 파일 업로드">
+            <label class="btn-upload btn-upload-alt" title="Upload PNG · PNG 업로드">
               🎨 PNG
               <input type="file" id="material-upload-png" accept="image/png,.png" hidden>
             </label>
-            <button id="material-stop" class="wb-action hidden">⏹ 공유 중지</button>
+            <button id="material-stop" class="wb-action hidden">⏹ Stop sharing · 공유 중지</button>
           </div>
           <div class="tool-group pdf-nav hidden" id="pdf-nav">
-            <button id="pdf-prev" class="wb-action">◀ 이전</button>
+            <button id="pdf-prev" class="wb-action">◀ Prev</button>
             <span id="pdf-page-info">1 / 1</span>
-            <button id="pdf-next" class="wb-action">다음 ▶</button>
-            <button id="pdf-fit" class="wb-action" title="화면 맞춤">🔲</button>
+            <button id="pdf-next" class="wb-action">Next ▶</button>
+            <button id="pdf-fit" class="wb-action" title="Fit to screen · 화면 맞춤">🔲</button>
           </div>
         </div>
         <div class="pdf-container" id="pdf-container">
           <div class="pdf-placeholder" id="pdf-placeholder">
             <p style="font-size:3rem;">📚</p>
-            <p><strong>교재를 업로드하세요</strong></p>
-            <p style="font-size:0.95rem;">PDF · JPEG · PNG 파일을 업로드하면 모든 참가자와 공유됩니다.</p>
+            <p><strong>Upload a textbook · 교재를 업로드하세요</strong></p>
+            <p style="font-size:0.95rem;">PDF · JPEG · PNG files are shared with everyone in the room.<br>업로드하면 모든 참가자와 공유됩니다.</p>
           </div>
           <canvas id="pdf-canvas" class="hidden"></canvas>
-          <img id="material-image" class="hidden material-image" alt="공유 이미지">
+          <img id="material-image" class="hidden material-image" alt="Shared image">
         </div>
       </section>
 
@@ -108,20 +161,20 @@
       <section id="tab-whiteboard" class="tab-panel">
         <div class="whiteboard-toolbar">
           <div class="tool-group">
-            <button class="wb-tool active" data-tool="pen" title="펜">✏️</button>
-            <button class="wb-tool" data-tool="eraser" title="지우개">🧹</button>
-            <button class="wb-tool" data-tool="line" title="직선">📏</button>
-            <button class="wb-tool" data-tool="rect" title="사각형">⬜</button>
-            <button class="wb-tool" data-tool="circle" title="원">⭕</button>
+            <button class="wb-tool active" data-tool="pen" title="Pen · 펜">✏️</button>
+            <button class="wb-tool" data-tool="eraser" title="Eraser · 지우개">🧹</button>
+            <button class="wb-tool" data-tool="line" title="Line · 직선">📏</button>
+            <button class="wb-tool" data-tool="rect" title="Rectangle · 사각형">⬜</button>
+            <button class="wb-tool" data-tool="circle" title="Circle · 원">⭕</button>
           </div>
           <div class="tool-group">
-            <input type="color" id="wb-color" value="#000000" title="색상">
-            <input type="range" id="wb-size" min="1" max="30" value="3" title="굵기">
+            <input type="color" id="wb-color" value="#000000" title="Colour · 색상">
+            <input type="range" id="wb-size" min="1" max="30" value="3" title="Thickness · 굵기">
             <span id="wb-size-label">3px</span>
           </div>
           <div class="tool-group">
-            <button id="wb-clear" class="wb-action" title="전체 지우기">🗑️ 지우기</button>
-            <button id="wb-save" class="wb-action" title="이미지 저장">💾 저장</button>
+            <button id="wb-clear" class="wb-action" title="Clear all · 전체 지우기">🗑️ Clear</button>
+            <button id="wb-save" class="wb-action" title="Save image · 이미지 저장">💾 Save</button>
           </div>
         </div>
         <div class="whiteboard-container">
@@ -137,8 +190,8 @@
         </div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-input-area">
-          <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." maxlength="500">
-          <button id="chat-send" class="btn-primary">전송</button>
+          <input type="text" id="chat-input" placeholder="Type a message · 메시지 입력" maxlength="500">
+          <button id="chat-send" class="btn-primary">Send</button>
         </div>
       </aside>
     </div>
@@ -148,11 +201,11 @@
   <div id="floating-remote-videos" class="floating-remote-videos"></div>
 
   <!-- 앱 모듈 (native WebSocket 사용) -->
-  <script src="/video-call/js/app.js"></script>
-  <script src="/video-call/js/webrtc.js"></script>
-  <script src="/video-call/js/whiteboard.js"></script>
-  <script src="/video-call/js/chat.js"></script>
-  <script src="/video-call/js/pdf-viewer.js"></script>
-  <script src="/video-call/js/recorder.js?v=3"></script>
+  <script src="/video-call/js/app.js?v=20260805d"></script>
+  <script src="/video-call/js/webrtc.js?v=20260805d"></script>
+  <script src="/video-call/js/whiteboard.js?v=20260805c"></script>
+  <script src="/video-call/js/chat.js?v=20260805c"></script>
+  <script src="/video-call/js/pdf-viewer.js?v=20260805c"></script>
+  <script src="/video-call/js/recorder.js?v=20260805d"></script>
 </body>
 </html>

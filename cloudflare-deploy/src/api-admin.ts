@@ -13,6 +13,8 @@ import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
+import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, publicBase } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
+import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
@@ -72,6 +74,43 @@ function classifyEvalGrade(weighted: number): string {
 }
 
 const VALID_TEACHER_STATUS = ['office', 'home'] as const;
+
+/* 🗓️ 요일 표기 관용 파서 — /api/admin/classes/today (매니저 '오늘 수업') 용.
+ *
+ *  [무슨 일이 있었나 — 2026-08-06 마이마이 제보 "no class in manager's page"]
+ *   매니저 화면의 '오늘 수업'은 **하루도 빠짐없이 비어 있었다**. 예약이 없어서가 아니다.
+ *   여기만 `Number(day_of_week) === kDow` 로 비교하고 있었는데, 운영 D1 의
+ *   class_schedules.day_of_week 는 **전부 영문 텍스트**('Wed' 153건·'Fri' 142·'Tue' 123·
+ *   'Thu' 108·'Mon' 106·'Sat' 26)로 저장돼 있다. `Number('Thu')` 는 NaN 이고
+ *   NaN === 4 는 항상 false → 반복수업 662건이 매일 통째로 걸러졌다.
+ *   테이블 DDL 이 `day_of_week INTEGER` 라고 적혀 있어서 숫자일 거라 믿은 것이 화근인데,
+ *   SQLite 는 선언 타입을 강제하지 않는다(실제 typeof = 'text').
+ *   ⚠️ 에러가 한 줄도 안 난다. 화면은 "오늘 예정된 수업이 없습니다"라는 **정상 문구**를 띄웠고,
+ *      그래서 아무도 고장으로 신고하지 않았다.
+ *
+ *  [왜 다른 화면은 멀쩡했나]
+ *   학생·강사 경로(api-mango.ts sessions/today, api-teacher.ts)는 2026-07-24 에 이미
+ *   같은 사고를 겪고 관용 파서로 고쳤다. 그때 **매니저 경로만 빠졌다**.
+ *   → 세 곳이 같은 규칙이어야 한다. 여기만 좁으면 학생은 수업이 보이는데
+ *     대신 들어가 줘야 할 매니저에게만 안 보이는, 가장 나쁜 방향의 엇갈림이 생긴다.
+ */
+const ADM_DOW_MAP: Record<string, number> = {
+  sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+  tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+  thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+  sat: 6, saturday: 6, '토': 6, '토요일': 6,
+};
+/** 숫자 '5' · 콤마목록 '1,3' · 영문 'Mon' · 한글 '월' 을 모두 받는다. (매칭을 넓히기만 한다) */
+function admDowMatches(raw: any, target: number): boolean {
+  for (const p of String(raw ?? '').split(/[,\s/·]+/)) {
+    const t = p.trim();
+    if (!t) continue;
+    if (/^\d+$/.test(t)) { if (Number(t) === target) return true; continue; }
+    const k = ADM_DOW_MAP[t.toLowerCase()];
+    if (k !== undefined && k === target) return true;
+  }
+  return false;
+}
 
 // ═══ 📊 인사평가 근거 분석 공용 헬퍼 (/api/admin/teacher-hr-analysis) ═══
 /** 강사 이름 정규화 — 수업기록 테이블은 teacher_name(자유문자열)만 남기므로 표기 흔들림을 흡수. */
@@ -1631,6 +1670,25 @@ export async function handleAdminApi(
         tid = 0;
         tname = _lsActor.name;
       }
+
+      // ── all=1 : 강사 구분 없이 그 달 전체 수업 (2026-08-05) ──────────────────
+      //   왜 넣었나: 출석현황 카드(adm-p5.js)가 서버 엔드포인트가 없어서
+      //   **실제 강사 이름으로 가짜 지각·결강·별점을 지어내고 있었다.** 그 숫자가 엑셀로
+      //   빠져나가면 경고 배너가 사라져 실기록처럼 보인다 → 급여 사고로 직결.
+      //   여기서 급여와 **같은 계산(computeLessonFeeMonth)** 을 그대로 내려준다.
+      //   같은 원천을 쓰므로 출석현황과 급여가 서로 어긋날 수 없다(요청 8·22 «한곳에서»).
+      //   🔐 강사는 전면 차단 — 전 강사의 단가·공제가 담긴다.
+      if (url.searchParams.get('all') === '1') {
+        if (_lsActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        const dAll = await computeLessonFeeMonth(year, month);
+        return json({
+          ok: true, year, month, all: true,
+          lessons: dAll.lessons,
+          rules: (dAll.rules || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rule_type: r.rule_type, amount: r.amount, enabled: r.enabled })),
+          absent_pay_percent: dAll.absent_pay_percent,
+        });
+      }
+
       if (!tid && !tname) return json({ ok: false, error: 'teacher_id_or_teacher_name_required' }, 400);
 
       const data = await computeLessonFeeMonth(year, month);
@@ -2001,7 +2059,8 @@ export async function handleAdminApi(
         // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
         let occurs = false;
         if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === todayStr);
-        else if (s.day_of_week != null && s.day_of_week !== '') occurs = (Number(s.day_of_week) === kDow);
+        // ⚠️ Number() 로 비교하지 말 것 — 운영 값은 'Thu' 같은 문자열이라 NaN 이 된다(admDowMatches 주석 참고).
+        else if (s.day_of_week != null && s.day_of_week !== '') occurs = admDowMatches(s.day_of_week, kDow);
         if (!occurs) continue;
 
         const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
@@ -2027,10 +2086,19 @@ export async function handleAdminApi(
           duration_min: dur,
           start_ts, end_ts, status,
           join_open: nowMs >= open_at_ts && nowMs <= close_at_ts,
+          /* 🧪 (2026-08-06 마이마이 요청) "레벨테스트와 일반수업을 한 화면에서 보고 싶다".
+             레벨테스트도 예약을 잡는 순간 class_schedules 의 일회성(one_off) 행이 되므로
+             목록은 이미 하나다. 다만 **구분이 안 돼서** 따로 있는 것처럼 보였다.
+             → 별도 목록을 만들지 않고 종류만 실어 보낸다(화면에서 배지로 구분). */
+          schedule_kind: s.schedule_kind || null,
+          is_level_test: /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         });
       }
       sessions.sort((a, b) => a.start_ts - b.start_ts);
-      return json({ ok: true, today: todayStr, now: nowMs, count: sessions.length, sessions });
+      return json({
+        ok: true, today: todayStr, now: nowMs, count: sessions.length, sessions,
+        level_test_count: sessions.filter(x => x.is_level_test).length,
+      });
     }
 
     // ── GET /api/admin/class-audit — 수업 변경 이력(연기/삭제/종료/이동) 조회 ──
@@ -3896,6 +3964,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
 
       const mapType = (ct: string): string => {
         const c = String(ct || '').toLowerCase();
+        // 🎯 레벨테스트는 정규수업과 성격이 달라 캘린더에서 한눈에 구분돼야 한다.
+        //    예전엔 아래 기본값에 걸려 평범한 '1:1' 로 그려졌다 — 있어도 못 알아봤다.
+        if (c === 'level_test' || c === 'leveltest' || c === '레벨테스트') return 'leveltest';
         if (c === 'group' || c === '1:2' || c === 'g' || c === '그룹') return 'group';
         if (c === 'temp' || c === 'substitute' || c === '대체') return 'temp';
         if (c === 'blocked' || c === 'off' || c === '휴무') return 'blocked';
@@ -6263,6 +6334,9 @@ LIMIT $limit`;
         ['assigned_reason', 'TEXT'], ['teacher_seen_at', 'INTEGER'], ['teacher_confirmed_at', 'INTEGER'],
         // 📚 (2026-07-22) 학부모 컴플레인 #6: 결과에 '추천 교재/다음 수업 안내'가 없던 문제
         ['recommended_textbook', 'TEXT'], ['next_class_guide', 'TEXT'], ['result_notified_at', 'INTEGER'],
+        // 🔗 (2026-08-05) 신청 ↔ 실제 수업예약 연결고리. 이게 없어서 «완료» 처리를 해도 수업은
+        //    한 건도 안 생겼고, 반대로 예약을 만들어도 신청서엔 아무 표시가 남지 않았다.
+        ['schedule_id', 'INTEGER'],
       ] as [string, string][]) {
         try { await env.DB.exec(`ALTER TABLE leveltest_applications ADD COLUMN ${col} ${type}`); } catch {}
       }
@@ -6313,14 +6387,42 @@ LIMIT $limit`;
           if (rangeM) return hour >= parseInt(rangeM[1], 10) && hour <= parseInt(rangeM[2], 10);
           return s.split(/[,\s;/]+/).map(x => parseInt(x, 10)).filter(n => !isNaN(n)).includes(hour);
         };
-        // 그 요일·시간에 이미 수업이 잡힌 교사 id 집합(중복 배정 방지, best-effort)
-        const busy = new Set<string>();
-        if (wantDay && wantHour != null) {
+        /* 그 요일·시간에 이미 수업이 잡힌 교사(중복 배정 방지).
+           🔴 (2026-08-06) 이 검사는 **한 번도 동작한 적이 없었다** — 이유가 둘이다.
+             ① `day_of_week = 'fri'` 로 물었는데 운영 값은 `'Fri'` 다. SQLite 의 `=` 는
+                대소문자를 가리므로 **항상 0건** → busy 가 늘 비어 있었다.
+             ② 설령 걸렸어도 담은 값은 `class_schedules.teacher_id`(= teachers.id)인데
+                비교 대상은 `teacher_profiles.id` 다. **번호 체계가 달라** 엉뚱한 교사를
+                제외했을 것이다(Teacher Kaye = profiles 11 / teachers 8).
+           → 요일은 표기를 전부 받아들이고, 일회성 수업(scheduled_date)도 함께 보고,
+             비교는 번호가 아니라 **이름**으로 한다. 금요일 18시처럼 이미 17명이 차 있는
+             슬롯에서 «찬 교사»가 배정되면, 뒤의 겹침 검사에 걸려 수업이 조용히 안 생긴다. */
+        const busyNames = new Set<string>();
+        const normT = (x: any) => String(x || '').toLowerCase().replace(/teacher/g, '').replace(/[^a-z0-9가-힣]/g, '');
+        if (wantHour != null && (wantDay || desiredDate)) {
           try {
-            const bs: any = await env.DB.prepare(
-              `SELECT teacher_id FROM class_schedules WHERE (status IS NULL OR status='active') AND day_of_week = ? AND substr(start_time,1,2) = ?`
-            ).bind(wantDay.toLowerCase(), ('0' + wantHour).slice(-2)).all();
-            (bs.results || []).forEach((r: any) => { if (r.teacher_id != null) busy.add(String(r.teacher_id)); });
+            const DOW_FORMS: Record<string, string[]> = {
+              Sun: ['sun', 'sunday', '0', '7', '일', '일요일'], Mon: ['mon', 'monday', '1', '월', '월요일'],
+              Tue: ['tue', 'tuesday', '2', '화', '화요일'], Wed: ['wed', 'wednesday', '3', '수', '수요일'],
+              Thu: ['thu', 'thursday', '4', '목', '목요일'], Fri: ['fri', 'friday', '5', '금', '금요일'],
+              Sat: ['sat', 'saturday', '6', '토', '토요일'],
+            };
+            const conds: string[] = []; const bind: any[] = [];
+            const forms = wantDay ? (DOW_FORMS[wantDay] || []) : [];
+            if (forms.length) {
+              conds.push(`lower(COALESCE(cs.day_of_week,'')) IN (${forms.map(() => '?').join(',')})`);
+              bind.push(...forms);
+            }
+            if (desiredDate) { conds.push(`cs.scheduled_date = ?`); bind.push(desiredDate); }
+            if (conds.length) {
+              const bs: any = await env.DB.prepare(
+                `SELECT t.name AS name FROM class_schedules cs
+                   JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+                  WHERE (cs.status IS NULL OR cs.status = 'active')
+                    AND substr(cs.start_time, 1, 2) = ? AND (${conds.join(' OR ')})`
+              ).bind(('0' + wantHour).slice(-2), ...bind).all();
+              (bs.results || []).forEach((r: any) => { if (r.name) busyNames.add(normT(r.name)); });
+            }
           } catch {}
         }
 
@@ -6330,7 +6432,7 @@ LIMIT $limit`;
           if (t.praise_avg != null) return Number(t.praise_avg);
           return 2.5;
         };
-        const notBusy = (t: any) => !busy.has(String(t.id));
+        const notBusy = (t: any) => !busyNames.has(normT(t.name)) && !busyNames.has(normT(t.en_name));
         // 1순위: 요일+시간 가용 & 미배정
         let pool = rows.filter(t => notBusy(t) && listMatch(t.days, wantDay) && hourMatch(t.hours, wantHour));
         let reason = 'available_best_rated';
@@ -6362,7 +6464,14 @@ LIMIT $limit`;
       const name = ((b && (b.student_name || b.name)) || '').toString().trim();
       if (!name) return invalidBody(['student_name']);
       const now = Date.now();
-      const uid = (b && (b.student_uid || b.uid)) || null;
+      /* 🔑 uid 붙이기 — 이게 비면 나중에 학생이 «내 신청»을 못 찾는다(마이페이지가 uid 로만 조회).
+         프론트가 보낸 값을 우선 쓰되, 비어 있으면 로그인 토큰에서 직접 꺼낸다.
+         프론트는 localStorage 키를 하나라도 놓치면 uid 를 못 실어 보내지만(실제로 그래서
+         신청 13건 중 7건이 uid 없이 저장됐다), 토큰은 서명이 검증되므로 위조가 안 된다. */
+      let uid = ((b && (b.student_uid || b.uid)) || '').toString().trim() || null;
+      if (!uid) {
+        try { uid = await authUidGlobal(request, url, env, b); } catch { uid = null; }
+      }
       const desiredDate = ((b && (b.desired_date || b.date)) || '').toString().trim() || null;
       const desiredTime = ((b && (b.desired_time || b.time)) || '').toString().trim() || null;
       const phone = ((b && (b.phone || b.student_phone)) || '').toString().trim() || null;
@@ -6387,6 +6496,27 @@ LIMIT $limit`;
       ).run();
       const appId = r.meta.last_row_id;
 
+      /* 📅 (2026-08-06) 신청 즉시 «실제 수업» 까지 만든다.
+         [왜] 예전엔 관리자가 「📅 수업 만들기」를 손으로 눌러야만 방이 생겼다. 안 누르면
+              학생 티켓엔 입장 버튼이 안 생기고, 강사 화면·주간 캘린더 어디에도 안 뜬다.
+              신청서만 쌓이고 아무도 못 들어가는 상태가 «에러 없이» 남는다.
+              그런데 그 버튼이 하는 일은 신청서에 이미 있는 값(날짜·시간·배정교사)을
+              옮겨 적는 것뿐이라 사람이 판단할 여지가 거의 없다.
+         ⚠️ best-effort — 만들 수 없는 상황(과거 날짜·겹침·강사 미배정)이면 조용히 넘기고
+            신청 자체는 성공시킨다. 그 경우는 관리자가 기존 버튼으로 처리하면 된다. */
+      /* 🎟️ 티켓 주소는 응답에도 실어 준다. 문자만 믿으면 «문자가 늦거나 안 오는» 사람은
+         자기 신청을 확인할 길이 사라진다. 신청한 본인에게 주는 것이라 노출 문제도 없다. */
+      let ticketUrl = '';
+      let autoSched: any = null;
+      try {
+        const appRowNew: any = await env.DB.prepare(
+          `SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`).bind(appId).first();
+        if (appRowNew) autoSched = await autoScheduleOnApply(env, appRowNew);
+      } catch (e: any) { console.warn('[leveltest] auto-schedule skipped:', e?.message || e); }
+
+      // 전화번호가 없어 문자를 못 보낸 경우에도 화면에는 링크를 줘야 한다
+      if (!ticketUrl) { try { ticketUrl = await ltTicketUrl(Number(appId), env); } catch {} }
+
       // 📅 예약 표시용 문자열
       const whenLabel = (() => {
         if (!desiredDate) return desiredTime || '일정 협의';
@@ -6401,7 +6531,13 @@ LIMIT $limit`;
       // 🔔 알림은 모두 best-effort — 실패해도 신청 자체는 성공 처리
       // 1) 신청자 "접수" 안내 — 담당 교사는 수락 후 확정 통보(과잉 약속 방지). 교사명은 아직 안 넣는다.
       if (phone) {
-        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.\n문의: pf.kakao.com/_xlqnSxd/chat`;
+        /* 🎟️ 접수 문자에 «티켓 링크» 를 넣는다. 이전엔 문의 카톡 주소만 있어서, 신청자가
+           자기 신청을 확인할 방법이 문자 한 통의 기억뿐이었다. 이 링크 하나가 확인·일정·
+           장비점검·당일 입장까지 전부 담당한다(로그인 불필요). */
+        let ticketLine = '';
+        try { ticketUrl = await ltTicketUrl(Number(appId), env); ticketLine = `
+▶ 확인·입장: ${ticketUrl}`; } catch {}
+        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.${ticketLine}\n문의: pf.kakao.com/_xlqnSxd/chat`;
         try { await sendPlainSms(env, phone, smsText); }
         catch (e: any) { console.warn('[leveltest] applicant receipt skipped:', e?.message || e); }
       }
@@ -6446,7 +6582,16 @@ LIMIT $limit`;
         } catch (e: any) { console.warn('[leveltest] teacher email skipped:', e?.message || e); }
       }
 
-      return json({ ok: true, id: appId, status: teacher ? 'proposed' : 'pending', proposed_teacher: teacher ? teacher.name : null, scheduled: whenLabel });
+      return json({
+        ok: true, id: appId,
+        status: teacher ? 'proposed' : 'pending',
+        proposed_teacher: teacher ? teacher.name : null,
+        scheduled: whenLabel,
+        // 📅 자동으로 수업까지 잡혔으면 그 사실을 알려 준다(화면이 «예약 완료» 라고 말할 근거)
+        schedule_id: (autoSched && autoSched.schedule_id) || null,
+        // 🎟️ 이 링크 하나가 «확인 + 입장» 이다. 로그인·계정 없이 열린다.
+        ticket_url: ticketUrl || null,
+      });
     }
     // ── 🧑‍🏫 교사 마이페이지: 나에게 배정된 레벨테스트 목록 + 미확인 배지 ──
     //   GET  /api/teacher/leveltest-assignments?teacher_name=이름[&teacher_id=]  → { items, unseen }
@@ -6498,7 +6643,13 @@ LIMIT $limit`;
         }
         const tLabel = app.assigned_teacher || '담당 선생님';
         if (app.phone) {
-          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}\n예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다.\n문의: pf.kakao.com/_xlqnSxd/chat`;
+          /* 🎟️ 예전엔 "예약 10분 전 카카오톡 채널로 화상 링크를 보내드립니다" 라고 «약속만» 했다.
+             그 링크를 보내는 코드는 전화번호를 students_erp 에서만 찾아, 계정이 없는 신청자에겐
+             구조적으로 못 갔다 — 지키지 못할 약속이었다. 이제는 링크를 «지금» 준다.
+             수업 전엔 일정 확인, 10분 전부터 입장 버튼으로 바뀌는 같은 주소다. */
+          let ticketLine2 = '\n※ 시작 10분 전부터 입장할 수 있어요.';
+          try { ticketLine2 = `\n▶ 확인·입장: ${await ltTicketUrl(Number(app.id), env)}\n※ 시작 10분 전부터 입장 버튼이 열려요.`; } catch {}
+          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}${ticketLine2}\n문의: pf.kakao.com/_xlqnSxd/chat`;
           try {
             const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
             if (tmpl) {
@@ -6524,6 +6675,86 @@ LIMIT $limit`;
         `UPDATE leveltest_applications SET teacher_seen_at = ? WHERE (${where.join(' OR ')}) AND (teacher_seen_at IS NULL OR teacher_seen_at < created_at)`
       ).bind(Date.now(), ...binds).run();
       return json({ ok: true });
+    }
+    /* ═══════════════════════════════════════════════════════════════════════
+       🎟️ 티켓 — 「확인」과 「입장」을 링크 하나로  (leveltest-ticket.ts 참고)
+         GET /api/leveltest/ticket?k=<토큰>      → 지금 보여줄 것 전부(JSON)
+         GET /api/leveltest/ticket.ics?k=<토큰>  → 「내 캘린더에 추가」
+       계정이 없어도 동작한다 — 서명 토큰이 곧 신원이다. 신청번호를 바꿔치기하면
+       서명이 깨져 남의 티켓은 열리지 않는다.
+       ═══════════════════════════════════════════════════════════════════════ */
+    if (method === 'GET' && (path === '/api/leveltest/ticket' || path === '/api/leveltest/ticket.ics')) {
+      await ensureLtApps();
+      const k = (url.searchParams.get('k') || '').trim();
+      const appId = await verifyLtTicket(k, env);
+      if (!appId) {
+        return json({ ok: false, error: 'invalid_ticket', message: '링크가 만료되었거나 올바르지 않습니다.', message_en: 'This link is expired or invalid.' }, 404);
+      }
+      // 🔒 p = 전화번호 뒷 4자리. 결과(점수·레벨·교재) 열람에만 쓰인다 —
+      //    없거나 틀려도 일정·입장은 그대로 열린다(수업에 못 들어가는 일을 만들지 않는다).
+      const pin = (url.searchParams.get('p') || '').trim();
+      const t = await buildLtTicket(env, appId, k, pin);
+      if (!t) return json({ ok: false, error: 'not_found' }, 404);
+      if (path === '/api/leveltest/ticket.ics') {
+        if (!t.start_ts) return json({ ok: false, error: 'no_schedule', message: '아직 일정이 확정되지 않았습니다.', message_en: 'The schedule is not confirmed yet.' }, 409);
+        return new Response(buildLtIcs(t, `${publicBase(env)}/t.html?k=${k}`), {
+          headers: {
+            'Content-Type': 'text/calendar; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="mangoi-leveltest.ics"',
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+      return json({ ok: true, ticket: t });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       🙋 «내 레벨테스트» — 학생/학부모 본인 조회  GET /api/leveltest/my?uid=&token=
+       ───────────────────────────────────────────────────────────────────────
+       [왜] 신청은 저장되는데 «학생이 자기 신청을 읽는» 경로가 아예 없었다.
+            읽기 API 는 관리자용·강사용 둘뿐이라, 마이페이지(parent.html)에서
+            신청 현황을 보여줄 방법이 없었고 «신청했는데 안 보인다» 문의가 났다.
+       [보안] 🔐 본인 것만. mango_token(uid 서명) 의 uid 와 요청 uid 가 같아야 함.
+              이름(student_name)으로는 절대 매칭하지 않는다 — 동명이인이 많아
+              (김민서 71명) 남의 신청·점수가 새어나간다.
+              단 하나의 예외: student_uid 가 비어 있고 student_name 이 «내 uid 와
+              문자열이 같은» 경우. 로그인 없이 신청하면서 이름칸에 자기 아이디를
+              적은 흔한 케이스인데, uid 는 유일하므로 동명이인 위험이 없다.
+       [노출범위] 교사명은 교사가 «수락»(confirmed/done)한 뒤에만 알려준다.
+                  proposed(소프트 배정) 단계에서 이름이 새면 교사가 거절했을 때
+                  «담당이 바뀌었다»는 혼선이 생긴다 — 2단계 승인 설계와 동일.
+       ═══════════════════════════════════════════════════════════════════════ */
+    if (method === 'GET' && path === '/api/leveltest/my') {
+      await ensureLtApps();
+      const myUid = (url.searchParams.get('uid') || '').trim();
+      if (!myUid) return invalidBody(['uid']);
+      const authUid = await authUidGlobal(request, url, env);
+      if (!authUid || authUid !== myUid) {
+        return json({ ok: false, error: 'auth_required', message: '로그인이 필요합니다.', message_en: 'Please sign in.' }, 401);
+      }
+      const rs = await env.DB.prepare(
+        `SELECT id, student_name, desired_date, desired_time, status, assigned_teacher, teacher_confirmed_at,
+                ai_score, pron_score, teacher_score, final_level,
+                recommended_textbook, next_class_guide, schedule_id, created_at, updated_at
+           FROM leveltest_applications
+          WHERE student_uid = ? OR (student_uid IS NULL AND student_name = ?)
+          ORDER BY created_at DESC LIMIT 20`
+      ).bind(myUid, myUid).all();
+      const mine = (rs.results || []) as any[];
+      // 🎤 발음 점수는 관리자 목록과 같은 원천(voice_coaching 최신)으로 오버레이 — 두 화면 숫자가 어긋나지 않게
+      try {
+        const vc = await env.DB.prepare(
+          `SELECT pronunciation_score FROM voice_coaching WHERE student_uid = ? ORDER BY created_at DESC LIMIT 1`
+        ).bind(myUid).first<any>();
+        if (vc && vc.pronunciation_score != null) {
+          mine.forEach(a => { if (a.pron_score == null) a.pron_score = vc.pronunciation_score; });
+        }
+      } catch { /* voice_coaching 미존재 시 무시 */ }
+      const items = mine.map(a => ({
+        ...a,
+        assigned_teacher: (a.status === 'confirmed' || a.status === 'done') ? a.assigned_teacher : null,
+      }));
+      return json({ ok: true, items });
     }
     if (path === '/api/admin/leveltest/applications') {
       await ensureLtApps();
@@ -6557,6 +6788,55 @@ LIMIT $limit`;
       // POST → 상태/배정/메모 업데이트
       const b = await parseJsonBody(request);
       if (!b || !b.id) return invalidBody(['id']);
+
+      /* ═══════════════════════════════════════════════════════════════════════
+         🔗 1단계 (2026-08-05 사장님 지시) — 신청 → «실제 수업 예약» 만들기
+         ───────────────────────────────────────────────────────────────────────
+         [왜] 지금까지 신청을 «완료» 처리해도 수업은 한 건도 생기지 않았다.
+              사장님 테스트 건(#13)은 사람이 D1 에 직접 넣어야 했다.
+              두 표가 서로를 모르니 «달력에 뜬 것이 확정인지 희망인지» 도 구분이 안 됐다.
+         [무엇] 희망일·희망시간·담당강사로 class_schedules 를 만들고,
+              신청서에 schedule_id 를 박아 둘을 잇는다.
+              예약이 있으면 방 번호가 class-{id}-{YYYYMMDD} 로 자동 결정되므로,
+              강사·학생이 방 코드를 주고받다 엇갈리는 사고가 원천 차단된다.
+         ⚠️ 새 라우트를 만들지 않고 «이미 열려 있는 이 POST» 에 action 으로 얹는다.
+            새 경로는 src/index.ts 의 라우팅+인증게이트에 등록해야 하는데, 그 파일은
+            사고 반경이 서비스 전체다. 여기 얹으면 인증은 이미 통과한 뒤다.
+         ⚠️ 조용한 실패를 만들지 않는다 — 학생 계정·강사를 못 찾으면 «만들어 두고 모른 척»
+            하지 않고 이유를 돌려준다. 계정 없는 예약은 학생 화면에 영영 안 뜬다.
+         ═══════════════════════════════════════════════════════════════════════ */
+      if (String(b.action || '') === 'create_schedule') {
+        /* 🔗 신청 → «실제 수업». 로직은 leveltest-schedule.ts 한 곳에만 있다.
+           같은 일을 신청 직후 자동으로도 하기 때문에(autoScheduleOnApply), 두 경로가
+           서로 다르게 동작하면 «자동으로 만든 수업»과 «손으로 만든 수업»이 미묘하게
+           달라져 나중에 아무도 원인을 못 찾는다. */
+        const appRow: any = await env.DB.prepare(
+          `SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`
+        ).bind(Number(b.id)).first();
+        if (!appRow) return json({ ok: false, error: 'not_found', message: '신청 건을 찾을 수 없습니다.', message_en: 'Application not found.' }, 404);
+
+        let actorName = 'admin';
+        try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; } catch {}
+
+        const res = await createLeveltestSchedule(env, appRow, {
+          userId: b.user_id, scheduledDate: b.scheduled_date, startTime: b.start_time,
+          durationMin: b.duration_min, force: !!b.force, actor: actorName,
+          /* 관리자가 직접 누른 경우에도 계정이 없으면 만들어 준다 — 되묻는 순간 관리자는
+             «아무 계정이나» 넣게 되고(실제로 그렇게 남의 학생 기록이 오염될 뻔했다),
+             그 판단은 사람이 할 만한 일이 아니다. */
+          allowCreateStudent: b.create_student !== false,
+        });
+        if (!res.ok) {
+          const { status, ...rest } = res;
+          return json(rest, status);
+        }
+        // 수업이 잡혔으면 신청 상태도 확정으로 올린다(대기 중이던 건만)
+        await env.DB.prepare(
+          `UPDATE leveltest_applications SET status = CASE WHEN status IN ('pending','proposed') THEN 'confirmed' ELSE status END, updated_at = ? WHERE id = ?`
+        ).bind(Date.now(), Number(b.id)).run();
+        return json(res);
+      }
+
       const fields: string[] = [];
       const binds: any[] = [];
       if (b.status != null)           { fields.push('status = ?');           binds.push(String(b.status)); }
@@ -6576,6 +6856,37 @@ LIMIT $limit`;
       fields.push('updated_at = ?'); binds.push(Date.now());
       binds.push(Number(b.id));
       await env.DB.prepare(`UPDATE leveltest_applications SET ${fields.join(', ')} WHERE id = ?`).bind(...binds).run();
+
+      /* 🔗 (2026-08-06) 강사를 바꿨으면 «이미 만들어진 수업»의 담당도 같이 바꾼다.
+         [왜] 신청 즉시 수업이 자동으로 만들어지게 된 뒤로, 관리자가 목록에서 강사 드롭다운만
+              바꾸면 **신청서와 수업의 담당이 어긋난다**. 화면에는 바꾼 이름이 보이니 바뀐 줄 알지만
+              실제 수업은 옛 강사에게 남아, 새 강사 화면에는 영영 안 뜬다. 에러는 0.
+              실제로 그렇게 됐다: 신청 #15 를 'Teacher Maimai' 로 바꿨는데 수업 #854 의 담당은
+              BELLE 그대로였다 → 마이마이가 로그인해도 그 수업이 없다.
+         ⚠️ 강사 번호는 신청서의 assigned_teacher_id(=teacher_profiles)를 쓰지 않는다. 그 번호는
+            class_schedules 의 번호 체계(teachers.id)와 다른 사람을 가리킨다. 이름으로 되찾는다. */
+      let teacherSync: any = undefined;
+      if (b.assigned_teacher != null) {
+        try {
+          const appT: any = await env.DB.prepare(
+            `SELECT id, schedule_id, assigned_teacher FROM leveltest_applications WHERE id = ? LIMIT 1`
+          ).bind(Number(b.id)).first();
+          if (appT?.schedule_id) {
+            const normT = (s: any) => String(s || '').toLowerCase().replace(/teacher/g, '').replace(/[^a-z0-9가-힣]/g, '');
+            const want = normT(appT.assigned_teacher);
+            const ts: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE COALESCE(active,1) = 1`).all();
+            const hit = (ts.results || []).find((r: any) => normT(r.name) === want);
+            if (hit) {
+              await env.DB.prepare(`UPDATE class_schedules SET teacher_id = ?, updated_at = ? WHERE id = ?`)
+                .bind(String(hit.id), Date.now(), Number(appT.schedule_id)).run();
+              teacherSync = { schedule_id: appT.schedule_id, teacher_id: String(hit.id), teacher: hit.name };
+            } else {
+              // 못 찾으면 조용히 넘기지 않는다 — 화면은 «바뀐 것처럼» 보이는데 수업은 안 바뀐 상태다
+              teacherSync = { schedule_id: appT.schedule_id, error: 'teacher_not_in_roster', candidate: appT.assigned_teacher };
+            }
+          }
+        } catch (e: any) { teacherSync = { error: String(e?.message || e).slice(0, 80) }; }
+      }
 
       // 📣 결과 확정 통보 — final_level 이 채워지는 순간 학부모/학생 번호로 1회 통보 (result_notified_at 으로 dedup)
       //    기존엔 접수/교사확정 알림만 있고 '결과' 통보가 없어 학부모가 결과·추천교재를 알 수 없었음.
@@ -6603,7 +6914,7 @@ LIMIT $limit`;
         } catch (e: any) { resultNotify = 'error:' + String(e?.message || e).slice(0, 80); }
       }
       const missingBook = (b.final_level != null) && !String(b.recommended_textbook || '').trim();
-      return json({ ok: true, result_notify: resultNotify, warn: missingBook ? 'recommended_textbook_missing' : undefined });
+      return json({ ok: true, result_notify: resultNotify, teacher_sync: teacherSync, warn: missingBook ? 'recommended_textbook_missing' : undefined });
     }
 
     // ─── 🧠 AI 자동 진단 (CEFR 객관식 배치테스트) ─────────────────────────────

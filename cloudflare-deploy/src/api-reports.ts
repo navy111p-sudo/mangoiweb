@@ -40,6 +40,137 @@ function avgField(rows: any[], field: string): number | null {
 const RADAR_AXIS_KO: Record<string, string> = { pronunciation: '발음·유창성', vocab: '어휘 수준', sentence: '문장 구성력', attitude: '수업 태도', participation: '학습 참여도' };
 const RADAR_AXIS_EN: Record<string, string> = { pronunciation: 'Pronunciation & Fluency', vocab: 'Vocabulary Level', sentence: 'Sentence Building', attitude: 'Class Attitude', participation: 'Participation' };
 
+/* ═══════════════════════════════════════════════════════════════════════
+   🤖 AI 활동으로 4축 채우기 (2026-08-07)
+
+   왜 필요한가 — 오각형 5축 중 발음만 AI(voice_coaching)에서 나오고,
+   나머지 어휘·문장구성·태도·참여도 4축은 전부 student_evaluations,
+   즉 «강사가 손으로 쓴 평가서»에서만 나온다. 그래서 강사 없이 AI만 쓰는 학원은
+   student_evaluations 가 0행이라 성적표가 통째로 빈 종이로 나간다.
+   경쟁사(클라우봇)가 Lexile·WPM 같은 숫자를 내놓는 자리에 우리는 낼 것이 없었다.
+
+   원칙 3개 — 이걸 어기면 성적표가 거짓말이 된다.
+     ① 강사 점수가 우선. AI 는 «그 축이 비어 있을 때만» 채운다. 축 단위로 판단하므로
+        일부만 평가된 학생도 나머지가 AI 로 메워진다(기존 리포트 값은 하나도 안 바뀐다).
+     ② 근거가 모자라면 채우지 않는다. 축마다 최소 표본을 두고, 미만이면 null 로 남긴다.
+        빈 칸은 부끄러운 게 아니지만 지어낸 점수는 사고다(lesson-insight 와 같은 원칙).
+     ③ 무엇으로 쟀는지 반드시 같이 낸다(radar_source·radar_basis). 학부모가 AI 활동 점수를
+        «선생님이 매긴 점수»로 오해하면 안 된다. 근거 문구는 한/영 두 벌(강사 다수가 필리핀).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// 0~100 으로 자르기 — 비율/개수 기반 축이 공통으로 쓴다
+function clamp100(n: number): number { return Math.round(Math.min(100, Math.max(0, n))); }
+
+type AiAxis = { score: number | null; basis_ko: string; basis_en: string };
+const NO_AXIS: AiAxis = { score: null, basis_ko: '', basis_en: '' };
+
+async function computeAiRadar(env: MangoEnv, uid: string, start: number, end: number): Promise<{
+  vocab: AiAxis; sentence: AiAxis; attitude: AiAxis; participation: AiAxis;
+}> {
+  const out = { vocab: NO_AXIS, sentence: NO_AXIS, attitude: NO_AXIS, participation: NO_AXIS };
+
+  /* ── 어휘 수준 ← 단어장 복습 정답률 + 복습퀴즈 득점률 ──
+     ⚠️ 표본이 적으면 «운» 이 점수가 된다. 10문항 미만이면 채우지 않는다. */
+  try {
+    const v: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS n, SUM(CASE WHEN correct=1 THEN 1 ELSE 0 END) AS ok
+         FROM vocab_review_log WHERE user_id = ? AND reviewed_at >= ? AND reviewed_at < ?`
+    ).bind(uid, start, end).first();
+    const q: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS sessions, SUM(score) AS s, SUM(total) AS t
+         FROM review_quiz_results WHERE user_id = ? AND created_at >= ? AND created_at < ?`
+    ).bind(uid, start, end).first();
+    const items = (Number(v?.n) || 0) + (Number(q?.t) || 0);
+    const right = (Number(v?.ok) || 0) + (Number(q?.s) || 0);
+    if (items >= 10) {
+      out.vocab = {
+        score: clamp100((right / items) * 100),
+        basis_ko: `단어·퀴즈 ${items}문항 중 ${right}개 정답`,
+        basis_en: `${right} correct out of ${items} vocabulary and quiz items`,
+      };
+    }
+  } catch { /* 테이블이 없어도 리포트 전체는 계속 간다 */ }
+
+  /* ── 문장 구성력 ← AI 영작첨삭 점수(주) + AI 대화에서 학생이 쓴 문장 길이(보조) ──
+     첨삭 점수가 곧 «문장을 얼마나 바르게 쓰는가» 라 이걸 우선 쓰고,
+     첨삭이 없으면 대화 발화 길이로 근사한다(한 문장 12단어면 만점 — 초·중등 기준). */
+  try {
+    const w: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS n, AVG(score) AS avg FROM ai_writing_corrections
+        WHERE student_uid = ? AND score IS NOT NULL AND created_at >= ? AND created_at < ?`
+    ).bind(uid, start, end).first();
+    if ((Number(w?.n) || 0) >= 3) {
+      out.sentence = {
+        score: toHundred(Number(w.avg)),
+        basis_ko: `AI 영작 첨삭 ${w.n}편 평균`,
+        basis_en: `Average of ${w.n} AI-corrected writings`,
+      };
+    } else {
+      const c: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS n, AVG(LENGTH(content) - LENGTH(REPLACE(content,' ','')) + 1) AS words
+           FROM ai_friend_chats WHERE student_uid = ? AND role='user' AND created_at >= ? AND created_at < ?`
+      ).bind(uid, start, end).first();
+      const msgs = Number(c?.n) || 0;
+      if (msgs >= 10) {
+        const words = Number(c?.words) || 0;
+        out.sentence = {
+          score: clamp100((words / 12) * 100),
+          basis_ko: `AI 대화 ${msgs}번, 한 번에 평균 ${words.toFixed(1)}단어`,
+          basis_en: `${msgs} AI conversations, ${words.toFixed(1)} words per turn on average`,
+        };
+      }
+    }
+  } catch {}
+
+  /* ── 수업 태도 ← 연속 학습일(스트릭) ──
+     ⚠️ 이건 «강사가 본 태도» 와 같은 것이 아니다. 꾸준히 켰는가를 잰 것이다.
+        그래서 basis 에 무엇을 쟀는지 반드시 적는다. 2주(14일) 연속을 만점으로 본다.
+     ⚠️ student_streaks 는 기간 필터가 없는 현재 상태값이라, 스트릭이 0이면 채우지 않는다. */
+  try {
+    const s: any = await env.DB.prepare(
+      `SELECT current_streak, longest_streak FROM student_streaks WHERE student_uid = ?`
+    ).bind(uid).first();
+    const best = Math.max(Number(s?.current_streak) || 0, Number(s?.longest_streak) || 0);
+    if (best >= 3) {
+      out.attitude = {
+        score: clamp100((best / 14) * 100),
+        basis_ko: `연속 학습 최고 ${best}일 (꾸준함으로 측정)`,
+        basis_en: `Best streak ${best} days (measured by consistency)`,
+      };
+    }
+  } catch {}
+
+  /* ── 학습 참여도 ← 실제로 공부한 «날 수» ──
+     횟수가 아니라 날 수로 센다. 하루에 몰아서 20번 한 것과 스무 날에 걸쳐 한 것은 다르다.
+     기간 중 주 3회(≈ 12일/월) 를 만점으로 본다. */
+  try {
+    const days = Math.max(1, Math.round((end - start) / 86400000));
+    const target = Math.max(4, Math.round((days / 7) * 3));   // 주 3회 기준, 최소 4일
+    const d: any = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT day) AS n FROM (
+         SELECT CAST(created_at/86400000 AS INTEGER) AS day FROM ai_friend_chats
+           WHERE student_uid = ? AND role='user' AND created_at >= ? AND created_at < ?
+         UNION
+         SELECT CAST(reviewed_at/86400000 AS INTEGER) AS day FROM vocab_review_log
+           WHERE user_id = ? AND reviewed_at >= ? AND reviewed_at < ?
+         UNION
+         SELECT CAST(created_at/86400000 AS INTEGER) AS day FROM review_quiz_results
+           WHERE user_id = ? AND created_at >= ? AND created_at < ?
+       )`
+    ).bind(uid, start, end, uid, start, end, uid, start, end).first();
+    const n = Number(d?.n) || 0;
+    if (n >= 2) {
+      out.participation = {
+        score: clamp100((n / target) * 100),
+        basis_ko: `${days}일 중 ${n}일 학습`,
+        basis_en: `Studied on ${n} of ${days} days`,
+      };
+    }
+  } catch {}
+
+  return out;
+}
+
 // 직전 리포트(period 이전 중 가장 최근)의 오각형 점수 — "이번 기간 최고 성장" 계산용.
 async function getPreviousRadar(env: MangoEnv, uid: string, period: string): Promise<Record<string, number> | null> {
   try {
@@ -165,6 +296,38 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     attitude: toHundred(avgField(evalRows, 'score_attitude')),
     participation: toHundred(avgField(evalRows, 'score_participation')),
   };
+  /* 🤖 강사 평가서가 없어서 빈 축을 AI 학습 활동으로 채운다 (2026-08-07).
+     ⚠️ 축 단위다 — 강사가 매긴 축은 절대 덮지 않는다. 그래서 기존 리포트는 값이 하나도 안 바뀐다.
+     ⚠️ 출처를 같이 낸다. 화면이 «선생님 평가»와 «AI 활동 기록»을 구분해 보여줄 수 있어야 한다. */
+  const radarSource: Record<string, 'teacher' | 'ai' | null> = {
+    pronunciation: radar.pronunciation == null ? null : 'ai',   // 발음은 원래부터 voice_coaching(=AI)
+    vocab: radar.vocab == null ? null : 'teacher',
+    sentence: radar.sentence == null ? null : 'teacher',
+    attitude: radar.attitude == null ? null : 'teacher',
+    participation: radar.participation == null ? null : 'teacher',
+  };
+  const radarBasis: Record<string, { ko: string; en: string }> = {};
+  /* 발음 축은 예전부터 강사가 아니라 AI 음성코치가 매긴 점수였다. 그동안 출처를 안 밝혀서
+     강사 평가처럼 읽혔을 뿐이다. 이제 표시하는 김에 근거도 같이 적는다 —
+     표시만 붙고 근거가 없으면 «이건 뭐지» 가 된다. */
+  if (radar.pronunciation != null && (voiceStats?.n || 0) > 0) {
+    radarBasis.pronunciation = {
+      ko: `AI 음성코치 ${voiceStats.n}회 측정 평균`,
+      en: `Average over ${voiceStats.n} AI speech-coach sessions`,
+    };
+  }
+  if (radar.vocab == null || radar.sentence == null || radar.attitude == null || radar.participation == null) {
+    const ai = await computeAiRadar(env, uid, start, end);
+    for (const k of ['vocab', 'sentence', 'attitude', 'participation'] as const) {
+      if (radar[k] != null) continue;              // 강사 점수가 있으면 그대로 둔다
+      if (ai[k].score == null) continue;           // 근거가 모자라면 비워 둔다 (지어내지 않음)
+      radar[k] = ai[k].score;
+      radarSource[k] = 'ai';
+      radarBasis[k] = { ko: ai[k].basis_ko, en: ai[k].basis_en };
+    }
+  }
+  const aiAxisCount = Object.values(radarSource).filter((v) => v === 'ai').length;
+
   const prevRadar = await getPreviousRadar(env, uid, period);
   const growthHighlight = computeGrowthHighlight(radar, prevRadar);
 
@@ -173,7 +336,10 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
   // 평가서를 묶은 것일 수 있어 하나로 못 정한다 — 기간 중 가장 최근 평가서를 쓴 강사로 근사한다.
   const teacherName = evalRows.length ? (evalRows[evalRows.length - 1].teacher_name || '') : '';
   const ageBand = computeAgeBand(student && student.birth_date);
-  const hasSignal = evalRows.length > 0 || (att?.d || 0) > 0 || !!judgment;
+  /* 🤖 (2026-08-07) AI 학습 기록만 있는 학생도 «근거 있음» 이다.
+     여길 안 고치면 AI 만 쓰는 학원의 성적표가 오각형은 채워졌는데 코멘트는
+     «수업 기록이 아직 적어요» 로 나가는 앞뒤 안 맞는 종이가 된다. */
+  const hasSignal = evalRows.length > 0 || (att?.d || 0) > 0 || !!judgment || aiAxisCount > 0;
 
   let aiDraftCommentKo = '', aiDraftCommentEn = '', aiDraftTipKo = '', aiDraftTipEn = '';
   if (withAI) {
@@ -191,7 +357,13 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
           ? `\n판단력(선택+이유): 판단력지수 ${judgment.index ?? '-'}/100, ${judgment.events}회 판단${judgment.top_gaps && judgment.top_gaps.length ? `, 더 연습할 점: ${judgment.top_gaps.join(', ')}` : ''}`
           : '';
         const radarLine = `\n오각형 점수: 발음·유창성 ${radar.pronunciation ?? '-'}, 어휘 ${radar.vocab ?? '-'}, 문장구성 ${radar.sentence ?? '-'}, 수업태도 ${radar.attitude ?? '-'}, 참여도 ${radar.participation ?? '-'}`;
-        const usr = `학생: ${nm}\n기간: ${period}\n출석일수: ${att?.d || 0}\n평가 횟수: ${evalRows.length}, 종합 평균(5점 만점): ${evalAvg}\n발음 평균: 정확도 ${Math.round(voiceStats?.acc || 0)}, 발음 ${Math.round(voiceStats?.pron || 0)}, 유창성 ${Math.round(voiceStats?.flu || 0)}${judgeLine}${radarLine}\n강점: ${strengths || '기록 적음'}\n개선점: ${improvements || '기록 적음'}\n다음 목표(강사 기록): ${nextGoals || '없음'}\n최근 강사 코멘트: ${recentComment || '없음'}`;
+        /* 🤖 AI 학습 기록으로 채운 축은 «무엇을 근거로 나온 숫자인지» 를 모델에도 알려 준다.
+           안 알려 주면 모델이 «선생님께서 칭찬하신» 처럼 없던 일을 지어낸다. */
+        const aiBasisLine = Object.keys(radarBasis).length
+          ? `\n※ 아래 항목은 강사 평가가 아니라 학생의 AI 학습 기록에서 자동 계산된 값이다. 강사가 말했다고 쓰지 말 것: `
+            + Object.keys(radarBasis).map((k) => `${RADAR_AXIS_KO[k]}(${radarBasis[k].ko})`).join(', ')
+          : '';
+        const usr = `학생: ${nm}\n기간: ${period}\n출석일수: ${att?.d || 0}\n평가 횟수: ${evalRows.length}, 종합 평균(5점 만점): ${evalAvg}\n발음 평균: 정확도 ${Math.round(voiceStats?.acc || 0)}, 발음 ${Math.round(voiceStats?.pron || 0)}, 유창성 ${Math.round(voiceStats?.flu || 0)}${judgeLine}${radarLine}${aiBasisLine}\n강점: ${strengths || '기록 적음'}\n개선점: ${improvements || '기록 적음'}\n다음 목표(강사 기록): ${nextGoals || '없음'}\n최근 강사 코멘트: ${recentComment || '없음'}`;
 
         // 🌟 2026-07-25 확정(사장님 지시) — 항상 동기부여·희망 톤, 조건부 표현만, 과장 확언 금지.
         //   "담임의 한마디"+"강사 코멘트" 이중 표시를 없애고 이 하나로 통합(기획안 4-3).
@@ -230,6 +402,11 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
     },
     judgment,
     radar,
+    /* 축마다 «누가 매긴 점수인가» — 'teacher'(강사 평가서) / 'ai'(AI 학습 활동) / null(근거 없음).
+       화면은 이걸로 구분해 표시해야 한다. AI 활동 점수를 강사 평가처럼 보여주면 거짓말이 된다. */
+    radar_source: radarSource,
+    radar_basis: radarBasis,          // AI 로 채운 축만 { ko, en } 근거 문구가 들어 있다
+    radar_ai_axis_count: aiAxisCount, // AI 로 채운 축 수 (0 이면 종전과 완전히 동일한 리포트)
     growth_highlight: growthHighlight,
     ai_activity_count: aiActivityCount,
     teacher_name: teacherName,

@@ -18,7 +18,7 @@
 //     첫 화면(오늘 수업)의 렌더를 막으면 안 되므로 페이지가 나중에 따로 부른다.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { getAdminActor } from './auth-admin';
+import { getAdminActor, PH_MANAGERS } from './auth-admin';
 // 🎚️ 학생 읽기 밴드(판단력 훈련) — KV 1회 조회. 수업 전에 강사가 "이 아이가 지금
 //    어느 정도 문장을 읽나"를 알 수 있게 오늘 수업 목록에 얹는다.
 import { getReadingBandFor } from './api-judgment';
@@ -68,11 +68,19 @@ export async function handleTeacherApi(
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
   if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-  if (!actor.isTeacher) {
+
+  // 🇵🇭 (2026-08-05) 본사 매니저도 이 화면을 쓴다. 필리핀 매니저(Melca·Maimai·Karl)는
+  //   수업을 하지 않고 관리·IT 업무를 하지만, 하루 종일 붙잡고 있을 가벼운 화면이
+  //   하나도 없어서 1MB 관리자 화면에 갇혀 있었다. 아주 급할 때 커버 수업도 한다.
+  //   ⚠️ 매니저는 배정 수업이 0건이라 그대로 열면 빈 화면이 된다 → 아래에서 manager 블록을
+  //      따로 실어 보낸다(오늘 전체 수업·노쇼). 커버 수업이 잡힌 날은 classes 에 그냥 뜬다
+  //      (teachers 에 MELCA·MAIMAI·KARL 행이 있고, 아래 이름 매칭이 그것을 잡는다).
+  const isManager = !actor.isTeacher && (actor.role === 'hq' || actor.role === 'staff');
+  if (!actor.isTeacher && !isManager) {
     return json({
       ok: false, error: 'not_a_teacher',
-      message: '강사 계정만 사용할 수 있는 화면입니다.',
-      message_en: 'This page is for teacher accounts only.',
+      message: '강사 또는 본사 계정만 사용할 수 있는 화면입니다.',
+      message_en: 'This page is for teacher or head-office accounts only.',
     }, 403);
   }
 
@@ -87,9 +95,15 @@ export async function handleTeacherApi(
 
   // ── 담당 예약 조회 조건 ────────────────────────────────────────────────
   //   teacher_id 는 운영 DB 에서 TEXT("28") 이고, 계정 username 이 그대로 들어간 행도 있다.
-  //   그래서 (a) username (b) teachers.name 부분일치로 얻은 id 들을 모두 OR 로 건다.
+  //   그래서 (a) username (b) teachers.name 대조로 얻은 id 들을 OR 로 건다.
   //   ⚠️ 부분일치는 api-mango 의 sessions/today 와 동일한 사유 — 계정명('강선생님')과
   //      teachers.name('중국어 강선생님') 표기가 달라 완전일치면 매칭이 통째로 깨진다.
+  //   🔴 (2026-08-06) 그런데 이 파일만 «부분일치로 걸린 사람을 전부» 담당으로 붙이고 있었다.
+  //      api-mango.ts:1463 에는 «완전일치가 있으면 그쪽만» 규칙이 이미 있는데 여기만 빠져 있었다.
+  //      실제 사고: 계정 `hq_t_anna`(name='Anna') → 원부에 'Anna' 는 없고
+  //      **'HANNAH' 안에 'anna' 가 들어 있어**(H-ANNA-H) id 24 에 붙었다.
+  //      → Anna 로 로그인하면 HANNAH 의 오늘 수업·학생 이름이 보이고 그 방에 입장까지 됐다.
+  //      남의 수업이다. 이름 문자열로 사람을 정하는 이상 이 사고는 또 난다.
   const conds: string[] = [];
   const binds: any[] = [];
   if (actor.username) { conds.push('cs.teacher_id = ?'); binds.push(actor.username); }
@@ -105,9 +119,12 @@ export async function handleTeacherApi(
   const [tidRs, noticeRs, resourceRs, ratingRow] = await Promise.all([
     tname
       ? env.DB.prepare(
-          `SELECT CAST(id AS TEXT) AS tid FROM teachers
+          // exact 는 «완전일치인가»를 표시만 한다(WHERE 는 그대로) — 후보를 넓히지 않는다.
+          // COLLATE NOCASE: 원부는 대문자('ANA'), 계정은 섞여 쓴다('Ana'). 대소문자 차이로
+          //   완전일치를 놓치면 부분일치로 떨어져 엉뚱한 사람에게 붙는다.
+          `SELECT CAST(id AS TEXT) AS tid, name, (name = ? COLLATE NOCASE) AS exact FROM teachers
             WHERE name = ? OR name LIKE ('%' || ? || '%') OR (length(name) > 0 AND ? LIKE ('%' || name || '%'))`
-        ).bind(tname, tname, tname).all<any>()
+        ).bind(tname, tname, tname, tname).all<any>()
          .catch((e) => { console.warn('[teacher-portal] teacher id lookup:', e?.message); return empty; })
       : Promise.resolve(empty),
     env.DB.prepare(
@@ -127,22 +144,104 @@ export async function handleTeacherApi(
       : Promise.resolve(null),
   ]);
 
-  for (const x of (tidRs.results || [])) { if (x.tid) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); } }
+  /* 🔒 계정 → 강사원부 확정 규칙. 위에서 적은 'Anna → HANNAH' 사고를 막는다.
+   *
+   *  ⚠️ "부분일치가 한 명뿐이면 그 사람" 은 **안 된다** — 그게 정확히 이 사고다.
+   *     'Anna' 에 걸리는 사람은 HANNAH 딱 한 명이라, 「한 명뿐이니 확실하다」 로 판정하면
+   *     그대로 남의 수업이 붙는다. 개수로는 진짜와 가짜를 못 가른다.
+   *
+   *  살려야 하는 부분일치와 막아야 하는 부분일치를 실제로 가르는 건 **낱말 경계**다.
+   *     살릴 것 : '강선생님'      ⊂ '중국어 강선생님'  → 낱말 하나가 통째로 일치
+   *               'Teacher Len' ⊃ 'LEN'             → (반대 방향도 같다)
+   *     막을 것 : 'Anna'         ⊂ 'H·ANNA·H'        → 낱말 **속**에 우연히 들어간 것
+   *
+   *   1순위  완전일치(대소문자 무시)가 있으면 **그것만** 쓴다
+   *   2순위  낱말 경계로 맞는 사람이 **정확히 1명**이면 그 사람
+   *   3순위  그 외 — 낱말 경계 다중, 또는 낱말 속 우연일치뿐 — 이면 **아무도 붙이지 않는다**
+   *
+   *  ⚠️ 3순위가 핵심이다. «모르면 보여주지 않는다» 가 «아무나 보여준다» 보다 낫다 —
+   *     못 보는 건 본사에 문의하면 끝이지만, 남의 학생 이름과 방은 되돌릴 수 없다.
+   *  ⚠️ SQL 의 WHERE 는 그대로 둔다(후보를 넓게 긁는 역할). 좁히는 건 여기서만 한다.
+   */
+  const nrm = (s: any) => String(s || '').toUpperCase().trim();
+  //   낱말 쪼개기 — 공백과, 표기에서 실제로 쓰이는 구분자들. ('중국어 강선생님', 'HT FARRAH')
+  const words = (s: any) => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Boolean);
+  const wordMatch = (rosterName: string) => {
+    const a = nrm(rosterName), b = nrm(tname);
+    if (!a || !b) return false;
+    if (a === b) return true;
+    return words(a).indexOf(b) >= 0 || words(b).indexOf(a) >= 0;
+  };
+
+  const tidRows = (tidRs.results || []).filter((x: any) => x && x.tid);
+  const exactRows = tidRows.filter((x: any) => Number(x.exact) === 1);
+  const wordRows = tidRows.filter((x: any) => wordMatch(x.name));
+  const resolvedRows = exactRows.length ? exactRows : (wordRows.length === 1 ? wordRows : []);
+  // 확정에 실패했지만 «비슷한 사람은 있다» — 본사에 누구와 헷갈리는지 그대로 보여 준다.
+  //   (Anna 처럼 후보가 한 명이어도 확정하지 않았다면 여기 실린다. 이유를 알아야 고친다.)
+  const ambiguousNames = resolvedRows.length ? [] : tidRows.map((x: any) => String(x.name || x.tid));
+
+  for (const x of resolvedRows) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); }
+
+  /* 🔗 (2026-08-06 마이마이 제보 "no class in mangoi_033") 계정↔강사원부 연결이 끊긴 경우.
+   *
+   *  운영 실태: 로그인 계정 `mangoi_0XX` 20개 중 **18개가 name 을 한 번도 바꾸지 않아
+   *  name === username** 이다('mangoi_033'). 배정은 class_schedules.teacher_id = teachers.id
+   *  (예: '27' = MAIMAI) 로 걸리는데, 이 계정은 이름이 teachers 어디에도 없어
+   *  teachers 조회가 0건 → 조건이 `teacher_id = 'mangoi_033'` 하나만 남고 → 0건.
+   *
+   *  ⚠️ 여기서 화면은 "배정된 예정 수업이 없어요" 라고 말했다. 이건 **거짓말이다**.
+   *     수업이 없는 게 아니라 «누구인지 모르는» 것이다. 강사는 자기 수업이 취소된 줄 알고,
+   *     매니저는 강사가 왜 안 들어오는지 모른다. 상태를 구분해서 알려 준다.
+   *  ⛔ 계정 데이터를 코드가 임의로 고치지 않는다(누구인지는 운영이 정할 일). 사실만 알린다.
+   */
+  const linkedTeacherIds = resolvedRows.map((x: any) => x.tid);
+  const identityUnlinked = !isManager && linkedTeacherIds.length === 0;
+  // 🔀 '연결 안 됨'과 '누구인지 헷갈림'은 본사가 할 일이 다르다.
+  //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
+  const identityAmbiguous = !isManager && ambiguousNames.length > 0;
 
   const classes: any[] = [];
+  // 📅 앞으로 7일 안의 일회성 수업 — 선언은 여기(반환문과 같은 스코프). 채우는 건 아래 루프.
+  const upcoming: any[] = [];
+
+  /* 🗓 (2026-08-06) 「내 주간 스케줄」.
+     [왜] 강사에게 **자기 일정을 미리 보는 화면이 아예 없었다**. 마이페이지 탭 11개 중
+          스케줄이 없고, /teacher 는 «오늘» 만 그린다. 관리자에게는 주간 통합 캘린더가
+          있는데 정작 당사자인 강사는 못 본다 — 그래서 며칠 뒤 잡힌 레벨테스트를
+          당일 아침에야 알게 됐다.
+     ⚠️ D1 을 다시 조회하지 않는다. 위에서 이미 이 강사의 «전체» 예약을 읽어 두었으므로
+        같은 rows 를 요일로 펼치기만 한다(필리핀처럼 지연 큰 회선에서 왕복이 곧 대기시간). */
+  const weekParam = (url.searchParams.get('week') || '').trim();
+  const mondayOf = (ms: number) => {
+    const k2 = new Date(ms + KST);
+    const wd = (k2.getUTCDay() + 6) % 7;            // 월=0 … 일=6
+    return Date.UTC(k2.getUTCFullYear(), k2.getUTCMonth(), k2.getUTCDate()) - wd * 86400000;
+  };
+  const weekBaseMs = /^\d{4}-\d{2}-\d{2}$/.test(weekParam)
+    ? mondayOf(Date.parse(weekParam + 'T00:00:00Z') - KST)
+    : mondayOf(now);
+  const weekDates: string[] = [];
+  const weekDow: number[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekBaseMs + i * 86400000);
+    weekDates.push(`${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`);
+    weekDow.push(d.getUTCDay());
+  }
+  const weekDays: any[] = weekDates.map((date, i) => ({ date, dow: weekDow[i], is_today: date === todayStr, items: [] as any[] }));
   if (conds.length) {
     const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
     const sqlJoin =
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes, se.level AS level, se.textbook AS textbook,
+              cs.duration_min, cs.notes, cs.class_type, cs.source, se.level AS level, se.textbook AS textbook,
               se.english_name AS student_en
          FROM class_schedules cs
          LEFT JOIN students_erp se ON se.user_id = cs.user_id
         WHERE ${whereSql}`;
     const sqlPlain =
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes
+              cs.duration_min, cs.notes, cs.class_type, cs.source
          FROM class_schedules cs WHERE ${whereSql}`;
     let rows: any;
     try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
@@ -157,13 +256,70 @@ export async function handleTeacherApi(
     //   ⚠️ 이 값을 바꾸려면 api-mango.ts 의 OPEN_BEFORE 도 같이 바꿀 것. 한쪽만 바꾸면 다시 어긋난다.
     const OPEN_BEFORE = 10 * 60 * 1000;
     const LATE_AFTER = 15 * 60 * 1000;   // 종료 15분 후까지 지각 입장 허용
+    /* 📅 (2026-08-06 마이마이 제보 "내일 수업이 안 보인다") 이 화면은 «오늘» 만 그린다.
+       그래서 내일 잡힌 레벨테스트는 **당일이 되어서야** 처음 보인다. 레벨테스트는
+       준비가 필요한 수업이다 — 처음 만나는 학생이고, 보호자가 옆에 있고, 끝나면 평가를
+       남겨야 한다. 「오늘 갑자기 알게 되는」 구조는 그 준비를 불가능하게 만든다.
+       → 오늘 목록은 그대로 두고, «앞으로 7일» 을 따로 모아 함께 내려준다. */
+    const UPCOMING_DAYS = 7;
+    const dayMs = 86400000;
+
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
+      /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
+         반복 수업도 넣는다: 여기는 «내 시간표» 라 그게 본래 목적이다.
+         (앞의 upcoming 목록에는 일부러 안 넣었다 — 거기는 «특별한 한 건» 을 띄우는 자리다) */
+      for (let wi = 0; wi < 7; wi++) {
+        const hit = s.scheduled_date
+          ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
+          : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, weekDays[wi].dow));
+        if (!hit) continue;
+        const [wh, wm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+        weekDays[wi].items.push({
+          id: s.id,
+          start_time: `${pad(wh || 0)}:${pad(wm || 0)}`,
+          duration_min: Number(s.duration_min) || 30,
+          student_name: s.student_name || s.student_en || null,
+          student_name_en: s.student_en || null,
+          kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
+              : (String(s.user_id || '').toLowerCase() === 'type_seed' ? 'sample' : 'class'),
+          is_level_test: String(s.class_type || '') === 'level_test'
+            || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
+        });
+      }
+
       if (seen.has(s.id)) continue;
       let occurs = false;
       if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
       else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
-      if (!occurs) continue;
+
+      if (!occurs) {
+        /* 오늘이 아니면 «앞으로 7일» 안에 열리는지 본다.
+           ⚠️ 반복 수업(day_of_week)은 매주 도니 여기 넣으면 목록이 그 강사의 시간표로
+              가득 찬다 → **일회성(one_off)만**. 레벨테스트는 전부 일회성이라 정확히 걸린다. */
+        if (!s.scheduled_date) continue;
+        const d = String(s.scheduled_date).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= todayStr) continue;
+        const p = d.split('-').map(Number);
+        const [uh, um] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+        const uStart = Date.UTC(p[0], p[1] - 1, p[2], uh || 0, um || 0, 0) - KST;
+        if (uStart - now > UPCOMING_DAYS * dayMs) continue;
+        seen.add(s.id);
+        upcoming.push({
+          id: s.id,
+          date: d,
+          start_time: `${pad(uh || 0)}:${pad(um || 0)}`,
+          start_ts: uStart,
+          duration_min: Number(s.duration_min) || 30,
+          student_name: s.student_name || s.student_en || null,
+          student_name_en: s.student_en || null,
+          level: s.level || null,
+          textbook: s.textbook || null,
+          is_level_test: String(s.class_type || '') === 'level_test'
+            || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
+        });
+        continue;
+      }
       seen.add(s.id);
 
       const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
@@ -204,6 +360,11 @@ export async function handleTeacherApi(
         level: s.level || null,
         textbook: s.textbook || null,
         note: s.notes || null,
+        /* 🧪 (2026-08-06) 레벨테스트인지 알려 준다. 강사에겐 응대가 다르다 —
+           처음 만나는 학생이고, 보호자가 옆에 있고, 끝나면 평가를 남겨야 한다.
+           예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 방법이 없었다. */
+        is_level_test: String(s.class_type || '') === 'level_test'
+          || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         start_time: `${pad(hh || 0)}:${pad(mm || 0)}`,
         start_ts, end_ts, open_at_ts, close_at_ts,
         duration_min: dur,
@@ -233,6 +394,64 @@ export async function handleTeacherApi(
         c.reading_band_lv = b.lv;
       }
     } catch { /* 밴드 조회 실패가 오늘 수업 표시를 막지 않는다 */ }
+  }
+
+  // ── 🧑‍💼 매니저 전용 블록 (강사에게는 조회 자체를 안 한다 = 강사 화면은 1바이트도 안 무거워짐) ──
+  //   매니저가 하루 종일 확인하는 것 두 가지만 담는다: 오늘 수업이 도는가 · 사고가 났는가.
+  //   차트·집계 없음. 숫자와 목록뿐이라 응답이 몇 KB 를 넘지 않는다.
+  let manager: any = null;
+  if (isManager) {
+    const dayStartMs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;   // 오늘 00:00 KST 를 UTC ms 로
+    const OPEN_BEFORE = 10 * 60 * 1000, LATE_AFTER = 15 * 60 * 1000;
+    const [allRs, nsRs] = await Promise.all([
+      env.DB.prepare(
+        `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date,
+                cs.start_time, cs.duration_min, cs.teacher_id, t.name AS teacher_name
+           FROM class_schedules cs
+           LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
+          WHERE cs.status != 'cancelled' AND cs.user_id NOT IN ('lms','type_seed')`
+      ).all<any>().catch((e) => { console.warn('[teacher-portal] mgr classes:', e?.message); return empty; }),
+      env.DB.prepare(
+        `SELECT id, missing_role, student_name, teacher_name, waited_min, created_at
+           FROM class_no_show WHERE created_at >= ? ORDER BY created_at DESC LIMIT 20`
+      ).bind(dayStartMs).all<any>()
+       .catch((e) => { console.warn('[teacher-portal] mgr no-show:', e?.message); return empty; }),
+    ]);
+
+    const today: any[] = [];
+    for (const s of (allRs.results || [])) {
+      const occurs = s.scheduled_date
+        ? (s.scheduled_date === todayStr)
+        : (s.day_of_week != null && s.day_of_week !== '' && dowMatches(s.day_of_week, kDow));
+      if (!occurs) continue;
+      const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+      const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;
+      const end_ts = start_ts + (Number(s.duration_min) || 30) * 60000;
+      today.push({
+        schedule_id: s.id,
+        start_time: `${pad(hh || 0)}:${pad(mm || 0)}`,
+        start_ts, end_ts,
+        teacher_name: s.teacher_name || s.teacher_id || null,
+        student_name: s.student_name || null,
+        live: (now >= start_ts - OPEN_BEFORE && now <= end_ts + LATE_AFTER),
+        done: (now > end_ts + LATE_AFTER),
+      });
+    }
+    today.sort((a, b) => a.start_ts - b.start_ts);
+
+    manager = {
+      total: today.length,
+      live: today.filter((c) => c.live && !c.done).length,
+      upcoming: today.filter((c) => now < c.start_ts - OPEN_BEFORE).length,
+      done: today.filter((c) => c.done).length,
+      // 지금 도는 것과 다음에 올 것만 — 전체 목록을 다 내리면 매니저도 눈으로 훑어야 한다.
+      now_list: today.filter((c) => c.live && !c.done).slice(0, 12),
+      next_list: today.filter((c) => now < c.start_ts - OPEN_BEFORE).slice(0, 8),
+      no_shows: (nsRs.results || []).map((n: any) => ({
+        id: n.id, missing_role: n.missing_role, student_name: n.student_name,
+        teacher_name: n.teacher_name, waited_min: n.waited_min, created_at: n.created_at,
+      })),
+    };
   }
 
   // ── 위 Promise.all 결과를 화면용 모양으로 정리 (여기서는 DB 접근 없음) ──
@@ -273,17 +492,44 @@ export async function handleTeacherApi(
   //   새 한국어권 강사가 생기면 아래 목록에 아이디를 추가할 것.
   const KOREAN_SPEAKING_TEACHERS = ['hq_t_kang'];
   const _uid = String(actor.username || '').toLowerCase();
-  const lang =
-    (KOREAN_SPEAKING_TEACHERS.indexOf(_uid) >= 0
-      // '중국어 …' 표기는 중국어 과정 담당(한국어권)에게만 붙는다 —
-      // 필리핀 강사 이름에는 절대 나올 수 없어 오판 위험이 없다.
-      || /중국어/.test(tname))
-      ? 'ko' : 'en';
+  //   🧑‍💼 매니저는 강사와 규칙이 다르다. 필리핀 매니저만 영어, 나머지 본사 계정은 한국어.
+  //      ⚠️ `mgr_` 접두사로 판정하면 안 된다 — mgr_jjw(장지웅)·mgr_lby(이병엽) 처럼
+  //         **한국 본사 매니저도 같은 접두사**를 쓴다(2026-08-05 운영 DB 확인).
+  //      ⚠️ 이름에 한글이 있는지로도 판정하면 안 된다 — 계정명이 "Melca (본사 매니저)" 라
+  //         한글 꼬리표가 붙어 있어 영어만 읽는 매니저가 한국어 화면에 갇힌다.
+  //      → 그래서 **명단**으로 못박는다. 필리핀 직원이 늘면 여기에 아이디를 추가할 것.
+  const lang = isManager
+    ? (PH_MANAGERS.indexOf(_uid) >= 0 ? 'en' : 'ko')
+    : ((KOREAN_SPEAKING_TEACHERS.indexOf(_uid) >= 0
+        // '중국어 …' 표기는 중국어 과정 담당(한국어권)에게만 붙는다 —
+        // 필리핀 강사 이름에는 절대 나올 수 없어 오판 위험이 없다.
+        || /중국어/.test(tname))
+        ? 'ko' : 'en');
 
   return json({
     ok: true,
     now, today: todayStr,
-    me: { username: actor.username, name: actor.name, role: actor.role, is_teacher: true, lang },
-    classes, notices, resources, rating,
+    me: {
+      username: actor.username, name: actor.name, role: actor.role,
+      is_teacher: !isManager, is_manager: isManager, lang,
+      // 🔗 true = 이 계정이 강사원부(teachers)의 누구와도 연결돼 있지 않다.
+      //    화면은 "수업 없음"이 아니라 "계정 연결 안 됨"으로 말해야 한다.
+      identity_unlinked: identityUnlinked,
+      linked_teacher_ids: linkedTeacherIds,
+      // 🔀 true = 이름이 원부의 여러 명에 걸려 «누구인지 확정하지 못했다».
+      //    이때는 수업을 한 건도 보여주지 않는다(남의 수업이 섞이는 것보다 낫다).
+      identity_ambiguous: identityAmbiguous,
+      identity_candidates: ambiguousNames,
+    },
+    classes,
+    // 📅 앞으로 7일 안의 «일회성» 수업(레벨테스트 포함). 오늘 목록과 별개로 미리 준비하라고 알린다.
+    upcoming: upcoming.sort((a, b) => a.start_ts - b.start_ts),
+    // 🗓 내 주간 스케줄 — ?week=YYYY-MM-DD 로 주 이동(그 주의 월요일로 맞춰진다)
+    week: {
+      start: weekDates[0], end: weekDates[6],
+      days: weekDays.map(d => ({ ...d, items: d.items.sort((a: any, b: any) => a.start_time.localeCompare(b.start_time)) })),
+    },
+    notices, resources, rating,
+    ...(manager ? { manager } : {}),
   });
 }
