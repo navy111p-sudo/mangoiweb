@@ -11400,6 +11400,8 @@ async function vcJoinRoom(skipUI) {
         var _jd = await fetch('/api/class/sessions/today?' + _jq, { credentials: 'include' }).then(function (x) { return x.json(); }).catch(function () { return null; });
         var _jss = (_jd && _jd.sessions) || [];
         var _js = _jd && (_jd.current || _jss.filter(function (s) { return s.join_open; })[0]);
+        // 게이트 상태를 기억해 둔다 — 조회가 실패한 다음 번에도 «막을지 말지» 를 알아야 한다.
+        if (_jd && _jd.student_gate) window.__vcStudentGate = _jd.student_gate;
 
         if (_js && _js.room_id && _js.join_open) {
           vcTypedRoom = _js.room_id;
@@ -11409,8 +11411,16 @@ async function vcJoinRoom(skipUI) {
           /* 오늘 예약이 없는 교사(연습·시연)는 공용방으로 간다 — 이때는 다른 사람이 들어올 수 있음을
              분명히 알려 준다. 예약된 실제 수업은 위에서 각자 방으로 갈리므로 겹치지 않는다. */
           window.__vcSharedRoomNotice = true;
+        } else if (_jd && _jd.student_gate !== 'on') {
+          /* 🚪 게이트 꺼짐(기본) = 예전과 100% 동일하게 공용방으로 폴백한다.
+             ⛔ 지금 켜면 안 되는 이유: class_schedules 663건 중 «실제 학생 예약» 은 6건뿐이다.
+                518건은 학생이 없는 강사 시간표 점유(user_id='lms', student_name=NULL), 140건은 시드.
+                이 상태로 켜면 대다수 학생이 "예약된 수업이 없어요" 를 만나 입장 자체를 못 한다.
+                카페24 수업을 실제 학생 예약으로 옮긴 뒤 wrangler.toml 의
+                VC_STUDENT_ROOM_GATE 를 'on' 으로 바꾸면 아래 차단이 살아난다. */
+          console.log('[vc] student_gate=off → 예전 폴백 유지(공용방)');
         } else {
-          // ── 학생: 공용방 폴백 금지 ──
+          // ── 학생: 공용방 폴백 금지 (게이트 켜짐) ──
           var _early = _jss.filter(function (s) { return s.status === 'early'; })
                            .sort(function (a, b) { return a.start_ts - b.start_ts; })[0];
           if (_early && typeof vcShowClassGate === 'function') {
@@ -11430,10 +11440,12 @@ async function vcJoinRoom(skipUI) {
           }
         }
       } catch (e) {
-        /* 🔴 조회 실패 시 예전에는 «공용방 폴백 유지» 였다. 그게 바로 학생을 남의 방에 밀어 넣던 길이다.
-           이제 학생은 멈추고 방 번호 직접 입력으로 안내한다(교사는 기존대로 연습방 허용). */
+        /* 🔴 조회 실패. 게이트가 켜져 있을 때만 학생을 멈춘다.
+           예전에는 무조건 «공용방 폴백 유지» 였고, 그게 학생을 남의 방에 밀어 넣던 길이다.
+           단 게이트가 꺼진 동안에는 그 예전 동작을 그대로 지켜야 한다(dormant 보장).
+           게이트 값은 직전 성공 응답에서 기억해 둔 것을 쓴다 — 지금은 물어볼 수 없으므로. */
         console.warn('[vc] 오늘 수업 조회 실패', e);
-        if (!/teacher|admin/i.test(String(window.vcMyRole || ''))) {
+        if (window.__vcStudentGate === 'on' && !/teacher|admin/i.test(String(window.vcMyRole || ''))) {
           alert('수업 정보를 불러오지 못했어요. 📶\n잠시 후 다시 시도하거나, 매니저에게 받은 방 번호를 아래에 입력해 주세요.\n\nCould not load your class. Please retry, or enter the room code you were given.');
           _stopJoin = true;
         }

@@ -1572,8 +1572,13 @@ export async function handleMangoApi(
       if (joinable.length) current = joinable.sort((a, b) => Math.abs(a.start_ts - now) - Math.abs(b.start_ts - now))[0];
       else { const up = sessions.filter(x => x.status === 'early'); if (up.length) current = up[0]; }
 
+      /* 🚪 student_gate — 학생을 공용방으로 흘려보내지 않는 기능의 on/off 를 «서버가» 알려 준다.
+         화면(index.html)은 정적 파일이라 wrangler 변수를 직접 못 읽는다. 이 API 는 학생이
+         입장을 누르는 바로 그 지점에서 호출되므로, 여기에 실어 보내는 것이 가장 확실하다.
+         ⛔ 기본 'off' — 지금 켜면 실제 학생 예약이 6건뿐이라 대다수가 입장 불가가 된다(wrangler.toml 주석 참고). */
+      const studentGate = ((env as any).VC_STUDENT_ROOM_GATE === 'on') ? 'on' : 'off';
       // matched_by: 'uid'=계정 ID 로 찾음(가장 안전) · 'name'=이름 폴백(계정 연결 어긋남 → 운영에서 고쳐야 할 대상)
-      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy });
+      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate });
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room

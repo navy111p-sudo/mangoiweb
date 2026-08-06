@@ -106,6 +106,7 @@ try {
       window.__alerts = [];
       window.__wsUrls = [];
       window.vcMyRole = role;
+      window.__vcStudentGate = (reply && reply.student_gate) || (reply === 'ERROR' ? window.__vcStudentGate : 'off');
       /* 🔴 함정 — index.html 의 `let vcRoomId` 는 **window 프로퍼티가 아니다**(전역 렉시컬 바인딩).
          `window.vcRoomId` 를 읽으면 언제나 빈 문자열이라 «공용방에 안 갔다» 가 항상 통과해 버린다.
          (그렇게 만들었다가 이 하니스가 스스로를 속이는 걸 발견했다.)
@@ -140,7 +141,7 @@ try {
   const today = ymd();
 
   // ── ① 오늘 예약 없음 ──
-  let r = await run({ reply: { ok: true, sessions: [], current: null }, role: 'student', name: '테스트학생' });
+  let r = await run({ reply: { ok: true, sessions: [], current: null, student_gate: 'on' }, role: 'student', name: '테스트학생' });
   check('① 버튼이 실제로 눌린다(배선 살아 있음)', r.clicked);
   check('① 예약 없는 학생 — 공용방으로 «가지 않는다»', r.roomId !== 'mangoi-class', `vcRoomId="${r.roomId}"`);
   check('① 예약 없는 학생 — 수업 화면으로 넘어가지 않는다', !r.inCall);
@@ -149,7 +150,7 @@ try {
 
   // ── ② 아직 이르다(30분 뒤 시작 = early) ──
   const early = session(9001, 30);
-  r = await run({ reply: { ok: true, sessions: [early], current: early }, role: 'student', name: '테스트학생' });
+  r = await run({ reply: { ok: true, sessions: [early], current: early, student_gate: 'on' }, role: 'student', name: '테스트학생' });
   check('② 이른 입장 — 카운트다운 대기화면이 뜬다', r.gate);
   check('② 이른 입장 — 공용방으로 «가지 않는다»', r.roomId !== 'mangoi-class', `vcRoomId="${r.roomId}"`);
   check('② 이른 입장 — 수업 화면으로 넘어가지 않는다', !r.inCall);
@@ -157,7 +158,7 @@ try {
 
   // ── ③ 입장창 열림(5분 뒤 시작 → 이미 open) ──
   const open = session(9002, 5);
-  r = await run({ reply: { ok: true, sessions: [open], current: open }, role: 'student', name: '테스트학생' });
+  r = await run({ reply: { ok: true, sessions: [open], current: open, student_gate: 'on' }, role: 'student', name: '테스트학생' });
   check('③ 입장 가능 — 예약방(class-*)으로 들어간다', r.roomId === `class-9002-${today}`, `vcRoomId="${r.roomId}"`);
   check('③ 입장 가능 — 공용방이 아니다', r.roomId !== 'mangoi-class');
   check('③ 입장 가능 — 그 방으로 실제 접속을 시도한다', r.wsUrls.some(u => u.includes(`roomId=class-9002-${today}`)), r.wsUrls[0] || '(시도 없음)');
@@ -170,8 +171,17 @@ try {
 
   // ── ⑤ 교사·예약 없음 → 공용 연습방 허용(기존 흐름 보존) ──
   await page.evaluate(() => { document.body.classList.remove('vc-in-call'); });
-  r = await run({ reply: { ok: true, sessions: [], current: null }, role: 'teacher', name: '테스트강사' });
+  r = await run({ reply: { ok: true, sessions: [], current: null, student_gate: 'on' }, role: 'teacher', name: '테스트강사' });
   check('⑤ 예약 없는 교사 — 공용 연습방은 그대로 허용(연습·시연 보존)', r.roomId === 'mangoi-class', `vcRoomId="${r.roomId}"`);
+
+  /* ── ⑥ 게이트 OFF(배포 기본값) — 예전 동작이 100% 그대로인지 ──
+     ⛔ 지금 운영은 이 상태로 나간다. class_schedules 663건 중 «실제 학생 예약» 은 6건뿐이라
+        켜면 대다수 학생이 입장 자체를 못 하기 때문이다. 그래서 «꺼져 있을 때 예전과 같은가» 가
+        지금 가장 중요한 검사다. */
+  await page.evaluate(() => { document.body.classList.remove('vc-in-call'); });
+  r = await run({ reply: { ok: true, sessions: [], current: null, student_gate: 'off' }, role: 'student', name: '테스트학생' });
+  check('⑥ 게이트 OFF — 예약 없는 학생은 예전대로 공용방(동작 무변경)', r.roomId === 'mangoi-class', `vcRoomId="${r.roomId}"`);
+  check('⑥ 게이트 OFF — 막는 안내를 띄우지 않는다', r.alerts.length === 0, r.alerts[0] || '');
 
   /* ── 페이지 자체가 깨지지 않았는지 ──
      한 페이지에서 입장을 5번 반복하는 하니스 특성상, 오디오 컨텍스트를 두 번 닫는 등

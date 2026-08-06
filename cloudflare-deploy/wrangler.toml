@@ -59,6 +59,15 @@ ADMIN_2FA_DISABLED = "true"
 #   기본 'off' = 코드는 배포돼 있으나 동작은 예전과 100% 동일(dormant). 실측 테스트 후 'on' 으로 켤 것.
 #   ⚠️ [env.production.vars] 에도 같은 값이 있어야 운영에 적용됨. 문제 시 'off' 로 바꾸고 재배포하면 즉시 원복.
 VC_STICKY_UID = "on"
+# 🚪 (2026-08-06) 학생을 공용방(mangoi-class)으로 흘려보내지 않는 게이트.
+#   'on' 이면 예약이 없는 학생은 입장하지 않고 안내를 받는다(이르면 카운트다운 대기).
+#   기본 'off' = 코드는 배포돼 있으나 동작은 예전과 100% 동일(dormant).
+#   ⛔ 지금 켜면 안 된다 — class_schedules 663건 중 «실제 학생 예약» 은 6건뿐이고
+#      518건은 학생 없는 강사 시간표 점유(user_id='lms', student_name=NULL), 140건은 시드다.
+#      이 상태로 켜면 대다수 학생이 "오늘 예약된 수업이 없어요" 를 만나 입장 자체를 못 한다.
+#      → 카페24 수업을 실제 학생 예약으로 옮긴 뒤 'on'.
+#   ⚠️ [env.production.vars] 에도 같은 값이 있어야 운영에 적용됨.
+VC_STUDENT_ROOM_GATE = "off"
 # /admin/health "Last Deploy" tile identifier - auto-updated by fix-and-deploy.ps1
 BUILD_STAMP = "2026-08-06T15:52:30Z"
 # 📟 UptimeRobot 장애 웹훅 → 관리자 문자(SMS) 알림 (api-uptime.ts)
@@ -152,6 +161,7 @@ ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 # 🔧 (2026-07-14) 관리자 테스트 기간 2FA 임시 중단 — 종료 후 "false" 로 원복
 ADMIN_2FA_DISABLED = "true"
 VC_STICKY_UID = "on"   # 🔁 무중단 재연결 스위치(운영). 실측 후 'on'. 문제 시 'off'+재배포로 즉시 원복
+VC_STUDENT_ROOM_GATE = "off"   # 🚪 학생 공용방 차단(운영). ⛔ 실제 학생 예약이 6건뿐이라 켜면 대다수가 입장 불가. 예약 이관 후 'on'
 BUILD_STAMP = "2026-08-06T15:52:30Z"
 UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"
 OWNER_ALERT_PHONE = "01089862224"
