@@ -10,7 +10,7 @@
  *    접속 못 한다(내부 전용). 그래서 서버가 계산해 밀어넣고(push) 워커는 보여주기만 한다.
  *    (Neo4j 경유는 :Class 가 최근 30일치만이라 과거 월 급여엔 부적합 → 서버 직접 집계 채택)
  */
-import { json, parseJsonBody } from './api-util';
+import { json, parseJsonBody, keyMatchesAny } from './api-util';
 
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
@@ -74,9 +74,12 @@ export async function setPhpKrwRate(env: any, rate: number): Promise<number> {
 export async function handlePayrollIngest(request: Request, url: URL, env: any): Promise<Response | null> {
   if (url.pathname !== '/api/payroll-ingest') return null;
 
-  const expected = String(env.PAYROLL_INGEST_KEY || '').trim();
+  /* 🔐 키 회전 중 — 새 키(secret)와 옛 키(vars) 를 둘 다 인정한다. 자세한 이유는 api-util.ts 참조.
+     호출자: 카페24 서버 /root/teacher-payroll-sync.sh (매달). 한쪽만 바꾸면 급여 투입이 조용히 403 이 된다. */
   const given = String(url.searchParams.get('key') || '').trim();
-  if (!expected || given !== expected) return json({ ok: false, error: 'forbidden' }, 403);
+  if (!keyMatchesAny(given, env.PAYROLL_INGEST_KEY_NEW, env.PAYROLL_INGEST_KEY)) {
+    return json({ ok: false, error: 'forbidden' }, 403);
+  }
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
 
   const body = await parseJsonBody(request) || {};

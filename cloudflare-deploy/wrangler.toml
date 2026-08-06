@@ -72,12 +72,21 @@ VC_STUDENT_ROOM_GATE = "off"
 BUILD_STAMP = "2026-08-07T06:40:45Z"
 # 📟 UptimeRobot 장애 웹훅 → 관리자 문자(SMS) 알림 (api-uptime.ts)
 #   UPTIME_HOOK_KEY: 웹훅 URL 의 ?key= 토큰(무단 호출 방지). OWNER_ALERT_PHONE: 문자 받을 번호.
-UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"
+# WARN 2026-08-07 key rotation in progress - the two values below are LEGACY (already public).
+#   This repo is public, so anything written here is readable by anyone. That is why we rotate.
+#   New keys go in **wrangler secret**, never in [vars] (putting them here republishes them):
+#       wrangler secret put PAYROLL_INGEST_KEY_NEW      (and again with --env production)
+#       wrangler secret put UPTIME_HOOK_KEY_NEW         (and again with --env production)
+#       wrangler secret put TRAITS_LINK_SECRET          (and again with --env production)
+#   The server accepts BOTH new and legacy keys (api-util.ts keyMatchesAny) so nothing breaks yet.
+#   STOP: exposure is only closed after external callers switch and these two lines are DELETED.
+#   Callers: cafe24 /root/teacher-payroll-sync.sh, cafe24 retention script, UptimeRobot webhook URL.
+UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"   # LEGACY (public) - delete after step 3
 OWNER_ALERT_PHONE = "01089862224"
 # 💬 SOLAPI 발신번호(등록·인증 완료된 번호). API 키/시크릿은 wrangler secret 으로 관리.
 SOLAPI_FROM_PHONE = "01089862224"
 # 🧾 강사 급여 자동화 — 카페24 서버 집계 스크립트가 결과를 밀어넣을 때 쓰는 공유키(무단 주입 방지)
-PAYROLL_INGEST_KEY = "9c4f7a2e15b83d6079e1c4a8f2b5d3e6"
+PAYROLL_INGEST_KEY = "9c4f7a2e15b83d6079e1c4a8f2b5d3e6"   # LEGACY (public) - delete after step 3
 # 📧 이메일(Resend) — 레벨테스트 신규신청 관리자(필리핀) 알림 + 교사 배정 알림
 #   활성화: (1) resend.com 도메인 인증 → (2) `wrangler secret put RESEND_API_KEY`
 #   RESEND_API_KEY 미설정 시 이메일은 조용히 skip(신청/문자/대시보드는 정상 동작).
@@ -163,10 +172,19 @@ ADMIN_2FA_DISABLED = "true"
 VC_STICKY_UID = "on"   # 🔁 무중단 재연결 스위치(운영). 실측 후 'on'. 문제 시 'off'+재배포로 즉시 원복
 VC_STUDENT_ROOM_GATE = "off"   # 🚪 학생 공용방 차단(운영). ⛔ 실제 학생 예약이 6건뿐이라 켜면 대다수가 입장 불가. 예약 이관 후 'on'
 BUILD_STAMP = "2026-08-07T06:40:45Z"
-UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"
+# WARN 2026-08-07 key rotation in progress - the two values below are LEGACY (already public).
+#   This repo is public, so anything written here is readable by anyone. That is why we rotate.
+#   New keys go in **wrangler secret**, never in [vars] (putting them here republishes them):
+#       wrangler secret put PAYROLL_INGEST_KEY_NEW      (and again with --env production)
+#       wrangler secret put UPTIME_HOOK_KEY_NEW         (and again with --env production)
+#       wrangler secret put TRAITS_LINK_SECRET          (and again with --env production)
+#   The server accepts BOTH new and legacy keys (api-util.ts keyMatchesAny) so nothing breaks yet.
+#   STOP: exposure is only closed after external callers switch and these two lines are DELETED.
+#   Callers: cafe24 /root/teacher-payroll-sync.sh, cafe24 retention script, UptimeRobot webhook URL.
+UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"   # LEGACY (public) - delete after step 3
 OWNER_ALERT_PHONE = "01089862224"
 SOLAPI_FROM_PHONE = "01089862224"
-PAYROLL_INGEST_KEY = "9c4f7a2e15b83d6079e1c4a8f2b5d3e6"
+PAYROLL_INGEST_KEY = "9c4f7a2e15b83d6079e1c4a8f2b5d3e6"   # LEGACY (public) - delete after step 3
 # 📧 이메일(Resend) — 레벨테스트 관리자/교사 알림 (RESEND_API_KEY 는 secret)
 RESEND_FROM = "망고아이 MANGOi <noreply@mangoi.co.kr>"
 LEVELTEST_ADMIN_EMAIL = ""   # ← 필리핀 관리자 이메일 입력
