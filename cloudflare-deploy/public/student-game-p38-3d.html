@@ -86,24 +86,21 @@
      예전에는 둥근 웹 UI 칩을 조종석 사진 위에 그대로 얹어 겉돌았다.
      조종석과 같은 재질(올리브 도색 금속 + 리벳 + 스텐실 글자)로 맞춘다.
      위치는 layoutCockpit() 이 '캐노피 창 윗변 바로 위'로 계산해 넣는다. */
+  /* 🔴 예전엔 여기에 «올리브 금속판»을 통째로 깔았다(리벳·그림자까지). 폰 세로 화면에서
+     11낱말 문장이 3줄로 펼쳐지면 그 판이 **캐노피 창 위쪽을 통째로 덮어 적기가 안 보였다**
+     (사장님 신고). → 판을 없애고 **낱말 칸만 반투명**으로 남긴다. 뒤로 하늘과 적기가 비친다.
+     ⚠️ 배경을 아예 0 으로 두면 밝은 하늘에서 글자가 사라진다 — 칸마다 옅은 어둠 + 진한 그림자로
+        읽히게 하되, 판은 다시 만들지 말 것. */
   #sentWrap{position:absolute;left:50%;transform:translateX(-50%);z-index:8;
-    width:max-content;max-width:94%;text-align:center;pointer-events:none;
-    padding:5px 12px 7px;border-radius:5px;
-    background:linear-gradient(180deg,#4a5340 0%,#3a4232 42%,#2b3126 100%);
-    border:1px solid #1d2118;
-    box-shadow:0 4px 12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10),
-               inset 0 -2px 5px rgba(0,0,0,.45)}
-  /* 리벳 — 판 네 모서리에 박은 못 */
-  #sentWrap::before,#sentWrap::after{content:'';position:absolute;top:4px;bottom:4px;width:5px;
-    background-image:radial-gradient(circle at 50% 4px,#9aa38c 0 1.6px,transparent 1.9px),
-                     radial-gradient(circle at 50% calc(100% - 4px),#9aa38c 0 1.6px,transparent 1.9px);
-    background-repeat:no-repeat}
-  #sentWrap::before{left:4px} #sentWrap::after{right:4px}
+    width:max-content;max-width:96%;text-align:center;pointer-events:none;
+    padding:0;border:0;background:none;box-shadow:none}
 
-  /* 한국어 뜻 = 판에 붙인 지시 라벨 · 그 옆에 '다른 문장' 스위치 */
-  #sentTop{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:5px}
-  #sentKo{display:inline-block;font-size:12.5px;font-weight:800;color:#e8dfbd;
-    letter-spacing:.2px;text-shadow:0 1px 2px rgba(0,0,0,.8)}
+  /* 한국어 뜻 · 그 옆에 '다른 문장' 스위치 — 글자만 남기고 알약은 글자 폭만큼만 */
+  #sentTop{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px}
+  #sentKo{display:inline-block;font-size:12.5px;font-weight:800;color:#f2e9c6;
+    letter-spacing:.2px;padding:2px 9px 3px;border-radius:11px;
+    background:rgba(6,11,7,.42);
+    text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.9)}
   #sentKo:empty{display:none}
   /* ⚠️ #sentWrap 이 pointer-events:none 이라 버튼에서 되살려야 눌린다 */
   #btnSkipSent{pointer-events:auto;cursor:pointer;flex:none;
@@ -117,25 +114,26 @@
   #btnSkipSent:disabled{opacity:.4;cursor:default}
   #sentEn{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
 
-  /* 낱말 슬롯 = 판에 파 넣은 홈. 각진 모양이 군용 장비 느낌 */
-  .wchip{position:relative;padding:3px 10px 5px;border-radius:3px;
-    font-size:clamp(14px,2.2vw,20px);font-weight:900;letter-spacing:.6px;
+  /* 낱말 슬롯 — 뒤가 비치는 반투명 칸. 판을 없앤 뒤로 이 칸들이 곧 문장 바다 */
+  .wchip{position:relative;padding:2px 8px 4px;border-radius:4px;
+    font-size:clamp(13px,2.1vw,19px);font-weight:900;letter-spacing:.5px;
     font-family:MangoiHanSC,'Consolas','Malgun Gothic',monospace;
-    background:linear-gradient(180deg,#1a1e16,#23281d);
-    border:1px solid #12150f;color:#cfd8c2;
-    box-shadow:inset 0 2px 4px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.06);
+    background:rgba(8,12,7,.34);
+    border:1px solid rgba(190,205,170,.28);color:#e6eddc;
+    text-shadow:0 1px 2px #000,0 0 5px rgba(0,0,0,.85);
     transition:.14s}
   /* 맞힌 낱말 = 스텐실로 찍힌 것처럼 */
-  .wchip.done{color:#ffd479;background:linear-gradient(180deg,#2b3320,#384227);
-    text-shadow:0 0 7px rgba(255,196,60,.45)}
+  .wchip.done{color:#ffd479;background:rgba(46,56,28,.44);border-color:rgba(255,212,121,.32);
+    text-shadow:0 1px 2px #000,0 0 7px rgba(255,196,60,.5)}
   /* 지금 쏠 낱말 = 노란 테두리 + 위쪽 삼각 표식 */
-  .wchip.now{color:#fff4d0;background:linear-gradient(180deg,#3d3a1c,#4b4622);
-    border-color:#ffd479;box-shadow:inset 0 2px 4px rgba(0,0,0,.5),0 0 8px rgba(255,196,60,.35)}
+  .wchip.now{color:#fff4d0;background:rgba(74,66,26,.52);
+    border-color:#ffd479;box-shadow:0 0 8px rgba(255,196,60,.45)}
   .wchip.now::before{content:'';position:absolute;left:50%;top:-7px;transform:translateX(-50%);
     border:4px solid transparent;border-top-color:#ffd479;animation:wpulse 1.05s ease-in-out infinite}
   /* 가려진 낱말 — ⚠️ color:transparent 만 쓰면 text-shadow 가 남아 글자가 비친다(듣기 문제가 새 나감) */
   .wchip.hide{color:transparent;text-shadow:none}
-  .wchip.hide::after{content:'— — —';color:#5f6b54;font-size:.66em;letter-spacing:-1px;
+  .wchip.hide::after{content:'— — —';color:#b6c3a6;font-size:.66em;letter-spacing:-1px;
+    text-shadow:0 1px 2px #000;
     position:absolute;left:0;right:0;top:50%;transform:translateY(-50%)}
   @keyframes wpulse{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
   /* 문법 성분 — 슬롯 아래 얇은 색띠(어순을 '색의 순서'로 익히게) */
@@ -273,16 +271,27 @@
   body.mob #topR .tb{display:none}
   body.mob #topR #btnMenu{display:flex}
   body.mob #topR.open .tb{display:flex}
-  /* ⚠️ 폰에서는 상단 좌우에 '나가기'·'점3개' 버튼(z12)이 있어 게이지가 그 아래로 깔린다.
-     같은 줄에 두면 점수와 격추 수가 버튼에 가려 안 읽힌다 → 버튼 줄 밑으로 내린다. */
-  body.mob #gauges{top:46px;padding:0 2%;gap:5px}
-  body.mob .gz{padding:2px 7px;min-width:38px;gap:1px}
-  body.mob .gzL{font-size:8px;letter-spacing:.2px}
-  body.mob .gzV{font-size:15px}
-  body.mob #hearts{font-size:12px;letter-spacing:0}
-  body.mob #hullTrack{height:4px;min-width:56px}
+  /* 🔑 예전엔 게이지를 버튼 줄 «밑»으로 내렸다(top:46px). 그래서 폰 상단에
+     ①버튼 줄 ②점수 줄 ③문장 줄 — **띠 세 개**가 쌓여 캐노피 위쪽이 통째로 막혔다.
+     → 게이지를 '나가기'와 '점3개' **사이 빈칸**으로 올려 한 줄로 합친다(띠 3 → 2).
+     라벨(SCORE/격추 KILLS)은 뺀다 — 좁은 폰에서 값만 있어도 읽힌다. */
+  body.mob #gauges{top:8px;left:92px;right:56px;padding:0;gap:6px;
+    justify-content:center;align-items:center}
+  body.mob .gzSide{gap:6px}
+  body.mob .gz{padding:3px 8px;min-width:0;gap:0;flex-direction:row;align-items:center;
+    background:rgba(4,10,16,.5);border-color:rgba(255,212,121,.18)}
+  body.mob .gzL{display:none}
+  body.mob .gzV{font-size:14px}
+  body.mob #hearts{font-size:11px;letter-spacing:0}
+  body.mob #hullTrack{height:3px;min-width:34px;margin-left:5px}
   body.mob #gzAtt{display:none}          /* 자세는 계기판 자세계가 보여 준다 — 글자로 또 띄우면 산만하다 */
   body.mob #backBtn{padding:6px 10px;font-size:12px}
+  /* 문장 바 — 버튼 줄 바로 밑(화면 최상단)에 붙인다. 세로 위치는 layoutCockpit() 이 넣는다 */
+  body.mob #sentTop{gap:6px;margin-bottom:3px}
+  body.mob #sentKo{font-size:11.5px;padding:2px 8px 3px}
+  body.mob #btnSkipSent{font-size:10px;padding:4px 8px 5px}
+  body.mob #sentEn{gap:4px}
+  body.mob .wchip{padding:1px 6px 3px;font-size:15px;letter-spacing:.2px}
   /* 조종 안내는 핸들 쪽으로 — 무엇을 끌어야 하는지 가리키게 */
   body.mob #stickHint{left:50%;transform:translateX(-50%);bottom:3%;font-size:11.5px;text-align:center}
   .tb{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.22);
@@ -1399,6 +1408,11 @@ function layoutCockpit(){
     var winTop = itop + 0.169*ih;
     var sh = sw.offsetHeight || 64;
     var sy = winTop - sh - 8;
+    /* 📱 폰(세로·가로 모두) — "최대한 꼭대기로" (사장님 지시).
+       창 윗변 기준으로 두면 문장이 길 때(11낱말) 판이 아래로 자라 캐노피를 덮는다.
+       상단 버튼 줄(8px + 38px) 바로 밑에 **붙박이로** 고정하고, 아래로는 자라게 둔다.
+       판을 없애고 칸만 반투명이라 겹쳐도 적기가 비친다. */
+    if(MOBILE) sy = 50;
     if(sy < 8) sy = 8;
     sw.style.top = sy.toFixed(1)+'px';
   }
