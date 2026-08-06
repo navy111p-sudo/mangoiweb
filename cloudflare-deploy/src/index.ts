@@ -3454,7 +3454,35 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
   }
 }
 
+/* 📶 TURN 설정 — 수업 입장마다 호출되는 경로다(페이지 로드 1회 = 여기 1회).
+ *
+ *  (2026-08-06 동시접속 진단) 고친 것 2가지:
+ *   ① 캐시가 없었다 — 학생이 페이지를 열 때마다 Cloudflare TURN API 로 자격증명을 새로 발급받았다.
+ *      50명이 정각에 몰리면 외부 API 호출 50번이 동시에 나간다. → KV 에 1시간 캐시.
+ *      자격증명 자체는 24시간(ttl=86400) 짜리라 1시간 캐시로 만료 위험이 없다.
+ *   ② 마지막으로 성공한 자격증명을 붙잡아 두지 않았다 — CF API 가 잠깐 흔들리면 곧바로
+ *      «무료 공개 TURN(openrelay)» 으로 떨어졌다. 그 서버는 50명을 받을 수 있는 서버가 아니라서,
+ *      아무 에러 없이 «영상만 안 나오는» 상태가 된다. → 마지막 성공분(24시간 보관)을 먼저 쓴다.
+ *  ⚠️ 공개 TURN 은 지우지 않고 «최후의 수단» 으로만 남겼다. 대칭형 NAT 환경에서는 이것마저 없으면
+ *     연결 자체가 불가능해지므로, 느리더라도 있는 편이 낫다.
+ */
+const TURN_CACHE_KEY = 'turn:ice-servers:v1';       // 1시간 캐시(정상 경로)
+const TURN_LKG_KEY = 'turn:ice-servers:last-good';  // 마지막 성공분(24시간, 장애 시 구명줄)
+
 async function handleTurnConfig(env: Env): Promise<Response> {
+  const J = (body: any, cached: string) => new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'X-Turn-Source': cached }
+  });
+
+  // 0) 캐시 우선 — 외부 API 호출 없이 즉시 응답
+  if (env.SESSION_STATE) {
+    try {
+      const hit = await env.SESSION_STATE.get(TURN_CACHE_KEY, 'json');
+      if (hit && (hit as any).iceServers) return J(hit, 'kv-cache');
+    } catch {}
+  }
+
   // Cloudflare TURN 키가 설정되어 있으면 동적 자격증명 생성
   if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) {
     try {
@@ -3476,10 +3504,13 @@ async function handleTurnConfig(env: Env): Promise<Response> {
           { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
           ...(cfData.iceServers || [])
         ];
-        return new Response(JSON.stringify({ iceServers }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-        });
+        const payload = { iceServers };
+        if (env.SESSION_STATE) {
+          // 캐시(1시간) + 마지막 성공분(24시간) 동시 저장. 실패해도 응답은 그대로 나간다.
+          try { await env.SESSION_STATE.put(TURN_CACHE_KEY, JSON.stringify(payload), { expirationTtl: 3600 }); } catch {}
+          try { await env.SESSION_STATE.put(TURN_LKG_KEY, JSON.stringify(payload), { expirationTtl: 86400 }); } catch {}
+        }
+        return J(payload, 'cloudflare');
       }
       console.error('Cloudflare TURN API error:', cfResp.status, await cfResp.text());
     } catch (err) {
@@ -3487,7 +3518,21 @@ async function handleTurnConfig(env: Env): Promise<Response> {
     }
   }
 
-  // Fallback: 정적 STUN + 공개 TURN 서버들
+  // 1) CF 실패 → 마지막으로 성공했던 자격증명(최대 24시간 전)을 먼저 쓴다.
+  //    공개 무료 TURN 으로 떨어지기 전에 반드시 이 단계를 거친다.
+  if (env.SESSION_STATE) {
+    try {
+      const lkg = await env.SESSION_STATE.get(TURN_LKG_KEY, 'json');
+      if (lkg && (lkg as any).iceServers) {
+        console.warn('[turn-config] Cloudflare TURN 실패 → 마지막 성공 자격증명으로 응답');
+        return J(lkg, 'last-known-good');
+      }
+    } catch {}
+  }
+
+  // 2) 최후의 수단: 정적 STUN + 공개 TURN 서버들
+  //    ⚠️ 여기까지 왔다는 것은 «수업 품질이 무너지고 있다» 는 뜻이다. 로그로 남긴다.
+  console.error('[turn-config] ⚠️ 공개 무료 TURN 폴백 사용 — 동시 수업이 많으면 영상이 끊긴다');
   const response = {
     iceServers: [
       { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
@@ -3498,10 +3543,8 @@ async function handleTurnConfig(env: Env): Promise<Response> {
       { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
     ]
   };
-  return new Response(JSON.stringify(response), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-  });
+  // X-Turn-Source 헤더로 어느 경로였는지 밖에서 확인할 수 있다(curl 로 즉시 진단 가능).
+  return J(response, 'public-fallback');
 }
 
 // ArrayBuffer → base64 (Workers 호환, 청크 처리)

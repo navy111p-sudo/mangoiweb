@@ -477,7 +477,13 @@ section('[6] 스키마 드리프트 회귀 가드');
 {
   // 6-E) VideoCallRoom 정원 초과 시 유령 연결 정리(거부된 참가자가 broadcastAll 수신 방지)
   const vcr = readFileSync(resolve(__dir, '../cloudflare-deploy/src/video-call-room.ts'), 'utf8');
-  check('VideoCallRoom: room-full 시 정원초과 거부(joinedUsers>=MAX_USERS)', /joinedUsers\(\)\.length\s*>=\s*MAX_USERS[\s\S]{0,200}room-full/.test(vcr));
+  /* (2026-08-06) 정원이 «방 종류별»로 갈렸다 — 공용 연습방(mangoi-class)만 낮은 정원.
+     예전 규칙은 `>= MAX_USERS` 리터럴을 찾았으나, 지금은 roomLimit 변수를 거친다.
+     지키려는 것은 그대로다: ① 정원 상수가 살아 있고 ② 그 값으로 거부하고 ③ 소켓을 닫는가. */
+  check('VideoCallRoom: 정원 상수 2종 존재(전체/공용방)', /const MAX_USERS\s*=\s*\d+/.test(vcr) && /const SHARED_ROOM_MAX_USERS\s*=\s*\d+/.test(vcr));
+  check('VideoCallRoom: 공용방은 별도 정원으로 계산', /roomLimit\s*=\s*\(this\.roomId === SHARED_PRACTICE_ROOM\)\s*\?\s*SHARED_ROOM_MAX_USERS\s*:\s*MAX_USERS/.test(vcr));
+  check('VideoCallRoom: room-full 시 정원초과 거부(joinedUsers>=roomLimit)', /joinedUsers\(\)\.length\s*>=\s*roomLimit[\s\S]{0,200}room-full/.test(vcr));
+  check('VideoCallRoom: room-full 응답에 정원(limit) 동봉 — 클라 안내문 하드코딩 방지', /'room-full'[\s\S]{0,160}limit:\s*roomLimit/.test(vcr));
   check('VideoCallRoom: room-full 시 소켓 close()', /room-full[\s\S]{0,400}ws\.close\(1000, 'room-full'\)/.test(vcr));
 }
 

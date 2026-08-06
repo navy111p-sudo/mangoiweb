@@ -14,6 +14,20 @@ import { WebSocketMessage, PdfShareData } from './types';
 
 const MAX_USERS = 10;
 
+/** 🚪 (2026-08-06 동시접속 진단) 공용 연습방 `mangoi-class` 만 정원을 따로 낮춘다.
+ *
+ *  왜 필요한가 — 이 방은 «방 번호를 모르는 사람이 전부 모이는» 유일한 방이다.
+ *  정원이 10이면 서로 모르는 사람 10명이 한 화면에서 만나고(2026-07-28 19:36 실제로 12명),
+ *  11번째부터는 room-full 로 튕긴다. 학생 경로는 index.html 에서 이미 막았지만,
+ *  옛 링크·저장된 방코드·직접 입력 등 남은 길이 있으므로 서버에서도 한 겹 더 막는다.
+ *
+ *  4명인 이유 — 교사 시연·연습(교사 2 + 참관 2)에는 충분하고,
+ *  P2P 그물망 구조상 1인당 업로드가 N-1개라 실사용 한계도 이 부근이다.
+ *  ⚠️ 예약 수업방(class-*)·회의방(meet-*)은 그대로 10명이다. 여기서 낮추면 단체수업이 막힌다.
+ */
+const SHARED_PRACTICE_ROOM = 'mangoi-class';
+const SHARED_ROOM_MAX_USERS = 4;
+
 interface VcAttachment {
   userId: string;
   roomId: string;
@@ -222,8 +236,11 @@ export class VideoCallRoom {
       }
     }
 
-    if (this.joinedUsers().length >= MAX_USERS) {
-      this.send(userId, { type: 'room-full', data: { roomId: this.roomId } });
+    // 🚪 정원 판정 — 공용 연습방만 별도(작은) 정원. 그 외는 기존과 동일하게 10명.
+    //    limit 을 응답에 실어 보낸다: 예전엔 클라이언트가 "정원(10명)" 을 하드코딩해 안내했다.
+    const roomLimit = (this.roomId === SHARED_PRACTICE_ROOM) ? SHARED_ROOM_MAX_USERS : MAX_USERS;
+    if (this.joinedUsers().length >= roomLimit) {
+      this.send(userId, { type: 'room-full', data: { roomId: this.roomId, limit: roomLimit, shared: this.roomId === SHARED_PRACTICE_ROOM } });
       try { ws.close(1000, 'room-full'); } catch {}
       return;
     }
