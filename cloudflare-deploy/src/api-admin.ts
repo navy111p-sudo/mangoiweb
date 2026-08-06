@@ -9301,6 +9301,20 @@ LIMIT $limit`;
     if (path.startsWith('/api/counseling/')) {
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_uid TEXT NOT NULL, date TEXT NOT NULL, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, status TEXT DEFAULT 'open', created_at INTEGER);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER, staff_uid TEXT, date TEXT, start_time TEXT, parent_name TEXT, parent_phone TEXT, student_uid TEXT, topic TEXT, status TEXT DEFAULT '예약', created_at INTEGER);`); } catch {}
+      /* 🪤 `CREATE TABLE IF NOT EXISTS` 는 **표가 이미 있으면 아무것도 안 한다** — 컬럼이 모자라도 그대로 둔다.
+       *    실제로 운영 DB 의 counseling_slots 에는 `status` 컬럼이 없어서 조회가 통째로 500 이었다
+       *    (라이브 확인: "D1_ERROR: no such column: status"). 그래서 빠진 칸을 멱등하게 보강한다.
+       *    ⚠️ 새 컬럼을 쓰는 코드를 올릴 때는 DDL 뿐 아니라 **ALTER 도 같이** 넣을 것. */
+      for (const ddl of [
+        `ALTER TABLE counseling_slots ADD COLUMN status TEXT DEFAULT 'open'`,
+        `ALTER TABLE counseling_slots ADD COLUMN duration_min INTEGER DEFAULT 30`,
+        `ALTER TABLE counseling_slots ADD COLUMN staff_uid TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN status TEXT DEFAULT '예약'`,
+        `ALTER TABLE counseling_bookings ADD COLUMN slot_id INTEGER`,
+        `ALTER TABLE counseling_bookings ADD COLUMN parent_phone TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN student_uid TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN topic TEXT`,
+      ]) { try { await env.DB.exec(ddl); } catch {} }   // 이미 있으면 에러 → 무시가 정상
     }
     if (method === 'GET' && path === '/api/counseling/available-slots') {
       const from = String(url.searchParams.get('from') || today()).trim();
