@@ -176,7 +176,7 @@ const badFn     = GC.filter(g => isObj(g) && g.fn     && !new RegExp('function\\
 check('⑳ 손자가 가리키는 앵커가 admin.html 에 실제로 있다' + (badAnchor.length ? ' (없음: ' + badAnchor.join(', ') + ')' : ''), badAnchor.length === 0);
 check('㉑ 손자가 가리키는 카드가 실제로 있다' + (badCard.length ? ' (없음: ' + badCard.join(', ') + ')' : ''), badCard.length === 0);
 check('㉒ 손자가 부르는 함수가 실제로 있다' + (badFn.length ? ' (없음: ' + badFn.join(', ') + ')' : ''), badFn.length === 0);
-check('㉓ 한/영 라벨이 둘 다 있다 (강사·매니저 다수 필리핀)', GC.every(g => g && g.ko && g.en));
+check('㉓ 한/영 라벨이 둘 다 있다 (강사·매니저 다수 필리핀)', GC.length > 0 && GC.every(g => isObj(g) && g.ko && g.en));
 check('㉔ ph125Jump 가 앵커/다른카드/함수 분기를 가진다',
   /desc\.anchor/.test(R25) && /desc\.card/.test(R25) && /desc\.fn/.test(R25));
 
