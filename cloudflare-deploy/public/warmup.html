@@ -144,6 +144,31 @@
   .replay-btn:hover{background:rgba(56,189,248,.26)}
   .replay-btn:active{transform:scale(.96)}
   .replay-btn.playing{background:rgba(56,189,248,.32);border-color:var(--accent)}
+
+  /* ══ 👁 자막 3단계 + 뜻 보기 (2026-08-07) — ai-friend.html 과 같은 규칙 ══
+     보이기 / 가리기(탭하면 그 말풍선만 보임) / 완전 끄기.
+     ⚠️ opacity+transition 으로 감추지 않는다 — 백그라운드 탭에서 transition 이 멈추면 영영 안 보인다.
+     ⚠️ 가리는 건 AI 말풍선뿐. 내가 한 말(.msg.me)은 늘 보인다. */
+  .wu-text{display:inline}
+  .sub-veil{display:none;color:var(--muted,#a5b4cf);font-size:16px;font-weight:700;cursor:pointer}
+  #log[data-sub="blur"] .msg.ai:not(.sub-shown) .wu-text{filter:blur(6px);cursor:pointer;user-select:none}
+  #log[data-sub="off"] .msg.ai:not(.sub-shown) .wu-text{display:none}
+  #log[data-sub="off"] .msg.ai:not(.sub-shown) .sub-veil{display:inline}
+  .mean-btn{display:inline-flex;align-items:center;gap:4px;margin-top:10px;margin-left:8px;
+    background:rgba(167,139,250,.16);border:1px solid rgba(167,139,250,.45);color:#c4b5fd;
+    border-radius:999px;padding:6px 14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+  .mean-btn:hover{background:rgba(167,139,250,.28)}
+  .mean-btn.on{background:#a78bfa;color:#1e1b4b}
+  .ko-chip{margin-top:10px;padding:9px 13px;border-radius:12px;font-size:16px;line-height:1.5;
+    background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.35);color:#ddd6fe;white-space:normal}
+  .ko-chip.err{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.35);color:#cbd5e1}
+  /* 👁 자막 고르기 (⋮ 메뉴 안) — 목소리 버튼과 같은 모양 */
+  .sub-btns{display:flex;gap:6px;flex-wrap:wrap}
+  .sub-btns button{flex:1;min-width:78px;padding:8px 10px;border-radius:10px;cursor:pointer;
+    background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--fg,#e2e8f0);
+    font-size:14px;font-weight:700;font-family:inherit}
+  .sub-btns button.on{background:rgba(167,139,250,.22);border-color:rgba(167,139,250,.6);color:#ddd6fe}
+
   /* 🐢🐇 듣기 속도 (⋮ 메뉴 안) */
   .rate-side{white-space:nowrap;font-weight:700;font-size:17px}
   .rate-row input[type=range]{flex:1;min-width:60px;accent-color:var(--accent);height:26px;cursor:pointer}
@@ -283,6 +308,17 @@
             <button type="button" data-v="mix" onclick="setVoiceMode('mix',true)">🔀 번갈아</button>
           </div>
         </div>
+
+        <!-- 👁 자막: 듣기 훈련용. 「가리기」는 탭하면 그 말풍선만 다시 보인다 -->
+        <div class="menu-group">
+          <div class="menu-label"><span>👁 자막</span><span class="ls-now" id="subVal">보이기</span></div>
+          <div class="sub-btns" id="subBtns" role="radiogroup" aria-label="자막 표시 선택">
+            <button type="button" data-s="on" onclick="setSubMode('on',true)">보이기</button>
+            <button type="button" data-s="blur" onclick="setSubMode('blur',true)">가리기</button>
+            <button type="button" data-s="off" onclick="setSubMode('off',true)">완전 끄기</button>
+          </div>
+          <div class="ls-ends"><span>🌱 읽으며</span><span>귀로만 👂</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -413,7 +449,12 @@ function addMsg(text, who){
   var whoHtml = who==='ai'
       ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="Mango">Mango</span>'
       : who==='me' ? '<span class="who"><img class="who-ava me" src="/img/me-avatar.svg" alt="나">나</span>' : '';
-  d.innerHTML = whoHtml + renderMsg(text);
+  /* 👁 AI 본문은 .wu-text 로 감싼다 — 자막 단계가 이 span 하나만 건드리고, 이름표·버튼은 늘 남는다.
+     .sub-veil 은 「완전 끄기」일 때 그 자리에 뜨는 안내(탭하면 열린다). */
+  d.innerHTML = whoHtml + (who==='ai'
+    ? '<span class="wu-text">' + renderMsg(text) + '</span>'
+      + '<span class="sub-veil">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
+    : renderMsg(text));
   if(who==='ai'){
     // 각 AI 메시지에 🔊 다시 듣기 버튼
     var rb = document.createElement('button');
@@ -422,6 +463,19 @@ function addMsg(text, who){
     rb.onclick = function(){ speak(text, rb); };
     d.appendChild(document.createElement('br'));
     d.appendChild(rb);
+    // 📖 뜻 보기 — 누른 문장만 그때 번역한다
+    var mb = document.createElement('button');
+    mb.className = 'mean-btn'; mb.type = 'button';
+    mb.textContent = '뜻';
+    mb.title = '한국어 뜻 보기';
+    mb.onclick = function(){ toggleMeaning(text, mb, d); };
+    d.appendChild(mb);
+    // 가려진 말풍선을 탭하면 그 하나만 열린다
+    d.addEventListener('click', function(e){
+      if(_subMode === 'on') return;
+      if(e.target.closest && (e.target.closest('.replay-btn') || e.target.closest('.mean-btn') || e.target.closest('.ko-chip'))) return;
+      d.classList.toggle('sub-shown');
+    });
   }
   log.appendChild(d); log.scrollTop = log.scrollHeight;
   if(who==='ai'){ speak(text); }   // AI 답변/첫 인사 자동 낭독(원어민 음성)
@@ -476,6 +530,67 @@ function setVoiceMode(m, announce){
         : m==='female' ? "Hi! I'm Emma. Nice to meet you!"
         : "Cool! Now we'll take turns talking to you!");
   }
+}
+
+/* ══ 👁 자막 3단계 (2026-08-07) ══
+   on   = 늘 보임(기본)
+   blur = 흐리게 — 탭하면 그 말풍선만 보인다. 듣기 훈련의 실제 자리.
+   off  = 자리에 안내만. 역시 탭하면 보인다.
+   ⚠️ 어느 단계든 「다시 보는 길」을 남긴다. 확인할 길이 없으면 학생은 포기하고,
+      한 번 포기하면 다음부터 자막을 영영 켜 둔다. */
+var SUB_LABEL = { on:'보이기', blur:'가리기 (탭하면 보임)', off:'완전 끄기' };
+var _subMode = (function(){
+  try{ var v = localStorage.getItem('mangoi_warmup_sub'); return (v==='on'||v==='blur'||v==='off') ? v : 'on'; }catch(e){ return 'on'; }
+})();
+function setSubMode(m, announce){
+  if(!SUB_LABEL[m]) m = 'on';
+  _subMode = m;
+  try{ localStorage.setItem('mangoi_warmup_sub', m); }catch(e){}
+  var box = document.getElementById('subBtns');
+  if(box){ var bs = box.querySelectorAll('button');
+    for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-s')===m);
+      bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
+  var v = document.getElementById('subVal'); if(v) v.textContent = SUB_LABEL[m];
+  var lg = document.getElementById('log'); if(lg) lg.dataset.sub = m;
+  // 단계를 바꾸면 "이건 봤다" 표시를 지운다 — 안 지우면 가리기로 바꿔도 이전 것들이 계속 보인다
+  if(m !== 'on'){ var shown = document.querySelectorAll('#log .msg.ai.sub-shown');
+    for(var j=0;j<shown.length;j++) shown[j].classList.remove('sub-shown'); }
+}
+
+/* ══ 뜻 보기 — 누른 문장만, 그때 번역 ══
+   미리 다 번역하면 보지도 않을 문장까지 비용이 든다. 서버(/api/translate)가 KV 에 캐시하므로
+   같은 문장은 두 번째부터 공짜고, 화면에서도 _koCache 로 두 번 부르지 않는다. */
+var _koCache = {};
+function fetchMeaning(text){
+  var key = String(text||'').trim();
+  if(!key) return Promise.resolve('');
+  if(_koCache[key] != null) return Promise.resolve(_koCache[key]);
+  return fetch('/api/translate', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ texts:[key], target:'ko' })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    var out = (d && d.ok && d.map && d.map[key]) ? String(d.map[key]) : '';
+    if(out) _koCache[key] = out;
+    return out;
+  });
+}
+function toggleMeaning(text, btn, bubble){
+  var existing = bubble.querySelector('.ko-chip');
+  if(existing){ existing.remove(); btn.classList.remove('on'); return; }
+  btn.classList.add('on');
+  var chip = document.createElement('div');
+  chip.className = 'ko-chip';
+  chip.textContent = '뜻을 가져오는 중…';
+  bubble.appendChild(chip);
+  // 뜻을 보려는 순간엔 그 말풍선을 열어 준다 — 가려진 채면 뜻 카드도 안 보인다
+  bubble.classList.add('sub-shown');
+  fetchMeaning(text).then(function(ko){
+    if(ko){ chip.textContent = ko; }
+    else { chip.className = 'ko-chip err'; chip.textContent = '뜻을 가져오지 못했어요. 잠시 후 다시 눌러 주세요.'; }
+    var lg = document.getElementById('log'); if(lg) lg.scrollTop = lg.scrollHeight;
+  }).catch(function(){
+    chip.className = 'ko-chip err'; chip.textContent = '뜻을 가져오지 못했어요. 잠시 후 다시 눌러 주세요.';
+  });
 }
 
 /* 🐢🐇 듣기 속도: 1(천천히)~5(빠르게) → speechSynthesis rate 값 매핑 */
@@ -578,6 +693,7 @@ function pickVoice(){
 }
 try{ if(window.speechSynthesis){ pickVoice(); window.speechSynthesis.onvoiceschanged=pickVoice; } }catch(e){}
 setVoiceMode(_voiceMode);   // 저장된 목소리 선택으로 버튼/표시 초기화 (announce 없음)
+setSubMode(_subMode);       // 👁 저장된 자막 단계로 버튼/#log 초기화
 
 /* 클라우드 원어민 TTS(오디오 파일) 우선 재생 — 안드로이드 앱(WebView)처럼
    speechSynthesis 가 없거나 무음인 기기에서도 소리가 나게 한다.
