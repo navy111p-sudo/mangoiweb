@@ -8710,6 +8710,16 @@ window.mgIsSlowNet = function(){
                     <!-- fix (2026-06-02) — 휴대폰에서 교재 다음/이전을 확실히 넘기는 큰 화살표 -->
                     <button type="button" class="pdf-nav-arrow pdf-nav-prev" onclick="pdfPrevPage()" aria-label="이전 교재/페이지">‹</button>
                     <button type="button" class="pdf-nav-arrow pdf-nav-next" onclick="pdfNextPage()" aria-label="다음 교재/페이지">›</button>
+                    <!-- 🥭 (2026-08-06 사장님) 수업 첫 화면 = 강사가 올린 교재. 아직 없으면 이 대기 카드만 보인다.
+                         예전엔 '학생 배정 교재'를 대신 띄웠는데, 그게 강사가 보던 교재와 달라
+                         "나갔다 들어오니 교재가 다른 게 보인다"의 원인이었다. 추측해서 띄우지 않는다.
+                         ⚠️ opacity:0 으로 시작하지 않는다 — 백그라운드 탭에서 영영 안 보이는 사고 방지(CLAUDE.md). -->
+                    <div id="vc-wait-card" style="display:none;">
+                        <img id="vc-wait-mango" src="/img/mango-char.png" alt="Mr. Mango" />
+                        <div class="vwc-ko" data-ko="잠시만 기다려 주세요" data-en="Please wait">잠시만 기다려 주세요</div>
+                        <div class="vwc-en">Please wait.</div>
+                        <div class="vwc-sub" id="vc-wait-sub" data-ko="선생님이 교재를 여는 중이에요 · Your teacher is opening the textbook" data-en="Your teacher is opening the textbook · 선생님이 교재를 여는 중이에요">선생님이 교재를 여는 중이에요 · Your teacher is opening the textbook</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -12815,7 +12825,10 @@ function vcHandleMessage(msg) {
             pdfClearRemote();
             // 🥭 공유 종료 → 세로폰은 다시 '선생님 크게'로 복귀
             window.__vcPdfShared = false;
-            try { window._vcShownPdfUrl = ''; window._vcShownPdfKey = ''; } catch(_){}
+            // 🥭 (2026-08-06) 공유가 끊기면 화면엔 교재가 없다 → 대기 카드가 다시 나와야 한다.
+            //   _vcCurrentPdfUrl 은 '지금 보고 있는 교재'의 유일한 흔적이라 여기서 같이 비운다.
+            try { window._vcShownPdfUrl = ''; window._vcShownPdfKey = ''; window._vcCurrentPdfUrl = ''; } catch(_){}
+            try { window.vcWaitCardSync && window.vcWaitCardSync(); } catch(_){}
             try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
             break;
 
@@ -31313,6 +31326,36 @@ body.vc-in-call #vc-main-row:not(.video-pip):not(.video-facepip):not(.video-solo
   margin-left: auto !important;
   opacity: .96;
 }
+
+/* 🥭 (2026-08-06) 교재 대기 카드 — 강사가 교재를 올리기 전 첫 화면.
+   ・교재 영역(.pdf-main-row)을 덮되 pointer-events:none 이라 아래 버튼(화살표 등)은 그대로 눌린다.
+   ・처음부터 opacity:1 이다. 백그라운드 탭에서 transition 이 멈춰도 반드시 보인다(CLAUDE.md 함정). */
+#vc-wait-card{
+  position:absolute; inset:0; z-index:8;
+  display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+  pointer-events:none; text-align:center; padding:16px;
+  background:linear-gradient(180deg,#0b1220 0%,#111c31 100%);
+  border-radius:10px;
+}
+body.vc-theme-light #vc-wait-card{ background:linear-gradient(180deg,#fdfaf3 0%,#f3f0e6 100%); }
+#vc-wait-mango{
+  width:min(190px,34vw); height:auto; display:block;
+  filter:drop-shadow(0 8px 18px rgba(0,0,0,.35));
+  animation: vwcBob 2.4s ease-in-out infinite;
+}
+@keyframes vwcBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
+@media (prefers-reduced-motion: reduce){ #vc-wait-mango{ animation:none; } }
+#vc-wait-card .vwc-ko{ font-size:clamp(19px,3.2vw,30px); font-weight:800; color:#fbbf24; letter-spacing:-.5px; }
+#vc-wait-card .vwc-en{ font-size:clamp(15px,2.4vw,22px); font-weight:700; color:#e2e8f0; }
+#vc-wait-card .vwc-sub{ font-size:clamp(11.5px,1.6vw,14px); color:#94a3b8; max-width:32em; line-height:1.5; }
+body.vc-theme-light #vc-wait-card .vwc-ko{ color:#b45309; }
+body.vc-theme-light #vc-wait-card .vwc-en{ color:#1f2937; }
+body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
+/* 가로 휴대폰: 세로 여백이 없다 → 캐릭터를 줄이고 한 줄씩 붙인다 */
+@media (max-height:520px){
+  #vc-wait-mango{ width:min(110px,20vw); }
+  #vc-wait-card{ gap:6px; }
+}
 </style>
 <script>
 /* ★ (2026-07-14) 수업 첫 화면 기본 콘텐츠 = 당일 교재(교재/PDF 탭).
@@ -31391,40 +31434,88 @@ window.vcAutoLoadStudentTextbook = async function(){
   } catch(e){ try { console.warn('[vcAutoLoadStudentTextbook]', e); } catch(_){}; return false; }
 };
 
+/* ★★ (2026-08-06 사장님 지시) 수업 첫 화면 규칙이 바뀌었다.
+   ─────────────────────────────────────────────────────────────────────────────
+   [신고] "나갔다 들어오니까 교재가 다른 게 보여."
+   [원인] 두 겹이었다.
+     ① 서버(DO)가 «방이 0명이 되면» 공유 교재 상태를 지웠다. 방이 비는 가장 흔한
+        이유는 수업 종료가 아니라 새로고침·순단이다 → 재입장하면 방에 교재가 없다.
+     ② 그 빈자리를 클라이언트가 «학생 배정 교재»(students_erp.textbook, 없으면
+        'Mangoi Books')로 채우고 방에 공유까지 했다. 강사 계정으로 입장하면 배정이
+        없으니 항상 'Mangoi Books' 를 띄워 강사가 보던 교재를 덮어썼다.
+        = 들어올 때마다 '다른 교재'.
+   [지시] 수업에 들어가면 «강사가 올린 교재»만 보인다. 없으면 아무 것도 추측해서
+          띄우지 말고 미스터망고와 함께 "잠시만 기다려 주세요 / Please wait" 만.
+   [처리] ① 서버: 방이 비어도 공유 상태 보존(3시간) → 재입장 = 그 교재 그 페이지.
+          ② 여기: 배정 교재 자동 로드·자동 공유를 «하지 않는다». 대신 대기 카드.
+   ※ window._vcLoadTextbookByName / vcAutoLoadStudentTextbook 은 지우지 않았다.
+     라이브러리·콘솔에서 수동으로 부르는 용도로만 남긴다(자동 호출 없음). */
 (function(){
-  var _did = false, _waited = false;
-  function defaultToTextbook(){
-    if (_did) return;
-    // 관찰자(관리자 수신 전용) 입장은 자동 로드/공유 금지 — 진행 중 수업 화면을 건드리면 안 됨
-    if (window._vcObserverMode) { _did = true; return; }
-    // 이미 방에 '실제 공유된' 교재/동영상이 있으면(교사가 의도적으로 튼 콘텐츠) 그대로 존중
-    //   _vcShownPdfKey 는 pdf-sync 수신 즉시 기록되므로 함께 확인 (로드 완료 전 레이스 방지)
-    if (window._vcShownPdfKey || window._vcShownPdfUrl || window._vcShownVideoUrl) { _did = true; return; }
-    // ★ (2026-07-20) 진행 중 수업에 합류(다른 참가자 존재)면 서버가 재전송하는 현재 공유 상태를
-    //   잠깐 기다렸다가, 그래도 없을 때만 내 배정 교재를 로드 (교사 화면을 덮어쓰지 않게)
-    if (!_waited && (window._vcJoinUserCount || 1) > 1) {
-      _waited = true;
-      setTimeout(defaultToTextbook, 1600);
-      return;
-    }
-    _did = true;
-    // 입장 첫 화면: 학생 배정 교재 자동 로드 → 실패 시 최소한 빈 교재 탭으로
-    if (typeof window.vcAutoLoadStudentTextbook === 'function') {
-      window.vcAutoLoadStudentTextbook().then(function(ok){
-        if (!ok) { try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){} }
-      }).catch(function(){ try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){} });
-    } else {
-      try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){}
-    }
+  var _did = false, _el = null, _timer = null;
+
+  function card(){ return _el || (_el = document.getElementById('vc-wait-card')); }
+
+  // 교재/영상이 실제로 화면에 있나? — pdfLoad 는 어떤 경로(공유·라이브러리·로컬 업로드)로
+  //   열려도 _vcCurrentPdfUrl 을 남긴다. 공유 수신 직후(로드 완료 전)는 _vcShownPdfKey 로 잡는다.
+  function hasContent(){
+    try {
+      if (window._vcCurrentPdfUrl) return true;
+      if (window._vcShownPdfKey || window._vcShownPdfUrl) return true;
+      if (window._vcShownVideoUrl) return true;
+    } catch(e){}
+    return false;
   }
+
+  window.vcWaitCardSync = function(){
+    try {
+      var c = card(); if (!c) return;
+      var inCall = document.body.classList.contains('vc-in-call');
+      var pdfTab = document.getElementById('tab-pdf');
+      var onPdf  = !!(pdfTab && pdfTab.classList.contains('active'));
+      var show   = inCall && onPdf && !hasContent() && !window._vcObserverMode;
+      c.style.display = show ? 'flex' : 'none';
+      if (show) {
+        // 강사·관리자에겐 '기다리라'가 아니라 '고르라'가 맞는 안내다.
+        var sub = document.getElementById('vc-wait-sub');
+        var isT = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+        var ko = isT ? '📚 라이브러리에서 교재를 선택하세요 · Pick a textbook from the Library'
+                     : '선생님이 교재를 여는 중이에요 · Your teacher is opening the textbook';
+        var en = isT ? '📚 Pick a textbook from the Library · 라이브러리에서 교재를 선택하세요'
+                     : 'Your teacher is opening the textbook · 선생님이 교재를 여는 중이에요';
+        if (sub && sub.getAttribute('data-ko') !== ko) {
+          sub.setAttribute('data-ko', ko); sub.setAttribute('data-en', en);
+          // 공통 언어 키는 mangoi_lang (mango_lang 은 구버전) — CLAUDE.md 함정표
+          var lg = ''; try { lg = String(localStorage.getItem('mangoi_lang') || '').toLowerCase(); } catch(e2){}
+          sub.textContent = (lg.indexOf('en') === 0) ? en : ko;
+        }
+      }
+    } catch(e){}
+  };
+
+  function onEnterCall(){
+    if (_did) return;
+    _did = true;
+    // 지난 수업의 잔상으로 대기 카드가 안 뜨는 일이 없게, 표시 상태를 입장 시 한 번 비운다.
+    //   (vcStartPdfPoll 이 _vcShownPdf* 를 비우는 것과 같은 이유 — _vcCurrentPdfUrl 은 그동안 안 비웠다)
+    try { window._vcCurrentPdfUrl = ''; window._vcCurrentPdfKind = ''; } catch(e){}
+    // 첫 화면은 교재 탭. 교재는 강사 공유(pdf-sync / room-media 폴링)로만 채워진다.
+    try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){}
+    window.vcWaitCardSync();
+  }
+
   try {
     new MutationObserver(function(){
-      // ★ (2026-07-20) 1200→350ms — 사장님 지시 '입장하면 바로 첫 화면 = 해당 교재'.
-      //   잔존 공유 상태 하이재킹은 서버(DO) 첫 입장 정리로 해결됐으므로 길게 기다릴 이유 없음.
-      if (document.body.classList.contains('vc-in-call')) setTimeout(defaultToTextbook, 350);
-      else { _did = false; _waited = false; }   // 통화 종료 → 다음 수업 위해 리셋
+      if (document.body.classList.contains('vc-in-call')) setTimeout(onEnterCall, 350);
+      else {
+        _did = false;                                   // 통화 종료 → 다음 수업 위해 리셋
+        try { var c = card(); if (c) c.style.display = 'none'; } catch(e){}
+      }
     }).observe(document.body, { attributes:true, attributeFilter:['class'] });
   } catch(e){}
+
+  // 교재가 도착하면(공유 수신·라이브러리 선택·업로드) 카드는 즉시 사라져야 한다.
+  //   경로가 여러 갈래(WS·폴링·로컬)라 각 지점에 훅을 박는 대신 가벼운 감시 한 줄로 통일.
+  try { _timer = setInterval(function(){ window.vcWaitCardSync(); }, 600); } catch(e){}
 })();
 
 /* ★ (2026-07-14 사장님) 모바일 가로 입장 기본 = 1/2(half).

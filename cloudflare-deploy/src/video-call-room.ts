@@ -43,6 +43,21 @@ export class VideoCallRoom {
   private pdfState: PdfShareData | null = null;
   // 🎬 동영상 공유 상태 — pdfState 와 동일하게 저장해야 늦게 입장한 학생도 영상을 받음
   private videoState: { url: string; type?: string } | null = null;
+  /** 📚 (2026-08-06) 공유 교재/영상이 마지막으로 갱신된 시각(ms).
+   *
+   *  왜 필요한가 — 사장님 신고 "나갔다 들어오니 교재가 다른 게 보인다".
+   *  원인은 캐시가 아니라 «방이 잠깐 비면 공유 상태를 지워버린 것»이었다.
+   *  학생이 새로고침하거나 강사가 순단으로 빠지면 방이 0명이 되고, 그 순간
+   *  pdfState 가 삭제된다 → 재입장한 화면엔 아무 것도 없고, 클라이언트가
+   *  «학생 배정 교재»(강사가 보던 것과 다른 책)를 대신 띄웠다.
+   *
+   *  그렇다고 예전처럼 무기한 보존하면 며칠 전 교재가 다음 수업 첫 화면을
+   *  차지하는 원래 문제로 되돌아간다. 그래서 «시각»을 함께 남기고,
+   *  수업 한 타임(=SHARE_KEEP_MS)이 지난 상태만 낡은 것으로 보고 버린다.
+   */
+  private mediaAt: number = 0;
+  /** 공유 상태 보존 한도 — 이 시간이 지난 뒤의 첫 입장은 «새 수업»으로 보고 화면을 비운다. */
+  private static readonly SHARE_KEEP_MS = 3 * 60 * 60 * 1000;   // 3시간
   // 🔒 강사의 수업 통제 잠금 3종(배경 변경/전체 음소거/집중 모드)
   //   — 저장해야 늦게 입장/재접속한 학생에게도 적용됨. 방이 비면 자동 해제.
   private lockState: { bgLock: boolean; micLock: boolean; focusLock: boolean } = { bgLock: false, micLock: false, focusLock: false };
@@ -62,6 +77,7 @@ export class VideoCallRoom {
     this.state.blockConcurrencyWhile(async () => {
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
       this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
+      this.mediaAt = (await this.state.storage.get<number>('mediaAt')) || 0;
       for (const k of ['bgLock', 'micLock', 'focusLock'] as const) {
         this.lockState[k] = (await this.state.storage.get<boolean>(k)) || false;
       }
@@ -251,16 +267,19 @@ export class VideoCallRoom {
 
     const userCount = this.joinedUsers().length;
 
-    // 🧹 (2026-07-20) 첫 입장자(방에 나 혼자)에게 지난 수업의 잔존 공유 상태를 재전송하지 않는다.
-    //   방이 빈 뒤에도 pdfState/videoState 가 storage 에 남아, 다음 수업 입장 첫 화면을 며칠 전
-    //   교재/유튜브가 차지하고 '학생 배정 교재 자동 로드'(_vcShownVideoUrl 존중 로직)까지 막았음.
-    //   사장님 지시: 수업 입장 첫 화면 = 해당 학생의 배정 교재. 진행 중 수업에 늦게 합류한
-    //   참가자(기존 참가자 존재)에게는 지금처럼 현재 공유 상태를 그대로 재전송한다.
-    if (userCount <= 1 && (this.pdfState || this.videoState)) {
+    // 🧹 (2026-07-20 → 2026-08-06 수정) 첫 입장자에게 «낡은» 공유 상태만 버린다.
+    //   예전: 방에 나 혼자면(userCount<=1) 무조건 삭제 → 새로고침·순단 재입장에서도 교재가 사라져
+    //         "나갔다 들어오니 교재가 다른 게 보인다"(사장님 신고)의 직접 원인이 됐다.
+    //   지금: 마지막 공유로부터 SHARE_KEEP_MS(3시간)가 지난 것만 «지난 수업»으로 보고 버린다.
+    //         그 안이면 그대로 두고 아래에서 pdf-sync 로 재전송 → 강사가 보던 그 교재·그 페이지 복원.
+    if (userCount <= 1 && (this.pdfState || this.videoState) &&
+        (!this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)) {
       this.pdfState = null;
       this.videoState = null;
+      this.mediaAt = 0;
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
+      void this.state.storage.delete('mediaAt');
       console.log(`[VideoChat] Stale shared media cleared on first join in room ${this.roomId}`);
     }
     // 🔒 지난 수업의 통제 잠금(배경/음소거/집중)도 새 수업 첫 입장 시엔 해제 상태로 시작
@@ -307,15 +326,13 @@ export class VideoCallRoom {
     if (username === null || username === undefined) return; // 입장한 적 없음
     const userCount = this.joinedUsers(exclude).length;
 
-    // 🧹 (2026-07-20) 마지막 참가자까지 나가 방이 비면 공유 상태(pdfState/videoState)도 함께 정리.
-    //   다음 수업이 지난 수업의 교재/동영상으로 시작하지 않게 함(첫 화면 = 배정 교재 보장의 짝 수정).
-    //   'dropped'(순단)로 비어도 지우지만, 재입장 시 클라이언트가 배정 교재를 자동 로드하므로 무해.
+    // 📚 (2026-08-06) 방이 비어도 공유 교재/영상은 «지우지 않는다».
+    //   예전엔 여기서 지웠다. 그런데 방이 비는 가장 흔한 경우는 수업 종료가 아니라
+    //   새로고침·순단(둘 다 잠깐 0명이 된다)이고, 그때마다 강사가 띄워둔 교재가 사라져
+    //   재입장 화면이 «다른 교재»가 됐다.
+    //   낡은 상태 정리는 다음 입장 시점에 시각(mediaAt)으로 판단한다 — handleJoinRoom 참조.
     if (userCount === 0 && (this.pdfState || this.videoState)) {
-      this.pdfState = null;
-      this.videoState = null;
-      void this.state.storage.delete('pdfState');
-      void this.state.storage.delete('videoState');
-      console.log(`[VideoChat] Shared media cleared — room ${this.roomId} is now empty`);
+      console.log(`[VideoChat] Room ${this.roomId} empty — shared media kept for re-entry (at=${this.mediaAt})`);
     }
     // 🔒 방이 비면 통제 잠금도 전부 해제 — 다음 수업이 잠긴 채로 시작하지 않게
     if (userCount === 0) this.clearAllLocks();
@@ -402,7 +419,9 @@ export class VideoCallRoom {
     const { url, currentPage, kind, name } = data || {};
     if (!url) return;
     this.pdfState = { url, currentPage: currentPage || 1, kind: kind || '', name: name || '' };
+    this.mediaAt = Date.now();
     await this.state.storage.put('pdfState', this.pdfState);
+    await this.state.storage.put('mediaAt', this.mediaAt);
     this.broadcast(userId, { type: 'pdf-sync', data: this.pdfState });
     console.log(`[VideoChat] PDF shared in room ${this.roomId}: ${url}`);
   }
@@ -419,7 +438,10 @@ export class VideoCallRoom {
     if (typeof pageNum !== 'number' || isNaN(pageNum)) return;
     if (this.pdfState) {
       this.pdfState.currentPage = pageNum;
+      // 페이지를 넘기는 것도 «수업이 진행 중»이라는 증거 → 보존 시계를 다시 감는다.
+      this.mediaAt = Date.now();
       await this.state.storage.put('pdfState', this.pdfState);
+      await this.state.storage.put('mediaAt', this.mediaAt);
     }
     this.broadcast(userId, { type: 'pdf-page-change', data: { pageNum, currentPage: pageNum } });
   }
@@ -439,7 +461,9 @@ export class VideoCallRoom {
     // blob: URL 은 공유한 기기에서만 열 수 있으므로 상태로 저장하지 않음 (중계만)
     if (!/^blob:/i.test(url)) {
       this.videoState = { url, type: type || '' };
+      this.mediaAt = Date.now();
       await this.state.storage.put('videoState', this.videoState);
+      await this.state.storage.put('mediaAt', this.mediaAt);
     }
     this.broadcast(userId, { type: 'video-share', data });
     console.log(`[VideoChat] Video shared in room ${this.roomId}: ${url}`);
