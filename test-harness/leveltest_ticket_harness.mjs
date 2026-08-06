@@ -209,6 +209,27 @@ check('히어로 CTA «위» 에 온다 (가장 먼저 보여야 한다)',
   idxHtml.indexOf('id="hero-lt"') < idxHtml.indexOf('<div id="hero-guest">'));
 check('신청한 적 없으면 안 보인다 (기본 hidden — 화면을 늘리지 않는다)',
   /<a id="hero-lt" hidden/.test(idxHtml));
+/* 🔴 (2026-08-07 사장님 제보) hidden 을 «적어두는 것»만으로는 안 숨는다.
+   `#hero-lt{display:block}` 은 저작자 스타일이라 브라우저 기본 `[hidden]{display:none}` 을 이긴다.
+   그래서 신청한 적 없는 사람에게도 «제목만 있고 날짜·상태는 빈» 카드가 보였고,
+   href 가 아직 '#' 이라 눌러도 아무 일도 일어나지 않았다. CSS 로 hidden 을 되살려야 한다. */
+check('⛔ hidden 이 CSS 에 지지 않는다 (display:block 이 [hidden] 을 덮는 함정)',
+  /#hero-lt\[hidden\]\{display:none!important\}/.test(idxHtml));
+/* 같은 함정을 쓰는 다른 요소가 또 있는지 훑는다 — 이번이 두 번째다
+   (#mango-intro-overlay 에서 한 번 밟고 규칙을 넣어뒀는데, 새 카드에서 그대로 반복됐다). */
+{
+  const trapped = [];
+  const idRe = /<[a-z]+ id="([a-zA-Z0-9_-]+)"[^>]*\shidden[\s>]/g;
+  let m;
+  while ((m = idRe.exec(idxHtml)) !== null) {
+    const id = m[1];
+    const hasDisplay = new RegExp('#' + id + '\\{[^}]*display:(?!none)', 'i').test(idxHtml);
+    const hasGuard = new RegExp('#' + id + '\\[hidden\\]\\s*\\{[^}]*display:\\s*none', 'i').test(idxHtml);
+    if (hasDisplay && !hasGuard) trapped.push(id);
+  }
+  check(`⛔ hidden 인데 CSS display 가 그걸 덮는 요소가 없다${trapped.length ? ' [' + trapped.join(', ') + ']' : ''}`,
+    trapped.length === 0);
+}
 check('저장값이 없으면 요청조차 하지 않는다 (홈 첫 화면 비용 0)',
   /if \(!\/\^https\?:\\\/\\\/\/\.test\(url\)\) return;/.test(idxHtml));
 check('입장 시간이 되면 초록으로 «확» 바뀐다',

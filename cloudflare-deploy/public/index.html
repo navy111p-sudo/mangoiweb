@@ -8202,6 +8202,12 @@ window.mgIsSlowNet = function(){
       .ai-quick .ai-quick-pay { display: none !important; }
       /* 🎟️ 내 레벨테스트 카드 — 히어로 CTA 와 같은 폭. 입장 시간이 되면 초록으로 «확» 바뀐다.
          ⚠️ hover 로 크기·위치를 바꾸지 않는다(«정신없다»고 제거한 규칙) — 색만 진해진다. */
+      /* 🔴 (2026-08-07) `hidden` 을 반드시 되살려 둘 것.
+         `display:block` 은 저작자 스타일이라 브라우저 기본 `[hidden]{display:none}` 을 **이긴다.**
+         그래서 신청한 적 없는 사람에게도 카드가 «제목만 있고 날짜·상태는 빈» 채로 보였고,
+         href 는 아직 '#' 이라 **눌러도 아무 일도 안 일어났다**(사장님 제보).
+         같은 함정을 #mango-intro-overlay 에서 이미 한 번 밟아 위쪽에 같은 규칙이 있다. */
+      #hero-lt[hidden]{display:none!important}
       #hero-lt{display:block;max-width:720px;margin:20px auto 0;padding:14px 18px;border-radius:16px;
         text-decoration:none;text-align:center;
         background:linear-gradient(135deg,rgba(251,191,36,.16),rgba(245,158,11,.10));
@@ -28852,7 +28858,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260807050612 -->
+<!-- BUILD:20260807052617 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
