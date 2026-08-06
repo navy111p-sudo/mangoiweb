@@ -3963,6 +3963,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
 
       const mapType = (ct: string): string => {
         const c = String(ct || '').toLowerCase();
+        // 🎯 레벨테스트는 정규수업과 성격이 달라 캘린더에서 한눈에 구분돼야 한다.
+        //    예전엔 아래 기본값에 걸려 평범한 '1:1' 로 그려졌다 — 있어도 못 알아봤다.
+        if (c === 'level_test' || c === 'leveltest' || c === '레벨테스트') return 'leveltest';
         if (c === 'group' || c === '1:2' || c === 'g' || c === '그룹') return 'group';
         if (c === 'temp' || c === 'substitute' || c === '대체') return 'temp';
         if (c === 'blocked' || c === 'off' || c === '휴무') return 'blocked';
