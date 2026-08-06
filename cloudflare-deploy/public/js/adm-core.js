@@ -10225,6 +10225,7 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'card-supervisor',  name_ko: '수업 감독·품질 모니터링',        name_en: 'Class Supervision / QA',    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-report-forms',name_ko: '리포트 양식 관리',              name_en: 'Report Form Templates',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'card-class-ratings', name_ko: '⭐ 학생 수업 평가 (별점 리포트) 🆕', name_en: 'Student Class Ratings', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', franchise:'👁️', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
+      { id: 'card-cafe24-lists', name_ko: '🗂 카페24 명부(직원·교재) 🆕', name_en: 'Cafe24 Records', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', franchise:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-teacher-link', name_ko: '🔗 강사 계정 연결 🆕', name_en: 'Link Teacher Accounts', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'❌', franchise:'❌', branch:'❌', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-schedule-requests', name_ko: '📅 수업 연기·변경 요청 🆕', name_en: 'Postpone/Reschedule Requests', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', franchise:'👁️', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },
       { id: 'card-class-audit', name_ko: '📜 수업 변경 이력 🆕', name_en: 'Class Change History', def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'👁️', franchise:'👁️', branch:'👁️', agency:'❌', parent:'❌', student:'❌' } },

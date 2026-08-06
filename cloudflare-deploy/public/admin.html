@@ -7514,6 +7514,27 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </div>
 
 <!-- 📥 Phase 6: 데이터 내보내기 (CSV) -->
+<!-- 🗂 카페24 명부 — 직원·교재 (옮겨왔는데 볼 화면이 없던 둘) -->
+<details class="table-card menu-card" id="card-cafe24-lists">
+  <summary><span data-ko="🗂 카페24 명부 (직원·교재)" data-en="🗂 Cafe24 Records (Staff & Textbooks)">🗂 카페24 명부 (직원·교재)</span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);border:1px solid #7c3aed;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#4c1d95;line-height:1.7"
+         data-ko="💡 카페24에서 넘어온 직원·교재 명부입니다. 강사·학생 명부는 화면이 있었지만 이 둘은 조회 창구만 있고 볼 곳이 없었습니다. 보기 전용이며 원천은 매일 밤 자동 동기화입니다."
+         data-en="💡 Staff and textbook records imported from Cafe24. Teacher and student lists already had screens; these two had an API but no view. Read-only — the source is the nightly sync.">
+      💡 카페24에서 넘어온 <b>직원·교재 명부</b>입니다. 강사·학생 명부는 화면이 있었지만 이 둘은 볼 곳이 없었습니다. <b>보기 전용</b>이며 원천은 매일 밤 자동 동기화입니다.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+      <button id="c24-tab-staff" onclick="c24Tab('staff')" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:#1e40af;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="👥 직원" data-en="👥 Staff">👥 직원</button>
+      <button id="c24-tab-books" onclick="c24Tab('books')" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:#e5e7eb;color:#374151;border:0;border-radius:6px;cursor:pointer" data-ko="📚 교재" data-en="📚 Textbooks">📚 교재</button>
+      <input id="c24-q" placeholder="이름 검색 / Search name" onkeydown="if(event.key==='Enter')c24Load()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;min-width:180px">
+      <button onclick="c24Load()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔎 조회" data-en="🔎 Search">🔎 조회</button>
+      <span id="c24-count" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
+    </div>
+    <div id="c24-table" style="overflow-x:auto"></div>
+  </div>
+</details>
+<script type="text/lazy-js" data-src="/js/adm-c24.js?v=1" data-card="card-cafe24-lists" data-globals="c24Load,c24Tab"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
+
 <details class="table-card menu-card" id="card-data-export">
   <summary><span data-ko="📥 데이터 내보내기 (CSV)" data-en="📥 Data Export (CSV)">📥 데이터 내보내기 (CSV)</span></summary>
   <div class="menu-body">
@@ -8257,7 +8278,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=42" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=43" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -8642,7 +8663,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-calendar,card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms,card-bug-reports">
+  <div class="ph85-group" data-cards="card-calendar,card-permissions,card-franchises,card-centers,card-data-export,card-test-seed,card-admin-alerts,card-admin-ghost,card-admin-whisper,card-attendance-status,card-auto-attendance,card-class-attendance,card-report-forms,card-bug-reports,card-cafe24-lists">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
       <div class="ph85-title">시스템</div>
@@ -8653,6 +8674,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="ph85-sub" data-ko="권한 관리" data-en="Permissions" data-card="card-permissions" onclick="event.stopPropagation();var c=document.getElementById('card-permissions');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-permissions');}">권한 관리</div>
       <div class="ph85-sub" data-ko="가맹점" data-en="Franchises" data-card="card-franchises" onclick="event.stopPropagation();var c=document.getElementById('card-franchises');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-franchises');}">가맹점</div>
       <div class="ph85-sub" data-ko="센터" data-en="Centers" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">센터</div>
+      <div class="ph85-sub" data-ko="🗂 카페24 명부 ⭐신규" data-en="🗂 Cafe24 Records ⭐NEW" data-card="card-cafe24-lists" onclick="event.stopPropagation();var c=document.getElementById('card-cafe24-lists');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-cafe24-lists');}">🗂 카페24 명부 ⭐신규</div>
       <div class="ph85-sub" data-ko="데이터 추출" data-en="Data Export" data-card="card-data-export" onclick="event.stopPropagation();var c=document.getElementById('card-data-export');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-data-export');}">데이터 추출</div>
       <div class="ph85-sub" data-ko="🔔 관리자 알림" data-en="🔔 Admin Alerts" data-card="card-admin-alerts" onclick="event.stopPropagation();var c=document.getElementById('card-admin-alerts');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-alerts');}">🔔 관리자 알림</div>
       <div class="ph85-sub" data-ko="👀 수업 관찰" data-en="👀 Class Observation" data-card="card-admin-ghost" onclick="event.stopPropagation();var c=document.getElementById('card-admin-ghost');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-ghost');}">👀 수업 관찰</div>
@@ -10561,7 +10583,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script src="/js/adm-r25.js?v=6" defer></script><!-- 분할추출:adm-r25 -->
 
-<script src="/js/adm-menu-icons.js?v=4" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
+<script src="/js/adm-menu-icons.js?v=5" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
 
 <!-- Phase 126 admin (2026-05-25) — 잔존율/활성 룸 강제 visible + 정확한 스크롤 -->
