@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 푸시알림. 서버(APNs) 연동 전까지는 이 항목을 지워도 빌드·실행에 지장 없다.
+	     App Store 제출 시에는 development → production 으로 Xcode 가 자동 전환한다. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>
