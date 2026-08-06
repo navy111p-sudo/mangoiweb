@@ -17,6 +17,7 @@ import { handleRetentionIngest, getRetention, markRetentionContacted, getRetenti
 import { runAbsentStudentSweep } from './absent-sweep';
 import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종료 후 학생별 AI 리포트 배치
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
+import { runLeveltestReminderSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
@@ -1348,6 +1349,9 @@ const worker = {
         path === '/api/leveltest/apply' ||
         // 🙋 학생·학부모 본인 조회(«내 레벨테스트») — 핸들러가 mango_token 으로 소유자 검증
         path === '/api/leveltest/my' ||
+        // 🎟️ 티켓(확인+입장 링크 하나) — 핸들러가 서명 토큰으로 본인 확인. 계정 없어도 열림
+        path === '/api/leveltest/ticket' ||
+        path === '/api/leveltest/ticket.ics' ||
         path === '/api/admin/leveltest/applications' ||
         // 🧠 AI 자동 진단 (CEFR 배치테스트 문항 + 서버채점)
         path === '/api/leveltest/questions' ||
@@ -1918,6 +1922,18 @@ const worker = {
         if (lr && (lr.reminded > 0 || !lr.ok)) console.log('[lesson-reminder]', JSON.stringify(lr));
       } catch (err) {
         console.error('[lesson-reminder] error', err);
+      }
+
+      /* 🎟️ 레벨테스트 T-10 리마인더 — 매 15분.
+         위의 lesson-reminder 와 겹치지 않는다: 저쪽은 전화번호를 students_erp 에서만 찾아
+         «아직 학생 계정이 아닌 신청자»(실측 절반)에겐 구조적으로 못 간다. 여기서는
+         신청서에 직접 적은 번호로 «확인+입장» 티켓 링크를 보낸다.
+         킬스위치 = KV 'leveltest_reminder_send'='off'. */
+      try {
+        const lt = await runLeveltestReminderSweep(env as any);
+        if (lt && (lt.reminded > 0 || !lt.ok)) console.log('[leveltest-reminder]', JSON.stringify(lt));
+      } catch (err) {
+        console.error('[leveltest-reminder] error', err);
       }
 
       // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지 → 문자.

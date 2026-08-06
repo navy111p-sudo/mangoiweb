@@ -20,6 +20,15 @@
 
   // 글로벌 capture-phase click — 어떤 stopPropagation 도 막을 수 없음
   window.addEventListener('click', function(e){
+    /* 🔴 (2026-08-06) ▸ 손자 메뉴 토글만은 예외로 «그냥 지나가게» 둔다.
+       이 핸들러는 window 캡처라 아래 3)번에서 «.ph85-sub 안의 모든 클릭» 을 삼켜 왔다.
+       ▸ 토글은 그 .ph85-sub 의 자식이라 함께 삼켜졌고, 결과적으로
+       adm-r25.js 가 토글에 달아 둔 «펼치기» 리스너가 한 번도 실행되지 않았다.
+       → 사이드바 손자 메뉴(ph125)를 여는 방법이 아예 없었다. 에러도 안 났다.
+          ▸ 를 눌러도 «카드로 이동 + 모든 그룹 접기» 만 일어나서, 오히려 사이드바가 닫혔다.
+       ⚠️ 여기서 stopPropagation 하면 안 된다 — 이벤트가 토글까지 내려가야 펼쳐진다.
+       (손자 항목 .ph125-gc 자체는 .ph85-sub 의 «형제» 컨테이너 안이라 원래 안 막혔다.) */
+    if (e.target.closest && e.target.closest('#ph85-sidebar .ph125-toggle')) return;
     // 1) 모두 펼치기 / 모두 접기 / 숨기기
     var btn = e.target.closest('.ph86-action-btn');
     if (btn) {
