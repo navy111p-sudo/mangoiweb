@@ -146,21 +146,40 @@ export async function handleTeacherApi(
 
   /* 🔒 계정 → 강사원부 확정 규칙. 위에서 적은 'Anna → HANNAH' 사고를 막는다.
    *
-   *   1순위  완전일치가 하나라도 있으면 **그것만** 쓴다   (부분일치분은 전부 버린다)
-   *   2순위  완전일치가 없고 부분일치가 **정확히 1명**이면 그 사람
-   *   3순위  부분일치가 2명 이상이면 **아무도 붙이지 않는다** → '누구인지 확정 필요'
+   *  ⚠️ "부분일치가 한 명뿐이면 그 사람" 은 **안 된다** — 그게 정확히 이 사고다.
+   *     'Anna' 에 걸리는 사람은 HANNAH 딱 한 명이라, 「한 명뿐이니 확실하다」 로 판정하면
+   *     그대로 남의 수업이 붙는다. 개수로는 진짜와 가짜를 못 가른다.
    *
-   *  ⚠️ 3순위가 이 수정의 핵심이다. 예전엔 여러 명이 걸리면 전부 담당으로 붙여서
-   *     남의 수업이 목록에 섞였다. «모르면 보여주지 않는다»가 «아무나 보여준다»보다 낫다 —
+   *  살려야 하는 부분일치와 막아야 하는 부분일치를 실제로 가르는 건 **낱말 경계**다.
+   *     살릴 것 : '강선생님'      ⊂ '중국어 강선생님'  → 낱말 하나가 통째로 일치
+   *               'Teacher Len' ⊃ 'LEN'             → (반대 방향도 같다)
+   *     막을 것 : 'Anna'         ⊂ 'H·ANNA·H'        → 낱말 **속**에 우연히 들어간 것
+   *
+   *   1순위  완전일치(대소문자 무시)가 있으면 **그것만** 쓴다
+   *   2순위  낱말 경계로 맞는 사람이 **정확히 1명**이면 그 사람
+   *   3순위  그 외 — 낱말 경계 다중, 또는 낱말 속 우연일치뿐 — 이면 **아무도 붙이지 않는다**
+   *
+   *  ⚠️ 3순위가 핵심이다. «모르면 보여주지 않는다» 가 «아무나 보여준다» 보다 낫다 —
    *     못 보는 건 본사에 문의하면 끝이지만, 남의 학생 이름과 방은 되돌릴 수 없다.
-   *  ⚠️ 매칭을 «좁히기만» 한다. 지금 제대로 연결된 사람이 못 찾아지는 경우는 없다.
+   *  ⚠️ SQL 의 WHERE 는 그대로 둔다(후보를 넓게 긁는 역할). 좁히는 건 여기서만 한다.
    */
+  const nrm = (s: any) => String(s || '').toUpperCase().trim();
+  //   낱말 쪼개기 — 공백과, 표기에서 실제로 쓰이는 구분자들. ('중국어 강선생님', 'HT FARRAH')
+  const words = (s: any) => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Boolean);
+  const wordMatch = (rosterName: string) => {
+    const a = nrm(rosterName), b = nrm(tname);
+    if (!a || !b) return false;
+    if (a === b) return true;
+    return words(a).indexOf(b) >= 0 || words(b).indexOf(a) >= 0;
+  };
+
   const tidRows = (tidRs.results || []).filter((x: any) => x && x.tid);
   const exactRows = tidRows.filter((x: any) => Number(x.exact) === 1);
-  const resolvedRows = exactRows.length ? exactRows : (tidRows.length === 1 ? tidRows : []);
-  // 확정에 실패한 다중 후보 — 화면과 본사에 «누구와 누구가 헷갈린다»를 그대로 알려 준다.
-  const ambiguousNames = (!exactRows.length && tidRows.length > 1)
-    ? tidRows.map((x: any) => String(x.name || x.tid)) : [];
+  const wordRows = tidRows.filter((x: any) => wordMatch(x.name));
+  const resolvedRows = exactRows.length ? exactRows : (wordRows.length === 1 ? wordRows : []);
+  // 확정에 실패했지만 «비슷한 사람은 있다» — 본사에 누구와 헷갈리는지 그대로 보여 준다.
+  //   (Anna 처럼 후보가 한 명이어도 확정하지 않았다면 여기 실린다. 이유를 알아야 고친다.)
+  const ambiguousNames = resolvedRows.length ? [] : tidRows.map((x: any) => String(x.name || x.tid));
 
   for (const x of resolvedRows) { conds.push('cs.teacher_id = ?'); binds.push(x.tid); }
 
@@ -180,7 +199,7 @@ export async function handleTeacherApi(
   const identityUnlinked = !isManager && linkedTeacherIds.length === 0;
   // 🔀 '연결 안 됨'과 '누구인지 헷갈림'은 본사가 할 일이 다르다.
   //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
-  const identityAmbiguous = !isManager && ambiguousNames.length > 1;
+  const identityAmbiguous = !isManager && ambiguousNames.length > 0;
 
   const classes: any[] = [];
   if (conds.length) {

@@ -799,23 +799,25 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
          (운영 실태: mangoi_0XX 계정 20개 중 18개가 이름을 안 바꿔 연결이 끊겨 있다).
          그걸 "오늘 수업이 없습니다"라고 말하면 강사는 수업이 취소된 줄 알고 안 들어온다.
          고칠 수 있는 사람(본사)에게 무엇을 알려야 하는지까지 화면에 적는다. */
-      /* 🔀 (2026-08-06) "누구인지 헷갈림" — 새로 갈라낸 세 번째 상태.
-         이름이 원부의 여러 명에 걸리면 서버가 **아무도 담당으로 붙이지 않는다**.
-         실제 사고: 계정 'Anna' 가 'HANNAH' 안의 'anna' 에 걸려 남의 수업이 보였다.
-         강사에게는 "본사가 골라 줘야 한다"고, 본사에는 "누구와 누구가 헷갈리는지"를 그대로 보인다. */
+      /* 🔀 (2026-08-06) "누구인지 확정 못 함" — 새로 갈라낸 세 번째 상태.
+         이름이 원부의 누구와도 «정확히» 맞지 않으면 서버가 아무도 담당으로 붙이지 않는다.
+         실제 사고: 계정 'Anna' 가 'H-ANNA-H' 안에 우연히 들어가 HANNAH 에 붙었고,
+         Anna 로 로그인하면 HANNAH 의 학생 이름이 보이고 그 방에 입장까지 됐다.
+         ⚠️ 비슷한 이름이 «한 명뿐» 이어도 확정하지 않는다 — Anna 가 정확히 그 경우였다.
+         강사에게는 "본사가 정해 줘야 한다"고, 본사에는 "누구와 헷갈리는지"를 그대로 보인다. */
       var ambiguous = DATA && DATA.me && DATA.me.identity_ambiguous;
       if (ambiguous && !IS_MGR){
         var cand = (DATA.me.identity_candidates || []).join(', ');
         box.innerHTML = '<div class="empty" style="color:#b45309;font-weight:700">'
-          + esc(T('⚠ Your name matches more than one teacher record, so we cannot tell which one is you.',
-                  '⚠ 이 이름이 강사 명부의 여러 명과 겹쳐 누구인지 확정하지 못했습니다.'))
+          + esc(T('⚠ Your name does not match a teacher record exactly, so we cannot tell which record is yours.',
+                  '⚠ 이름이 강사 명부와 정확히 맞지 않아 누구인지 확정하지 못했습니다.'))
           + '</div><div class="empty" style="font-size:12px">'
-          + esc(T('Classes are hidden on purpose — showing them could show you another teacher\'s class. Send this to HQ: account = ',
-                  '남의 수업이 섞이지 않도록 일부러 감춘 것입니다. 본사에 이대로 전달해 주세요: 계정 = ')
+          + esc(T('Classes are hidden on purpose — a wrong guess would show you another teacher\'s class. Send this to HQ: account = ',
+                  '잘못 짚으면 남의 수업이 보이기 때문에 일부러 감춘 것입니다. 본사에 이대로 전달해 주세요: 계정 = ')
                 + ((DATA.me && DATA.me.username) || '?')
                 + T(' · display name = ', ' · 표시이름 = ')
                 + ((DATA.me && DATA.me.name) || '?')
-                + T(' · candidates = ', ' · 후보 = ') + (cand || '?'))
+                + T(' · similar names = ', ' · 비슷한 이름 = ') + (cand || '?'))
           + '</div>';
         return;
       }

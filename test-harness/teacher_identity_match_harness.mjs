@@ -69,9 +69,9 @@ function candidates(tname) {
 const n_eq = (a, b) => a.toUpperCase() === b.toUpperCase();   // SQL 의 `= ? COLLATE NOCASE`
 
 // ── ⓪ 배포되는 확정 코드를 소스에서 떼어 온다 ──────────────────────────────
-//   `const tidRows = …` 부터 `ambiguousNames` 선언이 끝나는 곳까지.
+//   낱말 경계 판정(`const nrm =`) 부터 확정이 끝나는 곳까지 통째로.
 const block = (() => {
-  const s = TEACHER_TS.indexOf('const tidRows =');
+  const s = TEACHER_TS.indexOf('const nrm =');
   if (s < 0) return null;
   const e = TEACHER_TS.indexOf('for (const x of resolvedRows)', s);
   return e < 0 ? null : TEACHER_TS.slice(s, e);
@@ -82,9 +82,10 @@ if (!block) { console.log('\n  소스 구조가 바뀌었다. 하니스를 먼�
 // 떼어낸 TS 를 그대로 실행 가능한 JS 로 (타입 표기만 제거 — 로직은 손대지 않는다)
 const runnable = block
   .replace(/\(tidRs\.results \|\| \[\]\)/, 'INPUT')
-  .replace(/:\s*any/g, '')
+  .replace(/:\s*(any|string|number|boolean)\b/g, '')
   .replace(/\bconst\b/g, 'var');
-const resolve = new Function('INPUT', runnable + '\n return { resolvedRows, ambiguousNames };');
+const resolve = (input, tname) =>
+  new Function('INPUT', 'tname', runnable + '\n return { resolvedRows, ambiguousNames };')(input, tname);
 
 // ── ① 두 파일이 같은 규칙을 갖고 있을 것 ────────────────────────────────
 check('① api-teacher.ts 가 완전일치 우선을 갖는다',
@@ -93,50 +94,56 @@ check('① api-mango.ts 도 완전일치 우선을 갖는다 (한쪽만 고치�
   /exact\.length\s*\?\s*exact\s*:\s*all/.test(MANGO_TS));
 check('① 대소문자 차이로 완전일치를 놓치지 않는다 (COLLATE NOCASE)',
   /name\s*=\s*\?\s*COLLATE NOCASE/.test(TEACHER_TS));
+check('① 확정은 개수가 아니라 «낱말 경계» 로 가른다',
+  /words\(a\)\.indexOf\(b\)/.test(TEACHER_TS) && /words\(b\)\.indexOf\(a\)/.test(TEACHER_TS));
 
-// ── ② 핵심: 다중 부분일치는 아무도 붙이지 않는다 ────────────────────────
+// ── ② 핵심: 낱말 «속» 우연일치는 절대 붙지 않는다 ────────────────────────
 {
   const c = candidates('Anna');
   check('② 재현: 이름 Anna 가 원부의 HANNAH 에 걸린다 (사고 원인)',
     c.some((x) => x.name === 'HANNAH'));
   check('② 재현: Anna 는 완전일치가 없다 (그래서 부분일치로 떨어졌다)',
     c.every((x) => x.exact === 0));
-  const r = resolve(c);
+  check('② 재현: 게다가 후보가 HANNAH «한 명뿐» 이다 — 개수로는 못 거른다',
+    c.length === 1);
+  const r = resolve(c, 'Anna');
   check('② 🔴 Anna 에게 HANNAH 의 수업이 붙지 않는다',
     !r.resolvedRows.some((x) => x.name === 'HANNAH'));
+  check('② 그래도 «HANNAH 와 헷갈린다» 는 사실은 본사에 전달된다',
+    r.ambiguousNames.length === 1 && r.ambiguousNames[0] === 'HANNAH');
 }
 {
-  // 부분일치가 여럿일 때 «하나를 골라 주는» 것도 금지 — 고르면 절반은 남의 수업이다.
+  // 낱말 경계로 여럿이 걸릴 때 «하나를 골라 주는» 것도 금지 — 절반은 남의 수업이다.
   const many = [
     { tid: '24', name: 'HANNAH', exact: 0 },
     { tid: '7', name: 'ANA', exact: 0 },
   ];
-  const r = resolve(many);
-  check('② 부분일치 2명 → 아무도 담당으로 붙지 않는다', r.resolvedRows.length === 0);
+  const r = resolve(many, 'ANA HANNAH');
+  check('② 낱말 경계 2명 → 아무도 담당으로 붙지 않는다', r.resolvedRows.length === 0);
   check('② 그 대신 후보 2명을 그대로 알려 준다', r.ambiguousNames.length === 2);
 }
 
 // ── ③ 정상 경로가 좁아지지 않았을 것 (매칭은 «좁히기만» 한다) ────────────
-{
-  const r = resolve(candidates('MAIMAI'));
-  check('③ 정확히 연결된 계정(MAIMAI)은 그대로 1명으로 확정된다',
-    r.resolvedRows.length === 1 && r.resolvedRows[0].tid === '27');
-}
-{
-  // 2026-07-24 에 부분일치를 도입한 이유 그 자체 — 이 구제는 살아 있어야 한다.
-  const r = resolve(candidates('강선생님'));
-  check('③ 표기가 다른 계정(강선생님 → 중국어 강선생님)은 예전처럼 구제된다',
-    r.resolvedRows.length === 1 && r.resolvedRows[0].tid === '29');
-}
+const resolved1 = (name, tid) => {
+  const r = resolve(candidates(name), name);
+  return r.resolvedRows.length === 1 && r.resolvedRows[0].tid === tid;
+};
+check('③ 정확히 연결된 계정(MAIMAI)은 그대로 1명으로 확정된다', resolved1('MAIMAI', '27'));
+// 2026-07-24 에 부분일치를 도입한 이유 그 자체 — 이 구제는 살아 있어야 한다.
+check('③ 표기가 다른 계정(강선생님 → 중국어 강선생님)은 예전처럼 구제된다',
+  resolved1('강선생님', '29'));
+check('③ 접두사 붙은 계정(Teacher Len → LEN)도 예전처럼 구제된다',
+  resolved1('Teacher Len', '18'));
+check('③ 대문자 표기(TEACHER WIN → WIN)도 구제된다', resolved1('TEACHER WIN', '19'));
+check('③ Teacher Chaine → CHAINE 도 구제된다', resolved1('Teacher Chaine', '15'));
 {
   // FAR ⊂ HT FARRAH. 완전일치가 있으니 부분일치분은 버려야 한다.
   const c = candidates('FAR');
-  const r = resolve(c);
   check('③ 완전일치가 있으면 부분일치분(HT FARRAH)은 버린다',
-    c.length > 1 && r.resolvedRows.length === 1 && r.resolvedRows[0].tid === '22');
+    c.length > 1 && resolved1('FAR', '22'));
 }
 {
-  const r = resolve(candidates('mangoi_006'));
+  const r = resolve(candidates('mangoi_006'), 'mangoi_006');
   check('③ 원부에 없는 계정은 여전히 0명 = «연결 안 됨»', r.resolvedRows.length === 0);
   check('③ 연결 안 됨은 «헷갈림» 이 아니다 (후보 0명)', r.ambiguousNames.length === 0);
 }
@@ -152,9 +159,12 @@ check('④ linked_teacher_ids 는 «확정된» 사람만 담는다 (후보 전�
 // ── ⑤ 화면이 세 상태를 다르게 말한다 ────────────────────────────────────
 check('⑤ 화면이 identity_ambiguous 를 읽는다', /identity_ambiguous/.test(HTML));
 check('⑤ 헷갈림 문구가 연결안됨 문구와 다르다',
-  /여러 명과 겹쳐/.test(HTML) && /강사 명부와 연결돼 있지 않아/.test(HTML));
+  /정확히 맞지 않아 누구인지 확정하지 못했습니다/.test(HTML)
+  && /강사 명부와 연결돼 있지 않아/.test(HTML));
 check('⑤ 헷갈림도 한/영 두 벌이다 (강사 다수가 필리핀)',
-  /matches more than one teacher record/.test(HTML));
+  /does not match a teacher record exactly/.test(HTML));
+check('⑤ «수업이 없다» 고 말하지 않는다 (강사가 취소된 줄 알고 안 들어온다)',
+  /일부러 감춘 것입니다/.test(HTML));
 check('⑤ 후보 이름을 화면에 보여 준다 (본사가 누구인지 고를 수 있어야 한다)',
   /identity_candidates/.test(HTML));
 check('⑤ 헷갈림을 «연결 안 됨» 보다 먼저 판정한다 (둘 다 참이라 순서가 곧 문구다)',
