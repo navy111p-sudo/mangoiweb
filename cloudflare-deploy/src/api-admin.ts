@@ -6690,7 +6690,10 @@ LIMIT $limit`;
       if (!appId) {
         return json({ ok: false, error: 'invalid_ticket', message: '링크가 만료되었거나 올바르지 않습니다.', message_en: 'This link is expired or invalid.' }, 404);
       }
-      const t = await buildLtTicket(env, appId, k);
+      // 🔒 p = 전화번호 뒷 4자리. 결과(점수·레벨·교재) 열람에만 쓰인다 —
+      //    없거나 틀려도 일정·입장은 그대로 열린다(수업에 못 들어가는 일을 만들지 않는다).
+      const pin = (url.searchParams.get('p') || '').trim();
+      const t = await buildLtTicket(env, appId, k, pin);
       if (!t) return json({ ok: false, error: 'not_found' }, 404);
       if (path === '/api/leveltest/ticket.ics') {
         if (!t.start_ts) return json({ ok: false, error: 'no_schedule', message: '아직 일정이 확정되지 않았습니다.', message_en: 'The schedule is not confirmed yet.' }, 409);

@@ -68,6 +68,8 @@
   var EN = false;
   try { EN = (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch(e){}
   var T = null, timer = null;
+  /* 🔑 4자리는 «이 화면이 열려 있는 동안만» 기억한다. 저장하면 남의 폰에서도 열린다. */
+  var PIN = '';
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -145,6 +147,28 @@
 
     if (d.teacher) h += '<div class="row"><span class="k">👩‍🏫 ' + t('담당 선생님','Teacher') + '</span><b>' + esc(d.teacher) + '</b></div>';
 
+    /* 🔒 결과는 «전화번호 뒷 4자리» 를 맞춰야 열린다.
+       링크는 문자로 가지만 문자는 남이 볼 수 있다. 일정·입장이 새는 건 큰일이 아니지만
+       성적은 다르다. 새 비밀번호를 만들게 하는 대신, 본인이 적어 낸 번호의 끝 4자리만 묻는다.
+       ⚠️ 여기서 막히더라도 위의 입장 버튼은 그대로다 — 수업에 못 들어가는 일은 없다. */
+    if (d.result_locked){
+      h += '<div class="card" style="margin-top:-2px">'
+        +   '<div class="sub" style="margin-bottom:9px">🔒 '
+        +     t('결과는 본인만 볼 수 있어요. 신청하신 전화번호 <b>뒷 4자리</b>를 넣어 주세요.',
+              'Results are private. Enter the <b>last 4 digits</b> of the phone number you applied with.')
+        +   '</div>'
+        +   (d.phone_hint ? '<div class="sub" style="color:#6b7a99;margin-bottom:9px">' + esc(d.phone_hint) + '</div>' : '')
+        +   '<div style="display:flex;gap:8px">'
+        +     '<input id="pin" inputmode="numeric" maxlength="4" placeholder="0000" '
+        +       'style="flex:1;min-width:0;padding:12px;border-radius:11px;border:1px solid rgba(148,163,184,.4);'
+        +       'background:rgba(255,255,255,.95);color:#1a1a1a;font-size:17px;font-weight:800;letter-spacing:4px;text-align:center">'
+        +     '<button id="pin-go" style="padding:12px 18px;border:0;border-radius:11px;cursor:pointer;'
+        +       'background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;font-weight:800;font-size:14px">'
+        +       t('확인','Check') + '</button>'
+        +   '</div>'
+        +   '<div id="pin-msg" class="sub" style="color:#fecaca;margin-top:8px;display:none"></div>'
+        + '</div>';
+    }
     var r = d.result || {};
     if (r.final_level) h += '<div class="row"><span class="k">🏅 ' + t('최종 레벨','Level') + '</span><b>' + esc(r.final_level) + '</b></div>';
     if (r.ai_score != null) h += '<div class="row"><span class="k">🧠 ' + t('AI 진단','AI check') + '</span><b>' + esc(r.ai_score) + '</b></div>';
@@ -165,6 +189,20 @@
                                       'You can leave this page open — the Join button appears automatically.') + '</div>';
     }
     document.getElementById('body').innerHTML = h;
+    var pinBtn = document.getElementById('pin-go');
+    if (pinBtn){
+      var inp = document.getElementById('pin'), msg = document.getElementById('pin-msg');
+      var go = function(){
+        var v = (inp.value || '').replace(/\D/g,'');
+        if (v.length !== 4){ msg.style.display=''; msg.textContent = t('4자리를 넣어 주세요.','Please enter 4 digits.'); return; }
+        PIN = v;                       // 이 화면이 열려 있는 동안만 기억한다(저장하지 않는다)
+        msg.style.display='none';
+        load();
+      };
+      pinBtn.addEventListener('click', go);
+      inp.addEventListener('keypress', function(e){ if (e.key === 'Enter') go(); });
+      inp.focus();
+    }
   }
 
   function fail(msgKo, msgEn){
@@ -176,7 +214,7 @@
   function load(){
     if (!K) { fail('주소가 올바르지 않습니다. 문자로 받은 링크를 그대로 눌러 주세요.',
                    'This address is incomplete. Please tap the link from your text message.'); return; }
-    fetch('/api/leveltest/ticket?k=' + encodeURIComponent(K), { cache:'no-store' })
+    fetch('/api/leveltest/ticket?k=' + encodeURIComponent(K) + (PIN ? '&p=' + encodeURIComponent(PIN) : ''), { cache:'no-store' })
       .then(function(r){ return r.json(); })
       .then(function(d){
         if (!d || !d.ok || !d.ticket) {

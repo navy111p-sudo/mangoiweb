@@ -104,18 +104,59 @@ export type LtTicket = {
   join_url: string | null;
   precheck_url: string;
   ics_url: string | null;
+  /* 🔒 결과(점수·레벨·교재)는 «전화번호 뒷 4자리» 를 맞춰야 열린다.
+     [왜] 링크는 문자로 가지만 문자는 남이 볼 수 있다. 일정·입장은 새어도 큰일이 아니지만
+          성적은 다르다. 비밀번호를 새로 만들게 하는 대신(신청 단계의 마찰=이탈),
+          이미 본인이 적어 낸 번호의 끝 4자리로 한 번만 확인한다.
+     ⚠️ 틀려도 일정·입장은 그대로 열려 있어야 한다 — 수업에 못 들어가는 일이 생기면 안 된다. */
+  has_result: boolean;          // 보여줄 결과가 있는지 (잠긴 상태에서도 «있다» 는 알려준다)
+  result_locked: boolean;       // true = 4자리 확인 필요
+  phone_hint: string | null;    // '010-****-2224' — 어느 번호인지 힌트만
   result: {
     ai_score: number | null; pron_score: number | null; teacher_score: number | null;
     final_level: string | null; recommended_textbook: string | null; next_class_guide: string | null;
-  };
+  } | null;
 };
+
+/** 전화번호 끝 4자리. 저장 형식이 제각각이라(하이픈·공백) 숫자만 남겨서 본다. */
+function last4(phone: any): string {
+  const d = String(phone || '').replace(/\D/g, '');
+  return d.length >= 4 ? d.slice(-4) : '';
+}
+
+/** '010-****-2224' — 어느 번호로 보냈는지만 알려준다(전체는 절대 노출하지 않는다). */
+function phoneHint(phone: any): string | null {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length < 4) return null;
+  const head = d.length >= 11 ? d.slice(0, 3) : d.slice(0, Math.max(0, d.length - 8)) || '0';
+  return `${head}-****-${d.slice(-4)}`;
+}
+
+/**
+ * 🔐 4자리 확인 시도 제한. 4자리는 경우의 수가 1만뿐이라 제한이 없으면 전부 시도된다.
+ *   신청건당 1시간에 5회. 넘으면 맞는 번호를 넣어도 그 시간 동안 안 열린다.
+ *   ⚠️ 잠기는 것은 «결과 열람» 뿐이다. 수업 입장은 영향을 받지 않는다.
+ */
+async function pinTooManyTries(env: any, appId: number): Promise<boolean> {
+  try {
+    const v = await env.SESSION_STATE?.get(`lt_pin_fail:${appId}`);
+    return Number(v || 0) >= 5;
+  } catch { return false; }
+}
+async function pinNoteFail(env: any, appId: number): Promise<void> {
+  try {
+    const k = `lt_pin_fail:${appId}`;
+    const v = Number((await env.SESSION_STATE?.get(k)) || 0) + 1;
+    await env.SESSION_STATE?.put(k, String(v), { expirationTtl: 3600 });
+  } catch {}
+}
 
 /**
  * 신청번호 하나로 «지금 이 사람에게 보여줄 것» 을 통째로 만든다.
  * ⚠️ 교사 이름은 교사가 «수락» 한 뒤에만 넣는다 — proposed(소프트 배정) 단계에서 새면
  *    교사가 거절했을 때 「담당이 바뀌었다」는 혼선이 생긴다(2단계 승인 설계와 동일).
  */
-export async function buildLtTicket(env: any, appId: number, token?: string): Promise<LtTicket | null> {
+export async function buildLtTicket(env: any, appId: number, token?: string, pin?: string): Promise<LtTicket | null> {
   const app: any = await env.DB.prepare(
     `SELECT * FROM leveltest_applications WHERE id = ? LIMIT 1`
   ).bind(appId).first();
@@ -159,6 +200,37 @@ export async function buildLtTicket(env: any, appId: number, token?: string): Pr
     }
   }
 
+  /* 🔒 결과 잠금 판정.
+     · 보여줄 결과가 하나도 없으면 잠글 것도 없다(잠긴 빈 상자를 보여주지 않는다).
+     · 신청서에 전화번호가 없으면 대조할 값이 없다 → 그냥 연다. 안 그러면 본인도 영영 못 본다.
+     · 4자리가 맞으면 연다. 틀리면 실패를 세고 잠근 채로 «일정·입장은 그대로» 돌려준다. */
+  const rawResult = {
+    ai_score: app.ai_score ?? null,
+    pron_score: app.pron_score ?? null,
+    teacher_score: app.teacher_score ?? null,
+    final_level: app.final_level || null,
+    recommended_textbook: app.recommended_textbook || null,
+    next_class_guide: app.next_class_guide || null,
+  };
+  const hasResult = Object.values(rawResult).some(v => v !== null && v !== '');
+  const want4 = last4(app.phone);
+  let unlocked = !hasResult || !want4;               // 결과 없음 or 대조할 번호 없음 → 잠그지 않는다
+  if (hasResult && want4 && pin) {
+    if (await pinTooManyTries(env, appId)) {
+      unlocked = false;                              // 시도 초과 — 맞아도 이번 시간엔 안 연다
+    } else if (String(pin).replace(/\D/g, '').slice(-4) === want4) {
+      unlocked = true;
+    } else {
+      await pinNoteFail(env, appId);
+    }
+  }
+  const resultBlock = {
+    has_result: hasResult,
+    result_locked: hasResult && !unlocked,
+    phone_hint: (hasResult && !unlocked) ? phoneHint(app.phone) : null,
+    result: unlocked ? rawResult : null,
+  };
+
   const join_open = !!(open_at_ts && close_at_ts && now >= open_at_ts && now <= close_at_ts);
   // 경량 입장 페이지(7.9KB). ⚠️ '/video-call/' 까지만 쓰면 1.9MB 홈으로 되돌아간다 — index.html 필수.
   const join_url = (join_open && room_id)
@@ -176,14 +248,7 @@ export async function buildLtTicket(env: any, appId: number, token?: string): Pr
     room_id, now, start_ts, end_ts, open_at_ts, close_at_ts, join_open, join_url,
     precheck_url: `${base}/precheck.html`,
     ics_url: (start_ts && token) ? `${base}/api/leveltest/ticket.ics?k=${encodeURIComponent(token)}` : null,
-    result: {
-      ai_score: app.ai_score ?? null,
-      pron_score: app.pron_score ?? null,
-      teacher_score: app.teacher_score ?? null,
-      final_level: app.final_level || null,
-      recommended_textbook: app.recommended_textbook || null,
-      next_class_guide: app.next_class_guide || null,
-    },
+    ...resultBlock,
   };
 }
 

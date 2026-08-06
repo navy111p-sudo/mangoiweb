@@ -100,6 +100,61 @@ if (T) {
   check('ics 에 10분 전 알람이 있다', /TRIGGER:-PT10M/.test(ics));
 }
 
+console.log('\n[ ③-2 결과는 «전화번호 뒷 4자리» 로 잠근다 (실제 소스 실행) ]');
+/* 링크는 문자로 가지만 문자는 남이 볼 수 있다. 일정·입장이 새는 건 큰일이 아니지만
+   성적은 다르다. 새 비밀번호를 만들게 하는 대신(신청 단계의 마찰=이탈) 끝 4자리만 묻는다.
+   🔑 절대 조건: 잠겨도 «입장» 은 막히지 않는다. 수업에 못 들어가는 일을 만들지 않는다. */
+if (T) {
+  const APP = { id: 15, student_name: 'p', phone: '010-8986-2224', status: 'done',
+    desired_date: '2026-08-07', desired_time: '18:00', schedule_id: null,
+    ai_score: 82, pron_score: null, teacher_score: null, final_level: 'B1',
+    recommended_textbook: null, next_class_guide: null };
+  let fails = 0;
+  const envOf = (app) => ({
+    DB: { prepare: (q) => ({ bind: () => ({ first: async () => q.includes('leveltest_applications') ? app : null }) }) },
+    SESSION_STATE: { get: async () => String(fails || ''), put: async (_k, v) => { fails = Number(v); } },
+  });
+  const noPin = await T.buildLtTicket(envOf(APP), 15, 'tok');
+  check('핀 없이는 결과가 안 나온다', noPin.result_locked === true && noPin.result === null);
+  check('«결과가 있다» 는 사실은 알려준다 (잠긴 빈 상자를 안 보여주려고)', noPin.has_result === true);
+  check('어느 번호인지 힌트만 준다 (전체 번호 노출 금지)',
+    noPin.phone_hint === '010-****-2224' && !String(noPin.phone_hint).includes('8986'));
+  const bad = await T.buildLtTicket(envOf(APP), 15, 'tok', '1234');
+  check('⛔ 틀린 4자리는 안 열린다', bad.result_locked === true && bad.result === null);
+  check('틀리면 실패 횟수를 센다 (4자리는 경우의 수가 1만뿐)', fails === 1);
+  const good = await T.buildLtTicket(envOf(APP), 15, 'tok', '2224');
+  check('맞는 4자리면 열린다', good.result_locked === false && good.result.final_level === 'B1');
+  const full = await T.buildLtTicket(envOf(APP), 15, 'tok', '010-8986-2224');
+  check('전체 번호를 넣어도 뒤 4자리로 본다 (형식 관용)', full.result_locked === false);
+  fails = 5;
+  const over = await T.buildLtTicket(envOf(APP), 15, 'tok', '2224');
+  check('⛔ 시도 초과면 맞는 4자리도 안 열린다 (전수 시도 차단)', over.result_locked === true);
+  fails = 0;
+  const noResult = await T.buildLtTicket(envOf({ ...APP, ai_score: null, final_level: null }), 15, 'tok');
+  check('결과가 없으면 잠글 것도 없다', noResult.has_result === false && noResult.result_locked === false);
+  const noPhone = await T.buildLtTicket(envOf({ ...APP, phone: null }), 15, 'tok');
+  check('🔑 신청서에 번호가 없으면 열어준다 (안 그러면 본인도 영영 못 본다)',
+    noPhone.result_locked === false && noPhone.result.final_level === 'B1');
+
+  // 🔑 절대 조건 — 결과가 잠겨도 입장은 열려 있어야 한다
+  const nowMs = Date.now(), KSTMS = 9 * 3600 * 1000;
+  const kd = new Date(nowMs + KSTMS), pz = (n) => String(n).padStart(2, '0');
+  const today = `${kd.getUTCFullYear()}-${pz(kd.getUTCMonth() + 1)}-${pz(kd.getUTCDate())}`;
+  const hhmm = `${pz(kd.getUTCHours())}:${pz(kd.getUTCMinutes())}`;
+  const SCHED = { id: 854, scheduled_date: today, start_time: hhmm, duration_min: 20, status: 'active' };
+  const envLive = {
+    DB: { prepare: (q) => ({ bind: () => ({ first: async () => q.includes('class_schedules') ? SCHED : ({ ...APP, schedule_id: 854, desired_date: today, desired_time: hhmm }) }) }) },
+    SESSION_STATE: { get: async () => '', put: async () => {} },
+  };
+  const locked = await T.buildLtTicket(envLive, 15, 'tok');
+  check('🔑 결과가 잠겨도 «입장» 은 열려 있다 (수업에 못 들어가는 일 금지)',
+    locked.result_locked === true && locked.join_open === true && !!locked.join_url);
+}
+check('API 가 p(4자리) 파라미터를 받는다', /url\.searchParams\.get\('p'\)/.test(api));
+check('화면이 4자리 입력을 그린다', /id="pin-go"/.test(page) && /id="pin"/.test(page));
+check('4자리를 저장하지 않는다 (남의 폰에서 열리면 안 된다)',
+  /var PIN = '';/.test(page) && !/setItem\([^)]*PIN/.test(page));
+
 console.log('\n[ ④ 배정 검토 중인 교사 이름은 티켓에도 안 나온다 (2단계 승인) ]');
 check("confirmed/done 일 때만 teacher 를 채운다",
   /const confirmed = app\.status === 'confirmed' \|\| app\.status === 'done'/.test(mod) &&
