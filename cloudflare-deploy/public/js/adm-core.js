@@ -3365,6 +3365,18 @@ function _ltPaint(tb, items) {
     const ai = a.ai_score!=null ? Number(a.ai_score).toFixed(0) : '—';
     const pron = a.pron_score!=null ? Number(a.pron_score).toFixed(0) : '—';
     const lvl = a.final_level ? ('<b style="color:#059669">'+_esc(a.final_level)+'</b>') : '—';
+    /* 🔗 (2026-08-07) 계정 연결 상태 — «누구의 신청인지» 가 안 정해져 있으면 학생은
+       자기 예약을 어디에서도 못 본다(마이페이지·홈 카드·오늘 수업 전부 uid 로 찾는다).
+       화면에는 아무 표시가 없어서 관리자도 그 사실을 몰랐다 → 여기서 말한다.
+       ⚠️ 이 블록을 clsCell~actions 사이로 옮기지 말 것 — leveltest_calendar_jump_harness 가
+          그 구간을 2500자로 잘라 「📅 #N ✓」 배지를 검사한다(넣었다가 실제로 깨졌다). */
+    const uidTrial = _ltIsTrialUid(a.student_uid);
+    const uidCell = a.student_uid ? ` <code style="font-size:10px;color:${uidTrial ? '#b45309' : '#64748b'}">${_esc(a.student_uid)}</code>` : '';
+    const linkBtn = (!a.student_uid || uidTrial)
+      ? `<button onclick="ltLinkStudent(${a.id})" title="${!a.student_uid
+          ? (adminLang==='en'?'Not linked to any account — the student cannot see this anywhere':'어느 계정에도 안 붙어 있습니다 — 학생이 아무 데서도 못 봅니다')
+          : (adminLang==='en'?'Auto-made trial account — nobody logs in with it':'자동 생성된 체험 계정입니다 — 아무도 이 아이디로 로그인하지 않습니다')}" style="margin-left:6px;padding:2px 7px;font-size:10.5px;font-weight:800;border:1px solid #fdba74;border-radius:6px;background:#fff7ed;color:#9a3412;cursor:pointer;white-space:nowrap">🔗 ${adminLang==='en'?'Link account':'계정 연결'}</button>`
+      : '';
     /* 📅 수업 연결 상태 — 이어져 있으면 «수업 #852 ✓», 아니면 만들기 버튼.
        희망일이 비어 있으면 만들 수 없으므로 버튼 대신 이유를 보여준다(눌러도 안 되는 버튼 금지). */
     const canMake = !!(a.desired_date && a.desired_time);
@@ -3384,10 +3396,118 @@ function _ltPaint(tb, items) {
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${a.student_uid?(' <code style="font-size:10px;color:#64748b">'+_esc(a.student_uid)+'</code>'):''}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
   }).join('');
   _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
+/* 🔗 신청 ↔ «진짜 학생 계정» 연결 (2026-08-07)
+   [왜] 비로그인 신청은 서버가 만든 체험 계정 `lt{번호}` 에 붙는다. 그 계정으로 로그인하는
+        사람은 없으므로 학생은 마이페이지·홈·오늘수업 어디에서도 자기 예약을 못 본다.
+        전부 «에러 없이» 안 보여서 신고도 안 들어온다(실제 사고: #15 paul710619).
+   ⚠️ 아이디를 손으로 치게 하면 오타 한 번에 남의 학생 기록이 오염된다 →
+      전화번호·이름으로 찾은 후보를 «보여 주고 고르게» 한다. */
+function _ltIsTrialUid(u) { return /^lt\d+(_\d+)?$/i.test(String(u || '')); }
+
+function _ltLinkClose() {
+  const m = document.getElementById('lt-link-modal');
+  if (m) m.remove();
+  document.removeEventListener('keydown', _ltLinkEsc);
+}
+function _ltLinkEsc(e) { if (e.key === 'Escape') _ltLinkClose(); }
+
+async function ltLinkStudent(id) {
+  const en = (adminLang === 'en');
+  _ltLinkClose();
+  const wrap = document.createElement('div');
+  wrap.id = 'lt-link-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:99999999;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px';
+  wrap.onclick = e => { if (e.target === wrap) _ltLinkClose(); };
+  wrap.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:86vh;overflow:auto;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.35)">'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:4px">🔗 ' + (en ? 'Link this application to a real account' : '이 신청을 진짜 학생 계정에 연결') + '</div>'
+    + '<div id="lt-link-body" style="font-size:12.5px;color:#475569">' + (en ? 'Loading…' : '불러오는 중…') + '</div></div>';
+  document.body.appendChild(wrap);
+  document.addEventListener('keydown', _ltLinkEsc);
+  await _ltLinkFetch(id, '');
+}
+
+async function _ltLinkFetch(id, q) {
+  const en = (adminLang === 'en');
+  const body = document.getElementById('lt-link-body');
+  if (!body) return;
+  let d = null;
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action: 'link_candidates', q: q || '' })
+    });
+    d = await r.json();
+  } catch (e) { /* 아래에서 처리 */ }
+  if (!d || !d.ok) {
+    body.innerHTML = '<div style="color:#b91c1c">' + (en ? 'Failed to load candidates.' : '후보를 불러오지 못했습니다.') + '</div>';
+    return;
+  }
+  const a = d.application || {};
+  const cur = a.student_uid
+    ? ('<code>' + _esc(a.student_uid) + '</code>' + (a.is_trial ? (' <span style="color:#b45309;font-weight:700">' + (en ? '(auto-made trial account — nobody logs in with it)' : '(자동 생성된 체험 계정 — 아무도 이 아이디로 로그인하지 않습니다)') + '</span>') : ''))
+    : ('<span style="color:#b91c1c;font-weight:700">' + (en ? 'not linked to any account' : '어느 계정에도 안 붙어 있음') + '</span>');
+  let h = '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin:10px 0 12px">'
+    + '<div><b>' + _esc(a.student_name || '') + '</b>' + (a.phone ? (' · ' + _esc(a.phone)) : '') + '</div>'
+    + '<div style="margin-top:4px">' + (en ? 'Now: ' : '지금: ') + cur + '</div>'
+    + (a.schedule_id ? ('<div style="margin-top:4px;color:#0369a1">' + (en ? 'The class #' : '수업 #') + a.schedule_id + (en ? ' will move to the new account too.' : ' 의 주인도 함께 옮깁니다.') + '</div>') : '')
+    + '</div>';
+  const list = d.candidates || [];
+  if (list.length) {
+    const WHY = { phone: [ '전화번호가 같음', 'same phone' ], name: [ '이름·아이디가 같음', 'same name/ID' ], typed: [ '직접 입력', 'typed' ] };
+    h += '<div style="font-weight:800;font-size:12.5px;margin-bottom:6px">' + (en ? 'Pick the right account' : '맞는 계정을 고르세요') + '</div>';
+    h += list.map(c => {
+      const w = WHY[c.why] || ['', ''];
+      return '<button onclick="_ltLinkDo(' + id + ',\'' + String(c.user_id).replace(/['\\]/g, '') + '\')" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:9px 11px;border:1px solid ' + (c.is_trial ? '#fed7aa' : '#c7d2fe') + ';border-radius:9px;background:' + (c.is_trial ? '#fffbeb' : '#eef2ff') + ';cursor:pointer">'
+        + '<b>' + _esc(c.name) + '</b> <code style="font-size:11px;color:#475569">' + _esc(c.user_id) + '</code>'
+        + (c.phone ? (' <span style="font-size:11px;color:#64748b">' + _esc(c.phone) + '</span>') : '')
+        + '<div style="font-size:11px;color:#6366f1;margin-top:2px">' + (en ? w[1] : w[0])
+        + (c.is_trial ? (' · <span style="color:#b45309">' + (en ? 'trial account' : '체험 계정') + '</span>') : '') + '</div></button>';
+    }).join('');
+  } else {
+    h += '<div style="color:#b45309;font-size:12.5px;margin-bottom:8px">'
+      + (en ? 'No account matched this phone number or name. Type the student ID below.'
+            : '이 전화번호·이름과 맞는 계정을 못 찾았습니다. 아래에 학생 아이디를 직접 넣어 주세요.') + '</div>';
+  }
+  h += '<div style="display:flex;gap:6px;margin-top:12px;border-top:1px solid #e5e7eb;padding-top:12px">'
+    + '<input id="lt-link-q" value="' + _esc(q || '') + '" placeholder="' + (en ? 'student ID' : '학생 아이디') + '" style="flex:1;padding:7px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:8px">'
+    + '<button onclick="_ltLinkFetch(' + id + ',document.getElementById(\'lt-link-q\').value.trim())" style="padding:7px 13px;font-size:12.5px;font-weight:700;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">' + (en ? 'Find' : '찾기') + '</button>'
+    + '<button onclick="_ltLinkClose()" style="padding:7px 13px;font-size:12.5px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer">' + (en ? 'Close' : '닫기') + '</button></div>';
+  if (q && d.typed_found === null) {
+    h += '<div style="color:#b91c1c;font-size:12px;margin-top:7px">' + (en ? 'No account with that ID.' : '그런 아이디의 계정이 없습니다.') + '</div>';
+  }
+  body.innerHTML = h;
+}
+
+async function _ltLinkDo(id, uid) {
+  const en = (adminLang === 'en');
+  if (!confirm(en ? ('Link this application to "' + uid + '"?\nThe class owner moves too, so the student will see it on their home and My Page.')
+                  : ('이 신청을 «' + uid + '» 계정에 연결할까요?\n수업 주인도 함께 옮겨져 그 학생 홈·마이페이지에 보이게 됩니다.'))) return;
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action: 'link_student', student_uid: uid })
+    });
+    const d = await r.json();
+    if (d && d.ok) {
+      _ltLinkClose();
+      const moved = d.schedule && d.schedule.user_id;
+      alert(en ? ('Linked to ' + d.to + '.' + (moved ? ('\nClass #' + d.schedule.schedule_id + ' moved as well.') : ''))
+               : ('«' + d.to + '» 로 연결했습니다.' + (moved ? ('\n수업 #' + d.schedule.schedule_id + ' 의 주인도 함께 옮겼습니다.') : '')));
+      loadLeveltestApps();
+    } else {
+      alert((en ? 'Failed: ' : '실패: ') + ((d && (d.message || d.error)) || 'unknown'));
+    }
+  } catch (e) { alert((en ? 'Error: ' : '오류: ') + e.message); }
+}
+window.ltLinkStudent = ltLinkStudent;
+window._ltLinkFetch = _ltLinkFetch;
+window._ltLinkDo = _ltLinkDo;
+window._ltLinkClose = _ltLinkClose;
+
 /* 🎟️ 링크 복사. 「복사됨 ✓」을 버튼 위에서 잠깐 보여준다 —
    alert 를 띄우면 한 건 보낼 때마다 확인을 눌러야 해서 여러 건 처리할 때 손이 묶인다.
    ⚠️ navigator.clipboard 는 보안 컨텍스트(https)에서만 산다. 사내망·구형 브라우저에서
@@ -9752,11 +9872,16 @@ window.rebuildGlobalSearchIndex = function() {
       let d = null;
       try { d = await r.json(); } catch {}
       if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = true; }
-      else { _cardData = generateCardSampleData(); _cardSynced = false; }
+      else { _cardData = null; _cardSynced = false; }
     } catch (e) {
-      _cardData = generateCardSampleData(); _cardSynced = false;
+      _cardData = null; _cardSynced = false;
     }
-    renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback();
+    /* ⛔ (2026-08-07) 연동이 안 되면 «아무것도 보여주지 않는다».
+     * 예전엔 여기서 generateCardSampleData() 로 가짜 지출내역을 채웠다. 경고 배너를 붙여도
+     * 표에 숫자가 떠 있으면 사람은 그 숫자를 읽는다 — 회계 판단이 오도된다.
+     * 없는 건 없다고 말하는 편이 낫다. */
+    if (_cardData) { renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback(); }
+    else { renderCardNotConnected(); }
     // ⚠️ (2026-08-03) 예전엔 실패했을 때도 무조건 '✅ 동기화 완료' 라고 찍었다.
     //   '/api/admin/corpcard/sync' 는 서버에 없고(라이브 404), 카드사 연동 자체가 없다.
     //   그래서 화면엔 generateCardSampleData() 가 만든 **가짜 카드 내역**이 뜨는데
@@ -9774,9 +9899,31 @@ window.rebuildGlobalSearchIndex = function() {
   };
 
   window.cardLoad = function() {
-    if (!_cardData) _cardData = generateCardSampleData();
+    // 카드사 연동이 없으면 가짜로 채우지 않는다 — 섹션을 열었을 때 «미연동»이 보여야 한다.
+    if (!_cardData) { renderCardNotConnected(); return; }
     renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback();
   };
+
+  /* 미연동 안내 — 숫자 대신 «무엇이 없고 무엇을 하면 되는지»를 적는다.
+     회계 담당이 필리핀 스태프라 한/영 두 벌로 쓴다([[accounting-staff-english]]). */
+  function renderCardNotConnected() {
+    var en = !!(window.adminLang && window.adminLang !== 'ko');
+    var tbody = document.getElementById('acc-card-rows');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="9" style="padding:22px;text-align:center;color:#6b7280;font-size:13px;line-height:1.8">'
+        + (en
+          ? '<b>Card company sync is not connected yet.</b><br>No real transactions to show. Nothing is displayed on purpose — sample figures could be mistaken for real spending.'
+          : '<b>카드사 연동이 아직 되어 있지 않습니다.</b><br>보여드릴 실제 지출내역이 없습니다. 예시 숫자를 띄우면 실제 지출로 오인될 수 있어 일부러 비워 둡니다.')
+        + '</td></tr>';
+    }
+    ['acc-card-pie', 'acc-card-line'].forEach(function (id) {
+      var c = document.getElementById(id);
+      if (c && c.getContext) { try { c.getContext('2d').clearRect(0, 0, c.width, c.height); } catch (e) {} }
+    });
+    var fb = document.getElementById('acc-card-feedback-list');
+    if (fb) fb.innerHTML = '<li>' + (en ? 'Connect the card company feed to see analysis here.'
+                                        : '카드사 연동을 붙이면 이 자리에 분석이 표시됩니다.') + '</li>';
+  }
 
   // 🆕 법인카드 섹션을 열면 자동 조회 — 버튼 안 눌러도 지출내역 바로 표시
   (function(){

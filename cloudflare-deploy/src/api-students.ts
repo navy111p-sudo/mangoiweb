@@ -501,6 +501,121 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 11시(주말·공휴
       return json({ ok: true, sessions, profile: { name } });
     }
 
+    /* ── GET /api/student/full?uid=&days=30 — 학생 본인 «평가표» ────────────────
+     *
+     * [왜] 화면(js/idx-grid-menu.js '평가표')이 이 경로를 부르는데 **서버에 없었다**.
+     *      매번 404 → 클라이언트가 지어낸 샘플(Maria Santos·82점…)을 본인 기록처럼 보여줬다.
+     *      [[student-home-report-focus-dead-endpoints]] 와 같은 뿌리. 집중도는 먼저 고쳤고 이건 남아 있었다.
+     *
+     * [원칙] 없는 건 «없다»고 보낸다. 추정·평균·난수로 칸을 메우지 않는다.
+     *        학부모가 보는 숫자이고, 한 번 지어내면 실기록과 구분할 수 없다.
+     *
+     * ⚠️ 축 이름 주의 — 우리 평가서의 실제 축은 참여·이해·숙제·태도·말하기다.
+     *    화면의 옛 필드명(listening/reading/writing)에 그대로 담되 **화면 라벨도 같이 바꿨다**.
+     *    담기만 하고 라벨을 안 바꾸면 «이해» 점수가 «리스닝» 으로 둔갑한다.
+     *
+     * 🔐 본인만 조회 가능(서명토큰 uid 일치). 남의 uid 로 열리면 IDOR 이다.
+     */
+    if (method === 'GET' && path === '/api/student/full') {
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30', 10) || 30));
+      const authUid = await authUidGlobal(request, url, env);
+      if (!authUid || authUid.toLowerCase() !== uid.toLowerCase()) {
+        return json({ ok: false, error: 'auth_required', message: '본인 계정으로 로그인해주세요.' }, 401);
+      }
+      const since = Date.now() - days * 86400000;
+      const empty = { results: [] as any[] };
+
+      // 서로 의존하지 않으므로 한꺼번에 — 회선이 느린 곳에서 왕복이 곧 대기시간이다.
+      const [stuRow, attRs, evalRs, payRs] = await Promise.all([
+        env.DB.prepare(`SELECT student_name, level, textbook FROM students_erp WHERE user_id = ? COLLATE NOCASE`)
+          .bind(uid).first<any>().catch(() => null),
+        env.DB.prepare(
+          `SELECT id, date, joined_at, gaze_score, total_active_ms, total_session_ms, room_id
+             FROM attendance
+            WHERE user_id = ? COLLATE NOCASE AND joined_at >= ?
+            ORDER BY joined_at ASC LIMIT 400`
+        ).bind(uid, since).all<any>().catch(() => empty),
+        env.DB.prepare(
+          `SELECT id, eval_at, lesson_date, lesson_title, teacher_name,
+                  score_participation, score_comprehension, score_homework, score_attitude,
+                  score_speaking, score_overall, next_goals, teacher_comment
+             FROM student_evaluations
+            WHERE (student_uid = ? COLLATE NOCASE OR user_id = ? COLLATE NOCASE)
+            ORDER BY COALESCE(eval_at, created_at) DESC LIMIT 20`
+        ).bind(uid, uid).all<any>().catch(() => empty),
+        env.DB.prepare(
+          `SELECT status, amount_krw FROM student_payments
+            WHERE user_id = ? COLLATE NOCASE ORDER BY id DESC LIMIT 50`
+        ).bind(uid).all<any>().catch(() => empty),
+      ]);
+
+      const att = (attRs.results || []) as any[];
+      let actSum = 0, sessSum = 0, gazeSum = 0, gazeCnt = 0;
+      const sessions = att.map((r) => {
+        const act = Number(r.total_active_ms) || 0;
+        const sess = Number(r.total_session_ms) || 0;
+        actSum += act; sessSum += sess;
+        const gaze = (typeof r.gaze_score === 'number') ? r.gaze_score : null;
+        if (gaze != null) { gazeSum += gaze; gazeCnt++; }
+        return {
+          id: r.id,
+          date: r.date || (r.joined_at ? new Date(Number(r.joined_at)).toISOString().slice(0, 10) : ''),
+          joined_at: r.joined_at ? Math.floor(Number(r.joined_at) / 1000) : null,
+          active_ms: act, session_ms: sess, gaze_score: gaze,
+          teacher: '',            // attendance 에 강사 이름이 없다 — 지어내지 않고 빈 값
+          topic: '',
+        };
+      }).reverse();               // 화면은 최신이 위
+
+      const evaluations = ((evalRs.results || []) as any[]).map((e) => {
+        const at = Number(e.eval_at) || 0;
+        return {
+          id: e.id,
+          // 화면은 초 단위를 기대한다(new Date(eval_at*1000)). ms 로 저장된 값을 초로 맞춘다.
+          eval_at: at > 1e12 ? Math.floor(at / 1000) : at,
+          eval_type: e.lesson_title ? String(e.lesson_title) : '수업 평가',
+          level: stuRow?.level || '',
+          evaluator: e.teacher_name || '',
+          // 실제 축을 옛 필드 자리에 담는다(화면 라벨도 함께 바꿨다)
+          score_speaking: e.score_speaking,
+          score_listening: e.score_comprehension,
+          score_reading: e.score_homework,
+          score_writing: e.score_attitude,
+          score_total: e.score_overall != null ? Math.round(Number(e.score_overall)) : null,
+          // 원래 이름 그대로도 같이 보낸다 — 나중에 화면을 고칠 때 헷갈리지 않도록
+          axes: {
+            participation: e.score_participation, comprehension: e.score_comprehension,
+            homework: e.score_homework, attitude: e.score_attitude, speaking: e.score_speaking,
+          },
+          next_goal: e.next_goals || '',
+          comment: e.teacher_comment || '',
+        };
+      });
+
+      return json({
+        ok: true,
+        source: 'real',           // 화면이 «샘플 아님» 을 확실히 알 수 있게
+        profile: {
+          username: stuRow?.student_name || uid,
+          level: stuRow?.level || '',
+          textbook: stuRow?.textbook || '',
+          classes_per_week: null,  // 이 값을 담는 칸이 아직 없다 — 0 으로 채우면 결석이 지어내진다
+        },
+        summary: {
+          total_active_ms: actSum,
+          total_session_ms: sessSum,
+          avg_gaze_score: gazeCnt ? gazeSum / gazeCnt : null,
+          gaze_score_count: gazeCnt,
+        },
+        evaluations, sessions,
+        payments: (payRs.results || []) as any[],
+        rewards: [],               // 보상 원천이 이 화면과 아직 연결돼 있지 않다 — 빈 값이 정직하다
+        enrollments: [],
+      });
+    }
+
     // ── POST /api/student/lookup — 학생 본인 수강정보 조회 (연장/자동연장 결제용) ──
     //   body: { user_id, auth?, from_session? }
     //   보안: 로그인(/api/student/login)과 "동일한" 보안수준으로만 노출 (IDOR 방지)

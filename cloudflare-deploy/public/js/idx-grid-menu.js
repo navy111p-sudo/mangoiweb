@@ -1588,11 +1588,20 @@
       const r = await fetch(`/api/student/full?uid=${encodeURIComponent(sess.uid)}&days=${days}`, { credentials: 'include' });
       if (r.ok) data = await r.json();
     } catch {}
-    // fallback — 샘플 데이터
-    // ⚠️ (2026-08-03) '/api/student/full' 은 아직 서버에 없다(라이브 404 확인).
-    //   따라서 이 화면은 사실상 항상 아래 샘플로 그려진다. 예전엔 그 사실이 화면에
-    //   드러나지 않아 **지어낸 평가 수치가 본인 기록처럼 보였다**. 샘플이면 그렇다고 밝힌다.
-    if (!data || data.ok === false) { data = sampleStudentFull(sess, days); data.__sample = true; }
+    /* ✅ (2026-08-07) '/api/student/full' 서버 구현 완료 — 이제 실기록으로 그린다.
+     *   예전엔 404 가 나면 아래 sampleStudentFull() 로 조용히 떨어져 **지어낸 평가 수치가
+     *   본인 기록처럼** 보였다. 샘플은 더 이상 쓰지 않는다.
+     *   ⛔ 실패하면 «비어 있다»고 말한다. 지어낸 숫자로 칸을 메우지 않는다 —
+     *      학부모가 보는 화면이고, 한 번 섞이면 실기록과 구분할 수 없다.
+     */
+    if (!data || data.ok === false) {
+      const why = (data && data.error === 'auth_required')
+        ? '본인 계정으로 로그인해주세요. / Please sign in with your own account.'
+        : '아직 불러올 학습 기록이 없습니다. / No learning records yet.';
+      data = { ok: true, __empty: true, __why: why,
+               profile: {}, summary: {}, evaluations: [], sessions: [],
+               payments: [], rewards: [], enrollments: [] };
+    }
     renderReportPanels(data, days);
   };
 
@@ -1640,9 +1649,12 @@
     const evDate = ev.eval_at ? new Date(ev.eval_at*1000).toISOString().slice(0,10) : '-';
     if (meta) {
       meta.textContent = `${evDate} · ${ev.eval_type||'평가'} · ${ev.level||'-'} 레벨${ev.evaluator?' · 평가자: '+safe(ev.evaluator):''}`;
-      if (f.__sample) {
-        meta.textContent = '⚠️ 예시(샘플) 화면입니다 — 실제 학습 기록이 아직 연결되지 않았습니다 / Sample data — not your real record';
-        meta.style.color = '#fbbf24';
+      if (f.__empty) {                 // 지어내지 않고 «없다»고 말한다
+        meta.textContent = f.__why || '아직 불러올 학습 기록이 없습니다. / No learning records yet.';
+        meta.style.color = '#94a3b8';
+      } else if (!(f.evaluations||[]).length) {
+        meta.textContent = '아직 등록된 평가서가 없습니다 — 수업 기록은 아래에 표시됩니다. / No evaluation yet.';
+        meta.style.color = '#94a3b8';
       }
     }
 
@@ -1687,12 +1699,15 @@
       </div>
     `).join('');
 
-    // 영역별 점수 (학생관리 student.html의 4영역: 스피킹·리스닝·문법·집중도)
+    /* 영역별 점수 — ⚠️ 라벨을 실제 평가 축과 맞춘다.
+     * 강사 평가서의 축은 참여·이해·숙제·태도·말하기다. 예전 라벨(리스닝·문법)은
+     * 담긴 값과 이름이 달라 «이해» 점수가 «리스닝» 으로 둔갑했다. 서버가 옛 필드
+     * 자리에 실제 축을 담아 보내므로(api-students.ts /api/student/full) 이름만 바로잡는다. */
     const skills = [
-      { lab:'🗣 스피킹', val: ev.score_speaking||0 },
-      { lab:'👂 리스닝', val: ev.score_listening||0 },
-      { lab:'📝 문법',   val: ev.score_reading||0 },
-      { lab:'🎯 집중도', val: ev.score_writing||0 },
+      { lab:'🗣 말하기', val: ev.score_speaking||0 },
+      { lab:'🧠 이해',   val: ev.score_listening||0 },
+      { lab:'📚 숙제',   val: ev.score_reading||0 },
+      { lab:'🙂 태도',   val: ev.score_writing||0 },
     ];
     document.getElementById('rp-skills').innerHTML = skills.map(s=>{
       const pct = Math.min(100, Math.max(0, Number(s.val)||0));
