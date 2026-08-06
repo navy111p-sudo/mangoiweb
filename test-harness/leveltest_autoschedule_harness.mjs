@@ -120,6 +120,24 @@ check('강사 화면이 배지를 그린다', /c\.is_level_test \? ' <span class
 check('배지가 한/영 둘 다', /T\('LEVEL TEST','레벨테스트'\)/.test(thtml));
 check('배지 색이 정의돼 있다', /\.pill\.p-lt\{background:#0d9488/.test(thtml));
 
+console.log('\n[ ⑥-2 강사가 «내일» 수업도 미리 본다 ]');
+/* 마이마이 제보: "내일 수업이 안 보인다". 버그가 아니라 이 화면이 «오늘» 만 그려서였다.
+   레벨테스트는 준비가 필요한 수업이라(첫 대면·보호자 동석·평가) 당일에 알면 늦다. */
+check('서버가 upcoming 을 내려준다', /upcoming: upcoming\.sort/.test(tapi));
+check('오늘 이후만 담는다', /d <= todayStr\) continue/.test(tapi));
+check('7일로 끊는다 (무한정 쌓이지 않게)', /UPCOMING_DAYS \* dayMs/.test(tapi));
+check('⛔ 반복 수업은 안 넣는다 (넣으면 그 강사 시간표로 가득 찬다)',
+  /if \(!s\.scheduled_date\) continue;/.test(tapi));
+check('레벨테스트 표시가 함께 실린다', /is_level_test: String\(s\.class_type \|\| ''\) === 'level_test'[\s\S]{0,400}?\}\);\s*\n\s*continue;/.test(tapi));
+check('화면에 «다가오는 수업» 카드가 있다', /id="c-upcoming"/.test(thtml));
+check('그리는 함수가 있다', /function renderUpcoming\(list\)/.test(thtml));
+check('실제로 «불린다» (정의만 하면 화면은 그대로다)', /renderUpcoming\(d\.upcoming \|\| \[\]\)/.test(thtml));
+check('언어를 바꿔도 다시 그린다', /renderUpcoming\(DATA\.upcoming \|\| \[\]\)/.test(thtml));
+check('건이 없으면 카드째 숨긴다 (빈 카드 금지)',
+  /if \(!list\.length\)\{ card\.hidden = true; return; \}/.test(thtml));
+check('여기엔 입장 버튼을 주지 않는다 (그날이 아니면 방이 없다)',
+  !/renderUpcoming[\s\S]{0,2200}?cls-act/.test(thtml));
+
 console.log('\n[ ⑦ 관리자 화면 — 오늘 수업 · 주간 캘린더 ]');
 check('「오늘 수업」이 레벨테스트를 구분한다', /is_level_test/.test(tc));
 check('주간 캘린더에 레벨테스트 색이 있다', /'leveltest':'#0d9488'/.test(q6));

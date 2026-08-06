@@ -334,6 +334,15 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     <div id="classes"></div>
   </div>
 
+  <!-- 📅 (2026-08-06 마이마이 제보 "내일 수업이 안 보인다")
+       이 화면은 «오늘» 만 그려서, 내일 잡힌 레벨테스트는 당일이 되어서야 처음 보였다.
+       레벨테스트는 준비가 필요한 수업이다(첫 대면·보호자 동석·평가) → 미리 알려준다.
+       건이 없으면 카드째 숨긴다(빈 카드는 «뭔가 잘못됐나» 하는 인상을 준다). -->
+  <div class="card" id="c-upcoming" hidden>
+    <h2><span data-en="Coming Up (7 days)" data-ko="다가오는 수업 (7일)">Coming Up (7 days)</span> <small id="up-count"></small></h2>
+    <div id="upcoming"></div>
+  </div>
+
   <!-- ⚡ 정전 · 인터넷 장애 신고 (멜카 요청) — 수업 목록 바로 아래.
        정전 중인 강사는 폰 배터리로 모바일데이터를 쓴다. 버튼 하나에서 시작해
        «종류 → 예상시간» 두 번만 더 누르면 접수되게 했다. 타이핑은 선택. -->
@@ -699,6 +708,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     }
 
     renderClasses(d.classes || []);
+    renderUpcoming(d.upcoming || []);
     renderNotices(d.notices || []);
     renderResources(d.resources || []);
     renderManager(d.manager);
@@ -780,6 +790,42 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   }
 
   var lastSig = null;   // 마지막으로 그린 상태의 지문 (불필요한 재그리기 차단)
+
+  /* 📅 다가오는 수업 — 오늘 목록과 «따로» 둔다. 섞으면 오늘 할 일이 흐려진다.
+     입장 버튼은 주지 않는다(그날이 아니면 방이 없다). 언제·누구·무엇인지만 알린다. */
+  function renderUpcoming(list){
+    var card = document.getElementById('c-upcoming');
+    var box  = document.getElementById('upcoming');
+    var cnt  = document.getElementById('up-count');
+    if (!card || !box) return;
+    list = list || [];
+    if (!list.length){ card.hidden = true; return; }
+    card.hidden = false;
+    var lt = list.filter(function(u){ return u.is_level_test; }).length;
+    if (cnt) cnt.textContent = '(' + list.length + (lt ? (EN() ? ' · ' + lt + ' level test' : ' · 레벨테스트 ' + lt) : '') + ')';
+    box.innerHTML = list.map(function(u){
+      var p = String(u.date || '').split('-');
+      var when = u.date;
+      if (p.length === 3){
+        var d = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+        var wk = (EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'])[d.getUTCDay()];
+        when = EN() ? ((+p[1]) + '/' + (+p[2]) + ' (' + wk + ')') : ((+p[1]) + '월 ' + (+p[2]) + '일(' + wk + ')');
+      }
+      var meta = [];
+      if (u.level) meta.push(esc(u.level));
+      if (u.textbook) meta.push(esc(u.textbook));
+      meta.push(u.duration_min + T(' min', '분'));
+      return '<div class="cls">'
+        + '<div class="cls-time">' + esc(u.start_time) + '</div>'
+        + '<div class="cls-main">'
+        +   '<div class="cls-name">' + esc(stuName(u) || T('(name not set)','(이름 미등록)'))
+        +     (u.is_level_test ? ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
+        +   '</div>'
+        +   '<div class="cls-meta">' + esc(when) + ' &middot; ' + meta.join(' &middot; ') + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
 
   function renderClasses(list){
     var box = document.getElementById('classes');
@@ -1986,6 +2032,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         saveCache(d);
         if (dayChanged) lastSig = null;     // 지문을 비워 강제로 다시 그리게 한다
         renderClasses(d.classes || []);
+    renderUpcoming(d.upcoming || []);
         renderNotices(d.notices || []);
         paintClassCount(d.classes);
         // 매니저에게는 이쪽이 본체다 — 진행 중 수업과 노쇼가 45초마다 저절로 갱신된다.
@@ -2018,7 +2065,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   document.addEventListener('visibilitychange', function(){
     if (document.hidden){ stopSec(); return; }
     // 돌아온 즉시 한 번: 자리를 비운 사이 배정된 수업을 기다리지 않고 보여준다
-    if (DATA) renderClasses(DATA.classes || []);
+    if (DATA) { renderClasses(DATA.classes || []); renderUpcoming(DATA.upcoming || []); }
     scheduleAutoRefresh(1500);
   });
   window.addEventListener('online', function(){ arDelay = AR_MIN; scheduleAutoRefresh(1000); });

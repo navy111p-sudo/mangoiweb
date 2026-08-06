@@ -202,6 +202,8 @@ export async function handleTeacherApi(
   const identityAmbiguous = !isManager && ambiguousNames.length > 0;
 
   const classes: any[] = [];
+  // 📅 앞으로 7일 안의 일회성 수업 — 선언은 여기(반환문과 같은 스코프). 채우는 건 아래 루프.
+  const upcoming: any[] = [];
   if (conds.length) {
     const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
@@ -229,13 +231,48 @@ export async function handleTeacherApi(
     //   ⚠️ 이 값을 바꾸려면 api-mango.ts 의 OPEN_BEFORE 도 같이 바꿀 것. 한쪽만 바꾸면 다시 어긋난다.
     const OPEN_BEFORE = 10 * 60 * 1000;
     const LATE_AFTER = 15 * 60 * 1000;   // 종료 15분 후까지 지각 입장 허용
+    /* 📅 (2026-08-06 마이마이 제보 "내일 수업이 안 보인다") 이 화면은 «오늘» 만 그린다.
+       그래서 내일 잡힌 레벨테스트는 **당일이 되어서야** 처음 보인다. 레벨테스트는
+       준비가 필요한 수업이다 — 처음 만나는 학생이고, 보호자가 옆에 있고, 끝나면 평가를
+       남겨야 한다. 「오늘 갑자기 알게 되는」 구조는 그 준비를 불가능하게 만든다.
+       → 오늘 목록은 그대로 두고, «앞으로 7일» 을 따로 모아 함께 내려준다. */
+    const UPCOMING_DAYS = 7;
+    const dayMs = 86400000;
+
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
       if (seen.has(s.id)) continue;
       let occurs = false;
       if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
       else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
-      if (!occurs) continue;
+
+      if (!occurs) {
+        /* 오늘이 아니면 «앞으로 7일» 안에 열리는지 본다.
+           ⚠️ 반복 수업(day_of_week)은 매주 도니 여기 넣으면 목록이 그 강사의 시간표로
+              가득 찬다 → **일회성(one_off)만**. 레벨테스트는 전부 일회성이라 정확히 걸린다. */
+        if (!s.scheduled_date) continue;
+        const d = String(s.scheduled_date).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= todayStr) continue;
+        const p = d.split('-').map(Number);
+        const [uh, um] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
+        const uStart = Date.UTC(p[0], p[1] - 1, p[2], uh || 0, um || 0, 0) - KST;
+        if (uStart - now > UPCOMING_DAYS * dayMs) continue;
+        seen.add(s.id);
+        upcoming.push({
+          id: s.id,
+          date: d,
+          start_time: `${pad(uh || 0)}:${pad(um || 0)}`,
+          start_ts: uStart,
+          duration_min: Number(s.duration_min) || 30,
+          student_name: s.student_name || s.student_en || null,
+          student_name_en: s.student_en || null,
+          level: s.level || null,
+          textbook: s.textbook || null,
+          is_level_test: String(s.class_type || '') === 'level_test'
+            || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
+        });
+        continue;
+      }
       seen.add(s.id);
 
       const [hh, mm] = String(s.start_time || '00:00').split(':').map((x: string) => Number(x));
@@ -437,7 +474,10 @@ export async function handleTeacherApi(
       identity_ambiguous: identityAmbiguous,
       identity_candidates: ambiguousNames,
     },
-    classes, notices, resources, rating,
+    classes,
+    // 📅 앞으로 7일 안의 «일회성» 수업(레벨테스트 포함). 오늘 목록과 별개로 미리 준비하라고 알린다.
+    upcoming: upcoming.sort((a, b) => a.start_ts - b.start_ts),
+    notices, resources, rating,
     ...(manager ? { manager } : {}),
   });
 }
