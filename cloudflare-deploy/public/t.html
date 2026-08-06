@@ -182,6 +182,11 @@
     h += '<div class="btns">'
       +  '<a class="btn" href="' + esc(d.precheck_url) + '" target="_blank" rel="noopener">🎧 ' + t('장비 점검','Device check') + '</a>'
       +  (d.ics_url ? '<a class="btn" href="' + esc(d.ics_url) + '">📆 ' + t('캘린더에 추가','Add to calendar') + '</a>' : '')
+      /* 🔗 다른 기기에서도 보려면 «이 링크» 만 옮기면 된다. 계정이 없는 신청자에게는
+         링크가 곧 신원이라, 링크를 옮기는 것 자체가 «이어서 보기» 다.
+         (카톡 나에게 보내기·메모에 붙여넣고 PC 에서 열면 그 PC 홈에도 카드가 뜬다)
+         ⚠️ 이 화면은 어떤 경우에도 아이디·비밀번호를 묻지 않는다 — 하니스가 지킨다. */
+      +  '<button type="button" class="btn" id="cp">🔗 ' + t('링크 복사 (다른 기기에서 보기)','Copy link (open on another device)') + '</button>'
       +  '</div>';
 
     if (!d.join_open && d.start_ts && d.start_ts > d.now){
@@ -189,6 +194,21 @@
                                       'You can leave this page open — the Join button appears automatically.') + '</div>';
     }
     document.getElementById('body').innerHTML = h;
+    /* 🔗 링크 복사. 30초마다 다시 그리므로 리스너는 «그릴 때마다» 새로 단다.
+       ⚠️ navigator.clipboard 는 https 에서만 산다 — 안 되면 조용히 실패하지 말고
+          주소를 그대로 띄워서 손으로라도 복사할 수 있게 한다. */
+    var cpBtn = document.getElementById('cp');
+    if (cpBtn) cpBtn.addEventListener('click', function(){
+      var url = location.href;
+      var done = function(){
+        cpBtn.textContent = '✓ ' + t('복사됐어요 — 다른 기기에 붙여넣으세요','Copied — paste it on your other device');
+        setTimeout(function(){ cpBtn.textContent = '🔗 ' + t('링크 복사 (다른 기기에서 보기)','Copy link (open on another device)'); }, 2200);
+      };
+      try {
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(done, function(){ prompt(t('이 주소를 복사하세요','Copy this address'), url); });
+        else prompt(t('이 주소를 복사하세요','Copy this address'), url);
+      } catch(_) { prompt(t('이 주소를 복사하세요','Copy this address'), url); }
+    });
     var pinBtn = document.getElementById('pin-go');
     if (pinBtn){
       var inp = document.getElementById('pin'), msg = document.getElementById('pin-msg');
@@ -220,8 +240,19 @@
         if (!d || !d.ok || !d.ticket) {
           fail('링크가 만료되었거나 올바르지 않습니다. 학원에 문의해 주세요.',
                'This link is expired or invalid. Please contact us.');
+          /* 죽은 링크를 기기에 남겨 두면 홈 카드가 계속 그 링크를 물고 늘어진다 */
+          try { localStorage.removeItem('mangoi_lt_ticket'); } catch(_){}
           return;
         }
+        /* 🏠 (2026-08-07) 이 링크를 «연 기기» 가 기억하게 한다 — 그러면 그 기기의 홈에도
+           「🎟️ 내 레벨테스트」 카드가 뜬다.
+           [왜] 그동안 홈 카드는 «신청한 그 브라우저» 에만 떴다. 문자는 폰으로 오는데
+                PC 로 홈에 들어가면 자기 예약이 흔적도 없었다.
+           [원리] 계정이 없는 신청자에게는 **링크가 곧 신원**이다(서명 토큰). 그 링크를 연
+                기기는 이미 신원을 증명한 셈이라, 거기에 카드를 띄우는 것은 새 권한이 아니다.
+           ⛔ 여기서 «로그인한 계정에 자동으로 붙이는» 짓은 하지 않는다 — 남이 이 링크를 열면
+              그 사람 계정에 남의 신청이 붙어 버린다. 계정 연결은 관리자가 사람 눈으로 한다. */
+        try { localStorage.setItem('mangoi_lt_ticket', location.href); } catch(_){}
         T = d.ticket; render(T);
       })
       .catch(function(e){

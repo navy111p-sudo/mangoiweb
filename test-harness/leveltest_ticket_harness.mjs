@@ -294,6 +294,24 @@ check('한/영 둘 다 나온다', /localStorage\.getItem\('mangoi_lang'\)/.test
 check('외부 스크립트·폰트를 안 쓴다 (경량 원칙)', !/<script[^>]+src=|fonts\.googleapis|cdn\./i.test(page));
 check('검색엔진에 노출되지 않는다 (개인 링크)', /name="robots" content="noindex/.test(page));
 
+console.log('\n[ ⑦-2 어느 기기에서나 — 링크를 «연 기기» 가 기억한다 (2026-08-07) ]');
+/* [왜] 홈 카드는 «신청한 그 브라우저» 에만 떴다. 문자는 폰으로 오는데 PC 로 홈에 들어가면
+   자기 예약이 흔적도 없었다. 계정 없는 신청자에겐 링크가 곧 신원이므로, 그 링크를 연 기기는
+   이미 신원을 증명한 셈 — 거기에 카드를 띄우는 것은 새 권한이 아니다. */
+check('티켓을 열면 그 기기가 링크를 기억한다 (그 기기 홈에도 카드가 뜬다)',
+  /localStorage\.setItem\('mangoi_lt_ticket', location\.href\)/.test(page));
+check('만료·무효 링크면 기기에서 지운다 (죽은 카드를 홈에 남기지 않는다)',
+  /fail\('링크가 만료[\s\S]{0,220}?localStorage\.removeItem\('mangoi_lt_ticket'\)/.test(page));
+check('저장은 «티켓이 진짜일 때만» 한다 (fail 경로에서 저장 금지)',
+  page.indexOf("localStorage.setItem('mangoi_lt_ticket'") > page.indexOf("localStorage.removeItem('mangoi_lt_ticket')"));
+check('다른 기기로 옮길 손잡이가 있다 (링크 복사)',
+  /id="cp"/.test(page) && /링크 복사 \(다른 기기에서 보기\)/.test(page));
+check('복사가 막히는 환경에서도 주소를 보여준다 (조용한 실패 금지)',
+  /window\.isSecureContext/.test(page) && /prompt\(t\('이 주소를 복사하세요'/.test(page));
+check('⛔ 링크를 연 것만으로 로그인 계정에 자동으로 붙이지 않는다 (남이 열면 남의 계정에 붙는다)',
+  !/mangoi_uid|mango_token|link_student/.test(page));
+check('한/영 둘 다 나온다', /'Copy link \(open on another device\)'/.test(page));
+
 console.log('\n[ ⑧ 운영자가 링크를 «다시 건네줄» 수 있어야 한다 (2026-08-07) ]');
 /* [왜] 링크는 ①신청 직후 문자 ②확정 문자 ③10분 전 리마인더 에만 실려 나갔다.
    신청자가 그 문자를 못 찾으면 상담직원도 꺼내 줄 데가 없었다 — 실제 사고(신청 #15).
