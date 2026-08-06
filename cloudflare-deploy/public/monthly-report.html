@@ -76,6 +76,14 @@
   .radar-list li{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:6px}
   .radar-list .rlab{color:#e2e8f0;font-weight:700}
   .radar-list .rval{font-weight:900;color:var(--blue)}
+  /* 🤖 2026-08-07 — AI 학습기록으로 채운 축 표시. 인쇄에서도 남아야 해서 색이 아니라 «글자»로 밝힌다 */
+  .radar-list .rsrc{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;
+    font-size:10.5px;font-weight:800;color:#c4b5fd;background:rgba(167,139,250,0.16);
+    border:1px solid rgba(167,139,250,0.42);vertical-align:middle;white-space:nowrap}
+  .radar-list .rbasis{display:block;margin:-3px 0 8px;font-size:11px;color:#94a3b8;line-height:1.45}
+  .radar-note{margin-top:10px;font-size:11.5px;color:#94a3b8;line-height:1.5}
+  @media print{ .radar-list .rsrc{color:#4c1d95;background:#ede9fe;border-color:#c4b5fd}
+    .radar-list .rbasis,.radar-note{color:#475569} }
   .chip-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
   .chip{display:flex;gap:9px;align-items:flex-start;padding:11px 12px;border-radius:12px;background:rgba(139,92,246,0.08);border:1px solid var(--line)}
   .chip .stripe{width:4px;align-self:stretch;border-radius:3px;flex:none;background:var(--good)}
@@ -165,8 +173,12 @@
       '<polyline fill="none" stroke="#a78bfa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="'+poly+'"/>'+dots+labs+'</svg>';
   }
 
-  // 🌟 오각형(레이더) 5축 — d.radar = {pronunciation,vocab,sentence,attitude,participation} (0~100 또는 null)
-  function svgRadar(radar){
+  /* 🌟 오각형(레이더) 5축 — d.radar = {pronunciation,vocab,sentence,attitude,participation} (0~100 또는 null)
+     🤖 (2026-08-07) src = d.radar_source — 축마다 'teacher'(강사 평가서) / 'ai'(AI 학습 활동) / null.
+        AI 로 채운 축은 반드시 그렇다고 표시하고 근거(basis)를 같이 적는다.
+        표시를 빼면 학부모가 AI 활동 점수를 «선생님이 매긴 점수» 로 읽는다 — 그건 거짓말이 된다. */
+  function svgRadar(radar, src, basis){
+    src = src || {}; basis = basis || {};
     var axes = [
       {k:'pronunciation', ko:'발음·유창성', en:'Pronunciation & Fluency'},
       {k:'vocab', ko:'어휘 수준', en:'Vocabulary Level'},
@@ -190,9 +202,20 @@
       '<polygon points="'+poly+'" fill="#a78bfa" fill-opacity="0.22" stroke="#a78bfa" stroke-width="2.2" stroke-linejoin="round"/>'+dots+'</svg>';
     var list = '<ul class="radar-list">'+axes.map(function(a){
       var v = radar[a.k];
-      return '<li><span class="rlab">'+t(a.ko,a.en)+'</span><span class="rval">'+(v!=null?v:'—')+'</span></li>';
+      var tag = (src[a.k]==='ai')
+        ? '<span class="rsrc">'+t('AI 학습기록','From AI activity')+'</span>' : '';
+      var b = basis[a.k];
+      var bl = (src[a.k]==='ai' && b) ? '<li class="rbasis">'+esc(t(b.ko, b.en))+'</li>' : '';
+      return '<li><span class="rlab">'+t(a.ko,a.en)+tag+'</span><span class="rval">'+(v!=null?v:'—')+'</span></li>'+bl;
     }).join('')+'</ul>';
-    return '<div class="radar-row">'+svg+list+'</div>';
+    /* AI 로 채운 축이 하나라도 있으면 카드 아래에 한 줄로 한 번 더 밝힌다.
+       칩만으로는 인쇄본에서 눈에 안 들어온다. */
+    var aiN = axes.filter(function(a){ return src[a.k]==='ai'; }).length;
+    var note = aiN ? '<p class="radar-note">'+t(
+        '※ «AI 학습기록» 표시가 붙은 항목은 선생님 평가가 아니라, 학생이 실제로 한 AI 학습 기록에서 자동으로 계산한 점수입니다.',
+        '※ Items marked "From AI activity" are calculated automatically from the student\'s own AI learning records, not from a teacher\'s evaluation.'
+      )+'</p>' : '';
+    return '<div class="radar-row">'+svg+list+'</div>'+note;
   }
 
   function renderDash(d){
@@ -221,7 +244,7 @@
     } else {
       var jd = d.judgment;
       // 🌟 오각형 요약 카드 (기획안 4-1) — 화면에서도, 인쇄에서도 가장 먼저 보이는 자리
-      var radarHtml = svgRadar(d.radar);
+      var radarHtml = svgRadar(d.radar, d.radar_source, d.radar_basis);
       if(radarHtml){
         var gh = d.growth_highlight;
         html += '<div class="card radar-card"><h3>🌟 '+t('이번 기간 한눈에 보기','This Period at a Glance')+'</h3>'+

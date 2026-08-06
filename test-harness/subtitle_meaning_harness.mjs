@@ -20,7 +20,6 @@
 //
 //   실행: node test-harness/subtitle_meaning_harness.mjs
 import { readFileSync } from 'fs';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -165,30 +164,39 @@ for (const [name, t] of [['ai-friend', aif], ['warmup', wup], ['speech-coach', s
 }
 
 /* ─────────────────────────────────────────────────────────────
-   8. 역검증 — 바꾸기 전 코드로 돌리면 반드시 실패해야 한다
-        (통과만 하는 하니스는 아무것도 지키지 않는다)
+   8. 역검증 — 기능을 도로 빼면 이 하니스가 «실제로» 실패하는가
+        통과만 하는 하니스는 아무것도 지키지 않는다.
+        ⚠️ git HEAD 와 비교하지 않는다 — 커밋하는 순간 HEAD 에 기능이 들어가서
+           역검증이 스스로 무너진다(실제로 한 번 겪었다). 지금 소스에서 기능 줄을
+           «걷어낸 합성본» 을 만들어 검사하면 커밋 여부와 무관하게 영원히 유효하다.
    ───────────────────────────────────────────────────────────── */
-console.log('\n[ ⑧ 역검증 — 옛 코드에서는 이 검사들이 실패하는가 ]');
+console.log('\n[ ⑧ 역검증 — 기능을 도로 빼면 검사가 실패하는가 ]');
 
-let old = null;
-try {
-  old = {
-    aif: execSync('git show HEAD:cloudflare-deploy/public/ai-friend.html', { cwd: join(__dirname, '..'), maxBuffer: 1 << 26 }).toString('utf8'),
-    wup: execSync('git show HEAD:cloudflare-deploy/public/warmup.html', { cwd: join(__dirname, '..'), maxBuffer: 1 << 26 }).toString('utf8'),
-    spc: execSync('git show HEAD:cloudflare-deploy/public/speech-coach.html', { cwd: join(__dirname, '..'), maxBuffer: 1 << 26 }).toString('utf8'),
-  };
-} catch (e) { /* git 이 없거나 파일이 아직 커밋 전이면 이 절은 건너뛴다 */ }
+// 자막·뜻 기능이 들어간 줄을 전부 걷어낸 «옛 버전» 을 만든다
+const strip = (t) => t.split('\n')
+  .filter(l => !/(data-sub|data-s="(on|blur|off)"|sub-shown|sub-veil|sub-btns|subVal|setSubMode|mean-btn|ko-chip|_koCache|ai-text|wu-text|toggleMeaning|fetchMeaning|toggleTargetMeaning|closeTargetMeaning|api\/translate)/.test(l))
+  .join('\n');
 
-if (!old) {
-  console.log('  ⏭ git HEAD 를 읽을 수 없어 역검증은 건너뜀 (다른 절은 그대로 유효)');
-} else {
-  check('옛 ai-friend 에는 자막 단계가 없다', !/data-sub=/.test(old.aif));
-  check('옛 warmup 에는 자막 단계가 없다', !/data-s="blur"/.test(old.wup));
-  check('옛 ai-friend 에는 뜻 보기가 없다', !/mean-btn/.test(old.aif));
-  check('옛 warmup 에는 뜻 보기가 없다', !/mean-btn/.test(old.wup));
-  check('옛 speech-coach 에는 뜻 보기가 없다', !/mean-btn/.test(old.spc));
-  check('옛 세 화면 어디에도 /api/translate 호출이 없다',
-    !/\/api\/translate/.test(old.aif) && !/\/api\/translate/.test(old.wup) && !/\/api\/translate/.test(old.spc));
+// 이 하니스의 핵심 단언 4개를 함수로 묶어, 현재 소스와 합성 옛 소스 양쪽에 돌린다
+const coreChecks = (t, css) => [
+  /data-sub="blur"/.test(t) || /data-s="blur"/.test(t),   // 자막 단계가 있다
+  /mean-btn/.test(t),                                      // 뜻 보기가 있다
+  /\/api\/translate/.test(t),                              // 번역을 실제로 부른다
+  /:not\(\.sub-shown\)/.test(css),                         // 되돌아올 길이 있다
+];
+
+for (const [name, t] of [['ai-friend', aif], ['warmup', wup]]) {
+  const now = coreChecks(t, styleOf(t));
+  const before = coreChecks(strip(t), styleOf(strip(t)));
+  check(`${name}: 지금은 핵심 4개가 모두 참이다`, now.every(Boolean), now);
+  check(`${name}: 기능을 빼면 핵심 4개가 모두 거짓이 된다(하니스가 진짜로 잡는다)`,
+    before.every(v => v === false), before);
+}
+{
+  const now = /mean-btn/.test(spc) && /\/api\/translate/.test(spc);
+  const before = /mean-btn/.test(strip(spc)) || /\/api\/translate/.test(strip(spc));
+  check('speech-coach: 지금은 뜻 보기가 있다', now);
+  check('speech-coach: 기능을 빼면 사라진다', before === false);
 }
 
 console.log('\n─────────────────────────────────────────────');
