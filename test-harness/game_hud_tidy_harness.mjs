@@ -14,6 +14,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUB  = process.env.MANGOI_PUB || join(ROOT, 'cloudflare-deploy', 'public');
 const P38  = readFileSync(join(PUB, 'student-game-p38-3d.html'), 'utf8');
 const TANK = readFileSync(join(PUB, 'student-game-tank-battle.html'), 'utf8');
+const FISH = readFileSync(join(PUB, 'english-mastery-suite.html'), 'utf8');       // 🎣 낚시+말하기
+const RESQ = readFileSync(join(PUB, 'student-game-rescue-voyage.html'), 'utf8');  // 🛟 구조선
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond) { if (cond) { PASS++; } else { FAIL++; FAILS.push(name); }
@@ -104,6 +106,64 @@ check('㉖ 아주 좁은 폰에서 알약이 버튼과 겹치지 않게 더 줄�
 check('㉗ PC 배치는 그대로다 (문장 아래 줄 규칙이 살아 있다)',
   /#hud\{position:absolute;top:60px/.test(TANK) &&
   /hud\.style\.top\s*=\s*Math\.round\(tb\.getBoundingClientRect\(\)\.height/.test(TANK));
+
+/* ═══ ④ 낚시+말하기 — 글자줄을 «떠 있게» 해서 바다가 화면 전부를 쓰게 ═══ */
+console.log('\n④ 낚시+말하기 — 바다가 화면 전체를 쓰는가');
+
+check('㉙ 폰에서 점수줄·낱말줄이 흐름에서 빠져 «떠 있다»',
+  /body\.ovHUD #fish \.hud,\s*[\s\S]{0,60}?body\.ovHUD #fish \.target\{[^}]*position:absolute/.test(FISH));
+check('㉚ 그 둘의 배경을 지웠다 (바다가 비친다)',
+  /body\.ovHUD #fish \.hud,[\s\S]{0,220}?background:transparent/.test(FISH));
+check('㉛ 글자줄이 바다를 덮어도 그 아래 물고기가 눌린다 (pointer-events 되살림)',
+  /body\.ovHUD #fish \.target\{[^}]*pointer-events:none/.test(FISH) &&
+  /body\.ovHUD #fish \.target > \*\{pointer-events:auto\}/.test(FISH));
+/* 🔴 여기가 핵심. 바다가 위로 커진 만큼 배·수면·물고기도 내려야 글자 뒤에 숨지 않는다. */
+check('㉜ 오버레이 높이를 실제로 재서 --ovH 로 넣는다 (고정값 금지)',
+  /function setOverlayH\(\)/.test(FISH) &&
+  /getBoundingClientRect\(\)\.height[\s\S]{0,220}?setProperty\('--ovH'/.test(FISH));
+check('㉝ 수면·배·구조수 표시가 --ovH 만큼 내려간다',
+  /\.surface\{[^}]*top:calc\(58px \+ var\(--ovH/.test(FISH) &&
+  /\.boat\{[^}]*top:calc\(4px \+ var\(--ovH/.test(FISH) &&
+  /\.catch-cnt\{[^}]*var\(--ovH/.test(FISH));
+check('㉞ 물고기도 글자줄 아래에서만 헤엄친다',
+  /function fishTopY\(\)\{\s*return OVH/.test(FISH) && /y:rand\(fishTopY\(\)/.test(FISH));
+check('㉟ 낱말 줄이 바뀌거나 화면이 회전하면 다시 잰다',
+  /if\(scopeSel==='#fish'\) setOverlayH\(\)/.test(FISH) &&
+  /resize'[\s\S]{0,60}?setOverlayH\(\)/.test(FISH));
+
+/* ═══ ⑤ 구조선 — 조종 방식 되돌리기 + 소리 + 투명 ═══ */
+console.log('\n⑤ 구조선 — 손가락으로 배를 끄는 조종 · 소리 · 투명 문장바');
+
+check('㊱ 폰에서 하단 조종기(◀ ▶ 부스트)를 숨긴다',
+  /body\.dragSteer #ctrl\{ display:none !important; \}/.test(RESQ));
+check('㊲ 터치 기기면 그 모드를 켠다',
+  /if\(IS_TOUCH\)\{[\s\S]{0,200}?classList\.add\('dragSteer'\)/.test(RESQ));
+/* ⚠️ 버튼 요소 자체를 지우면 hold() 초기화에서 터진다 — 숨기기만 해야 한다 */
+check('㊳ 버튼 요소는 남겨 둔다 (hold() 가 붙는 대상)',
+  /id="left"/.test(RESQ) && /id="right"/.test(RESQ) && /hold\(\$\('left'\)/.test(RESQ));
+check('㊴ 드래그 조종 경로가 살아 있다 (캔버스 포인터 추종)',
+  /canvas\.addEventListener\('pointerdown'[\s\S]{0,160}?pointerToLaneX/.test(RESQ) &&
+  /addEventListener\('pointermove'[\s\S]{0,120}?pointerToLaneX/.test(RESQ));
+/* 🪤 브라우저가 이 드래그를 스크롤로 가져가면 pointercancel 로 조종이 끊긴다 */
+check('㊵ 캔버스에 touch-action:none 이 걸려 있다', /canvas\{[^}]*touch-action:none/.test(RESQ));
+check('㊶ 안내문도 드래그 기준으로 바뀐다', /배를 손가락으로 끌어 움직이세요/.test(RESQ));
+
+check('㊷ 구조한 단어는 «마지막 단어까지» 소리로 읽는다',
+  /G\._lastWordText/.test(RESQ) &&
+  /speak\(G\._lastWordText, lang, function\(\)\{ playSentenceNTimes\(3/.test(RESQ));
+check('㊸ 새 문장을 시작할 때 목표 문장을 한 번 들려준다',
+  /if\(_mainSent\) setTimeout\(function\(\)\{ if\(G\.running\) speak\(_mainSent, G\.mode\)/.test(RESQ));
+
+check('㊹ 폰에서 상단 문장 카드가 투명해진다 (유리판 제거)',
+  /body\.dragSteer #sentBar\{ background:transparent; border:0; box-shadow:none;[\s\S]{0,90}?backdrop-filter:none/.test(RESQ));
+check('㊺ 글자는 그림자로 읽히게 한다', /body\.dragSteer #sentBar \.sw\{[^}]*text-shadow/.test(RESQ));
+/* 🔴 고정 top 이면 HUD 위에 겹쳐 글자끼리 포개진다 — 실제로 그랬다 */
+check('㊻ 문장바를 HUD 실제 높이 밑으로 내린다 (고정값 아님)',
+  /function syncSentBarTop\(\)/.test(RESQ) &&
+  /getBoundingClientRect\(\)\.height[\s\S]{0,120}?setProperty\('--hudH'/.test(RESQ) &&
+  /body\.dragSteer #sentBar\{[\s\S]{0,220}?top:var\(--hudH/.test(RESQ));
+check('㊼ 가로 폰은 HUD 세 줄을 한 줄로 편다 (세로가 짧다)',
+  /@media \(orientation:landscape\)[^{]*\{[\s\S]{0,400}?body\.dragSteer #hud\{[^}]*flex-direction:row/.test(RESQ));
 
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  ✅ PASS ${PASS}    ⚠ FAIL ${FAIL}   (총 ${PASS + FAIL})`);

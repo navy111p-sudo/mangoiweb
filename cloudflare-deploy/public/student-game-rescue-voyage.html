@@ -19,7 +19,9 @@
   html,body{ margin:0; height:100%; overflow:hidden; background:#0a2432;
     font-family:MangoiHanSC,'Segoe UI',system-ui,'Malgun Gothic',sans-serif; color:#eaf6ff; user-select:none; }
   #stage{ position:fixed; inset:0; }
-  canvas{ display:block; width:100%; height:100%; }
+  /* ⚠️ touch-action:none — 손가락으로 배를 끄는 조종이라, 브라우저가 이 드래그를
+     '스크롤/새로고침 당김'으로 가져가면 pointercancel 이 나면서 조종이 끊긴다. */
+  canvas{ display:block; width:100%; height:100%; touch-action:none; }
 
   /* ── 상단 HUD ── */
   #hud{ position:fixed; top:0; left:0; right:0; z-index:10; padding:10px 12px;
@@ -58,6 +60,44 @@
   #hint{ position:fixed; bottom:112px; left:0; right:0; text-align:center; z-index:9;
     font-size:12px; opacity:.7; pointer-events:none; }
   @media(min-width:900px){ .pad,#boost{ opacity:.55; } }
+  /* 📱 폰·태블릿 — 하단 조종기(◀ ▶ 부스트)를 걷어낸다.
+     사장님: "손가락을 보트에 가져다 대고 움직이는 이전 방법이 모바일에선 더 낫다."
+     조종 코드(canvas pointerdown/pointermove)는 그대로 살아 있고 버튼만 숨기는 것이므로
+     hold() 가 붙는 요소도 그대로 둔다(지우면 초기화에서 터진다).
+     ⚠️ 화면 아래 1/3 을 버튼이 먹고 있었다 — 배가 그 위로 밀려 바다가 좁아 보였다. */
+  body.dragSteer #ctrl{ display:none !important; }
+  body.dragSteer #hint{ bottom:14px; }
+
+  /* 📱 폰 — 상단 «문장 카드»를 투명하게, HUD 는 얇게 (사장님: "글자는 투명으로, 스크린이 넓고 크게")
+     🔴 예전에는 문장 카드가 반투명 유리판(배경+테두리+blur)이라 수평선을 통째로 가렸고,
+        게다가 HUD(문장 n/6·목숨·진행바·점수) 위에 겹쳐 글자끼리 포개졌다.
+     ✅ 카드 배경을 없애고, HUD 아래로 내려 겹침을 푼다. 글자는 그림자로 읽히게 한다. */
+  body.dragSteer #sentBar{ background:transparent; border:0; box-shadow:none;
+    -webkit-backdrop-filter:none; backdrop-filter:none; padding:0 8px; gap:4px 9px;
+    top:var(--hudH,86px); max-width:98vw; }
+  body.dragSteer #sentBar .sw{ font-size:20px; color:#dbe9f5; opacity:.72;
+    text-shadow:0 1px 3px #000,0 0 7px rgba(0,0,0,.85); }
+  body.dragSteer #sentBar .sw.lit{ color:#fff7a8; opacity:1;
+    text-shadow:0 0 8px #ffe95e,0 0 18px #ffd21e,0 2px 5px #000; }
+  /* HUD 배경 그라데이션도 옅게 — 바다를 덜 덮는다 */
+  body.dragSteer #hud{ background:linear-gradient(#0006,transparent 78%); padding:7px 10px; gap:5px; }
+  body.dragSteer #stageName{ font-size:14px; }
+  body.dragSteer #stageName small{ display:none; }   /* '단어를 순서대로 구조!' 는 시작 화면에서 이미 안내한다 */
+  body.dragSteer #lives{ font-size:16px; }
+  body.dragSteer #score{ font-size:12px; }
+  body.dragSteer #barWrap{ height:11px; }
+  body.dragSteer #timerWrap{ height:8px; }
+  /* 가로 폰 — 세로가 짧다. 한 단계 더 줄인다 */
+  @media (orientation:landscape) and (max-height:520px){
+    body.dragSteer #sentBar .sw{ font-size:17px; }
+    /* 가로 폰은 세로가 짧다 — HUD 세 줄(문장수·목숨 / 진행바·타이머 / 점수)을 **한 줄**로 편다.
+       세로로 쌓으면 87px, 한 줄이면 ~30px — 그만큼 바다가 넓어진다. */
+    body.dragSteer #hud{ padding:5px 10px; gap:4px 10px;
+      flex-direction:row; flex-wrap:wrap; align-items:center; }
+    body.dragSteer #hud .row{ flex:0 0 auto; }
+    body.dragSteer #hud .row:nth-child(2){ flex:1 1 180px; min-width:0; }
+    body.dragSteer #lives{ margin-left:6px; }
+  }
 
   /* ── 중앙 토스트(구조 성공 시 뜻 공개) ── */
   #toast{ position:fixed; top:38%; left:50%; transform:translate(-50%,-50%) scale(.7); z-index:20;
@@ -880,8 +920,19 @@
     var objects=[];   // 활성 스폰 오브젝트
 
     // 상단 문장바 — 단어를 순서대로 구조할 때마다 그 단어에 형광 하이라이트(방금 맞춘 단어는 pop)
+    /* 문장바를 HUD 바로 밑에 붙인다.
+       ⚠️ 고정값(top:8px)이면 HUD 위에 겹쳐 글자끼리 포개진다 — 실제로 그랬다.
+          HUD 는 목숨·진행바·점수 줄 수에 따라 높이가 변하므로 **매번 잰다**. */
+    function syncSentBarTop(){
+      var h=$('hud'), el=$('sentBar');
+      if(!h||!el) return;
+      var hh = (h.style.display==='none') ? 0 : Math.round(h.getBoundingClientRect().height);
+      document.body.style.setProperty('--hudH', (hh+2)+'px');
+    }
+    window.addEventListener('resize', syncSentBarTop);
     function updateSentBar(){
       var el=$('sentBar'), words=G.sentWords||[];
+      syncSentBarTop();
       if(!G.running || !words.length){ el.style.display='none'; el.removeAttribute('data-key'); return; }
       var key=G.stageIdx+':'+G.sentNext+'/'+words.length;
       if(el.getAttribute('data-key')===key){ el.style.display='flex'; return; }
@@ -1010,6 +1061,11 @@
       seaMat.color.setHex(vis.water); scene.background=new THREE.Color(vis.sky); scene.fog.color.setHex(vis.sky);
       var up=1+(G.stageIdx%STAGES.length)*0.05; boat.scale.set(up,up,up);
       G.running=true; setHUD(); updateTimerUI();
+      /* 🔊 새 문장을 시작할 때 «목표 문장»을 한 번 들려준다.
+         예전에는 문장을 다 맞힌 뒤에야 처음 들었다 — 듣기 훈련이 되려면 먼저 들어야 한다.
+         (낚시 게임도 라운드 시작에 자동으로 들려준다 — 같은 규칙) */
+      var _mainSent = (G.mode==='zh') ? (round.zh||round.en||'') : (round.en||'');
+      if(_mainSent) setTimeout(function(){ if(G.running) speak(_mainSent, G.mode); }, 600);
     }
     function stageClear(){
       G.running=false; bgm.urgency(0); $('dangerVignette').classList.remove('show');
@@ -1175,7 +1231,11 @@
       G.rescuedWords.push({word:word,lang:lang,golden:golden});
       var willComplete = (obj.userData.order===G.sentNext) && (G.sentNext+1>=G.sentWords.length);
       showToast(word,lang,golden);
-      if(!willComplete) speak(lang==='zh'?word.zh:word.en, lang);   // 완성 순간엔 단어 대신 문장 전체를 3회 재생
+      /* 🔊 구조한 단어는 «언제나» 읽어 준다 — 마지막 단어만 건너뛰면 그 단어 하나만
+         평생 발음을 못 듣는다(사장님: "구출시 단어 소리, 문장들도 나중에 모두 소리").
+         마지막 단어는 읽기가 끝난 뒤 문장 3회로 이어 붙인다(겹치지 않게). */
+      G._lastWordText = (lang==='zh') ? word.zh : word.en;
+      if(!willComplete) speak(G._lastWordText, lang);
       sfxSplash(); sfxDing(Math.min(G.combo,8));
       spawnBurst(obj.position.clone(), golden?0xffe066:0x8fe3ff, golden?14:8);
       floatText(obj.position.clone(), '+'+gain, golden?'gold':'good');
@@ -1186,7 +1246,9 @@
       if(G.sentNext>=G.sentWords.length){   // 문장 완성! → 문장 전체를 무조건 3번 들려준 뒤 클리어
         G.score+=300; floatText(obj.position.clone(),'문장 완성! +300 🎉','gold'); setHUD();
         awardRescuePoints();   // 🥭 로그인 학생 계정에 망고 포인트 적립
-        G.running=false; sfxFanfare(); playSentenceNTimes(3, function(){ stageClear(); });
+        G.running=false; sfxFanfare();
+        // 마지막 단어 → (다 읽으면) 문장 3회 → 클리어. 낱말이 빠지지 않게 이어 붙인다.
+        speak(G._lastWordText, lang, function(){ playSentenceNTimes(3, function(){ stageClear(); }); });
       }
     }
     /* ── 🥭 게임↔망고 포인트 연결: 문장을 완성하면 로그인 학생 계정에 실제 포인트 적립(하루 30점까지) ── */
@@ -1287,8 +1349,13 @@
     hold($('left'), function(){setSteer(-1);}, function(){ if(G.steer<0)setSteer(0); });
     hold($('right'),function(){setSteer(1);},  function(){ if(G.steer>0)setSteer(0); });
     hold($('boost'),function(){G.boost=true;}, function(){G.boost=false;});
-    // 📱 터치 기기에서는 안내문도 손가락 조작 기준으로 (PC는 기존 마우스 안내 유지)
-    if(IS_TOUCH && $('hint')) $('hint').textContent='👆 화살표를 꾹 누르면 배가 계속 돌아갑니다 · Hold the arrows to keep turning';
+    /* 📱 터치 기기 = 손가락으로 배를 끌어 조종한다(사장님 지시로 되돌림).
+       하단 ◀ ▶ 부스트 버튼은 숨긴다 — 화면 아래를 크게 먹어 바다가 좁아 보였고,
+       아이들은 어차피 배를 직접 끌어 몰았다. 조종 로직은 아래 canvas 리스너 그대로. */
+    if(IS_TOUCH){
+      try{ document.body.classList.add('dragSteer'); }catch(_){}
+      if($('hint')) $('hint').textContent='👆 배를 손가락으로 끌어 움직이세요 · Drag the boat with your finger';
+    }
 
     // ── 🖱 마우스/터치 위치 조종 — 포인터의 좌우 위치를 배가 즉각 따라옴(예민한 반응) ──
     G.pointerX=null; G.pointerOn=false; G.aimSteer=0;   // pointerX=목표 레인 X, pointerOn=포인터 사용중, aimSteer=시각적 기울임

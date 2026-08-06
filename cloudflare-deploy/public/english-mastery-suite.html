@@ -242,9 +242,11 @@
   .fish.hooked .face{animation:wriggle .25s linear infinite}
   @keyframes wriggle{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
   /* ===== 어부 · 배 · 낚싯대 ===== */
-  .surface{position:absolute;left:0;right:0;top:58px;height:3px;z-index:1;pointer-events:none;
+  /* ⚠️ --ovH = 화면 위를 덮은 «투명 오버레이(점수줄+낱말줄)»의 높이. 폰에서만 0 이 아니다.
+     바다가 그만큼 위로 커졌으므로 수면·배·낚싯줄도 같이 내려야 글자 뒤에 숨지 않는다. */
+  .surface{position:absolute;left:0;right:0;top:calc(58px + var(--ovH,0px));height:3px;z-index:1;pointer-events:none;
     background:linear-gradient(90deg,transparent,rgba(180,235,255,.55),transparent)}
-  .boat{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;width:128px;height:62px;
+  .boat{position:absolute;top:calc(4px + var(--ovH,0px));left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;width:128px;height:62px;
     animation:boatBob 3.2s ease-in-out infinite alternate}
   @keyframes boatBob{from{transform:translateX(-50%) translateY(0) rotate(-1.6deg)}to{transform:translateX(-50%) translateY(3px) rotate(1.6deg)}}
   .boat .fisher{position:absolute;left:40px;bottom:21px;font-size:27px;z-index:2;filter:drop-shadow(0 2px 4px rgba(0,0,0,.55))}
@@ -255,7 +257,7 @@
   /* 🧸 실사(그린스크린) 배 낚시꾼 영상 — 캔버스에서 실시간 크로마키, 영상 로드 실패 시 이모지 폴백 */
   .boat .fishercv{display:none;position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);width:96px;z-index:2;
     pointer-events:none;filter:drop-shadow(0 5px 8px rgba(0,0,0,.45))}
-  .boat.real{top:16px}
+  .boat.real{top:calc(16px + var(--ovH,0px))}
   .boat.real .fisher,.boat.real .hull,.boat.real .rod{visibility:hidden}
   .boat.real .fishercv{display:block}
   .boat.tug{animation:tug .35s}
@@ -265,7 +267,7 @@
     transition:left .18s linear,top .18s linear,width .18s linear,transform .18s linear}
   .hook{position:absolute;left:0;top:0;z-index:9;font-size:17px;pointer-events:none;transform:translate(-50%,-12%);
     filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));transition:left .18s linear,top .18s linear}
-  .catch-cnt{position:absolute;top:10px;right:12px;z-index:10;font-size:11px;font-weight:800;color:var(--gold);
+  .catch-cnt{position:absolute;top:calc(10px + var(--ovH,0px));right:12px;z-index:10;font-size:11px;font-weight:800;color:var(--gold);
     background:rgba(8,16,34,.6);border:1px solid var(--line);border-radius:8px;padding:3px 9px;pointer-events:none}
 
   /* ===== 슈팅(우주) 화면 최대 확대 (모바일 세로) — 필드가 남는 세로공간 전부, 몬스터 크게 ===== */
@@ -283,21 +285,49 @@
   #fish .hud{padding:7px 11px;gap:7px}                      /* 상단바 슬림화로 게임영역 확대 */
   #fish .target{padding:7px 11px}
   #fish .target .hint{display:none}                         /* 안내문 숨겨 세로공간 회수(규칙은 그대로 동작) */
+
+  /* ═══ 📱 폰 — 상단 두 띠를 «투명 오버레이»로 (사장님: "글자판 투명으로 하고 최대한 올려줘") ═══
+     🔴 예전에는 점수줄(.hud)과 낱말줄(.target)이 **flex 흐름 안에** 있어서, 그 높이만큼
+        바다(.field)가 통째로 밀려 내려왔다. 낱말이 두 줄이 되는 가로 화면에서는
+        둘이 화면의 28% 를 먹어 "바다가 작게 보인다"는 신고가 나왔다.
+     ✅ 둘 다 `position:absolute` 로 띄우면 .field 가 화면 전체를 쓴다. 배경은 지워 바다가 비친다.
+     ⚠️ 바다가 위로 커진 만큼 **배·수면·물고기 스폰도 같이 내려야** 낱말줄 뒤에 숨지 않는다
+        → 오버레이 높이를 `--ovH` 로 재서 JS 가 넣어 준다(setOverlayH). 한쪽만 고치면 배가 글자에 가린다. */
+  body.ovHUD #fish .hud,
+  body.ovHUD #fish .target{position:absolute;left:0;right:0;
+    background:transparent;border-bottom:0;-webkit-backdrop-filter:none;backdrop-filter:none}
+  body.ovHUD #fish .hud{top:0;padding:6px 10px 2px}
+  body.ovHUD #fish .target{top:var(--hudH,42px);padding:2px 10px 4px;
+    pointer-events:none}                       /* 바다를 덮어도 그 아래 물고기가 눌린다 */
+  body.ovHUD #fish .target > *{pointer-events:auto}
+  /* 배경이 사라졌으니 글자는 그림자로 읽히게 한다 */
+  body.ovHUD #fish .hud .stat .val,
+  body.ovHUD #fish .hud .stat .lab{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.9)}
+  body.ovHUD #fish .chip{text-shadow:0 1px 2px rgba(0,0,0,.75)}
+  body.ovHUD #fish .chip.pending{background:rgba(6,20,38,.42);border-color:rgba(190,215,245,.32);color:#dbe9fb}
+  body.ovHUD #fish .chip.done{background:rgba(34,197,94,.30)}
+  body.ovHUD #fish .voice-badge{background:rgba(8,16,34,.45)}
+  /* 가로 폰은 세로가 짧다 — 한 단계 더 줄인다 */
+  @media (orientation:landscape) and (max-height:560px){
+    body.ovHUD #fish .chip{font-size:14px;padding:3px 9px}
+    body.ovHUD #fish .hud{padding:4px 10px 0}
+    body.ovHUD #fish .stat .val{font-size:15px}
+  }
   #fish .fish .face{width:clamp(40px,6.2vmin,80px);height:clamp(40px,6.2vmin,80px)}     /* 물고기 — 화면 크기에 따라 커짐 */
   #fish .fish .word{font-size:clamp(15px,2.3vmin,28px);padding:3px 13px}
   #fish .boat{width:150px;height:74px}
   #fish .boat .hull{font-size:58px}
   #fish .boat .fisher{font-size:31px;left:46px;bottom:24px}
   #fish .boat .rod{left:70px;bottom:38px;width:74px}
-  #fish .boat.real{top:37px}
+  #fish .boat.real{top:calc(37px + var(--ovH,0px))}
   #fish .boat.real .fishercv{width:130px}   /* 🧸 실사 배 — 모바일도 한 단계 크게 */
   #fish .weed{filter:drop-shadow(0 0 7px rgba(0,0,0,.5))}
   #fish .hook{font-size:20px}
   /* 🖥️ PC — 배(실사 낚시꾼) 2배 확대. overflow:hidden 이라 위로 안 잘리게 배를 아래로 내리고 수면선도 배 위치에 맞춤 */
   @media (min-width:820px){
-    #fish .boat.real{top:0;height:204px}
+    #fish .boat.real{top:var(--ovH,0px);height:204px}
     #fish .boat.real .fishercv{width:220px}
-    #fish .surface{top:131px}
+    #fish .surface{top:calc(131px + var(--ovH,0px))}
     #fish .boat{width:300px;height:148px}
     #fish .boat .hull{font-size:116px}
     #fish .boat .fisher{font-size:62px;left:92px;bottom:48px}
@@ -1029,6 +1059,8 @@
   function showScene(id){
     $$('.scene').forEach(function(s){ s.classList.toggle('active', s.id===id); });
     closeOverlay('#speakOverlay'); closeOverlay('#resultOverlay');
+    // 낚시 화면은 상단 글자줄이 «떠 있는» 구조라, 보이게 된 뒤에 높이를 재야 한다(숨어 있을 땐 0)
+    if(id==='fish') setTimeout(setOverlayH, 0);
   }
   function openOverlay(sel){ $(sel).classList.add('show'); }
   function closeOverlay(sel){ $(sel).classList.remove('show'); }
@@ -1302,6 +1334,8 @@
       var cls = i<idx?'done':(i===idx?'next':'pending');
       return '<span class="chip '+cls+'">'+w+'</span>';
     }).join('');
+    // 낱말이 줄바꿈되면 글자줄 높이가 바뀐다 → 배·수면·물고기 기준선도 다시 잡는다
+    if(scopeSel==='#fish') setOverlayH();
   }
   // 👆 단어 탭 → 한국어 뜻 말풍선 (병음 있으면 함께). 모르는 단어는 서버 번역 폴백 후 캐시
   function wordPop(anchor, word, py, mean){
@@ -1606,14 +1640,36 @@
     var sx=fw/FI.fieldW, sy=fh/FI.fieldH;
     if(Math.abs(sx-1)<0.02 && Math.abs(sy-1)<0.02) return;   // 변화 미미하면 무시
     FI.fish.forEach(function(f){
-      f.x=Math.max(8,Math.min(fw-92, f.x*sx)); f.y=Math.max(80,Math.min(fh-96, f.y*sy));
-      if(f.home){ f.home.x=Math.max(8,Math.min(fw-92, f.home.x*sx)); f.home.y=Math.max(80,Math.min(fh-96, f.home.y*sy)); }
+      var ty=fishTopY();
+      f.x=Math.max(8,Math.min(fw-92, f.x*sx)); f.y=Math.max(ty,Math.min(fh-96, f.y*sy));
+      if(f.home){ f.home.x=Math.max(8,Math.min(fw-92, f.home.x*sx)); f.home.y=Math.max(ty,Math.min(fh-96, f.home.y*sy)); }
       if(f.el){ f.el.style.left=f.x+'px'; f.el.style.top=f.y+'px'; }
     });
     FI.fieldW=fw; FI.fieldH=fh;
   }
+  /* ═══ 📱 상단 «투명 오버레이» 높이 재기 ═══
+     폰에서는 점수줄·낱말줄이 바다 위에 떠 있다(body.ovHUD). 바다가 그만큼 위로 커졌으므로
+     배·수면·낚싯줄·물고기가 그 아래에서 시작해야 글자에 가리지 않는다.
+     ⚠️ 낱말 수·화면 회전에 따라 줄 수가 바뀌므로 **매번 실제 높이를 잰다**. 고정값 금지. */
+  var OVH = 0;
+  function isPhoneHUD(){
+    return ('ontouchstart' in window) || Math.min(innerWidth,innerHeight) < 560 || innerWidth < 900;
+  }
+  function setOverlayH(){
+    var on = isPhoneHUD();
+    try{ document.body.classList.toggle('ovHUD', on); }catch(e){}
+    var sc=$('#fish'), hud=$('#fish .hud'), tg=$('#fish .target');
+    if(!sc||!hud||!tg) return;
+    if(!on){ OVH=0; sc.style.removeProperty('--ovH'); sc.style.removeProperty('--hudH'); return; }
+    var hh = Math.round(hud.getBoundingClientRect().height);
+    sc.style.setProperty('--hudH', hh+'px');
+    OVH = hh + Math.round(tg.getBoundingClientRect().height) + 4;
+    sc.style.setProperty('--ovH', OVH+'px');
+  }
+  // 물고기가 헤엄칠 수 있는 맨 윗줄 — 오버레이(글자) 아래부터
+  function fishTopY(){ return OVH + 26; }
   // 창 크기 변경(PC↔모바일 브레이크포인트)으로 배 크기가 바뀌면 줄·바늘을 낚싯대 끝에 다시 맞춤 + 물고기 재배치
-  window.addEventListener('resize', function(){ if($('#fish').classList.contains('active')){ relayoutFish(); resetLine(); } });
+  window.addEventListener('resize', function(){ setOverlayH(); if($('#fish').classList.contains('active')){ relayoutFish(); resetLine(); } });
 
   function fishStart(){
     var cfg=fishCfg();
@@ -1642,6 +1698,7 @@
   }
   function fishRound(){
     fishClear(); var r=makeRound(); FI.words=r.words; FI.idx=0;
+    setOverlayH();                                     // 낱말 수가 바뀌면 낱말줄 높이도 바뀐다
     var fw=FI.field.clientWidth, fh=FI.field.clientHeight;
     FI.fieldW=fw; FI.fieldH=fh;   // 이 크기 기준으로 스폰 → 리사이즈 시 비율 보정
     r.items.forEach(function(it){
@@ -1652,7 +1709,8 @@
       var sp = fishCfg().speed;
       // ⚡ base 속도(스폰 시 고정) — 루프에서 spdMult() 를 매 프레임 곱함 → 속도 변경 즉시 반영, 상위 속도일수록 빨리빨리 헤엄
       var f={ el:el, word:it.word, isTarget:it.isTarget, golden:!!it.golden,
-        x:rand(8,Math.max(60,fw-92)), y:rand(80,Math.max(150,fh-96)),   // 물 전체(가로 끝~끝, 수면 아래~바닥 근처)로 최대한 분산
+        // 물 전체(가로 끝~끝, 글자줄 아래~바닥 근처)로 최대한 분산. 윗선은 오버레이(글자) 아래부터
+        x:rand(8,Math.max(60,fw-92)), y:rand(fishTopY(),Math.max(fishTopY()+70,fh-96)),
         vxBase:dir*rand(sp[0],sp[1]), vyBase:rand(-14,14), home:null };
       f.home={x:f.x,y:f.y};
       el.style.left=f.x+'px'; el.style.top=f.y+'px';
