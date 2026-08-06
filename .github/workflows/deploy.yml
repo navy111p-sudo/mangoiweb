@@ -2,13 +2,29 @@ name: Deploy WebRTC Unified Platform (Cloudflare Workers)
 
 # main 브랜치에 push 될 때마다 자동 배포.
 # 수동 실행도 가능 (Actions 탭 → Run workflow).
+#
+# ⚠️ 2026-08-07 — paths 필터를 뺐다. 「불필요한 배포 방지」로 얻는 것보다
+#   「조용히 배포가 안 되는」 위험이 훨씬 컸다.
+#
+#   무슨 일이 있었나: PR #33(115 커밋)을 main 에 병합했는데 워크플로가 한 건도 안 돌았다.
+#   Actions 활성 · 워크플로 active · 시크릿 존재 · PushEvent 기록까지 전부 정상이었고,
+#   변경 파일 239개 중 134개가 cloudflare-deploy/ 아래라 필터에 걸려야 했는데도 실행이 없었다.
+#   대기(queued) 실행도 0건 — GitHub 이 실행을 아예 만들지 않았다.
+#
+#   비교: 8/4 병합은 2커밋·1파일 → 정상 작동. 이번은 115커밋·239파일 → 안 걸림.
+#   구조적 차이가 push 크기 하나뿐이다. GitHub 은 push 의 경로 필터를 그 push 에 담긴
+#   커밋 목록으로 판정하는데, 커밋이 대량이면 그 목록이 잘려 판정이 어긋난다.
+#
+#   가장 나쁜 건 아무 신호가 없다는 것이다. 실패도 경고도 아니고 그냥 아무 일이 안 일어난다.
+#   작은 PR 은 잘 걸리니 평소엔 문제를 못 느끼다가, 정작 큰 병합에서 조용히 빠진다.
+#   (그동안 다들 로컬 deploy.ps1 로만 배포하게 된 이유일 가능성이 크다)
+#
+#   맞바꾼 것: 이제 문서만 고쳐 main 에 올려도 Worker 가 한 번 재배포된다.
+#   main push 자체가 드물고 의도적이라 그 비용은 작고, main 은 언제나 배포 가능한 상태여야 한다.
+#   반대로 「나갔어야 할 게 안 나간 것」은 터지기 전까지 아무도 모른다.
 on:
   push:
     branches: [main]
-    paths:
-      # cloudflare-deploy 하위만 배포 트리거 (불필요한 배포 방지)
-      - 'cloudflare-deploy/**'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
     inputs:
       skip_base:
