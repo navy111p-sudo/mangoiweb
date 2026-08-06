@@ -188,8 +188,12 @@ check('옛 신청 화면이 되살아나지 않았다 (신청서는 한 벌)',
   !/leveltest\/apply/.test(ltHtml) && /menu=leveltest/.test(ltHtml));
 check('홈 가입 팝업도 그 링크를 보여준다', /ad\.ticket_url\) ticketUrl = ad\.ticket_url/.test(gridJs));
 check('홈 팝업 버튼이 «내 신청 확인하기» 다', /🎟️ 내 신청 확인하기/.test(gridJs));
+/* (2026-08-07) 대비책이 2단이 됐다: 티켓 → (계정 있으면) 마이페이지 → (계정도 없으면)
+   «문자로 보냈다» 안내. 빈 uid 로 마이페이지에 보내면 남의 화면이 뜨므로 링크를 만들지 않는다. */
 check('링크를 못 받았을 때의 대비책이 있다 (버튼이 사라지지 않게)',
-  /ticketUrl \? `<a class="info-cta" href="\$\{ticketUrl\}"[\s\S]{0,200}?: `<a class="info-cta" href="\/parent\.html/.test(gridJs));
+  /ticketUrl[\s\S]{0,40}?\? `<a class="info-cta" href="\$\{ticketUrl\}"[\s\S]{0,300}?`<a class="info-cta" href="\/parent\.html/.test(gridJs));
+check('계정도 티켓도 없으면 «문자로 보냈다» 고만 말한다 (빈 uid 로 마이페이지 금지)',
+  /확인 링크를 문자로 보내드렸어요/.test(gridJs));
 {
   const v = (idxHtml.match(/idx-grid-menu\.js\?v=(\d+)/) || [])[1];
   check(`캐시 버전이 21 이상 (안 올리면 옛 js 가 그대로) [현재 ${v}]`, Number(v || 0) >= 21);

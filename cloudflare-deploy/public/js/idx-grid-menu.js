@@ -1916,18 +1916,31 @@
       ? '<div class="ltf-sec">🔐 로그인됨 / Signed in</div>'
         + '<div class="ltf-signed">✅ <b>' + escapeLT(_lts.uid) + '</b> 님으로 신청합니다 — 회원가입 없이 바로 접수돼요.'
         + '<br><span style="color:#94a3b8;font-size:11.5px">결과는 마이페이지 「내 레벨테스트」에서 확인하실 수 있어요.</span></div>'
-      : '<div class="ltf-sec">🔐 계정 만들기</div>'
+      /* ⛔ 비로그인: 계정은 «권하되 강요하지 않는다» (2026-08-07, 사장님 지적).
+         **레벨테스트 신청 ≠ 회원가입**이고 신청자 절반은 계정이 없다. 처음 온 사람에게
+         비밀번호부터 물으면 거기서 그냥 나간다 — 옛 페이지엔 없던 벽이다.
+         결과 확인은 계정이 아니라 **티켓 링크(t.html, 로그인 불필요)** 가 맡는다. */
+      : '<div class="ltf-sec">🔐 계정 만들기 <span class="ltf-opt">(선택 — 없어도 신청됩니다)</span></div>'
+        + '<input type="hidden" id="lt-noacct" value="0" />'
+        + '<div id="lt-acct-fields">'
         + '<div class="ltf-grid">'
-        + '<div class="ltf-f"><label>🆔 아이디 <span class="ltf-req">*</span></label>'
+        + '<div class="ltf-f"><label>🆔 아이디</label>'
         + '<input id="lt-uid" type="text" autocomplete="username" placeholder="영문/숫자 4~20자" maxlength="20" /></div>'
-        + '<div class="ltf-f"><label>🔑 비밀번호 <span class="ltf-req">*</span></label>'
+        + '<div class="ltf-f"><label>🔑 비밀번호</label>'
         + '<input id="lt-pw" type="password" autocomplete="new-password" placeholder="6자 이상" minlength="6" /></div>'
+        + '</div>'
+        + '<button type="button" class="ltf-link" onclick="ltToggleAccount(1)">🙅 계정 없이 신청할래요 — 이름·연락처만</button>'
+        + '</div>'
+        + '<div id="lt-noacct-note" style="display:none">'
+        + '<div class="ltf-signed">✅ 계정 없이 접수합니다 — 신청 후 나오는 <b>🎟️ 내 신청 확인 링크</b>로 일정·결과를 보실 수 있어요 (로그인 불필요).'
+        + '<br><span style="color:#94a3b8;font-size:11.5px">문자로도 같은 링크를 보내드려요.</span></div>'
+        + '<button type="button" class="ltf-link" onclick="ltToggleAccount(0)">🆔 아이디도 만들래요 (마이페이지에서 계속 관리)</button>'
         + '</div>';
-    var formTitle = _ltIn ? '🎯 레벨테스트 신청' : '🆕 회원가입 + 레벨테스트 신청';
+    var formTitle = '🎯 레벨테스트 신청';
     var formLead  = _ltIn
       ? '로그인돼 있어서 날짜·시간만 고르시면 끝나요.'
-      : '아이디·비밀번호를 만들어 두시면 마이페이지에서 결과 확인 + 다음 신청이 1초로 끝나요.';
-    var submitLabel = _ltIn ? '✅ 레벨테스트 신청하기' : '✅ 회원가입 완료 + 레벨테스트 신청';
+      : '아이디는 <b style="color:#cbd5e1">선택</b>이에요. 만들어 두시면 마이페이지에서 결과 확인 + 다음 신청이 1초로 끝나요.';
+    var submitLabel = '✅ 레벨테스트 신청하기';
     showModal(`
       <style>
         /* 🎨 레벨테스트 안내 전용 (lti- 접두사, 이 모달 안에서만) */
@@ -2106,6 +2119,10 @@
           #lt-signup .ltf-req{color:#fb7185;font-weight:800}
           #lt-signup .ltf-signed{background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.32);border-radius:12px;padding:11px 13px;font-size:12.5px;line-height:1.6;color:#a7f3d0}
           #lt-signup .ltf-signed b{color:#6ee7b7}
+          /* «계정 없이 신청» 전환 — 링크처럼 보이되 손가락으로 누를 만한 크기(모바일) */
+          #lt-signup .ltf-link{display:block;width:100%;margin-top:9px;padding:9px 10px;background:transparent;border:0;
+            color:#93c5fd;font-size:12.3px;font-weight:700;text-align:left;text-decoration:underline;cursor:pointer;line-height:1.5;word-break:keep-all}
+          #lt-signup .ltf-link:hover{color:#bfdbfe}
           #lt-signup .ltf-opt{color:#64748b;font-weight:600;font-size:10.5px}
           #lt-signup .ltf-f input,#lt-signup .ltf-f select{width:100%;height:44px;padding:0 13px;background:rgba(2,6,23,0.55);border:1px solid rgba(148,163,184,0.22);border-radius:11px;color:#f1f5f9;font-size:13.5px;outline:none;box-sizing:border-box;appearance:none;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s,background .15s}
           #lt-signup .ltf-f input::placeholder{color:#5b6b86}
@@ -2221,14 +2238,34 @@
     mSel.onchange = fill;
   };
 
+  /* 🙅 «계정 없이 신청» 전환. 값을 지우고 숨기는 게 아니라 **숨기고 플래그를 세운다** —
+     되돌렸을 때 이미 친 아이디가 사라지면 그것도 이탈 지점이다. */
+  window.ltToggleAccount = function(off) {
+    var flag = document.getElementById('lt-noacct');
+    var fields = document.getElementById('lt-acct-fields');
+    var note = document.getElementById('lt-noacct-note');
+    if (!flag || !fields || !note) return;
+    flag.value = off ? '1' : '0';
+    fields.style.display = off ? 'none' : '';
+    note.style.display = off ? '' : 'none';
+    var msg = document.getElementById('lt-form-msg');
+    if (msg) msg.style.display = 'none';   // 「아이디를 입력해 주세요」가 남아 있으면 앞뒤가 안 맞는다
+  };
+
   // ━━━━━━━━━━ 회원가입 + 레벨테스트 신청 제출 ━━━━━━━━━━
   window.submitLevelTestSignup = async function() {
     const $ = (id) => document.getElementById(id);
     // 🔑 로그인 상태면 «계정 만들기» 칸 자체가 없다 → 기존 uid 로 접수 (ltSession 주석 참조)
     const sess = ltSession();
     const loggedIn = !!sess.uid;
-    const uid = loggedIn ? sess.uid : ($('lt-uid')?.value || '').trim();
+    /* 🙅 계정 없이 신청 — «아이디 칸을 접었거나, 접지 않았어도 아무것도 안 쳤을 때».
+       둘째 조건이 중요하다: 안내를 못 보고 그냥 비워 둔 사람을 에러로 막으면
+       그 사람은 «신청이 안 되는 화면»만 보고 나간다. 비면 그대로 접수한다. */
+    const acctOff = !loggedIn && ($('lt-noacct')?.value === '1');
+    const uidTyped = ($('lt-uid')?.value || '').trim();
     const pw  = ($('lt-pw')?.value || '').trim();
+    const noAcct = !loggedIn && (acctOff || (!uidTyped && !pw));
+    const uid = loggedIn ? sess.uid : (noAcct ? '' : uidTyped);
     const name = ($('lt-name')?.value || '').trim();
     const phone = ($('lt-phone')?.value || '').trim();
     const email = ($('lt-email')?.value || '').trim();
@@ -2247,11 +2284,12 @@
       if (msg) { msg.textContent = text; msg.style.display = 'block'; }
     }
 
-    // 검증 — 아이디·비밀번호는 «새로 가입할 때만» 본다(로그인 상태면 그 칸이 없다)
-    if (!loggedIn) {
-      if (!uid || uid.length < 4) return showErr('아이디는 4자 이상 입력해 주세요.');
+    // 검증 — 아이디·비밀번호는 «가입을 택했을 때만» 본다
+    //  (로그인 상태면 칸 자체가 없고, 계정 없이 신청이면 볼 것이 없다)
+    if (!loggedIn && !noAcct) {
+      if (!uid || uid.length < 4) return showErr('아이디는 4자 이상이어야 해요. (계정 없이 신청하려면 아이디·비밀번호를 비워 두세요)');
       if (!/^[a-zA-Z0-9_]+$/.test(uid)) return showErr('아이디는 영문/숫자/언더바만 가능합니다.');
-      if (!pw || pw.length < 6) return showErr('비밀번호는 6자 이상 입력해 주세요.');
+      if (!pw || pw.length < 6) return showErr('비밀번호는 6자 이상이어야 해요. (계정 없이 신청하려면 아이디·비밀번호를 비워 두세요)');
     }
     if (!name) return showErr('학생 이름을 입력해 주세요.');
     if (!phone) return showErr('연락처를 입력해 주세요.');
@@ -2267,7 +2305,7 @@
       //    ⚠ 로그인 상태에서는 건너뛴다 — 자기 아이디가 당연히 걸려서 «이미 사용 중»으로
       //      자기 자신을 막아버린다(기존 회원이 재신청을 못 하게 되는 지점).
       let localExists = false;
-      if (!loggedIn) {
+      if (!loggedIn && !noAcct) {
         try {
           const existing = JSON.parse(localStorage.getItem('mangoi_level_test_results') || '[]');
           localExists = existing.some(x => x.student_user_id === uid);
@@ -2280,7 +2318,7 @@
       // 2) 백엔드 회원가입 — 실제 계정 생성 + 자동 로그인 토큰 수신 (best-effort)
       //    로그인 상태면 가입 호출 자체를 하지 않고 갖고 있던 토큰을 그대로 쓴다.
       var regToken = loggedIn ? (sess.token || '') : '';
-      if (!loggedIn) try {
+      if (!loggedIn && !noAcct) try {
         const r = await fetch('/api/student/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2313,7 +2351,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           // token: uid 가 어떤 이유로든 비면 서버가 로그인 토큰에서 직접 꺼내 채운다(마이페이지 조회는 uid 로만 한다)
-          body: JSON.stringify({ student_name: name, student_uid: uid, token: regToken || '', phone: phone, email: email, desired_date: desiredDate, desired_time: desiredTime, source: loggedIn ? 'home-member' : 'home-signup' })
+          body: JSON.stringify({ student_name: name, student_uid: uid, token: regToken || '', phone: phone, email: email, desired_date: desiredDate, desired_time: desiredTime, source: loggedIn ? 'home-member' : (noAcct ? 'home-guest' : 'home-signup') })
         });
         const ad = await ar.json().catch(() => null);
         if (ad && ad.scheduled) scheduledLabel = ad.scheduled;
@@ -2325,7 +2363,7 @@
       // 🔑 가입 = 자동 로그인 — 세션 심기 (재로그인 없이 마이페이지 진입)
       //    ⚠ 이미 로그인한 사람에게는 하지 않는다 — 학부모 세션을 학생(role:'student') 으로
       //      덮어써 마이페이지가 다른 화면이 돼버린다.
-      if (!loggedIn) try {
+      if (!loggedIn && !noAcct) try {
         const _lu = { user_id: uid, uid: uid, name: name, user_name: name, role: 'student' };
         localStorage.setItem('mango_user', JSON.stringify(_lu));
         localStorage.setItem('mangoi_logged_user', JSON.stringify(_lu));
@@ -2338,8 +2376,10 @@
         }
       } catch (e) {}
 
-      // 🔗 학생 홈피 결과 조회용 로컬 기록 (레벨/점수는 실제 AI 진단·선생님 평가 전까지 비움 — 가짜점수 금지)
-      try {
+      /* 🔗 학생 홈피 결과 조회용 로컬 기록 (레벨/점수는 실제 AI 진단·선생님 평가 전까지 비움 — 가짜점수 금지)
+         ⚠ 계정 없이 신청한 건은 남기지 않는다 — 아이디가 '' 인 행이 쌓이면 «결과보기» 가
+           서로 다른 사람의 신청을 같은 줄로 본다. 그 사람의 확인 경로는 티켓 링크다. */
+      if (!noAcct) try {
         const arr = JSON.parse(localStorage.getItem('mangoi_level_test_results') || '[]');
         arr.unshift({
           student_name: name,
@@ -2358,8 +2398,8 @@
 
       // 성공 — 가입+신청 완료 화면
       showModal(`
-        <h2 style="color:#86efac">${loggedIn ? '🎉 레벨테스트 신청 완료!' : '🎉 회원가입 + 레벨테스트 신청 완료!'}</h2>
-        <p>${loggedIn
+        <h2 style="color:#86efac">${(loggedIn || noAcct) ? '🎉 레벨테스트 신청 완료!' : '🎉 회원가입 + 레벨테스트 신청 완료!'}</h2>
+        <p>${(loggedIn || noAcct)
             ? `<b style="color:#fde68a">${escapeLT(name)}</b> 님의 레벨테스트 신청이 접수되었습니다.`
             : `축하합니다! <b style="color:#fde68a">${escapeLT(name)}</b> 님의 회원가입이 완료되었고 레벨테스트 신청이 접수되었습니다.`}</p>
         <div class="info-grid" style="margin:14px 0">
@@ -2372,12 +2412,18 @@
         </div>
         <ul>
           <li>담당 선생님 확정 후, 예약 시간 10분 전 카카오톡 채널로 화상 링크 안내</li>
-          <li>아래 <b style="color:#fde68a">🎟️ 내 신청 확인하기</b> 를 누르면 언제든 상태·일정·결과를 볼 수 있어요 (로그인 불필요)</li>
+          ${ticketUrl ? `<li>아래 <b style="color:#fde68a">🎟️ 내 신청 확인하기</b> 를 누르면 언제든 상태·일정·결과를 볼 수 있어요 (로그인 불필요)</li>` : `<li>문자로 보내드린 <b style="color:#fde68a">확인 링크</b>로 언제든 상태·일정·결과를 볼 수 있어요 (로그인 불필요)</li>`}
           <li>결과 수령 후 추천 코스로 즉시 수강 신청 가능</li>
         </ul>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
           <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;text-align:center;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡 채널 추가</a>
-          ${ticketUrl ? `<a class="info-cta" href="${ticketUrl}" style="margin:0;text-align:center">🎟️ 내 신청 확인하기</a>` : `<a class="info-cta" href="/parent.html?uid=${encodeURIComponent(uid)}" style="margin:0;text-align:center">🔑 마이페이지 가기</a>`}
+          ${ticketUrl
+            ? `<a class="info-cta" href="${ticketUrl}" style="margin:0;text-align:center">🎟️ 내 신청 확인하기</a>`
+            : (uid
+              ? `<a class="info-cta" href="/parent.html?uid=${encodeURIComponent(uid)}" style="margin:0;text-align:center">🔑 마이페이지 가기</a>`
+              /* 티켓도 계정도 없다 = 갈 곳이 없다. 빈 uid 로 마이페이지에 보내면 «내 것이 아닌 화면»이 뜬다.
+                 이때는 문자가 유일한 길이므로 그 사실을 그대로 말한다(가짜 버튼 금지). */
+              : `<span class="info-cta" style="margin:0;text-align:center;background:rgba(148,163,184,0.14);color:#cbd5e1;cursor:default">📩 확인 링크를 문자로 보내드렸어요</span>`)}
         </div>
       `);
       ltAudioIntroReplay();   // 🎬 완료 화면에서 인트로 음성 한 번 더 (처음·마지막)
