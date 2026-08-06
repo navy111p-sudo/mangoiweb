@@ -705,7 +705,7 @@ Rules:
       let gam: any = null;
       try {
         gam = await aiFriendGamSnapshot(uid);
-        gam.awarded = 0; gam.word_bonus = 0; gam.voice_bonus = 0;
+        gam.awarded = 0; gam.word_bonus = 0; gam.voice_bonus = 0; gam.listen_bonus = 0;
         if (!/^guest/i.test(uid)) {
           await ensurePointTables(env);
           const KST_OFF = 9 * 3600 * 1000;
@@ -724,14 +724,22 @@ Rules:
           const wod = gam.word;
           const wantWord = !!(wod && new RegExp(`\\b${wod.w}\\b`, 'i').test(msg));
           const wantVoice = String(b.via || '') === 'voice';
-          const [chatUsed, wordUsed, voiceUsed] = await Promise.all([
+          /* 🎧 (2026-08-07) 자막을 가리거나 끈 채로 대화하면 덤 1P.
+             듣기 훈련은 «켠 쪽에 벌점» 이 아니라 «끈 쪽에 덤» 이어야 한다 —
+             어려워서 자막을 켠 학생이 손해 보는 느낌을 받으면 그 학생부터 그만둔다.
+             ⚠️ 화면이 알려주는 값이라 마음먹으면 속일 수 있다. 이미 있는 via:'voice' 와 같은 수준의
+                신뢰도이고, 하루 5회로 묶여 있어 최대 5P다. 여기에 더 큰 보상을 걸지 말 것. */
+          const wantListen = ['blur', 'off'].includes(String(b.sub || ''));
+          const [chatUsed, wordUsed, voiceUsed, listenUsed] = await Promise.all([
             usedToday('ai_friend_chat'),
             wantWord ? usedToday('ai_friend_word') : Promise.resolve(Infinity),
             wantVoice ? usedToday('ai_friend_voice') : Promise.resolve(Infinity),
+            wantListen ? usedToday('ai_friend_listen') : Promise.resolve(Infinity),
           ]);
           if (chatUsed < 10) { await logAward('ai_friend_chat', 2, '망고와 영어 수다'); gam.awarded = 2; }
           if (wantWord && wordUsed < 1) { await logAward('ai_friend_word', 5, `오늘의 단어(${wod.w}) 사용`); gam.word_bonus = 5; }
           if (wantVoice && voiceUsed < 5) { await logAward('ai_friend_voice', 1, '영어로 말하기'); gam.voice_bonus = 1; }
+          if (wantListen && listenUsed < 5) { await logAward('ai_friend_listen', 1, '자막 없이 듣기'); gam.listen_bonus = 1; }
         }
       } catch (e: any) {
         console.error('[chat-friend] gamification failed:', e?.message || e);

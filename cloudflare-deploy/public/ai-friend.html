@@ -154,6 +154,25 @@
       box-shadow: 0 10px 22px -8px rgba(251,191,36,0.35); }
     .topic-card .t-emoji { font-size: 26px; line-height: 1; }
     .topic-card .t-name { font-size: 11.5px; font-weight: 800; color: var(--text); }
+    /* 🧑 친구(캐릭터) 고르기 카드 — 2026-08-07.
+       주제 카드(.topic-card)와 같은 모양이되 «지금 고른 친구» 는 테두리로 확실히 표시한다.
+       고른 게 안 보이면 카드를 눌러도 고른 느낌이 안 난다. */
+    .friends { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px;
+      max-width: 560px; margin: 10px auto 0; }
+    @media (max-width: 420px) { .friends { grid-template-columns: 1fr; } }
+    .friend-card { padding: 12px 8px 10px; border-radius: 14px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+      display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
+    .friend-card:hover { border-color: rgba(251,191,36,0.55); }
+    .friend-card.on { border-color: var(--gold); background: rgba(251,191,36,0.14);
+      box-shadow: 0 0 0 1px rgba(251,191,36,0.5) inset; }
+    .friend-card .f-emoji { font-size: 26px; line-height: 1; }
+    .friend-card .f-name { font-size: 12.5px; font-weight: 900; color: var(--text); }
+    .friend-card .f-desc { font-size: 11px; color: var(--text2); line-height: 1.35; }
+    /* 헤더 이름 아래 «눌러서 바꾸기» 안내 — 안 적어두면 이름이 버튼인 줄 아무도 모른다 */
+    .top .info .chg { color: var(--gold); font-weight: 700; }
+
     .quick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
     .quick button { padding: 8px 14px; background: rgba(251,191,36,0.12);
       color: var(--gold); border: 1px solid rgba(251,191,36,0.3);
@@ -244,6 +263,19 @@
       color: var(--gold); border: 1px solid rgba(251,191,36,0.35); border-radius: 999px;
       font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .mic-btn:hover { background: rgba(251,191,36,0.24); }
+    /* 💡 «뭐라고 말할까» 도움 버튼 + 칩 — 2026-08-07 */
+    .help-btn { padding: 0; width: 46px; flex-shrink: 0; background: rgba(167,139,250,0.16);
+      color: #c4b5fd; border: 1px solid rgba(167,139,250,0.42); border-radius: 999px;
+      font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .help-btn:hover { background: rgba(167,139,250,0.28); }
+    .help-btn.on { background: #a78bfa; color: #1e1b4b; }
+    .help-row { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 auto 9px; max-width: 820px; }
+    .help-row .h-lab { width: 100%; font-size: 11.5px; font-weight: 800; color: var(--text2); }
+    .help-row button { padding: 8px 13px; border-radius: 999px; cursor: pointer; font-family: inherit;
+      background: rgba(167,139,250,0.14); color: #ddd6fe; border: 1px solid rgba(167,139,250,0.4);
+      font-size: 13px; font-weight: 700; }
+    .help-row button:hover { background: rgba(167,139,250,0.26); }
+    .help-row button .h-ko { color: var(--text2); font-weight: 600; margin-left: 5px; font-size: 11.5px; }
     .mic-btn.recording { background: linear-gradient(135deg,#ef4444,#dc2626); color: #fff;
       border-color: #ef4444; animation: micPulse 1.1s ease-in-out infinite; }
     @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
@@ -255,9 +287,13 @@
   <div class="top">
     <a href="/">←</a>
     <div class="mango-icon"><img src="/img/mango-char.png" alt="Mango" /></div>
-    <div class="info">
-      <div class="name">Mango</div>
-      <div class="status">● <span data-ko="온라인 (24시간)" data-en="online (24/7)">온라인 (24시간)</span></div>
+    <!-- 🧑 (2026-08-07) 이름을 누르면 친구를 다시 고를 수 있다.
+         고른 친구가 누구인지 늘 여기 떠 있어야 «내가 골랐다» 는 느낌이 남는다. -->
+    <div class="info" onclick="showFriendPicker()" style="cursor:pointer"
+         title="친구 바꾸기" data-ko-title="친구 바꾸기" data-en-title="Change friend">
+      <div class="name" id="friendName">Mango</div>
+      <div class="status">● <span data-ko="온라인 (24시간)" data-en="online (24/7)">온라인 (24시간)</span>
+        <span class="chg" data-ko="· 눌러서 친구 바꾸기" data-en="· tap to change">· 눌러서 친구 바꾸기</span></div>
     </div>
     <button class="snd-toggle" id="sndToggle" onclick="toggleSound()" aria-label="소리 켜기/끄기" data-ko-aria="소리 켜기/끄기" data-en-aria="Sound on/off" title="소리 듣기 켜기/끄기">🔊</button>
     <button class="next-flow-btn" onclick="window.MangoFlow&&MangoFlow.open('aifriend')" aria-label="다음으로 이동" data-ko-aria="다음으로 이동" data-en-aria="Go to next activity" title="다음으로 이동 (수업·웜업·게임·나가기)" data-ko-title="다음으로 이동 (수업·웜업·게임·나가기)" data-en-title="Go next (Class·Warm-up·Games·Exit)">🚀</button>
@@ -280,10 +316,13 @@
     <button class="opt" data-rate="0.8" data-ko="느리게" data-en="Slow">느리게</button>
     <button class="opt active" data-rate="1" data-ko="보통" data-en="Normal">보통</button>
     <button class="opt" data-rate="1.2" data-ko="🐇 빠르게" data-en="🐇 Fast">🐇 빠르게</button>
-    <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🎙 <span data-ko="목소리:" data-en="Voice:">목소리:</span></span>
-    <button class="opt" data-voice="female" data-ko="👩 여자" data-en="👩 Female">👩 여자</button>
-    <button class="opt" data-voice="male" data-ko="👨 남자" data-en="👨 Male">👨 남자</button>
-    <button class="opt" data-voice="mix" data-ko="🔀 번갈아" data-en="🔀 Mix">🔀 번갈아</button>
+    <!-- 🧑 (2026-08-07) 「목소리」 → 「친구」 로 이름만 바꿨다. 값(data-voice)은 그대로라 저장된 설정이 그대로 이어진다.
+         목소리·얼굴·이름은 원래 한 사람인데 «목소리 여자/남자» 라고만 적혀 있어서
+         학생이 «캐릭터를 골랐다» 고 느끼지 못했다. 기능이 아니라 이름의 문제였다. -->
+    <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🧑 <span data-ko="친구:" data-en="Friend:">친구:</span></span>
+    <button class="opt" data-voice="female" data-ko="👩 Emma" data-en="👩 Emma">👩 Emma</button>
+    <button class="opt" data-voice="male" data-ko="🦸 Jake" data-en="🦸 Jake">🦸 Jake</button>
+    <button class="opt" data-voice="mix" data-ko="🔀 둘 다" data-en="🔀 Both">🔀 둘 다</button>
     <!-- 👁 자막 3단계 (2026-08-07) — 「가리기」가 핵심. 안 들려도 탭 한 번이면 확인하고 계속 간다 -->
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">👁 <span data-ko="자막:" data-en="Subtitles:">자막:</span></span>
     <button class="opt active" data-sub="on" data-ko="보이기" data-en="Show">보이기</button>
@@ -308,6 +347,8 @@
     <span class="quest" id="qTalk">💬 <span data-ko="영어 수다 5번" data-en="Chat 5 times">영어 수다 5번</span> <span class="q-prog" id="qTalkN">0/5</span></span>
     <span class="quest" id="qWord">✨ <span data-ko="오늘의 단어 쓰기" data-en="Use today's word">오늘의 단어 쓰기</span> <span class="q-prog">+5P</span></span>
     <span class="quest" id="qVoice">🎤 <span data-ko="목소리로 말하기" data-en="Speak out loud">목소리로 말하기</span> <span class="q-prog">+1P</span></span>
+    <!-- 🎧 (2026-08-07) 자막을 끈 쪽에 덤. 켠 쪽에 벌점이 아니다 -->
+    <span class="quest" id="qListen">🎧 <span data-ko="자막 없이 듣기" data-en="Listen without subtitles">자막 없이 듣기</span> <span class="q-prog">+1P</span></span>
   </div>
 
   <!-- 🗺 지금 이야기 중인 주제 (주제를 고른 뒤에만 보임) -->
@@ -334,9 +375,16 @@
 
   <div class="chat" id="chat"></div>
   <div class="input-bar">
+    <!-- 💡 도움 칩 — 눌렀을 때만 열린다. 늘 떠 있으면 «고르는 학습» 이 되어 버린다 -->
+    <div class="help-row" id="helpRow" style="display:none"></div>
     <form onsubmit="sendMsg(event)">
       <input id="msgInput" type="text" autocomplete="off" placeholder="영어로 메시지를 보내세요…" data-ko-placeholder="영어로 메시지를 보내세요…" data-en-placeholder="Type in English…" maxlength="500" />
       <button type="button" class="mic-btn" id="micBtn" onclick="toggleMic()" aria-label="말하기 (음성 입력)" data-ko-aria="말하기 (음성 입력)" data-en-aria="Speak (voice input)" title="말하기 — 마이크로 영어 말하기">🎤</button>
+      <!-- 💡 (2026-08-07) 막힐 때만 쓰는 도움말. 기본 동선은 그대로 «직접 말하기·쓰기» 다 —
+           경쟁사처럼 전부 버튼으로 바꾸면 우리 강점인 자유 발화가 사라진다. -->
+      <button type="button" class="help-btn" id="helpBtn" onclick="toggleHelp()"
+        aria-label="뭐라고 말할지 도와주기" data-ko-aria="뭐라고 말할지 도와주기" data-en-aria="Help me answer"
+        title="뭐라고 말할까? — 눌러서 도움받기" data-ko-title="뭐라고 말할까? — 눌러서 도움받기" data-en-title="Stuck? Tap for help">💡</button>
       <button type="submit" id="sendBtn" data-ko="전송" data-en="Send">전송</button>
     </form>
   </div>
@@ -438,8 +486,83 @@
         try { localStorage.setItem('mangoi_aifriend_voice', currentVoice); } catch(e){}
         try { if (window.UXT) UXT.hit('ux:aifriend-voice-' + currentVoice); } catch(e){}
         syncAvatarToVoice();   // 👨 '남자'를 누르면 바로 슈퍼맨 얼굴로 바뀌게(다음 답변까지 기다리지 않고)
+        syncFriendName();      // 🧑 헤더 이름도 같이 (Emma ↔ Jake)
       };
     });
+
+    /* ══ 🧑 친구(캐릭터) — 2026-08-07 ══
+       기능은 원래 다 있었다(목소리 3종 · 실사 아바타 2종 · 말투 4종). 문제는 «고른 느낌» 이 없던 것 —
+       설정 줄에 「목소리 여자/남자」 로 레벨·속도와 섞여 있었고, 이름이 전부 Mango 라 누구와
+       이야기하는지 구분되지 않았다. 그래서 얼굴·목소리·이름·기본 말투를 «한 사람» 으로 묶는다.
+
+       ⚠️ 저장 키는 기존 mangoi_aifriend_voice 를 그대로 쓴다. 새 키를 만들면 지금까지 고른 목소리가
+          한 번 리셋된다. 친구 = 목소리이므로 키를 나눌 이유가 없다.
+       ⚠️ 아바타 얼굴은 실제로 2개(female/male)뿐이다. 있지도 않은 얼굴로 캐릭터를 늘리지 않는다 —
+          이름만 다른 같은 얼굴은 «고른 느낌» 이 아니라 «속은 느낌» 이 된다. */
+    const FRIENDS = [
+      { v: 'female', emoji: '👩', name: 'Emma',
+        ko: '엠마', en: 'Emma', persona: 'friendly',
+        d_ko: '다정하게 이야기해요', d_en: 'Warm and friendly',
+        hi: "Hi! I'm Emma. What do you want to talk about today?" },
+      { v: 'male', emoji: '🦸', name: 'Jake',
+        ko: '제이크', en: 'Jake', persona: 'playful',
+        d_ko: '장난도 치고 농담도 해요', d_en: 'Playful and funny',
+        hi: "Hey! I'm Jake. Ready for some fun English?" },
+      { v: 'mix', emoji: '🔀', name: 'Emma & Jake',
+        ko: '둘 다', en: 'Both', persona: 'friendly',
+        d_ko: '두 친구가 번갈아 이야기해요', d_en: 'They take turns',
+        hi: "Hi! We'll take turns talking with you!" },
+    ];
+    const friendOf = (v) => FRIENDS.find(f => f.v === v) || FRIENDS[0];
+    function syncFriendName() {
+      const el = document.getElementById('friendName');
+      if (el) el.textContent = friendOf(currentVoice).name;
+    }
+    /* 친구를 «고르는» 경로 — 카드에서 고르면 목소리·얼굴·기본 말투까지 한 번에 바뀐다.
+       ⚠️ 설정 줄의 말투 버튼은 그대로 남는다. 친구가 정하는 건 «기본값» 이고,
+          학생이 따로 말투를 골랐다면 그 선택이 이깁니다(친구를 새로 고를 때만 기본값으로 되돌림). */
+    function setFriend(v, greet) {
+      const f = friendOf(v);
+      currentVoice = f.v;
+      try { localStorage.setItem('mangoi_aifriend_voice', currentVoice); } catch(e){}
+      document.querySelectorAll('.opt[data-voice]').forEach(x => x.classList.toggle('active', x.dataset.voice === currentVoice));
+      currentPersona = f.persona;
+      document.querySelectorAll('.opt[data-persona]').forEach(x => x.classList.toggle('active', x.dataset.persona === currentPersona));
+      syncAvatarToVoice();
+      syncFriendName();
+      // 화면에 떠 있는 모든 친구 카드의 «지금 고른 것» 표시를 갱신 —
+      // 빈 화면(첫 진입)의 카드는 정적 HTML 이라 이걸 안 하면 눌러도 테두리가 안 옮겨간다
+      document.querySelectorAll('.friend-card[data-v]').forEach(c => c.classList.toggle('on', c.dataset.v === f.v));
+      try { if (window.UXT) UXT.hit('ux:aifriend-friend-' + f.v); } catch(e){}
+      const p = document.getElementById('friendPicker');
+      if (p) p.remove();
+      // 고르자마자 그 친구가 자기 목소리로 인사한다 — 누구를 골랐는지 «귀로» 확인시켜 준다
+      if (greet) { appendMsg('ai', f.hi); if (isSoundOn()) speakText(f.hi, null, null); }
+    }
+    function friendCards() {
+      const en = isEn();
+      return '<div class="friends">' + FRIENDS.map(f =>
+        '<div class="friend-card' + (f.v === currentVoice ? ' on' : '') + '" data-v="' + f.v + '" onclick="setFriend(\'' + f.v + '\', true)">'
+        + '<span class="f-emoji">' + f.emoji + '</span>'
+        + '<span class="f-name">' + escapeHtml(en ? f.en : (f.name + ' · ' + f.ko)) + '</span>'
+        + '<span class="f-desc">' + escapeHtml(en ? f.d_en : f.d_ko) + '</span></div>').join('') + '</div>';
+    }
+    /* 대화 도중에도 친구를 바꾸고 싶을 때 — 주제 고르기(showTopicPicker)와 같은 방식으로
+       대화 맨 아래에 카드를 띄운다. 화면을 덮는 팝업이 아니라서 하던 대화가 안 끊긴다. */
+    function showFriendPicker() {
+      const chat = document.getElementById('chat');
+      if (!chat) return;
+      const old = document.getElementById('friendPicker');
+      if (old) old.remove();
+      const box = document.createElement('div');
+      box.id = 'friendPicker';
+      box.style.cssText = 'margin:10px 0 4px';
+      box.innerHTML = '<p style="color:var(--text2);font-size:12px;font-weight:800;margin:0 0 8px;text-align:center">'
+        + (isEn() ? 'Who do you want to talk with?' : '오늘은 누구랑 이야기할까요?') + '</p>' + friendCards();
+      chat.appendChild(box);
+      chat.scrollTop = chat.scrollHeight;
+    }
+    syncFriendName();
     document.querySelectorAll('.opt[data-rate]').forEach(b => {
       if (parseFloat(b.dataset.rate) === currentRate) { document.querySelectorAll('.opt[data-rate]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); }
       b.onclick = () => { applyRate(parseFloat(b.dataset.rate) || 1); };
@@ -568,7 +691,7 @@
       const pct = next ? Math.min(100, Math.round((lifetime - cur.at) / (next.at - cur.at) * 100)) : 100;
       return { n: idx + 1, name: cur.name, nameEn: MANGO_LEVELS_EN[idx], pct };
     }
-    let gamState = { today: 0, lifetime: 0, streak: 0, word: null, sessionPts: 0, wordDone: false, voiceDone: false };
+    let gamState = { today: 0, lifetime: 0, streak: 0, word: null, sessionPts: 0, wordDone: false, voiceDone: false, listenDone: false };
     function updateHUD() {
       const g = gamState;
       const lv = calcLevel(g.lifetime);
@@ -587,6 +710,7 @@
       document.getElementById('qTalk').classList.toggle('done', g.today >= 5);
       document.getElementById('qWord').classList.toggle('done', !!g.wordDone);
       document.getElementById('qVoice').classList.toggle('done', !!g.voiceDone);
+      document.getElementById('qListen').classList.toggle('done', !!g.listenDone);
     }
     function hearWod() {
       if (gamState.word) speakText(gamState.word.w, null, null);
@@ -664,6 +788,8 @@
       if (g.awarded) earned += g.awarded;
       if (g.voice_bonus) { earned += g.voice_bonus; gamState.voiceDone = true; }
       if (g.word_bonus) { earned += g.word_bonus; gamState.wordDone = true; }
+      // 🎧 자막 없이 들은 덤 — 켠 학생에게 벌점이 아니라 끈 학생에게 덤이다
+      if (g.listen_bonus) { earned += g.listen_bonus; gamState.listenDone = true; }
       gamState.sessionPts += earned;
       updateHUD();
       const newLevel = calcLevel(gamState.lifetime);
@@ -958,7 +1084,11 @@
         + '<div class="hero-mango"><img src="/img/mango-char.png" alt="Mango" /></div>'
         + "<h2>👋 Hi! I'm Mango</h2>"
         + '<p>' + (en ? "Let's chat in English! Every message earns points ⭐" : "Let's chat in English! 한 마디 할 때마다 포인트가 쌓여요 ⭐") + '</p>'
-        + '<p style="color:var(--text2)">' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</p>'
+        /* 🧑 친구 고르기를 주제보다 «먼저» 둔다 — 누구와 이야기할지가 먼저고 무슨 이야기를 할지가 그다음이다.
+           고르지 않고 주제만 눌러도 그대로 진행된다(관문이 아니라 안내). */
+        + '<p style="color:var(--text2)">' + (en ? 'Who do you want to talk with?' : '오늘은 누구랑 이야기할까요?') + '</p>'
+        + friendCards()
+        + '<p style="color:var(--text2);margin-top:16px">' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</p>'
         + '<div class="topics">' + cards + '</div>'
         + '<div class="quick">'
         + '<button onclick="quickSend(\'Hi Mango! How are you today?\')">Hi Mango! 👋</button>'
@@ -997,7 +1127,8 @@
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
           body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
-                                 topic: currentTopic ? currentTopic.id : '', via: wasVoice ? 'voice' : 'text' })
+                                 topic: currentTopic ? currentTopic.id : '', via: wasVoice ? 'voice' : 'text',
+                                 sub: currentSub })   // 🎧 자막을 끄고 대화하면 서버가 덤 1P (하루 5회)
         });
         let d;
         try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
@@ -1029,6 +1160,98 @@
     function quickSend(text) {
       document.getElementById('msgInput').value = text;
       sendMsg();
+    }
+
+    /* ══ 💡 «뭐라고 말할까» 도움 (2026-08-07) ══
+       경쟁사(클라우봇)는 버튼만 눌러 수업이 굴러가서 타이핑 못 하는 저학년도 시작할 수 있다.
+       대신 «무엇을 말할지 스스로 정하는 훈련» 이 사라진다. 그래서 우리는 반대로 붙인다 —
+       기본 동선은 그대로 직접 말하기·쓰기이고, **막혔을 때 눌러야만** 도움이 나온다.
+
+       ⚠️ 서버를 부르지 않는다. AI 마지막 질문의 첫 낱말만 보고 화면에서 만든다.
+          비용 0 · 대기 0 · 오프라인에서도 뜬다. (AI 로 만들면 매 턴 토큰이 든다)
+       ⚠️ ___ 가 있는 칩은 «보내기» 가 아니라 «입력창에 넣고 커서를 빈칸에» 둔다.
+          빈칸 그대로 보내면 아이가 문장을 완성하는 연습을 건너뛰게 된다.
+       ⚠️ 영어만 적으면 저학년은 뭘 보내는지 모른 채 누른다 → 한국어 뜻을 작게 같이 적는다. */
+    const HELP_ALWAYS = [
+      { en: 'Can you say that again?', ko: '다시 말해줄래?' },
+      { en: "I don't know. Can you help me?", ko: '모르겠어. 도와줄래?' },
+    ];
+    function helpChipsFor(q) {
+      const s = String(q || '').trim().toLowerCase();
+      const has = (re) => re.test(s);
+      if (has(/^how are you|how do you feel/)) return [
+        { en: "I'm good, thanks!", ko: '좋아, 고마워!' },
+        { en: "I'm a little tired.", ko: '조금 피곤해.' },
+        { en: "I'm so happy today!", ko: '오늘 정말 기뻐!' } ];
+      if (has(/^how many|^how much/)) return [
+        { en: 'Three.', ko: '세 개.' }, { en: 'A lot!', ko: '많아!' }, { en: 'Just one.', ko: '하나만.' } ];
+      if (has(/favorite|favourite/)) return [
+        { en: 'My favorite is ___.', ko: '내가 제일 좋아하는 건 ___' },
+        { en: "I don't have a favorite.", ko: '제일 좋아하는 건 없어.' } ];
+      if (has(/^(do|does|did|are|is|can|have|has|will|would|were) (you|it|they|your)/)) return [
+        { en: 'Yes, I do!', ko: '응, 맞아!' }, { en: "No, I don't.", ko: '아니, 안 그래.' },
+        { en: 'Sometimes!', ko: '가끔!' } ];
+      if (has(/^what.*(do|doing|did)/)) return [
+        { en: 'I ___ today.', ko: '나는 오늘 ___ 했어' },
+        { en: 'Nothing much!', ko: '별거 안 했어!' } ];
+      if (has(/^what/)) return [
+        { en: 'I like ___.', ko: '나는 ___ 좋아해' }, { en: "It's ___.", ko: '그건 ___ 야' } ];
+      if (has(/^where/)) return [
+        { en: 'At home.', ko: '집에서.' }, { en: 'At school.', ko: '학교에서.' },
+        { en: 'In ___.', ko: '___ 에서' } ];
+      if (has(/^who/)) return [
+        { en: 'My friend.', ko: '내 친구.' }, { en: 'My family.', ko: '우리 가족.' },
+        { en: 'My teacher.', ko: '우리 선생님.' } ];
+      if (has(/^when/)) return [
+        { en: 'Today.', ko: '오늘.' }, { en: 'Yesterday.', ko: '어제.' }, { en: 'Every day!', ko: '매일!' } ];
+      if (has(/^why/)) return [
+        { en: "Because it's fun!", ko: '재미있으니까!' }, { en: 'Because I like it.', ko: '좋아하니까.' } ];
+      if (has(/^how/)) return [
+        { en: 'It was fun!', ko: '재미있었어!' }, { en: 'It was hard.', ko: '어려웠어.' } ];
+      // 질문이 아니거나 못 알아본 경우 — 대화를 이어가는 무난한 카드
+      return [
+        { en: 'That sounds fun!', ko: '재미있겠다!' },
+        { en: 'Tell me more!', ko: '더 얘기해줘!' },
+        { en: 'I think so too.', ko: '나도 그렇게 생각해.' } ];
+    }
+    function lastAiText() {
+      const rows = document.querySelectorAll('.ai-row');
+      for (let i = rows.length - 1; i >= 0; i--) if (rows[i]._speakBody) return rows[i]._speakBody;
+      return '';
+    }
+    function helpPick(en) {
+      const input = document.getElementById('msgInput');
+      if (!input) return;
+      if (en.indexOf('___') >= 0) {
+        // 빈칸이 있는 문장은 보내지 않는다 — 입력창에 넣고 커서를 빈칸 자리에 둔다
+        input.value = en.replace('___', '');
+        const at = en.indexOf('___');
+        input.focus();
+        try { input.setSelectionRange(at, at); } catch(e){}
+        return;                       // 도움 줄은 열어 둔다(다른 칩을 이어서 볼 수 있게)
+      }
+      closeHelp();
+      quickSend(en);
+    }
+    function closeHelp() {
+      const row = document.getElementById('helpRow');
+      if (row) { row.style.display = 'none'; row.innerHTML = ''; }
+      const b = document.getElementById('helpBtn');
+      if (b) b.classList.remove('on');
+    }
+    function toggleHelp() {
+      const row = document.getElementById('helpRow');
+      if (!row) return;
+      if (row.style.display !== 'none') { closeHelp(); return; }
+      const en = isEn();
+      const chips = helpChipsFor(lastAiText()).concat(HELP_ALWAYS);
+      row.innerHTML = '<span class="h-lab">💡 ' + (en ? 'Tap one, or say it yourself!' : '눌러도 되고, 직접 말해도 좋아요!') + '</span>'
+        + chips.map(c => '<button type="button" onclick="helpPick(' + JSON.stringify(c.en).replace(/"/g, '&quot;') + ')">'
+            + escapeHtml(c.en) + (en ? '' : '<span class="h-ko">' + escapeHtml(c.ko) + '</span>') + '</button>').join('');
+      row.style.display = 'flex';
+      const b = document.getElementById('helpBtn');
+      if (b) b.classList.add('on');
+      try { if (window.UXT) UXT.hit('ux:aifriend-help'); } catch(e){}
     }
     async function loadHistory() {
       const auth = await getAuth();
