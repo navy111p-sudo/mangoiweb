@@ -320,9 +320,42 @@ console.log('\n[ ⑧ 운영자가 링크를 «다시 건네줄» 수 있어야 �
     !/function ltCopyTicket[\s\S]{0,900}?alert\(/.test(admCore));
   check('한/영 둘 다 나온다 (강사·매니저 다수가 필리핀)',
     /'Copy link':'링크 복사'/.test(admCore) && /'Link unavailable — reload the page':'링크를 받지 못했습니다/.test(admCore));
+
+  console.log('\n[ ⑨ 신청 ↔ «진짜 학생 계정» 연결 (2026-08-07) ]');
+  /* [왜] 비로그인 신청은 서버가 만든 체험 계정 lt{번호} 에 붙는다. 그 아이디로 로그인하는
+     사람은 없으므로 학생은 마이페이지·홈 카드·오늘 수업 어디에서도 자기 예약을 못 본다.
+     전부 «에러 없이» 안 보이고, 사람이 이어 줄 방법도 없었다(#15 paul710619, #13 은 NULL). */
+  check('후보 찾기·연결 두 동작이 있다 (새 라우트를 만들지 않고 기존 POST 에 얹음)',
+    /'link_candidates'|"link_candidates"/.test(api) && /'link_student'|"link_student"/.test(api));
+  check('⛔ 아이디를 손으로만 치게 하지 않는다 — 전화번호·이름으로 후보를 찾아 준다',
+    /REPLACE\(REPLACE\(COALESCE\(student_phone/.test(api) && /student_name = \? OR korean_name = \?/.test(api));
+  /* ⚠️ 파일 전체에서 LIKE 를 금지하면 안 된다 — 학생 검색 등 다른 기능은 부분일치가 맞다.
+     금지 대상은 «연결 후보를 고르는 이 블록» 뿐이라 그 구간만 잘라서 본다. */
+  {
+    const s = api.indexOf("=== 'link_candidates'");
+    const e = api.indexOf('// ── 실제 연결 ──', s);
+    const blk = (s > 0 && e > s) ? api.slice(s, e) : '';
+    check('⛔ 후보 찾기에서 이름 부분일치 금지 (Anna 가 HANNAH 에 붙는 사고)',
+      !!blk && !/LIKE/.test(blk));
+  }
+  check('🔴 연결하면 «이미 만들어진 수업»의 주인도 같이 옮긴다 (안 옮기면 학생 화면에 안 뜬다)',
+    /UPDATE class_schedules SET user_id = \?[\s\S]{0,120}?WHERE id = \?/.test(api));
+  check('없는 계정으로 연결하려 하면 막고 이유를 말한다 (조용한 실패 금지)',
+    /error: 'student_not_found'/.test(api));
+  check('누가 언제 옮겼는지 기록에 남는다 (되돌릴 때 근거가 된다)',
+    /action: 'leveltest_link_student'/.test(api) && /from: prevUid, to: String\(target\.user_id\)/.test(api));
+  check('⛔ 체험 계정 행 자체를 지우지 않는다 (되돌릴 수 없는 일 금지)',
+    !/DELETE FROM students_erp/.test(api));
+  check('화면이 «연결 안 됨/체험 계정» 을 표시하고 버튼을 준다',
+    /_ltIsTrialUid/.test(admCore) && /ltLinkStudent\(\$\{a\.id\}\)/.test(admCore));
+  check('연결된 건에는 버튼을 띄우지 않는다 (할 일 없는 버튼 금지)',
+    /\(!a\.student_uid \|\| uidTrial\)/.test(admCore));
+  check('연결 전에 무엇이 바뀌는지 알려주고 되묻는다',
+    /수업 주인도 함께 옮겨져/.test(admCore) && /confirm\(/.test(admCore));
+  check('한/영 둘 다 나온다', /'Link account':'계정 연결'/.test(admCore) && /Not linked to any account/.test(admCore));
   {
     const v = (admHtml.match(/adm-core\.js\?v=(\d+)/) || [])[1];
-    check(`캐시 버전이 40 이상 (안 올리면 옛 js 가 그대로) [현재 ${v}]`, Number(v || 0) >= 40);
+    check(`캐시 버전이 41 이상 (안 올리면 옛 js 가 그대로) [현재 ${v}]`, Number(v || 0) >= 41);
   }
 }
 

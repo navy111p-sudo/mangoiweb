@@ -6850,6 +6850,146 @@ LIMIT $limit`;
         return json(res);
       }
 
+      /* ═══════════════════════════════════════════════════════════════════════
+         🔗 신청 ↔ «진짜 학생 계정» 연결 (2026-08-07, 실사고에서 나옴)
+         ───────────────────────────────────────────────────────────────────────
+         [왜] 비로그인으로 낸 신청은 진짜 계정에 붙지 못한다. 서버가 대신
+              체험 계정 `lt{신청번호}`(createTrialStudent)를 만들어 붙이는데,
+              그 계정으로 로그인하는 사람은 세상에 없다. 그래서
+                · 마이페이지 「내 레벨테스트」 — 안 뜸(조회는 uid 로만 한다)
+                · 홈 「🎟️ 내 레벨테스트」 — 안 뜸
+                · 그 학생의 «오늘 수업» — 수업 주인이 lt15 라 안 뜸
+              전부 «에러 없이» 안 보인다. 실제 사고: 신청 #15(paul710619) —
+              사장님이 자기 예약을 못 찾았다. #13 은 student_uid 가 아예 NULL.
+              사람이 «이 신청 = 이 계정» 이라고 정해 주는 길이 아예 없었다.
+         [무엇] ① link_candidates — 전화번호·이름으로 후보 계정을 찾아 준다.
+                   ⚠️ 관리자가 손으로 아이디를 치게 하면 오타 한 번에 **남의 학생**
+                      기록이 오염된다. 후보를 보여 주고 고르게 한다.
+                ② link_student  — 신청서 uid 를 바꾸고, **이미 만들어진 수업의
+                   주인(class_schedules.user_id)도 같이 바꾼다.**
+                   ⚠️ 신청서만 바꾸면 화면엔 연결된 것처럼 보이는데 수업은 여전히
+                      lt15 것이라 학생 화면에 안 뜬다 — 강사 동기화에서 똑같은
+                      함정을 이미 한 번 밟았다(바로 아래 teacherSync 주석 참조).
+         ⚠️ 새 라우트를 만들지 않는다 — src/index.ts 는 사고 반경이 서비스 전체다.
+         ⛔ 체험 계정(lt*) 행 자체는 지우지 않는다. 되돌릴 수 없는 일은 하지 않는다.
+         ═══════════════════════════════════════════════════════════════════════ */
+      if (String(b.action || '') === 'link_candidates' || String(b.action || '') === 'link_student') {
+        const appRow: any = await env.DB.prepare(
+          `SELECT id, student_name, student_uid, phone, schedule_id, desired_date, desired_time FROM leveltest_applications WHERE id = ? LIMIT 1`
+        ).bind(Number(b.id)).first();
+        if (!appRow) return json({ ok: false, error: 'not_found', message: '신청 건을 찾을 수 없습니다.', message_en: 'Application not found.' }, 404);
+
+        const digits = (s: any) => String(s || '').replace(/[^0-9]/g, '');
+        const isTrial = (u: any) => /^lt\d+(_\d+)?$/i.test(String(u || ''));
+
+        if (String(b.action) === 'link_candidates') {
+          const ph = digits(appRow.phone);
+          const nm = String(appRow.student_name || '').trim();
+          const rows: any[] = [];
+          const seen = new Set<string>();
+          const push = (r: any, why: string) => {
+            const uid = String(r.user_id || '');
+            if (!uid || seen.has(uid)) return;
+            seen.add(uid);
+            rows.push({
+              user_id: uid,
+              name: r.student_name || r.korean_name || r.english_name || r.username || uid,
+              phone: r.student_phone || r.parent_phone || r.phone || null,
+              status: r.status || null,
+              is_trial: isTrial(uid),
+              why,
+            });
+          };
+          // ① 전화번호 — 가장 강한 단서. 하이픈 차이를 무시하려고 숫자만 비교한다.
+          if (ph.length >= 9) {
+            try {
+              const rs = await env.DB.prepare(
+                `SELECT user_id, student_name, korean_name, english_name, username, student_phone, parent_phone, phone, status
+                   FROM students_erp
+                  WHERE REPLACE(REPLACE(COALESCE(student_phone,''),'-',''),' ','') = ?
+                     OR REPLACE(REPLACE(COALESCE(parent_phone,''),'-',''),' ','') = ?
+                     OR REPLACE(REPLACE(COALESCE(phone,''),'-',''),' ','') = ?
+                  LIMIT 20`
+              ).bind(ph, ph, ph).all();
+              (rs.results || []).forEach((r: any) => push(r, 'phone'));
+            } catch {}
+          }
+          // ② 이름·아이디 — 정확히 같은 것만. 부분일치는 «Anna 가 HANNAH 에 붙는» 사고를 낸다.
+          if (nm) {
+            try {
+              const rs = await env.DB.prepare(
+                `SELECT user_id, student_name, korean_name, english_name, username, student_phone, parent_phone, phone, status
+                   FROM students_erp
+                  WHERE user_id = ? OR login_id = ? OR student_name = ? OR korean_name = ? OR english_name = ?
+                  LIMIT 20`
+              ).bind(nm, nm, nm, nm, nm).all();
+              (rs.results || []).forEach((r: any) => push(r, 'name'));
+            } catch {}
+          }
+          // ③ 관리자가 직접 친 아이디 — 있으면 그것도 확인해 준다(없으면 없다고 말한다)
+          const typed = String(b.q || '').trim();
+          let typedFound: any = null;
+          if (typed) {
+            try {
+              const r: any = await env.DB.prepare(
+                `SELECT user_id, student_name, korean_name, english_name, username, student_phone, parent_phone, phone, status
+                   FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`
+              ).bind(typed, typed).first();
+              if (r) { push(r, 'typed'); typedFound = String(r.user_id); }
+            } catch {}
+          }
+          return json({
+            ok: true,
+            application: { id: appRow.id, student_name: appRow.student_name, student_uid: appRow.student_uid,
+                           is_trial: isTrial(appRow.student_uid), phone: appRow.phone, schedule_id: appRow.schedule_id },
+            typed_found: typed ? typedFound : undefined,
+            candidates: rows,
+          });
+        }
+
+        // ── 실제 연결 ──
+        const newUid = String(b.student_uid || '').trim();
+        if (!newUid) return invalidBody(['student_uid']);
+        const target: any = await env.DB.prepare(
+          `SELECT user_id, student_name, korean_name FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`
+        ).bind(newUid, newUid).first();
+        if (!target) {
+          return json({ ok: false, error: 'student_not_found',
+            message: `«${newUid}» 계정을 찾지 못했습니다. 아이디를 확인해 주세요.`,
+            message_en: `Account "${newUid}" was not found. Please check the ID.` }, 404);
+        }
+        const prevUid = appRow.student_uid || null;
+        const now2 = Date.now();
+        await env.DB.prepare(`UPDATE leveltest_applications SET student_uid = ?, updated_at = ? WHERE id = ?`)
+          .bind(String(target.user_id), now2, Number(appRow.id)).run();
+        // 수업 주인도 같이 옮긴다 — 안 옮기면 «연결됐는데 수업은 안 보이는» 상태가 된다
+        let scheduleMoved: any = null;
+        if (appRow.schedule_id) {
+          try {
+            await env.DB.prepare(`UPDATE class_schedules SET user_id = ?, updated_at = ? WHERE id = ?`)
+              .bind(String(target.user_id), now2, Number(appRow.schedule_id)).run();
+            scheduleMoved = { schedule_id: appRow.schedule_id, user_id: String(target.user_id) };
+          } catch (e: any) { scheduleMoved = { schedule_id: appRow.schedule_id, error: String(e?.message || e).slice(0, 80) }; }
+        }
+        let actorName2 = 'admin';
+        try { const a = await getAdminActor(request, env as any); if (a?.name) actorName2 = a.name; } catch {}
+        try {
+          await writeClassAudit(env, {
+            action: 'leveltest_link_student', schedule_id: appRow.schedule_id || null,
+            student_name: appRow.student_name || null,
+            lesson_date: appRow.desired_date || null, lesson_time: appRow.desired_time || null,
+            actor: actorName2, actor_role: 'admin', source: 'leveltest_app',
+            detail: JSON.stringify({ app_id: appRow.id, from: prevUid, to: String(target.user_id), from_was_trial: isTrial(prevUid) }),
+          });
+        } catch {}
+        return json({
+          ok: true, app_id: appRow.id, from: prevUid, to: String(target.user_id),
+          student_name: target.student_name || target.korean_name || String(target.user_id),
+          schedule: scheduleMoved,
+          prev_was_trial: isTrial(prevUid),
+        });
+      }
+
       const fields: string[] = [];
       const binds: any[] = [];
       if (b.status != null)           { fields.push('status = ?');           binds.push(String(b.status)); }
