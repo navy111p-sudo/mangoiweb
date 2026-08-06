@@ -6358,6 +6358,17 @@ window.mgIsSlowNet = function(){
               빼버리면 그 학생이 수업에 못 들어간다. -->
 
       <!-- ① 처음 온 방문자 -->
+      <!-- 🎟️ (2026-08-07) 「내 레벨테스트」 — 신청한 사람에게 **가장 먼저** 보이는 카드.
+           [왜] 신청 뒤 확인할 길이 «문자 한 통» 과 «신청 직후 화면» 뿐이었다. 탭을 닫거나
+                문자를 놓치면 홈에 다시 와도 들어갈 문이 없었다. 처음 망고아이를 접한 사람이
+                자기 예약을 찾다가 못 찾으면 그대로 이탈한다.
+           ⚠️ 신청한 적 없는 사람에게는 안 보인다(기본 hidden) — 화면을 늘리지 않는다.
+           ⚠️ 로그인을 묻지 않는다. 신청자 절반은 계정이 없다 — 링크(서명 토큰)가 곧 신원이다. -->
+      <a id="hero-lt" hidden href="#">
+        <span class="lt-head">🎟️ <b data-ko="내 레벨테스트" data-en="My Level Test">내 레벨테스트</b></span>
+        <span class="lt-when" id="hero-lt-when"></span>
+        <span class="lt-sub" id="hero-lt-sub"></span>
+      </a>
       <div id="hero-guest">
         <div class="ai-cta-row">
           <button class="cta-enter" onclick="window.openInquiryModal&&window.openInquiryModal()">
@@ -6377,6 +6388,87 @@ window.mgIsSlowNet = function(){
               비회원에게는 반드시 남아 있어야 한다 — 위 6340줄 주석 참조. -->
 
       <!-- ② 로그인한 회원 — 수업입장 + AI와 친구하기 한 줄 (같은 골드 스타일) -->
+      <script>
+      /* 🎟️ 내 레벨테스트 카드 채우기.
+         저장된 티켓 주소(신청할 때 남긴 것)로 서버에 상태를 물어 «언제·어떤 상태» 를 보여준다.
+         ⚠️ 신청한 적 없으면 아무 요청도 하지 않는다(키가 없으면 바로 반환) — 홈 첫 화면 비용 0.
+         ⚠️ 링크가 만료·무효면 키를 지운다. 죽은 카드가 홈에 영영 남아 있으면 안 된다. */
+      (function(){
+        var KEY = 'mangoi_lt_ticket';
+        var url = ''; try { url = localStorage.getItem(KEY) || ''; } catch(e){}
+        if (!/^https?:\/\//.test(url)) return;
+        var k = ''; try { k = new URL(url).searchParams.get('k') || ''; } catch(e){}
+        if (!k) return;
+
+        var el = document.getElementById('hero-lt');
+        var whenEl = document.getElementById('hero-lt-when');
+        var subEl = document.getElementById('hero-lt-sub');
+        if (!el || !whenEl || !subEl) return;
+        var EN = function(){ try { return (localStorage.getItem('mangoi_lang')||'') === 'en'; } catch(e){ return false; } };
+        var T = function(ko, en){ return EN() ? en : ko; };
+
+        /* 두 언어를 한 번에 만든다 — 화면의 applyLang 이 data-ko/data-en 을 보고 바꿔 주므로
+           언어 전환 배선을 내가 따로 할 필요가 없다.
+           ⚠️ 직접 배선했다가 «요일만 Fri, 나머지는 한국어» 로 반쪽이 됐다(2026-08-07 실측).
+              이 화면의 규칙을 따르는 것이 언제나 더 안전하다. */
+        function label(d, t, en){
+          if (!d) return t || (en ? 'To be arranged' : '일정 협의 중');
+          var p = String(d).split('-'); if (p.length !== 3) return d + (t ? ' ' + t : '');
+          var dt = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+          var wk = (en ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'])[dt.getUTCDay()];
+          var head = en ? ((+p[1]) + '/' + (+p[2]) + ' (' + wk + ')') : ((+p[1]) + '월 ' + (+p[2]) + '일(' + wk + ')');
+          return head + (t ? ' ' + t : '');
+        }
+        var ST = {
+          pending:   ['접수 완료 — 담당 선생님을 찾고 있어요','Received — finding a teacher'],
+          proposed:  ['담당 선생님 배정 중','Assigning a teacher'],
+          confirmed: ['확정 — 예정대로 진행됩니다','Confirmed — all set'],
+          done:      ['테스트 완료 — 결과 보기','Test completed — see result'],
+          cancelled: ['취소됨','Cancelled']
+        };
+        function put(node, ko, en){
+          node.setAttribute('data-ko', ko);
+          node.setAttribute('data-en', en);
+          var isEn = false; try { isEn = (localStorage.getItem('mangoi_lang')||'') === 'en'; } catch(e){}
+          node.textContent = isEn ? en : ko;
+        }
+
+        function load(){
+          fetch('/api/leveltest/ticket?k=' + encodeURIComponent(k), { cache:'no-store' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+              if (!d || !d.ok || !d.ticket) {
+                // 만료·무효 — 죽은 카드를 홈에 남기지 않는다
+                try { localStorage.removeItem(KEY); } catch(e){}
+                el.hidden = true; return;
+              }
+              var t = d.ticket;
+              el.href = url;
+              put(whenEl, label(t.desired_date, t.desired_time, false), label(t.desired_date, t.desired_time, true));
+              if (t.join_open) {
+                el.classList.add('is-open');
+                put(subEl, '▶ 지금 입장하기 — 선생님이 기다리고 있어요', '▶ Join now — your teacher is waiting');
+              } else {
+                el.classList.remove('is-open');
+                var st = ST[t.status] || ['', ''];
+                var mins = t.start_ts ? Math.round((t.start_ts - t.now) / 60000) : 0;
+                var soonKo = (t.start_ts && mins > 0 && mins <= 180) ? ' · ' + mins + '분 뒤' : '';
+                var soonEn = (t.start_ts && mins > 0 && mins <= 180) ? ' · in ' + mins + ' min' : '';
+                put(subEl, st[0] + soonKo + ' · 자세히 보기 →', st[1] + soonEn + ' · View details →');
+              }
+              el.hidden = false;
+            })
+            .catch(function(e){ try { console.warn('[hero-lt]', e); } catch(_){} });
+        }
+
+        load();
+        /* 시간이 되면 «저절로» 초록 입장 카드로 바뀌어야 한다 — 새로고침을 시키면 그 순간 이탈한다. */
+        setInterval(load, 60000);
+        document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+        /* 🌐 언어 전환은 화면의 applyLang 이 data-ko/data-en 을 보고 처리한다 — 여기서 배선하지 않는다. */
+      })();
+      </script>
+
       <div class="ai-cta-row" id="hero-member" style="display:none">
         <button class="cta-enter" onclick="showView('view-videocall-lobby')">
           <svg class="btn-enter-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><circle cx="12" cy="9" r="2.5" fill="#1a1a1a"/><path d="M7 14c.5-2 2.5-3 5-3s4.5 1 5 3"/></svg>
@@ -8105,6 +8197,22 @@ window.mgIsSlowNet = function(){
       }
       /* 결제하기는 이 그리드에서 제외하고 별도 라인으로 빼기 */
       .ai-quick .ai-quick-pay { display: none !important; }
+      /* 🎟️ 내 레벨테스트 카드 — 히어로 CTA 와 같은 폭. 입장 시간이 되면 초록으로 «확» 바뀐다.
+         ⚠️ hover 로 크기·위치를 바꾸지 않는다(«정신없다»고 제거한 규칙) — 색만 진해진다. */
+      #hero-lt{display:block;max-width:720px;margin:20px auto 0;padding:14px 18px;border-radius:16px;
+        text-decoration:none;text-align:center;
+        background:linear-gradient(135deg,rgba(251,191,36,.16),rgba(245,158,11,.10));
+        border:1.5px solid rgba(251,191,36,.55);box-shadow:0 6px 22px -10px rgba(245,158,11,.55);
+        transition:background .18s ease,border-color .18s ease}
+      #hero-lt:hover{background:linear-gradient(135deg,rgba(251,191,36,.26),rgba(245,158,11,.18));border-color:rgba(251,191,36,.85)}
+      #hero-lt .lt-head{display:block;font-size:12.5px;font-weight:800;color:#fde68a;letter-spacing:.2px}
+      #hero-lt .lt-when{display:block;font-size:20px;font-weight:900;color:#fff;margin:4px 0 3px;letter-spacing:-.3px}
+      #hero-lt .lt-sub{display:block;font-size:12.5px;font-weight:700;color:rgba(253,230,138,.92)}
+      #hero-lt.is-open{background:linear-gradient(135deg,#34d399,#059669);border-color:#34d399;
+        box-shadow:0 10px 28px -8px rgba(16,185,129,.7)}
+      #hero-lt.is-open .lt-head,#hero-lt.is-open .lt-sub{color:#052e1b}
+      #hero-lt.is-open .lt-when{color:#052e1b;font-size:23px}
+      @media(max-width:520px){#hero-lt .lt-when{font-size:18px}}
       /* === Phase 8c: 결제하기 + 수업입장 한 줄 (세련된 디자인) === */
       .ai-cta-row {
         display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
@@ -22188,7 +22296,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=21"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=22"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->

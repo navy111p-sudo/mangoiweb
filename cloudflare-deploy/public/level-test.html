@@ -214,6 +214,9 @@
       var _ar = await fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ student_name:rec.name, student_uid:uid, token:token, phone:phone, desired_date:rec.date, desired_time:rec.time, source:'level-test' })}).catch(function(){ return null; });
       if(_ar){ try{ var _ad = await _ar.json(); if(_ad && _ad.ticket_url) ticketUrl = _ad.ticket_url; }catch(e){} }
+      /* 홈으로 돌아가도 다시 찾을 수 있게 주소를 남긴다 — 탭을 닫거나 문자를 놓치면
+         들어갈 문이 사라진다(홈 히어로의 «내 신청 확인» 입구가 이걸 읽는다). */
+      if(ticketUrl){ try{ localStorage.setItem('mangoi_lt_ticket', ticketUrl); }catch(e){} }
     }catch(e){}
     /* 🎟️ 접수 확인서 — 계정이 없어도 열린다(서명 토큰이 곱 신원).
        문자만 믿으면 문자가 늦는 사람은 확인할 길이 없어진다 → 화면에도 남긴다. */

@@ -2262,6 +2262,8 @@
         const ad = await ar.json().catch(() => null);
         if (ad && ad.scheduled) scheduledLabel = ad.scheduled;
         if (ad && ad.ticket_url) ticketUrl = ad.ticket_url;
+        // 홈 히어로의 «내 신청 확인» 입구가 이 값을 읽는다(탭을 닫어도 다시 찾게)
+        if (ticketUrl) { try { localStorage.setItem('mangoi_lt_ticket', ticketUrl); } catch (e) {} }
       } catch (e) { /* 서버 미연결이어도 시연 진행 */ }
 
       // 🔑 가입 = 자동 로그인 — 세션 심기 (재로그인 없이 마이페이지 진입)

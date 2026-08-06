@@ -136,6 +136,33 @@ check('링크를 못 받았을 때의 대비책이 있다 (버튼이 사라지�
   check(`캐시 버전이 21 이상 (안 올리면 옛 js 가 그대로) [현재 ${v}]`, Number(v || 0) >= 21);
 }
 
+console.log('\n[ ⑤-3 홈에서 «내 레벨테스트» 를 바로 찾을 수 있어야 한다 ]');
+/* 처음 망고아이를 접한 사람이 자기 예약을 홈에서 못 찾으면 그대로 이탈한다.
+   문자를 놓치거나 탭을 닫으면 들어갈 문이 아예 없었다. */
+check('신청할 때 티켓 주소를 남긴다 (신청 화면)', /localStorage\.setItem\('mangoi_lt_ticket', ticketUrl\)/.test(ltHtml));
+check('신청할 때 티켓 주소를 남긴다 (홈 팝업)', /localStorage\.setItem\('mangoi_lt_ticket', ticketUrl\)/.test(gridJs));
+check('홈에 «내 레벨테스트» 카드가 있다', /id="hero-lt"/.test(idxHtml));
+check('히어로 CTA «위» 에 온다 (가장 먼저 보여야 한다)',
+  idxHtml.indexOf('id="hero-lt"') < idxHtml.indexOf('<div id="hero-guest">'));
+check('신청한 적 없으면 안 보인다 (기본 hidden — 화면을 늘리지 않는다)',
+  /<a id="hero-lt" hidden/.test(idxHtml));
+check('저장값이 없으면 요청조차 하지 않는다 (홈 첫 화면 비용 0)',
+  /if \(!\/\^https\?:\\\/\\\/\/\.test\(url\)\) return;/.test(idxHtml));
+check('입장 시간이 되면 초록으로 «확» 바뀐다',
+  /#hero-lt\.is-open\{background:linear-gradient\(135deg,#34d399/.test(idxHtml)
+  && /el\.classList\.add\('is-open'\)/.test(idxHtml));
+check('열어두면 저절로 바뀐다 (새로고침 강요 금지)', /setInterval\(load, 60000\)/.test(idxHtml));
+check('만료·무효 링크면 카드와 저장값을 지운다 (죽은 카드 금지)',
+  /localStorage\.removeItem\(KEY\)[\s\S]{0,60}?el\.hidden = true/.test(idxHtml));
+check('🌐 두 언어를 data-ko/data-en 으로 심는다 (화면 규칙을 따른다)',
+  /function put\(node, ko, en\)/.test(idxHtml) && /node\.setAttribute\('data-en', en\)/.test(idxHtml));
+check('⛔ 언어 배선을 직접 하지 않는다 (반쪽 번역으로 굳었던 자리)',
+  !/mangoi:lang-change', reRenderForLang/.test(idxHtml));
+{
+  const v = (idxHtml.match(/idx-grid-menu\.js\?v=(\d+)/) || [])[1];
+  check(`캐시 버전이 22 이상 [현재 ${v}]`, Number(v || 0) >= 22);
+}
+
 console.log('\n[ ⑥ T-10 리마인더 — 지금 «안 닿는» 사람에게 닿아야 한다 ]');
 check('리마인더 스윕이 있다', /export async function runLeveltestReminderSweep/.test(mod));
 check('cron 에서 실제로 불린다 (정의만 하면 아무 일도 안 일어난다)',
