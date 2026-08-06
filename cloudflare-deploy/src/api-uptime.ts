@@ -5,7 +5,7 @@
 //   대상: OWNER_ALERT_PHONE (미설정 시 발송 스킵)
 //   ⚠️ 신규 /api 경로이므로 index.ts 라우팅 게이트에도 등록해야 함(SRS 함정 #1).
 // ═══════════════════════════════════════════════════════════════════════
-import { json, parseJsonBody } from './api-util';
+import { json, parseJsonBody, keyMatchesAny } from './api-util';
 import { sendPlainSms } from './solapi-client';
 import type { MangoEnv } from './api-mango';
 
@@ -75,9 +75,10 @@ export async function handleUptimeApi(
   if (url.pathname !== '/api/uptime-hook') return null;
 
   // 1) 토큰 검증 — 아무나 호출해 문자 스팸 못 하게
-  const expected = String((env as any).UPTIME_HOOK_KEY || '').trim();
+  /* 🔐 키 회전 중 — 새 키·옛 키 둘 다 인정 (api-util.ts 참조).
+     호출자: UptimeRobot. 한쪽만 바꾸면 사이트가 죽어도 문자가 안 나간다. */
   const given = String(url.searchParams.get('key') || '').trim();
-  if (!expected || given !== expected) {
+  if (!keyMatchesAny(given, (env as any).UPTIME_HOOK_KEY_NEW, (env as any).UPTIME_HOOK_KEY)) {
     return json({ ok: false, error: 'forbidden' }, 403);
   }
 

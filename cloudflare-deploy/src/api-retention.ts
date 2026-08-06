@@ -11,7 +11,7 @@
  *    /api/retention-ingest(공유키 PAYROLL_INGEST_KEY)로 push → D1 student_retention →
  *    /admin/retention 화면이 이름(students_erp 조인)·만료·휴면일수와 함께 표시.
  */
-import { json, parseJsonBody } from './api-util';
+import { json, parseJsonBody, keyMatchesAny } from './api-util';
 import { sendPlainSms } from './solapi-client';
 import { getTraits } from './api-traits';
 
@@ -150,9 +150,12 @@ export async function buildRetentionMessage(env: any, row: any, opts: { link?: s
 /** 서버(카페24) → 워커 인제스트. /api/retention-ingest?key=...  전량 교체(snapshot). */
 export async function handleRetentionIngest(request: Request, url: URL, env: any): Promise<Response | null> {
   if (url.pathname !== '/api/retention-ingest') return null;
-  const expected = String(env.PAYROLL_INGEST_KEY || '').trim();
+  /* 🔐 키 회전 중 — 새 키·옛 키 둘 다 인정 (api-util.ts 참조).
+     호출자: 카페24 서버의 리텐션 집계 스크립트. */
   const given = String(url.searchParams.get('key') || '').trim();
-  if (!expected || given !== expected) return json({ ok: false, error: 'forbidden' }, 403);
+  if (!keyMatchesAny(given, env.PAYROLL_INGEST_KEY_NEW, env.PAYROLL_INGEST_KEY)) {
+    return json({ ok: false, error: 'forbidden' }, 403);
+  }
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
 
   const body = await parseJsonBody(request) || {};
