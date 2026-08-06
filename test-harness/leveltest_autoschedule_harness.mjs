@@ -98,6 +98,19 @@ check('🔑 비교를 «번호» 가 아니라 «이름» 으로 한다 (두 표
   && /busyNames\.has\(normT\(t\.name\)\)/.test(auto));
 check('⛔ 옛 busy(id 집합) 비교가 남아 있지 않다', !/!busy\.has\(String\(t\.id\)\)/.test(auto));
 
+console.log('\n[ ⑤-3 강사를 바꾸면 «이미 만들어진 수업»의 담당도 같이 바뀐다 ]');
+/* 신청 즉시 수업이 생기게 된 뒤 새로 생긴 함정 — 관리자가 목록에서 강사 드롭다운만 바꾸면
+   화면엔 바뀐 이름이 보이는데 수업은 옛 강사에게 남아, 새 강사 화면엔 영영 안 뜬다(에러 0).
+   실제 사고: 신청 #15 를 'Teacher Maimai' 로 바꿨는데 수업 #854 담당은 BELLE 그대로였다. */
+check('강사 변경 시 연결된 수업의 teacher_id 도 갱신한다',
+  /UPDATE class_schedules SET teacher_id = \?, updated_at = \? WHERE id = \?/.test(api));
+check('연결된 수업이 있을 때만 건드린다', /if \(appT\?\.schedule_id\)/.test(api));
+check('🔑 여기서도 번호가 아니라 «이름» 으로 원부를 찾는다',
+  /const want = normT\(appT\.assigned_teacher\)/.test(api));
+check('원부에 없는 이름이면 조용히 넘기지 않는다 (화면만 바뀐 상태를 만들지 않는다)',
+  /error: 'teacher_not_in_roster'/.test(api));
+check('결과를 응답에 실어 화면이 확인할 수 있게 한다', /teacher_sync: teacherSync/.test(api));
+
 console.log('\n[ ⑥ 강사 페이지에 «레벨테스트» 로 뜬다 ]');
 check('서버가 class_type 을 읽어온다', /cs\.class_type/.test(tapi));
 check('is_level_test 를 내려준다', /is_level_test: String\(s\.class_type \|\| ''\) === 'level_test'/.test(tapi));

@@ -6845,6 +6845,37 @@ LIMIT $limit`;
       binds.push(Number(b.id));
       await env.DB.prepare(`UPDATE leveltest_applications SET ${fields.join(', ')} WHERE id = ?`).bind(...binds).run();
 
+      /* 🔗 (2026-08-06) 강사를 바꿨으면 «이미 만들어진 수업»의 담당도 같이 바꾼다.
+         [왜] 신청 즉시 수업이 자동으로 만들어지게 된 뒤로, 관리자가 목록에서 강사 드롭다운만
+              바꾸면 **신청서와 수업의 담당이 어긋난다**. 화면에는 바꾼 이름이 보이니 바뀐 줄 알지만
+              실제 수업은 옛 강사에게 남아, 새 강사 화면에는 영영 안 뜬다. 에러는 0.
+              실제로 그렇게 됐다: 신청 #15 를 'Teacher Maimai' 로 바꿨는데 수업 #854 의 담당은
+              BELLE 그대로였다 → 마이마이가 로그인해도 그 수업이 없다.
+         ⚠️ 강사 번호는 신청서의 assigned_teacher_id(=teacher_profiles)를 쓰지 않는다. 그 번호는
+            class_schedules 의 번호 체계(teachers.id)와 다른 사람을 가리킨다. 이름으로 되찾는다. */
+      let teacherSync: any = undefined;
+      if (b.assigned_teacher != null) {
+        try {
+          const appT: any = await env.DB.prepare(
+            `SELECT id, schedule_id, assigned_teacher FROM leveltest_applications WHERE id = ? LIMIT 1`
+          ).bind(Number(b.id)).first();
+          if (appT?.schedule_id) {
+            const normT = (s: any) => String(s || '').toLowerCase().replace(/teacher/g, '').replace(/[^a-z0-9가-힣]/g, '');
+            const want = normT(appT.assigned_teacher);
+            const ts: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE COALESCE(active,1) = 1`).all();
+            const hit = (ts.results || []).find((r: any) => normT(r.name) === want);
+            if (hit) {
+              await env.DB.prepare(`UPDATE class_schedules SET teacher_id = ?, updated_at = ? WHERE id = ?`)
+                .bind(String(hit.id), Date.now(), Number(appT.schedule_id)).run();
+              teacherSync = { schedule_id: appT.schedule_id, teacher_id: String(hit.id), teacher: hit.name };
+            } else {
+              // 못 찾으면 조용히 넘기지 않는다 — 화면은 «바뀐 것처럼» 보이는데 수업은 안 바뀐 상태다
+              teacherSync = { schedule_id: appT.schedule_id, error: 'teacher_not_in_roster', candidate: appT.assigned_teacher };
+            }
+          }
+        } catch (e: any) { teacherSync = { error: String(e?.message || e).slice(0, 80) }; }
+      }
+
       // 📣 결과 확정 통보 — final_level 이 채워지는 순간 학부모/학생 번호로 1회 통보 (result_notified_at 으로 dedup)
       //    기존엔 접수/교사확정 알림만 있고 '결과' 통보가 없어 학부모가 결과·추천교재를 알 수 없었음.
       let resultNotify: any = undefined;
@@ -6871,7 +6902,7 @@ LIMIT $limit`;
         } catch (e: any) { resultNotify = 'error:' + String(e?.message || e).slice(0, 80); }
       }
       const missingBook = (b.final_level != null) && !String(b.recommended_textbook || '').trim();
-      return json({ ok: true, result_notify: resultNotify, warn: missingBook ? 'recommended_textbook_missing' : undefined });
+      return json({ ok: true, result_notify: resultNotify, teacher_sync: teacherSync, warn: missingBook ? 'recommended_textbook_missing' : undefined });
     }
 
     // ─── 🧠 AI 자동 진단 (CEFR 객관식 배치테스트) ─────────────────────────────
