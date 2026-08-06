@@ -184,8 +184,15 @@
      ⚠️ 원본 사진에는 조종간이 '고정된 채' 찍혀 있다. 그대로 쓰면 우리가 얹은 회전 조종간과
         두 개가 겹쳐 보인다 → 조종간 위(세로 66%)까지만 잘라낸 판을 쓴다.
         좌표계는 원본과 동일(같은 폭·같은 원점)이라 계기 위치 계산은 그대로 유효하다. */
+  /* ⚠️ 계기판 사진(1600x434)은 판 상자보다 세로가 짧다 — 상자 맨 아래 5~7% 는 사진이 없다.
+     예전엔 그 틈을 '화면 끝까지 늘린 조종석 사진'이 뒤에서 메워 줬는데, 세로 폰의 조종석
+     배율을 낮추면서(CP_COVER) 뒤가 비어 **판 아래 좌우에 하늘색 띠**가 생겼다.
+     → 사진 아래쪽 실측 색(89,82,66)을 판 자체 바탕색으로 깔아 메운다.
+       좌우 마스크가 같이 걸리므로 넓은 화면에서 '하늘이 보이는 옆구리'는 그대로다. */
   #dashFg{position:absolute;background-repeat:no-repeat;
-    background-image:url('/img/p38-dash-panel.webp?v=1')}
+    /* 2겹: ①계기판 사진 ②그 아래를 메우는 판 그림자. 크기·위치는 layoutCockpit() 이 두 겹 다 넣는다 */
+    background-image:url('/img/p38-dash-panel.webp?v=1'),
+      linear-gradient(180deg,rgb(89,82,66) 0,rgb(58,53,43) 55%,rgb(38,35,28) 100%)}
   /* 계기판 좌우 끝을 하늘로 서서히 녹인다 — 안 그러면 사진이 칼같이 잘려 '붙여 넣은 판'으로 보인다.
      ⚠️ 어둡게 덮는 방식(예전 .dvig)은 못 쓴다. 뒤가 하늘이라 검은 띠가 하늘 위에 그려진다.
         알파를 깎는 mask 여야 한다. */
@@ -1189,6 +1196,7 @@ var CP_AR=1.7926, CP_FX=0.4982, CP_FY=0.3636;
    좌표는 이미지 가로/세로 비율. 사진을 확대·축소해도 이 비율로 따라간다. */
 var DASH_W=1600, DASH_H=658;
 var YOKE_W=1000, YOKE_H=579;        // 잘라낸 실사 조종간 크기
+var _yokeH=0;                       // 화면에 그려진 조종간 높이 — 발사 버튼이 조종간을 따라갈 때 쓴다
 var DIAL_POS=[
   { id:'dSpd',  x:0.385,  y:0.272 },   // 좌상 — 속도계
   { id:'dAtt',  x:0.4975, y:0.272 },   // 중상 — 자세계
@@ -1201,8 +1209,18 @@ function layoutCockpit(){
   var img=document.querySelector('#cpPhoto img'); if(!img || !W || !H) return;
   var a=W/H;
   var k = (a>=1.9) ? 1.16 : (a<1.0 ? 1.62 : 1.34);      // 화면형태별 확대율
-  // 창 중심을 화면 중앙에 두고도 아래쪽에 빈틈이 생기지 않을 최소 배율
-  var minK = (0.5/(1-CP_FY)) * (H/W) * CP_AR;
+  /* 창 중심을 화면 중앙에 두고도 '아래쪽'에 빈틈이 생기지 않을 최소 배율.
+     🔑 예전엔 사진이 **화면 맨 아래(1.0H)** 까지 닿게 강제했다. 그런데 조종석 사진은
+        가로:세로 1.79 인 가로 사진이라, 세로 폰(0.45)에서 이 조건을 만족하려면 배율이
+        3.13 까지 올라간다 = 사진이 화면 폭의 3배. 그만큼 **캐노피 금속 프레임도 3배로
+        두꺼워져** 창이 좁아졌다("캐노피 프레임이 너무 두꺼워" — 사장님).
+     ✅ 화면 아래쪽은 계기판 사진(#dash, 세로 폰에서는 화면 폭을 꽉 채운다)이 덮는다.
+        따라서 조종석 사진은 계기판 윗선(0.674H) 아래까지만 내려오면 충분하다.
+        여유를 두고 0.85H 를 기준으로 잡으면 세로 폰 배율이 3.13 → 2.19 로 내려간다
+        (프레임 두께 70%, 하늘 보이는 면적 69% → 76%).
+     ⚠ 이 값을 다시 1.0 으로 올리지 말 것. 두께 문제가 그대로 돌아온다. */
+  var CP_COVER = 0.85;
+  var minK = ((CP_COVER-0.5)/(1-CP_FY)) * (H/W) * CP_AR;
   if(k < minK) k = minK;
   if(k < 1) k = 1;                                       // 가로는 최소한 화면을 덮는다
   var iw=k*W, ih=iw/CP_AR;
@@ -1219,6 +1237,12 @@ function layoutCockpit(){
      사진을 '계기 두 줄이 다 보이도록' 키워서, 그 위에 살아 움직이는 바늘 계기를 정확히 겹친다. */
   var dash=document.getElementById('dash');
   var dashTop = itop + 0.585*ih;
+  /* ⚠ 계기판 윗선은 조종석 사진의 코밍 선(58.5%)을 따라간다. 그런데 위에서 세로 화면의
+     사진 배율을 낮췄으므로 그대로 두면 코밍 선이 같이 올라와 **계기판이 커지고 하늘이
+     좁아진다** — 프레임을 얇게 만든 이득을 계기판이 도로 먹는다.
+     세로 화면의 계기판 자리는 예전(사진이 화면 아래까지 닿던 시절)과 똑같이 0.674H 로 고정한다.
+     0.674 는 계산값이다: 그 시절 dashTop = H - 0.415*0.7857H = 0.674H. */
+  if(a < 1.0) dashTop = H*0.674;
   if(dashTop > H-170) dashTop = H-170;
   if(dashTop < H*0.52) dashTop = H*0.52;
   var dashH = H - dashTop;
@@ -1239,8 +1263,13 @@ function layoutCockpit(){
       dfg.style.left = side.toFixed(1)+'px';
       dfg.style.right = side.toFixed(1)+'px';
       dfg.style.top = '0px'; dfg.style.bottom = '0px';
-      dfg.style.backgroundSize = dw.toFixed(1)+'px auto';
-      dfg.style.backgroundPosition = 'center '+offY.toFixed(1)+'px';
+      /* ⚠️ 계기판 사진(1600x434)은 판 상자보다 세로가 짧다 — 상자 맨 아래 약 5~7% 는 사진이 없다.
+         예전엔 그 틈을 '화면 끝까지 늘린 조종석 사진'이 뒤에서 메워 줬는데, 세로 폰의 조종석
+         배율을 낮추면서(CP_COVER) 뒤가 비어 **판 아래 좌우에 하늘색 띠**가 생겼다.
+         → 둘째 겹(판 그림자)을 상자 전체에 깔아 메운다. 좌우 마스크는 그대로 걸리므로
+           넓은 화면에서 '옆구리로 하늘이 보이는' 설계는 안 깨진다. */
+      dfg.style.backgroundSize = dw.toFixed(1)+'px auto, 100% 100%';
+      dfg.style.backgroundPosition = 'center '+offY.toFixed(1)+'px, center bottom';
     }
     var dbg=document.getElementById('dashBg');
     if(dbg){
@@ -1291,16 +1320,19 @@ function layoutCockpit(){
     if(yk){
       var yw = 0.50*dw;                                   // 사진 조종간 폭
       var yh = yw*YOKE_H/YOKE_W;
+      _yokeH = yh;                                        // 발사 버튼이 조종간을 따라가는 계산에 쓴다
       // 허브(붉은 버튼)가 화면 안에 보이도록 사진 원위치(0.70)보다 살짝 위에 놓는다
       var hubY = Math.min(dTop + 0.655*dh, H - yh*0.30);
       yk.style.width = yw.toFixed(1)+'px';
       yk.style.left  = '50%';
       yk.style.top   = (hubY - 0.47*yh).toFixed(1)+'px';  // 잘라낸 사진의 허브는 높이의 47% 지점
       yk.style.bottom= 'auto';
-      /* 발사 버튼 = 사진 속 빨간 허브. 손가락으로 눌러야 하므로 최소 66px 은 준다 */
+      /* 발사 버튼 = 사진 속 빨간 허브.
+         ⚠ 조종간은 비행 중 계속 움직인다(위 --ykY). 움직이는 표적을 손가락으로 누르는 것이라
+            정지 버튼 기준의 66px 로는 모자랐다 → 최소 88px. */
       var hb=document.getElementById('hubFire');
       if(hb){
-        var hs=Math.max(66, Math.round(yw*0.155));
+        var hs=Math.max(88, Math.round(yw*0.185));
         hb.style.width = hb.style.height = hs+'px';
         hb.style.left  = Math.round(W/2 - hs/2)+'px';
         hb.style.top   = Math.round(hubY - hs/2)+'px';
@@ -2952,8 +2984,8 @@ function drawRadar(ts){
   }
 }
 
-var last=0, raf=null, _yokeEl=null;
-try{ _yokeEl=document.getElementById('yoke'); }catch(_){}
+var last=0, raf=null, _yokeEl=null, _hubEl=null;
+try{ _yokeEl=document.getElementById('yoke'); _hubEl=document.getElementById('hubFire'); }catch(_){}
 function loop(ts){
   raf=requestAnimationFrame(loop);
   if(!last) last=ts;
@@ -2975,7 +3007,19 @@ function loop(ts){
       _yokeEl.style.setProperty('--ykR', (ux*64).toFixed(2)+'deg');   // 좌우 = 회전
       _yokeEl.style.setProperty('--ykY', (uy*30).toFixed(2)+'px');    // 상하 = 밀고 당김
       // 밀면 멀어지고 당기면 가까워지는 원근감 — 손끝의 깊이감을 만든다
-      _yokeEl.style.setProperty('--ykS', (1 - uy*0.055).toFixed(4));
+      var ykS = 1 - uy*0.055;
+      _yokeEl.style.setProperty('--ykS', ykS.toFixed(4));
+      /* 🔴🔴 발사 버튼(투명)은 **조종간과 같이 움직여야 한다.**
+         조종간은 밀고 당길 때 최대 ±30px 움직이는데 버튼은 layoutCockpit() 이 잡아 준
+         자리에 붙박이로 있었다 → 보이는 빨간 버튼과 실제 누르는 자리가 최대 29px 어긋난다.
+         버튼 반지름이 33px 이라 조종간을 끝까지 당긴 채 빨간 버튼 한가운데를 눌러도
+         테두리에 걸쳐 자주 빗나갔다 = "발사가 안돼".
+         ⚠ #yoke 의 확대 기준점은 50% 40% 인데 허브는 47% 지점이라, 확대분도 허브를
+            (0.47-0.40)*높이*(배율-1) 만큼 움직인다. 이 항까지 넣어야 정확히 겹친다. */
+      if(_hubEl){
+        var dy = uy*30 + 0.07*(_yokeH||_yokeEl.offsetHeight||0)*(ykS-1);
+        _hubEl.style.transform = 'translateY('+dy.toFixed(2)+'px)';
+      }
     }
     drawRadar(ts);
     // 사격 반동 흔들림
@@ -3218,6 +3262,6 @@ function preloadPlaneGLBs(){
   })();
 })();
 </script>
-<!-- BUILD:20260806172619 -->
+<!-- BUILD:20260806185710 -->
 </body>
 </html>

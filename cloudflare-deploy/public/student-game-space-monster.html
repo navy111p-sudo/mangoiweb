@@ -28,6 +28,15 @@
       color: #cfe0ff; font-size: 13px; font-weight: 700; white-space: nowrap;
     }
     #langBtn { margin-left: 8px; }
+    /* 🔇 꺼진 상태는 **한눈에 꺼져 보여야 한다.**
+       예전엔 ♫/♪ 음표 한 글자와 ON/OFF 글자만 달라서, 버튼이 '지금 상태'를 말하는지
+       '누르면 될 일'을 말하는지 구분이 안 됐다 — 실제로 소리를 꺼 놓고
+       "쏴서 맞춰도 소리가 안 난다"는 신고가 들어왔다(낭독 TTS 는 계속 나오므로
+       게임이 통째로 조용한 게 아니라 '효과음만' 사라져 더 헷갈린다). */
+    #sfxBtn.off {
+      background: rgba(239, 68, 68, .18); border-color: rgba(239, 68, 68, .55);
+      color: #fecaca;
+    }
 
     /* ── 문장 조립 바 ── */
     .quizbar {
@@ -317,7 +326,7 @@
            되살리지 말 것. 틀림에 대한 피드백은 'Oh no!' + 정답 괴물 공개로 충분하다. -->
       <div class="stat"><div class="label">문장</div><div class="value" id="sentVal">0</div></div>
       <button id="langBtn" type="button" style="margin-left:auto;">&#127760; 영어</button>
-      <button id="sfxBtn" type="button">&#9835; 소리 ON</button>
+      <button id="sfxBtn" type="button">&#128266; 소리 ON</button>
     </div>
 
     <div class="quizbar">
@@ -462,11 +471,22 @@
     const sfxHurt = () => { noise(.34,.30,'lowpass',700,70); tone('sawtooth',260,70,.4,.18); };
     const sfxDeath = () => { tone('sawtooth',220,28,1.5,.24); tone('sine',130,22,1.7,.18,.08); noise(1.1,.16,'lowpass',900,60); };
     const sfxClear = () => { [523,659,784,1047].forEach((f,i)=>tone('triangle',f,f,.22,.14,i*.1)); };
+    /* ⚠ 이 버튼은 '지금 상태'를 보여 준다. 누르면 될 일이 아니다.
+       꺼진 쪽은 붉은색 + 스피커 X + "눌러서 켜기" 까지 적어 오해할 여지를 없앤다. */
+    function renderSfxBtn() {
+      /* ⚠ 라벨을 길게(“눌러서 켜기”) 쓰면 좁은 폰 상단바가 가로로 넘쳐 화면이 밀린다 —
+         실측 360px 화면에서 424px. 상태는 아이콘·색·‘꺼짐’ 세 가지로 이미 분명하다. */
+      sfxBtn.innerHTML = sfxOn ? '&#128266; 소리 ON' : '&#128263; 소리 꺼짐';
+      sfxBtn.title = sfxOn ? '눌러서 효과음 끄기' : '눌러서 효과음 켜기';
+      sfxBtn.classList.toggle('off', !sfxOn);
+      sfxBtn.setAttribute('aria-pressed', sfxOn ? 'false' : 'true');
+    }
     sfxBtn.onclick = (e) => {
       e.stopPropagation(); sfxOn = !sfxOn;
-      sfxBtn.innerHTML = sfxOn ? '&#9835; 소리 ON' : '&#9834; 소리 OFF';
+      renderSfxBtn();
       if (sfxOn) { ac(); sfxShot(); }
     };
+    renderSfxBtn();
 
     /* ═══ 에셋 ═══ */
     // Higgsfield 실사 8종 (각자 고유 오라 색·포효 음높이)
@@ -1390,6 +1410,6 @@
       new Promise(r => setTimeout(r, 2500))
     ]).then(startWave, startWave);
   </script>
-<!-- BUILD:20260806172619 -->
+<!-- BUILD:20260806185710 -->
 </body>
 </html>
