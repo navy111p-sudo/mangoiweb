@@ -9236,6 +9236,109 @@ LIMIT $limit`;
       } catch (e: any) { return json({ ok: false, error: e?.message || 'query_failed' }, 500); }
     }
 
+    /* ── 🎁 학생측 추천 코드 (홈 '내 추천 코드' 칩이 부르는 경로) ─────────────────
+     * [왜] 관리자 카드(/api/admin/referrals)는 있는데 **학생이 코드를 받을 곳이 없었다.**
+     *      그래서 표가 영영 비어 있었다. 홈 화면은 이미 이 경로를 부르고 있었다(index.html).
+     * ⚠️ 코드는 uid 로부터 **항상 같은 값**이 나오게 만든다 — 새로고침마다 코드가 바뀌면
+     *    친구에게 이미 보낸 코드가 죽는다.
+     */
+    if (path.startsWith('/api/referral/')) {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS referral_codes (code TEXT PRIMARY KEY, uid TEXT NOT NULL UNIQUE, created_at INTEGER);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS referrals (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer_uid TEXT NOT NULL, referred_uid TEXT NOT NULL, code TEXT, status TEXT DEFAULT 'pending', reward_points INTEGER DEFAULT 0, created_at INTEGER, UNIQUE(referrer_uid, referred_uid));`); } catch {}
+    }
+    if (method === 'GET' && path === '/api/referral/my-code') {
+      const uid = String(url.searchParams.get('uid') || '').trim();
+      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      try {
+        const has: any = await env.DB.prepare(`SELECT code FROM referral_codes WHERE uid = ? COLLATE NOCASE`).bind(uid).first();
+        if (has?.code) return json({ ok: true, code: String(has.code) });
+        // uid 로 결정적 코드 생성(같은 사람 = 항상 같은 코드). 충돌하면 뒤에 한 글자씩 붙여 피한다.
+        let h = 0;
+        for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) >>> 0;
+        const AB = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 헷갈리는 0/O/1/I 제외
+        const make = (seed: number, len: number) => {
+          let s = '', v = seed;
+          for (let i = 0; i < len; i++) { s += AB[v % AB.length]; v = Math.floor(v / AB.length) + 7; }
+          return s;
+        };
+        let code = 'MG' + make(h, 4);
+        for (let t = 1; t <= 8; t++) {
+          const dup: any = await env.DB.prepare(`SELECT 1 AS x FROM referral_codes WHERE code = ?`).bind(code).first();
+          if (!dup) break;
+          code = 'MG' + make(h + t * 977, 4);
+        }
+        await env.DB.prepare(`INSERT OR IGNORE INTO referral_codes (code, uid, created_at) VALUES (?, ?, ?)`)
+          .bind(code, uid, Date.now()).run();
+        const now2: any = await env.DB.prepare(`SELECT code FROM referral_codes WHERE uid = ? COLLATE NOCASE`).bind(uid).first();
+        return json({ ok: true, code: String(now2?.code || code) });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'query_failed' }, 500); }
+    }
+    if (method === 'POST' && path === '/api/referral/use') {
+      const b = await parseJsonBody(request);
+      const code = String(b?.code || '').trim().toUpperCase();
+      const uid = String(b?.uid || '').trim();
+      if (!code || !uid) return invalidBody(['code', 'uid']);
+      try {
+        const owner: any = await env.DB.prepare(`SELECT uid FROM referral_codes WHERE code = ?`).bind(code).first();
+        if (!owner?.uid) return json({ ok: false, error: 'code_not_found' }, 404);
+        if (String(owner.uid).toLowerCase() === uid.toLowerCase()) return json({ ok: false, error: 'self_referral' }, 400);
+        /* ⛔ 포인트를 여기서 바로 주지 않는다. 적립 규칙(얼마·언제·회수 조건)이 아직 확정 전이고,
+         *    uid 만으로 호출되는 경로에서 자동 지급하면 코드만 알면 무한 적립이 된다.
+         *    'pending' 으로 남기고 관리자 카드에서 확인 후 지급한다. */
+        await env.DB.prepare(
+          `INSERT OR IGNORE INTO referrals (referrer_uid, referred_uid, code, status, reward_points, created_at)
+             VALUES (?, ?, ?, 'pending', 500, ?)`
+        ).bind(String(owner.uid), uid, code, Date.now()).run();
+        return json({ ok: true, status: 'pending', referrer_uid: String(owner.uid),
+                      message_ko: '추천이 접수되었습니다. 확인 후 포인트가 지급됩니다.',
+                      message_en: 'Referral received. Points will be granted after review.' });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'save_failed' }, 500); }
+    }
+
+    /* ── 📅 학생·학부모측 1:1 상담 예약 ────────────────────────────────────────
+     * 관리자 쪽(슬롯 열기·목록·취소)은 이미 라이브인데 **학부모가 예약할 창구가 없었다.**
+     * 그래서 상담 슬롯을 열어도 아무도 잡을 수 없었다. 그 반쪽을 잇는다. */
+    if (path.startsWith('/api/counseling/')) {
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_uid TEXT NOT NULL, date TEXT NOT NULL, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, status TEXT DEFAULT 'open', created_at INTEGER);`); } catch {}
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER, staff_uid TEXT, date TEXT, start_time TEXT, parent_name TEXT, parent_phone TEXT, student_uid TEXT, topic TEXT, status TEXT DEFAULT '예약', created_at INTEGER);`); } catch {}
+    }
+    if (method === 'GET' && path === '/api/counseling/available-slots') {
+      const from = String(url.searchParams.get('from') || today()).trim();
+      const to = String(url.searchParams.get('to') || '').trim();
+      try {
+        const rs = to
+          ? await env.DB.prepare(
+              `SELECT id, date, start_time, duration_min FROM counseling_slots
+                WHERE status = 'open' AND date >= ? AND date <= ? ORDER BY date, start_time LIMIT 200`).bind(from, to).all()
+          : await env.DB.prepare(
+              `SELECT id, date, start_time, duration_min FROM counseling_slots
+                WHERE status = 'open' AND date >= ? ORDER BY date, start_time LIMIT 200`).bind(from).all();
+        return json({ ok: true, slots: rs.results || [] });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'query_failed' }, 500); }
+    }
+    if (method === 'POST' && path === '/api/counseling/book') {
+      const b = await parseJsonBody(request);
+      const slotId = Number(b?.slot_id) || 0;
+      const name = String(b?.parent_name || '').trim();
+      const phone = String(b?.parent_phone || '').trim();
+      if (!slotId || !name || !phone) return invalidBody(['slot_id', 'parent_name', 'parent_phone']);
+      try {
+        const slot: any = await env.DB.prepare(`SELECT id, staff_uid, date, start_time, status FROM counseling_slots WHERE id = ?`).bind(slotId).first();
+        if (!slot) return json({ ok: false, error: 'slot_not_found' }, 404);
+        // ⚠️ 이미 잡힌 자리면 거절한다 — 둘이 같은 시간에 잡히면 한 명은 헛걸음한다.
+        if (String(slot.status) !== 'open') return json({ ok: false, error: 'slot_taken' }, 409);
+        const upd: any = await env.DB.prepare(`UPDATE counseling_slots SET status = 'booked' WHERE id = ? AND status = 'open'`).bind(slotId).run();
+        if (!Number(upd?.meta?.changes)) return json({ ok: false, error: 'slot_taken' }, 409);  // 동시 예약 경합
+        await env.DB.prepare(
+          `INSERT INTO counseling_bookings (slot_id, staff_uid, date, start_time, parent_name, parent_phone, student_uid, topic, status, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, '예약', ?)`
+        ).bind(slotId, slot.staff_uid, slot.date, slot.start_time, name, phone,
+               String(b?.student_uid || '').trim() || null, String(b?.topic || '').trim() || null, Date.now()).run();
+        return json({ ok: true, booked: { date: slot.date, start_time: slot.start_time },
+                      message_ko: '상담이 예약되었습니다.', message_en: 'Your counseling session is booked.' });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'save_failed' }, 500); }
+    }
+
     // ── 📅 1:1 상담 자동 예약 (card-counseling-booking) ──
     //   같은 카드의 버튼 3개(bookings 조회·slot/open·cancel)를 함께 구현해 카드 완동작.
     //   status 값은 프런트 색상 분기('취소'=red, '완료'=green)와 맞춰 한글 사용.

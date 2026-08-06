@@ -1325,6 +1325,8 @@ export async function handleMangoApi(
         || path === '/api/admin/lesson-reminder/run'
         || path.startsWith('/api/admin/referrals') || path.startsWith('/api/admin/counseling/')
         || path.startsWith('/api/admin/teacher-links')
+        // 학생·학부모측 창구(관리자 표의 반대쪽 반쪽). 인증게이트는 index.ts 에 등록돼 있다.
+        || path.startsWith('/api/referral/') || path.startsWith('/api/counseling/')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'
         || path === '/api/battle/leaderboard' || path === '/api/battle/history'
         || path === '/api/admin/org/import-cafe24' || path === '/api/admin/staff/graph-list'
