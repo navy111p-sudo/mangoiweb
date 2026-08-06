@@ -86,6 +86,27 @@ export async function ltTicketUrl(appId: number, env: any): Promise<string> {
   return `${publicBase(env)}/t.html?k=${await signLtTicket(appId, env)}`;
 }
 
+/**
+ * 여러 건의 티켓 링크를 한 번에. 관리자 목록(최대 500행)에서 쓴다.
+ * ⚠️ ltTicketUrl 을 행마다 부르면 HMAC 키를 행마다 새로 import 한다.
+ *    여기서는 키를 한 번만 만들고 서명만 반복한다 — 결과는 완전히 동일하다.
+ */
+export async function ltTicketUrlMap(appIds: number[], env: any, ttlMs = 120 * 86400 * 1000): Promise<Record<number, string>> {
+  const out: Record<number, string> = {};
+  const ids = Array.from(new Set(appIds.filter(n => Number.isInteger(n) && n > 0)));
+  if (!ids.length) return out;
+  const base = publicBase(env);
+  const expSec = Math.floor((Date.now() + ttlMs) / 1000);
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(ticketSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  await Promise.all(ids.map(async id => {
+    const payload = `${id}.${expSec}`;
+    const raw = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+    out[id] = `${base}/t.html?k=${payload}.${b64u(new Uint8Array(raw)).slice(0, 22)}`;
+  }));
+  return out;
+}
+
 export type LtTicket = {
   app_id: number;
   student_name: string;

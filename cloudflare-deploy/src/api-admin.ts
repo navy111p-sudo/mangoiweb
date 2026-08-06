@@ -13,7 +13,7 @@ import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, publicBase } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
+import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
@@ -6781,6 +6781,19 @@ LIMIT $limit`;
             items.forEach(a => { if (a.pron_score == null && a.student_uid && pmap[a.student_uid] != null) a.pron_score = pmap[a.student_uid]; });
           }
         } catch (e) { /* voice_coaching 미존재 시 무시 */ }
+        /* 🎟️ (2026-08-07) 티켓 링크를 목록에 함께 내려준다.
+           [왜] 링크는 지금까지 ①신청 직후 응답·문자 ②확정 문자 ③10분 전 리마인더,
+                이 세 곳에서만 만들어졌다. 그래서 신청자가 문자를 못 찾으면 상담직원도
+                꺼내 줄 데가 없었다 — 실제로 오늘 그 상황이 났다(신청 #15).
+                링크 하나가 확인·일정·장비점검·당일 입장을 전부 담당하는데,
+                운영자가 그걸 다시 건네줄 방법이 없던 것이다.
+           [노출] 이 API 는 관리자 인증 게이트 뒤에 있다. 링크는 신청자 본인에게 주라고
+                  만든 것이고, 운영자가 대신 전달하는 것이 이 기능의 목적이다.
+           ⚠️ 행마다 서명하므로 키 import 는 한 번만 한다(ltTicketUrlMap). */
+        try {
+          const tmap = await ltTicketUrlMap(items.map(a => Number(a.id)), env);
+          items.forEach(a => { a.ticket_url = tmap[Number(a.id)] || null; });
+        } catch (e) { items.forEach(a => { a.ticket_url = null; }); }
         const cnt = await env.DB.prepare(`SELECT COUNT(*) AS n FROM leveltest_applications WHERE status = 'pending'`).all();
         const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
         return json({ ok: true, items, pending });

@@ -3373,13 +3373,52 @@ function _ltPaint(tb, items) {
       : (canMake
         ? `<button onclick="leveltestMakeClass(${a.id})" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#2563eb;color:#fff;cursor:pointer;margin-right:4px;white-space:nowrap">${adminLang==='en'?'📅 Create class':'📅 수업 만들기'}</button>`
         : `<span title="${adminLang==='en'?'Needs a preferred date and time':'희망 날짜·시간이 있어야 합니다'}" style="font-size:11px;color:#94a3b8;white-space:nowrap">${adminLang==='en'?'no date':'희망일 없음'}</span>`);
+    /* 🎟️ (2026-08-07) 접수 확인·입장 링크 — 운영자가 «다시 건네줄» 수 있어야 한다.
+       [왜] 링크는 신청 직후 문자·확정 문자·10분 전 리마인더에만 실려 나갔다. 신청자가
+            문자를 못 찾으면 상담직원도 꺼내 줄 데가 없었다(실제 사고: 신청 #15).
+       ⚠️ 눌러도 안 되는 버튼은 만들지 않는다 — 서버가 링크를 못 준 행은 이유를 적는다. */
+    const tk = a.ticket_url || '';
+    const ticketCell = tk
+      ? `<button onclick="ltCopyTicket(this,'${String(tk).replace(/['\\]/g,'')}')" title="${adminLang==='en'?'Copy the confirm/join link for this applicant':'신청자에게 줄 확인·입장 링크를 복사합니다'}" style="padding:3px 8px;font-size:11px;border:1px solid #c4b5fd;border-radius:6px;background:#f5f3ff;color:#5b21b6;font-weight:700;cursor:pointer;margin-right:4px;white-space:nowrap">🎟️ ${adminLang==='en'?'Copy link':'링크 복사'}</button><a href="${_esc(tk)}" target="_blank" rel="noopener" title="${adminLang==='en'?'Open the applicant view':'신청자가 보는 화면 열기'}" style="font-size:11px;color:#7c3aed;text-decoration:none;margin-right:6px">↗</a>`
+      : `<span title="${adminLang==='en'?'Link unavailable — reload the page':'링크를 받지 못했습니다 — 새로고침해 보세요'}" style="font-size:11px;color:#94a3b8;margin-right:6px">🎟️ —</span>`;
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${a.student_uid?(' <code style="font-size:10px;color:#64748b">'+_esc(a.student_uid)+'</code>'):''}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${actions}</td></tr>`;
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${a.student_uid?(' <code style="font-size:10px;color:#64748b">'+_esc(a.student_uid)+'</code>'):''}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
   }).join('');
   _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
+/* 🎟️ 링크 복사. 「복사됨 ✓」을 버튼 위에서 잠깐 보여준다 —
+   alert 를 띄우면 한 건 보낼 때마다 확인을 눌러야 해서 여러 건 처리할 때 손이 묶인다.
+   ⚠️ navigator.clipboard 는 보안 컨텍스트(https)에서만 산다. 사내망·구형 브라우저에서
+      조용히 실패하면 «눌렀는데 아무 일도 없다» 가 되므로 execCommand 폴백을 둔다. */
+function ltCopyTicket(btn, url) {
+  const en = (adminLang === 'en');
+  const done = () => {
+    if (!btn) return;
+    const old = btn.innerHTML, ob = btn.style.background, oc = btn.style.color;
+    btn.innerHTML = en ? '✓ Copied' : '✓ 복사됨';
+    btn.style.background = '#dcfce7'; btn.style.color = '#166534';
+    setTimeout(() => { btn.innerHTML = old; btn.style.background = ob; btn.style.color = oc; }, 1400);
+  };
+  const fallback = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = url; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-999px;left:-999px';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) done(); else prompt(en ? 'Copy this link:' : '이 링크를 복사하세요:', url);
+    } catch (e) { prompt(en ? 'Copy this link:' : '이 링크를 복사하세요:', url); }
+  };
+  try {
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(done).catch(fallback);
+    else fallback();
+  } catch (e) { fallback(); }
+}
+window.ltCopyTicket = ltCopyTicket;
+
 async function leveltestAppStatus(id, status) {
   const d = await _menuPost('/api/admin/leveltest/applications', { id, status });
   if (d) loadLeveltestApps();

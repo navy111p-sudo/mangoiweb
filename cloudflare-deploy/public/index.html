@@ -6396,9 +6396,23 @@ window.mgIsSlowNet = function(){
       (function(){
         var KEY = 'mangoi_lt_ticket';
         var url = ''; try { url = localStorage.getItem(KEY) || ''; } catch(e){}
-        if (!/^https?:\/\//.test(url)) return;
-        var k = ''; try { k = new URL(url).searchParams.get('k') || ''; } catch(e){}
-        if (!k) return;
+        var k = ''; try { if (/^https?:\/\//.test(url)) k = new URL(url).searchParams.get('k') || ''; } catch(e){}
+
+        /* 🔑 (2026-08-07) 로그인 회원도 홈에서 보이게 — 티켓은 «신청한 그 브라우저» 에만 남는다.
+           폰으로 신청하고 PC 로 오면 티켓이 없어 카드가 통째로 안 떴다(사장님 지적).
+           회원은 서버에 본인 신청을 물어볼 수 있으므로(uid 서명토큰) 그 길로 대신 채운다.
+           ⚠️ 키도 없고 로그인도 아니면 **아무 요청도 하지 않는다** — 홈 첫 화면 비용 0 유지.
+           ⚠️ 키 목록은 leveltest 신청서(ltSession)·level-test-ai 와 같아야 한다. */
+        var myUid = '', myToken = '';
+        try {
+          ['mangoi_uid','mango_uid','student_uid','uid','mangoi_parent_uid'].some(function(key){
+            var v = localStorage.getItem(key); if (v) { myUid = v; return true; } return false;
+          });
+          if (!myUid) { var _lu = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (_lu && _lu.uid) myUid = _lu.uid; }
+          myToken = localStorage.getItem('mango_token') || localStorage.getItem('mangoi_parent_token') || '';
+        } catch(e){}
+        var canAskServer = !!(myUid && myToken);
+        if (!k && !canAskServer) return;
 
         var el = document.getElementById('hero-lt');
         var whenEl = document.getElementById('hero-lt-when');
@@ -6433,14 +6447,50 @@ window.mgIsSlowNet = function(){
           node.textContent = isEn ? en : ko;
         }
 
+        /* 🙋 회원 경로 — 티켓이 없을 때만 쓴다(티켓 쪽이 «지금 입장하기» 까지 알려주므로 더 낫다).
+           ⚠️ 여기서는 join_open 을 모른다. 모르는 것을 아는 척해 초록 입장 카드를 만들면
+              눌렀을 때 들어갈 곳이 없다 — 상태와 «마이페이지에서 보기» 만 말한다.
+           ⚠️ 취소된 건은 건너뛴다. 지난 신청만 남았으면 «완료» 로만 보인다. */
+        function loadMine(){
+          if (!canAskServer) { el.hidden = true; return; }
+          fetch('/api/leveltest/my?uid=' + encodeURIComponent(myUid) + '&token=' + encodeURIComponent(myToken), { cache:'no-store' })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+              var items = (d && d.ok && d.items) ? d.items : [];
+              items = items.filter(function(a){ return a && a.status !== 'cancelled'; });
+              if (!items.length) { el.hidden = true; return; }
+              /* 가장 «지금 신경 쓰이는» 한 건: 아직 안 지난 것 중 가장 가까운 날,
+                 전부 지났으면 가장 최근 것(서버가 created_at DESC 로 준다). */
+              var today = new Date(); today.setHours(0,0,0,0);
+              var upcoming = items.filter(function(a){
+                if (!a.desired_date) return false;
+                var p = String(a.desired_date).split('-'); if (p.length !== 3) return false;
+                return new Date(+p[0], +p[1]-1, +p[2]) >= today;
+              }).sort(function(a,b){ return String(a.desired_date).localeCompare(String(b.desired_date)); });
+              var it = upcoming[0] || items[0];
+              el.classList.remove('is-open');
+              el.href = '/parent.html?uid=' + encodeURIComponent(myUid);
+              put(whenEl, label(it.desired_date, it.desired_time, false), label(it.desired_date, it.desired_time, true));
+              var st = ST[it.status] || ['진행 중', 'In progress'];
+              put(subEl, st[0] + ' · 마이페이지에서 보기 →', st[1] + ' · View in My Page →');
+              el.hidden = false;
+            })
+            .catch(function(e){ try { console.warn('[hero-lt:my]', e); } catch(_){} });
+        }
+
         function load(){
+          if (!k) { loadMine(); return; }
           fetch('/api/leveltest/ticket?k=' + encodeURIComponent(k), { cache:'no-store' })
             .then(function(r){ return r.json(); })
             .then(function(d){
               if (!d || !d.ok || !d.ticket) {
-                // 만료·무효 — 죽은 카드를 홈에 남기지 않는다
+                // 만료·무효 — 죽은 카드를 홈에 남기지 않는다.
+                // 단 회원이면 서버에 본인 신청을 다시 물어본다(티켓만 죽었을 뿐 신청은 살아 있다).
                 try { localStorage.removeItem(KEY); } catch(e){}
-                el.hidden = true; return;
+                k = '';
+                el.hidden = true;
+                loadMine();
+                return;
               }
               var t = d.ticket;
               el.href = url;
@@ -28858,7 +28908,7 @@ window.addEventListener('DOMContentLoaded', () => {
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260807052617 -->
+<!-- BUILD:20260807061416 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
