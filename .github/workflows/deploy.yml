@@ -87,6 +87,21 @@ jobs:
         working-directory: .
         run: node test-harness/inline_js_syntax_harness.mjs
 
+      # ─── 정적자산 캐시버전 게이트 (차단) ───
+      # deploy.ps1 은 sw.js 의 CACHE_NAME 만 자동으로 올린다. js/css 의 ?v= 는 사람이 손으로 올린다.
+      # 안 올리면 «배포는 됐는데 기존 사용자에게는 옛 파일이 그대로» 가 된다 —
+      # 화면은 새것, 스크립트는 옛것이라 원인 찾기가 특히 어렵다.
+      #
+      # 2026-08-07 하루에만 두 번 걸렸다: /js/adm-tlink.js (v=1) · /js/adm-core.js (v=39).
+      # 둘 다 deploy.ps1 의 게이트(run.mjs --fast 안에 이 하니스가 있다)가 잡아서 사람이 올렸다.
+      # 그런데 이 CI 경로에는 그 게이트가 없어서, main 으로 배포되면 그대로 빠져나간다.
+      # deploy.ps1 과 CI 두 경로 모두에 같은 게이트가 걸려 있어야 한다.
+      #
+      # continue-on-error 를 붙이지 않는다 — 실패하면 배포하지 않는다.
+      - name: Static asset cache-version gate (?v= 누락)
+        working-directory: .
+        run: node test-harness/asset_version_harness.mjs
+
       # 시크릿 존재 여부 확인 — 없으면 워크플로우는 성공 처리하고 배포만 건너뜀
       - name: Check required secrets
         id: check_secrets
