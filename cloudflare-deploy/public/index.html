@@ -27656,8 +27656,20 @@ window.addEventListener('DOMContentLoaded', () => {
   'use strict';
 
   async function ph52ClearCache(){
-    var ok = confirm('🔄 캐시 삭제 후 페이지를 새로 불러옵니다.\n\n로그인 정보는 유지됩니다.\n계속하시겠어요?');
+    /* 🔄 (2026-08-06) 수업 중에는 «홈으로 나가는 새로고침»이 아니라 «이 수업으로 되돌아오는
+       새로고침»이다. 안내 문구도 그렇게 말해야 사장님·강사가 누를 수 있다. */
+    var _inCall = false;
+    try { _inCall = document.body.classList.contains('vc-in-call'); } catch(_){}
+    var ok = confirm(_inCall
+      ? '🔄 화면을 새로 불러옵니다.\n\n수업에서 나가지 않고, 지금 이 수업 화면으로 다시 들어갑니다.\nReload — you will come back into this class.\n계속하시겠어요?'
+      : '🔄 캐시 삭제 후 페이지를 새로 불러옵니다.\n\n로그인 정보는 유지됩니다.\n계속하시겠어요?');
     if (!ok) return;
+    // 수업 중이면 '지금 이 방' 기록을 먼저 확정해 둔다 (아래 sessionStorage.clear 대비 백업도 함께)
+    var _rejoin = null;
+    try {
+      if (_inCall && typeof window.__vcRejoinMark === 'function') window.__vcRejoinMark();
+      _rejoin = sessionStorage.getItem('mangoi_vc_rejoin');
+    } catch(_){}
     var saved = {};
     try {
       ['mangoi_logged_user','mango_user','mangoi_uid',
@@ -27687,6 +27699,8 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       Object.keys(saved).forEach(function(k){ localStorage.setItem(k, saved[k]); });
     } catch(_){}
+    // 🔄 수업 복귀 기록은 sessionStorage.clear() 로 날아간다 → 되돌려 놓는다(주소의 ?room= 과 이중 안전망)
+    try { if (_rejoin) sessionStorage.setItem('mangoi_vc_rejoin', _rejoin); } catch(_){}
     // 강제 새로고침 (cache-bust 쿼리)
     try {
       var u = new URL(window.location.href);
@@ -31778,6 +31792,139 @@ window.vcAutoLoadStudentTextbook = async function(){
     var room = new URLSearchParams(location.search).get('room');
     if (room) setTimeout(function(){ window.mangoiJoinClass(room); }, 700);
   } catch(e){}
+})();
+</script>
+<script id="vc-refresh-stay-in-class">
+/* 🔄 (2026-08-06 사장님 지시) 수업 중 새로고침 = «그 수업 화면»으로 되돌아오기.
+   ─────────────────────────────────────────────────────────────────────────────
+   [문제] 수업 중에 새로고침하면 홈페이지로 나가졌다.
+          로비에서 방 코드를 넣고 들어온 경우 주소는 그냥 `/` 라, 새로고침은
+          «앱을 처음 여는 것»과 완전히 같았다. 방에 대한 기억이 아무 데도 없었다.
+          (알림톡 링크 `?room=` 로 들어온 사람만 우연히 되돌아왔다)
+   [해결] 수업에 들어가는 순간 두 군데에 «지금 이 방에 있다»를 남긴다.
+          ① 주소창(history.replaceState 로 ?room= 추가) — F5·주소 재입력·PWA 재시작까지 커버
+          ② sessionStorage(이 탭 한정) — 주소가 지워지는 경로 대비. 탭을 닫으면 함께 사라진다.
+          나가기를 누르면 둘 다 지운다 → 나간 뒤 새로고침은 예전처럼 홈.
+   ⚠️ 방 기록은 «수업 중»에만 남긴다. 2시간이 지난 기록은 무시(끝난 수업 재입장 방지).
+   ⚠️ 회의방(?meet=)은 전용 블록이 이미 같은 일을 한다 → 여기서 손대지 않는다. */
+(function(){
+  'use strict';
+  var KEY = 'mangoi_vc_rejoin';
+  var MAX_AGE = 2 * 60 * 60 * 1000;   // 2시간 — 수업 한 타임을 넉넉히 덮는다
+
+  function inCall(){ try { return document.body.classList.contains('vc-in-call'); } catch(e){ return false; } }
+  function hasMeetParam(){ try { return !!new URLSearchParams(location.search).get('meet'); } catch(e){ return false; } }
+
+  // 지금 있는 방 id — vcRoomId 는 let 이라 window 에 없다(CLAUDE.md 함정) → 화면 값을 읽는다
+  function currentRoom(){
+    try {
+      var el = document.getElementById('vc-room-name');
+      return (el && el.textContent || '')
+        .replace(/^🔍\s*/, '').replace(/\s*\(관찰 중\)\s*$/, '').replace(/\s*수업 관찰 중\s*$/, '').trim();
+    } catch(e){ return ''; }
+  }
+
+  function mark(){
+    if (!inCall() || hasMeetParam()) return;
+    var room = currentRoom();
+    if (!room) return;
+    try { sessionStorage.setItem(KEY, JSON.stringify({ room: room, at: Date.now() })); } catch(e){}
+    try {
+      var u = new URL(location.href);
+      if (u.searchParams.get('room') !== room) {
+        u.searchParams.set('room', room);
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      }
+    } catch(e){}
+  }
+
+  function forget(){
+    try { sessionStorage.removeItem(KEY); } catch(e){}
+    // 나간 뒤의 새로고침이 방으로 다시 끌려가지 않게 주소에서도 지운다
+    try {
+      if (/[?&]room=/.test(location.search)) {
+        var u = new URL(location.href);
+        u.searchParams.delete('room');
+        history.replaceState(null, '', u.pathname + (u.search === '?' ? '' : u.search) + u.hash);
+      }
+    } catch(e){}
+  }
+  window.__vcRejoinMark = mark;
+  window.__vcRejoinForget = forget;
+
+  // 들어가면 기록, 나가면 지움 — 나가기 경로가 여러 갈래라 body 클래스 하나로 모은다
+  //   (vc-in-call 제거는 vcLeaveRoom 한 곳뿐 = 진짜 퇴장일 때만 지워진다)
+  try {
+    new MutationObserver(function(){
+      if (inCall()) setTimeout(mark, 300);
+      else forget();
+    }).observe(document.body, { attributes:true, attributeFilter:['class'] });
+  } catch(e){}
+  // 긴 수업도 '방금까지 수업 중'으로 유지 (기록 나이 = 마지막으로 수업에 있던 시각)
+  setInterval(function(){ if (inCall()) mark(); }, 30000);
+
+  /* ── 복귀: 아이디/비번이 저장돼 있지 않아도 홈 로그인 정보로 채워 넣는다 ──
+     mangoiJoinClass 는 mangoi_vc_uid/pw 가 있어야 스스로 입장한다. 없으면 로비에
+     방 코드만 채운 채 멈춘다 → 회의방(?meet=)이 쓰는 것과 같은 방식으로 마저 넣는다. */
+  function armAutoEnter(room){
+    var tries = 0;
+    setTimeout(function(){
+      var timer = setInterval(function(){
+        if (++tries > 25) { clearInterval(timer); return; }     // 최대 약 4초
+        try {
+          if (inCall()) { clearInterval(timer); return; }        // 이미 들어감
+          if (window.__vcLobbyAutoJoined) { clearInterval(timer); return; }
+          var lobby = document.getElementById('view-videocall-lobby');
+          if (!lobby || !lobby.classList.contains('active')) return;
+          var rc = document.getElementById('vc-roomcode-input');
+          if (!rc || rc.value !== room) return;                  // 코드가 아직 안 채워짐
+          var ni = document.getElementById('vc-name-input');
+          var pi = document.getElementById('vc-room-input');
+          if (ni && !ni.value){
+            var raw = localStorage.getItem('mangoi_logged_user');
+            if (!raw || raw === 'null' || raw === '{}') { clearInterval(timer); return; }  // 비로그인 → 로비에 그대로
+            var u = null; try { u = JSON.parse(raw); } catch(_){ clearInterval(timer); return; }
+            if (!(u && (u.uid || u.id) && u.name)) { clearInterval(timer); return; }
+            ni.value = u.name;
+          }
+          if (pi && !pi.value) pi.value = '0000';
+          if (ni && ni.value && typeof window.vcJoinRoom === 'function'){
+            clearInterval(timer);
+            window.__vcLobbyAutoJoined = true;
+            window.vcJoinRoom();
+          }
+        } catch(e){ clearInterval(timer); console.warn('[vc-rejoin] autoEnter', e); }
+      }, 150);
+    }, 520);
+  }
+
+  function boot(){
+    if (hasMeetParam()) return;                                  // 회의방은 전용 블록 담당
+    var urlRoom = '';
+    try { urlRoom = new URLSearchParams(location.search).get('room') || ''; } catch(e){}
+
+    if (urlRoom) {
+      // 위의 ?room= 자동입장이 이미 mangoiJoinClass 를 부른다 → 여기선 '마저 입장'만 거든다
+      armAutoEnter(urlRoom);
+      return;
+    }
+    // 주소에 방이 없다 = 로비에서 코드로 들어왔던 탭. 이 탭의 기록으로 되돌아간다.
+    var rec = null;
+    try { rec = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch(e){}
+    if (!rec || !rec.room) return;
+    if (!rec.at || (Date.now() - rec.at) > MAX_AGE) { forget(); return; }   // 끝난 수업 → 무시
+    var room = String(rec.room);
+    var start = function(){
+      if (typeof window.mangoiJoinClass !== 'function') return setTimeout(start, 120);
+      console.log('[vc-rejoin] 새로고침 복귀 →', room);
+      window.mangoiJoinClass(room);
+      armAutoEnter(room);
+    };
+    setTimeout(start, 500);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
 </script>
 <script>
