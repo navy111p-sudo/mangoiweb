@@ -1346,6 +1346,8 @@ const worker = {
         path === '/api/bug-report' ||
         // 🎯 레벨테스트 신청 (학생 제출 저장 + 관리자·강사 목록/상태변경)
         path === '/api/leveltest/apply' ||
+        // 🙋 학생·학부모 본인 조회(«내 레벨테스트») — 핸들러가 mango_token 으로 소유자 검증
+        path === '/api/leveltest/my' ||
         path === '/api/admin/leveltest/applications' ||
         // 🧠 AI 자동 진단 (CEFR 배치테스트 문항 + 서버채점)
         path === '/api/leveltest/questions' ||

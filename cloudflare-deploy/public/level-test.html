@@ -199,18 +199,29 @@
     var rec={ name:nameEl.value.trim(), phone:phone, date:sel.date, time:sel.time, ts:Date.now() };
     try{ localStorage.setItem('mangoi_leveltest_booking', JSON.stringify(rec)); }catch(e){}
     // 🎯 서버에 저장 → 담당 교사 자동 "제안". 학생에겐 접수 안내(문자), 교사 수락 후 담당 확정 통보.
-    var uid=null;
+    /* ⚠ (2026-08-06) uid 가 비면 이 신청은 마이페이지의 «내 레벨테스트»에 영영 안 뜬다
+       (조회는 uid 로만 한다 — 이름으로 찾으면 동명이인의 신청이 새어나간다).
+       마이페이지로만 로그인한 학생은 mangoi_parent_uid 만 갖고 있어 기존 4개 키를 다 비껴갔다.
+       → 키를 넓히고, 그래도 못 찾으면 서버가 로그인 토큰에서 직접 꺼내도록 token 도 같이 보낸다. */
+    var uid=null, token='';
     try{
-      ['mangoi_uid','mango_uid','student_uid','uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
+      ['mangoi_uid','mango_uid','student_uid','uid','mangoi_parent_uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
       if(!uid){ var s=JSON.parse(localStorage.getItem('mangoi_student')||'null'); if(s&&s.uid) uid=s.uid; }
+      if(!uid){ var lu=JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if(lu&&lu.uid) uid=lu.uid; }
+      token = localStorage.getItem('mango_token') || localStorage.getItem('mangoi_parent_token') || '';
     }catch(e){}
     try{
       await fetch('/api/leveltest/apply',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ student_name:rec.name, student_uid:uid, phone:phone, desired_date:rec.date, desired_time:rec.time, source:'level-test' })}).catch(function(){});
+        body:JSON.stringify({ student_name:rec.name, student_uid:uid, token:token, phone:phone, desired_date:rec.date, desired_time:rec.time, source:'level-test' })}).catch(function(){});
     }catch(e){}
+    // 로그인해서 uid 를 아는 경우에만 마이페이지 링크 — 모르면 조회가 안 되므로 안내하지 않는다(헛걸음 방지)
+    var myLink = uid
+      ? '<br><a href="/parent.html?uid='+encodeURIComponent(uid)+'" style="display:inline-block;margin-top:10px;font-size:13px;color:#a5b4fc;font-weight:800">🔑 마이페이지에서 진행 상태 보기 →</a>'
+      : '';
     document.getElementById('lt-sched').innerHTML =
       '📅 '+fmtDate(sel.date)+' '+sel.time
-      +'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 신청이 접수됐어요! 접수 안내 문자를 보내드렸어요.<br>담당 선생님이 확정되면 다시 문자로 알려드릴게요. 👩‍🏫</span>';
+      +'<br><span style="font-size:13px;color:#86efac;font-weight:700">'+rec.name+' 님, 신청이 접수됐어요! 접수 안내 문자를 보내드렸어요.<br>담당 선생님이 확정되면 다시 문자로 알려드릴게요. 👩‍🏫</span>'
+      + myLink;
     document.getElementById('form-card').style.display='none';
     document.getElementById('bottom-note').style.display='none';
     var done=document.getElementById('done'); done.classList.add('show');

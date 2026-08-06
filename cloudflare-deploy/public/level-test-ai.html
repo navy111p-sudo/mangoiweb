@@ -149,13 +149,23 @@
     if (bk && bk.name) $('ai-name').value = bk.name;
   } catch(e){}
 
+  /* ⚠ (2026-08-06) 여기서 uid 를 못 찾으면 진단 결과가 «누구 것인지 모르는 채» 저장돼
+     마이페이지의 «내 레벨테스트»에 영영 안 뜬다. 실제로 마이페이지(parent.html)로만
+     로그인한 학생은 mangoi_parent_uid 만 갖고 있어서 아래 4개 키를 전부 비껴갔다.
+     → 학생 세션이 남기는 키를 전부 본다. 보험으로 토큰도 같이 보내 서버가 채우게 한다. */
   function detectUid(){
     var uid = null;
     try {
-      ['mangoi_uid','mango_uid','student_uid','uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
+      ['mangoi_uid','mango_uid','student_uid','uid','mangoi_parent_uid'].some(function(k){ var v=localStorage.getItem(k); if(v){ uid=v; return true; } return false; });
       if(!uid){ var s=JSON.parse(localStorage.getItem('mangoi_student')||'null'); if(s&&s.uid) uid=s.uid; }
+      if(!uid){ var lu=JSON.parse(localStorage.getItem('mangoi_logged_user')||'null'); if(lu&&lu.uid) uid=lu.uid; }
     } catch(e){}
     return uid;
+  }
+  function detectToken(){
+    try {
+      return localStorage.getItem('mango_token') || localStorage.getItem('mangoi_parent_token') || '';
+    } catch(e){ return ''; }
   }
 
   $('ai-start').addEventListener('click', function(){
@@ -209,7 +219,7 @@
     $('grading-card').classList.remove('hidden');
     fetch('/api/leveltest/diagnose', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ student_name: ($('ai-name').value||'').trim(), student_uid: detectUid(), answers: answers })
+      body: JSON.stringify({ student_name: ($('ai-name').value||'').trim(), student_uid: detectUid(), token: detectToken(), answers: answers })
     })
     .then(function(r){ return r.json(); })
     .then(function(d){ showResult(d || {}); })

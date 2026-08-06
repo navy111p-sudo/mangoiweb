@@ -2253,7 +2253,8 @@
         const ar = await fetch('/api/leveltest/apply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ student_name: name, student_uid: uid, phone: phone, email: email, desired_date: desiredDate, desired_time: desiredTime, source: 'home-signup' })
+          // token: uid 가 어떤 이유로든 비면 서버가 로그인 토큰에서 직접 꺼내 채운다(마이페이지 조회는 uid 로만 한다)
+          body: JSON.stringify({ student_name: name, student_uid: uid, token: regToken || '', phone: phone, email: email, desired_date: desiredDate, desired_time: desiredTime, source: 'home-signup' })
         });
         const ad = await ar.json().catch(() => null);
         if (ad && ad.scheduled) scheduledLabel = ad.scheduled;
@@ -2305,7 +2306,7 @@
         </div>
         <ul>
           <li>담당 선생님 확정 후, 예약 시간 10분 전 카카오톡 채널로 화상 링크 안내</li>
-          <li>마이페이지에서 진행 상태와 결과 확인 가능</li>
+          <li>마이페이지 → <b style="color:#fde68a">🎯 레벨테스트 신청 현황</b> 에서 진행 상태·결과 확인</li>
           <li>결과 수령 후 추천 코스로 즉시 수강 신청 가능</li>
         </ul>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">

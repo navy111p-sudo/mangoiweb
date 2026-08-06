@@ -6384,7 +6384,14 @@ LIMIT $limit`;
       const name = ((b && (b.student_name || b.name)) || '').toString().trim();
       if (!name) return invalidBody(['student_name']);
       const now = Date.now();
-      const uid = (b && (b.student_uid || b.uid)) || null;
+      /* 🔑 uid 붙이기 — 이게 비면 나중에 학생이 «내 신청»을 못 찾는다(마이페이지가 uid 로만 조회).
+         프론트가 보낸 값을 우선 쓰되, 비어 있으면 로그인 토큰에서 직접 꺼낸다.
+         프론트는 localStorage 키를 하나라도 놓치면 uid 를 못 실어 보내지만(실제로 그래서
+         신청 13건 중 7건이 uid 없이 저장됐다), 토큰은 서명이 검증되므로 위조가 안 된다. */
+      let uid = ((b && (b.student_uid || b.uid)) || '').toString().trim() || null;
+      if (!uid) {
+        try { uid = await authUidGlobal(request, url, env, b); } catch { uid = null; }
+      }
       const desiredDate = ((b && (b.desired_date || b.date)) || '').toString().trim() || null;
       const desiredTime = ((b && (b.desired_time || b.time)) || '').toString().trim() || null;
       const phone = ((b && (b.phone || b.student_phone)) || '').toString().trim() || null;
@@ -6546,6 +6553,54 @@ LIMIT $limit`;
         `UPDATE leveltest_applications SET teacher_seen_at = ? WHERE (${where.join(' OR ')}) AND (teacher_seen_at IS NULL OR teacher_seen_at < created_at)`
       ).bind(Date.now(), ...binds).run();
       return json({ ok: true });
+    }
+    /* ═══════════════════════════════════════════════════════════════════════
+       🙋 «내 레벨테스트» — 학생/학부모 본인 조회  GET /api/leveltest/my?uid=&token=
+       ───────────────────────────────────────────────────────────────────────
+       [왜] 신청은 저장되는데 «학생이 자기 신청을 읽는» 경로가 아예 없었다.
+            읽기 API 는 관리자용·강사용 둘뿐이라, 마이페이지(parent.html)에서
+            신청 현황을 보여줄 방법이 없었고 «신청했는데 안 보인다» 문의가 났다.
+       [보안] 🔐 본인 것만. mango_token(uid 서명) 의 uid 와 요청 uid 가 같아야 함.
+              이름(student_name)으로는 절대 매칭하지 않는다 — 동명이인이 많아
+              (김민서 71명) 남의 신청·점수가 새어나간다.
+              단 하나의 예외: student_uid 가 비어 있고 student_name 이 «내 uid 와
+              문자열이 같은» 경우. 로그인 없이 신청하면서 이름칸에 자기 아이디를
+              적은 흔한 케이스인데, uid 는 유일하므로 동명이인 위험이 없다.
+       [노출범위] 교사명은 교사가 «수락»(confirmed/done)한 뒤에만 알려준다.
+                  proposed(소프트 배정) 단계에서 이름이 새면 교사가 거절했을 때
+                  «담당이 바뀌었다»는 혼선이 생긴다 — 2단계 승인 설계와 동일.
+       ═══════════════════════════════════════════════════════════════════════ */
+    if (method === 'GET' && path === '/api/leveltest/my') {
+      await ensureLtApps();
+      const myUid = (url.searchParams.get('uid') || '').trim();
+      if (!myUid) return invalidBody(['uid']);
+      const authUid = await authUidGlobal(request, url, env);
+      if (!authUid || authUid !== myUid) {
+        return json({ ok: false, error: 'auth_required', message: '로그인이 필요합니다.', message_en: 'Please sign in.' }, 401);
+      }
+      const rs = await env.DB.prepare(
+        `SELECT id, student_name, desired_date, desired_time, status, assigned_teacher, teacher_confirmed_at,
+                ai_score, pron_score, teacher_score, final_level,
+                recommended_textbook, next_class_guide, schedule_id, created_at, updated_at
+           FROM leveltest_applications
+          WHERE student_uid = ? OR (student_uid IS NULL AND student_name = ?)
+          ORDER BY created_at DESC LIMIT 20`
+      ).bind(myUid, myUid).all();
+      const mine = (rs.results || []) as any[];
+      // 🎤 발음 점수는 관리자 목록과 같은 원천(voice_coaching 최신)으로 오버레이 — 두 화면 숫자가 어긋나지 않게
+      try {
+        const vc = await env.DB.prepare(
+          `SELECT pronunciation_score FROM voice_coaching WHERE student_uid = ? ORDER BY created_at DESC LIMIT 1`
+        ).bind(myUid).first<any>();
+        if (vc && vc.pronunciation_score != null) {
+          mine.forEach(a => { if (a.pron_score == null) a.pron_score = vc.pronunciation_score; });
+        }
+      } catch { /* voice_coaching 미존재 시 무시 */ }
+      const items = mine.map(a => ({
+        ...a,
+        assigned_teacher: (a.status === 'confirmed' || a.status === 'done') ? a.assigned_teacher : null,
+      }));
+      return json({ ok: true, items });
     }
     if (path === '/api/admin/leveltest/applications') {
       await ensureLtApps();
