@@ -534,17 +534,24 @@
     stallTimer = null;
     isStalled = false;
   }
+  // 배지 툴팁 — 세 가지 상태(꺼짐 / 정체 / 정상)를 한 곳에서 결정한다.
+  function recTitle() {
+    const en = isEn();
+    if (!isRecording) return en ? 'Recording is OFF — tap to start again' : '녹화가 꺼져 있습니다 — 눌러서 다시 시작';
+    if (isStalled)    return en ? '⚠ Nothing is being recorded — bring this class window to the front'
+                                : '⚠ 녹화가 기록되지 않고 있습니다 — 이 수업 창을 화면 앞으로 두세요';
+    return en ? 'Recording — tap to stop' : '자동녹화 중 — 눌러서 정지';
+  }
+
   function paintStallState() {
     if (!recBadge) return;
     recBadge.classList.toggle('mango-rec-stalled', isStalled);
-    recBadge.title = isStalled
-      ? '⚠ 녹화가 기록되지 않고 있습니다 — 이 수업 창을 화면 앞으로 두세요'
-      : '자동녹화 중 — 눌러서 정지';
+    recBadge.title = recTitle();
     const warn = recBadge.querySelector('.mango-rec-warn');
     if (isStalled && !warn) {
       const w = document.createElement('span');
       w.className = 'mango-rec-warn';
-      w.textContent = '⚠ 기록 안 됨';
+      w.textContent = isEn() ? '⚠ Not recording' : '⚠ 기록 안 됨';
       w.style.cssText = 'margin-left:6px;font-weight:800;white-space:nowrap';
       recBadge.appendChild(w);
     } else if (!isStalled && warn) {
@@ -552,26 +559,78 @@
     }
   }
 
+  /* 🔴 (2026-08-06) 녹화를 한 번 끄면 «다시 켤 방법이 아무 데도 없었다».
+     끄면 hideRecBadge() 가 배지를 DOM 에서 통째로 지웠고, 다시 켤 수 있는
+     유일한 버튼(#mango-rec-btn)은 .toolbar-center 안에 있는데 vc-dock.js 가
+     그 줄을 display:none 으로 덮는다. 자동녹화도 autoRecStarted 가 true 로
+     남아 다시 걸리지 않는다 → 수업을 나갔다 들어오는 것 말고는 길이 없었다.
+     ⇒ 배지를 지우지 말고 «꺼짐» 상태로 그 자리에 남긴다. 누르면 다시 시작. */
+  function paintRecBadge() {
+    if (!recBadge) return;
+    const en = isEn();
+    recBadge.classList.toggle('mango-rec-off', !isRecording);
+    const timeEl = recBadge.querySelector('.mango-rec-time-text');
+    const stopEl = recBadge.querySelector('.mango-rec-stop');
+    if (!isRecording) {
+      recBadge.classList.remove('mango-rec-expanded');
+      if (timeEl) timeEl.textContent = en ? 'REC OFF · Tap to start' : '녹화 꺼짐 · 눌러서 시작';
+      if (stopEl) stopEl.textContent = '▶';
+    } else {
+      if (stopEl) stopEl.textContent = '⏹';
+    }
+    recBadge.style.pointerEvents = '';
+    paintStallState();
+  }
+
+  function removeRecBadge() {
+    if (recBadge) { recBadge.remove(); recBadge = null; }
+  }
+
   function showRecBadge() {
+    ensureRecBadge();
+    paintRecBadge();
+  }
+
+  function ensureRecBadge() {
     if (recBadge) return;
     recBadge = document.createElement('div');
     recBadge.id = 'mango-rec-badge';
     // 기본(데스크탑) 스타일: CSS 클래스로 위임해 모바일 media query로 축소 가능하게 함
     recBadge.innerHTML = '<span class="mango-rec-dot"></span><span id="mango-rec-time" class="mango-rec-time-text">REC 00:00</span><span class="mango-rec-stop" aria-hidden="true">⏹</span>';
-    recBadge.title = '자동녹화 중 — 눌러서 정지';
+    recBadge.title = recTitle();
     // 클릭(탭): 모바일에서 접혀 있으면 먼저 펼쳐 시간을 보여주고,
     // 펼친 상태(또는 데스크탑)에서 다시 누르면 확인 후 자동녹화를 '중지'한다.
+    // 꺼져 있으면 한 번 눌러 곧바로 «다시 시작»한다(되돌아올 길은 여기뿐이다).
     recBadge.addEventListener('click', async () => {
       const isMobile = window.matchMedia('(max-width: 900px)').matches;
+      const en = isEn();
+      const timeEl = recBadge.querySelector('.mango-rec-time-text');
+
+      // ── 꺼짐 → 켜기 ──────────────────────────────────────────────
+      if (!isRecording) {
+        if (_recStartInFlight) return;
+        if (timeEl) timeEl.textContent = en ? 'Starting…' : '시작 중…';
+        recBadge.style.pointerEvents = 'none';
+        try {
+          await startRecording({ auto: true });
+        } catch (e) {
+          console.warn('[mango-rec] 수동 재시작 예외:', e);
+        }
+        // 실패했으면 다시 «눌러서 시작» 으로 되돌린다 (성공하면 startRecording 이 칠했다)
+        if (!isRecording) paintRecBadge();
+        return;
+      }
+
+      // ── 켜짐 → 끄기 ──────────────────────────────────────────────
       if (isMobile && !recBadge.classList.contains('mango-rec-expanded')) {
         recBadge.classList.add('mango-rec-expanded');
         return;
       }
-      if (!isRecording) { recBadge.classList.remove('mango-rec-expanded'); return; }
-      const ok = window.confirm('자동녹화를 중지할까요?\n지금까지 녹화된 영상은 저장됩니다.');
+      const ok = window.confirm(en
+        ? 'Stop auto recording?\nWhat has been recorded so far will be saved.\n(You can start it again by tapping the same button.)'
+        : '자동녹화를 중지할까요?\n지금까지 녹화된 영상은 저장됩니다.\n(같은 버튼을 다시 누르면 재시작됩니다.)');
       if (!ok) return;
-      const timeEl = recBadge.querySelector('.mango-rec-time-text');
-      if (timeEl) timeEl.textContent = '저장 중…';
+      if (timeEl) timeEl.textContent = en ? 'Saving…' : '저장 중…';
       recBadge.style.pointerEvents = 'none';
       try {
         await stopRecording();
@@ -595,6 +654,9 @@
         // ⚠ 녹화가 사실상 기록되지 않는 상태 — 배지를 주황으로 바꿔 눈에 띄게 한다
         '#mango-rec-badge.mango-rec-stalled{background:#b45309 !important;box-shadow:0 0 0 3px rgba(245,158,11,.35);}',
         '#mango-rec-badge.mango-rec-stalled .mango-rec-dot{animation:none;background:#fde68a;}',
+        // ⏹ 녹화가 꺼진 상태 — «다시 켜는 버튼»으로 그 자리에 남는다(회색+깜빡임 없음)
+        '#mango-rec-badge.mango-rec-off{background:#64748b !important;box-shadow:0 2px 8px rgba(0,0,0,.25) !important;}',
+        '#mango-rec-badge.mango-rec-off .mango-rec-dot{animation:none;background:#cbd5e1;}',
         '#mango-rec-badge .mango-rec-time-text{display:inline;}',
         '#mango-rec-badge .mango-rec-stop{display:inline;font-size:13px;line-height:1;}',
         // 모바일: 작은 원형 점으로 축소 (시간/정지 숨김), 탭하면 확장
@@ -606,6 +668,11 @@
           '#mango-rec-badge.mango-rec-expanded{width:auto;height:auto;border-radius:20px;padding:6px 12px;opacity:1;gap:6px;}' +
           '#mango-rec-badge.mango-rec-expanded .mango-rec-time-text{display:inline;font-size:12px;}' +
           '#mango-rec-badge.mango-rec-expanded .mango-rec-stop{display:inline;font-size:13px;}' +
+          // ⏹ 꺼짐 상태는 «점»으로 줄이지 않는다 — 점만 보이면 다시 켤 수 있다는 걸 아무도 모른다
+          '#mango-rec-badge.mango-rec-off{width:auto !important;height:auto !important;border-radius:20px !important;' +
+            'padding:6px 12px !important;gap:6px;background:#64748b !important;}' +
+          '#mango-rec-badge.mango-rec-off .mango-rec-time-text{display:inline !important;font-size:12px;}' +
+          '#mango-rec-badge.mango-rec-off .mango-rec-stop{display:inline !important;font-size:13px;}' +
           // 툴바 REC 버튼도 모바일에서는 컴팩트
           '#mango-rec-btn{padding:4px 8px !important;font-size:14px !important;min-width:auto !important;}' +
         '}'
@@ -613,17 +680,17 @@
       document.head.appendChild(s);
     }
     setInterval(() => {
-      if (!isRecording) return;
+      if (!recBadge) return;
+      // 수업 밖에서는 흔적을 남기지 않는다 (꺼짐 배지가 홈 화면까지 따라오면 안 됨)
+      if (!isRecording && !document.body.classList.contains('vc-in-call')) { removeRecBadge(); return; }
       recDockBadge();   // 매초 재시도(멱등) — 툴바가 늦게 생겨도 결국 EN 왼쪽 도킹
+      if (!isRecording) return;
       const t = document.getElementById('mango-rec-time');
       if (t) {
         const e = Math.floor((Date.now() - startedAt) / 1000);
         t.textContent = 'REC ' + String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0');
       }
     }, 1000);
-  }
-  function hideRecBadge() {
-    if (recBadge) { recBadge.remove(); recBadge = null; }
   }
  
   // ── R2 multipart 업로드 함수들 ──
@@ -956,7 +1023,7 @@
     audioDest = null;
     composeCanvas = null;
     composeCtx = null;
-    hideRecBadge();
+    paintRecBadge();   // 지우지 않는다 — «꺼짐(눌러서 시작)» 으로 그 자리에 남긴다
     updateRecButton();
     try {
       const conn = (typeof vcConn !== 'undefined' ? vcConn : null);
@@ -1049,8 +1116,12 @@
           }
         }, 3000);
       }
+
+      // 🔴 녹화가 꺼져 있는 동안에도 «다시 켜는 버튼»은 항상 보여야 한다.
+      //   (수동 중지 후 · 자동 시작이 실패한 뒤 둘 다 해당 — 예전엔 어느 쪽도 버튼이 없었다)
+      if (inCall && !isRecording && !autoRecPending && !_recStartInFlight) showRecBadge();
     }
- 
+
     // 수업에서 나갔으면 자동녹화 플래그 리셋
     if (!inCall && autoRecStarted) {
       autoRecStarted = false;
