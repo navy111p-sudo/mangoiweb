@@ -84,8 +84,10 @@ const runnable = block
   .replace(/\(tidRs\.results \|\| \[\]\)/, 'INPUT')
   .replace(/:\s*(any|string|number|boolean)\b/g, '')
   .replace(/\bconst\b/g, 'var');
-const resolve = (input, tname) =>
-  new Function('INPUT', 'tname', runnable + '\n return { resolvedRows, ambiguousNames };')(input, tname);
+// linkRow = 관리자가 손으로 정해 준 «계정 = 강사» 연결(teacher_account_links). 없으면 null.
+const resolve = (input, tname, linkRow = null) =>
+  new Function('INPUT', 'tname', 'linkRow',
+    runnable + '\n return { resolvedRows, ambiguousNames };')(input, tname, linkRow);
 
 // ── ① 두 파일이 같은 규칙을 갖고 있을 것 ────────────────────────────────
 check('① api-teacher.ts 가 완전일치 우선을 갖는다',
@@ -146,6 +148,34 @@ check('③ Teacher Chaine → CHAINE 도 구제된다', resolved1('Teacher Chain
   const r = resolve(candidates('mangoi_006'), 'mangoi_006');
   check('③ 원부에 없는 계정은 여전히 0명 = «연결 안 됨»', r.resolvedRows.length === 0);
   check('③ 연결 안 됨은 «헷갈림» 이 아니다 (후보 0명)', r.ambiguousNames.length === 0);
+}
+
+/* ── ④ 관리자가 손으로 정해 준 연결이 이름 규칙을 이긴다 ──────────────────
+ *  (2026-08-07) 이름 문자열로 사람을 정하는 한 사고는 또 난다는 결론으로 «정답표»를 뒀다.
+ *  관리자 화면: card-teacher-link / 표: teacher_account_links / API: /api/admin/teacher-links
+ *  ⚠️ 이 검사가 깨지면 «관리자가 고른 것을 코드가 뒤집는» 상태다 — 가장 위험한 회귀다.
+ */
+{
+  const link = { teacher_id: '27', teacher_name: 'MAIMAI' };
+  // 원부에서 아무것도 안 걸리는 계정(mangoi_033) 이라도 연결이 있으면 붙는다.
+  const r = resolve(candidates('mangoi_033'), 'mangoi_033', link);
+  check('④ 🔴 이름이 원부에 없어도 «연결» 이 있으면 담당이 붙는다',
+    r.resolvedRows.length === 1 && r.resolvedRows[0].tid === '27');
+  check('④ 연결로 붙었으면 «연결 안 됨» 상태가 아니다', r.resolvedRows.length > 0);
+}
+{
+  // 이름으로는 HANNAH 에 걸리는 Anna 라도, 관리자가 ANA(7) 로 정했으면 그대로 따른다.
+  const r = resolve(candidates('Anna'), 'Anna', { teacher_id: '7', teacher_name: 'ANA' });
+  check('④ 🔴 이름 규칙보다 «관리자가 고른 것» 이 앞선다',
+    r.resolvedRows.length === 1 && r.resolvedRows[0].tid === '7');
+  check('④ 연결이 있으면 «헷갈림» 으로 남기지 않는다', r.ambiguousNames.length === 0);
+}
+{
+  // 연결이 없으면(=null) 예전 규칙 그대로여야 한다 — 이 기능이 기존 동작을 바꾸면 안 된다.
+  const before = resolve(candidates('MAIMAI'), 'MAIMAI');
+  const after = resolve(candidates('MAIMAI'), 'MAIMAI', null);
+  check('④ 연결이 없으면 예전과 완전히 같다',
+    JSON.stringify(before.resolvedRows) === JSON.stringify(after.resolvedRows));
 }
 
 // ── ④ 응답이 두 상태를 구분해서 싣는다 ──────────────────────────────────

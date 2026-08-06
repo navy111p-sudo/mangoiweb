@@ -109,8 +109,144 @@
 </div>
 
 <div class="datehead">
-  <h1>Wednesday, August 5</h1>
+  <h1>Friday, August 7</h1>
   <span class="badge">LATEST</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — <b>Studied the competitor</b>, found the two things we genuinely lacked, and <b>closed both the same day.</b>
+  And turned the level test into <b>a single door — from applying to seeing the result.</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">4 axes</div><div class="l">empty report card filled</div></div>
+  <div class="kpi"><div class="n">2 forms → 1</div><div class="l">level test application</div></div>
+  <div class="kpi"><div class="n">29% → 18%</div><div class="l">text blocking the game screen</div></div>
+  <div class="kpi"><div class="n">10</div><div class="l">deploys verified</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (3 things to know)</h3>
+  <ul>
+    <li><b>Academies that bought AI only were receiving a blank report card.</b> Four of the five axes came <b>only from evaluations teachers write by hand</b> — and an AI-only academy has no teacher, so no evaluations at all.
+      <small>→ Now <b>only the empty axes</b> are filled from what the student actually did with the AI. <b>If there is not enough evidence we leave it blank</b> (an invented score is worse). We always print what it was measured from.</small></li>
+    <li><b>There were TWO level-test application forms.</b> The old page and the home popup <b>asked for different things</b>, so depending on which door you came through <b>an account was created — or not.</b> Some applicants therefore <b>never saw their own application.</b>
+      <small>→ Merged into one. The old page was not deleted; it now <b>forwards to the new door</b>, so old links still work.</small></li>
+    <li><b>Three recording-upload endpoints are open to anyone</b> — still true right now. I reviewed the fix and found <b>two reasons it must not be merged as-is</b>: the hourly limit is <b>below real usage</b> (and when it blocks, the recording silently does not get saved), and it would create <b>a switch that kills someone else's recording in progress.</b>
+      <small>→ A follow-up fixing both is attached. <b>The merge order matters</b> (see 📌).</small></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done today</h3>
+  <ul>
+    <li><b>Studied the competitor (Cloubot).</b> What we had been told and what is actually there did not match. What they lead with is <b>AI that builds lessons from an uploaded textbook</b> and <b>a report card with numbers.</b> The place we actually lose is <b>the report card</b> — so that is what I fixed first. (One report written.)</li>
+    <li><b>Added "show the Korean meaning."</b> When a sentence was unfamiliar, students were <b>simply abandoning the conversation right there.</b> Now tapping a sentence shows what it means.</li>
+    <li><b>Subtitles now have three steps</b> — shown / blurred / off. <b>At every step one tap brings it back.</b> Without a way back, students never turn them off at all.</li>
+    <li><b>Added "choose your friend" to the AI chat.</b> The faces, voices and tones <b>already existed</b> — they were all named the same, so it never felt like a choice. Now they are Emma and Jake, and the one you pick greets you in their own voice.</li>
+    <li><b>Added help that appears only when the student is stuck.</b> It only shows when pressed, and it <b>never calls the server — cost is zero.</b></li>
+    <li><b>Added "🎟️ My Level Test" to the home screen.</b> Applicants now see their own booking, and <b>at entry time it turns green with "Enter now."</b> It does not ask you to log in (half of applicants have no account).</li>
+    <li><b>The application now leaves a receipt on screen.</b> Until today the only proof was a single text message.</li>
+    <li><b>Locked the result behind the last 4 digits of the phone number</b> — a leaked link no longer shows the score. <b>Schedule and class entry stay open</b> deliberately.</li>
+    <li><b>Fixed on-screen text hiding the enemies</b> in four games (P-38, Sherman, Fishing, Rescue Voyage). Three stacked bars became two, and the sentence panel is now transparent.</li>
+    <li><b>Found the real reason words were silent in "Space Monster"</b> — <b>Korean phones usually have no Chinese voice installed.</b> It now uses the server voice first.</li>
+    <li><b>Rescue Voyage steers by dragging the boat again</b> (per your instruction), and phones now get a line telling them <b>how to shoot.</b></li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>I could not see the competitor's logged-in screens.</b> That needs an account, so I only claim "not mentioned on their website."</li>
+    <li><b>The recording-upload hole is still open in production.</b> The fix is ready; only the merge order remains.</li>
+    <li><b>Students with little AI activity still get blank axes.</b> That is deliberate — no evidence, no score.</li>
+    <li><b>I cannot hear sound in my environment.</b> I verified only that a valid audio file arrives and decodes.</li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Next</h3>
+  <ul>
+    <li><b>Merge the recording-security work in order</b> — <b>sync to latest code first, then the security fix.</b> The wrong order would <b>overwrite today's live site with August 5 code.</b></li>
+    <li><b>Request a competitor demo account</b> and confirm within 30 minutes whether subtitles and characters really exist.</li>
+    <li><b>"AI pre/post study"</b> — this is <b>the same job</b> as filling the report card. I will do them together, not separately.</li>
+    <li><b>The staff password still needs changing.</b> (Outstanding since August 3.)</li>
+    <li><b>Textbook and level are empty for ~29,000 students.</b> Until that is filled, personalised questions do not show on the student screen.</li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Thursday, August 6</h1>
+  <span class="badge past">PAST ENTRY</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — Spent the day fixing screens that were <b>telling teachers and managers "there are no classes"</b> when there were.
+  And connected the level test <b>from application all the way to entering the class.</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">38 of 46</div><div class="l">teacher accounts not linked</div></div>
+  <div class="kpi"><div class="n">662</div><div class="l">classes invisible entirely</div></div>
+  <div class="kpi"><div class="n">skeleton</div><div class="l">iPhone app</div></div>
+  <div class="kpi"><div class="n">12</div><div class="l">deploys verified</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (3 things to know)</h3>
+  <ul>
+    <li><b>38 of 46 teacher accounts were not linked to the teacher roster.</b> There was nothing wrong with the classes — <b>the server did not know who the person was.</b>
+      <small>→ ⚠️ I <b>cannot fix this link myself</b>; it needs to be run by you.</small></li>
+    <li><b>The manager's "Today's classes" showed 0 every single day.</b> The weekday had to be <b>a number</b>, but the stored value was <b>English text ('Thu')</b> — so <b>all 662 recurring classes were dropped.</b>
+      <small>→ The screen said "no classes scheduled," which <b>looks normal</b>. That is why nobody reported it for months.</small></li>
+    <li><b>Refreshing during a class threw you back to the home page.</b> Nothing anywhere recorded <b>which room you were in.</b>
+      <small>→ It now remembers for 2 hours and puts you back.</small></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done that day</h3>
+  <ul>
+    <li><b>Turning recording off left no way to turn it back on</b> — which meant losing that class's recording entirely. The <b>"off" badge is now the button that turns it back on.</b></li>
+    <li><b>Fixed re-entering a class and getting a different textbook.</b> The server was deleting the textbook whenever the room briefly emptied.</li>
+    <li><b>Picking a camera did nothing</b> — the controls in the settings popup <b>were not wired to anything.</b></li>
+    <li><b>Found why students were being cut off at 10</b>: they were drifting into a <b>shared room</b>. The server was fine — 100 people at once failed 0 times.</li>
+    <li><b>Applying for a level test now creates the class automatically</b>, visible immediately to teacher and admin. The auto-assignment rule that <b>skips already-full teachers had never once worked</b>; fixed too.</li>
+    <li><b>Built the iPhone app skeleton</b>, and fixed the notice that <b>wrongly told iPhone users "not supported"</b> — they can use it today.</li>
+    <li><b>Built the teacher's weekly schedule.</b> There was no screen to see your own upcoming week at all, and "I can't see tomorrow's class" was because the screen <b>only drew today.</b></li>
+    <li><b>"Anna" was seeing "HANNAH's" classes</b> — an accidental letter overlap attached one teacher to another.</li>
+    <li>Also fixed <b>admin search not finding "level test"</b> (a single space) and <b>sidebar sub-menus that would not open.</b></li>
+    <li><b>"Nothing happens when I tap to shoot"</b> on phones — the visible red button and the actual tappable spot were <b>29px apart.</b></li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>I cannot link teacher accounts to the roster.</b> Write access to that data is blocked for me.</li>
+    <li><b>The "10 minutes before" reminder cannot reach applicants without an account</b> — the sender only looks at the member roster.</li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Decided that day</h3>
+  <ul>
+    <li><b>Run the teacher-account linking</b> (needs you) — teacher class counts stay wrong until then.</li>
+    <li><b>Put application status and results behind one link</b> — <b>done the next day.</b></li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Wednesday, August 5</h1>
+  <span class="badge past">PAST ENTRY</span>
 </div>
 
 <div class="oneline">
@@ -138,7 +274,7 @@
 </div>
 
 <div class="blk blk-did">
-  <h3>✅ Done today</h3>
+  <h3>✅ Done that day</h3>
   <ul>
     <li><b>Made the class screen lighter.</b> It often dropped on Philippine connections. It now <b>shifts through 4 gears on its own</b>, falls back to <b>audio only</b> when the line is very bad, and <b>restores itself</b> when it improves.</li>
     <li><b>Put Korean and English side by side</b> on the class screen. It is used by Filipino teachers, and it was <b>entirely in Korean.</b></li>
@@ -160,7 +296,7 @@
 </div>
 
 <div class="blk blk-next">
-  <h3>📌 Next</h3>
+  <h3>📌 Decided that day</h3>
   <ul>
     <li><b>Please change the staff password.</b> On August 3 it was removed from the public file, but <b>what already leaked cannot be undone.</b></li>
     <li><b>Textbook and level are empty for all 29,377 students.</b> Personalised questions are built, but <b>students see no difference yet.</b></li>

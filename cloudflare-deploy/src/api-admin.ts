@@ -13,7 +13,7 @@ import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, publicBase } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
+import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
@@ -6781,6 +6781,19 @@ LIMIT $limit`;
             items.forEach(a => { if (a.pron_score == null && a.student_uid && pmap[a.student_uid] != null) a.pron_score = pmap[a.student_uid]; });
           }
         } catch (e) { /* voice_coaching 미존재 시 무시 */ }
+        /* 🎟️ (2026-08-07) 티켓 링크를 목록에 함께 내려준다.
+           [왜] 링크는 지금까지 ①신청 직후 응답·문자 ②확정 문자 ③10분 전 리마인더,
+                이 세 곳에서만 만들어졌다. 그래서 신청자가 문자를 못 찾으면 상담직원도
+                꺼내 줄 데가 없었다 — 실제로 오늘 그 상황이 났다(신청 #15).
+                링크 하나가 확인·일정·장비점검·당일 입장을 전부 담당하는데,
+                운영자가 그걸 다시 건네줄 방법이 없던 것이다.
+           [노출] 이 API 는 관리자 인증 게이트 뒤에 있다. 링크는 신청자 본인에게 주라고
+                  만든 것이고, 운영자가 대신 전달하는 것이 이 기능의 목적이다.
+           ⚠️ 행마다 서명하므로 키 import 는 한 번만 한다(ltTicketUrlMap). */
+        try {
+          const tmap = await ltTicketUrlMap(items.map(a => Number(a.id)), env);
+          items.forEach(a => { a.ticket_url = tmap[Number(a.id)] || null; });
+        } catch (e) { items.forEach(a => { a.ticket_url = null; }); }
         const cnt = await env.DB.prepare(`SELECT COUNT(*) AS n FROM leveltest_applications WHERE status = 'pending'`).all();
         const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
         return json({ ok: true, items, pending });
@@ -8959,6 +8972,106 @@ LIMIT $limit`;
     // 처음부터 없던 카드들(기준선 대조로 확인, 리팩토링 회귀 아님).
     // index.ts 게이트에는 전부 기등록 → api-mango.ts 위임 가드에만 경로 추가.
     // ═════════════════════════════════════════════════════════════════════
+
+    /* ── 🔗 강사 계정 ↔ 강사 원부 연결 (card-teacher-link) ──────────────────────
+     *
+     * [왜] 로그인 계정(admin_account)과 수업 배정(class_schedules.teacher_id → teachers.id)은
+     *      **이름 문자열**로만 이어져 있었다. 계정 20개 중 18개가 name 을 한 번도 안 바꿔
+     *      name === username('mangoi_033') 이라 원부에서 못 찾고, 강사 화면은 «수업이 없다»고
+     *      말한다. 실제로는 수업이 있는데 «누구인지 모르는» 것이다.
+     *      반대로 'Anna' 가 'H·ANNA·H' 안에 들어가 **남의 수업**이 붙은 사고도 났다.
+     *
+     * [해법] 이름 추측을 그만두고 **사람이 한 번 정해 주는 정답표**를 둔다.
+     *        여기 연결이 있으면 이름 매칭은 아예 건너뛴다(api-teacher.ts 1순위).
+     *
+     * ⛔ 계정·원부 행 자체는 절대 고치지 않는다. 연결표에만 쓴다 — 되돌리기가 쉬워야 한다.
+     */
+    if (path.startsWith('/api/admin/teacher-links')) {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER);`);
+      } catch {}
+    }
+
+    // 목록 — 강사 계정 + 지금 연결 상태 + 원부 후보. 화면 한 장에 필요한 것만 한 번에.
+    if (method === 'GET' && path === '/api/admin/teacher-links') {
+      try {
+        const [accRs, rosterRs, linkRs] = await Promise.all([
+          env.DB.prepare(
+            `SELECT username, name, role FROM admin_account
+              WHERE role LIKE '%teacher%' OR username LIKE 'mangoi_%' OR username LIKE 'hq_t_%'
+              ORDER BY username`
+          ).all<any>().catch(() => ({ results: [] as any[] })),
+          env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name FROM teachers ORDER BY name`)
+            .all<any>().catch(() => ({ results: [] as any[] })),
+          env.DB.prepare(`SELECT username, teacher_id, teacher_name, linked_by, linked_at FROM teacher_account_links`)
+            .all<any>().catch(() => ({ results: [] as any[] })),
+        ]);
+        const roster = (rosterRs.results || []) as any[];
+        const linkBy: Record<string, any> = {};
+        for (const l of (linkRs.results || []) as any[]) linkBy[String(l.username)] = l;
+
+        // 이름으로 «지금은» 어디에 붙는지 — 연결하기 전에 무엇이 틀렸는지 눈으로 보라고 같이 준다.
+        const nrm = (s: any) => String(s || '').toUpperCase().trim();
+        const words = (s: any) => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Boolean);
+        const accounts = ((accRs.results || []) as any[]).map((a) => {
+          const uname = String(a.username || '');
+          const tname = String(a.name || '').trim();
+          const exact = roster.filter((r) => nrm(r.name) === nrm(tname));
+          const word = roster.filter((r) => {
+            const x = nrm(r.name), y = nrm(tname);
+            return !!x && !!y && x !== y && (words(x).indexOf(y) >= 0 || words(y).indexOf(x) >= 0);
+          });
+          const auto = exact.length ? exact : (word.length === 1 ? word : []);
+          const link = linkBy[uname] || null;
+          return {
+            username: uname,
+            name: tname,
+            role: a.role || '',
+            // 이름이 계정 아이디 그대로면 «아직 아무도 이름을 안 넣은» 계정이다.
+            name_is_username: nrm(tname) === nrm(uname),
+            linked_teacher_id: link ? String(link.teacher_id) : null,
+            linked_teacher_name: link ? String(link.teacher_name || '') : null,
+            linked_at: link ? Number(link.linked_at) || null : null,
+            auto_match: auto.length === 1 ? { id: String(auto[0].id), name: String(auto[0].name) } : null,
+            auto_candidates: auto.length > 1 ? auto.map((r) => ({ id: String(r.id), name: String(r.name) })) : [],
+            status: link ? 'linked' : (auto.length === 1 ? 'auto' : (auto.length > 1 ? 'ambiguous' : 'unlinked')),
+          };
+        });
+        return json({ ok: true, accounts, roster });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'query_failed' }, 500);
+      }
+    }
+
+    // 연결 / 해제 — teacher_id 를 비우면 해제.
+    if (method === 'POST' && path === '/api/admin/teacher-links') {
+      const b = await parseJsonBody(request);
+      const uname = String(b?.username || '').trim();
+      const tid = String(b?.teacher_id ?? '').trim();
+      if (!uname) return invalidBody(['username']);
+      try {
+        if (!tid) {
+          await env.DB.prepare(`DELETE FROM teacher_account_links WHERE username = ?`).bind(uname).run();
+          return json({ ok: true, unlinked: true, username: uname });
+        }
+        // 원부에 실제로 있는 id 인지 확인한다 — 오타로 존재하지 않는 사람에게 묶이면 또 «수업 없음»이다.
+        const row = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name FROM teachers WHERE CAST(id AS TEXT) = ?`)
+          .bind(tid).first<any>();
+        if (!row) return json({ ok: false, error: 'teacher_not_found' }, 404);
+        let actorName = 'admin';
+        try { const a = await getAdminActor(request, env as any); if (a?.name || a?.username) actorName = String(a.name || a.username); } catch {}
+        await env.DB.prepare(
+          `INSERT INTO teacher_account_links (username, teacher_id, teacher_name, linked_by, linked_at)
+             VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(username) DO UPDATE SET
+             teacher_id = excluded.teacher_id, teacher_name = excluded.teacher_name,
+             linked_by = excluded.linked_by, linked_at = excluded.linked_at`
+        ).bind(uname, String(row.id), String(row.name || ''), actorName, Date.now()).run();
+        return json({ ok: true, username: uname, teacher_id: String(row.id), teacher_name: String(row.name || '') });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message || 'save_failed' }, 500);
+      }
+    }
 
     // ── 🎁 추천 친구 보상 (card-referral) ──
     //   컬럼 관례: churn-contagion.ts 가 referrer_uid/referred_uid 를 읽으므로 동일하게.

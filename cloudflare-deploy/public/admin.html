@@ -859,7 +859,7 @@
     </button>
 
     <!-- 👨‍🏫 강사 통합 -->
-    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats','card-calendar'])" data-hub="teacher">
+    <button class="hub-btn" onclick="hubJump('teacher', ['card-teacher-mgmt','card-teacher-link','card-payroll-auto','card-schedule-requests','card-class-audit','card-class-ratings','card-payroll','card-mbti-mgmt','card-praise-stats','card-calendar'])" data-hub="teacher">
       <div class="hub-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">👨‍🏫</div>
       <div>
         <div class="hub-title" data-ko="강사 통합" data-en="Teacher Hub">강사 통합</div>
@@ -6310,6 +6310,24 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </details>
 <script type="text/lazy-js" data-src="/js/adm-r11.js?v=2" data-card="card-schedule-requests" data-globals="srqLoad,srqDecide"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r11 -->
 
+<!-- 🔗 강사 계정 ↔ 강사 원부 연결 — 「수업이 없다」는 거짓 표시의 근본 해결 -->
+<details class="table-card menu-card" id="card-teacher-link">
+  <summary><span data-ko="🔗 강사 계정 연결" data-en="🔗 Link Teacher Accounts">🔗 강사 계정 연결</span> <span id="tlk-badge" style="display:none;margin-left:6px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#fee2e2;color:#991b1b"></span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,#e0f2fe,#bae6fd);border:1px solid #0284c7;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#075985;line-height:1.7"
+         data-ko="💡 로그인 계정과 강사 원부는 지금까지 «이름»으로만 이어져 있었습니다. 계정에 이름이 없으면(mangoi_033 처럼) 담당 수업을 못 찾아 강사 화면에 「수업이 없다」고 나오고, 반대로 이름 일부가 겹치면 남의 수업이 보일 수 있습니다. 여기서 한 번 「이 계정 = 이 강사」를 정해 두면 그 뒤로는 이름을 추측하지 않습니다. 계정과 원부 자체는 바뀌지 않고 연결만 저장되므로 언제든 해제할 수 있습니다."
+         data-en="💡 Login accounts and the teacher roster were matched only by NAME. If an account has no real name (e.g. mangoi_033) the teacher sees “no classes” even when classes exist; if names partially overlap, someone else's classes can appear. Pick “this account = this teacher” once here and name guessing is skipped from then on. Nothing in the account or roster is modified — only the link is stored, so it can be undone anytime.">
+      💡 로그인 계정과 강사 원부는 지금까지 <b>이름</b>으로만 이어져 있었습니다. 계정에 이름이 없으면(<code>mangoi_033</code> 처럼) 담당 수업을 못 찾아 강사 화면에 「수업이 없다」고 나오고, 반대로 이름 일부가 겹치면 남의 수업이 보일 수 있습니다. 여기서 한 번 「이 계정 = 이 강사」를 정해 두면 그 뒤로는 이름을 추측하지 않습니다. <b>계정·원부 자체는 바뀌지 않고</b> 연결만 저장되므로 언제든 해제할 수 있습니다.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+      <button class="primary" onclick="tlkLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <span id="tlk-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
+    </div>
+    <div id="tlk-table" style="overflow-x:auto"></div>
+  </div>
+</details>
+<script type="text/lazy-js" data-src="/js/adm-tlink.js?v=2" data-card="card-teacher-link" data-globals="tlkLoad,tlkSave,tlkUnlink"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
+
 <!-- 📜 수업 변경 이력 (연기·삭제·종료) — 누가·언제 했는지 감사 로그 -->
 <details class="table-card menu-card" id="card-class-audit">
   <summary><span data-ko="📜 수업 변경 이력 (연기·삭제·종료)" data-en="📜 Class Change History (Postpone / Remove / End)">📜 수업 변경 이력 (연기·삭제·종료)</span></summary>
@@ -8239,7 +8257,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=38" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=40" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -8456,7 +8474,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
   </div>
 
-  <div class="ph85-group" data-cards="card-teacher-mgmt,card-payroll-auto,card-schedule-requests,card-class-audit,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
+  <div class="ph85-group" data-cards="card-teacher-mgmt,card-teacher-link,card-payroll-auto,card-schedule-requests,card-class-audit,card-class-ratings,card-payroll,card-mbti-mgmt,card-praise-stats,card-supervisor,card-room-invite,card-timetable,card-lesson-log,card-report-forms">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
       <div class="ph85-ico"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <div class="ph85-title">강사 통합</div>
@@ -8475,6 +8493,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="ph85-sub" data-ko="🌙 근무·휴식·휴가 관리" data-en="🌙 Working · Break · Holiday" data-card="card-calendar" onclick="event.stopPropagation();var c=document.getElementById('card-calendar');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-calendar');}">🌙 근무·휴식·휴가 관리</div>
       <div class="ph85-sub" data-ko="🗓 시간표 ⭐신규" data-en="🗓 Timetable ⭐NEW" data-card="card-timetable" onclick="event.stopPropagation();var c=document.getElementById('card-timetable');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-timetable');}">🗓 시간표 ⭐신규</div>
       <div class="ph85-sub" data-ko="📝 수업 일지 ⭐신규" data-en="📝 Lesson Log ⭐NEW" data-card="card-lesson-log" onclick="event.stopPropagation();var c=document.getElementById('card-lesson-log');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-lesson-log');}">📝 수업 일지 ⭐신규</div>
+      <div class="ph85-sub" data-ko="🔗 강사 계정 연결 ⭐신규" data-en="🔗 Link Teacher Accounts ⭐NEW" data-card="card-teacher-link" onclick="event.stopPropagation();var c=document.getElementById('card-teacher-link');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-teacher-link');}">🔗 강사 계정 연결 ⭐신규</div>
       <div class="ph85-sub" data-ko="📅 연기·변경 요청 ⭐신규" data-en="📅 Reschedule Requests ⭐NEW" data-card="card-schedule-requests" onclick="event.stopPropagation();var c=document.getElementById('card-schedule-requests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-schedule-requests');}">📅 연기·변경 요청 ⭐신규</div>
       <div class="ph85-sub" data-ko="⏸ 연기 수업 현황 ⭐신규" data-en="⏸ Postponed Classes ⭐New" onclick="event.stopPropagation();location.href='/admin/postponed-classes';">⏸ 연기 수업 현황 ⭐신규</div>
       <div class="ph85-sub" data-ko="📨 방 초대 관리" data-en="📨 Room Invite Management" data-card="card-room-invite" onclick="event.stopPropagation();var c=document.getElementById('card-room-invite');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-room-invite');}">📨 방 초대 관리</div>
@@ -10542,7 +10561,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script src="/js/adm-r25.js?v=6" defer></script><!-- 분할추출:adm-r25 -->
 
-<script src="/js/adm-menu-icons.js?v=3" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
+<script src="/js/adm-menu-icons.js?v=4" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
 
 <!-- Phase 126 admin (2026-05-25) — 잔존율/활성 룸 강제 visible + 정확한 스크롤 -->
@@ -11832,6 +11851,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260807052617 -->
+<!-- BUILD:20260807061416 -->
 </body>
 </html>

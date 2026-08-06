@@ -230,8 +230,24 @@ check('⛔ hidden 이 CSS 에 지지 않는다 (display:block 이 [hidden] 을 �
   check(`⛔ hidden 인데 CSS display 가 그걸 덮는 요소가 없다${trapped.length ? ' [' + trapped.join(', ') + ']' : ''}`,
     trapped.length === 0);
 }
-check('저장값이 없으면 요청조차 하지 않는다 (홈 첫 화면 비용 0)',
-  /if \(!\/\^https\?:\\\/\\\/\/\.test\(url\)\) return;/.test(idxHtml));
+/* (2026-08-07) 회원 경로가 붙었다 — 티켓은 «신청한 그 브라우저» 에만 남아서, 폰으로 신청하고
+   PC 로 오면 카드가 통째로 안 떴다. 회원은 서버에 본인 신청을 물어 채운다.
+   ⚠️ «비용 0» 보증은 그대로여야 한다: 티켓도 없고 로그인도 아니면 요청 0건. */
+check('티켓도 없고 로그인도 아니면 요청조차 하지 않는다 (홈 첫 화면 비용 0)',
+  /if \(!k && !canAskServer\) return;/.test(idxHtml));
+check('로그인 회원은 서버에 본인 신청을 물어 카드를 채운다',
+  /\/api\/leveltest\/my\?uid=/.test(idxHtml) && /function loadMine\(\)/.test(idxHtml));
+check('티켓이 있으면 티켓 쪽을 쓴다 («지금 입장하기» 까지 알려주는 쪽)',
+  /if \(!k\) \{ loadMine\(\); return; \}/.test(idxHtml));
+check('티켓이 죽어도 회원이면 신청을 다시 찾는다 (티켓만 만료된 경우)',
+  /localStorage\.removeItem\(KEY\)[\s\S]{0,160}?loadMine\(\);/.test(idxHtml));
+check('⛔ 회원 경로에서 «지금 입장하기» 를 만들지 않는다 (join_open 을 모른다)',
+  /function loadMine\(\)[\s\S]{0,1400}?el\.classList\.remove\('is-open'\)/.test(idxHtml)
+  && !/function loadMine\(\)[\s\S]{0,1400}?classList\.add\('is-open'\)/.test(idxHtml));
+check('회원 카드는 마이페이지로 보낸다 (거기에 「내 레벨테스트」 가 있다)',
+  /el\.href = '\/parent\.html\?uid=' \+ encodeURIComponent\(myUid\)/.test(idxHtml));
+check('취소된 신청은 홈에 띄우지 않는다',
+  /a\.status !== 'cancelled'/.test(idxHtml));
 check('입장 시간이 되면 초록으로 «확» 바뀐다',
   /#hero-lt\.is-open\{background:linear-gradient\(135deg,#34d399/.test(idxHtml)
   && /el\.classList\.add\('is-open'\)/.test(idxHtml));
@@ -277,6 +293,38 @@ check('장비 점검·캘린더 추가 버튼이 있다', /precheck_url/.test(pa
 check('한/영 둘 다 나온다', /localStorage\.getItem\('mangoi_lang'\)/.test(page) && /data-en=/.test(page));
 check('외부 스크립트·폰트를 안 쓴다 (경량 원칙)', !/<script[^>]+src=|fonts\.googleapis|cdn\./i.test(page));
 check('검색엔진에 노출되지 않는다 (개인 링크)', /name="robots" content="noindex/.test(page));
+
+console.log('\n[ ⑧ 운영자가 링크를 «다시 건네줄» 수 있어야 한다 (2026-08-07) ]');
+/* [왜] 링크는 ①신청 직후 문자 ②확정 문자 ③10분 전 리마인더 에만 실려 나갔다.
+   신청자가 그 문자를 못 찾으면 상담직원도 꺼내 줄 데가 없었다 — 실제 사고(신청 #15).
+   링크 하나가 확인·일정·장비점검·당일 입장을 전부 담당하는데 다시 줄 방법이 없던 것이다. */
+{
+  const admCore = rd('../cloudflare-deploy/public/js/adm-core.js');
+  const admHtml = rd('../cloudflare-deploy/public/admin.html');
+  const ltTicket = rd('../cloudflare-deploy/src/leveltest-ticket.ts');
+  check('관리자 목록 API 가 티켓 링크를 함께 내려준다',
+    /ltTicketUrlMap\(items\.map/.test(api) && /a\.ticket_url = tmap\[Number\(a\.id\)\]/.test(api));
+  check('행마다 HMAC 키를 새로 만들지 않는다 (500행까지 내려간다)',
+    /export async function ltTicketUrlMap/.test(ltTicket) && /importKey[\s\S]{0,400}?Promise\.all\(ids\.map/.test(ltTicket));
+  check('링크를 못 만들어도 목록 자체는 뜬다 (신청 현황이 통째로 죽으면 안 된다)',
+    /catch \(e\) \{ items\.forEach\(a => \{ a\.ticket_url = null; \}\); \}/.test(api));
+  check('관리자 표에 «링크 복사» 버튼이 있다',
+    /ltCopyTicket\(this,/.test(admCore) && /🎟️ \$\{adminLang==='en'\?'Copy link':'링크 복사'\}/.test(admCore));
+  check('신청자가 보는 화면을 그대로 열어볼 수 있다 (↗)',
+    /target="_blank" rel="noopener"[\s\S]{0,200}?↗/.test(admCore));
+  check('⛔ 링크가 없는 행에 «눌러도 안 되는 버튼» 을 만들지 않는다',
+    /const tk = a\.ticket_url \|\| ''/.test(admCore) && /🎟️ —/.test(admCore));
+  check('복사가 막히는 환경(비보안 컨텍스트)에도 길이 있다',
+    /window\.isSecureContext/.test(admCore) && /execCommand\('copy'\)/.test(admCore));
+  check('alert 로 손을 묶지 않는다 (여러 건 연속 처리)',
+    !/function ltCopyTicket[\s\S]{0,900}?alert\(/.test(admCore));
+  check('한/영 둘 다 나온다 (강사·매니저 다수가 필리핀)',
+    /'Copy link':'링크 복사'/.test(admCore) && /'Link unavailable — reload the page':'링크를 받지 못했습니다/.test(admCore));
+  {
+    const v = (admHtml.match(/adm-core\.js\?v=(\d+)/) || [])[1];
+    check(`캐시 버전이 40 이상 (안 올리면 옛 js 가 그대로) [현재 ${v}]`, Number(v || 0) >= 40);
+  }
+}
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
