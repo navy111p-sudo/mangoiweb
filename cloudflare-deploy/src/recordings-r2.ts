@@ -49,17 +49,43 @@ async function ensurePartsTable(env: Env): Promise<void> {
   _partsTableReady = true;
 }
 
-/** 키에서 recording_id 추출 — create() 가 `rec/<room>/<id>_<ts>.webm` 로 만든다 */
-function ridFromKey(key: string): number {
-  const base = key.split("/").pop() || "";
-  const n = parseInt(base.split("_")[0], 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
 async function clearParts(env: Env, recordingId: number): Promise<void> {
   try {
     await env.DB.prepare(`DELETE FROM recording_parts WHERE recording_id = ?`).bind(recordingId).run();
   } catch { /* 장부 정리는 실패해도 본 흐름에 영향 없음 */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🔐 업로드 권한 — «실재하는, 지금 녹화 중인 수업» 에만 쓸 수 있게 묶는다 (2026-08-05)
+//
+//   문제: /api/recordings/upload/* 는 index.ts 의 인증 게이트보다 **앞에서** 처리돼
+//   아무 자격증명 없이 호출된다. 진단 중 토큰 없이 create → 5MiB 파트 반복 → complete 까지
+//   전부 성공했다. 즉 주소만 알면 누구나 우리 R2 에 무제한으로 파일을 쌓을 수 있고(저장 비용),
+//   recording_id 를 바꿔가며 남의 녹화도 건드릴 수 있었다.
+//
+//   토큰을 곧바로 «필수» 로 만들면 교사 브라우저가 토큰을 안 보내는 경우 녹화가 통째로 멈춘다
+//   (M.api 는 쿠키만 보내고 Authorization 을 안 붙인다). 라이브 서비스라 그 위험은 못 진다.
+//   → 1단계(지금): **클라이언트 변경 없이도 안전한 것**부터 강제한다.
+//        · 쓰기 대상 키는 반드시 «실재하고 지금 녹화 중인» recordings 행의 file_url 이어야 한다
+//        · 시작한 지 너무 오래된 녹화에는 더 못 쓴다
+//      2단계(다음): 클라이언트가 토큰을 붙이는 것을 배포·확인한 뒤 토큰을 필수로 전환
+// ─────────────────────────────────────────────────────────────────────────────
+const UPLOAD_WINDOW_MS = 6 * 60 * 60 * 1000;   // 시작 후 6시간 넘은 녹화엔 더 못 쓴다
+const MAX_PART_NUMBER = 10000;                 // R2 멀티파트 상한
+
+/** 이 키가 «지금 녹화 중인» 행의 것인지 확인. 아니면 null */
+async function assertUploadable(env: Env, key: string): Promise<{ id: number } | null> {
+  if (!key || !key.startsWith('rec/')) return null;
+  try {
+    const row = await env.DB.prepare(
+      `SELECT id, started_at, status FROM recordings WHERE file_url = ? LIMIT 1`
+    ).bind(key).first<{ id: number; started_at: number | null; status: string | null }>();
+    if (!row || row.status !== 'recording') return null;
+    if (!row.started_at || Date.now() - row.started_at > UPLOAD_WINDOW_MS) return null;
+    return { id: row.id };
+  } catch {
+    return null;   // 조회 자체가 실패하면 열어주지 않는다
+  }
 }
 
 /**
@@ -81,6 +107,37 @@ export async function handleRecordingUpload(
       filename?: string;
     } | null;
     if (!b || !b.room_id || !b.recording_id) return J({ error: "invalid body" }, 400);
+
+    // 🔐 실재하고 «지금 녹화 중인» 행에만 업로드 통로를 연다.
+    //   예전엔 존재하지 않는 recording_id 로도 multipart 가 생성돼, 아무나 R2 에 쌓을 수 있었다.
+    const own = await env.DB.prepare(
+      `SELECT id, started_at, status, file_url FROM recordings WHERE id = ?`
+    ).bind(b.recording_id).first<{ id: number; started_at: number | null; status: string | null; file_url: string | null }>();
+    if (!own || own.status !== 'recording' ||
+        !own.started_at || Date.now() - own.started_at > UPLOAD_WINDOW_MS) {
+      console.error(`[recordings-r2] create 거부 recording_id=${b.recording_id} status=${own?.status ?? '없음'}`);
+      return J({ ok: false, error: "not recording" }, 404);
+    }
+
+    /* 🔐 2026-08-07 검토 추가 — create 는 recording_id 당 «한 번만».
+       위 가드가 요구하는 «status='recording' + 6시간 이내» 는 **진행 중인 녹화가 정확히 만족하는 조건**이다.
+       recording_id 는 순번이라 추측도 쉽다. 그래서 이 가드만으로는 아래 UPDATE 가 여전히
+       «남이 지금 쓰고 있는 file_url» 을 덮어쓸 수 있다.
+
+       그게 왜 치명적이냐 — 이 PR 이 part/complete 를 file_url 일치에 묶었기 때문이다.
+       file_url 이 바뀌는 순간 강사가 올리던 파트는 assertUploadable() 을 통과하지 못해
+       **그 시점부터 전부 404 → 그 수업 녹화가 통째로 사라진다.**
+       (이 PR 이전에는 part/complete 가 file_url 을 안 봐서 같은 조작이 거의 무해했다.
+        즉 이 한 줄이 없으면 이 PR 이 «남의 진행 중 녹화를 끄는 스위치» 를 새로 만드는 셈이다.)
+
+       정상 흐름은 안 깨진다 — create 를 부르는 곳은 두 군데(mango-rec.js:893, video-call/js/recorder.js:114)
+       뿐이고 둘 다 /start 직후 **한 번만** 부른다(재시도 루프 없음). 실패하면 로컬 녹화로 내려간다.
+       새로고침하면 /start 부터 다시 하므로 새 id 가 나온다. */
+    if (own.file_url) {
+      console.error(`[recordings-r2] create 재요청 거부 recording_id=${b.recording_id} 기존키=${own.file_url}`);
+      return J({ ok: false, error: "already opened" }, 409);
+    }
+
     const key = `rec/${b.room_id}/${b.recording_id}_${Date.now()}.webm`;
     const mp = await env.RECORDINGS.createMultipartUpload(key, {
       httpMetadata: { contentType: "video/webm" },
@@ -105,6 +162,14 @@ export async function handleRecordingUpload(
     const uploadId = url.searchParams.get("upload_id") || "";
     const partNumber = parseInt(url.searchParams.get("part") || "0", 10);
     if (!key || !uploadId || !partNumber) return J({ error: "missing params" }, 400);
+    if (partNumber < 1 || partNumber > MAX_PART_NUMBER) return J({ error: "bad part number" }, 400);
+
+    // 🔐 이 키가 «지금 녹화 중인» 수업의 것인지 확인 — 임의 경로에 쓰는 것을 막는다
+    const owner = await assertUploadable(env, key);
+    if (!owner) {
+      console.error(`[recordings-r2] part 거부 key=${key} part=${partNumber}`);
+      return J({ ok: false, error: "not recording" }, 404);
+    }
 
     const mp = env.RECORDINGS.resumeMultipartUpload(key, uploadId);
     const part = await mp.uploadPart(partNumber, request.body as ReadableStream);
@@ -112,7 +177,7 @@ export async function handleRecordingUpload(
     // 📒 장부 적재 — 브라우저가 죽어도 서버가 마무리할 수 있게 (best-effort).
     //    장부 쓰기가 실패해도 파트 업로드 자체는 성공이므로 응답은 그대로 200.
     try {
-      const rid = parseInt(url.searchParams.get("rid") || "", 10) || ridFromKey(key);
+      const rid = owner.id;   // 🔐 클라이언트가 준 rid 말고 «DB 가 인정한» 주인으로 적는다
       if (rid > 0) {
         await ensurePartsTable(env);
         const len = parseInt(request.headers.get("content-length") || "", 10);
@@ -151,8 +216,13 @@ export async function handleRecordingUpload(
     // (a) 이미 '완료'로 확정된 recording_id면 R2를 다시 건드리지 않고 그대로 확인 응답.
     //   ('upload_failed' 는 여기서 걸러내지 않는다 — 아래 head() 재확인으로 자가복구시키기 위함)
     const existing = await env.DB.prepare(
-      `SELECT status FROM recordings WHERE id = ?`
-    ).bind(b.recording_id).first<{ status: string | null }>();
+      `SELECT status, file_url FROM recordings WHERE id = ?`
+    ).bind(b.recording_id).first<{ status: string | null; file_url: string | null }>();
+    // 🔐 키가 그 녹화의 것인지 확인 — 남의 키를 마무리하거나 임의 경로를 조작하는 것을 막는다
+    if (!existing || existing.file_url !== b.key) {
+      console.error(`[recordings-r2] complete 거부 recording_id=${b.recording_id} key=${b.key}`);
+      return J({ ok: false, error: "key mismatch" }, 404);
+    }
     if (existing && (existing.status === "completed" || existing.status === "deleted")) {
       return J({ ok: existing.status === "completed", key: b.key, already: true, status: existing.status });
     }
@@ -219,12 +289,22 @@ export async function handleRecordingUpload(
       upload_id: string;
     } | null;
     if (!b || !b.recording_id) return J({ error: "invalid body" }, 400);
+    // 🔐 키가 그 녹화의 것인지 확인 — 남의 녹화를 임의로 'aborted' 로 만드는 것을 막는다
+    const abRow = await env.DB.prepare(
+      `SELECT file_url, status FROM recordings WHERE id = ?`
+    ).bind(b.recording_id).first<{ file_url: string | null; status: string | null }>();
+    if (!abRow || abRow.file_url !== b.key) {
+      console.error(`[recordings-r2] abort 거부 recording_id=${b.recording_id} key=${b.key}`);
+      return J({ ok: false, error: "key mismatch" }, 404);
+    }
     try {
       const mp = env.RECORDINGS.resumeMultipartUpload(b.key, b.upload_id);
       await mp.abort();
     } catch (_) {}
-    await env.DB.prepare(`UPDATE recordings SET status = 'aborted' WHERE id = ?`)
-      .bind(b.recording_id)
+    // 이미 완료·삭제된 행은 되돌리지 않는다
+    await env.DB.prepare(
+      `UPDATE recordings SET status = 'aborted' WHERE id = ? AND status NOT IN ('completed','deleted')`
+    ).bind(b.recording_id)
       .run();
     await clearParts(env, b.recording_id);   // 중단됐으니 크론이 되살리지 않도록 장부를 비운다
     return J({ ok: true });
