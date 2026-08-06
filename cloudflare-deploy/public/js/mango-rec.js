@@ -32,6 +32,11 @@
   let audioDest = null;
   let recBadge = null;
   let isAutoMode = false;  // 자동 녹화 모드 여부
+
+  // 🌐 강사 다수가 필리핀이라 이 배지의 모든 문구는 한/영 두 벌을 갖는다.
+  function isEn() {
+    try { return (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) { return false; }
+  }
  
   // R2 multipart 상태
   let r2Key = null;
