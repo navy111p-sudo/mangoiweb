@@ -79,6 +79,25 @@ check("표기 차이를 정규화한다 ('Teacher Maimai' ↔ 'MAIMAI')",
 check('⛔ assigned_teacher_id 를 그대로 쓰지 않는다',
   !/teacher_id[^_a-zA-Z]{0,4}=\s*app\.assigned_teacher_id/.test(mod));
 
+console.log('\n[ ⑤-2 «이미 찬 교사» 를 진짜로 걸러낸다 (예전엔 한 번도 동작 안 함) ]');
+// ① 'fri' 로 물었는데 값은 'Fri' → SQLite 의 = 는 대소문자를 가려 항상 0건이었다
+// ② 담은 건 teachers.id 인데 비교는 teacher_profiles.id → 번호 체계가 달라 엉뚱한 교사를 뺐다
+/* 함수 «끝» 을 정규식으로 집으려다 못 찾아 4건이 가짜로 실패했다.
+   시작점부터 넉넉히 잘라 쓴다 — 아래에서 보는 문자열은 이 함수에만 있는 것들이다. */
+const aAt = api.indexOf('const autoAssignTeacher = async');
+const auto = aAt > 0 ? api.slice(aAt, aAt + 9000) : '';
+check('자동배정 함수를 찾았다', auto.length > 500);
+check('⛔ day_of_week 를 «대소문자 그대로» 비교하지 않는다',
+  !/day_of_week = \?[\s\S]{0,200}?wantDay\.toLowerCase\(\)/.test(auto));
+check('요일 표기를 전부 받아들인다 (Fri/fri/5/금/금요일)',
+  /lower\(COALESCE\(cs\.day_of_week,''\)\) IN \(/.test(auto) && /'fri', 'friday', '5', '금', '금요일'/.test(auto));
+check('일회성 수업(그 날짜)도 함께 본다 (레벨테스트끼리 겹치는 것도 막아야)',
+  /cs\.scheduled_date = \?/.test(auto));
+check('🔑 비교를 «번호» 가 아니라 «이름» 으로 한다 (두 표의 번호 체계가 다르다)',
+  /JOIN teachers t ON CAST\(t\.id AS TEXT\) = CAST\(cs\.teacher_id AS TEXT\)/.test(auto)
+  && /busyNames\.has\(normT\(t\.name\)\)/.test(auto));
+check('⛔ 옛 busy(id 집합) 비교가 남아 있지 않다', !/!busy\.has\(String\(t\.id\)\)/.test(auto));
+
 console.log('\n[ ⑥ 강사 페이지에 «레벨테스트» 로 뜬다 ]');
 check('서버가 class_type 을 읽어온다', /cs\.class_type/.test(tapi));
 check('is_level_test 를 내려준다', /is_level_test: String\(s\.class_type \|\| ''\) === 'level_test'/.test(tapi));

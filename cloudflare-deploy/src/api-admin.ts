@@ -6387,14 +6387,42 @@ LIMIT $limit`;
           if (rangeM) return hour >= parseInt(rangeM[1], 10) && hour <= parseInt(rangeM[2], 10);
           return s.split(/[,\s;/]+/).map(x => parseInt(x, 10)).filter(n => !isNaN(n)).includes(hour);
         };
-        // 그 요일·시간에 이미 수업이 잡힌 교사 id 집합(중복 배정 방지, best-effort)
-        const busy = new Set<string>();
-        if (wantDay && wantHour != null) {
+        /* 그 요일·시간에 이미 수업이 잡힌 교사(중복 배정 방지).
+           🔴 (2026-08-06) 이 검사는 **한 번도 동작한 적이 없었다** — 이유가 둘이다.
+             ① `day_of_week = 'fri'` 로 물었는데 운영 값은 `'Fri'` 다. SQLite 의 `=` 는
+                대소문자를 가리므로 **항상 0건** → busy 가 늘 비어 있었다.
+             ② 설령 걸렸어도 담은 값은 `class_schedules.teacher_id`(= teachers.id)인데
+                비교 대상은 `teacher_profiles.id` 다. **번호 체계가 달라** 엉뚱한 교사를
+                제외했을 것이다(Teacher Kaye = profiles 11 / teachers 8).
+           → 요일은 표기를 전부 받아들이고, 일회성 수업(scheduled_date)도 함께 보고,
+             비교는 번호가 아니라 **이름**으로 한다. 금요일 18시처럼 이미 17명이 차 있는
+             슬롯에서 «찬 교사»가 배정되면, 뒤의 겹침 검사에 걸려 수업이 조용히 안 생긴다. */
+        const busyNames = new Set<string>();
+        const normT = (x: any) => String(x || '').toLowerCase().replace(/teacher/g, '').replace(/[^a-z0-9가-힣]/g, '');
+        if (wantHour != null && (wantDay || desiredDate)) {
           try {
-            const bs: any = await env.DB.prepare(
-              `SELECT teacher_id FROM class_schedules WHERE (status IS NULL OR status='active') AND day_of_week = ? AND substr(start_time,1,2) = ?`
-            ).bind(wantDay.toLowerCase(), ('0' + wantHour).slice(-2)).all();
-            (bs.results || []).forEach((r: any) => { if (r.teacher_id != null) busy.add(String(r.teacher_id)); });
+            const DOW_FORMS: Record<string, string[]> = {
+              Sun: ['sun', 'sunday', '0', '7', '일', '일요일'], Mon: ['mon', 'monday', '1', '월', '월요일'],
+              Tue: ['tue', 'tuesday', '2', '화', '화요일'], Wed: ['wed', 'wednesday', '3', '수', '수요일'],
+              Thu: ['thu', 'thursday', '4', '목', '목요일'], Fri: ['fri', 'friday', '5', '금', '금요일'],
+              Sat: ['sat', 'saturday', '6', '토', '토요일'],
+            };
+            const conds: string[] = []; const bind: any[] = [];
+            const forms = wantDay ? (DOW_FORMS[wantDay] || []) : [];
+            if (forms.length) {
+              conds.push(`lower(COALESCE(cs.day_of_week,'')) IN (${forms.map(() => '?').join(',')})`);
+              bind.push(...forms);
+            }
+            if (desiredDate) { conds.push(`cs.scheduled_date = ?`); bind.push(desiredDate); }
+            if (conds.length) {
+              const bs: any = await env.DB.prepare(
+                `SELECT t.name AS name FROM class_schedules cs
+                   JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+                  WHERE (cs.status IS NULL OR cs.status = 'active')
+                    AND substr(cs.start_time, 1, 2) = ? AND (${conds.join(' OR ')})`
+              ).bind(('0' + wantHour).slice(-2), ...bind).all();
+              (bs.results || []).forEach((r: any) => { if (r.name) busyNames.add(normT(r.name)); });
+            }
           } catch {}
         }
 
@@ -6404,7 +6432,7 @@ LIMIT $limit`;
           if (t.praise_avg != null) return Number(t.praise_avg);
           return 2.5;
         };
-        const notBusy = (t: any) => !busy.has(String(t.id));
+        const notBusy = (t: any) => !busyNames.has(normT(t.name)) && !busyNames.has(normT(t.en_name));
         // 1순위: 요일+시간 가용 & 미배정
         let pool = rows.filter(t => notBusy(t) && listMatch(t.days, wantDay) && hourMatch(t.hours, wantHour));
         let reason = 'available_best_rated';
