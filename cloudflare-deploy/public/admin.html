@@ -3496,22 +3496,62 @@ window.__admSettleRun = function(fn){
     try { return /^card-/.test(el.id || '') || (el.classList && el.classList.contains('menu-card')); }
     catch(e){ return false; }
   }
+  function resetLeft(el){
+    var se = document.scrollingElement || document.documentElement;
+    if (se && se.scrollLeft) se.scrollLeft = 0;
+    if (document.body && document.body.scrollLeft) document.body.scrollLeft = 0;
+    var p = el && el.parentElement;
+    while (p && p !== document.body) {
+      if (p.scrollLeft && p.scrollWidth > p.clientWidth) p.scrollLeft = 0;
+      p = p.parentElement;
+    }
+  }
+  /* ⬅⬅ (2026-08-08 마이마이 재보고 "아직도 가운데가 보인다")
+     위 수정은 «즉시 한 번» 만 0 으로 돌렸다. 그건 behavior:'auto' 인 84곳에서는 맞지만,
+     behavior:'smooth' 인 나머지에서는 **그 뒤에 브라우저가 애니메이션으로 다시 가운데로 끌고 간다** —
+     되돌리는 코드가 애니메이션보다 먼저 끝나 버려서, 고쳐 놓고도 증상이 그대로 남았다.
+     → 스크롤이 «멎을 때까지» 계속 0 으로 붙잡는다. 멎으면(또는 900ms 지나면) 손을 뗀다.
+     ⚠️ 손을 떼는 조건이 없으면 사용자가 가로 스크롤을 **영영 못 하게** 된다. 반드시 시한을 둔다. */
+  var holdRelease = null;   // 진행 중인 붙잡기는 하나뿐 — 메뉴를 연달아 눌러도 겹치지 않는다
+  function holdLeft(el){
+    if (holdRelease) holdRelease();
+    resetLeft(el);
+    var until = Date.now() + 900, raf = 0;
+    var release = function(){
+      until = 0;
+      if (raf) cancelAnimationFrame(raf);
+      // ⚠️ once:true 는 «불렸을 때만» 스스로 떨어진다. 안 불리면 메뉴를 누를 때마다
+      //    리스너가 쌓인다 → 끝날 때 직접 걷어낸다.
+      window.removeEventListener('wheel', release);
+      window.removeEventListener('touchstart', release);
+      window.removeEventListener('keydown', release);
+      if (holdRelease === release) holdRelease = null;
+    };
+    function step(){
+      resetLeft(el);
+      if (Date.now() < until) raf = requestAnimationFrame(step);
+      else release();
+    }
+    raf = requestAnimationFrame(step);
+    // 사용자가 직접 가로로 밀면 즉시 손을 뗀다(붙잡고 있으면 조작이 먹히지 않는다)
+    window.addEventListener('wheel', release, { passive: true });
+    window.addEventListener('touchstart', release, { passive: true });
+    window.addEventListener('keydown', release);
+    holdRelease = release;
+  }
   Element.prototype.scrollIntoView = function(){
     var r = orig.apply(this, arguments);
-    try {
-      if (isMenuCard(this)) {
-        var se = document.scrollingElement || document.documentElement;
-        if (se && se.scrollLeft) se.scrollLeft = 0;
-        if (document.body && document.body.scrollLeft) document.body.scrollLeft = 0;
-        var p = this.parentElement;
-        while (p && p !== document.body) {
-          if (p.scrollLeft && p.scrollWidth > p.clientWidth) p.scrollLeft = 0;
-          p = p.parentElement;
-        }
-      }
-    } catch(e){}
+    try { if (isMenuCard(this)) holdLeft(this); } catch(e){}
     return r;
   };
+  /* 📌 scrollIntoView 를 **안 거치는** 이동도 있다(사이드바 퀵액세스의 location.hash 등).
+     해시로 점프하면 브라우저가 스스로 스크롤하므로 위 래퍼가 아예 안 불린다. 그 경로도 잡는다. */
+  window.addEventListener('hashchange', function(){
+    try {
+      var el = document.getElementById(String(location.hash || '').slice(1));
+      if (el && isMenuCard(el)) holdLeft(el);
+    } catch(e){}
+  });
 })();
 </script>
 <script>
@@ -8340,7 +8380,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         → 해당 강사만 캘린더에 표시하고 자동으로 카드 펼침/스크롤 -->
 
 
-<script src="/js/adm-q6.js?v=5" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q6.js?v=6" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 81 admin (2026-05-24) — ▲ 강제 제거 + 칩 한 줄 작게 (모든 폭) -->
 

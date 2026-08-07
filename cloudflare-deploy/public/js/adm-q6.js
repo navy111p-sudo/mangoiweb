@@ -155,11 +155,20 @@
     var timeTxt  = ph54FmtMin(startMin) + ' · ' + dur + '분';
     // 학생 이름: students[].name 우선, 없으면 유형 라벨로 폴백
     var student  = (s.students || []).map(function(x){ return x && x.name; }).filter(Boolean).join(', ');
-    var nameTxt  = student || (s.type==='blocked' ? '휴무' : (PH54_TYPE_LABEL[s.type] || '수업'));
-    var typeTxt  = PH54_TYPE_LABEL[s.type] || '';
-    return '<div class="ph54-ev ph54-t-'+(s.type||'')+'" draggable="true" data-idx="'+idx+'" '
-      + 'style="top:'+top+'px;height:'+height+'px;background:'+c+'" '
-      + 'title="'+ph54Esc(timeTxt+' · '+typeTxt+(student?(' · '+student):''))+'">'
+    /* 🚫 (2026-08-08) 휴식시간(teacher_unavailability)은 수업이 아니다.
+       · 드래그 금지 — id 체계가 class_schedules 와 겹쳐서, 끌면 **엉뚱한 수업**에 PATCH 가 나간다.
+       · 사유를 카드에 보여 준다. 「왜 막혔는지」를 모르면 매니저가 그냥 지워 버린다. */
+    var isBlock  = (s.source === 'unavailability') || s.type === 'blocked';
+    var nameTxt  = isBlock ? (s.reason || '휴식/근무불가') : (student || (PH54_TYPE_LABEL[s.type] || '수업'));
+    var typeTxt  = isBlock ? (s.recurring ? '매주 반복 차단' : '차단') : (PH54_TYPE_LABEL[s.type] || '');
+    var canDrag  = (s.source !== 'unavailability');
+    return '<div class="ph54-ev ph54-t-'+(s.type||'')+(canDrag?'':' ph54-locked')+'"'
+      + (canDrag ? ' draggable="true"' : '')
+      + ' data-idx="'+idx+'"'
+      + (s.block_id != null ? ' data-block="'+s.block_id+'"' : '')
+      + ' style="top:'+top+'px;height:'+height+'px;background:'+c+(canDrag?'':';cursor:default;opacity:.92')+'" '
+      + 'title="'+ph54Esc(timeTxt+' · '+typeTxt+(isBlock?(s.reason?(' · '+s.reason):''):(student?(' · '+student):'')))
+      + (canDrag ? '' : ' (드래그 불가 — 아래 목록에서 삭제하세요)')+'">'
       +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)+'</div>'
       +   '<div class="ph54-ev-name">'+ph54Esc(nameTxt)+'</div>'   /* ← 학생 이름 (말줄임 처리) */
       +   '<div class="ph54-ev-type">'+ph54Esc(typeTxt)+'</div>'
@@ -210,6 +219,10 @@
 
     if (!filterId) {
       html += '<div class="ph54-hint">💡 특정 강사를 선택하면 그 강사의 주간 수업만 깔끔하게 볼 수 있어요. (강사 목록의 📅 버튼으로도 열립니다)</div>';
+    } else {
+      /* 🚫 (2026-08-08 마이마이 요청) 「강사가 언더타임이면 매니저가 그 시간을 막을 수 있게」
+         강사를 고른 뒤에만 안내한다 — 전체 보기에서는 «누구를 막을지» 를 알 수 없다. */
+      html += '<div class="ph54-hint">🚫 빈 칸을 <b>클릭</b>하면 그 시간을 <b>차단</b>할 수 있어요 (언더타임·회의 등). 차단된 시간엔 수업을 넣을 수 없습니다.</div>';
     }
 
     // ── 타임라인: 헤더(요일) + 시간 거터 + 7일 컬럼
@@ -258,6 +271,66 @@
     document.getElementById('ph54-next-week').addEventListener('click', async function(){ ph54State.weekOffset++; await ph54LoadRecords(); ph54Render(); });
     document.getElementById('ph54-teacher-filter').addEventListener('change', function(e){ ph54State.teacherFilter = e.target.value; ph54Render(); });
     document.getElementById('ph54-clear-filter').addEventListener('click', function(){ ph54State.teacherFilter = ''; ph54Render(); });
+
+    /* ── 🚫 빈 칸 클릭 → 그 시간 차단 (teacher_unavailability) ──────────────────
+       마이마이 요청: 「강사가 언더타임이라 수업을 못 하면 매니저가 그 시간을 막게 해 달라」
+       막는 기능은 원래 있었지만 «강사 이름을 타자로 치는 별도 폼» 뿐이었다 — 캘린더를 보다가
+       거기까지 가서 이름·요일·시간을 다시 입력해야 했고, 캘린더에는 결과가 안 보였다.
+       여기서는 **보고 있는 그 칸**을 그대로 막는다. 강사·요일·시간이 클릭으로 이미 정해진다.
+       ⚠️ 되돌릴 수 있는 일이지만 남의 스케줄을 바꾸는 일이라 confirm 을 반드시 거친다. */
+    var calTrack0 = document.getElementById('ph54-cal-track');
+    if (calTrack0 && filterId){
+      calTrack0.addEventListener('click', function(ev){
+        if (ev.target.closest && ev.target.closest('.ph54-ev')) return;   // 카드 위 클릭은 무시
+        var col = ev.target.closest && ev.target.closest('.ph54-cal-col');
+        if (!col) return;
+        var rect = col.getBoundingClientRect();
+        // 클릭 Y → 30분 칸으로 스냅 (드래그 이동과 같은 계산)
+        var rowIdx = Math.floor((ev.clientY - rect.top) / (PH54_HOUR_PX * PH54_SNAP / 60));
+        var startMin = Math.max(PH54_START_H*60, Math.min(PH54_START_H*60 + rowIdx*PH54_SNAP, PH54_END_H*60 - PH54_SNAP));
+        var colIdx = parseInt(col.dataset.day, 10);
+        var from = ph54FmtMin(startMin), to = ph54FmtMin(Math.min(startMin + 60, PH54_END_H*60));
+        var tName = (ph54State.teachers.filter(function(t){ return String(t.id)===String(filterId); })[0]||{}).name || '';
+        var dLabel = dayLabel[colIdx], dDate = ph54FmtDate(days[colIdx]);
+
+        var reason = window.prompt(
+          '🚫 ' + tName + ' — ' + dLabel + '요일 ' + from + '~' + to + ' 을 차단합니다.\n\n'
+          + '사유를 적어 주세요 (예: 언더타임, 회의, 교육).\n'
+          + '· 확인 → 이 날짜(' + dDate + ')만 차단\n'
+          + '· 취소 → 아무것도 하지 않음', '언더타임');
+        if (reason === null) return;
+        reason = (reason || '').trim() || '차단';
+
+        var weekly = window.confirm(
+          '매주 ' + dLabel + '요일 같은 시간을 계속 차단할까요?\n\n'
+          + '· 확인 → 매주 반복 차단\n'
+          + '· 취소 → ' + dDate + ' 하루만 차단');
+
+        var payload = weekly
+          ? { teacher_id: String(filterId), teacher_name: tName, kind: 'weekly',
+              day_of_week: (colIdx + 1) % 7,   // 캘린더 0=월 → DB 0=일 기준으로 환산
+              start_time: from, end_time: to, reason: reason }
+          : { teacher_id: String(filterId), teacher_name: tName, kind: 'date_range',
+              start_date: dDate, end_date: dDate, start_time: from, end_time: to, reason: reason };
+
+        ph54Toast('💾 차단 저장 중… ' + dLabel + ' ' + from);
+        fetch('/api/admin/teacher-unavailability', {
+          method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        })
+        .then(function(r){ return r.json().catch(function(){ return {}; }); })
+        .then(async function(res){
+          if (res && res.ok){
+            ph54Toast('✅ 차단됨: ' + (weekly ? ('매주 '+dLabel) : dDate) + ' ' + from + '~' + to);
+            await ph54LoadRecords();   // 서버에서 다시 읽어 캘린더에 실제로 반영
+            ph54Render();
+          } else {
+            ph54Toast('⚠️ 차단 실패: ' + ((res && (res.message || res.error)) || '서버 오류'));
+          }
+        })
+        .catch(function(){ ph54Toast('⚠️ 차단 실패(네트워크)'); });
+      });
+    }
 
     // ── HTML5 Drag & Drop: 카드를 다른 요일/시간으로 이동 ──
     var track = document.getElementById('ph54-cal-track');

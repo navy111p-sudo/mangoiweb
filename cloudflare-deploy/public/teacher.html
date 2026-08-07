@@ -85,6 +85,12 @@ body{
 .cls-main{flex:1;min-width:150px}
 .cls-name{font-size:16px;font-weight:600}
 .pill.p-lt{background:#0d9488;color:#fff}
+/* 🏷️ (2026-08-08 마이마이 요청) 오늘 목록에서 정규·체험·레벨테스트가 한눈에 갈리게.
+   크기·위치는 다른 배지와 **똑같이** 두고 색으로만 구분한다(hover 확대 금지와 같은 이유 —
+   줄마다 배지 크기가 다르면 목록이 들쭉날쭉해 보인다). 정규수업엔 배지를 붙이지 않는다:
+   대부분이 정규라 전부 배지가 붙으면 «특별한 수업» 표시가 묻힌다. */
+.pill.p-trial{background:#7c3aed;color:#fff}
+.pill.p-makeup{background:#b45309;color:#fff}
 .wk-nav{display:flex;gap:6px;margin:0 0 10px}
 .wk-nav button{flex:1;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
 .wk-nav button.on{background:#2563eb;border-color:#2563eb;color:#fff}
@@ -646,6 +652,20 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     return hh ? (hh + '시간') : (mm + '분');
   }
 
+  /* 🏷️ 수업 유형 배지 — 오늘·앞으로·주간 세 목록이 **같은 함수**를 쓴다.
+     (2026-08-08 마이마이 요청 「정규·체험·레벨테스트가 한 페이지에」)
+     판정은 서버(api-teacher.ts classKindOf)가 한 곳에서 한다. 여기서 다시 추측하지 않는다 —
+     화면마다 다르게 판정하면 같은 수업이 목록마다 다른 색으로 보인다.
+     ⚠️ class_kind 가 없는 옛 응답(캐시된 localStorage 포함)에서는 is_level_test 로 폴백한다. */
+  function kindPill(c){
+    var k = c && c.class_kind;
+    if (!k) k = (c && c.is_level_test) ? 'level_test' : 'regular';
+    if (k === 'level_test') return ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>';
+    if (k === 'trial')      return ' <span class="pill p-trial">' + esc(T('TRIAL','체험수업')) + '</span>';
+    if (k === 'makeup')     return ' <span class="pill p-makeup">' + esc(T('MAKE-UP','보강수업')) + '</span>';
+    return '';   // 정규수업 — 배지 없음(대부분이 정규라 붙이면 특별한 수업 표시가 묻힌다)
+  }
+
   // ── 캐시 ──────────────────────────────────────────────────────────────────
   //   왜: 네트워크를 아무리 줄여도 '요청 → 응답' 한 번은 남고, 필리핀 회선에서는 그 한 번이
   //   수백 ms 다. 그 동안 강사는 빈 화면을 본다. 지난번 응답을 즉시 그려 두고 뒤에서 갱신하면
@@ -843,7 +863,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
             return '<div class="wk-i"' + (dim ? ' style="opacity:.55"' : '') + '>'
               + '<b>' + esc(it.start_time) + '</b>'
               + '<span>' + esc(stuName(it) || (dim ? T('(slot taken)','(점유 슬롯)') : T('(name not set)','(이름 미등록)'))) + '</span>'
-              + (it.is_level_test ? '<span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
+              + kindPill(it).replace(/^ /, '')
               + '<span class="wk-none">' + it.duration_min + T(' min','분') + '</span>'
               + '</div>';
           }).join('')
@@ -897,7 +917,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         + '<div class="cls-time">' + esc(u.start_time) + '</div>'
         + '<div class="cls-main">'
         +   '<div class="cls-name">' + esc(stuName(u) || T('(name not set)','(이름 미등록)'))
-        +     (u.is_level_test ? ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
+        +     kindPill(u)
         +   '</div>'
         +   '<div class="cls-meta">' + esc(when) + ' &middot; ' + meta.join(' &middot; ') + '</div>'
         + '</div>'
@@ -1015,6 +1035,25 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
       }
       meta.push(c.duration_min + T(' min', '분'));
 
+      /* 📖 (2026-08-08 마이마이 요청 「수업 전에 방을 열어 교재를 준비하게 해 달라」)
+         강사 문은 이제 시작 30분 전에 열린다(학생은 정규수업 기준 10분 전 그대로).
+         그 «비어 있는 시간» 이 있다는 걸 강사가 모르면 기능이 없는 것과 같다 → 여기서 알린다.
+         · 문은 열렸는데 아직 시작 전일 때만 뜬다(수업 중엔 방해가 된다).
+         · 학생 창과 같은 레벨테스트에는 안 띄운다 — 학생이 이미 들어와 있을 수 있어
+           「혼자 준비할 시간」이라는 말이 사실이 아니게 된다.
+         · lead 값이 없는 옛 응답(캐시)에서는 아무것도 띄우지 않는다(없는 걸 지어내지 않는다). */
+      if (open && !live && c.open_lead_min && c.student_open_lead_min
+          && c.open_lead_min > c.student_open_lead_min){
+        // 학생 문이 열릴 때까지 남은 분 — 이만큼은 강사 혼자 있는 시간이다.
+        var soloMin = Math.round((c.start_ts - c.student_open_lead_min * 60000 - t) / 60000);
+        meta.push('<span style="color:#0d6d4a;font-weight:700">'
+          + esc(soloMin > 0
+              ? T('📖 Prep now — student can join in ' + fmtWait(soloMin),
+                  '📖 지금 교재를 미리 열어 두세요 — 학생은 ' + fmtWait(soloMin) + ' 뒤 입장')
+              : T('📖 Prep now', '📖 지금 교재를 미리 열어 두세요'))
+          + '</span>');
+      }
+
       // 🏷️ 망고아이 수업이 아닌 행(LMS 점유 슬롯 · 시연용 시드)은 '일정 표시'로만 그린다.
       //   학생이 붙어 있지 않아 방에 아무도 없다 → 입장·평가·연기 버튼을 주면 안 된다.
       //   그렇다고 감추지도 않는다: LMS 슬롯은 '그 시간에 이미 수업이 있다'는 실제 정보다.
@@ -1047,7 +1086,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         /* 🧪 (2026-08-06) 레벨테스트는 응대가 다르다 — 처음 만나는 학생이고, 보호자가 옆에 있고,
            끝나면 평가를 남겨야 한다. 예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 수 없었다.
            크기·위치는 다른 배지와 같게 두고 색으로만 구분한다(hover 확대 금지 규칙과 같은 이유). */
-        +       (c.is_level_test ? ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>' : '')
+        +       kindPill(c)
         +       (live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
                       : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
                              : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : ''))
@@ -1069,12 +1108,14 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         h += '<button class="btn btn-off" type="button" disabled>'
           +    esc(T('Opens in ' + fmtWait(mins), fmtWait(mins) + ' 뒤 입장')) + '</button>';
       }
-      // 📅 연기·변경 요청 — 아직 안 끝난 수업에만. 별도 폼 페이지로 보내지 않고
-      //    '그 수업' 줄에서 바로 열리게 한다(어느 수업인지 고를 필요가 없다).
-      if (!done){
-        h += '<button class="btn btn-post btn-sm" type="button" data-post="' + i + '">'
-          +    esc(T('Postpone', '연기/변경')) + '</button>';
-      }
+      /* 🚫 (2026-08-08 마이마이 요청) 수업 줄의 [연기] 버튼을 뺐다.
+         이유: [수업 입장] 바로 옆이라 **잘못 누르기 쉽다**. 매니저·학생만 연기하게 해 달라는
+         요청이었는데, 실제 코드는 이미 «요청 → 매니저 승인» 이라 강사가 혼자 옮길 수는 없었다.
+         그래도 오탭 위험은 진짜라 버튼만 여기서 없앤다. 연기·변경 요청 자체는 마이페이지
+         [📚 내 수업] 에 그대로 있다 — 거기서는 어느 수업인지 **일부러 골라야** 해서 오탭이 안 난다.
+         ⛔ openPostpone()·btn-post CSS 는 **일부러 남겨 둔다** — 지금은 아무 데서도 부르지 않는다.
+            「아플 때 알릴 길까지 막지 말라」는 판단이 나오면 이 블록 3줄만 되살리면 되게 하기 위해서다.
+            (버튼을 되살릴 땐 [수업 입장] 과 붙지 않게 줄을 나눌 것 — 오탭이 원래 문제였다) */
       h += '</div></div>';
     }
     box.innerHTML = h;
@@ -1083,6 +1124,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
     var e = box.querySelectorAll('[data-eval]');
     for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
+    // (연기 버튼 제거 2026-08-08 — 위 주석 참고. 버튼을 되살리면 이 2줄도 함께 되살릴 것)
     var pp = box.querySelectorAll('[data-post]');
     for (var m=0;m<pp.length;m++) pp[m].onclick = function(){ openPostpone(list[+this.getAttribute('data-post')]); };
   }

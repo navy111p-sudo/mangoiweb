@@ -260,14 +260,26 @@ export async function handleTeacherApi(
     try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
     catch { try { rows = await env.DB.prepare(sqlPlain).bind(...binds).all<any>(); } catch { rows = { results: [] }; } }
 
-    // ⏰ 입장 시간창 — 학생이 보는 /api/class/sessions/today 와 **같은 값**이어야 한다.
-    //   (2026-08-02) 예전엔 값이 셋으로 갈라져 있었다:
-    //     학생 API 10분 / 강사 마이페이지 30분 / 이 화면 5분.
-    //   그래서 같은 수업인데 한 화면은 문이 열려 있고 다른 화면은 닫혀 있었다.
-    //   → 10분으로 통일. 강사와 학생의 문이 **같은 순간**에 열려야
-    //     "나는 들어와 있는데 상대가 없다" 가 안 생긴다. 마이페이지의 30분 버튼은 제거했다.
-    //   ⚠️ 이 값을 바꾸려면 api-mango.ts 의 OPEN_BEFORE 도 같이 바꿀 것. 한쪽만 바꾸면 다시 어긋난다.
-    const OPEN_BEFORE = 10 * 60 * 1000;
+    /* ⏰ 입장 시간창 — 강사는 학생보다 **먼저(또는 같이)** 열려야 한다.
+       (2026-08-02) 예전엔 값이 셋으로 갈라져 있었다: 학생 10분 / 마이페이지 30분 / 이 화면 5분.
+       그래서 같은 수업인데 한 화면은 열려 있고 다른 화면은 닫혀 있었다 → 10분으로 통일했다.
+
+       ⛔ 그런데 그 «통일» 이 (2026-08-07) 레벨테스트 30분 확대 때 **한쪽만** 적용돼 깨졌다:
+          api-mango.ts(학생)·leveltest-ticket.ts 는 30분인데 이 파일만 10분 —
+          레벨테스트에서 **학생은 들어와 있는데 강사 버튼은 20분 동안 잠긴** 상태가 됐다.
+          처음 오는 학생을 빈 방에 20분 앉혀 두는 것이라 가장 나쁜 쪽으로 어긋났다.
+
+       ✅ 원칙을 «같은 값» 이 아니라 «강사 창 ⊇ 학생 창» 으로 바꾼다.
+          강사가 더 일찍 열리는 건 사고를 만들지 않는다(반대 방향으로만 안전하다).
+          · 정규수업  : 학생 10분 · 강사 30분  ← 마이마이 요청 「교재를 미리 열어 두게 해 달라」
+          · 레벨테스트: 학생 30분 · 강사 30분  ← 학생과 최소 동시. 절대 늦으면 안 된다.
+          학생 쪽 값은 **건드리지 않는다** — 학생 29,000명 전체의 입장 시각이다.
+
+       ⚠️ 학생 창을 늘리려면 api-mango.ts 의 OPEN_BEFORE 를 고칠 것. 그때 이 값이 그보다
+          작아지지 않는지 반드시 확인한다(작아지면 위의 사고가 그대로 재발한다). */
+    const OPEN_BEFORE_STUDENT = 10 * 60 * 1000;              // api-mango.ts 와 같은 값(참고용)
+    const OPEN_BEFORE = 30 * 60 * 1000;                      // 정규수업 — 강사만 먼저
+    const OPEN_BEFORE_LEVELTEST = 30 * 60 * 1000;            // 레벨테스트 — 학생과 동시(api-mango.ts 와 같은 값)
     const LATE_AFTER = 15 * 60 * 1000;   // 종료 15분 후까지 지각 입장 허용
     /* 📅 (2026-08-06 마이마이 제보 "내일 수업이 안 보인다") 이 화면은 «오늘» 만 그린다.
        그래서 내일 잡힌 레벨테스트는 **당일이 되어서야** 처음 보인다. 레벨테스트는
@@ -276,6 +288,24 @@ export async function handleTeacherApi(
        → 오늘 목록은 그대로 두고, «앞으로 7일» 을 따로 모아 함께 내려준다. */
     const UPCOMING_DAYS = 7;
     const dayMs = 86400000;
+
+    /* 🏷️ 수업 유형 판정 — **여기 한 곳에서만** 한다.
+       (2026-08-08 마이마이 요청 「오늘 목록에 정규·체험·레벨테스트가 한 화면에 나오게」)
+       예전엔 레벨테스트 판정식이 이 파일 안에서만 **세 벌 복제**돼 있었다(오늘·앞으로·주간).
+       한 곳만 고치면 화면마다 다른 답이 나오는 구조라, 유형을 늘리기 전에 먼저 합친다.
+
+       ⚠️ level_test 만 source/notes 까지 본다 — 옛 행에 class_type 이 비어 있어서다(기존 동작 그대로).
+          trial·makeup 은 class_type 만 본다: notes 에 「체험」 같은 말이 들어간 **정규수업**이
+          체험으로 잘못 표시되는 쪽이 안 보이는 것보다 나쁘다. */
+    type ClassKind = 'level_test' | 'trial' | 'makeup' | 'regular';
+    const classKindOf = (s: any): ClassKind => {
+      const ct = String(s.class_type || '').toLowerCase();
+      if (ct === 'level_test'
+        || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || ''))) return 'level_test';
+      if (ct === 'trial') return 'trial';
+      if (ct === 'makeup') return 'makeup';
+      return 'regular';
+    };
 
     const seen = new Set<number>();
     for (const s of (rows.results || [])) {
@@ -296,8 +326,8 @@ export async function handleTeacherApi(
           student_name_en: s.student_en || null,
           kind: String(s.user_id || '').toLowerCase() === 'lms' ? 'lms'
               : (String(s.user_id || '').toLowerCase() === 'type_seed' ? 'sample' : 'class'),
-          is_level_test: String(s.class_type || '') === 'level_test'
-            || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
+          class_kind: classKindOf(s),
+          is_level_test: classKindOf(s) === 'level_test',
         });
       }
 
@@ -328,8 +358,8 @@ export async function handleTeacherApi(
           student_name_en: s.student_en || null,
           level: s.level || null,
           textbook: s.textbook || null,
-          is_level_test: String(s.class_type || '') === 'level_test'
-            || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
+          class_kind: classKindOf(s),
+          is_level_test: classKindOf(s) === 'level_test',
         });
         continue;
       }
@@ -339,7 +369,9 @@ export async function handleTeacherApi(
       const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST; // KST 벽시계 → UTC ms
       const dur = Number(s.duration_min) || 30;
       const end_ts = start_ts + dur * 60000;
-      const open_at_ts = start_ts - OPEN_BEFORE;
+      const _kind = classKindOf(s);
+      // 레벨테스트는 학생 창(30분)과 **최소 동시**로 열어야 한다. 위 상수 주석 참고.
+      const open_at_ts = start_ts - (_kind === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE);
       const close_at_ts = end_ts + LATE_AFTER;
       let status: string;
       if (now < open_at_ts) status = 'early';
@@ -375,9 +407,15 @@ export async function handleTeacherApi(
         note: s.notes || null,
         /* 🧪 (2026-08-06) 레벨테스트인지 알려 준다. 강사에겐 응대가 다르다 —
            처음 만나는 학생이고, 보호자가 옆에 있고, 끝나면 평가를 남겨야 한다.
-           예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 방법이 없었다. */
-        is_level_test: String(s.class_type || '') === 'level_test'
-          || /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
+           예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 방법이 없었다.
+           (2026-08-08) 체험·보강도 같은 이유로 구분한다 → class_kind. is_level_test 는
+           이미 쓰는 화면이 있어 그대로 둔다(둘은 항상 같은 판정에서 나온다). */
+        class_kind: _kind,
+        is_level_test: _kind === 'level_test',
+        // 강사 창이 학생보다 얼마나 먼저 열리는지 — 화면에서 「미리 준비」 안내에 쓴다.
+        open_lead_min: Math.round((start_ts - open_at_ts) / 60000),
+        student_open_lead_min: Math.round(
+          (_kind === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE_STUDENT) / 60000),
         start_time: `${pad(hh || 0)}:${pad(mm || 0)}`,
         start_ts, end_ts, open_at_ts, close_at_ts,
         duration_min: dur,

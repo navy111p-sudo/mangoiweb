@@ -1327,6 +1327,14 @@ export async function handleAdminApi(
       try {
         await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES ('late_no_extend','지각 수업 연장 실패 (지각 1분당 차감)','Late lesson not extended (per late min)','per_minute',10,1,2,?)`).bind(now).run();
       } catch {}
+      /*   ③ (2026-08-08) 연기된 수업의 지급률 — 마이마이 요청 「수업료 상태에 연기를 넣어 달라」.
+             ⚠️ 기본값을 **100** 으로 넣는다. 지금까지 연기된 수업은 그냥 «완료» 로 섞여 전액
+             지급돼 왔다 — 여기서 0 으로 시작하면 아무 공지 없이 강사 급여가 깎인다.
+             «보이게» 만드는 것과 «금액을 바꾸는» 것은 다른 결정이라 분리한다.
+             금액 정책은 관리자 화면의 공제 규칙에서 사장님이 정하면 된다. */
+      try {
+        await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES ('postponed_pay_percent','연기된 수업 지급률(%)','Pay rate for postponed lessons (%)','policy_percent',100,1,5,?)`).bind(now).run();
+      } catch {}
       //   ② 당일 피드백 미작성 공제: 정책 변경 -50 → -25. 관리자가 손대지 않은 옛 기본값(50)만 1회 갱신.
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_meta (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)`);
@@ -1378,6 +1386,11 @@ export async function handleAdminApi(
       const rules: any = {};
       (ruleRows.results || []).forEach((r: any) => { rules[r.code] = r; });
       const absentPct = (rules.absent_pay_percent && rules.absent_pay_percent.enabled) ? Math.max(0, Math.min(100, Number(rules.absent_pay_percent.amount) || 0)) : 0;
+      /* 연기 지급률 — 규칙이 아예 없는 DB(옛 배포)에서는 100 으로 본다.
+         «규칙이 없다» 를 «0% 지급» 으로 읽으면, 마이그레이션이 안 돈 순간 급여가 0 이 된다. */
+      const postponePct = rules.postponed_pay_percent
+        ? (rules.postponed_pay_percent.enabled ? Math.max(0, Math.min(100, Number(rules.postponed_pay_percent.amount) || 0)) : 100)
+        : 100;
       const feeNoFb = (rules.no_feedback_day && rules.no_feedback_day.enabled) ? Math.max(0, Number(rules.no_feedback_day.amount) || 0) : 0;
       const feeTNoShow = (rules.teacher_no_show && rules.teacher_no_show.enabled) ? Math.max(0, Number(rules.teacher_no_show.amount) || 0) : 0;
       const feeLateMin = (rules.late_no_extend && rules.late_no_extend.enabled) ? Math.max(0, Number(rules.late_no_extend.amount) || 0) : 0;
@@ -1517,8 +1530,18 @@ export async function handleAdminApi(
 
         const upcoming = dateStr > todayKey || (dateStr === todayKey && String(l.start_time || '00:00') > nowHm);
         const ns = nsByRoom[roomId] || nsBySched[`${l.id}|${dateStr}`] || null;
+        /* ⏸ (2026-08-08) 연기된 수업 — 매니저가 강사 요청을 승인하면
+           class_schedules.status 가 'postponed' 가 된다(위 /schedule-requests/decide).
+           그런데 이 계산은 그 값을 **한 번도 보지 않았다**. 결과가 두 가지로 나빴다:
+             ① 하지도 않은 수업이 '완료' 로 잡혀 전액 지급됐고,
+             ② 그 수업엔 피드백이 있을 리 없어 «당일 피드백 미작성» 공제까지 붙었다.
+                (없던 수업 때문에 강사가 벌점을 받고 있었다)
+           → 상태로 분리한다. ②는 여기서 바로 사라진다(아래 공제는 finish 에만 붙는다).
+              ①의 «얼마를 줄지» 는 정책이라 postponed_pay_percent 로 뺐다(기본 100 = 현행 유지). */
+        const schedStatus = String(l.status || 'active').toLowerCase();
         let st = 'finish';
-        if (upcoming) st = 'upcoming';
+        if (schedStatus === 'postponed') st = 'postponed';
+        else if (upcoming) st = 'upcoming';
         else if (ns && ns.missing_role === 'student') st = 'student_absent';
         else if (ns && ns.missing_role === 'teacher') st = 'teacher_no_show';
 
@@ -1526,6 +1549,7 @@ export async function handleAdminApi(
         let amount = 0;
         if (st === 'finish') amount = base;
         else if (st === 'student_absent') amount = Math.round(base * absentPct / 100);
+        else if (st === 'postponed') amount = Math.round(base * postponePct / 100);
 
         // 당일 피드백 여부 — 완료 수업만 판정. room_id 정확 매칭 → (구 데이터 폴백) 강사명+같은 날
         let fbOk: boolean | null = null;
@@ -1558,7 +1582,7 @@ export async function handleAdminApi(
 
         const agg = perTeacher[l.teacher_id] || (perTeacher[l.teacher_id] = {
           teacher_id: l.teacher_id, lesson_count: 0, upcoming_count: 0, finish_count: 0,
-          absent_count: 0, teacher_no_show_count: 0, no_feedback_count: 0,
+          absent_count: 0, postponed_count: 0, teacher_no_show_count: 0, no_feedback_count: 0,
           total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0,
         });
         if (st === 'upcoming') { agg.upcoming_count++; continue; }
@@ -1566,6 +1590,7 @@ export async function handleAdminApi(
         agg.total_minutes += mins;
         if (st === 'finish') agg.finish_count++;
         if (st === 'student_absent') agg.absent_count++;
+        if (st === 'postponed') agg.postponed_count++;
         if (st === 'teacher_no_show') agg.teacher_no_show_count++;
         if (fbOk === false) agg.no_feedback_count++;
         agg.base_amount += base;
@@ -1574,7 +1599,7 @@ export async function handleAdminApi(
         agg.final_amount = agg.pay_amount - agg.deduction_total;
       }
 
-      return { rules: ruleRows.results || [], levels: lvlRows.results || [], levelMap, absent_pay_percent: absentPct, lessons, perTeacher, teachers: teachers.results || [] };
+      return { rules: ruleRows.results || [], levels: lvlRows.results || [], levelMap, absent_pay_percent: absentPct, postponed_pay_percent: postponePct, lessons, perTeacher, teachers: teachers.results || [] };
     };
 
     // ── GET /api/admin/payroll/calculate?year=&month= — 월별 강사 급여 자동 계산 ──
@@ -1712,13 +1737,14 @@ export async function handleAdminApi(
         (tid && String(l.teacher_id) === String(tid)) || (!tid && tname && l.teacher_name === tname));
 
       // 필터된 수업으로 요약 재계산 (이름만 일치하는 프로필 없는 강사도 지원)
-      const sum: any = { lesson_count: 0, upcoming_count: 0, finish_count: 0, absent_count: 0, teacher_no_show_count: 0, no_feedback_count: 0, total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0 };
+      const sum: any = { lesson_count: 0, upcoming_count: 0, finish_count: 0, absent_count: 0, postponed_count: 0, teacher_no_show_count: 0, no_feedback_count: 0, total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0 };
       for (const l of lessons) {
         if (l.status === 'upcoming') { sum.upcoming_count++; continue; }
         sum.lesson_count++;
         sum.total_minutes += l.duration_minutes;
         if (l.status === 'finish') sum.finish_count++;
         if (l.status === 'student_absent') sum.absent_count++;
+        if (l.status === 'postponed') sum.postponed_count++;
         if (l.status === 'teacher_no_show') sum.teacher_no_show_count++;
         if (l.feedback_ok === false) sum.no_feedback_count++;
         sum.base_amount += l.base_amount;
@@ -1742,6 +1768,7 @@ export async function handleAdminApi(
         rules: (data.rules || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rule_type: r.rule_type, amount: r.amount, enabled: r.enabled })),
         levels: (data.levels || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rate_per_20min: r.rate_per_20min })),
         absent_pay_percent: data.absent_pay_percent,
+        postponed_pay_percent: data.postponed_pay_percent,
         lessons,
       });
     }
@@ -4043,6 +4070,47 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           }
         }
       }
+
+      /* 🚫 (2026-08-08 마이마이 요청) 「강사가 언더타임이라 수업을 못 할 때 매니저가 그 시간을
+         막을 수 있으면 좋겠다」 — 막는 기능(teacher_unavailability)은 이미 있었는데
+         **주간 캘린더가 그걸 안 읽어서**, 막아 놓고도 캘린더에는 빈칸으로 보였다.
+         그래서 매니저는 자기가 막은 시간에 또 수업을 넣었다. 여기서 같이 내려준다.
+
+         ⚠️ class_schedules 와 **id 가 겹친다**(둘 다 1,2,3…). 프런트가 드래그 이동에서
+            id 로 PATCH 를 쏘므로 그대로 두면 «휴식시간을 드래그 → 엉뚱한 수업이 이동» 한다.
+            → id 는 넘기지 않고 source:'unavailability' 로 못박아 프런트가 잠그게 한다. */
+      try {
+        const tu: any = await env.DB.prepare(
+          `SELECT id, teacher_id, teacher_name, kind, start_date, end_date, day_of_week, start_time, end_time, reason FROM teacher_unavailability`
+        ).all();
+        const dowIdxToKey = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        for (const b of (tu.results || [])) {
+          if (b.teacher_id == null || b.teacher_id === '') continue;
+          const tnum2 = Number(b.teacher_id);
+          const st = String(b.start_time || '') || '00:00';
+          const et = String(b.end_time || '') || '23:59';
+          const mins = (t: string) => { const m = String(t).match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
+          const dur = Math.max(10, mins(et) - mins(st));
+          const base2 = {
+            block_id: b.id,                 // 삭제용. id 로는 넘기지 않는다(위 주석 참고)
+            source: 'unavailability',
+            teacher_id: Number.isFinite(tnum2) ? tnum2 : b.teacher_id,
+            hour: hourOf(st), start_time: st, end_time: et,
+            type: 'blocked', students: [], duration_min: dur,
+            note: b.reason || '', reason: b.reason || '',
+          };
+          if (String(b.kind) === 'weekly') {
+            const want2 = dowIdxToKey[Number(b.day_of_week)] || '';
+            if (!want2) continue;
+            for (const d of weekDates) if (dateToDow[d] === want2) items.push({ ...base2, date: d, recurring: true });
+          } else {
+            const s0 = String(b.start_date || '').slice(0, 10);
+            const e0 = String(b.end_date || b.start_date || '').slice(0, 10);
+            if (!s0) continue;
+            for (const d of weekDates) if (d >= s0 && d <= (e0 || s0)) items.push({ ...base2, date: d, recurring: false });
+          }
+        }
+      } catch { /* 휴식시간 조회 실패가 수업 캘린더 전체를 막지 않게 한다 */ }
 
       return json({ ok: true, week: weekStartISO, count: items.length, items, schedules: items });
     }

@@ -113,10 +113,20 @@ check('결과를 응답에 실어 화면이 확인할 수 있게 한다', /teach
 
 console.log('\n[ ⑥ 강사 페이지에 «레벨테스트» 로 뜬다 ]');
 check('서버가 class_type 을 읽어온다', /cs\.class_type/.test(tapi));
-check('is_level_test 를 내려준다', /is_level_test: String\(s\.class_type \|\| ''\) === 'level_test'/.test(tapi));
+/* 🔁 (2026-08-08) 판정식이 이 파일 안에 **세 벌 복제**돼 있던 걸 classKindOf 한 곳으로 합쳤다.
+   그래서 아래 검사는 «그 글자가 있는지» 가 아니라 «판정이 한 곳인지» 를 본다.
+   글자를 그대로 박아 두면, 옳은 리팩터링이 하네스를 깨서 되돌리게 만든다. */
+check('레벨테스트 판정 함수가 있다', /const classKindOf = \(s: any\): ClassKind/.test(tapi));
+check('is_level_test 를 내려준다', /is_level_test: (_kind|classKindOf\(s\)) === 'level_test'/.test(tapi));
 check('source·notes 로도 한 번 더 본다 (옛 데이터 구제)',
   /leveltest\|level_test\|level-test\/i\.test\(String\(s\.source/.test(tapi));
-check('강사 화면이 배지를 그린다', /c\.is_level_test \? ' <span class="pill p-lt">/.test(thtml));
+check('⛔ 판정식이 다시 복제되지 않았다 (한 곳에서만 판정)',
+  (tapi.match(/=== 'level_test'\s*\n?\s*\|\|\s*\/leveltest/g) || []).length <= 1);
+check('강사 화면이 배지를 그린다', /kindPill\(c\)/.test(thtml) && /function kindPill\(c\)/.test(thtml));
+check('배지가 유형별로 갈린다 (정규·체험·보강·레벨테스트)',
+  /'trial'\s*\)\s*return[\s\S]{0,120}p-trial/.test(thtml) && /'makeup'\s*\)\s*return[\s\S]{0,120}p-makeup/.test(thtml));
+check('옛 응답(캐시)에도 안 깨진다 — is_level_test 폴백',
+  /is_level_test\) \? 'level_test' : 'regular'/.test(thtml));
 check('배지가 한/영 둘 다', /T\('LEVEL TEST','레벨테스트'\)/.test(thtml));
 check('배지 색이 정의돼 있다', /\.pill\.p-lt\{background:#0d9488/.test(thtml));
 
@@ -128,7 +138,7 @@ check('오늘 이후만 담는다', /d <= todayStr\) continue/.test(tapi));
 check('7일로 끊는다 (무한정 쌓이지 않게)', /UPCOMING_DAYS \* dayMs/.test(tapi));
 check('⛔ 반복 수업은 안 넣는다 (넣으면 그 강사 시간표로 가득 찬다)',
   /if \(!s\.scheduled_date\) continue;/.test(tapi));
-check('레벨테스트 표시가 함께 실린다', /is_level_test: String\(s\.class_type \|\| ''\) === 'level_test'[\s\S]{0,400}?\}\);\s*\n\s*continue;/.test(tapi));
+check('레벨테스트 표시가 함께 실린다', /is_level_test: classKindOf\(s\) === 'level_test',[\s\S]{0,120}?\}\);\s*\n\s*continue;/.test(tapi));
 check('화면에 «다가오는 수업» 카드가 있다', /id="c-upcoming"/.test(thtml));
 check('그리는 함수가 있다', /function renderUpcoming\(list\)/.test(thtml));
 check('실제로 «불린다» (정의만 하면 화면은 그대로다)', /renderUpcoming\(d\.upcoming \|\| \[\]\)/.test(thtml));
