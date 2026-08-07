@@ -16,7 +16,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
-const HTML = readFileSync(join(HERE, '../cloudflare-deploy/public/index.html'), 'utf8');
+/* 🌐 배포 뒤에는 «라이브가 내려주는 그 HTML» 에 같은 검사를 돌린다.
+   저장소가 옳아도 CDN 에 구버전이 남아 있으면 사용자가 보는 화면은 옛것이다.
+     HERO_LT_HTML=<내려받은파일> node test-harness/hero_leveltest_card_harness.mjs */
+const SRC_PATH = process.env.HERO_LT_HTML || join(HERE, '../cloudflare-deploy/public/index.html');
+const HTML = readFileSync(SRC_PATH, 'utf8');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
