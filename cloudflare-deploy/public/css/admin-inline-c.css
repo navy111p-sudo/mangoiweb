@@ -8477,3 +8477,43 @@ html[data-admin-theme="ivory"] .mtw-chip.on:hover {
 /* ── 선택형 버튼은 «누를 수 있음»이 보이게 살짝 도드라지는 테두리 ── */
 html[data-admin-theme="ivory"] .mtw-choice,
 html[data-admin-theme="ivory"] .mtw-chip { transition: background .12s, color .12s, border-color .12s; }
+
+/* ── 2차: 클래스 «없는» 버튼 + 활성 표시가 확인된 탭·페이지 버튼 ──────────────
+   1차 뒤 실측: 아직 291개가 같은 파랑. 뜯어보니
+     158개 = class 속성이 «아예 없는» 버튼 (📥 CSV 다운로드 · 🔄 새로고침 … 55개 카드에 산재)
+      87개 = .primary (각 카드의 주 동작) → 파랑이 맞다. 그대로 둔다.
+      나머지 = 탭·필터·기간·페이지 등 «선택형» + 개별 액션
+
+   🪤 1차에서 button:not([class]) 로 이미 잡았는데 안 먹었다. 선택자가 (0,3,2) 라
+      카드별 규칙에 밀린 것. 클래스가 없는 버튼엔 «항상 참»인 :not() 을 덧붙여
+      우선순위만 올린다 — 대상은 그대로, 힘만 세진다.
+   ✅ class 속성이 없다 = 클래스로 «의도한 색»을 준 적이 없다는 뜻 → 흰 버튼으로 바꿔도
+      1차에서 겪은 «배경만 이기고 글자만 지는 반쪽 적용»이 생길 수 없다. 그래서 안전하다.
+   ⚠️ 활성 표시 클래스를 «실측으로 확인한» 것만 선택형으로 처리한다
+      (.pm-page-btn → .active, .ns-tab → .is-active). 나머지 탭·필터는 활성 클래스가
+      런타임에 붙어 정적 DOM 에서 확인되지 않아 이번엔 건드리지 않는다.
+      모르는 채로 흰색을 칠하면 «선택된 것이 사라지는» 더 나쁜 결과가 된다. */
+
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] button:not([class]):not(.primary):not(.on):not(.active):not(.is-active):not([class*="danger"]):not([class*="del"]):not([class*="remove"]),
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .pm-page-btn:not(.active):not(.on):not(.primary):not([class*="danger"]):not([class*="del"]),
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .ns-tab:not(.is-active):not(.active):not(.on):not(.primary):not([class*="danger"]) {
+  background: #ffffff !important;
+  color: #344054 !important;
+  border: 1px solid #dde3ea !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] button:not([class]):not(.primary):not(.on):not(.active):not(.is-active):not([class*="danger"]):not([class*="del"]):not([class*="remove"]):hover,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .pm-page-btn:not(.active):not(.on):not(.primary):not([class*="danger"]):not([class*="del"]):hover,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .ns-tab:not(.is-active):not(.active):not(.on):not(.primary):not([class*="danger"]):hover {
+  border-color: #93b4f0 !important;
+  background: #f5f9ff !important;
+  color: #1d4ed8 !important;
+}
+/* 선택된 탭·페이지는 채운 파랑 (선택 = 상태) */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .pm-page-btn.active,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .ns-tab.is-active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid #1d4ed8 !important;
+}
