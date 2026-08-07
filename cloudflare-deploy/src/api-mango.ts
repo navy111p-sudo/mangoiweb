@@ -1711,14 +1711,22 @@ export async function handleMangoApi(
       const kv = (env as any).SESSION_STATE;
       const map: Record<string, string> = {};
       const need: string[] = [];
-      for (const t of texts) {
-        let cached: string | null = null;
-        if (kv) { try { cached = await kv.get('i18n:en:' + t); } catch {} }
-        if (cached != null) map[t] = cached; else need.push(t);
+      // ⚡ (2026-08-08) KV 조회를 순차 await 로 돌던 것을 병렬로 — 50개면 왕복이 50번 쌓여
+      //   전부 캐시 적중이어도 1.5초 넘게 걸렸다(강사 제보: "EN 누르면 한참 기다린다").
+      const cachedList = await Promise.all(texts.map(async (t) => {
+        if (!kv) return null;
+        try { return await kv.get('i18n:en:' + t) as string | null; } catch { return null; }
+      }));
+      for (let i = 0; i < texts.length; i++) {
+        if (cachedList[i] != null) map[texts[i]] = cachedList[i] as string; else need.push(texts[i]);
       }
+      const kvPuts: Promise<any>[] = [];
       if (need.length && ai) {
-        for (let i = 0; i < need.length; i += 20) {
-          const chunk = need.slice(i, i + 20);
+        // ⚡ (2026-08-08) 20개씩 끊은 청크를 순차로 돌던 것을 병렬로 — 50개 요청 하나가
+        //   AI 왕복 3번을 줄줄이 기다려 실측 16.2초였다. 병렬이면 가장 느린 1번으로 줄어든다.
+        const aiChunks: string[][] = [];
+        for (let i = 0; i < need.length; i += 20) aiChunks.push(need.slice(i, i + 20));
+        await Promise.all(aiChunks.map(async (chunk) => {
           // ⚠️ llama 는 "JSON 배열로만" 지시를 자주 무시 → 번호 줄 형식이 훨씬 안정적.
           //    (JSON 파싱 실패 시 원문을 그대로 돌려줘 자동번역이 통째로 무력화되던 버그 수정 2026-07-21)
           const numbered = chunk.map((s, k) => (k + 1) + '. ' + s).join('\n');
@@ -1762,10 +1770,15 @@ ${numbered}`;
             let en = (typeof got[j] === 'string' && got[j].trim()) ? got[j].trim() : '';
             if (!en || /[가-힣]/.test(en)) en = chunk[j];   // 번역 실패(빈값·한글 잔존) → 원문 유지, 캐시 안 함
             map[chunk[j]] = en;
-            if (kv && en !== chunk[j]) { try { await kv.put('i18n:en:' + chunk[j], en, { expirationTtl: 60 * 60 * 24 * 180 }); } catch { /* 캐시 실패 무시 */ } }
+            // ⚡ 캐시 쓰기는 응답을 붙잡지 않는다 — 아래 waitUntil 로 넘긴다.
+            if (kv && en !== chunk[j]) kvPuts.push(kv.put('i18n:en:' + chunk[j], en, { expirationTtl: 60 * 60 * 24 * 180 }).catch(() => {}));
           }
-        }
+        }));
       } else if (need.length) { for (const c of need) map[c] = c; }
+      if (kvPuts.length) {
+        const allPuts = Promise.all(kvPuts).catch(() => {});
+        if (ctx && ctx.waitUntil) ctx.waitUntil(allPuts); else await allPuts;
+      }
       return json({ ok: true, map });
     }
 

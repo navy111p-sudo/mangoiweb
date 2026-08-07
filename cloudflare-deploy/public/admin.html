@@ -158,7 +158,7 @@
 <script src="/js/adm-lang-boot.js?v=6"></script>
 <!-- 🌐 EN 스위퍼 — 머리에서 먼저 받아 두어야(defer 중 첫 실행) 한글이 보이기 전에 영어로 바뀐다.
      ⚠️ 문서 끝(옛 위치)에 두면 외부 스크립트 70여 개 뒤에 실행돼 해외(필리핀) 회선에서 수십 초 걸렸다. -->
-<script defer src="/js/i18n-sweep.js?v=19"></script>
+<script defer src="/js/i18n-sweep.js?v=21"></script>
 
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
 <script src="/js/adm-scope-guard.js?v=1"></script>
@@ -10682,6 +10682,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         var cell = cells[idx];
         cell.classList.add('ph122-clickable');
         if (idx === 3) cell.classList.add('ph122-name');
+        // 🚫 (2026-08-08) translate="no" — 이 title 은 학생마다 문구가 달라서(이름·아이디 포함)
+        //   EN 모드에서 «학생 수만큼» 서버 번역기를 부르고 그 이름이 캐시에 180일 남았다.
+        //   번역할 이유도 없으므로 스윕이 아예 손대지 않게 표시한다.
+        cell.setAttribute('translate', 'no');
         cell.setAttribute('title', '🔗 클릭하면 ' + studentName + ' (' + studentId + ') 학생 상세보기 새 탭으로 열림');
         cell.addEventListener('click', function(e){
           e.stopPropagation();

@@ -3160,6 +3160,38 @@
   var SKIP=/^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|CODE|PRE)$/;
   var records=[];
 
+  // 🧊 (2026-08-08) 미리 구워 둔 번역 사전 — EN 일 때만 한 번 받아온다.
+  //   왜 필요했나: 사전(DICT)에 없는 한국어는 전부 클릭 시점에 서버 AI 로 번역하고 있었다.
+  //   실측(2026-08-08) — admin.html 은 미번역 1,126개 → 병렬 요청 23개, 요청 하나가 콜드 16.2초.
+  //   해외(필리핀) 강사가 "EN 누르면 5분 걸린다"고 제보한 것이 이것이다.
+  //   이 파일에 직접 넣지 않고 따로 받는 이유: 한국어 학생(대다수)은 EN 을 누르지 않는데
+  //   모든 페이지가 수십 KB 를 더 내려받게 되기 때문. EN 일 때만 1회, 그 뒤엔 CDN 캐시.
+  var BAKED = {};
+  var bakedState = 0;          // 0=안받음 1=받는중 2=끝(성공/실패 무관)
+  var bakedWaiters = [];
+  function loadBaked(cb){
+    if (bakedState === 2) { cb(); return; }
+    bakedWaiters.push(cb);
+    if (bakedState === 1) return;
+    bakedState = 1;
+    var settled = false;
+    function finish(){
+      if (settled) return; settled = true;
+      bakedState = 2;
+      var list = bakedWaiters; bakedWaiters = [];
+      for (var i = 0; i < list.length; i++) { try { list[i](); } catch(e){} }
+    }
+    // 네트워크가 느리거나 파일이 없어도 화면이 인질이 되면 안 된다 → 3초 뒤엔 그냥 진행.
+    setTimeout(finish, 3000);
+    try {
+      fetch('/js/i18n-en-baked.json?v=1')
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(j){ if (j) BAKED = j; })
+        .catch(function(){})
+        .then(finish);
+    } catch(e){ finish(); }
+  }
+
   // 🌐 자동번역 폴백 — 사전에 없는 한국어는 서버 AI로 번역 후 localStorage 캐시
   var AUTO = {};
   try { AUTO = JSON.parse(localStorage.getItem('mangoi_i18n_en') || '{}') || {}; } catch(e) { AUTO = {}; }
@@ -3167,9 +3199,16 @@
   var TRIED = {};       // 세션 내 1회만 시도 (무한루프 방지)
   var flushTimer = null;
   function hasKo(s){ return /[가-힣]/.test(s); }
+  // 📊 (2026-08-08) 번역할 것이 없는 «데이터» 는 서버로 보내지 않는다.
+  //   "247건" "₩23,026만" "0명" 같은 표 숫자는 번역해도 그대로인데, 값이 바뀔 때마다
+  //   새 문자열이라 캐시가 영원히 빗나간다 — 화면을 볼 때마다 AI 를 부르는 셈이었다.
+  function looksLikeData(s){
+    return /^[\d,.\s]+$/.test(s) || /^₩[\d,]+(만|억)?$/.test(s) || /^\d+(건|명|개|회|원|점)$/.test(s);
+  }
   function maybeQueue(k){
     if (TRIED[k]) return;
     if (!hasKo(k) || k.length > 200) return;
+    if (looksLikeData(k)) return;
     TRIED[k] = true; MISS[k] = true; scheduleFlush();
   }
   function scheduleFlush(){ if (flushTimer) return; flushTimer = setTimeout(flushMiss, 250); }
@@ -3182,11 +3221,22 @@
     (async function(){
       var chunks = [];
       for (var i = 0; i < items.length; i += 50) chunks.push(items.slice(i, i + 50));
-      var results = await Promise.all(chunks.map(function(chunk){
-        return fetch('/api/i18n/translate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ texts: chunk, target: 'en' }) })
-          .then(function(x){ return x.json(); })
-          .catch(function(){ return null; });
-      }));
+      // ⚡ (2026-08-08) 동시 요청 수 제한 — 예전엔 청크를 전부 한꺼번에 던졌다.
+      //   미번역이 많은 화면(admin.html: 1,126개 → 요청 23개)에서 서버 AI 가 밀려
+      //   서로를 기다리다 몇 분씩 걸렸다. 4개씩 흘려보내면 총 시간이 오히려 짧다.
+      var results = new Array(chunks.length);
+      var cursor = 0;
+      async function worker(){
+        while (cursor < chunks.length){
+          var my = cursor++;
+          results[my] = await fetch('/api/i18n/translate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ texts: chunks[my], target: 'en' }) })
+            .then(function(x){ return x.json(); })
+            .catch(function(){ return null; });
+        }
+      }
+      var lanes = [];
+      for (var w = 0; w < Math.min(4, chunks.length); w++) lanes.push(worker());
+      await Promise.all(lanes);
       var changed = false;
       for (var c = 0; c < results.length; c++){
         var r = results[c];
@@ -3216,6 +3266,8 @@
       for(var j=0;j<REPL.length;j++){ var nr=r.split(REPL[j][0]).join(REPL[j][1]); if(nr!==r){ r=nr; hit=true; } }
       if(hit) v=r;
     }
+    // 구워 둔 사전이 localStorage 캐시보다 우선 — 손으로 고친 번역이 옛 캐시에 밀리지 않게.
+    if(v===undefined && BAKED[k]!==undefined) v=BAKED[k];
     if(v===undefined && AUTO[k]!==undefined) v=AUTO[k];
     if(v===undefined){ maybeQueue(k); return null; }
     return t.replace(k, v);
@@ -3235,8 +3287,15 @@
   //   sweep 이 이런 요소까지 EN 으로 치환하면, 사이드바가 다시 그려질 때 원문 복원이
   //   어긋나 한국어 모드인데 영어로 굳는 사고가 났다(강사 제보: 사이드바 자식 메뉴 영어 혼용).
   //   → i18n 관리 요소는 sweep 이 손대지 않고 applyLang 에 맡긴다.
+  //   ➕ (2026-08-08) 표준 옵트아웃 translate="no" / class="notranslate" 도 함께 존중한다.
+  //      학생 이름·아이디처럼 «번역하면 안 되는» 표 내용에 이 표시를 달면 스윕이 건너뛰고,
+  //      서버 번역기로도 보내지 않는다.
   function _i18nManaged(el){
-    return !!(el && el.hasAttribute && (el.hasAttribute('data-ko') || el.hasAttribute('data-en')));
+    if (!el || !el.hasAttribute) return false;
+    if (el.hasAttribute('data-ko') || el.hasAttribute('data-en')) return true;
+    if (el.getAttribute('translate') === 'no') return true;
+    if (el.classList && el.classList.contains('notranslate')) return true;
+    return false;
   }
   function walk(root){
     if(!root) return;
@@ -3292,10 +3351,11 @@
   }
 
   function start(){
-    if(isEn()) sweep();
     // 🌐 (2026-07-22) 첫 스윕이 끝났으니 본문 표시 허용 — admin.html 이 영어 부팅 시
     //   한글이 잠깐 보이지 않도록 body 를 감춰 두고 여기서 푼다(안전장치 타이머도 있음).
-    try { if (window.__admEnReady) window.__admEnReady(); } catch(e){}
+    function unhide(){ try { if (window.__admEnReady) window.__admEnReady(); } catch(e){} }
+    if(isEn()) loadBaked(function(){ sweep(); unhide(); });
+    else unhide();
     // 동적 노드 감시
     //  ⚡ (2026-07-22, 강사 피드백 #2 "왼쪽에서 옵션을 고르면 버벅인다")
     //     예전엔 옵저버 콜백 '안에서' 추가된 subtree 를 그 자리에서 walk() 했다.
@@ -3335,14 +3395,14 @@
         var l=lang();
         if(l===last) return;
         last=l;
-        if(l==='en') sweep(); else restore();
+        if(l==='en') loadBaked(function(){ sweep(); }); else restore();
       }).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
     }catch(e){}
     // 다른 탭/페이지에서 언어 변경
     try{
       window.addEventListener('storage', function(ev){
         if(ev.key!=='mangoi_lang') return;
-        if(ev.newValue==='en') sweep(); else restore();
+        if(ev.newValue==='en') loadBaked(function(){ sweep(); }); else restore();
       });
     }catch(e){}
     console.log('[i18n-sweep] 활성 — '+Object.keys(DICT).length+' entries, lang='+lang());
