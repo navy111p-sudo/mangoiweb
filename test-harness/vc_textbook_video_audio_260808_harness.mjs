@@ -73,7 +73,7 @@ console.log('\n[ ② 교재를 열면 «교재» 가 보여야 한다 — 영상
   check('🔴 영상 탭으로 전환하지 않는다 (교재가 화면을 지킨다)', !r.tabs.includes('video'), { tabs: r.tabs });
   check('🔴 자동재생하지 않는다 — mp4', !/autoplay/.test(r.stageHtml), r.stageHtml.slice(0, 120));
   check('⚡ 대기 상태에선 preload 도 안 한다 (필리핀 회선)', /preload="none"/.test(r.stageHtml));
-  check('영상이 있다는 것은 알려준다', r.toasts.some((t) => /영상이 준비/.test(t)), r.toasts);
+  check('영상이 있다는 것은 알려준다', r.toasts.some((t) => /영상이 준비|video for this book is ready/.test(t)), r.toasts);
   check('영상 자체는 준비된다 (기능을 지우지 않았다)', /<video/.test(r.stageHtml));
 }
 {
@@ -87,7 +87,17 @@ console.log('\n[ ② 교재를 열면 «교재» 가 보여야 한다 — 영상
   check('일부러 열 때(autoOpen)는 예전대로 영상 탭 + 자동재생', r.tabs.includes('video') && /autoplay/.test(r.stageHtml),
     { tabs: r.tabs });
   check('그때는 «소리 켜기» 버튼이 뜬다 (음소거 자동재생이라)', /ml-un/.test(r.stageHtml));
-  check('그때는 안내 토스트를 띄우지 않는다 (이미 보고 있다)', !r.toasts.some((t) => /영상이 준비/.test(t)), r.toasts);
+  check('그때는 안내 토스트를 띄우지 않는다 (이미 보고 있다)', !r.toasts.some((t) => /영상이 준비|video for this book is ready/.test(t)), r.toasts);
+}
+
+console.log('\n[ 🌐 강사가 보는 안내는 한/영 둘 다 (강사 다수 필리핀 — 상시 지시) ]');
+/* 이 토스트를 보는 사람은 «교재를 고른 강사» 다. 한국어만 쓰면 못 읽는다.
+   (학생용 「선생님이 교재를 열었어요」는 학생이 한국인이라 기존 관례대로 한국어) */
+{
+  const lv = html.slice(html.indexOf('window.mangoiPlayLessonVideo'));
+  check('영어 문구가 실제로 들어 있다', /video for this book is ready/.test(lv));
+  check('언어 판정을 실제로 한다 (문구만 넣고 안 쓰면 소용없다)',
+    /getLang[\s\S]{0,160}mangoi_lang/.test(lv) && /_en\s*\?/.test(lv));
 }
 
 console.log('\n[ ② 교재 선택부가 화면을 뺏지 않게 부른다 ]');
