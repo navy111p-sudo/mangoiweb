@@ -138,19 +138,31 @@ check('🔴 그래도 «수업 시간» 판정은 그대로다 (join_open=false 
 check('🔴 open_at_ts 는 예전 규칙(시작 30분 전) 그대로 — 카운트다운이 흔들리지 않는다',
   lateC.start_ts - lateC.open_at_ts === 30 * 60 * 1000, (lateC.start_ts - lateC.open_at_ts) / 60000);
 
-// ② 이미 끝난 수업(00:05 시작·20분) — 「Done 이라 문이 잠긴다」던 그 상태
-const done = await portal('00:05');
-const doneC = (done.classes || [])[0] || {};
+/* ② 이미 끝난 수업 — 「Done 이라 문이 잠긴다」던 그 상태.
+   ⚠️ 예전엔 '00:05' 로 못 박았다가 **자정 직후 실행에서 거짓 실패**했다
+      (00:38 에 돌리면 00:05 수업은 00:40 까지 아직 live 다 — 코드는 멀쩡한데 검사만 깨진다).
+   → «한 시간 전» 을 계산해서 쓴다. 그런 시각이 아예 없는 때(자정~01:00)는
+     통과로 세지 않고 **건너뛴다고 말한다**(조용한 통과 금지). */
+const kMinNow = kNow.getUTCHours() * 60 + kNow.getUTCMinutes();
+const PAST_MIN = kMinNow - 60;                     // 60분 전 = 20분 수업 + 15분 지각창을 확실히 넘김
+const done = PAST_MIN >= 0 ? await portal(`${pad(Math.floor(PAST_MIN / 60))}:${pad(PAST_MIN % 60)}`) : null;
+const doneC = done ? ((done.classes || [])[0] || {}) : {};
 const nowMs = Date.now();
-check('끝난 수업도 can_enter = true (연장·마무리 — 요청 ⑪)',
-  doneC.can_enter === true && nowMs > doneC.close_at_ts, { can_enter: doneC.can_enter, closed: nowMs > doneC.close_at_ts });
-check('🔴 «끝났다» 는 사실 자체는 그대로 남는다 (status=done → 평가 버튼이 뜬다)',
-  doneC.status === 'done', doneC.status);
+if (!done) {
+  console.log('  ⏭ 지금은 KST 자정 직후라 «이미 끝난 오늘 수업» 을 만들 수 없어 2건을 건너뜁니다(실패 아님).');
+} else {
+  check('끝난 수업도 can_enter = true (연장·마무리 — 요청 ⑪)',
+    doneC.can_enter === true && nowMs > doneC.close_at_ts, { can_enter: doneC.can_enter, closed: nowMs > doneC.close_at_ts });
+  check('🔴 «끝났다» 는 사실 자체는 그대로 남는다 (status=done → 평가 버튼이 뜬다)',
+    doneC.status === 'done', doneC.status);
+}
+const anyResp = done || late;                      // 자정 직후엔 위의 «한참 뒤» 응답으로 확인한다
+const anyC = done ? doneC : lateC;
 check('주간 스케줄 응답 모양이 그대로다 ({start,end,days[7]})',
-  !!done.week && Array.isArray(done.week.days) && done.week.days.length === 7,
-  done.week && Object.keys(done.week));
+  !!anyResp.week && Array.isArray(anyResp.week.days) && anyResp.week.days.length === 7,
+  anyResp.week && Object.keys(anyResp.week));
 check('🔴 학생 입장 창 값(student_open_lead_min)이 그대로 내려온다',
-  doneC.student_open_lead_min === 10, doneC.student_open_lead_min);
+  anyC.student_open_lead_min === 10, anyC.student_open_lead_min);
 
 // ═══════════════════════════════════════════════════════════════════
 // ② 연기 지급률 — 「언제 연기했나」로 금액이 갈린다
