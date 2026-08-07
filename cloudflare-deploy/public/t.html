@@ -44,6 +44,14 @@
   .btn{display:block;text-align:center;text-decoration:none;padding:13px 10px;border-radius:11px;
        background:rgba(99,102,241,.16);border:1px solid rgba(129,140,248,.4);color:#c7d2fe;
        font-weight:700;font-size:13.5px}
+  /* 🔔 알림 받기 — 수업 «전» 에는 이게 가장 중요한 행동이다. 폰이 대신 기억해 주면
+     문자를 놓쳐도 안 놓친다. 그래서 작은 버튼 줄에 섞지 않고 한 줄을 통째로 준다.
+     ⚠️ 초록 입장 버튼과 동시에 뜨지 않는다(시작 전에만) — 그래서 색을 세게 써도 안 부딪힌다. */
+  .remind{display:block;text-decoration:none;padding:16px 16px;border-radius:14px;margin-bottom:10px;
+          background:linear-gradient(135deg,rgba(251,191,36,.20),rgba(245,158,11,.12));
+          border:1.5px solid rgba(251,191,36,.55);box-shadow:0 8px 24px -12px rgba(245,158,11,.6)}
+  .remind b{display:block;color:#fde68a;font-size:16px;font-weight:800;margin-bottom:4px}
+  .remind span{display:block;color:#cbb994;font-size:12.5px;line-height:1.6}
   .muted{font-size:12px;color:#6b7a99;line-height:1.7;text-align:center;margin-top:18px}
   .err{background:rgba(239,68,68,.1);border-color:rgba(248,113,113,.4);color:#fecaca}
   a.help{color:#a5b4fc;font-weight:700;text-decoration:none}
@@ -182,10 +190,27 @@
     if (r.next_class_guide) h += '<div class="sub" style="margin-top:10px">📘 ' + esc(r.next_class_guide) + '</div>';
     h += '</div>';
 
-    // ── ② 미리 해두면 좋은 것 ──
+    /* ── ② 🔔 알림 받기 — 수업 «전» 이면 이게 제일 중요한 행동이다 ──
+       [왜] 문자는 무음모드·스팸함이면 그냥 놓친다. 캘린더 알람은 잠금화면에 뜨고 비용도 0원인데,
+            그동안 「📆 캘린더에 추가」가 「장비 점검」과 같은 크기로 나란히 있어 아무도 안 눌렀다.
+            누르는 이유(=알림)를 제목으로 올리고, 몇 번 언제 울리는지 그 자리에서 말해 준다.
+       ⚠️ 시작 전에만 보여준다 — 이미 들어갈 수 있거나 끝난 뒤엔 누를 이유가 없다. */
+    var beforeStart = !d.join_open && d.start_ts && d.start_ts > d.now;
+    var openMinB = (d.open_at_ts && d.start_ts) ? Math.round((d.start_ts - d.open_at_ts) / 60000) : 10;
+    if (beforeStart && d.ics_url){
+      h += '<a class="remind" href="' + esc(d.ics_url) + '">'
+        +   '<b>🔔 ' + t('알림 받기','Get reminders') + '</b>'
+        +   '<span>' + t('하루 전과 입장이 열리는 ' + openMinB + '분 전, 두 번 울려드려요 (폰 캘린더에 넣어 둡니다)',
+                         'Two alerts — a day before, and ' + openMinB + ' minutes before when joining opens (adds to your phone calendar)') + '</span>'
+        +  '</a>';
+    }
+
+    // ── ③ 미리 해두면 좋은 것 ──
     h += '<div class="btns">'
       +  '<a class="btn" href="' + esc(d.precheck_url) + '" target="_blank" rel="noopener">🎧 ' + t('장비 점검','Device check') + '</a>'
-      +  (d.ics_url ? '<a class="btn" href="' + esc(d.ics_url) + '">📆 ' + t('캘린더에 추가','Add to calendar') + '</a>' : '')
+      /* ⛔ 캘린더는 위 「🔔 알림 받기」 하나로만 낸다. 작은 줄에 또 두면
+         ①시작 전엔 같은 것이 두 번 ②이미 들어갈 수 있거나 끝난 뒤엔 «누를 이유가 없는 버튼» 이 된다.
+         (실제로 종료된 수업 화면에 「📆 캘린더에 추가」가 남아 있었다) */
       /* 🔗 다른 기기에서도 보려면 «이 링크» 만 옮기면 된다. 계정이 없는 신청자에게는
          링크가 곧 신원이라, 링크를 옮기는 것 자체가 «이어서 보기» 다.
          (카톡 나에게 보내기·메모에 붙여넣고 PC 에서 열면 그 PC 홈에도 카드가 뜬다)
