@@ -69,6 +69,8 @@
 | i18n 사전 | 전체 문자열 일치 방식입니다. 라벨에서 이모지만 떼도 번역이 깨집니다 |
 | TTS 검증 | Cloudflare발 구글 TTS(한국어·중국어)는 **깨진 음성**이 나옵니다. 서버 TTS는 영어만 정상 |
 | 셸에서 한글 POST | UTF-8 파일로 저장해서 보내세요. 인라인 한글은 깨집니다 |
+| 카카오 상담 링크 | 주소 뒤에 **`/chat` 을 붙이지 마세요.** `pf.kakao.com/<id>/chat` 은 **비로그인 PC 를 `accounts.kakao.com` 로그인 화면으로 튕깁니다.** 채널 홈 `pf.kakao.com/_xlqnSxd` 은 로그인 없이 열리고 그 안에 채팅·챗봇·전화·길찾기가 다 있습니다 |
+| `window.open` 이 안 열림 | 카톡·문자앱 **인앱 브라우저는 새 창을 못 엽니다.** 예외를 던지지 않고 **null 만 돌려주므로 `try/catch` 로는 못 잡습니다.** 반환값이 비면 `location.href` 로 같은 창에서 여세요 |
 | 새 API 추가 | `src/index.ts` 의 라우팅 + 인증 게이트에 **반드시 등록**해야 동작합니다 |
 | 브라우저 애니메이션 | 백그라운드 탭·저전력 모드에서 CSS transition과 rAF가 멈춥니다. `opacity:0` 으로 시작하는 요소는 영영 안 보일 수 있습니다 |
 | hover 때 글자가 움직임 | `transform` 만 찾으면 못 찾습니다. 사이드바 `.ph85-sub` 는 **별점과 말풍선이 같은 `::after` 를 나눠 써서**, hover 시 별점이 `absolute` 로 흐름에서 빠지고 그 순간 `justify-content:space-between` 이 라벨을 가운데로 밀었습니다. **flex 컨테이너에서 `space-between` 금지, `flex-start` + `margin-left:auto` 로 오른쪽 정렬**할 것 |

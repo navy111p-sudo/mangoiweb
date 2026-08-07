@@ -29048,7 +29048,7 @@ window.addEventListener('DOMContentLoaded', () => {
   #ph49-kakao-fab .ph49-kakao-label { display:none !important; }
 </style>
 <a class="ph49-kakao-fab" id="ph49-kakao-fab"
-   href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener"
+   href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener"
    onclick="try{if(window.openKakao){window.openKakao();return false;}}catch(e){}"
    title="카카오 상담" aria-label="상담">
   <span class="ph49-kakao-ico">&#128172;</span><span class="ph49-kakao-intext" data-ko="상담" data-en="Consult">상담</span>
@@ -29064,15 +29064,28 @@ window.addEventListener('DOMContentLoaded', () => {
       '_mangoi' 는 존재하지 않는 채널이라 pf.kakao.com/_mangoi/chat 이 「페이지를 찾을 수 없습니다」로 떴다.
       실제 망고아이 채널 검색용 아이디는 '_xlqnSxd' (저장소 내 다른 27곳은 전부 이 값을 쓰고 있었음).
       이 함수를 쓰는 상담 버튼 7곳(AI상담창·우하단 FAB·결제완료·기타상담·비번도움·카톡신청·채널추가)이 함께 고쳐진다.
-      ⚠️ 예시가 필요하면 주석에 실제 값을 적지 말 것. 또 같은 사고가 난다. */
+      ⚠️ 예시가 필요하면 주석에 실제 값을 적지 말 것. 또 같은 사고가 난다.
+
+   🔴 fix (2026-08-08) — 채널은 멀쩡한데 «상담이 안 열린다» 는 제보. 원인이 또 둘이었다.
+      ① 주소 끝의 `/chat` 이 로그인 벽이었다.
+         pf.kakao.com/<id>/chat 은 «비로그인이면» accounts.kakao.com 로 튕긴다(실측).
+         상담하러 온 학부모가 카카오 로그인부터 요구받는다 — 대부분 거기서 나간다.
+         채널 «홈»(/<id>)은 로그인 없이 열리고 그 안에 「채팅으로 문의하기」·챗봇·전화·길찾기가 다 있다.
+         → 저장소 18곳을 전부 홈으로 통일했다.
+      ② window.open 이 «막혀도 조용하다».
+         카톡·문자앱 인앱 브라우저는 새 창을 못 연다. 그동안은 catch 만 있어서, 예외 없이
+         null 만 돌려주는 이 경우엔 아무 일도 안 일어난 채 끝났다 — 버튼이 죽은 것처럼 보인다.
+         → 반환값이 비면 같은 창으로라도 반드시 연다. 상담 창구가 조용히 죽는 것이 최악이다. */
 (function(){
   'use strict';
   var KAKAO_CHANNEL_ID = '_xlqnSxd';
   window.KAKAO_CHANNEL_ID = KAKAO_CHANNEL_ID;
+  /* 채널 «홈». /chat 을 붙이지 말 것 — 비로그인 PC 가 카카오 로그인 화면으로 튕긴다. */
+  window.KAKAO_CHANNEL_URL = 'https://pf.kakao.com/' + KAKAO_CHANNEL_ID;
   window.openKakao = function(){
-    var url = 'https://pf.kakao.com/' + KAKAO_CHANNEL_ID + '/chat';   // 채팅 바로 열기
-    try { window.open(url, '_blank', 'noopener'); }
-    catch(e) { try { location.href = url; } catch(_){} }
+    var url = window.KAKAO_CHANNEL_URL, w = null;
+    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
+    if (!w) { try { location.href = url; } catch(_){} }   // 팝업차단·인앱 브라우저
     return false;
   };
 })();
@@ -30227,7 +30240,7 @@ document.addEventListener('keydown', function(e){
     // 💬 좌하단 카카오 상담 (작은 이모지)
     (function(){
       var kb = document.createElement('a');
-      kb.href='https://pf.kakao.com/_xlqnSxd/chat'; kb.target='_blank'; kb.rel='noopener';
+      kb.href='https://pf.kakao.com/_xlqnSxd'; kb.target='_blank'; kb.rel='noopener';
       kb.title='카카오톡 상담'; kb.setAttribute('aria-label','카카오 상담'); kb.textContent='💬';
       kb.style.cssText='position:fixed;left:16px;bottom:16px;z-index:6;width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#fee500,#f6cc00);color:#191919;display:flex;align-items:center;justify-content:center;font-size:22px;text-decoration:none;box-shadow:0 8px 20px -4px rgba(254,229,0,.55)';
       kb.addEventListener('click', function(e){ e.stopPropagation(); });
@@ -33441,7 +33454,8 @@ window.vcAutoLoadStudentTextbook = async function(){
     if(a==='kakao'){
       if(window.gridActions&&window.gridActions.kakao) return window.gridActions.kakao();
       var k=document.querySelector('.ph49-kakao-fab,#ph49-kakao-fab'); if(k) return k.click();
-      window.open('https://pf.kakao.com/_xlqnSxd/chat','_blank','noopener');
+      if(window.openKakao) return window.openKakao();   // 정본 하나로 — 인앱 폴백까지 같이 온다
+      window.open('https://pf.kakao.com/_xlqnSxd','_blank','noopener');
     } else if(a==='refresh'){
       if(window.ph52ClearCache) return window.ph52ClearCache();
       var r=document.querySelector('.ph52-cache-fab,#ph52-cache-fab'); if(r) return r.click();

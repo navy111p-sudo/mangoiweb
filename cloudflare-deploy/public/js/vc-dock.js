@@ -605,7 +605,11 @@
     btnCam.onclick = function(){ if(isCL())showHint('카메라'); closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };
     bShare.onclick = function(){ if(isCL())showHint('화면공유'); closeSettings(); call('vcFolderOpen','screen'); };
     bChat.onclick = function(){ if(isCL())showHint('채팅'); closeSettings(); window.vcDockChatBadge(0); openDelayed(function(){ call('vcToggleChat'); }); };
-    bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings(); window.open('https://pf.kakao.com/_xlqnSxd/chat','_blank','noopener'); }; // 외부 링크: 지연 없이 즉시(팝업차단 방지)
+    // 외부 링크: 지연 없이 즉시(팝업차단 방지) · 채널 «홈» — /chat 은 비로그인 PC 를 로그인 화면으로 튕긴다
+    bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings();
+      if (window.openKakao) return window.openKakao();
+      var u='https://pf.kakao.com/_xlqnSxd';
+      if(!window.open(u,'_blank','noopener')) location.href=u; };   // 새 창이 막히면 같은 창으로
     bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
     bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
 

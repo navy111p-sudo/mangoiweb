@@ -6748,7 +6748,7 @@ LIMIT $limit`;
         let ticketLine = '';
         try { ticketUrl = await ltTicketUrl(Number(appId), env); ticketLine = `
 ▶ 확인·입장: ${ticketUrl}`; } catch {}
-        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.${ticketLine}\n문의: pf.kakao.com/_xlqnSxd/chat`;
+        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.${ticketLine}\n문의: pf.kakao.com/_xlqnSxd`;
         try { await sendPlainSms(env, phone, smsText); }
         catch (e: any) { console.warn('[leveltest] applicant receipt skipped:', e?.message || e); }
       }
@@ -6862,7 +6862,7 @@ LIMIT $limit`;
           const openMin = Math.round(OPEN_BEFORE_MS / 60000);
           let ticketLine2 = `\n※ 시작 ${openMin}분 전부터 입장할 수 있어요.`;
           try { ticketLine2 = `\n▶ 확인·입장: ${await ltTicketUrl(Number(app.id), env)}\n※ 시작 ${openMin}분 전부터 입장 버튼이 열려요.`; } catch {}
-          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}${ticketLine2}\n문의: pf.kakao.com/_xlqnSxd/chat`;
+          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}${ticketLine2}\n문의: pf.kakao.com/_xlqnSxd`;
           try {
             const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
             if (tmpl) {
@@ -7271,7 +7271,7 @@ LIMIT $limit`;
             ];
             if (book) lines.push(`📚 추천 교재: ${book}`);
             if (guide) lines.push(`▶ 다음 단계: ${guide}`);
-            lines.push(`정규 수업 상담: pf.kakao.com/_xlqnSxd/chat`);
+            lines.push(`정규 수업 상담: pf.kakao.com/_xlqnSxd`);
             const r = await sendPlainSms(env, app2.phone, lines.join('\n'));
             resultNotify = r && r.ok ? 'sent' : (r && (r.error || r.message)) || 'failed';
             if (r && r.ok) {
