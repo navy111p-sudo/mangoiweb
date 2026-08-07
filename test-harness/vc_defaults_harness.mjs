@@ -181,8 +181,21 @@ console.log('\n▶ 화면 배선');
   /* 🔄 영상 재연결 버튼 (사장님 지시 2026-07-23) — 새로고침이 아니라 '연결만' 다시 맺어야 한다 */
   check('상단에 영상 재연결 버튼이 있다', /id="vc-btn-resync"[\s\S]{0,200}vcManualReconnect\(\)/.test(html));
   check('재연결 함수 존재', /async function vcManualReconnect/.test(html));
-  check('내 카메라·마이크를 먼저 되살린다',
-        /vcManualReconnect[\s\S]{0,600}vcHealLocalVideo\(\)[\s\S]{0,200}vcHealLocalMic\(\)/.test(html));
+  /* 🪤 (2026-08-07) 예전 검사는 «vcManualReconnect 로부터 600자 안에 vcHealLocalVideo» 라는
+     글자 거리로 확인했다. 그래서 이 함수에 주석 한 줄만 늘어나도, 동작이 그대로인데 실패했다.
+     (실제로 2026-08-07 «회선(WebSocket)부터 살린다» 단계를 넣자 이 검사가 깨졌다.)
+     지켜야 할 «규칙»은 거리가 아니라 순서다 — 상대에게 재연결을 걸기 전에 내 장치를 먼저 되살린다.
+     그래야 새로 맺는 연결에 «살아 있는» 트랙이 실린다. 그 순서만 본다. */
+  {
+    const _s = html.indexOf('async function vcManualReconnect');
+    const _body = _s < 0 ? '' : html.slice(_s, html.indexOf('\nfunction vcReconnectPeer', _s));
+    const _iVid = _body.indexOf('vcHealLocalVideo()');
+    const _iMic = _body.indexOf('vcHealLocalMic()');
+    const _iPeer = _body.indexOf('vcReconnectPeer(id)');
+    check('내 카메라·마이크를 먼저 되살린다',
+          _iVid > 0 && _iMic > _iVid && _iPeer > _iMic,
+          '상대 재연결(vcReconnectPeer)보다 앞에 vcHealLocalVideo → vcHealLocalMic 이 있어야 한다');
+  }
   check('붙어 있는 상대 전원에게 재연결', /ids\.forEach\(function \(id\) \{ try \{ vcReconnectPeer\(id\)/.test(html));
   check('수동 요청은 8초 쿨다운을 면제', /delete __vcReconnectAt\[id\]/.test(html));
   check('새로고침(location.reload)이 아니다',

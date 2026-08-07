@@ -60,9 +60,16 @@ export class VideoCallRoom {
   private static readonly SHARE_KEEP_MS = 3 * 60 * 60 * 1000;   // 3시간
   // 🔒 강사의 수업 통제 잠금 3종(배경 변경/전체 음소거/집중 모드)
   //   — 저장해야 늦게 입장/재접속한 학생에게도 적용됨. 방이 비면 자동 해제.
-  private lockState: { bgLock: boolean; micLock: boolean; focusLock: boolean } = { bgLock: false, micLock: false, focusLock: false };
-  private static readonly LOCK_KEYS: Record<string, 'bgLock' | 'micLock' | 'focusLock'> =
-    { 'bg-lock': 'bgLock', 'mic-lock': 'micLock', 'focus-lock': 'focusLock' };
+  /* ✋ (2026-08-07 Kaye 1번) drawLock 추가 — «학생 필기 잠금».
+     [실제 사고] 클라이언트는 2026-07-28 부터 { type:'pdf-drawlock' } 를 보내고 있었는데,
+     이 서버의 switch 에 그 타입이 없어 default 의 "Unknown message type" 으로 «버려졌다».
+     그래서 강사가 버튼을 눌러도 학생에게는 아무 일도 일어나지 않았다(강사 화면의 버튼 색만 바뀜).
+     Kaye 가 같은 지적을 두 번 한 이유가 이것이다. 나머지 잠금 3종과 완전히 같은 길에 태운다
+     → 강사 role 검증·storage 저장·늦은 입장자 재전송·빈 방 자동 해제를 공짜로 얻는다. */
+  private lockState: { bgLock: boolean; micLock: boolean; focusLock: boolean; drawLock: boolean } =
+    { bgLock: false, micLock: false, focusLock: false, drawLock: false };
+  private static readonly LOCK_KEYS: Record<string, 'bgLock' | 'micLock' | 'focusLock' | 'drawLock'> =
+    { 'bg-lock': 'bgLock', 'mic-lock': 'micLock', 'focus-lock': 'focusLock', 'pdf-drawlock': 'drawLock' };
 
   // 🔁 (2026-07-24) 무중단 재연결 스위치. wrangler.toml 의 VC_STICKY_UID='on' 일 때만 켜진다.
   //   기본값은 꺼짐 → 아래 인계 로직을 전부 건너뛰고 예전과 100% 동일하게 동작한다.
@@ -78,7 +85,7 @@ export class VideoCallRoom {
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
       this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
       this.mediaAt = (await this.state.storage.get<number>('mediaAt')) || 0;
-      for (const k of ['bgLock', 'micLock', 'focusLock'] as const) {
+      for (const k of ['bgLock', 'micLock', 'focusLock', 'drawLock'] as const) {
         this.lockState[k] = (await this.state.storage.get<boolean>(k)) || false;
       }
       const rid = await this.state.storage.get<string>('roomId');
@@ -168,17 +175,28 @@ export class VideoCallRoom {
         case 'point-award-ack':      //    학생→강사 결과 확인 응답
         case 'tab-sync':             // 📡 교사 탭 전환 동기화 (칠판/동영상/교재 따라가기)
         case 'file-share':           // 📎 파일 공유 다운로드 카드 (워드/엑셀/PPT 등)
+        case 'device-report':        // 🎧 (2026-08-07) 학생 → 강사: 마이크 재획득 결과. 대상 지정은 클라이언트가 id 로 거른다.
         case 'cam-state':            // 📷 (2026-07-24) 카메라 on/off 를 상대에게 알림.
                                      //   이게 없으면 수신측은 '상대가 껐다' 와 '회선이 나빠 영상만 죽었다' 를
                                      //   구분할 수 없어, 자가복구 워치독이 정상 상태를 장애로 오인해
                                      //   6초마다 연결을 다시 맺으며 화면을 깜빡이게 만든다.
           if (this.isJoined(userId)) this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
-        case 'bg-lock':              // 🔒 강사 → 학생 수업 통제 잠금 3종 (공통 처리)
+        case 'bg-lock':              // 🔒 강사 → 학생 수업 통제 잠금 4종 (공통 처리)
         case 'mic-lock':             //    🎤 전체 음소거
         case 'focus-lock':           //    🎯 집중 모드(학생 탭 이탈 금지)
+        case 'pdf-drawlock':         //    ✋ 학생 필기 잠금 (2026-08-07 — 이 줄이 없어 통째로 버려지고 있었다)
           this.handleClassLock(userId, att, msg.type, msg.data as any);
           break;
+        /* 🎧 (2026-08-07) 강사 → 특정 학생: "마이크를 다시 잡아 주세요".
+           ⚠️ 반드시 강사만. 아무나 보낼 수 있게 두면 학생이 다른 학생의 마이크를 원격으로
+              건드릴 수 있다(«잠금 3종»과 같은 이유로 role 을 소켓 attachment 에서 본다). */
+        case 'device-fix': {
+          const dfRole = (att.role || '').toLowerCase();
+          if (!this.isJoined(userId) || (dfRole !== 'teacher' && dfRole !== 'admin')) break;
+          this.broadcast(userId, { type: 'device-fix', data: msg.data });
+          break;
+        }
         case 'offer':           this.handleOffer(userId, msg.data as any); break;
         case 'answer':          this.handleAnswer(userId, msg.data as any); break;
         case 'ice-candidate':   this.handleIceCandidate(userId, msg.data as any); break;
@@ -304,9 +322,9 @@ export class VideoCallRoom {
     if (this.pdfState) this.send(effectiveUserId, { type: 'pdf-sync', data: this.pdfState });
     // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
     if (this.videoState) this.send(effectiveUserId, { type: 'video-share', data: this.videoState });
-    // 🔒 통제 잠금(배경/음소거/집중) 중이면 늦게 입장한 학생에게도 즉시 적용
+    // 🔒 통제 잠금(배경/음소거/집중/필기) 중이면 늦게 입장한 학생에게도 즉시 적용
     for (const [msgType, key] of Object.entries(VideoCallRoom.LOCK_KEYS)) {
-      if (this.lockState[key]) this.send(effectiveUserId, { type: msgType, data: { locked: true } });
+      if (this.lockState[key]) this.send(effectiveUserId, { type: msgType, data: { locked: true, on: true } });
     }
 
     if (!inherited) {
@@ -360,16 +378,18 @@ export class VideoCallRoom {
     if (!key) return;
     const senderRole = (att.role || '').toLowerCase();
     if (!this.isJoined(userId) || (senderRole !== 'teacher' && senderRole !== 'admin')) return;
-    const locked = !!(data && data.locked);
+    /* 잠금 3종은 { locked }, 필기 잠금(pdf-drawlock)은 { on } 을 쓴다(클라이언트가 먼저 그렇게 만들어졌다).
+       한쪽 이름만 보면 조용히 «항상 해제»가 되므로 둘 다 받고, 내보낼 때도 둘 다 실어 보낸다. */
+    const locked = !!(data && (data.locked ?? data.on));
     this.lockState[key] = locked;
     // 저장 — 잠금 중 재접속/늦은 입장에도 유지 (handleJoinRoom 에서 재전송)
     if (locked) void this.state.storage.put(key, true);
     else void this.state.storage.delete(key);
-    this.broadcast(userId, { type, data: { locked } });
+    this.broadcast(userId, { type, data: { locked, on: locked } });
   }
 
   private clearAllLocks(): void {
-    for (const k of ['bgLock', 'micLock', 'focusLock'] as const) {
+    for (const k of ['bgLock', 'micLock', 'focusLock', 'drawLock'] as const) {
       if (this.lockState[k]) {
         this.lockState[k] = false;
         void this.state.storage.delete(k);
