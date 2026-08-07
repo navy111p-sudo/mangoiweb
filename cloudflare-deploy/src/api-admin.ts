@@ -9253,6 +9253,118 @@ LIMIT $limit`;
       } catch {}
     }
 
+    /* ═══════════════════════════════════════════════════════════════════════
+       📇 강사 «연락처» 연결  GET/POST /api/admin/teacher-contacts
+       ───────────────────────────────────────────────────────────────────────
+       [왜] 8/7 결석 알림을 만들다 «강사에게 닿을 방법이 없다» 는 걸 알았다.
+            · `teachers`(수업 배정의 기준)에는 연락처 컬럼이 **아예 없다**
+            · `teacher_profiles`(연락처가 있는 곳)의 `linked_teacher_id` 는 **전 행 NULL**
+            → 수업 → 담당 강사 → 연락처로 가는 다리가 끊겨 있었다. 그래서 8/7 18:00
+              레벨테스트에서 강사가 빈 방을 30분 지켰는데 아무 알림도 못 갔다.
+       [무엇] 사람이 한 번 «이 원부 강사 = 이 프로필» 을 정한다. `linked_teacher_id` 에만 쓴다.
+              (계정↔원부는 teacher_account_links 가 담당 — 이건 원부↔연락처로 서로 다른 다리다)
+
+       🌏 [연락 수단의 현실] 실측: 프로필 30건 중 전화 22(그중 **21건이 필리핀 09xx**, 한국 0),
+           이메일 22, 카톡ID 20.  SOLAPI 클라이언트에는 국제 발송 처리가 없고, 카카오 알림톡은
+           «한국 번호» 기반이라 kakao_id 로는 못 보낸다.
+           → **지금 자동으로 닿는 국제 수단은 이메일뿐**이다. 화면이 그 사실을 숨기지 않고
+             행마다 «자동 알림 가능/불가»를 그대로 보여 준다. 안 그러면 연결해 놓고도
+             왜 안 가는지 아무도 모른다(=오늘 겪은 그 상황).
+       ═══════════════════════════════════════════════════════════════════════ */
+    if (path === '/api/admin/teacher-contacts') {
+      const normName = (s: any) => String(s || '').toUpperCase().trim();
+      const wordsOf = (s: any) => normName(s).split(/[\s·・,/()[\]-]+/).filter(Boolean);
+      const isPhPhone = (p: any) => /^(\+?63|0)9\d/.test(String(p || '').replace(/[\s-]/g, ''));
+      const isKrPhone = (p: any) => /^(\+?82|0)10/.test(String(p || '').replace(/[\s-]/g, ''));
+
+      if (method === 'GET') {
+        const [rosterRs, profRs] = await Promise.all([
+          env.DB.prepare(`SELECT id, name FROM teachers WHERE COALESCE(active,1) = 1 ORDER BY name`).all(),
+          env.DB.prepare(
+            `SELECT id, korean_name, english_name, phone, email, kakao_id, status, linked_teacher_id
+               FROM teacher_profiles ORDER BY COALESCE(english_name, korean_name)`
+          ).all(),
+        ]);
+        const roster = (rosterRs.results || []) as any[];
+        const profiles = (profRs.results || []) as any[];
+
+        const items = roster.map((t: any) => {
+          const target = normName(t.name);
+          const linked = profiles.find((p: any) => String(p.linked_teacher_id || '') === String(t.id)) || null;
+          /* 후보는 «낱말 경계» 로만 — 'Anna' 가 'HANNAH' 안에 우연히 들어간 것은 후보가 아니다.
+             (같은 규칙이 api-teacher.ts·absent-sweep.ts 에도 있다. 세 곳이 어긋나면 사고다) */
+          const cands = linked ? [] : profiles.filter((p: any) => {
+            if (p.linked_teacher_id) return false;               // 이미 남에게 연결된 프로필은 후보 아님
+            for (const nm of [p.english_name, p.korean_name]) {
+              const a = normName(nm);
+              if (!a) continue;
+              if (a === target) return true;
+              if (wordsOf(a).indexOf(target) >= 0 || wordsOf(target).indexOf(a) >= 0) return true;
+            }
+            return false;
+          });
+          const src = linked;
+          const email = src?.email || null;
+          const phone = src?.phone || null;
+          const kakao = src?.kakao_id || null;
+          return {
+            teacher_id: String(t.id), teacher_name: t.name,
+            linked_profile_id: linked ? String(linked.id) : null,
+            linked_profile_name: linked ? (linked.english_name || linked.korean_name) : null,
+            email, phone, kakao_id: kakao,
+            phone_region: phone ? (isPhPhone(phone) ? 'PH' : isKrPhone(phone) ? 'KR' : 'other') : null,
+            /* 🔔 «자동 알림이 실제로 가는가» — 화면에 그대로 보여 준다.
+               email 이면 국제 가능, 한국 번호면 문자도 가능, 필리핀 번호·카톡ID 뿐이면 자동은 불가. */
+            reachable: !!email || (phone ? isKrPhone(phone) : false),
+            reach_by: email ? 'email' : (phone && isKrPhone(phone) ? 'sms' : null),
+            candidates: cands.map((p: any) => ({
+              id: String(p.id), name: p.english_name || p.korean_name,
+              email: p.email || null, phone: p.phone || null, kakao_id: p.kakao_id || null,
+            })),
+          };
+        });
+        const reachable = items.filter(i => i.reachable).length;
+        return json({ ok: true, items, summary: { total: items.length, linked: items.filter(i => i.linked_profile_id).length, reachable } });
+      }
+
+      if (method === 'POST') {
+        const b = await parseJsonBody(request);
+        if (!b || !b.teacher_id) return invalidBody(['teacher_id']);
+        const tid = String(b.teacher_id).trim();
+        const pid = String(b.profile_id ?? '').trim();
+        let actor = 'admin';
+        try { const a = await getAdminActor(request, env as any); if (a?.name) actor = a.name; } catch {}
+
+        if (!pid) {   // 해제 — 이 원부에 붙은 프로필의 연결만 푼다
+          await env.DB.prepare(`UPDATE teacher_profiles SET linked_teacher_id = NULL, updated_at = ? WHERE CAST(linked_teacher_id AS TEXT) = ?`)
+            .bind(Date.now(), tid).run();
+          return json({ ok: true, unlinked: true, teacher_id: tid });
+        }
+        const prof: any = await env.DB.prepare(
+          `SELECT id, korean_name, english_name, phone, email, kakao_id FROM teacher_profiles WHERE CAST(id AS TEXT) = ? LIMIT 1`
+        ).bind(pid).first();
+        if (!prof) return json({ ok: false, error: 'profile_not_found', message: '프로필을 찾을 수 없습니다.', message_en: 'Profile not found.' }, 404);
+        // 한 원부에 두 프로필이 붙지 않게 — 먼저 기존 연결을 푼다
+        await env.DB.prepare(`UPDATE teacher_profiles SET linked_teacher_id = NULL, updated_at = ? WHERE CAST(linked_teacher_id AS TEXT) = ?`)
+          .bind(Date.now(), tid).run();
+        await env.DB.prepare(`UPDATE teacher_profiles SET linked_teacher_id = ?, updated_at = ? WHERE CAST(id AS TEXT) = ?`)
+          .bind(Number(tid), Date.now(), pid).run();
+        try {
+          await writeClassAudit(env, {
+            action: 'teacher_contact_link', actor, actor_role: 'admin', source: 'admin_ui',
+            teacher_name: String(prof.english_name || prof.korean_name || ''),
+            detail: JSON.stringify({ teacher_id: tid, profile_id: pid, has_email: !!prof.email, has_phone: !!prof.phone }),
+          });
+        } catch {}
+        return json({
+          ok: true, teacher_id: tid, profile_id: pid,
+          name: prof.english_name || prof.korean_name,
+          email: prof.email || null, phone: prof.phone || null, kakao_id: prof.kakao_id || null,
+          reachable: !!prof.email || isKrPhone(prof.phone),
+        });
+      }
+    }
+
     // 목록 — 강사 계정 + 지금 연결 상태 + 원부 후보. 화면 한 장에 필요한 것만 한 번에.
     if (method === 'GET' && path === '/api/admin/teacher-links') {
       try {

@@ -16,6 +16,14 @@
  */
 
 import { sendPlainSms } from './solapi-client';
+/* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
+import { sendEmail, emailLayout } from './email';
+
+/** 이메일 본문에 학생·강사 이름이 그대로 들어간다 — 태그로 읽히지 않게 막는다. */
+function escapeHtmlAbs(s: any): string {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
 
 const DETECT_AFTER_MS = 10 * 60 * 1000;  // 시작 10분 후부터 결석 위험으로 판정
 const DETECT_UNTIL_MS = 40 * 60 * 1000;  // 시작 40분 후까지만 감지(그 뒤는 재알림 금지)
@@ -44,19 +52,33 @@ export interface AbsentSweepResult {
       ⚠️ 부분일치는 금지 — 'Anna' 가 'HANNAH' 에 붙는 사고가 이미 있었다. api-teacher.ts 와 같은
          **낱말 경계** 규칙을 쓰고, 애매하면(후보 2명 이상) **아무에게도 안 보낸다**.
       ⚠️ `teacher_profiles.linked_teacher_id` 는 현재 전 행이 NULL 이라 못 쓴다(실측). */
-async function findTeacherContact(env: any, teacherId: any): Promise<{ name: string; phone: string | null; why: string }> {
-  const out = { name: '', phone: null as string | null, why: 'no_teacher_id' };
+async function findTeacherContact(env: any, teacherId: any): Promise<{ name: string; phone: string | null; email: string | null; why: string }> {
+  const out = { name: '', phone: null as string | null, email: null as string | null, why: 'no_teacher_id' };
   const tid = String(teacherId || '').trim();
   if (!tid) return out;
   try {
     const t: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`).bind(tid).first();
     if (!t?.name) { out.why = 'teacher_not_in_roster'; return out; }
     out.name = String(t.name);
+    /* 0순위 — 사람이 관리자 화면(📇 강사 연락처 연결)에서 정해 준 연결이 있으면 그것만 쓴다.
+       이름 추측보다 항상 앞이다. 관리자가 고른 것을 코드가 뒤집으면 안 된다. */
+    try {
+      const linked: any = await env.DB.prepare(
+        `SELECT phone, email FROM teacher_profiles WHERE CAST(linked_teacher_id AS TEXT) = ? LIMIT 1`
+      ).bind(tid).first();
+      if (linked) {
+        out.phone = linked.phone || null;
+        out.email = linked.email || null;
+        out.why = (out.email || out.phone) ? 'linked' : 'linked_but_no_contact';
+        return out;
+      }
+    } catch {}
     const nrm = (s: any) => String(s || '').toUpperCase().trim();
     const words = (s: any) => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Boolean);
     const target = nrm(t.name);
     const rs: any = await env.DB.prepare(
-      `SELECT id, korean_name, english_name, phone FROM teacher_profiles WHERE phone IS NOT NULL AND phone <> ''`
+      `SELECT id, korean_name, english_name, phone, email FROM teacher_profiles
+        WHERE (phone IS NOT NULL AND phone <> '') OR (email IS NOT NULL AND email <> '')`
     ).all();
     const hits = (rs.results || []).filter((p: any) => {
       for (const nm of [p.english_name, p.korean_name]) {
@@ -67,7 +89,7 @@ async function findTeacherContact(env: any, teacherId: any): Promise<{ name: str
       }
       return false;
     });
-    if (hits.length === 1) { out.phone = String(hits[0].phone); out.why = 'matched'; }
+    if (hits.length === 1) { out.phone = hits[0].phone || null; out.email = hits[0].email || null; out.why = 'matched'; }
     else if (hits.length > 1) out.why = 'ambiguous';           // 헷갈리면 아무에게도 안 보낸다
     else out.why = 'no_phone_in_roster';                        // 번호가 원부에 아예 없음
   } catch (e: any) { out.why = 'lookup_failed'; }
@@ -185,15 +207,34 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
         const tc = await findTeacherContact(env, c.teacher_id);
         detail.teacher = tc.name || null;
         teacherNameForLog = tc.name || null;   // 아래 기록에도 남긴다 — 누가 기다렸는지가 리포트에 보여야 한다
-        if (tc.phone) {
-          const tmsg = `[망고아이] ${name} 학생이 아직 입장하지 않았어요 (${hhmm} 수업 · +${c.late_min}분).\n` +
-                       `본사에 자동으로 알렸습니다. 10분 더 기다려 주시고, 그래도 안 오면 나오셔도 됩니다.\n` +
-                       `Student has not joined yet. We have notified the office — please wait 10 more minutes.`;
-          const tr = await sendPlainSms(env, tc.phone, tmsg);
+        const bodyKo = `${name} 학생이 아직 입장하지 않았어요 (${hhmm} 수업 · +${c.late_min}분).\n` +
+                       `본사에 자동으로 알렸습니다. 10분 더 기다려 주시고, 그래도 안 오면 나오셔도 됩니다.`;
+        const bodyEn = `${name} has not joined yet (${hhmm} class · +${c.late_min} min).\n` +
+                       `We have notified the office — please wait 10 more minutes, then you may leave.`;
+        /* 📧 이메일이 1순위다. 강사 대부분이 필리핀에 있어 «한국 문자» 는 닿지 않는다
+           (실측: 프로필 전화 22건 중 21건이 09xx 필리핀 번호, 한국 번호 0건 · SOLAPI 는 국제 미지원).
+           한국 번호일 때만 문자를 쓴다. 둘 다 없으면 조용히 넘기지 않고 운영자에게 이유를 올린다. */
+        const isKr = (p: any) => /^(\+?82|0)10/.test(String(p || '').replace(/[\s-]/g, ''));
+        if (tc.email) {
+          try {
+            const r2 = await sendEmail(env as any, {
+              to: tc.email,
+              subject: `[Mangoi] ${name} has not joined / 학생 미입장 (${hhmm})`,
+              html: emailLayout({
+                title: '🚨 학생이 아직 입장하지 않았어요 · Student has not joined',
+                bodyHtml: `<p style="white-space:pre-line">${escapeHtmlAbs(bodyKo)}</p>`
+                        + `<p style="white-space:pre-line;color:#475569">${escapeHtmlAbs(bodyEn)}</p>`,
+              }),
+            });
+            detail.teacher_email = r2 && (r2 as any).ok !== false ? 'sent' : 'failed';
+          } catch (e: any) { detail.teacher_email = 'error:' + String(e?.message || e).slice(0, 80); }
+        } else if (tc.phone && isKr(tc.phone)) {
+          const tr = await sendPlainSms(env, tc.phone, `[망고아이] ${bodyKo}\n${bodyEn}`);
           detail.teacher_sms = tr && tr.ok ? 'sent' : (tr && (tr.error || tr.message)) || 'failed';
         } else {
-          detail.teacher_sms = tc.why;                                   // no_phone_in_roster / ambiguous / …
-          ownerLines.push(`  ⚠ 강사 «${tc.name || c.teacher_id}» 에게 못 보냄 — ${tc.why}`);
+          const why = tc.phone && !isKr(tc.phone) ? 'phone_is_overseas_no_email' : tc.why;
+          detail.teacher_sms = why;                       // no_phone_in_roster / ambiguous / 해외번호뿐 …
+          ownerLines.push(`  ⚠ 강사 «${tc.name || c.teacher_id}» 에게 못 보냄 — ${why}`);
         }
       } catch (e: any) { detail.teacher_sms = 'error:' + String(e?.message || e).slice(0, 80); }
     }

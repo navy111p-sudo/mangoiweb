@@ -37,17 +37,20 @@ const sweepCode = stripComments(sweep);
 console.log('\n🚨 결석 감지 → 강사 알림\n');
 console.log('[ ① 기다리는 사람에게 실제로 간다 ]');
 check('담당 강사 연락처를 찾는 함수가 있다', /async function findTeacherContact/.test(sweep));
-check('결석 감지 시 강사에게 문자를 보낸다', /const tr = await sendPlainSms\(env, tc\.phone, tmsg\)/.test(sweep));
+/* (2026-08-07 갱신) 처음엔 문자만 보냈는데, 강사 대부분이 필리핀이라 한국 문자로는 안 닿는다.
+   지금은 이메일 1순위 · 한국 번호일 때만 문자 — 검사도 그 정책을 지킨다(아래 ⑤ 참조). */
+check('결석 감지 시 강사에게 알린다 (이메일 또는 한국 문자)',
+  /sendEmail\(env as any, \{/.test(sweepCode) && /sendPlainSms\(env, tc\.phone,/.test(sweepCode));
 check('학부모 모드 스위치와 무관하게 보낸다 (강사에겐 기본)',
-  !/parentMode[\s\S]{0,200}?sendPlainSms\(env, tc\.phone/.test(sweep));
+  !/parentMode[\s\S]{0,240}?(sendEmail|sendPlainSms\(env, tc\.phone)/.test(sweepCode));
 check('세션당 1회만 (이미 기록된 건은 위 dup 검사가 거른다)',
   /FROM class_no_show WHERE room_id = \? AND missing_role = 'student'/.test(sweep));
 check('문구가 «얼마나 기다렸는지 + 다음에 뭘 할지» 를 준다',
   /아직 입장하지 않았어요/.test(sweep) && /10분 더 기다려 주시고/.test(sweep));
-check('한/영 둘 다 (강사 다수가 필리핀)', /Student has not joined yet/.test(sweep));
+check('한/영 둘 다 (강사 다수가 필리핀)', /has not joined yet/.test(sweep));
 
 console.log('\n[ ② 못 보낼 땐 «조용히» 넘기지 않는다 ]');
-check('못 보낸 이유를 상세에 남긴다', /detail\.teacher_sms = tc\.why/.test(sweep));
+check('못 보낸 이유를 상세에 남긴다', /detail\.teacher_sms = why;/.test(sweepCode));
 check('운영자 요약에 «못 보냄 + 이유» 를 싣는다 (원부 빈칸이 보이게)',
   /ownerLines\.push\(`  ⚠ 강사 «\$\{tc\.name \|\| c\.teacher_id\}» 에게 못 보냄/.test(sweep));
 check('기록에 «누가 기다렸는지» 를 남긴다 (예전엔 teacher_name 이 null 이었다)',
@@ -65,7 +68,10 @@ check('그 이유가 코드에 적혀 있다 (다음 사람이 다시 쓰지 않
 check('그 컬럼은 여전히 «발송에 쓰이지 않는다» (저장·초기화만)',
   !/sendPlainSms\([^)]*assigned_teacher_phone/.test(api) && !/sendEmail\([^)]*assigned_teacher_email/.test(api));
 check('연락처는 원부(teachers) → 프로필 이름 매칭으로 찾는다',
-  /FROM teachers WHERE CAST\(id AS TEXT\) = \?/.test(sweep) && /FROM teacher_profiles WHERE phone IS NOT NULL/.test(sweep));
+  /FROM teachers WHERE CAST\(id AS TEXT\) = \?/.test(sweep)
+  && /FROM teacher_profiles\s*\n?\s*WHERE \(phone IS NOT NULL/.test(sweep));
+check('전화가 없어도 이메일만 있으면 후보로 본다 (필리핀 강사 상당수가 그렇다)',
+  /OR \(email IS NOT NULL AND email <> ''\)/.test(sweep));
 
 console.log('\n[ ④ ⛔ 엉뚱한 강사에게 보내지 않는다 ]');
 check('낱말 경계로만 맞춘다 (부분일치 금지 — Anna ⊄ HANNAH)',
@@ -73,6 +79,37 @@ check('낱말 경계로만 맞춘다 (부분일치 금지 — Anna ⊄ HANNAH)',
 check('후보가 여럿이면 아무에게도 안 보낸다', /else if \(hits\.length > 1\) out\.why = 'ambiguous'/.test(sweep));
 check('정확히 한 명일 때만 보낸다', /if \(hits\.length === 1\)/.test(sweep));
 check('조회가 실패해도 «아무에게나» 보내지 않는다', /catch \(e: any\) \{ out\.why = 'lookup_failed'/.test(sweep));
+
+console.log('\n[ ⑤ 🌏 강사 대부분이 필리핀 — 한국 문자로는 못 닿는다 ]');
+/* 실측(2026-08-07): 프로필 전화 22건 중 **21건이 필리핀 09xx**, 한국 번호 0건.
+   SOLAPI 클라이언트에 국제 발송 처리가 없고, 카카오 알림톡은 «한국 번호» 기반이라
+   kakao_id 로는 못 보낸다 → 지금 자동으로 닿는 국제 수단은 **이메일뿐**. */
+const idx = rd('../cloudflare-deploy/src/index.ts');
+const tct = rd('../cloudflare-deploy/public/js/adm-tcontact.js');
+check('이메일이 1순위다 (필리핀 번호엔 문자가 안 간다)',
+  /if \(tc\.email\) \{[\s\S]{0,400}?sendEmail\(/.test(sweepCode));
+check('문자는 «한국 번호일 때만»', /else if \(tc\.phone && isKr\(tc\.phone\)\)/.test(sweepCode));
+check('해외번호뿐이면 사유를 남긴다 (조용히 안 넘어감)',
+  /phone_is_overseas_no_email/.test(sweepCode));
+check('이메일 본문에 이름을 이스케이프해 넣는다', /escapeHtmlAbs/.test(sweepCode));
+check('메일도 한/영 둘 다', /bodyKo/.test(sweepCode) && /bodyEn/.test(sweepCode));
+
+console.log('\n[ ⑥ 📇 강사 연락처 연결 화면 ]');
+check('사람이 정한 연결을 «이름 추측보다 먼저» 쓴다',
+  /linked_teacher_id[\s\S]{0,200}?out\.why = \(out\.email \|\| out\.phone\) \? 'linked'/.test(sweepCode));
+check('API 가 있다 (GET 목록 · POST 연결/해제)',
+  /path === '\/api\/admin\/teacher-contacts'/.test(api) && /linked_teacher_id = \? , updated_at|linked_teacher_id = \?, updated_at/.test(api));
+check('⛔ 원부·계정 행을 고치지 않는다 (프로필의 연결 컬럼에만 쓴다)',
+  !/UPDATE teachers SET/.test(api.slice(api.indexOf("path === '/api/admin/teacher-contacts'"), api.indexOf("path === '/api/admin/teacher-contacts'") + 6000)));
+check('🔒 교사에게는 막혀 있다 (동료 연락처 = 개인정보)',
+  /'\/api\/admin\/teacher-contacts'/.test(idx));
+check('화면이 «자동 알림이 실제로 가는지» 를 행마다 보여준다',
+  /reach_by/.test(api) && /reachBadge/.test(tct));
+check('알림 못 가는 강사를 맨 위로 올린다 (이 화면의 목적)',
+  /if \(ra !== rb\) return ra - rb/.test(tct));
+check('연결해도 이메일이 없으면 그 자리에서 말해 준다 (연결만 하고 안심 금지)',
+  /if \(!j\.reachable\)/.test(tct) && /자동 알림은 아직 못 갑니다/.test(tct));
+check('후보도 낱말 경계로만 (Anna ⊄ HANNAH)', /wordsOf\(a\)\.indexOf\(target\) >= 0/.test(api));
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);

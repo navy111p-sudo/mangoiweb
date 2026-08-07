@@ -313,6 +313,9 @@ const worker = {
             '/api/admin/subscription', '/api/admin/subscriptions', '/api/admin/dunning',
             // ── 조직·가맹점 관리 (franchise_mgmt) ──
             '/api/admin/franchises', '/api/admin/org', '/api/admin/centers',
+            // ── 강사 연락처 (2026-08-07) — 동료의 전화·이메일·카톡ID 가 한 화면에 모인다.
+            //    수업 배정과 달리 «남의 개인 연락처» 라 교사에게는 열지 않는다. 본사/매니저만.
+            '/api/admin/teacher-contacts',
             // ── 계정·권한·감사 (permissions · audit_log) ──
             '/api/admin/permissions', '/api/admin/audit-logs', '/api/admin/login-history',
             '/api/admin/staff', '/api/admin/sessions', '/api/admin/2fa',
