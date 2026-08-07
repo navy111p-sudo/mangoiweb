@@ -101,8 +101,14 @@ check('교재를 안 열었을 때는 이유를 말해 준다 (빈 상자 금지
 console.log('\n[ ⑧  수업 중에 영상이 튀어나오지 않는다 ]');
 /* "No need for the videos for BTS, SIU and Teachers videos during the class."
    원인은 «영상이 있다» 가 아니라 교재를 여는 순간 **탭이 넘어가고 자동 재생**된 것. */
+/* 🔀 2026-08-07 병합 — 두 갈래가 같은 버그를 opts.manual / opts.autoOpen 으로 각각 고쳐서
+   이름을 autoOpen 으로 통일했다(manual 도 계속 받는다). 예전엔 «if (!manual){...return;}» 이라는
+   **구현 모양**을 글자로 박아 뒀는데, 옳은 통일에도 검사가 깨졌다 → 게이트가 걸려 있는지만 본다.
+   실제 «교재를 열면 탭이 안 넘어간다» 는 동작 증명은 가짜 브라우저로 돌리는
+   vc_textbook_video_audio_260808_harness.mjs 가 맡는다. */
 check('교재를 열어도 영상 탭으로 자동 전환하지 않는다',
-  /if \(!manual\)\{[\s\S]{0,400}return;/.test(idx));
+  /if\(autoOpen\)\{[\s\S]{0,160}vcSwitchTab\('video'\)/.test(idx)
+  && !/^\s*try\{ if\(typeof vcSwitchTab==='function'\) vcSwitchTab\('video'\); \}catch\(_\)\{\}\s*\/\/ 동영상 탭으로 전환/m.test(idx));
 check('있다는 사실만 조용히 알린다', /mangoiNoteLessonVideo/.test(idx));
 check('강사가 직접 부르면 예전처럼 재생된다 (필요할 때 쓸 길은 남긴다)',
   /mangoiPlayLessonVideo\(p\.bookId, \{ manual: true \}\)/.test(idx));

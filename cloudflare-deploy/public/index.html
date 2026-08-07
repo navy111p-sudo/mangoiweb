@@ -32619,20 +32619,25 @@ window.vcAutoLoadStudentTextbook = async function(){
      · opts.manual === true 로 부르면(사람이 직접 누른 경우) 예전처럼 바로 전환·재생한다. */
   window.mangoiPlayLessonVideo = async function(bookId, opts){
     if(!bookId) return;
-    var manual = !!(opts && opts.manual);
+    /* 🔀 (2026-08-07 병합) 두 갈래가 **같은 버그를 서로 다른 이름으로** 고쳤다 —
+       한쪽은 opts.manual, 다른 쪽은 opts.autoOpen. 병합이 둘을 섞어 autoOpen 이
+       선언 없이 쓰이고 있었다(ReferenceError → 강사가 [영상] 탭을 눌러도 안 나옴).
+       이름은 autoOpen 으로 통일하되, 기존 호출부를 건드리지 않게 manual 도 받는다. */
+    var autoOpen = !!(opts && (opts.autoOpen || opts.manual));
     try{
       var qs = /^\d+$/.test(String(bookId)) ? ('id=' + encodeURIComponent(bookId)) : ('q=' + encodeURIComponent(bookId));
       var d = await (await fetch('/api/lesson-video?' + qs, { cache:'no-store' })).json();
       var st = document.getElementById('vp-stage');
       if(!st) return;
       if(!d || !d.success || !d.has_video) return; // 매칭 동영상 없으면 조용히 무시
-      if (!manual){
-        // 수업 흐름을 뺏지 않는다 — 있다는 사실만 알리고 끝. (탭도 안 바꾸고 재생도 안 한다)
+      if(autoOpen){
+        try{ if(typeof vcSwitchTab==='function') vcSwitchTab('video'); }catch(_){}   // 일부러 열 때만 탭 전환
+      } else {
+        /* 교재를 여는 흐름 — 화면은 교재가 지킨다. 영상은 아래에서 preload 없이 «준비만» 하고,
+           누를 수 있는 알약으로 알린다(토스트는 사라지면 다시 찾을 길이 없어서 같이 둔다). */
         try { window.__mangoiPendingVideo = { bookId: bookId }; } catch(_){}
         try { mangoiNoteLessonVideo(d); } catch(_){}
-        return;
       }
-      try{ if(typeof vcSwitchTab==='function') vcSwitchTab('video'); }catch(_){}   // 동영상 탭으로 전환
       var t = (d.video_type==='review') ? '복습' : '예습';
       var label = '<div style="position:absolute;top:8px;left:8px;z-index:2;background:#2563eb;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px">'+t+' · '+(d.video_title||'')+'</div>';
       var unBtn = autoOpen
@@ -32657,9 +32662,16 @@ window.vcAutoLoadStudentTextbook = async function(){
           if(ub) ub.onclick = function(){ v.muted=false; v.play(); ub.style.display='none'; };
         }
       }
-      // 교재를 여는 흐름에서는 «영상이 있다» 만 알린다. 화면은 교재가 그대로 지킨다.
+      /* 교재를 여는 흐름에서는 «영상이 있다» 만 알린다. 화면은 교재가 그대로 지킨다.
+         🌐 이 안내를 보는 사람은 «교재를 고른 강사» 다 — 강사 다수가 필리핀 분이라
+            한국어만 쓰면 못 읽는다(상시 지시: 강사향 문구는 한/영 둘 다). */
       if(!autoOpen){
-        try{ if(typeof showToast==='function') showToast('🎬 이 교재의 '+t+' 영상이 준비됐어요 — [동영상] 탭에서 볼 수 있어요'); }catch(_){}
+        var _en = false;
+        try { _en = (window.getLang ? window.getLang() : (localStorage.getItem('mangoi_lang')||'ko')) === 'en'; } catch(_){}
+        var _tEn = (d.video_type==='review') ? 'review' : 'preview';
+        try{ if(typeof showToast==='function') showToast(_en
+          ? ('🎬 A ' + _tEn + ' video for this book is ready — open the [Video] tab to play it')
+          : ('🎬 이 교재의 '+t+' 영상이 준비됐어요 — [동영상] 탭에서 볼 수 있어요')); }catch(_){}
       }
     }catch(e){ console.warn('[lesson-video]', e); }
   };
