@@ -8517,3 +8517,46 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .ns-tab.is
   color: #ffffff !important;
   border: 1px solid #1d4ed8 !important;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   ⌨️ 입력창·선택상자 — 「너무 진하다」
+   사장님 지적. 진단 페이지 문제가 아니라 «실제 화면»이 그렇다.
+
+   🔑 왜 여기만 남았나 — JS 페인터(adm-s13)의 EXCLUDE 목록에
+      input,textarea,select,option 이 들어 있다. 카드 안 다른 면은 페인터가 밝게
+      덧칠해 주지만 «입력요소는 일부러 건드리지 않는다». 그래서 다크 잔재가
+      이 부류에만 고스란히 남았다.
+
+   실측(페인터 켠 상태 = 실화면): .menu-card 안 입력요소 885개 중 466개가 어둡다.
+        <option> 458개  배경 rgb(15,23,42)      글자 #f8fafc
+        <input>    8개  배경 rgba(15,23,42,.85) 글자 #f8fafc
+
+   ⚠️ 배경만 밝히면 «흰 바탕에 흰 글자»가 된다(글자가 #f8fafc 로 박혀 있다).
+      배경·글자·테두리·placeholder 를 «한 벌로» 바꾼다.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] select:not([multiple]),
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] textarea {
+  background: #ffffff !important;
+  color: #101828 !important;
+  border: 1px solid #dde3ea !important;
+  box-shadow: none !important;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input::placeholder,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] textarea::placeholder {
+  color: #98a2b3 !important;
+  opacity: 1;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] select option,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] select optgroup {
+  background: #ffffff !important;
+  color: #101828 !important;
+}
+/* 포커스 — 어디에 입력 중인지 보이게 (색은 여기서만 쓴다) */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input:focus,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] select:focus,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] textarea:focus {
+  border-color: #2563eb !important;
+  outline: 2px solid rgba(37,99,235,0.18) !important;
+  outline-offset: 0 !important;
+}
