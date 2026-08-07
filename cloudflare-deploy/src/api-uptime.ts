@@ -6,7 +6,7 @@
 //   ⚠️ 신규 /api 경로이므로 index.ts 라우팅 게이트에도 등록해야 함(SRS 함정 #1).
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, keyMatchesAny } from './api-util';
-import { sendPlainSms } from './solapi-client';
+import { sendPlainSms, getSolapiMode } from './solapi-client';
 import type { MangoEnv } from './api-mango';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -87,7 +87,18 @@ export async function handleUptimeApi(
   if (url.searchParams.get('run') === 'watchdog') {
     const sim = url.searchParams.get('simulate');
     const res = await runSiteWatchdog(env, sim === 'down' || sim === 'up' ? { simulate: sim } : undefined);
-    return json({ ok: true, watchdog: res });
+    /* 📋 설정 점검 — 값이 아니라 «설정돼 있는가» 만 돌려준다 (2026-08-07).
+       왜 필요한가: 발신·수신 번호를 wrangler.toml [vars] 에서 secret 으로 옮겼는데,
+       잘못 옮기면 sendPlainSms 가 invalid_from / owner_phone_not_set 으로 **조용히 안 보낸다**.
+       그런데 그걸 확인하려면 실제로 장애 문자를 한 통 쏴 보는 수밖에 없었다(사장님 폰으로).
+       참/거짓만 보여주면 **문자를 보내지 않고도** 알림 체계가 살아있는지 확인할 수 있다.
+       ⚠️ 번호 자체는 절대 내보내지 않는다 — 이 경로는 키만 맞으면 누구나 부를 수 있다. */
+    const cfg = {
+      owner_phone_set: !!String((env as any).OWNER_ALERT_PHONE || '').trim(),
+      sms_from_set: !!String((env as any).SOLAPI_FROM_PHONE || '').trim(),
+      solapi_mode: getSolapiMode(env as any),   // disabled | mock | real
+    };
+    return json({ ok: true, watchdog: res, config: cfg });
   }
 
   // 2) up/down 판별 — UptimeRobot 이 query 또는 body 로 alertType(1=down,2=up) 전달.

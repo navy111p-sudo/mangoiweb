@@ -82,9 +82,13 @@ BUILD_STAMP = "2026-08-07T09:30:25Z"
 #   STOP: exposure is only closed after external callers switch and these two lines are DELETED.
 #   Callers: cafe24 /root/teacher-payroll-sync.sh, cafe24 retention script, UptimeRobot webhook URL.
 UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"   # LEGACY (public) - delete after step 3
-OWNER_ALERT_PHONE = "01089862224"
+# MOVED to wrangler secret (2026-08-07) - phone numbers are personal data and this file is committed.
+#   Set/replace with:  wrangler secret put OWNER_ALERT_PHONE   (and again with --env production)
+#   Check without sending SMS:  GET /api/uptime-hook?run=watchdog&key=...  -> config.owner_phone_set
 # 💬 SOLAPI 발신번호(등록·인증 완료된 번호). API 키/시크릿은 wrangler secret 으로 관리.
-SOLAPI_FROM_PHONE = "01089862224"
+# MOVED to wrangler secret (2026-08-07) - phone numbers are personal data and this file is committed.
+#   Set/replace with:  wrangler secret put SOLAPI_FROM_PHONE   (and again with --env production)
+#   Check without sending SMS:  GET /api/uptime-hook?run=watchdog&key=...  -> config.sms_from_set
 # 🧾 강사 급여 자동화 — 카페24 서버 집계 스크립트가 결과를 밀어넣을 때 쓰는 공유키(무단 주입 방지)
 PAYROLL_INGEST_KEY = "9c4f7a2e15b83d6079e1c4a8f2b5d3e6"   # LEGACY (public) - delete after step 3
 # 📧 이메일(Resend) — 레벨테스트 신규신청 관리자(필리핀) 알림 + 교사 배정 알림
@@ -182,8 +186,12 @@ BUILD_STAMP = "2026-08-07T09:30:25Z"
 #   STOP: exposure is only closed after external callers switch and these two lines are DELETED.
 #   Callers: cafe24 /root/teacher-payroll-sync.sh, cafe24 retention script, UptimeRobot webhook URL.
 UPTIME_HOOK_KEY = "74d3de23b5d488a03a6ea10c7bb48c4632e3"   # LEGACY (public) - delete after step 3
-OWNER_ALERT_PHONE = "01089862224"
-SOLAPI_FROM_PHONE = "01089862224"
+# MOVED to wrangler secret (2026-08-07) - phone numbers are personal data and this file is committed.
+#   Set/replace with:  wrangler secret put OWNER_ALERT_PHONE   (and again with --env production)
+#   Check without sending SMS:  GET /api/uptime-hook?run=watchdog&key=...  -> config.owner_phone_set
+# MOVED to wrangler secret (2026-08-07) - phone numbers are personal data and this file is committed.
+#   Set/replace with:  wrangler secret put SOLAPI_FROM_PHONE   (and again with --env production)
+#   Check without sending SMS:  GET /api/uptime-hook?run=watchdog&key=...  -> config.sms_from_set
 PAYROLL_INGEST_KEY = "9c4f7a2e15b83d6079e1c4a8f2b5d3e6"   # LEGACY (public) - delete after step 3
 # 📧 이메일(Resend) — 레벨테스트 관리자/교사 알림 (RESEND_API_KEY 는 secret)
 RESEND_FROM = "망고아이 MANGOi <noreply@mangoi.co.kr>"
