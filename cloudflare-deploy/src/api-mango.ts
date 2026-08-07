@@ -1644,14 +1644,23 @@ export async function handleMangoApi(
       }
       if (!row) return json({ ok: true, authorized: 'unknown', reason: 'schedule_not_found' }); // 예약 없음 → 통과(fail-open)
       let ok = false;
+      /* 🎭 (2026-08-08 강사 피드백 Teacher Ana ① 「먼저 들어온 학생이 강사 역할을 받는다」)
+       *  여태 역할은 **클라이언트가 말한 것을 그대로** 썼다(DO 도 그 값을 로스터에 박는다).
+       *  그래서 브라우저에 남아 있던 낡은 'teacher' 하나로 학생이 강사가 됐다.
+       *  이 게이트는 이미 «이 사람이 이 예약의 학생인가 교사인가» 를 알아내고 있다 —
+       *  그 답을 버리지 말고 `resolved_role` 로 함께 돌려준다.
+       *  🔑 클라이언트는 이 값을 **내리는 데만** 쓴다. 올리는 데 쓰면 이름 매칭 한 번 어긋난 것으로
+       *     학생이 강사가 되어 지금 고치는 사고를 반대 방향으로 다시 만든다.
+       *  ⚠️ 확실할 때만 값을 채운다. 모르면 null → 예전과 100% 동일(«수업을 막지 않는다» 1원칙 유지). */
+      let resolvedRole: 'student' | 'teacher' | null = null;
       if (userId) {
-        if (String(row.user_id) === userId) ok = true;                    // 학생 uid 일치
-        if (!ok && String(row.teacher_id || '') === userId) ok = true;    // 교사 uid == teacher_id
+        if (String(row.user_id) === userId) { ok = true; resolvedRole = 'student'; }       // 학생 uid 일치
+        if (!ok && String(row.teacher_id || '') === userId) { ok = true; resolvedRole = 'teacher'; }  // 교사 uid == teacher_id
         if (!ok) {
           // 이름 기반 학생 uid 병합(동명/키 다양성 대비)
           try {
             const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(row.student_name || '', row.student_name || '').all<any>();
-            for (const x of (rs.results || [])) { if (String(x.uid) === userId) { ok = true; break; } }
+            for (const x of (rs.results || [])) { if (String(x.uid) === userId) { ok = true; resolvedRole = 'student'; break; } }
           } catch {}
         }
       }
@@ -1666,7 +1675,7 @@ export async function handleMangoApi(
           String(s || '').replace(/^\s*(?:교사|강사|선생님|Teacher|Tutor)\s+/i, '').trim();
         const npRaw = nameParam;
         const npBare = stripRolePrefix(nameParam);
-        if (row.student_name && (row.student_name === npRaw || row.student_name === npBare)) ok = true;  // 학생 이름 일치
+        if (row.student_name && (row.student_name === npRaw || row.student_name === npBare)) { ok = true; resolvedRole = 'student'; }  // 학생 이름 일치
         // 🔧 (2026-07-24) 교사 이름은 완전일치 대신 부분일치(양방향) — sessions/today 매칭 완화와 동일 사유.
         if (!ok && row.teacher_name) {
           const tnRaw = String(row.teacher_name);
@@ -1676,8 +1685,14 @@ export async function handleMangoApi(
             for (const n of [npRaw, npBare]) { if (hit(t, n)) { ok = true; break; } }
             if (ok) break;
           }
+          /* ⚠️ 교사 이름 매칭은 «부분일치» 다 — 이름이 짧으면 우연히 걸릴 수 있다.
+             그래서 이 경로로 붙은 것은 **강사로 «올리는» 근거로 쓰지 않는다.**
+             (resolvedRole 은 클라이언트에서 내림 전용이므로 null 로 두면 아무 일도 안 일어난다) */
         }
       }
+      /* 🎭 학생 이름으로만 붙었는데 «강사» 를 주장하는 경우 = 이번 신고의 그림 그대로다.
+         (공용 PC 에 남아 있던 낡은 teacher 를 물려받은 학생) → resolvedRole 이 'student' 로 남아
+         클라이언트가 스스로 역할을 내린다. 그래도 **입장은 막지 않는다**(1원칙 유지). */
       // 🔒 (2026-07-28) 교사는 차단하지 않는다 — "수업을 방해하지 않는다"가 이 게이트의 1원칙이다.
       //   담당 지정이 어긋나 있어도 수업은 열려야 한다(어긋남 자체는 운영에서 흔하다).
       //   클라이언트는 authorized === false 일 때만 막으므로, 'unknown' 을 주면 경고만 띄우고 통과한다.
@@ -1685,9 +1700,9 @@ export async function handleMangoApi(
       //   ※ role 표기가 경로마다 다르다 — 마이페이지 입장 버튼은 'teacher', 홈 통합로그인 폴백은 'hq_teacher'
       //     를 쓴다(index.html tryAdminLoginFallback). 정확히 'teacher' 만 보면 안전장치가 새 경로에서 빠진다.
       if (!ok && /teacher/.test(role)) {
-        return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null });
+        return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null, resolved_role: resolvedRole });
       }
-      return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch' });
+      return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch', resolved_role: resolvedRole });
     }
 
     // (🥭 노쇼·스케줄CRUD·중복병합 → api-admin.ts — admin 5회차)

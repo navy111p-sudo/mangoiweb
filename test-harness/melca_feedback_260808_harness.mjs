@@ -202,6 +202,24 @@ console.log('\n[2] 역할 — 남의 «강사» 를 물려받지 않는가');
   check('학생 펜 색(pdfMyIdentity)도 주인 확인을 거친다',
         /function pdfMyIdentity\(\)[\s\S]{0,400}vcRoleStored/.test(html),
         '낡은 teacher 를 집으면 학생 펜이 강사와 같은 빨강이 된다');
+
+  /* 🎭 마지막 방어선 — 브라우저 기억이 아니라 «예약» 이 말하는 역할.
+     verify-room 은 이미 학생/교사를 알아내고 있었는데 그 답을 버리고 있었다. */
+  const mango = readFileSync(join(SRC, 'api-mango.ts'), 'utf8');
+  check('서버가 예약에서 «학생/교사» 를 판정해 resolved_role 로 돌려준다',
+        /resolved_role:\s*resolvedRole/.test(mango) && /resolvedRole:\s*'student'\s*\|\s*'teacher'\s*\|\s*null/.test(mango));
+  check('학생 uid·이름으로 붙으면 student 로 확정한다',
+        /String\(row\.user_id\) === userId\) \{ ok = true; resolvedRole = 'student'; \}/.test(mango));
+  check('🔴 교사 «이름 부분일치» 는 강사 근거로 쓰지 않는다 (짧은 이름이 우연히 걸린다)',
+        !/hit\(t, n\)\) \{ ok = true; resolvedRole = 'teacher'/.test(mango),
+        '여기서 올리면 지금 고치는 사고가 반대 방향으로 다시 난다');
+  check('클라이언트는 서버 판정으로 역할을 «내리기만» 한다',
+        /_vres\.resolved_role === 'student'[\s\S]{0,300}window\.vcMyRole = 'student'/.test(html));
+  check('🔴 서버 판정으로 «올리지» 않는다',
+        !/resolved_role === 'teacher'[\s\S]{0,200}vcMyRole = 'teacher'/.test(html));
+  check('역할만 바로잡고 입장은 막지 않는다 (게이트 1원칙 유지)',
+        !/resolved_role === 'student'[\s\S]{0,400}return;/.test(html),
+        '수업을 막으면 원래 신고보다 큰 사고가 된다');
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -218,13 +236,28 @@ console.log('\n[3] 하단 독 — 접기·줄이기·위로 가 «눈에 보이�
   check('「위로」가 독을 화면 위로 올린다',
         /vc-dock-top #vc-dock\{top:[^}]*bottom:auto/.test(dock));
   check('위로 올릴 때 bottom 을 !important 로 덮는다 (모바일 규칙이 더 강해 안 그러면 양쪽에 걸린다)',
-        /vc-dock-top #vc-dock\{top:64px !important;bottom:auto !important/.test(dock));
+        /vc-dock-top #vc-dock\{top:var\(--vcdock-top[^}]*\) !important;bottom:auto !important/.test(dock));
+  /* 🔴 (브라우저 실측에서만 잡힌 것) top 을 64px 로 박았더니 상단 툴바와 1px 겹치고
+     바로 아래 [화면 크기] 바(1/4·1/2·3/4·Full)를 통째로 덮었다 — 아래를 비우려다 위를 가리면
+     같은 신고가 방향만 바꿔 돌아온다. 고정값이 아니라 «재서» 정해야 한다. */
+  check('🔴 「위로」 자리는 고정값이 아니라 상단 바들을 재서 정한다',
+        /function syncTopOffset\(\)/.test(dock) && /--vcdock-top/.test(dock),
+        '툴바·화면크기바 높이는 가로/세로·접힘에 따라 달라진다');
+  check('상단 후보에 [화면 크기] 바가 들어 있다 (이걸 빼면 그 바를 덮는다)',
+        /'\.video-size-bar'/.test(dock));
+  check('리사이즈에서도 「위로」 자리를 다시 잰다', /resize'[\s\S]{0,160}syncTopOffset\(\)/.test(dock));
+  check('위 모드에서는 독을 아이콘만으로 줄인다 (상단은 원래 바가 겹겹이다)',
+        /vc-dock-top #vc-dock button \.lbl\{display:none/.test(dock));
   check('선택(기본·작게·위로)을 기억한다', /mangoi_vc_dock_size/.test(dock));
   check('🔴 위로 올리면 «접힘» 을 반드시 푼다 (안 그러면 독이 어디에도 없고 되돌릴 길이 사라진다)',
         /if \(v === 'top'\) b\.classList\.remove\('vc-dock-collapsed'\)/.test(dock));
+  /* 🔴 (실측) 되돌릴 버튼을 오른쪽 끝에 두었더니 그 버튼이 [화면 크기] 바를 덮었다.
+     → 독 바로 오른쪽에 붙인다. 되돌릴 길은 반드시 화면에 남아 있어야 한다. */
   check('위로 올린 상태에서도 되돌릴 버튼이 화면에 남는다',
-        /vc-dock-top #vc-dock-size\{top:64px/.test(dock));
-  check('vc-dock.js 캐시 버전을 올렸다', /vc-dock\.js\?v=(1[6-9]|[2-9]\d)/.test(html));
+        /vc-dock-top #vc-dock-size\{top:calc\(var\(--vcdock-top/.test(dock));
+  check('되돌릴 버튼이 오른쪽 끝(=화면크기 바 자리)에 있지 않다',
+        !/vc-dock-top #vc-dock-size\{top:64px;bottom:auto;left:auto;right:14px/.test(dock));
+  check('vc-dock.js 캐시 버전을 올렸다', /vc-dock\.js\?v=(1[7-9]|[2-9]\d)/.test(html));
   check('vc-spotlight.js 캐시 버전을 올렸다', /vc-spotlight\.js\?v=([3-9]|\d\d)/.test(html));
 }
 
