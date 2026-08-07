@@ -8560,3 +8560,30 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] textarea:f
   outline: 2px solid rgba(37,99,235,0.18) !important;
   outline-offset: 0 !important;
 }
+
+/* ── 체크박스·라디오 — 위 규칙에서 제외했더니 다크가 남았다 ──
+   네모 칸 자체가 네이비라 «체크 여부»가 잘 안 보인다. 브라우저 기본 위젯을 살리고
+   accent-color 로 브랜드색만 준다(모양은 OS 표준, 색만 우리 것). */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input[type="checkbox"],
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input[type="radio"] {
+  background: #ffffff !important;
+  border: 1px solid #b9c2ce !important;
+  accent-color: #2563eb;
+  box-shadow: none !important;
+}
+
+/* ── 「↗ 3D 배틀 열기」가 빨간 이유 = HTML 에 인라인으로 background:rgb(244,63,94) ──
+   사장님 지적. 하는 일은 «새 창으로 열기» 뿐인데 색은 «위험/삭제»를 말한다.
+   관리자 화면에서 빨강은 되돌릴 수 없는 행위에만 남겨야 오래 쓸 수 있다.
+   인라인이라 !important 로만 덮인다. 대상은 이 링크 하나로 좁혀 둔다. */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/battle-3d.html"] {
+  background: #ffffff !important;
+  color: #344054 !important;
+  border: 1px solid #dde3ea !important;
+  box-shadow: none !important;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/battle-3d.html"]:hover {
+  background: #f5f9ff !important;
+  color: #1d4ed8 !important;
+  border-color: #93b4f0 !important;
+}
