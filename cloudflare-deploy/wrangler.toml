@@ -69,27 +69,24 @@ VC_STICKY_UID = "on"
 #   ⚠️ [env.production.vars] 에도 같은 값이 있어야 운영에 적용됨.
 VC_STUDENT_ROOM_GATE = "off"
 # /admin/health "Last Deploy" tile identifier - auto-updated by fix-and-deploy.ps1
-BUILD_STAMP = "2026-08-07T17:10:31Z"
-# 📟 장애 감지 → 관리자 문자(SMS) 알림 (api-uptime.ts)
-# DONE 2026-08-07 key rotation complete (4/4). The legacy PAYROLL_INGEST_KEY / UPTIME_HOOK_KEY
-#   lines that used to sit here are DELETED and no longer accepted anywhere. Do NOT put them back.
-#   This repo was public for months, so anything written in [vars] is considered already leaked.
-#   Shared secrets live in **wrangler secret** only (never in [vars] - that republishes them):
-#       wrangler secret put PAYROLL_INGEST_KEY_NEW      (and again with --env production)
-#       wrangler secret put UPTIME_HOOK_KEY_NEW         (and again with --env production)
-#       wrangler secret put TRAITS_LINK_SECRET          (and again with --env production)
-#   Callers: cafe24 /root/teacher-payroll-sync.sh, cafe24 /root/student-retention-sync.sh,
-#            cafe24 /root/mangoi-watchdog.sh (external uptime probe - layer 2).
-# MOVED to wrangler secret (2026-08-07) - phone numbers are personal data and this file is committed.
-#   Set/replace with:  wrangler secret put OWNER_ALERT_PHONE   (and again with --env production)
-#   Check without sending SMS:  GET /api/uptime-hook?run=watchdog&key=...  -> config.owner_phone_set
-# 💬 SOLAPI 발신번호(등록·인증 완료된 번호). API 키/시크릿은 wrangler secret 으로 관리.
-# MOVED to wrangler secret (2026-08-07) - phone numbers are personal data and this file is committed.
-#   Set/replace with:  wrangler secret put SOLAPI_FROM_PHONE   (and again with --env production)
-#   Check without sending SMS:  GET /api/uptime-hook?run=watchdog&key=...  -> config.sms_from_set
-# 📧 이메일(Resend) — 레벨테스트 신규신청 관리자(필리핀) 알림 + 교사 배정 알림
-#   활성화: (1) resend.com 도메인 인증 → (2) `wrangler secret put RESEND_API_KEY`
-#   RESEND_API_KEY 미설정 시 이메일은 조용히 skip(신청/문자/대시보드는 정상 동작).
+BUILD_STAMP = "2026-08-07T20:15:24Z"
+# 📟 UptimeRobot 장애 웹훅 → 관리자 문자(SMS) 알림 (api-uptime.ts)
+#   UPTIME_HOOK_KEY: 웹훅 URL 의 ?key= 토큰(무단 호출 방지). OWNER_ALERT_PHONE: 문자 받을 번호.
+# 2026-08-07 key rotation DONE - the old shared keys were removed from this file.
+#   They had been committed here while this repo was PUBLIC, so they were rotated:
+#     PAYROLL_INGEST_KEY -> secret PAYROLL_INGEST_KEY_NEW   (cafe24 teacher-payroll-sync.sh / student-retention-sync.sh)
+#     UPTIME_HOOK_KEY    -> secret UPTIME_HOOK_KEY_NEW      (no external caller found - UptimeRobot webhook is a paid feature, never configured)
+#   NEVER put shared keys / phone numbers back in [vars] - this file is committed.
+#   Callers of UPTIME_HOOK_KEY_NEW: cafe24 /root/mangoi-watchdog.sh (layer-2 external watchdog,
+#     every 5 min: ?run=probe for a deep check, and ?alertType= as a relay when it has no SMS key).
+#   Check alerting without sending an SMS:  GET /api/uptime-hook?run=watchdog&key=<UPTIME_HOOK_KEY_NEW>
+#     -> config.owner_phone_set / sms_from_set must BOTH be true, and layer2 must not be 'unset'.
+#   Add them with:  wrangler secret put <NAME>   (and again with --env production)
+#   💬 SOLAPI 발신번호: secret SOLAPI_FROM_PHONE (등록·인증 완료된 번호). API 키/시크릿도 secret.
+#      문자 안 보내고 확인:  GET /api/uptime-hook?run=watchdog&key=...  -> config.sms_from_set
+#   📧 이메일(Resend) — 레벨테스트 신규신청 관리자(필리핀) 알림 + 교사 배정 알림.
+#      활성화: (1) resend.com 도메인 인증 → (2) wrangler secret put RESEND_API_KEY
+#      RESEND_API_KEY 미설정 시 이메일은 조용히 skip(신청·문자·대시보드는 정상 동작).
 RESEND_FROM = "망고아이 MANGOi <noreply@mangoi.co.kr>"
 LEVELTEST_ADMIN_EMAIL = ""   # ← 필리핀 관리자 이메일 입력(비우면 관리자 이메일 알림만 skip)
 # 🧑‍🏫 (2026-07-27) 강사 "기존 아이디·비번" 통과 인증 — 새 시스템에 계정이 없을 때만
@@ -171,23 +168,22 @@ ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 ADMIN_2FA_DISABLED = "true"
 VC_STICKY_UID = "on"   # 🔁 무중단 재연결 스위치(운영). 실측 후 'on'. 문제 시 'off'+재배포로 즉시 원복
 VC_STUDENT_ROOM_GATE = "off"   # 🚪 학생 공용방 차단(운영). ⛔ 실제 학생 예약이 6건뿐이라 켜면 대다수가 입장 불가. 예약 이관 후 'on'
-BUILD_STAMP = "2026-08-07T17:10:31Z"
-# DONE 2026-08-07 key rotation complete (4/4). The legacy PAYROLL_INGEST_KEY / UPTIME_HOOK_KEY
-#   lines that used to sit here are DELETED and no longer accepted anywhere. Do NOT put them back.
-#   This repo was public for months, so anything written in [vars] is considered already leaked.
-#   Shared secrets live in **wrangler secret** only (never in [vars] - that republishes them):
-#       wrangler secret put PAYROLL_INGEST_KEY_NEW      (and again with --env production)
-#       wrangler secret put UPTIME_HOOK_KEY_NEW         (and again with --env production)
-#       wrangler secret put TRAITS_LINK_SECRET          (and again with --env production)
-#   Callers: cafe24 /root/teacher-payroll-sync.sh, cafe24 /root/student-retention-sync.sh,
-#            cafe24 /root/mangoi-watchdog.sh (external uptime probe - layer 2).
-# MOVED to wrangler secret (2026-08-07) - phone numbers are personal data and this file is committed.
-#   Set/replace with:  wrangler secret put OWNER_ALERT_PHONE   (and again with --env production)
-#   Check without sending SMS:  GET /api/uptime-hook?run=watchdog&key=...  -> config.owner_phone_set
-# MOVED to wrangler secret (2026-08-07) - phone numbers are personal data and this file is committed.
-#   Set/replace with:  wrangler secret put SOLAPI_FROM_PHONE   (and again with --env production)
-#   Check without sending SMS:  GET /api/uptime-hook?run=watchdog&key=...  -> config.sms_from_set
-# 📧 이메일(Resend) — 레벨테스트 관리자/교사 알림 (RESEND_API_KEY 는 secret)
+BUILD_STAMP = "2026-08-07T20:15:24Z"
+# 2026-08-07 key rotation DONE - the old shared keys were removed from this file.
+#   They had been committed here while this repo was PUBLIC, so they were rotated:
+#     PAYROLL_INGEST_KEY -> secret PAYROLL_INGEST_KEY_NEW   (cafe24 teacher-payroll-sync.sh / student-retention-sync.sh)
+#     UPTIME_HOOK_KEY    -> secret UPTIME_HOOK_KEY_NEW      (no external caller found - UptimeRobot webhook is a paid feature, never configured)
+#   NEVER put shared keys / phone numbers back in [vars] - this file is committed.
+#   Callers of UPTIME_HOOK_KEY_NEW: cafe24 /root/mangoi-watchdog.sh (layer-2 external watchdog,
+#     every 5 min: ?run=probe for a deep check, and ?alertType= as a relay when it has no SMS key).
+#   Check alerting without sending an SMS:  GET /api/uptime-hook?run=watchdog&key=<UPTIME_HOOK_KEY_NEW>
+#     -> config.owner_phone_set / sms_from_set must BOTH be true, and layer2 must not be 'unset'.
+#   Add them with:  wrangler secret put <NAME>   (and again with --env production)
+#   💬 SOLAPI 발신번호: secret SOLAPI_FROM_PHONE (등록·인증 완료된 번호). API 키/시크릿도 secret.
+#      문자 안 보내고 확인:  GET /api/uptime-hook?run=watchdog&key=...  -> config.sms_from_set
+#   📧 이메일(Resend) — 레벨테스트 신규신청 관리자(필리핀) 알림 + 교사 배정 알림.
+#      활성화: (1) resend.com 도메인 인증 → (2) wrangler secret put RESEND_API_KEY
+#      RESEND_API_KEY 미설정 시 이메일은 조용히 skip(신청·문자·대시보드는 정상 동작).
 RESEND_FROM = "망고아이 MANGOi <noreply@mangoi.co.kr>"
 LEVELTEST_ADMIN_EMAIL = ""   # ← 필리핀 관리자 이메일 입력
 # 🧑‍🏫 강사 옛 LMS 통과 인증(운영). "off" + 재배포 = 즉시 차단
