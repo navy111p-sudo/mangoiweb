@@ -309,8 +309,12 @@ export function buildLtIcs(t: LtTicket, ticketUrl: string): string {
     'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY',
     `DESCRIPTION:${esc('내일 레벨테스트가 있어요 — 카메라·마이크를 미리 점검해 두세요 / Level test tomorrow — please check your camera and mic')}`,
     'END:VALARM',
-    'BEGIN:VALARM', 'TRIGGER:-PT10M', 'ACTION:DISPLAY',
-    `DESCRIPTION:${esc('10분 뒤 레벨테스트 시작 / Level test starts in 10 minutes')}`,
+    /* 두 번째 알람은 «입장이 열리는 순간» 에 맞춘다. 예전엔 10분 전이었는데 입장을 30분 전으로
+       넓히면서 어긋났다 — 10분 전에 «카메라를 확인하라» 고 해도 이미 늦다. 숫자를 적지 않고
+       OPEN_BEFORE_MS 에서 만들어, 창을 다시 바꿔도 알람이 저절로 따라온다.
+       ⚠️ 문자 T-10 과 겹치지 않는다: 문자는 «지금 들어가라», 이 알람은 «이제 들어갈 수 있다». */
+    'BEGIN:VALARM', `TRIGGER:-PT${Math.round(OPEN_BEFORE_MS / 60000)}M`, 'ACTION:DISPLAY',
+    `DESCRIPTION:${esc(`지금부터 입장하실 수 있어요 — 미리 들어와 카메라·마이크를 확인해 보세요 / You can join now — check your camera and mic`)}`,
     'END:VALARM',
     'END:VEVENT', 'END:VCALENDAR',
   ];

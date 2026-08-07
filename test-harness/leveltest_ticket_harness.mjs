@@ -105,7 +105,10 @@ if (T) {
   check('ics 줄바꿈이 CRLF 다 (LF 만 쓰면 일부 캘린더가 거부한다)', !/[^\r]\n/.test(ics));
   check('ics 에 시작·종료 시각이 UTC 로 들어간다', /DTSTART:20260806T090000Z/.test(ics) && /DTEND:20260806T092000Z/.test(ics));
   check('ics 안의 쉼표가 이스케이프된다 (안 하면 줄이 깨져 무시된다)', /Teacher A\\, B/.test(ics));
-  check('ics 에 10분 전 알람이 있다', /TRIGGER:-PT10M/.test(ics));
+  /* (2026-08-07) 알람은 «하루 전» + «입장 열리는 시각». 10분 전이 아니다 —
+     입장을 30분 전으로 넓힌 뒤 10분 전에 «카메라 확인하라» 는 이미 늦다. */
+  check('ics 에 입장 열리는 시각 알람이 있다', /TRIGGER:-PT\d+M/.test(ics) && !/TRIGGER:-PT10M/.test(ics));
+  check('ics 에 하루 전 알람이 있다', /TRIGGER:-P1D/.test(ics));
 }
 
 console.log('\n[ ③-2 결과는 «전화번호 뒷 4자리» 로 잠근다 (실제 소스 실행) ]');
@@ -330,10 +333,11 @@ console.log('\n[ ⑥-4 «전날 저녁» 알림 — 알림이 양 끝뿐이던 �
   check('킬스위치를 T-10 과 공유한다', (tk.match(/leveltest_reminder_send/g) || []).length >= 2);
   check('크론에 물려 있다 (안 물리면 영영 안 돈다)',
     /runLeveltestDayBeforeSweep/.test(idx) && /\[leveltest-daybefore\]/.test(idx));
-  check('📆 캘린더 알람이 두 개다 (하루 전 + 10분 전)',
-    (tk.match(/BEGIN:VALARM/g) || []).length === 2 && /TRIGGER:-P1D/.test(tk) && /TRIGGER:-PT10M/.test(tk));
+  check('📆 캘린더 알람이 두 개다 (하루 전 + 입장 열리는 시각)',
+    (tk.match(/BEGIN:VALARM/g) || []).length === 2 && /TRIGGER:-P1D/.test(tk)
+    && /TRIGGER:-PT\$\{Math\.round\(OPEN_BEFORE_MS \/ 60000\)\}M/.test(tk));
   check('하루 전 알람이 «먼저» 온다 (첫 알람만 쓰는 앱 대비)',
-    tk.indexOf("'TRIGGER:-P1D'") < tk.indexOf("'TRIGGER:-PT10M'"));
+    tk.indexOf("'TRIGGER:-P1D'") < tk.indexOf('TRIGGER:-PT${Math.round(OPEN_BEFORE_MS'));
 }
 
 console.log('\n[ ⑥-5 «1시간 전» 알림 + 입장 창 30분 (2026-08-07 ②③) ]');
@@ -371,6 +375,31 @@ console.log('\n[ ⑥-5 «1시간 전» 알림 + 입장 창 30분 (2026-08-07 ②
   check('티켓 화면이 «몇 분 전» 을 서버 값에서 계산한다 (숫자 하드코딩 금지)',
     /d\.start_ts - d\.open_at_ts\) \/ 60000/.test(tpage) && !/시작 10분 전부터 입장 버튼이 열려요/.test(tpage));
   check('확정 문자도 상수에서 꺼낸다', /Math\.round\(OPEN_BEFORE_MS \/ 60000\)/.test(adm));
+}
+
+console.log('\n[ ⑥-6 🔔 알림 받기 — 캘린더 알람을 «누르게» 만든다 (2026-08-07) ]');
+/* [왜] 캘린더 알람은 문자보다 확실하고(잠금화면·무음에도) 비용이 0원인데,
+   「📆 캘린더에 추가」가 「장비 점검」과 같은 크기로 나란히 있어 아무도 안 눌렀다.
+   누르는 «이유»(=알림)를 제목으로 올리고, 몇 번 언제 울리는지 그 자리에서 말해 준다. */
+{
+  const tk = rd('../cloudflare-deploy/src/leveltest-ticket.ts');
+  const p = rd('../cloudflare-deploy/public/t.html');
+  check('시작 «전» 에만 큰 알림 카드를 낸다 (들어갈 수 있거나 끝난 뒤엔 누를 이유가 없다)',
+    /var beforeStart = !d\.join_open && d\.start_ts && d\.start_ts > d\.now/.test(p)
+    && /if \(beforeStart && d\.ics_url\)\{/.test(p));
+  check('제목이 «알림 받기» 다 (수단이 아니라 이유를 앞에 둔다)', /🔔 ' \+ t\('알림 받기','Get reminders'\)/.test(p));
+  check('몇 번·언제 울리는지 그 자리에서 말한다', /하루 전과 입장이 열리는 ' \+ openMinB \+ '분 전, 두 번/.test(p));
+  check('그 분 수도 서버 값에서 계산한다 (하드코딩 금지)',
+    /openMinB = \(d\.open_at_ts && d\.start_ts\)/.test(p));
+  check('⛔ 작은 버튼 줄에 캘린더를 중복으로 두지 않는다 (끝난 수업에 남아 있었다)',
+    !/class="btn"[^>]*>📆/.test(p));
+  check('🔔 카드가 초록 입장 버튼과 동시에 뜨지 않는다 (서로 안 부딪히게)',
+    /!d\.join_open && d\.start_ts/.test(p));
+  /* ⏰ 알람 시각이 입장 시각을 따라와야 한다 — 10분 전에 «카메라 확인하라» 면 이미 늦다 */
+  check('둘째 알람이 «입장 열리는 시각» 에 맞춰 만들어진다 (숫자 하드코딩 금지)',
+    /TRIGGER:-PT\$\{Math\.round\(OPEN_BEFORE_MS \/ 60000\)\}M/.test(tk) && !/TRIGGER:-PT10M/.test(tk));
+  check('그 알람 문구가 «지금부터 입장» 이다', /지금부터 입장하실 수 있어요/.test(tk));
+  check('한/영 둘 다 나온다', /'Get reminders'/.test(p) && /adds to your phone calendar/.test(p));
 }
 
 console.log('\n[ ⑦-2 어느 기기에서나 — 링크를 «연 기기» 가 기억한다 (2026-08-07) ]');
