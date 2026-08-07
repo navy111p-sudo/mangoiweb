@@ -199,7 +199,53 @@ export async function assessPronunciation(
     }
     const best = Array.isArray(d?.NBest) ? d.NBest[0] : null;
     const pa = best?.PronunciationAssessment;
-    if (!pa) return { ok: false, reason: 'no_assessment' };
+    if (!pa) {
+      /* 🔍 여기가 둘로 갈린다. 구분이 안 되면 다음 사람이 또 처음부터 헤맨다.
+         · heard="" → Azure 가 **아무 말도 못 알아들었다** (오디오·형식 문제)
+         · heard="…" → 말은 알아들었는데 **발음평가 블록만 빠졌다** (헤더가 무시된 것)
+         2026-08-08 실측: heard 는 완벽했다(«Mangoi» 까지). 즉 헤더가 무시된 쪽이다.
+         → EnableMiscue 를 뺀 «최소 형태» 로 한 번만 다시 청한다. 이 조합이 가장 널리 쓰인다.
+         🪤 반드시 오디오 사본을 새로 뜬다 — 같은 버퍼를 재사용하면 «Network connection lost». */
+      const heard = String(best?.Display || d?.DisplayText || '').slice(0, 60);
+      try {
+        const r2 = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Ocp-Apim-Subscription-Key': key,
+            'Content-Type': 'audio/wav; codecs=audio/pcm; samplerate=16000',
+            'Accept': 'application/json;text/xml',
+            'Pronunciation-Assessment': b64utf8(JSON.stringify({
+              ReferenceText: ref.slice(0, 500),
+              GradingSystem: 'HundredMark',
+              Granularity: 'Phoneme',
+            })),
+          },
+          body: audio.slice(0),
+        });
+        if (r2.ok) {
+          const d2: any = await r2.json();
+          const b2 = Array.isArray(d2?.NBest) ? d2.NBest[0] : null;
+          const pa2 = b2?.PronunciationAssessment;
+          if (pa2) {
+            const n2 = (v: any) => { const x = Number(v); return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : 0; };
+            return {
+              ok: true,
+              accuracy: n2(pa2.AccuracyScore), fluency: n2(pa2.FluencyScore),
+              completeness: n2(pa2.CompletenessScore), pron: n2(pa2.PronScore),
+              text: String(b2?.Display || d2?.DisplayText || '').trim(),
+              words: Array.isArray(b2?.Words) ? b2.Words.slice(0, 40).map((w: any) => ({
+                word: String(w?.Word || ''), accuracy: n2(w?.PronunciationAssessment?.AccuracyScore),
+                errorType: w?.PronunciationAssessment?.ErrorType || undefined,
+              })) : [],
+            };
+          }
+          return { ok: false, reason: `no_assessment2 heard="${heard}"` };
+        }
+        return { ok: false, reason: `no_assessment retry_http_${r2.status} heard="${heard}"` };
+      } catch (e2: any) {
+        return { ok: false, reason: `no_assessment retry_throw heard="${heard}"` };
+      }
+    }
 
     const num = (v: any) => {
       const n = Number(v);
