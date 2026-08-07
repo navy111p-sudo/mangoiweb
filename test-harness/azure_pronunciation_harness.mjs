@@ -158,6 +158,56 @@ ok('⛔ 프론트에 구독 키가 없다 (임시 토큰만 쓴다)',
    !/AZURE_SPEECH_KEY/.test(html) && /fromAuthorizationToken/.test(html) && /\/api\/voice\/azure-token/.test(html));
 ok('프론트: 평가가 실패해도 채점은 계속된다', /_scAzure = \(_az && _az\.ok\) \? _az : null/.test(html));
 
+/* ── 🎯 단어별 발음 지도 — 함수를 «실제로 실행» 해서 확인한다 ──────────────────
+   점수 4개만 보여주면 «그래서 뭘 고치지?» 가 남는다. 학생에게 제일 쓸모 있는 화면이라
+   문구·색·이스케이프를 눈이 아니라 실행으로 지킨다. */
+{
+  const s = html.indexOf('function renderWordMap');
+  const e = html.indexOf('async function speakWord');
+  const code = html.slice(s, e);
+  ok('단어 지도 함수를 오려냈다', s > 0 && e > s);
+
+  const mk = () => {
+    const el = { style: { display: '' }, innerHTML: '' };
+    const fn = new Function('document', 'window', code + '; return renderWordMap;')(
+      { getElementById: (id) => (id === 'wordmap' ? el : null) }, {});
+    return { el, fn };
+  };
+
+  // ① 잘한 경우 — 격려로 끝난다
+  let t = mk();
+  t.fn([{ word: 'I', accuracy: 95 }, { word: 'love', accuracy: 92 }, { word: 'Mangoi', accuracy: 88 }]);
+  ok('전부 잘하면 «아주 잘했어요»', t.el.style.display === 'block' && /잘했어요/.test(t.el.innerHTML));
+  ok('  낙담시키는 말이 없다', !/틀렸|못했|나빠|실패/.test(t.el.innerHTML));
+
+  // ② 한 단어가 나쁜 경우 — «그 하나»만 짚고, 희망 톤을 유지한다
+  t = mk();
+  t.fn([{ word: 'I', accuracy: 95 }, { word: 'studying', accuracy: 41 }, { word: 'English', accuracy: 88 }]);
+  ok('가장 아쉬운 단어 하나만 짚는다', /studying<\/b>/.test(t.el.innerHTML) && !/English<\/b>/.test(t.el.innerHTML));
+  ok('  희망 톤을 유지한다 («거의 다 왔어요»)', /거의 다 왔어요/.test(t.el.innerHTML));
+  ok('  점수대로 색이 갈린다 (좋음/다시)', /wm-good/.test(t.el.innerHTML) && /wm-bad/.test(t.el.innerHTML));
+
+  // ③ 빠뜨린 단어 · 없는 말 덧붙임
+  t = mk();
+  t.fn([{ word: 'with', accuracy: 0, errorType: 'Omission' }, { word: 'uh', accuracy: 0, errorType: 'Insertion' }, { word: 'Mangoi', accuracy: 90 }]);
+  ok('빠뜨린 단어는 «빠뜨림» 으로 표시', /wm-miss/.test(t.el.innerHTML) && /빠뜨림/.test(t.el.innerHTML));
+  ok('없는 말 덧붙임(Insertion)은 지도에 안 넣는다', !/>uh</.test(t.el.innerHTML));
+
+  // ④ 평가가 없으면 조용히 사라진다 (예전 화면 그대로)
+  t = mk(); t.fn(null);
+  ok('평가가 없으면 지도를 감춘다', t.el.style.display === 'none' && t.el.innerHTML === '');
+
+  // ⑤ ⛔ 남의 글자가 화면 코드로 실행되지 않는다
+  t = mk();
+  t.fn([{ word: '<img src=x onerror=alert(1)>', accuracy: 50 }]);
+  ok('⛔ 단어에 든 태그가 그대로 심어지지 않는다 (이스케이프)',
+     !/<img/.test(t.el.innerHTML) && /&lt;img/.test(t.el.innerHTML));
+
+  ok('손가락으로 눌리는 크기(min-height 34px 이상)', /\.wm \{[^}]*min-height:\s*34px/.test(html));
+  ok('한/영 두 벌로 나온다', /getLang\(\) === 'en'/.test(code) && /Word-by-word/.test(code));
+  ok('다시 녹음하면 지난 지도를 지운다', /_wm\.style\.display = 'none'; _wm\.innerHTML = ''/.test(html));
+}
+
 const idx = readFileSync(join(SRC, 'index.ts'), 'utf8');
 ok('토큰 창구가 공개 목록에 등록돼 있다 (게스트도 음성코치를 쓴다)',
    idx.includes("path === '/api/voice/azure-token'"));
