@@ -2933,7 +2933,11 @@ ${numbered}`;
           (ph) => `SELECT user_id FROM consents WHERE user_id IN (${ph}) AND withdrawn_at IS NULL AND recording_consent = 1`);
         consentedIds = rows.map(r => r.user_id);
       }
-      const RETENTION_MS = 30 * 24 * 3600 * 1000; // 1개월
+      // 녹화 보관기간 = 3개월 (2026-08-06 사장님 결정. 그 전 값은 30일이었다)
+      // ⚠️ 이 값은 «앞으로 만들어질» 녹화에만 적용된다. 이미 있는 행의 expires_at 은
+      //    그대로 둔다 — 학부모가 동의한 시점의 기간보다 더 오래 갖고 있게 되면
+      //    보관기간을 늘리는 것이 곧 동의 범위를 넘는 일이 되기 때문.
+      const RETENTION_MS = 90 * 24 * 3600 * 1000; // 3개월
       const res = await env.DB.prepare(
         `INSERT INTO recordings (room_id, teacher_id, teacher_name, filename, participant_ids, participant_names, consented_user_ids, started_at, expires_at, storage)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local')`

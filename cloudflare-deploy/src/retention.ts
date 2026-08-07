@@ -1,7 +1,9 @@
 /**
  * retention.ts — 보관기간 만료 데이터 자동 파기
  * 명세서 §3.2 보관기간:
- *  - 녹화본: 1개월
+ *  - 녹화본: 3개월 (2026-08-06 사장님 결정. 그 전 명세는 1개월)
+ *    🔴 아래 «1) 녹화» 가 하는 일은 D1 행에 status='deleted' 를 다는 것뿐이다.
+ *       R2 의 실제 영상 파일은 이 경로로 지워지지 않는다. 상세는 그 자리 주석 참조.
  *  - 출결 기록: 수강 종료 후 3년
  *  - 보상 내역: 5년 (전자상거래법)
  *  - 카카오 ID: 탈퇴(동의 철회) 시 즉시
@@ -45,7 +47,17 @@ export async function purgeExpired(env: PurgeEnv): Promise<PurgeResult> {
     errors: []
   };
 
-  // 1) 녹화: expires_at 지난 것 (1개월)
+  // 1) 녹화: expires_at 지난 것 (3개월)
+  //
+  // 🔴 여기는 «파기» 가 아니다 — D1 행에 status='deleted' 표시만 한다.
+  //    R2 의 실제 영상 파일(webrtc-class-recordings)은 그대로 남는다.
+  //    게다가 이 행은 UPDATE 라 계속 남아 있고 file_url 도 그대로여서,
+  //    고아 청소기(recordings-cleanup.ts)가 «D1 에 기록이 있는 살아있는 파일» 로 보고
+  //    보호한다 → 만료된 아동 화상수업 영상이 사실상 무기한 보관된다.
+  //
+  //    실제 파기를 켜려면 (1) 여기서 file_url 로 env.RECORDINGS.delete 호출
+  //    (2) 고아 청소기의 보호 목록에서 status='deleted' 행 제외 — 두 가지가 함께 필요하다.
+  //    되돌릴 수 없는 대량 삭제라 사장님 승인 + dryRun 선행 없이는 켜지 않는다.
   try {
     const r = await env.DB.prepare(
       `UPDATE recordings SET status = 'deleted'
