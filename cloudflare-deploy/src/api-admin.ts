@@ -1895,6 +1895,99 @@ export async function handleAdminApi(
       return json({ ok: true, teacher_id: tid, level_code: code, fee_per_10min: fee, rate_per_20min: Number(lvl.rate_per_20min) || 0 });
     }
 
+    /* ── GET /api/admin/payroll/late-detect?year=&month= — 지각 «자동 감지» (참고용) ──────
+     *
+     * [왜] 지각분은 지금까지 관리자가 손으로 세어 넣었다(아래 late-minutes). 강사 20명 × 한 달치를
+     *      사람이 세는 일이라 빠지거나 틀리기 쉽다. 원천 데이터(attendance.joined_at)는 이미 있다.
+     *
+     * ⛔ **자동으로 급여를 깎지 않는다.** 이 창구는 «세어 보니 이렇습니다» 만 돌려준다.
+     *    공제에 반영되는 값은 여전히 lesson_late_minutes(사람이 확정한 값)뿐이다.
+     *    돈은 사람이 확정한다 — 접속 기록이 곧 지각은 아니다(회선 끊김·재입장·시계 오차).
+     *
+     * 🔑 방 이름 규약으로 수업과 접속을 잇는다: room_id = class-{schedule_id}-{YYYYMMDD}
+     * ⚠️ 강사의 «가장 이른» 입장만 본다. 끊겼다 다시 들어온 것을 지각으로 세면 안 된다.
+     */
+    if (method === 'GET' && path === '/api/admin/payroll/late-detect') {
+      const _ldActor = await getAdminActor(request, env as any);
+      if (_ldActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      const y = parseInt(url.searchParams.get('year') || '', 10);
+      const mo = parseInt(url.searchParams.get('month') || '', 10);
+      if (!y || !mo || mo < 1 || mo > 12) return invalidBody(['year', 'month']);
+      const p2 = (n: number) => String(n).padStart(2, '0');
+      const from = `${y}-${p2(mo)}-01`;
+      const to = `${y}-${p2(mo)}-31`;
+      // 몇 분부터 «지각» 으로 볼지 — 기본 3분(시계 오차·입장 지연을 지각으로 세지 않기 위한 여유)
+      const grace = Math.max(0, Math.min(30, parseInt(url.searchParams.get('grace') || '3', 10) || 3));
+      try {
+        const empty = { results: [] as any[] };
+        const [attRs, manRs] = await Promise.all([
+          env.DB.prepare(
+            `SELECT room_id, user_id, username, MIN(joined_at) AS first_join, date
+               FROM attendance
+              WHERE role = 'teacher' AND date >= ? AND date <= ? AND room_id LIKE 'class-%'
+              GROUP BY room_id`
+          ).bind(from, to).all<any>().catch(() => empty),
+          env.DB.prepare(
+            `SELECT schedule_id, lesson_date, minutes FROM lesson_late_minutes WHERE lesson_date >= ? AND lesson_date <= ?`
+          ).bind(from, to).all<any>().catch(() => empty),
+        ]);
+        const manual: Record<string, number> = {};
+        for (const m of (manRs.results || []) as any[]) manual[`${m.schedule_id}|${m.lesson_date}`] = Number(m.minutes) || 0;
+
+        // 방 이름에서 schedule_id 를 뽑아, 그 수업의 예정 시작 시각을 한 번에 읽는다.
+        const rows = (attRs.results || []) as any[];
+        const sids = Array.from(new Set(rows.map((r) => {
+          const m = /^class-(\d+)-\d{8}$/.exec(String(r.room_id || ''));
+          return m ? Number(m[1]) : 0;
+        }).filter(Boolean)));
+        const startById: Record<number, { start: string; teacher: string }> = {};
+        // ⚠️ D1 은 쿼리당 바인드 100개 한도 — 손으로 끊지 말고 공용 헬퍼를 쓴다(가드가 지킨다)
+        const schedRows = await selectInChunks<any>(
+          env.DB, sids, (ph) => `SELECT id, start_time, teacher_id FROM class_schedules WHERE id IN (${ph})`
+        );
+        for (const s of schedRows) {
+          startById[Number(s.id)] = { start: String(s.start_time || ''), teacher: String(s.teacher_id || '') };
+        }
+
+        const toMin = (hhmm: string) => {
+          const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || ''));
+          return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+        };
+        const out: any[] = [];
+        for (const r of rows) {
+          const m = /^class-(\d+)-\d{8}$/.exec(String(r.room_id || ''));
+          if (!m) continue;
+          const sid = Number(m[1]);
+          const sched = startById[sid];
+          if (!sched || !sched.start) continue;
+          const planned = toMin(sched.start);
+          if (planned == null || !r.first_join) continue;
+          // 입장 시각을 KST 분 단위로 (예정 시각도 KST 기준으로 적혀 있다)
+          const d = new Date(Number(r.first_join) + 9 * 3600 * 1000);
+          const actual = d.getUTCHours() * 60 + d.getUTCMinutes();
+          const lateMin = actual - planned;
+          if (lateMin <= grace) continue;                       // 여유 안이면 지각 아님
+          const key = `${sid}|${r.date}`;
+          out.push({
+            schedule_id: sid, lesson_date: r.date, room_id: r.room_id,
+            teacher: r.username || sched.teacher || '', planned_start: sched.start,
+            actual_start: `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`,
+            detected_minutes: lateMin,
+            entered_minutes: manual[key] ?? null,               // 사람이 이미 넣은 값(비교용)
+            differs: manual[key] != null && manual[key] !== lateMin,
+          });
+        }
+        out.sort((a, b) => b.detected_minutes - a.detected_minutes);
+        return json({
+          ok: true, year: y, month: mo, grace_minutes: grace, count: out.length, rows: out,
+          note: '참고용입니다. 공제에 반영되는 값은 관리자가 확정한 지각분(late-minutes)뿐입니다.',
+          note_en: 'Advisory only. Only the manually confirmed late minutes affect payroll deductions.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'late_detect_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+    }
+
     // ── POST /api/admin/payroll/late-minutes — 수업별 '지각 연장실패' 분 수동 입력 ──
     //   body: { schedule_id, lesson_date(YYYY-MM-DD), minutes }
     //   근태 자동로그 도입 전까지 관리자가 상세표에서 직접 기입 → late_no_extend 공제에 반영.
