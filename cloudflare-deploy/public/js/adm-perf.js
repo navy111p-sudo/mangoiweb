@@ -45,6 +45,22 @@
 
   var mem = Object.create(null);   // key(pathname+search) → { at, body, ctype, status }
 
+  // ── ④ 「같은 순간에 나가는 똑같은 GET」 합치기 (2026-08-08) ──────────────
+  //   위의 60초 캐시로는 못 막는 구멍이 하나 있다. **캐시가 채워지기 «전»** 에
+  //   여러 카드가 동시에 같은 주소를 부르면 전부 캐시 미스라 전부 나간다(스탬피드).
+  //
+  //   실측(2026-08-08, admin.html 첫 화면, 지연 350ms·400KB/s 흉내):
+  //     /api/admin/students/erp-list?limit=2000 (학생 2,000명 명부)이
+  //     4ms 안에 **5건**씩, 모두 세 차례 = 15건 나갔다. 필리핀 회선에서 이건 그냥 낭비다.
+  //
+  //   그래서 «이미 날아가고 있는 요청»이 있으면 새로 보내지 않고 거기 올라탄다.
+  //   ⚠️ 캐시가 아니다 — 응답이 오는 즉시 잊는다. 그래서 최신성이 나빠지지 않는다.
+  //      (캐시 대상이 아닌 주소도 합쳐진다. 같은 순간의 같은 GET 은 어차피 같은 답이므로.)
+  //   ⚠️ 호출자가 자기 signal 로 취소할 수 있는 요청은 합치지 않는다.
+  //      한 명이 취소하면 같이 탄 사람들까지 죽는다.
+  var inflight = Object.create(null);
+  var coalesced = 0;
+
   function makeResp(ent) {
     return new Response(ent.body, {
       status: ent.status || 200,
@@ -85,6 +101,13 @@
       }
     }
 
+    // ②-0 이미 같은 GET 이 날아가고 있으면 거기 올라탄다 (스탬피드 방지)
+    var userSignal0 = init && init.signal;
+    if (!userSignal0 && inflight[key]) {
+      coalesced++;
+      return inflight[key].then(function (r) { return r.clone(); });
+    }
+
     // ② 네트워크 + 타임아웃
     var ac = new AbortController();
     var userSignal = init && init.signal;
@@ -96,7 +119,7 @@
     var timer = setTimeout(function () { timedOut = true; ac.abort(); }, TIMEOUT_MS);
     var newInit = Object.assign({}, init, { signal: ac.signal });
 
-    return orig.call(this, input, newInit).then(function (resp) {
+    var p = orig.call(this, input, newInit).then(function (resp) {
       clearTimeout(timer);
       // 캐시 저장 (200 + JSON 만) — 쓰기를 확정한 뒤 원본 응답 반환(연속 호출 레이스 방지)
       if (cacheable && resp && resp.ok) {
@@ -123,7 +146,18 @@
       }
       throw err;
     });
+
+    // 합칠 수 있는 요청이면 «날아가는 중» 목록에 올려 두고, 부르는 쪽마다 복제본을 준다.
+    // 응답이 오는 즉시(성공이든 실패든) 목록에서 지운다 — 캐시가 아니다.
+    if (!userSignal) {
+      inflight[key] = p;
+      var forget = function () { if (inflight[key] === p) delete inflight[key]; };
+      p.then(forget, forget);
+      return p.then(function (r) { return r.clone(); });
+    }
+    return p;
   };
 
-  console.info('[adm-perf] 관리자 fetch 캐시+타임아웃 레이어 활성 (캐시 ' + (CACHE_TTL / 1000) + 's, 타임아웃 ' + (TIMEOUT_MS / 1000) + 's)');
+  window.__admPerf.coalesced = function () { return coalesced; };   // 검증용: 합쳐서 «안 보낸» 요청 수
+  console.info('[adm-perf] 관리자 fetch 캐시+타임아웃+합치기 레이어 활성 (캐시 ' + (CACHE_TTL / 1000) + 's, 타임아웃 ' + (TIMEOUT_MS / 1000) + 's)');
 })();

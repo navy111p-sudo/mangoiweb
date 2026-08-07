@@ -12,6 +12,8 @@
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
+<!-- 🐢 좁은 회선·싼 폰 절약 장치 (2026-08-08) — 다른 스크립트보다 먼저, defer 없이. -->
+<script src="/js/net-lite.js?v=1"></script>
 <script src="/js/adm-lang-boot.js?v=6"></script>
 <script defer src="/js/i18n-sweep.js?v=21"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
