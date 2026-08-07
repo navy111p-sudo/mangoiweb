@@ -76,13 +76,41 @@ if [ -z "$UPTIME_KEY" ]; then
   exit 1
 fi
 
+# ── 설정이 «채워졌나» 가 아니라 «쓸 수 있나» 를 본다 ──────────────────────
+#  🔴 2026-08-07 사고: 안내문의 예시 글자(«발신번호숫자만» 같은 한글)가 그대로 들어갔다.
+#     «비어 있지 않다» 만 보던 옛 판정은 이걸 «설정 완료» 로 읽고 직접 발송을 시도했고,
+#     SOLAPI 가 당연히 거절하는데 **보조 경로(워커 경유)는 «키가 있으니 필요 없다» 며 건너뛰었다.**
+#     결과 = 커버가 3/4 에서 **0/4** 로 떨어진다. 채우기 전보다 나빠진다.
+#  🔑 «설정됨» 은 «동작함» 이 아니다. 번호는 숫자인지·길이가 되는지까지 봐야 한다.
+sms_ready() {
+  [ -n "$SOLAPI_API_KEY" ] || return 1
+  [ -n "$SOLAPI_API_SECRET" ] || return 1
+  printf '%s' "$SOLAPI_FROM" | grep -qE '^[0-9]{8,}$'  || return 1
+  printf '%s' "$ALERT_TO"    | grep -qE '^[0-9]{10,}$' || return 1
+  return 0
+}
+
+# 설정이 반쯤 잘못 들어간 경우를 «조용히» 넘기지 않는다 — 로그에 무엇이 문제인지 남긴다.
+sms_config_problem() {
+  if [ -z "$SOLAPI_API_KEY" ] && [ -z "$SOLAPI_API_SECRET" ] && [ -z "$SOLAPI_FROM" ] && [ -z "$ALERT_TO" ]; then
+    echo "미설정"          # 아직 안 채운 정상 상태
+    return
+  fi
+  _p=""
+  [ -z "$SOLAPI_API_KEY" ]    && _p="$_p SOLAPI_API_KEY=빈값"
+  [ -z "$SOLAPI_API_SECRET" ] && _p="$_p SOLAPI_API_SECRET=빈값"
+  printf '%s' "$SOLAPI_FROM" | grep -qE '^[0-9]{8,}$'  || _p="$_p SOLAPI_FROM=숫자8자리이상이_아님"
+  printf '%s' "$ALERT_TO"    | grep -qE '^[0-9]{10,}$' || _p="$_p ALERT_TO=숫자10자리이상이_아님"
+  echo "잘못됨:$_p"
+}
+
 # ── 문자 발송 (SOLAPI 직접 호출 — 워커를 거치지 않는다) ────────────────────
 #    인증: HMAC-SHA256(secret, date+salt) — 워커 solapi-client.ts 와 같은 방식.
 send_sms() {
   _text="$1"
   _sent=0
 
-  if [ -n "$SOLAPI_API_KEY" ] && [ -n "$SOLAPI_API_SECRET" ] && [ -n "$SOLAPI_FROM" ] && [ -n "$ALERT_TO" ]; then
+  if sms_ready; then
     _date=$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')
     _salt=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
     _sig=$(printf '%s' "${_date}${_salt}" | openssl dgst -sha256 -hmac "$SOLAPI_API_SECRET" -hex 2>/dev/null | sed 's/^.*[ =]//')
@@ -108,7 +136,14 @@ EOF
     #     그래도 나머지 세 경우(도메인만 죽음·D1 죽음·cron 정지)는 워커가 살아 있으므로 문자가 나간다.
     #     즉 «키를 넣기 전까지는 4개 중 3개를 커버» 한다. 아무것도 못 하는 것보다 낫다.
     #  키를 $CONF 에 넣는 순간 위쪽 직접 경로로 자동 전환된다(코드 수정 불필요).
-    log "WARN SOLAPI 키 미설정 → 워커 경유 보조 경로로 발송 시도 (worker-relay fallback; not full layer 2)"
+    _why=$(sms_config_problem)
+    if [ "$_why" = "미설정" ]; then
+      log "WARN SOLAPI 키 미설정 → 워커 경유 보조 경로로 발송 시도 (worker-relay fallback; not full layer 2)"
+    else
+      # 잘못 채운 경우는 «아직 안 채움» 보다 위험하다 — 다 됐다고 믿게 되기 때문이다. 크게 남긴다.
+      log "ERROR SOLAPI 설정이 $_why → 직접 발송 불가. 워커 경유로 대신 보냅니다."
+      log "ERROR   고치는 법: ssh root@<서버> -t /bin/bash /root/mangoi-alert-setup.sh"
+    fi
     _base="$PRIMARY"; [ "${PRIMARY_OK:-1}" = "1" ] || _base="$FALLBACK"
     _at=1; [ "${CUR_STATE:-down}" = "up" ] && _at=2
     _resp=$(curl -s -m "$CURL_TIMEOUT" \

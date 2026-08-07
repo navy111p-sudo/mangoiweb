@@ -214,7 +214,43 @@ runScript({ MANGOI_WD_CONF: confNoSms, FAKE_PRIMARY_CODE: '000', FAKE_FALLBACK_C
 runScript({ MANGOI_WD_CONF: confNoSms, FAKE_PRIMARY_CODE: '000', FAKE_FALLBACK_CODE: '000' });
 check('🔴 워커가 죽으면 보조 경로도 실패 → 상태 저장 보류(계속 재시도)', !/PREV_STATE=down/.test(state()), { state: state() });
 
-// ⑬ --test 는 아무것도 바꾸면 안 된다(사장님이 안심하고 눌러볼 수 있어야 함)
+/* ⑬ 🔴 실제로 난 사고 (26-08-07): 안내문의 예시 글자(«발신번호숫자만» 같은 한글)가 설정에 그대로 들어갔다.
+     «비어 있지 않다» 만 보던 옛 판정은 그걸 «설정 완료» 로 읽고 직접 발송을 시도했고,
+     SOLAPI 는 당연히 거절하는데 **보조 경로는 «키가 있으니 필요 없다» 며 건너뛰었다.**
+     커버가 3/4 → **0/4**. 즉 채우기 전보다 나빠진다. 이게 제일 위험한 실패 모양이다. */
+const confBad = join(dir, 'alert-bad.env');
+writeFileSync(confBad, [
+  'UPTIME_KEY=testkey',
+  'SOLAPI_API_KEY=발급받은키',
+  'SOLAPI_API_SECRET=발급받은시크릿',
+  'SOLAPI_FROM=발신번호숫자만',
+  'ALERT_TO=받으실번호숫자만',
+].join('\n') + '\n', 'utf8');
+
+resetAll();
+runScript({ MANGOI_WD_CONF: confBad, FAKE_PROBE: DB_DEAD });
+runScript({ MANGOI_WD_CONF: confBad, FAKE_PROBE: DB_DEAD });
+check('🔴 설정값이 «한글 예시 글자» 여도 알림이 나간다(워커 경유로 대체)',
+  relayBodies().length === 1 && /PREV_STATE=down/.test(state()), { relay: relayBodies().length, state: state() });
+check('🔴 SOLAPI 직접 발송을 시도하지 않는다(못 쓸 값으로 쏘면 조용히 실패)', smsCount() === 0, smsCount());
+check('로그가 «무엇이 잘못됐는지» 를 짚어 준다', /ALERT_TO=숫자10자리이상이_아님/.test(readFileSync(logF, 'utf8')));
+check('로그가 «고치는 법» 까지 알려 준다', /mangoi-alert-setup\.sh/.test(readFileSync(logF, 'utf8')));
+
+// 번호는 맞는데 키만 빠진 «반쯤» 설정도 같은 취급이어야 한다
+const confHalf = join(dir, 'alert-half.env');
+writeFileSync(confHalf, 'UPTIME_KEY=testkey\nSOLAPI_FROM=0212345678\nALERT_TO=01012345678\n', 'utf8');
+resetAll();
+runScript({ MANGOI_WD_CONF: confHalf, FAKE_PROBE: DB_DEAD });
+runScript({ MANGOI_WD_CONF: confHalf, FAKE_PROBE: DB_DEAD });
+check('키만 빠진 반쪽 설정도 워커 경유로 대체된다', relayBodies().length === 1 && smsCount() === 0, { relay: relayBodies().length, sms: smsCount() });
+
+// 반대로, 제대로 채우면 직접 경로로 가야 한다(대체 경로로 새면 2층 의미가 없다)
+resetAll();
+runScript({ FAKE_PROBE: DB_DEAD });
+runScript({ FAKE_PROBE: DB_DEAD });
+check('제대로 채운 설정은 SOLAPI 직접 경로로 간다', smsCount() === 1 && relayBodies().length === 0, { sms: smsCount(), relay: relayBodies().length });
+
+// ⑭ --test 는 아무것도 바꾸면 안 된다(사장님이 안심하고 눌러볼 수 있어야 함)
 resetAll();
 execFileSync('bash', [join(ROOT, 'ops', 'mangoi-watchdog.sh'), '--test'], {
   env: { ...process.env, PATH: binDir + ':' + process.env.PATH,
