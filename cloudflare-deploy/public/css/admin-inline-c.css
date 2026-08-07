@@ -8349,3 +8349,26 @@ html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell[data-sta
 html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell[data-state="❌"] {
   background: linear-gradient(135deg,#fee2e2,#fecaca) !important; border-color:#fca5a5 !important; color:#b91c1c !important;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   🧭 사이드바 — 다크 전제로 박힌 색이 «흰 사이드바»에서 안 읽히던 2곳
+   admin.html 전 요소의 «글자 대 제 배경» 대비를 재서 찾았다.
+   (JS 페인터 adm-s13 은 [id^="card-"] 안만 칠한다 → 사이드바는 구제 대상 밖이라
+    다크 색이 그대로 남아 있었다. 42패턴 중 페인터가 못 덮는 것만 남은 것이 이것.)
+
+     .ph85-subhead  앰버 #fbbf24 + opacity .72  → 흰 바탕 대비 1.67  «거의 안 보임»
+     .ph85-arrow    회색 #98a2b3               → 흰 바탕 대비 2.58
+
+   🪤 .ph85-subhead 는 admin.html 에 인라인 color 로 박혀 있다(8655행 등 4곳).
+      인라인이라 !important 로만 덮인다. opacity 도 같이 올려야 색이 제 값으로 나온다.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-admin-theme="ivory"] #ph85-sidebar .ph85-subhead {
+  color: #b45309 !important;
+  opacity: 1 !important;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-subhead {
+  color: #9a3412 !important;
+  opacity: 1 !important;
+}
+html[data-admin-theme="ivory"] #ph85-sidebar .ph85-arrow { color: #7c7566 !important; }
+html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-arrow { color: #667085 !important; }
