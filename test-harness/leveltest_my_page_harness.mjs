@@ -36,8 +36,17 @@ function check(name, cond) {
   console.log(`  ${cond ? '✅' : '❌'} ${name}`);
 }
 
-// 새 엔드포인트 본문만 떼어 본다 (다른 핸들러의 코드에 우연히 걸리지 않도록)
-const myHandler = (api.match(/path === '\/api\/leveltest\/my'[\s\S]{0,3000}?\n    \}\n/) || [''])[0];
+/* 새 엔드포인트 본문만 떼어 본다 (다른 핸들러의 코드에 우연히 걸리지 않도록).
+ * 🪤 (2026-08-08) 예전엔 닫는 괄호를 `\n    }\n`(4칸 들여쓰기)로 찾았는데, 그 사이 들여쓰기가
+ *    달라지자 **핸들러가 멀쩡한데도 «없다»** 고 나왔다(실측: 본문 1,698자 · 라우트도 게이트도 정상).
+ *    코드 서식이 바뀔 때마다 깨지는 판정이라, «다음 라우트 직전까지» 로 경계를 잡는다.
+ *    ⚠️ 검사 항목은 하나도 바꾸지 않았다 — 무엇을 지키는지는 그대로다. */
+const myHandler = (() => {
+  const i = api.indexOf("path === '/api/leveltest/my'");
+  if (i < 0) return '';
+  const j = api.indexOf("path === '", i + 30);        // 다음 라우트 시작
+  return api.slice(i, j > i ? j : i + 3000);
+})();
 
 console.log('\n[ ① 학생이 «자기» 신청을 읽는 API 가 존재한다 ]');
 check('GET /api/leveltest/my 핸들러가 있다', myHandler.length > 100);
