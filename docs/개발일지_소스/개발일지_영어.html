@@ -109,27 +109,98 @@
 </div>
 
 <div class="datehead">
-  <h1>Friday, August 7</h1>
+  <h1>Saturday, August 8</h1>
   <span class="badge">LATEST</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — Work that carried on past midnight. We made <b>teacher lateness, which was being counted by hand</b>, computable from the records we already had,
+  and opened up a <b>KakaoTalk contact link that was blocking parents behind a "please log in" wall.</b>
+  We also unblocked a deploy where <b>a test was declaring a perfectly working feature "missing."</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">3</div><div class="l">fixed overnight</div></div>
+  <div class="kpi"><div class="n">hand → records</div><div class="l">lateness calculation</div></div>
+  <div class="kpi"><div class="n">47 pass</div><div class="l">the blocked test suite</div></div>
+  <div class="kpi"><div class="n">0</div><div class="l">deploys (held back)</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (3 things to know)</h3>
+  <ul>
+    <li><b>A parent tapping "KakaoTalk channel" to ask a question got nothing at all.</b> The channel itself was fine (official Mangoi channel, 1,169 followers). The problem was the <b>"/chat" on the end of the address</b> — on desktop web, if you are not signed in, Kakao <b>bounces you to a login screen.</b> Someone who just wanted to ask a question <b>was being asked to log into Kakao first.</b>
+      <small>→ Switched to the <b>channel home</b>, which opens without a login and contains chat, chatbot, phone and location anyway. On top of that, this screen is <b>reached from an SMS link</b>, so it opens inside the KakaoTalk / SMS in-app browser — and those <b>silently swallow "open in a new window."</b> → If a new window fails to open, <b>we now open it in the same window no matter what.</b> The 12px text that was impossible to hit on a phone became a <b>finger-sized yellow chip</b> (Korean + English).</small></li>
+    <li><b>Teacher "lateness" was being counted by a human.</b> Twenty teachers times a month of classes, by hand — <b>easy to miss, easy to get wrong.</b> And <b>the raw data (actual join time) was already there.</b>
+      <small>→ Built a screen that <b>matches class time against actual join time and shows the late minutes.</b> ⛔ It <b>does not dock pay automatically</b> — a connection log is not proof of lateness (dropped lines, rejoins, clock drift). <b>Money still uses only the number a human confirms.</b> There is a 3-minute default grace, and we look at the <b>earliest join only</b> so a rejoin after a dropout is not counted as late. Where it disagrees with the human-entered number, it is <b>flagged as "differs."</b></small></li>
+    <li><b>The test was wrong, and I nearly tore up working code because of it.</b> A check on the level-test "my application" screen was failing and <b>blocking deploys.</b> Digging in, <b>the feature was completely fine</b> (endpoint, query and permissions all correct). The check was <b>keying off code indentation</b>, so when the formatting shifted slightly it <b>declared the feature entirely absent.</b>
+      <small>→ <b>Not one check was changed</b> — only the way it locates the code, so formatting no longer shakes it (47/47 pass; 3 were failing before). 🔑 <b>A failing test does not automatically mean the code is wrong.</b> Yesterday had the opposite case too — the outage watchdog really was broken.</small></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done today</h3>
+  <ul>
+    <li><b>Automatic lateness detection</b> (Admin → Payroll). Enter a month and a grace period (3 min default) and you get late minutes per teacher, <b>side by side with whatever a human already entered.</b></li>
+    <li><b>The KakaoTalk contact button</b> now opens without a login, and opens reliably inside in-app browsers.</li>
+    <li><b>Unblocked the deploy gate</b> by fixing one test that was shaken by code formatting.</li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>None of the three has shipped yet.</b> Another session's work in the same folder is failing its tests, and I held the deploy so <b>their unfinished code would not ride out with mine.</b></li>
+    <li><b>I have not yet compared a full month of "computed" lateness against the hand-counted numbers.</b> We need to see how far apart they are before trusting this screen.</li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Next</h3>
+  <ul>
+    <li><b>Ship the three fixes above</b> as soon as the other session's work is settled.</li>
+    <li><b>Reconcile a month of computed lateness</b> against the hand-counted figures and report the gap.</li>
+    <li><b>August 7's 📌 items all still stand</b> — issue the Toss live keys (you), install the second-layer watchdog on Cafe24, change the staff password, fill in textbook/level for ~29,000 students, and Maimai's real-class verification.</li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Friday, August 7</h1>
+  <span class="badge past">PAST ENTRY</span>
 </div>
 
 <div class="oneline">
   <b>In one line</b> — <b>Studied the competitor</b>, found the two things we genuinely lacked, and <b>closed both the same day.</b>
   In the afternoon we took <b>19 reports from our Philippine manager</b> and fixed <b>money that was being paid wrong and the friction teachers hit every single class.</b>
+  At night we worked on <b>payments, security and outage monitoring</b> — the things that are <b>scariest when they break quietly.</b>
 </div>
 
 <div class="kpis">
-  <div class="kpi"><div class="n">4 axes</div><div class="l">empty report card filled</div></div>
+  <div class="kpi"><div class="n">75</div><div class="l">things fixed or built</div></div>
   <div class="kpi"><div class="n">19</div><div class="l">field reports handled</div></div>
-  <div class="kpi"><div class="n">3 → 1</div><div class="l">causes of the black screen</div></div>
-  <div class="kpi"><div class="n">14</div><div class="l">deploys verified</div></div>
+  <div class="kpi"><div class="n">4 stages</div><div class="l">key exposure fully closed</div></div>
+  <div class="kpi"><div class="n">24</div><div class="l">deploys verified</div></div>
 </div>
 
 <div class="blk blk-imp">
-  <h3>🔴 Most important (5 things to know)</h3>
+  <h3>🔴 Most important (9 things to know)</h3>
   <ul>
     <li><b>Teacher pay was wrong in two directions at once.</b> When a manager <b>approved a postponement</b>, the payroll calculation never looked at it. So a class <b>that never happened was counted as "finished" and paid in full</b> — and at the same time, since that class could have no record, it also drew a <b>"no feedback" penalty.</b> Teachers were being docked for a class that did not exist.
       <small>→ The penalty is gone. <b>We did not touch the amount</b> — how much a postponed class is worth is your decision, so it is now <b>a percentage you set</b> in the admin deduction rules (currently 100%, exactly as before).</small></li>
+    <li><b>The moment we switched to real payments, payments would have broken.</b> Going from test to live meant a human changing <b>a value hard-coded in the page AND a secret on the server</b>, separately. Change only one and <b>the payment window opens perfectly but every final approval fails</b> — no money moves, and all you get is customers saying "it won't pay."
+      <small>→ The page now <b>fetches the value from the server</b>, so the switch is <b>two secrets and nothing else.</b> If they ever disagree, the screen says <b>"keys don't match"</b> immediately. ⚠️ <b>You have to issue the live keys yourself</b> in the Toss merchant console (code is ready, waiting on keys). The <b>"This is a test — no real payment" badge is drawn by Toss, not by us</b>, so live keys are the only way to remove it.</small></li>
+    <li><b>Example text from an instruction sheet was being registered as a real secret.</b> This is the most dangerous state there is — the screen says <b>"configured"</b> while <b>nothing actually works.</b> In practice we found a placeholder sitting in the payment key slot, and a <b>Toss payment key sitting in the SMS key slot.</b>
+      <small>→ Placeholders are now rejected and the screen <b>points at exactly what went in wrong.</b> 🔑 But we <b>do not try to guess whether a key is "the right shape"</b> — we once blocked a genuine key that way and stopped payments, so arbitrary rules like "must be 20+ characters" are gone.</small></li>
+    <li><b>Rotated the shared key that had been publicly exposed for three months (all 4 stages done).</b> It leaked while the repository was public. The frightening part was never payroll — it was that <b>student data could be written from outside.</b>
+      <small>→ Rotated <b>without any downtime</b>: ① accept both old and new → ② switch our side → ③ switch the two external callers on Cafe24 (<b>run and verified working</b>) → ④ <b>delete the old key.</b> The old key now does nothing. Along the way we discovered that a long-standing comment claiming <b>"UptimeRobot covers this" was simply untrue</b> — that integration is a paid feature and <b>had never been created.</b> Phone numbers were also moved out of code into secrets.</small></li>
+    <li><b>Outage monitoring had only ever been one layer deep.</b> The watchdog lived <b>inside the service</b>, so <b>when the service dies, the watchdog dies with it.</b> The more serious the outage, the quieter we got.
+      <small>→ Built a <b>second-layer watchdog</b>: it runs on <b>Cafe24 (different company, different network) every 5 minutes</b>, pokes us from the outside, and sends SMS <b>without going through our server at all.</b> It distinguishes four states: ① whole site down ② domain/DNS ③ database ④ <b>"site is fine but alerts and settlement have quietly stopped"</b> — nobody could see ④ until now. The two layers <b>watch each other</b>, and it takes <b>two consecutive failures (10 minutes)</b> before an SMS goes out (added because I sent one real false alarm today).</small></li>
+    <li><b>A teacher held an empty classroom for 30 minutes and we never said a word to her.</b> At the 18:00 level test on August 7 the student never came. The teacher <b>re-entered four times, waiting.</b> At 18:15 the system detected the absence <b>but only logged it.</b> The teacher had no way of knowing <b>how long to wait, or whether we even knew.</b>
+      <small>→ Absence now sends the assigned teacher an <b>SMS</b> (Korean + English): "the student has not joined (+N min) / head office has been notified automatically / please wait 10 more minutes, and you may leave if they still don't come." When we <b>can't</b> send it, the operator summary now names <b>who we failed to reach and why</b>, so the blank in the roster is visible. ⛔ While doing this we found <b>corrupted teacher contact data</b> on applications (name says teacher A, but the <b>phone and email belong to teacher B</b>). So we ignore that field and go through the teacher roster instead — and <b>if more than one candidate matches, we send to nobody</b> (we once had "Anna" attached to "HANNAH"'s class).</small></li>
     <li><b>"The teacher's face goes black when I open Google" — three reports, one single cause.</b> The moment a teacher left the browser, <b>their camera was switched off.</b> The student was left looking at <b>an unexplained black rectangle.</b> It was built to <b>save battery on student phones</b> — but for a teacher who moves between Google, KakaoTalk and the textbook all class long, it became <b>"the teacher disappeared."</b>
       <small>→ Teachers are now excluded from that saving; student phones keep it. <b>We also fixed a camera that turned itself back on</b> after being switched off.</small></li>
     <li><b>Academies that bought AI only were receiving a blank report card.</b> Four of the five axes came <b>only from evaluations teachers write by hand</b> — and an AI-only academy has no teacher, so no evaluations at all.
@@ -142,7 +213,7 @@
 </div>
 
 <div class="blk blk-did">
-  <h3>✅ Done today</h3>
+  <h3>✅ Done that day</h3>
   <ul>
     <li><b>Studied the competitor (Cloubot).</b> What we had been told and what is actually there did not match. What they lead with is <b>AI that builds lessons from an uploaded textbook</b> and <b>a report card with numbers.</b> The place we actually lose is <b>the report card</b> — so that is what I fixed first. (One report written.)</li>
     <li><b>Added "show the Korean meaning" together with three-step subtitles</b> (shown / blurred / off). When a sentence was unfamiliar, students were <b>simply abandoning the conversation right there.</b> <b>At every step one tap brings it back.</b></li>
@@ -158,6 +229,24 @@
     <li><b>Cleaned up the teacher page as well.</b> Today's class list now marks <b>trial and make-up classes</b>, and the <b>[Postpone] button that sat next to [Join Class] and was easy to hit by mistake</b> was removed (the request form is still on My Page). The lesson-fee table now shows a <b>"Postponed"</b> status.</li>
     <li><b>Managers can now block time from the weekly calendar.</b> Blocking already existed, but <b>the calendar never read it</b> — so blocked time looked empty and classes were booked into it again. Now <b>clicking an empty slot</b> blocks it on the spot.</li>
     <li><b>Found the real reason words were silent in "Space Monster"</b> — <b>Korean phones usually have no Chinese voice installed.</b> It now uses the server voice first. <b>Rescue Voyage steers by dragging the boat again</b> (per your instruction), and phones now get a line telling them <b>how to shoot.</b></li>
+    <li><b>When a teacher pressed "lock student drawing", nothing happened on the student side.</b> The teacher's button changed colour while the server <b>threw the signal away as "unknown".</b> It had been like that <b>since July 28</b> — which is why teacher Kaye <b>reported the same thing twice.</b> We also added a <b>"re-acquire the student's microphone"</b> request path, restricted so <b>only a teacher can send it</b> (otherwise a student could reach into another student's microphone).</li>
+    <li><b>The textbook's "related video" feature had died silently.</b> Two people fixed the same area separately and the merge left <b>a variable that was used but never declared.</b> No visible error — just that one feature gone. We also fixed <b>a page-list panel overlapping the "related video" pill by 4px</b> and <b>teacher-facing text that was Korean-only</b> (now Korean + English).</li>
+    <li><b>Recordings can now be saved to your own PC or phone.</b> Until now you could <b>replay but not take a copy.</b> We were relying on the browser's built-in menu, which <b>does not exist on phones at all</b> and produced a file with no extension. Recordings are deleted once the retention window passes, so <b>a way to keep one mattered.</b> Added a ⬇ save on the player and on every row of the list, with <b>exactly the same permission checks as playback</b> (nothing loosened). The save button measured only <b>31px on a phone</b>, so we raised it to <b>44px.</b></li>
+    <li><b>Finished August 6's outstanding item: linking teacher accounts to the teacher roster.</b> It is now an admin button, and <b>guessing by similar names</b> was replaced with <b>a mapping a human decides.</b></li>
+    <li><b>Connected several things that had been built but had nowhere to be seen</b> — the <b>waitlist</b> (the server side existed since August 4 with no screen), the <b>Cafe24 staff and textbook rosters</b>, and the <b>student half of referral codes and counselling bookings</b> (which is why the admin tables were empty). The waitlist does not just list people: it <b>puts whoever has a slot open right now at the top</b> and attaches a <b>tap-to-call.</b></li>
+    <li><b>Replaced invented numbers in the admin screens with real records</b> — student evaluation tables now come from actual data, and <b>fake corporate-card transactions</b> were removed.</li>
+    <li><b>Wrote the 7 approved point rules into a single source of truth</b> (signed off that day). Until now each rule carried its own amounts and caps, and <b>rules that apply across everything — expiry, minimum redemption, clawback — did not exist at all.</b> Earning rates / <b>100 points daily cap</b> / <b>12-month expiry with a 30-day warning</b> / <b>3,000-point minimum to redeem</b> / clawback on refund / guests earn but cannot redeem / <b>manual adjustments require a reason.</b> 🔑 Going over the cap <b>blocks rather than partially awards</b> (so nobody asks "why did I only get 5 points?"), and <b>expiry is recorded as a transaction</b> — you must be able to see why points vanished.</li>
+    <li><b>Filled in level-test reminders, which only existed at the two extremes</b> — added a <b>previous-evening</b> reminder, a <b>1-hour-before</b> reminder, and a <b>"🔔 Remind me"</b> button that actually sets an alarm in the phone's calendar. The ticket now <b>remembers the device that opened it</b>, so the home card appears on any device.</li>
+    <li><b>Fixed lists that were silently coming back empty.</b> The database only accepts <b>100 items per query</b>, and asking for more returns <b>"nothing" rather than an error.</b> This is now <b>handled in one place</b> that splits the query automatically, with <b>a test to stop it recurring.</b> A related missing import that was <b>throwing a real error in production</b> was fixed too.</li>
+    <li><b>Consolidated a permission check that had been copy-pasted into several places</b>, with a test that <b>fails if it is copied again.</b> The admin dashboard, which asked about rooms <b>one at a time</b>, now asks once — <b>N round trips down to 1.</b></li>
+    <li><b>Closed a path where deploys silently did not go out.</b> On large merges the automatic deploy <b>was being skipped without a word.</b> Forgetting to bump an asset version — which leaves users on an old screen — is now caught by a check.</li>
+    <li><b>Caught the test suite itself lying.</b> Checks that were supposed to use fake requests were <b>actually going out to the live site</b> — so "pass" told us nothing about what had really been verified.</li>
+    <li><b>Fixed the speech coach saying "perfect!" when it had not heard anything.</b> Instead of guessing, we <b>ran the scorer and measured it into a table</b> — there was exactly one defect: <b>with no acoustic information it gave full marks on the text alone.</b> Whisper transcribes mumbling into correct words, so <b>text is not evidence of pronunciation.</b> Now <b>no top grade without acoustic evidence</b> (an A is still possible — the goal was never to lower scores).</li>
+    <li><b>Fixed a finished level test still sitting on the home screen at night saying "assigning your teacher."</b> There were two causes, and <b>the real one was that the application was stuck at the "proposed" stage even though the teacher had held the room for 45 minutes.</b> At that stage the design <b>hides the teacher's name from the student</b> — so it said "assigning" until well after the class had ended. → <b>There is no clearer acceptance signal than the teacher walking in</b>, so entering now promotes it to confirmed.</li>
+    <li><b>Four home-screen QA items</b> — added level test and trial class to the "Account &amp; Payment" menu (the trial was <b>only inside the payment screen</b>, so anyone not intending to pay could not find the door), unified trial and level test to <b>20 minutes everywhere</b> (the copy said 25–30 while only 20 was actually booked), <b>blocked accidental dismissal by clicking outside a popup</b> (only for popups that <b>have a close button</b> — we never trap anyone), and refreshed asset versions.</li>
+    <li><b>Moved the "your login expired" message from the final pay button to the moment you pick a product.</b> Being bounced right at checkout is the worst possible timing.</li>
+    <li><b>Recording-upload security follow-up</b> — raised the hourly limit <b>above real usage</b> (when it blocks, recordings silently fail to save) and made creation <b>one-shot</b> so it cannot become <b>a switch that kills someone else's recording in progress.</b></li>
+    <li><b>Class "end" is now written to the change history.</b> The recording function existed; <b>nothing was calling it.</b></li>
   </ul>
 </div>
 
@@ -171,11 +260,15 @@
     <li><b>This afternoon's fixes were not confirmed in a real class.</b> They need two people in the same room to observe (the teacher's face, the student's screen following, the sound), so <b>I could only verify them in code.</b> A verification request has been sent to Maimai.</li>
     <li><b>How much a postponed class is worth has not been decided.</b> It currently pays <b>100%, exactly as before</b>; to change it, edit the percentage in the admin deduction rules.</li>
     <li><b>Teachers using a virtual background</b> may see their face <b>freeze — not go black —</b> when they open another window, because the browser pauses the background processing. We will fix that if it gets reported.</li>
+    <li><b>Real payments are still not switched on.</b> The code is finished and <b>waiting on the Toss live keys.</b> Until they exist there is <b>no way to remove the "this is a test" badge</b> on the payment window (Toss draws it, not us).</li>
+    <li><b>The second-layer watchdog has to be installed on Cafe24 to do anything.</b> Until then monitoring is <b>still one layer deep.</b> An installer script is ready (paste-in setup kept breaking, so it now asks one question at a time).</li>
+    <li><b>Teacher contact data on level-test applications is corrupted.</b> <b>Two confirmed cases</b> where the name and the phone number belong to different people. Nothing uses that field today, so no harm was done — but <b>the roster needs cleaning.</b></li>
+    <li><b>The speech coach's absolute scores are still uncalibrated.</b> Six real student recordings would let us finish it in ten minutes. What we fixed is only the <b>property</b> that "no top grade without having heard anything."</li>
   </ul>
 </div>
 
 <div class="blk blk-next">
-  <h3>📌 Next</h3>
+  <h3>📌 Decided that day, to do next</h3>
   <ul>
     <li><b>Merge the recording-security work in order</b> — <b>sync to latest code first, then the security fix.</b> The wrong order would <b>overwrite today's live site with August 5 code.</b></li>
     <li><b>Request a competitor demo account</b> and confirm within 30 minutes whether subtitles and characters really exist.</li>
@@ -184,6 +277,9 @@
     <li><b>Textbook and level are empty for ~29,000 students.</b> Until that is filled, personalised questions do not show on the student screen.</li>
     <li><b>Waiting on Maimai's real-class verification.</b> In particular we need <b>the number of seconds</b> before sound is heard — that number decides where we look next.</li>
     <li><b>Please decide the pay rate for a postponed class.</b> It is currently left at 100% (unchanged from before).</li>
+    <li><b>Please issue the Toss live keys.</b> Once we have them, <b>swapping two secrets</b> completes the switch to real payments.</li>
+    <li><b>Install the second-layer watchdog on Cafe24.</b> Without it, a total server outage still goes unannounced.</li>
+    <li><b>Clean the teacher contact roster</b> (two name↔number mismatches confirmed).</li>
   </ul>
 </div>
 
