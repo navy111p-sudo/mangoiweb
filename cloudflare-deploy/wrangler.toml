@@ -77,6 +77,10 @@ BUILD_STAMP = "2026-08-07T20:15:24Z"
 #     PAYROLL_INGEST_KEY -> secret PAYROLL_INGEST_KEY_NEW   (cafe24 teacher-payroll-sync.sh / student-retention-sync.sh)
 #     UPTIME_HOOK_KEY    -> secret UPTIME_HOOK_KEY_NEW      (no external caller found - UptimeRobot webhook is a paid feature, never configured)
 #   NEVER put shared keys / phone numbers back in [vars] - this file is committed.
+#   Callers of UPTIME_HOOK_KEY_NEW: cafe24 /root/mangoi-watchdog.sh (layer-2 external watchdog,
+#     every 5 min: ?run=probe for a deep check, and ?alertType= as a relay when it has no SMS key).
+#   Check alerting without sending an SMS:  GET /api/uptime-hook?run=watchdog&key=<UPTIME_HOOK_KEY_NEW>
+#     -> config.owner_phone_set / sms_from_set must BOTH be true, and layer2 must not be 'unset'.
 #   Add them with:  wrangler secret put <NAME>   (and again with --env production)
 RESEND_FROM = "망고아이 MANGOi <noreply@mangoi.co.kr>"
 LEVELTEST_ADMIN_EMAIL = ""   # ← 필리핀 관리자 이메일 입력(비우면 관리자 이메일 알림만 skip)
@@ -165,6 +169,10 @@ BUILD_STAMP = "2026-08-07T20:15:24Z"
 #     PAYROLL_INGEST_KEY -> secret PAYROLL_INGEST_KEY_NEW   (cafe24 teacher-payroll-sync.sh / student-retention-sync.sh)
 #     UPTIME_HOOK_KEY    -> secret UPTIME_HOOK_KEY_NEW      (no external caller found - UptimeRobot webhook is a paid feature, never configured)
 #   NEVER put shared keys / phone numbers back in [vars] - this file is committed.
+#   Callers of UPTIME_HOOK_KEY_NEW: cafe24 /root/mangoi-watchdog.sh (layer-2 external watchdog,
+#     every 5 min: ?run=probe for a deep check, and ?alertType= as a relay when it has no SMS key).
+#   Check alerting without sending an SMS:  GET /api/uptime-hook?run=watchdog&key=<UPTIME_HOOK_KEY_NEW>
+#     -> config.owner_phone_set / sms_from_set must BOTH be true, and layer2 must not be 'unset'.
 #   Add them with:  wrangler secret put <NAME>   (and again with --env production)
 RESEND_FROM = "망고아이 MANGOi <noreply@mangoi.co.kr>"
 LEVELTEST_ADMIN_EMAIL = ""   # ← 필리핀 관리자 이메일 입력
