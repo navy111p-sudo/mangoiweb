@@ -12,6 +12,79 @@
     records: []            // [{teacher_id, teacher_name, date, scheduled, actual, late_min}]
   };
 
+  /* 🌐 (2026-08-07) 이 캘린더를 하루 종일 쓰는 사람은 **필리핀 매니저**다.
+     그런데 차단/삭제 안내문이 전부 한국어였다 — 「매주 반복할까요?」 를 못 읽고 확인을 누르면
+     그날 하루만 막으려던 것이 매주 반복이 된다. 확인 문구는 영어를 함께 적는다. */
+  function ph54En(){
+    try { return (document.documentElement.lang === 'en') || (window.adminLang === 'en') || (window.currentLang === 'en'); }
+    catch(e){ return false; }
+  }
+  function ph54T(ko, en){ return ph54En() ? en : ko; }
+
+  /* 🕐 차단(휴식시간) 입력 창 — 시작·종료를 직접 고른다(요청 ⑮).
+     ⚠️ 저장은 하지 않는다. 고른 값만 콜백으로 넘긴다 — 저장 경로는 한 곳(호출부)에만 둔다.
+        여기서도 fetch 를 하면 «두 번째 저장 경로» 가 생겨 나중에 반드시 갈라진다. */
+  function ph54BlockDialog(opt, onOk){
+    var old = document.getElementById('ph54-blk-dlg'); if (old) old.remove();
+    var en = ph54En();
+    var wrap = document.createElement('div');
+    wrap.id = 'ph54-blk-dlg';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;'
+      + 'background:rgba(15,23,42,.55);padding:16px';
+    var inp = 'width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box';
+    wrap.innerHTML =
+      '<div role="dialog" aria-modal="true" style="width:min(380px,100%);background:#fff;color:#0f172a;border-radius:14px;'
+      + 'box-shadow:0 20px 50px rgba(0,0,0,.35);padding:18px 20px;font-size:14px;line-height:1.6">'
+      + '<div style="font-size:16px;font-weight:900;margin-bottom:2px">🚫 ' + ph54Esc(opt.teacher || '')
+      +   ' — ' + ph54T('시간 차단', 'Block time') + '</div>'
+      + '<div style="font-size:12.5px;color:#64748b;margin-bottom:14px">' + ph54Esc(opt.dateStr || '')
+      +   ' (' + ph54Esc(opt.dayLabel || '') + ')</div>'
+      + '<div style="display:flex;gap:8px;margin-bottom:12px">'
+      +   '<div style="flex:1"><label style="font-size:12px;font-weight:700;color:#475569">' + ph54T('시작', 'From') + '</label>'
+      +     '<input type="time" id="ph54-blk-from" step="600" value="' + ph54Esc(opt.from) + '" style="' + inp + '"></div>'
+      +   '<div style="flex:1"><label style="font-size:12px;font-weight:700;color:#475569">' + ph54T('종료', 'To') + '</label>'
+      +     '<input type="time" id="ph54-blk-to" step="600" value="' + ph54Esc(opt.to) + '" style="' + inp + '"></div>'
+      + '</div>'
+      + '<div style="margin-bottom:12px"><label style="font-size:12px;font-weight:700;color:#475569">'
+      +   ph54T('사유', 'Reason') + '</label>'
+      +   '<input type="text" id="ph54-blk-reason" value="' + ph54Esc(ph54T('언더타임', 'undertime')) + '" style="' + inp + '"></div>'
+      + '<div style="margin-bottom:6px;font-size:12px;font-weight:700;color:#475569">' + ph54T('반복', 'Repeat') + '</div>'
+      + '<label style="display:block;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:6px;cursor:pointer">'
+      +   '<input type="radio" name="ph54-blk-rep" value="once" checked> '
+      +   ph54T('이 날짜만 (' + (opt.dateStr || '') + ')', 'Only this date (' + (opt.dateStr || '') + ')') + '</label>'
+      + '<label style="display:block;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px;cursor:pointer">'
+      +   '<input type="radio" name="ph54-blk-rep" value="weekly"> '
+      +   ph54T('매주 ' + (opt.dayLabel || '') + '요일 반복', 'Every ' + (opt.dayLabel || '')) + '</label>'
+      + '<div style="font-size:11.5px;color:#64748b;background:#f1f5f9;border-radius:8px;padding:8px 10px;margin-bottom:14px">ℹ️ '
+      +   ph54T('지울 때는 캘린더에서 그 차단 카드를 누르면 됩니다. 매주 반복은 지울 때까지 계속됩니다.',
+                'To remove it, click the block card on the calendar. A weekly block repeats until you delete it.') + '</div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+      +   '<button type="button" id="ph54-blk-x" style="padding:9px 16px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;font-weight:700;cursor:pointer">'
+      +     ph54T('취소', 'Cancel') + '</button>'
+      +   '<button type="button" id="ph54-blk-ok" style="padding:9px 16px;border:0;background:#dc2626;color:#fff;border-radius:8px;font-weight:800;cursor:pointer">'
+      +     ph54T('차단하기', 'Block') + '</button>'
+      + '</div></div>';
+    document.body.appendChild(wrap);
+    function close(){ wrap.remove(); }
+    wrap.querySelector('#ph54-blk-x').addEventListener('click', close);
+    // 바깥 클릭으로 닫기 — 입력 중 실수로 사라지지 않게 «배경 정확히» 눌렀을 때만
+    wrap.addEventListener('click', function(e){ if (e.target === wrap) close(); });
+    wrap.querySelector('#ph54-blk-ok').addEventListener('click', function(){
+      var f = (wrap.querySelector('#ph54-blk-from').value || '').slice(0,5);
+      var t = (wrap.querySelector('#ph54-blk-to').value || '').slice(0,5);
+      if (!/^\d{2}:\d{2}$/.test(f) || !/^\d{2}:\d{2}$/.test(t)){
+        alert(ph54T('시작·종료 시간을 모두 골라 주세요.', 'Please choose both start and end time.')); return;
+      }
+      if (t <= f){   // 문자열 비교로 충분하다(둘 다 HH:MM 24시간 표기)
+        alert(ph54T('종료 시간이 시작보다 빠릅니다.', 'End time must be after the start time.')); return;
+      }
+      var rp = wrap.querySelector('input[name="ph54-blk-rep"]:checked');
+      var reason = (wrap.querySelector('#ph54-blk-reason').value || '').trim() || ph54T('차단', 'blocked');
+      close();
+      onOk({ from: f, to: t, weekly: !!(rp && rp.value === 'weekly'), reason: reason });
+    });
+  }
+
   function ph54Pad(n){ return n < 10 ? '0'+n : ''+n; }
   function ph54FmtDate(d){ return d.getFullYear()+'-'+ph54Pad(d.getMonth()+1)+'-'+ph54Pad(d.getDate()); }
   function ph54StartOfWeek(d){
@@ -159,16 +232,22 @@
        · 드래그 금지 — id 체계가 class_schedules 와 겹쳐서, 끌면 **엉뚱한 수업**에 PATCH 가 나간다.
        · 사유를 카드에 보여 준다. 「왜 막혔는지」를 모르면 매니저가 그냥 지워 버린다. */
     var isBlock  = (s.source === 'unavailability') || s.type === 'blocked';
-    var nameTxt  = isBlock ? (s.reason || '휴식/근무불가') : (student || (PH54_TYPE_LABEL[s.type] || '수업'));
-    var typeTxt  = isBlock ? (s.recurring ? '매주 반복 차단' : '차단') : (PH54_TYPE_LABEL[s.type] || '');
+    var nameTxt  = isBlock ? (s.reason || ph54T('휴식/근무불가', 'Break / unavailable'))
+                           : (student || (PH54_TYPE_LABEL[s.type] || ph54T('수업', 'Class')));
+    // ⑭ 「매주 반복인가 하루짜리인가」 를 카드에서 바로 읽히게 — 질문의 절반은 이걸 몰라서 나왔다.
+    var typeTxt  = isBlock ? (s.recurring ? ph54T('매주 반복 차단', 'Every week') : ph54T('이 날짜만 차단', 'This date only'))
+                           : (PH54_TYPE_LABEL[s.type] || '');
     var canDrag  = (s.source !== 'unavailability');
     return '<div class="ph54-ev ph54-t-'+(s.type||'')+(canDrag?'':' ph54-locked')+'"'
       + (canDrag ? ' draggable="true"' : '')
       + ' data-idx="'+idx+'"'
       + (s.block_id != null ? ' data-block="'+s.block_id+'"' : '')
-      + ' style="top:'+top+'px;height:'+height+'px;background:'+c+(canDrag?'':';cursor:default;opacity:.92')+'" '
+      /* 차단 카드는 «누를 수 있는 것» 이다(누르면 지운다) → 손가락 커서. 예전 default 커서는
+         «아무 일도 안 일어나는 칸» 처럼 보여서 지우는 길이 있다는 걸 아무도 몰랐다. */
+      + ' style="top:'+top+'px;height:'+height+'px;background:'+c+(canDrag?'':';cursor:pointer;opacity:.92')+'" '
       + 'title="'+ph54Esc(timeTxt+' · '+typeTxt+(isBlock?(s.reason?(' · '+s.reason):''):(student?(' · '+student):'')))
-      + (canDrag ? '' : ' (드래그 불가 — 아래 목록에서 삭제하세요)')+'">'
+      + (canDrag ? '' : ph54T(' (드래그 불가 — 누르면 이 차단을 지웁니다)',
+                              ' (cannot drag — click to delete this block)'))+'">'
       +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)+'</div>'
       +   '<div class="ph54-ev-name">'+ph54Esc(nameTxt)+'</div>'   /* ← 학생 이름 (말줄임 처리) */
       +   '<div class="ph54-ev-type">'+ph54Esc(typeTxt)+'</div>'
@@ -279,6 +358,57 @@
        여기서는 **보고 있는 그 칸**을 그대로 막는다. 강사·요일·시간이 클릭으로 이미 정해진다.
        ⚠️ 되돌릴 수 있는 일이지만 남의 스케줄을 바꾸는 일이라 confirm 을 반드시 거친다. */
     var calTrack0 = document.getElementById('ph54-cal-track');
+    /* 🗑 (2026-08-07 마이마이 ⑭ 「추가한 휴식시간을 어떻게 지우나? 월요일에 영원히 남나?」)
+       그 질문이 나온 이유는 **지우는 길이 캘린더에 없었기 때문**이다(별도 목록까지 가야 했다).
+       차단 카드를 누르면 «무엇인지 + 어떻게 지우는지» 를 그 자리에서 알려 주고 지운다.
+       ⚠️ 수업 카드는 여기서 건드리지 않는다 — 지우는 것은 되돌릴 수 없고, 수업 삭제는 다른 일이다. */
+    if (calTrack0 && !calTrack0._blkDelBound){
+      calTrack0._blkDelBound = true;
+      calTrack0.addEventListener('click', function(ev){
+        var card = ev.target.closest && ev.target.closest('.ph54-ev');
+        if (!card) return;
+        var bid = card.getAttribute('data-block');
+        if (!bid) return;                       // 수업 카드 — 여기서는 아무것도 하지 않는다
+        var idx = parseInt(card.dataset.idx, 10);
+        var rec = ph54State.records[idx] || {};
+        var isWeekly = !!rec.recurring;
+        var whenTxt = isWeekly
+          ? ph54T('매주 반복되는 차단입니다', 'This block repeats every week')
+          : ph54T('이 날짜에만 있는 차단입니다', 'This block is for this date only');
+        var ok = window.confirm(
+          '🚫 ' + (rec.reason || ph54T('휴식/근무불가', 'Break / unavailable')) + '\n'
+          + (rec.date || '') + ' ' + (rec.start_time || '') + '\n\n'
+          + whenTxt + '.\n'
+          + ph54T('· 확인 → 이 차단을 지웁니다(수업은 그대로).',
+                  '· OK  → delete this block (classes are not touched).') + '\n'
+          + ph54T('· 취소 → 그대로 둡니다.', '· Cancel → keep it.'));
+        if (!ok) return;
+        ph54Toast(ph54T('🗑 차단 삭제 중…', '🗑 Deleting the block…'));
+        fetch('/api/admin/teacher-unavailability/' + encodeURIComponent(bid), { method:'DELETE', credentials:'include' })
+          .then(function(r){ return r.json().catch(function(){ return {}; }); })
+          .then(async function(res){
+            if (res && res.ok){
+              ph54Toast(ph54T('✅ 차단을 지웠습니다', '✅ Block removed'));
+              await ph54LoadRecords();
+              ph54Render();
+            } else {
+              ph54Toast(ph54T('⚠️ 삭제 실패', '⚠️ Could not delete') + ': ' + ((res && (res.message || res.error)) || ''));
+            }
+          })
+          .catch(function(){ ph54Toast(ph54T('⚠️ 삭제 실패(네트워크)', '⚠️ Delete failed (network)')); });
+      });
+    }
+    /* 🚫 빈 칸 클릭 → 그 시간 차단. 강사를 고르지 않으면 «누구를 막을지» 를 알 수 없다 —
+       예전엔 이때 클릭이 조용히 무시돼서 «안 되는 기능» 처럼 보였다. 이유를 말해 준다. */
+    if (calTrack0 && !filterId && !calTrack0._blkHintBound){
+      calTrack0._blkHintBound = true;
+      calTrack0.addEventListener('click', function(ev){
+        if (ev.target.closest && ev.target.closest('.ph54-ev')) return;
+        if (!(ev.target.closest && ev.target.closest('.ph54-cal-col'))) return;
+        ph54Toast(ph54T('💡 먼저 위에서 강사를 선택하면 빈 칸을 눌러 그 시간을 막을 수 있어요.',
+                        '💡 Pick an instructor above first — then click an empty slot to block that time.'));
+      });
+    }
     if (calTrack0 && filterId){
       calTrack0.addEventListener('click', function(ev){
         if (ev.target.closest && ev.target.closest('.ph54-ev')) return;   // 카드 위 클릭은 무시
@@ -293,42 +423,39 @@
         var tName = (ph54State.teachers.filter(function(t){ return String(t.id)===String(filterId); })[0]||{}).name || '';
         var dLabel = dayLabel[colIdx], dDate = ph54FmtDate(days[colIdx]);
 
-        var reason = window.prompt(
-          '🚫 ' + tName + ' — ' + dLabel + '요일 ' + from + '~' + to + ' 을 차단합니다.\n\n'
-          + '사유를 적어 주세요 (예: 언더타임, 회의, 교육).\n'
-          + '· 확인 → 이 날짜(' + dDate + ')만 차단\n'
-          + '· 취소 → 아무것도 하지 않음', '언더타임');
-        if (reason === null) return;
-        reason = (reason || '').trim() || '차단';
+        /* 🕐 (2026-08-07 마이마이 ⑮ 「지금 시스템처럼 휴식시간을 **직접 골라서** 넣고 싶다」)
+           예전 흐름은 prompt → confirm 두 개였고, 시간은 **무조건 1시간 고정**이라
+           「15분만」·「2시간」 같은 실제 필요를 넣을 방법이 없었다(옛 시스템은 10분 칸 격자였다).
+           → 시작·종료를 직접 고르는 작은 창으로 바꾼다. 반복 여부·사유·지우는 법이 한 화면에 있다. */
+        ph54BlockDialog({
+          teacher: tName, dateStr: dDate, dayLabel: dLabel, from: from, to: to
+        }, function(sel){
+          var payload = sel.weekly
+            ? { teacher_id: String(filterId), teacher_name: tName, kind: 'weekly',
+                day_of_week: (colIdx + 1) % 7,   // 캘린더 0=월 → DB 0=일 기준으로 환산
+                start_time: sel.from, end_time: sel.to, reason: sel.reason }
+            : { teacher_id: String(filterId), teacher_name: tName, kind: 'date_range',
+                start_date: dDate, end_date: dDate, start_time: sel.from, end_time: sel.to, reason: sel.reason };
 
-        var weekly = window.confirm(
-          '매주 ' + dLabel + '요일 같은 시간을 계속 차단할까요?\n\n'
-          + '· 확인 → 매주 반복 차단\n'
-          + '· 취소 → ' + dDate + ' 하루만 차단');
-
-        var payload = weekly
-          ? { teacher_id: String(filterId), teacher_name: tName, kind: 'weekly',
-              day_of_week: (colIdx + 1) % 7,   // 캘린더 0=월 → DB 0=일 기준으로 환산
-              start_time: from, end_time: to, reason: reason }
-          : { teacher_id: String(filterId), teacher_name: tName, kind: 'date_range',
-              start_date: dDate, end_date: dDate, start_time: from, end_time: to, reason: reason };
-
-        ph54Toast('💾 차단 저장 중… ' + dLabel + ' ' + from);
-        fetch('/api/admin/teacher-unavailability', {
-          method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify(payload)
-        })
-        .then(function(r){ return r.json().catch(function(){ return {}; }); })
-        .then(async function(res){
-          if (res && res.ok){
-            ph54Toast('✅ 차단됨: ' + (weekly ? ('매주 '+dLabel) : dDate) + ' ' + from + '~' + to);
-            await ph54LoadRecords();   // 서버에서 다시 읽어 캘린더에 실제로 반영
-            ph54Render();
-          } else {
-            ph54Toast('⚠️ 차단 실패: ' + ((res && (res.message || res.error)) || '서버 오류'));
-          }
-        })
-        .catch(function(){ ph54Toast('⚠️ 차단 실패(네트워크)'); });
+          ph54Toast(ph54T('💾 차단 저장 중… ', '💾 Saving the block… ') + dLabel + ' ' + sel.from);
+          fetch('/api/admin/teacher-unavailability', {
+            method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+          })
+          .then(function(r){ return r.json().catch(function(){ return {}; }); })
+          .then(async function(res){
+            if (res && res.ok){
+              ph54Toast(ph54T('✅ 차단됨: ', '✅ Blocked: ')
+                + (sel.weekly ? ph54T('매주 '+dLabel, 'every ' + dLabel) : dDate) + ' ' + sel.from + '~' + sel.to);
+              await ph54LoadRecords();   // 서버에서 다시 읽어 캘린더에 실제로 반영
+              ph54Render();
+            } else {
+              ph54Toast(ph54T('⚠️ 차단 실패: ', '⚠️ Block failed: ')
+                + ((res && (res.message || res.error)) || ph54T('서버 오류', 'server error')));
+            }
+          })
+          .catch(function(){ ph54Toast(ph54T('⚠️ 차단 실패(네트워크)', '⚠️ Block failed (network)')); });
+        });
       });
     }
 

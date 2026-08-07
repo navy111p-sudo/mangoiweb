@@ -1628,6 +1628,18 @@
         </div>
       </div>
 
+      <!-- 📋 (2026-08-07 마이마이 ① 「레벨테스트 수업도 '내 수업'에서 보이게 해 달라」)
+           예전엔 이 탭에 **개별 수업 목록이 아예 없었다** — 카운트다운 1건 + 요일별 «몇 타임» 뿐이라
+           레벨테스트가 잡혀도 이 화면에서는 보이지 않았다(🎯 레벨테스트 신청 탭에만 있었고,
+           그건 «신청» 이지 «내 수업» 이 아니다). 유형 배지를 붙여 한 목록에 함께 세운다. -->
+      <div style="background:#1A2548;border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid rgba(96,165,250,0.18)">
+        <div style="font-weight:800;font-size:13px;color:#fbbf24;margin-bottom:4px" data-ko="📋 다가오는 내 수업" data-en="📋 My upcoming classes">📋 다가오는 내 수업</div>
+        <div style="font-size:11.5px;color:#94a3b8;margin-bottom:10px" data-ko="정규 · 체험 · 보강 · 레벨테스트를 한 목록에 모았어요 (이번 달 + 다음 달)." data-en="Regular, trial, make-up and level tests in one list (this month + next).">정규 · 체험 · 보강 · 레벨테스트를 한 목록에 모았어요 (이번 달 + 다음 달).</div>
+        <div id="tw-next-list" style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:12px;color:#94a3b8" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div>
+        </div>
+      </div>
+
       <!-- 🗓 내 주간 시간표 (실데이터 — 요일별 배정 수업) -->
       <div style="background:#1A2548;border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid rgba(96,165,250,0.18)">
         <div style="font-weight:800;font-size:13px;color:#fbbf24;margin-bottom:10px" data-ko="🗓 내 주간 시간표" data-en="🗓 My weekly timetable">🗓 내 주간 시간표</div>
@@ -1685,8 +1697,15 @@
 
         function render(){
           var lessons = allLessons();
-          if (!lessons.length) return;
           var en = EN();
+          if (!lessons.length){
+            /* 수업이 0건이어도 목록칸은 «불러오는 중…» 으로 남겨 두면 안 된다 —
+               강사는 «아직 로딩 중» 이라고 읽고 계속 기다린다(실제로는 끝난 상태다). */
+            var emptyBox = document.getElementById('tw-next-list');
+            if (emptyBox) emptyBox.innerHTML = '<div style="font-size:12px;color:#94a3b8">'
+              + (en ? 'No upcoming classes.' : '다가오는 수업이 없어요.') + '</div>';
+            return;
+          }
 
           // 다음 수업 = 가장 이른 upcoming
           var ups = lessons.filter(function(l){ return l.status === 'upcoming'; })
@@ -1741,6 +1760,49 @@
           set('tw-kpi-done', (s0.finish_count || 0) + (en?'':'회'));
           set('tw-kpi-absent', (s0.absent_count || 0) + (en?'':'회'));
           set('tw-kpi-upcoming', (s0.upcoming_count || 0) + (en?'':'회'));
+
+          /* 📋 (요청 ①) 다가오는 수업 목록 — 유형 배지 포함.
+             레벨테스트는 «처음 만나는 학생 + 보호자 참관 + 끝나고 평가» 라 준비가 다르다.
+             그래서 정규수업과 색을 갈라 준다. 정규는 배지를 안 붙인다 —
+             대부분이 정규라 전부 붙이면 «특별한 수업» 이 오히려 묻힌다(/teacher 와 같은 규칙). */
+          var nlBox = document.getElementById('tw-next-list');
+          if (nlBox){
+            var KIND = {
+              level_test: [en?'LEVEL TEST':'레벨테스트', 'rgba(16,185,129,0.20)', '#6ee7b7'],
+              leveltest:  [en?'LEVEL TEST':'레벨테스트', 'rgba(16,185,129,0.20)', '#6ee7b7'],
+              trial:      [en?'TRIAL':'체험수업',        'rgba(56,189,248,0.20)', '#7dd3fc'],
+              makeup:     [en?'MAKE-UP':'보강수업',      'rgba(251,191,36,0.20)', '#fcd34d'],
+            };
+            var seenU = {}, upList = [];
+            lessons.forEach(function(l){
+              if (l.status !== 'upcoming') return;
+              var k = l.schedule_id + '|' + l.date;
+              if (seenU[k]) return;
+              seenU[k] = 1; upList.push(l);
+            });
+            upList.sort(function(a,b){ return (a.date + a.start_time).localeCompare(b.date + b.start_time); });
+            if (!upList.length){
+              nlBox.innerHTML = '<div style="font-size:12px;color:#94a3b8">'
+                + (en ? 'No upcoming classes.' : '다가오는 수업이 없어요.') + '</div>';
+            } else {
+              nlBox.innerHTML = upList.slice(0, 20).map(function(l){
+                var kd = KIND[String(l.lesson_type || '').toLowerCase()];
+                var badge = kd
+                  ? '<span style="padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;background:' + kd[1] + ';color:' + kd[2] + ';white-space:nowrap">' + kd[0] + '</span>'
+                  : '';
+                var dd = new Date(l.date + 'T00:00:00');
+                var dayName = (en ? DAY_EN : DAY_KO)[dd.getDay()];
+                return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;background:rgba(15,23,42,0.5);border-radius:8px;border-left:3px solid ' + (kd ? kd[2] : '#38BDF8') + '">'
+                  + '<b style="color:#fff;font-size:12.5px;white-space:nowrap">' + esc(l.date) + ' (' + esc(en ? dayName.slice(0,3) : dayName.slice(0,1)) + ') ' + esc(l.start_time || '') + '</b>'
+                  + '<span style="color:#cbd5e1;font-size:12.5px">' + esc(l.student_name || l.user_id || (en?'student':'학생')) + '</span>'
+                  + badge
+                  + '<span style="margin-left:auto;color:#94a3b8;font-size:11.5px;white-space:nowrap">' + esc(String(l.duration_minutes || '')) + (en?' min':'분') + '</span>'
+                  + '</div>';
+              }).join('')
+              + (upList.length > 20 ? '<div style="font-size:11.5px;color:#64748b;padding-top:2px">'
+                  + (en ? ('+' + (upList.length - 20) + ' more') : ('외 ' + (upList.length - 20) + '건')) + '</div>' : '');
+            }
+          }
 
           // 주간 시간표 — 이번 달 수업을 요일별 시간 슬롯으로
           var byDow = {};
@@ -1924,7 +1986,19 @@
           return '<tr style="border-bottom:1px solid rgba(148,163,184,0.12)">'
             + '<td style="padding:10px 12px;white-space:nowrap"><b style="color:#fff">' + esc(l.date) + '</b><br><span style="color:#94a3b8;font-size:11px">' + timeCell + '</span></td>'
             + '<td style="padding:10px 12px;color:#e2e8f0">' + esc(l.student_name || l.user_id || '-') + '</td>'
-            + '<td style="padding:10px 12px;text-align:center">' + stBadge(l.status) + '</td>'
+            /* ⏸ (2026-08-07 마이마이 ②) 연기는 «언제 연기했나» 로 금액이 갈린다.
+               상태만 「연기됨」이라고 두면 강사는 왜 이 금액인지 알 수 없다 → 근거를 한 줄 붙인다.
+               판정은 서버가 요청 시점에 한 값(postpone_fee_type)을 그대로 쓴다 — 여기서 다시 계산하지 않는다. */
+            + '<td style="padding:10px 12px;text-align:center">' + stBadge(l.status)
+            +   (l.status === 'postponed' && l.postpone_fee_type
+                  ? '<div style="font-size:10.5px;color:#94a3b8;margin-top:3px;line-height:1.4">'
+                    + (l.postpone_fee_type === 'paid'
+                        ? (en ? 'within 30 min of start' : '시작 30분 이내 연기')
+                        : (en ? 'more than 30 min before' : '30분보다 이른 연기'))
+                    + (l.postpone_pay_percent != null ? '<br>' + (en ? 'paid ' : '지급 ') + l.postpone_pay_percent + '%' : '')
+                    + '</div>'
+                  : '')
+            + '</td>'
             + '<td style="padding:10px 12px;color:#cbd5e1;white-space:nowrap">' + esc(typeLabel(l.lesson_type)) + '</td>'
             + '<td style="padding:10px 12px;text-align:right;white-space:nowrap">' + levelCell + '</td>'
             + '<td style="padding:10px 12px;text-align:right;color:#94a3b8">' + fmt(l.duration_minutes) + (en?' min':'분') + '</td>'
@@ -1936,7 +2010,13 @@
         }).join('');
 
         var table = '<div style="background:#1A2548;border-radius:12px;border:1px solid rgba(96,165,250,0.18);overflow:hidden">'
-          + '<div style="font-weight:800;font-size:13px;color:#fbbf24;padding:12px 16px 0">🗓 ' + (en?'Every lesson this month':'이 달 수업 한 건 한 건') + '</div>'
+          /* 💱 (2026-08-07 마이마이 ②) 옛 시스템 표에는 오른쪽 위에 «Unit: PHP» 가 있었다.
+             금액 칸마다 ₱ 를 붙이고 있지만, 표 전체가 페소라는 사실을 한 번 못박아 둔다
+             (강사가 원화로 오해한 문의가 있었다). */
+          + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:12px 16px 0">'
+          +   '<div style="font-weight:800;font-size:13px;color:#fbbf24">🗓 ' + (en?'Every lesson this month':'이 달 수업 한 건 한 건') + '</div>'
+          +   '<div style="font-size:11.5px;color:#94a3b8;white-space:nowrap">' + (en?'Unit: PHP (₱)':'단위: 페소 (₱)') + '</div>'
+          + '</div>'
           + (upcoming.length ? '<div style="font-size:11.5px;color:#94a3b8;padding:4px 16px 0">⏳ ' + (en ? (upcoming.length + ' upcoming lessons are not counted yet.') : ('아직 하지 않은 예정 수업 ' + upcoming.length + '회는 계산에 포함되지 않아요.')) + '</div>' : '')
           + '<div style="overflow-x:auto;padding:8px 4px 4px"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:720px">'
           + '<thead><tr style="color:#94a3b8;font-size:11.5px">'

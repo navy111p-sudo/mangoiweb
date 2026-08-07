@@ -117,12 +117,22 @@ check('화면에서 휴식시간은 드래그 금지', /var canDrag\s*=\s*\(s\.s
 check('빈 칸 클릭으로 차단을 만든다', /teacher-unavailability/.test(q6) && /ph54-cal-col/.test(q6));
 check('강사를 고른 뒤에만 차단할 수 있다 (전체 보기에선 누구를 막을지 모른다)',
   /if \(calTrack0 && filterId\)/.test(q6));
+/* ⚠️ (2026-08-07) 예전엔 `window.prompt(`+`window.confirm(` **글자** 를 찾았다.
+   그러다 입력창을 «시작·종료를 직접 고르는 작은 창»(요청 ⑮)으로 바꾸자, 동작은 더 나아졌는데
+   하네스가 깨졌다. 검사를 «그 함수를 썼는가» 가 아니라 **규칙**으로 다시 쓴다:
+     ① 사유를 받을 자리가 있고, ② 사람이 한 번 더 눌러야 저장된다(즉시 저장 금지). */
 check('되돌릴 수 없게 만들지 않는다 — 사유 입력 + 확인을 거친다',
-  /window\.prompt\(/.test(q6) && /window\.confirm\(/.test(q6));
+  (/window\.prompt\(/.test(q6) || /ph54-blk-reason/.test(q6))
+  && (/window\.confirm\(/.test(q6) || /ph54-blk-ok/.test(q6)));
+check('차단 창이 저장을 직접 하지 않는다 (저장 경로는 한 곳)',
+  !/function ph54BlockDialog\([\s\S]*?\n  }\n/.test(q6)
+  || !/function ph54BlockDialog\(([\s\S]*?)\n  }\n/.exec(q6)[1].includes('fetch('));
 check('🔴 요일 번호 체계를 맞춘다 (캘린더 0=월 → DB 0=일)', /\(colIdx \+ 1\) % 7/.test(q6));
 check('저장 후 서버에서 다시 읽어 반영한다 (화면만 바뀌는 착시 금지)',
   /await ph54LoadRecords\(\);\s*\n?\s*\/\/ 서버에서 다시 읽어|ph54LoadRecords\(\);[\s\S]{0,80}ph54Render\(\)/.test(q6));
-check('막힌 이유를 카드에 보여준다 (모르면 매니저가 그냥 지운다)', /s\.reason \|\| '휴식\/근무불가'/.test(q6));
+// 규칙: 카드 이름칸이 «사유» 를 먼저 쓴다(문구 자체는 언어에 따라 달라질 수 있다).
+check('막힌 이유를 카드에 보여준다 (모르면 매니저가 그냥 지운다)',
+  /nameTxt\s*=\s*isBlock\s*\?\s*\(s\.reason\s*\|\|/.test(q6));
 
 console.log('\n[ ⑦ 메뉴를 고르면 화면 «왼쪽» 이 보인다 ]');
 /* "The middle still shows every time we select an option sir, not the left most part."

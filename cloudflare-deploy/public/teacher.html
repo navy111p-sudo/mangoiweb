@@ -94,6 +94,13 @@ body{
 .wk-nav{display:flex;gap:6px;margin:0 0 10px}
 .wk-nav button{flex:1;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
 .wk-nav button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+/* 📅 날짜 바로 이동 (요청 ⑥) — 한 줄, 터치 최소 44px. 좁은 폰에서 줄바꿈되게 wrap. */
+.wk-jump{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+.wk-jump label{font-size:12.5px;font-weight:700;color:#6b7783}
+.wk-jump input[type="date"]{flex:1;min-width:150px;min-height:44px;padding:8px 10px;border:1px solid #d7dee6;border-radius:8px;font-size:15px;font-family:inherit;color:#334;background:#fff}
+.wk-jump button{min-height:44px;padding:8px 16px;border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;font-size:13.5px;font-weight:700;cursor:pointer}
+html[data-t="dark"] .wk-jump label{color:#9dabb9}
+html[data-t="dark"] .wk-jump input[type="date"]{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
 .wk-day{border-top:1px solid #e6ebf1;padding:9px 0}
 .wk-day:first-child{border-top:0}
 .wk-d{font-size:12.5px;font-weight:800;color:#6b7783;margin-bottom:4px}
@@ -117,6 +124,12 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .btn-eval{background:#1355a8;color:#fff;flex:1}
 .btn-eval:active{background:#0f4488}
 .btn-off{background:#e7ebef;color:#8a95a1;cursor:default;flex:1}
+/* 🚪 (2026-08-07 마이마이 ⑤⑪) 시작 전 [미리 입장] · 종료 후 [다시 입장].
+   «지금 해야 하는 일»(초록 [수업 입장])보다 한 단계 약하게 보여야 한다 — 색만 다르게 하고
+   크기·위치는 같게 둔다(hover 확대 금지 규칙과 같은 이유: 줄이 흔들리면 오탭이 난다). */
+.btn-early{background:#fff;color:#0b7a3d;border:1.5px solid #0b7a3d;flex:1;font-size:15px}
+.btn-early:active{background:#eaf6ee}
+.btn-reenter{background:#0b7a3d;opacity:.82;color:#fff;flex:1}
 .btn-wide{width:100%;margin-top:6px}
 
 .pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px;vertical-align:2px}
@@ -259,6 +272,7 @@ html[data-t="dark"] .row-dl b{color:#7db1f0}
 html[data-t="dark"] .btn-off{background:#252f3a;color:#7f8d9b}
 html[data-t="dark"] .btn-gray{background:#252f3a;color:#dbe4ed}
 html[data-t="dark"] .btn-post{background:#1d2630;color:#7db1f0;border-color:#3c5a7f}
+html[data-t="dark"] .btn-early{background:#1d2630;color:#5fcf90;border-color:#2f7d52}
 html[data-t="dark"] .btn-skip{background:#252f3a;color:#dbe4ed}
 html[data-t="dark"] .p-done{background:#252f3a;color:#9dabb9}
 html[data-t="dark"] .p-soon{background:#4a3a06;color:#ffd97a}
@@ -371,6 +385,15 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
       <button type="button" id="wk-this" class="on" data-en="This week" data-ko="이번 주">이번 주</button>
       <button type="button" id="wk-next" data-en="Next ▶" data-ko="다음 주 ▶">다음 주 ▶</button>
     </div>
+    <!-- 📅 (2026-08-07 마이마이 ⑥ 「연·월·일을 바로 고르게 해 달라 — 지금은 이전/다음뿐」)
+         옛 시스템은 연/월/일 드롭다운 3개였다. 여기서는 **날짜 하나**로 같은 일을 한다:
+         폰에서는 OS 달력이 뜨고(연·월·일을 한 화면에서 고른다), PC 에서는 직접 입력된다.
+         고른 날이 속한 «주» 로 이동한다 — 이 카드가 그리는 단위가 주이기 때문. -->
+    <div class="wk-jump">
+      <label for="wk-date" data-en="Jump to date" data-ko="날짜로 이동">날짜로 이동</label>
+      <input type="date" id="wk-date">
+      <button type="button" id="wk-go" data-en="Go" data-ko="이동">이동</button>
+    </div>
     <div id="week"></div>
   </div>
 
@@ -441,6 +464,39 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
        data-ko="내 기록 · 설정 (정산 · 내 평가 · 연기요청 · 비밀번호)">My Records &amp; Settings (payroll, ratings, postpone, password)</a>
     <!-- ↑ 라벨에 '무엇이 그 안에 있는지'를 전부 적는다. '전체 마이페이지' 같은 이름은
          강사에게 "이 화면은 일부인가?" 라는 의문만 남기고, 두 화면의 성격을 갈라 주지 못한다. -->
+  </div>
+
+  <!-- 🧪 (2026-08-07 강사 건의 2 — Kaye)
+         "보다(BODA)처럼 관리자 데모 방을 만들어 달라. 강사가 앱에서 수업을 연습하거나,
+          서로 학생 역할을 해 볼 수 있게. 신입 강사 교육에도 쓸 수 있다."
+       [기존] 예약이 없는 강사는 전원 «공용 연습방» 하나(mangoi-class)로 몰렸다. 그래서
+              연습하려던 강사끼리 서로의 방에 들어가 버렸다(Shas·Kaye 가 신고한 그 증상).
+       [지금] 번호가 붙은 연습방 6개. 같은 번호를 고른 사람끼리만 만나므로 둘이 짝지어
+              «한 명은 학생 역할» 연습이 되고, 팀끼리 겹치지 않게 나눠 쓸 수도 있다.
+       실제 수업 방(class-*)이 아니라 예약 검증을 타지 않고, 자동녹화도 걸리지 않는다(R2 낭비 방지). -->
+  <div class="card" id="c-practice">
+    <h2 data-en="🧪 Practice / demo rooms" data-ko="🧪 연습 · 데모 방">🧪 Practice / demo rooms</h2>
+    <div class="muted" style="font-size:13px;line-height:1.5;margin-bottom:8px"
+         data-en="Practise the class screen freely. Only people who pick the same number meet — ask a colleague to join the same number as the student. Nothing here is recorded."
+         data-ko="수업 화면을 마음껏 연습해 보세요. 같은 번호를 고른 사람끼리만 만납니다 — 동료에게 같은 번호로 «학생 역할» 입장을 부탁하세요. 이 방은 녹화되지 않습니다.">Practise the class screen freely. Only people who pick the same number meet.</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <button class="btn btn-gray" type="button" onclick="joinPractice(1,'teacher')">1</button>
+      <button class="btn btn-gray" type="button" onclick="joinPractice(2,'teacher')">2</button>
+      <button class="btn btn-gray" type="button" onclick="joinPractice(3,'teacher')">3</button>
+      <button class="btn btn-gray" type="button" onclick="joinPractice(4,'teacher')">4</button>
+      <button class="btn btn-gray" type="button" onclick="joinPractice(5,'teacher')">5</button>
+      <button class="btn btn-gray" type="button" onclick="joinPractice(6,'teacher')">6</button>
+    </div>
+    <!-- 「학생으로 들어가기」 — 신입 교육에서 «학생 눈에 무엇이 보이는지» 를 직접 보게 하는 자리.
+         학생 역할로 들어가면 강사 전용 버튼이 전부 숨겨진 화면이 그대로 재현된다. -->
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="practice-as-student-no" type="number" min="1" max="6" value="1"
+             style="width:76px;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px"
+             aria-label="room number" />
+      <button class="btn btn-gray" type="button" style="flex:1"
+              onclick="joinPractice(document.getElementById('practice-as-student-no').value, 'student')"
+              data-en="🎒 Join that room as a student" data-ko="🎒 그 방에 «학생»으로 들어가기">🎒 Join that room as a student</button>
+    </div>
   </div>
 
   <!-- 🐞 문제 신고 — 멜카(본사 매니저) 요청 5번:
@@ -854,6 +910,9 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     bindWeekNav();
     var rg = document.getElementById('wk-range');
     if (rg) rg.textContent = '(' + w.start + ' ~ ' + w.end + ')';
+    // 날짜 칸을 지금 보고 있는 주의 시작일로 맞춘다 — 다음에 달력을 열면 «여기»에서 시작한다.
+    var dtIn = document.getElementById('wk-date');
+    if (dtIn && w.start) dtIn.value = w.start;
     var DOW = EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
     box.innerHTML = w.days.map(function(d){
       var head = d.date.slice(5) + ' (' + DOW[d.dow] + ')' + (d.is_today ? (EN() ? ' · today' : ' · 오늘') : '');
@@ -877,11 +936,44 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
       var b = document.getElementById(pair[0]);
       if (b && !b._wkBound){ b._wkBound = true; b.addEventListener('click', function(){ loadWeek(pair[1]); }); }
     });
+    /* 📅 (요청 ⑥) 날짜로 바로 이동. 「이동」을 누르지 않아도 날짜를 고르면 바로 간다
+       (폰 달력은 고르는 순간 change 가 온다) — 버튼은 PC 에서 직접 입력한 사람을 위해 남긴다. */
+    var dt = document.getElementById('wk-date');
+    if (dt && !dt._wkBound){
+      dt._wkBound = true;
+      dt.addEventListener('change', function(){ loadWeekOf(this.value); });
+    }
+    var go = document.getElementById('wk-go');
+    if (go && !go._wkBound){
+      go._wkBound = true;
+      go.addEventListener('click', function(){
+        var v = (document.getElementById('wk-date') || {}).value || '';
+        loadWeekOf(v);
+      });
+    }
+  }
+  /* 고른 날짜가 «이번 주에서 몇 주 떨어져 있는가» 로 바꿔 기존 loadWeek 을 그대로 쓴다.
+     서버는 week=<그 주 월요일> 만 받으므로, 여기서 주 단위로 환산해야 한다.
+     ⚠️ 시차 사고 방지: 문자열을 Date 로 파싱할 때 'T00:00:00' 을 붙여 **로컬 자정**으로 읽는다
+        (붙이지 않으면 UTC 로 읽혀 필리핀·한국에서 하루씩 밀린다). */
+  function loadWeekOf(dateStr){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ''))) return;
+    var picked = new Date(dateStr + 'T00:00:00');
+    if (isNaN(picked.getTime())) return;
+    var pWd = (picked.getDay() + 6) % 7;                 // 월=0
+    picked.setDate(picked.getDate() - pWd);              // 그 주 월요일
+    var base = new Date();
+    base.setHours(0,0,0,0);
+    base.setDate(base.getDate() - ((base.getDay() + 6) % 7));   // 이번 주 월요일
+    var off = Math.round((picked.getTime() - base.getTime()) / (7 * 86400000));
+    loadWeek(off);
   }
   function loadWeek(off){
     WK_OFFSET = off;
     ['wk-prev','wk-this','wk-next'].forEach(function(id){ var b=document.getElementById(id); if(b) b.classList.remove('on'); });
-    var on = document.getElementById(off === 0 ? 'wk-this' : (off < 0 ? 'wk-prev' : 'wk-next'));
+    // 이번 주가 아니면 [이전/다음] 을 켜 두지 않는다 — 3주 뒤로 뛰어놓고 「다음 주」에 불이
+    // 들어와 있으면 지금 보고 있는 곳이 어디인지 거짓말이 된다(범위 표시가 진짜 답이다).
+    var on = document.getElementById(off === 0 ? 'wk-this' : (off === -1 ? 'wk-prev' : (off === 1 ? 'wk-next' : '')));
     if (on) on.classList.add('on');
     fetch('/api/teacher/portal?week=' + wkMonday(off), { credentials:'include', cache:'no-store' })
       .then(function(r){ return r.json(); })
@@ -1095,13 +1187,32 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         +   '</div>'
         +   '<div class="cls-act">';
 
+      /* 🚪 (2026-08-07 마이마이 ⑤⑪) 강사 문은 «그날 하루 종일» 열려 있다.
+         서버가 enter_from_ts~enter_until_ts 로 내려준다. 옛 응답(캐시)에는 그 값이 없으므로
+         그때는 예전 규칙(open_at_ts~close_at_ts)으로 떨어진다 — 없는 권한을 지어내지 않는다.
+         · 시작 전  : [미리 입장] — 교재를 열어 두는 시간
+         · 종료 후  : [다시 입장] — 연장·마무리. 「완료」라고 문을 잠그던 것이 요청 ⑪ 의 원인이었다. */
+      var canEnter = (c.enter_from_ts != null && c.enter_until_ts != null)
+        ? (t >= c.enter_from_ts && t <= c.enter_until_ts)
+        : open;
       if (done){
-        h += '<button class="btn btn-off" type="button" disabled>' + esc(T('Done','완료')) + '</button>'
+        // 끝난 수업도 다시 들어갈 수 있다(연장·마무리). 평가하기가 여전히 주 동선이라 색은 그대로.
+        h += (canEnter
+              ? '<button class="btn btn-join btn-reenter" type="button" data-join="' + i + '">'
+                +   esc(T('Re-enter','다시 입장')) + '</button>'
+              : '<button class="btn btn-off" type="button" disabled>' + esc(T('Done','완료')) + '</button>')
           +  '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
           +    esc(T('Evaluate','평가하기')) + '</button>';
       } else if (open){
         h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
           +    esc(T('Join Class','수업 입장')) + '</button>';
+      } else if (canEnter){
+        // 아직 시작 전 — 들어갈 수는 있다. 남은 시간은 «막는 말» 이 아니라 «안내» 로 붙인다.
+        var minsEarly = Math.max(1, Math.round((c.start_ts - t) / 60000));
+        h += '<button class="btn btn-early" type="button" data-join="' + i + '" title="'
+          +    esc(T('Open the room now to prepare the textbook', '지금 방을 열어 교재를 준비할 수 있어요')) + '">'
+          +    esc(T('Enter early · ' + fmtWait(minsEarly) + ' to start',
+                     '미리 입장 · 시작 ' + fmtWait(minsEarly) + ' 전')) + '</button>';
       } else {
         // 문이 열리기 전에는 비활성 — 남은 시간을 시/분으로 알려 준다.
         var mins = Math.max(1, Math.round((c.open_at_ts - t) / 60000));
@@ -1762,6 +1873,20 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     location.href = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(c.room_id)
                   + '&vc_name=' + encodeURIComponent(nm);
   }
+
+  /* 🧪 연습·데모 방 입장 — 실제 수업 입장(joinClass)과 같은 길을 쓰되 방 이름만 demo-N.
+     as='student' 로 들어가면 강사 전용 UI 가 전부 숨은 «학생이 보는 그대로»의 화면이 된다
+     (신입 교육용). 이름 앞의 '교사 ' 접두사는 강사로 들어갈 때만 붙인다 — 그 접두사가
+     화면 곳곳의 이름 휴리스틱을 강사로 만들어 학생 역할 연습이 되지 않기 때문이다. */
+  function joinPractice(n, as){
+    var no = Math.min(6, Math.max(1, parseInt(n, 10) || 1));
+    var me = (DATA && DATA.me && DATA.me.name) || 'Teacher';
+    var role = (as === 'student') ? 'student' : 'teacher';
+    var nm = (role === 'teacher') ? ('교사 ' + me) : (me + ' (student)');
+    location.href = '/?vc_autojoin=1&vc_role=' + role + '&vc_room=demo-' + no
+                  + '&vc_name=' + encodeURIComponent(nm);
+  }
+  window.joinPractice = joinPractice;
 
   function renderNotices(list){
     if (!list.length) return;

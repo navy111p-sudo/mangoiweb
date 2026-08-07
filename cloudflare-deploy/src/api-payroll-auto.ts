@@ -78,7 +78,7 @@ export async function handlePayrollIngest(request: Request, url: URL, env: any):
   /* 🔐 키 회전 중 — 새 키(secret)와 옛 키(vars) 를 둘 다 인정한다. 자세한 이유는 api-util.ts 참조.
      호출자: 카페24 서버 /root/teacher-payroll-sync.sh (매달). 한쪽만 바꾸면 급여 투입이 조용히 403 이 된다. */
   const given = String(url.searchParams.get('key') || '').trim();
-  if (!keyMatchesAny(given, env.PAYROLL_INGEST_KEY_NEW, env.PAYROLL_INGEST_KEY)) {
+  if (!keyMatchesAny(given, env.PAYROLL_INGEST_KEY_NEW)) {
     return json({ ok: false, error: 'forbidden' }, 403);
   }
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);

@@ -1335,6 +1335,15 @@ export async function handleAdminApi(
       try {
         await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES ('postponed_pay_percent','연기된 수업 지급률(%)','Pay rate for postponed lessons (%)','policy_percent',100,1,5,?)`).bind(now).run();
       } catch {}
+      /*   ④ (2026-08-07) 「30분보다 일찍 연기한 수업」 의 지급률 — 마이마이 문서 ② 의 규칙:
+             · 시작 30분 이내 연기 → 전액(위 postponed_pay_percent, 기본 100)
+             · 30분보다 이른 연기  → 0
+           ⚠️ **enabled=0 으로 넣는다.** 켜는 순간 지금까지 전액 지급되던 사전 연기분이 0 이 된다.
+              금액을 바꾸는 것은 사장님 결정이라 코드가 대신 하지 않는다 — 스위치만 만들어 둔다.
+              (관리자 → 급여 → 공제 규칙에서 켜면 그 달 계산부터 즉시 반영된다) */
+      try {
+        await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES ('postponed_early_pay_percent','사전 연기(시작 30분보다 이전) 지급률(%)','Pay rate when postponed more than 30 min before (%)','policy_percent',0,0,6,?)`).bind(now).run();
+      } catch {}
       //   ② 당일 피드백 미작성 공제: 정책 변경 -50 → -25. 관리자가 손대지 않은 옛 기본값(50)만 1회 갱신.
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_meta (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)`);
@@ -1391,6 +1400,21 @@ export async function handleAdminApi(
       const postponePct = rules.postponed_pay_percent
         ? (rules.postponed_pay_percent.enabled ? Math.max(0, Math.min(100, Number(rules.postponed_pay_percent.amount) || 0)) : 100)
         : 100;
+      /* ⏸⏱ (2026-08-07 마이마이 ② 「수업료 상태를 이렇게 나눠 달라」)
+           문서에 적힌 규칙은 «연기 = 얼마» 가 아니라 **언제 연기했느냐로 갈린다**:
+             · 시작 30분 이내에 연기 → 50php(=그 수업 전액). 그 시간엔 슬롯을 못 채운다.
+             · 30분보다 일찍 연기     → 0php. 다른 수업을 넣을 시간이 있었다.
+           우리 DB 는 이미 요청 시점에 그 판정을 해 두었다(schedule_change_requests.fee_type:
+           paid=30분 이내 / free=그 이전). 여기서 **다시 계산하지 않고 그 값을 읽는다** —
+           양쪽에서 계산하면 화면과 급여가 갈라진다.
+         ⚠️ 기본값은 «규칙 꺼짐» 이다. 켜면 지금까지 전액 지급되던 사전 연기분이 0 이 된다 —
+            그건 사장님이 정할 일이라 코드가 조용히 바꾸지 않는다. 관리자 화면의 공제 규칙에서
+            [사전 연기 지급률] 을 켜는 순간부터 적용된다(끄면 즉시 예전 계산으로 복귀). */
+      const earlyPostponeRule = rules.postponed_early_pay_percent;
+      const earlyPostponeOn = !!(earlyPostponeRule && earlyPostponeRule.enabled);
+      const earlyPostponePct = earlyPostponeOn
+        ? Math.max(0, Math.min(100, Number(earlyPostponeRule.amount) || 0))
+        : postponePct;
       const feeNoFb = (rules.no_feedback_day && rules.no_feedback_day.enabled) ? Math.max(0, Number(rules.no_feedback_day.amount) || 0) : 0;
       const feeTNoShow = (rules.teacher_no_show && rules.teacher_no_show.enabled) ? Math.max(0, Number(rules.teacher_no_show.amount) || 0) : 0;
       const feeLateMin = (rules.late_no_extend && rules.late_no_extend.enabled) ? Math.max(0, Number(rules.late_no_extend.amount) || 0) : 0;
@@ -1473,6 +1497,27 @@ export async function handleAdminApi(
         if (f.room_id && !fbByRoom[f.room_id]) fbByRoom[f.room_id] = dkey;
         if (f.teacher_name) fbByTeacherDay[`${f.teacher_name}|${dkey}`] = true;
       }
+      /* ⏸ 승인된 연기·취소 요청 — «언제 요청했나»(fee_type)를 수업 행에 붙이기 위해 읽는다.
+         · 월 범위로 자르지 않는다: 요청은 지난달에 하고 수업은 이번 달일 수 있다.
+           대신 status='approved' + 연기/취소만이라 행 수가 작다(운영 실측 수십 건).
+         · 키는 schedule_id|orig_date — 반복 수업은 같은 schedule_id 가 여러 날짜로 도니
+           날짜까지 맞춰야 «그날의» 연기가 된다. */
+      const prRows: any = await env.DB.prepare(
+        `SELECT schedule_id, orig_date, fee_type, minutes_before, created_at
+           FROM schedule_change_requests
+          WHERE status = 'approved' AND request_type != 'change'`
+      ).all().catch(() => ({ results: [] }));
+      const postponeReq: any = {};
+      for (const r of (prRows.results || [])) {
+        if (r.schedule_id == null) continue;
+        const d = String(r.orig_date || '').slice(0, 10);
+        if (!d) continue;
+        const k = `${r.schedule_id}|${d}`;
+        // 같은 수업에 요청이 여러 번이면 **마지막 승인** 이 실제로 적용된 것이다.
+        const prev = postponeReq[k];
+        if (!prev || (Number(r.created_at) || 0) > (Number(prev.created_at) || 0)) postponeReq[k] = r;
+      }
+
       // 📝 Phase FD — AI 초안을 강사가 '승인'한 것도 당일 피드백으로 인정 (승인 시각 기준)
       const fds: any = await env.DB.prepare(`SELECT room_id, approved_at FROM feedback_drafts WHERE status = 'approved' AND approved_at >= ? AND approved_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       for (const f of (fds.results || [])) {
@@ -1546,10 +1591,18 @@ export async function handleAdminApi(
         else if (ns && ns.missing_role === 'teacher') st = 'teacher_no_show';
 
         const base = Math.round((mins / 10) * fee);
+        /* ⏸ 연기 수업의 지급률 — 「언제 연기했나」로 갈린다(위 earlyPostponePct 주석 참고).
+           요청 기록이 없는 연기(관리자가 직접 상태만 바꾼 경우)는 판정할 근거가 없으므로
+           기존 규칙(postponePct)을 그대로 쓴다. 모르는 것을 «사전 연기» 로 단정하지 않는다. */
+        const pReq = (st === 'postponed') ? (postponeReq[`${l.id}|${dateStr}`] || null) : null;
+        const pFeeType: string | null = pReq ? (pReq.fee_type || null) : null;
+        const pPct = (st === 'postponed')
+          ? (pFeeType === 'free' ? earlyPostponePct : postponePct)
+          : 0;
         let amount = 0;
         if (st === 'finish') amount = base;
         else if (st === 'student_absent') amount = Math.round(base * absentPct / 100);
-        else if (st === 'postponed') amount = Math.round(base * postponePct / 100);
+        else if (st === 'postponed') amount = Math.round(base * pPct / 100);
 
         // 당일 피드백 여부 — 완료 수업만 판정. room_id 정확 매칭 → (구 데이터 폴백) 강사명+같은 날
         let fbOk: boolean | null = null;
@@ -1576,6 +1629,10 @@ export async function handleAdminApi(
           level_code: levelCode, level_label_ko: lvl ? lvl.label_ko : null, level_label_en: lvl ? lvl.label_en : null,
           rate_per_20min: rate20,
           status: st, fee_per_10min: fee, base_amount: base, amount,
+          // ⏸ 연기 수업만 채워진다 — 강사 화면이 «왜 이 금액인지» 를 설명할 수 있게.
+          postpone_fee_type: pFeeType,                                   // paid=30분 이내 / free=그 이전
+          postpone_minutes_before: pReq ? pReq.minutes_before : null,
+          postpone_pay_percent: (st === 'postponed') ? pPct : null,
           late_minutes: lateMin,
           feedback_ok: fbOk, deductions: dedus, deduction_total: dSum, net_amount: netAmount,
         });

@@ -5,6 +5,7 @@
 
 <!-- 카카오톡/인앱 브라우저 대응: 화상 시작 시 카메라가 막히면 외부 브라우저 안내 -->
 <script src="/js/inapp-escape.js"></script>
+<script src="/js/mg-modal-policy.js?v=1"></script><!-- 🔒 팝업은 ✕ 로만 닫는다(배경 클릭 차단) — 정책 한 곳. 빼면 즉시 예전 동작(배경 닫힘)으로 복귀 (2026-08-07 QA #4) -->
 <script src="/js/media-guard.js?v=3"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막(따라 말하기) -->
 <script src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 환경용 녹음+Whisper 전사 -->
@@ -12,7 +13,7 @@
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=16"></script>
+<script defer src="/js/i18n-sweep.js?v=19"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -65,7 +66,9 @@
     modal.id = 'cat14-modal';
     modal.setAttribute('data-cat', cat);
     modal.style.cssText = 'position:fixed;inset:0;z-index:99999999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;padding:30px 20px;overflow-y:auto';
-    modal.onclick = function(e){ if (e.target === modal) closeCat14(); };
+    /* 🔒 (2026-08-07 QA #4) 배경 클릭으로는 닫지 않는다 — 정책·판정은 /js/mg-modal-policy.js.
+       폴백 true = 정책 스크립트를 못 받았으면 예전 동작(배경 닫힘). 사용자를 가두지 않는다. */
+    modal.onclick = function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeCat14(); };
 
     var box = document.createElement('div');
     box.style.cssText = 'background:#0F172A;border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,0.7)';
@@ -1795,6 +1798,38 @@
         .vol-meter span:nth-child(5) { height: 11px; }
         .vol-meter span:nth-child(6) { height: 14px; }
         .vol-meter span.on { background: #22c55e; }
+        /* 🟢 (2026-08-07 강사 건의 1) 말하는 동안 타일 테두리를 초록으로 — 3px 짜리 막대 6개는
+           작은 타일에서 사실상 안 보였다. 애니메이션·transition 없음(저사양 PC·백그라운드 탭 안전).
+           ⚠️ box-shadow 를 쓰면 안 된다 — 위(2229행)에 «비디오에 그림자 금지(매 프레임 GPU 재계산 =
+              발열 주범)» 라는 `.video-box{box-shadow:none!important}` 가 있어 조용히 지워진다.
+              (실제로 처음엔 box-shadow 로 넣었다가 브라우저에서 computed=none 으로 확인하고 바꿨다.)
+              겹쳐 그리는 테두리는 정적이라 재계산이 없다. */
+        .video-box.vc-talking::after {
+            content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+            border: 3px solid #22c55e; border-radius: inherit;
+        }
+        /* 🔇 마이크는 켜져 있는데 소리가 전혀 안 들어오는 상태 — «학생 쪽 문제»를 눈으로 구분 */
+        /* 자리: 소리 아이콘(.video-status, 우하단) 바로 위 — 설명하는 대상 옆에 붙는다.
+           좌상단은 ⭐칭찬, 우상단은 개별채팅 버튼이 이미 쓰고 있다. */
+        .vc-nosound-badge {
+            position: absolute; right: 8px; bottom: 34px; z-index: 7;
+            background: rgba(180,83,9,0.94); color: #fff; border: 0;
+            font-size: 11px; font-weight: 800; line-height: 1.25;
+            padding: 4px 8px; border-radius: 8px; white-space: nowrap;
+            font-family: inherit; max-width: calc(100% - 16px); overflow: hidden;
+            /* 좁은 타일(모바일 4분할 등)에서는 잘려도 «🔇» 는 남아 뜻이 전달되게 */
+            text-overflow: ellipsis;
+        }
+        .vc-nosound-badge[disabled] { pointer-events: none; }
+        button.vc-nosound-badge { cursor: pointer; }
+        button.vc-nosound-badge:hover { background: rgba(217,119,6,0.98); }
+        /* 🧪 로비 연습방 번호 버튼 (강사 전용 · vcSyncPracticeEntry 가 노출 관리) */
+        .vc-practice-btn {
+            padding: 9px 0; border-radius: 9px; cursor: pointer;
+            border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.14);
+            color: #fcd34d; font-size: 14px; font-weight: 800; font-family: inherit;
+        }
+        .vc-practice-btn:hover { background: rgba(251,191,36,0.26); }
         .video-strip .video-box video {
             width: 100%;
             height: 100%;
@@ -4694,6 +4729,11 @@ window.mgIsSlowNet = function(){
       <div class="mg-acc-body">
         <button onclick="mgGo('mypage')" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.payment)window.gridActions.payment();else if(window.openPaymentModal)window.openPaymentModal();" data-ko="💳 결제하기" data-en="💳 Payment">💳 결제하기</button>
+        <!-- 🎯🎁 (2026-08-07, QA 2차 #2) 레벨테스트·체험수업을 이 카테고리에도 «별도 메뉴»로 노출.
+             지금까지 체험수업은 결제하기 → 상품선택 안에만 있어서, 결제할 생각이 없는 사람은
+             체험 신청 입구를 찾지 못했다. 결제하기 안의 무료체험 옵션은 그대로 둔다(대체 아님, 추가). -->
+        <button class="mg-hl mg-s2" onclick="mgGo('leveltest')" data-ko="🎯 레벨테스트" data-en="🎯 Level Test">🎯 레벨테스트</button>
+        <button class="mg-hl mg-s2" onclick="mgDrawerClose();if(window.openTrialSignup)window.openTrialSignup();else if(window.gridActions&&window.gridActions.trial)window.gridActions.trial();" data-ko="🎁 체험수업" data-en="🎁 Free Trial">🎁 체험수업</button>
         <button onclick="mgGo('points-shop')" data-ko="🎁 포인트상점" data-en="🎁 Point Shop">🎁 포인트상점</button>
         <button class="mg-hl mg-s2" onclick="mgGo('inquiry')" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
         <button onclick="mgDrawerClose();location.href='/refund.html';" data-ko="💰 환불규정" data-en="💰 Refund Policy">💰 환불규정</button>
@@ -6209,7 +6249,7 @@ window.mgIsSlowNet = function(){
           detailView.classList.remove('abm-anim'); void detailView.offsetWidth; detailView.classList.add('abm-anim'); abmStopVoice(); if(b&&b.voice){ abmPlayVoice(b.voice); }
           card.scrollTop=0;
         }
-        ov.addEventListener('click', function(e){ if(e.target===ov) closeAbout(); });
+        ov.addEventListener('click', function(e){ if(e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeAbout(); });   /* QA#4: 배경 클릭 닫힘 차단 */
         ov.querySelector('.abm-close').addEventListener('click', closeAbout);var abmMuteBtn=ov.querySelector('.abm-mute');function abmUpdateMute(){ if(!abmMuteBtn) return; abmMuteBtn.textContent=abmMuted?'🔇':'🔊'; abmMuteBtn.classList.toggle('muted',abmMuted); }abmUpdateMute();if(abmMuteBtn) abmMuteBtn.addEventListener('click', function(){ abmMuted=!abmMuted; try{localStorage.setItem('abm_muted',abmMuted?'1':'0');}catch(e){} if(abmMuted) abmStopVoice(); abmUpdateMute(); });
         ov.querySelector('.abm-cta-main').addEventListener('click', function(){ closeAbout(); if(window.openInquiryModal) window.openInquiryModal(); });
         ov.querySelector('.abm-back').addEventListener('click', showList);
@@ -6339,7 +6379,7 @@ window.mgIsSlowNet = function(){
          +'<p class="aif-sub" data-ko="AI로 스스로 공부해요 · 자기주도 학습" data-en="Self-directed learning with AI">AI로 스스로 공부해요 · 자기주도 학습</p></div>'
          +'<div class="aif-grid">'+cards+'</div>'
          +'</div>';
-        ov.addEventListener('click', function(e){ if(e.target===ov) ov.style.display='none'; });
+        ov.addEventListener('click', function(e){ if(e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) ov.style.display='none'; });   /* QA#4 */
         ov.querySelector('.aif-close').addEventListener('click', function(){ ov.style.display='none'; });
         document.body.appendChild(ov);
         try{ if(window.applyLang) window.applyLang(); else if(window.mangoApplyI18n) window.mangoApplyI18n(); }catch(e){}
@@ -8474,6 +8514,33 @@ window.mgIsSlowNet = function(){
         <button class="btn-primary" id="vc-join-myclass" onclick="vcJoinMyClass()" style="background:linear-gradient(135deg,#22c55e,#16a34a);margin-bottom:8px"
                 data-ko="🎓 오늘 내 수업 바로 입장" data-en="🎓 Enter My Class Now">🎓 오늘 내 수업 바로 입장</button>
         <button class="btn-primary" onclick="vcJoinRoom()" data-ko="로그인 (수동 입장)" data-en="Login (manual)">로그인 (수동 입장)</button>
+
+        <!-- 🧪 (2026-08-07 강사 건의 2) "보다처럼 관리자 데모 방을 만들어 달라 — 강사가 수업을 연습하거나
+             서로 학생 역할을 해 볼 수 있게. 신입 강사 교육에도 쓸 수 있다."
+             [기존] 예약이 없는 강사는 «공용 연습방» 하나(mangoi-class)로 전부 몰렸다. 그래서
+                    연습하려던 강사끼리 서로의 방에 들어가 버렸다(Shas·Kaye 가 신고한 그 증상).
+             [지금] 번호가 붙은 연습방 6개. 같은 번호를 고른 사람끼리만 만나므로 «둘이 짝지어
+                    학생 역할 연습» 도 되고, 서로 안 겹치게 나눠 쓸 수도 있다.
+             실제 수업 방(class-*)이 아니라서 예약 검증을 타지 않고, 자동녹화도 걸리지 않는다. -->
+        <div id="vc-practice-wrap" style="display:none;margin-top:10px;text-align:left">
+          <details>
+            <summary style="cursor:pointer;font-size:13px;color:#fcd34d;font-weight:700;list-style:none;padding:5px 2px"
+                     data-ko="🧪 연습·데모 방 (강사 전용 · 녹화 안 함)"
+                     data-en="🧪 Practice / demo rooms (teachers only · not recorded)">🧪 연습·데모 방 (강사 전용 · 녹화 안 함)</summary>
+            <div style="font-size:11.5px;color:#a5b4cf;line-height:1.5;margin:4px 2px 7px"
+                 data-ko="같은 번호를 고른 사람끼리만 만납니다. 한 사람은 학생 역할로 들어와 연습해 보세요."
+                 data-en="Only people who pick the same number meet. One of you can join as the student to practise.">같은 번호를 고른 사람끼리만 만납니다. 한 사람은 학생 역할로 들어와 연습해 보세요.</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+              <button type="button" onclick="vcJoinPracticeRoom(1)" class="vc-practice-btn">1</button>
+              <button type="button" onclick="vcJoinPracticeRoom(2)" class="vc-practice-btn">2</button>
+              <button type="button" onclick="vcJoinPracticeRoom(3)" class="vc-practice-btn">3</button>
+              <button type="button" onclick="vcJoinPracticeRoom(4)" class="vc-practice-btn">4</button>
+              <button type="button" onclick="vcJoinPracticeRoom(5)" class="vc-practice-btn">5</button>
+              <button type="button" onclick="vcJoinPracticeRoom(6)" class="vc-practice-btn">6</button>
+            </div>
+          </details>
+        </div>
+
         <button class="btn-back" onclick="showView('view-home')" data-ko="← 메인으로" data-en="← Home">← 메인으로</button>
     </div>
 </div>
@@ -8824,6 +8891,12 @@ window.mgIsSlowNet = function(){
                     <button onclick="pdfPrevPage()" data-ko="◀ 이전 (Prev)" data-en="◀ Prev (이전)">◀ 이전 (Prev)</button>
                     <span id="pdf-page-info" style="font-size:0.85rem;color:#94a3b8;">-</span>
                     <button onclick="pdfNextPage()" data-ko="다음 · Next ▶" data-en="Next · 다음 ▶">다음 · Next ▶</button>
+                    <!-- 📑 (2026-08-07 마이마이 ⑦ 「교재 페이지 목록이 한눈에 보여야 한다」)
+                         지금은 [이전]/[다음] 과 «6 / 24» 뿐이라 15쪽으로 가려면 9번을 눌러야 했다.
+                         옛 시스템의 «Document list»(Slide1…Slide24)처럼 목록에서 바로 고르게 한다. -->
+                    <button onclick="pdfTogglePageList()" id="pdf-pagelist-btn"
+                            style="background:rgba(56,189,248,0.18);color:#7dd3fc;border:1px solid rgba(56,189,248,0.45);font-weight:700"
+                            data-ko="📑 페이지 목록" data-en="📑 Pages" title="교재의 페이지를 목록에서 바로 고릅니다 · Pick a page from the list">📑 페이지 목록</button>
                     <span style="margin-left:8px;display:inline-flex;gap:4px;">
                         <button id="pdf-view-1" class="pdf-view-btn active" onclick="pdfSetPagesPerView(1, this)" title="한 페이지 보기">📄</button>
                         <button id="pdf-view-2" class="pdf-view-btn" onclick="pdfSetPagesPerView(2, this)" title="두 페이지 보기">📄📄</button>
@@ -9541,7 +9614,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
     //   예전엔 연결 끊김 상태에서 send() 하면 그냥 버림 → 교사가 튼 동영상/교재 신호가
     //   사라져 학생이 폴링/재입장 때까지 못 봤음. 시그널링(offer/ice 등)은 재연결 시
     //   어차피 새로 시작하므로 큐잉하지 않고, '내용 공유' 타입만 큐에 담아 재연결 즉시 재전송.
-    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1, 'bg-lock':1, 'mic-lock':1, 'focus-lock':1 };
+    const QUEUEABLE_TYPES = { 'pdf-share':1, 'pdf-sync':1, 'pdf-page-change':1, 'pdf-stop-share':1, 'video-share':1, 'video-sync':1, 'video-stop-share':1, 'file-share':1, 'tab-sync':1, 'bg-lock':1, 'mic-lock':1, 'focus-lock':1, 'pdf-drawlock':1 };
     let sendQueue = [];   // [{type,...}] 최대 20개 — 같은 type 은 마지막 것만 유지
     function flushQueue() {
         if (!ws || ws.readyState !== WebSocket.OPEN || !sendQueue.length) return;
@@ -10188,7 +10261,11 @@ window.__vcCamTrackBackup = null;
 window.vcShareMyScreen = async function(){
     var en = (typeof getLang === 'function' && getLang() === 'en');
     try {
-        if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+        /* 🎭 (2026-08-07 Kaye 5번) 칩 노출 판정과 «같은» 정본을 쓴다.
+           예전엔 노출은 vcIsTeacherRole 을 OR 로 봤는데 여기는 vcMyRole 정확일치라,
+           로비 입장 강사에게는 버튼이 보여도 누르면 "선생님만 쓸 수 있어요"가 떴다. */
+        if (!(typeof vcIsStaffNow === 'function' ? vcIsStaffNow()
+              : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'))) {
             alert(en ? 'Only teachers can share the screen.' : '화면 공유는 선생님만 사용할 수 있어요.');
             return;
         }
@@ -10436,17 +10513,58 @@ const __vcReconnectAt = {};   // userId → 마지막 재연결 시각(쿨다운
    무엇보다 [[vc-join-permission-race]] 처럼 재입장이 막히는 사고가 있었다. 그래서 연결만 되살린다.
    ① 내 카메라·마이크 트랙이 죽어 있으면 먼저 살리고(재협상 없이 교체)
    ② 붙어 있는 상대 전원에게 재연결(사용자가 직접 누른 것이므로 8초 쿨다운은 무시). */
+/* 🔄 (2026-08-07 Kaye 4번) "재연결 버튼을 눌러도 재연결이 안 되고 화면 그대로이며 시스템도 인식 못 한다"
+   [예전 동작] 이 함수는 «이미 맺어져 있는 PeerConnection» 만 다시 세웠다. 그래서
+     ① 신호 회선(WebSocket)이 죽어 있으면 — 가장 흔한 경우 — 아무것도 하지 않았다.
+        상대 목록 자체가 서버에서 오는데 그 통로가 끊긴 상태라 vcPeerConnections 가 비어 있고,
+        빈 배열을 돌면 «성공적으로 아무 일도 안 일어난다».
+     ② 진행/결과를 한 줄도 알려 주지 않아, 눌러도 «반응이 없는 버튼»으로 보였다.
+   [지금] 회선부터 살리고 → 내 장치 자가치유 → 상대 재연결 순서로 가고, 매 단계를 한/영으로 알린다. */
 async function vcManualReconnect() {
     if (!document.body.classList.contains('vc-in-call')) return;
     const btn = document.getElementById('vc-btn-resync');
     if (btn) { if (btn.dataset.busy === '1') return; btn.dataset.busy = '1'; btn.style.opacity = '0.5'; btn.textContent = '⏳'; }
+    const _en = (typeof getLang === 'function' && getLang() === 'en');
+    const say = function (msg) { try { if (typeof showToast === 'function') showToast(msg); } catch (_) {} };
+    say(_en ? '🔄 Reconnecting…' : '🔄 다시 연결하는 중…');
     try {
+        // ① 신호 회선(WebSocket) — 이게 죽어 있으면 아래 어떤 것도 상대에게 닿지 않는다
+        let _sock = null;
+        try { _sock = vcConn && vcConn.ws; } catch (_) {}
+        if (!_sock || _sock.readyState !== 1) {
+            console.warn('[vc-resync] 신호 회선이 끊겨 있음 → 회선부터 재연결');
+            try { if (vcConn && vcConn.notePongResume) vcConn.notePongResume(); } catch (_) {}
+            try { if (vcConn && vcConn.reconnectNow) vcConn.reconnectNow(); } catch (_) {}
+            await new Promise(function (r) { setTimeout(r, 1500); });   // room-joined 회신 여유
+        }
+        // ② 내 카메라·마이크 자가치유
         try { await vcHealLocalVideo(); } catch (_) {}
         try { await vcHealLocalMic(); } catch (_) {}
+        // ③ 상대와의 영상 연결 재수립
         const ids = Object.keys(vcPeerConnections || {});
         ids.forEach(function (id) { try { delete __vcReconnectAt[id]; } catch (_) {} });   // 수동 요청은 쿨다운 면제
         ids.forEach(function (id) { try { vcReconnectPeer(id); } catch (_) {} });
         console.warn('[vc-resync] 사용자가 영상 재연결 요청 — 상대', ids.length + '명');
+
+        // ④ 결과 보고 — «했는데 어떻게 됐는지» 를 반드시 말해 준다
+        setTimeout(function () {
+            let live = 0, total = 0;
+            try {
+                Object.values(vcPeerConnections || {}).forEach(function (pc) {
+                    total++;
+                    try { if (pc.getReceivers().some(function (r) { return r.track && r.track.readyState === 'live'; })) live++; } catch (_) {}
+                });
+            } catch (_) {}
+            let ok = false;
+            try { ok = !!(vcConn && vcConn.ws && vcConn.ws.readyState === 1); } catch (_) {}
+            if (!ok) say(_en ? '⚠ Still offline — check your internet, the class will resume by itself when it is back.'
+                             : '⚠ 아직 연결이 안 됐어요 — 인터넷을 확인해 주세요. 회복되면 수업은 저절로 이어집니다.');
+            else if (total === 0) say(_en ? '✅ Line restored. Waiting for the other person to join.'
+                                         : '✅ 회선이 다시 연결됐어요. 상대가 들어오기를 기다리는 중입니다.');
+            else if (live > 0) say(_en ? '✅ Reconnected (' + live + '/' + total + ')' : '✅ 다시 연결됐어요 (' + live + '/' + total + '명)');
+            else say(_en ? '⏳ Still connecting to the other person… trying again automatically.'
+                         : '⏳ 상대와 연결 중이에요… 자동으로 계속 시도합니다.');
+        }, 3500);
     } catch (e) { console.warn('[vc-resync] 실패', e); }
     setTimeout(function () {
         if (btn) { btn.dataset.busy = ''; btn.style.opacity = ''; btn.textContent = '🔄'; }
@@ -11096,9 +11214,35 @@ function lobbyInitStarfield() {
     setInterval(() => { spawn(); setTimeout(spawn, 300 + Math.random() * 400); }, 2400);
 }
 
+/* 🧪 (2026-08-07 강사 건의 2) 번호가 붙은 연습·데모 방으로 바로 입장.
+   실제 수업 방(class-*)과 이름 공간이 겹치지 않아 예약 검증·자동녹화 어디에도 걸리지 않는다. */
+window.vcJoinPracticeRoom = function (n) {
+  try {
+    var ri = document.getElementById('vc-roomcode-input');
+    if (ri) ri.value = 'demo-' + (n || 1);
+    var ni = document.getElementById('vc-name-input');
+    if (ni && !ni.value.trim()) {
+      var _pu = (window.getCurrentUser ? window.getCurrentUser() : null);
+      if (_pu && _pu.name) ni.value = _pu.name;
+    }
+    if (typeof vcJoinRoom === 'function') vcJoinRoom();
+  } catch (e) { console.warn('[practice-room]', e); }
+};
+/* 강사·관리자에게만 연습방 입구를 보여 준다 — 학생 로비를 어지럽히지 않는다. */
+window.vcSyncPracticeEntry = function () {
+  try {
+    var w = document.getElementById('vc-practice-wrap');
+    if (!w) return;
+    var staff = (typeof vcIsStaffNow === 'function') ? vcIsStaffNow()
+              : (typeof vcIsTeacherRole === 'function' ? vcIsTeacherRole() : false);
+    w.style.display = staff ? 'block' : 'none';
+  } catch (_) {}
+};
+
 /** 페이지 로드 시 — 저장된 ID/PW/방번호 복원 + 자동로그인 처리 */
 function vcRestoreCredentials() {
   lobbyInitStarfield();
+  try { window.vcSyncPracticeEntry(); } catch (_) {}
   try {
     const saveId    = localStorage.getItem(VC_AUTH_KEYS.saveId) === '1';
     const autoLogin = localStorage.getItem(VC_AUTH_KEYS.autoLogin) === '1';
@@ -11531,6 +11675,34 @@ async function vcJoinRoom(skipUI) {
     window._vcObserverMode = false;   // ★ (2026-07-20) 별도 스크립트(입장 자동 교재 로드)에서 참조용 미러
     vcUsername = document.getElementById('vc-name-input').value.trim();
     if (!vcUsername) { alert('아이디를 입력하세요.'); return; }
+
+    /* 🎭 (2026-08-07 Kaye 피드백 1·2·5번) 역할을 «소켓을 열기 전에» 확정한다.
+       [실제 사고] window.vcMyRole 은 마이페이지 입장(vcEnterResolvedRoom)과 관리자 임베드
+       (?vc_role=teacher) 두 경로에서만 세팅됐다. 로비에서 그냥 로그인해 들어오면 undefined 로
+       남고, 그 상태로 join-room 을 role:'student' 로 보낸다. 그러면 «강사가 서버에 학생으로
+       기록»되어 다음이 한꺼번에 조용히 죽는다:
+         · 강사 전용 칩(내 화면 공유·학생 필기 잠금·교재 고르기)이 숨은 채로 남고
+         · 교재 페이지 넘기기 화살표(vcMyRole 정확일치 게이트)가 먹지 않고
+         · 전체 음소거·집중 모드·필기 잠금이 서버 role 검증에서 버려진다.
+       Kaye 화면이 공용방(mangoi-class)이었던 것이 바로 이 경로다(방코드 없이 로비 입장).
+       ⚠️ 이름 휴리스틱(vcIsTeacherRole)은 «계정 역할이 아예 없을 때»만 쓴다 — 로그인한
+          학생을 이름만 보고 강사로 올리면 교재를 반 전체에 넘겨버릴 수 있다. */
+    try {
+      if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+        var _ru = (window.getCurrentUser ? window.getCurrentUser() : null);
+        var _rr = (_ru && _ru.role) || '';
+        if (!_rr) { try { _rr = localStorage.getItem('mangoi_user_role') || ''; } catch (_) {} }
+        if (!_rr) { try { _rr = (window.MangoV3 && MangoV3.user && MangoV3.user.role) || ''; } catch (_) {} }
+        _rr = String(_rr).toLowerCase();
+        /* 역할 표기가 경로마다 다르다 — 마이페이지는 'teacher', 홈 통합로그인 폴백은 'hq_teacher'.
+           정확일치로 보면 hq_teacher 강사가 또 학생 취급을 받는다(2026-08-06 같은 함정). */
+        if (/teacher|tutor/.test(_rr)) window.vcMyRole = 'teacher';
+        else if (/^admin$|^hq$|^hq_admin$/.test(_rr)) window.vcMyRole = 'admin';
+        else if (!_rr && typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) window.vcMyRole = 'teacher';
+        else if (_rr) window.vcMyRole = 'student';
+        if (window.vcMyRole) { try { localStorage.setItem('mangoi_user_role', window.vcMyRole); } catch (_) {} }
+      }
+    } catch (_) {}
     // 🎥 (2026-07-24) 권한 팝업을 입장보다 '먼저' 끝낸다 — 미디어 없는 SDP 고착 방지.
     //   모든 입장 경로(수동 입력·?room=·vc_autojoin·오늘 내 수업)가 이 한 곳을 지난다.
     try { await window.vcEnsureMediaPermission(); } catch (_) {}
@@ -11744,6 +11916,14 @@ async function vcJoinRoom(skipUI) {
       }
     } catch(e){}
     try { if (window.mangoiClassEntryNotice) setTimeout(window.mangoiClassEntryNotice, 600); } catch(e){}
+    /* 🔒 (2026-08-07) 역할이 정해졌으니 강사 전용 칩을 여기서 «반드시» 한 번 그린다.
+       예전엔 vcEnterResolvedRoom·?vc_role= 두 경로에서만 불렀다 = 로비 입장 강사는 영영 못 봤다.
+       칩은 정적 HTML 이라 DOM 생성 대기가 필요 없지만, 다른 스크립트가 늦게 로드되는 경우가
+       있어 짧은 재시도 2번만 둔다(타이머 상주 없음 = 수업 중 부하 0). */
+    try {
+      var _chipTick = function(){ try { if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender(); } catch(_){} };
+      _chipTick(); setTimeout(_chipTick, 900); setTimeout(_chipTick, 3000);
+    } catch(e){}
     requestWakeLock(); // 화면 꺼짐 방지 활성화
 
     // 📱 모바일에서 가로 모드 자동 시도 (지원 시) — 사용자 제스처 직후라 가능
@@ -12118,8 +12298,14 @@ async function vcJoinRoom(skipUI) {
       // 채팅·음성 폴더 삭제 — 동일 기능이 상단 헤더에 있어 중복
 
       screen: {
-        title: '🖥️ 화면 분할',
+        title: '🖥️ 화면 공유 · 화면 분할',
         items: [
+          /* 🖥 (2026-08-07 Kaye 5번) "화면 공유 버튼이 또 사라졌다"
+             [실제] 하단 독의 [화면공유] 버튼은 이 시트를 여는데, 시트 안엔 «화면 분할»밖에
+                    없었다. 진짜 화면 공유(getDisplayMedia)는 상단 탭바 칩에만 있었고 그 칩은
+                    역할 미확정으로 숨어 있었다 → 강사 입장에선 «없어진» 것이 맞다.
+             누르는 자리에 진짜 기능을 둔다. 학생이 눌러도 vcShareMyScreen 이 스스로 막는다. */
+          { icon:'🖥️', label:'내 컴퓨터 화면 공유 (Share my screen)', onclick:`vcShareMyScreen()` },
           { icon:'🟦', label:'1/4 화면', onclick:`vcScreenSet('quarter')` },
           { icon:'🟦', label:'1/2 화면', onclick:`vcScreenSet('half')` },
           { icon:'🟦', label:'3/4 화면', onclick:`vcScreenSet('threequarter')` },
@@ -12868,7 +13054,8 @@ function vcHandleMessage(msg) {
            교사가 새로 들어온 학생에게도 알릴 수 있게, 잠금은 켤 때마다 방송한다. */
         case 'pdf-drawlock':
             try {
-                window.__pdfStudentDrawLock = !!(msg.data && msg.data.on);
+                /* 서버는 { on, locked } 를 함께 보낸다 — 한쪽 이름만 보면 조용히 «항상 해제»가 된다 */
+                window.__pdfStudentDrawLock = !!(msg.data && (msg.data.on || msg.data.locked));
                 if (typeof vcRenderDrawLockChip === 'function') vcRenderDrawLockChip();
                 var _dl = (typeof getLang === 'function' && getLang() === 'en');
                 if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin' && typeof mangoToast === 'function') {
@@ -12982,6 +13169,60 @@ function vcHandleMessage(msg) {
                 } else if (typeof vcFocusLockApply === 'function') {
                     vcFocusLockApply(_fcLk);
                 }
+            } catch(_){}
+            break;
+        }
+        /* 🎧 (2026-08-07 강사 건의 1) 강사 → 이 학생: "마이크를 다시 잡아 주세요"
+           서버는 방 전체에 뿌리므로 targetUserId 로 나를 골라낸다. 마이크 트랙만 다시 얻는다
+           — 화면·연결은 건드리지 않아 수업이 끊기지 않는다. 전체 음소거 중이면 존중해서 건너뛴다. */
+        case 'device-fix': {
+            try {
+                if (!msg.data || msg.data.targetUserId !== vcUserId) break;
+                if (window.__vcMicLockedByTeacher) break;      // 강사가 전체 음소거 중 = 의도된 무음
+                var _dfEn = (typeof getLang === 'function' && getLang() === 'en');
+                try { if (typeof mangoToast === 'function') mangoToast(_dfEn ? '🎧 Checking your microphone…' : '🎧 마이크를 다시 확인하고 있어요…'); } catch(_){}
+                Promise.resolve()
+                    .then(function(){ return (typeof vcHealLocalMic === 'function') ? vcHealLocalMic() : null; })
+                    .then(function(){
+                        var t = null, label = '';
+                        try { t = window.vcLocalStream && vcLocalStream.getAudioTracks()[0]; } catch(_){}
+                        if (t) label = t.label || '';
+                        /* 🔐 학생이 «스스로» 마이크를 끈 상태(vcMicOn === false)면 켜지 않는다.
+                           고장과 «본인이 끈 것»은 다른 일이고, 남의 마이크를 원격으로 켜는 것은
+                           해서는 안 되는 일이다. 대신 그 사실을 강사에게 그대로 알려 준다 —
+                           강사가 알고 싶은 것도 결국 «왜 소리가 없는가» 이다. */
+                        var selfMuted = (window.vcMicOn === false);
+                        if (t && !selfMuted) { try { t.enabled = true; } catch(_){} }
+                        try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'device-report', data: { fromUserId: vcUserId, ok: !!t && !selfMuted, muted: selfMuted, label: String(label).slice(0, 60) } }); } catch(_){}
+                    })
+                    .catch(function(){
+                        try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'device-report', data: { fromUserId: vcUserId, ok: false, label: '' } }); } catch(_){}
+                    });
+            } catch(_){}
+            break;
+        }
+        /* 🎧 학생 → 강사: 결과 보고. 강사 화면에 한/영으로 한 줄 알린다. */
+        case 'device-report': {
+            try {
+                if (!(typeof vcIsStaffNow === 'function' && vcIsStaffNow())) break;
+                var _drEn = (typeof getLang === 'function' && getLang() === 'en');
+                var _drNm = '';
+                try {
+                    var _drBox = document.getElementById('vc-video-' + (msg.data && msg.data.fromUserId));
+                    var _drL = _drBox && _drBox.querySelector('.video-label');
+                    _drNm = (_drL && _drL.textContent) ? _drL.textContent.trim() : '';
+                } catch(_){}
+                var _drOk = !!(msg.data && msg.data.ok);
+                var _drMuted = !!(msg.data && msg.data.muted);
+                if (typeof showToast === 'function') showToast(
+                    _drMuted
+                        ? (_drEn ? '🔇 ' + (_drNm || 'Student') + ' turned their microphone off themselves — ask them to turn it back on.'
+                                 : '🔇 ' + (_drNm || '학생') + ' 이(가) 스스로 마이크를 껐어요 — 다시 켜 달라고 말해 주세요.')
+                    : _drOk
+                        ? (_drEn ? '✅ ' + (_drNm || 'Student') + ' — mic picked up again' + (msg.data.label ? ' (' + msg.data.label + ')' : '')
+                                 : '✅ ' + (_drNm || '학생') + ' — 마이크를 다시 잡았어요' + (msg.data.label ? ' (' + msg.data.label + ')' : ''))
+                        : (_drEn ? '⚠ ' + (_drNm || 'Student') + ' — could not pick up the mic. Ask them to allow microphone permission.'
+                                 : '⚠ ' + (_drNm || '학생') + ' — 마이크를 못 잡았어요. 학생에게 마이크 권한 허용을 부탁하세요.'));
             } catch(_){}
             break;
         }
@@ -13774,6 +14015,16 @@ function vcIsTeacherRole(){
     } catch(e){}
     return false;
 }
+/* 🎭 (2026-08-07) 강사·관리자 판정의 «정본» — 강사 전용 기능은 전부 이걸 쓴다.
+   [왜 하나로 묶는가] 예전엔 곳곳이 제각각이었다. 칩 노출은 vcIsTeacherRole 을 OR 로 봤는데
+   실제 동작(화면공유 실행·교재 페이지 넘김)은 window.vcMyRole 정확일치만 봤다.
+   그래서 «버튼은 보이는데 누르면 선생님만 쓸 수 있다고 거절당하는» 어긋남이 났다. */
+window.vcIsStaffNow = function(){
+    try {
+        if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') return true;
+        return (typeof vcIsTeacherRole === 'function') ? !!vcIsTeacherRole() : false;
+    } catch(e){ return false; }
+};
 // 🔍 (2026-07-05) 이 원격 박스가 '학생'인지 판별 — 다른 선생님/강사/관찰자는 칭찬 대상에서 제외.
 //   역할(dataset.role / vcPeerRoles) + 이름 휴리스틱(교사/강사/선생님/teacher) 둘 다로 거른다.
 function vcBoxIsStudent(box){
@@ -14521,7 +14772,8 @@ function attachStreamMonitor(box, stream) {
         try { box.__vsMon.ctx && box.__vsMon.ctx.close(); } catch(e){}
         box.__vsMon = null;
     }
-    const mon = { key: monKey, stream: stream, stop: false, iconInt: null, ctx: null };
+    const mon = { key: monKey, stream: stream, stop: false, iconInt: null, ctx: null,
+                  talking: false, dead: false, soundAt: Date.now() };
     box.__vsMon = mon;
 
     mon.iconInt = setInterval(() => {
@@ -14554,6 +14806,17 @@ function attachStreamMonitor(box, stream) {
             const muted = !(a && a.enabled);
             const level = muted ? 0 : Math.min(bars.length, Math.floor(avg / 8));
             bars.forEach((b, i) => b.classList.toggle('on', i < level));
+            /* 🟢🔇 (2026-08-07 강사 건의 1) "학생이 말할 때 초록 표시가 보이면 문제가 학생 쪽인지 우리 쪽인지 안다"
+               ① 말하는 동안 타일 테두리 초록  ② 마이크는 켜져 있는데 8초 넘게 무음이면 «소리 안 들림» 배지.
+               둘 다 «상태가 바뀔 때만» DOM 을 건드린다 — 매 프레임 쓰기 없음(수업 부하 0). */
+            const talking = level >= 2;
+            if (talking !== mon.talking) { mon.talking = talking; box.classList.toggle('vc-talking', talking); }
+            if (!isLocal) {
+                const _now = Date.now();
+                if (muted || talking) mon.soundAt = _now;
+                const dead = !muted && (_now - (mon.soundAt || _now) > 8000);
+                if (dead !== mon.dead) { mon.dead = dead; vcMarkNoSound(box, dead); }
+            }
             requestAnimationFrame(loop);
         }
         loop();
@@ -14564,6 +14827,54 @@ function attachStreamMonitor(box, stream) {
         console.warn('음량 분석 실패:', e);
     }
 }
+
+/* 🔇 (2026-08-07 강사 건의 1) "마이크는 켜져 있는데 소리가 안 들어온다"를 타일 위에 그대로 적는다.
+   [왜 필요한가] 강사가 가장 답답해하는 순간은 «학생이 말을 안 하는 건지, 마이크가 죽은 건지» 모를 때다.
+   음소거(🎤 ✖)와 «켜져 있는데 무음»은 완전히 다른 상황인데 화면에서 구분이 안 됐다.
+   문구는 한/영 두 벌 — 강사 다수가 필리핀이다. */
+function vcMarkNoSound(box, on) {
+    if (!box) return;
+    let b = box.querySelector('.vc-nosound-badge');
+    if (!on) { if (b) b.remove(); return; }
+    if (b) return;
+    try { if (getComputedStyle(box).position === 'static') box.style.position = 'relative'; } catch (_) {}
+    const en = (typeof getLang === 'function' && getLang() === 'en');
+    const uid = (box.id || '').replace('vc-video-', '');
+    /* 강사에게는 «누를 수 있는» 배지로 준다 — 이 한 번의 클릭이 학생 브라우저에서 마이크를
+       다시 잡게 한다(건의 1의 "학생 기기 설정을 바꾸고 싶다"에 대한 가장 가벼운 답).
+       학생·관찰자에게는 그냥 안내 문구. */
+    const staff = (typeof vcIsStaffNow === 'function') ? vcIsStaffNow() : false;
+    b = document.createElement(staff && uid ? 'button' : 'div');
+    b.className = 'vc-nosound-badge';
+    b.textContent = staff && uid
+        ? (en ? '🔇 No sound · Tap to fix' : '🔇 소리 없음 · 눌러서 고치기')
+        : (en ? '🔇 No sound coming in' : '🔇 소리가 안 들어와요');
+    b.title = en
+        ? 'Mic is on but nothing is heard. Tapping asks their browser to pick up the microphone again.'
+        : '마이크는 켜져 있는데 소리가 없어요. 누르면 학생 브라우저가 마이크를 다시 잡습니다.';
+    if (staff && uid) {
+        b.type = 'button';
+        b.addEventListener('click', function (e) { e.stopPropagation(); vcRequestMicFix(uid, b); });
+    }
+    box.appendChild(b);
+}
+
+/* 🎧 (2026-08-07 강사 건의 1) "보다처럼 학생 PC·태블릿 설정을 우리가 바꿀 수 있으면 좋겠다"
+   기기 설정창을 통째로 원격 조작하는 것은 무겁고 위험하다(권한·사생활). 대신 실제로 막히는
+   지점 하나만 원격으로 푼다 — «마이크를 다시 잡기». 현장 문제의 대부분이 이것이다:
+   학생이 다른 앱이 마이크를 물고 있거나, 권한 팝업을 놓쳤거나, 장치를 갈아 끼운 경우.
+   강사→학생 요청 1건, 학생→강사 결과 1건. 폴링 없음. */
+window.vcRequestMicFix = function (uid, btn) {
+    if (!uid) return;
+    const en = (typeof getLang === 'function' && getLang() === 'en');
+    try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'device-fix', data: { targetUserId: uid, what: 'mic' } }); } catch (_) {}
+    if (btn) { btn.disabled = true; btn.textContent = en ? '🎧 Asking…' : '🎧 요청했어요…'; }
+    try { if (typeof showToast === 'function') showToast(en ? '🎧 Asked the student to pick up the mic again' : '🎧 학생에게 마이크를 다시 잡도록 요청했어요'); } catch (_) {}
+    /* 답이 없어도 8초 뒤엔 다시 누를 수 있게 되돌린다 — 학생이 오래된 화면이면 답이 안 온다 */
+    setTimeout(function () {
+        if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = en ? '🔇 No sound · Tap to fix' : '🔇 소리 없음 · 눌러서 고치기'; }
+    }, 8000);
+};
 
 /** 참가자 퇴장 시 비디오 및 연결 제거 */
 /* 🇵🇭 (2026-07-24) 순단(dropped) 유령 타일 정리 시간 — 이 시간 안에 재접속하지 않으면 타일을 치운다.
@@ -14914,8 +15225,20 @@ function startMicLevelMeter() {
         if (!_micMeterEl) {
             _micMeterEl = document.createElement('div');
             _micMeterEl.id = 'vc-mic-meter';
-            _micMeterEl.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:99px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif';
-            _micMeterEl.innerHTML = '🎤 <span id="mic-meter-status">대기중</span> <div style="width:140px;height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden"><div id="mic-meter-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#fbbf24,#ef4444);transition:width .1s"></div></div>';
+            /* 📍 (2026-08-07 마이마이 ⑨ 「마이크 표시기가 화면분할 설정을 가린다 — 좌우로 옮겨 달라」)
+               예전 자리: bottom:90px + left:50% (화면 **정가운데 아래**). 하필 그 자리가
+               [화면 분할] 패널이 열리는 곳이라 아래 두 칸(솔로 · 칠판만)을 덮었다.
+               → 왼쪽 아래로 보낸다. 오른쪽은 얼굴 사이드바·PIP 가 이미 쓰고 있어 남은 곳이 왼쪽이다.
+               ⚠️ transform:translateX 를 빼야 한다 — 남겨 두면 left 를 바꿔도 다시 가운데로 당겨진다. */
+            _micMeterEl.style.cssText = 'position:fixed;bottom:96px;left:12px;z-index:9999;background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:99px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;pointer-events:none;max-width:calc(100vw - 24px)';
+            /* 🙋 (요청 ⑩ 「지금 켜진 게 내 마이크인지 학생 마이크인지 모르겠다」)
+               이 미터는 **내 마이크만** 잰다(vcLocalStream). 그 사실을 라벨로 못박는다.
+               강사 다수가 필리핀이라 한/영을 함께 적는다 — 라벨만 영어고 상태가 한국어면 소용없다. */
+            var _mmEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+            _micMeterEl.innerHTML = '🎤 <span style="opacity:.75;font-weight:800">'
+                + (_mmEn ? 'MY MIC' : '내 마이크')
+                + '</span> <span id="mic-meter-status">' + (_mmEn ? 'Waiting' : '대기중') + '</span>'
+                + ' <div style="width:120px;height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden"><div id="mic-meter-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#fbbf24,#ef4444);transition:width .1s"></div></div>';
             document.body.appendChild(_micMeterEl);
         }
         const bar = document.getElementById('mic-meter-bar');
@@ -14931,15 +15254,19 @@ function startMicLevelMeter() {
             const rms = Math.sqrt(sum / data.length);
             const pct = Math.min(100, Math.floor(rms * 600));
             if (bar) bar.style.width = pct + '%';
+            // 🌐 상태 글자도 강사 언어를 따른다(라벨만 영어인 채 상태가 한국어면 읽을 수 없다)
+            const _en = (typeof currentLang !== 'undefined' && currentLang === 'en');
             if (rms < 0.005) {
                 silentCount++;
-                if (status) status.textContent = silentCount > 30 ? '⚠️ 무음' : '대기중';
+                if (status) status.textContent = silentCount > 30 ? (_en ? '⚠️ No sound' : '⚠️ 무음') : (_en ? 'Waiting' : '대기중');
                 if (silentCount === 50) {
                     console.warn('[mic] 5초간 무음 감지 — 마이크 입력이 없거나 음소거 상태');
                 }
             } else {
                 silentCount = 0;
-                if (status) status.textContent = pct > 50 ? '🔊 큰소리' : pct > 15 ? '✓ 정상' : '🔉 작은소리';
+                if (status) status.textContent = pct > 50 ? (_en ? '🔊 Loud' : '🔊 큰소리')
+                                               : pct > 15 ? (_en ? '✓ Good' : '✓ 정상')
+                                                          : (_en ? '🔉 Quiet' : '🔉 작은소리');
             }
         }, 100);
     } catch (e) { console.warn('[mic-meter]', e); }
@@ -18192,6 +18519,19 @@ function wbInit() {
 
     canvas.addEventListener('mousedown', e => {
         if (wbTool === 'pointer') return;   // 포인터 모드에선 칠판에 아무것도 그리지 않는다
+        /* ✋ (2026-08-07 Kaye 1번) "학생이 «보드»와 교재에 여전히 그린다"
+           교재(pdf-anno)에는 2026-07-28 에 잠금 게이트를 넣었는데 칠판에는 «아예 없었다».
+           터치·펜 입력도 전부 이 mousedown 으로 합성돼 들어오므로 여기 한 곳이면 전부 막힌다. */
+        if (window.__pdfStudentDrawLock && !(typeof vcIsStaffNow === 'function' ? vcIsStaffNow()
+                : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'))) {
+            e.preventDefault();
+            if (!window.__wbLockToastAt || Date.now() - window.__wbLockToastAt > 4000) {
+                window.__wbLockToastAt = Date.now();
+                var _wen = (typeof getLang === 'function' && getLang() === 'en');
+                if (typeof mangoToast === 'function') mangoToast(_wen ? 'The teacher has locked drawing.' : '선생님이 필기를 잠갔어요.');
+            }
+            return;
+        }
         wbFitCanvas();   // 그리기 직전 버퍼 크기 보정(불일치 시에만 → 내용 유지)
         // ph268: 텍스트 도구 — 클릭 위치에 input 띄우기
         if (wbTool === 'text') {
@@ -19535,7 +19875,8 @@ function pdfBindAnnoEvents(annoId) {
         if (pdfDrawTool === 'none') return;
         /* ✋ (2026-07-28 강사 피드백 Kaye 9번) "학생이 칠판·교재에 낙서한다 — 교사가 막을 수 있게"
            교사가 잠그면 학생 쪽 그리기를 여기서 멈춘다. 교사·관리자 자신은 영향 없음. */
-        if (window.__pdfStudentDrawLock && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+        if (window.__pdfStudentDrawLock && !(typeof vcIsStaffNow === 'function' ? vcIsStaffNow()
+                : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'))) {
             e.preventDefault();
             if (!window.__pdfLockToastAt || Date.now() - window.__pdfLockToastAt > 4000) {
                 window.__pdfLockToastAt = Date.now();
@@ -19690,8 +20031,11 @@ function pdfApplyIdentity() {
         if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
         /* 🔒 강사/관리자만 — 교재 페이지는 수업 전체에 방송되므로 학생이 화살표로
            반 전체의 교재를 넘겨버릴 수 있었다(2026-07-21 화살표 기능 추가 시 생긴 구멍).
-           버튼은 원래 강사 UI 안에만 있어 노출되지 않았지만, 키보드는 화면 어디서나 먹는다. */
-        if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') return;
+           버튼은 원래 강사 UI 안에만 있어 노출되지 않았지만, 키보드는 화면 어디서나 먹는다.
+           ⌨️ (2026-08-07 Kaye 2번 "키보드로 교재가 안 넘어간다") 정확일치 대신 정본 판정을 쓴다 —
+              로비로 입장한 강사는 vcMyRole 이 비어 있어 여기서 조용히 걸렸다. */
+        if (!(typeof vcIsStaffNow === 'function' ? vcIsStaffNow()
+              : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'))) return;
         if (!pdfDoc) return;                       // 교재가 떠 있을 때만
         var t = e.target || {};
         var tag = (t.tagName || '').toUpperCase();
@@ -19714,7 +20058,9 @@ function pdfApplyIdentity() {
             _pw.__wheelBound = true;
             var _wheelAt = 0;
             _pw.addEventListener('wheel', function(e){
-                if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') return;
+                /* 화살표 키와 같은 정본 판정 — 한쪽만 고치면 «키보드는 되는데 휠은 안 되는» 어긋남이 난다 */
+                if (!(typeof vcIsStaffNow === 'function' ? vcIsStaffNow()
+                      : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'))) return;
                 if (!pdfDoc) return;
                 if (e.ctrlKey || e.metaKey) {            // 확대·축소
                     e.preventDefault();
@@ -20128,6 +20474,93 @@ async function pdfNextPage() {
     }
     _pdfToast('📚 마지막 파일입니다');
 }
+/* 📑 (2026-08-07 마이마이 ⑦) 교재 페이지 목록 — 「목록에서 바로 고르기」.
+   두 가지가 «페이지» 라 둘 다 담는다:
+     ① 파일 시퀀스(_libSequence) — 장마다 파일이 하나인 교재(옛 시스템의 Slide1…Slide24 와 같은 것)
+     ② 지금 열려 있는 PDF 의 내부 페이지(pdfDoc.numPages)
+   ⚠️ 페이지 이동은 **기존 함수만** 쓴다(_pdfGoSeqFile · pdfGoToPage + _pdfBroadcastPage).
+      여기서 직접 렌더·전송을 하면 학생 화면과 어긋나는 두 번째 경로가 생긴다. */
+function pdfClosePageList(){
+    var p = document.getElementById('pdf-pagelist');
+    if (p) p.remove();
+}
+async function pdfTogglePageList(){
+    var exist = document.getElementById('pdf-pagelist');
+    if (exist){ exist.remove(); return; }
+    var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    var panel = document.createElement('div');
+    panel.id = 'pdf-pagelist';
+    panel.style.cssText = 'position:fixed;left:12px;top:96px;z-index:9600;width:236px;max-height:min(62vh,520px);'
+        + 'display:flex;flex-direction:column;background:rgba(15,23,42,.97);border:1.5px solid rgba(56,189,248,.5);'
+        + 'border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#e2e8f0;font-size:12.5px;overflow:hidden';
+    panel.innerHTML = '<div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.25);font-weight:800;color:#7dd3fc">'
+        + '<span style="flex:1">📑 ' + (en ? 'Pages' : '페이지 목록') + '</span>'
+        + '<button type="button" onclick="pdfClosePageList()" style="background:transparent;border:0;color:#94a3b8;font-size:16px;cursor:pointer;padding:0 4px" aria-label="close">✕</button></div>'
+        + '<div id="pdf-pagelist-body" style="overflow-y:auto;padding:6px"><div style="padding:14px;color:#94a3b8">'
+        + (en ? 'Loading…' : '불러오는 중…') + '</div></div>';
+    document.body.appendChild(panel);
+
+    // 시퀀스가 없으면 서버에서 다시 만든다(새 기기·재접속에서도 목록이 나오게 — 화살표 자가복구와 같은 길)
+    try { await pdfEnsureSequence(); } catch(_){}
+
+    var body = document.getElementById('pdf-pagelist-body');
+    if (!body) return;
+    var seq = window._libSequence || [];
+    var curIdx = window._libSeqIdx || 0;
+    var html = '';
+    var rowCss = 'display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:3px;border-radius:8px;'
+        + 'border:1px solid transparent;background:rgba(30,41,59,.7);color:#cbd5e1;font-size:12px;cursor:pointer;'
+        + 'font-family:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    var onCss = 'background:rgba(56,189,248,.22);border-color:rgba(56,189,248,.6);color:#fff;font-weight:800';
+
+    if (seq.length > 1){
+        for (var i = 0; i < seq.length; i++){
+            var nm = String(seq[i].name || ((en ? 'Page ' : '페이지 ') + (i + 1)));
+            html += '<button type="button" data-seq="' + i + '" style="' + rowCss + (i === curIdx ? ';' + onCss : '') + '">'
+                 + (i + 1) + '. ' + nm.replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); })
+                 + '</button>';
+        }
+    }
+    // 현재 파일이 여러 쪽짜리 PDF 면 그 안쪽 페이지도 이어서 보여준다
+    if (typeof pdfDoc !== 'undefined' && pdfDoc && pdfDoc.numPages > 1){
+        if (html) html += '<div style="margin:8px 4px 4px;font-size:11px;color:#94a3b8;font-weight:700">'
+            + (en ? 'Inside this file' : '이 파일 안의 쪽') + '</div>';
+        for (var p2 = 1; p2 <= pdfDoc.numPages; p2++){
+            html += '<button type="button" data-page="' + p2 + '" style="' + rowCss
+                 + (p2 === pdfPageNum ? ';' + onCss : '') + '">' + (en ? 'Page ' : '') + p2
+                 + (en ? '' : '쪽') + ' / ' + pdfDoc.numPages + '</button>';
+        }
+    }
+    if (!html){
+        body.innerHTML = '<div style="padding:14px;color:#94a3b8;line-height:1.6">'
+            + (en ? 'Open a textbook first — the page list appears here.'
+                  : '먼저 교재를 열어 주세요. 그러면 여기에 페이지 목록이 나옵니다.') + '</div>';
+        return;
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('[data-seq]').forEach(function(b){
+        b.addEventListener('click', function(){
+            var i = parseInt(this.getAttribute('data-seq'), 10);
+            var f = (window._libSequence || [])[i];
+            if (!f) return;
+            window._libSeqIdx = i;
+            try { _pdfGoSeqFile(f); } catch(e){ console.warn('[pagelist]', e); }
+            pdfClosePageList();
+        });
+    });
+    body.querySelectorAll('[data-page]').forEach(function(b){
+        b.addEventListener('click', function(){
+            var n = parseInt(this.getAttribute('data-page'), 10);
+            if (!n) return;
+            pdfGoToPage(n);
+            try { _pdfBroadcastPage(); } catch(_){}     // 학생 화면도 같은 쪽으로
+            pdfClosePageList();
+        });
+    });
+}
+window.pdfTogglePageList = pdfTogglePageList;
+window.pdfClosePageList = pdfClosePageList;
+
 function pdfStopShare() {
     pdfDoc = null;
     pdfCurrentId = null;
@@ -21404,7 +21837,8 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   closeBtn.addEventListener('click', closeModal);
   cancelBtn.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  /* 🔒 (2026-08-07 QA #4) 신규상담도 여러 칸을 채우는 폼이다 — 배경 클릭으로 날려버리지 않는다. */
+  modal.addEventListener('click', (e) => { if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeModal(); });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modal.style.display !== 'none') closeModal();
   });
@@ -22355,7 +22789,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=26"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=27"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -22506,7 +22940,9 @@ window.addEventListener('DOMContentLoaded', () => {
             <div class="badge-trial">FREE</div>
             <div class="prod-icon">🎁</div>
             <div class="prod-name">무료 체험</div>
-            <div class="prod-detail">1회 (40분)</div>
+            <!-- ⏱️ (2026-08-07, QA 2차 #3) 무료체험 40분 → 20분. 유료 수강권 40분 표기는 유지.
+                 서버 기본 수업길이는 이미 20분(src/class-policy.ts) — 화면만 옛 값이었다. -->
+            <div class="prod-detail">1회 (20분)</div>
             <div class="prod-price">무료</div>
           </button>
           <button class="product-card popular" data-program="1on1-8" data-price="120000">
@@ -23159,7 +23595,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=10"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=12"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){
@@ -24406,7 +24842,7 @@ window.addEventListener('DOMContentLoaded', () => {
       ov = document.createElement('div');
       ov.id = 'rs-overlay';
       ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,7,18,.86);backdrop-filter:blur(14px);display:none;z-index:11500;padding:24px 16px;overflow-y:auto;animation:lcFade .2s';
-      ov.addEventListener('click', function(e){ if (e.target===ov) closeRemoteSupportModal(); });
+      ov.addEventListener('click', function(e){ if (e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeRemoteSupportModal(); });   /* QA#4 */
       document.body.appendChild(ov);
     }
     var isKo = L();
@@ -24555,7 +24991,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!ov) {
       ov = document.createElement('div');
       ov.id = 'feat-overlay'; ov.className = 'feat-overlay';
-      ov.onclick = (e) => { if (e.target === ov) closeFeat(); };
+      ov.onclick = (e) => { if (e.target === ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeFeat(); };   /* QA#4 */
       document.body.appendChild(ov);
     }
     return ov;
@@ -25641,7 +26077,7 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=2"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=3"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
 <script>
@@ -25685,7 +26121,7 @@ window.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>`;
     overlay.setAttribute('data-rfm','1');
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay && (window.mgBackdropClosable ? window.mgBackdropClosable(overlay) : true)) overlay.remove(); });   /* QA#4 */
     document.body.appendChild(overlay);
   };
   // ─── SNS 성취 카드 생성 (Canvas 1080x1080) ───
@@ -25757,7 +26193,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <button onclick="this.closest('[data-snm]').remove()" style="background:#475569;color:#fff;border:0;border-radius:10px;padding:12px 20px;cursor:pointer;font-weight:700">${en?'Close':'닫기'}</button>
       </div>`;
     overlay.setAttribute('data-snm','1');
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay && (window.mgBackdropClosable ? window.mgBackdropClosable(overlay) : true)) overlay.remove(); });   /* QA#4 */
     document.body.appendChild(overlay);
     return dataUrl;
   };
@@ -25777,7 +26213,7 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <!-- 📝 Phase MT — Mini TOEIC 학생 모달 + 🎮 Phase BTL — 영어 배틀 학생 모달 -->
-<script src="/js/idx-x4.js?v=2"></script><!-- 분할추출:idx-x4 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x4.js?v=3"></script><!-- 분할추출:idx-x4 (원복: 이 위치에 인라인) -->
 
 <!-- ════════════════════════════════════════════════════════════════════
      📔 Phase VD — AI 음성 일기 (학생용 모달)
@@ -29177,7 +29613,7 @@ document.addEventListener('keydown', function(e){
     modal.id = 'v10-modal';
     modal.dataset.cat = cat;
     modal.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;background:rgba(0,0,0,0.88) !important;backdrop-filter:blur(8px) !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:30px 20px !important;overflow-y:auto !important;visibility:visible !important;opacity:1 !important';
-    modal.onclick = function(e){ if (e.target === modal) closeCatV10(); };
+    modal.onclick = function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeCatV10(); };   /* QA#4 */
 
     var box = document.createElement('div');
     box.style.cssText = 'background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)';
@@ -29308,7 +29744,7 @@ document.addEventListener('keydown', function(e){
     modal.id = 'v11-modal';
     modal.dataset.cat = cat;
     modal.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;background:rgba(0,0,0,0.88) !important;backdrop-filter:blur(8px) !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:30px 20px !important;overflow-y:auto !important;visibility:visible !important;opacity:1 !important';
-    modal.addEventListener('click', function(e){ if (e.target === modal) closeCatV11(); });
+    modal.addEventListener('click', function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeCatV11(); });   /* QA#4 */
 
     var box = document.createElement('div');
     box.style.cssText = 'background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)';
@@ -30055,7 +30491,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
 <script src="/js/vc-dock.js?v=14" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=35" defer></script>
-<script src="/js/mango-rec.js?v=45" defer></script>
+<script src="/js/mango-rec.js?v=46" defer></script>
 <script src="/js/mango-class-time.js?v=12" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
 <script src="/js/mango-topbar-unified.js?v=5" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
@@ -32098,14 +32534,27 @@ window.vcAutoLoadStudentTextbook = async function(){
 /* 🎬 교재 → 예습/복습 동영상 자동 매칭·재생 (망고아이 수업방) */
 (function(){
   // 교재 id 로 매칭된 동영상을 받아와 동영상 탭(#vp-stage)에서 자동 재생
-  window.mangoiPlayLessonVideo = async function(bookId){
+  /* 🔕 (2026-08-07 마이마이 ⑧ 「수업 중에 BTS·SIU·강사 영상은 필요 없다」)
+     원인은 «영상이 있다» 가 아니라 **교재를 여는 순간 영상 탭으로 화면이 넘어가 자동 재생**된 것이다.
+     교재를 띄우려고 눌렀는데 사람이 말하는 영상이 튀어나오니 수업이 끊긴다(제보 사진 그대로).
+     · 자동 전환·자동 재생을 **끈다.** 영상은 준비만 해 두고, 「관련 영상 있음」 만 조용히 알린다.
+     · 강사가 [영상] 탭을 직접 누르면 그때 재생한다 — 필요할 때 쓸 길은 남긴다.
+     · opts.manual === true 로 부르면(사람이 직접 누른 경우) 예전처럼 바로 전환·재생한다. */
+  window.mangoiPlayLessonVideo = async function(bookId, opts){
     if(!bookId) return;
+    var manual = !!(opts && opts.manual);
     try{
       var qs = /^\d+$/.test(String(bookId)) ? ('id=' + encodeURIComponent(bookId)) : ('q=' + encodeURIComponent(bookId));
       var d = await (await fetch('/api/lesson-video?' + qs, { cache:'no-store' })).json();
       var st = document.getElementById('vp-stage');
       if(!st) return;
       if(!d || !d.success || !d.has_video) return; // 매칭 동영상 없으면 조용히 무시
+      if (!manual){
+        // 수업 흐름을 뺏지 않는다 — 있다는 사실만 알리고 끝. (탭도 안 바꾸고 재생도 안 한다)
+        try { window.__mangoiPendingVideo = { bookId: bookId }; } catch(_){}
+        try { mangoiNoteLessonVideo(d); } catch(_){}
+        return;
+      }
       try{ if(typeof vcSwitchTab==='function') vcSwitchTab('video'); }catch(_){}   // 동영상 탭으로 전환
       var t = (d.video_type==='review') ? '복습' : '예습';
       var label = '<div style="position:absolute;top:8px;left:8px;z-index:2;background:#2563eb;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px">'+t+' · '+(d.video_title||'')+'</div>';
@@ -32129,8 +32578,45 @@ window.vcAutoLoadStudentTextbook = async function(){
       }
     }catch(e){ console.warn('[lesson-video]', e); }
   };
-  // ✅ 수업방에서 교재를 열 때 이 이벤트만 쏘면 자동 재생됩니다:
+  /* 📺 «관련 영상 있음» 조용한 알림 (요청 ⑧).
+     토스트가 아니라 **누를 수 있는 작은 알약**이다 — 토스트는 사라지면 다시 찾을 길이 없다.
+     자리: 왼쪽 아래(마이크 미터 위). 오른쪽은 얼굴 사이드바·복귀 알약이 쓴다.
+     12초 뒤 스스로 사라진다 — 수업 중 화면에 오래 남아 있는 것 자체가 방해다. */
+  var _mlNoteT = null;
+  function mangoiNoteLessonVideo(d){
+    var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    var el = document.getElementById('mangoi-video-note');
+    if (!el){
+      el = document.createElement('button');
+      el.id = 'mangoi-video-note';
+      el.type = 'button';
+      el.style.cssText = 'position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 148px);z-index:9400;'
+        + 'display:flex;align-items:center;gap:8px;max-width:min(340px,calc(100vw - 24px));'
+        + 'padding:10px 14px;min-height:44px;border-radius:99px;cursor:pointer;'
+        + 'background:rgba(15,23,42,.92);border:1.5px solid rgba(56,189,248,.6);color:#7dd3fc;'
+        + 'font-size:12.5px;font-weight:800;font-family:inherit;box-shadow:0 6px 18px rgba(0,0,0,.45);'
+        + 'text-align:left;line-height:1.35';
+      el.addEventListener('click', function(){
+        var p = window.__mangoiPendingVideo;
+        el.remove();
+        if (p && p.bookId) window.mangoiPlayLessonVideo(p.bookId, { manual: true });
+      });
+      document.body.appendChild(el);
+    }
+    var title = String((d && d.video_title) || '').slice(0, 40);
+    var kind = (d && d.video_type === 'review') ? (en ? 'Review' : '복습') : (en ? 'Preview' : '예습');
+    el.innerHTML = '📺 <span>' + (en ? 'Related video ready' : '관련 영상 있음')
+      + ' · ' + kind + '<br><span style="font-weight:600;opacity:.8">'
+      + String(title).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); })
+      + '</span></span>';
+    el.title = en ? 'Tap to play in the Video tab' : '누르면 [영상] 탭에서 재생합니다';
+    if (_mlNoteT) clearTimeout(_mlNoteT);
+    _mlNoteT = setTimeout(function(){ try { el.remove(); } catch(_){} }, 12000);
+  }
+
+  // ✅ 수업방에서 교재를 열면 «관련 영상 있음» 만 알립니다(자동 재생하지 않습니다 — 요청 ⑧):
   //    window.dispatchEvent(new CustomEvent('mangoi:textbook-open',{detail:{bookId: 교재번호}}));
+  //    바로 재생하려면 window.mangoiPlayLessonVideo(id, { manual:true })
   window.addEventListener('mangoi:textbook-open', function(e){
     var id = e && e.detail && e.detail.bookId; if(id) window.mangoiPlayLessonVideo(id);
   });
@@ -32183,7 +32669,7 @@ window.vcAutoLoadStudentTextbook = async function(){
     .mg-faq-cats{flex-wrap:wrap;overflow-x:visible}
   }
 </style>
-<script src="/js/idx-x7.js?v=3"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x7.js?v=4"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
 <script src="/js/idx-x8.js?v=3"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
@@ -33079,8 +33565,41 @@ window.vcAutoLoadStudentTextbook = async function(){
     left: auto !important;
     right: 12px !important;
   }
+  /* 🙂 (2026-08-07 마이마이 ⑩ 「얼굴이 사라졌는데 다시 켜는 방법이 안 보인다」)
+     [› 얼굴 접기] 버튼은 탭바 **맨 오른쪽 끝**에 있다. 접고 나면 그 버튼이 [‹ 얼굴 펼치기] 로
+     바뀌는데, 좁은 화면에서는 탭바가 가로 스크롤이라 **화면 밖으로 밀려 안 보인다**
+     (제보 사진에서도 «< Show face…» 로 잘려 있었다). 접힌 동안에만 뜨는 큰 복귀 알약을 따로 둔다.
+     자리: 오른쪽 아래(독 위). 접힌 상태에서는 그 자리가 비어 있고, 마이크 미터는 왼쪽으로 옮겼다. */
+  #vc-side-restore {
+    position: fixed;
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+    z-index: 9500;
+    display: none;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 16px;
+    min-height: 44px;
+    background: rgba(15,23,42,.92);
+    border: 1.5px solid rgba(251,191,36,.65);
+    border-radius: 99px;
+    color: #fcd34d;
+    font-size: 13.5px;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  }
+  body.vc-in-call.vc-side-collapsed-on #vc-side-restore { display: inline-flex; }
+  #vc-side-restore:active { background: rgba(30,41,59,.98); }
   #vc-side-collapse-btn { display: none; }
   body.vc-in-call #vc-side-collapse-btn { display: inline-block; }
+  /* 접힌 동안에는 탭바의 그 버튼도 눈에 띄게 — 화면 안에 있을 때는 여기서 바로 되돌릴 수 있다 */
+  body.vc-in-call.vc-side-collapsed-on #vc-side-collapse-btn {
+    background: rgba(245,158,11,0.28) !important;
+    border-color: rgba(245,158,11,0.7) !important;
+    color: #fde68a !important;
+  }
   body.vc-in-call #vc-side-collapse-btn:hover { background: rgba(148,163,184,0.32) !important; }
   body.vc-in-call #vc-side-collapse-btn[aria-pressed="true"] {
     background: rgba(245,158,11,0.22) !important;
@@ -33112,10 +33631,27 @@ window.vcAutoLoadStudentTextbook = async function(){
       try { if (typeof vcResumeAllVideos === 'function') vcResumeAllVideos(); } catch(_){}
     }, 300);
   }
+  /* 🙂 접힌 동안에만 뜨는 «되돌리기» 알약 — 탭바 버튼이 화면 밖으로 밀려도 여기서 되돌린다.
+     (2026-08-07 마이마이 ⑩) CSS 가 body.vc-side-collapsed-on 으로 표시를 관리하므로
+     여기서는 «만들고 글자만 맞춘다». display 를 직접 건드리지 않는다 — 두 곳에서 만지면 어긋난다. */
+  function ensureRestoreChip(en){
+    var c = $('vc-side-restore');
+    if (!c){
+      c = document.createElement('button');
+      c.id = 'vc-side-restore';
+      c.type = 'button';
+      c.addEventListener('click', function(){ try { window.vcToggleVideoSidebar(false); } catch(_){} });
+      document.body.appendChild(c);
+    }
+    c.textContent = en ? '🙂 Show faces' : '🙂 얼굴 다시 보기';
+    c.title = en ? 'Show the video / tools sidebar again' : '얼굴·도구 사이드바를 다시 펼칩니다';
+    c.setAttribute('aria-label', c.title);
+  }
   function paint(collapsed){
     var b = $('vc-side-collapse-btn');
     if (!b) return;
     var en = isEn();
+    ensureRestoreChip(en);
     b.textContent = collapsed ? (en ? '‹ Show faces' : '‹ 얼굴 펼치기')
                               : (en ? '› Hide faces' : '› 얼굴 접기');
     b.title = collapsed ? (en ? 'Show the video / tools sidebar' : '얼굴·도구 사이드바 펼치기')
@@ -33160,7 +33696,7 @@ window.vcAutoLoadStudentTextbook = async function(){
 </script>
 
 <script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·반투명·위치기억). **수업 화면(로비·통화중)에서만 표시**(2026-08-03). 빼면 즉시 원복 -->
-<script defer src="/js/flow.js?v=10"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
+<script defer src="/js/flow.js?v=12"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=3"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
 <script defer src="/js/vc-judgment-capture.js?v=1"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
 
@@ -33387,7 +33923,7 @@ window.vcAutoLoadStudentTextbook = async function(){
     box.appendChild(copy);
     ov.appendChild(box);
 
-    ov.addEventListener('click', function(e){ if (e.target === ov) closeModal(); });
+    ov.addEventListener('click', function(e){ if (e.target === ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeModal(); });   /* QA#4 */
     box.addEventListener('click', function(e){ e.stopPropagation(); });
 
     document.body.appendChild(ov);

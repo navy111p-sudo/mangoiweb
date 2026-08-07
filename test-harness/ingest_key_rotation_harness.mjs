@@ -73,8 +73,8 @@ check('🔴 후보가 빈 문자열이어도 통과 못 한다', km('', '', '') 
 check('앞뒤 공백은 무시하고 비교', km(' NEW123 ', 'NEW123', undefined) === true);
 check('null/undefined 입력에도 안 터진다', km(null, 'K') === false && km(undefined, 'K') === false);
 
-/* ── ② 세 검증부가 둘 다 후보로 넣는가 ── */
-console.log('\n[ ② 급여·리텐션·장애웹훅 세 곳이 «둘 다» 를 후보로 넣는가 ]');
+/* ── ② 4단계 완료 — 이제 «새 키 하나만» 인정해야 한다 ── */
+console.log('\n[ ② 급여·리텐션·장애웹훅 세 곳이 «새 키만» 인정하는가 (4단계 완료 상태) ]');
 for (const [name, src, nw, old] of [
   ['급여 인제스트', payroll, 'PAYROLL_INGEST_KEY_NEW', 'PAYROLL_INGEST_KEY'],
   ['리텐션 인제스트', retention, 'PAYROLL_INGEST_KEY_NEW', 'PAYROLL_INGEST_KEY'],
@@ -83,8 +83,12 @@ for (const [name, src, nw, old] of [
   /* ⚠️ `(env as any)` 안의 ')' 때문에 [^)]* 로는 인자 목록을 못 짚는다(uptime 이 그 형태다).
      캐스트와 공백을 먼저 걷어낸 뒤 «순서» 만 본다 — 새 키가 앞, 옛 키가 뒤. */
   const flat = src.replace(/\(env as any\)/g, 'env').replace(/\s+/g, '');
-  const re = new RegExp('keyMatchesAny\\(given,env\\.' + nw + ',env\\.' + old + '\\)');
-  check(`${name}: keyMatchesAny(given, ${nw}, ${old})`, re.test(flat),
+  const re = new RegExp('keyMatchesAny\\(given,env\\.' + nw + '\\)');
+  check(`${name}: keyMatchesAny(given, ${nw}) — 새 키만`, re.test(flat),
+    (flat.match(/keyMatchesAny\([^;]{0,90}/) || [])[0]);
+  /* 🔒 옛 키를 다시 후보에 넣으면 공개돼 있던 값이 되살아난다. 되돌아가지 않게 못 박는다. */
+  check(`${name}: 🔴 옛 키(${old})를 더 이상 후보로 넣지 않는다`,
+    !new RegExp('keyMatchesAny\\([^)]*env\\.' + old + '[,)]').test(flat),
     (flat.match(/keyMatchesAny\([^;]{0,90}/) || [])[0]);
   check(`${name}: 옛 방식(단일 비교)이 남아 있지 않다`,
     !/const expected = String\([^)]*(PAYROLL_INGEST_KEY|UPTIME_HOOK_KEY)[^)]*\)\.trim\(\);/.test(src));
@@ -136,12 +140,15 @@ for (const k of ['PAYROLL_INGEST_KEY_NEW', 'UPTIME_HOOK_KEY_NEW', 'TRAITS_LINK_S
   check(`${k} 가 wrangler.toml 에 값으로 들어있지 않다(주석은 허용)`,
     !new RegExp('^\\s*' + k + '\\s*=', 'm').test(toml));
 }
-check('옛 키는 아직 남아 있다(3단계 전이므로 정상 — 지우면 외부 호출이 끊긴다)',
-  /^UPTIME_HOOK_KEY\s*=/m.test(toml) && /^PAYROLL_INGEST_KEY\s*=/m.test(toml));
-check('옛 키에 «지워야 한다» 표시가 붙어 있다',
-  (toml.match(/LEGACY \(public\)/g) || []).length === 4);
-check('두 블록([vars]·[env.production.vars]) 모두에 안내 배너',
-  (toml.match(/key rotation in progress/g) || []).length === 2);
+/* 🔒 4단계 완료 — 옛 키는 파일에서 사라져야 한다.
+   여기서 다시 [vars] 로 들어오면 «공개 저장소에 키를 커밋» 하던 상태로 되돌아간다.
+   이 저장소는 지금 private 이지만, 그건 두 번째 방어선이지 첫 번째가 아니다. */
+check('🔴 옛 키가 [vars] 에서 제거됐다',
+  !/^UPTIME_HOOK_KEY\s*=/m.test(toml) && !/^PAYROLL_INGEST_KEY\s*=/m.test(toml));
+check('🔴 옛 키 «값» 자체가 파일 어디에도 없다',
+  !/9c4f7a2e15b83d6079e1c4a8f2b5d3e6/.test(toml) && !/74d3de23b5d488a03a6ea10c7bb48c4632e3/.test(toml));
+check('두 블록 모두에 «다시 넣지 말 것» 안내가 남아 있다',
+  (toml.match(/key rotation DONE/g) || []).length === 2);
 
 /* ── ⑥ 역검증: 되돌리면 실제로 실패하는가 ── */
 console.log('\n[ ⑥ 역검증 — 되돌리면 검사가 실패하는가 ]');

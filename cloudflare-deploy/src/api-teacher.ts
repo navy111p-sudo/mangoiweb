@@ -281,6 +281,18 @@ export async function handleTeacherApi(
     const OPEN_BEFORE = 30 * 60 * 1000;                      // 정규수업 — 강사만 먼저
     const OPEN_BEFORE_LEVELTEST = 30 * 60 * 1000;            // 레벨테스트 — 학생과 동시(api-mango.ts 와 같은 값)
     const LATE_AFTER = 15 * 60 * 1000;   // 종료 15분 후까지 지각 입장 허용
+    /* 🚪 (2026-08-07 마이마이 ⑤⑪ 「수업 전에도 열어 달라 / 아무 때나 들어가게 해 달라 —
+          끝나고 닫히면 연장이 불가능하다」)
+       위의 open/close 는 «지금이 수업 시간인가» 를 판정하는 값이라 그대로 둔다(상태 라벨·카운트다운이
+       전부 여기에 걸려 있다). 대신 «문을 열어 줄 것인가» 를 **따로** 내려준다.
+       · 강사는 오늘 잡힌 수업 방이면 **그날 00:00~24:00 언제든** 들어갈 수 있다.
+         - 시작 전  : 교재를 미리 열어 두는 시간(요청 ⑤)
+         - 종료 후  : 연장·마무리·다시 들어가기(요청 ⑪) — 「Done」 이라고 문을 잠그지 않는다.
+       · 학생 창은 **건드리지 않았다**(api-mango.ts). 강사가 더 오래 열려 있는 건 사고를
+         만들지 않는다 — 반대 방향(강사가 먼저 닫힘)만 사고가 된다.
+       ⚠️ 오늘 목록에만 적용된다. 내일 수업은 애초에 이 목록에 없다(방도 아직 없다). */
+    const enterFromTs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;
+    const enterUntilTs = enterFromTs + 86400000 - 1;
     /* 📅 (2026-08-06 마이마이 제보 "내일 수업이 안 보인다") 이 화면은 «오늘» 만 그린다.
        그래서 내일 잡힌 레벨테스트는 **당일이 되어서야** 처음 보인다. 레벨테스트는
        준비가 필요한 수업이다 — 처음 만나는 학생이고, 보호자가 옆에 있고, 끝나면 평가를
@@ -418,9 +430,14 @@ export async function handleTeacherApi(
           (_kind === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE_STUDENT) / 60000),
         start_time: `${pad(hh || 0)}:${pad(mm || 0)}`,
         start_ts, end_ts, open_at_ts, close_at_ts,
+        // 🚪 강사 전용 «문 열림» 창 — 위 상수 주석 참고. 화면은 이 값으로 버튼을 켠다.
+        enter_from_ts: enterFromTs,
+        enter_until_ts: enterUntilTs,
         duration_min: dur,
         status,
         join_open: now >= open_at_ts && now <= close_at_ts,
+        // ⚠️ join_open 은 «수업 시간인가» 다. «들어갈 수 있나» 는 이 값 — 둘을 섞지 말 것.
+        can_enter: now >= enterFromTs && now <= enterUntilTs,
       });
     }
     classes.sort((a, b) => a.start_ts - b.start_ts);
