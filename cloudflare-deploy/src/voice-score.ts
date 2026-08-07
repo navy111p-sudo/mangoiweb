@@ -418,6 +418,12 @@ export interface AzurePronInput {
 }
 /** Azure 발음평가 상한 — azure-pronunciation.ts 의 AZURE_TUNING 과 같은 값을 쓴다. */
 export const AZURE_OVERALL_CAP_OVER_PRON = 30;
+/* 🏆 «완벽해요(S)» 는 **발음에 대한 주장**이다. 글자를 다 맞히고 막힘없이 읽어도
+   음소 점수가 이 아래면 S 자리는 비워 둔다(A=훌륭해요 까지는 준다).
+   [실측 2026-08-08] 발음 84 인데 정확도 100·흐름 99 라서 종합 96 = S 가 나왔다.
+   84 는 «잘한다» 이지 «완벽» 이 아니다 — 사장님이 처음 지적한 것이 정확히 이 모양이었다.
+   ⚠️ 음소 근거가 있을 때만 적용한다. 근거 없이 등급을 깎으면 억울한 학생이 생긴다. */
+export const AZURE_S_MIN_PRON = 90;
 
 export function applyAzurePronunciation(base: VoiceScore, az?: AzurePronInput | null): VoiceScore {
   if (!az) return base;
@@ -434,7 +440,9 @@ export function applyAzurePronunciation(base: VoiceScore, az?: AzurePronInput | 
   const fluency = flu === null ? base.fluency : Math.min(flu, base.accuracy + 15);
   const completeness = n(az.completeness) ?? base.completeness;
   const raw = combine(base.accuracy, pronunciation, fluency);
-  const overall = Math.min(raw, pronunciation + AZURE_OVERALL_CAP_OVER_PRON);
+  let overall = Math.min(raw, pronunciation + AZURE_OVERALL_CAP_OVER_PRON);
+  // 🏆 발음이 «완벽» 이라 부를 수준이 아니면 S 자리(95+)는 비워 둔다 — 위 AZURE_S_MIN_PRON 주석 참고
+  if (pronunciation < AZURE_S_MIN_PRON && overall > 94) overall = 94;
 
   return {
     ...base,

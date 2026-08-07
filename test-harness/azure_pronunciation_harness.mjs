@@ -106,6 +106,19 @@ ok('  그때 등급이 «좋아요(B)» 이상이 아니다', V.scoreTier(mumble
 const noCapOverall = Math.min(Math.round(100 * 0.6 + 25 * 0.25 + 60 * 0.15), 112);
 ok('  역검증: 상한이 없었다면 «좋아요» 였다', noCapOverall >= 70, 'nocap=' + noCapOverall);
 
+/* 🏆 «완벽해요(S)» 는 발음에 대한 주장이다 — 실측 사례를 그대로 검사로 박는다.
+   2026-08-08: 발음 84 · 정확도 100 · 흐름 99 → 종합 96 = S 가 나왔다. 84 는 «완벽» 이 아니다. */
+const good84 = V.applyAzurePronunciation({ ...base, accuracy: 100, fluency: 99 },
+  { accuracy: 84, fluency: 99, completeness: 83, pron: 84 });
+ok('발음 84 면 «완벽해요(S)» 가 안 나온다', V.scoreTier(good84.overall).tier !== 'S', 'overall=' + good84.overall);
+ok('  그래도 «훌륭해요(A)» 는 준다 (깎는 게 목적이 아니다)', V.scoreTier(good84.overall).tier === 'A', 'tier=' + V.scoreTier(good84.overall).tier);
+const good95 = V.applyAzurePronunciation({ ...base, accuracy: 100, fluency: 99 },
+  { accuracy: 96, fluency: 99, completeness: 100, pron: 96 });
+ok('발음이 정말 좋으면 S 가 나온다', V.scoreTier(good95.overall).tier === 'S', 'overall=' + good95.overall);
+// 🔁 역검증 — 문턱을 0 으로 되돌리면 위 첫 검사가 깨져야 한다(우연히 통과한 게 아님)
+ok('  역검증: 문턱이 없었다면 84 도 S 였다',
+   Math.min(Math.round(100 * 0.6 + 84 * 0.25 + 99 * 0.15), 112) >= 95);
+
 ok('Azure 가 없으면 아무것도 안 바뀐다', JSON.stringify(V.applyAzurePronunciation(base, null)) === JSON.stringify(base));
 const mismBase = { ...base, langMismatch: true, accuracy: 0, overall: 0 };
 const mism = V.applyAzurePronunciation(mismBase, { accuracy: 99, fluency: 99, completeness: 99, pron: 99 });
