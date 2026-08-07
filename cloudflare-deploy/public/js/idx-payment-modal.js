@@ -40,7 +40,12 @@
   };
 
   const PROG_INFO = {
-    'trial': { icon: '🎁', name: '무료 체험', detail: '1회 (40분)', price: 0 },
+    /* ⏱️ (2026-08-07, QA 2차 #3) 무료체험·레벨테스트는 20분으로 통일.
+       유료 수강권(1:1 4/8/12/24회권)의 40분 표기는 그대로 둔다 — 요청에 "유료 상품에는
+       영향이 없도록"이 명시돼 있다. 서버 기본 수업길이는 이미 20분이다(src/class-policy.ts
+       DEFAULT_CLASS_MINUTES=20, 레벨테스트 배정도 이 값을 쓴다) — 즉 여기 40분은 «화면에만
+       남아 있던 옛 표기»였고, 이 수정으로 화면과 실제가 처음으로 일치한다. */
+    'trial': { icon: '🎁', name: '무료 체험', detail: '1회 (20분)', price: 0 },
     '1on1-4': { icon: '📗', name: '1:1 4회권', detail: '맛보기 (40분)', price: 60000 },
     '1on1-8': { icon: '📘', name: '1:1 8회권', detail: '월 2회/주 (40분)', price: 120000 },
     '1on1-12': { icon: '📕', name: '1:1 12회권', detail: '월 3회/주 (40분)', price: 180000 },
@@ -128,10 +133,44 @@
         }
       }
     } catch (e) {}
+    // 🔄 (2026-08-07) 로그인/로그아웃이 중간에 바뀌었을 수 있으니 자동채움 캐시는 열 때마다 버린다
+    _payPrefillP = null;
+    // 💳 (2026-08-07 #1) 결제 환경(라이브/테스트)을 서버에서 받아와 배너 갱신
+    payLoadConfig().then(payRenderModeBanner).catch(function(){});
+
     payGoStep(0);
     result.style.display = 'none';
     modal.style.display = 'flex';
     showPayGuideVideo();   // 🎬 결제 안내 영상 자동 재생
+  };
+
+  /* 🎁 (2026-08-07, QA 2차 #2) 「체험수업」 메뉴 전용 빠른 진입.
+     ⚠️ 신청 «폼»을 새로 만들지 않는다. 레벨테스트 신청서가 두 벌로 갈라져 접수가 새던 전례가 있다
+        (2026-08-05, 어느 문으로 들어오느냐에 따라 계정이 생기기도 안 생기기도 했다).
+     그래서 이미 있는 두 문 중 하나로만 보낸다 — 둘 다 접수는 POST /api/student/inquiry 한 곳이다.
+       1순위: 무료체험 신청 폼(신규상담 모달, 과정=무료 체험). 홈 히어로 「무료 체험 신청」과 같은 문.
+       2순위: 결제하기 안의 '무료 체험' 상품 카드(1순위를 못 찾았을 때만).
+     기존 결제하기 → 상품선택 → 무료 체험 경로는 그대로 남는다(대체 아님, 입구 추가). */
+  window.openTrialSignup = function(){
+    if (window.gridActions && typeof window.gridActions.trial === 'function') {
+      try { window.gridActions.trial(); return; } catch (_) {}
+    }
+    if (window.openInquiryModal) {
+      window.openInquiryModal();
+      setTimeout(function(){ var p = document.getElementById('inq-program'); if (p) p.value = 'trial'; }, 100);
+      return;
+    }
+    window.openPaymentModal();
+    payMode = 'new';
+    window._isAutoRenew = false;
+    document.querySelectorAll('.paymode-card.selected').forEach(c => c.classList.remove('selected'));
+    var newCard = document.querySelector('.paymode-card[data-mode="new"]');
+    if (newCard) newCard.classList.add('selected');
+    setTimeout(function(){
+      var trial = document.querySelector('.product-card[data-program="trial"]');
+      if (trial) { trial.click(); return; }              // 카드 클릭 = 기존 흐름 그대로
+      payGoStep(1);                                       // 카드를 못 찾으면 상품 선택 화면으로
+    }, 120);
   };
 
   function closeModal(){
@@ -142,8 +181,24 @@
     if (gm) gm.style.display = 'block';
   }
   document.getElementById('payment-close').addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.style.display !== 'none') closeModal(); });
+
+  /* 🔒 (2026-08-07, QA 2차 #4) 배경(바깥) 클릭으로는 닫지 않는다.
+     결제는 «상품 → 정보 입력 → 결제수단» 3단계다. 중간에 실수로 바깥을 누르면
+     입력한 결제자·학생·연락처가 통째로 날아가고 처음부터 다시 해야 했다.
+     정책과 «닫기 버튼이 실제로 있는지» 판정은 /js/mg-modal-policy.js 한 곳에 있다.
+     ⚠️ 폴백은 true — 정책 스크립트를 못 받았으면 예전 동작(배경 닫힘)이 맞다. 가두면 안 된다. */
+  function payBackdropOK(el){ return window.mgBackdropClosable ? window.mgBackdropClosable(el) : true; }
+  modal.addEventListener('click', (e) => { if (e.target === modal && payBackdropOK(modal)) closeModal(); });
+
+  /* ESC — 상품만 고른 0단계에서는 잃을 게 없으니 바로 닫고,
+     정보를 입력하기 시작한 뒤(1단계~)에는 한 번 물어본다. */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || modal.style.display === 'none') return;
+    var typed = ['pay-payer','pay-student','pay-contact','pay-email','pay-memo','pay-amount']
+      .some(function(id){ var el = document.getElementById(id); return el && String(el.value || '').trim(); });
+    if (typed && window.mgConfirmDiscard && !window.mgConfirmDiscard()) return;
+    closeModal();
+  });
 
   // 단계 전환 (mode-aware: new vs extend)
   window.payGoStep = function(step) {
@@ -349,12 +404,20 @@
         return;
       }
 
-      // 🆕 로그인 + 유료 상품이면 정보 입력 단계(step2)를 건너뛰고 바로 결제수단(step3)으로.
-      //    무료체험(trial)·상담형(other/b2b)은 연락 정보가 필요하므로 기존대로 step2 유지.
-      var _logged   = window.payAutofillNewIfLoggedIn && window.payAutofillNewIfLoggedIn();
-      var _skipInfo = _logged && selectedPrice > 0
+      /* 🆕 로그인 + 유료 상품이면 정보 입력 단계(step2)를 건너뛰고 바로 결제수단(step3)으로.
+         무료체험(trial)·상담형(other/b2b)은 연락 정보가 필요하므로 기존대로 step2 유지.
+         🔴 (2026-08-07) 「건너뛰기」 조건을 '로그인했는가' 에서 '정보가 실제로 다 채워졌는가' 로
+            바꿨다. 예전엔 연락처 칸을 아이디로 때워 놓고 건너뛰었기 때문에, 학부모가 화면을
+            한 번도 못 보고 아이디가 연락처로 접수됐다(#5 의 진짜 피해). 등록 연락처가 없는
+            회원은 이제 정보 입력 화면을 그대로 보게 된다. */
+      var _logged   = payIsLoggedIn();
+      var _eligible = _logged && selectedPrice > 0
                       && selectedProgram !== 'other' && selectedProgram !== 'b2b' && selectedProgram !== 'trial';
-      setTimeout(() => payGoStep(_skipInfo ? 3 : 2), 300);
+      if (!_eligible) { if (_logged) payPrefill().then(payApplyPrefill).catch(function(){}); setTimeout(() => payGoStep(2), 300); return; }
+      payPrefill().then(function(d){
+        var complete = payApplyPrefill(d);
+        setTimeout(() => payGoStep(complete ? 3 : 2), 300);
+      }).catch(function(){ setTimeout(() => payGoStep(2), 300); });
     });
   });
 
@@ -371,8 +434,84 @@
     biz_name: '망고아이',
     kakaopay_url: 'https://qr.kakaopay.com/Ej86dkamx',  // 카카오페이 송금 코드 (실제 코드로 교체 — Q3: 연동 예정)
     toss_id: 'mangoi',                                    // toss.me/<id> (실제 ID로 교체 — Q3: 연동 예정)
-    tosspayments_client_key: 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq', // 토스페이먼츠 공식 테스트 클라이언트키 (실전 전환 시 live_ck_ 로 교체)
+    /* 💳 (2026-08-07, QA 2차 #1) 여기 박아 두던 클라이언트키를 «서버에서 받아오는» 방식으로 바꿨다.
+       이 값은 서버 시크릿(TOSS_SECRET_KEY)과 «반드시 같은 환경»이어야 한다. 테스트 클라이언트키로
+       결제창을 띄우고 라이브 시크릿으로 confirm 하면 승인이 통째로 실패한다(=돈은 안 빠지지만
+       학부모는 «결제가 안 된다»만 겪는다). 두 값을 사람이 각각 바꾸는 한 언젠가 반드시 어긋난다.
+       → 이제 아래 payLoadConfig() 가 GET /api/pay/config 에서 키와 모드를 함께 받아온다.
+         실결제 전환은 «wrangler secret 두 개 교체» 로 끝나고, 코드 수정이 필요 없다.
+       아래 값은 서버 응답을 못 받았을 때만 쓰는 최후 폴백(공식 테스트키 = 실제 청구 없음). */
+    tosspayments_client_key: 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq',
   };
+
+  /* ── 결제 환경 설정 (서버가 정본) ─────────────────────────────────────────
+     { mode: 'live' | 'test' | 'disabled', clientKey, key_mismatch }
+       live      : 실제 청구됨
+       test      : 토스 샌드박스. 결제창에 토스가 직접 「실제 결제가 이루어지지 않는 테스트입니다」
+                   배지를 그린다 — 그 배지는 우리 코드가 아니라 «테스트 키를 쓰고 있다는 사실»이다.
+                   지우려면 키를 라이브로 바꾸는 수밖에 없다.
+       disabled  : 시크릿 미설정 → 카드 승인(confirm) 자체가 불가
+       key_mismatch : 클라이언트키와 시크릿키의 환경이 서로 다름(가장 위험한 상태) */
+  var PAY_CONFIG = null, _payConfigP = null;
+  function payLoadConfig(){
+    if (PAY_CONFIG) return Promise.resolve(PAY_CONFIG);
+    if (_payConfigP) return _payConfigP;
+    _payConfigP = fetch('/api/pay/config', { headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d && d.ok && d.clientKey) {
+          PAY_CONFIG = d;
+          PAY_INFO.tosspayments_client_key = d.clientKey;
+        } else {
+          PAY_CONFIG = { ok: false, mode: 'unknown', clientKey: PAY_INFO.tosspayments_client_key };
+        }
+        return PAY_CONFIG;
+      })
+      .catch(function(){
+        PAY_CONFIG = { ok: false, mode: 'unknown', clientKey: PAY_INFO.tosspayments_client_key };
+        return PAY_CONFIG;
+      });
+    return _payConfigP;
+  }
+
+  /* 결제창을 열기 직전에 부른다 — 항상 서버가 준 키를 쓰게 하는 단일 통로. */
+  async function payClientKey(){
+    var c = await payLoadConfig();
+    return (c && c.clientKey) || PAY_INFO.tosspayments_client_key;
+  }
+
+  /* 🧪 테스트/미설정 상태를 «우리 화면에서도» 정직하게 알린다.
+     라이브 키로 바꾸면 이 배너는 자동으로 사라진다 — 즉 이 배너의 부재가 실결제 전환의 증거다. */
+  function payRenderModeBanner(){
+    var host = document.getElementById('pay-login-pill');
+    if (!host || !host.parentNode) return;
+    var el = document.getElementById('pay-mode-banner');
+    var c = PAY_CONFIG;
+    var mode = c && c.mode;
+    var bad = (mode === 'test' || mode === 'disabled' || (c && c.key_mismatch));
+    if (!bad) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'pay-mode-banner';
+      el.style.cssText = 'margin-top:10px;display:flex;align-items:center;gap:8px;background:rgba(168,85,247,0.12);'
+        + 'border:1px solid rgba(216,180,254,0.45);border-radius:12px;padding:8px 14px;width:fit-content;max-width:100%';
+      host.parentNode.insertBefore(el, host.nextSibling);
+    }
+    var ko = true; try { ko = (window.getLang ? window.getLang() : 'ko') !== 'en'; } catch(_){}
+    var msg;
+    if (c && c.key_mismatch) {
+      msg = ko ? '결제 설정 점검 필요 — 담당자에게 알려 주세요. (키 환경 불일치)'
+               : 'Payment setup needs attention — please contact staff. (key environment mismatch)';
+    } else if (mode === 'disabled') {
+      msg = ko ? '카드 결제 준비 중이에요. 카카오 상담으로 도와드릴게요.'
+               : 'Card payment is being set up. Please contact us via KakaoTalk.';
+    } else {
+      msg = ko ? '테스트 결제 모드 — 실제로 청구되지 않습니다.'
+               : 'Test payment mode — you will not be charged.';
+    }
+    el.innerHTML = '<span style="font-size:14px">🧪</span>'
+      + '<span style="color:#e9d5ff;font-size:12px;font-weight:700">' + escapeHtml(msg) + '</span>';
+  }
 
   /* ━━━━━━━━━━ 🔴 (2026-07-29, 갱신 2026-07-30) 송금 목적지 안전장치 ━━━━━━━━━━
      위 PAY_INFO 의 값들은 전부 '개발용 자리표시자'인 채로 실서비스에 노출되고 있었다.
@@ -503,7 +642,7 @@
 
     // 3) 결제창 — 서버가 준 orderId/amount 사용. 성공/실패 시 토스가 파라미터를 붙여 리다이렉트.
     try {
-      const tp = window.TossPayments(PAY_INFO.tosspayments_client_key);
+      const tp = window.TossPayments(await payClientKey());
       await tp.requestPayment('카드', {
         amount: order.amount,
         orderId: order.orderId,
@@ -576,7 +715,7 @@
     }
 
     try {
-      const tp = window.TossPayments(PAY_INFO.tosspayments_client_key);
+      const tp = window.TossPayments(await payClientKey());
       await tp.requestPayment('가상계좌', {
         amount: order.amount,
         orderId: order.orderId,
@@ -800,20 +939,69 @@
     } catch(e){ console.warn('[pay-auto-verify]', e); }
   }
 
-  // 🆕 신규 결제 — 로그인 학생이면 결제자/학생/연락처를 세션값으로 자동채움.
-  //   · 반환값 true = 로그인됨(정보 입력 단계 생략 가능), false = 비로그인(수동 입력).
+  /* ━━━━━━━━━━ 🆕 결제 정보 자동채움 (2026-08-07, QA 2차 #5) ━━━━━━━━━━
+     지적: "결제자 이름·학생 이름·연락처 3칸에 전부 로그인 아이디(lemuel)가 들어가 있다."
+
+     원인: 아래 옛 코드가 세션 객체에 이름이 없으면 uid 로 대체(`name = u.name || uid`)하고,
+           연락처 칸에는 **아예 처음부터 uid 를 넣고 있었다**(`setV('pay-contact', uid || name)`).
+           세션에는 학부모 이름도 전화번호도 없다 — 있을 리가 없는 값을 아이디로 때운 것이다.
+
+     고침: 실제 회원 정보는 **서버만 안다**. POST /api/pay/prefill 로 받아온다.
+           · 결제자 이름 = 등록된 학부모 이름, 없으면 학생 이름
+           · 학생 이름   = 실제 등록된 학생 이름
+           · 연락처      = 등록된 학부모 전화, 없으면 학생 전화
+           · 셋 중 없는 값은 **비워 둔다**(아이디로 때우지 않는다 — 그게 이 지적의 본질).
+     ⚠️ 자동으로 채운 값도 사용자가 고칠 수 있어야 한다 → readonly 로 잠그지 않는다.
+        이미 사용자가 타이핑한 칸은 덮어쓰지 않는다(빈 칸만 채운다). */
+  var _payPrefillP = null;
+  function payPrefill(){
+    if (_payPrefillP) return _payPrefillP;
+    _payPrefillP = (async function(){
+      var u = null;
+      try { u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null; } catch(_){}
+      if (!u) { try { u = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null'); } catch(_){} }
+      var uid = u && (u.uid || u.id || u.user_id) || '';
+      if (!uid) return null;
+      var token = ''; try { token = localStorage.getItem('mango_token') || ''; } catch(_){}
+      try {
+        var r = await fetch('/api/pay/prefill', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ uid: uid, token: token })
+        });
+        var d = await r.json().catch(function(){ return null; });
+        if (d && d.ok) return d;
+      } catch(_){}
+      /* 서버에 물어보지 못했다 — 세션에 «진짜 이름»이 있으면 그것만 쓴다.
+         이름이 없다고 아이디를 이름 칸에 넣지는 않는다(그게 이 지적 그대로다). */
+      var nm = (u && (u.name || u.user_name) || '').trim();
+      return { ok: true, payer_name: nm, student_name: nm, contact: '', source: 'session' };
+    })();
+    return _payPrefillP;
+  }
+
+  /** 받아온 값을 빈 칸에만 채운다. 반환값 = 연락처까지 다 채워졌는가(정보입력 단계 생략 가능한가) */
+  function payApplyPrefill(d){
+    var setV = function(id, v){
+      var el = document.getElementById(id);
+      if (el && !String(el.value || '').trim() && String(v || '').trim()) el.value = String(v).trim();
+    };
+    if (d) {
+      setV('pay-payer',   d.payer_name);
+      setV('pay-student', d.student_name);
+      setV('pay-contact', d.contact);
+    }
+    var got = function(id){ var el = document.getElementById(id); return !!(el && String(el.value||'').trim()); };
+    return got('pay-payer') && got('pay-student') && got('pay-contact');
+  }
+
+  // 로그인 여부만 즉시 알려주는 동기 헬퍼 (기존 호출부 호환 유지)
   window.payAutofillNewIfLoggedIn = function(){
     try {
       var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
       if (!u) { try { u = JSON.parse(localStorage.getItem('mangoi_logged_user') || localStorage.getItem('mango_user') || 'null'); } catch(_){} }
-      if (!u) return false;
-      var uid  = u.uid || u.id || u.user_id || '';
-      var name = u.name || u.user_name || uid;
-      if (!uid && !name) return false;
-      var setV = function(id, v){ var el = document.getElementById(id); if (el && !el.value.trim()) el.value = v; };
-      setV('pay-payer',   name);
-      setV('pay-student', name);
-      setV('pay-contact', uid || name);   // 로그인 ID로 본인 인증 대체
+      if (!u || !(u.uid || u.id || u.user_id)) return false;
+      payPrefill().then(payApplyPrefill).catch(function(){});   // 값 채우기는 비동기로
       return true;
     } catch(e){ return false; }
   };
@@ -1140,8 +1328,72 @@
       if (selectedProgram === 'trial') {
         block();
         submitFreeTrial(payer, student, contact);
+        return;
+      }
+
+      /* 🏢 (2026-08-07, QA 2차 #6) B2B / 학원도 결제 단계로 보내지 않는다.
+         조사해 보니 'b2b' 는 서버 가격표(api-pay.ts PRICES)에 없어서, 결제수단까지 다 고른 뒤
+         /api/pay/manual-request 가 400 not_payable 로 거부했다 —
+         즉 "맞춤 견적"이라고 안내해 놓고 결제 깔때기 끝까지 끌고 가 문전박대하는 상태였다.
+         B2B 는 단가·계약·정산이 건마다 달라 셀프 결제가 성립하지 않는다(#6 보고서 참고).
+         체험과 같은 방식으로 '상담 접수'로 처리한다 — 접수처는 동일(POST /api/student/inquiry). */
+      if (selectedProgram === 'b2b') {
+        block();
+        submitB2BInquiry(payer, student, contact);
       }
     }, true);
+  }
+
+  /* B2B(단체/기관) 도입 문의 접수 — 결제 모듈을 전혀 거치지 않는다. */
+  async function submitB2BInquiry(payer, student, contact) {
+    const btn = stepNextBtn;
+    const oldLabel = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '접수 중…'; }
+    try {
+      const email = (document.getElementById('pay-email') || {}).value || '';
+      const memo  = (document.getElementById('pay-memo')  || {}).value || '';
+      const r = await fetch('/api/student/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: payer,
+          contact: contact,
+          email: email.trim(),
+          program: 'B2B / 학원 단체 도입 (맞춤 견적)',
+          message: `[B2B 단체 도입 문의] 기관/담당: ${student} / 담당자: ${payer}` + (memo.trim() ? ` / 남긴말: ${memo.trim()}` : ''),
+        })
+      });
+      const d = await r.json().catch(() => null);
+      if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || '접수 실패');
+
+      document.getElementById('pay-step2').style.display = 'none';
+      result.style.display = 'block';
+      result.innerHTML = `
+        <div style="text-align:center;padding:30px 20px">
+          <div style="font-size:64px;margin-bottom:10px;animation:slideDown .5s">🏢</div>
+          <h2 style="color:#93c5fd;font-size:23px;margin:0 0 8px;font-weight:900">단체 도입 문의 접수 완료!</h2>
+          <p style="color:#cbd5e1;font-size:13px;line-height:1.7;margin-bottom:18px">
+            <b style="color:#fbbf24">결제는 진행되지 않았어요</b> — 단체 도입은 인원·기간에 따라
+            <b>맞춤 견적</b>으로 안내해 드립니다.<br/>담당자가 확인 후 연락드릴게요.
+          </p>
+          <div style="background:rgba(99,102,241,0.10);border:1px solid rgba(129,140,248,0.35);border-radius:14px;padding:16px;margin-bottom:16px;text-align:left">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#94a3b8;margin-bottom:8px">
+              <span>문의 유형</span><b style="color:#fff">🏢 B2B / 학원 단체 도입</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#94a3b8">
+              <span>담당자</span><b style="color:#fff">${escapeHtml(payer)}</b>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:center">
+            <button onclick="window.openKakao&&window.openKakao()" style="padding:11px 22px;background:linear-gradient(135deg,#FEE500,#FFCD00);border:0;border-radius:10px;color:#3C1E1E;font-size:13px;font-weight:800;cursor:pointer">💬 카톡으로 문의</button>
+            <button onclick="document.getElementById('payment-modal').style.display='none'" style="padding:11px 26px;background:linear-gradient(135deg,#6366f1,#4f46e5);border:0;border-radius:10px;color:#fff;font-size:13px;font-weight:800;cursor:pointer">확인</button>
+          </div>
+        </div>`;
+    } catch (err) {
+      alert('단체 도입 문의 접수 중 오류가 발생했어요: ' + (err.message || err) + '\n잠시 후 다시 시도해 주세요.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = oldLabel; }
+    }
   }
 
   /* 무료 체험 신청 접수 — 결제 모듈(PG)을 전혀 거치지 않는다. */
@@ -1159,7 +1411,7 @@
           name: payer,
           contact: contact,
           email: email.trim(),
-          program: '무료 체험 (1회 40분)',
+          program: '무료 체험 (1회 20분)',
           message: `[무료 체험 신청] 학생: ${student} / 결제자: ${payer}` + (memo.trim() ? ` / 남긴말: ${memo.trim()}` : ''),
         })
       });
@@ -1178,7 +1430,7 @@
           </p>
           <div style="background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.35);border-radius:14px;padding:16px;margin-bottom:16px;text-align:left">
             <div style="display:flex;justify-content:space-between;font-size:13px;color:#94a3b8;margin-bottom:8px">
-              <span>신청 과정</span><b style="color:#fff">🎁 무료 체험 (1회 40분)</b>
+              <span>신청 과정</span><b style="color:#fff">🎁 무료 체험 (1회 20분)</b>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:13px;color:#94a3b8;margin-bottom:8px">
               <span>학생</span><b style="color:#fff">${escapeHtml(student)}</b>

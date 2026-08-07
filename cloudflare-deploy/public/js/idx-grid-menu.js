@@ -2025,7 +2025,11 @@
 
       <!-- 🎯 핵심 정보 카드 (3개) -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:14px 0 18px">
-        <div class="info-tile" style="text-align:center"><b>⏱ 소요 시간</b><span>약 25~30분</span></div>
+        <!-- ⏱️ (2026-08-07, QA 2차 #3) 25~30분 → 20분. 화면과 실제가 어긋나 있었다:
+             레벨테스트로 실제 잡히는 수업 칸은 이미 20분이다(src/leveltest-schedule.ts 가
+             DEFAULT_CLASS_MINUTES=20 을 쓴다). 학생에게는 「25~30분」이라 안내하고 강사
+             시간표에는 20분만 잡히던 상태였다. 아래 4영역 분배도 합이 20분이 되게 맞췄다. -->
+        <div class="info-tile" style="text-align:center"><b>⏱ 소요 시간</b><span>약 20분</span></div>
         <div class="info-tile" style="text-align:center"><b>💰 비용</b><span>무료 (1회 한정)</span></div>
         <div class="info-tile" style="text-align:center"><b>📋 결과</b><span>당일 카톡 발송</span></div>
       </div>
@@ -2034,19 +2038,19 @@
       <div class="lti-4grid">
         <div class="lti-4c" style="--bc:rgba(59,130,246,.35);--bg:rgba(59,130,246,.22);--ac:#93c5fd">
           <div class="ic">🗣</div>
-          <div><div class="tt">스피킹 <em>10분 · 강사 1:1</em></div><div class="dd">자기소개·일상 회화·즉흥 답변</div></div>
+          <div><div class="tt">스피킹 <em>8분 · 강사 1:1</em></div><div class="dd">자기소개·일상 회화·즉흥 답변</div></div>
         </div>
         <div class="lti-4c" style="--bc:rgba(16,185,129,.35);--bg:rgba(16,185,129,.2);--ac:#6ee7b7">
           <div class="ic">👂</div>
-          <div><div class="tt">리스닝 <em>5분</em></div><div class="dd">짧은 대화·강의 듣고 객관식 답변</div></div>
+          <div><div class="tt">리스닝 <em>4분</em></div><div class="dd">짧은 대화·강의 듣고 객관식 답변</div></div>
         </div>
         <div class="lti-4c" style="--bc:rgba(251,191,36,.35);--bg:rgba(251,191,36,.18);--ac:#fde68a">
           <div class="ic">📝</div>
-          <div><div class="tt">문법·어휘 <em>10분</em></div><div class="dd">빈칸 채우기·문장 재배열·어휘 매칭</div></div>
+          <div><div class="tt">문법·어휘 <em>5분</em></div><div class="dd">빈칸 채우기·문장 재배열·어휘 매칭</div></div>
         </div>
         <div class="lti-4c" style="--bc:rgba(168,85,247,.35);--bg:rgba(168,85,247,.2);--ac:#d8b4fe">
           <div class="ic">🎯</div>
-          <div><div class="tt">발음·집중도 <em>5분 · AI 자동</em></div><div class="dd">발음 정확도 + 시선 분석</div></div>
+          <div><div class="tt">발음·집중도 <em>3분 · AI 자동</em></div><div class="dd">발음 정확도 + 시선 분석</div></div>
         </div>
       </div>
 

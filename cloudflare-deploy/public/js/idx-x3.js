@@ -593,7 +593,8 @@
         '</div>' +
         '<div style="padding:14px 18px;overflow-y:auto;flex:1">' + lessonsHtml + '</div>' +
       '</div>';
-    modal.addEventListener('click', function(e){ if (e.target === modal) modal.remove(); });
+    /* 🔒 (2026-08-07 QA #4) 배경 클릭 닫힘 차단 — 정책은 /js/mg-modal-policy.js. 폴백 true = 예전 동작 */
+    modal.addEventListener('click', function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) modal.remove(); });
     document.body.appendChild(modal);
     document.getElementById('tbf-pv-close').addEventListener('click', function(){ modal.remove(); });
     // ph250: 미리보기에서 파일 클릭 시 — book 전체 시퀀스 만들어 그 파일부터 시작

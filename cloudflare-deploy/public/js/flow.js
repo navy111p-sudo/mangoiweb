@@ -109,7 +109,7 @@
       'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;' +
       'align-items:center;justify-content:center;padding:20px;font-family:MangoiHanSC,"Noto Sans KR",-apple-system,sans-serif;' +
       'animation:mgFlowFade .25s ease-out';
-    ov.onclick = function (e) { if (e.target === ov) close(); };
+    ov.onclick = function (e) { if (e.target === ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) close(); };   /* QA#4 */
 
     var rows = MENU.map(function (m, i) {
       var isRec = m.key === recKey;
@@ -288,7 +288,7 @@
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(2,6,23,.93);' +
       'display:flex;align-items:center;justify-content:center;padding:16px;' +
       'font-family:MangoiHanSC,"Noto Sans KR",-apple-system,sans-serif;animation:mgFlowFade .2s ease-out';
-    ov.addEventListener('click', function (e) { if (e.target === ov) recClose(); });
+    ov.addEventListener('click', function (e) { if (e.target === ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) recClose(); });   /* QA#4 */
     ov.innerHTML = inner;
     doc.body.appendChild(ov);
     return ov;

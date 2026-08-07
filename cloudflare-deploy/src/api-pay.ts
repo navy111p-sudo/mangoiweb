@@ -19,8 +19,13 @@ import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnroll
 import { authUidFromRequest } from './auth-token';
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
-// 토스 클라이언트 키(공개). 실전 전환 시 env.TOSS_CLIENT_KEY 를 live_ck_* 로 설정하면 코드수정 없이 교체됨.
-//   ⚠️ idx-payment-modal.js 의 PAY_INFO.tosspayments_client_key 와 값이 일치해야 함(둘 다 교체).
+/* 토스 클라이언트 키(공개)의 최후 폴백 = 토스 공식 테스트키(실제 청구 없음).
+   ✅ (2026-08-07) 프론트가 이제 GET /api/pay/config 로 이 값을 받아간다 —
+      idx-payment-modal.js 에 같은 값을 한 벌 더 두던 구조를 없앴다.
+      실결제 전환은 아래 두 시크릿 교체로 **끝난다**(코드 수정·재배포 없이 즉시 반영):
+        wrangler secret put TOSS_CLIENT_KEY   ← live_ck_...
+        wrangler secret put TOSS_SECRET_KEY   ← live_sk_...
+      한쪽만 바꾸면 /api/pay/config 가 key_mismatch:true 를 돌려주고 결제창에 경고가 뜬다. */
 const TOSS_CLIENT_KEY_DEFAULT = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
 
 // ── 서버 가격표(정본). 프론트 PROG_INFO 와 동기화. 여기 없는 상품은 결제 불가(상담 유도) ──
@@ -467,6 +472,68 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const p = PRICES[program];
     if (!p) return json({ ok: false, error: 'unknown_program' }, 404);
     return json({ ok: true, program, name: p.name, amount: p.amount, clientKey: env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT });
+  }
+
+  /* ── 5) 결제 환경 설정 (공개) ─────────────────────────────────────────────
+     GET /api/pay/config → { ok, mode, clientKey, key_mismatch }
+
+     🔴 (2026-08-07, QA 2차 #1) 왜 신설했나.
+        프론트(idx-payment-modal.js)에 클라이언트키가 **박혀 있었다**. 실결제 전환은
+        「프론트 상수 1곳 + 서버 시크릿 1곳」을 사람이 각각 바꿔야 했고, 둘의 환경이 어긋나면
+        (테스트 clientKey + 라이브 secret) 결제창은 열리는데 서버 confirm 이 전부 실패한다.
+        돈은 안 빠지지만 학부모에게는 「결제가 안 된다」로만 보인다 — 조용하고 오래 가는 사고다.
+        이제 프론트가 이 API 로 키를 받아가므로, 전환은 **시크릿 두 개 교체로 끝난다**.
+
+     ⚠️ clientKey 는 원래 공개값이다(브라우저 결제창이 그대로 쓴다). 시크릿은 절대 내보내지
+        않는다 — 여기서는 시크릿의 **접두사만** 보고 mode 를 판정해 돌려준다. */
+  if (path === '/api/pay/config' && method === 'GET') {
+    const mode = tossMode(env);                                  // 'live' | 'test' | 'disabled'
+    const clientKey = String(env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT);
+    const ckLive = clientKey.startsWith('live_');
+    // 클라이언트키와 시크릿키의 환경이 서로 다르면 승인이 통째로 깨진다 — 화면에서 바로 알 수 있게.
+    const key_mismatch = mode !== 'disabled' && (ckLive !== (mode === 'live'));
+    return json({ ok: true, mode, clientKey, key_mismatch });
+  }
+
+  /* ── 5-2) 결제 정보 자동채움 (로그인 필요) ────────────────────────────────
+     POST /api/pay/prefill { uid, token } → { ok, payer_name, student_name, contact, ... }
+
+     🔴 (2026-08-07, QA 2차 #5) 결제 정보 입력 화면의 세 칸에 전부 로그인 아이디가 들어가 있었다.
+        프론트가 세션 객체만 보고 채웠는데, 세션에는 학부모 이름도 전화번호도 없다.
+        실제 값은 서버(students_erp)만 안다 → 여기서 준다.
+          결제자 이름 = 학부모 이름 > 학생 이름
+          연락처      = 학부모 전화 > 학생 전화
+        없는 값은 **빈 문자열**로 돌려준다. 아이디로 때우지 않는다.
+
+     🔒 IDOR 방지: 반드시 세션 토큰으로 검증된 uid(authUidFromRequest)의 것만 돌려준다.
+        body 의 uid 는 참고용일 뿐 — 다른 사람 uid 를 보내도 자기 것만 나온다.
+     ⚠️ 전화번호는 개인정보다. 「본인이 로그인해서 본인 결제창을 여는」 이 경로 외에는 주지 않는다. */
+  if (path === '/api/pay/prefill' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const authUid = await authUidFromRequest(request, url, env, body);
+    if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+
+    let stu: any = null;
+    try {
+      stu = await env.DB.prepare(`SELECT * FROM students_erp WHERE user_id = ? LIMIT 1`).bind(authUid).first();
+    } catch (_) {}
+
+    const s = (v: any) => String(v ?? '').trim();
+    // 컬럼 구성이 배포마다 조금씩 다르다(parent_name 은 있는 곳도 없는 곳도 있다) — 있는 것만 쓴다.
+    const studentName = s(stu?.student_name) || s(stu?.korean_name) || s(stu?.name) || s(stu?.username);
+    const parentName  = s(stu?.parent_name) || s(stu?.guardian_name);
+    const parentPhone = s(stu?.parent_phone);
+    const studentPhone = s(stu?.student_phone) || s(stu?.phone);
+
+    return json({
+      ok: true,
+      payer_name:   parentName || studentName,     // 학부모가 있으면 학부모, 없으면 학생
+      student_name: studentName,
+      contact:      parentPhone || studentPhone,   // 등록된 실제 연락처
+      has_parent:   !!parentName,
+      found:        !!stu,
+      source:       'students_erp',
+    });
   }
 
   // ── 6) 결제 내역 조회 (관리자 전용) — 결제 센터에서 들어온 결제를 한눈에 ──

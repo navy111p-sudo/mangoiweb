@@ -169,7 +169,7 @@
     document.body.appendChild(ov);
     ov.querySelector('.mg-faq-search').addEventListener('input',function(){ curQ=this.value.trim(); renderList(ov); });
     ov.querySelector('.mg-faq-x').onclick=close;
-    ov.addEventListener('click',function(e){ if(e.target===ov) close(); });
+    ov.addEventListener('click',function(e){ if(e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) close(); });   /* QA#4: 배경 클릭 닫힘 차단 */
     document.addEventListener('keydown',function(e){ if(e.key==='Escape' && ov.classList.contains('open')) close(); });
     renderAll(ov);
     return ov;

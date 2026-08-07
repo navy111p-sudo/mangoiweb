@@ -26,7 +26,8 @@
       </div>
       <div id="mt-step-body"></div>
     </div>`;
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeMtOverlay(); });
+    /* 🔒 (2026-08-07 QA #4) 시험 도중 배경을 잘못 눌러 답이 날아가지 않게 — 닫기 버튼으로만 */
+    overlay.addEventListener('click', e => { if (e.target === overlay && (window.mgBackdropClosable ? window.mgBackdropClosable(overlay) : true)) closeMtOverlay(); });
     document.body.appendChild(overlay);
     mtShowList();
   };
@@ -177,7 +178,7 @@
       <div id="btl-tabs" style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap"></div>
       <div id="btl-body"></div>
     </div>`;
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeBtlOverlay(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay && (window.mgBackdropClosable ? window.mgBackdropClosable(overlay) : true)) closeBtlOverlay(); });   /* QA#4 */
     document.body.appendChild(overlay);
     btlShowTab('home');
     // 폴링 5초마다
