@@ -350,9 +350,15 @@ export async function handleRecordingUpload(
     return new Response(obj.body, { status: 200, headers });
   }
 
-  // 6) 🔐 통합 재생 — GET /api/recording/play?id={녹화 DB id}[&token=mango_token]
+  // 6) 🔐 통합 재생 — GET /api/recording/play?id={녹화 DB id}[&token=mango_token][&dl=1]
   //    관리자 세션(쿠키) 또는 본인 참여 녹화(mango_token uid ∈ participant_ids)만 재생.
   //    파일명·경로를 클라이언트가 지정하는 방식은 경로조작/IDOR 통로라 금지 — DB id 로만 조회.
+  //
+  //    ⬇ dl=1 (2026-08-07) — «내 PC·휴대폰에 저장». 재생만 되고 가져갈 수가 없었다.
+  //      크롬 기본 ⋮ 메뉴에 기대고 있었는데 그건 (1) 모바일엔 아예 없고 (2) URL 에 파일명이
+  //      없어 'play' 로 떨어진다. 녹화는 expires_at 이 지나면 크론이 지우므로, 보관기간 안에
+  //      직접 받아둘 통로가 필요하다. **인증·소유권 판정은 재생과 100% 동일**하고
+  //      Content-Disposition 과 파일명만 달라진다(권한이 느슨해지는 지점이 없음).
   if (path === "/api/recording/play" && method === "GET") {
     const id = parseInt(url.searchParams.get("id") || "", 10);
     if (!Number.isFinite(id) || id <= 0) return J({ ok: false, error: "id required" }, 400);
@@ -367,12 +373,13 @@ export async function handleRecordingUpload(
 
     const row = await env.DB.prepare(
       `SELECT file_url, status, storage, filename, participant_ids, participant_names,
-              teacher_id, teacher_name, expires_at
+              teacher_id, teacher_name, expires_at, room_id, started_at
          FROM recordings WHERE id = ?`
     ).bind(id).first<{
       file_url: string | null; status: string | null; storage: string | null;
       filename: string | null; participant_ids: string | null; participant_names: string | null;
       teacher_id: string | null; teacher_name: string | null; expires_at: number | null;
+      room_id: string | null; started_at: number | null;
     }>();
     if (!row || row.status === "deleted" || row.status === "upload_failed") return new Response("Not found", { status: 404 });
     // 업로드가 실패한 녹화는 status 가 'completed' 로 남아 있어도 R2 에 실물이 없다 —
@@ -438,11 +445,25 @@ export async function handleRecordingUpload(
     if (!obj2) return new Response("Not found", { status: 404 });
 
     const name = String(row.filename || row.file_url);
-    const ctype = /\.mp4(\?|$)/i.test(name) ? "video/mp4" : "video/webm";
+    const isMp4 = /\.mp4(\?|$)/i.test(name);
+    const ctype = isMp4 ? "video/mp4" : "video/webm";
     const headers = new Headers();
     headers.set("Content-Type", ctype);
     headers.set("Accept-Ranges", "bytes");
     headers.set("Cache-Control", "private, max-age=600");
+    // ⬇ 저장 요청이면 첨부파일로 — 브라우저가 '재생' 대신 '다운로드'로 처리한다.
+    //   파일명은 사람이 알아볼 수 있게 «mangoi-날짜-방번호.확장자» 로 만든다
+    //   (URL 이 /play?id=.. 라 그냥 받으면 확장자 없는 'play' 로 저장됐다).
+    //   한글·공백이 섞이면 헤더가 깨지므로 ASCII 로만 조립한다.
+    if (url.searchParams.get("dl") === "1") {
+      const dt = row.started_at ? new Date(row.started_at) : null;
+      const ymd = dt
+        ? `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, "0")}${String(dt.getDate()).padStart(2, "0")}`
+        : String(id);
+      const roomSafe = String(row.room_id || "class").replace(/[^A-Za-z0-9._-]/g, "-").slice(0, 40);
+      const dlName = `mangoi-${ymd}-${roomSafe}.${isMp4 ? "mp4" : "webm"}`;
+      headers.set("Content-Disposition", `attachment; filename="${dlName}"`);
+    }
     if (obj2.range) {
       headers.set(
         "Content-Range",

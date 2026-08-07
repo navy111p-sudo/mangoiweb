@@ -357,17 +357,30 @@
           : failed
           ? '<span style="flex:0 0 auto;background:#7f1d1d;color:#fecaca;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">⚠ 저장 실패</span>'
           : '<span style="flex:0 0 auto;background:#334155;color:#94a3b8;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700">⏳ 준비중</span>';
-        return '<button data-rec-play="' + i + '"' + (playable ? '' : ' disabled') +
-          ' style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;' +
+        // ⬇ 저장 — 목록에서 바로 내 PC·휴대폰으로. (재생 URL 에 &dl=1 만 붙이면 서버가
+        //   Content-Disposition: attachment 로 내려준다. 우리 play 엔드포인트일 때만 —
+        //   외부 http(s) 녹화는 우리가 헤더를 못 붙이므로 저장 버튼을 걸지 않는다)
+        var dlUrl = playable && /^\/api\/recording\/play\?/.test(String(r.url || '')) ? String(r.url) + '&dl=1' : '';
+        var dlBtn = dlUrl
+          ? '<a href="' + esc(dlUrl) + '" download title="내 기기에 저장" ' +
+            'style="flex:0 0 auto;background:rgba(148,163,184,.14);color:#cbd5e1;border-radius:8px;' +
+            'padding:6px 10px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">⬇ 저장</a>'
+          : '';
+        // 행 = [재생 버튼(제목·정보·배지)] + [저장 링크].
+        //   버튼 안에 버튼을 넣을 수 없어(중첩 불가) 바깥을 div 로 감싸고 클릭 영역만 button 으로 둔다.
+        return '<div style="display:flex;align-items:center;gap:10px;width:100%;' +
           'background:' + (playable ? 'rgba(56,189,248,.08)' : failed ? 'rgba(248,113,113,.07)' : 'rgba(148,163,184,.06)') + ';' +
           'border:1px solid ' + (playable ? 'rgba(56,189,248,.28)' : failed ? 'rgba(248,113,113,.26)' : 'rgba(148,163,184,.18)') + ';' +
-          'border-radius:12px;padding:12px 14px;margin-bottom:8px;color:#e2e8f0;' +
+          'border-radius:12px;padding:12px 14px;margin-bottom:8px">' +
+          '<button data-rec-play="' + i + '"' + (playable ? '' : ' disabled') +
+          ' style="display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0;text-align:left;' +
+          'background:transparent;border:0;padding:0;color:#e2e8f0;' +
           'cursor:' + (playable ? 'pointer' : 'default') + '">' +
           '<span style="flex:0 0 auto;font-size:24px">📼</span>' +
           '<span style="flex:1 1 auto;min-width:0">' +
             '<span style="display:block;font-weight:800;font-size:14px;color:#f8fafc">' + esc(r.topic || '수업 녹화') + '</span>' +
             '<span style="display:block;font-size:12px;color:#94a3b8;margin-top:2px">' + (meta || '&nbsp;') + '</span>' +
-          '</span>' + badge + '</button>';
+          '</span>' + badge + '</button>' + dlBtn + '</div>';
       }).join('');
       recShell(recListBox(
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex:0 0 auto">' +
@@ -375,7 +388,7 @@
           '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
         '</div>' +
         '<div style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch">' + items + '</div>' +
-        '<div style="flex:0 0 auto;color:#64748b;font-size:11px;margin-top:10px;line-height:1.6">※ 본인 수업 녹화만 표시됩니다. ⚠ 저장 실패는 업로드 도중 파일이 저장되지 못한 수업이라 재생할 수 없어요.</div>'
+        '<div style="flex:0 0 auto;color:#64748b;font-size:11px;margin-top:10px;line-height:1.6">※ 본인 수업 녹화만 표시됩니다. ⬇ 저장을 누르면 내 PC·휴대폰에 파일로 받을 수 있어요(보관 기간이 지나면 삭제되니 필요하면 미리 받아두세요). ⚠ 저장 실패는 업로드 도중 파일이 저장되지 못한 수업이라 재생할 수 없어요.</div>'
       ));
       var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
       if (ov) {
@@ -552,12 +565,20 @@
     if (idx >= list.length) { recShowUnplayable(); return; }
     var rec = list[idx];
     var meta = [rec.date, rec.teacher].filter(function (x) { return x && x !== '-'; }).join(' · ');
+    // ⬇ 저장 — 보고 있는 이 녹화를 그대로 내 기기로. (목록 행과 같은 규칙: 우리 play URL 만)
+    var pDl = /^\/api\/recording\/play\?/.test(String(rec.url || '')) ? String(rec.url) + '&dl=1' : '';
+    var pEsc = function (s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]); }); };
     recShell(
       '<div style="width:100%;max-width:1400px;background:#0b1220;border:1px solid #1e293b;border-radius:18px;padding:18px;box-shadow:0 30px 80px -12px rgba(0,0,0,.75)">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">' +
           '<div style="color:#f8fafc;font-weight:800;font-size:16px;min-width:0">📼 최근 수업 녹화' +
             (meta ? ' <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + meta + '</span>' : '') + '</div>' +
-          '<button data-rec-close style="flex:0 0 auto;background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
+          '<div style="flex:0 0 auto;display:flex;align-items:center;gap:8px">' +
+            (pDl ? '<a href="' + pEsc(pDl) + '" download title="내 PC·휴대폰에 저장" ' +
+              'style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border-radius:10px;' +
+              'padding:8px 14px;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap">⬇ 저장</a>' : '') +
+            '<button data-rec-close style="background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
+          '</div>' +
         '</div>' +
         '<video data-rec-video controls autoplay playsinline ' +
           'style="width:100%;max-height:86vh;border-radius:12px;background:#000;display:block"></video>' +
