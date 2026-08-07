@@ -141,6 +141,31 @@
     '#vc-dock-handle .vdh-grip{width:22px;height:3px;border-radius:2px;background:rgba(255,255,255,.9);box-shadow:0 1px 3px rgba(0,0,0,.6);}',
     '#vc-dock-handle svg{width:14px;height:14px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));}',
     '#vc-dock-handle:active{transform:translateX(-50%) scale(.94);}',
+    /* ★ (2026-08-08 강사 피드백 — HT Ness ①) 「아래 아이콘을 없앨 수가 없다. 줄이거나 닫거나
+       위로 올려 달라 — 거슬리고, 그 아래 작은 아이콘들을 누를 수가 없다」
+       ─ 접는 기능은 2026-07-23 부터 있었다. 문제는 «있는 줄 모른다» 였다: 손잡이가
+         가로 22px 회색 막대 하나뿐이라 화면 장식으로 보였다. 그래서 글자를 붙인다.
+         (같은 자리에 마이크 미터가 겹쳐 있던 시기도 있어 더 안 보였다 — 미터는 왼쪽 아래로 옮겨졌다)
+       ─ 그리고 «줄이기»·«위로»를 실제로 만들어 준다: 손잡이 오른쪽의 작은 버튼이
+         기본 → 작게 → 위로 를 돌아가며 바꾼다. 선택은 기억한다. */
+    '#vc-dock-handle .vdh-txt{display:none;font-size:11.5px;font-weight:700;letter-spacing:.01em;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.6);}',
+    '#vc-dock-size{display:none;position:fixed;z-index:99994;align-items:center;justify-content:center;gap:4px;',
+    '  cursor:pointer;height:26px;padding:0 11px;border-radius:999px;font-family:inherit;font-size:11.5px;font-weight:700;',
+    '  background:rgba(18,22,30,.62);border:1px solid rgba(255,255,255,.18);color:#eef2f8;white-space:nowrap;',
+    '  -webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);box-shadow:0 8px 20px rgba(0,0,0,.45);}',
+    '#vc-dock-size:hover{background:rgba(32,40,54,.86);}',
+    '#vc-dock-size:active{transform:scale(.94);}',
+    /* 「작게」 — 라벨을 숨기고 아이콘만. 독 높이 62 → 40, 폭 70 → 46 (교재 아래를 덜 가림) */
+    'body.vc-dock-small #vc-dock{gap:4px;padding:5px 8px;border-radius:15px;}',
+    'body.vc-dock-small #vc-dock button{width:46px;height:40px;gap:0;}',
+    'body.vc-dock-small #vc-dock button .lbl{display:none;}',
+    'body.vc-dock-small #vc-dock button svg{width:21px;height:21px;}',
+    /* 「위로」 — 상단 탭바 아래로 올린다. 교재·칠판 하단(작은 아이콘들이 모여 있는 곳)이 완전히 열린다.
+       bottom 을 auto 로 되돌리지 않으면 아래 규칙과 겹쳐 두 군데에 걸린 채로 남는다. */
+    /* !important 인 이유 — 아래 모바일 블록(body.vc-in-call.vc-dock-open #vc-dock)이 선택자가 더 강해
+       그냥 두면 bottom 이 되살아나 독이 위·아래 양쪽에 걸린 모양이 된다. */
+    'body.vc-dock-top #vc-dock{top:64px !important;bottom:auto !important;}',
+    'body.vc-dock-top #vc-dock-handle{display:none !important;}',   /* 위에 있으면 접을 이유가 없다 */
     '@media (max-width:920px) and (orientation:landscape) and (max-height:600px){',
     '  body.vc-in-call.vc-dock-on #vc-dock-handle{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 56px);}',
     '  /* 🥭 (2026-06-28) 옛 가로 하단바 시스템 제거 — 새 도크+문고리가 대체. */',
@@ -172,14 +197,28 @@
     '   모바일(<=1024px)은 위의 ⋯ 버튼이 담당하므로 이 블록은 PC(>=1025px)에만 적용한다.',
     '   트랜지션은 두지 않음 — 가로모드와 같은 이유(혼합 단위 보간 버그). */',
     '@media (min-width:1025px){',
-    '  body.vc-in-call.vc-dock-on #vc-dock-handle{display:inline-flex;bottom:102px;width:78px;height:26px;',
+    /* 🏷 (2026-08-08 Ness ①) 손잡이에 «글자» 를 붙인다 — 회색 막대만으로는 누를 것인 줄 모른다.
+       폭 78 → 자동. 접힘 상태에서도 「수업 메뉴 펴기」가 보여 되돌리는 길이 항상 눈에 있다. */
+    '  body.vc-in-call.vc-dock-on #vc-dock-handle{display:inline-flex;bottom:102px;width:auto;height:26px;padding:0 12px;',
     '    background:rgba(18,22,30,.62);border:1px solid rgba(255,255,255,.18);',
     '    -webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);',
     '    box-shadow:0 8px 20px rgba(0,0,0,.45);}',
+    '  body.vc-in-call.vc-dock-on #vc-dock-handle .vdh-txt{display:inline;}',
+    '  body.vc-in-call.vc-dock-on #vc-dock-handle .vdh-grip{display:none;}',
     '  body.vc-in-call.vc-dock-on #vc-dock-handle:hover{background:rgba(32,40,54,.86);}',
+    /* 「크기·위치」 버튼은 손잡이 오른쪽에. 손잡이가 가운데 정렬이라 계산 대신 left:50% + 여백으로 붙인다. */
+    '  body.vc-in-call.vc-dock-on #vc-dock-size{display:inline-flex;bottom:102px;left:50%;margin-left:96px;}',
     '  body.vc-in-call.vc-dock-collapsed #vc-dock{transform:translateX(-50%) translateY(190%) !important;opacity:0;pointer-events:none;}',
     '  body.vc-in-call.vc-dock-collapsed #vc-dock-handle{bottom:14px;}',
+    '  body.vc-in-call.vc-dock-collapsed #vc-dock-size{bottom:14px;}',
     '  body.vc-in-call.vc-dock-collapsed #vc-dock-handle svg{transform:rotate(180deg);}',
+    /* 위로 올렸으면 손잡이가 사라지므로 크기 버튼도 위로 따라간다(되돌릴 길이 남아 있어야 한다) */
+    '  body.vc-in-call.vc-dock-on.vc-dock-top #vc-dock-size{top:64px;bottom:auto;left:auto;right:14px;margin-left:0;}',
+    '}',
+    /* 모바일: ⋯ 로 독을 연 상태에서만 크기·위치 버튼을 보여 준다(평소엔 화면을 깨끗하게) */
+    '@media (max-width:1024px){',
+    '  body.vc-in-call.vc-dock-open #vc-dock-size{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:14px;}',
+    '  body.vc-in-call.vc-dock-open.vc-dock-top #vc-dock-size{top:64px;bottom:auto;left:auto;right:14px;}',
     '}'
   ].join('\n');
 
@@ -193,9 +232,54 @@
   function syncHandleLabel(){
     var h = document.getElementById('vc-dock-handle'); if (!h) return;
     var col = document.body.classList.contains('vc-dock-collapsed');
+    var en = isEn();
     var t = col ? '수업 메뉴 펴기 (Show class menu)'
                 : '수업 메뉴 접기 — 내 얼굴 가림 해소 (Hide class menu)';
     h.title = t; h.setAttribute('aria-label', t);
+    /* 🏷 (2026-08-08 Ness ①) 손잡이에 글자를 실제로 넣는다. 강사 다수가 필리핀이라 언어를 따른다 —
+       한쪽만 적으면 «있는 줄 몰랐다» 가 언어만 바뀌어 되돌아온다. */
+    var txt = h.querySelector('.vdh-txt');
+    if (txt) {
+      var s = col ? (en ? '▲ Show menu' : '▲ 메뉴 펴기')
+                  : (en ? '▼ Hide menu' : '▼ 메뉴 숨기기');
+      if (txt.textContent !== s) txt.textContent = s;
+    }
+  }
+
+  /* ★ (2026-08-08 Ness ①) 「줄이거나 · 위로 올려 달라」 — 세 자리를 돌아가며 고른다.
+     기본(아래·큰) → 작게(아래·아이콘만) → 위로(상단) → 기본.
+     ⚠️ 버튼 하나로 도는 이유: 독 옆에 버튼을 3개 붙이면 그것이 다시 화면을 가린다.
+        지금 상태가 무엇인지는 버튼 글자에 그대로 적어 둔다(다음에 무엇이 되는지도 함께). */
+  var SIZE_KEY = 'mangoi_vc_dock_size';           // '' | 'small' | 'top'
+  var SIZE_ORDER = ['', 'small', 'top'];
+  function getDockSize(){
+    try { var v = localStorage.getItem(SIZE_KEY) || ''; return SIZE_ORDER.indexOf(v) >= 0 ? v : ''; }
+    catch(e){ return ''; }
+  }
+  function applyDockSize(v){
+    var b = document.body; if (!b) return;
+    b.classList.toggle('vc-dock-small', v === 'small');
+    b.classList.toggle('vc-dock-top',   v === 'top');
+    /* 위로 올라간 상태에서 접힘이 남아 있으면 «위에도 없고 아래에도 없는» 실종이 된다.
+       손잡이가 위 모드에선 숨겨지므로 되돌릴 방법도 사라진다 → 반드시 함께 푼다. */
+    if (v === 'top') b.classList.remove('vc-dock-collapsed');
+    try { localStorage.setItem(SIZE_KEY, v); } catch(e){}
+    syncSizeLabel();
+    syncHandleLabel();
+  }
+  function syncSizeLabel(){
+    var el = document.getElementById('vc-dock-size'); if (!el) return;
+    var v = getDockSize(), en = isEn();
+    var now = v === 'small' ? (en ? 'Small' : '작게') : v === 'top' ? (en ? 'Top' : '위') : (en ? 'Normal' : '기본');
+    var s = '⇕ ' + now;
+    if (el.textContent !== s) el.textContent = s;
+    var tip = en ? 'Menu bar size / position — Normal → Small → Top (click to change)'
+                 : '메뉴바 크기·위치 — 기본 → 작게 → 위로 (누를 때마다 바뀝니다)';
+    el.title = tip; el.setAttribute('aria-label', tip);
+  }
+  function cycleDockSize(){
+    var i = SIZE_ORDER.indexOf(getDockSize());
+    applyDockSize(SIZE_ORDER[(i + 1) % SIZE_ORDER.length]);
   }
   function setCollapsed(v){
     document.body.classList.toggle('vc-dock-collapsed', !!v);
@@ -620,11 +704,18 @@
     var handle = document.createElement('button');
     handle.id = 'vc-dock-handle'; handle.type = 'button';
     handle.setAttribute('aria-label', '수업 메뉴 접기/펴기');
-    handle.innerHTML = '<span class="vdh-grip"></span>' +
+    handle.innerHTML = '<span class="vdh-grip"></span><span class="vdh-txt"></span>' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     handle.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); setCollapsed(!document.body.classList.contains('vc-dock-collapsed')); };
     document.body.appendChild(handle);
     restoreCollapsed();   // PC: 지난번에 접어뒀으면 접힌 채로 시작
+
+    /* ★ (2026-08-08 Ness ①) 크기·위치 바꾸기 버튼 — 기본 → 작게 → 위로 */
+    var sizeBtn = document.createElement('button');
+    sizeBtn.id = 'vc-dock-size'; sizeBtn.type = 'button';
+    sizeBtn.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); closeSettings(); cycleDockSize(); };
+    document.body.appendChild(sizeBtn);
+    applyDockSize(getDockSize());   // 지난번 선택 복원
 
     // ★ (2026-07-14 사장님) 모바일 ⋯(가로 점3개) 토글 — 독 기본 숨김, 누르면 열림/다시 누르면 닫힘
     var more = document.createElement('button');
@@ -665,6 +756,10 @@
     if (btnMic.__iconOn !== micOn) { btnMic.__iconOn = micOn; btnMic.querySelector('svg').outerHTML = svg(micOn ? P.mic : P.micoff); }
     if (btnCam.__iconOn !== camOn) { btnCam.__iconOn = camOn; btnCam.querySelector('svg').outerHTML = svg(camOn ? P.cam : P.camoff); }
     syncChatBadge();
+    /* 🏷 손잡이·크기 버튼 글자는 언어(KO/EN)를 따라간다. 둘 다 «값이 실제로 바뀔 때만» 쓰므로
+       1.5초 틱에서 불러도 리페인트가 생기지 않는다(2026-07-24 아이콘 깜빡임과 같은 이유로 주의). */
+    syncHandleLabel();
+    syncSizeLabel();
   }
 
   var wasInCall = false;

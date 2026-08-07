@@ -226,6 +226,9 @@
   }
 
   function ph71Tick(){
+    /* 🩹 (2026-08-08 Ness ② · Belle ②) 홈 화면 카드 전용 폴러다. 수업 중에는 대상이 없는데도
+       0.5초마다 DOM 을 훑어 메인 스레드를 갉아먹었다 — 화상수업에서는 그것이 «깜빡임» 으로 보인다. */
+    try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(_){}
     ph71RewriteCards();
     ph71HandleDateCard();
   }

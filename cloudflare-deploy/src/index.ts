@@ -3901,13 +3901,50 @@ async function handlePdfDownload(path: string, env: Env, request?: Request): Pro
         const row: any = await env.DB.prepare('SELECT r2_key, mime, ext FROM textbook_files WHERE id = ?').bind(tbId).first();
         const r2b = (env as any).RECORDINGS as R2Bucket | undefined;
         if (row && row.r2_key && r2b) {
+          const ct = row.mime || (row.ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
+          /* ⏱ (2026-08-08 강사 피드백 — Belle ① 「수업을 열 때 로딩이 지연된다」)
+           *  이 갈래가 **라이브러리 교재**(BTS·MES 등 실제 수업에서 쓰는 책)다. 그런데 여기만
+           *  Range 처리도 Accept-Ranges 도 없어서, 브라우저는 34과짜리 책을 **통째로 다 받은 뒤에야**
+           *  1페이지를 그렸다. 업로드 교재(pdfs/…) 쪽은 2026-07-13 에 이미 Range 를 넣어 뒀는데
+           *  라이브러리만 빠져 있었다 — 정작 수업에서 더 많이 쓰는 쪽이 느렸다.
+           *  → 같은 방식으로 맞춘다. Content-Length 를 반드시 실어야 pdf.js 가 «조각 받기» 를 켠다. */
+          const rh = request ? (request.headers.get('range') || '') : '';
+          const rm = rh.match(/^bytes=(\d*)-(\d*)$/);
+          if (rm && (rm[1] !== '' || rm[2] !== '')) {
+            const head = await r2b.head(row.r2_key);
+            if (head) {
+              const total = head.size;
+              let start: number; let end: number;
+              if (rm[1] === '') { const suffix = Math.min(Number(rm[2]), total); start = total - suffix; end = total - 1; }
+              else { start = Number(rm[1]); end = rm[2] === '' ? total - 1 : Math.min(Number(rm[2]), total - 1); }
+              if (start <= end && start < total) {
+                const part = await r2b.get(row.r2_key, { range: { offset: start, length: end - start + 1 } });
+                if (part) {
+                  return new Response(part.body, {
+                    status: 206,
+                    headers: {
+                      'Content-Type': ct,
+                      'Content-Range': `bytes ${start}-${end}/${total}`,
+                      'Content-Length': String(end - start + 1),
+                      'Accept-Ranges': 'bytes',
+                      'Access-Control-Allow-Origin': '*',
+                      'Cache-Control': 'public, max-age=3600'
+                    }
+                  });
+                }
+              }
+            }
+          }
           const obj = await r2b.get(row.r2_key);
           if (obj) {
-            const ct = row.mime || (row.ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
-            return new Response(obj.body, {
-              status: 200,
-              headers: { 'Content-Type': ct, 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' }
-            });
+            const h: Record<string, string> = {
+              'Content-Type': ct,
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'public, max-age=3600'
+            };
+            if (typeof obj.size === 'number') h['Content-Length'] = String(obj.size);
+            return new Response(obj.body, { status: 200, headers: h });
           }
         }
       } catch (e) { console.warn('[pdf-proxy] lib_srv lookup failed:', (e as any)?.message); }
@@ -3924,6 +3961,7 @@ async function handlePdfDownload(path: string, env: Env, request?: Request): Pro
     const r2 = (env as any).RECORDINGS as R2Bucket | undefined;
     let bodyStream: ReadableStream<Uint8Array> | null = null;
     let pdfBuffer: ArrayBuffer | null = null;
+    let objSize: number | null = null;
     let ctype = 'application/pdf';   // fix (2026-06-01) 저장된 실제 형식으로 서빙 (이미지 교재 지원)
     if (r2) {
       // fix (2026-07-13) — 동영상 구간 재생(Range) 지원: iOS Safari 는 Range 206 응답이
@@ -3962,7 +4000,12 @@ async function handlePdfDownload(path: string, env: Env, request?: Request): Pro
         }
       }
       const obj = await r2.get(`pdfs/${fileKey}`);
-      if (obj) { bodyStream = obj.body; if (obj.httpMetadata && obj.httpMetadata.contentType) ctype = obj.httpMetadata.contentType; }
+      if (obj) {
+        bodyStream = obj.body;
+        if (obj.httpMetadata && obj.httpMetadata.contentType) ctype = obj.httpMetadata.contentType;
+        // ⏱ Content-Length 가 없으면 pdf.js 가 «조각 받기» 를 켜지 못하고 통짜로 받는다(Belle ①)
+        if (typeof obj.size === 'number') objSize = obj.size;
+      }
     }
     if (!bodyStream) {
       const kv = await env.PDF_STORE.get(fileKey, { type: 'arrayBuffer' });
@@ -3983,15 +4026,14 @@ async function handlePdfDownload(path: string, env: Env, request?: Request): Pro
       });
     }
 
-    return new Response(bodyStream || pdfBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': ctype,
-        'Accept-Ranges': 'bytes',
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=3600'
-      }
-    });
+    const okHeaders: Record<string, string> = {
+      'Content-Type': ctype,
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, max-age=3600'
+    };
+    if (objSize !== null) okHeaders['Content-Length'] = String(objSize);
+    return new Response(bodyStream || pdfBuffer, { status: 200, headers: okHeaders });
   } catch (err) {
     console.error('PDF download error:', err);
     return new Response(JSON.stringify({ error: 'Download failed' }), {

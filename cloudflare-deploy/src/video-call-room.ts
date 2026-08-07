@@ -71,6 +71,11 @@ export class VideoCallRoom {
   private static readonly LOCK_KEYS: Record<string, 'bgLock' | 'micLock' | 'focusLock' | 'drawLock'> =
     { 'bg-lock': 'bgLock', 'mic-lock': 'micLock', 'focus-lock': 'focusLock', 'pdf-drawlock': 'drawLock' };
 
+  /** 🖍 (2026-08-08) 칠판 획 — 늦게 들어온 사람에게 지금까지의 판서를 돌려주기 위한 메모리 버퍼.
+   *  storage 에 넣지 않는다(수업이 끝나면 값어치 없음 · 수천 개까지 늘어남). 상한을 넘으면 오래된 것부터 버린다. */
+  private wbOps: { t: string; d: any }[] = [];
+  private static readonly WB_OPS_MAX = 4000;
+
   // 🔁 (2026-07-24) 무중단 재연결 스위치. wrangler.toml 의 VC_STICKY_UID='on' 일 때만 켜진다.
   //   기본값은 꺼짐 → 아래 인계 로직을 전부 건너뛰고 예전과 100% 동일하게 동작한다.
   //   서버 변수 하나로 클라 재배포 없이 즉시 원복 가능(문제 시 'off' 로 바꾸고 재배포).
@@ -180,7 +185,14 @@ export class VideoCallRoom {
                                      //   이게 없으면 수신측은 '상대가 껐다' 와 '회선이 나빠 영상만 죽었다' 를
                                      //   구분할 수 없어, 자가복구 워치독이 정상 상태를 장애로 오인해
                                      //   6초마다 연결을 다시 맺으며 화면을 깜빡이게 만든다.
-          if (this.isJoined(userId)) this.broadcast(userId, { type: msg.type, data: msg.data });
+          if (!this.isJoined(userId)) break;
+          /* 🖍 (2026-08-08) 칠판에 «남는» 3종만 기록한다 — 늦게 들어온 사람에게 되돌려주기 위함.
+             포인터(whiteboard-pointer)·교재 판서(pdf-anno-*)는 여기 대상이 아니다:
+             포인터는 1.6초 뒤 사라지고, 교재 판서는 클라이언트가 페이지별로 따로 들고 있다. */
+          if (msg.type === 'whiteboard-text' || msg.type === 'whiteboard-shape' || msg.type === 'whiteboard-stroke') {
+            this.recordWb(msg.type, msg.data);
+          }
+          this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         case 'bg-lock':              // 🔒 강사 → 학생 수업 통제 잠금 4종 (공통 처리)
         case 'mic-lock':             //    🎤 전체 음소거
@@ -295,6 +307,7 @@ export class VideoCallRoom {
       this.pdfState = null;
       this.videoState = null;
       this.mediaAt = 0;
+      this.wbOps = [];   // 🖍 지난 수업 판서도 같은 기준으로 버린다(새로고침·순단은 여기 안 걸린다)
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
       void this.state.storage.delete('mediaAt');
@@ -319,6 +332,11 @@ export class VideoCallRoom {
       this.broadcast(effectiveUserId, { type: 'user-joined', data: { userId: effectiveUserId, username, role: role || 'student', userCount } });
     }
 
+    /* 🖍 (2026-08-08) 지금까지의 칠판 판서를 새 입장자에게 한 번에 돌려준다.
+       교재(pdf-sync)와 같은 자리·같은 이유다. 강사가 학생보다 늦게 들어오는 경우가 신고의 핵심. */
+    if (this.wbOps.length) {
+      this.send(effectiveUserId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
+    }
     if (this.pdfState) this.send(effectiveUserId, { type: 'pdf-sync', data: this.pdfState });
     // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
     if (this.videoState) this.send(effectiveUserId, { type: 'video-share', data: this.videoState });
@@ -426,12 +444,31 @@ export class VideoCallRoom {
 
   private handleWhiteboardDraw(userId: string, data: any): void {
     if (!this.isJoined(userId)) return;
+    this.recordWb('whiteboard-draw', data);
     this.broadcast(userId, { type: 'whiteboard-draw', data });
   }
 
   private handleWhiteboardClear(userId: string): void {
     if (!this.isJoined(userId)) return;
+    this.wbOps = [];
     this.broadcast(userId, { type: 'whiteboard-clear' });
+  }
+
+  /* 🖍 (2026-08-08 Ana③ · Kes① 「학생 펜이 강사 화면에 안 보인다」)
+   *  칠판은 «지금 연결된 사람에게만 중계» 였다 — 늦게 들어오거나 새로고침한 사람에게는
+   *  그때까지 그려진 것이 하나도 가지 않는다. 교재(pdfState)는 이미 이렇게 재전송하고 있는데
+   *  칠판만 빠져 있었다. 강사가 학생보다 늦게 들어오면(=신고 상황) 학생 판서가 통째로 안 보인다.
+   *  ⚠️ storage 에 넣지 않는다 — 획은 수천 개까지 늘어나고, 수업이 끝나면 값어치가 없다.
+   *     DO 가 잠들면 사라지는 것이 맞다(그때는 방도 비어 있다).
+   */
+  private recordWb(type: string, data: any): void {
+    try {
+      if (!data) return;
+      this.wbOps.push({ t: type, d: data });
+      if (this.wbOps.length > VideoCallRoom.WB_OPS_MAX) {
+        this.wbOps.splice(0, this.wbOps.length - VideoCallRoom.WB_OPS_MAX);
+      }
+    } catch {}
   }
 
   private async handlePdfShare(userId: string, data: any): Promise<void> {

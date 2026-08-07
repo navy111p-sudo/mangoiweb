@@ -60,11 +60,16 @@ console.log('\n[0] 역할 확정 — 로비 입장 강사도 강사로 인식되
   check('join-room 은 여전히 window.vcMyRole 을 실어 보낸다',
         /type:\s*'join-room'[\s\S]{0,160}window\.vcMyRole/.test(html));
 
-  /* 역할 판정 블록만 떼어내 진짜로 돌려 본다 */
-  const blk = slice(html, "if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {\n        var _ru =", '\n    } catch (_) {}');
+  /* 역할 판정 블록만 떼어내 진짜로 돌려 본다
+     🪤 (2026-08-08) 예전엔 여기서 «if (window.vcMyRole !== 'teacher' …)» 라는 **구현 모양**을
+        글자로 찾았다. 그런데 그 조건문 자체가 버그였다 — 한 번 강사였던 창은 계정이 바뀌어도
+        영영 강사로 남았다(Teacher Ana ① 「먼저 들어온 학생이 강사가 된다」).
+        고치자 이 하네스가 깨졌다. 검사를 «그 글자» 가 아니라 «규칙» 으로 다시 쓴다. */
+  const blk = slice(html, 'if (!window.__vcRoleFromUrl) {', '\n    } catch (_) {}');
   check('역할 판정 블록을 찾았다', blk.length > 100);
   if (blk.length > 100) {
-    const run = (accountRole, name) => {
+    const run = (accountRole, name, stored) => {
+      let storedRole = stored || '';
       const sandbox = { console: { warn(){}, log(){} } };
       sandbox.window = sandbox;
       sandbox.localStorage = { _d: {}, getItem(k){ return k in this._d ? this._d[k] : null; }, setItem(k, v){ this._d[k] = String(v); } };
@@ -72,6 +77,11 @@ console.log('\n[0] 역할 확정 — 로비 입장 강사도 강사로 인식되
       sandbox.MangoV3 = null;
       sandbox.vcUsername = name || '';
       sandbox.vcIsTeacherRole = function () { return /교사|강사|선생님|teacher|tutor/i.test(String(sandbox.vcUsername)); };
+      /* 🔴 (2026-08-08) 새 헬퍼의 스텁이 없으면 TypeError 가 바깥 try 에 먹혀,
+         «아무 일도 안 했는데» 판정이 undefined 로 나온다 — 헛통과/헛실패의 전형.
+         (vc_teacher_blackout 하네스에서 실제로 한 번 속았던 것과 같은 함정) */
+      sandbox.vcRoleStored = () => storedRole;
+      sandbox.vcRoleRemember = (r) => { storedRole = r; };
       vm.createContext(sandbox);
       vm.runInContext('try {\n' + blk + '\n} catch (_) {}', sandbox, { timeout: 2000 });
       return sandbox.window.vcMyRole;
@@ -86,6 +96,19 @@ console.log('\n[0] 역할 확정 — 로비 입장 강사도 강사로 인식되
     check('로그인한 학생은 이름이 뭐든 강사가 되지 않는다',
           run('student', 'Teacher Kaye') === 'student',
           '여기가 뚫리면 학생이 화살표로 반 전체 교재를 넘길 수 있다');
+
+    /* 🎭 (2026-08-08 Teacher Ana ①) 「강사보다 먼저 들어온 학생이 자동으로 강사가 된다」
+       공용 PC 에 남아 있던 남의 역할을 그대로 물려받던 경로. 실제 차단은 vcRoleStored 가
+       주인(uid)을 확인해 남의 것이면 '' 를 주는 것 — 여기서는 두 방향을 다 본다. */
+    check('계정이 학생이면 저장된 teacher 가 있어도 학생이다 (내림은 언제나 허용)',
+          run('student', 'mangoi_162', 'teacher') === 'student',
+          '여기가 뚫리면 학생이 서버 로스터에 «강사» 로 기록된다');
+    check('저장값이 걸러져 비면(주인 불일치) 학생으로 시작한다',
+          run('', 'mangoi_162', '') === 'student',
+          '모르면 낮은 쪽 — 올려서 틀리면 반 전체 교재가 넘어간다');
+    check('주인이 맞는 저장값은 그대로 쓴다 (계정 역할을 못 읽는 경로 보호)',
+          run('', 'Kaye', 'teacher') === 'teacher',
+          '이게 깨지면 마이페이지로 들어온 강사가 다시 학생이 된다');
   }
 
   check('입장 직후 강사 전용 칩을 다시 그린다',

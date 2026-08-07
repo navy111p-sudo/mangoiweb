@@ -3830,7 +3830,8 @@
       if (typeof window.vcIsTeacherRole === 'function' && window.vcIsTeacherRole()) return false;
       if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin' || window.vcMyRole === 'observer') return false;
       var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
-      var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
+      // 🎭 (2026-08-08) 저장된 역할은 주인(uid)이 맞을 때만 — 남의 'teacher' 가 남아 있으면 학생이 평가 모달을 못 본다
+      var role = (u && u.role) || (function(){ try { return window.vcRoleStored ? window.vcRoleStored() : localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
       if (role === 'teacher' || role === 'admin') return false;
       return true;
     } catch(e){ return false; }
@@ -3970,7 +3971,8 @@
       if (typeof window.vcIsTeacherRole === 'function' && window.vcIsTeacherRole()) return false;
       if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin' || window.vcMyRole === 'observer') return false;
       var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
-      var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
+      // 🎭 (2026-08-08) 저장된 역할은 주인(uid)이 맞을 때만 — 남의 'teacher' 가 남아 있으면 학생이 평가 모달을 못 본다
+      var role = (u && u.role) || (function(){ try { return window.vcRoleStored ? window.vcRoleStored() : localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
       if (role === 'teacher' || role === 'admin') return false;
       return true;
     } catch(e){ return false; }
@@ -4425,7 +4427,8 @@
       if (typeof window.vcIsTeacherRole === 'function' && window.vcIsTeacherRole()) return false;
       if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin' || window.vcMyRole === 'observer') return false;
       var u = (typeof getCurrentUser==='function') ? getCurrentUser() : null;
-      var role = (u && u.role) || (function(){ try { return localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
+      // 🎭 (2026-08-08) 저장된 역할은 주인(uid)이 맞을 때만 — 남의 'teacher' 가 남아 있으면 학생이 평가 모달을 못 본다
+      var role = (u && u.role) || (function(){ try { return window.vcRoleStored ? window.vcRoleStored() : localStorage.getItem('mangoi_user_role'); } catch(e){ return null; } })() || 'student';
       if (role === 'teacher' || role === 'admin') return false;
       return true;
     } catch(e){ return false; }
@@ -11355,6 +11358,45 @@ if (typeof _origShowView_vc === 'function') {
     }
   };
 }
+/* 🎭 (2026-08-08 강사 피드백 — Teacher Ana ①)
+   「강사보다 먼저 들어온 학생이 자동으로 강사 역할을 받는다」
+   ───────────────────────────────────────────────────────────────────────────────
+   [원인] 역할을 `localStorage['mangoi_user_role']` 에 **주인 없이** 저장하고 있었다.
+     한 번 강사가 들어간 브라우저에는 그 값이 영구히 남는다. 그 다음에 그 PC 로 들어온
+     사람은 — 학생이든 누구든 — 계정 역할을 못 읽는 순간(자동입장·소셜로그인 직후·
+     세션 만료) 그 낡은 'teacher' 를 자기 역할로 집어 든다.
+     서버(DO)는 클라이언트가 말한 role 을 그대로 믿으므로, 그 학생은 방 전체에 «강사» 로
+     기록된다 → 교재 넘기기·전체 음소거·필기 잠금까지 손에 쥔다.
+   [왜 «먼저 들어오면» 인가] 학원·가정의 공용 PC 에서 강사가 시연/점검하고 나간 뒤
+     학생이 먼저 들어오는 순서가 가장 흔했다. 순서가 원인이 아니라 «남아 있던 값» 이 원인이다.
+   [해결] 저장한 역할에 **주인(uid)** 을 함께 적는다. 지금 로그인한 사람과 주인이 다르면
+     그 값은 없는 것으로 본다. 로그인 자체가 없으면 예전처럼 쓴다(자동입장 경로 보호).
+   🔑 원칙: **역할은 «올리는» 쪽으로만 추측하지 않는다.** 계정이 학생이라고 말하면
+      과거 값이 무엇이든 학생이다(내림은 언제나 안전, 올림은 사고). */
+window.vcRoleRemember = function(role){
+    try {
+        if (!role) return;
+        localStorage.setItem('mangoi_user_role', role);
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        var uid = (u && (u.uid || u.id)) ? String(u.uid || u.id) : '';
+        if (uid) localStorage.setItem('mangoi_user_role_uid', uid);
+        else localStorage.removeItem('mangoi_user_role_uid');   // 주인 모름 = 다음 사람이 물려받지 않게
+    } catch (_) {}
+};
+/** 저장된 역할 — 지금 로그인한 사람의 것일 때만 돌려준다. 아니면 '' */
+window.vcRoleStored = function(){
+    try {
+        var v = localStorage.getItem('mangoi_user_role') || '';
+        if (!v) return '';
+        var owner = localStorage.getItem('mangoi_user_role_uid') || '';
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        var uid = (u && (u.uid || u.id)) ? String(u.uid || u.id) : '';
+        // 로그인 중인데 주인이 다르면(또는 주인이 안 적혀 있으면) 남의 역할이다 → 버린다
+        if (uid && owner !== uid) return '';
+        return v;
+    } catch (_) { return ''; }
+};
+
 // fix (2026-06-01) — 자동 입장 (관리자 '수업입장' iframe 임베드용)
 //   /?vc_autojoin=1&vc_room=mangoi-class&vc_name=교사 홍길동  → 로비 자동 채움 + 입장 시도
 (function vcAutoJoinFromParams(){
@@ -11369,9 +11411,12 @@ if (typeof _origShowView_vc === 'function') {
       var role = (sp.get('vc_role') || '').trim().toLowerCase();
       if (role === 'teacher' || role === 'admin' || role === 'student') {
         window.vcMyRole = role;
+        /* 🎭 URL 로 명시된 역할은 «확정» 이다 — vcJoinRoom 의 재판정이 이걸 뒤집지 않게 표시해 둔다.
+           이 화면(관리자 임베드)에는 계정 세션이 없을 수 있어, 다시 재면 학생으로 내려간다. */
+        window.__vcRoleFromUrl = true;
         // 🔒 역할 확정 직후 수업 통제 칩(전체 음소거/집중 모드) 노출 갱신 — 강사/관리자만 보임
         try { setTimeout(function(){ if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender(); }, 300); } catch(_){}
-        try { localStorage.setItem('mangoi_user_role', role); } catch(e){}
+        window.vcRoleRemember(role);   // 🎭 주인(uid)까지 함께 적는다 — 다음 사람이 물려받지 않게
       }
       (function tryJoin(attempt){
         if (typeof showView !== 'function') { if (attempt < 40) return setTimeout(function(){ tryJoin(attempt+1); }, 150); return; }
@@ -11451,7 +11496,7 @@ function vcEnterResolvedRoom(session, name, role) {
         window.vcMyRole = role;
         // 🔒 역할 확정 직후 수업 통제 칩(전체 음소거/집중 모드) 노출 갱신 — 강사/관리자만 보임
         try { setTimeout(function(){ if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender(); }, 300); } catch(_){}
-        try { localStorage.setItem('mangoi_user_role', role); } catch (e) {}
+        window.vcRoleRemember(role);   // 🎭 주인(uid)까지 함께 적는다
     }
     var ni = document.getElementById('vc-name-input');
     var ri = document.getElementById('vc-roomcode-input');
@@ -11740,19 +11785,33 @@ async function vcJoinRoom(skipUI) {
        ⚠️ 이름 휴리스틱(vcIsTeacherRole)은 «계정 역할이 아예 없을 때»만 쓴다 — 로그인한
           학생을 이름만 보고 강사로 올리면 교재를 반 전체에 넘겨버릴 수 있다. */
     try {
-      if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+      /* 🎭 (2026-08-08 Ana ①) 예전엔 `vcMyRole` 이 이미 'teacher' 면 **여기를 통째로 건너뛰었다.**
+         이 페이지는 SPA 라 로그아웃·계정 전환을 해도 그 전역이 그대로 남는다 → 한 번 강사였던
+         창에서는 누가 들어와도 영원히 강사였다. 계정이 «학생» 이라고 말하면 내려야 한다.
+         ⚠️ 관리자 임베드(?vc_role=teacher)만은 예외로 지킨다 — 그건 URL 로 명시된 확정 역할이고,
+            그 화면에는 계정 세션이 아예 없을 수 있다. */
+      if (!window.__vcRoleFromUrl) {
         var _ru = (window.getCurrentUser ? window.getCurrentUser() : null);
         var _rr = (_ru && _ru.role) || '';
-        if (!_rr) { try { _rr = localStorage.getItem('mangoi_user_role') || ''; } catch (_) {} }
+        var _hadAccount = !!_rr;                       // 계정이 역할을 «분명히» 말해 줬는가
+        // 🔒 주인(uid)이 맞을 때만 돌려준다. 함수가 아직 없으면(스크립트 순서) 저장값을 쓰지 않는다 —
+        //    여기서 예외가 나면 바깥 try 가 삼켜 «역할 판정 전체» 가 조용히 사라진다.
+        if (!_rr) { _rr = (typeof window.vcRoleStored === 'function') ? window.vcRoleStored() : ''; }
         if (!_rr) { try { _rr = (window.MangoV3 && MangoV3.user && MangoV3.user.role) || ''; } catch (_) {} }
         _rr = String(_rr).toLowerCase();
         /* 역할 표기가 경로마다 다르다 — 마이페이지는 'teacher', 홈 통합로그인 폴백은 'hq_teacher'.
            정확일치로 보면 hq_teacher 강사가 또 학생 취급을 받는다(2026-08-06 같은 함정). */
         if (/teacher|tutor/.test(_rr)) window.vcMyRole = 'teacher';
         else if (/^admin$|^hq$|^hq_admin$/.test(_rr)) window.vcMyRole = 'admin';
-        else if (!_rr && typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) window.vcMyRole = 'teacher';
         else if (_rr) window.vcMyRole = 'student';
-        if (window.vcMyRole) { try { localStorage.setItem('mangoi_user_role', window.vcMyRole); } catch (_) {} }
+        /* 🚫 이름 휴리스틱(«아이디에 teacher 가 들어있다»)으로 **올리는** 길을 닫는다.
+           로그인한 사람에게 쓰면 «Teacher_Kim 이라는 아이디의 학생» 이 반 전체 교재를 넘긴다.
+           로그인이 아예 없는 경우(관리자 임베드·데모)에만 예전처럼 백업으로 둔다. */
+        else if (!_ru && typeof vcIsTeacherRole === 'function' && vcIsTeacherRole()) window.vcMyRole = 'teacher';
+        else window.vcMyRole = 'student';              // 아무 근거도 없으면 «학생» — 모르면 낮은 쪽이 안전하다
+        if ((_hadAccount || window.vcMyRole === 'student') && typeof window.vcRoleRemember === 'function') {
+          window.vcRoleRemember(window.vcMyRole);
+        }
       }
     } catch (_) {}
     // 🎥 (2026-07-24) 권한 팝업을 입장보다 '먼저' 끝낸다 — 미디어 없는 SDP 고착 방지.
@@ -13101,6 +13160,26 @@ function vcHandleMessage(msg) {
         case 'whiteboard-stroke':
             wbReceiveStroke(msg.data);
             break;
+        /* 🖍 (2026-08-08 Ana③ · Kes①) 입장 시 서버가 돌려주는 «지금까지의 칠판».
+           예전엔 칠판이 «연결돼 있는 동안만» 중계돼, 강사가 학생보다 늦게 들어오면
+           학생이 그려 둔 것이 하나도 안 보였다. 교재(pdf-sync)와 같은 취급으로 맞춘다. */
+        case 'whiteboard-replay':
+            try {
+                var _ops = (msg.data && msg.data.ops) || [];
+                wbClearOps();
+                for (var _i = 0; _i < _ops.length; _i++) {
+                    var _o = _ops[_i]; if (!_o || !_o.d) continue;
+                    if (_o.t === 'whiteboard-draw')        wbRecord({ k: 'seg',    d: _o.d });
+                    else if (_o.t === 'whiteboard-stroke') wbRecord({ k: 'stroke', d: _o.d });
+                    else if (_o.t === 'whiteboard-shape')  wbRecord({ k: 'shape',  d: _o.d });
+                    else if (_o.t === 'whiteboard-text')   wbRecord({ k: 'text',   d: _o.d });
+                }
+                // 칠판 탭이 아직 안 열려 있으면 크기가 0 이라 지금 그릴 수 없다 —
+                // 기록만 남기고, 탭이 열리는 순간 wbFitCanvas → wbRedrawAll 이 그린다.
+                if (typeof wbFitCanvas === 'function') wbFitCanvas();
+                wbRedrawAll();
+            } catch(e){ console.warn('[wb-replay]', e); }
+            break;
 
         /* ✋ (2026-07-28 Kaye 9번) 교사의 '학생 필기 잠금' 신호 — 학생 쪽에 잠금 상태를 알린다.
            교사가 새로 들어온 학생에게도 알릴 수 있게, 잠금은 켤 때마다 방송한다. */
@@ -13462,6 +13541,49 @@ function vcApplyLowPower(pc) {
   });
   window.addEventListener('pagehide', function(){ if (active()) setVideo(false); });
   window.addEventListener('pageshow', function(){ if (active()) setVideo(true); });
+
+  /* 🧊 (2026-08-08 강사 피드백 — HT Ness ③ 「카메라가 갑자기 꺼지고 · 영상이 멈춘다」)
+     ─────────────────────────────────────────────────────────────────────────────
+     여태 «남는 한계» 로만 적어 두고 손대지 않았던 것을 여기서 끝낸다.
+     [원인] 가상배경을 켜면 송출 소스가 카메라가 아니라 **합성 캔버스**(captureStream)다.
+       그 캔버스는 requestAnimationFrame 으로 그려지는데, 브라우저는 창이 가려지면
+       rAF 를 멈춘다. 트랙은 살아 있으니 «꺼짐» 은 아니고 **마지막 프레임에서 얼어붙는다.**
+       강사는 수업 중 구글·교재·카톡을 끊임없이 오간다 → 학생 화면에서 «선생님이 멈췄다».
+       트랙이 살아 있으므로 어떤 워치독도 이걸 장애로 잡지 못한다(그래서 오래 남아 있었다).
+     [해결] 가려지는 동안만 **원본 카메라 트랙**으로 갈아끼운다. 카메라는 백그라운드에서도
+       프레임을 계속 낸다 → 배경만 잠깐 사라지고 얼굴은 계속 움직인다. 돌아오면 되돌린다.
+     ⚠️ 재협상(renegotiation)은 하지 않는다 — replaceTrack 뿐이라 연결이 끊기지 않는다.
+        (대역폭이 나쁜 상황에서 연결을 다시 맺는 것은 최악이다 — AAO 주석과 같은 이유)
+     ⚠️ 얼굴꾸미기(vcFx)가 켜져 있으면 손대지 않는다 — 최종 송신 소스가 fx 캔버스라
+        여기서 트랙을 바꾸면 vcFx 와 서로 sender 를 뺏는다. */
+  (function vcBgFreezeGuard(){
+    var swapped = false;
+    function bgLive(){
+      try { return !!(window.vcBg && vcBg.isProcessing && vcBg.originalVideoTrack
+                      && vcBg.processedStream && !(window.vcFx && window.vcFx.active)); } catch(_){ return false; }
+    }
+    function toRaw(){
+      if (swapped || !bgLive()) return;
+      var t = vcBg.originalVideoTrack;
+      if (!t || t.readyState !== 'live') return;
+      swapped = true;
+      try { vcSwapVideoTrack(t); } catch(_){ swapped = false; }
+    }
+    function toProcessed(){
+      if (!swapped) return;
+      swapped = false;
+      try {
+        var pt = vcBg.processedStream && vcBg.processedStream.getVideoTracks()[0];
+        if (pt) vcSwapVideoTrack(pt);
+        // rAF 가 멈춰 있던 동안 루프가 죽었을 수 있다 → 다시 돌린다(중복 호출은 rafId 로 막힌다)
+        if (vcBg.isProcessing && !vcBg.rafId && typeof vcBgRenderLoop === 'function') vcBgRenderLoop();
+      } catch(_){}
+    }
+    document.addEventListener('visibilitychange', function(){
+      if (!document.body.classList.contains('vc-in-call')) return;
+      if (document.hidden) toRaw(); else toProcessed();
+    });
+  })();
 })();
 
 /* 🔊 Opus 오디오 SDP 튜닝 — "소리가 잘 안 들려요" 대책.
@@ -13674,7 +13796,10 @@ function vcAAOApply() {
         A.active = true;
         try { if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_) {}
         try { if (window.vcBg && vcBg.isProcessing) { vcBg._aaoWas = true; vcBg.isProcessing = false; } } catch (_) {}
-        vcAAONotify('📶 인터넷이 약해 잠시 <b>음성만</b> 전송합니다 — 수업은 계속됩니다');
+        /* 🌐 (2026-08-08 Ness ③ 「카메라가 갑자기 꺼진다」) 강사 다수가 필리핀이다.
+           이 안내가 한국어뿐이라, 회선이 나빠 **일부러** 끈 것을 «고장» 으로 신고해 왔다.
+           한/영을 함께 적는다 — 라벨만 영어이고 내용이 한국어면 읽을 수 없다(사장님 지시). */
+        vcAAONotify('📶 <b>Your internet is weak — sending audio only for a moment.</b> The class continues; video returns automatically.<br>인터넷이 약해 잠시 <b>음성만</b> 전송합니다 — 수업은 계속되고, 회복되면 영상이 자동으로 돌아옵니다.');
         // 상대에게도 알린다. 안 알리면 상대 화면에서 '검은 영상 = 장애' 로 오인해 재협상이 돈다
         // (대역폭 위기 중에 연결을 다시 맺는 것은 최악의 선택이다).
         vcBroadcastCamState(false, 'aao');
@@ -13683,7 +13808,7 @@ function vcAAOApply() {
         A.active = false; A.sev = 0;
         try { if (vcCamOn !== false && window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = true; }); } catch (_) {}
         try { if (window.vcBg && vcBg._aaoWas) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._aaoWas = false; } } catch (_) {}
-        vcAAONotify('📶 연결이 회복되어 <b>영상을 다시 켭니다</b>');
+        vcAAONotify('📶 <b>Connection recovered — video is back on.</b><br>연결이 회복되어 <b>영상을 다시 켭니다</b>');
         vcBroadcastCamState(vcCamOn !== false, 'aao');   // 사용자가 따로 꺼 둔 상태면 그건 존중
         console.warn('[vc-aao] 영상 복구');
     }
@@ -14107,11 +14232,17 @@ function vcAddRemoteVideo(userId, username, stream) {
 function vcIsTeacherRole(){
     try {
         var r = '';
-        try { var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null; if (u && u.role) r = u.role; } catch(e){}
-        if (!r) { try { r = localStorage.getItem('mangoi_user_role') || ''; } catch(e){} }
+        var _u0 = null;
+        try { _u0 = (typeof getCurrentUser === 'function') ? getCurrentUser() : null; if (_u0 && _u0.role) r = _u0.role; } catch(e){}
+        // 🎭 (2026-08-08 Ana ①) 저장된 역할은 «주인이 맞을 때만» 쓴다 — 공용 PC 에 남은 강사 역할이
+        //    다음 학생에게 넘어가던 경로. 자세한 이유는 vcRoleStored 주석 참고.
+        if (!r) { try { r = window.vcRoleStored ? window.vcRoleStored() : ''; } catch(e){} }
         if (!r) { try { if (window.MangoV3 && window.MangoV3.user && window.MangoV3.user.role) r = window.MangoV3.user.role; } catch(e){} }
         if (!r) r = window.vcMyRole || '';
         if (r === 'teacher' || r === 'admin') return true;
+        /* 🚫 이름 휴리스틱은 «로그인이 아예 없을 때» 만. 로그인한 사람에게 쓰면
+           아이디에 teacher 가 들어간 학생이 강사 권한을 갖는다(반 전체 교재를 넘길 수 있다). */
+        if (_u0) return false;
         // 로그인 없이 자동입장한 경우: 이름에 교사/강사/선생님/teacher 등이 있으면 강사로 간주
         var name = ((typeof vcUsername !== 'undefined' && vcUsername) || '') + '';
         if (/교사|강사|선생님|teacher|tutor/i.test(name)) return true;
@@ -15136,7 +15267,8 @@ async function vcLeaveRoom() {
     //    세션이 없거나(401)·네트워크 오류면 기존 교사 판정을 그대로 따른다(실교사 카드 보장).
     try {
         var _fbRole = '';
-        try { _fbRole = (window.vcMyRole || localStorage.getItem('mangoi_user_role') || '') + ''; } catch(_){}
+        // 🎭 (2026-08-08) 저장된 역할은 주인(uid) 확인을 거친 값만 쓴다
+        try { _fbRole = (window.vcMyRole || (window.vcRoleStored ? window.vcRoleStored() : '') || '') + ''; } catch(_){}
         var _isTeacher = (typeof vcIsTeacherRole === 'function') ? vcIsTeacherRole()
             : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
         if (_fbRole === 'admin') _isTeacher = false;   // 메인사이트 admin 역할도 코칭 대상 아님
@@ -18558,14 +18690,112 @@ function wbReceivePointer(d) {
     _wbPtrTimers[key] = setTimeout(function(){ var n = document.getElementById(key); if (n) n.remove(); }, 1600);
 }
 
+/* 🖍 (2026-08-08 강사 피드백 — Ana③ · Kes① 「학생 펜이 강사 화면에 안 보인다」)
+   ─────────────────────────────────────────────────────────────────────────────
+   [진짜 원인] 칠판은 «즉시 그리기» 캔버스라 **획 기록이 하나도 없었다**.
+     교재(pdf-anno)는 pdfAnnotations[page] 에 획을 쌓아 두고 다시 그리는데,
+     칠판은 받은 선을 캔버스에 칠하고 끝이었다. 그래서 캔버스가 한 번이라도
+     리셋되면 학생이 그린 것이 **통째로** 사라졌다. 리셋되는 길이 세 갈래였다:
+       ① `wbResize()` 가 window resize 마다 `canvas.width = ...` 를 **무조건** 대입.
+          HTML 규격상 **같은 값을 넣어도 캔버스는 지워진다.** 수업은 입장 시
+          자동 전체화면(vcGoFullscreen)에 들어가는데, 전체화면 진입·해제는 둘 다
+          resize 를 쏜다 → 그 순간 판서가 백지가 된다.
+       ② 칠판 탭이 숨어 있으면 `wrap.clientWidth === 0` → 버퍼가 0×0 이 된다.
+          강사가 교재 탭에 있는 동안 학생이 그리면, 돌아왔을 때 아무것도 없다.
+       ③ 강사가 칠판을 한 번도 안 열었으면 캔버스는 기본 300×150 이다.
+          학생의 정규화 좌표(0~1)가 그 작은 버퍼에 그려지고, 나중에 탭을 열어
+          크기가 맞춰지는 순간 `putImageData` 는 **확대하지 않으므로**
+          학생 글씨가 왼쪽 위 구석에 1/3 크기로 뭉쳐 있었다.
+   [해결] 획을 정규화 좌표로 기록하고, 크기가 바뀔 때마다 **다시 그린다.**
+     교재 쪽과 같은 구조가 되어 리사이즈·탭 전환·전체화면 어디서도 안 지워진다.
+   ⚠️ 기록은 «화면에 실제로 칠한 것» 과 1:1 이어야 한다 — 보내는 쪽·받는 쪽
+      양쪽에서 같은 자리(그리는 지점)에 남긴다. 한쪽만 남기면 다시 그릴 때 어긋난다. */
+window.wbOps = window.wbOps || [];
+const WB_OPS_MAX = 40000;          // 90분 수업 실사용 한도. 넘으면 오래된 것부터 버린다(백지보다 낫다)
+function wbRecord(op) {
+    try {
+        window.wbOps.push(op);
+        if (window.wbOps.length > WB_OPS_MAX) window.wbOps.splice(0, window.wbOps.length - WB_OPS_MAX);
+    } catch (_) {}
+}
+function wbClearOps() { try { window.wbOps.length = 0; } catch (_) { window.wbOps = []; } }
+/** 기록된 획 한 개를 지금 캔버스 크기에 맞춰 그린다 */
+function wbDrawOp(ctx, W, H, op) {
+    if (!op) return;
+    if (op.k === 'seg')    { wbPaintSeg(ctx, W, H, op.d); return; }
+    if (op.k === 'stroke') { wbPaintStroke(ctx, W, H, op.d); return; }
+    if (op.k === 'shape')  { try { wbRenderShape(ctx, op.d.shape, W, H, op.d.color || '#000', op.d.size || 3); } catch (_) {} return; }
+    if (op.k === 'text')   { wbPaintText(ctx, W, H, op.d); return; }
+}
+/** 기록 전체를 다시 그린다 — 크기가 바뀌어도 비율이 유지된다 */
+function wbRedrawAll() {
+    const canvas = document.getElementById('wb-canvas');
+    if (!canvas || !canvas.width || !canvas.height) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const ops = window.wbOps || [];
+    for (let i = 0; i < ops.length; i++) wbDrawOp(ctx, canvas.width, canvas.height, ops[i]);
+}
+window.wbRedrawAll = wbRedrawAll;
+
+/* ── 실제 칠하기(순수 함수) — 수신·재그리기 양쪽이 같은 코드를 쓴다 ── */
+function wbPaintSeg(ctx, W, H, data) {
+    if (!data) return;
+    const fx = data.fromX * W, fy = data.fromY * H;
+    const tx = data.toX * W,   ty = data.toY * H;
+    ctx.beginPath();
+    ctx.strokeStyle = data.tool === 'eraser' ? '#ffffff' : data.color;
+    ctx.lineWidth = data.tool === 'eraser' ? data.size * 3 : data.size;
+    ctx.lineCap = 'round';
+    if (data.tool === 'pen' || data.tool === 'eraser' || data.tool === 'line') {
+        ctx.moveTo(fx, fy); ctx.lineTo(tx, ty);
+    } else if (data.tool === 'rect') {
+        ctx.rect(fx, fy, tx - fx, ty - fy);
+    } else if (data.tool === 'circle') {
+        const rx = Math.abs(tx - fx) / 2, ry = Math.abs(ty - fy) / 2;
+        ctx.ellipse(fx + (tx - fx) / 2, fy + (ty - fy) / 2, rx, ry, 0, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+}
+function wbPaintStroke(ctx, W, H, data) {
+    if (!data || !data.points) return;
+    ctx.save();
+    ctx.strokeStyle = data.color || '#000'; ctx.lineWidth = data.size || 3;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    data.points.forEach((p, i) => { const x = p[0] * W, y = p[1] * H; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    ctx.stroke();
+    ctx.restore();
+}
+function wbPaintText(ctx, W, H, data) {
+    if (!data || !data.text) return;
+    /* 글자 크기도 캔버스 높이에 대한 비율로 기록해 둔다(rel). 옛 메시지엔 rel 이 없으므로
+       그때는 예전처럼 px 를 그대로 쓴다 — 상대 버전이 낮아도 글자가 사라지지 않는다. */
+    const fontSize = data.rel ? Math.max(8, data.rel * H) : (data.fontSize || 24);
+    ctx.save();
+    ctx.font = '700 ' + fontSize + 'px MangoiHanSC,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+    ctx.fillStyle = data.color || '#000000';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(data.text, data.x * W, data.y * H);
+    ctx.restore();
+}
+
 function wbResize() {
     const canvas = document.getElementById('wb-canvas');
+    if (!canvas) return;
     const wrap = canvas.parentElement;
-    canvas.width = wrap.clientWidth;
-    canvas.height = wrap.clientHeight;
+    if (!wrap) return;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    // 🔴 탭이 숨어 있으면 0 이 온다. 0 을 대입하면 판서가 통째로 사라진다 → 그냥 두고 나중에 맞춘다.
+    if (!(w > 0 && h > 0)) return;
+    // 🔴 같은 값이라도 대입하면 캔버스가 지워진다(HTML 규격) → 실제로 달라졌을 때만 손댄다.
+    if (canvas.width === w && canvas.height === h) return;
+    canvas.width = w;
+    canvas.height = h;
     // AI 프리뷰 레이어도 같은 크기로
     const ai = document.getElementById('wb-ai-layer');
-    if (ai) { ai.width = wrap.clientWidth; ai.height = wrap.clientHeight; }
+    if (ai) { ai.width = w; ai.height = h; }
+    wbRedrawAll();   // 지워진 자리에 기록을 새 크기로 다시 그린다
 }
 
 function wbInit() {
@@ -18579,15 +18809,25 @@ function wbInit() {
         const wrap = canvas.parentElement; if (!wrap) return;
         const w = wrap.clientWidth, h = wrap.clientHeight;
         if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
-            let snap = null;
-            try { if (canvas.width > 0 && canvas.height > 0) snap = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch (_) {}
             canvas.width = w; canvas.height = h;
             const ai = document.getElementById('wb-ai-layer'); if (ai) { ai.width = w; ai.height = h; }
-            if (snap) { try { ctx.putImageData(snap, 0, 0); } catch (_) {} }
+            /* 🖍 (2026-08-08) 예전엔 putImageData 로 픽셀을 그대로 옮겼다. 그런데 putImageData 는
+               **확대·축소를 하지 않는다** — 300×150(칠판을 한 번도 안 연 상태) 에서 900×600 으로
+               커지는 순간 학생 글씨가 왼쪽 위 구석에 작게 뭉쳤다. 정규화 기록으로 다시 그리면
+               크기가 어떻게 바뀌어도 같은 자리·같은 비율로 살아난다. */
+            wbRedrawAll();
         }
     }
+    window.wbFitCanvas = wbFitCanvas;
     try { new ResizeObserver(() => wbFitCanvas()).observe(canvas.parentElement); } catch (_) {}
     wbFitCanvas();
+    /* 🖍 칠판 탭이 뒤늦게 보이게 될 때(교재 ↔ 칠판 전환) 크기를 맞추고 다시 그린다.
+       숨어 있는 동안 도착한 학생 획이 «보이는 순간» 화면에 나타나야 한다. */
+    try {
+        var _wbTabHost = document.getElementById('tab-whiteboard') || canvas.parentElement;
+        new MutationObserver(function(){ setTimeout(function(){ wbFitCanvas(); wbRedrawAll(); }, 30); })
+            .observe(_wbTabHost, { attributes: true, attributeFilter: ['class', 'style'] });
+    } catch (_) {}
 
     /* 🔴 (2026-07-31 강사 요청) 칠판 레이저 포인터 ───────────────────────────────
        칠판엔 잉크를 남기지 않고 위치만 상대 화면에 점으로 보낸다.
@@ -18665,6 +18905,11 @@ function wbInit() {
                 const txt = inp.value.trim();
                 inp.remove();
                 if (!txt) return;
+                // 🖍 글자 크기도 «캔버스 높이에 대한 비율»(rel)을 함께 실어 보낸다 —
+                //    px 만 보내면 화면 크기가 다른 상대(휴대폰)에서 글자만 엉뚱하게 크거나 작다.
+                const _txtData = { text: txt, x: cx / canvas.width, y: cy / canvas.height, color, fontSize,
+                                   rel: canvas.height ? (fontSize / canvas.height) : 0 };
+                wbRecord({ k: 'text', d: _txtData });
                 ctx.save();
                 ctx.font = '700 ' + fontSize + 'px MangoiHanSC,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif';
                 ctx.fillStyle = color;
@@ -18673,12 +18918,7 @@ function wbInit() {
                 ctx.restore();
                 // 공유
                 if (vcConn) {
-                    try {
-                        vcConn.send({
-                            type: 'whiteboard-text',
-                            data: { text: txt, x: cx / canvas.width, y: cy / canvas.height, color, fontSize }
-                        });
-                    } catch(_){}
+                    try { vcConn.send({ type: 'whiteboard-text', data: _txtData }); } catch(_){}
                 }
             }
             inp.addEventListener('keydown', (ev) => {
@@ -18724,20 +18964,17 @@ function wbInit() {
             ctx.lineCap = 'round';
             ctx.stroke();
 
-            // 정규화된 좌표를 서버로 전송 (다른 참가자에게 공유)
-            if (vcConn) {
-                vcConn.send({
-                    type: 'whiteboard-draw',
-                    data: {
-                        tool: wbTool,
-                        fromX: wbLastX / canvas.width,
-                        fromY: wbLastY / canvas.height,
-                        toX: x / canvas.width,
-                        toY: y / canvas.height,
-                        color, size
-                    }
-                });
-            }
+            // 정규화된 좌표를 서버로 전송 (다른 참가자에게 공유) + 내 기록에도 남긴다
+            const _seg = {
+                tool: wbTool,
+                fromX: wbLastX / canvas.width,
+                fromY: wbLastY / canvas.height,
+                toX: x / canvas.width,
+                toY: y / canvas.height,
+                color, size
+            };
+            wbRecord({ k: 'seg', d: _seg });   // 🖍 내 획도 기록해야 리사이즈 후 남는다
+            if (vcConn) vcConn.send({ type: 'whiteboard-draw', data: _seg });
             wbLastX = x; wbLastY = y;
         } else if (wbSnapshot) {
             ctx.putImageData(wbSnapshot, 0, 0);
@@ -18765,20 +19002,21 @@ function wbInit() {
             wbDrawing = false; wbAiPoints = null; wbSnapshot = null;
             return;
         }
-        if (wbDrawing && ['line','rect','circle'].includes(wbTool) && vcConn) {
+        if (wbDrawing && ['line','rect','circle'].includes(wbTool)) {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            vcConn.send({
-                type: 'whiteboard-draw',
-                data: {
-                    tool: wbTool,
-                    fromX: wbLastX / canvas.width, fromY: wbLastY / canvas.height,
-                    toX: x / canvas.width, toY: y / canvas.height,
-                    color: document.getElementById('wb-color').value,
-                    size: parseInt(document.getElementById('wb-size').value)
-                }
-            });
+            const _fig = {
+                tool: wbTool,
+                fromX: wbLastX / canvas.width, fromY: wbLastY / canvas.height,
+                toX: x / canvas.width, toY: y / canvas.height,
+                color: document.getElementById('wb-color').value,
+                size: parseInt(document.getElementById('wb-size').value)
+            };
+            /* 🖍 도형은 미리보기(putImageData 스냅샷)로만 그려져 있어 «확정된 도형» 이 기록에 없었다.
+               기록에 남겨야 다시 그릴 때 살아난다. 스냅샷 방식이라 화면엔 이미 그려져 있다. */
+            wbRecord({ k: 'seg', d: _fig });
+            if (vcConn) vcConn.send({ type: 'whiteboard-draw', data: _fig });
         }
         wbDrawing = false;
         wbSnapshot = null;
@@ -18918,6 +19156,7 @@ function wbCommitRawStroke(){
   ctx.stroke();
   ctx.restore();
   const pn = wbAiPoints.map(p => [p[0] / canvas.width, p[1] / canvas.height]);
+  wbRecord({ k: 'stroke', d: { points: pn, color, size } });   // 🖍 리사이즈 후에도 남게
   if (vcConn) { try { vcConn.send({ type: 'whiteboard-stroke', data: { points: pn, color, size } }); } catch(_){} }
 }
 
@@ -18930,6 +19169,7 @@ function wbFinalizeAiStroke(){
   const shape = wbAiMode ? wbDetectShape(wbAiPoints, canvas.width, canvas.height) : null;
   if (shape) {
     wbRenderShape(ctx, shape, canvas.width, canvas.height, color, size);
+    wbRecord({ k: 'shape', d: { shape, color, size } });   // 🖍 리사이즈 후에도 남게
     if (vcConn) { try { vcConn.send({ type: 'whiteboard-shape', data: { shape, color, size } }); } catch(_){} }
     const names = { line:'직선', rect:'사각형', ellipse:'원', triangle:'삼각형', axes:'좌표축' };
     try { if (typeof showToast === 'function') showToast('✨ ' + (names[shape.t] || '도형') + '(으)로 정리했어요'); } catch(_){}
@@ -18977,6 +19217,7 @@ function wbCommitPendingAsInk(pending){
     s.points.forEach((p, i) => { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
     ctx.stroke();
     const pn = s.points.map(p => [p[0] / canvas.width, p[1] / canvas.height]);
+    wbRecord({ k: 'stroke', d: { points: pn, color: s.color, size: s.size } });   // 🖍 리사이즈 후에도 남게
     if (vcConn) { try { vcConn.send({ type: 'whiteboard-stroke', data: { points: pn, color: s.color, size: s.size } }); } catch(_){} }
   }
   ctx.restore();
@@ -19029,7 +19270,10 @@ async function wbRunOcr(){
     ctx.fillStyle = color; ctx.textBaseline = 'top';
     ctx.fillText(text, tx, ty);
     ctx.restore();
-    if (vcConn) { try { vcConn.send({ type:'whiteboard-text', data:{ text, x: tx/canvas.width, y: (ty+fontSize)/canvas.height, color, fontSize } }); } catch(_){} }
+    const _ocrData = { text, x: tx/canvas.width, y: (ty+fontSize)/canvas.height, color, fontSize,
+                       rel: canvas.height ? (fontSize / canvas.height) : 0 };
+    wbRecord({ k: 'text', d: _ocrData });   // 🖍 리사이즈 후에도 남게
+    if (vcConn) { try { vcConn.send({ type:'whiteboard-text', data:_ocrData }); } catch(_){} }
     try { if (typeof showToast === 'function') showToast('✍️ “' + text + '” 로 인식'); } catch(_){}
   } else {
     wbCommitPendingAsInk(pending);
@@ -19243,68 +19487,50 @@ function wbArrowHead(ctx, fx, fy, tx, ty, size){
   ctx.stroke();
 }
 
+/* 🖍 (2026-08-08) 수신 4종은 «칠하기 + 기록» 으로 통일한다.
+   기록이 없으면 캔버스가 한 번만 리셋돼도(전체화면·탭 전환·창 크기) 학생 획이 영영 사라진다.
+   칠하는 코드는 wbPaint* 하나만 쓴다 — 재그리기와 수신이 갈라지면 «다시 그리니 모양이 다른»
+   어긋남이 난다. 화면이 아직 0×0(칠판 탭이 숨음)이어도 **기록은 반드시 남긴다.** */
 // 상대가 정리한 도형 수신
 function wbReceiveShape(data){
+  if (!data || !data.shape) return;
+  wbRecord({ k: 'shape', d: data });
   const canvas = document.getElementById('wb-canvas');
-  if (!canvas || !data || !data.shape) return;
-  wbRenderShape(canvas.getContext('2d'), data.shape, canvas.width, canvas.height, data.color || '#000', data.size || 3);
+  if (!canvas || !canvas.width) return;
+  try { wbRenderShape(canvas.getContext('2d'), data.shape, canvas.width, canvas.height, data.color || '#000', data.size || 3); } catch(_){}
 }
 // 상대의 원본 자유선 수신
 function wbReceiveStroke(data){
+  if (!data || !data.points) return;
+  wbRecord({ k: 'stroke', d: data });
   const canvas = document.getElementById('wb-canvas');
-  if (!canvas || !data || !data.points) return;
-  const ctx = canvas.getContext('2d');
-  ctx.save();
-  ctx.strokeStyle = data.color || '#000'; ctx.lineWidth = data.size || 3;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.beginPath();
-  data.points.forEach((p, i) => { const x = p[0]*canvas.width, y = p[1]*canvas.height; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
-  ctx.stroke();
-  ctx.restore();
+  if (!canvas || !canvas.width) return;
+  wbPaintStroke(canvas.getContext('2d'), canvas.width, canvas.height, data);
 }
 
 /** 다른 참가자의 드로잉을 수신하여 그립니다 */
 function wbReceiveDraw(data) {
+    if (!data) return;
+    wbRecord({ k: 'seg', d: data });
     const canvas = document.getElementById('wb-canvas');
-    const ctx = canvas.getContext('2d');
-    const fx = data.fromX * canvas.width, fy = data.fromY * canvas.height;
-    const tx = data.toX * canvas.width, ty = data.toY * canvas.height;
-
-    ctx.beginPath();
-    ctx.strokeStyle = data.tool === 'eraser' ? '#ffffff' : data.color;
-    ctx.lineWidth = data.tool === 'eraser' ? data.size * 3 : data.size;
-    ctx.lineCap = 'round';
-
-    if (data.tool === 'pen' || data.tool === 'eraser') {
-        ctx.moveTo(fx, fy); ctx.lineTo(tx, ty);
-    } else if (data.tool === 'line') {
-        ctx.moveTo(fx, fy); ctx.lineTo(tx, ty);
-    } else if (data.tool === 'rect') {
-        ctx.rect(fx, fy, tx - fx, ty - fy);
-    } else if (data.tool === 'circle') {
-        const rx = Math.abs(tx - fx)/2, ry = Math.abs(ty - fy)/2;
-        ctx.ellipse(fx + (tx-fx)/2, fy + (ty-fy)/2, rx, ry, 0, 0, Math.PI*2);
-    }
-    ctx.stroke();
+    if (!canvas || !canvas.width) return;   // 칠판 탭이 아직 안 열림 → 기록만. 열리는 순간 다시 그려진다
+    wbPaintSeg(canvas.getContext('2d'), canvas.width, canvas.height, data);
 }
 
 function wbReceiveClear() {
+    wbClearOps();
     const canvas = document.getElementById('wb-canvas');
+    if (!canvas) return;
     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 
 /** 다른 참가자의 칠판 텍스트를 수신하여 그립니다 (송신만 있고 수신 누락이던 버그 수정) */
 function wbReceiveText(data) {
     if (!data || !data.text) return;
+    wbRecord({ k: 'text', d: data });
     const canvas = document.getElementById('wb-canvas');
-    const ctx = canvas.getContext('2d');
-    const fontSize = data.fontSize || 24;
-    ctx.save();
-    ctx.font = '700 ' + fontSize + 'px MangoiHanSC,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif';
-    ctx.fillStyle = data.color || '#000000';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText(data.text, data.x * canvas.width, data.y * canvas.height);
-    ctx.restore();
+    if (!canvas || !canvas.width) return;
+    wbPaintText(canvas.getContext('2d'), canvas.width, canvas.height, data);
 }
 
 function wbClear() {
@@ -19581,18 +19807,38 @@ async function pdfUpload(input) {
     // 페이지 순서 = 파일명 자연 정렬 ("1-2" 가 "1-10" 보다 앞. 사전순이면 1-10 이 먼저 와 버린다)
     okFiles.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' }));
 
-    const uploaded = [];
+    /* ⏱ (2026-08-08 강사 피드백 — Teacher Ana ② 「교재 업로드가 장수에 따라 오래 걸린다」)
+       [원인] 예전엔 `for … await` 로 **한 장씩 차례로** 올렸다. 그래서 걸리는 시간이 딱
+              «장수 × (왕복시간 + 전송시간)» 이었다 — 신고 문장 그대로다.
+              필리핀 회선은 왕복만 0.3~1초라, 20장이면 전송이 끝나도 왕복에서만 수십 초를 버린다.
+       [해결] 3장씩 겹쳐 올린다. 전송 대기 시간이 서로 가려져 왕복 비용이 1/3 로 줄어든다.
+       ⚠️ 3인 이유 — 더 늘리면 **강사의 업로드 대역을 다 먹어** 같은 회선을 쓰는 수업 영상이
+          끊긴다. 수업 중 업로드라는 점이 일반 파일 업로드와 다르다. 속도보다 수업이 우선이다.
+       ⚠️ 순서는 반드시 지킨다 — 결과를 «완료 순서» 로 담으면 교재 장 순서가 뒤섞인다.
+          인덱스 자리에 넣고 마지막에 빈 자리를 걷어낸다(파일명 자연정렬은 위에서 끝났다). */
+    const UPLOAD_PARALLEL = 3;
+    const slots = new Array(okFiles.length).fill(null);
     const failed = [];
-    for (let i = 0; i < okFiles.length; i++) {
-        const f = okFiles[i];
-        if (okFiles.length > 1) _pdfToast('📤 업로드 중 ' + (i + 1) + '/' + okFiles.length + ' — ' + (f.name || ''));
-        try {
-            uploaded.push(await pdfUploadOne(f));
-        } catch (e) {
-            console.error('업로드 실패:', f.name, e);
-            failed.push((f.name || '') + ' (' + (e && e.message || e) + ')');
+    let _next = 0, _done = 0;
+    async function _uploadWorker() {
+        while (true) {
+            const i = _next++;
+            if (i >= okFiles.length) return;
+            const f = okFiles[i];
+            try {
+                slots[i] = await pdfUploadOne(f);
+            } catch (e) {
+                console.error('업로드 실패:', f.name, e);
+                failed.push((f.name || '') + ' (' + (e && e.message || e) + ')');
+            }
+            _done++;
+            if (okFiles.length > 1) _pdfToast('📤 업로드 중 ' + _done + '/' + okFiles.length + ' — ' + (f.name || ''));
         }
     }
+    await Promise.all(
+        Array.from({ length: Math.min(UPLOAD_PARALLEL, okFiles.length) }, _uploadWorker)
+    );
+    const uploaded = slots.filter(Boolean);
 
     if (!uploaded.length) {
         alert('업로드에 실패했습니다:\n' + failed.join('\n'));
@@ -19704,7 +19950,19 @@ async function pdfLoad(url, kind) {
     } else {
         /* workerSrc 는 로드 시점(자체 서버 우선)에 이미 설정됨 — 비어 있을 때만 보강 */
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
-        pdfDoc = await pdfjsLib.getDocument(url).promise;
+        /* ⏱ (2026-08-08 강사 피드백 — Belle ① 「수업을 열 때 로딩이 지연된다」)
+           pdf.js 의 기본값은 «열자마자 파일 전체를 내려받기»(disableAutoFetch:false) 다.
+           34과짜리 교재는 수십 MB 라, 필리핀 회선에서는 **1페이지를 보기까지 전체 전송을 기다린다.**
+           → 스트리밍 + 필요한 조각만(Range) 받게 바꾼다. 첫 페이지가 눈에 띄게 빨리 뜬다.
+           ⚠️ 서버가 Range 를 못 받아 주면 pdf.js 가 알아서 통짜 다운로드로 되돌아간다 — 안전한 변경이다.
+           ⚠️ disableAutoFetch 를 켜면 «뒤 페이지로 훌쩍 뛸 때» 그 조각을 그때 받는다.
+              그래서 아래 pdfRender 에서 **다음 페이지를 미리 받아 둔다**(체감 지연 제거). */
+        pdfDoc = await pdfjsLib.getDocument({
+            url: url,
+            rangeChunkSize: 131072,     // 128KB — 조각이 너무 작으면 왕복이 늘어 오히려 느리다
+            disableAutoFetch: true,
+            disableStream: false
+        }).promise;
     }
     /* 📝 (2026-07-21) 새 교재를 열면 이전 교재의 필기를 비운다 — 교사 피드백
        원인: pdfAnnotations 는 {페이지번호: 획들} 로만 저장된다. 교재가 '이미지 여러 장'
@@ -19861,6 +20119,18 @@ async function _pdfRenderInner(_seq) {
     }
     document.getElementById('pdf-page-info').textContent = info;
     document.getElementById('pdf-zoom-info').textContent = Math.round(pdfZoom * 100) + '%';
+
+    /* ⏱ (2026-08-08 Belle ① 「페이지를 넘길 때 로딩이 지연된다」)
+       다음 페이지를 **미리** 받아 둔다. pdf.js 는 한 번 받은 페이지를 캐시하므로
+       실제로 넘길 때는 화면에 그리는 일만 남는다 — 회선이 느릴수록 차이가 크다.
+       ⚠️ await 하지 않는다. 여기서 기다리면 «지금 페이지» 표시가 그만큼 늦어져 본말이 뒤집힌다.
+       ⚠️ 실패는 조용히 넘긴다 — 미리 받기는 «있으면 좋은 것» 이지 없으면 안 되는 것이 아니다. */
+    try {
+        const _ahead = pdfPagesPerView === 2 ? 2 : 1;
+        const _n = _pg + _ahead;
+        if (_n <= pdfDoc.numPages) pdfDoc.getPage(_n).catch(function(){});
+        if (pdfPagesPerView === 2 && _n + 1 <= pdfDoc.numPages) pdfDoc.getPage(_n + 1).catch(function(){});
+    } catch (_) {}
 }
 
 // 주석 캔버스를 PDF 캔버스 크기에 맞추고 저장된 주석 다시 그림
@@ -20103,7 +20373,9 @@ function pdfNewStrokeId() {
 // 현재 사용자 식별(역할/이름/색)
 function pdfMyIdentity() {
     var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-    var role = (u && u.role) || localStorage.getItem('mangoi_user_role') || 'student';
+    /* 🎭 (2026-08-08 Ana ①) 여기서 낡은 'teacher' 를 집으면 **학생 펜이 강사와 같은 빨강** 이 된다.
+       "학생이 그린 게 안 보인다" 는 신고에는 «구분이 안 된다» 도 섞여 있다 → 주인 확인을 거친다. */
+    var role = (u && u.role) || (window.vcRoleStored ? window.vcRoleStored() : '') || 'student';
     var name = vcUsername || (u && u.name) || '참가자';
     var color = (role === 'teacher' || role === 'admin') ? '#ef4444' : '#2563eb';
     return { role: role, name: name, color: color };
@@ -26962,6 +27234,12 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function ph64Enhance(){
+    /* 🩹 (2026-08-08 Ness ② · Belle ② 「화면이 깜빡여 버튼을 누르기 어렵다」)
+       이 폴러는 홈 화면의 «수업 연기·변경» 모달 전용이다. 수업 중에는 그 모달이 존재할 수 없는데도
+       0.5~0.7초마다 1.6MB DOM 을 훑고 getComputedStyle 을 불러 스타일 재계산을 강제했다.
+       화상수업은 디코딩·합성으로 이미 메인 스레드가 빠듯해, 이런 폴러들이 겹치면 프레임이 밀려
+       «깜빡임 + 클릭이 빗나감» 으로 보인다. 수업 중에는 그냥 쉰다. */
+    try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(_){}
     var modal = ph64FindModal();
     if (!modal) return;
 
@@ -27214,6 +27492,12 @@ window.addEventListener('DOMContentLoaded', () => {
   'use strict';
   /* 캘린더 컴포넌트 강제 reflow — 끌어당겨 모드 진입 시 */
   function ph67ForceReflow(){
+    /* 🩹 (2026-08-08 Ness ② · Belle ② 「화면이 깜빡여 버튼을 누르기 어렵다」)
+       이 폴러는 홈 화면의 «수업 연기·변경» 모달 전용이다. 수업 중에는 그 모달이 존재할 수 없는데도
+       0.5~0.7초마다 1.6MB DOM 을 훑고 getComputedStyle 을 불러 스타일 재계산을 강제했다.
+       화상수업은 디코딩·합성으로 이미 메인 스레드가 빠듯해, 이런 폴러들이 겹치면 프레임이 밀려
+       «깜빡임 + 클릭이 빗나감» 으로 보인다. 수업 중에는 그냥 쉰다. */
+    try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(_){}
     document.querySelectorAll('.lc-modal.ph64-mode-drag:not([data-ph67="1"])').forEach(function(modal){
       modal.dataset.ph67 = '1';
       setTimeout(function(){
@@ -27245,6 +27529,12 @@ window.addEventListener('DOMContentLoaded', () => {
   'use strict';
   /* 모달 헤더에서 "연기" 또는 "변경" 감지하여 ph64 카드 텍스트 동적 변경 */
   function ph68SyncVerb(){
+    /* 🩹 (2026-08-08 Ness ② · Belle ② 「화면이 깜빡여 버튼을 누르기 어렵다」)
+       이 폴러는 홈 화면의 «수업 연기·변경» 모달 전용이다. 수업 중에는 그 모달이 존재할 수 없는데도
+       0.5~0.7초마다 1.6MB DOM 을 훑고 getComputedStyle 을 불러 스타일 재계산을 강제했다.
+       화상수업은 디코딩·합성으로 이미 메인 스레드가 빠듯해, 이런 폴러들이 겹치면 프레임이 밀려
+       «깜빡임 + 클릭이 빗나감» 으로 보인다. 수업 중에는 그냥 쉰다. */
+    try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(_){}
     var modal = document.querySelector('.lc-modal[data-ph64="1"]');
     if (!modal) return;
     var head = modal.querySelector('.lc-head, .lc-modal h2, [class*="title"]');
@@ -27318,6 +27608,12 @@ window.addEventListener('DOMContentLoaded', () => {
   'use strict';
 
   function ph69EnhanceModal(){
+    /* 🩹 (2026-08-08 Ness ② · Belle ② 「화면이 깜빡여 버튼을 누르기 어렵다」)
+       이 폴러는 홈 화면의 «수업 연기·변경» 모달 전용이다. 수업 중에는 그 모달이 존재할 수 없는데도
+       0.5~0.7초마다 1.6MB DOM 을 훑고 getComputedStyle 을 불러 스타일 재계산을 강제했다.
+       화상수업은 디코딩·합성으로 이미 메인 스레드가 빠듯해, 이런 폴러들이 겹치면 프레임이 밀려
+       «깜빡임 + 클릭이 빗나감» 으로 보인다. 수업 중에는 그냥 쉰다. */
+    try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(_){}
     var modal = document.querySelector('.lc-modal:not([data-ph69="1"])');
     if (!modal) return;
     // ph64 가 먼저 처리되어야 함
@@ -27654,7 +27950,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script src="/js/idx-x5.js?v=1"></script><!-- 분할추출:idx-x5 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x5.js?v=2"></script><!-- 분할추출:idx-x5 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 72 (2026-05-23) — 연기/변경 모달 톤 테마B (네이비+에메랄드) 적용 -->
 <style id="ph72-theme-b">
@@ -27786,7 +28082,11 @@ window.addEventListener('DOMContentLoaded', () => {
       window.openLessonChangeModal = wrapped;
     }
   }
-  function ph73Tick(){ ph73Hook(); ph73HookFunc(); }
+  function ph73Tick(){
+    // 🩹 (2026-08-08) 수업 중에는 쉰다 — 위 ph64/ph67 과 같은 이유(메인 스레드 경합 → 깜빡임)
+    try { if (document.body && document.body.classList.contains('vc-in-call')) return; } catch(_){}
+    ph73Hook(); ph73HookFunc();
+  }
   setInterval(ph73Tick, 500);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph73Tick);
   else ph73Tick();
@@ -30612,8 +30912,8 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      · mango-i18n.js (다국어)
      ============================================================ -->
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
-<script src="/js/vc-spotlight.js?v=2" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
-<script src="/js/vc-dock.js?v=15" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
+<script src="/js/vc-spotlight.js?v=3" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
+<script src="/js/vc-dock.js?v=16" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=35" defer></script>
 <script src="/js/mango-rec.js?v=46" defer></script>
 <script src="/js/mango-class-time.js?v=12" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
@@ -32239,6 +32539,9 @@ window.vcAutoLoadStudentTextbook = async function(){
     // 지난 수업의 잔상으로 대기 카드가 안 뜨는 일이 없게, 표시 상태를 입장 시 한 번 비운다.
     //   (vcStartPdfPoll 이 _vcShownPdf* 를 비우는 것과 같은 이유 — _vcCurrentPdfUrl 은 그동안 안 비웠다)
     try { window._vcCurrentPdfUrl = ''; window._vcCurrentPdfKind = ''; } catch(e){}
+    /* 🖍 (2026-08-08) 칠판 획 기록도 새 수업에서 비운다 — 기록이 생기면서 «지난 수업 판서가
+       다음 수업 첫 화면에 남는» 새 경로가 열렸다. 교재(_vcCurrentPdfUrl)와 같은 자리에서 비운다. */
+    try { if (typeof wbReceiveClear === 'function') wbReceiveClear(); } catch(e){}
     // 첫 화면은 교재 탭. 교재는 강사 공유(pdf-sync / room-media 폴링)로만 채워진다.
     try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){}
     window.vcWaitCardSync();

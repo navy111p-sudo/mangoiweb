@@ -10,13 +10,20 @@
   try {
     window.vcPeerRoles = window.vcPeerRoles || {};
 
-    // 내 역할: 로그인 사용자 정보 → 없으면 student
+    /* 🎭 (2026-08-08 강사 피드백 Teacher Ana ①) 「먼저 들어온 학생이 강사가 된다」의 **출발점**.
+       이 파일은 페이지가 뜨자마자 `window.vcMyRole` 을 **덮어썼다.** 그것도
+       주인 없는 localStorage 값으로. 공용 PC 에 강사가 한 번 들어갔다 나가면 그 값이 남고,
+       다음에 들어온 학생은 로그인 확인을 하기도 전에 «강사» 가 된 채로 수업에 들어갔다
+       (그 상태로 join-room 이 나가면 서버 로스터에도 강사로 박힌다).
+       ① 주인(uid) 확인을 거친 값만 쓰고
+       ② 이미 정해진 역할이 있으면 **덮어쓰지 않는다** — 여기는 «없을 때 채우는» 자리다. */
     function myRole() {
-      try { var r = localStorage.getItem('mangoi_user_role'); if (r) return r; } catch (e) {}
+      try { if (typeof window.vcRoleStored === 'function') { var s = window.vcRoleStored(); if (s) return s; } }
+      catch (e) {}
       try { if (window.MangoV3 && window.MangoV3.user && window.MangoV3.user.role) return window.MangoV3.user.role; } catch (e) {}
       return 'student';
     }
-    window.vcMyRole = myRole();
+    if (!window.vcMyRole) window.vcMyRole = myRole();
 
     // 명시적 OFF 스위치 (기본은 ON)
     function disabled() {
