@@ -35,9 +35,27 @@ const TOSS_CLIENT_KEY_DEFAULT = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
    → 모양이 토스 키가 아니면 무시하고 테스트키로 폴백한다. 잘못된 키로 여는 것보다
      테스트 모드가 낫다(적어도 화면이 정직하게 「테스트 결제 모드」라고 말한다).
    ⚠️ 검증은 «모양»만 본다. 키가 유효한지는 토스만 안다 — 그건 confirm 단계에서 걸러진다. */
-function isTossKeyShaped(v: unknown, kind: 'ck' | 'sk'): boolean {
+/* ⚠️ (2026-08-07 재수정) 처음엔 `^(test|live)_(ck|sk)_[A-Za-z0-9]{10,}$` 로 좁게 막았는데,
+   그러면 토스가 실제로 발급하는 다른 형태(결제위젯 키 `live_gck_...`, 중간 세그먼트가 더 있는
+   `test_gck_docs_xxxx` 등)까지 «가짜»로 판정해 버린다. 그건 훨씬 나쁜 사고다 —
+   tossMode()='disabled' 는 /api/pay/confirm 과 웹훅을 503 으로 막아 **진짜 결제를 죽인다**.
+   그래서 판정을 뒤집는다: «토스 키의 목록»을 맞히려 하지 말고, **명백한 쓰레기만** 걸러낸다.
+     · 공백이 있으면 키가 아니다 (붙여넣기 사고의 전형 — 명령어·문장이 통째로 들어온 경우)
+     · test_ / live_ 로 시작하지 않으면 키가 아니다
+     · 너무 짧으면 키가 아니다
+   역할(ck/sk) 구분은 두 번째 세그먼트에 'ck'/'sk' 가 들어있는지로 본다(gck·gsk 도 걸린다). */
+function tossKeyRole(v: unknown): 'ck' | 'sk' | null {
   const s = String(v ?? '').trim();
-  return new RegExp(`^(?:test|live)_${kind}_[A-Za-z0-9]{10,}$`).test(s);
+  if (!s || /\s/.test(s) || s.length < 20) return null;
+  if (!/^(?:test|live)_/.test(s)) return null;
+  const seg = s.split('_')[1] || '';
+  if (!/^[A-Za-z0-9]+$/.test(seg)) return null;
+  if (seg.includes('sk')) return 'sk';
+  if (seg.includes('ck')) return 'ck';
+  return null;
+}
+function isTossKeyShaped(v: unknown, kind: 'ck' | 'sk'): boolean {
+  return tossKeyRole(v) === kind;
 }
 
 /** 실제로 쓸 클라이언트 키 — 모양이 어긋나면 테스트키로 폴백 */
@@ -98,10 +116,12 @@ async function ensurePayTable(env: any): Promise<void> {
 function tossMode(env: any): 'test' | 'live' | 'disabled' {
   const k = String(env.TOSS_SECRET_KEY || '').trim();
   if (!k) return 'disabled';
-  /* 🛡️ (2026-08-07) 모양이 시크릿키가 아니면 «있는 척» 하지 않는다.
-     엉뚱한 값이 들어와 있으면 confirm 이 전부 실패하는데, mode 만 'test'/'live' 로 보이면
-     화면은 «정상»이라 말하고 결제만 조용히 죽는다. disabled 로 두면 최소한 정직하다. */
-  if (!isTossKeyShaped(k, 'sk')) return 'disabled';
+  /* 🔴 (2026-08-07 재수정) 여기서 «모양»으로 disabled 를 만들지 않는다.
+     tossMode()==='disabled' 는 /api/pay/confirm 과 웹훅을 503 으로 막는다 = 진짜 결제가 죽는다.
+     내 추측이 틀렸을 때(토스가 내가 모르는 형태의 키를 발급했을 때) 그 대가가 너무 크다.
+     키가 진짜 틀렸는지는 **토스가 판단한다** — confirm 이 토스 에러로 실패하면 그때 드러난다.
+     여기서는 «값이 있는가»만 보고, 모양이 수상한 건 /api/pay/config 의 secret_key_invalid 로
+     «신고»만 한다(막지 않는다). 값이 아예 없을 때만 disabled. */
   return k.startsWith('live_') ? 'live' : 'test';
 }
 
