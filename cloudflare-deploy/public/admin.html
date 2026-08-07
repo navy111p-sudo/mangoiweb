@@ -5870,7 +5870,9 @@ window.__admSettleRun = function(fn){
           <div id="wl-table" style="overflow-x:auto"></div>
         </div>
       </details>
-      <script src="/js/adm-waitlist.js?v=3" defer></script><!-- 🪑 대기자 명단 -->
+      <!-- 🪑 대기자 명단 — 즉시로딩 태그가 여기 있었다. 아래 5949 줄에 «지연» 태그가
+           따로 또 있어서 같은 파일을 두 번 선언한 꼴이었고, 즉시로딩이 이기므로
+           지연 선언은 아무 일도 하지 않았다. (2026-08-08 정리) -->
 
     <!-- 🎨 외부는 진한 톤, 안의 통계/박스는 연한 흰빛 — 명도 반전 -->
     
@@ -5946,10 +5948,17 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 <script type="text/lazy-js" data-src="/js/adm-r7.js?v=1" data-card="card-inquiry-mgmt" data-globals="iqLoadStats,iqLoad,iqUpdateStatus,iqEditNotes,iqDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r7 -->
-<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=3" data-card="card-inquiry-mgmt" data-globals="addWaitlist,resolveWaitlist,loadWaitlist"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
+<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=3" data-card="card-inquiry-mgmt" data-globals="wlLoad,wlAdd,wlResolve,wlCancel"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규)
+     🪤 (2026-08-08) data-globals 에 적혀 있던 addWaitlist/resolveWaitlist/loadWaitlist 는
+        **이 파일에 없는 이름**이었다. 그래서 껍데기가 엉뚱한 곳에 깔리고, 실제 동작은
+        위쪽 즉시로딩 태그가 떠받치고 있었다. 진짜 이름(wl*)으로 바로잡고 즉시로딩을 없앴다.
+        → 이름을 고칠 때는 «window.X = » 로 실제 노출되는 이름을 확인할 것. -->
 
 <!-- 💰 Phase F2 — 미납 알림 JS 모듈 -->
-<script src="/js/adm-r8.js?v=1" defer></script><!-- 분할추출:adm-r8 -->
+<script type="text/lazy-js" data-src="/js/adm-r8.js?v=1" data-card="card-accounting-mgmt" data-globals="ovScan,ovNotifyAll,ovNotifyOne,ovLoadLog"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r8
+     (2026-08-08) 미납 관리 카드 전용임을 기계 검사로 확인하고 지연으로 돌렸다 —
+     이 파일이 만지는 요소 id 가 전부 card-accounting-mgmt 안에 있고,
+     노출 전역 4개가 그 카드 밖 어디에서도 안 불린다. -->
 
 <!-- 🐞 교사 버그/피드백 접수함 -->
 <details class="table-card menu-card" id="card-bug-reports">
