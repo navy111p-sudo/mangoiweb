@@ -13584,6 +13584,21 @@ function vcCreatePeer(userId, username) {
             vcRemoteStreams[userId] = stream;
         }
         vcAddRemoteVideo(userId, username, stream);
+        /* 🔊 (2026-08-08 마이마이 ④) 「처음 입장하면 학생이 소리가 안 들린다 — 조금 기다리니 들렸다」
+           [원인] 오디오 트랙이 도착하는 이 자리에서 «소리 살리기»(vcEnsureRemoteAudio)를
+                  **한 번도 부르지 않았다.** 원격 <video> 는 붙자마자 muted/paused 인 채라,
+                  3초마다 도는 오디오 워치독이 뒤늦게 살려낼 때까지 몇 초 동안 조용했다.
+                  「소리 켜기」 버튼이 안 뜬 것도 같은 이유 — 그건 «정책에 막혔을 때» 뜨는 것이지
+                  «아직 아무도 재생을 시도하지 않은» 상태에는 뜨지 않는다.
+           [수정] 트랙이 오는 그 순간 바로 살린다. 300ms 뒤 한 번 더 — <video> 에 srcObject 가
+                  붙는 타이밍이 기기마다 조금씩 달라, 첫 시도가 빈 엘리먼트를 만날 수 있다.
+           ⛔ 자동재생 정책에 막히는 경우까지 여기서 해결되지는 않는다(그건 사용자 터치가 필요).
+              그 경로는 기존 워치독·배너가 그대로 담당한다 — 여기서는 «막히지도 않았는데
+              그냥 조용했던» 몇 초를 없앤다. */
+        if (event.track && event.track.kind === 'audio') {
+            try { vcEnsureRemoteAudio(); } catch(_){}
+            setTimeout(function(){ try { vcEnsureRemoteAudio(); } catch(_){} }, 300);
+        }
         // 트랙이 늦게 도착(예: 비디오)해도 화면 갱신되도록 약간 뒤 한 번 더 시도
         // ⚠️ (2026-07-24) 예전엔 unmute 마다 vcAddRemoteVideo() 전체를 다시 돌렸다. 그런데 상대가
         //   마이크/카메라를 껐다 켤 때마다 unmute 가 뜨므로, 그때마다 타일 재부착·감시루프 재등록·
@@ -13592,6 +13607,8 @@ function vcCreatePeer(userId, username) {
         try {
             event.track.onunmute = function(){
                 try {
+                    // 🔊 (2026-08-08 ④) 상대가 마이크를 껐다 켠 경우도 같은 구멍이었다 — 여기서도 살린다.
+                    if (event.track.kind === 'audio') { try { vcEnsureRemoteAudio(); } catch(_){} }
                     var _box = document.getElementById('vc-video-' + userId);
                     var _v = _box && _box.querySelector('video');
                     if (_v && _v.srcObject) { var _p = _v.play(); if (_p && _p.catch) _p.catch(function(){}); return; }
@@ -25704,7 +25721,7 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=3"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=4"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
 <script>
@@ -32161,34 +32178,53 @@ window.vcAutoLoadStudentTextbook = async function(){
 /* 🎬 교재 → 예습/복습 동영상 자동 매칭·재생 (망고아이 수업방) */
 (function(){
   // 교재 id 로 매칭된 동영상을 받아와 동영상 탭(#vp-stage)에서 자동 재생
-  window.mangoiPlayLessonVideo = async function(bookId){
+  /* @param opts.autoOpen  true 면 동영상 탭으로 전환하고 바로 재생한다.
+       🔴 (2026-08-08 마이마이 ②) 「영상을 틀지 않았는데 교재를 열면 영상이 나오고 교재가 안 보인다」
+          예전엔 이 함수가 **무조건** vcSwitchTab('video') + 자동재생이었다. 교재를 고르는 쪽
+          (js/idx-x3.js selectFromTextbookLibrary)이 교재를 열면서 이걸 같이 불렀는데,
+          그쪽은 vcSwitchTab('pdf') 를 **먼저** 하고 이 함수는 fetch 뒤에 늦게 끝나므로
+          **항상 영상 탭이 이겼다.** 교재는 뒤에서 열려 있는데 화면엔 영상만 보였다.
+          → 기본값을 «준비만» 으로 바꾼다. 교재를 열면 교재가 보이고, 영상은 [동영상] 탭에
+            얌전히 대기한다. 자동 재생도 하지 않는다(수업 중에 소리가 튀어나오면 안 된다).
+          ⛔ 기능 자체는 지우지 않는다 — 예습/복습 영상은 일부러 붙인 것이다.
+       ⚡ 필리핀 회선을 고려해 대기 상태에서는 preload 도 하지 않는다(제품철학: 비용최소·경량). */
+  window.mangoiPlayLessonVideo = async function(bookId, opts){
     if(!bookId) return;
+    var autoOpen = !!(opts && opts.autoOpen);
     try{
       var qs = /^\d+$/.test(String(bookId)) ? ('id=' + encodeURIComponent(bookId)) : ('q=' + encodeURIComponent(bookId));
       var d = await (await fetch('/api/lesson-video?' + qs, { cache:'no-store' })).json();
       var st = document.getElementById('vp-stage');
       if(!st) return;
       if(!d || !d.success || !d.has_video) return; // 매칭 동영상 없으면 조용히 무시
-      try{ if(typeof vcSwitchTab==='function') vcSwitchTab('video'); }catch(_){}   // 동영상 탭으로 전환
+      if(autoOpen){ try{ if(typeof vcSwitchTab==='function') vcSwitchTab('video'); }catch(_){} }
       var t = (d.video_type==='review') ? '복습' : '예습';
       var label = '<div style="position:absolute;top:8px;left:8px;z-index:2;background:#2563eb;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px">'+t+' · '+(d.video_title||'')+'</div>';
+      var unBtn = autoOpen
+        ? '<button id="ml-un" style="position:absolute;bottom:70px;right:12px;z-index:2;padding:7px 14px;border:0;border-radius:8px;background:#f59e0b;color:#1f2937;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.45)">🔊 소리 켜기</button>'
+        : '';
       if(d.is_youtube && d.youtube_id){
-        // YouTube → iframe 임베드 (자동재생 + 음소거, 크롬 정책 통과). 🔊 클릭 시 mute=0 으로 재로드해 소리 켜짐
+        // YouTube → iframe 임베드. 자동열기일 때만 autoplay+mute(크롬 정책), 아니면 정지 상태로 대기.
+        var yq = autoOpen ? 'autoplay=1&mute=1' : 'autoplay=0';
         st.innerHTML = label +
-          '<iframe id="ml-frame" src="https://www.youtube.com/embed/'+d.youtube_id+'?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0;border-radius:8px;background:#000"></iframe>' +
-          '<button id="ml-un" style="position:absolute;bottom:70px;right:12px;z-index:2;padding:7px 14px;border:0;border-radius:8px;background:#f59e0b;color:#1f2937;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.45)">🔊 소리 켜기</button>';
+          '<iframe id="ml-frame" src="https://www.youtube.com/embed/'+d.youtube_id+'?'+yq+'&rel=0&playsinline=1&enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0;border-radius:8px;background:#000"></iframe>' + unBtn;
         var ubf = document.getElementById('ml-un');
         if(ubf) ubf.onclick = function(){ var f=document.getElementById('ml-frame'); if(f) f.src='https://www.youtube.com/embed/'+d.youtube_id+'?autoplay=1&mute=0&rel=0&playsinline=1&enablejsapi=1'; ubf.style.display='none'; };
       } else if(d.video_url){
         // 직접 동영상 파일(mp4 등) → <video>
         st.innerHTML = label +
-          '<video id="ml-vid" autoplay muted playsinline controls style="width:100%;height:100%;background:#000;border-radius:8px"></video>' +
-          '<button id="ml-un" style="position:absolute;bottom:70px;right:12px;z-index:2;padding:7px 14px;border:0;border-radius:8px;background:#f59e0b;color:#1f2937;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.45)">🔊 소리 켜기</button>';
+          '<video id="ml-vid" ' + (autoOpen ? 'autoplay muted' : 'preload="none"') + ' playsinline controls style="width:100%;height:100%;background:#000;border-radius:8px"></video>' + unBtn;
         var v = document.getElementById('ml-vid');
         v.src = d.video_url;
-        v.play().catch(function(){});   // muted 라 크롬 자동재생 통과
-        var ub = document.getElementById('ml-un');
-        if(ub) ub.onclick = function(){ v.muted=false; v.play(); ub.style.display='none'; };
+        if(autoOpen){
+          v.play().catch(function(){});   // muted 라 크롬 자동재생 통과
+          var ub = document.getElementById('ml-un');
+          if(ub) ub.onclick = function(){ v.muted=false; v.play(); ub.style.display='none'; };
+        }
+      }
+      // 교재를 여는 흐름에서는 «영상이 있다» 만 알린다. 화면은 교재가 그대로 지킨다.
+      if(!autoOpen){
+        try{ if(typeof showToast==='function') showToast('🎬 이 교재의 '+t+' 영상이 준비됐어요 — [동영상] 탭에서 볼 수 있어요'); }catch(_){}
       }
     }catch(e){ console.warn('[lesson-video]', e); }
   };
