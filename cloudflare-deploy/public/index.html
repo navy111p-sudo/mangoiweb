@@ -6185,11 +6185,14 @@ window.mgIsSlowNet = function(){
            d:'수업 입장부터 예습·복습, 평가 확인, 결제, 상담까지 하나의 앱과 홈페이지에서 끝납니다. A.I 검색으로 원하는 기능을 말 한마디로 바로 찾을 수 있습니다.',
            p:['여러 앱을 오갈 필요 없는 올인원 통합 플랫폼','A.I 음성·텍스트 검색으로 원하는 기능 즉시 이동','전체 메뉴 한눈에 보기'],
            cta:{l:'🏠 전체 메뉴 열기', go:function(){ closeAbout(); if(window.openAllMenuOverlay) window.openAllMenuOverlay(); }}},
-          {ic:'🎬', t:'즐겁고 효과적인 예습·복습 비디오와 퀴즈',
-           d:'수업 전 예습 영상으로 미리 준비하고, 수업 후에는 복습 퀴즈와 단어 게임으로 반복 학습합니다. 배운 내용을 놀이처럼 익혀 오래 기억하게 합니다.',
-           p:['게임형 마이크로 퀴즈로 지루하지 않은 복습','단어장·연속 학습(스트릭)으로 꾸준한 습관 형성','예습 영상으로 수업 이해도 향상'],
-           cta:{l:'🎬 예습·복습 영상 보기', go:function(){ closeAbout(); location.href='/lessons.html'; }},
-           cta2:{l:'🎯 복습 퀴즈 체험', go:function(){ closeAbout(); location.href='/micro-quiz.html'; }}},
+          /* 🚫 (2026-08-08 사장님 확정) 예복습 동영상 폐지 — 「예복습은 AI 로 간다」
+             전에는 «예습 영상 + 복습 퀴즈» 였는데 영상을 빼므로, 카드도 «AI 예복습» 으로 바꾼다.
+             ⚠️ 없는 걸 광고하면 안 된다 — 「영상 보기」 버튼(/lessons.html)도 함께 뺐다. */
+          {ic:'🎯', t:'AI 예복습 — 수업 전후를 A.I가 챙깁니다',
+           d:'수업 전에는 배울 문장을 미리 보고, 수업 후에는 틀린 문제를 A.I가 다시 냅니다. 단어장·연속 학습으로 습관까지 잡아 줍니다.',
+           p:['게임형 마이크로 퀴즈로 지루하지 않은 복습','단어장·연속 학습(스트릭)으로 꾸준한 습관 형성','푼 기록이 매달 성적표의 «이해·정확도»로 쌓임'],
+           cta:{l:'🎯 복습 퀴즈 체험', go:function(){ closeAbout(); location.href='/micro-quiz.html'; }},
+           cta2:{l:'📚 단어장 보기', go:function(){ closeAbout(); location.href='/vocab.html'; }}},
           {ic:'🤖', t:'A.I를 활용한 수업 평가 · 복습 · 소통', voice:'/audio/ai-report-voice.mp3',
            d:'매 수업이 끝나면 A.I가 발음·표현·참여도를 분석해 평가서를 자동으로 만들고, 아이에게 꼭 필요한 맞춤 복습을 추천합니다. 월간 리포트로 성장 흐름도 정리해 드립니다.',
            p:['수업마다 A.I 자동 평가서 생성','약점을 짚어 주는 맞춤형 복습 추천','월간 A.I 리포트로 한 달 성장 요약'],
@@ -7547,7 +7550,9 @@ window.mgIsSlowNet = function(){
         <span class="gm-label" data-ko="단계별 발음" data-en="Curriculum Pronunciation">단계별 발음</span>
         <span class="gm-sub" data-ko="Phonics · BTS · SIU 커리큘럼" data-en="Phonics · BTS · SIU">Phonics · BTS · SIU 커리큘럼</span>
       </button>
-      <!-- 🎬 비디오 레슨 + 학습 영상 — 통합 (관리자 등록 YouTube 영상 자동 표시) -->
+      <!-- 🎬 비디오 레슨 + 학습 영상 — 통합 (관리자 등록 YouTube 영상 자동 표시)
+           ℹ️ (2026-08-08) 「예복습 동영상 폐지」와 이 카드는 별개다 — 여기는 «녹화 수업(VOD)» 이고
+              예복습은 교재에 딸리던 흐름이었다. 예복습 쪽만 끊었고 이 카드는 그대로 둔다. -->
       <button class="gm-card" data-go="videolesson" data-en-key="video lesson" onclick="openVideoLessons()">
         <span class="gm-icon">🎬</span>
         <span class="gm-label" data-ko="비디오 레슨" data-en="Video Lessons">비디오 레슨</span>
@@ -33088,12 +33093,14 @@ window.vcAutoLoadStudentTextbook = async function(){
     _mlNoteT = setTimeout(function(){ try { el.remove(); } catch(_){} }, 12000);
   }
 
-  // ✅ 수업방에서 교재를 열면 «관련 영상 있음» 만 알립니다(자동 재생하지 않습니다 — 요청 ⑧):
-  //    window.dispatchEvent(new CustomEvent('mangoi:textbook-open',{detail:{bookId: 교재번호}}));
-  //    바로 재생하려면 window.mangoiPlayLessonVideo(id, { manual:true })
-  window.addEventListener('mangoi:textbook-open', function(e){
-    var id = e && e.detail && e.detail.bookId; if(id) window.mangoiPlayLessonVideo(id);
-  });
+  // 🚫 (2026-08-08 사장님 확정) 「교재에 동영상을 딸리게 하지 말 것 — 예복습은 AI 로 간다」
+  //    2026-08-07 에 «자동 재생»은 이미 껐고(요청 ⑧), 이번엔 «교재를 열면 관련 영상을 알리는 것» 자체를 끈다.
+  //    → 교재↔영상 연결 고리는 이 리스너 하나뿐이므로, 여기만 끊으면 교재 흐름에서 영상이 완전히 빠진다.
+  //    ⚠️ 함수(mangoiPlayLessonVideo)는 남겨 둔다 — 강사가 [영상] 탭에서 직접 부르는 길은 살아 있어야 하고,
+  //       되돌릴 때도 아래 한 줄만 다시 켜면 된다. 영상 데이터(mango_videos 398건)도 지우지 않았다.
+  // window.addEventListener('mangoi:textbook-open', function(e){
+  //   var id = e && e.detail && e.detail.bookId; if(id) window.mangoiPlayLessonVideo(id);
+  // });
   // (참고 2026-06-10) 아래에 있던 'function injec…'(동영상 탭에 📘교재동영상 버튼 자동추가, 수동호출용) 코드는
   //   git 전 커밋 전부에서 잘려 원본 복구 불가 → 제거. 핵심 자동재생은 위 window.mangoiPlayLessonVideo 로 정상 동작.
 })();
