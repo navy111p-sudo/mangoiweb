@@ -134,8 +134,10 @@
       <small>→ Your own recordings proved it. <b>"Thank you very much for your help" scored almost the same clear or mumbled</b>, while <b>the sentence containing "Mangoi" split wide open.</b> The difference was not pronunciation — it was that <b>"Mangoi" is a word the AI does not know.</b> No amount of re-scaling can catch that.</small></li>
     <li><b>So we changed the ruler — Azure pronunciation assessment, which measures the sound phoneme by phoneme.</b> We compared four vendors (Azure, SpeechSuper, Speechace, Language Confidence) on price, languages and how they connect.
       <small>→ <b>Three reasons Azure won</b>: ① <b>per-second billing</b> — our utterances are 3–7 seconds while the others bill in <b>15-second blocks</b>, wasting 3× ② <b>Chinese is supported</b> (we already run a Chinese voice coach; Speechace is English-only) ③ <b>a Korea region</b> — student voices <b>never leave the country.</b> At today's volume we sit <b>inside the 5 free hours a month</b>, so it costs nothing.</small></li>
-    <li><b>It really does separate them (measured on your recordings).</b> Same sentence, clear vs mumbled: <b>pronunciation 85 → 59</b>, <b>completeness 83 → 67</b>. It even caught the <b>words that got swallowed</b> while mumbling.
-      <small>→ And <b>getting every word right no longer earns a "good" if the sound is poor.</b> Previously correct text alone guaranteed a high grade.</small></li>
+    <li><b>It really does separate them (4 measured recordings of yours).</b> The same sentence read different ways came out <b>S / A / D / D</b>. It even caught the <b>words that got swallowed</b> while mumbling.
+      <small>→ In particular, the attempt where <b>only a third of the words were properly voiced</b> used to score <b>"Excellent"</b> and now scores <b>"Let's try again."</b> Getting every word right no longer earns a high grade <b>if the sound is poor.</b></small></li>
+    <li><b>Two mistakes of my own, caught and corrected by measurement.</b> ① Switching to the accurate transcript pinned <b>accuracy at 100</b> and killed the signal (Azure listens aligned to the reference, so the words come out even when mumbled) → replaced with <b>"how many words were actually voiced."</b> ② Pronunciation 84 was still printing <b>"Perfect!"</b> → <b>"Perfect" now requires 90+.</b>
+      <small>→ Both were found by <b>re-measuring your recordings.</b> Those four cases are now <b>written into the test suite</b> — whoever touches this next breaks those four first.</small></li>
   </ul>
 </div>
 
@@ -180,7 +182,7 @@
   <h3>⚠️ Not done · still not working</h3>
   <ul>
     <li><b>The Chinese voice coach does not have this yet.</b> That screen has a <b>completely different recording and scoring path</b> (browser-native recognition), so it would need rebuilding. Azure supports Chinese, so it <b>can</b> be done — but as its own job. I did not tear up a working feature at 4am.</li>
-    <li><b>We do not yet know whether the absolute scores suit our students.</b> Clear vs mumbled separates correctly, but "is 85 the right number?" needs <b>real usage data.</b></li>
+    <li><b>The bar may be too strict for actual students.</b> Your pronunciation reached 92 — <b>a primary schooler will rarely hit 92.</b> If most land in A–B that is right; <b>if they pile up in C–D we must lower it.</b> For now it is set <b>on the strict side</b> — only real usage data can settle it.</li>
     <li><b>I have not yet compared a full month of "computed" lateness against the hand-counted numbers.</b> We need to see how far apart they are before trusting this screen.</li>
     <li><b>The Azure key appeared in a screen capture.</b> Harm is limited on the free tier, but <b>it needs replacing.</b> The method is confirmed.</li>
   </ul>
