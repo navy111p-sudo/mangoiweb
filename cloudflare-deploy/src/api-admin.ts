@@ -1466,13 +1466,18 @@ export async function handleAdminApi(
       //   운영 class_schedules 에는 student_name 이 행에 직접 있어 이 맵은 폴백용.
       const uids: any[] = [...new Set(instances.filter((l: any) => !l.student_name).map((l: any) => l.user_id).filter(Boolean))];
       const stuName: any = {};
-      if (uids.length && uids.length <= 500) {
-        const ph = uids.map(() => '?').join(',');
+      // ⚠️ (2026-08-07) 예전엔 uids 를 IN 목록에 통째로 넣고 `<= 500` 으로만 막았습니다.
+      //    D1 한도는 100개라 101명부터는 쿼리가 던지고 → 세 컬럼 폴백이 모두 실패 →
+      //    이름이 조용히 전부 빈칸이 됐습니다(에러 없이 화면만 비어 보임).
+      //    이제 청크로 나눠 질의하므로 인원 수 제한이 필요 없습니다.
+      //    컬럼 폴백 동작은 그대로 — 컬럼이 없으면 첫 청크에서 던져 다음 컬럼으로 넘어갑니다.
+      if (uids.length) {
         for (const col of ['student_name', 'korean_name', 'name']) {
           try {
-            const rs: any = await env.DB.prepare(`SELECT user_id, ${col} AS nm FROM students_erp WHERE user_id IN (${ph})`).bind(...uids).all();
+            const rows = await selectInChunks<any>(env.DB, uids,
+              (ph) => `SELECT user_id, ${col} AS nm FROM students_erp WHERE user_id IN (${ph})`);
             let hit = false;
-            for (const r of (rs.results || [])) { if (r.nm) { stuName[r.user_id] = r.nm; hit = true; } }
+            for (const r of rows) { if (r.nm) { stuName[r.user_id] = r.nm; hit = true; } }
             if (hit) break;
           } catch {}
         }
