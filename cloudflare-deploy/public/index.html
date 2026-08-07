@@ -9843,13 +9843,31 @@ window._vcShownPdfKey = '';            // 현재 표시 중인 교재 키 (url|p
 window._vcShownPdfUrl = '';            // 현재 표시 중인 교재 URL (같은 교재면 페이지 이동만)
 window._vcShownPdfName = '';           // 현재 교재 이름 "[교재] 레슨 / 파일" — 화살표 시퀀스 재구성용
 window._vcPdfPollTimer = null;
-window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName){
+/* @param fromTeacherPush  교사가 «지금» 교재를 연 신호(pdf-share)면 true.
+                           주기 폴링으로 상태를 복원하는 경우는 false/생략. */
+window.vcApplySharedPdf = function(sUrl, sKind, currentPage, sPid, sName, fromTeacherPush){
   try {
     if (!sUrl) return;
     if (/^blob:/i.test(sUrl)) return;  // 로컬 blob 은 다른 기기에서 열 수 없음
     // 🥭 (2026-07-13) 교사가 교재를 공유 → 세로폰에서 '내용 크게(pip)'로 자동 전환.
     window.__vcPdfShared = true;
     try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
+
+    /* 🔴 (2026-08-08 마이마이 ⑤) 「교사가 교재를 열었는데 학생은 교재 버튼을 눌러야 보인다」
+       [원인] 탭 전환(vcSwitchTab('pdf'))이 이 함수 **한참 아래**에 있어서, 밑의 두 조기반환
+              ─ ①「이미 같은 교재/페이지」 ②「같은 교재, 페이지만 다름」 ─ 에 걸리면
+              **통째로 건너뛰어졌다.** 학생은 입장할 때 폴링(pdfState)이 이미 그 교재를 받아
+              키를 세워 두는 일이 많아, 정작 교사가 교재를 열면 «이미 갖고 있다» 며 아무 일도
+              일어나지 않았다 — 화면은 얼굴만 그대로.
+       [수정] 교사가 «지금 연» 신호일 때는 조기반환보다 **먼저** 교재를 앞으로 가져온다.
+              탭 전환은 idempotent 하고 비용이 없다. 아래 가드의 목적은 «PDF 재로드 방지» 지
+              «보여주지 않기» 가 아니었다.
+       ⚠️ 폴링에서는 하지 않는다 — 학생이 칠판·게임을 보는 중에 3초마다 교재로 끌려간다. */
+    if (fromTeacherPush) {
+      try { if (typeof vcSwitchTab === 'function') vcSwitchTab('pdf'); } catch(_){}
+      try { if (typeof showToast === 'function') showToast('👩‍🏫 선생님이 교재를 열었어요'); } catch(_){}
+    }
+
     if (sUrl.charAt(0) === '/') sUrl = location.origin + sUrl;
     // 교재 이름("[교재] 레슨 / 파일")을 기억 — 화살표가 시퀀스를 서버에서 재구성할 때 책 이름으로 사용
     if (sName) window._vcShownPdfName = sName;
@@ -12927,7 +12945,8 @@ function vcHandleMessage(msg) {
             }
             if (sUrl && (/^https?:\/\//i.test(sUrl) || sUrl.charAt(0) === '/')) {
                 // 서버/절대 URL — 통합 함수로 직접 로드 (cross-device). 폴링과 동일 경로라 중복 로드 없음.
-                window.vcApplySharedPdf(sUrl, msg.data.kind, msg.data.currentPage, sPid, msg.data.name);
+                // ← 마지막 true = «교사가 지금 연 것». 학생 화면을 교재로 데려온다(위 함수 주석 참고)
+                window.vcApplySharedPdf(sUrl, msg.data.kind, msg.data.currentPage, sPid, msg.data.name, true);
                 break;
             }
             // 화상수업 업로드 PDF (PDF_STORE) — 서버 엔드포인트로 로드
