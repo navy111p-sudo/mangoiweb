@@ -52,6 +52,12 @@ function tossKeyRole(v: unknown): 'ck' | 'sk' | null {
      짧은 키는 토스가 거부한다 — 그 판정은 토스에게 맡긴다. */
   if (!s || /\s/.test(s)) return null;
   if (!/^(?:test|live)_/.test(s)) return null;
+  /* 🔴 (2026-08-07 4차) 실제로 «live_ck_...» 라는 **안내문의 자리표시자 글자**가 그대로 등록됐다.
+     접두사가 맞아서 전부 통과했고, mode 는 live·key_mismatch 는 false 로 «정상»이라 보고했다.
+     = 화면은 실결제라고 말하는데 토스에서만 조용히 전부 실패하는, 가장 나쁜 상태.
+     토스 키의 접두사 뒤는 영숫자(위젯키는 `_` 포함)뿐이다 — 점(...)이 들어갈 자리가 없다.
+     길이로 막지 않는 대신 «쓸 수 없는 문자»로 자리표시자를 잡는다. */
+  if (!/^(?:test|live)_[A-Za-z0-9_-]+$/.test(s)) return null;
   const seg = s.split('_')[1] || '';
   if (!/^[A-Za-z0-9]+$/.test(seg)) return null;
   if (seg.includes('sk')) return 'sk';
