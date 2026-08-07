@@ -8304,3 +8304,48 @@ html[data-admin-theme="ivory"] .menu-card td code {
   font-size: 11.5px !important;
   letter-spacing: -0.2px;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   🔐 권한 매트릭스 — 위 전역 블록이 «못 덮은 유일한 표»
+   admin.html 의 표 54개 · 칸 786개를 전수 주사한 결과 여기 하나만 다크로 남았다.
+   이 표의 규칙은 선택자에 #card-permissions 가 있어(=id) 전역 블록보다 세기 때문.
+   의도한 색이면 그대로 두는 게 맞지만, 이건 «다크 테마용 잔재»라 되돌린다.
+
+   🪤 칸 배경만 밝게 바꾸면 안 된다. 권한 셀(✅/👁️/❌)의 글자색이 다크 배경 전제의
+      «아주 연한 색»(#dcfce7 등)이라, 바탕만 희게 하면 글자가 통째로 사라진다.
+      → 셀 상태색을 이 파일 303~305행의 «원래 밝은 안»으로 같이 되돌린다.
+   ⚠️ 그룹 헤더 행의 앰버는 의도한 색이다(332~335행). 값을 그대로 다시 적어 지킨다.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody td {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border-color: rgba(15,23,42,0.08) !important;
+  border-bottom: 1px solid #f0f2f5 !important;
+}
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody tr:nth-child(even) td { background: #fafbfc !important; }
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody tr:hover td { background: #f2f7ff !important; }
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody td:first-child { color: #0f172a !important; }
+
+/* 그룹 헤더 행 — 앰버 유지 (다크 인디고로 덮이던 것을 되돌림) */
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody tr.group-row td {
+  background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%) !important;
+  color: #78350f !important;
+  border-top: 2px solid #fcd34d !important;
+  border-bottom: 1px solid rgba(180,83,9,0.25) !important;
+}
+
+/* 권한 셀 — 상태색을 밝은 원안으로 (글자도 진한 색으로 같이 되돌려야 보인다) */
+html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell {
+  background: #ffffff !important;
+  border: 1px solid #dde3ea !important;
+  color: #475467 !important;
+}
+html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell[data-state="✅"] {
+  background: linear-gradient(135deg,#dcfce7,#bbf7d0) !important; border-color:#86efac !important; color:#15803d !important;
+}
+html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell[data-state="👁️"] {
+  background: linear-gradient(135deg,#dbeafe,#bfdbfe) !important; border-color:#93c5fd !important; color:#1d4ed8 !important;
+}
+html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell[data-state="❌"] {
+  background: linear-gradient(135deg,#fee2e2,#fecaca) !important; border-color:#fca5a5 !important; color:#b91c1c !important;
+}
