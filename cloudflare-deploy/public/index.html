@@ -13123,26 +13123,59 @@ function vcApplyLowPower(pc) {
 }
 
 /* 백그라운드(탭 전환·화면 끔)일 때 내 카메라 인코딩 정지 → 발열·배터리 절약.
-   소리는 유지(수업 끊김 방지). 화면 돌아오면 자동 재개. 한 번만 등록. */
+   소리는 유지(수업 끊김 방지). 화면 돌아오면 자동 재개. 한 번만 등록.
+
+   🔴 (2026-08-08 마이마이 지적 1·3·6번) 「구글을 열 때마다 / 교재를 열 때마다 / 카톡을 쓸 때마다
+      교사 화면이 black-out 된다」— 세 증상은 서로 다른 버그가 아니라 **이 함수 하나** 였다.
+      탭이 가려지는 순간 카메라 트랙을 꺼 버리니, 학생 화면에서 선생님 얼굴 자리가
+      «설명 없는 검은 사각형» 이 됐다.
+      원래 의도는 «학생 휴대폰» 의 발열·배터리 절약이다. 그런데 교사는 수업 중에 구글·카톡·교재를
+      끊임없이 오간다 — 학생 폰에서 옳은 절약이 교사 PC 에서는 «선생님이 사라지는» 사고가 된다.
+      → 강사·관리자는 이 절약에서 **제외**한다. 학생 모바일 절약은 그대로 둔다.
+   ⚠️ 남는 한계: 가상배경을 켠 강사는 트랙을 살려 둬도 브라우저가 백그라운드 탭의
+      requestAnimationFrame 을 멈추므로 화면이 **얼어붙을** 수 있다(검게 되지는 않는다).
+      가상배경 쓰는 강사가 「멈춘다」고 하면 그때 원본 카메라로 갈아끼우는 처리를 넣을 것. */
 (function vcBackgroundThrottle(){
   if (window.__vcBgThrottle) return; window.__vcBgThrottle = true;
+
+  // 강사·관리자 판정은 정본 하나만 쓴다(vcIsStaffNow). 여기서 역할을 다시 추측하지 않는다.
+  function staffNow(){
+    try { return (typeof vcIsStaffNow === 'function') && !!vcIsStaffNow(); } catch(_){ return false; }
+  }
+
   function setVideo(on){
     try {
+      /* 🔒 되켤 때는 «원래 켜져 있던 사람» 만 켠다.
+         예전엔 무조건 enabled = true 라, 카메라를 손수 꺼 둔 사람이 탭만 다녀오면
+         **카메라가 저절로 다시 켜졌다**(동의 없는 재점등). 저대역 음성전용(AAO)이 끈 것도
+         여기서 되살리면 안 된다 — 그건 회선이 회복될 때 AAO 가 스스로 복구한다. */
+      if (on) {
+        if (typeof vcCamOn !== 'undefined' && vcCamOn === false) return;
+        if (window.__vcAAO && window.__vcAAO.active) return;
+      }
       if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = on; });
       // 가상배경 ML 루프도 함께 정지/재개 (백그라운드 발열 차단)
       if (window.vcBg && vcBg.isProcessing !== undefined) {
         if (!on) { vcBg._wasProcessing = vcBg.isProcessing; vcBg.isProcessing = false; }
         else if (vcBg._wasProcessing) { vcBg.isProcessing = true; if (typeof vcBgRenderLoop === 'function') vcBgRenderLoop(); vcBg._wasProcessing = false; }
       }
+      /* 📢 상대에게 «왜 꺼졌는지» 를 알린다. AAO 는 처음부터 이렇게 하고 있었다
+         (그 주석: 안 알리면 상대 화면에서 «검은 영상 = 장애» 로 오인해 재협상이 돈다).
+         이 절약만 조용히 꺼 왔던 탓에, 학생이 잠깐 탭을 옮기면 강사 화면엔
+         이유 없는 검은 사각형만 남았다. 같은 신고가 반대 방향으로 또 오지 않게 여기서도 알린다. */
+      try { if (typeof vcBroadcastCamState === 'function') vcBroadcastCamState(on, 'bgthrottle'); } catch(_){}
     } catch(_){}
   }
+
+  // 수업 중 + 학생일 때만 동작 (강사는 탭을 옮겨도 얼굴이 계속 나간다)
+  function active(){ return document.body.classList.contains('vc-in-call') && !staffNow(); }
+
   document.addEventListener('visibilitychange', function(){
-    // 수업 중일 때만 동작
-    if (!document.body.classList.contains('vc-in-call')) return;
+    if (!active()) return;
     setVideo(document.visibilityState === 'visible');
   });
-  window.addEventListener('pagehide', function(){ if (document.body.classList.contains('vc-in-call')) setVideo(false); });
-  window.addEventListener('pageshow', function(){ if (document.body.classList.contains('vc-in-call')) setVideo(true); });
+  window.addEventListener('pagehide', function(){ if (active()) setVideo(false); });
+  window.addEventListener('pageshow', function(){ if (active()) setVideo(true); });
 })();
 
 /* 🔊 Opus 오디오 SDP 튜닝 — "소리가 잘 안 들려요" 대책.
