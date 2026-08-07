@@ -463,6 +463,33 @@ export async function handleMangoApi(
            VALUES (?, ?, ?, ?, ?, 'present', ?)`
         ).bind(b.room_id, b.user_id, b.username || null, b.role || 'student', now, date).run();
       }
+      /* ═══════════════════════════════════════════════════════════════════════
+         🎓 강사가 레벨테스트 방에 들어오면 «수락한 것» 으로 본다  (2026-08-07)
+         ───────────────────────────────────────────────────────────────────────
+         [무슨 일이 있었나] 8/7 18:00 레벨테스트(신청 #15 · schedule 854).
+           강사가 18:01 에 들어와 18:45 까지 빈 방을 지켰는데, 신청은 끝까지
+           `proposed` 였다. 이 단계에서는 설계상 교사 이름을 학생에게 숨긴다
+           (교사가 거절했을 때 «담당이 바뀌었다» 는 혼선을 막으려고).
+           그래서 학생 홈 카드는 수업이 끝난 뒤까지 「담당 선생님 배정 중」 이었다.
+         [왜 입장이 곧 수락인가] «들어왔다» 보다 분명한 수락 신호는 없다.
+           별도의 수락 버튼을 새로 만들어 강사에게 하나 더 누르게 하는 것보다,
+           이미 하는 행동을 읽는 편이 실제로 작동한다.
+         [안전] proposed 일 때만 올린다 — confirmed·done·cancelled 는 그대로 둔다.
+                실패해도 출석 기록에는 영향이 없다(위 INSERT 와 분리된 try).
+         ═══════════════════════════════════════════════════════════════════════ */
+      if ((b.role || 'student') === 'teacher') {
+        try {
+          const m = /^class-(\d+)-\d{8}$/.exec(String(b.room_id || ''));
+          if (m) {
+            await env.DB.prepare(
+              `UPDATE leveltest_applications
+                  SET status = 'confirmed', teacher_confirmed_at = ?, updated_at = ?
+                WHERE schedule_id = ? AND status = 'proposed'`
+            ).bind(now, now, Number(m[1])).run();
+          }
+        } catch { /* 레벨테스트 표가 없는 배포본 등 — 출석은 그대로 진행 */ }
+      }
+
       if (!existing) {
         await enqueueNotification(env, {
           type: 'class_start',

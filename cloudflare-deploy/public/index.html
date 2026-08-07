@@ -6499,15 +6499,36 @@ window.mgIsSlowNet = function(){
               var items = (d && d.ok && d.items) ? d.items : [];
               items = items.filter(function(a){ return a && a.status !== 'cancelled'; });
               if (!items.length) { el.hidden = true; return; }
-              /* 가장 «지금 신경 쓰이는» 한 건: 아직 안 지난 것 중 가장 가까운 날,
-                 전부 지났으면 가장 최근 것(서버가 created_at DESC 로 준다). */
-              var today = new Date(); today.setHours(0,0,0,0);
+              /* 가장 «지금 신경 쓰이는» 한 건: 아직 안 끝난 것 중 가장 가까운 시각.
+                 🕒 (2026-08-07) 예전엔 «날짜만» 비교해서(setHours(0,0,0,0)) 오늘 18시 수업이
+                    오늘 자정까지 «다가올 수업» 이었다. 그래서 끝난 수업이 홈에 계속 앉아
+                    「담당 선생님 배정 중」 이라고 말했다 — 실제로 사장님이 보신 화면이다.
+                    desired_time 까지 봐서 «끝난 것» 은 다가올 목록에서 뺀다. */
+              var GRACE_MS = 60 * 60000;            // 종료 판정 유예 — 20분 수업 + 지각/연장 여유
+              var nowMs = Date.now();
+              function startMs(a){
+                if (!a.desired_date) return NaN;
+                var p = String(a.desired_date).split('-'); if (p.length !== 3) return NaN;
+                var hm = String(a.desired_time || '').split(':');
+                return new Date(+p[0], +p[1]-1, +p[2], +hm[0] || 0, +hm[1] || 0, 0).getTime();
+              }
               var upcoming = items.filter(function(a){
-                if (!a.desired_date) return false;
-                var p = String(a.desired_date).split('-'); if (p.length !== 3) return false;
-                return new Date(+p[0], +p[1]-1, +p[2]) >= today;
-              }).sort(function(a,b){ return String(a.desired_date).localeCompare(String(b.desired_date)); });
-              var it = upcoming[0] || items[0];
+                var s = startMs(a); return !isNaN(s) && (s + GRACE_MS) >= nowMs;
+              }).sort(function(a,b){ return startMs(a) - startMs(b); });
+              var it = upcoming[0];
+              /* 남은 일정이 없다 — 홈은 «지금 신경 쓸 것» 자리다. 결과가 나왔으면 그것만 남기고,
+                 아니면 카드를 내린다. 지난 신청은 마이페이지·사이드바에서 언제든 볼 수 있다. */
+              if (!it) {
+                var withResult = items.filter(function(a){ return a && a.final_level; })[0];
+                if (!withResult) { el.hidden = true; return; }
+                el.classList.remove('is-open');
+                el.href = '/parent.html?uid=' + encodeURIComponent(myUid);
+                put(whenEl, label(withResult.desired_date, withResult.desired_time, false),
+                            label(withResult.desired_date, withResult.desired_time, true));
+                put(subEl, '테스트 완료 — 결과 보기 →', 'Test completed — see result →');
+                el.hidden = false;
+                return;
+              }
               el.classList.remove('is-open');
               el.href = '/parent.html?uid=' + encodeURIComponent(myUid);
               put(whenEl, label(it.desired_date, it.desired_time, false), label(it.desired_date, it.desired_time, true));
@@ -6533,6 +6554,19 @@ window.mgIsSlowNet = function(){
                 return;
               }
               var t = d.ticket;
+              /* 🕒 (2026-08-07) 끝난 수업을 홈에 붙들지 않는다.
+                 서버는 close_at_ts(종료 + 지각허용 15분) 를 내려주는데 여기서 «쓰지 않아서»,
+                 티켓이 살아 있는 동안 지난 수업이 계속 「담당 선생님 배정 중」 으로 앉아 있었다.
+                 결과가 나온 뒤라면 그 한 줄은 홈에 남길 값어치가 있다 — 그때만 남긴다. */
+              if (t.close_at_ts && t.now > t.close_at_ts) {
+                if (!t.has_result) { el.hidden = true; return; }
+                el.classList.remove('is-open');
+                el.href = url;
+                put(whenEl, label(t.desired_date, t.desired_time, false), label(t.desired_date, t.desired_time, true));
+                put(subEl, '테스트 완료 — 결과 보기 →', 'Test completed — see result →');
+                el.hidden = false;
+                return;
+              }
               el.href = url;
               put(whenEl, label(t.desired_date, t.desired_time, false), label(t.desired_date, t.desired_time, true));
               if (t.join_open) {
