@@ -30,6 +30,7 @@ import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수�
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import type { MangoEnv } from './api-mango';
+import { selectInChunks } from './d1-chunk';   // IN(...) list split for D1 100-bind limit
 
 // ═══ ⚡ 관리자 KV 캐시 공용 헬퍼 (2026-07-19 통합) ═══
 //   graph-list·finance·selfscore·leveltest 등에서 반복되던
