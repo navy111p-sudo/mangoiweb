@@ -17,7 +17,7 @@ import { handleRetentionIngest, getRetention, markRetentionContacted, getRetenti
 import { runAbsentStudentSweep } from './absent-sweep';
 import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종료 후 학생별 AI 리포트 배치
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
-import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
+import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep, runLeveltestHourBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
@@ -1950,6 +1950,16 @@ const worker = {
         if (ltd && (ltd.reminded > 0 || !ltd.ok)) console.log('[leveltest-daybefore]', JSON.stringify(ltd));
       } catch (err) {
         console.error('[leveltest-daybefore] error', err);
+      }
+
+      /* ⏱ 레벨테스트 «1시간 전» 리마인더 — 전날 알림과 T-10 사이를 메운다.
+         전날 것은 «있다는 걸 알게» 하고 T-10 은 «지금 들어가라» 인데,
+         그 사이에 «자리에 앉게» 만드는 알림이 없었다. */
+      try {
+        const lth = await runLeveltestHourBeforeSweep(env as any);
+        if (lth && (lth.reminded > 0 || !lth.ok)) console.log('[leveltest-hourbefore]', JSON.stringify(lth));
+      } catch (err) {
+        console.error('[leveltest-hourbefore] error', err);
       }
 
       // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지 → 문자.

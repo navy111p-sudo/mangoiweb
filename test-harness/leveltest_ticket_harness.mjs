@@ -45,9 +45,17 @@ console.log('\n[ ② 입장 시각이 서버(sessions/today)와 «같은 값» �
 // 여기만 늘리면 티켓엔 버튼이 떴는데 서버는 아직 안 열어주는 상태가 된다
 const openBefore = (mod.match(/OPEN_BEFORE_MS\s*=\s*(\d+)\s*\*\s*60\s*\*\s*1000/) || [])[1];
 const lateAfter  = (mod.match(/LATE_AFTER_MS\s*=\s*(\d+)\s*\*\s*60\s*\*\s*1000/) || [])[1];
-const srvOpen    = (mango.match(/OPEN_BEFORE\s*=\s*(\d+)\s*\*\s*60\s*\*\s*1000/) || [])[1];
+/* ⚠️ (2026-08-07 갱신) 이제 «레벨테스트 30분 / 정규 수업 10분» 으로 갈린다.
+   그래서 비교 대상은 서버의 OPEN_BEFORE 가 아니라 **OPEN_BEFORE_LEVELTEST** 다.
+   정규 수업 값(10분)은 아래에서 따로 «바뀌지 않았는지» 지킨다 — 그쪽을 늘리는 것은
+   학생 29,000명 전체의 입장 시각을 바꾸는 일이라 절대 슬그머니 일어나면 안 된다. */
+const srvOpenLt  = (mango.match(/OPEN_BEFORE_LEVELTEST\s*=\s*(\d+)\s*\*\s*60\s*\*\s*1000/) || [])[1];
+const srvOpenReg = (mango.match(/const OPEN_BEFORE\s*=\s*(\d+)\s*\*\s*60\s*\*\s*1000/) || [])[1];
 const srvLate    = (mango.match(/LATE_AFTER\s*=\s*(\d+)\s*\*\s*60\s*\*\s*1000/) || [])[1];
-check(`입장 시작이 서버와 일치 (티켓 ${openBefore} = 서버 ${srvOpen})`, !!openBefore && openBefore === srvOpen);
+check(`입장 시작이 서버와 일치 (티켓 ${openBefore} = 서버 레벨테스트 ${srvOpenLt})`,
+  !!openBefore && openBefore === srvOpenLt);
+check(`⛔ 정규 수업 입장은 10분 그대로 (현재 ${srvOpenReg}) — 29,000명이 걸린 값`,
+  srvOpenReg === '10');
 check(`지각 마감이 서버와 일치 (티켓 ${lateAfter} = 서버 ${srvLate})`, !!lateAfter && lateAfter === srvLate);
 check('방 주소 형식이 서버와 같다 (class-{예약}-{YYYYMMDD})',
   /class-\$\{sched\.id\}-\$\{m\[1\]\}\$\{m\[2\]\}\$\{m\[3\]\}/.test(mod) && /class-\$\{s\.id\}-\$\{ymd\}/.test(mango));
@@ -287,8 +295,10 @@ check('⛔ 로그인·비밀번호를 요구하지 않는다 (신청자 절반�
   !/password|로그인해|login\(/i.test(page.replace(/로그인 없이|로그인·앱설치|로그인을 물으면|로그인 불필요|로그인을 절대/g, '')));
 check('입장 가능할 때 큰 입장 버튼을 «맨 위» 에 그린다',
   /if \(d\.join_open && d\.join_url\)\{[\s\S]{0,200}?class="join"/.test(page));
+/* (2026-08-07) 분 수를 화면에 적어 두지 않고 서버 값(open_at_ts)에서 계산하게 바꿨다.
+   문구가 있는지만 보고, 숫자는 위 ⑥-5 에서 «하드코딩 금지» 로 따로 지킨다. */
 check('아직이면 언제 열리는지 말해 준다 (그냥 버튼만 없으면 고장으로 보인다)',
-  /시작 10분 전부터 입장 버튼이 열려요/.test(page));
+  /분 전부터 입장 버튼이 열려요/.test(page) && /openMin/.test(page));
 check('열어 두면 «저절로» 버튼이 나타난다 (새로고침 시키면 그 순간 이탈한다)',
   /setInterval\(load, 30000\)/.test(page));
 check('탭으로 돌아오면 즉시 갱신한다', /visibilitychange/.test(page));
@@ -324,6 +334,43 @@ console.log('\n[ ⑥-4 «전날 저녁» 알림 — 알림이 양 끝뿐이던 �
     (tk.match(/BEGIN:VALARM/g) || []).length === 2 && /TRIGGER:-P1D/.test(tk) && /TRIGGER:-PT10M/.test(tk));
   check('하루 전 알람이 «먼저» 온다 (첫 알람만 쓰는 앱 대비)',
     tk.indexOf("'TRIGGER:-P1D'") < tk.indexOf("'TRIGGER:-PT10M'"));
+}
+
+console.log('\n[ ⑥-5 «1시간 전» 알림 + 입장 창 30분 (2026-08-07 ②③) ]');
+{
+  const tk = rd('../cloudflare-deploy/src/leveltest-ticket.ts');
+  const idx = rd('../cloudflare-deploy/src/index.ts');
+  const mango = rd('../cloudflare-deploy/src/api-mango.ts');
+  const adm = rd('../cloudflare-deploy/src/api-admin.ts');
+  const tpage = rd('../cloudflare-deploy/public/t.html');
+
+  check('1시간 전 스윕이 있고 크론에 물려 있다',
+    /export async function runLeveltestHourBeforeSweep/.test(tk)
+    && /runLeveltestHourBeforeSweep\(env as any\)/.test(idx) && /\[leveltest-hourbefore\]/.test(idx));
+  check('창이 45~75분이다 (크론 15분 간격을 확실히 덮는다)',
+    /HOUR_MIN_MS = 45 \* 60 \* 1000/.test(tk) && /HOUR_MAX_MS = 75 \* 60 \* 1000/.test(tk));
+  check('kind 가 셋으로 갈린다 (t1d · t60 · t10 서로 안 막는다)',
+    /kind = 't1d'/.test(tk) && /kind = 't60'/.test(tk) && /kind = 't10'/.test(tk));
+  check('1시간 전 문자가 «30분 전 미리 입장» 을 알려준다 (이 문자의 목적)',
+    /30분 전부터 미리 들어와/.test(tk));
+
+  /* ③ 입장 창 — 🔴 정규 수업(29,000명)까지 늘리면 안 된다. class_type 으로만 가른다. */
+  check('레벨테스트 입장 창이 30분이다', /OPEN_BEFORE_MS = 30 \* 60 \* 1000/.test(tk));
+  check('⛔ 정규 수업은 10분 그대로다 (api-mango)', /const OPEN_BEFORE = 10 \* 60 \* 1000;/.test(mango));
+  check('⛔ 정규 수업은 10분 그대로다 (api-admin)', /const OPEN_BEFORE = 10 \* 60 \* 1000;/.test(adm));
+  check('레벨테스트만 30분으로 가른다 (api-mango)',
+    /class_type \|\| ''\) === 'level_test'\) \? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE/.test(mango));
+  check('레벨테스트만 30분으로 가른다 (api-admin)',
+    /class_type \|\| ''\) === 'level_test' \? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE/.test(adm));
+  check('그 판단에 쓸 class_type 을 실제로 조회한다 (안 뽑으면 전부 정규로 샌다)',
+    /cs\.schedule_kind, cs\.class_type,/.test(mango) && /schedule_kind, class_type,/.test(mango));
+  check('세 곳의 값이 같다 (어긋나면 «버튼은 떴는데 안 들어가짐»)',
+    /OPEN_BEFORE_LEVELTEST = 30 \* 60 \* 1000/.test(mango) && /OPEN_BEFORE_LEVELTEST = 30 \* 60 \* 1000/.test(adm));
+
+  /* 🪤 숫자를 화면·문자에 적어 두면 창을 늘렸을 때 거기만 거짓말이 된다 */
+  check('티켓 화면이 «몇 분 전» 을 서버 값에서 계산한다 (숫자 하드코딩 금지)',
+    /d\.start_ts - d\.open_at_ts\) \/ 60000/.test(tpage) && !/시작 10분 전부터 입장 버튼이 열려요/.test(tpage));
+  check('확정 문자도 상수에서 꺼낸다', /Math\.round\(OPEN_BEFORE_MS \/ 60000\)/.test(adm));
 }
 
 console.log('\n[ ⑦-2 어느 기기에서나 — 링크를 «연 기기» 가 기억한다 (2026-08-07) ]');

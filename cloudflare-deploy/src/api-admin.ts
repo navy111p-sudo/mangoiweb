@@ -14,7 +14,7 @@ import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
-import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
+import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
@@ -2047,7 +2047,9 @@ export async function handleAdminApi(
       const p2 = (n: number) => String(n).padStart(2, '0');
       const todayStr = `${kY}-${p2(kMo + 1)}-${p2(kD)}`;
       const ymd = `${kY}${p2(kMo + 1)}${p2(kD)}`;
-      const OPEN_BEFORE = 10 * 60 * 1000;                    // 시작 10분 전부터 입장 가능
+      const OPEN_BEFORE = 10 * 60 * 1000;                    // 정규 수업: 시작 10분 전부터 입장 가능
+      // ⏰ 레벨테스트만 30분 (api-mango.ts·leveltest-ticket.ts 와 같은 값 — 셋이 어긋나면 화면끼리 말이 달라진다)
+      const OPEN_BEFORE_LEVELTEST = 30 * 60 * 1000;
       const LATE_AFTER = 15 * 60 * 1000;                     // 종료 15분 후까지 지각 입장 허용
 
       let rows: any = { results: [] };
@@ -2076,7 +2078,7 @@ export async function handleAdminApi(
         const start_ts = Date.UTC(kY, kMo, kD, hh || 0, mm || 0, 0) - KST;
         const dur = Number(s.duration_min || s.duration_minutes) || 30;
         const end_ts = start_ts + dur * 60000;
-        const open_at_ts = start_ts - OPEN_BEFORE;
+        const open_at_ts = start_ts - (String(s.class_type || '') === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE);
         const close_at_ts = end_ts + LATE_AFTER;
         let status: string;
         if (nowMs < open_at_ts) status = 'early';
@@ -6638,8 +6640,10 @@ LIMIT $limit`;
              그 링크를 보내는 코드는 전화번호를 students_erp 에서만 찾아, 계정이 없는 신청자에겐
              구조적으로 못 갔다 — 지키지 못할 약속이었다. 이제는 링크를 «지금» 준다.
              수업 전엔 일정 확인, 10분 전부터 입장 버튼으로 바뀌는 같은 주소다. */
-          let ticketLine2 = '\n※ 시작 10분 전부터 입장할 수 있어요.';
-          try { ticketLine2 = `\n▶ 확인·입장: ${await ltTicketUrl(Number(app.id), env)}\n※ 시작 10분 전부터 입장 버튼이 열려요.`; } catch {}
+          // ⏰ 분 수는 상수에서 꺼낸다 — 문자에 숫자를 적어 두면 창을 늘렸을 때 문자만 거짓말을 한다
+          const openMin = Math.round(OPEN_BEFORE_MS / 60000);
+          let ticketLine2 = `\n※ 시작 ${openMin}분 전부터 입장할 수 있어요.`;
+          try { ticketLine2 = `\n▶ 확인·입장: ${await ltTicketUrl(Number(app.id), env)}\n※ 시작 ${openMin}분 전부터 입장 버튼이 열려요.`; } catch {}
           const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}${ticketLine2}\n문의: pf.kakao.com/_xlqnSxd/chat`;
           try {
             const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;

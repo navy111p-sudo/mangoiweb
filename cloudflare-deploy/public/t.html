@@ -137,8 +137,12 @@
 
     // 시작 전이면 남은 시간과 «언제 문이 열리는지» 를 같이 말해 준다 (지금 못 들어가는 이유)
     if (!d.join_open && d.start_ts && d.start_ts > d.now){
+      /* ⏰ 「몇 분 전부터」를 화면에 적어 두지 않는다 — 서버가 준 open_at_ts 에서 계산한다.
+         숫자를 양쪽에 적으면 서버만 바뀌었을 때 화면이 거짓말을 한다(실제로 10→30분으로
+         늘리면서 이 줄이 «10분»으로 남을 뻔했다). */
+      var openMin = (d.open_at_ts && d.start_ts) ? Math.round((d.start_ts - d.open_at_ts) / 60000) : 10;
       h += '<div class="sub">⏳ ' + esc(countdown(d.start_ts - d.now)) + ' · '
-        +  t('시작 10분 전부터 입장 버튼이 열려요','Join opens 10 minutes before start') + '</div>';
+        +  t('시작 ' + openMin + '분 전부터 입장 버튼이 열려요', 'Join opens ' + openMin + ' minutes before start') + '</div>';
     } else if (!d.join_open && d.close_at_ts && d.now > d.close_at_ts){
       h += '<div class="sub">' + t('이 수업은 종료되었어요.','This session has ended.') + '</div>';
     } else if (!d.schedule_id){

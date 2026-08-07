@@ -1510,15 +1510,21 @@ export async function handleMangoApi(
         return false;
       };
 
-      const OPEN_BEFORE = 10 * 60 * 1000; // 시작 10분 전부터 입장 허용
+      const OPEN_BEFORE = 10 * 60 * 1000;            // 정규 수업: 시작 10분 전부터 입장 허용
+      /* ⏰ (2026-08-07) 레벨테스트만 30분 — 처음 오는 사람이라 카메라·마이크를 미리 켜 보고
+         기다릴 시간이 필요하다. 가장 서툰 사람에게 가장 짧은 준비 시간을 주고 있었다.
+         ⛔ 정규 수업은 그대로 둔다 — 학생 29,000명 전체의 입장 시각을 바꾸는 일이다.
+         ⚠️ leveltest-ticket.ts 의 OPEN_BEFORE_MS 와 **같은 값**이어야 한다. 한쪽만 고치면
+            «티켓엔 입장 버튼이 떴는데 서버는 아직 안 열어주는» 상태가 된다. */
+      const OPEN_BEFORE_LEVELTEST = 30 * 60 * 1000;  // 레벨테스트: 시작 30분 전부터
       const LATE_AFTER = 15 * 60 * 1000;  // 종료 15분 후까지 지각 입장 허용
 
       /** 조건 한 벌로 «오늘 발생하는» 수업 목록을 만든다. 2단계 조회(ID → 이름)에서 두 번 쓰인다. */
       const runPass = async (conds: string[], binds: any[]): Promise<any[]> => {
         if (!conds.length) return [];
         const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
-        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
-        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status FROM class_schedules cs WHERE ${whereSql}`;
+        const sqlJoin = `SELECT cs.id, cs.user_id, cs.student_name, cs.schedule_kind, cs.class_type, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.teacher_id, cs.status, t.name AS teacher_name FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id WHERE ${whereSql}`;
+        const sqlNoJoin = `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status FROM class_schedules cs WHERE ${whereSql}`;
         let rows: any;
         try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
         catch { rows = await env.DB.prepare(sqlNoJoin).bind(...binds).all<any>(); }
@@ -1537,7 +1543,9 @@ export async function handleMangoApi(
           const start_ts = Date.UTC(kY, kMo, kD, hh, mm, 0) - KST; // KST 벽시계 → UTC ms
           const dur = Number(s.duration_min) || 30;
           const end_ts = start_ts + dur * 60000;
-          const open_at_ts = start_ts - OPEN_BEFORE;
+          // 레벨테스트만 30분 전부터 (위 상수 주석 참조) — 그 외는 전부 10분 그대로
+          const openBefore = (String(s.class_type || '') === 'level_test') ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE;
+          const open_at_ts = start_ts - openBefore;
           const close_at_ts = end_ts + LATE_AFTER;
           let status: string;
           if (now < open_at_ts) status = 'early';

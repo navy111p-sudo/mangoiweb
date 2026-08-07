@@ -37,7 +37,16 @@ export function publicBase(env: any): string {
 
 /* ⏰ 입장 시간창 — /api/class/sessions/today(api-mango.ts) 와 «반드시 같은 값».
    여기만 늘리면 티켓엔 입장 버튼이 떴는데 서버는 아직 안 열어주는 상태가 된다. */
-export const OPEN_BEFORE_MS = 10 * 60 * 1000;   // 시작 10분 전부터 입장
+/* ⏰ (2026-08-07) 레벨테스트만 30분 전부터 연다 — 정규 수업은 그대로 10분.
+   [왜] 레벨테스트를 받는 사람은 **망고아이를 처음 써 보는 사람**이다. 카메라·마이크 권한,
+        브라우저 문제를 그 자리에서 처음 만나는데 10분은 빠듯하다. 가장 서툰 사람에게
+        가장 짧은 준비 시간을 주고 있던 셈이다. 미리 들어와 켜 보고 기다릴 수 있게 한다.
+   ⚠️ 정규 수업(29,000명)의 입장 시각은 건드리지 않는다 — 거기까지 늘리면 앞 수업과
+      겹치는 시간대가 생기고, 사고 반경이 서비스 전체가 된다.
+   ⚠️ 이 값은 api-mango.ts 의 `/api/class/sessions/today` 와 **짝을 맞춰야** 한다.
+      거기서도 class_type='level_test' 일 때만 같은 값을 쓴다. 한쪽만 고치면
+      «티켓엔 입장 버튼이 떴는데 서버는 아직 안 열어주는» 상태가 된다. */
+export const OPEN_BEFORE_MS = 30 * 60 * 1000;   // 레벨테스트: 시작 30분 전부터 입장
 export const LATE_AFTER_MS = 15 * 60 * 1000;    // 종료 15분 후까지 지각 입장
 
 const KST = 9 * 3600 * 1000;
@@ -410,6 +419,105 @@ export async function runLeveltestDayBeforeSweep(env: any, opts: { dry?: boolean
         if (res && res.ok) { out.sms_sent++; budget--; }
       } catch (e: any) { detail.sms = 'error:' + String(e?.message || e).slice(0, 80); }
       try { await env.DB.prepare(`INSERT INTO leveltest_reminder_log (app_id, kind, sent, created_at) VALUES (?, 't1d', 1, ?)`).bind(r.id, now).run(); } catch {}
+    } else {
+      detail.would_send = phone.slice(0, 6) + '***';
+    }
+    detail.status = 'reminded';
+    out.reminded++;
+    out.details.push(detail);
+  }
+  return out;
+}
+
+/* ⏱ 1시간 전 리마인더 (2026-08-07, 사장님 지시 ②)
+   ───────────────────────────────────────────────────────────────────────
+   [왜] 전날 저녁(t1d)과 T-10 사이가 또 비어 있다. 전날 알림은 «있다는 걸 알게» 하고,
+        T-10 은 «지금 들어가라» 인데, 그 사이에 «자리에 앉게» 만드는 알림이 없다.
+        저녁 6시 수업이면 5시쯤 한 번 울려 줘야 실제로 준비를 시작한다.
+   ⚠️ T-10 스윕(runLeveltestReminderSweep)을 건드리지 않고 형제로 둔다. 그쪽은 이미
+      운영에서 돌고 있고 하니스가 그 모양을 붙들고 있다 — 잘 도는 것을 굳이 흔들지 않는다.
+      (셋째가 더 생기면 그때 셋을 함께 정리할 것)
+   ⚠️ 크론이 15분 간격이라 창을 45~75분으로 넉넉히 두고, 중복은 kind='t60' 으로 막는다. */
+const HOUR_MIN_MS = 45 * 60 * 1000;
+const HOUR_MAX_MS = 75 * 60 * 1000;
+export async function runLeveltestHourBeforeSweep(env: any, opts: { dry?: boolean } = {}): Promise<LtReminderResult> {
+  const dry = !!opts.dry;
+  const out: LtReminderResult = { ok: true, enabled: true, checked: 0, reminded: 0, sms_sent: 0, details: [] };
+
+  try {
+    if ((await env.SESSION_STATE?.get('leveltest_reminder_send')) === 'off') { out.enabled = false; return out; }
+  } catch {}
+
+  const now = Date.now();
+  const k = new Date(now + KST);
+  const todayStr = `${k.getUTCFullYear()}-${pad2(k.getUTCMonth() + 1)}-${pad2(k.getUTCDate())}`;
+
+  let rows: any[] = [];
+  try {
+    const rs = await env.DB.prepare(
+      `SELECT a.id, a.student_name, a.phone, a.status, a.assigned_teacher, a.student_uid,
+              cs.id AS sched_id, cs.scheduled_date, cs.start_time, cs.duration_min
+         FROM leveltest_applications a
+         JOIN class_schedules cs ON cs.id = a.schedule_id
+        WHERE a.status NOT IN ('cancelled') AND cs.status != 'cancelled' AND cs.scheduled_date = ?`
+    ).bind(todayStr).all();
+    rows = rs.results || [];
+  } catch (e: any) {
+    return { ...out, ok: false, details: [{ error: 'query_failed:' + String(e?.message || e).slice(0, 80) }] };
+  }
+
+  const due = rows.filter(r => {
+    const [hh, mi] = String(r.start_time || '').split(':').map((x: string) => Number(x));
+    if (!Number.isFinite(hh)) return false;
+    const p = String(r.scheduled_date).split('-').map(Number);
+    const start = Date.UTC(p[0], p[1] - 1, p[2], hh, mi || 0, 0) - KST;
+    const until = start - now;
+    (r as any)._mins = Math.round(until / 60000);
+    return until >= HOUR_MIN_MS && until <= HOUR_MAX_MS;
+  });
+  out.checked = due.length;
+  if (!due.length) return out;
+
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS leveltest_reminder_log (id INTEGER PRIMARY KEY AUTOINCREMENT, app_id INTEGER NOT NULL, kind TEXT NOT NULL, sent INTEGER DEFAULT 0, created_at INTEGER NOT NULL)`);
+  } catch {}
+
+  let budget = MAX_SMS_PER_SWEEP;
+  for (const r of due) {
+    const detail: any = { app_id: r.id, student: r.student_name, mins_left: (r as any)._mins };
+    if (budget <= 0) { detail.status = 'budget_exhausted'; out.details.push(detail); break; }
+    try {
+      const dup = await env.DB.prepare(`SELECT 1 FROM leveltest_reminder_log WHERE app_id = ? AND kind = 't60' LIMIT 1`).bind(r.id).first();
+      if (dup) { detail.status = 'already_sent'; out.details.push(detail); continue; }
+    } catch {}
+
+    let phone = String(r.phone || '').trim();
+    if (!phone && r.student_uid) {
+      try {
+        const stu: any = await env.DB.prepare(`SELECT * FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`).bind(r.student_uid, r.student_uid).first();
+        if (stu) phone = String(stu.parent_phone || stu.student_phone || stu.phone || '').trim();
+      } catch {}
+    }
+    if (!phone) {
+      detail.status = 'no_phone';
+      out.details.push(detail);
+      if (!dry) { try { await env.DB.prepare(`INSERT INTO leveltest_reminder_log (app_id, kind, sent, created_at) VALUES (?, 't60', 0, ?)`).bind(r.id, now).run(); } catch {} }
+      continue;
+    }
+
+    const url = await ltTicketUrl(Number(r.id), env);
+    const hhmm = String(r.start_time || '').slice(0, 5);
+    const tLabel = (r.status === 'confirmed' || r.status === 'done') && r.assigned_teacher ? `\n👩‍🏫 ${r.assigned_teacher}` : '';
+    /* 「30분 전부터 들어갈 수 있다」를 여기서 알려 준다 — 이 문자가 실제로 준비를 시작하게 하는 문자다. */
+    const msg = `[망고아이] ${r.student_name}님, 오늘 ${hhmm} 레벨테스트가 약 1시간 뒤입니다. 🎯${tLabel}\n▶ 확인·입장: ${url}\n※ 시작 30분 전부터 미리 들어와 카메라·마이크를 확인하실 수 있어요.`;
+
+    if (!dry) {
+      try {
+        const res = await sendPlainSms(env, phone, msg);
+        detail.sms = res && res.ok ? 'sent' : (res && (res.error || res.message)) || 'failed';
+        if (res && res.ok) { out.sms_sent++; budget--; }
+      } catch (e: any) { detail.sms = 'error:' + String(e?.message || e).slice(0, 80); }
+      try { await env.DB.prepare(`INSERT INTO leveltest_reminder_log (app_id, kind, sent, created_at) VALUES (?, 't60', 1, ?)`).bind(r.id, now).run(); } catch {}
     } else {
       detail.would_send = phone.slice(0, 6) + '***';
     }
