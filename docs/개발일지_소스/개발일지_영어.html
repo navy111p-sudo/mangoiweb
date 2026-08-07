@@ -115,19 +115,23 @@
 
 <div class="oneline">
   <b>In one line</b> — <b>Studied the competitor</b>, found the two things we genuinely lacked, and <b>closed both the same day.</b>
-  And turned the level test into <b>a single door — from applying to seeing the result.</b>
+  In the afternoon we took <b>19 reports from our Philippine manager</b> and fixed <b>money that was being paid wrong and the friction teachers hit every single class.</b>
 </div>
 
 <div class="kpis">
   <div class="kpi"><div class="n">4 axes</div><div class="l">empty report card filled</div></div>
-  <div class="kpi"><div class="n">2 forms → 1</div><div class="l">level test application</div></div>
-  <div class="kpi"><div class="n">29% → 18%</div><div class="l">text blocking the game screen</div></div>
-  <div class="kpi"><div class="n">10</div><div class="l">deploys verified</div></div>
+  <div class="kpi"><div class="n">19</div><div class="l">field reports handled</div></div>
+  <div class="kpi"><div class="n">3 → 1</div><div class="l">causes of the black screen</div></div>
+  <div class="kpi"><div class="n">14</div><div class="l">deploys verified</div></div>
 </div>
 
 <div class="blk blk-imp">
-  <h3>🔴 Most important (3 things to know)</h3>
+  <h3>🔴 Most important (5 things to know)</h3>
   <ul>
+    <li><b>Teacher pay was wrong in two directions at once.</b> When a manager <b>approved a postponement</b>, the payroll calculation never looked at it. So a class <b>that never happened was counted as "finished" and paid in full</b> — and at the same time, since that class could have no record, it also drew a <b>"no feedback" penalty.</b> Teachers were being docked for a class that did not exist.
+      <small>→ The penalty is gone. <b>We did not touch the amount</b> — how much a postponed class is worth is your decision, so it is now <b>a percentage you set</b> in the admin deduction rules (currently 100%, exactly as before).</small></li>
+    <li><b>"The teacher's face goes black when I open Google" — three reports, one single cause.</b> The moment a teacher left the browser, <b>their camera was switched off.</b> The student was left looking at <b>an unexplained black rectangle.</b> It was built to <b>save battery on student phones</b> — but for a teacher who moves between Google, KakaoTalk and the textbook all class long, it became <b>"the teacher disappeared."</b>
+      <small>→ Teachers are now excluded from that saving; student phones keep it. <b>We also fixed a camera that turned itself back on</b> after being switched off.</small></li>
     <li><b>Academies that bought AI only were receiving a blank report card.</b> Four of the five axes came <b>only from evaluations teachers write by hand</b> — and an AI-only academy has no teacher, so no evaluations at all.
       <small>→ Now <b>only the empty axes</b> are filled from what the student actually did with the AI. <b>If there is not enough evidence we leave it blank</b> (an invented score is worse). We always print what it was measured from.</small></li>
     <li><b>There were TWO level-test application forms.</b> The old page and the home popup <b>asked for different things</b>, so depending on which door you came through <b>an account was created — or not.</b> Some applicants therefore <b>never saw their own application.</b>
@@ -146,6 +150,13 @@
     <li><b>Added "🎟️ My Level Test" to the home screen, plus an on-screen receipt</b> (until today the only proof was a text message). <b>At entry time it turns green with "Enter now."</b> It does not ask you to log in (half of applicants have no account).</li>
     <li><b>Locked the result behind the last 4 digits of the phone number</b> — a leaked link no longer shows the score. <b>Schedule and class entry stay open</b> deliberately.</li>
     <li><b>Fixed on-screen text hiding the enemies</b> in four games (P-38, Sherman, Fishing, Rescue Voyage). Three stacked bars became two, and the sentence panel is now transparent.</li>
+    <li><b>In the level test, only the student was left sitting in an empty room for 20 minutes.</b> When the entry door was widened to "30 minutes early" yesterday, <b>only the student side was changed and the teacher side was missed.</b> A first-time student could walk in while <b>the teacher's button stayed locked for 20 minutes</b> — the worst possible place for a first impression.
+      <small>→ The rule is now "the teacher's door is never later than the student's." As a bonus, <b>teachers can enter regular classes 30 minutes early</b> and open the textbook in advance (Maimai's request).</small></li>
+    <li><b>When the teacher opened a textbook, the student's screen did not move.</b> The student had to <b>press the textbook button by hand.</b> Because the student "already had that book", the screen switch was <b>skipped entirely.</b> → Now the student's screen follows the teacher.</li>
+    <li><b>Fixed a textbook opening into a video instead.</b> The preview/review video attached to a book <b>played by itself and took over the screen.</b> Now <b>the textbook keeps the screen</b> and the video waits in the [Video] tab.</li>
+    <li><b>Fixed sound arriving late for students right after joining.</b> When the audio arrived, <b>nothing told it to play</b>, so it stayed silent until a 3-second watchdog rescued it. It now starts the moment it arrives.</li>
+    <li><b>Cleaned up the teacher page as well.</b> Today's class list now marks <b>trial and make-up classes</b>, and the <b>[Postpone] button that sat next to [Join Class] and was easy to hit by mistake</b> was removed (the request form is still on My Page). The lesson-fee table now shows a <b>"Postponed"</b> status.</li>
+    <li><b>Managers can now block time from the weekly calendar.</b> Blocking already existed, but <b>the calendar never read it</b> — so blocked time looked empty and classes were booked into it again. Now <b>clicking an empty slot</b> blocks it on the spot.</li>
     <li><b>Found the real reason words were silent in "Space Monster"</b> — <b>Korean phones usually have no Chinese voice installed.</b> It now uses the server voice first. <b>Rescue Voyage steers by dragging the boat again</b> (per your instruction), and phones now get a line telling them <b>how to shoot.</b></li>
   </ul>
 </div>
@@ -157,6 +168,9 @@
     <li><b>The recording-upload hole is still open in production.</b> The fix is ready; only the merge order remains.</li>
     <li><b>Students with little AI activity still get blank axes.</b> That is deliberate — no evidence, no score.</li>
     <li><b>I cannot hear sound in my environment.</b> I verified only that a valid audio file arrives and decodes.</li>
+    <li><b>This afternoon's fixes were not confirmed in a real class.</b> They need two people in the same room to observe (the teacher's face, the student's screen following, the sound), so <b>I could only verify them in code.</b> A verification request has been sent to Maimai.</li>
+    <li><b>How much a postponed class is worth has not been decided.</b> It currently pays <b>100%, exactly as before</b>; to change it, edit the percentage in the admin deduction rules.</li>
+    <li><b>Teachers using a virtual background</b> may see their face <b>freeze — not go black —</b> when they open another window, because the browser pauses the background processing. We will fix that if it gets reported.</li>
   </ul>
 </div>
 
@@ -168,6 +182,8 @@
     <li><b>"AI pre/post study"</b> — this is <b>the same job</b> as filling the report card. I will do them together, not separately.</li>
     <li><b>The staff password still needs changing.</b> (Outstanding since August 3.)</li>
     <li><b>Textbook and level are empty for ~29,000 students.</b> Until that is filled, personalised questions do not show on the student screen.</li>
+    <li><b>Waiting on Maimai's real-class verification.</b> In particular we need <b>the number of seconds</b> before sound is heard — that number decides where we look next.</li>
+    <li><b>Please decide the pay rate for a postponed class.</b> It is currently left at 100% (unchanged from before).</li>
   </ul>
 </div>
 
