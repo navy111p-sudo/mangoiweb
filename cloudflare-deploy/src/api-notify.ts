@@ -7,6 +7,7 @@ import { json } from './api-util';
 import type { MangoEnv } from './api-mango';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession } from './auth-admin';
+import { writeClassAudit, ensureClassAuditTable } from './class-audit';  // 📜 수업 종료(end) 이력
 import { checkSolapiBalance, getSolapiMode, sendKakaoAlimtalk, sendChatSummaryAlert, sendLessonEndAlert, sendLessonStartAlert, sendMentionAlert } from './solapi-client';
 
 let _notifSchemaReady = false;
@@ -300,6 +301,45 @@ export async function handleNotifyApi(
         const r = await sendLessonEndAlert(env, t.phone, { studentName, lessonTitle, duration, messagesCount: msgCount });
         results.push({ role: t.role, phone: t.phone, ...r });
       }
+
+      /* 📜 (2026-08-07) 수업 «종료(end)» 를 변경 이력에 남긴다.
+       *
+       * [왜] class_audit_log 에 end 를 쓰는 창구(POST /api/admin/class-audit)는 예전부터 있었는데
+       *      **아무도 부르지 않아** 종료 기록이 한 건도 쌓이지 않았다. 연기·삭제만 남고 종료는 빈칸이었다.
+       *
+       * [왜 여기인가] 실제 «수업이 끝났다» 신호가 지나가는 유일한 서버 지점이다.
+       *      화상수업 흐름(DO)은 «수업이 절대 안 끊겨야» 하는 최우선 경로라 손대지 않는다.
+       *
+       * ⚠️ best-effort — writeClassAudit 는 절대 throw 하지 않는다. 기록이 실패해도 알림은 이미 나갔다.
+       * 🪤 이 요청은 종료 시점에 keepalive/sendBeacon 으로 **두 번 도착할 수 있다**(녹화에서 겪음).
+       *    그래서 10분 안에 같은 방의 end 가 있으면 새로 쓰지 않는다.
+       * ⚠️ 한계: 이 호출은 클라이언트가 학생 정보를 찾은 경우에만 나간다 — 모든 종료를 잡지는 못한다.
+       */
+      const roomIdForAudit = String(body.room_id || '').trim();
+      if (roomIdForAudit) {
+        try {
+          await ensureClassAuditTable(env);
+          const dup: any = await env.DB.prepare(
+            `SELECT 1 AS x FROM class_audit_log
+              WHERE action = 'end' AND room_id = ? AND created_at >= ? LIMIT 1`
+          ).bind(roomIdForAudit, Date.now() - 10 * 60 * 1000).first();
+          if (!dup) {
+            const kstNow = new Date(Date.now() + 9 * 3600 * 1000).toISOString();
+            await writeClassAudit(env, {
+              action: 'end',
+              room_id: roomIdForAudit,
+              student_name: studentName,
+              lesson_date: kstNow.slice(0, 10),
+              lesson_time: kstNow.slice(11, 16),
+              actor: studentName,
+              actor_role: 'system',
+              source: 'lesson-ended',
+              detail: JSON.stringify({ duration_minutes: body.duration_minutes || 0, message_count: msgCount }),
+            });
+          }
+        } catch { /* 기록 실패가 알림 응답을 막지 않는다 */ }
+      }
+
       return json({ ok: true, count: results.length, results });
     }
 
