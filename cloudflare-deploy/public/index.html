@@ -20497,7 +20497,8 @@ async function pdfTogglePageList(){
     var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
     var panel = document.createElement('div');
     panel.id = 'pdf-pagelist';
-    panel.style.cssText = 'position:fixed;left:12px;top:152px;z-index:9600;width:236px;max-height:min(58vh,520px);'
+    /* 실측: 위의 «관련 영상» 알약이 두 줄이면 100~156 을 쓴다 → 4px 겹쳤다. 172 로 내린다. */
+    panel.style.cssText = 'position:fixed;left:12px;top:172px;z-index:9600;width:236px;max-height:min(58vh,520px);'
         + 'display:flex;flex-direction:column;background:rgba(15,23,42,.97);border:1.5px solid rgba(56,189,248,.5);'
         + 'border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#e2e8f0;font-size:12.5px;overflow:hidden';
     panel.innerHTML = '<div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.25);font-weight:800;color:#7dd3fc">'
