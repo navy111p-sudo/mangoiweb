@@ -1999,6 +1999,19 @@ const worker = {
           console.error('[enroll-expiry] error', err);
         }
 
+        /* 🪙 포인트 유효기간 (KST 10:00) — 2026-08-07 승인 ③.
+           마지막 적립으로부터 12개월에 소멸, 30일 전 1회 안내.
+           멱등=point_expiry_log. 실패해도 다른 스윕을 막지 않는다. */
+        try {
+          const { runPointExpirySweep } = await import('./point-policy');
+          const pe = await runPointExpirySweep(env as any);
+          if (pe && (pe.notified > 0 || pe.expired > 0 || !pe.ok)) {
+            console.log('[point-expiry]', JSON.stringify(pe));
+          }
+        } catch (err) {
+          console.error('[point-expiry] error', err);
+        }
+
         // ♾️ 자동연장(정기결제) 자동 청구 (KST 10:00) — 제보 #2-2/#3-2. 카드 등록한 학생을 매월 재청구.
         //   킬스위치: KV 'billing:auto_renew_live'='1' 이어야 실제 청구(기본은 dry-run으로 대상자만 집계).
         try {

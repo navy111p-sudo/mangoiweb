@@ -9,6 +9,8 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './giftishow-client';
 import type { MangoEnv } from './api-mango';
+// 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
+import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts } from './point-policy';
 import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
 /**
@@ -59,6 +61,8 @@ export const ensurePointTables = async (env: MangoEnv) => {
       //                     한 번의 별 = 정확히 1점만 적립되게 보장(중복 방지).
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_roster (room_id TEXT NOT NULL, peer_id TEXT NOT NULL, account_uid TEXT NOT NULL, name TEXT, role TEXT, updated_at INTEGER NOT NULL, PRIMARY KEY (room_id, peer_id));`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_awards (award_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, room_id TEXT, credited_at INTEGER NOT NULL);`);
+      // 🪙 승인된 적립 금액을 규칙표에 맞춘다(멱등). 화면 안내(GET /api/points/rules)도 같은 표를 읽는다.
+      await syncApprovedRuleAmounts(env).catch(() => {});
       __pointTablesReady = true;
     };
 
@@ -219,6 +223,17 @@ export async function handlePointsApi(
       const actorName = body.actor_name || '관리자';
       if (!userId) return json({ ok: false, error: 'user_id_required' }, 400);
       if (!amount) return json({ ok: false, error: 'amount_required' }, 400);
+      /* 🪙 (2026-08-07 승인 ⑦) 수동 조정은 **사유가 반드시 있어야** 한다.
+         기본 문구('관리자 지급')로 통과시키면 나중에 «누가 왜 줬는지» 를 아무도 모른다.
+         기록은 point_transactions 에 영구 보관된다(삭제 창구 없음). */
+      const rawReason = String(body.reason || '').trim();
+      if (POINT_POLICY.ADMIN_ADJUST_REASON_REQUIRED && rawReason.length < 2) {
+        return json({
+          ok: false, error: 'reason_required',
+          message_ko: '수동 조정은 사유를 반드시 적어야 합니다(기록에 영구 보관됩니다).',
+          message_en: 'A reason is required for manual adjustments (kept permanently in the log).',
+        }, 400);
+      }
       try {
         const r = await applyPointTransaction(env, { userId, studentName, type, amount, reason, actorId, actorName });
         return json({ ok: true, ...r });
@@ -280,6 +295,21 @@ export async function handlePointsApi(
         if ((cnt?.c || 0) >= rule.daily_cap) {
           return json({ ok: false, error: 'daily_cap_reached', cap: rule.daily_cap });
         }
+      }
+      /* 🪙 (2026-08-07 승인 ②·①) 규칙별 한도와 별개로 **하루 전체 상한 100점**,
+         그리고 게임·퀴즈 묶음은 **하루 30점** 을 넘지 않는다.
+         ⚠️ 넘치면 깎아서 주지 않고 막는다 — 반쪽 적립은 «왜 5점만 들어왔지?» 라는 더 큰 혼란이 된다. */
+      const allow = await checkEarnAllowed(env, userId, ruleCode, Number(rule.amount) || 0);
+      if (!allow.ok) {
+        return json({
+          ok: false, error: allow.error, cap: allow.cap, used: allow.used,
+          message_ko: allow.error === 'game_daily_cap_reached'
+            ? `게임·퀴즈 포인트는 하루 ${allow.cap}점까지예요. 내일 또 받을 수 있어요!`
+            : `오늘 받을 수 있는 포인트(${allow.cap}점)를 다 채웠어요. 내일 또 만나요!`,
+          message_en: allow.error === 'game_daily_cap_reached'
+            ? `Game & quiz points are capped at ${allow.cap} per day. See you tomorrow!`
+            : `You've earned today's maximum (${allow.cap} points). Come back tomorrow!`,
+        });
       }
       // 적립
       try {
@@ -1039,11 +1069,29 @@ Return STRICT JSON only, in BOTH Korean and English:
       if (!gAuthUid || gAuthUid !== userId) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 교환할 수 있습니다.' }, 401);
       }
+      /* 🪙 (2026-08-07 승인 ④·⑥) 교환 최소 3,000점 · 체험(게스트) 계정은 교환 불가.
+         ⚠️ 최소 단위는 «상품 가격» 이 아니라 «잔액» 기준이다 — 2,000점으로 1,000점짜리를 사면
+            남은 1,000점이 영영 못 쓰는 자투리가 된다. */
+      if (!POINT_POLICY.GUEST_CAN_REDEEM && /^guest/i.test(userId)) {
+        return json({
+          ok: false, error: 'guest_cannot_redeem',
+          message_ko: '체험 계정은 포인트를 모을 수는 있지만 교환은 정식 등록 후에 가능합니다.',
+          message_en: 'Trial accounts can collect points, but redeeming requires a full account.',
+        }, 403);
+      }
       const item: any = await env.DB.prepare(`SELECT * FROM gift_catalog WHERE id=? AND enabled=1`).bind(catalogId).first();
       if (!item) return json({ ok: false, error: 'gift_not_found_or_disabled' }, 404);
       if (item.stock != null && item.stock <= 0) return json({ ok: false, error: 'out_of_stock' }, 409);
       const balanceRow: any = await env.DB.prepare(`SELECT balance FROM student_points WHERE user_id=?`).bind(userId).first();
       const currentBalance = balanceRow?.balance || 0;
+      if (currentBalance < POINT_POLICY.MIN_REDEEM) {
+        return json({
+          ok: false, error: 'below_min_redeem',
+          balance: currentBalance, min: POINT_POLICY.MIN_REDEEM,
+          message_ko: `포인트 교환은 ${POINT_POLICY.MIN_REDEEM.toLocaleString('ko-KR')}점부터 가능합니다. 지금 ${currentBalance.toLocaleString('ko-KR')}점 모았어요!`,
+          message_en: `Redeeming starts at ${POINT_POLICY.MIN_REDEEM} points. You have ${currentBalance} so far!`,
+        }, 402);
+      }
       if (currentBalance < item.point_price) return json({ ok: false, error: 'insufficient_points', balance: currentBalance, need: item.point_price }, 402);
       const now = Date.now();
       // 1) gift_redemptions 행 INSERT (pending)

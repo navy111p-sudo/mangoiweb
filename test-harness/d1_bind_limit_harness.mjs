@@ -168,6 +168,9 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     'api-mango.ts': '학생 1명의 이름 후보 4개(student_name·korean_name·english_name·username)',
     'index.ts': 'keys.slice(0, 50)',
     'd1-chunk.ts': '이 모듈 자신(주석 및 헬퍼 구현)',
+    // 🪙 GAME_QUIZ_RULES 는 코드에 박힌 상수 배열(현재 7개)이라 사용자 입력으로 늘지 않는다.
+    //    규칙을 90개 넘게 추가할 일이 생기면 그때 selectInChunks 로 바꿀 것.
+    'point-policy.ts': '게임·퀴즈 규칙 코드 상수 배열(고정 7개) — 입력으로 늘지 않음',
   };
   const offenders = [];
   for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {
