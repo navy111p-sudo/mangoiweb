@@ -119,20 +119,33 @@
 </div>
 
 <div class="oneline">
-  <b>In one line</b> — Work that carried on past midnight. We made <b>teacher lateness, which was being counted by hand</b>, computable from the records we already had,
-  and opened up a <b>KakaoTalk contact link that was blocking parents behind a "please log in" wall.</b>
-  We also unblocked a deploy where <b>a test was declaring a perfectly working feature "missing."</b>
+  <b>In one line</b> — An all-nighter that finally closed <b>"you can mumble and still score high."</b>
+  The cause was not the numbers but <b>the ruler.</b> To change the ruler we <b>compared four pronunciation-assessment vendors</b>,
+  picked Azure, and took it <b>from account signup to working in production</b> — so the student screen now shows
+  <b>exactly which word to try again.</b>
 </div>
 
 <div class="kpis">
-  <div class="kpi"><div class="n">3</div><div class="l">fixed overnight</div></div>
-  <div class="kpi"><div class="n">hand → records</div><div class="l">lateness calculation</div></div>
-  <div class="kpi"><div class="n">47 pass</div><div class="l">the blocked test suite</div></div>
-  <div class="kpi"><div class="n">0</div><div class="l">deploys (held back)</div></div>
+  <div class="kpi"><div class="n">85 → 59</div><div class="l">clear vs mumbled (measured)</div></div>
+  <div class="kpi"><div class="n">4</div><div class="l">vendors compared</div></div>
+  <div class="kpi"><div class="n">66 pass</div><div class="l">new test suite</div></div>
+  <div class="kpi"><div class="n">8</div><div class="l">deploys verified</div></div>
 </div>
 
 <div class="blk blk-imp">
-  <h3>🔴 Most important (3 things to know)</h3>
+  <h3>🔴 The important thing tonight</h3>
+  <ul>
+    <li><b>"Mumbling still scores high" was never a numbers problem — it was the ruler.</b> We believed we were measuring pronunciation. What we were actually measuring was <b>"how confident the dictation AI is in its own answer."</b> That AI is a language model: for a <b>common sentence it fills in the gaps from context</b> and stays confident even when you mumble.
+      <small>→ Your own recordings proved it. <b>"Thank you very much for your help" scored almost the same clear or mumbled</b>, while <b>the sentence containing "Mangoi" split wide open.</b> The difference was not pronunciation — it was that <b>"Mangoi" is a word the AI does not know.</b> No amount of re-scaling can catch that.</small></li>
+    <li><b>So we changed the ruler — Azure pronunciation assessment, which measures the sound phoneme by phoneme.</b> We compared four vendors (Azure, SpeechSuper, Speechace, Language Confidence) on price, languages and how they connect.
+      <small>→ <b>Three reasons Azure won</b>: ① <b>per-second billing</b> — our utterances are 3–7 seconds while the others bill in <b>15-second blocks</b>, wasting 3× ② <b>Chinese is supported</b> (we already run a Chinese voice coach; Speechace is English-only) ③ <b>a Korea region</b> — student voices <b>never leave the country.</b> At today's volume we sit <b>inside the 5 free hours a month</b>, so it costs nothing.</small></li>
+    <li><b>It really does separate them (measured on your recordings).</b> Same sentence, clear vs mumbled: <b>pronunciation 85 → 59</b>, <b>completeness 83 → 67</b>. It even caught the <b>words that got swallowed</b> while mumbling.
+      <small>→ And <b>getting every word right no longer earns a "good" if the sound is poor.</b> Previously correct text alone guaranteed a high grade.</small></li>
+  </ul>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Also overnight (3 more things)</h3>
   <ul>
     <li><b>A parent tapping "KakaoTalk channel" to ask a question got nothing at all.</b> The channel itself was fine (official Mangoi channel, 1,169 followers). The problem was the <b>"/chat" on the end of the address</b> — on desktop web, if you are not signed in, Kakao <b>bounces you to a login screen.</b> Someone who just wanted to ask a question <b>was being asked to log into Kakao first.</b>
       <small>→ Switched to the <b>channel home</b>, which opens without a login and contains chat, chatbot, phone and location anyway. On top of that, this screen is <b>reached from an SMS link</b>, so it opens inside the KakaoTalk / SMS in-app browser — and those <b>silently swallow "open in a new window."</b> → If a new window fails to open, <b>we now open it in the same window no matter what.</b> The 12px text that was impossible to hit on a phone became a <b>finger-sized yellow chip</b> (Korean + English).</small></li>
@@ -146,6 +159,11 @@
 <div class="blk blk-did">
   <h3>✅ Done today</h3>
   <ul>
+    <li><b>First we re-drew the existing ruler.</b> <b>Nobody was ever touching the bottom half of the scale</b> — the zero mark sat where "the AI heard nothing at all" is, not where "pronunciation is poor" is. Re-drawn against the real distribution, your recordings split <b>78 clear / 20 mumbled.</b></li>
+    <li><b>Compared four pronunciation-assessment vendors</b> on billing shape, supported languages, and whether our server can call them at all — including what each would cost us at 120 and at 29,000 attempts a month.</li>
+    <li><b>Connected the Azure account, resource and key</b> (Korea region, free tier). The key stays <b>on the server only</b>; the student screen gets nothing but a <b>pass that expires every 10 minutes.</b></li>
+    <li><b>Built the "which word should I try again?" screen.</b> Four scores alone leave a student asking <b>"so what do I fix?"</b> Now the sentence opens up word by word in <b>three colours</b> (good / almost / try again). <b>Skipped words</b> are marked separately, and <b>tapping a word plays just that word</b> in a native voice.
+      <small>→ The wording is <b>always hopeful.</b> Not "wrong" but <b>"just try <i>studying</i> once more — you're close!"</b> It points at <b>one</b> weak spot only — listing several is discouraging.</small></li>
     <li><b>Automatic lateness detection</b> (Admin → Payroll). Enter a month and a grace period (3 min default) and you get late minutes per teacher, <b>side by side with whatever a human already entered.</b></li>
     <li><b>The KakaoTalk contact button</b> now opens without a login, and opens reliably inside in-app browsers.</li>
     <li><b>Unblocked the deploy gate</b> by fixing one test that was shaken by code formatting.</li>
@@ -153,17 +171,33 @@
 </div>
 
 <div class="blk blk-not">
+  <h3>🧗 Five walls on the way in (each one left a note behind)</h3>
+  <ul>
+    <li><b>Only 2 characters of the key went in.</b> The paste silently failed, and <b>the screen gave no sign.</b> Worse, Azure answers this with <b>a refusal carrying no explanation at all</b> rather than "bad key." → It now says <b>"the key is too short"</b> on the spot.</li>
+    <li><b>Calling two things at once broke it.</b> To save time we fired "dictation" and "pronunciation" together — and it <b>failed erratically.</b> → We call them <b>in order.</b> Half a second slower, and certain.</li>
+    <li><b>Azure does not accept the browser's default recording format.</b> Sent as-is, <b>only the assessment is silently skipped and nothing shows on screen.</b> → The same microphone now also produces <b>the format Azure accepts</b> (falling back to the old way if that fails).</li>
+    <li><b>Azure's "simple" endpoint ignored the assessment request entirely.</b> It understood the sentence perfectly and returned everything <b>except the assessment.</b> → We moved to <b>running the official toolkit inside the student's browser</b> (the key still never leaves the server).</li>
+    <li><b>Every failure was silent.</b> When it didn't work, no reason was recorded anywhere and <b>all you can do is guess.</b> → Every failure now <b>records why.</b> That one change is what made the last two problems quick to find.</li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
   <h3>⚠️ Not done · still not working</h3>
   <ul>
-    <li><b>None of the three has shipped yet.</b> Another session's work in the same folder is failing its tests, and I held the deploy so <b>their unfinished code would not ride out with mine.</b></li>
+    <li><b>The Chinese voice coach does not have this yet.</b> That screen has a <b>completely different recording and scoring path</b> (browser-native recognition), so it would need rebuilding. Azure supports Chinese, so it <b>can</b> be done — but as its own job. I did not tear up a working feature at 4am.</li>
+    <li><b>We do not yet know whether the absolute scores suit our students.</b> Clear vs mumbled separates correctly, but "is 85 the right number?" needs <b>real usage data.</b></li>
     <li><b>I have not yet compared a full month of "computed" lateness against the hand-counted numbers.</b> We need to see how far apart they are before trusting this screen.</li>
+    <li><b>The Azure key appeared in a screen capture.</b> Harm is limited on the free tier, but <b>it needs replacing.</b> The method is confirmed.</li>
   </ul>
 </div>
 
 <div class="blk blk-next">
   <h3>📌 Next</h3>
   <ul>
-    <li><b>Ship the three fixes above</b> as soon as the other session's work is settled.</li>
+    <li><b>Replace the Azure key</b> (you) — invalidate the one caught in the capture.</li>
+    <li><b>Collect real scores and calibrate.</b> Once a few students' recordings accumulate we can decide what "good" should be worth.</li>
+    <li><b>Decide whether the Chinese voice coach gets the same treatment.</b> It changes that page's structure — budget a day.</li>
+    <li><b>A bonus finding</b> — <b>Azure hears far better than what we use today.</b> Ours never once got "Mangoi" right; Azure got it exactly. <b>Moving dictation itself to Azure</b> is worth considering.</li>
     <li><b>Reconcile a month of computed lateness</b> against the hand-counted figures and report the gap.</li>
     <li><b>August 7's 📌 items all still stand</b> — issue the Toss live keys (you), install the second-layer watchdog on Cafe24, change the staff password, fill in textbook/level for ~29,000 students, and Maimai's real-class verification.</li>
   </ul>
