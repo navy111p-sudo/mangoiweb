@@ -709,17 +709,74 @@ function resetUI() {
   document.getElementById('rec-status').textContent = (window.getLang && window.getLang() === 'en' ? 'Tap mic to start recording' : '마이크 버튼을 눌러 녹음 시작');
 }
 
+/* 🎤 (2026-08-08) 같은 마이크 스트림에서 «16kHz mono WAV» 도 같이 뜬다.
+   왜: Azure 발음평가(음소 단위)는 **webm 을 받지 않는다.** MediaRecorder 기본값이 webm 이라
+       그대로 보내면 발음평가가 통째로 건너뛰어진다. WAV(PCM)는 Whisper 도 그대로 받는다.
+   ⚠️ 기존 MediaRecorder 경로는 «지우지 않고» 그대로 둔다. WAV 만들기가 실패하면
+      (구형 브라우저·AudioContext 차단) 예전처럼 webm 을 보낸다 — 녹음이 죽는 것이 최악이다.
+   ScriptProcessor 는 deprecated 지만 AudioWorklet 과 달리 별도 모듈 파일이 필요 없고
+   모든 현행 브라우저에서 동작한다. 출력 버퍼에 아무것도 안 쓰므로 소리가 새지 않는다. */
+let _pcmCtx = null, _pcmNode = null, _pcmSrc = null, _pcmBuf = [], _pcmRate = 0;
+function pcmStart(stream) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    _pcmCtx = new AC();
+    _pcmRate = _pcmCtx.sampleRate || 48000;
+    _pcmSrc = _pcmCtx.createMediaStreamSource(stream);
+    _pcmNode = _pcmCtx.createScriptProcessor(4096, 1, 1);
+    _pcmBuf = [];
+    _pcmNode.onaudioprocess = (e) => { _pcmBuf.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+    _pcmSrc.connect(_pcmNode);
+    _pcmNode.connect(_pcmCtx.destination);
+    return true;
+  } catch (e) { _pcmCtx = null; return false; }
+}
+function pcmStopToWav() {
+  try {
+    if (!_pcmCtx) return null;
+    try { _pcmNode.disconnect(); _pcmSrc.disconnect(); } catch (e) {}
+    const rate = _pcmRate, parts = _pcmBuf;
+    _pcmBuf = [];
+    try { _pcmCtx.close(); } catch (e) {}
+    _pcmCtx = null;
+    let len = 0; for (const p of parts) len += p.length;
+    if (!len) return null;
+    const flat = new Float32Array(len);
+    let o = 0; for (const p of parts) { flat.set(p, o); o += p.length; }
+    const OUT = 16000, ratio = rate / OUT, n = Math.floor(flat.length / ratio);
+    if (n < 1600) return null;                       // 0.1초 미만 = 사실상 빈 녹음
+    const pcm = new Int16Array(n);
+    for (let i = 0; i < n; i++) {                    // 선형 보간 리샘플
+      const x = i * ratio, i0 = Math.floor(x), i1 = Math.min(i0 + 1, flat.length - 1), t = x - i0;
+      let v = flat[i0] * (1 - t) + flat[i1] * t;
+      v = Math.max(-1, Math.min(1, v));
+      pcm[i] = v < 0 ? v * 0x8000 : v * 0x7FFF;
+    }
+    const buf = new ArrayBuffer(44 + pcm.length * 2), dv = new DataView(buf);
+    const ws = (off, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(off + i, s.charCodeAt(i)); };
+    ws(0, 'RIFF'); dv.setUint32(4, 36 + pcm.length * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, OUT, true); dv.setUint32(28, OUT * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    ws(36, 'data'); dv.setUint32(40, pcm.length * 2, true);
+    new Int16Array(buf, 44).set(pcm);
+    return new Blob([buf], { type: 'audio/wav' });
+  } catch (e) { return null; }
+}
+
 async function toggleRec() {
   if (isRecording) { stopRec(); return; }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     chunks = [];
+    pcmStart(stream);                                 // 🎤 WAV 도 같이 뜬다(실패해도 무시)
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' });
-      await processAudio(blob);
+      const webm = new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' });
+      const wav = pcmStopToWav();                     // 없으면 예전 그대로 webm 을 쓴다
+      await processAudio(wav || webm);
     };
     mediaRecorder.start();
     isRecording = true;
@@ -746,8 +803,15 @@ async function processAudio(blob) {
     //      "한국어로 말했다"며 항상 0점이 나오던 버그가 있었다. 모범문장(target)의 문자로 판정.
     const _target0 = document.getElementById('target-display').textContent || '';
     const fd = new FormData();
-    fd.append('audio', blob, 'rec.webm');
+    const _isWav = (blob.type || '').indexOf('wav') >= 0;
+    fd.append('audio', blob, _isWav ? 'rec.wav' : 'rec.webm');
     fd.append('lang', detectTtsLang(_target0));
+    /* 🎤 (2026-08-08) Azure 발음평가용 «모범 문장». 음소 단위로 소리를 직접 재는 데 쓴다.
+       ⛔ 아래 prompt(=Whisper initial_prompt)와 **완전히 다른 것**이다. 서버에서도 분리돼 있다.
+          Whisper 에 정답을 알려주면 발음이 엉망이어도 정답이 전사돼 늘 100점이 된다(07-29 사고).
+          Azure 는 «전사» 가 아니라 «소리와 음소를 맞춰 보는» 것이라 정답을 알아도 후해지지 않는다.
+       WAV 로 못 떴으면(구형 브라우저) 서버가 알아서 건너뛴다 — 보내도 해가 없다. */
+    if (_target0) fd.append('reference', _target0);
     // 🚫 (2026-07-30) 목표 문장을 Whisper 에 initial_prompt 로 넘기던 코드를 제거했다.
     //   07-29 에 환각(엉뚱한 문장으로 들림) 완화용으로 넣었으나, 부작용이 훨씬 컸다:
     //   짧은 문장에 정답을 미리 알려주면 디코더가 그쪽으로 강하게 기울어, 발음을 엉망으로
@@ -771,7 +835,11 @@ async function processAudio(blob) {
     const _scAcoustic = (trD.segments || trD.transcription_info)
       ? { segments: trD.segments || undefined, transcription_info: trD.transcription_info || undefined }
       : null;
-    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic };
+    /* 🎤 (2026-08-08) Azure 음소 발음평가 결과를 그대로 넘긴다. 서버가 있으면 «또렷함·흐름» 을
+       이걸로 대체한다(Whisper 확신도는 흔한 문장을 뭉갠 것을 못 잡는다).
+       키가 없거나 Azure 가 실패하면 서버가 null 을 주므로 이 값도 null → 예전과 똑같이 동작. */
+    const _scAzure = (trD.azure && trD.azure.ok) ? trD.azure : null;
+    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic, azure: _scAzure };
     let coachResp = await fetch('/api/voice/coach', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(_scPayload)

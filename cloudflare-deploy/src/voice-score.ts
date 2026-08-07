@@ -26,6 +26,8 @@ export interface VoiceScore {
   overall: number;         // 0~100 — 종합(accuracy 0.6 + pron 0.25 + fluency 0.15)
   langMismatch: boolean;   // 목표 언어와 발화 언어가 다른가(영어 목표에 한국어 등)
   acoustic: boolean;       // 음향 지표를 실제로 반영했는가(false = 텍스트만 본 옛 방식)
+  /** 🎤 Azure 음소 발음평가를 반영했는가(true = 소리를 «직접» 잰 점수) */
+  phoneme?: boolean;
   counts: { ok: number; close: number; wrong: number; wrongContent: number; missing: number; extra: number };
 }
 
@@ -389,6 +391,56 @@ function applyAcoustic(base: VoiceScore, info?: AcousticInfo | null): VoiceScore
     ...base,
     pronunciation, fluency, acoustic: true,
     overall: combine(base.accuracy, pronunciation, fluency),
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🎤 Azure 음소 발음평가를 점수판에 얹는다 (2026-08-08)
+
+   왜: Whisper 확신도(avg_logprob)는 «흔한 문장을 뭉갠 것» 을 원리적으로 못 잡는다
+       (한계 4 주석 참고). Azure 는 **음소 단위로 소리를 직접** 재므로 문맥으로 못 메운다.
+
+   무엇을 바꾸나 — 축마다 «가장 좋은 증거» 를 쓴다:
+     · 또렷함 ← Azure AccuracyScore   (음소 기반. 옛 확신도 방식을 «대체»)
+     · 흐름   ← Azure FluencyScore    (끊김·머뭇거림)
+     · 정확도 ← **우리 텍스트 비교 그대로 유지**
+       🔑 Azure 는 «모범 문장을 알고» 듣는다. 그 결과로 정확도까지 매기면 채점이 한쪽
+          증거에만 기대게 된다. «무슨 말을 했나» 는 모범 문장을 모르는 Whisper 전사가
+          더 정직한 증거다(2026-07-29 정답유출 사고와 같은 이유).
+
+   🔑 종합 상한 — 글자가 맞아도 소리가 엉망이면 «좋아요» 라고 하지 않는다.
+      종합의 60%가 정확도라 지금은 글자만 맞으면 B 아래로 안 내려간다. 그건 음소 증거가
+      없을 때의 안전장치였다. 이제 증거가 있으므로 «또렷함 + 30» 을 상한으로 건다.
+      ⚠️ Azure 가 없을 때는 이 상한을 걸지 않는다 — 근거 없이 깎으면 억울한 학생이 생긴다.
+   ═══════════════════════════════════════════════════════════════════════ */
+export interface AzurePronInput {
+  accuracy: number; fluency: number; completeness: number; pron: number;
+}
+/** Azure 발음평가 상한 — azure-pronunciation.ts 의 AZURE_TUNING 과 같은 값을 쓴다. */
+export const AZURE_OVERALL_CAP_OVER_PRON = 30;
+
+export function applyAzurePronunciation(base: VoiceScore, az?: AzurePronInput | null): VoiceScore {
+  if (!az) return base;
+  const n = (v: any) => {
+    const x = Number(v);
+    return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : null;
+  };
+  const acc = n(az.accuracy), flu = n(az.fluency);
+  if (acc === null) return base;                       // 값이 없으면 손대지 않는다
+  // 딴말(정확도 0)을 발음점수로 되살리지 않는다 — 기존 규칙과 동일.
+  if (base.langMismatch) return base;
+
+  const pronunciation = acc;
+  const fluency = flu === null ? base.fluency : Math.min(flu, base.accuracy + 15);
+  const completeness = n(az.completeness) ?? base.completeness;
+  const raw = combine(base.accuracy, pronunciation, fluency);
+  const overall = Math.min(raw, pronunciation + AZURE_OVERALL_CAP_OVER_PRON);
+
+  return {
+    ...base,
+    pronunciation, fluency, completeness,
+    acoustic: true, phoneme: true,
+    overall,
   };
 }
 

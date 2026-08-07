@@ -12,7 +12,8 @@ import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)
 import { resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정(게스트 예외+관리자/토큰)
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
-import { scoreVoiceCoach, scoreTier, analyzeAcoustic } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
+import { scoreVoiceCoach, scoreTier, analyzeAcoustic, applyAzurePronunciation } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
+import { assessPronunciation } from './azure-pronunciation';  // 🎤 Azure 음소 발음평가(키 없으면 자동으로 건너뜀)
 import type { MangoEnv } from './api-mango';
 
 
@@ -2067,7 +2068,10 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       // 🎧 (2026-07-30) 음향 채점 보정용 원자료. 임계값(ACOUSTIC_TUNING)이 아직 잠정치라,
       //   실사용 분포를 봐야 "웅얼거림"의 실제 경계를 정할 수 있다. 점수가 아니라 원값을 남긴다.
       //   ADD COLUMN 은 기존 행을 건드리지 않는다(추가만). 이미 있으면 예외 → 무시.
-      for (const col of ['avg_logprob REAL', 'no_speech_prob REAL', 'speech_rate REAL', 'max_gap REAL', 'acoustic_used INTEGER']) {
+      // 🎤 (2026-08-08) Azure 음소 발음평가 원값. Whisper 확신도 방식과 «나란히» 남겨야
+      //   두 자(尺)가 얼마나 다른지 실측으로 비교할 수 있다(도입 판단의 근거).
+      for (const col of ['avg_logprob REAL', 'no_speech_prob REAL', 'speech_rate REAL', 'max_gap REAL', 'acoustic_used INTEGER',
+                         'azure_accuracy REAL', 'azure_fluency REAL', 'azure_completeness REAL', 'azure_used INTEGER']) {
         try { await env.DB.exec(`ALTER TABLE voice_coaching ADD COLUMN ${col}`); } catch { /* 이미 존재 */ }
       }
     };
@@ -2229,6 +2233,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         let audio: ArrayBuffer | null = null;
         let hintLang = '';
         let hintPrompt = '';
+        let paReference = '';   // 🎤 Azure 발음평가 모범 문장 (Whisper 로는 절대 안 넘어간다)
         if (ct.includes('multipart/form-data')) {
           const fd = await request.formData();
           const file = fd.get('audio') as File | null;
@@ -2242,6 +2247,10 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           //   07-29 에 음성코치가 이걸 보내다가 만점만 나와서 07-30 에 제거했다.
           //   자유발화 받아쓰기(고유명사 힌트 등) 용도로만 쓸 것.
           hintPrompt = String(fd.get('prompt') || '').trim().slice(0, 300);
+          /* 🎤 (2026-08-08) Azure 발음평가용 «모범 문장». ⛔ 위 hintPrompt 와 절대 섞지 말 것 —
+             이 값이 Whisper 의 initial_prompt 로 흘러가면 07-29 만점 사고가 그대로 재현된다.
+             Azure 는 소리를 음소 단위로 재므로 모범 문장을 알아도 점수가 후해지지 않는다. */
+          paReference = String(fd.get('reference') || '').trim().slice(0, 500);
         } else {
           audio = await request.arrayBuffer();
           hintLang = String(url.searchParams.get('lang') || '').trim().toLowerCase();
@@ -2256,6 +2265,16 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 기대 언어 정규화(ISO-639-1). 지원 밖이면 힌트 없이 자동감지로 둔다.
         const langMap: Record<string, string> = { en: 'en', ko: 'ko', zh: 'zh', 'zh-cn': 'zh' };
         const lang = langMap[hintLang] || '';
+
+        /* 🎤 (2026-08-08) Azure 음소 발음평가 — Whisper 전사와 «동시에» 돌린다.
+           · 키(AZURE_SPEECH_KEY·AZURE_SPEECH_REGION)가 없으면 assessPronunciation 이
+             그냥 null 을 준다 → 지금까지의 동작과 100% 동일. 없는 채로도 서비스는 굴러간다.
+           · 실패·타임아웃도 전부 null 이다. 발음평가 때문에 수업이 멈추면 안 된다.
+           · WAV 가 아니면(구 브라우저의 webm 폴백) 역시 null — Azure 는 webm 을 못 받는다.
+           Promise 를 먼저 띄워 두고 Whisper 가 끝난 뒤 await 한다 = 왕복이 겹쳐 지연이 안 늘어난다. */
+        const azurePromise = paReference
+          ? assessPronunciation(env as any, audio, paReference, lang || 'en').catch(() => null)
+          : Promise.resolve(null);
 
         // whisper-large-v3-turbo 는 audio 를 base64 문자열로 받고 language 힌트를 지원한다.
         if (lang) {
@@ -2284,6 +2303,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
               ok: true, text: tt, vtt: turbo?.vtt || null, word_count: turbo?.word_count || 0, lang,
               segments: Array.isArray(turbo?.segments) ? turbo.segments.slice(0, 30) : null,
               transcription_info: turbo?.transcription_info || null,
+              // 🎤 발음평가 결과(없으면 null). 프론트는 이걸 그대로 /api/voice/coach 로 넘긴다.
+              azure: await azurePromise,
             });
           } catch (turboErr: any) {
             console.warn('[voice/transcribe] turbo failed, fallback base whisper:', turboErr?.message);
@@ -2293,7 +2314,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 폴백: 구 whisper (언어 힌트 미지원, 자동감지)
         const arr = [...new Uint8Array(audio)];
         const result = await ai.run('@cf/openai/whisper', { audio: arr });
-        return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null });
+        return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null, azure: await azurePromise });
       } catch (e: any) {
         console.warn('[voice/transcribe] error:', e?.message);
         return json({ ok: false, error: e?.message || 'transcribe_failed' }, 500);
@@ -2328,7 +2349,15 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         transcription_info: (b.acoustic.transcription_info && typeof b.acoustic.transcription_info === 'object')
           ? b.acoustic.transcription_info : undefined,
       } : null;
-      const sc = scoreVoiceCoach(target, spoken, acousticIn);
+      /* 🎤 (2026-08-08) Azure 음소 발음평가가 있으면 «또렷함·흐름» 을 그것으로 대체한다.
+         Whisper 확신도는 흔한 문장을 뭉갠 경우를 원리적으로 못 잡는다(voice-score.ts 한계 4).
+         ⚠️ 프론트가 보내는 값이라 위조 가능하다 — 단 spoken(전사 텍스트)도 원래 프론트가 보내므로
+            신뢰모델은 이전과 동일하다. 0~100 범위 밖은 채점기가 잘라낸다. */
+      const azureIn = (b && typeof b.azure === 'object' && b.azure && b.azure.ok === true) ? {
+        accuracy: Number(b.azure.accuracy), fluency: Number(b.azure.fluency),
+        completeness: Number(b.azure.completeness), pron: Number(b.azure.pron),
+      } : null;
+      const sc = applyAzurePronunciation(scoreVoiceCoach(target, spoken, acousticIn), azureIn);
       const ac = analyzeAcoustic(acousticIn);   // 보정용 원자료(점수가 아니라 raw 값)를 함께 남긴다
       const accuracy = sc.accuracy;
       const pronunciation = sc.pronunciation;
@@ -2398,9 +2427,10 @@ Respond in JSON ONLY:
       //   옛 컬럼만 있는 DB 에서도 죽지 않게, 실패하면 원래 컬럼만으로 한 번 더 시도한다.
       try {
         await env.DB.prepare(
-          `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at, avg_logprob, no_speech_prob, speech_rate, max_gap, acoustic_used) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at, avg_logprob, no_speech_prob, speech_rate, max_gap, acoustic_used, azure_accuracy, azure_fluency, azure_completeness, azure_used) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
         ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now,
-               ac.ok ? ac.lp : null, ac.ok ? ac.noSpeech : null, ac.ok ? ac.rate : null, ac.ok ? ac.maxGap : null, sc.acoustic ? 1 : 0).run();
+               ac.ok ? ac.lp : null, ac.ok ? ac.noSpeech : null, ac.ok ? ac.rate : null, ac.ok ? ac.maxGap : null, sc.acoustic ? 1 : 0,
+               azureIn ? azureIn.accuracy : null, azureIn ? azureIn.fluency : null, azureIn ? azureIn.completeness : null, azureIn ? 1 : 0).run();
       } catch {
         await env.DB.prepare(
           `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
@@ -2413,6 +2443,9 @@ Respond in JSON ONLY:
         tier,
         lang_mismatch: sc.langMismatch,
         acoustic: sc.acoustic,   // 🎧 true=음향 기반 채점, false=텍스트만(구 whisper 폴백 등). 보정 확인용
+        phoneme: !!sc.phoneme,   // 🎤 true=Azure 음소 발음평가 반영(소리를 «직접» 잰 점수)
+        // 어느 단어가 틀렸는지 — Azure 가 있을 때만. 학생 화면에서 그 단어만 짚어 줄 수 있다.
+        word_scores: (b?.azure && Array.isArray(b.azure.words)) ? b.azure.words.slice(0, 40) : null,
         feedback: aiFeedback,
         suggestion,
         word_stats: { completeness: sc.completeness, matched: sc.counts.ok, wrong: sc.counts.wrong, missing: sc.counts.missing, extra: sc.counts.extra },
