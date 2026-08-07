@@ -15230,7 +15230,14 @@ function startMicLevelMeter() {
                [화면 분할] 패널이 열리는 곳이라 아래 두 칸(솔로 · 칠판만)을 덮었다.
                → 왼쪽 아래로 보낸다. 오른쪽은 얼굴 사이드바·PIP 가 이미 쓰고 있어 남은 곳이 왼쪽이다.
                ⚠️ transform:translateX 를 빼야 한다 — 남겨 두면 left 를 바꿔도 다시 가운데로 당겨진다. */
-            _micMeterEl.style.cssText = 'position:fixed;bottom:96px;left:12px;z-index:9999;background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:99px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;pointer-events:none;max-width:calc(100vw - 24px)';
+            /* 📏 (브라우저 실측 2026-08-07) 왼쪽 아래에는 이미 4개가 층으로 서 있다 —
+                  신고 FAB(18) · AI질문 FAB(64) · 세계시계(96~163) · 캐시 FAB(186~226).
+                  96 에 두면 세계시계(z-index 최대)가 미터를 덮어 «고쳤는데 안 보이는» 꼴이 된다.
+                  → 그 층 위(236)로 올린다. 실측 없이 «왼쪽으로 옮김» 만 했으면 못 봤을 문제다. */
+            /* 🔻 z-index 9999 -> 9300: «상태 표시»가 «대화상자» 위에 올라오면 안 된다.
+                  실측에서 [화면 분할] 시트(z 9800)가 열렸는데 미터가 그 위에 그려져,
+                  자리를 옮기고도 원래 신고와 같은 그림이 됐다. 이제 시트가 미터를 덮는다. */
+            _micMeterEl.style.cssText = 'position:fixed;bottom:236px;left:12px;z-index:9300;background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:99px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;pointer-events:none;max-width:calc(100vw - 24px)';
             /* 🙋 (요청 ⑩ 「지금 켜진 게 내 마이크인지 학생 마이크인지 모르겠다」)
                이 미터는 **내 마이크만** 잰다(vcLocalStream). 그 사실을 라벨로 못박는다.
                강사 다수가 필리핀이라 한/영을 함께 적는다 — 라벨만 영어고 상태가 한국어면 소용없다. */
@@ -20490,7 +20497,7 @@ async function pdfTogglePageList(){
     var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
     var panel = document.createElement('div');
     panel.id = 'pdf-pagelist';
-    panel.style.cssText = 'position:fixed;left:12px;top:96px;z-index:9600;width:236px;max-height:min(62vh,520px);'
+    panel.style.cssText = 'position:fixed;left:12px;top:152px;z-index:9600;width:236px;max-height:min(58vh,520px);'
         + 'display:flex;flex-direction:column;background:rgba(15,23,42,.97);border:1.5px solid rgba(56,189,248,.5);'
         + 'border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#e2e8f0;font-size:12.5px;overflow:hidden';
     panel.innerHTML = '<div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.25);font-weight:800;color:#7dd3fc">'
@@ -23595,7 +23602,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=12"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=13"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){
@@ -32590,7 +32597,9 @@ window.vcAutoLoadStudentTextbook = async function(){
       el = document.createElement('button');
       el.id = 'mangoi-video-note';
       el.type = 'button';
-      el.style.cssText = 'position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 148px);z-index:9400;'
+      /* 자리: 탭바 바로 아래 왼쪽(교재 화면이 시작되기 전 빈 띠). 아래쪽은 FAB·시계·미터가
+         이미 4층으로 차 있어(실측) 알약 하나가 더 낄 자리가 없다. */
+      el.style.cssText = 'position:fixed;left:12px;top:100px;z-index:9400;'
         + 'display:flex;align-items:center;gap:8px;max-width:min(340px,calc(100vw - 24px));'
         + 'padding:10px 14px;min-height:44px;border-radius:99px;cursor:pointer;'
         + 'background:rgba(15,23,42,.92);border:1.5px solid rgba(56,189,248,.6);color:#7dd3fc;'

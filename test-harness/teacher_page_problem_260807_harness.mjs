@@ -110,11 +110,20 @@ check('알림은 스스로 사라진다 (수업 화면에 오래 남는 것 자�
   /_mlNoteT = setTimeout/.test(idx));
 
 console.log('\n[ ⑨  마이크 표시기가 화면분할 설정을 가리지 않는다 ]');
-check('가운데 아래가 아니라 왼쪽에 붙는다', /vc-mic-meter[\s\S]{0,600}left:12px/.test(idx));
-check('🔴 가운데로 당기는 transform 을 남기지 않았다',
-  !/vc-mic-meter[\s\S]{0,400}translateX\(-50%\)/.test(idx));
-check('클릭을 가로채지 않는다 (pointer-events:none)',
-  /vc-mic-meter[\s\S]{0,1200}pointer-events:none/.test(idx));
+/* ⚠️ 「id 에서 몇 글자 안에 left:12px 이 있는가」로 검사했더니 주석 한 줄을 늘리자 깨졌다.
+   → 미터의 **style 문자열 자체**를 뽑아 그 안의 규칙을 본다(주석 길이와 무관). */
+const micCss = (/_micMeterEl\.style\.cssText = '([^']*)'/.exec(idx) || ['', ''])[1];
+check('스타일 문자열을 찾았다 (없으면 아래 검사가 전부 무의미하다)', micCss.length > 30, micCss.slice(0, 40));
+check('왼쪽에 붙는다 (가운데 아래가 아니다)', /left:12px/.test(micCss) && !/left:50%/.test(micCss), micCss.slice(0, 60));
+check('🔴 가운데로 당기는 transform 을 남기지 않았다', !/translateX\(-50%\)/.test(micCss));
+check('클릭을 가로채지 않는다 (pointer-events:none)', /pointer-events:none/.test(micCss));
+/* 🔴 브라우저 실측에서 잡은 것: 자리를 옮겨도 **대화상자보다 위**면 같은 신고가 다시 난다.
+      [화면 분할] 시트는 z-index 9800 → 미터는 그보다 낮아야 한다.
+      그리고 왼쪽 아래는 이미 4층(신고 FAB 18 · AI질문 64 · 세계시계 96~163 · 캐시 FAB 186~226)이다. */
+const micZ = Number((/z-index:(\d+)/.exec(micCss) || [0, 0])[1]);
+check('🔴 대화상자(z 9800)보다 아래에 그려진다', micZ > 0 && micZ < 9800, micZ);
+check('왼쪽 아래에 이미 선 것들(≤226) 위로 올라가 있다',
+  Number((/bottom:(\d+)px/.exec(micCss) || [0, 0])[1]) >= 230, (/bottom:(\d+)px/.exec(micCss) || [])[1]);
 
 console.log('\n[ ⑩  얼굴이 사라지면 되돌리는 길이 보인다 ]');
 /* "Teacher and student's videos hide sometimes and the option to show it again is not visible."

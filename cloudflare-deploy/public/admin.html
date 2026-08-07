@@ -3584,7 +3584,10 @@ window.__admSettleRun = function(fn){
     snapBtn = document.createElement('button');
     snapBtn.id = 'adm-snap-left';
     snapBtn.type = 'button';
-    snapBtn.style.cssText = 'position:fixed;left:10px;bottom:14px;z-index:99998;display:none;align-items:center;gap:6px;'
+    /* 📏 (브라우저 실측) 왼쪽 아래는 **사이드바 위**다 — 거기 두면 메뉴를 덮는다.
+       세계시계(left 16 · bottom 125)도 그 안에 있다. 오른쪽 아래는 스피드다이얼(mi-speed-dial).
+       비어 있는 곳은 아래 «가운데» 뿐이라 거기에 둔다. */
+    snapBtn.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:99998;display:none;align-items:center;gap:6px;'
       + 'padding:10px 14px;min-height:44px;border-radius:99px;cursor:pointer;border:1.5px solid #fbbf24;'
       + 'background:rgba(17,24,39,.94);color:#fcd34d;font-size:13px;font-weight:800;font-family:inherit;'
       + 'box-shadow:0 6px 18px rgba(0,0,0,.35)';
