@@ -60,19 +60,21 @@ ok('WAV 길이를 읽는다 (3초)', w3 !== null && Math.abs(w3 - 3) < 0.05, 'go
 ok('WAV 가 아니면 null (webm 흉내)', M.wavSeconds(new TextEncoder().encode('\x1aE\xdf\xa3webm...').buffer) === null);
 ok('너무 짧은 버퍼도 null', M.wavSeconds(new ArrayBuffer(10)) === null);
 
-// ── ① 키가 없으면 조용히 null ──
-const noKey = await M.assessPronunciation({}, makeWav(2), 'Hello there.', 'en');
-ok('키가 없으면 null (예외 아님)', noKey === null);
-const halfKey = await M.assessPronunciation({ AZURE_SPEECH_KEY: 'k' }, makeWav(2), 'Hi.', 'en');
-ok('리전만 빠져도 null', halfKey === null);
-const noRef = await M.assessPronunciation({ AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'koreacentral' }, makeWav(2), '', 'en');
-ok('모범문장이 없으면 null', noRef === null);
-const badFmt = await M.assessPronunciation({ AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'koreacentral' }, new ArrayBuffer(500), 'Hi.', 'en');
-ok('WAV 가 아니면 네트워크에 나가지 않고 null', badFmt === null);
-const tooLong = await M.assessPronunciation({ AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'koreacentral' }, makeWav(60), 'Hi.', 'en');
-ok('30초 넘으면 보내지 않는다', tooLong === null);
-const badLang = await M.assessPronunciation({ AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'koreacentral' }, makeWav(2), 'Bonjour', 'xx');
-ok('지원 밖 언어는 null', badLang === null);
+/* ── ① 실패는 예외가 아니라 «사유가 붙은 실패» 로 돌아온다 ──
+   🔑 사유가 없으면 «키가 틀렸나 / 소리를 못 알아들었나» 를 구분할 수 없다.
+      실제로 붙이던 날 밤에 그게 안 갈려서 한참 헤맸다. 그래서 사유까지 검사한다. */
+const K = { AZURE_SPEECH_KEY: 'k', AZURE_SPEECH_REGION: 'koreacentral' };
+const why = async (env, audio, ref, lang) => (await M.assessPronunciation(env, audio, ref, lang))?.reason;
+ok('키가 없으면 no_key (예외 아님)', (await why({}, makeWav(2), 'Hello there.', 'en')) === 'no_key');
+ok('리전만 빠지면 no_region', (await why({ AZURE_SPEECH_KEY: 'k' }, makeWav(2), 'Hi.', 'en')) === 'no_region');
+ok('모범문장이 없으면 no_reference', (await why(K, makeWav(2), '', 'en')) === 'no_reference');
+ok('WAV 가 아니면 네트워크에 안 나가고 not_wav', (await why(K, new ArrayBuffer(500), 'Hi.', 'en')) === 'not_wav');
+ok('30초 넘으면 too_long', (await why(K, makeWav(60), 'Hi.', 'en')) === 'too_long');
+ok('지원 밖 언어는 lang_unsupported', String(await why(K, makeWav(2), 'Bonjour', 'xx')).startsWith('lang_unsupported'));
+ok('실패에도 ok:false 가 붙는다', (await M.assessPronunciation({}, makeWav(2), 'Hi.', 'en')).ok === false);
+// ⛔ 사유에 키가 섞여 들어가면 안 된다
+const leak = await M.assessPronunciation({ AZURE_SPEECH_KEY: 'SUPERSECRETKEY123', AZURE_SPEECH_REGION: '' }, makeWav(2), 'Hi.', 'en');
+ok('사유에 키가 새지 않는다', !JSON.stringify(leak).includes('SUPERSECRETKEY123'), JSON.stringify(leak));
 
 // ── ③ 로케일 · 비ASCII ──
 ok('en → en-US', M.azureLocale('en') === 'en-US');
@@ -120,7 +122,9 @@ ok('initial_prompt 는 여전히 hintPrompt 만 쓴다',
    /turboParams\.initial_prompt\s*=\s*hintPrompt/.test(games));
 ok('reference 는 Azure 호출에만 쓰인다',
    /assessPronunciation\(\s*env as any,\s*audio,\s*paReference/.test(games));
-ok('키가 없을 때를 대비해 catch 로 감싸 둔다', /assessPronunciation\([^)]*\)\.catch\(\(\) => null\)/.test(games));
+ok('예외가 나도 전사는 계속된다 (catch 로 감쌈)', /assessPronunciation\([\s\S]{0,120}?\.catch\(/.test(games));
+ok('실패 사유를 azure_diag 로 돌려준다', /azure_diag/.test(games));
+ok('점수는 ok 일 때만 azure 로 나간다', /azure:\s*\(r && r\.ok\)\s*\?\s*r\s*:\s*null/.test(games));
 
 const html = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'speech-coach.html'), 'utf8');
 ok('프론트: WAV 만들기가 실패하면 예전 webm 으로 돌아간다', /processAudio\(wav \|\| webm\)/.test(html));

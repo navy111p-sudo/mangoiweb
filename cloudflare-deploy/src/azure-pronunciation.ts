@@ -48,6 +48,12 @@ export interface AzureWordScore {
   errorType?: string;
 }
 
+/* 🔍 «왜 발음평가가 안 붙었나» 를 화면에서 바로 알 수 있게 사유를 돌려준다 (2026-08-08).
+   이게 없으면 실패가 전부 «조용한 null» 이라, 키가 틀린 건지 소리를 못 알아들은 건지
+   구분이 안 된다. 실제로 붙이는 날 밤에 그 구분이 안 돼서 한참을 헤맸다.
+   ⛔ 키·응답 본문 같은 민감한 값은 절대 담지 않는다. 사유 «이름» 뿐이다. */
+export interface AzurePronFail { ok: false; reason: string; }
+
 export interface AzurePronResult {
   ok: true;
   /** 음소 단위 발음 정확도 0~100 — 이게 «또렷함» 을 대체한다 */
@@ -107,18 +113,18 @@ export function wavSeconds(buf: ArrayBuffer): number | null {
  */
 export async function assessPronunciation(
   env: any, audio: ArrayBuffer, reference: string, lang: string,
-): Promise<AzurePronResult | null> {
+): Promise<AzurePronResult | AzurePronFail> {
   const key = String(env?.AZURE_SPEECH_KEY || '').trim();
   const region = String(env?.AZURE_SPEECH_REGION || '').trim().toLowerCase();
-  if (!key || !region) return null;               // 아직 안 붙였음 — 조용히 건너뛴다
+  if (!key || !region) return { ok: false, reason: key ? 'no_region' : 'no_key' };
   const locale = azureLocale(lang);
-  if (!locale) return null;                       // 발음평가를 지원하지 않는 언어
+  if (!locale) return { ok: false, reason: 'lang_unsupported:' + lang };
   const ref = String(reference || '').trim();
-  if (!ref) return null;                          // 모범 문장이 없으면 «발음평가» 자체가 성립 안 함
+  if (!ref) return { ok: false, reason: 'no_reference' };
 
   const secs = wavSeconds(audio);
-  if (secs === null) return null;                 // WAV 가 아니다 → Azure 가 못 받는다
-  if (secs > AZURE_TUNING.MAX_SECONDS) return null;
+  if (secs === null) return { ok: false, reason: 'not_wav' };   // Azure 는 webm 을 못 받는다
+  if (secs > AZURE_TUNING.MAX_SECONDS) return { ok: false, reason: 'too_long' };
 
   /* 🔑 Granularity: 'Phoneme' — 음소까지 받아야 «어느 소리가 틀렸나» 를 말해 줄 수 있다.
      🔑 EnableMiscue: true — 빠뜨린 단어·없는 단어를 잡는다. 이게 없으면 «절반만 읽어도 만점».
@@ -153,17 +159,18 @@ export async function assessPronunciation(
     });
     if (!res.ok) {
       console.warn('[azure-pron] http', res.status, (await res.text().catch(() => '')).slice(0, 200));
-      return null;
+      return { ok: false, reason: 'http_' + res.status };   // 401=키 틀림 · 403=권한 · 429=한도
     }
     const d: any = await res.json();
     // RecognitionStatus: Success | NoMatch | InitialSilenceTimeout | ...
     if (String(d?.RecognitionStatus || '') !== 'Success') {
       console.warn('[azure-pron] status', d?.RecognitionStatus);
-      return null;
+      // 🔑 여기까지 왔다는 건 «키는 통과했고 소리를 못 알아들었다» 는 뜻이다. 진단에서 아주 중요.
+      return { ok: false, reason: 'recog_' + String(d?.RecognitionStatus || 'unknown') };
     }
     const best = Array.isArray(d?.NBest) ? d.NBest[0] : null;
     const pa = best?.PronunciationAssessment;
-    if (!pa) return null;
+    if (!pa) return { ok: false, reason: 'no_assessment' };
 
     const num = (v: any) => {
       const n = Number(v);
@@ -189,7 +196,7 @@ export async function assessPronunciation(
   } catch (e: any) {
     // 타임아웃(abort) 포함 — 전부 «없던 일» 로 만들고 Whisper 채점으로 돌아간다
     console.warn('[azure-pron] failed:', e?.name === 'AbortError' ? 'timeout' : (e?.message || e));
-    return null;
+    return { ok: false, reason: e?.name === 'AbortError' ? 'timeout' : 'error' };
   } finally {
     clearTimeout(timer);
   }

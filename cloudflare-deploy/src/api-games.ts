@@ -2272,9 +2272,17 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
            · 실패·타임아웃도 전부 null 이다. 발음평가 때문에 수업이 멈추면 안 된다.
            · WAV 가 아니면(구 브라우저의 webm 폴백) 역시 null — Azure 는 webm 을 못 받는다.
            Promise 를 먼저 띄워 두고 Whisper 가 끝난 뒤 await 한다 = 왕복이 겹쳐 지연이 안 늘어난다. */
-        const azurePromise = paReference
-          ? assessPronunciation(env as any, audio, paReference, lang || 'en').catch(() => null)
-          : Promise.resolve(null);
+        const azurePromise: Promise<any> = paReference
+          ? assessPronunciation(env as any, audio, paReference, lang || 'en')
+              .catch((e: any) => ({ ok: false, reason: 'throw' }))
+          : Promise.resolve({ ok: false, reason: 'no_reference' });
+        /* 🔍 결과를 «점수» 와 «사유» 로 나눠 돌려준다. 사유가 없으면 실패가 전부 조용한 null 이라
+           «키가 틀렸나 / 소리를 못 알아들었나» 를 구분할 수 없다(붙이던 날 밤에 실제로 헤맸다).
+           ⛔ azure_diag 에는 사유 «이름» 만 담긴다 — 키도, 응답 본문도 들어가지 않는다. */
+        const azureOut = async () => {
+          const r: any = await azurePromise;
+          return { azure: (r && r.ok) ? r : null, azure_diag: r ? (r.ok ? 'ok' : r.reason) : 'none' };
+        };
 
         // whisper-large-v3-turbo 는 audio 를 base64 문자열로 받고 language 힌트를 지원한다.
         if (lang) {
@@ -2303,8 +2311,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
               ok: true, text: tt, vtt: turbo?.vtt || null, word_count: turbo?.word_count || 0, lang,
               segments: Array.isArray(turbo?.segments) ? turbo.segments.slice(0, 30) : null,
               transcription_info: turbo?.transcription_info || null,
-              // 🎤 발음평가 결과(없으면 null). 프론트는 이걸 그대로 /api/voice/coach 로 넘긴다.
-              azure: await azurePromise,
+              // 🎤 발음평가 결과(없으면 null) + 왜 없는지. 프론트는 azure 를 /api/voice/coach 로 넘긴다.
+              ...(await azureOut()),
             });
           } catch (turboErr: any) {
             console.warn('[voice/transcribe] turbo failed, fallback base whisper:', turboErr?.message);
@@ -2314,7 +2322,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         // 폴백: 구 whisper (언어 힌트 미지원, 자동감지)
         const arr = [...new Uint8Array(audio)];
         const result = await ai.run('@cf/openai/whisper', { audio: arr });
-        return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null, azure: await azurePromise });
+        return json({ ok: true, text: result?.text || '', vtt: result?.vtt || null, word_count: result?.word_count || 0, lang: lang || null, ...(await azureOut()) });
       } catch (e: any) {
         console.warn('[voice/transcribe] error:', e?.message);
         return json({ ok: false, error: e?.message || 'transcribe_failed' }, 500);
