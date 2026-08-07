@@ -43,10 +43,19 @@ pick() {   # $1=키이름 → 그 키의 값(앞뒤 공백 제거)
     | sed 's/[[:space:]]*$//'
 }
 
-K=$(pick SOLAPI_API_KEY)
-S=$(pick SOLAPI_API_SECRET)
-F=$(pick SOLAPI_FROM);  F=$(printf '%s' "$F" | tr -cd '0-9')   # 하이픈·괄호 알아서 제거
-T=$(pick ALERT_TO);     T=$(printf '%s' "$T" | tr -cd '0-9')
+cur() {    # 지금 설정 파일에 들어있는 값
+  grep -m1 "^$1=" "$CONF" 2>/dev/null | cut -d= -f2-
+}
+
+# 🔴 안 보낸 항목은 «지우라» 는 뜻이 아니라 «그대로 두라» 는 뜻이다.
+#    2026-08-07: 키 2줄만 보냈더니 이미 넣어 둔 발신·수신번호까지 «없음» 으로 판정돼 통째로 거부됐다.
+#    부분 갱신이 안 되면 매번 4줄을 다 적어야 하고, 그러다 한 줄 틀리면 또 처음부터다.
+K=$(pick SOLAPI_API_KEY);    [ -n "$K" ] || K=$(cur SOLAPI_API_KEY)
+S=$(pick SOLAPI_API_SECRET); [ -n "$S" ] || S=$(cur SOLAPI_API_SECRET)
+F=$(pick SOLAPI_FROM);       [ -n "$F" ] || F=$(cur SOLAPI_FROM)
+T=$(pick ALERT_TO);          [ -n "$T" ] || T=$(cur ALERT_TO)
+F=$(printf '%s' "$F" | tr -cd '0-9')   # 하이픈·괄호 알아서 제거
+T=$(printf '%s' "$T" | tr -cd '0-9')
 
 echo
 echo "═══ 받은 값 (값은 안 보이고 자릿수만) ═══"
@@ -61,9 +70,19 @@ printf '%s' "$F" | grep -qE '^[0-9]{8,}$'  && chk SOLAPI_FROM "$F" "" 1 || chk S
 printf '%s' "$T" | grep -qE '^[0-9]{10,}$' && chk ALERT_TO    "$T" "" 1 || chk ALERT_TO    "$T" "숫자 10자리 이상이 아님 (받은 숫자 ${#T}개)" 0
 echo
 
-# 흔한 실수 하나만 짚어 준다 — «SOLAPI_API_KEY=» 접두사를 값에 통째로 붙여 보낸 경우
+# ── 명백히 «다른 것» 인 경우만 짚어 준다 ─────────────────────────────────
+#  🔑 «맞는 키인지» 를 모양으로 맞히려 들지 않는다 — 그러다 진짜 키를 막는다(결제 키에서 겪었다).
+#     여기서 거르는 건 «SOLAPI 키가 아닌 것이 확실한» 두 가지뿐이다.
 case "$K$S" in
-  *SOLAPI_*) echo "  ⚠️ 값 안에 «SOLAPI_» 가 들어 있습니다. '=' 뒤의 값만 넣으셨는지 확인하십시오."; BAD=1 ;;
+  *SOLAPI_API_*) echo "  ⚠️ 값 안에 «SOLAPI_API_...» 가 들어 있습니다. '=' 뒤의 **값만** 넣으십시오."; BAD=1 ;;
+esac
+# 토스 결제 키(test_sk_ / live_sk_ / test_ck_ / live_ck_)를 SOLAPI 키로 착각한 경우.
+#  2026-08-07 실제로 test_sk_ 키가 들어왔다. 그냥 «인증 실패» 로 두면 원인을 못 찾는다.
+case "$K $S" in
+  *test_sk_*|*live_sk_*|*test_ck_*|*live_ck_*)
+    echo "  ⚠️ 이건 **토스페이먼츠 결제 키**입니다 (test_sk_/live_sk_… 로 시작). SOLAPI 키가 아닙니다."
+    echo "     SOLAPI 키는 solapi.com → 개발/연동 → API Key 관리 에서 발급합니다."
+    BAD=1 ;;
 esac
 
 if [ "$BAD" = "1" ]; then
