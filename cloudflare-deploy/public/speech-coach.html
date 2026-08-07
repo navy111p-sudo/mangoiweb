@@ -839,7 +839,9 @@ async function processAudio(blob) {
        이걸로 대체한다(Whisper 확신도는 흔한 문장을 뭉갠 것을 못 잡는다).
        키가 없거나 Azure 가 실패하면 서버가 null 을 주므로 이 값도 null → 예전과 똑같이 동작. */
     const _scAzure = (trD.azure && trD.azure.ok) ? trD.azure : null;
-    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic, azure: _scAzure };
+    // 🔍 «왜 안 붙었나» 를 기록에 남긴다. 이게 없으면 azure_used=0 만 보이고 원인을 못 짚는다.
+    const _scAzureDiag = String(trD.azure_diag || '');
+    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic, azure: _scAzure, azure_diag: _scAzureDiag };
     let coachResp = await fetch('/api/voice/coach', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(_scPayload)

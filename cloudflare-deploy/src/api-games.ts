@@ -2071,7 +2071,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       // 🎤 (2026-08-08) Azure 음소 발음평가 원값. Whisper 확신도 방식과 «나란히» 남겨야
       //   두 자(尺)가 얼마나 다른지 실측으로 비교할 수 있다(도입 판단의 근거).
       for (const col of ['avg_logprob REAL', 'no_speech_prob REAL', 'speech_rate REAL', 'max_gap REAL', 'acoustic_used INTEGER',
-                         'azure_accuracy REAL', 'azure_fluency REAL', 'azure_completeness REAL', 'azure_used INTEGER']) {
+                         'azure_accuracy REAL', 'azure_fluency REAL', 'azure_completeness REAL', 'azure_used INTEGER',
+                         'azure_diag TEXT']) {
         try { await env.DB.exec(`ALTER TABLE voice_coaching ADD COLUMN ${col}`); } catch { /* 이미 존재 */ }
       }
     };
@@ -2442,10 +2443,11 @@ Respond in JSON ONLY:
       //   옛 컬럼만 있는 DB 에서도 죽지 않게, 실패하면 원래 컬럼만으로 한 번 더 시도한다.
       try {
         await env.DB.prepare(
-          `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at, avg_logprob, no_speech_prob, speech_rate, max_gap, acoustic_used, azure_accuracy, azure_fluency, azure_completeness, azure_used) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at, avg_logprob, no_speech_prob, speech_rate, max_gap, acoustic_used, azure_accuracy, azure_fluency, azure_completeness, azure_used, azure_diag) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
         ).bind(studentUid, studentName, target, spoken, accuracy, pronunciation, fluency, aiFeedback, suggestion, b.audio_url || null, now,
                ac.ok ? ac.lp : null, ac.ok ? ac.noSpeech : null, ac.ok ? ac.rate : null, ac.ok ? ac.maxGap : null, sc.acoustic ? 1 : 0,
-               azureIn ? azureIn.accuracy : null, azureIn ? azureIn.fluency : null, azureIn ? azureIn.completeness : null, azureIn ? 1 : 0).run();
+               azureIn ? azureIn.accuracy : null, azureIn ? azureIn.fluency : null, azureIn ? azureIn.completeness : null, azureIn ? 1 : 0,
+               String(b?.azure_diag || '').slice(0, 120) || null).run();
       } catch {
         await env.DB.prepare(
           `INSERT INTO voice_coaching (student_uid, student_name, target_text, transcribed_text, accuracy_score, pronunciation_score, fluency_score, ai_feedback, suggestion, audio_url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
