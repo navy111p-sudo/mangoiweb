@@ -147,8 +147,12 @@ check('🔴 옛 키가 [vars] 에서 제거됐다',
   !/^UPTIME_HOOK_KEY\s*=/m.test(toml) && !/^PAYROLL_INGEST_KEY\s*=/m.test(toml));
 check('🔴 옛 키 «값» 자체가 파일 어디에도 없다',
   !/9c4f7a2e15b83d6079e1c4a8f2b5d3e6/.test(toml) && !/74d3de23b5d488a03a6ea10c7bb48c4632e3/.test(toml));
-check('두 블록 모두에 «다시 넣지 말 것» 안내가 남아 있다',
-  (toml.match(/key rotation DONE/g) || []).length === 2);
+/* 두 [vars] 블록 모두에 «다시 넣지 말 것» 경고가 남아 있어야 한다.
+   ⚠️ 배너 문구를 글자 그대로 박지 않는다 — 문구를 다듬었다는 이유로 하니스가 깨지면
+      사람이 «하니스가 또 틀렸네» 하고 무시하기 시작한다. 지키려는 건 문장이 아니라 **경고의 존재**다. */
+check('두 [vars] 블록 모두에 «다시 넣지 말 것» 경고가 남아 있다',
+  (toml.match(/(never|do not) put .*back/gi) || []).length === 2,
+  (toml.match(/(never|do not) put .*back/gi) || []).length);
 
 /* ── ⑥ 역검증: 되돌리면 실제로 실패하는가 ── */
 console.log('\n[ ⑥ 역검증 — 되돌리면 검사가 실패하는가 ]');
