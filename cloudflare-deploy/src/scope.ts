@@ -9,6 +9,8 @@
  *  본사(hq)는 ?as=agency:<shop> / branch:<지역> / hq 로 특정 대리점 드릴다운 가능.
  */
 import { checkAdminSession } from './auth-admin';
+import { franchiseInClause } from './d1-chunk';   // 🔒 지사 목록 IN 조각 (D1 바인드 한도 처리 포함)
+export { franchiseInClause };
 
 export type Scope = { type: 'hq' | 'branch' | 'agency' | 'none' | 'franchise'; value: string | null; label: string };
 interface ScopeEnv { DB: D1Database; }
@@ -35,11 +37,7 @@ export function scopeLabel(type: string, value: string | null): string {
 export function stuCond(scope: Scope): { clause: string; binds: any[] } {
   if (scope.type === 'agency') return { clause: `shop_name = ?`, binds: [scope.value] };
   if (scope.type === 'branch') return { clause: `franchise LIKE ?`, binds: [scope.value + '%'] };
-  if (scope.type === 'franchise') {
-    const list = franchiseList(scope.value);
-    if (!list.length) return { clause: '1=0', binds: [] };
-    return { clause: `franchise IN (${list.map(() => '?').join(',')})`, binds: list };
-  }
+  if (scope.type === 'franchise') return franchiseInClause(franchiseList(scope.value));
   // 'none'(내부직원·교사) = 제한 없음 — agency/branch/franchise만 격리
   return { clause: '', binds: [] };
 }
@@ -127,9 +125,8 @@ export function scopeStudentCond(scope: Scope, alias = ''): { cond: string; bind
   if (scope.type === 'agency') return { cond: `${a}shop_name = ?`, binds: [scope.value] };
   if (scope.type === 'branch') return { cond: `${a}franchise LIKE ?`, binds: [scope.value + '%'] };
   if (scope.type === 'franchise') {
-    const list = franchiseList(scope.value);
-    if (!list.length) return { cond: '1=0', binds: [] };
-    return { cond: `${a}franchise IN (${list.map(() => '?').join(',')})`, binds: list };
+    const c = franchiseInClause(franchiseList(scope.value), a);
+    return { cond: c.clause, binds: c.binds };
   }
   // 'none'(내부직원·교사) = 제한 없음 — agency/branch/franchise만 격리
   return { cond: '', binds: [] };

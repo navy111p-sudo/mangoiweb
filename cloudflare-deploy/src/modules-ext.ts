@@ -26,6 +26,7 @@
  */
 
 import { sendKakaoAlimtalk, getSolapiMode, type SolapiEnv } from './solapi-client';
+import { selectInChunks, runInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 
 interface Env extends SolapiEnv {
   DB: D1Database;
@@ -178,20 +179,24 @@ async function settlementList(env: Env, url: URL): Promise<Response> {
 
 async function settlementPay(request: Request, env: Env): Promise<Response> {
   const { branch_id, period, ids } = await request.json<any>().catch(() => ({}));
-  let res;
+  let updated = 0;
   if (Array.isArray(ids) && ids.length) {
-    const ph = ids.map(() => '?').join(',');
-    res = await env.DB.prepare(
-      `UPDATE settlement_ledger SET status='paid', paid_at=datetime('now')
-       WHERE id IN (${ph}) AND status='pending'`).bind(...ids).run();
+    // ⚠️ (2026-08-07) ids 는 화면이 보낸 배열이라 길이 제한이 없습니다.
+    //    100개를 넘으면 D1 이 통째로 거절해서 «정산 완료» 가 한 건도 반영되지 않은 채
+    //    500 이 났습니다(부분 반영이 아니라 전부 실패).
+    //    status='pending' 인 행만 바꾸는 멱등한 UPDATE 라 청크로 나눠도 결과가 같습니다.
+    updated = await runInChunks(env.DB, ids,
+      (ph) => `UPDATE settlement_ledger SET status='paid', paid_at=datetime('now')
+       WHERE id IN (${ph}) AND status='pending'`);
   } else if (branch_id && period) {
-    res = await env.DB.prepare(
+    const res = await env.DB.prepare(
       `UPDATE settlement_ledger SET status='paid', paid_at=datetime('now')
        WHERE branch_id=? AND period=? AND status='pending'`).bind(branch_id, period).run();
+    updated = Number(res.meta?.changes || 0);
   } else {
     return err('branch_id+period 또는 ids[] 필요');
   }
-  return json({ ok: true, updated: res.meta.changes });
+  return json({ ok: true, updated });
 }
 
 /* ═════════ 모듈2) 위험군 + 알림 큐 ═════════ */
@@ -257,13 +262,21 @@ async function queueList(env: Env): Promise<Response> {
 //   SOLAPI 키 미설정이면 'disabled' 로 보고 발송하지 않고 큐를 그대로 둔다.
 async function queueSend(request: Request, env: Env): Promise<Response> {
   const { ids, dryRun = true } = await request.json<any>().catch(() => ({}));
-  const where = Array.isArray(ids) && ids.length
-    ? `id IN (${ids.map(() => '?').join(',')})` : `status='pending'`;
-  const sel = `SELECT * FROM mod_notify_queue WHERE ${where} ORDER BY created_at DESC LIMIT 200`;
-  const q = Array.isArray(ids) && ids.length
-    ? await env.DB.prepare(sel).bind(...ids).all<any>()
-    : await env.DB.prepare(sel).all<any>();
-  const rows = q.results || [];
+  let rows: any[];
+  if (Array.isArray(ids) && ids.length) {
+    // ⚠️ (2026-08-07) ids 가 100개를 넘으면 D1 이 쿼리를 거절합니다.
+    //    ORDER BY + LIMIT 200 은 청크를 가로지르므로 SQL 에 그대로 두면 안 됩니다
+    //    (청크마다 200개씩 = 최대 200개가 아니게 됨).
+    //    → 정렬·자르기는 모아온 뒤 JS 에서 한 번에. 결과는 원래 쿼리와 동일합니다.
+    const all = await selectInChunks<any>(env.DB, ids,
+      (ph) => `SELECT * FROM mod_notify_queue WHERE id IN (${ph})`);
+    all.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    rows = all.slice(0, 200);
+  } else {
+    const q = await env.DB.prepare(
+      `SELECT * FROM mod_notify_queue WHERE status='pending' ORDER BY created_at DESC LIMIT 200`).all<any>();
+    rows = q.results || [];
+  }
   const mode = getSolapiMode(env);
 
   // 미리보기 또는 키 미설정 → 발송하지 않음(큐 유지)

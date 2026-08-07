@@ -16,6 +16,7 @@
 
 import { sendKakaoAlimtalk } from './solapi-client';
 import { checkAdminSession } from './auth-admin';
+import { franchiseInClause } from './d1-chunk';   // 🔒 지사 목록 IN 조각 (D1 바인드 한도 처리 포함)
 
 interface Env {
   DB: D1Database;
@@ -56,11 +57,10 @@ function costVisible(scope: Scope): boolean {
 function stuCond(scope: Scope): { clause: string; binds: any[] } {
   if (scope.type === 'agency') return { clause: `shop_name = ?`, binds: [scope.value] };
   if (scope.type === 'branch') return { clause: `franchise LIKE ?`, binds: [scope.value + '%'] };
-  if (scope.type === 'franchise') {
-    const list = franchiseList(scope.value);
-    if (!list.length) return { clause: `1=0`, binds: [] };
-    return { clause: `franchise IN (${list.map(() => '?').join(',')})`, binds: list };
-  }
+  // 지사 목록 조각은 scope.ts 한 곳에서만 만든다(D1 바인드 한도 처리 포함).
+  //  ⚠️ 아래 'none' 분기는 scope.ts 의 stuCond 와 **일부러 다르다** — 경영요약은
+  //     권한 없음을 빈 결과로 막고, scope.ts 는 내부직원을 제한 없음으로 둔다. 합치지 말 것.
+  if (scope.type === 'franchise') return franchiseInClause(franchiseList(scope.value));
   if (scope.type === 'none') return { clause: `1=0`, binds: [] }; // 권한 없음 → 빈 결과
   return { clause: '', binds: [] }; // hq
 }

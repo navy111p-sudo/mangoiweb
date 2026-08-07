@@ -16,6 +16,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import type { MangoEnv } from './api-mango';
 import { getWeakDecisionSkills } from './decision-graph';  // 3단계: 취약 스킬(Neo4j) — 시나리오 입력
+import { runInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 // 🧮 지수·채점 계산은 순수 모듈로 분리(테스트 하니스가 직접 불러 검증) — judgment-scoring.ts
 import {
   axesFromRows, normalizeOptionScores, normalizeDifficulty, scoreChoice, type GrowthAxes,
@@ -403,16 +404,12 @@ export async function exportJudgmentEnvelopes(env: MangoEnv, opts?: { sinceId?: 
 export async function markJudgmentMigrated(env: MangoEnv, ids: number[]): Promise<number> {
   if (!Array.isArray(ids) || !ids.length) return 0;
   const now = Date.now();
-  let n = 0;
-  // D1 바인드 100개 한도 → 90개 청크 (관례)
-  for (let i = 0; i < ids.length; i += 90) {
-    const chunk = ids.slice(i, i + 90).map((x) => Number(x)).filter(Number.isFinite);
-    if (!chunk.length) continue;
-    const ph = chunk.map(() => '?').join(',');
-    const r = await env.DB.prepare(`UPDATE judgment_analysis SET migrated_at=? WHERE id IN (${ph})`).bind(now, ...chunk).run();
-    n += Number(r?.meta?.changes || 0);
-  }
-  return n;
+  // 숫자 id 만 남긴 뒤, D1 바인드 100개 한도에 맞춰 분할 실행(공용 runInChunks).
+  //   migrated_at 을 덮어쓰는 멱등한 UPDATE 라 청크로 나눠도 결과가 같습니다.
+  const clean = ids.map((x) => Number(x)).filter(Number.isFinite);
+  return runInChunks(env.DB, clean,
+    (ph) => `UPDATE judgment_analysis SET migrated_at=? WHERE id IN (${ph})`,
+    { lead: [now] });
 }
 
 // ═══════════════════════════════════════════════════════════════════════

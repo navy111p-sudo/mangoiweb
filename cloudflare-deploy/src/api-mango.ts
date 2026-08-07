@@ -11,6 +11,7 @@
 //   실제로 한 번도 쓰이지 않는 껍데기라 제거했다(런타임 동작 변화 없음).
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
+import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
@@ -2862,11 +2863,12 @@ ${numbered}`;
       const participantIds = (b.participant_ids || []) as string[];
       let consentedIds: string[] = [];
       if (participantIds.length > 0) {
-        const placeholders = participantIds.map(() => '?').join(',');
-        const rs = await env.DB.prepare(
-          `SELECT user_id FROM consents WHERE user_id IN (${placeholders}) AND withdrawn_at IS NULL AND recording_consent = 1`
-        ).bind(...participantIds).all<{ user_id: string }>();
-        consentedIds = (rs.results || []).map(r => r.user_id);
+        // ⚠️ (2026-08-07) participant_ids 는 요청 본문에서 그대로 온 배열입니다.
+        //    100개를 넘으면 D1 이 거절하는데 이 쿼리는 try/catch 밖이라 녹화 시작이
+        //    통째로 실패했습니다. 청크로 나눠 조회 — 동의자 집합은 합집합이라 동일합니다.
+        const rows = await selectInChunks<{ user_id: string }>(env.DB, participantIds,
+          (ph) => `SELECT user_id FROM consents WHERE user_id IN (${ph}) AND withdrawn_at IS NULL AND recording_consent = 1`);
+        consentedIds = rows.map(r => r.user_id);
       }
       const RETENTION_MS = 30 * 24 * 3600 * 1000; // 1개월
       const res = await env.DB.prepare(

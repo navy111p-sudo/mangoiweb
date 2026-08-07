@@ -14,6 +14,7 @@
  *  ⚠️ 돈·수업 데이터를 다루므로: 모든 생성은 멱등, 이중 예약은 3중 차단, 실패는 격리.
  */
 import { json, parseJsonBody } from './api-util';
+import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
 import { checkAdminSession } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
@@ -152,20 +153,17 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
   const conflicts = new Set<string>();
   if (!dates.length) return conflicts;
   try {
-    for (let i = 0; i < dates.length; i += 90) {   // D1 파라미터 100개 한도
-      const chunk = dates.slice(i, i + 90);
-      const ph = chunk.map(() => '?').join(',');
-      const rs: any = await env.DB.prepare(
-        `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`
-      ).bind(teacherId, ...chunk).all();
-      for (const r of ((rs?.results as any[]) || [])) {
-        const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
-        const startMin = timesMinByDow[dow];
-        if (startMin === undefined) continue;
-        const s = enrollTimeToMin(String(r.start_time || ''));
-        if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) conflicts.add(String(r.scheduled_date));
-      }
+    // D1 파라미터 한도 분할은 공용 selectInChunks 로 일원화(2026-08-07)
+    const rows: any[] = await selectInChunks<any>(env.DB, dates,
+      (ph) => `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`,
+      { lead: [teacherId] });
+    for (const r of rows) {
+      const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+      const startMin = timesMinByDow[dow];
+      if (startMin === undefined) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) conflicts.add(String(r.scheduled_date));
     }
     const rs2: any = await env.DB.prepare(
       `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
@@ -238,19 +236,15 @@ export async function busyTimesForTeacher(env: any, teacherId: string, days: num
     }
 
     const probe = probeDatesForDows(days, 12);
-    for (let i = 0; i < probe.length; i += 90) {
-      const chunk = probe.slice(i, i + 90);
-      const ph = chunk.map(() => '?').join(',');
-      const rs2: any = await env.DB.prepare(
-        `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`
-      ).bind(teacherId, ...chunk).all();
-      for (const r of ((rs2?.results as any[]) || [])) {
-        const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
-        if (!busyByDow[dow]) continue;
-        const s = enrollTimeToMin(String(r.start_time || ''));
-        if (s >= 0) busyByDow[dow].push({ start: s, dur: Number(r.dm) || DEFAULT_CLASS_MINUTES });
-      }
+    const probeRows: any[] = await selectInChunks<any>(env.DB, probe,
+      (ph) => `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`,
+      { lead: [teacherId] });
+    for (const r of probeRows) {
+      const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+      if (!busyByDow[dow]) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s >= 0) busyByDow[dow].push({ start: s, dur: Number(r.dm) || DEFAULT_CLASS_MINUTES });
     }
   } catch (e) { console.warn('[enroll] busyTimesForTeacher:', (e as any)?.message); }
 
@@ -286,20 +280,15 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
     }
 
     const probe = probeDatesForDows(days, 12);
-    for (let i = 0; i < probe.length; i += 90) {
-      const chunk = probe.slice(i, i + 90);
-      const ph = chunk.map(() => '?').join(',');
-      const rs2: any = await env.DB.prepare(
-        `SELECT teacher_id, scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-         WHERE status = 'active' AND scheduled_date IN (${ph})`
-      ).bind(...chunk).all();
-      for (const r of ((rs2?.results as any[]) || [])) {
-        const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
-        const startMin = timesMinByDow[dow];
-        if (startMin === undefined) continue;
-        const s = enrollTimeToMin(String(r.start_time || ''));
-        if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
-      }
+    const probeRows: any[] = await selectInChunks<any>(env.DB, probe,
+      (ph) => `SELECT teacher_id, scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
+         WHERE status = 'active' AND scheduled_date IN (${ph})`);
+    for (const r of probeRows) {
+      const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
+      const startMin = timesMinByDow[dow];
+      if (startMin === undefined) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
     }
   } catch (e) { console.warn('[enroll] teachersFreeAt:', (e as any)?.message); }
 
@@ -546,19 +535,14 @@ async function endingSoonList(env: any, days: number): Promise<any> {
      ORDER BY last_date ASC LIMIT 300`
   ).bind(today, today, addDays(today, -days)).all();
   const rows = ((rs?.results as any[]) || []);
-  // 이름·연락처 붙이기 (D1 파라미터 한도 → 90개 청크)
+  // 이름·연락처 붙이기 (D1 파라미터 한도 → 공용 selectInChunks 로 분할)
   const info: Record<string, any> = {};
   const uids = rows.map((r) => String(r.user_id));
-  for (let i = 0; i < uids.length; i += 90) {
-    const chunk = uids.slice(i, i + 90);
-    const ph = chunk.map(() => '?').join(',');
-    try {
-      const si: any = await env.DB.prepare(
-        `SELECT user_id, COALESCE(korean_name, english_name, username) AS nm, shop_name FROM students_erp WHERE user_id IN (${ph})`
-      ).bind(...chunk).all();
-      for (const s of ((si?.results as any[]) || [])) info[String(s.user_id)] = s;
-    } catch (_) {}
-  }
+  // 이름은 부가 정보라 조회 실패해도 목록 자체는 내보낸다(기존 try/catch 동작 유지)
+  const infoRows = await selectInChunks<any>(env.DB, uids,
+    (ph) => `SELECT user_id, COALESCE(korean_name, english_name, username) AS nm, shop_name FROM students_erp WHERE user_id IN (${ph})`,
+    { swallowErrors: true });
+  for (const s of infoRows) info[String(s.user_id)] = s;
   return {
     threshold_days: days,
     today,

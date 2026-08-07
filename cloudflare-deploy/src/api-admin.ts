@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
@@ -4162,31 +4163,27 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           mergeInfo = { name: effectiveName, user_ids: allUids, merged_count: allUids.length };
         }
         // 4) WHERE: user_id IN (...) OR student_name = name (양쪽 매칭)
-        const placeholders = allUids.map(() => '?').join(',');
+        //    ⚠️ (2026-08-07) 예전엔 allUids 를 통째로 바인드했습니다. 동명이인이 늘면서
+        //       한 이름이 이미 71명(운영 DB 실측)이라 D1 바인드 100개 한도에 근접했습니다.
+        //       allUids 를 만든 쿼리를 **그대로 서브쿼리로** 넣으면 결과는 같으면서
+        //       바인드는 2개로 고정됩니다(이름 수가 아무리 늘어도 안전).
+        const SAME_NAME_UIDS =
+          `SELECT COALESCE(user_id, login_id, ('stu_' || id)) FROM students_erp WHERE korean_name = ? OR username = ?`;
         if (effectiveName) {
-          where.push('(user_id IN (' + placeholders + ') OR student_name = ?)');
-          binds.push(...allUids, effectiveName);
+          where.push(`(user_id = ? OR user_id IN (${SAME_NAME_UIDS}) OR student_name = ?)`);
+          binds.push(userId, effectiveName, effectiveName, effectiveName);
         } else {
-          where.push('user_id IN (' + placeholders + ')');
-          binds.push(...allUids);
+          where.push('user_id = ?');
+          binds.push(userId);
         }
       } else if (studentName) {
         // 학생 이름으로 직접 조회 (모든 동명 학생 통합)
-        let allUids: string[] = [];
-        try {
-          const rs = await env.DB.prepare(
-            `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
-          ).bind(studentName, studentName).all<any>();
-          allUids = (rs.results || []).map((r: any) => r.uid).filter(Boolean);
-        } catch {}
-        if (allUids.length) {
-          const placeholders = allUids.map(() => '?').join(',');
-          where.push('(user_id IN (' + placeholders + ') OR student_name = ?)');
-          binds.push(...allUids, studentName);
-        } else {
-          where.push('student_name = ?');
-          binds.push(studentName);
-        }
+        //  ⚠️ (2026-08-07) uid 목록을 따로 조회해 통째로 바인드하던 것을 서브쿼리로 바꿨습니다.
+        //     동명이인이 100명을 넘으면 D1 바인드 한도에 걸립니다(현재 최다 71명).
+        //     동명이인이 하나도 없으면 IN 이 공집합이라 student_name 조건만 남습니다 — 기존과 동일.
+        where.push(
+          `(user_id IN (SELECT COALESCE(user_id, login_id, ('stu_' || id)) FROM students_erp WHERE korean_name = ? OR username = ?) OR student_name = ?)`);
+        binds.push(studentName, studentName, studentName);
       }
       if (fromDate) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(fromDate); }
       if (toDate) { where.push('(scheduled_date IS NULL OR scheduled_date <= ?)'); binds.push(toDate); }
@@ -5493,18 +5490,13 @@ ${chatSampleText}
         //    빈 집계=모든 위험신호 0=위험학생 0명으로 조용히 오작동한다(활성 100명↑ 범위 전부).
         //    → 학생 id 를 90개씩(뒤 날짜 바인드 여유 포함) 청크로 나눠 질의 후 병합.
         //    각 user_id 는 한 청크에만 속하므로 GROUP BY / ROW_NUMBER 결과는 분할해도 동일.
-        const CHUNK = 90;
-        const _chunks: any[][] = [];
-        for (let i = 0; i < _ids.length; i += CHUNK) _chunks.push(_ids.slice(i, i + CHUNK));
+        //    → 청크 분할은 공용 selectInChunks(src/d1-chunk.ts)로 일원화(2026-08-07).
+        //      청크 크기는 tail 바인드 개수를 세서 정하므로 매직넘버 90이 필요 없습니다.
         const _groupMap = async (build: (ph: string) => string, tail: any[], keyCol: string, pick: (r: any) => any): Promise<Map<string, any>> => {
           const m = new Map<string, any>();
-          for (const ck of _chunks) {
-            const ph = ck.map(() => '?').join(',');
-            try {
-              const rs: any = await env.DB.prepare(build(ph)).bind(...ck, ...tail).all();
-              for (const r of (rs.results || [])) m.set(String(r[keyCol]), pick(r));
-            } catch { /* 테이블 없음/청크 오류 → 스킵(원본 try/catch 동작과 동일) */ }
-          }
+          // 테이블이 없을 수 있는 선택적 집계 → 청크 오류는 스킵(원본 try/catch 동작과 동일)
+          const rows = await selectInChunks<any>(env.DB, _ids, build, { tail, swallowErrors: true });
+          for (const r of rows) m.set(String(r[keyCol]), pick(r));
           return m;
         };
         try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`); } catch {}
@@ -5518,19 +5510,10 @@ ${chatSampleText}
           _groupMap(ph => `SELECT user_id, MIN(due_at) earliest_due, SUM(amount) total FROM payments WHERE user_id IN (${ph}) AND (paid_at IS NULL OR paid_at = 0) AND due_at < ? GROUP BY user_id`, [now], 'user_id', r => ({ earliest_due: _num(r.earliest_due), total: _num(r.total) })),
           _groupMap(ph => `SELECT user_id, COUNT(*) n FROM homework_submissions WHERE user_id IN (${ph}) AND status = 'missed' AND created_at >= ? GROUP BY user_id`, [since30], 'user_id', r => _num(r.n)),
           _groupMap(ph => `SELECT user_id, COUNT(*) n FROM point_log WHERE user_id IN (${ph}) AND created_at >= ? GROUP BY user_id`, [since14], 'user_id', r => _num(r.n)),
-          (async () => {
-            const out: any[] = [];
-            for (const ck of _chunks) {
-              const ph = ck.map(() => '?').join(',');
-              try {
-                const rs: any = await env.DB.prepare(
-                  `SELECT student_uid, score_overall, rn FROM (SELECT student_uid, score_overall, ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) rn FROM student_evaluations WHERE student_uid IN (${ph})) WHERE rn <= 6`
-                ).bind(...ck).all();
-                for (const r of (rs.results || [])) out.push(r);
-              } catch { /* skip */ }
-            }
-            return out;
-          })(),
+          // ROW_NUMBER 의 PARTITION 키가 IN 목록과 같은 student_uid → 청크로 나눠도 순위는 동일
+          selectInChunks<any>(env.DB, _ids,
+            (ph) => `SELECT student_uid, score_overall, rn FROM (SELECT student_uid, score_overall, ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) rn FROM student_evaluations WHERE student_uid IN (${ph})) WHERE rn <= 6`,
+            { swallowErrors: true }),
         ]);
 
         // 평가 추세 — 최근3회 vs 직전3회 평균 (원본 recent3/prev3 동등)
@@ -6777,12 +6760,13 @@ LIMIT $limit`;
         try {
           const uids = Array.from(new Set(items.filter(a => a.student_uid).map(a => a.student_uid)));
           if (uids.length) {
-            const ph = uids.map(() => '?').join(',');
-            const vc = await env.DB.prepare(
-              `SELECT student_uid, pronunciation_score, MAX(created_at) AS mx FROM voice_coaching WHERE student_uid IN (${ph}) GROUP BY student_uid`
-            ).bind(...uids).all();
+            // ⚠️ (2026-08-07) limit 이 최대 500 이라 uids 가 100개를 넘으면 D1 이 던지고,
+            //    아래 catch 가 삼켜 발음 점수가 통째로 안 붙었습니다(빈 칸으로만 보임).
+            //    GROUP BY 키가 IN 목록과 같은 student_uid 라 청크로 나눠도 결과는 동일합니다.
+            const vcRows = await selectInChunks<any>(env.DB, uids,
+              (ph) => `SELECT student_uid, pronunciation_score, MAX(created_at) AS mx FROM voice_coaching WHERE student_uid IN (${ph}) GROUP BY student_uid`);
             const pmap: Record<string, number> = {};
-            (vc.results || []).forEach((r: any) => { if (r.pronunciation_score != null) pmap[r.student_uid] = r.pronunciation_score; });
+            vcRows.forEach((r: any) => { if (r.pronunciation_score != null) pmap[r.student_uid] = r.pronunciation_score; });
             items.forEach(a => { if (a.pron_score == null && a.student_uid && pmap[a.student_uid] != null) a.pron_score = pmap[a.student_uid]; });
           }
         } catch (e) { /* voice_coaching 미존재 시 무시 */ }

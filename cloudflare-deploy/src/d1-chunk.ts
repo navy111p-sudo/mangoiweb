@@ -104,3 +104,33 @@ export async function runInChunks(
   }
   return changed;
 }
+
+/* 🔢 (2026-08-07) 지사 목록 `franchise IN (...)` 조각 — 한 곳에서만 만든다.
+ *
+ * [왜 생겼나] 지사본사(franchise) 계정은 소유 지사를 콤마로 나열해 갖는다. 그런데
+ *   autoSeedOne 이 «미지정이면 전체 지사» 를 기본값으로 넣는다 — 지금 운영 DB의
+ *   distinct franchise 는 **180개**다. 이걸 그대로 바인드하면 D1 한도(100개)를 넘겨
+ *   그 계정의 학생 관련 쿼리가 **전부** 실패한다.
+ *   (2026-08-07 확인: 현재 franchise 타입 계정이 0개라 아직 안 터졌다. 새 지사본사
+ *    계정이 생기는 순간 첫 화면부터 깨진다.)
+ *
+ * [왜 청크로 못 자르나] 이 함수는 쿼리가 아니라 **더 큰 WHERE 의 조각**을 돌려준다.
+ *   호출부가 다른 조건과 합쳐 한 방에 실행하므로 여기서 나눠 실행할 수가 없다.
+ *   그래서 한도를 넘는 드문 경우에만 값을 **SQL 문자열 리터럴로** 넣는다.
+ *   SQLite 문자열 리터럴에서 특수문자는 작은따옴표 하나뿐이고, `''` 로 겹쳐 쓰면
+ *   완전히 무력화된다(백슬래시는 이스케이프 문자가 아니다).
+ *   ⚠️ 그래도 방어적으로: 제어문자가 섞인 값이 하나라도 있으면 **넓히지 않고 거부**(1=0).
+ *      권한 조각이라 «틀리면 막는 쪽»으로만 틀려야 한다.
+ */
+const FRANCHISE_BIND_SAFE = 80;   // 바깥 조건이 쓸 바인드 여유를 남긴 한도
+
+export function franchiseInClause(list: string[], prefix = ''): { clause: string; binds: any[] } {
+  if (!list.length) return { clause: '1=0', binds: [] };
+  if (list.length <= FRANCHISE_BIND_SAFE) {
+    return { clause: `${prefix}franchise IN (${list.map(() => '?').join(',')})`, binds: list };
+  }
+  // 한도 초과 — 리터럴로 전개. 제어문자가 있으면 권한을 넓히지 말고 막는다.
+  if (list.some((v) => /[\u0000-\u001f\u007f]/.test(v))) return { clause: '1=0', binds: [] };
+  const lits = list.map((v) => `'${String(v).replace(/'/g, "''")}'`).join(',');
+  return { clause: `${prefix}franchise IN (${lits})`, binds: [] };
+}
