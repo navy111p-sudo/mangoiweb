@@ -1230,6 +1230,10 @@ const worker = {
         path === '/api/voice/coach' ||
         path === '/api/voice/history' ||
         path === '/api/voice/stats' ||
+        // 🎤 (2026-08-08) Azure 발음평가용 «10분짜리 임시 출입증». 키 자체는 서버에만 있다.
+        //   REST 창구가 발음평가 헤더를 무시해서, 평가는 브라우저 SDK 가 직접 한다.
+        //   음성코치는 비로그인(게스트)도 쓰므로 여기(공개 목록)에 있어야 한다.
+        path === '/api/voice/azure-token' ||
         // 💬 Phase K5 카카오 양방향
         path === '/api/webhook/kakao-inbound' ||
         path === '/api/admin/kakao/inbound' ||

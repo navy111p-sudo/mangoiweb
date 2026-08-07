@@ -764,6 +764,88 @@ function pcmStopToWav() {
   } catch (e) { return null; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   🎤 Azure 음소 발음평가 — **브라우저에서** 돌린다 (2026-08-08)
+
+   왜 서버가 아니라 브라우저인가:
+     Azure 의 REST 짧은오디오 창구는 Pronunciation-Assessment 헤더를 **무시한다**(실측 확정).
+     문장은 완벽히 알아듣는데(«Mangoi» 까지) 평가 블록만 빠져서 온다. 공식 SDK 로만 받을 수 있다.
+     SDK 는 브라우저용이라 여기서 돌린다.
+
+   ⛔ 구독 키는 브라우저로 내려보내지 않는다.
+     서버가 Azure 에서 받아 온 **10분짜리 임시 토큰**만 받아 쓴다(/api/voice/azure-token).
+     토큰으로 할 수 있는 일은 우리 리소스의 음성 인식뿐이고 10분 뒤 죽는다.
+
+   🪤 SDK 는 369KB 다. **녹음을 실제로 마쳤을 때 처음 한 번만** 내려받는다(지연 로딩).
+      화면을 열기만 한 학생은 한 바이트도 받지 않는다.
+   🪤 SDK 가 못 뜨거나 토큰이 안 나와도 **채점은 그대로 된다** — 어제 재보정한 Whisper 방식으로
+      자동 복귀한다. 발음평가는 «덤» 이지 수업을 세울 이유가 아니다.
+   ═══════════════════════════════════════════════════════════════════════ */
+let _azSdkP = null, _azTok = null, _azTokAt = 0;
+function azLoadSdk() {
+  if (window.SpeechSDK) return Promise.resolve(window.SpeechSDK);
+  if (!_azSdkP) _azSdkP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = '/vendor/azure-speech-sdk.js?v=1';
+    s.onload = () => window.SpeechSDK ? res(window.SpeechSDK) : rej(new Error('sdk_no_global'));
+    s.onerror = () => rej(new Error('sdk_load_failed'));
+    document.head.appendChild(s);
+  });
+  return _azSdkP;
+}
+async function azToken() {
+  // 유효 10분 — 8분마다 새로 받는다(경계에서 만료되는 일이 없게)
+  if (_azTok && (Date.now() - _azTokAt) < 8 * 60 * 1000) return _azTok;
+  const r = await fetch('/api/voice/azure-token');
+  const d = await r.json();
+  if (!d || !d.ok || !d.token) throw new Error(d && d.error ? d.error : 'token_failed');
+  _azTok = d; _azTokAt = Date.now();
+  return _azTok;
+}
+const AZ_LOCALE = { en: 'en-US', ko: 'ko-KR', zh: 'zh-CN' };
+async function azAssess(wavBlob, reference, langShort) {
+  if (!wavBlob || String(wavBlob.type || '').indexOf('wav') < 0) return { ok: false, reason: 'not_wav' };
+  const locale = AZ_LOCALE[langShort];
+  if (!locale) return { ok: false, reason: 'lang_unsupported' };
+  if (!reference) return { ok: false, reason: 'no_reference' };
+  let rec = null;
+  try {
+    const SDK = await azLoadSdk();
+    const tk = await azToken();
+    const cfg = SDK.SpeechConfig.fromAuthorizationToken(tk.token, tk.region);
+    cfg.speechRecognitionLanguage = locale;
+    // 🔑 Phoneme = 음소 단위 · 마지막 true = 빠뜨린/없는 단어 잡기(이게 없으면 «절반만 읽어도 만점»)
+    const pac = new SDK.PronunciationAssessmentConfig(
+      reference,
+      SDK.PronunciationAssessmentGradingSystem.HundredMark,
+      SDK.PronunciationAssessmentGranularity.Phoneme,
+      true);
+    const audio = SDK.AudioConfig.fromWavFileInput(new File([wavBlob], 'rec.wav', { type: 'audio/wav' }));
+    rec = new SDK.SpeechRecognizer(cfg, audio);
+    pac.applyTo(rec);
+    const res = await new Promise((resolve, reject) => rec.recognizeOnceAsync(resolve, reject));
+    if (res.reason !== SDK.ResultReason.RecognizedSpeech) return { ok: false, reason: 'recog_' + res.reason };
+    const p = SDK.PronunciationAssessmentResult.fromResult(res);
+    const n = (v) => { const x = Number(v); return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : 0; };
+    const raw = (p.detailResult && p.detailResult.Words) ? p.detailResult.Words : [];
+    return {
+      ok: true,
+      accuracy: n(p.accuracyScore), fluency: n(p.fluencyScore),
+      completeness: n(p.completenessScore), pron: n(p.pronunciationScore),
+      text: res.text || '',
+      words: raw.slice(0, 40).map(w => ({
+        word: String(w.Word || ''),
+        accuracy: n(w.PronunciationAssessment && w.PronunciationAssessment.AccuracyScore),
+        errorType: (w.PronunciationAssessment && w.PronunciationAssessment.ErrorType) || undefined,
+      })),
+    };
+  } catch (e) {
+    return { ok: false, reason: 'sdk_' + String((e && (e.message || e.errorDetails)) || e).slice(0, 60) };
+  } finally {
+    try { if (rec) rec.close(); } catch (e) {}
+  }
+}
+
 async function toggleRec() {
   if (isRecording) { stopRec(); return; }
   try {
@@ -806,12 +888,10 @@ async function processAudio(blob) {
     const _isWav = (blob.type || '').indexOf('wav') >= 0;
     fd.append('audio', blob, _isWav ? 'rec.wav' : 'rec.webm');
     fd.append('lang', detectTtsLang(_target0));
-    /* 🎤 (2026-08-08) Azure 발음평가용 «모범 문장». 음소 단위로 소리를 직접 재는 데 쓴다.
-       ⛔ 아래 prompt(=Whisper initial_prompt)와 **완전히 다른 것**이다. 서버에서도 분리돼 있다.
-          Whisper 에 정답을 알려주면 발음이 엉망이어도 정답이 전사돼 늘 100점이 된다(07-29 사고).
-          Azure 는 «전사» 가 아니라 «소리와 음소를 맞춰 보는» 것이라 정답을 알아도 후해지지 않는다.
-       WAV 로 못 떴으면(구형 브라우저) 서버가 알아서 건너뛴다 — 보내도 해가 없다. */
-    if (_target0) fd.append('reference', _target0);
+    /* 🚫 (2026-08-08) 서버로 reference 를 보내지 않는다 — 보내면 서버가 Azure REST 를 부르는데,
+       그 창구는 발음평가 헤더를 **무시한다**(실측 확정: 문장은 알아듣고 평가 블록만 없음).
+       왕복만 늘고 얻는 게 없다. 평가는 아래에서 **브라우저 SDK** 가 한다.
+       ⛔ 여기에 prompt(=Whisper initial_prompt)를 넣지 말 것 — 07-29 만점 사고. */
     // 🚫 (2026-07-30) 목표 문장을 Whisper 에 initial_prompt 로 넘기던 코드를 제거했다.
     //   07-29 에 환각(엉뚱한 문장으로 들림) 완화용으로 넣었으나, 부작용이 훨씬 컸다:
     //   짧은 문장에 정답을 미리 알려주면 디코더가 그쪽으로 강하게 기울어, 발음을 엉망으로
@@ -838,9 +918,12 @@ async function processAudio(blob) {
     /* 🎤 (2026-08-08) Azure 음소 발음평가 결과를 그대로 넘긴다. 서버가 있으면 «또렷함·흐름» 을
        이걸로 대체한다(Whisper 확신도는 흔한 문장을 뭉갠 것을 못 잡는다).
        키가 없거나 Azure 가 실패하면 서버가 null 을 주므로 이 값도 null → 예전과 똑같이 동작. */
-    const _scAzure = (trD.azure && trD.azure.ok) ? trD.azure : null;
+    /* 🎤 브라우저 SDK 로 음소 발음평가. 실패해도 채점은 계속된다(Whisper 방식으로 복귀).
+       ⏱ 전사와 «동시에» 돌리지 않는다 — 같은 오디오를 두 곳이 물면 탈이 난다(서버에서 겪음). */
+    const _az = await azAssess(blob, _target0, detectTtsLang(_target0));
+    const _scAzure = (_az && _az.ok) ? _az : null;
     // 🔍 «왜 안 붙었나» 를 기록에 남긴다. 이게 없으면 azure_used=0 만 보이고 원인을 못 짚는다.
-    const _scAzureDiag = String(trD.azure_diag || '');
+    const _scAzureDiag = _scAzure ? 'ok(sdk)' : ('sdk:' + String((_az && _az.reason) || 'none'));
     const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic, azure: _scAzure, azure_diag: _scAzureDiag };
     let coachResp = await fetch('/api/voice/coach', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

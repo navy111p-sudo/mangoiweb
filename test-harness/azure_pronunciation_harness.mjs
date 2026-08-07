@@ -143,8 +143,27 @@ ok('키 길이·모양을 응답에 싣지 않는다',
 
 const html = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'speech-coach.html'), 'utf8');
 ok('프론트: WAV 만들기가 실패하면 예전 webm 으로 돌아간다', /processAudio\(wav \|\| webm\)/.test(html));
-ok('프론트: reference 를 보낸다', /fd\.append\('reference'/.test(html));
 ok('프론트: prompt 는 여전히 안 보낸다 (07-29 사고)', !/fd\.append\('prompt'/.test(html));
+
+/* ── 🎤 브라우저 SDK 경로 (2026-08-08) ─────────────────────────────────────
+   Azure REST 가 발음평가 헤더를 무시하는 것이 실측으로 확정돼, 평가는 브라우저 SDK 가 한다.
+   여기서 지키는 것은 «키가 브라우저로 새지 않는가» 와 «없어도 굴러가는가» 두 가지다. */
+ok('프론트: 서버로 reference 를 보내지 않는다 (REST 가 무시하므로 왕복만 낭비)',
+   !/fd\.append\('reference'/.test(html));
+ok('프론트: 브라우저 SDK 로 평가한다', /async function azAssess/.test(html) && /PronunciationAssessmentConfig/.test(html));
+ok('프론트: SDK 는 «녹음을 마친 뒤» 지연 로딩한다(369KB)', /azLoadSdk[\s\S]{0,400}?createElement\('script'\)/.test(html));
+ok('프론트: 음소 단위 + 빠뜨린 단어 잡기를 켠다',
+   /PronunciationAssessmentGranularity\.Phoneme/.test(html) && /Granularity\.Phoneme,\s*\n?\s*true/.test(html.replace(/\r/g, '')));
+ok('⛔ 프론트에 구독 키가 없다 (임시 토큰만 쓴다)',
+   !/AZURE_SPEECH_KEY/.test(html) && /fromAuthorizationToken/.test(html) && /\/api\/voice\/azure-token/.test(html));
+ok('프론트: 평가가 실패해도 채점은 계속된다', /_scAzure = \(_az && _az\.ok\) \? _az : null/.test(html));
+
+const idx = readFileSync(join(SRC, 'index.ts'), 'utf8');
+ok('토큰 창구가 공개 목록에 등록돼 있다 (게스트도 음성코치를 쓴다)',
+   idx.includes("path === '/api/voice/azure-token'"));
+ok('서버: 토큰만 내려보내고 키는 안 내보낸다',
+   /issueToken/.test(games) && /json\(\{ ok: true, token, region/.test(games)
+   && !/json\([^)]*AZURE_SPEECH_KEY/.test(games));
 
 /* ── 🔬 프론트의 WAV 인코더를 «실제로 실행» 해 본다 ────────────────────────────
    여기가 제일 위험한 곳이다. 바이트 하나만 어긋나도 Azure 가 전부 400 을 뱉는데,

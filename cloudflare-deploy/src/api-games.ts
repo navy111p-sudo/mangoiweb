@@ -2223,6 +2223,35 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       }
     }
 
+    /* ── GET /api/voice/azure-token — 브라우저 발음평가용 «10분 임시 출입증» (2026-08-08) ──
+       왜: Azure 의 REST 짧은오디오 창구는 Pronunciation-Assessment 헤더를 **무시한다**(실측 확정).
+           평가는 브라우저 Speech SDK 가 직접 해야 한다. 그런데 SDK 에 구독 키를 주면
+           **키가 학생 브라우저로 나간다** — 그건 절대 안 된다.
+       → Azure 가 주는 «임시 토큰»(유효 10분)만 내려보낸다. 키는 서버에만 남는다.
+       ⛔ 이 토큰으로 할 수 있는 일은 우리 Speech 리소스의 음성 인식뿐이고, 10분 뒤 죽는다. */
+    if (method === 'GET' && path === '/api/voice/azure-token') {
+      const key = String((env as any).AZURE_SPEECH_KEY || '').trim();
+      const region = String((env as any).AZURE_SPEECH_REGION || '').trim().toLowerCase();
+      if (!key || !region) return json({ ok: false, error: 'azure_not_configured' }, 503);
+      try {
+        const r = await fetch(`https://${region}.api.cognitive.microsoft.com/sts/v1.0/issueToken`, {
+          method: 'POST',
+          headers: { 'Ocp-Apim-Subscription-Key': key, 'Content-Length': '0' },
+        });
+        if (!r.ok) {
+          console.warn('[azure-token] http', r.status);
+          return json({ ok: false, error: 'issue_failed_' + r.status }, 502);
+        }
+        const token = (await r.text()).trim();
+        if (!token) return json({ ok: false, error: 'empty_token' }, 502);
+        // 실제 유효기간은 10분. 화면이 9분마다 새로 받도록 여유를 두고 알려 준다.
+        return json({ ok: true, token, region, expires_in: 540 });
+      } catch (e: any) {
+        console.warn('[azure-token] error', e?.message);
+        return json({ ok: false, error: 'issue_error' }, 502);
+      }
+    }
+
     // ── POST /api/voice/transcribe — 오디오 → 텍스트 (Whisper) ──
     //   ⚠️ (2026-07-24 직원 피드백 사고) 언어 힌트를 안 주면 Whisper 가 짧은 영어 발화를
     //      한국어로 오인식한다("Hello nice to meet you" → "안녕하세요 잘생겼어요"). 그러면
