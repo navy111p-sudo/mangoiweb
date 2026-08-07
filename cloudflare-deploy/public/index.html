@@ -8832,6 +8832,12 @@ window.mgIsSlowNet = function(){
                     <button onclick="pdfPrevPage()" data-ko="◀ 이전 (Prev)" data-en="◀ Prev (이전)">◀ 이전 (Prev)</button>
                     <span id="pdf-page-info" style="font-size:0.85rem;color:#94a3b8;">-</span>
                     <button onclick="pdfNextPage()" data-ko="다음 · Next ▶" data-en="Next · 다음 ▶">다음 · Next ▶</button>
+                    <!-- 📑 (2026-08-07 마이마이 ⑦ 「교재 페이지 목록이 한눈에 보여야 한다」)
+                         지금은 [이전]/[다음] 과 «6 / 24» 뿐이라 15쪽으로 가려면 9번을 눌러야 했다.
+                         옛 시스템의 «Document list»(Slide1…Slide24)처럼 목록에서 바로 고르게 한다. -->
+                    <button onclick="pdfTogglePageList()" id="pdf-pagelist-btn"
+                            style="background:rgba(56,189,248,0.18);color:#7dd3fc;border:1px solid rgba(56,189,248,0.45);font-weight:700"
+                            data-ko="📑 페이지 목록" data-en="📑 Pages" title="교재의 페이지를 목록에서 바로 고릅니다 · Pick a page from the list">📑 페이지 목록</button>
                     <span style="margin-left:8px;display:inline-flex;gap:4px;">
                         <button id="pdf-view-1" class="pdf-view-btn active" onclick="pdfSetPagesPerView(1, this)" title="한 페이지 보기">📄</button>
                         <button id="pdf-view-2" class="pdf-view-btn" onclick="pdfSetPagesPerView(2, this)" title="두 페이지 보기">📄📄</button>
@@ -14991,8 +14997,25 @@ function startMicLevelMeter() {
         if (!_micMeterEl) {
             _micMeterEl = document.createElement('div');
             _micMeterEl.id = 'vc-mic-meter';
-            _micMeterEl.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:99px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif';
-            _micMeterEl.innerHTML = '🎤 <span id="mic-meter-status">대기중</span> <div style="width:140px;height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden"><div id="mic-meter-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#fbbf24,#ef4444);transition:width .1s"></div></div>';
+            /* 📍 (2026-08-07 마이마이 ⑨ 「마이크 표시기가 화면분할 설정을 가린다 — 좌우로 옮겨 달라」)
+               예전 자리: bottom:90px + left:50% (화면 **정가운데 아래**). 하필 그 자리가
+               [화면 분할] 패널이 열리는 곳이라 아래 두 칸(솔로 · 칠판만)을 덮었다.
+               ⚠️ transform:translateX 를 빼야 한다 — 남겨 두면 left 를 바꿔도 다시 가운데로 당겨진다.
+               📏 (브라우저 실측) 왼쪽 아래에는 이미 4개가 층으로 서 있다 —
+                  신고 FAB(18) · AI질문 FAB(64) · 세계시계(96~163) · 캐시 FAB(186~226).
+                  96 에 두면 세계시계(z-index 최대)가 미터를 덮어 «고쳤는데 안 보이는» 꼴이 된다.
+               🔻 z-index 9999 -> 9300: «상태 표시»가 «대화상자» 위에 올라오면 안 된다.
+                  실측에서 [화면 분할] 시트(z 9800)가 열렸는데 미터가 그 위에 그려져,
+                  자리를 옮기고도 원래 신고와 같은 그림이 됐다. 이제 시트가 미터를 덮는다. */
+            _micMeterEl.style.cssText = 'position:fixed;bottom:236px;left:12px;z-index:9300;background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:99px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;pointer-events:none;max-width:calc(100vw - 24px)';
+            /* 🙋 (요청 ⑩ 「지금 켜진 게 내 마이크인지 학생 마이크인지 모르겠다」)
+               이 미터는 **내 마이크만** 잰다(vcLocalStream). 그 사실을 라벨로 못박는다.
+               강사 다수가 필리핀이라 한/영을 함께 적는다 — 라벨만 영어고 상태가 한국어면 소용없다. */
+            var _mmEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+            _micMeterEl.innerHTML = '🎤 <span style="opacity:.75;font-weight:800">'
+                + (_mmEn ? 'MY MIC' : '내 마이크')
+                + '</span> <span id="mic-meter-status">' + (_mmEn ? 'Waiting' : '대기중') + '</span>'
+                + ' <div style="width:120px;height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden"><div id="mic-meter-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#fbbf24,#ef4444);transition:width .1s"></div></div>';
             document.body.appendChild(_micMeterEl);
         }
         const bar = document.getElementById('mic-meter-bar');
@@ -15008,15 +15031,19 @@ function startMicLevelMeter() {
             const rms = Math.sqrt(sum / data.length);
             const pct = Math.min(100, Math.floor(rms * 600));
             if (bar) bar.style.width = pct + '%';
+            // 🌐 상태 글자도 강사 언어를 따른다(라벨만 영어인 채 상태가 한국어면 읽을 수 없다)
+            const _en = (typeof currentLang !== 'undefined' && currentLang === 'en');
             if (rms < 0.005) {
                 silentCount++;
-                if (status) status.textContent = silentCount > 30 ? '⚠️ 무음' : '대기중';
+                if (status) status.textContent = silentCount > 30 ? (_en ? '⚠️ No sound' : '⚠️ 무음') : (_en ? 'Waiting' : '대기중');
                 if (silentCount === 50) {
                     console.warn('[mic] 5초간 무음 감지 — 마이크 입력이 없거나 음소거 상태');
                 }
             } else {
                 silentCount = 0;
-                if (status) status.textContent = pct > 50 ? '🔊 큰소리' : pct > 15 ? '✓ 정상' : '🔉 작은소리';
+                if (status) status.textContent = pct > 50 ? (_en ? '🔊 Loud' : '🔊 큰소리')
+                                               : pct > 15 ? (_en ? '✓ Good' : '✓ 정상')
+                                                          : (_en ? '🔉 Quiet' : '🔉 작은소리');
             }
         }, 100);
     } catch (e) { console.warn('[mic-meter]', e); }
@@ -20205,6 +20232,94 @@ async function pdfNextPage() {
     }
     _pdfToast('📚 마지막 파일입니다');
 }
+/* 📑 (2026-08-07 마이마이 ⑦) 교재 페이지 목록 — 「목록에서 바로 고르기」.
+   두 가지가 «페이지» 라 둘 다 담는다:
+     ① 파일 시퀀스(_libSequence) — 장마다 파일이 하나인 교재(옛 시스템의 Slide1…Slide24 와 같은 것)
+     ② 지금 열려 있는 PDF 의 내부 페이지(pdfDoc.numPages)
+   ⚠️ 페이지 이동은 **기존 함수만** 쓴다(_pdfGoSeqFile · pdfGoToPage + _pdfBroadcastPage).
+      여기서 직접 렌더·전송을 하면 학생 화면과 어긋나는 두 번째 경로가 생긴다. */
+function pdfClosePageList(){
+    var p = document.getElementById('pdf-pagelist');
+    if (p) p.remove();
+}
+async function pdfTogglePageList(){
+    var exist = document.getElementById('pdf-pagelist');
+    if (exist){ exist.remove(); return; }
+    var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    var panel = document.createElement('div');
+    panel.id = 'pdf-pagelist';
+    /* 실측: 위의 «관련 영상» 알약이 두 줄이면 100~156 을 쓴다 → 172 부터 시작한다. */
+    panel.style.cssText = 'position:fixed;left:12px;top:172px;z-index:9600;width:236px;max-height:min(58vh,520px);'
+        + 'display:flex;flex-direction:column;background:rgba(15,23,42,.97);border:1.5px solid rgba(56,189,248,.5);'
+        + 'border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#e2e8f0;font-size:12.5px;overflow:hidden';
+    panel.innerHTML = '<div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.25);font-weight:800;color:#7dd3fc">'
+        + '<span style="flex:1">📑 ' + (en ? 'Pages' : '페이지 목록') + '</span>'
+        + '<button type="button" onclick="pdfClosePageList()" style="background:transparent;border:0;color:#94a3b8;font-size:16px;cursor:pointer;padding:0 4px" aria-label="close">✕</button></div>'
+        + '<div id="pdf-pagelist-body" style="overflow-y:auto;padding:6px"><div style="padding:14px;color:#94a3b8">'
+        + (en ? 'Loading…' : '불러오는 중…') + '</div></div>';
+    document.body.appendChild(panel);
+
+    // 시퀀스가 없으면 서버에서 다시 만든다(새 기기·재접속에서도 목록이 나오게 — 화살표 자가복구와 같은 길)
+    try { await pdfEnsureSequence(); } catch(_){}
+
+    var body = document.getElementById('pdf-pagelist-body');
+    if (!body) return;
+    var seq = window._libSequence || [];
+    var curIdx = window._libSeqIdx || 0;
+    var html = '';
+    var rowCss = 'display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:3px;border-radius:8px;'
+        + 'border:1px solid transparent;background:rgba(30,41,59,.7);color:#cbd5e1;font-size:12px;cursor:pointer;'
+        + 'font-family:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    var onCss = 'background:rgba(56,189,248,.22);border-color:rgba(56,189,248,.6);color:#fff;font-weight:800';
+
+    if (seq.length > 1){
+        for (var i = 0; i < seq.length; i++){
+            var nm = String(seq[i].name || ((en ? 'Page ' : '페이지 ') + (i + 1)));
+            html += '<button type="button" data-seq="' + i + '" style="' + rowCss + (i === curIdx ? ';' + onCss : '') + '">'
+                 + (i + 1) + '. ' + nm.replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); })
+                 + '</button>';
+        }
+    }
+    // 현재 파일이 여러 쪽짜리 PDF 면 그 안쪽 페이지도 이어서 보여준다
+    if (typeof pdfDoc !== 'undefined' && pdfDoc && pdfDoc.numPages > 1){
+        if (html) html += '<div style="margin:8px 4px 4px;font-size:11px;color:#94a3b8;font-weight:700">'
+            + (en ? 'Inside this file' : '이 파일 안의 쪽') + '</div>';
+        for (var p2 = 1; p2 <= pdfDoc.numPages; p2++){
+            html += '<button type="button" data-page="' + p2 + '" style="' + rowCss
+                 + (p2 === pdfPageNum ? ';' + onCss : '') + '">' + (en ? 'Page ' : '') + p2
+                 + (en ? '' : '쪽') + ' / ' + pdfDoc.numPages + '</button>';
+        }
+    }
+    if (!html){
+        body.innerHTML = '<div style="padding:14px;color:#94a3b8;line-height:1.6">'
+            + (en ? 'Open a textbook first — the page list appears here.'
+                  : '먼저 교재를 열어 주세요. 그러면 여기에 페이지 목록이 나옵니다.') + '</div>';
+        return;
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('[data-seq]').forEach(function(b){
+        b.addEventListener('click', function(){
+            var i = parseInt(this.getAttribute('data-seq'), 10);
+            var f = (window._libSequence || [])[i];
+            if (!f) return;
+            window._libSeqIdx = i;
+            try { _pdfGoSeqFile(f); } catch(e){ console.warn('[pagelist]', e); }
+            pdfClosePageList();
+        });
+    });
+    body.querySelectorAll('[data-page]').forEach(function(b){
+        b.addEventListener('click', function(){
+            var n = parseInt(this.getAttribute('data-page'), 10);
+            if (!n) return;
+            pdfGoToPage(n);
+            try { _pdfBroadcastPage(); } catch(_){}     // 학생 화면도 같은 쪽으로
+            pdfClosePageList();
+        });
+    });
+}
+window.pdfTogglePageList = pdfTogglePageList;
+window.pdfClosePageList = pdfClosePageList;
+
 function pdfStopShare() {
     pdfDoc = null;
     pdfCurrentId = null;
@@ -33178,8 +33293,41 @@ window.vcAutoLoadStudentTextbook = async function(){
     left: auto !important;
     right: 12px !important;
   }
+  /* 🙂 (2026-08-07 마이마이 ⑩ 「얼굴이 사라졌는데 다시 켜는 방법이 안 보인다」)
+     [› 얼굴 접기] 버튼은 탭바 **맨 오른쪽 끝**에 있다. 접고 나면 그 버튼이 [‹ 얼굴 펼치기] 로
+     바뀌는데, 좁은 화면에서는 탭바가 가로 스크롤이라 **화면 밖으로 밀려 안 보인다**
+     (제보 사진에서도 «< Show face…» 로 잘려 있었다). 접힌 동안에만 뜨는 큰 복귀 알약을 따로 둔다.
+     자리: 오른쪽 아래(독 위). 접힌 상태에서는 그 자리가 비어 있고, 마이크 미터는 왼쪽으로 옮겼다. */
+  #vc-side-restore {
+    position: fixed;
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+    z-index: 9500;
+    display: none;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 16px;
+    min-height: 44px;
+    background: rgba(15,23,42,.92);
+    border: 1.5px solid rgba(251,191,36,.65);
+    border-radius: 99px;
+    color: #fcd34d;
+    font-size: 13.5px;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  }
+  body.vc-in-call.vc-side-collapsed-on #vc-side-restore { display: inline-flex; }
+  #vc-side-restore:active { background: rgba(30,41,59,.98); }
   #vc-side-collapse-btn { display: none; }
   body.vc-in-call #vc-side-collapse-btn { display: inline-block; }
+  /* 접힌 동안에는 탭바의 그 버튼도 눈에 띄게 — 화면 안에 있을 때는 여기서 바로 되돌릴 수 있다 */
+  body.vc-in-call.vc-side-collapsed-on #vc-side-collapse-btn {
+    background: rgba(245,158,11,0.28) !important;
+    border-color: rgba(245,158,11,0.7) !important;
+    color: #fde68a !important;
+  }
   body.vc-in-call #vc-side-collapse-btn:hover { background: rgba(148,163,184,0.32) !important; }
   body.vc-in-call #vc-side-collapse-btn[aria-pressed="true"] {
     background: rgba(245,158,11,0.22) !important;
@@ -33211,10 +33359,27 @@ window.vcAutoLoadStudentTextbook = async function(){
       try { if (typeof vcResumeAllVideos === 'function') vcResumeAllVideos(); } catch(_){}
     }, 300);
   }
+  /* 🙂 접힌 동안에만 뜨는 «되돌리기» 알약 — 탭바 버튼이 화면 밖으로 밀려도 여기서 되돌린다.
+     (2026-08-07 마이마이 ⑩) CSS 가 body.vc-side-collapsed-on 으로 표시를 관리하므로
+     여기서는 «만들고 글자만 맞춘다». display 를 직접 건드리지 않는다 — 두 곳에서 만지면 어긋난다. */
+  function ensureRestoreChip(en){
+    var c = $('vc-side-restore');
+    if (!c){
+      c = document.createElement('button');
+      c.id = 'vc-side-restore';
+      c.type = 'button';
+      c.addEventListener('click', function(){ try { window.vcToggleVideoSidebar(false); } catch(_){} });
+      document.body.appendChild(c);
+    }
+    c.textContent = en ? '🙂 Show faces' : '🙂 얼굴 다시 보기';
+    c.title = en ? 'Show the video / tools sidebar again' : '얼굴·도구 사이드바를 다시 펼칩니다';
+    c.setAttribute('aria-label', c.title);
+  }
   function paint(collapsed){
     var b = $('vc-side-collapse-btn');
     if (!b) return;
     var en = isEn();
+    ensureRestoreChip(en);
     b.textContent = collapsed ? (en ? '‹ Show faces' : '‹ 얼굴 펼치기')
                               : (en ? '› Hide faces' : '› 얼굴 접기');
     b.title = collapsed ? (en ? 'Show the video / tools sidebar' : '얼굴·도구 사이드바 펼치기')

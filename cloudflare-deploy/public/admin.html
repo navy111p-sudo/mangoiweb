@@ -3552,6 +3552,61 @@ window.__admSettleRun = function(fn){
       if (el && isMenuCard(el)) holdLeft(el);
     } catch(e){}
   });
+
+  /* ⬅⬅⬅ (2026-08-07 마이마이 재재보고 "아직도 가운데가 보인다 — 맨 왼쪽이 아니다")
+     위 두 번의 수정은 **우리가 아는 경로**(scrollIntoView·hashchange)만 잡는다. 그런데 가로 스크롤은
+     그 밖에도 생긴다: 넓은 표에 포커스가 가거나, 확대(zoom:1.3) 상태에서 창을 줄이거나,
+     우리가 모르는 위젯이 스스로 스크롤할 때다. 그 전부를 뒤쫓는 대신 **언제든 한 번에
+     되돌리는 길**을 눈에 보이게 둔다 — 가로로 밀려 있을 때만 나타나는 버튼이다.
+     ⚠️ 자동으로 되돌리지 **않는다**. 사람이 일부러 오른쪽을 보고 있을 수도 있어서다. */
+  function anyScrolledLeft(){
+    var se = document.scrollingElement || document.documentElement;
+    if (se && se.scrollLeft > 8) return se;
+    if (document.body && document.body.scrollLeft > 8) return document.body;
+    var wide = document.querySelectorAll('.table-card, .tbl-wrap, [style*="overflow-x"]');
+    for (var i = 0; i < wide.length && i < 60; i++){
+      if (wide[i].scrollLeft > 8 && wide[i].scrollWidth > wide[i].clientWidth) return wide[i];
+    }
+    return null;
+  }
+  function snapAllLeft(){
+    var se = document.scrollingElement || document.documentElement;
+    if (se) se.scrollLeft = 0;
+    if (document.body) document.body.scrollLeft = 0;
+    var all = document.querySelectorAll('.table-card, .tbl-wrap, [style*="overflow-x"]');
+    for (var i = 0; i < all.length && i < 60; i++){ if (all[i].scrollLeft) all[i].scrollLeft = 0; }
+  }
+  var snapBtn = null;
+  function ensureBtn(){
+    if (snapBtn) return snapBtn;
+    snapBtn = document.createElement('button');
+    snapBtn.id = 'adm-snap-left';
+    snapBtn.type = 'button';
+    /* 📏 (브라우저 실측) 왼쪽 아래는 **사이드바 위**다 — 거기 두면 메뉴를 덮는다.
+       세계시계(left 16 · bottom 125)도 그 안에 있다. 오른쪽 아래는 스피드다이얼(mi-speed-dial).
+       비어 있는 곳은 아래 «가운데» 뿐이라 거기에 둔다. */
+    snapBtn.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:99998;display:none;align-items:center;gap:6px;'
+      + 'padding:10px 14px;min-height:44px;border-radius:99px;cursor:pointer;border:1.5px solid #fbbf24;'
+      + 'background:rgba(17,24,39,.94);color:#fcd34d;font-size:13px;font-weight:800;font-family:inherit;'
+      + 'box-shadow:0 6px 18px rgba(0,0,0,.35)';
+    snapBtn.addEventListener('click', function(){ snapAllLeft(); snapBtn.style.display = 'none'; });
+    if (document.body) document.body.appendChild(snapBtn);
+    else document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(snapBtn); });
+    return snapBtn;
+  }
+  function paintBtn(){
+    var b = ensureBtn();
+    if (!b || !b.isConnected) return;
+    var en = (document.documentElement.lang === 'en') || (window.adminLang === 'en');
+    b.textContent = en ? '\u2b05 Back to the left' : '\u2b05 맨 왼쪽으로';
+    b.style.display = anyScrolledLeft() ? 'inline-flex' : 'none';
+  }
+  var paintT = null;
+  function schedulePaint(){ if (paintT) return; paintT = setTimeout(function(){ paintT = null; try { paintBtn(); } catch(e){} }, 220); }
+  window.addEventListener('scroll', schedulePaint, true);
+  window.addEventListener('resize', schedulePaint);
+  document.addEventListener('click', schedulePaint, true);
+  window.__admSnapLeft = snapAllLeft;
 })();
 </script>
 <script>
@@ -8380,7 +8435,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         → 해당 강사만 캘린더에 표시하고 자동으로 카드 펼침/스크롤 -->
 
 
-<script src="/js/adm-q6.js?v=6" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q6.js?v=7" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 81 admin (2026-05-24) — ▲ 강제 제거 + 칩 한 줄 작게 (모든 폭) -->
 
