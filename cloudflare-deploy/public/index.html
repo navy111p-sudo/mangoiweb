@@ -5,6 +5,7 @@
 
 <!-- 카카오톡/인앱 브라우저 대응: 화상 시작 시 카메라가 막히면 외부 브라우저 안내 -->
 <script src="/js/inapp-escape.js"></script>
+<script src="/js/mg-modal-policy.js?v=1"></script><!-- 🔒 팝업은 ✕ 로만 닫는다(배경 클릭 차단) — 정책 한 곳. 빼면 즉시 예전 동작(배경 닫힘)으로 복귀 (2026-08-07 QA #4) -->
 <script src="/js/media-guard.js?v=3"></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막(따라 말하기) -->
 <script src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 환경용 녹음+Whisper 전사 -->
@@ -12,7 +13,7 @@
 <!-- 🌐 EN 전역 번역 스위퍼 — 문서 맨 끝(29195줄)에서 head 로 이동(2026-07-22).
      끝에 두면 114KB 가 앞선 외부 스크립트 수십 개 뒤로 밀려, 영문 계정 강사가 들어와도
      화면이 한동안 한국어로 남았다(강사 피드백 #1). 내부에서 DOMContentLoaded 를 기다리므로 defer 유지. -->
-<script defer src="/js/i18n-sweep.js?v=16"></script>
+<script defer src="/js/i18n-sweep.js?v=18"></script>
 
 <script>
 // === fix v14 (2026-05-26): 카테고리 카드 깨끗한 새 함수 ===
@@ -65,7 +66,9 @@
     modal.id = 'cat14-modal';
     modal.setAttribute('data-cat', cat);
     modal.style.cssText = 'position:fixed;inset:0;z-index:99999999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;padding:30px 20px;overflow-y:auto';
-    modal.onclick = function(e){ if (e.target === modal) closeCat14(); };
+    /* 🔒 (2026-08-07 QA #4) 배경 클릭으로는 닫지 않는다 — 정책·판정은 /js/mg-modal-policy.js.
+       폴백 true = 정책 스크립트를 못 받았으면 예전 동작(배경 닫힘). 사용자를 가두지 않는다. */
+    modal.onclick = function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeCat14(); };
 
     var box = document.createElement('div');
     box.style.cssText = 'background:#0F172A;border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,0.7)';
@@ -4694,6 +4697,11 @@ window.mgIsSlowNet = function(){
       <div class="mg-acc-body">
         <button onclick="mgGo('mypage')" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();if(window.gridActions&&window.gridActions.payment)window.gridActions.payment();else if(window.openPaymentModal)window.openPaymentModal();" data-ko="💳 결제하기" data-en="💳 Payment">💳 결제하기</button>
+        <!-- 🎯🎁 (2026-08-07, QA 2차 #2) 레벨테스트·체험수업을 이 카테고리에도 «별도 메뉴»로 노출.
+             지금까지 체험수업은 결제하기 → 상품선택 안에만 있어서, 결제할 생각이 없는 사람은
+             체험 신청 입구를 찾지 못했다. 결제하기 안의 무료체험 옵션은 그대로 둔다(대체 아님, 추가). -->
+        <button class="mg-hl mg-s2" onclick="mgGo('leveltest')" data-ko="🎯 레벨테스트" data-en="🎯 Level Test">🎯 레벨테스트</button>
+        <button class="mg-hl mg-s2" onclick="mgDrawerClose();if(window.openTrialSignup)window.openTrialSignup();else if(window.gridActions&&window.gridActions.trial)window.gridActions.trial();" data-ko="🎁 체험수업" data-en="🎁 Free Trial">🎁 체험수업</button>
         <button onclick="mgGo('points-shop')" data-ko="🎁 포인트상점" data-en="🎁 Point Shop">🎁 포인트상점</button>
         <button class="mg-hl mg-s2" onclick="mgGo('inquiry')" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
         <button onclick="mgDrawerClose();location.href='/refund.html';" data-ko="💰 환불규정" data-en="💰 Refund Policy">💰 환불규정</button>
@@ -6209,7 +6217,7 @@ window.mgIsSlowNet = function(){
           detailView.classList.remove('abm-anim'); void detailView.offsetWidth; detailView.classList.add('abm-anim'); abmStopVoice(); if(b&&b.voice){ abmPlayVoice(b.voice); }
           card.scrollTop=0;
         }
-        ov.addEventListener('click', function(e){ if(e.target===ov) closeAbout(); });
+        ov.addEventListener('click', function(e){ if(e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeAbout(); });   /* QA#4: 배경 클릭 닫힘 차단 */
         ov.querySelector('.abm-close').addEventListener('click', closeAbout);var abmMuteBtn=ov.querySelector('.abm-mute');function abmUpdateMute(){ if(!abmMuteBtn) return; abmMuteBtn.textContent=abmMuted?'🔇':'🔊'; abmMuteBtn.classList.toggle('muted',abmMuted); }abmUpdateMute();if(abmMuteBtn) abmMuteBtn.addEventListener('click', function(){ abmMuted=!abmMuted; try{localStorage.setItem('abm_muted',abmMuted?'1':'0');}catch(e){} if(abmMuted) abmStopVoice(); abmUpdateMute(); });
         ov.querySelector('.abm-cta-main').addEventListener('click', function(){ closeAbout(); if(window.openInquiryModal) window.openInquiryModal(); });
         ov.querySelector('.abm-back').addEventListener('click', showList);
@@ -6339,7 +6347,7 @@ window.mgIsSlowNet = function(){
          +'<p class="aif-sub" data-ko="AI로 스스로 공부해요 · 자기주도 학습" data-en="Self-directed learning with AI">AI로 스스로 공부해요 · 자기주도 학습</p></div>'
          +'<div class="aif-grid">'+cards+'</div>'
          +'</div>';
-        ov.addEventListener('click', function(e){ if(e.target===ov) ov.style.display='none'; });
+        ov.addEventListener('click', function(e){ if(e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) ov.style.display='none'; });   /* QA#4 */
         ov.querySelector('.aif-close').addEventListener('click', function(){ ov.style.display='none'; });
         document.body.appendChild(ov);
         try{ if(window.applyLang) window.applyLang(); else if(window.mangoApplyI18n) window.mangoApplyI18n(); }catch(e){}
@@ -21404,7 +21412,8 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   closeBtn.addEventListener('click', closeModal);
   cancelBtn.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  /* 🔒 (2026-08-07 QA #4) 신규상담도 여러 칸을 채우는 폼이다 — 배경 클릭으로 날려버리지 않는다. */
+  modal.addEventListener('click', (e) => { if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeModal(); });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modal.style.display !== 'none') closeModal();
   });
@@ -22355,7 +22364,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=26"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=27"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -22506,7 +22515,9 @@ window.addEventListener('DOMContentLoaded', () => {
             <div class="badge-trial">FREE</div>
             <div class="prod-icon">🎁</div>
             <div class="prod-name">무료 체험</div>
-            <div class="prod-detail">1회 (40분)</div>
+            <!-- ⏱️ (2026-08-07, QA 2차 #3) 무료체험 40분 → 20분. 유료 수강권 40분 표기는 유지.
+                 서버 기본 수업길이는 이미 20분(src/class-policy.ts) — 화면만 옛 값이었다. -->
+            <div class="prod-detail">1회 (20분)</div>
             <div class="prod-price">무료</div>
           </button>
           <button class="product-card popular" data-program="1on1-8" data-price="120000">
@@ -23159,7 +23170,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=10"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=12"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){
@@ -24406,7 +24417,7 @@ window.addEventListener('DOMContentLoaded', () => {
       ov = document.createElement('div');
       ov.id = 'rs-overlay';
       ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,7,18,.86);backdrop-filter:blur(14px);display:none;z-index:11500;padding:24px 16px;overflow-y:auto;animation:lcFade .2s';
-      ov.addEventListener('click', function(e){ if (e.target===ov) closeRemoteSupportModal(); });
+      ov.addEventListener('click', function(e){ if (e.target===ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeRemoteSupportModal(); });   /* QA#4 */
       document.body.appendChild(ov);
     }
     var isKo = L();
@@ -24555,7 +24566,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!ov) {
       ov = document.createElement('div');
       ov.id = 'feat-overlay'; ov.className = 'feat-overlay';
-      ov.onclick = (e) => { if (e.target === ov) closeFeat(); };
+      ov.onclick = (e) => { if (e.target === ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeFeat(); };   /* QA#4 */
       document.body.appendChild(ov);
     }
     return ov;
@@ -25641,7 +25652,7 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=2"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=3"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
 <script>
@@ -25685,7 +25696,7 @@ window.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>`;
     overlay.setAttribute('data-rfm','1');
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay && (window.mgBackdropClosable ? window.mgBackdropClosable(overlay) : true)) overlay.remove(); });   /* QA#4 */
     document.body.appendChild(overlay);
   };
   // ─── SNS 성취 카드 생성 (Canvas 1080x1080) ───
@@ -25757,7 +25768,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <button onclick="this.closest('[data-snm]').remove()" style="background:#475569;color:#fff;border:0;border-radius:10px;padding:12px 20px;cursor:pointer;font-weight:700">${en?'Close':'닫기'}</button>
       </div>`;
     overlay.setAttribute('data-snm','1');
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay && (window.mgBackdropClosable ? window.mgBackdropClosable(overlay) : true)) overlay.remove(); });   /* QA#4 */
     document.body.appendChild(overlay);
     return dataUrl;
   };
@@ -25777,7 +25788,7 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <!-- 📝 Phase MT — Mini TOEIC 학생 모달 + 🎮 Phase BTL — 영어 배틀 학생 모달 -->
-<script src="/js/idx-x4.js?v=2"></script><!-- 분할추출:idx-x4 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x4.js?v=3"></script><!-- 분할추출:idx-x4 (원복: 이 위치에 인라인) -->
 
 <!-- ════════════════════════════════════════════════════════════════════
      📔 Phase VD — AI 음성 일기 (학생용 모달)
@@ -29177,7 +29188,7 @@ document.addEventListener('keydown', function(e){
     modal.id = 'v10-modal';
     modal.dataset.cat = cat;
     modal.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;background:rgba(0,0,0,0.88) !important;backdrop-filter:blur(8px) !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:30px 20px !important;overflow-y:auto !important;visibility:visible !important;opacity:1 !important';
-    modal.onclick = function(e){ if (e.target === modal) closeCatV10(); };
+    modal.onclick = function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeCatV10(); };   /* QA#4 */
 
     var box = document.createElement('div');
     box.style.cssText = 'background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)';
@@ -29308,7 +29319,7 @@ document.addEventListener('keydown', function(e){
     modal.id = 'v11-modal';
     modal.dataset.cat = cat;
     modal.style.cssText = 'position:fixed !important;inset:0 !important;z-index:2147483647 !important;background:rgba(0,0,0,0.88) !important;backdrop-filter:blur(8px) !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:30px 20px !important;overflow-y:auto !important;visibility:visible !important;opacity:1 !important';
-    modal.addEventListener('click', function(e){ if (e.target === modal) closeCatV11(); });
+    modal.addEventListener('click', function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeCatV11(); });   /* QA#4 */
 
     var box = document.createElement('div');
     box.style.cssText = 'background:linear-gradient(135deg,#0F172A,#1E293B);border:2px solid #60A5FA;border-radius:18px;max-width:1100px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;color:#F8FAFC;box-shadow:0 24px 80px rgba(0,0,0,0.7)';
@@ -32183,7 +32194,7 @@ window.vcAutoLoadStudentTextbook = async function(){
     .mg-faq-cats{flex-wrap:wrap;overflow-x:visible}
   }
 </style>
-<script src="/js/idx-x7.js?v=3"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x7.js?v=4"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
 <script src="/js/idx-x8.js?v=3"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
@@ -33160,7 +33171,7 @@ window.vcAutoLoadStudentTextbook = async function(){
 </script>
 
 <script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·반투명·위치기억). **수업 화면(로비·통화중)에서만 표시**(2026-08-03). 빼면 즉시 원복 -->
-<script defer src="/js/flow.js?v=10"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
+<script defer src="/js/flow.js?v=11"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=3"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
 <script defer src="/js/vc-judgment-capture.js?v=1"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
 
@@ -33387,7 +33398,7 @@ window.vcAutoLoadStudentTextbook = async function(){
     box.appendChild(copy);
     ov.appendChild(box);
 
-    ov.addEventListener('click', function(e){ if (e.target === ov) closeModal(); });
+    ov.addEventListener('click', function(e){ if (e.target === ov && (window.mgBackdropClosable ? window.mgBackdropClosable(ov) : true)) closeModal(); });   /* QA#4 */
     box.addEventListener('click', function(e){ e.stopPropagation(); });
 
     document.body.appendChild(ov);
