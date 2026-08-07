@@ -46,7 +46,11 @@ const TOSS_CLIENT_KEY_DEFAULT = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
    역할(ck/sk) 구분은 두 번째 세그먼트에 'ck'/'sk' 가 들어있는지로 본다(gck·gsk 도 걸린다). */
 function tossKeyRole(v: unknown): 'ck' | 'sk' | null {
   const s = String(v ?? '').trim();
-  if (!s || /\s/.test(s) || s.length < 20) return null;
+  /* ⚠️ (2026-08-07 3차) 길이 하한(20자)을 뺐다. 임의로 정한 숫자였는데, 접두사가 멀쩡한
+     실제 키 두 개를 «모양이 아니다»로 판정했다. 내가 모르는 길이의 키가 언제든 또 나온다.
+     남기는 건 «명백한 쓰레기»를 거르는 조건뿐: 공백 / test_·live_ 로 시작 안 함 / 접두사 비정상.
+     짧은 키는 토스가 거부한다 — 그 판정은 토스에게 맡긴다. */
+  if (!s || /\s/.test(s)) return null;
   if (!/^(?:test|live)_/.test(s)) return null;
   const seg = s.split('_')[1] || '';
   if (!/^[A-Za-z0-9]+$/.test(seg)) return null;
@@ -543,6 +547,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        secret_key_invalid = 같은 일이 시크릿키에서 일어남(mode 는 disabled 로 보인다).
        둘 다 사람이 붙여넣다 생기는 사고라, 화면에 «점검 필요»로 띄워 조용히 묻히지 않게 한다. */
     const rawSk = String(env.TOSS_SECRET_KEY ?? '').trim();
+    const rawCk = String(env.TOSS_CLIENT_KEY ?? '').trim();
     const secret_key_invalid = !!rawSk && !isTossKeyShaped(rawSk, 'sk');
     /* 🔎 (2026-08-07) 진단값 — 「무엇이 잘못 들어갔는지」를 화면에서 바로 알 수 있게.
        키를 넣는 일이 사람 손이라 «두 칸을 서로 바꿔 넣는» 사고가 실제로 났다.
@@ -559,8 +564,10 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     return json({
       ok: true, mode, clientKey, key_mismatch, client_key_invalid, secret_key_invalid,
       diag: {
-        client_key: { role: roleOf(String(env.TOSS_CLIENT_KEY ?? '').trim()), shape: shapeOf(String(env.TOSS_CLIENT_KEY ?? '').trim()) },
-        secret_key: { role: roleOf(rawSk), shape: shapeOf(rawSk) },
+        // len = 글자 수만. 값은 안 나간다 — 길이만으로는 어떤 키도 유추할 수 없고,
+        //       「잘려서 들어갔나」를 판별하는 유일한 단서라 진단에 꼭 필요하다.
+        client_key: { role: roleOf(rawCk), shape: shapeOf(rawCk), len: rawCk.length },
+        secret_key: { role: roleOf(rawSk), shape: shapeOf(rawSk), len: rawSk.length },
         expect: 'client_key.role=ck / secret_key.role=sk',
       },
     });
