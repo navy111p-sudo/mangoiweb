@@ -15,8 +15,8 @@
  */
 
 import { sendKakaoAlimtalk } from './solapi-client';
-import { checkAdminSession } from './auth-admin';
 import { franchiseInClause } from './d1-chunk';   // 🔒 지사 목록 IN 조각 (D1 바인드 한도 처리 포함)
+import { type Scope, getScope, franchiseList } from './scope';   // 🔒 스코프 판정은 scope.ts 한 곳에서만
 
 interface Env {
   DB: D1Database;
@@ -42,13 +42,22 @@ function trend(cur: number, prev: number): number { if (!prev) return cur > 0 ? 
 function fmtMan(n: number): string { n = n || 0; if (Math.abs(n) >= 10000) { const m = Math.round((n / 10000) * 10) / 10; return m.toLocaleString('ko-KR') + '만원'; } return n.toLocaleString('ko-KR') + '원'; }
 async function safe<T>(fn: () => Promise<T>, fb: T): Promise<T> { try { return await fn(); } catch { return fb; } }
 
-// ════════ 대리점 스코프 ════════
-type Scope = { type: 'hq' | 'branch' | 'agency' | 'none' | 'franchise'; value: string | null; label: string };
+/* ════════ 대리점 스코프 ════════
+ * (2026-08-07) 이 파일은 scope.ts 를 **통째로 복제**해 갖고 있었다
+ *   (Scope·franchiseList·scopeLabel·ensureScope·autoSeedOne·getScope 6벌).
+ *   그중 autoSeedOne 에는 **franchise(지사본사) 분기가 빠져 있어서**,
+ *   같은 `capi*` 계정이라도 어느 쪽이 먼저 도느냐에 따라 franchise 로도
+ *   branch 로도 심어졌다. 게다가 `INSERT OR IGNORE` 라 **먼저 심은 쪽이 영구히 이긴다**
+ *   — 나중에 올바른 쪽이 돌아도 고쳐지지 않는다.
+ *   → 스코프 판정은 scope.ts 한 곳만 쓴다. 아래 stuCond 만 이 파일 고유로 남긴다.
+ *
+ *   ⚠️ 세션 없을 때 «본사 전체»로 보는 동작은 **그대로 살려야 한다** — 경영요약 브리핑을
+ *      index.ts 가 세션 없는 가짜 Request 로 부르기 때문(여기서 'none' 으로 바꾸면
+ *      매일 나가던 브리핑이 빈 내용으로 조용히 바뀐다). scope.ts 의 noSessionScope 로 넘긴다. */
+const scopeFor = (env: Env, request: Request) =>
+  getScope(env as any, request, { noSessionScope: 'hq' });
 
-// 지사본사 소유 지사 목록 + 비용(재무) 노출 여부(본사·지사본사만)
-function franchiseList(value: string | null): string[] {
-  return String(value || '').split(',').map(s => s.trim()).filter(Boolean);
-}
+// 비용(재무) 노출 여부 — 본사·지사본사만
 function costVisible(scope: Scope): boolean {
   return scope.type === 'hq' || scope.type === 'franchise';
 }
@@ -64,78 +73,6 @@ function stuCond(scope: Scope): { clause: string; binds: any[] } {
   if (scope.type === 'none') return { clause: `1=0`, binds: [] }; // 권한 없음 → 빈 결과
   return { clause: '', binds: [] }; // hq
 }
-function scopeLabel(type: string, value: string | null): string {
-  if (type === 'hq') return '본사 (전체)';
-  if (type === 'franchise') { const n = franchiseList(value).length; return n ? `지사본사 (${n}개 지사)` : '지사본사'; }
-  if (type === 'branch') return `${value} 지사`;
-  if (type === 'agency') return String(value || '대리점');
-  return '권한 없음';
-}
-
-async function ensureScope(env: Env): Promise<void> {
-  await safe(async () => {
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS admin_scope (username TEXT PRIMARY KEY, scope_type TEXT NOT NULL, scope_value TEXT, updated_at INTEGER);`);
-    return true;
-  }, false);
-}
-
-// 미등록 계정을 이름 규칙으로 자동 매핑
-async function autoSeedOne(env: Env, username: string): Promise<Scope> {
-  const acc = await safe(async () => await env.DB.prepare(`SELECT name FROM admin_account WHERE username=? LIMIT 1`).bind(username).first<{ name: string }>(), null as any);
-  const name = acc?.name || '';
-  let type = 'none', value: string | null = null;
-  if (username === 'admin' || /본사/.test(name)) { type = 'hq'; }
-  else if (/지사/.test(name)) { type = 'branch'; value = name.replace('지사', '').trim().split(/\s+/)[0] || null; }
-  else if (/대리점/.test(name)) {
-    type = 'agency';
-    const core = name.replace('대리점', '').trim();
-    const shop = await safe(async () => await env.DB.prepare(`SELECT shop_name FROM students_erp WHERE shop_name LIKE ? LIMIT 1`).bind('%' + core + '%').first<{ shop_name: string }>(), null as any);
-    value = shop?.shop_name || ('망고아이 ' + core + ' 대리점');
-  }
-  await safe(async () => { await env.DB.prepare(`INSERT OR IGNORE INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?,?,?,?)`).bind(username, type, value, Date.now()).run(); return true; }, false);
-  return { type: type as any, value, label: scopeLabel(type, value) };
-}
-
-// 현재 요청의 스코프 결정(세션 + ?as 오버라이드[본사만])
-async function getScope(env: Env, request: Request): Promise<Scope> {
-  await ensureScope(env);
-  const sess = await safe(async () => await checkAdminSession(request, env as any), { ok: false } as any);
-  // 세션 없음(내부 cron 호출 등) → 본사 전체
-  if (!sess?.ok || !sess.username) return { type: 'hq', value: null, label: scopeLabel('hq', null) };
-
-  let row = await safe(async () => await env.DB.prepare(`SELECT scope_type, scope_value FROM admin_scope WHERE username=? LIMIT 1`).bind(sess.username).first<{ scope_type: string; scope_value: string | null }>(), null as any);
-  let base: Scope = row ? { type: row.scope_type as any, value: row.scope_value, label: scopeLabel(row.scope_type, row.scope_value) }
-                        : await autoSeedOne(env, sess.username);
-
-  // 본사만 ?as= 로 특정 대리점/지사 드릴다운 허용
-  if (base.type === 'hq') {
-    const as = new URL(request.url).searchParams.get('as');
-    if (as) {
-      const [t, ...rest] = as.split(':');
-      const v = rest.join(':') || null;
-      if (t === 'hq') return { type: 'hq', value: null, label: scopeLabel('hq', null) };
-      if (t === 'agency' && v) return { type: 'agency', value: v, label: scopeLabel('agency', v) };
-      if (t === 'branch' && v) return { type: 'branch', value: v, label: scopeLabel('branch', v) };
-    }
-  }
-  // 🏬 (2026-07-19) 지사 드릴다운 — ?as=agency:<shop_name> 이 **자기 지사 산하**일 때만 허용(DB 검증).
-  //   아니면 조용히 자기 지사 스코프 유지(권한 상승 불가). 대시보드 '대리점 카드' 클릭 이동용.
-  //   ⚠️ scope.ts getScope 에도 동일 로직 있음(이 파일은 자체 getScope 복제본을 씀 — 수정 시 양쪽 함께).
-  if (base.type === 'branch' && base.value) {
-    const as = new URL(request.url).searchParams.get('as');
-    if (as && as.startsWith('agency:')) {
-      const v = as.slice('agency:'.length);
-      if (v) {
-        const own = await safe(async () => await env.DB.prepare(
-          `SELECT 1 ok FROM students_erp WHERE shop_name = ? AND franchise LIKE ? LIMIT 1`
-        ).bind(v, base.value + '%').first<{ ok: number }>(), null as any);
-        if (own) return { type: 'agency', value: v, label: scopeLabel('agency', v) };
-      }
-    }
-  }
-  return base;
-}
-
 // ════════ 집계(스코프 반영) ════════
 async function income(env: Env, a: number, b: number, scope: Scope) {
   return safe(async () => {
@@ -427,7 +364,7 @@ export async function execRouter(request: Request, env: Env): Promise<Response> 
     if (rdel && method === 'DELETE') return await delRecip(env, Number(rdel[1]));
 
     // 조회는 스코프 격리
-    const scope = await getScope(env, request);
+    const scope = await scopeFor(env, request);
     if (p === 'summary') return await summary(env, scope);
     if (p === 'series') return await series(env, url, scope);
     if (p === 'detail') return await detail(env, url, scope);

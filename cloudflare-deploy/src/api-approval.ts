@@ -29,6 +29,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { getAdminActor, PH_MANAGERS } from './auth-admin';
+import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
 interface ApprovalEnv {
   DB: D1Database;
@@ -47,7 +48,7 @@ const MAX_FILE = 10 * 1024 * 1024;                                  // 10MB — 
 const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
 
 let tableReady = false;
-async function ensureTable(env: ApprovalEnv) {
+const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
   if (tableReady) return;
   await env.DB.exec(
     `CREATE TABLE IF NOT EXISTS approval_requests (` +
@@ -64,7 +65,7 @@ async function ensureTable(env: ApprovalEnv) {
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_appr_status ON approval_requests(status, created_at)`); } catch { /* 있으면 그만 */ }
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_appr_user ON approval_requests(requester_username, created_at)`); } catch { /* 있으면 그만 */ }
   tableReady = true;
-}
+});
 
 /** 본사 계정인가 — 올리기의 최소 조건. 강사·외부 조직은 여기서 걸러진다. */
 function isHqStaff(actor: any): boolean {

@@ -19,6 +19,7 @@
  */
 
 import { checkAdminSession } from './auth-admin';
+import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
 interface Env { DB: D1Database; }
 
@@ -48,7 +49,7 @@ const SEED: Array<[number, string, string, string, string, string, string, numbe
   [2,  '잉글리쉬고고',    'eg00',    '박소담', '캐피 대전', '해지',   '가맹', 0.40,  0,  0,        0],
 ];
 
-async function ensureTable(env: Env): Promise<void> {
+const ensureTable = oncePerIsolate(async (env: Env): Promise<void> => {
   await env.DB.exec(
     `CREATE TABLE IF NOT EXISTS capitown_agencies (id INTEGER PRIMARY KEY, name TEXT NOT NULL, login_id TEXT, manager TEXT, branch TEXT NOT NULL, status TEXT NOT NULL DEFAULT '사용', type TEXT NOT NULL DEFAULT '가맹', margin REAL NOT NULL DEFAULT 0.4, students INTEGER NOT NULL DEFAULT 0, online INTEGER NOT NULL DEFAULT 0, book INTEGER NOT NULL DEFAULT 0, updated_at INTEGER);`
   );
@@ -61,7 +62,7 @@ async function ensureTable(env: Env): Promise<void> {
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(...r, now).run();
   }
-}
+});
 
 export async function capitownRouter(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);

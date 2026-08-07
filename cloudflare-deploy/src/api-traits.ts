@@ -7,8 +7,9 @@
  */
 import { json, parseJsonBody } from './api-util';
 import { checkAdminSession } from './auth-admin';
+import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
-async function ensureTable(env: any): Promise<void> {
+const ensureTable = oncePerIsolate(async (env: any): Promise<void> => {
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS student_traits (
        user_id TEXT PRIMARY KEY,
@@ -16,7 +17,7 @@ async function ensureTable(env: any): Promise<void> {
        source TEXT, updated_at INTEGER NOT NULL
      )`
   ).run();
-}
+});
 
 /* 🔐 2026-08-07 — 링크 서명키를 PAYROLL_INGEST_KEY 에서 떼어냈다.
    원래 토큰은 HMAC-SHA256(PAYROLL_INGEST_KEY, "traits:"+uid) 였다. 문제가 둘이었다.

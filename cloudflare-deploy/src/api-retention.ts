@@ -14,10 +14,11 @@
 import { json, parseJsonBody, keyMatchesAny } from './api-util';
 import { sendPlainSms } from './solapi-client';
 import { getTraits } from './api-traits';
+import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
-async function ensureTable(env: any): Promise<void> {
+const ensureTable = oncePerIsolate(async (env: any): Promise<void> => {
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS student_retention (
        user_id TEXT PRIMARY KEY,
@@ -55,7 +56,7 @@ async function ensureTable(env: any): Promise<void> {
        resend_gap_days INTEGER DEFAULT 30, link_url TEXT, updated_at INTEGER
      )`
   ).run();
-}
+});
 
 const DEFAULT_LINK = 'https://test.mangoi.co.kr';
 

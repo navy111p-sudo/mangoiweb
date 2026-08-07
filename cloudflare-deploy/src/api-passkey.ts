@@ -18,6 +18,7 @@
 import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
 import type { MangoEnv } from './api-mango';
+import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
 const CH_TTL_SEC = 300;           // 챌린지 유효 5분
 const MAX_CREDS_PER_USER = 8;     // 계정당 패스키 상한(온가족 기기 고려)
@@ -135,10 +136,10 @@ async function verifySignature(jwk: JsonWebKey, alg: number, signature: Uint8Arr
   return false;
 }
 
-async function ensureTable(env: MangoEnv) {
+const ensureTable = oncePerIsolate(async (env: MangoEnv): Promise<void> => {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS webauthn_credentials (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, public_key TEXT NOT NULL, alg INTEGER NOT NULL, counter INTEGER DEFAULT 0, transports TEXT, device_label TEXT, rp_id TEXT, created_at INTEGER NOT NULL, last_used_at INTEGER);`);
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_webauthn_uid ON webauthn_credentials(user_id)`); } catch {}
-}
+});
 
 // clientDataJSON 공통 검증: type·challenge(KV 소비)·origin
 async function consumeClientData(
