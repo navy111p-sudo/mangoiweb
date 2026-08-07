@@ -45,6 +45,14 @@ FALLBACK="https://webrtc-unified-platform.navy111p.workers.dev"
 FAIL_THRESHOLD=2        # 연속 몇 회 실패해야 장애로 볼 것인가 (5분 간격 × 2 = 10분)
 CURL_TIMEOUT=15
 
+# 외부 명령은 «이름» 이 아니라 «변수» 로 부른다. 운영에서는 그냥 curl·openssl 이다.
+#  왜: 회귀 시험이 가짜 curl 을 물려야 하는데, PATH 앞에 끼워 넣는 방식은 bash 종류마다 다르게 깨진다
+#      (Git Bash 는 윈도우 PATH 를 자기 방식으로 다시 조립해 앞쪽 항목을 무시해 버린다).
+#      그러면 **가짜가 안 먹은 채 진짜 사이트로 요청이 나가고**, 사이트가 200 이라 «장애» 가
+#      재현되지 않는다 — 시험이 조용히 거짓말을 한다. 변수로 받으면 그런 갈림이 아예 없다.
+CURL=${MANGOI_WD_CURL:-curl}
+OPENSSL=${MANGOI_WD_OPENSSL:-openssl}
+
 TEST_MODE=0
 [ "${1:-}" = "--test" ] && TEST_MODE=1
 [ "${1:-}" = "--sms-test" ] && TEST_MODE=2
@@ -113,14 +121,14 @@ send_sms() {
   if sms_ready; then
     _date=$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')
     _salt=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
-    _sig=$(printf '%s' "${_date}${_salt}" | openssl dgst -sha256 -hmac "$SOLAPI_API_SECRET" -hex 2>/dev/null | sed 's/^.*[ =]//')
+    _sig=$(printf '%s' "${_date}${_salt}" | "$OPENSSL" dgst -sha256 -hmac "$SOLAPI_API_SECRET" -hex 2>/dev/null | sed 's/^.*[ =]//')
 
     _body=$(mktemp)
     # 한글이 깨지지 않게 파일로 만들어 --data-binary 로 보낸다(인라인 인용은 로케일 영향을 받는다).
     cat > "$_body" <<EOF
 {"message":{"to":"${ALERT_TO}","from":"${SOLAPI_FROM}","type":"LMS","subject":"망고아이 장애알림","text":"${_text}"}}
 EOF
-    _resp=$(curl -s -m "$CURL_TIMEOUT" -X POST 'https://api.solapi.com/messages/v4/send' \
+    _resp=$("$CURL" -s -m "$CURL_TIMEOUT" -X POST 'https://api.solapi.com/messages/v4/send' \
       -H "Authorization: HMAC-SHA256 apiKey=${SOLAPI_API_KEY}, date=${_date}, salt=${_salt}, signature=${_sig}" \
       -H 'Content-Type: application/json' \
       --data-binary "@$_body" 2>&1)
@@ -146,7 +154,7 @@ EOF
     fi
     _base="$PRIMARY"; [ "${PRIMARY_OK:-1}" = "1" ] || _base="$FALLBACK"
     _at=1; [ "${CUR_STATE:-down}" = "up" ] && _at=2
-    _resp=$(curl -s -m "$CURL_TIMEOUT" \
+    _resp=$("$CURL" -s -m "$CURL_TIMEOUT" \
       "${_base}/api/uptime-hook?key=${UPTIME_KEY}&alertType=${_at}&monitorFriendlyName=$(printf '%s' "외부감시/${REASON:-recovered}" | sed 's/ /%20/g')" 2>&1)
     case "$_resp" in
       *'"sent":true'*|*'"skipped"'*) _sent=1; log "워커 경유 발송 성공 (relay ok)" ;;
@@ -172,7 +180,7 @@ fi
 
 # ── 1) 얕은 점검 : 바깥에서 HTTP 로 사이트가 응답하나 ──────────────────────
 http_ok() {
-  _code=$(curl -s -o /dev/null -m "$CURL_TIMEOUT" -w '%{http_code}' "$1/api/health" 2>/dev/null)
+  _code=$("$CURL" -s -o /dev/null -m "$CURL_TIMEOUT" -w '%{http_code}' "$1/api/health" 2>/dev/null)
   [ "$_code" = "200" ]
 }
 
@@ -191,7 +199,7 @@ fi
 #    (얕은 점검이 통과했을 때만. 어차피 사이트가 죽었으면 이 호출도 안 된다.)
 if [ -z "$REASON" ]; then
   BASE="$PRIMARY"; [ "$PRIMARY_OK" = "1" ] || BASE="$FALLBACK"
-  PROBE=$(curl -s -m "$CURL_TIMEOUT" "$BASE/api/uptime-hook?run=probe&key=${UPTIME_KEY}" 2>/dev/null)
+  PROBE=$("$CURL" -s -m "$CURL_TIMEOUT" "$BASE/api/uptime-hook?run=probe&key=${UPTIME_KEY}" 2>/dev/null)
 
   case "$PROBE" in
     *'"ok":true'*)

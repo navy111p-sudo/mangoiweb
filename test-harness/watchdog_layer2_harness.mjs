@@ -107,11 +107,43 @@ const relayLog = join(dir, 'relay.log');
 
 const OK_PROBE = '{"ok":true,"probe":{"db":true,"cron_age_sec":300,"cron_stale":false}}';
 
+/* 🪟 윈도우에서도 돌아야 한다 — 배포(deploy.ps1)는 PowerShell 에서 이 하니스를 부른다.
+   [실제 사고] 윈도우 경로를 bash 인자로 그대로 넘기면 역슬래시가 이스케이프로 먹혀
+   'C:UsersAdmin...' 이 되어 «No such file or directory»(exit 127) 로 죽었다.
+   Git Bash 에서 돌릴 땐 통과해서, 배포 게이트에서만 실패하는 «환경 따라 다른» 실패였다.
+   → bash 에는 항상 슬래시 경로를, PATH 는 OS 구분자(win=';' posix=':')를 쓴다. */
+// ⚠️ 역슬래시를 찾는 정규식은 `/\\/g` 다. `/\/g` 로 쓰면 슬래시가 이스케이프돼 **문법 오류**가 난다.
+const toPosix = (p) => String(p).replace(/\\/g, '/');
+
+/* 🔴 [실제 사고] 경로를 슬래시로 바꿔도 PowerShell 에서는 여전히 죽는다.
+   PowerShell 이 잡는 `bash` 는 **WSL** 이라 리눅스 파일계를 보고, 'C:/Users/...' 를 못 찾아
+   «No such file or directory» 로 죽는다(WSL 은 `/mnt/c/...`, Git Bash 는 `C:/...` 를 이해한다).
+   Git Bash 에서 돌릴 땐 통과해서 **배포 게이트에서만** 실패하는 «환경 따라 다른» 실패였다.
+   → 윈도우면 Git Bash 를 명시적으로 찾아 그 갈림 자체를 없앤다. 리눅스 CI 에서는 'bash'.
+   ⚠️ 이 상수는 **한 곳에만** 두어야 한다 — 두 세션이 각자 추가해 중복 선언(SyntaxError)이 났었다. */
+const BASH = (() => {
+  if (process.env.MANGOI_BASH) return process.env.MANGOI_BASH;   // 필요하면 밖에서 덮어쓰기
+  if (process.platform !== 'win32') return 'bash';
+  for (const p of ['C:/Program Files/Git/bin/bash.exe',
+                   'C:/Program Files/Git/usr/bin/bash.exe',
+                   'C:/Program Files (x86)/Git/bin/bash.exe']) {
+    if (existsSync(p)) return p;
+  }
+  return 'bash';
+})();
+
 function runScript(env = {}) {
-  const out = execFileSync('bash', [join(ROOT, 'ops', 'mangoi-watchdog.sh')], {
+  const out = execFileSync(BASH, [toPosix(join(ROOT, 'ops', 'mangoi-watchdog.sh'))], {
     env: {
       ...process.env,
-      PATH: binDir + ':' + process.env.PATH,
+      /* 🔴 [실제 사고] 가짜 curl 을 «PATH 앞에 끼워 넣는» 방식은 bash 종류마다 다르게 깨졌다.
+         구분자(win ';' vs posix ':')도 문제였지만, Git Bash 는 윈도우 PATH 를 자기 방식으로
+         다시 조립해 앞쪽 항목을 아예 무시했다. 그러면 **진짜 사이트로 요청이 나가는데
+         진짜 사이트는 200 이라 «장애» 가 재현되지 않는다** — 20건이 조용히 실패했고,
+         원인이 «코드가 틀렸다» 인지 «시험 장치가 안 붙었다» 인지 구분할 수 없었다.
+         → PATH 를 아예 쓰지 않는다. 스크립트가 실행할 명령을 **환경변수로 직접 받는다**. */
+      MANGOI_WD_CURL: toPosix(join(binDir, 'curl')),
+      MANGOI_WD_OPENSSL: toPosix(join(binDir, 'openssl')),
       MANGOI_WD_CONF: conf, MANGOI_WD_LOG: logF, MANGOI_WD_STATE: stateF,
       FAKE_SMSLOG: smsLog, FAKE_RELAYLOG: relayLog,
       FAKE_PRIMARY_CODE: '200', FAKE_FALLBACK_CODE: '200',
@@ -128,6 +160,25 @@ const smsBodies = () => (existsSync(smsLog) ? readFileSync(smsLog, 'utf8').trim(
 const smsCount = () => smsBodies().length;
 const relayBodies = () => (existsSync(relayLog) ? readFileSync(relayLog, 'utf8').trim().split('\n').filter(Boolean) : []);
 const resetAll = () => { for (const f of [stateF, smsLog, logF, relayLog]) { try { writeFileSync(f, ''); } catch {} } };
+
+/* ═══ 🔒 스텁 점검 — 이 하니스의 전제가 살아 있는가 ═══
+   [실제 사고] PATH 구분자 하나 때문에 가짜 curl 이 무시되고 **진짜 사이트**로 요청이 나갔다.
+   진짜 사이트는 200 을 주니 «장애» 가 재현되지 않고, 20건이 «그냥 실패» 로만 보였다 —
+   원인이 «코드가 틀렸다» 인지 «시험 장치가 안 붙었다» 인지 구분할 수 없었다.
+   그래서 본 시험 전에 **가짜 curl 이 실제로 먹히는지부터** 확인하고, 아니면 즉시 멈춘다.
+   시험 장치가 안 붙은 채 나오는 «통과» 도 «실패» 도 둘 다 거짓말이다. */
+{
+  resetAll();
+  runScript({ FAKE_PRIMARY_CODE: '000', FAKE_FALLBACK_CODE: '000' });
+  if (!/FAILS=1/.test(state())) {
+    console.log('');
+    console.log('  ⛔ 가짜 curl 이 먹히지 않습니다 — 진짜 네트워크로 나가고 있습니다.');
+    console.log('     PATH 주입(구분자 ":")과 bash 선택(BASH)을 확인하십시오. 시험을 중단합니다.');
+    console.log('');
+    process.exit(1);
+  }
+  console.log('  🔒 스텁 점검 통과 — 가짜 curl 이 실제로 먹힙니다');
+}
 
 // ① 정상일 때는 아무 일도 없어야 한다
 resetAll();
@@ -252,9 +303,10 @@ check('제대로 채운 설정은 SOLAPI 직접 경로로 간다', smsCount() ==
 
 // ⑭ --test 는 아무것도 바꾸면 안 된다(사장님이 안심하고 눌러볼 수 있어야 함)
 resetAll();
-execFileSync('bash', [join(ROOT, 'ops', 'mangoi-watchdog.sh'), '--test'], {
-  env: { ...process.env, PATH: binDir + ':' + process.env.PATH,
+execFileSync(BASH, [toPosix(join(ROOT, 'ops', 'mangoi-watchdog.sh')), '--test'], {
+  env: { ...process.env,
          MANGOI_WD_CONF: conf, MANGOI_WD_LOG: logF, MANGOI_WD_STATE: stateF, FAKE_SMSLOG: smsLog,
+         MANGOI_WD_CURL: toPosix(join(binDir, 'curl')), MANGOI_WD_OPENSSL: toPosix(join(binDir, 'openssl')),
          FAKE_PRIMARY_CODE: '000', FAKE_FALLBACK_CODE: '000', FAKE_PROBE: OK_PROBE, FAKE_SOLAPI: '{"statusCode":"2000"}' },
   encoding: 'utf8', timeout: 30000,
 });
