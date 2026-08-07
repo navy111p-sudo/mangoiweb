@@ -544,7 +544,26 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        둘 다 사람이 붙여넣다 생기는 사고라, 화면에 «점검 필요»로 띄워 조용히 묻히지 않게 한다. */
     const rawSk = String(env.TOSS_SECRET_KEY ?? '').trim();
     const secret_key_invalid = !!rawSk && !isTossKeyShaped(rawSk, 'sk');
-    return json({ ok: true, mode, clientKey, key_mismatch, client_key_invalid, secret_key_invalid });
+    /* 🔎 (2026-08-07) 진단값 — 「무엇이 잘못 들어갔는지」를 화면에서 바로 알 수 있게.
+       키를 넣는 일이 사람 손이라 «두 칸을 서로 바꿔 넣는» 사고가 실제로 났다.
+       ⚠️ 키 값 자체는 절대 내보내지 않는다. 내보내는 건 **역할(ck/sk)** 과 **접두사**뿐이고,
+          접두사(`live_ck_`)는 키의 «종류»라 그 자체로는 아무것도 열 수 없다.
+          그래도 시크릿키는 종류만 알려주고 접두사는 «형태»만 남긴다(값 유추 여지 0). */
+    const roleOf = (v: string) => tossKeyRole(v) || (v ? 'unknown' : 'empty');
+    const shapeOf = (v: string) => {
+      if (!v) return 'empty';
+      if (/\s/.test(v)) return 'contains_space';           // 명령어·문장이 통째로 들어온 경우
+      const seg = v.split('_').slice(0, 2).join('_');
+      return /^(?:test|live)_[A-Za-z0-9]+$/.test(seg) ? seg + '_…' : 'unrecognized';
+    };
+    return json({
+      ok: true, mode, clientKey, key_mismatch, client_key_invalid, secret_key_invalid,
+      diag: {
+        client_key: { role: roleOf(String(env.TOSS_CLIENT_KEY ?? '').trim()), shape: shapeOf(String(env.TOSS_CLIENT_KEY ?? '').trim()) },
+        secret_key: { role: roleOf(rawSk), shape: shapeOf(rawSk) },
+        expect: 'client_key.role=ck / secret_key.role=sk',
+      },
+    });
   }
 
   /* ── 5-2) 결제 정보 자동채움 (로그인 필요) ────────────────────────────────
