@@ -105,6 +105,25 @@ check(
   /role = 'student';/.test(allowOpenBlock)
 );
 
+console.log('\n═══ ⑦ 스코프 판정이 한 곳(scope.ts)에서만 나온다 ═══');
+//   과거: exec-summary.ts 가 scope.ts 를 통째로 복제해 갖고 있었고, 그 복제본의
+//   autoSeedOne 에는 franchise(지사본사) 분기가 빠져 있었다. 같은 capi* 계정이라도
+//   어느 쪽이 먼저 도느냐에 따라 franchise/branch 로 갈리고, INSERT OR IGNORE 라
+//   먼저 심은 쪽이 영구히 이긴다. (2026-08-07 통합)
+const execTs = readFileSync(join(CF, 'src/exec-summary.ts'), 'utf8');
+check('exec-summary 가 scope.ts 의 getScope 를 쓴다',
+  /from '\.\/scope'/.test(execTs) && /\bgetScope\b/.test(execTs));
+check('exec-summary 에 자체 getScope/autoSeedOne 복제본이 없다',
+  !/^(async )?function (getScope|autoSeedOne|scopeLabel|ensureScope)\b/m.test(execTs));
+
+//   ⚠️ 반대로 «세션 없으면 본사 전체(hq)» 는 반드시 남아 있어야 한다 —
+//   경영요약 브리핑을 index.ts 가 세션 없는 가짜 Request 로 부르기 때문에,
+//   이게 'none' 이 되면 매일 나가던 브리핑이 조용히 빈 내용이 된다.
+check("exec-summary 가 noSessionScope:'hq' 를 넘긴다 (브리핑 cron 보호)",
+  /noSessionScope:\s*'hq'/.test(execTs));
+check('scope.ts 의 기본값은 여전히 none(권한 없음) 이다',
+  /opts\.noSessionScope === 'hq' \? 'hq' : 'none'/.test(readFileSync(join(CF, 'src/scope.ts'), 'utf8')));
+
 console.log('\n' + '═'.repeat(56));
 console.log(`  결과: ${PASS} PASS, ${FAIL} FAIL`);
 if (FAIL) {
