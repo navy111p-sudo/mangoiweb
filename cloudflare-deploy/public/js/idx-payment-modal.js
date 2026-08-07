@@ -413,8 +413,15 @@
       var _logged   = payIsLoggedIn();
       var _eligible = _logged && selectedPrice > 0
                       && selectedProgram !== 'other' && selectedProgram !== 'b2b' && selectedProgram !== 'trial';
-      if (!_eligible) { if (_logged) payPrefill().then(payApplyPrefill).catch(function(){}); setTimeout(() => payGoStep(2), 300); return; }
+      /* 무료체험·상담형(trial/other/b2b)은 결제 API 를 안 타므로 토큰이 없어도 진행한다.
+         돈이 오가는 상품만 «지금» 토큰을 확인하고, 만료됐으면 여기서 재로그인을 안내한다. */
+      if (!_eligible) {
+        if (_logged) payPrefill().then(function(d){ if (!(d && d.auth_expired)) payApplyPrefill(d); }).catch(function(){});
+        setTimeout(() => payGoStep(2), 300);
+        return;
+      }
       payPrefill().then(function(d){
+        if (d && d.auth_expired) { payHandleAuthExpired(); return; }   // 마지막이 아니라 지금 알린다
         var complete = payApplyPrefill(d);
         setTimeout(() => payGoStep(complete ? 3 : 2), 300);
       }).catch(function(){ setTimeout(() => payGoStep(2), 300); });
@@ -977,6 +984,13 @@
         });
         var d = await r.json().catch(function(){ return null; });
         if (d && d.ok) return d;
+        /* 🔴 (2026-08-07) 서버가 «토큰이 없다/만료됐다» 고 하면 그 사실을 숨기지 않는다.
+           화면의 «로그인됨» 은 브라우저에 저장된 사용자 정보만 보고 판단하는데,
+           서버 결제 API 는 서명 토큰(mango_token, 30일)을 따로 요구한다.
+           토큰이 만료·무효가 되면 화면은 계속 «로그인됨» 이고 서버만 거부해서,
+           **상품 고르고 정보 다 채운 뒤 마지막 「카드 결제창 열기」에서야** 막혔다.
+           이 값을 위로 올려 «상품 고르는 순간» 재로그인을 안내한다. */
+        if (d && d.error === 'auth_required') return { ok: false, auth_expired: true };
       } catch(_){}
       /* 서버에 물어보지 못했다 — 세션에 «진짜 이름»이 있으면 그것만 쓴다.
          이름이 없다고 아이디를 이름 칸에 넣지는 않는다(그게 이 지적 그대로다). */
@@ -984,6 +998,18 @@
       return { ok: true, payer_name: nm, student_name: nm, contact: '', source: 'session' };
     })();
     return _payPrefillP;
+  }
+
+  /** 로그인이 만료된 상태 — 고른 상품을 되돌리고 재로그인을 안내한다(빈손으로 되돌리지 않기 위해). */
+  function payHandleAuthExpired(){
+    try {
+      document.querySelectorAll('.product-card.selected').forEach(function(c){ c.classList.remove('selected'); });
+      selectedProgram = null; selectedPrice = 0;
+      var ko = true; try { ko = (window.getLang ? window.getLang() : 'ko') !== 'en'; } catch(_){}
+      alert(ko ? '로그인이 만료되었어요. 다시 로그인하시면 이어서 결제하실 수 있어요.'
+               : 'Your login session has expired. Please sign in again to continue.');
+      if (typeof window.openLoginModal === 'function') window.openLoginModal();
+    } catch(_){}
   }
 
   /** 받아온 값을 빈 칸에만 채운다. 반환값 = 연락처까지 다 채워졌는가(정보입력 단계 생략 가능한가) */
