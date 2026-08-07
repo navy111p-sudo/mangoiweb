@@ -253,7 +253,8 @@ const worker = {
         //      **두 곳 모두**(isAdminPath + 아래 리다이렉트 목록) 등록할 것.
         if (path === '/admin' || path === '/admin/' || path === '/admin.html'
             || path.startsWith('/admin/')
-            || path === '/teacher' || path === '/teacher/' || path === '/teacher.html') {
+            || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
+            || path === '/manager' || path === '/manager/' || path === '/manager.html') {
           const next = encodeURIComponent(path + url.search);
           return Response.redirect(new URL(`/admin/login?next=${next}`, request.url).toString(), 302);
         }
@@ -270,6 +271,14 @@ const worker = {
       if (sess.ok) {
         const _tp = await teacherPortalRedirect(request, url, path, env);
         if (_tp) return _tp;
+      }
+
+      // 🏫 지사·대리점 분기 (2026-08-08) — 강사에게 해 준 것과 같은 일.
+      //   반드시 아래 «대리점 제한 뷰» 블록보다 **먼저** 온다: 그 블록은 admin.html 을
+      //   허용 페이지로 보고 통과시키므로, 여기서 먼저 경량 화면으로 보내야 한다.
+      if (sess.ok) {
+        const _mp = await managerPortalRedirect(request, url, path, env);
+        if (_mp) return _mp;
       }
 
       // 🏪 대리점/지사(비-본사) 제한 뷰 — 본사 전용 콘솔/ API 차단, 자기 대시보드로 유도
@@ -4546,6 +4555,64 @@ async function teacherPortalRedirect(
   return null;
 }
 
+/**
+ * 🏫 지사·대리점 → 초경량 매니저 포털 (2026-08-08)
+ *
+ *   왜 —
+ *     지금 지사·대리점은 admin.html 로 들어간다(isAgencyAllowedPage 가 '대리점 모드'로 허용).
+ *     그런데 실측하면 그 화면은 gzip 934KB · 요청 145개 · DOM 8,762개고,
+ *     거기서 부르는 관리자 API 231개 중 **매니저에게 허용되는 것은 25개(10%)** 뿐이다.
+ *     나머지 90%는 열어도 403 이다(isAgencyAllowedApi). 즉 «안 맞는 옷»을 주고 있었다.
+ *     → 강사에게 해 준 것과 똑같이, 그들이 실제로 쓸 수 있는 것만 담은 화면으로 보낸다.
+ *
+ *   판정 근거는 getScope() 하나뿐이다. 프런트에서만 나누면 URL 을 직접 치는 것으로 뚫린다.
+ *   ⚠️ 권한이 늘거나 주는 변경이 **아니다** — 서버 허용목록(isAgencyAllowedApi)은 그대로다.
+ *      어느 화면에 착지하는가만 바뀐다.
+ *   ⚠️ ?full=1 은 탈출구다. 매니저가 옛 화면을 봐야 할 때(그리고 사고 시 되돌릴 때) 쓴다.
+ */
+async function managerPortalRedirect(
+  request: Request, url: URL, path: string, env: Env
+): Promise<Response | null> {
+  const isManagerPage = (path === '/manager' || path === '/manager/' || path === '/manager.html');
+  const isAdminHome   = (path === '/admin' || path === '/admin/' || path === '/admin.html');
+  if (!isManagerPage && !isAdminHome) return null;
+  if (url.searchParams.get('full') === '1') return null;      // 탈출구
+
+  let sc: { type: string };
+  try {
+    sc = await getScope(env as any, request) as any;
+  } catch (e) {
+    console.warn('[manager-route] scope resolve failed:', (e as any)?.message);
+    return null;                                              // 판정 실패 → 기존 동작 유지
+  }
+  const isOrg = (sc.type === 'agency' || sc.type === 'branch' || sc.type === 'franchise');
+
+  // 지사·대리점이 관리자 첫 화면을 열었다 → 경량 포털로
+  if (isOrg && isAdminHome) {
+    return Response.redirect(new URL('/manager', request.url).toString(), 302);
+  }
+
+  // 조직 계정이 아닌 사람이 /manager 를 열었다 → 각자의 화면으로 돌려보낸다.
+  //   본사(hq·staff)는 그대로 통과시킨다 — 강사 포털과 같은 이유로, 같은 정보를
+  //   가볍게 보는 창을 하나 더 갖는 것뿐이다(권한 변화 없음).
+  if (isManagerPage && !isOrg) {
+    let actor: { ok: boolean; isTeacher: boolean; role: string };
+    try {
+      actor = await getAdminActor(request, env as any);
+    } catch (e) {
+      return null;
+    }
+    if (!actor.ok) return null;                               // 미인증은 세션 미들웨어가 처리
+    if (actor.isTeacher) {
+      return Response.redirect(new URL('/teacher', request.url).toString(), 302);
+    }
+    if (actor.role !== 'hq' && actor.role !== 'staff') {
+      return Response.redirect(new URL('/admin.html?full=1', request.url).toString(), 302);
+    }
+  }
+  return null;
+}
+
 function isAdminPath(path: string, method: string): boolean {
   // 🔒🔒 [보안 근본수정 2026-07-27] 관리자 **화면**도 DEFAULT-DENY 로 전환.
   //   과거엔 /admin/xxx.html 을 한 줄씩 이 목록에 등록하는 allowlist 였다. 그래서 새 화면을
@@ -4562,6 +4629,14 @@ function isAdminPath(path: string, method: string): boolean {
   //   같은 도메인·같은 세션쿠키(mango_admin_session)를 그대로 쓴다 → 재로그인 없음.
   //   역할 분기(강사만 통과)는 미들웨어의 teacherPortalRedirect() 가 담당한다.
   if (path === '/teacher' || path === '/teacher/' || path === '/teacher.html') return true;
+
+  // 🏫 지사·대리점 전용 초경량 포털 (2026-08-08) — 화면 로그인 필수.
+  //   강사에게 해 준 것과 같은 일이다. 역할 분기는 managerPortalRedirect() 가 담당한다.
+  //   ⚠️ 새 화면 경로를 추가할 때는 **두 곳 모두** 등록할 것 —
+  //      여기(isAdminPath)와, 미인증 시 로그인으로 보내는 리다이렉트 목록.
+  //      한쪽만 하면 인증은 걸리는데 'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
+  if (path === '/manager' || path === '/manager/' || path === '/manager.html') return true;
+
   //   ⚠️ `/api/teacher/` 전체를 잠그지 말 것. 이미 있는 `/api/teacher/praise`(수업 중 실시간 칭찬)
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
   //      새로 만든 포털 엔드포인트만 콕 집어 잠근다.

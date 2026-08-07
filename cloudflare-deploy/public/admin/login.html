@@ -298,10 +298,14 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         //      admin.html(1.3MB)·mypage.html(225KB)은 필리핀 모바일 회선에서 첫 화면까지
         //      수 초가 걸린다. 강사가 매일 쓰는 것(오늘 수업·입장·평가)만 담은 /teacher 로 보낸다.
         //      정산·피드백 초안 등 나머지는 /teacher 안의 [전체 마이페이지] 링크로 그대로 접근 가능.
-        //      ⚠️ 지사·대리점은 기존대로 /admin/mypage — 강사만 분리한다.
+        //      🏫 (2026-08-08) 지사·대리점도 초경량 매니저 포털(/manager)로 분리.
+        //         실측: admin.html 은 gzip 934KB·요청 145개인데, 거기서 부르는 관리자 API 231개 중
+        //         매니저에게 서버가 허용하는 것은 25개(10%)뿐이다. 나머지 90%는 열어도 403 이다.
+        //         → 그들이 실제로 쓸 수 있는 것만 담은 화면으로 보낸다. 권한 변화는 없다.
+        //      ⚠️ 이 분기는 public/index.html 에도 **복제**돼 있다(CLAUDE.md 2절). 함께 고칠 것.
         if ((!clean || clean === '/admin.html')
             && (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency')) {
-          clean = (String(role).indexOf('teacher') >= 0) ? '/teacher' : '/admin/mypage';
+          clean = (String(role).indexOf('teacher') >= 0) ? '/teacher' : '/manager';
         }
         setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
       } else {
