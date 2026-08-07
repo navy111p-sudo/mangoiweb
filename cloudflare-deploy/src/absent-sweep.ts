@@ -31,6 +31,49 @@ export interface AbsentSweepResult {
   dry?: boolean;
 }
 
+/* 📞 (2026-08-07) 담당 강사 연락처 찾기 — 결석 알림을 «기다리는 사람» 에게 보내려면 필요하다.
+   [실사고] 8/7 18:00 레벨테스트에서 강사가 빈 방을 **30분** 지켰다(4번 재입장). 학생은 끝내
+           안 왔고, 시스템은 18:15 에 결석을 «기록만» 했다 — 강사에게는 한 마디도 안 갔다.
+
+   ⛔ `leveltest_applications.assigned_teacher_phone` 을 쓰면 안 된다. 실측:
+        · 신청 #13 «Teacher Maimai» → 저장된 번호·메일은 **Teacher Kaye 의 것**
+        · 신청 #15 «Teacher Maimai» → 프로필 25(Maimai)는 연락처가 비었는데 **제3자 번호**가 들어 있음
+      그 컬럼은 지금 아무 데도 발송하지 않아 사고는 없었지만, 여기서 쓰면 **엉뚱한 강사에게 간다**.
+
+   ✅ 대신 `class_schedules.teacher_id → teachers.name → teacher_profiles` 를 **이름으로** 잇는다.
+      ⚠️ 부분일치는 금지 — 'Anna' 가 'HANNAH' 에 붙는 사고가 이미 있었다. api-teacher.ts 와 같은
+         **낱말 경계** 규칙을 쓰고, 애매하면(후보 2명 이상) **아무에게도 안 보낸다**.
+      ⚠️ `teacher_profiles.linked_teacher_id` 는 현재 전 행이 NULL 이라 못 쓴다(실측). */
+async function findTeacherContact(env: any, teacherId: any): Promise<{ name: string; phone: string | null; why: string }> {
+  const out = { name: '', phone: null as string | null, why: 'no_teacher_id' };
+  const tid = String(teacherId || '').trim();
+  if (!tid) return out;
+  try {
+    const t: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`).bind(tid).first();
+    if (!t?.name) { out.why = 'teacher_not_in_roster'; return out; }
+    out.name = String(t.name);
+    const nrm = (s: any) => String(s || '').toUpperCase().trim();
+    const words = (s: any) => nrm(s).split(/[\s·・,/()[\]-]+/).filter(Boolean);
+    const target = nrm(t.name);
+    const rs: any = await env.DB.prepare(
+      `SELECT id, korean_name, english_name, phone FROM teacher_profiles WHERE phone IS NOT NULL AND phone <> ''`
+    ).all();
+    const hits = (rs.results || []).filter((p: any) => {
+      for (const nm of [p.english_name, p.korean_name]) {
+        const a = nrm(nm);
+        if (!a) continue;
+        if (a === target) return true;
+        if (words(a).indexOf(target) >= 0 || words(target).indexOf(a) >= 0) return true;
+      }
+      return false;
+    });
+    if (hits.length === 1) { out.phone = String(hits[0].phone); out.why = 'matched'; }
+    else if (hits.length > 1) out.why = 'ambiguous';           // 헷갈리면 아무에게도 안 보낸다
+    else out.why = 'no_phone_in_roster';                        // 번호가 원부에 아예 없음
+  } catch (e: any) { out.why = 'lookup_failed'; }
+  return out;
+}
+
 /** KST 기준 오늘 발생하는 예약을 계산해 감지 창(시작+10~40분) 안의 결석 후보를 찾는다. */
 export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = {}): Promise<AbsentSweepResult> {
   const dry = !!opts.dry;
@@ -129,13 +172,39 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
       } catch (e: any) { detail.parent_sms = 'error:' + String(e?.message || e).slice(0, 80); }
     }
 
+    /* 👩‍🏫 (2026-08-07) 담당 강사에게 알린다 — «기다리는 사람» 이 강사다.
+       [왜] 8/7 실사고: 강사가 빈 방을 30분 지켰는데 시스템은 기록만 하고 아무 말도 안 했다.
+            강사는 언제까지 기다려야 하는지, 우리가 알고는 있는지조차 알 수 없었다.
+       ⚠️ 학부모 문자와 달리 **모드 스위치 없이 항상 보낸다** — 강사에게 «지금 상황»을 알리는 것은
+          과잉 발송이 아니라 기본이다. 세션당 1회만 나간다(위 dup 검사가 보장).
+       ⚠️ 못 보낸 경우를 조용히 넘기지 않는다. 아래 운영자 요약에 «연락처 없음» 으로 함께 실어
+          원부의 빈칸이 눈에 보이게 한다(실측: 활동 강사 29명 중 원부 연결 0건). */
+    let teacherNameForLog: string | null = null;
+    if (!dry) {
+      try {
+        const tc = await findTeacherContact(env, c.teacher_id);
+        detail.teacher = tc.name || null;
+        teacherNameForLog = tc.name || null;   // 아래 기록에도 남긴다 — 누가 기다렸는지가 리포트에 보여야 한다
+        if (tc.phone) {
+          const tmsg = `[망고아이] ${name} 학생이 아직 입장하지 않았어요 (${hhmm} 수업 · +${c.late_min}분).\n` +
+                       `본사에 자동으로 알렸습니다. 10분 더 기다려 주시고, 그래도 안 오면 나오셔도 됩니다.\n` +
+                       `Student has not joined yet. We have notified the office — please wait 10 more minutes.`;
+          const tr = await sendPlainSms(env, tc.phone, tmsg);
+          detail.teacher_sms = tr && tr.ok ? 'sent' : (tr && (tr.error || tr.message)) || 'failed';
+        } else {
+          detail.teacher_sms = tc.why;                                   // no_phone_in_roster / ambiguous / …
+          ownerLines.push(`  ⚠ 강사 «${tc.name || c.teacher_id}» 에게 못 보냄 — ${tc.why}`);
+        }
+      } catch (e: any) { detail.teacher_sms = 'error:' + String(e?.message || e).slice(0, 80); }
+    }
+
     // no-show 기록 (관리자 /api/admin/no-shows 리포트에 표시됨)
     if (!dry) {
       try {
         await env.DB.prepare(
           `INSERT INTO class_no_show (room_id, schedule_id, missing_role, missing_uid, student_name, teacher_name, lesson_title, waited_min, notified_push, notified_kakao, created_at)
            VALUES (?,?,?,?,?,?,?,?,0,0,?)`
-        ).bind(c.room_id, c.id, 'student', c.user_id || null, name, null, '결석 위험(자동감지)', c.late_min, now).run();
+        ).bind(c.room_id, c.id, 'student', c.user_id || null, name, teacherNameForLog, '결석 위험(자동감지)', c.late_min, now).run();
       } catch (e: any) { detail.log = 'insert_failed:' + String(e?.message || e).slice(0, 80); }
     }
 
