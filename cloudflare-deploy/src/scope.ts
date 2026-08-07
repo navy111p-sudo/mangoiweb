@@ -82,10 +82,22 @@ async function autoSeedOne(env: ScopeEnv, username: string): Promise<Scope> {
   return { type: type as any, value, label: scopeLabel(type, value) };
 }
 
-export async function getScope(env: ScopeEnv, request: Request): Promise<Scope> {
+/* 세션이 없을 때 무엇으로 볼 것인가.
+ *   'none' (기본) — 권한 없음. 바깥에서 들어오는 모든 요청은 이쪽이어야 한다.
+ *   'hq'          — 본사 전체. **내부 cron 호출 전용**이다.
+ *                   경영요약 브리핑(index.ts 가 세션 없는 가짜 Request 를 만들어 부른다)이
+ *                   이걸 쓴다. 바깥 요청은 index.ts 의 관리자 인증 게이트가 먼저 401 로
+ *                   막으므로 노출되지 않는다(2026-08-07 라이브 401 확인).
+ *                   ⚠️ 새 라우트에 'hq' 를 붙일 땐 그 경로가 게이트 뒤인지 반드시 확인할 것. */
+export interface GetScopeOpts { noSessionScope?: 'none' | 'hq'; }
+
+export async function getScope(env: ScopeEnv, request: Request, opts: GetScopeOpts = {}): Promise<Scope> {
   await ensureScope(env);
   const sess = await s_safe(async () => await checkAdminSession(request, env as any), { ok: false } as any);
-  if (!sess?.ok || !sess.username) return { type: 'none', value: null, label: scopeLabel('none', null) };
+  if (!sess?.ok || !sess.username) {
+    const t = opts.noSessionScope === 'hq' ? 'hq' : 'none';
+    return { type: t, value: null, label: scopeLabel(t, null) };
+  }
 
   const row = await s_safe(async () => await env.DB.prepare(`SELECT scope_type, scope_value FROM admin_scope WHERE username=? LIMIT 1`).bind(sess.username).first<{ scope_type: string; scope_value: string | null }>(), null as any);
   const base: Scope = row ? { type: row.scope_type as any, value: row.scope_value, label: scopeLabel(row.scope_type, row.scope_value) }

@@ -1,3 +1,4 @@
+import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 /**
  * api-refund-audit.ts — 이중결제 감사·환불 처리 도구
  *
@@ -7,7 +8,7 @@
  *
  *  dup_key = user_id | KST날짜 | 금액  (한 이중결제 그룹의 안정적 식별자)
  */
-async function ensureTable(env: any): Promise<void> {
+const ensureTable = oncePerIsolate(async (env: any): Promise<void> => {
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS refund_resolutions (
        dup_key TEXT PRIMARY KEY,
@@ -17,7 +18,7 @@ async function ensureTable(env: any): Promise<void> {
        updated_at INTEGER NOT NULL
      )`
   ).run();
-}
+});
 
 /**
  * 이중결제 목록. type=all|unresolved|resolved, since=YYYY(연도 하한, 기본 전체)

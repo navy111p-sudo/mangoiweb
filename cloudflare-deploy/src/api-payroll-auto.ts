@@ -11,10 +11,11 @@
  *    (Neo4j 경유는 :Class 가 최근 30일치만이라 과거 월 급여엔 부적합 → 서버 직접 집계 채택)
  */
 import { json, parseJsonBody, keyMatchesAny } from './api-util';
+import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
-async function ensureTable(env: any): Promise<void> {
+const ensureTable = oncePerIsolate(async (env: any): Promise<void> => {
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS teacher_payroll_auto (
        teacher_id INTEGER NOT NULL,
@@ -35,7 +36,7 @@ async function ensureTable(env: any): Promise<void> {
   // 지급완료 추적 칸 (기존 배포 테이블에 없으면 추가)
   try { await env.DB.prepare(`ALTER TABLE teacher_payroll_auto ADD COLUMN paid INTEGER DEFAULT 0`).run(); } catch (_) {}
   try { await env.DB.prepare(`ALTER TABLE teacher_payroll_auto ADD COLUMN paid_at INTEGER`).run(); } catch (_) {}
-}
+});
 
 /** 지급완료 토글 (관리자) */
 export async function markPayrollPaid(env: any, teacherId: number, year: number, month: number, paid: boolean): Promise<void> {

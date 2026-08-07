@@ -35,6 +35,7 @@
 
 import { getAdminActor } from './auth-admin';
 import { enqueueNotification } from './api-notify';
+import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
 interface OutageEnv {
   DB: D1Database;
@@ -60,7 +61,7 @@ function kindLabel(k: string): { ko: string; en: string } {
 }
 
 let tableReady = false;
-async function ensureTable(env: OutageEnv) {
+const ensureTable = oncePerIsolate(async (env: OutageEnv): Promise<void> => {
   if (tableReady) return;
   await env.DB.exec(
     `CREATE TABLE IF NOT EXISTS teacher_outages (` +
@@ -78,7 +79,7 @@ async function ensureTable(env: OutageEnv) {
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_outage_status ON teacher_outages(status, started_at)`); } catch { /* 있으면 그만 */ }
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_outage_user ON teacher_outages(reporter_username, status)`); } catch { /* 있으면 그만 */ }
   tableReady = true;
-}
+});
 
 /** 본사 계정인가 — 전체 현황을 볼 수 있는 조건. 필리핀 매니저(scope_type='hq')도 여기 포함된다. */
 function isHqStaff(actor: any): boolean {
