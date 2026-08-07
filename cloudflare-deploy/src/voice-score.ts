@@ -65,6 +65,13 @@ export const ACOUSTIC_TUNING = {
   GAP_OK: 0.35,        // 단어 사이 공백이 이 이하면 머뭇거림 없음(초)
   GAP_BAD: 1.20,       // 이 이상이면 크게 머뭇거림
   MIN_WORDS: 2,        // 단어 타이밍이 이 개수 미만이면 흐름 판정 불가(텍스트 방식 유지)
+  /* 🔇 소리를 못 들었을 때의 상한 (2026-08-07).
+     [실측] 음향정보가 없으면 «I have a dog» 를 정확히 전사하기만 해도 종합 100 = S(«완벽해요!») 가 나왔다.
+            S 는 «발음이 완벽하다» 는 주장인데, 텍스트만으로는 뭉개서 말했는지 알 수 없다.
+            (Whisper 는 웅얼거려도 맞는 글자를 곧잘 뱉는다 — 그래서 텍스트는 발음의 증거가 못 된다.)
+     [처치] 소리 증거가 없으면 S 자리는 비워 둔다. 못 들은 것을 «완벽» 이라 부르지 않는다.
+     ⚠️ 점수를 깎는 게 목적이 아니다 — 음향정보가 오면 이 상한은 적용되지 않는다. */
+  NO_ACOUSTIC_MAX: 94, // scoreTier 의 S 경계(95) 바로 아래
 };
 
 export interface AcousticSegment {
@@ -351,9 +358,15 @@ function combine(accuracy: number, pronunciation: number, fluency: number): numb
  * 음향정보가 없거나 부실하면 원본을 그대로 돌려준다 → 옛 동작과 100% 동일(하위호환).
  */
 function applyAcoustic(base: VoiceScore, info?: AcousticInfo | null): VoiceScore {
-  if (!info) return base;
+  /* 🔇 소리를 못 들었으면 «완벽» 이라고 말하지 않는다 — 자세한 이유는 NO_ACOUSTIC_MAX 주석.
+     딴말(langMismatch·정확도 0)까지 끌어올리지 않도록 «상한» 으로만 쓴다(점수를 올리는 일은 없다). */
+  const capNoAcoustic = (s: VoiceScore): VoiceScore =>
+    (s.overall > ACOUSTIC_TUNING.NO_ACOUSTIC_MAX)
+      ? { ...s, overall: ACOUSTIC_TUNING.NO_ACOUSTIC_MAX }
+      : s;
+  if (!info) return capNoAcoustic(base);
   const a = analyzeAcoustic(info);
-  if (!a.ok) return base;
+  if (!a.ok) return capNoAcoustic(base);
   // 언어가 아예 다르면(0점 처리) 음향으로 되살리지 않는다.
   if (base.langMismatch) return base;
 
