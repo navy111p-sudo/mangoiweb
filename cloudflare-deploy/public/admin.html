@@ -5831,9 +5831,44 @@ window.__admSettleRun = function(fn){
 <script type="text/lazy-js" data-src="/js/adm-r6.js?v=1" data-card="card-eval-mgmt" data-globals="evClearForm,evSubmit,evLoadList,evDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r6 -->
 
 <!-- 💌 Phase I1~I2 — 신규상담 관리 (평가서 카드 다음) -->
+
 <details class="table-card menu-card" id="card-inquiry-mgmt">
   <summary><span data-ko="💌 신규상담 → 등록 전환" data-en="💌 Inquiry → Enrollment">💌 신규상담 → 등록 전환</span></summary>
   <div class="menu-body">
+      <!-- 🪑 대기자 명단 (2026-08-04 서버 신설 · 2026-08-07 화면) — 자리가 없어 그냥 끝나던 상담을 줄 세운다.
+           최상위 메뉴를 늘리지 않으려고 신규상담 카드 안에 넣었다(강사 가동률과 같은 방식). -->
+      <details class="sub-item" id="sub-waitlist" ontoggle="if(this.open&&window.wlLoad)wlLoad()">
+        <summary data-ko="🪑 대기자 명단 (자리 나면 연락)" data-en="🪑 Waitlist (call when a slot opens)">🪑 대기자 명단 (자리 나면 연락)</summary>
+        <div class="sub-body">
+          <div style="font-size:12.5px;line-height:1.7;margin-bottom:10px"
+               data-ko="희망 요일·시간을 적어 두면 그 시간에 수업이 없는 강사를 서버가 찾아 「지금 배정 가능」으로 맨 위에 올려 줍니다. 이미 관심을 보인 분이라 신규 광고보다 훨씬 싸게 등록으로 이어집니다."
+               data-en="If a preferred weekday and time are recorded, the server finds teachers who are free at that slot and moves those people to the top. These are warm leads — far cheaper to convert than new ads.">
+            희망 요일·시간을 적어 두면 그 시간에 <b>비어 있는 강사</b>를 서버가 찾아 맨 위로 올려 줍니다.
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <input id="wl-name" placeholder="학생 이름 / Name" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
+            <input id="wl-phone" placeholder="연락처 / Phone" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:130px">
+            <select id="wl-day" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+              <option value="">희망 요일 / Day</option><option value="1">월 Mon</option><option value="2">화 Tue</option><option value="3">수 Wed</option><option value="4">목 Thu</option><option value="5">금 Fri</option><option value="6">토 Sat</option><option value="0">일 Sun</option>
+            </select>
+            <input id="wl-time" placeholder="19:20" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:72px">
+            <input id="wl-teacher" placeholder="희망 강사 / Teacher" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
+            <input id="wl-note" placeholder="메모 / Note" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
+            <button type="button" onclick="window.wlAdd&&wlAdd()" style="padding:7px 13px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="＋ 대기자 추가" data-en="＋ Add">＋ 대기자 추가</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <select id="wl-status" onchange="window.wlLoad&&wlLoad()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
+              <option value="waiting">대기 중만 / Waiting</option>
+              <option value="all">전체 / All</option>
+            </select>
+            <button type="button" class="primary" onclick="window.wlLoad&&wlLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+            <span id="wl-summary" style="font-size:12px;color:#6b7280"></span>
+          </div>
+          <div id="wl-table" style="overflow-x:auto"></div>
+        </div>
+      </details>
+      <script src="/js/adm-waitlist.js?v=3" defer></script><!-- 🪑 대기자 명단 -->
+
     <!-- 🎨 외부는 진한 톤, 안의 통계/박스는 연한 흰빛 — 명도 반전 -->
     
     <div class="sub-menu">
@@ -5908,7 +5943,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 <script type="text/lazy-js" data-src="/js/adm-r7.js?v=1" data-card="card-inquiry-mgmt" data-globals="iqLoadStats,iqLoad,iqUpdateStatus,iqEditNotes,iqDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r7 -->
-<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=1" data-card="card-inquiry-mgmt" data-globals="addWaitlist,resolveWaitlist,loadWaitlist"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
+<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=3" data-card="card-inquiry-mgmt" data-globals="addWaitlist,resolveWaitlist,loadWaitlist"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
 
 <!-- 💰 Phase F2 — 미납 알림 JS 모듈 -->
 <script src="/js/adm-r8.js?v=1" defer></script><!-- 분할추출:adm-r8 -->
@@ -8375,7 +8410,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=43" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=45" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -10680,7 +10715,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script src="/js/adm-r25.js?v=6" defer></script><!-- 분할추출:adm-r25 -->
 
-<script src="/js/adm-menu-icons.js?v=5" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
+<script src="/js/adm-menu-icons.js?v=7" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
 
 <!-- Phase 126 admin (2026-05-25) — 잔존율/활성 룸 강제 visible + 정확한 스크롤 -->

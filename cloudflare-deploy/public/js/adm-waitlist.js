@@ -1,172 +1,167 @@
-// ═══════════════════════════════════════════════════════════════
-// adm-waitlist.js — 🪑 대기자 명단 (2026-08-04 신규)
-//   화면: admin.html > 💌 신규상담 → 등록 전환 > 🪑 대기자 명단
-//   서버: GET/POST /api/admin/stats/waitlist  (api-admin.ts)
-//
-//   왜 만들었나 —
-//     원하는 시간에 자리가 없으면 상담이 그대로 끝나고 있었다. 이미 관심을 보인 고객이라
-//     신규 광고보다 회수 단가가 훨씬 싸다. 줄을 세워두고 자리가 나면 연락하기 위한 최소 기능.
-//
-//   ⚠️ 라벨은 한/영 둘 다.
-// ═══════════════════════════════════════════════════════════════
+/* 🪑 대기자 명단 (sub-waitlist)
+ *
+ * [왜] 원하는 시간에 자리가 없으면 상담이 그대로 끝난다. 이미 관심을 보인 고객이라
+ *      신규 광고보다 회수 단가가 훨씬 싸다. 줄을 세워 두고 자리가 나면 연락한다.
+ *
+ * [지금까지] 서버(GET/POST /api/admin/stats/waitlist)는 2026-08-04 에 만들어져 있었는데
+ *      **볼 화면이 없어** 아무도 쓰지 못했다. 그 반쪽을 잇는다.
+ *
+ * 🎯 이 화면의 핵심은 목록이 아니라 «지금 자리가 난 사람» 이다.
+ *    서버가 희망 요일·시간에 **비어 있는 강사**를 계산해 주므로, 그 사람을 맨 위로 올리고
+ *    전화 걸기 버튼을 바로 붙인다. 명단만 보여 주면 또 아무도 안 본다.
+ */
 (function () {
-  'use strict';
+  var _rows = [];
 
-  var DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function isEn() { return !!(window.adminLang && window.adminLang !== 'ko'); }
+  /* 한/영 병기 — 운영 인력 상당수가 필리핀이라 한국어만 박아 두면 그 사람들에게는 빈 화면과 같다.
+     ⚠️ 부르는 시점에 판정한다(모듈 로드 시 고정하면 언어를 바꿔도 안 따라온다). */
+  function T(ko, enText) { var en = isEn(); return en ? enText : ko; }
+  var DOW = ['일', '월', '화', '수', '목', '금', '토'];
   var DOW_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  function isEn() {
-    try {
-      if (window.adminLang) return String(window.adminLang) === 'en';
-      return document.documentElement.getAttribute('data-lang') === 'en';
-    } catch (e) { return false; }
+  function dowLabel(v) {
+    var n = Number(v);
+    if (!isNaN(n) && n >= 0 && n <= 6) return isEn() ? DOW_EN[n] : DOW[n];
+    return esc(v || '—');
   }
-  function $(id) { return document.getElementById(id); }
-  function val(id) { var e = $(id); return e ? String(e.value || '').trim() : ''; }
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+  function fmtDate(ms) {
+    if (!ms) return '—';
+    var d = new Date(Number(ms) + 9 * 3600 * 1000);   // KST
+    return d.toISOString().slice(5, 10).replace('-', '/');
+  }
+
+  function render() {
+    var host = document.getElementById('wl-table');
+    if (!host) return;
+    if (!_rows.length) {
+      host.innerHTML = '<div style="padding:18px;text-align:center;color:#6b7280;font-size:13px">'
+        + T('대기 중인 분이 없습니다.', 'No one is waiting.') + '</div>';
+      return;
+    }
+    // 🎯 «자리가 난 사람» 을 맨 위로 — 이 화면을 여는 이유가 그것이다.
+    var rows = _rows.slice().sort(function (a, b) {
+      var fa = Number(a.free_teacher_count || 0) > 0 ? 0 : 1;
+      var fb = Number(b.free_teacher_count || 0) > 0 ? 0 : 1;
+      return fa !== fb ? fa - fb : Number(b.created_at || 0) - Number(a.created_at || 0);
     });
-  }
-  function ymd(ts) {
-    var n = Number(ts); if (!n) return '—';
-    var d = new Date(n);
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
-  async function post(body) {
-    var r = await fetch('/api/admin/stats/waitlist', {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    return await r.json();
-  }
 
-  window.addWaitlist = async function addWaitlist() {
-    var en = isEn();
-    var name = val('wl-name');
-    if (!name) {
-      alert(en ? 'Enter the student name.' : '학생 이름을 입력해 주세요.');
-      var f = $('wl-name'); if (f) f.focus();
-      return;
-    }
-    var j;
-    try {
-      j = await post({
-        action: 'add', student_name: name, phone: val('wl-phone'),
-        day_pref: val('wl-day'), time_pref: val('wl-time'), note: val('wl-note')
-      });
-    } catch (e) {
-      alert((en ? 'Network error: ' : '통신 오류: ') + (e && e.message ? e.message : e));
-      return;
-    }
-    if (!j || !j.ok) {
-      alert((en ? 'Failed: ' : '실패: ') + ((j && (j.message_en && en ? j.message_en : j.message || j.error)) || ''));
-      return;
-    }
-    ['wl-name', 'wl-phone', 'wl-time', 'wl-note'].forEach(function (id) { var e = $(id); if (e) e.value = ''; });
-    var dsel = $('wl-day'); if (dsel) dsel.value = '';
-    window.loadWaitlist();
-  };
-
-  window.resolveWaitlist = async function resolveWaitlist(id, action) {
-    var en = isEn();
-    var ask = action === 'resolve'
-      ? (en ? 'Mark as enrolled?' : '등록 완료로 처리할까요?')
-      : (en ? 'Cancel this waitlist entry?' : '이 대기를 취소할까요?');
-    if (!confirm(ask)) return;
-    var j;
-    try { j = await post({ action: action, id: id }); }
-    catch (e) { alert((en ? 'Network error' : '통신 오류')); return; }
-    if (!j || !j.ok) { alert((en ? 'Failed' : '실패')); return; }
-    window.loadWaitlist();
-  };
-
-  window.loadWaitlist = async function loadWaitlist() {
-    var wrap = $('wl-wrap'), sum = $('wl-summary'), nb = $('wl-note-box');
-    if (!wrap) return;
-    var en = isEn();
-    wrap.innerHTML = '<div style="padding:16px;color:#9ca3af;font-size:12.5px">' + (en ? 'Loading…' : '불러오는 중…') + '</div>';
-
-    var d;
-    try {
-      var st = val('wl-filter') || 'waiting';
-      var r = await fetch('/api/admin/stats/waitlist?status=' + encodeURIComponent(st), { credentials: 'include', cache: 'no-store' });
-      d = await r.json();
-    } catch (e) {
-      wrap.innerHTML = '<div style="padding:16px;color:#dc2626;font-size:12.5px">'
-        + (en ? 'Network error: ' : '통신 오류: ') + esc(e && e.message ? e.message : e) + '</div>';
-      return;
-    }
-    if (!d || !d.ok) {
-      wrap.innerHTML = '<div style="padding:16px;color:#dc2626;font-size:12.5px">'
-        + (en ? 'Failed to load. ' : '불러오지 못했습니다. ') + esc((d && (d.message || d.error)) || '') + '</div>';
-      return;
-    }
-
-    if (nb) nb.textContent = en ? (d.note_en || '') : (d.note || '');
-    var c = d.counts || {};
+    var ready = rows.filter(function (r) { return Number(r.free_teacher_count || 0) > 0; }).length;
+    var sum = document.getElementById('wl-summary');
     if (sum) {
-      sum.innerHTML = (en ? 'Waiting ' : '대기중 ') + '<b>' + (c.waiting || 0) + '</b>'
-        + ' · ' + (en ? 'enrolled ' : '등록됨 ') + '<b style="color:#16a34a">' + (c.enrolled || 0) + '</b>'
-        + ' · ' + (en ? 'cancelled ' : '취소 ') + '<b style="color:#94a3b8">' + (c.cancelled || 0) + '</b>';
+      sum.textContent = ready
+        ? T('지금 연결 가능한 분 ' + ready + '명', ready + ' can be matched now')
+        : T('대기 ' + rows.length + '명 — 지금 맞는 자리는 없습니다', rows.length + ' waiting — no open slot right now');
+      sum.style.color = ready ? '#166534' : '#6b7280';
     }
 
-    var rows = d.rows || [];
-    if (!rows.length) {
-      wrap.innerHTML = '<div style="padding:18px;color:#9ca3af;font-size:12.5px">'
-        + (en ? 'No one on the waitlist.' : '대기자가 없습니다.') + '</div>';
-      return;
-    }
-
-    var th = 'padding:8px 10px;text-align:left;font-size:11.5px;color:#475569;background:#f8fafc;border-bottom:2px solid #e5e7eb;white-space:nowrap';
-    var td = 'padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12.5px;vertical-align:top';
-    var h = '<table style="width:100%;border-collapse:collapse;min-width:700px"><thead><tr>'
-      + '<th style="' + th + '">' + (en ? 'Student' : '학생') + '</th>'
-      + '<th style="' + th + '">' + (en ? 'Phone' : '연락처') + '</th>'
-      + '<th style="' + th + '">' + (en ? 'Preferred' : '희망 시간') + '</th>'
-      + '<th style="' + th + ';width:32%">' + (en ? 'Teachers free at that slot' : '그 시간 배정 가능한 강사') + '</th>'
-      + '<th style="' + th + '">' + (en ? 'Added' : '등록일') + '</th>'
-      + '<th style="' + th + '">' + (en ? 'Action' : '처리') + '</th>'
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#f3f4f6">'
+      + [T('학생', 'Student'), T('연락처', 'Phone'), T('희망 요일·시간', 'Preferred'),
+         T('지금 비는 강사', 'Free teachers now'), T('접수', 'Added'), ''].map(function (x) {
+          return '<th style="padding:8px;text-align:left">' + x + '</th>'; }).join('')
       + '</tr></thead><tbody>';
 
-    rows.forEach(function (w) {
-      var dp = w.day_pref === '' || w.day_pref == null ? null : Number(w.day_pref);
-      var pref = (dp != null && dp >= 0 && dp <= 6 ? (en ? DOW_EN[dp] : DOW_KO[dp]) : '')
-        + (w.time_pref ? ' ' + esc(w.time_pref) : '');
-      var freeHtml;
-      if (w.free_teachers == null) {
-        freeHtml = '<span style="color:#94a3b8">'
-          + (en ? 'Add a weekday & time to match' : '희망 요일·시간을 적으면 자동 매칭')
-          + '</span>';
-      } else if (!w.free_teachers.length) {
-        freeHtml = '<span style="color:#dc2626;font-weight:700">'
-          + (en ? 'No teacher free — still full' : '가능한 강사 없음 — 아직 자리 없음') + '</span>';
+    rows.forEach(function (r) {
+      var free = r.free_teachers;
+      var cnt = Number(r.free_teacher_count || 0);
+      var freeCell;
+      if (free == null) {
+        // 희망 요일·시간을 안 적었으면 «없음» 이 아니라 «못 따짐» 이다. 구분해서 말한다.
+        freeCell = '<span style="color:#9ca3af">' + T('희망 시간 미기재', 'no preferred time') + '</span>';
+      } else if (cnt > 0) {
+        freeCell = '<span style="padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#dcfce7;color:#166534">'
+          + cnt + T('명 가능', ' free') + '</span>'
+          + '<div style="margin-top:3px;font-size:11px;color:#6b7280">'
+          + free.map(function (f) { return esc(f.name); }).join(', ') + '</div>';
       } else {
-        freeHtml = '<span style="color:#16a34a;font-weight:800">✅ ' + w.free_teacher_count
-          + (en ? ' free' : '명 가능') + '</span> <span style="color:#475569">'
-          + esc(w.free_teachers.map(function (t) { return t.name; }).join(', ')) + '</span>';
+        freeCell = '<span style="padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#fee2e2;color:#991b1b">'
+          + T('자리 없음', 'no slot') + '</span>';
       }
-      var badge = w.status === 'enrolled'
-        ? '<span style="color:#16a34a;font-weight:700">✅ ' + (en ? 'Enrolled' : '등록') + '</span>'
-        : (w.status === 'cancelled'
-          ? '<span style="color:#94a3b8">✖ ' + (en ? 'Cancelled' : '취소') + '</span>'
-          : '<button type="button" onclick="resolveWaitlist(' + Number(w.id) + ',\'resolve\')" style="padding:4px 9px;font-size:11.5px;font-weight:700;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer">'
-            + (en ? 'Enrolled' : '등록완료') + '</button> '
-          + '<button type="button" onclick="resolveWaitlist(' + Number(w.id) + ',\'cancel\')" style="padding:4px 9px;font-size:11.5px;background:#fff;color:#64748b;border:1px solid #d1d5db;border-radius:6px;cursor:pointer">'
-            + (en ? 'Cancel' : '취소') + '</button>');
-
-      h += '<tr>'
-        + '<td style="' + td + ';font-weight:700">' + esc(w.student_name)
-        + (w.note ? '<div style="font-size:11px;color:#94a3b8;font-weight:400">' + esc(w.note) + '</div>' : '') + '</td>'
-        + '<td style="' + td + ';color:#475569">' + esc(w.phone || '—') + '</td>'
-        + '<td style="' + td + ';white-space:nowrap">' + (pref.trim() || '<span style="color:#cbd5e1">—</span>') + '</td>'
-        + '<td style="' + td + '">' + freeHtml + '</td>'
-        + '<td style="' + td + ';color:#94a3b8;white-space:nowrap">' + ymd(w.created_at) + '</td>'
-        + '<td style="' + td + ';white-space:nowrap">' + badge + '</td>'
-        + '</tr>';
+      var phone = String(r.phone || '').trim();
+      h += '<tr style="border-bottom:1px solid #e5e7eb' + (cnt > 0 ? ';background:#f0fdf4' : '') + '">'
+        + '<td style="padding:8px;font-weight:700">' + esc(r.student_name) + '</td>'
+        + '<td style="padding:8px">' + (phone
+            ? '<a href="tel:' + esc(phone) + '" style="color:#1e40af;font-weight:700;text-decoration:none">' + esc(phone) + '</a>'
+            : '<span style="color:#9ca3af">—</span>') + '</td>'
+        + '<td style="padding:8px">' + dowLabel(r.day_pref) + ' ' + esc(r.time_pref || '')
+        + (r.teacher_pref ? '<div style="font-size:11px;color:#6b7280">' + T('희망 강사: ', 'wants: ') + esc(r.teacher_pref) + '</div>' : '')
+        + '</td>'
+        + '<td style="padding:8px">' + freeCell + '</td>'
+        + '<td style="padding:8px;color:#6b7280">' + fmtDate(r.created_at) + '</td>'
+        + '<td style="padding:8px;white-space:nowrap">'
+        + '<button onclick="wlResolve(' + Number(r.id) + ')" style="padding:5px 10px;font-size:12px;font-weight:800;background:#166534;color:#fff;border:0;border-radius:6px;cursor:pointer">'
+        + T('등록됨', 'Enrolled') + '</button> '
+        + '<button onclick="wlCancel(' + Number(r.id) + ')" style="padding:5px 10px;font-size:12px;background:#fff;color:#991b1b;border:1px solid #fecaca;border-radius:6px;cursor:pointer">'
+        + T('취소', 'Cancel') + '</button>'
+        + '</td></tr>';
     });
-    h += '</tbody></table>';
-    wrap.innerHTML = h;
+    host.innerHTML = h + '</tbody></table>';
+  }
+
+  window.wlLoad = async function () {
+    var host = document.getElementById('wl-table');
+    var status = ((document.getElementById('wl-status') || {}).value) || 'waiting';
+    if (host) host.innerHTML = '<div style="padding:14px;color:#6b7280;font-size:12px">' + T('불러오는 중…', 'Loading…') + '</div>';
+    try {
+      var res = await fetch('/api/admin/stats/waitlist?status=' + encodeURIComponent(status),
+                            { credentials: 'include', cache: 'no-store' });
+      var j = await res.json();
+      if (!j || !j.ok) throw new Error((j && (j.message || j.error)) || 'failed');
+      _rows = j.rows || [];   // 서버 응답 키는 rows (api-admin.ts /api/admin/stats/waitlist)
+      render();
+    } catch (e) {
+      if (host) host.innerHTML = '<div style="padding:14px;color:#b91c1c;font-size:12px">'
+        + T('불러오지 못했습니다: ', 'Failed to load: ') + esc(e.message) + '</div>';
+    }
   };
+
+  async function post(body, okMsgKo, okMsgEn) {
+    try {
+      var res = await fetch('/api/admin/stats/waitlist', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      var j = await res.json();
+      if (j && j.ok) { if (okMsgKo) alert(T(okMsgKo, okMsgEn)); wlLoad(); return true; }
+      alert(T('실패: ', 'Failed: ') + ((j && (j.message || j.error)) || 'unknown'));
+    } catch (e) { alert(T('오류: ', 'Error: ') + e.message); }
+    return false;
+  }
+
+  window.wlAdd = function () {
+    var name = (document.getElementById('wl-name').value || '').trim();
+    if (!name) { alert(T('학생 이름을 입력하세요.', 'Enter the student name.')); return; }
+    post({
+      action: 'add', student_name: name,
+      phone: (document.getElementById('wl-phone').value || '').trim(),
+      day_pref: (document.getElementById('wl-day').value || '').trim(),
+      time_pref: (document.getElementById('wl-time').value || '').trim(),
+      teacher_pref: (document.getElementById('wl-teacher').value || '').trim(),
+      note: (document.getElementById('wl-note').value || '').trim(),
+    }, '대기자로 등록했습니다.', 'Added to the waitlist.').then(function (ok) {
+      if (ok) ['wl-name', 'wl-phone', 'wl-time', 'wl-teacher', 'wl-note'].forEach(function (id) {
+        var el = document.getElementById(id); if (el) el.value = '';
+      });
+    });
+  };
+  window.wlResolve = function (id) {
+    if (!confirm(T('이 분을 «등록 완료»로 처리할까요?', 'Mark this person as enrolled?'))) return;
+    post({ action: 'resolve', id: id });
+  };
+  window.wlCancel = function (id) {
+    if (!confirm(T('이 분을 «취소»로 처리할까요?', 'Mark this person as cancelled?'))) return;
+    post({ action: 'cancel', id: id });
+  };
+
+  try {
+    var card = document.getElementById('sub-waitlist');
+    if (card) card.addEventListener('toggle', function () {
+      if (card.open && !card.__wl) { card.__wl = true; window.wlLoad(); }
+    });
+  } catch (e) {}
 })();
