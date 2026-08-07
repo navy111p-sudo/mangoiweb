@@ -8251,3 +8251,56 @@ button.chip:hover,
     /* ⛔ hover 로 라벨/서브메뉴를 띄우지 않는다. 강조는 배경색까지만 */
     html[data-adm-nav="rail"] .ph85-head:hover { background: rgba(251,191,36,0.14); }
   }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎨 (2026-08-08) 관리자 «조용한 표» — 학생 목록에 먼저 적용한 원칙을 전 표로 확장
+   ───────────────────────────────────────────────────────────────────────────
+   사장님 지적: 레벨테스트 최근응시 · 음성코칭 진도 · 강사 급여 정산 …
+   「아이디가 붉은 박스」「회색 줄무늬가 너무 진함」이 표마다 똑같이 반복됐다.
+
+   원인은 표마다 다른 게 아니라 «한 곳»이었다 — 이 파일 위쪽의 다크 테마 잔재.
+     · details.menu-card table              = rgba(15,23,42,0.55)  (네이비 55%)
+     · details.menu-card tbody tr:nth(even) = rgba(30,41,59,0.35)  (네이비 35%)
+     · .pm-table tbody tr:nth(even) td      = rgba(30,41,59,0.45)
+     · code{}                               = 주황/보라 배지
+   테마는 admin.html:280 에서 «항상 ivory» 로 고정돼 다크가 쓰이지 않는데,
+   ivory 쪽에 대응 규칙이 없는 속성은 저 다크 값이 그대로 남아 화면에 나왔다.
+   개별 표에 하나씩 덧칠하면 또 다음 표에서 같은 일이 반복되므로 여기서 한 번에 끊는다.
+
+   원칙 — 색은 «데이터»가 아니라 «상태»에만 쓴다.
+     줄무늬 #ffffff / #fafbfc (종전의 약 1/9 세기) · 호버 #f2f7ff · 아이디는 배지를 벗고 모노 회청색
+
+   🪤 처음엔 :not([style*="background"]) 로 «인라인으로 색을 칠한 칸·행»을 비켜 가게 짰다가
+      되돌렸다. 실측해 보니 그 칸들은 이미 이 파일 1287행
+        .menu-card table td { background: transparent !important; }
+      에 덮여 «색이 죽은 채»였고(같은 층의 3435행은 오히려 다크 그라데이션을 씌운다),
+      비켜 가 봐야 살아나지 않고 줄무늬에 구멍만 생겼다. → 전 칸을 균일하게 칠한다.
+      ⚠️ 음성코칭 표의 «점수별 행 배경 틴트»는 그래서 여기서도 안 살아난다.
+         (원래도 짝수 줄은 다크에 덮여 안 보였다. 점수는 정확도·발음·유창성 «막대»가
+          이미 더 정확히 보여 준다.) 틴트를 되살리려면 위 1287행부터 손봐야 한다 — 별건.
+   ⚠️ 표 전용 규칙(#sm-students-table · #card-permissions · .rf-table · .sa-table 등)은
+      선택자에 #id 가 있어 여기보다 우선순위가 높다 → 의도한 색을 그대로 지킨다.
+      (권한표 그룹행의 앰버 그라데이션이 그대로인 것을 실측으로 확인했다.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 표 바탕 — 다크 네이비 55% → 흰색 */
+html[data-admin-theme="ivory"] .menu-card table { background: #ffffff !important; }
+
+/* 줄무늬 — 흰색 / 아주 옅은 중성회색.
+   background 축약형이라 위층이 씌운 다크 그라데이션(background-image)까지 같이 지운다. */
+html[data-admin-theme="ivory"] .menu-card tbody tr:nth-child(odd)  > td { background: #ffffff !important; }
+html[data-admin-theme="ivory"] .menu-card tbody tr:nth-child(even) > td { background: #fafbfc !important; }
+
+/* 호버 — 보던 줄을 놓치지 않게 (가로로 긴 표가 많다) */
+html[data-admin-theme="ivory"] .menu-card tbody tr:hover > td { background: #f2f7ff !important; }
+
+/* 아이디·코드 — 표 안에서는 배지를 벗기고 조용한 모노 회청색으로.
+   표 밖(안내문·도움말 등)의 <code> 배지는 그대로 둔다. */
+html[data-admin-theme="ivory"] .menu-card td code {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: #64748b !important;
+  font-size: 11.5px !important;
+  letter-spacing: -0.2px;
+}
