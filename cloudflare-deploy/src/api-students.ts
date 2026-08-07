@@ -8,7 +8,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
-import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)+토큰 발급
+import { authUidFromRequest as authUidGlobal, signUidToken, startSession } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)+토큰 발급
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPlainSms } from './solapi-client';   // 🔑 비밀번호 재설정 SMS 인증 (2026-07-22)
 import type { MangoEnv } from './api-mango';
@@ -394,9 +394,11 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 11시(주말·공휴
       await env.DB.prepare(
         `INSERT INTO students_erp (user_id, student_name, parent_phone, phone, email, age, status, source, password_hash, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, 'active', 'self_signup', ?, ?, ?)`
       ).bind(uid, name, phone || null, phone || null, email || null, age || null, ph, now, now).run();
+      // 🔒 가입 직후 곧바로 로그인 상태가 되므로 여기서도 세션을 연다
+      const _sidNew = await startSession(uid, env);
       return json({
         ok: true,
-        token: await signUidToken(uid, env),
+        token: await signUidToken(uid, env, undefined, _sidNew),
         user: { user_id: uid, user_name: name, role: 'student', has_password: true },
       });
     }
@@ -427,11 +429,14 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 11시(주말·공휴
       // 마지막 로그인 시각 업데이트 (NOCASE 매치 후엔 항상 DB 원표기 기준)
       try { await env.DB.prepare(`UPDATE students_erp SET last_login_at = ? WHERE user_id = ?`).bind(Date.now(), stu.user_id).run(); } catch {}
 
+      // 🔒 동시접속 1세션 — 새 세션을 열면 이전 기기의 토큰은 죽는다(SINGLE_SESSION='on' 일 때만 작동)
+      const _sid = await startSession(stu.user_id, env);
+
       return json({
         ok: true,
         // 🔐 uid 서명 토큰 — uid 기반 개인 데이터 API(/api/ai/chat-* 등) 호출 시 필요
         //    ⚠️ 반드시 DB 원표기(stu.user_id)로 서명 — 소문자 입력 시에도 하위 API uid 검증이 일치하게
-        token: await signUidToken(stu.user_id, env),
+        token: await signUidToken(stu.user_id, env, undefined, _sid),
         user: {
           user_id: stu.user_id,
           user_name: stu.student_name || stu.user_id,

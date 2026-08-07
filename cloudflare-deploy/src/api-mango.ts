@@ -47,6 +47,9 @@ export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   NEO4J_PASSWORD?: string;
   // 🥭 Phase 21 — Workers AI 바인딩 (검색창 AI 명령)
   AI?: any;
+  // 🔒 (2026-08-08) 동시접속 1세션 킬 스위치 — 'on' 일 때만 작동. 기본 off(dormant).
+  //   auth-token.ts 의 singleSessionOn / startSession / verifyUidToken 이 읽는다.
+  SINGLE_SESSION?: string;
   // 📟 UptimeRobot 장애 웹훅 → 관리자 문자 알림 (api-uptime.ts)
   UPTIME_HOOK_KEY?: string;    // 웹훅 호출 보호 토큰(무단 호출 방지)
   OWNER_ALERT_PHONE?: string;  // 장애 문자 받을 관리자 번호

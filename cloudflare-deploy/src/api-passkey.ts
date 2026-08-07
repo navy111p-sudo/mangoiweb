@@ -16,7 +16,7 @@
 //   · ES256(-7) 서명은 ASN.1 DER → WebCrypto 는 raw r||s 요구 → 변환 필수.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
-import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
+import { authUidFromRequest as authUidGlobal, signUidToken, startSession } from './auth-token';
 import type { MangoEnv } from './api-mango';
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
@@ -312,7 +312,7 @@ export async function handlePasskeyApi(
       // /api/student/login 과 동일한 응답 형태 → 프론트 처리 로직 재사용
       return json({
         ok: true,
-        token: await signUidToken(row.user_id, env),
+        token: await signUidToken(row.user_id, env, undefined, await startSession(row.user_id, env)),
         user: {
           user_id: stu.user_id,
           user_name: stu.student_name || stu.user_id,
