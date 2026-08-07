@@ -108,6 +108,27 @@ ok('  역검증: 상한이 없었다면 «좋아요» 였다', noCapOverall >= 7
 
 /* 🏆 «완벽해요(S)» 는 발음에 대한 주장이다 — 실측 사례를 그대로 검사로 박는다.
    2026-08-08: 발음 84 · 정확도 100 · 흐름 99 → 종합 96 = S 가 나왔다. 84 는 «완벽» 이 아니다. */
+/* 📐 실측 4건을 그대로 검사로 박는다 (2026-08-08 05:06~05:07, 사장님 녹음).
+   글자 비교로 정확도를 매기면 Azure 전사 때문에 **늘 100 에 붙어** 신호가 사라진다.
+   그래서 정확도 축은 Azure «완성도» 를 쓴다 — 소리에서 나온 값이라 그 문제가 없다. */
+{
+  const real = [
+    { name: '352 잘 읽음', az: { accuracy: 92, fluency: 99, completeness: 100, pron: 92 }, want: 'S' },
+    { name: '353 뭉갬(완성도 33)', az: { accuracy: 58, fluency: 78, completeness: 33, pron: 58 }, wantNot: ['S', 'A', 'B'] },
+    { name: '354 괜찮음', az: { accuracy: 88, fluency: 94, completeness: 83, pron: 88 }, want: 'A' },
+    { name: '355 많이 뭉갬', az: { accuracy: 42, fluency: 45, completeness: 33, pron: 42 }, wantNot: ['S', 'A', 'B'] },
+  ];
+  for (const r of real) {
+    // 글자 비교는 100 으로 둔다 — 실제로 그렇게 나왔기 때문이다(그래도 신호가 살아야 한다)
+    const got = V.applyAzurePronunciation({ ...base, accuracy: 100, fluency: r.az.fluency }, r.az);
+    const tier = V.scoreTier(got.overall).tier;
+    if (r.want) ok(`실측 ${r.name} → ${r.want}`, tier === r.want, `got ${tier}(${got.overall})`);
+    else ok(`실측 ${r.name} → «좋아요» 이상이 안 나온다`, !r.wantNot.includes(tier), `got ${tier}(${got.overall})`);
+  }
+  const c33 = V.applyAzurePronunciation({ ...base, accuracy: 100 }, { accuracy: 58, fluency: 78, completeness: 33, pron: 58 });
+  ok('정확도 자리에 «완성도» 가 들어간다 (글자 비교 100 을 덮는다)', c33.accuracy === 33, 'acc=' + c33.accuracy);
+}
+
 const good84 = V.applyAzurePronunciation({ ...base, accuracy: 100, fluency: 99 },
   { accuracy: 84, fluency: 99, completeness: 83, pron: 84 });
 ok('발음 84 면 «완벽해요(S)» 가 안 나온다', V.scoreTier(good84.overall).tier !== 'S', 'overall=' + good84.overall);

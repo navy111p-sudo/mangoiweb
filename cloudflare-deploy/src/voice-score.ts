@@ -437,16 +437,26 @@ export function applyAzurePronunciation(base: VoiceScore, az?: AzurePronInput | 
   if (base.langMismatch) return base;
 
   const pronunciation = acc;
-  const fluency = flu === null ? base.fluency : Math.min(flu, base.accuracy + 15);
   const completeness = n(az.completeness) ?? base.completeness;
-  const raw = combine(base.accuracy, pronunciation, fluency);
+
+  /* 📐 정확도 축도 Azure 것을 쓴다 (2026-08-08, 실측으로 되잡음)
+     [무슨 일이 있었나] 전사를 Azure 것으로 바꾸자 정확도가 **늘 100 에 붙어 버렸다.**
+       Azure 는 모범 문장에 맞춰 정렬해 들으므로, 뭉개도 «글자» 는 다 나온다.
+       실측: 발음 58 · 완성도 33(단어의 1/3만 제대로 소리 냄)인데 정확도 100 → 종합 86 «훌륭해요».
+       억울한 감점은 없앴지만 **신호도 같이 없앴다.**
+     [처치] 글자 비교 대신 Azure **완성도**(실제로 몇 단어를 제대로 소리 냈나)를 쓴다.
+       이건 철자가 아니라 **소리에서 나온 값**이라 이 문제가 없다.
+     ⚠️ Azure 가 없을 때는 예전 그대로 글자 비교를 쓴다. */
+  const accuracy = completeness;
+  const fluency = flu === null ? base.fluency : Math.min(flu, accuracy + 15);
+  const raw = combine(accuracy, pronunciation, fluency);
   let overall = Math.min(raw, pronunciation + AZURE_OVERALL_CAP_OVER_PRON);
   // 🏆 발음이 «완벽» 이라 부를 수준이 아니면 S 자리(95+)는 비워 둔다 — 위 AZURE_S_MIN_PRON 주석 참고
   if (pronunciation < AZURE_S_MIN_PRON && overall > 94) overall = 94;
 
   return {
     ...base,
-    pronunciation, fluency, completeness,
+    accuracy, pronunciation, fluency, completeness,
     acoustic: true, phoneme: true,
     overall,
   };
