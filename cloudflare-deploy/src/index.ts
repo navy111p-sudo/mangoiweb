@@ -17,7 +17,7 @@ import { handleRetentionIngest, getRetention, markRetentionContacted, getRetenti
 import { runAbsentStudentSweep } from './absent-sweep';
 import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종료 후 학생별 AI 리포트 배치
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
-import { runLeveltestReminderSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
+import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
@@ -1937,6 +1937,19 @@ const worker = {
         if (lt && (lt.reminded > 0 || !lt.ok)) console.log('[leveltest-reminder]', JSON.stringify(lt));
       } catch (err) {
         console.error('[leveltest-reminder] error', err);
+      }
+
+      /* 📅 레벨테스트 «전날 저녁» 리마인더 — 같은 15분 크론을 타되, 저녁 20시대에만 일한다.
+         [왜] 알림이 «접수 순간» 과 «T-10» 두 끝뿐이라, 그 사이가 통째로 비어 있었다.
+              시작 10분 전 문자 한 통을 놓치면 그대로 노쇼다 — 저녁 6시는 놓치기 쉬운 시간이다.
+              레벨테스트를 받는 사람은 망고아이를 처음 써 보는 사람이라
+              카메라·마이크 권한을 미리 만나 볼 시간이 필요하다.
+         킬스위치는 T-10 과 공유(leveltest_reminder_send='off'). */
+      try {
+        const ltd = await runLeveltestDayBeforeSweep(env as any);
+        if (ltd && (ltd.reminded > 0 || !ltd.ok)) console.log('[leveltest-daybefore]', JSON.stringify(ltd));
+      } catch (err) {
+        console.error('[leveltest-daybefore] error', err);
       }
 
       // 🚨 결석 위험 자동 알림 — 매 15분: 시작 10분+ 경과했는데 학생 미입장 수업 감지 → 문자.

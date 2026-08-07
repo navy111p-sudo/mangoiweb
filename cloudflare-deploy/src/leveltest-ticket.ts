@@ -293,6 +293,13 @@ export function buildLtIcs(t: LtTicket, ticketUrl: string): string {
     `SUMMARY:${esc('망고아이 레벨테스트 / Mangoi Level Test')}`,
     `DESCRIPTION:${esc(`${t.teacher ? `담당 선생님: ${t.teacher}\n` : ''}입장·확인은 이 링크에서 / Join & check here:\n${ticketUrl}`)}`,
     `URL:${esc(ticketUrl)}`,
+    /* ⏰ 알람 두 개 — «미리 대비하게 하고, 직전에 울린다» (2026-08-07, 사장님 지시)
+       [왜] 하루 전 알람이 문자보다 낫다: 잠금화면에 뜨고, 무음이어도 폰이 알려주고, 비용이 0원이다.
+            문자는 무음모드·스팸함이면 그냥 놓친다. 「캘린더에 추가」 한 번이면 그 뒤론 폰이 알아서 한다.
+       ⚠️ 순서를 바꾸지 말 것 — 일부 캘린더 앱은 여러 VALARM 중 첫 번째만 쓴다. 멀리 있는 것부터. */
+    'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY',
+    `DESCRIPTION:${esc('내일 레벨테스트가 있어요 — 카메라·마이크를 미리 점검해 두세요 / Level test tomorrow — please check your camera and mic')}`,
+    'END:VALARM',
     'BEGIN:VALARM', 'TRIGGER:-PT10M', 'ACTION:DISPLAY',
     `DESCRIPTION:${esc('10분 뒤 레벨테스트 시작 / Level test starts in 10 minutes')}`,
     'END:VALARM',
@@ -313,6 +320,105 @@ export type LtReminderResult = {
 const REMIND_MIN_MS = 5 * 60 * 1000;
 const REMIND_MAX_MS = 25 * 60 * 1000;
 const MAX_SMS_PER_SWEEP = 40;
+
+/* 📅 전날 저녁 리마인더 (2026-08-07, 사장님 지시)
+   ───────────────────────────────────────────────────────────────────────
+   [왜] 알림이 사실상 «양 끝» 두 번뿐이었다 — 접수 문자(신청 순간)와 T-10.
+        그 사이가 통째로 비어 있어서, 접수 문자를 잊은 사람은 시작 10분 전
+        문자 한 통에 모든 것이 걸린다. 저녁 6시면 퇴근길·저녁 준비 시간이라
+        그 한 통을 놓칠 확률이 낮지 않다. 놓치면 그대로 노쇼다.
+   [무엇] 수업 «전날 저녁» 에 한 번 더. 장비를 미리 점검할 시간을 준다는 것이
+        핵심이다 — 레벨테스트를 받는 사람은 망고아이를 처음 써 보는 사람이라
+        카메라·마이크 권한을 그 자리에서 처음 만난다.
+   ⚠️ T-10 과 «같은 표, 다른 kind('t1d')» 로 중복을 막는다. 문자는 돈이 나가고,
+      같은 사람에게 두 번 가면 신뢰가 깎인다.
+   ⚠️ 킬스위치는 T-10 과 공유한다(leveltest_reminder_send='off') — 문자를 멈춰야
+      하는 상황이라면 둘 다 멈추는 것이 맞다.
+   ⚠️ 크론은 15분마다 돈다. 저녁 «한 시간» 을 창으로 두고 dedup 으로 한 번만 보낸다. */
+const DAYBEFORE_HOUR_KST = 20;          // 20시대(20:00~20:59)에 한 번
+export async function runLeveltestDayBeforeSweep(env: any, opts: { dry?: boolean; force?: boolean } = {}): Promise<LtReminderResult> {
+  const dry = !!opts.dry;
+  const out: LtReminderResult = { ok: true, enabled: true, checked: 0, reminded: 0, sms_sent: 0, details: [] };
+
+  try {
+    if ((await env.SESSION_STATE?.get('leveltest_reminder_send')) === 'off') { out.enabled = false; return out; }
+  } catch {}
+
+  const now = Date.now();
+  const k = new Date(now + KST);
+  // 저녁 시간대가 아니면 아무것도 하지 않는다(크론은 하루 96번 돈다)
+  if (!opts.force && k.getUTCHours() !== DAYBEFORE_HOUR_KST) return out;
+
+  const tm = new Date(now + KST + 86400000);   // 내일(KST)
+  const tomorrowStr = `${tm.getUTCFullYear()}-${pad2(tm.getUTCMonth() + 1)}-${pad2(tm.getUTCDate())}`;
+
+  let rows: any[] = [];
+  try {
+    const rs = await env.DB.prepare(
+      `SELECT a.id, a.student_name, a.phone, a.status, a.assigned_teacher, a.student_uid,
+              cs.id AS sched_id, cs.scheduled_date, cs.start_time, cs.duration_min
+         FROM leveltest_applications a
+         JOIN class_schedules cs ON cs.id = a.schedule_id
+        WHERE a.status NOT IN ('cancelled') AND cs.status != 'cancelled' AND cs.scheduled_date = ?`
+    ).bind(tomorrowStr).all();
+    rows = rs.results || [];
+  } catch (e: any) {
+    return { ...out, ok: false, details: [{ error: 'query_failed:' + String(e?.message || e).slice(0, 80) }] };
+  }
+  out.checked = rows.length;
+  if (!rows.length) return out;
+
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS leveltest_reminder_log (id INTEGER PRIMARY KEY AUTOINCREMENT, app_id INTEGER NOT NULL, kind TEXT NOT NULL, sent INTEGER DEFAULT 0, created_at INTEGER NOT NULL)`);
+  } catch {}
+
+  let budget = MAX_SMS_PER_SWEEP;
+  for (const r of rows) {
+    const detail: any = { app_id: r.id, student: r.student_name, when: `${r.scheduled_date} ${r.start_time}` };
+    if (budget <= 0) { detail.status = 'budget_exhausted'; out.details.push(detail); break; }
+    try {
+      const dup = await env.DB.prepare(`SELECT 1 FROM leveltest_reminder_log WHERE app_id = ? AND kind = 't1d' LIMIT 1`).bind(r.id).first();
+      if (dup) { detail.status = 'already_sent'; out.details.push(detail); continue; }
+    } catch {}
+
+    // 번호는 T-10 과 같은 규칙 — 신청서가 1순위, 없을 때만 계정에서
+    let phone = String(r.phone || '').trim();
+    if (!phone && r.student_uid) {
+      try {
+        const stu: any = await env.DB.prepare(`SELECT * FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`).bind(r.student_uid, r.student_uid).first();
+        if (stu) phone = String(stu.parent_phone || stu.student_phone || stu.phone || '').trim();
+      } catch {}
+    }
+    if (!phone) {
+      detail.status = 'no_phone';
+      out.details.push(detail);
+      if (!dry) { try { await env.DB.prepare(`INSERT INTO leveltest_reminder_log (app_id, kind, sent, created_at) VALUES (?, 't1d', 0, ?)`).bind(r.id, now).run(); } catch {} }
+      continue;
+    }
+
+    const url = await ltTicketUrl(Number(r.id), env);
+    const hhmm = String(r.start_time || '').slice(0, 5);
+    /* 교사명은 «수락한 뒤» 에만 말한다 — 배정 제안 단계에서 이름을 흘리면 교사가 거절했을 때
+       «담당이 바뀌었다» 는 혼선이 된다(티켓 화면과 같은 규칙). */
+    const tLabel = (r.status === 'confirmed' || r.status === 'done') && r.assigned_teacher ? `\n👩‍🏫 ${r.assigned_teacher}` : '';
+    const msg = `[망고아이] ${r.student_name}님, 내일 ${hhmm} 레벨테스트가 있습니다. 🎯${tLabel}\n▶ 확인·장비점검: ${url}\n※ 카메라·마이크를 미리 점검해 두시면 당일 바로 시작할 수 있어요.`;
+
+    if (!dry) {
+      try {
+        const res = await sendPlainSms(env, phone, msg);
+        detail.sms = res && res.ok ? 'sent' : (res && (res.error || res.message)) || 'failed';
+        if (res && res.ok) { out.sms_sent++; budget--; }
+      } catch (e: any) { detail.sms = 'error:' + String(e?.message || e).slice(0, 80); }
+      try { await env.DB.prepare(`INSERT INTO leveltest_reminder_log (app_id, kind, sent, created_at) VALUES (?, 't1d', 1, ?)`).bind(r.id, now).run(); } catch {}
+    } else {
+      detail.would_send = phone.slice(0, 6) + '***';
+    }
+    detail.status = 'reminded';
+    out.reminded++;
+    out.details.push(detail);
+  }
+  return out;
+}
 
 export async function runLeveltestReminderSweep(env: any, opts: { dry?: boolean } = {}): Promise<LtReminderResult> {
   const dry = !!opts.dry;

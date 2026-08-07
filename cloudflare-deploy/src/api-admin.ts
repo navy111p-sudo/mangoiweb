@@ -30,7 +30,9 @@ import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수�
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import type { MangoEnv } from './api-mango';
-import { selectInChunks } from './d1-chunk';   // IN(...) list split for D1 100-bind limit
+/* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
+   중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
+   컴파일을 안 돌리면 모르고 지나간다. 여기서 지운다. */
 
 // ═══ ⚡ 관리자 KV 캐시 공용 헬퍼 (2026-07-19 통합) ═══
 //   graph-list·finance·selfscore·leveltest 등에서 반복되던

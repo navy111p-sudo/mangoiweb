@@ -266,7 +266,10 @@ check('⛔ 언어 배선을 직접 하지 않는다 (반쪽 번역으로 굳었�
 console.log('\n[ ⑥ T-10 리마인더 — 지금 «안 닿는» 사람에게 닿아야 한다 ]');
 check('리마인더 스윕이 있다', /export async function runLeveltestReminderSweep/.test(mod));
 check('cron 에서 실제로 불린다 (정의만 하면 아무 일도 안 일어난다)',
-  /runLeveltestReminderSweep\(env as any\)/.test(index) && /import \{ runLeveltestReminderSweep \}/.test(index));
+  /* ⚠️ import 를 «단독» 으로 요구하면 같은 파일에서 다른 함수를 하나 더 들여올 때 깨진다
+     (2026-08-07 전날저녁 스윕 추가 때 실제로 깨졌다). 이름이 들어 있는지만 본다. */
+  /runLeveltestReminderSweep\(env as any\)/.test(index)
+  && /import \{[^}]*runLeveltestReminderSweep[^}]*\} from '\.\/leveltest-ticket'/.test(index));
 check('🔑 번호를 «신청서» 것으로 먼저 본다 (계정에서만 찾으면 지금 버그가 그대로 남는다)',
   /let phone = String\(r\.phone \|\| ''\)\.trim\(\);[\s\S]{0,120}?if \(!phone && r\.student_uid\)/.test(mod));
 check('건당 1회만 보낸다 (15분 크론이 같은 사람에게 반복 발송 금지)',
@@ -293,6 +296,35 @@ check('장비 점검·캘린더 추가 버튼이 있다', /precheck_url/.test(pa
 check('한/영 둘 다 나온다', /localStorage\.getItem\('mangoi_lang'\)/.test(page) && /data-en=/.test(page));
 check('외부 스크립트·폰트를 안 쓴다 (경량 원칙)', !/<script[^>]+src=|fonts\.googleapis|cdn\./i.test(page));
 check('검색엔진에 노출되지 않는다 (개인 링크)', /name="robots" content="noindex/.test(page));
+
+console.log('\n[ ⑥-4 «전날 저녁» 알림 — 알림이 양 끝뿐이던 것 (2026-08-07 사장님 지시) ]');
+/* [왜] 접수 문자(신청 순간)와 T-10 사이가 통째로 비어 있었다. 저녁 6시 수업이면 T-10 문자는
+   퇴근길·저녁 준비 시간에 온다 — 한 통을 놓치면 그대로 노쇼. 레벨테스트를 받는 사람은
+   망고아이를 처음 써 보는 사람이라 카메라·마이크를 미리 만나 볼 시간이 필요하다. */
+{
+  const tk = rd('../cloudflare-deploy/src/leveltest-ticket.ts');
+  const idx = rd('../cloudflare-deploy/src/index.ts');
+  check('전날 저녁 스윕이 있다', /export async function runLeveltestDayBeforeSweep/.test(tk));
+  check('«내일» 수업을 고른다 (오늘 것은 T-10 담당)',
+    /const tm = new Date\(now \+ KST \+ 86400000\)/.test(tk) && /\.bind\(tomorrowStr\)/.test(tk));
+  check('저녁 시간대에만 일한다 (크론은 하루 96번 돈다)',
+    /DAYBEFORE_HOUR_KST/.test(tk) && /k\.getUTCHours\(\) !== DAYBEFORE_HOUR_KST\) return out/.test(tk));
+  check('T-10 과 다른 kind 로 중복을 막는다 (문자는 돈이 나간다)',
+    /kind = 't1d'/.test(tk) && /VALUES \(\?, 't1d'/.test(tk));
+  check('번호가 없어도 기록은 남긴다 (매 15분 재시도 폭주 방지)',
+    /if \(!phone\)[\s\S]{0,320}?VALUES \(\?, 't1d', 0, \?\)/.test(tk));
+  check('문자에 티켓 링크와 «미리 점검» 이 들어간다',
+    /내일 \$\{hhmm\} 레벨테스트/.test(tk) && /확인·장비점검: \$\{url\}/.test(tk) && /미리 점검/.test(tk));
+  check('⛔ 배정 제안 단계에선 교사명을 흘리지 않는다 (티켓 화면과 같은 규칙)',
+    /r\.status === 'confirmed' \|\| r\.status === 'done'\) && r\.assigned_teacher/.test(tk));
+  check('킬스위치를 T-10 과 공유한다', (tk.match(/leveltest_reminder_send/g) || []).length >= 2);
+  check('크론에 물려 있다 (안 물리면 영영 안 돈다)',
+    /runLeveltestDayBeforeSweep/.test(idx) && /\[leveltest-daybefore\]/.test(idx));
+  check('📆 캘린더 알람이 두 개다 (하루 전 + 10분 전)',
+    (tk.match(/BEGIN:VALARM/g) || []).length === 2 && /TRIGGER:-P1D/.test(tk) && /TRIGGER:-PT10M/.test(tk));
+  check('하루 전 알람이 «먼저» 온다 (첫 알람만 쓰는 앱 대비)',
+    tk.indexOf("'TRIGGER:-P1D'") < tk.indexOf("'TRIGGER:-PT10M'"));
+}
 
 console.log('\n[ ⑦-2 어느 기기에서나 — 링크를 «연 기기» 가 기억한다 (2026-08-07) ]');
 /* [왜] 홈 카드는 «신청한 그 브라우저» 에만 떴다. 문자는 폰으로 오는데 PC 로 홈에 들어가면
