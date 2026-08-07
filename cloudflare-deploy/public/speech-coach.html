@@ -1026,9 +1026,23 @@ async function processAudio(blob) {
        ⏱ 전사와 «동시에» 돌리지 않는다 — 같은 오디오를 두 곳이 물면 탈이 난다(서버에서 겪음). */
     const _az = await azAssess(blob, _target0, detectTtsLang(_target0));
     const _scAzure = (_az && _az.ok) ? _az : null;
+
+    /* 📝 (2026-08-08) Azure 가 성공하면 «들은 글자» 도 Azure 것을 쓴다.
+       왜: 정확도 축은 «받아 적은 글자» 와 모범 문장을 비교한다. 그런데 Whisper 가 틀리게 적으면
+           **학생이 바르게 말하고도 감점**된다. 실측이 분명했다 —
+             학생: "…with Mangoi"  →  Whisper: MongoEye · my whole eye · Mangguay · MungoI (전부 오답)
+                                      Azure  : Mangoi (정확)
+           그래서 정확도가 79점으로 깎이고 있었다. 채점 «방식» 은 그대로 두고 «입력» 만 정확한 쪽으로.
+       ⛔ 정답 유출이 아니다(07-29 사고와 다름): Azure 는 모범 문장을 알지만 **그대로 베끼지 않는다.**
+          실측에서 학생이 빠뜨린 단어는 Azure 도 빠뜨렸다("I love English with mangoi" — studying 없음).
+          베끼는 구조라면 모범 문장이 그대로 나왔을 것이다. */
+    const _spokenAz = (_scAzure && String(_scAzure.text || '').trim()) || '';
+    const _spokenSrc = _spokenAz ? 'azure' : 'whisper';
+    const _spokenFinal = _spokenAz || spoken;
     // 🔍 «왜 안 붙었나» 를 기록에 남긴다. 이게 없으면 azure_used=0 만 보이고 원인을 못 짚는다.
-    const _scAzureDiag = _scAzure ? 'ok(sdk)' : ('sdk:' + String((_az && _az.reason) || 'none'));
-    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic, azure: _scAzure, azure_diag: _scAzureDiag };
+    const _scAzureDiag = _scAzure ? ('ok(sdk)' + (_spokenSrc === 'azure' ? '+text' : ''))
+                                  : ('sdk:' + String((_az && _az.reason) || 'none'));
+    const _scPayload = { target, spoken: _spokenFinal, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic, azure: _scAzure, azure_diag: _scAzureDiag };
     let coachResp = await fetch('/api/voice/coach', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(_scPayload)
@@ -1043,7 +1057,8 @@ async function processAudio(blob) {
     if (!cD.ok) throw new Error('평가 실패: ' + (cD.error || ''));
 
     // 3) 화면 표시
-    document.getElementById('transcript-text').textContent = spoken || '(음성을 인식하지 못했어요)';
+    // 채점에 쓴 글자를 그대로 보여준다 — 화면과 점수가 어긋나면 «왜 깎였는지» 를 설명할 수 없다
+    document.getElementById('transcript-text').textContent = _spokenFinal || '(음성을 인식하지 못했어요)';
     document.getElementById('sc-overall').textContent = cD.scores.overall;
     document.getElementById('sc-accuracy').textContent = cD.scores.accuracy;
     document.getElementById('sc-pron').textContent = cD.scores.pronunciation;

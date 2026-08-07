@@ -158,6 +158,19 @@ ok('⛔ 프론트에 구독 키가 없다 (임시 토큰만 쓴다)',
    !/AZURE_SPEECH_KEY/.test(html) && /fromAuthorizationToken/.test(html) && /\/api\/voice\/azure-token/.test(html));
 ok('프론트: 평가가 실패해도 채점은 계속된다', /_scAzure = \(_az && _az\.ok\) \? _az : null/.test(html));
 
+/* ── 📝 «들은 글자» 는 정확한 쪽을 쓴다 (2026-08-08) ────────────────────────────
+   정확도 축은 받아 적은 글자와 모범 문장을 비교한다. Whisper 가 틀리게 적으면
+   **학생이 바르게 말하고도 감점**된다(실측: Mangoi → MongoEye·my whole eye·Mangguay). */
+ok('Azure 가 성공하면 그쪽 전사로 채점한다',
+   /_spokenFinal = _spokenAz \|\| spoken/.test(html) && /spoken: _spokenFinal/.test(html));
+ok('  Azure 가 없으면 예전대로 Whisper 전사를 쓴다', /const _spokenAz = \(_scAzure && String\(_scAzure\.text/.test(html));
+ok('  화면에도 «채점에 쓴 글자» 를 보여준다 (점수와 화면이 어긋나지 않게)',
+   /transcript-text'\)\.textContent = _spokenFinal/.test(html));
+ok('  어느 쪽 글자를 썼는지 기록에 남는다', /ok\(sdk\)' \+ \(_spokenSrc === 'azure' \? '\+text'/.test(html));
+// ⛔ 모범 문장을 그대로 정답으로 쓰지 않는다 — 07-29 «정답 유출» 만점 사고 재발 방지
+ok('⛔ 모범 문장(target)을 발화로 둔갑시키지 않는다',
+   !/spoken:\s*target/.test(html) && !/_spokenFinal\s*=\s*_target0/.test(html));
+
 /* ── 🎯 단어별 발음 지도 — 함수를 «실제로 실행» 해서 확인한다 ──────────────────
    점수 4개만 보여주면 «그래서 뭘 고치지?» 가 남는다. 학생에게 제일 쓸모 있는 화면이라
    문구·색·이스케이프를 눈이 아니라 실행으로 지킨다. */
