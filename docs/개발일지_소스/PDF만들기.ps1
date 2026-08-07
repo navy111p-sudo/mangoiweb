@@ -13,9 +13,13 @@ if (-not $chrome) { Write-Host "크롬/엣지를 찾을 수 없습니다." -Fore
 $src = $PSScriptRoot
 $desk = [Environment]::GetFolderPath('Desktop')
 
+# ⚠️ (2026-08-07) 요약본 2개가 여기 빠져 있었습니다. 그래서 일지를 고쳐도
+#    요약 PDF 만 옛날 것으로 남았습니다(실제로 이틀 묵어 있었습니다). 네 개를 한 번에 만듭니다.
 $jobs = @(
-  @{ h = "$src\개발일지_한국어.html"; p = "$desk\망고아이_개발일지_최신.pdf" },
-  @{ h = "$src\개발일지_영어.html";   p = "$desk\Mangoi_Development_Diary_LATEST.pdf" }
+  @{ h = "$src\개발일지_한국어.html";      p = "$desk\망고아이_개발일지_최신.pdf" },
+  @{ h = "$src\개발일지_영어.html";        p = "$desk\Mangoi_Development_Diary_LATEST.pdf" },
+  @{ h = "$src\개발일지_요약_한국어.html"; p = "$desk\망고아이_개발일지_요약.pdf" },
+  @{ h = "$src\개발일지_요약_영어.html";   p = "$desk\Mangoi_Development_Diary_SUMMARY.pdf" }
 )
 
 foreach ($j in $jobs) {
