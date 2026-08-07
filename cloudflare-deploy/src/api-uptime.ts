@@ -78,7 +78,7 @@ export async function handleUptimeApi(
   /* 🔐 키 회전 중 — 새 키·옛 키 둘 다 인정 (api-util.ts 참조).
      호출자: UptimeRobot. 한쪽만 바꾸면 사이트가 죽어도 문자가 안 나간다. */
   const given = String(url.searchParams.get('key') || '').trim();
-  if (!keyMatchesAny(given, (env as any).UPTIME_HOOK_KEY_NEW, (env as any).UPTIME_HOOK_KEY)) {
+  if (!keyMatchesAny(given, (env as any).UPTIME_HOOK_KEY_NEW)) {
     return json({ ok: false, error: 'forbidden' }, 403);
   }
 
