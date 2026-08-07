@@ -6460,6 +6460,24 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </details>
 <script type="text/lazy-js" data-src="/js/adm-tlink.js?v=2" data-card="card-teacher-link" data-globals="tlkLoad,tlkSave,tlkUnlink"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
 
+<details class="table-card menu-card" id="card-teacher-contact">
+  <summary><span data-ko="📇 강사 연락처 연결" data-en="📇 Link Teacher Contacts">📇 강사 연락처 연결</span> <span id="tct-badge" style="display:none;margin-left:6px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;background:#fee2e2;color:#991b1b"></span></summary>
+  <div class="menu-body">
+    <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #d97706;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#78350f;line-height:1.7"
+         data-ko="⚠️ 수업 배정에 쓰는 «강사 원부»에는 연락처가 없고, 연락처가 있는 «강사 프로필»은 원부와 이어져 있지 않았습니다. 그래서 8월 7일 레벨테스트에서 선생님이 빈 방을 30분 기다리는 동안 결석 알림을 보낼 곳이 없었습니다. 여기서 «이 원부 강사 = 이 프로필»을 한 번 정해 두면 그 뒤로는 이름을 추측하지 않습니다. 🌏 강사 대부분이 필리핀에 계셔서 한국 문자는 가지 않습니다 — 지금 자동으로 닿는 수단은 이메일뿐이라, 행마다 «실제로 알림이 가는지»를 그대로 표시합니다."
+         data-en="⚠️ The teacher roster used for class assignment has no contact details, and the teacher profiles that do have them were never linked to it. That is why, on Aug 7, nobody could be alerted while a teacher waited 30 minutes in an empty room. Set “this roster teacher = this profile” once here and name guessing is skipped from then on. 🌏 Most teachers are in the Philippines, so Korean SMS does not reach them — email is currently the only channel that works, so each row shows whether alerts can actually be delivered.">
+      ⚠️ 수업 배정에 쓰는 <b>강사 원부</b>에는 연락처가 없고, 연락처가 있는 <b>강사 프로필</b>은 원부와 이어져 있지 않았습니다. 그래서 8월 7일 레벨테스트에서 선생님이 빈 방을 30분 기다리는 동안 결석 알림을 보낼 곳이 없었습니다. 여기서 <b>«이 원부 강사 = 이 프로필»</b>을 한 번 정해 두면 그 뒤로는 이름을 추측하지 않습니다.<br>
+      🌏 강사 대부분이 <b>필리핀</b>에 계셔서 한국 문자는 가지 않습니다 — 지금 자동으로 닿는 수단은 <b>이메일뿐</b>이라, 행마다 «실제로 알림이 가는지»를 그대로 표시합니다.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+      <button class="primary" onclick="tctLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+      <span id="tct-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
+    </div>
+    <div id="tct-table" style="overflow-x:auto"></div>
+  </div>
+</details>
+<script type="text/lazy-js" data-src="/js/adm-tcontact.js?v=1" data-card="card-teacher-contact" data-globals="tctLoad,tctSave,tctUnlink"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
+
 <!-- 📜 수업 변경 이력 (연기·삭제·종료) — 누가·언제 했는지 감사 로그 -->
 <details class="table-card menu-card" id="card-class-audit">
   <summary><span data-ko="📜 수업 변경 이력 (연기·삭제·종료)" data-en="📜 Class Change History (Postpone / Remove / End)">📜 수업 변경 이력 (연기·삭제·종료)</span></summary>
@@ -12005,6 +12023,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260807201524 -->
+<!-- BUILD:20260807212100 -->
 </body>
 </html>

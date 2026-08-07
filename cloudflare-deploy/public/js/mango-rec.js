@@ -1030,7 +1030,11 @@
       if (conn && conn.readyState === 1) {
         conn.send(JSON.stringify({
           type: 'chat-message',
-          data: { username: '시스템', message: '⏹ 녹화가 종료되었습니다.' }
+          /* 🔴 (2026-08-07 Kaye 3번) "실수로 녹화를 껐을 때 다시 켜는 버튼이 따로 있나요?"
+             있다 — 상단의 회색 «녹화 꺼짐 · 눌러서 시작» 배지가 바로 그 버튼이다(2026-08-06 신설).
+             그런데 그걸 아는 방법이 없었다. 끈 순간 그 자리에서 한/영으로 알려 준다. */
+          data: { username: '시스템', message: '⏹ 녹화가 종료되었습니다. 다시 녹화하려면 상단의 「녹화 꺼짐 · 눌러서 시작」 버튼을 누르세요.'
+                                             + ' / Recording stopped. To record again, tap the grey “REC OFF · Tap to start” badge at the top.' }
         }));
       }
     } catch (_) {}
@@ -1096,8 +1100,13 @@
     if (view && view.style.display !== 'none') {
       injectRecButton();
  
+      /* 🧪 (2026-08-07) 연습·데모 방(demo-N)은 «수업이 아니다» — 자동녹화하지 않는다.
+         신입 교육·연습을 R2 에 쌓으면 저장 비용만 늘고 녹화 목록이 실제 수업으로 오염된다.
+         진짜 필요하면 상단 배지를 눌러 손으로 시작할 수 있다(막지는 않는다). */
+      var _isDemoRoom = false;
+      try { _isDemoRoom = /^demo-\d+$/i.test(String(typeof vcRoomId !== 'undefined' ? vcRoomId : '')); } catch (_) {}
       // 수업 뷰에 있고, 아직 녹화 안 했으면 자동 시작
-      if (inCall && !isRecording && !autoRecStarted && !autoRecPending) {
+      if (inCall && !_isDemoRoom && !isRecording && !autoRecStarted && !autoRecPending) {
         autoRecPending = true;
         // 미디어 스트림 안정화를 위해 3초 대기 후 시작
         setTimeout(async () => {

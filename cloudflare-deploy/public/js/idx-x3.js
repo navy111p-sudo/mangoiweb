@@ -83,13 +83,19 @@
             if (done) return; done = true; clearTimeout(to);
   window.selectFromTextbookLibrary = async function(id, url, kind, name) {
     console.log('[ph247] selectFromTextbookLibrary:', id, kind, name);
-    // 🎬 교재(책)가 바뀔 때 1회만 예습/복습 동영상 자동 매칭·재생 (페이지 넘김엔 반복 안함)
+    /* 🎬 교재(책)가 바뀔 때 1회만 예습/복습 동영상을 «준비» 한다 (페이지 넘김엔 반복 안함).
+       🔴 (2026-08-08 마이마이 ②) 예전엔 이게 **자동재생 + 영상 탭 전환** 이었다.
+          아래에서 vcSwitchTab('pdf') 를 먼저 하지만, 이 호출은 fetch 라 **나중에 끝나서
+          항상 영상 탭이 이겼다** → 「교재를 열었는데 영상만 나오고 교재가 안 보인다」.
+          이제 autoOpen 을 주지 않으면 영상은 [동영상] 탭에 정지 상태로 대기만 한다.
+          (index.html 의 mangoiPlayLessonVideo 주석 참고) */
     try {
       var _bm = String(name || '').match(/\[([^\]]+)\]/);   // 파일명 앞 "[교재명]" 추출
       var _bk = _bm ? _bm[1] : '';
       if (_bk && _bk !== window.__mangoiLastVideoBook) {
         window.__mangoiLastVideoBook = _bk;
         window.__mangoiCurrentBookId = _bk;
+        // ⛔ 두 번째 인자를 주지 않는다 = 화면을 뺏지 않는다. 일부러 비워 둔 것이니 채우지 말 것.
         if (window.mangoiPlayLessonVideo) window.mangoiPlayLessonVideo(_bk);
       }
     } catch(_) {}
