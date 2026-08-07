@@ -28,6 +28,29 @@ const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
       한쪽만 바꾸면 /api/pay/config 가 key_mismatch:true 를 돌려주고 결제창에 경고가 뜬다. */
 const TOSS_CLIENT_KEY_DEFAULT = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
 
+/* 🛡️ (2026-08-07) 시크릿에 «키가 아닌 것»이 들어와도 결제창이 죽지 않게.
+   실제로 겪었다 — 키를 넣는 과정에서 엉뚱한 문자열이 TOSS_CLIENT_KEY 로 올라갔고,
+   그 값으로 window.TossPayments(...) 를 호출하면 결제창이 그대로 실패한다.
+   시크릿은 사람이 손으로 붙여넣는 값이라 «빈 값·명령어·따옴표 섞임»이 언제든 다시 생긴다.
+   → 모양이 토스 키가 아니면 무시하고 테스트키로 폴백한다. 잘못된 키로 여는 것보다
+     테스트 모드가 낫다(적어도 화면이 정직하게 「테스트 결제 모드」라고 말한다).
+   ⚠️ 검증은 «모양»만 본다. 키가 유효한지는 토스만 안다 — 그건 confirm 단계에서 걸러진다. */
+function isTossKeyShaped(v: unknown, kind: 'ck' | 'sk'): boolean {
+  const s = String(v ?? '').trim();
+  return new RegExp(`^(?:test|live)_${kind}_[A-Za-z0-9]{10,}$`).test(s);
+}
+
+/** 실제로 쓸 클라이언트 키 — 모양이 어긋나면 테스트키로 폴백 */
+function tossClientKey(env: any): { key: string; invalid: boolean } {
+  const raw = String(env.TOSS_CLIENT_KEY ?? '').trim();
+  if (!raw) return { key: TOSS_CLIENT_KEY_DEFAULT, invalid: false };      // 미설정 = 정상 폴백
+  if (!isTossKeyShaped(raw, 'ck')) {
+    console.warn('[pay] TOSS_CLIENT_KEY 모양이 토스 키가 아님 — 테스트키로 폴백');
+    return { key: TOSS_CLIENT_KEY_DEFAULT, invalid: true };               // 잘못 들어옴 = 폴백 + 신고
+  }
+  return { key: raw, invalid: false };
+}
+
 // ── 서버 가격표(정본). 프론트 PROG_INFO 와 동기화. 여기 없는 상품은 결제 불가(상담 유도) ──
 const PRICES: Record<string, { name: string; amount: number }> = {
   '1on1-4':  { name: '1:1 4회권',   amount: 60000 },
@@ -73,8 +96,12 @@ async function ensurePayTable(env: any): Promise<void> {
 }
 
 function tossMode(env: any): 'test' | 'live' | 'disabled' {
-  const k = String(env.TOSS_SECRET_KEY || '');
+  const k = String(env.TOSS_SECRET_KEY || '').trim();
   if (!k) return 'disabled';
+  /* 🛡️ (2026-08-07) 모양이 시크릿키가 아니면 «있는 척» 하지 않는다.
+     엉뚱한 값이 들어와 있으면 confirm 이 전부 실패하는데, mode 만 'test'/'live' 로 보이면
+     화면은 «정상»이라 말하고 결제만 조용히 죽는다. disabled 로 두면 최소한 정직하다. */
+  if (!isTossKeyShaped(k, 'sk')) return 'disabled';
   return k.startsWith('live_') ? 'live' : 'test';
 }
 
@@ -471,7 +498,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const program = url.searchParams.get('program') || '';
     const p = PRICES[program];
     if (!p) return json({ ok: false, error: 'unknown_program' }, 404);
-    return json({ ok: true, program, name: p.name, amount: p.amount, clientKey: env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT });
+    return json({ ok: true, program, name: p.name, amount: p.amount, clientKey: tossClientKey(env).key });
   }
 
   /* ── 5) 결제 환경 설정 (공개) ─────────────────────────────────────────────
@@ -488,11 +515,16 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
         않는다 — 여기서는 시크릿의 **접두사만** 보고 mode 를 판정해 돌려준다. */
   if (path === '/api/pay/config' && method === 'GET') {
     const mode = tossMode(env);                                  // 'live' | 'test' | 'disabled'
-    const clientKey = String(env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT);
+    const { key: clientKey, invalid: client_key_invalid } = tossClientKey(env);
     const ckLive = clientKey.startsWith('live_');
     // 클라이언트키와 시크릿키의 환경이 서로 다르면 승인이 통째로 깨진다 — 화면에서 바로 알 수 있게.
     const key_mismatch = mode !== 'disabled' && (ckLive !== (mode === 'live'));
-    return json({ ok: true, mode, clientKey, key_mismatch });
+    /* client_key_invalid = 시크릿에 «키가 아닌 값»이 들어와 테스트키로 폴백 중.
+       secret_key_invalid = 같은 일이 시크릿키에서 일어남(mode 는 disabled 로 보인다).
+       둘 다 사람이 붙여넣다 생기는 사고라, 화면에 «점검 필요»로 띄워 조용히 묻히지 않게 한다. */
+    const rawSk = String(env.TOSS_SECRET_KEY ?? '').trim();
+    const secret_key_invalid = !!rawSk && !isTossKeyShaped(rawSk, 'sk');
+    return json({ ok: true, mode, clientKey, key_mismatch, client_key_invalid, secret_key_invalid });
   }
 
   /* ── 5-2) 결제 정보 자동채움 (로그인 필요) ────────────────────────────────
@@ -662,7 +694,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const rnd = Array.from(crypto.getRandomValues(new Uint8Array(4))).map((b) => b.toString(16).padStart(2, '0')).join('');
     const customerKey = `mgi_${authUid}_${Date.now().toString(36)}${rnd}`;
     return json({
-      ok: true, customerKey, clientKey: env.TOSS_CLIENT_KEY || TOSS_CLIENT_KEY_DEFAULT,
+      ok: true, customerKey, clientKey: tossClientKey(env).key,
       preview_amount: q.amount, preview_sessions: q.sessions,
       teacher_name: q.cur.teacher_name, weekly: q.weekly, minutes: q.cur.minutes,
     });

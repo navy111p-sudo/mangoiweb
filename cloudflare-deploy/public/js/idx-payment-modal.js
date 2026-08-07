@@ -488,7 +488,8 @@
     var el = document.getElementById('pay-mode-banner');
     var c = PAY_CONFIG;
     var mode = c && c.mode;
-    var bad = (mode === 'test' || mode === 'disabled' || (c && c.key_mismatch));
+    var keyBroken = c && (c.key_mismatch || c.client_key_invalid || c.secret_key_invalid);
+    var bad = (mode === 'test' || mode === 'disabled' || keyBroken);
     if (!bad) { if (el) el.remove(); return; }
     if (!el) {
       el = document.createElement('div');
@@ -499,7 +500,12 @@
     }
     var ko = true; try { ko = (window.getLang ? window.getLang() : 'ko') !== 'en'; } catch(_){}
     var msg;
-    if (c && c.key_mismatch) {
+    if (c && (c.client_key_invalid || c.secret_key_invalid)) {
+      /* 🛡️ (2026-08-07) 시크릿에 «키가 아닌 값»이 올라간 상태. 서버가 테스트키로 폴백해 두었으니
+         결제창이 깨지진 않지만, 실결제로 착각하면 안 되므로 화면에서 분명히 말한다. */
+      msg = ko ? '결제 설정 점검 필요 — 등록된 결제 키가 올바르지 않아 테스트 모드로 동작 중입니다.'
+               : 'Payment setup needs attention — the registered key is invalid, running in test mode.';
+    } else if (c && c.key_mismatch) {
       msg = ko ? '결제 설정 점검 필요 — 담당자에게 알려 주세요. (키 환경 불일치)'
                : 'Payment setup needs attention — please contact staff. (key environment mismatch)';
     } else if (mode === 'disabled') {
