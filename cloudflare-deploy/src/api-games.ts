@@ -2272,15 +2272,22 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
            · 실패·타임아웃도 전부 null 이다. 발음평가 때문에 수업이 멈추면 안 된다.
            · WAV 가 아니면(구 브라우저의 webm 폴백) 역시 null — Azure 는 webm 을 못 받는다.
            Promise 를 먼저 띄워 두고 Whisper 가 끝난 뒤 await 한다 = 왕복이 겹쳐 지연이 안 늘어난다. */
-        const azurePromise: Promise<any> = paReference
-          ? assessPronunciation(env as any, audio, paReference, lang || 'en')
-              .catch((e: any) => ({ ok: false, reason: 'throw' }))
-          : Promise.resolve({ ok: false, reason: 'no_reference' });
+        /* 🔴 (2026-08-08 실측) Whisper 와 «동시에» 부르면 안 된다.
+           처음엔 왕복을 겹쳐 지연을 줄이려고 Promise 를 먼저 띄웠는데, 그러면 Azure 쪽이
+           **본문 없는 400** 또는 «Network connection lost» 로 들쭉날쭉 실패했다.
+           같은 오디오 버퍼를 두 소비자가 물고, 그 사이에 Workers AI 호출이 끼면서
+           바깥 요청이 성립하지 않는다. 사본을 떠도 마찬가지였다.
+           → **전사가 끝난 뒤 순차로** 부른다. 0.5~1초 늘지만 결과가 확실하다. */
+        const runAzure = async (): Promise<any> => {
+          if (!paReference) return { ok: false, reason: 'no_reference' };
+          try { return await assessPronunciation(env as any, audio, paReference, lang || 'en'); }
+          catch (e: any) { return { ok: false, reason: 'throw ' + String(e?.message || e).slice(0, 80) }; }
+        };
         /* 🔍 결과를 «점수» 와 «사유» 로 나눠 돌려준다. 사유가 없으면 실패가 전부 조용한 null 이라
            «키가 틀렸나 / 소리를 못 알아들었나» 를 구분할 수 없다(붙이던 날 밤에 실제로 헤맸다).
            ⛔ azure_diag 에는 사유 «이름» 만 담긴다 — 키도, 응답 본문도 들어가지 않는다. */
         const azureOut = async () => {
-          const r: any = await azurePromise;
+          const r: any = await runAzure();
           return { azure: (r && r.ok) ? r : null, azure_diag: r ? (r.ok ? 'ok' : r.reason) : 'none' };
         };
 

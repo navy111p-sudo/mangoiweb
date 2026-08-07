@@ -143,8 +143,23 @@ export async function assessPronunciation(
   const endpoint = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`
     + `?language=${encodeURIComponent(locale)}&format=detailed`;
 
+  /* 🔴 (2026-08-08 실측) **오디오 사본을 반드시 따로 뜬다.**
+     호출부는 같은 ArrayBuffer 를 Whisper 전사에도 쓰고, 우리는 그걸 «동시에» 보낸다.
+     원본을 그대로 body 로 넘기면 두 소비자가 같은 버퍼를 물어 Azure 쪽 본문이 깨지고,
+     Azure 는 **본문도 헤더도 없는 400** 만 돌려준다 — 원인을 짚을 단서가 하나도 안 남는다.
+     (재시도로 확인하려다 «Network connection lost» 까지 겹쳐 한참 헤맸다.)
+     slice(0) 는 여기서 «동기» 로 실행되므로 Whisper 가 버퍼를 만지기 전에 복사가 끝난다. */
+  const bodyCopy = audio.slice(0);
+
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), AZURE_TUNING.TIMEOUT_MS);
+
+  /* 🪤 (2026-08-08) 키가 짧게 들어가도 Azure 는 **본문 없는 400** 만 준다 — 401 이 아니다.
+     그래서 «키가 틀렸다» 는 걸 응답만 봐서는 알 수 없었다(붙여넣기 실패로 2글자가 들어가
+     있었는데 한참 못 찾았다). 명백히 틀린 길이는 여기서 미리 잘라 사유로 알려 준다.
+     ⛔ 키 «값» 은 어디에도 담지 않는다. 길이 판정만 한다. */
+  if (key.length < 20) return { ok: false, reason: 'key_too_short' };
+
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -154,12 +169,26 @@ export async function assessPronunciation(
         'Pronunciation-Assessment': paCfg,
         'Accept': 'application/json',
       },
-      body: audio,
+      body: bodyCopy,
       signal: ctl.signal,
     });
     if (!res.ok) {
-      console.warn('[azure-pron] http', res.status, (await res.text().catch(() => '')).slice(0, 200));
-      return { ok: false, reason: 'http_' + res.status };   // 401=키 틀림 · 403=권한 · 429=한도
+      /* Azure 가 «왜» 거절했는지는 본문에만 있다. 로그는 표본에서 빠지면 안 보이므로
+         사유에 짧게 실어 보낸다(160자). ⛔ 본문에 키는 들어가지 않는다 — 오류 설명뿐이다. */
+      const body = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160);
+      console.warn('[azure-pron] http', res.status, body);
+      /* 🔬 400 은 본문이 비어 오는 일이 많다. 그러면 «헤더가 문제인가 / 오디오가 문제인가» 를
+         알 수 없다. 발음평가 헤더만 빼고 한 번 더 찔러 보면 그 둘이 갈린다.
+         한 번뿐이고 400 일 때만 한다(정상 경로에는 왕복이 늘지 않는다). */
+      /* 본문이 비어 오는 400 이 있다. 그럴 땐 헤더에 단서가 남는다(게이트웨이가 막았는지 등).
+         ⛔ 여기서 재시도하지 말 것 — 같은 요청을 한 번 더 보내면 Workers 가
+            «Network connection lost» 를 던져 진짜 원인을 덮어 버린다(2026-08-08 실측). */
+      const hint = [
+        res.headers.get('content-type') || '',
+        res.headers.get('content-length') || '',
+        res.headers.get('apim-err-reason') || res.headers.get('x-requestid') || '',
+      ].filter(Boolean).join('|').slice(0, 100);
+      return { ok: false, reason: 'http_' + res.status + (body ? ' ' + body : '') + (hint ? ' [' + hint + ']' : '') };
     }
     const d: any = await res.json();
     // RecognitionStatus: Success | NoMatch | InitialSilenceTimeout | ...
@@ -196,7 +225,7 @@ export async function assessPronunciation(
   } catch (e: any) {
     // 타임아웃(abort) 포함 — 전부 «없던 일» 로 만들고 Whisper 채점으로 돌아간다
     console.warn('[azure-pron] failed:', e?.name === 'AbortError' ? 'timeout' : (e?.message || e));
-    return { ok: false, reason: e?.name === 'AbortError' ? 'timeout' : 'error' };
+    return { ok: false, reason: e?.name === 'AbortError' ? 'timeout' : ('error ' + String(e?.message || e).slice(0, 120)) };
   } finally {
     clearTimeout(timer);
   }

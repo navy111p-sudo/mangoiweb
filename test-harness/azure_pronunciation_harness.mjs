@@ -122,9 +122,24 @@ ok('initial_prompt 는 여전히 hintPrompt 만 쓴다',
    /turboParams\.initial_prompt\s*=\s*hintPrompt/.test(games));
 ok('reference 는 Azure 호출에만 쓰인다',
    /assessPronunciation\(\s*env as any,\s*audio,\s*paReference/.test(games));
-ok('예외가 나도 전사는 계속된다 (catch 로 감쌈)', /assessPronunciation\([\s\S]{0,120}?\.catch\(/.test(games));
+ok('예외가 나도 전사는 계속된다 (try/catch 로 감쌈)',
+   /try \{ return await assessPronunciation[\s\S]{0,200}?catch/.test(games));
 ok('실패 사유를 azure_diag 로 돌려준다', /azure_diag/.test(games));
 ok('점수는 ok 일 때만 azure 로 나간다', /azure:\s*\(r && r\.ok\)\s*\?\s*r\s*:\s*null/.test(games));
+/* 🔴 2026-08-08 실측 회귀 방지 — Whisper 와 «동시에» 부르면 Azure 쪽이 본문 없는 400 ·
+   Network connection lost 로 들쭉날쭉 죽는다. 다시 Promise 로 겹치지 못하게 못 박는다. */
+ok('⛔ Azure 를 Whisper 와 동시에 띄우지 않는다 (순차 호출)',
+   !/const\s+azurePromise/.test(games) && /const runAzure = async/.test(games));
+
+// ── 키가 짧게 들어간 경우(붙여넣기 실패) ──
+ok('키가 너무 짧으면 네트워크에 안 나가고 key_too_short',
+   (await why({ AZURE_SPEECH_KEY: 'ab', AZURE_SPEECH_REGION: 'koreacentral' }, makeWav(2), 'Hi.', 'en')) === 'key_too_short');
+ok('  🔬 이 검사가 있는 이유: Azure 는 짧은 키에 401 이 아니라 «본문 없는 400» 을 준다',
+   /key_too_short/.test(readFileSync(join(SRC, 'azure-pronunciation.ts'), 'utf8')));
+ok('진단용 __PROBE__ 우회로는 제거됐다',
+   !readFileSync(join(SRC, 'azure-pronunciation.ts'), 'utf8').includes('__PROBE__'));
+ok('키 길이·모양을 응답에 싣지 않는다',
+   !/keylen=/.test(readFileSync(join(SRC, 'azure-pronunciation.ts'), 'utf8')));
 
 const html = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'speech-coach.html'), 'utf8');
 ok('프론트: WAV 만들기가 실패하면 예전 webm 으로 돌아간다', /processAudio\(wav \|\| webm\)/.test(html));
