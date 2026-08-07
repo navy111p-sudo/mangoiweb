@@ -362,9 +362,12 @@
         //   외부 http(s) 녹화는 우리가 헤더를 못 붙이므로 저장 버튼을 걸지 않는다)
         var dlUrl = playable && /^\/api\/recording\/play\?/.test(String(r.url || '')) ? String(r.url) + '&dl=1' : '';
         var dlBtn = dlUrl
+          // 📱 휴대폰에서 누를 버튼이다 — 높이 44px 는 이 저장소가 쓰는 터치 타깃 기준.
+          //    (실측: 그냥 두면 31px 라 손가락으로 겨냥이 어렵다)
           ? '<a href="' + esc(dlUrl) + '" download title="내 기기에 저장" ' +
-            'style="flex:0 0 auto;background:rgba(148,163,184,.14);color:#cbd5e1;border-radius:8px;' +
-            'padding:6px 10px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">⬇ 저장</a>'
+            'style="flex:0 0 auto;display:inline-flex;align-items:center;min-height:44px;' +
+            'background:rgba(148,163,184,.14);color:#cbd5e1;border-radius:8px;' +
+            'padding:6px 12px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">⬇ 저장</a>'
           : '';
         // 행 = [재생 버튼(제목·정보·배지)] + [저장 링크].
         //   버튼 안에 버튼을 넣을 수 없어(중첩 불가) 바깥을 div 로 감싸고 클릭 영역만 button 으로 둔다.
