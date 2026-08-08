@@ -989,7 +989,8 @@ const worker = {
         path === '/api/admin/centers' ||
         path === '/api/admin/level-tests' ||
         path === '/api/admin/enrollments' ||
-        /^\/api\/admin\/enrollments\/\d+$/.test(path) ||
+        // 📚 :id · :id/plan(미리보기) · :id/activate(확정 파이프라인) — 2026-08-08
+        /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path) ||
         path === '/api/admin/community-posts' ||
         /^\/api\/admin\/community-posts\/\d+$/.test(path) ||
         path === '/api/admin/textbooks' ||
@@ -4815,7 +4816,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/franchises') return true;
   if (path === '/api/admin/centers') return true;
   if (path === '/api/admin/level-tests') return true;
-  if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+$/.test(path)) return true;
+  if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path)) return true;
   if (path === '/api/admin/community-posts' || /^\/api\/admin\/community-posts\/\d+$/.test(path)) return true;
   if (path === '/api/admin/textbooks') return true;
   // 📚 Phase 39 — 교재 파일 라이브러리 (관리자 전용 업로드/관리)

@@ -3964,13 +3964,211 @@ function _renderEnrollments() {
       '<td style="text-align:right;white-space:nowrap">' + fee + '</td>' +
       '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + '</span></td>' +
       '<td style="white-space:nowrap">' +
+        // 「처리」 = 계정·강사·시간표·구독·안내까지 한 번에. 상태만 바꾸려면 옆의 낱개 버튼.
+        ((cur === 'pending' || cur === 'confirmed')
+          ? '<button type="button" onclick="enOpenPanel(' + it.id + ')" ' +
+            'style="padding:3px 10px;font-size:11px;font-weight:800;border:0;border-radius:5px;margin-right:6px;' +
+            'background:#7c3aed;color:#fff;cursor:pointer">' + (en ? '▸ Process' : '▸ 처리') + '</button>' : '') +
         _enBtn(it.id, 'confirmed', en ? '✓ Confirm'  : '✓ 확정',    '#3b82f6', cur) +
         _enBtn(it.id, 'active',    en ? '▶ Start'    : '▶ 수강시작', '#10b981', cur) +
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
           ? _enBtn(it.id, 'pending', en ? '↩ Reopen' : '↩ 되살리기', '#6b7280', cur) : '') +
-      '</td></tr>';
+      '</td></tr>' +
+      '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="6" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
+}
+
+/* ── 「처리」 패널 — 확정 파이프라인 ──────────────────────────────────────
+   상태만 뒤집던 자리에 «무슨 일이 일어날지 먼저 보여주고, 켠 것만 실행» 을 넣었다.
+   서버 GET .../plan 은 아무것도 바꾸지 않는다. 며칟날 몇 회가 잡히는지, 그 시간에
+   비어 있는 강사가 누구인지, 무엇이 막고 있는지를 먼저 계산해 준다.
+   ⚠️ 학부모 문자와 결제 예약은 **기본 꺼짐** — 바깥으로 나가는 일과 돈은 매번 사람이 켠다.
+   ──────────────────────────────────────────────────────────────────── */
+async function enOpenPanel(id, teacherId) {
+  const en = (adminLang === 'en');
+  const row = document.getElementById('en-panel-' + id);
+  if (!row) return;
+  const cell = row.querySelector('td');
+  if (row.style.display !== 'none' && teacherId === undefined) { row.style.display = 'none'; return; }
+  row.style.display = '';
+  cell.innerHTML = '<div style="padding:14px;font-size:12.5px;color:#6b21a8">' + (en ? 'Checking…' : '확인 중…') + '</div>';
+
+  const qs = teacherId ? ('?teacher_id=' + encodeURIComponent(teacherId)) : '';
+  let p = null;
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id + '/plan' + qs, { cache:'no-store', credentials:'include' });
+    p = await r.json();
+    if (!r.ok || !p.ok) throw new Error(p && p.error ? p.error : ('HTTP ' + r.status));
+  } catch (e) {
+    cell.innerHTML = '<div style="padding:14px;font-size:12.5px;color:#b91c1c">' +
+      (en ? 'Could not build a plan: ' : '계획을 세우지 못했습니다: ') + _esc(String(e.message || e)) + '</div>';
+    return;
+  }
+  cell.innerHTML = _enPanelHtml(p, en);
+}
+
+function _enPanelHtml(p, en) {
+  const L = (ko, eng) => (en ? eng : ko);
+  const line = (label, value, tone) =>
+    '<div style="display:flex;gap:10px;padding:3px 0;font-size:12.5px">' +
+    '<span style="min-width:92px;color:#6b7280">' + label + '</span>' +
+    '<span style="color:' + (tone || '#111827') + '">' + value + '</span></div>';
+
+  // 강사 고르기 — 그 요일·시간에 «실제로 비어 있는» 사람만 서버가 계산해 준다
+  const free = (p.teacher && p.teacher.free) || [];
+  const teacherPick = '<select id="en-teacher-' + p.id + '" onchange="enOpenPanel(' + p.id + ', this.value)" ' +
+    'style="padding:4px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:6px">' +
+    '<option value="">' + L('— 고르세요 —', '— pick —') + '</option>' +
+    free.map(t => '<option value="' + _esc(t.id) + '"' + (String(p.teacher.id) === String(t.id) ? ' selected' : '') + '>' +
+      _esc(t.name) + '</option>').join('') +
+    (p.teacher && p.teacher.id && !free.some(t => String(t.id) === String(p.teacher.id))
+      ? '<option value="' + _esc(p.teacher.id) + '" selected>' + _esc(p.teacher.name || p.teacher.id) + ' ' + L('(그 시간 다른 수업 있음)', '(busy then)') + '</option>' : '') +
+    '</select> <span style="font-size:11px;color:#6b7280">' +
+    L('그 시간 가능 ' + free.length + '명 / 전체 ' + (p.teacher.total_active || 0) + '명',
+      free.length + ' free of ' + (p.teacher.total_active || 0)) + '</span>';
+
+  const dates = p.dates || [];
+  const datePreview = dates.length
+    ? dates.slice(0, 6).map(_esc).join(', ') + (dates.length > 6 ? ' … ' + L('외 ' + (dates.length - 6) + '회', '+' + (dates.length - 6)) : '')
+    : '<span style="color:#b45309">' + L('아직 잡을 수 없습니다', 'nothing schedulable yet') + '</span>';
+
+  const blockers = (p.blockers || []).map(b =>
+    '<div style="font-size:12px;color:#991b1b;padding:2px 0">⛔ ' + _esc(b) + '</div>').join('');
+  const warnings = (p.warnings || []).map(w =>
+    '<div style="font-size:12px;color:#92400e;padding:2px 0">⚠ ' + _esc(w) + '</div>').join('');
+
+  const canRun = (p.blockers || []).length === 0;
+  const chk = (key, label, on, note) =>
+    '<label style="display:flex;align-items:flex-start;gap:7px;font-size:12.5px;padding:3px 0;cursor:pointer">' +
+    '<input type="checkbox" class="en-step" data-step="' + key + '"' + (on ? ' checked' : '') + ' style="margin-top:2px">' +
+    '<span>' + label + (note ? '<span style="color:#9ca3af;font-size:11px"> — ' + note + '</span>' : '') + '</span></label>';
+
+  return '<div style="padding:14px 16px;border-left:3px solid #7c3aed">' +
+    '<div style="font-weight:800;font-size:13px;color:#5b21b6;margin-bottom:8px">' +
+      L('확정하면 이렇게 됩니다', 'What confirming will do') + '</div>' +
+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">' +
+      '<div>' +
+        line(L('학생', 'Student'),
+          _esc(p.student_name || '') + (p.student.linked
+            ? ' <span style="color:#059669">✓ ' + _esc(p.student.user_id) + '</span>'
+            : (p.student.candidates && p.student.candidates.length
+                ? ' <span style="color:#b45309">' + L('명부 후보 ' + p.student.candidates.length + '명', p.student.candidates.length + ' candidates') + '</span>'
+                : ' <span style="color:#b91c1c">' + L('명부에 없음', 'not in roster') + '</span>'))) +
+        line(L('수업', 'Class'), _esc(p.days_label || '—') + ' ' +
+          _esc(Object.values(p.times || {})[0] || '') + ' · ' + p.minutes + L('분', 'min')) +
+        line(L('회차', 'Sessions'), p.sessions + L('회', '') + ' · ' + L('시작 ', 'from ') + _esc(p.start_date)) +
+        line(L('강사', 'Teacher'), teacherPick) +
+      '</div>' +
+      '<div>' +
+        line(L('잡히는 날', 'Dates'), datePreview,
+          dates.length && dates.length < p.sessions ? '#b45309' : '#111827') +
+        line(L('건너뜀', 'Skipped'), (p.skipped || []).length
+          ? _esc((p.skipped || []).slice(0, 5).join(', ')) + L(' (공휴일·충돌)', ' (holiday/conflict)')
+          : L('없음', 'none')) +
+        line(L('학부모', 'Parent'), p.student.parent_phone_masked
+          ? _esc(p.student.parent_phone_masked)
+          : '<span style="color:#b45309">' + L('연락처 없음', 'no phone') + '</span>') +
+        line(L('다음 청구', 'Next billing'), _esc(p.next_billing || '—') + ' · ' +
+          (p.monthly_fee_krw ? '₩' + Number(p.monthly_fee_krw).toLocaleString() : L('금액 없음', 'no amount'))) +
+      '</div>' +
+    '</div>' +
+
+    (blockers || warnings ? '<div style="margin:10px 0;padding:8px 10px;background:#fff;border-radius:8px">' + blockers + warnings + '</div>' : '') +
+
+    '<div style="margin-top:10px;padding:10px 12px;background:#fff;border-radius:8px">' +
+      '<div style="font-size:11.5px;font-weight:800;color:#6b7280;margin-bottom:4px">' +
+        L('실행할 것 (켠 것만 합니다)', 'Steps to run (only what is checked)') + '</div>' +
+      chk('link_student', L('학생 계정 연결', 'Link student account'), true, L('없는 계정을 새로 만들지는 않습니다', 'never creates a new account')) +
+      chk('assign_teacher', L('강사 배정', 'Assign teacher'), true) +
+      chk('create_schedules', L('시간표 생성', 'Create class schedule'), true, L('두 번 눌러도 두 벌 생기지 않습니다', 'idempotent')) +
+      chk('create_subscription', L('결제 예약 등록', 'Register billing schedule'), false, L('청구하지 않습니다 — 다음 청구 예정일만 적습니다', 'records the due date only, never charges')) +
+      chk('notify_parent', L('학부모 안내 문자', 'Text the parent'), false, L('실제로 발송됩니다', 'actually sends')) +
+    '</div>' +
+
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">' +
+      '<button type="button" onclick="enRunPanel(' + p.id + ',true)" ' +
+        'style="padding:6px 14px;font-size:12px;font-weight:700;border:1px solid #7c3aed;background:#fff;color:#6d28d9;border-radius:6px;cursor:pointer">' +
+        L('미리보기', 'Dry run') + '</button>' +
+      '<button type="button" ' + (canRun ? '' : 'disabled ') + 'onclick="enRunPanel(' + p.id + ',false)" ' +
+        'style="padding:6px 16px;font-size:12.5px;font-weight:800;border:0;border-radius:6px;' +
+        (canRun ? 'background:#7c3aed;color:#fff;cursor:pointer' : 'background:#e5e7eb;color:#9ca3af;cursor:default') + '">' +
+        L('확정하고 실행', 'Confirm and run') + '</button>' +
+      '<button type="button" onclick="enOpenPanel(' + p.id + ')" ' +
+        'style="padding:6px 12px;font-size:12px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer">' +
+        L('닫기', 'Close') + '</button>' +
+      (p.already_created ? '<span style="font-size:11.5px;color:#6b7280">' +
+        L('이미 수업 ' + p.already_created + '회 생성됨', p.already_created + ' classes already created') + '</span>' : '') +
+    '</div>' +
+    '<div id="en-run-' + p.id + '" style="margin-top:10px"></div>' +
+  '</div>';
+}
+
+async function enRunPanel(id, dry) {
+  const en = (adminLang === 'en');
+  const row = document.getElementById('en-panel-' + id);
+  if (!row) return;
+  const out = document.getElementById('en-run-' + id);
+  const steps = {};
+  row.querySelectorAll('.en-step').forEach(c => { steps[c.getAttribute('data-step')] = c.checked; });
+  const sel = document.getElementById('en-teacher-' + id);
+  const teacher_id = sel && sel.value ? sel.value : null;
+
+  // 실제 발송·저장 전에는 무엇이 나가는지 한 번 더 말해 준다
+  if (!dry) {
+    const outward = [];
+    if (steps.notify_parent) outward.push(en ? 'a text to the parent' : '학부모에게 문자 발송');
+    if (steps.create_subscription) outward.push(en ? 'a billing schedule' : '결제 예약 등록');
+    const msg = (en ? 'Run now?' : '지금 실행할까요?') +
+      (outward.length ? '\n\n' + (en ? 'This includes: ' : '여기에는 다음이 포함됩니다: ') + outward.join(', ') : '');
+    if (!confirm(msg)) return;
+  }
+
+  if (out) out.innerHTML = '<div style="font-size:12.5px;color:#6b21a8">' + (en ? 'Running…' : '실행 중…') + '</div>';
+  let d = null;
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id + '/activate', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'confirmed', dry: !!dry, teacher_id, steps })
+    });
+    d = await r.json();
+    if (!r.ok || !d.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
+  } catch (e) {
+    if (out) out.innerHTML = '<div style="font-size:12.5px;color:#b91c1c">' +
+      (en ? 'Failed: ' : '실패: ') + _esc(String(e.message || e)) + '</div>';
+    return;
+  }
+
+  const LBL = {
+    link_student: en ? 'Link student' : '학생 계정 연결',
+    assign_teacher: en ? 'Assign teacher' : '강사 배정',
+    create_schedules: en ? 'Create schedule' : '시간표 생성',
+    create_subscription: en ? 'Billing schedule' : '결제 예약',
+    notify_parent: en ? 'Parent text' : '학부모 문자',
+    set_status: en ? 'Status' : '상태'
+  };
+  if (out) {
+    out.innerHTML = '<div style="padding:10px 12px;background:#fff;border-radius:8px">' +
+      '<div style="font-size:11.5px;font-weight:800;color:#6b7280;margin-bottom:5px">' +
+        (dry ? (en ? 'Dry run — nothing was saved' : '미리보기 — 아무것도 저장하지 않았습니다')
+             : (en ? 'Done' : '실행 결과')) + '</div>' +
+      (d.steps || []).map(s =>
+        '<div style="font-size:12.5px;padding:2px 0;color:' + (s.ok ? (s.skipped ? '#6b7280' : '#065f46') : '#b91c1c') + '">' +
+        (s.ok ? (s.skipped ? '⏭' : '✅') : '❌') + ' <b>' + (LBL[s.step] || _esc(s.step)) + '</b> — ' +
+        _esc(s.detail).replace(/\n/g, '<br>') + '</div>').join('') +
+    '</div>';
+  }
+  if (!dry) {
+    _enToast(d.all_ok
+      ? (en ? 'Enrollment processed' : '수강신청 처리 완료')
+      : (en ? 'Processed with some failures — see the panel' : '일부 단계가 실패했습니다 — 패널을 확인하세요'));
+    // 표만 새로 그린다. 패널은 결과를 읽을 수 있게 열어 둔다.
+    const keep = row.querySelector('td').innerHTML;
+    await loadEnrollments();
+    const again = document.getElementById('en-panel-' + id);
+    if (again) { again.style.display = ''; again.querySelector('td').innerHTML = keep; }
+  }
 }
 
 // 갈 수 없는 전이(이미 그 상태)는 눌리지 않게 잠근다 — 눌러도 아무 일 없던 것의 정체

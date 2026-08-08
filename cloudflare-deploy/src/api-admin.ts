@@ -28,6 +28,7 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
+import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
@@ -7466,6 +7467,14 @@ LIMIT $limit`;
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
+    // 📚 확정 파이프라인 (.../:id/plan · .../:id/activate) — 아래 단순 CRUD 보다 먼저 잡는다
+    //   ⚠️ 경로가 맞을 때만 actor 를 조회한다 — 여기는 관리자 API 가 전부 지나가는 길목이라
+    //      무조건 getAdminActor() 를 부르면 호출마다 DB 왕복이 한 번씩 더 붙는다.
+    if (/^\/api\/admin\/enrollments\/\d+\/(plan|activate)$/.test(path)) {
+      const _actor = await getAdminActor(request, env).catch(() => null);
+      const _act = await handleEnrollActivateApi(request, url, env, (_actor && _actor.username) || 'admin');
+      if (_act) return _act;
+    }
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       // 🥭 Phase 37b — 누락 컬럼 자동 보강 (Phase 36 seed 가 사용하는 컬럼들)

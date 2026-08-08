@@ -136,7 +136,7 @@ export async function teacherRateFor(env: any, teacherId: string): Promise<numbe
 }
 
 /** 공휴일 집합 (오늘 이후) */
-async function holidaySet(env: any, fromDay: string): Promise<Set<string>> {
+export async function holidaySet(env: any, fromDay: string): Promise<Set<string>> {
   const s = new Set<string>();
   try {
     const rs: any = await env.DB.prepare(`SELECT day FROM enroll_holidays WHERE day >= ? LIMIT 500`).bind(fromDay).all();

@@ -2916,8 +2916,13 @@
 
           <!-- 🆕 학생 페이지 자동 반영 안내 — 밝은 민트 톤
                (2026-08-08) 옛 인디고(#6366f1) 톤은 «학생목록» 등 메뉴 카드 색과 같아서
-               안내문이 메뉴처럼 보인다는 지적. 안내문임이 한눈에 구분되도록 민트로 바꿈. -->
-          <div style="background:linear-gradient(135deg,#ecfdf5,#f0fdfa);border:1px solid #a7f3d0;border-left:5px solid #10b981;border-radius:10px;padding:14px 18px;margin-bottom:14px;font-size:12.5px;line-height:1.7;color:#134e4a">
+               안내문이 메뉴처럼 보인다는 지적. 안내문임이 한눈에 구분되도록 민트로 바꿈.
+               ⚠️ 반드시 `background-color:` 로 쓸 것. `background:linear-gradient(135deg…` 나
+                  `background:#f…` 로 쓰면 admin-inline-c.css 의 옛 다크 규칙
+                  (details.menu-card [style*="background:linear-gradient(135deg"] 등)이
+                  !important 로 남색을 덮어씌우고, 그 위를 adm-s13 페인터가 다시 흰-회청색으로
+                  칠해 버려 여기서 고른 색이 화면에 안 나온다(실측). -->
+          <div style="background-color:#ecfdf5;border:1px solid #a7f3d0;border-left:5px solid #10b981;border-radius:10px;padding:14px 18px;margin-bottom:14px;font-size:12.5px;line-height:1.7;color:#134e4a">
             <b style="font-size:14px;color:#047857" data-ko="🎓 자동 연동 활성화됨" data-en="🎓 Auto-sync Enabled">🎓 자동 연동 활성화됨</b>
             <p style="margin:6px 0 4px;color:#115e59"
                data-ko="여기에 강사를 등록·수정하면 <b style='color:#b45309'>학생 홈페이지 → 강사 소개</b> 페이지에 즉시 사진/소개영상/경력이 표시됩니다. 별도 작업 없음."
@@ -12504,6 +12509,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260808213118 -->
+<!-- BUILD:20260808215936 -->
 </body>
 </html>
