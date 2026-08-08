@@ -231,7 +231,7 @@
 
   /* 정오답을 서버로 보내지 않는 게임들 — 「정답률 0%」를 성적으로 오해하지 않게 표시한다.
      (2026-08-08 실측. 계측을 붙이면 이 목록에서 빠진다.) */
-  var NO_ANSWER_TRACKING = ['shooter','wordfighter','grammar-pizza','rescue-voyage','suspect-mystery','battle-3d'];
+  var NO_ANSWER_TRACKING = [];   // 2026-08-08 6종 전부 계측 연결 완료 — 새로 안 재는 게임이 생기면 여기에 적는다
   function untracked(g){ return NO_ANSWER_TRACKING.indexOf(g) >= 0; }
 
   window.setRange = function(d){

@@ -267,7 +267,7 @@
      ⚠️ 반드시 mangoi-memory.js **다음에** 실을 것. -->
 <script src="/js/mangoi-shadow-sync.js?v=1"></script>
 <script src="/js/i18n-sweep.js?v=21" defer></script>
-<script src="/js/game-track.js?v=1" defer></script>
+<script src="/js/game-track.js?v=2" defer></script>
 </head>
 <body>
 <div id="game">
@@ -730,10 +730,12 @@
       floatScore((z.golden?'👑+':z.boss?'👹+':'+')+gain,x,y,true); showGloss(z.word,x,y);
       killZombie(z);
       if(z.boss) showCombo('👹 보스 처치! +'+gain); else if(z.golden) showCombo('✨ 골든 보너스! +'+gain); else if(combo>=2) showCombo(combo+' COMBO!');
+      try{ if(window.MangoiGame) window.MangoiGame.answer(true, z.word); }catch(e){}   // 🎮 계측(2026-08-08)
       renderSentence(); updateHUD();
       if(currentIndex>=targetWords.length) waveComplete();
     } else {
       score=Math.max(0,score-50); combo=0; setFever(false); sndMiss(); yell('어!','miss',x,y);
+      try{ if(window.MangoiGame) window.MangoiGame.answer(false, required); }catch(e){}   // 🎮 계측(2026-08-08)
       z.el.classList.remove('wrong'); void z.el.offsetWidth; z.el.classList.add('wrong'); floatScore('-50',x,y,false); shake(); updateHUD();
       lastProgressTs=0; updateZombieGlow();   // 정답 좀비 즉시 발광 + 정답 발음 들려주기
       setTimeout(function(){ if(running&&phase==='battle') speak(clean(required)); },380);

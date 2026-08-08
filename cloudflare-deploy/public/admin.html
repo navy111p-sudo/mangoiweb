@@ -8872,7 +8872,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-core.js?v=51" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
-<script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
+<script src="/js/adm-quick-access.js?v=2" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
 <script src="/js/adm-light-surfaces.js?v=11" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
@@ -12329,7 +12329,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
-<script src="/js/adm-ia6.js?v=1" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
+<!-- 🧭 메뉴 6그룹 36항목 재배치 (2026-08-08) — ⛔ 잠시 꺼 둠 (2026-08-08 배포)
+     이 <script> 태그는 커밋돼 있는데 정작 /js/adm-ia6.js 는 커밋되지 않아, 라이브에서는
+     계속 404 였다(= 개편이 한 번도 켜진 적이 없다. 지금 화면은 옛 9그룹 87항목).
+     이번 배포는 public/ 폴더를 통째로 올리므로 태그를 살려 두면 «레벨테스트 바로가기 하나»를
+     올리려다 관리자 메뉴 전체가 예고 없이 바뀐다. 그래서 라이브 상태를 그대로 두려고 껐다.
+     ▶ 켤 준비가 되면 아래 한 줄의 주석만 풀면 된다 (adm-ia6.js 커밋도 함께).
+<script src="/js/adm-ia6.js?v=1" defer></script>
+-->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
      인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.

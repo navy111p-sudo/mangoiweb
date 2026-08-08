@@ -120,7 +120,7 @@
   }
 </style>
 <script src="/js/i18n-sweep.js?v=21" defer></script>
-<script src="/js/game-track.js?v=1" defer></script>
+<script src="/js/game-track.js?v=2" defer></script>
 </head>
 <body>
   <div id="mango-battle-3d">
@@ -1522,6 +1522,7 @@
     function answer(btn,choice,it){ if(state.busy)return; state.busy=true; stopQTimer();
       revealKo(it);
       if(choice===it.a){
+        try{ if(window.MangoiGame) window.MangoiGame.answer(true, it.a, (KO&&KO[it.a])||it.q); }catch(e){}   // 🎮 계측(2026-08-08)
         btn.classList.add('right'); sfx.correct(); speak(it.type==='문장'? it.q.replace('___',it.a):it.a);
         state.combo++; state.score+=Math.round(100*(1+state.combo*0.1)); if(state.combo>=2) toast(state.combo+' COMBO!','#ffd34d');
         attackAnim(hero,boss); var dmg=Math.ceil(100/LESSONS[state.lesson].items.length); state.bossHP=Math.max(0,state.bossHP-dmg); updateHUD(); state.idx++;
@@ -1545,6 +1546,7 @@
           _go();
         },800);
       } else {
+        try{ if(window.MangoiGame) window.MangoiGame.answer(false, it.a, (KO&&KO[it.a])||it.q); }catch(e){}   // 🎮 계측(2026-08-08)
         btn.classList.add('wrong'); sfx.wrong(); [].forEach.call(el.choices.children,function(b){ if(b.getAttribute('data-val')===it.a) b.classList.add('right'); }); state.combo=0;
         setTimeout(function(){ attackAnim(boss,hero); sfx.hurt(); state.heroHP=Math.max(0,state.heroHP-20); updateHUD();
           setTimeout(function(){ if(state.heroHP<=0){ defeat(); return; } el.quiz.style.display='none'; state.busy=false; setTimeout(nextQuestion,300); },720); },500);

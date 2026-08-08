@@ -120,9 +120,50 @@
     } catch (e) { return bodyText; }
   }
 
+  /* ── 게임이 직접 알려주는 정오답 ────────────────────────────────────────
+     6종(shooter·wordfighter·grammar-pizza·rescue-voyage·suspect-mystery·battle-3d)은
+     정오답을 서버로 보낸 적이 없다. 밖에서는 알 수 없는 «내부 판정»이라, 이 문을 통해
+     게임이 한 줄로 알려준다:  MangoiGame.answer(true, 'apple', '사과')
+
+     ⚠️ 익명(guest)은 단어 기록을 보내지 않는다 — 학생별 약점 분석에 못 쓰는데 표만 불린다.
+        (판 기록 session 은 guest 도 보낸다. 참여·이탈은 익명이라도 의미가 있다.) */
+  var pq = [], pTimer = null;
+
+  function queueAnswer(ok, item, ko) {
+    try {
+      items++; if (ok) correct++; else wrong++;
+      var it = String(item == null ? '' : item).trim().slice(0, 200);
+      if (!it) return;
+      if (uid() === 'guest') return;
+      pq.push({ item: it, ko: String(ko == null ? '' : ko).trim().slice(0, 200), correct: ok ? 1 : 0 });
+      if (pq.length >= 20) flushProgress();
+      else if (!pTimer) pTimer = setTimeout(function () { flushProgress(); }, 10000);
+    } catch (e) {}
+  }
+
+  function flushProgress(useBeacon) {
+    try {
+      if (pTimer) { clearTimeout(pTimer); pTimer = null; }
+      if (!pq.length) return;
+      var payload = JSON.stringify({ user_id: uid(), lang: lang(), game: GAME, events: pq });
+      pq = [];
+      // ⚠️ 반드시 «원본» 으로 보낸다. 감싼 fetch 로 보내면 observeAndStamp 가 이 요청을
+      //    다시 세어 정답 수가 두 배가 된다.
+      if (useBeacon && _origBeacon) {
+        _origBeacon('/api/games/progress', new Blob([payload], { type: 'application/json' }));
+      } else if (_origFetch) {
+        _origFetch('/api/games/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: payload, keepalive: true })['catch'](function () {});
+      }
+    } catch (e) {}
+  }
+
+  var _origFetch = null, _origBeacon = null;
+
   /* fetch 감싸기 — 원본 동작을 절대 바꾸지 않는다(본문 문자열만 교체). */
   try {
     var origFetch = window.fetch;
+    _origFetch = origFetch;
     if (typeof origFetch === 'function') {
       window.fetch = function (input, init) {
         try {
@@ -142,6 +183,7 @@
   /* sendBeacon 감싸기 — 일부 게임이 이탈 시 beacon 으로 progress 를 보낸다. */
   try {
     var origBeacon = navigator.sendBeacon && navigator.sendBeacon.bind(navigator);
+    _origBeacon = origBeacon;
     if (origBeacon) {
       navigator.sendBeacon = function (url, data) {
         try {
@@ -159,6 +201,7 @@
      한 번만 보낸다. 학생이 돌아와서 더 놀면 새 판으로 다시 무장한다. */
   function send(why) {
     try {
+      flushProgress(true);          // 단어 기록을 먼저 흘려보내고 판을 닫는다
       if (sent) return;
       var now = Date.now();
       var dur = now - started;
@@ -190,7 +233,7 @@
     try {
       if (!sent) return;
       sent = false; started = Date.now();
-      items = 0; correct = 0; wrong = 0; coins = 0; finishedFlag = false;
+      items = 0; correct = 0; wrong = 0; coins = 0; finishedFlag = false; pq = [];
     } catch (e) {}
   }
 
@@ -201,9 +244,14 @@
     });
     window.addEventListener('pagehide', function () { send('pagehide'); });
 
-    // 게임이 스스로 «끝났다» 를 알리고 싶을 때 쓰는 문 (선택 사항)
+    // 게임이 스스로 알려 주고 싶을 때 쓰는 문
     window.MangoiGame = {
       id: GAME,
+      /** 정오답 1건. 정오답을 서버로 안 보내던 게임이 이 한 줄로 계측에 들어온다.
+       *  @param ok    맞았나
+       *  @param item  단어/문장 (약점 분석의 열쇠)
+       *  @param ko    한국어 뜻 (있으면) */
+      answer: function (ok, item, ko) { queueAnswer(!!ok, item, ko); },
       finish: function () { try { finishedFlag = true; send('finish'); } catch (e) {} },
       note: function (n) { try { items += Math.max(0, Number(n) || 1); } catch (e) {} }
     };
