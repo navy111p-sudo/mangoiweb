@@ -60,7 +60,7 @@ ADMIN_2FA_DISABLED = "true"
 #   기본 'off' = 코드는 배포돼 있으나 동작은 예전과 100% 동일(dormant).
 #   하위호환: 이 기능 이전에 발급된 토큰(sid 없음)은 켜도 그대로 통과 → 기존 로그인자가 튕기지 않는다.
 #   ⚠️ [env.production.vars] 에도 같은 값이 있어야 운영에 적용됨. 문제 시 'off' + 재배포로 즉시 원복.
-SINGLE_SESSION = "off"
+SINGLE_SESSION = "on"
 # 🔁 (2026-07-24) 무중단 재연결 스위치. 'on' 이면 WS 블립 시 수업 전체를 리셋하지 않고 연결을 보존한다.
 #   기본 'off' = 코드는 배포돼 있으나 동작은 예전과 100% 동일(dormant). 실측 테스트 후 'on' 으로 켤 것.
 #   ⚠️ [env.production.vars] 에도 같은 값이 있어야 운영에 적용됨. 문제 시 'off' 로 바꾸고 재배포하면 즉시 원복.
@@ -172,7 +172,7 @@ MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 # 🔧 (2026-07-14) 관리자 테스트 기간 2FA 임시 중단 — 종료 후 "false" 로 원복
 ADMIN_2FA_DISABLED = "true"
-SINGLE_SESSION = "off"   # 🔒 동시접속 1세션(운영). 켜기 전 하니스+실측 필수. 문제 시 "off"+재배포로 즉시 원복
+SINGLE_SESSION = "on"    # 🔒 동시접속 1세션(운영). 2026-08-08 켬. 문제 시 "off"+재배포로 즉시 원복
 VC_STICKY_UID = "on"   # 🔁 무중단 재연결 스위치(운영). 실측 후 'on'. 문제 시 'off'+재배포로 즉시 원복
 VC_STUDENT_ROOM_GATE = "off"   # 🚪 학생 공용방 차단(운영). ⛔ 실제 학생 예약이 6건뿐이라 켜면 대다수가 입장 불가. 예약 이관 후 'on'
 BUILD_STAMP = "2026-08-08T15:18:35Z"
