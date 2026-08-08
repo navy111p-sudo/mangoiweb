@@ -7427,7 +7427,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     });
   }
   // ② 목록 필터 — 각 표 위에 검색 입력 자동 삽입 (모든 열 텍스트 대상 즉시 필터)
-  var TABLES = ['franchises-table','branches-table','mbranches-table','recruit-table','hq-table','indep-table','centers-table'];
+  //   🚫 (2026-08-08) 'centers-table' 을 빼냈다 — 대리점(학원) 921건은 이제 서버 페이징(50건)이라
+  //      «화면에 있는 행만» 거르는 이 필터는 «921건 중 50건만 검색»하는 거짓말이 된다.
+  //      그 카드는 전용 서버 검색창(#ct-q → ctSearch)을 쓴다. 다시 넣지 말 것.
+  var TABLES = ['franchises-table','branches-table','mbranches-table','recruit-table','hq-table','indep-table'];
   function bindFilters(){
     TABLES.forEach(function(id){
       var tb = document.getElementById(id); if (!tb) return;
@@ -7465,22 +7468,38 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 
-<!-- 교육센터 -->
-<details class="table-card menu-card" id="card-centers">
-  <summary><span data-ko="🏫 교육센터" data-en="🏫 Education Centers">🏫 교육센터</span></summary>
+<!-- 대리점(학원) — 테이블명은 centers 지만 실데이터 921건이 "○○ 학원 / ○○ 대리점" 이다.
+     «교육센터»는 홈페이지에서 «필리핀 직영 센터»를 가리키는 말이라 같은 단어가 두 뜻이었다.
+     조직 순서: 본사 › 지사 › 대리점(학원) — 이 카드는 맨 아래 단계. -->
+<details class="table-card menu-card" id="card-centers" data-menu-label-ko="대리점(학원)" data-menu-label-en="Agency (Academy)"
+         ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('centers')">
+  <summary><span data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</span></summary>
   <div class="menu-body">
+    <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
+         data-ko="조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 지사 목록은 위 «🏢 조직 관리» 카드에 있습니다."
+         data-en="Hierarchy: 🏯 HQ › 🏢 Branch › 🏪 Agency (Academy). The branch list lives in the “🏢 Organization” card above.">조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 지사 목록은 위 «🏢 조직 관리» 카드에 있습니다.</div>
     <details>
-      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 센터 신규 등록" data-en="＋ Add Center">＋ 센터 신규 등록</summary>
+      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대리점(학원) 신규 등록" data-en="＋ Add Agency">＋ 대리점(학원) 신규 등록</summary>
       <div class="menu-form">
-        <select id="ct-franchise" style="width:180px;"><option value="" data-ko="가맹점 선택…" data-en="Select franchise…">가맹점 선택…</option></select>
-        <input id="ct-name"     placeholder="센터 이름 (필수)" data-ko-placeholder="센터 이름 (필수)" data-en-placeholder="Center name (required)" style="width:180px;" />
-        <input id="ct-country"  placeholder="국가 (예: PH)"   data-ko-placeholder="국가 (예: PH)"   data-en-placeholder="Country (e.g. PH)" style="width:110px;" />
-        <input id="ct-manager"  placeholder="매니저"          data-ko-placeholder="매니저"          data-en-placeholder="Manager" style="width:120px;" />
+        <select id="ct-franchise" style="width:180px;"><option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option></select>
+        <input id="ct-name"     placeholder="대리점·학원 이름 (필수)" data-ko-placeholder="대리점·학원 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
+        <input id="ct-country"  placeholder="국가 (예: KR)"   data-ko-placeholder="국가 (예: KR)"   data-en-placeholder="Country (e.g. KR)" style="width:110px;" />
+        <input id="ct-manager"  placeholder="원장·담당자"      data-ko-placeholder="원장·담당자"      data-en-placeholder="Manager" style="width:120px;" />
         <input id="ct-address"  placeholder="주소"            data-ko-placeholder="주소"            data-en-placeholder="Address" style="width:240px;" />
         <button id="ct-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
       </div>
     </details>
-    <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="가맹점" data-en="Franchise">가맹점</th><th data-ko="이름" data-en="Name">이름</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="매니저" data-en="Manager">매니저</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
+    <!-- 🔎 서버 검색 — 이 페이지 50행이 아니라 «921건 전체»를 서버에서 찾는다.
+         (예전엔 921행을 다 받아 화면에서 걸렀다. 그래서 부팅이 무거웠다) -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
+      <input id="ct-q" type="search" autocomplete="off" oninput="ctSearch(this.value)"
+             placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
+             data-ko-placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
+             data-en-placeholder="🔎 Search agency, manager, address, branch (all records)"
+             style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
+      <span id="ct-pager" style="display:flex;gap:6px;align-items:center"></span>
+    </div>
+    <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
       <tbody id="centers-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
   </div>
 </details>
@@ -8883,7 +8902,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=53" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=54" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=3" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -9277,8 +9296,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="ph85-subs">
       <div class="ph85-sub" data-ko="📅 캘린더 관리" data-en="📅 Calendar Management" data-card="card-calendar" onclick="event.stopPropagation();var c=document.getElementById('card-calendar');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-calendar');}">📅 캘린더 관리</div>
       <div class="ph85-sub" data-ko="권한 관리" data-en="Permissions" data-card="card-permissions" onclick="event.stopPropagation();var c=document.getElementById('card-permissions');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-permissions');}">권한 관리</div>
-      <div class="ph85-sub" data-ko="가맹점" data-en="Franchises" data-card="card-franchises" onclick="event.stopPropagation();var c=document.getElementById('card-franchises');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-franchises');}">가맹점</div>
-      <div class="ph85-sub" data-ko="센터" data-en="Centers" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">센터</div>
+      <div class="ph85-sub" data-ko="🏢 조직 (본사·지사)" data-en="🏢 Organization (HQ·Branch)" data-card="card-franchises" onclick="event.stopPropagation();var c=document.getElementById('card-franchises');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-franchises');}">🏢 조직 (본사·지사)</div>
+      <div class="ph85-sub" data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">🏪 대리점(학원)</div>
       <div class="ph85-sub" data-ko="🗂 카페24 명부 ⭐신규" data-en="🗂 Cafe24 Records ⭐NEW" data-card="card-cafe24-lists" onclick="event.stopPropagation();var c=document.getElementById('card-cafe24-lists');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-cafe24-lists');}">🗂 카페24 명부 ⭐신규</div>
       <div class="ph85-sub" data-ko="데이터 추출" data-en="Data Export" data-card="card-data-export" onclick="event.stopPropagation();var c=document.getElementById('card-data-export');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-data-export');}">데이터 추출</div>
       <div class="ph85-sub" data-ko="🔔 관리자 알림" data-en="🔔 Admin Alerts" data-card="card-admin-alerts" onclick="event.stopPropagation();var c=document.getElementById('card-admin-alerts');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-alerts');}">🔔 관리자 알림</div>
@@ -9301,7 +9320,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      · 기존 inline onclick(event.stopPropagation) 을 방해하지 않도록 document '캡처' 단계에서 청취(읽기 전용, preventDefault 안 함).
      · 🔊 토글로 켜고 끔(localStorage 'ph85VoiceOn' 기억, 기본 켜짐). -->
 
-<script src="/js/adm-r15.js?v=2" defer></script><!-- 분할추출:adm-r15 -->
+<script src="/js/adm-r15.js?v=3" defer></script><!-- 분할추출:adm-r15 -->
 
 <!-- ⭐ (2026-06-20) 메뉴 중요도·활용도 별점 — 테두리만 노란 '투명 별' ☆ 자동 부여
      · 자식(사이드바 .ph85-sub) + 손자(카드 안 하위 summary) 모두 적용
@@ -12066,7 +12085,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 <!-- 🥭 P3 — AI 운영 비서 대화 패널 (ai-command 연결 · 한/영 이중언어 · 가산적/비파괴 · mi-asst-) -->
-<script src="/js/adm-p2.js?v=2" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p2.js?v=4" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎥 AI 운영비서 영상 메시지 — 클릭 시 fade-in → 말하기 → fade-out (자동재생, 🔇 무음 / ❌ 닫기) -->
 
@@ -12343,7 +12362,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
-<script src="/js/adm-ia6.js?v=3" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
+<script src="/js/adm-ia6.js?v=5" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
      인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.
