@@ -807,11 +807,25 @@ export async function handleAdminApi(
       //   (attendance_no_fabrication_harness — 없는 기록을 계산식으로 만들어 붙였다가
       //    그 «지어낸 지각» 이 강사 급여를 깎을 뻔했다). 같은 실수를 KPI 에서 반복하지 않는다.
       const scheduledToday = Math.max(0, Number(schedRow?.scheduled || 0));
-      // 결석은 «예정된 사람 중 안 온 사람» 을 서버가 직접 센 값이다(뺄셈이 아니다).
-      //   뺄셈(예정 − 출석)은 틀린다 — 예약 없이 들어온 수업이 있어서 출석이 예정보다 클 수 있다.
       const absentCount = Math.max(0, Number(schedRow?.absent || 0));
-      // 예정 기록이 아예 없는 날(주말·공휴일·동기화 지연)은 비율을 내지 않는다.
-      const hasSchedule = scheduledToday > 0;
+
+      // 🔴 결석률은 **지금 계산할 수 없다.** 그래서 내지 않는다. (2026-08-08 조사 결과)
+      //
+      //   왜 — «예정» 과 «출석» 이 서로 연결돼 있지 않다. 운영 D1 실측:
+      //     · 최근 30일 c24 방 3,487개 중 «예정과 출석이 같은 방에 있는 경우» = **0건**
+      //       (예정만 1,328방 · 출석만 2,159방). 두 기록이 **다른 예약번호 공간**을 쓴다.
+      //     · 학생 단위로 봐도 5일간 예정 228명 · 출석 368명 중 겹치는 사람은 133명뿐이고,
+      //       «왔는데 예정 기록이 없는» 학생이 235명이다.
+      //   즉 예정 피드는 실제 수업의 3분의 1가량만 덮는다. 이 둘을 나누면
+      //   «예약해 놓고 안 온 비율» 이 아니라 **두 기록이 어긋난 정도**가 나온다.
+      //   그렇게 나온 값이 70.7% 였다. 이전의 99.9% 보다 그럴듯할 뿐 여전히 사실이 아니다.
+      //
+      //   ⚠️ 이 저장소의 원칙(attendance_no_fabrication_harness)을 그대로 따른다 —
+      //      계산할 수 없으면 만들어 내지 않는다. 예약 건수와 출석 인원은 각각 사실이므로
+      //      그대로 내보내고, 화면은 비율 자리에 «–» 를 그린다.
+      //   되살리려면: 두 피드의 예약번호를 맞추거나(같은 room_id 를 쓰거나),
+      //      예정 행이 출석 시 **갱신**되도록 고쳐야 한다. 그 뒤에 known 을 되살릴 것.
+      const hasSchedule = false;
       const absenceRate: number | null = hasSchedule
         ? Math.round((absentCount * 100 / scheduledToday) * 10) / 10
         : null;
@@ -823,7 +837,12 @@ export async function handleAdminApi(
         students: { attended, active },
         // rate_pct 는 «모르면 null». 화면은 null 을 «–» 로 그린다(숫자를 지어내지 않는다).
         //   known=false 면 오늘 예정 정보가 아예 없다는 뜻 — 0% 도 100% 도 사실이 아니다.
-        absence: { rate_pct: absenceRate, absent: absentCount, scheduled: scheduledToday, known: hasSchedule },
+        // scheduled·absent 는 «사실» 이므로 그대로 내보낸다. rate_pct 만 null 이다.
+        //   reason 은 화면이 «왜 못 내는지» 를 사람 말로 보여주기 위한 것.
+        absence: {
+          rate_pct: absenceRate, absent: absentCount, scheduled: scheduledToday,
+          known: hasSchedule, reason: hasSchedule ? null : 'booking_attendance_unlinked',
+        },
         signups: { count: signups }
       }, 60);
     }

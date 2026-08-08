@@ -413,7 +413,8 @@ body.is-off .card{opacity:.82}
            absentKnown
              ? T(n0(_ab.absent) + ' of ' + n0(_ab.scheduled) + ' scheduled',
                  '예정 ' + n0(_ab.scheduled) + '명 중 ' + n0(_ab.absent) + '명 결석')
-             : T('Not enough class-schedule data for today', '오늘 예정된 수업 정보가 부족합니다'),
+             : T('Booking ' + n0(_ab.scheduled) + ' · bookings and attendance are not linked yet',
+                 '예약 ' + n0(_ab.scheduled) + '건 · 예약과 출석 기록이 아직 연결돼 있지 않습니다'),
            (absentKnown && absent >= 30) ? 'warn' : '') +
       tile(n0(d.signups && d.signups.count), T('New sign-ups', '신규 등록'), '', (d.signups && d.signups.count) > 0 ? 'good' : '');
   }

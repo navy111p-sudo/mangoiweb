@@ -459,8 +459,8 @@ async function loadTodayKpi() {
     $('today-absence-sub').textContent = _rateKnown
       ? ((_abs.absent || 0) + (L ? ' absent / ' : '명 결석 / ') +
          (_abs.scheduled || 0) + (L ? ' scheduled' : '명 예정'))
-      : (L ? 'Not enough class-schedule data for today'
-           : '오늘 예정된 수업 정보가 부족합니다');
+      : (L ? ('Booking ' + (_abs.scheduled || 0) + ' · bookings and attendance are not linked yet')
+           : ('예약 ' + (_abs.scheduled || 0) + '건 · 예약과 출석 기록이 아직 연결돼 있지 않습니다'));
 
     // 신규 등록 — 단순 카운트
     const sign = j.signups?.count || 0;
