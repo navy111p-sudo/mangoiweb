@@ -25,7 +25,7 @@ import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeSweep } from './recordings-r2';
-import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
+import { handleAdminAuthApi, checkAdminSession, getAdminActor, PH_MANAGERS } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
 import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
@@ -4590,6 +4590,24 @@ async function managerPortalRedirect(
   // 지사·대리점이 관리자 첫 화면을 열었다 → 경량 포털로
   if (isOrg && isAdminHome) {
     return Response.redirect(new URL('/manager', request.url).toString(), 302);
+  }
+
+  // 🇵🇭 필리핀 본사 매니저(Maimai·Melca·Karl)도 경량 포털로 (2026-08-08 사장님 지시)
+  //   경위: 세 분은 scope_type='hq' 라 위 조직 분기에 걸리지 않아, 「페이지가 무겁다」고
+  //   요청한 당사자인데도 계속 admin.html(gzip 934KB · 흉내회선 19초)을 받고 있었다.
+  //   ⚠️ 권한은 그대로다 — hq 는 admin.html 에서 이미 전부 본다. 착지 화면만 바뀐다.
+  //   ⚠️ 판정은 PH_MANAGERS 상수 하나로만 한다. `mgr_` 접두사로 «필리핀» 을 가르면 안 된다 —
+  //      mgr_jjw·mgr_lby 처럼 **한국 본사 매니저도 같은 접두사**를 쓴다(auth-admin.ts 주석,
+  //      과거에 그렇게 갈랐다가 한국 매니저 두 분이 영어 화면을 받는 사고를 냈다).
+  //   무거운 작업(급여 명세 편집·인사평가 등)은 화면 안의 「전체 경영 대시보드」 링크와
+  //   ?full=1 탈출구로 언제든 갈 수 있다.
+  if (isAdminHome) {
+    try {
+      const _a = await getAdminActor(request, env as any);
+      if (_a.ok && PH_MANAGERS.indexOf(String((_a as any).username || '')) >= 0) {
+        return Response.redirect(new URL('/manager', request.url).toString(), 302);
+      }
+    } catch (e) { /* 판정 실패 → 기존 동작(관리자 화면) 유지 */ }
   }
 
   // 조직 계정이 아닌 사람이 /manager 를 열었다 → 각자의 화면으로 돌려보낸다.

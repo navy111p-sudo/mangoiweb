@@ -1459,7 +1459,40 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     p.push('screen ' + screen.width + 'x' + screen.height + '@' + (window.devicePixelRatio || 1) + 'x');
     if (c.effectiveType) p.push('net ' + c.effectiveType + (c.downlink ? ' ~' + c.downlink + 'Mbps' : '') + (c.rtt ? ' rtt' + c.rtt + 'ms' : ''));
     if (n.onLine === false) p.push('OFFLINE');
+    // 📶 (2026-08-08 Karl 요청 — 강사 회선 속도·안전도 담당)
+    //   위의 navigator.connection 은 회선의 **이름표**만 말한다. 필리핀에서 흔한
+    //   「표시는 4G인데 실속도는 형편없는」 경우를 통째로 놓친다(실측으로 확인).
+    //   그래서 «이 화면을 실제로 받아 본 실적» 을 함께 적는다 — 이게 IT 담당이 볼 진짜 숫자다.
+    var real = measuredLine();
+    if (real) p.push(real);
     return p.join(' · ');
+  }
+
+  // 지금 페이지를 받아 온 실적으로 회선을 잰다.
+  //   🪤 각 요청의 duration 을 «합» 하면 안 된다 — 동시에 받은 것들의 겹치는 시간을
+  //      여러 번 더하게 되어 아무리 빨라도 느리게 나온다. 실제 걸린 구간(span)으로 나눈다.
+  //   🪤 TTFB 는 requestStart 가 0 인 교차출처 항목을 빼야 한다.
+  function measuredLine(){
+    try {
+      // 🪤 이 화면은 설계상 **외부 리소스가 0개**다(계약 1번). 그래서 resource 항목만 보면
+      //    표본이 아예 없어 아무것도 못 잰다(실측에서 확인). 문서 자체를 표본에 넣어야 한다 —
+      //    이 페이지에서 제일 크고 제일 대표성 있는 다운로드가 바로 그 HTML 이다.
+      var list = performance.getEntriesByType('navigation').concat(performance.getEntriesByType('resource'));
+      var bytes = 0, first = Infinity, last = 0, t = [];
+      for (var i = 0; i < list.length; i++){
+        var e = list[i];
+        if (!e.transferSize || e.transferSize < 1000) continue;   // 캐시 히트·초소형 제외
+        bytes += e.transferSize;
+        if (e.startTime < first) first = e.startTime;
+        if (e.responseEnd > last) last = e.responseEnd;
+        if (e.requestStart > 0 && e.responseStart > e.requestStart) t.push(e.responseStart - e.requestStart);
+      }
+      if (bytes < 20000 || !(last > first)) return '';            // 표본이 모자라면 아무 말도 하지 않는다
+      var kbps = Math.round((bytes / 1024) / ((last - first) / 1000));
+      var out = '실측 ' + kbps + 'KB/s';
+      if (t.length >= 3){ t.sort(function(a,b){ return a - b; }); out += ' · TTFB ' + Math.round(t[t.length >> 1]) + 'ms'; }
+      return out;
+    } catch (e) { return ''; }
   }
 
   // ── 🐞 문제 신고 (요청 5번) ──────────────────────────────────────────────

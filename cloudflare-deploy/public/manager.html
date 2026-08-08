@@ -124,6 +124,14 @@ body.is-off .card{opacity:.82}
 .spark-x{display:flex;justify-content:space-between;font-size:11.5px;color:#8b97a4;margin-top:2px}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:#5d6b7a;margin-bottom:6px}
 .legend i{display:inline-block;width:10px;height:3px;vertical-align:middle;margin-right:4px}
+
+/* 본사 매니저 구역 구분선 — 지사·대리점 카드와 섞이면 «내 것이 무엇인지» 가 흐려진다 */
+.hqhead{font-size:12.5px;font-weight:800;color:#5d6b7a;letter-spacing:.02em;
+        padding:6px 2px;margin:6px 0 2px;border-top:1px solid #dde3ea}
+.tag{display:inline-block;font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;
+     background:#eef1f5;color:#4a5765;white-space:nowrap}
+.tag.hot{background:#fdecea;color:#8c1d18}
+.tag.ok{background:#e7f5ee;color:#0b7a3d}
 </style>
 </head>
 <body>
@@ -200,6 +208,57 @@ body.is-off .card{opacity:.82}
     <summary><span data-en="Waiting list" data-ko="대기자 명단">Waiting list</span></summary>
     <div id="waitBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       🏢 본사 매니저 전용 (Maimai · Melca · Karl)
+         세 분은 scope_type='hq' 라 위의 지사·대리점 라우팅에 걸리지 않아, 지금까지
+         admin.html(gzip 934KB · 19초)을 그대로 써 왔다. 「페이지가 무겁다」고 요청한
+         당사자들이 정작 그대로였던 셈이다.
+         → 그분들 업무(급여·휴가·수업요청·수업관찰·장애/기기)를 여기 붙인다.
+
+       ⚠️ 권한은 조금도 바뀌지 않는다 — hq 는 admin.html 에서 이미 전부 본다.
+          같은 정보를 가볍게 보는 창을 하나 더 주는 것뿐이다(강사 포털과 같은 논리).
+       ⚠️ 세 분은 시스템상 전부 'hq' 라 서로 구분되지 않는다. 그래서 역할별로 화면을
+          가르지 않고 **같은 카드를 주고, 안 쓰는 카드는 안 펼치면 되게** 했다.
+          역할을 가르려면 새 권한 모델이 필요한데 얻는 것보다 위험이 크다.
+       ⚠️ 인사평가는 일부러 뺐다 — 응답 형식을 확실히 확인하지 못했다.
+          «있는 척» 하는 빈 카드보다 admin.html 링크가 정직하다.
+       ══════════════════════════════════════════════════════════════════════ -->
+  <div id="hqCards" hidden>
+    <div class="hqhead" data-en="For HQ managers" data-ko="본사 매니저 전용">For HQ managers</div>
+
+    <details class="card" id="c-payroll" ontoggle="if(this.open)loadPayroll()">
+      <summary><span data-en="Teacher payroll (this month)" data-ko="교사 급여 (이번 달)">Teacher payroll (this month)</span></summary>
+      <div id="payrollBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <details class="card" id="c-leave" ontoggle="if(this.open)loadLeave()">
+      <summary><span data-en="Teacher time off" data-ko="강사 휴가 · 근무불가">Teacher time off</span></summary>
+      <div id="leaveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
+      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
+      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <details class="card" id="c-live" ontoggle="if(this.open)loadLive()">
+      <summary><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></summary>
+      <div id="liveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <div class="hqhead" data-en="Line &amp; device (IT)" data-ko="회선 · 기기 (IT)">Line &amp; device (IT)</div>
+
+    <details class="card" id="c-outage" ontoggle="if(this.open)loadOutage()">
+      <summary><span data-en="Outage reports" data-ko="정전 · 인터넷 장애 신고">Outage reports</span></summary>
+      <div id="outageBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
+    <details class="card" id="c-bugs" ontoggle="if(this.open)loadBugs()">
+      <summary><span data-en="Problem reports (device &amp; line)" data-ko="문제 신고 (기기 · 회선)">Problem reports (device &amp; line)</span></summary>
+      <div id="bugsBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+  </div>
 
   <!-- ⑧ 통합 검색 -->
   <details class="card" id="c-search" ontoggle="if(this.open)setTimeout(function(){var e=document.getElementById('omniQ');if(e)e.focus();},0)">
@@ -334,7 +393,8 @@ body.is-off .card{opacity:.82}
   }
 
   // ── ① 오늘 ────────────────────────────────────────────────────────────────
-  var D = { today: null, month: null, series: null, flow: null, students: null, util: null, wait: null, me: null };
+  var D = { today: null, month: null, series: null, flow: null, students: null, util: null, wait: null, me: null,
+            payroll: null, leave: null, reqs: null, live: null, outage: null, bugs: null };
 
   function paintToday(){
     var d = D.today; if (!d) return;
@@ -362,6 +422,9 @@ body.is-off .card{opacity:.82}
       sc.type === 'agency' ? T('Agency', '대리점') : sc.type === 'branch' ? T('Branch', '지사') : T('Manager', '매니저');
     document.getElementById('scopeName').textContent = sc.label || sc.value || '';
     document.getElementById('monthLbl').textContent = m.period || '';
+    // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
+    //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
+    if (sc.type === 'hq') document.getElementById('hqCards').hidden = false;
     document.getElementById('kMonth').innerHTML =
       tile(n0(st.active), T('Active students', '재원 학생'), '') +
       tile(won(m.income), T('Income', '수입'), T(n0(m.pay_count) + ' payments', '결제 ' + n0(m.pay_count) + '건')) +
@@ -512,6 +575,151 @@ body.is-off .card{opacity:.82}
     }).join('');
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // 🏢 본사 매니저 전용 카드 — scope.type === 'hq' 일 때만 보인다(paintMonth 에서 켠다).
+  //    전부 «펼칠 때만» 부른다. 첫 화면 API 2회는 그대로다.
+  // ══════════════════════════════════════════════════════════════════════════
+  function hqRows(id, rows, fn, emptyMsg){
+    var el = document.getElementById(id);
+    if (!rows.length){ el.className = 'empty'; el.textContent = emptyMsg; return; }
+    el.className = '';
+    el.innerHTML = rows.slice(0, 50).map(fn).join('')
+      + (rows.length > 50 ? '<div class="muted" style="padding-top:8px">'
+          + esc(T('Showing 50 of ' + rows.length + '.', rows.length + '건 중 50건 표시.')) + '</div>' : '');
+  }
+
+  // ① 교사 급여 — 총액과 인원만. 명세 편집은 admin.html 이 한다(여기는 «보는» 화면).
+  window.loadPayroll = function(){
+    if (D.payroll) { paintPayroll(); return; }
+    var el = document.getElementById('payrollBody'); el.textContent = T('Loading...', '불러오는 중...');
+    var d = new Date();
+    once('payroll', function(){ return get('/api/admin/payroll/all?year=' + d.getFullYear() + '&month=' + (d.getMonth() + 1), 'payroll'); })
+      .then(function(j){ D.payroll = j; paintPayroll(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintPayroll(){
+    var j = D.payroll; if (!j) return;
+    var items = j.items || [];
+    document.getElementById('payrollBody').className = '';
+    document.getElementById('payrollBody').innerHTML =
+      '<div class="kpis">'
+      + tile('₱' + n0(j.total_salary_php), T('Total (PHP)', '총액 (페소)'), '')
+      + tile(n0(j.count != null ? j.count : items.length), T('Teachers', '강사 수'), '')
+      + tile('₩' + n0(j.total_salary_krw), T('Total (KRW)', '총액 (원)'),
+             j.php_to_krw ? T('at ' + j.php_to_krw + ' KRW/PHP', '환율 ' + j.php_to_krw) : '')
+      + '</div>'
+      + items.slice(0, 50).map(function(it){
+          var php = it.total_php != null ? it.total_php : (it.salary_php != null ? it.salary_php : it.amount);
+          return '<div class="row"><b>' + esc(it.name || it.teacher_name || it.teacher || '-') + '</b>'
+               + '<span class="num">₱' + n0(php) + '</span></div>';
+        }).join('')
+      + '<div class="muted" style="padding-top:8px">'
+      + esc(T('Editing pay slips is done in the full admin console.', '명세 수정은 전체 관리자 화면에서 합니다.'))
+      + '</div>';
+  }
+
+  // ② 강사 휴가 · 근무불가
+  window.loadLeave = function(){
+    if (D.leave) { paintLeave(); return; }
+    var el = document.getElementById('leaveBody'); el.textContent = T('Loading...', '불러오는 중...');
+    once('leave', function(){ return get('/api/admin/teacher-unavailability', 'leave'); })
+      .then(function(j){ D.leave = j; paintLeave(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintLeave(){
+    var rows = (D.leave && D.leave.items) || [];
+    hqRows('leaveBody', rows, function(r){
+      return '<div class="row"><b>' + esc(r.teacher_name || r.teacher || '-') + '</b>'
+           + '<span class="muted">' + esc((r.start_date || r.date || '') + (r.end_date ? ' ~ ' + r.end_date : '')) + '</span>'
+           + (r.reason ? '<span class="muted">' + esc(r.reason) + '</span>' : '') + '</div>';
+    }, T('No time-off records.', '등록된 휴가·근무불가가 없습니다.'));
+  }
+
+  // ③ 수업 연기·변경 요청 — 대기 중인 것이 위로
+  window.loadReqs = function(){
+    if (D.reqs) { paintReqs(); return; }
+    var el = document.getElementById('reqBody'); el.textContent = T('Loading...', '불러오는 중...');
+    once('reqs', function(){ return get('/api/admin/schedule-requests?limit=60', 'reqs'); })
+      .then(function(j){ D.reqs = j; paintReqs(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintReqs(){
+    var j = D.reqs || {};
+    var rows = j.items || j.rows || j.requests || [];
+    hqRows('reqBody', rows, function(r){
+      var pend = String(r.status || '') === 'pending';
+      var kind = r.request_type === 'cancel' ? T('Cancel', '취소')
+               : r.request_type === 'change' ? T('Change', '변경') : T('Postpone', '연기');
+      return '<div class="row"><b>' + esc(r.teacher_name || '-') + ' &middot; ' + esc(r.student_name || '') + '</b>'
+           + '<span class="muted">' + esc((r.orig_date || '') + ' ' + (r.orig_time || '')) + '</span>'
+           + '<span class="tag' + (pend ? ' hot' : ' ok') + '">' + esc(kind + ' · ' + (r.status || '')) + '</span></div>'
+           + (r.reason ? '<div class="muted" style="padding:0 0 6px">' + esc(r.reason) + '</div>' : '');
+    }, T('No requests.', '요청이 없습니다.'));
+  }
+
+  // ④ 지금 진행 중인 수업 → 관찰(고스트) 열기
+  //    ⚠️ 관찰 자체는 실시간 영상이라 경량화 대상이 아니다. 여기서는 «어느 방이 열려 있는지»
+  //       까지만 보여 주고, 실제 관찰은 기존 고스트 화면을 새 탭으로 연다.
+  //    ⚠️ 이 API 는 {ok:...} 가 아니라 **배열을 그대로** 돌려준다(index.ts handleActiveRooms).
+  window.loadLive = function(){
+    if (D.live) { paintLive(); return; }
+    var el = document.getElementById('liveBody'); el.textContent = T('Loading...', '불러오는 중...');
+    once('live', function(){ return get('/api/active-rooms', 'live'); })
+      .then(function(j){ D.live = j; paintLive(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintLive(){
+    var j = D.live;
+    var rows = Array.isArray(j) ? j : ((j && (j.rooms || j.items)) || []);
+    hqRows('liveBody', rows, function(r){
+      var id = r.roomId || r.room_id || r.room || '';
+      var cnt = r.count != null ? r.count : (r.participants != null
+                  ? (r.participants.length != null ? r.participants.length : r.participants) : '');
+      return '<div class="row"><b>' + esc(id) + '</b>'
+           + (cnt !== '' ? '<span class="muted">' + esc(T(cnt + ' in room', '참여 ' + cnt + '명')) + '</span>' : '')
+           + '<a class="tag" target="_blank" rel="noopener" href="/admin/ghost-view.html?room=' + encodeURIComponent(id) + '">'
+           +   esc(T('Observe', '관찰')) + '</a></div>';
+    }, T('No class is running right now.', '지금 진행 중인 수업이 없습니다.'));
+  }
+
+  // ⑤ 정전 · 인터넷 장애 신고 (Karl)
+  window.loadOutage = function(){
+    if (D.outage) { paintOutage(); return; }
+    var el = document.getElementById('outageBody'); el.textContent = T('Loading...', '불러오는 중...');
+    once('outage', function(){ return get('/api/outage/active', 'outage'); })
+      .then(function(j){ D.outage = j; paintOutage(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintOutage(){
+    var rows = (D.outage && D.outage.items) || [];
+    hqRows('outageBody', rows, function(r){
+      var on = String(r.status || '') === 'active';
+      return '<div class="row"><b>' + esc(r.teacher_name || r.reporter_name || r.uid || '-') + '</b>'
+           + '<span class="muted">' + esc(r.kind === 'internet' ? T('Internet', '인터넷') : T('Power', '정전')) + '</span>'
+           + (r.expected_min ? '<span class="muted">' + esc(T('~' + r.expected_min + ' min', '약 ' + r.expected_min + '분')) + '</span>' : '')
+           + '<span class="tag' + (on ? ' hot' : ' ok') + '">' + esc(r.status || '') + '</span></div>'
+           + (r.memo ? '<div class="muted" style="padding:0 0 6px">' + esc(r.memo) + '</div>' : '');
+    }, T('No outage reports.', '접수된 장애가 없습니다.'));
+  }
+
+  // ⑥ 문제 신고 — 강사 기기·회선 정보가 본문에 [PC] 로 붙어 온다 (teacher.html deviceSpec)
+  window.loadBugs = function(){
+    if (D.bugs) { paintBugs(); return; }
+    var el = document.getElementById('bugsBody'); el.textContent = T('Loading...', '불러오는 중...');
+    once('bugs', function(){ return get('/api/admin/bug-reports?limit=40', 'bugs'); })
+      .then(function(j){ D.bugs = j; paintBugs(); }).catch(function(e){ failBox(el, e); });
+  };
+  function paintBugs(){
+    var rows = (D.bugs && (D.bugs.rows || D.bugs.items)) || [];
+    hqRows('bugsBody', rows, function(r){
+      var msg = String(r.message || '');
+      // 본문 끝에 붙는 «[PC] RAM · CPU · 브라우저 · 화면 · net …» 을 따로 떼어 눈에 띄게 둔다.
+      var i = msg.lastIndexOf('[PC]');
+      var body = i >= 0 ? msg.slice(0, i).trim() : msg;
+      var spec = i >= 0 ? msg.slice(i + 4).trim() : '';
+      return '<div class="row"><b>' + esc(r.reporter_name || r.reporter_uid || '-') + '</b>'
+           + '<span class="muted">' + esc(String(r.created_at || '').slice(0, 16)) + '</span>'
+           + '<span class="tag">' + esc(r.category || '') + '</span></div>'
+           + (body ? '<div class="muted" style="padding:0 0 4px">' + esc(body.slice(0, 200)) + '</div>' : '')
+           + (spec ? '<div class="muted" style="padding:0 0 8px"><b>' + esc(spec) + '</b></div>' : '');
+    }, T('No problem reports.', '접수된 문제 신고가 없습니다.'));
+  }
+
   // ── ⑧ 통합 검색 ───────────────────────────────────────────────────────────
   window.runOmni = function(){
     var q = (document.getElementById('omniQ').value || '').trim();
@@ -556,11 +764,18 @@ body.is-off .card{opacity:.82}
     if (D.util) paintUtil();
     if (D.wait) paintWait();
     if (D.me) paintMe();
+    if (D.payroll) paintPayroll();
+    if (D.leave) paintLeave();
+    if (D.reqs) paintReqs();
+    if (D.live) paintLive();
+    if (D.outage) paintOutage();
+    if (D.bugs) paintBugs();
   }
 
   // ── 첫 화면: API 2회 ──────────────────────────────────────────────────────
   window.reloadAll = function(){
     D.series = D.flow = D.students = D.util = D.wait = D.me = null;
+    D.payroll = D.leave = D.reqs = D.live = D.outage = D.bugs = null;
     boot();
     // 펼쳐져 있는 카드는 새 값으로 다시 채운다
     if (document.getElementById('c-trend').open) window.loadTrend();
@@ -569,6 +784,9 @@ body.is-off .card{opacity:.82}
     if (document.getElementById('c-util').open) window.loadUtil();
     if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
+    ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs']
+      .forEach(function(pair){ var q = pair.split(':'); var el = document.getElementById(q[0]);
+        if (el && el.open && typeof window[q[1]] === 'function') window[q[1]](); });
   };
   function boot(){
     once('today', function(){ return get('/api/admin/stats/today', 'today'); }).then(function(j){ D.today = j; paintToday(); }).catch(function(){});
