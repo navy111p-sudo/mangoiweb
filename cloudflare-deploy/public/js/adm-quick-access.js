@@ -251,7 +251,11 @@
 
   /* ── 렌더 ────────────────────────────────────────────────────────────────
      문자열 한 번 조립 → innerHTML 한 번 대입. 항목마다 노드를 만들지 않는다.
-     ⚠️ data-ko/data-en 을 반드시 같이 박는다 — 관리자 i18n 이 이 속성을 훑어서 라벨을 바꾼다. */
+
+     ⚠️ data-ko/data-en 은 반드시 «글자를 담은 <span>» 에 붙인다. 바깥 div 에 붙이면 안 된다 —
+        adm-core 의 `applyAdminLangDom()` 이 `[data-ko]` 를 훑어 **el.textContent = 라벨** 로
+        통째로 갈아치우므로, 바깥 div 에 붙어 있으면 🌐 를 누르는 순간 **안의 SVG 아이콘이 지워진다.**
+        (옛 버전이 실제로 그랬다. 아이콘이 사라지고 맨 글자만 남았다.) */
   var lastSig = '';
 
   function render() {
@@ -270,39 +274,36 @@
       var it = list[i];
       html += '<div class="ph161-q" role="button" tabindex="0"'
         + ' data-qa="' + it.key + '"'
-        + ' data-ko="' + it.ko + '" data-en="' + it.en + '"'
         + ' style="display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;color:#fde68a;'
         + 'font-size:13px;font-weight:700;border-top:' + (i ? '1px solid rgba(251,191,36,0.14)' : '0')
         + ';min-width:0;overflow-wrap:anywhere">'
         + '<svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"'
         + ' stroke-linejoin="round" width="16" height="16" style="flex:none" aria-hidden="true">' + it.ico + '</svg>'
-        + '<span style="flex:1">' + (en ? it.en : it.ko) + '</span>'
+        + '<span style="flex:1" data-ko="' + it.ko + '" data-en="' + it.en + '">'
+        + (en ? it.en : it.ko) + '</span>'
         + '</div>';
     }
     box.innerHTML = html;
   }
 
   /* ── 자동/기본 토글 — 아무도 순서에 갇히지 않게 ─────────────────────────
-     머리글(admin.html 의 #ph161-quick 첫 줄)에 작은 글씨로 얹는다. HTML 파일은 건드리지 않는다. */
+     ⚠️ 머리글 안에 넣지 않는다. 머리글 div 에는 data-ko 가 붙어 있어서
+        `applyAdminLangDom()` 이 textContent 를 갈아치울 때 **자식이 통째로 지워진다.**
+        → 목록 아래에 «형제»로 붙인다(#ph161-quick 자신은 data-ko 가 없다).
+        HTML 파일은 건드리지 않는다. */
   function mountToggle() {
+    var box = document.getElementById('ph161-quick-items');
     var quick = document.getElementById('ph161-quick');
-    if (!quick) return;
-    var head = quick.firstElementChild;
-    if (!head || head.querySelector('.ph161-mode')) return;
+    if (!box || !quick || quick.querySelector('.ph161-mode')) return;
 
-    head.style.display = 'flex';
-    head.style.alignItems = 'center';
-
-    var sp = document.createElement('span');
-    sp.style.flex = '1';
-    var b = document.createElement('span');
+    var b = document.createElement('div');
     b.className = 'ph161-mode';
     b.setAttribute('role', 'button');
     b.setAttribute('tabindex', '0');
-    b.style.cssText = 'cursor:pointer;font-weight:700;letter-spacing:0;font-size:10px;opacity:.75';
+    b.style.cssText = 'padding:5px 12px 6px;text-align:right;cursor:pointer;font-size:10px;' +
+      'font-weight:700;opacity:.7;border-top:1px solid rgba(251,191,36,0.14)';
     paintToggle(b);
-    head.appendChild(sp);
-    head.appendChild(b);
+    box.parentNode.insertBefore(b, box.nextSibling);
   }
 
   function paintToggle(b) {
