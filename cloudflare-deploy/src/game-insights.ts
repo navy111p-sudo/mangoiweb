@@ -147,11 +147,14 @@ export async function handleGameSession(request: Request, env: Env): Promise<Res
     const coins   = clampInt(body?.coins,   0, 5000);   // 코인과 같은 1회 상한(어뷰징 방지)
     const finished = body?.finished ? 1 : 0;
 
+    // ⚠️ 표 준비를 «건너뛰기» 보다 먼저 한다.
+    //    반대로 두면 첫 학생이 실제로 한 판을 끝내는 순간에야 DDL 이 돌아, 하필 그때
+    //    실패하면 그 기록을 잃는다. oncePerIsolate 라 두 번째 요청부터는 왕복이 없다.
+    await ensureGameTables(env);
+
     // 아무 일도 없었던 판은 기록하지 않는다(입장만 하고 나간 경우 표가 쓰레기로 찬다).
     // 단 «시작했다가 3초 만에 나갔다» 는 포기 신호라 dur 가 있으면 남긴다.
     if (!items && !correct && !wrong && !coins && dur < 3000) return json({ ok: true, skipped: true });
-
-    await ensureGameTables(env);
     await env.DB.prepare(
       `INSERT INTO game_sessions (uid, game, lang, started_at, ended_at, dur_ms, items, correct, wrong, finished, coins, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
