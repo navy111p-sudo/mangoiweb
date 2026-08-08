@@ -308,8 +308,13 @@
     });
 
     // wrap inner — 듀얼 차트
+    // 🐞 (2026-08-08) 여기 첫 캔버스 id 가 «aw-chart-2» 였다. 그런데 바로 아래에서
+    //    getElementById('aw-chart') 를 부른다. innerHTML 로 원래 <canvas id="aw-chart"> 를
+    //    지워 버린 뒤라 null 이 돌아오고 .getContext 에서 TypeError → 함수가 그 자리에서 죽는다.
+    //    그래서 도넛(aw-chart2)·랭킹(aw-chart3)까지 통째로 안 그려지고 «빈 회색 박스»만 남았다.
+    //    id 를 aw-chart / aw-chart2 / aw-chart3 로 맞춘다.
     wrap.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:6px 0">' +
-      '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:380px;position:relative"><canvas id="aw-chart-2"></canvas></div>' +
+      '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:380px;position:relative"><canvas id="aw-chart"></canvas></div>' +
       '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:380px;position:relative"><canvas id="aw-chart2"></canvas></div>' +
     '</div>' +
     '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:280px;margin-top:14px;position:relative"><canvas id="aw-chart3"></canvas></div>';
