@@ -194,7 +194,19 @@
     window.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail: { lang: l } }));
   };
   window.toggleLang = function(){
-    window.setLang(nextLangOf(currentLang), 'user');
+    /* 🪤 (2026-08-08) 「🌐 를 한 번 눌렀는데 아무 일도 안 일어난다」
+       이 파일은 로드 시점에 localStorage 를 한 번 읽고 currentLang 에 «캐시» 해 둔다.
+       그런데 그 뒤에 다른 스크립트(부팅 언어 자동판정 등)가 localStorage 를 바꾸면
+       캐시가 낡는다 — 실측: 화면·localStorage 는 'ko' 인데 이 안의 currentLang 은 'en'.
+       그 상태로 누르면 nextLangOf('en')='ko' 라 «이미 한국어인데 또 한국어»가 돼서
+       첫 클릭이 헛눌린다. → 누르는 순간 저장값(=화면의 실제 언어)을 다시 읽고 계산한다. */
+    var now = currentLang;
+    try {
+      var ls = localStorage.getItem('mangoi_lang');
+      if (ls && LANG_CYCLE.indexOf(ls) >= 0) now = ls;
+    } catch(e){}
+    currentLang = now;
+    window.setLang(nextLangOf(now), 'user');
   };
 
   // ━━━━ 우측 상단 [🏠 Home] + [🌐 EN] 두 버튼 한 쌍 자동 inject ━━━━
