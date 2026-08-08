@@ -210,7 +210,7 @@ export async function gameInsightsRouter(request: Request, env: Env): Promise<Re
                 SUM(correct) AS correct,
                 SUM(wrong) AS wrong,
                 SUM(dur_ms) AS dur
-           FROM game_sessions WHERE ended_at >= ?
+           FROM game_sessions WHERE ended_at >= ? AND substr(uid,1,2) <> '__'
           GROUP BY game ORDER BY sessions DESC`
       ).bind(since).all();
 
@@ -218,7 +218,7 @@ export async function gameInsightsRouter(request: Request, env: Env): Promise<Re
       const rep = await env.DB.prepare(
         `SELECT game, COUNT(*) AS repeaters FROM (
             SELECT game, uid, COUNT(*) AS c FROM game_sessions
-             WHERE ended_at >= ? GROUP BY game, uid HAVING c >= 2
+             WHERE ended_at >= ? AND substr(uid,1,2) <> '__' GROUP BY game, uid HAVING c >= 2
          ) GROUP BY game`
       ).bind(since).all();
       const repMap: Record<string, number> = {};
@@ -248,12 +248,12 @@ export async function gameInsightsRouter(request: Request, env: Env): Promise<Re
     /* ── ② 전체 합계 + 직전 기간 대비 ─────────────────────────────────── */
     try {
       const a: any = await env.DB.prepare(
-        `SELECT COUNT(*) s, COUNT(DISTINCT uid) u FROM game_sessions WHERE ended_at >= ?`
+        `SELECT COUNT(*) s, COUNT(DISTINCT uid) u FROM game_sessions WHERE ended_at >= ? AND substr(uid,1,2) <> '__'`
       ).bind(since).first();
       const b: any = await env.DB.prepare(
-        `SELECT COUNT(*) s, COUNT(DISTINCT uid) u FROM game_sessions WHERE ended_at >= ? AND ended_at < ?`
+        `SELECT COUNT(*) s, COUNT(DISTINCT uid) u FROM game_sessions WHERE ended_at >= ? AND ended_at < ? AND substr(uid,1,2) <> '__'`
       ).bind(prevSince, since).first();
-      const first: any = await env.DB.prepare(`SELECT MIN(created_at) m FROM game_sessions`).first();
+      const first: any = await env.DB.prepare(`SELECT MIN(created_at) m FROM game_sessions WHERE substr(uid,1,2) <> '__'`).first();
       out.totals = {
         sessions: Number(a?.s) || 0,
         students: Number(a?.u) || 0,
@@ -299,7 +299,7 @@ export async function gameInsightsRouter(request: Request, env: Env): Promise<Re
                 SUM(CASE WHEN ended_at >= ? AND ended_at < ? THEN correct ELSE 0 END) prev_c,
                 SUM(CASE WHEN ended_at >= ? AND ended_at < ? THEN wrong ELSE 0 END) prev_w,
                 MAX(ended_at) last_at
-           FROM game_sessions WHERE ended_at >= ? AND uid NOT LIKE 'guest%'
+           FROM game_sessions WHERE ended_at >= ? AND uid NOT LIKE 'guest%' AND substr(uid,1,2) <> '__'
           GROUP BY uid`
       ).bind(since, prevSince, since, since, since, prevSince, since, prevSince, since, prevSince).all();
 
